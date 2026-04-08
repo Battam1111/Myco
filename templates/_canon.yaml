@@ -1,0 +1,33 @@
+# Canonical Values — Single Source of Truth
+# All documents must be consistent with values in this file.
+# Update flow: change this file first → run lint → fix inconsistencies → re-run
+#
+# Myco Knowledge System — https://github.com/{{GITHUB_USER}}/myco
+
+system:
+  principles_count: 12               # W1-W12
+  principles_label: "十二原则"
+  wiki_page_types:
+    - entity
+    - concept
+    - operations
+    - analysis
+    - craft
+  evolution_gears: 4                 # Gear 1-4
+  claude_md_max_lines: 300
+  stale_patterns:                    # Known outdated phrases to detect
+    - "五原则"
+    - "六原则"
+    - "七原则"
+
+architecture:
+  layers: 4                          # L1 + L1.5 + L2 + L3
+  wiki_pages: 0                      # Starts at 0, grows organically
+
+project:
+  name: "{{PROJECT_NAME}}"
+  current_phase: "{{CURRENT_PHASE}}"
+  # Add project-specific canonical values below:
+  # milestone_dates: {}
+  # key_metrics: {}
+  # baselines: {}
