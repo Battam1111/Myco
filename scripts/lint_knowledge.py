@@ -62,6 +62,13 @@ def load_canon():
     with open(canon_path, "r", encoding="utf-8") as f:
         return yaml.safe_load(f)
 
+def get_entry_point():
+    """Get entry point filename from _canon.yaml or default to MYCO.md"""
+    canon = load_canon()
+    system = canon.get("system", {})
+    entry_point = system.get("entry_point", "MYCO.md")
+    return entry_point
+
 def read_file(path):
     try:
         with open(path, "r", encoding="utf-8") as f:
@@ -108,15 +115,16 @@ def lint_canon_schema(canon):
 # ---------------------------------------------------------------------------
 
 def lint_references(canon):
-    """Check all files referenced in CLAUDE.md exist."""
+    """Check all files referenced in entry point document exist."""
     issues = []
-    claude_md = read_file(ROOT / "CLAUDE.md")
-    if not claude_md:
-        issues.append(("L1", "CRITICAL", "CLAUDE.md", "Cannot read CLAUDE.md"))
+    entry_point = get_entry_point()
+    entry_file = read_file(ROOT / entry_point)
+    if not entry_file:
+        issues.append(("L1", "CRITICAL", entry_point, f"Cannot read {entry_point}"))
         return issues
 
     refs = re.findall(
-        r"`([a-zA-Z_/][a-zA-Z0-9_/\-.*]+\.(?:md|py|sh|yaml|txt))`", claude_md
+        r"`([a-zA-Z_/][a-zA-Z0-9_/\-.*]+\.(?:md|py|sh|yaml|txt))`", entry_file
     )
 
     for ref in refs:
@@ -124,7 +132,7 @@ def lint_references(canon):
             continue
         path = ROOT / ref
         if not path.exists():
-            issues.append(("L1", "HIGH", "CLAUDE.md",
+            issues.append(("L1", "HIGH", entry_point,
                            f"Referenced file missing: {ref}"))
 
     # Cross-references within wiki pages
@@ -160,8 +168,9 @@ def lint_numbers(canon):
         return issues
 
     # Collect active documents
+    entry_point = get_entry_point()
     active_files = []
-    for pattern in ["CLAUDE.md", "docs/WORKFLOW.md", "docs/SESSION_PROTOCOL.md",
+    for pattern in [entry_point, "docs/WORKFLOW.md", "docs/SESSION_PROTOCOL.md",
                      "docs/reusable_system_design.md", "wiki/*.md"]:
         active_files.extend(find_files(pattern))
 
@@ -191,13 +200,15 @@ def lint_numbers(canon):
 # ---------------------------------------------------------------------------
 
 def lint_stale_patterns(canon):
-    """Scan for outdated CLAUDE.md section references."""
+    """Scan for outdated entry point section references."""
     issues = []
 
-    # By default, §0-§5 are valid in the standard CLAUDE.md template
+    # By default, §0-§5 are valid in the standard entry point template
     # Projects can override by setting system.valid_sections in _canon.yaml
     valid_sections = set(canon.get("system", {}).get("valid_sections", [0, 1, 2, 3, 4, 5]))
-    stale_section_pattern = r"CLAUDE\.md\s*§(\d+)"
+    entry_point = get_entry_point()
+    entry_point_safe = entry_point.replace(".", r"\.")
+    stale_section_pattern = fr"{entry_point_safe}\s*§(\d+)"
 
     active_files = []
     for pattern in ["docs/WORKFLOW.md", "docs/SESSION_PROTOCOL.md",
@@ -218,7 +229,7 @@ def lint_stale_patterns(canon):
                 ctx = content[start:end].replace("\n", " ").strip()
                 line_num = content[:match.start()].count("\n") + 1
                 issues.append(("L3", "HIGH", f"{rel}:{line_num}",
-                               f"Stale section ref 'CLAUDE.md §{section_num}': ...{ctx}..."))
+                               f"Stale section ref '{entry_point} §{section_num}': ...{ctx}..."))
 
     return issues
 
@@ -227,16 +238,17 @@ def lint_stale_patterns(canon):
 # ---------------------------------------------------------------------------
 
 def lint_orphans(canon):
-    """Check for wiki pages not referenced in CLAUDE.md."""
+    """Check for wiki pages not referenced in entry point."""
     issues = []
-    claude_md = read_file(ROOT / "CLAUDE.md") or ""
+    entry_point = get_entry_point()
+    entry_content = read_file(ROOT / entry_point) or ""
 
     for wiki_file in find_files("wiki/*.md"):
         rel = str(Path(wiki_file).relative_to(ROOT))
         name = Path(wiki_file).name
-        if rel not in claude_md and name not in claude_md:
+        if rel not in entry_content and name not in entry_content:
             issues.append(("L4", "MEDIUM", rel,
-                           "Wiki page not referenced in CLAUDE.md"))
+                           f"Wiki page not referenced in {entry_point}"))
 
     return issues
 
@@ -288,7 +300,8 @@ def lint_log(canon):
 def lint_dates(canon):
     """Check header dates in key files."""
     issues = []
-    for rel_path in ["CLAUDE.md", "docs/WORKFLOW.md"]:
+    entry_point = get_entry_point()
+    for rel_path in [entry_point, "docs/WORKFLOW.md"]:
         filepath = ROOT / rel_path
         content = read_file(filepath)
         if not content:

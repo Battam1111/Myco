@@ -20,7 +20,7 @@ Myco works with **any** AI agent system — Claude, GPT, Codex, or future system
 
 ## Three Immutable Laws
 
-1. **Entry point is always accessible** — An agent can always find its way in through `CLAUDE.md`
+1. **Entry point is always accessible** — An agent can always find its way in through `MYCO.md`
 2. **Transparent to humans** — Every piece of knowledge is readable, auditable, and editable by humans
 3. **Perpetual evolution** — The system evolves itself, including the rules of evolution
 
@@ -45,7 +45,7 @@ This creates a project scaffold with the knowledge system pre-configured:
 
 ```
 my-project/
-├── CLAUDE.md              # L1 Index (auto-loaded by agent)
+├── MYCO.md                # L1 Index (auto-loaded entry point)
 ├── _canon.yaml            # Canonical values (Single Source of Truth)
 ├── log.md                 # Append-only timeline
 ├── docs/
@@ -60,7 +60,7 @@ my-project/
 
 | Level | Time | For | What You Get |
 |-------|------|-----|-------------|
-| **L0** | 5 min | Small projects, exploration | `CLAUDE.md` (minimal) + `log.md` |
+| **L0** | 5 min | Small projects, exploration | `MYCO.md` (minimal) + `log.md` |
 | **L1** | 30 min | Multi-session projects (5+ sessions) | + `WORKFLOW.md` + `_canon.yaml` + `wiki/` |
 | **L2** | 2 hours | Long-term complex projects (papers, products) | + Full WORKFLOW + Lint + Evolution Engine (all 4 gears) |
 

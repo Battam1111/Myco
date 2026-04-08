@@ -17,7 +17,7 @@
 │ 支柱 1      │   支柱 2     │   支柱 3     │   支柱 4        │
 │ 元协议      │  知识库      │   经验层     │  时间线+基础设施 │
 │             │              │              │                 │
-│CLAUDE.md    │ wiki/*.md    │ operational  │ log.md          │
+│MYCO.md      │ wiki/*.md    │ operational  │ log.md          │
 │WORKFLOW.md  │ docs/current │ _narratives  │ _canon.yaml     │
 │ (50-300行)  │              │ (失败路径)   │ lint脚本        │
 └─────────────┴──────────────┴──────────────┴─────────────────┘
@@ -29,7 +29,7 @@
 
 **角色**：Agent 的"操作系统"——新会话自动加载，定义行为边界和导航方式。
 
-### CLAUDE.md：索引 + 当前状态
+### MYCO.md：索引 + 当前状态
 
 **三级模板**（按项目复杂度选择）：
 
@@ -39,7 +39,7 @@
 | **Standard** | ~150 | 中等项目（会话数 > 5） | + 知识索引 + 会话规程 + 自主权边界 |
 | **Full** | ~300 | 长期复杂项目 | + 详细热区 + 脚本索引 + 进度表 |
 
-**CLAUDE.md 必含部分**：
+**MYCO.md 必含部分**：
 
 ```markdown
 # 项目名
@@ -62,7 +62,7 @@
 **设计理由**：
 - 热区让 Agent 用 30 秒了解全局状态
 - "最容易出错的事"必须来自真实失败
-- Operational Feel (工具手感) 是 W6 近端丰富化入口
+- Operational Feel (工具手感) 是 W6 近端丰富化入口，包含环境特有的操作约束
 
 ### WORKFLOW.md：原则库
 
@@ -82,7 +82,8 @@ system:
   workflow_sections: 12
   wiki_page_types: [entity, concept, operations, analysis, craft]
   lint_dimensions: 9
-  claude_md_max_lines: 300
+  entry_point: "MYCO.md"    # Entry point filename (primary) — alternative names may exist per project
+  myco_md_max_lines: 300
 
 project:                    # 项目启动时填充
   name: "My Project"
@@ -152,38 +153,46 @@ project:                    # 项目启动时填充
 
 **示例框架**：
 ```
-## SSH 部署失败路径
+## 部署/集成失败路径
 
-尝试方案 1（直接 SSH）→ 失败：文件权限冲突
-尝试方案 2（tar 打包）→ 失败：路径硬编码导致路径错误
-最终方案 3（Python subprocess + SSH 密钥）
-  关键约束：必须用 Git SSH，不能用 Windows OpenSSH
-  验证步骤：...
+尝试方案 1（直接操作）→ 失败：[原因]
+尝试方案 2（替代方案）→ 失败：[原因]
+最终方案 3（成功方案）
+  关键约束：[环境或工具强加的限制]
+  验证步骤：[如何验证方案正确性]
+  何时适用：[什么条件下用这个方案]
 ```
+
+具体内容因项目而异。例如学术项目可能是"HPC 集群代码部署"，软件项目可能是"CI/CD pipeline 集成"，数据项目可能是"数据库权限管理"。
 
 ### B. 上下文启动块（Context Priming）
 
-**位置**：CLAUDE.md 热区
+**位置**：MYCO.md 热区
 
 **形式**：≤5 行的工具手感描述（不是规则）
 
-**目的**：帮助新会话快速"住进"工具环境
+**目的**：帮助新会话快速"住进"工具环境和操作约束
 
-**示例**：
+**示例框架**：
 ```
 🎯 Operational Feel：
-你在 Linux 沙箱里运行，无直接 SSH。HPC 操作必须用
-Python subprocess → Git SSH 双跳。大文件部署用
-tar 压缩 + publish-staging + promote。详见 P-005 模式。
+你的环境有 [具体约束，如"远程无 X 访问"]。
+[核心操作模式，如"需通过 Y → Z 双跳"]。
+[大文件/重操作用什么方案]。
+详见 docs/operational_narratives.md。
 ```
+
+具体示例可因项目而异：学术项目可能涉及 HPC 集群访问、软件项目可能涉及 CI/CD pipeline、数据分析项目可能涉及数据库权限等。关键是让新会话一眼看清"我的操作环境有什么特殊约束"。
 
 ### C. 命名模式（Pattern Names）
 
 给反复出现的操作赋予名字 + origin story。
 
-**示例**：
-- P-005：后台执行模式（HPC 长任务调度）
-- P-001：大文件部署模式（git-lfs + push-to-staging）
+**示例**（项目特定）：
+- P-001：大文件部署模式（git-lfs + staging）
+- P-005：后台长任务执行模式（根据环境差异实现）
+
+**意义**：统一术语使得操作叙事中的引用更精准，也便于团队沟通。同一个操作在不同项目中可能名字相同但实现不同。
 
 ---
 
@@ -235,8 +244,13 @@ tar 压缩 + publish-staging + promote。详见 P-005 模式。
 
 **记录**：一行到 log.md
 ```
-## [2026-04-07] friction | SSH 部署花了 20 分钟试错四条路径
+## [YYYY-MM-DD] friction | [具体操作] 花了 [N 倍时间] 试错，因为 [原因]
 ```
+
+**示例**（不同项目可能差异很大）：
+- 学术项目："HPC 代码部署花了 20 分钟试错四条路径"
+- 软件项目："UI 表单验证逻辑花了 3 倍时间，因为 edge case 未文档化"
+- 数据项目："数据导入失败，需查阅 2 个数据源文档才能修复"
 
 ### Gear 2：会话反思 (Session Reflection)
 
@@ -271,7 +285,7 @@ tar 压缩 + publish-staging + promote。详见 P-005 模式。
 | 修改对象 | 权限 | 理由 |
 |---------|------|------|
 | Wiki 内容、log、_canon 值 | ✅ Agent 自主 | 错了 10 分钟能回滚 |
-| WORKFLOW 原则、CLAUDE.md 结构 | 🛑 需人类确认 | 错误影响后续所有会话 |
+| WORKFLOW 原则、MYCO.md 结构 | 🛑 需人类确认 | 错误影响后续所有会话 |
 | 进化引擎规则本身 | 🛑 需人类确认 | 自修改的元规则风险最高 |
 
 ### Gear 4：跨项目蒸馏 (Cross-Project Distillation)
@@ -285,7 +299,7 @@ tar 压缩 + publish-staging + promote。详见 P-005 模式。
 2. 识别哪些模式在其他项目也有价值
 3. 哪类 wiki 页面最常创建 vs 从未创建
 4. 哪些原则被频繁违反（表述不清或不实用）
-5. 更新本模板和 CLAUDE.md 分级标准
+5. 更新本模板和 MYCO.md 分级标准（需人类确认）
 
 ---
 
@@ -297,7 +311,7 @@ tar 压缩 + publish-staging + promote。详见 P-005 模式。
 
 ```
 创建：
-  CLAUDE.md (Minimal，~50 行)
+  MYCO.md (Minimal，~50 行)
   log.md (第一行：里程碑记录)
 ```
 
@@ -309,7 +323,7 @@ tar 压缩 + publish-staging + promote。详见 P-005 模式。
 
 ```
 在 Level 0 基础上：
-  CLAUDE.md 升级为 Standard (~150 行)
+  MYCO.md 升级为 Standard (~150 行)
   创建 docs/WORKFLOW.md (从模板裁剪)
   创建 wiki/ 目录 (首页面按需创建)
   创建 _canon.yaml (project: 节)
@@ -321,7 +335,7 @@ tar 压缩 + publish-staging + promote。详见 P-005 模式。
 
 ```
 在 Level 1 基础上：
-  CLAUDE.md 升级为 Full (~300 行)
+  MYCO.md 升级为 Full (~300 行)
   创建 docs/operational_narratives.md
   复制 lint_knowledge.py
   完整 _canon.yaml (system: + project:)
@@ -354,11 +368,13 @@ tar 压缩 + publish-staging + promote。详见 P-005 模式。
 | **学习计划** | 学习路径、资源评估 | 知识图谱、进度追踪 | L0-1 |
 | **创业项目** | 商业模式、融资、定位 | 市场分析、竞品对比、用户画像 | L1-2 |
 
+**注**：每个项目类型的"传统手艺触发"和 wiki 页面侧重都不同，因为决策风险点不同。学术论文的核心风险在理论 claim，软件项目的核心风险在架构决策，数据分析的核心风险在方法论，等等。
+
 ---
 
 ## 与参考系统对比
 
-| 维度 | 本系统 v2.1 | 纯 CLAUDE.md | Karpathy Wiki | Cursor Rules | Voyager |
+| 维度 | 本系统 v2.1 | 纯元文件 | Karpathy Wiki | Cursor Rules | Voyager |
 |------|-----------|------------|--------------|-------------|---------|
 | 索引/内容分离 | ✅ 四层 | ❌ 单文件 | ✅ Index+Pages | ❌ 单文件 | ❌ |
 | 隐性知识编码 | ✅ 经验层 | ❌ | ❌ | ❌ | ⚠️ 代码层仅 |
@@ -375,9 +391,9 @@ tar 压缩 + publish-staging + promote。详见 P-005 模式。
 
 ### 发现 1：一致性漂移是最大摩擦源
 
-问题：同一个数据在 CLAUDE.md、_canon.yaml、log.md 中散落，导致值不一致。
+问题：同一个数据在 MYCO.md、_canon.yaml、log.md 中散落，导致值不一致。
 
-对策：**索引先行协议**——新建 wiki 页面时，强制先更新索引（CLAUDE.md + _canon.yaml），再写内容。
+对策：**索引先行协议**——新建 wiki 页面时，强制先更新索引（MYCO.md + _canon.yaml），再写内容。
 
 ### 发现 2：摩擦触发门槛要降低
 
@@ -390,6 +406,12 @@ tar 压缩 + publish-staging + promote。详见 P-005 模式。
 问题：声称通用但未在多项目验证。
 
 对策：修改模板后，用假想的非当前类型项目做心智模拟（L0 → L1）。检查：项目特有假设泄漏？占位符清晰？
+
+### 发现 4：环境特定内容应集中存放
+
+问题：操作约束（如 SSH 配置、端口号、工具约束）散落在 MYCO.md 热区、操作叙事、工作流中，导致难以跨项目迁移。
+
+对策：将所有环境/工具特定内容集中到 `docs/operational_narratives.md`，并在 MYCO.md 热区仅保留"指向性"的参考。
 
 ---
 
