@@ -28,7 +28,7 @@ Myco works with **any** AI agent system — Claude, GPT, Codex, or future system
 
 ```bash
 # Clone the repo
-git clone https://github.com/{{GITHUB_USER}}/myco
+git clone https://github.com/Battam1111/myco
 cd myco
 
 # Initialize a new Myco-powered project (creates ../my-project/)
