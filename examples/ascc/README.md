@@ -42,7 +42,7 @@ Day 8: System named "Myco", vision crystallized, framework extraction begun
 
 ```
 ASCC/
-├── CLAUDE.md              # ~200 lines, L1 index
+├── CLAUDE.md              # ~200 lines, L1 index (ASCC uses CLAUDE.md for Claude agent compatibility)
 ├── _canon.yaml            # Baselines, experiment config, stale patterns
 ├── log.md                 # 90+ timeline entries across 8 days
 ├── docs/
