@@ -1,6 +1,6 @@
 # Myco — 技术架构
 
-> **版本**：v0.x | **文档修订**：2.1
+> **版本**：v1.1 | **文档修订**：2.2
 > **最后更新**：2026-04-09（Gear 4 蒸馏：新增 reusable_system_design.md + research_paper_craft.md）
 > **范围**：通用框架（项目无关）
 > **理论基础**：Karpathy LLM Wiki + Polanyi Tacit Knowledge + Argyris Double-Loop Learning + Toyota PDCA
@@ -430,3 +430,67 @@ project:                    # 项目启动时填充
 ---
 
 *本文档遵循 Gear 4——每个使用本系统的项目结束时，新发现都应回写到此处。*
+
+---
+
+## Appendix A — Three Immutable Laws
+
+> Moved from README for depth readers. These are the non-negotiable invariants.
+
+1. **Entry point is always accessible** — An agent can always find its way in through `MYCO.md` (or whatever entry point was configured at init/migrate time). No hidden state.
+2. **Transparent to humans** — Every piece of knowledge is readable, auditable, and editable by humans without any tool intermediary. Plain text, plain Markdown.
+3. **Perpetual evolution** — The system evolves itself, including the rules of evolution. W1-W12 are a bootstrap, not a ceiling.
+
+---
+
+## Appendix B — Philosophy
+
+> Moved from README for depth readers.
+
+Myco takes the **Bitter Lesson** (Rich Sutton, 2019) seriously: hand-crafted rules should eventually be replaceable by system-discovered rules. The current W1-W12 principles are a legitimate bootstrap hot-start from practice — but every one of them is meant to be gradually replaced or refined by rules the system discovers through its own evolution.
+
+Meta-evolution isn't vaporware here: Myco's evolution targets text files — the medium LLMs operate best in — not model parameters. This makes true meta-evolution achievable today without gradient descent or training loops.
+
+---
+
+## Appendix C — The Twelve Principles (W1-W12)
+
+> Moved from README. Full details in `docs/WORKFLOW.md`.
+
+| # | Principle | One-liner |
+|---|-----------|-----------|
+| W1 | Immediate Capture | Write decisions now, not at session end |
+| W2 | Project Hygiene | Directory structure + naming conventions |
+| W3 | Craft (传统手艺) | Multi-round debate for directional decisions |
+| W4 | Online Verification | Cross-check numerical claims with search |
+| W5 | Continuous Evolution | Repeat → script, lost → reinforce, fail → record |
+| W6 | Proximal Enrichment | Failure paths are the most valuable knowledge |
+| W7 | Systematic Lint | Periodic automated consistency checks |
+| W8 | Wiki Templates | Typed headers + footers for knowledge pages |
+| W9 | Active Tensions | Mark unresolved architectural trade-offs with ⚡ |
+| W10 | Compilation Protocol | 5-step external knowledge extraction |
+| W11 | Verification Scope | Label what conditions conclusions were verified under |
+| W12 | Information Density | Adapt context loading depth to task complexity |
+
+---
+
+## Appendix D — Bootstrap Levels
+
+| Level | Time | For | What You Get |
+|-------|------|-----|-------------|
+| **L0** | 5 min | Small projects, exploration | `MYCO.md` (minimal) + `log.md` |
+| **L1** | 30 min | Multi-session projects (5+ sessions) | + `WORKFLOW.md` + `_canon.yaml` + `wiki/` |
+| **L2** | 2 hours | Long-term complex projects | + Full WORKFLOW + Lint + Evolution Engine (all 4 gears) |
+
+Don't pre-build empty structures. Create wiki pages when you need them, write procedures when you've failed twice.
+
+---
+
+## Appendix E — Project Adaptation
+
+| Project Type | Craft Triggers | Common Wiki Pages | Level |
+|-------------|---------------|-------------------|-------|
+| Academic Paper | Theory claims, reviewer attacks | Framework, strategy, experiments | L2 |
+| Software Product | Architecture, tech choice, UX | API design, bugs, deployment | L1-2 |
+| Data Analysis | Methodology, conclusions, bias | Data sources, methods, visualizations | L1 |
+| Learning Plan | Learning path, resource evaluation | Knowledge graph, progress tracking | L0-1 |

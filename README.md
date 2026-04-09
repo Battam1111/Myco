@@ -1,60 +1,18 @@
-# Myco
+[![PyPI version](https://img.shields.io/pypi/v/myco.svg)](https://pypi.org/project/myco/)
+[![Python 3.8+](https://img.shields.io/badge/python-3.8%2B-blue.svg)](https://www.python.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-**The Living Substrate — Self-Evolving Cognition for AI Agents**
+# Myco 🍄
 
-Myco is an autonomous cognitive substrate that gives AI agents persistent memory, structured knowledge, and self-evolving capabilities across sessions. Named after mycelium — the underground fungal network that decomposes, remembers, reallocates, signals, and symbioses with any tree species — Myco is the invisible infrastructure that makes the whole forest work.
+**Your AI agent made a decision last week. Today it made the opposite one. Nobody noticed.**
 
-Agents are the trees. Myco is the network underground.
+Most tools give your agent memory — somewhere to put what it learned. But memory doesn't ask: *is that still true? does it contradict this? what changed since last time?*
 
-> **30-second version:** Other tools give your agent memory. Myco gives it metabolism.
+Myco gives your agent **metabolism** — the ability to verify, evolve, and distill knowledge across sessions and projects.
 
-## What Myco Is
+> *Other tools give your agent memory. Myco gives it metabolism.*
 
-Myco is **not** an agent, and it does **not** contain an agent. It is everything *outside* the agent that enables persistent cognition:
-
-- A four-layer knowledge architecture (Index → Wiki → Docs → Archive)
-- A self-evolution engine with four gears (Friction Sensing → Session Reflection → Milestone Retrospective → Cross-Project Distillation)
-- An automated consistency checker (Lint) backed by a Single Source of Truth (_canon.yaml)
-- A structured debate protocol (传统手艺 / Craft) for high-stakes decisions
-- Operational experience capture (Procedures, Context Priming, Pattern Names)
-
-Myco is designed to work with **any** AI agent system — Claude, GPT, Codex, or future systems. The core is agent-independent; at runtime it adapts to specific agent capabilities (context window, tool access, etc.). Integration guides for Claude Code, Cursor, GPT, Hermes, OpenClaw, and MemPalace are available in [`adapters/`](adapters/).
-
-## Three Immutable Laws
-
-1. **Entry point is always accessible** — An agent can always find its way in through `MYCO.md`
-2. **Transparent to humans** — Every piece of knowledge is readable, auditable, and editable by humans
-3. **Perpetual evolution** — The system evolves itself, including the rules of evolution
-
-## Why Myco?
-
-Most knowledge tools solve the **storage problem**: how do I remember what my agent has done? Claude.md provides hot memory. Hermes skills capture repeatable actions. MemPalace retrieves long-term facts.
-
-Myco solves a different problem: the **metabolism problem**. How does knowledge *evolve*? How do I detect when my assumptions are stale? How do I catch contradictions before they cascade? How do I extract timeless patterns from project-specific experience and apply them elsewhere?
-
-Other tools answer: *where did I put that?*
-
-Myco answers: *is that still true? does it connect to this? what changed since last time?*
-
-### Evolution Landscape
-
-| Evolution Level | Description | Who Does It |
-|----------------|-------------|-------------|
-| L-exec | Execute faster over time | All agents |
-| L-skill | Accumulate new skills | Hermes, OpenClaw |
-| L-struct | Evolve knowledge structure | **Myco (Gear 3)** |
-| L-meta | Evolve the rules of evolution | **Myco (Gear 4)** |
-
-Myco doesn't replace storage tools — it makes them *productive*. Every decision recorded in CLAUDE.md can be checked for consistency. Every skill in Hermes gets verified and refined through the evolution cycle. Every fact in MemPalace decays gracefully when conditions change.
-
-## Works With Your Existing Tools
-
-| Tool | Integration | Value |
-|------|------------|-------|
-| Claude Code (CLAUDE.md) | `myco migrate --entry-point CLAUDE.md` upgrades your existing CLAUDE.md | Unlock evolution engine + lint |
-| Hermes Agent | Import skills into Myco's evolution cycle | Skills get verified and refined |
-| MemPalace | Use as L0 retrieval backend | Store everything, metabolize with Myco |
-| Any IDE (Cursor, VS Code) | IDE-independent project knowledge | Switch IDEs without losing knowledge |
+---
 
 ## Quick Start
 
@@ -62,148 +20,126 @@ Myco doesn't replace storage tools — it makes them *productive*. Every decisio
 pip install myco
 ```
 
-**Already have a Claude Code project with a CLAUDE.md?** *(Most common path)*
+**Already have a `CLAUDE.md`?** *(Most common path)*
 
 ```bash
-# Non-destructive migration — your CLAUDE.md is preserved, Myco layers added on top
+# Non-destructive — your CLAUDE.md is preserved, Myco layers added on top
 myco migrate ./your-project --entry-point CLAUDE.md
 
-# Run lint — the first inconsistency it catches is your "aha moment"
+# Establish your baseline (expect: zero issues on a fresh scaffold)
 myco lint --project-dir ./your-project
+```
+
+After a few working sessions, lint starts catching real things:
+
+```
+$ myco lint --project-dir ./your-project
+❌ L2: wiki/api_design.md references "v2 endpoint" but _canon.yaml says current = v3
+❌ L4: wiki/deployment.md exists but is not indexed in MYCO.md
+→ 2 issues found — that's Myco working for you
 ```
 
 **Starting fresh?**
 
 ```bash
-# Initialize a new Myco-powered project (level 2 recommended for multi-session work)
 myco init my-project --level 2
-
-# Run consistency checks
 myco lint --project-dir ./my-project
 ```
 
-**Coming from Hermes, OpenClaw, or another tool?** See [`adapters/`](adapters/) for integration guides.
+**Coming from Hermes, OpenClaw, or Cursor?**
 
-**Windows users** — after `pip install myco`, verify the CLI is in PATH:
-
-```cmd
-where myco
+```bash
+myco import --from hermes ~/.hermes/skills/   # semi-automated import
+myco import --from openclaw ./MEMORY.md
 ```
 
-If `myco` is not found, add Python's Scripts directory to PATH:
+See [`adapters/`](adapters/) for full integration guides.
 
-```cmd
-# Find Scripts path
-python -c "import sys; print(sys.exec_prefix + r'\Scripts')"
+---
 
-# Or run via module as fallback
-python -m myco lint --project-dir .
-```
+## Why Myco?
 
-This creates a project scaffold with the knowledge system pre-configured:
+Most AI dev tools operate at **L-exec** or **L-skill** — they help your agent execute faster or accumulate new skills. Myco is the only tool that operates at **L-struct** and **L-meta**:
 
-```
-my-project/
-├── MYCO.md                # L1 Index (auto-loaded entry point)
-├── _canon.yaml            # Canonical values (Single Source of Truth)
-├── log.md                 # Append-only timeline
-├── docs/
-│   ├── WORKFLOW.md        # Twelve principles (W1-W12) + session protocol
-│   └── operational_narratives.md  # Procedure knowledge (created on demand)
-├── wiki/                  # Compiled knowledge pages (created on demand)
-└── scripts/
-    └── lint_knowledge.py  # Automated 9-dimension consistency checker
-```
+| Evolution Level | What It Does | Who Does It |
+|----------------|--------------|-------------|
+| L-exec | Execute faster over time | All agents |
+| L-skill | Accumulate new skills | Hermes, OpenClaw, CLAUDE.md |
+| **L-struct** | **Evolve knowledge structure** | **Myco (Gear 3)** |
+| **L-meta** | **Evolve the rules of evolution** | **Myco (Gear 4)** |
 
-**Myco framework-level knowledge** (in `Myco/docs/`, available to all projects):
+**L-struct (Gear 3)** means Myco can detect when your assumptions are wrong — not just when facts are missing — and restructure your knowledge system accordingly. No other tool does this.
 
-| Doc | Contents |
-|-----|----------|
-| `reusable_system_design.md` | Full architecture spec + Bootstrap guide (L0/L1/L2) + project type adaptation |
-| `research_paper_craft.md` | Scientific figure toolchain + 10 writing principles (for research projects) |
-| `evolution_engine.md` | Four-gear detailed mechanics + permission levels |
-| `architecture.md` | System overview + docs index |
+**L-meta (Gear 4)** means Myco distills patterns from one project into reusable frameworks for future projects. Your ASCC knowledge becomes the foundation your next project starts from, not dust in a closed folder.
 
-## Bootstrap Levels
+Meta-evolution isn't vaporware: Myco targets text files — the medium LLMs operate best in — not model parameters. No gradient descent. No training loops. Works today.
 
-| Level | Time | For | What You Get |
-|-------|------|-----|-------------|
-| **L0** | 5 min | Small projects, exploration | `MYCO.md` (minimal) + `log.md` |
-| **L1** | 30 min | Multi-session projects (5+ sessions) | + `WORKFLOW.md` + `_canon.yaml` + `wiki/` |
-| **L2** | 2 hours | Long-term complex projects (papers, products) | + Full WORKFLOW + Lint + Evolution Engine (all 4 gears) |
+---
 
-Don't pre-build empty structures. Let the system grow organically — create wiki pages when you need them, write procedures when you've failed twice.
+## Works With Your Existing Tools
 
-## Five Core Capabilities
+Myco doesn't replace your existing tools — it metabolizes them.
 
-| Capability | What It Does | How |
-|-----------|-------------|-----|
-| **Knowledge Metabolism** | Decomposes external information into system nutrients | W10 Compilation Protocol + Wiki pages |
-| **Meta-Evolution** | Evolves the evolution mechanism itself | Four-gear engine + Double-loop learning |
-| **Self-Model** | Knows what it knows and what it doesn't | Lint + _canon.yaml + blind spot annotations |
-| **Cross-Session Continuity** | Maintains coherent cognition across sessions | Four-layer architecture + hot zone |
-| **Agent-Adaptive Universality** | Works with any AI agent system | Agent-independent core + runtime adaptation |
+| Tool | How | Value |
+|------|-----|-------|
+| **Claude Code** (`CLAUDE.md`) | `myco migrate --entry-point CLAUDE.md` | Unlock consistency checking + evolution engine |
+| **Cursor** | File-aware coexistence — no migration needed | `.cursorrules` + Myco live in the same project |
+| **GPT / OpenAI API** | System prompt injection or ChatGPT Projects | Structured context in every session |
+| **Hermes Agent** | `myco import --from hermes ~/skills/` | Skills get lint-verified and evolution-tracked |
+| **OpenClaw** | `myco import --from openclaw MEMORY.md` | Memory gets structured and consistency-checked |
+| **MemPalace** | L0 retrieval backend (design spec, v1.1) | Semantic search over Myco-managed knowledge |
 
-## The Twelve Principles (W1-W12)
+---
 
-| # | Principle | One-liner |
-|---|-----------|-----------|
-| W1 | Immediate Capture | Write decisions now, not at session end |
-| W2 | Project Hygiene | Directory structure + naming conventions |
-| W3 | Craft (传统手艺) | Multi-round debate for directional decisions |
-| W4 | Online Verification | Cross-check numerical claims with search |
-| W5 | Continuous Evolution | Repeat → script, lost → reinforce, fail → record |
-| W6 | Proximal Enrichment | Failure paths are the most valuable knowledge |
-| W7 | Systematic Lint | Periodic automated consistency checks |
-| W8 | Wiki Templates | Typed headers + footers for knowledge pages |
-| W9 | Active Tensions | Mark unresolved architectural trade-offs with ⚡ |
-| W10 | Compilation Protocol | 5-step external knowledge extraction |
-| W11 | Verification Scope | Label what conditions conclusions were verified under |
-| W12 | Information Density | Adapt context loading depth to task complexity |
+## How It Works
 
-## Evolution Engine
+Myco creates a four-layer knowledge architecture alongside your existing project files:
 
 ```
-Gear 1 (every session)          Gear 2 (session end)
-  Friction Sensing          →     Session Reflection
-  Record operational snags          "What can improve?"
-       │                                │
-       ▼                                ▼
-Gear 3 (milestones)              Gear 4 (project end)
-  Milestone Retrospective    →   Cross-Project Distillation
-  Challenge architecture             Extract universal patterns
-  assumptions (Double-loop)          Update Myco templates
+MYCO.md              ← L1: Entry point (or CLAUDE.md / CURSOR.md)
+_canon.yaml          ← Single Source of Truth for canonical values
+wiki/                ← L1.5: Compiled knowledge pages (lint-verified)
+docs/                ← L2: Procedures, debates, evolution records
+log.md               ← Append-only project timeline
 ```
 
-## Philosophy
+A four-gear evolution engine keeps knowledge alive:
 
-Myco takes the **Bitter Lesson** (Rich Sutton, 2019) seriously: hand-crafted rules should eventually be replaceable by system-discovered rules. The current W1-W12 principles are a legitimate bootstrap hot-start from practice — but every one of them is meant to be gradually replaced or refined by rules the system discovers through its own evolution.
+- **Gear 1** (every session): Sense friction — log repeated failures and unexpected behavior
+- **Gear 2** (session end): Reflect — what can the knowledge system improve?
+- **Gear 3** (milestones): Retrospect — challenge structural assumptions with double-loop learning
+- **Gear 4** (project end): Distill — extract universal patterns, contribute back to Myco
 
-Meta-evolution isn't vaporware here: Myco's evolution targets text files — the medium LLMs operate best in — not model parameters. This makes true meta-evolution achievable today without gradient descent or training loops.
+`myco lint` runs 9 consistency checks (L0–L8) across all layers. It's the immune system.
+
+---
+
+## Real-World Validation
+
+Myco has been intensively validated on a 7-day, 80+ file research project through the complete four-gear evolution cycle — including **Gear 4 cross-project distillation**. Universal patterns extracted from that project now live in [`docs/research_paper_craft.md`](docs/research_paper_craft.md) and [`docs/reusable_system_design.md`](docs/reusable_system_design.md), available to every future project that uses Myco.
+
+That's the loop working: one project's hard-won knowledge becomes another project's starting point.
+
+---
 
 ## Status
 
-Myco v1.0 has been intensively validated on a multi-month research project (ASCC) spanning 80+ files, 10 wiki pages, 15+ structured debates, and 7 operational procedures. The full four-gear evolution cycle — including **Gear 4 cross-project distillation** — has been completed: universal patterns from the ASCC project now live in Myco's `docs/` as `research_paper_craft.md` and `reusable_system_design.md`, available to all future projects.
+**v1.1.0** — Production-ready.
 
-Agent compatibility: **Claude Code** (primary, fully validated) · **Cursor** (file-aware coexistence, v1.0) · **GPT API** (system prompt injection, v1.0) · **Hermes/OpenClaw** (content import adapters, v1.0). See [`adapters/`](adapters/) for integration guides. Generalization to additional project types is ongoing — contributions and battle reports welcome.
+Agent compatibility: **Claude Code** (primary, fully validated) · **Cursor** (v1.0, file-aware) · **GPT API** (v1.0, system prompt) · **Hermes / OpenClaw** (v1.0, import adapters). Python 3.8+.
 
-## Project Adaptation
+Generalization to additional project types is ongoing — battle reports and adapter contributions are the most valuable thing the community can provide right now.
 
-| Project Type | Craft Triggers | Common Wiki Pages | Level |
-|-------------|---------------|-------------------|-------|
-| Academic Paper | Theory claims, reviewer attacks | Framework, strategy, experiments | L2 |
-| Software Product | Architecture, tech choice, UX | API design, bugs, deployment | L1-2 |
-| Data Analysis | Methodology, conclusions, bias | Data sources, methods, visualizations | L1 |
-| Learning Plan | Learning path, resource evaluation | Knowledge graph, progress tracking | L0-1 |
-
-## License
-
-MIT
+---
 
 ## Contributing
 
-Myco v1.0 is production-ready for Claude Code projects and agent-agnostic for Cursor, GPT, and any agent that can read project files. Contributions welcome — especially adapters and battle reports from new project types. See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+The most valuable contributions aren't code — they're **knowledge evolution products** that came from real use: adapter integrations, wiki templates, lint rules, and workflow principles.
 
-The most valuable contributions aren't just code — they're **knowledge evolution products**: wiki templates, lint rules, workflow principles, and adapter integrations that emerged from real-world use.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the four formal contribution types and their acceptance criteria. The fastest path to a merged PR is writing a [`adapters/`](adapters/) YAML for a tool you already use.
 
 ---
+
+## License
+
+MIT. See [LICENSE](LICENSE).
