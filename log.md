@@ -14,3 +14,7 @@
 关键结论：入口 MYCO.md（agent-agnostic）、hot zone 框架开发视角、_canon.yaml 增加 package 节、log.md 今日为起点。详见 `docs/current/myco_self_apply_craft_2026-04-09.md`。
 
 ## [2026-04-09] system | Myco 自我应用完成：MYCO.md + _canon.yaml + log.md + docs/WORKFLOW.md 写入
+
+## [2026-04-09] milestone | Gear 3 完成：v0.9.0 + 自我应用里程碑回顾（详见 docs/current/gear3_v090_milestone_2026-04-09.md）
+
+Gear 3 三项发现：(1) CLI UTF-8 跨平台 bug → 已修复（sys.stdout.reconfigure）；(2) 双模板设计债务 → 待用户决策 → g4-candidate；(3) Windows 操作规范未文档化 → 已写入 docs/operational_narratives.md P-001。

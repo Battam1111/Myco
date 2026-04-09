@@ -78,6 +78,22 @@ myco migrate ./existing-project --level 2
 myco lint --project-dir ./my-project
 ```
 
+**Windows users** — after `pip install myco`, verify the CLI is in PATH:
+
+```cmd
+where myco
+```
+
+If `myco` is not found, add Python's Scripts directory to PATH:
+
+```cmd
+# Find Scripts path
+python -c "import sys; print(sys.exec_prefix + r'\Scripts')"
+
+# Or run via module as fallback
+python -m myco lint --project-dir .
+```
+
 This creates a project scaffold with the knowledge system pre-configured:
 
 ```
