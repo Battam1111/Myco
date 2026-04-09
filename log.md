@@ -49,6 +49,14 @@ Gear 3 三项发现：(1) CLI UTF-8 跨平台 bug → 已修复（sys.stdout.rec
 
 核心结论：v1.0 三项充分条件——(A) migrate 输出优化（aha moment 诚实定义）；(B) adapters/cursor.yaml + adapters/gpt.yaml（coexistence guide schema，非迁移协议）；(C) WORKFLOW.md 扫描确认 agent-neutral + README v0.x→v1.0 声明升级。不在 v1.0：myco config/ingest/MemPalace CLI（推迟至 v1.1）。详见 `docs/current/v1_scope_craft_2026-04-09.md`。
 
+## [2026-04-09] debate | 传统手艺 v1.1 scope 定义（3轮，综合置信度 87%）
+
+核心结论：(D1) myco config --set/get/list/unset adapters.* 操作 _canon.yaml [adapters] 节（与 lint 验证字段完全隔离）；(D2/D3) myco import 半自动化——扫描→交互确认→创建 W8 stub→lint；(D4) adapters/hermes.yaml 和 openclaw.yaml roadmap v1_1 替换 v1_0。不在 v1.1：--adapter generic 模式（v1.2）、myco ingest MemPalace（v1.2）。详见 `docs/current/v1_1_scope_craft_2026-04-09.md`。
+
 ## [2026-04-09] milestone | 🎉 Myco v1.0.0 发布准备完成
 
 v1.0 三项充分条件全部达成：(A) migrate.py aha moment 输出优化；(B) adapters/ 完整体系（Claude Code / Cursor / GPT / Hermes / OpenClaw / MemPalace 共 6 个 adapter）；(C) pyproject.toml 0.9.0→1.0.0，classifier Beta→Production/Stable，README v0.x 限制声明→v1.0 multi-agent 验证声明。lint L0-L8 全绿 ✅
+
+## [2026-04-09] milestone | 🎉 Myco v1.1.0 CLI 自动化完成
+
+v1.1 三项交付：(D1) myco config --set/get/list/unset adapters.* ← 配置隔离至 _canon.yaml [adapters] 节；(D2) myco import --from hermes [dir] ← 半自动 W8 stub 生成；(D3) myco import --from openclaw [file] ← MEMORY.md 分节映射至 wiki/docs/MYCO.md；CLI 冒烟测试全部通过；lint L0-L8 全绿 ✅

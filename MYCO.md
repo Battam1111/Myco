@@ -44,6 +44,7 @@ Python 打包环境（hatchling + twine）。模板唯一来源：`src/myco/temp
 | 5 | ✅ | ASCC/Myco 解耦（框架文档通用化，evolution_engine 4 处 + architecture 1 处） | 完成 2026-04-09，lint L0-L8 全绿 |
 | 6 | ✅ | 一键采用 + 社区生态（adapters/ 目录 + CONTRIBUTING.md 四类型 + README Quick Start 重构） | 完成 2026-04-09 |
 | 7 | ✅ | v1.0 发布（agent-agnostic 适配：cursor.yaml + gpt.yaml + migrate aha moment + 版本号 1.0.0） | 完成 2026-04-09 |
+| 8 | ✅ | v1.1 CLI 自动化（myco config + myco import --from hermes/openclaw + _canon.yaml [adapters] 节） | 完成 2026-04-09 |
 
 ---
 
@@ -119,6 +120,7 @@ Phase 3  v1.0 agent-agnostic 验证 ⏳ 待实现
 | `docs/current/examples_design_craft_2026-04-09.md` | [ACTIVE] | examples/ 设计辩论：Gear 4 生命周期展示定位 + 社区管线，置信度 84% |
 | `docs/current/adoption_community_craft_2026-04-09.md` | [ACTIVE] | **一键采用+社区生态辩论（4轮，87%置信度）**：adapter YAML 接口、四类贡献体系、30秒采用路径、GitHub presence |
 | `docs/current/v1_scope_craft_2026-04-09.md` | [ACTIVE] | **v1.0 scope 辩论（4轮，89%置信度）**：MVP三项充分条件（migrate aha moment / cursor+gpt adapter / agent-neutral声明升级）；v1.1推迟项（myco config/ingest/MemPalace CLI） |
+| `docs/current/v1_1_scope_craft_2026-04-09.md` | [ACTIVE] | **v1.1 scope 辩论（3轮，87%置信度）**：myco config（adapters.*隔离）/ myco import 半自动化设计 / headless兼容性确认；推迟：--adapter generic（v1.2）、MemPalace CLI（v1.2） |
 
 ---
 
