@@ -41,5 +41,4 @@ package:
   entry_cli: "myco"                 # CLI entry point name
   build_backend: "hatchling"
   template_dirs:
-    - "templates/"                  # 开发源（修改入口）
-    - "src/myco/templates/"         # 打包版（需与 templates/ 同步）
+    - "src/myco/templates/"         # 唯一模板来源（打包入 wheel，Gear 3 A2 单一化）

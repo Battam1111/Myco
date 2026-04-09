@@ -65,9 +65,8 @@ Myco/
 │   ├── migrate.py         # Hot-start migration
 │   ├── lint.py            # 9-dimension consistency checker
 │   ├── templates.py       # Template resolution (importlib.resources)
-│   └── templates/         # Bundled project templates
+│   └── templates/         # Bundled project templates (single source of truth)
 ├── docs/                  # Framework documentation
-├── templates/             # Source templates (development reference)
 ├── scripts/               # Legacy standalone scripts
 ├── examples/              # Example projects and case studies
 └── pyproject.toml         # Package metadata
