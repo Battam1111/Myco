@@ -4,13 +4,87 @@ Thank you for your interest in Myco! This project is in early development (v0.x)
 
 ## What We Value Most
 
-Myco's community is different from typical open-source projects. The most valuable contributions aren't just code — they're **knowledge evolution products**:
+Myco's community is different from typical open-source projects. The most valuable contributions aren't just code — they're **knowledge evolution products**: artifacts that improve Myco's ability to evolve knowledge across any project type.
 
-- **Battle reports**: Used Myco on a new project type? Tell us what worked, what didn't, and what the system evolved into.
-- **Wiki templates**: Discovered a wiki page structure that works well for frontend projects, data analysis, or something else? Share it.
-- **Lint rules**: Found a consistency check that catches real problems? Propose it.
-- **Workflow principles**: Discovered a W13, W14, or a refinement to an existing principle? Open a discussion.
-- **Adapters**: Built an integration with another tool (MemPalace, Hermes, etc.)? We'd love to see it.
+There are four formal contribution types, each with a clear acceptance bar. Code contributions are also welcome, but these four types are what drive Myco's core value forward.
+
+---
+
+## Four Formal Contribution Types
+
+### 1. Adapters
+**What:** A YAML manifest in `adapters/` that defines how an external tool integrates with Myco's four-layer architecture.
+
+**Why this matters:** Every adapter makes Myco accessible to a new user segment. A Hermes user who finds an adapter can migrate in 30 minutes instead of 3 hours.
+
+**Format:** Follow the schema in [`adapters/README.md`](adapters/README.md). Include `import_steps`, `layer_mapping`, `lint_checks`, `value_proposition`, and `roadmap`.
+
+**Acceptance criteria:**
+- Tested manually on ≥1 real project (your own counts)
+- All lint checks in the YAML actually pass after running `myco lint`
+- `adapters/README.md` table updated with your adapter entry
+
+**Effort estimate:** 1-2 hours. This is the fastest path to a merged contribution. Start here.
+
+---
+
+### 2. Wiki Templates
+**What:** A `.md` file in `examples/templates/` defining a wiki page structure for a specific project type or domain.
+
+**Why this matters:** The blank wiki page is one of Myco's highest-friction moments. A good template for "data science project" or "API integration" eliminates that friction.
+
+**Format:** W8-compliant header (`type: template | date: today`), descriptive sections with comments explaining what belongs where, Back-to footer. See existing wiki pages for reference.
+
+**Acceptance criteria:**
+- Used on ≥1 real project (not just drafted in the abstract)
+- W8 header fields filled correctly (type, date, cross-references)
+- Comments explain the *why* of each section, not just the label
+
+**Effort estimate:** 30 minutes if you already have a working wiki page from your own project.
+
+---
+
+### 3. Lint Rules
+**What:** A proposed new consistency check for `myco lint`, submitted as a GitHub Discussion + (optionally) a pull request to `src/myco/lint.py`.
+
+**Why this matters:** Lint rules are Myco's immune system. Each new rule is a pattern of failure that was caught in the real world.
+
+**Submission path:**
+1. Open a Discussion in [Ideas](https://github.com/Battam1111/Myco/discussions) describing: what inconsistency the rule catches, what real bug it would have caught, and what a failing example looks like
+2. If the discussion gets traction (≥3 upvotes or maintainer approval), open a PR
+
+**Acceptance criteria:**
+- Must have caught ≥1 real bug in a real project (not a hypothetical)
+- False positive rate must be low (doesn't flag valid structures)
+- Clearly documented: what it checks, why it matters, what failure looks like
+
+**Effort estimate:** Discussion post = 20 minutes. Implementation PR = 2-4 hours depending on complexity.
+
+---
+
+### 4. Workflow Principles
+**What:** A proposed new W-number principle (W13, W14, …) or refinement to an existing principle (W1-W12), submitted as a GitHub Discussion.
+
+**Why this matters:** The W1-W12 principles are Myco's core protocol. A new principle validated across multiple project types strengthens the universal framework.
+
+**Submission path:** Open a Discussion in [Ideas](https://github.com/Battam1111/Myco/discussions) with: the principle's name and one-sentence statement, the failure mode it prevents, and at least two project types where it applies.
+
+**Acceptance criteria:**
+- Demonstrated validity on ≥2 distinct project types (not just your own)
+- Doesn't conflict with or duplicate W1-W12
+- Clear statement: "W13: [Name] — [One sentence]. Violation looks like: [example]."
+
+**Effort estimate:** 30-60 minutes. Maintainer may request a follow-up 传统手艺 debate before accepting.
+
+---
+
+## Your First Contribution
+
+**Fastest path:** Write an adapter for a tool you already use.
+
+If you use Hermes Agent, OpenClaw, Obsidian, MemPalace, or any other knowledge/memory tool alongside Myco, you already have everything needed for an adapter contribution. The adapter YAML captures what you learned doing the integration manually. It's the most direct way to contribute real value with minimal effort.
+
+Start here: read [`adapters/README.md`](adapters/README.md), copy an existing adapter YAML, and fill in your tool's details.
 
 ## How to Contribute
 
