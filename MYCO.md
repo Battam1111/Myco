@@ -45,7 +45,7 @@ Python 打包环境（hatchling + twine）。模板唯一来源：`src/myco/temp
 | 6 | ✅ | 一键采用 + 社区生态（adapters/ 目录 + CONTRIBUTING.md 四类型 + README Quick Start 重构） | 完成 2026-04-09 |
 | 7 | ✅ | v1.0 发布（agent-agnostic 适配：cursor.yaml + gpt.yaml + migrate aha moment + 版本号 1.0.0） | 完成 2026-04-09 |
 | 8 | ✅ | v1.1 CLI 自动化（myco config + myco import --from hermes/openclaw + _canon.yaml [adapters] 节） | 完成 2026-04-09 |
-| 9 | 🔄 | **Public Release 准备**（B1-B6 进行中） | B1✅ B2✅ B3✅ B4✅ B5✅ B6✅ → 待 commit+push |
+| 9 | 🔄 | **Public Release 准备**（B1-B6 ✅，C 轮迭代中） | C1: README 对标 MemPalace/Hermes/Nuwa 重构 ✅；C2: 多语言 README_zh.md ✅；C3: 品牌资产重做 ✅ |
 
 ---
 
