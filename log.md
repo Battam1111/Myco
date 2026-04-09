@@ -75,8 +75,8 @@ v1.0 三项充分条件全部达成：(A) migrate.py aha moment 输出优化；(
 
 核心结论：(1) 发布序列：Show HN（W1周二）→ r/LocalLLaMA（W1周四）→ r/ClaudeAI（W1周五）→ Twitter/X（M1）；(2) r/LocalLLaMA 社区规则"punish hype"→需具体数据+踩坑故事；(3) 首发文案以Day3三处不一致事件为hook；(4) 5个FAQ预案准备完毕。详见 `docs/current/launch_craft_2026-04-10.md`。
 
-## [2026-04-09] deploy | Myco v1.1.0 发布至 PyPI — pip install myco 现在安装 1.1.0（含 myco config + myco import）
+## [2026-04-10] deploy | Myco v1.1.0 发布至 PyPI — pip install myco 现在安装 1.1.0（含 myco config + myco import）
 
-## [2026-04-09] milestone | 🎉 Myco v1.1.0 CLI 自动化完成
+## [2026-04-10] milestone | 🎉 Myco v1.1.0 CLI 自动化完成
 
 v1.1 三项交付：(D1) myco config --set/get/list/unset adapters.* ← 配置隔离至 _canon.yaml [adapters] 节；(D2) myco import --from hermes [dir] ← 半自动 W8 stub 生成；(D3) myco import --from openclaw [file] ← MEMORY.md 分节映射至 wiki/docs/MYCO.md；CLI 冒烟测试全部通过；lint L0-L8 全绿 ✅
