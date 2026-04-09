@@ -15,10 +15,10 @@ Myco is **not** an agent, and it does **not** contain an agent. It is everything
 - A four-layer knowledge architecture (Index → Wiki → Docs → Archive)
 - A self-evolution engine with four gears (Friction Sensing → Session Reflection → Milestone Retrospective → Cross-Project Distillation)
 - An automated consistency checker (Lint) backed by a Single Source of Truth (_canon.yaml)
-- A structured debate protocol (传統手藝 / Craft) for high-stakes decisions
+- A structured debate protocol (传统手艺 / Craft) for high-stakes decisions
 - Operational experience capture (Procedures, Context Priming, Pattern Names)
 
-Myco works with **any** AI agent system — Claude, GPT, Codex, or future systems. The core is agent-independent; at runtime it adapts to specific agent capabilities (context window, tool access, etc.).
+Myco is designed to work with **any** AI agent system — Claude, GPT, Codex, or future systems. The core is agent-independent; at runtime it adapts to specific agent capabilities (context window, tool access, etc.). *(v0.x validated with Claude; other agent compatibility is a v1.0 goal.)*
 
 ## Three Immutable Laws
 
@@ -114,7 +114,7 @@ Don't pre-build empty structures. Let the system grow organically — create wik
 |---|-----------|-----------|
 | W1 | Immediate Capture | Write decisions now, not at session end |
 | W2 | Project Hygiene | Directory structure + naming conventions |
-| W3 | Craft (传統手藝) | Multi-round debate for directional decisions |
+| W3 | Craft (传统手艺) | Multi-round debate for directional decisions |
 | W4 | Online Verification | Cross-check numerical claims with search |
 | W5 | Continuous Evolution | Repeat → script, lost → reinforce, fail → record |
 | W6 | Proximal Enrichment | Failure paths are the most valuable knowledge |

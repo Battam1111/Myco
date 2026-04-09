@@ -111,16 +111,9 @@ def init_level_2(project_dir: Path, replacements: dict, entry_point: str):
         shutil.copy2(compress_src, project_dir / "scripts" / "compress_original.py")
         print(f"  ✅ scripts/compress_original.py (v2.5 compression)")
 
-    # Create operational_narratives.md placeholder
-    on_content = """# Operational Procedures
-
-> 操作过程知识（W6 近端丰富化）。每个 Procedure 记录一个经过实践验证的操作流程。
-> 格式：触发条件 → 前置检查 → 步骤 → 已知陷阱 → 最终验证 → 历史执行
-
----
-
-[Procedures 在首次 ≥2 次失败后创建——不预建空条目]
-"""
+    # Create operational_narratives.md from template
+    on_template = (TEMPLATES_DIR / "operational_narratives.md").read_text(encoding="utf-8")
+    on_content = fill_template(on_template, replacements)
     (project_dir / "docs" / "operational_narratives.md").write_text(
         on_content, encoding="utf-8"
     )

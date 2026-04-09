@@ -1,4 +1,4 @@
-# Myco Evolution Engine — 自进化框架 v2.1
+# Myco Evolution Engine — 自进化框架 (v0.x | 文档修订：2.1)
 
 ## 核心哲学
 

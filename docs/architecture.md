@@ -1,6 +1,6 @@
 # Myco — 技术架构
 
-> **版本**：2.1  
+> **版本**：v0.x | **文档修订**：2.1  
 > **范围**：通用框架（项目无关）  
 > **理论基础**：Karpathy LLM Wiki + Polanyi Tacit Knowledge + Argyris Double-Loop Learning + Toyota PDCA  
 > **验证基础**：单项目深度验证（v0.x）；多项目泛化进行中
