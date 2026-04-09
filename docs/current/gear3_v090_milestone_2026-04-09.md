@@ -136,11 +136,11 @@ template_dirs:
 
 | ID | 优先级 | 内容 | 权限级别 | 状态 |
 |----|--------|------|---------|------|
-| A1 | HIGH | CLI 入口自动设置 UTF-8（`sys.stdout.reconfigure`） | Agent 自主 | ⬜ |
-| A2 | HIGH | 删除顶层 `templates/`，单一化模板来源 | **用户决策** 🛑 | ⬜ |
-| A3 | MEDIUM | README 补充 Windows PATH 验证步骤 | Agent 自主 | ⬜ |
-| A4 | MEDIUM | MYCO.md + src/myco/templates/MYCO.md 会话结束第 7 条加条件说明 | Agent 自主 | ⬜ |
-| A5 | MEDIUM | operational_narratives.md 新增 P-001（Windows 环境操作规范） | Agent 自主 | ⬜ |
+| A1 | HIGH | CLI 入口自动设置 UTF-8（`sys.stdout.reconfigure`） | Agent 自主 | ✅ |
+| A2 | HIGH | 删除顶层 `templates/`，单一化模板来源 | **用户决策** 🛑 | ✅ |
+| A3 | MEDIUM | README 补充 Windows PATH 验证步骤 | Agent 自主 | ✅ |
+| A4 | MEDIUM | MYCO.md + src/myco/templates/MYCO.md 会话结束第 7 条加条件说明 | Agent 自主 | ✅ |
+| A5 | MEDIUM | operational_narratives.md 新增 P-001（Windows 环境操作规范） | Agent 自主 | ✅ |
 
 ---
 
