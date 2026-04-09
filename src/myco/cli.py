@@ -15,7 +15,27 @@ import sys
 from myco import __version__
 
 
+def _ensure_utf8() -> None:
+    """
+    Force UTF-8 output on Windows where the default console encoding (GBK/cp936)
+    cannot render rich's progress bar characters (e.g. U+2022 •).
+
+    Called once at CLI entry-point before any output is produced.
+    """
+    if sys.stdout.encoding and sys.stdout.encoding.lower() not in ("utf-8", "utf8"):
+        try:
+            sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        except AttributeError:
+            pass  # Python < 3.7 — best effort
+    if sys.stderr.encoding and sys.stderr.encoding.lower() not in ("utf-8", "utf8"):
+        try:
+            sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+        except AttributeError:
+            pass
+
+
 def main():
+    _ensure_utf8()
     parser = argparse.ArgumentParser(
         prog="myco",
         description="Myco — Self-Evolving Knowledge Substrate for AI Agents",

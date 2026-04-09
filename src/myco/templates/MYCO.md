@@ -103,4 +103,5 @@ Phase 2  [自定义]        ⏳ 待实现
 3. 更新 §1 进度
 4. 新 Bug → wiki/ | 新决策/代码变更 → wiki/ 对应页面或 docs/current/
 5. Gear 2 反思："系统本身哪里可以改进？" → log.md `meta` 条目
-6. 长会话 → `python scripts/lint_knowledge.py`
+6. **Gear 4 sweep**：扫描 log.md 中本次会话的 `g4-candidate` 条目 → 每条写入 Myco docs 或标注 `g4-pass: [原因]`（无 g4-candidate 则跳过）
+7. 长会话 → `python scripts/lint_knowledge.py --project-dir .`（L2+ 项目；L1 项目跳过此步）
