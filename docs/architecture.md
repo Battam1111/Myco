@@ -4,7 +4,7 @@
 > **最后更新**：2026-04-09（Gear 4 蒸馏：新增 reusable_system_design.md + research_paper_craft.md）
 > **范围**：通用框架（项目无关）
 > **理论基础**：Karpathy LLM Wiki + Polanyi Tacit Knowledge + Argyris Double-Loop Learning + Toyota PDCA
-> **验证基础**：ASCC 项目深度验证（7天，80+文件，12+次传统手艺）；多项目泛化进行中
+> **验证基础**：一个复杂研究项目深度验证（7天，80+文件，12+次传统手艺，含完整四齿轮进化）；多项目泛化进行中。参见 `examples/ascc/`
 
 ---
 

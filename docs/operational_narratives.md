@@ -86,6 +86,7 @@ python -m twine upload dist/* --repository myco
 - ❌ `PYTHONUTF8=1` 在 Python 3.13 的 CMD 里会被忽略（只接受 "1"/"0"），用 `PYTHONIOENCODING=utf-8` 代替
 - ❌ `cd /d "C:\path with spaces"` 在 desktop-commander 里可能有编码问题，改用 `git -C C:\path\to\repo` 语法
 - ❌ Windows PowerShell MCP 工具调用频繁超时（60s），不适合 git push、pip install 等网络操作
+- ❌ **禁止写桌面**：工作脚本绝不写到 `C:\Users\...\Desktop\`。应写到项目 `scripts/`（有复用价值）或 `C:\Users\...\AppData\Local\Temp\`（一次性临时文件）。会话结束前必须清理临时文件。（来源：ASCC g4-candidate 2026-04-09）
 
 **最终验证**：
 - git 操作：`git -C C:\...\Myco log --oneline -3` 确认最新 commit 正确
