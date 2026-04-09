@@ -6,7 +6,7 @@ Myco is an autonomous cognitive substrate that gives AI agents persistent memory
 
 Agents are the trees. Myco is the network underground.
 
-> **30-second version:** Other tools give your agent memory. Myco teaches it to think.
+> **30-second version:** Other tools give your agent memory. Myco gives it metabolism.
 
 ## What Myco Is
 
@@ -18,7 +18,7 @@ Myco is **not** an agent, and it does **not** contain an agent. It is everything
 - A structured debate protocol (传统手艺 / Craft) for high-stakes decisions
 - Operational experience capture (Procedures, Context Priming, Pattern Names)
 
-Myco is designed to work with **any** AI agent system — Claude, GPT, Codex, or future systems. The core is agent-independent; at runtime it adapts to specific agent capabilities (context window, tool access, etc.). *(v0.x validated with Claude; other agent compatibility is a v1.0 goal.)*
+Myco is designed to work with **any** AI agent system — Claude, GPT, Codex, or future systems. The core is agent-independent; at runtime it adapts to specific agent capabilities (context window, tool access, etc.). Integration guides for Claude Code, Cursor, GPT, Hermes, OpenClaw, and MemPalace are available in [`adapters/`](adapters/).
 
 ## Three Immutable Laws
 
@@ -59,24 +59,30 @@ Myco doesn't replace storage tools — it makes them *productive*. Every decisio
 ## Quick Start
 
 ```bash
-# Install
 pip install myco
+```
 
-# Initialize a new Myco-powered project
-myco init my-project
+**Already have a Claude Code project with a CLAUDE.md?** *(Most common path)*
 
-# Or with a specific bootstrap level (recommended for multi-session projects)
+```bash
+# Non-destructive migration — your CLAUDE.md is preserved, Myco layers added on top
+myco migrate ./your-project --entry-point CLAUDE.md
+
+# Run lint — the first inconsistency it catches is your "aha moment"
+myco lint --project-dir ./your-project
+```
+
+**Starting fresh?**
+
+```bash
+# Initialize a new Myco-powered project (level 2 recommended for multi-session work)
 myco init my-project --level 2
-
-# Or use CLAUDE.md as entry point (Claude agent compatibility)
-myco init my-project --entry-point CLAUDE.md
-
-# Already have a project? Migrate non-destructively
-myco migrate ./existing-project --level 2
 
 # Run consistency checks
 myco lint --project-dir ./my-project
 ```
+
+**Coming from Hermes, OpenClaw, or another tool?** See [`adapters/`](adapters/) for integration guides.
 
 **Windows users** — after `pip install myco`, verify the CLI is in PATH:
 
@@ -173,9 +179,13 @@ Gear 3 (milestones)              Gear 4 (project end)
 
 Myco takes the **Bitter Lesson** (Rich Sutton, 2019) seriously: hand-crafted rules should eventually be replaceable by system-discovered rules. The current W1-W12 principles are a legitimate bootstrap hot-start from practice — but every one of them is meant to be gradually replaced or refined by rules the system discovers through its own evolution.
 
+Meta-evolution isn't vaporware here: Myco's evolution targets text files — the medium LLMs operate best in — not model parameters. This makes true meta-evolution achievable today without gradient descent or training loops.
+
 ## Status
 
-Myco v0.x has been intensively validated on a multi-month research project spanning 80+ files, 10 wiki pages, 15+ structured debates, and 7 operational procedures. Generalization to other project types is ongoing — contributions and battle reports welcome.
+Myco v1.0 has been intensively validated on a multi-month research project (ASCC) spanning 80+ files, 10 wiki pages, 15+ structured debates, and 7 operational procedures. The full four-gear evolution cycle — including **Gear 4 cross-project distillation** — has been completed: universal patterns from the ASCC project now live in Myco's `docs/` as `research_paper_craft.md` and `reusable_system_design.md`, available to all future projects.
+
+Agent compatibility: **Claude Code** (primary, fully validated) · **Cursor** (file-aware coexistence, v1.0) · **GPT API** (system prompt injection, v1.0) · **Hermes/OpenClaw** (content import adapters, v1.0). See [`adapters/`](adapters/) for integration guides. Generalization to additional project types is ongoing — contributions and battle reports welcome.
 
 ## Project Adaptation
 
@@ -192,7 +202,7 @@ MIT
 
 ## Contributing
 
-Myco is in early development (v0.x). Contributions welcome — especially battle reports from using it on new project types. See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+Myco v1.0 is production-ready for Claude Code projects and agent-agnostic for Cursor, GPT, and any agent that can read project files. Contributions welcome — especially adapters and battle reports from new project types. See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 The most valuable contributions aren't just code — they're **knowledge evolution products**: wiki templates, lint rules, workflow principles, and adapter integrations that emerged from real-world use.
 
