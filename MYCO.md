@@ -45,6 +45,7 @@ Python 打包环境（hatchling + twine）。模板唯一来源：`src/myco/temp
 | 6 | ✅ | 一键采用 + 社区生态（adapters/ 目录 + CONTRIBUTING.md 四类型 + README Quick Start 重构） | 完成 2026-04-09 |
 | 7 | ✅ | v1.0 发布（agent-agnostic 适配：cursor.yaml + gpt.yaml + migrate aha moment + 版本号 1.0.0） | 完成 2026-04-09 |
 | 8 | ✅ | v1.1 CLI 自动化（myco config + myco import --from hermes/openclaw + _canon.yaml [adapters] 节） | 完成 2026-04-09 |
+| 9 | ⏳ | **Public Release 准备**（repo 从 Private → Public 的前置条件，见下方 Task 9 细项） | 待规划 |
 
 ---
 
@@ -120,6 +121,48 @@ Phase 3  v1.0 agent-agnostic 验证 ⏳ 待实现
 | `docs/current/examples_design_craft_2026-04-09.md` | [ACTIVE] | examples/ 设计辩论：Gear 4 生命周期展示定位 + 社区管线，置信度 84% |
 | `docs/current/adoption_community_craft_2026-04-09.md` | [ACTIVE] | **一键采用+社区生态辩论（4轮，87%置信度）**：adapter YAML 接口、四类贡献体系、30秒采用路径、GitHub presence |
 | `docs/current/v1_scope_craft_2026-04-09.md` | [ACTIVE] | **v1.0 scope 辩论（4轮，89%置信度）**：MVP三项充分条件（migrate aha moment / cursor+gpt adapter / agent-neutral声明升级）；v1.1推迟项（myco config/ingest/MemPalace CLI） |
+---
+
+## Task 9 细项：Public Release 准备（B 阶段）
+
+> 状态：⏳ 待规划 | 优先级：高 | 前置：v1.1.0 ✅
+> 目标：仓库从 Private → Public 时，第一印象足够好，能留住真实用户
+
+### B1 — README 重写（最高优先级）
+当前 README 是功能堆叠，不是产品页面。需要：
+- Hero section：一句话 + 30 秒价值主张（metabolism 隐喻视觉化）
+- "Who is Myco for?"（按用户身份分叉：CLAUDE.md 用户 / 新项目用户 / 工具迁移用户）
+- Quick Start 精简到 3 步以内
+- 与 OpenClaw/Hermes 的关系清晰呈现（不竞争，升级路径）
+- 证明力：ASCC 案例数据（80+文件，15+次 craft，Gear 4 完成）
+
+### B2 — 品牌形象
+- Logo（菌丝网络视觉，与 "metabolism" 隐喻一致）
+- GitHub Social Preview 图（1280×640，显示 tagline + 核心概念）
+- README 配图（四层架构图 / 四齿轮图 / 进化路线图）
+
+### B3 — GitHub 仓库元数据
+- About 描述：30 字以内，包含 tagline
+- Topics 标签：ai, agents, knowledge-management, self-evolving, claude, llm, memory
+- Website：PyPI 页面 或 未来官网
+
+### B4 — examples/ 质量
+- examples/ascc/ 当前是真实案例，内容需要审查（对外可见后要确认哪些内容合适公开）
+- 至少 1 个更通用的 example（非研究项目，如软件开发项目）
+
+### B5 — GitHub Community Files
+- Issue templates（Bug / Feature / Battle Report / Adapter 提交）
+- Discussion templates（Show & Tell / Ideas / Q&A）
+- SECURITY.md
+- CODE_OF_CONDUCT.md
+
+### B6 — 发布时机策略
+- 冷启动种子：在哪些社区首发？（Hacker News / Reddit r/LocalLLaMA / Twitter/X）
+- 首发文案草稿
+- 首批 maintainer response 准备（FAQ、常见问题预案）
+
+---
+
 | `docs/current/v1_1_scope_craft_2026-04-09.md` | [ACTIVE] | **v1.1 scope 辩论（3轮，87%置信度）**：myco config（adapters.*隔离）/ myco import 半自动化设计 / headless兼容性确认；推迟：--adapter generic（v1.2）、MemPalace CLI（v1.2） |
 
 ---
