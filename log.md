@@ -57,6 +57,12 @@ Gear 3 三项发现：(1) CLI UTF-8 跨平台 bug → 已修复（sys.stdout.rec
 
 v1.0 三项充分条件全部达成：(A) migrate.py aha moment 输出优化；(B) adapters/ 完整体系（Claude Code / Cursor / GPT / Hermes / OpenClaw / MemPalace 共 6 个 adapter）；(C) pyproject.toml 0.9.0→1.0.0，classifier Beta→Production/Stable，README v0.x 限制声明→v1.0 multi-agent 验证声明。lint L0-L8 全绿 ✅
 
+## [2026-04-10] debate | 传统手艺 README 重写策略（4轮，87%置信度）
+
+核心结论：(1) Hero = 问题→方案→tagline（不以功能列表开头）；(2) Quick Start 两阶段展示（全绿基线 + 工作后 lint 发现矛盾）；(3) 深度内容（Laws/Philosophy/W1-W12/Bootstrap/Project Adaptation）迁出 README 移入 docs/architecture.md Appendix；(4) 全英文 + 中文概念括号注释惯例。详见 `docs/current/readme_craft_2026-04-10.md`。
+
+## [2026-04-10] system | README 重写完成：产品级 landing page（≤800字散文）+ architecture.md 五个 Appendix 新增
+
 ## [2026-04-09] deploy | Myco v1.1.0 发布至 PyPI — pip install myco 现在安装 1.1.0（含 myco config + myco import）
 
 ## [2026-04-09] milestone | 🎉 Myco v1.1.0 CLI 自动化完成
