@@ -93,6 +93,15 @@ my-project/
     └── lint_knowledge.py  # Automated 9-dimension consistency checker
 ```
 
+**Myco framework-level knowledge** (in `Myco/docs/`, available to all projects):
+
+| Doc | Contents |
+|-----|----------|
+| `reusable_system_design.md` | Full architecture spec + Bootstrap guide (L0/L1/L2) + project type adaptation |
+| `research_paper_craft.md` | Scientific figure toolchain + 10 writing principles (for research projects) |
+| `evolution_engine.md` | Four-gear detailed mechanics + permission levels |
+| `architecture.md` | System overview + docs index |
+
 ## Bootstrap Levels
 
 | Level | Time | For | What You Get |

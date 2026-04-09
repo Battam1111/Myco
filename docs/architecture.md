@@ -1,9 +1,23 @@
 # Myco — 技术架构
 
-> **版本**：v0.x | **文档修订**：2.1  
-> **范围**：通用框架（项目无关）  
-> **理论基础**：Karpathy LLM Wiki + Polanyi Tacit Knowledge + Argyris Double-Loop Learning + Toyota PDCA  
-> **验证基础**：单项目深度验证（v0.x）；多项目泛化进行中
+> **版本**：v0.x | **文档修订**：2.1
+> **最后更新**：2026-04-09（Gear 4 蒸馏：新增 reusable_system_design.md + research_paper_craft.md）
+> **范围**：通用框架（项目无关）
+> **理论基础**：Karpathy LLM Wiki + Polanyi Tacit Knowledge + Argyris Double-Loop Learning + Toyota PDCA
+> **验证基础**：ASCC 项目深度验证（7天，80+文件，12+次传统手艺）；多项目泛化进行中
+
+---
+
+## docs/ 目录索引（新项目启动必读）
+
+| 文档 | 类型 | 用途 |
+|------|------|------|
+| `architecture.md` | 框架架构 | 本文件——四支柱 + 进化引擎全景 |
+| `evolution_engine.md` | 进化协议 | 四齿轮详细机制（Gear 1-4）、触发条件、权限分级 |
+| `reusable_system_design.md` | **核心系统设计** | ⭐ 通用架构详解 + Bootstrap 指南（Level 0/1/2）+ 项目类型适配 |
+| `theory.md` | 理论基础 | 认知科学/学习理论支撑 |
+| `vision.md` | 愿景文档 | Myco 长期演进方向 |
+| `research_paper_craft.md` | **研究型项目专用** | 科研绘图工具链 + 论文写作十大原则 + 9位大师技法速查 |
 
 ---
 
