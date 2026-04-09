@@ -1,0 +1,119 @@
+# Myco Adapter: Cursor
+# ============================================================
+# Coexistence guide for using Myco alongside Cursor IDE.
+# This is NOT a content migration adapter — Cursor reads the same project files
+# Myco manages. No import steps needed. The integration is structural.
+#
+# The key insight:
+#   Cursor reads: .cursorrules (or CURSOR.md) + project files in context window
+#   Myco manages: MYCO.md / CLAUDE.md + wiki/ + docs/ + _canon.yaml + log.md
+#   These are the same files. Cursor and Myco share the filesystem substrate.
+#
+# Version: 1.0 | Status: Active
+
+name: "Cursor"
+version: "1.0"
+description: |
+  Use Myco as the knowledge substrate for Cursor-powered projects.
+  Cursor provides the AI coding agent; Myco provides the evolution layer
+  (consistency checking, structural evolution, cross-project distillation)
+  that keeps Cursor's project knowledge accurate and growing.
+
+agent_type: "cursor"
+integration_model: "file_aware"
+# Cursor reads project files directly — no separate config file format to migrate.
+# Myco's files ARE Cursor's context files. The adapter is about structuring them correctly.
+
+# ── Setup Steps ───────────────────────────────────────────────
+setup_steps:
+  1: "Install Myco: pip install myco"
+  2: |
+    If your project has a .cursorrules file or CURSOR.md:
+    Run: myco migrate ./your-project --entry-point CURSOR.md
+    Myco will detect CURSOR.md, keep it untouched, and create the evolution scaffold alongside it.
+  3: |
+    If starting fresh:
+    Run: myco init my-project --level 2 --entry-point CURSOR.md
+    This creates CURSOR.md as the L1 entry point (instead of MYCO.md).
+  4: "Add Myco structure awareness to .cursorrules (see cursorrules_snippet below)"
+  5: "Run: myco lint --project-dir . — establish your baseline"
+  6: "The first inconsistency lint catches after you start working is your aha moment"
+
+# ── .cursorrules Integration Snippet ─────────────────────────
+cursorrules_snippet: |
+  # ── Myco Knowledge Structure ──────────────────────────────
+  # This project uses Myco for knowledge evolution. Key files:
+  #   CURSOR.md (or MYCO.md)  — L1 Index: start here every session
+  #   _canon.yaml              — Single Source of Truth for canonical values
+  #   wiki/                    — Compiled knowledge pages (W8 format)
+  #   docs/WORKFLOW.md         — 12 workflow principles (W1-W12)
+  #   log.md                   — Append-only project timeline
+  #
+  # Consistency rule: never contradict _canon.yaml values in wiki/ or code.
+  # Friction rule: when you hit the same problem twice, log it and consider Gear 2.
+  # Evolution rule: when a wiki page recurs in 3+ sessions, promote to _canon.yaml.
+
+# ── File Ownership ─────────────────────────────────────────
+coexistence_notes:
+  cursor_managed:
+    - ".cursorrules — Cursor-specific agent instructions"
+    - ".cursor/ — Cursor IDE config directory"
+  myco_managed:
+    - "CURSOR.md (or MYCO.md) — L1 Index"
+    - "_canon.yaml — Canonical values"
+    - "wiki/ — Knowledge pages"
+    - "docs/WORKFLOW.md — Workflow principles"
+    - "log.md — Timeline"
+  shared_read:
+    - "All source files — both Cursor agent and Myco lint scan project source"
+  important: |
+    Myco never modifies .cursorrules or .cursor/.
+    Cursor never modifies _canon.yaml or wiki/ (unless you explicitly instruct it to).
+    The systems operate on different files within the same project directory.
+
+# ── Layer Mapping ──────────────────────────────────────────
+layer_mapping:
+  ".cursorrules":         "Agent config (Cursor-managed, not a Myco layer)"
+  "CURSOR.md":            "L1 Index (Myco-managed entry point)"
+  "_canon.yaml":          "L0/L1 SSoT (Myco-managed)"
+  "wiki/*.md":            "L1.5 (Myco-managed, W8 format)"
+  "docs/WORKFLOW.md":     "L2 (Myco-managed, agent-agnostic)"
+  "log.md":               "Infra (Myco-managed, append-only)"
+
+# ── Workflow Compatibility ─────────────────────────────────
+workflow_compatibility:
+  W1_friction_sensing:    "✅ Cursor can log friction entries to log.md via tool calls"
+  W2_session_reflection:  "✅ Session-end summary appended to log.md"
+  W3_canon_first:         "✅ Cursor should read _canon.yaml before writing project-specific values"
+  W4_wiki_w8:             "✅ Cursor can create W8-format wiki pages when instructed"
+  W5_lint_gate:           "✅ Run myco lint in Cursor terminal or as a Makefile target"
+  W8_format:              "✅ Full W8 header (type/date/cross-refs) + Back-to footer"
+  W12_gear_protocol:      "⚠️  Cursor doesn't auto-trigger Gear 2/3 — add to .cursorrules as reminder"
+
+# ── Value Proposition ─────────────────────────────────────
+value_proposition: |
+  Cursor alone: great code generation, but project knowledge is ephemeral.
+  Each session, Cursor re-reads the codebase from scratch. Decisions made last week
+  are not checked against decisions made this week.
+
+  Cursor + Myco:
+    - _canon.yaml defines canonical values Cursor always checks first (no contradictions)
+    - wiki/ pages give Cursor compiled, lint-verified domain knowledge
+    - log.md gives Cursor a timestamped record of what changed and why
+    - myco lint catches when Cursor's generated code contradicts project decisions
+    - Gear 4 distills patterns from this project that Cursor can reuse in your next project
+
+  The combination is: Cursor generates at speed. Myco ensures it stays consistent.
+
+# ── Roadmap ──────────────────────────────────────────────────
+roadmap:
+  v1_1: "myco init --entry-point CURSOR.md generates .cursorrules snippet automatically"
+  v1_2: "myco lint --output cursor-format → Cursor Problems panel integration"
+  v2_0: "Cursor Rule that auto-triggers Gear 1 friction log on 'same error twice' pattern"
+
+# ── Notes ────────────────────────────────────────────────────
+notes:
+  - "This adapter is ACTIVE (v1.0). No CLI automation needed — file-based coexistence works today."
+  - "Cursor's .cursorrules has an 80KB context limit — keep your Myco snippet brief."
+  - "If CURSOR.md gets too long, move content to wiki/ and reference from CURSOR.md."
+  - "The project uses git — both Cursor and Myco changes are version-controlled naturally."
