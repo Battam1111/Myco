@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "myco"
-version = "1.0.0"
+version = "1.1.0"
 description = "Self-Evolving Knowledge Substrate for AI Agents"
 readme = "README.md"
 license = "MIT"

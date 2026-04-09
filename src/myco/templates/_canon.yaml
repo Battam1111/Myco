@@ -32,3 +32,12 @@ project:
   # milestone_dates: {}
   # key_metrics: {}
   # baselines: {}
+
+# ── Adapter Configuration ───────────────────────────────────────────────────
+# Managed by: myco config --set adapters.<tool>.<key> <value>
+# NOT validated by myco lint — this is external service config, not knowledge.
+# adapters:
+#   mempalace:
+#     endpoint: "http://localhost:8765"
+#     collection_name: "{{PROJECT_NAME}}"
+#     version: "0.x"

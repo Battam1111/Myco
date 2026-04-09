@@ -103,6 +103,58 @@ def main():
         help="Project root directory (default: current directory)",
     )
 
+    # ── myco config ────────────────────────────────────────────────
+    config_parser = subparsers.add_parser(
+        "config", help="Read/write adapter configuration in _canon.yaml [adapters] section"
+    )
+    config_parser.add_argument(
+        "--project-dir", type=str, default=".",
+        help="Project root directory (default: current directory)",
+    )
+    config_group = config_parser.add_mutually_exclusive_group(required=True)
+    config_group.add_argument(
+        "--set", nargs=2, metavar=("KEY", "VALUE"),
+        help="Set adapters.* key (e.g. --set adapters.mempalace.endpoint http://localhost:8765)",
+    )
+    config_group.add_argument(
+        "--get", metavar="KEY",
+        help="Get value of adapters.* key",
+    )
+    config_group.add_argument(
+        "--list", nargs="?", const="", metavar="SECTION",
+        help="List all config, or a specific section (e.g. --list adapters)",
+    )
+    config_group.add_argument(
+        "--unset", metavar="KEY",
+        help="Remove an adapters.* key",
+    )
+
+    # ── myco import ────────────────────────────────────────────────
+    import_parser = subparsers.add_parser(
+        "import", help="Semi-automated content import from external tools (Hermes, OpenClaw)"
+    )
+    import_parser.add_argument(
+        "--from", dest="from_tool", required=True, metavar="TOOL",
+        choices=["hermes", "openclaw"],
+        help="Source tool: hermes | openclaw",
+    )
+    import_parser.add_argument(
+        "source", nargs="?", default=None,
+        help="Source path (directory for hermes, file for openclaw). Default: tool-specific.",
+    )
+    import_parser.add_argument(
+        "--project-dir", type=str, default=".",
+        help="Myco project root (default: current directory)",
+    )
+    import_parser.add_argument(
+        "--all", action="store_true",
+        help="Import all candidates without interactive confirmation",
+    )
+    import_parser.add_argument(
+        "--dry-run", action="store_true",
+        help="Show what would be imported without making changes",
+    )
+
     # ── myco version (explicit subcommand) ─────────────────────────
     subparsers.add_parser("version", help="Show version")
 
@@ -128,6 +180,14 @@ def main():
     if args.command == "lint":
         from myco.lint import run_lint
         sys.exit(run_lint(args))
+
+    if args.command == "config":
+        from myco.config_cmd import run_config
+        sys.exit(run_config(args))
+
+    if args.command == "import":
+        from myco.import_cmd import run_import
+        sys.exit(run_import(args))
 
 
 if __name__ == "__main__":
