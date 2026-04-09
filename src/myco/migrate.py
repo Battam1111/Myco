@@ -300,8 +300,13 @@ def write_migration_report(project_dir: Path, findings: dict, actions: list,
         "",
         f"1. Review and customize `{entry_point}` — fill in project description, current phase, and hot zone",
         "2. If you have existing MEMORY.md or skill files, consider importing their content into wiki/ pages",
-        "3. Start working — Myco grows organically from practice",
-        "4. Run `myco lint` after a few sessions to check consistency",
+        "3. Establish your lint baseline now:",
+        "   ```bash",
+        "   myco lint --project-dir .",
+        "   ```",
+        "   On a fresh migration this will show **zero issues** — that's expected. The scaffold is internally consistent.",
+        "   Start working. The first time lint finds something after you've added content is your **aha moment** — that's Myco working for you.",
+        "4. Start working — Myco grows organically from practice. Gear 1 (friction sensing) activates automatically.",
         "",
         "---",
         "",
@@ -401,5 +406,10 @@ def run_migrate(args) -> int:
     if not dry_run:
         print(f"   ✨ Your project is now Myco-powered!")
         print(f"   Next: Edit {entry_point} → fill in project description → start working")
+        print()
+        print(f"   🔍 Establish your lint baseline:")
+        print(f"      myco lint --project-dir {project_dir}")
+        print(f"   A clean scaffold shows zero issues. The first inconsistency lint catches")
+        print(f"   after you start working is your aha moment — that's Myco working for you.")
 
     return 0

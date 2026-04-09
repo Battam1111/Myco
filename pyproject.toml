@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "myco"
-version = "0.9.0"
+version = "1.0.0"
 description = "Self-Evolving Knowledge Substrate for AI Agents"
 readme = "README.md"
 license = "MIT"
@@ -17,7 +17,7 @@ keywords = [
     "cognitive-substrate", "llm", "memory", "extended-cognition",
 ]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",

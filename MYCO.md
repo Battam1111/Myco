@@ -16,6 +16,10 @@
 3. 运行 `myco lint` 检查 Myco 自身时，`--project-dir` 指向 repo 根，不是 `src/` 子目录
 4. 修改模板后忘记 rebuild + 重新 `pip install -e .`（本地测试时 importlib.resources 读的是 src/，无需 build；但 wheel 测试必须重建）
 
+**对外定位一句话**（供 agent 快速了解 Myco 的市场位置）：
+> "Other tools give AI agents memory. Myco gives them metabolism — consistency checking, structural evolution, and cross-project distillation that no other tool does."
+> OpenClaw (346K stars) = 存储层验证；Myco = 进化层，不竞争，是升级路径。
+
 **Agent 行为准则**：
 - **即时沉淀** — 关键决策当下写入文档，不等会话结束
 - **在线验证** — 数字型 claim 必须 WebSearch 交叉验证
@@ -36,7 +40,10 @@ Python 打包环境（hatchling + twine）。模板唯一来源：`src/myco/temp
 | 1 | ✅ | v0.9.0 发布 PyPI | 完成 2026-04-09 |
 | 2 | ✅ | Myco 自我应用（myco migrate self + Gear 3） | 完成 2026-04-09，lint L0-L8 全绿 |
 | 3 | ✅ | 双模板单一化（删除顶层 templates/） | 完成 2026-04-09（Gear 3 A2） |
-| 4 | ⏳ | v1.0 发布（agent-agnostic 验证 + GPT/Cursor adapter） | 中期目标 |
+| 4 | ✅ | 深度竞品定位传统手艺（6 轮，92% 置信度） | 完成 2026-04-09，tagline→metabolism，Gear 4 已验证 |
+| 5 | ✅ | ASCC/Myco 解耦（框架文档通用化，evolution_engine 4 处 + architecture 1 处） | 完成 2026-04-09，lint L0-L8 全绿 |
+| 6 | ✅ | 一键采用 + 社区生态（adapters/ 目录 + CONTRIBUTING.md 四类型 + README Quick Start 重构） | 完成 2026-04-09 |
+| 7 | ✅ | v1.0 发布（agent-agnostic 适配：cursor.yaml + gpt.yaml + migrate aha moment + 版本号 1.0.0） | 完成 2026-04-09 |
 
 ---
 
@@ -104,10 +111,14 @@ Phase 3  v1.0 agent-agnostic 验证 ⏳ 待实现
 
 | 文档 | 状态 | 内容 |
 |------|------|------|
-| `docs/current/decoupling_positioning_debate_2026-04-09.md` | [ACTIVE] | 6 轮竞品分析 + 定位辩论，置信度 90% |
+| `docs/current/positioning_craft_2026-04-09.md` | [ACTIVE] | **深度定位辩论（6 轮，92% 置信度）**：OpenClaw 威胁分析、tagline→metabolism、Gear 4 已验证 |
+| `docs/current/decoupling_craft_2026-04-09.md` | [ACTIVE] | **ASCC/Myco 解耦辩论（3 轮，93% 置信度）**：边界判断 + 通用化替换策略 |
+| `docs/current/decoupling_positioning_debate_2026-04-09.md` | [ACTIVE]（定位部分已被 positioning_craft supersede） | 解耦审计（13 CRITICAL 项）+ 热启动设计 + 早期定位辩论 |
 | `docs/current/myco_self_apply_craft_2026-04-09.md` | [ACTIVE] | Myco 自我应用设计辩论（6 项决策，综合置信度 88%） |
 | `docs/current/gear3_v090_milestone_2026-04-09.md` | [ACTIVE] | Gear 3 里程碑回顾：3 项被证伪假设 + 5 项行动（全部 ✅） |
 | `docs/current/examples_design_craft_2026-04-09.md` | [ACTIVE] | examples/ 设计辩论：Gear 4 生命周期展示定位 + 社区管线，置信度 84% |
+| `docs/current/adoption_community_craft_2026-04-09.md` | [ACTIVE] | **一键采用+社区生态辩论（4轮，87%置信度）**：adapter YAML 接口、四类贡献体系、30秒采用路径、GitHub presence |
+| `docs/current/v1_scope_craft_2026-04-09.md` | [ACTIVE] | **v1.0 scope 辩论（4轮，89%置信度）**：MVP三项充分条件（migrate aha moment / cursor+gpt adapter / agent-neutral声明升级）；v1.1推迟项（myco config/ingest/MemPalace CLI） |
 
 ---
 
