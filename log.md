@@ -63,6 +63,18 @@ v1.0 三项充分条件全部达成：(A) migrate.py aha moment 输出优化；(
 
 ## [2026-04-10] system | README 重写完成：产品级 landing page（≤800字散文）+ architecture.md 五个 Appendix 新增
 
+## [2026-04-10] debate | 传统手艺 B2 品牌视觉策略（4轮，88%置信度，含在线调研）
+
+核心结论：(1) 设计哲学 "Metabolic Cartography"（精密菌网图，工程审美）；(2) 色彩系统 #0D1117 + #00D4AA；(3) Logo = Hyphal Node（菌根节点，6条有机射线 + 末端小点，SVG深/浅双色版）；(4) Social Preview = 菌网图（左60%）+ 项目名+tagline+pip install（右40%）；(5) README 架构图 > 齿轮图（优先级分级）。在线调研确认：Mem0 2026报告亲口将"memory staleness detection"列为未解决挑战，正是myco lint所做之事。详见 `docs/current/brand_craft_2026-04-10.md`。
+
+## [2026-04-10] system | B2 品牌资产创建完成：assets/social_preview.png + assets/architecture.png + assets/logo_dark.svg + assets/logo_light.svg；README 嵌入架构图
+
+## [2026-04-10] system | B5 GitHub 社区文件创建完成：.github/ISSUE_TEMPLATE/adapter_submission.md + SECURITY.md + CODE_OF_CONDUCT.md
+
+## [2026-04-10] debate | 传统手艺 B6 发布策略（2轮，87%置信度，含在线调研）
+
+核心结论：(1) 发布序列：Show HN（W1周二）→ r/LocalLLaMA（W1周四）→ r/ClaudeAI（W1周五）→ Twitter/X（M1）；(2) r/LocalLLaMA 社区规则"punish hype"→需具体数据+踩坑故事；(3) 首发文案以Day3三处不一致事件为hook；(4) 5个FAQ预案准备完毕。详见 `docs/current/launch_craft_2026-04-10.md`。
+
 ## [2026-04-09] deploy | Myco v1.1.0 发布至 PyPI — pip install myco 现在安装 1.1.0（含 myco config + myco import）
 
 ## [2026-04-09] milestone | 🎉 Myco v1.1.0 CLI 自动化完成

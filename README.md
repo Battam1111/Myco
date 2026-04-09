@@ -95,13 +95,7 @@ Myco doesn't replace your existing tools — it metabolizes them.
 
 Myco creates a four-layer knowledge architecture alongside your existing project files:
 
-```
-MYCO.md              ← L1: Entry point (or CLAUDE.md / CURSOR.md)
-_canon.yaml          ← Single Source of Truth for canonical values
-wiki/                ← L1.5: Compiled knowledge pages (lint-verified)
-docs/                ← L2: Procedures, debates, evolution records
-log.md               ← Append-only project timeline
-```
+![Myco Architecture — four knowledge layers feeding into the myco lint immune system](assets/architecture.png)
 
 A four-gear evolution engine keeps knowledge alive:
 
