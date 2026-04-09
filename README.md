@@ -51,7 +51,7 @@ Myco doesn't replace storage tools — it makes them *productive*. Every decisio
 
 | Tool | Integration | Value |
 |------|------------|-------|
-| Claude Code (CLAUDE.md) | `myco migrate` upgrades your existing CLAUDE.md | Unlock evolution engine + lint |
+| Claude Code (CLAUDE.md) | `myco migrate --entry-point CLAUDE.md` upgrades your existing CLAUDE.md | Unlock evolution engine + lint |
 | Hermes Agent | Import skills into Myco's evolution cycle | Skills get verified and refined |
 | MemPalace | Use as L0 retrieval backend | Store everything, metabolize with Myco |
 | Any IDE (Cursor, VS Code) | IDE-independent project knowledge | Switch IDEs without losing knowledge |
@@ -59,18 +59,23 @@ Myco doesn't replace storage tools — it makes them *productive*. Every decisio
 ## Quick Start
 
 ```bash
-# Clone the repo
-git clone https://github.com/YOUR_USERNAME/myco
-cd myco
+# Install
+pip install myco
 
-# Initialize a new Myco-powered project (creates ../my-project/)
-python scripts/myco_init.py ../my-project
+# Initialize a new Myco-powered project
+myco init my-project
 
 # Or with a specific bootstrap level (recommended for multi-session projects)
-python scripts/myco_init.py ../my-project --level 2
+myco init my-project --level 2
 
-# Or initialize into a specific directory
-python scripts/myco_init.py /path/to/my-project --level 1
+# Or use CLAUDE.md as entry point (Claude agent compatibility)
+myco init my-project --entry-point CLAUDE.md
+
+# Already have a project? Migrate non-destructively
+myco migrate ./existing-project --level 2
+
+# Run consistency checks
+myco lint --project-dir ./my-project
 ```
 
 This creates a project scaffold with the knowledge system pre-configured:
@@ -162,6 +167,8 @@ MIT
 
 ## Contributing
 
-Myco is in early development (v0.x). Contributions welcome — especially battle reports from using it on new project types.
+Myco is in early development (v0.x). Contributions welcome — especially battle reports from using it on new project types. See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+The most valuable contributions aren't just code — they're **knowledge evolution products**: wiki templates, lint rules, workflow principles, and adapter integrations that emerged from real-world use.
 
 ---
