@@ -170,8 +170,7 @@ def lint_numbers(canon):
     # Collect active documents
     entry_point = get_entry_point()
     active_files = []
-    for pattern in [entry_point, "docs/WORKFLOW.md", "docs/SESSION_PROTOCOL.md",
-                     "docs/reusable_system_design.md", "wiki/*.md"]:
+    for pattern in [entry_point, "docs/WORKFLOW.md", "wiki/*.md"]:
         active_files.extend(find_files(pattern))
 
     for filepath in active_files:
@@ -211,8 +210,7 @@ def lint_stale_patterns(canon):
     stale_section_pattern = fr"{entry_point_safe}\s*§(\d+)"
 
     active_files = []
-    for pattern in ["docs/WORKFLOW.md", "docs/SESSION_PROTOCOL.md",
-                     "docs/reusable_system_design.md", "wiki/*.md"]:
+    for pattern in ["docs/WORKFLOW.md", "wiki/*.md"]:
         active_files.extend(find_files(pattern))
 
     for filepath in active_files:

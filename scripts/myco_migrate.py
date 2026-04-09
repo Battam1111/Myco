@@ -377,8 +377,8 @@ def main():
     )
     parser.add_argument("project_dir", help="Path to existing project directory")
     parser.add_argument(
-        "--level", type=int, default=2, choices=[0, 1, 2],
-        help="Bootstrap level: 0=minimal, 1=standard, 2=full (default)"
+        "--level", type=int, default=1, choices=[0, 1, 2],
+        help="Bootstrap level: 0=minimal, 1=standard (default), 2=full"
     )
     parser.add_argument(
         "--entry-point", type=str, default="MYCO.md",
