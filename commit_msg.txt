@@ -1,15 +1,19 @@
-refactor: Gear 3 A2 — 单一化模板来源，删除顶层 templates/
+docs: examples/ 设计辩论 + ASCC Gear 4 反向链接 + 社区贡献管线
 
-删除历史遗留的顶层 templates/ 目录，以 src/myco/templates/ 为唯一模板来源。
+传统手艺 5 轮辩论（置信度 84%）：
+- examples/ 定位为 Gear 4 生命周期展示（不是 onboarding 教程）
+- 每个 example 包含 Harvest 快照 + Evolution Timeline + Gear 4 反向链接
+- 社区贡献三级管线：Discussion → Battle Report → Featured Example
 
-变更：
-- templates/ 目录整体删除（5 个文件）
-- _canon.yaml package.template_dirs 由双条改为单条
-- MYCO.md 热区踩坑 #1 更新（同步问题消除）、Operational Feel 更新、任务队列更新
-- CONTRIBUTING.md 目录结构图移除顶层 templates/ 条目
-- docs/current/gear3_v090_milestone_2026-04-09.md A1-A5 全部标记 ✅
-- log.md Gear 3 条目更新（A2 已完成）
+行动项 E1: examples/ascc/README.md 完整重写
+- 新增 Gear 4 反向链接（research_paper_craft.md + reusable_system_design.md 的落点）
+- 新增 Evolution Timeline（Day 1-8 + Gear 1-4 活动汇总）
+- 新增 wiki 页眉展示（10 页 W8 模板实际应用，内容脱敏）
 
-myco lint L0-L8 全绿，0 issues
+行动项 E2: CONTRIBUTING.md 新增 "From Battle Report to Featured Example"
+- Level 1 Discussion Post / Level 2 Battle Report / Level 3 Featured Example
+- 含 Featured Example 接受标准（蒸馏产物对 ≥2 项目类型有用）
+
+MYCO.md 文档索引 + log.md 已更新，lint L0-L8 全绿
 
 Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
