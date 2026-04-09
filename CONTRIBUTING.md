@@ -72,11 +72,37 @@ Myco/
 └── pyproject.toml         # Package metadata
 ```
 
+## From Battle Report to Featured Example
+
+Myco is a living substrate — its framework knowledge grows as more projects complete Gear 4 distillation. Your project experience can become part of Myco's knowledge base through a three-level contribution pipeline:
+
+### Level 1: Discussion Post (low bar, anyone can do this)
+
+Post in [GitHub Discussions → Show & Tell](https://github.com/Battam1111/Myco/discussions). Share your project background, which Myco features you used, and what you learned. A few paragraphs is enough. You don't need to have completed Gear 4.
+
+### Level 2: Battle Report (medium bar, after at least one Gear 3)
+
+Submit a [Battle Report issue](https://github.com/Battam1111/Myco/issues/new?template=battle_report.md) with project statistics, evolution timeline, key learnings, and improvement suggestions. This gives the community concrete data on how Myco performs across project types.
+
+### Level 3: Featured Example (high bar, requires Gear 4)
+
+If your project completes the full Myco lifecycle including Gear 4 distillation, it can become a Featured Example in `examples/`. This is the highest-impact contribution — it demonstrates Myco's core value proposition (knowledge evolving and flowing between projects).
+
+**What a Featured Example includes:**
+- Harvest snapshot: structure files from your completed project (MYCO.md, _canon.yaml, log.md, WORKFLOW.md — content can be redacted where needed)
+- Evolution Timeline: how your knowledge system grew from `myco init` to Gear 4
+- Gear 4 reverse link: what universal patterns were distilled, and where they now live in Myco's `docs/`
+- Your Gear 4 distillation products themselves — submitted as a PR to Myco's `docs/`
+
+**Acceptance criteria (v0.x):** The distilled knowledge must be useful to at least two project types, not just your own. The maintainer reviews this qualitatively.
+
+See [`examples/ascc/`](examples/ascc/) for what a Featured Example looks like.
+
 ## Discussions
 
 For questions, ideas, and open-ended conversations, use [GitHub Discussions](https://github.com/Battam1111/Myco/discussions):
 
-- **Show & Tell**: Share what Myco evolved into on your project
+- **Show & Tell**: Share what Myco evolved into on your project (Level 1 contribution)
 - **Ideas**: Propose new features or directions
 - **Q&A**: Ask questions about usage or architecture
 

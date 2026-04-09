@@ -18,3 +18,11 @@
 ## [2026-04-09] milestone | Gear 3 完成：v0.9.0 + 自我应用里程碑回顾（详见 docs/current/gear3_v090_milestone_2026-04-09.md）
 
 Gear 3 三项发现：(1) CLI UTF-8 跨平台 bug → 已修复（sys.stdout.reconfigure）；(2) 双模板设计债务 → 用户授权删除顶层 templates/，单一化完成 → g4-candidate；(3) Windows 操作规范未文档化 → 已写入 docs/operational_narratives.md P-001。全部 5 项行动项 ✅。
+
+## [2026-04-09] debate | 传统手艺：examples/ 设计辩论（5 轮，综合置信度 84%）
+
+核心结论：examples/ 定位为 Gear 4 生命周期展示（不是 onboarding 教程）。每个 example 包含 Harvest 快照 + Gear 4 反向链接。社区贡献三级管线（Discussion → Battle Report → Featured Example）。详见 `docs/current/examples_design_craft_2026-04-09.md`。
+
+## [2026-04-09] system | 升级 examples/ascc/README.md：补 Gear 4 反向链接 + Evolution Timeline + wiki 页眉展示
+
+## [2026-04-09] system | CONTRIBUTING.md 补充 "From Battle Report to Featured Example" 三级贡献管线

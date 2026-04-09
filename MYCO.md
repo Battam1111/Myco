@@ -106,6 +106,8 @@ Phase 3  v1.0 agent-agnostic 验证 ⏳ 待实现
 |------|------|------|
 | `docs/current/decoupling_positioning_debate_2026-04-09.md` | [ACTIVE] | 6 轮竞品分析 + 定位辩论，置信度 90% |
 | `docs/current/myco_self_apply_craft_2026-04-09.md` | [ACTIVE] | Myco 自我应用设计辩论（6 项决策，综合置信度 88%） |
+| `docs/current/gear3_v090_milestone_2026-04-09.md` | [ACTIVE] | Gear 3 里程碑回顾：3 项被证伪假设 + 5 项行动（全部 ✅） |
+| `docs/current/examples_design_craft_2026-04-09.md` | [ACTIVE] | examples/ 设计辩论：Gear 4 生命周期展示定位 + 社区管线，置信度 84% |
 
 ---
 
