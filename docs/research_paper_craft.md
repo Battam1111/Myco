@@ -1,7 +1,7 @@
 ﻿# Research Paper Craft — Myco 通用知识模板
 
 > **类型**：craft
-> **最后更新**：2026-04-09（从 ASCC 项目 Gear 4 完整蒸馏；来源：wiki/paper_writing_craft.md 全量）
+> **最后更新**：2026-04-09（补充 CL1-CL7 防错清单；来源：ASCC wiki/paper_writing_craft.md Gear 4 蒸馏）
 > **适用范围**：任何使用 Myco 的研究型论文项目（NeurIPS / ICML / ICLR 及同级别会议）
 > **⚠️ 非直觉盲点**：canvas-design skill 对科研图有害——它把 matplotlib 当艺术画布用，引入与学术图根本方向相悖的装饰噪声。永远不要用它创建论文图像。
 
@@ -131,7 +131,87 @@ for ax in [ax_badge, ax_content, ax_cap]:
 
 ---
 
-## 4. 对 Myco 框架的改进建议（来自 ASCC 项目摩擦记录）
+## 4. 防错检查清单（CL1-CL7）
+
+> 每次写对应章节前阅读，提交前执行 CL7。
+
+### CL1. 动笔前检查
+
+在写第一个字之前，回答这些问题：
+
+- [ ] **Goal** 是什么？读者为什么要关心？
+- [ ] **受众** 是谁？谁会使用或基于此继续工作？
+- [ ] **Nugget** 是什么——使贡献成为可能的核心洞见？
+- [ ] **一句话 pitch**？（≤ 3 句话）
+- [ ] **Teaser Figure** 应该展示什么？
+- [ ] **关键前人工作**和其局限是什么？
+- [ ] **定量评估**方式是什么？
+- [ ] **关键风险**有哪些？
+
+### CL2. Abstract 检查
+
+- [ ] ≤ 200 词（目标 120-160）
+- [ ] 单段落，无换行
+- [ ] 无引用、无公式、无脚注
+- [ ] 不以"In this paper"或通用 ML 句子开头
+- [ ] 第 1-2 句：具体描述**问题**
+- [ ] 描述方法的**效果**（不是架构）
+- [ ] 包含**定量结果**（如有）
+- [ ] 只读 Abstract 的读者能知道核心发现
+- [ ] 通过 Landes 测试：是**摘要**不是**预告**
+
+### CL3. Introduction 检查
+
+- [ ] 第一句话是此论文专属的（Lipton 测试）
+- [ ] 第 1 段末尾问题清晰
+- [ ] 第 2 段末尾现有方法的不足明确
+- [ ] 第 3 段出现核心洞见 / Nugget
+- [ ] Contribution list 有 3-4 条，每条是**claim** 不是**topic**
+- [ ] 无"rest of the paper is organized as follows"段落
+- [ ] 关键数字出现在 intro 某处
+
+### CL4. Method 检查
+
+- [ ] 每个设计选择在描述前先**说明动机**
+- [ ] 关键概念有文字 + 公式 + 图（三重解释）
+- [ ] 符号系统一致且在首次使用时定义
+- [ ] 公式与代码完全对应
+- [ ] 无"laundry list"式步骤（无动机说明）
+
+### CL5. Experiments 检查（Langley 标准）
+
+- [ ] 消融实验存在（至少移除一个组件）
+- [ ] 关键超参数敏感性分析
+- [ ] Baselines **公平**（相同算力、相同调参力度）
+- [ ] 报告统计显著性或置信区间
+- [ ] 结果支持具体 claim，不只是"我们更好"
+
+### CL6. Figures 检查
+
+- [ ] 每张图在正文中被引用
+- [ ] Caption 自包含（不读正文也能理解）
+- [ ] 图中文字在打印尺寸可读
+- [ ] 坐标轴带单位标签
+- [ ] 重要细节有高亮（箭头、圆圈）
+- [ ] Figure 1 是有力的 teaser
+- [ ] **⚠️ 工具链**：概念图用 `tueplots + FancyBboxPatch`，结果图用 `rliable + SciencePlots + tueplots`
+- [ ] **⚠️ 禁用**：canvas-design skill（对科研图有害）
+- [ ] `tueplots.bundles.neurips2024()` 已设置
+- [ ] 字体：STIX + mathtext，或 LaTeX（需 `type1ec.sty` 可用）
+
+### CL7. 最终提交检查（Black）
+
+- [ ] **逐字阅读**——标题、caption、每个公式
+- [ ] 搜索 PDF 中的"?"（缺失引用）
+- [ ] 所有引用完整（已发表版本优先于 arXiv 预印本）
+- [ ] 页数充实（7.5/8 页看起来未完成）
+- [ ] 无孤儿缩写（定义但未使用，或使用但未定义）
+- [ ] Supplementary 与正文承诺对应
+- [ ] 至少一个非作者读过并提供反馈
+
+---
+
+## 5. 对 Myco 框架的改进建议（来自 ASCC 项目摩擦记录）
 
 **Friction → Framework Improvement**：
 
@@ -149,4 +229,4 @@ for ax in [ax_badge, ax_content, ax_cap]:
 
 ---
 
-> **Back to**: Myco README.md | docs/evolution_engine.md | examples/ascc/
+> **Back to**: [MYCO.md](../MYCO.md) | [docs/evolution_engine.md](evolution_engine.md)

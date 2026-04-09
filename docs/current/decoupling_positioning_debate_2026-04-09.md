@@ -3,6 +3,10 @@
 > 文档状态：[ACTIVE] | 版本：v0.1 | 创建：2026-04-09
 > 参与者：创始人（方向定调）+ Claude（辩论+执行）
 > 前置调研：竞品调研（8 个框架/产品深度分析）+ 代码审计（11 个 CRITICAL、4 个 MEDIUM、4 个 LOW 级 [原始项目] 残留）
+>
+> ⚠️ **生命周期说明**：本文档包含两部分内容，生命周期不同：
+> - **定位辩论（Round 1-6）**：已被 `positioning_craft_2026-04-09.md` 取代（新文档更新了 OpenClaw 346K 分析、tagline、Gear 4 验证状态，综合置信度 92%）。本文档定位内容为历史记录，请以 positioning_craft 为准。
+> - **解耦审计 + 热启动设计（Round 4 行动项）**：`[ACTIVE]`，13 CRITICAL 项审计 + `myco migrate` 设计是唯一权威来源，尚未被 supersede。
 
 ---
 
