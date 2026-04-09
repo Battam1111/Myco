@@ -57,6 +57,10 @@ Gear 3 三项发现：(1) CLI UTF-8 跨平台 bug → 已修复（sys.stdout.rec
 
 v1.0 三项充分条件全部达成：(A) migrate.py aha moment 输出优化；(B) adapters/ 完整体系（Claude Code / Cursor / GPT / Hermes / OpenClaw / MemPalace 共 6 个 adapter）；(C) pyproject.toml 0.9.0→1.0.0，classifier Beta→Production/Stable，README v0.x 限制声明→v1.0 multi-agent 验证声明。lint L0-L8 全绿 ✅
 
+## [2026-04-10] system | C 轮迭代：README 对标 MemPalace/Hermes/Nuwa 完全重构
+
+对标三个开源标杆项目（MemPalace 水晶金字塔logo+居中开场+personal note / Hermes 全宽banner+for-the-badge徽标+feature表 / Nuwa 真实效果示例+多语言README+封面艺术），完成：(1) README.md 完全重构（居中logo、大号badges、导航锚点、效果示例"What It Looks Like"、Mem0 2026报告引用、个人叙事"The Story Behind Myco"、stats table）；(2) README_zh.md 中文完整版；(3) 品牌资产重做（超采样抗锯齿logo多尺寸导出、全宽banner、新social preview）。Logo仍为代码生成——专业级Logo需AI生图或设计师介入，这是当前的诚实边界。
+
 ## [2026-04-10] debate | 传统手艺 README 重写策略（4轮，87%置信度）
 
 核心结论：(1) Hero = 问题→方案→tagline（不以功能列表开头）；(2) Quick Start 两阶段展示（全绿基线 + 工作后 lint 发现矛盾）；(3) 深度内容（Laws/Philosophy/W1-W12/Bootstrap/Project Adaptation）迁出 README 移入 docs/architecture.md Appendix；(4) 全英文 + 中文概念括号注释惯例。详见 `docs/current/readme_craft_2026-04-10.md`。
