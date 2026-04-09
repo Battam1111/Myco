@@ -27,7 +27,7 @@
 ## W1: 自动沉淀
 
 - 发现新 Bug → 立即写入 wiki/ 对应页面
-- 做出关键决策 → 立即写入 CLAUDE.md 热区或 wiki
+- 做出关键决策 → 立即写入 entry document (CLAUDE.md/MYCO.md/等) 热区或 wiki
 - 结果出来 → 立即更新进度
 - 会话结束清单是"兜底检查"，不是唯一的沉淀时机
 

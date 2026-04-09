@@ -6,6 +6,8 @@ Myco is an autonomous cognitive substrate that gives AI agents persistent memory
 
 Agents are the trees. Myco is the network underground.
 
+> **30-second version:** Other tools give your agent memory. Myco teaches it to think.
+
 ## What Myco Is
 
 Myco is **not** an agent, and it does **not** contain an agent. It is everything *outside* the agent that enables persistent cognition:
@@ -24,11 +26,41 @@ Myco works with **any** AI agent system — Claude, GPT, Codex, or future system
 2. **Transparent to humans** — Every piece of knowledge is readable, auditable, and editable by humans
 3. **Perpetual evolution** — The system evolves itself, including the rules of evolution
 
+## Why Myco?
+
+Most knowledge tools solve the **storage problem**: how do I remember what my agent has done? Claude.md provides hot memory. Hermes skills capture repeatable actions. MemPalace retrieves long-term facts.
+
+Myco solves a different problem: the **metabolism problem**. How does knowledge *evolve*? How do I detect when my assumptions are stale? How do I catch contradictions before they cascade? How do I extract timeless patterns from project-specific experience and apply them elsewhere?
+
+Other tools answer: *where did I put that?*
+
+Myco answers: *is that still true? does it connect to this? what changed since last time?*
+
+### Evolution Landscape
+
+| Evolution Level | Description | Who Does It |
+|----------------|-------------|-------------|
+| L-exec | Execute faster over time | All agents |
+| L-skill | Accumulate new skills | Hermes, OpenClaw |
+| L-struct | Evolve knowledge structure | **Myco (Gear 3)** |
+| L-meta | Evolve the rules of evolution | **Myco (Gear 4)** |
+
+Myco doesn't replace storage tools — it makes them *productive*. Every decision recorded in CLAUDE.md can be checked for consistency. Every skill in Hermes gets verified and refined through the evolution cycle. Every fact in MemPalace decays gracefully when conditions change.
+
+## Works With Your Existing Tools
+
+| Tool | Integration | Value |
+|------|------------|-------|
+| Claude Code (CLAUDE.md) | `myco migrate` upgrades your existing CLAUDE.md | Unlock evolution engine + lint |
+| Hermes Agent | Import skills into Myco's evolution cycle | Skills get verified and refined |
+| MemPalace | Use as L0 retrieval backend | Store everything, metabolize with Myco |
+| Any IDE (Cursor, VS Code) | IDE-independent project knowledge | Switch IDEs without losing knowledge |
+
 ## Quick Start
 
 ```bash
 # Clone the repo
-git clone https://github.com/Battam1111/myco
+git clone https://github.com/YOUR_USERNAME/myco
 cd myco
 
 # Initialize a new Myco-powered project (creates ../my-project/)
@@ -82,7 +114,7 @@ Don't pre-build empty structures. Let the system grow organically — create wik
 |---|-----------|-----------|
 | W1 | Immediate Capture | Write decisions now, not at session end |
 | W2 | Project Hygiene | Directory structure + naming conventions |
-| W3 | Craft (传统手艺) | Multi-round debate for directional decisions |
+| W3 | Craft (传統手藝) | Multi-round debate for directional decisions |
 | W4 | Online Verification | Cross-check numerical claims with search |
 | W5 | Continuous Evolution | Repeat → script, lost → reinforce, fail → record |
 | W6 | Proximal Enrichment | Failure paths are the most valuable knowledge |
@@ -111,15 +143,9 @@ Gear 3 (milestones)              Gear 4 (project end)
 
 Myco takes the **Bitter Lesson** (Rich Sutton, 2019) seriously: hand-crafted rules should eventually be replaceable by system-discovered rules. The current W1-W12 principles are a legitimate bootstrap hot-start from practice — but every one of them is meant to be gradually replaced or refined by rules the system discovers through its own evolution.
 
-## Proven in Practice
+## Status
 
-Myco v0.x was battle-tested over 8 days on the [ASCC project](examples/ascc/) (Action Shaping in Continuous Control, targeting NeurIPS 2026):
-
-- System grew from a single 949-line file to 17,000+ lines across 80+ files
-- 10 wiki pages, 15+ debate records, 7 procedures
-- 12+ rounds of 传統手藝 debate with online research validation
-- First Gear 3 milestone retrospective executed successfully
-- Automated lint: 9 dimensions, canonical value enforcement
+Myco v0.x has been intensively validated on a multi-month research project spanning 80+ files, 10 wiki pages, 15+ structured debates, and 7 operational procedures. Generalization to other project types is ongoing — contributions and battle reports welcome.
 
 ## Project Adaptation
 
@@ -139,5 +165,3 @@ MIT
 Myco is in early development (v0.x). Contributions welcome — especially battle reports from using it on new project types.
 
 ---
-
-*"菌丝不只是连接树木的管道：它分泌酶将落叶分解为养分，记住有效的生长路径并据此调整策略，根据需求将资源从丰裕区域调往匮乏区域，并与不同树种的根系都能形成共生。"*

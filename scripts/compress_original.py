@@ -5,7 +5,7 @@ Myco Document Compression Tool
 
 Compresses `.original.md` documentation files to Agent-optimized versions.
 
-**Core Concept** (from Caveman Project):
+**Core Concept**:
   .original.md = Human-edited complete version (includes examples, narratives, redundant explanations)
   .md          = Agent-optimized version (tablized, deduplicated, preserves precise references and numbers)
 

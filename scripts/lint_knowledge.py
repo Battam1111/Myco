@@ -267,7 +267,7 @@ def lint_log(canon):
     entry_pattern = re.compile(r"^## \[(\d{4}-\d{2}-\d{2})\] (\w+) \| (.+)$")
     valid_types = {"milestone", "decision", "debug", "deploy", "debate", "system",
                    "friction", "meta", "contradiction", "validation", "script",
-                   "paper", "analysis", "progress"}
+                   "document", "analysis", "progress"}
 
     prev_date = None
     entry_count = 0
