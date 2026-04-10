@@ -474,3 +474,30 @@ Internal:
 ---
 
 *This document is the anchor for the 2026-04-10 vision re-calibration. It supersedes no prior doc; it re-grounds them. If a future session detects narrative drift from the recovered frame, re-read this file before editing public docs.*
+
+---
+
+## 7. Machine-Readable Anchor Terms (L9 Source of Truth)
+
+> This section is the authoritative input to `lint L9 — Vision Anchor Check`. When the recovered identity elements are added, removed, or re-phrased, update this section AND mirror the change into `_canon.yaml → system.vision_anchors.groups`. The two must stay in sync.
+
+The L9 lint enforces that every targeted public-facing file (currently `README.md`, `README_zh.md`, `MYCO.md`) contains at least one lexical variant from **every** anchor group below. A file passing L9 is not guaranteed to be free of drift — but a file failing L9 is guaranteed to have lost an identity element. L9 is a floor, not a ceiling.
+
+| Group | Identity element | Accepted variants (any one suffices) |
+|-------|------------------|--------------------------------------|
+| substrate-identity | Myco is a substrate, not a tool | `substrate` · `基质` |
+| cpu-metaphor | Agent = CPU, Myco = self-upgrading OS | `CPU` · `operating system` · `OS upgrades` |
+| non-parametric | No weights are ever touched | `non-parametric` · `非参数` · `weights are touched` · `权重永不` |
+| metabolism | Knowledge metabolism, not storage | `metabolism` · `metabolize` · `Metabolic` · `代谢` |
+| seven-step-pipeline | Pipeline ends in excretion (淘汰) | `excrete` · `淘汰` · `seven-step` · `七步` |
+| compression-doctrine | Storage infinite, attention finite | `compression` · `压缩` · `attention is not` · `注意力有限` |
+| four-layer-self-model | A inventory · B gap · C decay · D efficacy | `self-model` · `四层自我` · `Inventory` · `库存` · `decay` · `退化` |
+| mutation-selection | System mutates, human selects | `mutation` · `selection` · `变异` · `选择压力` |
+| perpetual-evolution | Stagnation = death | `Perpetual` · `Stagnation` · `永恒进化` · `停滞即死` |
+| transparency-anticancer | Transparency protects against cancerous drift | `transparent` · `透明` · `cancerous` · `癌变` |
+| kernel-instance | Project-agnostic kernel ↔ project instance | `kernel` · `instance` · `内核` · `实例` |
+| theoretical-lineage | Karpathy / Polanyi / Argyris / PDCA / Voyager | `Karpathy` · `Polanyi` · `Argyris` · `PDCA` · `Voyager` · `理论血统` |
+
+**Why these twelve and not the raw 18 elements from §2?** The 18 are *narrative* elements. The 12 are *lexical* anchors the lint can detect without false positives. Several 04-08 elements are either naturally expressed through the same vocabulary as another anchor, or are too discursive to be lint-checkable. The 12 groups were chosen as the **minimum sufficient set** — removing any one would allow at least one historically-lost element to slip past the lint.
+
+**Meta-lesson (from the recursion failure that produced this doc)**: context compression removes identity content *in proportion to what the summarizer judged discardable, not in proportion to what the author considered load-bearing*. The first recovery pass found 4 elements. The second found 7 more. The third found 7 more still. Expect multiple recursion passes before convergence on any future drift event — and trust structural safeguards (L9) over author vigilance.

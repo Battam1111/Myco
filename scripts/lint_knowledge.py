@@ -19,6 +19,7 @@ Dimensions:
     L6  Date Consistency — header dates vs file modification times
     L7  Wiki W8 Format — header (type + date) + footer (Back to) template compliance
     L8  .original Sync — compressed file timestamp consistency (v2.5)
+    L9  Vision Anchor — identity-element drift detection (v1.1.1)
 """
 
 import os
@@ -368,6 +369,52 @@ def lint_original_sync(canon):
     return issues
 
 # ---------------------------------------------------------------------------
+# L9: Vision Anchor Check
+# ---------------------------------------------------------------------------
+
+def lint_vision_anchors(canon):
+    """Ensure public-facing files contain lexical anchors for every
+    identity element declared in _canon.yaml → system.vision_anchors.
+
+    This converts the 2026-04-10 vision-drift recovery into a permanent
+    structural safeguard. Authoritative source:
+        docs/current/vision_recovery_craft_2026-04-10.md §7
+    """
+    issues = []
+    va = canon.get("system", {}).get("vision_anchors")
+    if not va:
+        return issues  # feature not configured; skip silently
+
+    targets = va.get("targets", [])
+    groups = va.get("groups", [])
+    min_hits = int(va.get("min_hits_per_file", 1))
+    if not targets or not groups:
+        return issues
+
+    for rel_path in targets:
+        content = read_file(ROOT / rel_path)
+        if content is None:
+            issues.append(("L9", "HIGH", rel_path,
+                           "Vision-anchor target file not found"))
+            continue
+
+        missing_groups = []
+        for group in groups:
+            name = group.get("name", "?")
+            variants = group.get("any_of", []) or []
+            hits = sum(content.count(v) for v in variants)
+            if hits < min_hits:
+                missing_groups.append((name, variants))
+
+        for name, variants in missing_groups:
+            sample = " | ".join(variants[:4])
+            issues.append(("L9", "CRITICAL", rel_path,
+                           f"Vision anchor missing: group '{name}' "
+                           f"(none of: {sample})"))
+
+    return issues
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -395,6 +442,7 @@ def main():
             ("L6 日期一致性", lint_dates),
             ("L7 Wiki 格式一致性", lint_wiki_format),
             ("L8 .original 同步检查", lint_original_sync),
+            ("L9 愿景锚点检查", lint_vision_anchors),
         ])
 
     all_issues = []
