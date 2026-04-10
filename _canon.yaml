@@ -15,6 +15,44 @@ system:
   - 六原则
   - 七原则
   - v0.8
+  vision_anchors:
+    # Machine-readable identity anchors — any drop below threshold in
+    # README.md / README_zh.md / MYCO.md triggers L9 vision-drift alert.
+    # Authoritative source: docs/current/vision_recovery_craft_2026-04-10.md
+    # §7 Machine-Readable Anchor Terms.
+    min_hits_per_file: 1
+    targets:
+    - README.md
+    - README_zh.md
+    - MYCO.md
+    # Each group = one identity element. A file passes the group if ANY
+    # variant appears at least min_hits_per_file times. Groups are OR-ed
+    # internally, AND-ed across groups.
+    groups:
+    - name: substrate-identity
+      any_of: ["substrate", "基质", "Substrate"]
+    - name: cpu-metaphor
+      any_of: ["CPU", "operating system", "OS upgrades", "自升级", "OS "]
+    - name: non-parametric
+      any_of: ["non-parametric", "Non-parametric", "非参数", "weights are touched", "weights never", "权重永不"]
+    - name: metabolism
+      any_of: ["metabolism", "metabolize", "Metabolic", "代谢", "消化系统"]
+    - name: seven-step-pipeline
+      any_of: ["excrete", "淘汰", "seven-step", "七步"]
+    - name: compression-doctrine
+      any_of: ["Compression", "compression", "压缩", "attention is not", "注意力有限"]
+    - name: four-layer-self-model
+      any_of: ["self-model", "Self-Model", "四层自我", "Inventory", "库存", "decay", "退化"]
+    - name: mutation-selection
+      any_of: ["mutation", "selection", "变异", "选择压力", "Mutation"]
+    - name: perpetual-evolution
+      any_of: ["Perpetual", "perpetual", "Stagnation", "stagnation", "永恒进化", "停滞即死"]
+    - name: transparency-anticancer
+      any_of: ["Transparent", "transparent", "透明", "cancerous", "癌变"]
+    - name: kernel-instance
+      any_of: ["kernel", "instance", "内核", "实例"]
+    - name: theoretical-lineage
+      any_of: ["Karpathy", "Polanyi", "Argyris", "PDCA", "Voyager", "理论血统"]
 architecture:
   layers: 4
   wiki_pages: 0
