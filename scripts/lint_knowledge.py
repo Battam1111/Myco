@@ -21,6 +21,7 @@ Dimensions:
     L8  .original Sync — compressed file timestamp consistency (v2.5)
     L9  Vision Anchor — identity-element drift detection (v1.1.1)
     L10 Notes Schema — atomic-note frontmatter validation (v1.2.0)
+    L11 Write Surface — agent write-target whitelist enforcement (v1.2.0)
 """
 
 import os
@@ -532,6 +533,131 @@ def lint_notes_schema(canon):
 
 
 # ---------------------------------------------------------------------------
+# L11: Write Surface — enforce agent write-target whitelist
+# ---------------------------------------------------------------------------
+# Authoritative contract: docs/agent_protocol.md §1.
+# The write_surface.allowed list declares every legal top-level entry.
+# Anything else (except dotfiles) triggers HIGH. Anything in
+# write_surface.forbidden_top_level triggers CRITICAL, regardless.
+
+def _allowed_match(name, allowed):
+    """Return True if top-level name matches any allowed pattern.
+
+    Allowed patterns are either exact filenames (README.md, pyproject.toml)
+    or directory names with a trailing slash (notes/, src/). A bare dir
+    name (no slash) is also accepted for leniency.
+    """
+    for pat in allowed:
+        pat = pat.rstrip("/")
+        if name == pat:
+            return True
+    return False
+
+
+def _load_gitignore_names(root):
+    """Return a set of literal path/file names appearing in .gitignore.
+
+    Intentionally simple: we only want to suppress L11 HIGH warnings for
+    entries the user has explicitly marked as local/ignored. Does NOT
+    implement full gitignore glob semantics.
+    """
+    names = set()
+    gi = root / ".gitignore"
+    if not gi.exists():
+        return names
+    try:
+        for line in gi.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            # Strip leading './' and trailing '/'
+            if line.startswith("./"):
+                line = line[2:]
+            if line.endswith("/"):
+                line = line[:-1]
+            # Only care about top-level names (no nested patterns)
+            if "/" in line or "*" in line or "?" in line or "[" in line:
+                continue
+            names.add(line)
+    except OSError:
+        pass
+    return names
+
+
+def lint_write_surface(canon):
+    issues = []
+    ws = canon.get("system", {}).get("write_surface")
+    if not ws:
+        return issues  # feature not configured; skip silently
+
+    allowed = ws.get("allowed", []) or []
+    forbidden = set(ws.get("forbidden_top_level", []) or [])
+    gitignored = _load_gitignore_names(ROOT)
+
+    # --- Pass 1: top-level entries ---
+    try:
+        top_entries = sorted(os.listdir(ROOT))
+    except OSError:
+        return issues
+
+    for name in top_entries:
+        # Skip hidden dotfiles/dotdirs (.git, .github, .gitignore, .venv, ...)
+        if name.startswith("."):
+            continue
+        # Skip common build / cache directories that are gitignored.
+        if name in {"__pycache__", "build", "node_modules", "venv", "env"}:
+            continue
+        # Skip egg-info build artifacts.
+        if name.endswith(".egg-info"):
+            continue
+
+        # Forbidden anti-patterns override everything (even gitignore).
+        if name in forbidden or (name + "/") in forbidden:
+            issues.append(("L11", "CRITICAL", name,
+                           "Forbidden top-level entry (anti-pattern). "
+                           "See docs/agent_protocol.md §1."))
+            continue
+
+        # Skip entries explicitly gitignored — they are acknowledged
+        # local / internal files, not agent contract violations.
+        if name in gitignored:
+            continue
+
+        if not _allowed_match(name, allowed):
+            issues.append(("L11", "HIGH", name,
+                           "Top-level entry not in write_surface.allowed. "
+                           "If legitimate, add to _canon.yaml; otherwise "
+                           "remove or move into an allowed location."))
+
+    # --- Pass 2: notes/ must contain only n_*.md (or README.md) ---
+    notes_dir = ROOT / "notes"
+    if notes_dir.exists() and notes_dir.is_dir():
+        for path in sorted(notes_dir.iterdir()):
+            if path.is_dir():
+                issues.append(("L11", "HIGH", f"notes/{path.name}/",
+                               "notes/ must be flat — no subdirectories"))
+                continue
+            nm = path.name
+            if nm == "README.md":
+                continue
+            if not (nm.startswith("n_") and nm.endswith(".md")):
+                issues.append(("L11", "HIGH", f"notes/{nm}",
+                               "Non-note file in notes/ — use `myco eat` "
+                               "instead of hand-writing files here."))
+
+    # --- Pass 3: wiki/ must be markdown only (v1.2 rule) ---
+    wiki_dir = ROOT / "wiki"
+    if wiki_dir.exists() and wiki_dir.is_dir():
+        for path in sorted(wiki_dir.rglob("*")):
+            if path.is_file() and path.suffix not in {".md", ""}:
+                rel = path.relative_to(ROOT)
+                issues.append(("L11", "MEDIUM", str(rel),
+                               "wiki/ should contain markdown only"))
+
+    return issues
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -561,6 +687,7 @@ def main():
             ("L8 .original 同步检查", lint_original_sync),
             ("L9 愿景锚点检查", lint_vision_anchors),
             ("L10 Notes 结构检查", lint_notes_schema),
+            ("L11 写入面白名单", lint_write_surface),
         ])
 
     all_issues = []

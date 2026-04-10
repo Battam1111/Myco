@@ -90,6 +90,8 @@ python -m twine upload dist/* --repository myco
 - ❌ **禁止写桌面**：工作脚本绝不写到 `C:\Users\...\Desktop\`。应写到项目 `scripts/`（有复用价值）或 `C:\Users\...\AppData\Local\Temp\`（一次性临时文件）。会话结束前必须清理临时文件。（来源：ASCC g4-candidate 2026-04-09）
 - ❌ **SSH ProxyJump 必须用 config alias，不要直连**：Git SSH 直连跳板机后的目标主机会在 kex 阶段断开（`kex_exchange_identification: Connection closed by remote host`）。必须用 SSH config 别名（内含 `ProxyJump + IdentityFile`）。`-F` 参数使用 MSYS 路径格式：`/c/Users/<user>/.ssh/config`（Windows 路径不被 Git SSH 识别）。（来源：ASCC g4-candidate 2026-04-10）
 - ❌ **远程目录名 ≠ 代码变量名**：远程服务器上的目录命名约定可能与代码中的变量名不同（如 `td3_native` vs `td3`）。写任何远程查询脚本前**必须先 `ls` 确认实际目录名**，不要假设与本地代码一致。遇到计数为 0 的异常先验证目录名再排查其他原因。（来源：ASCC g4-candidate 2026-04-10）
+- ❌ **远程 Python/Conda 路径必须先查文档**：每次写 HPC 脚本时不要凭感觉猜 Python 路径（如 `/root/miniconda3/envs/...`）。正确做法：在项目文档（wiki/ssh_hpc.md 或等效文件）中查阅已验证的 conda 环境路径，并将该路径固化到 `scripts/hpc_utils.py`（或同等共享模块）中作为常量，所有脚本通过 `import hpc_utils` 引用，**不重复写 SSH 样板代码**。每个新 HPC 项目建立时应写好一次，后续只 import。（来源：ASCC g4-candidate 2026-04-10）
+- ❌ **探针脚本不入版本控制**：会话中临时创建的探针/诊断脚本（`find_python_hpc.py`、`check_env.py` 等）在运行后必须立即删除，不留在 `scripts/` 目录。若确认有复用价值则升级为正式脚本（含注释+接口）后再保留。（来源：ASCC E6 脚本归档协议 + g4-candidate 2026-04-10）
 
 **最终验证**：
 - git 操作：`git -C C:\...\Myco log --oneline -3` 确认最新 commit 正确

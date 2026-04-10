@@ -98,15 +98,16 @@ async def myco_lint(
     project_dir: Optional[str] = None,
     quick: bool = False,
 ) -> str:
-    """Run Myco's 9-dimensional lint checks on the knowledge system.
+    """Run Myco's 12-dimensional lint checks on the knowledge system.
 
     Call this after modifying wiki pages, docs, MYCO.md, or _canon.yaml to catch
-    contradictions, orphan files, stale references, and version drift. This is the
-    immune system of the knowledge substrate.
+    contradictions, orphan files, stale references, version drift, and agent
+    write-surface violations. This is the immune system of the knowledge substrate.
 
     Checks: L0 Canon schema, L1 Reference integrity, L2 Number consistency,
     L3 Stale patterns, L4 Orphan detection, L5 Log coverage, L6 Date consistency,
-    L7 Wiki format, L8 .original sync, L9 Vision anchor, L10 Notes schema.
+    L7 Wiki format, L8 .original sync, L9 Vision anchor, L10 Notes schema,
+    L11 Write surface (agent contract from docs/agent_protocol.md).
 
     Args:
         project_dir: Path to Myco project root. Auto-detected if omitted.
@@ -127,7 +128,7 @@ async def myco_lint(
         lint_canon_schema, lint_references, lint_numbers,
         lint_stale_patterns, lint_orphans, lint_log,
         lint_dates, lint_wiki_format, lint_original_sync,
-        lint_vision_anchors, lint_notes_schema,
+        lint_vision_anchors, lint_notes_schema, lint_write_surface,
     )
 
     checks = [
@@ -145,6 +146,7 @@ async def myco_lint(
             ("L8 .original Sync", lint_original_sync),
             ("L9 Vision Anchor", lint_vision_anchors),
             ("L10 Notes Schema", lint_notes_schema),
+            ("L11 Write Surface", lint_write_surface),
         ])
 
     results = []
@@ -666,15 +668,25 @@ async def myco_digest(
 ) -> str:
     """Move a note along the digestive lifecycle: raw → digesting → {extracted | integrated | excreted}.
 
-    WHEN TO CALL:
-      - At the start of a new session, call myco_hunger first; if it
-        reports raw_backlog or stale_raw, call myco_digest (with no
-        note_id) to process the oldest raw note.
-      - After you've lifted a note's claim into wiki/ or MYCO.md, call
-        with to_status='extracted' or 'integrated'.
-      - When a note is no longer useful (stale, duplicated, superseded),
-        call with excrete_reason to mark it excreted. Excretion without a
-        reason is forbidden by L10 lint.
+    Contract: docs/agent_protocol.md §2.2 + §2.3. L10 lint enforces frontmatter.
+
+    WHEN TO CALL (trigger conditions):
+      (a) At session start, after myco_hunger — if hunger reports
+          raw_backlog or stale_raw, call myco_digest with no note_id to
+          process the oldest raw note.
+      (b) Before extracting a note's claim into wiki/ or MYCO.md — run
+          digest first to walk the reflection prompts, THEN transition.
+      (c) When a note is obsolete / duplicate / wrong → call with
+          excrete_reason (required by L10).
+      (d) Non-linear jumps (raw → integrated, raw → excreted) are legal
+          but MUST go through this tool. Never hand-edit the status
+          frontmatter field.
+
+    ANTI-PATTERNS (do NOT do these):
+      - Manually editing notes/*.md to change status
+      - Skipping digest and writing directly into wiki/ or MYCO.md
+      - Calling excreted without excrete_reason
+      - Bulk-transitioning many notes at once without reading them
 
     Modes:
       1. Reflective (default): note_id=None or omit to_status → picks
@@ -806,13 +818,22 @@ async def myco_view(
 ) -> str:
     """List notes in notes/ (optionally filtered by status) or read a single note.
 
-    WHEN TO CALL:
-      - Before answering a question that might already be in notes/ —
-        call myco_view with a status filter or single note_id instead of
-        guessing from context.
-      - When the user asks "what have we been working on?" — call with
-        status='raw' or 'digesting' to show the active queue.
-      - When you need the full body of a specific note — pass note_id.
+    Contract: docs/agent_protocol.md §2.2. Read-only — cannot corrupt substrate.
+
+    WHEN TO CALL (trigger conditions):
+      (a) BEFORE answering any question that might already live in notes/
+          — grep your memory substrate first, not your training weights.
+      (b) User asks "what were we doing?" / "where did we leave off?" →
+          myco_view status='raw' or 'digesting' shows the active queue.
+      (c) Starting a new task on a known topic → myco_view with a
+          specific note_id or status filter to rehydrate context.
+      (d) Phase ② prep → myco_view status='raw' filters to notes tagged
+          'friction-phase2' to review accumulated friction signals.
+
+    ANTI-PATTERNS:
+      - Answering from memory when a search would have found the answer
+      - Reading notes/ directly via filesystem — this tool applies the
+        canonical ordering and schema parse
 
     Args:
         note_id: If set, return that single note's full body + metadata.
@@ -898,12 +919,23 @@ async def myco_hunger(
 ) -> str:
     """Report the substrate's metabolic state with actionable signals.
 
-    WHEN TO CALL:
-      - At the START of every work session, before doing anything else.
-        Hunger tells you whether the substrate is constipated (raw_backlog),
-        starving (no_deep_digest), or hoarding (no_excretion).
-      - Whenever a session runs longer than ~30 min without a myco_digest
-        or myco_eat call — the substrate may need attention.
+    Contract: docs/agent_protocol.md §3 + §4 (boot & end sequences).
+
+    WHEN TO CALL (trigger conditions):
+      (a) IMMEDIATELY after myco_status at session start. This is the
+          second call of every session, non-optional. Hunger tells you
+          whether the substrate is constipated (raw_backlog), starving
+          (no_deep_digest), or hoarding (no_excretion).
+      (b) Session middle — any ~30 min without a myco_digest or
+          myco_eat call, re-check hunger.
+      (c) Before session end — confirm no raw_backlog remains.
+      (d) When signals list includes anything other than 'healthy',
+          DO NOT ignore them. Act on the first concerning signal before
+          continuing the current task.
+
+    ANTI-PATTERNS:
+      - Skipping hunger at session start ("I'll catch up later")
+      - Seeing raw_backlog and continuing unrelated work
 
     Signals (sorted by urgency):
       - raw_backlog: >10 raw notes pending
