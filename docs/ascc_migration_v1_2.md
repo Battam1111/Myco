@@ -14,6 +14,66 @@
 
 ---
 
+## §0 — Prerequisites: CLI vs MCP (Cowork users read this first)
+
+**The only hard requirement is installing the `myco` Python package.** Once
+installed, ASCC's agent can use Myco via **either** of two equivalent paths:
+
+### Path A — CLI (zero config, works today)
+
+```bash
+# One-time install (or pin in ASCC's CLAUDE.md / session boot hook)
+pip install myco                          # when v1.2 is on PyPI
+# OR development version:
+pip install -e /path/to/Myco --break-system-packages
+```
+
+ASCC's agent calls `myco eat --content "..."`, `myco view`, `myco hunger`,
+`myco digest`, `myco lint` via its Bash tool. **No MCP registration needed.**
+Under Cowork, this means any agent with the Bash tool (which is the default)
+can use Myco immediately after installation.
+
+**Cowork gotcha**: if Cowork's sandbox does not persist site-packages across
+sessions, the `pip install` needs to run at every session start. Add it to
+ASCC's `CLAUDE.md` session-boot instructions, or to a session hook script.
+
+### Path B — MCP (one-time config, persistent)
+
+Register Myco as an MCP server in the Cowork desktop app's MCP settings.
+Example config entry:
+
+```json
+{
+  "mcpServers": {
+    "myco": {
+      "command": "python",
+      "args": ["-m", "myco.mcp_server"]
+    }
+  }
+}
+```
+
+After restart, the agent sees `myco_eat`, `myco_digest`, `myco_view`,
+`myco_hunger`, `myco_status`, `myco_log`, `myco_reflect`, `myco_retrospect`,
+`myco_lint` as native MCP tools with rich trigger-condition descriptions.
+**Survives sandbox rebuilds** — no per-session install step.
+
+### Recommended rollout for ASCC
+
+1. **Today**: Path A (CLI) — works immediately, zero Cowork-side changes.
+2. **After validation**: Path B (MCP) — better UX for agents, persistent
+   across sessions, richer tool descriptions available at dispatch time.
+3. Both paths can coexist; they read/write the same `notes/` directory and
+   both are enforced by L10/L11 lint.
+
+### Naming note
+
+Throughout this document and `docs/agent_protocol.md`, names like
+`myco_eat` / `myco_digest` refer to **either** the MCP tool OR the CLI
+command (`myco eat` / `myco digest`). They are equivalent and interchangeable.
+
+---
+
 ## §1 — Paste into ASCC `MYCO.md` hot-zone (after 身份锚点, before 任务队列)
 
 ```markdown
