@@ -7,6 +7,44 @@
 
 ---
 
+## 0.5 两条入口：CLI 和 MCP 任选其一
+
+Myco 的 9 个工具都有**两套等价入口**，底层共享 `src/myco/notes.py`
+和 `src/myco/lint.py`，落盘文件完全一致。
+
+| 能力 | CLI（shell 命令） | MCP tool |
+|---|---|---|
+| 捕获 | `myco eat --content "..."` | `myco_eat` |
+| 消化 | `myco digest <id> --to integrated` | `myco_digest` |
+| 查看 | `myco view --status raw` | `myco_view` |
+| 饥饿度 | `myco hunger` | `myco_hunger` |
+| Lint | `myco lint` | `myco_lint` |
+| 状态/日志/反思/回顾 | （待实现 CLI）| `myco_status` / `myco_log` / `myco_reflect` / `myco_retrospect` |
+
+**必装**：`pip install myco`（或开发版 `pip install -e /path/to/Myco`）。
+装完就有 `myco` CLI。**任何能跑 shell 的 agent 都能用**，包括
+Cowork 下的 agent（通过 Bash 工具调用）。
+
+**可选**：在 agent host 的 MCP 配置里注册 `python -m myco.mcp_server`。
+注册后 9 个工具会以原生 MCP tool 的形式出现在 agent 的工具列表里，
+带详细 trigger-condition 描述和结构化参数。Cowork 用户在桌面应用的
+MCP 设置里加一条即可（一次性，持久生效）。
+
+**本文档中的命名约定**：凡是出现 `myco_eat` / `myco_digest` 之类
+下划线形式的名字，指的是**同一个工具的任一入口**——读者可以自动替
+换为对应的 CLI 命令 `myco eat` / `myco digest`。两种写法等价。
+
+**Cowork 运行环境的一个实际区别**：
+- CLI 路径：每次会话需要确保 `myco` 已在 Python 环境中（`pip install`
+  是否持久取决于 Cowork 的 sandbox 卷策略）。不持久时把安装步骤写进
+  session boot hook 或 `CLAUDE.md`。
+- MCP 路径：一次配置永久有效，无 sandbox 重建问题。跨会话零成本。
+
+对 ASCC 等下游项目的建议：**先用 CLI 起跑**（零配置，今天就能跑），
+**稳定后切到 MCP**（零摩擦，适合长期）。两条路径也可以共存。
+
+---
+
 ## 0. 为什么需要这份文档
 
 Myco v1.2 Phase ① 引入了消化系统（`eat / digest / view / hunger` + `notes/`）。
