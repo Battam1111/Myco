@@ -29,6 +29,13 @@ Thumbs.db
 # Misc
 *.orig
 
+# Session transcripts and extraction workspace (archival source material, local only)
+ascc_sessions/
+_myco_user_msgs.txt
+_myco_assistant_vision_hits.txt
+_extract_session.py
+_vision_recovery_*.txt
+
 # Internal files (kept locally, not published)
 commit_msg.txt
 PYPI_SETUP.md

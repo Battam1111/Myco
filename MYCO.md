@@ -1,6 +1,6 @@
 # Myco
 
-> 最后更新：2026-04-09
+> 最后更新：2026-04-10
 > **知识系统**：[Myco](https://github.com/Battam1111/Myco) v0.9.0（框架自用）
 
 ---
@@ -17,8 +17,16 @@
 4. 修改模板后忘记 rebuild + 重新 `pip install -e .`（本地测试时 importlib.resources 读的是 src/，无需 build；但 wheel 测试必须重建）
 
 **对外定位一句话**（供 agent 快速了解 Myco 的市场位置）：
-> "Other tools give AI agents memory. Myco gives them metabolism — consistency checking, structural evolution, and cross-project distillation that no other tool does."
-> OpenClaw (346K stars) = 存储层验证；Myco = 进化层，不竞争，是升级路径。
+> "Myco is an Autonomous Cognitive Substrate for AI agents. Your agent is the CPU — Myco is everything else, and the OS upgrades itself. All evolution is non-parametric: markdown, YAML, folder structure, lint rules. No weights ever touched."
+> 次级 tagline："Other tools give memory. Myco gives metabolism."
+> OpenClaw = 存储层验证；Hyperagents = 进化 CPU；Myco = 进化操作系统。互补，不竞争。
+
+**🧭 身份锚点**（抗漂移——每次上下文压缩后 agent 必须重读）：
+1. Myco = 基质（substrate），不是工具。Agent 运行在 Myco 上，不是 Agent 使用 Myco。
+2. 非参数进化：Agent 权重永不改动，所有学习在基质里（md/yaml/目录结构）。
+3. 齿轮 1-4 是自主神经系统（内向稳态）；代谢入口是消化系统（外向摄取，v2.0 原语）。
+4. 人机协作：系统做变异，人类做选择。透明性是选择压力的前提，所以不可变。
+5. 详细愿景恢复记录见 `docs/current/vision_recovery_craft_2026-04-10.md`——这是防漂移的永久锚点。
 
 **Agent 行为准则**：
 - **即时沉淀** — 关键决策当下写入文档，不等会话结束
@@ -39,6 +47,29 @@ Python 打包环境（hatchling + twine）。模板唯一来源：`src/myco/temp
 | 1 | 🔄 | 非 ASCC 项目示例（software dev project example） | v1.2 目标 |
 | 2 | ⏳ | myco ingest MemPalace 集成 | v1.2 roadmap |
 | 3 | ⏳ | --adapter generic 通用适配模式 | v1.2 roadmap |
+| 4 | 📐 | **Metabolic Inlet 原语（身份级声明）** | **v1.2 仅声明 · 最早 v2.0 实现**（见下） |
+
+### 任务 4 详述 · Metabolic Inlet
+
+**性质**：身份级 primitive 声明，不是功能承诺。理由：齿轮 1-4 完全内向（friction → reflect → retrospect → distill），没有任何一档朝向外部世界。一个没有消化系统的基质只是缓存，不是基质。现在不声明，外部贡献者会把 Myco 建成"更好的 CLAUDE.md"；声明后但不提前实现，避免违反 Bitter Lesson 立场（机制必须从第一性原理浮现，不能手工设计）。
+
+**形状**（草图，v2.0 设计辩论时再细化）：
+- **触发**：摩擦信号（agent 在 wiki/canon/log 找不到答案）OR 周期巡逻（时间/事件驱动）
+- **目标源**：GitHub 仓库、arXiv、社区文档、上游工具发布说明
+- **管道**：发现 → 评估（相关性/质量/新颖性）→ 萃取（模式，不是复制）→ 整合（融入 wiki/canon，不追加）→ 压缩 → 验证（lint）
+- **不变量**：所有摄取过的内容必须通过现有 9 维 lint；任何降低 lint pass 率的摄取必须被拒绝
+- **v2.0 bootstrap 约束**：用户审批种子源 → agent 执行摄取 → lint 验证整合。v2.5 之前不允许完全自主的源发现。
+
+**阻塞 / 开放问题**：
+- Self-Evolving Agents survey 明确说"proactive knowledge acquisition from the environment"无现有实现
+- 冷启动问题（没有 friction 历史时如何触发？）
+- 对齐问题（摄取的知识可能带来新的假设，人类能评估吗？）
+- 压缩工程（摄取速度 >> 压缩速度 → 膨胀）
+
+**不会做**：
+- 在 v1.2 实现代谢入口（违反第一性原理立场）
+- 在 v1.2 之前用其他名字隐藏这个原语（违反身份完整性）
+- 把这个任务降级为 "feature backlog"（这是 identity commitment，不是 feature）
 
 ---
 
@@ -119,6 +150,7 @@ Phase 3  非 ASCC 项目示例            ⏳ v1.2 目标
 | `docs/current/readme_craft_2026-04-10.md` | [LOCAL] | README 重写策略（4轮，87%置信度）|
 | `docs/current/brand_craft_2026-04-10.md` | [LOCAL] | 品牌视觉策略（4轮，88%置信度）|
 | `docs/current/launch_craft_2026-04-10.md` | [LOCAL] | 发布策略（2轮，87%置信度）|
+| `docs/current/vision_recovery_craft_2026-04-10.md` | **[ACTIVE] [ANCHOR]** | **愿景恢复辩论（3轮，≥90%置信度）**：发现 11 项被压缩丢失的愿景元素，含 substrate / CPU / 非参数进化 / 代谢入口 / mutation-selection / anti-cancer / 盲点列表。**每次上下文压缩后必读**。 |
 
 > `[LOCAL]` 标签表示仅存在于本地，不纳入远端仓库（.gitignore 排除）。
 
