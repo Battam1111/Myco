@@ -22,11 +22,14 @@
 > OpenClaw = 存储层验证；Hyperagents = 进化 CPU；Myco = 进化操作系统。互补，不竞争。
 
 **🧭 身份锚点**（抗漂移——每次上下文压缩后 agent 必须重读）：
-1. Myco = 基质（substrate），不是工具。Agent 运行在 Myco 上，不是 Agent 使用 Myco。
-2. 非参数进化：Agent 权重永不改动，所有学习在基质里（md/yaml/目录结构）。
-3. 齿轮 1-4 是自主神经系统（内向稳态）；代谢入口是消化系统（外向摄取，v2.0 原语）。
-4. 人机协作：系统做变异，人类做选择。透明性是选择压力的前提，所以不可变。
-5. 详细愿景恢复记录见 `docs/current/vision_recovery_craft_2026-04-10.md`——这是防漂移的永久锚点。
+1. **基质 vs 工具**：Myco 是基质（substrate），不是工具。Agent 运行在 Myco 上，不是 Agent 使用 Myco。架构上：项目无关的**内核**（本仓库）+ 项目**实例**（你的项目目录），正如 OS 与应用的关系。
+2. **非参数进化**：Agent 权重永不改动，所有学习在基质里（md/yaml/目录结构）。
+3. **代谢 + 七步管道**：齿轮 1-4 是自主神经系统（内向稳态）；代谢入口是消化系统（外向摄取，v2.0 原语）。完整管道：发现→评估→萃取→整合→压缩→验证→**淘汰**。没有第七步就不是代谢，是消化。
+4. **压缩即认知**：存储无限，注意力有限。"不遗忘，只压缩" 是 doctrine 不是工程细节——压缩决策是基质的首要认知行为。三条判据：频率 · 时效 · 排他性。压缩是 Agent-adaptive 的（32K vs 200K 策略不同），压缩策略本身也进化。
+5. **四层自我模型**：A 库存 · B 缺口 · C 退化（仅事实性，结构性退化是开放问题）· D 效能（"死知识"追踪，未实现）。今天 Myco 实现 A+B+partial C。
+6. **人机协作**：系统做变异（mutation），人类做选择（selection）。透明性是选择压力的前提，所以不可变——没透明就没选择压力，就会癌变。
+7. **理论血统**：Karpathy LLM Wiki + Polanyi Tacit + Argyris Double-Loop + Toyota PDCA + Voyager Skill Library。详见 `docs/theory.md`。
+8. **永久锚点文档**：详细愿景恢复记录见 `docs/current/vision_recovery_craft_2026-04-10.md`——这是防漂移的永久锚点，18 项丢失元素全部在里面有原文引证。**任何一次上下文压缩后第一件事是重读它。**
 
 **Agent 行为准则**：
 - **即时沉淀** — 关键决策当下写入文档，不等会话结束
@@ -150,7 +153,7 @@ Phase 3  非 ASCC 项目示例            ⏳ v1.2 目标
 | `docs/current/readme_craft_2026-04-10.md` | [LOCAL] | README 重写策略（4轮，87%置信度）|
 | `docs/current/brand_craft_2026-04-10.md` | [LOCAL] | 品牌视觉策略（4轮，88%置信度）|
 | `docs/current/launch_craft_2026-04-10.md` | [LOCAL] | 发布策略（2轮，87%置信度）|
-| `docs/current/vision_recovery_craft_2026-04-10.md` | **[ACTIVE] [ANCHOR]** | **愿景恢复辩论（3轮，≥90%置信度）**：发现 11 项被压缩丢失的愿景元素，含 substrate / CPU / 非参数进化 / 代谢入口 / mutation-selection / anti-cancer / 盲点列表。**每次上下文压缩后必读**。 |
+| `docs/current/vision_recovery_craft_2026-04-10.md` | **[ACTIVE] [ANCHOR]** | **愿景恢复辩论（4轮，≥92%置信度）**：三次递归 extraction 发现 **18 项**被压缩丢失的愿景元素，含 substrate / CPU / 非参数进化 / 代谢入口 / 七步管道含淘汰 / 压缩即认知 / 四层自我模型 / kernel-instance split / mutation-selection / anti-cancer / 盲点列表 / 理论血统。**每次上下文压缩后必读**。 |
 
 > `[LOCAL]` 标签表示仅存在于本地，不纳入远端仓库（.gitignore 排除）。
 

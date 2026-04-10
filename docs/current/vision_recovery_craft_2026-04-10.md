@@ -12,7 +12,7 @@
 
 ## 0. Why this debate exists
 
-Between 2026-04-08 (Myco 命名日) and 2026-04-10 (公开发布日), the public-facing narrative drifted. Through two rounds of `readme_craft`, `launch_craft`, and `decoupling_positioning` work, the README converged on a **defensive / reflexive** framing ("other tools give memory, Myco gives metabolism — lint catches drift") that is *true but incomplete*. A second-pass re-extraction from the 04-08 transcript (triggered by user request 2026-04-10) revealed that **eleven** structurally important elements were compressed out of the top layer of documents. The first four are what the user explicitly named; the remaining seven were discovered during this recovery pass and are equally load-bearing.
+Between 2026-04-08 (Myco 命名日) and 2026-04-10 (公开发布日), the public-facing narrative drifted. Through two rounds of `readme_craft`, `launch_craft`, and `decoupling_positioning` work, the README converged on a **defensive / reflexive** framing ("other tools give memory, Myco gives metabolism — lint catches drift") that is *true but incomplete*. Three successive re-extraction passes from the 04-08 transcript (all triggered by user requests on 2026-04-10) revealed that **eighteen** structurally important elements were compressed out of the top layer of documents. The first four are what the user explicitly named at the start; seven more emerged when I scanned for "anything else load-bearing"; another seven emerged when the user recalled that "compression was also important." Each pass found content as weighty as the last, which is itself diagnostic: **context compression eats core identity in proportion to the fraction of the corpus it discards, not in proportion to how "important" the content was to the original author**. Every future identity audit should expect multiple recursion passes before convergence.
 
 **Primary four (user-identified):**
 
@@ -21,7 +21,7 @@ Between 2026-04-08 (Myco 命名日) and 2026-04-10 (公开发布日), the public
 3. **Non-parametric evolution** — all learning happens in Myco; Agent weights are never touched. This is the *mechanism* behind "Self-Evolving."
 4. **Knowledge metabolism → external absorption** — Myco drives Agent (and human) to proactively 吞噬 external knowledge. Growth comes from outside, not just from internal reflection.
 
-**Secondary seven (found during 04-10 re-extraction):**
+**Secondary seven (found during 04-10 first re-extraction):**
 
 5. **Mutation / Selection collaboration model** — system 做变异, human 做选择. The canonical human-Myco relationship.
 6. **Transparency → selection pressure → anti-cancer** — the causal chain that makes immutable law #2 load-bearing.
@@ -30,6 +30,16 @@ Between 2026-04-08 (Myco 命名日) and 2026-04-10 (公开发布日), the public
 9. **"Unconscious prototype already running"** — ASCC 8-day project as credibility anchor, not just validation stats.
 10. **Six-way differentiation matrix** — vs Hermes, Second Brain, Hyperagents, Mem0, Enterprise KMS, hand-crafted Cowork.
 11. **Four acknowledged blind spots** — cold start, trigger signals, alignment, compression engineering. An open-problems list worth publishing.
+
+**Tertiary seven (found during 04-10 second re-extraction, user-prompted with "compression was important too"):**
+
+12. **Compression doctrine** — storage is infinite, attention is not; compression mechanism *is* intelligence; compression is agent-adaptive (context-window-aware); three candidate criteria (usage frequency, temporal relevance, exclusivity).
+13. **Seven-step metabolism pipeline including 淘汰 (active excretion)** — without excretion, it's ingestion, not metabolism.
+14. **Self-model four-layer hierarchy (A/B/C/D)** — inventory / gap sensing / decay sensing / efficacy evaluation, with "dead knowledge" concept inside layer D.
+15. **Kernel / instance separation** — Myco kernel is project-agnostic like an OS; project content is an "application" running on it. Makes the substrate-as-OS metaphor literal, not analogical.
+16. **Transferable vs project-specific knowledge** — two-axis classification governing how compression and distillation treat each kind.
+17. **Structural decay vs factual decay** — lint catches factual decay only; structural decay (right architecture for early-stage ≠ right architecture for mature stage) has no detector and is an open problem.
+18. **Theoretical foundations lineage** — Karpathy LLM Wiki + Polanyi Tacit Knowledge + Argyris Double-Loop Learning + Toyota PDCA + Voyager Skill Library. Myco stands on 50 years of epistemology, control theory, and organizational learning research; the public README mentions none of it.
 
 The public README positions Myco as a **watcher** (lint, reflect, reference integrity). The original vision positioned it as a **growing organism that eats the world and digests it into shared knowledge**. These are not the same thing. A watcher can be bolted onto any project. A substrate redefines the relationship between Agent and environment.
 
@@ -138,7 +148,124 @@ This is Myco's credibility anchor: the 8-day ASCC project was not a demo, it was
 
 These are open problems acknowledged in the canonical vision doc but not surfaced to public contributors. An open problems list is exactly the kind of content that attracts good PRs.
 
-### 1.13 Mycelium name origin (canonical)
+### 1.13 Compression doctrine — the thermodynamic split (lost, user-flagged)
+
+> User, 04-08: "我认为**不需要遗忘**，因为它不是生物，它的存储空间可以无限大，只要有存储介质即可；**但的确需要压缩**，因为它在活动时不可能查看所有过往的记忆，这太低效也没必要，**合适的压缩机制本身也是智能的体现**。同时这也是可以进化的点。"
+
+This is Myco's compression doctrine in one paragraph. Three distinct claims are bundled:
+
+1. **Storage is infinite, attention is not.** Myco's storage budget is *thermodynamically* unlimited (just add disks); its attention budget is bounded by the Agent's context window. Compression lives entirely on the attention side.
+2. **Compression mechanism *is* intelligence.** It is not plumbing. The decision of what to keep active, what to push to cold storage, what to re-summarize, what to re-expand on demand — this is the substrate *thinking*. Demote it to "just an engineering detail" and Myco's primary cognitive act gets hidden.
+3. **Compression itself evolves.** Not just the content being compressed. The compression strategy is a first-class evolution target (Gear 3 / 4 candidate).
+
+Three candidate criteria for what to drop, from assistant-side probing (04-08):
+
+- **Usage frequency** — low-read wiki pages / low-referenced canon entries
+- **Temporal relevance** — time-bound knowledge past its validity
+- **Exclusivity** — "常识 every agent already knows" (e.g. basic Python syntax) wastes substrate space
+
+One more structural rule (04-08):
+
+> "32K context 的 Agent 需要比 200K 的更激进的压缩。"
+
+Compression is **agent-adaptive**. The same Myco substrate must render itself differently for a 32K-context client vs. a 200K-context client. This is a concrete example of Agent-adaptive universality (the fifth core capability), not just a theoretical property.
+
+**Why this was the single most dangerous thing to lose**: the public README currently treats compression as housekeeping (the ".original / auto-compressed" file convention is mentioned once in MYCO.md, never in README). But compression is the *bottleneck of Agent-Myco bandwidth* — everything Myco knows must pass through the compression pipeline before it reaches the Agent's context window. Lose the doctrine, and Myco looks like a file store. Keep it, and Myco is revealed as a cognitive compressor whose job is to decide what the Agent gets to think with.
+
+### 1.14 Seven-step metabolism pipeline — including 淘汰 (active excretion) (lost)
+
+Original 04-08 pipeline, verbatim:
+
+> "```
+> 外部世界（GitHub/论文/社区/工具）
+>         ↓ 自主发现
+>         ↓ 评估（相关性、质量、新颖性）
+>         ↓ 萃取（不是复制，是提取有用的模式）
+>         ↓ 整合（融入已有知识，不是简单追加）
+>         ↓ 压缩（保持精简，不臃肿）
+>         ↓ 验证（事实性、时效性）
+>         ↓ **淘汰（过时的知识主动清除）**
+> 系统自身 → 变得更强
+> ```"
+
+The current `myco_vision_2026-04-08.md` shows **six** steps (discover → evaluate → extract → integrate → compress → verify). The canonical 04-08 version has **seven** — the final 淘汰 (active excretion) step was dropped during the vision doc's own compression.
+
+This drop is not cosmetic. Metabolism in biology is defined as *intake + transformation + **excretion***. Remove excretion and you have digestion only, which is a strictly weaker concept. "Dead knowledge" (see 1.15 below) accumulates without 淘汰; the substrate bloats; compression stops being intelligent and starts being lossy triage.
+
+Myco's metabolism must be explicitly seven-step. Six is a bug.
+
+### 1.15 Self-model four-layer hierarchy A/B/C/D (weakly preserved)
+
+04-08 canonical breakdown:
+
+> "**层级 A — 库存清单**（我有什么）— 知识总量、分布、更新时间. 类似 `ls` + `wc -l` + 日期检查. **自动化难度：低.**
+>
+> **层级 B — 缺口感知**（我缺什么）— 怎么知道自己不知道什么？当 Agent 在工作中被迫从零开始摸索某件事，这就是一个缺口信号. 类似于 friction 记录——摩擦点就是知识缺口的症状. **自动化难度：中.**
+>
+> **层级 C — 退化感知**（什么在变坏）— 知识会腐化. Lint 是退化感知的雏形. 更深的退化是**结构性退化**——不是某个事实错了，而是知识的组织方式不再适合当前需求. 比如四层架构在项目早期很好，但项目成熟后也许三层更合适. 这种结构性退化目前完全没有检测机制. **自动化难度：中.**
+>
+> **层级 D — 效能评估**（我的知识有没有被有效使用）— 最难的一层. 一个 wiki 页面存在但从来没被 Agent 读取过——它是**『死知识』**. 理想状态：系统追踪每个知识组件被引用/使用的频率，低频组件要么需要压缩，要么说明它的组织位置有问题（Agent 找不到它）. 这是 Hermes 的技能系统有而我们完全没有的. **自动化难度：最高.**"
+
+Current vision doc preserves the four-layer table but not the automation-difficulty ranking, not the "structural decay" distinction (→ element 1.17), and not the "dead knowledge" concept. Public README mentions "self-model" as a bullet without unpacking any of it.
+
+This hierarchy is the *scaffold* of Myco's introspection. Without it, "Myco has a self-model" is a claim; with it, it's an architecture. A → lint manifest; B → friction logs; C → lint + structural-decay detector (open problem); D → usage tracking (not yet implemented).
+
+### 1.16 "Dead knowledge" — the usage-signal gap vs. Hermes (lost)
+
+Inside the 04-08 self-model layer D is a concrete diagnostic concept:
+
+> "一个 wiki 页面存在但从来没被 Agent 读取过——它是**『死知识』**. 这是 Hermes 的技能系统有而我们完全没有的——Hermes 的技能是『被调用的』，有明确的使用信号. 我们的 wiki 页面被不被读完全靠 Agent 的自觉."
+
+Hermes-style skill libraries have a built-in invocation counter. Myco wiki pages do not. This means Myco's layer D is structurally blind today — we cannot tell which pages are metabolically live vs. dead without explicit instrumentation.
+
+Open problem for v1.2 or later: wiki-read / canon-lookup usage tracking. Until then, "self-model" is really "self-model layers A + B + partial C."
+
+### 1.17 Structural decay vs. factual decay (lost)
+
+From the layer-C discussion:
+
+> "更深的退化是**结构性退化**——不是某个事实错了，而是知识的组织方式不再适合当前需求. 比如四层架构在项目早期很好，但项目成熟后也许三层更合适. 这种结构性退化目前完全没有检测机制."
+
+`myco lint` detects factual decay (version mismatches, reference drift, stale patterns). It has zero ability to detect *structural* decay — when the architecture that was correct at day 3 has become wrong at day 30. This is arguably the hardest problem in the entire knowledge-system design space, and it was acknowledged on 04-08 but silently dropped from public docs.
+
+This should live as a fifth open problem alongside cold-start / triggers / alignment / compression-engineering, OR absorbed into the compression-engineering slot with the understanding that compression decisions must consider structural fit, not just size.
+
+### 1.18 Kernel / instance separation — OS vs. applications (lost)
+
+> "要服务『任何项目』，就意味着系统本身需要分成两部分：**内核**（与项目无关的认知机制）和**项目实例**（某个具体项目的知识库）. 就像操作系统和应用程序的关系."
+
+This is what makes the substrate-as-OS metaphor **literal, not analogical**. Myco is not *like* an operating system; it *is* split architecturally the way an OS is split: a project-agnostic kernel + a project-specific instance. The Myco repo (kernel) and the ASCC repo (instance) are the concrete realization.
+
+Current README has open/closed separation mentioned in passing but never names the kernel/instance distinction. Making it explicit:
+- tightens the CPU/OS metaphor (now self-consistent top to bottom),
+- gives contributors a clean mental model of where to PR (kernel = Myco repo; instance = adapter or example repo),
+- creates vocabulary for explaining why `myco init` templates exist (instance bootstrap) vs. why the four-gear engine lives in core (kernel behavior).
+
+### 1.19 Transferable vs. project-specific knowledge (lost)
+
+From 04-08 metabolism discussion:
+
+> "跨项目场景下，项目间的知识如何流动？比如 ASCC 项目中学到的『HPC 部署经验』，在新项目中也有用——但 ASCC 的『λ=0.1 导致性能不佳』这个结论只对 ASCC 有意义. 系统怎么区分**可迁移知识**和**项目专属知识**？"
+
+Two-axis knowledge classification. Transferable knowledge distills upward into kernel-level patterns (Gear 4's output); project-specific knowledge stays in the instance. Without this distinction, Gear 4 either over-generalizes (pollutes the kernel with project-specific stuff) or under-generalizes (misses reusable lessons).
+
+Current README mentions "distill universal patterns" but doesn't name the transferable/specific split. This should be explicit in the Gear 4 description.
+
+### 1.20 Theoretical foundations lineage (lost)
+
+04-08 and earlier session notes repeatedly anchor Myco in five named theoretical traditions:
+
+> "理论基础：Karpathy LLM Wiki + Polanyi Tacit Knowledge + Argyris Double-Loop Learning + Toyota PDCA + Voyager Skill Library"
+
+- **Karpathy LLM Wiki** — structured knowledge compilation for LLM consumption. Source of the wiki-as-first-class-artifact design.
+- **Polanyi Tacit Knowledge** — proximal / distal structure; operational experience lives in proximal terms that cannot be made fully explicit. Source of W6 and the operational-narratives convention.
+- **Argyris Double-Loop Learning** — single-loop fixes the action; double-loop fixes the governing rules. Source of Gear 3 (challenge structural assumptions) and the whole L-struct / L-meta framing.
+- **Toyota PDCA** — Plan / Do / Check / Act cycle as the base unit of continuous improvement. Source of the four-gear engine's cyclic shape.
+- **Voyager Skill Library** — iterative skill accumulation via grounded execution. Source of the "skill library" concept in operational narratives.
+
+The public README mentions none of these. Myco's internal `docs/theory.md` covers a subset. This absence means a reader assumes Myco is a 2026-invented toy rather than a 2026 *formalization* of a 50-year lineage of epistemology, control theory, and organizational learning research. Credibility loss is real and cheap to fix.
+
+### 1.21 Mycelium name origin (canonical)
 
 > "Myco 来自 mycelium（菌丝网络）——森林地下那张看不见的活网。菌丝不只是连接树木的管道：它分泌酶将落叶分解为养分，记住有效的生长路径并据此调整策略，根据需求将资源从丰裕区域调往匮乏区域，并与不同树种的根系都能形成共生。Agent 是地面上的树，Myco 是地下让整片森林成活的网络。"
 
@@ -188,11 +315,42 @@ A roadmap that says "Gear 5: External Absorption — mechanism TBD, earliest v2.
 
 A2's second point (axis collision) is real. Resolution: do not call it Gear 5. Call it **the outward gear** or **metabolic inlet**, and diagram it orthogonally to the 1-4 temporal nesting. Four gears handle *when* evolution happens; the metabolic inlet handles *where the matter comes from*. They compose, not compete.
 
-### Round 3 — Confidence check
+### Round 3 — Compression as cognition (user-prompted)
 
-Revised primary claim: **The public README must restore four elements — substrate identity, CPU metaphor, non-parametric evolution mechanism, and the metabolic inlet (external absorption as a declared but unimplemented primitive) — and the MYCO.md v1.2 queue must add the inlet as an identity-level roadmap item. Lint remains the *how*, substrate remains the *what*, metabolism remains the *why*.**
+**Claim (C3)**: Compression is not a housekeeping concern in Myco; it is **the substrate's primary cognitive act**. The doctrine "no forgetting, only compression" — storage infinite, attention finite, compression itself intelligent and itself evolving — must be elevated to first-class README content, alongside substrate identity and non-parametric evolution. The seven-step metabolism pipeline (including 淘汰) must replace every six-step rendering. The self-model must unpack its four layers. The kernel/instance split must become an explicit architectural commitment, not an implicit one.
 
-Confidence: **≥90%**.
+**Attack (A3)**: You're trying to cram too much. A README is triage — the top-level narrative carries at most three or four primary ideas. Substrate + non-parametric evolution + metabolism already saturates the hero. Adding "compression is cognition" + seven-step pipeline + four-layer self-model + kernel/instance split risks returning to the pre-04-10 failure mode — this time not "drifted too narrow" but "drifted too broad and unreadable."
+
+Also: the compression doctrine ("storage infinite, attention finite") sounds profound but is just a restatement of the context-window problem that every agent framework already solves somehow. Calling it a "primary cognitive act" may be over-claiming.
+
+**Research (R3)**: Does the 2026 field treat compression as cognition or as housekeeping?
+
+- **MemOS** (Jul 2025) models memory scheduling as "explicit control and dynamic activation" across plaintext / activation / parameter substrates. *Scheduling = compression decision-making.* MemOS treats it as core architecture, not housekeeping.
+- **A-Mem (Agentic Memory for LLM Agents, arXiv 2502.12110)** frames memory management as an agentic loop (write / organize / retrieve), where the *organize* step is exactly compression-as-decision. Organize is first-class, not plumbing.
+- **ICLR 2026 MemAgents workshop proposal** explicitly lists "consolidation into generalizable knowledge" as one of the core substrate primitives. Consolidation = compression with semantic selection. First-class.
+- **Self-Evolving Agents Survey (arXiv 2507.21046v4)** names "what to drop, when, without losing load-bearing tacit knowledge" as an open problem — validating both the importance *and* the unresolved status.
+
+Three independent 2026 sources treat compression decisions as a first-class cognitive primitive for agent memory systems. None treat it as plumbing. A3's "over-claim" concern is wrong on the empirical question.
+
+**Defense (D3)**: A3's triage point is half-right and half-wrong. Right: the hero paragraph should stay at three or four ideas (substrate + CPU metaphor + non-parametric + metabolism). Wrong: "compression is cognition" does not have to go in the hero. It can live inside the How It Works section as a short dedicated subsection ("The Compression Doctrine"), adjacent to the four gears + inlet table. That's the right home — it's mechanism, not hero.
+
+The seven-step pipeline replacement is non-negotiable: the six-step version is literally a lossy compression of the canonical version, and one of the lost steps is 淘汰 — the metabolic act itself. Fixing this costs one additional row in the table. It is not bloat; it is correctness.
+
+The self-model four-layer unpack is also non-negotiable, but can be compressed (appropriately!) to a 4-row table inside How It Works. Same cost as adding the inlet row.
+
+Kernel/instance can be a single sentence inside "What Myco Is" — "Myco is architecturally split into a project-agnostic kernel (this repo) and project instances (your project directory), exactly as an OS is split from its applications." One sentence. Zero bloat.
+
+Theoretical foundations should be a single line at the bottom of Validation or Story: "Myco stands on Karpathy LLM Wiki + Polanyi Tacit Knowledge + Argyris Double-Loop Learning + Toyota PDCA + Voyager Skill Library; see `docs/theory.md`." One line. Massive credibility lift.
+
+**Total additional word count** for all seven tertiary elements, measured against the post-Round-2 README draft: roughly 250–300 words. The README currently sits at ~230 lines; post-recovery will be ~280. This is within the "dense but not bloated" regime.
+
+### Round 4 — Final confidence check
+
+Revised primary claim (post Round 3): **The public README must restore eighteen elements across four thematic clusters — Identity (substrate, CPU metaphor, non-parametric, kernel/instance), Metabolism (seven-step pipeline, external absorption inlet, transferable vs. specific knowledge), Cognition (compression doctrine, four-layer self-model, dead knowledge, structural vs. factual decay), and Collaboration (mutation/selection, transparency→anti-cancer, agent-subject inversion, living-vs-dead frame, unconscious prototype, six-way differentiation, blind spots, theoretical foundations) — while keeping the README inside the "dense but not bloated" regime (~280 lines).**
+
+Lint remains the *how*. Substrate remains the *what*. Metabolism remains the *why*. Compression is the *act*.
+
+Confidence: **≥92%** (raised from ≥90% after Round 3 external validation of compression-as-cognition).
 
 - User intent: directly quoted, unambiguous.
 - Transcript evidence: all four elements present verbatim in 04-08 session, with multiple independent formulations.
@@ -218,7 +376,7 @@ Then — and only then — introduce `myco lint` as *substrate immunity*.
 
 Add a section **"What Myco Is"** directly after the hero, above **What It Looks Like**, with four bullets:
 
-- **Substrate, not tool** — Agent runs on Myco the way processes run on an OS.
+- **Substrate, not tool** — Agent runs on Myco the way processes run on an OS. Architecturally split into a project-agnostic *kernel* (this repo) and project *instances* (your project directory), exactly as an OS is split from its applications.
 - **Non-parametric evolution** — weights never change; the substrate changes.
 - **Knowledge metabolism** — Myco decomposes external information into usable structure. Lint is the immune system; the metabolic inlet (v2.0) is the digestive system.
 - **Perpetual evolution** — stagnation = death; this is the only inviolable law, because a substrate that stops metabolizing is just a cache.
