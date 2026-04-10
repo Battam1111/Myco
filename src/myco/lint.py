@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Myco Knowledge System — Automated 9-Dimension Lint.
+Myco Knowledge System — Automated 13-Dimension Lint.
 
 Dimensions:
     L0  Canon Self-Check — _canon.yaml contains all required keys
@@ -14,6 +14,8 @@ Dimensions:
     L8  .original Sync — compressed file timestamp consistency (v2.5)
     L9  Vision Anchor — identity-element drift detection (v1.1.1)
     L10 Notes Schema — atomic-note frontmatter validation (v1.2.0)
+    L11 Write Surface — _canon.yaml write_surface whitelist (v1.2.0)
+    L12 Upstream Dotfile Hygiene — .myco_upstream_{outbox,inbox}/ rules (v1.2.0)
 """
 
 import os
@@ -585,6 +587,76 @@ def lint_write_surface(canon, root):
     return issues
 
 
+def lint_dotfile_hygiene(canon, root):
+    """L12 — Upstream transport dotfile dir hygiene.
+
+    Upstream Protocol v1.0 (see docs/agent_protocol.md §8.5) defines two
+    transport directories at the repo root:
+
+      - ``.myco_upstream_outbox/``  (instance → kernel)
+      - ``.myco_upstream_inbox/``   (kernel ack → instance)
+
+    Rules:
+      1. If either dir exists, every file inside MUST match the pattern
+         ``upstream_YYYYMMDDTHHMMSS_[0-9a-f]{4}\\.(json|md|patch)``.
+      2. Files older than 30 days produce a LOW-severity GC reminder.
+      3. Any OTHER ``.myco_*`` top-level dir is HIGH (reserved namespace).
+    """
+    import re as _re
+    import time as _time
+
+    issues = []
+
+    pattern = _re.compile(
+        r"^upstream_\d{8}T\d{6}_[0-9a-f]{4}\.(json|md|patch)$"
+    )
+    ALLOWED_DIRS = {".myco_upstream_outbox", ".myco_upstream_inbox"}
+    thirty_days = 30 * 86400
+    now = _time.time()
+
+    try:
+        for name in sorted(os.listdir(root)):
+            if not name.startswith(".myco_"):
+                continue
+            full = root / name
+            if not full.is_dir():
+                continue
+            if name not in ALLOWED_DIRS:
+                issues.append(("L12", "HIGH", name + "/",
+                               "Unknown .myco_* top-level dir. "
+                               "Only .myco_upstream_outbox/ and "
+                               ".myco_upstream_inbox/ are reserved. "
+                               "See docs/agent_protocol.md §8.5."))
+                continue
+
+            for child in sorted(full.iterdir()):
+                if child.is_dir():
+                    issues.append(("L12", "HIGH", f"{name}/{child.name}/",
+                                   f"{name}/ must be flat — no subdirectories"))
+                    continue
+                if child.name == "README.md":
+                    continue
+                if not pattern.match(child.name):
+                    issues.append(("L12", "HIGH", f"{name}/{child.name}",
+                                   "Filename does not match "
+                                   "upstream_YYYYMMDDTHHMMSS_xxxx.(json|md|patch). "
+                                   "See docs/agent_protocol.md §8.5."))
+                    continue
+                try:
+                    age = now - child.stat().st_mtime
+                    if age > thirty_days:
+                        days = int(age // 86400)
+                        issues.append(("L12", "LOW", f"{name}/{child.name}",
+                                       f"Upstream transport file is {days} days "
+                                       "old — consider GC or promotion."))
+                except OSError:
+                    pass
+    except OSError:
+        return issues
+
+    return issues
+
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
@@ -618,6 +690,7 @@ def main(root: Path = None, quick: bool = False, fix_report: bool = False) -> in
             ("L9 Vision Anchor", lint_vision_anchors),
             ("L10 Notes Schema", lint_notes_schema),
             ("L11 Write Surface", lint_write_surface),
+            ("L12 Upstream Dotfile Hygiene", lint_dotfile_hygiene),
         ])
 
     all_issues = []

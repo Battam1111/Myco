@@ -87,7 +87,7 @@ def _read_file(path: Path) -> Optional[str]:
 @mcp.tool(
     name="myco_lint",
     annotations={
-        "title": "Myco Lint — 9-Dimension Consistency Check",
+        "title": "Myco Lint — 13-Dimension Consistency Check",
         "readOnlyHint": True,
         "destructiveHint": False,
         "idempotentHint": True,
@@ -98,16 +98,18 @@ async def myco_lint(
     project_dir: Optional[str] = None,
     quick: bool = False,
 ) -> str:
-    """Run Myco's 12-dimensional lint checks on the knowledge system.
+    """Run Myco's 13-dimensional lint checks on the knowledge system.
 
     Call this after modifying wiki pages, docs, MYCO.md, or _canon.yaml to catch
-    contradictions, orphan files, stale references, version drift, and agent
-    write-surface violations. This is the immune system of the knowledge substrate.
+    contradictions, orphan files, stale references, version drift, agent
+    write-surface violations, and upstream transport hygiene issues. This is
+    the immune system of the knowledge substrate.
 
     Checks: L0 Canon schema, L1 Reference integrity, L2 Number consistency,
     L3 Stale patterns, L4 Orphan detection, L5 Log coverage, L6 Date consistency,
     L7 Wiki format, L8 .original sync, L9 Vision anchor, L10 Notes schema,
-    L11 Write surface (agent contract from docs/agent_protocol.md).
+    L11 Write surface (agent contract from docs/agent_protocol.md §1),
+    L12 Upstream dotfile hygiene (.myco_upstream_{outbox,inbox}/ rules from §8.5).
 
     Args:
         project_dir: Path to Myco project root. Auto-detected if omitted.
@@ -129,6 +131,7 @@ async def myco_lint(
         lint_stale_patterns, lint_orphans, lint_log,
         lint_dates, lint_wiki_format, lint_original_sync,
         lint_vision_anchors, lint_notes_schema, lint_write_surface,
+        lint_dotfile_hygiene,
     )
 
     checks = [
@@ -147,6 +150,7 @@ async def myco_lint(
             ("L9 Vision Anchor", lint_vision_anchors),
             ("L10 Notes Schema", lint_notes_schema),
             ("L11 Write Surface", lint_write_surface),
+            ("L12 Upstream Dotfile Hygiene", lint_dotfile_hygiene),
         ])
 
     results = []

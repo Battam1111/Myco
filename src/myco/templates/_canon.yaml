@@ -8,6 +8,29 @@ system:
   principles_count: 12               # W1-W12
   principles_label: "十二原则"
   entry_point: "{{ENTRY_POINT}}"      # Filename of the L1 entry document (override: CLAUDE.md for Claude, GPT.md for GPT, etc.)
+
+  # ── Upstream Protocol v1.0 (contract version lock) ─────────────────────────
+  # See kernel docs/agent_protocol.md §8. Instance agents MUST compare
+  # synced_contract_version against the kernel's contract_version at boot
+  # and refresh local reflexes if drift is detected.
+  synced_contract_version: "v1.2.0"   # last kernel contract the instance aligned with
+  upstream_scan_last_run: null         # ISO-8601 timestamp of last upstream scan
+  upstream_channels:
+    # Path-based classification — strictest-class-wins. See §8.2.
+    class_x:                           # Auto-mergeable
+      - log.md
+      - notes/**
+      - examples/**
+    class_y:                           # Inline-confirm (docs / wiki prose)
+      - wiki/**
+      - docs/**
+    class_z:                           # Review-required (contract / lint / templates)
+      - docs/agent_protocol.md
+      - scripts/lint_knowledge.py
+      - src/myco/lint.py
+      - src/myco/mcp_server.py
+      - _canon.yaml
+      - src/myco/templates/**
   wiki_page_types:
     - entity
     - concept
