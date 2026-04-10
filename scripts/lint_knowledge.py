@@ -20,6 +20,7 @@ Dimensions:
     L7  Wiki W8 Format — header (type + date) + footer (Back to) template compliance
     L8  .original Sync — compressed file timestamp consistency (v2.5)
     L9  Vision Anchor — identity-element drift detection (v1.1.1)
+    L10 Notes Schema — atomic-note frontmatter validation (v1.2.0)
 """
 
 import os
@@ -415,6 +416,122 @@ def lint_vision_anchors(canon):
     return issues
 
 # ---------------------------------------------------------------------------
+# L10: Notes Schema — validate frontmatter on every notes/*.md
+# ---------------------------------------------------------------------------
+
+_FRONTMATTER_RE = re.compile(
+    r"^---\s*\n(?P<fm>.*?\n)---\s*\n(?P<body>.*)$",
+    re.DOTALL,
+)
+
+
+def lint_notes_schema(canon):
+    """Validate that every notes/*.md has a well-formed frontmatter block
+    matching the schema declared in _canon.yaml → system.notes_schema.
+
+    Authoritative runtime is src/myco/notes.py::validate_frontmatter. This
+    standalone check mirrors that logic so projects without the myco
+    package installed can still lint their notes.
+    """
+    issues = []
+    schema = canon.get("system", {}).get("notes_schema")
+    if not schema:
+        return issues  # feature not configured; skip silently
+
+    notes_dir = ROOT / schema.get("dir", "notes")
+    if not notes_dir.exists():
+        return issues  # no notes yet; not a failure
+
+    required_fields = schema.get("required_fields", []) or []
+    valid_statuses = set(schema.get("valid_statuses", []) or [])
+    valid_sources = set(schema.get("valid_sources", []) or [])
+    filename_re = re.compile(schema.get("filename_pattern", r".*\.md$"))
+    id_re = re.compile(r"^n_\d{8}T\d{6}_[0-9a-f]{4}$")
+
+    for path in sorted(notes_dir.glob("*.md")):
+        rel = str(path.relative_to(ROOT))
+        name = path.name
+
+        # Skip non-note files (e.g. README.md) silently — only files
+        # starting with 'n_' are subject to schema validation.
+        if not name.startswith("n_"):
+            continue
+
+        if not filename_re.match(name):
+            issues.append(("L10", "MEDIUM", rel,
+                           f"Filename does not match schema pattern"))
+            continue
+
+        content = read_file(path)
+        if content is None:
+            issues.append(("L10", "HIGH", rel, "Cannot read notes file"))
+            continue
+
+        m = _FRONTMATTER_RE.match(content)
+        if not m:
+            issues.append(("L10", "CRITICAL", rel,
+                           "Missing YAML frontmatter block (--- ... ---)"))
+            continue
+
+        try:
+            meta = yaml.safe_load(m.group("fm")) or {}
+        except yaml.YAMLError as e:
+            issues.append(("L10", "CRITICAL", rel,
+                           f"Malformed frontmatter YAML: {e}"))
+            continue
+
+        if not isinstance(meta, dict):
+            issues.append(("L10", "CRITICAL", rel,
+                           "Frontmatter is not a mapping"))
+            continue
+
+        for field in required_fields:
+            if field not in meta:
+                issues.append(("L10", "HIGH", rel,
+                               f"Missing required field: {field}"))
+
+        status = meta.get("status")
+        if valid_statuses and status is not None and status not in valid_statuses:
+            issues.append(("L10", "HIGH", rel,
+                           f"Invalid status {status!r}; expected one of {sorted(valid_statuses)}"))
+
+        source = meta.get("source")
+        if valid_sources and source is not None and source not in valid_sources:
+            issues.append(("L10", "MEDIUM", rel,
+                           f"Invalid source {source!r}; expected one of {sorted(valid_sources)}"))
+
+        tags = meta.get("tags")
+        if tags is not None and not isinstance(tags, list):
+            issues.append(("L10", "MEDIUM", rel, "tags must be a list"))
+
+        dc = meta.get("digest_count")
+        if dc is not None and not isinstance(dc, int):
+            issues.append(("L10", "MEDIUM", rel, "digest_count must be integer"))
+
+        pc = meta.get("promote_candidate")
+        if pc is not None and not isinstance(pc, bool):
+            issues.append(("L10", "MEDIUM", rel, "promote_candidate must be boolean"))
+
+        nid = meta.get("id")
+        if nid is not None and not id_re.match(str(nid)):
+            issues.append(("L10", "MEDIUM", rel,
+                           f"id {nid!r} does not match n_YYYYMMDDTHHMMSS_xxxx"))
+
+        # Status-conditioned checks
+        if status == "excreted" and not meta.get("excrete_reason"):
+            issues.append(("L10", "HIGH", rel,
+                           "excreted notes must have a non-empty excrete_reason"))
+
+        # Filename/id coherence
+        stem = path.stem
+        if nid and stem != nid:
+            issues.append(("L10", "MEDIUM", rel,
+                           f"filename stem {stem!r} does not match id {nid!r}"))
+
+    return issues
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -443,6 +560,7 @@ def main():
             ("L7 Wiki 格式一致性", lint_wiki_format),
             ("L8 .original 同步检查", lint_original_sync),
             ("L9 愿景锚点检查", lint_vision_anchors),
+            ("L10 Notes 结构检查", lint_notes_schema),
         ])
 
     all_issues = []

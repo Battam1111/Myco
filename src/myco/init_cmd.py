@@ -49,6 +49,37 @@ def init_level_1(project_dir: Path, replacements: dict, entry_point: str):
     print(f"  ✅ docs/current/ (Debate records — append-only)")
     print(f"  ✅ scripts/ (Tool scripts)")
 
+    # Digestive substrate — notes/ directory with a README stub so the
+    # folder isn't empty on first clone. The four-command set (eat/digest/
+    # view/hunger) reads and writes here.
+    notes_dir = project_dir / "notes"
+    notes_dir.mkdir(exist_ok=True)
+    notes_readme = notes_dir / "README.md"
+    if not notes_readme.exists():
+        notes_readme.write_text(
+            "# notes/ — Digestive Substrate\n"
+            "\n"
+            "Atomic notes live here as flat files with YAML frontmatter.\n"
+            "Filename pattern: `n_YYYYMMDDTHHMMSS_xxxx.md`\n"
+            "\n"
+            "## Four-command set\n"
+            "\n"
+            "- `myco eat`     — capture content as a raw note (zero-friction)\n"
+            "- `myco digest`  — move a note through the lifecycle\n"
+            "- `myco view`    — list or read notes\n"
+            "- `myco hunger`  — metabolic dashboard with actionable signals\n"
+            "\n"
+            "## Lifecycle\n"
+            "\n"
+            "`raw → digesting → {extracted | integrated | excreted}`\n"
+            "\n"
+            "See `_canon.yaml` → `system.notes_schema` for the authoritative\n"
+            "schema. L10 lint enforces frontmatter validity on every file\n"
+            "matching the filename pattern (this README is ignored).\n",
+            encoding="utf-8",
+        )
+    print(f"  ✅ notes/ (Digestive substrate — eat/digest/view/hunger)")
+
 
 def init_level_2(project_dir: Path, replacements: dict, entry_point: str):
     """Full: + lint_knowledge.py + complete setup"""

@@ -6,6 +6,13 @@ Usage:
     myco init <name> [--level 0|1|2] [--entry-point MYCO.md] [--dir /path]
     myco migrate <project_dir> [--level 0|1|2] [--entry-point MYCO.md] [--dry-run]
     myco lint [--quick] [--fix-report] [--project-dir /path]
+
+    # Digestive substrate (four-command set):
+    myco eat     [--content ... | --file ... | <stdin>] [--tags t1,t2] [--title "…"]
+    myco digest  [<note_id>] [--to STATUS | --excrete REASON]
+    myco view    [<note_id>] [--status STATUS] [--limit N] [--json]
+    myco hunger  [--json]
+
     myco version
 """
 
@@ -155,6 +162,105 @@ def main():
         help="Show what would be imported without making changes",
     )
 
+    # ── myco eat ───────────────────────────────────────────────────
+    # Digestive substrate — the four-command set (eat/digest/view/hunger).
+    # Authoritative design: docs/current/digestive_architecture_craft_2026-04-10.md
+    eat_parser = subparsers.add_parser(
+        "eat",
+        help="Ingest a chunk of content as a raw atomic note (zero-friction capture)",
+    )
+    eat_parser.add_argument(
+        "--content", type=str, default=None,
+        help="Inline content to eat (alternative: --file or stdin)",
+    )
+    eat_parser.add_argument(
+        "--file", type=str, default=None,
+        help="Path to a file whose contents should be eaten",
+    )
+    eat_parser.add_argument(
+        "--tags", type=str, default="",
+        help="Comma-separated tags (e.g. --tags vision,lint)",
+    )
+    eat_parser.add_argument(
+        "--source", type=str, default="eat",
+        choices=["chat", "eat", "promote", "import", "bootstrap"],
+        help="Provenance label (default: eat)",
+    )
+    eat_parser.add_argument(
+        "--title", type=str, default=None,
+        help="Optional H1 title to prepend to the note body",
+    )
+    eat_parser.add_argument(
+        "--json", action="store_true",
+        help="Emit a machine-readable JSON result",
+    )
+    eat_parser.add_argument(
+        "--project-dir", type=str, default=".",
+        help="Project root (default: current directory; walks up for _canon.yaml)",
+    )
+
+    # ── myco digest ────────────────────────────────────────────────
+    digest_parser = subparsers.add_parser(
+        "digest",
+        help="Move a note along the lifecycle (raw→digesting→extracted/integrated/excreted)",
+    )
+    digest_parser.add_argument(
+        "note_id", nargs="?", default=None,
+        help="Target note id (default: oldest raw note in queue)",
+    )
+    digest_parser.add_argument(
+        "--to", type=str, default=None,
+        help="Explicit transition target status",
+    )
+    digest_parser.add_argument(
+        "--excrete", type=str, default=None, metavar="REASON",
+        help="Shortcut: mark as excreted with the given reason",
+    )
+    digest_parser.add_argument(
+        "--project-dir", type=str, default=".",
+        help="Project root (default: current directory)",
+    )
+
+    # ── myco view ──────────────────────────────────────────────────
+    view_parser = subparsers.add_parser(
+        "view",
+        help="List notes (optionally filtered by status) or show a single note",
+    )
+    view_parser.add_argument(
+        "note_id", nargs="?", default=None,
+        help="Show a single note by id (default: list mode)",
+    )
+    view_parser.add_argument(
+        "--status", type=str, default=None,
+        help="Filter by status: raw | digesting | extracted | integrated | excreted",
+    )
+    view_parser.add_argument(
+        "--limit", type=int, default=50,
+        help="Max notes to list (default: 50)",
+    )
+    view_parser.add_argument(
+        "--json", action="store_true",
+        help="Emit JSON",
+    )
+    view_parser.add_argument(
+        "--project-dir", type=str, default=".",
+        help="Project root (default: current directory)",
+    )
+
+    # ── myco hunger ────────────────────────────────────────────────
+    hunger_parser = subparsers.add_parser(
+        "hunger",
+        help="Metabolic dashboard — raw backlog, stale notes, digestion depth, excretion rate",
+    )
+    hunger_parser.add_argument(
+        "--json", action="store_true",
+        help="Emit JSON",
+    )
+    hunger_parser.add_argument(
+        "--project-dir", type=str, default=".",
+        help="Project root (default: current directory)",
+    )
+
     # ── myco version (explicit subcommand) ─────────────────────────
     subparsers.add_parser("version", help="Show version")
 
@@ -188,6 +294,22 @@ def main():
     if args.command == "import":
         from myco.import_cmd import run_import
         sys.exit(run_import(args))
+
+    if args.command == "eat":
+        from myco.notes_cmd import run_eat
+        sys.exit(run_eat(args))
+
+    if args.command == "digest":
+        from myco.notes_cmd import run_digest
+        sys.exit(run_digest(args))
+
+    if args.command == "view":
+        from myco.notes_cmd import run_view
+        sys.exit(run_view(args))
+
+    if args.command == "hunger":
+        from myco.notes_cmd import run_hunger
+        sys.exit(run_hunger(args))
 
 
 if __name__ == "__main__":

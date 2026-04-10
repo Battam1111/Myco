@@ -21,6 +21,35 @@ system:
     - "六原则"
     - "七原则"
 
+  # ── Digestive substrate (four-command set: eat/digest/view/hunger) ────────
+  # Atomic notes live in <root>/notes/ as flat files with YAML frontmatter.
+  # L10 lint enforces this schema on every notes/*.md.
+  notes_schema:
+    dir: notes
+    filename_pattern: '^n_\d{8}T\d{6}_[0-9a-f]{4}\.md$'
+    required_fields:
+      - id
+      - status
+      - source
+      - tags
+      - created
+      - last_touched
+      - digest_count
+      - promote_candidate
+      - excrete_reason
+    valid_statuses:
+      - raw            # just ingested, not yet processed
+      - digesting      # being read / summarized / extracted
+      - extracted      # key claim lifted into wiki or entry point
+      - integrated     # fully merged into canonical structures
+      - excreted       # removed from active rotation (must cite reason)
+    valid_sources:
+      - chat           # pulled from conversation context
+      - eat            # user/agent invoked `myco eat` explicitly
+      - promote        # grown from another note
+      - import         # bulk ingested from external tool
+      - bootstrap      # created during myco init
+
 architecture:
   layers: 4                          # L1 + L1.5 + L2 + L3
   wiki_pages: 0                      # Starts at 0, grows organically

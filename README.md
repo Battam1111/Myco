@@ -94,7 +94,12 @@ See [`adapters/`](adapters/) for Cursor, GPT, and other integrations.
 pip install 'myco[mcp]'
 ```
 
-A `.mcp.json` is already included in the repo. Once installed, your agent automatically gets 5 tools: `myco_lint`, `myco_status`, `myco_search`, `myco_log`, and `myco_reflect` — no manual prompting needed.
+A `.mcp.json` is already included in the repo. Once installed, your agent automatically gets **9 tools** — no manual prompting needed:
+
+- **Reflexes** · `myco_lint` · `myco_status` · `myco_search` · `myco_log` · `myco_reflect`
+- **Digestive substrate** · `myco_eat` · `myco_digest` · `myco_view` · `myco_hunger`
+
+> **Assumption**: Myco assumes you work with an agent that speaks MCP (Claude Code, Cursor, Claude Desktop, etc.). Pure-human usage via the `myco` CLI works — but you lose the reflex layer where the agent captures knowledge automatically as the conversation flows.
 
 ---
 

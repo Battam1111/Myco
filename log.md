@@ -116,3 +116,17 @@ Yanjun 反馈"我们的推进速度由摩擦决定，不是日历决定"。craft
 ## [2026-04-10] meta | Gear 2 反思：递归 extraction 作为通用压缩失败恢复程序
 
 本次会话最大的元教训：**上下文压缩丢失身份内容的多少，取决于总结器判断可丢弃的比例，而不是作者认为的重要性**。第一次恢复找到 4 项（用户说"还有其他重要的吗？"）→ 第二次找到 7 项（用户说"压缩相关那条呢？"）→ 第三次找到 7 项。三轮才收敛。推论：任何未来的漂移恢复都应预期 ≥3 轮递归，且信任结构性保障（L9）超过作者警觉性。更深的 Gear 4 candidate：把"递归 extraction 直到收敛 + 把收敛结果编码为 lint 规则"提炼为一条通用 procedure，适用于所有长项目中的叙事漂移事件，不限于 Myco 本身。
+
+## [2026-04-10] milestone | v1.2 消化道 Phase ① 落地：eat/digest/view/hunger 四件套上线，21 notes 入肠，L10 绿灯
+
+消化道最小闭环实现完毕。五个可验证动作：(1) src/myco/notes.py 作为唯一运行时 truth（write_note / read_note / update_note / list_notes / compute_hunger_report / validate_frontmatter），pure functions，cli/mcp/lint 三方引用但零反向依赖；(2) 四个 CLI 子命令 eat / digest / view / hunger 挂到 src/myco/cli.py，各自支持 --json；(3) 四个 MCP 工具 myco_eat / myco_digest / myco_view / myco_hunger 添加到 src/myco/mcp_server.py，描述使用 trigger-condition-list 格式（eat 有 6 条触发条件，agent 不用判断就能 pattern-match）；(4) L9 Vision Anchor + L10 Notes Schema 同时 backfill 到 src/myco/lint.py（此前只存在于 scripts/lint_knowledge.py），两个 lint 站点现在对齐，L0-L10 共 11 维在 kernel、MCP、CLI 三条路径上都跑；(5) notes_schema 写入 _canon.yaml（kernel 和 template 同步）以及 init_cmd.py 现在创建 notes/README.md 脚手架。
+
+Phase ① 验收硬指标（craft §3.3）全绿：raw notes ≥ 20 ✅（22 totals）、deep-digested ≥ 3 ✅（3 notes digest_count≥2）、非线性跳转 ≥ 1 ✅（1 note raw→integrated）、excreted with reason ≥ 1 ✅（1 note，理由指向 vision_recovery craft §7 已吸收）。五项全中，Phase ① 进度条从 ▰▱▱ → ▰▰▱（验收通过、但真实摩擦数据还没积累，不算 ▰▰▰）。
+
+最重要的事件：**kernel 自己吃了自己的工作**。今天的 21 条 notes 全部来自今天的会话：vision drift 是永久威胁 / L9 结构安全网 / 递归 extraction / ASCC 三痛点映射 / debate 四轮置信度曲线 / 四件套最小闭环推导 / flat > tree 研究引用 / Phase 进度条替代日历 / MCP-agent assumption / trigger-condition list craft / excrete_reason 非可选 / hunger 信号排序 / L9 首次运行捕获真 miss / "永远不跳过攻击相"协议升级 / notes.py 单一运行时真源 / id 选 YYYYMMDDTHHMMSS 不选 UUID 的 tradeoff / 非线性生命周期 / Phase ① 验收指标本身 / 零摩擦 capture 哲学 / hunger 非零退出码设计 / dogfood 纪律（最后一条即刻 raw→integrated）。这是 Myco kernel 作为 Myco instance 第一次真正运行的证据，不再是假设。
+
+Smoke test 验证：`myco eat --content ...` 成功写入 notes/n_20260410T231616_b930.md；`myco view --status raw --limit 5` 正确列出 5 条 raw；`myco view --status integrated` 正确列出 1 条；`myco hunger` 输出 raw_backlog 信号并 exit 1（这是设计行为：>10 raw 就该提醒）。`python scripts/lint_knowledge.py` 全量 11/11 PASS。
+
+小插曲：第一次 L10 跑出 1 个 MEDIUM —— `notes/README.md` 被当成 note 做 schema 校验。修复：两个 lint 站点都加 `if not name.startswith("n_"): continue` 跳过非 note 文件，README / 其他说明文件不受影响。修复后立即复跑 PASS。
+
+Phase ② 现在的门槛是**真实摩擦数据**而不是代码完成度——在 ASCC 和 kernel 的日常使用中观察：哪个命令最常被 agent 跳过？哪类 note 最常被 excrete？哪个 signal 最常触发但被忽略？这些数据会告诉我们下一个该长出的"器官"。Phase ② 的第一件事不应该是写代码，应该是定义"摩擦记录格式"让下一阶段的设计有燃料。

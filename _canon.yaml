@@ -53,6 +53,34 @@ system:
       any_of: ["kernel", "instance", "内核", "实例"]
     - name: theoretical-lineage
       any_of: ["Karpathy", "Polanyi", "Argyris", "PDCA", "Voyager", "理论血统"]
+  notes_schema:
+    # Digestive substrate — the four-command set (eat / digest / view /
+    # hunger) reads and writes notes here. Authoritative design record:
+    # docs/current/digestive_architecture_craft_2026-04-10.md
+    dir: notes
+    filename_pattern: '^n_\d{8}T\d{6}_[0-9a-f]{4}\.md$'
+    required_fields:
+    - id
+    - status
+    - source
+    - tags
+    - created
+    - last_touched
+    - digest_count
+    - promote_candidate
+    - excrete_reason
+    valid_statuses:
+    - raw            # just ingested, not yet processed
+    - digesting      # being read / summarized / extracted
+    - extracted      # key claim lifted into wiki or MYCO.md
+    - integrated     # fully merged into canonical structures
+    - excreted       # removed from active rotation (must cite reason)
+    valid_sources:
+    - chat           # pulled from conversation context
+    - eat            # user/agent invoked `myco eat` explicitly
+    - promote        # grown from another note
+    - import         # bulk ingested from external tool
+    - bootstrap      # created during myco init / first-run scaffolding
 architecture:
   layers: 4
   wiki_pages: 0
