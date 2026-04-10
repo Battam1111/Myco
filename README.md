@@ -23,7 +23,7 @@
 
 **Myco is a substrate, not a tool.** Your agent runs on Myco the way a process runs on an operating system — except this OS upgrades itself.
 
-- **Substrate, not library.** Agent = CPU (raw compute, zero persistence). Myco = memory, filesystem, OS, peripherals — *and the OS can rewrite itself while the CPU executes it.*
+- **Substrate, not library.** Agent = CPU (raw compute, zero persistence). Myco = memory, filesystem, OS, peripherals — *and the OS can rewrite itself while the CPU executes it.* Architecturally split into a project-agnostic **kernel** (this repo) and project **instances** (your project directory), exactly as an OS is split from its applications.
 - **Non-parametric evolution.** No weights are touched. Ever. All learning happens in the substrate: markdown files, YAML canons, folder structures, lint rules, the evolution engine itself. Your agent gets smarter over time not because it was retrained, but because the ground it stands on metabolized the world and grew beneath it.
 - **Knowledge metabolism.** Living systems metabolize; dead systems don't. Myco is designed to proactively *eat* external information (code, docs, papers, lessons) and digest it into structured knowledge. `myco lint` is the immune system. The metabolic inlet — full external absorption — is a declared primitive, earliest v2.0. See [Open Problems](#open-problems).
 - **Perpetual evolution.** Stagnation = death. This is the only inviolable law, because a substrate that stops metabolizing is just a cache.
@@ -136,6 +136,45 @@ Myco's evolution engine has two sides. The four gears are the **autonomic nervou
 
 Gears 1–4 face inward. The inlet faces outward. A substrate without a digestive system is a cache; this is why the inlet is declared now even though implementation comes later.
 
+The inlet, once implemented, runs a **seven-step metabolism pipeline**:
+
+```
+discover → evaluate → extract → integrate → compress → verify → excrete
+```
+
+The seventh step (`excrete` / 淘汰 — actively remove stale or superseded knowledge) is the one most systems forget. Biological metabolism is *intake + transformation + excretion*; without excretion you have digestion, not metabolism, and the substrate bloats. Myco's seventh step is non-negotiable.
+
+The pipeline also distinguishes **transferable knowledge** (patterns worth distilling into the kernel for future projects — Gear 4's output) from **project-specific knowledge** (facts that stay local to the current instance). The same lesson can be both, or neither; classifying it correctly is part of what Gear 4 does.
+
+### The Compression Doctrine
+
+Myco's operating assumption:
+
+> **Storage is infinite. Attention is not.**
+
+You can always add another disk, but your agent's context window cannot grow on demand. So Myco **never forgets** — no information is ever deleted from cold storage — but it **aggressively compresses** what flows into the Agent's attention. The compression decision (what stays hot, what goes cold, what gets re-summarized, what gets re-expanded) is not plumbing. It is **the substrate's primary cognitive act.**
+
+Three candidate criteria for compression, from the 2026-04-08 vision debate:
+
+- **Usage frequency** — low-read wiki pages compress or move cold
+- **Temporal relevance** — time-bound knowledge past its validity excretes
+- **Exclusivity** — "common sense every agent already knows" (e.g., basic Python syntax) wastes substrate space and doesn't belong here
+
+Compression is also **agent-adaptive**: a 32K-context client needs more aggressive compression than a 200K-context client. The same Myco instance must render differently for each. And the compression strategy itself is a legitimate target of Gear 3 / 4 evolution — when the rules stop working, the rules change.
+
+### The Four-Layer Self-Model
+
+Myco maintains a model of *itself*. Not as a luxury — as the only way a substrate knows what it contains, what it lacks, what's rotting, and what's being ignored. Four layers, increasing in automation difficulty:
+
+| Layer | What it tracks | Automation | Today |
+|-------|---------------|------------|-------|
+| **A — Inventory** | What do I have? Counts, distributions, last-updated dates. | Easy | ✅ `myco status` |
+| **B — Gap sensing** | What do I lack? Friction signals = gap symptoms. | Medium | ✅ friction logs → Gear 2 |
+| **C — Decay sensing** | What is rotting? *Factual decay*: version drift, stale refs. *Structural decay*: architecture that was right for day 3 is wrong for day 30. | Medium | ✅ factual only (lint L0–L8); ❌ structural is open problem |
+| **D — Efficacy** | Which knowledge is actually used? "Dead knowledge" = a wiki page that exists but is never read. | Hardest | ❌ not yet — Hermes-style usage tracking is a v1.2+ target |
+
+Today Myco implements A, B, and partial C. D is a named gap. These are not hand-waves; they are the concrete architectural targets of the next release cycles.
+
 ### Human-Myco Collaboration Model
 
 **The system does the mutation. The human does the selection.**
@@ -186,7 +225,8 @@ Myco is early. These four blind spots were named in the 2026-04-08 vision debate
 1. **Cold start.** How does Myco bootstrap on a brand-new project with no history, no canon, no friction record? Current answer: hand-crafted `myco init` templates. Desired answer: substrate learns its own bootstrap from prior project distillations.
 2. **Trigger signals.** What fires Gear 2? What fires the metabolic inlet? Friction count is a proxy; the right signals are an open research question.
 3. **Alignment.** If Myco evolves rules the human can no longer evaluate (too deep into L-meta), how is it kept aligned with user intent? Transparency is necessary but not sufficient — we need *legible* transparency at scale.
-4. **Compression engineering.** Storage is infinite, but attention is not. What to drop, when, without losing load-bearing tacit knowledge? No general answer exists yet.
+4. **Compression engineering.** Storage is infinite, but attention is not. What to drop, when, without losing load-bearing tacit knowledge? The three candidate criteria (frequency / temporal / exclusivity) are starting points, not solutions. No general answer exists yet.
+5. **Structural decay detection.** `myco lint` catches *factual* decay (version drift, stale references). It cannot catch *structural* decay — when the four-layer architecture that was right at day 3 becomes wrong at day 30. No detector exists for "your knowledge organization no longer fits your project's phase." This is arguably the hardest problem in the whole design space.
 
 If you want to contribute something high-impact, pick one of these.
 
@@ -217,6 +257,8 @@ Built on a real 8-day, 80+ file research project that ran the complete four-gear
 </div>
 
 But the deeper claim is this: **that 8-day project was an unconscious prototype of Myco.** I was not demoing the substrate. I was *running* it by hand — human-driven meta-evolution, manually triggered lint, verbal friction logs. It worked. Myco is the formalization of a pattern that already proved itself; the v1.0 → v2.0 trajectory is not "invent new things" but "make what was working by hand work by itself." Patterns extracted via Gear 4 now live in the Myco codebase. See [`examples/ascc/`](examples/ascc/).
+
+Myco also stands on a 50-year lineage of epistemology, control theory, and organizational learning: **Karpathy LLM Wiki** (structured knowledge compilation) + **Polanyi Tacit Knowledge** (proximal / distal structure for operational experience) + **Argyris Double-Loop Learning** (single-loop fixes actions, double-loop fixes the rules — the L-struct / L-meta split) + **Toyota PDCA** (Plan / Do / Check / Act as the base cycle of the four gears) + **Voyager Skill Library** (iterative skill accumulation via grounded execution). See [`docs/theory.md`](docs/theory.md).
 
 ---
 
