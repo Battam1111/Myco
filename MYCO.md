@@ -47,7 +47,7 @@ Python 打包环境（hatchling + twine）。模板唯一来源：`src/myco/temp
 
 | # | 状态 | 任务 | 备注 |
 |---|------|------|------|
-| 1 | 🟢 | **v1.2 消化道 Phase ① 消化道闭环** ▰▱▱：eat/digest/view/hunger + notes/ + L10 + MCP ×4 | **批准 2026-04-10** (craft §签名) |
+| 1 | ✅ | **v1.2 消化道 Phase ① 消化道闭环** ▰▰▱：eat/digest/view/hunger + notes/ + L10 + MCP ×4 | **落地 2026-04-10**，22 notes、3 deep-digest、1 非线性 raw→integrated、1 excreted with reason、L10 绿灯 |
 | 2 | ⏳ | v1.2 消化道 Phase ② 摩擦驱动迭代 ▰▰▱：根据 ① 真实数据决定 extract/integrate 等新器官 | 门槛：Phase ① 验收 ≥ 50% |
 | 3 | ⏳ | v1.2 消化道 Phase ③ Commons 上线 ▰▰▰：commons/ + promote/craft use + L11/L12 + HPC lesson 洗仓 | 门槛：Phase ② 收敛稳定 |
 | 4 | 📐 | **Metabolic Inlet 原语（身份级声明）** | v2.0，不阻塞 Phase ①-③ |

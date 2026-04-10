@@ -12,6 +12,8 @@ Dimensions:
     L6  Date Consistency — header dates vs file modification times
     L7  Wiki W8 Format — header (type + date) + footer (Back to) template compliance
     L8  .original Sync — compressed file timestamp consistency (v2.5)
+    L9  Vision Anchor — identity-element drift detection (v1.1.1)
+    L10 Notes Schema — atomic-note frontmatter validation (v1.2.0)
 """
 
 import re
@@ -323,6 +325,142 @@ def lint_wiki_format(canon, root):
 # L8: .original Sync (v2.5)
 # ---------------------------------------------------------------------------
 
+_FRONTMATTER_RE = re.compile(
+    r"^---\s*\n(?P<fm>.*?\n)---\s*\n(?P<body>.*)$",
+    re.DOTALL,
+)
+
+
+def lint_vision_anchors(canon, root):
+    """L9 — ensure public-facing files contain lexical anchors for every
+    identity element declared in _canon.yaml → system.vision_anchors.
+
+    Converts the 2026-04-10 vision-drift recovery into a permanent
+    structural safeguard. Authoritative source:
+        docs/current/vision_recovery_craft_2026-04-10.md §7
+    """
+    issues = []
+    va = canon.get("system", {}).get("vision_anchors")
+    if not va:
+        return issues
+
+    targets = va.get("targets", []) or []
+    groups = va.get("groups", []) or []
+    min_hits = int(va.get("min_hits_per_file", 1))
+    if not targets or not groups:
+        return issues
+
+    for rel_path in targets:
+        content = read_file(root / rel_path)
+        if content is None:
+            issues.append(("L9", "HIGH", rel_path,
+                           "Vision-anchor target file not found"))
+            continue
+        for group in groups:
+            name = group.get("name", "?")
+            variants = group.get("any_of", []) or []
+            hits = sum(content.count(v) for v in variants)
+            if hits < min_hits:
+                sample = " | ".join(variants[:4])
+                issues.append(("L9", "CRITICAL", rel_path,
+                               f"Vision anchor missing: group '{name}' "
+                               f"(none of: {sample})"))
+    return issues
+
+
+def lint_notes_schema(canon, root):
+    """L10 — validate every notes/*.md against the schema in _canon.yaml.
+
+    Runtime parity: scripts/lint_knowledge.py::lint_notes_schema.
+    """
+    issues = []
+    schema = canon.get("system", {}).get("notes_schema")
+    if not schema:
+        return issues
+
+    notes_dir = root / schema.get("dir", "notes")
+    if not notes_dir.exists():
+        return issues
+
+    required_fields = schema.get("required_fields", []) or []
+    valid_statuses = set(schema.get("valid_statuses", []) or [])
+    valid_sources = set(schema.get("valid_sources", []) or [])
+    filename_re = re.compile(schema.get("filename_pattern", r".*\.md$"))
+    id_re = re.compile(r"^n_\d{8}T\d{6}_[0-9a-f]{4}$")
+
+    for path in sorted(notes_dir.glob("*.md")):
+        rel = str(path.relative_to(root))
+        name = path.name
+
+        # Skip non-note files (e.g. README.md) — only n_* files count.
+        if not name.startswith("n_"):
+            continue
+
+        if not filename_re.match(name):
+            issues.append(("L10", "MEDIUM", rel,
+                           "Filename does not match schema pattern"))
+            continue
+
+        content = read_file(path)
+        if content is None:
+            issues.append(("L10", "HIGH", rel, "Cannot read notes file"))
+            continue
+
+        m = _FRONTMATTER_RE.match(content)
+        if not m:
+            issues.append(("L10", "CRITICAL", rel,
+                           "Missing YAML frontmatter block"))
+            continue
+
+        try:
+            meta = yaml.safe_load(m.group("fm")) or {}
+        except Exception as e:
+            issues.append(("L10", "CRITICAL", rel,
+                           f"Malformed frontmatter YAML: {e}"))
+            continue
+        if not isinstance(meta, dict):
+            issues.append(("L10", "CRITICAL", rel,
+                           "Frontmatter is not a mapping"))
+            continue
+
+        for field in required_fields:
+            if field not in meta:
+                issues.append(("L10", "HIGH", rel,
+                               f"Missing required field: {field}"))
+
+        status = meta.get("status")
+        if valid_statuses and status is not None and status not in valid_statuses:
+            issues.append(("L10", "HIGH", rel,
+                           f"Invalid status {status!r}"))
+
+        source = meta.get("source")
+        if valid_sources and source is not None and source not in valid_sources:
+            issues.append(("L10", "MEDIUM", rel,
+                           f"Invalid source {source!r}"))
+
+        if meta.get("tags") is not None and not isinstance(meta.get("tags"), list):
+            issues.append(("L10", "MEDIUM", rel, "tags must be a list"))
+        if meta.get("digest_count") is not None and not isinstance(meta.get("digest_count"), int):
+            issues.append(("L10", "MEDIUM", rel, "digest_count must be integer"))
+        if meta.get("promote_candidate") is not None and not isinstance(meta.get("promote_candidate"), bool):
+            issues.append(("L10", "MEDIUM", rel, "promote_candidate must be boolean"))
+
+        nid = meta.get("id")
+        if nid is not None and not id_re.match(str(nid)):
+            issues.append(("L10", "MEDIUM", rel,
+                           f"id {nid!r} does not match n_YYYYMMDDTHHMMSS_xxxx"))
+
+        if status == "excreted" and not meta.get("excrete_reason"):
+            issues.append(("L10", "HIGH", rel,
+                           "excreted notes must have a non-empty excrete_reason"))
+
+        if nid and path.stem != nid:
+            issues.append(("L10", "MEDIUM", rel,
+                           f"filename stem {path.stem!r} != id {nid!r}"))
+
+    return issues
+
+
 def lint_original_sync(canon, root):
     issues = []
     for orig_path in root.rglob("*.original.md"):
@@ -373,6 +511,8 @@ def main(root: Path = None, quick: bool = False, fix_report: bool = False) -> in
             ("L6 Date Consistency", lint_dates),
             ("L7 Wiki W8 Format", lint_wiki_format),
             ("L8 .original Sync", lint_original_sync),
+            ("L9 Vision Anchor", lint_vision_anchors),
+            ("L10 Notes Schema", lint_notes_schema),
         ])
 
     all_issues = []

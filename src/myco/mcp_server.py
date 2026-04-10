@@ -11,6 +11,10 @@ Tools:
     myco_search     — Search across wiki/docs/MYCO.md knowledge base
     myco_log        — Append friction/reflection entries to log.md
     myco_reflect    — Trigger Gear 2 session-end reflection prompts
+    myco_eat        — Capture a chunk of content as a raw atomic note
+    myco_digest     — Move a note through the lifecycle (raw→…→excreted)
+    myco_view       — Read-only lens on notes/ (list or single note)
+    myco_hunger     — Metabolic dashboard with actionable signals
 
 Transport: stdio (local subprocess of the AI client)
 """
@@ -102,7 +106,7 @@ async def myco_lint(
 
     Checks: L0 Canon schema, L1 Reference integrity, L2 Number consistency,
     L3 Stale patterns, L4 Orphan detection, L5 Log coverage, L6 Date consistency,
-    L7 Wiki format, L8 .original sync.
+    L7 Wiki format, L8 .original sync, L9 Vision anchor, L10 Notes schema.
 
     Args:
         project_dir: Path to Myco project root. Auto-detected if omitted.
@@ -123,6 +127,7 @@ async def myco_lint(
         lint_canon_schema, lint_references, lint_numbers,
         lint_stale_patterns, lint_orphans, lint_log,
         lint_dates, lint_wiki_format, lint_original_sync,
+        lint_vision_anchors, lint_notes_schema,
     )
 
     checks = [
@@ -138,6 +143,8 @@ async def myco_lint(
             ("L6 Date Consistency", lint_dates),
             ("L7 Wiki Format", lint_wiki_format),
             ("L8 .original Sync", lint_original_sync),
+            ("L9 Vision Anchor", lint_vision_anchors),
+            ("L10 Notes Schema", lint_notes_schema),
         ])
 
     results = []
@@ -539,6 +546,393 @@ async def myco_reflect(
     }
 
     return json.dumps(reflection, indent=2, ensure_ascii=False)
+
+
+# ---------------------------------------------------------------------------
+# Tool: myco_eat  —  digestive substrate ingestion
+# ---------------------------------------------------------------------------
+
+@mcp.tool(
+    name="myco_eat",
+    annotations={
+        "title": "Myco Eat — Capture Content as Raw Atomic Note",
+        "readOnlyHint": False,
+        "destructiveHint": False,
+        "idempotentHint": False,
+        "openWorldHint": False,
+    },
+)
+async def myco_eat(
+    content: str,
+    tags: Optional[List[str]] = None,
+    title: Optional[str] = None,
+    source: str = "chat",
+    project_dir: Optional[str] = None,
+) -> str:
+    """Capture a chunk of content as a raw atomic note in notes/.
+
+    WHEN TO CALL — do not wait for permission, do not wait for session end.
+    Call IMMEDIATELY when the user shares any of:
+      (a) a piece of code that worked, a config, a command line that fixed something
+      (b) a decision with reasoning ("we chose X because Y")
+      (c) a root cause found after debugging
+      (d) a file, log excerpt, URL, or paper they pasted into the conversation
+      (e) phrasing like "TIL", "note to self", "remember this", "mark this"
+      (f) any hard-won piece of knowledge that would be painful to re-derive
+
+    Do NOT ask "should I save this?" — the whole point of `eat` is
+    zero-friction capture. A raw note costs almost nothing; a lost insight
+    costs everything. If in doubt, eat.
+
+    The note enters as status='raw'. Later, the agent (or human) calls
+    myco_digest to transition it toward extracted / integrated / excreted.
+
+    Args:
+        content: The text to capture. Can be code, prose, YAML, anything.
+        tags: Optional list of free-form tag strings (e.g. ["vision","lint"]).
+        title: Optional H1 title to prepend (if body doesn't already start
+               with a heading).
+        source: Provenance label. Use 'chat' when auto-capturing from
+                conversation context, 'eat' for explicit user invocation.
+        project_dir: Path to Myco project root. Auto-detected if omitted.
+
+    Returns:
+        JSON with the new note's id and relative path.
+    """
+    from myco.notes import write_note, VALID_SOURCES
+
+    if source not in VALID_SOURCES:
+        return json.dumps({
+            "error": f"Invalid source {source!r}. Expected one of: {list(VALID_SOURCES)}",
+        })
+
+    root = Path(project_dir) if project_dir else _find_project_root()
+    root = root.resolve()
+
+    if not (root / "_canon.yaml").exists():
+        return json.dumps({
+            "error": f"Not a Myco project (no _canon.yaml at {root})",
+        })
+
+    try:
+        path = write_note(
+            root, content,
+            tags=tags or [],
+            source=source,
+            status="raw",
+            title=title,
+        )
+    except Exception as e:
+        return json.dumps({"error": f"Failed to write note: {e}"})
+
+    rel = str(path.relative_to(root))
+    return json.dumps({
+        "status": "ok",
+        "id": path.stem,
+        "file": rel,
+        "tags": tags or [],
+        "source": source,
+        "hint": "Call myco_digest when the note is ready to be processed.",
+    }, ensure_ascii=False)
+
+
+# ---------------------------------------------------------------------------
+# Tool: myco_digest  —  lifecycle transition + reflection prompts
+# ---------------------------------------------------------------------------
+
+_DIGEST_PROMPTS = [
+    "What is the single most compressible claim in this note?",
+    "Is there an existing wiki page or MYCO.md section this belongs to?",
+    "If this were lost tomorrow, what would break?",
+    "What should the new status be: extracted / integrated / excreted?",
+]
+
+
+@mcp.tool(
+    name="myco_digest",
+    annotations={
+        "title": "Myco Digest — Advance a Note Through the Lifecycle",
+        "readOnlyHint": False,
+        "destructiveHint": False,
+        "idempotentHint": False,
+        "openWorldHint": False,
+    },
+)
+async def myco_digest(
+    note_id: Optional[str] = None,
+    to_status: Optional[str] = None,
+    excrete_reason: Optional[str] = None,
+    project_dir: Optional[str] = None,
+) -> str:
+    """Move a note along the digestive lifecycle: raw → digesting → {extracted | integrated | excreted}.
+
+    WHEN TO CALL:
+      - At the start of a new session, call myco_hunger first; if it
+        reports raw_backlog or stale_raw, call myco_digest (with no
+        note_id) to process the oldest raw note.
+      - After you've lifted a note's claim into wiki/ or MYCO.md, call
+        with to_status='extracted' or 'integrated'.
+      - When a note is no longer useful (stale, duplicated, superseded),
+        call with excrete_reason to mark it excreted. Excretion without a
+        reason is forbidden by L10 lint.
+
+    Modes:
+      1. Reflective (default): note_id=None or omit to_status → picks
+         oldest raw note, flips it to 'digesting', returns prompts.
+      2. Transition: supply to_status in {raw, digesting, extracted,
+         integrated, excreted}.
+      3. Shortcut: supply excrete_reason → marks as excreted with reason.
+
+    Args:
+        note_id: Target note id (e.g. 'n_20260410T143027_7f3a'). If None,
+                 picks the oldest raw note in the queue.
+        to_status: Explicit transition target. Takes precedence over
+                   the default reflective flow.
+        excrete_reason: If set, marks the note as excreted with this reason.
+        project_dir: Path to Myco project root. Auto-detected if omitted.
+
+    Returns:
+        JSON with note id, new status, body preview, and reflection prompts.
+    """
+    from myco.notes import (
+        read_note, update_note, list_notes, id_to_filename, VALID_STATUSES,
+    )
+
+    root = Path(project_dir) if project_dir else _find_project_root()
+    root = root.resolve()
+
+    # Resolve target
+    if note_id:
+        nid = note_id if note_id.startswith("n_") else f"n_{note_id}"
+        target = root / "notes" / id_to_filename(nid)
+        if not target.exists():
+            return json.dumps({"error": f"Note not found: {nid}"})
+    else:
+        raw_notes = list_notes(root, status="raw")
+        if not raw_notes:
+            return json.dumps({
+                "status": "empty",
+                "message": "No raw notes to digest. Queue is clean.",
+            })
+        target = raw_notes[0]
+
+    try:
+        meta, body = read_note(target)
+    except Exception as e:
+        return json.dumps({"error": f"Failed to read note: {e}"})
+
+    # Excrete shortcut
+    if excrete_reason:
+        try:
+            new_meta = update_note(
+                target,
+                status="excreted",
+                excrete_reason=excrete_reason,
+                _increment_digest=True,
+            )
+        except Exception as e:
+            return json.dumps({"error": f"Excrete failed: {e}"})
+        return json.dumps({
+            "status": "ok",
+            "id": target.stem,
+            "transition": f"{meta.get('status')} → excreted",
+            "reason": excrete_reason,
+        }, ensure_ascii=False)
+
+    # Explicit transition
+    if to_status:
+        if to_status not in VALID_STATUSES:
+            return json.dumps({
+                "error": f"Invalid to_status {to_status!r}. Expected: {list(VALID_STATUSES)}",
+            })
+        try:
+            update_note(target, status=to_status, _increment_digest=True)
+        except Exception as e:
+            return json.dumps({"error": f"Transition failed: {e}"})
+        return json.dumps({
+            "status": "ok",
+            "id": target.stem,
+            "transition": f"{meta.get('status')} → {to_status}",
+        }, ensure_ascii=False)
+
+    # Default: flip raw → digesting and return prompts
+    try:
+        if meta.get("status") == "raw":
+            update_note(target, status="digesting", _increment_digest=True)
+            current = "digesting"
+        else:
+            update_note(target, _increment_digest=True)
+            current = meta.get("status", "raw")
+    except Exception as e:
+        return json.dumps({"error": f"Update failed: {e}"})
+
+    preview_lines = body.splitlines()[:20]
+    return json.dumps({
+        "status": "reflect",
+        "id": target.stem,
+        "transition": f"{meta.get('status')} → {current}",
+        "tags": meta.get("tags") or [],
+        "digest_count": int(meta.get("digest_count") or 0) + 1,
+        "body_preview": "\n".join(preview_lines),
+        "body_truncated": len(body.splitlines()) > 20,
+        "prompts": _DIGEST_PROMPTS,
+        "instruction": (
+            "Answer the prompts, then call myco_digest again with "
+            "to_status='extracted' | 'integrated' | 'excreted' (with "
+            "excrete_reason if excreted)."
+        ),
+    }, ensure_ascii=False)
+
+
+# ---------------------------------------------------------------------------
+# Tool: myco_view  —  read-only lens on notes/
+# ---------------------------------------------------------------------------
+
+@mcp.tool(
+    name="myco_view",
+    annotations={
+        "title": "Myco View — List or Read Atomic Notes",
+        "readOnlyHint": True,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": False,
+    },
+)
+async def myco_view(
+    note_id: Optional[str] = None,
+    status: Optional[str] = None,
+    limit: int = 50,
+    project_dir: Optional[str] = None,
+) -> str:
+    """List notes in notes/ (optionally filtered by status) or read a single note.
+
+    WHEN TO CALL:
+      - Before answering a question that might already be in notes/ —
+        call myco_view with a status filter or single note_id instead of
+        guessing from context.
+      - When the user asks "what have we been working on?" — call with
+        status='raw' or 'digesting' to show the active queue.
+      - When you need the full body of a specific note — pass note_id.
+
+    Args:
+        note_id: If set, return that single note's full body + metadata.
+        status: Filter list mode by status (raw/digesting/extracted/
+                integrated/excreted).
+        limit: Max notes to return in list mode (default 50, most recent).
+        project_dir: Path to Myco project root. Auto-detected if omitted.
+
+    Returns:
+        JSON: single note dict, or list of note summaries.
+    """
+    from myco.notes import read_note, list_notes, id_to_filename, VALID_STATUSES
+
+    root = Path(project_dir) if project_dir else _find_project_root()
+    root = root.resolve()
+
+    if note_id:
+        nid = note_id if note_id.startswith("n_") else f"n_{note_id}"
+        path = root / "notes" / id_to_filename(nid)
+        if not path.exists():
+            return json.dumps({"error": f"Note not found: {nid}"})
+        try:
+            meta, body = read_note(path)
+        except Exception as e:
+            return json.dumps({"error": f"Failed to read note: {e}"})
+        return json.dumps({
+            "id": meta.get("id"),
+            "metadata": meta,
+            "body": body,
+            "file": str(path.relative_to(root)),
+        }, ensure_ascii=False)
+
+    if status and status not in VALID_STATUSES:
+        return json.dumps({
+            "error": f"Invalid status {status!r}. Expected: {list(VALID_STATUSES)}",
+        })
+
+    paths = list_notes(root, status=status)
+    paths = paths[-limit:]
+    out = []
+    for p in paths:
+        try:
+            meta, body = read_note(p)
+        except Exception:
+            continue
+        title = ""
+        for line in body.splitlines():
+            if line.strip().startswith("#"):
+                title = line.strip().lstrip("#").strip()
+                break
+        out.append({
+            "id": meta.get("id"),
+            "file": str(p.relative_to(root)),
+            "status": meta.get("status"),
+            "tags": meta.get("tags") or [],
+            "digest_count": meta.get("digest_count"),
+            "last_touched": meta.get("last_touched"),
+            "title": title or "(untitled)",
+        })
+    return json.dumps({
+        "filter": status or "all",
+        "count": len(out),
+        "notes": out,
+    }, ensure_ascii=False)
+
+
+# ---------------------------------------------------------------------------
+# Tool: myco_hunger  —  metabolic dashboard
+# ---------------------------------------------------------------------------
+
+@mcp.tool(
+    name="myco_hunger",
+    annotations={
+        "title": "Myco Hunger — Metabolic Substrate Dashboard",
+        "readOnlyHint": True,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": False,
+    },
+)
+async def myco_hunger(
+    project_dir: Optional[str] = None,
+) -> str:
+    """Report the substrate's metabolic state with actionable signals.
+
+    WHEN TO CALL:
+      - At the START of every work session, before doing anything else.
+        Hunger tells you whether the substrate is constipated (raw_backlog),
+        starving (no_deep_digest), or hoarding (no_excretion).
+      - Whenever a session runs longer than ~30 min without a myco_digest
+        or myco_eat call — the substrate may need attention.
+
+    Signals (sorted by urgency):
+      - raw_backlog: >10 raw notes pending
+      - stale_raw: raw notes untouched for ≥7 days
+      - no_deep_digest: no note has digest_count≥2 AND no extracted/integrated notes
+      - no_excretion: ≥20 total notes but zero excreted (compression doctrine violated)
+      - promote_ready: notes flagged promote_candidate=true
+      - healthy: substrate is metabolizing normally
+
+    Args:
+        project_dir: Path to Myco project root. Auto-detected if omitted.
+
+    Returns:
+        JSON HungerReport with totals, per-status counts, and signals list.
+    """
+    from myco.notes import compute_hunger_report
+
+    root = Path(project_dir) if project_dir else _find_project_root()
+    root = root.resolve()
+
+    if not (root / "_canon.yaml").exists():
+        return json.dumps({"error": f"Not a Myco project (no _canon.yaml at {root})"})
+
+    try:
+        report = compute_hunger_report(root)
+    except Exception as e:
+        return json.dumps({"error": f"Hunger computation failed: {e}"})
+
+    return json.dumps(report.to_dict(), ensure_ascii=False, indent=2)
 
 
 # ---------------------------------------------------------------------------

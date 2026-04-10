@@ -94,7 +94,12 @@ Cursor、GPT 等集成请看 [`adapters/`](adapters/)。
 pip install 'myco[mcp]'
 ```
 
-仓库里已经带了 `.mcp.json`。安装后，你的 agent 会自动获得 5 个工具：`myco_lint`、`myco_status`、`myco_search`、`myco_log`、`myco_reflect`——无需手动提示。
+仓库里已经带了 `.mcp.json`。安装后，你的 agent 会自动获得 **9 个工具**——无需手动提示：
+
+- **反射层** · `myco_lint` · `myco_status` · `myco_search` · `myco_log` · `myco_reflect`
+- **消化系统** · `myco_eat` · `myco_digest` · `myco_view` · `myco_hunger`
+
+> **前提假设**：Myco 假设你使用的是支持 MCP 的 agent（Claude Code、Cursor、Claude Desktop 等）。纯人手通过 `myco` CLI 也能用，但会失去反射层——那一层的核心价值是 agent 在对话流中自动捕获知识，不需要你开口。
 
 ---
 
