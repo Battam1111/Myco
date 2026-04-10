@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "myco": {
+      "command": "python",
+      "args": ["-m", "myco.mcp_server"],
+      "env": {
+        "PYTHONUNBUFFERED": "1"
+      }
+    }
+  }
+}

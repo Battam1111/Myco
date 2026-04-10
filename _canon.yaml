@@ -1,44 +1,37 @@
-# Canonical Values — Single Source of Truth
-# All documents must be consistent with values in this file.
-# Update flow: change this file first → run lint → fix inconsistencies → re-run
-#
-# Myco Knowledge System — https://github.com/Battam1111/Myco
-
 system:
-  principles_count: 12               # W1-W12
-  principles_label: "十二原则"
-  entry_point: "MYCO.md"             # Myco 自身使用 MYCO.md（agent-agnostic 示范）
+  principles_count: 12
+  principles_label: 十二原则
+  entry_point: MYCO.md
   wiki_page_types:
-    - entity
-    - concept
-    - operations
-    - analysis
-    - craft
-  evolution_gears: 4                 # Gear 1-4
+  - entity
+  - concept
+  - operations
+  - analysis
+  - craft
+  evolution_gears: 4
   myco_md_max_lines: 300
-  stale_patterns:                    # Known outdated phrases to detect
-    - "五原则"
-    - "六原则"
-    - "七原则"
-    - "v0.8"                         # Old version references
-
+  stale_patterns:
+  - 五原则
+  - 六原则
+  - 七原则
+  - v0.8
 architecture:
-  layers: 4                          # L1 + L1.5 + L2 + L3
-  wiki_pages: 0                      # Starts at 0, grows organically
-
+  layers: 4
+  wiki_pages: 0
 project:
-  name: "Myco"
-  current_phase: "Phase 1 — v0.9.0 PyPI 上线，准备 v1.0"
-  description: "可自进化的 AI 延伸认知基质框架"
-  started: "2026-04-09"             # Myco 自我应用起始日
-
+  name: Myco
+  current_phase: Phase 2 — v1.1.0 released, preparing public launch
+  description: 可自进化的 AI 延伸认知基质框架
+  started: '2026-04-09'
 package:
-  name: "myco"
-  version: "0.9.0"                  # pip 版本，与 src/myco/__init__.py 同步
-  python_requires: ">=3.8"
-  pypi_url: "https://pypi.org/project/myco/"
-  github: "Battam1111/Myco"
-  entry_cli: "myco"                 # CLI entry point name
-  build_backend: "hatchling"
+  name: myco
+  version: 1.1.0
+  python_requires: '>=3.8'
+  pypi_url: https://pypi.org/project/myco/
+  github: Battam1111/Myco
+  entry_cli: myco
+  build_backend: hatchling
   template_dirs:
-    - "src/myco/templates/"         # 唯一模板来源（打包入 wheel，Gear 3 A2 单一化）
+  - src/myco/templates/
+adapters:
+  mempalace: {}

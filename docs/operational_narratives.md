@@ -85,8 +85,11 @@ python -m twine upload dist/* --repository myco
 **已知陷阱**：
 - ❌ `PYTHONUTF8=1` 在 Python 3.13 的 CMD 里会被忽略（只接受 "1"/"0"），用 `PYTHONIOENCODING=utf-8` 代替
 - ❌ `cd /d "C:\path with spaces"` 在 desktop-commander 里可能有编码问题，改用 `git -C C:\path\to\repo` 语法
-- ❌ Windows PowerShell MCP 工具调用频繁超时（60s），不适合 git push、pip install 等网络操作
+- ❌ **Windows-MCP PowerShell 不稳定**：Windows-MCP PowerShell 工具有 60s hard limit 且本身调用不稳定；所有 >5s 的操作**优先用 desktop-commander**，Windows-MCP 仅作备用（2026-04-10）
+- ❌ **Windows cmd/GBK 编码**：cmd 默认 GBK 编码，任何输出含中文或 emoji 的 Python 脚本都会 UnicodeEncodeError。标准 header：`import sys; sys.stdout.reconfigure(encoding='utf-8')`（2026-04-10）
 - ❌ **禁止写桌面**：工作脚本绝不写到 `C:\Users\...\Desktop\`。应写到项目 `scripts/`（有复用价值）或 `C:\Users\...\AppData\Local\Temp\`（一次性临时文件）。会话结束前必须清理临时文件。（来源：ASCC g4-candidate 2026-04-09）
+- ❌ **SSH ProxyJump 必须用 config alias，不要直连**：Git SSH 直连跳板机后的目标主机会在 kex 阶段断开（`kex_exchange_identification: Connection closed by remote host`）。必须用 SSH config 别名（内含 `ProxyJump + IdentityFile`）。`-F` 参数使用 MSYS 路径格式：`/c/Users/<user>/.ssh/config`（Windows 路径不被 Git SSH 识别）。（来源：ASCC g4-candidate 2026-04-10）
+- ❌ **远程目录名 ≠ 代码变量名**：远程服务器上的目录命名约定可能与代码中的变量名不同（如 `td3_native` vs `td3`）。写任何远程查询脚本前**必须先 `ls` 确认实际目录名**，不要假设与本地代码一致。遇到计数为 0 的异常先验证目录名再排查其他原因。（来源：ASCC g4-candidate 2026-04-10）
 
 **最终验证**：
 - git 操作：`git -C C:\...\Myco log --oneline -3` 确认最新 commit 正确
