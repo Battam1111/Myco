@@ -81,6 +81,58 @@ system:
     - promote        # grown from another note
     - import         # bulk ingested from external tool
     - bootstrap      # created during myco init / first-run scaffolding
+  write_surface:
+    # L11 Write-Surface Lint — defines the only legal write targets for
+    # any agent operating on this substrate. Anything outside this list
+    # (and not covered by .gitignore) is CRITICAL. Authoritative contract:
+    # docs/agent_protocol.md §1.
+    #
+    # Each entry is a path pattern (glob-ish, rooted at project root).
+    # Trailing "/" means "this directory and anything under it".
+    # "**" means recursive. Files matching an allowed pattern are legal.
+    allowed:
+    # --- Digestive substrate ---
+    - notes/                 # via myco eat / digest ONLY
+    - wiki/                  # structured knowledge (agent extract allowed)
+    - docs/                  # framework docs
+    - log.md                 # append-only via myco_log
+    - MYCO.md                # L1 index
+    - _canon.yaml            # SSoT — human approval in practice
+    # --- Code / packaging ---
+    - src/                   # package source
+    - scripts/               # CLI/lint scripts
+    - tests/                 # test suite
+    - adapters/              # pluggable adapters
+    - examples/              # example projects
+    - assets/                # images / branding
+    - ascc_sessions/         # project-specific session cache
+    - dist/                  # build output (gitignored but allowed)
+    # --- Standard repo files ---
+    - README.md
+    - README_zh.md
+    - LICENSE
+    - CODE_OF_CONDUCT.md
+    - CONTRIBUTING.md
+    - SECURITY.md
+    - PYPI_SETUP.md
+    - pyproject.toml
+    - .gitignore
+    - .github/
+    # --- Hard-forbidden top-level (even if created, L11 will flag) ---
+    forbidden_top_level:
+    - scratch.md
+    - scratch.txt
+    - notes.md
+    - TODO.md
+    - MEMO.md
+    - memo.md
+    - ideas.md
+    - draft.md
+    - summary.md
+    - thoughts/
+    - my_notes/
+    - tmp/
+    - temp/
 architecture:
   layers: 4
   wiki_pages: 0

@@ -130,3 +130,23 @@ Smoke test 验证：`myco eat --content ...` 成功写入 notes/n_20260410T23161
 小插曲：第一次 L10 跑出 1 个 MEDIUM —— `notes/README.md` 被当成 note 做 schema 校验。修复：两个 lint 站点都加 `if not name.startswith("n_"): continue` 跳过非 note 文件，README / 其他说明文件不受影响。修复后立即复跑 PASS。
 
 Phase ② 现在的门槛是**真实摩擦数据**而不是代码完成度——在 ASCC 和 kernel 的日常使用中观察：哪个命令最常被 agent 跳过？哪类 note 最常被 excrete？哪个 signal 最常触发但被忽略？这些数据会告诉我们下一个该长出的"器官"。Phase ② 的第一件事不应该是写代码，应该是定义"摩擦记录格式"让下一阶段的设计有燃料。
+
+## [2026-04-11] milestone | Agent Protocol v1.0 + L11 Write Surface：基质首次对 agent 行为签硬合同
+
+Phase ① 之后的燃眉之急不是继续推进器官，而是**把 agent 的行为契约写死**。理由极简：v1.2 引入了 notes/ 消化系统，下游项目 agent（ASCC 等）若不知道契约，会默认走"最像人类的方式"——在仓库根建 scratch.md / TODO.md，把思考塞进 wiki/，手写 notes/*.md 绕过 eat，结果 L10 误报、Phase ② 摩擦信号全失真、基质熵增。根因判断：**Structure > Prose**——不能靠 "记得小心点" 维持纪律，必须靠 lint + 白名单 + 工具协议前置拦截。本轮把这一判断翻译成 4 个具体产物。
+
+(1) **docs/agent_protocol.md** — Agent 运行硬合同 v1.0：§1 Write Surface 白名单（notes/ via eat、wiki/ via extract、docs/current/ via craft、log.md via myco_log、MYCO.md via integrate、_canon.yaml 人类明确授权），§2 9 个 MCP 工具的 trigger-condition + anti-pattern 明细，§3 session boot 硬流程（myco_status → myco_hunger → digest 1-2 条 → 开工），§4 session end 硬流程（reflect → log → hunger → lint），§5 Phase ② 摩擦捕获约定（`friction-phase2` tag 强制），§6 ASCC 铁律 3 条（不确定就 eat / 不绕过工具 / 摩擦必捕），§7 违约检测代价矩阵（L9/L10/L11 自动红灯）。全文定位 HARD 级别——违反任一条等同于基质污染。
+
+(2) **L11 Write-Surface Lint** — 白名单的自动执行者：`_canon.yaml → system.write_surface.allowed` 列出所有合法顶层条目，`forbidden_top_level` 列出 12 个 anti-pattern 名字（scratch.md / TODO.md / MEMO.md / thoughts/ / tmp/ …）。检查三层：(a) 顶层条目不在 allowed 且非 gitignored → HIGH；(b) 匹配 forbidden_top_level → CRITICAL；(c) notes/ 下任何非 `n_*.md` 文件或子目录 → HIGH；(d) wiki/ 下非 markdown → MEDIUM。实现在 scripts/lint_knowledge.py 和 src/myco/lint.py 双端对齐，并自动接入 MCP `myco_lint` 工具（现在是 12 维而非 11）。gitignored 条目自动豁免（读 .gitignore 的字面名）。
+
+(3) **canon + template 同步**：kernel `_canon.yaml` 和 `src/myco/templates/_canon.yaml` 都加了 `system.write_surface` 块。kernel 版本精确列出 Myco 自己的合法顶层（README / MYCO.md / src / scripts / tests / docs / wiki / notes / adapters / examples / assets / ascc_sessions / dist 等）。template 版本给下游项目一个最小集 + 扩展提示。kernel MYCO.md 热区"Agent 行为准则"新增 📜 硬契约 条目 + 摩擦必捕 条目，文档索引新增 `docs/agent_protocol.md [ACTIVE] [CONTRACT]` 标签。template MYCO.md 同步。
+
+(4) **ASCC 迁移 snippet** `docs/ascc_migration_v1_2.md` — 可粘贴的迁移包：§1 粘贴进 ASCC MYCO.md 热区（3 条铁律 + boot/end sequence），§2 粘贴进 ASCC _canon.yaml（write_surface 最小集 + 占位的 ASCC 特有目录），§3 迁移验证 checklist（lint baseline → 4 命令 smoke test → dogfood eat → 下一次 agent 会话观察），§4 迁移期 don'ts（不要回填历史、不要放宽 forbidden 列表、不要跳过 L11 baseline），§5 反馈回路（ASCC 碰到的摩擦打 friction-phase2 tag 回传 kernel）。这个文档是 kernel→instance 的"升级说明书"，所有下游项目 agent 的迁移动作都由此触发。
+
+**Dogfood 关键一步**：用 `myco eat` 把"Agent Protocol v1.0 landed"这个决策本身吃成 note（tags: meta, protocol, phase2-prep, friction-phase2），然后 `myco digest --to integrated` 直接非线性跳到 integrated（因为内容已经以 docs/agent_protocol.md 的形式 integrate 完毕）。基质第一次对"关于 agent 自己的规则"这件事做了元级别的自我消化。
+
+Lint 结果：**L0–L11 共 12 维全绿**，scripts/lint_knowledge.py 和 `myco lint` CLI 两条路径都是 0 issues。L11 跑起来的第一版抓到 4 个 HIGH（`_extract_session.py` 等以下划线开头的会话归档文件）——这不是 bug，是真实 signal，但它们已经在 .gitignore 里，所以修 L11 读 gitignore 字面名做自动豁免。这是 L11 第一次"真正出手" → 立刻长出一个新能力（gitignore 感知），和 L9 当年第一次发现 "内核 MYCO.md 命中锚点数不够" 时立刻改文案是同一模式。
+
+**哲学上的意义**：到此为止 Myco 的 lint 矩阵从 "检查文档" 升级到 "检查 agent 行为"。L0-L8 管知识结构，L9 管愿景不漂移，L10 管 note 生命周期，L11 管 **agent 对基质的写入授权**。基质不只是被动存储，开始主动约束它的执行者。对 Phase ② 的意义：摩擦信号从此必须通过 `friction-phase2` tag 打进 notes，而不是散落在 log 或自由文本里——Phase ② 启动时一条 `myco view --tag friction-phase2` 就能把所有燃料聚齐。
+
+→ g4-candidate：把"下游项目 agent 的行为契约 + 白名单 lint"这一模式提炼为通用 procedure，不限于 Myco。凡是"有多个 agent 读写同一基质"的系统，都需要这一层合同 + 执行。

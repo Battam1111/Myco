@@ -50,6 +50,35 @@ system:
       - import         # bulk ingested from external tool
       - bootstrap      # created during myco init
 
+  write_surface:
+    # L11 Write-Surface Lint — agents may only write to these paths.
+    # Extend as needed for your project's legitimate top-level dirs.
+    # See Myco kernel docs/agent_protocol.md §1 for the contract.
+    allowed:
+      - notes/
+      - wiki/
+      - docs/
+      - log.md
+      - MYCO.md
+      - _canon.yaml
+      - src/
+      - scripts/
+      - tests/
+      - README.md
+      - .gitignore
+      - .github/
+    forbidden_top_level:
+      - scratch.md
+      - notes.md
+      - TODO.md
+      - MEMO.md
+      - ideas.md
+      - draft.md
+      - summary.md
+      - thoughts/
+      - tmp/
+      - temp/
+
 architecture:
   layers: 4                          # L1 + L1.5 + L2 + L3
   wiki_pages: 0                      # Starts at 0, grows organically

@@ -32,10 +32,12 @@
 8. **永久锚点文档**：详细愿景恢复记录见 `docs/current/vision_recovery_craft_2026-04-10.md`——这是防漂移的永久锚点，18 项丢失元素全部在里面有原文引证。**任何一次上下文压缩后第一件事是重读它。**
 
 **Agent 行为准则**：
-- **即时沉淀** — 关键决策当下写入文档，不等会话结束
+- **📜 硬契约** — 运行前必读 [`docs/agent_protocol.md`](docs/agent_protocol.md)（write surface / tool protocol / boot-end sequence / anti-patterns）。L11 自动执行，违约 = 基质污染。
+- **即时沉淀** — 关键决策当下 `myco_eat` 为 raw note，不手建 scratch/TODO/MEMO 文件
 - **在线验证** — 数字型 claim 必须 WebSearch 交叉验证
 - **Gear 4 意识** — 解决耗时 ≥2 轮的问题后，在 log 条目末尾标记 `→ g4-candidate`
-- **自主权边界** — ✅ 技术执行/Bug/文档 | 📢 工作流微调 | 🛑 框架方向/API 设计/破坏性变更
+- **摩擦必捕** — Myco 工具不顺手 → `myco_eat` + `friction-phase2` tag（Phase ② 的粮食）
+- **自主权边界** — ✅ 技术执行/Bug/文档 | 📢 工作流微调 | 🛑 框架方向/API 设计/破坏性变更/`_canon.yaml` 修改
 
 **🎯 Operational Feel**：
 Python 打包环境（hatchling + twine）。模板唯一来源：`src/myco/templates/`（打包入 wheel）。
@@ -126,6 +128,7 @@ Phase 3  非 ASCC 项目示例            ⏳ v1.2 目标
 ### 核心协议
 | 文档 | 内容 | 状态 |
 |------|------|------|
+| `docs/agent_protocol.md` | **Agent 运行硬契约** — write surface / tool protocol / boot-end sequence / anti-patterns（由 L11 lint 执行） | **[ACTIVE] [CONTRACT]** |
 | `docs/WORKFLOW.md` | 工作流手册（十二原则 W1-W12 + 进化引擎 + 会话流程） | [ACTIVE] |
 
 ### 框架知识文档

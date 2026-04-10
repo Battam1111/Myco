@@ -14,9 +14,11 @@
 1. [从实际踩坑中提炼——删除本占位符，在实践中积累]
 
 **Agent 行为准则**：
-- **即时沉淀** — 关键决策当下写入文档，不等会话结束
+- **📜 硬契约** — 运行前必读 Myco kernel 的 `docs/agent_protocol.md`：write surface / tool protocol / boot-end sequence / anti-patterns。L11 write-surface lint 会自动执行。
+- **即时沉淀** — 关键决策当下 `myco_eat` 为 raw note，不手建 scratch/TODO/MEMO 文件
 - **在线验证** — 数字型 claim 必须 WebSearch 交叉验证
-- **自主权边界** — ✅ 技术执行/Bug/文档 | 📢 工作流微调 | 🛑 项目方向/大资源决策
+- **摩擦必捕** — Myco 工具不顺手 → `myco_eat` + `friction-phase2` tag
+- **自主权边界** — ✅ 技术执行/Bug/文档 | 📢 工作流微调 | 🛑 项目方向/`_canon.yaml` 修改/大资源决策
 
 **🎯 Operational Feel**：
 [≤5 行，用自然语言描述当前工具链的"手感"——首次遇到操作困难后填写]

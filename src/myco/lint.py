@@ -16,6 +16,7 @@ Dimensions:
     L10 Notes Schema — atomic-note frontmatter validation (v1.2.0)
 """
 
+import os
 import re
 import sys
 import glob
@@ -482,6 +483,109 @@ def lint_original_sync(canon, root):
 
 
 # ---------------------------------------------------------------------------
+# L11: Write Surface — enforce agent write-target whitelist
+# ---------------------------------------------------------------------------
+
+def _ws_allowed_match(name, allowed):
+    for pat in allowed:
+        pat = pat.rstrip("/")
+        if name == pat:
+            return True
+    return False
+
+
+def _ws_gitignored_names(root):
+    names = set()
+    gi = root / ".gitignore"
+    if not gi.exists():
+        return names
+    try:
+        for line in gi.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if line.startswith("./"):
+                line = line[2:]
+            if line.endswith("/"):
+                line = line[:-1]
+            if "/" in line or "*" in line or "?" in line or "[" in line:
+                continue
+            names.add(line)
+    except OSError:
+        pass
+    return names
+
+
+def lint_write_surface(canon, root):
+    """Enforce _canon.yaml → system.write_surface.
+
+    Authoritative contract: docs/agent_protocol.md §1. Runtime parity with
+    scripts/lint_knowledge.py::lint_write_surface.
+    """
+    issues = []
+    ws = canon.get("system", {}).get("write_surface")
+    if not ws:
+        return issues
+
+    allowed = ws.get("allowed", []) or []
+    forbidden = set(ws.get("forbidden_top_level", []) or [])
+    gitignored = _ws_gitignored_names(root)
+
+    try:
+        top_entries = sorted(os.listdir(root))
+    except OSError:
+        return issues
+
+    for name in top_entries:
+        if name.startswith("."):
+            continue
+        if name in {"__pycache__", "build", "node_modules", "venv", "env"}:
+            continue
+        if name.endswith(".egg-info"):
+            continue
+
+        if name in forbidden or (name + "/") in forbidden:
+            issues.append(("L11", "CRITICAL", name,
+                           "Forbidden top-level entry (anti-pattern). "
+                           "See docs/agent_protocol.md §1."))
+            continue
+
+        if name in gitignored:
+            continue
+
+        if not _ws_allowed_match(name, allowed):
+            issues.append(("L11", "HIGH", name,
+                           "Top-level entry not in write_surface.allowed. "
+                           "If legitimate, add to _canon.yaml; otherwise "
+                           "remove or move into an allowed location."))
+
+    notes_dir = root / "notes"
+    if notes_dir.exists() and notes_dir.is_dir():
+        for path in sorted(notes_dir.iterdir()):
+            if path.is_dir():
+                issues.append(("L11", "HIGH", f"notes/{path.name}/",
+                               "notes/ must be flat — no subdirectories"))
+                continue
+            nm = path.name
+            if nm == "README.md":
+                continue
+            if not (nm.startswith("n_") and nm.endswith(".md")):
+                issues.append(("L11", "HIGH", f"notes/{nm}",
+                               "Non-note file in notes/ — use `myco eat` "
+                               "instead of hand-writing files here."))
+
+    wiki_dir = root / "wiki"
+    if wiki_dir.exists() and wiki_dir.is_dir():
+        for path in sorted(wiki_dir.rglob("*")):
+            if path.is_file() and path.suffix not in {".md", ""}:
+                rel = path.relative_to(root)
+                issues.append(("L11", "MEDIUM", str(rel),
+                               "wiki/ should contain markdown only"))
+
+    return issues
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -513,6 +617,7 @@ def main(root: Path = None, quick: bool = False, fix_report: bool = False) -> in
             ("L8 .original Sync", lint_original_sync),
             ("L9 Vision Anchor", lint_vision_anchors),
             ("L10 Notes Schema", lint_notes_schema),
+            ("L11 Write Surface", lint_write_surface),
         ])
 
     all_issues = []
