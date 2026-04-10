@@ -47,10 +47,10 @@ Python 打包环境（hatchling + twine）。模板唯一来源：`src/myco/temp
 
 | # | 状态 | 任务 | 备注 |
 |---|------|------|------|
-| 1 | 🔄 | 非 ASCC 项目示例（software dev project example） | v1.2 目标 |
-| 2 | ⏳ | myco ingest MemPalace 集成 | v1.2 roadmap |
-| 3 | ⏳ | --adapter generic 通用适配模式 | v1.2 roadmap |
-| 4 | 📐 | **Metabolic Inlet 原语（身份级声明）** | **v1.2 仅声明 · 最早 v2.0 实现**（见下） |
+| 1 | 🟢 | **v1.2 消化道 Week 1**：eat/digest/view/hunger + notes/ + L10 + MCP ×4 | **批准 2026-04-10** (craft §签名) |
+| 2 | ⏳ | v1.2 消化道 Week 2：基于摩擦数据迭代 extract/integrate | 依赖 Week 1 hunger 数据 |
+| 3 | ⏳ | v1.2 消化道 Week 3：commons/ + promote/craft use + L11/L12 + 三条 HPC lesson promote | 依赖 Week 2 收敛 |
+| 4 | 📐 | **Metabolic Inlet 原语（身份级声明）** | v2.0，不阻塞 Week 1-3 |
 
 ### 任务 4 详述 · Metabolic Inlet
 
