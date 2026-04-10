@@ -1,10 +1,45 @@
+# Python
 __pycache__/
 *.py[cod]
+*.pyo
 *.egg-info/
-.DS_Store
-*.orig
+*.egg
+
+# Build artifacts
 dist/
 build/
 *.whl
+
+# Virtual environments
 .venv/
 venv/
+env/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Misc
+*.orig
+
+# Internal files (kept locally, not published)
+commit_msg.txt
+PYPI_SETUP.md
+CORE_NARRATIVE_SYNTHESIS.md
+assets/architecture.png
+scripts/pypi_upload.bat
+
+# Internal strategy docs (kept locally for reference)
+docs/current/brand_craft_2026-04-10.md
+docs/current/launch_craft_2026-04-10.md
+docs/current/readme_craft_2026-04-10.md
+docs/current/adoption_community_craft_2026-04-09.md
+docs/current/v1_scope_craft_2026-04-09.md
+docs/current/v1_1_scope_craft_2026-04-09.md

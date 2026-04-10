@@ -20,7 +20,7 @@ Myco is a local CLI tool and Python library that operates entirely on your files
 
 **Do not** open a public GitHub issue for security vulnerabilities.
 
-Instead, report security issues by emailing: **security@[maintainer-domain]** (or open a private GitHub Security Advisory via the Security tab).
+Instead, please open a [private GitHub Security Advisory](https://github.com/Battam1111/Myco/security/advisories/new) via the Security tab.
 
 Please include:
 - Description of the vulnerability

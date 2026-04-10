@@ -84,3 +84,11 @@ v1.0 三项充分条件全部达成：(A) migrate.py aha moment 输出优化；(
 ## [2026-04-10] milestone | 🎉 Myco v1.1.0 CLI 自动化完成
 
 v1.1 三项交付：(D1) myco config --set/get/list/unset adapters.* ← 配置隔离至 _canon.yaml [adapters] 节；(D2) myco import --from hermes [dir] ← 半自动 W8 stub 生成；(D3) myco import --from openclaw [file] ← MEMORY.md 分节映射至 wiki/docs/MYCO.md；CLI 冒烟测试全部通过；lint L0-L8 全绿 ✅
+
+## [2026-04-10] system | Publication readiness audit + cleanup（传统手艺 4 轮，91% 置信度）
+
+开源/闭源分离执行：.gitignore 排除 11 个内部文件（本地保留）（commit_msg.txt / PYPI_SETUP.md / architecture.png / pypi_upload.bat / 6 个内部策略辩论记录）；保留 11 个框架设计辩论（intellectual transparency）。README 叙事回归：从 8 份辩论记录中恢复核心叙事（mycelium metabolism / tacit knowledge erosion / reflexive layer），融入 "The Story" + "Why Myco"。修复：_canon.yaml 版本 0.9.0→1.1.0、SECURITY.md 占位符邮箱、MYCO.md 删除已完成内部任务队列+过期引用、docs/current/README.md 索引清理。.gitignore 补全（Python 官方模板对齐）。
+
+## [2026-04-10] milestone | 🎉 Myco MCP Server 实现 — agent 自动发现 5 个工具
+
+实现 src/myco/mcp_server.py（Python FastMCP，stdio transport）。5 个 MCP 工具：myco_lint（9 维一致性检查）、myco_status（知识系统概览）、myco_search（跨 wiki/docs/MYCO.md 搜索）、myco_log（摩擦/反思记录）、myco_reflect（Gear 2 会话反思提示）。配置：.mcp.json 自动发现 + pyproject.toml [project.optional-dependencies] mcp。所有工具测试通过：lint 9/9 PASS、status 正确读取版本/阶段/任务、search "metabolism" 返回 42 匹配。这是 Myco 从"被动工具"到"主动基础设施"的关键跃迁——agent 安装后自动获得知识代谢能力。

@@ -13,7 +13,7 @@
 |------|------|------|
 | `myco_vision_2026-04-08.md` | [ORIGIN/COMPILED] | Myco 愿景文档原稿 → 已整理至 `docs/vision.md` |
 | `vision_debate_2026-04-08.md` | [ORIGIN/COMPILED] | Myco 愿景传统手艺（4轮，~85%置信度）；在线调研 Meta Hyperagents + Self-Evolving Survey |
-| `positioning_craft_2026-04-09.md` | [ACTIVE] | **深度定位传统手艺**（6轮，92%置信度）；OpenClaw 346K 威胁分析；tagline→metabolism；Gear 4 验证确认 |
+| `positioning_craft_2026-04-09.md` | [ACTIVE] | **深度定位传统手艺**（6轮，92%置信度）；tagline→metabolism；Gear 4 验证确认 |
 | `decoupling_craft_2026-04-09.md` | [ACTIVE] | **ASCC/Myco 解耦传统手艺**（3轮，93%置信度）；边界判断+替换策略确定 |
 | `decoupling_positioning_debate_2026-04-09.md` | [COMPILED]（定位部分已被 positioning_craft supersede） | 早期定位辩论（6轮，~90%）；解耦审计清单（13 CRITICAL）；热启动设计 |
 
@@ -43,7 +43,7 @@
 
 | 文档 | 状态 | 内容 |
 |------|------|------|
-| `system_state_assessment_2026-04-07.md` | [ORIGIN/COMPILED] | 系统现状全方位评估（3轮，~82%）；识别 5 个弱点；W-001 直接驱动 Gear 2 强制化，W-002 驱动 lint 一般化，W-005 记录自评盲区 |
+| `system_state_assessment_2026-04-07.md` | [ORIGIN/COMPILED] | 系统现状全方位评估（3轮，~82%）；识别 5 个弱点 |
 | `system_evolution_debate_2026-04-08.md` | [ORIGIN/ACTIVE] | E1-E10 系统优化方案（传统手艺 4轮）；Tier1全执行，Tier2全执行 |
 
 ---
@@ -55,6 +55,21 @@
 | `myco_self_apply_craft_2026-04-09.md` | [ACTIVE] | Myco 自我应用传统手艺（Myco 作为自己的第一个用户） |
 | `examples_design_craft_2026-04-09.md` | [ACTIVE] | examples/ 目录设计传统手艺（Gear 4 生命周期展示定位 + 社区管线） |
 | `gear3_v090_milestone_2026-04-09.md` | [COMPILED] | v0.9.0 Gear 3 里程碑回顾（3 项被证伪假设 + 5 行动全 ✅） |
+
+---
+
+## 本地文档（不纳入远端仓库）
+
+> 以下文档仅存在于本地（.gitignore 排除），包含内部策略和运营决策记录。
+
+| 文档 | 内容 |
+|------|------|
+| `adoption_community_craft_2026-04-09.md` | 一键采用+社区生态辩论（4轮，87%置信度） |
+| `v1_scope_craft_2026-04-09.md` | v1.0 scope 辩论（4轮，89%置信度） |
+| `v1_1_scope_craft_2026-04-09.md` | v1.1 scope 辩论（3轮，87%置信度） |
+| `readme_craft_2026-04-10.md` | README 重写策略（4轮，87%置信度） |
+| `brand_craft_2026-04-10.md` | 品牌视觉策略（4轮，88%置信度） |
+| `launch_craft_2026-04-10.md` | 发布策略（2轮，87%置信度） |
 
 ---
 

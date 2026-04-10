@@ -34,6 +34,9 @@ dependencies = [
     "pyyaml>=5.0",
 ]
 
+[project.optional-dependencies]
+mcp = ["mcp>=1.0.0"]
+
 [project.urls]
 Homepage = "https://github.com/Battam1111/Myco"
 Repository = "https://github.com/Battam1111/Myco"

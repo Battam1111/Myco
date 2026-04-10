@@ -74,6 +74,14 @@ myco import --from openclaw ./MEMORY.md
 
 See [`adapters/`](adapters/) for Cursor, GPT, and other integrations.
 
+**MCP Integration** (agent auto-discovers Myco tools):
+
+```bash
+pip install 'myco[mcp]'
+```
+
+A `.mcp.json` is already included in the repo. Once installed, your agent automatically gets 5 tools: `myco_lint`, `myco_status`, `myco_search`, `myco_log`, and `myco_reflect` — no manual prompting needed.
+
 ---
 
 ## How It Works
@@ -92,6 +100,12 @@ your-project/
 
 `myco lint` runs 9 consistency checks across all layers. It's the immune system — it catches contradictions, orphaned files, stale references, and version drift.
 
+Everything in Myco can evolve — knowledge structure, compression strategies, even the evolution engine itself. Everything except three immutable laws:
+
+1. **Accessible** — The system must have an entry point any agent can locate and self-explain.
+2. **Transparent** — The system must remain auditable and understandable by humans, always.
+3. **Perpetually Evolving** — Stagnation is death. A system that stops evolving degrades into a static knowledge base.
+
 A four-gear evolution engine keeps knowledge alive:
 
 | Gear | When | What |
@@ -105,6 +119,8 @@ A four-gear evolution engine keeps knowledge alive:
 
 ## Why Myco
 
+Agents can execute and they can remember, but they cannot notice inconsistencies in their own knowledge, question whether their assumptions still hold, or extract patterns from one project to bootstrap the next. Myco is the **reflexive layer** agents lack — the external system that watches, validates, evolves, and teaches.
+
 Most AI tools operate at **L-exec** (execute faster) or **L-skill** (accumulate skills). Myco operates at **L-struct** and **L-meta** — evolving the knowledge structure itself:
 
 | Level | What | Who |
@@ -114,7 +130,7 @@ Most AI tools operate at **L-exec** (execute faster) or **L-skill** (accumulate 
 | **L-struct** | **Evolve knowledge structure** | **Myco (Gear 3)** |
 | **L-meta** | **Evolve the rules of evolution** | **Myco (Gear 4)** |
 
-[Mem0's 2026 report](https://mem0.ai/blog/state-of-ai-agent-memory-2026) names "memory staleness detection" as an unresolved challenge. That's what `myco lint` solves. Mem0 does retrieval. Myco does verification and evolution. They're complementary.
+[Mem0's 2026 report](https://mem0.ai/blog/state-of-ai-agent-memory-2026) names "memory staleness detection" as an unresolved challenge. That's exactly what `myco lint` does. Mem0 does retrieval. Myco does verification and evolution. They're complementary.
 
 ---
 
@@ -148,11 +164,11 @@ Patterns extracted via Gear 4 now live in the Myco codebase — the tool evolved
 
 ## The Story
 
-Day 1, I had a 949-line `CLAUDE.md`. Everything in one file. Day 3, the same metric appeared in three places with three different values. My agent used all three confidently. That's when I built the first `myco lint`.
+Day 1, I had a 949-line `CLAUDE.md`. Everything in one file. By day 3, the same metric appeared in three places with three different values, and my agent used all three confidently. But the real problem ran deeper: every new session, my agent would rewrite the same deployment script from scratch — not because it forgot the SSH config rules (those were documented), but because the *tacit knowledge* of which flags matter, what order works, what silently breaks — all of that vanished at the session boundary. Intelligence wasn't being lost. It was being **discarded**, repeatedly.
 
-By day 5, I had canonical values, wiki pages, and 8 lint checks. By day 7, a milestone retrospective revealed 40% of friction came from "changed content, forgot to update index" — so the system evolved its own rules.
+That's when I built the first `myco lint` — not just to catch contradictions, but to give agents something they fundamentally lack: a reflexive layer. A system that watches whether what the agent "knows" is still true, flags when assumptions rot, and evolves its own rules when the old ones stop working.
 
-Day 8, I realized the pattern wasn't project-specific. Four layers, lint checks, evolution gears — they're universal. I named it Myco, after mycelium: the underground network that metabolizes nutrients between organisms, keeping entire ecosystems alive.
+By day 7, a milestone retrospective revealed 40% of friction came from "changed content, forgot to update index" — so the system evolved its own rules. Day 8, I realized the pattern wasn't project-specific. I named it Myco, after mycelium: the underground fungal network that breaks down matter into nutrients, remembers effective growth paths, redistributes resources where they're needed, and forms symbiosis with any species it encounters. Agents are the trees above ground. Myco is the living network beneath, making the whole forest work.
 
 ---
 
