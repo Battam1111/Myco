@@ -164,20 +164,40 @@ v1.2 Phase ② 的驱动力是 Phase ① 产生的**真实摩擦数据**。Agent
 
 **约定**：任何摩擦体验**必须** `myco eat` 一条 note，tags 里**必须**包含 `friction-phase2`。
 
-触发摩擦捕获的例子：
+### 5.1 触发点清单
+
+**(a) 会话两端**：boot sequence 的 hunger 信号、end sequence 的 reflect 步骤。
+
+**(b) 工具不够用的时刻**：
 - "我想 extract 但没有 `myco_extract` 工具"
 - "digest 的 4 个问题太多了，对小 note 过度"
 - "hunger 报告没提到 X 我想看的信号"
 - "这条 note 应该放在 wiki 还是 notes？我不知道"
 - "raw note 查找需要先列再 grep 太麻烦"
 
-**格式模板**（`myco eat` 时用）：
+**(c) 🆕 on-self-correction（自承错误触发点，v1.2.0 新增）**：
+
+当 agent 在输出中承认了一个错误——任何形如"我之前说的 X 是错的 / 刚才那个判断错了 / 这里我搞混了 / 我之前理解偏了"的句子——**必须立即** `myco_eat` 捕获这次错误 + 上下文 + 修正动作，**然后再继续输出**。不能等会话结束再回顾。
+
+**为什么**：错误发生的那一刻是最原位、信息损失最小的捕获时点。延迟到 end sequence 时捕获会丢失：当时的推理链、错误形成的直接原因、修正时的内部思路。这三样是 Phase ② 最想要的原材料。
+
+**硬规则**：
+- 触发词识别：agent 自己的输出中包含"我错了 / 我之前说的 X 是错的 / 搞混了 / 理解偏了 / 刚才的判断不对 / I was wrong / correction:"等显式自承错误的表达
+- 立即动作：在**同一个 assistant turn 内**先 `myco_eat` 再继续说话
+- note tags 必须包含：`friction-phase2` + `on-self-correction` + 错误类型 tag（如 `reference-error` / `misinterpretation` / `logic-error`）
+- note 内容遵循 §5.2 格式模板
+
+**来源溯源**：此触发点由 ASCC 项目 agent 于 2026-04-11 通过 note `n_20260411T013756_ca9e` 捕获的元级 friction 提出，经 `docs/current/upstream_protocol_craft_2026-04-11.md` 传统手艺辩论后作为首次 upstream 回灌落地。
+
+### 5.2 格式模板（`myco eat` 时用）
+
 ```
 [friction-phase2] <一句话症状>
 
 触发场景：<什么时候遇到的>
 期望行为：<我当时希望工具怎么做>
-现在的 workaround：<临时怎么处理的>
+workaround：<临时怎么处理的>
+根因分析：<为什么会发生>
 ```
 
 Phase ② 开工的第一件事就是 `myco view --tag friction-phase2 --status raw`，把这些 note 聚类成新器官的需求。
@@ -218,12 +238,123 @@ Phase ② 开工的第一件事就是 `myco view --tag friction-phase2 --status 
 
 ---
 
-## 8. 演进
+## 8. 回灌协议（Upstream Protocol v1.0）
+
+**这是 Myco kernel 与 downstream instance 之间的元级代谢通道**——instance 发现的"契约本身的缺陷"如何流回 kernel 并生效。
+
+**定位**：Myco 有三层代谢同心圆：
+- **最内层（本节）**：instance → kernel 回灌 —— downstream 项目发现的 Myco 工具/契约/lint 缺陷，升级 kernel
+- **中间层（v1.2 Phase ③ Commons）**：instance ↔ instance 横向共享 —— craft / pattern / snippet 跨项目迁移
+- **最外层（v2.0 Metabolic Inlet）**：世界 → substrate —— 从 GitHub / arXiv / 社区主动吞噬新知
+
+本节定义最内层。**它复用既有 7 步管道**：发现 → 评估 → 萃取 → 整合 → 压缩 → 验证 → 淘汰。
+
+**设计源**：`docs/current/upstream_protocol_craft_2026-04-11.md`（传统手艺 3 轮辩论，85% 置信度）
+
+### 8.1 核心原则（五条硬性）
+
+1. **生成零门槛 + inline confirm**：对齐开源 20 年 PR 共识。机械步骤自动化，决策步骤保留人类。
+2. **结构性约束先于置信度**：通道分类基于文件路径（`git diff --name-only`），agent 无法操纵。**最严类 wins**——patch 触及任何一个类 Z 文件，整个 patch 走最严通道。
+3. **版本锁 + 反向撤回广播**：`system.contract_version` 双向追踪，Conventional Commits 前缀自动 bump。首次手动 bootstrap，之后全自动。
+4. **结构化元数据可过滤污染**：auto-append 带前缀 `[auto-upstream:<note-id>]`，auto-written notes 带 `source: auto-upstream`，bundle 带完整 provenance。
+5. **两阶段 bootstrap**：协议 v1.0 本身手动落地（避免自引用递归），首次真实 dogfood 留给未来的非协议 friction。
+
+### 8.2 三通道处置矩阵
+
+通道由 `_canon.yaml → system.upstream_channels` 显式定义的文件路径决定：
+
+| 通道 | 触发条件 | 用户动作 | 7 步管道映射 |
+|---|---|---|---|
+| **Auto** | 类 X 全部 + 类 Y 的 append-only | 无 | 发现→评估→萃取→整合→压缩→**验证**→（无淘汰步） |
+| **Confirm** | 类 Y 修改 + 类 Z 的 append-only | 按 `yes/no/skip` | 全 7 步，淘汰=rejected |
+| **Review** | 类 Z 修改 | 看 diff + 按 `yes/no/skip` | 全 7 步 + 前置人类 selection |
+
+**明确不做**（Round 1-3 辩论后否决）：
+- ❌ 置信度作为硬门槛（LLM calibration 研究否决 + Goodhart 陷阱）
+- ❌ 纯自动 merge（开源 PR 共识反对）
+- ❌ 假设下游与 kernel 同时 mount（ASCC 反例）
+
+**置信度评分**从 gate 降级为 **sort key + audit log**——决定展示顺序和审计溯源，不决定是否执行。
+
+### 8.3 状态机（下游 note 生命周期）
+
+```
+raw → upstream-candidate → bundle-generated
+  ↓ (用户 Confirm/Review)
+  ├─ yes    → integrated  + upstream_commit: <sha> + receipt
+  ├─ no     → upstream-rejected (terminal for current contract_version)
+  │           + reject_reason + rejected_at_version
+  │           → 排除在未来 upstream 扫描之外
+  │           → Phase ② digest 仍可本地 integrate
+  │           → kernel bump 新 contract_version 时自动重评一次
+  └─ skip   → 保留 upstream-candidate，下次 boot 重评
+```
+
+**mutation-selection 映射**：生成 bundle = mutation（substrate 做），inline confirm = selection（人类做）。这是 `docs/current/vision_recovery_craft_2026-04-10.md` §1.6 的协作模型在回灌通道的具体实现。
+
+### 8.4 版本锁协议
+
+**kernel 侧**：
+- `_canon.yaml → system.contract_version: "vX.Y.Z"`（当前 v1.2.0）
+- Conventional Commits 前缀 `[contract:{patch|minor|major}] <description>` 自动 bump
+- `docs/contract_changelog.md` 追加每次 bump 的 diff 摘要 + 影响范围
+- commit 无前缀 → 不 bump
+
+**下游侧**：
+- `_canon.yaml → system.synced_contract_version: "vX.Y.Z"`
+- boot sequence 比对两边版本，不同则提示"kernel 契约有 N 个版本更新，是否同步？"
+- 同步操作走 Confirm/Review 通道（改下游 CLAUDE.md/MYCO.md）
+
+**撤回机制**：
+- `docs/contract_changelog.md` 可标记某版本为 `revoked: true` + `revoke_reason`
+- 下游 boot 看到自己的 synced_version 被 revoke → 强制提示用户回滚
+- 撤回传播确定性 = boot 频率（通常一两天内全部下游收到）
+
+### 8.5 传输层：会话内授权
+
+**主路径**：下游 agent 生成 bundle 写到本地 `.myco_upstream_outbox/<note-id>.bundle.yaml`，通知用户。用户确认后：
+- 双 mount 场景：agent 直接投递到 kernel 的 `.myco_upstream_inbox/`
+- 单 mount 场景：agent 生成紧凑"喂料包"，用户在 kernel 会话里一次粘贴触发
+
+**注**：`.myco_upstream_*` 是点目录，L11 自动豁免。L12（点目录协议卫生）防止垃圾累积。
+
+**升级路径**（Phase ③）：`myco upstream serve` 守护进程 + HTTP 端点，下游直接 POST。v1.0 不做。
+
+### 8.6 触发词与反射规则
+
+下游 agent 在 `myco eat` 时，**自动**对满足以下条件的 note 追加 `upstream-candidate` tag：
+- 内容明确指向 kernel 文件（`docs/agent_protocol.md` / `scripts/lint_knowledge.py` / `src/myco/lint.py` / `src/myco/mcp_server.py` / `_canon.yaml` / `src/myco/templates/**`）
+- 根因分析段落出现"契约 / protocol / lint / canon / template / kernel"关键词
+- tags 已包含 `friction-phase2`
+
+打 tag 是低成本操作——**宁可多打不可漏打**，因为后续评分和通道分类会兜底。
+
+### 8.7 Bootstrapping（v1.0 首次落地，本 commit）
+
+协议 v1.0 本身 **不走协议**。本 commit 是手动 bootstrap：
+- 手动 bump `contract_version: "v1.2.0"`
+- 手动追加 `docs/contract_changelog.md` v1.2.0 初始条目
+- 使用 Conventional Commit prefix `[contract:minor]`
+- 本次改动包含：§5.1 on-self-correction + §8 upstream protocol + L12 lint + `upstream_channels` canon + 模板同步
+
+**首次真实 dogfood**：预留给未来某条**非协议相关**的元级 friction note。不使用 `n_20260411T013756_ca9e` 作为 dogfood（避免协议执行自己时修改自己的递归陷阱）。
+
+### 8.8 验收标准（多指标，非单 metric）
+
+- 首次 bootstrap 成功落地 + L13 lint 全绿（验收 A）
+- 首次真实 dogfood 完成 + receipt 正常生成（验收 B，延后）
+- 一周内无 thrash（同一 upstream-candidate 反复卡住）（验收 C，延后）
+- 任一项失败 → 该部分设计回炉
+
+---
+
+## 9. 演进
 
 本协议本身也是 Myco 基质的一部分，随 Phase ② 一起迭代。
 
 - 修改本文件 = 修改 agent-kernel 契约，需要在 `log.md` 记 `meta` 条目
 - 新增写入白名单项 = 修改 `_canon.yaml → system.write_surface`，需要人类明确批准
+- 修改 `system.upstream_channels` 路径列表 = 改变通道分类边界，需要 Conventional Commit `[contract:minor]` 以上
 - 发现新的 anti-pattern = `myco_eat` 标 `protocol-evolution`
 
-> **一句话总结**：**Agent 把基质当产品，不是当草稿纸。**
+> **一句话总结**：**Agent 把基质当产品，不是当草稿纸。基质是 CPU 以外的一切，包括这份契约本身。**
