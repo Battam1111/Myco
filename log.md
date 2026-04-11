@@ -599,3 +599,30 @@ L14 修复：两条新 forage 初始 license=unknown 违反 "unknown coexist wit
 **Decisions D1-D8 落地**：D1 hero 两句（benefit-first + category secondary）、D2 target-user blockquote 置于 fold 上方、D3 section 顺序（hero → target → 30s demo → quick start → what it does → glossary → how it works → comparison → open problems → story）、D4 术语表 8 行（eat/digest/view/lint/forage/absorb/distill/hunger）、D5 MCP docstring 前置普通英语动词 + auto-invoke 规范、D6 多语言三叉（en canonical / zh / ja with banner）、D7 MYCO.md hero 两句化、D8 explicit "not memory layer / not runtime / not skill framework" 声明。
 
 **本批次修改**：`README.md` 全量重写（~285 行）、`README_zh.md` 全量重写（~280 行）、`README_ja.md` 新建（~280 行，带翻译 banner）、`MYCO.md` hero 段替换（primary + secondary + tagline + target user + disambiguation 五段式）、`src/myco/mcp_server.py` 中 5 个 MCP tool docstring（lint/status/search/log/reflect）前置 "Auto-invoke when..." 规范（eat/digest/view/hunger 原已具备 WHEN TO CALL section，保留）。修改全部为非契约变更（docstring 软修改 / 对外文案），`_canon.yaml` 与 kernel src 未动。
+
+---
+
+## 2026-04-11 · Milestone · README 三语版 vision-led 全量重写（Wave 10 · readme-v3）
+
+**触发**：用户对 usability-batch README（2026-04-11 上午提交 `60aa2de`）提出定位批评：
+> "抽象阶梯并不够高，不要从我们具体实现出发去讲故事，而是应该从我们的愿景出发去讲故事。我们的愿景在之前的 debate 记录中有非常多的信息。取其精华去其糟粕，压缩展示最核心的内容，展示我们的愿景，展示我们最好的一面。"
+
+**诊断**：usability-batch README 技术正确但战略错位 —— hero 从"lints your knowledge"出发，抽象阶梯停在 feature 层；没有把 Myco 作为 Autonomous Cognitive Substrate 的身份叙事放在 fold 之上；CPU/OS metaphor、非参数进化、七步代谢（含 excrete 淘汰步）、四层自我模型、mutation/selection、agent-as-subject 反转等 18 个来自 `docs/primordia/vision_recovery_craft_2026-04-10.md` 的愿景元素被压缩丢失或埋到底部。
+
+**愿景吸收（eat）**：`myco eat` 生成 `notes/n_20260411T202539_92d1.md`，source=chat，tags=`vision-absorption,readme-v3-input,wave10-candidate`，综合 `docs/vision.md` + `docs/primordia/vision_recovery_craft_2026-04-10.md` + `docs/primordia/myco_vision_2026-04-08.md` 三份愿景源，按 4 个主题簇组织 18 个元素：Identity / Metabolism / Cognition / Collaboration。
+
+**本批次修改**（3 文件，~310 行/版）：
+
+- `README.md`（英）全量重写。新骨架：Hero（substrate identity + CPU/OS metaphor）→ The Living Substrate（热力学 life/death 框架）→ Five Capabilities（seven-step metabolism with Excrete / meta-evolution 四齿轮+metabolic inlet / four-layer self-model A/B/C/D / cross-session continuity / agent-adaptive universality）→ A Picture of the Whole（kernel/instance ASCII 图）→ How You Work With Myco（mutation/selection + transparency→anti-cancer 因果链 + agent-as-subject 反转）→ Three Immutable Laws 表 → Compression Is Cognition → Standing on Fifty Years（Karpathy + Polanyi + Argyris + Toyota PDCA + Voyager）→ Already Running Unconsciously（ASCC anchor）→ Open Problems 6 条 → Today and Tomorrow（v0.x/v1.0/v∞ roadmap 表）→ Try It Today（pip/CLI 压到底部子节）→ Contributing → The Mycelium（故事）→ closing tagline。
+
+- `README_zh.md`（中）镜像重写，使用 04-08 canonical 中文词汇：认知基质 / 自主认知基质 / 知识代谢 / 七步管道 / 非参数 / 永恒进化 / 停滞即死 / 变异 / 选择压力 / 癌化 / 内核 / 实例 / 压缩即认知 / 可读的透明。
+
+- `README_ja.md`（日）镜像重写，使用日文 canonical 术语：自律認知基質 / 代謝 / 七段 / 排出 / 淘汰 / カーネル / インスタンス / 選択圧 / 永続 / 停滞 / 癌化 / 圧縮 / ポラニー / アージリス / 自己升級。
+
+**L9 vision-anchor 验证**：3 个文件全部通过 12 组 anchor 检查（substrate-identity / cpu-metaphor / non-parametric / metabolism / seven-step-pipeline / compression-doctrine / four-layer-self-model / mutation-selection / perpetual-evolution / transparency-anticancer / kernel-instance / theoretical-lineage）。
+
+**Dual-path lint**：`myco lint --project-dir .` 15/15 绿 · `python scripts/lint_knowledge.py` 15/15 绿。
+
+**契约影响**：零。本次修改全部为对外叙事层（README 三语版）；`_canon.yaml` / `agent_protocol.md` / `lint.py` / MCP 工具契约未动。usability-batch 的 target-user blockquote、30-second demo、术语表被压到文档底部"Try It Today"子节，信息未删，展示层级上移到愿景。
+
+**设计原则自承**：这一次 README v3 的差别不在内容新增，而在**从哪里开始**。v2 从"what it does"开始（implementation），v3 从"what it is"开始（vision）。抽象阶梯的顶点是 Autonomous Cognitive Substrate 身份声明，具体 CLI 是地板而不是天花板。
