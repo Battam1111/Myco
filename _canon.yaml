@@ -6,8 +6,8 @@ system:
   # Authoritative source: docs/agent_protocol.md §8
   # Craft record:         docs/primordia/upstream_protocol_craft_2026-04-11.md
   # Changelog:             docs/contract_changelog.md
-  contract_version: "v0.23.0"  # Wave 24: L17 contract drift lint (closes panorama-#3 NH-10)
-  synced_contract_version: "v0.23.0"  # Wave 24 — self-reference: kernel's own lock
+  contract_version: "v0.24.0"  # Wave 25: tests infrastructure seed (hermes absorption C1)
+  synced_contract_version: "v0.24.0"  # Wave 25 — self-reference: kernel's own lock
   upstream_scan_last_run: "2026-04-11T15:21:31Z"
 
   # --- Upstream scan staleness reader (Wave 17, contract v0.16.0) ---
@@ -442,6 +442,27 @@ system:
     total_budget_bytes: 209715200        # 200 MB soft total budget (hunger)
     hard_budget_bytes: 1073741824        # 1 GB hard limit (L14 HIGH)
     license_recheck_days: 90             # stale license reminder threshold
+
+  # --- Test Infrastructure (Wave 25, contract v0.24.0) ------------------
+  # Authoritative craft: docs/primordia/hermes_absorption_craft_2026-04-12.md
+  # (kernel_contract, 3 rounds, 0.90 confidence). Seeded from the hermes
+  # absorption catalog C1 (test infrastructure with autouse isolation
+  # fixture) — the one absorption item grounded in 3 of Myco's 5 most
+  # recent scars (W20 silent-fail, W23 pre-commit never-exercised,
+  # W24 two-sensor disagreement) per craft §3.3.
+  #
+  # SSoT for:
+  #   - pyproject.toml::[tool.pytest.ini_options]::testpaths
+  #   - scripts/install_git_hooks.sh::MYCO_PRECOMMIT_PYTEST gate
+  #   - tests/conftest.py::_isolate_myco_project fixture expectations
+  #
+  # `test_dir` is read by the pre-commit hook so both surfaces share one
+  # truth; bare `pytest tests/` is the developer-facing invocation.
+  tests:
+    test_dir: tests/
+    min_unit_tests: 4               # Wave 25 seed count (catch regressions)
+    integration_marker: integration  # matches pyproject pytest markers
+    unit_subdir: tests/unit/
 
   write_surface:
     # L11 Write-Surface Lint — defines the only legal write targets for
