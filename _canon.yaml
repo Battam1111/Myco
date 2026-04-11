@@ -6,8 +6,31 @@ system:
   # Authoritative source: docs/agent_protocol.md §8
   # Craft record:         docs/primordia/upstream_protocol_craft_2026-04-11.md
   # Changelog:             docs/contract_changelog.md
-  contract_version: "v0.11.0"  # Wave 12: craft autonomy (severity HIGH + agent reflex arc)
+  contract_version: "v0.12.0"  # Wave 13: boot reflex arc (contract drift + raw_backlog HIGH + hunger wiring)
+  synced_contract_version: "v0.12.0"  # Wave 13 — self-reference: kernel's own lock
   upstream_scan_last_run: null
+
+  # --- Boot Reflex Arc (Wave 13, contract v0.12.0) ------------------------
+  # Authoritative craft: docs/primordia/boot_reflex_arc_craft_2026-04-11.md
+  # Parent principles: W1 (autopilot) + Upstream Protocol v1.0 §8.4
+  # Symmetric to Wave 12 craft reflex: HIGH severity, in-session remedy.
+  #
+  # Three reflexes closed:
+  #   (1) contract_drift   — local synced_contract_version ≠ kernel contract_version
+  #   (2) raw_backlog HIGH — W1 violation when pure-raw count > threshold
+  #   (3) boot hunger wiring — myco_status surfaces reflex signals on invocation
+  #
+  # `[REFLEX HIGH]` prefix distinguishes reflex signals from advisory ones.
+  boot_reflex:
+    enabled: true
+    severity: HIGH
+    raw_backlog_threshold: 10
+    reflex_prefix: "[REFLEX HIGH]"
+    # raw_backlog counts only pure-raw notes: digest_count == 0 AND
+    # source != "bootstrap". digesting-state notes are held, not raw.
+    raw_exempt_sources:
+      - bootstrap
+
   upstream_channels:
     # Path-based classification — strictest-class-wins. An instance agent
     # MUST map any proposed upstream change to one of these classes by path

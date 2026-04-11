@@ -13,8 +13,29 @@ system:
   # See kernel docs/agent_protocol.md §8. Instance agents MUST compare
   # synced_contract_version against the kernel's contract_version at boot
   # and refresh local reflexes if drift is detected.
-  synced_contract_version: "v0.11.0"  # last kernel contract the instance aligned with
+  synced_contract_version: "v0.12.0"  # last kernel contract the instance aligned with
   upstream_scan_last_run: null         # ISO-8601 timestamp of last upstream scan
+
+  # --- Boot Reflex Arc (Wave 13, contract v0.12.0) ------------------------
+  # Authoritative craft: kernel docs/primordia/boot_reflex_arc_craft_2026-04-11.md
+  # Parent principles: W1 (autopilot) + Upstream Protocol v1.0 §8.4
+  #
+  # Three reflexes enforced in-session at HIGH severity:
+  #   (1) contract_drift   — local synced_contract_version ≠ kernel contract_version
+  #   (2) raw_backlog HIGH — W1 violation when pure-raw count > threshold
+  #   (3) boot hunger wiring — myco_status surfaces reflex signals on invocation
+  #
+  # `[REFLEX HIGH]` prefix distinguishes reflex signals from advisory ones.
+  # raw_backlog counts only pure-raw notes: digest_count == 0 AND
+  # source not in raw_exempt_sources. digesting-state notes are held, not raw.
+  boot_reflex:
+    enabled: true
+    severity: HIGH
+    raw_backlog_threshold: 10
+    reflex_prefix: "[REFLEX HIGH]"
+    raw_exempt_sources:
+      - bootstrap
+
   upstream_channels:
     # Path-based classification — strictest-class-wins. See §8.2.
     class_x:                           # Auto-mergeable
