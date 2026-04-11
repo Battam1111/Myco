@@ -604,3 +604,220 @@ def run_compress(args) -> int:
         print(f"\n  Inputs are preserved on disk with status: excreted")
         print(f"  + compressed_into: {output_id} (Wave 27 D5 reversibility).")
     return 0
+
+
+# ---------------------------------------------------------------------------
+# Wave 31: `myco uncompress` — closes Wave 30 L4 limitation
+# ---------------------------------------------------------------------------
+#
+# Wave 30 L4 said: "myco uncompress verb is still vapor. Wave 27 D5 deferred
+# to Wave 29+. Wave 30 preserves the data (pre_compression_status field is
+# written), but no uncompress verb exists."
+#
+# Wave 31 implements the verb. Mechanically simple because Wave 30 D2 + D5
+# preserved everything needed:
+#   - inputs are still on disk (status excreted, not deleted)
+#   - inputs carry pre_compression_status (the prior status to restore)
+#   - inputs carry compressed_into (back-link to verify the chain)
+#   - the output's compressed_from list is the canonical input enumeration
+#
+# Two-phase commit, output-LAST ordering (mirror of compress's output-first):
+#   Phase 1: validate the output is a real compress output, validate every
+#            input back-link, build all restored input contents in memory.
+#   Phase 2: write each restored input via atomic_write_text, THEN delete
+#            the output. If any input write fails, the output still exists
+#            and the partial restoration is recoverable. L18 lint will not
+#            fire because compressed_from members still exist; the only
+#            sign of partial uncompress is some inputs flipped and others
+#            still excreted — visible to myco view but not a lint violation.
+
+def _build_input_restore(input_meta: Dict[str, Any]) -> Dict[str, Any]:
+    """Compute the restored frontmatter for an excreted input being uncompressed.
+
+    Wave 31 D2: this is the inverse of `_build_input_update`. It restores
+    `status` from `pre_compression_status`, clears the four compression
+    audit fields on the input side, and refreshes `last_touched`. The
+    excrete_reason is also cleared because the note is no longer excreted.
+    """
+    iso = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+    new_meta = dict(input_meta)
+    pre_status = new_meta.get("pre_compression_status", "raw")
+    new_meta["status"] = pre_status
+    new_meta["last_touched"] = iso
+    # Clear all four compression-related fields by setting to None;
+    # serialize_note will drop None values from the frontmatter.
+    new_meta["pre_compression_status"] = None
+    new_meta["compressed_into"] = None
+    new_meta["excrete_reason"] = None
+    return new_meta
+
+
+def _execute_uncompression(
+    root: Path,
+    output_path: Path,
+) -> Tuple[Path, List[Path]]:
+    """Phase 1 + Phase 2 inverse of `_execute_compression`.
+
+    Returns (deleted_output_path, [restored_input_paths]).
+    Raises on phase-1 validation failure with a clear stderr-grade message.
+    Phase-2 per-input write failures emit a `[WARN]` to stderr but the
+    function still returns the partial result so the caller can report it.
+    """
+    notes_dir = root / NOTES_DIRNAME
+
+    # ---- Phase 1: validate output ----
+    try:
+        out_meta, _ = read_note(output_path)
+    except Exception as exc:
+        raise RuntimeError(f"uncompress: cannot read output {output_path.name}: {exc}") from exc
+
+    if out_meta.get("status") != "extracted":
+        raise RuntimeError(
+            f"uncompress: {output_path.name} status is {out_meta.get('status')!r}, "
+            f"not 'extracted' — only compress outputs are uncompressible"
+        )
+    if out_meta.get("source") != "compress":
+        raise RuntimeError(
+            f"uncompress: {output_path.name} source is {out_meta.get('source')!r}, "
+            f"not 'compress' — only compress outputs are uncompressible"
+        )
+    cohort_ids = out_meta.get("compressed_from") or []
+    if not isinstance(cohort_ids, list) or not cohort_ids:
+        raise RuntimeError(
+            f"uncompress: {output_path.name} has no compressed_from list — "
+            f"not a valid compress output"
+        )
+    output_id = out_meta.get("id")
+    if not output_id:
+        raise RuntimeError(f"uncompress: {output_path.name} has no id field")
+
+    # ---- Phase 1: validate each input back-link, build restored content ----
+    pending_restores: List[Tuple[Path, str]] = []
+    for input_id in cohort_ids:
+        in_path = notes_dir / id_to_filename(input_id)
+        if not in_path.exists():
+            raise RuntimeError(
+                f"uncompress: input note {input_id} listed in {output_path.name}'s "
+                f"compressed_from is missing from notes/ — broken audit chain. "
+                f"Run `myco lint` for details (L18 should have caught this earlier)."
+            )
+        try:
+            in_meta, in_body = read_note(in_path)
+        except Exception as exc:
+            raise RuntimeError(
+                f"uncompress: cannot read input {in_path.name}: {exc}"
+            ) from exc
+        back_link = in_meta.get("compressed_into")
+        if back_link != output_id:
+            raise RuntimeError(
+                f"uncompress: input {input_id} compressed_into is {back_link!r}, "
+                f"not {output_id!r} — broken back-link, refusing to restore"
+            )
+        if in_meta.get("status") != "excreted":
+            raise RuntimeError(
+                f"uncompress: input {input_id} status is {in_meta.get('status')!r}, "
+                f"not 'excreted' — already restored or in unexpected state"
+            )
+        new_meta = _build_input_restore(in_meta)
+        new_text = serialize_note(new_meta, in_body)
+        pending_restores.append((in_path, new_text))
+
+    # ---- Phase 2: atomic writes (inputs first, output deletion last) ----
+    failed_inputs: List[str] = []
+    restored_paths: List[Path] = []
+    for in_path, in_text in pending_restores:
+        try:
+            atomic_write_text(in_path, in_text)
+            restored_paths.append(in_path)
+        except Exception as exc:
+            failed_inputs.append(f"{in_path.name} ({exc})")
+
+    if failed_inputs:
+        print(
+            f"[WARN] myco uncompress: {len(failed_inputs)} input(s) failed "
+            f"to restore. Output note NOT deleted to preserve recovery anchor. "
+            f"Failed: {'; '.join(failed_inputs)}",
+            file=sys.stderr,
+        )
+        # Do NOT delete the output if any input failed — the output is the
+        # only remaining recovery anchor for the failed inputs.
+        return output_path, restored_paths
+
+    # All inputs restored — safe to delete the output.
+    try:
+        output_path.unlink()
+    except Exception as exc:
+        print(
+            f"[WARN] myco uncompress: all inputs restored but output deletion "
+            f"failed: {exc}. Substrate is in an unusual state — output exists "
+            f"but its compressed_from members no longer point back. L18 will "
+            f"flag this as orphan back-link on next lint.",
+            file=sys.stderr,
+        )
+
+    return output_path, restored_paths
+
+
+def run_uncompress(args) -> int:
+    """`myco uncompress <output_id>` — Wave 31 reverse compression verb.
+
+    Closes Wave 30 L4 limitation. Reverses a single compress output:
+    restores each input note to its `pre_compression_status` and deletes
+    the output extracted note. Bidirectional back-link integrity is
+    validated before any writes.
+
+    Exit codes:
+      0 — success
+      2 — usage error (missing output_id)
+      3 — validation error (not an extracted compress output, broken
+          back-link, missing input)
+      5 — io error (cannot read project, cannot write notes/)
+    """
+    try:
+        root = _project_root(args)
+    except MycoProjectNotFound as e:
+        print(f"uncompress: {e}", file=sys.stderr)
+        return 5
+
+    output_id = getattr(args, "output_id", None)
+    if not output_id:
+        print(
+            "uncompress: must provide output note id positional argument",
+            file=sys.stderr,
+        )
+        return 2
+
+    json_out = bool(getattr(args, "json", False))
+    notes_dir = root / NOTES_DIRNAME
+    output_path = notes_dir / id_to_filename(output_id)
+    if not output_path.exists():
+        print(f"uncompress: output note {output_id} not found", file=sys.stderr)
+        return 5
+
+    try:
+        deleted_output, restored_paths = _execute_uncompression(root, output_path)
+    except RuntimeError as exc:
+        print(f"uncompress: {exc}", file=sys.stderr)
+        return 3
+    except Exception as exc:
+        print(f"uncompress: execution failed: {exc}", file=sys.stderr)
+        return 5
+
+    restored_ids = [p.stem for p in restored_paths]
+    if json_out:
+        print(json.dumps({
+            "status": "ok",
+            "deleted_output": output_id,
+            "restored_inputs": restored_ids,
+            "restored_count": len(restored_ids),
+        }, ensure_ascii=False))
+    else:
+        print(f"\n🍄 myco uncompress — DONE")
+        print(f"─────────────────────────")
+        print(f"  deleted output: {output_id}")
+        print(f"  restored inputs ({len(restored_ids)}):")
+        for rid in restored_ids:
+            print(f"    - {rid}")
+        print(f"\n  Each input's status is restored from pre_compression_status.")
+        print(f"  The compressed_from audit chain is now broken (output gone).")
+    return 0

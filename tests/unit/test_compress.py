@@ -1,11 +1,11 @@
-"""Wave 30 seed tests — ``myco compress`` forward-compression invariants.
+"""Wave 30+31 seed tests — ``myco compress`` / ``myco uncompress`` invariants.
 
-Five focused tests covering the load-bearing paths of the compress verb
+Seven focused tests covering the load-bearing paths of compress + uncompress
 and L18 lint integrity. These extend the Wave 25 seed in
 ``tests/unit/test_notes.py`` and follow the same scar-class rationale:
-each test guards a specific Wave 27 / Wave 30 design decision.
+each test guards a specific Wave 27 / Wave 30 / Wave 31 design decision.
 
-Wave 27 design coverage:
+Wave 27 / 30 design coverage:
 
 - ``test_compress_consumptive_with_audit`` exercises Wave 27 D3 (output
   shape: extracted note + N excreted inputs with bidirectional links)
@@ -30,6 +30,19 @@ Wave 27 design coverage:
   at a non-existent output is caught at lint time. Without this test
   the audit chain could silently corrupt and Wave 27 D5 reversibility
   would be aspirational, not enforceable.
+
+Wave 31 design coverage (closes Wave 30 L4 limitation):
+
+- ``test_compress_uncompress_roundtrip`` exercises Wave 31 D2 (mechanical
+  reversal via pre_compression_status): compress N notes, uncompress the
+  output, verify each input is back to its original status with all four
+  compression audit fields cleared, and the output is gone. Without this
+  test, the reversibility decision is aspirational.
+- ``test_uncompress_broken_backlink_refuses`` exercises Wave 31 D5 (refuse
+  to operate on tampered audit chain): if any input's compressed_into
+  was rewritten to point at a different note, uncompress refuses with
+  exit 3 BEFORE writing anything. Without this test, partial restoration
+  could leave the substrate in an inconsistent state.
 """
 
 from __future__ import annotations
@@ -44,6 +57,7 @@ from myco.compress_cmd import (
     _execute_compression,
     _resolve_cohort_by_tag,
     run_compress,
+    run_uncompress,
 )
 from myco.lint import lint_compression_integrity, load_canon
 
@@ -280,3 +294,136 @@ def test_lint_compression_integrity_catches_orphan(
     msgs = " ".join(issue[3] for issue in high_issues)
     assert "broken audit chain" in msgs or "unknown" in msgs, \
         f"L18 issue should mention broken chain: {msgs}"
+
+
+# ---------------------------------------------------------------------------
+# Wave 31 — myco uncompress
+# ---------------------------------------------------------------------------
+
+def _make_uncompress_args(output_id: str, project: Path, **kwargs):
+    """Helper: build a fake argparse Namespace for run_uncompress."""
+    defaults = {
+        "output_id": output_id,
+        "json": False,
+        "project_dir": str(project),
+    }
+    defaults.update(kwargs)
+    return SimpleNamespace(**defaults)
+
+
+def test_compress_uncompress_roundtrip(_isolate_myco_project: Path) -> None:
+    """Wave 31 D2: compress + uncompress is a clean roundtrip.
+
+    After compress: 3 inputs are excreted with full audit metadata, 1
+    extracted output exists. After uncompress on that output: each input
+    is back to status='raw' with the four compression audit fields cleared,
+    and the extracted output no longer exists.
+    """
+    project = _isolate_myco_project
+
+    inputs = _eat_n(project, 3, "roundtrip-test")
+    input_ids_pre = [p.stem for p in inputs]
+    input_bodies_pre = {p.stem: notes.read_note(p)[1] for p in inputs}
+
+    # Forward: compress
+    cohort = _resolve_cohort_by_tag(project, "roundtrip-test")
+    output_path, input_paths = _execute_compression(
+        project, cohort,
+        rationale="roundtrip test", confidence=0.9, method="manual",
+    )
+    out_meta, _ = notes.read_note(output_path)
+    output_id = out_meta["id"]
+
+    # Sanity: forward state is what we expect
+    for ip in input_paths:
+        m, _ = notes.read_note(ip)
+        assert m["status"] == "excreted"
+        assert m["compressed_into"] == output_id
+        assert m["pre_compression_status"] == "raw"
+
+    # Reverse: uncompress
+    args = _make_uncompress_args(output_id, project)
+    rc = run_uncompress(args)
+    assert rc == 0, "uncompress on a valid extracted output must succeed"
+
+    # Output must be gone
+    assert not output_path.exists(), \
+        "uncompress must delete the extracted output after restoring inputs"
+
+    # Each input must be restored
+    notes_dir = project / "notes"
+    for input_id in input_ids_pre:
+        in_path = notes_dir / f"{input_id}.md"
+        assert in_path.exists(), f"input {input_id} must still exist"
+        m, body = notes.read_note(in_path)
+        assert m["status"] == "raw", \
+            f"input {input_id} status must be restored from pre_compression_status"
+        # Wave 31 D2: all four compression audit fields cleared
+        assert "compressed_into" not in m or m.get("compressed_into") is None, \
+            f"input {input_id} compressed_into must be cleared"
+        assert "pre_compression_status" not in m or m.get("pre_compression_status") is None, \
+            f"input {input_id} pre_compression_status must be cleared"
+        assert "excrete_reason" not in m or m.get("excrete_reason") is None, \
+            f"input {input_id} excrete_reason must be cleared"
+        # Body unchanged (uncompress is metadata-only)
+        assert body == input_bodies_pre[input_id], \
+            f"input {input_id} body must be unchanged by uncompress"
+
+
+def test_uncompress_broken_backlink_refuses(_isolate_myco_project: Path) -> None:
+    """Wave 31 D5: uncompress refuses on a tampered audit chain.
+
+    Compress 3 notes, then tamper with one input's compressed_into to point
+    at a different (fake) output id. Uncompress must refuse with exit 3
+    BEFORE writing anything. The other two inputs must remain in their
+    excreted state (no partial restoration).
+    """
+    project = _isolate_myco_project
+
+    inputs = _eat_n(project, 3, "tamper-test")
+    cohort = _resolve_cohort_by_tag(project, "tamper-test")
+    output_path, input_paths = _execute_compression(
+        project, cohort,
+        rationale="tamper test", confidence=0.85, method="manual",
+    )
+    out_meta, _ = notes.read_note(output_path)
+    output_id = out_meta["id"]
+
+    # Tamper: rewrite first input's compressed_into to a fake id.
+    # This is the exact shape of an audit-chain corruption Wave 31 D5
+    # was designed to refuse on. We bypass update_note() and write the
+    # serialized text directly to mimic an out-of-band file edit
+    # (which is what audit-chain tampering looks like in practice).
+    tampered = input_paths[0]
+    tampered_meta, tampered_body = notes.read_note(tampered)
+    tampered_meta["compressed_into"] = "n_99999999T999999_dead"
+    tampered.write_text(
+        notes.serialize_note(tampered_meta, tampered_body),
+        encoding="utf-8",
+    )
+
+    # Snapshot all inputs' state BEFORE attempting uncompress
+    snapshot_before = {}
+    for ip in input_paths:
+        m, b = notes.read_note(ip)
+        snapshot_before[ip.stem] = (dict(m), b)
+
+    # Attempt uncompress: must refuse with exit 3
+    args = _make_uncompress_args(output_id, project)
+    rc = run_uncompress(args)
+    assert rc == 3, \
+        f"uncompress on tampered chain must exit 3 (validation), got {rc}"
+
+    # Output must still exist (uncompress refused before writing)
+    assert output_path.exists(), \
+        "uncompress refused — output must still exist"
+
+    # Each input must be in EXACTLY the state it was in before the call
+    # (no partial writes — Phase 1 validation must catch this before Phase 2)
+    for ip in input_paths:
+        m, b = notes.read_note(ip)
+        before_meta, before_body = snapshot_before[ip.stem]
+        assert m == before_meta, \
+            f"input {ip.stem} metadata mutated despite refusal"
+        assert b == before_body, \
+            f"input {ip.stem} body mutated despite refusal"
