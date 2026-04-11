@@ -298,9 +298,25 @@ nothing forces rewrite.
 2. **Self-reported confidence is not verifiable.** L13 checks only that
    the number meets the floor, not that it reflects reality. Goodhart
    risk is mitigated by transparency, not enforcement.
-3. **Body structure is not linted.** `rounds: N` is a declaration, not a
-   measurement. Authors can theoretically water rounds to pass L13 without
-   meaningful attack — see §4 for the transparency-based countermeasure.
+3. **Body structure is partially linted (Wave 15, v0.14.0).** `rounds: N`
+   is now cross-checked against measured body content by L13's body schema
+   (see canon `craft_protocol.body_schema`). Specifically:
+
+   | finding | severity | trigger |
+   |---------|----------|---------|
+   | `body_chars < rounds × min_body_chars_per_round` | HIGH | hollow craft — total non-whitespace body below floor |
+   | `0 < body_rounds < rounds` | HIGH | declaration lie — fewer `## Round N` anchors than declared |
+   | `body_rounds == 0 and rounds > 0` | MEDIUM | style nudge — no `Round N` anchors at all, consider adding explicit headings |
+   | per-round slice chars `< min_round_body_chars` | MEDIUM | thin round — individual round body below floor |
+
+   Defaults: `min_body_chars_per_round = 200`, `min_round_body_chars = 150`.
+   Round markers accept English (`Round N`, `R(N)`), Chinese (`第N轮`),
+   and Japanese (`ラウンド N`). The check deliberately measures
+   non-whitespace chars (language-neutral, CJK-friendly) rather than
+   tokens or lines. Goodhart residue (whitespace / filler) is still
+   possible but requires visible effort; transparency countermeasure in
+   §4 remains primary defense. Authoritative argument:
+   `docs/primordia/l13_body_schema_craft_2026-04-11.md`.
 4. **Bootstrap file exemption.** The craft that introduced this protocol
    (`docs/primordia/craft_formalization_craft_2026-04-11.md`) intentionally
    omits `craft_protocol_version` to avoid recursive self-regulation,

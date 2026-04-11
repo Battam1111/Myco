@@ -38,6 +38,78 @@ Commit message 格式必须使用 Conventional Commits 风格并带 `[contract:*
 
 ---
 
+## v0.14.0 — 2026-04-11 (minor · L13 body schema, Wave 15 — craft content measurement)
+
+**Author**: Claude (Myco kernel agent, autonomous run under user grant, Wave 15)
+**Craft record**: `docs/primordia/l13_body_schema_craft_2026-04-11.md`
+（3 轮 Claim→Attack→Defense→Revise，终置信度 0.90，`decision_class:
+kernel_contract`，target 0.90）
+
+**Motivation**. Partial closure of `docs/craft_protocol.md §7 #3`
+("Body structure is not linted"). Before Wave 15, `rounds: N` in craft
+frontmatter was a pure self-declaration — authors could write `rounds: 5`
+with a 50-character body and pass L13. Wave 15 introduces L13 body schema
+check that measures body content against frontmatter claims:
+
+- **body_chars floor** (HIGH) — total non-whitespace body chars must be
+  ≥ `rounds × min_body_chars_per_round` (default 200 per round → 600 for
+  rounds=3). Catches hollow crafts where the author declared N rounds
+  but wrote a stub.
+- **body_rounds match** (HIGH) — if `## Round N` anchors are present,
+  their count must equal declared `rounds`. A declaration of 5 with 2
+  actual round headings is a lie, not a style variant.
+- **body_rounds == 0 nudge** (MEDIUM) — if no round anchors detected,
+  emit a style nudge (not HIGH) because some existing crafts use
+  alternative structures (e.g. `## Attacks → ## Defenses`). Grandfather
+  by encouragement, not exemption.
+- **per-round slice floor** (MEDIUM) — if individual round slice below
+  `min_round_body_chars` (default 150), flag as thin round.
+
+Round markers accept English (`Round N`, `R(N)`), Chinese (`第N轮`),
+Japanese (`ラウンド N`). Counting uses non-whitespace chars
+(language-neutral, CJK-friendly).
+
+**Dogfood evidence**. All 11 existing `docs/primordia/*_craft_*.md` files
+measured: 10/11 have `body_rounds` matching declared, all 11 have
+`body_chars` well above floor (smallest: lint_ssot 5919 chars declared=2
+floor=400). The single MEDIUM finding goes to `pre_release_rebaseline`
+which uses an alternative `## Attacks → Defenses` layout — intentional
+nudge per D4 of the craft, not exemption.
+
+**Changes**:
+
+- `_canon.yaml` + `src/myco/templates/_canon.yaml`:
+  `system.contract_version: "v0.13.0" → "v0.14.0"` and
+  `synced_contract_version: "v0.13.0" → "v0.14.0"`（kernel self-reference）；
+  新增 `craft_protocol.body_schema` 子块：`enabled`, `min_body_chars_per_round`,
+  `min_round_body_chars`, `round_markers` (4 regex patterns), `exempt_files`.
+- `src/myco/lint.py`: 新增 `_l13_body_metrics(content, round_markers)`
+  helper（frontmatter 剥离 / 多语言 round 解析 / 每轮切片 char 计数）；
+  `lint_craft_protocol` 末尾追加 4 条 body 检查，对应上述 4 种 severity。
+- `docs/craft_protocol.md`: §7 #3 从 "not linted" 改写为 "partially linted"，
+  含 severity 表 + 多语言 round marker 说明 + 指向 craft 文件的 authoritative
+  argument 引用。
+
+**Migration**. Existing crafts 无需修改：10/11 已满足新 schema。
+`pre_release_rebaseline` 收到 MEDIUM 风格建议但不阻塞。
+下游实例下次 boot 会触发 Wave 13 contract_drift reflex（v0.13.0 → v0.14.0），
+按 agent_protocol.md §8.4 更新本地 `synced_contract_version` 即可。
+
+**Known limitations**:
+
+- L-1: `body_rounds == 0` 情况只给 MEDIUM，不强制改 `## Round N`——
+  避免破坏已有辩论风格多样性。
+- L-2: Goodhart 残留——作者理论上仍可用冗余空白填满 body_chars 阈值。
+  Transparency countermeasure（§4）继续是主要防线。
+- L-3: Chinese numeral 解析仅覆盖 1-99；三位以上（极罕见）会 fallback
+  to int conversion failure → 跳过该 marker。
+- L-4: 200 char/round 是工程 bootstrap 值，由首次 Phase ② friction 数据验证
+  后重新校准；canon-configurable，无需 code change。
+- L-5: `exempt_files: []` 启动时为空——原则上所有 craft 都应可被验证。
+  若未来发现合理豁免类，通过 craft + contract minor bump 添加。
+
+---
+
 ## v0.13.0 — 2026-04-11 (minor · session end reflex arc, Wave 14 — W5 drift visibility)
 
 **Author**: Claude (Myco kernel agent, autonomous run under user grant, Wave 14)

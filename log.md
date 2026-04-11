@@ -782,3 +782,27 @@ v0.13.0 entry 即可对齐。无代码修改必要。
 
 **craft_reference**: docs/primordia/session_end_reflex_arc_craft_2026-04-11.md
 （3 轮，0.91，decision_class: kernel_contract）
+
+## [2026-04-11] milestone | Wave 15 — L13 Body Schema (contract v0.14.0)
+
+L13 现在度量 craft body 内容，不再只信 frontmatter 声明。Partial closure of
+`docs/craft_protocol.md §7 #3` ("Body structure is not linted")。
+
+- **body_chars floor** (HIGH): `body_chars < rounds × 200` → hollow craft
+- **body_rounds match** (HIGH): `## Round N` 锚点数 ≠ declared rounds → 声明说谎
+- **body_rounds == 0 nudge** (MEDIUM): 没 `Round N` 锚点 → 风格建议（不强制）
+- **per-round slice floor** (MEDIUM): 单轮 <150 chars → 薄轮
+
+多语言 round markers：`Round N` / `R(N)` / `第N轮` / `ラウンド N`。
+非空格字符计数（CJK-friendly）。
+
+Dogfood：11 个现有 craft 中 10 个已达标；`pre_release_rebaseline` 收到
+1 条 MEDIUM 风格 nudge（原作者用 `## Attacks → ## Defenses` 替代结构，
+刻意不豁免）。Hollow-craft smoke test：52 chars body + 3 declared rounds
+→ 正确触发 `body_chars=52 < 600` HIGH。Self-test：本 craft 在新 L13 下
+0 findings。
+
+craft 引用：`docs/primordia/l13_body_schema_craft_2026-04-11.md`
+（3 轮，终置信度 0.90，decision_class kernel_contract）
+conclusion note：`notes/n_20260411T225402_66a0.md` (integrated)
+lint：16/16 green（0 HIGH, 1 MEDIUM pre-existing nudge）

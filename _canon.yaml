@@ -6,8 +6,8 @@ system:
   # Authoritative source: docs/agent_protocol.md §8
   # Craft record:         docs/primordia/upstream_protocol_craft_2026-04-11.md
   # Changelog:             docs/contract_changelog.md
-  contract_version: "v0.13.0"  # Wave 14: session end reflex arc (gear2/gear4 drift as LOW hunger signal)
-  synced_contract_version: "v0.13.0"  # Wave 14 — self-reference: kernel's own lock
+  contract_version: "v0.14.0"  # Wave 15: L13 body schema (partial closure of craft_protocol.md §7 #3)
+  synced_contract_version: "v0.14.0"  # Wave 15 — self-reference: kernel's own lock
   upstream_scan_last_run: null
 
   # --- Boot Reflex Arc (Wave 13, contract v0.12.0) ------------------------
@@ -131,6 +131,31 @@ system:
       exploration: 0.75       # tentative designs / naming / open research
     stale_active_threshold_days: 30
     grandfather_rule: "Files lacking craft_protocol_version are exempt from L13 strict checks."
+    # --- Body schema (Wave 15, contract v0.14.0) ---
+    # Partial closure of docs/craft_protocol.md §7 #3 ("body structure is
+    # not linted"). Attack-depth scoring (§7 #5) remains open. L13 now
+    # verifies:
+    #   HIGH  — body_chars < declared_rounds * min_body_chars_per_round
+    #   HIGH  — 0 < body_rounds < declared_rounds (declaration lie)
+    #   MEDIUM — body_rounds == 0 && declared_rounds > 0 (nudge)
+    #   MEDIUM — per-round slice chars < min_round_body_chars
+    # round_markers is a regex list scanned on top-level `^## ` headings
+    # only. First capture group is the round number; unique numbers are
+    # counted across all patterns. See Wave 15 craft §A2.
+    # Authoritative craft: docs/primordia/l13_body_schema_craft_2026-04-11.md
+    body_schema:
+      enabled: true
+      min_body_chars_per_round: 200
+      min_round_body_chars: 150
+      round_markers:
+        - 'Round\s+(\d+)'
+        - 'R(\d+)\b'
+        - '第\s*([一二三四五六七八九十\d]+)\s*轮'
+        - 'ラウンド\s*(\d+)'
+      # Per-file body-check exemption list (instance-local; kernel
+      # bootstrap is empty — pre_release_rebaseline gets the MEDIUM
+      # nudge rather than silent exemption, per craft §4 D4).
+      exempt_files: []
     # --- Craft Reflex (contract v0.10.0, Wave 11) ---
     # Authoritative debate: docs/primordia/craft_reflex_craft_2026-04-11.md
     # Lint of record:       L15 Craft Reflex
