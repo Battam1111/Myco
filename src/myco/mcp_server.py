@@ -98,12 +98,19 @@ async def myco_lint(
     project_dir: Optional[str] = None,
     quick: bool = False,
 ) -> str:
-    """Run Myco's 15-dimensional lint checks on the knowledge system.
+    """Check the project for contradictions, stale references, and knowledge drift.
 
-    Call this after modifying wiki pages, docs, MYCO.md, or _canon.yaml to catch
-    contradictions, orphan files, stale references, version drift, agent
-    write-surface violations, upstream transport hygiene, and forage substrate
-    hygiene issues. This is the immune system of the knowledge substrate.
+    Auto-invoke when: the user says "check", "verify", "lint", "are there
+    inconsistencies", "did I break anything", or at the end of any session that
+    modified wiki/, docs/, MYCO.md, _canon.yaml, or notes/. Also run after any
+    Gear 3 retrospective or before commits that touch multiple knowledge files.
+
+    This is the 15-dimensional immune system of the knowledge substrate. It
+    catches contradictions across files, orphan references, stale patterns,
+    version drift, write-surface violations, upstream transport hygiene, craft
+    protocol schema violations, and forage substrate hygiene issues — things
+    markdown linters and prose linters cannot see because they check syntax,
+    not cross-file semantic consistency.
 
     Checks: L0 Canon schema, L1 Reference integrity, L2 Number consistency,
     L3 Stale patterns, L4 Orphan detection, L5 Log coverage, L6 Date consistency,
@@ -208,11 +215,16 @@ async def myco_lint(
 async def myco_status(
     project_dir: Optional[str] = None,
 ) -> str:
-    """Get a quick overview of the Myco knowledge system state.
+    """Show a quick dashboard of the project's knowledge health.
 
-    Call this at the start of a session to understand the project's current
-    knowledge health: how many files, wiki pages, recent log entries, pending
-    tasks, and lint status. Helps the agent orient quickly.
+    Auto-invoke when: starting a new session (orient first), the user asks
+    "where are we", "what's the state of the project", "what happened last
+    session", or before any decision that depends on knowing what's already
+    tracked.
+
+    Returns a dashboard of files counted, wiki pages, recent log entries,
+    pending tasks, and lint status. This is the cheapest way to orient before
+    doing real work.
 
     Args:
         project_dir: Path to Myco project root. Auto-detected if omitted.
@@ -310,11 +322,15 @@ async def myco_search(
     project_dir: Optional[str] = None,
     scope: str = "all",
 ) -> str:
-    """Search across the Myco knowledge base for relevant content.
+    """Find content across the project's wiki, docs, notes, and log.
 
-    Searches MYCO.md, wiki pages, docs, log.md, and operational narratives
-    for the given query string. Use this when you need specific knowledge
-    from the project's persistent memory instead of guessing.
+    Auto-invoke when: the user asks "do we have anything on X", "have we
+    decided Y before", "what did I write about Z last week", or before
+    answering any factual question about the project. **Always search before
+    guessing** — the project's persistent memory is the source of truth.
+
+    Searches MYCO.md, wiki pages, docs, log.md, notes, and operational
+    narratives for the given query string.
 
     Args:
         query: Search string (case-insensitive). Matches against file content.
@@ -412,15 +428,16 @@ async def myco_log(
     message: str,
     project_dir: Optional[str] = None,
 ) -> str:
-    """Append a timestamped entry to the project's log.md.
+    """Record a friction, reflection, or milestone to the project timeline.
 
-    Use this to record friction (Gear 1), reflections (Gear 2), or milestone
-    notes. The log is append-only and forms the project's episodic memory.
+    Auto-invoke when: you hit unexpected behavior or tool friction (Gear 1),
+    a session is ending and you have reflections (Gear 2), a milestone is
+    reached, a decision is made, or anything happens that future you would
+    want to find 3 weeks from now.
 
-    Call this when:
-    - You encounter unexpected behavior or friction during work
-    - A session is ending and you want to capture reflections
-    - A milestone is reached or a decision is made
+    The log is append-only episodic memory — it never rewrites, only grows.
+    Prefer logging over silence: the cost of capturing a friction is seconds;
+    the cost of re-hitting the same friction next session is minutes.
 
     Args:
         entry_type: One of 'friction', 'reflection', 'milestone', 'system', 'deploy'.
@@ -475,12 +492,17 @@ async def myco_log(
 async def myco_reflect(
     project_dir: Optional[str] = None,
 ) -> str:
-    """Generate Gear 2 reflection prompts for the current session.
+    """Ask "what should the knowledge system itself improve?" at session end.
 
-    Call this at the end of a work session. Returns reflection questions
-    based on the project's current state: recent log entries, lint results,
-    and knowledge gaps. The agent should use these prompts to produce a
-    brief reflection that gets logged via myco_log.
+    Auto-invoke when: the user signals a session is wrapping up ("let's stop
+    here", "end session", "that's enough for today"), or after any retrospective
+    trigger like "what did we learn", or whenever an operation finishes cleanly
+    and ≥3 log entries were added during the session.
+
+    Returns Gear 2 reflection prompts derived from recent log entries, lint
+    results, and knowledge gaps. The agent should answer the prompts and log
+    the reflection via myco_log. Gear 2 is how the substrate evolves its own
+    rules — skipping it is how drift compounds.
 
     Args:
         project_dir: Path to Myco project root. Auto-detected if omitted.

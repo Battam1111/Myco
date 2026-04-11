@@ -17,10 +17,12 @@
 3. 运行 `myco lint` 检查 Myco 自身时，`--project-dir` 指向 repo 根，不是 `src/` 子目录
 4. 修改模板后忘记 rebuild + 重新 `pip install -e .`（本地测试时 importlib.resources 读的是 src/，无需 build；但 wheel 测试必须重建）
 
-**对外定位一句话**（供 agent 快速了解 Myco 的市场位置）：
-> "Myco is an Autonomous Cognitive Substrate for AI agents. Your agent is the CPU — Myco is everything else, and the OS upgrades itself. All evolution is non-parametric: markdown, YAML, folder structure, lint rules. No weights ever touched."
-> 次级 tagline："Other tools give memory. Myco gives metabolism."
-> OpenClaw = 存储层验证；Hyperagents = 进化 CPU；Myco = 进化操作系统。互补，不竞争。
+**对外定位一句话**（D7, usability_positioning_craft_2026-04-11）：
+> **Primary (benefit-first)**: "A knowledge substrate that lints your AI project for contradictions your agent can't see — and evolves its own rules as the project grows."
+> **Secondary (category anchor)**: "Myco is an Autonomous Cognitive Substrate. Your agent is the CPU; Myco is everything else, and the substrate upgrades itself. All evolution is non-parametric — markdown, YAML, folder structure, lint rules. No weights ever touched."
+> **Tagline**: "Git tracks your code. Myco tracks what your code knows." · *Other tools give memory. Myco gives metabolism — and a self-rewriting rulebook.*
+> **Target user (above-the-fold)**: "If you've ever watched your agent confidently quote `v2` from one wiki page while `_canon.yaml` says `v3` — Myco is for you."
+> **Disambiguation**: Myco is **not** a memory layer (Mem0/Zep), **not** an agent runtime (Letta/Hermes), **not** a skill framework (nuwa/agentskills.io/pua). It's the verification layer none of those address. OpenClaw = 存储层验证；Hyperagents = 进化 CPU；Myco = 进化操作系统 + 知识契约。互补，不竞争。
 
 **🧭 身份锚点**（抗漂移——每次上下文压缩后 agent 必须重读）：
 1. **基质 vs 工具**：Myco 是基质（substrate），不是工具。Agent 运行在 Myco 上，不是 Agent 使用 Myco。架构上：项目无关的**内核**（本仓库）+ 项目**实例**（你的项目目录），正如 OS 与应用的关系。
