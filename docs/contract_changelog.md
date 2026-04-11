@@ -38,6 +38,105 @@ Commit message 格式必须使用 Conventional Commits 风格并带 `[contract:*
 
 ---
 
+## v0.22.0 — 2026-04-12 (minor · pre-commit hook dogfood + opt-in pytest gate, Wave 23 — closes NH-8/NH-9)
+
+**Author**: Claude (Myco kernel agent, autonomous run under user grant, Wave 23)
+
+**Motivation**: Two holes from panorama #2 on the same artifact —
+`scripts/install_git_hooks.sh`. NH-8 (MEDIUM): the Wave 18 pre-commit
+hook's blocking path had never been exercised live. The installer
+verifies that the hook file was written, not that `git commit`
+against a CRITICAL/HIGH finding actually returns non-zero. That's a
+Chesterton's Fence we had trusted without testing. NH-9 (LOW): no
+mechanism existed for agents who want a stricter gate on commits
+touching `src/myco/` — the only test-flight option was a manual
+`pytest -x` run which has the same failure mode as any manual ritual
+(forgotten).
+
+**Change summary**:
+
+1. **Live dogfood test (NH-8)** — exercised the blocking path in the
+   kernel repo against an L11 CRITICAL trigger:
+   - `echo "# dogfood test scratch" > scratch.md && git add scratch.md`
+   - `git commit -m "should be blocked"`
+   - Result: stderr printed full lint output including
+     `[CRITICAL] L11 | scratch.md | Forbidden top-level entry`,
+     then `[myco] pre-commit blocked by CRITICAL/HIGH lint issues.`
+     Commit was NOT created. `git log --oneline -1` unchanged.
+   - Evidence frozen in `docs/primordia/hook_dogfood_pytest_gate_craft_2026-04-12.md` §Evidence.
+   - Not added as a repeatable regression test: would require a
+     subshell-git-repo harness for a fence we now know works. Re-
+     dogfood runbook lives in the craft for future contract changes
+     that touch `write_surface.forbidden_top_level`.
+
+2. **Opt-in pytest gate (NH-9)** in `scripts/install_git_hooks.sh`:
+   - New hook block marked with `MYCO-PRECOMMIT-PYTEST-MARK`. Runs
+     after the lint gate, only if `MYCO_PRECOMMIT_PYTEST=1` is
+     exported in the committing shell.
+   - Scoped to `<repo>/tests/` (not bare `pytest`) so the gate is
+     not derailed by unrelated code under `forage/` or `docs/`.
+     Discovered during dogfood: a bare `pytest -x` from the kernel
+     root crawled `forage/repos/hermes-agent/tests/` and failed on
+     `ModuleNotFoundError: No module named 'acp'`, blocking commits
+     for unrelated reasons. Scoping to `tests/` eliminates this.
+   - Fail-open on three conditions:
+     (a) `MYCO_PRECOMMIT_PYTEST` unset or !=1 → skip silently.
+     (b) `pytest` not on PATH → print message, skip, exit 0.
+     (c) `tests/` directory absent → print message, skip, exit 0.
+   - Blocks commit on: pytest returns non-zero with `tests/` present.
+   - Verified all four paths live (absent-tests / failing test /
+     passing test / absent-pytest) before landing.
+
+3. **Installer idempotency upgrade** — the refresh logic now
+   detects pre-Wave-23 hooks via absence of
+   `MYCO-PRECOMMIT-PYTEST-MARK` and upgrades them in place without
+   requiring `--force`. Wave-23+ hooks remain no-op on re-install.
+   The outer "not our hook" rejection for foreign pre-commit files
+   is preserved unchanged.
+
+4. **Contract bump** — `_canon.yaml` + `src/myco/templates/_canon.yaml`
+   `contract_version` / `synced_contract_version` v0.21.0 → v0.22.0.
+
+**Authoritative craft**: `docs/primordia/hook_dogfood_pytest_gate_craft_2026-04-12.md`
+(kernel_contract class, 3 rounds, final confidence 0.88).
+
+**Self-tests**:
+
+- Test 1 (lint CRITICAL blocks real git commit): PASS.
+- Test 2 (pytest gate with failing test blocks hook): PASS.
+- Test 3 (pytest gate with passing test lets hook through): PASS.
+- Test 4 (pytest gate fails open when `tests/` absent): PASS.
+- `bash scripts/install_git_hooks.sh` on already-installed-but-
+  pre-Wave-23 hook: prints "refreshing in place", rewrites hook,
+  exit 0.
+- `bash scripts/install_git_hooks.sh` second time (now Wave-23+):
+  prints "already installed (Wave 23+); pass --force", exit 0.
+- `myco lint --project-dir .` → 16/17 green.
+
+**Limitations** (explicit, not hidden):
+
+- **Dogfood evidence is a snapshot, not a regression test.** A
+  future contract that removes `scratch.md` from
+  `forbidden_top_level` silently invalidates the test case. The
+  craft's §Evidence includes a re-dogfood runbook for such changes.
+  Rejected alternative: a standing subshell-git-repo harness in
+  `tests/` that installs the hook into a scratch repo and
+  commit-tests it. Tradeoff: infrastructure cost > value of
+  regression coverage for a 25-line bash fence.
+- **Pytest gate excludes doctests.** `pytest tests/` will not pick
+  up `pytest --doctest-modules src/myco/`. When doctests start
+  landing, a future wave should extend the gate command. No
+  doctests exist today.
+- **Pytest gate has no timeout.** A hung test hangs the commit. The
+  user can Ctrl-C and `unset MYCO_PRECOMMIT_PYTEST`.
+- **Windows shells without bash** remain uncovered. Pre-existing
+  Wave 18 limitation; Wave 23 does not regress it.
+
+**Closes**: NH-8 (MEDIUM) hook blocking path never dogfooded +
+NH-9 (LOW) no optional test gate for heavier commits.
+
+---
+
 ## v0.21.0 — 2026-04-12 (minor · primordia compression workflow + archive/ + W13, Wave 22 — closes NH-4)
 
 **Author**: Claude (Myco kernel agent, autonomous run under user grant, Wave 22)
