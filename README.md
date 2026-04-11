@@ -225,13 +225,14 @@ Two clean one-liners from this matrix:
 
 ## Open Problems
 
-Myco is early. These four blind spots were named in the 2026-04-08 vision debate and are still unresolved. They are the highest-leverage places to contribute:
+Myco is early. These six blind spots were named in the 2026-04-08 / 2026-04-10 vision debates and are still unresolved. They are the highest-leverage places to contribute. The canonical, continuously-maintained registry with out-of-scope policy and exit conditions lives at [`docs/open_problems.md`](docs/open_problems.md).
 
 1. **Cold start.** How does Myco bootstrap on a brand-new project with no history, no canon, no friction record? Current answer: hand-crafted `myco init` templates. Desired answer: substrate learns its own bootstrap from prior project distillations.
-2. **Trigger signals.** What fires Gear 2? What fires the metabolic inlet? Friction count is a proxy; the right signals are an open research question.
-3. **Alignment.** If Myco evolves rules the human can no longer evaluate (too deep into L-meta), how is it kept aligned with user intent? Transparency is necessary but not sufficient — we need *legible* transparency at scale.
-4. **Compression engineering.** Storage is infinite, but attention is not. What to drop, when, without losing load-bearing tacit knowledge? The three candidate criteria (frequency / temporal / exclusivity) are starting points, not solutions. No general answer exists yet.
-5. **Structural decay detection.** `myco lint` catches *factual* decay (version drift, stale references). It cannot catch *structural* decay — when the four-layer architecture that was right at day 3 becomes wrong at day 30. No detector exists for "your knowledge organization no longer fits your project's phase." This is arguably the hardest problem in the whole design space.
+2. **Trigger signals.** What fires Gear 2? What fires the metabolic inlet? Friction count is a proxy; the right signals are an open research question. Candidate signals (wiki miss-rate second derivative, recurring-topic craft frequency) exist but have no empirical backing yet.
+3. **Alignment.** If Myco evolves rules the human can no longer evaluate (too deep into L-meta), how is it kept aligned with user intent? Transparency is necessary but not sufficient — we need *legible* transparency at scale. Craft Protocol v1 (v1.3.0, contract) enforces decision-process audit trails for kernel contract changes, but that checks *form*, not *content* correctness.
+4. **Compression engineering.** Storage is infinite, but attention is not. What to drop, when, without losing load-bearing tacit knowledge? The three candidate criteria (frequency / temporal / exclusivity) are starting points, not solutions. Three hard constraints make this harder than it looks: compression strategy must itself evolve; compression must preserve provenance; compression must be agent-adaptive. No general answer exists yet.
+5. **Structural decay detection (Self-Model C layer).** `myco lint` catches *factual* decay (version drift, stale references). It cannot catch *structural* decay — when the four-layer architecture that was right at day 3 becomes wrong at day 30. No detector exists for "your knowledge organization no longer fits your project's phase." This is arguably the hardest problem in the whole design space.
+6. **Dead-knowledge tracking (Self-Model D layer).** D layer is declared in the self-model but not implemented. `myco view` does not yet write view audits, so there is no signal for "note entered the substrate 30 days ago and was never read." Without this, compression decisions and inlet triggers both lack their most natural input. The minimum viable seed (view audit → `myco hunger` dead_knowledge signal) is on the Phase ② roadmap but not landed.
 
 If you want to contribute something high-impact, pick one of these.
 
