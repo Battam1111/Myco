@@ -38,6 +38,125 @@ Commit message 格式必须使用 Conventional Commits 风格并带 `[contract:*
 
 ---
 
+## v0.13.0 — 2026-04-11 (minor · session end reflex arc, Wave 14 — W5 drift visibility)
+
+**Author**: Claude (Myco kernel agent, autonomous run under user grant, Wave 14)
+**Craft record**: `docs/primordia/session_end_reflex_arc_craft_2026-04-11.md`
+（3 轮 Claim→Attack→Defense→Revise，终置信度 0.91，`decision_class:
+kernel_contract`）
+
+### Motivation
+
+Wave 13 关闭了 session **boot** 的 W1/§8.4 drift（contract_drift、
+raw_backlog HIGH、hunger 接入 myco_status）。Session **end** 的对应漏洞
+仍然开放——`docs/agent_protocol.md §4` 的 5 步 prose（reflect / log /
+hunger / lint / MYCO.md）没有任何 code-level 反射：agent 跳过 Gear 2 反思
+或 Gear 4 sweep，下次 boot 没有信号告知。
+
+**Dogfood 证据**（Wave 14 前夜 kernel 自检）：
+- `log.md` 最后一条 `## [YYYY-MM-DD] meta |` 反射：2026-04-10；其后累计
+  **18** 条非 meta 条目（milestone / friction / system / craft）。一整天
+  的内核推进没有留下任何 Gear 2 轨迹。
+- `grep -c "g4-candidate" log.md` = **18**；`grep -c "g4-pass" log.md` =
+  **0**。候选在 log 里静默沉底。
+- 两者都没触发任何 lint 或 hunger 信号。
+
+结论：`myco_reflect` 是 advisory pull-style 工具，靠 agent 记硬背。跟
+Wave 13 同构——只能由 hunger 主动 surface，不能等 agent 自觉调用。
+
+### Changes
+
+1. **新 hunger 检测器** `detect_session_end_drift(root) -> Optional[str]`
+   （`src/myco/notes.py`）。读 `log.md`（bounded 5 MB），用宽容 regex
+   解析 `## [YYYY-MM-DD] <type>` header，并列跑两个子检测：
+   - **gear2**：统计最后一个 `meta` header 之后的非 meta 条目数，超
+     `drift_threshold_entries`（默认 15）则 fire。
+   - **gear4**：扫描每个 `g4-candidate` 行所属 header 日期，若 age ≥
+     `drift_threshold_days`（默认 5 天）且同行无 `g4-pass` /
+     `g4-landed` / 磁盘上存在的 craft 文件引用则计入，累计 ≥1 即 fire。
+   两个子信号合并为一行输出，加入 `HungerReport.signals`。
+   Fail-open：IO / 解析异常 → 返回 None（grandfather）。
+
+2. **Severity = LOW**（刻意与 Wave 13 HIGH 不对称）。W5（持续进化）是
+   drive 而非 W1 级 data-loss constraint；过度升级会让 agent 学会忽略
+   整个 advisory 列表。LOW 信号在 `myco_status.hunger_signals.advisory`
+   而非 `.reflex`，不阻塞任务流。完整论证见 craft §B4。
+
+3. **新 canon 块** `system.session_end_reflex`（同步到
+   `_canon.yaml` 和 `src/myco/templates/_canon.yaml`）：
+   ```yaml
+   session_end_reflex:
+     enabled: true
+     severity: LOW
+     log_scan_cap_bytes: 5242880
+     gear2:
+       enabled: true
+       drift_threshold_entries: 15
+       reflection_marker: meta
+     gear4:
+       enabled: true
+       drift_threshold_days: 5
+       candidate_marker: g4-candidate
+       resolution_markers: [g4-pass, g4-landed, g4-resolved]
+   ```
+   Gear 2 和 Gear 4 可独立关闭，阈值可 instance 侧 override。
+
+4. **`docs/agent_protocol.md §4` 重写** — 5 步 prose → 2 步反射弧
+   （`myco_hunger` → 处理 `session_end_drift`）。与 §3 Boot Sequence
+   对称。传统 5 步流程仍然有效，但由 hunger 驱动而非硬背。
+
+5. **版本锁**：kernel `contract_version`、instance `synced_contract_version`
+   同步 v0.12.0 → v0.13.0（kernel 自引用）。下游实例下次 boot 会触发
+   Wave 13 `contract_drift` HIGH 反射——设计行为，这是 drift 传播路径。
+
+6. **模板同步**：`src/myco/templates/_canon.yaml` 加入同款
+   session_end_reflex 块。模板里的 MYCO.md hot-zone boot 条款在 Wave
+   14 不需要新增（信号是 LOW advisory，会话启动时作为一行出现在
+   `hunger_signals.advisory`，无需 agent 特殊记硬背）。
+
+7. **Dogfood cleanup in same session**：
+   - 写一条 `## [2026-04-11] meta |` 反射总结 Wave 13+14（Gear 2 复位）
+   - 18 个 `g4-candidate` 均 <5 天，无需 sweep（kernel 当前 gear4 clean）
+   - `myco hunger` → `session_end_drift` 清除 → commit
+
+### Migration for downstream instances
+
+**自动部分**：下次 boot 调用 `myco_status` → Wave 13 contract_drift
+HIGH 反射 fire → agent 读本条目 → 把本地 `synced_contract_version` 更新
+到 `v0.13.0`。
+
+**可选部分**：
+- 若 instance 想关闭 gear2 或 gear4 检测：复制 canon 块并设 enabled=false
+- 若 instance log entry 节奏不同（低频更新、纯 milestone-driven）：调高
+  `gear2.drift_threshold_entries`
+- 若 instance g4-candidate 决议依赖外部追踪（issue tracker）：关闭
+  gear4 或自定义 resolution_markers
+
+**不需要**代码更改。检测器 grandfather 在 canon 块缺失时，自动返回 None。
+
+### Known limitations (from craft §5)
+
+- **L-1 Conservative pairing**: g4-candidate 只认 inline `g4-pass` /
+  磁盘 craft 引用。依赖其他机制决议的候选会被 over-flag。v1 trade-off。
+- **L-2 Reflection quality unmeasured**: 只检测 meta 条目**存在**，不
+  检测内容。一词 meta 条目满足检测。Gear 2 质量是 Self-Model C 层问题
+  （open problem §5），超出 Wave 14 scope。
+- **L-3 Threshold calibration deferred**: 15 / 5 天是 kernel-tuned
+  默认值。后续 2-3 session dogfood 会 confirm 或调整。
+- **L-4 Single log.md assumption**: 检测器只读 repo 根的 `log.md`。
+  多日志 / sharded 布局不支持。
+- **L-5 No sweep automation**: Wave 14 只 surface drift，不 auto-resolve
+  g4-candidate。sweep 仍是手动 Gear 4 ritual。
+
+### Wave 14 dogfood discipline
+
+Wave 13 范式：land 功能 + 在同一 session 清理 kernel 自身的 debt。
+Wave 14 继承——本次 session 内写一条 Wave 13+14 联合 `meta` 反射进
+`log.md` 以复位 gear2 计数器，并 `myco eat` 一条 wave14 结论 note 到
+`notes/` 走 integrated。
+
+---
+
 ## v0.12.0 — 2026-04-11 (minor · boot reflex arc, Wave 13 — W1 + §8.4 enforcement)
 
 **Author**: Claude (Myco kernel agent, autonomous run under user grant, Wave 13)
