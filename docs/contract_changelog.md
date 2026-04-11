@@ -23,6 +23,79 @@ Commit message 格式必须使用 Conventional Commits 风格并带 `[contract:*
 
 ---
 
+## v1.6.0 — 2026-04-11 (minor)
+
+**Author**: Claude (Myco kernel agent, autonomous run under user grant)
+**Craft record**: `docs/primordia/lint_ssot_craft_2026-04-11.md`
+（2 轮 Claim→Attack→Research→Defense→Revise，终置信度 0.93，
+`decision_class: instance_contract`，floor 0.85；5 个 Round-1 attack +
+2 个 Round-2 attack 全部防御）
+**Trigger**: v1.5.0 收尾后的架构师全景回顾识别出 Myco 最大的结构债——
+`scripts/lint_knowledge.py`（940 行）和 `src/myco/lint.py`（869 行）是
+同一份 14 维 lint 实现的两个物理副本，每一波新增 lint 维度都要在两处
+同步加代码，drift 风险长期存在。v1.4.0/v1.5.0 期间该债务被"年轻红线
+保护"原则按下不动；v1.5.0 稳定后保护窗口关闭。
+
+### Added
+
+- **`docs/primordia/lint_ssot_craft_2026-04-11.md`** — Wave 6 craft 档案。
+
+### Changed
+
+- **`scripts/lint_knowledge.py`**：940 行 → ~90 行 shim。零 lint 逻辑
+  （`grep -c "def lint_" scripts/lint_knowledge.py` = 0），仅包含
+  sys.path bootstrap + 最小 argparse-free 解析 + `from myco.lint import main`
+  委托调用。
+- **`src/myco/lint.py`**：成为单一 SSoT。两处 docstring
+  （`lint_notes_schema` / `lint_write_surface`）从 "Runtime parity with
+  scripts/lint_knowledge.py::..." 改为 "Single source of truth as of
+  contract v1.6.0 — scripts/lint_knowledge.py is a shim."
+- **`_canon.yaml::system.contract_version`**：`v1.5.0` → `v1.6.0`
+- **`src/myco/templates/_canon.yaml::synced_contract_version`**：
+  `v1.5.0` → `v1.6.0`
+
+### Rationale
+
+**为什么是 contract minor 而非 patch**：虽无新增维度 / 字段 / 触发点，
+但这是两个 class_z 契约级文件的**结构性统一**——下游 instance 在 boot
+时比对 `synced_contract_version` 应该感知到"lint 实现站点从 2 变为 1"，
+走 minor 更诚实。下游 grandfather：旧的
+`python scripts/lint_knowledge.py` 调用完全兼容，CLI 参数完全兼容，
+零 migration 动作。
+
+**为什么不直接删除 `scripts/lint_knowledge.py`**：三个 back-compat 锚点。
+(1) canon `upstream_channels.class_z` 列出该路径；(2) `MYCO.md` /
+`docs/WORKFLOW.md` / log.md 历史条目都用 `python scripts/...` 调用路径；
+(3) 新读者从 `scripts/` 目录发现 CLI 入口是最自然路径。保留 shim 是
+"最小侵入"策略。
+
+**压缩 doctrine 的自我兑现**：v1.5.0 biomimetic_map §4 把 compression
+列为核心 doctrine，但它之前只应用于文档和 notes。Wave 6 第一次把
+compression 应用到**代码**本身——两份 lint 实现压缩为一份，~850 行
+重复逻辑被 autolysis 掉。真菌不能消化自己最大的冗余组织就不能宣称
+自己是代谢系统；同理 Myco 不能压缩自己的 lint 实现就不能宣称压缩是
+核心价值。Wave 6 关闭这个 credibility gap。
+
+### Known non-goals
+
+- **没有新 lint 维度**。lint 行为完全不变，L0-L13 编号 / check 内容 /
+  issue severity 全部保持。唯一不同是两个入口共享同一套代码路径。
+- **没有 templates 双写消除**。`_canon.yaml` 与 `templates/_canon.yaml`
+  仍然双写——templates 的存在理由就是"要被复制到新 instance"，
+  `synced_contract_version` 机制是既定解法。out of scope。
+- **L8 `.original` 语义不变**。L8 检查 wiki 压缩标记，与 lint 站点对等
+  性无关（Round 1 A5 澄清点）。
+
+### Migration for downstream instances
+
+1. `git pull`
+2. 检查 `_canon.yaml::system.contract_version` → `v1.6.0`
+3. 更新本地 `synced_contract_version: v1.6.0`
+4. `python scripts/lint_knowledge.py --project-dir .` → 14/14 PASS
+5. `python -c "from myco.lint import main; main(Path('.'))"` → 14/14 PASS
+
+---
+
 ## v1.5.0 — 2026-04-11 (minor)
 
 **Author**: Claude (Myco kernel agent, autonomous run under user grant)

@@ -6,7 +6,7 @@ system:
   # Authoritative source: docs/agent_protocol.md §8
   # Craft record:         docs/primordia/upstream_protocol_craft_2026-04-11.md
   # Changelog:             docs/contract_changelog.md
-  contract_version: "v1.5.0"
+  contract_version: "v1.6.0"
   upstream_scan_last_run: null
   upstream_channels:
     # Path-based classification — strictest-class-wins. An instance agent
