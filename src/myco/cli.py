@@ -317,6 +317,62 @@ def main():
         help="Project root (default: current directory)",
     )
 
+    # ── Wave 32: anchor #3 step verbs (additive aliases per Wave 29 D2) ──
+    # Each is a thin wrapper over digest with a fixed --to value, exposing
+    # the seven-step pipeline as first-class CLI verbs. These do NOT
+    # replace `myco digest --to <status>` — both forms are equal-peer per
+    # Wave 28-29 doctrine. Step 1 (forage) and step 5 (compress) and step
+    # 6 (eat) and step 7 (excrete via --excrete) already have native verbs;
+    # steps 2/3/4 (evaluate/extract/integrate) were the missing surfaces.
+
+    # ── myco evaluate ──────────────────────────────────────────────
+    # Step 2: enter the digesting state and surface reflection prompts.
+    # Equivalent to `myco digest <id>` (no --to).
+    evaluate_parser = subparsers.add_parser(
+        "evaluate",
+        help="Step 2: transition raw→digesting and print reflection prompts",
+    )
+    evaluate_parser.add_argument(
+        "note_id", nargs="?", default=None,
+        help="Target note id (default: oldest raw note in queue)",
+    )
+    evaluate_parser.add_argument(
+        "--project-dir", type=str, default=".",
+        help="Project root (default: current directory)",
+    )
+
+    # ── myco extract ───────────────────────────────────────────────
+    # Step 3: pull a digesting note out into the extracted layer.
+    # Equivalent to `myco digest <id> --to extracted`.
+    extract_parser = subparsers.add_parser(
+        "extract",
+        help="Step 3: transition a note to status=extracted",
+    )
+    extract_parser.add_argument(
+        "note_id", type=str,
+        help="Target note id (required for extract)",
+    )
+    extract_parser.add_argument(
+        "--project-dir", type=str, default=".",
+        help="Project root (default: current directory)",
+    )
+
+    # ── myco integrate ─────────────────────────────────────────────
+    # Step 4: fold an extracted note into integrated canon.
+    # Equivalent to `myco digest <id> --to integrated`.
+    integrate_parser = subparsers.add_parser(
+        "integrate",
+        help="Step 4: transition a note to status=integrated",
+    )
+    integrate_parser.add_argument(
+        "note_id", type=str,
+        help="Target note id (required for integrate)",
+    )
+    integrate_parser.add_argument(
+        "--project-dir", type=str, default=".",
+        help="Project root (default: current directory)",
+    )
+
     # ── myco view ──────────────────────────────────────────────────
     view_parser = subparsers.add_parser(
         "view",
@@ -615,6 +671,27 @@ def main():
     if args.command == "digest":
         from myco.notes_cmd import run_digest
         sys.exit(run_digest(args))
+
+    # Wave 32: anchor #3 step verbs — thin wrappers over run_digest.
+    # Each constructs a digest-shaped namespace with the right --to value
+    # and dispatches. Per Wave 29 D2, these are equal-peer aliases (not
+    # deprecated forms): both `myco extract <id>` and
+    # `myco digest <id> --to extracted` are first-class verbs.
+    if args.command in ("evaluate", "extract", "integrate"):
+        from myco.notes_cmd import run_digest
+        from types import SimpleNamespace
+        target_status = {
+            "evaluate": None,        # no transition; let digest handle raw→digesting
+            "extract": "extracted",
+            "integrate": "integrated",
+        }[args.command]
+        wrapped = SimpleNamespace(
+            note_id=args.note_id,
+            to=target_status,
+            excrete=None,
+            project_dir=args.project_dir,
+        )
+        sys.exit(run_digest(wrapped))
 
     if args.command == "view":
         from myco.notes_cmd import run_view

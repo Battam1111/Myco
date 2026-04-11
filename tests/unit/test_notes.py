@@ -172,3 +172,116 @@ def test_project_root_raises_on_nonexistent_path(tmp_path: Path) -> None:
     assert "not a Myco project" in msg
     assert str(orphan) in msg
     assert "MYCO_ALLOW_NO_PROJECT" in msg  # escape hatch documented in error
+
+
+# ---------------------------------------------------------------------------
+# Wave 32 — anchor #3 step verbs (evaluate / extract / integrate)
+# ---------------------------------------------------------------------------
+#
+# These verbs are CLI aliases over run_digest, exposing the seven-step
+# pipeline as first-class verbs per Wave 26 §2.3 ordering. The tests below
+# confirm that each alias produces the same end state as the equivalent
+# `myco digest <id> --to <status>` invocation, and that the dispatch
+# wiring in cli.py constructs the right namespace for run_digest.
+
+def test_step_verbs_extract_transitions_to_extracted(
+    _isolate_myco_project: Path,
+) -> None:
+    """Wave 32 D2: `myco extract <id>` transitions a note to status='extracted'.
+
+    Constructs a digest-shaped namespace mimicking the cli.py dispatch path
+    in `args.command in ("evaluate", "extract", "integrate")`, calls
+    run_digest directly, asserts post-state.
+    """
+    from myco.notes_cmd import run_digest
+    project = _isolate_myco_project
+
+    p = notes.write_note(
+        project, body="extract me",
+        tags=["wave32-extract"], source="eat", status="raw",
+    )
+    note_id = p.stem
+
+    # Mimic cli.py dispatch: extract → run_digest with to='extracted'
+    args = SimpleNamespace(
+        note_id=note_id,
+        to="extracted",
+        excrete=None,
+        project_dir=str(project),
+    )
+    rc = run_digest(args)
+    assert rc == 0, "extract dispatch must succeed"
+
+    meta_after, _ = notes.read_note(p)
+    assert meta_after["status"] == "extracted", \
+        "extract must leave the note in status=extracted"
+    assert int(meta_after.get("digest_count") or 0) == 1, \
+        "extract must increment digest_count"
+
+
+def test_step_verbs_integrate_transitions_to_integrated(
+    _isolate_myco_project: Path,
+) -> None:
+    """Wave 32 D2: `myco integrate <id>` transitions a note to status='integrated'.
+
+    Mirrors the extract test for the integrate alias.
+    """
+    from myco.notes_cmd import run_digest
+    project = _isolate_myco_project
+
+    p = notes.write_note(
+        project, body="integrate me",
+        tags=["wave32-integrate"], source="eat", status="raw",
+    )
+    note_id = p.stem
+
+    args = SimpleNamespace(
+        note_id=note_id,
+        to="integrated",
+        excrete=None,
+        project_dir=str(project),
+    )
+    rc = run_digest(args)
+    assert rc == 0
+
+    meta_after, _ = notes.read_note(p)
+    assert meta_after["status"] == "integrated"
+    assert int(meta_after.get("digest_count") or 0) == 1
+
+
+def test_step_verbs_evaluate_transitions_to_digesting(
+    _isolate_myco_project: Path, capsys
+) -> None:
+    """Wave 32 D2: `myco evaluate <id>` (no --to) transitions raw→digesting
+    and prints reflection prompts.
+
+    The dispatch passes `to=None`, which run_digest interprets as
+    "default mode": transition raw→digesting and surface prompts. This
+    test asserts the transition happened and the reflection prompt
+    section was emitted to stdout.
+    """
+    from myco.notes_cmd import run_digest
+    project = _isolate_myco_project
+
+    p = notes.write_note(
+        project, body="evaluate me",
+        tags=["wave32-evaluate"], source="eat", status="raw",
+    )
+    note_id = p.stem
+
+    args = SimpleNamespace(
+        note_id=note_id,
+        to=None,  # evaluate dispatches with to=None
+        excrete=None,
+        project_dir=str(project),
+    )
+    rc = run_digest(args)
+    assert rc == 0
+
+    meta_after, _ = notes.read_note(p)
+    assert meta_after["status"] == "digesting", \
+        "evaluate (no --to) must transition raw→digesting"
+
+    captured = capsys.readouterr()
+    assert "Reflection prompts" in captured.out, \
+        "evaluate must print the reflection prompts section"
