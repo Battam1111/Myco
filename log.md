@@ -877,3 +877,10 @@ conclusion note: `notes/n_20260411T225901_4d39.md` (integrated)
 - Holes closed: H-3 partial (ergonomic barrier → zero; full detection requires Phase 2 NLP)
 - All 9 panorama holes resolved or categorized: H-1/H-4/H-5/H-7/H-9 full; H-3/H-8 partial; H-2/H-6 pending limitations doc
 - Lint: 16/16 green
+
+## [2026-04-11] document | open_problems §7/§8 — H-2 + H-6 registered as accepted architectural limits
+- H-2 (agent-initiated sensing) and H-6 (dual append paths MCP vs shell) registered in docs/open_problems.md
+- Both explicitly categorized as "想清楚了但做不了" — CLI hosting paradigm physical limits, not solvable inside kernel scope
+- Exit conditions documented for each (SDK hooks / MCP ubiquity / future model capability)
+- No contract bump — documentation registration only
+- All 9 panorama holes now resolved: H-1/H-4/H-5/H-7/H-9 full fix; H-3/H-8 partial (kernel scope exhausted); H-2/H-6 open-problem registered
