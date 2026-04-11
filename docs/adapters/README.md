@@ -54,7 +54,7 @@ If you've successfully integrated another tool with Myco, please submit an adapt
 1. Copy this schema, fill in for your tool
 2. Test the import steps manually on your project
 3. Confirm `myco lint` passes after the import
-4. Submit a PR with your `adapters/<toolname>.yaml`
+4. Submit a PR with your `docs/adapters/<toolname>.yaml`
 
 Acceptance criteria: Manually tested on ≥1 real project. All lint checks pass.
 

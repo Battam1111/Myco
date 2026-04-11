@@ -13,16 +13,16 @@ There are four formal contribution types, each with a clear acceptance bar. Code
 ## Four Formal Contribution Types
 
 ### 1. Adapters
-**What:** A YAML manifest in `adapters/` that defines how an external tool integrates with Myco's four-layer architecture.
+**What:** A YAML manifest in `docs/adapters/` that defines how an external tool integrates with Myco's four-layer architecture.
 
 **Why this matters:** Every adapter makes Myco accessible to a new user segment. A Hermes user who finds an adapter can migrate in 30 minutes instead of 3 hours.
 
-**Format:** Follow the schema in [`adapters/README.md`](adapters/README.md). Include `import_steps`, `layer_mapping`, `lint_checks`, `value_proposition`, and `roadmap`.
+**Format:** Follow the schema in [`docs/adapters/README.md`](docs/adapters/README.md). Include `import_steps`, `layer_mapping`, `lint_checks`, `value_proposition`, and `roadmap`.
 
 **Acceptance criteria:**
 - Tested manually on ≥1 real project (your own counts)
 - All lint checks in the YAML actually pass after running `myco lint`
-- `adapters/README.md` table updated with your adapter entry
+- `docs/adapters/README.md` table updated with your adapter entry
 
 **Effort estimate:** 1-2 hours. This is the fastest path to a merged contribution. Start here.
 
@@ -84,7 +84,7 @@ There are four formal contribution types, each with a clear acceptance bar. Code
 
 If you use Hermes Agent, OpenClaw, Obsidian, MemPalace, or any other knowledge/memory tool alongside Myco, you already have everything needed for an adapter contribution. The adapter YAML captures what you learned doing the integration manually. It's the most direct way to contribute real value with minimal effort.
 
-Start here: read [`adapters/README.md`](adapters/README.md), copy an existing adapter YAML, and fill in your tool's details.
+Start here: read [`docs/adapters/README.md`](docs/adapters/README.md), copy an existing adapter YAML, and fill in your tool's details.
 
 ## How to Contribute
 

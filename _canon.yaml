@@ -266,8 +266,7 @@ system:
     - src/                   # package source
     - scripts/               # CLI/lint scripts
     - tests/                 # test suite
-    - adapters/              # pluggable adapters
-    - examples/              # example projects
+    - examples/              # example projects (ASCC etc.)
     - assets/                # images / branding
     - dist/                  # build output (ephemeral; recreated by hatchling)
     # --- Standard repo files ---

@@ -228,8 +228,11 @@ def lint_orphans(canon, root):
     entry_point = get_entry_point(canon)
     entry_content = read_file(root / entry_point) or ""
     for wiki_file in find_files("wiki/*.md", root):
-        rel = str(Path(wiki_file).relative_to(root))
         name = Path(wiki_file).name
+        # README.md in wiki/ is a directory charter, not a wiki page — skip.
+        if name.lower() == "readme.md":
+            continue
+        rel = str(Path(wiki_file).relative_to(root))
         if rel not in entry_content and name not in entry_content:
             issues.append(("L4", "MEDIUM", rel,
                            f"Wiki page not referenced in {entry_point}"))
@@ -303,6 +306,9 @@ def lint_wiki_format(canon, root):
     valid_types = set(canon.get("system", {}).get("wiki_page_types",
                       ["entity", "concept", "operations", "analysis", "craft"]))
     for wiki_file in find_files("wiki/*.md", root):
+        # README.md in wiki/ is a directory charter, not a W8 page — skip.
+        if Path(wiki_file).name.lower() == "readme.md":
+            continue
         content = read_file(wiki_file)
         if not content:
             continue
