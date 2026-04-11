@@ -546,6 +546,123 @@ def detect_structural_bloat(root: Path) -> Optional[str]:
     )
 
 
+def detect_craft_reflex_missing(
+    root: Path,
+    *,
+    now: Optional[datetime] = None,
+) -> Optional[str]:
+    """Return a `craft_reflex_missing` signal string if any craft trigger
+    surface was recently touched without matching craft evidence, else None.
+
+    Mirrors the L15 Craft Reflex lint dimension so the signal surfaces in
+    `myco hunger` at every session boot — not only when lint is run.
+    Respects `_canon.yaml::system.craft_protocol.reflex.enabled`; if the
+    feature is disabled or the canon block is absent, returns None.
+
+    Detection strategy (shared with L15, Round 3 mtime-primary):
+        1. Scan each path listed under reflex.trigger_surfaces.* for
+           recent mtime within `lookback_days`.
+        2. If any file was touched, require evidence in log.md via
+           `evidence_pattern` OR at least one recently-mtime'd craft
+           file under docs/primordia/.
+        3. Otherwise emit the signal naming how many surfaces are
+           uncovered across which classes.
+
+    See docs/primordia/craft_reflex_craft_2026-04-11.md §4.
+    """
+    import re as _re
+    try:
+        import yaml as _yaml
+    except ImportError:
+        return None
+
+    canon_path = Path(root) / "_canon.yaml"
+    if not canon_path.exists():
+        return None
+    try:
+        canon = _yaml.safe_load(canon_path.read_text(encoding="utf-8")) or {}
+    except Exception:
+        return None
+
+    schema = (canon.get("system") or {}).get("craft_protocol") or {}
+    reflex = schema.get("reflex") or {}
+    if not reflex or not reflex.get("enabled", False):
+        return None
+
+    lookback_days = int(reflex.get("lookback_days", 3))
+    window = lookback_days * 86400
+    now_ts = (now or datetime.now()).timestamp()
+
+    surfaces = reflex.get("trigger_surfaces") or {}
+    classes: Dict[str, List[str]] = {
+        "kernel_contract": list(surfaces.get("kernel_contract") or []),
+        "public_claim": list(surfaces.get("public_claim") or []),
+    }
+
+    recent_by_class: Dict[str, List[str]] = {}
+    for cls_name, rels in classes.items():
+        for rel in rels:
+            p = Path(root) / rel
+            if not p.exists():
+                continue
+            try:
+                mt = p.stat().st_mtime
+            except OSError:
+                continue
+            if now_ts - mt < window:
+                recent_by_class.setdefault(cls_name, []).append(rel)
+
+    if not recent_by_class:
+        return None
+
+    # Check for evidence in log.md or a recently-written craft file.
+    evidence_pattern = reflex.get(
+        "evidence_pattern",
+        r"(docs/primordia/[a-z0-9_]+_craft_\d{4}-\d{2}-\d{2}(_[0-9a-f]{4})?\.md|craft_reference\s*:)",
+    )
+    try:
+        evidence_re = _re.compile(evidence_pattern)
+    except _re.error:
+        return None
+
+    evidence_present = False
+    log_path = Path(root) / "log.md"
+    if log_path.exists():
+        try:
+            if evidence_re.search(log_path.read_text(encoding="utf-8", errors="replace")):
+                evidence_present = True
+        except OSError:
+            pass
+
+    if not evidence_present:
+        primordia = Path(root) / schema.get("dir", "docs/primordia")
+        if primordia.exists():
+            for cp in primordia.glob("*_craft_*.md"):
+                try:
+                    if now_ts - cp.stat().st_mtime < window:
+                        evidence_present = True
+                        break
+                except OSError:
+                    continue
+
+    if evidence_present:
+        return None
+
+    parts = []
+    for cls_name, files in recent_by_class.items():
+        parts.append(f"{cls_name}: {len(files)} file(s) ({', '.join(files[:3])}"
+                     + ("…" if len(files) > 3 else "") + ")")
+
+    return (
+        "craft_reflex_missing: trigger surfaces touched in last "
+        f"{lookback_days}d without matching craft evidence — "
+        + "; ".join(parts) +
+        ". Either create docs/primordia/<topic>_craft_YYYY-MM-DD.md or "
+        "cite an existing craft in log.md (craft_reference: <id>). "
+        "See docs/craft_protocol.md §3."
+    )
+
+
 def compute_hunger_report(
     root: Path,
     *,
@@ -701,6 +818,17 @@ def compute_hunger_report(
     bloat_signal = detect_structural_bloat(root)
     if bloat_signal:
         signals.append(bloat_signal)
+    # Craft reflex signal (contract v0.10.0) — read-only scan of
+    # craft_protocol.reflex trigger surfaces. Mirrors L15 logic in
+    # src/myco/lint.py but surfaces in `myco hunger` so the signal
+    # appears at every session boot, not only when lint is run.
+    # See docs/primordia/craft_reflex_craft_2026-04-11.md.
+    try:
+        craft_signal = detect_craft_reflex_missing(root, now=now)
+        if craft_signal:
+            signals.append(craft_signal)
+    except Exception:
+        pass  # grandfather: missing canon block = feature off
     # Forage backlog signal (contract v0.7.0) — read-only scan of
     # forage/_index.yaml. See docs/primordia/forage_substrate_craft_2026-04-11.md.
     try:

@@ -626,3 +626,32 @@ L14 修复：两条新 forage 初始 license=unknown 违反 "unknown coexist wit
 **契约影响**：零。本次修改全部为对外叙事层（README 三语版）；`_canon.yaml` / `agent_protocol.md` / `lint.py` / MCP 工具契约未动。usability-batch 的 target-user blockquote、30-second demo、术语表被压到文档底部"Try It Today"子节，信息未删，展示层级上移到愿景。
 
 **设计原则自承**：这一次 README v3 的差别不在内容新增，而在**从哪里开始**。v2 从"what it does"开始（implementation），v3 从"what it is"开始（vision）。抽象阶梯的顶点是 Autonomous Cognitive Substrate 身份声明，具体 CLI 是地板而不是天花板。
+
+---
+
+## 2026-04-11 · Wave 11 · type: milestone
+
+**Wave 11 craft reflex（v0.10.0）** — 把 craft discovery surface 从"被动文档"升级为"主动 reflex"。
+
+**motivating failure**：Wave 10 的 vision-led README 三语重写是一个教科书级 Trigger #4（external stakeholder-visible claim），但全程没走 craft——因为发现面是纯文档，agent 必须在决策当下主动想起 craft 才能触发。craft 辍触的根源不是 craft 不存在，而是 discovery surface 被动。
+
+**meta-craft**：`docs/primordia/craft_reflex_craft_2026-04-11.md`（3 轮，终置信度 0.91，decision_class: kernel_contract，floor 0.90）。关键修正：A7（trigger surface 必须切成 `kernel_contract` + `public_claim` 两类，只用前者抓不到 README 事件），C1/C2（检测基准从 log.md 正则 pivot 到 `path.stat().st_mtime`，同时解决 fresh-clone grace、lookback_days 语义、正则脆弱性）。
+
+**落地（9 decisions · 13 landing items）**：
+1. `_canon.yaml::system.craft_protocol.reflex` 新块（enabled/lookback_days=3/severity=LOW/trigger_surfaces.{kernel_contract,public_claim}/evidence_pattern）
+2. `src/myco/lint.py::lint_craft_reflex`（L15），docstring "15-Dimension → 16-Dimension"，注册到 `main()::checks`
+3. `src/myco/notes.py::detect_craft_reflex_missing` + `craft_reflex_missing` hunger signal
+4. `docs/craft_protocol.md §3.1 Discovery surface`（5 发现面 + mtime-primary 说明）+ §8 L15 反向日落（dead reflex / Goodhart overrun / better replacement）
+5. `src/myco/templates/_canon.yaml` 同步 reflex 块 + `synced_contract_version: v0.10.0`
+6. `src/myco/templates/MYCO.md` 热区 W3 行追加 Reflex 提示
+7. `docs/contract_changelog.md` v0.10.0 条目
+8. `myco eat` 为 raw note `n_20260411T212953_be70`，tags 含 `craft-conclusion,decision-class-kernel_contract,friction-phase2,wave11`
+9. `system.contract_version`：v0.9.0 → v0.10.0（Wave 8 re-baseline 后仍走 v0.x，不是 v1.3.1）
+
+**Dual-path lint**：待运行 `myco lint --project-dir .` 与 `python scripts/lint_knowledge.py` 双路 16/16 绿。
+
+**契约影响**：`system.contract_version: v0.9.0 → v0.10.0`（minor bump）。向后兼容：`reflex.enabled: false` 即完全关闭；旧 instance 不更新 synced_contract_version 就看不到 L15。下游 ASCC 此前未写 L15 支持路径，无需改代码。
+
+**设计原则自承**：reflex 是**信号不是门闸**。craft 仍是人工仪式，reflex 只是拒绝"静默绕过"。这一条是 Round 1 A7 强制的关键防御——若把 L15 变成 HIGH/阻塞，agent 会把craft 降格为"过检仪式"，反而破坏 W3 初衷。
+
+**craft_reference**: docs/primordia/craft_reflex_craft_2026-04-11.md

@@ -13,7 +13,7 @@ system:
   # See kernel docs/agent_protocol.md §8. Instance agents MUST compare
   # synced_contract_version against the kernel's contract_version at boot
   # and refresh local reflexes if drift is detected.
-  synced_contract_version: "v0.9.0"   # last kernel contract the instance aligned with
+  synced_contract_version: "v0.10.0"  # last kernel contract the instance aligned with
   upstream_scan_last_run: null         # ISO-8601 timestamp of last upstream scan
   upstream_channels:
     # Path-based classification — strictest-class-wins. See §8.2.
@@ -64,6 +64,31 @@ system:
       instance_contract: 0.85
       exploration: 0.75
     stale_active_threshold_days: 30
+    # ── Craft Reflex (contract v0.10.0, Wave 11) ─────────────────────────
+    # Active discovery surface: turns passive triggers into an emitted
+    # LOW signal when a listed surface was touched without craft evidence.
+    # See kernel docs/craft_protocol.md §3.1 and
+    # docs/primordia/craft_reflex_craft_2026-04-11.md.
+    reflex:
+      enabled: true
+      lookback_days: 3
+      severity: LOW
+      trigger_surfaces:
+        kernel_contract:
+          - docs/agent_protocol.md
+          - docs/craft_protocol.md
+          - _canon.yaml
+          - src/myco/lint.py
+          - src/myco/mcp_server.py
+          - src/myco/templates/_canon.yaml
+          - src/myco/templates/MYCO.md
+        public_claim:
+          - README.md
+          - README_zh.md
+          - README_ja.md
+          - MYCO.md
+          - docs/vision.md
+      evidence_pattern: '(docs/primordia/[a-z0-9_]+_craft_\d{4}-\d{2}-\d{2}(_[0-9a-f]{4})?\.md|craft_reference\s*:)'
 
   # ── Structural Limits (contract v0.5.0) ─────────────────────────────────────
   # Soft limits that feed the `structural_bloat` hunger signal. Not hard

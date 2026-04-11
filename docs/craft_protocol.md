@@ -125,6 +125,53 @@ Run a Craft when any of the following is true:
 5. **Online research reveals conflict** with a current canon item: run a
    craft to resolve the conflict instead of silently updating canon.
 
+### 3.1 Discovery surface (contract v0.10.0, Wave 11)
+
+The five triggers above are a *passive* rule book: they tell an agent
+what ought to invoke craft, but they only fire if the agent remembers
+craft exists at the moment of decision. Wave 10 exposed this as the
+motivating failure — a full README trilogy rewrite (a textbook
+Trigger #4 event) proceeded without invoking craft because the
+discovery surface was pure documentation. To close that gap, the
+protocol declares five actively monitored discovery surfaces:
+
+1. **This document** (`docs/craft_protocol.md`) — the formal spec,
+   read on demand.
+2. **`docs/WORKFLOW.md` §W3** — the principle-level gloss, read at
+   session boot.
+3. **`MYCO.md` hot-zone anchor** — a one-line pointer at the top of
+   every substrate, read every session before real work begins.
+4. **`myco hunger` panel** — emits a `craft_reflex_missing` signal
+   whenever a trigger surface was touched in the last
+   `lookback_days` window without matching craft evidence.
+5. **L15 Craft Reflex lint** — detects the same condition and
+   surfaces it as a LOW issue during `myco lint`, providing a
+   second-chance check before commit.
+
+Trigger surfaces are split into two classes in
+`_canon.yaml: system.craft_protocol.reflex.trigger_surfaces`:
+
+- `kernel_contract` — `docs/agent_protocol.md`, `docs/craft_protocol.md`,
+  `_canon.yaml`, `src/myco/lint.py`, `src/myco/mcp_server.py`,
+  `src/myco/templates/_canon.yaml`, `src/myco/templates/MYCO.md`.
+  Touching any of these maps to Trigger #1 above.
+- `public_claim` — `README.md`, `README_zh.md`, `README_ja.md`,
+  `MYCO.md`, `docs/vision.md`. Touching any of these maps to
+  Trigger #4 above.
+
+Detection is **mtime-based**: if `now - path.stat().st_mtime <
+lookback_days * 86400` for any listed file, the reflex fires unless
+log.md contains a matching `evidence_pattern` OR a craft file in
+`docs/primordia/` has a matching mtime. This mtime-first design is
+robust against log prose variation and survives fresh-clone cutoffs
+(clone time becomes a natural mtime floor). Auxiliary regex on
+log.md catches the "touched two surfaces in one craft landing" case
+without requiring per-craft log entries.
+
+The reflex is a **signal, not a gate**. Severity is LOW and L15
+issues do not fail commits. Craft remains a human ritual; the reflex
+only refuses *silent bypass*.
+
 ## 4. Confidence classes
 
 | `decision_class` | Floor target | Examples |
@@ -203,6 +250,21 @@ following hold for an extended period:
 - **Better replacement**: an automated attack-defense mechanism emerges
   that makes human-authored crafts a bottleneck.
 
+L15 Craft Reflex SHOULD be considered for removal or simplification if:
+
+- **Dead reflex**: L15 reports zero violations for 6 consecutive months
+  *AND* at least one qualifying surface touch was observed in the same
+  period (distinguishes "reflex internalized as habit" from "nobody is
+  editing kernel files anyway").
+- **Goodhart overrun**: craft files are authored merely to suppress
+  L15 without real debate (detect by `rounds: 2` + near-floor
+  `current_confidence` + <24h between surface touch and craft
+  creation). If observed >3 times in a quarter, strengthen rather than
+  remove: require a minimum craft body length or a non-trivial
+  attack section count.
+- **Better replacement**: a structural-edit-time prompt replaces
+  post-hoc detection entirely.
+
 These criteria are documented here to prevent the "can't delete a lint
 once added" failure mode. A lint that has outlived its purpose should be
 removed with the same discipline with which it was added.
@@ -220,7 +282,10 @@ for field definitions.
 
 **Canonical references**
 - Principle: `docs/WORKFLOW.md` W3
-- Schema: `_canon.yaml: system.craft_protocol`
-- Lint: `scripts/lint_knowledge.py::lint_craft_protocol` + `src/myco/lint.py::lint_craft_protocol`
-- Debate record: `docs/primordia/craft_formalization_craft_2026-04-11.md`
-- Contract version: v1.3.0 (2026-04-11)
+- Schema: `_canon.yaml: system.craft_protocol` (reflex subblock: v0.10.0)
+- Lint: `src/myco/lint.py::lint_craft_protocol` (L13) + `src/myco/lint.py::lint_craft_reflex` (L15)
+- Hunger signal: `src/myco/notes.py::detect_craft_reflex_missing` (`craft_reflex_missing`)
+- Debate records:
+  - `docs/primordia/craft_formalization_craft_2026-04-11.md` (v1 schema, Wave 8)
+  - `docs/primordia/craft_reflex_craft_2026-04-11.md` (discovery surface + L15, Wave 11)
+- Contract versions: v0.9.0 (schema) → v0.10.0 (reflex)
