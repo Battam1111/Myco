@@ -68,7 +68,11 @@ def main():
     )
     init_parser.add_argument(
         "--entry-point", type=str, default="MYCO.md",
-        help="Entry point filename (default: MYCO.md, alternative: CLAUDE.md)",
+        help="Entry point filename. Default: MYCO.md. For Claude Code / "
+             "Cowork users whose agent auto-loads CLAUDE.md, pass "
+             "'--entry-point CLAUDE.md'. For GPT-based agents, 'GPT.md'. "
+             "The choice writes through to _canon.yaml::system.entry_point "
+             "and L1 scans. (ASCC ce72 friction — v0.9.0 discoverability fix)",
     )
     init_parser.add_argument(
         "--github-user", type=str, default="your-username",
@@ -321,6 +325,56 @@ def main():
     forage_digest.add_argument("--project-dir", type=str, default=".",
                                help="Project root (default: .)")
 
+    # ── myco upstream ───────────────────────────────────────────────
+    # Kernel-side reception of downstream friction bundles — the
+    # returning leg of the outbound channel. Contract v0.9.0.
+    # Authoritative design: docs/primordia/upstream_absorb_craft_2026-04-11.md
+    upstream_parser = subparsers.add_parser(
+        "upstream",
+        help="Absorb downstream friction bundles into kernel inbox + ingest "
+             "into notes/ as pointer notes",
+    )
+    upstream_sub = upstream_parser.add_subparsers(
+        dest="upstream_subcommand", help="Upstream subcommand"
+    )
+
+    up_scan = upstream_sub.add_parser(
+        "scan", help="List pending bundles in the kernel inbox"
+    )
+    up_scan.add_argument("--project-dir", type=str, default=".",
+                         help="Project root (default: .)")
+    up_scan.add_argument("--json", action="store_true",
+                         help="Emit machine-readable JSON")
+
+    up_absorb = upstream_sub.add_parser(
+        "absorb",
+        help="Copy bundles from a downstream instance's .myco_upstream_outbox/ "
+             "into kernel .myco_upstream_inbox/"
+    )
+    up_absorb.add_argument("instance_path", type=str,
+                           help="Absolute or relative path to the downstream "
+                                "instance root (must contain "
+                                ".myco_upstream_outbox/). Use the Courier "
+                                "Fallback in docs/agent_protocol.md §8 if "
+                                "the instance is not accessible from this "
+                                "session.")
+    up_absorb.add_argument("--project-dir", type=str, default=".",
+                           help="Kernel project root (default: .)")
+    up_absorb.add_argument("--json", action="store_true",
+                           help="Emit machine-readable JSON")
+
+    up_ingest = upstream_sub.add_parser(
+        "ingest",
+        help="Create a pointer note for a bundle and archive bundle body "
+             "to .myco_upstream_inbox/absorbed/"
+    )
+    up_ingest.add_argument("bundle_id", type=str,
+                           help="Bundle id, e.g. n_20260411T004215_ce72")
+    up_ingest.add_argument("--project-dir", type=str, default=".",
+                           help="Kernel project root (default: .)")
+    up_ingest.add_argument("--json", action="store_true",
+                           help="Emit machine-readable JSON")
+
     # ── myco version (explicit subcommand) ─────────────────────────
     subparsers.add_parser("version", help="Show version")
 
@@ -374,6 +428,10 @@ def main():
     if args.command == "forage":
         from myco.forage_cmd import run_forage
         sys.exit(run_forage(args))
+
+    if args.command == "upstream":
+        from myco.upstream_cmd import run_upstream
+        sys.exit(run_upstream(args))
 
 
 if __name__ == "__main__":

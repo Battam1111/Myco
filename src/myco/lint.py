@@ -118,6 +118,26 @@ def lint_canon_schema(canon, root):
 # ---------------------------------------------------------------------------
 
 def lint_references(canon, root):
+    """L1 Reference Integrity.
+
+    v0.9.0 (ASCC 3356 friction): skip backtick-enclosed paths that
+    appear in explicit *negative* or *example* context — these are
+    documentation references to files the agent must NOT create, or
+    external kernel paths being cited for explanation. The previous
+    scanner only skipped glob/absolute paths, producing false HIGH
+    errors when the entry document included a "forbidden list" of
+    paths. Context-aware skip rules:
+
+      1. Path appears within a fenced code block (```...```) whose
+         opening fence line contains "example" or "anti-pattern" or "bad"
+      2. Same-line negative context within ~40 chars before the backtick:
+         one of {"forbid", "must not", "do not", "don't", "never create",
+                 "anti-pattern", "example of", "external", "kernel path"}
+      3. Path matches canon ``system.l1_exclude_paths`` (explicit allowlist)
+
+    The first two are prose-sniffing heuristics; the third is the
+    explicit escape hatch. Authors with edge cases should prefer (3).
+    """
     issues = []
     entry_point = get_entry_point(canon)
     entry_file = read_file(root / entry_point)
@@ -125,12 +145,59 @@ def lint_references(canon, root):
         issues.append(("L1", "CRITICAL", entry_point, f"Cannot read {entry_point}"))
         return issues
 
-    refs = re.findall(
-        r"`([a-zA-Z_/][a-zA-Z0-9_/\-.*]+\.(?:md|py|sh|yaml|txt))`", entry_file
+    # Canon-level explicit exclude list (3356 option c — escape hatch)
+    l1_exclude_paths = set(
+        (canon.get("system", {}) or {}).get("l1_exclude_paths", []) or []
     )
-    for ref in refs:
+
+    # Precompute "safe-context" line starts: within an example/anti-pattern
+    # fenced code block.
+    lines = entry_file.split("\n")
+    in_example_fence = False
+    example_fence_lines = set()
+    for i, line in enumerate(lines):
+        stripped = line.lstrip()
+        if stripped.startswith("```"):
+            fence_label = stripped[3:].lower()
+            if not in_example_fence and any(
+                kw in fence_label for kw in ("example", "anti-pattern", "bad")
+            ):
+                in_example_fence = True
+            elif in_example_fence:
+                in_example_fence = False
+            continue
+        if in_example_fence:
+            example_fence_lines.add(i)
+
+    # Negative-context keywords (lowercased substring match in preceding window)
+    NEG_KEYWORDS = (
+        "forbid", "must not", "do not", "don't", "never create",
+        "anti-pattern", "example of", "external", "kernel path",
+        "do NOT", "MUST NOT",
+    )
+
+    # Iterate with match positions so we can inspect surrounding context.
+    ref_re = re.compile(
+        r"`([a-zA-Z_/][a-zA-Z0-9_/\-.*]+\.(?:md|py|sh|yaml|txt))`"
+    )
+    for match in ref_re.finditer(entry_file):
+        ref = match.group(1)
         if "*" in ref or ref.startswith("/"):
             continue
+        if ref in l1_exclude_paths:
+            continue
+
+        # Fenced-example skip
+        line_idx = entry_file[:match.start()].count("\n")
+        if line_idx in example_fence_lines:
+            continue
+
+        # Same-line negative-context skip (window of 40 chars before backtick)
+        line_start = entry_file.rfind("\n", 0, match.start()) + 1
+        preceding = entry_file[line_start:match.start()].lower()
+        if any(kw.lower() in preceding for kw in NEG_KEYWORDS):
+            continue
+
         path = root / ref
         if not path.exists():
             issues.append(("L1", "HIGH", entry_point,
@@ -599,29 +666,55 @@ def lint_write_surface(canon, root):
 def lint_dotfile_hygiene(canon, root):
     """L12 — Upstream transport dotfile dir hygiene.
 
-    Upstream Protocol v1.0 (see docs/agent_protocol.md §8.5) defines two
+    Upstream Protocol v1.0 (docs/agent_protocol.md §8.5) defines two
     transport directories at the repo root:
 
       - ``.myco_upstream_outbox/``  (instance → kernel)
-      - ``.myco_upstream_inbox/``   (kernel ack → instance)
+      - ``.myco_upstream_inbox/``   (kernel side; receives absorbed bundles)
+
+    Contract v0.9.0 (Wave 9, docs/primordia/upstream_absorb_craft_2026-04-11.md)
+    adds the kernel-side ``absorbed/`` subdirectory under
+    ``.myco_upstream_inbox/`` as the canonical evidence archive written by
+    ``myco upstream ingest``.
 
     Rules:
-      1. If either dir exists, every file inside MUST match the pattern
-         ``upstream_YYYYMMDDTHHMMSS_[0-9a-f]{4}\\.(json|md|patch)``.
-      2. Files older than 30 days produce a LOW-severity GC reminder.
-      3. Any OTHER ``.myco_*`` top-level dir is HIGH (reserved namespace).
+      1. If either outer dir exists, every *file* inside MUST match one of
+         the two accepted bundle-filename patterns:
+           - outbox side:  ``n_YYYYMMDDTHHMMSS_<hex>.bundle.(yaml|yml|json)``
+           - inbox side:   ``<absorb_ts>_n_YYYYMMDDTHHMMSS_<hex>.bundle.(yaml|yml|json)``
+         ``README.md`` in either dir is always allowed.
+      2. Only one subdirectory is allowed, and only on the inbox side:
+         ``.myco_upstream_inbox/absorbed/`` — files inside it must match
+         the inbox-side bundle pattern.
+      3. Files older than 30 days produce a LOW-severity GC reminder
+         (inbox side: only for items still in the root, not in absorbed/).
+      4. Any OTHER ``.myco_*`` top-level dir is HIGH (reserved namespace).
     """
     import re as _re
     import time as _time
 
     issues = []
 
-    pattern = _re.compile(
-        r"^upstream_\d{8}T\d{6}_[0-9a-f]{4}\.(json|md|patch)$"
+    OUTBOX_BUNDLE_RE = _re.compile(
+        r"^n_\d{8}T\d{6}_[0-9a-f]+\.bundle\.(yaml|yml|json)$"
+    )
+    INBOX_BUNDLE_RE = _re.compile(
+        r"^\d{8}T\d{6}_n_\d{8}T\d{6}_[0-9a-f]+\.bundle\.(yaml|yml|json)$"
     )
     ALLOWED_DIRS = {".myco_upstream_outbox", ".myco_upstream_inbox"}
+    ALLOWED_SUBDIRS = {
+        ".myco_upstream_inbox": {"absorbed"},
+        ".myco_upstream_outbox": set(),
+    }
     thirty_days = 30 * 86400
     now = _time.time()
+
+    def _choose_pattern(top_dir_name: str):
+        if top_dir_name == ".myco_upstream_outbox":
+            return OUTBOX_BUNDLE_RE, ("n_YYYYMMDDTHHMMSS_<hex>"
+                                       ".bundle.(yaml|yml|json)")
+        return INBOX_BUNDLE_RE, ("<absorb_ts>_n_YYYYMMDDTHHMMSS_<hex>"
+                                  ".bundle.(yaml|yml|json)")
 
     try:
         for name in sorted(os.listdir(root)):
@@ -638,18 +731,43 @@ def lint_dotfile_hygiene(canon, root):
                                "See docs/agent_protocol.md §8.5."))
                 continue
 
+            pattern, pattern_hint = _choose_pattern(name)
+            allowed_subdirs = ALLOWED_SUBDIRS.get(name, set())
+
             for child in sorted(full.iterdir()):
                 if child.is_dir():
+                    if child.name in allowed_subdirs:
+                        # Validate inbox/absorbed/ contents with the
+                        # inbox-side bundle pattern.
+                        for grandchild in sorted(child.iterdir()):
+                            if grandchild.is_dir():
+                                issues.append((
+                                    "L12", "HIGH",
+                                    f"{name}/{child.name}/{grandchild.name}/",
+                                    f"{name}/{child.name}/ must be flat — "
+                                    "no nested directories"))
+                                continue
+                            if grandchild.name == "README.md":
+                                continue
+                            if not INBOX_BUNDLE_RE.match(grandchild.name):
+                                issues.append((
+                                    "L12", "HIGH",
+                                    f"{name}/{child.name}/{grandchild.name}",
+                                    "Archived bundle filename does not "
+                                    "match <absorb_ts>_n_YYYYMMDDTHHMMSS_"
+                                    "<hex>.bundle.(yaml|yml|json). "
+                                    "See docs/agent_protocol.md §8.5.1."))
+                        continue
                     issues.append(("L12", "HIGH", f"{name}/{child.name}/",
-                                   f"{name}/ must be flat — no subdirectories"))
+                                   f"{name}/ allows only these subdirs: "
+                                   f"{sorted(allowed_subdirs) or '(none)'}"))
                     continue
                 if child.name == "README.md":
                     continue
                 if not pattern.match(child.name):
                     issues.append(("L12", "HIGH", f"{name}/{child.name}",
-                                   "Filename does not match "
-                                   "upstream_YYYYMMDDTHHMMSS_xxxx.(json|md|patch). "
-                                   "See docs/agent_protocol.md §8.5."))
+                                   f"Filename does not match {pattern_hint}. "
+                                   "See docs/agent_protocol.md §8.5.1."))
                     continue
                 try:
                     age = now - child.stat().st_mtime

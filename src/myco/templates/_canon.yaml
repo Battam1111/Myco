@@ -13,7 +13,7 @@ system:
   # See kernel docs/agent_protocol.md §8. Instance agents MUST compare
   # synced_contract_version against the kernel's contract_version at boot
   # and refresh local reflexes if drift is detected.
-  synced_contract_version: "v0.8.0"   # last kernel contract the instance aligned with
+  synced_contract_version: "v0.9.0"   # last kernel contract the instance aligned with
   upstream_scan_last_run: null         # ISO-8601 timestamp of last upstream scan
   upstream_channels:
     # Path-based classification — strictest-class-wins. See §8.2.
@@ -130,12 +130,13 @@ system:
       - integrated
     dead_knowledge_threshold_days: 30
     valid_sources:
-      - chat           # pulled from conversation context
-      - eat            # user/agent invoked `myco eat` explicitly
-      - promote        # grown from another note
-      - import         # bulk ingested from external tool
-      - bootstrap      # created during myco init
-      - forage         # v0.7.0 — digested extract from a forage/ item
+      - chat                # pulled from conversation context
+      - eat                 # user/agent invoked `myco eat` explicitly
+      - promote             # grown from another note
+      - import              # bulk ingested from external tool
+      - bootstrap           # created during myco init
+      - forage              # v0.7.0 — digested extract from a forage/ item
+      - upstream_absorbed   # v0.9.0 — pointer note from myco upstream ingest
 
   # ── Forage Substrate (contract v0.7.0) ────────────────────────────────────
   # Inbound channel — external reference material (papers, repos, articles)

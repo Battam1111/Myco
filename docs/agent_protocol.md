@@ -322,6 +322,40 @@ raw → upstream-candidate → bundle-generated
 
 **升级路径**（Phase ③）：`myco upstream serve` 守护进程 + HTTP 端点，下游直接 POST。v1.0 不做。
 
+#### 8.5.1 Kernel 侧动词 — `myco upstream` CLI（contract v0.9.0, Wave 9）
+
+Upstream Protocol v1.0 把 outbox/inbox 的**物理协议**定义了，但把 kernel 侧的接收动词明文延后。v0.9.0 把它补上：
+
+| 命令 | 作用 | 调用方 |
+|---|---|---|
+| `myco upstream scan` | 列出 kernel `.myco_upstream_inbox/` 里所有未 ingest 的 bundle（不包括 `absorbed/` 子目录） | kernel 会话自查 |
+| `myco upstream absorb <instance-path>` | 从 downstream instance 的 `.myco_upstream_outbox/` 把 bundle 拷贝到 kernel inbox，加时间戳前缀 `<YYYYMMDDTHHMMSS>_<bundle-id>.bundle.yaml`，跳过已 absorbed 的重复项 | 双 mount 快路径 |
+| `myco upstream ingest <bundle-id>` | 读取 inbox 里指定 bundle，生成一条 `notes/n_*.md` **pointer note**（`source: upstream_absorbed`，body = bundle.summary + evidence link），同时把 bundle 本体移到 `.myco_upstream_inbox/absorbed/` 作为审计证据。bundle 从不被原地转写为 note —— note 只是指针 | ingest 执行 |
+
+**设计锁**（来自 Wave 9 craft 的 Round 2 结论 D3）：
+- ingest 的产物永远是 **pointer note**，不是 bundle 的转录。这样 L10 notes schema 不需要为 bundle 的 `proposed_fix_options` 等结构化字段开例外，bundle 原样保留在 `absorbed/` 作为证据。
+- `absorb` 不删除 instance outbox —— instance 侧有独立 chore commit 清空 outbox 的职责，形成双侧 ack。
+
+#### 8.5.2 Courier Fallback — 单 mount / 跨机器场景
+
+当 kernel 会话无法访问 instance 目录（Cowork 单 workspace、不同机器、等），`myco upstream absorb` 会 `exit 2` 并提示走 Courier Fallback：
+
+1. 用户从 instance 的 `.myco_upstream_outbox/<bundle-id>.bundle.yaml` 手动复制文件内容。
+2. 在 kernel 侧创建 `.myco_upstream_inbox/<YYYYMMDDTHHMMSS>_<bundle-id>.bundle.yaml`，粘贴内容（时间戳用当前日期时间）。
+3. 运行 `myco upstream scan` 确认 bundle 出现在 pending 列表。
+4. 运行 `myco upstream ingest <bundle-id>` 完成 absorb → pointer note → archive。
+
+Courier Fallback 的**信任链**是用户本人 + 文件名规范，无数字签名。合理性：当前所有 instance 都是单用户本地项目，无恶意行为模型。Phase ③ 若出现多用户场景再考虑签名。
+
+#### 8.5.3 指标 `upstream_inbox_pressure`
+
+`_canon.yaml: indicators.substrate_keys` 新增 `upstream_inbox_pressure`（Wave 9）：
+
+- **定义**：`min(pending_bundle_count / ceiling, 1.0)`，ceiling 默认 5（`upstream_inbox_ceiling`）
+- **读取**：`myco.upstream.compute_upstream_inbox_pressure(root)` 或 `myco upstream scan --json` 数 `count` 字段
+- **报警阈**：> 0.60（≥ 3 条积压）= 该吃了；= 1.0（5 条或更多）= 代谢停滞
+- **ceiling=5 的来源**：bootstrap，待 3-5 次真实 absorb 后由 friction 数据驱动调整
+
 ### 8.6 触发词与反射规则
 
 下游 agent 在 `myco eat` 时，**自动**对满足以下条件的 note 追加 `upstream-candidate` tag：
