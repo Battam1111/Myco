@@ -15,7 +15,7 @@
 
 **Agent 行为准则**：
 - **📜 硬契约** — 运行前必读 Myco kernel 的 `docs/agent_protocol.md`：write surface / tool protocol / boot-end sequence / anti-patterns。L11 write-surface lint + L12 upstream dotfile hygiene + L13 Craft Protocol schema 会自动执行。
-- **🛠️ Craft Protocol (W3)** — 影响 kernel 契约 / 实例架构 / 置信度 < 0.80 / 公共声明 (README/vision) 的决策必须走 `docs/craft_protocol.md` 规范的结构化自对抗辩论；产物写入 `docs/primordia/<topic>_craft_YYYY-MM-DD.md` 并含 `craft_protocol_version: 1` frontmatter。**Reflex**：L15 Craft Reflex + `myco hunger: craft_reflex_missing` 会在你触碰 kernel/public_claim trigger surface 却没写 craft 时发 LOW 信号——craft 仍是人工仪式，reflex 只是拒绝"静默绕过"。L13 强制 schema。
+- **🛠️ Craft Protocol (W3, agent-autonomous since v0.11.0)** — 影响 kernel 契约 / 实例架构 / 置信度 < 0.80 / 公共声明 (README/vision) 的决策必须走 `docs/craft_protocol.md` 规范的自对抗辩论；产物写入 `docs/primordia/<topic>_craft_YYYY-MM-DD.md` 并含 `craft_protocol_version: 1` frontmatter。**Reflex arc（不可绕过）**：L15 Craft Reflex 或 `myco hunger: craft_reflex_missing` 发 HIGH 信号时，agent 的不可变反射是**在同一 session 内立刻写出缺失的 craft**，然后再继续任务——不是"考虑以后写"，不是"问用户要不要写"。通过 `--no-verify` 或忽略信号都属 W3 违规。Trivial edits (≤20 行 + 无新 identifier) 由 `trivial_exempt_lines` 自动豁免。L13 强制 schema。
 - **🔖 契约版本比对（boot step，Upstream Protocol v1.0）** — 启动时比较本地 `_canon.yaml: system.synced_contract_version` 与 kernel 的 `system.contract_version`：不一致则先读 `docs/contract_changelog.md` 对齐反射规则，再开始任务；**切勿** 自行修改 kernel 文件，上行变更一律通过 `.myco_upstream_outbox/` 提 bundle。
 - **即时沉淀** — 关键决策当下 `myco_eat` 为 raw note，不手建 scratch/TODO/MEMO 文件
 - **在线验证** — 数字型 claim 必须 WebSearch 交叉验证

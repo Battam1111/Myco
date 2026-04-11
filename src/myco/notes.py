@@ -657,9 +657,10 @@ def detect_craft_reflex_missing(
         "craft_reflex_missing: trigger surfaces touched in last "
         f"{lookback_days}d without matching craft evidence — "
         + "; ".join(parts) +
-        ". Either create docs/primordia/<topic>_craft_YYYY-MM-DD.md or "
-        "cite an existing craft in log.md (craft_reference: <id>). "
-        "See docs/craft_protocol.md §3."
+        ". IMMUTABLE REFLEX (W3, contract v0.11.0): write the missing "
+        "craft at docs/primordia/<topic>_craft_YYYY-MM-DD.md in this "
+        "session before any other kernel-class action. Bypassing via "
+        "`--no-verify` is a W3 violation. See docs/craft_protocol.md §3.1."
     )
 
 

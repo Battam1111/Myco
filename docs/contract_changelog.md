@@ -38,6 +38,106 @@ Commit message 格式必须使用 Conventional Commits 风格并带 `[contract:*
 
 ---
 
+## v0.11.0 — 2026-04-11 (minor · craft autonomy, Wave 12 — overturns Wave 8 A7)
+
+**Author**: Claude (Myco kernel agent, autonomous run under user grant, Wave 12)
+**Craft record**: `docs/primordia/craft_autonomy_craft_2026-04-11.md`
+（3 轮 Claim→Attack→Research→Defense→Revise，终置信度 0.92,
+`decision_class: kernel_contract`，floor 0.90；7 个 Round-1 attack + 4 个
+Round-2 attack + 4 个 Round-3 attack；关键修正来自 A4 overturn 推理、A6
+"severity HIGH is performative" 迫使加 agent protocol binding、A7 迫使加
+`trivial_exempt_lines` 机械编辑豁免。）
+
+**Motivating contradiction**: Myco 身份声明是 Autonomous Cognitive
+Substrate。但 Wave 11 的 §3.1 里写"Reflex is a signal, not a gate. Craft
+remains a human ritual"——这句话直接违背核心身份：如果 craft 需要人
+invoke，Myco 就不是 autonomous 的，agent 永远在等人拍肩膀。用户 Wave 12
+在会话中指出此矛盾后，Wave 8 A7 的判断（"craft 的核心是人与 agent 的
+持续对话，不是可自动化的 job"）也随之暴露为需要覆盖——A7 在 Wave 8
+时是对的（那时 L15 不存在，CLI-style 自动化是真的 ceremony），但
+Wave 11 落地 L15 后，automation target 变了：不再是"CLI 人类调用"，而是
+"trigger surface 触碰 → craft 文件在 agent loop 内物化"的反射弧。
+
+**Conventional Commit prefix**: `[contract:minor]` — 向后兼容（旧 instance
+不更新 synced_contract_version 就看不到 severity 变化；新 reflex 字段向后
+兼容缺省），但**对下游有 CI pipeline 的实例是潜在 breaking**：严格处理
+lint 退出码的 CI 现在会看到 L15 触发 exit code 1 而不是 0。迁移指南见
+"下游 instance 对齐步骤"。
+
+### 变更摘要
+
+1. **`craft_protocol.reflex.severity`: `LOW` → `HIGH`**（`_canon.yaml`）。
+   L15 触发不再是软警告，是硬 lint error。Agent 的 W3 义务是**同一
+   session 内立刻写出缺失 craft**，而不是"改天再说"或"问人"。
+2. **新字段 `reflex.trivial_exempt_lines: 20`**。Trigger surface 被碰但
+   `git diff --numstat` 显示改动行数 ≤ 20 AND 无新 identifier（regex
+   检测 `def/class/function/top-level YAML key`）→ 豁免反射。Git 不可用
+   时 fail-closed（照常触发）。这解决 "whitespace 修复被迫写 ceremony
+   craft" 的失败模式。
+3. **`src/myco/lint.py::lint_craft_reflex` 扩展**：读 `trivial_exempt_lines`
+   配置、调用 `git diff` 判定是否豁免、wrap 在 try/except 处理 git 缺失/
+   untracked 文件 fail-closed 情形、更新 issue 文案强调 "write NOW not
+   later"。severity default 从 LOW 改 HIGH。
+4. **`src/myco/notes.py::detect_craft_reflex_missing` 文案更新**：hunger
+   信号从 "Either create... or cite" 改成 "IMMUTABLE REFLEX: write the
+   missing craft... in this session before any other kernel-class
+   action. Bypassing via --no-verify is a W3 violation."
+5. **`docs/craft_protocol.md` 大改 §1 / §3.1 / §4 / §4.5 新增 / §7 扩**：
+   - §1 移除 "Myco's formal ritual" / "human ritual" framing，改为
+     "agent-autonomous selection-pressure mechanism"；加 Wave 8 A7
+     overturn block 解释 Wave 12 的 supersession 逻辑
+   - §3.1 从 "Discovery surface" 改名为 "Reflex arc"；删除 "signal
+     not gate" 和 "human ritual" 字样；明确 4 步反射弧；severity=HIGH
+     理由；明确 --no-verify 是 W3 违规
+   - §4 新 "Single-source convention" 段落（single-agent debate
+     cap: current_confidence ≤ target_confidence）
+   - §4.5 新 "Collaboration model" 子节：人类仍在 **review loop** 而非
+     **invocation loop**；human-authored / 协作 craft 可 supersede
+     agent-only
+   - §7 追加 3 条 Known limitations（honor-system ceiling /
+     trivial_exempt threshold 未校准 / git 依赖 fail-closed）
+6. **Template 同步**：`src/myco/templates/_canon.yaml` 同步
+   severity HIGH + trivial_exempt_lines; `src/myco/templates/MYCO.md`
+   热区 W3 clause 完全重写强调 "不可绕过反射弧"
+7. **`system.contract_version`**: `"v0.10.0" → "v0.11.0"`
+   （minor，Wave 8 re-baseline 后仍走 v0.x）
+
+### 下游 instance 对齐步骤
+
+1. 拉最新 Myco kernel
+2. `_canon.yaml::system.craft_protocol.reflex`：
+   - `severity: LOW` → `severity: HIGH`
+   - 新增 `trivial_exempt_lines: 20`
+3. 更新 `synced_contract_version` 到 `"v0.11.0"`
+4. 更新本地 `MYCO.md` 热区 W3 clause（参考 kernel template）
+5. **CI pipeline 迁移**：如果有 CI 严格处理 `myco lint` exit code：
+   - 选项 A（推荐）：让 CI 继续严格，workflow 要求 agent 在 CI 前
+     已经写好 craft（即让 reflex 在 agent loop 内闭环）
+   - 选项 B：CI 临时把 L15 issue 映射到 warning，配合 commit hook
+     做预防
+   - 不推荐：关掉 reflex (`enabled: false`)——这是退化到 Wave 10 之前
+     的状态
+6. 首次 `myco lint`：如果本地有 trigger surface 最近被动过且没写
+   craft，会立刻触发 HIGH——此时的协议响应是**写 craft**，不是
+   suppress warning
+
+### 已知限制
+
+1. **Honor-system ceiling**：严格来说 agent 可以写 hollow craft 糊弄
+   L15 HIGH。只有 transparency（git + log.md + notes/）作补偿。Hollow-
+   craft detection（attack depth scoring、online research citation
+   count）登记为 Wave 13+ 未来工作。
+2. **`trivial_exempt_lines: 20` 是 bootstrap 值**。需 Phase ② friction
+   数据校准。
+3. **Git 依赖**：trivial_exempt 用 `git diff`，非 git 环境或首次 commit
+   前 fail-closed（照常触发）。
+4. **Wave 8 A7 overturn 的元风险**：本 craft 的合法性建立在"A7 当时
+   对，现在错"之上。如果未来证据表明 A7 一直对、L15 本身是错误路径，
+   整个 Wave 11/12 反射栈都需要回退。该风险被接受，因为 Wave 10 的
+   empirical failure 是比 A7 ex-ante 推理更硬的约束。
+
+---
+
 ## v0.10.0 — 2026-04-11 (minor · craft reflex, Wave 11)
 
 **Author**: Claude (Myco kernel agent, autonomous run under user grant, Wave 11)
