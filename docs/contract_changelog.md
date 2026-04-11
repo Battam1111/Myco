@@ -38,6 +38,79 @@ Commit message 格式必须使用 Conventional Commits 风格并带 `[contract:*
 
 ---
 
+## v0.20.0 — 2026-04-12 (minor · observability integrity: L16 brief freshness + myco view agent surface, Wave 21 — closes NH-3/NH-7)
+
+**Author**: Claude (Myco kernel agent, autonomous run under user grant, Wave 21)
+
+**Motivation**: Two panorama-#2 holes from the same pathology — a
+sensor that can silently report an outdated truth.
+
+- **NH-3 (MEDIUM)**: The Wave 17 boot brief is regenerated only on
+  `myco hunger`. If canon or the contract changelog changes without
+  a subsequent hunger run, the brief silently shows stale signals
+  in the entry-point file's MYCO-BOOT-SIGNALS block. No lint
+  enforcement existed.
+- **NH-7 (MEDIUM)**: The `myco view` verb produced output agents
+  had no reason to invoke (`cat notes/*.md` worked as well). The
+  verb held a seat at the table without doing any work for the
+  agent — dead weight that diluted the four-verb digestive set.
+
+**Change summary**:
+
+1. **L16 Boot Brief Freshness lint** (`src/myco/lint.py::lint_boot_brief_freshness`).
+   MEDIUM severity. Compares `.myco_state/boot_brief.md` mtime
+   against `max(_canon.yaml, docs/contract_changelog.md)`. Fires if
+   missing or stale. Respects `system.boot_brief.enabled` — if the
+   injector is off, L16 no-ops.
+2. **`myco view --next-raw`** — prints the body of the oldest raw
+   note (digest-queue head). Zero-argument target for the
+   raw→digesting loop.
+3. **`myco view --tag T`** — filters notes whose frontmatter tags
+   contain `T` (exact match). Sorted by `last_touched` desc.
+   Respects existing `--status`, `--limit`, `--json`.
+4. **Positional `myco view <id>`** legacy mode unchanged.
+5. **Canon bump** v0.19.0 → v0.20.0 in kernel `_canon.yaml` +
+   `src/myco/templates/_canon.yaml`.
+6. **Lint count** 15 → 16 dimensions (L0–L16).
+
+**Self-tests** (all green):
+
+- Kernel `myco lint` → 16/16 (only pre-existing L13 MEDIUM
+  unrelated to Wave 21).
+- `touch _canon.yaml && myco lint` → fires `L16 MEDIUM: boot brief
+  is stale`, with brief mtime and canon mtime shown.
+- `myco hunger && myco lint` → L16 clears back to PASS.
+- `myco view --next-raw` → prints panorama-#2 note body + "Next:
+  myco digest <id>" hint.
+- `myco view --tag friction-phase2 --limit 5` → 5-row table sorted
+  by last_touched desc, correct filter.
+- `myco view <id>` (positional legacy) → unchanged behavior.
+
+**Known limitations**:
+
+- L-1 L16 checks mtime, not content. Hand-edited brief with fresh
+  mtime passes (but hand-editing violates W1/L11 anyway).
+- L-2 `--tag` matches frontmatter only, not body text. Full-text
+  search is an explicit non-goal.
+- L-3 `--next-raw` sorts by filename timestamp, which ties can
+  fall back to random hex suffix string order. Deterministic but
+  not semantically meaningful on same-second collisions.
+- L-4 Brief is still only regenerated on `myco hunger`, not
+  automatically on canon edit. File watcher was considered and
+  deferred.
+
+**Authoritative craft**:
+`docs/primordia/observability_integrity_craft_2026-04-12.md`
+(3 rounds, kernel_contract, confidence 0.90).
+
+**Doctrine**: a verb that shows the same thing `cat` shows is
+dead weight. Every kernel surface must earn its keep — either by
+doing something agents cannot easily do otherwise, or by
+guaranteeing a property (e.g., freshness) that raw file access
+cannot.
+
+---
+
 ## v0.19.0 — 2026-04-12 (minor · silent-fail elimination: grandfather ceiling + strict project-dir, Wave 20 — closes NH-1 HIGH / NH-2 CRITICAL)
 
 **Author**: Claude (Myco kernel agent, autonomous run under user grant, Wave 20)
