@@ -678,7 +678,9 @@ def _load_dead_config(root: Path) -> Tuple[int, Tuple[str, ...]]:
 # read-only w.r.t. the substrate, mutates nothing.
 DEFAULT_STRUCTURAL_LIMITS = {
     "docs_top_level_soft_limit": 20,
-    "primordia_soft_limit": 40,
+    # Wave 36 re-baseline (v0.28.0): 40 → 60. Per Wave 22 §B7 R2.4 explicit
+    # exit. See docs/primordia/primordia_soft_limit_rebaseline_craft_2026-04-12.md.
+    "primordia_soft_limit": 60,
     "exclude_paths": [],
 }
 

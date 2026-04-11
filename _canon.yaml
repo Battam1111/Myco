@@ -6,8 +6,8 @@ system:
   # Authoritative source: docs/agent_protocol.md §8
   # Craft record:         docs/primordia/upstream_protocol_craft_2026-04-11.md
   # Changelog:             docs/contract_changelog.md
-  contract_version: "v0.27.0"  # Wave 35: myco inlet MVP — Metabolic Inlet primitive scaffold
-  synced_contract_version: "v0.27.0"  # Wave 35 — self-reference: kernel's own lock
+  contract_version: "v0.28.0"  # Wave 36: primordia_soft_limit re-baseline 40 → 60
+  synced_contract_version: "v0.28.0"  # Wave 36 — self-reference: kernel's own lock
   upstream_scan_last_run: "2026-04-11T15:21:31Z"
 
   # --- Upstream scan staleness reader (Wave 17, contract v0.16.0) ---
@@ -274,7 +274,21 @@ system:
     # churn — crafts are born ACTIVE then transition to COMPILED /
     # SUPERSEDED / LOCAL. Exceeding this limit is a signal that compression
     # (COMPILED → wiki + git history pointer) is overdue.
-    primordia_soft_limit: 40
+    #
+    # Wave 36 re-baseline (v0.28.0): 40 → 60. Wave 22 §B7 R2.4 explicitly
+    # anticipated this exit: "If creation velocity ever exceeds compression
+    # (e.g., wave 30+ where everything is still active), that's a real signal
+    # — probably time to raise the soft limit." We are at Wave 36 with 47
+    # ACTIVE crafts that all remain load-bearing for current doctrine and
+    # impl modules. The 40 baseline was set when the substrate had ~25
+    # crafts (Wave 22). Two waves of attempted archive sweeps (Wave 22 +
+    # this Wave 36 audit) found that post-Wave-22 design crafts are heavily
+    # cited from impl crafts, canon comments, and code modules — archiving
+    # them would force 30+ link updates including immutable historical
+    # notes. Re-baselining to 60 is the honest response: leaves headroom
+    # of ~13 for next ~7 waves at avg 2 crafts/wave, then re-evaluate.
+    # Authoritative craft: docs/primordia/primordia_soft_limit_rebaseline_craft_2026-04-12.md
+    primordia_soft_limit: 60
     # Contract-level docs that carry structural authority — these are not
     # "bloat", they are load-bearing rhizomorphs. Excluded from the docs/
     # top-level count.
