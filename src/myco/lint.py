@@ -375,7 +375,8 @@ def lint_vision_anchors(canon, root):
 def lint_notes_schema(canon, root):
     """L10 — validate every notes/*.md against the schema in _canon.yaml.
 
-    Runtime parity: scripts/lint_knowledge.py::lint_notes_schema.
+    Single source of truth as of contract v1.6.0 (Wave 6 de-dup).
+    scripts/lint_knowledge.py is a shim that delegates to this module.
     """
     issues = []
     schema = canon.get("system", {}).get("notes_schema")
@@ -522,8 +523,8 @@ def _ws_gitignored_names(root):
 def lint_write_surface(canon, root):
     """Enforce _canon.yaml → system.write_surface.
 
-    Authoritative contract: docs/agent_protocol.md §1. Runtime parity with
-    scripts/lint_knowledge.py::lint_write_surface.
+    Authoritative contract: docs/agent_protocol.md §1. Single source of
+    truth as of contract v1.6.0 — scripts/lint_knowledge.py is a shim.
     """
     issues = []
     ws = canon.get("system", {}).get("write_surface")
