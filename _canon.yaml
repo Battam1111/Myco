@@ -6,8 +6,8 @@ system:
   # Authoritative source: docs/agent_protocol.md §8
   # Craft record:         docs/primordia/upstream_protocol_craft_2026-04-11.md
   # Changelog:             docs/contract_changelog.md
-  contract_version: "v0.25.0"  # Wave 26: vision re-audit + doctrine reconciliation (supersedes W25 D3)
-  synced_contract_version: "v0.25.0"  # Wave 26 — self-reference: kernel's own lock
+  contract_version: "v0.26.0"  # Wave 30: myco compress MVP + L18 lint_compression_integrity
+  synced_contract_version: "v0.26.0"  # Wave 30 — self-reference: kernel's own lock
   upstream_scan_last_run: "2026-04-11T15:21:31Z"
 
   # --- Upstream scan staleness reader (Wave 17, contract v0.16.0) ---
@@ -364,10 +364,18 @@ system:
     - excrete_reason
     # Optional fields (v1.4.0+) — not enforced by L10, but documented here
     # as SSoT so downstream readers can discover them. See
-    # docs/primordia/dead_knowledge_seed_craft_2026-04-11.md.
+    # docs/primordia/dead_knowledge_seed_craft_2026-04-11.md and
+    # docs/primordia/compression_primitive_craft_2026-04-12.md (Wave 27 D4).
     optional_fields:
     - view_count              # int, default 0; incremented by `myco view <id>` single-note mode
     - last_viewed_at          # ISO str or null; set by `myco view <id>` single-note mode
+    # Wave 30 (v0.26.0) — forward-compression audit trail.
+    - compressed_from         # list[str]: ids of input notes (set on output extracted note)
+    - compressed_into         # str: id of output note (set on excreted input notes)
+    - compression_method      # str: "manual" | "hunger-signal"
+    - compression_rationale   # str: required prose explaining what was preserved/dropped
+    - compression_confidence  # float: 0.0–1.0, self-reported
+    - pre_compression_status  # str: input's status before excretion (for future uncompress)
     valid_statuses:
     - raw            # just ingested, not yet processed
     - digesting      # being read / summarized / extracted
@@ -389,6 +397,19 @@ system:
     - forage              # v0.7.0 — digested extract from a forage/ item
     - upstream_absorbed   # v0.9.0 — pointer note from myco upstream ingest;
                           # body + evidence file in .myco_upstream_inbox/absorbed/
+    - compress            # v0.26.0 (Wave 30) — extracted note produced by
+                          # `myco compress` from N raw/digesting inputs.
+                          # Carries `compressed_from` audit trail.
+
+    # Wave 30 (v0.26.0) — forward-compression configuration.
+    # Authoritative design: docs/primordia/compression_primitive_craft_2026-04-12.md
+    # The hunger signal `compression_ripe` (Wave 27 D2) fires when a tag
+    # cohort has ≥`ripe_threshold` raw notes AND the oldest is ≥`ripe_age_days`
+    # old. The signal is non-blocking advisory; agents act on it via
+    # `myco compress --tag <X>` or ignore it.
+    compression:
+      ripe_threshold: 5
+      ripe_age_days: 7
 
   # --- Forage Substrate (contract v1.7.0) ---
   # External reference material intake — the exoenzyme / foraging phase

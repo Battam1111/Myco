@@ -38,6 +38,153 @@ Commit message 格式必须使用 Conventional Commits 风格并带 `[contract:*
 
 ---
 
+## v0.26.0 — 2026-04-12 (minor · `myco compress` MVP, Wave 30 — closes Wave 27 D8 implementation brief)
+
+**Author**: Claude (Myco kernel agent, autonomous run under explicit user grant, Wave 30)
+
+**Motivation**: Wave 27 produced a complete forward-compression design (D1–D9)
+but no code. Anchor #4 (`压缩即认知：存储无限，注意力有限`) remained the lowest-
+coverage identity anchor at `implementation_coverage = 0.35` per Wave 26 Round 1's
+audit. Wave 30 lands the implementation per Wave 27's specification, validating
+the design under real implementation pressure and raising anchor #4 coverage
+estimate to ~0.75.
+
+**The bundle (one subsystem per Wave 27 D8)**:
+
+1. **`src/myco/io_utils.py`** (NEW, ~160 lines) — first general-purpose
+   atomic-write helper. `atomic_write_text(path, text)` uses
+   `tempfile.mkstemp` + `os.replace` in the same directory for filesystem-
+   level atomicity. `atomic_write_yaml(path, data)` is the YAML wrapper.
+   First absorption from hermes catalog C2 (atomic writes). Module name is
+   provisional pending Wave 29b biomimetic sweep — flagged in module docstring.
+
+2. **`src/myco/compress_cmd.py`** (NEW, ~430 lines) — full `myco compress`
+   verb implementation. Functions: `_project_root` (mirrors `notes_cmd`
+   strict mode), `_resolve_cohort_by_tag` (default eligible status
+   `{raw, digesting}` + skip notes with `compressed_from` set), 
+   `_resolve_cohort_by_ids` (manual escape hatch, preserves input order),
+   `_validate_cohort` (cascade rejection + excreted rejection),
+   `_build_output_body` / `_build_output_meta` / `_build_input_update`
+   (frontmatter constructors), `_execute_compression` (two-phase commit:
+   build all in memory, then write output first via `atomic_write_text`,
+   then iterate inputs with best-effort warning on per-input failure),
+   `run_compress` (CLI dispatch). Exit codes: 0 ok / 2 usage / 3 validation
+   / 4 empty cohort / 5 io.
+
+3. **`src/myco/cli.py`** — `compress` subparser added with positional
+   `note_ids` (`nargs="*"`), `--tag`, `--rationale` (required prose),
+   `--status`, `--confidence` (float default 0.85), `--dry-run`, `--json`,
+   `--project-dir`. Dispatch case routes to `compress_cmd.run_compress`.
+
+4. **`_canon.yaml`** + **`src/myco/templates/_canon.yaml`** (mirrored):
+   - `contract_version` `v0.25.0` → `v0.26.0`
+   - `synced_contract_version` `v0.25.0` → `v0.26.0`
+   - `notes_schema.optional_fields` extended with `compressed_from`,
+     `compressed_into`, `compression_method`, `compression_rationale`,
+     `compression_confidence`, `pre_compression_status`
+   - `notes_schema.valid_sources` adds `compress`
+   - New `notes_schema.compression` sub-section: `ripe_threshold: 5`,
+     `ripe_age_days: 7`
+
+5. **`src/myco/notes.py`**:
+   - `VALID_SOURCES` extended with `forage` (was missing from prior wave!)
+     and `compress`
+   - `OPTIONAL_FIELDS` extended with the 6 compression audit field constants
+   - New `detect_compression_ripe(root, *, now=None) -> Optional[str]`
+     (~100 lines): scans raw notes by tag, computes cohort size + oldest
+     age, returns advisory `compression_ripe: tag '<T>' has N raw notes
+     (oldest M days old)` signal when both thresholds met
+   - `compute_hunger_report` wires `detect_compression_ripe` into the
+     signals list per Wave 27 D2 (non-blocking advisory, no `[REFLEX HIGH]`
+     prefix — anchor #6 selection loop preserved)
+
+6. **`src/myco/metabolism.py`** — re-export updated to include
+   `detect_compression_ripe` in import list and `__all__`.
+
+7. **`src/myco/lint.py`**:
+   - New `lint_compression_integrity(canon, root)` (~130 lines, 3 checks):
+     output integrity (`status=extracted`, `source=compress`,
+     `compression_method` + `compression_rationale` set, all
+     `compressed_from` members exist), input back-link (each
+     `compressed_into` points back, `status=excreted`), cascade prevention
+     (no `compressed_from` input may have its own `compressed_from`).
+     Plus orphan detection: `compressed_into` pointing at a nonexistent
+     note fires HIGH "broken audit chain".
+   - Registered as **L18** in `main()` check list after L17
+   - Module docstring updated `18-Dimension` → `19-Dimension`
+
+8. **`src/myco/immune.py`** — re-export updated to include
+   `lint_compression_integrity` in import list and `__all__`.
+
+9. **`tests/unit/test_compress.py`** (NEW, ~280 lines, 5 tests + 2 helpers):
+   - `test_compress_consumptive_with_audit` — Wave 27 D3+D4 audit shape:
+     3-note cohort → 1 extracted + 3 excreted with bidirectional links
+   - `test_compress_dry_run_no_writes` — Wave 27 Attack G defense:
+     `--dry-run` must not mutate disk (mtime + content + file count
+     unchanged)
+   - `test_compress_cascade_rejected` — Wave 27 §2.1 defense #4:
+     compression-on-compression rejected with exit 3, no mutation
+   - `test_compress_idempotent_empty_cohort` — Wave 27 §1.7: re-running
+     `myco compress --tag X` after success exits 4 with no new files
+   - `test_lint_compression_integrity_catches_orphan` — L18 backstop:
+     deleting an output leaves dangling `compressed_into`, L18 fires HIGH
+
+**R2.3 mid-round bug catch (recorded as confidence-amplifying signal)**:
+The first pytest run caught a real silent-failure bug in the implementation
+craft. `_resolve_cohort_by_tag` originally only excluded `excreted` notes,
+but the output `extracted` note inherits the aggregated input tags via
+`_build_output_meta`. On the second compress run with the same tag, the
+output was re-resolved into the cohort, hit cascade rejection at validation
+time, and exited 3 (validation error) instead of 4 (empty cohort). Wave 27
+§1.7 idempotence guarantee was silently violated by an incomplete resolver
+filter. Fixed: default eligible-status filter is `{raw, digesting}` AND
+the resolver explicitly skips notes with `compressed_from` set as
+belt-and-suspenders. **This is the strongest possible empirical validation
+of the Wave 25 tests infrastructure investment** — the test suite caught
+a real silent-failure bug in the implementation craft on its first run,
+which is the exact validation the W25 craft promised.
+
+**Verification at land time**:
+
+```
+$ PYTHONPATH=src python -m myco.cli lint
+✅ ALL CHECKS PASSED — 0 issues found  (19 dimensions L0-L18)
+
+$ PYTHONPATH=src python -m pytest tests/ -q
+.........                                                   [100%]
+9 passed in 0.33s
+```
+
+**Anchor coverage shift (Wave 26 Round 1 baseline → Wave 30 estimated)**:
+
+| Anchor | Wave 26 baseline | Wave 30 estimate | Delta | Source |
+|--------|------------------|------------------|-------|--------|
+| #4 压缩即认知 | 0.35 | ~0.75 | +0.40 | `myco compress` MVP + L18 + ripe signal |
+| #3 七步管线 | 0.43 | ~0.75 | +0.32 | compress folds steps 2+3+5+7 per Wave 27 D6 |
+
+**Known limitations** (registered, not bugs):
+
+- L1: two-phase commit best-effort (R2.1 + L18 backstop)
+- L2: `compression_method` free-form, future enum trivial
+- L3: `io_utils.py` name provisional pending Wave 29b
+- L4: `myco uncompress` verb still vapor (data preserved, manual recovery mechanical)
+- L5: hallucination risk bounded not eliminated (Wave 27 L1 inherited)
+- L6: `compression_ripe` single-tag per hunger run
+- L7: multi-tag input notes have order-dependent aggregation
+
+**Craft of record**: `docs/primordia/compress_mvp_craft_2026-04-12.md`
+(kernel_contract, 3 rounds, 0.91 confidence — target 0.90 met +0.01 from
+R2.3 empirical validation).
+
+**Doctrine**: forward compression is the substrate's primary cognitive
+act. Wave 27 designed it; Wave 30 implements it. The verb is the first
+direct service of anchor #4 since the substrate's inception. Without it,
+"storage infinite, attention finite" was aspirational doctrine; with it,
+the substrate has a concrete handle for converting bulk metabolism into
+synthesized canon under audit.
+
+---
+
 ## v0.25.0 — 2026-04-12 (minor · vision re-audit + doctrine reconciliation, Wave 26 — supersedes Wave 25 D3)
 
 **Author**: Claude (Myco kernel agent, autonomous run under explicit user grant, Wave 26)

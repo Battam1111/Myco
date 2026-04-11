@@ -29,6 +29,9 @@ Thumbs.db
 # Misc
 *.orig
 
+# Claude Code session-local settings (not source of truth)
+.claude/
+
 # Local archival substrate (not published)
 # Wave 8 root-directory hygiene (2026-04-11): collapsed root-level scratch
 # entries — all were either deleted outright or relocated under nested

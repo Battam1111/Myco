@@ -355,6 +355,62 @@ def main():
              "(exact match). Sorted by last_touched desc.",
     )
 
+    # ── myco compress ──────────────────────────────────────────────
+    # Wave 30 (kernel_contract, contract v0.26.0): forward compression —
+    # take N raw/digesting notes and produce 1 extracted synthesis with a
+    # full audit trail (compressed_from / compressed_into back-reference,
+    # rationale, confidence). Anchor #4 ("compression-is-cognition") was
+    # the lowest-coverage anchor at Wave 26 (0.35); this verb services it
+    # directly. Authoritative design: docs/primordia/compression_primitive_craft_2026-04-12.md
+    # (Wave 27, exploration 0.85). Implementation craft:
+    # docs/primordia/compress_mvp_craft_2026-04-12.md (Wave 30, kernel_contract 0.90).
+    compress_parser = subparsers.add_parser(
+        "compress",
+        help="Forward compression — synthesize N raw/digesting notes into "
+             "1 extracted note with audit trail (anchor #4 service verb).",
+    )
+    compress_parser.add_argument(
+        "note_ids", nargs="*", default=None,
+        help="Explicit note ids to compress (manual bundle). Mutually "
+             "exclusive with --tag.",
+    )
+    compress_parser.add_argument(
+        "--tag", type=str, default=None,
+        help="Compress all raw/digesting notes whose frontmatter tags "
+             "include this value (primary cohort selector). Mutually "
+             "exclusive with positional note ids.",
+    )
+    compress_parser.add_argument(
+        "--rationale", type=str, default=None,
+        help="REQUIRED. One-paragraph prose explaining what the synthesis "
+             "preserves vs drops. Lands as `compression_rationale` in the "
+             "output note's frontmatter (Wave 27 D4 audit trail).",
+    )
+    compress_parser.add_argument(
+        "--status", type=str, default=None,
+        help="Optional status filter applied to --tag cohort. Default: "
+             "all non-excreted statuses (raw + digesting).",
+    )
+    compress_parser.add_argument(
+        "--confidence", type=float, default=0.85,
+        help="Self-reported compression confidence in [0.0, 1.0] "
+             "(default 0.85). Lands in output frontmatter.",
+    )
+    compress_parser.add_argument(
+        "--dry-run", dest="dry_run", action="store_true",
+        help="Show what would be compressed (cohort + rationale) without "
+             "writing anything. Wave 27 Attack G defense — observability "
+             "for the fold-into-compress decision.",
+    )
+    compress_parser.add_argument(
+        "--json", action="store_true",
+        help="Emit machine-readable JSON result",
+    )
+    compress_parser.add_argument(
+        "--project-dir", type=str, default=".",
+        help="Project root (default: current directory)",
+    )
+
     # ── myco hunger ────────────────────────────────────────────────
     hunger_parser = subparsers.add_parser(
         "hunger",
@@ -542,6 +598,11 @@ def main():
     if args.command == "hunger":
         from myco.notes_cmd import run_hunger
         sys.exit(run_hunger(args))
+
+    # Wave 30 (v0.26.0): forward compression verb. Anchor #4 service.
+    if args.command == "compress":
+        from myco.compress_cmd import run_compress
+        sys.exit(run_compress(args))
 
     if args.command == "forage":
         from myco.forage_cmd import run_forage
