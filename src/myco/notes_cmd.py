@@ -28,6 +28,7 @@ from myco.notes import (
     VALID_STATUSES,
     VALID_SOURCES,
     MycoProjectNotFound,
+    auto_excrete_dead_knowledge,
     compute_hunger_report,
     id_to_filename,
     list_notes,
@@ -539,3 +540,79 @@ def run_hunger(args) -> int:
         for sig in report.signals
     )
     return 1 if concerning else 0
+
+
+# ---------------------------------------------------------------------------
+# Wave 33 — prune (D-layer auto-excretion)
+# ---------------------------------------------------------------------------
+
+@_guard_project
+def run_prune(args) -> int:
+    """`myco prune` — D-layer auto-excretion of dead-knowledge notes.
+
+    Wave 33: closes the D-layer hunger-signal loop. Without this verb,
+    `dead_knowledge` was a signal that the user had to manually act on
+    by running `myco digest <id> --excrete "..."` for each candidate.
+    With this verb, the substrate self-prunes when invoked.
+
+    SAFETY: defaults to `--dry-run` (the SAFE mode). Requires explicit
+    `--apply` flag to actually mutate. This is the inverse of the
+    `myco compress --dry-run` opt-in: dry-run is the default for
+    destructive operations, opt-in for additive ones. The asymmetry
+    is intentional — see Wave 33 craft §1.4.
+
+    Exit codes:
+        0 — success (or empty cohort, which is also success)
+        2 — usage error
+        5 — io error (cannot read project)
+    """
+    from myco.notes import auto_excrete_dead_knowledge
+
+    root = _project_root(args)
+    threshold_days = getattr(args, "threshold_days", None)
+    apply_mode = bool(getattr(args, "apply", False))
+    json_out = bool(getattr(args, "json", False))
+
+    results = auto_excrete_dead_knowledge(
+        root,
+        threshold_days=threshold_days,
+        dry_run=not apply_mode,
+    )
+
+    if json_out:
+        print(json.dumps({
+            "mode": "apply" if apply_mode else "dry_run",
+            "threshold_days": threshold_days,
+            "candidate_count": len(results),
+            "applied_count": sum(1 for r in results if r.get("applied")),
+            "results": results,
+        }, ensure_ascii=False, indent=2))
+        return 0
+
+    mode_label = "APPLY (writes)" if apply_mode else "DRY RUN (no writes)"
+    _print_header(f"Prune dead knowledge — {mode_label}")
+    if not results:
+        print("  No dead-knowledge candidates found. Substrate is clean.")
+        if not apply_mode:
+            print("\n  (Run again with --apply to actually excrete.)")
+        return 0
+
+    print(f"  Found {len(results)} dead-knowledge candidate(s):\n")
+    for r in results:
+        marker = "✓ excreted" if r.get("applied") else "→ would excrete"
+        if r.get("error"):
+            marker = f"✗ FAILED ({r.get('error')})"
+        print(f"  {marker}  {r.get('id', '?')}")
+        print(f"      prior_status: {r.get('prior_status', '?')}")
+        print(f"      reason:       {r.get('excrete_reason', '?')}")
+
+    applied = sum(1 for r in results if r.get("applied"))
+    failed = sum(1 for r in results if r.get("error"))
+    print(f"\n  Total: {len(results)} candidates, "
+          f"{applied} excreted, {failed} failed")
+    if not apply_mode:
+        print(
+            f"\n  This was a DRY RUN. Re-run with `myco prune --apply` "
+            f"to actually excrete these notes."
+        )
+    return 0

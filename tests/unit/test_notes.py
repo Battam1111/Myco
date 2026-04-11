@@ -285,3 +285,148 @@ def test_step_verbs_evaluate_transitions_to_digesting(
     captured = capsys.readouterr()
     assert "Reflection prompts" in captured.out, \
         "evaluate must print the reflection prompts section"
+
+
+# ---------------------------------------------------------------------------
+# Wave 33 — D-layer auto-excretion (prune)
+# ---------------------------------------------------------------------------
+#
+# Three tests covering the load-bearing paths of `myco prune`:
+# 1. dry-run does NOT mutate (the safety default — must hold or the verb is dangerous)
+# 2. apply DOES mutate the right notes (the actual feature)
+# 3. fresh notes are NOT pruned (the grace period — without this, every fresh note becomes a candidate)
+
+from datetime import datetime, timedelta
+
+
+def _fabricate_aged_note(
+    project: Path,
+    *,
+    age_days: int,
+    status: str = "extracted",
+    view_count: int = 0,
+) -> Path:
+    """Helper: create a note that LOOKS like it was created `age_days`
+    days ago. Used to fabricate dead-knowledge candidates without waiting
+    real time. We write the note normally then patch its frontmatter
+    timestamps directly.
+    """
+    p = notes.write_note(
+        project, body=f"aged note {age_days}d",
+        tags=[f"aged-{age_days}d"], source="eat", status="raw",
+    )
+    aged_iso = (datetime.now() - timedelta(days=age_days)).strftime("%Y-%m-%dT%H:%M:%S")
+    meta, body = notes.read_note(p)
+    meta["created"] = aged_iso
+    meta["last_touched"] = aged_iso
+    meta["status"] = status
+    meta["view_count"] = view_count
+    p.write_text(notes.serialize_note(meta, body), encoding="utf-8")
+    return p
+
+
+def test_prune_dry_run_no_mutation(_isolate_myco_project: Path) -> None:
+    """Wave 33 D1: dry-run mode must NOT mutate any note.
+
+    This is the load-bearing safety property. If dry-run mutates, the
+    verb is silently destructive even when the user explicitly asked
+    for a preview. Without this test the safety default is aspirational.
+    """
+    project = _isolate_myco_project
+
+    # Fabricate two dead-knowledge notes (35d old, terminal, never viewed)
+    p1 = _fabricate_aged_note(project, age_days=35, status="extracted")
+    p2 = _fabricate_aged_note(project, age_days=40, status="integrated")
+
+    # Snapshot before
+    snapshot = {
+        p1.name: (p1.read_text(encoding="utf-8"), p1.stat().st_mtime_ns),
+        p2.name: (p2.read_text(encoding="utf-8"), p2.stat().st_mtime_ns),
+    }
+
+    results = notes.auto_excrete_dead_knowledge(
+        project, threshold_days=30, dry_run=True,
+    )
+
+    # 2 candidates found, 0 applied
+    assert len(results) == 2, f"expected 2 candidates, got {len(results)}"
+    assert all(not r.get("applied") for r in results), \
+        "dry-run must not apply any mutation"
+
+    # Files unchanged
+    for p in (p1, p2):
+        new_text = p.read_text(encoding="utf-8")
+        new_mtime = p.stat().st_mtime_ns
+        assert new_text == snapshot[p.name][0], \
+            f"dry-run mutated {p.name} content"
+        assert new_mtime == snapshot[p.name][1], \
+            f"dry-run touched {p.name} mtime"
+
+
+def test_prune_apply_excretes_dead_notes(_isolate_myco_project: Path) -> None:
+    """Wave 33 D1: --apply mode actually mutates dead-knowledge candidates.
+
+    The mutation: status → 'excreted', excrete_reason set with the
+    criteria values that triggered the prune.
+    """
+    project = _isolate_myco_project
+
+    p = _fabricate_aged_note(project, age_days=45, status="extracted")
+    note_id = p.stem
+
+    results = notes.auto_excrete_dead_knowledge(
+        project, threshold_days=30, dry_run=False,
+    )
+
+    assert len(results) == 1
+    r = results[0]
+    assert r.get("applied") is True, "apply must mutate the candidate"
+    assert r["id"] == note_id
+
+    meta_after, _ = notes.read_note(p)
+    assert meta_after["status"] == "excreted", \
+        "apply must transition the note to excreted"
+    reason = meta_after.get("excrete_reason") or ""
+    assert "auto-prune" in reason, \
+        "excrete_reason must be machine-parseable as auto-prune"
+    assert "threshold=30d" in reason, \
+        "excrete_reason must include the threshold for audit"
+    assert "view_count=0" in reason, \
+        "excrete_reason must include the view_count for audit"
+
+
+def test_prune_respects_grace_period(_isolate_myco_project: Path) -> None:
+    """Wave 33: notes inside the grace period (younger than threshold)
+    are NOT pruned.
+
+    This is the dead_knowledge condition #2 (created < cutoff). Without
+    it, fresh notes would be pruned the moment they reach terminal status,
+    and the substrate would never accumulate any extracted/integrated
+    knowledge.
+    """
+    project = _isolate_myco_project
+
+    # Fresh note (5 days old, well within grace period)
+    p_fresh = _fabricate_aged_note(project, age_days=5, status="integrated")
+    # Old note (60 days old, well past grace period)
+    p_old = _fabricate_aged_note(project, age_days=60, status="integrated")
+
+    results = notes.auto_excrete_dead_knowledge(
+        project, threshold_days=30, dry_run=False,
+    )
+
+    # Only the old note should be in the result
+    assert len(results) == 1, \
+        f"only old note should be pruned, got {len(results)} candidates"
+    assert results[0]["id"] == p_old.stem, \
+        "the OLD note (60d) should be the only candidate, not the fresh one (5d)"
+
+    # Fresh note still integrated
+    fresh_meta, _ = notes.read_note(p_fresh)
+    assert fresh_meta["status"] == "integrated", \
+        "fresh note must NOT be excreted"
+
+    # Old note now excreted
+    old_meta, _ = notes.read_note(p_old)
+    assert old_meta["status"] == "excreted", \
+        "old note must be excreted"
