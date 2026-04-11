@@ -13,7 +13,7 @@ system:
   # See kernel docs/agent_protocol.md §8. Instance agents MUST compare
   # synced_contract_version against the kernel's contract_version at boot
   # and refresh local reflexes if drift is detected.
-  synced_contract_version: "v0.16.0"  # last kernel contract the instance aligned with
+  synced_contract_version: "v0.17.0"  # last kernel contract the instance aligned with
   upstream_scan_last_run: null         # ISO-8601 timestamp of last upstream scan
 
   # --- Upstream scan staleness reader (Wave 17, v0.16.0) ---
@@ -159,9 +159,12 @@ system:
         kernel_contract:
           - docs/agent_protocol.md
           - docs/craft_protocol.md
+          - docs/contract_changelog.md   # Wave 18 (v0.17.0)
           - _canon.yaml
           - src/myco/lint.py
           - src/myco/mcp_server.py
+          - src/myco/notes.py             # Wave 18 (v0.17.0)
+          - src/myco/notes_cmd.py         # Wave 18 (v0.17.0)
           - src/myco/templates/_canon.yaml
           - src/myco/templates/MYCO.md
         public_claim:

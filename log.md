@@ -854,3 +854,14 @@ conclusion note: `notes/n_20260411T225901_4d39.md` (integrated)
 - Holes closed: H-1 full, H-7 full, H-8 partial (reader side only), H-9 full
 - Remaining: H-2/H-6 (architectural limits, document); H-3 (Wave 19); H-4/H-5 (Wave 18); H-8 writer (future)
 - Lint: 16/16 green
+
+## [2026-04-11] milestone | Wave 18 contract v0.17.0 — L15 Surface Expansion + Git Hook Installer
+- Widened L15 trigger_surfaces.kernel_contract: +docs/contract_changelog.md +src/myco/notes.py +src/myco/notes_cmd.py (both kernel + template canon)
+- New: scripts/install_git_hooks.sh — opt-in, idempotent, fail-open pre-commit hook installer
+- Hook blocks commits on CRITICAL/HIGH only; MEDIUM/LOW pass through with stderr warning
+- Hook fail-opens when `myco` not on PATH (missing linter ≤ no hook)
+- canon bumped v0.16.0 → v0.17.0
+- Dogfood: lint 16/16 green (self-hosting — this craft mtime covers freshly-touched new surfaces); installer idempotent; hook direct-run exit=0 with MEDIUM surfaced
+- Craft: docs/primordia/l15_surface_and_git_hooks_craft_2026-04-11.md (confidence 0.91)
+- Holes closed: H-4 full, H-5 full
+- Remaining: H-3 (Wave 19); H-2/H-6 (architectural limits, document); H-8 writer side (future)
