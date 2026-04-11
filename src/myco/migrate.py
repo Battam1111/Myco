@@ -151,7 +151,7 @@ def create_myco_scaffold(project_dir: Path, replacements: dict, entry_point: str
                 (docs_dir / "WORKFLOW.md").write_text(content, encoding="utf-8")
 
         # 5. Directories
-        for d in ["wiki", "docs/current", "scripts"]:
+        for d in ["wiki", "docs/primordia", "scripts"]:
             full = project_dir / d
             if full.exists():
                 actions.append(("SKIP", f"{d}/ already exists"))
@@ -231,7 +231,7 @@ def generate_migration_notes(findings: dict) -> list:
         extra = f" (+{len(findings['unknown_md_files'])-5} more)" if len(findings["unknown_md_files"]) > 5 else ""
         notes.append(
             f"📋 Found unrecognized .md files at project root: {names}{extra}. "
-            f"Consider organizing into wiki/ (compiled knowledge) or docs/current/ (debate records)."
+            f"Consider organizing into wiki/ (compiled knowledge) or docs/primordia/ (debate records)."
         )
 
     return notes

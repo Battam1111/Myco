@@ -89,7 +89,7 @@ def init_level_1(project_dir: Path, replacements: dict, entry_point: str):
     (project_dir / "docs" / "current").mkdir(exist_ok=True)
     (project_dir / "scripts").mkdir(exist_ok=True)
     print(f"  ✅ wiki/ (Knowledge pages — create on demand)")
-    print(f"  ✅ docs/current/ (Debate records — append-only)")
+    print(f"  ✅ docs/primordia/ (Debate records — append-only)")
     print(f"  ✅ scripts/ (Tool scripts)")
 
 

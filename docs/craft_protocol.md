@@ -3,7 +3,7 @@
 > **Status**: ACTIVE · CONTRACT
 > **Version**: v1 (first landed in Myco contract v1.3.0, 2026-04-11)
 > **Bound principle**: W3 of the Twelve Principles (`docs/WORKFLOW.md`)
-> **Debate of record**: `docs/current/craft_formalization_craft_2026-04-11.md`
+> **Debate of record**: `docs/primordia/craft_formalization_craft_2026-04-11.md`
 > **Schema of record**: `_canon.yaml: system.craft_protocol`
 > **Lint of record**: L13 Craft Protocol Schema (scripts/lint_knowledge.py + src/myco/lint.py)
 
@@ -26,7 +26,7 @@ of *why* each load-bearing choice was made the way it was.
 ## 2. Canonical form
 
 A craft produces exactly one artifact: a markdown file at
-`docs/current/<topic>_craft_<YYYY-MM-DD>.md`, following the schema in
+`docs/primordia/<topic>_craft_<YYYY-MM-DD>.md`, following the schema in
 `_canon.yaml: system.craft_protocol`. The artifact is both the workspace
 of the debate and the permanent record of its conclusion.
 
@@ -71,7 +71,7 @@ entirely (see §6 Migration).
 |---|---|
 | `DRAFT` | Writing in progress; fewer than `min_rounds` completed |
 | `ACTIVE` | ≥ `min_rounds` completed; `current_confidence ≥ target_confidence`; conclusion is citable |
-| `COMPILED` | Conclusion has been extracted into a permanent location (`_canon.yaml`, `docs/*.md` outside `docs/current/`, or code). Original is archived but no longer primary reference. Should set `compiled_into: [...]` |
+| `COMPILED` | Conclusion has been extracted into a permanent location (`_canon.yaml`, `docs/*.md` outside `docs/primordia/`, or code). Original is archived but no longer primary reference. Should set `compiled_into: [...]` |
 | `SUPERSEDED` | Replaced by a newer craft. Preserved for history. Should set `superseded_by: <path>` |
 | `LOCAL` | Local experiment, gitignored, excluded from lint |
 
@@ -160,7 +160,7 @@ a traceable trail.
 
 ## 6. Migration (grandfather rule)
 
-The 20+ craft files that existed in `docs/current/` before this protocol
+The 20+ craft files that existed in `docs/primordia/` before this protocol
 was formalized are **grandfathered**: they do not declare
 `craft_protocol_version` and are fully skipped by L13. They remain
 historically valid and citable.
@@ -185,7 +185,7 @@ nothing forces rewrite.
    measurement. Authors can theoretically water rounds to pass L13 without
    meaningful attack — see §4 for the transparency-based countermeasure.
 4. **Bootstrap file exemption.** The craft that introduced this protocol
-   (`docs/current/craft_formalization_craft_2026-04-11.md`) intentionally
+   (`docs/primordia/craft_formalization_craft_2026-04-11.md`) intentionally
    omits `craft_protocol_version` to avoid recursive self-regulation,
    symmetric with Upstream Protocol §8.7 bootstrap exemption.
 
@@ -222,5 +222,5 @@ for field definitions.
 - Principle: `docs/WORKFLOW.md` W3
 - Schema: `_canon.yaml: system.craft_protocol`
 - Lint: `scripts/lint_knowledge.py::lint_craft_protocol` + `src/myco/lint.py::lint_craft_protocol`
-- Debate record: `docs/current/craft_formalization_craft_2026-04-11.md`
+- Debate record: `docs/primordia/craft_formalization_craft_2026-04-11.md`
 - Contract version: v1.3.0 (2026-04-11)

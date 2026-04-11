@@ -1,4 +1,4 @@
-# docs/current — 工作文档索引
+# docs/primordia — 工作文档索引
 
 > 本目录存放 Myco 的传统手艺辩论记录、里程碑回顾和活跃工作文档。
 > 生命周期标签：`[ACTIVE]` 仍在演进 | `[COMPILED]` 结论已编译到正式文档 | `[ORIGIN]` 从 ASCC 项目迁移（Myco 的第一个宿主项目）

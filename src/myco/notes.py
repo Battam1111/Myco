@@ -4,7 +4,7 @@ Myco Notes — Zettelkasten-flavored atomic note substrate.
 
 This module is the shared engine behind the `eat / digest / view / hunger`
 four-command set. It implements the minimum closed digestive loop approved
-in docs/current/digestive_architecture_craft_2026-04-10.md.
+in docs/primordia/digestive_architecture_craft_2026-04-10.md.
 
 Design principles (from the 4-round debate):
     1. Flat not tree:  notes/*.md, no sub-folders. Scale via metadata, not
@@ -82,7 +82,7 @@ REQUIRED_FIELDS: Tuple[str, ...] = (
 
 # v1.4.0: optional frontmatter fields for Self-Model D layer (dead knowledge
 # detection). Not enforced by L10; grandfathered for existing notes.
-# Authoritative design: docs/current/dead_knowledge_seed_craft_2026-04-11.md.
+# Authoritative design: docs/primordia/dead_knowledge_seed_craft_2026-04-11.md.
 OPTIONAL_FIELDS: Tuple[str, ...] = (
     "view_count",       # int, default 0
     "last_viewed_at",   # ISO str or None
@@ -299,7 +299,7 @@ def record_view(path: Path, *, now: Optional[datetime] = None) -> Dict[str, Any]
     body has actually been rendered to the user. List/index mode must never
     call this — see craft §R2.3.
 
-    See docs/current/dead_knowledge_seed_craft_2026-04-11.md.
+    See docs/primordia/dead_knowledge_seed_craft_2026-04-11.md.
     """
     path = Path(path)
     meta, body = read_note(path)
@@ -400,7 +400,7 @@ class HungerReport:
     """A structured view of the notes/ directory's metabolic state.
 
     Maps directly to the Phase ① acceptance metrics in
-    docs/current/digestive_architecture_craft_2026-04-10.md §3.3.
+    docs/primordia/digestive_architecture_craft_2026-04-10.md §3.3.
     """
     total: int
     by_status: Dict[str, int]
@@ -449,6 +449,97 @@ def _load_dead_config(root: Path) -> Tuple[int, Tuple[str, ...]]:
     return days, terminals
 
 
+# Structural compression config (contract v1.5.0).
+# Authoritative spec: docs/biomimetic_map.md §4.
+# Thresholds are fixed seeds — adaptive thresholds are future work per
+# docs/open_problems.md §4. Read/write separation holds: this helper is
+# read-only w.r.t. the substrate, mutates nothing.
+DEFAULT_STRUCTURAL_LIMITS = {
+    "docs_top_level_soft_limit": 20,
+    "primordia_soft_limit": 40,
+    "exclude_paths": [],
+}
+
+
+def _load_structural_limits(root: Path) -> Dict[str, Any]:
+    """Read structural_limits from _canon.yaml with safe fallback.
+
+    Returns a dict with docs_top_level_soft_limit, primordia_soft_limit,
+    exclude_paths. Instances that lack the block (pre-v1.5.0) get defaults.
+    """
+    if yaml is None:
+        return dict(DEFAULT_STRUCTURAL_LIMITS)
+    canon_path = Path(root) / "_canon.yaml"
+    if not canon_path.exists():
+        return dict(DEFAULT_STRUCTURAL_LIMITS)
+    try:
+        canon = yaml.safe_load(canon_path.read_text(encoding="utf-8")) or {}
+    except Exception:
+        return dict(DEFAULT_STRUCTURAL_LIMITS)
+    sl = (canon.get("system") or {}).get("structural_limits") or {}
+    return {
+        "docs_top_level_soft_limit": int(
+            sl.get("docs_top_level_soft_limit",
+                   DEFAULT_STRUCTURAL_LIMITS["docs_top_level_soft_limit"])
+        ),
+        "primordia_soft_limit": int(
+            sl.get("primordia_soft_limit",
+                   DEFAULT_STRUCTURAL_LIMITS["primordia_soft_limit"])
+        ),
+        "exclude_paths": list(sl.get("exclude_paths") or []),
+    }
+
+
+def detect_structural_bloat(root: Path) -> Optional[str]:
+    """Return a `structural_bloat` signal string if the substrate is
+    structurally over-budget, else None.
+
+    Read-only scan of docs/*.md and docs/primordia/*.md. Excludes
+    contract-level docs listed in `structural_limits.exclude_paths`
+    from the docs/ top-level count — those are load-bearing rhizomorphs,
+    not bloat.
+
+    Seeded thresholds are fixed (not adaptive). Adaptive thresholds are
+    registered as future work in docs/open_problems.md §4.
+    """
+    limits = _load_structural_limits(root)
+    excl = set(limits["exclude_paths"])
+    docs_dir = Path(root) / "docs"
+    if not docs_dir.exists():
+        return None
+
+    # Count top-level docs/*.md excluding contract-level
+    top_level = [
+        p for p in docs_dir.glob("*.md")
+        if f"docs/{p.name}" not in excl
+    ]
+    primordia_dir = docs_dir / "primordia"
+    primordia = list(primordia_dir.glob("*.md")) if primordia_dir.exists() else []
+
+    top_over = len(top_level) - limits["docs_top_level_soft_limit"]
+    prim_over = len(primordia) - limits["primordia_soft_limit"]
+
+    if top_over <= 0 and prim_over <= 0:
+        return None
+
+    parts = []
+    if top_over > 0:
+        parts.append(
+            f"docs/*.md working-set has {len(top_level)} files "
+            f"(soft limit {limits['docs_top_level_soft_limit']}, over by {top_over})"
+        )
+    if prim_over > 0:
+        parts.append(
+            f"docs/primordia/*.md has {len(primordia)} files "
+            f"(soft limit {limits['primordia_soft_limit']}, over by {prim_over})"
+        )
+    return (
+        "structural_bloat: " + "; ".join(parts) +
+        ". Consider compression: COMPILE primordia → wiki, merge overlapping "
+        "docs, or archive SUPERSEDED crafts. See docs/biomimetic_map.md §4."
+    )
+
+
 def compute_hunger_report(
     root: Path,
     *,
@@ -474,7 +565,7 @@ def compute_hunger_report(
         3. now - last_touched ≥ dead_threshold_days
         4. last_viewed_at is None OR now - last_viewed_at ≥ dead_threshold_days
         5. view_count < 2
-    See docs/current/dead_knowledge_seed_craft_2026-04-11.md.
+    See docs/primordia/dead_knowledge_seed_craft_2026-04-11.md.
     """
     now = now or datetime.now()
     stale_cutoff = now - timedelta(days=stale_days)
@@ -599,6 +690,11 @@ def compute_hunger_report(
             f"— never viewed or view_count<2. Candidates for excretion or "
             f"promotion. See `myco hunger --dead` for details (Self-Model D layer seed)."
         )
+    # Structural bloat signal (contract v1.5.0) — read-only scan of
+    # docs/ and docs/primordia/ against _canon.yaml::structural_limits.
+    bloat_signal = detect_structural_bloat(root)
+    if bloat_signal:
+        signals.append(bloat_signal)
     if not signals:
         signals.append("healthy: notes/ is metabolizing normally.")
 

@@ -57,7 +57,7 @@ Myco repo 应该用 MYCO.md 作为入口，理由三条：
 | `evolution_engine.md` | 四齿轮详述 (v2.1) | L2 Docs — 专题文档 |
 | `reusable_system_design.md` | 通用知识系统架构 v2.1（从 ASCC 蒸馏） | L2 Docs — Gear 4 产物 |
 | `research_paper_craft.md` | 科研绘图、写作技法（带 W8 格式头部） | ⚡ 争议：L2 Docs 还是 wiki？ |
-| `decoupling_positioning_debate_2026-04-09.md` | 6 轮竞品分析 + 定位辩论，置信度 90% | docs/current/ — 活跃辩论记录 |
+| `decoupling_positioning_debate_2026-04-09.md` | 6 轮竞品分析 + 定位辩论，置信度 90% | docs/primordia/ — 活跃辩论记录 |
 
 ### 攻击 B1：research_paper_craft 该去 wiki/
 
@@ -70,9 +70,9 @@ Myco repo 应该用 MYCO.md 作为入口，理由三条：
 
 **裁决**：`research_paper_craft.md` 保留在 `docs/`，但加 lifecycle 标签 `[ACTIVE]`，并在 MYCO.md 索引里标注"来自 ASCC Gear 4 蒸馏，适用于学术项目类型"。wiki/ 暂时不放任何页面（符合"不预建空页面"原则）。
 
-### 攻击 B2：decoupling 辩论不该在 docs/，应在 docs/current/
+### 攻击 B2：decoupling 辩论不该在 docs/，应在 docs/primordia/
 
-**防御**：正确。`decoupling_positioning_debate_2026-04-09.md` 的 front matter 就写了 `[ACTIVE]`，它是活跃辩论记录，标准归位是 `docs/current/`。执行时移动。
+**防御**：正确。`decoupling_positioning_debate_2026-04-09.md` 的 front matter 就写了 `[ACTIVE]`，它是活跃辩论记录，标准归位是 `docs/primordia/`。执行时移动。
 
 **Round 2 结论**：
 
@@ -84,7 +84,7 @@ Myco repo 应该用 MYCO.md 作为入口，理由三条：
 | `evolution_engine.md` | `docs/evolution_engine.md` | [ACTIVE] |
 | `reusable_system_design.md` | `docs/reusable_system_design.md` | [ACTIVE] |
 | `research_paper_craft.md` | `docs/research_paper_craft.md` | [ACTIVE] |
-| `decoupling_positioning_debate_2026-04-09.md` | **移至** `docs/current/` | [ACTIVE] |
+| `decoupling_positioning_debate_2026-04-09.md` | **移至** `docs/primordia/` | [ACTIVE] |
 
 置信度 85%。
 

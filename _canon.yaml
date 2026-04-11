@@ -4,9 +4,9 @@ system:
   entry_point: MYCO.md
   # --- Upstream Protocol v1.0 (contract version lock) ---
   # Authoritative source: docs/agent_protocol.md §8
-  # Craft record:         docs/current/upstream_protocol_craft_2026-04-11.md
+  # Craft record:         docs/primordia/upstream_protocol_craft_2026-04-11.md
   # Changelog:             docs/contract_changelog.md
-  contract_version: "v1.4.0"
+  contract_version: "v1.5.0"
   upstream_scan_last_run: null
   upstream_channels:
     # Path-based classification — strictest-class-wins. An instance agent
@@ -31,11 +31,11 @@ system:
   # --- Craft Protocol v1 (W3) ---
   # Authoritative spec:    docs/craft_protocol.md
   # Bound principle:       W3 (docs/WORKFLOW.md)
-  # Debate of record:      docs/current/craft_formalization_craft_2026-04-11.md
+  # Debate of record:      docs/primordia/craft_formalization_craft_2026-04-11.md
   # Lint of record:        L13 Craft Protocol Schema
   craft_protocol:
     version: 1
-    dir: docs/current
+    dir: docs/primordia
     # Topic must have >= 2 underscore-separated tokens; optional 4-hex
     # suffix resolves same-day collisions.
     filename_pattern: '^[a-z][a-z0-9]*(_[a-z0-9]+){1,}_craft_\d{4}-\d{2}-\d{2}(_[0-9a-f]{4})?\.md$'
@@ -61,6 +61,38 @@ system:
       exploration: 0.75       # tentative designs / naming / open research
     stale_active_threshold_days: 30
     grandfather_rule: "Files lacking craft_protocol_version are exempt from L13 strict checks."
+
+  # --- Structural Limits (contract v1.5.0) ---
+  # Authoritative spec:    docs/biomimetic_map.md §4
+  # Debate of record:      docs/primordia/biomimetic_restructure_craft_2026-04-11.md
+  # Signal of record:      hunger signal `structural_bloat`
+  # Seeded (not adaptive): fixed thresholds; adaptive threshold is future work
+  #                        登记在 docs/open_problems.md §4 的压缩工程延伸.
+  structural_limits:
+    # Soft limit on non-contract top-level docs/*.md files.
+    # Contract-level docs listed in exclude_paths are not counted in the
+    # denominator, so this counts "pressure from working documents".
+    docs_top_level_soft_limit: 20
+    # Soft limit on docs/primordia/*.md files. Primordia is expected to
+    # churn — crafts are born ACTIVE then transition to COMPILED /
+    # SUPERSEDED / LOCAL. Exceeding this limit is a signal that compression
+    # (COMPILED → wiki + git history pointer) is overdue.
+    primordia_soft_limit: 40
+    # Contract-level docs that carry structural authority — these are not
+    # "bloat", they are load-bearing rhizomorphs. Excluded from the docs/
+    # top-level count.
+    exclude_paths:
+    - docs/agent_protocol.md
+    - docs/craft_protocol.md
+    - docs/contract_changelog.md
+    - docs/biomimetic_map.md
+    - docs/WORKFLOW.md
+    - docs/vision.md
+    - docs/theory.md
+    - docs/architecture.md
+    - docs/open_problems.md
+    - docs/evolution_engine.md
+
   wiki_page_types:
   - entity
   - concept
@@ -77,7 +109,7 @@ system:
   vision_anchors:
     # Machine-readable identity anchors — any drop below threshold in
     # README.md / README_zh.md / MYCO.md triggers L9 vision-drift alert.
-    # Authoritative source: docs/current/vision_recovery_craft_2026-04-10.md
+    # Authoritative source: docs/primordia/vision_recovery_craft_2026-04-10.md
     # §7 Machine-Readable Anchor Terms.
     min_hits_per_file: 1
     targets:
@@ -115,7 +147,7 @@ system:
   notes_schema:
     # Digestive substrate — the four-command set (eat / digest / view /
     # hunger) reads and writes notes here. Authoritative design record:
-    # docs/current/digestive_architecture_craft_2026-04-10.md
+    # docs/primordia/digestive_architecture_craft_2026-04-10.md
     dir: notes
     filename_pattern: '^n_\d{8}T\d{6}_[0-9a-f]{4}\.md$'
     required_fields:
@@ -130,7 +162,7 @@ system:
     - excrete_reason
     # Optional fields (v1.4.0+) — not enforced by L10, but documented here
     # as SSoT so downstream readers can discover them. See
-    # docs/current/dead_knowledge_seed_craft_2026-04-11.md.
+    # docs/primordia/dead_knowledge_seed_craft_2026-04-11.md.
     optional_fields:
     - view_count              # int, default 0; incremented by `myco view <id>` single-note mode
     - last_viewed_at          # ISO str or null; set by `myco view <id>` single-note mode
@@ -141,7 +173,7 @@ system:
     - integrated     # fully merged into canonical structures
     - excreted       # removed from active rotation (must cite reason)
     # Self-Model D layer seed (v1.4.0) — dead knowledge detection.
-    # See docs/current/dead_knowledge_seed_craft_2026-04-11.md.
+    # See docs/primordia/dead_knowledge_seed_craft_2026-04-11.md.
     terminal_statuses:       # statuses considered "settled", eligible for dead detection
     - extracted
     - integrated

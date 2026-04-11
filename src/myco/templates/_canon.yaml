@@ -13,7 +13,7 @@ system:
   # See kernel docs/agent_protocol.md §8. Instance agents MUST compare
   # synced_contract_version against the kernel's contract_version at boot
   # and refresh local reflexes if drift is detected.
-  synced_contract_version: "v1.4.0"   # last kernel contract the instance aligned with
+  synced_contract_version: "v1.5.0"   # last kernel contract the instance aligned with
   upstream_scan_last_run: null         # ISO-8601 timestamp of last upstream scan
   upstream_channels:
     # Path-based classification — strictest-class-wins. See §8.2.
@@ -40,7 +40,7 @@ system:
   # craft_protocol_version: 1. Files without this field are grandfathered.
   craft_protocol:
     version: 1
-    dir: docs/current
+    dir: docs/primordia
     filename_pattern: '^[a-z][a-z0-9]*(_[a-z0-9]+){1,}_craft_\d{4}-\d{2}-\d{2}(_[0-9a-f]{4})?\.md$'
     required_frontmatter:
       - type
@@ -63,6 +63,27 @@ system:
       instance_contract: 0.85
       exploration: 0.75
     stale_active_threshold_days: 30
+
+  # ── Structural Limits (contract v1.5.0) ─────────────────────────────────────
+  # Soft limits that feed the `structural_bloat` hunger signal. Not hard
+  # lints — structural bloat is a gradual degradation, not a contract
+  # violation. See docs/biomimetic_map.md §4 and
+  # docs/primordia/biomimetic_restructure_craft_2026-04-11.md.
+  structural_limits:
+    docs_top_level_soft_limit: 20
+    primordia_soft_limit: 40
+    exclude_paths:
+    - docs/agent_protocol.md
+    - docs/craft_protocol.md
+    - docs/contract_changelog.md
+    - docs/biomimetic_map.md
+    - docs/WORKFLOW.md
+    - docs/vision.md
+    - docs/theory.md
+    - docs/architecture.md
+    - docs/open_problems.md
+    - docs/evolution_engine.md
+
   wiki_page_types:
     - entity
     - concept

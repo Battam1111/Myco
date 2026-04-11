@@ -37,7 +37,7 @@ W3 在 `docs/WORKFLOW.md` 里作为十二原则之一已经存在：触发信号
 4. Lint 执行（现有 13 维 lint 全部检查知识结构和 agent 行为，没有检查 craft 艺品本身的质量）。
 5. 与 Myco 其他 primitive 的明确接口（craft 和 notes/log/canon/lint/upstream 的关系没写）。
 
-**结果**：`docs/current/` 下 20+ 份 craft 文件实际写法不一致——frontmatter 字段缺失或不同、置信度报告格式不统一、轮次数不一、"结论萃取"有时有有时无、文件名时戳有时 `YYYY-MM-DD` 有时 `YYYYMMDDTHHMMSS`。这是"规则在散文里、实际在漂移中"的经典形态。
+**结果**：`docs/primordia/` 下 20+ 份 craft 文件实际写法不一致——frontmatter 字段缺失或不同、置信度报告格式不统一、轮次数不一、"结论萃取"有时有有时无、文件名时戳有时 `YYYY-MM-DD` 有时 `YYYYMMDDTHHMMSS`。这是"规则在散文里、实际在漂移中"的经典形态。
 
 **这个辩论的目标**：把 W3 从**散文指南**升级为**带 schema + lint 的 protocol**，产出 `docs/craft_protocol.md` 作为 canonical 单一真源，同时不破坏既有文件（兼容性优先）。
 
@@ -50,7 +50,7 @@ W3 在 `docs/WORKFLOW.md` 里作为十二原则之一已经存在：触发信号
 > **Craft Protocol 应该被形式化为带 schema + lint 的 protocol，具体做法**：
 > (a) 创建 `docs/craft_protocol.md` 作为 W3 的 canonical spec；
 > (b) 在 `_canon.yaml` 加 `system.craft_schema` 定义文件模式 + 必填字段 + status 枚举 + 置信度目标分级；
-> (c) 新增 **L13 Craft Protocol Schema lint**，检查 `docs/current/*_craft_*.md` 符合 schema；
+> (c) 新增 **L13 Craft Protocol Schema lint**，检查 `docs/primordia/*_craft_*.md` 符合 schema；
 > (d) 置信度按决策等级分三档：kernel contract 0.90，instance contract 0.85，exploration 0.75；
 > (e) 最小轮次 = 2（Claim + 至少一次 Attack/Defense 循环）；status 枚举 {DRAFT, ACTIVE, COMPILED, SUPERSEDED, LOCAL}；
 > (f) 不迁移历史 craft 文件（结构宽容，新文件严格）。
@@ -160,7 +160,7 @@ COMPILED 与 SUPERSEDED 互斥：一份 craft 如果先 COMPILED 后又被新 cr
 
 回应 B5（命名模式）：采用更严格模式 `^[a-z][a-z0-9]*(_[a-z0-9]+){1,}_craft_\d{4}-\d{2}-\d{2}(_[0-9a-f]{4})?\.md$`——要求 topic 至少两个 token，可选的 4-hex 后缀解决同日冲突。本 craft 文件 `craft_formalization_craft_2026-04-11.md` 符合（"craft" + "formalization" 两个 token）。
 
-回应 B6（status 迁移触发）：加入 `COMPILED`-trigger 规则：**当 craft 结论被引用在 `_canon.yaml` 或 `docs/` 永久文档（非 `docs/current/`）时，作者应手动将 status 改为 COMPILED，并在 frontmatter 加 `compiled_into: [<path>, ...]`**。L13 发 LOW 提醒：`docs/current/*_craft_*.md` 文件 mtime 超过 30 天且 status == ACTIVE 时，提示 "consider COMPILED or SUPERSEDED"。这让"所有 craft 永远 ACTIVE"的腐烂状态能被看见。
+回应 B6（status 迁移触发）：加入 `COMPILED`-trigger 规则：**当 craft 结论被引用在 `_canon.yaml` 或 `docs/` 永久文档（非 `docs/primordia/`）时，作者应手动将 status 改为 COMPILED，并在 frontmatter 加 `compiled_into: [<path>, ...]`**。L13 发 LOW 提醒：`docs/primordia/*_craft_*.md` 文件 mtime 超过 30 天且 status == ACTIVE 时，提示 "consider COMPILED or SUPERSEDED"。这让"所有 craft 永远 ACTIVE"的腐烂状态能被看见。
 
 **Round 2 置信度**：0.87。剩余担忧：(i) `compiled_into` 字段会不会没人填；(ii) bootstrap 文件不加 `craft_protocol_version` 会不会让 L13 有 grey zone；(iii) 这条 craft 自己能不能通过 L13 的**某个关键检查**——必须在设计完成后自我检验。
 
@@ -196,7 +196,7 @@ COMPILED 与 SUPERSEDED 互斥：一份 craft 如果先 COMPILED 后又被新 cr
 - **中文正式名**: 传统手艺（保留作为正式名，与 "Craft Protocol" 在文档中并列使用）
 - **十二原则绑定**: W3
 - **Canonical spec location**: `docs/craft_protocol.md`
-- **Artifact location**: `docs/current/*_craft_*.md`
+- **Artifact location**: `docs/primordia/*_craft_*.md`
 - **Canon schema**: `_canon.yaml: system.craft_protocol.*`
 - **Lint enforcement**: L13 Craft Protocol Schema
 
@@ -205,7 +205,7 @@ COMPILED 与 SUPERSEDED 互斥：一份 craft 如果先 COMPILED 后又被新 cr
 ```yaml
 craft_protocol:
   version: 1
-  dir: docs/current
+  dir: docs/primordia
   filename_pattern: '^[a-z][a-z0-9]*(_[a-z0-9]+){1,}_craft_\d{4}-\d{2}-\d{2}(_[0-9a-f]{4})?\.md$'
   required_frontmatter:
     - type                  # must equal "craft"

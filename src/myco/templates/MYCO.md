@@ -15,7 +15,7 @@
 
 **Agent 行为准则**：
 - **📜 硬契约** — 运行前必读 Myco kernel 的 `docs/agent_protocol.md`：write surface / tool protocol / boot-end sequence / anti-patterns。L11 write-surface lint + L12 upstream dotfile hygiene + L13 Craft Protocol schema 会自动执行。
-- **🛠️ Craft Protocol (W3)** — 影响 kernel 契约 / 实例架构 / 置信度 < 0.80 的决策必须走 `docs/craft_protocol.md` 规范的结构化自对抗辩论；产物写入 `docs/current/<topic>_craft_YYYY-MM-DD.md` 并含 `craft_protocol_version: 1` frontmatter。L13 强制 schema。
+- **🛠️ Craft Protocol (W3)** — 影响 kernel 契约 / 实例架构 / 置信度 < 0.80 的决策必须走 `docs/craft_protocol.md` 规范的结构化自对抗辩论；产物写入 `docs/primordia/<topic>_craft_YYYY-MM-DD.md` 并含 `craft_protocol_version: 1` frontmatter。L13 强制 schema。
 - **🔖 契约版本比对（boot step，Upstream Protocol v1.0）** — 启动时比较本地 `_canon.yaml: system.synced_contract_version` 与 kernel 的 `system.contract_version`：不一致则先读 `docs/contract_changelog.md` 对齐反射规则，再开始任务；**切勿** 自行修改 kernel 文件，上行变更一律通过 `.myco_upstream_outbox/` 提 bundle。
 - **即时沉淀** — 关键决策当下 `myco_eat` 为 raw note，不手建 scratch/TODO/MEMO 文件
 - **在线验证** — 数字型 claim 必须 WebSearch 交叉验证
@@ -42,7 +42,7 @@
 |------|------|---------|------|
 | **L1 Index** | 本文件（入口文档） | 自动加载 | 纯索引 + schema（适配 Claude/GPT 等 agent） |
 | **L1.5 Wiki** | `wiki/*.md` | 按需读取 | 结构化知识页 |
-| **L2 Docs** | `docs/*.md` + `docs/current/*.md` | 按需读取 | 工作流手册、辩论记录 |
+| **L2 Docs** | `docs/*.md` + `docs/primordia/*.md` | 按需读取 | 工作流手册、辩论记录 |
 | **L3 Code** | `src/`, `scripts/` | 按需读取 | 代码实现 |
 | **Timeline** | `log.md` | 按需读取 | Append-only 时间线 |
 | **Canon** | `_canon.yaml` | Lint 读取 | 规范值 Single Source of Truth |
@@ -106,7 +106,7 @@ Phase 2  [自定义]        ⏳ 待实现
 1. **更新任务队列**（最优先）
 2. **追加 log.md**（关键事件一行记录）
 3. 更新 §1 进度
-4. 新 Bug → wiki/ | 新决策/代码变更 → wiki/ 对应页面或 docs/current/
+4. 新 Bug → wiki/ | 新决策/代码变更 → wiki/ 对应页面或 docs/primordia/
 5. Gear 2 反思："系统本身哪里可以改进？" → log.md `meta` 条目
 6. **Gear 4 sweep**：扫描 log.md 中本次会话的 `g4-candidate` 条目 → 每条写入 Myco docs 或标注 `g4-pass: [原因]`（无 g4-candidate 则跳过）
 7. 长会话 → `python scripts/lint_knowledge.py --project-dir .`（L2+ 项目；L1 项目跳过此步）

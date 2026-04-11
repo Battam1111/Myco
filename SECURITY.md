@@ -37,7 +37,7 @@ Since Myco manages knowledge files that are read by AI agents:
 1. **Review wiki/ contents before making a project public** — wiki pages may contain business logic, credentials references, or internal details.
 2. **_canon.yaml is not a secrets manager** — do not store API keys or passwords there.
 3. **MYCO.md hot-zone is agent-readable** — treat it like a public system prompt.
-4. **docs/current/ craft debates** may contain strategic thinking you want to keep private.
+4. **docs/primordia/ craft debates** may contain strategic thinking you want to keep private.
 
 ## Responsible Disclosure
 
