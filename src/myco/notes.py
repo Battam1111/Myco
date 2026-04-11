@@ -56,6 +56,51 @@ except ImportError:  # pragma: no cover — yaml is a hard dep elsewhere
 
 
 # ---------------------------------------------------------------------------
+# Exceptions (Wave 20, contract v0.19.0)
+# ---------------------------------------------------------------------------
+
+class MycoProjectNotFound(Exception):
+    """Raised when `_project_root` cannot find `_canon.yaml` in walk-up.
+
+    Wave 20 strict-mode resolution: the default silent fall-through
+    (return Path(raw).resolve() on no canon found) produced healthy-
+    looking hunger reports on unrelated directories, indistinguishable
+    from a truly-healthy signal. See
+    `docs/primordia/silent_fail_elimination_craft_2026-04-11.md` D3.
+
+    The CLI layer catches this and exits 2 with a clear error. Escape
+    hatch: `MYCO_ALLOW_NO_PROJECT=1` env var.
+    """
+    pass
+
+
+def _parse_version_tuple(s: Optional[str]) -> Optional[Tuple[int, int, int]]:
+    """Parse semver-ish `vMAJOR.MINOR[.PATCH]` → (major, minor, patch).
+
+    Accepts: ``v0.8.0``, ``v0.8``, ``0.8.0``, ``0.19.0``.
+    Returns None on malformed input. PATCH defaults to 0 when omitted.
+
+    Wave 20 (v0.19.0): used by `detect_contract_drift` grandfather
+    ceiling check. See craft §B1.
+    """
+    if s is None:
+        return None
+    raw = str(s).strip().lstrip("v").lstrip("V")
+    if not raw:
+        return None
+    parts = raw.split(".")
+    if not (2 <= len(parts) <= 3):
+        return None
+    try:
+        major = int(parts[0])
+        minor = int(parts[1])
+        patch = int(parts[2]) if len(parts) == 3 else 0
+    except (ValueError, TypeError):
+        return None
+    return (major, minor, patch)
+
+
+# ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
 
@@ -702,16 +747,19 @@ def detect_contract_drift(
 
     system = canon.get("system") or {}
     boot_cfg = system.get("boot_reflex") or {}
-    if not boot_cfg or not boot_cfg.get("enabled", False):
-        return None
 
+    # Wave 20 (v0.19.0): prefix is resolved even for grandfather-ceiling
+    # signals, because the ceiling check MUST run before the enabled gate
+    # — instances with no boot_reflex block at all (pre-Wave-13 canons)
+    # must still be able to fire `grandfather_expired`. See
+    # docs/primordia/silent_fail_elimination_craft_2026-04-11.md §B1.
     prefix = boot_cfg.get("reflex_prefix", "[REFLEX HIGH]")
 
     synced = system.get("synced_contract_version")
     # Preference (a): same file's kernel contract_version (kernel self-check)
     kernel_version = system.get("contract_version")
 
-    # Preference (b): shipped template
+    # Preference (b): shipped template in the local repo (kernel-mode)
     if kernel_version is None or synced is None:
         tpl = package_template or (Path(root) / "src" / "myco" / "templates" / "_canon.yaml")
         if tpl.exists():
@@ -719,12 +767,88 @@ def detect_contract_drift(
                 tpl_canon = _yaml.safe_load(tpl.read_text(encoding="utf-8")) or {}
                 tpl_system = tpl_canon.get("system") or {}
                 if kernel_version is None:
-                    kernel_version = tpl_system.get("contract_version")
+                    # Template's own contract_version if present, else its
+                    # synced_contract_version (which IS the authoritative
+                    # pin from the template's perspective).
+                    kernel_version = (
+                        tpl_system.get("contract_version")
+                        or tpl_system.get("synced_contract_version")
+                    )
                 if synced is None:
-                    # instances without sync field yet → treat as drift-pending
                     synced = tpl_system.get("synced_contract_version")
             except Exception:
                 pass
+
+    # Preference (c) — Wave 20 (v0.19.0): installed package template.
+    # Downstream instances (e.g. ASCC) have no `src/myco/templates/` in
+    # their repo layout, so (b) returns empty. Fall back to the template
+    # shipped inside the installed `myco` package via importlib.resources.
+    # This is how an instance learns the kernel's version when it lives
+    # outside the kernel repo.
+    if kernel_version is None:
+        try:
+            from importlib.resources import files as _pkg_files
+            pkg_tpl = _pkg_files("myco") / "templates" / "_canon.yaml"
+            if pkg_tpl.is_file():
+                pkg_canon = _yaml.safe_load(pkg_tpl.read_text(encoding="utf-8")) or {}
+                pkg_system = pkg_canon.get("system") or {}
+                kernel_version = (
+                    pkg_system.get("contract_version")
+                    or pkg_system.get("synced_contract_version")
+                )
+        except Exception:
+            pass
+
+    # -----------------------------------------------------------------
+    # Wave 20 (v0.19.0): grandfather-ceiling check runs BEFORE the
+    # enabled gate. A disabled or missing boot_reflex block must NOT
+    # mean "silently pass on 10 minor versions of drift". Ceiling
+    # default is 5 minor versions; instances override via
+    # `system.boot_reflex.grandfather_ceiling_minor_versions`.
+    # -----------------------------------------------------------------
+    try:
+        ceiling = int(boot_cfg.get("grandfather_ceiling_minor_versions", 5))
+    except (ValueError, TypeError):
+        ceiling = 5
+
+    if synced is not None and kernel_version is not None:
+        synced_tup = _parse_version_tuple(synced)
+        kernel_tup = _parse_version_tuple(kernel_version)
+        if synced_tup is None or kernel_tup is None:
+            return (
+                f"[REFLEX MEDIUM] version_parse_error: could not parse "
+                f"synced={synced!r} or kernel={kernel_version!r} as "
+                f"semver (expected vMAJOR.MINOR[.PATCH]). Fix the "
+                f"field(s) in _canon.yaml before any kernel-class action."
+            )
+        # Major mismatch is NEVER grandfathered.
+        if synced_tup[0] != kernel_tup[0]:
+            return (
+                f"{prefix} grandfather_expired: major version mismatch "
+                f"{synced!r} → {kernel_version!r}. Majors are NEVER "
+                f"grandfathered. Read docs/contract_changelog.md in "
+                f"full and import the kernel contract NOW before any "
+                f"kernel-class action."
+            )
+        minor_gap = kernel_tup[1] - synced_tup[1]
+        if minor_gap > ceiling:
+            return (
+                f"{prefix} grandfather_expired: {minor_gap} minor "
+                f"versions of drift ({synced!r} → {kernel_version!r}) "
+                f"exceeds ceiling {ceiling}. Grandfather exemption "
+                f"lapsed. Read docs/contract_changelog.md entries "
+                f"between {synced} and {kernel_version} and update "
+                f"_canon.yaml::system.synced_contract_version (plus any "
+                f"missing canon blocks per the changelog) before any "
+                f"kernel-class action. Override ceiling via "
+                f"system.boot_reflex.grandfather_ceiling_minor_versions."
+            )
+
+    # Only AFTER the grandfather-ceiling check do we honor the
+    # enabled-gate. A disabled boot_reflex means "don't fire the
+    # normal drift signal", but the ceiling above already ran.
+    if not boot_cfg or not boot_cfg.get("enabled", False):
+        return None
 
     if synced is None or kernel_version is None:
         return (
