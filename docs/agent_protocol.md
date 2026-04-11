@@ -134,13 +134,21 @@ Myco v1.2 Phase ① 引入了消化系统（`eat / digest / view / hunger` + `no
 每次新会话的前三步**按顺序**执行，不能省略：
 
 ```
-1. myco_status             # 读 MYCO.md 热区 + 任务队列 + 身份锚点
-2. myco_hunger             # 看消化系统健康度；优先处理 raw_backlog/stale_raw
-3. （如果 hunger 建议）myco_digest 1-2 条最老的 raw note
-4. 开始正式任务
+1. myco_status             # Wave 13: 默认 include_hunger=True，一次返回
+                           # status + hunger + reflex signals
+2. 处理所有 [REFLEX HIGH] 信号（contract_drift / raw_backlog / craft_reflex_missing）
+3. 开始正式任务
 ```
 
-**为什么**：身份锚点的 8 条和 hunger 报告共同决定"这次会话的姿态"。跳过 step 1 会触发愿景漂移（L9 会在之后发现但已经晚了）；跳过 step 2 会让 raw 永远堆积。
+**Wave 13 (contract v0.12.0) 强化**：`myco_status` 现在默认折叠 hunger 结果，
+返回的 JSON 含 `hunger_signals.reflex`（HIGH 级反射信号）和
+`hunger_signals.advisory`（建议级信号）。出现任何 reflex 信号时，**本会话内**
+必须先消化（digest / 写 craft / 对齐契约版本）再动任务，跳步即 W1/W3/§8.4
+违规。
+
+**为什么**：此前 step 1/2 是 prose，agent 可跳。v0.12.0 把 status → hunger →
+reflex 串成 arc：调用 `myco_status` 就等于跑完了 boot sequence 的前两步。
+Craft：`docs/primordia/boot_reflex_arc_craft_2026-04-11.md`。
 
 ---
 
@@ -306,6 +314,9 @@ raw → upstream-candidate → bundle-generated
 - `_canon.yaml → system.synced_contract_version: "vX.Y.Z"`
 - boot sequence 比对两边版本，不同则提示"kernel 契约有 N 个版本更新，是否同步？"
 - 同步操作走 Confirm/Review 通道（改下游 CLAUDE.md/MYCO.md）
+
+**代码侧强制**（Wave 13, contract v0.12.0）：
+此前版本的比对纯 prose（agent 可能跳步）。v0.12.0 起 `myco.notes.detect_contract_drift()` 在 `compute_hunger_report` 中被调用，发现 `synced_contract_version ≠ contract_version` 时发 `[REFLEX HIGH] contract_drift` 信号。`myco_status` 默认 `include_hunger=True` 会一次性把 status + reflex 信号返回，把 boot sequence 从 prose 变成 arc。跳过或通过 `include_hunger=False` 绕过 = §8.4 invariant 违规。Craft: `docs/primordia/boot_reflex_arc_craft_2026-04-11.md`。
 
 **撤回机制**：
 - `docs/contract_changelog.md` 可标记某版本为 `revoked: true` + `revoke_reason`

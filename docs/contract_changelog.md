@@ -38,6 +38,100 @@ Commit message 格式必须使用 Conventional Commits 风格并带 `[contract:*
 
 ---
 
+## v0.12.0 — 2026-04-11 (minor · boot reflex arc, Wave 13 — W1 + §8.4 enforcement)
+
+**Author**: Claude (Myco kernel agent, autonomous run under user grant, Wave 13)
+**Craft record**: `docs/primordia/boot_reflex_arc_craft_2026-04-11.md`
+（3 轮 Claim→Attack→Defense→Revise，终置信度 0.91，`decision_class:
+kernel_contract`，floor 0.90；7 个 R1 attack + 4 个 R2 attack + 4 个 R3 sweep；
+A7 split force scoped batch 到只 contract_drift + raw_backlog HIGH + hunger
+wiring，`upstream_scan_last_run` 写路径延后到 Batch 4）
+
+**Motivation**（Wave 12 逻辑的直接延伸 + realtime dogfood 证据）：
+Wave 12 建立了 "reflex 在理论上必反射、在实践上变 advisory 必然产生非零失效"
+的原则并用 Wave 10 README 跳 craft 事件作证。Wave 13 发现同一条失效定律
+在另外三条"理论上是反射但实践上是 prose"的路径上继续成立：
+
+1. **contract_drift**：`docs/agent_protocol.md §8.4` 明确规定 instance
+   启动时要比对 `synced_contract_version` 与 kernel `contract_version`，
+   但代码里**一行比对都没有**。instance 可以停在 v0.8 与 v0.11 kernel
+   对话，按过时反射规则生产代码，lint 看不见（lint 读的是本地陈旧 canon）。
+
+2. **raw_backlog**：W1 (auto-sedimentation) 是 Myco 消化基质的**根本前提**
+   ——它被 craft_protocol 级反射对待的程度却远低于 W3。craft_reflex_missing
+   升级到 HIGH，raw_backlog 还停在 text advisory。Wave 12 原则意味着要么
+   raw_backlog 同样升级到 HIGH，要么承认 W1 是装饰性的——后者不可接受。
+
+3. **Boot sequence skip**：`agent_protocol.md §3` 的 4 步 boot 是 prose。
+   `myco_status` 不调用 hunger，raw_backlog 不返回在 status 里。一个 session
+   可以完全不碰消化基质就开工，boot arc 只存在于文档而不是代码。
+
+**Realtime dogfood evidence**：Wave 13 craft 落地时，`myco hunger` 报告
+Myco kernel 仓库**本身**有 27 条 raw notes。基质在自己身上消化失败。
+
+**Changes**:
+
+- **`_canon.yaml::system`** — 新增 `boot_reflex` 块（`enabled: true`,
+  `severity: HIGH`, `raw_backlog_threshold: 10`, `reflex_prefix:
+  "[REFLEX HIGH]"`, `raw_exempt_sources: [bootstrap]`)；新增
+  `synced_contract_version: "v0.12.0"` 作为 kernel self-reference；
+  `contract_version` 从 `v0.11.0` bump 到 `v0.12.0`。
+- **`src/myco/notes.py`** — 新增 `detect_contract_drift(root)` 函数，比对
+  local synced 与 kernel contract_version（优先同文件，fallback 到
+  `src/myco/templates/_canon.yaml` 的 ledger），不一致发 `[REFLEX HIGH]
+  contract_drift`；`compute_hunger_report` 前置调用 drift 检测并
+  refine raw_backlog 计数为 pure_raw_count（`digest_count == 0` 且
+  `source` 不在 `raw_exempt_sources` 中），raw_backlog 信号升级为
+  `[REFLEX HIGH]` 并带 W1 违规警告 + 最少 digest 数量指引。
+  craft_reflex_missing 同步添加 `[REFLEX HIGH]` 前缀。
+- **`src/myco/mcp_server.py::myco_status`** — 新增 `include_hunger:
+  bool = True` 参数，默认调用 `compute_hunger_report` 并把 reflex /
+  advisory 信号分桶返回在 `hunger_signals` 字段下；出现 reflex 信号时
+  `hint` 被替换为强制警告。Docstring 明确 `include_hunger=False` 在
+  raw_backlog 非空时等同 W1 违规。
+- **`src/myco/templates/_canon.yaml`** — 同步新 `boot_reflex` 块 +
+  `synced_contract_version` 提升到 v0.12.0。
+- **`src/myco/templates/MYCO.md`** — 热区 boot 条款从 "契约版本比对
+  (boot step)" 改写为 "Boot Reflex Arc (v0.12.0)"：明确新反射信号语义 +
+  `include_hunger=False` 等价于 `--no-verify` 的 W1 违规。
+- **`docs/agent_protocol.md`** — §3 Session Boot Sequence 改写为 2 步 arc
+  (status → handle reflex signals → task)，§8.4 新增 "代码侧强制 (Wave 13,
+  contract v0.12.0)" 子节解释 drift detector。
+- **`docs/primordia/boot_reflex_arc_craft_2026-04-11.md`** — 本 craft
+  决议文件。
+
+**Migration (downstream instances)**:
+
+1. 拉取 Wave 13 kernel，`pip install -e /path/to/Myco --break-system-packages`。
+2. 更新本地 `_canon.yaml::system.synced_contract_version` 到 `v0.12.0`。
+3. 运行 `myco_status`（MCP）或 `myco hunger`（CLI）验证无
+   `[REFLEX HIGH] contract_drift` 信号。
+4. 如果本地 raw notes 中 pure-raw (digest_count=0 且非 bootstrap 源) > 10
+   → **本会话内** `myco digest` 到阈值下再继续任务。
+5. 新的 `include_hunger=False` 参数谨慎使用；raw_backlog 非空时调用等同 W1 违规。
+
+**Known limitations (carried forward)**:
+
+- **L-1**（honor-system ceiling）：drift detector 只比版本字符串，不检查
+  本地反射实现与 kernel 是否真的一致——pinned v0.12.0 instance 也可以
+  本地改 lint_craft_reflex。Wave 12 已承认同类限制。
+- **L-2**：`include_hunger=False` 纯文档约束，无代码 enforcement。与
+  `--no-verify` 同级。
+- **L-3**：`raw_backlog_threshold: 10` 是 bootstrap 值，未经 Phase ②
+  friction 数据校准。若使用中发现合法 burst（如 forage absorb 批次）
+  常被误触发，调整为动态值。
+- **L-4**：drift 检测只在 boot 时一次。Session 内 `git pull` 拉进新版本
+  kernel 不会二次触发——acceptable (Wave 11 reasoning)。
+
+**Wave 13 dogfood discipline**:
+
+Kernel 仓库的 27 raw notes 在 Wave 13 landing 作为配套动作被消化到
+≤1（本 craft 的 conclusion note pre-digest）。这是 W1 的实时 self-test：
+基质必须能在自己身上执行它强加给下游的代谢纪律，否则 contract 就是
+虚的。消化结果记录在 log.md Wave 13 milestone。
+
+---
+
 ## v0.11.0 — 2026-04-11 (minor · craft autonomy, Wave 12 — overturns Wave 8 A7)
 
 **Author**: Claude (Myco kernel agent, autonomous run under user grant, Wave 12)

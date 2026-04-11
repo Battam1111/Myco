@@ -689,3 +689,29 @@ L14 修复：两条新 forage 初始 license=unknown 违反 "unknown coexist wit
 **Immutable reflex arc**: touch trigger surface → L15 fire HIGH → agent writes craft in-session → lint green → commit. Human never in the invocation loop; human always in review loop. This is what "autonomous cognitive substrate" means in practice: the selection machinery is self-firing, or it is not a substrate.
 
 **craft_reference**: docs/primordia/craft_autonomy_craft_2026-04-11.md
+
+## [2026-04-11] milestone | Wave 13 — Boot Reflex Arc (contract v0.11.0 → v0.12.0)
+
+**主题**：把 3 条 prose 级 reflex（contract_drift / raw_backlog / boot hunger wiring）升级为 Wave 12 同形的 in-session reflex arc，关闭 advisory tier 漏洞。
+
+**触发**：用户在 Wave 12 后提出"回到修复漏洞的主线"。Audit 发现 W1（auto-sedimentation）和 Upstream Protocol §8.4（contract version lock）虽然是 named principle / contract-level invariant，但代码里**一行 enforcement 都没有**，其失效率与 pre-Wave-11 craft 相同。Realtime dogfood 直接证据：`myco hunger` 报告 Myco kernel 仓库**本身**有 27 pure-raw notes——基质在自己身上代谢失败。
+
+**Craft**：`docs/primordia/boot_reflex_arc_craft_2026-04-11.md`（3 轮，kernel_contract，final 0.91）。A7 split 把 `upstream_scan_last_run` 写路径重新 scope 到 Batch 4，保持 Batch 1 聚焦。
+
+**实现**：
+1. `detect_contract_drift(root)` — 比对 local `synced_contract_version` 与 kernel `contract_version`（优先同文件，fallback shipped template ledger），不一致发 `[REFLEX HIGH] contract_drift`。
+2. `compute_hunger_report` 前置调用 drift + refine `raw_backlog` 为 `pure_raw_count`（digest_count==0 AND source 不在 `raw_exempt_sources`），信号升级 `[REFLEX HIGH]` + 最少 digest 数量指引 + W1 违规警告。
+3. `craft_reflex_missing` 同步添加 `[REFLEX HIGH]` 前缀。
+4. `myco_status` 新增 `include_hunger: bool = True` 默认调用 hunger，reflex/advisory 分桶返回；出现 reflex 时 `hint` 被替换为强制警告。Docstring 明确 `include_hunger=False` 在 raw_backlog 非空时 = W1 违规。
+5. `_canon.yaml::system.boot_reflex` 新块（severity HIGH + threshold 10 + prefix + raw_exempt_sources: [bootstrap]）。`contract_version: v0.11.0 → v0.12.0`，新增 `synced_contract_version: "v0.12.0"` kernel self-reference。
+6. Templates 同步（`src/myco/templates/_canon.yaml` + `src/myco/templates/MYCO.md` hot zone）。
+7. `docs/agent_protocol.md §3` 改写为 2 步 arc，§8.4 新增"代码侧强制"子节。
+8. `docs/contract_changelog.md` v0.12.0 条目含 changes / migration / known limitations。
+
+**Dogfood cleanup**：Wave 13 landing 同会话消化 kernel 仓库 27 raw notes 到 integrated（全部是 Phase 1 MVP / Wave 9/10/11/12 遗留的 extracted-but-not-status-updated 记录——知识已沉淀，状态字段未跟上）。Post-landing `myco hunger` = healthy, raw=0, total=47, integrated=36。
+
+**契约影响**：`system.contract_version: v0.11.0 → v0.12.0`（minor · W1 + §8.4 enforcement）。向后兼容：老 instance 升级后需运行一次 `myco digest` 把任何 raw backlog 压到阈值下，否则 `myco hunger` 会持续报 reflex 信号直到处理完成。
+
+**Wave 12 asymmetry closed**: named-principle reflexes (W1/W3/§8.4) 现在统一 HIGH；advisory signals (stale_raw/no_deep_digest/etc) 保持信息级——严重度反映的是"underlying rule 是不是 named principle"，不是 flat inflation。
+
+**craft_reference**: docs/primordia/boot_reflex_arc_craft_2026-04-11.md

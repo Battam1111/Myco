@@ -654,14 +654,99 @@ def detect_craft_reflex_missing(
                      + ("…" if len(files) > 3 else "") + ")")
 
     return (
-        "craft_reflex_missing: trigger surfaces touched in last "
+        "[REFLEX HIGH] craft_reflex_missing: trigger surfaces touched in last "
         f"{lookback_days}d without matching craft evidence — "
         + "; ".join(parts) +
-        ". IMMUTABLE REFLEX (W3, contract v0.11.0): write the missing "
+        ". IMMUTABLE REFLEX (W3, contract v0.12.0): write the missing "
         "craft at docs/primordia/<topic>_craft_YYYY-MM-DD.md in this "
         "session before any other kernel-class action. Bypassing via "
         "`--no-verify` is a W3 violation. See docs/craft_protocol.md §3.1."
     )
+
+
+def detect_contract_drift(
+    root: Path,
+    *,
+    package_template: Optional[Path] = None,
+) -> Optional[str]:
+    """Return a `contract_drift` signal if the local
+    `synced_contract_version` differs from the kernel's `contract_version`.
+
+    Detection order (per boot_reflex_arc_craft_2026-04-11 Round 3 C2):
+        1. Read `_canon.yaml::system.synced_contract_version` (instance side).
+        2. Read the kernel's `contract_version`. Preference order:
+           a) local repo's own `_canon.yaml::system.contract_version`
+              (self-reference: kernel running on itself).
+           b) the shipped template at
+              `src/myco/templates/_canon.yaml` — this is the ledger
+              instances are pinned against.
+        3. If both exist and differ → emit HIGH signal.
+        4. If either is unreadable → silent LOW (return a LOW signal
+           string instead of None so the agent at least notices).
+
+    See `docs/primordia/boot_reflex_arc_craft_2026-04-11.md` D1.
+    Respects `_canon.yaml::system.boot_reflex.enabled`; disabled = None.
+    """
+    try:
+        import yaml as _yaml
+    except ImportError:
+        return None
+
+    canon_path = Path(root) / "_canon.yaml"
+    if not canon_path.exists():
+        return None
+    try:
+        canon = _yaml.safe_load(canon_path.read_text(encoding="utf-8")) or {}
+    except Exception:
+        return None
+
+    system = canon.get("system") or {}
+    boot_cfg = system.get("boot_reflex") or {}
+    if not boot_cfg or not boot_cfg.get("enabled", False):
+        return None
+
+    prefix = boot_cfg.get("reflex_prefix", "[REFLEX HIGH]")
+
+    synced = system.get("synced_contract_version")
+    # Preference (a): same file's kernel contract_version (kernel self-check)
+    kernel_version = system.get("contract_version")
+
+    # Preference (b): shipped template
+    if kernel_version is None or synced is None:
+        tpl = package_template or (Path(root) / "src" / "myco" / "templates" / "_canon.yaml")
+        if tpl.exists():
+            try:
+                tpl_canon = _yaml.safe_load(tpl.read_text(encoding="utf-8")) or {}
+                tpl_system = tpl_canon.get("system") or {}
+                if kernel_version is None:
+                    kernel_version = tpl_system.get("contract_version")
+                if synced is None:
+                    # instances without sync field yet → treat as drift-pending
+                    synced = tpl_system.get("synced_contract_version")
+            except Exception:
+                pass
+
+    if synced is None or kernel_version is None:
+        return (
+            f"{prefix} contract_drift: cannot read "
+            "synced_contract_version or kernel contract_version from "
+            "_canon.yaml / templates. Boot reflex cannot verify version "
+            "lock. Restore the field per docs/agent_protocol.md §8.4."
+        )
+
+    if str(synced).strip() != str(kernel_version).strip():
+        return (
+            f"{prefix} contract_drift: synced_contract_version={synced!r} "
+            f"!= kernel contract_version={kernel_version!r}. "
+            "IMMUTABLE REFLEX (Upstream Protocol v1.0 §8.4, contract "
+            "v0.12.0): read docs/contract_changelog.md entries between "
+            f"{synced} and {kernel_version}, refresh local reflex rules "
+            "and update _canon.yaml::system.synced_contract_version "
+            "before any kernel-class action. Bypassing is an §8 "
+            "contract-level invariant violation."
+        )
+
+    return None
 
 
 def compute_hunger_report(
@@ -702,6 +787,22 @@ def compute_hunger_report(
             terminal_statuses = canon_terms
     dead_cutoff = now - timedelta(days=dead_threshold_days)
 
+    # Wave 13 (v0.12.0): pull raw_backlog exemption config.
+    # raw_backlog counts only PURE raw notes: digest_count == 0 AND
+    # source not in boot_reflex.raw_exempt_sources.
+    raw_exempt_sources: set = set()
+    boot_threshold = 10
+    try:
+        import yaml as _yaml  # local to keep hunger import-time cheap
+        _canon_path = Path(root) / "_canon.yaml"
+        if _canon_path.exists():
+            _canon = _yaml.safe_load(_canon_path.read_text(encoding="utf-8")) or {}
+            _boot = ((_canon.get("system") or {}).get("boot_reflex") or {})
+            raw_exempt_sources = set(_boot.get("raw_exempt_sources") or [])
+            boot_threshold = int(_boot.get("raw_backlog_threshold", 10))
+    except Exception:
+        pass
+
     paths = list_notes(root)
     by_status: Dict[str, int] = {s: 0 for s in VALID_STATUSES}
     stale_raw: List[Dict[str, Any]] = []
@@ -709,6 +810,7 @@ def compute_hunger_report(
     promote_candidates: List[Dict[str, Any]] = []
     dead_notes: List[Dict[str, Any]] = []
     excreted_with_reason = 0
+    pure_raw_count = 0
 
     def _parse_iso(v: Any) -> Optional[datetime]:
         if not v:
@@ -726,6 +828,13 @@ def compute_hunger_report(
 
         status = meta.get("status", "raw")
         by_status[status] = by_status.get(status, 0) + 1
+
+        # Wave 13: pure-raw accounting (boot_reflex)
+        if status == "raw":
+            _dc = int(meta.get("digest_count") or 0)
+            _src = str(meta.get("source") or "")
+            if _dc == 0 and _src not in raw_exempt_sources:
+                pure_raw_count += 1
 
         rel = str(p.name)
         lt = _parse_iso(meta.get("last_touched"))
@@ -783,10 +892,29 @@ def compute_hunger_report(
     raw_count = by_status.get("raw", 0)
 
     signals: List[str] = []
-    if raw_count > 10:
+    # Wave 13 (contract v0.12.0): contract drift check fires first — it is
+    # the upstream-protocol invariant and gates everything else if violated.
+    try:
+        drift_signal = detect_contract_drift(root)
+        if drift_signal:
+            signals.append(drift_signal)
+    except Exception:
+        pass
+
+    # Wave 13: raw_backlog uses pure_raw_count (digest_count==0 AND
+    # source not exempt) and threshold from _canon.yaml::boot_reflex.
+    # Upgraded to [REFLEX HIGH] — W1 autopilot violation if unhandled.
+    if pure_raw_count > boot_threshold:
         signals.append(
-            f"raw_backlog: {raw_count} raw notes (>10) — digestive tract "
-            f"is constipated. Run `myco digest` or trigger Gear 3."
+            f"[REFLEX HIGH] raw_backlog: {pure_raw_count} pure-raw notes "
+            f"(digest_count=0, non-exempt source) exceed threshold "
+            f"{boot_threshold}. IMMUTABLE REFLEX (W1 autopilot, contract "
+            f"v0.12.0): digest at least "
+            f"{max(1, pure_raw_count - boot_threshold)} note(s) via "
+            f"`myco digest` in this session before any task work. "
+            f"Ignoring raw_backlog is a W1 violation — auto-sedimentation "
+            f"is the foundational premise of the digestive substrate. "
+            f"See docs/primordia/boot_reflex_arc_craft_2026-04-11.md."
         )
     if stale_raw:
         signals.append(

@@ -214,6 +214,7 @@ async def myco_lint(
 )
 async def myco_status(
     project_dir: Optional[str] = None,
+    include_hunger: bool = True,
 ) -> str:
     """Show a quick dashboard of the project's knowledge health.
 
@@ -228,6 +229,14 @@ async def myco_status(
 
     Args:
         project_dir: Path to Myco project root. Auto-detected if omitted.
+        include_hunger: When True (default, Wave 13 / v0.12.0), the status
+            response includes a `hunger_signals` block scanned from
+            `compute_hunger_report`. This folds the boot sequence
+            (`myco_status` → `myco_hunger`) into one atomic call so that
+            contract_drift + raw_backlog reflex signals surface before any
+            task work. **Setting `include_hunger=False` while raw_backlog
+            is above threshold is a W1 autopilot violation** — see
+            docs/primordia/boot_reflex_arc_craft_2026-04-11.md.
 
     Returns:
         JSON overview of knowledge system state.
@@ -284,6 +293,8 @@ async def myco_status(
         "project": canon.get("project", {}).get("name", "Unknown"),
         "version": canon.get("package", {}).get("version", "?"),
         "phase": canon.get("project", {}).get("current_phase", "?"),
+        "contract_version": canon.get("system", {}).get("contract_version", "?"),
+        "synced_contract_version": canon.get("system", {}).get("synced_contract_version", "?"),
         "knowledge": {
             "wiki_pages": wiki_count,
             "docs_files": docs_count,
@@ -299,6 +310,31 @@ async def myco_status(
             "Use myco_log to record friction or reflections."
         ),
     }
+
+    # Wave 13 (contract v0.12.0): boot reflex arc — fold hunger into status
+    # so reflex signals (contract_drift, raw_backlog HIGH, craft_reflex)
+    # surface on boot before any task work. `include_hunger=False` bypass
+    # while raw_backlog is hot is a W1 violation (see
+    # docs/primordia/boot_reflex_arc_craft_2026-04-11.md).
+    if include_hunger:
+        try:
+            from myco.notes import compute_hunger_report
+            report = compute_hunger_report(root)
+            reflex_signals = [s for s in report.signals if s.startswith("[REFLEX HIGH]")]
+            advisory_signals = [s for s in report.signals if not s.startswith("[REFLEX HIGH]")]
+            status["hunger_signals"] = {
+                "reflex": reflex_signals,
+                "advisory": advisory_signals,
+                "by_status": report.by_status,
+                "total_notes": report.total,
+            }
+            if reflex_signals:
+                status["hint"] = (
+                    "⚠️ REFLEX HIGH signals present — resolve them before "
+                    "any task work. See hunger_signals.reflex for details."
+                )
+        except Exception as e:
+            status["hunger_signals"] = {"error": str(e)}
 
     return json.dumps(status, indent=2, ensure_ascii=False)
 
