@@ -38,6 +38,87 @@ Commit message 格式必须使用 Conventional Commits 风格并带 `[contract:*
 
 ---
 
+## v0.15.0 — 2026-04-11 (minor · upstream scan timestamp write path, Wave 16 — closes Wave 13 A7)
+
+**Author**: Claude (Myco kernel agent, autonomous run under user grant, Wave 16)
+**Craft record**: `docs/primordia/upstream_scan_timestamp_craft_2026-04-11.md`
+（3 轮 Claim→Attack→Defense→Revise，终置信度 0.91，`decision_class:
+kernel_contract`，target 0.90）
+
+**Motivation**. Contract v0.6.0 (Upstream Protocol v1.0) declared
+`system.upstream_scan_last_run` as a cached scan timestamp. Wave 13's
+Boot Reflex Arc craft A7 referenced it as a potential
+`upstream_scan_stale` trigger. But **no code path ever wrote it** —
+the field has been stuck at `null` across every `_canon.yaml` and
+`src/myco/templates/_canon.yaml` since introduction. Batch 4 closes
+the hole: the Wave 13 A7 split explicitly scoped this write-path work
+as a separate fix. This is that fix.
+
+**Changes**:
+
+- `_canon.yaml`: `system.contract_version: "v0.14.0" → "v0.15.0"` and
+  `synced_contract_version` matching (kernel self-reference).
+- `src/myco/templates/_canon.yaml`: `synced_contract_version` bumped
+  to `v0.15.0`.
+- `src/myco/upstream_cmd.py`: 新增 `_update_scan_timestamp(root)` helper
+  和 `_SCAN_TS_RE` 正则；在 `_cmd_scan` 末尾（`scan_kernel_inbox` 成功
+  返回后、任何输出前）调用 helper。实现是**外科式正则替换**，
+  不是 `yaml.dump()` 往返——否则会销毁 `_canon.yaml` 里密集的注释。
+  Regex 要求严格单一匹配；零匹配或多匹配 → `[WARN]` bail，scan 不失败。
+- Timestamp 格式：`YYYY-MM-DDTHH:MM:SSZ`（UTC，秒精度，作为 YAML
+  quoted string 存储）。失败模式：`scan_kernel_inbox` 抛异常 → 不写
+  时间戳（部分扫描不算 fresh）；IO/正则失败 → stderr WARN，scan 仍成功。
+
+**Self-test dogfood**. Ran `myco upstream scan` against kernel itself:
+
+```
+🍄 Upstream inbox clean — 0 pending bundles.
+```
+
+`_canon.yaml` after:
+
+```yaml
+upstream_scan_last_run: "2026-04-11T14:57:40Z"
+```
+
+All surrounding comments (Upstream Protocol v1.0 header block) preserved
+byte-for-byte. L12 Upstream Dotfile Hygiene lint continues to pass.
+
+**Design rationale** (from craft Rounds 2-3):
+
+- **Why not `yaml.dump()` round-trip?** PyYAML's default dumper destroys
+  all comments and reorders keys. `_canon.yaml` is heavily commented with
+  Wave 8 rebaseline banner, W1/W5/W8 doctrine notes, and severity
+  justifications — destroying them every scan would be catastrophic.
+  ruamel.yaml is a new dependency the kernel does not currently take.
+  Surgical regex preserves everything.
+- **Why write on zero-pending scans?** The timestamp records scan
+  **freshness** (i.e. "agent checked the inbox") not scan **result**.
+  Downstream reflexes (future `upstream_scan_stale` signal) want to
+  answer "has the inbox been checked recently?", not "has the inbox
+  had pending bundles recently?". Not writing on zero-pending would
+  force redundant re-scans.
+- **Why string not YAML native timestamp?** PyYAML's `safe_load`
+  returns `datetime` objects for YAML timestamps which do not
+  JSON-serialize — hunger report + MCP surface emit JSON.
+  ISO-8601 strings survive round-trips cleanly.
+
+**Migration**. Existing instances需下次 boot 触发 Wave 13 `contract_drift`
+HIGH reflex（`v0.14.0` → `v0.15.0`），按 `agent_protocol.md §8.4` 更新
+本地 `synced_contract_version`。无需代码变更。
+
+**Known limitations**:
+
+- L-1: 消费端（读取此时间戳的 `upstream_scan_stale` reflex 信号）**尚未
+  实现**。本 craft 只铺管道的写入端，reader 留给未来 Wave。
+- L-2: 正则依赖 `upstream_scan_last_run:` 在 `_canon.yaml` 里保持一致缩进。
+  如果用户手改嵌入到其它层级 → writer 优雅失败（WARN，不崩），下次 scan
+  再次尝试。
+- L-3: 亚秒精度丢失——对于以小时到天为尺度的 scan 频率，这不是
+  有意义的损失。
+
+---
+
 ## v0.14.0 — 2026-04-11 (minor · L13 body schema, Wave 15 — craft content measurement)
 
 **Author**: Claude (Myco kernel agent, autonomous run under user grant, Wave 15)

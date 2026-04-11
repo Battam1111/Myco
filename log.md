@@ -806,3 +806,40 @@ craft 引用：`docs/primordia/l13_body_schema_craft_2026-04-11.md`
 （3 轮，终置信度 0.90，decision_class kernel_contract）
 conclusion note：`notes/n_20260411T225402_66a0.md` (integrated)
 lint：16/16 green（0 HIGH, 1 MEDIUM pre-existing nudge）
+
+## [2026-04-11] milestone | Wave 16 — Upstream Scan Timestamp Write Path (contract v0.15.0)
+
+Closes Wave 13 Boot Reflex Arc craft §A7 split. `system.upstream_scan_last_run`
+was a declared reflex with no nervous system since contract v0.6.0 — field
+existed as `null` in every canon, no code path wrote it. Batch 4 lands the
+writer.
+
+- `src/myco/upstream_cmd.py`: new `_update_scan_timestamp(root)` helper
+  + `_SCAN_TS_RE` strict single-line regex
+- Called at end of successful `_cmd_scan` after `scan_kernel_inbox`
+- **Surgical regex edit**, not `yaml.dump()` round-trip — preserves all
+  comments in `_canon.yaml` (Wave 8 rebaseline banner + doctrine notes
+  + severity justifications would be destroyed by PyYAML default dumper)
+- Format: `"YYYY-MM-DDTHH:MM:SSZ"` UTC quoted string
+- Freshness semantics: records scan *attempt*, not scan *result* —
+  zero-pending scans still update (future `upstream_scan_stale` reflex
+  wants "has the agent checked recently?", not "has the agent found
+  something recently?")
+- Failure modes: scan raises → don't write | IO fail → stderr WARN,
+  scan still succeeds | regex 0 or >1 matches → WARN, bail gracefully
+
+Self-test: two back-to-back `myco upstream scan` calls updated the
+field from `2026-04-11T14:57:40Z` → `2026-04-11T14:58:50Z`. All
+surrounding comments preserved byte-for-byte. `myco lint --project-dir .`
+→ 16/16 green (0 HIGH, 1 pre-existing MEDIUM nudge on
+`pre_release_rebaseline`).
+
+craft: `docs/primordia/upstream_scan_timestamp_craft_2026-04-11.md`
+（3 轮，终置信度 0.91，decision_class kernel_contract，target 0.90）
+conclusion note: `notes/n_20260411T225901_4d39.md` (integrated)
+
+**Batch 4 complete. All 4 batches of the hole-fix campaign landed**:
+- Batch 1 (Wave 13, v0.12.0) — Boot Reflex Arc ✅
+- Batch 2 (Wave 14, v0.13.0) — Session End Reflex Arc ✅
+- Batch 3 (Wave 15, v0.14.0) — L13 Body Schema ✅
+- Batch 4 (Wave 16, v0.15.0) — Upstream Scan Timestamp ✅
