@@ -785,13 +785,109 @@ def lint_dotfile_hygiene(canon, root):
     return issues
 
 
+def _l13_body_metrics(content, round_markers):
+    """L13 body metrics helper — Wave 15 (contract v0.14.0).
+
+    Parse a craft body and return
+    (body_chars, unique_round_numbers, per_round_chars) where:
+        body_chars           — non-whitespace char count of body after frontmatter
+        unique_round_numbers — list of unique round numbers detected across
+                               round_marker regexes on top-level `^## ` headings
+        per_round_chars      — dict {round_number: char_count} measuring
+                               non-whitespace chars from each round heading
+                               to the next top-level heading. Duplicate
+                               anchors for the same round number sum.
+
+    Called from lint_craft_protocol. Standalone for testability.
+    See docs/primordia/l13_body_schema_craft_2026-04-11.md.
+    """
+    # Strip frontmatter if present
+    m = _FRONTMATTER_RE.match(content)
+    body = m.group("body") if m else content
+
+    # Compile marker regexes (ignore invalid ones silently)
+    compiled = []
+    for pat in round_markers or []:
+        try:
+            compiled.append(re.compile(pat))
+        except re.error:
+            continue
+
+    # Chinese numeral → int (best-effort; falls back to int(str))
+    _cn_map = {
+        "一": 1, "二": 2, "三": 3, "四": 4, "五": 5,
+        "六": 6, "七": 7, "八": 8, "九": 9, "十": 10,
+    }
+
+    def _parse_num(raw: str):
+        s = raw.strip()
+        if s.isdigit():
+            return int(s)
+        if len(s) == 1 and s in _cn_map:
+            return _cn_map[s]
+        if s == "十":
+            return 10
+        # e.g. "十一" = 11, "二十" = 20 — simple two-char combinations
+        if len(s) == 2:
+            a, b = s[0], s[1]
+            if a == "十" and b in _cn_map:
+                return 10 + _cn_map[b]
+            if a in _cn_map and b == "十":
+                return _cn_map[a] * 10
+            if a in _cn_map and b in _cn_map:
+                return _cn_map[a] * 10 + _cn_map[b] if a != "十" else 10 + _cn_map[b]
+        return None
+
+    lines = body.splitlines()
+    round_anchors = []  # list of (line_idx, round_number)
+    for i, line in enumerate(lines):
+        if not line.startswith("## "):
+            continue
+        for cre in compiled:
+            m2 = cre.search(line)
+            if m2:
+                raw = m2.group(1) if m2.groups() else ""
+                num = _parse_num(raw)
+                if num is not None:
+                    round_anchors.append((i, num))
+                    break  # first pattern wins for this line
+
+    unique_rounds = sorted({n for _, n in round_anchors})
+
+    # Per-round slice: for each anchor, count non-whitespace chars from
+    # its line to the next top-level `## ` heading (exclusive).
+    per_round_chars = {}
+    # Top-level heading positions for slice boundaries
+    h2_positions = [i for i, l in enumerate(lines) if l.startswith("## ")]
+    for idx, rnum in round_anchors:
+        try:
+            next_h = next(p for p in h2_positions if p > idx)
+        except StopIteration:
+            next_h = len(lines)
+        slice_text = "\n".join(lines[idx:next_h])
+        chars = len("".join(slice_text.split()))
+        # For duplicate round numbers across anchors, sum
+        per_round_chars[rnum] = per_round_chars.get(rnum, 0) + chars
+
+    body_chars = len("".join(body.split()))
+    return body_chars, unique_rounds, per_round_chars
+
+
 def lint_craft_protocol(canon, root):
-    """L13 — Craft Protocol Schema (W3, v0.3.0).
+    """L13 — Craft Protocol Schema (W3, v0.3.0 + Wave 15 body schema).
 
     Enforces docs/craft_protocol.md frontmatter schema on any file in
     docs/primordia/ matching the craft filename pattern AND declaring
     craft_protocol_version: 1. Files without craft_protocol_version are
     grandfathered (see docs/craft_protocol.md §6) and skipped entirely.
+
+    Wave 15 (contract v0.14.0) adds body-schema checks (partial closure
+    of craft_protocol.md §7 #3):
+        HIGH  — body_chars < declared * min_body_chars_per_round
+        HIGH  — 0 < body_rounds < declared  (declaration lie)
+        MEDIUM — body_rounds == 0 and declared > 0  (style nudge)
+        MEDIUM — per-round slice chars < min_round_body_chars
+    See docs/primordia/l13_body_schema_craft_2026-04-11.md.
 
     Authoritative schema: _canon.yaml → system.craft_protocol.
     """
@@ -813,6 +909,14 @@ def lint_craft_protocol(canon, root):
     targets_by_class = schema.get("confidence_targets_by_class", {}) or {}
     stale_days = int(schema.get("stale_active_threshold_days", 30))
     now = _time.time()
+
+    # Wave 15 (contract v0.14.0) — body schema config
+    body_schema = schema.get("body_schema") or {}
+    body_schema_enabled = bool(body_schema.get("enabled", False))
+    body_min_per_round = int(body_schema.get("min_body_chars_per_round", 200))
+    body_min_per_round_slice = int(body_schema.get("min_round_body_chars", 150))
+    body_round_markers = list(body_schema.get("round_markers") or [])
+    body_exempt = set(body_schema.get("exempt_files") or [])
 
     for path in sorted(craft_dir.glob("*_craft_*.md")):
         rel = str(path.relative_to(root))
@@ -901,6 +1005,55 @@ def lint_craft_protocol(canon, root):
                                    "or SUPERSEDED"))
             except OSError:
                 pass
+
+        # --- Wave 15 body schema checks (partial closure of §7 #3) ---
+        if (
+            body_schema_enabled
+            and isinstance(rounds, int)
+            and rounds > 0
+            and path.name not in body_exempt
+        ):
+            try:
+                body_chars, body_rounds, per_round_chars = _l13_body_metrics(
+                    content, body_round_markers
+                )
+            except Exception as e:
+                issues.append(("L13", "LOW", rel,
+                               f"body metrics unavailable: {e}"))
+            else:
+                # HIGH: total body chars below hollow-craft floor
+                min_total = rounds * body_min_per_round
+                if body_chars < min_total:
+                    issues.append(("L13", "HIGH", rel,
+                                   f"body_chars={body_chars} < "
+                                   f"rounds*min_body_chars_per_round={min_total} "
+                                   f"(hollow craft — §7 #3 body floor, Wave 15)"))
+
+                # HIGH: declaration lie (body has detectable rounds but
+                # fewer than declared)
+                n_body_rounds = len(body_rounds)
+                if 0 < n_body_rounds < rounds:
+                    issues.append(("L13", "HIGH", rel,
+                                   f"body_rounds={n_body_rounds} "
+                                   f"({body_rounds}) < declared rounds={rounds} "
+                                   f"(frontmatter overstates actual round count)"))
+
+                # MEDIUM: style nudge — declared but no Round headings
+                if n_body_rounds == 0 and rounds > 0:
+                    issues.append(("L13", "MEDIUM", rel,
+                                   f"declared rounds={rounds} but no `Round N` "
+                                   f"headings detected in body — consider adding "
+                                   f"explicit `## Round N` anchors so L13 body "
+                                   f"schema can verify structure (Wave 15)"))
+
+                # MEDIUM: per-round slice below per-round floor
+                for rnum, pchars in sorted(per_round_chars.items()):
+                    if pchars < body_min_per_round_slice:
+                        issues.append(("L13", "MEDIUM", rel,
+                                       f"Round {rnum} body_chars={pchars} < "
+                                       f"min_round_body_chars="
+                                       f"{body_min_per_round_slice} "
+                                       f"(thin round — consider expanding attacks)"))
 
     return issues
 
