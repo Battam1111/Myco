@@ -13,8 +13,26 @@ system:
   # See kernel docs/agent_protocol.md §8. Instance agents MUST compare
   # synced_contract_version against the kernel's contract_version at boot
   # and refresh local reflexes if drift is detected.
-  synced_contract_version: "v0.15.0"  # last kernel contract the instance aligned with
+  synced_contract_version: "v0.16.0"  # last kernel contract the instance aligned with
   upstream_scan_last_run: null         # ISO-8601 timestamp of last upstream scan
+
+  # --- Upstream scan staleness reader (Wave 17, v0.16.0) ---
+  upstream_scan:
+    stale_days: 7
+    enabled: true
+
+  # --- Boot Brief Injector (Wave 17, v0.16.0) --------------
+  boot_brief:
+    enabled: true
+    brief_path: ".myco_state/boot_brief.md"
+    sentinel_begin: "<!-- MYCO-BOOT-SIGNALS:BEGIN"
+    sentinel_end: "<!-- MYCO-BOOT-SIGNALS:END -->"
+    priority_signals:
+      - contract_drift
+      - raw_backlog
+      - upstream_scan_stale
+      - craft_reflex_missing
+      - session_end_drift
 
   # --- Boot Reflex Arc (Wave 13, contract v0.12.0) ------------------------
   # Authoritative craft: kernel docs/primordia/boot_reflex_arc_craft_2026-04-11.md

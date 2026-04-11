@@ -38,6 +38,120 @@ Commit message 格式必须使用 Conventional Commits 风格并带 `[contract:*
 
 ---
 
+## v0.16.0 — 2026-04-11 (minor · boot brief injector + upstream_scan_stale reader, Wave 17 — closes H-1/H-7/H-8 partial/H-9)
+
+**Author**: Claude (Myco kernel agent, autonomous run under user grant, Wave 17)
+**Craft record**: `docs/primordia/boot_brief_injector_craft_2026-04-11.md`
+（3 轮 Claim→Attack→Defense→Revise，终置信度 0.92，`decision_class:
+kernel_contract`，target 0.90）
+
+**Motivation**. The agent-panorama self-audit
+(`notes/n_20260411T231220_3fb8.md`) surfaced 9 structural holes in Myco's
+reflex architecture. Four share one root cause:
+
+> **Every reflex arc depends on the agent voluntarily running
+> `myco hunger` / `myco lint` as the heartbeat that delivers sensory
+> input. If the agent skips that invocation at session boot, every
+> downstream reflex silently fails.**
+
+Evidence: the agent resumed this session from Batch 3 without running
+`myco hunger` at boot, bypassing Wave 13/14 reflex arcs entirely. The
+only surface Myco can reach *passively* (without requiring agent
+initiative) is the entry-point file (`MYCO.md` / `CLAUDE.md`), which
+project-instructions mechanisms deliver automatically into the agent's
+context window. Wave 17 exploits that surface.
+
+**Changes**:
+
+- `_canon.yaml` + `src/myco/templates/_canon.yaml`:
+  `contract_version: "v0.15.0" → "v0.16.0"`, `synced_contract_version`
+  synced. New blocks `system.upstream_scan` (stale_days, enabled) and
+  `system.boot_brief` (enabled, brief_path, sentinels, priority_signals).
+- `src/myco/notes.py`: 新增三个函数
+  - `detect_upstream_scan_stale(root)` — 读 Wave 16 时间戳，检查 stale
+    + `.myco_upstream_inbox/` bundle 数量；HIGH if (stale AND pending),
+    MEDIUM if (stale AND no pending), None otherwise
+  - `write_boot_brief(root, report)` — 序列化 HungerReport 为
+    `.myco_state/boot_brief.md` (markdown)
+  - `render_entry_point_signals_block(root, report)` — 用严格正则匹配
+    `<!-- MYCO-BOOT-SIGNALS:BEGIN ... -->` / `... END -->` sentinel
+    对, 在原地 patch entry-point 文件的 signals block。entry-point 文件
+    通过 `canon.system.entry_point` 解析（默认 MYCO.md；ASCC 实例是
+    CLAUDE.md），实现跨项目复用
+  - 辅助: `_count_pending_bundles(inbox)` 数 `.myco_upstream_inbox/` 顶层
+    bundle 文件
+- `src/myco/notes.py::compute_hunger_report`: wire
+  `detect_upstream_scan_stale` into signal chain after `session_end_drift`
+- `src/myco/notes_cmd.py::run_hunger`: 在 `compute_hunger_report` 后、
+  JSON/pretty 输出前调用 `write_boot_brief` + `render_entry_point_signals_block`，
+  任何异常捕获为 `[WARN]`（绝不阻塞 hunger）
+- `src/myco/lint.py::lint_dotfile_hygiene` (L12): 扩展 `ALLOWED_DIRS` 加入
+  `.myco_state`；新验证分支接受任意 `.md`/`.json` 文件，拒绝子目录
+- `MYCO.md` + `src/myco/templates/MYCO.md`: 在 🔥 热区顶部注入 sentinel
+  块（初始状态 placeholder，第一次运行 hunger 后会被 renderer 填充）
+- `/sessions/.../mnt/OPASCC/CLAUDE.md` (ASCC 实例): 同样插入 sentinel 块，
+  跨项目 dogfood
+
+**Dogfood evidence**.
+
+```
+$ python -m myco.cli hunger    # kernel
+✓ .myco_state/boot_brief.md created
+✓ MYCO.md signals block patched with current state
+
+$ python -m myco.cli hunger --project-dir .../mnt/OPASCC  # ASCC
+✓ .myco_state/boot_brief.md created (in ASCC)
+✓ CLAUDE.md signals block patched (entry_point lookup worked)
+```
+
+**Synthetic stale test**.
+Set `upstream_scan_last_run` to 2026-04-03 (8d ago) + create dummy
+bundle in `.myco_upstream_inbox/` → hunger correctly emitted:
+
+```
+[REFLEX HIGH] upstream_scan_stale: last scan was 8d ago (threshold 7d)
+AND 1 bundle(s) pending in .myco_upstream_inbox/. Upstream Protocol
+v1.0 autopilot violation — run `myco upstream scan` + ...
+```
+
+MYCO.md signals block auto-updated with the HIGH signal in the top
+140 chars. Test fixtures cleaned up.
+
+**Hole closure**:
+
+- **H-1 (Boot 协议无强制)**: 从"agent 必须调用 hunger"转为"agent 被动读
+  entry-point 即见信号"。信号通过 project-instructions 注入到 agent
+  context window，无需主动调用。
+- **H-7 (Wave 14 LOW advisory visibility)**: session_end_drift 现在会在
+  下次 boot 时通过 signals block 浮现，LOW 级信号仍然温和但至少可见。
+- **H-8 (session end 非原子)**: partial — 初始 writer 仍然依赖 agent 调
+  hunger 写入，但 reader 端（下次 boot 读 brief）被动化。上半段靠
+  Wave 14 LOW drift 在下次 hunger 时回捞；下半段闭环。真正的零
+  initiative closure 需要 host-side session hook，超出 kernel 范围
+  (see L-3).
+- **H-9 (upstream_scan_stale reader 不存在)**: fully closed. Wave 16
+  writer + Wave 17 reader 形成完整 feedback loop.
+
+**Migration**. Existing instances 下次 boot 会触发 Wave 13 contract_drift
+HIGH reflex (`v0.15.0 → v0.16.0`)，按 agent_protocol.md §8.4 更新本地
+`synced_contract_version`。若实例已手动迁移 entry_point 文件插入
+sentinel 块 → 下次 hunger 立即填充；若未迁移 → renderer emit `[WARN]`
+然后 skip（绝不损坏文件）。Hand-patch migration 留给各实例自行决定。
+未来 Wave 17-b 可将 sentinel 注入加入 `myco migrate` 自动化步骤。
+
+**Known limitations**:
+
+- **L-1**: Sentinel 块注入是手动迁移。`myco migrate` 自动化留给 Wave 17-b
+- **L-2**: Brief 新鲜度是被动的。如果 hunger 一周没跑，brief 说"一周前"，
+  靠 agent 看时间戳自己察觉。没有 "hunger_stale" 元信号
+- **L-3**: H-8 仍部分 — 初始 writer 依赖 agent 调 hunger。真零 initiative
+  需 host-side session hook
+- **L-4**: L2/L6 对 signals 块的 exclusion 是文档声明，不是代码强制。
+  当前 L2/L6 实现不扫这个区域所以无冲突，但未来迭代需注意
+- **L-5**: 并发 hunger 写入未加锁。单 agent 假设下可接受
+
+---
+
 ## v0.15.0 — 2026-04-11 (minor · upstream scan timestamp write path, Wave 16 — closes Wave 13 A7)
 
 **Author**: Claude (Myco kernel agent, autonomous run under user grant, Wave 16)

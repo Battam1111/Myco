@@ -702,11 +702,21 @@ def lint_dotfile_hygiene(canon, root):
     INBOX_BUNDLE_RE = _re.compile(
         r"^\d{8}T\d{6}_n_\d{8}T\d{6}_[0-9a-f]+\.bundle\.(yaml|yml|json)$"
     )
-    ALLOWED_DIRS = {".myco_upstream_outbox", ".myco_upstream_inbox"}
+    # Wave 17 (contract v0.16.0): .myco_state/ added as boot brief
+    # cache dir. See docs/primordia/boot_brief_injector_craft_2026-04-11.md.
+    ALLOWED_DIRS = {
+        ".myco_upstream_outbox",
+        ".myco_upstream_inbox",
+        ".myco_state",
+    }
     ALLOWED_SUBDIRS = {
         ".myco_upstream_inbox": {"absorbed"},
         ".myco_upstream_outbox": set(),
+        ".myco_state": set(),
     }
+    # Wave 17: .myco_state/ files match any .md or .json name — no
+    # bundle-pattern constraint. We validate extension only.
+    STATE_ALLOWED_EXTS = {".md", ".json"}
     thirty_days = 30 * 86400
     now = _time.time()
 
@@ -727,9 +737,32 @@ def lint_dotfile_hygiene(canon, root):
             if name not in ALLOWED_DIRS:
                 issues.append(("L12", "HIGH", name + "/",
                                "Unknown .myco_* top-level dir. "
-                               "Only .myco_upstream_outbox/ and "
-                               ".myco_upstream_inbox/ are reserved. "
+                               "Only .myco_upstream_outbox/, "
+                               ".myco_upstream_inbox/, and "
+                               ".myco_state/ are reserved. "
                                "See docs/agent_protocol.md §8.5."))
+                continue
+
+            # Wave 17 (v0.16.0): .myco_state/ has its own validation
+            # path — any .md/.json file allowed, no nested dirs.
+            if name == ".myco_state":
+                for child in sorted(full.iterdir()):
+                    if child.is_dir():
+                        issues.append((
+                            "L12", "HIGH",
+                            f"{name}/{child.name}/",
+                            f"{name}/ must be flat — no subdirectories "
+                            "(Wave 17 boot brief cache)."))
+                        continue
+                    if child.name == "README.md":
+                        continue
+                    if child.suffix not in STATE_ALLOWED_EXTS:
+                        issues.append((
+                            "L12", "MEDIUM",
+                            f"{name}/{child.name}",
+                            f"{name}/ allows only "
+                            f"{sorted(STATE_ALLOWED_EXTS)} files — "
+                            f"found {child.suffix or '<no ext>'}."))
                 continue
 
             pattern, pattern_hint = _choose_pattern(name)

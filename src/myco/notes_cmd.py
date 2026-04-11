@@ -322,6 +322,18 @@ def run_hunger(args) -> int:
     root = _project_root(args)
     report = compute_hunger_report(root)
 
+    # Wave 17 (contract v0.16.0) — Boot Brief Injector.
+    # Side effects: persist boot brief + patch entry-point signals
+    # block. Both are best-effort, never block hunger output.
+    # See docs/primordia/boot_brief_injector_craft_2026-04-11.md.
+    try:
+        from myco.notes import write_boot_brief, render_entry_point_signals_block
+        write_boot_brief(root, report)
+        render_entry_point_signals_block(root, report)
+    except Exception as _e:
+        # Defensive: any failure in brief writers must not break hunger
+        print(f"[WARN] boot brief writers: {_e}", file=sys.stderr)
+
     if args.json:
         print(json.dumps(report.to_dict(), ensure_ascii=False, indent=2))
         return 0
