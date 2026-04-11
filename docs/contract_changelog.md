@@ -38,6 +38,105 @@ Commit message 格式必须使用 Conventional Commits 风格并带 `[contract:*
 
 ---
 
+## v0.21.0 — 2026-04-12 (minor · primordia compression workflow + archive/ + W13, Wave 22 — closes NH-4)
+
+**Author**: Claude (Myco kernel agent, autonomous run under user grant, Wave 22)
+
+**Motivation**: NH-4 from panorama #2 — the `structural_bloat` hunger
+signal for `docs/primordia/` was advisory only. `detect_structural_bloat`
+would fire when the non-recursive `glob("*.md")` count exceeded the soft
+limit (40), but there was no authoritative response contract: waves
+could see the signal, do nothing, and propagate the advisory forward
+indefinitely. After enough waves the directory would saturate, the
+signal would become background noise, and primordia would silently rot.
+Meanwhile the crafts themselves had natural lifecycle states
+([ACTIVE]/[COMPILED]/[SUPERSEDED]) but no mechanism to physically
+retire [COMPILED] files while preserving Gear-4 retrospective access.
+
+**Change summary**:
+
+1. **New `docs/primordia/archive/` directory** — append-only history
+   for [COMPILED]/[SUPERSEDED] crafts. Preserved for Gear-4 sweeps,
+   decision archaeology, and alternative-path lookups. Not excluded
+   from read paths, only from `detect_structural_bloat`'s top-level
+   `glob("*.md")` count (the non-recursive glob ignores subdirs).
+
+2. **11 crafts moved into `archive/`** (Wave 22 initial compression):
+   `generalization_debate_2026-04-07.md`,
+   `llm_wiki_debate_2026-04-07.md`,
+   `tacit_knowledge_debate_2026-04-07.md`,
+   `nuwa_caveman_integration_2026-04-07.md`,
+   `retrospective_p4_midterm_2026-04-07.md`,
+   `system_state_assessment_2026-04-07.md`,
+   `vision_debate_2026-04-08.md`,
+   `myco_vision_2026-04-08.md`,
+   `gear4_trigger_debate_2026-04-09.md`,
+   `decoupling_positioning_debate_2026-04-09.md`,
+   `gear3_v090_milestone_2026-04-09.md`. Primordia count 45 → 35
+   (now below the soft limit of 40).
+
+3. **`docs/primordia/README.md`** — 11 rehomed rows rewritten with
+   `[ARCHIVED/COMPILED]` markers pointing to `archive/`. Preamble
+   updated with the new lifecycle tag.
+
+4. **`docs/WORKFLOW.md` W13 "Primordia 压缩检查点"** — new principle
+   added after W12. Principle count header: 十二原则 → 十三原则.
+   W13 text (paraphrased): every wave, at session end, read `myco
+   hunger`; if `structural_bloat: primordia` appears, the wave MUST
+   either (a) `git mv` ≥N [COMPILED]/[SUPERSEDED] crafts into
+   `archive/` until the count drops below the soft limit, or (b)
+   append `deferred: primordia-compression (<reason>)` to the
+   wave's entry in `log.md`. Neither → next wave's hunger re-fires
+   the violation (W5 persistent-evolution violation).
+
+5. **Cross-reference rehome** — 2 rows in `MYCO.md` and 2 references
+   in `docs/primordia/vision_recovery_craft_2026-04-10.md` updated
+   to point at `archive/` paths.
+
+6. **Contract version bump** — `_canon.yaml` + `src/myco/templates/_canon.yaml`
+   `contract_version` / `synced_contract_version`: v0.20.0 → v0.21.0.
+
+**Authoritative craft**: `docs/primordia/primordia_compression_craft_2026-04-12.md`
+(kernel_contract class, 3 rounds, final confidence 0.88).
+
+**Self-tests**:
+
+- `myco hunger` BEFORE: `structural_bloat: primordia (45 > 40)` in
+  advisory block. AFTER: `healthy: notes/ is metabolizing normally.`
+  (signal gone, count 35).
+- `ls docs/primordia/*.md | wc -l` → 35. `ls docs/primordia/archive/*.md
+  | wc -l` → 11. Total preserved = 46 (no data loss; the archive
+  directory is an additional location, not a deletion).
+- `myco lint --project-dir .` → 16/17 green (only the pre-existing
+  L13 MEDIUM on `pre_release_rebaseline_craft_2026-04-11.md` for its
+  2-round body vs. current 3-round kernel_contract floor — out of
+  scope for Wave 22).
+
+**Limitations** (explicit, not hidden):
+
+- **W13 is not lint-enforced.** It's a behavioral rule only. A wave
+  that ignores it gets caught by the NEXT wave's hunger re-fire,
+  not by an in-wave lint block. The craft's Round-2 attack R2.2
+  explicitly accepts this: one-wave lag is acceptable because the
+  advisory is loud and the response cost is low. A future contract
+  could add L17 "structural_bloat + no archive-move-commit in the
+  same wave = violation" if the one-wave lag proves too long.
+- **archive/ is not append-only enforced.** There is no lint that
+  rejects `git rm docs/primordia/archive/*.md`. The doctrine lives
+  in the README preamble + W13 text. If a future wave needs to
+  genuinely delete an archived file (e.g. secrets leaked), a
+  kernel_contract craft must justify it.
+- **Selection is judgment, not algorithm.** Which [COMPILED] crafts
+  to archive is chosen by the wave, not by a deterministic filter.
+  The craft accepts this; [COMPILED] status is an audit of
+  "conclusion has already landed in wiki / canonical structures"
+  and by definition any [COMPILED] craft is archive-safe.
+
+**Closes**: NH-4 (MEDIUM) — structural_bloat advisory had no
+standing response contract.
+
+---
+
 ## v0.20.0 — 2026-04-12 (minor · observability integrity: L16 brief freshness + myco view agent surface, Wave 21 — closes NH-3/NH-7)
 
 **Author**: Claude (Myco kernel agent, autonomous run under user grant, Wave 21)

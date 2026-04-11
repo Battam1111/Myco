@@ -6,8 +6,8 @@ system:
   # Authoritative source: docs/agent_protocol.md §8
   # Craft record:         docs/primordia/upstream_protocol_craft_2026-04-11.md
   # Changelog:             docs/contract_changelog.md
-  contract_version: "v0.20.0"  # Wave 21: observability integrity — L16 brief freshness + myco view agent surface (closes NH-3/NH-7)
-  synced_contract_version: "v0.20.0"  # Wave 21 — self-reference: kernel's own lock
+  contract_version: "v0.21.0"  # Wave 22: primordia compression workflow + W13 + archive/ (closes NH-4)
+  synced_contract_version: "v0.21.0"  # Wave 22 — self-reference: kernel's own lock
   upstream_scan_last_run: "2026-04-11T15:21:31Z"
 
   # --- Upstream scan staleness reader (Wave 17, contract v0.16.0) ---
