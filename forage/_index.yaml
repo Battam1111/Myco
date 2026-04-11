@@ -5,11 +5,12 @@ items:
   source_type: repo
   local_path: forage/repos/gbrain
   acquired_at: '2026-04-11T18:03:58'
-  status: raw
+  status: digested
   license: MIT
   license_checked_at: '2026-04-11T18:03:58'
   size_bytes: 0
-  digest_target: []
+  digest_target:
+  - n_20260411T183403_a984
   why: 'Garry Tan''s gbrain — a personal knowledge management / brain-as-service prototype.
     Foraging to compare its architectural choices (entity graph, memory lanes) against
     Myco''s notes substrate and forage-digestion-notes pipeline. Looking for: (1)
