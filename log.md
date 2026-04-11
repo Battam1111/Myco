@@ -507,3 +507,9 @@ Wave 9 会话产生 5 条紧密相关 raw notes：f153 craft conclusion + bc0c s
 回顾提取的 meta-pattern：**5/5 Wave 9 意外事件都是 "new substrate happy-path-only validation" 反模式**——新基质上线时 pre-launch 只测 happy path + 一个 demo，遇到第一个不对称真实输入就暴露 spec/impl 间隙。Wave 9 四次就地修复（L14 subtree、article gitignore、sandbox 分层、focus 锚点）都是这个形状。discipline 要求第 6 次才能 craft-promote 到 Gear 4，本次是第 5 次，保持观察。
 
 Dual-path lint 15/15 PASS。hunger：raw 22（下降自 27）、integrated 9（升自 3）。forage_backlog 仍在（5 件 raw forage 待消化，这是下一批工作）。
+
+## [2026-04-11] milestone | Forage digest #1 — nuwa-skill → extracted note (forage_backlog signal 清除)
+
+首次 forage→note 真实流转：读完 `forage/repos/nuwa-skill/SKILL.md`（644 行）+ README，产出 `n_20260411T183115_f5c5`（extracted, ~80 行 / 6:1 压缩率）。三条值得 borrow 的模式：(1) Agentic Protocol Step 2 研究维度从心智模型自动推导——mapping 到 Myco 是让 `--to extracted` 的提取轴由 note tags/source.why 决定，而不是固定模板；(2) Phase 0.5/1.5/2.5 review checkpoint 暂停显示——Gear 2 候选，不急；(3) 强制 "honest boundaries" 字段——可能演化为 notes schema 的 `boundary_conditions` 可选 frontmatter。显式 NOT portable：nuwa 的 6-parallel agent research swarm，和 Myco 的连续代谢哲学根本不同。
+
+Forage item `f_20260411T180409_710b` 状态 raw → digested，digest_target 指向 f5c5。hunger 指标：forage_backlog 信号消失（5 降至 4，低于阈值），raw 仍为 22（借 nuwa digest 新增一条 integrated 级别的 forage 消化产物）。Dual-path lint 15/15 green。
