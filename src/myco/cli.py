@@ -98,8 +98,15 @@ def main():
     )
 
     # ── myco lint ──────────────────────────────────────────────────
+    # Wave 29 note: `myco lint` is the generic software-engineering term and
+    # stays as a universal-discoverability verb. The biomimetic name for this
+    # same operation is `myco immune` (Wave 29 adds it as a new verb that
+    # runs the same 18-dimension substrate immune scan). Both verbs remain
+    # primary — neither is deprecated. Design rationale:
+    # `docs/primordia/biomimetic_nomenclature_craft_2026-04-12.md §1.3 + §2.3`.
     lint_parser = subparsers.add_parser(
-        "lint", help="Run 15-dimension consistency checks on project knowledge"
+        "lint",
+        help="Run 18-dimension substrate immune scan (alias: `myco immune`)",
     )
     lint_parser.add_argument(
         "--quick", action="store_true",
@@ -110,6 +117,29 @@ def main():
         help="Output fix suggestions",
     )
     lint_parser.add_argument(
+        "--project-dir", type=str, default=".",
+        help="Project root directory (default: current directory)",
+    )
+
+    # ── myco immune ────────────────────────────────────────────────
+    # Wave 29 (Biomimetic Nomenclature rewrite, phase 1 additive): the
+    # substrate's 18-dimension immune scan is the immune system of the
+    # knowledge organism. `myco immune` is the biomimetic name; `myco lint`
+    # is the universal software-engineering alias. Both dispatch to the
+    # same handler. Craft: biomimetic_nomenclature_craft_2026-04-12.md.
+    immune_parser = subparsers.add_parser(
+        "immune",
+        help="Run 18-dimension substrate immune scan (alias: `myco lint`)",
+    )
+    immune_parser.add_argument(
+        "--quick", action="store_true",
+        help="Quick mode: only L0-L3 checks",
+    )
+    immune_parser.add_argument(
+        "--fix-report", action="store_true",
+        help="Output fix suggestions",
+    )
+    immune_parser.add_argument(
         "--project-dir", type=str, default=".",
         help="Project root directory (default: current directory)",
     )
@@ -210,11 +240,16 @@ def main():
     # the tag pair so the agent only has to remember one word.
     # Craft of record:
     #   docs/primordia/myco_correct_shortcut_craft_2026-04-11.md
+    #
+    # Wave 29 note: `myco molt` is the biomimetic alias for this verb.
+    # Molt = shedding an outdated assertion like a fungus shedding aged
+    # hyphae. Both verbs remain primary — neither is deprecated.
+    # Biomimetic design: biomimetic_nomenclature_craft_2026-04-12.md.
     correct_parser = subparsers.add_parser(
         "correct",
         help=("Self-correction shortcut — eat a friction note with "
               "mandatory tags 'friction-phase2, on-self-correction' "
-              "(Hard Contract rule #3)"),
+              "(Hard Contract rule #3). Biomimetic alias: `myco molt`."),
     )
     correct_parser.add_argument("--content", type=str, default=None,
         help="Inline content (alternative: --file or stdin)")
@@ -230,6 +265,34 @@ def main():
     correct_parser.add_argument("--json", action="store_true",
         help="Emit a machine-readable JSON result")
     correct_parser.add_argument("--project-dir", type=str, default=".",
+        help="Project root (default: current directory)")
+
+    # ── myco molt (Wave 29, Biomimetic Nomenclature rewrite) ──────
+    # Biomimetic alias for `myco correct`. Molting is the organism's act
+    # of shedding an outdated layer to reveal the new structure beneath —
+    # exactly what a self-correction is at the substrate level. Both verbs
+    # are primary and dispatch to the same handler (run_correct). Craft:
+    #   docs/primordia/biomimetic_nomenclature_craft_2026-04-12.md
+    molt_parser = subparsers.add_parser(
+        "molt",
+        help=("Self-correction shortcut (biomimetic alias for `myco correct`) "
+              "— shed an outdated assertion by eating a friction note with "
+              "mandatory tags 'friction-phase2, on-self-correction'."),
+    )
+    molt_parser.add_argument("--content", type=str, default=None,
+        help="Inline content (alternative: --file or stdin)")
+    molt_parser.add_argument("--file", type=str, default=None,
+        help="Path to a file whose contents should be eaten")
+    molt_parser.add_argument("--tags", type=str, default="",
+        help="Additional tags, merged with the mandatory pair "
+             "(friction-phase2, on-self-correction)")
+    molt_parser.add_argument("--source", type=str, default="eat",
+        choices=["chat", "eat", "promote", "import", "bootstrap"])
+    molt_parser.add_argument("--title", type=str, default=None,
+        help="Optional H1 title to prepend to the note body")
+    molt_parser.add_argument("--json", action="store_true",
+        help="Emit a machine-readable JSON result")
+    molt_parser.add_argument("--project-dir", type=str, default=".",
         help="Project root (default: current directory)")
 
     # ── myco digest ────────────────────────────────────────────────
@@ -442,6 +505,11 @@ def main():
         from myco.lint import run_lint
         sys.exit(run_lint(args))
 
+    # Wave 29 biomimetic alias — dispatches to the same immune scan handler.
+    if args.command == "immune":
+        from myco.lint import run_lint
+        sys.exit(run_lint(args))
+
     if args.command == "config":
         from myco.config_cmd import run_config
         sys.exit(run_config(args))
@@ -455,6 +523,11 @@ def main():
         sys.exit(run_eat(args))
 
     if args.command == "correct":
+        from myco.notes_cmd import run_correct
+        sys.exit(run_correct(args))
+
+    # Wave 29 biomimetic alias — dispatches to the same self-correction handler.
+    if args.command == "molt":
         from myco.notes_cmd import run_correct
         sys.exit(run_correct(args))
 
