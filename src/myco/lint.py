@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Myco Knowledge System — Automated 13-Dimension Lint.
+Myco Knowledge System — Automated 14-Dimension Lint.
 
 Dimensions:
     L0  Canon Self-Check — _canon.yaml contains all required keys
@@ -16,6 +16,7 @@ Dimensions:
     L10 Notes Schema — atomic-note frontmatter validation (v1.2.0)
     L11 Write Surface — _canon.yaml write_surface whitelist (v1.2.0)
     L12 Upstream Dotfile Hygiene — .myco_upstream_{outbox,inbox}/ rules (v1.2.0)
+    L13 Craft Protocol Schema — docs/current/*_craft_*.md frontmatter (v1.3.0, W3)
 """
 
 import os
@@ -657,6 +658,126 @@ def lint_dotfile_hygiene(canon, root):
     return issues
 
 
+def lint_craft_protocol(canon, root):
+    """L13 — Craft Protocol Schema (W3, v1.3.0).
+
+    Enforces docs/craft_protocol.md frontmatter schema on any file in
+    docs/current/ matching the craft filename pattern AND declaring
+    craft_protocol_version: 1. Files without craft_protocol_version are
+    grandfathered (see docs/craft_protocol.md §6) and skipped entirely.
+
+    Authoritative schema: _canon.yaml → system.craft_protocol.
+    """
+    import time as _time
+
+    issues = []
+    schema = canon.get("system", {}).get("craft_protocol")
+    if not schema:
+        return issues  # feature not configured; skip silently
+
+    craft_dir = root / schema.get("dir", "docs/current")
+    if not craft_dir.exists():
+        return issues
+
+    filename_re = re.compile(schema.get("filename_pattern", r".*_craft_.*\.md$"))
+    required_fields = schema.get("required_frontmatter", []) or []
+    valid_statuses = set(schema.get("valid_statuses", []) or [])
+    min_rounds = int(schema.get("min_rounds", 2))
+    targets_by_class = schema.get("confidence_targets_by_class", {}) or {}
+    stale_days = int(schema.get("stale_active_threshold_days", 30))
+    now = _time.time()
+
+    for path in sorted(craft_dir.glob("*_craft_*.md")):
+        rel = str(path.relative_to(root))
+        name = path.name
+
+        content = read_file(path)
+        if content is None:
+            continue
+
+        m = _FRONTMATTER_RE.match(content)
+        if not m:
+            # No frontmatter → fully grandfathered (see §6). Skip entirely.
+            continue
+
+        try:
+            meta = yaml.safe_load(m.group("fm")) or {}
+        except yaml.YAMLError as e:
+            issues.append(("L13", "HIGH", rel,
+                           f"Malformed frontmatter YAML: {e}"))
+            continue
+
+        if not isinstance(meta, dict):
+            continue
+
+        cpv = meta.get("craft_protocol_version")
+        if cpv is None:
+            continue  # grandfathered
+        if cpv != 1:
+            continue  # future version unknown to current L13
+
+        if not filename_re.match(name):
+            issues.append(("L13", "MEDIUM", rel,
+                           "Filename does not match craft pattern"))
+
+        for field in required_fields:
+            if field not in meta:
+                issues.append(("L13", "HIGH", rel,
+                               f"Missing required frontmatter field: {field}"))
+
+        if meta.get("type") not in (None, "craft"):
+            issues.append(("L13", "HIGH", rel,
+                           f"type must be 'craft', got {meta.get('type')!r}"))
+
+        status = meta.get("status")
+        if valid_statuses and status is not None and status not in valid_statuses:
+            issues.append(("L13", "HIGH", rel,
+                           f"Invalid status {status!r}; expected one of "
+                           f"{sorted(valid_statuses)}"))
+
+        rounds = meta.get("rounds")
+        if isinstance(rounds, int) and rounds < min_rounds:
+            issues.append(("L13", "HIGH", rel,
+                           f"rounds={rounds} < min_rounds={min_rounds}"))
+
+        dclass = meta.get("decision_class")
+        if dclass is not None and dclass not in targets_by_class:
+            issues.append(("L13", "HIGH", rel,
+                           f"Unknown decision_class {dclass!r}; "
+                           f"expected one of {sorted(targets_by_class)}"))
+
+        target_c = meta.get("target_confidence")
+        current_c = meta.get("current_confidence")
+
+        if dclass in targets_by_class and isinstance(target_c, (int, float)):
+            floor = float(targets_by_class[dclass])
+            if float(target_c) < floor:
+                issues.append(("L13", "HIGH", rel,
+                               f"target_confidence={target_c} < floor "
+                               f"{floor} for decision_class={dclass}"))
+
+        if status in ("ACTIVE", "COMPILED"):
+            if isinstance(target_c, (int, float)) and isinstance(current_c, (int, float)):
+                if float(current_c) < float(target_c):
+                    issues.append(("L13", "HIGH", rel,
+                                   f"current_confidence={current_c} < "
+                                   f"target_confidence={target_c} "
+                                   f"(status={status})"))
+
+        if status == "ACTIVE":
+            try:
+                age = now - path.stat().st_mtime
+                if age > stale_days * 86400:
+                    d = int(age // 86400)
+                    issues.append(("L13", "LOW", rel,
+                                   f"ACTIVE for {d} days — consider COMPILED "
+                                   "or SUPERSEDED"))
+            except OSError:
+                pass
+
+    return issues
+
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
@@ -691,6 +812,7 @@ def main(root: Path = None, quick: bool = False, fix_report: bool = False) -> in
             ("L10 Notes Schema", lint_notes_schema),
             ("L11 Write Surface", lint_write_surface),
             ("L12 Upstream Dotfile Hygiene", lint_dotfile_hygiene),
+            ("L13 Craft Protocol Schema", lint_craft_protocol),
         ])
 
     all_issues = []

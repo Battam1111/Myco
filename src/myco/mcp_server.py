@@ -87,7 +87,7 @@ def _read_file(path: Path) -> Optional[str]:
 @mcp.tool(
     name="myco_lint",
     annotations={
-        "title": "Myco Lint — 13-Dimension Consistency Check",
+        "title": "Myco Lint — 14-Dimension Consistency Check",
         "readOnlyHint": True,
         "destructiveHint": False,
         "idempotentHint": True,
@@ -98,7 +98,7 @@ async def myco_lint(
     project_dir: Optional[str] = None,
     quick: bool = False,
 ) -> str:
-    """Run Myco's 13-dimensional lint checks on the knowledge system.
+    """Run Myco's 14-dimensional lint checks on the knowledge system.
 
     Call this after modifying wiki pages, docs, MYCO.md, or _canon.yaml to catch
     contradictions, orphan files, stale references, version drift, agent
@@ -131,7 +131,7 @@ async def myco_lint(
         lint_stale_patterns, lint_orphans, lint_log,
         lint_dates, lint_wiki_format, lint_original_sync,
         lint_vision_anchors, lint_notes_schema, lint_write_surface,
-        lint_dotfile_hygiene,
+        lint_dotfile_hygiene, lint_craft_protocol,
     )
 
     checks = [
@@ -151,6 +151,7 @@ async def myco_lint(
             ("L10 Notes Schema", lint_notes_schema),
             ("L11 Write Surface", lint_write_surface),
             ("L12 Upstream Dotfile Hygiene", lint_dotfile_hygiene),
+            ("L13 Craft Protocol Schema", lint_craft_protocol),
         ])
 
     results = []

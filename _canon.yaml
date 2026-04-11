@@ -6,7 +6,7 @@ system:
   # Authoritative source: docs/agent_protocol.md §8
   # Craft record:         docs/current/upstream_protocol_craft_2026-04-11.md
   # Changelog:             docs/contract_changelog.md
-  contract_version: "v1.2.0"
+  contract_version: "v1.3.0"
   upstream_scan_last_run: null
   upstream_channels:
     # Path-based classification — strictest-class-wins. An instance agent
@@ -21,11 +21,46 @@ system:
     - docs/**           # except docs/agent_protocol.md (see class_z)
     class_z:            # Review-required (contract / lint / templates / canon)
     - docs/agent_protocol.md
+    - docs/craft_protocol.md
     - scripts/lint_knowledge.py
     - src/myco/lint.py
     - src/myco/mcp_server.py
     - _canon.yaml
     - src/myco/templates/**
+
+  # --- Craft Protocol v1 (W3) ---
+  # Authoritative spec:    docs/craft_protocol.md
+  # Bound principle:       W3 (docs/WORKFLOW.md)
+  # Debate of record:      docs/current/craft_formalization_craft_2026-04-11.md
+  # Lint of record:        L13 Craft Protocol Schema
+  craft_protocol:
+    version: 1
+    dir: docs/current
+    # Topic must have >= 2 underscore-separated tokens; optional 4-hex
+    # suffix resolves same-day collisions.
+    filename_pattern: '^[a-z][a-z0-9]*(_[a-z0-9]+){1,}_craft_\d{4}-\d{2}-\d{2}(_[0-9a-f]{4})?\.md$'
+    required_frontmatter:
+    - type                    # must equal "craft"
+    - status                  # from valid_statuses
+    - created                 # ISO date
+    - target_confidence       # float in [0,1]
+    - current_confidence      # float in [0,1]
+    - rounds                  # int >= min_rounds
+    - craft_protocol_version  # int; v1 files MUST have this = 1
+    - decision_class          # key of confidence_targets_by_class
+    valid_statuses:
+    - DRAFT                   # writing in progress; < min_rounds completed
+    - ACTIVE                  # >= min_rounds; conclusion citable
+    - COMPILED                # extracted into permanent location
+    - SUPERSEDED              # replaced by newer craft
+    - LOCAL                   # gitignored local experiment, excluded from lint
+    min_rounds: 2
+    confidence_targets_by_class:
+      kernel_contract: 0.90   # agent_protocol / lint / canon / templates / mcp_server
+      instance_contract: 0.85 # per-project architectural decisions
+      exploration: 0.75       # tentative designs / naming / open research
+    stale_active_threshold_days: 30
+    grandfather_rule: "Files lacking craft_protocol_version are exempt from L13 strict checks."
   wiki_page_types:
   - entity
   - concept

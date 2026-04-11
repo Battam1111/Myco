@@ -292,10 +292,12 @@ raw → upstream-candidate → bundle-generated
 
 **mutation-selection 映射**：生成 bundle = mutation（substrate 做），inline confirm = selection（人类做）。这是 `docs/current/vision_recovery_craft_2026-04-10.md` §1.6 的协作模型在回灌通道的具体实现。
 
+**craft_reference 字段**（v1.3.0 起）：bundle 若落入 class_z（kernel contract）通道，其 yaml 元数据 MUST 包含 `craft_reference: <path>`，指向一个 ACTIVE/COMPILED 状态的 craft 文件，其 `decision_class` ≥ bundle 对应的置信度阶梯（见 `docs/craft_protocol.md` §4）。class_x/class_y bundle 可选填。缺失 craft_reference 的 class_z bundle 会在 Upstream Phase 被 kernel 自动拒绝并返回 receipt reason=`missing_craft_reference`。
+
 ### 8.4 版本锁协议
 
 **kernel 侧**：
-- `_canon.yaml → system.contract_version: "vX.Y.Z"`（当前 v1.2.0）
+- `_canon.yaml → system.contract_version: "vX.Y.Z"`（当前 v1.3.0）
 - Conventional Commits 前缀 `[contract:{patch|minor|major}] <description>` 自动 bump
 - `docs/contract_changelog.md` 追加每次 bump 的 diff 摘要 + 影响范围
 - commit 无前缀 → 不 bump

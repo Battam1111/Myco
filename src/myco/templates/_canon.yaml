@@ -13,7 +13,7 @@ system:
   # See kernel docs/agent_protocol.md §8. Instance agents MUST compare
   # synced_contract_version against the kernel's contract_version at boot
   # and refresh local reflexes if drift is detected.
-  synced_contract_version: "v1.2.0"   # last kernel contract the instance aligned with
+  synced_contract_version: "v1.3.0"   # last kernel contract the instance aligned with
   upstream_scan_last_run: null         # ISO-8601 timestamp of last upstream scan
   upstream_channels:
     # Path-based classification — strictest-class-wins. See §8.2.
@@ -26,11 +26,43 @@ system:
       - docs/**
     class_z:                           # Review-required (contract / lint / templates)
       - docs/agent_protocol.md
+      - docs/craft_protocol.md
       - scripts/lint_knowledge.py
       - src/myco/lint.py
       - src/myco/mcp_server.py
       - _canon.yaml
       - src/myco/templates/**
+
+  # ── Craft Protocol v1 (W3, kernel contract v1.3.0) ─────────────────────────
+  # Formal ritual for raising decision confidence via structured self-
+  # adversarial debate. See kernel docs/craft_protocol.md for full spec.
+  # L13 enforces frontmatter schema on files declaring
+  # craft_protocol_version: 1. Files without this field are grandfathered.
+  craft_protocol:
+    version: 1
+    dir: docs/current
+    filename_pattern: '^[a-z][a-z0-9]*(_[a-z0-9]+){1,}_craft_\d{4}-\d{2}-\d{2}(_[0-9a-f]{4})?\.md$'
+    required_frontmatter:
+      - type
+      - status
+      - created
+      - target_confidence
+      - current_confidence
+      - rounds
+      - craft_protocol_version
+      - decision_class
+    valid_statuses:
+      - DRAFT
+      - ACTIVE
+      - COMPILED
+      - SUPERSEDED
+      - LOCAL
+    min_rounds: 2
+    confidence_targets_by_class:
+      kernel_contract: 0.90
+      instance_contract: 0.85
+      exploration: 0.75
+    stale_active_threshold_days: 30
   wiki_page_types:
     - entity
     - concept

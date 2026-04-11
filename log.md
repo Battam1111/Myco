@@ -164,3 +164,35 @@ Lint 结果：**L0–L11 共 12 维全绿**，scripts/lint_knowledge.py 和 `myc
 **Bootstrap 免责**：v1.2.0 本身是手动 bump，不走新规则定义的 channel / 状态机。理由 §8.7 已明写——规则不能 bootstrap 自己（recursion hazard）。自 v1.2.1 起所有 contract change 走 Upstream Protocol。
 
 → g4-candidate：把"agent 在对输出自承错误时必须就地 capture 到知识基质"这一触发点，从 Myco 局部规则提炼为通用 agent hygiene procedure；凡是会持续运行的 agent 都需要把 self-correction 事件当作一等 signal。
+
+## [2026-04-11] milestone | W3 Craft Protocol v1 正式形式化 + L13 Craft Protocol Schema：基质 epistemic 协议首次可验证
+
+触发源是用户授权："接下来由你自行全方位推进工作...每当你认为有必要叫我...请使用传统手艺将置信度提高到 90 以上从而自主做决定...我非常信任你，不需要过问我。然后还有一个问题，就是传统手艺可能要起一个正式名字，并且以合理、符合逻辑的形式嵌入 Myco 之中。" 本次 autonomous run 第一项大动作即为回应这条请求：把 W3 "传统手艺" 从 `docs/WORKFLOW.md` 里 5 句话的人类摘要，升级为机器可验证的正式协议。
+
+meta-dogfood 先行：`docs/current/craft_formalization_craft_2026-04-11.md` 本身就是用 Craft Protocol 定义自己的 craft。3 轮自对抗，Round 1 Claim "给 W3 起个正式名字 + 写个 schema" 被 A1（naming bikeshed / 非必要仪式）、A2（L13 会变 dead lint）、A3（Goodhart：作者可水 rounds 数骗过 schema）等 8 个攻击点打爆，降到 0.62；Round 2 重构：改为"命名问题已被 WORKFLOW L64 解决，真正缺的是 schema + lint + 集成点"，引入 `craft_protocol_version` 软迁移字段 + grandfather 规则 + 反向废弃标准（dead lint / dead mechanism / better replacement），抬到 0.78；Round 3 回应"Goodhart 风险仍未解决"——接受 body 结构 不 lint 是有意设计，以社会透明度（eat + log broadcast self-reported confidence）代替强制检查，终置信度 **0.91**，过 kernel_contract floor 0.90。
+
+14 项落地清单全部完成。(1) **`docs/craft_protocol.md`**（新 CONTRACT 级文档）9 个 §：§1 协议定义与正式命名锁定为 "Craft Protocol v1 / 传统手艺"；§2 canonical form（文件名 pattern `^[a-z][a-z0-9]*(_[a-z0-9]+){1,}_craft_\d{4}-\d{2}-\d{2}(_[0-9a-f]{4})?\.md$` + 8 字段 frontmatter schema + 5 态 DRAFT/ACTIVE/COMPILED/SUPERSEDED/LOCAL 状态机）；§3 调用触发器（kernel contract 变更 / 实例架构 / 置信度 < 0.80 / stakeholder-visible claim / 在线调研冲突）；§4 置信度阶梯 **taxonomic 非经验**：kernel_contract 0.90 / instance_contract 0.85 / exploration 0.75；§5 与 notes/ / log.md / _canon.yaml / Upstream Protocol §8.3 / L9 / L10 / L13 的完整集成矩阵；§6 Grandfather 规则（无 `craft_protocol_version` 字段 = 全豁免，零 migration）；§7 已知局限（self-reported 不可验 / body 结构不 lint / bootstrap 豁免）；§8 **反向废弃标准** —— L13 在出生时就带 exit plan，避免"lint 只增不减"反模式；§9 与 W3 的关系澄清（WORKFLOW 描述 spirit，此文描述 schema，`_canon.yaml` 是 SSoT）。
+
+(2) **`_canon.yaml`** 新增 `system.craft_protocol` schema block（dir / filename_pattern / required_frontmatter 8 字段 / valid_statuses 5 态 / min_rounds=2 / confidence_targets_by_class / stale_active_threshold_days=30 / grandfather_rule），`contract_version: "v1.2.0" → "v1.3.0"`，`upstream_channels.class_z` 收录 `docs/craft_protocol.md`。`src/myco/templates/_canon.yaml` 同步（`synced_contract_version: "v1.3.0"`）。
+
+(3) **L13 "Craft Protocol Schema"** 新 lint 维度双源对等：`scripts/lint_knowledge.py::lint_craft_protocol(canon)` + `src/myco/lint.py::lint_craft_protocol(canon, root)`。检查项：frontmatter 必填字段 / 文件名 pattern / `type=="craft"` / 有效 status / `rounds ≥ min_rounds` / `decision_class` 有效 / `target_confidence ≥ class floor` / `current_confidence ≥ target_confidence`（仅 ACTIVE/COMPILED）/ stale ACTIVE > 30 天 LOW 提醒。Grandfather 逻辑：无 `craft_protocol_version` 字段的文件**直接 skip**（不连带做文件名检查，避免把 20+ 既有 craft 误报）。`src/myco/mcp_server.py` 同步 14 维升级（title "13-Dimension" → "14-Dimension"，docstring "13-dimensional" → "14-dimensional"，import + 注册 `lint_craft_protocol`）。`src/myco/lint.py` 模块 docstring "13-Dimension" → "14-Dimension"。
+
+(4) **`docs/agent_protocol.md §8.3`** 新增 `craft_reference` 字段：class_z upstream bundle **必须**包含 `craft_reference: <path>` 指向 ACTIVE/COMPILED 的 craft 文件，其 `decision_class` ≥ bundle 对应阶梯；缺失则 kernel 自动拒绝，receipt reason=`missing_craft_reference`。class_x/class_y 可选填。`§8.4` 当前版本 v1.2.0 → v1.3.0。
+
+(5) **`docs/WORKFLOW.md` W3 段**footer 指向 `docs/craft_protocol.md` 作为 machine-verifiable spec，WORKFLOW 保留 human-readable spirit 摘要——角色分工明确。
+
+(6) **`MYCO.md`** + **`src/myco/templates/MYCO.md`**：文档索引核心协议区新增 `docs/craft_protocol.md [ACTIVE] [CONTRACT]` 行；辩论列表新增 `craft_formalization_craft_2026-04-11.md [ACTIVE] [CONTRACT]` 条目；热区 Agent 行为准则新增 "🛠️ Craft Protocol (W3)" 条款明示 kernel / 实例架构 / 置信度 <0.80 决策必须走 craft；脚本索引"9 维 lint" / 热区"9 维 lint" 全部就地升级为 "14 维 lint"。
+
+(7) **`docs/contract_changelog.md`** 新增 v1.3.0 完整条目（Added / Changed / Rationale / Known non-goals），与 `craft_formalization_craft_2026-04-11.md` 双向绑定。
+
+(8) **Dogfood**：`notes/n_20260411T121012_bc3a.md`（tags: meta, craft-protocol, w3, craft-conclusion, decision-class-kernel_contract, friction-phase2）—— 本次结论被基质自己吃掉。
+
+(9) **14/14 lint 验收**：`python scripts/lint_knowledge.py --project-dir .` 与 `python -c "from myco.lint import main; main(root=...)"` 双路径 **ALL CHECKS PASSED — 0 issues found**。dry-run 过程中首次暴露了 grandfather 规则 bug（无 frontmatter 的老 craft 文件被误报 filename pattern），已就地修复。
+
+**哲学意义**：到这一刻，Myco 的三个 contract 级文档（`docs/agent_protocol.md` 管**行为**、`docs/craft_protocol.md` 管**认知**、`docs/contract_changelog.md` 管**版本**）正式三足鼎立。L11 管写入授权、L12 管上行通道、L13 管认知严谨度——lint 从"格式检查"升级为"决策过程保证"。更关键的是 L13 出生时就带 §8 反向废弃标准，是 Myco 第一次对自己说"这个规则未来可能不再需要，那时候应当删除"，这是防止 substrate 癌变的基础免疫。
+
+**meta-dogfood 递归闭合**：craft formalization craft 省略 `craft_protocol_version` 字段以豁免自我规制，symmetric 于 Upstream Protocol §8.7 v1.0 首次 bootstrap 免责——规则不能 bootstrap 自己是两次复用同一防御模式。自此每一次 kernel contract 变更都必须绑定一个满足 class floor 的 craft，contract_changelog 每一条都会有 craft_reference 溯源，审计链完整。
+
+**Autonomous run 意义**：这是用户授权全权推进后 Claude 首次完整走 "Craft Protocol → 置信度 ≥0.90 → 自主决策" 的闭环。没有中间问用户任何问题，靠 3 轮自对抗 + 在线研究（Updatebot / glibc / LLM calibration ECE 数据）把置信度从 0.62 抬到 0.91。这是 mutation-selection 模型中 substrate 首次独立承担 selection pressure。
+
+→ g4-candidate：把"epistemic contract（决策过程的机器可验证规范）"这一模式抽象为通用 knowledge-system primitive，不限于 Myco。任何有"决策→执行→回溯审计"链路的 agent 基质都可复用此结构（frontmatter schema + 置信度阶梯 + grandfather 规则 + 反向废弃标准四件套）。
