@@ -53,11 +53,12 @@ items:
   source_type: repo
   local_path: forage/repos/mempalace
   acquired_at: '2026-04-11T18:04:25'
-  status: raw
+  status: digested
   license: MIT
   license_checked_at: '2026-04-11T18:04:25'
   size_bytes: 0
-  digest_target: []
+  digest_target:
+  - n_20260411T184726_2ef7
   why: 'MemPalace — a memory palace / spatial mnemonic agent prototype. Relevant to
     Myco''s open question around ''how does an agent use its accumulated notes substrate
     as working memory beyond simple retrieval?'' Looking for: (1) spatial/associative
@@ -69,11 +70,12 @@ items:
   source_type: article
   local_path: forage/articles/claude_managed_agents.md
   acquired_at: '2026-04-11T18:04:34'
-  status: raw
+  status: digested
   license: proprietary
   license_checked_at: '2026-04-11T18:04:34'
   size_bytes: 2396
-  digest_target: []
+  digest_target:
+  - n_20260411T184826_4256
   why: 'Anthropic''s Claude Managed Agents announcement (2026-04-08). Market-state
     context for Myco''s positioning: what is the commercial production-agent stack
     offering as of now, how does Myco''s ''cognitive substrate that agents live on''
@@ -86,11 +88,12 @@ items:
   source_type: article
   local_path: forage/articles/karpathy_llm_wiki.md
   acquired_at: '2026-04-11T18:04:45'
-  status: quarantined
-  license: unknown
-  license_checked_at: '2026-04-11T18:04:45'
+  status: digested
+  license: gist-unspecified-derivative-only
+  license_checked_at: '2026-04-11T18:54:10'
   size_bytes: 12289
-  digest_target: []
+  digest_target:
+  - n_20260411T185410_2e13
   why: Karpathy's 'LLM Wiki' gist — already the direct intellectual ancestor of Myco's
     four-layer knowledge architecture (cited in docs/current/llm_wiki_debate_2026-04-07.md).
     Re-foraging now because (1) Karpathy may have revised the gist since our last
