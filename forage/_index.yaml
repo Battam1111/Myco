@@ -20,11 +20,12 @@ items:
   source_type: repo
   local_path: forage/repos/nuwa-skill
   acquired_at: '2026-04-11T18:04:09'
-  status: raw
+  status: digested
   license: MIT
   license_checked_at: '2026-04-11T18:04:09'
   size_bytes: 0
-  digest_target: []
+  digest_target:
+  - n_20260411T183115_f5c5
   why: 'Nuwa-Skill (花叔) — already referenced in Myco''s W8-W12 evolution_engine debate
     (see docs/current/nuwa_caveman_integration_2026-04-07.md). This is the upstream
     code to re-read now that Myco''s four-gear model has matured. Looking for: (1)
