@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Myco Knowledge System — Automated 14-Dimension Lint.
+Myco Knowledge System — Automated 15-Dimension Lint.
 
 Dimensions:
     L0  Canon Self-Check — _canon.yaml contains all required keys
@@ -17,6 +17,7 @@ Dimensions:
     L11 Write Surface — _canon.yaml write_surface whitelist (v1.2.0)
     L12 Upstream Dotfile Hygiene — .myco_upstream_{outbox,inbox}/ rules (v1.2.0)
     L13 Craft Protocol Schema — docs/primordia/*_craft_*.md frontmatter (v1.3.0, W3)
+    L14 Forage Hygiene — forage/_index.yaml manifest + files (v1.7.0)
 """
 
 import os
@@ -779,6 +780,166 @@ def lint_craft_protocol(canon, root):
     return issues
 
 
+def lint_forage_hygiene(canon, root):
+    """L14 — Forage Hygiene (v1.7.0).
+
+    Validates the forage/_index.yaml manifest and the filesystem
+    layout of the forage/ substrate. Authoritative schema:
+    _canon.yaml → system.forage_schema.
+    Debate of record: docs/primordia/forage_substrate_craft_2026-04-11.md.
+
+    Checks (per item unless noted):
+        - Manifest must be readable YAML (HIGH if malformed).
+        - Each item passes forage.validate_item (required fields,
+          id pattern, valid status/source_type, digested/absorbed
+          imply non-empty digest_target, license present, etc).
+        - Per-item size_bytes within max_item_size_bytes (HIGH if over).
+        - Total footprint within hard_budget_bytes (HIGH if over;
+          total_budget_bytes is a HUNGER soft signal, not a lint error).
+        - Orphan local_path: item references a file that does not
+          exist under the project root (MEDIUM).
+        - Orphan file: file exists under forage/{papers,repos,articles}/
+          but no manifest entry references it (LOW).
+        - Stale license_checked_at older than license_recheck_days (LOW).
+    """
+    import time as _time
+
+    issues = []
+    schema = canon.get("system", {}).get("forage_schema")
+    if not schema:
+        return issues  # feature not yet enabled; silent skip
+
+    forage_dir = root / schema.get("dir", "forage")
+    if not forage_dir.exists():
+        return issues  # nothing to lint
+
+    index_rel = schema.get("index_file", "forage/_index.yaml")
+    index_path = root / index_rel
+    if not index_path.exists():
+        issues.append(("L14", "HIGH", index_rel,
+                       "forage/ exists but manifest _index.yaml is missing"))
+        return issues
+
+    try:
+        raw = yaml.safe_load(index_path.read_text(encoding="utf-8"))
+    except Exception as e:
+        issues.append(("L14", "HIGH", index_rel,
+                       f"Manifest YAML unreadable: {e}"))
+        return issues
+
+    if raw is None:
+        raw = {"items": []}
+    if not isinstance(raw, dict):
+        issues.append(("L14", "HIGH", index_rel,
+                       "Manifest root must be a mapping"))
+        return issues
+
+    items = raw.get("items") or []
+    if not isinstance(items, list):
+        issues.append(("L14", "HIGH", index_rel,
+                       "Manifest 'items' must be a list"))
+        return issues
+
+    # Import validator lazily to avoid hard dependency during
+    # grandfathered/contractless scenarios.
+    try:
+        from myco.forage import validate_item as _validate_item
+    except Exception:
+        _validate_item = None
+
+    max_item = int(schema.get("max_item_size_bytes",
+                              DEFAULT := 10 * 1024 * 1024))
+    hard_budget = int(schema.get("hard_budget_bytes", 1024 * 1024 * 1024))
+    recheck_days = int(schema.get("license_recheck_days", 90))
+    now_ts = _time.time()
+
+    total_size = 0
+    referenced_paths = set()
+
+    for idx, item in enumerate(items):
+        if not isinstance(item, dict):
+            issues.append(("L14", "HIGH", index_rel,
+                           f"item[{idx}] is not a mapping"))
+            continue
+
+        item_id = item.get("id") or f"<item[{idx}]>"
+        tag = f"{index_rel}::{item_id}"
+
+        if _validate_item is not None:
+            errs = _validate_item(item, schema)
+            for e in errs:
+                sev = "HIGH"
+                # License+quarantine mismatch is HIGH; missing fields HIGH.
+                issues.append(("L14", sev, tag, e))
+
+        # Size sanity
+        sz = item.get("size_bytes")
+        try:
+            sz_int = int(sz) if sz is not None else 0
+        except (TypeError, ValueError):
+            sz_int = 0
+        total_size += sz_int
+        if sz_int > max_item:
+            issues.append(("L14", "HIGH", tag,
+                           f"size_bytes={sz_int} > max_item_size_bytes="
+                           f"{max_item}"))
+
+        # Orphan local_path
+        lp = item.get("local_path") or ""
+        if lp:
+            abs_lp = (root / lp).resolve()
+            if not abs_lp.exists():
+                issues.append(("L14", "MEDIUM", tag,
+                               f"local_path {lp!r} does not exist on disk"))
+            else:
+                try:
+                    referenced_paths.add(abs_lp)
+                except Exception:
+                    pass
+
+        # Stale license check
+        lcat = item.get("license_checked_at")
+        if lcat:
+            try:
+                from datetime import datetime as _dt
+                t = _dt.strptime(str(lcat), "%Y-%m-%dT%H:%M:%S").timestamp()
+                if now_ts - t > recheck_days * 86400:
+                    d = int((now_ts - t) // 86400)
+                    issues.append(("L14", "LOW", tag,
+                                   f"license_checked_at is {d} days old "
+                                   f"(> {recheck_days}); re-verify license"))
+            except Exception:
+                pass
+
+    # Total budget — hard cap only
+    if total_size > hard_budget:
+        issues.append(("L14", "HIGH", index_rel,
+                       f"total forage footprint {total_size} bytes > "
+                       f"hard_budget_bytes={hard_budget}"))
+
+    # Orphan files on disk (LOW)
+    for sub in ("papers", "repos", "articles"):
+        sub_dir = forage_dir / sub
+        if not sub_dir.exists():
+            continue
+        for p in sub_dir.rglob("*"):
+            if not p.is_file():
+                continue
+            if p.name in (".gitkeep", ".gitignore"):
+                continue
+            try:
+                if p.resolve() in referenced_paths:
+                    continue
+            except Exception:
+                continue
+            rel_p = str(p.relative_to(root))
+            issues.append(("L14", "LOW", rel_p,
+                           "forage file not referenced by manifest — "
+                           "orphan; add to _index.yaml or remove"))
+
+    return issues
+
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
@@ -814,6 +975,7 @@ def main(root: Path = None, quick: bool = False, fix_report: bool = False) -> in
             ("L11 Write Surface", lint_write_surface),
             ("L12 Upstream Dotfile Hygiene", lint_dotfile_hygiene),
             ("L13 Craft Protocol Schema", lint_craft_protocol),
+            ("L14 Forage Hygiene", lint_forage_hygiene),
         ])
 
     all_issues = []

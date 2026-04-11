@@ -80,7 +80,21 @@ Myco 这个项目名取自真菌（*Myco*-rhizal = 菌根），但在 v1.4.0 之
 - **对应 Myco 基质**：`scripts/`（`myco_init.py`, `myco_migrate.py`,
   `lint_knowledge.py`）——这些脚本是基质分泌到"环境"里主动处理事情的工具，
   不是基质的一部分但服务于它。`src/myco/lint.py` 本身也是 exoenzyme
-  的核心——把原始文档预消化成 14 维一致性信号。
+  的核心——把原始文档预消化成 15 维一致性信号（v1.7.0 起新增 L14
+  Forage Hygiene）。
+
+**Foraging（觅食）/ Forage**
+- 丝状真菌通过 hyphal tip 向周围土壤延伸、探测营养源，并在接触到大分子
+  （纤维素、木质素、磷酸盐岩）后分泌 exoenzyme 进行**胞外预消化**——
+  先把大分子降解成小分子再吸收。整个过程：探测 → 胞外预消化 → 选择性吸收
+  → 残渣遗留。
+- **对应 Myco 基质（v1.7.0 新设）**：`forage/` 目录——外部参考材料（论文、
+  GitHub 仓库、博客、HN 讨论）在进入 `notes/` 之前的**前消化缓冲区**。
+  状态机 `raw → digesting → digested → absorbed → (discarded)` 对应胞外酶
+  解的生物学过程。**forage/ 不是图书馆**——它是胃的第一腔室，item 必须被
+  萃取进 `notes/`（产生 `digest_target`）后才能被 absorbed，最终被 discarded。
+  这是 biomimetic_map.md 中**第一个从第一天起就因真实信息增益而被赋予
+  生物学名字**的目录——参见 §2 表格的 ✅ 标记。
 
 **Septum（隔膜）** / plural: **Septa**
 - 菌丝内部的隔墙——控制细胞质和资源在 hyphae 之间的流动。
@@ -113,13 +127,14 @@ Myco 这个项目名取自真菌（*Myco*-rhizal = 菌根），但在 v1.4.0 之
 
 ---
 
-## §2 实际应用的映射表（contract v1.5.0 状态）
+## §2 实际应用的映射表（contract v1.7.0 状态）
 
 | 基质位置 | 生物学类比 | 是否 rename | 为什么 |
 |---|---|---|---|
 | `notes/` | hypha / hyphae | ❌ 保留原名 | 代码硬编码 15+ 处、MCP 工具名 `myco_eat`/`myco_view`、用户口语混用——rename 成本远超语义增益。通过本文档声明生物学类比即可。 |
 | `wiki/` | mycelium | ❌ 保留原名 | Karpathy LLM Wiki 血统正向、contract 文档 50+ 处引用、概念承载深度高——rename 是 cross-cutting refactor 不是 cosmetic 改动。通过本文档声明类比。 |
 | `docs/current/` | primordia | ✅ **已 rename** → `docs/primordia/` | "current" 过于通用、不表达"早期发育"的语义；canon SSoT (`craft_protocol.dir`) 使代码路径受 canon 控制、rename 影响半径可控（~80 refs，80% 是文档字符串）；**生物学类比带来真实信息增益**（primordia = 未定型、可塑、可退化）。 |
+| （v1.7.0 新设） | foraging / exoenzyme phase | ✅ **第一天即命名** → `forage/` | **首次** contract-level 目录在诞生当天就拿生物学名字。候选 `refs/` / `library/` / `corpus/` / `external/` 全部承诺"永久存储"，与压缩即智能学说冲突；`forage` 是动词形，天然暗示临时性 + 前消化态。信息增益 ≫ 学习成本（用户不会把 `forage/` 误当作永久资料库）。Manifest-authoritative 的 `forage/_index.yaml` 同时充当 class_z 契约锚点（`agent_protocol.md §8.9`）。|
 | `docs/*.md`（contract 级） | rhizomorph | ❌ 保留原名 | `agent_protocol` / `craft_protocol` / `contract_changelog` / `WORKFLOW` 这些名字本身就是最清晰的功能性命名，套 `rhizomorph/` 会增加冷启动摩擦。类比留在本文档。 |
 | `src/myco/templates/` | spore | ❌ 保留原名 | `templates` 是 Python 打包约定、`myco init` 引用路径；rename 会破坏 setuptools / hatchling 的 package_data 配置。 |
 | `scripts/` | exoenzyme | ❌ 保留原名 | 行业通用目录名。 |

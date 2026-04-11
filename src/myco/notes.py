@@ -695,6 +695,15 @@ def compute_hunger_report(
     bloat_signal = detect_structural_bloat(root)
     if bloat_signal:
         signals.append(bloat_signal)
+    # Forage backlog signal (contract v1.7.0) — read-only scan of
+    # forage/_index.yaml. See docs/primordia/forage_substrate_craft_2026-04-11.md.
+    try:
+        from myco.forage import detect_forage_backlog
+        forage_signal = detect_forage_backlog(root)
+        if forage_signal:
+            signals.append(forage_signal)
+    except Exception:
+        pass  # grandfather-compatible: missing module = feature off
     if not signals:
         signals.append("healthy: notes/ is metabolizing normally.")
 
