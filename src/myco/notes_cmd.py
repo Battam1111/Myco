@@ -31,6 +31,7 @@ from myco.notes import (
     id_to_filename,
     list_notes,
     read_note,
+    record_view,
     update_note,
     write_note,
 )
@@ -237,10 +238,22 @@ def run_view(args) -> int:
             return 2
         meta, body = read_note(path)
         _print_header(f"Note: {nid}")
-        for k in ("status", "source", "tags", "created", "last_touched",
-                  "digest_count", "promote_candidate", "excrete_reason"):
+        display_keys = ["status", "source", "tags", "created", "last_touched",
+                        "digest_count", "promote_candidate", "excrete_reason"]
+        # Surface optional v1.4.0 fields if present (view_count / last_viewed_at)
+        for opt in ("view_count", "last_viewed_at"):
+            if opt in meta:
+                display_keys.append(opt)
+        for k in display_keys:
             print(f"  {k}: {meta.get(k)}")
         print("\n" + body.rstrip())
+        # Record the read (D-layer dead-knowledge detection input).
+        # Deliberate: does NOT bump last_touched — read/write are separated.
+        try:
+            record_view(path)
+        except Exception:
+            # Non-fatal: view is read-only semantics from the user's POV.
+            pass
         return 0
 
     # List mode
@@ -321,12 +334,31 @@ def run_hunger(args) -> int:
     print(f"  deep-digested (digest_count≥2): {len(report.deep_digested)}")
     print(f"  excreted-with-reason:            {report.excreted_with_reason}")
     print(f"  promote_candidates:              {len(report.promote_candidates)}")
+    # D-layer dead-knowledge section (contract v1.4.0 seed).
+    if getattr(report, "dead_notes", None):
+        print(
+            f"\n  💀 dead knowledge  "
+            f"(terminal status, untouched & unread ≥ {report.dead_threshold_days}d, "
+            f"view_count < 2):"
+        )
+        for d in report.dead_notes[:10]:
+            print(
+                f"    • {d.get('id','?')}  "
+                f"status={d.get('status','?')}  "
+                f"last_touched={d.get('last_touched','?')}  "
+                f"views={d.get('view_count',0)}"
+            )
+        if len(report.dead_notes) > 10:
+            print(f"    … ({len(report.dead_notes) - 10} more)")
     print("\n  Signals:")
     for s in report.signals:
         print(f"    • {s}")
     # Non-zero exit if the substrate is in a concerning state.
     concerning = any(
-        sig.startswith(("raw_backlog", "stale_raw", "no_deep_digest", "no_excretion"))
+        sig.startswith(
+            ("raw_backlog", "stale_raw", "no_deep_digest",
+             "no_excretion", "dead_knowledge")
+        )
         for sig in report.signals
     )
     return 1 if concerning else 0

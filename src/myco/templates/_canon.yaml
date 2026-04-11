@@ -13,7 +13,7 @@ system:
   # See kernel docs/agent_protocol.md §8. Instance agents MUST compare
   # synced_contract_version against the kernel's contract_version at boot
   # and refresh local reflexes if drift is detected.
-  synced_contract_version: "v1.3.0"   # last kernel contract the instance aligned with
+  synced_contract_version: "v1.4.0"   # last kernel contract the instance aligned with
   upstream_scan_last_run: null         # ISO-8601 timestamp of last upstream scan
   upstream_channels:
     # Path-based classification — strictest-class-wins. See §8.2.
@@ -92,12 +92,21 @@ system:
       - digest_count
       - promote_candidate
       - excrete_reason
+    # Optional fields (v1.4.0+) — documented for discovery, not enforced by L10.
+    optional_fields:
+      - view_count              # int, default 0; bumped by `myco view <id>`
+      - last_viewed_at          # ISO str or null; set by `myco view <id>`
     valid_statuses:
       - raw            # just ingested, not yet processed
       - digesting      # being read / summarized / extracted
       - extracted      # key claim lifted into wiki or entry point
       - integrated     # fully merged into canonical structures
       - excreted       # removed from active rotation (must cite reason)
+    # Self-Model D layer seed (v1.4.0) — dead knowledge detection config.
+    terminal_statuses:
+      - extracted
+      - integrated
+    dead_knowledge_threshold_days: 30
     valid_sources:
       - chat           # pulled from conversation context
       - eat            # user/agent invoked `myco eat` explicitly

@@ -23,6 +23,90 @@ Commit message 格式必须使用 Conventional Commits 风格并带 `[contract:*
 
 ---
 
+## v1.4.0 — 2026-04-11 (minor)
+
+**Author**: Claude (Myco kernel agent, autonomous run under user grant)
+**Craft record**: `docs/current/dead_knowledge_seed_craft_2026-04-11.md`
+（2 轮 Claim→Attack→Research→Defense→Revise，终置信度 91%，
+`decision_class: kernel_contract`，floor 0.90；8 个 Round-1 attack + 3 个 Round-2 attack 全部防御）
+**Trigger**: `docs/open_problems.md §6` 登记的 Self-Model D 层空洞
+（vision_recovery_craft §B 与 dead-knowledge 定义）需要可落地的最小种子，
+以免 open problem 永久停留在"已知未实现"状态。
+
+### Added
+
+**`_canon.yaml → system.notes_schema` 扩展**
+- `optional_fields: [view_count, last_viewed_at]`
+  —— L10 识别但不强制，向后兼容所有历史 note（grandfather 生效）。
+- `terminal_statuses: [extracted, integrated]`
+  —— 被 D 层死知识检测用作入闸条件；仅处于"已settled"状态的 note 才能被判 dead。
+- `dead_knowledge_threshold_days: 30`
+  —— 默认阈值，同时用作"刚创建宽限期 + 未触碰冷却期 + 未阅读冷却期"三道闸的统一单位。
+  instance 可通过 `myco config` 覆盖，SSoT 仍在 `_canon.yaml`。
+
+**`src/myco/notes.py` 新 API + 新数据**
+- `record_view(path, *, now=None)` —— D 层 read-side 唯一写入路径：
+  递增 `view_count`（缺省视作 0），写入 `last_viewed_at=now`，**绝不触碰 `last_touched`**。
+  read/write 严格分离是本次改动的架构红线（防止"打开即修改"污染冷却信号）。
+- `HungerReport` dataclass 新增 `dead_notes: List[Dict]` + `dead_threshold_days: int`；
+  `to_dict()` 暴露两者以便 `--json` 消费者使用。
+- `compute_hunger_report(root, *, stale_days=7, dead_threshold_days=None, terminal_statuses=None, now=None)`
+  签名扩展；缺省值从 `_load_dead_config(root)` 读取 canon。
+- 5 条件联合死知识判定循环（status ∈ terminal / created ≥ threshold /
+  last_touched 冷 / last_viewed_at 空或冷 / view_count < 2），任一不满足即豁免。
+- 新增信号字符串 `dead_knowledge: N terminal note(s) ...`。
+
+**`src/myco/notes_cmd.py` CLI 集成**
+- `run_view` 单 note 模式在渲染 body 后调用 `record_view(path)`；
+  失败仅静默（view 仍保留读操作语义），并在 header 额外展示 `view_count` / `last_viewed_at` 字段（若存在）。
+- `run_hunger` 在 promote_candidates 之后新增 💀 dead knowledge 显示块，
+  列出前 10 条 + "…(N more)" 折叠；`dead_knowledge` 被加入 concerning 信号判定。
+
+**`src/myco/templates/_canon.yaml`**
+- 镜像同步上述 notes_schema 扩展。
+- `synced_contract_version: v1.3.0 → v1.4.0`。
+
+### Changed
+
+- `_canon.yaml::system.contract_version: v1.3.0 → v1.4.0`。
+- `docs/open_problems.md §6` 增加"已落地于 contract v1.4.0" 标记 + craft 反向链接；
+  出口条件下调为"第一个真实的 excretion 决策基于 dead_knowledge 信号"。
+
+### Rationale
+
+vision_recovery_craft 明确 "D 层未实现" 是 Self-Model 的四大空洞之一。
+Wave 3 把它登记进 open_problems.md §6，但登记本身不是进展——**种子必须能长**。
+本次改动锚定：
+- **最小种子优于完美方案**：完整 D 层需要 audit log / cross-ref / adaptive threshold，
+  任何一项都足以拖延数月。v1.4.0 只做"能被真实 excretion 决策触发的最小闭环"。
+- **grandfather 是软扩展的唯一入场券**：所有历史 note 都没有 view_count / last_viewed_at，
+  optional_fields 机制保证 L10 不倒戈，老 note 的 view_count 缺省按 0 处理，
+  首次达到宽限期 + 冷却期 + 无读 = 自动入选 dead，系统自动完成迁移。
+- **read/write 分离是反污染红线**：若 `myco view` 顺手 bump `last_touched`，
+  冷却信号就永远为 0，D 层变空操作。这条防御必须写进代码而不是文档。
+
+### Known non-goals (v1.4.0)
+
+- **没有 view audit log**：只知"被 view 了 N 次"，不知"谁在什么上下文下 view 的"。
+  excretion 决策仍需要人类判断"是否真的没人用"。
+- **没有 cross-reference 追踪**：note 被 wiki 引用不会算作 "alive"。
+  这是 §6 完整实现留给下一个 instance_contract 级 craft 的工作。
+- **阈值是硬编码 SSoT**：没有随 substrate 年龄自适应的能力——
+  Wave 5+ 才会触及身份锚点 4 的 adaptive threshold。
+- **D 层的定义仍不完整**：本次只实现了"dead knowledge detection" 这一条；
+  "degraded self-model" / "structural decay" 等子问题仍在 open_problems.md §5。
+
+### Migration
+
+- **No action required for existing substrates**: 所有 v1.3.0 及之前创建的 note
+  自动带 `view_count=0 / last_viewed_at=None`，进入 dead 检测 pipeline 无需任何改动。
+- **Instance agents**: 建议比对 `_canon.yaml::contract_version` 与
+  `synced_contract_version`，drift 时跑 `myco lint` 验证 L10 / L13 / L11 仍 PASS。
+- **Downstream tools**: `myco hunger --json` schema 增加 `dead_notes[]` 字段，
+  消费者可安全忽略直到准备好。
+
+---
+
 ## v1.3.0 — 2026-04-11 (minor)
 
 **Author**: Claude (Myco kernel agent, autonomous run under user grant)
