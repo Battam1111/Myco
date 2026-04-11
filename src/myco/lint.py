@@ -541,6 +541,22 @@ def lint_notes_schema(canon, root):
             issues.append(("L10", "MEDIUM", rel,
                            f"filename stem {path.stem!r} != id {nid!r}"))
 
+        # Wave 35 (v0.27.0) — soft inlet provenance check.
+        # When source=='inlet', the 4 inlet_* fields SHOULD be present.
+        # Severity LOW (warn, not error) so existing notes that get
+        # retroactively retagged source=inlet aren't broken; the lint
+        # surfaces the gap without blocking the substrate.
+        if source == "inlet":
+            for fld in (
+                "inlet_origin",
+                "inlet_method",
+                "inlet_fetched_at",
+                "inlet_content_hash",
+            ):
+                if fld not in meta or meta.get(fld) in (None, ""):
+                    issues.append(("L10", "LOW", rel,
+                                   f"source=inlet missing provenance field: {fld}"))
+
     return issues
 
 
