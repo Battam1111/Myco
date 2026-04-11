@@ -521,6 +521,49 @@ def main():
         help="Project root (default: current directory)",
     )
 
+    # ── myco inlet (Wave 35: Metabolic Inlet primitive scaffold) ──
+    # Closes the longest-deferred gap in Myco's identity surface (anchor #3
+    # Metabolic Inlet, declared Wave 10, scaffolded Wave 34, implemented Wave 35).
+    # Verb shape locked in docs/primordia/metabolic_inlet_design_craft_2026-04-12.md §3.1.
+    # Operator-deferred for all 4 open_problems §1-4 sub-problems.
+    inlet_parser = subparsers.add_parser(
+        "inlet",
+        help="Metabolic Inlet: ingest external content (file or "
+             "agent-piped URL body) as a raw note with provenance scaffold "
+             "(inlet_origin, inlet_method, inlet_fetched_at, inlet_content_hash).",
+    )
+    inlet_parser.add_argument(
+        "source", nargs="?", default=None, type=str,
+        help="File path to inlet (or URL — URLs are rejected with a clear "
+             "instruction; fetch via agent + pipe back via --content/--provenance)",
+    )
+    inlet_parser.add_argument(
+        "--content", type=str, default=None,
+        help="Explicit content body (use with --provenance). The "
+             "agent-fetched-URL pattern: WebFetch the URL, then "
+             "`myco inlet --content \"<body>\" --provenance \"<url>\"`.",
+    )
+    inlet_parser.add_argument(
+        "--provenance", type=str, default=None,
+        help="Origin string (URL or label) when using --content. Required "
+             "alongside --content so inlet_origin is machine-traceable.",
+    )
+    inlet_parser.add_argument(
+        "--tags", type=str, default=None,
+        help="Comma-separated tags. If omitted, the canon default tag "
+             "(`notes_schema.inlet.default_tag`, normally 'inlet') is applied "
+             "so the existing `myco compress --tag inlet` chain works without "
+             "operators having to remember the convention.",
+    )
+    inlet_parser.add_argument(
+        "--json", action="store_true",
+        help="Emit machine-readable JSON",
+    )
+    inlet_parser.add_argument(
+        "--project-dir", type=str, default=".",
+        help="Project root (default: current directory)",
+    )
+
     # ── myco hunger ────────────────────────────────────────────────
     hunger_parser = subparsers.add_parser(
         "hunger",
@@ -744,6 +787,12 @@ def main():
     if args.command == "uncompress":
         from myco.compress_cmd import run_uncompress
         sys.exit(run_uncompress(args))
+
+    # Wave 35 (v0.27.0): Metabolic Inlet primitive. Anchor #3 service.
+    # Closes the longest-deferred gap (declared Wave 10, scaffolded Wave 34).
+    if args.command == "inlet":
+        from myco.inlet_cmd import run_inlet
+        sys.exit(run_inlet(args))
 
     if args.command == "forage":
         from myco.forage_cmd import run_forage

@@ -6,8 +6,8 @@ system:
   # Authoritative source: docs/agent_protocol.md §8
   # Craft record:         docs/primordia/upstream_protocol_craft_2026-04-11.md
   # Changelog:             docs/contract_changelog.md
-  contract_version: "v0.26.0"  # Wave 30: myco compress MVP + L18 lint_compression_integrity
-  synced_contract_version: "v0.26.0"  # Wave 30 — self-reference: kernel's own lock
+  contract_version: "v0.27.0"  # Wave 35: myco inlet MVP — Metabolic Inlet primitive scaffold
+  synced_contract_version: "v0.27.0"  # Wave 35 — self-reference: kernel's own lock
   upstream_scan_last_run: "2026-04-11T15:21:31Z"
 
   # --- Upstream scan staleness reader (Wave 17, contract v0.16.0) ---
@@ -376,6 +376,14 @@ system:
     - compression_rationale   # str: required prose explaining what was preserved/dropped
     - compression_confidence  # float: 0.0–1.0, self-reported
     - pre_compression_status  # str: input's status before excretion (for future uncompress)
+    # Wave 35 (v0.27.0) — Metabolic Inlet provenance scaffold.
+    # Soft-enforced by L10 for source=inlet only (warn, not error).
+    # Authoritative design: docs/primordia/metabolic_inlet_design_craft_2026-04-12.md
+    # Implementation craft: docs/primordia/inlet_mvp_craft_2026-04-12.md
+    - inlet_origin            # str: URL or absolute file path of external source
+    - inlet_method            # str: "file" | "url-fetched-by-agent" | "explicit-content"
+    - inlet_fetched_at        # str: ISO-8601 timestamp content was captured
+    - inlet_content_hash      # str: sha256 hex digest of body bytes (tamper detection)
     valid_statuses:
     - raw            # just ingested, not yet processed
     - digesting      # being read / summarized / extracted
@@ -400,6 +408,12 @@ system:
     - compress            # v0.26.0 (Wave 30) — extracted note produced by
                           # `myco compress` from N raw/digesting inputs.
                           # Carries `compressed_from` audit trail.
+    - inlet               # v0.27.0 (Wave 35) — raw note produced by
+                          # `myco inlet` from external content (file or
+                          # agent-fetched URL). Carries `inlet_*` provenance
+                          # fields. Wave 34 design craft establishes the
+                          # scaffold; the verb defers all 4 open_problems
+                          # §1-4 sub-problems to its operator.
 
     # Wave 30 (v0.26.0) — forward-compression configuration.
     # Authoritative design: docs/primordia/compression_primitive_craft_2026-04-12.md
@@ -410,6 +424,17 @@ system:
     compression:
       ripe_threshold: 5
       ripe_age_days: 7
+
+    # Wave 35 (v0.27.0) — Metabolic Inlet primitive scaffold.
+    # Authoritative design: docs/primordia/metabolic_inlet_design_craft_2026-04-12.md
+    # Implementation craft: docs/primordia/inlet_mvp_craft_2026-04-12.md
+    # The verb is operator-deferred for all 4 open_problems §1-4 sub-problems
+    # (cold start, trigger signals, alignment, continuous compression).
+    # Default tag is applied automatically when --tags is not provided so
+    # the existing `myco compress --tag inlet` chain can act on accumulated
+    # inlet outputs without operators having to remember the convention.
+    inlet:
+      default_tag: "inlet"
 
   # --- Forage Substrate (contract v1.7.0) ---
   # External reference material intake — the exoenzyme / foraging phase

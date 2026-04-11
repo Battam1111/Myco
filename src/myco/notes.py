@@ -129,6 +129,11 @@ VALID_SOURCES: Tuple[str, ...] = (
                           # `myco compress` from N raw/digesting inputs.
                           # Carries `compressed_from` audit trail.
                           # Debate: docs/primordia/compression_primitive_craft_2026-04-12.md
+    "inlet",              # v0.27.0 (Wave 35) — raw note produced by
+                          # `myco inlet` from external content (file or
+                          # agent-fetched URL). Carries `inlet_*` provenance
+                          # fields. Wave 34 design, Wave 35 implementation.
+                          # Authoritative design: docs/primordia/metabolic_inlet_design_craft_2026-04-12.md
 )
 
 REQUIRED_FIELDS: Tuple[str, ...] = (
@@ -151,6 +156,12 @@ OPTIONAL_FIELDS: Tuple[str, ...] = (
     "compression_rationale",   # str — required prose
     "compression_confidence",  # float — 0.0–1.0, self-reported
     "pre_compression_status",  # str — input's prior status (for future uncompress)
+    # Wave 35 — Metabolic Inlet provenance scaffold (v0.27.0).
+    # Soft-enforced by L10 for source=inlet only (warn, not error).
+    "inlet_origin",            # str — URL or absolute file path of external source
+    "inlet_method",            # str — "file" | "url-fetched-by-agent" | "explicit-content"
+    "inlet_fetched_at",        # str — ISO-8601 timestamp content was captured
+    "inlet_content_hash",      # str — sha256 hex digest of body bytes (tamper detection)
 )
 
 # Default dead-knowledge threshold (canon can override via

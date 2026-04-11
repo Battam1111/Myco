@@ -38,6 +38,112 @@ Commit message 格式必须使用 Conventional Commits 风格并带 `[contract:*
 
 ---
 
+## v0.27.0 — 2026-04-12 (minor · `myco inlet` MVP, Wave 35 — Metabolic Inlet primitive scaffold)
+
+**Author**: Claude (Myco kernel agent, autonomous run under explicit user grant, Wave 35)
+
+**Motivation**: Anchor #3 (七步代谢管道) declared a Metabolic Inlet primitive in
+Wave 10's Vision Recovery (`docs/primordia/vision_recovery_craft_2026-04-10.md`)
+but no implementation existed across Waves 10–34. The gap was the longest-standing
+unimplemented identity-surface declaration in the substrate. Wave 26 §2.3
+(`docs/primordia/vision_reaudit_craft_2026-04-12.md`) catalogued the gap as a
+long-tail deferral. Wave 34 (`docs/primordia/metabolic_inlet_design_craft_2026-04-12.md`)
+designed the scaffold under exploration class (0.85, 8 design questions, 6 attacks).
+Wave 35 lands the MVP per Wave 34 §3.1's prescriptive 10-item brief.
+
+**Scope discipline**: per Wave 34 §2.4, three of four open_problems §1-4 sub-problems
+(cold start, trigger signals, alignment) and the fourth (continuous compression hook)
+are **operator-deferred** in this wave. The verb is a scaffold: it provides the
+provenance contract, the file/explicit-content forms, and the canon-driven default
+tag. It does NOT solve "what to inlet first" or "when to inlet again" or "how to
+filter for relevance" — those remain Wave 36+ friction-driven candidates. This is
+the inverse of Wave 30's "verb is everything" approach: Wave 35 is "verb is the
+minimum primitive that unblocks operator workflows".
+
+**The bundle (one subsystem, Metabolic Inlet primitive)**:
+
+1. **`src/myco/inlet_cmd.py`** (NEW, ~290 lines) — full `myco inlet` verb
+   implementation. Functions: `_project_root` (mirrors `compress_cmd` strict
+   mode), `_resolve_default_tag` (reads `notes_schema.inlet.default_tag` from
+   canon at call time, falls back to `"inlet"`), `_resolve_inlet_input` (handles
+   file path / `--content`+`--provenance` pair / URL-error case with explicit
+   pipe-back instruction), `_build_inlet_meta` (constructs frontmatter with the
+   4 inlet_* provenance fields + sha256 hash), `_build_inlet_body` (renders
+   header + content), `run_inlet` (CLI dispatch). Exit codes: 0 ok / 2 usage /
+   3 input validation / 5 io.
+
+2. **`src/myco/cli.py`** — `inlet` subparser added with positional optional
+   `source` (file path or URL), `--content`, `--provenance`, `--tags` (comma-
+   separated), `--json`, `--project-dir`. Dispatch case routes to
+   `inlet_cmd.run_inlet`.
+
+3. **`src/myco/notes.py`** — `VALID_SOURCES` extended with `"inlet"` (Wave 35
+   v0.27.0). `OPTIONAL_FIELDS` extended with the 4 provenance fields:
+   `inlet_origin`, `inlet_method`, `inlet_fetched_at`, `inlet_content_hash`.
+
+4. **`src/myco/lint.py`** — L10 `lint_notes_schema` extended with a soft
+   inlet-provenance check: when `source=="inlet"`, the 4 inlet_* fields SHOULD
+   be present. Severity LOW (warn, not error) so retroactively-tagged notes
+   don't break the substrate. Kernel-produced inlet notes always pass.
+
+5. **`tests/unit/test_inlet.py`** (NEW, 5 tests) — exercises the load-bearing
+   paths of the Wave 34 specification:
+   - `test_inlet_file_creates_raw_note_with_provenance` — file form D1 + D3
+     + D4 + provenance contract D6
+   - `test_inlet_explicit_content_creates_raw_note` — D2 zero-deps URL pipe
+     pattern + auto-detect agent-fetched URL provenance
+   - `test_inlet_url_form_rejected_with_clear_message` — D2 reject branch +
+     error-message UX contract (must point at agent-fetch pipe pattern)
+   - `test_inlet_default_tag_applied_when_tags_missing` — D6 canon-driven
+     default tag fallback path
+   - `test_inlet_lints_clean_under_l10` — soft check produces zero issues
+     on freshly-inletted notes (validator/writer contract)
+
+6. **`_canon.yaml`** + **`src/myco/templates/_canon.yaml`** (mirrored):
+   - `contract_version` `v0.26.0` → `v0.27.0`
+   - `synced_contract_version` `v0.26.0` → `v0.27.0`
+   - `notes_schema.optional_fields` extended with 4 inlet_* fields
+   - `notes_schema.valid_sources` extended with `inlet`
+   - new `notes_schema.inlet:` sub-section: `default_tag: "inlet"`
+
+7. **`docs/primordia/inlet_mvp_craft_2026-04-12.md`** (NEW) — Wave 35 craft
+   record under `kernel_contract` class (target 0.90, 3 rounds). Validates
+   Wave 34 design under implementation pressure: any field that the design
+   underspecified (e.g. how to handle non-UTF-8 input, exit-code mapping for
+   the 3 input-resolution branches) is decided in this craft.
+
+**Operator-deferred sub-problems** (Wave 34 §2.4 — NOT solved here, remain
+in `docs/open_problems.md` §1-4 as candidates for Wave 36+ friction):
+   - §1 cold start (which seed content to inlet first) — defers to operator choice
+   - §2 trigger signals (when to inlet next) — defers to operator-as-daemon
+   - §3 alignment (relevance filter) — defers to operator's `myco evaluate` step
+   - §4 continuous compression hook — defers to existing `myco compress --tag inlet`
+
+**Hard contracts honored**:
+   - Zero non-stdlib deps: `hashlib`, `json`, `sys`, `datetime`, `pathlib`,
+     `typing` only. URL fetch is NOT in the kernel — agent wrappers fetch via
+     `WebFetch`/`curl` and pipe content back via `--content STR --provenance URL`.
+     The kernel auto-detects the agent-fetched-URL pattern and tags the note
+     `inlet_method: url-fetched-by-agent`.
+   - Reflex arc trigger: `_canon.yaml`/`templates/_canon.yaml`/`notes.py`/
+     `cli.py`/`lint.py` are all kernel_contract trigger surfaces, so the Wave
+     35 craft is a hard requirement (not optional).
+   - Substrate writer/lint validator agreement: `test_inlet_lints_clean_under_l10`
+     is the regression sensor.
+
+**Cumulative coverage shift**: anchor #3 (七步代谢管道) coverage in the Wave 26
+audit was 0.65 (because the inlet declaration had no implementation). Wave 35
+raises this to ~0.80 (the primitive exists, the 4 sub-problems are operator-
+deferred and known). The doctrine map row for anchor #3 now reads "scaffold
+landed; long-tail open in §1-4".
+
+**See also**:
+   - Authoritative design: `docs/primordia/metabolic_inlet_design_craft_2026-04-12.md`
+   - Implementation craft: `docs/primordia/inlet_mvp_craft_2026-04-12.md`
+   - log.md: Wave 35 milestone
+
+---
+
 ## v0.26.0 — 2026-04-12 (minor · `myco compress` MVP, Wave 30 — closes Wave 27 D8 implementation brief)
 
 **Author**: Claude (Myco kernel agent, autonomous run under explicit user grant, Wave 30)
