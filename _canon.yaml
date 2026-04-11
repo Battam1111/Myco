@@ -6,7 +6,7 @@ system:
   # Authoritative source: docs/agent_protocol.md §8
   # Craft record:         docs/primordia/upstream_protocol_craft_2026-04-11.md
   # Changelog:             docs/contract_changelog.md
-  contract_version: "v0.9.0"   # Wave 9: upstream absorb impl + indicator
+  contract_version: "v0.10.0"  # Wave 11: craft reflex (L15 + hunger signal)
   upstream_scan_last_run: null
   upstream_channels:
     # Path-based classification — strictest-class-wins. An instance agent
@@ -77,6 +77,47 @@ system:
       exploration: 0.75       # tentative designs / naming / open research
     stale_active_threshold_days: 30
     grandfather_rule: "Files lacking craft_protocol_version are exempt from L13 strict checks."
+    # --- Craft Reflex (contract v0.10.0, Wave 11) ---
+    # Authoritative debate: docs/primordia/craft_reflex_craft_2026-04-11.md
+    # Lint of record:       L15 Craft Reflex
+    # Hunger signal:        craft_reflex_missing
+    # Problem solved: the discovery surface for craft was passive — trigger
+    # conditions (kernel contract change / public-claim rewrite) could fire
+    # without the agent ever recalling craft exists. Reflex converts those
+    # trigger surfaces into an active check: if a file on a listed surface
+    # was touched recently and no craft evidence appears in the same window,
+    # a LOW signal is emitted (non-blocking; craft is still a human ritual,
+    # we are only refusing silent bypass).
+    reflex:
+      enabled: true
+      lookback_days: 3
+      severity: LOW
+      trigger_surfaces:
+        # Class 1: kernel contract surfaces — touching any of these is a
+        # Trigger #1 per craft_protocol.md §3.
+        kernel_contract:
+        - docs/agent_protocol.md
+        - docs/craft_protocol.md
+        - _canon.yaml
+        - src/myco/lint.py
+        - src/myco/mcp_server.py
+        - src/myco/templates/_canon.yaml
+        - src/myco/templates/MYCO.md
+        # Class 2: public-claim surfaces — rewriting any of these is a
+        # Trigger #4 (external stakeholder-visible claim). Wave 10 README
+        # rewrite walked past craft precisely because this class did not
+        # exist yet; its absence is the direct motivating failure.
+        public_claim:
+        - README.md
+        - README_zh.md
+        - README_ja.md
+        - MYCO.md
+        - docs/vision.md
+      # Auxiliary evidence pattern scanned in log.md within the same window.
+      # Primary detection is file mtime on the surfaces above; this regex
+      # is only used to avoid false positives when a surface was touched
+      # AS PART OF landing a craft conclusion.
+      evidence_pattern: '(docs/primordia/[a-z0-9_]+_craft_\d{4}-\d{2}-\d{2}(_[0-9a-f]{4})?\.md|craft_reference\s*:)'
 
   # --- Structural Limits (contract v1.5.0) ---
   # Authoritative spec:    docs/biomimetic_map.md §4

@@ -38,6 +38,75 @@ Commit message 格式必须使用 Conventional Commits 风格并带 `[contract:*
 
 ---
 
+## v0.10.0 — 2026-04-11 (minor · craft reflex, Wave 11)
+
+**Author**: Claude (Myco kernel agent, autonomous run under user grant, Wave 11)
+**Craft record**: `docs/primordia/craft_reflex_craft_2026-04-11.md`
+（3 轮 Claim→Attack→Research→Defense→Revise，终置信度 0.91,
+`decision_class: kernel_contract`，floor 0.90；7 个 Round-1 attack + 4 个
+Round-2 attack + 2 个 Round-3 attack，关键修正来自 A7（必须把 trigger surface
+切成 `kernel_contract` 与 `public_claim` 两类才能捕获 Wave 10 README 漏触发事件）
+和 C1/C2（检测基准从 log.md 正则 pivot 到文件 mtime）。）
+
+**Motivating failure**: Wave 10 vision-led README 三语重写完全没走 craft。
+这是教科书级 Trigger #4（external stakeholder-visible claim）——但发现面
+纯文档，agent 必须在决策当下主动想起 craft 才能触发。Craft 辍触的根源不
+是 craft 不存在，而是 **discovery surface 是被动的**。Wave 11 把被动改成
+主动：trigger surface 被碰 + 无 craft 证据 → 触发 LOW 信号。
+
+**Conventional Commit prefix**: `[contract:minor]` — 新增 L15 lint 维度 +
+新增 hunger 信号 + 新增 canon 子块；向后兼容（`reflex.enabled: false` 即
+完全关闭；旧 instance 不更新 synced_contract_version 就看不到 L15）。
+
+### 变更摘要
+
+1. **新 canon 子块 `system.craft_protocol.reflex`**（`_canon.yaml`）：
+   - `enabled: true`, `lookback_days: 3`, `severity: LOW`
+   - `trigger_surfaces.kernel_contract`：agent_protocol / craft_protocol
+     / _canon / lint / mcp_server / templates/**（7 个文件）
+   - `trigger_surfaces.public_claim`：README × 3 + MYCO.md + docs/vision.md（5 个文件）
+   - `evidence_pattern`：匹配 craft 文件名或 `craft_reference:` 字段
+2. **L15 Craft Reflex lint 维度**（`src/myco/lint.py::lint_craft_reflex`）：
+   - 主检测：trigger surface 的 `path.stat().st_mtime` 是否在 `lookback_days` 窗口内
+   - 辅检测：log.md 或 `docs/primordia/*_craft_*.md` 的 mtime 是否同窗口内存在 craft 证据
+   - 缺失证据 → 按 severity 发 issue；`reflex.enabled=false` 时返回空
+   - 注册点：`main()::checks` 列表，非 quick 模式执行
+   - docstring 从 "15-Dimension" 升为 "16-Dimension"
+3. **`craft_reflex_missing` hunger signal**（`src/myco/notes.py::detect_craft_reflex_missing`）：
+   - 与 L15 同规则，但在 `myco hunger` 每次会话启动时都发
+   - 好处：不依赖主动跑 lint，session boot 就能看见
+4. **`docs/craft_protocol.md §3.1 Discovery surface`** 新增：
+   - 列举 5 条发现面（文档 / WORKFLOW W3 / MYCO.md 热区 / hunger 面板 / L15 lint）
+   - 说明为什么 mtime 优先于 log 正则（Round 3 C1/C2 辩论结果）
+   - 声明"reflex 是信号不是门闸"——craft 仍是人工仪式
+5. **§8 Deprecation criteria 扩展**：为 L15 加反向日落条款
+   （6 个月零违规 AND 至少发生过一次合规的 trigger 触碰才能判定为"习惯内化"；
+   Goodhart 防御：若发现 craft 被用来水过 L15，应加强而非移除）
+6. **Template 同步**：
+   - `src/myco/templates/_canon.yaml` 同步 `craft_protocol.reflex` 块 +
+     `synced_contract_version: "v0.10.0"`
+   - `src/myco/templates/MYCO.md` 热区 W3 行追加 Reflex 提示句
+7. **`system.contract_version`** bump: `"v0.9.0" → "v0.10.0"`
+   （Wave 8 pre-release re-baseline 后仍走 v0.x 线，不是 v1.3.1）
+
+### 下游 instance 对齐步骤
+
+1. 拉最新 Myco kernel
+2. 复制 `_canon.yaml::system.craft_protocol.reflex` 整块到本地 canon
+3. 更新本地 `synced_contract_version` 到 `"v0.10.0"`
+4. 首次 `myco lint`：L15 可能在本地 README / MYCO.md 刚被动过时报 LOW——
+   此时补写 craft 或在 log.md 引用现有 craft 即可；缺默认不阻塞 commit
+5. 在 `MYCO.md` 热区的 W3 行加入 Reflex 字样（参考 kernel template）
+
+### 已知限制
+
+1. `mtime` 理论上可被 `touch` 欺骗，但 Myco 没有"你被自己骗了"这种威胁模型。
+2. `lookback_days: 3` 是未经校准的 bootstrap 值，需 Phase ② friction 数据收敛。
+3. 纯抽象决策（不碰文件）仍无法被 reflex 捕获——这仍要靠 W3 习惯。
+4. 非实时：reflex 只在 `myco lint` / `myco hunger` 被调用时才发信号。
+
+---
+
 ## v0.9.0 — 2026-04-11 (minor · upstream absorb impl)
 
 **Author**: Claude (Myco kernel agent, autonomous run under user grant, Wave 9)

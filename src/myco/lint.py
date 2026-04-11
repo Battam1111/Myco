@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Myco Knowledge System — Automated 15-Dimension Lint.
+Myco Knowledge System — Automated 16-Dimension Lint.
 
 Dimensions:
     L0  Canon Self-Check — _canon.yaml contains all required keys
@@ -18,6 +18,7 @@ Dimensions:
     L12 Upstream Dotfile Hygiene — .myco_upstream_{outbox,inbox}/ rules (v0.2.0)
     L13 Craft Protocol Schema — docs/primordia/*_craft_*.md frontmatter (v0.3.0, W3)
     L14 Forage Hygiene — forage/_index.yaml manifest + files (v0.7.0)
+    L15 Craft Reflex — trigger-surface touches must cite craft evidence (v0.10.0, W3)
 """
 
 import os
@@ -1073,6 +1074,148 @@ def lint_forage_hygiene(canon, root):
     return issues
 
 
+def lint_craft_reflex(canon, root):
+    """L15 — Craft Reflex (W3, v0.10.0).
+
+    Active discovery surface for the craft protocol. Converts passive
+    trigger conditions (kernel contract change / public-claim rewrite)
+    into an emitted LOW signal when a listed surface was touched inside
+    the lookback window AND no craft evidence appears in log.md in the
+    same window.
+
+    Motivating failure: Wave 10 README rewrite (a Trigger #4 event per
+    craft_protocol.md §3) walked past craft entirely because the
+    discovery surface was purely documentation — the agent had to
+    remember craft exists. L15 removes that requirement: if you touched
+    a trigger surface recently and did not leave craft evidence, the
+    linter says so.
+
+    Detection strategy (Round 3 of the meta-craft, mtime primary):
+        1. Primary: `path.stat().st_mtime` for each file in
+           reflex.trigger_surfaces.{kernel_contract, public_claim}.
+           Files not modified in the last `lookback_days` are ignored.
+        2. Auxiliary: scan log.md within the same window for
+           `evidence_pattern`. If a matching line references a craft
+           file OR uses `craft_reference: <id>`, the window is
+           considered "covered" — no issue emitted for any surface
+           touched in the same window.
+        3. Respect `reflex.enabled: false` — emit zero issues and
+           return silently (opt-out for downstream instances that have
+           not yet imported craft protocol).
+
+    Authoritative schema: _canon.yaml → system.craft_protocol.reflex.
+    Craft of record: docs/primordia/craft_reflex_craft_2026-04-11.md.
+    """
+    import time as _time
+
+    issues = []
+    schema = canon.get("system", {}).get("craft_protocol") or {}
+    reflex = schema.get("reflex") or {}
+    if not reflex or not reflex.get("enabled", False):
+        return issues
+
+    lookback_days = int(reflex.get("lookback_days", 3))
+    severity = str(reflex.get("severity", "LOW")).upper()
+    if severity not in ("CRITICAL", "HIGH", "MEDIUM", "LOW"):
+        severity = "LOW"
+
+    surfaces = reflex.get("trigger_surfaces") or {}
+    kernel_surfaces = list(surfaces.get("kernel_contract") or [])
+    public_surfaces = list(surfaces.get("public_claim") or [])
+
+    evidence_pattern = reflex.get(
+        "evidence_pattern",
+        r"(docs/primordia/[a-z0-9_]+_craft_\d{4}-\d{2}-\d{2}(_[0-9a-f]{4})?\.md|craft_reference\s*:)",
+    )
+    try:
+        evidence_re = re.compile(evidence_pattern)
+    except re.error as e:
+        issues.append(("L15", "HIGH", "_canon.yaml",
+                       f"craft_protocol.reflex.evidence_pattern invalid: {e}"))
+        return issues
+
+    now = _time.time()
+    window = lookback_days * 86400
+
+    # --- Step 1: collect recently-touched surfaces ----------------------
+    recent_touches = []   # list of (class_name, rel_path, mtime)
+    for cls_name, paths in (("kernel_contract", kernel_surfaces),
+                            ("public_claim", public_surfaces)):
+        for rel in paths:
+            p = root / rel
+            if not p.exists():
+                # Surface listed but absent — configuration drift.
+                # Emit LOW so the reflex block itself stays honest.
+                issues.append(("L15", "LOW", rel,
+                               f"craft_protocol.reflex surface ({cls_name}) "
+                               "declared but file does not exist"))
+                continue
+            try:
+                mt = p.stat().st_mtime
+            except OSError:
+                continue
+            if now - mt < window:
+                recent_touches.append((cls_name, rel, mt))
+
+    if not recent_touches:
+        return issues  # nothing to check
+
+    # --- Step 2: scan log.md for craft evidence in the same window ------
+    # Evidence is considered present if ANY recent log entry references
+    # a craft file or uses craft_reference. The log may not exist yet
+    # in a fresh clone — in that case we conservatively treat the window
+    # as uncovered and emit the reflex signal.
+    log_path = root / "log.md"
+    evidence_present = False
+    if log_path.exists():
+        try:
+            log_text = log_path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            log_text = ""
+        # Also consider the primordia/ directory itself — any craft file
+        # authored within the lookback window counts as evidence even if
+        # log.md has not yet been updated (mtime-based robustness).
+        if evidence_re.search(log_text):
+            evidence_present = True
+        if not evidence_present:
+            primordia = root / schema.get("dir", "docs/primordia")
+            if primordia.exists():
+                for cp in primordia.glob("*_craft_*.md"):
+                    try:
+                        if now - cp.stat().st_mtime < window:
+                            evidence_present = True
+                            break
+                    except OSError:
+                        continue
+    else:
+        # Fresh clone grace: no log.md — also check primordia/ directly.
+        primordia = root / schema.get("dir", "docs/primordia")
+        if primordia.exists():
+            for cp in primordia.glob("*_craft_*.md"):
+                try:
+                    if now - cp.stat().st_mtime < window:
+                        evidence_present = True
+                        break
+                except OSError:
+                    continue
+
+    if evidence_present:
+        return issues
+
+    # --- Step 3: emit per-touched-surface signal ------------------------
+    # Group by class to keep output scannable.
+    for cls_name, rel, mt in recent_touches:
+        age_h = int((now - mt) // 3600)
+        issues.append(("L15", severity, rel,
+                       f"craft trigger surface ({cls_name}) modified "
+                       f"{age_h}h ago with no craft evidence in the last "
+                       f"{lookback_days}d window — either cite a craft "
+                       f"in log.md or create docs/primordia/<topic>_craft_"
+                       f"{datetime.now().strftime('%Y-%m-%d')}.md"))
+
+    return issues
+
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
@@ -1109,6 +1252,7 @@ def main(root: Path = None, quick: bool = False, fix_report: bool = False) -> in
             ("L12 Upstream Dotfile Hygiene", lint_dotfile_hygiene),
             ("L13 Craft Protocol Schema", lint_craft_protocol),
             ("L14 Forage Hygiene", lint_forage_hygiene),
+            ("L15 Craft Reflex", lint_craft_reflex),
         ])
 
     all_issues = []
