@@ -38,6 +38,103 @@ Commit message 格式必须使用 Conventional Commits 风格并带 `[contract:*
 
 ---
 
+## v0.28.0 — 2026-04-12 (minor · primordia_soft_limit re-baseline 40 → 60, Wave 36 — substrate maturity threshold update)
+
+**Author**: Claude (Myco kernel agent, autonomous run under explicit user grant, Wave 36)
+
+**Motivation**: The `structural_bloat` hunger signal has been firing wave-over-wave
+since at least Wave 30 with no operator response. Audit at Wave 36 found 47 ACTIVE
+craft files in `docs/primordia/` (over the soft limit of 40 by 7), all of which
+are load-bearing for current doctrine and impl modules. Wave 22 §B7 R2.4 explicitly
+anticipated this condition: *"If creation velocity ever exceeds compression
+(e.g., wave 30+ where everything is still active), that's a real signal — probably
+time to raise the soft limit or split primordia by phase."* This wave executes
+the first half of that prescription: re-baseline.
+
+**Why not the archive path**: Wave 36 R0 audited the 47 active crafts for
+SUPERSEDED candidates and found exactly 2 obvious ones — `metabolic_inlet_design_craft_2026-04-12.md`
+(SUPERSEDED by `inlet_mvp_craft_2026-04-12.md`) and `compression_primitive_craft_2026-04-12.md`
+(SUPERSEDED by `compress_mvp_craft_2026-04-12.md`). Each is referenced by ~15 places
+across canon comments, code module docstrings, impl crafts, contract changelog
+entries, and historical notes. Per substrate immutability doctrine
+(`docs/contract_changelog.md` Wave 8 banner), historical notes and committed
+log entries cannot be rewritten. Archiving these 2 crafts would either (a) cause
+30+ link-rot incidents or (b) require rewriting immutable history. Both options
+violate stronger doctrines than the soft-limit signal protects against. Wave 22
+itself succeeded in archiving 11 OLD debate files because those files had minimal
+dependency depth (they were referenced only by the README). Post-Wave-22 design
+crafts have entirely different dependency profiles.
+
+**Why 60 specifically**: Calculated from observed velocity. Substrate size at
+Wave 22 (40 limit set): ~25 crafts → 25/40 = 0.625 utilization. Wave 36 substrate
+size: 47 crafts. Net growth = 22 crafts over 14 waves = ~1.6 crafts/wave on
+average. Projected size at Wave 50: 47 + (14 × 1.6) ≈ 70. Setting limit at 60
+provides ~13 of headroom = ~8 more waves before re-evaluation. Setting at 70
+would push the next re-baseline far enough that Wave 22's "sensor that fires
+but no one catches it" pathology could re-emerge. 60 is the honest middle ground:
+gives breathing room without abdicating the discipline.
+
+**Changes**:
+
+1. `_canon.yaml::system.structural_limits.primordia_soft_limit`: 40 → 60
+   (with multi-line comment explaining Wave 22 §B7 R2.4 lineage).
+2. `src/myco/templates/_canon.yaml`: mirrored.
+3. `src/myco/notes.py::DEFAULT_STRUCTURAL_LIMITS["primordia_soft_limit"]`: 40 → 60.
+4. `_canon.yaml::system.contract_version` + `synced_contract_version`: v0.27.0 → v0.28.0.
+5. `src/myco/templates/_canon.yaml::synced_contract_version`: v0.27.0 → v0.28.0.
+6. `docs/contract_changelog.md`: this entry.
+7. `docs/primordia/primordia_soft_limit_rebaseline_craft_2026-04-12.md` (NEW):
+   Wave 36 craft (kernel_contract class, 0.90 target/current, 3 rounds, full
+   L13 schema). Documents the audit, the alternatives considered (archive vs
+   re-baseline vs split), the rejection rationale for archive, and the chosen
+   value rationale.
+
+**Self-tests**:
+
+- `myco lint`: 19/19 dimensions PASS post-bump. Critical dimensions: L10 unchanged
+  (no notes schema edits), L13 unchanged (no craft schema edits), L15 fires
+  (kernel_contract surface touched) but evidence_present=true via the new craft
+  file in primordia/, L17 unchanged (synced_contract_version matches kernel).
+- `myco hunger`: `structural_bloat` signal post-bump should report
+  "primordia: 48 files (soft limit 60, headroom 12)" — silent or informational,
+  not a friction signal. Or simply absent if 48 < 60.
+- `pytest tests/`: 22/22 PASS unchanged (no test changes; this wave is a
+  pure config/threshold edit).
+
+**Hard contracts honored**:
+
+- Substrate immutability: no historical notes or committed log entries rewritten.
+  The 2 SUPERSEDED candidates remain in their original locations with their full
+  reference web intact.
+- Friction-driven ordering (Wave 26 D3): Wave 36 picked the actual firing friction
+  signal (`structural_bloat`) over the speculative future-friction Wave 34 §3.3
+  candidates (inlet_ripe / cross-ref / continuous compression). Those wait for
+  Wave 37+ when inlet has accumulated real operator dogfooding.
+- Single-source convention: this is a kernel_contract class craft with
+  current_confidence=target_confidence=0.90 (the craft uses Wave 22's prior
+  research as its external evidence base, so the equality is honest).
+- Wave 22 W13 procedural rule satisfied: this wave's closing hunger response
+  is "compression by re-baselining" with explicit justification, not a `deferred:
+  primordia-compression` line. The discipline is preserved.
+
+**Doctrine coverage**:
+- Anchor #4 (压缩即认知): no shift. Compression is still cognition; this wave
+  doesn't add a compression mechanism, only re-baselines a sensor that detects
+  when compression is needed.
+- Wave 22 W13 rule: still active. Future waves will still be required to either
+  compress or defer-with-reason if `structural_bloat` fires.
+- Substrate immutability: reinforced (re-baseline preserves all citations
+  intact, archive would have violated it).
+
+**See also**:
+- `docs/primordia/primordia_compression_craft_2026-04-12.md` (Wave 22 — original
+  workflow + archive directory + W13 rule)
+- `docs/primordia/primordia_soft_limit_rebaseline_craft_2026-04-12.md` (Wave 36
+  — this wave's craft of record)
+- `docs/WORKFLOW.md` W13 (procedural rule, still binding)
+
+---
+
 ## v0.27.0 — 2026-04-12 (minor · `myco inlet` MVP, Wave 35 — Metabolic Inlet primitive scaffold)
 
 **Author**: Claude (Myco kernel agent, autonomous run under explicit user grant, Wave 35)
