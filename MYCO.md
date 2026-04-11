@@ -64,7 +64,7 @@ Python 打包环境（hatchling + twine）。模板唯一来源：`src/myco/temp
 - **触发**：摩擦信号（agent 在 wiki/canon/log 找不到答案）OR 周期巡逻（时间/事件驱动）
 - **目标源**：GitHub 仓库、arXiv、社区文档、上游工具发布说明
 - **管道**：发现 → 评估（相关性/质量/新颖性）→ 萃取（模式，不是复制）→ 整合（融入 wiki/canon，不追加）→ 压缩 → 验证（lint）
-- **不变量**：所有摄取过的内容必须通过现有 9 维 lint；任何降低 lint pass 率的摄取必须被拒绝
+- **不变量**：所有摄取过的内容必须通过现有 14 维 lint；任何降低 lint pass 率的摄取必须被拒绝
 - **v2.0 bootstrap 约束**：用户审批种子源 → agent 执行摄取 → lint 验证整合。v2.5 之前不允许完全自主的源发现。
 
 **阻塞 / 开放问题**：
@@ -129,6 +129,7 @@ Phase 3  非 ASCC 项目示例            ⏳ v1.2 目标
 | 文档 | 内容 | 状态 |
 |------|------|------|
 | `docs/agent_protocol.md` | **Agent 运行硬契约** — write surface / tool protocol / boot-end sequence / anti-patterns（由 L11 lint 执行） | **[ACTIVE] [CONTRACT]** |
+| `docs/craft_protocol.md` | **W3 Craft Protocol v1 正式规范** — 文件名/frontmatter schema、置信度阶梯（kernel 0.90 / instance 0.85 / exploration 0.75）、状态机、集成矩阵、grandfather 规则、废弃标准（由 L13 lint 执行） | **[ACTIVE] [CONTRACT]** |
 | `docs/WORKFLOW.md` | 工作流手册（十二原则 W1-W12 + 进化引擎 + 会话流程） | [ACTIVE] |
 
 ### 框架知识文档
@@ -159,6 +160,8 @@ Phase 3  非 ASCC 项目示例            ⏳ v1.2 目标
 | `docs/current/brand_craft_2026-04-10.md` | [LOCAL] | 品牌视觉策略（4轮，88%置信度）|
 | `docs/current/launch_craft_2026-04-10.md` | [LOCAL] | 发布策略（2轮，87%置信度）|
 | `docs/current/vision_recovery_craft_2026-04-10.md` | **[ACTIVE] [ANCHOR]** | **愿景恢复辩论（4轮，≥92%置信度）**：三次递归 extraction 发现 **18 项**被压缩丢失的愿景元素，含 substrate / CPU / 非参数进化 / 代谢入口 / 七步管道含淘汰 / 压缩即认知 / 四层自我模型 / kernel-instance split / mutation-selection / anti-cancer / 盲点列表 / 理论血统。**每次上下文压缩后必读**。 |
+| `docs/current/upstream_protocol_craft_2026-04-11.md` | [ACTIVE] | **Upstream Protocol v1.0 辩论**（实例→内核回灌通道，contract v1.2.0 落地） |
+| `docs/current/craft_formalization_craft_2026-04-11.md` | **[ACTIVE] [CONTRACT]** | **W3 Craft Protocol 形式化辩论（3轮，91%置信度）**：Craft 正式命名为 Craft Protocol v1，配套 schema + L13 lint + grandfather 规则。meta-dogfood（bootstrap 豁免 `craft_protocol_version`）。contract v1.3.0 落地。 |
 
 > `[LOCAL]` 标签表示仅存在于本地，不纳入远端仓库（.gitignore 排除）。
 
@@ -168,7 +171,7 @@ Phase 3  非 ASCC 项目示例            ⏳ v1.2 目标
 
 | 脚本 | 用途 |
 |------|------|
-| `scripts/lint_knowledge.py` | 9 维度自动化一致性检查（对照 `_canon.yaml`） |
+| `scripts/lint_knowledge.py` | 14 维度自动化一致性检查（对照 `_canon.yaml`） |
 | `scripts/myco_init.py` | 项目初始化脚本 |
 | `scripts/myco_migrate.py` | 从 CLAUDE.md 等迁移 |
 | `scripts/compress_original.py` | 知识压缩工具 |

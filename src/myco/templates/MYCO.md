@@ -14,7 +14,8 @@
 1. [从实际踩坑中提炼——删除本占位符，在实践中积累]
 
 **Agent 行为准则**：
-- **📜 硬契约** — 运行前必读 Myco kernel 的 `docs/agent_protocol.md`：write surface / tool protocol / boot-end sequence / anti-patterns。L11 write-surface lint + L12 upstream dotfile hygiene 会自动执行。
+- **📜 硬契约** — 运行前必读 Myco kernel 的 `docs/agent_protocol.md`：write surface / tool protocol / boot-end sequence / anti-patterns。L11 write-surface lint + L12 upstream dotfile hygiene + L13 Craft Protocol schema 会自动执行。
+- **🛠️ Craft Protocol (W3)** — 影响 kernel 契约 / 实例架构 / 置信度 < 0.80 的决策必须走 `docs/craft_protocol.md` 规范的结构化自对抗辩论；产物写入 `docs/current/<topic>_craft_YYYY-MM-DD.md` 并含 `craft_protocol_version: 1` frontmatter。L13 强制 schema。
 - **🔖 契约版本比对（boot step，Upstream Protocol v1.0）** — 启动时比较本地 `_canon.yaml: system.synced_contract_version` 与 kernel 的 `system.contract_version`：不一致则先读 `docs/contract_changelog.md` 对齐反射规则，再开始任务；**切勿** 自行修改 kernel 文件，上行变更一律通过 `.myco_upstream_outbox/` 提 bundle。
 - **即时沉淀** — 关键决策当下 `myco_eat` 为 raw note，不手建 scratch/TODO/MEMO 文件
 - **在线验证** — 数字型 claim 必须 WebSearch 交叉验证
@@ -78,6 +79,7 @@ Phase 2  [自定义]        ⏳ 待实现
 | 文档 | 内容 |
 |------|------|
 | `docs/WORKFLOW.md` | 工作流手册（十二原则 W1-W12 + 会话流程 + 进化引擎） |
+| `docs/craft_protocol.md` | **W3 Craft Protocol v1 正式规范** — 结构化自对抗辩论 schema + L13 lint + 置信度阶梯 |
 
 ### 辩论记录
 > 生命周期标签：`[ACTIVE]` 仍在使用 | `[COMPILED]` 结论已编译到 wiki | `[SUPERSEDED]` 被新版取代
