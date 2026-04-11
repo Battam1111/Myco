@@ -6,7 +6,7 @@ system:
   # Authoritative source: docs/agent_protocol.md §8
   # Craft record:         docs/current/upstream_protocol_craft_2026-04-11.md
   # Changelog:             docs/contract_changelog.md
-  contract_version: "v1.3.0"
+  contract_version: "v1.4.0"
   upstream_scan_last_run: null
   upstream_channels:
     # Path-based classification — strictest-class-wins. An instance agent
@@ -128,12 +128,24 @@ system:
     - digest_count
     - promote_candidate
     - excrete_reason
+    # Optional fields (v1.4.0+) — not enforced by L10, but documented here
+    # as SSoT so downstream readers can discover them. See
+    # docs/current/dead_knowledge_seed_craft_2026-04-11.md.
+    optional_fields:
+    - view_count              # int, default 0; incremented by `myco view <id>` single-note mode
+    - last_viewed_at          # ISO str or null; set by `myco view <id>` single-note mode
     valid_statuses:
     - raw            # just ingested, not yet processed
     - digesting      # being read / summarized / extracted
     - extracted      # key claim lifted into wiki or MYCO.md
     - integrated     # fully merged into canonical structures
     - excreted       # removed from active rotation (must cite reason)
+    # Self-Model D layer seed (v1.4.0) — dead knowledge detection.
+    # See docs/current/dead_knowledge_seed_craft_2026-04-11.md.
+    terminal_statuses:       # statuses considered "settled", eligible for dead detection
+    - extracted
+    - integrated
+    dead_knowledge_threshold_days: 30
     valid_sources:
     - chat           # pulled from conversation context
     - eat            # user/agent invoked `myco eat` explicitly

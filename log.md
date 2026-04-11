@@ -196,3 +196,37 @@ meta-dogfood 先行：`docs/current/craft_formalization_craft_2026-04-11.md` 本
 **Autonomous run 意义**：这是用户授权全权推进后 Claude 首次完整走 "Craft Protocol → 置信度 ≥0.90 → 自主决策" 的闭环。没有中间问用户任何问题，靠 3 轮自对抗 + 在线研究（Updatebot / glibc / LLM calibration ECE 数据）把置信度从 0.62 抬到 0.91。这是 mutation-selection 模型中 substrate 首次独立承担 selection pressure。
 
 → g4-candidate：把"epistemic contract（决策过程的机器可验证规范）"这一模式抽象为通用 knowledge-system primitive，不限于 Myco。任何有"决策→执行→回溯审计"链路的 agent 基质都可复用此结构（frontmatter schema + 置信度阶梯 + grandfather 规则 + 反向废弃标准四件套）。
+
+---
+
+## 2026-04-11 · v1.4.0 Self-Model D 层死知识种子登陆 · Wave 4 · [contract:minor]
+
+**里程碑**：Self-Model 四层模型的 D 层首次具备可运行的最小闭环。open_problems.md §6 从"已知未实现"升级为"已落地最小种子 + 明确下一道出口条件"。
+
+**craft 溯源**：`docs/current/dead_knowledge_seed_craft_2026-04-11.md`，`decision_class: kernel_contract`（floor 0.90），2 轮 Claim→Attack→Research→Defense→Revise 终置信度 0.91。Round-1 八条攻击（A1 阈值硬编码 / A2 grandfather 误判 / A3 read-write 污染 / A4 冷启动误杀 / A5 optional_fields 被 L10 倒戈 / A6 view_count 缺省歧义 / A7 canon SSoT drift / A8 instance override 路径缺失）+ Round-2 三条收尾攻击（R2.1 死信号噪声 / R2.2 write_note 不初始化 view_count 破坏对称性 / R2.3 templates 同步滞后）全部防御。
+
+**落地面（8 个编辑面）**：
+
+(1) **`_canon.yaml`** 三处扩展（`system.contract_version: v1.3.0 → v1.4.0`；`system.notes_schema.optional_fields: [view_count, last_viewed_at]`；`system.notes_schema.terminal_statuses: [extracted, integrated]`；`system.notes_schema.dead_knowledge_threshold_days: 30`）。**SSoT 永远是 canon**，所有默认值都从这里读，instance 可覆盖。
+
+(2) **`src/myco/templates/_canon.yaml`** 镜像同步，并 bump `synced_contract_version: v1.3.0 → v1.4.0`。templates 与实际 canon 的双写是 L11 write-surface 允许的例外，由 `_canon.yaml` 的人类审查提供约束。
+
+(3) **`src/myco/notes.py`** 新增 `record_view(path, *, now)` —— D 层 read-side 唯一写入路径，递增 `view_count` 并写 `last_viewed_at`，**绝不触碰 `last_touched`**（read/write 严格分离是架构红线，防止"打开即修改"污染冷却信号）。新增 `OPTIONAL_FIELDS` / `DEFAULT_DEAD_THRESHOLD_DAYS` / `DEFAULT_TERMINAL_STATUSES` 常量；`serialize_note` 在必填字段后、optional 字段按稳定顺序排布以避免 diff 噪声。
+
+(4) **`HungerReport` dataclass 扩展**：新增 `dead_notes: List[Dict]` + `dead_threshold_days: int`，`to_dict()` 同步暴露；`compute_hunger_report` 签名扩展为 `(root, *, stale_days=7, dead_threshold_days=None, terminal_statuses=None, now=None)`，缺省从 `_load_dead_config(root)` 读 canon。核心 5 条件联合判定循环：status ∈ terminal / created ≥ threshold / last_touched 冷 / last_viewed_at 空或冷 / view_count < 2，**任一不满足即豁免**——宽容优先于严苛。
+
+(5) **`src/myco/notes_cmd.py`** 两处集成：`run_view` 单 note 模式渲染 body 后调用 `record_view(path)`（失败静默，保持 view 的读语义从用户视角不变），header 额外展示 `view_count` / `last_viewed_at` 若存在；`run_hunger` 在 promote_candidates 后新增 💀 dead knowledge 显示块（前 10 条 + 折叠），`dead_knowledge` 加入 concerning 信号判定（非零退出）。
+
+(6) **`docs/open_problems.md §6`** 从"未实现"升级为"✅ 已落地于 contract v1.4.0"，反向链接到 craft，5 条件判定规则内联；下一道出口条件下调为"第一个真实的 excretion 决策基于 dead_knowledge 信号而非人工判断 → 升级为 instance_contract 级 craft"。
+
+(7) **`docs/contract_changelog.md`** 新增 v1.4.0 完整条目（Added / Changed / Rationale / Known non-goals / Migration），与 `dead_knowledge_seed_craft_2026-04-11.md` 双向绑定。**Known non-goals** 段落是本次改动最重要的自我约束——明确列出"没有 view audit log / 没有 cross-reference 追踪 / 阈值硬编码 / D 层定义仍不完整"四项，防止后续把种子误当成完整 D 层实现。
+
+(8) **Smoke test**：在真实 substrate 上运行 `compute_hunger_report` 得到 `total=26 / dead_threshold_days=30 / dead_notes=0` + 已有 `raw_backlog` 信号；`record_view` 在 `n_20260410T231616_b930.md` 上递增 `view_count: 0 → 1` 并写 `last_viewed_at: 2026-04-11T12:31:08`，frontmatter 顺序稳定。
+
+**14/14 lint 双路径 PASS**：`python scripts/lint_knowledge.py` 与 `python -c "from myco.lint import main; main(Path('.'))"` 均 `ALL CHECKS PASSED — 0 issues found`，L13 Craft Protocol Schema 正确识别新 craft 文件的 `decision_class: kernel_contract` + floor 0.90 检查。
+
+**哲学意义**：D 层的最小种子说明一件事——**种子优于完美方案**。vision_recovery_craft §B 把 D 层定义为"死知识追踪 + cross-reference 图 + 自适应阈值"三合一，任何一项单独都够一个季度。本次只做"能被真实 excretion 触发的最小闭环"，grandfather 规则自动完成迁移，所有老 note 无缝进入 pipeline。这是 substrate 第一次展示"从 open problem 登记册 → craft 决议 → contract minor bump → lint PASS"的完整 metabolism pipeline，seven-step digestion 的 §6 excretion 终于有了可观测的上游信号源。
+
+**read/write 分离红线**：本次最隐蔽但最关键的防御是 `record_view` **不触碰 `last_touched`**。这是 A3 攻击（read-write pollution）的直接防御——若 view 顺手 bump last_touched，冷却信号永远为 0，D 层瞬间变空操作。这条防御必须写进代码而不是文档，因为文档不会被 pytest 捕获，代码会。
+
+→ g4-candidate：把"grandfather-compatible optional_fields 扩展 + 反向废弃标准 + canon SSoT + read/write 分离红线"四件套抽象为通用 substrate evolution primitive，不限于 Myco。任何需要在不破坏老数据前提下扩展 schema 的 agent 基质都可复用此模式。

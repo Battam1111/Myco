@@ -80,6 +80,21 @@ REQUIRED_FIELDS: Tuple[str, ...] = (
     "digest_count", "promote_candidate", "excrete_reason",
 )
 
+# v1.4.0: optional frontmatter fields for Self-Model D layer (dead knowledge
+# detection). Not enforced by L10; grandfathered for existing notes.
+# Authoritative design: docs/current/dead_knowledge_seed_craft_2026-04-11.md.
+OPTIONAL_FIELDS: Tuple[str, ...] = (
+    "view_count",       # int, default 0
+    "last_viewed_at",   # ISO str or None
+)
+
+# Default dead-knowledge threshold (canon can override via
+# system.notes_schema.dead_knowledge_threshold_days).
+DEFAULT_DEAD_THRESHOLD_DAYS = 30
+
+# Statuses considered "settled" — only these are eligible for dead detection.
+DEFAULT_TERMINAL_STATUSES: Tuple[str, ...] = ("extracted", "integrated")
+
 NOTES_DIRNAME = "notes"
 NOTE_FILENAME_RE = re.compile(
     r"^n_(?P<ts>\d{8}T\d{6})_(?P<rand>[0-9a-f]{4})\.md$"
@@ -153,6 +168,11 @@ def serialize_note(meta: Dict[str, Any], body: str) -> str:
     if yaml is None:
         raise RuntimeError("PyYAML is required for note serialization")
     ordered = {k: meta.get(k) for k in REQUIRED_FIELDS if k in meta}
+    # v1.4.0: place optional D-layer fields immediately after required
+    # fields so diffs stay readable. Any other extra keys fall through.
+    for k in OPTIONAL_FIELDS:
+        if k in meta:
+            ordered[k] = meta[k]
     # Preserve any extra keys at the end so the schema can grow without
     # data loss (e.g. `links: [...]` once wiki cross-ref lands).
     for k, v in meta.items():
@@ -266,6 +286,37 @@ def update_note(path: Path, **field_updates: Any) -> Dict[str, Any]:
     return meta
 
 
+def record_view(path: Path, *, now: Optional[datetime] = None) -> Dict[str, Any]:
+    """v1.4.0 — Self-Model D layer seed.
+
+    Record an attended view event on a note: increment ``view_count`` and set
+    ``last_viewed_at``. Crucially this does **not** bump ``last_touched`` —
+    ``last_touched`` is reserved for mutations (digest, status change, edit).
+    Separating read-time from write-time is what lets the dead-knowledge
+    detector distinguish "never read" from "never modified".
+
+    Only call this from the ``myco view <id>`` **single-note** path, after the
+    body has actually been rendered to the user. List/index mode must never
+    call this — see craft §R2.3.
+
+    See docs/current/dead_knowledge_seed_craft_2026-04-11.md.
+    """
+    path = Path(path)
+    meta, body = read_note(path)
+    if not meta:
+        # No frontmatter: legacy file, don't record view (would add nothing
+        # parseable, and the grandfather rule should protect it).
+        return meta
+
+    now = now or datetime.now()
+    vc = int(meta.get("view_count") or 0)
+    meta["view_count"] = vc + 1
+    meta["last_viewed_at"] = _now_iso(now)
+    # Intentional: leave last_touched alone — read is not a mutation.
+    path.write_text(serialize_note(meta, body), encoding="utf-8")
+    return meta
+
+
 def list_notes(root: Path, *, status: Optional[str] = None) -> List[Path]:
     notes_dir = Path(root) / NOTES_DIRNAME
     if not notes_dir.exists():
@@ -358,6 +409,9 @@ class HungerReport:
     deep_digested: List[Dict[str, Any]]     # digest_count ≥ 2
     excreted_with_reason: int
     promote_candidates: List[Dict[str, Any]]
+    # v1.4.0 — Self-Model D layer seed
+    dead_notes: List[Dict[str, Any]]        # terminal + cold + unviewed
+    dead_threshold_days: int
     signals: List[str]                      # human-readable hunger signals
 
     def to_dict(self) -> Dict[str, Any]:
@@ -369,34 +423,85 @@ class HungerReport:
             "deep_digested": self.deep_digested,
             "excreted_with_reason": self.excreted_with_reason,
             "promote_candidates": self.promote_candidates,
+            "dead_notes": self.dead_notes,
+            "dead_threshold_days": self.dead_threshold_days,
             "signals": self.signals,
         }
+
+
+def _load_dead_config(root: Path) -> Tuple[int, Tuple[str, ...]]:
+    """Read dead-knowledge config from _canon.yaml with safe fallback.
+
+    Returns (dead_threshold_days, terminal_statuses).
+    """
+    if yaml is None:
+        return DEFAULT_DEAD_THRESHOLD_DAYS, DEFAULT_TERMINAL_STATUSES
+    canon_path = Path(root) / "_canon.yaml"
+    if not canon_path.exists():
+        return DEFAULT_DEAD_THRESHOLD_DAYS, DEFAULT_TERMINAL_STATUSES
+    try:
+        canon = yaml.safe_load(canon_path.read_text(encoding="utf-8")) or {}
+    except Exception:
+        return DEFAULT_DEAD_THRESHOLD_DAYS, DEFAULT_TERMINAL_STATUSES
+    ns = (canon.get("system") or {}).get("notes_schema") or {}
+    days = int(ns.get("dead_knowledge_threshold_days", DEFAULT_DEAD_THRESHOLD_DAYS))
+    terminals = tuple(ns.get("terminal_statuses") or DEFAULT_TERMINAL_STATUSES)
+    return days, terminals
 
 
 def compute_hunger_report(
     root: Path,
     *,
     stale_days: int = 7,
+    dead_threshold_days: Optional[int] = None,
+    terminal_statuses: Optional[Tuple[str, ...]] = None,
     now: Optional[datetime] = None,
 ) -> HungerReport:
     """Scan notes/ and return a HungerReport.
 
     Signals (ordered by urgency):
-        - "raw_backlog": >10 raw notes (digestive tract is constipated)
-        - "stale_raw":   ≥1 raw note untouched for `stale_days`+ days
-        - "no_deep_digest": no note has digest_count ≥ 2 (Gear 3 starved)
-        - "no_excretion": zero excreted notes (compression doctrine ignored)
-        - "healthy":     none of the above triggered
+        - "raw_backlog":     >10 raw notes (digestive tract is constipated)
+        - "stale_raw":       ≥1 raw note untouched for `stale_days`+ days
+        - "no_deep_digest":  no note has digest_count ≥ 2 (Gear 3 starved)
+        - "no_excretion":    zero excreted notes (compression doctrine ignored)
+        - "dead_knowledge":  ≥1 terminal note cold + unviewed past threshold
+                             (Self-Model D layer seed, v1.4.0)
+        - "healthy":         none of the above triggered
+
+    Dead-knowledge detection (v1.4.0) flags a note iff ALL of:
+        1. status ∈ terminal_statuses (default: extracted/integrated)
+        2. now - created ≥ dead_threshold_days   (grace period for new notes)
+        3. now - last_touched ≥ dead_threshold_days
+        4. last_viewed_at is None OR now - last_viewed_at ≥ dead_threshold_days
+        5. view_count < 2
+    See docs/current/dead_knowledge_seed_craft_2026-04-11.md.
     """
     now = now or datetime.now()
     stale_cutoff = now - timedelta(days=stale_days)
+
+    if dead_threshold_days is None or terminal_statuses is None:
+        canon_days, canon_terms = _load_dead_config(root)
+        if dead_threshold_days is None:
+            dead_threshold_days = canon_days
+        if terminal_statuses is None:
+            terminal_statuses = canon_terms
+    dead_cutoff = now - timedelta(days=dead_threshold_days)
 
     paths = list_notes(root)
     by_status: Dict[str, int] = {s: 0 for s in VALID_STATUSES}
     stale_raw: List[Dict[str, Any]] = []
     deep_digested: List[Dict[str, Any]] = []
     promote_candidates: List[Dict[str, Any]] = []
+    dead_notes: List[Dict[str, Any]] = []
     excreted_with_reason = 0
+
+    def _parse_iso(v: Any) -> Optional[datetime]:
+        if not v:
+            return None
+        try:
+            return datetime.strptime(str(v), _ISO_FMT)
+        except Exception:
+            return None
 
     for p in paths:
         try:
@@ -408,17 +513,16 @@ def compute_hunger_report(
         by_status[status] = by_status.get(status, 0) + 1
 
         rel = str(p.name)
-        last_touched = meta.get("last_touched")
-        try:
-            lt = datetime.strptime(str(last_touched), _ISO_FMT)
-        except Exception:
-            lt = None
+        lt = _parse_iso(meta.get("last_touched"))
+        created = _parse_iso(meta.get("created"))
+        last_viewed = _parse_iso(meta.get("last_viewed_at"))
+        view_count = int(meta.get("view_count") or 0)
 
         if status == "raw" and lt and lt < stale_cutoff:
             stale_raw.append({
                 "id": meta.get("id"),
                 "file": rel,
-                "last_touched": last_touched,
+                "last_touched": meta.get("last_touched"),
                 "tags": meta.get("tags", []),
             })
 
@@ -440,6 +544,26 @@ def compute_hunger_report(
 
         if status == "excreted" and meta.get("excrete_reason"):
             excreted_with_reason += 1
+
+        # v1.4.0 — dead knowledge detection (Self-Model D layer seed).
+        # All five conditions must hold.
+        if (
+            status in terminal_statuses
+            and created is not None and created < dead_cutoff
+            and lt is not None and lt < dead_cutoff
+            and (last_viewed is None or last_viewed < dead_cutoff)
+            and view_count < 2
+        ):
+            dead_notes.append({
+                "id": meta.get("id"),
+                "file": rel,
+                "status": status,
+                "created": meta.get("created"),
+                "last_touched": meta.get("last_touched"),
+                "last_viewed_at": meta.get("last_viewed_at"),
+                "view_count": view_count,
+                "tags": meta.get("tags", []),
+            })
 
     raw_count = by_status.get("raw", 0)
 
@@ -468,6 +592,13 @@ def compute_hunger_report(
             f"promote_ready: {len(promote_candidates)} note(s) flagged "
             f"promote_candidate=true — ready to lift into wiki/."
         )
+    if dead_notes:
+        signals.append(
+            f"dead_knowledge: {len(dead_notes)} terminal note(s) "
+            f"(extracted/integrated) have gone cold for ≥{dead_threshold_days} days "
+            f"— never viewed or view_count<2. Candidates for excretion or "
+            f"promotion. See `myco hunger --dead` for details (Self-Model D layer seed)."
+        )
     if not signals:
         signals.append("healthy: notes/ is metabolizing normally.")
 
@@ -479,5 +610,7 @@ def compute_hunger_report(
         deep_digested=deep_digested,
         excreted_with_reason=excreted_with_reason,
         promote_candidates=promote_candidates,
+        dead_notes=dead_notes,
+        dead_threshold_days=dead_threshold_days,
         signals=signals,
     )
