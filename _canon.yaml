@@ -6,8 +6,8 @@ system:
   # Authoritative source: docs/agent_protocol.md §8
   # Craft record:         docs/primordia/upstream_protocol_craft_2026-04-11.md
   # Changelog:             docs/contract_changelog.md
-  contract_version: "v0.16.0"  # Wave 17: boot brief injector + upstream_scan_stale reader (closes H-1/H-7/H-8 partial/H-9)
-  synced_contract_version: "v0.16.0"  # Wave 17 — self-reference: kernel's own lock
+  contract_version: "v0.17.0"  # Wave 18: L15 trigger surface expansion + opt-in git hook installer (closes H-4/H-5)
+  synced_contract_version: "v0.17.0"  # Wave 18 — self-reference: kernel's own lock
   upstream_scan_last_run: "2026-04-11T15:21:31Z"
 
   # --- Upstream scan staleness reader (Wave 17, contract v0.16.0) ---
@@ -215,9 +215,12 @@ system:
         kernel_contract:
         - docs/agent_protocol.md
         - docs/craft_protocol.md
+        - docs/contract_changelog.md   # Wave 18 (v0.17.0): authoritative ledger
         - _canon.yaml
         - src/myco/lint.py
         - src/myco/mcp_server.py
+        - src/myco/notes.py             # Wave 18 (v0.17.0): hunger/detect/write logic
+        - src/myco/notes_cmd.py         # Wave 18 (v0.17.0): CLI plumbing
         - src/myco/templates/_canon.yaml
         - src/myco/templates/MYCO.md
         # Class 2: public-claim surfaces — rewriting any of these is a

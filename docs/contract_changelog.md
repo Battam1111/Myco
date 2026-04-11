@@ -38,6 +38,90 @@ Commit message 格式必须使用 Conventional Commits 风格并带 `[contract:*
 
 ---
 
+## v0.17.0 — 2026-04-11 (minor · L15 trigger surface expansion + optional git hook installer, Wave 18 — closes H-4/H-5)
+
+**Author**: Claude (Myco kernel agent, autonomous run under user grant, Wave 18)
+
+**Motivation**: Panorama note `n_20260411T231220_3fb8` surfaced two
+defensive-layer holes that Wave 17 did not address. H-4: the L15
+`kernel_contract` trigger-surface whitelist lacked
+`docs/contract_changelog.md`, `src/myco/notes.py`, `src/myco/notes_cmd.py`
+— the last four contract bumps (Wave 14/15/16/17) all modified
+`notes.py` and survived purely on moral discipline. H-5: L15 fires
+only at `myco lint` time; a commit that skips lint (or uses
+`--no-verify`) silently bypasses the reflex with no second line of
+defense.
+
+**Changes**:
+1. **Widened L15 detection surface**. `_canon.yaml` and
+   `src/myco/templates/_canon.yaml` both gain three entries under
+   `system.craft_protocol.reflex.trigger_surfaces.kernel_contract`:
+   `docs/contract_changelog.md`, `src/myco/notes.py`,
+   `src/myco/notes_cmd.py`. `trivial_exempt_lines: 20` remains the
+   escape valve for whitespace/import mechanical edits.
+2. **New optional pre-commit hook installer**:
+   `scripts/install_git_hooks.sh`. Idempotent (detects
+   `MYCO-PRECOMMIT-MARK`), refuses foreign-hook overwrites without
+   `--force`, installs a hook body that fail-opens if `myco` is not
+   on PATH, blocks commits only on CRITICAL/HIGH findings, surfaces
+   MEDIUM/LOW but lets the commit proceed.
+3. **Contract version bumped** to `v0.17.0` in both kernel and
+   template canon; `synced_contract_version` aligned.
+
+**Dogfood evidence**:
+- `myco lint --project-dir .` after canon edits: 16/16 green, L15
+  PASS (this craft's mtime covers the freshly-touched surfaces).
+- `bash scripts/install_git_hooks.sh`: installs at
+  `.git/hooks/pre-commit`, `rwx------`, 818 bytes.
+- Re-run without `--force`: "already installed" idempotent no-op.
+- Direct hook invocation: runs `myco lint`, prints MEDIUM warning
+  (Wave 15 pre_release_rebaseline nudge), exits 0 (commit would
+  proceed).
+- This changelog entry itself is written on a surface that is now
+  declared as `kernel_contract` — the sibling craft
+  `docs/primordia/l15_surface_and_git_hooks_craft_2026-04-11.md`
+  satisfies the evidence_pattern window, proving the new surface is
+  self-hosting.
+
+**Hole closure mapping**:
+- **H-4 full**: `contract_changelog.md` + `notes.py` + `notes_cmd.py`
+  now declared surfaces; future edits without a sibling craft will
+  fire L15.
+- **H-5 full**: opt-in pre-commit hook provides a second enforcement
+  surface on the write path, fail-open so never worse than status
+  quo. L15 at lint time remains the primary surface; the hook is a
+  belt-and-suspenders redundancy.
+
+**Migration notes for downstream instances**:
+- After `git pull`, the widened surface is active immediately. If
+  an in-flight edit on `notes.py` or `contract_changelog.md` has no
+  accompanying craft within the lookback window, L15 will fire
+  HIGH — write the missing craft in-session per Wave 12 reflex
+  doctrine, or use `trivial_exempt_lines` if the edit qualifies.
+- To install the hook: `bash scripts/install_git_hooks.sh`.
+  Uninstall: `rm .git/hooks/pre-commit`. The hook is not part of
+  `pip install`; installation is a one-time explicit action per
+  clone.
+
+**Known limitations** (accepted, see craft §6):
+- **L-1** PowerShell-native Windows users need Git for Windows
+  installed to run the bash installer.
+- **L-2** Hook fail-opens when `myco` is not on PATH — deliberate
+  choice; missing linter ≤ no hook at all.
+- **L-3** `--no-verify` bypasses the hook. Addressed by the Wave 17
+  boot brief at the next session boot, not by per-commit enforcement.
+- **L-4** Widened trigger surface means more L15 fires during
+  refactoring sweeps. Expected, and `trivial_exempt_lines` remains
+  the escape valve for mechanical edits.
+- **L-5** Installer is bash-only this wave; PowerShell variant is
+  future work but explicit non-goal here.
+
+**Craft of record**:
+`docs/primordia/l15_surface_and_git_hooks_craft_2026-04-11.md`
+(3 rounds, kernel_contract class, current_confidence 0.91).
+
+---
+
 ## v0.16.0 — 2026-04-11 (minor · boot brief injector + upstream_scan_stale reader, Wave 17 — closes H-1/H-7/H-8 partial/H-9)
 
 **Author**: Claude (Myco kernel agent, autonomous run under user grant, Wave 17)
