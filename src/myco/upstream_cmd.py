@@ -12,7 +12,9 @@ Authoritative design:
 from __future__ import annotations
 
 import json
+import re
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 from myco.upstream import (
@@ -21,6 +23,54 @@ from myco.upstream import (
     ingest_bundle,
     scan_kernel_inbox,
 )
+
+
+# Wave 16 (contract v0.15.0) — upstream scan timestamp write path.
+# See docs/primordia/upstream_scan_timestamp_craft_2026-04-11.md.
+# Surgical regex edit, NOT yaml.dump (would destroy comments). Matches
+# exactly one line; zero/multi match → WARN, bail, scan still succeeds.
+_SCAN_TS_RE = re.compile(
+    r"^(?P<indent>\s*)upstream_scan_last_run\s*:\s*.*$",
+    re.MULTILINE,
+)
+
+
+def _update_scan_timestamp(root: Path) -> None:
+    """Write `system.upstream_scan_last_run` to current UTC ISO-8601.
+
+    Best-effort: any failure logs a warning to stderr but does not
+    raise. Called at the end of a successful `myco upstream scan`.
+    The timestamp records scan freshness, not scan result — zero-pending
+    scans still update the field (see craft §1 A2-A4).
+    """
+    canon_path = root / "_canon.yaml"
+    try:
+        text = canon_path.read_text(encoding="utf-8")
+    except OSError as e:
+        print(f"[WARN] upstream scan timestamp: cannot read _canon.yaml "
+              f"({e})", file=sys.stderr)
+        return
+
+    matches = list(_SCAN_TS_RE.finditer(text))
+    if len(matches) != 1:
+        print(f"[WARN] upstream scan timestamp: expected exactly 1 "
+              f"`upstream_scan_last_run:` line in _canon.yaml, found "
+              f"{len(matches)} — skipping update (scan still OK).",
+              file=sys.stderr)
+        return
+
+    ts = (datetime.now(timezone.utc)
+          .replace(microsecond=0)
+          .strftime("%Y-%m-%dT%H:%M:%SZ"))
+    m = matches[0]
+    indent = m.group("indent")
+    new_line = f'{indent}upstream_scan_last_run: "{ts}"'
+    new_text = text[:m.start()] + new_line + text[m.end():]
+    try:
+        canon_path.write_text(new_text, encoding="utf-8")
+    except OSError as e:
+        print(f"[WARN] upstream scan timestamp: cannot write _canon.yaml "
+              f"({e})", file=sys.stderr)
 
 
 def _project_root(args) -> Path:
@@ -57,6 +107,10 @@ def run_upstream(args) -> int:
 def _cmd_scan(args) -> int:
     root = _project_root(args)
     refs = scan_kernel_inbox(root)
+    # Wave 16 (v0.15.0): record scan freshness. Records the attempt,
+    # not the result — zero-pending scans still update. See craft
+    # docs/primordia/upstream_scan_timestamp_craft_2026-04-11.md.
+    _update_scan_timestamp(root)
     if getattr(args, "json", False):
         print(json.dumps(
             {"pending": [r.to_dict() for r in refs],
