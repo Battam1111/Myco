@@ -6,7 +6,7 @@
 
 ---
 
-## 核心原则（十二原则 W1-W12）
+## 核心原则（十三原则 W1-W13）
 
 | 原则 | 代号 | 核心一句话 |
 |------|------|-----------|
@@ -22,6 +22,7 @@
 | 编译协议 | W10 | 外部知识 5 步提取流程 |
 | 验证范围 | W11 | 结论标注"在哪些条件下验证过" |
 | 信息密度 | W12 | 按任务复杂度调整上下文加载深度 |
+| Primordia 压缩 | W13 | 每个 wave 响应 structural_bloat：压缩 OR 审计痕迹延迟 |
 
 ---
 
@@ -167,6 +168,27 @@ project-root/
 ## W12: 信息密度感知
 
 Agent 根据任务复杂度自然调整加载深度：简单任务仅热区，默认加热区+相关 wiki，深度决策加载全量上下文。
+
+## W13: Primordia 压缩检查点（Wave 22，v0.21.0）
+
+每次 wave 在 session end 读取 `myco hunger`。如果报告中出现
+`structural_bloat: primordia`（见 `src/myco/notes.py::detect_structural_bloat`），
+该 wave **必须**在会话结束前选择下列之一：
+
+（a）将 ≥N 个 [COMPILED]/[SUPERSEDED] craft 用 `git mv` 移到
+    `docs/primordia/archive/`（N 足以让计数回到 soft limit 之下），
+    并更新 `docs/primordia/README.md` 让被归档行指向新路径；或
+
+（b）在 `log.md` 本次 wave 条目末尾追加一行
+    `deferred: primordia-compression (<原因>)`，说明为什么此刻没有
+    craft 到成熟期。
+
+前者是行动，后者是有审计痕迹的延迟。**既不压缩也不声明延迟，
+下一次 wave 的 `myco hunger` 会让违规再次显形——这是 W5（持续进化）违规**。
+archive 目录设计为 append-only 历史档案：Gear 4 回顾、决策考古、
+替代方案查询仍可读取；`detect_structural_bloat` 的非递归 glob 自然
+排除 archive/。本规则的权威 craft 在
+`docs/primordia/primordia_compression_craft_2026-04-12.md`。
 
 ---
 
