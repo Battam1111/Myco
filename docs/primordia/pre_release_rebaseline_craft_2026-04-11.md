@@ -93,7 +93,7 @@ Craft 文件的 `target_confidence` / `current_confidence` 已经遵循此约定
 
 ## Attacks → Defenses
 
-### Round 1
+## Round 1
 
 **A1 "版本号 down-bump 破坏下游 instance 的 version lock"**
 诊断：`_canon.yaml::contract_version: v1.7.0` → `v0.8.0` 会让所有既有下游
@@ -160,7 +160,7 @@ reset"，任何未来 instance 在 bootstrap 时直接从 v0.8.0 起步。`[cont
 - 灰色地带（CONTRIBUTING.md:140 架构图注释）→ 改，因为它描述 current 代码
 **Confidence** 保持 0.92
 
-### Round 2
+## Round 2
 
 **R2.1 "`dist/myco-1.1.0-*.whl` 删除 vs 保留的逻辑不一致：既然说 historical
 log 神圣，为什么 wheel 可以物理删除？"**

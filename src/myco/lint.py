@@ -1542,6 +1542,95 @@ def lint_boot_brief_freshness(canon, root):
     return issues
 
 
+def lint_contract_drift(canon, root):
+    """L17 (Wave 24, contract v0.23.0) — Contract Drift Surfacing in Lint.
+
+    Closes panorama-#3 hole NH-10: `myco hunger` correctly reports
+    `[REFLEX HIGH] contract_drift` when an instance's
+    `synced_contract_version` lags the kernel (and when grandfather
+    ceiling is exceeded, escalates appropriately), but `myco lint` had
+    no equivalent surfacing. Agents running only `myco lint` — which is
+    the surface invoked by the Wave 18 pre-commit hook — would see
+    "ALL CHECKS PASSED" while the system was screaming drift. Same
+    silent-fail pathology class as NH-1 (grandfather ceiling).
+
+    This check re-uses `detect_contract_drift` from `myco.notes` (the
+    authoritative drift detector) so there is exactly one truth-
+    definition of contract drift across both sensory surfaces.
+
+    Severity mapping (straight from the detector's prefix):
+      • `[REFLEX HIGH]` → HIGH   (grandfather expired or drift + enabled reflex)
+      • `[REFLEX MEDIUM]` → MEDIUM (version parse error)
+      • No signal → PASS
+      • Signal without a `[REFLEX ...]` prefix → MEDIUM (defensive default)
+
+    HIGH severity means the Wave 18 pre-commit hook will block commits
+    until the instance updates its synced_contract_version — this is
+    deliberate: you don't want a downstream to keep committing against
+    a stale contract interpretation.
+
+    Authoritative craft:
+        docs/primordia/contract_drift_lint_craft_2026-04-12.md
+    """
+    issues = []
+    try:
+        from myco.notes import detect_contract_drift
+    except Exception as exc:
+        # detect_contract_drift lives in the same package as this lint;
+        # import failure is itself a catastrophic signal (partial install
+        # or broken PYTHONPATH). Wave 24 craft §R3.2: fail-LOUD, not
+        # fail-advisory. HIGH blocks the pre-commit hook until install
+        # integrity is restored.
+        issues.append((
+            "L17", "HIGH", "_canon.yaml",
+            f"contract drift detector unavailable: {type(exc).__name__}: {exc}. "
+            f"Install integrity is compromised. Re-install myco "
+            f"(`pip install -e .` or equivalent) before committing."
+        ))
+        return issues
+
+    try:
+        signal = detect_contract_drift(Path(root))
+    except Exception as exc:
+        issues.append((
+            "L17", "HIGH", "_canon.yaml",
+            f"contract drift detector raised {type(exc).__name__}: {exc}. "
+            f"Re-install myco or file a bug — this should not happen."
+        ))
+        return issues
+
+    if not signal:
+        return issues
+
+    if "[REFLEX HIGH]" in signal:
+        severity = "HIGH"
+    elif "[REFLEX MEDIUM]" in signal:
+        severity = "MEDIUM"
+    else:
+        # Wave 24 craft §R2.2: unknown reflex prefix must NOT silently
+        # degrade. A future contract renaming the prefix would become
+        # invisible. Fail-LOUD so the contract author gets a blink
+        # during their own dogfood.
+        severity = "HIGH"
+
+    # Strip the `[REFLEX ...]` prefix so the lint message reads as a
+    # lint message, not as a hunger reflex echo. Keep the rest verbatim.
+    msg = signal
+    for prefix in ("[REFLEX HIGH] ", "[REFLEX MEDIUM] ", "[REFLEX LOW] "):
+        if msg.startswith(prefix):
+            msg = msg[len(prefix):]
+            break
+
+    issues.append((
+        "L17", severity, "_canon.yaml",
+        f"{msg} This is the same signal surfaced by `myco hunger`; "
+        f"both sensors now agree. Fix by updating "
+        f"`system.synced_contract_version` in `_canon.yaml` after "
+        f"reading the relevant `docs/contract_changelog.md` entries."
+    ))
+    return issues
+
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
@@ -1580,6 +1669,7 @@ def main(root: Path = None, quick: bool = False, fix_report: bool = False) -> in
             ("L14 Forage Hygiene", lint_forage_hygiene),
             ("L15 Craft Reflex", lint_craft_reflex),
             ("L16 Boot Brief Freshness", lint_boot_brief_freshness),
+            ("L17 Contract Drift", lint_contract_drift),
         ])
 
     all_issues = []

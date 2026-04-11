@@ -38,6 +38,87 @@ Commit message 格式必须使用 Conventional Commits 风格并带 `[contract:*
 
 ---
 
+## v0.23.0 — 2026-04-12 (minor · L17 Contract Drift lint, Wave 24 — closes panorama-#3 NH-10)
+
+**Author**: Claude (Myco kernel agent, autonomous run under user grant, Wave 24)
+
+**Motivation**: Panorama #3 ran the kernel + ASCC through both sensory
+surfaces immediately after Wave 23 landed. Result: same instance
+(ASCC), two sensors, opposite readings. `myco hunger` correctly
+reported `[REFLEX HIGH] contract_drift: synced_contract_version=
+'v0.19.0' != kernel contract_version='v0.22.0'`. `myco lint`
+reported `✅ ALL CHECKS PASSED — 0 issues found`. Lint had no
+drift-detection code path. The Wave 18 pre-commit hook invokes
+`myco lint`, not `myco hunger`, so a downstream instance with
+screaming drift could commit cleanly through the hook — exactly
+the scenario where downstream commits are most dangerous. Same
+silent-fail pathology class as NH-1 (Wave 20 grandfather ceiling),
+but on a different surface.
+
+**Change summary**:
+
+1. **New L17 Contract Drift lint** (`src/myco/lint.py::lint_contract_drift`):
+   delegates to `myco.notes.detect_contract_drift` for the truth
+   definition so there is exactly one drift-definition across both
+   sensors. Severity mapping:
+   - `[REFLEX HIGH]` → HIGH (blocks pre-commit hook)
+   - `[REFLEX MEDIUM]` → MEDIUM (surfaces but does not block)
+   - Unknown prefix → HIGH (**fail-loud**, per Wave 24 craft §R2.2;
+     a future contract renaming the prefix must not degrade silently)
+   - Import failure → HIGH (**fail-loud**, per §R3.2; install
+     integrity compromise is worse than silent)
+
+2. **Registered in `main()`** checks list after L16. Lint count
+   16 → 17 dimensions. `quick=True` mode still skips L4-L17 per
+   the existing fast-sanity convention.
+
+3. **Canon bumps** — `_canon.yaml` + `src/myco/templates/_canon.yaml`
+   `contract_version` / `synced_contract_version`: v0.22.0 → v0.23.0.
+
+4. **First live consumer** — ASCC `_canon.yaml::system.synced_
+   contract_version` bumped v0.19.0 → v0.23.0, skipping the
+   intermediate v0.20.0/v0.21.0/v0.22.0 bumps since no ASCC-side
+   reflex-refresh work was required by those waves (they were
+   kernel-internal tooling only). Post-sync both ASCC sensors agree:
+   hunger = healthy, lint = ALL CHECKS PASSED.
+
+**Authoritative craft**: `docs/primordia/contract_drift_lint_craft_2026-04-12.md`
+(kernel_contract class, 3 rounds, final confidence 0.92).
+
+**Self-tests** (panorama-#3 evidence, frozen in the craft §Evidence):
+
+- Kernel hunger (before + after): healthy.
+- Kernel lint (before + after): 1 pre-existing L13 MEDIUM, no L17 fire.
+- ASCC hunger (before + after sync): REFLEX HIGH → healthy.
+- ASCC lint (before Wave 24): ALL CHECKS PASSED (the bug).
+- ASCC lint (after Wave 24, before ASCC sync): L17 HIGH drift fires.
+- ASCC lint (after ASCC sync to v0.23.0): ALL CHECKS PASSED.
+- Both sensors now agree across both directions: drift present →
+  both fire; drift absent → both silent.
+
+**Limitations** (explicit, not hidden):
+
+- **Single truth source dependency.** L17 is a thin wrapper around
+  `detect_contract_drift`. If a future wave adds a second drift
+  definition elsewhere, L17 would go blind to it. Mitigation: treat
+  `detect_contract_drift` as the authoritative sensor and route new
+  drift logic through it, not around it.
+- **Installed-package vs editable-install mismatch** remains
+  unhandled. Inherited from Wave 20's detect_contract_drift; not
+  regressed.
+- **`quick=True` skips L17.** Matches the existing L4-L16 convention.
+  Only `myco lint --quick` invocations lose drift coverage; the
+  pre-commit hook runs full lint.
+- **Rare workflow**: an instance that wants to commit a stale
+  contract version then bump in the next commit now hits the hook
+  gate. Wave 24 craft §R2.1 documents the `--no-verify` escape
+  hatch and the W1 violation-of-record convention.
+
+**Closes**: NH-10 (panorama #3) — `myco lint` blind to contract drift
+while `myco hunger` correctly reports `[REFLEX HIGH]`.
+
+---
+
 ## v0.22.0 — 2026-04-12 (minor · pre-commit hook dogfood + opt-in pytest gate, Wave 23 — closes NH-8/NH-9)
 
 **Author**: Claude (Myco kernel agent, autonomous run under user grant, Wave 23)
