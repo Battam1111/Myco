@@ -1,2 +1,97 @@
 schema_version: 1
-items: []
+items:
+- id: f_20260411T180358_c7ab
+  source_url: https://github.com/garrytan/gbrain
+  source_type: repo
+  local_path: forage/repos/gbrain
+  acquired_at: '2026-04-11T18:03:58'
+  status: raw
+  license: MIT
+  license_checked_at: '2026-04-11T18:03:58'
+  size_bytes: 0
+  digest_target: []
+  why: 'Garry Tan''s gbrain — a personal knowledge management / brain-as-service prototype.
+    Foraging to compare its architectural choices (entity graph, memory lanes) against
+    Myco''s notes substrate and forage-digestion-notes pipeline. Looking for: (1)
+    how they handle ingest granularity, (2) their equivalent of digest/compression
+    discipline, (3) any proximal enrichment tricks we haven''t seen.'
+- id: f_20260411T180409_710b
+  source_url: https://github.com/alchaincyf/nuwa-skill
+  source_type: repo
+  local_path: forage/repos/nuwa-skill
+  acquired_at: '2026-04-11T18:04:09'
+  status: raw
+  license: MIT
+  license_checked_at: '2026-04-11T18:04:09'
+  size_bytes: 0
+  digest_target: []
+  why: 'Nuwa-Skill (花叔) — already referenced in Myco''s W8-W12 evolution_engine debate
+    (see docs/current/nuwa_caveman_integration_2026-04-07.md). This is the upstream
+    code to re-read now that Myco''s four-gear model has matured. Looking for: (1)
+    their skill composition primitives vs Myco''s skill pattern, (2) any gear-4 style
+    cross-session learning mechanisms, (3) differences from our current compiled wisdom.'
+- id: f_20260411T180416_3654
+  source_url: https://github.com/NousResearch/hermes-agent
+  source_type: repo
+  local_path: forage/repos/hermes-agent
+  acquired_at: '2026-04-11T18:04:16'
+  status: raw
+  license: MIT
+  license_checked_at: '2026-04-11T18:04:16'
+  size_bytes: 0
+  digest_target: []
+  why: 'Nous Research''s hermes-agent — a production-grade open-source agent framework.
+    Foraging to pressure-test Myco''s Hard Contract against a mature competitor: (1)
+    how do they handle session boundaries and identity persistence, (2) their tool-use
+    contract shape vs Myco''s craft/eat/digest verbs, (3) whether their design surfaces
+    any missing primitives in Myco''s current three-channel model.'
+- id: f_20260411T180425_2146
+  source_url: https://github.com/milla-jovovich/mempalace
+  source_type: repo
+  local_path: forage/repos/mempalace
+  acquired_at: '2026-04-11T18:04:25'
+  status: raw
+  license: MIT
+  license_checked_at: '2026-04-11T18:04:25'
+  size_bytes: 0
+  digest_target: []
+  why: 'MemPalace — a memory palace / spatial mnemonic agent prototype. Relevant to
+    Myco''s open question around ''how does an agent use its accumulated notes substrate
+    as working memory beyond simple retrieval?'' Looking for: (1) spatial/associative
+    retrieval primitives, (2) any insights on Gear 4 generalization via analogical
+    reasoning, (3) whether their notion of ''place'' maps onto Myco''s forage/notes/upstream
+    three-channel geography.'
+- id: f_20260411T180434_3035
+  source_url: https://claude.com/blog/claude-managed-agents
+  source_type: article
+  local_path: forage/articles/claude_managed_agents.md
+  acquired_at: '2026-04-11T18:04:34'
+  status: raw
+  license: proprietary
+  license_checked_at: '2026-04-11T18:04:34'
+  size_bytes: 2396
+  digest_target: []
+  why: 'Anthropic''s Claude Managed Agents announcement (2026-04-08). Market-state
+    context for Myco''s positioning: what is the commercial production-agent stack
+    offering as of now, how does Myco''s ''cognitive substrate that agents live on''
+    framing differ from their ''managed agents as composable APIs'' framing. Looking
+    for: (1) gaps in their offering where Myco''s discipline could complement, (2)
+    any convergent ideas we should credit, (3) risk of direct overlap with Myco''s
+    MCP surface.'
+- id: f_20260411T180445_f157
+  source_url: https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f
+  source_type: article
+  local_path: forage/articles/karpathy_llm_wiki.md
+  acquired_at: '2026-04-11T18:04:45'
+  status: quarantined
+  license: unknown
+  license_checked_at: '2026-04-11T18:04:45'
+  size_bytes: 12289
+  digest_target: []
+  why: Karpathy's 'LLM Wiki' gist — already the direct intellectual ancestor of Myco's
+    four-layer knowledge architecture (cited in docs/current/llm_wiki_debate_2026-04-07.md).
+    Re-foraging now because (1) Karpathy may have revised the gist since our last
+    read, (2) we want to audit whether our current implementation drifted from or
+    faithful-extended his pattern, (3) Wave 9's upstream absorb loop adds a fourth
+    operation (absorb) that his three ops (ingest/query/lint) don't have — is that
+    a genuine extension or a drift?

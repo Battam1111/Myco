@@ -1041,7 +1041,12 @@ def lint_forage_hygiene(canon, root):
                        f"total forage footprint {total_size} bytes > "
                        f"hard_budget_bytes={hard_budget}"))
 
-    # Orphan files on disk (LOW)
+    # Orphan files on disk (LOW) — a file is covered if it IS a
+    # referenced path, OR any of its ancestors is a referenced directory
+    # path (this handles the common case where a manifest item points at
+    # a cloned repo or extracted paper bundle, not an individual file).
+    # Surface: Wave 9 first live multi-repo forage (2026-04-11, f_…_c7ab+).
+    referenced_dirs = {p for p in referenced_paths if p.is_dir()}
     for sub in ("papers", "repos", "articles"):
         sub_dir = forage_dir / sub
         if not sub_dir.exists():
@@ -1052,7 +1057,11 @@ def lint_forage_hygiene(canon, root):
             if p.name in (".gitkeep", ".gitignore"):
                 continue
             try:
-                if p.resolve() in referenced_paths:
+                rp = p.resolve()
+                if rp in referenced_paths:
+                    continue
+                # Covered by an ancestor directory entry in the manifest?
+                if any(d in rp.parents for d in referenced_dirs):
                     continue
             except Exception:
                 continue
