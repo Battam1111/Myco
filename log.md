@@ -523,3 +523,15 @@ Forage item `f_20260411T180409_710b` 状态 raw → digested，digest_target 指
 一条显式 NOT portable：Postgres+pgvector 本身。Myco 的 "compression discipline 有牙齿" 和 gbrain 的 "feed everything, let search sort it out" 是相反的哲学压力，不要糊弄。如果将来 Myco 真需要 retrieval，应该是 SQLite FTS + duckdb 本地 embedding，不是托管 DB。
 
 Forage item `f_20260411T180358_c7ab` → digested，digest_target 指向 a984。Dual-path lint 15/15 green。forage raw 数：4→3。
+
+## [2026-04-11] milestone | Forage digest #3 — hermes-agent → extracted note (Hard Contract 压力测试 + 2nd-signal 汇聚)
+
+第三条 forage 消化：读 `forage/repos/hermes-agent/README.md`（177 行）+ `AGENTS.md`（469 行）+ 顶层目录结构扫描（1563 文件），产出 `n_20260411T183722_c1b2`（extracted, ~130 行 / 4:1 压缩率，比 nuwa/gbrain 压缩低是因为本条兼任 Hard Contract 压力测试与跨项目汇聚综合）。hermes-agent 是 Nous Research 的生产级 agent runtime：同步对话循环、SQLite+FTS5 session store、6 平台 messaging gateway、40+ tools、6 terminal backends、3000+ 测试。
+
+**Hard Contract 压力测试结论**：Myco 的 Hard Contract 是 substrate 层（跨 session 代谢卫生），hermes 的 policies 是 runtime 层（单 turn 内 prompt cache 不破裂）。**两个契约不竞争，是叠加关系**——一个 hermes-agent 跑在 Myco substrate 上是 coherent 的组合。Myco 不需要变成 runtime，hermes 不需要变成 substrate，这是清晰的分层。
+
+**2nd-signal 汇聚**（两条独立项目各自收敛到同一模式）：(1) Central command registry 单源发射 — gbrain `src/core/operations.ts` + hermes `COMMAND_REGISTRY` 都做此事。Myco 加 MCP tools 时应从 `_canon.yaml` ops 节派生，优先级从 nuwa digest 的 "note-level flag" 上调到 "pre-factor-when-MCP-lands"。(2) SQLite+FTS5 是默认的本地检索形态 — gbrain 的 no-DB fallback + hermes session DB 都这样。Myco 将来加 retrieval 时走 SQLite FTS5 + duckdb 本地 embedding，重新确认。
+
+三条 digest 汇聚证据（retroactive validation）：nuwa `references/research/*.md` + gbrain markdown repo SoT + hermes `~/.hermes/` — 三个独立成熟项目都各自选 markdown 文件做 durable state。Myco 的 `notes/*.md` 决策是 convergent choice。
+
+Forage item `f_20260411T180416_3654` → digested，digest_target 指向 c1b2。Dual-path lint 15/15 green。forage raw 数：3→2（hermes + gbrain + nuwa 三条已消化；剩 mempalace + claude-managed-agents；karpathy 仍 quarantined）。

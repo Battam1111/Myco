@@ -37,11 +37,12 @@ items:
   source_type: repo
   local_path: forage/repos/hermes-agent
   acquired_at: '2026-04-11T18:04:16'
-  status: raw
+  status: digested
   license: MIT
   license_checked_at: '2026-04-11T18:04:16'
   size_bytes: 0
-  digest_target: []
+  digest_target:
+  - n_20260411T183722_c1b2
   why: 'Nous Research''s hermes-agent — a production-grade open-source agent framework.
     Foraging to pressure-test Myco''s Hard Contract against a mature competitor: (1)
     how do they handle session boundaries and identity persistence, (2) their tool-use
