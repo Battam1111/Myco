@@ -11,9 +11,7 @@ Adapters come in three types based on their integration model:
 - **Coexistence guide** (Cursor, GPT): configure a different agent type to work alongside Myco
 - **L0 backend** (MemPalace): plug in a retrieval service as Myco's archive layer
 
-In v1.0, content-import adapters are manual protocols with lint verification: follow the steps in the YAML, then `myco lint` confirms consistency. Coexistence adapters are ready to use today — no CLI automation needed.
-
-In v1.1, content-import adapters become CLI commands: `myco import --from hermes ./skills/`.
+In the current pre-release (v0.2.0, contract v0.8.0), content-import adapters are available as CLI commands for Hermes and OpenClaw (`myco import --from hermes ./skills/`) and as manual protocols for the rest. Coexistence adapters are ready to use today — no CLI automation needed, just follow the YAML. L0 backends (MemPalace) remain design-spec until the first real deployment.
 
 ## Adapter Schema
 
@@ -42,12 +40,12 @@ lint_checks, promotion_loop, value_proposition, roadmap, notes
 
 | Tool | Integration Type | Status | Notes |
 |------|-----------------|--------|-------|
-| [Claude Code (CLAUDE.md)](./claude_code.yaml) | Entry Point Upgrade | ✅ v1.0 CLI | `myco migrate --entry-point CLAUDE.md` |
-| [Cursor](./cursor.yaml) | Coexistence Guide | ✅ v1.0 Active | File-aware coexistence, no migration needed |
-| [GPT (OpenAI)](./gpt.yaml) | Coexistence Guide | ✅ v1.0 Active | System prompt / ChatGPT Projects / Assistants API |
-| [Hermes Agent](./hermes.yaml) | Content Import (Skills) | ⚠️ Manual protocol | v1.1: `myco import --from hermes` |
-| [OpenClaw (MEMORY.md)](./openclaw.yaml) | Content Import (Memory) | ⚠️ Manual protocol | v1.1: `myco import --from openclaw` |
-| [MemPalace](./mempalace.yaml) | L0 Retrieval Backend | 📋 Design spec | v1.1: API integration |
+| [Claude Code (CLAUDE.md)](./claude_code.yaml) | Entry Point Upgrade | ✅ CLI | `myco migrate --entry-point CLAUDE.md` |
+| [Cursor](./cursor.yaml) | Coexistence Guide | ✅ Active | File-aware coexistence, no migration needed |
+| [GPT (OpenAI)](./gpt.yaml) | Coexistence Guide | ✅ Active | System prompt / ChatGPT Projects / Assistants API |
+| [Hermes Agent](./hermes.yaml) | Content Import (Skills) | ✅ CLI | `myco import --from hermes ./skills/` |
+| [OpenClaw (MEMORY.md)](./openclaw.yaml) | Content Import (Memory) | ✅ CLI | `myco import --from openclaw ./MEMORY.md` |
+| [MemPalace](./mempalace.yaml) | L0 Retrieval Backend | 📋 Design spec | Post-1.0 API integration |
 
 ## Contributing an Adapter
 

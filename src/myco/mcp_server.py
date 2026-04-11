@@ -6,7 +6,7 @@ When configured in .mcp.json, AI agents (Claude Code, Cursor, etc.) automaticall
 discover these tools and call them at the right moments — no manual prompting needed.
 
 Tools:
-    myco_lint       — Run 9-dimensional consistency checks
+    myco_lint       — Run 15-dimensional consistency checks (L0-L14)
     myco_status     — Quick overview of knowledge system health
     myco_search     — Search across wiki/docs/MYCO.md knowledge base
     myco_log        — Append friction/reflection entries to log.md
@@ -87,7 +87,7 @@ def _read_file(path: Path) -> Optional[str]:
 @mcp.tool(
     name="myco_lint",
     annotations={
-        "title": "Myco Lint — 14-Dimension Consistency Check",
+        "title": "Myco Lint — 15-Dimension Consistency Check",
         "readOnlyHint": True,
         "destructiveHint": False,
         "idempotentHint": True,
@@ -98,18 +98,20 @@ async def myco_lint(
     project_dir: Optional[str] = None,
     quick: bool = False,
 ) -> str:
-    """Run Myco's 14-dimensional lint checks on the knowledge system.
+    """Run Myco's 15-dimensional lint checks on the knowledge system.
 
     Call this after modifying wiki pages, docs, MYCO.md, or _canon.yaml to catch
     contradictions, orphan files, stale references, version drift, agent
-    write-surface violations, and upstream transport hygiene issues. This is
-    the immune system of the knowledge substrate.
+    write-surface violations, upstream transport hygiene, and forage substrate
+    hygiene issues. This is the immune system of the knowledge substrate.
 
     Checks: L0 Canon schema, L1 Reference integrity, L2 Number consistency,
     L3 Stale patterns, L4 Orphan detection, L5 Log coverage, L6 Date consistency,
     L7 Wiki format, L8 .original sync, L9 Vision anchor, L10 Notes schema,
     L11 Write surface (agent contract from docs/agent_protocol.md §1),
-    L12 Upstream dotfile hygiene (.myco_upstream_{outbox,inbox}/ rules from §8.5).
+    L12 Upstream dotfile hygiene (.myco_upstream_{outbox,inbox}/ rules from §8.5),
+    L13 Craft Protocol schema (docs/primordia/*_craft_*.md frontmatter),
+    L14 Forage Hygiene (forage/_index.yaml manifest + lifecycle, contract v0.8.0).
 
     Args:
         project_dir: Path to Myco project root. Auto-detected if omitted.
@@ -131,7 +133,7 @@ async def myco_lint(
         lint_stale_patterns, lint_orphans, lint_log,
         lint_dates, lint_wiki_format, lint_original_sync,
         lint_vision_anchors, lint_notes_schema, lint_write_surface,
-        lint_dotfile_hygiene, lint_craft_protocol,
+        lint_dotfile_hygiene, lint_craft_protocol, lint_forage_hygiene,
     )
 
     checks = [
@@ -152,6 +154,7 @@ async def myco_lint(
             ("L11 Write Surface", lint_write_surface),
             ("L12 Upstream Dotfile Hygiene", lint_dotfile_hygiene),
             ("L13 Craft Protocol Schema", lint_craft_protocol),
+            ("L14 Forage Hygiene", lint_forage_hygiene),
         ])
 
     results = []
@@ -171,7 +174,7 @@ async def myco_lint(
     report = {
         "project": str(root),
         "timestamp": datetime.now().isoformat(),
-        "mode": "quick (L0-L3)" if quick else "full (L0-L8)",
+        "mode": "quick (L0-L3)" if quick else "full (L0-L14)",
         "total_issues": total_issues,
         "all_passed": total_issues == 0,
         "checks": results,

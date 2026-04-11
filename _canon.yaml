@@ -6,7 +6,7 @@ system:
   # Authoritative source: docs/agent_protocol.md §8
   # Craft record:         docs/primordia/upstream_protocol_craft_2026-04-11.md
   # Changelog:             docs/contract_changelog.md
-  contract_version: "v1.7.0"
+  contract_version: "v0.8.0"   # Wave 8 pre-release re-baseline — see changelog
   upstream_scan_last_run: null
   upstream_channels:
     # Path-based classification — strictest-class-wins. An instance agent
@@ -106,7 +106,11 @@ system:
   - 五原则
   - 六原则
   - 七原则
-  - v0.8
+  # Note: "v0.8" was in this list as a pre-v1.0 stale tag when Myco was
+  # briefly at v0.9.0 → 1.0. Wave 8 pre-release re-baseline restored v0.x
+  # as the current family (see docs/contract_changelog.md top banner), so
+  # the legacy anti-pattern was removed. If you need to detect future
+  # stale version tags, re-add them here by exact substring.
   vision_anchors:
     # Machine-readable identity anchors — any drop below threshold in
     # README.md / README_zh.md / MYCO.md triggers L9 vision-drift alert.
@@ -293,17 +297,52 @@ system:
     - my_notes/
     - tmp/
     - temp/
+
+  # --- Quantified Indicators (contract v0.8.0, Wave 8) ---
+  # Schema-only. Current values live in MYCO.md "📊 指标面板" section.
+  # Authoritative craft: docs/primordia/pre_release_rebaseline_craft_2026-04-11.md
+  #
+  # Rule: any number in the substrate that expresses progress / confidence /
+  # maturity / saturation / pressure MUST live in [0.0, 1.0] and use one of
+  # the approved suffixes below. Counts (e.g. principles_count) are exempt.
+  # Handwritten bootstrap values MUST be ≤ 0.70 unless backed by an external
+  # event (real PyPI release, lint pass, craft confidence, etc).
+  indicators:
+    range: [0.0, 1.0]
+    bootstrap_ceiling_without_evidence: 0.70
+    valid_suffixes:
+    - _progress        # completion (0 unstarted → 1 fully achieved)
+    - _confidence      # belief level (0 total doubt → 1 total trust)
+    - _maturity        # stability (0 seedling → 1 release-ready)
+    - _saturation      # fullness (0 empty → 1 at budget ceiling)
+    - _pressure        # demand signal (0 relaxed → 1 critical)
+    rationale_required: true      # every indicator must carry a rationale line
+    stale_after_days: 90          # L15 future work will flag stale indicators
+    authoritative_value_location: MYCO.md#指标面板
+    history_location: log.md       # upward changes must cite wave milestone
+    substrate_keys:
+    # Canonical list of substrate-level indicator keys. MYCO.md dashboard
+    # MUST contain every key in this list. Adding a new key = kernel_contract
+    # class craft or higher.
+    - v1_launch_progress
+    - three_channel_maturity
+    - lint_coverage_confidence
+    - compression_discipline_maturity
+    - identity_anchor_confidence
+    - forage_backlog_pressure
+    - notes_digestion_pressure
+
 architecture:
   layers: 4
   wiki_pages: 0
 project:
   name: Myco
-  current_phase: Phase 2 — v1.1.0 released, preparing public launch
+  current_phase: Phase 2 — v0.2.0 pre-release, preparing public launch (pre-1.0)
   description: 可自进化的 AI 延伸认知基质框架
   started: '2026-04-09'
 package:
   name: myco
-  version: 1.1.0
+  version: 0.2.0
   python_requires: '>=3.8'
   pypi_url: https://pypi.org/project/myco/
   github: Battam1111/Myco

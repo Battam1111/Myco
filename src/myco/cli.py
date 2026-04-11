@@ -95,7 +95,7 @@ def main():
 
     # ── myco lint ──────────────────────────────────────────────────
     lint_parser = subparsers.add_parser(
-        "lint", help="Run 9-dimension consistency checks on project knowledge"
+        "lint", help="Run 15-dimension consistency checks on project knowledge"
     )
     lint_parser.add_argument(
         "--quick", action="store_true",
@@ -263,7 +263,7 @@ def main():
 
     # ── myco forage ────────────────────────────────────────────────
     # External reference material intake — the inbound channel
-    # (forage/foraging/exoenzyme phase). Contract v1.7.0.
+    # (forage/foraging/exoenzyme phase). Contract v0.7.0.
     # Authoritative design: docs/primordia/forage_substrate_craft_2026-04-11.md
     forage_parser = subparsers.add_parser(
         "forage",

@@ -43,10 +43,8 @@ CORE_NARRATIVE_SYNTHESIS.md
 assets/architecture.png
 scripts/pypi_upload.bat
 
-# Internal strategy docs (kept locally for reference)
-docs/current/brand_craft_2026-04-10.md
-docs/current/launch_craft_2026-04-10.md
-docs/current/readme_craft_2026-04-10.md
-docs/current/adoption_community_craft_2026-04-09.md
-docs/current/v1_scope_craft_2026-04-09.md
-docs/current/v1_1_scope_craft_2026-04-09.md
+# NOTE (Wave 8, contract v0.8.0): the six `docs/current/*_craft_*.md`
+# entries that used to live here were removed — docs/current/ was renamed
+# to docs/primordia/ in contract v1.5.0 (historical label; see
+# contract_changelog.md Wave 8 re-baseline notice). The underlying craft
+# files now live in docs/primordia/ and are tracked normally.

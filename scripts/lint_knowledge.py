@@ -4,9 +4,10 @@ Myco Knowledge System — Automated Lint (SHIM)
 ==============================================
 Thin entry-point shim that delegates to myco.lint.main.
 
-**This file is a shim as of contract v1.6.0.** Prior to Wave 6 this file
-and src/myco/lint.py were dual-maintained physical copies of the same
-14-dimensional lint implementation. The dual-write was Myco's largest
+**This file is a shim as of contract v1.6.0 (re-baselined to v0.6.0 in
+Wave 8).** Prior to Wave 6 this file and src/myco/lint.py were
+dual-maintained physical copies of the same 14-dimensional lint
+implementation. The dual-write was Myco's largest
 structural debt — every new lint dimension required synchronous edits at
 two sites, and drift was caught only by L8 (.original sync) which does
 not actually check the two files against each other.

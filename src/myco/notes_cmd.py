@@ -240,7 +240,7 @@ def run_view(args) -> int:
         _print_header(f"Note: {nid}")
         display_keys = ["status", "source", "tags", "created", "last_touched",
                         "digest_count", "promote_candidate", "excrete_reason"]
-        # Surface optional v1.4.0 fields if present (view_count / last_viewed_at)
+        # Surface optional v0.4.0 fields if present (view_count / last_viewed_at)
         for opt in ("view_count", "last_viewed_at"):
             if opt in meta:
                 display_keys.append(opt)
@@ -334,7 +334,7 @@ def run_hunger(args) -> int:
     print(f"  deep-digested (digest_count≥2): {len(report.deep_digested)}")
     print(f"  excreted-with-reason:            {report.excreted_with_reason}")
     print(f"  promote_candidates:              {len(report.promote_candidates)}")
-    # D-layer dead-knowledge section (contract v1.4.0 seed).
+    # D-layer dead-knowledge section (contract v0.4.0 seed).
     if getattr(report, "dead_notes", None):
         print(
             f"\n  💀 dead knowledge  "

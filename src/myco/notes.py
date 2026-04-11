@@ -80,7 +80,7 @@ REQUIRED_FIELDS: Tuple[str, ...] = (
     "digest_count", "promote_candidate", "excrete_reason",
 )
 
-# v1.4.0: optional frontmatter fields for Self-Model D layer (dead knowledge
+# v0.4.0: optional frontmatter fields for Self-Model D layer (dead knowledge
 # detection). Not enforced by L10; grandfathered for existing notes.
 # Authoritative design: docs/primordia/dead_knowledge_seed_craft_2026-04-11.md.
 OPTIONAL_FIELDS: Tuple[str, ...] = (
@@ -168,7 +168,7 @@ def serialize_note(meta: Dict[str, Any], body: str) -> str:
     if yaml is None:
         raise RuntimeError("PyYAML is required for note serialization")
     ordered = {k: meta.get(k) for k in REQUIRED_FIELDS if k in meta}
-    # v1.4.0: place optional D-layer fields immediately after required
+    # v0.4.0: place optional D-layer fields immediately after required
     # fields so diffs stay readable. Any other extra keys fall through.
     for k in OPTIONAL_FIELDS:
         if k in meta:
@@ -287,7 +287,7 @@ def update_note(path: Path, **field_updates: Any) -> Dict[str, Any]:
 
 
 def record_view(path: Path, *, now: Optional[datetime] = None) -> Dict[str, Any]:
-    """v1.4.0 — Self-Model D layer seed.
+    """v0.4.0 — Self-Model D layer seed.
 
     Record an attended view event on a note: increment ``view_count`` and set
     ``last_viewed_at``. Crucially this does **not** bump ``last_touched`` —
@@ -409,7 +409,7 @@ class HungerReport:
     deep_digested: List[Dict[str, Any]]     # digest_count ≥ 2
     excreted_with_reason: int
     promote_candidates: List[Dict[str, Any]]
-    # v1.4.0 — Self-Model D layer seed
+    # v0.4.0 — Self-Model D layer seed
     dead_notes: List[Dict[str, Any]]        # terminal + cold + unviewed
     dead_threshold_days: int
     signals: List[str]                      # human-readable hunger signals
@@ -449,7 +449,7 @@ def _load_dead_config(root: Path) -> Tuple[int, Tuple[str, ...]]:
     return days, terminals
 
 
-# Structural compression config (contract v1.5.0).
+# Structural compression config (contract v0.5.0).
 # Authoritative spec: docs/biomimetic_map.md §4.
 # Thresholds are fixed seeds — adaptive thresholds are future work per
 # docs/open_problems.md §4. Read/write separation holds: this helper is
@@ -465,7 +465,7 @@ def _load_structural_limits(root: Path) -> Dict[str, Any]:
     """Read structural_limits from _canon.yaml with safe fallback.
 
     Returns a dict with docs_top_level_soft_limit, primordia_soft_limit,
-    exclude_paths. Instances that lack the block (pre-v1.5.0) get defaults.
+    exclude_paths. Instances that lack the block (pre-v0.5.0) get defaults.
     """
     if yaml is None:
         return dict(DEFAULT_STRUCTURAL_LIMITS)
@@ -556,10 +556,10 @@ def compute_hunger_report(
         - "no_deep_digest":  no note has digest_count ≥ 2 (Gear 3 starved)
         - "no_excretion":    zero excreted notes (compression doctrine ignored)
         - "dead_knowledge":  ≥1 terminal note cold + unviewed past threshold
-                             (Self-Model D layer seed, v1.4.0)
+                             (Self-Model D layer seed, v0.4.0)
         - "healthy":         none of the above triggered
 
-    Dead-knowledge detection (v1.4.0) flags a note iff ALL of:
+    Dead-knowledge detection (v0.4.0) flags a note iff ALL of:
         1. status ∈ terminal_statuses (default: extracted/integrated)
         2. now - created ≥ dead_threshold_days   (grace period for new notes)
         3. now - last_touched ≥ dead_threshold_days
@@ -636,7 +636,7 @@ def compute_hunger_report(
         if status == "excreted" and meta.get("excrete_reason"):
             excreted_with_reason += 1
 
-        # v1.4.0 — dead knowledge detection (Self-Model D layer seed).
+        # v0.4.0 — dead knowledge detection (Self-Model D layer seed).
         # All five conditions must hold.
         if (
             status in terminal_statuses
@@ -690,12 +690,12 @@ def compute_hunger_report(
             f"— never viewed or view_count<2. Candidates for excretion or "
             f"promotion. See `myco hunger --dead` for details (Self-Model D layer seed)."
         )
-    # Structural bloat signal (contract v1.5.0) — read-only scan of
+    # Structural bloat signal (contract v0.5.0) — read-only scan of
     # docs/ and docs/primordia/ against _canon.yaml::structural_limits.
     bloat_signal = detect_structural_bloat(root)
     if bloat_signal:
         signals.append(bloat_signal)
-    # Forage backlog signal (contract v1.7.0) — read-only scan of
+    # Forage backlog signal (contract v0.7.0) — read-only scan of
     # forage/_index.yaml. See docs/primordia/forage_substrate_craft_2026-04-11.md.
     try:
         from myco.forage import detect_forage_backlog
