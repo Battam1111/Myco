@@ -535,3 +535,45 @@ Forage item `f_20260411T180358_c7ab` → digested，digest_target 指向 a984。
 三条 digest 汇聚证据（retroactive validation）：nuwa `references/research/*.md` + gbrain markdown repo SoT + hermes `~/.hermes/` — 三个独立成熟项目都各自选 markdown 文件做 durable state。Myco 的 `notes/*.md` 决策是 convergent choice。
 
 Forage item `f_20260411T180416_3654` → digested，digest_target 指向 c1b2。Dual-path lint 15/15 green。forage raw 数：3→2（hermes + gbrain + nuwa 三条已消化；剩 mempalace + claude-managed-agents；karpathy 仍 quarantined）。
+
+## [2026-04-11] milestone | Forage digest #4 — mempalace → extracted note (哲学交锋 + MCP 4th signal)
+
+第四条 forage 消化：读 `forage/repos/mempalace/README.md`（732 行）+ `AGENTS.md`（78 行）+ 文件树扫描，产出 `n_20260411T184726_2ef7`（extracted, ~130 行 / 5:1 压缩率）。mempalace 是 AI 对话 local-first memory layer：ChromaDB 存 raw verbatim，spatial 检索 schema（wings/rooms/halls/tunnels），MCP server 19 tools，temporal validity KG，AAAK lossy 压缩 dialect，`wake-up` 加载 ~170 token 关键身份。LongMemEval 96.6% R@5 raw mode（独立复现，高于所有已发表系统）。
+
+**哲学交锋**：mempalace 的核心赌注和 Myco 相反 —— "不让 AI 决定重要性，留住每一个字，用结构做 navigable map 而非 flat search"。AAAK lossy 压缩对比 raw mode 回归了 12.4 分（84.2% vs 96.6%），这是真实数据不是稻草人。**Myco 压缩哲学的四点防御**：(1) 目标指标不同 —— mempalace 测的是 retrieval recall，Myco 测的是 agent-behavior change across sessions，两个 benchmark 答的是不同问题；(2) Myco 也在 ingress 保留 raw —— `notes/*.md` 的 `status: raw` 是逐字保留的，压缩发生在 lifecycle staged 流转里不是破坏性摄入；(3) 机制差异 —— AAAK 是 lexical（regex dialect），Myco 是 semantic（synthesis with rationale），LongMemEval 的回归只证明 lexical 压缩伤 recall，对 semantic 压缩沉默；(4) mempalace 自己的 honest correction（48 小时社区发现并修正 4 条 overclaim）**反向验证了 Myco craft protocol 的 adversarial peer review 纪律**。
+
+三条 borrow-candidates：(1) spatial retrieval schema（wings/rooms/halls）作为 retrieval metadata — 低优先级，归档为 "将来加 retrieval 时 notes frontmatter 加 hall/room 字段"；(2) temporal-validity KG with `as_of` queries — 有趣但需要 graph 层，Gear 4 规模考虑；(3) L0/L1/L2/L3 wake-up 分层 — Myco hot zone 已经是 L0+L1，可以作为文档 retrofit 而非代码。
+
+显式 NOT portable：AAAK 本身、ChromaDB 做 SoT、"wings=projects-or-people" 多项目 scope 模型（会重新引入 friction note 381c 刚刚消除的 scope confusion）。
+
+**MCP 4th signal**：nuwa + gbrain + hermes + mempalace 四条独立项目都把 MCP 当 agent-facing surface。**MCP tools surface 从 future-consideration 上调为 active Wave 10/11 candidate**。
+
+Forage item `f_20260411T180425_2146` → digested，digest_target 指向 2ef7。Dual-path lint 15/15 green。
+
+## [2026-04-11] milestone | Forage digest #5 — Claude Managed Agents → extracted note (市场定位 + 产品边界)
+
+第五条 forage 消化：读 `forage/articles/claude_managed_agents.md`（47 行 WebFetch 摘要级抽取，payload gitignored per payload-off-by-default），产出 `n_20260411T184826_4256`（extracted, ~75 行 / negative compression —— 源已是摘要，分析层是 value-add）。Anthropic 2026-04-08 发布的 Claude Managed Agents：托管 agent runtime 的 composable APIs，主打 sandbox + session persistence + multi-agent delegation + governance + observability；launch customers 包括 Notion / Rakuten / Asana / Vibecode / Sentry；结构化文件生成任务 +10 分性能 claim。
+
+**定位分析**：Managed Agents 和 Myco 是 **不同产品类别**，不应混淆。Managed Agents 是面向企业工程组织的 hosted runtime；Myco 是面向个人或小团队的 substrate framework。重叠面低但非零：两者都关心 "agent 状态跨 session 持久化"，可以 literally stack（Managed-Agents-hosted agent 写入 Myco substrate via MCP）。**Myco 不应定位为 Managed Agents 的替代方案**——它们玩不同的游戏。
+
+三条定位点：(1) Notion/Rakuten/Asana 的 named deployment 是硬信号 —— "agent-as-service" framing 已从 pilot 进入 production，Myco 应承认这个空间被 Managed Agents 占据，自己走 adjacent niche（durable + legible + individually-owned substrate）；(2) Managed Agents 的 governance framework 是 runtime-trust，Myco craft protocol 是 cross-time-trust —— 不同信任问题，可以作为 Myco 定位文档的 framing："Managed Agents 答'我现在能信任这个 agent 吗'，Myco 答'我跨时间能信任这个 substrate 吗'"；(3) +10 分性能 framing 是公开 claim 的负责任模板（"up to X-point improvement on task Y per internal testing"），Myco 将来如果有实证数字可以借这个形态。
+
+显式 NOT portable：hosted-runtime 架构本身、composable-APIs framing。
+
+**License 处理**：source 是 WebFetch 摘要级抽取（summary of a summary），digest 零逐字引用，仅包含结构化功能列表 / 客户名单事实（新闻稿领域）/ Myco 自己的分析评论。原博客 © Anthropic，digest 文本安全 commit。
+
+Forage item `f_20260411T180434_3035` → digested，digest_target 指向 4256。
+
+## [2026-04-11] milestone | Forage digest #6 — Karpathy LLM Wiki → extracted note (派生层 + quarantine release + absorb extension 验证)
+
+第六条也是 Wave 9 first-live forage batch 最后一条：读 `forage/articles/karpathy_llm_wiki.md`（82 行 full verbatim gist，license unknown，quarantined 状态，payload gitignored），产出 `n_20260411T185410_2e13`（extracted, ~130 行 / negative compression）。Karpathy 的 LLM Wiki gist 是 Myco 四层知识架构的直接智力祖先（在 `docs/current/llm_wiki_debate_2026-04-07.md` 明确致谢）。
+
+**Quarantine release 决策（inline craft 5 轮，置信度 0.90）**：quarantine 旗标是针对 payload *再发布*，不是 payload *阅读*。payload 已被 `forage/.gitignore` payload-off-by-default 屏蔽。derivative-only digest 带 attribution + 零逐字引用 + 结构化 paraphrase 属于合理使用范围。forage manifest 保留 `license: unknown` 作为 provenance truth，状态 quarantined → digested。
+
+**核心 `--why` 问题的答案**：Wave 9 的 `upstream absorb` 是 Karpathy 三个 op（Ingest/Query/Lint）的 **principled extension 而非 drift**。四步辩护：(1) Myco 有 6-op 面（eat/view/lint/digest/forage/absorb），其中 eat=Ingest 的 capture 部分、view=Query、lint=Lint、digest 是把 reading-from-filing 拆开（Karpathy 把它们 conflate）、forage 是 license-gated acquisition（Karpathy 假设 sources 已 curated dropped in）、absorb 是 cross-instance backflow（Karpathy 单 private wiki pattern 无此 primitive 因为他的 wiki 没有 kernel-and-instances 形态）；(2) Myco 已 converge 到 Karpathy 的 two-special-files（index.md + log.md with `## [YYYY-MM-DD]` grep 前缀）—— log.md 格式完全匹配；(3) Myco 四层架构（L1 CLAUDE.md / L1.5 wiki / L2 docs / L3 code）是 Karpathy 三层（raw/wiki/schema）的直接后代，只是把 raw tier 拆为 forage 外源 + L0 session archive；(4) Karpathy gist 中 `qmd` 的 MCP-server 提及是 MCP-as-agent-surface 的 5th signal —— nuwa + gbrain + hermes + mempalace + karpathy 五个独立来源指向同一结论。
+
+显式 NOT portable：Obsidian 依赖、`qmd` 作为 dep（Myco 应走 convergent SQLite FTS5）、"batch-ingest without supervision" 模式（违反 Myco 的 friction-always-captured 与 digest-to-integrated 的 human-in-loop 要求）。
+
+**Wave 9 first-live forage batch 完成**（6/6）：nuwa + gbrain + hermes + mempalace + claude-managed-agents + karpathy 全部 digested。`forage_backlog` 信号清零。跨项目 convergent pattern 3 条进入 Wave 10/11 预留：(a) MCP-tools surface（5 signal）、(b) central command registry → 多 emitter 单源派生（2 signal: gbrain + hermes）、(c) SQLite FTS5 default local retrieval（2 signal: gbrain fallback + hermes）。
+
+Forage item `f_20260411T180445_f157` → digested（quarantine released），digest_target 指向 2e13。Dual-path lint 15/15 green 验证后 commit。

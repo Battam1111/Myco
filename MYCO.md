@@ -92,11 +92,11 @@ Python 打包环境（hatchling + twine）。模板唯一来源：`src/myco/temp
 | 指标 | 值 | rationale | 证据锚 |
 |------|----|-----------|--------|
 | `v1_launch_progress` | 0.55 | 包/契约/lint/模板/文档已 v0.2.0 pre-release 就位；但 PyPI 未发布、README 的 v1 里程碑未对齐、dist/ 仍含 1.1.0 wheel（Wave 8 清理中） | 本 wave Face C/E |
-| `three_channel_maturity` | 0.65 | inbound (forage v0.7.0) + internal (notes v0.4.0) + outbound/outbound→inbound (upstream v0.3.0) schema & lint 全部在位；Wave 9 首次闭环 absorb 验证（ce72+3356 从 ASCC 吸收 → pointer-note 落地），但样本仍 n=1（单 instance） | contract v0.9.0, L14/L10/L12, `upstream_absorb_craft` |
+| `three_channel_maturity` | 0.70 | inbound (forage v0.7.0) + internal (notes v0.4.0) + outbound/outbound→inbound (upstream v0.3.0) schema & lint 全部在位；Wave 9 首次闭环 absorb 验证（ce72+3356 从 ASCC 吸收 → pointer-note 落地），n=1；**Wave 9 first-live forage batch 完成 6/6**（nuwa+gbrain+hermes+mempalace+CMA+karpathy 全部 raw→digested，产出 6 条 extracted notes，跨项目 convergent pattern 3 条进入 Wave 10/11 预留），inbound 通道首次 end-to-end 真实负载验证 | contract v0.9.0, L14/L10/L12, forage manifest 6× digested, `n_20260411T1831..185410_*` |
 | `lint_coverage_confidence` | 0.68 | 15 维 L0-L14 全绿，双路径（myco.lint + scripts/lint_knowledge.py shim）一致；bootstrap ceiling 限制 0.70 以内 | L13/L14 craft + 双路径验证 |
 | `compression_discipline_maturity` | 0.40 | 七步管道到"淘汰"已有结构但真实 excretion 只发生过 1 次；dead_knowledge 信号未触发过 | n_20260411T*.md 态势 |
 | `identity_anchor_confidence` | 0.70 | 身份锚点 8 条稳定多 wave；L9 Vision Anchor 执行中；但自评偏差无外部独立确认 | vision_recovery craft |
-| `forage_backlog_pressure` | 0.00 | forage/_index.yaml 空 | L14 |
+| `forage_backlog_pressure` | 0.00 | Wave 9 first-live batch 6 items 全部 digested（空 raw backlog）；manifest schema_version=1 稳定 | L14, forage/_index.yaml |
 | `notes_digestion_pressure` | 0.18 | 少量 raw 未 digest 但无 stale；健康范围 | myco hunger |
 | `upstream_inbox_pressure` | 0.00 | Wave 9 CLI 落地后首次 dogfood：ce72+3356 absorb → ingest 完成，bundle 已归档至 `.myco_upstream_inbox/absorbed/`，active inbox 归零；ceiling=5 为 bootstrap 值，pending friction data | contract v0.9.0, `myco upstream scan` |
 
