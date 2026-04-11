@@ -843,3 +843,14 @@ conclusion note: `notes/n_20260411T225901_4d39.md` (integrated)
 - Batch 2 (Wave 14, v0.13.0) — Session End Reflex Arc ✅
 - Batch 3 (Wave 15, v0.14.0) — L13 Body Schema ✅
 - Batch 4 (Wave 16, v0.15.0) — Upstream Scan Timestamp ✅
+
+## [2026-04-11] milestone | Wave 17 contract v0.16.0 — Boot Brief Injector + upstream_scan_stale Reader
+- Landed: render_entry_point_signals_block (regex patch MYCO-BOOT-SIGNALS:BEGIN/END) + write_boot_brief (.myco_state/boot_brief.md) + detect_upstream_scan_stale (hunger signal, stale_days=7, pending bundle count)
+- L12 extended: .myco_state flat whitelist (.md/.json)
+- canon bumped v0.15.0 → v0.16.0; new blocks system.boot_brief + system.upstream_scan
+- Sentinel blocks added: kernel MYCO.md + template MYCO.md + ASCC CLAUDE.md
+- Dogfood: kernel hunger patched MYCO.md 2026-04-11T15:21:05Z; ASCC hunger patched CLAUDE.md 2026-04-11T15:22:01Z; synthetic stale (8d + dummy bundle) fired exact [REFLEX HIGH]
+- Craft: docs/primordia/boot_brief_injector_craft_2026-04-11.md (confidence 0.92)
+- Holes closed: H-1 full, H-7 full, H-8 partial (reader side only), H-9 full
+- Remaining: H-2/H-6 (architectural limits, document); H-3 (Wave 19); H-4/H-5 (Wave 18); H-8 writer (future)
+- Lint: 16/16 green

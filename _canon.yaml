@@ -6,9 +6,36 @@ system:
   # Authoritative source: docs/agent_protocol.md §8
   # Craft record:         docs/primordia/upstream_protocol_craft_2026-04-11.md
   # Changelog:             docs/contract_changelog.md
-  contract_version: "v0.15.0"  # Wave 16: upstream scan timestamp write path (closes Wave 13 A7)
-  synced_contract_version: "v0.15.0"  # Wave 16 — self-reference: kernel's own lock
-  upstream_scan_last_run: "2026-04-11T14:58:50Z"
+  contract_version: "v0.16.0"  # Wave 17: boot brief injector + upstream_scan_stale reader (closes H-1/H-7/H-8 partial/H-9)
+  synced_contract_version: "v0.16.0"  # Wave 17 — self-reference: kernel's own lock
+  upstream_scan_last_run: "2026-04-11T15:21:31Z"
+
+  # --- Upstream scan staleness reader (Wave 17, contract v0.16.0) ---
+  # Feeds detect_upstream_scan_stale() in src/myco/notes.py. Fires
+  # HIGH if stale AND bundles pending in .myco_upstream_inbox/,
+  # MEDIUM if stale AND no bundles, silent otherwise.
+  # Closes Wave 13 A7 split's reader half (Wave 16 landed the writer).
+  upstream_scan:
+    stale_days: 7              # default: scan older than 7d is stale
+    enabled: true              # hunger channel toggle
+
+  # --- Boot Brief Injector (Wave 17, contract v0.16.0) --------------
+  # See docs/primordia/boot_brief_injector_craft_2026-04-11.md.
+  # Writes .myco_state/boot_brief.md + patches entry point file's
+  # signals block on every successful `myco hunger` invocation.
+  boot_brief:
+    enabled: true
+    brief_path: ".myco_state/boot_brief.md"   # cache file
+    sentinel_begin: "<!-- MYCO-BOOT-SIGNALS:BEGIN"  # regex prefix
+    sentinel_end: "<!-- MYCO-BOOT-SIGNALS:END -->"
+    # Signals included in the condensed MYCO.md / CLAUDE.md block.
+    # Order = display order. Missing signals are omitted silently.
+    priority_signals:
+      - contract_drift
+      - raw_backlog
+      - upstream_scan_stale
+      - craft_reflex_missing
+      - session_end_drift
 
   # --- Boot Reflex Arc (Wave 13, contract v0.12.0) ------------------------
   # Authoritative craft: docs/primordia/boot_reflex_arc_craft_2026-04-11.md

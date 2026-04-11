@@ -912,6 +912,354 @@ def detect_session_end_drift(
     )
 
 
+def detect_upstream_scan_stale(
+    root: Path,
+    *,
+    now: Optional[datetime] = None,
+) -> Optional[str]:
+    """Return an `upstream_scan_stale` signal if the last scan is stale.
+
+    Wave 17 (contract v0.16.0) — closes Wave 13 Boot Reflex Arc craft §A7
+    split: Wave 16 landed the writer (`system.upstream_scan_last_run`),
+    this is the reader half.
+
+    Tiers:
+        HIGH   — stale AND .myco_upstream_inbox/ has bundle files pending
+        MEDIUM — stale AND no bundles pending
+        None   — fresh OR feature disabled OR no timestamp yet
+
+    See docs/primordia/boot_brief_injector_craft_2026-04-11.md §D3.
+    Fails open on any IO/parse error (returns None).
+    """
+    try:
+        import yaml as _yaml
+    except ImportError:
+        return None
+
+    canon_path = Path(root) / "_canon.yaml"
+    if not canon_path.exists():
+        return None
+    try:
+        canon = _yaml.safe_load(canon_path.read_text(encoding="utf-8")) or {}
+    except Exception:
+        return None
+
+    system = canon.get("system") or {}
+    cfg = system.get("upstream_scan") or {}
+    if not cfg.get("enabled", True):
+        return None
+
+    stale_days = int(cfg.get("stale_days", 7))
+    last_run = system.get("upstream_scan_last_run")
+    if not last_run:
+        # Never scanned — that's a reader-side concern but we don't want
+        # to nag fresh installs. Fire MEDIUM only if bundles pending.
+        inbox = Path(root) / ".myco_upstream_inbox"
+        pending = _count_pending_bundles(inbox)
+        if pending > 0:
+            return (
+                f"upstream_scan_stale: never scanned (timestamp null) "
+                f"and {pending} bundle(s) pending in "
+                f".myco_upstream_inbox/. Run `myco upstream scan`."
+            )
+        return None
+
+    # Parse timestamp — accept trailing Z per Wave 16 format.
+    try:
+        ts_text = str(last_run).rstrip("Z")
+        last_dt = datetime.fromisoformat(ts_text)
+    except (ValueError, TypeError):
+        return (
+            f"upstream_scan_stale: `upstream_scan_last_run` value "
+            f"{last_run!r} is malformed (expected ISO-8601). Run "
+            f"`myco upstream scan` to rewrite."
+        )
+
+    now_dt = now or datetime.utcnow()
+    age = now_dt - last_dt
+    if age < timedelta(days=stale_days):
+        return None
+
+    inbox = Path(root) / ".myco_upstream_inbox"
+    pending = _count_pending_bundles(inbox)
+    age_days = int(age.total_seconds() // 86400)
+
+    if pending > 0:
+        return (
+            f"[REFLEX HIGH] upstream_scan_stale: last scan was "
+            f"{age_days}d ago (threshold {stale_days}d) AND {pending} "
+            f"bundle(s) pending in .myco_upstream_inbox/. Upstream "
+            f"Protocol v1.0 autopilot violation — run `myco upstream "
+            f"scan` + `myco upstream ingest <bundle>` in this session "
+            f"before task work. See "
+            f"docs/primordia/boot_brief_injector_craft_2026-04-11.md."
+        )
+    return (
+        f"upstream_scan_stale: last scan was {age_days}d ago "
+        f"(threshold {stale_days}d); no bundles pending. Run "
+        f"`myco upstream scan` to refresh freshness stamp."
+    )
+
+
+def _count_pending_bundles(inbox: Path) -> int:
+    """Count bundle-pattern files at the top level of .myco_upstream_inbox/
+    (not counting the absorbed/ subdirectory). Best-effort.
+    """
+    if not inbox.exists() or not inbox.is_dir():
+        return 0
+    try:
+        count = 0
+        for child in inbox.iterdir():
+            if child.is_dir():
+                continue
+            name = child.name
+            if name == "README.md":
+                continue
+            if name.endswith((".bundle.yaml", ".bundle.yml", ".bundle.json")):
+                count += 1
+        return count
+    except OSError:
+        return 0
+
+
+def write_boot_brief(
+    root: Path,
+    report: "HungerReport",
+    *,
+    now: Optional[datetime] = None,
+) -> Optional[Path]:
+    """Write `.myco_state/boot_brief.md` — full hunger brief for
+    human/agent inspection. Called as a side effect of `myco hunger`.
+
+    Wave 17 (contract v0.16.0). Best-effort: any failure emits `[WARN]`
+    to stderr but never raises. Returns the brief path on success,
+    None on failure. See docs/primordia/boot_brief_injector_craft_2026-04-11.md.
+    """
+    import sys as _sys
+    try:
+        import yaml as _yaml
+    except ImportError:
+        return None
+
+    canon_path = Path(root) / "_canon.yaml"
+    if not canon_path.exists():
+        return None
+    try:
+        canon = _yaml.safe_load(canon_path.read_text(encoding="utf-8")) or {}
+    except Exception:
+        return None
+
+    cfg = ((canon.get("system") or {}).get("boot_brief") or {})
+    if not cfg.get("enabled", True):
+        return None
+
+    brief_rel = cfg.get("brief_path", ".myco_state/boot_brief.md")
+    brief_path = Path(root) / brief_rel
+
+    now_dt = now or datetime.utcnow()
+    ts = now_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    lines: List[str] = []
+    lines.append("# Myco Boot Brief")
+    lines.append("")
+    lines.append(f"> Auto-generated by `myco hunger`. Last run: **{ts}**")
+    lines.append(">")
+    lines.append("> This file is a passive signal surface for the next")
+    lines.append("> session-boot agent. Freshness > 24h means the brief")
+    lines.append("> may be stale — re-run `myco hunger` to refresh.")
+    lines.append("")
+    lines.append("## Current signals")
+    lines.append("")
+    for sig in report.signals:
+        short = sig.splitlines()[0] if "\n" in sig else sig
+        lines.append(f"- {short}")
+    lines.append("")
+    lines.append("## Totals")
+    lines.append("")
+    lines.append(f"- **Total notes**: {report.total}")
+    for status, count in report.by_status.items():
+        lines.append(f"- `{status}`: {count}")
+    lines.append("")
+    lines.append("## Pointers")
+    lines.append("")
+    lines.append(
+        "- Full hunger report: `myco hunger` (always current)"
+    )
+    lines.append(
+        "- Contract changelog: `docs/contract_changelog.md`"
+    )
+    lines.append(
+        "- Craft protocol: `docs/craft_protocol.md`"
+    )
+    lines.append("")
+
+    content = "\n".join(lines)
+
+    try:
+        brief_path.parent.mkdir(parents=True, exist_ok=True)
+        brief_path.write_text(content, encoding="utf-8")
+        return brief_path
+    except OSError as e:
+        print(
+            f"[WARN] write_boot_brief: cannot write {brief_path} ({e})",
+            file=_sys.stderr,
+        )
+        return None
+
+
+def render_entry_point_signals_block(
+    root: Path,
+    report: "HungerReport",
+    *,
+    now: Optional[datetime] = None,
+) -> Optional[Path]:
+    """Regex-patch the signals block in the entry-point file (MYCO.md
+    or whatever `system.entry_point` declares in _canon.yaml).
+
+    Uses sentinels `<!-- MYCO-BOOT-SIGNALS:BEGIN ... -->` and
+    `<!-- MYCO-BOOT-SIGNALS:END -->`. If sentinels are absent or
+    corrupted (only BEGIN, only END, or multiple pairs), emits `[WARN]`
+    to stderr and skips — never writes partial content.
+
+    Wave 17 (contract v0.16.0). Returns the entry point path on success,
+    None on skip/failure.
+    """
+    import re as _re
+    import sys as _sys
+    try:
+        import yaml as _yaml
+    except ImportError:
+        return None
+
+    canon_path = Path(root) / "_canon.yaml"
+    if not canon_path.exists():
+        return None
+    try:
+        canon = _yaml.safe_load(canon_path.read_text(encoding="utf-8")) or {}
+    except Exception:
+        return None
+
+    system = canon.get("system") or {}
+    cfg = system.get("boot_brief") or {}
+    if not cfg.get("enabled", True):
+        return None
+
+    entry_point_name = system.get("entry_point", "MYCO.md")
+    entry_path = Path(root) / entry_point_name
+    if not entry_path.exists():
+        return None  # silent: nothing to patch
+
+    try:
+        text = entry_path.read_text(encoding="utf-8")
+    except OSError:
+        return None
+
+    # Sentinel regex: BEGIN anchor allows arbitrary comment text after
+    # "BEGIN", END is fixed.
+    begin_re = _re.compile(
+        r"<!--\s*MYCO-BOOT-SIGNALS:BEGIN\b[^>]*-->",
+    )
+    end_re = _re.compile(
+        r"<!--\s*MYCO-BOOT-SIGNALS:END\s*-->",
+    )
+
+    begins = list(begin_re.finditer(text))
+    ends = list(end_re.finditer(text))
+
+    if len(begins) == 0 and len(ends) == 0:
+        # Clean absence — grandfather: no sentinel, no patch, no warn.
+        return None
+    if len(begins) != 1 or len(ends) != 1:
+        print(
+            f"[WARN] render_entry_point_signals_block: expected exactly "
+            f"one BEGIN/END sentinel pair in {entry_point_name}, found "
+            f"{len(begins)} BEGIN / {len(ends)} END — skipping render.",
+            file=_sys.stderr,
+        )
+        return None
+
+    begin_m, end_m = begins[0], ends[0]
+    if end_m.start() < begin_m.end():
+        print(
+            f"[WARN] render_entry_point_signals_block: END sentinel "
+            f"precedes BEGIN in {entry_point_name} — skipping.",
+            file=_sys.stderr,
+        )
+        return None
+
+    priority = cfg.get("priority_signals") or [
+        "contract_drift",
+        "raw_backlog",
+        "upstream_scan_stale",
+        "craft_reflex_missing",
+        "session_end_drift",
+    ]
+    now_dt = now or datetime.utcnow()
+    ts = now_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    # Build condensed block content. One short line per matching
+    # priority signal. "healthy" = explicit ok mark.
+    block_lines: List[str] = []
+    block_lines.append(
+        "<!-- MYCO-BOOT-SIGNALS:BEGIN (auto-generated by myco hunger; "
+        "L2/L6 ignore this region) -->"
+    )
+    block_lines.append("")
+    block_lines.append(f"> 🫀 **Boot signals** (last `myco hunger`: `{ts}`)")
+    block_lines.append(">")
+
+    matched_any = False
+    for sig in report.signals:
+        head = sig.splitlines()[0] if "\n" in sig else sig
+        # Classify by keyword — match signal names as prefixes.
+        classified = None
+        lower = head.lower()
+        for p in priority:
+            key = p.lower()
+            if key in lower or head.startswith(f"[REFLEX HIGH] {key}"):
+                classified = p
+                break
+        if classified is None and "healthy" in lower:
+            classified = "healthy"
+        if classified is None:
+            continue
+        matched_any = True
+        # Trim to ~140 chars for display compactness.
+        display = head if len(head) <= 140 else head[:137] + "..."
+        block_lines.append(f"> - {display}")
+
+    if not matched_any:
+        block_lines.append("> - (no priority signals matched; see full brief)")
+
+    block_lines.append(">")
+    brief_rel = cfg.get("brief_path", ".myco_state/boot_brief.md")
+    block_lines.append(f"> Full brief: [`{brief_rel}`]({brief_rel})")
+    block_lines.append("")
+    block_lines.append("<!-- MYCO-BOOT-SIGNALS:END -->")
+
+    new_block = "\n".join(block_lines)
+
+    new_text = (
+        text[:begin_m.start()]
+        + new_block
+        + text[end_m.end():]
+    )
+
+    if new_text == text:
+        return entry_path  # no change needed, still success
+
+    try:
+        entry_path.write_text(new_text, encoding="utf-8")
+        return entry_path
+    except OSError as e:
+        print(
+            f"[WARN] render_entry_point_signals_block: cannot write "
+            f"{entry_path} ({e})",
+            file=_sys.stderr,
+        )
+        return None
+
+
 def compute_hunger_report(
     root: Path,
     *,
@@ -1128,6 +1476,15 @@ def compute_hunger_report(
         sed_signal = detect_session_end_drift(root, now=now)
         if sed_signal:
             signals.append(sed_signal)
+    except Exception:
+        pass  # grandfather-compatible: missing canon block = feature off
+    # Upstream scan stale signal (contract v0.16.0, Wave 17) — closes
+    # Wave 13 A7 split by wiring the reader half of the writer Wave 16
+    # landed. See docs/primordia/boot_brief_injector_craft_2026-04-11.md.
+    try:
+        scan_signal = detect_upstream_scan_stale(root, now=now)
+        if scan_signal:
+            signals.append(scan_signal)
     except Exception:
         pass  # grandfather-compatible: missing canon block = feature off
     # Forage backlog signal (contract v0.7.0) — read-only scan of
