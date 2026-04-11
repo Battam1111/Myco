@@ -164,7 +164,7 @@ def main():
 
     # ── myco eat ───────────────────────────────────────────────────
     # Digestive substrate — the four-command set (eat/digest/view/hunger).
-    # Authoritative design: docs/current/digestive_architecture_craft_2026-04-10.md
+    # Authoritative design: docs/primordia/digestive_architecture_craft_2026-04-10.md
     eat_parser = subparsers.add_parser(
         "eat",
         help="Ingest a chunk of content as a raw atomic note (zero-friction capture)",

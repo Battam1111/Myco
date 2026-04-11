@@ -83,7 +83,7 @@ ERL 论文发现失败启发式 > 成功启发式。operational_narratives 仅 3
 
 **架构**：四支柱 + 自进化引擎（L-meta）
 - Pillar 1 Schema（CLAUDE.md 分级 + _canon.yaml 分 system/project）
-- Pillar 2 Knowledge（wiki + docs/current，传统手艺触发信号参数化）
+- Pillar 2 Knowledge（wiki + docs/primordia，传统手艺触发信号参数化）
 - Pillar 3 Experience（叙事 + Priming + Pattern Names）
 - Pillar 4 Timeline + Infrastructure（log.md 新增 friction/meta 类型）
 - L-meta Evolution Engine（四齿轮：Friction → Reflection → Retrospective → Distillation）

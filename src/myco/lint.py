@@ -16,7 +16,7 @@ Dimensions:
     L10 Notes Schema — atomic-note frontmatter validation (v1.2.0)
     L11 Write Surface — _canon.yaml write_surface whitelist (v1.2.0)
     L12 Upstream Dotfile Hygiene — .myco_upstream_{outbox,inbox}/ rules (v1.2.0)
-    L13 Craft Protocol Schema — docs/current/*_craft_*.md frontmatter (v1.3.0, W3)
+    L13 Craft Protocol Schema — docs/primordia/*_craft_*.md frontmatter (v1.3.0, W3)
 """
 
 import os
@@ -341,7 +341,7 @@ def lint_vision_anchors(canon, root):
 
     Converts the 2026-04-10 vision-drift recovery into a permanent
     structural safeguard. Authoritative source:
-        docs/current/vision_recovery_craft_2026-04-10.md §7
+        docs/primordia/vision_recovery_craft_2026-04-10.md §7
     """
     issues = []
     va = canon.get("system", {}).get("vision_anchors")
@@ -662,7 +662,7 @@ def lint_craft_protocol(canon, root):
     """L13 — Craft Protocol Schema (W3, v1.3.0).
 
     Enforces docs/craft_protocol.md frontmatter schema on any file in
-    docs/current/ matching the craft filename pattern AND declaring
+    docs/primordia/ matching the craft filename pattern AND declaring
     craft_protocol_version: 1. Files without craft_protocol_version are
     grandfathered (see docs/craft_protocol.md §6) and skipped entirely.
 
@@ -675,7 +675,7 @@ def lint_craft_protocol(canon, root):
     if not schema:
         return issues  # feature not configured; skip silently
 
-    craft_dir = root / schema.get("dir", "docs/current")
+    craft_dir = root / schema.get("dir", "docs/primordia")
     if not craft_dir.exists():
         return issues
 

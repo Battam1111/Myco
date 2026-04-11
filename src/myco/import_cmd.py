@@ -221,7 +221,7 @@ def run_hermes_import(source_arg: str | None, project_dir: Path, all_flag: bool,
 MEMORY_SECTIONS = {
     "Current Tasks": ("MYCO.md", "hot_zone"),
     "Key Facts": ("wiki/", "knowledge_page"),
-    "Active Decisions": ("docs/current/", "decision_record"),
+    "Active Decisions": ("docs/primordia/", "decision_record"),
     "Team": ("wiki/", "knowledge_page"),
     "Project": ("wiki/", "knowledge_page"),
     "Goals": ("MYCO.md", "hot_zone"),
@@ -359,7 +359,7 @@ def create_section_stub(section: dict, project_dir: Path, dry_run: bool) -> dict
             stub_path.write_text(content, encoding="utf-8")
         return {"action": "CREATE", "path": stub_path, "reason": f"wiki page from '{section['name']}'"}
 
-    elif target_loc == "docs/current/":
+    elif target_loc == "docs/primordia/":
         docs_dir = project_dir / "docs" / "current"
         docs_dir.mkdir(parents=True, exist_ok=True)
         stub_path = docs_dir / f"openclaw_{slug}_{get_date()}.md"

@@ -411,7 +411,7 @@ Add to the task queue:
                  verified integration. No autonomous sourcing before v2.5.
 ```
 
-### 3.4 docs/current/
+### 3.4 docs/primordia/
 
 Create `vision_recovery_craft_2026-04-10.md` ← *this file*. This is the permanent record. When future sessions compress context again, this document is the canonical anchor to re-read.
 
@@ -466,9 +466,9 @@ External (accessed 2026-04-10):
 
 Internal:
 
-- `docs/current/myco_vision_2026-04-08.md` — canonical 04-08 vision
-- `docs/current/vision_debate_2026-04-08.md` — 04-08 structured vision debate
-- `docs/current/readme_craft_2026-04-10.md` — most recent README craft (gitignored)
+- `docs/primordia/myco_vision_2026-04-08.md` — canonical 04-08 vision
+- `docs/primordia/vision_debate_2026-04-08.md` — 04-08 structured vision debate
+- `docs/primordia/readme_craft_2026-04-10.md` — most recent README craft (gitignored)
 - Session `2f34106c-6d60-4aae-b5eb-176776fd08cd.jsonl` — 04-08 Myco 设计会谈 (local archival, gitignored via `ascc_sessions/`)
 
 ---

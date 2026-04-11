@@ -32,7 +32,7 @@
 │ 元协议      │  知识库      │   经验层     │  时间线+基础设施 │
 │             │              │              │                 │
 │MYCO.md      │ wiki/*.md    │ operational  │ log.md          │
-│WORKFLOW.md  │ docs/current │ _narratives  │ _canon.yaml     │
+│WORKFLOW.md  │ docs/primordia │ _narratives  │ _canon.yaml     │
 │ (50-300行)  │              │ (失败路径)   │ lint脚本        │
 └─────────────┴──────────────┴──────────────┴─────────────────┘
 ```
@@ -127,10 +127,10 @@ project:                    # 项目启动时填充
 
 **设计理由**：不预建空页面。需求驱动创建避免维护成本。
 
-### 决策记录（`docs/current/*.md`）
+### 决策记录（`docs/primordia/*.md`）
 
 **原则**：
-- 位置：`docs/current/` 下
+- 位置：`docs/primordia/` 下
 - 可变性：追加不修改（append-only）
 - 标签：[ACTIVE] / [COMPILED] / [SUPERSEDED]
   - ACTIVE：仍在使用的决策

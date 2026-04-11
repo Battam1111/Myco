@@ -74,7 +74,7 @@ project-root/
 3. 在线调研（WebSearch，外部证据）
 4. 防御/修正
 5. 迭代至所有攻击点有可信防御
-6. 收尾：① 更新任务队列 ② 完整记录 → docs/current/ ③ 结论萃取 → wiki/MYCO.md ④ log.md
+6. 收尾：① 更新任务队列 ② 完整记录 → docs/primordia/ ③ 结论萃取 → wiki/MYCO.md ④ log.md
 
 ---
 

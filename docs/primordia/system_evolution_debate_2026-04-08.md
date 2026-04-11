@@ -243,7 +243,7 @@
 2. 更新 CLAUDE.md §4 脚本索引
 3. 在 log.md 追加 `script` 类型条目
 
-**E7. docs/current/ 生命周期标签**
+**E7. docs/primordia/ 生命周期标签**
 
 不删除辩论文档（它们是不可变的历史），但添加**前缀状态标签**到 CLAUDE.md 索引：
 - `[ACTIVE]` — 仍在使用中的辩论/设计
@@ -280,7 +280,7 @@
 | E4 | P-004/P-005 写入 | Hermes + 自发现 | Tier 1 | 95% |
 | E5 | Wiki 内部结构模板化 | Nuwa 8 部分 | Tier 2 | 80% |
 | E6 | 临时脚本归档协议 | Hermes 技能创建触发 | Tier 2 | 85% |
-| E7 | docs/current/ 生命周期标签 | 自发现 | Tier 2 | 80% |
+| E7 | docs/primordia/ 生命周期标签 | 自发现 | Tier 2 | 80% |
 | E8 | 知识排他性检查 | Nuwa 三重验证 | Tier 3 | 60% |
 | E9 | 矛盾分类 | Nuwa | Tier 3 | 70% |
 | E10 | 自动化 Gear 2 | Hermes nudge | Tier 3 | 65% |

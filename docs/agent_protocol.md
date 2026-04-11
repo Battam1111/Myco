@@ -75,7 +75,7 @@ Myco v1.2 Phase ① 引入了消化系统（`eat / digest / view / hunger` + `no
 |----------|-------------|------|
 | `notes/n_*.md` | `myco eat` / `myco digest` / MCP `myco_eat`, `myco_digest` | **永远**不要手写 notes 文件。必须经由工具生成，保证 frontmatter 合规。 |
 | `wiki/*.md` | `myco_extract`（待实现）或人类明确授权 | 结构化知识页。agent 自主写入前必须先 `digest → extracted` 一条 note。 |
-| `docs/current/*.md` | `myco_craft`（待实现）或人类明确授权 | 辩论/决策记录。允许 agent 在多轮 debate 任务中创建，但必须是 `*_craft_YYYY-MM-DD.md` 或 `*_debate_YYYY-MM-DD.md` 命名。 |
+| `docs/primordia/*.md` | `myco_craft`（待实现）或人类明确授权 | 辩论/决策记录。允许 agent 在多轮 debate 任务中创建，但必须是 `*_craft_YYYY-MM-DD.md` 或 `*_debate_YYYY-MM-DD.md` 命名。 |
 | `log.md` | `myco_log` MCP tool（append-only） | 只能追加。永远不要 rewrite 或删除历史条目。 |
 | `MYCO.md` | `myco_integrate`（待实现）或人类明确授权 | 硬上限 300 行 (`system.myco_md_max_lines`)。只能 integrate 已经 extracted 的 note。 |
 | `_canon.yaml` | 🛑 **人类明确授权** | Schema 的 Single Source of Truth。Agent 永远不能单独修改。 |
@@ -88,7 +88,7 @@ Myco v1.2 Phase ① 引入了消化系统（`eat / digest / view / hunger` + `no
 - 在仓库根创建 `scratch.md`、`notes.md`、`TODO.md`、`MEMO.md`、`ideas.md`、`draft.md`、`summary.md`
 - 创建顶层新目录（`thoughts/`、`my_notes/`、`tmp/`）
 - 在 `wiki/` 下建非 markdown 文件或未在 `system.wiki_page_types` 中的类型
-- 在 `docs/current/` 下建不符合命名模式的文件
+- 在 `docs/primordia/` 下建不符合命名模式的文件
 - 绕过 `eat` 直接 `echo > notes/n_xxx.md`
 
 **硬规则**：**如果不确定一个写入是否合法，先 `myco eat` 捕获它作为 raw note，然后问人类"这个应该 integrate 到哪里？"。** Zero-friction capture 就是为此设计的。
@@ -187,7 +187,7 @@ v1.2 Phase ② 的驱动力是 Phase ① 产生的**真实摩擦数据**。Agent
 - note tags 必须包含：`friction-phase2` + `on-self-correction` + 错误类型 tag（如 `reference-error` / `misinterpretation` / `logic-error`）
 - note 内容遵循 §5.2 格式模板
 
-**来源溯源**：此触发点由 ASCC 项目 agent 于 2026-04-11 通过 note `n_20260411T013756_ca9e` 捕获的元级 friction 提出，经 `docs/current/upstream_protocol_craft_2026-04-11.md` 传统手艺辩论后作为首次 upstream 回灌落地。
+**来源溯源**：此触发点由 ASCC 项目 agent 于 2026-04-11 通过 note `n_20260411T013756_ca9e` 捕获的元级 friction 提出，经 `docs/primordia/upstream_protocol_craft_2026-04-11.md` 传统手艺辩论后作为首次 upstream 回灌落地。
 
 ### 5.2 格式模板（`myco eat` 时用）
 
@@ -249,7 +249,7 @@ Phase ② 开工的第一件事就是 `myco view --tag friction-phase2 --status 
 
 本节定义最内层。**它复用既有 7 步管道**：发现 → 评估 → 萃取 → 整合 → 压缩 → 验证 → 淘汰。
 
-**设计源**：`docs/current/upstream_protocol_craft_2026-04-11.md`（传统手艺 3 轮辩论，85% 置信度）
+**设计源**：`docs/primordia/upstream_protocol_craft_2026-04-11.md`（传统手艺 3 轮辩论，85% 置信度）
 
 ### 8.1 核心原则（五条硬性）
 
@@ -290,7 +290,7 @@ raw → upstream-candidate → bundle-generated
   └─ skip   → 保留 upstream-candidate，下次 boot 重评
 ```
 
-**mutation-selection 映射**：生成 bundle = mutation（substrate 做），inline confirm = selection（人类做）。这是 `docs/current/vision_recovery_craft_2026-04-10.md` §1.6 的协作模型在回灌通道的具体实现。
+**mutation-selection 映射**：生成 bundle = mutation（substrate 做），inline confirm = selection（人类做）。这是 `docs/primordia/vision_recovery_craft_2026-04-10.md` §1.6 的协作模型在回灌通道的具体实现。
 
 **craft_reference 字段**（v1.3.0 起）：bundle 若落入 class_z（kernel contract）通道，其 yaml 元数据 MUST 包含 `craft_reference: <path>`，指向一个 ACTIVE/COMPILED 状态的 craft 文件，其 `decision_class` ≥ bundle 对应的置信度阶梯（见 `docs/craft_protocol.md` §4）。class_x/class_y bundle 可选填。缺失 craft_reference 的 class_z bundle 会在 Upstream Phase 被 kernel 自动拒绝并返回 receipt reason=`missing_craft_reference`。
 

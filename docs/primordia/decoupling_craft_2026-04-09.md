@@ -26,7 +26,7 @@
 |-----|------|---------|
 | `docs/evolution_engine.md` | MEDIUM | g4-candidate 示例（badge/axes/ylim）、Gear 4 萃取示例（算法消融/实验调度器/三层axes）、事例 2（固定参数/消融组/P4/P5）、roadmap"(来自 Caveman)" |
 | `docs/architecture.md` | LOW | Header "ASCC 项目深度验证" + 触发示例 "实验阶段完成（P3/P4/P5）" |
-| `docs/current/` ASCC-era debates | 待定 | 3 个文件含 ASCC 项目特定上下文（P4 midterm, system_state, llm_wiki, nuwa_caveman） |
+| `docs/primordia/` ASCC-era debates | 待定 | 3 个文件含 ASCC 项目特定上下文（P4 midterm, system_state, llm_wiki, nuwa_caveman） |
 
 ---
 
@@ -54,7 +54,7 @@
 
 **主张**：以下内容允许保留：
 
-1. **docs/current/ 中的 ASCC-era 辩论记录**——这些是 Myco 框架设计历史，不是 ASCC 项目知识：
+1. **docs/primordia/ 中的 ASCC-era 辩论记录**——这些是 Myco 框架设计历史，不是 ASCC 项目知识：
    - `system_evolution_debate_2026-04-08.md`（Myco 命名辩论 + 进化引擎设计）✅
    - `generalization_debate_2026-04-07.md`（通用化架构设计）✅
    - `tacit_knowledge_debate_2026-04-07.md`（W6 近端丰富化设计）✅
@@ -62,7 +62,7 @@
 
 2. **对 ASCC 项目的通用性引用**（如 architecture.md 改为"a complex research project (ASCC, examples/ascc/)"——这是透明的来源标注，不是泄漏）
 
-**挑战 C2**：docs/current/ 中有 4 个文件名明确含 ASCC 意味（retrospective_p4_midterm, system_state_assessment, llm_wiki_debate, nuwa_caveman）——它们应该留在这里吗？
+**挑战 C2**：docs/primordia/ 中有 4 个文件名明确含 ASCC 意味（retrospective_p4_midterm, system_state_assessment, llm_wiki_debate, nuwa_caveman）——它们应该留在这里吗？
 
 **回应**：关键判断标准——这些文件的**主题**是什么？
 - `retrospective_p4_midterm_2026-04-07.md`：这是 ASCC Phase 4 的回顾，不是 Myco 框架辩论 → 应该属于 ASCC 项目仓库，但作为 Myco 设计史料可以保留（有 ASCC 项目使用 Myco 的原始记录价值）
@@ -74,12 +74,12 @@
 
 | 文件 | 判断 | 处理 |
 |-----|------|------|
-| `retrospective_p4_midterm_2026-04-07.md` | ASCC 项目记录 > Myco 框架设计 | 在 docs/current/README.md 中标注"[ASCC-era project record, historical reference]"即可保留 |
+| `retrospective_p4_midterm_2026-04-07.md` | ASCC 项目记录 > Myco 框架设计 | 在 docs/primordia/README.md 中标注"[ASCC-era project record, historical reference]"即可保留 |
 | `system_state_assessment_2026-04-07.md` | 明显 ASCC 专属 | 同上处理（不删除，但明确标注） |
 | `nuwa_caveman_integration_2026-04-07.md` | Myco 框架设计辩论 | 保留 [ACTIVE] 标签 |
 | `llm_wiki_debate_2026-04-07.md` | Myco 框架设计辩论 | 保留 [ACTIVE] 标签 |
 
-**结论**：docs/current/ 文件全部保留，通过 README.md 标签区分 Myco 框架记录 vs ASCC 项目记录。置信度 90%。
+**结论**：docs/primordia/ 文件全部保留，通过 README.md 标签区分 Myco 框架记录 vs ASCC 项目记录。置信度 90%。
 
 ---
 
@@ -158,7 +158,7 @@ v2.5: `.original.md` 双层架构——人类编辑原始版，自动压缩为 A
 
 ---
 
-## Round 3：关于 docs/current/ 中 ASCC-era 辩论文件的最终决策
+## Round 3：关于 docs/primordia/ 中 ASCC-era 辩论文件的最终决策
 
 **挑战 C3（自我挑战）**：`retrospective_p4_midterm_2026-04-07.md` 这类文件不只是"有点 ASCC 的味道"——它们的标题就是 ASCC 项目活动记录。开源框架 repo 里留着 "P4 midterm retrospective" 对新用户是什么信号？
 
@@ -166,19 +166,19 @@ v2.5: `.original.md` 双层架构——人类编辑原始版，自动压缩为 A
 
 这是一个 README 工程问题，不是内容删除问题。
 
-当前 docs/current/ 没有 README.md 区分文件性质。只要在 docs/current/README.md 中清晰说明：
+当前 docs/primordia/ 没有 README.md 区分文件性质。只要在 docs/primordia/README.md 中清晰说明：
 > "The files below marked [ASCC-era] are historical records from the project that incubated Myco. They document real evolution decisions — the design rationale they contain is authentic — but they reference an internal project called 'ASCC'. These are kept for research transparency, not as usage examples."
 
 这样开源用户就能理解这些文件的性质。不需要删除。
 
-**检查**：docs/current/ 是否有 README.md？从上面的 ls 结果看——有！`README.md` 已经在列表里。
+**检查**：docs/primordia/ 是否有 README.md？从上面的 ls 结果看——有！`README.md` 已经在列表里。
 
 需要更新该 README.md 添加分类标签。
 
 **最终决策**：
 - evolution_engine.md: 替换 4 处 ASCC 专属内容 → 通用化示例
 - architecture.md: 修改 3 处（header + P4/P5 + meta 示例）
-- docs/current/README.md: 添加 ASCC-era 文件分类说明
+- docs/primordia/README.md: 添加 ASCC-era 文件分类说明
 
 **综合置信度：93%**
 
@@ -190,4 +190,4 @@ v2.5: `.original.md` 双层架构——人类编辑原始版，自动压缩为 A
 |---|------|------|--------|
 | A1 | docs/evolution_engine.md | 替换 4 处 ASCC 专属内容（g4-candidate示例、萃取示例、事例2、Caveman引用） | CRITICAL |
 | A2 | docs/architecture.md | 修改 3 处（验证header、触发P3/P4/P5、meta log示例） | LOW |
-| A3 | docs/current/README.md | 添加 ASCC-era 文件分类说明 | LOW |
+| A3 | docs/primordia/README.md | 添加 ASCC-era 文件分类说明 | LOW |

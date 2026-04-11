@@ -380,7 +380,7 @@ def lint_vision_anchors(canon):
 
     This converts the 2026-04-10 vision-drift recovery into a permanent
     structural safeguard. Authoritative source:
-        docs/current/vision_recovery_craft_2026-04-10.md §7
+        docs/primordia/vision_recovery_craft_2026-04-10.md §7
     """
     issues = []
     va = canon.get("system", {}).get("vision_anchors")
@@ -731,7 +731,7 @@ def lint_craft_protocol(canon):
     """L13 — Craft Protocol Schema (W3).
 
     Enforces docs/craft_protocol.md frontmatter schema on any file in
-    docs/current/ matching the craft filename pattern AND declaring
+    docs/primordia/ matching the craft filename pattern AND declaring
     craft_protocol_version: 1. Files without craft_protocol_version are
     grandfathered and skipped entirely (see docs/craft_protocol.md §6).
 
@@ -744,7 +744,7 @@ def lint_craft_protocol(canon):
     if not schema:
         return issues  # feature not configured; skip silently
 
-    craft_dir = ROOT / schema.get("dir", "docs/current")
+    craft_dir = ROOT / schema.get("dir", "docs/primordia")
     if not craft_dir.exists():
         return issues
 

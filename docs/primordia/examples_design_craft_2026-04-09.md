@@ -25,7 +25,7 @@
 examples/ 的首要目的不是教人"怎么用 myco init"——README 和 CLI help 已经做了这件事。examples/ 的首要目的是让用户看到 **Myco 生命周期的完整形态**，特别是 Gear 4 蒸馏回路：
 
 1. 一个项目如何从 `myco init` 开始
-2. wiki、docs/current、log.md 如何在项目进行中有机生长
+2. wiki、docs/primordia、log.md 如何在项目进行中有机生长
 3. 项目结束时 Gear 4 蒸馏产出了什么
 4. 蒸馏产物如何回流进 Myco 的框架知识库（docs/）
 
@@ -69,7 +69,7 @@ examples/ 的首要目的不是教人"怎么用 myco init"——README 和 CLI h
 每个 example 应该包含两个视图：
 
 **Seed（种子）**：项目用 `myco init` 启动时的初始状态——空模板、初始 canon、空 wiki。
-**Harvest（收获）**：项目经历完整生命周期后的最终状态——填充过的 MYCO.md、有机生长的 wiki 页面、docs/current/ 里的辩论记录、log.md 时间线、以及最关键的——**Gear 4 蒸馏产物和它在 Myco 框架中的落点**。
+**Harvest（收获）**：项目经历完整生命周期后的最终状态——填充过的 MYCO.md、有机生长的 wiki 页面、docs/primordia/ 里的辩论记录、log.md 时间线、以及最关键的——**Gear 4 蒸馏产物和它在 Myco 框架中的落点**。
 
 对比这两个状态，用户能直观看到"Myco 让我的知识系统发生了什么变化"。
 

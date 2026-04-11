@@ -23,10 +23,148 @@ Commit message 格式必须使用 Conventional Commits 风格并带 `[contract:*
 
 ---
 
+## v1.5.0 — 2026-04-11 (minor)
+
+**Author**: Claude (Myco kernel agent, autonomous run under user grant)
+**Craft record**: `docs/primordia/biomimetic_restructure_craft_2026-04-11.md`
+（3 轮 Claim→Attack→Research→Defense→Revise，终置信度 0.92，
+`decision_class: kernel_contract`，floor 0.90；8 个 Round-1 attack +
+3 个 Round-2 attack + 1 次 Round-3 on-self-correction 全部落地）
+**Trigger**: 用户在 2026-04-11 panorama 回顾后明确提出
+"Myco 的项目结构彻底重构重组织 + 借鉴仿生 Myco 生物学的优点和特点"，
+并把这件事定位为"Myco 永恒进化的一部分——不断优化自己的内容组织形式"，
+把压缩 doctrine 从代谢层（notes 压缩）升维到结构层（目录与文档拓扑压缩）。
+
+**Self-correction 事件**：craft Round 1 的 Claim A "wiki/ 是空目录、rename
+零代码成本" 在 Phase A1 执行前 grep 实测暴露为**错误前提**——`wiki/` 在
+`src/myco/import_cmd.py` 硬编码 14 处（含整个 `hermes_skill_to_wiki()` 函数）、
+`_canon.yaml` 5 处（含 `wiki_page_types` schema block）、6 份 contract 文档
++ README.md + MYCO.md 共 ~50 处深度引用。这是 "Map vs Territory 混淆" 的
+教科书案例——只看了"物理空目录"就断定"概念空"。Round 3 修正后 Phase A1
+被取消，`wiki/` 保留原名。这次 self-correction 本身被写进 craft §5b 作为
+方法论案例，供未来 agent 学习。
+
+### Added
+
+**`docs/biomimetic_map.md`（新，contract 级身份锚点文档）**
+- §0 为什么要有这份文档：把 Myco 的生物学血统给一个真实落脚点，同时
+  严守"不强行套 metaphor"的纪律——只在真实信息增益处应用生物学命名。
+- §1 生物学术语 Glossary：hypha / mycelium / primordium / sporocarp /
+  spore / rhizomorph / exoenzyme / septum / sclerotium / mycorrhiza /
+  hyphal tip 共 11 条定义，每条都附 "对应 Myco 基质" 的映射说明。
+- §2 实际应用的映射表：12 行表格明确记录每个基质位置是否 rename、
+  使用哪个生物学类比、理由。**唯一执行的 rename 是
+  `docs/current/ → docs/primordia/`**。
+- §3 为什么不全面 rename：三条架构理由（边际收益递减 / 架构腐蚀 vs
+  biomimicry purity / 年轻红线保护）。这一节的存在本身是防止未来
+  agent 重新发动一次"为生物学而生物学"的 rename 冲动。
+- §4 压缩 doctrine 的生物学映射：sclerotium（致密休眠）/ autolysis（自溶）/
+  nutrient reallocation（资源重分配）三条具体实现，其中 autolysis 和
+  reallocation 已部分实现（D 层 dead_knowledge + hunger 信号），
+  sclerotium 登记为未来工作。
+- §5 Living document 维护规则 + §6 延伸阅读（含 Smith & Read 标准教材引用）。
+
+**`_canon.yaml → system.structural_limits`（新 block）**
+- `docs_top_level_soft_limit: 20` + `primordia_soft_limit: 40`
+  —— 固定种子阈值，不是 adaptive；adaptive threshold 登记在
+  `docs/open_problems.md §4` 作为后续工作。
+- `exclude_paths: [10 条 contract 级文档]` —— 被明确列出的 contract 文档
+  不计入 docs/ top-level 计数的分母，它们是 rhizomorph 不是 bloat。
+
+**`src/myco/notes.py` 新函数**
+- `detect_structural_bloat(root)` —— **只读**扫描 `docs/*.md` +
+  `docs/primordia/*.md`，对照 canon 的 soft limits + exclude_paths
+  生成 signal string 或 None。严守 read/write 分离红线——不触碰任何
+  note 元数据。
+- `_load_structural_limits(root)` helper —— 从 canon 读取阈值配置，
+  缺失时使用 `DEFAULT_STRUCTURAL_LIMITS` 常量回退，保证老 instance
+  向后兼容。
+- `compute_hunger_report` 集成：新信号附加到 signals list 末尾，
+  位置在 `dead_knowledge` 之后。
+
+**`src/myco/templates/_canon.yaml`**
+- 镜像同步 `structural_limits` block。
+- `synced_contract_version: v1.4.0 → v1.5.0`。
+
+### Changed
+
+- `_canon.yaml::system.contract_version: v1.4.0 → v1.5.0`
+- **`docs/current/ → docs/primordia/`**（**唯一的 rename**，~80 refs
+  across 35 files；canon `craft_protocol.dir` 作为 SSoT，Python 默认
+  回退值同步更新）
+- `docs/contract_changelog.md` / `docs/craft_protocol.md` / `docs/agent_protocol.md`
+  / `docs/open_problems.md` / `docs/architecture.md` / `MYCO.md` / `README.md`
+  / 等 35 份文件的 `docs/current` 字符串引用全部更新为 `docs/primordia`。
+
+### Rationale
+
+**为什么"克制的仿生"而不是"全面的仿生"**：
+craft Round 1-3 的真正产物不是 rename 本身，是**纪律**——边际收益原则
+告诉基质：只在新名字的信息增量 > 学习成本 + 引用改动成本时执行 rename。
+大多数基质目录（`notes/`, `src/`, `scripts/`, `docs/` 顶层）的通用名字
+已经在这个不等式的错误一侧。唯一清晰越过门槛的是 `docs/current/ →
+docs/primordia/`——"current" 只表达"正在活跃"，"primordia" 准确表达
+"未定型、发育中、可退化"，+1 单位的语义清晰度值得 ~80 处引用改动。
+
+**为什么结构 bloat 用 hunger signal 而不是 L14 lint**：
+bloat 是**渐进退化**问题不是硬错误。Hunger 的语义是"基质在这方面饿了/撑了"，
+驱动行为但不阻塞 commit。Lint 的语义是"违反 contract"，20 份 docs 本身
+不违反任何 contract 只是值得注意，语义错位。同时 L13 §8 反向废弃标准
+提醒基质："不要为了 lint 越多越好而创造 lint"——把 `structural_bloat`
+留在 hunger 层是对这条原则的一致应用。这个决策本身被记录在 craft §4 R2.3
+作为"L14 dead-on-arrival decision"的案例。
+
+**为什么 Phase B ASCC 合并被取消**：
+craft R2.2 设定了 70% Jaccard overlap 的合并门槛。Phase B 实测
+`docs/ascc_migration_v1_2.md` vs `docs/ascc_agent_handoff_prompt.md` 的
+token-level Jaccard = 28.15%，远低于门槛。两份文件服务于真实不同的受众
+（human operator playbook vs paste-ready agent prompt）和结构（13 headers
+vs 27 headers）。Gate 正确地阻止了一次会破坏信息的"压缩"。这是压缩
+doctrine 的反例——**压缩不等于合并，压缩要先证明不是在破坏差异**。
+
+**为什么 craft 需要 Round 3 on-self-correction**：
+Round 1-2 的 Claim A1 "wiki/ 零成本 rename" 只是空想 check，没有实测
+grep。Phase A1 执行前的前置 grep 直接证伪这个前提，触发 craft 内
+on-self-correction（`docs/agent_protocol.md §5.1`）——craft 必须**在
+执行前**纠正自己，而不是把错误传播到 commit。这是 Craft Protocol §2
+"Research 轮可触发 Revise" 机制的第一次真实应用。**置信度 0.92 不是
+从 0.91 "提高" 到 0.92，而是 craft 在收窄 scope 后对更小范围给出更
+诚实评估**。
+
+### Known non-goals (v1.5.0)
+
+- **不 rename `notes/`**：硬编码深度太深，收益不足，红线风险。
+- **不 rename `wiki/`**：50+ 处引用、概念承载深度高、Karpathy 血统正向。
+- **不 rename `docs/open_problems.md → hyphal_tips.md`**：语义增益真实
+  但需独立 craft 更新登记规则，留作未来工作。
+- **不实现 sclerotium（致密休眠）压缩管线**：COMPILED→wiki+pointer 的
+  压缩自动化，延伸 open_problems §4。
+- **不实现 adaptive threshold**：`structural_bloat` 用固定种子阈值，
+  自适应阈值随基质年龄进化登记为未来工作。
+- **没有 L14 lint**：`structural_bloat` 明确选 hunger 层，不创建硬 lint。
+
+### Migration
+
+- **下游 instance 升级指令（机械执行）**：
+  ```
+  git mv docs/current docs/primordia
+  # 更新 _canon.yaml::system.craft_protocol.dir: docs/current → docs/primordia
+  # 更新 _canon.yaml::system.synced_contract_version: → v1.5.0
+  # 全局替换 docs/current → docs/primordia（literal string，无 English-prose 冲突风险）
+  # 添加 _canon.yaml::system.structural_limits block（copy from kernel template）
+  # 运行 myco lint，确认 14/14 PASS
+  ```
+- `myco hunger --json` schema 在 signals 数组中可能出现新条目
+  `structural_bloat`，消费者可安全忽略直到准备好。
+- `docs/biomimetic_map.md` 是新增 contract 级文档——instance 可选择
+  复制一份作为本地身份锚点，也可直接引用 kernel 版本。
+
+---
+
 ## v1.4.0 — 2026-04-11 (minor)
 
 **Author**: Claude (Myco kernel agent, autonomous run under user grant)
-**Craft record**: `docs/current/dead_knowledge_seed_craft_2026-04-11.md`
+**Craft record**: `docs/primordia/dead_knowledge_seed_craft_2026-04-11.md`
 （2 轮 Claim→Attack→Research→Defense→Revise，终置信度 91%，
 `decision_class: kernel_contract`，floor 0.90；8 个 Round-1 attack + 3 个 Round-2 attack 全部防御）
 **Trigger**: `docs/open_problems.md §6` 登记的 Self-Model D 层空洞
@@ -110,7 +248,7 @@ Wave 3 把它登记进 open_problems.md §6，但登记本身不是进展——*
 ## v1.3.0 — 2026-04-11 (minor)
 
 **Author**: Claude (Myco kernel agent, autonomous run under user grant)
-**Craft record**: `docs/current/craft_formalization_craft_2026-04-11.md`
+**Craft record**: `docs/primordia/craft_formalization_craft_2026-04-11.md`
 （3 轮 Claim→Attack→Research→Defense→Revise，终置信度 91%，`decision_class: kernel_contract`，floor 0.90）
 **Trigger**: 用户授权全权推进工作后，首项任务为"传统手艺需正式命名并以合理逻辑嵌入 Myco"。
 bootstrap craft 本身豁免 `craft_protocol_version` 字段（meta-dogfood 递归防御，
@@ -182,7 +320,7 @@ v1.3.0 通过引入 L13 lint + `craft_protocol_version` 软迁移字段一次性
 ## v1.2.0 — 2026-04-11 (minor)
 
 **Author**: Claude (Myco kernel agent)
-**Craft record**: `docs/current/upstream_protocol_craft_2026-04-11.md`
+**Craft record**: `docs/primordia/upstream_protocol_craft_2026-04-11.md`
 （3 轮 Claim→Attack→Research→Defense→Revise，终置信度 85%）
 **Trigger**: ASCC 试运行中捕获的摩擦 note `n_20260411T013756_ca9e`
 暴露了摩擦捕获触发点的 meta-level gap —— agent 自承错误的时刻没有被兜住。
