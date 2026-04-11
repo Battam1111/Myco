@@ -1,27 +1,54 @@
 # Craft Protocol · 传统手艺协议 (W3)
 
 > **Status**: ACTIVE · CONTRACT
-> **Version**: v1 (first landed in Myco contract v1.3.0, 2026-04-11)
+> **Version**: v1 (first landed in Myco contract v0.9.0, 2026-04-11)
 > **Bound principle**: W3 of the Twelve Principles (`docs/WORKFLOW.md`)
-> **Debate of record**: `docs/primordia/craft_formalization_craft_2026-04-11.md`
+> **Debates of record**:
+> - `docs/primordia/craft_formalization_craft_2026-04-11.md` (v1 schema, Wave 8)
+> - `docs/primordia/craft_reflex_craft_2026-04-11.md` (discovery surface + L15, Wave 11)
+> - `docs/primordia/craft_autonomy_craft_2026-04-11.md` (agent-autonomous reflex arc, Wave 12)
 > **Schema of record**: `_canon.yaml: system.craft_protocol`
-> **Lint of record**: L13 Craft Protocol Schema (scripts/lint_knowledge.py + src/myco/lint.py)
+> **Lint of record**: L13 Craft Protocol Schema + L15 Craft Reflex (src/myco/lint.py)
 
 ## 1. What it is
 
-**Craft Protocol** (中文正式名 **传统手艺**) is Myco's formal ritual for raising
-confidence on a decision through structured self-adversarial debate before the
-decision is frozen into canon, code, or contract. It is the epistemic
-counterpart to Myco's mutation/selection model: mutations are proposed by
-the agent or human, selection pressure is applied through attack rounds,
-and only mutations that survive attack + online research reach canonical
-status.
+**Craft Protocol** (中文正式名 **传统手艺**) is Myco's agent-autonomous
+selection-pressure mechanism for raising confidence on a decision through
+structured self-adversarial debate before the decision is frozen into
+canon, code, or contract. It is the epistemic counterpart to Myco's
+mutation/selection model: mutations are proposed, selection pressure is
+applied through attack rounds + online research, and only mutations that
+survive reach canonical status.
+
+**Craft runs inside the agent loop, not outside it.** When a trigger
+condition fires (see §3), the agent's immutable reflex is to create the
+craft file in the same session — not to defer, not to ask the human to
+authorize the decision to run one. The human collaborator stays in the
+loop at audit time (commit review, async critique, human-authored or
+collaborative crafts that supersede agent-only ones), but never as a
+reflex trigger source. This is what "autonomous cognitive substrate"
+means in practice: the selection machinery is self-firing, or it is not
+a substrate.
 
 Craft is **not** ceremony. A craft that fails to find real attacks is a
 failed craft; its conclusion is untrusted regardless of how many rounds
 were run or how high the self-reported confidence is. The structure exists
 to prevent decision drift by compression and to keep an auditable artifact
-of *why* each load-bearing choice was made the way it was.
+of *why* each load-bearing choice was made the way it was. Transparency —
+every conclusion is eaten into `notes/`, logged in `log.md`, and committed
+to git — is the honor-system compensation for the fact that single-agent
+adversarial debate has a lower ceiling than multi-party debate. Hollow
+crafts leave a detectable trail for human audit.
+
+> **Wave 8 A7 overturn (Wave 12, v0.11.0)**: the original Wave 8
+> `craft_formalization_craft` Round 1 A7 rejected a `myco craft` CLI on
+> the grounds that "craft 的核心是人与 agent 的持续对话，不是可自动化的
+> job". That judgment was correct at the time (no L15 reflex existed, so
+> any CLI was just ceremony) but wrong now. With L15 in place, the
+> automation target shifted from "a CLI humans invoke" to "a reflex arc
+> from trigger-surface touch → craft file materialization, entirely
+> within agent loop". See `docs/primordia/craft_autonomy_craft_2026-04-11.md`
+> §4.1 D1–D3 for the full reasoning.
 
 ## 2. Canonical form
 
@@ -125,31 +152,36 @@ Run a Craft when any of the following is true:
 5. **Online research reveals conflict** with a current canon item: run a
    craft to resolve the conflict instead of silently updating canon.
 
-### 3.1 Discovery surface (contract v0.10.0, Wave 11)
+### 3.1 Reflex arc (contract v0.11.0, Wave 12)
 
-The five triggers above are a *passive* rule book: they tell an agent
-what ought to invoke craft, but they only fire if the agent remembers
-craft exists at the moment of decision. Wave 10 exposed this as the
-motivating failure — a full README trilogy rewrite (a textbook
-Trigger #4 event) proceeded without invoking craft because the
-discovery surface was pure documentation. To close that gap, the
-protocol declares five actively monitored discovery surfaces:
+The five triggers above are a rule book. A rule book without a reflex
+arc is advisory: it only fires if the agent remembers craft exists at
+the moment of decision. Wave 10 exposed this as an empirical failure —
+a full README trilogy rewrite (textbook Trigger #4) proceeded without
+invoking craft because the discovery surface was pure documentation.
+Wave 11 built the detection; Wave 12 closes the arc by making the
+reflex immutable and agent-autonomous.
 
-1. **This document** (`docs/craft_protocol.md`) — the formal spec,
-   read on demand.
-2. **`docs/WORKFLOW.md` §W3** — the principle-level gloss, read at
-   session boot.
-3. **`MYCO.md` hot-zone anchor** — a one-line pointer at the top of
-   every substrate, read every session before real work begins.
-4. **`myco hunger` panel** — emits a `craft_reflex_missing` signal
-   whenever a trigger surface was touched in the last
-   `lookback_days` window without matching craft evidence.
-5. **L15 Craft Reflex lint** — detects the same condition and
-   surfaces it as a LOW issue during `myco lint`, providing a
-   second-chance check before commit.
+**The arc**:
 
-Trigger surfaces are split into two classes in
-`_canon.yaml: system.craft_protocol.reflex.trigger_surfaces`:
+1. Agent touches a file in
+   `_canon.yaml: system.craft_protocol.reflex.trigger_surfaces.*`.
+2. Detection (runs every `myco lint` / `myco hunger` / session boot):
+   `now - path.stat().st_mtime < lookback_days * 86400`. Auxiliary
+   evidence check on `log.md` + `docs/primordia/*_craft_*.md` mtimes
+   for the same window — if craft evidence is present, arc is
+   satisfied. If the diff is trivial (≤ `trivial_exempt_lines` lines
+   changed AND no new identifiers added, checked via `git diff`),
+   arc is exempted — whitespace fixes do not require crafts.
+3. If uncovered and non-trivial, L15 emits a HIGH issue and
+   `myco hunger` emits `craft_reflex_missing`.
+4. **Agent's immutable reflex on HIGH** (W3 obligation): write the
+   missing craft at `docs/primordia/<topic>_craft_<YYYY-MM-DD>.md`
+   **in the same session**, before resuming the task. Bypassing via
+   `--no-verify` or ignoring the signal is a W3 violation, not a
+   shortcut. This is not a convention — it is the protocol.
+
+Trigger surfaces are split into two classes:
 
 - `kernel_contract` — `docs/agent_protocol.md`, `docs/craft_protocol.md`,
   `_canon.yaml`, `src/myco/lint.py`, `src/myco/mcp_server.py`,
@@ -159,18 +191,26 @@ Trigger surfaces are split into two classes in
   `MYCO.md`, `docs/vision.md`. Touching any of these maps to
   Trigger #4 above.
 
-Detection is **mtime-based**: if `now - path.stat().st_mtime <
-lookback_days * 86400` for any listed file, the reflex fires unless
-log.md contains a matching `evidence_pattern` OR a craft file in
-`docs/primordia/` has a matching mtime. This mtime-first design is
-robust against log prose variation and survives fresh-clone cutoffs
-(clone time becomes a natural mtime floor). Auxiliary regex on
-log.md catches the "touched two surfaces in one craft landing" case
-without requiring per-craft log entries.
+**Severity is HIGH, not LOW** (changed in Wave 12 from the initial
+Wave 11 LOW). The reasoning: Wave 11 treated the reflex as a signal
+because the design still implicitly relied on a human to decide
+whether to act on it. Wave 12 overturns that: the agent acts on the
+signal immutably. HIGH severity is what makes `myco lint` refuse to
+return 0 until the craft exists, and the agent's protocol-bound
+response is never to suppress lint — it is to write the craft.
 
-The reflex is a **signal, not a gate**. Severity is LOW and L15
-issues do not fail commits. Craft remains a human ritual; the reflex
-only refuses *silent bypass*.
+**The agent is not the passive consumer of the reflex; the agent IS
+the reflex arc.** Detection fires inside the lint/hunger pass, the
+obligation fires inside the agent loop, and the craft materializes
+within the same session that touched the surface. The human does not
+have to type anything. This is what distinguishes a substrate from a
+toolbox: the substrate self-fires.
+
+Detection strategy is **mtime-primary**: mtime is robust against log
+prose variation and survives fresh-clone cutoffs (clone time becomes
+a natural mtime floor). Auxiliary regex on `log.md` catches the
+"touched two surfaces in one craft landing" case without requiring
+per-craft log entries.
 
 ## 4. Confidence classes
 
@@ -191,6 +231,36 @@ defended instead through social transparency: every craft conclusion is
 eaten into `notes/` (via `myco eat`) and logged in `log.md`, exposing
 self-reported numbers to future audit. Inflated confidence scores leave
 a traceable trail.
+
+**Single-source convention** (Wave 12, v0.11.0): a craft whose attack
+rounds are all generated by a single agent without citing external
+research (`Online Research` sections empty or missing) SHOULD report
+`current_confidence ≤ target_confidence` (cannot exceed target). This
+is a procedural compensation for the fact that single-agent adversarial
+debate has a lower ceiling than multi-party debate. The convention is
+not currently lint-enforced; future L16 may add detection.
+
+## 4.5 Collaboration model (Wave 12, v0.11.0)
+
+Agent-autonomous craft does not mean human-excluded craft. It means the
+human is not in the **invocation loop**. The human remains in the
+**review loop** in three ways:
+
+1. **Async audit**: every craft is a git-tracked artifact. Humans can
+   read, critique, and respond to agent-authored crafts asynchronously.
+2. **Human-authored crafts**: humans write their own crafts using the
+   same schema. A human-authored craft carries the same frontmatter,
+   lives in the same directory, passes the same L13 check.
+3. **Collaborative + supersession**: a human-authored or human+agent
+   collaborative craft can **supersede** a prior agent-only craft by
+   setting `superseded_by: docs/primordia/<human_craft>.md` in the
+   old frontmatter and `status: SUPERSEDED`. The agent-only craft
+   becomes historical; the collaborative one becomes current.
+
+The agent-only craft is a **floor**, not a ceiling. It guarantees that
+every kernel-class or public-claim decision has at least one defense
+trail before shipping. Higher-quality crafts are always welcome and
+always supersede.
 
 ## 5. Integration with other Myco primitives
 
@@ -235,6 +305,23 @@ nothing forces rewrite.
    (`docs/primordia/craft_formalization_craft_2026-04-11.md`) intentionally
    omits `craft_protocol_version` to avoid recursive self-regulation,
    symmetric with Upstream Protocol §8.7 bootstrap exemption.
+5. **Honor-system ceiling for agent-autonomous crafts** (Wave 12).
+   With Wave 12's severity=HIGH, an agent under time pressure can
+   still write a hollow craft with handwaved attacks to pass L15. The
+   only compensations are transparency (every craft is git-tracked
+   and `myco_eat`'d) and human async audit. Hollow-craft detection
+   (attack-depth scoring, online-research citation counting, etc.)
+   is registered as future work in `docs/open_problems.md`.
+6. **`trivial_exempt_lines` threshold is unvalidated.** The bootstrap
+   value is 20 lines. Future Phase ② friction data will tell us
+   whether mechanical fixes frequently exceed 20 lines or hostile
+   actors game the exemption by splitting changes. The threshold is
+   canon-configurable and revisable without code change.
+7. **Git dependency for `trivial_exempt`.** The exemption check uses
+   `git diff --numstat`. In non-git environments (rare) or before the
+   first commit, the check fails closed (reflex fires regardless),
+   which is conservatively correct but may create false positives
+   for minimal CI pipelines.
 
 ## 8. Deprecation criteria (reverse sunset)
 
@@ -282,10 +369,11 @@ for field definitions.
 
 **Canonical references**
 - Principle: `docs/WORKFLOW.md` W3
-- Schema: `_canon.yaml: system.craft_protocol` (reflex subblock: v0.10.0)
-- Lint: `src/myco/lint.py::lint_craft_protocol` (L13) + `src/myco/lint.py::lint_craft_reflex` (L15)
+- Schema: `_canon.yaml: system.craft_protocol` (reflex subblock: v0.10.0; severity HIGH + trivial_exempt: v0.11.0)
+- Lint: `src/myco/lint.py::lint_craft_protocol` (L13) + `src/myco/lint.py::lint_craft_reflex` (L15, severity HIGH)
 - Hunger signal: `src/myco/notes.py::detect_craft_reflex_missing` (`craft_reflex_missing`)
 - Debate records:
   - `docs/primordia/craft_formalization_craft_2026-04-11.md` (v1 schema, Wave 8)
   - `docs/primordia/craft_reflex_craft_2026-04-11.md` (discovery surface + L15, Wave 11)
-- Contract versions: v0.9.0 (schema) → v0.10.0 (reflex)
+  - `docs/primordia/craft_autonomy_craft_2026-04-11.md` (agent-autonomous reflex arc, Wave 12 — overturns Wave 8 A7)
+- Contract versions: v0.9.0 (schema) → v0.10.0 (reflex) → v0.11.0 (autonomy + severity HIGH)

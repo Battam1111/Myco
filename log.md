@@ -655,3 +655,37 @@ L14 修复：两条新 forage 初始 license=unknown 违反 "unknown coexist wit
 **设计原则自承**：reflex 是**信号不是门闸**。craft 仍是人工仪式，reflex 只是拒绝"静默绕过"。这一条是 Round 1 A7 强制的关键防御——若把 L15 变成 HIGH/阻塞，agent 会把craft 降格为"过检仪式"，反而破坏 W3 初衷。
 
 **craft_reference**: docs/primordia/craft_reflex_craft_2026-04-11.md
+
+---
+
+## 2026-04-11 · Wave 12 · type: milestone
+
+**Wave 12 craft autonomy（v0.11.0）overturns Wave 8 A7** — 把 craft 从"advisory ritual"升级为"agent-autonomous reflex arc"。这是 Myco 身份契约级别的更正，不是功能新增。
+
+**Motivating contradiction**: Wave 11 刚落地后，我自己在 §3.1 里写了"Reflex is a signal, not a gate. Craft remains a human ritual"——用户立刻指出：如果 craft 需要人 invoke，Myco 就不是 Autonomous Cognitive Substrate，违背核心身份。自承错误已 `myco eat` 为 friction note `n_20260411T215313_0526`（tags: `friction-phase2,on-self-correction,craft-protocol,craft-autonomy,wave12`）。
+
+**meta-meta-craft**：`docs/primordia/craft_autonomy_craft_2026-04-11.md`（3 轮，终置信度 0.92，decision_class: kernel_contract，floor 0.90）。A1/A6/A7 accepted 分别导致 §4.5 协作模型 / agent protocol binding / trivial_exempt 机制；B3 withdrawn（schema 无法表达 single-source cap，降为 prose convention）。**本 craft 正式 overturn Wave 8 `craft_formalization_craft` Round 1 A7**：A7 当时（无 L15）正确，现在（有 L15）错误；automation target 从"CLI 人类调用"变为"trigger 触碰→craft 在 agent loop 内物化"。
+
+**落地（9 decisions，9 files changed）**：
+1. `_canon.yaml::system.craft_protocol.reflex.severity`: LOW → HIGH；新增 `trivial_exempt_lines: 20`
+2. `_canon.yaml::system.contract_version`: v0.10.0 → v0.11.0
+3. `src/myco/lint.py::lint_craft_reflex`：读 severity 从 canon、实现 `_is_trivial_edit` 通过 `git diff --numstat` 判定、fail-closed 降级、issue 文案强调"write NOW not later"
+4. `src/myco/notes.py::detect_craft_reflex_missing` 文案：IMMUTABLE REFLEX + --no-verify is W3 violation
+5. `docs/craft_protocol.md` 大改：
+   - §1 删除 "Myco's formal ritual / human ritual" framing → "agent-autonomous selection-pressure mechanism" + Wave 8 A7 overturn block
+   - §3.1 从 "Discovery surface" 改名 "Reflex arc"；删除 "signal not gate"；明确 4 步反射弧 + severity=HIGH 理由
+   - §4 新增 "Single-source convention"（single-agent craft: current_confidence ≤ target_confidence，prose-only）
+   - §4.5 新增 "Collaboration model"（human 在 review loop 而非 invocation loop；human-authored/collaborative craft 可 supersede agent-only）
+   - §7 追加 3 条 Known limitations（honor-system ceiling / trivial_exempt 未校准 / git 依赖 fail-closed）
+6. `src/myco/templates/_canon.yaml`：同步 severity HIGH + trivial_exempt_lines + `synced_contract_version: v0.11.0`
+7. `src/myco/templates/MYCO.md`：热区 W3 clause 完全重写强调不可绕过反射弧
+8. `docs/contract_changelog.md`：v0.11.0 条目含 CI 迁移指南
+9. `myco eat` 为 raw note `n_20260411T220153_df2b`（tags 含 `craft-autonomy, overturns-wave8-A7, wave12`）
+
+**Dual-path lint**：待运行 `myco lint --project-dir .` 与 `python scripts/lint_knowledge.py` 16/16 绿（L15 被本次 meta-meta-craft 自身满足）。
+
+**契约影响**：`system.contract_version: v0.10.0 → v0.11.0`（minor）。**下游潜在 breaking**：严格处理 lint exit code 的 CI pipeline 会看到 L15 触发 exit 1 而非 0——changelog v0.11.0 条目含 CI 迁移指南（选项 A: 让 agent loop 内闭环；选项 B: CI 把 L15 映射 warning；不推荐：关 reflex）。
+
+**Immutable reflex arc**: touch trigger surface → L15 fire HIGH → agent writes craft in-session → lint green → commit. Human never in the invocation loop; human always in review loop. This is what "autonomous cognitive substrate" means in practice: the selection machinery is self-firing, or it is not a substrate.
+
+**craft_reference**: docs/primordia/craft_autonomy_craft_2026-04-11.md

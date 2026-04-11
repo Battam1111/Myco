@@ -13,7 +13,7 @@ system:
   # See kernel docs/agent_protocol.md §8. Instance agents MUST compare
   # synced_contract_version against the kernel's contract_version at boot
   # and refresh local reflexes if drift is detected.
-  synced_contract_version: "v0.10.0"  # last kernel contract the instance aligned with
+  synced_contract_version: "v0.11.0"  # last kernel contract the instance aligned with
   upstream_scan_last_run: null         # ISO-8601 timestamp of last upstream scan
   upstream_channels:
     # Path-based classification — strictest-class-wins. See §8.2.
@@ -72,7 +72,15 @@ system:
     reflex:
       enabled: true
       lookback_days: 3
-      severity: LOW
+      # Wave 12 (v0.11.0): severity HIGH. Reflex is an immutable arc,
+      # not advisory. Agent obligation on fire: write the missing
+      # craft in-session before any other kernel-class action.
+      severity: HIGH
+      # Trivial-edit exemption. <= this many lines AND no new
+      # identifiers added (checked via `git diff --numstat` +
+      # identifier regex) → skip the reflex. Git unavailable =
+      # fail-closed (fire anyway).
+      trivial_exempt_lines: 20
       trigger_surfaces:
         kernel_contract:
           - docs/agent_protocol.md

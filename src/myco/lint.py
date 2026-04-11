@@ -1115,9 +1115,10 @@ def lint_craft_reflex(canon, root):
         return issues
 
     lookback_days = int(reflex.get("lookback_days", 3))
-    severity = str(reflex.get("severity", "LOW")).upper()
+    severity = str(reflex.get("severity", "HIGH")).upper()
     if severity not in ("CRITICAL", "HIGH", "MEDIUM", "LOW"):
-        severity = "LOW"
+        severity = "HIGH"
+    trivial_exempt_lines = int(reflex.get("trivial_exempt_lines", 0) or 0)
 
     surfaces = reflex.get("trigger_surfaces") or {}
     kernel_surfaces = list(surfaces.get("kernel_contract") or [])
@@ -1202,16 +1203,72 @@ def lint_craft_reflex(canon, root):
     if evidence_present:
         return issues
 
-    # --- Step 3: emit per-touched-surface signal ------------------------
+    # --- Step 3: trivial-edit exemption (Wave 12, v0.11.0) ---------------
+    # A surface touch whose `git diff` stat is <= trivial_exempt_lines AND
+    # introduces no new identifiers is exempt. Wrapped in try/except so
+    # non-git environments or untracked files fall back to "not exempt"
+    # (fail-closed — fire the reflex when in doubt).
+    def _is_trivial_edit(rel_path: str) -> bool:
+        if trivial_exempt_lines <= 0:
+            return False
+        import subprocess
+        try:
+            # Diff since HEAD — captures all unstaged + staged changes
+            # relative to last commit. Untracked files return non-zero
+            # and we fall back to not-exempt.
+            proc = subprocess.run(
+                ["git", "-C", str(root), "diff", "--numstat", "HEAD", "--", rel_path],
+                capture_output=True, text=True, timeout=5,
+            )
+            if proc.returncode != 0:
+                return False  # git error / untracked — fail-closed
+            out = (proc.stdout or "").strip()
+            if not out:
+                return True   # file committed but unchanged vs HEAD
+            # numstat: "<added>\t<deleted>\t<path>"
+            first_line = out.splitlines()[0]
+            parts = first_line.split("\t")
+            if len(parts) < 2:
+                return False
+            try:
+                added = int(parts[0]) if parts[0] != "-" else 0
+                deleted = int(parts[1]) if parts[1] != "-" else 0
+            except ValueError:
+                return False
+            if added + deleted > trivial_exempt_lines:
+                return False
+            # Check for new identifiers (def, class, function name,
+            # YAML key at top-level). Conservative heuristic: any added
+            # line that introduces a new keyword-like token.
+            diff_proc = subprocess.run(
+                ["git", "-C", str(root), "diff", "HEAD", "--", rel_path],
+                capture_output=True, text=True, timeout=5,
+            )
+            if diff_proc.returncode != 0:
+                return False
+            id_re = re.compile(
+                r"^\+\s*(def |class |function |async def |[a-z_][a-z0-9_]*:)"
+            )
+            for line in diff_proc.stdout.splitlines():
+                if id_re.match(line):
+                    return False  # new identifier → not trivial
+            return True
+        except (OSError, subprocess.TimeoutExpired, FileNotFoundError):
+            return False  # git missing or timeout — fail-closed
+
+    # --- Step 4: emit per-touched-surface signal ------------------------
     # Group by class to keep output scannable.
     for cls_name, rel, mt in recent_touches:
+        if _is_trivial_edit(rel):
+            continue
         age_h = int((now - mt) // 3600)
         issues.append(("L15", severity, rel,
                        f"craft trigger surface ({cls_name}) modified "
                        f"{age_h}h ago with no craft evidence in the last "
-                       f"{lookback_days}d window — either cite a craft "
-                       f"in log.md or create docs/primordia/<topic>_craft_"
-                       f"{datetime.now().strftime('%Y-%m-%d')}.md"))
+                       f"{lookback_days}d window — write the missing "
+                       f"craft NOW as docs/primordia/<topic>_craft_"
+                       f"{datetime.now().strftime('%Y-%m-%d')}.md before "
+                       f"resuming the task (W3 reflex arc, contract v0.11.0)"))
 
     return issues
 
