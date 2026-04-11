@@ -38,6 +38,90 @@ Commit message 格式必须使用 Conventional Commits 风格并带 `[contract:*
 
 ---
 
+## v0.18.0 — 2026-04-11 (minor · `myco correct` self-correction ergonomic shortcut, Wave 19 — closes H-3 partial)
+
+**Author**: Claude (Myco kernel agent, autonomous run under user grant, Wave 19)
+
+**Motivation**: Panorama note `n_20260411T231220_3fb8` flagged H-3
+MEDIUM: Hard Contract rule #3 special clause (self-corrections must
+be eaten in the same turn with mandatory tags `friction-phase2,
+on-self-correction`) had zero enforcement and zero ergonomic support.
+In the same session that authored the panorama, at least three
+self-corrections went uneaten — the rule existed on paper but
+silently died under execution pressure because the agent had to
+remember both the rule text and the exact tag incantation. Wave 19
+drops the ergonomic barrier to a single verb.
+
+**Changes**:
+1. **New `myco correct` CLI subcommand**. Thin wrapper over `run_eat`
+   in `src/myco/notes_cmd.py` that force-merges the mandatory tag
+   pair `friction-phase2, on-self-correction` onto any note produced
+   via this verb. User-supplied `--tags` are appended in order,
+   deduplicated exactly. Arguments mirror `myco eat` (`--content`,
+   `--file`, `--title`, `--source`, `--json`, `--project-dir`).
+2. **Subparser + dispatch** wired into `src/myco/cli.py`.
+3. **Canon declarative block** `system.self_correction.mandatory_tags`
+   added to both kernel `_canon.yaml` and template canon. Future
+   waves (and any future lint dimension that cares about tag
+   coupling) can reference this single source of truth rather than
+   hard-coding the pair.
+4. **Documentation nudge** in `docs/agent_protocol.md` §5.1(c):
+   one-line pointer to the new shortcut as the preferred invocation.
+5. **Contract version bumped** to `v0.18.0` in both kernel and
+   template canon; `synced_contract_version` aligned.
+
+**Dogfood evidence**:
+- `myco correct --content "Wave 19 self-test" --title "..."` →
+  tags emitted as `friction-phase2, on-self-correction` (exact pair,
+  no extras).
+- `myco correct --content "merge test" --tags "reference-error,test-tag"`
+  → tags `friction-phase2, on-self-correction, reference-error,
+  test-tag` (mandatory pair first, user tags appended, order preserved).
+- Both self-test notes `myco digest --excrete "self-test fixture"`
+  to keep the notes/ substrate clean.
+- `myco lint --project-dir .` after all edits: 16/16 green, L15 PASS
+  (the Wave 19 craft's fresh mtime covers the freshly-touched
+  `notes_cmd.py`, `agent_protocol.md`, and canon surfaces — every
+  edit is inside the evidence window).
+
+**Hole closure mapping**:
+- **H-3 partial**: ergonomic barrier drops from "remember the rule
+  text + remember the exact tag incantation" to "type one verb".
+  Full closure — automatic detection of self-correction text —
+  requires chat-stream NLP which is Phase 2 MCP-server hook work,
+  explicitly out of scope for kernel code.
+- **H-2** (pure volitional eat) and **H-6** (shell HEREDOC vs MCP
+  append path) remain unfixed; these are documented as accepted
+  architectural limits of agent-initiated sensing in the followup
+  Wave.
+
+**Migration notes**:
+- New instances cloned from the template inherit the `self_correction`
+  canon block immediately.
+- Existing instances get the block when they next sync with the
+  kernel; `myco lint` does not currently require the block, so its
+  absence on downstream is benign.
+- Agents should update their default self-correction incantation
+  from `myco eat --tags friction-phase2,on-self-correction ...` to
+  `myco correct ...` — identical effect, one verb to remember.
+
+**Known limitations** (see craft §6):
+- **L-1** Cannot detect the self-correction utterance itself. Full
+  H-3 closure is Phase 2 work.
+- **L-2** Agent still has to *remember to run* `myco correct`. Wave
+  17 boot brief is the read-path reminder for the rule text in
+  `MYCO.md` heat zone. No further kernel-level enforcement is
+  possible.
+- **L-3** Tag deduplication is exact-string; minor spelling variants
+  (`friction_phase2` vs `friction-phase2`) are distinct entries.
+  Acceptable because canon pins the canonical spelling.
+
+**Craft of record**:
+`docs/primordia/myco_correct_shortcut_craft_2026-04-11.md`
+(3 rounds, kernel_contract class, current_confidence 0.91).
+
+---
+
 ## v0.17.0 — 2026-04-11 (minor · L15 trigger surface expansion + optional git hook installer, Wave 18 — closes H-4/H-5)
 
 **Author**: Claude (Myco kernel agent, autonomous run under user grant, Wave 18)

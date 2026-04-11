@@ -13,7 +13,7 @@ system:
   # See kernel docs/agent_protocol.md §8. Instance agents MUST compare
   # synced_contract_version against the kernel's contract_version at boot
   # and refresh local reflexes if drift is detected.
-  synced_contract_version: "v0.17.0"  # last kernel contract the instance aligned with
+  synced_contract_version: "v0.18.0"  # last kernel contract the instance aligned with
   upstream_scan_last_run: null         # ISO-8601 timestamp of last upstream scan
 
   # --- Upstream scan staleness reader (Wave 17, v0.16.0) ---
@@ -33,6 +33,15 @@ system:
       - upstream_scan_stale
       - craft_reflex_missing
       - session_end_drift
+
+  # --- Self-Correction Contract (Wave 19, contract v0.18.0) --------------
+  # Hard Contract rule #3 special clause declarative form. `myco correct`
+  # CLI shortcut force-merges these tags; manual `myco eat` should also
+  # apply this exact pair when the self-correction condition applies.
+  self_correction:
+    mandatory_tags:
+      - friction-phase2
+      - on-self-correction
 
   # --- Boot Reflex Arc (Wave 13, contract v0.12.0) ------------------------
   # Authoritative craft: kernel docs/primordia/boot_reflex_arc_craft_2026-04-11.md

@@ -6,8 +6,8 @@ system:
   # Authoritative source: docs/agent_protocol.md §8
   # Craft record:         docs/primordia/upstream_protocol_craft_2026-04-11.md
   # Changelog:             docs/contract_changelog.md
-  contract_version: "v0.17.0"  # Wave 18: L15 trigger surface expansion + opt-in git hook installer (closes H-4/H-5)
-  synced_contract_version: "v0.17.0"  # Wave 18 — self-reference: kernel's own lock
+  contract_version: "v0.18.0"  # Wave 19: `myco correct` self-correction ergonomic shortcut (closes H-3 partial)
+  synced_contract_version: "v0.18.0"  # Wave 19 — self-reference: kernel's own lock
   upstream_scan_last_run: "2026-04-11T15:21:31Z"
 
   # --- Upstream scan staleness reader (Wave 17, contract v0.16.0) ---
@@ -36,6 +36,19 @@ system:
       - upstream_scan_stale
       - craft_reflex_missing
       - session_end_drift
+
+  # --- Self-Correction Contract (Wave 19, contract v0.18.0) --------------
+  # Hard Contract rule #3 special clause declarative form. The `myco
+  # correct` CLI shortcut force-merges these tags onto the note; manual
+  # `myco eat` should also apply this exact pair when the condition
+  # applies. Canon entry exists so future waves can reference the set
+  # without hard-coding.
+  # Craft of record:
+  #   docs/primordia/myco_correct_shortcut_craft_2026-04-11.md
+  self_correction:
+    mandatory_tags:
+      - friction-phase2
+      - on-self-correction
 
   # --- Boot Reflex Arc (Wave 13, contract v0.12.0) ------------------------
   # Authoritative craft: docs/primordia/boot_reflex_arc_craft_2026-04-11.md

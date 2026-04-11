@@ -865,3 +865,15 @@ conclusion note: `notes/n_20260411T225901_4d39.md` (integrated)
 - Craft: docs/primordia/l15_surface_and_git_hooks_craft_2026-04-11.md (confidence 0.91)
 - Holes closed: H-4 full, H-5 full
 - Remaining: H-3 (Wave 19); H-2/H-6 (architectural limits, document); H-8 writer side (future)
+
+## [2026-04-11] milestone | Wave 19 contract v0.18.0 — myco correct Ergonomic Shortcut
+- New CLI verb: `myco correct` — thin wrapper over `myco eat` that force-merges mandatory tag pair `friction-phase2, on-self-correction`
+- Hard Contract rule #3 special clause now has ergonomic enforcement at kernel level
+- Canon: system.self_correction.mandatory_tags (kernel + template)
+- docs/agent_protocol.md §5.1(c) gets one-sentence pointer to new shortcut
+- canon bumped v0.17.0 → v0.18.0
+- Dogfood: two self-test invocations confirm correct tag emission (mandatory-only and merged-with-user-tags); both excreted clean
+- Craft: docs/primordia/myco_correct_shortcut_craft_2026-04-11.md (confidence 0.91)
+- Holes closed: H-3 partial (ergonomic barrier → zero; full detection requires Phase 2 NLP)
+- All 9 panorama holes resolved or categorized: H-1/H-4/H-5/H-7/H-9 full; H-3/H-8 partial; H-2/H-6 pending limitations doc
+- Lint: 16/16 green

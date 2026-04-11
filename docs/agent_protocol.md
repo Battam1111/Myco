@@ -213,6 +213,7 @@ v1.2 Phase ② 的驱动力是 Phase ① 产生的**真实摩擦数据**。Agent
 - 立即动作：在**同一个 assistant turn 内**先 `myco_eat` 再继续说话
 - note tags 必须包含：`friction-phase2` + `on-self-correction` + 错误类型 tag（如 `reference-error` / `misinterpretation` / `logic-error`）
 - note 内容遵循 §5.2 格式模板
+- **ergonomic shortcut (Wave 19, v0.18.0)**：`myco correct` CLI 命令把上述强制 tag 对 (`friction-phase2, on-self-correction`) 打包进一个动词；自承错误时**优先使用** `myco correct --content "..."`（可再追加 `--tags reference-error` 等错误类型 tag），比 `myco eat --tags friction-phase2,on-self-correction,...` 的记忆成本低一个数量级。canon source-of-truth：`system.self_correction.mandatory_tags`。
 
 **来源溯源**：此触发点由 ASCC 项目 agent 于 2026-04-11 通过 note `n_20260411T013756_ca9e` 捕获的元级 friction 提出，经 `docs/primordia/upstream_protocol_craft_2026-04-11.md` 传统手艺辩论后作为首次 upstream 回灌落地。
 

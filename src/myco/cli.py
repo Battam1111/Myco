@@ -203,6 +203,35 @@ def main():
         help="Project root (default: current directory; walks up for _canon.yaml)",
     )
 
+    # ── myco correct (Wave 19, contract v0.18.0) ───────────────────
+    # Ergonomic shortcut for Hard Contract rule #3 special clause:
+    # a self-correction must be eaten in the same turn with mandatory
+    # tags 'friction-phase2, on-self-correction'. This verb force-merges
+    # the tag pair so the agent only has to remember one word.
+    # Craft of record:
+    #   docs/primordia/myco_correct_shortcut_craft_2026-04-11.md
+    correct_parser = subparsers.add_parser(
+        "correct",
+        help=("Self-correction shortcut — eat a friction note with "
+              "mandatory tags 'friction-phase2, on-self-correction' "
+              "(Hard Contract rule #3)"),
+    )
+    correct_parser.add_argument("--content", type=str, default=None,
+        help="Inline content (alternative: --file or stdin)")
+    correct_parser.add_argument("--file", type=str, default=None,
+        help="Path to a file whose contents should be eaten")
+    correct_parser.add_argument("--tags", type=str, default="",
+        help="Additional tags, merged with the mandatory pair "
+             "(friction-phase2, on-self-correction)")
+    correct_parser.add_argument("--source", type=str, default="eat",
+        choices=["chat", "eat", "promote", "import", "bootstrap"])
+    correct_parser.add_argument("--title", type=str, default=None,
+        help="Optional H1 title to prepend to the note body")
+    correct_parser.add_argument("--json", action="store_true",
+        help="Emit a machine-readable JSON result")
+    correct_parser.add_argument("--project-dir", type=str, default=".",
+        help="Project root (default: current directory)")
+
     # ── myco digest ────────────────────────────────────────────────
     digest_parser = subparsers.add_parser(
         "digest",
@@ -412,6 +441,10 @@ def main():
     if args.command == "eat":
         from myco.notes_cmd import run_eat
         sys.exit(run_eat(args))
+
+    if args.command == "correct":
+        from myco.notes_cmd import run_correct
+        sys.exit(run_correct(args))
 
     if args.command == "digest":
         from myco.notes_cmd import run_digest

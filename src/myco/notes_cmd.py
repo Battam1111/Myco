@@ -126,6 +126,36 @@ def run_eat(args) -> int:
 
 
 # ---------------------------------------------------------------------------
+# correct  — self-correction shortcut (Wave 19, contract v0.18.0)
+# ---------------------------------------------------------------------------
+
+def run_correct(args) -> int:
+    """`myco correct` — Hard Contract rule #3 ergonomic shortcut (Wave 19).
+
+    Thin wrapper over `run_eat` that force-merges the mandatory tag pair
+    `friction-phase2, on-self-correction` required whenever the agent
+    utters a self-correction ("what I said earlier about X is wrong").
+    Additional user tags are appended in order, deduplicated exactly.
+
+    Motivation: H-3 from panorama audit `n_20260411T231220_3fb8`. The
+    previous friction was remembering both the rule and the exact tag
+    incantation under cognitive load; a one-verb shortcut drops that
+    barrier to zero. Full detection still requires Phase 2 chat-stream
+    NLP — kernel code can only make compliance cheap, not automatic.
+
+    Canon source of truth for the mandatory tag set:
+        system.self_correction.mandatory_tags
+    """
+    user_tags = [t.strip() for t in (getattr(args, "tags", "") or "").split(",") if t.strip()]
+    required = ["friction-phase2", "on-self-correction"]
+    merged = required + [t for t in user_tags if t not in required]
+    args.tags = ",".join(merged)
+    if not getattr(args, "source", None):
+        args.source = "eat"
+    return run_eat(args)
+
+
+# ---------------------------------------------------------------------------
 # digest  — reflective transition
 # ---------------------------------------------------------------------------
 
