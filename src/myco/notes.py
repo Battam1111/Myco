@@ -68,11 +68,17 @@ VALID_STATUSES: Tuple[str, ...] = (
 )
 
 VALID_SOURCES: Tuple[str, ...] = (
-    "chat",         # pulled from conversation context
-    "eat",          # user/agent invoked `myco eat` explicitly
-    "promote",      # grown from another note
-    "import",       # bulk ingested from external tool
-    "bootstrap",    # created during `myco init` / first-run scaffolding
+    "chat",               # pulled from conversation context
+    "eat",                # user/agent invoked `myco eat` explicitly
+    "promote",            # grown from another note
+    "import",             # bulk ingested from external tool
+    "bootstrap",          # created during `myco init` / first-run scaffolding
+    "upstream_absorbed",  # v0.9.0 — pointer note produced by
+                          # `myco upstream ingest` when a downstream
+                          # instance's kernel friction bundle is absorbed
+                          # into kernel inbox. Evidence lives at
+                          # .myco_upstream_inbox/<...>.bundle.yaml.
+                          # Debate: docs/primordia/upstream_absorb_craft_2026-04-11.md
 )
 
 REQUIRED_FIELDS: Tuple[str, ...] = (

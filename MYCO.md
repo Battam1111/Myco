@@ -1,7 +1,7 @@
 # Myco
 
 > 最后更新：2026-04-11
-> **知识系统**：[Myco](https://github.com/Battam1111/Myco) v0.2.0（框架自用，pre-release；kernel contract v0.8.0）
+> **知识系统**：[Myco](https://github.com/Battam1111/Myco) v0.2.0（框架自用，pre-release；kernel contract v0.9.0）
 > **⚠️ Wave 8 re-baseline**：历史上 v1.x 的包版本号和 v1.x.y 的 contract 版本号在 2026-04-11 全部下调到 0 开头，因为 Myco 尚未进行过真正的 1.0 正式发布。历史记录中的 v1.x 标识符保持不动作为 immutable history；当前生效版本一律以 v0.x 计。详见 `docs/primordia/pre_release_rebaseline_craft_2026-04-11.md` 与 `docs/contract_changelog.md` 顶部 banner。
 
 ---
@@ -9,7 +9,7 @@
 ## 🔥 热区
 
 **项目**：Myco — 可自进化的 AI 延伸认知基质（框架本身）
-**当前阶段**：v0.2.0 pre-release — public launch 准备中（尚未 1.0）；Phase 2 消化道迭代进行中（Upstream Protocol v1 + Craft Protocol v1 + Self-Model D 层种子 + 仿生结构 overlay + lint SSoT 合流 + forage substrate inbound channel + **Wave 8 量化指标体系 + 全量版本 re-baseline** 已落地，kernel contract v0.8.0）
+**当前阶段**：v0.2.0 pre-release — public launch 准备中（尚未 1.0）；Phase 2 消化道迭代进行中（Upstream Protocol v1 + Craft Protocol v1 + Self-Model D 层种子 + 仿生结构 overlay + lint SSoT 合流 + forage substrate inbound channel + Wave 8 量化指标体系 + 全量版本 re-baseline + **Wave 9 upstream absorb 收割回路**（scan/absorb/ingest + pointer-note + L1 context-aware）已落地，kernel contract v0.9.0）
 
 **框架开发中最容易出错的 N 件事** ⚠️：
 1. 更新 `pyproject.toml` 版本号但忘记同步 `src/myco/__init__.py`（两处版本号必须一致）
@@ -92,12 +92,13 @@ Python 打包环境（hatchling + twine）。模板唯一来源：`src/myco/temp
 | 指标 | 值 | rationale | 证据锚 |
 |------|----|-----------|--------|
 | `v1_launch_progress` | 0.55 | 包/契约/lint/模板/文档已 v0.2.0 pre-release 就位；但 PyPI 未发布、README 的 v1 里程碑未对齐、dist/ 仍含 1.1.0 wheel（Wave 8 清理中） | 本 wave Face C/E |
-| `three_channel_maturity` | 0.60 | inbound (forage v0.7.0) + internal (notes v0.4.0) + outbound (upstream v0.2.0) schema & lint 全部在位；生产实战验证仅 ASCC 一次（n=1） | contract v0.8.0, L14/L10/L12 |
+| `three_channel_maturity` | 0.65 | inbound (forage v0.7.0) + internal (notes v0.4.0) + outbound/outbound→inbound (upstream v0.3.0) schema & lint 全部在位；Wave 9 首次闭环 absorb 验证（ce72+3356 从 ASCC 吸收 → pointer-note 落地），但样本仍 n=1（单 instance） | contract v0.9.0, L14/L10/L12, `upstream_absorb_craft` |
 | `lint_coverage_confidence` | 0.68 | 15 维 L0-L14 全绿，双路径（myco.lint + scripts/lint_knowledge.py shim）一致；bootstrap ceiling 限制 0.70 以内 | L13/L14 craft + 双路径验证 |
 | `compression_discipline_maturity` | 0.40 | 七步管道到"淘汰"已有结构但真实 excretion 只发生过 1 次；dead_knowledge 信号未触发过 | n_20260411T*.md 态势 |
 | `identity_anchor_confidence` | 0.70 | 身份锚点 8 条稳定多 wave；L9 Vision Anchor 执行中；但自评偏差无外部独立确认 | vision_recovery craft |
 | `forage_backlog_pressure` | 0.00 | forage/_index.yaml 空 | L14 |
 | `notes_digestion_pressure` | 0.18 | 少量 raw 未 digest 但无 stale；健康范围 | myco hunger |
+| `upstream_inbox_pressure` | 0.00 | Wave 9 CLI 落地后首次 dogfood：ce72+3356 absorb → ingest 完成，bundle 已归档至 `.myco_upstream_inbox/absorbed/`，active inbox 归零；ceiling=5 为 bootstrap 值，pending friction data | contract v0.9.0, `myco upstream scan` |
 
 **自评偏差护栏**（Wave 8 craft R2.2）：以上数值在无外部 evidence 情况下都以 0.70 为软顶。下调可随时，上调任何一项都需要在 `log.md` 追加一条 milestone + 关联 commit hash。**不要把 dashboard 当成奖杯榜**。
 

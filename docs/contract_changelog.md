@@ -38,6 +38,71 @@ Commit message 格式必须使用 Conventional Commits 风格并带 `[contract:*
 
 ---
 
+## v0.9.0 — 2026-04-11 (minor · upstream absorb impl)
+
+**Author**: Claude (Myco kernel agent, autonomous run under user grant, Wave 9)
+**Craft record**: `docs/primordia/upstream_absorb_craft_2026-04-11.md`
+（2 轮 Claim→Attack→Research→Defense→Revise，终置信度 0.91，
+`decision_class: kernel_contract`，floor 0.90；5 个 Round-1 attack +
+3 个 Round-2 attack，A2/A5/B1/B2/B3 全部落地为修正或撤回）
+
+**Parent craft**: `docs/primordia/upstream_protocol_craft_2026-04-11.md`
+（本 wave 执行的是父 craft 落地清单 D 段 `myco upstream scan/confirm` CLI
+——v1.0 当时显式延后至 v1.0.1 并忘记。Wave 9 把"延后"关掉，并在此过程中补齐
+了父 craft 未写清的 "bundle → note 冶炼协议"。）
+
+**Conventional Commit prefix**: `[contract:minor]` — 只新增接口，不破坏既有
+outbox 约定，下游 ASCC 写 outbox 的代码无需任何改动。
+
+### 变更摘要
+
+1. **`.myco_upstream_inbox/` kernel 侧接收坞物理落地**。此前 L11 lint 已把
+   它作为合法 dotdir 保留（`src/myco/lint.py:622`），但目录本身从未创建。
+   现在 `myco upstream absorb` 会按需 `mkdir(exist_ok=True)`，并包含
+   `absorbed/` 审计子目录。
+2. **新 CLI 三件套 `myco upstream {scan, absorb, ingest}`**（`src/myco/upstream.py` +
+   `src/myco/upstream_cmd.py`）：
+   - `scan` — 列出 kernel inbox 里待 ingest 的 bundle（不计 `absorbed/`）
+   - `absorb <instance-path>` — 从 downstream instance 的 `.myco_upstream_outbox/`
+     拷贝到 kernel inbox；加 `<YYYYMMDDTHHMMSS>_` 前缀；跳过重复项；instance 不可达时 `exit 2`
+   - `ingest <bundle-id>` — 创建一条 `source: upstream_absorbed` 的 pointer
+     note（carrying bundle.summary + evidence link），同时把 bundle 本体移到 `absorbed/`
+3. **Pointer-note 设计锁**（来自 craft Round 1 Attack A4）：ingest 绝不把
+   bundle 的 YAML 结构转写为 note body。bundle 完整结构保留在 `absorbed/`
+   作为证据；note 只是指针。L10 notes schema 无需为 upstream bundle 开例外。
+4. **`VALID_SOURCES` 扩展**：新增 `"upstream_absorbed"` 作为第六个合法 source
+   （`src/myco/notes.py`）。
+5. **新指标 `upstream_inbox_pressure`**（`_canon.yaml::indicators.substrate_keys`）：
+   - 公式：`min(pending_bundle_count / 5, 1.0)`
+   - ceiling=5 是 bootstrap 值，canon 注释标注"pending friction data"
+   - 在 `MYCO.md 📊 指标面板` 和 `src/myco/templates/MYCO.md` 同步
+6. **`upstream_absorb` canon block**：`_canon.yaml::system.upstream_absorb`
+   定义 kernel_inbox_dir、absorbed_subdir、bundle_filename_pattern、
+   pointer_note_source、batch_ingest_cap。`src/myco/upstream.py` 作为
+   class_z write_surface 条目新增。
+7. **`docs/agent_protocol.md §8.5.1 / §8.5.2 / §8.5.3`** 新增：kernel 侧动词清单、
+   Courier Fallback 人工搬运路径（当 kernel 和 instance 不在同会话时）、
+   `upstream_inbox_pressure` 指标说明。
+8. **`examples/ascc/handoff_prompt.md` Step 11.5** 新增：instance agent 生成
+   bundle 之后如何通知用户 / 如何指向 Courier Fallback / 如何触发 kernel 侧
+   absorb（若 kernel 也挂载在同会话）。
+9. **首次真实 dogfood**（与父 craft v1.0 `on-self-correction` 验收点 B 对接）：
+   本 wave 执行了对 ASCC 的 `ce72`（template / CLAUDE.md 入口缺口）和 `3356`
+   （L1 scanner backtick false positive）两条 kernel friction bundle 的 absorb
+   + ingest，并触发了各自的后续修复 craft / 直接 patch（见 log.md Wave 9
+   milestone）。
+
+### 已知限制
+
+- **KL1** ceiling=5 是拍脑袋值，等 3-5 次真实 absorb 后由 Phase ② friction
+  数据驱动调整。
+- **KL2** L14 forage hygiene 的 TTL 机制**不**套用到 upstream 侧。未来可能补
+  `notes_digestion_pressure` 细分类目，但不在 Wave 9 范围。
+- **KL3** Courier Fallback 的信任链是"用户本人 + 文件名规范"，无签名。合理
+  性：当前 instance 都是单用户本地项目。
+
+---
+
 ## v0.8.0 — 2026-04-11 (major · re-baseline)
 
 **Author**: Claude (Myco kernel agent, autonomous run under user grant, Wave 8)

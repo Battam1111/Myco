@@ -6,7 +6,7 @@ system:
   # Authoritative source: docs/agent_protocol.md §8
   # Craft record:         docs/primordia/upstream_protocol_craft_2026-04-11.md
   # Changelog:             docs/contract_changelog.md
-  contract_version: "v0.8.0"   # Wave 8 pre-release re-baseline — see changelog
+  contract_version: "v0.9.0"   # Wave 9: upstream absorb impl + indicator
   upstream_scan_last_run: null
   upstream_channels:
     # Path-based classification — strictest-class-wins. An instance agent
@@ -25,9 +25,24 @@ system:
     - scripts/lint_knowledge.py
     - src/myco/lint.py
     - src/myco/mcp_server.py
+    - src/myco/upstream.py    # v0.9.0 — kernel absorb module
     - _canon.yaml
     - src/myco/templates/**
     - forage/_index.yaml      # v1.7.0 — forage manifest is discipline surface
+
+  # --- Upstream Protocol v0.9.0 (absorb impl) ---
+  # Debate: docs/primordia/upstream_absorb_craft_2026-04-11.md
+  # Kernel side receiving dock: .myco_upstream_inbox/ (L11 dotdir-exempt).
+  # CLI verbs:   myco upstream {scan, absorb, ingest}
+  # Bundle flow: instance outbox → absorb → kernel inbox → ingest → pointer
+  #              note (source: upstream_absorbed) + evidence archive.
+  upstream_absorb:
+    kernel_inbox_dir: .myco_upstream_inbox
+    absorbed_subdir: absorbed
+    bundle_filename_pattern: '^n_\d{8}T\d{6}_[0-9a-f]+\.bundle\.(yaml|yml|json)$'
+    kernel_bundle_filename_pattern: '^\d{8}T\d{6}_n_\d{8}T\d{6}_[0-9a-f]+\.bundle\.(yaml|yml|json)$'
+    pointer_note_source: upstream_absorbed
+    batch_ingest_cap: 10       # max bundles per single ingest invocation
 
   # --- Craft Protocol v1 (W3) ---
   # Authoritative spec:    docs/craft_protocol.md
@@ -184,12 +199,14 @@ system:
     - integrated
     dead_knowledge_threshold_days: 30
     valid_sources:
-    - chat           # pulled from conversation context
-    - eat            # user/agent invoked `myco eat` explicitly
-    - promote        # grown from another note
-    - import         # bulk ingested from external tool
-    - bootstrap      # created during myco init / first-run scaffolding
-    - forage         # v1.7.0 — digested extract from a forage/ item
+    - chat                # pulled from conversation context
+    - eat                 # user/agent invoked `myco eat` explicitly
+    - promote             # grown from another note
+    - import              # bulk ingested from external tool
+    - bootstrap           # created during myco init / first-run scaffolding
+    - forage              # v0.7.0 — digested extract from a forage/ item
+    - upstream_absorbed   # v0.9.0 — pointer note from myco upstream ingest;
+                          # body + evidence file in .myco_upstream_inbox/absorbed/
 
   # --- Forage Substrate (contract v1.7.0) ---
   # External reference material intake — the exoenzyme / foraging phase
@@ -329,6 +346,10 @@ system:
     - identity_anchor_confidence
     - forage_backlog_pressure
     - notes_digestion_pressure
+    - upstream_inbox_pressure   # v0.9.0 — pending bundles / ceiling(5);
+                                # ceiling is bootstrap, pending friction data.
+                                # Debate: docs/primordia/upstream_absorb_craft_2026-04-11.md
+    upstream_inbox_ceiling: 5   # count at which pressure saturates to 1.0
 
 architecture:
   layers: 4
