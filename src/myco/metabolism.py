@@ -71,6 +71,7 @@ from myco.notes import (  # noqa: F401 — re-export
     detect_contract_drift,
     detect_session_end_drift,
     detect_upstream_scan_stale,
+    detect_compression_ripe,    # Wave 30 (v0.26.0)
     write_boot_brief,
     render_entry_point_signals_block,
     compute_hunger_report,
@@ -100,6 +101,7 @@ __all__ = [
     "detect_contract_drift",
     "detect_session_end_drift",
     "detect_upstream_scan_stale",
+    "detect_compression_ripe",
     "write_boot_brief",
     "render_entry_point_signals_block",
     "compute_hunger_report",

@@ -118,12 +118,17 @@ VALID_SOURCES: Tuple[str, ...] = (
     "promote",            # grown from another note
     "import",             # bulk ingested from external tool
     "bootstrap",          # created during `myco init` / first-run scaffolding
+    "forage",             # v0.7.0 — digested extract from a forage/ item
     "upstream_absorbed",  # v0.9.0 — pointer note produced by
                           # `myco upstream ingest` when a downstream
                           # instance's kernel friction bundle is absorbed
                           # into kernel inbox. Evidence lives at
                           # .myco_upstream_inbox/<...>.bundle.yaml.
                           # Debate: docs/primordia/upstream_absorb_craft_2026-04-11.md
+    "compress",           # v0.26.0 (Wave 30) — extracted note produced by
+                          # `myco compress` from N raw/digesting inputs.
+                          # Carries `compressed_from` audit trail.
+                          # Debate: docs/primordia/compression_primitive_craft_2026-04-12.md
 )
 
 REQUIRED_FIELDS: Tuple[str, ...] = (
@@ -134,9 +139,18 @@ REQUIRED_FIELDS: Tuple[str, ...] = (
 # v0.4.0: optional frontmatter fields for Self-Model D layer (dead knowledge
 # detection). Not enforced by L10; grandfathered for existing notes.
 # Authoritative design: docs/primordia/dead_knowledge_seed_craft_2026-04-11.md.
+# Wave 30 (v0.26.0) extends with forward-compression audit trail fields.
+# Authoritative design: docs/primordia/compression_primitive_craft_2026-04-12.md
 OPTIONAL_FIELDS: Tuple[str, ...] = (
-    "view_count",       # int, default 0
-    "last_viewed_at",   # ISO str or None
+    "view_count",              # int, default 0
+    "last_viewed_at",          # ISO str or None
+    # Wave 30 — forward compression audit trail
+    "compressed_from",         # list[str] — input note ids on output extracted
+    "compressed_into",         # str — output note id on excreted input
+    "compression_method",      # str — "manual" | "hunger-signal"
+    "compression_rationale",   # str — required prose
+    "compression_confidence",  # float — 0.0–1.0, self-reported
+    "pre_compression_status",  # str — input's prior status (for future uncompress)
 )
 
 # Default dead-knowledge threshold (canon can override via
@@ -1125,6 +1139,120 @@ def detect_upstream_scan_stale(
     )
 
 
+def detect_compression_ripe(
+    root: Path,
+    *,
+    now: Optional[datetime] = None,
+) -> Optional[str]:
+    """Return a `compression_ripe` advisory signal if any tag cohort is ripe.
+
+    Wave 30 (v0.26.0) — closes the Wave 27 D2 friction-driven trigger half
+    of the forward-compression primitive. The signal fires when:
+
+      • A tag has ≥`ripe_threshold` raw notes AND
+      • The oldest raw note carrying that tag is ≥`ripe_age_days` old
+
+    Defaults: threshold=5, age=7 days. Both come from
+    `_canon.yaml::system.notes_schema.compression`. Missing canon block →
+    feature disabled (returns None) for grandfather compatibility.
+
+    The signal is **non-blocking advisory** (LOW tier — no `[REFLEX HIGH]`
+    prefix). Wave 27 D2 explicitly rejected automatic compression because
+    the substrate doctrine (anchor #6 mutation-selection) requires the
+    agent to choose. The signal sets up the choice; the agent acts via
+    `myco compress --tag <X>` or ignores it.
+
+    Format: `compression_ripe: <N> tag cohort(s) ready: <tag1> (X notes,
+    oldest Yd), <tag2> ...`
+
+    Authoritative design: docs/primordia/compression_primitive_craft_2026-04-12.md
+    Wave 27 §1.2 (Q2 trigger), §3.1 (specification).
+    """
+    if yaml is None:
+        return None
+    canon_path = Path(root) / "_canon.yaml"
+    if not canon_path.exists():
+        return None
+    try:
+        canon = yaml.safe_load(canon_path.read_text(encoding="utf-8")) or {}
+    except Exception:
+        return None
+
+    schema = (canon.get("system") or {}).get("notes_schema") or {}
+    cfg = schema.get("compression") or {}
+    if not cfg:
+        return None  # feature off — grandfather
+
+    try:
+        threshold = int(cfg.get("ripe_threshold", 5))
+        age_days = int(cfg.get("ripe_age_days", 7))
+    except (ValueError, TypeError):
+        return None
+
+    if threshold <= 0 or age_days <= 0:
+        return None  # explicit disable
+
+    now_dt = now or datetime.now()
+    age_cutoff = now_dt - timedelta(days=age_days)
+
+    # Walk all raw notes once, building a tag → [(created, id)] map.
+    paths = list_notes(root)
+    by_tag: Dict[str, List[Tuple[datetime, str]]] = {}
+
+    for p in paths:
+        try:
+            meta, _ = read_note(p)
+        except Exception:
+            continue
+        if meta.get("status") != "raw":
+            continue
+        # Skip already-compressed pseudo-raw (defensive — should not happen
+        # but if it ever does, we don't want to count cascade-eligible).
+        if meta.get("compressed_from"):
+            continue
+        tags = meta.get("tags") or []
+        if not isinstance(tags, list):
+            continue
+        try:
+            created = datetime.strptime(str(meta.get("created", "")), _ISO_FMT)
+        except (ValueError, TypeError):
+            continue
+        for t in tags:
+            if not isinstance(t, str):
+                continue
+            by_tag.setdefault(t, []).append((created, str(meta.get("id", ""))))
+
+    # Identify ripe cohorts.
+    ripe: List[Tuple[str, int, int]] = []  # (tag, count, oldest_age_days)
+    for tag, items in by_tag.items():
+        if len(items) < threshold:
+            continue
+        oldest = min(items, key=lambda x: x[0])[0]
+        if oldest >= age_cutoff:
+            continue  # newest cohort still inside age window
+        oldest_age = (now_dt - oldest).days
+        ripe.append((tag, len(items), oldest_age))
+
+    if not ripe:
+        return None
+
+    ripe.sort(key=lambda r: -r[2])  # oldest cohort first
+    parts = [
+        f"`{t}` ({n} notes, oldest {age}d)"
+        for (t, n, age) in ripe[:5]
+    ]
+    suffix = f"; +{len(ripe) - 5} more" if len(ripe) > 5 else ""
+    return (
+        f"compression_ripe: {len(ripe)} tag cohort(s) ready for forward "
+        f"compression — " + ", ".join(parts) + suffix +
+        f". Each cohort has ≥{threshold} raw notes AND oldest is "
+        f"≥{age_days}d old (Wave 27 D2 thresholds). Run "
+        f"`myco compress --tag <T> --rationale '...'` to synthesize, or "
+        f"ignore — this is non-blocking advisory (anchor #6 selection "
+        f"loop preserved). See docs/primordia/compression_primitive_craft_2026-04-12.md."
+    )
+
+
 def _count_pending_bundles(inbox: Path) -> int:
     """Count bundle-pattern files at the top level of .myco_upstream_inbox/
     (not counting the absorbed/ subdirectory). Best-effort.
@@ -1620,6 +1748,14 @@ def compute_hunger_report(
             signals.append(forage_signal)
     except Exception:
         pass  # grandfather-compatible: missing module = feature off
+    # Compression ripe signal (contract v0.26.0, Wave 30) — friction-driven
+    # half of forward compression's trigger surface. Wave 27 D2.
+    try:
+        compress_signal = detect_compression_ripe(root, now=now)
+        if compress_signal:
+            signals.append(compress_signal)
+    except Exception:
+        pass  # grandfather-compatible: missing canon block = feature off
     if not signals:
         signals.append("healthy: notes/ is metabolizing normally.")
 

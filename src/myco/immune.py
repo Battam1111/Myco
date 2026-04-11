@@ -76,6 +76,7 @@ from myco.lint import (  # noqa: F401 — re-export
     lint_craft_reflex,        # L15
     lint_boot_brief_freshness,  # L16
     lint_contract_drift,      # L17
+    lint_compression_integrity,  # L18 — Wave 30 (v0.26.0)
 
     # Entry points
     main,
@@ -111,6 +112,7 @@ __all__ = [
     "lint_craft_reflex",
     "lint_boot_brief_freshness",
     "lint_contract_drift",
+    "lint_compression_integrity",
     "main",
     "run_lint",
 ]

@@ -13,7 +13,7 @@ system:
   # See kernel docs/agent_protocol.md §8. Instance agents MUST compare
   # synced_contract_version against the kernel's contract_version at boot
   # and refresh local reflexes if drift is detected.
-  synced_contract_version: "v0.25.0"  # last kernel contract the instance aligned with
+  synced_contract_version: "v0.26.0"  # last kernel contract the instance aligned with
   upstream_scan_last_run: null         # ISO-8601 timestamp of last upstream scan
 
   # --- Upstream scan staleness reader (Wave 17, v0.16.0) ---
@@ -243,6 +243,13 @@ system:
     optional_fields:
       - view_count              # int, default 0; bumped by `myco view <id>`
       - last_viewed_at          # ISO str or null; set by `myco view <id>`
+      # Wave 30 (v0.26.0) — forward-compression audit trail.
+      - compressed_from         # list[str]: input note ids on output extracted note
+      - compressed_into         # str: output note id on excreted input notes
+      - compression_method      # str: "manual" | "hunger-signal"
+      - compression_rationale   # str: required prose
+      - compression_confidence  # float: 0.0–1.0, self-reported
+      - pre_compression_status  # str: input's prior status (for future uncompress)
     valid_statuses:
       - raw            # just ingested, not yet processed
       - digesting      # being read / summarized / extracted
@@ -262,6 +269,13 @@ system:
       - bootstrap           # created during myco init
       - forage              # v0.7.0 — digested extract from a forage/ item
       - upstream_absorbed   # v0.9.0 — pointer note from myco upstream ingest
+      - compress            # v0.26.0 (Wave 30) — extracted note from `myco compress`
+
+    # Wave 30 (v0.26.0) — forward-compression configuration.
+    # Authoritative design: kernel docs/primordia/compression_primitive_craft_2026-04-12.md
+    compression:
+      ripe_threshold: 5
+      ripe_age_days: 7
 
   # ── Forage Substrate (contract v0.7.0) ────────────────────────────────────
   # Inbound channel — external reference material (papers, repos, articles)

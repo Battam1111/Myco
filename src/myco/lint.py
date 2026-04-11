@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Myco Knowledge System — Automated 16-Dimension Lint.
+Myco Knowledge System — Automated 19-Dimension Substrate Immune System.
 
 Dimensions:
     L0  Canon Self-Check — _canon.yaml contains all required keys
@@ -19,6 +19,9 @@ Dimensions:
     L13 Craft Protocol Schema — docs/primordia/*_craft_*.md frontmatter (v0.3.0, W3)
     L14 Forage Hygiene — forage/_index.yaml manifest + files (v0.7.0)
     L15 Craft Reflex — trigger-surface touches must cite craft evidence (v0.10.0, W3)
+    L16 Boot Brief Freshness — .myco_state/boot_brief.md mtime sanity (Wave 21, v0.20.0)
+    L17 Contract Drift — synced_contract_version vs kernel contract_version (Wave 24, v0.23.0)
+    L18 Compression Integrity — forward-compression bidirectional link audit (Wave 30, v0.26.0)
 """
 
 import os
@@ -1632,6 +1635,160 @@ def lint_contract_drift(canon, root):
 
 
 # ---------------------------------------------------------------------------
+# L18: Compression Integrity (Wave 30, v0.26.0)
+# ---------------------------------------------------------------------------
+
+def lint_compression_integrity(canon, root):
+    """L18 (Wave 30, contract v0.26.0) — forward-compression audit-trail integrity.
+
+    Closes Wave 27 D4 + Wave 27 §2.1 defense #4: forward compression's
+    bidirectional link integrity is enforced at lint time, not at
+    runtime, because (a) the substrate's notes layer cannot detect
+    after-the-fact tampering with frontmatter and (b) hallucination
+    risk in `myco compress` is bounded by structural rules, not by
+    semantic checks. L18 is the structural enforcement.
+
+    Three checks (each issue is HIGH severity):
+
+      1. **Output integrity**: every note with `compressed_from` (i.e. an
+         output of compression) must
+         (a) have status `extracted` (Wave 27 D3 — never `integrated`
+             directly; integration is a separate downstream decision)
+         (b) have source `compress`
+         (c) have `compression_method` and `compression_rationale` set
+         (d) have every id in `compressed_from` exist in notes/
+
+      2. **Input back-link integrity**: every note in any output's
+         `compressed_from` list must
+         (a) exist in notes/
+         (b) have its own `compressed_into` field pointing back to that output
+         (c) have status `excreted`
+
+      3. **Cascade prevention**: no note in any output's `compressed_from`
+         may itself have a `compressed_from` field. Compressing already-
+         compressed notes amplifies hallucination risk and is structurally
+         forbidden (Wave 27 §2.1 defense #4).
+
+    L18 is HIGH severity because a broken compression audit chain
+    invalidates the reversibility property (Wave 27 D5) — without it
+    the user cannot audit what was preserved vs dropped, and Wave 27
+    Attack F (hallucination) is unbounded.
+
+    Authoritative craft:
+        docs/primordia/compression_primitive_craft_2026-04-12.md (Wave 27)
+        docs/primordia/compress_mvp_craft_2026-04-12.md (Wave 30)
+    """
+    issues = []
+    schema = canon.get("system", {}).get("notes_schema") or {}
+    notes_dir = root / schema.get("dir", "notes")
+    if not notes_dir.exists():
+        return issues
+
+    # First pass: build an index of {note_id → (status, compressed_from, compressed_into, source, method, rationale)}
+    index = {}
+    for path in sorted(notes_dir.glob("n_*.md")):
+        rel = str(path.relative_to(root))
+        content = read_file(path)
+        if content is None:
+            continue
+        m = _FRONTMATTER_RE.match(content)
+        if not m:
+            continue
+        try:
+            meta = yaml.safe_load(m.group("fm")) or {}
+        except Exception:
+            continue
+        if not isinstance(meta, dict):
+            continue
+        nid = meta.get("id")
+        if not nid:
+            continue
+        index[str(nid)] = {
+            "rel": rel,
+            "status": meta.get("status"),
+            "source": meta.get("source"),
+            "compressed_from": meta.get("compressed_from") or [],
+            "compressed_into": meta.get("compressed_into"),
+            "compression_method": meta.get("compression_method"),
+            "compression_rationale": meta.get("compression_rationale"),
+        }
+
+    # Check 1: output integrity (notes with compressed_from)
+    for nid, info in index.items():
+        cf = info["compressed_from"]
+        if not cf:
+            continue
+        rel = info["rel"]
+        if not isinstance(cf, list):
+            issues.append(("L18", "HIGH", rel,
+                           f"compressed_from must be a list, got {type(cf).__name__}"))
+            continue
+        if info["status"] != "extracted":
+            issues.append(("L18", "HIGH", rel,
+                           f"output of compression must have status `extracted` "
+                           f"(Wave 27 D3), got {info['status']!r}"))
+        if info["source"] != "compress":
+            issues.append(("L18", "HIGH", rel,
+                           f"output of compression must have source `compress` "
+                           f"(Wave 27 D4), got {info['source']!r}"))
+        if not info["compression_method"]:
+            issues.append(("L18", "HIGH", rel,
+                           "output of compression missing compression_method "
+                           "(Wave 27 D4 audit field)"))
+        if not info["compression_rationale"]:
+            issues.append(("L18", "HIGH", rel,
+                           "output of compression missing compression_rationale "
+                           "(Wave 27 D4 audit field — required prose)"))
+        # Each input id must exist
+        for in_id in cf:
+            in_id_str = str(in_id)
+            if in_id_str not in index:
+                issues.append(("L18", "HIGH", rel,
+                               f"compressed_from references unknown note "
+                               f"{in_id_str!r} — broken audit chain"))
+                continue
+            in_info = index[in_id_str]
+            # Check 2: input back-link integrity
+            if in_info["compressed_into"] != nid:
+                issues.append(("L18", "HIGH", in_info["rel"],
+                               f"input note must have compressed_into="
+                               f"{nid!r}, got {in_info['compressed_into']!r} "
+                               f"— bidirectional link integrity broken"))
+            if in_info["status"] != "excreted":
+                issues.append(("L18", "HIGH", in_info["rel"],
+                               f"input note must have status `excreted` after "
+                               f"compression into {nid!r}, got "
+                               f"{in_info['status']!r}"))
+            # Check 3: cascade prevention
+            if in_info["compressed_from"]:
+                issues.append(("L18", "HIGH", rel,
+                               f"compressed_from cascade rejected: input "
+                               f"{in_id_str!r} is itself a compression output. "
+                               f"Wave 27 §2.1 defense #4 — compression-on-"
+                               f"compression amplifies hallucination risk."))
+
+    # Check 2 (continued): orphan compressed_into pointing nowhere
+    for nid, info in index.items():
+        ci = info["compressed_into"]
+        if not ci:
+            continue
+        ci_str = str(ci)
+        if ci_str not in index:
+            issues.append(("L18", "HIGH", info["rel"],
+                           f"compressed_into references unknown output "
+                           f"{ci_str!r} — broken audit chain"))
+            continue
+        target = index[ci_str]
+        if nid not in [str(x) for x in (target["compressed_from"] or [])]:
+            issues.append(("L18", "HIGH", info["rel"],
+                           f"compressed_into points to {ci_str!r} but that "
+                           f"note's compressed_from does not list this id "
+                           f"({nid!r}) — bidirectional link integrity broken"))
+
+    return issues
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -1670,6 +1827,7 @@ def main(root: Path = None, quick: bool = False, fix_report: bool = False) -> in
             ("L15 Craft Reflex", lint_craft_reflex),
             ("L16 Boot Brief Freshness", lint_boot_brief_freshness),
             ("L17 Contract Drift", lint_contract_drift),
+            ("L18 Compression Integrity", lint_compression_integrity),
         ])
 
     all_issues = []
