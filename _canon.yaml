@@ -269,8 +269,7 @@ system:
     - adapters/              # pluggable adapters
     - examples/              # example projects
     - assets/                # images / branding
-    - ascc_sessions/         # project-specific session cache
-    - dist/                  # build output (gitignored but allowed)
+    - dist/                  # build output (ephemeral; recreated by hatchling)
     # --- Standard repo files ---
     - README.md
     - README_zh.md
@@ -278,10 +277,10 @@ system:
     - CODE_OF_CONDUCT.md
     - CONTRIBUTING.md
     - SECURITY.md
-    - PYPI_SETUP.md
     - pyproject.toml
     - .gitignore
     - .github/
+    - .mcp.json
     # --- Hard-forbidden top-level (even if created, L11 will flag) ---
     forbidden_top_level:
     - scratch.md

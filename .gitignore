@@ -29,18 +29,20 @@ Thumbs.db
 # Misc
 *.orig
 
-# Session transcripts and extraction workspace (archival source material, local only)
-ascc_sessions/
-_myco_user_msgs.txt
-_myco_assistant_vision_hits.txt
-_extract_session.py
+# Local archival substrate (not published)
+# Wave 8 root-directory hygiene (2026-04-11): collapsed root-level scratch
+# entries — all were either deleted outright or relocated under nested
+# natural homes. See docs/contract_changelog.md v0.8.0 banner.
+#
+# ASCC session transcripts (relocated from ascc_sessions/)
+examples/ascc/.local_sessions/
+# Ad-hoc extraction scratch pattern for any future vision-recovery runs
 _vision_recovery_*.txt
-
-# Internal files (kept locally, not published)
-commit_msg.txt
-PYPI_SETUP.md
+# Local narrative draft if re-created
 CORE_NARRATIVE_SYNTHESIS.md
+# Locally generated assets (not source of truth)
 assets/architecture.png
+# Local publishing helper
 scripts/pypi_upload.bat
 
 # NOTE (Wave 8, contract v0.8.0): the six `docs/current/*_craft_*.md`
@@ -48,3 +50,6 @@ scripts/pypi_upload.bat
 # to docs/primordia/ in contract v1.5.0 (historical label; see
 # contract_changelog.md Wave 8 re-baseline notice). The underlying craft
 # files now live in docs/primordia/ and are tracked normally.
+# The Wave 8 cleanup also physically deleted _extract_session.py,
+# _myco_user_msgs.txt, _myco_assistant_vision_hits.txt, commit_msg.txt,
+# and PYPI_SETUP.md from the root — they no longer need gitignore entries.
