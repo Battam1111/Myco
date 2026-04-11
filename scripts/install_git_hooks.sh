@@ -47,10 +47,14 @@ if [ -f "$HOOK" ] && [ "${1:-}" != "--force" ]; then
     # pytest gate. Detect absence of MYCO-PRECOMMIT-PYTEST-MARK and
     # overwrite in place so users running the installer a second
     # time pick up NH-9 without needing --force.
+    # Wave 25: same mechanism for the canon-driven test_dir change —
+    # detect absence of MYCO-PRECOMMIT-CANON-MARK and refresh.
     if ! grep -q "MYCO-PRECOMMIT-PYTEST-MARK" "$HOOK" 2>/dev/null; then
       echo "[myco] pre-commit present but predates Wave 23 pytest gate; refreshing in place."
+    elif ! grep -q "MYCO-PRECOMMIT-CANON-MARK" "$HOOK" 2>/dev/null; then
+      echo "[myco] pre-commit present but predates Wave 25 canon-driven test_dir; refreshing in place."
     else
-      echo "[myco] pre-commit already installed (Wave 23+); pass --force to overwrite."
+      echo "[myco] pre-commit already installed (Wave 25+); pass --force to overwrite."
       exit 0
     fi
   else
@@ -66,6 +70,7 @@ cat > "$HOOK" << 'HOOK_EOF'
 # scripts/install_git_hooks.sh. Fail-open: if myco is not installed
 # the hook exits 0 so commits continue to work.
 # MYCO-PRECOMMIT-PYTEST-MARK — Wave 23: opt-in pytest gate.
+# MYCO-PRECOMMIT-CANON-MARK  — Wave 25: test_dir resolved from canon.
 command -v myco >/dev/null 2>&1 || exit 0
 
 ROOT="$(git rev-parse --show-toplevel)"
@@ -89,24 +94,47 @@ fi
 # the Myco test suite can be heavy and not every commit is test-ready
 # (e.g. a WIP commit on a craft that doesn't touch src/). Enable per-
 # shell with `export MYCO_PRECOMMIT_PYTEST=1`. Requires pytest on PATH.
+#
+# Wave 25 (v0.24.0): test_dir now reads from
+# _canon.yaml::system.tests.test_dir via inline Python (PyYAML is
+# already a Myco runtime dep). Falls back to hardcoded "tests/" on any
+# read error so downstream instances without the new canon section
+# still work. Single-source-of-truth discipline per
+# docs/primordia/hermes_absorption_craft_2026-04-12.md §4.2 step 9.
 if [ "${MYCO_PRECOMMIT_PYTEST:-0}" = "1" ]; then
   if command -v pytest >/dev/null 2>&1; then
-    # Scope to tests/ only. A bare `pytest` from the repo root would
-    # crawl forage/, docs/ example blocks, and any other bundled code,
-    # triggering import errors on material that's intentionally not
-    # part of the kernel test surface. If tests/ is absent, fail-open
-    # with a clear message so downstream instances that haven't set up
-    # a test suite don't get a stuck pre-commit.
-    if [ -d "$ROOT/tests" ]; then
-      echo "[myco] MYCO_PRECOMMIT_PYTEST=1 → running pytest -x --quiet tests/" >&2
-      if ! ( cd "$ROOT" && pytest -x --quiet tests/ >&2 ); then
+    # Resolve test_dir from canon (fail-open to "tests" on any error).
+    TEST_DIR=$(python -c "
+import sys
+try:
+    import yaml
+    with open('$ROOT/_canon.yaml', encoding='utf-8') as f:
+        c = yaml.safe_load(f) or {}
+    td = (c.get('system') or {}).get('tests', {}).get('test_dir') or 'tests/'
+    print(td.rstrip('/'))
+except Exception:
+    print('tests')
+" 2>/dev/null || echo "tests")
+    if [ -z "$TEST_DIR" ]; then
+      TEST_DIR="tests"
+    fi
+
+    # Scope to the canon-declared test_dir. A bare `pytest` from the
+    # repo root would crawl forage/, docs/ example blocks, and any
+    # other bundled code, triggering import errors on material that's
+    # intentionally not part of the kernel test surface. If test_dir
+    # is absent, fail-open with a clear message so downstream instances
+    # that haven't set up a test suite don't get a stuck pre-commit.
+    if [ -d "$ROOT/$TEST_DIR" ]; then
+      echo "[myco] MYCO_PRECOMMIT_PYTEST=1 → running pytest -x --quiet $TEST_DIR/" >&2
+      if ! ( cd "$ROOT" && pytest -x --quiet "$TEST_DIR" >&2 ); then
         echo "" >&2
         echo "[myco] pre-commit blocked by pytest failure." >&2
         echo "[myco] fix the failing test, or unset MYCO_PRECOMMIT_PYTEST, or commit with --no-verify (W1 violation)." >&2
         exit 1
       fi
     else
-      echo "[myco] MYCO_PRECOMMIT_PYTEST=1 but $ROOT/tests/ not found; skipping test gate (fail-open)." >&2
+      echo "[myco] MYCO_PRECOMMIT_PYTEST=1 but $ROOT/$TEST_DIR/ not found; skipping test gate (fail-open)." >&2
     fi
   else
     echo "[myco] MYCO_PRECOMMIT_PYTEST=1 but pytest not on PATH; skipping test gate (fail-open)." >&2

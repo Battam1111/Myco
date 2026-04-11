@@ -38,6 +38,106 @@ Commit message 格式必须使用 Conventional Commits 风格并带 `[contract:*
 
 ---
 
+## v0.24.0 — 2026-04-12 (minor · tests infrastructure seed, Wave 25 — hermes absorption C1)
+
+**Author**: Claude (Myco kernel agent, autonomous run under explicit user grant "是", Wave 25)
+
+**Motivation**: A direct source-probe audit during the hermes-agent
+deep absorption run (evidence note `n_20260412T013044_5546`, raw
+forage-digest) confirmed a bluntly measurable engineering gap: 9132
+lines of Myco production Python, zero test files. The only `tests/`
+directory in tree lived inside the foraged `hermes-agent/` repo and
+actively polluted `pytest` scope — Wave 23 scar NH-9 was born from
+exactly that pollution. Meanwhile, three of Myco's five most recent
+scars (W20 silent-fail `_project_root`, W23 pre-commit hook blocking
+path never exercised live, W24 two sensors reporting opposite values
+on the same system) would each have been caught at edit time by a
+single unit test. The gap was not theoretical — it was already costing
+Myco a wave of friction per discovered hole.
+
+**Change summary**:
+
+1. **New `tests/` top-level directory** with `conftest.py` autouse
+   isolation fixture (`_isolate_myco_project`) and
+   `tests/unit/test_notes.py` covering 4 load-bearing paths in
+   `src/myco/notes.py`:
+   - `write_note` creates file with valid frontmatter
+   - `serialize_note` ↔ `parse_frontmatter` round-trip (unicode +
+     symbols)
+   - `write_note` id-collision retry path (deterministic via
+     monkeypatched `generate_id`)
+   - `_project_root` raises `MycoProjectNotFound` on orphan dirs
+     (Wave 20 silent-fail fix regression guard)
+
+2. **`pyproject.toml` discipline additions**:
+   - `[project.optional-dependencies].dev` = `{pytest>=7,<9,
+     pytest-xdist>=3,<4}` (minimal — add libs only when a test
+     needs them)
+   - `[tool.pytest.ini_options]` with `testpaths = ["tests"]`,
+     `markers = ["integration: ..."]`, `addopts = "-m 'not
+     integration'"`. Scope lock prevents the Wave 23 forage-crawl
+     scar class from ever recurring on a bare `pytest` invocation.
+
+3. **New `_canon.yaml::system.tests` schema section** (SSoT):
+   - `test_dir: tests/`
+   - `min_unit_tests: 4`
+   - `integration_marker: integration`
+   - `unit_subdir: tests/unit/`
+
+   Same section mirrored into `src/myco/templates/_canon.yaml` with
+   `min_unit_tests: 0` so downstream instances start at zero without
+   the kernel's inherited expectation.
+
+4. **`scripts/install_git_hooks.sh`** now reads `test_dir` from
+   `_canon.yaml::system.tests.test_dir` via inline Python (PyYAML is
+   already a runtime dep). Falls back to hardcoded `tests` on any
+   read error. Both pytest and the hook now share one truth source,
+   closing the "single source of truth" aspect of Wave 25's discipline
+   goal and erasing the last hardcoded `tests/` literal in the hook
+   body. No change to the Wave 23 `MYCO_PRECOMMIT_PYTEST=1` opt-in
+   contract.
+
+5. **Canon bumps** — `_canon.yaml` + `src/myco/templates/_canon.yaml`
+   `contract_version` / `synced_contract_version`: v0.23.0 → v0.24.0.
+
+**Authoritative craft**: `docs/primordia/hermes_absorption_craft_2026-04-12.md`
+(kernel_contract class, 3 rounds, final confidence 0.90). The craft
+covers the full 20-item engineering-pattern catalog (C1–C20) absorbed
+from hermes-agent; Wave 25 lands only C1 (tests infrastructure) per
+the craft's D2 decision (tests is the single T1 absorption grounded
+in 3 of 5 recent scars). Waves 26+ ordering is friction-driven: the
+first bug the new test suite catches determines what comes next.
+
+**Self-tests** (Wave 25 evidence, to be recorded in log.md):
+
+- `myco lint` L0–L17 all green after landing.
+- `pytest tests/ -q` runs all 4 seed tests to pass.
+- Autouse fixture verified by test 4 which deliberately uses a
+  bare `tmp_path` outside the fixture's scaffolded project to
+  prove `_project_root` still raises.
+
+**Limitations** (explicit, not hidden):
+
+- **4 unit tests is a seed, not coverage**. Per craft §4.3 L2, real
+  coverage grows wave by wave as friction demands. Wave 25 makes no
+  claim of test coverage beyond what its 4 tests touch.
+- **Integration tests not yet used**. The marker is reserved; no test
+  currently carries it.
+- **The test suite runs on the editable install path** via
+  `sys.path.insert(0, str(_SRC))` in `conftest.py`. A future wave that
+  ships Myco as a wheel in CI will need to re-verify.
+- **No CI yet**. Wave 25 lands local test infra only; GitHub Actions
+  workflow wiring is deferred to when CI discipline becomes a friction
+  source.
+
+**Closes**: structural precondition for absorbing C2–C20 from the
+hermes absorption catalog. Does NOT directly close any panorama-#3
+NH; instead, converts "0 tests" from an invisible meta-hole into a
+visible first-class surface that can now carry regression guards for
+every future wave.
+
+---
+
 ## v0.23.0 — 2026-04-12 (minor · L17 Contract Drift lint, Wave 24 — closes panorama-#3 NH-10)
 
 **Author**: Claude (Myco kernel agent, autonomous run under user grant, Wave 24)
