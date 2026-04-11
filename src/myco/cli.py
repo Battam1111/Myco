@@ -492,6 +492,35 @@ def main():
         help="Project root (default: current directory)",
     )
 
+    # ── myco prune (Wave 33: D-layer auto-excretion) ──────────────
+    # Closes the dead_knowledge hunger-signal loop. Default --dry-run is
+    # SAFE (no writes); opt-in --apply mutates. Inverse asymmetry from
+    # `myco compress --dry-run` (additive verb defaults to apply, opt-in
+    # dry-run; destructive verb defaults to dry-run, opt-in apply).
+    prune_parser = subparsers.add_parser(
+        "prune",
+        help="D-layer auto-excretion: scan for dead-knowledge notes "
+             "(terminal status, cold, unviewed) and excrete them with "
+             "audit trail. SAFE: defaults to --dry-run.",
+    )
+    prune_parser.add_argument(
+        "--apply", action="store_true",
+        help="Actually excrete the candidates (default: dry-run, no writes)",
+    )
+    prune_parser.add_argument(
+        "--threshold-days", type=int, default=None,
+        dest="threshold_days",
+        help="Override dead_knowledge_threshold_days from canon (default: read from _canon.yaml)",
+    )
+    prune_parser.add_argument(
+        "--json", action="store_true",
+        help="Emit machine-readable JSON",
+    )
+    prune_parser.add_argument(
+        "--project-dir", type=str, default=".",
+        help="Project root (default: current directory)",
+    )
+
     # ── myco hunger ────────────────────────────────────────────────
     hunger_parser = subparsers.add_parser(
         "hunger",
@@ -700,6 +729,11 @@ def main():
     if args.command == "hunger":
         from myco.notes_cmd import run_hunger
         sys.exit(run_hunger(args))
+
+    # Wave 33: D-layer auto-excretion verb. Closes the dead_knowledge loop.
+    if args.command == "prune":
+        from myco.notes_cmd import run_prune
+        sys.exit(run_prune(args))
 
     # Wave 30 (v0.26.0): forward compression verb. Anchor #4 service.
     if args.command == "compress":

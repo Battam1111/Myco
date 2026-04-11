@@ -403,6 +403,152 @@ def list_notes(root: Path, *, status: Optional[str] = None) -> List[Path]:
 
 
 # ---------------------------------------------------------------------------
+# Wave 33 — D-layer auto-excretion (prune)
+# ---------------------------------------------------------------------------
+
+def find_dead_knowledge_notes(
+    root: Path,
+    *,
+    threshold_days: Optional[int] = None,
+    now: Optional[datetime] = None,
+) -> List[Tuple[Path, Dict[str, Any], Dict[str, Any]]]:
+    """Wave 33: scan notes/ for dead-knowledge candidates.
+
+    Returns a list of (path, meta, criteria_dict) tuples for each note that
+    satisfies all five dead-knowledge conditions documented in
+    `compute_hunger_report`. The criteria_dict contains the actual measured
+    values (created_age_days, last_touched_age_days, etc.) so callers can
+    surface them in audit reasons.
+
+    This is the read-only scanner half of `myco prune`. The mutation half
+    is `auto_excrete_dead_knowledge` below. Splitting them lets the dry-run
+    path call this without any write capability at all.
+    """
+    now = now or datetime.now()
+
+    if threshold_days is None:
+        threshold_days, terminal_statuses = _load_dead_config(root)
+    else:
+        _, terminal_statuses = _load_dead_config(root)
+
+    cutoff = now - timedelta(days=threshold_days)
+
+    def _parse_iso(v: Any) -> Optional[datetime]:
+        if not v:
+            return None
+        try:
+            return datetime.strptime(str(v), _ISO_FMT)
+        except Exception:
+            return None
+
+    candidates: List[Tuple[Path, Dict[str, Any], Dict[str, Any]]] = []
+    for p in list_notes(root):
+        try:
+            meta, _ = read_note(p)
+        except Exception:
+            continue
+
+        status = meta.get("status", "raw")
+        if status not in terminal_statuses:
+            continue
+
+        created = _parse_iso(meta.get("created"))
+        lt = _parse_iso(meta.get("last_touched"))
+        last_viewed = _parse_iso(meta.get("last_viewed_at"))
+        view_count = int(meta.get("view_count") or 0)
+
+        # All five conditions must hold (mirror compute_hunger_report logic).
+        if created is None or created >= cutoff:
+            continue
+        if lt is None or lt >= cutoff:
+            continue
+        if last_viewed is not None and last_viewed >= cutoff:
+            continue
+        if view_count >= 2:
+            continue
+
+        criteria = {
+            "threshold_days": threshold_days,
+            "created_age_days": (now - created).days,
+            "last_touched_age_days": (now - lt).days,
+            "last_viewed_age_days": (
+                (now - last_viewed).days if last_viewed else None
+            ),
+            "view_count": view_count,
+            "status": status,
+        }
+        candidates.append((p, meta, criteria))
+    return candidates
+
+
+def auto_excrete_dead_knowledge(
+    root: Path,
+    *,
+    threshold_days: Optional[int] = None,
+    dry_run: bool = True,
+    now: Optional[datetime] = None,
+) -> List[Dict[str, Any]]:
+    """Wave 33: auto-excrete dead-knowledge notes with audit trail.
+
+    For each note returned by `find_dead_knowledge_notes`, build an
+    excrete_reason capturing the criteria that triggered the prune,
+    then call `update_note` to set status='excreted' (unless dry_run).
+
+    Returns a list of result dicts (one per note), each containing:
+        - id, file, prior_status, excrete_reason, criteria, applied (bool)
+
+    The excrete_reason format is mechanical and parseable so a future
+    `myco unprune` (Wave 34+) could reverse it. Sample reason:
+        "auto-prune: cold terminal note (created 35d ago, last_touched 35d ago, never_viewed, view_count=0, threshold=30d)"
+
+    Wave 31 lessons applied: this function is two-phase only in spirit
+    (read all candidates first, then mutate one-by-one) — there is no
+    cross-note invariant that requires atomicity. Each excretion is
+    independent. Per-note failures are recorded in the result list with
+    `applied: False` and an `error` field; they do not abort the loop.
+    """
+    candidates = find_dead_knowledge_notes(
+        root, threshold_days=threshold_days, now=now,
+    )
+
+    results: List[Dict[str, Any]] = []
+    for path, meta, criteria in candidates:
+        last_viewed_descr = (
+            "never_viewed"
+            if criteria["last_viewed_age_days"] is None
+            else f"last_viewed {criteria['last_viewed_age_days']}d ago"
+        )
+        reason = (
+            f"auto-prune: cold terminal note "
+            f"(created {criteria['created_age_days']}d ago, "
+            f"last_touched {criteria['last_touched_age_days']}d ago, "
+            f"{last_viewed_descr}, "
+            f"view_count={criteria['view_count']}, "
+            f"threshold={criteria['threshold_days']}d)"
+        )
+        result = {
+            "id": meta.get("id"),
+            "file": path.name,
+            "prior_status": criteria["status"],
+            "excrete_reason": reason,
+            "criteria": criteria,
+            "applied": False,
+        }
+        if not dry_run:
+            try:
+                update_note(
+                    path,
+                    status="excreted",
+                    excrete_reason=reason,
+                )
+                result["applied"] = True
+            except Exception as exc:
+                result["error"] = str(exc)
+        results.append(result)
+    return results
+
+
+# ---------------------------------------------------------------------------
 # Validation (used by L10 lint)
 # ---------------------------------------------------------------------------
 
