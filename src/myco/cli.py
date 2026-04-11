@@ -411,6 +411,31 @@ def main():
         help="Project root (default: current directory)",
     )
 
+    # ── myco uncompress ────────────────────────────────────────────
+    # Wave 31: closes Wave 30 L4 limitation. Reverses a single compress
+    # output: restores each input note to its `pre_compression_status`
+    # and deletes the output extracted note. Bidirectional back-link
+    # integrity is validated before any writes — refuses to operate on
+    # an output whose audit chain is broken.
+    uncompress_parser = subparsers.add_parser(
+        "uncompress",
+        help="Reverse a previous `myco compress` — restore each input from "
+             "its pre_compression_status and delete the extracted output.",
+    )
+    uncompress_parser.add_argument(
+        "output_id", type=str,
+        help="The id of the extracted note to uncompress (e.g. "
+             "n_20260412T060604_94cf).",
+    )
+    uncompress_parser.add_argument(
+        "--json", action="store_true",
+        help="Emit machine-readable JSON result",
+    )
+    uncompress_parser.add_argument(
+        "--project-dir", type=str, default=".",
+        help="Project root (default: current directory)",
+    )
+
     # ── myco hunger ────────────────────────────────────────────────
     hunger_parser = subparsers.add_parser(
         "hunger",
@@ -603,6 +628,11 @@ def main():
     if args.command == "compress":
         from myco.compress_cmd import run_compress
         sys.exit(run_compress(args))
+
+    # Wave 31: reverse compression verb. Closes Wave 30 L4 limitation.
+    if args.command == "uncompress":
+        from myco.compress_cmd import run_uncompress
+        sys.exit(run_uncompress(args))
 
     if args.command == "forage":
         from myco.forage_cmd import run_forage
