@@ -86,7 +86,7 @@ myco import --from hermes ~/.hermes/skills/
 myco import --from openclaw ./MEMORY.md
 ```
 
-Cursor、GPT 等集成请看 [`adapters/`](adapters/)。
+Cursor、GPT 等集成请看 [`docs/adapters/`](docs/adapters/)。
 
 **MCP 集成**（Agent 自动发现 Myco 工具）：
 
@@ -279,7 +279,7 @@ Myco 还站在 50 年认识论、控制论与组织学习的肩膀上：**Karpat
 
 ## 贡献
 
-见 [CONTRIBUTING.md](CONTRIBUTING.md)。影响力最大的贡献是（1）针对[开放问题](#开放问题)的战报，（2）你已经在用的工具的 [`adapters/`](adapters/) YAML，（3）代谢入口原语的设计草图。
+见 [CONTRIBUTING.md](CONTRIBUTING.md)。影响力最大的贡献是（1）针对[开放问题](#开放问题)的战报，（2）你已经在用的工具的 [`docs/adapters/`](docs/adapters/) YAML，（3）代谢入口原语的设计草图。
 
 ## License
 

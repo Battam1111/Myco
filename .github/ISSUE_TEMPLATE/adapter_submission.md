@@ -33,7 +33,7 @@ Have you tested this on a real project?
 ## Adapter YAML Draft (optional — paste below)
 
 ```yaml
-# adapters/<tool>.yaml draft
+# docs/adapters/<tool>.yaml draft
 tool: 
 version: 
 integration_model: 

@@ -14,7 +14,7 @@
 >
 > **相关文档**：
 > - `docs/agent_protocol.md` — 硬契约本体
-> - `docs/ascc_migration_v1_2.md` — 迁移包 §0-§5（本指令是它的执行脚本）
+> - `examples/ascc/migration_playbook.md` — 迁移包 §0-§5（本指令是它的执行脚本；Wave 8.2 从 docs/ascc_migration_v1_2.md 迁至此）
 > - Myco kernel `_canon.yaml` 的 `system.write_surface` — 样例
 >
 > **最后更新**：2026-04-11
@@ -52,7 +52,7 @@ Myco kernel 刚刚 landed 两个东西：
    - §3-4 是 session boot/end 硬流程
    - §6 是给 ASCC 的 3 条铁律
 
-2. **Myco kernel 的 `docs/ascc_migration_v1_2.md`**（这是专门为你写的迁移包）
+2. **Myco kernel 的 `examples/ascc/migration_playbook.md`**（这是专门为你写的迁移包；Wave 8.2 从 `docs/ascc_migration_v1_2.md` 迁至此）
    - §0 告诉你 CLI vs MCP 的选择
    - §1 是要粘贴进 ASCC MYCO.md 热区的块
    - §2 是要粘贴进 ASCC _canon.yaml 的块
@@ -325,7 +325,7 @@ git commit -m "chore: migrate to Myco v1.2 Agent Protocol + L11 write-surface co
 - Initialize notes/ directory for digestive substrate
 - L0-L11 lint 12/12 PASS
 
-Ref: Myco kernel docs/agent_protocol.md v1.0, docs/ascc_migration_v1_2.md"
+Ref: Myco kernel docs/agent_protocol.md Upstream Protocol v1, examples/ascc/migration_playbook.md"
 ```
 
 **不要 push**。先让用户 review commit 再决定是否 push。

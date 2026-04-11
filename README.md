@@ -86,7 +86,7 @@ myco import --from hermes ~/.hermes/skills/
 myco import --from openclaw ./MEMORY.md
 ```
 
-See [`adapters/`](adapters/) for Cursor, GPT, and other integrations.
+See [`docs/adapters/`](docs/adapters/) for Cursor, GPT, and other integrations.
 
 **MCP Integration** (agent auto-discovers Myco tools):
 
@@ -280,7 +280,7 @@ By day 7, a milestone retrospective revealed 40% of friction came from "changed 
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). The most impactful contributions are (1) battle reports on the four [Open Problems](#open-problems), (2) [`adapters/`](adapters/) YAMLs for tools you already use, and (3) design sketches for the Metabolic Inlet primitive.
+See [CONTRIBUTING.md](CONTRIBUTING.md). The most impactful contributions are (1) battle reports on the four [Open Problems](#open-problems), (2) [`docs/adapters/`](docs/adapters/) YAMLs for tools you already use, and (3) design sketches for the Metabolic Inlet primitive.
 
 ## License
 
