@@ -13,7 +13,7 @@ system:
   # See kernel docs/agent_protocol.md §8. Instance agents MUST compare
   # synced_contract_version against the kernel's contract_version at boot
   # and refresh local reflexes if drift is detected.
-  synced_contract_version: "v1.7.0"   # last kernel contract the instance aligned with
+  synced_contract_version: "v0.8.0"   # last kernel contract the instance aligned with
   upstream_scan_last_run: null         # ISO-8601 timestamp of last upstream scan
   upstream_channels:
     # Path-based classification — strictest-class-wins. See §8.2.
@@ -32,9 +32,9 @@ system:
       - src/myco/mcp_server.py
       - _canon.yaml
       - src/myco/templates/**
-      - forage/_index.yaml             # v1.7.0 — forage manifest is class_z
+      - forage/_index.yaml             # v0.7.0 — forage manifest is class_z
 
-  # ── Craft Protocol v1 (W3, kernel contract v1.3.0) ─────────────────────────
+  # ── Craft Protocol v1 (W3, kernel contract v0.3.0) ─────────────────────────
   # Formal ritual for raising decision confidence via structured self-
   # adversarial debate. See kernel docs/craft_protocol.md for full spec.
   # L13 enforces frontmatter schema on files declaring
@@ -65,7 +65,7 @@ system:
       exploration: 0.75
     stale_active_threshold_days: 30
 
-  # ── Structural Limits (contract v1.5.0) ─────────────────────────────────────
+  # ── Structural Limits (contract v0.5.0) ─────────────────────────────────────
   # Soft limits that feed the `structural_bloat` hunger signal. Not hard
   # lints — structural bloat is a gradual degradation, not a contract
   # violation. See docs/biomimetic_map.md §4 and
@@ -114,7 +114,7 @@ system:
       - digest_count
       - promote_candidate
       - excrete_reason
-    # Optional fields (v1.4.0+) — documented for discovery, not enforced by L10.
+    # Optional fields (v0.4.0+) — documented for discovery, not enforced by L10.
     optional_fields:
       - view_count              # int, default 0; bumped by `myco view <id>`
       - last_viewed_at          # ISO str or null; set by `myco view <id>`
@@ -124,7 +124,7 @@ system:
       - extracted      # key claim lifted into wiki or entry point
       - integrated     # fully merged into canonical structures
       - excreted       # removed from active rotation (must cite reason)
-    # Self-Model D layer seed (v1.4.0) — dead knowledge detection config.
+    # Self-Model D layer seed (v0.4.0) — dead knowledge detection config.
     terminal_statuses:
       - extracted
       - integrated
@@ -135,9 +135,9 @@ system:
       - promote        # grown from another note
       - import         # bulk ingested from external tool
       - bootstrap      # created during myco init
-      - forage         # v1.7.0 — digested extract from a forage/ item
+      - forage         # v0.7.0 — digested extract from a forage/ item
 
-  # ── Forage Substrate (contract v1.7.0) ────────────────────────────────────
+  # ── Forage Substrate (contract v0.7.0) ────────────────────────────────────
   # Inbound channel — external reference material (papers, repos, articles)
   # staged in forage/ for pre-digestion before entering notes/.
   # Authoritative craft: kernel docs/primordia/forage_substrate_craft_2026-04-11.md.
@@ -187,7 +187,7 @@ system:
     allowed:
       - notes/
       - wiki/
-      - forage/                        # v1.7.0 — external reference substrate
+      - forage/                        # v0.7.0 — external reference substrate
       - docs/
       - log.md
       - MYCO.md
@@ -209,6 +209,30 @@ system:
       - thoughts/
       - tmp/
       - temp/
+
+  # ── Quantified Indicators (contract v0.8.0, Wave 8) ───────────────────────
+  # Schema-only. Current values live in the instance's L1 entry document
+  # (e.g. MYCO.md / CLAUDE.md / GPT.md) under the "📊 指标面板" section.
+  # Authoritative craft: kernel docs/primordia/pre_release_rebaseline_craft_2026-04-11.md
+  #
+  # Rule: any number expressing progress / confidence / maturity / saturation /
+  # pressure MUST live in [0.0, 1.0] and use one of the approved suffixes.
+  # Handwritten bootstrap values MUST be ≤ 0.70 unless backed by external event.
+  indicators:
+    range: [0.0, 1.0]
+    bootstrap_ceiling_without_evidence: 0.70
+    valid_suffixes:
+      - _progress
+      - _confidence
+      - _maturity
+      - _saturation
+      - _pressure
+    rationale_required: true
+    stale_after_days: 90
+    authoritative_value_location: "{{ENTRY_POINT}}#指标面板"
+    history_location: log.md
+    # substrate_keys is instance-defined; kernel provides no defaults.
+    substrate_keys: []
 
 architecture:
   layers: 4                          # L1 + L1.5 + L2 + L3

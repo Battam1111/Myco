@@ -297,7 +297,7 @@ raw → upstream-candidate → bundle-generated
 ### 8.4 版本锁协议
 
 **kernel 侧**：
-- `_canon.yaml → system.contract_version: "vX.Y.Z"`（当前 v1.3.0）
+- `_canon.yaml → system.contract_version: "vX.Y.Z"`（当前 v0.8.0；Wave 8 re-baseline 之前曾以 v1.x.y 命名，含义等同）
 - Conventional Commits 前缀 `[contract:{patch|minor|major}] <description>` 自动 bump
 - `docs/contract_changelog.md` 追加每次 bump 的 diff 摘要 + 影响范围
 - commit 无前缀 → 不 bump

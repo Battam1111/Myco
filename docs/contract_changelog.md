@@ -1,5 +1,20 @@
 # Contract Changelog
 
+> ## ⚠️ Wave 8 Pre-Release Re-Baseline（2026-04-11）
+>
+> 在 Wave 8，Myco 对整条版本线进行了一次**全方位下调**：所有曾以 `v1.x.y` 命名的 kernel contract 版本、所有以 `1.x.y` 发布的包版本，语义完全保留，但数值上全部映射为 `v0.x.y` / `0.x.y`。理由：Myco 从未进行过真正的 1.0 正式发布，continue calling anything "v1" 会对未来下游用户造成"已经稳定"的错误信号。
+>
+> **映射规则**（不可逆，仅此一次）：
+> - 包版本：`1.1.0 → 0.2.0`（PyPI classifier `5 - Production/Stable → 4 - Beta`）
+> - contract 版本：`v1.X.Y → v0.X.Y`（主号 1→0，其余不变）
+> - 本 changelog 下方的历史条目 **保持 v1.x.y 原始标识符不动**（immutable history doctrine：已记录的事实不篡改）
+> - 新条目从 `v0.8.0` 继续增长（= 旧 `v1.7.0` 后的下一个 minor）
+> - 详细 debate 记录：`docs/primordia/pre_release_rebaseline_craft_2026-04-11.md`（kernel_contract 类 craft，2 rounds，final confidence 0.92）
+>
+> **为什么保留历史 v1.x 条目**：craft 的 Round-2 attack R2.1 指出，若同时删除 dist/1.1.0 wheel 又把历史 changelog 改成 v0.x，等于声称"v1 从未存在过"，和 immutable history 自相矛盾。最终方案：物理 dist artifacts 删除（因为它们是**当前状态**的陈旧副本），历史 changelog 条目保留（因为它们是**历史事实**的记录）。两者分类不同。
+>
+> 本 banner 之后**所有**对 Myco 版本的引用应以 `v0.x` 为准；看到 v1.x 即为历史档案。
+
 本文件记录 Myco kernel contract（`docs/agent_protocol.md` + `_canon.yaml`
 + `scripts/lint_knowledge.py` + `src/myco/lint.py` + `src/myco/mcp_server.py`
 + `src/myco/templates/**`）的版本变更。
@@ -20,6 +35,61 @@ Commit message 格式必须使用 Conventional Commits 风格并带 `[contract:*
 
 下游实例通过 `_canon.yaml: system.contract_version` 与本地 `synced_contract_version`
 比对来感知 drift。
+
+---
+
+## v0.8.0 — 2026-04-11 (major · re-baseline)
+
+**Author**: Claude (Myco kernel agent, autonomous run under user grant, Wave 8)
+**Craft record**: `docs/primordia/pre_release_rebaseline_craft_2026-04-11.md`
+（2 轮 Claim→Attack→Research→Defense→Revise，终置信度 0.92，
+`decision_class: kernel_contract`，floor 0.90；5 个 Round-1 attack +
+3 个 Round-2 attack 全部防御）
+
+**Conventional Commit prefix**: `[contract:major]` — 首位是 major 不是 minor，因为版本号主号从 1 降到 0 理论上是下游可感知的破坏性变更（尽管语义不变）。
+
+### 变更摘要
+
+1. **Pre-release re-baseline**：所有 v1.x.y contract 版本和 1.x.y 包版本下调为 v0.x.y / 0.x.y。最新 contract 版本从 v1.7.0 → **v0.8.0**。包版本从 1.1.0 → **0.2.0**。PyPI classifier 从 `5 - Production/Stable` → `4 - Beta`。
+2. **量化指标体系（Quantified Indicators）**：新增 `_canon.yaml::system.indicators` schema block，定义：
+   - `range: [0.0, 1.0]` 默认区间
+   - `valid_suffixes: [_progress, _confidence, _maturity, _saturation, _pressure]`
+   - `bootstrap_ceiling_without_evidence: 0.70`（无外部 evidence 时自评上限）
+   - `rationale_required: true`
+   - `stale_after_days: 90`
+   - `authoritative_value_location: MYCO.md#指标面板`（= dashboard 是 value 层唯一写入点，canon 只存 schema）
+   - `history_location: log.md`（= milestone + commit hash 是 value 变化的 audit log）
+   - 7 个 substrate_keys 实例：`v1_launch_progress / three_channel_maturity / lint_coverage_confidence / compression_discipline_maturity / identity_anchor_confidence / forage_backlog_pressure / notes_digestion_pressure`
+3. **MYCO.md 新增 `## 📊 指标面板`**：authoritative value location，每项含 value + rationale + 证据锚。
+4. **Directory hygiene**：
+   - `dist/myco-1.1.0-*.whl` + `dist/myco-1.1.0.tar.gz` 物理删除（因为它们是旧版本数值的陈旧副本）
+   - `.gitignore` 清理 6 条陈旧 `docs/current/*_craft_*.md` 条目（该目录在 v1.5.0/现 v0.5.0 已重命名为 `docs/primordia/`）
+   - 活跃源代码里所有 "9-dimension / 14-dimension" 陈旧字符串更新为 "15-dimension (L0-L14)"
+   - 活跃源代码里所有 inline `v1.X.Y` contract 注释更新为 `v0.X.Y`（历史 docstring/narrative 保留 v1.x）
+5. **历史记录 immutable doctrine 保留**：log.md 的 dated 条目、primordia/ 下已存在的 craft 记录、本 changelog v1.x 历史条目全部保持原样。只有 **current-state** 字段被更新。
+
+### 影响范围
+
+- **Kernel**: `_canon.yaml`（contract_version + indicators schema）、`pyproject.toml`（包版本+classifier）、`src/myco/__init__.py`、`src/myco/templates/_canon.yaml`（同步）、`src/myco/templates/MYCO.md`（若需要）、多个源码 docstring
+- **Docs**: `MYCO.md`（banner + 新增指标面板段）、`docs/contract_changelog.md`（本条 + 顶部 re-baseline banner）、`docs/agent_protocol.md`（§8.4 当前 contract 行）、`README.md`、`CONTRIBUTING.md`、`docs/reusable_system_design.md`、`adapters/README.md`、`examples/ascc/README.md`
+- **Adapters/Examples**: 版本和 lint 维度数的陈旧字符串全部对齐
+- **Tests**: 无破坏（语义未变，只是数字下调）
+
+### 下游反射规则
+
+下游看到 `synced_contract_version < v0.8.0`（包括任何 v1.x 字符串）时：
+1. 先读本 changelog 顶部的 re-baseline banner
+2. 把本地 `_canon.yaml::system.synced_contract_version` 字符串手动/工具替换：`v1.X.Y → v0.X.Y`（主号 -1）
+3. 其余 config 无需改动
+4. PyPI 包重新安装时会拿到 `0.2.0`（>1.1.0 不再存在）
+
+### 未进入本次 contract 的非目标（Wave 9+ registered）
+
+- L15 Indicators Lint 实现（本 wave 只把 schema 定了，机械化 lint 延后）
+- 历史 changelog 条目的回填式 re-baseline（违反 immutable doctrine，明确拒绝）
+- `_myco_*.txt / _extract_session.py / ascc_sessions/` 等本地 scratch 文件的物理清理（在 .gitignore 覆盖下，不影响 repo）
+- MYCO.md 的进一步拆分
+- Self-Model A/B/C 层的完整实现
 
 ---
 

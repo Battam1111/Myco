@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Myco Forage — external reference material substrate (contract v1.7.0).
+Myco Forage — external reference material substrate (contract v0.7.0).
 
 This module is the shared engine behind the `myco forage add / list /
 digest` CLI verbs. It implements the inbound channel defined in

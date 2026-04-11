@@ -101,7 +101,7 @@ def init_level_2(project_dir: Path, replacements: dict, entry_point: str):
     lint_src = SCRIPTS_DIR / "lint_knowledge.py"
     if lint_src.exists():
         shutil.copy2(lint_src, project_dir / "scripts" / "lint_knowledge.py")
-        print(f"  ✅ scripts/lint_knowledge.py (9-dimension Lint)")
+        print(f"  ✅ scripts/lint_knowledge.py (15-dimension Lint shim → myco.lint)")
     else:
         print(f"  ⚠️  lint_knowledge.py not found in Myco scripts/")
 

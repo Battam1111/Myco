@@ -12,12 +12,12 @@ Dimensions:
     L6  Date Consistency — header dates vs file modification times
     L7  Wiki W8 Format — header (type + date) + footer (Back to) template compliance
     L8  .original Sync — compressed file timestamp consistency (v2.5)
-    L9  Vision Anchor — identity-element drift detection (v1.1.1)
-    L10 Notes Schema — atomic-note frontmatter validation (v1.2.0)
-    L11 Write Surface — _canon.yaml write_surface whitelist (v1.2.0)
-    L12 Upstream Dotfile Hygiene — .myco_upstream_{outbox,inbox}/ rules (v1.2.0)
-    L13 Craft Protocol Schema — docs/primordia/*_craft_*.md frontmatter (v1.3.0, W3)
-    L14 Forage Hygiene — forage/_index.yaml manifest + files (v1.7.0)
+    L9  Vision Anchor — identity-element drift detection (v0.1.1)
+    L10 Notes Schema — atomic-note frontmatter validation (v0.2.0)
+    L11 Write Surface — _canon.yaml write_surface whitelist (v0.2.0)
+    L12 Upstream Dotfile Hygiene — .myco_upstream_{outbox,inbox}/ rules (v0.2.0)
+    L13 Craft Protocol Schema — docs/primordia/*_craft_*.md frontmatter (v0.3.0, W3)
+    L14 Forage Hygiene — forage/_index.yaml manifest + files (v0.7.0)
 """
 
 import os
@@ -376,7 +376,7 @@ def lint_vision_anchors(canon, root):
 def lint_notes_schema(canon, root):
     """L10 — validate every notes/*.md against the schema in _canon.yaml.
 
-    Single source of truth as of contract v1.6.0 (Wave 6 de-dup).
+    Single source of truth as of contract v0.6.0 (Wave 6 de-dup).
     scripts/lint_knowledge.py is a shim that delegates to this module.
     """
     issues = []
@@ -525,7 +525,7 @@ def lint_write_surface(canon, root):
     """Enforce _canon.yaml → system.write_surface.
 
     Authoritative contract: docs/agent_protocol.md §1. Single source of
-    truth as of contract v1.6.0 — scripts/lint_knowledge.py is a shim.
+    truth as of contract v0.6.0 — scripts/lint_knowledge.py is a shim.
     """
     issues = []
     ws = canon.get("system", {}).get("write_surface")
@@ -661,7 +661,7 @@ def lint_dotfile_hygiene(canon, root):
 
 
 def lint_craft_protocol(canon, root):
-    """L13 — Craft Protocol Schema (W3, v1.3.0).
+    """L13 — Craft Protocol Schema (W3, v0.3.0).
 
     Enforces docs/craft_protocol.md frontmatter schema on any file in
     docs/primordia/ matching the craft filename pattern AND declaring
@@ -781,7 +781,7 @@ def lint_craft_protocol(canon, root):
 
 
 def lint_forage_hygiene(canon, root):
-    """L14 — Forage Hygiene (v1.7.0).
+    """L14 — Forage Hygiene (v0.7.0).
 
     Validates the forage/_index.yaml manifest and the filesystem
     layout of the forage/ substrate. Authoritative schema:
