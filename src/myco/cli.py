@@ -279,6 +279,18 @@ def main():
         "--project-dir", type=str, default=".",
         help="Project root (default: current directory)",
     )
+    # Wave 21 (v0.20.0) — agent-facing surfaces (closes NH-7).
+    # Authoritative craft: docs/primordia/observability_integrity_craft_2026-04-12.md
+    view_parser.add_argument(
+        "--next-raw", action="store_true", dest="next_raw",
+        help="Show the body of the oldest raw note (digest-queue head). "
+             "Zero-arg target for the raw→digesting loop.",
+    )
+    view_parser.add_argument(
+        "--tag", type=str, default=None,
+        help="Filter notes whose frontmatter tags contain this value "
+             "(exact match). Sorted by last_touched desc.",
+    )
 
     # ── myco hunger ────────────────────────────────────────────────
     hunger_parser = subparsers.add_parser(

@@ -1459,6 +1459,89 @@ def lint_craft_reflex(canon, root):
     return issues
 
 
+def lint_boot_brief_freshness(canon, root):
+    """L16 (Wave 21, contract v0.20.0) — Boot Brief Freshness.
+
+    The Wave 17 Boot Brief Injector writes `.myco_state/boot_brief.md`
+    as a side effect of `myco hunger`, and the brief is injected into
+    the entry-point file's MYCO-BOOT-SIGNALS sentinel block. If canon
+    or the contract changelog changes without a subsequent hunger run,
+    the brief becomes stale but continues to display as if authoritative.
+
+    This lint surfaces staleness as MEDIUM. It does not block; the
+    severity-vs-noise tradeoff is per the Wave 21 craft R2.2.
+
+    Authoritative craft:
+        docs/primordia/observability_integrity_craft_2026-04-12.md
+
+    Logic:
+      1. Read `system.boot_brief.enabled` — if false/missing, PASS.
+      2. Resolve brief path from `system.boot_brief.brief_path`.
+      3. Brief missing → MEDIUM "missing, run myco hunger".
+      4. Compute reference mtime = max(_canon.yaml, contract_changelog.md).
+      5. If brief mtime < reference → MEDIUM "stale, run myco hunger".
+    """
+    from datetime import datetime as _dt
+
+    issues = []
+    system = canon.get("system") or {}
+    cfg = system.get("boot_brief") or {}
+    if not cfg.get("enabled", False):
+        return issues  # injector off → nothing to keep fresh
+
+    brief_rel = cfg.get("brief_path", ".myco_state/boot_brief.md")
+    brief = Path(root) / brief_rel
+    canon_path = Path(root) / "_canon.yaml"
+    changelog = Path(root) / "docs" / "contract_changelog.md"
+
+    if not brief.exists():
+        issues.append((
+            "L16", "MEDIUM", str(brief.relative_to(root)) if brief.is_absolute() and brief.is_relative_to(root) else str(brief),
+            "boot brief is missing but boot_brief.enabled=true. "
+            "Run `myco hunger` to regenerate; the entry-point signal "
+            "block will show absent or stale data until you do."
+        ))
+        return issues
+
+    try:
+        brief_mtime = brief.stat().st_mtime
+    except OSError:
+        return issues  # permission issue — don't block lint
+
+    ref_mtime = 0.0
+    ref_source = None
+    if canon_path.exists():
+        try:
+            ref_mtime = canon_path.stat().st_mtime
+            ref_source = "_canon.yaml"
+        except OSError:
+            pass
+    if changelog.exists():
+        try:
+            cl_mtime = changelog.stat().st_mtime
+            if cl_mtime > ref_mtime:
+                ref_mtime = cl_mtime
+                ref_source = "docs/contract_changelog.md"
+        except OSError:
+            pass
+
+    if ref_mtime == 0.0:
+        return issues  # nothing to compare against
+
+    if brief_mtime < ref_mtime:
+        issues.append((
+            "L16", "MEDIUM",
+            str(brief.relative_to(root)) if brief.is_absolute() and brief.is_relative_to(root) else str(brief),
+            f"boot brief is stale: brief mtime "
+            f"{_dt.fromtimestamp(brief_mtime).strftime('%Y-%m-%d %H:%M:%S')} "
+            f"is older than {ref_source} mtime "
+            f"{_dt.fromtimestamp(ref_mtime).strftime('%Y-%m-%d %H:%M:%S')}. "
+            f"Run `myco hunger` to regenerate so the entry-point signal "
+            f"block reflects current contract state."
+        ))
+    return issues
+
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
@@ -1496,6 +1579,7 @@ def main(root: Path = None, quick: bool = False, fix_report: bool = False) -> in
             ("L13 Craft Protocol Schema", lint_craft_protocol),
             ("L14 Forage Hygiene", lint_forage_hygiene),
             ("L15 Craft Reflex", lint_craft_reflex),
+            ("L16 Boot Brief Freshness", lint_boot_brief_freshness),
         ])
 
     all_issues = []

@@ -293,8 +293,103 @@ def run_digest(args) -> int:
 
 @_guard_project
 def run_view(args) -> int:
-    """`myco view` — list notes filtered by status, or show a single note."""
+    """`myco view` — read-only lens on the substrate.
+
+    Modes (dispatch order):
+        myco view <id>              single note body (positional, legacy)
+        myco view --next-raw        body of oldest raw note (digest-queue head)
+        myco view --tag T           table of notes whose tags contain T
+        myco view [--status S]      table of notes (optionally status-filtered)
+
+    `--next-raw` and `--tag` were added in Wave 21 (v0.20.0) to give
+    the verb agent-facing value (closes NH-7). The positional-id mode
+    and the default list mode are unchanged.
+    """
     root = _project_root(args)
+
+    # Wave 21 --next-raw mode: show the body of the oldest raw note.
+    if getattr(args, "next_raw", False):
+        raws = list_notes(root, status="raw")
+        if not raws:
+            _print_header("Next raw note")
+            print("  (no raw notes; raw backlog is empty)")
+            return 0
+        # list_notes returns sorted by filename which encodes timestamp,
+        # so the first entry is the oldest.
+        path = raws[0]
+        try:
+            meta, body = read_note(path)
+        except Exception as e:
+            print(f"view --next-raw: {e}", file=sys.stderr)
+            return 2
+        _print_header(f"Next raw note: {meta.get('id')}")
+        for k in ("status", "source", "tags", "created", "last_touched",
+                  "digest_count"):
+            print(f"  {k}: {meta.get(k)}")
+        print("\n" + body.rstrip())
+        print(f"\n  Next: `myco digest {meta.get('id')}` to process.")
+        try:
+            record_view(path)
+        except Exception:
+            pass
+        return 0
+
+    # Wave 21 --tag mode: filter by frontmatter tag, table output.
+    if getattr(args, "tag", None):
+        tag = args.tag
+        paths = list_notes(root, status=args.status)
+        matched = []
+        for p in paths:
+            try:
+                meta, _ = read_note(p)
+            except Exception:
+                continue
+            if tag in (meta.get("tags") or []):
+                matched.append((p, meta))
+        # Sort by last_touched desc. Coerce to str because YAML can
+        # deserialize ISO-8601 dates as datetime objects, which don't
+        # compare against plain strings → TypeError.
+        def _sort_key(item):
+            _, m = item
+            v = m.get("last_touched") or m.get("created") or ""
+            return str(v)
+        matched.sort(key=_sort_key, reverse=True)
+        matched = matched[: (args.limit or 50)]
+        if args.json:
+            out = []
+            for p, m in matched:
+                out.append({
+                    "id": m.get("id"),
+                    "file": str(p.relative_to(root)),
+                    "status": m.get("status"),
+                    "tags": m.get("tags") or [],
+                    "digest_count": m.get("digest_count"),
+                    "last_touched": m.get("last_touched"),
+                })
+            print(json.dumps(out, ensure_ascii=False, indent=2))
+            return 0
+        _print_header(f"notes tagged '{tag}' (showing {len(matched)})")
+        if not matched:
+            print("  (no matches)")
+            return 0
+        for p, meta in matched:
+            try:
+                _, body = read_note(p)
+            except Exception:
+                continue
+            title = ""
+            for line in body.splitlines():
+                if line.strip().startswith("#"):
+                    title = line.strip().lstrip("#").strip()
+                    break
+            if not title:
+                title = (body.strip().splitlines() or [""])[0][:60]
+            tag_str = ",".join(meta.get("tags") or [])
+            print(
+                f"  [{meta.get('status','?'):<10}] {meta.get('id','?')}  "
+                f"d={meta.get('digest_count',0)}  {tag_str:<30}  {title[:50]}"
+            )
+        return 0
 
     # Single-note mode
     if args.note_id:
