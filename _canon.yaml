@@ -6,8 +6,8 @@ system:
   # Authoritative source: docs/agent_protocol.md §8
   # Craft record:         docs/primordia/upstream_protocol_craft_2026-04-11.md
   # Changelog:             docs/contract_changelog.md
-  contract_version: "v0.18.0"  # Wave 19: `myco correct` self-correction ergonomic shortcut (closes H-3 partial)
-  synced_contract_version: "v0.18.0"  # Wave 19 — self-reference: kernel's own lock
+  contract_version: "v0.19.0"  # Wave 20: silent-fail elimination — grandfather ceiling + strict project-dir (closes NH-1 HIGH, NH-2 CRITICAL)
+  synced_contract_version: "v0.19.0"  # Wave 20 — self-reference: kernel's own lock
   upstream_scan_last_run: "2026-04-11T15:21:31Z"
 
   # --- Upstream scan staleness reader (Wave 17, contract v0.16.0) ---
@@ -70,6 +70,13 @@ system:
     # source != "bootstrap". digesting-state notes are held, not raw.
     raw_exempt_sources:
       - bootstrap
+    # Wave 20 (v0.19.0): grandfather exemption lapses after this many
+    # minor versions of drift, irrespective of `enabled`. Set to a large
+    # number (e.g. 99) to disable the ceiling; set to 0 for strict
+    # lockstep mode (any drift fires HIGH). Major-version mismatches are
+    # NEVER grandfathered. See
+    # docs/primordia/silent_fail_elimination_craft_2026-04-11.md.
+    grandfather_ceiling_minor_versions: 5
 
   # --- Session End Reflex Arc (Wave 14, contract v0.13.0) ----------------
   # Authoritative craft: docs/primordia/session_end_reflex_arc_craft_2026-04-11.md

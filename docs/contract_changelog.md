@@ -38,6 +38,102 @@ Commit message 格式必须使用 Conventional Commits 风格并带 `[contract:*
 
 ---
 
+## v0.19.0 — 2026-04-12 (minor · silent-fail elimination: grandfather ceiling + strict project-dir, Wave 20 — closes NH-1 HIGH / NH-2 CRITICAL)
+
+**Author**: Claude (Myco kernel agent, autonomous run under user grant, Wave 20)
+
+**Motivation**: Panorama #2 note `n_20260411T235030_f184` surfaced two
+non-overlapping holes that share a single pathology — *missing or
+disabled configuration silently produces a false-healthy signal
+instead of a loud alarm.* Concrete evidence:
+
+- **NH-2 (CRITICAL)**: `detect_contract_drift` gated ALL detection
+  behind `boot_reflex.get("enabled", False)`. Instances whose canon
+  pre-dates Wave 13 have no `boot_reflex` block → default False →
+  detector returns None. ASCC (`synced_contract_version: v0.8.0`,
+  kernel `v0.18.0` — 10 minor versions of drift) reports `healthy`
+  on `myco hunger`. The Wave 13 reflex arc is invisible to the one
+  instance that needs it most.
+- **NH-1 (HIGH)**: `_project_root` walked up for `_canon.yaml` and
+  on failure fell through to `return Path(raw).resolve()`. Running
+  `myco hunger --project-dir .` from `/tmp` returned a clean report
+  with no warning that `/tmp` is not a Myco project — `total notes:
+  0 · healthy`. The sensor was disconnected and reported "nothing to
+  see here".
+
+Both failures produced **false confidence** — the worst failure mode
+for a sensory system.
+
+**Change summary**:
+
+1. **Grandfather ceiling** in `detect_contract_drift`
+   (`src/myco/notes.py`). Runs BEFORE the `boot_reflex.enabled` gate.
+   Computes `minor_gap = kernel_minor - synced_minor`. Fires
+   `[REFLEX HIGH] grandfather_expired` if `minor_gap > ceiling`.
+   Major-version mismatch is unconditional HIGH. Parse failure on
+   either side fires `[REFLEX MEDIUM] version_parse_error`. Ceiling
+   is canon-configurable via
+   `system.boot_reflex.grandfather_ceiling_minor_versions` (default
+   `5`; `0` = strict lockstep, large number = disabled).
+2. **`_parse_version_tuple(s)`** helper in `notes.py`. Accepts
+   `vMAJOR.MINOR[.PATCH]` / `MAJOR.MINOR[.PATCH]`. Returns tuple or
+   None. Semver-ish, not strict semver.
+3. **`MycoProjectNotFound` exception** in `notes.py`. Raised by
+   strict `_project_root` when no `_canon.yaml` found in walk-up.
+4. **Strict `_project_root`** in `notes_cmd.py`. Replaces silent
+   fall-through. Escape hatch: `MYCO_ALLOW_NO_PROJECT=1` env var for
+   legitimate cron/multi-project use cases.
+5. **`@_guard_project` decorator** wraps `run_eat`, `run_correct`,
+   `run_digest`, `run_view`, `run_hunger`. Catches
+   `MycoProjectNotFound`, prints to stderr, exits 2.
+6. **`grandfather_ceiling_minor_versions: 5`** canon field added to
+   both kernel `_canon.yaml` and `src/myco/templates/_canon.yaml`
+   under `system.boot_reflex`.
+7. **Contract bump** `v0.18.0 → v0.19.0` in both canons (kernel
+   `contract_version` + `synced_contract_version`, template
+   `synced_contract_version`).
+
+**Self-tests** (all green):
+
+- Kernel `myco hunger` at root → healthy (gap=0, within ceiling).
+- Tamper kernel `synced` → `v0.10.0` → run `myco hunger` → fires
+  `[REFLEX HIGH] grandfather_expired: 9 minor versions of drift`.
+- Tamper kernel `synced` → `v0.10.0` AND `boot_reflex.enabled: false`
+  → still fires `grandfather_expired` (ceiling runs before gate).
+- `cd /tmp && myco hunger` → exit 2 with clear stderr message.
+- `cd /tmp && MYCO_ALLOW_NO_PROJECT=1 myco hunger` → exit 0, reports
+  0 notes (legitimate override).
+
+**ASCC migration** (same-session landing, per craft D5): ASCC
+`_canon.yaml` `synced_contract_version` bumped `v0.8.0 → v0.19.0`,
+minimal `boot_reflex` block added, log.md decision entry appended.
+This is "the migration debt costs exactly what it should cost" in
+action — a one-time catch-up, not a recurring tax.
+
+**Authoritative craft**:
+`docs/primordia/silent_fail_elimination_craft_2026-04-11.md`
+(3 rounds, kernel_contract, confidence 0.92).
+
+**Known limitations**:
+
+- L-1 Version parser is semver-like (accepts `v0.8`), not strict
+  semver. Acceptable because Myco's own scheme often omits PATCH.
+- L-2 `grandfather_ceiling_minor_versions` is a fixed integer; no
+  adaptive threshold based on substrate age or wave velocity.
+- L-3 MCP server wrapper refactor for `MycoProjectNotFound` deferred
+  — direct `myco` CLI is the audited surface this wave.
+- L-4 The ASCC migration only catches this one instance; any other
+  downstream projects will also fire on their next hunger until they
+  are manually imported. That IS the feature.
+
+**Doctrine**: A sensory system that returns "healthy" when its
+sensors are disconnected is worse than a crash. A crash tells the
+agent something is wrong; a silent zero is indistinguishable from a
+truly-healthy signal. Wave 20 eliminates two silent-zero paths in
+the kernel.
+
+---
+
 ## v0.18.0 — 2026-04-11 (minor · `myco correct` self-correction ergonomic shortcut, Wave 19 — closes H-3 partial)
 
 **Author**: Claude (Myco kernel agent, autonomous run under user grant, Wave 19)

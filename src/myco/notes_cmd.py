@@ -27,6 +27,7 @@ from typing import List, Optional
 from myco.notes import (
     VALID_STATUSES,
     VALID_SOURCES,
+    MycoProjectNotFound,
     compute_hunger_report,
     id_to_filename,
     list_notes,
@@ -42,14 +43,48 @@ from myco.notes import (
 # ---------------------------------------------------------------------------
 
 def _project_root(args) -> Path:
-    """Resolve the project root from --project-dir or walk up from cwd."""
+    """Resolve the project root from --project-dir or walk up from cwd.
+
+    Wave 20 (v0.19.0) strict mode: if no `_canon.yaml` is found in the
+    walk-up, raises `MycoProjectNotFound` instead of silently returning
+    the raw path. The old fall-through produced false-healthy hunger
+    reports on unrelated directories (e.g. /tmp). See
+    `docs/primordia/silent_fail_elimination_craft_2026-04-11.md` D3.
+
+    Escape hatch: `MYCO_ALLOW_NO_PROJECT=1` env var forces the old
+    permissive behavior (for cron health checks on multi-project trees).
+    """
+    import os
+
     raw = getattr(args, "project_dir", None) or "."
     root = Path(raw).resolve()
     # Walk upward for _canon.yaml so users can run from subdirs.
     for candidate in [root] + list(root.parents):
         if (candidate / "_canon.yaml").exists():
             return candidate
-    return root
+    if os.environ.get("MYCO_ALLOW_NO_PROJECT") == "1":
+        return root
+    raise MycoProjectNotFound(
+        f"not a Myco project: no _canon.yaml found at or above "
+        f"{root}. Did you forget to cd, or pass --project-dir? "
+        f"Set MYCO_ALLOW_NO_PROJECT=1 to override (not recommended)."
+    )
+
+
+def _guard_project(func):
+    """Decorator: catch MycoProjectNotFound from run_* verbs and
+    exit 2 with a stderr message. Wave 20 strict-mode wrapper.
+    """
+    def _wrapped(args):
+        try:
+            return func(args)
+        except MycoProjectNotFound as e:
+            print(f"myco {func.__name__.removeprefix('run_')}: {e}",
+                  file=sys.stderr)
+            return 2
+    _wrapped.__name__ = func.__name__
+    _wrapped.__doc__ = func.__doc__
+    return _wrapped
 
 
 def _read_body_from_args(args) -> str:
@@ -78,6 +113,7 @@ def _print_header(title: str) -> None:
 # eat  — permissive capture
 # ---------------------------------------------------------------------------
 
+@_guard_project
 def run_eat(args) -> int:
     """`myco eat` — ingest a chunk of content as a raw note.
 
@@ -129,6 +165,7 @@ def run_eat(args) -> int:
 # correct  — self-correction shortcut (Wave 19, contract v0.18.0)
 # ---------------------------------------------------------------------------
 
+@_guard_project
 def run_correct(args) -> int:
     """`myco correct` — Hard Contract rule #3 ergonomic shortcut (Wave 19).
 
@@ -167,6 +204,7 @@ _DIGEST_PROMPTS = [
 ]
 
 
+@_guard_project
 def run_digest(args) -> int:
     """`myco digest` — move a note along the lifecycle.
 
@@ -253,6 +291,7 @@ def run_digest(args) -> int:
 # view  — read-only lens
 # ---------------------------------------------------------------------------
 
+@_guard_project
 def run_view(args) -> int:
     """`myco view` — list notes filtered by status, or show a single note."""
     root = _project_root(args)
@@ -347,6 +386,7 @@ def run_view(args) -> int:
 # hunger  — metabolic dashboard
 # ---------------------------------------------------------------------------
 
+@_guard_project
 def run_hunger(args) -> int:
     """`myco hunger` — show metabolic state + actionable signals."""
     root = _project_root(args)
