@@ -749,6 +749,169 @@ def detect_contract_drift(
     return None
 
 
+def detect_session_end_drift(
+    root: Path,
+    *,
+    now: Optional[datetime] = None,
+) -> Optional[str]:
+    """Return a `session_end_drift` advisory signal if Gear 2 reflection
+    or Gear 4 sweep discipline has drifted in log.md, else None.
+
+    Two sub-checks (both optional via canon; either can be disabled):
+        gear2 — count non-meta `## [YYYY-MM-DD] <type>` entries after the
+                most recent `## [YYYY-MM-DD] meta |` entry. If the count
+                exceeds `drift_threshold_entries`, gear2 fires.
+        gear4 — find the oldest `g4-candidate` line whose entry date is
+                older than `drift_threshold_days` and has no resolution
+                marker (`g4-pass` / `g4-landed` / `g4-resolved`) in the
+                same line, and does not reference a craft file that
+                exists on disk. If any such line exists, gear4 fires.
+
+    Signal tier: LOW (advisory). Does not use the `[REFLEX HIGH]` prefix —
+    see docs/primordia/session_end_reflex_arc_craft_2026-04-11.md §B4 for
+    the deliberate asymmetry with boot_reflex.
+
+    Fails open on any IO / parse error (returns None).
+    """
+    import re as _re
+    try:
+        import yaml as _yaml
+    except ImportError:
+        return None
+
+    canon_path = Path(root) / "_canon.yaml"
+    if not canon_path.exists():
+        return None
+    try:
+        canon = _yaml.safe_load(canon_path.read_text(encoding="utf-8")) or {}
+    except Exception:
+        return None
+
+    cfg = ((canon.get("system") or {}).get("session_end_reflex") or {})
+    if not cfg or not cfg.get("enabled", False):
+        return None
+
+    g2_cfg = cfg.get("gear2") or {}
+    g4_cfg = cfg.get("gear4") or {}
+    scan_cap = int(cfg.get("log_scan_cap_bytes", 5_242_880))
+
+    log_path = Path(root) / "log.md"
+    if not log_path.exists():
+        return None
+
+    # Bounded read — take last scan_cap bytes to keep this constant-time.
+    try:
+        size = log_path.stat().st_size
+        with log_path.open("rb") as f:
+            if size > scan_cap:
+                f.seek(size - scan_cap)
+            raw = f.read()
+        text = raw.decode("utf-8", errors="replace")
+    except OSError:
+        return None
+
+    lines = text.splitlines()
+
+    # Header regex — tolerant: optional leading space, flexible separator.
+    header_re = _re.compile(r"^\s*##\s*\[(\d{4}-\d{2}-\d{2})\]\s+(\w[\w-]*)")
+    now_dt = now or datetime.now()
+
+    parts: List[str] = []
+
+    # --- Gear 2 — reflection drift ---
+    if g2_cfg.get("enabled", True):
+        marker = str(g2_cfg.get("reflection_marker", "meta")).lower()
+        threshold = int(g2_cfg.get("drift_threshold_entries", 15))
+        last_meta_idx = -1
+        header_positions: List[int] = []
+        for i, line in enumerate(lines):
+            m = header_re.match(line)
+            if not m:
+                continue
+            header_positions.append(i)
+            if m.group(2).lower() == marker:
+                last_meta_idx = i
+        if last_meta_idx >= 0:
+            non_meta_after = sum(
+                1 for pos in header_positions if pos > last_meta_idx
+            )
+        else:
+            non_meta_after = len(header_positions)
+        if non_meta_after > threshold:
+            parts.append(
+                f"gear2 ({non_meta_after} log entries since last "
+                f"`{marker}` reflection, threshold {threshold})"
+            )
+
+    # --- Gear 4 — sweep drift ---
+    if g4_cfg.get("enabled", True):
+        marker = str(g4_cfg.get("candidate_marker", "g4-candidate")).lower()
+        resolutions = [
+            str(s).lower()
+            for s in (g4_cfg.get("resolution_markers") or ["g4-pass"])
+        ]
+        threshold_days = int(g4_cfg.get("drift_threshold_days", 5))
+        cutoff = now_dt - timedelta(days=threshold_days)
+        craft_ref_re = _re.compile(
+            r"docs/primordia/[a-z0-9_]+_craft_\d{4}-\d{2}-\d{2}"
+            r"(_[0-9a-f]{4})?\.md"
+        )
+
+        # Walk lines; each g4-candidate is attributed to the most recent
+        # header date preceding it.
+        current_date: Optional[datetime] = None
+        oldest_stale_date: Optional[datetime] = None
+        stale_count = 0
+
+        for line in lines:
+            m = header_re.match(line)
+            if m:
+                try:
+                    current_date = datetime.strptime(m.group(1), "%Y-%m-%d")
+                except ValueError:
+                    current_date = None
+                continue
+            if current_date is None:
+                continue
+            low = line.lower()
+            if marker not in low:
+                continue
+            # resolution markers on the same line → considered resolved
+            if any(rm in low for rm in resolutions):
+                continue
+            # craft reference on the same line → considered resolved if
+            # the referenced file actually exists on disk
+            craft_m = craft_ref_re.search(line)
+            if craft_m:
+                craft_path = Path(root) / craft_m.group(0)
+                if craft_path.exists():
+                    continue
+            # stale if date older than cutoff
+            if current_date < cutoff:
+                stale_count += 1
+                if oldest_stale_date is None or current_date < oldest_stale_date:
+                    oldest_stale_date = current_date
+
+        if stale_count > 0 and oldest_stale_date is not None:
+            age_days = (now_dt - oldest_stale_date).days
+            parts.append(
+                f"gear4 ({stale_count} unresolved `{marker}` entries "
+                f"older than {threshold_days}d, oldest "
+                f"{oldest_stale_date.strftime('%Y-%m-%d')} = {age_days}d old)"
+            )
+
+    if not parts:
+        return None
+
+    return (
+        "session_end_drift: " + "; ".join(parts) + ". "
+        "W5 evolution discipline advisory: write a one-line `meta` entry "
+        "to log.md (Gear 2) and/or annotate stale g4-candidate lines with "
+        "`g4-pass: <reason>` / `g4-landed: <ref>` / craft file. See "
+        "docs/primordia/session_end_reflex_arc_craft_2026-04-11.md."
+    )
+
+
 def compute_hunger_report(
     root: Path,
     *,
@@ -958,6 +1121,15 @@ def compute_hunger_report(
             signals.append(craft_signal)
     except Exception:
         pass  # grandfather: missing canon block = feature off
+    # Session end drift signal (contract v0.13.0, Wave 14) — Gear 2 / Gear 4
+    # advisory drift. LOW tier, appears in advisory list. See
+    # docs/primordia/session_end_reflex_arc_craft_2026-04-11.md.
+    try:
+        sed_signal = detect_session_end_drift(root, now=now)
+        if sed_signal:
+            signals.append(sed_signal)
+    except Exception:
+        pass  # grandfather-compatible: missing canon block = feature off
     # Forage backlog signal (contract v0.7.0) — read-only scan of
     # forage/_index.yaml. See docs/primordia/forage_substrate_craft_2026-04-11.md.
     try:

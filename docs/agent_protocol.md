@@ -154,13 +154,32 @@ Craft：`docs/primordia/boot_reflex_arc_craft_2026-04-11.md`。
 
 ## 4. Session End Sequence — 会话结束硬流程
 
+Wave 14 (contract v0.13.0) 把这一段从 5 步 prose 改为 **2 步反射弧**，
+与 §3 Boot Sequence 镜像对称。具体动作由 hunger advisory 信号驱动：
+
 ```
-1. myco_reflect            # 本次会话学到了什么 / 哪里摩擦
-2. myco_log                # 关键事件追加到 log.md（末尾视需要标 g4-candidate）
-3. myco_hunger             # 再看一次，确保没留下 raw_backlog
-4. （如果改动 ≥ 5 文件或改了 canon）myco_lint
-5. （如果 MYCO.md 或 任务队列变了）更新 MYCO.md
+1. myco_hunger             # 看 session_end_drift 与其它 advisory 信号
+2. 处理 session_end_drift  # reflect / sweep / update log / commit
 ```
+
+**`session_end_drift` 的两个子信号**（都是 LOW，不阻塞任务，只对抗遗忘）：
+
+- **gear2**：`## [YYYY-MM-DD] meta |` 反射条目之后累计了 ≥15 条非 meta 日志
+  → 写一条 `meta` 条目（一句话即可，Gear 2 价值在"看"的仪式本身，不在
+  每次都发现缺陷）。
+- **gear4**：`log.md` 里有 `g4-candidate` 条目 age ≥5 天且无 `g4-pass` /
+  `g4-landed` / 在磁盘存在的 craft 引用 → 为每条补注解。最小决议形式是
+  inline `g4-pass: <一句话 rationale>`；正式决议是写 craft 并引用。
+
+两个子信号都可以在 `_canon.yaml::system.session_end_reflex` 里按 instance
+关闭或调阈值。与 Wave 13 的 HIGH 反射不同，本反射**刻意 LOW** — W5
+（持续进化）是一个 drive，不是 W1 级的 data-loss constraint；过度升级会
+让 agent 学会忽视整个 advisory 列表。见
+`docs/primordia/session_end_reflex_arc_craft_2026-04-11.md §B4`.
+
+**传统的 5 步流程（仍然有效，但由 hunger 驱动而非记硬背）**：
+`myco_reflect` → `myco_log` → `myco_hunger` → `myco_lint`（改动 ≥5 文件
+或改了 canon 时）→ 更新 MYCO.md（任务队列或 §1 进度变了时）。
 
 **未完成的想法怎么办？** → `myco_eat` 一条 raw note，tags 带 `followup`。不要写进 `TODO.md`，不要写进 `MYCO.md`。
 

@@ -13,7 +13,7 @@ system:
   # See kernel docs/agent_protocol.md §8. Instance agents MUST compare
   # synced_contract_version against the kernel's contract_version at boot
   # and refresh local reflexes if drift is detected.
-  synced_contract_version: "v0.12.0"  # last kernel contract the instance aligned with
+  synced_contract_version: "v0.13.0"  # last kernel contract the instance aligned with
   upstream_scan_last_run: null         # ISO-8601 timestamp of last upstream scan
 
   # --- Boot Reflex Arc (Wave 13, contract v0.12.0) ------------------------
@@ -35,6 +35,27 @@ system:
     reflex_prefix: "[REFLEX HIGH]"
     raw_exempt_sources:
       - bootstrap
+
+  # --- Session End Reflex Arc (Wave 14, contract v0.13.0) ----------------
+  # Advisory detector for Gear 2 reflection + Gear 4 sweep drift. LOW
+  # severity — appears in hunger advisory list, does not block task work.
+  # Authoritative craft: kernel docs/primordia/session_end_reflex_arc_craft_2026-04-11.md
+  session_end_reflex:
+    enabled: true
+    severity: LOW
+    log_scan_cap_bytes: 5242880
+    gear2:
+      enabled: true
+      drift_threshold_entries: 15
+      reflection_marker: meta
+    gear4:
+      enabled: true
+      drift_threshold_days: 5
+      candidate_marker: g4-candidate
+      resolution_markers:
+        - g4-pass
+        - g4-landed
+        - g4-resolved
 
   upstream_channels:
     # Path-based classification — strictest-class-wins. See §8.2.

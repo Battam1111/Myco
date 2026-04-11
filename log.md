@@ -715,3 +715,70 @@ L14 修复：两条新 forage 初始 license=unknown 违反 "unknown coexist wit
 **Wave 12 asymmetry closed**: named-principle reflexes (W1/W3/§8.4) 现在统一 HIGH；advisory signals (stale_raw/no_deep_digest/etc) 保持信息级——严重度反映的是"underlying rule 是不是 named principle"，不是 flat inflation。
 
 **craft_reference**: docs/primordia/boot_reflex_arc_craft_2026-04-11.md
+
+## [2026-04-11] meta | Gear 2 反思：Wave 13+14 作为同一反射弧的双端
+
+Wave 13 和 Wave 14 结构完全同构——都是把 `agent_protocol.md` 里的一段
+prose 步骤（§3 boot / §4 end）改造成 hunger-driven 反射弧，并通过一个新的
+canon 块（boot_reflex / session_end_reflex）、一个新的 notes.py 检测器
+（detect_contract_drift + raw_backlog 改造 / detect_session_end_drift）、
+和一条 contract minor bump 完成。唯一的**刻意**差异是 severity：Wave 13
+是 HIGH（W1 data-loss 语义），Wave 14 是 LOW（W5 drive 语义）。
+
+这条非对称不是妥协，而是检验了自己之前的一个怀疑：如果把所有反射弧都升
+到 HIGH，agent 会学会忽视 advisory 列表整体。Wave 14 主动保留了一条 LOW
+信号的发射通道，让"软信号"这个类别仍然有实际载体——否则整个反射体系会
+退化为二值（触发 = 停，不触发 = 静默），失去 gradient。
+
+**Gear 2 发现**：系统设计上真正的弱点不是"缺失反射弧"，而是"反射弧的
+严重度语义"——什么时候升到 HIGH，什么时候留在 LOW。目前靠人工判断
+（parent principle 是 W1 级还是 W5 级），没有形式化规则。这是下一轮 Gear
+2 反思的候选对象：能否把 severity 从手工决策抬升到 lint 可验证的分类？
+
+**Gear 4 候选**：把"prose 规则 → canon 块 + 检测器 + severity 分类 +
+contract bump"这四件套提炼为通用 substrate discipline 模式——任何基质
+把软规则升级为硬反射时都可以套用。候选 → g4-candidate。
+
+## [2026-04-11] milestone | Wave 14 — Session End Reflex Arc (contract v0.12.0 → v0.13.0)
+
+**范围**：W5 evolution-discipline 的两个 drift 漏洞——Gear 2 反思遗忘、
+Gear 4 sweep 沉底——首次有 code-level 反射，通过 `session_end_drift`
+advisory 信号在每次 hunger 报告里 surface。
+
+**动机（dogfood 证据）**：
+- log.md 最后一条 meta 反思：2026-04-10；之后累计 18 条非 meta 条目
+  （milestone / friction / system / craft），一整天的 kernel 推进零 Gear 2
+  轨迹
+- `grep -c g4-candidate log.md` = 18，`grep -c g4-pass log.md` = 0
+- 两者都没有 lint / hunger 信号提醒
+
+**实现要点**：
+1. 新 canon 块 `system.session_end_reflex`（gear2/gear4 各自独立 enabled
+   flag，阈值可 instance-override，log scan 有 5 MB cap）
+2. `detect_session_end_drift` 在 `notes.py`：宽容 regex 解析 log.md
+   header，Gear 2 数 "最后 meta 之后的非 meta 条目数"，Gear 4 数 "age ≥
+   5 天且无 g4-pass / g4-landed / 磁盘 craft 引用的 g4-candidate 行数"
+3. `compute_hunger_report` 在 craft_reflex 后、forage 前调用
+4. `agent_protocol.md §4` 由 5 步 prose → 2 步反射弧（hunger →
+   处理 session_end_drift）
+5. 契约版本 v0.12.0 → v0.13.0（kernel 自引用 synced_contract_version
+   同步）
+
+**刻意非对称**：severity = LOW（非 HIGH）。Wave 13 反射是 W1 level 数据
+丢失约束；Wave 14 是 W5 level 习惯退化 drive。LOW 信号进 advisory 列表不
+阻塞任务，但在每次 boot 可见——这是 craft §B4 的主论证。
+
+**Dogfood 验证**：
+- 实现完成后 `detect_session_end_drift('.')` 直接返回 gear2 fire（18 >15
+  threshold），gear4 clean（oldest candidate 2026-04-09，age 2 天 < 5 天
+  threshold）——即 kernel 当前只有 Gear 2 drift，没有 Gear 4 drift
+- 本 meta 条目写入 → gear2 计数器归零 → hunger 重跑应清除该信号
+- Gear 4 sweep 不做：所有 18 个候选 <5 天，按规则无需动作。后续若老化
+  再处理
+
+**向下游迁移影响**：下次 boot 调 myco_status 会触发 Wave 13 contract_drift
+HIGH 反射（synced v0.12.0 vs kernel v0.13.0）。读本条目 + contract_changelog
+v0.13.0 entry 即可对齐。无代码修改必要。
+
+**craft_reference**: docs/primordia/session_end_reflex_arc_craft_2026-04-11.md
+（3 轮，0.91，decision_class: kernel_contract）

@@ -6,8 +6,8 @@ system:
   # Authoritative source: docs/agent_protocol.md §8
   # Craft record:         docs/primordia/upstream_protocol_craft_2026-04-11.md
   # Changelog:             docs/contract_changelog.md
-  contract_version: "v0.12.0"  # Wave 13: boot reflex arc (contract drift + raw_backlog HIGH + hunger wiring)
-  synced_contract_version: "v0.12.0"  # Wave 13 — self-reference: kernel's own lock
+  contract_version: "v0.13.0"  # Wave 14: session end reflex arc (gear2/gear4 drift as LOW hunger signal)
+  synced_contract_version: "v0.13.0"  # Wave 14 — self-reference: kernel's own lock
   upstream_scan_last_run: null
 
   # --- Boot Reflex Arc (Wave 13, contract v0.12.0) ------------------------
@@ -30,6 +30,37 @@ system:
     # source != "bootstrap". digesting-state notes are held, not raw.
     raw_exempt_sources:
       - bootstrap
+
+  # --- Session End Reflex Arc (Wave 14, contract v0.13.0) ----------------
+  # Authoritative craft: docs/primordia/session_end_reflex_arc_craft_2026-04-11.md
+  # Parent principle: W5 (continuous evolution) / Gear 2 + Gear 4 rituals.
+  # Sibling to boot_reflex. DELIBERATELY LOW severity — W5 is a drive
+  # (habit decay), not W1-class constraint (data loss). Signal appears in
+  # hunger advisory list, does not block task work. See craft §B4.
+  #
+  # Two drift detectors bundled:
+  #   gear2 — "N log entries since last `## [YYYY-MM-DD] meta |` line".
+  #           Proxy for "did you reflect at all today?". Default threshold
+  #           15 ≈ one active kernel day.
+  #   gear4 — "oldest `g4-candidate` entry older than K days without
+  #           resolution marker (`g4-pass` inline or craft file on disk)".
+  #           Drives Gear 4 sweep discipline.
+  session_end_reflex:
+    enabled: true
+    severity: LOW                       # asymmetric with boot_reflex HIGH
+    log_scan_cap_bytes: 5242880         # 5 MB — constant-bound scan (C2)
+    gear2:
+      enabled: true
+      drift_threshold_entries: 15
+      reflection_marker: meta           # token after `[YYYY-MM-DD]`
+    gear4:
+      enabled: true
+      drift_threshold_days: 5
+      candidate_marker: g4-candidate
+      resolution_markers:
+        - g4-pass
+        - g4-landed
+        - g4-resolved
 
   upstream_channels:
     # Path-based classification — strictest-class-wins. An instance agent
