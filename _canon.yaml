@@ -135,35 +135,36 @@ system:
     targets:
     - README.md
     - README_zh.md
+    - README_ja.md
     - MYCO.md
     # Each group = one identity element. A file passes the group if ANY
     # variant appears at least min_hits_per_file times. Groups are OR-ed
     # internally, AND-ed across groups.
     groups:
     - name: substrate-identity
-      any_of: ["substrate", "基质", "Substrate"]
+      any_of: ["substrate", "基质", "Substrate", "基質"]
     - name: cpu-metaphor
-      any_of: ["CPU", "operating system", "OS upgrades", "自升级", "OS "]
+      any_of: ["CPU", "operating system", "OS upgrades", "自升级", "OS ", "自己升級", "自己升级"]
     - name: non-parametric
-      any_of: ["non-parametric", "Non-parametric", "非参数", "weights are touched", "weights never", "权重永不"]
+      any_of: ["non-parametric", "Non-parametric", "非参数", "weights are touched", "weights never", "权重永不", "非参数的", "重みは"]
     - name: metabolism
-      any_of: ["metabolism", "metabolize", "Metabolic", "代谢", "消化系统"]
+      any_of: ["metabolism", "metabolize", "Metabolic", "代谢", "消化系统", "代謝", "消化系"]
     - name: seven-step-pipeline
-      any_of: ["excrete", "淘汰", "seven-step", "七步"]
+      any_of: ["excrete", "淘汰", "seven-step", "七步", "排出", "七段"]
     - name: compression-doctrine
-      any_of: ["Compression", "compression", "压缩", "attention is not", "注意力有限"]
+      any_of: ["Compression", "compression", "压缩", "attention is not", "注意力有限", "圧縮", "注意力は"]
     - name: four-layer-self-model
       any_of: ["self-model", "Self-Model", "四层自我", "Inventory", "库存", "decay", "退化"]
     - name: mutation-selection
-      any_of: ["mutation", "selection", "变异", "选择压力", "Mutation"]
+      any_of: ["mutation", "selection", "变异", "选择压力", "Mutation", "選択圧", "選擇壓"]
     - name: perpetual-evolution
-      any_of: ["Perpetual", "perpetual", "Stagnation", "stagnation", "永恒进化", "停滞即死"]
+      any_of: ["Perpetual", "perpetual", "Stagnation", "stagnation", "永恒进化", "停滞即死", "永続", "停滞"]
     - name: transparency-anticancer
-      any_of: ["Transparent", "transparent", "透明", "cancerous", "癌变"]
+      any_of: ["Transparent", "transparent", "透明", "cancerous", "癌变", "癌化"]
     - name: kernel-instance
-      any_of: ["kernel", "instance", "内核", "实例"]
+      any_of: ["kernel", "instance", "内核", "实例", "カーネル", "インスタンス"]
     - name: theoretical-lineage
-      any_of: ["Karpathy", "Polanyi", "Argyris", "PDCA", "Voyager", "理论血统"]
+      any_of: ["Karpathy", "Polanyi", "Argyris", "PDCA", "Voyager", "理论血统", "ポラニー", "アージリス"]
   notes_schema:
     # Digestive substrate — the four-command set (eat / digest / view /
     # hunger) reads and writes notes here. Authoritative design record:
@@ -289,6 +290,7 @@ system:
     # --- Standard repo files ---
     - README.md
     - README_zh.md
+    - README_ja.md
     - LICENSE
     - CODE_OF_CONDUCT.md
     - CONTRIBUTING.md

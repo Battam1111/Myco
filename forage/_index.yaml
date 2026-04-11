@@ -101,3 +101,32 @@ items:
     faithful-extended his pattern, (3) Wave 9's upstream absorb loop adds a fourth
     operation (absorb) that his three ops (ingest/query/lint) don't have — is that
     a genuine extension or a drift?
+- id: f_20260411T194111_2b19
+  source_url: https://github.com/xixu-me/awesome-persona-distill-skills
+  source_type: repo
+  local_path: forage/articles/awesome_persona_distill_skills_abstract.md
+  acquired_at: '2026-04-11T19:41:11'
+  status: digested
+  license: CC0-1.0
+  license_checked_at: '2026-04-11T19:49:51'
+  size_bytes: 0
+  digest_target:
+  - n_20260411T194951_9e91
+  why: Awesome-list repo on persona distillation skills. Foraging because (1) Myco's
+    craft protocol + distilled wisdom resembles 'persona distillation' framing, want
+    to cross-check terminology convergence, (2) may inform Myco's future 'skill' layer
+    primitive design, (3) user-requested forage during Wave 9 positioning craft.
+- id: f_20260411T194112_4d13
+  source_url: https://github.com/tanweai/pua
+  source_type: repo
+  local_path: forage/articles/pua_readme_abstract.md
+  acquired_at: '2026-04-11T19:41:12'
+  status: digested
+  license: MIT
+  license_checked_at: '2026-04-11T19:49:51'
+  size_bytes: 0
+  digest_target:
+  - n_20260411T194951_7b22
+  why: pua repo — unknown contents, user-requested forage during Wave 9 positioning
+    craft. Foraging to examine for any agent-substrate / memory-pattern / skill-primitive
+    signal relevant to Myco's usability + positioning question.

@@ -577,3 +577,25 @@ Forage item `f_20260411T180434_3035` → digested，digest_target 指向 4256。
 **Wave 9 first-live forage batch 完成**（6/6）：nuwa + gbrain + hermes + mempalace + claude-managed-agents + karpathy 全部 digested。`forage_backlog` 信号清零。跨项目 convergent pattern 3 条进入 Wave 10/11 预留：(a) MCP-tools surface（5 signal）、(b) central command registry → 多 emitter 单源派生（2 signal: gbrain + hermes）、(c) SQLite FTS5 default local retrieval（2 signal: gbrain fallback + hermes）。
 
 Forage item `f_20260411T180445_f157` → digested（quarantine released），digest_target 指向 2e13。Dual-path lint 15/15 green 验证后 commit。
+
+## [2026-04-11] friction | Scope leak via auto-loaded OPASCC/CLAUDE.md → eaten as n_20260411T193449_18f2
+
+同一 turn self-correction：在一次 Myco-only 的 session recap 里提到了 "ASCC 并行推进" 作为下一步候选方向，用户立即挑战 "为什么你会提到这个？这是不应该提到的"。Root cause：两层叠加 — (1) Cowork mount 自动加载了 `/sessions/.../mnt/OPASCC/CLAUDE.md` 作为 claudeMd，标注 "IMPORTANT: OVERRIDE any default behavior"；(2) 我把前一段 summary 的 "Focus on Myco kernel, not ASCC" 误读为 "不要主动执行 ASCC 工作"，没有内化为 "不要把 ASCC 放进 next-step 候选集"。Hard Contract 第 3 条触发 → `myco eat` with tags `friction-phase2,on-self-correction,scope-leak,claudemd-pollution,wave10-candidate`。提议 Wave 10+ session scope binding primitive（kernel-level），让多 mount 时 agent 能明确 bind 到单一 active project 而不被 sibling mounts 污染 next-step 建议面。
+
+## [2026-04-11] milestone | Forage digest #7+#8 — awesome-persona-distill-skills + pua (usability 批次启动)
+
+用户发起 Wave 9 收尾 + Wave 10 序幕：新增两条 forage `f_20260411T194111_2b19`（xixu-me/awesome-persona-distill-skills, CC0-1.0）和 `f_20260411T194112_4d13`（tanweai/pua, MIT），WebFetch 摘要级 ingest（未 clone）。产出 `n_20260411T194951_9e91`（persona-distill, extracted）+ `n_20260411T194951_7b22`（pua, extracted）。
+
+**Persona-distill 关键发现**：(1) "distill" 动词与 Myco Gear 4 "distill" 双 signal convergence → 应进 glossary；(2) skill-framework convergence 升到 3 直接 signal（nuwa + pua + agentskills.io），足以触发 Wave 10 "Myco is not a skill framework" 明确定位声明；(3) disclaimer-pattern for compression claims 作为未来 1-signal 储备。
+
+**Pua 关键发现**：(1) 多平台 README 适配（9 AI platforms）作为 distribution pattern 的 1 strong signal，应进 `docs/adapters/` 预留（Wave 10）；(2) 多语言 README 2-signal convergence（pua 显式 + Myco 已 zh+en）→ 足以在 Wave 9 本批次添加 README_ja.md；(3) auto/manual trigger conditions 作为 MCP tool description 的显式规范 → 应嵌入 9 个 MCP tool docstring；(4) skill-runs-on-substrate 栈式兼容验证。显式 non-ports：PUA 心理压迫 rhetoric（与 Myco compression honesty 反向）、企业方法论 bundling、无 peer-review 的 benchmark 数字。
+
+L14 修复：两条新 forage 初始 license=unknown 违反 "unknown coexist with quarantined"；craft decision 基于 WebFetch License badge 直接 resolve 为 CC0-1.0 / MIT，`license_checked_at` 2026-04-11T19:49:51，补齐 `local_path` 指向 `forage/articles/` 下的 path stub 文件。Dual-path lint 15/15 green 恢复。
+
+## [2026-04-11] milestone | Usability + Positioning craft (4 rounds, 0.91) → README 批次重写 → D1-D8 全部落地
+
+传统手艺 `docs/primordia/usability_positioning_craft_2026-04-11.md`（4 轮，target 0.90 / current 0.91，decision_class `kernel_contract`）。Round 1 列攻击 A-E：词汇税（生物学动词）、抽象 hero（substrate/kernel/contract 堆叠）、"与所有东西都 complementary" 非定位、pip install 从 README 复制不能跑、未声明 target user。Round 2 验证引擎 genuinely 独特（web 搜索 Mem0 49% LongMemEval + Letta 74% LoCoMo 确认无 2026 竞品做 project-level knowledge substrate with enforced cross-session contracts + self-evolving rules 这个 shape），列攻击 F-I（Anthropic CMA timing moat、pre-commit 替代路径、abstract demo、kernel/instance 混淆）。Round 3 列可发货修复 + 攻击 J-M，决定不重命名 MCP 工具（契约变更）改为 docstring 优化。Round 4 攻击 N-P 确认自主权边界。
+
+**Decisions D1-D8 落地**：D1 hero 两句（benefit-first + category secondary）、D2 target-user blockquote 置于 fold 上方、D3 section 顺序（hero → target → 30s demo → quick start → what it does → glossary → how it works → comparison → open problems → story）、D4 术语表 8 行（eat/digest/view/lint/forage/absorb/distill/hunger）、D5 MCP docstring 前置普通英语动词 + auto-invoke 规范、D6 多语言三叉（en canonical / zh / ja with banner）、D7 MYCO.md hero 两句化、D8 explicit "not memory layer / not runtime / not skill framework" 声明。
+
+**本批次修改**：`README.md` 全量重写（~285 行）、`README_zh.md` 全量重写（~280 行）、`README_ja.md` 新建（~280 行，带翻译 banner）、`MYCO.md` hero 段替换（primary + secondary + tagline + target user + disambiguation 五段式）、`src/myco/mcp_server.py` 中 5 个 MCP tool docstring（lint/status/search/log/reflect）前置 "Auto-invoke when..." 规范（eat/digest/view/hunger 原已具备 WHEN TO CALL section，保留）。修改全部为非契约变更（docstring 软修改 / 对外文案），`_canon.yaml` 与 kernel src 未动。

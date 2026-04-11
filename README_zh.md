@@ -4,283 +4,287 @@
 
 # Myco
 
-**Myco 是为 AI Agent 设计的自主认知基质（Autonomous Cognitive Substrate）。**
-*你的 Agent 是 CPU。Myco 是其他所有——而且这个操作系统会自己升级自己。*
+**一个知识基质 —— 为你的 AI 项目 lint 出 agent 看不见的矛盾，并随项目成长自行进化规则。**
 
-[![PyPI](https://img.shields.io/pypi/v/myco?style=for-the-badge&color=00D4AA)](https://pypi.org/project/myco/)
+*Git 记录你的代码。Myco 记录你代码所**知道**的。*
+
+[![PyPI](https://img.shields.io/badge/PyPI-coming%20soon-lightgrey?style=for-the-badge)](https://github.com/Battam1111/Myco)
 [![Python](https://img.shields.io/badge/Python-3.8%2B-blue?style=for-the-badge)](https://www.python.org/)
 [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
+[![Lint](https://img.shields.io/badge/Lint-15%2F15%20green-brightgreen?style=for-the-badge)](#工作原理)
 
-[Myco 是什么](#myco-是什么) · [看效果](#看效果) · [快速开始](#快速开始) · [工作原理](#工作原理) · [为什么选-myco](#为什么选-myco) · [故事](#故事)
+[30 秒演示](#30-秒演示) · [快速开始](#快速开始) · [Myco 做什么](#myco-做什么) · [术语表](#术语表) · [工作原理](#工作原理) · [Myco 与相邻工具对比](#myco-与相邻工具对比) · [开放问题](#开放问题) · [故事](#故事)
 
-**Other Languages:** [English](README.md)
+**语言：** [English](README.md)（正式版） · 中文 · [日本語](README_ja.md)
 
 </div>
 
----
-
-## Myco 是什么
-
-**Myco 是一个基质，不是一个工具。** 你的 Agent 运行在 Myco 上，就像进程运行在操作系统上——不同之处在于，这个操作系统会自己升级自己。
-
-- **基质而非库。** Agent = CPU（纯算力，零持久性）。Myco = 内存、文件系统、操作系统、外设——*而且操作系统可以在 CPU 执行它的同时重写自己*。架构上分为项目无关的**内核**（本仓库）与项目**实例**（你的项目目录），就像操作系统与应用程序的关系一样。
-- **非参数进化。** 权重永远不会被动到。所有学习都发生在基质里：markdown 文件、YAML canon、目录结构、lint 规则、进化引擎本身。你的 Agent 随时间变强，不是因为被重新训练，而是因为它脚下的地面消化了世界，在它底下生长起来。
-- **知识代谢。** 活的系统代谢，死的系统不代谢。Myco 被设计成主动"吞噬"外部信息（代码、文档、论文、教训）并将其消化为结构化知识。`myco lint` 是免疫系统。完整的外部摄取——代谢入口（Metabolic Inlet）——是一项已声明的原语（primitive），最早在 v2.0 实现。详见 [开放问题](#开放问题)。
-- **永恒进化。** 停滞即死亡。这是唯一不可违反的法则，因为一个停止代谢的基质只是一个缓存。
-
-> 别的工具给你的 agent 记忆。Myco 给它代谢。
+> 🌐 *本文是 README.md 的中文翻译。正式版（canonical）以英文 README 为准。*
 
 ---
 
-## 看效果
+> **如果你曾眼睁睁看着 agent 一脸自信地从某个 wiki 页面里念出 `v2`，而 `_canon.yaml` 里写的是 `v3` —— Myco 就是为你做的。**
+>
+> Myco 是给那些已经在维护 agent 可读项目知识（`CLAUDE.md`、`AGENTS.md`、`docs/` 目录、wiki 等）的开发者用的基质。当跨文件的矛盾开始在会话之间悄悄累积到一定程度时，你会需要它。它为你的项目提供一份**自动 lint 的知识契约**，在 agent 把漂移放大之前就捕获它。
 
-项目第三天。你的 agent 在一个 wiki 页里引用了"v2 endpoint"，但 `_canon.yaml` 里写的是 v3。部署文档还提着 v1。三个地方，三个不同的事实。没人发现。
+---
 
-```
+## 30 秒演示
+
+项目里三个文件各说三种话，直到生产环境出问题才有人发现。
+
+```bash
+$ cat _canon.yaml
+project:
+  current_api_version: "v3"
+system:
+  stale_patterns: ["v2 endpoint", "api/v2"]
+
+$ cat wiki/api.md
+# API Reference
+The current v2 endpoint lives at /api/v2/users.
+
 $ myco lint
 
   L0 Canon self-check          PASS
   L1 Reference integrity       PASS
-  L2 Numeric consistency       ⚠ 1 issue
-  L3 Stale pattern scan        PASS
-  L4 Orphan detection          ⚠ 1 issue
-  L5 Log coverage              PASS
-  L6 Date consistency          PASS
-  L7 Wiki format               PASS
-  L8 Adapter schema            PASS
+  L2 Number consistency        ⚠  2 issues
+  L3 Stale patterns            PASS
+  ...
+  L14 Forage hygiene           PASS
 
-  [HIGH] L2 | wiki/api_design.md
-         "v2 endpoint" ≠ _canon.yaml current_api_version = "v3"
-
-  [MEDIUM] L4 | wiki/deployment.md
-           not indexed in MYCO.md
+  [MEDIUM] L2 | wiki/api.md:3
+           Stale pattern 'v2 endpoint': "...The current v2 endpoint lives at..."
+  [MEDIUM] L2 | wiki/api.md:3
+           Stale pattern 'api/v2': "...lives at /api/v2/users..."
 ```
 
-两个问题被抓住。那个矛盾本来会在接下来五个会话里默默地扩大。这就是基质的免疫系统在工作。
+两处矛盾被捕获。未来五次会话里的静默复合错误被阻止。这就是基质免疫系统在工作 —— 而且上面那些规则（`stale_patterns`）本身也在 `_canon.yaml` 里被版本化管理，所以它们会随项目一起进化。
 
 ---
 
 ## 快速开始
 
 ```bash
-pip install myco
-```
+# 从源码安装（PyPI 发布即将到来）
+pip install git+https://github.com/Battam1111/Myco.git
 
-**已经有 `CLAUDE.md`？**
+# 新项目
+myco init my-project --level 2
 
-```bash
+# 已有 CLAUDE.md 的项目
 myco migrate ./your-project --entry-point CLAUDE.md   # 非破坏性
 myco lint --project-dir ./your-project                 # 建立基线
 ```
 
-**全新项目？**
+**MCP 集成** —— 你的 agent 自动获得 9 个工具，无需手动 prompt：
 
 ```bash
-myco init my-project --level 2
+pip install 'git+https://github.com/Battam1111/Myco.git#egg=myco[mcp]'
 ```
 
-**从其他工具迁移？**
+仓库里附带一个即用型 `.mcp.json`。在 Claude Code、Cursor 或任何 MCP 客户端装好之后，agent 会自动发现：
 
-```bash
-myco import --from hermes ~/.hermes/skills/
-myco import --from openclaw ./MEMORY.md
-```
+- **检查** · `myco_lint` · `myco_status` · `myco_search` · `myco_log` · `myco_reflect`
+- **知识代谢** · `myco_eat` · `myco_digest` · `myco_view` · `myco_hunger`
 
-Cursor、GPT 等集成请看 [`docs/adapters/`](docs/adapters/)。
+只用 `myco` CLI 时 Myco 也能工作，但"反射层"（agent 在对话流中自动捕获知识）只有在 MCP 接好之后才存在。
 
-**MCP 集成**（Agent 自动发现 Myco 工具）：
+---
 
-```bash
-pip install 'myco[mcp]'
-```
+## Myco 做什么
 
-仓库里已经带了 `.mcp.json`。安装后，你的 agent 会自动获得 **9 个工具**——无需手动提示：
+三项具体能力，按你能多快感受到的顺序排：
 
-- **反射层** · `myco_lint` · `myco_status` · `myco_search` · `myco_log` · `myco_reflect`
-- **消化系统** · `myco_eat` · `myco_digest` · `myco_view` · `myco_hunger`
+### 1. Lint 你的知识，而不仅仅是语法
 
-> **前提假设**：Myco 假设你使用的是支持 MCP 的 agent（Claude Code、Cursor、Claude Desktop 等）。纯人手通过 `myco` CLI 也能用，但会失去反射层——那一层的核心价值是 agent 在对话流中自动捕获知识，不需要你开口。
+Markdown linter 检查语法。Prose linter 检查风格。**没有任何东西在检查你 wiki 里的断言是否还和 canon 文件对得上。** Myco 做这件事。`myco lint` 在 `_canon.yaml`、`wiki/`、`docs/`、`MYCO.md` 以及你声明的任何项目专属文件上运行 15 维检查（L0–L14），在陈旧模式、孤儿引用、schema 违规、数值漂移出现的瞬间就捕获它们。
+
+### 2. 给你的 agent 一个稳定的代谢回路
+
+当 agent 读了一篇论文、发现了一个 bug 模式、或者做了一个设计决策，它有一个（也只有一个）地方可以放：`myco_eat` 把它捕获为 raw note。`myco_digest` 让它走完生命周期（raw → extracted → integrated → excreted）并保留出处。`myco_view` 让你（或 agent）按 tag、status、stage 取回笔记。这个基质在跨会话、跨 agent 厂商、跨项目重构的情况下都活得下来。
+
+### 3. 随项目成长自行进化规则
+
+Myco 的 lint 规则活在 `_canon.yaml` 里，通过一个结构化的"传统手艺"协议进化（L13 检查强制每次规则变更都留下可审计的多轮辩论记录）。**你的 agent 可以提议新的 lint 规则，而这些提议会经受你的选择压力。** 通过的规则成为基质的一部分。停止工作的规则被排出。这就是 L-meta 层：不是进化 agent，而是进化 agent 脚下的那块地。
+
+---
+
+## 术语表
+
+Myco 使用一套生物学词汇。下面是通俗英语对照：
+
+| Myco 动词 | 通俗说法 | CLI | MCP 工具 |
+|---|---|---|---|
+| `eat`（吃） | 把一段内容捕获为持久笔记 | `myco eat` | `myco_eat` |
+| `digest`（消化） | 让笔记走完生命周期（raw → extracted → integrated → excreted） | `myco digest` | `myco_digest` |
+| `view`（查看） | 按 status、tag、stage 读取笔记 | `myco view` | `myco_view` |
+| `lint`（lint） | 检查所有文件中的矛盾与漂移 | `myco lint` | `myco_lint` |
+| `forage`（觅食） | 把外部来源（repo、论文、文章）取进基质 | `myco forage` | （仅 CLI） |
+| `absorb`（吸收） | 从下游项目实例同步 kernel 改进 | `myco upstream absorb` | （仅 CLI） |
+| `distill`（蒸馏） | 从完成的项目里提取通用模式供将来 kernel 使用（Gear 4 输出） | （工作流，非 CLI） | — |
+| `hunger`（饥饿） | 代谢仪表盘：raw 积压、陈旧笔记、死知识、觅食压力 | `myco hunger` | `myco_hunger` |
+
+这些动词刻意是隐喻。Myco 的核心主张是：知识基质是一个活着的系统 —— 代谢是正确的心智模型。这张表存在的意义，是让你在尚未接受这个主张之前就能先用起来。
 
 ---
 
 ## 工作原理
 
-Myco 在你现有的项目文件旁边增加四层：
+Myco 在你现有的项目文件旁边加了四层轻量级结构：
 
 ```
 your-project/
-├── MYCO.md            ← Agent 每个会话都读（hot-zone 索引）
-├── _canon.yaml        ← 单一事实源（lint 的 canonical values）
-├── wiki/              ← 结构化知识页（lint 校验）
-├── docs/              ← 流程、辩论记录、进化历史
-├── log.md             ← 只追加的项目时间线
-└── src/myco/          ← CLI + lint 引擎（9 项检查，L0–L8）
+├── MYCO.md           ← Agent 每次会话必读（热区索引）
+├── _canon.yaml       ← 单一事实源（lint 检查对照用的权威值）
+├── wiki/             ← 结构化知识页（lint 校验）
+├── docs/             ← 流程、辩论记录、进化历史
+├── notes/            ← 消化基质（raw → extracted → integrated）
+├── forage/           ← 带 license 门控的外部来源入口
+├── log.md            ← 只追加的项目时间线
+└── src/myco/         ← CLI + MCP server + 15 维 lint 引擎
 ```
 
-`myco lint` 在所有层之间运行 9 项一致性检查。它是**免疫系统**——抓矛盾、孤立文件、过时引用、版本漂移，在它们复合之前。
+`myco lint` 是**免疫系统** —— 在矛盾、孤儿文件、陈旧引用、版本漂移复合之前就捕获它们。15 个维度（L0 到 L14）覆盖 canon 自洽性、引用完整性、数值漂移、陈旧模式、孤儿检测、log 覆盖、日期一致性、wiki 格式、adapter schema、`.original` 同步、愿景锚点、notes schema、写入面洁净性、upstream dotfile 洁净性、craft 协议 schema、以及 forage 洁净性。
 
-### 三条不可变宪法
+### 一句话的架构定位
 
-Myco 里的一切都可以进化——知识组织方式、压缩策略、甚至进化引擎本身。只有这三条例外：
+你的 agent 是 CPU；Myco 是 operating system —— 并且这套 OS 会自升级。所有进化都是**非参数**的：markdown、YAML、目录结构、lint 规则。模型权重永不被触动。这就是为什么 Myco 在跨 agent 厂商的情况下行为一致，并且能在模型换代时活下来。
 
-1. **入口可达** — 系统必须有一个任何 Agent 都能定位并自解释的入口。
-2. **透明可理解** — 系统必须始终对人类保持可审查、可理解。*为什么这条是承重墙：人类是 Myco 的选择压力（详见下文人机协作模型）。如果透明性丧失，选择压力就丧失；一个没有选择压力的自我优化基质会走向癌变——它还在改变，但已经不再服务于真实目标。*
-3. **永恒进化** — 停滞即死亡。一个停止代谢的基质会退化成静态知识库。
+### 三条不可变法则
 
-### 四档齿轮 + 代谢入口
+Myco 里所有东西都可以进化 —— 知识结构、压缩规则，甚至进化引擎本身。除了这三条：
 
-Myco 的进化引擎有两面。四档齿轮是**自主神经系统**——内部稳态，今天已全部实现。代谢入口是**消化系统**——对外摄取，现在作为原语声明，最早 v2.0 实现。
+1. **可访问（Accessible）** —— 任何 agent 都能找到入口并自行解释这个基质。
+2. **透明（Transparent）** —— 每次变更都对人类可审计。*为什么这是承重的*：人类是 Myco 的选择压力。一旦透明性丢失，选择压力就丢失，而一个没有选择压力的自优化基质会变成癌。
+3. **永恒进化（Perpetually Evolving）** —— 停滞即死亡。一个停止代谢的基质会退化成静态的知识库。
 
-| 齿轮 | 触发时机 | 做什么 | 状态 |
-|------|---------|--------|------|
-| 1 | 每个会话 | 感知摩擦——记录失败和意外行为 | v1.0 |
-| 2 | 会话结束 | 反思——知识系统该改进什么？ | v1.0 |
-| 3 | 里程碑 | 回顾——挑战结构性假设 | v1.0 |
-| 4 | 项目结束 | 蒸馏——为未来项目提取通用模式 | v1.0 |
-| **代谢入口** | **摩擦信号触发 + 周期巡逻** | **发现 → 评估 → 萃取 → 整合 → 压缩 → 验证 外部知识（GitHub、arXiv、社区文档）** | **原语已声明；最早 v2.0** |
+### 四个齿轮 + 代谢入口
 
-1–4 档朝内。入口朝外。一个没有消化系统的基质只是缓存；这就是为什么代谢入口现在就必须被声明，哪怕实现在后面。
+Myco 的进化引擎有两张面。四个齿轮是**自主神经系统** —— 内部稳态，v0.x 全部交付。代谢入口是**消化系统** —— 外部吸收，作为 primitive 声明，最早 v1.0 完成。
 
-代谢入口一旦实现，会运行一条**七步代谢管道**：
+| 齿轮 | 何时 | 做什么 | 状态 |
+|------|------|--------|------|
+| 1 | 每次会话 | 感知摩擦 —— 记录失败和意外行为 | ✅ |
+| 2 | 会话结束 | 反思 —— 知识系统本身应该改进什么？ | ✅ |
+| 3 | 里程碑 | 回顾 —— 挑战结构性假设 | ✅ |
+| 4 | 项目结束 | 蒸馏 —— 为将来的项目提取通用模式 | ✅ |
+| **代谢入口** | **摩擦信号 + 周期性巡逻** | **发现 → 评估 → 提取 → 整合 → 压缩 → 验证 → 排出外部知识** | **Primitive 已声明；首轮实战 forage 批次 2026-04-11 完成** |
 
-```
-发现 → 评估 → 萃取 → 整合 → 压缩 → 验证 → 淘汰
-```
+四个齿轮向内。入口向外。一个没有消化系统的基质只是一个 cache；这就是为什么入口必须现在声明，即使它的完全自主形态要稍后到来。
 
-第七步（`淘汰` / excrete——主动清除过时或被取代的知识）是大多数系统忘记的一步。生物代谢是*摄入 + 转化 + 排泄*；没有排泄你得到的只是消化，不是代谢，基质会膨胀。Myco 的第七步不可省略。
-
-这条管道还区分**可迁移知识**（值得蒸馏进内核以备未来项目使用的模式——齿轮 4 的输出）与**项目专属知识**（仅对当前实例有效的事实）。同一条教训可能同时是两者，也可能都不是；正确分类本身就是齿轮 4 的工作。
-
-### 压缩原则
+### 压缩教义
 
 Myco 的运行假设：
 
-> **存储无限。注意力有限。**
+> **存储是无限的。注意力不是。**
 
-你永远可以多加一块硬盘，但 Agent 的上下文窗口不会按需增长。所以 Myco **永不遗忘**——没有信息会从冷存储里被删除——但它**主动压缩**那些流入 Agent 注意力的内容。压缩决策（什么留热、什么入冷、什么被重新摘要、什么按需重展）不是管道工作。它是**基质的首要认知行为**。
+硬盘按需增长；agent 的 context window 不会。所以 Myco **永不遗忘** —— 冷存储里没有任何东西被删除 —— 但它会**激进地压缩**流入注意力的内容。压缩不是管道，它是这个基质的主要认知行为。三条候选判据：使用频率（低读页面冷下去）、时效性（时限事实到期排出）、独占性（agent 已经内化的常识浪费基质空间）。
 
-来自 2026-04-08 愿景辩论的三条压缩判据：
-
-- **使用频率** — 低阅读的 wiki 页压缩或转冷
-- **时效** — 过期的时间敏感知识淘汰
-- **排他性** — "所有 Agent 都已经知道的常识"（比如 Python 基础语法）浪费基质空间，不应该存在这里
-
-压缩还是 **Agent-adaptive** 的：32K 上下文的客户端需要比 200K 的更激进的压缩。同一个 Myco 实例必须为每种 Agent 以不同方式呈现自己。而且压缩策略本身也是齿轮 3 / 4 合法的进化目标——当规则停止工作，规则就改变。
-
-### 四层自我模型
-
-Myco 维护一个关于*自己*的模型。不是锦上添花——而是一个基质知道自己含有什么、缺什么、什么在腐烂、什么被忽略的*唯一*方式。四层，自动化难度递增：
-
-| 层 | 追踪什么 | 自动化 | 今天 |
-|----|---------|-------|------|
-| **A — 库存** | 我有什么？数量、分布、更新时间。 | 容易 | ✅ `myco status` |
-| **B — 缺口感知** | 我缺什么？摩擦信号 = 缺口症状。 | 中等 | ✅ friction logs → 齿轮 2 |
-| **C — 退化感知** | 什么在腐烂？*事实性退化*：版本漂移、过时引用。*结构性退化*：第 3 天对的架构到第 30 天已经错了。 | 中等 | ✅ 仅事实性（lint L0–L8）；❌ 结构性是开放问题 |
-| **D — 效能评估** | 哪些知识真的被用了？"死知识" = 一个 wiki 页存在但从未被读取。 | 最难 | ❌ 尚未——Hermes 式的使用追踪是 v1.2+ 目标 |
-
-今天 Myco 实现了 A、B 和部分 C。D 是一个命名的缺口。这些不是挥手带过的概念，是后续版本周期的具体架构目标。
-
-### 人机协作模型
-
-**系统做变异（mutation），人类做选择（selection）。**
-
-你不设计 Myco 的进化——你提供适应度信号。Myco（通过执行它的 Agent）提出变化：一条新的 lint 规则、一次 wiki 版块重构、一段被压缩的操作叙事。你说"留"或"丢"。就像自然选择从不设计物种，只淘汰不适应的。
-
-这是大多数第一次接触 Myco 的人会忽略的反转：**Myco 是为 Agent 而不是为人类设计的**。文档看起来密集，是因为它们在为 Agent 的 token 效率和上下文窗口加载量优化，不是为人类的阅读愉悦。你不是 Myco 的主要用户——你是选择者、园丁、提供生存压力让 Myco 保持对齐的那一方。
-
-这个模型也是第 2 条宪法的由来。如果 Myco 进化到你无法评估它的变化的复杂度，你就失去了提供选择压力的能力，基质就会癌变。透明性不可谈判，因为它是"有意义的选择"的前提条件。
+> ⚠️ *诚实边界*：压缩捕获的是一段知识的承重决策和出处链，而不是完整的原始语境。不可约的纹理会丢失。这是 Myco 刻意做出的交易；如果你需要词汇级保真度，请另外保留一份原始归档。
 
 ---
 
-## 为什么选 Myco
+## Myco 与相邻工具对比
 
-Agent 会执行，也会记忆，但它们无法注意到自己知识中的矛盾、质疑自己的假设是否仍然成立、或者把外部世界消化成可复用的结构。Myco 是 Agent *运行在其上的基质*——不是它们*使用的*一个插件。
+Myco **不是**记忆层、**不是** agent runtime、**不是** skill framework。它是以上都不涉及的那一层。
 
-大多数 AI 工具在 **L-exec**（执行得更快）或 **L-skill**（积累技能）层面工作。Myco 在 **L-struct** 和 **L-meta** 层面工作——进化知识结构本身，并进化那些进化结构的规则：
+|  | Myco | Mem0 | Letta / MemGPT | mempalace | Hermes | Claude Code |
+|--|---|---|---|---|---|---|
+| **类别** | 知识基质 | 记忆层 | Agent runtime | 对话记忆 | Agent runtime | Agent CLI |
+| **主要产物** | `wiki/` + `_canon.yaml` + `notes/` | KV + 向量存储 | 分层记忆（RAM / disk / archival） | 空间 schema（wings/rooms） | 会话 DB | `CLAUDE.md` 约定 |
+| **托管 agent 执行？** | 不 —— 跑*在* Claude Code / Cursor 内 | 不 | 是 | 不 | 是 | 是 |
+| **跨会话契约执行** | ✅ 15 维自 lint | ❌ | ❌ | ❌ | 仅 runtime cache 不变量 | ❌（纯约定） |
+| **自进化规则** | ✅ Gear 4 + 传统手艺协议 | ❌ | ❌ | ❌ | ❌ | ❌ |
+| **检索基准** | —（目标不同） | LongMemEval 49% | LoCoMo 74%（GPT-4o mini） | LongMemEval R@5 96.6% 原始 | — | N/A |
+| **集成方式** | MCP server + CLI | REST API + SDK | Runtime API | MCP server | Runtime | 原生 |
 
-| 层级 | 做什么 | 谁 |
-|------|-------|----|
-| L-exec | 执行得更快 | 所有 Agent |
-| L-skill | 积累技能 | Hermes、OpenClaw、CLAUDE.md |
-| **L-struct** | **进化知识结构** | **Myco（齿轮 3）** |
-| **L-meta** | **进化进化的规则** | **Myco（齿轮 4）** |
+**关键洞察**：Myco 是唯一回答*"这个项目的知识还内部自洽吗？"*而不是*"我们能找到相关记忆吗？"*的一栏。这是两个不同的问题，而前者是目前被服务不足的那一个。
 
-### Myco 与邻近系统的区别
+具体来说：
+- **Mem0 / Zep / Supermemory** 是记忆层 —— 它们存取数据。Myco **不存任何东西，也不检索任何东西**；它在 lint agent 本来就会写的项目文件。
+- **Letta / MemGPT / Hermes** 是 runtime —— 它们托管 agent 的执行回路。Myco **不托管 agent**；agent 跑在 Claude Code、Cursor 或任何 MCP 客户端里，并**通过 9 个工具调用 Myco**。
+- **Claude Code / Cursor / `CLAUDE.md`** 是 Myco 跑**在里面**的那个环境。Myco 的 `.mcp.json` 让一个已有的 Claude Code 安装自动获得 lint + 代谢工具。
+- **nuwa-skill / agentskills.io / pua** 是 skill framework —— 它们打包可复用行为。Myco **不是 skill framework**；skill 跑在 Myco 之上，而 Myco lint 的是 skill 所操作的项目。
 
-| | Myco | Hermes / OpenClaw | Second Brain | Hyperagents (Meta) | Mem0 | 企业 KMS |
-|--|------|-------------------|--------------|-------------------|------|---------|
-| **主体** | Agent 为中心 | Agent | 人 | Agent | Agent | 人 |
-| **进化什么** | 基质本身 | 技能库 | 无 | Agent 权重/prompts | 记忆存储 | 文档 |
-| **非参数** | ✅ 始终 | ✅ | ✅ | ❌ 改权重 | ✅ | ✅ |
-| **元进化** | ✅ 核心（齿轮 4） | ❌ | ❌ | ✅ 部分 | ❌ | ❌ |
-| **知识代谢** | ✅ 已声明（v2.0 入口） | ❌ | ❌ | ❌ | ❌ | 人工 |
-| **自我模型** | ✅（lint + _canon.yaml） | ❌ | ❌ | 部分 | ❌ | ❌ |
-| **Agent-adaptive** | ✅ | ❌ | N/A | ❌ | ✅ | N/A |
-
-从这张表里能拉出两句干净的定位句：
-- **Hyperagents 进化 CPU。Myco 进化操作系统。** 两者相互非参数；Myco 的主张是：基质层的进化结构性地更便宜、更透明，因为基质是 markdown 和目录结构——LLM 天然擅长操作的介质。
-- [Mem0 的 2026 报告](https://mem0.ai/blog/state-of-ai-agent-memory-2026) 把"memory staleness detection"列为未解问题。这正是 `myco lint` 在做的事。**Mem0 做检索。Myco 做校验、代谢和自我改写规则。** 两者互补，不竞争。
+上表中的基准数字来自厂商文档、独立基准报告和 2026 年 4 月的网络搜索结果，可能会变化。Myco 刻意不参与检索基准竞争，因为它的目标（验证，而非检索）不同，逐项对比会产生误导。
 
 ---
 
 ## 开放问题
 
-Myco 还早。以下四个盲点在 2026-04-08 的愿景辩论中被命名，至今未解。它们是杠杆最大的贡献点：
+Myco 还早。以下六个盲点是杠杆最高的贡献方向。持续维护的注册表在 [`docs/open_problems.md`](docs/open_problems.md)。
 
-1. **冷启动。** Myco 如何在一个全新的、没有历史、没有 canon、没有摩擦记录的项目上引导自己？当前答案：手工的 `myco init` 模板。期望答案：基质从过往项目的蒸馏中学会自己的引导流程。
-2. **触发信号。** 什么触发齿轮 2？什么触发代谢入口？摩擦计数是一个代理信号，正确的信号是开放研究问题。
-3. **对齐。** 如果 Myco 进化出人类无法评估的规则（深入 L-meta），如何保持它与用户意图的对齐？透明是必要但不充分——我们需要*规模化的可阅读的透明*。
-4. **压缩工程。** 存储无限，但注意力不是。什么时候丢什么，而不损失承重的 tacit knowledge？三条候选判据（频率 / 时效 / 排他性）是起点，不是解法。目前没有通用答案。
-5. **结构性退化检测。** `myco lint` 能抓*事实性*退化（版本漂移、过时引用）。它抓不住*结构性*退化——当第 3 天对的四层架构到第 30 天已经错了。没有任何检测器能告诉你"你的知识组织方式已经不再匹配你项目的阶段"。这可能是整个设计空间里最难的问题。
+1. **冷启动。** Myco 如何在一个全新、没有历史、没有 canon、没有摩擦记录的项目上自举？当前答案：手工维护的 `myco init` 模板。期望：基质从过往项目蒸馏里学会自己的自举方式。
+2. **触发信号。** 什么触发 Gear 2？什么触发代谢入口？摩擦计数是个代理指标；正确的信号是一个开放研究问题。
+3. **深层对齐。** 如果 Myco 进化出人类已经无法评估的规则（深 L-meta），如何保持对齐？透明是必要的，但不充分 —— 我们需要规模化的*可读透明*。
+4. **压缩工程。** 什么时候丢什么，同时不丢失承重的默会知识？三条候选判据（频率 / 时效 / 独占）是起点，不是解答。
+5. **结构性衰退检测（Self-Model C 层）。** `myco lint` 捕获*事实性*衰退（版本漂移、陈旧引用）。它还捕获不了*结构性*衰退 —— 即第 3 天正确、第 30 天错误的那种架构。可以说是整个设计空间里最难的问题。
+6. **死知识追踪（Self-Model D 层）。** D 层已声明但未实现。目前没有"笔记 30 天前进入基质之后再没被读过"的信号。最小可行种子在路线图上。
 
-如果你想贡献一些高影响力的东西，从这五个里挑一个。
+如果你想做高影响贡献，挑一个。
 
 ---
 
-## 适配
+## 适配工具
 
-| 工具 | 集成方式 |
-|------|---------|
-| **Claude Code** | `myco migrate --entry-point CLAUDE.md` |
-| **Cursor** | 文件感知共存——不需要迁移 |
-| **GPT / OpenAI** | System prompt 注入或 ChatGPT Projects |
-| **Hermes Agent** | `myco import --from hermes` |
-| **OpenClaw** | `myco import --from openclaw` |
-| **MemPalace** | L0 检索后端（适配规范可用） |
+| 工具 | 集成方式 | 状态 |
+|------|----------|------|
+| **Claude Code** | `.mcp.json` 自动发现 · `myco migrate --entry-point CLAUDE.md` | ✅ 已交付 |
+| **Cursor** | `.mcp.json` 自动发现（MCP 兼容） | ✅ 已交付 |
+| **OpenAI Codex / GPT** | System prompt 注入或 Projects 模式片段 | 🧪 adapter spec |
+| **Hermes Agent** | `myco import --from hermes ~/.hermes/skills/` | 🧪 adapter spec |
+| **OpenClaw** | `myco import --from openclaw ./MEMORY.md` | 🧪 adapter spec |
+| **MemPalace** | L0 检索后端（digest → 记忆宫殿页面） | 🧪 adapter spec |
+
+平台专属 adapter 在 [`docs/adapters/`](docs/adapters/)。欢迎社区 PR。
 
 ---
 
 ## 验证
 
-建立在一个真实的 8 天、80+ 文件的研究项目之上，完整跑过了四档齿轮的循环：
+建立在一个真实的 8 天、80+ 文件研究项目之上，它跑完了完整的四齿轮循环：
 
 <div align="center">
 
-| 80+ 文件 | 10 个 wiki 页 | 15+ 次结构化辩论 | 9/9 lint 检查 |
-|:-------:|:-----------:|:-----------:|:-----------:|
+| 80+ 文件 | 10 wiki 页 | 15+ 结构化辩论 | 15/15 lint 全绿 |
+|:--------:|:----------:|:-------------:|:---------------:|
 
 </div>
 
-但更深的主张是：**那个 8 天的项目是 Myco 的一次不自觉的原型运行**。我不是在演示基质。我是在*手动运行*它——人类驱动的元进化、手工触发 lint、口述摩擦日志。它有效。Myco 是一个已经自我证明的模式的形式化；v1.0 → v2.0 的路线不是"发明新东西"，而是"让原本手动有效的东西自动有效"。通过齿轮 4 蒸馏出的模式现在已经在 Myco 代码库里。见 [`examples/ascc/`](examples/ascc/)。
+更深一层的主张：**那个 8 天项目本身就是 Myco 的一个无意识原型。** 我当时不是在演示这个基质，我是在*手动运行*它 —— 人驱动的 meta 进化、手动触发的 lint、口头的摩擦日志。它成立了。Myco 是一个已经自证的模式的形式化；v0.x → v1.0 的路径不是"发明新东西"，而是"让那些靠人手跑通的事情自己跑"。通过 Gear 4 提取的模式现在活在 Myco kernel 代码库里。见 [`examples/ascc/`](examples/ascc/)。
 
-Myco 还站在 50 年认识论、控制论与组织学习的肩膀上：**Karpathy LLM Wiki**（结构化知识编译）+ **Polanyi Tacit Knowledge**（操作经验的 proximal / distal 结构）+ **Argyris Double-Loop Learning**（单环修正行动，双环修正规则——正是 L-struct / L-meta 的区分）+ **Toyota PDCA**（Plan / Do / Check / Act 是四档齿轮的基础循环）+ **Voyager Skill Library**（通过落地执行进行迭代技能积累）。详见 [`docs/theory.md`](docs/theory.md)。
+Myco 站在一条 50 年的血脉上：**Karpathy LLM Wiki**（结构化知识编译） + **Polanyi 默会知识**（近端 / 远端结构，用于操作经验） + **Argyris 双环学习**（单环修行动，双环修规则 —— 对应 L-struct / L-meta 分层） + **丰田 PDCA**（Plan / Do / Check / Act 作为四齿轮的底层循环） + **Voyager 技能库**（通过基于执行的迭代积累技能）。见 [`docs/theory.md`](docs/theory.md)。
 
 ---
 
 ## 故事
 
-第一天，我有一份 949 行的 `CLAUDE.md`。所有东西都在一个文件里。到第三天，同一个指标在三个地方有三个不同的值，我的 agent 自信地同时使用了三个。但更深的问题是：每一个新会话，我的 agent 都会从头重写同一个部署脚本——不是因为它忘了 SSH 配置规则（那些都文档化了），而是因为那些*tacit knowledge*——哪些 flag 真的要紧、什么顺序能跑、什么会悄悄失败——所有这些，都在会话边界处蒸发了。智能不是被丢失了，是在被**丢弃**，一次又一次。
+第 1 天，我有一份 949 行的 `CLAUDE.md`。所有东西都在一个文件里。到第 3 天，同一个指标出现在三个地方，带着三个不同的值，而我的 agent 自信地用了全部三个。但更深的问题埋在底下：每一次新会话，我的 agent 都会从零重写那段部署脚本 —— 不是因为它忘了 SSH 配置规则（那些都有记录），而是因为"哪些 flag 重要、什么顺序能走通、什么会静默炸掉"这种*默会知识*，在会话边界一到就蒸发了。智能没有在丢失，它在被**丢弃**，反复地丢弃。
 
-那是我写下第一个 `myco lint` 的时候——不只是为了抓矛盾，而是为了给 agent 一个它根本上缺乏的东西：一块基质。一个观察着 agent "知道的" 是否还真实、标记假设何时开始腐烂、并在旧规则停止工作时进化自己的规则的地面。不是 agent 拎起来的一个工具。是 agent 站在上面的一块地板。
+那是我写第一版 `myco lint` 的那一刻 —— 不只是为了捕获矛盾，而是为了给 agent 那种它根本性缺失的东西：一个基质。一块会盯着 agent "知道"的东西是否还为真、在假设腐烂时举手、在旧规则不再工作时进化自己规则的地。不是 agent 拾起的一件工具，而是 agent 脚下的一块地板。
 
-到第七天，一次里程碑回顾发现 40% 的摩擦来自"内容改了，忘了更新索引"——于是系统进化出了自己的规则。第八天，我意识到这个模式不是项目特定的。我把它命名为 **Myco**，来自 *mycelium*（菌丝网络）——森林地下那张看不见的活网。菌丝不只是连接树木的管道：它分泌酶将落叶分解为养分（代谢），记住有效的生长路径并据此调整策略（元进化），根据需求将资源从丰裕区域调往匮乏区域（智能压缩），并与不同树种的根系都能形成共生（Agent-adaptive 通用性）。Agent 是地面上的树，Myco 是地下让整片森林成活的网络。
+到第 7 天，一次里程碑回顾揭示 40% 的摩擦来自"内容改了，忘了更新索引" —— 于是系统开始进化自己的规则。第 8 天，我意识到这个模式并不针对特定项目。我给它起了名字：**Myco**，取自 *mycelium*（菌丝网络）—— 每一片森林地下那张无处不在的真菌网。菌丝不是水管系统。它分泌酶把落叶分解成养分（代谢）。它记住有效的生长路径并据此重定向策略（meta 进化）。它把资源从充裕区重分配到贫瘠区（智能压缩）。它和遇到的任何树种的根形成共生（对 agent 自适应通用）。Agent 是地面上的树。Myco 是底下那张活着的网，让整片森林得以运转。
 
 ---
 
 ## 贡献
 
-见 [CONTRIBUTING.md](CONTRIBUTING.md)。影响力最大的贡献是（1）针对[开放问题](#开放问题)的战报，（2）你已经在用的工具的 [`docs/adapters/`](docs/adapters/) YAML，（3）代谢入口原语的设计草图。
+见 [CONTRIBUTING.md](CONTRIBUTING.md)。影响最大的贡献是：
+
+1. **实战报告** —— 针对上面六个[开放问题](#开放问题)中的任意一个。
+2. **平台 adapter** —— 在 [`docs/adapters/`](docs/adapters/) 里为你已经在用的工具写（Cursor 设置、JetBrains 插件等）。
+3. **设计草图** —— 针对代谢入口的 primitive，特别是 discover / evaluate / extract / integrate 阶段。
+4. **翻译** —— 把这份 README 翻成你的语言（当前：英文正式版 · 中文 · 日文）。
 
 ## License
 
-MIT
+MIT —— 见 [LICENSE](LICENSE)。
+
+---
+
+<div align="center">
+
+**Myco：其他工具给 agent 记忆。Myco 给它们代谢 —— 还有一本自我重写的规则册。**
+
+</div>
