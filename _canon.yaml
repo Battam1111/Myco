@@ -6,7 +6,7 @@ system:
   # Authoritative source: docs/agent_protocol.md §8
   # Craft record:         docs/primordia/upstream_protocol_craft_2026-04-11.md
   # Changelog:             docs/contract_changelog.md
-  contract_version: "v1.6.0"
+  contract_version: "v1.7.0"
   upstream_scan_last_run: null
   upstream_channels:
     # Path-based classification — strictest-class-wins. An instance agent
@@ -27,6 +27,7 @@ system:
     - src/myco/mcp_server.py
     - _canon.yaml
     - src/myco/templates/**
+    - forage/_index.yaml      # v1.7.0 — forage manifest is discipline surface
 
   # --- Craft Protocol v1 (W3) ---
   # Authoritative spec:    docs/craft_protocol.md
@@ -184,6 +185,61 @@ system:
     - promote        # grown from another note
     - import         # bulk ingested from external tool
     - bootstrap      # created during myco init / first-run scaffolding
+    - forage         # v1.7.0 — digested extract from a forage/ item
+
+  # --- Forage Substrate (contract v1.7.0) ---
+  # External reference material intake — the exoenzyme / foraging phase
+  # of fungal metabolism. Authoritative spec: docs/agent_protocol.md §8.9
+  # (inbound channel classification). Debate of record:
+  # docs/primordia/forage_substrate_craft_2026-04-11.md (kernel_contract,
+  # 2 rounds, 0.92 confidence). Biomimetic mapping:
+  # docs/biomimetic_map.md §2 — this is the FIRST directory whose biological
+  # name is justified by information gain from day one.
+  #
+  # Discipline: forage/ is transient. Items enter raw, must be digested
+  # into notes/ (producing digest_target), then absorbed once the digest
+  # note reaches extracted/integrated, then eventually discarded. No
+  # permanent storage — the compression doctrine has teeth here.
+  forage_schema:
+    dir: forage
+    index_file: forage/_index.yaml
+    # ID convention — mirrors notes/ pattern (n_…) with f_ prefix.
+    filename_pattern: '^f_\d{8}T\d{6}_[0-9a-f]{4}$'
+    required_item_fields:
+    - id
+    - source_url
+    - source_type
+    - local_path
+    - acquired_at
+    - status
+    - license                # REQUIRED. "unknown" allowed but forces quarantined.
+    - size_bytes
+    optional_item_fields:
+    - license_restrictions   # list of strings, e.g. ["no-redistribute"]
+    - license_checked_at     # ISO date, defaults to acquired_at
+    - digest_target          # list of note ids produced from this item
+    - notes                  # human annotation
+    - why                    # intent statement from `myco forage add --why`
+    valid_source_types:
+    - paper                  # PDF, arxiv, markdown paper
+    - repo                   # git clone
+    - article                # blog post, HN thread, discussion → .md
+    - other                  # catch-all; triggers L14 LOW reminder
+    valid_statuses:
+    - raw                    # just acquired
+    - digesting              # agent actively extracting
+    - digested               # note(s) produced, digest_target non-empty
+    - absorbed               # digest note(s) reached extracted/integrated
+    - discarded              # explicitly removed
+    - quarantined            # failed license check / lint, needs review
+    # Seeded thresholds — not adaptive. Future work in open_problems §4.
+    max_item_size_bytes: 10485760        # 10 MB soft cap per item
+    forage_backlog_threshold: 5          # ≥5 raw items triggers hunger
+    stale_raw_days: 14                   # raw > 14 days triggers hunger
+    total_budget_bytes: 209715200        # 200 MB soft total budget (hunger)
+    hard_budget_bytes: 1073741824        # 1 GB hard limit (L14 HIGH)
+    license_recheck_days: 90             # stale license reminder threshold
+
   write_surface:
     # L11 Write-Surface Lint — defines the only legal write targets for
     # any agent operating on this substrate. Anything outside this list
@@ -197,6 +253,7 @@ system:
     # --- Digestive substrate ---
     - notes/                 # via myco eat / digest ONLY
     - wiki/                  # structured knowledge (agent extract allowed)
+    - forage/                # v1.7.0 — external material pre-digestion (see forage_schema)
     - docs/                  # framework docs
     - log.md                 # append-only via myco_log
     - MYCO.md                # L1 index

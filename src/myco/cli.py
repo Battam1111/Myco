@@ -261,6 +261,66 @@ def main():
         help="Project root (default: current directory)",
     )
 
+    # ── myco forage ────────────────────────────────────────────────
+    # External reference material intake — the inbound channel
+    # (forage/foraging/exoenzyme phase). Contract v1.7.0.
+    # Authoritative design: docs/primordia/forage_substrate_craft_2026-04-11.md
+    forage_parser = subparsers.add_parser(
+        "forage",
+        help="Intake external reference material (papers, repos, articles) "
+             "into forage/ for pre-digestion",
+    )
+    forage_sub = forage_parser.add_subparsers(
+        dest="forage_subcommand", help="Forage subcommand"
+    )
+
+    forage_add = forage_sub.add_parser(
+        "add", help="Register a new foraged item in the manifest"
+    )
+    forage_add.add_argument("--source-url", required=True, type=str,
+                            help="Upstream URL (required)")
+    forage_add.add_argument("--source-type", required=True, type=str,
+                            choices=["paper", "repo", "article", "other"],
+                            help="Item category")
+    forage_add.add_argument("--local-path", type=str, default="",
+                            help="Local path under forage/ (optional; "
+                                 "manifest-only entry is allowed)")
+    forage_add.add_argument("--license", required=True, type=str,
+                            help="SPDX identifier or short label. Use "
+                                 "'unknown' to auto-quarantine.")
+    forage_add.add_argument("--why", required=True, type=str,
+                            help="Intent statement — why is this being "
+                                 "foraged? (required, prevents hoarding)")
+    forage_add.add_argument("--project-dir", type=str, default=".",
+                            help="Project root (default: .)")
+
+    forage_list = forage_sub.add_parser(
+        "list", help="List foraged items, optionally filtered by status"
+    )
+    forage_list.add_argument("--status", type=str, default=None,
+                             help="Filter by status: raw/digesting/digested/"
+                                  "absorbed/discarded/quarantined")
+    forage_list.add_argument("--project-dir", type=str, default=".",
+                             help="Project root (default: .)")
+
+    forage_digest = forage_sub.add_parser(
+        "digest",
+        help="Flip a foraged item's status (after producing digest notes)"
+    )
+    forage_digest.add_argument("item_id", type=str,
+                               help="Forage item id (f_YYYYMMDDTHHMMSS_xxxx)")
+    forage_digest.add_argument("--status", required=True, type=str,
+                               choices=["digesting", "digested", "absorbed",
+                                        "discarded", "quarantined"],
+                               help="Target status")
+    forage_digest.add_argument("--digest-target", action="append", default=[],
+                               metavar="NOTE_ID",
+                               help="Note id produced from this item "
+                                    "(repeatable). Required for "
+                                    "digested/absorbed.")
+    forage_digest.add_argument("--project-dir", type=str, default=".",
+                               help="Project root (default: .)")
+
     # ── myco version (explicit subcommand) ─────────────────────────
     subparsers.add_parser("version", help="Show version")
 
@@ -310,6 +370,10 @@ def main():
     if args.command == "hunger":
         from myco.notes_cmd import run_hunger
         sys.exit(run_hunger(args))
+
+    if args.command == "forage":
+        from myco.forage_cmd import run_forage
+        sys.exit(run_forage(args))
 
 
 if __name__ == "__main__":

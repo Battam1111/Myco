@@ -23,6 +23,117 @@ Commit message 格式必须使用 Conventional Commits 风格并带 `[contract:*
 
 ---
 
+## v1.7.0 — 2026-04-11 (minor)
+
+**Author**: Claude (Myco kernel agent, autonomous run under user grant)
+**Craft record**: `docs/primordia/forage_substrate_craft_2026-04-11.md`
+（2 轮 Claim→Attack→Research→Defense→Revise，终置信度 0.92，
+`decision_class: kernel_contract`，floor 0.90；9 个 Round-1 attack +
+3 个 Round-2 attack 全部防御）
+**Trigger**: 用户 Q2 提出 "Myco 缺少一个下载 / 存放 GitHub 项目 / 博客 /
+论文等外部资料的地方"，架构师回顾确认这是代谢循环的**第三条通道**——
+inbound（forage/）——此前缺失。Myco 原有通道只覆盖 internal（notes/）
+和 outbound（upstream），没有 inbound。任何 agent 要调用外部知识必须每次
+联网搜索，违反压缩即智能学说。
+
+### Added
+
+- **`forage/` 目录**——外部参考材料前消化缓冲区。
+  包含 `forage/_index.yaml`（manifest，class_z 契约锚点）、`forage/papers/`
+  `forage/repos/` `forage/articles/`（按类型分桶，默认 `.gitignore` 二进制）、
+  `forage/README.md` 和 `forage/.gitignore`。
+- **`system.forage_schema` canon block** —— manifest schema / 有效状态集 /
+  体积阈值 / license 重核周期的 SSoT。字段：`dir`、`index_file`、
+  `filename_pattern`、`required_item_fields`、`optional_item_fields`、
+  `valid_source_types`、`valid_statuses`、`max_item_size_bytes` (10 MB)、
+  `forage_backlog_threshold` (5)、`stale_raw_days` (14)、
+  `total_budget_bytes` (200 MB)、`hard_budget_bytes` (1 GB)、
+  `license_recheck_days` (90)。
+- **`src/myco/forage.py`** —— 纯函数引擎：`add_item` / `list_items` /
+  `update_item_status` / `detect_forage_backlog` / `validate_item` /
+  `load_manifest` / `save_manifest` / `generate_forage_id`。与 `cli.py` /
+  `mcp_server.py` 单向依赖，防止环依赖。
+- **`src/myco/forage_cmd.py`** —— `myco forage add/list/digest` 的薄 CLI
+  分发层。
+- **CLI verb family**: `myco forage add --source-url ... --source-type ...
+  --license ... --why ... [--local-path ...]`、`myco forage list
+  [--status ...]`、`myco forage digest <item_id> --status ...
+  [--digest-target ...]`。
+- **L14 Forage Hygiene lint**（`src/myco/lint.py::lint_forage_hygiene`）——
+  manifest 可读性、`validate_item` 逐项校验、per-item size cap、
+  hard budget cap、orphan local_path (MEDIUM)、orphan disk file (LOW)、
+  stale license (LOW)。是单 SSoT——`scripts/lint_knowledge.py` 作为 v1.6.0
+  落地的 shim 自动继承。
+- **`forage_backlog` hunger signal**（`src/myco/notes.py::compute_hunger_report`）——
+  触发条件：raw 计数 ≥ threshold OR 任意 raw item 超过 stale_raw_days OR
+  总体积 ≥ soft budget。读取通过 `forage.detect_forage_backlog(root)`。
+- **`forage/_index.yaml` → `upstream_channels.class_z`** —— manifest 作为
+  substrate 对外部世界的契约承诺必须走 Review 通道。实际文件
+  `forage/{papers,repos,articles}/**` 由 `.gitignore` + L14 管理，不走
+  Upstream 协议。
+- **`forage/` → `write_surface.allowed`** —— L11 认可的合法写入目标。
+- **`forage` → `notes_schema.valid_sources`** —— digest 出的 note 在
+  frontmatter `source: forage` 标记血统。
+- **agent_protocol.md §8.9 三通道代谢分类** —— 显式承认 inbound / internal /
+  outbound 三条正交通道，各自的生命周期、物理载体、lint 契约、hunger
+  信号一表定义。禁止 `forage → upstream` 捷径。
+- **biomimetic_map.md §1 Foraging glossary entry + §2 表格行** —— `forage/`
+  是 Myco 第一个**在诞生当天就因真实信息增益而被赋予生物学名字**的目录，
+  打破 §3 理由 1"通用名字已经在不等式错误一侧"的惯例。
+
+### Changed
+
+- `_canon.yaml::system.contract_version`: `v1.6.0` → `v1.7.0`
+- `src/myco/templates/_canon.yaml::system.synced_contract_version`:
+  `v1.6.0` → `v1.7.0`，同步镜像 `forage_schema` block（保证 `myco init`
+  出的下游 instance 从第一天起就拥有 forage 通道）。
+- `src/myco/lint.py` docstring: `14-Dimension` → `15-Dimension`，新增 L14
+  条目。
+- `src/myco/cli.py`: 新增 `forage` 子命令解析器与分派块。
+- `MYCO.md` banner: `v1.6.0 lint SSoT 合流` → `v1.7.0 forage substrate
+  inbound channel`。
+
+### Rationale
+
+1. **三层代谢同心圆补齐**——`agent_protocol.md §8` 早已承认基质有 "内→
+   kernel / instance↔instance / 世界→substrate" 三条代谢通道，v1.7.0 之前
+   最外层只有"未来 v2.0"占位符。Forage 不是 v2.0 的 full-metabolic inlet，
+   是它的**最小可信雏形**——只做 acquire + manifest + lifecycle + hunger +
+   lint 五件事，不做内容抽取。
+2. **discipline over capability**——craft Round 1 A1 防御：如果 v1.7.0 就
+   上 PDF / repo 语义解析，agent 会把 forage/ 当图书馆填满，触发 structural
+   bloat。Wave 7 通过 manifest-authoritative + 强制 `why` 字段 + 硬 budget
+   + 自动 quarantine unknown license 来培养纪律。
+3. **license legal hazard defense**——craft A2 防御：required field + 缺省
+   `.gitignore` 二进制 + 默认 `unknown` → quarantined。L14 stale license
+   reminder 做季度复核。
+4. **channel orthogonality**——craft A3 + §8.9 显式声明防止 "forage =
+   upstream 的延伸" 误解，三通道正交使 Upstream Protocol 的契约边界保持
+   清晰。
+
+### Known non-goals (Wave 8+)
+
+- PDF / arXiv / 博客的语义抽取（待 `myco digest-paper` / `myco digest-repo`）。
+- Git clone 自动化（现阶段由 `myco forage add --local-path` 人工填写）。
+- 许可证自动识别。
+- full-metabolic inlet（`system.upstream_channels` 中的 "世界 → substrate
+  最外层"）——v2.0 目标。
+
+### Migration
+
+下游 instance 升级路径：
+1. `git pull` 获取 kernel v1.7.0。
+2. Boot sequence 检测 `contract_version` drift。
+3. 走 Confirm 通道：`mkdir -p forage/{papers,repos,articles}` +
+   `echo 'schema_version: 1\nitems: []' > forage/_index.yaml` + 从 kernel
+   拷贝 `forage/README.md` 和 `forage/.gitignore`。
+4. 同步 `synced_contract_version: "v1.7.0"`。
+
+首次使用：`myco forage add --source-url <url> --source-type <type>
+--license <spdx> --why "<intent>"`。
+
+---
+
 ## v1.6.0 — 2026-04-11 (minor)
 
 **Author**: Claude (Myco kernel agent, autonomous run under user grant)

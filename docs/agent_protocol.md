@@ -348,6 +348,30 @@ raw → upstream-candidate → bundle-generated
 - 一周内无 thrash（同一 upstream-candidate 反复卡住）（验收 C，延后）
 - 任一项失败 → 该部分设计回炉
 
+### 8.9 三通道代谢分类（contract v1.7.0）
+
+§8.1–§8.8 定义的是**出站通道**（outbound：instance → kernel 回灌）。为消除"通道"一词的歧义，v1.7.0 起 Myco 显式承认三条**正交的代谢通道**，各自有独立的状态机、生命周期、lint 契约和 hunger 信号：
+
+| 通道 | 方向 | 物理载体 | 生命周期 | Lint | Hunger 信号 |
+|---|---|---|---|---|---|
+| **Inbound（forage/）** | 外部世界 → substrate | `forage/_index.yaml` + `forage/{papers,repos,articles}/` | raw → digesting → digested → absorbed → (discarded) / quarantined | L14 Forage Hygiene | `forage_backlog` |
+| **Internal（notes/）** | 会话上下文 ↔ substrate | `notes/n_*.md` | raw → digesting → extracted → integrated → excreted | L10 Notes Schema | `raw_backlog` / `dead_knowledge` |
+| **Outbound（upstream）** | instance → kernel | `.myco_upstream_{outbox,inbox}/` | raw → upstream-candidate → bundle-generated → integrated / rejected | L12 Upstream Dotfile Hygiene | — |
+
+**正交性断言**：三通道的文件路径互不覆盖，状态机互不流入——一条 `forage/` item 必须先产生 `notes/n_*.md` 摘录（`digest_target` 非空）才能进入 internal 通道，一条 note 必须经过独立的 Upstream 反射规则（§8.6）才能生成 outbound bundle。**禁止直接从 forage → upstream 捷径**，因为未经 internal 通道消化的外部材料不具备 substrate 特征化签名，无法参与 kernel 契约演化。
+
+**路径分类优先级**：当一次 diff 同时触及多通道文件时，**最严类 wins 原则**（§8.1 A2）扩展如下：
+1. 若触及 class_z 中的 `forage/_index.yaml` → 走 Review 通道（forage 是 class_z，manifest 决定 substrate 对外部世界的契约承诺）
+2. 若触及 `forage/{papers,repos,articles}/` 下的实际文件 → 豁免 Upstream 协议（这些是临时缓冲区，由 L14 + `.gitignore` 管理）
+3. 其余通道按 §8.1 既有规则处理
+
+**为什么命名为 forage**：Round 1 辩论（`docs/primordia/forage_substrate_craft_2026-04-11.md`）拒绝了 `refs/` / `library/` / `corpus/` / `external/` 四个候选——这些词承诺**永久存储**，与 Myco 的压缩即智能学说（theory.md §C）相冲突。`forage` 是动词形，天然暗示**临时性 + 前消化态**：狍子采来的果实不是冰箱，是胃的第一腔室。这是 biomimetic_map.md §2 中第一个因信息增益高于学习成本而被接受的生物学命名。
+
+**Wave 7 不做**：
+- ❌ forage → notes 的自动内容抽取（Wave 8+）
+- ❌ PDF / 代码仓库的语义解析（待 `myco digest-paper` / `myco digest-repo` 子命令）
+- ❌ 许可证自动识别（L14 要求人类在 `myco forage add --license` 时显式填写）
+
 ---
 
 ## 9. 演进

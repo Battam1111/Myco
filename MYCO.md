@@ -1,14 +1,14 @@
 # Myco
 
 > 最后更新：2026-04-11
-> **知识系统**：[Myco](https://github.com/Battam1111/Myco) v1.1.0（框架自用，kernel contract v1.6.0）
+> **知识系统**：[Myco](https://github.com/Battam1111/Myco) v1.1.0（框架自用，kernel contract v1.7.0）
 
 ---
 
 ## 🔥 热区
 
 **项目**：Myco — 可自进化的 AI 延伸认知基质（框架本身）
-**当前阶段**：v1.1.0 released — public launch 准备中；v1.2 消化道 Phase ② 进行中（Upstream Protocol v1.0 + Craft Protocol v1 + Self-Model D 层种子 + 仿生结构 overlay + **lint SSoT 合流** 已落地，kernel contract v1.6.0）
+**当前阶段**：v1.1.0 released — public launch 准备中；v1.2 消化道 Phase ② 进行中（Upstream Protocol v1.0 + Craft Protocol v1 + Self-Model D 层种子 + 仿生结构 overlay + lint SSoT 合流 + **forage substrate inbound channel** 已落地，kernel contract v1.7.0）
 
 **框架开发中最容易出错的 N 件事** ⚠️：
 1. 更新 `pyproject.toml` 版本号但忘记同步 `src/myco/__init__.py`（两处版本号必须一致）

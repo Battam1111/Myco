@@ -1,0 +1,27 @@
+# Myco forage/ default gitignore
+# ================================
+# Binary and large-text material is ignored by default. The manifest
+# (_index.yaml), README, and small markdown extracts remain tracked.
+#
+# To commit a specific item with an explicitly permissive license
+# (CC-BY / MIT / Apache-2.0 / public domain), use:
+#
+#   git add -f forage/papers/<item>.pdf
+#
+# Rationale: docs/primordia/forage_substrate_craft_2026-04-11.md §Round 1 A2 + R2.3
+
+# Binary papers
+papers/**
+!papers/.gitkeep
+
+# Git clones
+repos/**
+!repos/.gitkeep
+
+# HTML blobs (saved web pages)
+articles/**/*.html
+
+# Local cache / temp
+.cache/
+*.tmp
+*.partial
