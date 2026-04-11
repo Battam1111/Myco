@@ -42,14 +42,30 @@ All metadata lives in `_index.yaml` — schema in
 `size_bytes`. **License is required.** Items with unknown license enter
 `quarantined` and require manual review before being used.
 
-## .gitignore default
+## .gitignore default (Wave 9: payload-off-by-default)
 
-By default `papers/**`, `repos/**`, and `articles/**/*.html` are
-**ignored** by git. The manifest `_index.yaml` is always committed.
-This means: your local forage/ has the actual files, but the repo only
-has the metadata trail. To commit a specific item with a permissive
-license (CC-BY, MIT, Apache-2.0, public domain), use `git add -f <path>`
-explicitly.
+By default **all payload** under `papers/**`, `repos/**`, and
+`articles/**` is **ignored** by git. The manifest `_index.yaml` and
+this README are the only committed trail. Your local `forage/` has
+the actual files; the public repo only has the metadata.
+
+Rationale:
+
+1. **Undigested raw material is not Myco's product.** The public repo
+   should represent what Myco has *processed and internalized*, not
+   what it happens to have piled up in its pre-digestion buffer.
+2. **License coverage is uneven.** Proprietary articles,
+   unknown-license gists, and author-owned text all live in the same
+   `forage/` folder. Safest default is "don't republish anything" and
+   require opt-in per item.
+3. **The compression doctrine has teeth here.** If a source matters,
+   it should survive as a `notes/n_*.md` entry distilled from the
+   payload — not as raw bytes in the public repo.
+
+To commit a **specific** item with an explicitly permissive license
+(CC-BY / MIT / Apache-2.0 / public domain / explicit author consent),
+use `git add -f <path>` — this is a conscious opt-in per item, not a
+default.
 
 ## Discipline
 
