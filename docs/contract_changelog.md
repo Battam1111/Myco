@@ -38,6 +38,128 @@ Commit message 格式必须使用 Conventional Commits 风格并带 `[contract:*
 
 ---
 
+## v0.25.0 — 2026-04-12 (minor · vision re-audit + doctrine reconciliation, Wave 26 — supersedes Wave 25 D3)
+
+**Author**: Claude (Myco kernel agent, autonomous run under explicit user grant, Wave 26)
+
+**Motivation**: Post-Wave-25 dialogue exposed a fundamental methodological
+incompatibility. Wave 25 craft §4.1 D3 locked in **friction-driven** ordering
+for Waves 26+ ("the first bug the new test suite catches determines Wave 26's
+subject"). The user's subsequent methodology statement was explicitly **top-down**
+("从抽象阶梯的上方开始实现，直至落实到具体实现细节"). These are not reconcilable
+— friction-driven lets the implementation surface decide; top-down lets the
+doctrine decide. One must supersede the other. Before deriving any top-down
+ordering, the strongest possible top-down move is to re-audit the 8 identity
+anchors themselves — the axioms of the system — to ensure they are still clear,
+still correct, and still consistent with the implementation state that has
+accumulated across 15 waves (W11–W25) since the last audit (Wave 10
+`vision_recovery_craft_2026-04-10.md`). If the axioms have silently drifted,
+any downstream ordering would commit to 15-wave-old state.
+
+**Change summary**:
+
+1. **New craft of record**: `docs/primordia/vision_reaudit_craft_2026-04-12.md`
+   (kernel_contract class, 3 rounds, 0.90 confidence). Round 1 audits each of the
+   8 anchors against current implementation (code path + lint dimension + notes
+   lifecycle). Round 2 builds a dependency DAG and produces a citable priority
+   ordering with 4 attack angles on the ordering itself. Round 3 supersedes
+   Wave 25 D3 with a new doctrine-dependency-graph-derived ordering and locks
+   Wave 27 scope to "forward compression as a substrate primitive" design craft.
+
+2. **Three MYCO.md §身份锚点 refinements** (not replacements):
+   - **Anchor #3** appended with scope clarification: "今天的 Myco 在步骤 1
+     (eat/forage)、步骤 6 (lint)、步骤 7 (digest --excrete) 有专属动词；步骤
+     2-5（评估/萃取/整合/压缩）只是状态标签或缺席。消化道中段是 vestigial ——
+     这是 Wave 27+ 自上而下的首要服务对象"
+   - **Anchor #5** corrected: D-layer "未实现" → "dead_knowledge 最小种子已落地
+     于 v0.4.0" with full citation chain. This corrects a factual error introduced
+     by Wave 18 progress not being reflected in the anchor wording. Today Myco
+     implements "A + B + partial C + **D-seed**", not "A + B + partial C".
+   - **Anchor #8** extended: adds sibling anchor pointer to this Wave 26 craft
+     as the "post-Wave-25 implementation reconciliation" companion to Wave 10's
+     "failed-element recovery" anchor. Both remain permanent.
+
+3. **MYCO.md §指标面板** row `lint_coverage_confidence` rationale updated: "15
+   维 L0-L14" → "18 维 L0-L17 全绿 + Wave 25 tests/ 基础设施落地". Value stays
+   at 0.68 pending Wave 27+ friction data (refinement, not score inflation).
+
+4. **MYCO.md §任务队列** row 2 replaced: stale "v1.2.0-v1.5.0" pre-Wave-8
+   re-baseline identifiers → accurate v0.8.0-v0.25.0 post-rebaseline wave sequence
+   (15 waves listed), rhythm "摩擦驱动" → "doctrine-dependency-driven", next-wave
+   pointer to Wave 27 compression craft.
+
+5. **MYCO.md §任务 4 详述 Metabolic Inlet**: "现有 14 维 lint" → "现有 18 维
+   lint (L0-L17)". Trivial staleness fix.
+
+6. **Canon bumps**: `_canon.yaml` + `src/myco/templates/_canon.yaml`
+   `contract_version` / `synced_contract_version`: v0.24.0 → v0.25.0.
+
+7. **Wave 25 craft §4.1 D3 is superseded** with the following new text (now in
+   force): *"Wave 26+ ordering derives from the doctrine dependency graph in
+   `vision_reaudit_craft_2026-04-12.md §2`, not from friction signals or the
+   hermes-absorption catalog's historical sequence. Each wave services one
+   identity anchor. Hermes catalog items C2–C20 are pulled in as supporting
+   infrastructure when the doctrine wave explicitly requires them. Waves alternate
+   craft → impl rhythm. Friction between waves produces hot-fix waves that do
+   not displace the planned ordering."*
+
+8. **Wave 27 scope locked**: exploration-class design craft for **forward
+   compression as a substrate primitive** (anchor #4 service). Target confidence
+   0.85, 3 rounds, no code. Output answers 7 specific design questions (unit /
+   trigger / output / audit / reversibility / step-3-4-5 interaction / non-functional
+   requirements). Wave 28 implementation is declared but not pre-scoped — it will
+   be scoped in Wave 27's conclusion.
+
+**Authoritative craft**: `docs/primordia/vision_reaudit_craft_2026-04-12.md`
+(kernel_contract class, 3 rounds, final confidence 0.90).
+
+**Supersedes**: `docs/primordia/hermes_absorption_craft_2026-04-12.md §4.1 D3`
+only. Wave 25 craft's D1/D2/D4/D5/D6 remain in force (catalog is catalog, tests
+is landed, 3 revisions stand, substrate/runtime boundary immutable, Wave 9
+surface digest not superseded).
+
+**Self-tests** (Wave 26 evidence):
+
+- Anchor audit found 3 anchors needing refinement (#3, #5, #8) out of 8 — all
+  refinements were scope clarifications or factual corrections, none were
+  semantic replacements.
+- Dependency DAG converged on anchor #4 as top priority independently of
+  hermes-recency-bias (verified via 4 independent evidence sources in §2.2
+  Attack D defense).
+- Surprising finding: Self-Model D-layer is **more complete than Wave 18 craft
+  wording suggests** — `record_view()` + hunger signal + 5-condition detection
+  + 30-day threshold all wired. Full D-layer (view audit log + cross-ref graph
+  + adaptive threshold + auto-excretion) is long-tail, not blocker.
+- All 15 landing list items executed cleanly; no scope creep; single subsystem
+  ("MYCO.md doctrine reconciliation") per inherited Wave 25 Round 2 capacity rule.
+
+**Limitations** (explicit, per craft §4.3):
+
+- **Single-agent audit ceiling**: this craft's attacks are all generated by one
+  agent. External research (5 doctrinal files, 15 waves of log, source code
+  verification, one Explore subagent for D-layer state check) raises the evidence
+  base to support the 0.90 confidence, but does not match the rigor of multi-agent
+  or human-in-the-loop debate. If future audit finds the evidence thin, drop to ≤ 0.88.
+- **Coverage scores are ordinal, not cardinal**: the 0.0–1.0 numbers in Round 1
+  are subjective judgment. #4 (0.35) is genuinely worse than #1 (0.72), but
+  absolute values are not load-bearing.
+- **Recency bias acknowledged**: audit ran 48h after deep hermes-absorption;
+  compression being on top could be partially biased by context. Cross-validated
+  against independent evidence (dashboard, Wave 10 recovery, open_problems) —
+  convergence holds, but Wave 27 Round 3 should re-check the bias if compression
+  turns out harder to design than expected.
+- **Wave 27 scope locked, Wave 28+ not locked**: one-wave-ahead visibility.
+  Wave 28 will be scoped in Wave 27's conclusion, not this craft.
+- **Metabolic Inlet still blocked**: 4 open problems in `docs/open_problems.md
+  §1-4` remain. Ordering places Inlet downstream of compression; compression
+  must land before Inlet is designable.
+
+**Closes**: the doctrine/implementation drift window that opened between Wave 10
+(last audit) and Wave 25 (last implementation wave). Reopens the question of
+Wave 27's subject and answers it: forward compression primitive design craft.
+
+---
+
 ## v0.24.0 — 2026-04-12 (minor · tests infrastructure seed, Wave 25 — hermes absorption C1)
 
 **Author**: Claude (Myco kernel agent, autonomous run under explicit user grant "是", Wave 25)
