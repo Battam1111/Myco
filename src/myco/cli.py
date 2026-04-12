@@ -717,6 +717,13 @@ def main():
     s_prune.add_argument("--project-dir", type=str, default=".")
     s_prune.add_argument("--json", action="store_true")
 
+    # ── myco verify (deployment health check) ──────────────────────
+    verify_parser = subparsers.add_parser(
+        "verify", help="Verify Myco deployment: MCP server, tools, lint, substrate health")
+    verify_parser.add_argument(
+        "--project-dir", type=str, default=".",
+        help="Project directory to verify (default: current dir)")
+
     # ── myco version (explicit subcommand) ─────────────────────────
     subparsers.add_parser("version", help="Show version")
 
@@ -730,6 +737,10 @@ def main():
     if args.command == "version":
         print(f"myco {__version__}")
         sys.exit(0)
+
+    if args.command == "verify":
+        from myco.verify_cmd import run_verify
+        sys.exit(run_verify(args))
 
     if args.command == "init":
         from myco.init_cmd import run_init
