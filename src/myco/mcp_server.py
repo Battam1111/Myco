@@ -25,6 +25,8 @@ Tools:
     myco_cohort     — Semantic cohort intelligence (Wave 48)
     myco_session    — Session memory search (Wave 52)
     myco_discover   — Proactive knowledge gap detection (Wave D1)
+    myco_evolve     — Agent-driven skill self-improvement (Wave E3)
+    myco_evolve_list — List skills and evolution history (Wave E3)
 
 Transport: stdio (local subprocess of the AI client)
 """
@@ -1928,6 +1930,289 @@ async def myco_discover(
         })
 
     return json.dumps({"error": f"Unknown action: {action}. Use gaps/candidates."})
+
+
+# ---------------------------------------------------------------------------
+# Wave E3: Skill Evolution — Agent-driven self-improvement
+# ---------------------------------------------------------------------------
+
+@mcp.tool(
+    name="myco_evolve",
+    annotations={
+        "title": "Myco Evolve — Agent-Driven Skill Self-Improvement",
+        "readOnlyHint": False,
+        "destructiveHint": False,
+        "idempotentHint": False,
+        "openWorldHint": False,
+        "modelHint": "opus",  # agent-routing: recommended model class
+    },
+)
+async def myco_evolve(
+    skill_path: str,
+    action: str = "propose",
+    mutation_prompt: str = "",
+    new_body: str = "",
+    dry_run: bool = False,
+    project_dir: Optional[str] = None,
+) -> str:
+    """Evolve a skill through Agent-driven mutation with constraint gates.
+
+    Since MCP tools cannot call an LLM mid-execution, this works in two
+    phases — the Agent IS the intelligence (Bitter Lesson compliance):
+
+    Phase 1 — action='propose':
+      Returns the current skill content so the Agent can apply its
+      intelligence to improve it.
+
+    Phase 2 — action='apply':
+      Accepts the Agent's improved body, runs constraint gates
+      (frontmatter preserved, body non-empty, no secret leak, size
+      growth cap), and if all pass, saves to skills/.evolved/.
+
+    WHEN TO CALL:
+      (a) Metabolic cycle detects a skill with low success rate
+          (below system.evolution.skill_success_threshold in _canon.yaml)
+      (b) Agent identifies an improvement opportunity during session work
+      (c) After absorbing external patterns that could improve a skill
+
+    ANTI-PATTERNS:
+      - Calling 'apply' without first calling 'propose' (context loss)
+      - Skipping gate failures — they exist to prevent skill corruption
+      - Evolving more than max_mutations_per_cycle skills per session
+
+    Args:
+        skill_path: Relative path to skill file (e.g. "skills/metabolic-cycle.md").
+        action: 'propose' (get current content) or 'apply' (submit improved body).
+        mutation_prompt: What to improve — Agent provides this (required for 'apply').
+        new_body: The Agent's improved skill body (required for 'apply').
+        dry_run: If True, run gates but don't save (default False).
+        project_dir: Path to Myco project root. Auto-detected if omitted.
+
+    Returns:
+        JSON with skill content (propose) or gate results + diff summary (apply).
+    """
+    from myco.evolve import (
+        SkillVariant, check_gates, diff_variants, export_evolved_skill,
+        parse_skill, serialize_skill,
+    )
+
+    root = Path(project_dir) if project_dir else _find_project_root()
+    root = root.resolve()
+
+    if not (root / "_canon.yaml").exists():
+        return json.dumps({"error": f"Not a Myco project (no _canon.yaml at {root})"})
+
+    skill_file = root / skill_path
+    if not skill_file.exists():
+        return json.dumps({"error": f"Skill not found: {skill_path}"})
+
+    if action == "propose":
+        original = parse_skill(skill_file)
+        return json.dumps({
+            "action": "propose",
+            "skill_path": skill_path,
+            "meta": original.meta,
+            "body": original.body,
+            "content_hash": original.content_hash,
+            "generation": original.generation,
+            "instruction": (
+                "Apply your intelligence to improve this skill body based on "
+                "your mutation_prompt. Then call myco_evolve again with "
+                "action='apply', the same skill_path, your mutation_prompt, "
+                "and the improved body in new_body. Preserve the meaning; "
+                "improve clarity, completeness, or correctness."
+            ),
+        }, ensure_ascii=False)
+
+    if action == "apply":
+        if not new_body.strip():
+            return json.dumps({"error": "new_body is required for 'apply' action"})
+        if not mutation_prompt:
+            return json.dumps({"error": "mutation_prompt is required for 'apply' action"})
+
+        original = parse_skill(skill_file)
+
+        # Build the mutated variant — Agent already applied intelligence
+        mutated = SkillVariant(
+            meta=dict(original.meta),  # Preserve metadata immutably
+            body=new_body.strip(),
+            parent_hash=original.content_hash,
+            generation=original.generation + 1,
+        )
+
+        # Run constraint gates
+        gate_failures = check_gates(original, mutated)
+
+        if gate_failures:
+            return json.dumps({
+                "action": "apply",
+                "status": "gates_failed",
+                "skill_path": skill_path,
+                "gate_failures": gate_failures,
+                "hint": (
+                    "Fix the issues and call myco_evolve action='apply' again. "
+                    "Common fixes: ensure body is non-empty, don't grow body "
+                    "more than 50%, don't include secrets."
+                ),
+            })
+
+        # Gates passed — compute diff
+        diff = diff_variants(original, mutated)
+
+        if dry_run:
+            return json.dumps({
+                "action": "apply",
+                "status": "dry_run_pass",
+                "skill_path": skill_path,
+                "diff": diff,
+                "gates_passed": True,
+                "gate_count": len(check_gates.__wrapped__.__code__.co_consts)
+                    if hasattr(check_gates, "__wrapped__") else 4,
+            })
+
+        # Save to skills/.evolved/
+        evolved_dir = root / "skills" / ".evolved"
+        evolved_dir.mkdir(parents=True, exist_ok=True)
+
+        skill_name = skill_file.stem
+        evolved_filename = (
+            f"{skill_name}_gen{mutated.generation}_{mutated.content_hash}.md"
+        )
+        evolved_path = evolved_dir / evolved_filename
+        evolved_path.write_text(
+            serialize_skill(mutated), encoding="utf-8",
+        )
+
+        # Also save export bundle for cross-instance transfer
+        canon = _load_canon(root)
+        project_name = canon.get("project", {}).get("name", "Myco")
+        bundle = export_evolved_skill(
+            mutated,
+            source_project=project_name,
+            evolution_metrics={
+                "mutation_prompt": mutation_prompt[:200],
+                "gates_passed": True,
+                "gate_count": 4,
+            },
+        )
+        bundle_path = evolved_dir / (
+            f"{skill_name}_gen{mutated.generation}_{mutated.content_hash}"
+            f".bundle.json"
+        )
+        bundle_path.write_text(
+            json.dumps(bundle, indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
+
+        return json.dumps({
+            "action": "apply",
+            "status": "evolved",
+            "skill_path": skill_path,
+            "evolved_file": str(evolved_path.relative_to(root)),
+            "bundle_file": str(bundle_path.relative_to(root)),
+            "diff": diff,
+            "generation": mutated.generation,
+            "content_hash": mutated.content_hash,
+            "gates_passed": True,
+        }, ensure_ascii=False)
+
+    return json.dumps({
+        "error": f"Unknown action: {action!r}. Use 'propose' or 'apply'.",
+    })
+
+
+# ---------------------------------------------------------------------------
+# Wave E3: Skill Evolution — list + history
+# ---------------------------------------------------------------------------
+
+@mcp.tool(
+    name="myco_evolve_list",
+    annotations={
+        "title": "Myco Evolve List — Skills and Evolution History",
+        "readOnlyHint": True,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": False,
+        "modelHint": "opus",  # agent-routing: recommended model class
+    },
+)
+async def myco_evolve_list(
+    project_dir: Optional[str] = None,
+) -> str:
+    """List available skills and their evolution history.
+
+    WHEN TO CALL:
+      (a) Before evolving a skill — see what's available and current state
+      (b) After evolving — verify the new variant was saved
+      (c) Reviewing evolution health — check generation counts and drift
+
+    Returns each skill's path, metadata, current generation, and a list
+    of evolved variants in skills/.evolved/.
+
+    Args:
+        project_dir: Path to Myco project root. Auto-detected if omitted.
+
+    Returns:
+        JSON with skill list, each including evolution history.
+    """
+    from myco.evolve import parse_skill
+
+    root = Path(project_dir) if project_dir else _find_project_root()
+    root = root.resolve()
+
+    skills_dir = root / "skills"
+    if not skills_dir.exists():
+        return json.dumps({"skills": [], "message": "No skills/ directory found."})
+
+    # Enumerate current skills (top-level .md files)
+    skills = []
+    for skill_file in sorted(skills_dir.glob("*.md")):
+        variant = parse_skill(skill_file)
+        skill_name = skill_file.stem
+
+        # Find evolved variants for this skill
+        evolved_dir = skills_dir / ".evolved"
+        evolved_variants = []
+        if evolved_dir.exists():
+            for ef in sorted(evolved_dir.glob(f"{skill_name}_gen*.md")):
+                ev = parse_skill(ef)
+                evolved_variants.append({
+                    "file": str(ef.relative_to(root)),
+                    "generation": ev.generation,
+                    "content_hash": ev.content_hash,
+                    "parent_hash": ev.parent_hash,
+                    "body_length": len(ev.body),
+                })
+            # Also check for bundle files
+            for bf in sorted(evolved_dir.glob(f"{skill_name}_gen*.bundle.json")):
+                try:
+                    bundle = json.loads(bf.read_text(encoding="utf-8"))
+                    metrics = bundle.get("metrics", {})
+                    for ev_entry in evolved_variants:
+                        if bundle.get("content_hash") in ev_entry.get("file", ""):
+                            ev_entry["mutation_prompt"] = metrics.get(
+                                "mutation_prompt", "",
+                            )
+                            break
+                except Exception:
+                    pass
+
+        skills.append({
+            "path": str(skill_file.relative_to(root)),
+            "name": skill_name,
+            "meta": variant.meta,
+            "generation": variant.generation,
+            "content_hash": variant.content_hash,
+            "body_length": len(variant.body),
+            "evolved_variants": evolved_variants,
+            "evolution_count": len(evolved_variants),
+        })
+
+    return json.dumps({
+        "skills": skills,
+        "total_skills": len(skills),
+        "total_evolved_variants": sum(s["evolution_count"] for s in skills),
+    }, ensure_ascii=False, indent=2)
 
 
 # ---------------------------------------------------------------------------

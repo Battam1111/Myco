@@ -46,6 +46,7 @@ dependency: cli/mcp → notes, never the reverse).
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import secrets
@@ -397,6 +398,14 @@ def update_note(path: Path, **field_updates: Any) -> Dict[str, Any]:
         })
         meta["transition_log"] = tlog
 
+    # Track lifetime excretions (survives note deletion on disk)
+    if new_status == "excreted" and old_status != "excreted":
+        try:
+            project_root = path.parent.parent  # notes/ -> project root
+            increment_excretion_counter(project_root)
+        except Exception:
+            pass  # best-effort — never block the status transition
+
     # Organ 5: inline immune on update
     _validate_frontmatter_inline(meta, context="update_note")
 
@@ -658,6 +667,52 @@ def validate_frontmatter(meta: Dict[str, Any]) -> List[str]:
         errors.append("excreted notes must have a non-empty excrete_reason")
 
     return errors
+
+
+# ---------------------------------------------------------------------------
+# Excretion counter  —  persistent lifetime tracking
+# ---------------------------------------------------------------------------
+
+_EXCRETION_COUNTER_REL = ".myco_state/excretion_counter.json"
+
+
+def _excretion_counter_path(root: Path) -> Path:
+    return Path(root) / _EXCRETION_COUNTER_REL
+
+
+def read_excretion_counter(root: Path) -> Dict[str, Any]:
+    """Read the lifetime excretion counter from .myco_state/.
+
+    Returns {"lifetime_excretions": int, "last_excretion": str|None}.
+    If the file does not exist, returns zeros (no excretions recorded).
+    """
+    p = _excretion_counter_path(root)
+    if not p.exists():
+        return {"lifetime_excretions": 0, "last_excretion": None}
+    try:
+        data = json.loads(p.read_text(encoding="utf-8"))
+        return {
+            "lifetime_excretions": int(data.get("lifetime_excretions", 0)),
+            "last_excretion": data.get("last_excretion"),
+        }
+    except Exception:
+        return {"lifetime_excretions": 0, "last_excretion": None}
+
+
+def increment_excretion_counter(root: Path, count: int = 1) -> Dict[str, Any]:
+    """Increment the lifetime excretion counter and persist it.
+
+    Called whenever one or more notes transition to excreted status.
+    The counter survives note deletion — that is its whole purpose.
+    """
+    state = read_excretion_counter(root)
+    state["lifetime_excretions"] += count
+    state["last_excretion"] = _now_iso()
+    p = _excretion_counter_path(root)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    from myco.io_utils import atomic_write_text
+    atomic_write_text(p, json.dumps(state, indent=2) + "\n")
+    return state
 
 
 # ---------------------------------------------------------------------------
@@ -1877,6 +1932,82 @@ def render_entry_point_signals_block(
             file=_sys.stderr,
         )
         return None
+
+
+def detect_skill_degradation(
+    root: Path,
+    *,
+    now: Optional[datetime] = None,
+) -> List[str]:
+    """Return `skill_degradation` signal strings for skills that have never
+    been evolved despite existing long enough to warrant review.
+
+    A skill is considered degraded when ALL of:
+        1. A ``skills/<name>.md`` file exists.
+        2. No corresponding file exists in ``skills/.evolved/`` (prefix match
+           on ``<name>_gen``).
+        3. The skill file is older than ``stale_active_threshold_days``
+           (default 7, from ``_canon.yaml::system.evolution``).
+
+    This means the skill has been running for over a week without any
+    evolutionary improvement.  The signal nudges the Agent to call
+    ``myco_evolve`` to mutate the skill.
+
+    Returns a (possibly empty) list of signal strings — one per degraded
+    skill.  Fails open on any IO / parse error (returns []).
+    """
+    now_dt = now or datetime.now()
+    skills_dir = Path(root) / "skills"
+    if not skills_dir.is_dir():
+        return []
+
+    # Read threshold from canon — default to 7 days.
+    stale_days = 7
+    try:
+        import yaml as _yaml
+        canon_path = Path(root) / "_canon.yaml"
+        if canon_path.exists():
+            canon = _yaml.safe_load(
+                canon_path.read_text(encoding="utf-8")) or {}
+            evo = (canon.get("system") or {}).get("evolution") or {}
+            if not evo.get("enabled", False):
+                return []  # evolution disabled — no signal
+            stale_days = int(evo.get("stale_active_threshold_days", 7))
+    except Exception:
+        return []  # grandfather-compatible: unreadable canon = silent
+
+    evolved_dir = skills_dir / ".evolved"
+    evolved_names: set = set()
+    if evolved_dir.is_dir():
+        for ep in evolved_dir.iterdir():
+            # evolved files are named <skill>_gen<N>_<hash>.md / .bundle.json
+            stem = ep.stem  # e.g. "metabolic-cycle_gen1_f523a4d46159"
+            # extract skill name prefix before first "_gen"
+            idx = stem.find("_gen")
+            if idx > 0:
+                evolved_names.add(stem[:idx])
+
+    signals: List[str] = []
+    for skill_path in sorted(skills_dir.glob("*.md")):
+        skill_name = skill_path.stem  # e.g. "metabolic-cycle"
+        if skill_name in evolved_names:
+            continue  # has been evolved at least once
+
+        # Check file age via mtime.
+        try:
+            mtime = datetime.fromtimestamp(skill_path.stat().st_mtime)
+        except OSError:
+            continue
+        age_days = (now_dt - mtime).days
+        if age_days < stale_days:
+            continue  # too young to flag
+
+        signals.append(
+            f"skill_degradation: skills/{skill_name}.md has never been "
+            f"evolved (age: {age_days} days). Consider running "
+            f"myco_evolve to improve it."
+        )
+    return signals
 
 
 def compute_hunger_report(

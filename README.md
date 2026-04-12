@@ -94,7 +94,7 @@ The substrate is not a pre-carved mold your agent must fit. Myco's entry points,
                    │             LLM Agent               │
                    │      (CPU — raw compute, no RAM)    │
                    └──────────────▲──────────────────────┘
-                                  │ 19 MCP tools + CLI
+                                  │ 21 MCP tools + CLI
                                   │ (read / eat / digest / lint …)
                    ┌──────────────┴──────────────────────┐
                    │         Myco Kernel (OS)            │

@@ -947,7 +947,7 @@ conclusion note: `notes/n_20260411T225901_4d39.md` (integrated)
 
 ## [2026-04-12] milestone | Myco MCP dogfood begins. 19/19 tools loaded via .mcp.json auto-discovery. First real myco_hunger + myco_eat calls successful. Substrate state: 131 notes, 0 raw backlog, 23/23 lint, 122 tests. Advisory signals: no_excretion + graph_orphans (non-blocking).
 
-## [2026-04-12] reflection | Session reflection: First Myco MCP dogfood session.
+## [2026-04-12] meta | Session reflection: First Myco MCP dogfood session.
 
 Knowledge created: 5 compressed notes (self-correction patterns, forage digests, wave seeds), 3 new notes (user non-negotiables, dogfood milestone, automation gaps), myco verify command, settings.json template, enhanced init_cmd.
 
@@ -965,7 +965,7 @@ Pattern: The "越找越多" problem (stale content multiplying) was a SYSTEM fai
 
 ## [2026-04-13] milestone | ZERO ORPHANS achieved. Complete mycelium network: 217 nodes, 907 edges, density 4.18. Every file connected. Session deployed 14 parallel agents total for: notes cross-refs (83 links), docs cross-links (91 refs), skills cross-links, wiki creation (3 pages), competitive positioning, proactive discovery (4 inlets), evolve.py first mutation, session index, graph indicators, open_problems audit, orphan elimination, examples cleanup, README cleanup. Substrate reduced from 140→81 notes through compression+excretion while knowledge density increased.
 
-## [2026-04-13] reflection | Session reflection: Myco MCP dogfood session 2 — from skeleton to living organism.
+## [2026-04-13] meta | Session reflection: Myco MCP dogfood session 2 — from skeleton to living organism.
 
 Knowledge created: 3 wiki pages (first ever), 4 external discovery inlets, competitive positioning in 3 READMEs, evolve.py gen1 mutation, ~250 cross-reference links across entire project.
 
@@ -974,3 +974,5 @@ Key structural change: mycelium interconnection elevated from manual to architec
 System insight: the ideal is not "zero orphans once" but "zero orphans always." The categorized hunger signal + density indicator make this self-monitoring. Future sessions that create files without cross-refs will immediately trigger graph_orphans advisory.
 
 Pattern: deploying 14 parallel agents was the right scale for this work. User directive "多多部署使劲造" is operationally correct — parallelism is the Agent-First way to handle breadth.
+
+## [2026-04-13] milestone | ALL 19 session agents complete. Editable-first distribution model fully implemented across all docs. Mycelium network: 243 nodes (200 .md + 30 .py + 9 yaml/json + 4 other), 1037 edges, density 4.27, 4 orphans (freshly created notes only). 129 tests (gained 7 from graph.py .py scanner). The entire Myco codebase — docs, wiki, notes, skills, source code, configs — is one connected living organism.
