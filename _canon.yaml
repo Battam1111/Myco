@@ -6,8 +6,8 @@ system:
   # Authoritative source: docs/agent_protocol.md §8
   # Craft record:         docs/primordia/upstream_protocol_craft_2026-04-11.md
   # Changelog:             docs/contract_changelog.md
-  contract_version: "v0.44.0"  # Wave A2: molt deprecated, MCP dispatch cleaned
-  synced_contract_version: "v0.44.0"  # Wave A2 — self-reference
+  contract_version: "v0.45.0"  # Primordia compression + external absorption (best-practice + gstack)
+  synced_contract_version: "v0.45.0"  # self-reference
   upstream_scan_last_run: "2026-04-11T15:21:31Z"
 
   # --- Upstream scan staleness reader (Wave 17, contract v0.16.0) ---
@@ -259,6 +259,19 @@ system:
       # is only used to avoid false positives when a surface was touched
       # AS PART OF landing a craft conclusion.
       evidence_pattern: '(docs/primordia/[a-z0-9_]+_craft_\d{4}-\d{2}-\d{2}(_[0-9a-f]{4})?\.md|craft_reference\s*:)'
+
+  # --- Skill Schema (absorbed from gstack skill-to-skill contracts) ---
+  # Formalizes skill file structure for future lint validation.
+  skill_schema:
+    required_sections:
+      - "When to Execute"     # trigger condition
+      - "Steps"               # procedure (or equivalent)
+    optional_sections:
+      - "Input"               # what the skill expects
+      - "Output"              # what the skill produces
+      - "Feeds"               # downstream skill that consumes output
+      - "Constraints"         # guard rails
+    contracts_enabled: false  # future: validate skill-to-skill contracts
 
   # --- Skill Evolution (Wave E2) ---
   # Opt-in: disabled by default. When enabled, the metabolic cycle can
