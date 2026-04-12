@@ -114,10 +114,9 @@ system:
     # Path-based classification — strictest-class-wins. An instance agent
     # MUST map any proposed upstream change to one of these classes by path
     # and MUST NOT self-escalate. Class Z is the hardest gate.
-    class_x:            # Auto-mergeable (examples / notes / append-only log)
+    class_x:            # Auto-mergeable (notes / append-only log)
     - log.md
     - notes/**
-    - examples/**
     class_y:            # Inline-confirm (docs / wiki prose)
     - wiki/**
     - docs/**           # except docs/agent_protocol.md (see class_z)
@@ -688,7 +687,7 @@ system:
     - src/                   # package source
     - scripts/               # CLI/lint scripts
     - tests/                 # test suite
-    - examples/              # example projects (ASCC etc.)
+    # examples/ removed — no example projects needed
     - assets/                # images / branding
     - dist/                  # build output (ephemeral; recreated by hatchling)
     # --- Standard repo files ---

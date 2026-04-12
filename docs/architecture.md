@@ -4,7 +4,7 @@
 > **最后更新**：2026-04-12（Wave 58：新增 Appendix F Structural Intelligence Subsystem — graph/cohorts/sessions）
 > **范围**：通用框架（项目无关）
 > **理论基础**：Karpathy LLM Wiki + Polanyi Tacit Knowledge + Argyris Double-Loop Learning + Toyota PDCA + Rich Sutton Bitter Lesson
-> **验证基础**：一个复杂研究项目深度验证（7天，80+文件，12+次传统手艺，含完整四metabolic phase进化）；多项目泛化进行中。参见 `examples/ascc/`
+> **验证基础**：一个复杂研究项目深度验证（7天，80+文件，12+次传统手艺，含完整四metabolic phase进化）；多项目泛化进行中。
 
 ---
 
