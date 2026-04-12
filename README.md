@@ -165,7 +165,7 @@ The uncomfortable, load-bearing truth: **we were already running the primitive v
 
 <div align="center">
 
-| 80+ files | 10 wiki pages | 15+ structured debates | 15/15 lint dimensions green |
+| 80+ files | 10 wiki pages | 15+ structured debates | 23/23 lint dimensions green |
 |:---------:|:-------------:|:----------------------:|:----------------------------:|
 
 </div>
