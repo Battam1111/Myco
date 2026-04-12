@@ -346,6 +346,27 @@ system:
         lint: [L13, L15]
         code: []
 
+    # Numeric claims traceability — prevents stale numbers from rotting.
+    # Each claim has a source_of_truth and all surfaces that cite it.
+    # Agent must check these when ANY numeric SSoT changes.
+    numeric_claims:
+      principles_count:
+        ssot: "_canon.yaml::system.principles_count"
+        value: 13
+        cited_in: ["MYCO.md", "docs/architecture.md", "docs/reusable_system_design.md", "docs/vision.md", "docs/theory.md", "src/myco/templates/_canon.yaml"]
+      lint_dimensions:
+        ssot: "len(FULL_CHECKS) in src/myco/lint.py"
+        value: 23
+        cited_in: ["README.md", "README_zh.md", "README_ja.md", "MYCO.md", "docs/architecture.md", "docs/reusable_system_design.md", "src/myco/mcp_server.py", "src/myco/cli.py"]
+      mcp_tool_count:
+        ssot: "count of @mcp.tool in src/myco/mcp_server.py"
+        value: 19
+        cited_in: ["README.md", "README_zh.md", "README_ja.md", "MYCO.md", "docs/agent_protocol.md"]
+      test_count:
+        ssot: "pytest tests/ output"
+        value: 122
+        cited_in: ["MYCO.md"]
+
   # --- Structural Limits (contract v1.5.0) ---
   # Authoritative spec:    docs/biomimetic_map.md §4
   # Debate of record:      docs/primordia/biomimetic_restructure_craft_2026-04-11.md

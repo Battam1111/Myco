@@ -214,6 +214,9 @@ system:
   traceability:
     anchors: {}    # Instances define their own; kernel provides the schema
 
+    # Numeric claims traceability — Agent checks when SSoT changes
+    numeric_claims: {}    # Instances define their own claims
+
   # ── Structural Limits (contract v0.5.0) ─────────────────────────────────────
   # Soft limits that feed the `structural_bloat` hunger signal. Not hard
   # lints — structural bloat is a gradual degradation, not a contract
