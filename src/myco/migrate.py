@@ -145,7 +145,7 @@ def create_myco_scaffold(project_dir: Path, replacements: dict, entry_point: str
         if (docs_dir / "WORKFLOW.md").exists():
             actions.append(("SKIP", "docs/WORKFLOW.md already exists"))
         else:
-            actions.append(("CREATE", "docs/WORKFLOW.md (Twelve Principles)"))
+            actions.append(("CREATE", "docs/WORKFLOW.md (Thirteen Principles)"))
             if not dry_run:
                 content = fill_template(get_template("WORKFLOW.md"), replacements)
                 (docs_dir / "WORKFLOW.md").write_text(content, encoding="utf-8")
@@ -306,7 +306,7 @@ def write_migration_report(project_dir: Path, findings: dict, actions: list,
         "   ```",
         "   On a fresh migration this will show **zero issues** — that's expected. The scaffold is internally consistent.",
         "   Start working. The first time lint finds something after you've added content is your **aha moment** — that's Myco working for you.",
-        "4. Start working — Myco grows organically from practice. Gear 1 (friction sensing) activates automatically.",
+        "4. Start working — Myco grows organically from practice. hunger signals (friction sensing) activates automatically.",
         "",
         "---",
         "",

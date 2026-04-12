@@ -4,7 +4,7 @@
 > **最后更新**：2026-04-12（Wave 58：新增 Appendix F Structural Intelligence Subsystem — graph/cohorts/sessions）
 > **范围**：通用框架（项目无关）
 > **理论基础**：Karpathy LLM Wiki + Polanyi Tacit Knowledge + Argyris Double-Loop Learning + Toyota PDCA + Rich Sutton Bitter Lesson
-> **验证基础**：一个复杂研究项目深度验证（7天，80+文件，12+次传统手艺，含完整四齿轮进化）；多项目泛化进行中。参见 `examples/ascc/`
+> **验证基础**：一个复杂研究项目深度验证（7天，80+文件，12+次传统手艺，含完整四metabolic phase进化）；多项目泛化进行中。参见 `examples/ascc/`
 
 ---
 
@@ -13,7 +13,7 @@
 | 文档 | 类型 | 用途 |
 |------|------|------|
 | `architecture.md` | 框架架构 | 本文件——四支柱 + 进化引擎全景 |
-| `evolution_engine.md` | 进化协议 | 四齿轮详细机制（Gear 1-4）、触发条件、权限分级 |
+| `evolution_engine.md` | 进化协议 | 四metabolic phase详细机制（Hunger Sensing-4）、触发条件、权限分级 |
 | `reusable_system_design.md` | **核心系统设计** | ⭐ 通用架构详解 + Bootstrap 指南（Level 0/1/2）+ 项目类型适配 |
 | `theory.md` | 理论基础 | 认知科学/学习理论支撑 |
 | `vision.md` | 愿景文档 | Myco 长期演进方向 |
@@ -224,8 +224,8 @@ project:                    # 项目启动时填充
 - `decision`：重要决策
 - `debug`：Bug 修复
 - `deploy`：部署事项
-- `friction`：操作摩擦（Gear 1）
-- `meta`：系统反思（Gear 2）
+- `friction`：操作摩擦（Hunger Sensing）
+- `meta`：系统反思（Session Reflection）
 - `contradiction`：架构矛盾
 - `validation`：验证/交叉检查
 
@@ -235,17 +235,17 @@ project:                    # 项目启动时填充
 
 ---
 
-## 自进化引擎（四个齿轮）
+## 自进化引擎（四个metabolic phase）
 
 ```
 ┌─────────────┐      ┌──────────────┐      ┌─────────────┐      ┌─────────────┐
-│   Gear 1    │      │   Gear 2     │      │   Gear 3    │      │   Gear 4    │
+│   Hunger Sensing    │      │   Session Reflection     │      │   Milestone Retrospective    │      │   Cross-Project Distillation    │
 │  摩擦感知   │ →    │  会话反思    │ →    │ 里程碑回顾  │ →    │ 跨项目蒸馏  │
 │ (每次会话)  │      │ (会话结束)   │      │ (Phase 转换)│      │ (项目完成)  │
 └─────────────┘      └──────────────┘      └─────────────┘      └─────────────┘
 ```
 
-### Gear 1：摩擦感知 (Friction Sensing)
+### Hunger Sensing：摩擦感知 (Friction Sensing)
 
 **频率**：每次会话中，实时
 
@@ -266,7 +266,7 @@ project:                    # 项目启动时填充
 - 软件项目："UI 表单验证逻辑花了 3 倍时间，因为 edge case 未文档化"
 - 数据项目："数据导入失败，需查阅 2 个数据源文档才能修复"
 
-### Gear 2：会话反思 (Session Reflection)
+### Session Reflection：会话反思 (Session Reflection)
 
 **频率**：每次会话结束
 
@@ -280,7 +280,7 @@ project:                    # 项目启动时填充
 
 **重点**：反思的是**系统架构**而非**项目内容**。
 
-### Gear 3：里程碑回顾 (Milestone Retrospective)
+### Milestone Retrospective：里程碑回顾 (Milestone Retrospective)
 
 **频率**：每个 Phase 转换后
 
@@ -302,7 +302,7 @@ project:                    # 项目启动时填充
 | WORKFLOW 原则、MYCO.md 结构 | 🛑 需人类确认 | 错误影响后续所有会话 |
 | 进化引擎规则本身 | 🛑 需人类确认 | 自修改的元规则风险最高 |
 
-### Gear 4：跨项目蒸馏 (Cross-Project Distillation)
+### Cross-Project Distillation：跨项目蒸馏 (Cross-Project Distillation)
 
 **频率**：项目结束时
 
@@ -353,7 +353,7 @@ project:                    # 项目启动时填充
   创建 docs/operational_narratives.md
   复制 lint_knowledge.py
   完整 _canon.yaml (system: + project:)
-  WORKFLOW.md 启用四个齿轮
+  WORKFLOW.md 启用四个metabolic phase
 ```
 
 ### 自然生长信号
@@ -366,7 +366,7 @@ project:                    # 项目启动时填充
 | 需对外部文献萃取 | 创建第一个技法页 |
 | 同类 friction ≥3 次 | 写操作叙事或修改流程 |
 | 关键数字出现漂移 | 添加到 _canon.yaml |
-| 达到项目里程碑 | 执行 Gear 3 |
+| 达到项目里程碑 | 执行 Milestone Retrospective |
 
 ---
 
@@ -394,8 +394,8 @@ project:                    # 项目启动时填充
 | 隐性知识编码 | ✅ 经验层 | ❌ | ❌ | ❌ | ⚠️ 代码层仅 |
 | 自动一致性检查 | ✅ Lint + SSoT | ❌ | ❌ | ❌ | ❌ |
 | 深度决策机制 | ✅ 传统手艺 | ❌ | ❌ | ❌ | ❌ |
-| 自进化引擎 | ✅ 四齿轮 | ❌ | ❌ | ❌ | ⚠️ 技能库 |
-| Double-loop | ✅ Gear 3 | ❌ | ❌ | ❌ | ❌ |
+| 自进化引擎 | ✅ 四metabolic phase | ❌ | ❌ | ❌ | ⚠️ 技能库 |
+| Double-loop | ✅ Milestone Retrospective | ❌ | ❌ | ❌ | ❌ |
 | 分级复杂度 | ✅ L0/L1/L2 | ❌ | ❌ | ⚠️ 文件拆 | ❌ |
 | 跨项目复用 | ✅ 模板+蒸馏 | ❌ | ✅ 通用方法 | ⚠️ 社区共享 | ❌ |
 
@@ -413,7 +413,7 @@ project:                    # 项目启动时填充
 
 问题：初始设定"花费 3 倍时间"才记录 friction，结果日常微摩擦全漏掉。
 
-对策：门槛降至"差点犯错"和"需多想一步"。宁可过量记录，不可漏记（数据缺失 → Gear 3 失效）。
+对策：门槛降至"差点犯错"和"需多想一步"。宁可过量记录，不可漏记（数据缺失 → Milestone Retrospective 失效）。
 
 ### 发现 3：模板需 dry-run 验证
 
@@ -429,7 +429,7 @@ project:                    # 项目启动时填充
 
 ---
 
-*本文档遵循 Gear 4——每个使用本系统的项目结束时，新发现都应回写到此处。*
+*本文档遵循 Cross-Project Distillation——每个使用本系统的项目结束时，新发现都应回写到此处。*
 
 ---
 
@@ -453,7 +453,7 @@ Meta-evolution isn't vaporware here: Myco's evolution targets text files — the
 
 ---
 
-## Appendix C — The Twelve Principles (W1-W13)
+## Appendix C — The Thirteen Principles (W1-W13)
 
 > Moved from README. Full details in `docs/WORKFLOW.md`.
 
@@ -480,7 +480,7 @@ Meta-evolution isn't vaporware here: Myco's evolution targets text files — the
 |-------|------|-----|-------------|
 | **L0** | 5 min | Small projects, exploration | `MYCO.md` (minimal) + `log.md` |
 | **L1** | 30 min | Multi-session projects (5+ sessions) | + `WORKFLOW.md` + `_canon.yaml` + `wiki/` |
-| **L2** | 2 hours | Long-term complex projects | + Full WORKFLOW + Lint + Evolution Engine (all 4 gears) |
+| **L2** | 2 hours | Long-term complex projects | + Full WORKFLOW + Lint + Evolution Engine (all 4 metabolic phases) |
 
 Don't pre-build empty structures. Create wiki pages when you need them, write procedures when you've failed twice.
 

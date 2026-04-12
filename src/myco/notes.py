@@ -1068,8 +1068,8 @@ def detect_session_end_drift(
     *,
     now: Optional[datetime] = None,
 ) -> Optional[str]:
-    """Return a `session_end_drift` advisory signal if Gear 2 reflection
-    or Gear 4 sweep discipline has drifted in log.md, else None.
+    """Return a `session_end_drift` advisory signal if session reflection reflection
+    or cross-project distillation sweep discipline has drifted in log.md, else None.
 
     Two sub-checks (both optional via canon; either can be disabled):
         reflection_cfg — count non-meta `## [YYYY-MM-DD] <type>` entries after the
@@ -1132,7 +1132,7 @@ def detect_session_end_drift(
 
     parts: List[str] = []
 
-    # --- Gear 2 — reflection drift ---
+    # --- session reflection — reflection drift ---
     if g2_cfg.get("enabled", True):
         marker = str(g2_cfg.get("reflection_marker", "meta")).lower()
         threshold = int(g2_cfg.get("drift_threshold_entries", 15))
@@ -1157,7 +1157,7 @@ def detect_session_end_drift(
                 f"`{marker}` reflection, threshold {threshold})"
             )
 
-    # --- Gear 4 — sweep drift ---
+    # --- cross-project distillation — sweep drift ---
     if g4_cfg.get("enabled", True):
         marker = str(g4_cfg.get("candidate_marker", "g4-candidate")).lower()
         resolutions = [
@@ -1220,7 +1220,7 @@ def detect_session_end_drift(
     return (
         "session_end_drift: " + "; ".join(parts) + ". "
         "W5 evolution discipline advisory: write a one-line `meta` entry "
-        "to log.md (Gear 2) and/or annotate stale g4-candidate lines with "
+        "to log.md (session reflection) and/or annotate stale g4-candidate lines with "
         "`g4-pass: <reason>` / `g4-landed: <ref>` / craft file. See "
         "docs/primordia/session_end_reflex_arc_craft_2026-04-11.md."
     )
@@ -1857,7 +1857,7 @@ def compute_hunger_report(
     Signals (ordered by urgency):
         - "raw_backlog":     >10 raw notes (digestive tract is constipated)
         - "stale_raw":       ≥1 raw note untouched for `stale_days`+ days
-        - "no_deep_digest":  no note has digest_count ≥ 2 (Gear 3 starved)
+        - "no_deep_digest":  no note has digest_count ≥ 2 (milestone retrospective starved)
         - "no_excretion":    zero excreted notes (compression doctrine ignored)
         - "dead_knowledge":  ≥1 terminal note cold + unviewed past threshold
                              (Self-Model D layer seed, v0.4.0)
@@ -2018,7 +2018,7 @@ def compute_hunger_report(
     if not deep_digested and by_status.get("extracted", 0) + by_status.get("integrated", 0) == 0:
         signals.append(
             "no_deep_digest: no note has been digested twice AND no note has "
-            "reached extracted/integrated — Gear 3 may be starving."
+            "reached extracted/integrated — milestone retrospective may be starving."
         )
     if by_status.get("excreted", 0) == 0 and len(paths) >= 20:
         signals.append(
@@ -2053,7 +2053,7 @@ def compute_hunger_report(
             signals.append(craft_signal)
     except Exception:
         pass  # grandfather: missing canon block = feature off
-    # Session end drift signal (contract v0.13.0, Wave 14) — Gear 2 / Gear 4
+    # Session end drift signal (contract v0.13.0, Wave 14) — session reflection / cross-project distillation
     # advisory drift. LOW tier, appears in advisory list. See
     # docs/primordia/session_end_reflex_arc_craft_2026-04-11.md.
     try:

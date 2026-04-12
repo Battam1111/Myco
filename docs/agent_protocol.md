@@ -99,7 +99,7 @@ Myco v1.2 Phase ① 引入了消化系统（`eat / digest / view / hunger` + `no
 
 每个工具都有 **WHEN to call** 的触发条件列表。如果匹配其中任一条，**必须**调用对应工具，不能用自由写入代替。
 
-### 2.1 Reflexes（反射层，齿轮 1-4）
+### 2.1 Reflexes（反射层，代谢阶段）
 
 | Tool | 何时调用 | 禁止 |
 |------|---------|------|
@@ -203,10 +203,10 @@ Wave 14 (contract v0.13.0) 把这一段从 5 步 prose 改为 **2 步反射弧**
 
 **`session_end_drift` 的两个子信号**（都是 LOW，不阻塞任务，只对抗遗忘）：
 
-- **gear2**：`## [YYYY-MM-DD] meta |` 反射条目之后累计了 ≥15 条非 meta 日志
-  → 写一条 `meta` 条目（一句话即可，Gear 2 价值在"看"的仪式本身，不在
+- **reflection**：`## [YYYY-MM-DD] meta |` 反射条目之后累计了 ≥15 条非 meta 日志
+  → 写一条 `meta` 条目（一句话即可，reflection 价值在"看"的仪式本身，不在
   每次都发现缺陷）。
-- **gear4**：`log.md` 里有 `g4-candidate` 条目 age ≥5 天且无 `g4-pass` /
+- **distillation**：`log.md` 里有 `g4-candidate` 条目 age ≥5 天且无 `g4-pass` /
   `g4-landed` / 在磁盘存在的 craft 引用 → 为每条补注解。最小决议形式是
   inline `g4-pass: <一句话 rationale>`；正式决议是写 craft 并引用。
 
@@ -298,7 +298,7 @@ Phase ② 开工的第一件事就是 `myco view --tag friction-phase2 --status 
 | 写入非白名单位置 | L11 Write-Surface Lint（CRITICAL）| 下次 `myco_lint` 直接红灯 |
 | `notes/*.md` frontmatter 不合规 | L10 Notes Schema Lint（CRITICAL）| 同上 |
 | 愿景漂移（README/MYCO.md 丢锚点）| L9 Vision Anchor Lint（CRITICAL）| 同上 |
-| 跳过 `myco_log` 的关键事件 | 会在 `myco_retrospect` 时被发现 | Gear 4 数据缺失 |
+| 跳过 `myco_log` 的关键事件 | 会在 `myco_retrospect` 时被发现 | Cross-Project Distillation 数据缺失 |
 | 摩擦未标 `friction-phase2` | Phase ② 启动时会被发现 | 数据丢失无法追回 |
 
 **补救**：违约本身不是灾难，**隐瞒**才是。发现违约立刻 `myco_log` 记录 + `myco_eat` 一条 `friction-phase2` note 说明为什么违约（多半是工具/文档不够清楚）。
