@@ -1538,6 +1538,41 @@ def record_search_miss(root: Path, query: str) -> None:
         yaml.dump(data, f, default_flow_style=False, allow_unicode=True)
 
 
+# ---------------------------------------------------------------------------
+# Compression pressure metric (Wave 50, contract v0.39.0)
+# ---------------------------------------------------------------------------
+
+def compute_compression_pressure(
+    root: Path,
+) -> Tuple[float, Dict[str, int]]:
+    """Compute compression pressure: (raw + digesting) / max(1, extracted + integrated).
+
+    Returns (pressure_float, breakdown_dict).
+    A pressure > 2.0 indicates the substrate is accumulating faster than
+    it is synthesizing — continuous compression is overdue.
+    """
+    counts: Dict[str, int] = {}
+    for path in list_notes(root):
+        try:
+            meta, _ = read_note(path)
+        except Exception:
+            continue
+        status = meta.get("status", "raw")
+        counts[status] = counts.get(status, 0) + 1
+
+    numerator = counts.get("raw", 0) + counts.get("digesting", 0)
+    denominator = max(1, counts.get("extracted", 0) + counts.get("integrated", 0))
+    pressure = numerator / denominator
+
+    breakdown = {
+        "raw": counts.get("raw", 0),
+        "digesting": counts.get("digesting", 0),
+        "extracted": counts.get("extracted", 0),
+        "integrated": counts.get("integrated", 0),
+    }
+    return round(pressure, 2), breakdown
+
+
 def _count_pending_bundles(inbox: Path) -> int:
     """Count bundle-pattern files at the top level of .myco_upstream_inbox/
     (not counting the absorbed/ subdirectory). Best-effort.
@@ -2051,6 +2086,31 @@ def compute_hunger_report(
             signals.append(inlet_signal)
     except Exception:
         pass  # grandfather-compatible: missing module = feature off
+    # Compression pressure signal (Wave 50, contract v0.39.0) — fires when
+    # raw+digesting significantly exceeds extracted+integrated. Continuous
+    # compression loop. Partially closes open_problems §4.
+    pressure_val = 0.0
+    try:
+        canon_path = root / "_canon.yaml"
+        pressure_threshold = 2.0
+        if canon_path.exists():
+            with open(canon_path, "r", encoding="utf-8") as f:
+                _c = yaml.safe_load(f) or {}
+            pressure_threshold = float(
+                _c.get("system", {}).get("notes_schema", {})
+                   .get("compression", {}).get("pressure_threshold", 2.0))
+        pressure_val, pressure_bk = compute_compression_pressure(root)
+        if pressure_val > pressure_threshold:
+            signals.append(
+                f"compression_pressure: {pressure_val:.1f} "
+                f"(threshold {pressure_threshold:.1f}). "
+                f"raw+digesting={pressure_bk['raw']+pressure_bk['digesting']} "
+                f"vs extracted+integrated="
+                f"{pressure_bk['extracted']+pressure_bk['integrated']}. "
+                f"Run `myco compress` to reduce pressure."
+            )
+    except Exception:
+        pass  # grandfather-compatible
     if not signals:
         signals.append("healthy: notes/ is metabolizing normally.")
 
@@ -2089,6 +2149,12 @@ def compute_hunger_report(
             "verb": "inlet",
             "args": {},
             "reason": str(inlet_signal),
+        })
+    if pressure_val > 2.0:
+        actions.append({
+            "verb": "compress",
+            "args": {"cohort": "auto"},
+            "reason": f"compression_pressure={pressure_val:.1f} exceeds threshold 2.0",
         })
     if promote_candidates:
         for pc in promote_candidates[:3]:

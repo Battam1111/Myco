@@ -6,8 +6,8 @@ system:
   # Authoritative source: docs/agent_protocol.md §8
   # Craft record:         docs/primordia/upstream_protocol_craft_2026-04-11.md
   # Changelog:             docs/contract_changelog.md
-  contract_version: "v0.38.0"  # Wave 49: inlet trigger policy — search miss tracking + cohort gap detection
-  synced_contract_version: "v0.38.0"  # Wave 49 — self-reference: kernel's own lock
+  contract_version: "v0.39.0"  # Wave 50: continuous compression — compression_pressure metric + metabolic-cycle skill
+  synced_contract_version: "v0.39.0"  # Wave 50 — self-reference: kernel's own lock
   upstream_scan_last_run: "2026-04-11T15:21:31Z"
 
   # --- Upstream scan staleness reader (Wave 17, contract v0.16.0) ---
@@ -36,6 +36,7 @@ system:
       - upstream_scan_stale
       - craft_reflex_missing
       - session_end_drift
+      - compression_pressure   # Wave 50 (v0.39.0)
 
   # --- Self-Correction Contract (Wave 19, contract v0.18.0) --------------
   # Hard Contract rule #3 special clause declarative form. The `myco
@@ -438,6 +439,7 @@ system:
     compression:
       ripe_threshold: 5
       ripe_age_days: 7
+      pressure_threshold: 2.0    # Wave 50: fires when (raw+digesting)/(extracted+integrated) > this
 
     # Wave 35 (v0.27.0) — Metabolic Inlet primitive scaffold.
     # Authoritative design: docs/primordia/metabolic_inlet_design_craft_2026-04-12.md
@@ -548,6 +550,7 @@ system:
     - notes/                 # via myco eat / digest ONLY
     - wiki/                  # structured knowledge (agent extract allowed)
     - forage/                # v1.7.0 — external material pre-digestion (see forage_schema)
+    - skills/                # Wave 50 — operational procedure documents (metabolic-cycle etc.)
     - docs/                  # framework docs
     - log.md                 # append-only via myco_log
     - MYCO.md                # L1 index
