@@ -3,6 +3,8 @@
 Myco Project Initializer — creates a new Myco-powered project scaffold.
 """
 
+import json
+import os
 import shutil
 import sys
 from datetime import datetime
@@ -245,6 +247,44 @@ def run_init(args) -> int:
             encoding="utf-8",
         )
         print(f"  ✅ .claude/scheduled-tasks/myco-metabolic-cycle/")
+
+        # Cowork-compatible skill stubs (.claude/skills/<name>/SKILL.md)
+        _cowork_skills = {
+            "myco-boot": (
+                "---\n"
+                "name: myco-boot\n"
+                "description: Boot Myco substrate — run hunger check and auto-heal\n"
+                "---\n\n"
+                "Call myco_hunger(execute=true) to check substrate health and auto-fix issues.\n"
+                "If any REFLEX HIGH signals appear, address them before other work.\n"
+                "Then report substrate status.\n"
+            ),
+            "myco-eat": (
+                "---\n"
+                "name: myco-eat\n"
+                "description: Capture knowledge into Myco — decisions, insights, friction, feedback\n"
+                "---\n\n"
+                "Call myco_eat with the content to capture. Add relevant tags.\n"
+                "Use this whenever: a decision is made, friction is encountered,\n"
+                "the user gives feedback, or you learn something important.\n"
+            ),
+            "myco-search": (
+                "---\n"
+                "name: myco-search\n"
+                "description: Search Myco substrate for existing knowledge before answering\n"
+                "---\n\n"
+                "Call myco_search with the query. Check results before answering\n"
+                "factual questions about the project. The substrate may already\n"
+                "have the answer.\n"
+            ),
+        }
+        for skill_name, skill_content in _cowork_skills.items():
+            skill_dir = project_dir / ".claude" / "skills" / skill_name
+            skill_file = skill_dir / "SKILL.md"
+            if not skill_file.exists():
+                skill_dir.mkdir(parents=True, exist_ok=True)
+                skill_file.write_text(skill_content, encoding="utf-8")
+        print(f"  ✅ .claude/skills/myco-*/  (Cowork-compatible skill stubs)")
 
         # Claude Code settings with hooks template
         settings_dir = project_dir / ".claude"
