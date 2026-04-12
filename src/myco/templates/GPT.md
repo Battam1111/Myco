@@ -57,7 +57,7 @@ When a task matches a skill in `skills/`, load and follow it:
 
 If no skill matches, proceed with agent judgment, then consider skill-ifying the process.
 
-## Tool Triggers (19 CLI commands)
+## Tool Triggers (21 CLI commands)
 
 | Category | CLI Command | When to Run |
 |----------|-------------|-------------|
