@@ -656,6 +656,22 @@ async def myco_reflect(
             "Consider: is there knowledge that should be promoted from docs/ to wiki/?"
         )
 
+    # Mycelium self-maintenance: check for orphans at session end
+    try:
+        from myco.graph import build_link_graph, find_orphans
+        graph = build_link_graph(root)
+        orphans = find_orphans(graph)
+        note_orphans = [o for o in orphans if o.startswith("notes/")]
+        if note_orphans:
+            prompts.append(
+                f"MYCELIUM: {len(note_orphans)} orphaned note(s) with zero inbound links. "
+                f"Add ## Related cross-references to connect them. "
+                f"Disconnected knowledge is dead knowledge. Top orphans: "
+                f"{', '.join(note_orphans[:5])}"
+            )
+    except Exception:
+        pass  # graph module not available
+
     # Learning Loop (absorbed from gstack): auto-capture execution summary
     # as a note with execution-learning tag. This is NOT just a document —
     # it's code that runs every time reflect is called.
@@ -780,7 +796,11 @@ async def myco_eat(
         "file": rel,
         "tags": tags or [],
         "source": source,
-        "hint": "Call myco_digest when the note is ready to be processed.",
+        "hint": (
+            "Call myco_digest when the note is ready to be processed. "
+            "IMPORTANT: add cross-references (## Related section) linking "
+            "this note to related notes/docs. Orphaned knowledge is dead knowledge."
+        ),
     }, ensure_ascii=False)
 
 
