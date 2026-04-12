@@ -1379,7 +1379,7 @@ def detect_upstream_scan_stale(
             f"`myco upstream scan` to rewrite."
         )
 
-    now_dt = now or datetime.utcnow()
+    now_dt = now or datetime.now(tz=None)
     age = now_dt - last_dt
     if age < timedelta(days=stale_days):
         return None
@@ -1730,7 +1730,7 @@ def write_boot_brief(
     brief_rel = cfg.get("brief_path", ".myco_state/boot_brief.md")
     brief_path = Path(root) / brief_rel
 
-    now_dt = now or datetime.utcnow()
+    now_dt = now or datetime.now(tz=None)
     ts = now_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
 
     lines: List[str] = []
@@ -1868,7 +1868,7 @@ def render_entry_point_signals_block(
         "craft_reflex_missing",
         "session_end_drift",
     ]
-    now_dt = now or datetime.utcnow()
+    now_dt = now or datetime.now(tz=None)
     ts = now_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
 
     # Build condensed block content. One short line per matching

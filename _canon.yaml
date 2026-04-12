@@ -366,7 +366,7 @@ system:
       lint_dimensions:
         ssot: "len(FULL_CHECKS) in src/myco/lint.py"
         value: 23
-        cited_in: ["README.md", "README_zh.md", "README_ja.md", "MYCO.md", "docs/architecture.md", "docs/reusable_system_design.md", "src/myco/mcp_server.py", "src/myco/cli.py"]
+        cited_in: ["MYCO.md", "docs/architecture.md", "docs/reusable_system_design.md", "src/myco/mcp_server.py", "src/myco/cli.py"]
       mcp_tool_count:
         ssot: "count of @mcp.tool in src/myco/mcp_server.py"
         value: 21
@@ -455,10 +455,10 @@ system:
     # Authoritative source: docs/primordia/vision_recovery_craft_2026-04-10.md
     # §7 Machine-Readable Anchor Terms.
     min_hits_per_file: 1
+    # READMEs are narrative marketing pages; identity anchors live in MYCO.md
+    # and wiki/identity.md. Checking READMEs for identity keywords would
+    # force technical jargon into what should be a user-first story.
     targets:
-    - README.md
-    - README_zh.md
-    - README_ja.md
     - MYCO.md
     # Each group = one identity element. A file passes the group if ANY
     # variant appears at least min_hits_per_file times. Groups are OR-ed
