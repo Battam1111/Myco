@@ -56,7 +56,7 @@ Human ──自然语言──→ Agent ──MCP──→ Myco
 | 2. 愿景 (表型计划) | 体型蓝图 | docs/vision.md |
 | 3. 契约 (调控基因) | 基因表达规则 | agent_protocol.md + _canon.yaml 规则 |
 | 4. 验证 (免疫系统) | T 细胞 + 抗体 | lint 23 维 + hunger signals |
-| 5. 实现 (器官) | 功能器官 | src/myco/*.py (19 MCP tools) |
+| 5. 实现 (器官) | 功能器官 | src/myco/*.py (21 MCP tools) |
 
 ## 身份演化弧线
 
