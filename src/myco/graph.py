@@ -65,6 +65,9 @@ _STRUCTURAL_ROOTS = {
 # Directories to scan for .md files
 _SCAN_DIRS = ["notes", "wiki", "docs", "docs/primordia"]
 
+# Directories to scan for .py files (mycelium network includes source code)
+_PY_SCAN_DIRS = ["src/myco"]
+
 # Top-level .md files to include
 _TOP_LEVEL_MD = ["MYCO.md", "log.md", "README.md", "README_zh.md",
                  "README_ja.md", "CONTRIBUTING.md"]
@@ -171,10 +174,40 @@ def extract_links(filepath: Path, root: Path) -> List[str]:
     return sorted(targets)
 
 
+def extract_links_py(filepath: Path, root: Path) -> List[str]:
+    """Extract outbound link targets from a Python source file.
+
+    Scans comments and string literals for references to substrate files
+    (docs/, wiki/, notes/, _canon.yaml, MYCO.md, etc.).  These are the
+    "mycelium references" that connect code to the knowledge substrate.
+    """
+    try:
+        content = filepath.read_text(encoding="utf-8", errors="replace")
+    except (OSError, UnicodeDecodeError):
+        return []
+
+    source_rel = str(filepath.relative_to(root)).replace("\\", "/")
+    targets: Set[str] = set()
+
+    for m in _PY_PATH_RE.finditer(content):
+        raw = m.group(1)
+        resolved = _resolve_link(raw, source_rel, root)
+        if resolved and resolved != source_rel:
+            targets.add(resolved)
+
+    # Note ID references (same as .md scanning)
+    for m in _NOTE_ID_RE.finditer(content):
+        resolved = _resolve_note_id(m.group(1), root)
+        if resolved and resolved != source_rel:
+            targets.add(resolved)
+
+    return sorted(targets)
+
+
 def build_link_graph(
     root: Path,
 ) -> Dict[str, Dict[str, List[str]]]:
-    """Build a link graph across all .md files in the substrate.
+    """Build a link graph across all .md and .py files in the substrate.
 
     Returns: {relative_path: {"forward": [targets], "backlinks": [sources]}}
     """
@@ -188,7 +221,7 @@ def build_link_graph(
         if (root / name).exists():
             all_files.append(name)
 
-    # Directory scans
+    # Directory scans (.md)
     for dirname in _SCAN_DIRS:
         dirpath = root / dirname
         if not dirpath.is_dir():
@@ -198,11 +231,26 @@ def build_link_graph(
             if rel not in all_files:
                 all_files.append(rel)
 
-    # Pass 1: build forward map
+    # Collect .py files from source directories
+    py_files: List[str] = []
+    for dirname in _PY_SCAN_DIRS:
+        dirpath = root / dirname
+        if not dirpath.is_dir():
+            continue
+        for f in sorted(dirpath.rglob("*.py")):
+            rel = str(f.relative_to(root)).replace("\\", "/")
+            py_files.append(rel)
+
+    # Pass 1: build forward map — .md files
     forward: Dict[str, List[str]] = {}
     for rel in all_files:
         fpath = root / rel
         forward[rel] = extract_links(fpath, root)
+
+    # Pass 1b: build forward map — .py files
+    for rel in py_files:
+        fpath = root / rel
+        forward[rel] = extract_links_py(fpath, root)
 
     # Pass 2: invert to build backlinks
     backlinks: Dict[str, List[str]] = defaultdict(list)
@@ -212,7 +260,7 @@ def build_link_graph(
 
     # Assemble graph
     # Include all files that appear as either source or target
-    all_nodes = set(all_files)
+    all_nodes = set(all_files) | set(py_files)
     for targets in forward.values():
         all_nodes.update(targets)
     for target in backlinks:
@@ -250,6 +298,9 @@ def find_orphans(graph: Dict[str, Dict[str, List[str]]]) -> List[str]:
     """
     # Only archived primordia are exempt — notes stay visible as orphans
     _ORPHAN_EXEMPT_PREFIXES = ("docs/primordia/archive/", "docs\\primordia\\archive\\")
+    # .py source files participate in the graph (forward links + backlinks)
+    # but are never orphans themselves — orphan detection tracks knowledge flow
+    _ORPHAN_EXEMPT_SUFFIXES = (".py",)
     orphans = []
     for node, data in sorted(graph.items()):
         # Skip structural roots
@@ -261,6 +312,9 @@ def find_orphans(graph: Dict[str, Dict[str, List[str]]]) -> List[str]:
             continue
         # Skip archived primordia — historical records
         if node.startswith(_ORPHAN_EXEMPT_PREFIXES):
+            continue
+        # Skip source code files — they are infrastructure, not knowledge
+        if node.endswith(_ORPHAN_EXEMPT_SUFFIXES):
             continue
         if not data["backlinks"]:
             orphans.append(node)
