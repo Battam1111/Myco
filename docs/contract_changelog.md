@@ -38,6 +38,217 @@ Commit message 格式必须使用 Conventional Commits 风格并带 `[contract:*
 
 ---
 
+## v0.31.0 — 2026-04-12 (minor · L21 contract version inline consistency, Wave 40 — forward-looking inline contract version SSoT enforcement)
+
+**Author**: Claude (Myco kernel agent, autonomous run under explicit user grant, Wave 40)
+
+**Motivation**: Wave 37 D7 followup #3 — the third + final candidate from the Wave 37
+manual sweep. Wave 38 closed followup #1 (L19, lint dimension count consistency) and
+Wave 39 closed followup #2 (L20, translation mirror skeleton parity). The Wave 40 scout
+discovered the exact scar that justifies followup #3: `MYCO.md` lines 4, 22, and 159
+plus `docs/adapters/README.md` line 14 were ALL still claiming `kernel contract v0.28.0`
+even though the canonical contract version had advanced through v0.29.0 (Wave 38) and
+v0.30.0 (Wave 39) without those inline narrative claims being touched. The Waves 38+39
+manual sweeps caught dozens of dimension references and locale skeleton drifts but
+left these contract version inline claims behind because they live in different
+prose patterns ("kernel contract vX.Y.Z" rather than "L0-LXX" or "X-dimension"). L19
+and L20 cannot see them — they look at counts and structures, not at version numbers
+embedded in narrative sentences. Without an automated check, every future wave that
+bumps the contract version risks repeating the exact silent rot Wave 40 was created
+to fix.
+
+**Wave 26 D3 friction-driven ordering** — Wave 37 D1 named the top-3 followups as:
+(1) ground-truth lint for LINT_DIMENSION_COUNT → Wave 38 (v0.29.0, L19),
+(2) translation-mirror lint → Wave 39 (v0.30.0, L20),
+(3) contract-version-inline lint → THIS WAVE 40 (v0.31.0, L21). With L21 landing,
+the Wave 37 D7 followup triple is **closed**: all three top-friction silent-rot
+scar classes (dimension count, locale skeleton, version string) now have automated
+regression-test guards instead of manual-sweep dependence.
+
+**Authoritative craft**:
+`docs/primordia/contract_version_inline_craft_2026-04-12.md`
+(kernel_contract class, 3 rounds, current_confidence = target_confidence = 0.90,
+single-author convention floor honored). The craft enumerates 9 decisions
+(D1-D9) on the L21 design surface and produces a 15-item landing list which
+this changelog entry mirrors as the contract-bump record.
+
+**Changes** (each numbered change implements one Wave 40 craft decision):
+
+1. **L21 lint dimension added** — `src/myco/lint.py` gains
+   `lint_contract_version_inline(canon, root)` plus the helper
+   `_l21_is_historical(line, prev_nonblank_line)` and four module-level
+   constants (`_L21_HIGH_FILES`, `_L21_MEDIUM_FILES`, `_L21_SKIP_MARKER`,
+   plus three regex patterns: `_L21_FORWARD_RE`, `_L21_DATE_RE`,
+   `_L21_TRANSITION_RE`, and the `_L21_HISTORICAL_VERBS` tuple). The
+   substrate's `len(FULL_CHECKS)` SSoT (Wave 38 D2) automatically advances
+   from 21 → 22 because L21 is appended to `FULL_CHECKS`. L19 dogfoods
+   this transition: every narrative surface that still claims
+   "21-dimension" becomes a HIGH issue at the next `myco lint` run,
+   forcing the entire change-set to land in lockstep — the very anti-rot
+   mechanism Wave 38 + 39 already proved out.
+
+2. **Forward-looking pattern** (Wave 40 D2):
+   `(?i)(kernel contract|当前 contract|current contract)\s*[:：]?\s*(v?\d+\.\d+\.\d+)`.
+   The pattern is intentionally **forward-looking only** — it does NOT try
+   to match every "vX.Y.Z" string in the substrate (which would over-fire
+   catastrophically against history-laden narratives). It only matches
+   lines whose syntactic shape claims a *current* contract state ("kernel
+   contract = vX.Y.Z" form). Both the ASCII colon `:` and the full-width
+   colon `：` are tolerated. Both `vX.Y.Z` and bare `X.Y.Z` are tolerated.
+   Multi-language: English `kernel contract` / English `current contract` /
+   Chinese `当前 contract` are the three accepted prefix forms.
+
+3. **8-clause historical-marker filter** (Wave 40 D2 §1.2): every matched
+   line is then run through `_l21_is_historical()` which returns True
+   (skip the line) if ANY of these clauses fire:
+   - Operator skip-marker `<!-- l21-skip -->` on the previous non-blank line
+   - A date-in-parens stamp `(20YY-MM-DD)` anywhere in the line
+   - A two-version transition arrow `vX.Y.Z → vA.B.C` (or `->`) in the line
+   - A historical-event verb in the line: `landed`, `landing`, `落地`,
+     `已完成`, `完成`, `post-rebase`, `supersedes`, `succeeded`, `✅`
+   - The line starts with `|` (markdown table row — Phase tracker shape)
+   This filter is **deliberately biased toward false negatives** (skip on
+   ambiguity). The cost of one missed drift caught on the next wave is
+   lower than the cost of operators learning to ignore noisy lint output.
+
+4. **File allowlist** (Wave 40 D3):
+   - HIGH: `MYCO.md`, `README.md`, `README_zh.md`, `README_ja.md` — the
+     four entry-point and locale-front-door surfaces. A drifted contract
+     version claim here is the highest-impact possible silent rot.
+   - MEDIUM: `docs/adapters/README.md`, `CONTRIBUTING.md`,
+     `docs/architecture.md`, `docs/vision.md`, `docs/theory.md` — adapter
+     contract surface and doctrinal docs. Operators that develop against
+     these read them frequently; drift erodes trust slower but still
+     erodes it.
+   - All other files (log.md, contract_changelog.md, primordia/, notes/,
+     examples/ascc/, src/, tests/, scripts/) are **out of scope** by
+     design (Wave 40 §0.3). Append-only history surfaces must NEVER be
+     touched by the lint; source code uses string literals for legitimate
+     reasons; tests need to enumerate stale versions on purpose.
+
+5. **Skip-marker escape hatch** (Wave 40 D5): the operator escape valve is
+   `<!-- l21-skip -->` on the line immediately preceding the version claim.
+   This is the same shape as Wave 39's L20 skip marker (`<!-- l20-skip -->`)
+   and the parser logic mirrors it. Use cases: tutorial pages comparing
+   against an older contract, or documentation showing an upstream tool's
+   contract version that legitimately disagrees with Myco's own canon.
+
+6. **Code-fence-aware parser** (Wave 40 D2 §C6): `lint_contract_version_inline`
+   is a stateful line walker that tracks ` ``` ` open/close state. Lines
+   inside code fences are skipped entirely — code samples in tutorials may
+   show legitimate contract version literals that should not be enforced.
+   The fence tracker handles trailing whitespace via `rstrip()` and CRLF
+   via `splitlines()` transparently, mirroring Wave 39's `_count_skeleton`.
+
+7. **Severity matrix** (Wave 40 D4): HIGH for the entry-point + locale
+   front-door tier (`_L21_HIGH_FILES`), MEDIUM for the doctrinal/contrib
+   tier (`_L21_MEDIUM_FILES`). Severity tiers map to tee-up urgency: HIGH
+   blocks the lint pass-rate badge, MEDIUM is informational but still
+   reported. Both fire under the same lint pass — there is no opt-out
+   beyond the explicit skip marker.
+
+8. **Contract version bump** v0.30.0 → v0.31.0 in `_canon.yaml`,
+   `src/myco/templates/_canon.yaml`, and this changelog. `synced_contract_version`
+   mirrors the bump to keep L17 quiescent. The minor bump matches the
+   "new lint dimension" precedent set by L18 (v0.26.0), L19 (v0.29.0),
+   L20 (v0.30.0), and the Wave 24 L17 landing.
+
+9. **4 unit tests added** — `tests/unit/test_lint_contract_version_inline.py`
+   covers the four scar classes (Wave 40 D8):
+   `test_l21_clean_substrate_passes` (D1 base case),
+   `test_l21_stale_inline_caught_high` (D1+D4 principal scar — the
+   exact MYCO.md:4/22/159 + adapters/README.md:14 shape),
+   `test_l21_historical_marker_skipped` (D2 §1.2 filter false-negative
+   bias — the "landed" + date-in-parens shape),
+   `test_l21_skip_marker_respected` (D5 operator escape hatch).
+   Each test pulls `_L21_SKIP_MARKER` and `lint_contract_version_inline`
+   directly (no CLI roundtrip) and uses the existing `_isolate_myco_project`
+   fixture from `tests/conftest.py`. The suite count advances 30 → 34.
+
+10. **15+ narrative surfaces bumped 21-dimension/L0-L20/21%2F21 →
+    22-dimension/L0-L21/22%2F22** (Wave 40 D9 — operational landing). The
+    bump set is: README.md (badge + version row + L21 bullet + lint command
+    table row 19→22), README_zh.md (badge + version row + verb table count),
+    README_ja.md (badge + version row + L21 bullet + verb table count),
+    MYCO.md (4 lines: 22 维 lint headline + lint_coverage_confidence row +
+    contract version row + verb table count), CONTRIBUTING.md (lint module
+    comment), wiki/README.md (`myco lint` 应 22/22 绿),
+    docs/reusable_system_design.md (`lint_dimensions: 22`), src/myco/cli.py
+    (replace_all `21-dimension` → `22-dimension` + Wave 29 immune comment),
+    src/myco/init_cmd.py (lint shim message), scripts/myco_init.py (mirror),
+    src/myco/migrate.py (shim message), scripts/myco_migrate.py (mirror),
+    src/myco/immune.py (docstring 21→22 + L0-L20→L0-L21 + add L21 bullet
+    + add lint_contract_version_inline to imports + __all__),
+    src/myco/mcp_server.py (4 edits: tools header, tool annotation title,
+    full L0-L21 enumeration in docstring, mode label), src/myco/lint.py
+    (header `21-Dimension` → `22-Dimension`, dimension table row added,
+    FULL_CHECKS comment `L0-L20` → `L0-L21`).
+
+11. **4 stale inline contract version claims fixed** (Wave 40 D9 — the
+    exact scars that justified L21 in the first place):
+    - `MYCO.md:4` `kernel contract v0.28.0` → `v0.31.0`
+    - `MYCO.md:22` `kernel contract v0.28.0` → `v0.31.0`
+    - `MYCO.md:159` `当前 contract v0.28.0 (Wave 36)` → `v0.31.0 (Wave 40)`
+    - `docs/adapters/README.md:14` `kernel contract v0.28.0` → `v0.31.0`
+    These were the original load-bearing evidence for the Wave 40 craft —
+    if L21 had existed during Waves 38/39, these drifts would have been
+    caught at lint time instead of accumulating across two minor bumps.
+
+**Verification** (every check must be green at COMMIT boundary):
+
+- `PYTHONPATH=src python -m myco.cli lint` — full sweep returns 22/22 PASS.
+  L19 is the canary: any narrative surface claiming "21-dimension" or
+  "L0-L20" or "Lint-21%2F21" produces a HIGH issue. After all 15+ surfaces
+  bump, L19 returns to PASS and L20 also passes (the 3 locale READMEs
+  already mirror after the badge bumps). L21 itself passes because the
+  4 inline claims now match canon.
+- `python -m pytest tests/ -q` — 34 tests pass (30 prior + 4 Wave 40
+  L21 tests).
+- `git diff _canon.yaml` shows `contract_version: "v0.30.0"` →
+  `"v0.31.0"` AND `synced_contract_version: "v0.30.0"` →
+  `"v0.31.0"` (L17 quiescence).
+- `myco hunger` refreshes `.myco_state/boot_brief.md` with the new
+  Wave 40 milestone visible (L16 freshness).
+
+**Backward compatibility**: Pure additive. Projects on contract v0.30.0
+silently inherit L21 on `pip install -U myco` and will see at most a
+new HIGH issue if their narrative surfaces have inline contract version
+drift. Operators can add `<!-- l21-skip -->` markers above intentionally
+divergent claims (tutorials, upstream comparisons) to keep L21 green
+without removing the content. No existing API changes, no removed
+surfaces, no migration required.
+
+**Forward path**: With Wave 37 D7 followup triple closed (L19 + L20 + L21),
+the substrate's three top staleness scar classes (dimension count, locale
+skeleton, contract version string) all become regression-testable instead
+of relying on manual sweeps. Wave 41+ re-evaluates Wave 26 D3 friction-driven
+ordering against fresh friction signals — the next-priority scar class is
+no longer the contract version triple but whatever surfaces in the boot
+brief / hunger / pytest suite as the next reproducible silent-rot pattern.
+
+**Limitations** (honest, from Wave 40 craft §4.3):
+
+- L1: the forward-looking pattern recognizes only three prefix forms
+  (`kernel contract`, `current contract`, `当前 contract`). Other
+  legitimate forward claim shapes (e.g. `contract version is now vX.Y.Z`,
+  `Myco at vX.Y.Z`) are not caught. Adding new prefix forms requires a
+  one-line regex amendment + a craft if the shape is doctrinal.
+- L2: the historical-marker filter is biased toward false negatives. A
+  truly drifted line that happens to contain the word "landed" or a date
+  will be silently skipped. This is the deliberate trade against false
+  positives (which would erode trust in lint output). The next time a
+  wave manually sweeps the substrate, any silently-skipped drift will
+  surface.
+- L3: package version (`__version__` / `pyproject.toml`) is intentionally
+  out of scope per Wave 8 re-baseline doctrine — package version and
+  contract version are independent SemVer lines. A future `_L22_PACKAGE_VERSION`
+  lint could enforce package version inline, but that needs its own craft.
+- L4: the file allowlist is hardcoded. New entry-point or doctrinal
+  surfaces require a one-line patch + a contract bump (or at minimum a
+  craft if they imply doctrine).
+
+---
+
 ## v0.30.0 — 2026-04-12 (minor · L20 translation mirror consistency, Wave 39 — locale README skeleton parity enforcement)
 
 **Author**: Claude (Myco kernel agent, autonomous run under explicit user grant, Wave 39)
