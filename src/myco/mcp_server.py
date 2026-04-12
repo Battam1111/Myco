@@ -1580,9 +1580,16 @@ async def myco_graph(
 ) -> str:
     """Query the substrate's structural link graph.
 
+    WHEN TO CALL:
+      (a) Need to know who references a specific file → action='backlinks'
+      (b) Detect disconnected knowledge islands → action='clusters'
+      (c) hunger reports graph_orphans signal → action='orphans' to see full list
+      (d) Before refactoring: assess impact scope → action='backlinks'
+      (e) Periodic structural health check → action='stats'
+
     Computes forward links, backlinks, orphan detection, and connected
-    components on-demand across all .md files (notes/, wiki/, docs/, MYCO.md,
-    log.md). No cached state — the graph IS the files.
+    components on-demand across all .md files. No cached state — the graph
+    IS the files.
 
     Actions:
       backlinks <file> — who references this file?
@@ -1653,6 +1660,14 @@ async def myco_cohort(
 ) -> str:
     """Analyze tag-based cohorts across notes for compression and gap detection.
 
+    WHEN TO CALL:
+      (a) Before running myco_compress — use action='suggest' to pick the
+          best cohort instead of guessing which tag to compress
+      (b) hunger reports cohort_staleness or inlet_ripe — use action='gaps'
+          to see which knowledge domains are unprocessed
+      (c) Exploring tag relationships — use action='matrix' to see which
+          topics co-occur (helps understand knowledge structure)
+
     Actions:
       matrix  — tag co-occurrence pairs (which tags appear together?)
       suggest — compression cohort suggestions (which notes to compress together?)
@@ -1709,6 +1724,14 @@ async def myco_session(
     project_dir: Optional[str] = None,
 ) -> str:
     """Index and search agent conversation transcripts.
+
+    WHEN TO CALL:
+      (a) hunger reports session_index_missing → action='index' to build index
+      (b) Need to recall what was discussed in a previous session →
+          action='search', query='the topic'
+      (c) Human asks "what did we talk about last time?" → action='search'
+      (d) Periodically (weekly) to keep index current → action='index'
+      (e) Index getting large → action='prune' to remove old entries
 
     Actions:
       index — Scan .jsonl session files, index into SQLite FTS5
