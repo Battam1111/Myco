@@ -673,7 +673,7 @@ async def myco_reflect(
         pass  # best-effort; never block reflection
 
     reflection = {
-        "gear": "session reflection — Session-End Reflection",
+        "phase": "session reflection — Session-End Reflection",
         "timestamp": datetime.now().isoformat(),
         "recent_friction": friction_entries,
         "lint_status": "clean" if not quick_issues else f"{len(quick_issues)} issues",
