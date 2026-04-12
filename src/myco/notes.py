@@ -271,6 +271,31 @@ def _now_iso(now: Optional[datetime] = None) -> str:
     return (now or datetime.now()).strftime(_ISO_FMT)
 
 
+# ---------------------------------------------------------------------------
+# Organ 5: Shared frontmatter validation for ALL write operations
+# ---------------------------------------------------------------------------
+
+_REQUIRED_FIELDS = {"id", "status", "source", "tags", "created", "last_touched",
+                    "digest_count", "promote_candidate", "excrete_reason"}
+
+
+def _validate_frontmatter_inline(meta: Dict[str, Any], context: str = "write") -> None:
+    """Validate frontmatter before any write operation.
+
+    Organ 5: inline immune system — catches invalid data at the write
+    boundary, not at lint time. Called from write_note, update_note,
+    and record_view.
+    """
+    missing = _REQUIRED_FIELDS - set(meta.keys())
+    if missing:
+        raise ValueError(
+            f"{context}: missing required frontmatter fields: {missing}")
+    if meta.get("status") not in VALID_STATUSES:
+        raise ValueError(
+            f"{context}: invalid status '{meta.get('status')}'. "
+            f"Valid: {VALID_STATUSES}")
+
+
 def write_note(
     root: Path,
     body: str,
@@ -318,21 +343,8 @@ def write_note(
 
     path = notes_dir / id_to_filename(nid)
 
-    # Wave B3: inline frontmatter validation before write.
-    # Catches missing required fields at write time, not at lint time.
-    required = {"id", "status", "source", "tags", "created", "last_touched",
-                "digest_count", "promote_candidate", "excrete_reason"}
-    missing = required - set(meta.keys())
-    if missing:
-        raise ValueError(
-            f"write_note: missing required frontmatter fields: {missing}. "
-            f"Note {nid} not written."
-        )
-    if meta.get("status") not in VALID_STATUSES:
-        raise ValueError(
-            f"write_note: invalid status '{meta.get('status')}'. "
-            f"Valid: {VALID_STATUSES}. Note {nid} not written."
-        )
+    # Organ 5: Inline immune on ALL write operations.
+    _validate_frontmatter_inline(meta, context="write_note")
 
     # Wave 59: atomic write prevents empty files on failure (dogfood friction).
     from myco.io_utils import atomic_write_text
@@ -361,11 +373,27 @@ def update_note(path: Path, **field_updates: Any) -> Dict[str, Any]:
     if inc:
         meta["digest_count"] = int(meta.get("digest_count", 0)) + 1
 
+    # Organ 1: capture old status for transition_log before mutation
+    old_status = meta.get("status", "raw")
+    transition_reason = field_updates.pop("_transition_reason", None)
+
     for k, v in field_updates.items():
         meta[k] = v
 
-    if "status" in field_updates and field_updates["status"] not in VALID_STATUSES:
-        raise ValueError(f"Invalid status {field_updates['status']!r}")
+    # Organ 1: append to transition_log if status changed
+    new_status = meta.get("status", old_status)
+    if old_status != new_status:
+        tlog = meta.get("transition_log") or []
+        tlog.append({
+            "from": old_status,
+            "to": new_status,
+            "timestamp": _now_iso(),
+            "reason": transition_reason or f"{old_status} → {new_status}",
+        })
+        meta["transition_log"] = tlog
+
+    # Organ 5: inline immune on update
+    _validate_frontmatter_inline(meta, context="update_note")
 
     meta["last_touched"] = _now_iso()
     from myco.io_utils import atomic_write_text
@@ -400,6 +428,8 @@ def record_view(path: Path, *, now: Optional[datetime] = None) -> Dict[str, Any]
     meta["view_count"] = vc + 1
     meta["last_viewed_at"] = _now_iso(now)
     # Intentional: leave last_touched alone — read is not a mutation.
+    # Organ 5: inline immune on record_view
+    _validate_frontmatter_inline(meta, context="record_view")
     from myco.io_utils import atomic_write_text
     atomic_write_text(path, serialize_note(meta, body))
     return meta
@@ -2190,6 +2220,54 @@ def compute_hunger_report(
             )
     except Exception:
         pass  # grandfather-compatible
+    # Organ 2: Cold-start inlet trigger — fires when substrate is nearly empty
+    # and no inlet has ever been run. Nudges Agent to proactively acquire knowledge.
+    try:
+        cold_threshold = 5
+        canon_path = root / "_canon.yaml"
+        if canon_path.exists():
+            with open(canon_path, "r", encoding="utf-8") as f:
+                _cc = yaml.safe_load(f) or {}
+            cold_threshold = int(
+                _cc.get("system", {}).get("inlet_triggers", {})
+                   .get("cold_start_threshold", 5))
+        note_count = len(paths)
+        has_inlet = any(
+            "source: inlet" in p.read_text(encoding="utf-8", errors="replace")[:300]
+            for p in paths
+        )
+        if note_count < cold_threshold and not has_inlet:
+            signals.append(
+                f"cold_start: substrate has only {note_count} notes and no inlet "
+                f"history. Consider running `myco inlet` or `myco_discover` to "
+                f"bootstrap initial knowledge."
+            )
+    except Exception:
+        pass
+    # Organ 3: Structural decay metric — fires when orphan count is increasing
+    try:
+        decay_path = root / ".myco_state" / "decay_baseline.yaml"
+        from myco.graph import build_link_graph, find_orphans
+        graph = build_link_graph(root)
+        current_orphans = len(find_orphans(graph))
+        if decay_path.exists():
+            with open(decay_path, "r", encoding="utf-8") as f:
+                baseline = yaml.safe_load(f) or {}
+            prev_count = baseline.get("orphan_count", current_orphans)
+            delta = current_orphans - prev_count
+            if delta > 5:
+                signals.append(
+                    f"structural_decay: orphan count increased by {delta} "
+                    f"(was {prev_count}, now {current_orphans}). Knowledge "
+                    f"connectivity is degrading."
+                )
+        # Update baseline
+        decay_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(decay_path, "w", encoding="utf-8") as f:
+            yaml.dump({"orphan_count": current_orphans,
+                       "timestamp": _now_iso()}, f)
+    except Exception:
+        pass
     if not signals:
         signals.append("healthy: notes/ is metabolizing normally.")
 

@@ -569,6 +569,7 @@ system:
     search_miss_threshold: 5     # ≥5 zero-result searches → inlet_ripe
     gap_threshold: 3             # ≥3 notes in unprocessed domain → inlet_ripe
     miss_state_file: ".myco_state/search_misses.yaml"
+    cold_start_threshold: 5       # Organ 2: fire cold_start signal when < N notes and no inlet history
 
   # --- Forage Substrate (contract v1.7.0) ---
   # External reference material intake — the exoenzyme / foraging phase

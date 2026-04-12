@@ -2626,6 +2626,37 @@ def _compute_agent_review(canon: dict, root: Path) -> list:
                     f"Verify across {len(cited_in)} surfaces: "
                     f"{', '.join(cited_in[:3])}{'...' if len(cited_in) > 3 else ''}."
                 )
+        # 7. Auto-cleanup detection (immune system self-cleaning)
+        # Check for common stale/redundant patterns that should be cleaned up.
+        stale_patterns_found = []
+
+        # Check for __pycache__ dirs (should be gitignored and deleted)
+        for pycache in root.rglob("__pycache__"):
+            if pycache.is_dir():
+                stale_patterns_found.append(f"__pycache__ at {pycache.relative_to(root)}")
+        if stale_patterns_found:
+            items.append(
+                f"Cleanup needed: {len(stale_patterns_found)} __pycache__ dir(s) found. "
+                f"Run: find . -type d -name __pycache__ -exec rm -rf {{}} +"
+            )
+
+        # Check for excreted notes (should be periodically deleted)
+        notes_dir = root / "notes"
+        if notes_dir.is_dir():
+            excreted = [f for f in notes_dir.glob("n_*.md")
+                        if "status: excreted" in f.read_text(encoding="utf-8", errors="replace")[:200]]
+            if excreted:
+                items.append(
+                    f"Cleanup: {len(excreted)} excreted note(s) can be deleted. "
+                    f"Excreted = explicitly rejected knowledge."
+                )
+
+        # Check for .pyc files outside __pycache__
+        stray_pyc = list(root.rglob("*.pyc"))
+        stray_pyc = [p for p in stray_pyc if "__pycache__" not in str(p)]
+        if stray_pyc:
+            items.append(f"Cleanup: {len(stray_pyc)} stray .pyc file(s) outside __pycache__")
+
     except Exception:
         pass  # best-effort; never block lint output
 

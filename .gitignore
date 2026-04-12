@@ -57,3 +57,4 @@ scripts/pypi_upload.bat
 # _myco_user_msgs.txt, _myco_assistant_vision_hits.txt, commit_msg.txt,
 # and PYPI_SETUP.md from the root — they no longer need gitignore entries.
 .myco_state/sessions.db
+.pytest_cache/
