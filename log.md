@@ -11,7 +11,7 @@
 
 ## [2026-04-09] debate | 传统手艺：Myco 自我应用设计辩论（6 项决策，综合置信度 88%）
 
-关键结论：入口 MYCO.md（agent-agnostic）、hot zone 框架开发视角、_canon.yaml 增加 package 节、log.md 今日为起点。详见 `docs/primordia/myco_self_apply_craft_2026-04-09.md`。
+关键结论：入口 MYCO.md（agent-agnostic）、hot zone 框架开发视角、_canon.yaml 增加 package 节、log.md 今日为起点。详见 `docs/primordia/archive/myco_self_apply_craft_2026-04-09.md`。
 
 ## [2026-04-09] system | Myco 自我应用完成：MYCO.md + _canon.yaml + log.md + docs/WORKFLOW.md 写入
 
@@ -21,7 +21,7 @@ Gear 3 三项发现：(1) CLI UTF-8 跨平台 bug → 已修复（sys.stdout.rec
 
 ## [2026-04-09] debate | 传统手艺：examples/ 设计辩论（5 轮，综合置信度 84%）
 
-核心结论：examples/ 定位为 Gear 4 生命周期展示（不是 onboarding 教程）。每个 example 包含 Harvest 快照 + Gear 4 反向链接。社区贡献三级管线（Discussion → Battle Report → Featured Example）。详见 `docs/primordia/examples_design_craft_2026-04-09.md`。
+核心结论：examples/ 定位为 Gear 4 生命周期展示（不是 onboarding 教程）。每个 example 包含 Harvest 快照 + Gear 4 反向链接。社区贡献三级管线（Discussion → Battle Report → Featured Example）。详见 `docs/primordia/archive/examples_design_craft_2026-04-09.md`。
 
 ## [2026-04-09] system | 升级 examples/ascc/README.md：补 Gear 4 反向链接 + Evolution Timeline + wiki 页眉展示
 
@@ -29,7 +29,7 @@ Gear 3 三项发现：(1) CLI UTF-8 跨平台 bug → 已修复（sys.stdout.rec
 
 ## [2026-04-09] debate | 传统手艺：深度竞品定位辩论（6 轮，综合置信度 92%）
 
-核心结论：(1) OpenClaw 346K 是市场验证信号非威胁，Myco 是进化层升级路径；(2) tagline 从 "teaches it to think" 更新为 "gives it metabolism"（准确度 70%→95%）；(3) Gear 4 已完成验证（不确定性清零）；(4) meta-evolution 可行性论证写入 README Philosophy；(5) 终极压力测试：对 OpenClaw+Hermes 用户的差异化是"反向（lint）+ 垂直（Gear 3 Double-loop）"。详见 `docs/primordia/positioning_craft_2026-04-09.md`。
+核心结论：(1) OpenClaw 346K 是市场验证信号非威胁，Myco 是进化层升级路径；(2) tagline 从 "teaches it to think" 更新为 "gives it metabolism"（准确度 70%→95%）；(3) Gear 4 已完成验证（不确定性清零）；(4) meta-evolution 可行性论证写入 README Philosophy；(5) 终极压力测试：对 OpenClaw+Hermes 用户的差异化是"反向（lint）+ 垂直（Gear 3 Double-loop）"。详见 `docs/primordia/archive/positioning_craft_2026-04-09.md`。
 
 ## [2026-04-09] system | README.md + MYCO.md + decoupling debate 生命周期标签全部更新（tagline、Status、对外定位一句话、文档索引）
 
@@ -41,17 +41,17 @@ Gear 3 三项发现：(1) CLI UTF-8 跨平台 bug → 已修复（sys.stdout.rec
 
 ## [2026-04-09] debate | 传统手艺 #3：一键采用 + 社区生态辩论（4轮，综合置信度 87%）
 
-核心结论：(1) adapter 接口确定为 adapters/ YAML manifest，v0.x=手工协议+lint验证，v1.0=CLI自动化；(2) 社区贡献4种类型（Template/Lint Rule/Adapter/Workflow Principle）+ 三级验收标准（Adapter≥1项目，Template≥1项目，Principle≥2项目类型）；(3) 30秒采用路径：CLAUDE.md用户为首选，migrate→lint→首次发现不一致="aha moment"；(4) GitHub presence：README为何选Myco提前 + Discussions四分类 + 4种issue模板。详见 `docs/primordia/adoption_community_craft_2026-04-09.md`。
+核心结论：(1) adapter 接口确定为 adapters/ YAML manifest，v0.x=手工协议+lint验证，v1.0=CLI自动化；(2) 社区贡献4种类型（Template/Lint Rule/Adapter/Workflow Principle）+ 三级验收标准（Adapter≥1项目，Template≥1项目，Principle≥2项目类型）；(3) 30秒采用路径：CLAUDE.md用户为首选，migrate→lint→首次发现不一致="aha moment"；(4) GitHub presence：README为何选Myco提前 + Discussions四分类 + 4种issue模板。详见 `docs/primordia/archive/adoption_community_craft_2026-04-09.md`。
 
 ## [2026-04-09] system | 采用+社区执行完成：adapters/（README+hermes.yaml+openclaw.yaml+mempalace.yaml）+ CONTRIBUTING.md 四类型贡献体系 + README Quick Start重构（migration首位）；lint L0-L8全绿 ✅
 
 ## [2026-04-09] debate | 传统手艺 v1.0 scope 定义（4轮，综合置信度 89%）
 
-核心结论：v1.0 三项充分条件——(A) migrate 输出优化（aha moment 诚实定义）；(B) adapters/cursor.yaml + adapters/gpt.yaml（coexistence guide schema，非迁移协议）；(C) WORKFLOW.md 扫描确认 agent-neutral + README v0.x→v1.0 声明升级。不在 v1.0：myco config/ingest/MemPalace CLI（推迟至 v1.1）。详见 `docs/primordia/v1_scope_craft_2026-04-09.md`。
+核心结论：v1.0 三项充分条件——(A) migrate 输出优化（aha moment 诚实定义）；(B) adapters/cursor.yaml + adapters/gpt.yaml（coexistence guide schema，非迁移协议）；(C) WORKFLOW.md 扫描确认 agent-neutral + README v0.x→v1.0 声明升级。不在 v1.0：myco config/ingest/MemPalace CLI（推迟至 v1.1）。详见 `docs/primordia/archive/v1_scope_craft_2026-04-09.md`。
 
 ## [2026-04-09] debate | 传统手艺 v1.1 scope 定义（3轮，综合置信度 87%）
 
-核心结论：(D1) myco config --set/get/list/unset adapters.* 操作 _canon.yaml [adapters] 节（与 lint 验证字段完全隔离）；(D2/D3) myco import 半自动化——扫描→交互确认→创建 W8 stub→lint；(D4) adapters/hermes.yaml 和 openclaw.yaml roadmap v1_1 替换 v1_0。不在 v1.1：--adapter generic 模式（v1.2）、myco ingest MemPalace（v1.2）。详见 `docs/primordia/v1_1_scope_craft_2026-04-09.md`。
+核心结论：(D1) myco config --set/get/list/unset adapters.* 操作 _canon.yaml [adapters] 节（与 lint 验证字段完全隔离）；(D2/D3) myco import 半自动化——扫描→交互确认→创建 W8 stub→lint；(D4) adapters/hermes.yaml 和 openclaw.yaml roadmap v1_1 替换 v1_0。不在 v1.1：--adapter generic 模式（v1.2）、myco ingest MemPalace（v1.2）。详见 `docs/primordia/archive/v1_1_scope_craft_2026-04-09.md`。
 
 ## [2026-04-09] milestone | 🎉 Myco v1.0.0 发布准备完成
 
@@ -63,13 +63,13 @@ v1.0 三项充分条件全部达成：(A) migrate.py aha moment 输出优化；(
 
 ## [2026-04-10] debate | 传统手艺 README 重写策略（4轮，87%置信度）
 
-核心结论：(1) Hero = 问题→方案→tagline（不以功能列表开头）；(2) Quick Start 两阶段展示（全绿基线 + 工作后 lint 发现矛盾）；(3) 深度内容（Laws/Philosophy/W1-W12/Bootstrap/Project Adaptation）迁出 README 移入 docs/architecture.md Appendix；(4) 全英文 + 中文概念括号注释惯例。详见 `docs/primordia/readme_craft_2026-04-10.md`。
+核心结论：(1) Hero = 问题→方案→tagline（不以功能列表开头）；(2) Quick Start 两阶段展示（全绿基线 + 工作后 lint 发现矛盾）；(3) 深度内容（Laws/Philosophy/W1-W12/Bootstrap/Project Adaptation）迁出 README 移入 docs/architecture.md Appendix；(4) 全英文 + 中文概念括号注释惯例。详见 `docs/primordia/archive/readme_craft_2026-04-10.md`。
 
 ## [2026-04-10] system | README 重写完成：产品级 landing page（≤800字散文）+ architecture.md 五个 Appendix 新增
 
 ## [2026-04-10] debate | 传统手艺 B2 品牌视觉策略（4轮，88%置信度，含在线调研）
 
-核心结论：(1) 设计哲学 "Metabolic Cartography"（精密菌网图，工程审美）；(2) 色彩系统 #0D1117 + #00D4AA；(3) Logo = Hyphal Node（菌根节点，6条有机射线 + 末端小点，SVG深/浅双色版）；(4) Social Preview = 菌网图（左60%）+ 项目名+tagline+pip install（右40%）；(5) README 架构图 > 齿轮图（优先级分级）。在线调研确认：Mem0 2026报告亲口将"memory staleness detection"列为未解决挑战，正是myco lint所做之事。详见 `docs/primordia/brand_craft_2026-04-10.md`。
+核心结论：(1) 设计哲学 "Metabolic Cartography"（精密菌网图，工程审美）；(2) 色彩系统 #0D1117 + #00D4AA；(3) Logo = Hyphal Node（菌根节点，6条有机射线 + 末端小点，SVG深/浅双色版）；(4) Social Preview = 菌网图（左60%）+ 项目名+tagline+pip install（右40%）；(5) README 架构图 > 齿轮图（优先级分级）。在线调研确认：Mem0 2026报告亲口将"memory staleness detection"列为未解决挑战，正是myco lint所做之事。详见 `docs/primordia/archive/brand_craft_2026-04-10.md`。
 
 ## [2026-04-10] system | B2 品牌资产创建完成：assets/social_preview.png + assets/architecture.png + assets/logo_dark.svg + assets/logo_light.svg；README 嵌入架构图
 
@@ -77,7 +77,7 @@ v1.0 三项充分条件全部达成：(A) migrate.py aha moment 输出优化；(
 
 ## [2026-04-10] debate | 传统手艺 B6 发布策略（2轮，87%置信度，含在线调研）
 
-核心结论：(1) 发布序列：Show HN（W1周二）→ r/LocalLLaMA（W1周四）→ r/ClaudeAI（W1周五）→ Twitter/X（M1）；(2) r/LocalLLaMA 社区规则"punish hype"→需具体数据+踩坑故事；(3) 首发文案以Day3三处不一致事件为hook；(4) 5个FAQ预案准备完毕。详见 `docs/primordia/launch_craft_2026-04-10.md`。
+核心结论：(1) 发布序列：Show HN（W1周二）→ r/LocalLLaMA（W1周四）→ r/ClaudeAI（W1周五）→ Twitter/X（M1）；(2) r/LocalLLaMA 社区规则"punish hype"→需具体数据+踩坑故事；(3) 首发文案以Day3三处不一致事件为hook；(4) 5个FAQ预案准备完毕。详见 `docs/primordia/archive/launch_craft_2026-04-10.md`。
 
 ## [2026-04-10] deploy | Myco v1.1.0 发布至 PyPI — pip install myco 现在安装 1.1.0（含 myco config + myco import）
 

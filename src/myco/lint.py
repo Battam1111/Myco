@@ -2596,6 +2596,23 @@ def _compute_agent_review(canon: dict, root: Path) -> list:
                 "Open problems: has any problem in docs/open_problems.md "
                 "been partially closed by recent work?"
             )
+
+        # 5. Skill contract validation (absorbed from gstack)
+        skills_dir = root / "skills"
+        if skills_dir.is_dir():
+            skill_schema = (canon.get("system", {})
+                                 .get("skill_schema", {}))
+            required = skill_schema.get("required_sections", [])
+            if required:
+                for sf in sorted(skills_dir.glob("*.md")):
+                    content = sf.read_text(encoding="utf-8", errors="replace")
+                    missing = [s for s in required
+                               if s.lower() not in content.lower()]
+                    if missing:
+                        items.append(
+                            f"Skill '{sf.name}' missing required sections: "
+                            f"{missing}. See _canon.yaml::system.skill_schema."
+                        )
     except Exception:
         pass  # best-effort; never block lint output
 

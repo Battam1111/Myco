@@ -20,6 +20,14 @@ When spawning subagents or choosing model effort level for a subtask.
 | Routine digest | sonnet | Write | none | Summarization |
 | Prune decision | sonnet | Read + Write | none | Pattern matching |
 
+## Steps
+
+1. Identify the task type (search / synthesis / decision / routine)
+2. Look up the routing table above
+3. Select the matching model class + tool set + isolation level
+4. If spawning a subagent, set `maxTurns` limit (default 10)
+5. Execute with the selected configuration
+
 ## Principles
 
 1. **Match model to task scope** — don't use opus for grep
