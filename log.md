@@ -962,3 +962,15 @@ Pattern: The "越找越多" problem (stale content multiplying) was a SYSTEM fai
 ## [2026-04-12] milestone | First proactive discovery cycle completed. detect_knowledge_gaps returned empty (no automated gaps — substrate is self-consistent). Conducted broad external search across 3 domains: (1) AI agent memory landscape 2026, (2) MCP protocol roadmap 2026, (3) knowledge substrate competitors. Ingested 4 high-value intel notes via myco_inlet: state-of-memory-2026, Karpathy LLM Wiki convergence analysis, MCP 2026 roadmap implications, competitive positioning matrix. Key strategic finding: Karpathy published nearly identical architecture (markdown-first, LLM-maintained, git-backed) on April 3 2026 — validates Myco thesis but creates competitive pressure. Myco's differentiation is metabolism+immune+self-evolution.
 
 ## [2026-04-12] milestone | First proactive discovery cycle: 4 external findings ingested via WebSearch→evaluate→inlet. (1) AI agent memory landscape 2026 (Mem0/Zep/LangMem competitive map). (2) Karpathy LLM Wiki convergent invention — validates Myco's thesis, creates competitive pressure. (3) MCP 2026 roadmap — Streamable HTTP, Server Cards, webhooks on horizon. (4) Competitive matrix — Myco is alone in "Knowledge Organism" category. Strategic takeaway: metabolism + immune system + self-evolution = architectural moat.
+
+## [2026-04-13] milestone | ZERO ORPHANS achieved. Complete mycelium network: 217 nodes, 907 edges, density 4.18. Every file connected. Session deployed 14 parallel agents total for: notes cross-refs (83 links), docs cross-links (91 refs), skills cross-links, wiki creation (3 pages), competitive positioning, proactive discovery (4 inlets), evolve.py first mutation, session index, graph indicators, open_problems audit, orphan elimination, examples cleanup, README cleanup. Substrate reduced from 140→81 notes through compression+excretion while knowledge density increased.
+
+## [2026-04-13] reflection | Session reflection: Myco MCP dogfood session 2 — from skeleton to living organism.
+
+Knowledge created: 3 wiki pages (first ever), 4 external discovery inlets, competitive positioning in 3 READMEs, evolve.py gen1 mutation, ~250 cross-reference links across entire project.
+
+Key structural change: mycelium interconnection elevated from manual to architectural mechanism. graph_orphans now reports by category. Density tracked as indicator. Zero orphans achieved project-wide (217 nodes, 907 edges, density 4.18).
+
+System insight: the ideal is not "zero orphans once" but "zero orphans always." The categorized hunger signal + density indicator make this self-monitoring. Future sessions that create files without cross-refs will immediately trigger graph_orphans advisory.
+
+Pattern: deploying 14 parallel agents was the right scale for this work. User directive "多多部署使劲造" is operationally correct — parallelism is the Agent-First way to handle breadth.
