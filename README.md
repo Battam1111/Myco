@@ -228,7 +228,7 @@ A ready-to-use `.mcp.json` ships in the repo. Once installed in Claude Code, Cur
 - **Knowledge metabolism** · `myco_eat` · `myco_digest` · `myco_view` · `myco_hunger`
 - **Compression & excretion** · `myco_compress` · `myco_uncompress` · `myco_prune`
 - **External intake** · `myco_inlet` · `myco_forage` · `myco_upstream`
-- **Intelligence** · `myco_graph` · `myco_cohort` · `myco_session`
+- **Intelligence** · `myco_graph` · `myco_cohort` · `myco_session` · `myco_discover`
 
 The CLI alone is enough to use Myco. The MCP layer is what turns capture into a reflex. Call `myco_hunger(execute=true)` at session boot — the substrate self-heals.
 
