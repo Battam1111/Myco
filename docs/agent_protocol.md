@@ -170,24 +170,23 @@ compression_ripe/compression_pressure 全部可能需要同步更新。
 
 ## 3. Session Boot Sequence — 会话启动硬流程
 
-每次新会话的前三步**按顺序**执行，不能省略：
+每次新会话**只需一步**：
 
 ```
-1. myco_status             # Wave 13: 默认 include_hunger=True，一次返回
-                           # status + hunger + reflex signals
-2. 处理所有 [REFLEX HIGH] 信号（contract_drift / raw_backlog / craft_reflex_missing）
+1. myco_hunger(execute=true)   # THE boot call. 检查全部信号 + 自动执行推荐 actions
+2. 阅读返回的 signals — 如有 [REFLEX HIGH] 手动处理
 3. 开始正式任务
 ```
 
-**Wave 13 (contract v0.12.0) 强化**：`myco_status` 现在默认折叠 hunger 结果，
-返回的 JSON 含 `hunger_signals.reflex`（HIGH 级反射信号）和
-`hunger_signals.advisory`（建议级信号）。出现任何 reflex 信号时，**本会话内**
-必须先消化（digest / 写 craft / 对齐契约版本）再动任务，跳步即 W1/W3/§8.4
-违规。
+**Wave 54 (v0.41.0) Agent-First 重写**：`myco_hunger(execute=true)` 取代了
+原来的 `myco_status → 手动处理信号` 两步。一次调用完成：检查 hunger + 自动
+digest 过期笔记 + 自动 compress 积压 + 自动 prune 死知识。返回的 JSON 含
+`signals`（全部信号）、`actions`（推荐动作）、`execution_results`（自动执行
+结果）。只有 [REFLEX HIGH] 级别的信号需要人工/Agent 判断。
 
-**为什么**：此前 step 1/2 是 prose，agent 可跳。v0.12.0 把 status → hunger →
-reflex 串成 arc：调用 `myco_status` 就等于跑完了 boot sequence 的前两步。
-Craft：`docs/primordia/boot_reflex_arc_craft_2026-04-11.md`。
+**为什么**：Agent-First 原则——人类只会自然语言，Agent 是唯一操作者。一个调用
+完成全部 boot 工作，零人类参与。
+Craft：`docs/primordia/anchor_agentfirst_revision_craft_2026-04-12.md`。
 
 ---
 
