@@ -1,5 +1,9 @@
 <p align="center">
-  <img src="assets/logo_dark.svg" width="160" alt="Myco">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/logo_dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="assets/logo_light.svg">
+    <img src="assets/logo_dark.svg" width="160" alt="Myco">
+  </picture>
 </p>
 
 <h1 align="center">Myco</h1>
