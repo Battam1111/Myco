@@ -11,7 +11,7 @@
 [![PyPI](https://img.shields.io/badge/PyPI-coming%20soon-lightgrey?style=for-the-badge)](https://github.com/Battam1111/Myco)
 [![Python](https://img.shields.io/badge/Python-3.8%2B-blue?style=for-the-badge)](https://www.python.org/)
 [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
-[![Lint](https://img.shields.io/badge/Lint-19%2F19%20green-brightgreen?style=for-the-badge)](#three-immutable-laws)
+[![Lint](https://img.shields.io/badge/Lint-20%2F20%20green-brightgreen?style=for-the-badge)](#three-immutable-laws)
 
 [The Living Substrate](#the-living-substrate) · [Five Capabilities](#five-capabilities) · [How You Work With Myco](#how-you-work-with-myco) · [Three Immutable Laws](#three-immutable-laws) · [Standing on Fifty Years](#standing-on-fifty-years) · [Try It Today](#try-it-today)
 
@@ -193,7 +193,7 @@ The continuously-maintained registry lives at [`docs/open_problems.md`](docs/ope
 
 | Phase | What is true | What is coming |
 |-------|-------------|----------------|
-| **v0.x (today)** | Four inward gears shipped · 19-dimension lint green · metabolism CLI live · MCP server exposes 9 tools · kernel/instance separation enforced · one unconscious prototype (ASCC) validated end-to-end · Self-Model D layer seeded (view tracking + dead-knowledge signal + `myco prune` auto-excretion) · Metabolic Inlet MVP scaffold shipped (`myco inlet`, Wave 35 / v0.27.0) | Inlet cold-start, autonomous trigger signals, and continuous compression remain open. Most gear-firing is still human-triggered. |
+| **v0.x (today)** | Four inward gears shipped · 20-dimension lint green · metabolism CLI live · MCP server exposes 9 tools · kernel/instance separation enforced · one unconscious prototype (ASCC) validated end-to-end · Self-Model D layer seeded (view tracking + dead-knowledge signal + `myco prune` auto-excretion) · Metabolic Inlet MVP scaffold shipped (`myco inlet`, Wave 35 / v0.27.0) · L19 dimension-count consistency lint (Wave 38 / v0.29.0) | Inlet cold-start, autonomous trigger signals, and continuous compression remain open. Most gear-firing is still human-triggered. |
 | **v1.0** | Metabolic inlet fully autonomous · Self-Model D implemented · structural decay detector seeded · trigger signals replaced by learned heuristics | Human is no longer the engine; human is strictly the selection pressure. |
 | **v∞** | Kernel evolves without any single human being able to hold its structure in their head — but *any* human can still audit any change, because C2 Transparent never lifts. | Open question. This is where [Open Problem 3](#open-problems) becomes load-bearing. |
 

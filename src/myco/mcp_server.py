@@ -6,7 +6,7 @@ When configured in .mcp.json, AI agents (Claude Code, Cursor, etc.) automaticall
 discover these tools and call them at the right moments — no manual prompting needed.
 
 Tools:
-    myco_lint       — Run 19-dimensional consistency checks (L0-L18)
+    myco_lint       — Run 20-dimensional consistency checks (L0-L19)
     myco_status     — Quick overview of knowledge system health
     myco_search     — Search across wiki/docs/MYCO.md knowledge base
     myco_log        — Append friction/reflection entries to log.md
@@ -87,7 +87,7 @@ def _read_file(path: Path) -> Optional[str]:
 @mcp.tool(
     name="myco_lint",
     annotations={
-        "title": "Myco Lint — 15-Dimension Consistency Check",
+        "title": "Myco Lint — 20-Dimension Consistency Check",
         "readOnlyHint": True,
         "destructiveHint": False,
         "idempotentHint": True,
@@ -105,13 +105,14 @@ async def myco_lint(
     modified wiki/, docs/, MYCO.md, _canon.yaml, or notes/. Also run after any
     Gear 3 retrospective or before commits that touch multiple knowledge files.
 
-    This is the 19-dimensional immune system of the knowledge substrate. It
+    This is the 20-dimensional immune system of the knowledge substrate. It
     catches contradictions across files, orphan references, stale patterns,
     version drift, write-surface violations, upstream transport hygiene, craft
     protocol schema violations, forage substrate hygiene issues, craft reflex
-    arc compliance, boot brief freshness, contract drift, and compression
-    integrity — things markdown linters and prose linters cannot see because
-    they check syntax, not cross-file semantic consistency.
+    arc compliance, boot brief freshness, contract drift, compression
+    integrity, and lint dimension count drift — things markdown linters and
+    prose linters cannot see because they check syntax, not cross-file
+    semantic consistency.
 
     Checks: L0 Canon schema, L1 Reference integrity, L2 Number consistency,
     L3 Stale patterns, L4 Orphan detection, L5 Log coverage, L6 Date consistency,
@@ -123,7 +124,9 @@ async def myco_lint(
     L15 Craft Reflex (craft must accompany kernel/public_claim surface touches),
     L16 Boot Brief Freshness (.myco_state/boot_brief.md staleness),
     L17 Contract Drift (synced_contract_version lag detection),
-    L18 Compression Integrity (.original / extracted note hash audit).
+    L18 Compression Integrity (.original / extracted note hash audit),
+    L19 Lint Dimension Count Consistency (downstream-cache integrity for
+    LINT_DIMENSION_COUNT — narrative surfaces must mirror len(lint.FULL_CHECKS)).
 
     Args:
         project_dir: Path to Myco project root. Auto-detected if omitted.
@@ -139,35 +142,13 @@ async def myco_lint(
     if "error" in canon:
         return json.dumps({"error": canon["error"]}, indent=2)
 
-    # Import lint functions from the existing module
-    from myco.lint import (
-        lint_canon_schema, lint_references, lint_numbers,
-        lint_stale_patterns, lint_orphans, lint_log,
-        lint_dates, lint_wiki_format, lint_original_sync,
-        lint_vision_anchors, lint_notes_schema, lint_write_surface,
-        lint_dotfile_hygiene, lint_craft_protocol, lint_forage_hygiene,
-    )
+    # Import the dispatch SSoT directly — Wave 38 D9: mcp_server.py
+    # MUST NOT maintain a duplicate checks list. len(FULL_CHECKS) is the
+    # canonical LINT_DIMENSION_COUNT (Wave 38 D1) and any local cache here
+    # would silently drop newly added dimensions (the very bug Wave 38 fixes).
+    from myco.lint import FULL_CHECKS, QUICK_CHECKS
 
-    checks = [
-        ("L0 Canon Self-Check", lint_canon_schema),
-        ("L1 Reference Integrity", lint_references),
-        ("L2 Number Consistency", lint_numbers),
-        ("L3 Stale Pattern Scan", lint_stale_patterns),
-    ]
-    if not quick:
-        checks.extend([
-            ("L4 Orphan Detection", lint_orphans),
-            ("L5 Log Coverage", lint_log),
-            ("L6 Date Consistency", lint_dates),
-            ("L7 Wiki Format", lint_wiki_format),
-            ("L8 .original Sync", lint_original_sync),
-            ("L9 Vision Anchor", lint_vision_anchors),
-            ("L10 Notes Schema", lint_notes_schema),
-            ("L11 Write Surface", lint_write_surface),
-            ("L12 Upstream Dotfile Hygiene", lint_dotfile_hygiene),
-            ("L13 Craft Protocol Schema", lint_craft_protocol),
-            ("L14 Forage Hygiene", lint_forage_hygiene),
-        ])
+    checks = list(QUICK_CHECKS) if quick else list(FULL_CHECKS)
 
     results = []
     total_issues = 0
@@ -186,7 +167,7 @@ async def myco_lint(
     report = {
         "project": str(root),
         "timestamp": datetime.now().isoformat(),
-        "mode": "quick (L0-L3)" if quick else "full (L0-L18)",
+        "mode": "quick (L0-L3)" if quick else "full (L0-L19)",
         "total_issues": total_issues,
         "all_passed": total_issues == 0,
         "checks": results,

@@ -1,6 +1,13 @@
 #!/usr/bin/env python3
 """
-Myco Knowledge System — Automated 19-Dimension Substrate Immune System.
+Myco Knowledge System — Automated 20-Dimension Substrate Immune System.
+
+The canonical dimension count is `len(FULL_CHECKS)` (computed at module load
+time, see bottom of this file). This docstring's dimension table below is a
+maintainer-facing index, not the source of truth — when a new dimension
+lands, FULL_CHECKS auto-updates and L19 enforces that every downstream cache
+(README badges, MYCO.md headlines, immune.py docstring, mcp_server.py tool
+description, cli.py help strings, etc.) tracks it.
 
 Dimensions:
     L0  Canon Self-Check — _canon.yaml contains all required keys
@@ -22,6 +29,7 @@ Dimensions:
     L16 Boot Brief Freshness — .myco_state/boot_brief.md mtime sanity (Wave 21, v0.20.0)
     L17 Contract Drift — synced_contract_version vs kernel contract_version (Wave 24, v0.23.0)
     L18 Compression Integrity — forward-compression bidirectional link audit (Wave 30, v0.26.0)
+    L19 Lint Dimension Count Consistency — downstream-cache drift detection (Wave 38, v0.29.0)
 """
 
 import os
@@ -1805,6 +1813,211 @@ def lint_compression_integrity(canon, root):
 
 
 # ---------------------------------------------------------------------------
+# L19: Lint Dimension Count Consistency  (Wave 38, contract v0.29.0)
+# ---------------------------------------------------------------------------
+
+# Surface lists for L19 — hardcoded per Wave 38 D4. NOT in canon.yaml because
+# the list is implementation detail (which downstream caches the substrate
+# tracks), not contract surface (which invariants the substrate enforces).
+#
+# HIGH = user-facing first-impression surfaces (silent damage if drifted)
+# MEDIUM = maintainer-facing source/docs (maintainer friction if drifted)
+#
+# NOT scanned (per Wave 38 D5):
+#   - log.md, contract_changelog.md, docs/primordia/*, notes/*, examples/ascc/*
+#     (pinned by Hard Contract #2 — historical claims correctly preserved)
+#   - src/myco/lint.py itself (own-file self-reference loophole, Wave 38 L1)
+_L19_HIGH_SURFACES = (
+    "README.md",
+    "README_zh.md",
+    "README_ja.md",
+    "MYCO.md",
+)
+_L19_MEDIUM_SURFACES = (
+    "CONTRIBUTING.md",
+    "wiki/README.md",
+    "src/myco/cli.py",
+    "src/myco/immune.py",
+    "src/myco/mcp_server.py",
+    "src/myco/migrate.py",
+    "src/myco/init_cmd.py",
+    "scripts/myco_init.py",
+    "scripts/myco_migrate.py",
+    "docs/reusable_system_design.md",
+    "docs/adapters/README.md",
+)
+
+# 5 regex patterns (per Wave 38 D6). Each requires domain keywords to
+# minimize false positives on unrelated numeric strings.
+_L19_PAT_BADGE = re.compile(r"\bLint-(\d+)%2F(\d+)\b")
+_L19_PAT_DIM_EN = re.compile(r"\b(\d+)[- ]dimension(?:al)?\s+(?:lint|immune|consistency)", re.IGNORECASE)
+# CJK count claim: matches both 中文 `维` and 日本語 `次元`. Trailing keyword
+# is `lint`, `L0`, `次元の`, or 中文 quantifier patterns to minimize false
+# positives.
+_L19_PAT_DIM_CJK = re.compile(r"\b(\d+)\s*(?:维|次元)\s*(?:lint|L0|の|的)?")
+_L19_PAT_L_RANGE = re.compile(r"\bL0[-–](?:L)?(\d+)\b")
+_L19_PAT_RATIO = re.compile(r"\b(\d+)/(\d+)\s+(?:green|绿|PASS|pass)")
+
+
+def lint_dimension_count_consistency(canon, root):
+    """L19 (Wave 38, contract v0.29.0) — LINT_DIMENSION_COUNT downstream-cache integrity.
+
+    Closes Wave 37 D7 candidate #1 + enforces Wave 37 D1 ("SSoT for
+    LINT_DIMENSION_COUNT is `len(FULL_CHECKS)`; every other surface is a
+    downstream cache that must be bumped in lockstep").
+
+    Background: between Wave 30 (when L18 landed) and Wave 37 (when the
+    manual sweep caught it), the substrate silently rotted for ~7 waves —
+    README badges, MYCO.md headlines, mcp_server.py docstrings, and 12+
+    other surfaces all claimed "15-dimension / L0-L14" while the actual
+    substrate was at 19 dimensions / L0-L18. The drift was invisible
+    because no automated check enforced consistency between the structural
+    truth (`len(FULL_CHECKS)`) and the labels that referenced it.
+
+    L19 makes that class of rot structurally impossible: any future wave
+    that adds a lint dimension and forgets to bump downstream caches will
+    trip L19 at the next lint run. The Wave 38 craft §2 Attack A defends
+    permanence over a one-time script: a structural check is the substrate-
+    native way to encode any consistency invariant.
+
+    What L19 scans (per Wave 38 D4 + D5):
+      - HIGH surfaces (4): README.md, README_zh.md, README_ja.md, MYCO.md
+      - MEDIUM surfaces (11): CONTRIBUTING.md, wiki/README.md,
+        src/myco/{cli,immune,mcp_server,migrate,init_cmd}.py,
+        scripts/myco_{init,migrate}.py, docs/reusable_system_design.md,
+        docs/adapters/README.md
+      - NOT scanned: pinned surfaces (log.md, contract_changelog.md,
+        primordia/*, notes/*, examples/ascc/*) and lint.py itself
+        (own-file self-reference loophole, Wave 38 L1)
+
+    What L19 detects (per Wave 38 D6 — 5 regex patterns):
+      1. README badge `Lint-(\\d+)%2F(\\d+)\\s+green`
+      2. English count `\\b(\\d+)[- ]dimension(?:al)?\\s+(?:lint|immune|consistency)`
+      3. Chinese count `\\b(\\d+)\\s*维\\s*(?:lint|L0)`
+      4. L range `\\bL0[-–](?:L)?(\\d+)\\b`
+      5. Pass ratio `\\b(\\d+)/(\\d+)\\s+(?:green|绿|PASS|pass)`
+
+    Patterns 1, 2, 3, 5 expect the integer == LINT_DIMENSION_COUNT.
+    Pattern 4 expects the integer == LINT_DIMENSION_COUNT - 1 (the L-max).
+
+    Severity (per Wave 38 D1 + D4):
+      - HIGH for surfaces in _L19_HIGH_SURFACES (user-facing damage)
+      - MEDIUM for surfaces in _L19_MEDIUM_SURFACES (maintainer damage)
+
+    Authoritative craft:
+        docs/primordia/lint_dimension_count_consistency_craft_2026-04-12.md
+    """
+    issues = []
+    expected = len(FULL_CHECKS)
+    expected_l_max = expected - 1
+    # Quick-mode subset is a legitimate sub-range claim (e.g. `L0-L3` in
+    # `myco lint --quick` help text and the MCP `quick: L0-L3` arg description).
+    # Pattern 4 must NOT flag L0-L<quick_max> as drift because it's the
+    # documented sub-range, not a current full-range claim.
+    quick_l_max = len(QUICK_CHECKS) - 1
+    legitimate_l_max = {expected_l_max, quick_l_max}
+
+    def _scan(rel: str, severity: str):
+        path = root / rel
+        if not path.exists():
+            return
+        content = read_file(path)
+        if content is None:
+            return
+        for line_no, line in enumerate(content.splitlines(), 1):
+            # Pattern 1 — README badge
+            for m in _L19_PAT_BADGE.finditer(line):
+                n1, n2 = int(m.group(1)), int(m.group(2))
+                if n1 != expected or n2 != expected:
+                    issues.append((
+                        "L19", severity, rel,
+                        f"line {line_no}: badge `Lint-{n1}/{n2}` drifted "
+                        f"from current LINT_DIMENSION_COUNT={expected} "
+                        f"(SSoT is len(FULL_CHECKS) in src/myco/lint.py — "
+                        f"Wave 37 D1)",
+                    ))
+            # Pattern 2 — English count
+            for m in _L19_PAT_DIM_EN.finditer(line):
+                n = int(m.group(1))
+                if n != expected:
+                    issues.append((
+                        "L19", severity, rel,
+                        f"line {line_no}: dimension count `{n}-dimension` "
+                        f"drifted from current LINT_DIMENSION_COUNT={expected}",
+                    ))
+            # Pattern 3 — CJK count (中文 `维` / 日本語 `次元`)
+            for m in _L19_PAT_DIM_CJK.finditer(line):
+                n = int(m.group(1))
+                if n != expected:
+                    issues.append((
+                        "L19", severity, rel,
+                        f"line {line_no}: CJK 维度计数 `{m.group(0).strip()}` "
+                        f"与当前 LINT_DIMENSION_COUNT={expected} 不一致",
+                    ))
+            # Pattern 4 — L range. Exempt the quick-mode subset claim
+            # (L0-L<quick_max>) per the legitimate_l_max set above.
+            for m in _L19_PAT_L_RANGE.finditer(line):
+                n = int(m.group(1))
+                if n in legitimate_l_max:
+                    continue
+                issues.append((
+                    "L19", severity, rel,
+                    f"line {line_no}: lint range `L0-L{n}` drifted "
+                    f"from current `L0-L{expected_l_max}`",
+                ))
+            # Pattern 5 — Pass ratio
+            for m in _L19_PAT_RATIO.finditer(line):
+                n1, n2 = int(m.group(1)), int(m.group(2))
+                if n1 != expected or n2 != expected:
+                    issues.append((
+                        "L19", severity, rel,
+                        f"line {line_no}: pass ratio `{n1}/{n2}` drifted "
+                        f"from current `{expected}/{expected}`",
+                    ))
+
+    for rel in _L19_HIGH_SURFACES:
+        _scan(rel, "HIGH")
+    for rel in _L19_MEDIUM_SURFACES:
+        _scan(rel, "MEDIUM")
+
+    return issues
+
+
+# ---------------------------------------------------------------------------
+# Module-level checks lists (Wave 38 D2 — SSoT for LINT_DIMENSION_COUNT)
+# ---------------------------------------------------------------------------
+
+# QUICK_CHECKS = the L0-L3 fast subset run when `myco lint --quick`.
+# FULL_CHECKS  = the full L0-L19 sequence (default). `len(FULL_CHECKS)` is
+# the canonical lint dimension count — see L19 docstring for the rot story.
+QUICK_CHECKS = (
+    ("L0 Canon Self-Check", lint_canon_schema),
+    ("L1 Reference Integrity", lint_references),
+    ("L2 Number Consistency", lint_numbers),
+    ("L3 Stale Pattern Scan", lint_stale_patterns),
+)
+
+FULL_CHECKS = QUICK_CHECKS + (
+    ("L4 Orphan Detection", lint_orphans),
+    ("L5 log.md Coverage", lint_log),
+    ("L6 Date Consistency", lint_dates),
+    ("L7 Wiki W8 Format", lint_wiki_format),
+    ("L8 .original Sync", lint_original_sync),
+    ("L9 Vision Anchor", lint_vision_anchors),
+    ("L10 Notes Schema", lint_notes_schema),
+    ("L11 Write Surface", lint_write_surface),
+    ("L12 Upstream Dotfile Hygiene", lint_dotfile_hygiene),
+    ("L13 Craft Protocol Schema", lint_craft_protocol),
+    ("L14 Forage Hygiene", lint_forage_hygiene),
+    ("L15 Craft Reflex", lint_craft_reflex),
+    ("L16 Boot Brief Freshness", lint_boot_brief_freshness),
+    ("L17 Contract Drift", lint_contract_drift),
+    ("L18 Compression Integrity", lint_compression_integrity),
+    ("L19 Lint Dimension Count Consistency", lint_dimension_count_consistency),
+)
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -1821,30 +2034,7 @@ def main(root: Path = None, quick: bool = False, fix_report: bool = False) -> in
 
     canon = load_canon(root)
 
-    checks = [
-        ("L0 Canon Self-Check", lint_canon_schema),
-        ("L1 Reference Integrity", lint_references),
-        ("L2 Number Consistency", lint_numbers),
-        ("L3 Stale Pattern Scan", lint_stale_patterns),
-    ]
-    if not quick:
-        checks.extend([
-            ("L4 Orphan Detection", lint_orphans),
-            ("L5 log.md Coverage", lint_log),
-            ("L6 Date Consistency", lint_dates),
-            ("L7 Wiki W8 Format", lint_wiki_format),
-            ("L8 .original Sync", lint_original_sync),
-            ("L9 Vision Anchor", lint_vision_anchors),
-            ("L10 Notes Schema", lint_notes_schema),
-            ("L11 Write Surface", lint_write_surface),
-            ("L12 Upstream Dotfile Hygiene", lint_dotfile_hygiene),
-            ("L13 Craft Protocol Schema", lint_craft_protocol),
-            ("L14 Forage Hygiene", lint_forage_hygiene),
-            ("L15 Craft Reflex", lint_craft_reflex),
-            ("L16 Boot Brief Freshness", lint_boot_brief_freshness),
-            ("L17 Contract Drift", lint_contract_drift),
-            ("L18 Compression Integrity", lint_compression_integrity),
-        ])
+    checks = list(QUICK_CHECKS) if quick else list(FULL_CHECKS)
 
     all_issues = []
     for name, checker in checks:

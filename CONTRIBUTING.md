@@ -137,7 +137,7 @@ Myco/
 │   ├── cli.py             # CLI dispatcher (myco init/migrate/lint)
 │   ├── init_cmd.py        # Project initialization
 │   ├── migrate.py         # Hot-start migration
-│   ├── lint.py            # 19-dimension consistency checker (L0-L18)
+│   ├── lint.py            # 20-dimension consistency checker (L0-L19)
 │   ├── templates.py       # Template resolution (importlib.resources)
 │   └── templates/         # Bundled project templates (single source of truth)
 ├── docs/                  # Framework documentation
