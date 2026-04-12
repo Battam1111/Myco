@@ -2187,11 +2187,26 @@ def compute_hunger_report(
         graph = build_link_graph(root)
         orphans = find_orphans(graph)
         orphan_count = len(orphans)
-        if orphan_count > 10:
-            top3 = ", ".join(orphans[:3])
+        if orphan_count > 5:
+            # Categorize orphans by file type for actionable reporting
+            cats = {"notes": [], "docs": [], "wiki": [], "skills": [], "other": []}
+            for o in orphans:
+                if o.startswith("notes/"):
+                    cats["notes"].append(o)
+                elif o.startswith("docs/"):
+                    cats["docs"].append(o)
+                elif o.startswith("wiki/"):
+                    cats["wiki"].append(o)
+                elif o.startswith("skills/"):
+                    cats["skills"].append(o)
+                else:
+                    cats["other"].append(o)
+            breakdown = ", ".join(
+                f"{k}={len(v)}" for k, v in cats.items() if v
+            )
             signals.append(
                 f"graph_orphans: {orphan_count} files with zero inbound links "
-                f"(top: {top3}). Run `myco graph orphans` to see full list."
+                f"({breakdown}). Add cross-references to build the mycelium network."
             )
     except Exception:
         pass  # grandfather-compatible: graph module not available

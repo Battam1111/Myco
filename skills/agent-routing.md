@@ -35,3 +35,8 @@ When spawning subagents or choosing model effort level for a subtask.
 3. **Isolate experiments** — use worktree for risky changes
 4. **Budget maxTurns** — prevent runaway subagents (default: 10)
 5. **PROACTIVELY describe** — subagent descriptions should trigger auto-invocation
+
+## References
+
+- `docs/agent_protocol.md` — §2 Tool Protocol defines which tools each task type may use
+- `.mcp.json` — MCP server configuration that determines available tool endpoints

@@ -44,3 +44,10 @@ This skill is a **procedure**, not code. The agent's intelligence decides
 whether and how to execute each step. If the agent improves, execution
 improves — without changing this document. Myco provides the scaffolding
 (signals, actions, thresholds); the agent provides the judgment.
+
+## References
+
+- `docs/agent_protocol.md` — §3 Session Boot Sequence defines the boot ritual this skill implements
+- `docs/evolution_engine.md` — evolution engine that can mutate this skill via `evolve.mutate_skill`
+- `src/myco/notes.py` — hunger computation logic (`compute_hunger_report`) that drives the action list
+- `_canon.yaml` — all thresholds (backlog, compression pressure, inlet triggers) live here
