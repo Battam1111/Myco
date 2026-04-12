@@ -97,26 +97,9 @@ from myco.notes import (
 # ---------------------------------------------------------------------------
 
 def _project_root(args) -> Path:
-    """Resolve the project root from --project-dir or walk up from cwd.
-
-    Mirrors the Wave 20 strict-mode resolver in `notes_cmd._project_root`.
-    Raises `MycoProjectNotFound` on missing `_canon.yaml` unless the
-    `MYCO_ALLOW_NO_PROJECT=1` escape hatch is set.
-    """
-    import os
-
-    raw = getattr(args, "project_dir", None) or "."
-    root = Path(raw).resolve()
-    for candidate in [root] + list(root.parents):
-        if (candidate / "_canon.yaml").exists():
-            return candidate
-    if os.environ.get("MYCO_ALLOW_NO_PROJECT") == "1":
-        return root
-    raise MycoProjectNotFound(
-        f"not a Myco project: no _canon.yaml found at or above "
-        f"{root}. Did you forget to cd, or pass --project-dir? "
-        f"Set MYCO_ALLOW_NO_PROJECT=1 to override (not recommended)."
-    )
+    """Wave A1: delegates to centralized find_project_root (strict)."""
+    from myco.project import find_project_root
+    return find_project_root(getattr(args, "project_dir", None))
 
 
 # ---------------------------------------------------------------------------

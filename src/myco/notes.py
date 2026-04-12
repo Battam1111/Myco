@@ -59,19 +59,10 @@ except ImportError:  # pragma: no cover — yaml is a hard dep elsewhere
 # Exceptions (Wave 20, contract v0.19.0)
 # ---------------------------------------------------------------------------
 
-class MycoProjectNotFound(Exception):
-    """Raised when `_project_root` cannot find `_canon.yaml` in walk-up.
+# Wave A1: MycoProjectNotFound moved to project.py; re-exported here for compat.
+from myco.project import MycoProjectNotFound  # noqa: F401 — public re-export
 
-    Wave 20 strict-mode resolution: the default silent fall-through
-    (return Path(raw).resolve() on no canon found) produced healthy-
-    looking hunger reports on unrelated directories, indistinguishable
-    from a truly-healthy signal. See
-    `docs/primordia/silent_fail_elimination_craft_2026-04-11.md` D3.
 
-    The CLI layer catches this and exits 2 with a clear error. Escape
-    hatch: `MYCO_ALLOW_NO_PROJECT=1` env var.
-    """
-    pass
 
 
 def _parse_version_tuple(s: Optional[str]) -> Optional[Tuple[int, int, int]]:
