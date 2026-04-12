@@ -2,7 +2,7 @@
 
 > 最后更新：2026-04-12
 > **知识系统**：[Myco](https://github.com/Battam1111/Myco) v0.2.0（[PyPI 已发布](https://pypi.org/project/myco/0.2.0/)；kernel contract v0.45.0）
-> **⚠️ Wave 8 re-baseline**：历史上 v1.x 的包版本号和 v1.x.y 的 contract 版本号在 2026-04-11 全部下调到 0 开头，因为 Myco 尚未进行过真正的 1.0 正式发布。历史记录中的 v1.x 标识符保持不动作为 immutable history；当前生效版本一律以 v0.x 计。详见 `docs/primordia/pre_release_rebaseline_craft_2026-04-11.md` 与 `docs/contract_changelog.md` 顶部 banner。
+> **⚠️ Wave 8 re-baseline**：历史上 v1.x 的包版本号和 v1.x.y 的 contract 版本号在 2026-04-11 全部下调到 0 开头，因为 Myco 尚未进行过真正的 1.0 正式发布。历史记录中的 v1.x 标识符保持不动作为 immutable history；当前生效版本一律以 v0.x 计。详见 `docs/primordia/archive/pre_release_rebaseline_craft_2026-04-11.md` 与 `docs/contract_changelog.md` 顶部 banner。
 
 ---
 
@@ -200,7 +200,7 @@ v2.0      Metabolic Inlet 原语               🔄 MVP scaffold 落地 (Wave 35
 | 文档 | 状态 | 内容 |
 |------|------|------|
 | `docs/primordia/archive/positioning_craft_2026-04-09.md` | [ACTIVE] | **深度定位辩论（6 轮，92% 置信度）**：OpenClaw 威胁分析、tagline→metabolism、Cross-Project Distillation 已验证 |
-| `docs/primordia/decoupling_craft_2026-04-09.md` | [ACTIVE] | **ASCC/Myco 解耦辩论（3 轮，93% 置信度）**：边界判断 + 通用化替换策略 |
+| `docs/primordia/archive/decoupling_craft_2026-04-09.md` | [ACTIVE] | **ASCC/Myco 解耦辩论（3 轮，93% 置信度）**：边界判断 + 通用化替换策略 |
 | `docs/primordia/archive/decoupling_positioning_debate_2026-04-09.md` | [ARCHIVED/COMPILED] | 解耦审计（13 CRITICAL 项）+ 热启动设计 + 早期定位辩论（Wave 22 归档） |
 | `docs/primordia/archive/myco_self_apply_craft_2026-04-09.md` | [ACTIVE] | Myco 自我应用设计辩论（6 项决策，综合置信度 88%） |
 | `docs/primordia/archive/gear3_v090_milestone_2026-04-09.md` | [ARCHIVED/COMPILED] | Milestone Retrospective 里程碑回顾：3 项被证伪假设 + 5 项行动（全部 ✅）（Wave 22 归档） |
