@@ -215,5 +215,5 @@ Myco 的回应：
 - [docs/reusable_system_design.md](reusable_system_design.md) -- 通用架构与 Bootstrap 指南
 - [wiki/identity.md](../wiki/identity.md) -- Myco 身份定义：Agent-First Symbiotic Cognitive Organism + 七条生命标准
 - [_canon.yaml](../_canon.yaml) -- 规范值 SSoT
-- [docs/agent_protocol.md](agent_protocol.md) -- Agent 协议：19 个 MCP 工具契约
+- [docs/agent_protocol.md](agent_protocol.md) -- Agent 协议：21 个 MCP 工具契约
 - [skills/metabolic-cycle.md](../skills/metabolic-cycle.md) -- Boot ritual 技能：hunger -> digest -> compress -> discover -> evolve

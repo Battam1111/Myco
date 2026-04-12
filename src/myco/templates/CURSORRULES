@@ -17,7 +17,7 @@
 
 # ─── MCP Integration ────────────────────────────────────────────────────────
 # Cursor supports MCP natively. The .mcp.json file in the project root
-# registers the Myco MCP server. All 19 tools are available via MCP.
+# registers the Myco MCP server. All 21 tools are available via MCP.
 # If MCP is not connected, fall back to CLI: `myco <command>` in terminal.
 
 # ─── Context Loading ────────────────────────────────────────────────────────
@@ -36,7 +36,7 @@
 # If no skill matches, proceed with agent judgment, then consider
 # skill-ifying the process.
 
-# ─── Tool Triggers (19 MCP tools) ───────────────────────────────────────────
+# ─── Tool Triggers (21 MCP tools) ───────────────────────────────────────────
 #
 # BOOT (first call every session):
 #   myco_hunger(execute=true)
