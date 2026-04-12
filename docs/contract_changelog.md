@@ -38,6 +38,33 @@ Commit message 格式必须使用 Conventional Commits 风格并带 `[contract:*
 
 ---
 
+## v0.41.0 — 2026-04-12 (minor · Wave 54 Agent-First Integration — hunger auto-execute, graph/session signals, scheduled metabolic cycle)
+
+**What changed**:
+
+Wave 54 closes the signals→execution gap. Agent-first design principle:
+human = natural language only, agent = sole operator.
+
+1. **`myco_hunger(execute=true)`** — auto-executes ALL recommended actions
+   (digest, compress, prune). The agent calls ONE tool and the substrate
+   self-heals. No manual verb calls needed.
+2. **`myco hunger --execute`** — CLI equivalent for scheduled task execution.
+3. **Graph orphan signal** in hunger — fires when >10 files have zero inbound
+   links. Eliminates the W47 silo: graph is now part of the hunger pipeline.
+4. **Session index staleness signal** — fires when `.myco_state/sessions.db`
+   doesn't exist. Eliminates the W52 silo.
+5. **Scheduled metabolic cycle** — daily recurring task via Claude Code
+   scheduled-tasks: runs hunger(execute=true) + session index + lint.
+6. **MCP `myco_hunger` docstring rewritten** as Agent-complete boot ritual
+   manual: tells any agent exactly what to do at boot/mid/end session.
+
+**Contract surface**: v0.40.0 → v0.41.0.
+
+**Design principle**: The agent's FIRST call every session is
+`myco_hunger(execute=true)`. Everything flows from there.
+
+---
+
 ## v0.40.0 — 2026-04-12 (minor · Wave 52 Session Memory + Search — FTS5 indexing of agent conversations)
 
 **What changed**:

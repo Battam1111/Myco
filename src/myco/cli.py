@@ -554,6 +554,11 @@ def main():
         "--project-dir", type=str, default=".",
         help="Project root (default: current directory)",
     )
+    hunger_parser.add_argument(
+        "--execute", action="store_true",
+        help="Wave 54: auto-execute ALL recommended actions (digest, compress, "
+             "prune). Agent-first: closes the signals→execution gap.",
+    )
 
     # ── myco forage ────────────────────────────────────────────────
     # External reference material intake — the inbound channel

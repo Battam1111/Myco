@@ -992,47 +992,52 @@ async def myco_view(
     },
 )
 async def myco_hunger(
+    execute: bool = False,
     project_dir: Optional[str] = None,
 ) -> str:
-    """Report the substrate's metabolic state with actionable signals.
+    """The substrate's metabolic dashboard — your FIRST call every session.
 
-    Contract: docs/agent_protocol.md §3 + §4 (boot & end sequences).
+    == AGENT BOOT RITUAL (mandatory) ==
+    1. Call myco_hunger(execute=true) at session start
+    2. The substrate auto-heals: digests stale notes, compresses ripe
+       cohorts, prunes dead knowledge
+    3. Read the signals list — if anything other than "healthy", address
+       it before doing the human's task
+    4. Call myco_hunger() again before session end to confirm healthy state
 
-    WHEN TO CALL (trigger conditions):
-      (a) IMMEDIATELY after myco_status at session start. This is the
-          second call of every session, non-optional. Hunger tells you
-          whether the substrate is constipated (raw_backlog), starving
-          (no_deep_digest), or hoarding (no_excretion).
-      (b) Session middle — any ~30 min without a myco_digest or
-          myco_eat call, re-check hunger.
-      (c) Before session end — confirm no raw_backlog remains.
-      (d) When signals list includes anything other than 'healthy',
-          DO NOT ignore them. Act on the first concerning signal before
-          continuing the current task.
+    == WHAT THIS TOOL DOES ==
+    Scans the entire knowledge substrate and reports:
+    - Status counts (raw/digesting/extracted/integrated/excreted)
+    - Hunger signals (what's wrong, sorted by urgency)
+    - Recommended actions (what to do about it, with exact verb+args)
+    - Graph connectivity (orphan files count)
+    - Session memory status
 
-    ANTI-PATTERNS:
-      - Skipping hunger at session start ("I'll catch up later")
-      - Seeing raw_backlog and continuing unrelated work
+    == EXECUTE MODE (execute=true) ==
+    When execute=true, the tool automatically runs all recommended actions:
+    - digest stale/backlogged notes
+    - compress ripe cohorts (--cohort auto)
+    - prune dead knowledge
+    - (inlet is advisory-only — logged but not auto-triggered)
+    This is the normal mode. Use execute=false only to inspect without acting.
 
-    Signals (sorted by urgency):
-      - raw_backlog: >10 raw notes pending
-      - stale_raw: raw notes untouched for ≥7 days
-      - no_deep_digest: no note has digest_count≥2 AND no extracted/integrated notes
-      - no_excretion: ≥20 total notes but zero excreted (compression doctrine violated)
-      - promote_ready: notes flagged promote_candidate=true
-      - healthy: substrate is metabolizing normally
-
-    Actions (Wave 46, v0.35.0): The response includes an "actions" list of
-    structured recommendations the agent can execute directly. Each action
-    has verb, args, and reason. This closes the advisory-to-execution gap —
-    instead of interpreting signals, agents can iterate over actions and
-    call the corresponding myco_* MCP tools.
+    == SIGNALS (sorted by urgency) ==
+    [REFLEX HIGH] raw_backlog — must digest NOW before any other work
+    stale_raw — old unprocessed notes
+    compression_pressure — accumulating faster than synthesizing
+    compression_ripe — tag cohort ready for compression
+    inlet_ripe — knowledge gaps detected, consider external acquisition
+    graph_orphans — files with zero inbound links (disconnected knowledge)
+    session_index_missing — no session memory index, run myco session index
+    dead_knowledge — terminal notes going cold
+    healthy — everything is fine
 
     Args:
+        execute: If true, auto-execute all recommended actions (default false).
         project_dir: Path to Myco project root. Auto-detected if omitted.
 
     Returns:
-        JSON HungerReport with totals, per-status counts, and signals list.
+        JSON HungerReport with totals, signals, actions, and execution results.
     """
     from myco.notes import compute_hunger_report
 
@@ -1047,7 +1052,69 @@ async def myco_hunger(
     except Exception as e:
         return json.dumps({"error": f"Hunger computation failed: {e}"})
 
-    return json.dumps(report.to_dict(), ensure_ascii=False, indent=2)
+    result = report.to_dict()
+
+    # Wave 54: auto-execute recommended actions
+    if execute and report.actions:
+        execution_results = []
+        for action in report.actions:
+            verb = action.get("verb", "")
+            a_args = action.get("args", {})
+            reason = action.get("reason", "")
+            exec_result = {"verb": verb, "reason": reason}
+            try:
+                if verb == "digest":
+                    note_id = a_args.get("note_id")
+                    if note_id:
+                        import argparse
+                        ns = argparse.Namespace(
+                            note_id=note_id, project_dir=str(root),
+                            to_status=a_args.get("to_status"),
+                            json=False, excrete=None)
+                        from myco.notes_cmd import run_digest
+                        import io, contextlib
+                        buf = io.StringIO()
+                        with contextlib.redirect_stdout(buf):
+                            rc = run_digest(ns)
+                        exec_result["status"] = "ok" if rc == 0 else f"exit {rc}"
+                    else:
+                        exec_result["status"] = "skipped (bulk digest needs note selection)"
+                elif verb == "compress":
+                    tag = a_args.get("tag")
+                    cohort = a_args.get("cohort")
+                    import argparse
+                    ns = argparse.Namespace(
+                        tag=tag, note_ids=[], rationale=f"auto: {reason[:100]}",
+                        status=None, confidence=0.85, dry_run=False,
+                        json=False, project_dir=str(root),
+                        cohort=cohort)
+                    from myco.compress_cmd import run_compress
+                    import io, contextlib
+                    buf = io.StringIO()
+                    with contextlib.redirect_stdout(buf):
+                        rc = run_compress(ns)
+                    exec_result["status"] = "ok" if rc == 0 else f"exit {rc}"
+                    exec_result["output"] = buf.getvalue().strip()[:200]
+                elif verb == "prune":
+                    import argparse
+                    ns = argparse.Namespace(
+                        apply=True, json=False, project_dir=str(root))
+                    from myco.notes_cmd import run_prune
+                    import io, contextlib
+                    buf = io.StringIO()
+                    with contextlib.redirect_stdout(buf):
+                        rc = run_prune(ns)
+                    exec_result["status"] = "ok" if rc == 0 else f"exit {rc}"
+                elif verb == "inlet":
+                    exec_result["status"] = "advisory (inlet needs human/agent decision)"
+                else:
+                    exec_result["status"] = f"skipped (unknown verb: {verb})"
+            except Exception as e:
+                exec_result["status"] = f"error: {e}"
+            execution_results.append(exec_result)
+        result["execution_results"] = execution_results
+
+    return json.dumps(result, ensure_ascii=False, indent=2)
 
 
 # ---------------------------------------------------------------------------
