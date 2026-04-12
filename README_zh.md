@@ -13,7 +13,7 @@
 [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
 [![Lint](https://img.shields.io/badge/Lint-23%2F23%20绿灯-brightgreen?style=for-the-badge)](#三条不可动摇的宪法)
 
-[活的基质](#活的基质) · [五项核心能力](#五项核心能力) · [如何与-myco-协作](#如何与-myco-协作) · [三条不可动摇的宪法](#三条不可动摇的宪法) · [五十年的肩膀](#五十年的肩膀) · [今天就上手](#今天就上手)
+[活的基质](#活的基质) · [为什么是 Myco](#为什么是-myco) · [五项核心能力](#五项核心能力) · [如何与-myco-协作](#如何与-myco-协作) · [三条不可动摇的宪法](#三条不可动摇的宪法) · [五十年的肩膀](#五十年的肩膀) · [今天就上手](#今天就上手)
 
 **语言：** [English](README.md) · 中文（当前） · [日本語](README_ja.md)
 

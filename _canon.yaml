@@ -754,6 +754,8 @@ system:
     - upstream_inbox_pressure   # v0.9.0 — pending bundles / ceiling(5);
                                 # ceiling is bootstrap, pending friction data.
                                 # Debate: docs/primordia/upstream_absorb_craft_2026-04-11.md
+    - mycelium_density          # structural: edges/nodes ratio (raw graph density, not [0,1])
+    - graph_orphan_pressure     # structural: orphans/total ratio (zero-inlink node fraction)
     upstream_inbox_ceiling: 5   # count at which pressure saturates to 1.0
 
 architecture:
