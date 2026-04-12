@@ -220,25 +220,17 @@ Myco 还很早。你能做出的最高杠杆贡献，是挑下面这六条里的
 如果你想停止阅读、开始运行：
 
 ```bash
-# 从源码安装（PyPI 即将发布）
-pip install git+https://github.com/Battam1111/Myco.git
-
-# 在内核上启动一个新实例
-myco init my-project --level 2
-
-# 或者迁移一个现有项目（非破坏性；你的 CLAUDE.md 原封不动）
-myco migrate ./your-project --entry-point CLAUDE.md
-myco lint --project-dir ./your-project     # 建立基质基线
-myco hunger --project-dir ./your-project   # 代谢仪表盘
+git clone https://github.com/Battam1111/Myco.git
+cd Myco
+pip install -e ".[mcp]"
+myco init --agent claude my-project
 ```
 
-**MCP 集成** —— 你的智能体自动获得 19 个工具，无需人工提示：
+Myco 是一个活的有机体 —— 可编辑安装意味着整个系统可以自我进化：内核代码、模板、lint 规则、hunger 信号。冻结的 pip install 会限制可进化的范围。
 
-```bash
-pip install 'git+https://github.com/Battam1111/Myco.git#egg=myco[mcp]'
-```
+> **快速预览：** `pip install myco`（冻结快照，进化受限）
 
-仓库内自带一份开箱即用的 `.mcp.json`。装到 Claude Code、Cursor 或任何说 MCP 的客户端后，你的智能体自动发现：
+**MCP 集成** —— 上面的 `.[mcp]` 已包含一切。仓库内自带一份开箱即用的 `.mcp.json`。装到 Claude Code、Cursor 或任何说 MCP 的客户端后，你的智能体自动发现：
 
 - **基质健康**：`myco_lint` · `myco_status` · `myco_search` · `myco_log` · `myco_reflect`
 - **知识代谢**：`myco_eat` · `myco_digest` · `myco_view` · `myco_hunger`

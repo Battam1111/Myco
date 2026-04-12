@@ -114,13 +114,15 @@ Use [GitHub Issues](https://github.com/Battam1111/Myco/issues) with the appropri
 ```bash
 git clone https://github.com/Battam1111/Myco.git
 cd Myco
-pip install -e .
+pip install -e ".[mcp]"
 
 # Verify installation
 myco --version
-myco init /tmp/test-project --level 1
+myco init --agent claude /tmp/test-project
 myco lint --project-dir /tmp/test-project
 ```
+
+Editable install (`-e`) is the only recommended path. Myco is a living organism — the kernel code, templates, lint rules, and hunger signals are all meant to self-evolve. A frozen install limits what can evolve.
 
 ### Code Style
 

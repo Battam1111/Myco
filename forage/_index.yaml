@@ -1,3 +1,4 @@
+# Forage manifest. Ref: docs/agent_protocol.md §2.4 (forage lifecycle)
 schema_version: 1
 items:
 - id: f_20260411T180358_c7ab

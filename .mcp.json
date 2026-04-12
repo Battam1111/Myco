@@ -1,8 +1,12 @@
 {
+  "_comment": "MCP server config. Refs: docs/agent_protocol.md \u00a72, src/myco/mcp_server.py",
   "mcpServers": {
     "myco": {
       "command": "python",
-      "args": ["-m", "myco.mcp_server"],
+      "args": [
+        "-m",
+        "myco.mcp_server"
+      ],
       "env": {
         "PYTHONUNBUFFERED": "1"
       }

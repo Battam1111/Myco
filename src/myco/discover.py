@@ -9,6 +9,9 @@ the scaffolding (gap detection, candidate structure, ingestion pipeline).
 This is the "proactive metabolism" organ: the organism doesn't wait for
 food to arrive, it senses hunger and goes hunting.
 """
+# --- Mycelium references ---
+# Open problems: docs/open_problems.md §1 (cold start), §4 (inlet triggers)
+# Protocol:      docs/agent_protocol.md §2.4 (discovery trigger conditions)
 
 from __future__ import annotations
 

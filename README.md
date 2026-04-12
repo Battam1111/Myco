@@ -221,25 +221,17 @@ The continuously-maintained registry lives at [`docs/open_problems.md`](docs/ope
 If you want to stop reading and start running:
 
 ```bash
-# Install from source (PyPI publication coming soon)
-pip install git+https://github.com/Battam1111/Myco.git
-
-# Start a new instance on the kernel
-myco init my-project --level 2
-
-# Or migrate an existing project (non-destructive; your CLAUDE.md stays)
-myco migrate ./your-project --entry-point CLAUDE.md
-myco lint --project-dir ./your-project     # baseline the substrate
-myco hunger --project-dir ./your-project   # metabolic dashboard
+git clone https://github.com/Battam1111/Myco.git
+cd Myco
+pip install -e ".[mcp]"
+myco init --agent claude my-project
 ```
 
-**MCP integration** — your agent gets 19 tools automatically, no manual prompting:
+Myco is a living organism — editable install means the entire system can self-evolve: kernel code, templates, lint rules, hunger signals. A frozen pip install limits what can evolve.
 
-```bash
-pip install 'git+https://github.com/Battam1111/Myco.git#egg=myco[mcp]'
-```
+> **Quick preview:** `pip install myco` (frozen snapshot, limited evolution)
 
-A ready-to-use `.mcp.json` ships in the repo. Once installed in Claude Code, Cursor, or any MCP-speaking client, your agent auto-discovers:
+**MCP integration** — the `.[mcp]` extra above already includes everything. A ready-to-use `.mcp.json` ships in the repo. Once installed in Claude Code, Cursor, or any MCP-speaking client, your agent auto-discovers:
 
 - **Substrate health** · `myco_lint` · `myco_status` · `myco_search` · `myco_log` · `myco_reflect`
 - **Knowledge metabolism** · `myco_eat` · `myco_digest` · `myco_view` · `myco_hunger`
