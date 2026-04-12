@@ -6,7 +6,7 @@ The canonical dimension count is `len(FULL_CHECKS)` (computed at module load
 time, see bottom of this file). This docstring's dimension table below is a
 maintainer-facing index, not the source of truth — when a new dimension
 lands, FULL_CHECKS auto-updates and L19 enforces that every downstream cache
-(README badges, MYCO.md headlines, immune.py docstring, mcp_server.py tool
+(README badges, MYCO.md headlines, mcp_server.py tool
 description, cli.py help strings, etc.) tracks it.
 
 Dimensions:
@@ -1840,7 +1840,6 @@ _L19_MEDIUM_SURFACES = (
     "CONTRIBUTING.md",
     "wiki/README.md",
     "src/myco/cli.py",
-    "src/myco/immune.py",
     "src/myco/mcp_server.py",
     "src/myco/migrate.py",
     "src/myco/init_cmd.py",
@@ -1853,7 +1852,7 @@ _L19_MEDIUM_SURFACES = (
 # 5 regex patterns (per Wave 38 D6). Each requires domain keywords to
 # minimize false positives on unrelated numeric strings.
 _L19_PAT_BADGE = re.compile(r"\bLint-(\d+)%2F(\d+)\b")
-_L19_PAT_DIM_EN = re.compile(r"\b(\d+)[- ]dimension(?:al)?\s+(?:lint|immune|consistency)", re.IGNORECASE)
+_L19_PAT_DIM_EN = re.compile(r"\b(\d+)[- ]dimension(?:al)?\s+(?:lint|health|consistency)", re.IGNORECASE)
 # CJK count claim: matches both 中文 `维` and 日本語 `次元`. Trailing keyword
 # is `lint`, `L0`, `次元の`, or 中文 quantifier patterns to minimize false
 # positives.
@@ -1885,8 +1884,8 @@ def lint_dimension_count_consistency(canon, root):
 
     What L19 scans (per Wave 38 D4 + D5):
       - HIGH surfaces (4): README.md, README_zh.md, README_ja.md, MYCO.md
-      - MEDIUM surfaces (11): CONTRIBUTING.md, wiki/README.md,
-        src/myco/{cli,immune,mcp_server,migrate,init_cmd}.py,
+      - MEDIUM surfaces (10): CONTRIBUTING.md, wiki/README.md,
+        src/myco/{cli,mcp_server,migrate,init_cmd}.py,
         scripts/myco_{init,migrate}.py, docs/reusable_system_design.md,
         docs/adapters/README.md
       - NOT scanned: pinned surfaces (log.md, contract_changelog.md,
@@ -1895,7 +1894,7 @@ def lint_dimension_count_consistency(canon, root):
 
     What L19 detects (per Wave 38 D6 — 5 regex patterns):
       1. README badge `Lint-(\\d+)%2F(\\d+)\\s+green`
-      2. English count `\\b(\\d+)[- ]dimension(?:al)?\\s+(?:lint|immune|consistency)`
+      2. English count `\\b(\\d+)[- ]dimension(?:al)?\\s+(?:lint|health|consistency)`
       3. Chinese count `\\b(\\d+)\\s*维\\s*(?:lint|L0)`
       4. L range `\\bL0[-–](?:L)?(\\d+)\\b`
       5. Pass ratio `\\b(\\d+)/(\\d+)\\s+(?:green|绿|PASS|pass)`

@@ -70,7 +70,7 @@ def _write_clean_surfaces(project: Path) -> None:
     # HIGH surfaces — the badge regex requires the URL-encoded slash
     (project / "README.md").write_text(
         f"![Lint](https://img.shields.io/badge/Lint-{EXPECTED}%2F{EXPECTED}%20green-brightgreen)\n"
-        f"This is the {EXPECTED}-dimension immune system L0-L{EXPECTED_L_MAX}.\n",
+        f"This is the {EXPECTED}-dimension health check L0-L{EXPECTED_L_MAX}.\n",
         encoding="utf-8",
     )
     (project / "README_zh.md").write_text(

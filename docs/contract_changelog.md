@@ -38,6 +38,58 @@ Commit message 格式必须使用 Conventional Commits 风格并带 `[contract:*
 
 ---
 
+## v0.33.0 — 2026-04-12 (minor · Wave 42 structural cleanup — delete immune.py/metabolism.py aliases, remove immune verb, unify L19 surfaces)
+
+**What changed**:
+
+Wave 42 cleans the foundation before the Phase B–E evolution sequence
+(Waves 43–53). Three removals, zero new features.
+
+1. **DELETE `src/myco/immune.py`** (131 lines) — pure re-export alias of
+   `myco.lint` created in Wave 29 (biomimetic nomenclature). Zero callers
+   anywhere in the codebase. The planned "physical move" from lint.py →
+   immune.py never happened and is now superseded by the direct-reference
+   approach: `myco.lint` is the canonical module name.
+
+2. **DELETE `src/myco/metabolism.py`** (108 lines) — pure re-export alias
+   of `myco.notes`. Same rationale: zero callers, planned rename never
+   materialized, direct `myco.notes` reference wins.
+
+3. **REMOVE `myco immune` CLI verb** — the biomimetic alias for `myco lint`
+   added in Wave 29. `myco lint` remains the sole lint entry point.
+   The verb alias duplicated 15 lines of argparse setup and a 4-line
+   dispatch block in cli.py for zero additional capability.
+
+4. **L19 surface list update** — remove `src/myco/immune.py` from
+   `_L19_MEDIUM_SURFACES` (10 → 10 entries, was 11). Update dimension
+   count regex from `immune` keyword to `health` keyword to match
+   updated README/CLI help text.
+
+**Files modified** (10 files):
+
+    src/myco/immune.py (DELETED)
+    src/myco/metabolism.py (DELETED)
+    src/myco/cli.py (remove immune verb alias + clean lint help text)
+    src/myco/lint.py (L19 surface list + regex + docstring)
+    _canon.yaml (contract_version v0.32.0 → v0.33.0)
+    src/myco/templates/_canon.yaml (synced_contract_version v0.32.0 → v0.33.0)
+    MYCO.md (contract version refs + project summary + lint indicator)
+    README.md (remove immune alias from lint verb row)
+    README_zh.md (same)
+    README_ja.md (same)
+    docs/adapters/README.md (contract version)
+    tests/unit/test_lint_dimension_count.py (test content: immune → health)
+
+**Supersedes**: Wave 29 biomimetic alias strategy
+    (`docs/primordia/biomimetic_nomenclature_craft_2026-04-12.md` D7
+    one-wave grace period was long exceeded; Wave 42 closes the alias
+    chapter permanently).
+
+**Why now**: user directive to "clean up all compromises, aliases,
+redundancy" before building the next evolution phase (Waves 43+).
+
+---
+
 ## v0.32.0 — 2026-04-12 (minor · L22 wave-seed lifecycle, Wave 41 — raw wave-seed orphan detection as seven-step pipeline post-condition)
 
 **Author**: Claude (Myco kernel agent, autonomous run under explicit user grant, Wave 41)
