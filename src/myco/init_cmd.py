@@ -202,6 +202,35 @@ def run_init(args) -> int:
 
         print(f"\n🍄 Done! Myco is wired for Claude Code.")
         print(f"   Run `claude` in {project_dir.resolve()} — Myco is ready.")
+
+    elif agent == "cursor":
+        # Generate .cursorrules from template
+        cursorrules_content = fill_template(get_template("CURSORRULES"), replacements)
+        (project_dir / ".cursorrules").write_text(cursorrules_content, encoding="utf-8")
+        print(f"  ✅ .cursorrules (Cursor agent entry point)")
+
+        # Generate .mcp.json — Cursor supports MCP natively
+        import json
+        mcp_config = json.loads(get_template("mcp.json"))
+        (project_dir / ".mcp.json").write_text(
+            json.dumps(mcp_config, indent=2), encoding="utf-8")
+        print(f"  ✅ .mcp.json (MCP server auto-discovery)")
+
+        print(f"\n🍄 Done! Myco is wired for Cursor.")
+        print(f"   Open {project_dir.resolve()} in Cursor — .cursorrules will load automatically.")
+
+    elif agent == "gpt":
+        # Generate GPT.md from template
+        gpt_content = fill_template(get_template("GPT.md"), replacements)
+        (project_dir / "GPT.md").write_text(gpt_content, encoding="utf-8")
+        print(f"  ✅ GPT.md (GPT/Codex agent entry point)")
+
+        # No .mcp.json — GPT doesn't support MCP natively
+        # Print CLI usage guidance instead
+        print(f"\n🍄 Done! Myco is wired for GPT/Codex.")
+        print(f"   Load GPT.md as context, then run `myco hunger --execute` via shell.")
+        print(f"   All Myco tools available as CLI commands: `myco <verb>`")
+
     else:
         print(f"\n🍄 Done! Your Myco-powered project is ready.")
         print(f"   Next steps:")
