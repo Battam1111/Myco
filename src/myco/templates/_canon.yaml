@@ -96,7 +96,6 @@ system:
     class_x:                           # Auto-mergeable
       - log.md
       - notes/**
-      - examples/**
     class_y:                           # Inline-confirm (docs / wiki prose)
       - wiki/**
       - docs/**
