@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/myco-logo.svg" width="160" alt="Myco">
+  <img src="assets/logo_dark.svg" width="160" alt="Myco">
 </p>
 
 <h1 align="center">Myco</h1>
