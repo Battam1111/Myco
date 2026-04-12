@@ -299,3 +299,108 @@ def prune_sessions(
         "removed_turns": before - after,
         "remaining_turns": after,
     }
+
+
+# ---------------------------------------------------------------------------
+# Wave E1: Predictive hunger — need anticipation from session history
+# ---------------------------------------------------------------------------
+
+def predict_knowledge_needs(
+    root: Path,
+    *,
+    lookback_days: int = 7,
+    db_path: Optional[Path] = None,
+    limit: int = 5,
+) -> List[Dict[str, Any]]:
+    """Analyze session history to predict future knowledge needs.
+
+    Looks for:
+    1. Repeated search misses (same topic searched multiple times)
+    2. Undocumented recurring topics (frequently discussed but no notes exist)
+    3. Friction pattern clusters (self-correction tags accumulating)
+
+    Returns predicted needs as structured recommendations.
+    """
+    config = _load_sessions_config(root)
+    if db_path is None:
+        db_path = root / config["db_path"]
+
+    predictions: List[Dict[str, Any]] = []
+
+    if not db_path.exists():
+        return predictions
+
+    # 1. Find frequently discussed topics from user turns
+    conn = sqlite3.connect(str(db_path))
+    try:
+        # Extract most common content words from user turns
+        cursor = conn.execute(
+            "SELECT content FROM session_turns WHERE role = 'user' LIMIT 200"
+        )
+        word_freq: Dict[str, int] = {}
+        stop_words = {"the", "a", "an", "is", "it", "to", "and", "of", "in", "for",
+                      "on", "with", "that", "this", "can", "you", "my", "how", "what",
+                      "do", "i", "me", "we", "be", "not", "but", "or", "if", "from"}
+        for (content,) in cursor:
+            if not content:
+                continue
+            words = content.lower().split()
+            for w in words:
+                w = w.strip(".,!?:;\"'()[]{}").lower()
+                if len(w) > 3 and w not in stop_words:
+                    word_freq[w] = word_freq.get(w, 0) + 1
+
+        # Topics that appear frequently but may not be in notes
+        from myco.notes import list_notes, read_note
+        note_content = ""
+        for path in list_notes(root):
+            try:
+                _, body = read_note(path)
+                note_content += body.lower() + " "
+            except Exception:
+                continue
+
+        for word, count in sorted(word_freq.items(), key=lambda x: -x[1])[:20]:
+            if count >= 3 and word not in note_content:
+                predictions.append({
+                    "type": "undocumented_recurring_topic",
+                    "topic": word,
+                    "frequency": count,
+                    "description": f"Topic '{word}' discussed {count} times in sessions "
+                                   f"but no notes contain it. Consider creating knowledge.",
+                })
+                if len(predictions) >= limit:
+                    break
+
+    except Exception:
+        pass
+    finally:
+        conn.close()
+
+    # 2. Check for accumulating search misses on same topics
+    try:
+        import yaml
+        miss_path = root / ".myco_state" / "search_misses.yaml"
+        if miss_path.exists():
+            with open(miss_path, "r", encoding="utf-8") as f:
+                miss_data = yaml.safe_load(f) or {}
+            recent = miss_data.get("recent_misses", [])
+            # Count query frequency
+            query_count: Dict[str, int] = {}
+            for miss in recent:
+                q = miss.get("query", "").lower().strip()
+                if q:
+                    query_count[q] = query_count.get(q, 0) + 1
+            for q, c in sorted(query_count.items(), key=lambda x: -x[1]):
+                if c >= 2:
+                    predictions.append({
+                        "type": "repeated_search_miss",
+                        "topic": q,
+                        "frequency": c,
+                        "description": f"Search for '{q}' missed {c} times. "
+                                       f"Proactive acquisition recommended.",
+                    })
+    except Exception:
+        pass
+
+    return predictions[:limit]

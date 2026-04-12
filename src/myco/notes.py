@@ -2176,6 +2176,20 @@ def compute_hunger_report(
             )
     except Exception:
         pass  # grandfather-compatible
+    # Predictive hunger signal (Wave E1) — anticipate knowledge needs
+    # from session history analysis.
+    try:
+        from myco.sessions import predict_knowledge_needs
+        predictions = predict_knowledge_needs(root, limit=3)
+        if predictions:
+            topics = ", ".join(p["topic"] for p in predictions[:3])
+            signals.append(
+                f"predicted_need: {len(predictions)} anticipated knowledge "
+                f"need(s) from session history (top: {topics}). Consider "
+                f"proactive acquisition via `myco_discover`."
+            )
+    except Exception:
+        pass  # grandfather-compatible
     if not signals:
         signals.append("healthy: notes/ is metabolizing normally.")
 
