@@ -173,22 +173,11 @@ system:
       trivial_exempt_lines: 20
       trigger_surfaces:
         kernel_contract:
-          - docs/agent_protocol.md
-          - docs/craft_protocol.md
-          - docs/contract_changelog.md   # Wave 18 (v0.17.0)
+          - "{{ENTRY_POINT}}"
           - _canon.yaml
-          - src/myco/lint.py
-          - src/myco/mcp_server.py
-          - src/myco/notes.py             # Wave 18 (v0.17.0)
-          - src/myco/notes_cmd.py         # Wave 18 (v0.17.0)
-          - src/myco/templates/_canon.yaml
-          - src/myco/templates/MYCO.md
+          - docs/*.md
         public_claim:
           - README.md
-          - README_zh.md
-          - README_ja.md
-          - MYCO.md
-          - docs/vision.md
       evidence_pattern: '(docs/primordia/[a-z0-9_]+_craft_\d{4}-\d{2}-\d{2}(_[0-9a-f]{4})?\.md|craft_reference\s*:)'
 
   # ── Skill Schema (absorbed from gstack) ───────────────────────────
@@ -424,7 +413,7 @@ system:
       - skills/                        # Wave 50 — operational procedures
       - docs/
       - log.md
-      - MYCO.md
+      - "{{ENTRY_POINT}}"
       - _canon.yaml
       - src/
       - scripts/
