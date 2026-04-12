@@ -29,7 +29,7 @@ Priority (highest wins): session override > project CLAUDE.md > user ~/.claude >
 If a `skills/` directory exists, check for matching skills before starting a task.
 If no skill matches (or no skills/ directory), proceed with agent judgment.
 
-## Tool Triggers (19 MCP tools)
+## Tool Triggers (21 MCP tools)
 
 | Category | Tools | When to Call |
 |----------|-------|-------------|
