@@ -6,7 +6,7 @@ When configured in .mcp.json, AI agents (Claude Code, Cursor, etc.) automaticall
 discover these tools and call them at the right moments — no manual prompting needed.
 
 Tools:
-    myco_lint       — Run 20-dimensional consistency checks (L0-L19)
+    myco_lint       — Run 21-dimensional consistency checks (L0-L20)
     myco_status     — Quick overview of knowledge system health
     myco_search     — Search across wiki/docs/MYCO.md knowledge base
     myco_log        — Append friction/reflection entries to log.md
@@ -87,7 +87,7 @@ def _read_file(path: Path) -> Optional[str]:
 @mcp.tool(
     name="myco_lint",
     annotations={
-        "title": "Myco Lint — 20-Dimension Consistency Check",
+        "title": "Myco Lint — 21-Dimension Consistency Check",
         "readOnlyHint": True,
         "destructiveHint": False,
         "idempotentHint": True,
@@ -105,14 +105,14 @@ async def myco_lint(
     modified wiki/, docs/, MYCO.md, _canon.yaml, or notes/. Also run after any
     Gear 3 retrospective or before commits that touch multiple knowledge files.
 
-    This is the 20-dimensional immune system of the knowledge substrate. It
+    This is the 21-dimensional immune system of the knowledge substrate. It
     catches contradictions across files, orphan references, stale patterns,
     version drift, write-surface violations, upstream transport hygiene, craft
     protocol schema violations, forage substrate hygiene issues, craft reflex
     arc compliance, boot brief freshness, contract drift, compression
-    integrity, and lint dimension count drift — things markdown linters and
-    prose linters cannot see because they check syntax, not cross-file
-    semantic consistency.
+    integrity, lint dimension count drift, and translation mirror skeleton
+    drift — things markdown linters and prose linters cannot see because they
+    check syntax, not cross-file semantic consistency.
 
     Checks: L0 Canon schema, L1 Reference integrity, L2 Number consistency,
     L3 Stale patterns, L4 Orphan detection, L5 Log coverage, L6 Date consistency,
@@ -126,7 +126,9 @@ async def myco_lint(
     L17 Contract Drift (synced_contract_version lag detection),
     L18 Compression Integrity (.original / extracted note hash audit),
     L19 Lint Dimension Count Consistency (downstream-cache integrity for
-    LINT_DIMENSION_COUNT — narrative surfaces must mirror len(lint.FULL_CHECKS)).
+    LINT_DIMENSION_COUNT — narrative surfaces must mirror len(lint.FULL_CHECKS)),
+    L20 Translation Mirror Consistency (locale README skeleton parity —
+    h2/h3/code-fence/table-row/badge counts must match across en/zh/ja).
 
     Args:
         project_dir: Path to Myco project root. Auto-detected if omitted.
@@ -167,7 +169,7 @@ async def myco_lint(
     report = {
         "project": str(root),
         "timestamp": datetime.now().isoformat(),
-        "mode": "quick (L0-L3)" if quick else "full (L0-L19)",
+        "mode": "quick (L0-L3)" if quick else "full (L0-L20)",
         "total_issues": total_issues,
         "all_passed": total_issues == 0,
         "checks": results,

@@ -11,7 +11,7 @@
 [![PyPI](https://img.shields.io/badge/PyPI-即将发布-lightgrey?style=for-the-badge)](https://github.com/Battam1111/Myco)
 [![Python](https://img.shields.io/badge/Python-3.8%2B-blue?style=for-the-badge)](https://www.python.org/)
 [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
-[![Lint](https://img.shields.io/badge/Lint-20%2F20%20绿灯-brightgreen?style=for-the-badge)](#三条不可动摇的宪法)
+[![Lint](https://img.shields.io/badge/Lint-21%2F21%20绿灯-brightgreen?style=for-the-badge)](#三条不可动摇的宪法)
 
 [活的基质](#活的基质) · [五项核心能力](#五项核心能力) · [如何与-myco-协作](#如何与-myco-协作) · [三条不可动摇的宪法](#三条不可动摇的宪法) · [五十年的肩膀](#五十年的肩膀) · [今天就上手](#今天就上手)
 
@@ -192,7 +192,7 @@ Myco 还很早。你能做出的最高杠杆贡献，是挑下面这六条里的
 
 | 阶段 | 已为真 | 即将到来 |
 |------|--------|----------|
-| **v0.x（今天）** | 四个向内齿轮已出货 · 20 维 lint 全绿 · 代谢 CLI 上线 · MCP 服务器暴露 9 个工具 · 内核/实例分离强制执行 · 一个无意识原型（ASCC）端到端验证 · 自我模型 D 层种子已落地（view 跟踪 + dead_knowledge 信号 + `myco prune` 自动排出）· 代谢入口 MVP scaffold 已出货（`myco inlet`，Wave 35 / v0.27.0）· L19 维度计数一致性 lint（Wave 38 / v0.29.0） | 入口冷启动、自主触发信号、持续压缩仍开放。大多数齿轮触发仍是人工。 |
+| **v0.x（今天）** | 四个向内齿轮已出货 · 21 维 lint 全绿 · 代谢 CLI 上线 · MCP 服务器暴露 9 个工具 · 内核/实例分离强制执行 · 一个无意识原型（ASCC）端到端验证 · 自我模型 D 层种子已落地（view 跟踪 + dead_knowledge 信号 + `myco prune` 自动排出）· 代谢入口 MVP scaffold 已出货（`myco inlet`，Wave 35 / v0.27.0）· L19 维度计数一致性 lint（Wave 38 / v0.29.0）· L20 翻译镜像一致性 lint（Wave 39 / v0.30.0） | 入口冷启动、自主触发信号、持续压缩仍开放。大多数齿轮触发仍是人工。 |
 | **v1.0** | 代谢入口完全自主 · 自我模型 D 落地 · 结构退化检测器播种 · 学习到的启发式取代手工触发信号 | 人类不再是引擎；人类严格仅作为选择压力存在。 |
 | **v∞** | 内核的进化已经没有任何单个人能把它的整体结构装进脑子 —— 但**任何**人依然能审计**任何**一次改动，因为 C2 透明永不松开。 | 开放问题。这里 [开放问题 3](#开放问题) 变成承重。 |
 
@@ -243,7 +243,7 @@ Myco 的动词是故意用的隐喻 —— 代谢就是正确的心智模型。
 | `uncompress` | 从 `.original` 恢复压缩前的原件 | `myco uncompress` | （仅 CLI） |
 | `prune` | D 层自动排出：扫描死知识笔记并打 excreted 标 | `myco prune` | （仅 CLI） |
 | `view` | 按过滤器读笔记（同时写入 `view_count` + `last_viewed_at`） | `myco view` | `myco_view` |
-| `lint` | 20 维基质健康检查（别名：`myco immune`） | `myco lint` | `myco_lint` |
+| `lint` | 21 维基质健康检查（别名：`myco immune`） | `myco lint` | `myco_lint` |
 | `correct` | 应用上一次 lint 的自动修复（别名：`myco molt`） | `myco correct` | （仅 CLI） |
 | `forage` | 把外部资源拉进代谢入口 | `myco forage` | （仅 CLI） |
 | `inlet` | 代谢入口 MVP —— 从配置好的源做 discover/evaluate/extract | `myco inlet` | （仅 CLI） |

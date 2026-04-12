@@ -1,11 +1,11 @@
 """Myco immune system — biomimetic alias for myco.lint.
 
 **Wave 29 (Biomimetic Nomenclature rewrite, phase 1 — additive)**: this module
-exposes the substrate's 20-dimension immune system (formerly "lint") under
+exposes the substrate's 21-dimension immune system (formerly "lint") under
 the biomimetic name `immune`, re-exporting everything from the underlying
 `lint` module without moving any implementation yet.
 
-**Why "immune" not "lint"**: the 20 dimensions L0–L19 perform immune-system
+**Why "immune" not "lint"**: the 21 dimensions L0–L20 perform immune-system
 functions on the substrate:
 - **L0** genome self-check (canon schema validity)
 - **L1** reference integrity (foreign-token detection)
@@ -27,6 +27,7 @@ functions on the substrate:
 - **L17** contract drift (cross-instance immune memory)
 - **L18** compression integrity (.original / extracted note hash audit — Wave 30, v0.26.0)
 - **L19** lint dimension count consistency (downstream-cache drift — Wave 38, v0.29.0)
+- **L20** translation mirror consistency (locale README skeleton parity — Wave 39, v0.30.0)
 
 "Lint" is the generic software-engineering term that reads as "static analysis
 tool". "Immune" is what the code actually does in the fungal-organism frame.
@@ -59,7 +60,7 @@ from myco.lint import (  # noqa: F401 — re-export
     read_file,
     find_files,
 
-    # 20 immune dimensions L0–L19
+    # 21 immune dimensions L0–L20
     lint_canon_schema,        # L0 — will become "lint_genome_schema" in a later wave
     lint_references,          # L1
     lint_numbers,             # L2
@@ -79,6 +80,8 @@ from myco.lint import (  # noqa: F401 — re-export
     lint_boot_brief_freshness,  # L16
     lint_contract_drift,      # L17
     lint_compression_integrity,  # L18 — Wave 30 (v0.26.0)
+    lint_dimension_count_consistency,  # L19 — Wave 38 (v0.29.0)
+    lint_translation_mirror_consistency,  # L20 — Wave 39 (v0.30.0)
 
     # Entry points
     main,
@@ -115,6 +118,8 @@ __all__ = [
     "lint_boot_brief_freshness",
     "lint_contract_drift",
     "lint_compression_integrity",
+    "lint_dimension_count_consistency",
+    "lint_translation_mirror_consistency",
     "main",
     "run_lint",
 ]
