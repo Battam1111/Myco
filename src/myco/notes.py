@@ -635,6 +635,10 @@ class HungerReport:
     dead_notes: List[Dict[str, Any]]        # terminal + cold + unviewed
     dead_threshold_days: int
     signals: List[str]                      # human-readable hunger signals
+    # Wave 46 (v0.35.0): structured action recommendations — closes the
+    # advisory-to-execution gap. Each action is a dict with verb, args,
+    # and reason. Agents read actions and execute without human prompting.
+    actions: List[Dict[str, Any]]
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -648,6 +652,7 @@ class HungerReport:
             "dead_notes": self.dead_notes,
             "dead_threshold_days": self.dead_threshold_days,
             "signals": self.signals,
+            "actions": self.actions,
         }
 
 
@@ -1909,6 +1914,7 @@ def compute_hunger_report(
         pass  # grandfather-compatible: missing module = feature off
     # Compression ripe signal (contract v0.26.0, Wave 30) — friction-driven
     # half of forward compression's trigger surface. Wave 27 D2.
+    compress_signal = None  # init before try — actions block reads this later
     try:
         compress_signal = detect_compression_ripe(root, now=now)
         if compress_signal:
@@ -1917,6 +1923,44 @@ def compute_hunger_report(
         pass  # grandfather-compatible: missing canon block = feature off
     if not signals:
         signals.append("healthy: notes/ is metabolizing normally.")
+
+    # Wave 46 (v0.35.0): compute structured action recommendations.
+    # Each action is a dict with verb, args, and reason. The agent reads
+    # these and executes without human prompting. Actions are derived from
+    # signals — they are the executable counterpart of the advisory signals.
+    actions: List[Dict[str, Any]] = []
+    if stale_raw:
+        oldest = stale_raw[0]
+        actions.append({
+            "verb": "digest",
+            "args": {"note_id": oldest.get("id")},
+            "reason": f"stale_raw: note {oldest.get('id')} untouched for ≥{stale_days} days",
+        })
+    if pure_raw_count > boot_threshold:
+        actions.append({
+            "verb": "digest",
+            "args": {},
+            "reason": f"raw_backlog: {pure_raw_count} pure-raw notes exceed threshold {boot_threshold}",
+        })
+    if dead_notes:
+        actions.append({
+            "verb": "prune",
+            "args": {"apply": True},
+            "reason": f"dead_knowledge: {len(dead_notes)} terminal note(s) cold for ≥{dead_threshold_days} days",
+        })
+    if compress_signal:
+        actions.append({
+            "verb": "compress",
+            "args": {"tag": "inlet"},
+            "reason": str(compress_signal),
+        })
+    if promote_candidates:
+        for pc in promote_candidates[:3]:
+            actions.append({
+                "verb": "digest",
+                "args": {"note_id": pc.get("id"), "to_status": "integrated"},
+                "reason": f"promote_ready: note {pc.get('id')} flagged promote_candidate=true",
+            })
 
     return HungerReport(
         total=len(paths),
@@ -1929,4 +1973,5 @@ def compute_hunger_report(
         dead_notes=dead_notes,
         dead_threshold_days=dead_threshold_days,
         signals=signals,
+        actions=actions,
     )
