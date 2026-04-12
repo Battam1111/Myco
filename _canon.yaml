@@ -260,6 +260,68 @@ system:
       # AS PART OF landing a craft conclusion.
       evidence_pattern: '(docs/primordia/[a-z0-9_]+_craft_\d{4}-\d{2}-\d{2}(_[0-9a-f]{4})?\.md|craft_reference\s*:)'
 
+  # --- Vertical Traceability Index (Wave 56) ---
+  # Agent navigation map: when ANY layer changes, read this index to find
+  # the full impact path across Story→Vision→Contract→Verification→Code.
+  # NOT a lint dimension — this is for Agent judgment. Lint is dead code
+  # that catches mechanical errors; the Agent uses this map to catch
+  # conceptual drift with its own intelligence.
+  # Authoritative design: five-level refinement model (Wave 55 session).
+  traceability:
+    anchors:
+      symbiont:                      # Anchor #1: Agent-Substrate 共生体
+        story: "MYCO.md:§身份锚点:1"
+        vision: ["docs/vision.md:§一"]
+        contract: ["_canon.yaml::architecture", "docs/agent_protocol.md:§0.5"]
+        lint: [L1, L4, L11]
+        code: [cli.py, mcp_server.py, init_cmd.py]
+      non_parametric:                # Anchor #2: 非参数进化
+        story: "MYCO.md:§身份锚点:2"
+        vision: ["docs/vision.md:§九"]
+        contract: []
+        lint: []
+        code: []
+      autonomous_pipeline:           # Anchor #3: 自主代谢管道
+        story: "MYCO.md:§身份锚点:3"
+        vision: ["docs/vision.md:§三"]
+        contract: ["_canon.yaml::notes_schema", "docs/agent_protocol.md:§2.2,§3,§4"]
+        lint: [L10, L18, L22]
+        code: [notes.py, notes_cmd.py, compress_cmd.py, inlet_cmd.py]
+        hunger: [raw_backlog, stale_raw, compression_ripe, compression_pressure]
+      compression_cognition:         # Anchor #4: 压缩即认知
+        story: "MYCO.md:§身份锚点:4"
+        vision: ["docs/vision.md:§三"]
+        contract: ["_canon.yaml::notes_schema.compression"]
+        lint: [L18]
+        code: [compress_cmd.py, cohorts.py]
+        hunger: [compression_ripe, compression_pressure]
+      self_model:                    # Anchor #5: 四层自我模型
+        story: "MYCO.md:§身份锚点:5"
+        vision: ["docs/vision.md:§三"]
+        contract: ["_canon.yaml::notes_schema.dead_knowledge_threshold_days"]
+        lint: [L10]
+        code: [notes.py, graph.py, sessions.py]
+        hunger: [dead_knowledge, graph_orphans, session_index_missing]
+      internalized_selection:        # Anchor #6: 内化的变异-选择
+        story: "MYCO.md:§身份锚点:6"
+        vision: ["docs/vision.md:§二:C2", "docs/vision.md:§五"]
+        contract: ["_canon.yaml::boot_reflex", "docs/agent_protocol.md:§7"]
+        lint: [L0-L22]              # lint IS the selection mechanism
+        code: [lint.py, "notes.py::compute_hunger_report"]
+        hunger: [contract_drift, craft_reflex_missing]
+      theoretical_lineage:           # Anchor #7: 理论血统
+        story: "MYCO.md:§身份锚点:7"
+        vision: ["docs/vision.md:§六"]
+        contract: []
+        lint: []
+        code: []
+      permanence_anchors:            # Anchor #8: 永久锚点文档
+        story: "MYCO.md:§身份锚点:8"
+        vision: []
+        contract: ["_canon.yaml::craft_protocol"]
+        lint: [L13, L15]
+        code: []
+
   # --- Structural Limits (contract v1.5.0) ---
   # Authoritative spec:    docs/biomimetic_map.md §4
   # Debate of record:      docs/primordia/biomimetic_restructure_craft_2026-04-11.md

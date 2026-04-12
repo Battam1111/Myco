@@ -191,6 +191,14 @@ system:
           - docs/vision.md
       evidence_pattern: '(docs/primordia/[a-z0-9_]+_craft_\d{4}-\d{2}-\d{2}(_[0-9a-f]{4})?\.md|craft_reference\s*:)'
 
+  # ── Vertical Traceability Index (Wave 56) ─────────────────────────────
+  # Agent navigation map: maps identity anchors to their full vertical
+  # stack (story → vision → contract → lint → code → hunger signals).
+  # Instances should customize this for their own project-specific anchors.
+  # See kernel _canon.yaml for the kernel's anchor mappings.
+  traceability:
+    anchors: {}    # Instances define their own; kernel provides the schema
+
   # ── Structural Limits (contract v0.5.0) ─────────────────────────────────────
   # Soft limits that feed the `structural_bloat` hunger signal. Not hard
   # lints — structural bloat is a gradual degradation, not a contract
