@@ -38,6 +38,127 @@ Commit message 格式必须使用 Conventional Commits 风格并带 `[contract:*
 
 ---
 
+## v0.29.0 — 2026-04-12 (minor · L19 lint dimension count consistency + LINT_DIMENSION_COUNT SSoT enforced, Wave 38 — narrative-cache anti-drift)
+
+**Author**: Claude (Myco kernel agent, autonomous run under explicit user grant, Wave 38)
+
+**Motivation**: Wave 37 (the README + doctrinal-surface staleness sweep) discovered that
+between Wave 30 (when L18 landed and the substrate moved from 14→15→…→19 dimensions
+across the L15-L18 sequence) and Wave 37 (when the manual sweep caught it), 15+ narrative
+surfaces had silently rotted to claim "15-dimension / L0-L14" while the actual substrate
+was at 19 dimensions / L0-L18. Affected surfaces included the README badge (user-facing
+first impression!), MYCO.md headlines, mcp_server.py docstrings + tool descriptions,
+CONTRIBUTING.md, wiki/README.md, immune.py, the migrate/init scripts, and several docs/
+files. The drift was invisible because no automated check compared the narrative
+references against structural ground truth — `len(FULL_CHECKS)` in `src/myco/lint.py`.
+Wave 37 closed the immediate drift but ranked an automated guard as the #1 followup
+(Wave 37 D7 candidate #1). This wave delivers that guard.
+
+**Why a structural lint, not a one-time script**: Wave 38 craft §2 Attack A defends
+permanence. A one-time fix script run today would protect against today's drift; it
+would do nothing the next time a wave adds L20. A structural check encoded as a lint
+dimension is the substrate-native way to make any consistency invariant *permanently*
+hold — every future `myco lint` invocation re-runs it for free, and any wave that
+forgets to bump downstream caches trips L19 immediately. The cost (one new dimension,
+five regex patterns, ~120 lines including the surface lists and docstring) is paid
+once; the protection is paid forward indefinitely.
+
+**Why this is a kernel_contract change** (not a public_claim): L19 modifies the
+behavior of `myco lint` (a load-bearing CLI verb), introduces a new lint dimension
+(adds to `FULL_CHECKS` — the SSoT for LINT_DIMENSION_COUNT), and bumps the kernel
+contract version that downstream instances synchronize against. All three are
+kernel_contract trigger surfaces per `docs/agent_protocol.md`, so the wave must
+land via a kernel_contract craft (target_confidence ≥ 0.90, ≥ 3 rounds, single-author
+equality not strict-less-than per `docs/craft_protocol.md §4` floor for kernel_contract).
+Authoritative craft: `docs/primordia/lint_dimension_count_consistency_craft_2026-04-12.md`
+(D1-D9, 3 rounds, target=current=0.90).
+
+**Changes**:
+
+1. **NEW lint dimension L19 — Lint Dimension Count Consistency**:
+   `src/myco/lint.py::lint_dimension_count_consistency` reads `len(FULL_CHECKS)` at
+   call time and scans 4 HIGH-severity narrative surfaces (README.md, README_zh.md,
+   README_ja.md, MYCO.md) + 11 MEDIUM-severity surfaces (CONTRIBUTING.md,
+   wiki/README.md, src/myco/{cli,immune,mcp_server,migrate,init_cmd}.py,
+   scripts/myco_{init,migrate}.py, docs/reusable_system_design.md,
+   docs/adapters/README.md) for any of 5 regex patterns whose integer doesn't
+   match the SSoT.
+
+2. **5 regex patterns** (Wave 38 D6) — README badge `Lint-(\\d+)%2F(\\d+)`, English
+   `\\b(\\d+)[- ]dimension(?:al)?\\s+(?:lint|immune|consistency)`, CJK
+   `\\b(\\d+)\\s*(?:维|次元)\\s*(?:lint|L0|の|的)?` (covers both 中文 and 日本語),
+   L range `\\bL0[-–](?:L)?(\\d+)\\b` (with quick-mode subset exemption), and
+   pass ratio `\\b(\\d+)/(\\d+)\\s+(?:green|绿|PASS|pass)`. Each pattern requires
+   a domain keyword to minimize false positives on unrelated numeric strings.
+
+3. **Quick-mode subset exemption** (Wave 38 craft §3 C7): the L-range pattern
+   exempts both `L0-L{full_max}` AND `L0-L{quick_max}` so legitimate references
+   to the documented quick-mode sub-range (e.g. `myco lint --quick: L0-L3`) are
+   not falsely flagged. The exemption derives from the same SSoT
+   (`len(QUICK_CHECKS) - 1`), not a hardcoded 3.
+
+4. **Pinned-surface allowlist** (Wave 38 D5): L19 does NOT scan log.md,
+   contract_changelog.md, docs/primordia/*, notes/*, examples/ascc/*, or
+   src/myco/lint.py itself. The first five are append-only/pinned per Hard
+   Contract #2 (historical claims must be preserved verbatim). lint.py is
+   excluded to avoid the own-file self-reference loophole (Wave 38 craft §3 L1).
+
+5. **Module-level FULL_CHECKS / QUICK_CHECKS tuples** (Wave 38 D2): refactored
+   `src/myco/lint.py::main()` from a local `checks = [...]` block into module-
+   level immutable tuples that L19 (and any other consumer) can reference as the
+   single source of truth. Tuple immutability prevents accidental mutation;
+   `main()` casts to list for its existing local-mutable pattern.
+
+6. **mcp_server.py dispatch refactor** (Wave 38 D9 — scope expansion): the
+   pre-existing `src/myco/mcp_server.py::myco_lint` function maintained its OWN
+   local `checks = [...]` list that had drifted to L0-L14 only and was silently
+   dropping L15-L18 from MCP-mode lint reports. Refactored to import
+   `FULL_CHECKS, QUICK_CHECKS` from `myco.lint` and dispatch directly. This
+   eliminates a real behavioral bug (MCP users were unknowingly running 15-dim
+   lints while CLI users were running 19-dim) and makes mcp_server.py a true
+   downstream of the SSoT.
+
+7. **Contract version bump**: `_canon.yaml::system.contract_version` v0.28.0 →
+   v0.29.0; `_canon.yaml::system.synced_contract_version` mirror; template
+   `src/myco/templates/_canon.yaml::system.synced_contract_version` mirror.
+
+8. **15+ narrative surface bumps**: every HIGH and MEDIUM surface listed in
+   change #1 now references "20-dimension / L0-L19 / 20/20" in lockstep with
+   the new SSoT. README badges (en/zh/ja) bump to `Lint-20%2F20`. MYCO.md
+   §指标面板 bumps lint health value 0.68 → 0.70 reflecting the new ceiling.
+   immune.py docstring + dimension list bullet add L19. CONTRIBUTING.md, the
+   migrate/init scripts, docs/reusable_system_design.md, and docs/adapters/README.md
+   all bump in the same commit so L19 is green from the moment of landing.
+
+9. **L19 unit tests**: 4 tests in `tests/unit/test_lint_dimension_count.py`
+   (Wave 38 D8) — base case (clean substrate → 0 issues), badge drift HIGH,
+   multi-pattern co-match (≥3 issues per drifted line), severity split
+   (HIGH for README, MEDIUM for CONTRIBUTING). Each test pulls EXPECTED from
+   `len(FULL_CHECKS)` at import time so the test assertions also derive from
+   the SSoT and never need hardcoded updates.
+
+**Verification**:
+- `myco lint` → 20/20 PASS
+- `pytest tests/ -q` → 26/26 PASS (22 prior + 4 Wave 38)
+- `myco hunger` → no `dimension_count_drift` signal (the new channel is silent
+  by design when L19 is green)
+- `git diff _canon.yaml | grep contract_version` → v0.28.0 → v0.29.0 visible
+
+**Backward compatibility**: Pure addition. No existing lint dimension semantics
+change, no notes schema change, no CLI verb change. Downstream instances on
+v0.28.0 will see L17 contract_drift fire MEDIUM until they sync — exactly the
+designed signal channel for this kind of upgrade.
+
+**Forward path**: L19's existence does NOT replace human review of new
+narrative surfaces; it only catches drift on the 15 already-enrolled surfaces.
+When future waves add new doc files that reference LINT_DIMENSION_COUNT, those
+files must be explicitly added to `_L19_HIGH_SURFACES` or `_L19_MEDIUM_SURFACES`.
+This is acknowledged as Wave 38 craft §3 known limitation L2 and is the
+correct trade-off (full filesystem walks would be O(N) and produce too many
+false positives on incidental numeric strings in unrelated docs).
+
+---
+
 ## v0.28.0 — 2026-04-12 (minor · primordia_soft_limit re-baseline 40 → 60, Wave 36 — substrate maturity threshold update)
 
 **Author**: Claude (Myco kernel agent, autonomous run under explicit user grant, Wave 36)

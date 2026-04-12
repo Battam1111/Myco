@@ -1,11 +1,11 @@
 """Myco immune system — biomimetic alias for myco.lint.
 
 **Wave 29 (Biomimetic Nomenclature rewrite, phase 1 — additive)**: this module
-exposes the substrate's 19-dimension immune system (formerly "lint") under
+exposes the substrate's 20-dimension immune system (formerly "lint") under
 the biomimetic name `immune`, re-exporting everything from the underlying
 `lint` module without moving any implementation yet.
 
-**Why "immune" not "lint"**: the 19 dimensions L0–L18 perform immune-system
+**Why "immune" not "lint"**: the 20 dimensions L0–L19 perform immune-system
 functions on the substrate:
 - **L0** genome self-check (canon schema validity)
 - **L1** reference integrity (foreign-token detection)
@@ -26,6 +26,7 @@ functions on the substrate:
 - **L16** boot brief freshness (sensory input integrity)
 - **L17** contract drift (cross-instance immune memory)
 - **L18** compression integrity (.original / extracted note hash audit — Wave 30, v0.26.0)
+- **L19** lint dimension count consistency (downstream-cache drift — Wave 38, v0.29.0)
 
 "Lint" is the generic software-engineering term that reads as "static analysis
 tool". "Immune" is what the code actually does in the fungal-organism frame.
@@ -58,7 +59,7 @@ from myco.lint import (  # noqa: F401 — re-export
     read_file,
     find_files,
 
-    # 19 immune dimensions L0–L18
+    # 20 immune dimensions L0–L19
     lint_canon_schema,        # L0 — will become "lint_genome_schema" in a later wave
     lint_references,          # L1
     lint_numbers,             # L2

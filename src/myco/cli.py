@@ -101,12 +101,12 @@ def main():
     # Wave 29 note: `myco lint` is the generic software-engineering term and
     # stays as a universal-discoverability verb. The biomimetic name for this
     # same operation is `myco immune` (Wave 29 adds it as a new verb that
-    # runs the same 19-dimension substrate immune scan). Both verbs remain
+    # runs the same 20-dimension substrate immune scan). Both verbs remain
     # primary — neither is deprecated. Design rationale:
     # `docs/primordia/biomimetic_nomenclature_craft_2026-04-12.md §1.3 + §2.3`.
     lint_parser = subparsers.add_parser(
         "lint",
-        help="Run 19-dimension substrate immune scan (alias: `myco immune`)",
+        help="Run 20-dimension substrate immune scan (alias: `myco immune`)",
     )
     lint_parser.add_argument(
         "--quick", action="store_true",
@@ -123,13 +123,13 @@ def main():
 
     # ── myco immune ────────────────────────────────────────────────
     # Wave 29 (Biomimetic Nomenclature rewrite, phase 1 additive): the
-    # substrate's 19-dimension immune scan is the immune system of the
+    # substrate's 20-dimension immune scan is the immune system of the
     # knowledge organism. `myco immune` is the biomimetic name; `myco lint`
     # is the universal software-engineering alias. Both dispatch to the
     # same handler. Craft: biomimetic_nomenclature_craft_2026-04-12.md.
     immune_parser = subparsers.add_parser(
         "immune",
-        help="Run 19-dimension substrate immune scan (alias: `myco lint`)",
+        help="Run 20-dimension substrate immune scan (alias: `myco lint`)",
     )
     immune_parser.add_argument(
         "--quick", action="store_true",
