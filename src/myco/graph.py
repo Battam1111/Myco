@@ -180,6 +180,11 @@ def extract_links_py(filepath: Path, root: Path) -> List[str]:
     Scans comments and string literals for references to substrate files
     (docs/, wiki/, notes/, _canon.yaml, MYCO.md, etc.).  These are the
     "mycelium references" that connect code to the knowledge substrate.
+
+    Unlike .md links which are relative to the source file, Python
+    mycelium references are always resolved from the project root
+    (they reference substrate paths like ``docs/architecture.md`` or
+    ``_canon.yaml``, not sibling files).
     """
     try:
         content = filepath.read_text(encoding="utf-8", errors="replace")
@@ -190,10 +195,11 @@ def extract_links_py(filepath: Path, root: Path) -> List[str]:
     targets: Set[str] = set()
 
     for m in _PY_PATH_RE.finditer(content):
-        raw = m.group(1)
-        resolved = _resolve_link(raw, source_rel, root)
-        if resolved and resolved != source_rel:
-            targets.add(resolved)
+        raw = _normalize(m.group(1))
+        # Python mycelium refs are always root-relative — resolve from root
+        normalized = os.path.normpath(raw).replace("\\", "/")
+        if (root / normalized).exists() and normalized != source_rel:
+            targets.add(normalized)
 
     # Note ID references (same as .md scanning)
     for m in _NOTE_ID_RE.finditer(content):
