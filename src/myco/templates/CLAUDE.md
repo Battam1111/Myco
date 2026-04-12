@@ -15,7 +15,23 @@ Together you form a complete cognitive entity. Neither is whole alone.
 2. **Work**: Do the human's task. Use `myco_eat` to capture decisions. Use `myco_search` before answering factual questions.
 3. **End**: `myco_reflect()` — Gear 2 session reflection
 
-## Tool Triggers (18 MCP tools)
+## Context Loading (hierarchical)
+
+This project may have subdirectory CLAUDE.md files. Load only when working in that directory.
+Priority (highest wins): session override > project CLAUDE.md > user ~/.claude > organization
+
+## Skill Resolution
+
+When a task matches a skill in `skills/`, load and follow it:
+- `skills/metabolic-cycle.md` — boot ritual + auto-heal
+- `skills/sprint-pipeline.md` — Think→Plan→Build→Review→Test→Ship→Reflect
+- `skills/discovery-loop.md` — proactive knowledge acquisition
+- `skills/agent-routing.md` — model selection by task type
+- `skills/learning-loop.md` — capture execution learnings
+
+If no skill matches, proceed with agent judgment, then consider skill-ifying the process.
+
+## Tool Triggers (19 MCP tools)
 
 | Category | Tools | When to Call |
 |----------|-------|-------------|

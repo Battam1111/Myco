@@ -13,7 +13,7 @@ system:
   # See kernel docs/agent_protocol.md §8. Instance agents MUST compare
   # synced_contract_version against the kernel's contract_version at boot
   # and refresh local reflexes if drift is detected.
-  synced_contract_version: "v0.44.0"  # last kernel contract the instance aligned with
+  synced_contract_version: "v0.45.0"  # last kernel contract the instance aligned with
   upstream_scan_last_run: null         # ISO-8601 timestamp of last upstream scan
 
   # --- Upstream scan staleness reader (Wave 17, v0.16.0) ---
@@ -190,6 +190,12 @@ system:
           - MYCO.md
           - docs/vision.md
       evidence_pattern: '(docs/primordia/[a-z0-9_]+_craft_\d{4}-\d{2}-\d{2}(_[0-9a-f]{4})?\.md|craft_reference\s*:)'
+
+  # ── Skill Schema (absorbed from gstack) ───────────────────────────
+  skill_schema:
+    required_sections: ["When to Execute", "Steps"]
+    optional_sections: ["Input", "Output", "Feeds", "Constraints"]
+    contracts_enabled: false
 
   # ── Skill Evolution (Wave E2) ──────────────────────────────────────
   # Opt-in auto-evolution of skills based on session performance.

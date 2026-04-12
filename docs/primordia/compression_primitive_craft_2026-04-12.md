@@ -1,6 +1,7 @@
 ---
 type: craft
-status: ACTIVE
+status: SUPERSEDED
+superseded_by: compress_mvp_craft_2026-04-12.md
 created: 2026-04-12
 target_confidence: 0.85
 current_confidence: 0.85
