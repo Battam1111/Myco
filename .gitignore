@@ -56,5 +56,10 @@ scripts/pypi_upload.bat
 # The Wave 8 cleanup also physically deleted _extract_session.py,
 # _myco_user_msgs.txt, _myco_assistant_vision_hits.txt, commit_msg.txt,
 # and PYPI_SETUP.md from the root — they no longer need gitignore entries.
+# Myco local state (generated at runtime, not published)
 .myco_state/sessions.db
+.myco_state/boot_brief.md
+.myco_state/decay_baseline.yaml
+.myco_state/search_misses.yaml
+.myco_state/excretion_counter.json
 .pytest_cache/
