@@ -168,6 +168,17 @@ def run_init(args) -> int:
     elif args.level == 2:
         init_level_2(project_dir, replacements, entry_point)
 
+    # --- MCP SDK check (all MCP-capable agents) ---
+    def _check_mcp_sdk():
+        """Check if MCP SDK is available, offer install guidance."""
+        try:
+            import mcp  # noqa: F401
+            return True
+        except ImportError:
+            print(f"\n  ⚠️  MCP SDK not installed. MCP tools won't be available.")
+            print(f"     Install with: pip install 'myco[mcp]'")
+            return False
+
     # Wave B1: Agent-specific file generation
     if agent == "claude":
         # Generate CLAUDE.md from template (may override MYCO.md entry)
@@ -183,25 +194,45 @@ def run_init(args) -> int:
             json.dumps(mcp_config, indent=2), encoding="utf-8")
         print(f"  ✅ .mcp.json (MCP server auto-discovery)")
 
-        # Wave B4: create scheduled metabolic cycle task
+        # Scheduled metabolic cycle task
         sched_dir = project_dir / ".claude" / "scheduled-tasks" / "myco-metabolic-cycle"
         sched_dir.mkdir(parents=True, exist_ok=True)
         (sched_dir / "SKILL.md").write_text(
             "---\n"
             "name: myco-metabolic-cycle\n"
-            "description: Daily Myco metabolic cycle — hunger check + auto-execute\n"
+            "description: Myco metabolic cycle — hunger check + auto-heal + lint\n"
             "---\n\n"
             "Run the Myco metabolic cycle:\n"
             "1. Call myco_hunger(execute=true) to auto-heal the substrate\n"
-            "2. If session index is missing, call myco_session(action='index')\n"
-            "3. Call myco_lint() to verify substrate integrity\n"
-            "4. Report: 'Metabolic cycle complete. Status: [healthy/N issues]'\n",
+            "2. If any signal is REFLEX HIGH, address it immediately\n"
+            "3. If session index is missing, call myco_session(action='index')\n"
+            "4. Call myco_lint() to verify substrate integrity\n"
+            "5. If lint has issues, fix them\n"
+            "6. Report: 'Metabolic cycle complete. Status: [healthy/N issues]'\n",
             encoding="utf-8",
         )
-        print(f"  ✅ .claude/scheduled-tasks/myco-metabolic-cycle/ (daily metabolic cycle)")
+        print(f"  ✅ .claude/scheduled-tasks/myco-metabolic-cycle/")
 
+        # Claude Code settings with hooks template
+        settings_dir = project_dir / ".claude"
+        settings_file = settings_dir / "settings.json"
+        if not settings_file.exists():
+            settings_dir.mkdir(parents=True, exist_ok=True)
+            settings_file.write_text(json.dumps({
+                "permissions": {
+                    "allow": [
+                        "mcp__myco__*",
+                        "Bash(python -m myco*)",
+                        "Bash(python -c *myco*)"
+                    ]
+                }
+            }, indent=2), encoding="utf-8")
+            print(f"  ✅ .claude/settings.json (auto-allow Myco tools)")
+
+        has_mcp = _check_mcp_sdk()
         print(f"\n🍄 Done! Myco is wired for Claude Code.")
-        print(f"   Run `claude` in {project_dir.resolve()} — Myco is ready.")
+        print(f"   MCP: {'✅ ready' if has_mcp else '⚠️  install with: pip install myco[mcp]'}")
+        print(f"   Run `claude` in {project_dir.resolve()} — Myco will auto-load.")
 
     elif agent == "cursor":
         # Generate .cursorrules from template
@@ -216,8 +247,10 @@ def run_init(args) -> int:
             json.dumps(mcp_config, indent=2), encoding="utf-8")
         print(f"  ✅ .mcp.json (MCP server auto-discovery)")
 
+        has_mcp = _check_mcp_sdk()
         print(f"\n🍄 Done! Myco is wired for Cursor.")
-        print(f"   Open {project_dir.resolve()} in Cursor — .cursorrules will load automatically.")
+        print(f"   MCP: {'✅ ready' if has_mcp else '⚠️  install with: pip install myco[mcp]'}")
+        print(f"   Open {project_dir.resolve()} in Cursor — .cursorrules loads automatically.")
 
     elif agent == "gpt":
         # Generate GPT.md from template
@@ -225,11 +258,12 @@ def run_init(args) -> int:
         (project_dir / "GPT.md").write_text(gpt_content, encoding="utf-8")
         print(f"  ✅ GPT.md (GPT/Codex agent entry point)")
 
-        # No .mcp.json — GPT doesn't support MCP natively
-        # Print CLI usage guidance instead
+        # No .mcp.json — GPT doesn't support MCP. CLI-only.
         print(f"\n🍄 Done! Myco is wired for GPT/Codex.")
-        print(f"   Load GPT.md as context, then run `myco hunger --execute` via shell.")
-        print(f"   All Myco tools available as CLI commands: `myco <verb>`")
+        print(f"   GPT uses CLI commands (no MCP). Boot sequence:")
+        print(f"   1. Load GPT.md as system prompt context")
+        print(f"   2. Run: myco hunger --execute")
+        print(f"   3. All Myco tools via: myco <verb> (eat, search, lint, ...)")
 
     else:
         print(f"\n🍄 Done! Your Myco-powered project is ready.")
