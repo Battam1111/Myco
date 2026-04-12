@@ -23,7 +23,9 @@ from myco.forage import (
 
 
 def _project_dir(args) -> Path:
-    return Path(getattr(args, "project_dir", ".")).resolve()
+    """Wave A1: delegates to centralized find_project_root."""
+    from myco.project import find_project_root
+    return find_project_root(getattr(args, "project_dir", None), strict=False)
 
 
 def _color(code: str, s: str) -> str:

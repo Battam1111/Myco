@@ -61,12 +61,9 @@ mcp = FastMCP("myco_mcp")
 # ---------------------------------------------------------------------------
 
 def _find_project_root() -> Path:
-    """Walk up from cwd to find a directory containing _canon.yaml."""
-    current = Path.cwd()
-    for parent in [current] + list(current.parents):
-        if (parent / "_canon.yaml").exists():
-            return parent
-    return current
+    """Wave A1: delegates to centralized find_project_root (non-strict for MCP)."""
+    from myco.project import find_project_root
+    return find_project_root(strict=False)
 
 
 def _load_canon(root: Path) -> dict:

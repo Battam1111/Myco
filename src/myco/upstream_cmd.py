@@ -74,12 +74,9 @@ def _update_scan_timestamp(root: Path) -> None:
 
 
 def _project_root(args) -> Path:
-    raw = getattr(args, "project_dir", None) or "."
-    root = Path(raw).resolve()
-    for candidate in [root] + list(root.parents):
-        if (candidate / "_canon.yaml").exists():
-            return candidate
-    return root
+    """Wave A1: delegates to centralized find_project_root."""
+    from myco.project import find_project_root
+    return find_project_root(getattr(args, "project_dir", None), strict=False)
 
 
 def _color(code: str, s: str) -> str:

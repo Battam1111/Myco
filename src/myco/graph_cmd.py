@@ -13,18 +13,9 @@ from typing import Any, Dict
 
 
 def _project_root(args: Any) -> Path:
-    """Resolve project root from --project-dir or walk up."""
-    raw = getattr(args, "project_dir", None) or "."
-    candidate = Path(raw).resolve()
-    # Walk up to find _canon.yaml
-    p = candidate
-    for _ in range(10):
-        if (p / "_canon.yaml").exists():
-            return p
-        if p.parent == p:
-            break
-        p = p.parent
-    return candidate
+    """Wave A1: delegates to centralized find_project_root."""
+    from myco.project import find_project_root
+    return find_project_root(getattr(args, "project_dir", None), strict=False)
 
 
 def run_graph(args: Any) -> int:

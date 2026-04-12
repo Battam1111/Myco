@@ -44,32 +44,9 @@ from myco.notes import (
 # ---------------------------------------------------------------------------
 
 def _project_root(args) -> Path:
-    """Resolve the project root from --project-dir or walk up from cwd.
-
-    Wave 20 (v0.19.0) strict mode: if no `_canon.yaml` is found in the
-    walk-up, raises `MycoProjectNotFound` instead of silently returning
-    the raw path. The old fall-through produced false-healthy hunger
-    reports on unrelated directories (e.g. /tmp). See
-    `docs/primordia/silent_fail_elimination_craft_2026-04-11.md` D3.
-
-    Escape hatch: `MYCO_ALLOW_NO_PROJECT=1` env var forces the old
-    permissive behavior (for cron health checks on multi-project trees).
-    """
-    import os
-
-    raw = getattr(args, "project_dir", None) or "."
-    root = Path(raw).resolve()
-    # Walk upward for _canon.yaml so users can run from subdirs.
-    for candidate in [root] + list(root.parents):
-        if (candidate / "_canon.yaml").exists():
-            return candidate
-    if os.environ.get("MYCO_ALLOW_NO_PROJECT") == "1":
-        return root
-    raise MycoProjectNotFound(
-        f"not a Myco project: no _canon.yaml found at or above "
-        f"{root}. Did you forget to cd, or pass --project-dir? "
-        f"Set MYCO_ALLOW_NO_PROJECT=1 to override (not recommended)."
-    )
+    """Wave A1: delegates to centralized find_project_root."""
+    from myco.project import find_project_root
+    return find_project_root(getattr(args, "project_dir", None))
 
 
 def _guard_project(func):
