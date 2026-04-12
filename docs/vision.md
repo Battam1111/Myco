@@ -47,21 +47,22 @@
 
 ### 能力 1：知识代谢
 
-系统从外部世界**主动发现、萃取、整合、压缩**知识。不是被动等查询，而是自主"觅食"。
+Agent+Substrate 共生体从外部世界**自主发现、萃取、整合、压缩、淘汰**知识。
 
-流程：
+七步管道（当前实现状态）：
 ```
-外部来源（论文、代码库、社区讨论、工具文档）
-  ↓ [自主发现] 缺口感知 + 定期巡逻
-  ↓ [评估] 相关性、质量、新颖性
-  ↓ [萃取] 提取有用模式（不复制原文）
-  ↓ [整合] 融入已有框架，消除冗余
-  ↓ [压缩] 保持精简，活跃时只加载必要部分
-  ↓ [验证] 事实性、时效性交叉检查
-系统 → 变得更强、更聪慧
+外部来源 → [发现] myco forage / myco inlet       ✅ 有专属动词
+         → [评估] myco evaluate (= digest --to)   ⚠️ 状态别名
+         → [萃取] myco extract (= digest --to)     ⚠️ 状态别名
+         → [整合] myco integrate (= digest --to)   ⚠️ 状态别名
+         → [压缩] myco compress (cohort auto)      ✅ 有智能分组
+         → [验证] myco lint (23 维)                ✅ 完整
+         → [淘汰] myco prune                       ✅ D 层自动排出
 ```
 
-与 RAG 的本质区别：RAG 是被动检索（提问 → 搜索）；知识代谢是主动觅食（系统自己决定去探索什么）。
+**自主运转**：`hunger(execute=true)` 读取信号 → 推荐行动 → 自动执行 digest/compress/prune。Scheduled metabolic cycle 每日自动运行。
+
+与 RAG 的本质区别：RAG 是被动检索（提问 → 搜索）；知识代谢是自主运转的完整生命周期——从发现到淘汰，Agent IS the daemon。
 
 ### 能力 2：元进化
 
@@ -79,21 +80,21 @@
 
 系统维护关于自身的动态模型——知道自己有什么、缺什么、什么在被有效使用、什么正在衰败。
 
-自我模型的层级：
-- **A 库存清单**：知识总量、分布、更新时间戳 [低难度]
-- **B 缺口感知**：哪些领域缺乏知识（从 friction 信号反推） [中难度]
-- **C 衰败感知**：哪些知识过时或架构不再适用 [中难度]  
-- **D 效能评估**：哪些知识被频繁使用 vs "死知识" [高难度]
+自我模型的层级（当前实现状态）：
+- **A 库存清单**：103 notes, 225 graph nodes, 714 edges ✅ **运行中**（via `myco view` + `myco graph stats`）
+- **B 缺口感知**：11 knowledge gaps detected by `myco cohort gaps`; `inlet_ripe` hunger signal ✅ **运行中**
+- **C 衰败感知**：事实退化 via `dead_knowledge` 信号 ✅；结构退化 via `graph_orphans` (53 orphans) ✅ **部分运行**（结构性退化指标仍 open problem）
+- **D 效能评估**：`dead_knowledge` seed (`view_count` + `last_viewed_at` + 30d threshold) ✅ **种子在位**（完整 D 层需自适应阈值 + 自动淘汰）
 
 ### 能力 4：跨会话连续性
 
-让无状态的 Agent 在秒级内重建认知状态。采用分层存储模型：
+让无状态的 Agent 在秒级内重建认知状态。
 
-- **热层**：核心工作状态、任务队列、最近的 10 行 log
-- **温层**：结构化知识（wiki 页面、技法库）、索引、操作指南  
-- **冷层**：完整历史、归档、全文搜索、不主动加载
+- **热层**：`myco_hunger(execute=true)` 一次调用返回全部信号+自动执行修复 ✅
+- **温层**：`myco_search` 全文检索 + `myco_session search` FTS5 会话记忆 ✅
+- **冷层**：`myco_graph` 结构分析 + `myco_cohort` 语义分组 + 103 notes 全文 ✅
 
-Agent 启动时快速加载热层（<5s），按需读温/冷层。
+Agent 启动时调 `hunger(execute=true)` 完成 boot（<10s），按需调 search/graph/cohort/session。
 
 ### 能力 5：Agent-Adaptive 通用性
 
