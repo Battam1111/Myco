@@ -14,7 +14,11 @@
 </p>
 
 <p align="center">
-  <a href="#开始">开始</a> · <a href="docs/theory.md">理论</a> · <a href="docs/agent_protocol.md">协议</a> · <a href="docs/architecture.md">架构</a>
+  <a href="#开始">开始</a> · <a href="#它能做什么">能力</a> · <a href="#凭什么不一样">差异</a> · <a href="#架构">架构</a>
+</p>
+
+<p align="center">
+  <b>Languages:</b> <a href="README.md">English</a> · 中文 · <a href="README_ja.md">日本語</a>
 </p>
 
 ---
@@ -29,6 +33,8 @@
 
 你的笔记不会告诉你"这条已经过时了"。你的收藏夹不会自动把重复的合并掉。你的 AI 不记得你上周做过什么决定。每开一个新对话——一切从零开始。
 
+<br>
+
 现在想象另一种活法。
 
 你不整理笔记。你不比较框架。你不追论文。你不给 AI 反复讲解项目背景。你像个白痴一样只说人话。
@@ -37,7 +43,7 @@
 
 这不是科幻。
 
-**这是 Myco。**
+<h3 align="center">这是 Myco。</h3>
 
 ---
 
@@ -89,7 +95,7 @@ Myco（吞噬、消化、验证、进化）
 
 三个角色：你给方向，Agent 给智能，Myco 给记忆和进化。缺一不可。
 
-## 参与
+## 参与贡献
 
 ```bash
 git clone https://github.com/Battam1111/Myco.git
@@ -97,8 +103,4 @@ cd Myco && pip install -e ".[mcp,dev]"
 pytest tests/
 ```
 
-[CONTRIBUTING.md](CONTRIBUTING.md)
-
-## 协议
-
-MIT — [LICENSE](LICENSE)
+详见 [CONTRIBUTING.md](CONTRIBUTING.md) · MIT — [LICENSE](LICENSE)
