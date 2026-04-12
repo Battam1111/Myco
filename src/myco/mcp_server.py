@@ -22,6 +22,7 @@ Tools:
     myco_forage     — Manage external source material (Wave 43)
     myco_upstream   — Inter-instance knowledge transfer (Wave 43)
     myco_graph      — Structural link graph analysis (Wave 47)
+    myco_cohort     — Semantic cohort intelligence (Wave 48)
 
 Transport: stdio (local subprocess of the AI client)
 """
@@ -1553,6 +1554,62 @@ async def myco_graph(
         return json.dumps(stats)
 
     return json.dumps({"error": f"Unknown action: {action}. Use backlinks/orphans/clusters/stats."})
+
+
+# ---------------------------------------------------------------------------
+# Wave 48 (v0.37.0): Semantic cohort intelligence
+# ---------------------------------------------------------------------------
+
+@mcp.tool(
+    name="myco_cohort",
+    annotations={
+        "title": "Myco Cohort Intelligence — tag co-occurrence and gap analysis",
+        "readOnlyHint": True,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": False,
+    },
+)
+async def myco_cohort(
+    action: str,
+    limit: int = 10,
+    project_dir: Optional[str] = None,
+) -> str:
+    """Analyze tag-based cohorts across notes for compression and gap detection.
+
+    Actions:
+      matrix  — tag co-occurrence pairs (which tags appear together?)
+      suggest — compression cohort suggestions (which notes to compress together?)
+      gaps    — knowledge gaps (tags where all notes are raw/digesting)
+
+    Args:
+        action: One of 'matrix', 'suggest', 'gaps'.
+        limit: Max results to return (default 10).
+        project_dir: Path to Myco project root. Auto-detected if omitted.
+    """
+    from myco.cohorts import (
+        compression_cohort_suggest,
+        gap_detection,
+        tag_cooccurrence,
+    )
+
+    root = Path(project_dir) if project_dir else _find_project_root()
+    root = root.resolve()
+
+    if action == "matrix":
+        pairs = tag_cooccurrence(root)
+        return json.dumps([{"tag_a": a, "tag_b": b, "count": c}
+                           for a, b, c in pairs[:limit]])
+
+    if action == "suggest":
+        suggestions = compression_cohort_suggest(root)
+        return json.dumps(suggestions[:limit])
+
+    if action == "gaps":
+        gaps = gap_detection(root)
+        return json.dumps(gaps[:limit])
+
+    return json.dumps({"error": f"Unknown action: {action}. Use matrix/suggest/gaps."})
 
 
 # ---------------------------------------------------------------------------
