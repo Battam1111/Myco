@@ -21,9 +21,13 @@ Myco 的 19 个工具都有**两套等价入口**，底层共享 `src/myco/notes
 | Lint | `myco lint` | `myco_lint` |
 | 状态/日志/反思/回顾 | （待实现 CLI）| `myco_status` / `myco_log` / `myco_reflect` / `myco_retrospect` |
 
-**必装**：`pip install myco`（或开发版 `pip install -e /path/to/Myco`）。
+**推荐安装**（可编辑模式，支持自进化）：
+```bash
+git clone https://github.com/Battam1111/Myco.git && cd Myco && pip install -e ".[mcp]"
+```
 装完就有 `myco` CLI。**任何能跑 shell 的 agent 都能用**，包括
 Cowork 下的 agent（通过 Bash 工具调用）。
+快速预览：`pip install myco`（冻结快照，进化受限）。
 
 **可选**：在 agent host 的 MCP 配置里注册 `python -m myco.mcp_server`。
 注册后 19 个工具会以原生 MCP tool 的形式出现在 agent 的工具列表里，
@@ -35,7 +39,7 @@ MCP 设置里加一条即可（一次性，持久生效）。
 换为对应的 CLI 命令 `myco eat` / `myco digest`。两种写法等价。
 
 **Cowork 运行环境的一个实际区别**：
-- CLI 路径：每次会话需要确保 `myco` 已在 Python 环境中（`pip install`
+- CLI 路径：每次会话需要确保 `myco` 已在 Python 环境中（`pip install -e`
   是否持久取决于 Cowork 的 sandbox 卷策略）。不持久时把安装步骤写进
   session boot hook 或 `CLAUDE.md`。
 - MCP 路径：一次配置永久有效，无 sandbox 重建问题。跨会话零成本。

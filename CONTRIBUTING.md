@@ -103,8 +103,8 @@ Use [GitHub Issues](https://github.com/Battam1111/Myco/issues) with the appropri
 3. Make your changes
 4. Test locally:
    ```bash
-   pip install -e .
-   myco init test-project --level 2
+   pip install -e ".[mcp]"
+   myco init --agent claude test-project
    myco lint --project-dir test-project
    ```
 5. Submit a pull request

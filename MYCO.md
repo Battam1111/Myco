@@ -25,7 +25,7 @@
 1. 更新 `pyproject.toml` 版本号但忘记同步 `src/myco/__init__.py`（两处版本号必须一致）
 2. 在 MYCO.md 里写"已实现"的功能，实际上是 roadmap（诚实原则）
 3. 运行 `myco lint` 检查 Myco 自身时，`--project-dir` 指向 repo 根，不是 `src/` 子目录
-4. 修改模板后忘记 rebuild + 重新 `pip install -e .`（本地测试时 importlib.resources 读的是 src/，无需 build；但 wheel 测试必须重建）
+4. 修改模板后忘记 rebuild + 重新 `pip install -e ".[mcp]"`（本地测试时 importlib.resources 读的是 src/，无需 build；但 wheel 测试必须重建）
 
 **对外定位一句话**：
 > **Primary**: "Myco is an Agent-First symbiotic cognitive organism — your agent's other half. It remembers, verifies, digests, and evolves so your agent doesn't start from zero every session."
@@ -63,7 +63,7 @@
 
 **🎯 Operational Feel**：
 Python 打包环境（hatchling + twine）。模板唯一来源：`src/myco/templates/`（打包入 wheel）。
-`pip install -e .` 后 `myco` CLI 指向 `src/`，无需 build 即可测试。
+`pip install -e ".[mcp]"` 后 `myco` CLI 指向 `src/`，无需 build 即可测试。可编辑安装是唯一推荐路径——Myco 是活的有机体，需要自进化。
 
 ---
 
@@ -122,7 +122,7 @@ Python 打包环境（hatchling + twine）。模板唯一来源：`src/myco/temp
 
 ## 0. 项目摘要
 
-Myco 是一个可自进化的 AI 延伸认知基质框架。它给 AI agent 提供持久记忆、结构化知识和跨会话的自进化能力。v0.2.0 已发布至 PyPI（`pip install myco`），提供 `myco init / migrate / lint / eat / evaluate / extract / integrate / digest / view / compress / uncompress / prune / inlet / hunger / forage / upstream / correct / graph / cohort / session` CLI。当前 kernel contract v0.45.0（23 维 lint + Agent Review hybrid 免疫 + 19 MCP tools + 122 tests + hunger auto-execute + `myco init --agent claude` 一键就位 + evolve.py 自我进化 + discover.py 主动觅食 + predict_knowledge_needs 需求预判）。
+Myco 是一个可自进化的 AI 延伸认知基质框架。它给 AI agent 提供持久记忆、结构化知识和跨会话的自进化能力。v0.2.0 已发布至 PyPI（推荐：`git clone` + `pip install -e ".[mcp]"`；快速预览：`pip install myco`），提供 `myco init / migrate / lint / eat / evaluate / extract / integrate / digest / view / compress / uncompress / prune / inlet / hunger / forage / upstream / correct / graph / cohort / session` CLI。当前 kernel contract v0.45.0（23 维 lint + Agent Review hybrid 免疫 + 19 MCP tools + 122 tests + hunger auto-execute + `myco init --agent claude` 一键就位 + evolve.py 自我进化 + discover.py 主动觅食 + predict_knowledge_needs 需求预判）。
 
 核心设计：agent-agnostic（Claude、GPT、Codex 等均可运行），框架本身通过 Myco 管理自身的知识。
 
