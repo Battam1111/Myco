@@ -177,7 +177,7 @@ system:
       kernel_contract: 0.90   # agent_protocol / lint / canon / templates / mcp_server
       instance_contract: 0.85 # per-project architectural decisions
       exploration: 0.75       # tentative designs / naming / open research
-    stale_active_threshold_days: 30
+    stale_active_threshold_days: 7
     grandfather_rule: "Files lacking craft_protocol_version are exempt from L13 strict checks."
     # --- Body schema (Wave 15, contract v0.14.0) ---
     # Partial closure of docs/craft_protocol.md §7 #3 ("body structure is
@@ -217,7 +217,7 @@ system:
     # we are only refusing silent bypass).
     reflex:
       enabled: true
-      lookback_days: 3
+      lookback_days: 1
       # Wave 12 (v0.11.0): severity bumped LOW → HIGH. The reflex is now
       # an immutable arc, not an advisory signal. Agent's obligation on
       # fire: write the missing craft in-session before any other
@@ -738,7 +738,7 @@ system:
     - _saturation      # fullness (0 empty → 1 at budget ceiling)
     - _pressure        # demand signal (0 relaxed → 1 critical)
     rationale_required: true      # every indicator must carry a rationale line
-    stale_after_days: 90          # L15 future work will flag stale indicators
+    stale_after_days: 7           # L15 future work will flag stale indicators
     authoritative_value_location: MYCO.md#指标面板
     history_location: log.md       # upward changes must cite wave milestone
     substrate_keys:

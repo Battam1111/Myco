@@ -29,8 +29,8 @@ items:
   - n_20260411T183115_f5c5
   why: 'Nuwa-Skill (花叔) — already referenced in Myco''s W8-W12 evolution_engine debate
     (see docs/current/nuwa_caveman_integration_2026-04-07.md). This is the upstream
-    code to re-read now that Myco''s four-gear model has matured. Looking for: (1)
-    their skill composition primitives vs Myco''s skill pattern, (2) any gear-4 style
+    code to re-read now that Myco''s metabolic phases model has matured. Looking for: (1)
+    their skill composition primitives vs Myco''s skill pattern, (2) any cross-project-distillation style
     cross-session learning mechanisms, (3) differences from our current compiled wisdom.'
 - id: f_20260411T180416_3654
   source_url: https://github.com/NousResearch/hermes-agent
@@ -62,7 +62,7 @@ items:
   why: 'MemPalace — a memory palace / spatial mnemonic agent prototype. Relevant to
     Myco''s open question around ''how does an agent use its accumulated notes substrate
     as working memory beyond simple retrieval?'' Looking for: (1) spatial/associative
-    retrieval primitives, (2) any insights on Gear 4 generalization via analogical
+    retrieval primitives, (2) any insights on Cross-Project Distillation generalization via analogical
     reasoning, (3) whether their notion of ''place'' maps onto Myco''s forage/notes/upstream
     three-channel geography.'
 - id: f_20260411T180434_3035

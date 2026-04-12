@@ -45,7 +45,7 @@ integration_modes:
       1: "Run: myco init my-project --level 2"
       2: "Upload to ChatGPT Project knowledge: MYCO.md, _canon.yaml, relevant wiki/*.md pages"
       3: "Add custom instructions: 'Before answering, check _canon.yaml for canonical values. Log significant decisions to log.md.'"
-      4: "Re-upload updated files after major Gear 2/3 evolutions"
+      4: "Re-upload updated files after major Session Reflection/Milestone Retrospective evolutions"
       5: "Run: myco lint --project-dir . locally to verify consistency"
 
   mode_C_assistant_api:
@@ -57,7 +57,7 @@ integration_modes:
       2: "Create vector store and upload: MYCO.md, _canon.yaml, wiki/*.md, docs/WORKFLOW.md"
       3: "Set Assistant instructions: see system_prompt_template below"
       4: "Enable file_search tool on the Assistant"
-      5: "Implement sync logic: after Gear 2/3 evolution, re-upload updated files to vector store"
+      5: "Implement sync logic: after Session Reflection/Milestone Retrospective evolution, re-upload updated files to vector store"
       6: "Run: myco lint --project-dir . as part of your CI/deployment pipeline"
 
 # ── System Prompt Template ────────────────────────────────────
@@ -78,7 +78,7 @@ system_prompt_template: |
   ## Evolution Protocol
   - Friction (same problem twice): log to log.md as `## [date] friction | [description]`
   - Session reflection: append summary to log.md at session end
-  - If you see a wiki page becoming stale or a new pattern emerging, note it for Gear 2
+  - If you see a wiki page becoming stale or a new pattern emerging, note it for Session Reflection
 
   ## Session Start
   Read MYCO.md → check hot zone → understand current phase → proceed with task
@@ -119,7 +119,7 @@ workflow_compatibility:
   W4_wiki_w8:             "⚠️  GPT needs explicit instruction to use W8 header format"
   W5_lint_gate:           "✅ Run myco lint locally after sessions — GPT outputs files, lint verifies"
   W8_format:              "⚠️  Include W8 format spec in system prompt for wiki creation tasks"
-  W12_gear_protocol:      "⚠️  Gear 2/3/4 require human coordination — GPT can suggest but human triggers"
+  W12_gear_protocol:      "⚠️  Session Reflection/Milestone Retrospective/Cross-Project Distillation require human coordination — GPT can suggest but human triggers"
 
 # ── Value Proposition ─────────────────────────────────────
 value_proposition: |
@@ -132,7 +132,7 @@ value_proposition: |
     - _canon.yaml prevents GPT from contradicting established values
     - log.md gives you a session-by-session record of GPT's contributions
     - myco lint catches inconsistencies GPT introduces without realizing
-    - Gear 4 distills the patterns GPT helped discover across projects
+    - Cross-Project Distillation distills the patterns GPT helped discover across projects
 
   Best for: API-based GPT usage where you control the system prompt.
   Partial value: ChatGPT Projects (files persist, but no automatic lint gate).
@@ -142,8 +142,8 @@ limitations:
   - "GPT does not read files natively — knowledge must be serialized and injected"
   - "Context window limits apply: for large projects (>200 wiki pages), use Assistants API with file_search"
   - "Lint gate is manual (run locally) — no in-context lint feedback loop"
-  - "Gear 2/3 require human coordination: GPT can flag candidates but cannot self-trigger evolution"
-  - "ChatGPT Projects re-upload: after Gear 2/3, updated files must be manually re-uploaded"
+  - "Session Reflection/Milestone Retrospective require human coordination: GPT can flag candidates but cannot self-trigger evolution"
+  - "ChatGPT Projects re-upload: after Session Reflection/Milestone Retrospective, updated files must be manually re-uploaded"
 
 # ── Roadmap ──────────────────────────────────────────────────
 roadmap:

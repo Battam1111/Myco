@@ -17,7 +17,7 @@ version: "0.1"
 description: |
   Use MemPalace as Myco's L0 Archive retrieval backend.
   MemPalace provides semantic vector search over large knowledge stores;
-  Myco provides the evolution layer (lint, Gear 2 flagging, Gear 3 restructuring)
+  Myco provides the evolution layer (lint, Session Reflection flagging, Milestone Retrospective restructuring)
   that keeps those stores accurate and structured.
 
 source_type: "retrieval_service"    # Local/remote vector store with semantic search API
@@ -37,7 +37,7 @@ architecture: |
                                             from other tools (Hermes, OpenClaw, etc.)
 
   The division of labor:
-    Myco handles:     structural knowledge (L1-L3), lint, evolution engine (Gear 1-4)
+    Myco handles:     structural knowledge (L1-L3), lint, evolution engine (metabolic phases)
     MemPalace handles: unstructured retrieval (L0), semantic search, large-scale storage
 
 # ── Deployment Steps (v0.x Design Spec) ──────────────────────
@@ -100,7 +100,7 @@ value_proposition: |
     - L0: Semantic search over everything (MemPalace)
     - L1-L3: Structured, lint-verified, evolution-tracked knowledge (Myco)
     - Promotion loop: frequently-retrieved facts graduate into Myco's structured layers
-    - Gear 2 can flag: "This wiki page was promoted 6 months ago — is MemPalace still
+    - Session Reflection can flag: "This wiki page was promoted 6 months ago — is MemPalace still
       returning consistent information on this topic?"
 
   Recommended for: projects with >200 wiki pages, or projects that ingest large
@@ -110,7 +110,7 @@ value_proposition: |
 roadmap:
   v1_0: "myco config --set mempalace.endpoint http://localhost:8765 → write _canon.yaml section; myco ingest --source log.md --backend mempalace"
   v1_1: "myco promote --from-mempalace {query} → auto-create wiki page from retrieval result"
-  v2_0: "Bi-directional: Gear 2 can query MemPalace to check if archived facts contradict current wiki/ content"
+  v2_0: "Bi-directional: Session Reflection can query MemPalace to check if archived facts contradict current wiki/ content"
 
 # ── Notes ────────────────────────────────────────────────────
 notes:
