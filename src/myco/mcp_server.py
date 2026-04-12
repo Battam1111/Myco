@@ -24,6 +24,7 @@ Tools:
     myco_graph      — Structural link graph analysis (Wave 47)
     myco_cohort     — Semantic cohort intelligence (Wave 48)
     myco_session    — Session memory search (Wave 52)
+    myco_discover   — Proactive knowledge gap detection (Wave D1)
 
 Transport: stdio (local subprocess of the AI client)
 """
@@ -1796,6 +1797,67 @@ async def myco_session(
         return json.dumps(stats)
 
     return json.dumps({"error": f"Unknown action: {action}. Use index/search/prune."})
+
+
+# ---------------------------------------------------------------------------
+# Wave D1: Proactive Discovery
+# ---------------------------------------------------------------------------
+
+@mcp.tool(
+    name="myco_discover",
+    annotations={
+        "title": "Myco Proactive Discovery — gap-driven knowledge acquisition",
+        "readOnlyHint": True,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": True,
+    },
+)
+async def myco_discover(
+    action: str = "gaps",
+    project_dir: Optional[str] = None,
+) -> str:
+    """Detect knowledge gaps and provide discovery candidates for the Agent.
+
+    WHEN TO CALL:
+      (a) hunger reports inlet_ripe or cohort_staleness — discover what's missing
+      (b) Periodically in metabolic cycle — check for knowledge gaps
+      (c) Agent encounters a topic it can't answer from the substrate
+
+    This tool READS gaps but does NOT search the internet or ingest. The
+    Agent uses its own intelligence (WebSearch, evaluation) to act on
+    the candidates. Myco provides the gap detection; Agent provides the hunt.
+
+    Actions:
+      gaps       — list all detected knowledge gaps with priorities
+      candidates — convert gaps into structured discovery candidates
+
+    Args:
+        action: 'gaps' or 'candidates'.
+        project_dir: Path to Myco project root. Auto-detected if omitted.
+    """
+    from myco.discover import create_discovery_candidates, detect_knowledge_gaps
+
+    root = Path(project_dir) if project_dir else _find_project_root()
+    root = root.resolve()
+
+    gaps = detect_knowledge_gaps(root)
+
+    if action == "gaps":
+        return json.dumps({"gaps": gaps, "count": len(gaps)})
+
+    if action == "candidates":
+        candidates = create_discovery_candidates(gaps)
+        return json.dumps({
+            "candidates": [
+                {"topic": c.topic, "search_query": c.search_query,
+                 "source_signal": c.source_signal, "status": c.status}
+                for c in candidates
+            ],
+            "count": len(candidates),
+        })
+
+    return json.dumps({"error": f"Unknown action: {action}. Use gaps/candidates."})
 
 
 # ---------------------------------------------------------------------------
