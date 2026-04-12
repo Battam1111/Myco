@@ -1011,6 +1011,12 @@ async def myco_hunger(
       - promote_ready: notes flagged promote_candidate=true
       - healthy: substrate is metabolizing normally
 
+    Actions (Wave 46, v0.35.0): The response includes an "actions" list of
+    structured recommendations the agent can execute directly. Each action
+    has verb, args, and reason. This closes the advisory-to-execution gap —
+    instead of interpreting signals, agents can iterate over actions and
+    call the corresponding myco_* MCP tools.
+
     Args:
         project_dir: Path to Myco project root. Auto-detected if omitted.
 

@@ -38,6 +38,43 @@ Commit message 格式必须使用 Conventional Commits 风格并带 `[contract:*
 
 ---
 
+## v0.35.0 — 2026-04-12 (minor · Wave 46 Signal-to-Action wiring — HungerReport.actions closes advisory→execution gap)
+
+**What changed**:
+
+Wave 46 closes the advisory-to-execution gap: hunger signals now produce
+structured action recommendations that agents can execute directly without
+interpreting signal text.
+
+Changes to `src/myco/notes.py`:
+
+1. **`HungerReport.actions`** — new `List[Dict[str, Any]]` field on the
+   `HungerReport` dataclass. Each action is `{verb, args, reason}`.
+2. **`compute_hunger_report()`** — new action computation block derives
+   executable recommendations from existing signals:
+   - `stale_raw` → `digest` action (oldest raw note)
+   - `raw_backlog` → `digest` action (bulk)
+   - `dead_notes` → `prune` action (apply=True)
+   - `compress_signal` → `compress` action (tag-based cohort)
+   - `promote_candidates` → `digest` action (to integrated, top 3)
+3. **Bug fix**: `compress_signal` variable initialized to `None` before
+   its `try` block to prevent `NameError` if the block raises.
+
+Changes to `src/myco/mcp_server.py`:
+
+4. **`myco_hunger`** tool docstring updated to document the `actions` list
+   in the response, explaining the signal-to-action pattern.
+
+**Contract surface**: `_canon.yaml::system.contract_version` bumped
+v0.34.0 → v0.35.0. Template `synced_contract_version` synchronized.
+
+**Guiding principle**: Bitter Lesson — don't hardcode what the agent
+should do. Provide structured signals with recommended actions; the
+agent's intelligence decides execution. If the agent improves, actions
+improve — without Myco code changes.
+
+---
+
 ## v0.34.0 — 2026-04-12 (minor · Wave 43 full agent surface — 6 new MCP tools, 9→15 tool coverage)
 
 **What changed**:
