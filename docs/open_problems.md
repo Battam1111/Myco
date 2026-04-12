@@ -156,11 +156,24 @@ mutation-selection 是否在 inlet 场景仍成立。这可能是 Myco v2 的核
 **Wave 35 status update（2026-04-12）**：partial unblock。Wave 30 落地了 `myco compress`
 （forward compression verb），Wave 31 落地了 `myco uncompress` (reverse)，Wave 33 落地了
 `myco prune` (D-layer auto-excretion)。Wave 35 inlet 的 default tag 让 `myco compress
---tag inlet` 无需 operator 记忆约定就能压缩 inlet 累积。**但** continuous compression
-hook 仍然不存在——operator 必须主动调用 compress；hunger 还没有 `inlet_ripe` 信号。
-这是 Wave 35 → Wave 36+ 最直接的 follow-up 候选：把 hunger 扩展为 inlet-aware advisor。
-Wave 34 §2.4 D5 把整个 continuous compression 问题 defer 给 operator-as-daemon。本节
-继续 open 直到出现端到端的 inlet→compress→prune 自动循环。
+--tag inlet` 无需 operator 记忆约定就能压缩 inlet 累积。
+
+**Wave 50/54 status update（2026-04-12, contract v0.39–v0.41）**：**compression_pressure
+metric 已落地，且 hunger auto-execute 闭环。**
+- Wave 50 (v0.39.0)：`compute_compression_pressure(root)` 计算 `(raw+digesting)/max(1, extracted+integrated)`，
+  超过 `pressure_threshold`（default 2.0，`_canon.yaml::system.notes_schema.compression.pressure_threshold`）
+  时 hunger 报告发出 `compression_pressure` 信号 + `compress --cohort auto` action recommendation。
+  4 个 seed tests（`tests/unit/test_compression_pressure.py`）。
+  `skills/metabolic-cycle.md` 定义 boot ritual 标准流程。
+- Wave 54 (v0.41.0)：`myco_hunger(execute=true)` auto-execute 所有 recommended actions
+  （digest + compress + prune）。agent 调一次 tool，substrate 自愈。scheduled metabolic
+  cycle（daily recurring task）实现了准 daemon 效果。
+**这构成了 semi-continuous compression 机制**：hunger 感知压力 → action 建议 compress →
+auto-execute 执行 → 每日 scheduled task 兜底。与真正的 event-driven continuous compression
+daemon 仍有差距（不是 real-time 响应，依赖 agent 调用 hunger），但端到端的
+inlet→compress→prune 链路通过 `myco_hunger(execute=true)` 已经连通。
+本节从 "无任何 continuous compression" 升级为 "有 scheduled semi-continuous loop 但无
+event-driven daemon"。出口条件仍未满足（需要在真实 inlet 流量下运行一周无 bloat 报警）。
 
 **问题**：Inlet 的最小可行版本会让**摄取速度 >> 压缩速度**，导致 substrate
 单调膨胀。目前 `compress_original.py` 是手工触发的批处理工具，没有 continuous

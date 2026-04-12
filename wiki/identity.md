@@ -79,4 +79,4 @@ Human ──自然语言──→ Agent ──MCP──→ Myco
 
 *Promoted from notes/n_20260412T233531_a72c (compressed identity evolution arc) on 2026-04-12.*
 
-[Back to MYCO.md](../MYCO.md)
+**Back to** [MYCO.md](../MYCO.md)
