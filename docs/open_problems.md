@@ -39,9 +39,16 @@ Claude 自己——看到某项出现在这里时应当理解：这**不是**被
 没有它，基质只是内向缓存而非代谢系统。
 
 **Wave 35 status update（2026-04-12）**：scaffold 原语已落地（`myco inlet`，contract v0.27.0，
-`docs/primordia/inlet_mvp_craft_2026-04-12.md`，5 seed tests），但本节描述的**冷启动决策本身**
+[`docs/primordia/inlet_mvp_craft_2026-04-12.md`](primordia/inlet_mvp_craft_2026-04-12.md)，
+[`docs/primordia/metabolic_inlet_design_craft_2026-04-12.md`](primordia/metabolic_inlet_design_craft_2026-04-12.md)，
+5 seed tests in `tests/unit/test_inlet.py`），但本节描述的**冷启动决策本身**
 仍然 open。verb 现在能 ingest 任何 file 或 agent-fetched URL，但 "新 instance 第一次启动时该 inlet
 什么内容" 仍然由 operator 决定，不由 substrate 决定。Wave 34 §2.4 显式 defer 这个问题给 operator。
+
+**Wave 54 addendum（2026-04-12, contract v0.41.0）**：`cold_start` hunger signal 已落地
+（`src/myco/notes.py` Organ 2）——当 substrate note count < `cold_start_threshold`
+（default 5）且无 inlet 历史时触发，建议 `myco inlet` 或 `myco_discover` 引导。
+这是冷启动的**检测**（能发现冷启动状态），但不是冷启动的**解决**（不知道该 inlet 什么）。
 本节继续保留为 open problem 直到出现第一条完全自主、无 operator seed 的上行案例。
 
 **问题**：Inlet 的核心触发信号是 `myco hunger` 累积的结构性缺口（agent 在
