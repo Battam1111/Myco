@@ -191,18 +191,41 @@ def run_init(args) -> int:
 
     # Wave B1: Agent-specific file generation
     if agent == "claude":
-        # Generate CLAUDE.md from template (may override MYCO.md entry)
+        # Generate or APPEND to CLAUDE.md (never overwrite existing content)
         if entry_point == "CLAUDE.md":
             claude_content = fill_template(get_template("CLAUDE.md"), replacements)
-            (project_dir / "CLAUDE.md").write_text(claude_content, encoding="utf-8")
-            print(f"  ✅ CLAUDE.md (Agent-First entry point)")
+            claude_path = project_dir / "CLAUDE.md"
+            if claude_path.exists():
+                existing = claude_path.read_text(encoding="utf-8")
+                if "myco" not in existing.lower() and "Myco" not in existing:
+                    # Append Myco section to existing CLAUDE.md
+                    merged = existing.rstrip() + "\n\n---\n\n" + claude_content
+                    claude_path.write_text(merged, encoding="utf-8")
+                    print(f"  ✅ CLAUDE.md (Myco section appended to existing)")
+                else:
+                    print(f"  ⏭️  CLAUDE.md already contains Myco config — skipped")
+            else:
+                claude_path.write_text(claude_content, encoding="utf-8")
+                print(f"  ✅ CLAUDE.md (Agent-First entry point)")
 
-        # Generate .mcp.json
+        # Generate or MERGE .mcp.json (never overwrite existing servers)
         import json
-        mcp_config = json.loads(get_template("mcp.json"))
-        (project_dir / ".mcp.json").write_text(
-            json.dumps(mcp_config, indent=2), encoding="utf-8")
-        print(f"  ✅ .mcp.json (MCP server auto-discovery)")
+        mcp_path = project_dir / ".mcp.json"
+        myco_server = json.loads(get_template("mcp.json"))
+        if mcp_path.exists():
+            try:
+                existing = json.loads(mcp_path.read_text(encoding="utf-8"))
+                servers = existing.get("mcpServers", {})
+                servers.update(myco_server.get("mcpServers", {}))
+                existing["mcpServers"] = servers
+                mcp_path.write_text(json.dumps(existing, indent=2), encoding="utf-8")
+                print(f"  ✅ .mcp.json (merged — existing servers preserved)")
+            except (json.JSONDecodeError, KeyError):
+                mcp_path.write_text(json.dumps(myco_server, indent=2), encoding="utf-8")
+                print(f"  ✅ .mcp.json (created — old file was invalid)")
+        else:
+            mcp_path.write_text(json.dumps(myco_server, indent=2), encoding="utf-8")
+            print(f"  ✅ .mcp.json (MCP server auto-discovery)")
 
         # Scheduled metabolic cycle task
         sched_dir = project_dir / ".claude" / "scheduled-tasks" / "myco-metabolic-cycle"
@@ -247,17 +270,38 @@ def run_init(args) -> int:
         print(f"   Run `claude` in {project_dir.resolve()} — Myco will auto-load.")
 
     elif agent == "cursor":
-        # Generate .cursorrules from template
+        # Generate or APPEND .cursorrules (never overwrite)
         cursorrules_content = fill_template(get_template("CURSORRULES"), replacements)
-        (project_dir / ".cursorrules").write_text(cursorrules_content, encoding="utf-8")
-        print(f"  ✅ .cursorrules (Cursor agent entry point)")
+        cr_path = project_dir / ".cursorrules"
+        if cr_path.exists():
+            existing = cr_path.read_text(encoding="utf-8")
+            if "myco" not in existing.lower():
+                cr_path.write_text(existing.rstrip() + "\n\n" + cursorrules_content, encoding="utf-8")
+                print(f"  ✅ .cursorrules (Myco section appended to existing)")
+            else:
+                print(f"  ⏭️  .cursorrules already contains Myco config — skipped")
+        else:
+            cr_path.write_text(cursorrules_content, encoding="utf-8")
+            print(f"  ✅ .cursorrules (Cursor agent entry point)")
 
-        # Generate .mcp.json — Cursor supports MCP natively
+        # Generate or MERGE .mcp.json (same logic as Claude)
         import json
-        mcp_config = json.loads(get_template("mcp.json"))
-        (project_dir / ".mcp.json").write_text(
-            json.dumps(mcp_config, indent=2), encoding="utf-8")
-        print(f"  ✅ .mcp.json (MCP server auto-discovery)")
+        mcp_path = project_dir / ".mcp.json"
+        myco_server = json.loads(get_template("mcp.json"))
+        if mcp_path.exists():
+            try:
+                existing = json.loads(mcp_path.read_text(encoding="utf-8"))
+                servers = existing.get("mcpServers", {})
+                servers.update(myco_server.get("mcpServers", {}))
+                existing["mcpServers"] = servers
+                mcp_path.write_text(json.dumps(existing, indent=2), encoding="utf-8")
+                print(f"  ✅ .mcp.json (merged — existing servers preserved)")
+            except (json.JSONDecodeError, KeyError):
+                mcp_path.write_text(json.dumps(myco_server, indent=2), encoding="utf-8")
+                print(f"  ✅ .mcp.json (created)")
+        else:
+            mcp_path.write_text(json.dumps(myco_server, indent=2), encoding="utf-8")
+            print(f"  ✅ .mcp.json (MCP server auto-discovery)")
 
         has_mcp = _check_mcp_sdk()
         print(f"\n🍄 Done! Myco is wired for Cursor.")
