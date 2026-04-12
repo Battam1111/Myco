@@ -38,6 +38,36 @@ Commit message 格式必须使用 Conventional Commits 风格并带 `[contract:*
 
 ---
 
+## v0.42.0 — 2026-04-12 (minor · Wave 55 Identity Anchor Agent-First Revision — mutation-selection internalized)
+
+**What changed**:
+
+Wave 55 rewrites the 8 identity anchors based on the Agent-First reality
+established by Wave 54. The fundamental conceptual shift:
+
+- **Old model**: System mutates, human selects (human-in-the-loop)
+- **New model**: Agent mutates, Substrate's immune system selects, human
+  provides direction and trust (human-on-the-loop)
+
+Anchor changes:
+1. "基质 vs 工具" → **"Agent-Substrate 共生体"** (symbiont, not "runs on")
+2. "非参数进化" — unchanged
+3. "代谢 + 七步管道" → **"自主代谢管道"** (Agent IS the daemon, not human-triggered)
+4. "压缩即认知" — add cohort intelligence + compression_pressure references
+5. "四层自我模型" — add graph (C layer) + sessions (D layer)
+6. "人机协作" → **"内化的变异-选择"** (lint+hunger = immune system = selection)
+7. "理论血统" — add Rich Sutton Bitter Lesson
+8. "永久锚点文档" — add this craft as third permanence anchor
+
+Also updated: `docs/vision.md` §五 "人机协作模型" → "Agent-Substrate 共生模型".
+
+Authoritative craft: `docs/primordia/anchor_agentfirst_revision_craft_2026-04-12.md`
+(kernel_contract, 3 rounds, 0.90 confidence).
+
+**Contract surface**: v0.41.0 → v0.42.0.
+
+---
+
 ## v0.41.0 — 2026-04-12 (minor · Wave 54 Agent-First Integration — hunger auto-execute, graph/session signals, scheduled metabolic cycle)
 
 **What changed**:
