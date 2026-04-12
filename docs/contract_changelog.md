@@ -38,6 +38,26 @@ Commit message 格式必须使用 Conventional Commits 风格并带 `[contract:*
 
 ---
 
+## v0.38.0 — 2026-04-12 (minor · Wave 49 Inlet Trigger Policy — search miss tracking + cohort gap detection)
+
+**What changed**:
+
+Wave 49 adds `inlet_ripe` hunger signal + search miss tracking. Partially
+closes `docs/open_problems.md` §2 (Metabolic Inlet Trigger Signals).
+
+1. **`detect_inlet_trigger(root)`** in notes.py — fires when search miss
+   count >= threshold OR cohort gaps with >= gap_threshold notes detected.
+2. **`record_search_miss(root, query)`** in notes.py — records zero-result
+   searches in `.myco_state/search_misses.yaml`.
+3. **`myco_search`** MCP tool — calls `record_search_miss` when matches == 0.
+4. Hunger report now includes `inlet_signal` in signals + actions.
+5. **`_canon.yaml::system.inlet_triggers`** — new config section.
+4 unit tests in `tests/unit/test_inlet_trigger.py`.
+
+**Contract surface**: v0.37.0 → v0.38.0.
+
+---
+
 ## v0.37.0 — 2026-04-12 (minor · Wave 48 Semantic Cohort Intelligence — tag analysis, compression suggestions, gap detection)
 
 **What changed**:

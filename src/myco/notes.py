@@ -45,7 +45,7 @@ import os
 import re
 import secrets
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -1417,6 +1417,127 @@ def detect_compression_ripe(
     )
 
 
+# ---------------------------------------------------------------------------
+# Inlet trigger detection (Wave 49, contract v0.38.0)
+# ---------------------------------------------------------------------------
+
+def detect_inlet_trigger(root: Path, *, now: Optional[datetime] = None) -> Optional[str]:
+    """Detect whether inlet triggers are ripe based on search misses and cohort gaps.
+
+    Fires when EITHER:
+    1. Search miss count >= threshold (from .myco_state/search_misses.yaml)
+    2. Cohort gap count with total >= gap_threshold (from cohorts.gap_detection)
+
+    Returns a signal string if ripe, or None.
+    """
+    if now is None:
+        now = datetime.now(timezone.utc)
+
+    # Load thresholds from canon
+    canon_path = root / "_canon.yaml"
+    miss_threshold = 5
+    gap_threshold = 3
+    miss_state_file = ".myco_state/search_misses.yaml"
+    enabled = True
+    if canon_path.exists():
+        try:
+            with open(canon_path, "r", encoding="utf-8") as f:
+                canon = yaml.safe_load(f) or {}
+            triggers_cfg = canon.get("system", {}).get("inlet_triggers", {})
+            if triggers_cfg:
+                enabled = triggers_cfg.get("enabled", True)
+                miss_threshold = triggers_cfg.get("search_miss_threshold", 5)
+                gap_threshold = triggers_cfg.get("gap_threshold", 3)
+                miss_state_file = triggers_cfg.get(
+                    "miss_state_file", ".myco_state/search_misses.yaml")
+        except Exception:
+            pass
+
+    if not enabled:
+        return None
+
+    parts = []
+
+    # Check 1: search miss count
+    miss_path = root / miss_state_file
+    miss_count = 0
+    if miss_path.exists():
+        try:
+            with open(miss_path, "r", encoding="utf-8") as f:
+                miss_data = yaml.safe_load(f) or {}
+            miss_count = miss_data.get("miss_count", 0)
+        except Exception:
+            pass
+    if miss_count >= miss_threshold:
+        parts.append(f"{miss_count} search misses (threshold {miss_threshold})")
+
+    # Check 2: cohort gaps
+    gap_count = 0
+    try:
+        from myco.cohorts import gap_detection
+        gaps = gap_detection(root)
+        qualifying_gaps = [g for g in gaps if g.get("total", 0) >= gap_threshold]
+        gap_count = len(qualifying_gaps)
+        if gap_count > 0:
+            gap_tags = ", ".join(g["tag"] for g in qualifying_gaps[:3])
+            parts.append(f"{gap_count} knowledge gap(s) ≥{gap_threshold} notes: {gap_tags}")
+    except Exception:
+        pass  # cohorts module not available or gap_detection fails
+
+    if not parts:
+        return None
+
+    return (
+        f"inlet_ripe: {' + '.join(parts)}. Consider running `myco inlet` to "
+        f"acquire external knowledge for these topics."
+    )
+
+
+def record_search_miss(root: Path, query: str) -> None:
+    """Record a search miss in .myco_state/search_misses.yaml.
+
+    Called by myco_search MCP tool when a query returns zero results.
+    The miss state file is read by detect_inlet_trigger to fire inlet_ripe.
+    """
+    canon_path = root / "_canon.yaml"
+    miss_state_file = ".myco_state/search_misses.yaml"
+    if canon_path.exists():
+        try:
+            with open(canon_path, "r", encoding="utf-8") as f:
+                canon = yaml.safe_load(f) or {}
+            miss_state_file = (canon.get("system", {})
+                                    .get("inlet_triggers", {})
+                                    .get("miss_state_file", miss_state_file))
+        except Exception:
+            pass
+
+    miss_path = root / miss_state_file
+    miss_path.parent.mkdir(parents=True, exist_ok=True)
+
+    data: Dict[str, Any] = {"miss_count": 0, "recent_misses": [], "last_reset": ""}
+    if miss_path.exists():
+        try:
+            with open(miss_path, "r", encoding="utf-8") as f:
+                loaded = yaml.safe_load(f) or {}
+            data.update(loaded)
+        except Exception:
+            pass
+
+    data["miss_count"] = data.get("miss_count", 0) + 1
+    recent = data.get("recent_misses", [])
+    if not isinstance(recent, list):
+        recent = []
+    recent.append({
+        "query": query,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    })
+    # Cap at 20 recent misses
+    data["recent_misses"] = recent[-20:]
+
+    with open(miss_path, "w", encoding="utf-8") as f:
+        yaml.dump(data, f, default_flow_style=False, allow_unicode=True)
+
+
 def _count_pending_bundles(inbox: Path) -> int:
     """Count bundle-pattern files at the top level of .myco_upstream_inbox/
     (not counting the absorbed/ subdirectory). Best-effort.
@@ -1921,6 +2042,15 @@ def compute_hunger_report(
             signals.append(compress_signal)
     except Exception:
         pass  # grandfather-compatible: missing canon block = feature off
+    # Inlet trigger signal (Wave 49, contract v0.38.0) — fires when search
+    # misses accumulate or cohort gaps are detected. Closes open_problems §2.
+    inlet_signal = None  # init before try — actions block reads this later
+    try:
+        inlet_signal = detect_inlet_trigger(root, now=now)
+        if inlet_signal:
+            signals.append(inlet_signal)
+    except Exception:
+        pass  # grandfather-compatible: missing module = feature off
     if not signals:
         signals.append("healthy: notes/ is metabolizing normally.")
 
@@ -1953,6 +2083,12 @@ def compute_hunger_report(
             "verb": "compress",
             "args": {"tag": "inlet"},
             "reason": str(compress_signal),
+        })
+    if inlet_signal:
+        actions.append({
+            "verb": "inlet",
+            "args": {},
+            "reason": str(inlet_signal),
         })
     if promote_candidates:
         for pc in promote_candidates[:3]:
