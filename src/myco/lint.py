@@ -238,12 +238,12 @@ def lint_references(canon, root):
 
 def lint_numbers(canon, root):
     issues = []
-    stale_patterns = []
     system = canon.get("system", {})
+
+    # --- Part A: stale_patterns (original L2 logic) ---
+    stale_patterns = []
     if isinstance(system.get("stale_patterns"), list):
         stale_patterns = system["stale_patterns"]
-    if not stale_patterns:
-        return issues
 
     entry_point = get_entry_point(canon)
     active_files = []
@@ -256,7 +256,9 @@ def lint_numbers(canon, root):
             continue
         rel = str(Path(filepath).relative_to(root))
         for sp in stale_patterns:
-            for match in re.finditer(re.escape(sp), content):
+            # Add word-boundary anchors to prevent "9 MCP" matching "19 MCP"
+            pat = r"(?<!\w)" + re.escape(sp) + r"(?!\w)"
+            for match in re.finditer(pat, content):
                 start = max(0, match.start() - 40)
                 end = min(len(content), match.end() + 40)
                 ctx = content[start:end].replace("\n", " ").strip()
@@ -266,6 +268,39 @@ def lint_numbers(canon, root):
                 line_num = content[:match.start()].count("\n") + 1
                 issues.append(("L2", "MEDIUM", f"{rel}:{line_num}",
                                f"Stale pattern '{sp}': ...{ctx}..."))
+
+    # --- Part B: Numeric claims mechanical verification ---
+    # Reads system.traceability.numeric_claims from _canon.yaml and verifies
+    # that each cited_in file contains the SSoT value. This prevents the
+    # "越找越多" problem — stale numbers are caught mechanically, not by
+    # Agent memory.
+    traceability = system.get("traceability", {})
+    claims = traceability.get("numeric_claims", {})
+    for claim_name, claim_def in claims.items():
+        if not isinstance(claim_def, dict):
+            continue
+        ssot_value = claim_def.get("value")
+        cited_in = claim_def.get("cited_in", [])
+        if ssot_value is None or not cited_in:
+            continue
+        ssot_str = str(ssot_value)
+        for cited_file in cited_in:
+            filepath = Path(root) / cited_file
+            if not filepath.exists():
+                issues.append(("L2", "MEDIUM", cited_file,
+                               f"Numeric claim '{claim_name}': cited file "
+                               f"does not exist"))
+                continue
+            content = read_file(str(filepath))
+            if not content:
+                continue
+            # Check if the SSoT value appears in the file
+            if ssot_str not in content:
+                issues.append(("L2", "HIGH", cited_file,
+                               f"Numeric claim '{claim_name}': SSoT value "
+                               f"{ssot_str} not found in file. The file may "
+                               f"contain a stale number."))
+
     return issues
 
 
@@ -746,7 +781,7 @@ def lint_dotfile_hygiene(canon, root):
     }
     # Wave 17: .myco_state/ files match any .md or .json name — no
     # bundle-pattern constraint. We validate extension only.
-    STATE_ALLOWED_EXTS = {".md", ".json", ".db"}  # .db added Wave 52 (sessions.db)
+    STATE_ALLOWED_EXTS = {".md", ".json", ".db", ".yaml"}  # .db Wave 52, .yaml for decay_baseline
     thirty_days = 30 * 86400
     now = _time.time()
 

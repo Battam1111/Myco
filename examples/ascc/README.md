@@ -10,8 +10,8 @@ Myco's first real-world deployment — and the project from which Myco itself wa
 | Wiki pages | 10 (entity×2, concept×3, operations×2, analysis×2, craft×1) |
 | Debate records | 15+ rounds of 传統手藝 with online research |
 | Procedures | 7 documented operational workflows (P-001 to P-007) |
-| Lint dimensions | 9 (L0-L8), all PASS *[historical snapshot; current Myco has 15 dimensions L0-L14 as of contract v0.8.0]* |
-| Evolution engine | Gear 1-4 all executed |
+| Lint dimensions | 9 (L0-L8), all PASS *[historical snapshot; current Myco has 23 dimensions L0-L22 as of contract v0.45.0]* |
+| Evolution engine | Full metabolic lifecycle executed |
 
 ## Evolution Timeline
 
@@ -66,8 +66,8 @@ This is the most important section of this example. When ASCC completed its life
 
 Additionally, ASCC's operational experience directly shaped:
 
-- The original 9-dimension lint system (`scripts/lint_knowledge.py` — now a shim delegating to `src/myco/lint.py`, grown to 15 dimensions in contract v0.8.0) — every check was born from a real consistency failure
-- The W1-W12 principles — several emerged from ASCC's friction patterns (W6 Proximal Enrichment from repeated debugging, W9 Active Tensions from unresolved architectural trade-offs)
+- The original 9-dimension lint system (`scripts/lint_knowledge.py` — now a shim delegating to `src/myco/lint.py`, grown to 23 dimensions) — every check was born from a real consistency failure
+- The W1-W13 principles (十三原則) — several emerged from ASCC's friction patterns (W6 Proximal Enrichment from repeated debugging, W9 Active Tensions from unresolved architectural trade-offs)
 - The `operational_narratives.md` template — P-000 through P-004 procedure formats were first developed in ASCC
 
 ## Key Learnings

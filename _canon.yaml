@@ -81,7 +81,7 @@ system:
 
   # --- Session End Reflex Arc (Wave 14, contract v0.13.0) ----------------
   # Authoritative craft: docs/primordia/session_end_reflex_arc_craft_2026-04-11.md
-  # Parent principle: W5 (continuous evolution) / Gear 2 + Gear 4 rituals.
+  # Parent principle: W5 (continuous evolution) / reflection + distillation rituals.
   # Sibling to boot_reflex. DELIBERATELY LOW severity — W5 is a drive
   # (habit decay), not W1-class constraint (data loss). Signal appears in
   # hunger advisory list, does not block task work. See craft §B4.
@@ -92,7 +92,7 @@ system:
   #           15 ≈ one active kernel day.
   # distillation — "oldest `g4-candidate` entry older than K days without
   #           resolution marker (`g4-pass` inline or craft file on disk)".
-  #           Drives Gear 4 sweep discipline.
+  #           Drives distillation sweep discipline.
   session_end_reflex:
     enabled: true
     severity: LOW                       # asymmetric with boot_reflex HIGH
@@ -424,6 +424,17 @@ system:
   - 五原则
   - 六原则
   - 七原则
+  - 十二原则
+  - 四齿轮
+  - "Gear 1"
+  - "Gear 2"
+  - "Gear 3"
+  - "Gear 4"
+  - "9 MCP"
+  - "15 MCP"
+  - "18 MCP"
+  - "9 lint"
+  - "15/15"
   # Note: "v0.8" was in this list as a pre-v1.0 stale tag when Myco was
   # briefly at v0.9.0 → 1.0. Wave 8 pre-release re-baseline restored v0.x
   # as the current family (see docs/contract_changelog.md top banner), so

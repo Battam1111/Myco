@@ -63,9 +63,9 @@ There are four formal contribution types, each with a clear acceptance bar. Code
 ---
 
 ### 4. Workflow Principles
-**What:** A proposed new W-number principle (W13, W14, …) or refinement to an existing principle (W1-W12), submitted as a GitHub Discussion.
+**What:** A proposed new W-number principle (W14, W15, …) or refinement to an existing principle (W1-W13), submitted as a GitHub Discussion.
 
-**Why this matters:** The W1-W12 principles are Myco's core protocol. A new principle validated across multiple project types strengthens the universal framework.
+**Why this matters:** The W1-W13 principles (十三原則) are Myco's core protocol. A new principle validated across multiple project types strengthens the universal framework.
 
 **Submission path:** Open a Discussion in [Ideas](https://github.com/Battam1111/Myco/discussions) with: the principle's name and one-sentence statement, the failure mode it prevents, and at least two project types where it applies.
 

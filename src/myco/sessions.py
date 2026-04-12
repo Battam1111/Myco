@@ -83,16 +83,34 @@ def _find_session_dirs(root: Path, config: Dict[str, Any]) -> List[Path]:
 
 
 def _ensure_db(db_path: Path) -> sqlite3.Connection:
-    """Create or open the FTS5 database."""
+    """Create or open the FTS5 database.
+
+    FTS5 requires the SQLite extension to be compiled with
+    -DSQLITE_ENABLE_FTS5.  Most CPython builds on Windows/macOS include
+    it, but some Linux distributions do not.  We detect and raise a
+    clear error rather than an opaque OperationalError.
+    """
     db_path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(db_path))
-    conn.execute(
-        "CREATE VIRTUAL TABLE IF NOT EXISTS session_turns USING fts5("
-        "  session_file, turn_index, role, content, timestamp,"
-        "  tokenize='unicode61'"
-        ")"
-    )
-    conn.commit()
+    try:
+        conn.execute(
+            "CREATE VIRTUAL TABLE IF NOT EXISTS session_turns USING fts5("
+            "  session_file, turn_index, role, content, timestamp,"
+            "  tokenize='unicode61'"
+            ")"
+        )
+        conn.commit()
+    except sqlite3.OperationalError as exc:
+        if "no such module" in str(exc).lower():
+            conn.close()
+            raise RuntimeError(
+                "SQLite FTS5 extension is not available in this Python "
+                "build. Session indexing requires FTS5. On Debian/Ubuntu "
+                "try: sudo apt install libsqlite3-dev && rebuild Python, "
+                "or use a Python distribution that includes FTS5 "
+                "(e.g., python.org installer, conda)."
+            ) from exc
+        raise
     return conn
 
 

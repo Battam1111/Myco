@@ -1,9 +1,9 @@
 # wiki/ — L1.5 Refined-Knowledge Layer
 
-> **状态**：空目录 + 章程（dormant organ）。截至 contract v0.8.0 尚无 promoted page。
-> **用途**：存放从 `notes/` 提炼后进入"长期可引用"阶段的 W8 知识页面。
+> **状态**：空目录 + 章程（dormant organ）。截至 contract v0.45.0 尚无 promoted page。
+> **用途**：存放从 `notes/` 提炼后进入"长期可引用"阶段的知识页面。
 > **在 Myco 架构中的位置**：L1（MYCO.md 索引） → **L1.5（本目录）** → L2（docs/ 参考规格） → L3（notes/ 原始消化）
-> **为什么现在是空的**：Myco 作为一个仍在 pre-release 的基质，自用 notes 还没有跑完足够多的 extract/integrate 循环达到 promote 阈值。第一个真实 wiki 页面将在 Gear 3 第一次 promote 时落地，届时 `myco digest` + 手工裁定会把那条 note 提拔到本目录。
+> **为什么现在是空的**：Myco 自用 notes 还没有跑完足够多的 extract/integrate 循环达到 promote 阈值。第一个真实 wiki 页面将在首次 promote 时落地，届时 `myco digest` + Agent 裁定会把那条 note 提拔到本目录。
 
 ---
 
