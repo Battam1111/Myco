@@ -24,6 +24,12 @@ session per `docs/agent_protocol.md` §3).
    run the Discovery Loop skill (`skills/discovery-loop.md`) to proactively acquire
    external knowledge for detected gaps.
 
+5. **Evolve** (Wave E2): If `_canon.yaml::system.evolution.enabled` is true
+   AND session count > `min_sessions_before_evolve`, check skill performance.
+   If any skill's success rate < `skill_success_threshold`, call `evolve.mutate_skill`
+   with the Agent's llm_fn, run constraint gates, score, and if improved,
+   atomically replace + git commit. Max `max_mutations_per_cycle` per run.
+
 ## Thresholds
 
 All thresholds are in `_canon.yaml`:

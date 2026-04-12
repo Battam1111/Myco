@@ -191,6 +191,15 @@ system:
           - docs/vision.md
       evidence_pattern: '(docs/primordia/[a-z0-9_]+_craft_\d{4}-\d{2}-\d{2}(_[0-9a-f]{4})?\.md|craft_reference\s*:)'
 
+  # ── Skill Evolution (Wave E2) ──────────────────────────────────────
+  # Opt-in auto-evolution of skills based on session performance.
+  evolution:
+    enabled: false
+    skill_success_threshold: 0.7
+    min_sessions_before_evolve: 5
+    max_mutations_per_cycle: 1
+    require_git_clean: true
+
   # ── Vertical Traceability Index (Wave 56) ─────────────────────────────
   # Agent navigation map: maps identity anchors to their full vertical
   # stack (story → vision → contract → lint → code → hunger signals).
