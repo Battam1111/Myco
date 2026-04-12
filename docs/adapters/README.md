@@ -11,7 +11,7 @@ Adapters come in three types based on their integration model:
 - **Coexistence guide** (Cursor, GPT): configure a different agent type to work alongside Myco
 - **L0 backend** (MemPalace): plug in a retrieval service as Myco's archive layer
 
-In the current pre-release (package v0.2.0, kernel contract v0.28.0), content-import adapters are available as CLI commands for Hermes and OpenClaw (`myco import --from hermes ./skills/`) and as manual protocols for the rest. Coexistence adapters are ready to use today — no CLI automation needed, just follow the YAML. L0 backends (MemPalace) remain design-spec until the first real deployment.
+In the current pre-release (package v0.2.0, kernel contract v0.31.0), content-import adapters are available as CLI commands for Hermes and OpenClaw (`myco import --from hermes ./skills/`) and as manual protocols for the rest. Coexistence adapters are ready to use today — no CLI automation needed, just follow the YAML. L0 backends (MemPalace) remain design-spec until the first real deployment.
 
 ## Adapter Schema
 

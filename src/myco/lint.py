@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Myco Knowledge System — Automated 21-Dimension Substrate Immune System.
+Myco Knowledge System — Automated 22-Dimension Substrate Immune System.
 
 The canonical dimension count is `len(FULL_CHECKS)` (computed at module load
 time, see bottom of this file). This docstring's dimension table below is a
@@ -31,6 +31,7 @@ Dimensions:
     L18 Compression Integrity — forward-compression bidirectional link audit (Wave 30, v0.26.0)
     L19 Lint Dimension Count Consistency — downstream-cache drift detection (Wave 38, v0.29.0)
     L20 Translation Mirror Consistency — locale README skeleton parity (Wave 39, v0.30.0)
+    L21 Contract Version Inline Consistency — forward-looking inline contract version SSoT (Wave 40, v0.31.0)
 """
 
 import os
@@ -2165,11 +2166,211 @@ def lint_translation_mirror_consistency(canon, root):
 
 
 # ---------------------------------------------------------------------------
+# L21 Contract Version Inline Consistency (Wave 40, v0.31.0)
+# ---------------------------------------------------------------------------
+# Forward-looking inline contract version claims (e.g. "kernel contract
+# v0.X.Y") in narrative surfaces must match `_canon.yaml::system.contract_version`.
+# Catches the scar class where Wave 38 + Wave 39 both swept narrative
+# surfaces but missed inline `kernel contract v0.28.0` claims in MYCO.md
+# lines 4 / 22 / 159 — proving manual sweeps cannot replace ground-truth
+# lint. Sister to L19 (count drift) and L20 (skeleton drift). Together
+# the three close the substrate's top three silent-rot scar classes.
+#
+# Authoritative craft:
+#     docs/primordia/contract_version_inline_craft_2026-04-12.md
+
+_L21_HIGH_FILES = (
+    "MYCO.md",
+    "README.md",
+    "README_zh.md",
+    "README_ja.md",
+)
+
+_L21_MEDIUM_FILES = (
+    "docs/adapters/README.md",
+    "CONTRIBUTING.md",
+    "docs/architecture.md",
+    "docs/vision.md",
+    "docs/theory.md",
+)
+
+_L21_SKIP_MARKER = "<!-- l21-skip -->"
+
+# Forward-looking pattern (Wave 40 D1): catches "kernel contract v0.X.Y",
+# "当前 contract v0.X.Y", "current contract: v0.X.Y" with optional colon
+# (ASCII or full-width) and optional `v` prefix. Case-insensitive.
+_L21_FORWARD_RE = re.compile(
+    r"(?i)(kernel contract|当前\s*contract|current contract)\s*[:：]?\s*(v?\d+\.\d+\.\d+)"
+)
+
+# Date-in-parens marker for historical context, e.g. (2026-04-11).
+_L21_DATE_RE = re.compile(r"\(20\d\d-\d\d-\d\d")
+
+# Two-version transition arrow, e.g. "v0.29.0 → v0.30.0" (describes a bump).
+_L21_TRANSITION_RE = re.compile(r"v?\d+\.\d+\.\d+\s*[→\-]>?\s*v?\d+\.\d+\.\d+")
+
+# Historical-event verbs adjacent to a version (within 30 chars).
+_L21_HISTORICAL_VERBS = ("landed", "landing", "落地", "已完成", "完成", "post-rebase",
+                         "supersedes", "succeeded", "✅")
+
+
+def _l21_is_historical(line, prev_nonblank_line):
+    """Apply Wave 40 §1.2 historical-marker filter to a matched line.
+
+    Returns True if the line should be treated as a historical reference
+    (skip) and False if it is a current claim (check). The filter is
+    deliberately biased toward false negatives (skip on ambiguity) — the
+    cost of a false positive (noisy lint that operators learn to ignore)
+    is higher than the cost of a false negative (one missed drift caught
+    on the next wave).
+    """
+    # 1. Operator skip-marker on previous non-blank line.
+    if prev_nonblank_line is not None and prev_nonblank_line.strip() == _L21_SKIP_MARKER:
+        return True
+
+    # 2. Date in parens — strong historical timestamp signal.
+    if _L21_DATE_RE.search(line):
+        return True
+
+    # 3. Two-version transition arrow — describes a bump action, not a state.
+    if _L21_TRANSITION_RE.search(line):
+        return True
+
+    # 4. Historical-event verbs anywhere in the line.
+    for verb in _L21_HISTORICAL_VERBS:
+        if verb in line:
+            return True
+
+    # 5. Markdown table row — Phase tracker shape (`|` or `· …` bullet rows
+    # are not table rows but have similar historical semantics).
+    # We treat actual table rows (`^\s*\|`) as historical because the Phase
+    # tracker uses tables for landing records.
+    stripped = line.lstrip()
+    if stripped.startswith("|"):
+        return True
+
+    return False
+
+
+def lint_contract_version_inline(canon, root):
+    """L21 (Wave 40, contract v0.31.0) — inline contract version SSoT enforcement.
+
+    Closes Wave 37 D7 followup #3, the third + final candidate from the
+    Wave 37 manual sweep. Sister to Wave 38 L19 (dimension count) and
+    Wave 39 L20 (translation mirror skeleton). The three together close
+    the substrate's top three silent-rot scar classes.
+
+    What L21 enforces (Wave 40 D1):
+        Every line matching the forward-looking pattern
+        ``(kernel contract|当前 contract|current contract)\\s*[:：]?\\s*v?\\d+\\.\\d+\\.\\d+``
+        in an allowlisted file (Wave 40 D2) must use the canonical
+        contract version from ``_canon.yaml::system.contract_version``,
+        UNLESS the line is identified as historical by the §1.2 filter
+        set (date in parens, transition arrow, landed verb, code fence,
+        table row, post-rebase keyword, or l21-skip marker).
+
+    What L21 does NOT enforce (Wave 40 §0.3):
+        - Package version `__version__` / pyproject.toml (independent SemVer
+          line per Wave 8 re-baseline)
+        - Append-only history surfaces (log.md, contract_changelog.md,
+          docs/primordia/, notes/, examples/ascc/)
+        - Source code, tests, scripts (not narrative surfaces)
+        - Semantic alignment between contract version and prose description
+
+    Severity (Wave 40 D4):
+        - HIGH for entry point (MYCO.md) + 3 locale READMEs
+        - MEDIUM for adapter/contrib/doctrinal docs
+
+    Edge cases (Wave 40 §3.1):
+        - C1: multiple version claims per line — first match used
+        - C2: optional `v` prefix
+        - C3: ASCII or full-width colon
+        - C4: missing allowlist file → silent skip
+        - C5: missing canon → silent pass (L0 enforces canon presence)
+        - C6: code-fence aware
+        - C7: src/myco/lint.py itself is not in the allowlist
+
+    Authoritative craft:
+        docs/primordia/contract_version_inline_craft_2026-04-12.md
+    """
+    issues = []
+
+    # Read canon contract version (D1 SSoT).
+    canon_version = (canon.get("system") or {}).get("contract_version")
+    if not canon_version:
+        # C5: no canon version → can't compare, silent pass.
+        return issues
+
+    # Normalize: canon may store with or without leading `v`. Compare
+    # both forms to be tolerant.
+    canon_normalized = canon_version.lstrip("v")
+
+    # Walk the file allowlist.
+    for severity, files in (("HIGH", _L21_HIGH_FILES), ("MEDIUM", _L21_MEDIUM_FILES)):
+        for rel in files:
+            path = root / rel
+            if not path.exists():
+                continue  # C4
+            content = read_file(path)
+            if content is None:
+                continue
+
+            # Walk lines with code-fence state and previous-line tracking.
+            in_fence = False
+            prev_nonblank_line = None
+
+            for raw_line in content.splitlines():
+                line = raw_line.rstrip()
+
+                # C6: code-fence aware.
+                if line.startswith("```"):
+                    in_fence = not in_fence
+                    if line.strip() != "":
+                        prev_nonblank_line = line
+                    continue
+
+                if in_fence:
+                    if line.strip() != "":
+                        prev_nonblank_line = line
+                    continue
+
+                # Try to match the forward-looking pattern.
+                match = _L21_FORWARD_RE.search(line)
+                if match is None:
+                    if line.strip() != "":
+                        prev_nonblank_line = line
+                    continue
+
+                # Apply historical-marker filter.
+                if _l21_is_historical(line, prev_nonblank_line):
+                    if line.strip() != "":
+                        prev_nonblank_line = line
+                    continue
+
+                # Forward-looking match: extract version, compare to canon.
+                matched_version = match.group(2).lstrip("v")
+                if matched_version != canon_normalized:
+                    issues.append((
+                        "L21", severity, rel,
+                        f"inline contract version `v{matched_version}` "
+                        f"drifted from canon `v{canon_normalized}` "
+                        f"(forward-looking claim must mirror "
+                        f"_canon.yaml::system.contract_version — "
+                        f"Wave 40 D1)",
+                    ))
+
+                if line.strip() != "":
+                    prev_nonblank_line = line
+
+    return issues
+
+
+# ---------------------------------------------------------------------------
 # Module-level checks lists (Wave 38 D2 — SSoT for LINT_DIMENSION_COUNT)
 # ---------------------------------------------------------------------------
 
 # QUICK_CHECKS = the L0-L3 fast subset run when `myco lint --quick`.
-# FULL_CHECKS  = the full L0-L20 sequence (default). `len(FULL_CHECKS)` is
+# FULL_CHECKS  = the full L0-L21 sequence (default). `len(FULL_CHECKS)` is
 # the canonical lint dimension count — see L19 docstring for the rot story.
 QUICK_CHECKS = (
     ("L0 Canon Self-Check", lint_canon_schema),
@@ -2196,6 +2397,7 @@ FULL_CHECKS = QUICK_CHECKS + (
     ("L18 Compression Integrity", lint_compression_integrity),
     ("L19 Lint Dimension Count Consistency", lint_dimension_count_consistency),
     ("L20 Translation Mirror Consistency", lint_translation_mirror_consistency),
+    ("L21 Contract Version Inline Consistency", lint_contract_version_inline),
 )
 
 
