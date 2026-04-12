@@ -2111,6 +2111,32 @@ def compute_hunger_report(
             )
     except Exception:
         pass  # grandfather-compatible
+    # Graph orphan signal (Wave 54, contract v0.41.0) — structural
+    # connectivity check. Fires when orphan file count exceeds threshold.
+    orphan_count = 0
+    try:
+        from myco.graph import build_link_graph, find_orphans
+        graph = build_link_graph(root)
+        orphans = find_orphans(graph)
+        orphan_count = len(orphans)
+        if orphan_count > 10:
+            top3 = ", ".join(orphans[:3])
+            signals.append(
+                f"graph_orphans: {orphan_count} files with zero inbound links "
+                f"(top: {top3}). Run `myco graph orphans` to see full list."
+            )
+    except Exception:
+        pass  # grandfather-compatible: graph module not available
+    # Session index staleness (Wave 54) — nudge to re-index sessions.
+    try:
+        db_path = root / ".myco_state" / "sessions.db"
+        if not db_path.exists():
+            signals.append(
+                "session_index_missing: no session memory index found. "
+                "Run `myco session index` to enable searchable conversation history."
+            )
+    except Exception:
+        pass
     if not signals:
         signals.append("healthy: notes/ is metabolizing normally.")
 

@@ -531,6 +531,64 @@ def run_hunger(args) -> int:
     print("\n  Signals:")
     for s in report.signals:
         print(f"    • {s}")
+    # Wave 54 (v0.41.0): --execute auto-runs ALL recommended actions.
+    # Agent-first design: closes the signals→execution gap. The agent
+    # calls `myco hunger --execute` and the substrate self-heals.
+    if getattr(args, "execute", False) and report.actions:
+        print(f"\n  ⚡ Auto-executing {len(report.actions)} action(s):")
+        import subprocess
+        for action in report.actions:
+            verb = action.get("verb", "")
+            action_args = action.get("args", {})
+            reason = action.get("reason", "")
+            # Build CLI command
+            cmd_parts = [sys.executable, "-c",
+                         "from myco.cli import main; main()", "--"]
+            if verb == "digest":
+                note_id = action_args.get("note_id")
+                if note_id:
+                    cmd_parts += ["digest", note_id, "--project-dir", str(root)]
+                else:
+                    # Bulk digest: skip — too complex for auto-execute
+                    print(f"    ⏭ skip bulk digest (requires manual note selection)")
+                    continue
+            elif verb == "compress":
+                tag = action_args.get("tag")
+                cohort = action_args.get("cohort")
+                if cohort == "auto":
+                    cmd_parts += ["compress", "--cohort", "auto",
+                                  "--rationale", f"auto: {reason}",
+                                  "--project-dir", str(root)]
+                elif tag:
+                    cmd_parts += ["compress", "--tag", tag,
+                                  "--rationale", f"auto: {reason}",
+                                  "--project-dir", str(root)]
+                else:
+                    print(f"    ⏭ skip compress (no tag or cohort)")
+                    continue
+            elif verb == "prune":
+                cmd_parts += ["prune", "--apply", "--project-dir", str(root)]
+            elif verb == "inlet":
+                # Inlet requires content — advisory only in auto mode
+                print(f"    📋 inlet recommended: {reason}")
+                continue
+            else:
+                print(f"    ⏭ skip unknown verb: {verb}")
+                continue
+
+            print(f"    → {verb}: {reason[:80]}...")
+            try:
+                result = subprocess.run(cmd_parts, capture_output=True,
+                                        text=True, timeout=120)
+                if result.returncode == 0:
+                    print(f"      ✅ success")
+                else:
+                    stderr = (result.stderr or "").strip()[:120]
+                    print(f"      ❌ exit {result.returncode}: {stderr}")
+            except Exception as e:
+                print(f"      ❌ error: {e}")
+        print()
+
     # Non-zero exit if the substrate is in a concerning state.
     concerning = any(
         sig.startswith(
