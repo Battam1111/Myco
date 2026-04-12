@@ -100,6 +100,8 @@ Python 打包环境（hatchling + twine）。模板唯一来源：`src/myco/temp
 | `forage_backlog_pressure` | 0.00 | Wave 9 first-live batch 6 items 全部 digested（空 raw backlog）；manifest schema_version=1 稳定 | L14, forage/_index.yaml |
 | `notes_digestion_pressure` | 0.00 | 135 notes，0 raw / 0 digesting / 45 extracted / 71 integrated / 19 excreted。pressure = 0/max(1,45+71) = 0.000。hunger reports healthy。首次有 excretion | myco hunger 2026-04-12, 135 notes |
 | `upstream_inbox_pressure` | 0.00 | Wave 9 CLI 落地后首次 dogfood：ce72+3356 absorb → ingest 完成，bundle 已归档至 `.myco_upstream_inbox/absorbed/`，active inbox 归零；ceiling=5 为 bootstrap 值，pending friction data | contract v0.9.0, `myco upstream scan` |
+| `mycelium_density` | 3.65 | 菌丝网络密度（edges/nodes）= 792/217。结构性互联指标，非 [0,1] 区间——原始图密度值，越高表示知识节点间连接越密。作为 Self Model C 层结构性退化的可计算基线：密度下降 = 结构退化信号 | `myco graph stats` 2026-04-12, 217 nodes / 792 edges |
+| `graph_orphan_pressure` | 0.11 | 孤儿节点比率（orphans/total）= 24/217。零入链节点占比，衡量知识孤岛程度。hunger `graph_orphans` 信号的量化基线；上升 = 知识碎片化加剧 | `myco graph stats` 2026-04-12, 24 orphans / 217 total |
 
 **自评偏差护栏**（Wave 8 craft R2.2）：以上数值在无外部 evidence 情况下都以 0.70 为软顶。下调可随时，上调任何一项都需要在 `log.md` 追加一条 milestone + 关联 commit hash。**不要把 dashboard 当成奖杯榜**。
 

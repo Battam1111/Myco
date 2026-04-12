@@ -489,4 +489,41 @@ problem 通胀成焦虑清单的唯一护栏。
 
 ---
 
+## See Also — 按问题关联的 Craft 与实现
+
+**Problem 1-4 (Metabolic Inlet)**:
+- [docs/primordia/inlet_mvp_craft_2026-04-12.md](primordia/inlet_mvp_craft_2026-04-12.md) -- Inlet scaffold 原语
+- [docs/primordia/metabolic_inlet_design_craft_2026-04-12.md](primordia/metabolic_inlet_design_craft_2026-04-12.md) -- Inlet 设计决策
+- [docs/primordia/proactive_discovery_craft_2026-04-12.md](primordia/proactive_discovery_craft_2026-04-12.md) -- 主动发现：inlet_ripe 信号
+- [docs/primordia/compress_mvp_craft_2026-04-12.md](primordia/compress_mvp_craft_2026-04-12.md) -- 压缩 MVP
+- [docs/primordia/uncompress_mvp_craft_2026-04-12.md](primordia/uncompress_mvp_craft_2026-04-12.md) -- 反向压缩
+- [docs/primordia/d_layer_prune_craft_2026-04-12.md](primordia/d_layer_prune_craft_2026-04-12.md) -- D 层 auto-excretion
+
+**Problem 5 (Self Model C)**:
+- [docs/primordia/vision_recovery_craft_2026-04-10.md](primordia/vision_recovery_craft_2026-04-10.md) -- 愿景恢复（C 层盲点首次识别）
+- [src/myco/graph.py](../src/myco/graph.py) -- Link Graph 实现（orphan delta metric）
+
+**Problem 6 (Self Model D)**:
+- [docs/primordia/dead_knowledge_seed_craft_2026-04-11.md](primordia/dead_knowledge_seed_craft_2026-04-11.md) -- 死知识种子
+- [docs/primordia/d_layer_prune_craft_2026-04-12.md](primordia/d_layer_prune_craft_2026-04-12.md) -- Prune verb
+
+**Problem 7 (Agent-Initiated Sensing)**:
+- [docs/primordia/craft_reflex_craft_2026-04-11.md](primordia/craft_reflex_craft_2026-04-11.md) -- Craft 反射弧
+- [docs/primordia/boot_reflex_arc_craft_2026-04-11.md](primordia/boot_reflex_arc_craft_2026-04-11.md) -- Boot 反射弧
+- [docs/primordia/boot_brief_injector_craft_2026-04-11.md](primordia/boot_brief_injector_craft_2026-04-11.md) -- Boot Brief 注入器
+- [docs/primordia/l15_surface_and_git_hooks_craft_2026-04-11.md](primordia/l15_surface_and_git_hooks_craft_2026-04-11.md) -- Git hooks
+
+**Problem 8 (Dual Append Paths)**:
+- [src/myco/mcp_server.py](../src/myco/mcp_server.py) -- MCP Server（myco_log tool）
+- [docs/agent_protocol.md](agent_protocol.md) -- Agent 协议 Hard Contract
+
+**Cross-cutting references**:
+- [docs/theory.md](theory.md) -- 理论基础：本文各问题的认知科学根基
+- [docs/vision.md](vision.md) -- 愿景文档：各问题对应的核心能力定义
+- [docs/architecture.md](architecture.md) -- 技术架构：四支柱 + 结构智能子系统
+- [docs/evolution_engine.md](evolution_engine.md) -- 进化引擎 v3.0：代谢循环机制
+- [_canon.yaml](../_canon.yaml) -- 规范值 SSoT：各 threshold 参数定义
+
+---
+
 [Back to MYCO.md](../MYCO.md)
