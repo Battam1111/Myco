@@ -38,6 +38,173 @@ Commit message 格式必须使用 Conventional Commits 风格并带 `[contract:*
 
 ---
 
+## v0.30.0 — 2026-04-12 (minor · L20 translation mirror consistency, Wave 39 — locale README skeleton parity enforcement)
+
+**Author**: Claude (Myco kernel agent, autonomous run under explicit user grant, Wave 39)
+
+**Motivation**: Wave 37 D7 followup #2 + Wave 38 forward path: between Wave 30 and
+Wave 37, the README badge drift scar (caught by L19 in Wave 38) was only one face
+of a deeper rot — the three locale READMEs (`README.md`, `README_zh.md`,
+`README_ja.md`) had diverged structurally over the wave sequence. New sections
+got added to one locale and forgotten in others; old sections got removed from
+one and stranded in others. Non-English readers were silently seeing a degraded
+substrate while English readers saw a healthy one. L19 catches **count drift**
+(narrative cache claims "15-dimension" when substrate is "21-dimension"); L20
+closes the orthogonal **structural drift** (one locale has section X, another
+doesn't) — together they make the locale READMEs a load-bearing immune surface
+instead of three independently-rotting copies.
+
+**Wave 26 D3 friction-driven ordering** — Wave 37 D1 named the top-3 followups as:
+(1) ground-truth lint for LINT_DIMENSION_COUNT → Wave 38 (v0.29.0, L19),
+(2) translation-mirror lint → THIS WAVE 39 (v0.30.0, L20),
+(3) contract-version-inline lint → Wave 40+. Wave 39 lands followup #2 and
+keeps the friction-driven sequence intact.
+
+**Authoritative craft**:
+`docs/primordia/translation_mirror_lint_craft_2026-04-12.md`
+(kernel_contract class, 3 rounds, current_confidence = target_confidence = 0.90,
+single-author convention floor honored). The craft enumerates 9 decisions
+(D1-D9) on the L20 design surface and produces a 15-item landing list which
+this changelog entry mirrors as the contract-bump record.
+
+**Changes** (each numbered change implements one Wave 39 craft decision):
+
+1. **L20 lint dimension added** — `src/myco/lint.py` gains
+   `lint_translation_mirror_consistency(canon, root)` plus the 75-line
+   `_count_skeleton(content)` helper. The 5-tuple skeleton
+   `(h2, h3, code, table_rows, badge)` is the parity unit (Wave 39 D1). The
+   substrate's `len(FULL_CHECKS)` SSoT (Wave 38 D2) automatically advances
+   from 20 → 21 because L20 is appended to `FULL_CHECKS`. L19 will dogfood
+   this transition: every narrative surface that still claims "20-dimension"
+   becomes a HIGH issue at the next `myco lint` run, forcing the entire
+   change-set to land in lockstep (the very anti-rot mechanism Wave 38 built).
+
+2. **L20 reference is `README.md`** (Wave 39 D2): the English README is the
+   source of truth for skeleton parity. If `README.md` is missing (greenfield
+   project), the fallback (Wave 39 D2 §C2) picks the locale README with the
+   highest h2_count as the most-developed reference. If fewer than 2 locale
+   READMEs exist (Wave 39 §C1), L20 silently passes — there is nothing to
+   mirror against.
+
+3. **Severity = HIGH** (Wave 39 D4): every drifted skeleton component
+   produces a HIGH issue against the drifted file. README is the user-facing
+   first-impression surface in three languages; soft-warning severity would
+   normalize ignoring the rot.
+
+4. **Skip-marker escape hatch** (Wave 39 D5): a section preceded by
+   `<!-- l20-skip -->` on the previous non-blank line is excluded from the
+   skeleton count. This is the operator's escape hatch for genuinely
+   locale-specific sections (e.g. a Chinese-only "致谢" or Japanese-only
+   "謝辞") that have no structural counterpart in English. Without this,
+   operators would have to remove locale-native content to keep L20 green
+   — exactly the wrong incentive.
+
+5. **Code-fence-aware parser** (Wave 39 D6): `_count_skeleton` is a stateful
+   line walker that tracks fence open/close state. H2/H3/`|`/badge lines
+   inside ` ``` ` blocks are NOT counted. Without this, README files
+   containing inline markdown samples (e.g. a `## fake heading` inside a
+   `\`\`\`markdown` fence) would produce false-positive drift. The parser
+   handles trailing whitespace (`rstrip()`) and CRLF (`splitlines()`)
+   transparently (Wave 39 §3.1 C5/C6).
+
+6. **Locale allowlist is explicit** (Wave 39 §0.3 + D1): only
+   `README.md`, `README_zh.md`, `README_ja.md` participate. Other locales
+   (e.g. a future `README_es.md`) require an explicit addition to
+   `_L20_LOCALE_READMES`. This is intentional — drive-by detection of every
+   `README_*.md` file would over-fire on adapter-internal locale variants.
+
+7. **Contract version bump** v0.29.0 → v0.30.0 in `_canon.yaml`,
+   `src/myco/templates/_canon.yaml`, and this changelog. `synced_contract_version`
+   mirrors the bump to keep L17 quiescent. The minor bump matches the
+   "new lint dimension" precedent set by L18 (v0.26.0), L19 (v0.29.0), and
+   the Wave 24 L17 landing.
+
+8. **4 unit tests added** — `tests/unit/test_lint_translation_mirror.py`
+   covers the four scar classes (Wave 39 D8):
+   `test_l20_clean_substrate_passes` (D1 base case),
+   `test_l20_section_drop_caught` (D1+D4 principal scar),
+   `test_l20_skip_marker_respected` (D5 escape hatch),
+   `test_l20_code_fence_aware` (D6 parser invariant).
+   Each test pulls `_count_skeleton` and `lint_translation_mirror_consistency`
+   directly (no CLI roundtrip) and uses the existing `_isolate_myco_project`
+   fixture from `tests/conftest.py`. The suite count advances 26 → 30.
+
+9. **15+ narrative surfaces bumped 20-dimension/L0-L19/20%2F20 →
+   21-dimension/L0-L20/21%2F21** (Wave 39 D9 — operational landing). The
+   bump set is: README.md (badge + version row + L20 bullet), README_zh.md
+   (badge + version row + verb table count), README_ja.md (badge + version
+   row + L20 bullet + verb table count), MYCO.md (4 lines: 21 维 lint
+   headline + lint_coverage_confidence row + contract version row + verb
+   table count), CONTRIBUTING.md (lint module comment), wiki/README.md
+   (`myco lint` 应 21/21 绿), docs/reusable_system_design.md
+   (`lint_dimensions: 21`), src/myco/cli.py (replace_all
+   `20-dimension` → `21-dimension` + Wave 29 immune comment),
+   src/myco/init_cmd.py (lint shim message), scripts/myco_init.py (mirror),
+   src/myco/migrate.py (shim message), scripts/myco_migrate.py (mirror),
+   src/myco/immune.py (docstring 20→21 + L0-L19→L0-L20 + add L20 bullet
+   + add lint_dimension_count_consistency + lint_translation_mirror_consistency
+   to imports + __all__ — closes a Wave 38 oversight where L19 was missing
+   from immune.py exports), src/myco/mcp_server.py (4 edits: tools header,
+   tool annotation title, full L0-L20 enumeration in docstring, mode label),
+   src/myco/lint.py (header `20-Dimension` → `21-Dimension`, dimension table
+   row added, FULL_CHECKS comment `L0-L19` → `L0-L20`).
+
+**Verification** (every check must be green at COMMIT boundary):
+
+- `PYTHONPATH=src python -m myco.cli lint` — full sweep returns 21/21 PASS.
+  L19 is the canary: any narrative surface claiming "20-dimension" or
+  "L0-L19" or "Lint-20%2F20" produces a HIGH issue. After all 15+ surfaces
+  bump, L19 returns to PASS and L20 also passes (the 3 locale READMEs
+  already mirror after the badge bumps).
+- `python -m pytest tests/ -q` — 30 tests pass (26 prior + 4 Wave 39
+  L20 tests).
+- `git diff _canon.yaml` shows `contract_version: "v0.29.0"` →
+  `"v0.30.0"` AND `synced_contract_version: "v0.29.0"` →
+  `"v0.30.0"` (L17 quiescence).
+- `myco hunger` refreshes `.myco_state/boot_brief.md` with the new
+  Wave 39 milestone visible (L16 freshness).
+
+**Backward compatibility**: Pure additive. Projects on contract v0.29.0
+silently inherit L20 on `pip install -U myco` and will see at most a
+new HIGH issue if their locale READMEs have skeleton drift. Operators can
+add `<!-- l20-skip -->` markers above intentionally locale-specific sections
+to keep L20 green without removing the content. No existing API changes,
+no removed surfaces, no migration required.
+
+**Forward path**: Wave 40+ implements Wave 37 D7 followup #3 — the
+contract-version-inline lint. This will catch the orthogonal scar where
+`docs/contract_changelog.md` claims a version that disagrees with
+`_canon.yaml::system.contract_version` or where `__version__` strings in
+Python modules drift away from the canonical contract version. With L19,
+L20, and the future L21, the substrate's three top staleness scar classes
+(dimension count, locale skeleton, version string) all become regression-
+testable instead of relying on manual sweeps.
+
+**Limitations** (honest, from Wave 39 craft §4.3):
+
+- L1: skeleton parity is structural, not semantic. Two READMEs can have
+  identical 5-tuples while their content drifts apart in meaning. L20
+  catches "the table got removed from one locale" but not "the table
+  got rewritten with different rows in one locale". The 5-tuple is a
+  necessary-not-sufficient signal; semantic parity remains a human
+  review concern.
+- L2: the badge regex `\bLint-\d+%2F\d+\b` only matches the URL-encoded
+  shields.io form. Non-shields.io badges (e.g. a custom SVG) won't be
+  counted. This is acceptable because shields.io is the de-facto
+  convention across the substrate's three READMEs.
+- L3: `_count_skeleton` parses line-by-line and is not a full markdown
+  parser. Edge cases like indented fences (`    \`\`\``) or HTML
+  `<table>` tags are not handled. The current substrate uses neither;
+  if a future locale README adopts them, an L20 false negative becomes
+  possible and a parser upgrade is the appropriate response.
+- L4: the locale allowlist is hardcoded. Adding `README_es.md` requires
+  a code change to `_L20_LOCALE_READMES`. This is intentional (Wave 39
+  D1 §C7) to avoid drive-by detection over-firing on adapter-internal
+  variants, but it means new locales need a one-line patch + a contract
+  bump (or at minimum a craft if they imply doctrine).
+
+---
+
 ## v0.29.0 — 2026-04-12 (minor · L19 lint dimension count consistency + LINT_DIMENSION_COUNT SSoT enforced, Wave 38 — narrative-cache anti-drift)
 
 **Author**: Claude (Myco kernel agent, autonomous run under explicit user grant, Wave 38)

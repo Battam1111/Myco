@@ -166,7 +166,7 @@ def create_myco_scaffold(project_dir: Path, replacements: dict, entry_point: str
         if lint_dst.exists():
             actions.append(("SKIP", "scripts/lint_knowledge.py already exists"))
         else:
-            actions.append(("CREATE", "scripts/lint_knowledge.py (20-dimension Lint shim → myco.lint)"))
+            actions.append(("CREATE", "scripts/lint_knowledge.py (21-dimension Lint shim → myco.lint)"))
             if not dry_run:
                 (project_dir / "scripts").mkdir(exist_ok=True)
                 standalone_lint = (

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Myco Knowledge System — Automated 20-Dimension Substrate Immune System.
+Myco Knowledge System — Automated 21-Dimension Substrate Immune System.
 
 The canonical dimension count is `len(FULL_CHECKS)` (computed at module load
 time, see bottom of this file). This docstring's dimension table below is a
@@ -30,6 +30,7 @@ Dimensions:
     L17 Contract Drift — synced_contract_version vs kernel contract_version (Wave 24, v0.23.0)
     L18 Compression Integrity — forward-compression bidirectional link audit (Wave 30, v0.26.0)
     L19 Lint Dimension Count Consistency — downstream-cache drift detection (Wave 38, v0.29.0)
+    L20 Translation Mirror Consistency — locale README skeleton parity (Wave 39, v0.30.0)
 """
 
 import os
@@ -1984,11 +1985,191 @@ def lint_dimension_count_consistency(canon, root):
 
 
 # ---------------------------------------------------------------------------
+# L20 — Translation Mirror Consistency (Wave 39, contract v0.30.0)
+# ---------------------------------------------------------------------------
+
+# The three locale-mirror READMEs that L20 enforces. README.md is the
+# reference (Wave 39 D2 — English first because it is updated first in
+# practice and every contributor reads English; only some read CJK).
+_L20_LOCALE_READMES = ("README.md", "README_zh.md", "README_ja.md")
+
+# Skip-marker pattern (Wave 39 D5). A section preceded by `<!-- l20-skip -->`
+# on the previous non-blank line is excluded from all skeleton counts.
+_L20_SKIP_MARKER = "<!-- l20-skip -->"
+
+
+def _count_skeleton(content: str) -> tuple:
+    """Compute the 5-tuple structural skeleton of a README file.
+
+    Returns ``(h2_count, h3_count, code_count, table_rows, badge_count)``.
+
+    The parser is fence-aware (Wave 39 D6): H2/H3 lines INSIDE fenced
+    code blocks are NOT counted. The l20-skip marker (Wave 39 D5) on
+    the previous non-blank line excludes the immediately following H2/H3
+    from the count.
+
+    Components:
+        h2_count    — number of `^## ` lines outside code fences
+        h3_count    — number of `^### ` lines outside code fences
+        code_count  — number of fenced code block opens
+        table_rows  — number of `^|` lines outside code fences (any table)
+        badge_count — number of `Lint-N%2FN` badge lines (URL-encoded)
+    """
+    if content is None:
+        return (0, 0, 0, 0, 0)
+
+    h2 = 0
+    h3 = 0
+    code = 0
+    table_rows = 0
+    badge = 0
+    in_fence = False
+    skip_next_heading = False
+    prev_nonblank_was_skip = False
+
+    badge_re = re.compile(r"\bLint-\d+%2F\d+\b")
+
+    for raw_line in content.splitlines():
+        line = raw_line.rstrip()
+
+        # Fence toggle (matches both ``` and ```language)
+        if line.startswith("```"):
+            code += 1 if not in_fence else 0  # count opens only
+            in_fence = not in_fence
+            prev_nonblank_was_skip = False
+            continue
+
+        if in_fence:
+            # Inside a code fence: nothing structural counts.
+            # (Skip marker tracking pauses inside fences too.)
+            continue
+
+        # Track the skip marker on the previous non-blank line.
+        stripped = line.strip()
+        if stripped == _L20_SKIP_MARKER:
+            prev_nonblank_was_skip = True
+            continue
+
+        if stripped == "":
+            # Blank line — does NOT reset prev_nonblank_was_skip
+            # (the marker is allowed to be 1+ blank lines above the heading).
+            continue
+
+        if line.startswith("### "):
+            if prev_nonblank_was_skip:
+                prev_nonblank_was_skip = False
+            else:
+                h3 += 1
+        elif line.startswith("## "):
+            if prev_nonblank_was_skip:
+                prev_nonblank_was_skip = False
+            else:
+                h2 += 1
+        elif line.startswith("|"):
+            # Markdown table row (header rows + body rows + separator).
+            # We count all `^|` lines uniformly; this is a single proxy
+            # for "table density" and is sufficient for skeleton parity.
+            table_rows += 1
+            prev_nonblank_was_skip = False
+        elif badge_re.search(line):
+            badge += 1
+            prev_nonblank_was_skip = False
+        else:
+            # Any non-blank, non-fence, non-heading, non-table, non-badge
+            # line resets the skip flag (the marker only applies to the
+            # very next structural element).
+            prev_nonblank_was_skip = False
+
+    return (h2, h3, code, table_rows, badge)
+
+
+def lint_translation_mirror_consistency(canon, root):
+    """L20 (Wave 39, contract v0.30.0) — locale README skeleton parity.
+
+    Closes Wave 37 D7 followup #2 + Wave 38 forward path. Enforces that
+    `README_zh.md` and `README_ja.md` mirror `README.md`'s structural
+    skeleton tuple-for-tuple. The three READMEs are the substrate's
+    user-facing first impression in three languages; if their structural
+    skeletons drift apart (one section dropped from one locale but not
+    from another), non-English users see a degraded substrate while
+    English readers see a healthy one.
+
+    What L20 enforces (Wave 39 D1):
+      The 5-tuple ``skeleton(README.md) ==
+      skeleton(README_zh.md) == skeleton(README_ja.md)``,
+      where skeleton is ``(h2, h3, code, table_rows, badge)``.
+
+    What L20 does NOT enforce (Wave 39 §0.3):
+      - Heading text (translation is precisely why these files exist)
+      - Paragraph content or word count (translation length varies)
+      - Specific line numbers (length differences shift positions)
+      - Files outside _L20_LOCALE_READMES (explicit allowlist)
+
+    Severity (Wave 39 D4): HIGH for any drift in any locale README.
+
+    Edge case handling (Wave 39 §3.1):
+      - C1: README.md missing → silent pass (no reference to compare)
+      - C2: 2 of 3 present → compare just those two
+      - C3: empty README → loud drift report
+      - C5: CRLF line endings → splitlines() handles all styles
+      - C6: trailing whitespace → rstrip() before prefix check
+      - C7: code-fence-aware (D6 + see _count_skeleton)
+
+    Authoritative craft:
+        docs/primordia/translation_mirror_lint_craft_2026-04-12.md
+    """
+    issues = []
+
+    # Read all 3 locale files (or as many as exist).
+    skeletons = {}
+    for rel in _L20_LOCALE_READMES:
+        path = root / rel
+        if not path.exists():
+            continue
+        content = read_file(path)
+        if content is None:
+            continue
+        skeletons[rel] = _count_skeleton(content)
+
+    if len(skeletons) < 2:
+        # C1: < 2 locale READMEs exist; nothing to mirror against. Silent pass.
+        return issues
+
+    # Pick the reference: README.md if present (D2), else the longest file
+    # (C2 fallback for projects that haven't yet created the English copy).
+    if "README.md" in skeletons:
+        reference_file = "README.md"
+    else:
+        # Fallback: the file with the highest h2_count is the most-developed.
+        reference_file = max(skeletons, key=lambda r: skeletons[r][0])
+    reference_skeleton = skeletons[reference_file]
+
+    # Compare each non-reference file's skeleton to the reference.
+    component_names = ("h2", "h3", "code", "table_rows", "badge")
+    for rel, skel in skeletons.items():
+        if rel == reference_file:
+            continue
+        if skel == reference_skeleton:
+            continue
+        # Mismatch — emit one issue per drifted component for granular triage.
+        for i, name in enumerate(component_names):
+            if skel[i] != reference_skeleton[i]:
+                issues.append((
+                    "L20", "HIGH", rel,
+                    f"skeleton {name}={skel[i]} drifted from "
+                    f"{reference_file} {name}={reference_skeleton[i]} "
+                    f"(translation mirror parity broken — Wave 39 D1)",
+                ))
+
+    return issues
+
+
+# ---------------------------------------------------------------------------
 # Module-level checks lists (Wave 38 D2 — SSoT for LINT_DIMENSION_COUNT)
 # ---------------------------------------------------------------------------
 
 # QUICK_CHECKS = the L0-L3 fast subset run when `myco lint --quick`.
-# FULL_CHECKS  = the full L0-L19 sequence (default). `len(FULL_CHECKS)` is
+# FULL_CHECKS  = the full L0-L20 sequence (default). `len(FULL_CHECKS)` is
 # the canonical lint dimension count — see L19 docstring for the rot story.
 QUICK_CHECKS = (
     ("L0 Canon Self-Check", lint_canon_schema),
@@ -2014,6 +2195,7 @@ FULL_CHECKS = QUICK_CHECKS + (
     ("L17 Contract Drift", lint_contract_drift),
     ("L18 Compression Integrity", lint_compression_integrity),
     ("L19 Lint Dimension Count Consistency", lint_dimension_count_consistency),
+    ("L20 Translation Mirror Consistency", lint_translation_mirror_consistency),
 )
 
 
