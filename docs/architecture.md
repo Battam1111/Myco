@@ -1,7 +1,7 @@
 # Myco — 技术架构
 
-> **版本**：v1.1 | **文档修订**：2.2
-> **最后更新**：2026-04-09（Gear 4 蒸馏：新增 reusable_system_design.md + research_paper_craft.md）
+> **版本**：v1.2 | **文档修订**：2.3
+> **最后更新**：2026-04-12（Wave 58：新增 Appendix F Structural Intelligence Subsystem — graph/cohorts/sessions）
 > **范围**：通用框架（项目无关）
 > **理论基础**：Karpathy LLM Wiki + Polanyi Tacit Knowledge + Argyris Double-Loop Learning + Toyota PDCA
 > **验证基础**：一个复杂研究项目深度验证（7天，80+文件，12+次传统手艺，含完整四齿轮进化）；多项目泛化进行中。参见 `examples/ascc/`
@@ -494,3 +494,71 @@ Don't pre-build empty structures. Create wiki pages when you need them, write pr
 | Software Product | Architecture, tech choice, UX | API design, bugs, deployment | L1-2 |
 | Data Analysis | Methodology, conclusions, bias | Data sources, methods, visualizations | L1 |
 | Learning Plan | Learning path, resource evaluation | Knowledge graph, progress tracking | L0-1 |
+
+---
+
+## Appendix F — Structural Intelligence Subsystem (Wave 47-52)
+
+Waves 47-52 added three cross-cutting intelligence modules that don't fit
+neatly into the four-pillar diagram. They serve the Self-Model (Anchor #5)
+and the Autonomous Pipeline (Anchor #3) by providing sensing and analysis
+capabilities that feed into the hunger signal pipeline.
+
+### F.1 Link Graph (`src/myco/graph.py`, Wave 47)
+
+On-demand structural link graph across all .md files. No cache — computed
+from the file system each time (same philosophy as lint).
+
+- **extract_links**: Parse markdown links, backtick paths, YAML frontmatter refs, note IDs
+- **build_link_graph**: Two-pass (forward links → invert to backlinks)
+- **find_orphans**: Files with zero inbound links (structural roots excluded)
+- **find_clusters**: Connected components via BFS (detect knowledge islands)
+- **graph_stats**: Hub (most referenced), authority (most referencing), totals
+
+**Self-Model role**: C-layer structural awareness. `graph_orphans` hunger
+signal fires when orphan count > 10, prompting the Agent to investigate
+disconnected knowledge.
+
+### F.2 Cohort Intelligence (`src/myco/cohorts.py`, Wave 48)
+
+Tag-based semantic analysis for compression intelligence and gap detection.
+
+- **tag_cooccurrence**: Pairwise tag co-occurrence matrix (which topics appear together?)
+- **compression_cohort_suggest**: Recommend groups of notes for compression
+  (tag + count + age + score, using `_canon.yaml::notes_schema.compression` thresholds)
+- **gap_detection**: Tags where ALL notes are raw/digesting (unprocessed knowledge domains)
+
+**Self-Model role**: B-layer gap sensing. `inlet_ripe` hunger signal uses
+gap_detection to identify unprocessed domains. `myco compress --cohort auto`
+uses cohort suggestions for intelligent grouping.
+
+### F.3 Session Memory (`src/myco/sessions.py`, Wave 52)
+
+FTS5 full-text index of Claude Code conversation transcripts stored in
+`.myco_state/sessions.db` (SQLite).
+
+- **index_sessions**: Scan `~/.claude/projects/*/` .jsonl files, extract user/assistant turns
+- **search_sessions**: FTS5 MATCH query with snippet extraction and ranking
+- **prune_sessions**: Remove old entries (configurable max_age_days)
+
+**Self-Model role**: D-layer temporal awareness. Cross-session context
+recovery — "what did we discuss about X?" becomes a searchable query instead
+of lost context.
+
+### F.4 How They Compose
+
+```
+hunger signals ← graph_orphans (structural disconnection)
+               ← inlet_ripe (via cohort gap_detection)
+               ← compression_pressure (via notes status counts)
+               ← session_index_missing (no FTS5 index)
+                       ↓
+              hunger(execute=true)
+                       ↓
+              Agent auto-executes recommended actions
+```
+
+The three modules are **sensing instruments** — they provide data to the
+hunger signal pipeline, which provides recommendations to the Agent. The
+Agent's intelligence decides execution. This is the Bitter Lesson applied:
+Myco provides scaffolding, the Agent provides judgment.
