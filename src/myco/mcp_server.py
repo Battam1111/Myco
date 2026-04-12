@@ -10,7 +10,7 @@ Tools:
     myco_status     — Quick overview of knowledge system health
     myco_search     — Search across wiki/docs/MYCO.md knowledge base
     myco_log        — Append friction/reflection entries to log.md
-    myco_reflect    — Trigger Gear 2 session-end reflection prompts
+    myco_reflect    — Trigger session reflection session-end reflection prompts
     myco_eat        — Capture a chunk of content as a raw atomic note
     myco_digest     — Move a note through the lifecycle (raw→…→excreted)
     myco_view       — Read-only lens on notes/ (list or single note)
@@ -143,7 +143,7 @@ async def myco_lint(
     Auto-invoke when: the user says "check", "verify", "lint", "are there
     inconsistencies", "did I break anything", or at the end of any session that
     modified wiki/, docs/, MYCO.md, _canon.yaml, or notes/. Also run after any
-    Gear 3 retrospective or before commits that touch multiple knowledge files.
+    milestone retrospective retrospective or before commits that touch multiple knowledge files.
 
     This is the 23-dimensional immune system of the knowledge substrate. It
     catches contradictions across files, orphan references, stale patterns,
@@ -514,8 +514,8 @@ async def myco_log(
 ) -> str:
     """Record a friction, reflection, or milestone to the project timeline.
 
-    Auto-invoke when: you hit unexpected behavior or tool friction (Gear 1),
-    a session is ending and you have reflections (Gear 2), a milestone is
+    Auto-invoke when: you hit unexpected behavior or tool friction (hunger sensing),
+    a session is ending and you have reflections (session reflection), a milestone is
     reached, a decision is made, or anything happens that future you would
     want to find 3 weeks from now.
 
@@ -566,7 +566,7 @@ async def myco_log(
 @mcp.tool(
     name="myco_reflect",
     annotations={
-        "title": "Myco Reflect — Gear 2 Session-End Prompts",
+        "title": "Myco Reflect — session reflection Session-End Prompts",
         "readOnlyHint": True,
         "destructiveHint": False,
         "idempotentHint": True,
@@ -584,9 +584,9 @@ async def myco_reflect(
     trigger like "what did we learn", or whenever an operation finishes cleanly
     and ≥3 log entries were added during the session.
 
-    Returns Gear 2 reflection prompts derived from recent log entries, lint
+    Returns session reflection reflection prompts derived from recent log entries, lint
     results, and knowledge gaps. The agent should answer the prompts and log
-    the reflection via myco_log. Gear 2 is how the substrate evolves its own
+    the reflection via myco_log. session reflection is how the substrate evolves its own
     rules — skipping it is how drift compounds.
 
     Args:
@@ -665,7 +665,7 @@ async def myco_reflect(
             learning_body += f"Recent friction: {'; '.join(f[:60] for f in friction_entries[-3:])}\n"
         path = write_note(
             root, learning_body,
-            tags=["execution-learning", "auto-captured", "gear2"],
+            tags=["execution-learning", "auto-captured", "reflection"],
             source="eat",
         )
         learning_note_id = path.stem
@@ -673,7 +673,7 @@ async def myco_reflect(
         pass  # best-effort; never block reflection
 
     reflection = {
-        "gear": "Gear 2 — Session-End Reflection",
+        "gear": "session reflection — Session-End Reflection",
         "timestamp": datetime.now().isoformat(),
         "recent_friction": friction_entries,
         "lint_status": "clean" if not quick_issues else f"{len(quick_issues)} issues",

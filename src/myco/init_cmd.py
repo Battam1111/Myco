@@ -35,7 +35,7 @@ def init_level_1(project_dir: Path, replacements: dict, entry_point: str):
     (docs_dir / "WORKFLOW.md").write_text(
         fill_template(get_template("WORKFLOW.md"), replacements), encoding="utf-8"
     )
-    print(f"  ✅ docs/WORKFLOW.md (Twelve Principles)")
+    print(f"  ✅ docs/WORKFLOW.md (Thirteen Principles)")
 
     (project_dir / "_canon.yaml").write_text(
         fill_template(get_template("_canon.yaml"), replacements), encoding="utf-8"

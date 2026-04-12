@@ -1,7 +1,7 @@
 ﻿# Research Paper Craft — Myco 通用知识模板
 
 > **类型**：craft
-> **最后更新**：2026-04-09（补充 CL1-CL7 防错清单；来源：ASCC wiki/paper_writing_craft.md Gear 4 蒸馏）
+> **最后更新**：2026-04-09（补充 CL1-CL7 防错清单；来源：ASCC wiki/paper_writing_craft.md Cross-Project Distillation 蒸馏）
 > **适用范围**：任何使用 Myco 的研究型论文项目（NeurIPS / ICML / ICLR 及同级别会议）
 > **⚠️ 非直觉盲点**：canvas-design skill 对科研图有害——它把 matplotlib 当艺术画布用，引入与学术图根本方向相悖的装饰噪声。永远不要用它创建论文图像。
 

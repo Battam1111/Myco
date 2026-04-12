@@ -39,7 +39,7 @@ At the start of any non-trivial development task (feature, bugfix, refactor).
 
 ### 7. Reflect
 - `myco_eat` — capture what worked, what didn't, what surprised
-- `myco_reflect` — Gear 2 session reflection
+- `myco_reflect` — session-end reflection
 - Digest decision notes to extracted
 - `myco_hunger` — confirm healthy end state
 
