@@ -20,6 +20,10 @@ session per `docs/agent_protocol.md` §3).
 3. **Re-check hunger**: Run `myco hunger` again to confirm pressure reduced.
 4. **Proceed with session work** once hunger reports healthy or only low-severity signals.
 
+4. **Discover** (Wave D2): If hunger signals include `inlet_ripe` or `cohort_staleness`,
+   run the Discovery Loop skill (`skills/discovery-loop.md`) to proactively acquire
+   external knowledge for detected gaps.
+
 ## Thresholds
 
 All thresholds are in `_canon.yaml`:
