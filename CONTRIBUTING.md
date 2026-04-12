@@ -29,7 +29,7 @@ There are four formal contribution types, each with a clear acceptance bar. Code
 ---
 
 ### 2. Wiki Templates
-**What:** A `.md` file in `examples/templates/` defining a wiki page structure for a specific project type or domain.
+**What:** A `.md` file in `wiki/` defining a wiki page structure for a specific project type or domain.
 
 **Why this matters:** The blank wiki page is one of Myco's highest-friction moments. A good template for "data science project" or "API integration" eliminates that friction.
 
@@ -144,7 +144,6 @@ Myco/
 │   └── templates/         # Bundled project templates (single source of truth)
 ├── docs/                  # Framework documentation
 ├── scripts/               # Legacy standalone scripts
-├── examples/              # Example projects and case studies
 └── pyproject.toml         # Package metadata
 ```
 
@@ -162,7 +161,7 @@ Submit a [Battle Report issue](https://github.com/Battam1111/Myco/issues/new?tem
 
 ### Level 3: Featured Example (high bar, requires Cross-Project Distillation)
 
-If your project completes the full Myco lifecycle including cross-project distillation, it can become a Featured Example in `examples/`. This is the highest-impact contribution — it demonstrates Myco's core value proposition (knowledge evolving and flowing between projects).
+If your project completes the full Myco lifecycle including cross-project distillation, it can become a Featured Example. This is the highest-impact contribution — it demonstrates Myco's core value proposition (knowledge evolving and flowing between projects).
 
 **What a Featured Example includes:**
 - Harvest snapshot: structure files from your completed project (MYCO.md, _canon.yaml, log.md, WORKFLOW.md — content can be redacted where needed)

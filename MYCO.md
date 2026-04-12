@@ -20,7 +20,7 @@
 <!-- MYCO-BOOT-SIGNALS:END -->
 
 **项目**：Myco — 可自进化的 AI 延伸认知基质（框架本身）
-**当前阶段**：v0.2.0 pre-release — public launch 准备中（尚未 1.0）；Post-Metamorphosis — Agent-First 有机体已建成。**Metamorphosis plan 完成**，kernel contract v0.45.0。关键里程碑：23 维 lint (L0-L22) + 21 MCP tools + 122 tests + Signal-to-Action hunger 自动执行闭环 + Link Graph 菌丝互联 + Semantic Cohort Intelligence + Inlet Trigger Policy + Continuous Compression + Session Memory FTS5 + **Wave 54 Agent-First Integration（hunger execute=true + scheduled metabolic cycle）**
+**当前阶段**：v0.2.0 pre-release — public launch 准备中（尚未 1.0）；Post-Metamorphosis — Agent-First 有机体已建成。**Metamorphosis plan 完成**，kernel contract v0.45.0。关键里程碑：23 维 lint (L0-L22) + 21 MCP tools + 183 tests + Signal-to-Action hunger 自动执行闭环 + Link Graph 菌丝互联 + Semantic Cohort Intelligence + Inlet Trigger Policy + Continuous Compression + Session Memory FTS5 + **Wave 54 Agent-First Integration（hunger execute=true + scheduled metabolic cycle）**
 
 **框架开发中最容易出错的 N 件事** ⚠️：
 1. 更新 `pyproject.toml` 版本号但忘记同步 `src/myco/__init__.py`（两处版本号必须一致）
@@ -93,9 +93,9 @@ Python 打包环境（hatchling + twine）。模板唯一来源：`src/myco/temp
 
 | 指标 | 值 | rationale | 证据锚 |
 |------|----|-----------|--------|
-| `v1_launch_progress` | 0.65 | PyPI v0.2.0 已发布；kernel contract v0.45.0；23 lint + Agent Review + 21 MCP tools + 122 tests；dist/ 1.1.0 wheel 已清理。剩余：README v1 里程碑对齐、Show HN launch | PyPI 0.2.0 live, Metamorphosis plan |
+| `v1_launch_progress` | 0.65 | PyPI v0.2.0 已发布；kernel contract v0.45.0；23 lint + Agent Review + 21 MCP tools + 183 tests；dist/ 1.1.0 wheel 已清理。剩余：README v1 里程碑对齐、Show HN launch | PyPI 0.2.0 live, Metamorphosis plan |
 | `three_channel_maturity` | 0.70 | inbound (forage v0.7.0) + internal (notes v0.4.0) + outbound/outbound→inbound (upstream v0.3.0) schema & lint 全部在位；Wave 9 首次闭环 absorb 验证（ce72+3356 从 ASCC 吸收 → pointer-note 落地），n=1；**Wave 9 first-live forage batch 完成 6/6**（nuwa+gbrain+hermes+mempalace+CMA+karpathy 全部 raw→digested，产出 6 条 extracted notes，跨项目 convergent pattern 3 条进入 Wave 10/11 预留），inbound 通道首次 end-to-end 真实负载验证 | contract v0.9.0, L14/L10/L12, forage manifest 6× digested, `n_20260411T1831..185410_*` |
-| `lint_coverage_confidence` | 0.85 | **23 维 L0-L22 全绿** + 122 tests（from 38）+ 29 modules + Waves A1-E3 新增 evolve.py/redact.py/discover.py/session_miner.py/project.py 全部测试 + hybrid lint（mechanical 23 dims + Agent Review 4 items）+ inline frontmatter validation on writes + hunger sidecar push-mode。上调至 0.85 | Metamorphosis plan commits + 122/122 pytest + 23/23 lint + Agent Review |
+| `lint_coverage_confidence` | 0.85 | **23 维 L0-L22 全绿** + 183 tests（from 38）+ 29 modules + Waves A1-E3 新增 evolve.py/redact.py/discover.py/session_miner.py/project.py 全部测试 + hybrid lint（mechanical 23 dims + Agent Review 4 items）+ inline frontmatter validation on writes + hunger sidecar push-mode。上调至 0.85 | Metamorphosis plan commits + 183/183 pytest + 23/23 lint + Agent Review |
 | `compression_discipline_maturity` | 0.65 | 首次真实排泄：19 notes excreted with explicit reasons（9 primordia-archive summaries + 5 best-practice already-in-code + 5 gstack already-as-skills）。压缩教条首次被实际执行而非空谈。上调 0.55→0.65 | dogfood session 2026-04-12, 19 excretions |
 | `identity_anchor_confidence` | 0.70 | 身份锚点 8 条稳定多 wave；L9 Vision Anchor 执行中；但自评偏差无外部独立确认 | vision_recovery craft |
 | `forage_backlog_pressure` | 0.00 | Wave 9 first-live batch 6 items 全部 digested（空 raw backlog）；manifest schema_version=1 稳定 | L14, forage/_index.yaml |
@@ -123,7 +123,7 @@ Python 打包环境（hatchling + twine）。模板唯一来源：`src/myco/temp
 
 ## 0. 项目摘要
 
-Myco 是一个可自进化的 AI 延伸认知基质框架。它给 AI agent 提供持久记忆、结构化知识和跨会话的自进化能力。v0.2.0 已发布至 PyPI（推荐：`git clone` + `pip install -e ".[mcp]"`；快速预览：`pip install myco`），提供 `myco init / migrate / lint / eat / evaluate / extract / integrate / digest / view / compress / uncompress / prune / inlet / hunger / forage / upstream / correct / graph / cohort / session` CLI。当前 kernel contract v0.45.0（23 维 lint + Agent Review hybrid 免疫 + 21 MCP tools + 122 tests + hunger auto-execute + `myco init --agent claude` 一键就位 + evolve.py 自我进化 + discover.py 主动觅食 + predict_knowledge_needs 需求预判）。
+Myco 是一个可自进化的 AI 延伸认知基质框架。它给 AI agent 提供持久记忆、结构化知识和跨会话的自进化能力。v0.2.0 已发布至 PyPI（推荐：`git clone` + `pip install -e ".[mcp]"`；快速预览：`pip install myco`），提供 `myco init / migrate / lint / eat / evaluate / extract / integrate / digest / view / compress / uncompress / prune / inlet / hunger / forage / upstream / correct / graph / cohort / session` CLI。当前 kernel contract v0.45.0（23 维 lint + Agent Review hybrid 免疫 + 21 MCP tools + 183 tests + hunger auto-execute + `myco init --agent claude` 一键就位 + evolve.py 自我进化 + discover.py 主动觅食 + predict_knowledge_needs 需求预判）。
 
 核心设计：agent-agnostic（Claude、GPT、Codex 等均可运行），框架本身通过 Myco 管理自身的知识。
 
