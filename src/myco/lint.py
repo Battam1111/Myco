@@ -2613,6 +2613,19 @@ def _compute_agent_review(canon: dict, root: Path) -> list:
                             f"Skill '{sf.name}' missing required sections: "
                             f"{missing}. See _canon.yaml::system.skill_schema."
                         )
+        # 6. Numeric claims cross-check (root cause fix for stale numbers)
+        numeric_claims = (canon.get("system", {})
+                               .get("traceability", {})
+                               .get("numeric_claims", {}))
+        for claim_name, claim_data in numeric_claims.items():
+            ssot_value = claim_data.get("value")
+            cited_in = claim_data.get("cited_in", [])
+            if ssot_value is not None and cited_in:
+                items.append(
+                    f"Numeric claim '{claim_name}': SSoT says {ssot_value}. "
+                    f"Verify across {len(cited_in)} surfaces: "
+                    f"{', '.join(cited_in[:3])}{'...' if len(cited_in) > 3 else ''}."
+                )
     except Exception:
         pass  # best-effort; never block lint output
 
