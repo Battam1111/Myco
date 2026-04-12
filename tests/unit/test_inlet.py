@@ -79,8 +79,8 @@ def _extend_canon_with_notes_schema(project: Path) -> None:
     """
     extended = """\
 system:
-  principles_count: 12
-  principles_label: "十二原则"
+  principles_count: 13
+  principles_label: "十三原則"
   entry_point: MYCO.md
   contract_version: "v0.27.0"
   synced_contract_version: "v0.27.0"

@@ -90,7 +90,7 @@ project-root/
 ├── _canon.yaml            # Canonical values, pattern detection
 ├── log.md                 # 90+ timeline entries across 8 days
 ├── docs/
-│   ├── WORKFLOW.md        # ~700 lines, W1-W12 + all protocols
+│   ├── WORKFLOW.md        # ~700 lines, W1-W13 + all protocols
 │   ├── SESSION_PROTOCOL.md
 │   ├── operational_narratives.md  # 7 detailed procedures (P-001 to P-007)
 │   ├── reusable_system_design.md  # → Gear 4 distilled to Myco/docs/

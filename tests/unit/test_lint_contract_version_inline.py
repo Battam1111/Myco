@@ -54,8 +54,8 @@ from myco.lint import (
 # tests stay readable when conftest's seed value advances.
 _TEST_CANON_V_31 = """\
 system:
-  principles_count: 12
-  principles_label: "十二原则"
+  principles_count: 13
+  principles_label: "十三原則"
   entry_point: MYCO.md
   contract_version: "v0.31.0"
   synced_contract_version: "v0.31.0"

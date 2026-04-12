@@ -71,8 +71,8 @@ There are four formal contribution types, each with a clear acceptance bar. Code
 
 **Acceptance criteria:**
 - Demonstrated validity on ≥2 distinct project types (not just your own)
-- Doesn't conflict with or duplicate W1-W12
-- Clear statement: "W13: [Name] — [One sentence]. Violation looks like: [example]."
+- Doesn't conflict with or duplicate W1-W13
+- Clear statement: "W14: [Name] — [One sentence]. Violation looks like: [example]."
 
 **Effort estimate:** 30-60 minutes. Maintainer may request a follow-up 传统手艺 debate before accepting.
 
