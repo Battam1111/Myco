@@ -13,7 +13,7 @@
 [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
 [![Lint](https://img.shields.io/badge/Lint-23%2F23%20green-brightgreen?style=for-the-badge)](#three-immutable-laws)
 
-[The Living Substrate](#the-living-substrate) · [Five Capabilities](#five-capabilities) · [How You Work With Myco](#how-you-work-with-myco) · [Three Immutable Laws](#three-immutable-laws) · [Standing on Fifty Years](#standing-on-fifty-years) · [Try It Today](#try-it-today)
+[The Living Substrate](#the-living-substrate) · [Why Myco](#why-myco) · [Five Capabilities](#five-capabilities) · [How You Work With Myco](#how-you-work-with-myco) · [Three Immutable Laws](#three-immutable-laws) · [Standing on Fifty Years](#standing-on-fifty-years) · [Try It Today](#try-it-today)
 
 **Languages:** English (canonical) · [中文](README_zh.md) · [日本語](README_ja.md)
 
@@ -30,6 +30,23 @@ Myco is the ground.
 > **Myco is an Autonomous Cognitive Substrate for AI agents. Your agent is the CPU: raw compute, zero persistence. Myco is everything else — the memory, the filesystem, the operating system, the peripherals — and the OS upgrades itself. All evolution is non-parametric: text, structure, lint rules on disk. No model weights are ever touched. This is why Myco works across agent vendors, survives model swaps, and accumulates value in exactly the medium LLM agents are best at manipulating.**
 
 This framing is not a metaphor dressed up as architecture. It is the architecture. The **kernel** is a project-agnostic cognitive OS. Each project directory is an **instance** — an application running on that OS. Upgrades to the kernel flow downstream; friction discovered inside instances flows back upstream. The substrate is alive in the thermodynamic sense: it **metabolizes** inbound knowledge, compresses it into the shape your agent's attention can actually use, and **excretes** what no longer earns its keep. A substrate that stops metabolizing is not a stable knowledge base — it is a corpse. **Stagnation is death.** **Perpetual evolution** is not a nice-to-have; it is the single condition under which the substrate stays a substrate.
+
+---
+
+## Why Myco
+
+The landscape of AI memory and knowledge systems falls into three categories. Myco is in a category of its own.
+
+| | Memory-as-a-Service | Knowledge Compilation | Knowledge Organism |
+|---|---|---|---|
+| **Examples** | Mem0, Zep, LangMem | Karpathy LLM Wiki | **Myco** |
+| **Core verb** | Store and retrieve | Compile and index | **Metabolize** |
+| **Knowledge lifecycle** | None. Data enters, sits, gets queried. | Ingest and lint. No lifecycle state. | Full pipeline: raw -> digesting -> extracted -> integrated -> excreted |
+| **Self-verification** | None | Basic contradiction/orphan checks | 23-dimension immune system (L0-L22) |
+| **Self-evolution** | None | Static schema | Craft protocol evolves the substrate's own rules |
+| **Excretion** | Never. Storage grows forever. | Never. | Active: dead-knowledge detection, auto-pruning, temporal expiry |
+
+**Memory services store. Knowledge compilers compile. Myco metabolizes.** A system that ingests but never excretes is not a living knowledge base -- it is a tumor. Myco is the only system that treats knowledge as having a full lifecycle: born, digested, verified, compressed, and -- when it stops earning its place -- excreted. The biological vocabulary is not decoration. It is the architecture.
 
 ---
 

@@ -485,3 +485,17 @@ project_template 在 ASCC 之外从未被测试过。声称通用但缺乏验证
 ---
 
 *本文档本身遵循 Cross-Project Distillation（Cross-Project Distillation）——每个使用本系统的项目结束时，都应将新发现回写到此处。*
+
+---
+
+## See Also
+
+- [docs/theory.md](theory.md) -- 理论基础：延伸心智论、三环学习、本文架构的认知科学根基
+- [docs/architecture.md](architecture.md) -- Myco 技术架构 v1.2：四支柱 + Appendix F 结构智能子系统（本文的 Myco-specific 版本）
+- [docs/vision.md](vision.md) -- 愿景文档：五大核心能力与演进路线图
+- [docs/evolution_engine.md](evolution_engine.md) -- 进化引擎 v3.0：代谢循环取代旧四齿轮
+- [docs/open_problems.md](open_problems.md) -- 未解难题：通用架构中尚未解决的结构性盲点
+- [docs/agent_protocol.md](agent_protocol.md) -- Agent 协议：MCP 工具契约
+- [_canon.yaml](../_canon.yaml) -- 规范值 SSoT
+- [src/myco/lint.py](../src/myco/lint.py) -- 23 维 Lint 免疫系统实现（本文 §Pillar 4 的代码对应）
+- [src/myco/notes.py](../src/myco/notes.py) -- Note 生命周期 SSoT（本文 §Knowledge Layer 的代码对应）

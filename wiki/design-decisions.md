@@ -60,4 +60,17 @@
 
 *Promoted from notes/n_20260412T233541_e3c9 (compressed founding design decisions) on 2026-04-12.*
 
+---
+
+## See Also
+
+- [docs/architecture.md](../docs/architecture.md) -- 技术架构：四支柱 + 进化引擎（这些设计决策的全景上下文）
+- [wiki/architecture-decisions.md](architecture-decisions.md) -- 创始架构决策（A1-A3）：物理结构层面的互补决策
+- [wiki/identity.md](identity.md) -- Myco 身份定义：Agent-First 哲学（D1/D2/D4 决策的价值根基）
+- [docs/theory.md](../docs/theory.md) -- 理论基础：Bitter Lesson 立场（D4 最小循环的理论支撑）
+- [docs/vision.md](../docs/vision.md) -- 愿景文档：五大核心能力
+- [docs/evolution_engine.md](../docs/evolution_engine.md) -- 进化引擎 v3.0：hunger signal 机制（D1 排序决策的运行时体现）
+- [src/myco/notes.py](../src/myco/notes.py) -- Note 生命周期实现（D3 ID 格式、D5 非线性跳转的代码）
+- [_canon.yaml](../_canon.yaml) -- 规范值 SSoT
+
 **Back to** [MYCO.md](../MYCO.md)

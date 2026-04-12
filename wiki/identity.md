@@ -79,4 +79,19 @@ Human ──自然语言──→ Agent ──MCP──→ Myco
 
 *Promoted from notes/n_20260412T233531_a72c (compressed identity evolution arc) on 2026-04-12.*
 
+---
+
+## See Also
+
+- [docs/vision.md](../docs/vision.md) -- 愿景文档：五大核心能力、三条宪法的详细展开
+- [docs/theory.md](../docs/theory.md) -- 理论基础：延伸心智论（Clark & Chalmers）、三环学习（Argyris）
+- [docs/architecture.md](../docs/architecture.md) -- 技术架构：四支柱 + 进化引擎的工程实现
+- [docs/evolution_engine.md](../docs/evolution_engine.md) -- 进化引擎 v3.0：代谢循环、evolve.py 技能变异
+- [wiki/design-decisions.md](design-decisions.md) -- 创始设计决策（D1-D5）
+- [wiki/architecture-decisions.md](architecture-decisions.md) -- 创始架构决策（A1-A3）
+- [docs/primordia/myco_identity_definitive_craft_2026-04-12.md](../docs/primordia/myco_identity_definitive_craft_2026-04-12.md) -- 身份定义性 Craft（Round 5, 0.92 confidence）
+- [docs/primordia/anchor_agentfirst_revision_craft_2026-04-12.md](../docs/primordia/anchor_agentfirst_revision_craft_2026-04-12.md) -- Agent-First mutation-selection 内化
+- [_canon.yaml](../_canon.yaml) -- 身份锚点 + 规范值 SSoT
+- [src/myco/lint.py](../src/myco/lint.py) -- 23 维 Lint 免疫系统（五层体现第 4 层的实现）
+
 **Back to** [MYCO.md](../MYCO.md)
