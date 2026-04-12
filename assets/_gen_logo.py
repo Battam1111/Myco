@@ -1,4 +1,4 @@
-"""Generate Myco logo v2 — Bioluminescent Metabolism, refined."""
+"""Myco logo v3 — Devouring Spiral: spiral growth + open core + asymmetric burst."""
 import math
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 from pathlib import Path
@@ -11,117 +11,137 @@ MYCO_DARK_GREEN = (0, 135, 94)
 WHITE = (255, 255, 255)
 
 
-def bezier_point(t, p0, p1, p2):
-    """Quadratic bezier at parameter t."""
-    x = (1-t)**2 * p0[0] + 2*(1-t)*t * p1[0] + t**2 * p2[0]
-    y = (1-t)**2 * p0[1] + 2*(1-t)*t * p1[1] + t**2 * p2[1]
-    return x, y
+def bezier_cubic(t, p0, p1, p2, p3):
+    """Cubic bezier."""
+    u = 1 - t
+    return (
+        u**3 * p0[0] + 3*u**2*t * p1[0] + 3*u*t**2 * p2[0] + t**3 * p3[0],
+        u**3 * p0[1] + 3*u**2*t * p1[1] + 3*u*t**2 * p2[1] + t**3 * p3[1],
+    )
 
 
-def draw_tapered_curve(img, p0, ctrl, p2, color, max_width, min_width,
-                       alpha_start=210, alpha_end=80, steps=80):
-    """Draw a smooth tapered bezier curve with opacity gradient."""
+def draw_tapered_curve_cubic(img, p0, p1, p2, p3, color, max_w, min_w,
+                              a_start=220, a_end=60, steps=100):
+    """Smooth tapered cubic bezier with alpha gradient."""
     for i in range(steps):
-        t0 = i / steps
-        t1 = (i + 1) / steps
-        x0, y0 = bezier_point(t0, p0, ctrl, p2)
-        x1, y1 = bezier_point(t1, p0, ctrl, p2)
-        # Taper width
-        w = max_width + (min_width - max_width) * t0
-        # Opacity gradient
-        a = int(alpha_start + (alpha_end - alpha_start) * t0)
-        # Draw on a temp layer for clean alpha
+        t0, t1 = i / steps, (i + 1) / steps
+        x0, y0 = bezier_cubic(t0, p0, p1, p2, p3)
+        x1, y1 = bezier_cubic(t1, p0, p1, p2, p3)
+        w = max_w + (min_w - max_w) * t0
+        a = int(a_start + (a_end - a_start) * t0)
         layer = Image.new('RGBA', img.size, (0, 0, 0, 0))
         ld = ImageDraw.Draw(layer, 'RGBA')
         ld.line([(x0, y0), (x1, y1)], fill=(*color, a), width=max(1, round(w)))
         img.alpha_composite(layer)
 
 
-def soft_glow(img, cx, cy, radius, color, peak_alpha, blur_factor=0.7):
-    """Soft gaussian glow."""
+def soft_glow(img, cx, cy, r, color, alpha, blur=0.7):
     layer = Image.new('RGBA', img.size, (0, 0, 0, 0))
     d = ImageDraw.Draw(layer, 'RGBA')
-    d.ellipse([cx-radius, cy-radius, cx+radius, cy+radius],
-              fill=(*color, peak_alpha))
-    layer = layer.filter(ImageFilter.GaussianBlur(radius=int(radius * blur_factor)))
+    d.ellipse([cx-r, cy-r, cx+r, cy+r], fill=(*color, alpha))
+    layer = layer.filter(ImageFilter.GaussianBlur(radius=max(1, int(r * blur))))
     img.alpha_composite(layer)
 
 
-def soft_dot(img, cx, cy, radius, color, alpha, blur=0):
-    """Crisp or slightly soft terminal dot."""
+def soft_dot(img, cx, cy, r, color, alpha, blur=0):
     layer = Image.new('RGBA', img.size, (0, 0, 0, 0))
     d = ImageDraw.Draw(layer, 'RGBA')
-    d.ellipse([cx-radius, cy-radius, cx+radius, cy+radius],
-              fill=(*color, alpha))
+    d.ellipse([cx-r, cy-r, cx+r, cy+r], fill=(*color, alpha))
     if blur > 0:
         layer = layer.filter(ImageFilter.GaussianBlur(radius=blur))
     img.alpha_composite(layer)
 
 
+def draw_arc_segment(img, cx, cy, r, color, start_angle, end_angle, width, alpha):
+    """Draw an arc (part of a circle) — for the open core."""
+    layer = Image.new('RGBA', img.size, (0, 0, 0, 0))
+    d = ImageDraw.Draw(layer, 'RGBA')
+    bbox = [cx - r, cy - r, cx + r, cy + r]
+    d.arc(bbox, start_angle, end_angle, fill=(*color, alpha), width=width)
+    img.alpha_composite(layer)
+
+
 def generate_logo(size=512, dark_mode=True):
-    """Generate refined Myco logo."""
     img = Image.new('RGBA', (size, size), (0, 0, 0, 0))
     color = MYCO_GREEN if dark_mode else MYCO_DARK_GREEN
-    cx, cy = size / 2, size / 2
-    s = size / 100  # scale
+    cx, cy = size * 0.48, size * 0.50  # slightly left of center (asymmetric)
+    s = size / 100
 
-    # === Ambient glow (very soft, large) ===
-    soft_glow(img, int(cx), int(cy), int(25*s), color, 10, blur_factor=1.0)
-    soft_glow(img, int(cx), int(cy), int(16*s), color, 18, blur_factor=0.8)
+    # === Ambient glow (bioluminescent aura) ===
+    soft_glow(img, int(cx), int(cy), int(28*s), color, 8, blur=1.2)
+    soft_glow(img, int(cx), int(cy), int(16*s), color, 16, blur=0.8)
 
-    # === Filament A: upper-right (longest, with branch) ===
-    a_end = (cx + 30*s, cy - 26*s)
-    a_ctrl = (cx + 18*s, cy - 18*s + 5*s)  # slight organic bend
-    draw_tapered_curve(img, (cx, cy), a_ctrl, a_end, color,
-                       max_width=2.8*s, min_width=1.0*s, alpha_start=200, alpha_end=90)
-    soft_dot(img, int(a_end[0]), int(a_end[1]), int(3.8*s), color, 190, blur=1)
+    # === FILAMENT A: The Devouring Spiral (longest, curves upward-right in a spiral arc) ===
+    # This is the dominant arm — it's mid-lunge, reaching for the next thing to consume
+    a_p0 = (cx, cy)
+    a_p1 = (cx + 12*s, cy - 20*s)   # pulls upward
+    a_p2 = (cx + 28*s, cy - 28*s)   # continues sweeping
+    a_p3 = (cx + 38*s, cy - 18*s)   # curves back inward (spiral motion)
+    draw_tapered_curve_cubic(img, a_p0, a_p1, a_p2, a_p3, color,
+                              max_w=3.2*s, min_w=0.8*s, a_start=230, a_end=90)
+    soft_dot(img, int(a_p3[0]), int(a_p3[1]), int(4.5*s), color, 200, blur=2)
+    # Glow at the tip (it just consumed something — brightest point after core)
+    soft_glow(img, int(a_p3[0]), int(a_p3[1]), int(6*s), color, 30, blur=0.6)
 
-    # Branch A1
-    branch_t = 0.55  # branch starts at 55% along filament A
-    bx, by = bezier_point(branch_t, (cx, cy), a_ctrl, a_end)
-    b1_end = (cx + 36*s, cy - 38*s)
-    b1_ctrl = (bx + 6*s, by - 8*s)
-    draw_tapered_curve(img, (bx, by), b1_ctrl, b1_end, color,
-                       max_width=1.6*s, min_width=0.6*s, alpha_start=140, alpha_end=50)
-    soft_dot(img, int(b1_end[0]), int(b1_end[1]), int(2.5*s), color, 120, blur=1)
+    # Branch from spiral arm (secondary growth — evolution evidence)
+    br_start_t = 0.6
+    brx, bry = bezier_cubic(br_start_t, a_p0, a_p1, a_p2, a_p3)
+    br_p0 = (brx, bry)
+    br_p1 = (brx + 8*s, bry - 12*s)
+    br_p2 = (brx + 14*s, bry - 18*s)
+    br_p3 = (brx + 16*s, bry - 28*s)
+    draw_tapered_curve_cubic(img, br_p0, br_p1, br_p2, br_p3, color,
+                              max_w=1.6*s, min_w=0.4*s, a_start=150, a_end=40)
+    soft_dot(img, int(br_p3[0]), int(br_p3[1]), int(2.8*s), color, 120, blur=1)
 
-    # === Filament B: lower-right ===
-    b_end = (cx + 26*s, cy + 28*s)
-    b_ctrl = (cx + 16*s, cy + 10*s - 4*s)
-    draw_tapered_curve(img, (cx, cy), b_ctrl, b_end, color,
-                       max_width=2.4*s, min_width=0.9*s, alpha_start=185, alpha_end=80)
-    soft_dot(img, int(b_end[0]), int(b_end[1]), int(3.2*s), color, 170, blur=1)
+    # === FILAMENT B: Downward reach (shorter, still growing) ===
+    b_p0 = (cx, cy)
+    b_p1 = (cx + 6*s, cy + 14*s)
+    b_p2 = (cx + 16*s, cy + 24*s)
+    b_p3 = (cx + 24*s, cy + 30*s)
+    draw_tapered_curve_cubic(img, b_p0, b_p1, b_p2, b_p3, color,
+                              max_w=2.6*s, min_w=0.7*s, a_start=200, a_end=70)
+    soft_dot(img, int(b_p3[0]), int(b_p3[1]), int(3.5*s), color, 170, blur=1)
 
-    # === Filament C: left ===
-    c_end = (cx - 32*s, cy - 4*s)
-    c_ctrl = (cx - 14*s, cy + 8*s)
-    draw_tapered_curve(img, (cx, cy), c_ctrl, c_end, color,
-                       max_width=2.4*s, min_width=0.9*s, alpha_start=175, alpha_end=75)
-    soft_dot(img, int(c_end[0]), int(c_end[1]), int(3.0*s), color, 160, blur=1)
+    # === FILAMENT C: Left tendril (thinnest, youngest — just sprouted) ===
+    c_p0 = (cx, cy)
+    c_p1 = (cx - 10*s, cy + 4*s)
+    c_p2 = (cx - 22*s, cy - 2*s)
+    c_p3 = (cx - 30*s, cy - 8*s)
+    draw_tapered_curve_cubic(img, c_p0, c_p1, c_p2, c_p3, color,
+                              max_w=2.0*s, min_w=0.5*s, a_start=170, a_end=55)
+    soft_dot(img, int(c_p3[0]), int(c_p3[1]), int(2.8*s), color, 140, blur=1)
 
-    # === Central core ===
-    # Glow halo
-    soft_glow(img, int(cx), int(cy), int(8*s), color, 60, blur_factor=0.5)
-    # Teal ring
-    soft_dot(img, int(cx), int(cy), int(6.5*s), color, 230)
-    # White hot center
-    soft_dot(img, int(cx), int(cy), int(3.2*s), WHITE, 245)
+    # === CENTRAL CORE: Open ring (devouring — has a gap/mouth) ===
+    # The gap faces upper-right toward the spiral arm (the direction of consumption)
+    core_r = int(7*s)
+
+    # Glow behind core
+    soft_glow(img, int(cx), int(cy), int(10*s), color, 50, blur=0.5)
+
+    # Draw open ring (arc with gap)
+    # Gap from about -30 to 30 degrees (upper-right opening)
+    draw_arc_segment(img, int(cx), int(cy), core_r, color,
+                     start_angle=40, end_angle=340, width=max(2, int(2.8*s)), alpha=230)
+
+    # Inner bright spot (the digestive fire)
+    soft_dot(img, int(cx), int(cy), int(3*s), WHITE, 220)
+    # Tiny glow on the inner spot
+    soft_glow(img, int(cx), int(cy), int(4*s), WHITE, 40, blur=0.4)
 
     return img
 
 
 def generate_with_wordmark(size=512, dark_mode=True):
-    """Generate logo with 'myco' wordmark below."""
-    total_h = int(size * 1.25)
+    total_h = int(size * 1.22)
     canvas = Image.new('RGBA', (size, total_h), (0, 0, 0, 0))
     logo = generate_logo(size, dark_mode)
     canvas.paste(logo, (0, 0), logo)
 
     draw = ImageDraw.Draw(canvas, 'RGBA')
     color = MYCO_GREEN if dark_mode else MYCO_DARK_GREEN
-
     try:
-        font = ImageFont.truetype(str(FONTS_DIR / "GeistMono-Regular.ttf"), int(size * 0.07))
+        font = ImageFont.truetype(str(FONTS_DIR / "GeistMono-Regular.ttf"), int(size * 0.065))
     except Exception:
         font = ImageFont.load_default()
 
@@ -129,64 +149,50 @@ def generate_with_wordmark(size=512, dark_mode=True):
     bbox = draw.textbbox((0, 0), text, font=font)
     tw = bbox[2] - bbox[0]
     tx = (size - tw) // 2
-    ty = size + int(size * 0.04)
-    draw.text((tx, ty), text, fill=(*color, 180), font=font)
-    return canvas
-
-
-def generate_on_background(size=512, dark_mode=True):
-    """Generate logo on solid background for social preview."""
-    bg_color = (12, 15, 20, 255) if dark_mode else (250, 251, 252, 255)
-    canvas = Image.new('RGBA', (size, size), bg_color)
-    logo = generate_logo(int(size * 0.7), dark_mode)
-    offset = (size - logo.width) // 2
-    canvas.paste(logo, (offset, offset), logo)
+    ty = size + int(size * 0.03)
+    draw.text((tx, ty), text, fill=(*color, 170), font=font)
     return canvas
 
 
 if __name__ == "__main__":
-    # Icon only (transparent, for README)
+    # Icon variants
     for sz, name in [(512, "512"), (280, "280"), (64, "64"), (32, "32")]:
         logo = generate_logo(512, dark_mode=True)
         if sz != 512:
             logo = logo.resize((sz, sz), Image.LANCZOS)
         logo.save(OUT_DIR / f"logo_dark_{name}.png")
 
-    logo_light = generate_logo(512, dark_mode=False)
-    logo_light.save(OUT_DIR / "logo_light_512.png")
-
-    # Transparent background (for general use)
+    generate_logo(512, False).save(OUT_DIR / "logo_light_512.png")
     generate_logo(512, True).save(OUT_DIR / "logo_transparent_512.png")
 
-    # With wordmark
+    # Wordmark
     generate_with_wordmark(512, True).save(OUT_DIR / "myco_full_dark.png")
     generate_with_wordmark(512, False).save(OUT_DIR / "myco_full_light.png")
 
-    # Social preview (on background)
-    sp = generate_on_background(1280, True)
-    # Make it 1280x640 for GitHub social preview
+    # Social preview 1280x640
     social = Image.new('RGBA', (1280, 640), (12, 15, 20, 255))
-    logo_for_social = generate_logo(400, True)
-    social.paste(logo_for_social, (440, 60), logo_for_social)
-    # Add wordmark
+    logo_sp = generate_logo(420, True)
+    social.paste(logo_sp, (430, 40), logo_sp)
     draw = ImageDraw.Draw(social, 'RGBA')
     try:
-        font = ImageFont.truetype(str(FONTS_DIR / "GeistMono-Regular.ttf"), 36)
+        font = ImageFont.truetype(str(FONTS_DIR / "GeistMono-Regular.ttf"), 38)
+        small = ImageFont.truetype(str(FONTS_DIR / "GeistMono-Regular.ttf"), 15)
     except Exception:
-        font = ImageFont.load_default()
+        font = small = ImageFont.load_default()
+
     text = "m y c o"
     bbox = draw.textbbox((0, 0), text, font=font)
-    tw = bbox[2] - bbox[0]
-    draw.text(((1280 - tw) // 2, 480), text, fill=(0, 229, 176, 180), font=font)
+    draw.text(((1280 - (bbox[2]-bbox[0])) // 2, 485), text, fill=(0, 229, 176, 180), font=font)
 
-    tagline_font = ImageFont.truetype(str(FONTS_DIR / "GeistMono-Regular.ttf"), 16)
     tag = "devour everything. evolve forever. you just talk."
-    bbox2 = draw.textbbox((0, 0), tag, font=tagline_font)
-    tw2 = bbox2[2] - bbox2[0]
-    draw.text(((1280 - tw2) // 2, 530), tag, fill=(0, 229, 176, 100), font=tagline_font)
+    bbox2 = draw.textbbox((0, 0), tag, font=small)
+    draw.text(((1280 - (bbox2[2]-bbox2[0])) // 2, 540), tag, fill=(0, 229, 176, 90), font=small)
 
     social.save(OUT_DIR / "social_preview.png")
 
-    print("Generated all logo variants:")
-    for f in sorted(OUT_DIR.glob("*.png")):
+    print("Generated all logo v3 variants:")
+    for f in sorted(OUT_DIR.glob("logo_*.png")):
         print(f"   {f.name} ({f.stat().st_size // 1024}KB)")
+    for f in sorted(OUT_DIR.glob("myco_*.png")):
+        print(f"   {f.name} ({f.stat().st_size // 1024}KB)")
+    print(f"   social_preview.png ({(OUT_DIR / 'social_preview.png').stat().st_size // 1024}KB)")
