@@ -167,6 +167,19 @@ compression_ripe/compression_pressure 全部可能需要同步更新。
 腐烂 10+ 个 wave 未发现）。追溯索引不是 lint——它是给 Agent 的智能导航，Agent 
 用自己的判断力决定哪些下游层需要更新。
 
+### 2.8 配置优先级（absorbed from claude-code-best-practice）
+
+Myco 配置遵循五级优先级（从高到低）：
+
+1. **Session override** — 当前会话的临时覆盖
+2. **Project `.claude/settings.json`** — 项目级团队共享
+3. **Project `_canon.yaml`** — Myco kernel 契约（SSoT）
+4. **User `~/.claude/settings.json`** — 个人全局默认
+5. **Organization managed settings** — 组织级强制
+
+**Deny rules 优先级最高**——任何级别的 deny 都不可被下级覆盖。
+**Array values（如 permissions.allow）跨级别合并去重。**
+
 ---
 
 ## 3. Session Boot Sequence — 会话启动硬流程

@@ -1,352 +1,103 @@
-# Myco Evolution Engine — 自进化框架 (v0.x | 文档修订：2.1)
+# Myco Evolution Engine — Metabolic Self-Evolution (v3.0)
+
+> **文档修订**: 3.0 (2026-04-12, Post-Metamorphosis rewrite)
+> **前身**: v2.1 的四齿轮（Gear 1-4）架构已在 Metamorphosis 中被替代
 
 ## 核心哲学
 
-Myco 不仅是知识存储库，更是**自进化认知系统**。与传统文档管理不同，本引擎通过四metabolic phase机制，在日常工作中持续感知弱点、反思假设、迭代框架本身。
+Myco 是 Agent-First 的共生认知有机体。进化不是手动触发的——它是有机体的持续代谢过程。旧的四齿轮模型要求人类换挡；新的代谢模型由 Agent + Substrate 自主运转。
 
-**三层学习**：
-1. **Single-loop**（行为修正）：发现内容矛盾 → 修正数据
-2. **Double-loop**（假设重塑）：发现工作流弱点 → 改进流程、模板、权限
-3. **Meta-loop**（进化规则更新）：发现四metabolic phase本身不足 → 修改触发条件、权限分级、模板
-
----
-
-## 四metabolic phase机制
-
-### Hunger Sensing：摩擦感知（Friction Sensing）
-
-**目的**：在真实工作中捕捉系统卡壳点，激活改进。
-
-**六大触发类别**：
-- **操作摩擦**：脚本执行超时、远程连接反复失败、文件路径 hardcoding
-- **认知冲突**：代码注释与实现不符、wiki 页面找不到答案、决策文档相互矛盾
-- **权限困境**：想修改文档但不确定边界、需要资源决策但缺决策框架
-- **知识断裂**：新手进来不知从何开始、关键信息分散在多个文件、阅读时间超过预期
-- **决策反复**：同一问题被讨论多次、旧结论被遗忘然后重新提议
-- **工具限制**：现有脚本无法完成新任务、跨文件查询太慢、自动化程度不足
-
-**记录格式** → `log.md` `friction` 条目，遵循统一格式：
-
-```
-## [YYYY-MM-DD] friction | [触发类别] 简述（一句话）；建议对策
-```
-
-示例：
-```
-## [2026-04-08] friction | [操作摩擦] 远程连接 30s 超时 3 次，影响任务启动；建议增加自动重试协议
-## [2026-04-08] friction | [知识断裂] 新成员花 45 分钟找不到完整启动步骤；建议新建快速启动指南
-```
-
-**Cross-Project Distillation 异常标记（g4-candidate）**：
-
-解决一个 friction 后，检查以下**客观条件**（不需要判断"是否通用"——留给 session-end sweep）：
-
-| 条件 | 判断方式 | 示例 |
-|------|---------|------|
-| 迭代次数 ≥ 2 | 问题尝试了两次以上才解决 | badge 重叠修了 3 轮才用三层 axes 解决 |
-| 新模式创建 | 创建了之前不存在的 helper/协议/模板 | grad_river() 函数、P-005 操作叙事 |
-| 同类 friction ≥ 2 | 同一类别本会话出现两次以上 | SSH 超时连续 3 次→总结出重试协议 |
-
-满足任一条件 → 在 log 条目末尾追加 `→ g4-candidate`。成本 ≈ 5 秒。
-
-```
-## [2026-04-09] friction | [操作摩擦] API 限流机制重构两次仍不稳定，第三次引入指数退避才解决 → g4-candidate
-## [2026-04-09] friction | [知识断裂] 配置格式变更导致三个模块同时失效，定位根因花费 40 分钟 → g4-candidate
-```
-
-> **设计理由**：触发信号从"agent 判断是否通用"（主观认知）转为"工作本身的可观测属性"（客观事实）。依据：Metacognitive Architecture 研究表明"并非所有认知活动触发元认知评估——只有异常才触发"，而迭代次数 ≥ 2 正是"这件事比预期更难"的异常信号。
-
-> **为什么与 log.md 统一格式**：friction 条目是 log.md 的一种事件类型，必须符合 `## [日期] type | description` 的全局格式，才能被 lint L5 正确解析和统计。如需记录更多字段（Tier、对策），可追加到描述末尾，不改变格式主体。
-
-**与操作叙事的关系**：`docs/operational_narratives.md` 记录*how*（步骤+脚本）；Friction 记录*why it hurt*（触发点）。Friction 积累到阈值时，激活对应操作叙事的重写。
+**三层学习**（不变）：
+1. **Single-loop**（行为修正）：hunger 信号检测矛盾 → Agent 自动修复
+2. **Double-loop**（假设重塑）：predict_knowledge_needs 发现模式 → 改进 skills
+3. **Meta-loop**（进化规则更新）：evolve.py 变异 skills → constraint gates 选择 → 更好的规则替代旧规则
 
 ---
 
-### Session Reflection：会话反思（Session Reflection）
-
-**目的**：每个会话都是进化学习——不仅完成任务，更要检视系统本身。
-
-**必需提问**（会话结束前）：
-> **"这次会话中，我们的工作流或知识系统哪个地方卡了？什么原因？"**
-
-**Meta 日志记录** → `log.md` `meta` 条目，遵循统一格式：
+## 代谢循环（取代旧四齿轮）
 
 ```
-## [YYYY-MM-DD] meta | 对系统本身的一句话反思；推荐行动
+Boot: hunger(execute=true)
+  → 检测信号 → 自动执行 actions
+  → 参考 sprint-pipeline → Think/Plan/Build/Review/Test/Ship/Reflect
+  → 参考 discovery-loop → 检测知识缺口 → 搜索 → 摄入
+  → 参考 learning-loop → 捕获执行学习
+  → evolve.py → 变异表现不佳的 skills → 约束门检验 → 好的变异存活
+  → cross-instance transfer → 好的 skills 跨实例传播
 ```
 
-示例：
-```
-## [2026-04-08] meta | 实验参数调整需要改 5 个文件同步，易出错；建议统一到 _canon.yaml
-## [2026-04-07] meta | Friction 记录全是操作摩擦，缺乏理论决策痛点；调整 Hunger Sensing 触发类别权重
-```
+### 旧模型 → 新模型映射
 
-> **反思范围**：必须是对**系统本身**的反思（知识组织、工作流机制、文档架构），不是对项目内容（实验结果、代码 bug）的反思。
+| 旧（四齿轮） | 新（代谢循环） | 自动化程度 |
+|------------|-------------|-----------|
+| Gear 1 摩擦感知 | `hunger signals`（17+ 种信号自动计算） | 完全自动 |
+| Gear 2 会话反思 | `myco_reflect` 自动创建 execution-learning note | 完全自动 |
+| Gear 3 里程碑回顾 | `predict_knowledge_needs` 分析会话历史 | 完全自动 |
+| Gear 4 跨项目蒸馏 | `evolve.py` + cross-instance skill transfer | 框架就位，opt-in |
 
-**权限**：所有用户 / Agent 都**必须**参与。是否改进由后续metabolic phase决定。
+### 关键区别
+
+**旧模型**：人类手动换挡（"现在做 Gear 2 反思"）
+**新模型**：有机体自主运转（hunger 检测 → actions 推荐 → execute=true 自动执行）
+
+**旧模型**：四个离散档位，顺序推进
+**新模型**：持续代谢循环，所有阶段在每个 session 都可能触发
 
 ---
 
-### Milestone Retrospective：里程碑回顾（Milestone Retrospective）
+## 五个操作技能
 
-**目的**：定期深化假设，修改系统核心部分。触发周期：重大发布 / P4 完成 / 外部评审等。
+进化引擎现在通过 `skills/` 目录的操作技能实现：
 
-**三个 Double-loop 问题**：
-
-1. **"我们的工作流假设有哪些被证伪了？"**
-   - 例如："实验证实了 adaptive approach 优于固定参数，推翻了 '固定参数足够' 的假设"
-   - 对策：wiki/experiment_design 重写消融组设计
-
-2. **"系统内哪些知识单元变得过时或冗余？"**
-   - 例如："两个部署指南重复 60%"
-   - 对策：合并、建立 [DEPRECATED] 标签、更新索引
-
-3. **"权限分级有没有阻碍创新？"**
-   - 例如："Agent 需要写 wiki 但权限受限，导致发现延迟两周才能记录"
-   - 对策：扩展权限层级（见下一节）
-
-**修改权限分级**（基于决策权重）：
-
-| 修改类型 | 权限 | 示例 |
-|---------|------|------|
-| 修正 Friction | Agent 自主 | 脚本 bug 修复 / 文档拼写改正 |
-| Single-loop 内容修改 | Agent 自主 | 更新数据值、补充代码注释 |
-| wiki 页面扩展 | Agent 自主 | 新增算法变体文档 / 补充 Bug 条目 |
-| 工作流微调（W1-W7） | Notify 用户 | 新增 Lint 检查项 / 调整模板 |
-| 权限分级修改 | Notify 用户 | 扩展 Agent 修改范围 / 新增审批流 |
-| 里程碑决策（文献、算法方向） | 用户审核 | P5 消融组选择 / 新的理论假设 |
-| 架构重构 | 用户审核 | 四层知识架构调整 / 核心工作流重写 |
+| 技能 | 职责 | 自动化 |
+|------|------|-------|
+| `metabolic-cycle.md` | Boot ritual: hunger → digest → compress → discover → evolve | hunger(execute=true) 自动 |
+| `sprint-pipeline.md` | 开发循环: Think→Plan→Build→Review→Test→Ship→Reflect | Agent 遵循 |
+| `discovery-loop.md` | 主动觅食: detect gaps → search → evaluate → ingest | hunger 信号触发 |
+| `agent-routing.md` | 模型选择: task type → opus (all tasks) | Agent 读取 |
+| `learning-loop.md` | 执行学习: capture what worked/failed → skill-ify | myco_reflect 自动 |
 
 ---
 
-### Cross-Project Distillation：跨项目蒸馏（Cross-Project Distillation）
+## 自我进化机制（evolve.py）
 
-**目的**：将项目特定知识抽象成通用框架，支撑下一个项目快速启动。
+### 技能变异
+Agent 提供 `llm_fn`，Myco 提供脚手架：
+1. `parse_skill()` — 分离 YAML frontmatter（不可变）和 body（可变）
+2. `mutate_skill()` — Agent 通过 llm_fn 生成变异体
+3. `check_gates()` — 硬门拒绝无效变异（frontmatter 改变 / body 空 / 密钥泄漏 / 体积膨胀）
+4. `evaluate_variant()` — 多维评分（clarity/completeness/conciseness/correctness）
+5. 好的变异替代原 skill，git commit
 
-**触发机制（anomaly-driven，v0.x 2026-04-09）**：
-
-Cross-Project Distillation 不依赖 agent 主观判断"这个发现是否通用"——而是通过 Hunger Sensing 的 `g4-candidate` 标记自动积累候选，在会话结束时统一处理。
-
-**Session-end Cross-Project Distillation sweep**（嵌入会话结束 checklist，Session Reflection 反思之后）：
-
-> 1. 扫描 log.md 中本次会话的 `g4-candidate` 条目
-> 2. 每条候选：
->    - **确认通用** → 写 1-3 行到 Myco 对应 docs（选择最匹配的文件：`research_paper_craft.md` / `reusable_system_design.md` / `evolution_engine.md` / `operational_narratives.md`）
->    - **判断为项目特定** → 在 log 中标注 `g4-pass: [一句话原因]`
-> 3. 成本 ≈ 每条候选 1-2 分钟
-
-> **如果上下文压缩先于 sweep**：g4-candidate 标记已在 log.md 持久化。下一个会话读 log.md 时，扫描未处理的 g4-candidate 条目即可补执行。
-
-**三步蒸馏流程**（sweep 确认通用后执行）：
-
-1. **萃取**（Extraction）
-   - 从项目的 wiki/ 和 docs/primordia/ 中筛出**非项目特定**的核心概念
-   - 示例：
-     - ✅ "四metabolic phase自进化机制"（通用）→ 本文件
-     - ✅ "摩擦感知触发类别"（通用）→ 本文件
-     - ✅ "API 限流退避策略"（通用）→ reusable_system_design.md
-     - ✅ "跨平台脚本字符编码验证协议"（通用）→ reusable_system_design.md
-     - ❌ "特定数据库的表结构设计"（项目特定）→ 保留在项目 wiki
-     - ❌ "产品 X 的竞品分析框架"（项目特定）→ 存档，不通用化
-
-2. **模板化**（Templatization）
-   - 创建或更新 `docs/reusable_system_design.md` 中的模板
-   - 每个模板包括：
-     - 通用原理（1-2 段）
-     - 参数化示例（伪代码或 YAML）
-     - 三种项目类型的适配方案（research / engineering / product）
-     - 常见陷阱与防御措施
-
-3. **反馈循环**（Feedback Loop）
-   - 新项目用模板启动
-   - 记录"模板未覆盖的场景"
-   - 返回 Milestone Retrospective，更新模板的通用性评分
+### 跨实例传播
+`export_evolved_skill()` 打包进化后的 skill 为 upstream bundle。
+接收实例通过 LLM-as-judge 评估相关性后吸收或拒绝。
+好的变异跨 Myco 实例传播——水平基因转移。
 
 ---
 
-## 工作流集成
+## 配置
 
-### 嵌入式激活
-
-**日常工作中的触发点**：
-
-| 时机 | metabolic phase | 行动 |
-|------|------|------|
-| 每次操作卡壳 | Hunger Sensing | 记一行 Friction → `log.md`；满足异常条件→追加 `→ g4-candidate` |
-| 会话结束（15 min 前） | Session Reflection | 问自己反思题 → 附一条 META 日志 |
-| 会话结束（Session Reflection 之后） | **Cross-Project Distillation sweep** | 扫描 `g4-candidate` → 写入 Myco 或标注 `g4-pass` |
-| 实验阶段完成（P3/P4/P5） | Milestone Retrospective | 组织回顾会 → 修改 wiki / 权限 |
-| 项目即将结束或移交 | Cross-Project Distillation 全量 | 蒸馏通用知识 → 更新 reusable_system_design.md |
-
-**非阻塞设计**：
-- Hunger Sensing + g4-candidate 标记：**快速记录**（< 30 秒），标记是客观判断不需要认知资源
-- Session Reflection 是**快速反思**（< 30 秒）
-- Cross-Project Distillation sweep 是**轻量处理**（每条 1-2 分钟，通常 0-3 条/会话）
-- Milestone Retrospective 是**专款专时**（里程碑时段）
-- Cross-Project Distillation 全量是**项目周期末**（大规模蒸馏）
+```yaml
+# _canon.yaml
+system:
+  evolution:
+    enabled: false              # opt-in
+    skill_success_threshold: 0.7
+    min_sessions_before_evolve: 5
+    max_mutations_per_cycle: 1
+    require_git_clean: true
+  
+  skill_schema:
+    required_sections: ["When to Execute", "Steps"]
+    optional_sections: ["Input", "Output", "Feeds", "Constraints"]
+    contracts_enabled: false     # future: validate skill-to-skill contracts
+```
 
 ---
 
-## 权限分级详解
+## 与旧文档的关系
 
-### Agent 自主范围（无需通知）
-- 修正已知 Bug（参考 wiki/known_bugs.md）
-- 添加新的 Friction 条目（Hunger Sensing）
-- 扩展 wiki 技术页面（新算法、新环境、新脚本）
-- 更新 log.md 时间线
-- 自动 Lint 检查（scripts/lint_knowledge.py）
+本文档（v3.0）完全替代 v2.1 的四齿轮描述。v2.1 的内容保留在 git 历史中（immutable history doctrine），但不再是当前的有效架构。
 
-### Notify 用户（异步告知，可继续工作）
-- 修改工作流协议（W1-W12）
-- 新增权限层级或决策框架
-- 调整会话规程或启动流程
-- 扩展模板（wiki 不在的新类别）
-
-### 用户审核（同步阻塞，需确认）
-- 算法或理论方向改动
-- 实验阶段跳过或新增
-- 关键假设推翻
-- 知识架构重构（L0-L3 层次调整）
-
----
-
-## 实例：从项目到通用 Myco
-
-### 事例 1：Friction 的通用化
-
-**项目中实际 Friction**：
-```
-## [2026-04-03] friction | [操作摩擦] 脚本字符编码不匹配导致部署失败；协议：所有脚本需编码验证
-```
-
-**通用化后**（`docs/evolution_engine.md`）：
-```
-触发类别：操作摩擦
-示例：脚本编码不匹配导致跨平台脚本失败
-通用规则：脚本传输必须验证源字符集与目标平台兼容性
-防御清单：[encoding 声明] [管道验证] [fallback 方案]
-```
-
-### 事例 2：Milestone Retrospective 决策循环
-
-**软件项目中的实际程序**：
-```
-## [2026-04-15] meta | "微服务拆分已解耦"假设被证伪，架构重构耗时超预期 3 倍；触发 Milestone Retrospective
-
-Milestone Retrospective Q1：假设"接口隔离足够"被证伪——模块间仍存在隐式时序依赖 ✓
-Milestone Retrospective Q2：wiki/api_design.md 中有 3 处接口定义已废弃但仍在被引用 ✓
-Milestone Retrospective Q3：Agent 无权修改跨模块 API 文档，导致问题发现延迟 ✓
-结果：接口设计规范重写，扩展 Agent 权限可更新接口文档
-```
-
-**通用协议**：`docs/reusable_system_design.md` 中新增"假设推翻时的响应流程"模板。
-
----
-
-## 知识质量机制（v2.1）
-
-进化引擎不仅改进流程，还提升知识质量。以下机制与四metabolic phase协同工作：
-
-### 活跃张力标记（⚡）
-
-wiki 页面中用 `⚡ 活跃张力` 标记尚未解决的架构级内在矛盾——不是 Bug，而是设计空间中的真实张力。
-
-```markdown
-⚡ **活跃张力**：[描述矛盾的两面 + 当前的调节方式 + 可能的解决方向]
-```
-
-Session Reflection（会话反思）时检查：是否有新的活跃张力出现？已有的张力是否被解决？
-Milestone Retrospective（里程碑回顾）时检查：活跃张力是否阻碍了项目进展？是否需要通过传统手艺来解决？
-
-### log.md 扩展事件类型
-
-v2.1 新增两个事件类型配合进化引擎：
-
-| 类型 | 用途 | 触发时机 |
-|------|------|---------|
-| `contradiction` | 记录新发现的活跃张力 | 发现架构级矛盾时 |
-| `validation` | 记录在线验证结果（W4 轻量版） | 完成数字型 claim 验证时 |
-
-```
-## [YYYY-MM-DD] contradiction | [矛盾两面的一句话描述——当前权宜之计]
-## [YYYY-MM-DD] validation | [数字型 claim + 验证结果 + 来源数量]
-```
-
-### 验证范围标签
-
-传统手艺结论萃取时增加一维"验证范围"：
-
-```
-**置信度**：~85%
-**验证范围**：[条件A] ✅ | [条件B] ⚠️ 未测 | [条件C] ❌ 不适用
-```
-
-比纯数字的置信度信息量更大——未来会话能直接看到"在哪些条件下可信"。
-
-### 外部知识编译协议
-
-从外部来源系统性提取知识时的 5 步流程：多通道收集 → 三重门控（跨源一致性 / 实践可操作性 / 非常识独特性）→ 框架萃取 → 局限标注 → 写入 wiki。详见项目 `docs/WORKFLOW.md` §6.10。
-
-### Wiki 页面标准模板
-
-所有 wiki 页面使用轻量级模板（详见项目 `docs/WORKFLOW.md` §6.8）：页眉（类型 + 日期 + 可选非直觉盲点）+ 页脚（Back to 链接）。渐进式迁移——每次编辑时顺手升级。
-
----
-
-## 防止自进化变成自腐化
-
-**风险**：Agent 错误地修改了核心原则 → 后续所有会话被错误指导。
-
-**防御机制**：
-
-1. **权限分级**（见 Milestone Retrospective 修改权限表）：核心原则只有人类能 commit
-2. **变更日志**：每次修改 WORKFLOW.md 或本文档时，必须在文件头部的演进历史中记录变更原因
-3. **回滚能力**：所有文档使用 git 版本控制——错误修改可回滚
-4. **渐进试验**：重大流程变更先在一个会话中试运行（标记为"实验性"），确认有效后才正式写入
-
----
-
-## 面向未来：自动化进化路线图
-
-| 阶段 | 描述 | 前提条件 |
-|------|------|---------|
-| **v2.1（当前）** | 人机协作进化 + 知识质量机制（活跃张力/验证范围/编译协议/wiki模板） | — |
-| **v2.5** | + `.original.md` 双层架构：人类编辑原始版，自动压缩为 Agent 版 | `scripts/compress_original.py` + L8 时间戳检测 |
-| **v3.0（中期）** | + 表达 DNA 量化（来自 Nuwa-Skill）：系统对自身输出风格做量化规范 + 半自动 Milestone Retrospective | 前置：v2.5 稳定运行 ≥2 个里程碑 |
-| **v3.5（远期）** | 高度自动进化：Milestone Retrospective 自动执行，仅 Meta-loop 需人类确认 | 前置：完善回滚机制 + 变更验证测试 |
-| **v4.0（愿景）** | 完全自动进化：所有metabolic phase自主执行，含跨项目蒸馏 | 前置：多项目验证 + Agent 可靠自我评估 |
-
-每个阶段的升级条件：上一阶段运行 ≥2 个完整项目周期且未产生自腐化事件。
-
----
-
-## 常见陷阱与防御
-
-| 陷阱 | 症状 | 防御 |
-|------|------|------|
-| **Hunger Sensing 过载** | Friction 日志爆炸（> 10/天），导致信号淹没 | 分类权重调整 + 自动 binning（相同类别每周汇总） |
-| **Session Reflection 形式化** | Meta 日志只是打勾，没有实质反思 | 强制"一句话解释为什么"；Agent 定期审计发现虚假条目 |
-| **Milestone Retrospective 延迟** | 已识别问题但里程碑未到，改进永不启动 | 引入"紧急 Milestone Retrospective"机制：单点 Tier-1 pain 达到阈值自动触发 |
-| **Cross-Project Distillation 过通用** | 模板太宽泛，对新项目没有指导价值 | 每个模板强制包含"三种项目类型的具体示例" |
-
----
-
-## 总结：自进化的闭环
-
-```
-日常工作
-  ↓ (卡壳时)
-Hunger Sensing: 记录 Friction → 满足异常条件？→ 追加 g4-candidate 标记
-  ↓ (会话末期)
-Session Reflection: 反思假设
-  ↓ (Session Reflection 之后)
-Cross-Project Distillation sweep: 扫描 g4-candidate → 写入 Myco 或 g4-pass
-  ↓ (里程碑时)
-Milestone Retrospective: 修改工作流 / wiki
-  ↓ (项目末期)
-Cross-Project Distillation 全量: 萃取剩余通用知识
-  ↓ (下一个项目)
-新项目用改进后的模板启动 → 循环
-```
-
-这不是**自动化**（系统自己修改规则），而是**结构化反思**（用户 + Agent 协作改进系统本身）。关键设计：Cross-Project Distillation 的触发信号是**工作本身的可观测属性**（迭代次数、新模式创建），而非 agent 的主观判断——这让正确行为自然发生，而不是依赖认知自律。每一圈，系统摩擦减少，知识密度提高，新项目启动加速。
+进化的设计决策记录：`docs/primordia/myco_identity_definitive_craft_2026-04-12.md`（第四永久锚点）。
