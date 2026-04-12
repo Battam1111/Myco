@@ -77,7 +77,7 @@ The substrate is not a pre-carved mold your agent must fit. Myco's entry points,
                    │             LLM Agent               │
                    │      (CPU — raw compute, no RAM)    │
                    └──────────────▲──────────────────────┘
-                                  │ 18 MCP tools + CLI
+                                  │ 19 MCP tools + CLI
                                   │ (read / eat / digest / lint …)
                    ┌──────────────┴──────────────────────┐
                    │         Myco Kernel (OS)            │
@@ -193,7 +193,7 @@ The continuously-maintained registry lives at [`docs/open_problems.md`](docs/ope
 
 | Phase | What is true | What is coming |
 |-------|-------------|----------------|
-| **v0.x (today)** | Four inward gears shipped · 23-dimension lint green · metabolism CLI live · MCP server exposes 18 tools · kernel/instance separation enforced · one unconscious prototype (ASCC) validated end-to-end · Self-Model D layer seeded (view tracking + dead-knowledge signal + `myco prune` auto-excretion) · Metabolic Inlet MVP scaffold shipped (`myco inlet`, Wave 35 / v0.27.0) · L19 dimension-count consistency lint (Wave 38 / v0.29.0) · L20 translation mirror lint (Wave 39 / v0.30.0) · L21 contract version inline lint (Wave 40 / v0.31.0) · L22 wave-seed lifecycle lint (Wave 41 / v0.32.0) | Inlet cold-start, autonomous trigger signals, and continuous compression remain open. Most gear-firing is still human-triggered. |
+| **v0.x (today)** | Four inward gears shipped · 23-dimension lint green · metabolism CLI live · MCP server exposes 19 tools · kernel/instance separation enforced · one unconscious prototype (ASCC) validated end-to-end · Self-Model D layer seeded (view tracking + dead-knowledge signal + `myco prune` auto-excretion) · Metabolic Inlet MVP scaffold shipped (`myco inlet`, Wave 35 / v0.27.0) · L19 dimension-count consistency lint (Wave 38 / v0.29.0) · L20 translation mirror lint (Wave 39 / v0.30.0) · L21 contract version inline lint (Wave 40 / v0.31.0) · L22 wave-seed lifecycle lint (Wave 41 / v0.32.0) | Inlet cold-start, autonomous trigger signals, and continuous compression remain open. Most gear-firing is still human-triggered. |
 | **v1.0** | Metabolic inlet fully autonomous · Self-Model D implemented · structural decay detector seeded · trigger signals replaced by learned heuristics | Human is no longer the engine; human is strictly the selection pressure. |
 | **v∞** | Kernel evolves without any single human being able to hold its structure in their head — but *any* human can still audit any change, because C2 Transparent never lifts. | Open question. This is where [Open Problem 3](#open-problems) becomes load-bearing. |
 
@@ -216,7 +216,7 @@ myco lint --project-dir ./your-project     # baseline the substrate
 myco hunger --project-dir ./your-project   # metabolic dashboard
 ```
 
-**MCP integration** — your agent gets 18 tools automatically, no manual prompting:
+**MCP integration** — your agent gets 19 tools automatically, no manual prompting:
 
 ```bash
 pip install 'git+https://github.com/Battam1111/Myco.git#egg=myco[mcp]'

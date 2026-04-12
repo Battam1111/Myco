@@ -118,9 +118,9 @@ Agent 启动时调 `hunger(execute=true)` 完成 boot（<10s），按需调 sear
 
 ---
 
-## 五、Agent-Substrate 共生模型
+## 五、Agent-First 共生模型
 
-**核心哲学**：变异和选择都内化于 Agent+Substrate 共生体。人类提供方向和信任。
+**核心哲学**：Myco 是 Agent-First 的——Agent 是唯一操作者，人类只用自然语言提供方向。变异和选择都内化于 Agent+Substrate 共生体。
 
 - **Agent 产生变异**：发现新知识、尝试新组织方式、实验新规则（eat/digest/compress/inlet）
 - **Substrate 执行选择**：lint 23 维 + hunger signals + compression_pressure + dead_knowledge detection 构成内部免疫系统，过滤无效变异
