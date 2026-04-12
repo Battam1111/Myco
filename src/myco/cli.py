@@ -424,6 +424,12 @@ def main():
              "(default 0.85). Lands in output frontmatter.",
     )
     compress_parser.add_argument(
+        "--cohort", type=str, default=None,
+        help="Wave 48: 'auto' uses cohort intelligence to select the best "
+             "compression group. Mutually exclusive with --tag and positional "
+             "note ids.",
+    )
+    compress_parser.add_argument(
         "--dry-run", dest="dry_run", action="store_true",
         help="Show what would be compressed (cohort + rationale) without "
              "writing anything. Wave 27 Attack G defense — observability "
@@ -687,6 +693,25 @@ def main():
     g_stats.add_argument("--json", action="store_true",
                          help="Emit machine-readable JSON")
 
+    # ── myco cohort (Wave 48, v0.37.0) ──────────────────────────────
+    cohort_parser = subparsers.add_parser(
+        "cohort",
+        help="Semantic cohort analysis: tag co-occurrence, compression suggestions, gaps",
+    )
+    cohort_sub = cohort_parser.add_subparsers(dest="cohort_subcommand")
+    c_matrix = cohort_sub.add_parser("matrix", help="Tag co-occurrence pairs")
+    c_matrix.add_argument("--project-dir", type=str, default=".")
+    c_matrix.add_argument("--json", action="store_true")
+    c_matrix.add_argument("--limit", type=int, default=20)
+    c_suggest = cohort_sub.add_parser("suggest", help="Compression cohort suggestions")
+    c_suggest.add_argument("--project-dir", type=str, default=".")
+    c_suggest.add_argument("--json", action="store_true")
+    c_suggest.add_argument("--limit", type=int, default=20)
+    c_gaps = cohort_sub.add_parser("gaps", help="Knowledge gap detection")
+    c_gaps.add_argument("--project-dir", type=str, default=".")
+    c_gaps.add_argument("--json", action="store_true")
+    c_gaps.add_argument("--limit", type=int, default=20)
+
     # ── myco version (explicit subcommand) ─────────────────────────
     subparsers.add_parser("version", help="Show version")
 
@@ -800,6 +825,11 @@ def main():
     if args.command == "graph":
         from myco.graph_cmd import run_graph
         sys.exit(run_graph(args))
+
+    # Wave 48 (v0.37.0): semantic cohort intelligence.
+    if args.command == "cohort":
+        from myco.cohorts_cmd import run_cohort
+        sys.exit(run_cohort(args))
 
 
 if __name__ == "__main__":

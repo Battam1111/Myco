@@ -38,6 +38,28 @@ Commit message 格式必须使用 Conventional Commits 风格并带 `[contract:*
 
 ---
 
+## v0.37.0 — 2026-04-12 (minor · Wave 48 Semantic Cohort Intelligence — tag analysis, compression suggestions, gap detection)
+
+**What changed**:
+
+Wave 48 adds tag-based cohort analysis for intelligent compression and
+knowledge gap detection. New module `src/myco/cohorts.py`:
+
+1. **`tag_cooccurrence(root)`** — Pairwise tag co-occurrence across all notes.
+2. **`compression_cohort_suggest(root)`** — Suggest groups of notes for
+   compression (tag + count + age + score).
+3. **`gap_detection(root)`** — Tags where ALL notes are raw/digesting
+   (unprocessed knowledge domains).
+
+New CLI verb: `myco cohort {matrix|suggest|gaps}` (cohorts_cmd.py).
+New MCP tool: `myco_cohort` (tool #17, readOnlyHint=True).
+`myco compress --cohort auto` uses top suggestion from cohort intelligence.
+5 unit tests in `tests/unit/test_cohorts.py`.
+
+**Contract surface**: v0.36.0 → v0.37.0.
+
+---
+
 ## v0.36.0 — 2026-04-12 (minor · Wave 47 Link Graph + Backlinks — structural mycelium connectivity)
 
 **What changed**:

@@ -476,6 +476,30 @@ def run_compress(args) -> int:
     status_filter = getattr(args, "status", None)
     confidence = float(getattr(args, "confidence", 0.85) or 0.85)
     json_out = bool(getattr(args, "json", False))
+    cohort_mode = getattr(args, "cohort", None)
+
+    # Wave 48: --cohort auto resolves tag from cohort intelligence
+    if cohort_mode == "auto":
+        if tag or note_ids:
+            print(
+                "compress: --cohort auto is mutually exclusive with --tag "
+                "and positional note ids",
+                file=sys.stderr,
+            )
+            return 2
+        try:
+            from myco.cohorts import compression_cohort_suggest
+            suggestions = compression_cohort_suggest(root)
+            if not suggestions:
+                print("compress: --cohort auto found no ripe cohorts", file=sys.stderr)
+                return 4
+            tag = suggestions[0]["tag"]
+            print(f"compress: --cohort auto selected tag '{tag}' "
+                  f"({suggestions[0]['note_count']} notes, "
+                  f"score {suggestions[0]['cohort_score']})")
+        except Exception as e:
+            print(f"compress: --cohort auto failed: {e}", file=sys.stderr)
+            return 5
 
     if tag and note_ids:
         print(
@@ -485,7 +509,8 @@ def run_compress(args) -> int:
         return 2
     if not tag and not note_ids:
         print(
-            "compress: must provide either --tag <TAG> or positional note ids",
+            "compress: must provide either --tag <TAG>, positional note ids, "
+            "or --cohort auto",
             file=sys.stderr,
         )
         return 2
