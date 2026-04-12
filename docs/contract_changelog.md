@@ -38,6 +38,47 @@ Commit message 格式必须使用 Conventional Commits 风格并带 `[contract:*
 
 ---
 
+## v0.34.0 — 2026-04-12 (minor · Wave 43 full agent surface — 6 new MCP tools, 9→15 tool coverage)
+
+**What changed**:
+
+Wave 43 exposes every agent-relevant Myco verb via MCP, closing the
+"agents can't call compress/prune/inlet/forage/upstream" gap.
+
+6 new MCP tools added to `src/myco/mcp_server.py`:
+
+1. **`myco_compress`** — forward compression synthesis (tag or note_ids
+   cohort, rationale, confidence, dry_run). Wraps `compress_cmd.run_compress`.
+2. **`myco_uncompress`** — reverse compression (restore inputs, delete output).
+   Wraps `compress_cmd.run_uncompress`.
+3. **`myco_prune`** — dead-knowledge auto-excretion (safe dry-run default,
+   opt-in apply). Wraps `notes_cmd.run_prune`.
+4. **`myco_inlet`** — external content ingestion with provenance tracking
+   (content + provenance + tags). Wraps `inlet_cmd.run_inlet`.
+5. **`myco_forage`** — forage substrate management (add/list/digest actions).
+   Wraps `forage_cmd.run_forage`.
+6. **`myco_upstream`** — inter-instance knowledge transfer (scan/absorb/ingest).
+   Wraps `upstream_cmd.run_upstream`.
+
+All 6 tools follow the established pattern: async function, JSON return,
+project_dir auto-detection, structured error messages. Each wraps the
+corresponding `*_cmd.py` module via stdout capture + JSON mode.
+
+**Files modified** (6 files):
+
+    src/myco/mcp_server.py (6 new tools + header docstring update)
+    _canon.yaml (contract_version v0.33.0 → v0.34.0)
+    src/myco/templates/_canon.yaml (synced_contract_version v0.33.0 → v0.34.0)
+    MYCO.md (contract version refs + project summary)
+    docs/adapters/README.md (contract version)
+    docs/contract_changelog.md (this entry)
+
+**Tool coverage**: 9/19 → 15/19 CLI verbs now have MCP wrappers.
+Remaining 4 without MCP: init, migrate, config, import (setup-only verbs
+that agents don't need during normal metabolism).
+
+---
+
 ## v0.33.0 — 2026-04-12 (minor · Wave 42 structural cleanup — delete immune.py/metabolism.py aliases, remove immune verb, unify L19 surfaces)
 
 **What changed**:

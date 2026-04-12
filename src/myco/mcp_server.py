@@ -15,6 +15,12 @@ Tools:
     myco_digest     — Move a note through the lifecycle (raw→…→excreted)
     myco_view       — Read-only lens on notes/ (list or single note)
     myco_hunger     — Metabolic dashboard with actionable signals
+    myco_compress   — Synthesize notes into extracted knowledge (Wave 43)
+    myco_uncompress — Reverse a compression operation (Wave 43)
+    myco_prune      — Auto-excrete dead-knowledge notes (Wave 43)
+    myco_inlet      — Ingest external content with provenance (Wave 43)
+    myco_forage     — Manage external source material (Wave 43)
+    myco_upstream   — Inter-instance knowledge transfer (Wave 43)
 
 Transport: stdio (local subprocess of the AI client)
 """
@@ -1025,6 +1031,448 @@ async def myco_hunger(
         return json.dumps({"error": f"Hunger computation failed: {e}"})
 
     return json.dumps(report.to_dict(), ensure_ascii=False, indent=2)
+
+
+# ---------------------------------------------------------------------------
+# Tool: myco_compress  —  forward compression synthesis
+# ---------------------------------------------------------------------------
+
+@mcp.tool(
+    name="myco_compress",
+    annotations={
+        "title": "Myco Compress — Synthesize Notes into Extracted Knowledge",
+        "readOnlyHint": False,
+        "destructiveHint": False,
+        "idempotentHint": False,
+        "openWorldHint": False,
+    },
+)
+async def myco_compress(
+    rationale: str,
+    tag: Optional[str] = None,
+    note_ids: Optional[List[str]] = None,
+    confidence: float = 0.85,
+    dry_run: bool = False,
+    project_dir: Optional[str] = None,
+) -> str:
+    """Compress multiple notes into one extracted note with audit trail.
+
+    WHEN TO CALL:
+      (a) When myco_hunger reports compression_ripe signal.
+      (b) When you see 3+ raw/digesting notes with the same tag cohort.
+      (c) After completing a wave that produced multiple seed notes.
+
+    The inputs are marked excreted; the output carries compressed_from
+    back-references and your rationale for what was preserved vs dropped.
+
+    Args:
+        rationale: Compression synthesis prose — what was preserved and why.
+        tag: Tag-based cohort selector (selects all raw/digesting notes with this tag).
+        note_ids: Explicit list of note ids to compress (mutually exclusive with tag).
+        confidence: Self-reported compression confidence [0.0, 1.0].
+        dry_run: If True, show what would happen without writing.
+        project_dir: Path to Myco project root. Auto-detected if omitted.
+
+    Returns:
+        JSON with output note id, input count, and compression metadata.
+    """
+    import argparse
+
+    root = Path(project_dir) if project_dir else _find_project_root()
+    root = root.resolve()
+
+    if not (root / "_canon.yaml").exists():
+        return json.dumps({"error": f"Not a Myco project (no _canon.yaml at {root})"})
+
+    if not rationale:
+        return json.dumps({"error": "rationale is required for compression"})
+
+    if tag and note_ids:
+        return json.dumps({"error": "Provide tag OR note_ids, not both"})
+
+    if not tag and not note_ids:
+        return json.dumps({"error": "Provide either tag or note_ids"})
+
+    args = argparse.Namespace(
+        tag=tag,
+        note_ids=note_ids or [],
+        rationale=rationale,
+        status=None,
+        confidence=confidence,
+        dry_run=dry_run,
+        json=True,
+        project_dir=str(root),
+    )
+
+    from myco.compress_cmd import run_compress
+    import io, contextlib
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        exit_code = run_compress(args)
+
+    output = buf.getvalue().strip()
+    if exit_code == 0:
+        try:
+            return output if output else json.dumps({"status": "ok"})
+        except Exception:
+            return json.dumps({"status": "ok", "output": output})
+    else:
+        return json.dumps({"error": f"Compression failed (exit {exit_code})", "output": output})
+
+
+# ---------------------------------------------------------------------------
+# Tool: myco_uncompress  —  reverse compression
+# ---------------------------------------------------------------------------
+
+@mcp.tool(
+    name="myco_uncompress",
+    annotations={
+        "title": "Myco Uncompress — Reverse a Compression Operation",
+        "readOnlyHint": False,
+        "destructiveHint": False,
+        "idempotentHint": False,
+        "openWorldHint": False,
+    },
+)
+async def myco_uncompress(
+    output_id: str,
+    project_dir: Optional[str] = None,
+) -> str:
+    """Reverse a previous compression — restore input notes and delete the output.
+
+    Use when a compression was done incorrectly or when you need to
+    re-process the original inputs differently.
+
+    Args:
+        output_id: The id of the extracted (output) note to reverse.
+        project_dir: Path to Myco project root. Auto-detected if omitted.
+
+    Returns:
+        JSON with restored note ids and status.
+    """
+    import argparse
+
+    root = Path(project_dir) if project_dir else _find_project_root()
+    root = root.resolve()
+
+    if not (root / "_canon.yaml").exists():
+        return json.dumps({"error": f"Not a Myco project (no _canon.yaml at {root})"})
+
+    args = argparse.Namespace(
+        output_id=output_id,
+        json=True,
+        project_dir=str(root),
+    )
+
+    from myco.compress_cmd import run_uncompress
+    import io, contextlib
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        exit_code = run_uncompress(args)
+
+    output = buf.getvalue().strip()
+    if exit_code == 0:
+        return output if output else json.dumps({"status": "ok"})
+    else:
+        return json.dumps({"error": f"Uncompress failed (exit {exit_code})", "output": output})
+
+
+# ---------------------------------------------------------------------------
+# Tool: myco_prune  —  dead knowledge auto-excretion
+# ---------------------------------------------------------------------------
+
+@mcp.tool(
+    name="myco_prune",
+    annotations={
+        "title": "Myco Prune — Auto-Excrete Dead Knowledge",
+        "readOnlyHint": False,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": False,
+    },
+)
+async def myco_prune(
+    apply: bool = False,
+    threshold_days: Optional[int] = None,
+    project_dir: Optional[str] = None,
+) -> str:
+    """Scan for dead-knowledge notes and optionally excrete them.
+
+    WHEN TO CALL:
+      (a) When myco_hunger reports dead_knowledge signal.
+      (b) During periodic substrate maintenance (every few sessions).
+
+    Dead knowledge = terminal status + untouched for threshold days + low view count.
+
+    SAFE BY DEFAULT: dry-run mode unless apply=True. Always preview first.
+
+    Args:
+        apply: If True, actually excrete the dead notes. Default: False (dry-run).
+        threshold_days: Override the dead-knowledge threshold (default from canon).
+        project_dir: Path to Myco project root. Auto-detected if omitted.
+
+    Returns:
+        JSON with list of candidates and whether they were pruned.
+    """
+    import argparse
+
+    root = Path(project_dir) if project_dir else _find_project_root()
+    root = root.resolve()
+
+    if not (root / "_canon.yaml").exists():
+        return json.dumps({"error": f"Not a Myco project (no _canon.yaml at {root})"})
+
+    args = argparse.Namespace(
+        apply=apply,
+        threshold_days=threshold_days,
+        json=True,
+        project_dir=str(root),
+    )
+
+    from myco.notes_cmd import run_prune
+    import io, contextlib
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        exit_code = run_prune(args)
+
+    output = buf.getvalue().strip()
+    if exit_code == 0:
+        return output if output else json.dumps({"status": "ok", "candidates": []})
+    else:
+        return json.dumps({"error": f"Prune failed (exit {exit_code})", "output": output})
+
+
+# ---------------------------------------------------------------------------
+# Tool: myco_inlet  —  external content ingestion
+# ---------------------------------------------------------------------------
+
+@mcp.tool(
+    name="myco_inlet",
+    annotations={
+        "title": "Myco Inlet — Ingest External Content with Provenance",
+        "readOnlyHint": False,
+        "destructiveHint": False,
+        "idempotentHint": False,
+        "openWorldHint": True,
+    },
+)
+async def myco_inlet(
+    content: str,
+    provenance: str,
+    tags: Optional[str] = None,
+    project_dir: Optional[str] = None,
+) -> str:
+    """Ingest external content into the metabolic pipeline with full provenance tracking.
+
+    WHEN TO CALL:
+      (a) After fetching external content (web page, repo README, paper abstract).
+      (b) When the user shares a document or URL content for the substrate to absorb.
+      (c) When a cohort gap or wiki miss suggests the substrate needs external knowledge.
+
+    Each inlet note gets provenance fields: inlet_origin, inlet_method,
+    inlet_fetched_at, inlet_content_hash (SHA256).
+
+    Args:
+        content: The external content body to ingest.
+        provenance: Origin label (URL, file path, or description).
+        tags: Comma-separated tags (default: "inlet").
+        project_dir: Path to Myco project root. Auto-detected if omitted.
+
+    Returns:
+        JSON with the new note's id, path, and provenance metadata.
+    """
+    import argparse
+
+    root = Path(project_dir) if project_dir else _find_project_root()
+    root = root.resolve()
+
+    if not (root / "_canon.yaml").exists():
+        return json.dumps({"error": f"Not a Myco project (no _canon.yaml at {root})"})
+
+    args = argparse.Namespace(
+        source=None,
+        content=content,
+        provenance=provenance,
+        tags=tags or "inlet",
+        json=True,
+        project_dir=str(root),
+    )
+
+    from myco.inlet_cmd import run_inlet
+    import io, contextlib
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        exit_code = run_inlet(args)
+
+    output = buf.getvalue().strip()
+    if exit_code == 0:
+        return output if output else json.dumps({"status": "ok"})
+    else:
+        return json.dumps({"error": f"Inlet failed (exit {exit_code})", "output": output})
+
+
+# ---------------------------------------------------------------------------
+# Tool: myco_forage  —  external material management
+# ---------------------------------------------------------------------------
+
+@mcp.tool(
+    name="myco_forage",
+    annotations={
+        "title": "Myco Forage — Manage External Source Material",
+        "readOnlyHint": False,
+        "destructiveHint": False,
+        "idempotentHint": False,
+        "openWorldHint": True,
+    },
+)
+async def myco_forage(
+    action: str,
+    source_url: Optional[str] = None,
+    source_type: Optional[str] = None,
+    local_path: Optional[str] = None,
+    license: Optional[str] = None,
+    why: Optional[str] = None,
+    item_id: Optional[str] = None,
+    status: Optional[str] = None,
+    digest_target: Optional[List[str]] = None,
+    project_dir: Optional[str] = None,
+) -> str:
+    """Manage the forage substrate — register, list, and digest external material.
+
+    WHEN TO CALL:
+      (a) After discovering an external repo/paper/article worth absorbing.
+      (b) When forage_backlog hunger signal fires.
+      (c) After producing digest notes from a foraged item.
+
+    Actions:
+      - add: Register a new external source (requires source_url, source_type, license, why).
+      - list: Show forage manifest (optional status filter).
+      - digest: Mark an item as digested after producing notes (requires item_id, status).
+
+    Args:
+        action: One of 'add', 'list', 'digest'.
+        source_url: URL of the external source (for 'add').
+        source_type: Type: 'repo', 'paper', 'article', 'docs' (for 'add').
+        local_path: Local clone/download path (for 'add', optional).
+        license: License identifier (for 'add'; unknown triggers quarantine).
+        why: Intent statement — why is this being foraged? (for 'add').
+        item_id: Manifest item id (for 'digest').
+        status: New status for the item (for 'digest').
+        digest_target: List of note ids produced from this item (for 'digest').
+        project_dir: Path to Myco project root. Auto-detected if omitted.
+
+    Returns:
+        JSON with action result.
+    """
+    import argparse
+
+    root = Path(project_dir) if project_dir else _find_project_root()
+    root = root.resolve()
+
+    if not (root / "_canon.yaml").exists():
+        return json.dumps({"error": f"Not a Myco project (no _canon.yaml at {root})"})
+
+    if action not in ("add", "list", "digest"):
+        return json.dumps({"error": f"Invalid action {action!r}. Use 'add', 'list', or 'digest'."})
+
+    args = argparse.Namespace(
+        forage_subcommand=action,
+        source_url=source_url,
+        source_type=source_type,
+        local_path=local_path,
+        license=license,
+        why=why,
+        item_id=item_id,
+        status=status,
+        digest_target=digest_target or [],
+        json=True,
+        project_dir=str(root),
+    )
+
+    from myco.forage_cmd import run_forage
+    import io, contextlib
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        exit_code = run_forage(args)
+
+    output = buf.getvalue().strip()
+    if exit_code == 0:
+        return output if output else json.dumps({"status": "ok"})
+    else:
+        return json.dumps({"error": f"Forage {action} failed (exit {exit_code})", "output": output})
+
+
+# ---------------------------------------------------------------------------
+# Tool: myco_upstream  —  inter-instance knowledge flow
+# ---------------------------------------------------------------------------
+
+@mcp.tool(
+    name="myco_upstream",
+    annotations={
+        "title": "Myco Upstream — Inter-Instance Knowledge Transfer",
+        "readOnlyHint": False,
+        "destructiveHint": False,
+        "idempotentHint": False,
+        "openWorldHint": False,
+    },
+)
+async def myco_upstream(
+    action: str,
+    instance_path: Optional[str] = None,
+    bundle_id: Optional[str] = None,
+    project_dir: Optional[str] = None,
+) -> str:
+    """Manage upstream knowledge transfer between Myco instances.
+
+    WHEN TO CALL:
+      (a) When upstream_scan_stale hunger signal fires.
+      (b) When absorbing knowledge from a downstream instance.
+      (c) When ingesting a pending upstream bundle.
+
+    Actions:
+      - scan: List pending bundles in the kernel inbox.
+      - absorb: Copy bundles from a downstream instance's outbox.
+      - ingest: Create a pointer note for a pending bundle.
+
+    Args:
+        action: One of 'scan', 'absorb', 'ingest'.
+        instance_path: Path to downstream instance (for 'absorb').
+        bundle_id: Bundle id to ingest (for 'ingest').
+        project_dir: Path to Myco project root. Auto-detected if omitted.
+
+    Returns:
+        JSON with action result.
+    """
+    import argparse
+
+    root = Path(project_dir) if project_dir else _find_project_root()
+    root = root.resolve()
+
+    if not (root / "_canon.yaml").exists():
+        return json.dumps({"error": f"Not a Myco project (no _canon.yaml at {root})"})
+
+    if action not in ("scan", "absorb", "ingest"):
+        return json.dumps({"error": f"Invalid action {action!r}. Use 'scan', 'absorb', or 'ingest'."})
+
+    args = argparse.Namespace(
+        upstream_subcommand=action,
+        instance_path=instance_path,
+        bundle_id=bundle_id,
+        json=True,
+        project_dir=str(root),
+    )
+
+    from myco.upstream_cmd import run_upstream
+    import io, contextlib
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        exit_code = run_upstream(args)
+
+    output = buf.getvalue().strip()
+    if exit_code == 0:
+        return output if output else json.dumps({"status": "ok"})
+    else:
+        return json.dumps({"error": f"Upstream {action} failed (exit {exit_code})", "output": output})
 
 
 # ---------------------------------------------------------------------------
