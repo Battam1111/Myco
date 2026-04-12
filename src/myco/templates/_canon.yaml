@@ -304,7 +304,7 @@ system:
     terminal_statuses:
       - extracted
       - integrated
-    dead_knowledge_threshold_days: 30
+    dead_knowledge_threshold_days: 7
     valid_sources:
       - chat                # pulled from conversation context
       - eat                 # user/agent invoked `myco eat` explicitly
@@ -325,7 +325,7 @@ system:
     # Authoritative design: kernel docs/primordia/compression_primitive_craft_2026-04-12.md
     compression:
       ripe_threshold: 5
-      ripe_age_days: 7
+      ripe_age_days: 1
       pressure_threshold: 2.0    # Wave 50 (v0.39.0)
       gap_stale_days: 14         # Wave 59: cohort staleness threshold
 
@@ -387,7 +387,7 @@ system:
       - quarantined
     max_item_size_bytes: 10485760        # 10 MB per-item soft cap
     forage_backlog_threshold: 5          # ≥5 raw items triggers hunger
-    stale_raw_days: 14                   # raw > 14 days triggers hunger
+    stale_raw_days: 1                    # raw > 1 day triggers hunger
     total_budget_bytes: 209715200        # 200 MB soft total (hunger)
     hard_budget_bytes: 1073741824        # 1 GB hard cap (L14 HIGH)
     license_recheck_days: 90

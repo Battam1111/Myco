@@ -16,7 +16,7 @@ system:
   # MEDIUM if stale AND no bundles, silent otherwise.
   # Closes Wave 13 A7 split's reader half (Wave 16 landed the writer).
   upstream_scan:
-    stale_days: 7              # default: scan older than 7d is stale
+    stale_days: 1              # default: scan older than 1d is stale
     enabled: true              # hunger channel toggle
 
   # --- Boot Brief Injector (Wave 17, contract v0.16.0) --------------
@@ -103,7 +103,7 @@ system:
       reflection_marker: meta           # token after `[YYYY-MM-DD]`
     distillation:
       enabled: true
-      drift_threshold_days: 5
+      drift_threshold_days: 1
       candidate_marker: g4-candidate
       resolution_markers:
         - g4-pass
@@ -528,7 +528,7 @@ system:
     terminal_statuses:       # statuses considered "settled", eligible for dead detection
     - extracted
     - integrated
-    dead_knowledge_threshold_days: 30
+    dead_knowledge_threshold_days: 7
     valid_sources:
     - chat                # pulled from conversation context
     - eat                 # user/agent invoked `myco eat` explicitly
@@ -556,9 +556,9 @@ system:
     # `myco compress --tag <X>` or ignore it.
     compression:
       ripe_threshold: 5
-      ripe_age_days: 7
+      ripe_age_days: 1
       pressure_threshold: 2.0    # Wave 50: fires when (raw+digesting)/(extracted+integrated) > this
-      gap_stale_days: 14         # Wave 59: cohort_staleness fires for unprocessed gaps older than this
+      gap_stale_days: 3          # Wave 59: cohort_staleness fires for unprocessed gaps older than this
 
     # Wave 35 (v0.27.0) — Metabolic Inlet primitive scaffold.
     # Authoritative design: docs/primordia/metabolic_inlet_design_craft_2026-04-12.md
@@ -630,7 +630,7 @@ system:
     # Seeded thresholds — not adaptive. Future work in open_problems §4.
     max_item_size_bytes: 10485760        # 10 MB soft cap per item
     forage_backlog_threshold: 5          # ≥5 raw items triggers hunger
-    stale_raw_days: 14                   # raw > 14 days triggers hunger
+    stale_raw_days: 1                    # raw > 1 day triggers hunger
     total_budget_bytes: 209715200        # 200 MB soft total budget (hunger)
     hard_budget_bytes: 1073741824        # 1 GB hard limit (L14 HIGH)
     license_recheck_days: 90             # stale license reminder threshold
