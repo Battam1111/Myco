@@ -32,7 +32,7 @@
 2. `myco hunger` 报告 `promote_ready: 1+`
 3. 操作者运行 `myco digest --promote <note_id>`（或手工把内容裁切成 W8 格式写入 `wiki/<slug>.md`）
 4. 更新 MYCO.md 索引新增条目
-5. `myco lint` 应 22/22 绿
+5. `myco lint` 应 23/23 绿
 
 ## 为什么这个目录不删
 

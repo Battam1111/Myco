@@ -38,6 +38,234 @@ Commit message 格式必须使用 Conventional Commits 风格并带 `[contract:*
 
 ---
 
+## v0.32.0 — 2026-04-12 (minor · L22 wave-seed lifecycle, Wave 41 — raw wave-seed orphan detection as seven-step pipeline post-condition)
+
+**Author**: Claude (Myco kernel agent, autonomous run under explicit user grant, Wave 41)
+
+**Motivation**: Wave 26 D3 friction-driven scout. With Waves 38–40 closing the
+Wave 37 D7 followup triple (L19 dimension count + L20 translation mirror + L21
+contract version inline), the next-priority scar class is whatever surfaces in
+the boot brief / hunger / pytest suite. The Wave 41 scout against the post-Wave-40
+substrate found exactly that: 10 raw notes in `notes/`, of which 7 were tagged
+`wave{25,26,27,28,30,31,32}-seed` at `digest_count: 0` even though all 7 of those
+waves had landed milestones in `log.md`. These were evidence bundles captured as
+input to each wave's craft, but never advanced past `raw` after the wave's
+closing commit. They violated anchor #3 (the seven-step metabolic pipeline:
+raw → digesting → extracted/integrated/excreted) silently — `myco hunger`'s two
+existing raw signals do NOT catch this pattern:
+
+- `raw_backlog` fires at `>10` raw notes; we sat at exactly 10, just under the threshold.
+- `stale_raw` requires `last_touched ≥ 7 days`; the seeds were all under 24 hours old.
+
+Both signals are coarse threshold heuristics that miss a structural post-condition
+(specifically: "if a wave creates a `wave{N}-seed` raw note, that note must
+advance out of raw before the wave's milestone lands in log.md"). L22 fills the
+gap with a referential check grounded in `log.md` instead of count/time
+thresholds. Without an automated check, every future wave that captures a seed
+bundle for its craft risks repeating the exact silent rot Wave 41 was created
+to fix.
+
+**Wave 26 D3 friction-driven ordering** — Wave 40's closing doctrine declared:
+*"Wave 41+ re-evaluates Wave 26 D3 friction-driven ordering against fresh
+friction signals — the next-priority scar class is no longer the contract
+version triple but whatever surfaces in the boot brief / hunger / pytest suite
+as the next reproducible silent-rot pattern."* The Wave 41 scout honored this
+verbatim: 7 visible orphans in the post-Wave-40 boot brief is the highest-leverage
+silent rot, and the existing hunger thresholds are structurally blind to it.
+
+**Authoritative craft**:
+`docs/primordia/wave_seed_lifecycle_craft_2026-04-12.md`
+(kernel_contract class, 3 rounds, current_confidence = target_confidence = 0.90,
+single-author convention floor honored). The craft enumerates 9 decisions
+(D1-D9) on the L22 design surface and produces a 15-item landing list which
+this changelog entry mirrors as the contract-bump record.
+
+**Changes** (each numbered change implements one Wave 41 craft decision):
+
+1. **L22 lint dimension added** — `src/myco/lint.py` gains
+   `lint_wave_seed_orphan(canon, root)` plus the helper
+   `_l22_parse_closed_waves(root)` and two module-level constants
+   (`_L22_WAVE_SEED_RE = re.compile(r"^wave(\d+)-seed$")` and
+   `_L22_MILESTONE_RE = re.compile(r"\*\*Wave\s+(\d+)\s+landed[^*]*\*\*", re.IGNORECASE)`).
+   The substrate's `len(FULL_CHECKS)` SSoT (Wave 38 D2) automatically advances
+   from 22 → 23 because L22 is appended to `FULL_CHECKS`. L19 dogfoods this
+   transition (third consecutive wave to do so after Waves 39 + 40): every
+   narrative surface that still claims "22-dimension" becomes a HIGH issue at
+   the next `myco lint` run, forcing the entire change-set to land in lockstep
+   — the very anti-rot mechanism Wave 38 built.
+
+2. **Detection rule** (Wave 41 D1): a note is a wave-seed orphan iff ALL of:
+   (a) `status == "raw"`, (b) some tag matches the regex `^wave(\d+)-seed$`,
+   (c) the parsed wave number has a `**Wave N landed**` milestone in `log.md`.
+   The detection is **structurally referential** rather than threshold-based —
+   it grounds enforcement on the cross-file relationship between
+   `notes/n_*.md::tags` and `log.md::milestones` rather than on count or time.
+   The first matching tag wins to bound noise (one issue per orphan note, not
+   per matching tag).
+
+3. **log.md milestone parser** (Wave 41 D3): `_l22_parse_closed_waves(root)`
+   reads `log.md` once per lint run and returns the set of integers parsed
+   from `**Wave N landed**` bold headers (with optional trailing parenthetical
+   context inside the bold). The bold-header shape has been stable across 40+
+   waves of log.md history (verified via grep — 101 wave references match).
+   If `log.md` is missing or contains no landed milestones, L22 returns an
+   empty issue list (Wave 41 §C8 silent pass — nothing to enforce).
+
+4. **HIGH severity per orphan** (Wave 41 D4): every orphan emits a HIGH-severity
+   issue against the note path with a structured advance hint
+   (`myco digest --to extracted <id>`). No tier system — the wave-seed pattern
+   is uniformly high-impact because it represents a captured-but-unprocessed
+   evidence bundle that still claims attention from the substrate's view layer
+   while being structurally orphaned from the seven-step pipeline.
+
+5. **In-flight wave clause** (Wave 41 §0.2): seeds tagged for waves NOT yet
+   landed in `log.md` are legitimate in-flight evidence and are NOT flagged.
+   This is the principal false-positive escape — without it, every active
+   wave's seed bundle would be marked as a violation while the wave is still
+   being crafted. The clause is enforced by membership check against the
+   parsed `closed_waves` set rather than a separate filter pass.
+
+6. **Out-of-scope clauses** (Wave 41 §0.2 + Wave 41 D1): L22 explicitly does
+   NOT enforce: (a) that every wave MUST create a seed bundle (which would
+   punish Waves 38-40 efficient pattern), (b) that seeds must reach a specific
+   terminal state (extracted/integrated/excreted are all valid terminations),
+   (c) that non-wave-tagged raw notes must advance (generic raw backlog is
+   `raw_backlog`/`stale_raw` hunger's job), (d) seeds in `digesting` (advanced
+   once, then forgotten — separate dimension if it ever surfaces).
+
+7. **Tag pattern strictness** (Wave 41 D6): the tag regex is the exact
+   `^wave(\d+)-seed$` shape (anchored, no loose variations). Tags like
+   `wave-25-seed`, `wave_25_seed`, `wave 25 seed`, or `seed-wave25` do NOT
+   match. This is a deliberate Goodhart-defense: the tag must be the exact
+   canonical wave-seed shape for L22 to enforce the post-condition, otherwise
+   L22 could be silently bypassed by typos that present as legitimate tags
+   to the rest of the substrate.
+
+8. **Contract version bump** v0.31.0 → v0.32.0 in `_canon.yaml`,
+   `src/myco/templates/_canon.yaml`, and this changelog. `synced_contract_version`
+   mirrors the bump to keep L17 quiescent. The minor bump matches the
+   "new lint dimension" precedent set by L18 (v0.26.0), L19 (v0.29.0),
+   L20 (v0.30.0), L21 (v0.31.0).
+
+9. **4 unit tests added** — `tests/unit/test_lint_wave_seed_orphan.py`
+   covers the four scar classes (Wave 41 D8):
+   `test_l22_clean_substrate_passes` (D1 base case — empty notes/ and log.md
+   produce no issues),
+   `test_l22_orphan_caught_high` (D1+D4 principal scar — raw `wave25-seed`
+   when Wave 25 landed in log.md surfaces as HIGH with the advance hint),
+   `test_l22_pre_landing_seed_silent_pass` (§0.2 in-flight wave clause —
+   `wave42-seed` while Wave 42 has not landed must NOT be flagged),
+   `test_l22_no_tag_raw_silent_pass` (§0.2 out-of-scope — raw notes without
+   wave-seed tags are not L22's responsibility).
+   Each test pulls `lint_wave_seed_orphan` directly (no CLI roundtrip) and
+   uses the existing `_isolate_myco_project` fixture from `tests/conftest.py`.
+   The suite count advances 34 → 38.
+
+10. **15+ narrative surfaces bumped 22-dimension/L0-L21/22%2F22 →
+    23-dimension/L0-L22/23%2F23** (Wave 41 D9 — operational landing). The
+    bump set is: README.md (badge + version row + L22 bullet + lint command
+    table row 22→23), README_zh.md (badge + version row + verb table count),
+    README_ja.md (badge + version row + L22 bullet + verb table count),
+    MYCO.md (5 lines: 2 contract version + 3 dimension count: kernel
+    contract row, current stage row, lint immune-system invariant,
+    lint_coverage_confidence row, project summary row, contract phase
+    tracker, scripts script index), CONTRIBUTING.md (lint module comment),
+    wiki/README.md (`myco lint` 应 23/23 绿), docs/reusable_system_design.md
+    (`lint_dimensions: 23`), src/myco/cli.py (Wave 29 immune comment + lint
+    parser help), src/myco/init_cmd.py (lint shim message),
+    scripts/myco_init.py (mirror), src/myco/migrate.py (shim message),
+    scripts/myco_migrate.py (mirror), src/myco/immune.py (docstring 22→23
+    + L0-L21→L0-L22 + add L22 bullet + add lint_wave_seed_orphan to imports
+    + __all__), src/myco/mcp_server.py (4 edits: tools header, tool annotation
+    title, full L0-L22 enumeration with L21+L22 added in docstring, mode
+    label), src/myco/lint.py (header `22-Dimension` → `23-Dimension`,
+    dimension table row added, FULL_CHECKS comment `L0-L21` → `L0-L22`).
+
+11. **7 wave-seed orphans healed** (Wave 41 D9 — the exact scars that justified
+    L22 in the first place):
+    - `wave25-seed` raw note → `extracted` via `myco digest --to extracted`
+    - `wave26-seed` raw note → `extracted`
+    - `wave27-seed` raw note → `extracted`
+    - `wave28-seed` raw note → `extracted`
+    - `wave30-seed` raw note → `extracted`
+    - `wave31-seed` raw note → `extracted`
+    - `wave32-seed` raw note → `extracted`
+    Default terminal target is `extracted` because (a) the seed served as
+    craft input and is now historical, (b) `integrated` would wrongly claim
+    the seed itself is active wisdom (the craft is the active wisdom, not the
+    seed), (c) `excreted` would wrongly claim the seed was not useful (it
+    was — it provided the evidence base for the craft). These were the
+    original load-bearing evidence for the Wave 41 craft.
+
+**Verification** (every check must be green at COMMIT boundary):
+
+- `PYTHONPATH=src python -m myco.cli lint` — full sweep returns 23/23 PASS.
+  L19 is the canary: any narrative surface claiming "22-dimension" or
+  "L0-L21" or "Lint-22%2F22" produces a HIGH issue. After all 15+ surfaces
+  bump, L19 returns to PASS and L20 also passes (the 3 locale READMEs
+  already mirror after the badge bumps). L21 passes because the
+  6 inline contract version claims (MYCO.md + docs/adapters/README.md) now
+  match canon. L22 passes because the 7 orphans were healed via
+  `myco digest --to extracted`.
+- `python -m pytest tests/ -q` — 38 tests pass (34 prior + 4 Wave 41
+  L22 tests).
+- `git diff _canon.yaml` shows `contract_version: "v0.31.0"` →
+  `"v0.32.0"` AND `synced_contract_version: "v0.31.0"` →
+  `"v0.32.0"` (L17 quiescence).
+- `myco hunger` refreshes `.myco_state/boot_brief.md` with the new
+  Wave 41 milestone visible (L16 freshness).
+
+**Backward compatibility**: Pure additive. Projects on contract v0.31.0
+silently inherit L22 on `pip install -U myco` and will see at most a
+new HIGH issue if their notes/ contain raw `wave{N}-seed` tagged notes
+where wave N has already landed in their `log.md`. The remediation is
+always `myco digest --to <terminal_state> <note_id>` — no removal, no
+migration. The `extracted` target is recommended for historical evidence
+seeds; `integrated` for active wisdom; `excreted` only when the seed was
+not useful. No existing API changes, no removed surfaces, no migration
+required.
+
+**Forward path**: With L22 landing, the substrate now enforces the seven-step
+pipeline post-condition for the most fragile referential surface (wave-seed
+notes). The Wave 26 D3 friction-driven ordering continues for Wave 42+: the
+next scout will identify the next reproducible silent-rot pattern from the
+post-Wave-41 boot brief / hunger / pytest signals. Candidate areas observed
+during the Wave 41 scout but deferred (Wave 41 §4.4): (a) `inlet_ripe`
+hunger advisory (Open Problem #2 — Metabolic Inlet trigger signals);
+(b) continuous compression background task (Open Problem #4); (c) C-layer
+structural decay detector (Open Problem #5); (d) D-layer full implementation
+(Open Problem #6 — currently seeded only). None of these are higher-leverage
+than L22 was at the Wave 41 scout, so the friction-driven ordering will
+re-evaluate from fresh signals at Wave 42 scout time.
+
+**Limitations** (honest, from Wave 41 craft §4.3):
+
+- L1: the wave-seed tag pattern is exact `^wave(\d+)-seed$`. Operator typos
+  like `wave-25-seed` or `wave25_seed` will silently bypass L22 enforcement.
+  This is a Goodhart-defense trade-off: tightening the regex would catch more
+  typo variants but also expand the false-positive surface. The next manual
+  sweep (or a future L23 if the typo class becomes a real friction signal)
+  can amend the regex.
+- L2: L22 only catches the **post-condition** of seven-step pipeline (raw
+  → not-raw after wave closes). It does NOT catch the converse failure
+  (non-seed evidence captured during a wave but never tagged as a seed).
+  That's a separate dimension if it ever surfaces — Wave 41 deliberately
+  scopes L22 to the exact pattern observed in the scout.
+- L3: the `log.md` milestone regex `\*\*Wave\s+(\d+)\s+landed[^*]*\*\*` is
+  format-fragile. If a future wave changes the milestone format (e.g. removes
+  the `landed` keyword or switches from bold to a different markdown pattern),
+  L22 will stop detecting closed waves and silently pass orphans. This is the
+  same fragility as Wave 38's L19 surface allowlist or Wave 39's L20 skeleton
+  parser — format changes need to update the lint regex in lockstep, and a
+  future doctrine entry might lock in the milestone format as kernel surface.
+- L4: the default healing target `extracted` is a heuristic recommendation,
+  not a structurally-correct choice. Operators may legitimately prefer
+  `integrated` (if the seed becomes active wisdom) or `excreted` (if the
+  seed was not useful). The advance hint string in the lint output names
+  `extracted` as the default but operators can pick any terminal status.
+
+---
+
 ## v0.31.0 — 2026-04-12 (minor · L21 contract version inline consistency, Wave 40 — forward-looking inline contract version SSoT enforcement)
 
 **Author**: Claude (Myco kernel agent, autonomous run under explicit user grant, Wave 40)

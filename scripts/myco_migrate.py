@@ -214,7 +214,7 @@ def create_myco_scaffold(project_dir: Path, replacements: dict, entry_point: str
         else:
             lint_src = SCRIPT_DIR / "lint_knowledge.py"
             if lint_src.exists():
-                actions.append(("CREATE", "scripts/lint_knowledge.py (22-dimension Lint shim → myco.lint)"))
+                actions.append(("CREATE", "scripts/lint_knowledge.py (23-dimension Lint shim → myco.lint)"))
                 if not dry_run:
                     (project_dir / "scripts").mkdir(exist_ok=True)
                     shutil.copy2(lint_src, lint_dst)
