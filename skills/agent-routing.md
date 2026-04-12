@@ -10,15 +10,15 @@ When spawning subagents or choosing model effort level for a subtask.
 
 | Task Type | Model Class | Tools | Isolation | Why |
 |-----------|------------|-------|-----------|-----|
-| Codebase search | haiku (fast) | Read-only | none | Speed over depth |
-| File content scan | haiku | Glob, Grep, Read | none | Pattern matching |
-| Research synthesis | sonnet | All read + WebSearch | none | Balanced depth |
+| Codebase search | opus | Read-only | none | Intelligence matters more than speed |
+| File content scan | opus | Glob, Grep, Read | none | Miss nothing |
+| Research synthesis | opus | All read + WebSearch | none | Deep reasoning required |
 | Architecture decision | opus | All | none | Deep reasoning |
-| Experimental code | sonnet | All | worktree | Isolation for safety |
+| Experimental code | opus | All | worktree | Isolation + full intelligence |
 | Compression synthesis | opus | All write | none | Quality-critical |
 | Inlet evaluation | opus | WebSearch + Read | none | Judgment-critical |
-| Routine digest | sonnet | Write | none | Summarization |
-| Prune decision | sonnet | Read + Write | none | Pattern matching |
+| Routine digest | opus | Write | none | Even routine tasks need intelligence |
+| Prune decision | opus | Read + Write | none | Every decision matters |
 
 ## Steps
 
