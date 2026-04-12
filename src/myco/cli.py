@@ -659,6 +659,34 @@ def main():
     up_ingest.add_argument("--json", action="store_true",
                            help="Emit machine-readable JSON")
 
+    # ── myco graph (Wave 47, v0.36.0) ───────────────────────────────
+    graph_parser = subparsers.add_parser(
+        "graph",
+        help="Link graph analysis: backlinks, orphans, clusters, stats",
+    )
+    graph_sub = graph_parser.add_subparsers(dest="graph_subcommand")
+    g_backlinks = graph_sub.add_parser("backlinks", help="Show files that link to <file>")
+    g_backlinks.add_argument("file", type=str, help="Target file (relative path)")
+    g_backlinks.add_argument("--project-dir", type=str, default=".",
+                             help="Myco project root (default: .)")
+    g_backlinks.add_argument("--json", action="store_true",
+                             help="Emit machine-readable JSON")
+    g_orphans = graph_sub.add_parser("orphans", help="Files with zero inbound links")
+    g_orphans.add_argument("--project-dir", type=str, default=".",
+                           help="Myco project root (default: .)")
+    g_orphans.add_argument("--json", action="store_true",
+                           help="Emit machine-readable JSON")
+    g_clusters = graph_sub.add_parser("clusters", help="Connected components")
+    g_clusters.add_argument("--project-dir", type=str, default=".",
+                            help="Myco project root (default: .)")
+    g_clusters.add_argument("--json", action="store_true",
+                            help="Emit machine-readable JSON")
+    g_stats = graph_sub.add_parser("stats", help="Graph summary statistics")
+    g_stats.add_argument("--project-dir", type=str, default=".",
+                         help="Myco project root (default: .)")
+    g_stats.add_argument("--json", action="store_true",
+                         help="Emit machine-readable JSON")
+
     # ── myco version (explicit subcommand) ─────────────────────────
     subparsers.add_parser("version", help="Show version")
 
@@ -767,6 +795,11 @@ def main():
     if args.command == "upstream":
         from myco.upstream_cmd import run_upstream
         sys.exit(run_upstream(args))
+
+    # Wave 47 (v0.36.0): link graph analysis.
+    if args.command == "graph":
+        from myco.graph_cmd import run_graph
+        sys.exit(run_graph(args))
 
 
 if __name__ == "__main__":

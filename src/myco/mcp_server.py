@@ -21,6 +21,7 @@ Tools:
     myco_inlet      — Ingest external content with provenance (Wave 43)
     myco_forage     — Manage external source material (Wave 43)
     myco_upstream   — Inter-instance knowledge transfer (Wave 43)
+    myco_graph      — Structural link graph analysis (Wave 47)
 
 Transport: stdio (local subprocess of the AI client)
 """
@@ -1479,6 +1480,79 @@ async def myco_upstream(
         return output if output else json.dumps({"status": "ok"})
     else:
         return json.dumps({"error": f"Upstream {action} failed (exit {exit_code})", "output": output})
+
+
+# ---------------------------------------------------------------------------
+# Wave 47 (v0.36.0): Link graph analysis
+# ---------------------------------------------------------------------------
+
+@mcp.tool(
+    name="myco_graph",
+    annotations={
+        "title": "Myco Link Graph — structural link analysis",
+        "readOnlyHint": True,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": False,
+    },
+)
+async def myco_graph(
+    action: str,
+    target_file: Optional[str] = None,
+    project_dir: Optional[str] = None,
+) -> str:
+    """Query the substrate's structural link graph.
+
+    Computes forward links, backlinks, orphan detection, and connected
+    components on-demand across all .md files (notes/, wiki/, docs/, MYCO.md,
+    log.md). No cached state — the graph IS the files.
+
+    Actions:
+      backlinks <file> — who references this file?
+      orphans          — files with zero inbound links (structural roots excluded)
+      clusters         — connected components (knowledge islands)
+      stats            — summary: nodes, edges, orphans, hub, authority
+
+    Args:
+        action: One of 'backlinks', 'orphans', 'clusters', 'stats'.
+        target_file: Required for 'backlinks'. Relative path to the target file.
+        project_dir: Path to Myco project root. Auto-detected if omitted.
+    """
+    from myco.graph import (
+        build_link_graph,
+        find_clusters,
+        find_orphans,
+        graph_stats,
+        query_backlinks,
+    )
+
+    root = Path(project_dir) if project_dir else _find_project_root()
+    root = root.resolve()
+
+    graph = build_link_graph(root)
+
+    if action == "backlinks":
+        if not target_file:
+            return json.dumps({"error": "target_file is required for 'backlinks' action"})
+        bl = query_backlinks(graph, target_file)
+        return json.dumps({"target": target_file, "backlinks": bl, "count": len(bl)})
+
+    if action == "orphans":
+        orphans = find_orphans(graph)
+        return json.dumps({"orphans": orphans, "count": len(orphans)})
+
+    if action == "clusters":
+        clusters = find_clusters(graph)
+        return json.dumps({
+            "clusters": clusters,
+            "cluster_count": len(clusters),
+        })
+
+    if action == "stats":
+        stats = graph_stats(graph)
+        return json.dumps(stats)
+
+    return json.dumps({"error": f"Unknown action: {action}. Use backlinks/orphans/clusters/stats."})
 
 
 # ---------------------------------------------------------------------------
