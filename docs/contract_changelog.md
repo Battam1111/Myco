@@ -38,6 +38,16 @@ Commit message 格式必须使用 Conventional Commits 风格并带 `[contract:*
 
 ---
 
+## v0.44.0 — 2026-04-12 (minor · Wave A2 — molt deprecated, foundation cleanup)
+
+**What changed**: `myco molt` deprecated (prints message, exits 2). Use
+`myco correct` instead. Centralizes project root resolution (Wave A1).
+Part of Phase A foundation cleanup.
+
+**Contract surface**: v0.43.0 → v0.44.0.
+
+---
+
 ## v0.43.0 — 2026-04-12 (minor · Wave 57 Tool Trigger Contract — 18/18 MCP tool trigger documentation)
 
 **What changed**:
