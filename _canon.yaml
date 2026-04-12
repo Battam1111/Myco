@@ -502,6 +502,7 @@ system:
       ripe_threshold: 5
       ripe_age_days: 7
       pressure_threshold: 2.0    # Wave 50: fires when (raw+digesting)/(extracted+integrated) > this
+      gap_stale_days: 14         # Wave 59: cohort_staleness fires for unprocessed gaps older than this
 
     # Wave 35 (v0.27.0) — Metabolic Inlet primitive scaffold.
     # Authoritative design: docs/primordia/metabolic_inlet_design_craft_2026-04-12.md

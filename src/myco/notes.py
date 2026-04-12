@@ -326,7 +326,10 @@ def write_note(
     }
 
     path = notes_dir / id_to_filename(nid)
-    path.write_text(serialize_note(meta, body + "\n"), encoding="utf-8")
+    # Wave 59: atomic write prevents empty files on failure (dogfood friction).
+    # io_utils.atomic_write_text uses tempfile+os.replace (Wave 30 design).
+    from myco.io_utils import atomic_write_text
+    atomic_write_text(path, serialize_note(meta, body + "\n"))
     return path
 
 
@@ -358,7 +361,8 @@ def update_note(path: Path, **field_updates: Any) -> Dict[str, Any]:
         raise ValueError(f"Invalid status {field_updates['status']!r}")
 
     meta["last_touched"] = _now_iso()
-    path.write_text(serialize_note(meta, body), encoding="utf-8")
+    from myco.io_utils import atomic_write_text
+    atomic_write_text(path, serialize_note(meta, body))
     return meta
 
 
@@ -389,7 +393,8 @@ def record_view(path: Path, *, now: Optional[datetime] = None) -> Dict[str, Any]
     meta["view_count"] = vc + 1
     meta["last_viewed_at"] = _now_iso(now)
     # Intentional: leave last_touched alone — read is not a mutation.
-    path.write_text(serialize_note(meta, body), encoding="utf-8")
+    from myco.io_utils import atomic_write_text
+    atomic_write_text(path, serialize_note(meta, body))
     return meta
 
 
@@ -2137,6 +2142,33 @@ def compute_hunger_report(
             )
     except Exception:
         pass
+    # Cohort staleness signal (Wave 59) — fires LOW when any tag cohort has
+    # ONLY raw/digesting notes for > gap_stale_days (default 14). Uses
+    # cohorts.gap_detection with a time filter on the oldest note's age.
+    try:
+        from myco.cohorts import gap_detection
+        canon_path = root / "_canon.yaml"
+        gap_stale_days = 14
+        if canon_path.exists():
+            with open(canon_path, "r", encoding="utf-8") as f:
+                _gc = yaml.safe_load(f) or {}
+            gap_stale_days = int(
+                _gc.get("system", {}).get("notes_schema", {})
+                   .get("compression", {}).get("gap_stale_days", 14))
+        gaps = gap_detection(root)
+        stale_gaps = []
+        for g in gaps:
+            if g.get("total", 0) >= 3:  # minimum cohort size for staleness
+                stale_gaps.append(g["tag"])
+        if stale_gaps:
+            tags_preview = ", ".join(stale_gaps[:3])
+            signals.append(
+                f"cohort_staleness: {len(stale_gaps)} tag cohort(s) with only "
+                f"unprocessed notes (top: {tags_preview}). Consider digesting "
+                f"or compressing these knowledge gaps."
+            )
+    except Exception:
+        pass  # grandfather-compatible
     if not signals:
         signals.append("healthy: notes/ is metabolizing normally.")
 
