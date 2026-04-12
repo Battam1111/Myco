@@ -1,6 +1,6 @@
 # {{PROJECT_NAME}} — Myco-Powered Project
 
-> **Generated**: {{DATE}}
+> 最后更新：{{DATE}}
 > **Boot ritual**: Call `myco_hunger(execute=true)` as your FIRST action every session.
 > **Schema**: `_canon.yaml`
 
