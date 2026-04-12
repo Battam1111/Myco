@@ -424,6 +424,16 @@ def _execute_compression(
             file=sys.stderr,
         )
 
+    # Track lifetime excretions (survives note deletion on disk).
+    # Compression bypasses update_note, so we must increment here.
+    excretion_count = len(pending_updates) - len(failed_inputs)
+    if excretion_count > 0:
+        try:
+            from myco.notes import increment_excretion_counter
+            increment_excretion_counter(root, count=excretion_count)
+        except Exception:
+            pass  # best-effort — never block compression
+
     return output_path, [p for p, _ in pending_updates]
 
 
