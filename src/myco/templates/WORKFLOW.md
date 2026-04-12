@@ -1,5 +1,6 @@
 # 工作流手册
 
+> **Generated**: {{DATE}}
 > 本文件定义项目的工作原则和流程。从 Myco 通用模板生成——按项目需要启用/禁用章节。
 > Myco 框架参考：https://github.com/{{GITHUB_USER}}/myco
 
