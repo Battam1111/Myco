@@ -1,7 +1,8 @@
 # {{PROJECT_NAME}} — Myco-Powered Project
 
+> **Generated**: {{DATE}}
 > **Boot ritual**: Call `myco_hunger(execute=true)` as your FIRST action every session.
-> **Contract**: `docs/agent_protocol.md` | **Schema**: `_canon.yaml`
+> **Schema**: `_canon.yaml`
 
 ## What Is Myco
 
@@ -25,14 +26,8 @@ Priority (highest wins): session override > project CLAUDE.md > user ~/.claude >
 
 ## Skill Resolution
 
-When a task matches a skill in `skills/`, load and follow it:
-- `skills/metabolic-cycle.md` — boot ritual + auto-heal
-- `skills/sprint-pipeline.md` — Think→Plan→Build→Review→Test→Ship→Reflect
-- `skills/discovery-loop.md` — proactive knowledge acquisition
-- `skills/agent-routing.md` — model selection by task type
-- `skills/learning-loop.md` — capture execution learnings
-
-If no skill matches, proceed with agent judgment, then consider skill-ifying the process.
+If a `skills/` directory exists, check for matching skills before starting a task.
+If no skill matches (or no skills/ directory), proceed with agent judgment.
 
 ## Tool Triggers (19 MCP tools)
 
