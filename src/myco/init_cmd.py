@@ -331,8 +331,83 @@ def run_auto_detect(args) -> int:
     md_status = _gen_claude_md(project_dir, replacements)
     print(f"  \u2705 CLAUDE.md ({md_status})")
 
+    # Claude Code automation: scheduled task + Cowork skills + settings.json
+    # These are generated regardless of whether Claude Code was detected,
+    # because --auto-detect users may install Claude Code later.
+    import json
+
+    # Scheduled metabolic cycle task
+    sched_dir = project_dir / ".claude" / "scheduled-tasks" / "myco-metabolic-cycle"
+    sched_dir.mkdir(parents=True, exist_ok=True)
+    sched_skill = sched_dir / "SKILL.md"
+    if not sched_skill.exists():
+        sched_skill.write_text(
+            "---\n"
+            "name: myco-metabolic-cycle\n"
+            "description: Myco metabolic cycle — hunger check + auto-heal + lint\n"
+            "---\n\n"
+            "Run the Myco metabolic cycle:\n"
+            "1. Call myco_hunger(execute=true) to auto-heal the substrate\n"
+            "2. If any signal is REFLEX HIGH, address it immediately\n"
+            "3. If session index is missing, call myco_session(action='index')\n"
+            "4. Call myco_lint() to verify substrate integrity\n"
+            "5. If lint has issues, fix them\n"
+            "6. Report: 'Metabolic cycle complete. Status: [healthy/N issues]'\n",
+            encoding="utf-8",
+        )
+    print(f"  \u2705 .claude/scheduled-tasks/myco-metabolic-cycle/")
+
+    # Cowork-compatible skill stubs
+    _cowork_skills = {
+        "myco-boot": (
+            "---\nname: myco-boot\n"
+            "description: Boot Myco substrate — run hunger check and auto-heal\n"
+            "---\n\nCall myco_hunger(execute=true) to check substrate health and auto-fix issues.\n"
+            "If any REFLEX HIGH signals appear, address them before other work.\n"
+            "Then report substrate status.\n"
+        ),
+        "myco-eat": (
+            "---\nname: myco-eat\n"
+            "description: Capture knowledge into Myco — decisions, insights, friction, feedback\n"
+            "---\n\nCall myco_eat with the content to capture. Add relevant tags.\n"
+            "Use this whenever: a decision is made, friction is encountered,\n"
+            "the user gives feedback, or you learn something important.\n"
+        ),
+        "myco-search": (
+            "---\nname: myco-search\n"
+            "description: Search Myco substrate for existing knowledge before answering\n"
+            "---\n\nCall myco_search with the query. Check results before answering\n"
+            "factual questions about the project. The substrate may already\n"
+            "have the answer.\n"
+        ),
+    }
+    for skill_name, skill_content in _cowork_skills.items():
+        skill_dir = project_dir / ".claude" / "skills" / skill_name
+        skill_file = skill_dir / "SKILL.md"
+        if not skill_file.exists():
+            skill_dir.mkdir(parents=True, exist_ok=True)
+            skill_file.write_text(skill_content, encoding="utf-8")
+    print(f"  \u2705 .claude/skills/myco-*/  (Cowork-compatible skill stubs)")
+
+    # Settings.json with auto-allow for Myco MCP tools
+    settings_dir = project_dir / ".claude"
+    settings_file = settings_dir / "settings.json"
+    if not settings_file.exists():
+        settings_dir.mkdir(parents=True, exist_ok=True)
+        settings_file.write_text(json.dumps({
+            "permissions": {
+                "allow": [
+                    "mcp__myco__*",
+                    "Bash(python -m myco*)",
+                    "Bash(python -c *myco*)"
+                ]
+            }
+        }, indent=2), encoding="utf-8")
+    print(f"  \u2705 .claude/settings.json (auto-allow Myco tools)")
+
     print(f"\n\U0001f344 Done! Myco auto-detect complete.")
     print(f"   MCP configs generated for all detected tools.")
+    print(f"   Scheduled metabolic cycle + Cowork skills ready.")
     print(f"   Run your preferred AI tool in {project_dir.resolve()}")
 
     return 0
