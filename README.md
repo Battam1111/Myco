@@ -47,7 +47,7 @@ Discover scans inbound channels. Evaluate decides whether the content is worth t
 
 ### 2. Meta-evolution — the substrate rewrites its own rules
 
-Every LLM system evolves *the agent's behavior*. Myco evolves **the ground the agent stands on**. When a lint rule stops catching real problems, or starts catching false positives, or the canon schema outgrows itself, Myco's four-gear evolution engine notices and proposes a change. Gear 1 senses friction during normal work. Gear 2 reflects at session end on what the substrate itself should improve. Gear 3 retrospects at milestones and challenges structural assumptions. Gear 4 distills universal patterns from finished projects back into the kernel. Alongside these four inward gears, a fifth face — the **metabolic inlet** — turns outward, pulling in external papers, repos, and articles. Evolution proceeds by **mutation and selection**: the system generates candidate rule changes, and the human is the selection pressure that decides which mutations survive.
+Every LLM system evolves *the agent's behavior*. Myco evolves **the ground the agent stands on**. When a lint rule stops catching real problems, or starts catching false positives, or the canon schema outgrows itself, Myco's metabolic evolution engine notices and proposes a change. Hunger signals sense friction during normal work. Session reflection captures execution learnings automatically. Predictive hunger anticipates future knowledge needs from session history. Cross-instance skill transfer distills universal patterns back into the kernel. Alongside these four inward gears, a fifth face — the **metabolic inlet** — turns outward, pulling in external papers, repos, and articles. Evolution proceeds by **mutation and selection**: the system generates candidate rule changes, and the human is the selection pressure that decides which mutations survive.
 
 ### 3. Self-model — a substrate that knows itself
 
@@ -153,7 +153,7 @@ Myco did not fall out of the sky. It stands on the shoulders of five traditions,
 - **Polanyi Tacit Knowledge** — most operational intelligence is tacit, held in proximal/distal structure, and cannot be captured by enumeration. This is why Myco persists procedures and narratives, not just facts.
 - **Argyris Double-Loop Learning** — single-loop learning fixes actions, double-loop learning fixes the rules that govern actions. This is the L-struct / L-meta split and the reason the substrate itself must evolve.
 - **Toyota PDCA** — Plan / Do / Check / Act is the base cycle of a self-improving system. The four gears are PDCA compiled onto an LLM substrate.
-- **Voyager Skill Library** — iterative, grounded skill accumulation is possible if you store what worked and let the next episode build on it. This is the shape of Gear 4 distillation.
+- **Voyager Skill Library** — iterative, grounded skill accumulation is possible if you store what worked and let the next episode build on it. This is the shape of cross-project distillation.
 
 Myco is the first system to put these five on the same base and let them run as one metabolism. See [`docs/theory.md`](docs/theory.md).
 
@@ -170,7 +170,7 @@ The uncomfortable, load-bearing truth: **we were already running the primitive v
 
 </div>
 
-Myco is the formalization of a pattern that already proved itself in the wild. The v0.x → v1.0 trajectory is not "invent new things"; it is "make what was working by hand work by itself." Patterns extracted via Gear 4 now live in the kernel; the unconscious prototype is [`examples/ascc/`](examples/ascc/). We are not asking you to trust a theory. We are asking you to trust a pattern that already kept a demanding research project honest across 80+ files and 15+ debates — and to help us turn the dials that make it run without the human having to be the engine.
+Myco is the formalization of a pattern that already proved itself in the wild. The v0.x → v1.0 trajectory is not "invent new things"; it is "make what was working by hand work by itself." Patterns extracted via cross-project distillation now live in the kernel; the unconscious prototype is [`examples/ascc/`](examples/ascc/). We are not asking you to trust a theory. We are asking you to trust a pattern that already kept a demanding research project honest across 80+ files and 15+ debates — and to help us turn the dials that make it run without the human having to be the engine.
 
 ---
 
@@ -179,7 +179,7 @@ Myco is the formalization of a pattern that already proved itself in the wild. T
 Myco is early, and the highest-value contribution you can make is to pick one of these and push:
 
 1. **Cold start.** How does the substrate bootstrap on a brand-new project with no history, no canon, no friction record? Current answer: hand-crafted `myco init` templates. Desired: the substrate learns its own bootstrap from prior distillations.
-2. **Trigger signals.** What fires Gear 2? What fires the metabolic inlet? Friction count is a proxy; the right signals are an open research question.
+2. **Trigger signals.** What fires session reflection? What fires the metabolic inlet? Friction count is a proxy; the right signals are an open research question.
 3. **Alignment at depth.** If Myco evolves rules the human can no longer meaningfully evaluate, how is it kept aligned? Transparency is necessary but not sufficient — we need *legible* transparency at scale.
 4. **Compression engineering.** What to drop, when, without losing load-bearing tacit knowledge? The three candidate criteria are starting points, not solutions.
 5. **Structural decay detection (Self-Model C layer).** Factual decay is caught. Structural decay — when the architecture right on day 3 is wrong on day 30 — is not yet. Arguably the hardest problem in the space.
