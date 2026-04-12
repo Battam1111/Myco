@@ -9,7 +9,7 @@
 
 ## 0.5 两条入口：CLI 和 MCP 任选其一
 
-Myco 的 18 个工具都有**两套等价入口**，底层共享 `src/myco/notes.py`
+Myco 的 19 个工具都有**两套等价入口**，底层共享 `src/myco/notes.py`
 和 `src/myco/lint.py`，落盘文件完全一致。
 
 | 能力 | CLI（shell 命令） | MCP tool |
@@ -26,7 +26,7 @@ Myco 的 18 个工具都有**两套等价入口**，底层共享 `src/myco/notes
 Cowork 下的 agent（通过 Bash 工具调用）。
 
 **可选**：在 agent host 的 MCP 配置里注册 `python -m myco.mcp_server`。
-注册后 18 个工具会以原生 MCP tool 的形式出现在 agent 的工具列表里，
+注册后 19 个工具会以原生 MCP tool 的形式出现在 agent 的工具列表里，
 带详细 trigger-condition 描述和结构化参数。Cowork 用户在桌面应用的
 MCP 设置里加一条即可（一次性，持久生效）。
 
@@ -95,7 +95,7 @@ Myco v1.2 Phase ① 引入了消化系统（`eat / digest / view / hunger` + `no
 
 ---
 
-## 2. Tool Protocol — 18 个 MCP 工具的触发条件
+## 2. Tool Protocol — 19 个 MCP 工具的触发条件
 
 每个工具都有 **WHEN to call** 的触发条件列表。如果匹配其中任一条，**必须**调用对应工具，不能用自由写入代替。
 
@@ -142,6 +142,7 @@ Myco v1.2 Phase ① 引入了消化系统（`eat / digest / view / hunger` + `no
 | `myco_graph` | (a) 想知道谁引用了某个文件；(b) 检测知识孤岛/断裂；(c) 重构前评估影响范围；(d) `myco_hunger` 报 `graph_orphans` | 不能靠手动 grep 替代结构化链接分析 |
 | `myco_cohort` | (a) 准备压缩时选择最佳分组（`myco_cohort suggest`）；(b) 检测知识缺口（`myco_cohort gaps`）；(c) 分析 tag 共现关系 | 不能凭直觉选压缩对象 |
 | `myco_session` | (a) 需要回忆之前对话的具体内容；(b) 人类问"上次我们讨论了什么"；(c) 跨会话延续工作 | 不能说"我不记得之前的对话" |
+| `myco_discover` | (a) `myco_hunger` 报 `inlet_ripe` 或 `cohort_staleness`；(b) 代谢循环中定期检查知识缺口；(c) Agent 遇到基质里没有答案的问题 | 不能忽视知识缺口——有机体主动觅食 |
 
 ### 2.7 非线性生命周期跳转
 
