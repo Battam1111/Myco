@@ -444,6 +444,14 @@ async def myco_search(
         result["truncated"] = True
         result["message"] = f"Showing first 50 of {len(matches)} matches. Narrow your query."
 
+    # Wave 49 (v0.38.0): record search miss for inlet trigger detection.
+    if len(matches) == 0:
+        try:
+            from myco.notes import record_search_miss
+            record_search_miss(root, query)
+        except Exception:
+            pass  # best-effort — don't break search on tracking failure
+
     return json.dumps(result, indent=2, ensure_ascii=False)
 
 

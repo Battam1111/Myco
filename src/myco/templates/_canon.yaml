@@ -13,7 +13,7 @@ system:
   # See kernel docs/agent_protocol.md §8. Instance agents MUST compare
   # synced_contract_version against the kernel's contract_version at boot
   # and refresh local reflexes if drift is detected.
-  synced_contract_version: "v0.37.0"  # last kernel contract the instance aligned with
+  synced_contract_version: "v0.38.0"  # last kernel contract the instance aligned with
   upstream_scan_last_run: null         # ISO-8601 timestamp of last upstream scan
 
   # --- Upstream scan staleness reader (Wave 17, v0.16.0) ---
@@ -304,6 +304,15 @@ system:
     # inlet outputs without operators having to remember the convention.
     inlet:
       default_tag: "inlet"
+
+  # ── Inlet Triggers (Wave 49, contract v0.38.0) ───────────────────────────
+  # Two trigger conditions for inlet_ripe hunger signal:
+  # search miss accumulation + cohort knowledge gaps.
+  inlet_triggers:
+    enabled: true
+    search_miss_threshold: 5
+    gap_threshold: 3
+    miss_state_file: ".myco_state/search_misses.yaml"
 
   # ── Forage Substrate (contract v0.7.0) ────────────────────────────────────
   # Inbound channel — external reference material (papers, repos, articles)

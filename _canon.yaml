@@ -6,8 +6,8 @@ system:
   # Authoritative source: docs/agent_protocol.md §8
   # Craft record:         docs/primordia/upstream_protocol_craft_2026-04-11.md
   # Changelog:             docs/contract_changelog.md
-  contract_version: "v0.37.0"  # Wave 48: semantic cohort intelligence — tag co-occurrence, gap detection, compression suggestions
-  synced_contract_version: "v0.37.0"  # Wave 48 — self-reference: kernel's own lock
+  contract_version: "v0.38.0"  # Wave 49: inlet trigger policy — search miss tracking + cohort gap detection
+  synced_contract_version: "v0.38.0"  # Wave 49 — self-reference: kernel's own lock
   upstream_scan_last_run: "2026-04-11T15:21:31Z"
 
   # --- Upstream scan staleness reader (Wave 17, contract v0.16.0) ---
@@ -449,6 +449,16 @@ system:
     # inlet outputs without operators having to remember the convention.
     inlet:
       default_tag: "inlet"
+
+  # --- Inlet Triggers (Wave 49, contract v0.38.0) ---
+  # Closes open_problems §2 (Metabolic Inlet Trigger Signals).
+  # detect_inlet_trigger() in notes.py reads these thresholds.
+  # Two trigger conditions: search miss accumulation + cohort gaps.
+  inlet_triggers:
+    enabled: true
+    search_miss_threshold: 5     # ≥5 zero-result searches → inlet_ripe
+    gap_threshold: 3             # ≥3 notes in unprocessed domain → inlet_ripe
+    miss_state_file: ".myco_state/search_misses.yaml"
 
   # --- Forage Substrate (contract v1.7.0) ---
   # External reference material intake — the exoenzyme / foraging phase
