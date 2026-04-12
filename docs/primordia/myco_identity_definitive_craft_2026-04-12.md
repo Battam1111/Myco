@@ -4,7 +4,7 @@ status: ACTIVE
 created: 2026-04-12
 target_confidence: 0.92
 current_confidence: 0.92
-rounds: 4
+rounds: 5
 craft_protocol_version: 1
 decision_class: kernel_contract
 ---
@@ -177,27 +177,85 @@ biological embryology works — the immune system develops early because
 it's the gatekeeper for everything else. The lint-first development
 order is not scope creep — it's correct embryological sequencing.
 
-## §4 Round 4 — The Definitive Answer
+## §4 Round 4 — Agent-First As Core Identity
+
+Round 3 defined "symbiotic cognitive organism." But who is the symbiosis
+FOR? A remora attaches to a shark — the shark is the primary agent, the
+remora is the symbiont. Not equal partners; clear roles.
+
+### The Three Roles
+
+**Agent = 宿主（Host）。** The Agent is the sole operator. It calls tools,
+makes decisions, executes actions. It is the intelligence — the thinking
+entity. Everything Myco does is to make the Agent more effective.
+
+**Myco = 共生体（Symbiont）。** Myco provides what the Agent lacks:
+persistence, self-regulation, metabolism, self-model, evolution. It exists
+FOR the Agent. Its every organ is designed to be discovered, understood,
+and operated by the Agent — not by a human.
+
+**Human = 方向给定者 + 受益者。** The human speaks natural language only.
+Does not know commands. Does not understand YAML. Does not read lint output.
+The human says "I want X" and the Agent+Myco holobiont delivers X. The
+human CAN audit (transparency preserved), but DOESN'T NEED TO operate.
+
+### Why Agent-First Is Identity, Not Implementation
+
+"Agent-First" isn't a design principle you apply AFTER deciding what Myco
+is. It's part of WHAT Myco is. Consider:
+
+- A **human-first** knowledge system would optimize for human readability
+  → wiki-style pages, search bars, GUIs
+- An **agent-first** knowledge system optimizes for agent discoverability
+  → MCP tool descriptions with WHEN TO CALL, structured JSON responses,
+  auto-injectable protocol via CLAUDE.md, hunger signals as executable
+  action recommendations
+
+Myco is the second kind. Its surfaces (MCP tools, hunger actions, lint
+signals) are designed to be **machine-read and machine-acted-upon**. Human
+readability is a byproduct of using markdown (transparency law), not the
+design target.
+
+### The Agent-First Organism Test
+
+Every design decision must pass TWO tests:
+
+1. **Organism test**: "Would a living organism do it this way?"
+   If the answer involves "someone should remember to..." → wrong.
+2. **Agent-First test**: "Can an Agent with zero prior knowledge of Myco
+   discover and use this correctly through MCP tool descriptions alone?"
+   If the answer involves "read the docs first..." → wrong.
+
+The intersection: **the organism introduces itself to the Agent and
+operates autonomously. The Agent doesn't study Myco; Myco presents
+itself through its tools.**
+
+## §5 Round 5 — The Definitive Answer
 
 ### What IS Myco
 
-**Myco is a symbiotic cognitive organism.**
+**Myco is an Agent-First symbiotic cognitive organism.**
 
-It is:
-- **Symbiotic**: It pairs with an AI Agent. Neither is complete alone.
-  Agent provides intelligence. Myco provides memory, self-regulation,
-  metabolism, self-model, and evolution. Together they form a complete
-  cognitive entity — a holobiont.
+Four constituent words, each load-bearing:
+
+- **Agent-First**: The Agent is the sole operator. Every surface is
+  designed for Agent discoverability and actionability. Humans provide
+  direction in natural language; they never need to understand the
+  substrate's internals. This defines WHO the organism is for.
+- **Symbiotic**: It pairs with an AI Agent. Agent provides intelligence.
+  Myco provides memory, self-regulation, metabolism, self-model, and
+  evolution. Neither is complete alone. Together they form a holobiont —
+  a composite cognitive entity. This defines HOW the organism relates.
 - **Cognitive**: It doesn't just store knowledge — it metabolizes it
   (seven-step pipeline), verifies it (23-dimension immune system),
   models itself (four-layer self-model), and evolves its own rules.
   By the Extended Cognition thesis (Clark & Chalmers), the substrate
-  IS part of the cognitive process, not auxiliary to it.
+  IS part of the cognitive process. This defines WHAT the organism does.
 - **Organism**: It satisfies all seven biological criteria for life
   (metabolism, homeostasis, response, growth, reproduction, evolution,
-  excretion). This is structural, not metaphorical. The organism
-  framing produces fundamentally different (and better) design
-  decisions than framework/protocol/tool framings.
+  excretion). This is structural, not metaphorical. The organism framing
+  produces fundamentally different design decisions than any
+  framework/protocol/tool framing. This defines HOW the organism exists.
 
 ### The Five-Level Embodiment
 
@@ -212,50 +270,81 @@ It is:
 The traceability index is the **epigenetic map** — it tells you which
 genes (anchors) regulate which organs (code modules).
 
-### What This Changes
+### The Three Relationships
 
-The organism identity is not just branding — it is a **design constraint**:
+```
+Human ──natural language──→ Agent ──MCP──→ Myco
+  ↑                           ↑              ↑
+  方向+信任                    智能+执行        记忆+代谢+免疫+进化
+  (direction)                (intelligence)  (persistence)
+```
 
-1. **Every write operation must have inline immune response** (lint checks
-   on write, not as a separate step)
-2. **Metabolism must be continuous, not intermittent** (scheduled tasks +
-   inline hunger checks, not "call hunger when you remember")
-3. **Missing capabilities are undeveloped organs, not missing features**
-   (prioritize by survival criticality, not by user request)
-4. **The Agent doesn't "use" Myco — it connects to its symbiont** (the
-   MCP connection IS the symbiotic bond; disconnection is dormancy, not
-   death)
-5. **Platform injection is automatic** (the organism introduces itself
-   to the host via CLAUDE.md / .cursorrules / MCP tool descriptions —
-   it doesn't wait to be discovered)
+Not a triangle — a chain. Human speaks to Agent. Agent operates Myco.
+Myco serves Agent. Agent serves Human. Myco never speaks directly to
+Human (unless Human reads markdown files — but that's auditing, not
+operating).
+
+### Design Constraints (from the four-word identity)
+
+From **Agent-First**:
+1. **MCP tool descriptions ARE the manual** — any Agent reading only
+   tool descriptions must know exactly what to do
+2. **Platform injection is auto-generated** — `myco init --agent claude`
+   produces CLAUDE.md; the organism introduces itself
+3. **Zero-learning-curve for Agent** — connect via MCP, call
+   `myco_hunger(execute=true)`, substrate self-heals
+
+From **Symbiotic**:
+4. **Neither half is complete alone** — Agent without Myco is amnesiac;
+   Myco without Agent is inert
+5. **Connection is the symbiotic bond** — MCP connection = alive;
+   disconnection = dormancy (not death — scheduled tasks continue)
+
+From **Cognitive**:
+6. **Metabolism is continuous** — scheduled tasks + inline hunger checks;
+   the organism metabolizes even between Agent sessions
+7. **Self-model is always updating** — graph orphans, cohort gaps,
+   dead knowledge detection run as part of hunger
+
+From **Organism**:
+8. **Every write has inline immune response** — lint checks on write,
+   not as a separate manual step
+9. **Missing capabilities are undeveloped organs** — prioritize by
+   survival criticality, not by feature request
+10. **Stagnation = death** — if the metabolic cycle stops, the substrate
+    degrades into a static cache (Perpetual Evolution law)
 
 ### Relationship to Prior Identity Work
 
-| Permanence anchor | Relationship |
+| Permanence anchor | Contribution |
 |-------------------|-------------|
-| Wave 10 (vision recovery) | Recovered the 18 elements that COMPOSE the organism |
+| Wave 10 (vision recovery) | Recovered the 18 elements that compose the organism's anatomy |
 | Wave 26 (implementation re-audit) | Measured which organs are mature vs. vestigial |
-| Wave 55 (Agent-First revision) | Internalized the selection mechanism — the organism's immune system |
-| **This craft (Wave 56+)** | **Names the organism and establishes the design constraint** |
+| Wave 55 (Agent-First revision) | Internalized mutation-selection; established WHO the organism serves |
+| **This craft** | **Names the organism fully: Agent-First + Symbiotic + Cognitive + Organism** |
 
 ### One Sentence
 
-> Myco is a symbiotic cognitive organism — it pairs with any AI Agent to
-> form a complete intelligence that persists, self-regulates, metabolizes
-> knowledge, models itself, and evolves its own rules. The Agent thinks.
-> Myco remembers, verifies, digests, and grows. Neither is whole alone.
+> Myco is an Agent-First symbiotic cognitive organism: it pairs with any
+> AI Agent to form a complete intelligence where the Agent thinks and Myco
+> remembers, verifies, digests, and evolves. Humans provide direction in
+> natural language. The organism operates autonomously.
 
-## §5 Conclusion
+## §6 Conclusion
 
-**Decision**: Adopt "symbiotic cognitive organism" as the definitive
-identity. All future design decisions must pass the organism test: "Would
-a living organism do it this way?" If the answer involves "the user should
-remember to..." or "the agent needs to choose to..." — the design is wrong.
-The organism acts autonomously.
+**Decision**: Adopt "Agent-First Symbiotic Cognitive Organism" as the
+definitive, four-word identity. Each word is a design constraint:
 
-**Confidence**: 0.92. The remaining 0.08 is: (a) the "alive" claim is
-structurally sound but socially bold — engineers may resist it; (b) the
-vestigial organs (pipeline steps 2-5, cold-start, structural decay) weaken
-the claim's credibility until they mature.
+- **Agent-First** → "Can an Agent discover and use this via MCP alone?"
+- **Symbiotic** → "Is neither half complete without the other?"
+- **Cognitive** → "Does it metabolize, verify, model, and evolve?"
+- **Organism** → "Does it act autonomously, not wait to be triggered?"
+
+If any design decision fails any of these four tests, it's wrong.
+
+**Confidence**: 0.92. The organism IS alive (7/7 criteria met with
+evidence). The Agent-First constraint IS the identity (not a retrofit).
+The remaining uncertainty: (a) vestigial organs weaken the claim until
+matured; (b) n=1 project validation.
 
 **This craft is the fourth permanence anchor.**
