@@ -11,7 +11,7 @@
 [![PyPI](https://img.shields.io/badge/PyPI-coming%20soon-lightgrey?style=for-the-badge)](https://github.com/Battam1111/Myco)
 [![Python](https://img.shields.io/badge/Python-3.8%2B-blue?style=for-the-badge)](https://www.python.org/)
 [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
-[![Lint](https://img.shields.io/badge/Lint-15%2F15%20green-brightgreen?style=for-the-badge)](#three-immutable-laws)
+[![Lint](https://img.shields.io/badge/Lint-19%2F19%20green-brightgreen?style=for-the-badge)](#three-immutable-laws)
 
 [The Living Substrate](#the-living-substrate) · [Five Capabilities](#five-capabilities) · [How You Work With Myco](#how-you-work-with-myco) · [Three Immutable Laws](#three-immutable-laws) · [Standing on Fifty Years](#standing-on-fifty-years) · [Try It Today](#try-it-today)
 
@@ -43,7 +43,7 @@ A memory layer stores and retrieves. A substrate **metabolizes**. Every piece of
 
 **Discover → Evaluate → Extract → Integrate → Compress → Verify → Excrete**
 
-Discover scans inbound channels. Evaluate decides whether the content is worth the substrate's attention. Extract pulls out the load-bearing structure. Integrate wires it into the existing body of knowledge. Compress cuts everything that no longer earns attention. Verify checks that the compression did not break load-bearing claims. **Excrete** — the step most knowledge systems forget — actively ejects knowledge that has decayed, been superseded, or stopped being true. A digestive tract without an outlet is a tumor. The seven-step pipeline is Myco's core metabolic act, and the tools (`eat` / `digest` / `view` / `hunger`) are named from it on purpose.
+Discover scans inbound channels. Evaluate decides whether the content is worth the substrate's attention. Extract pulls out the load-bearing structure. Integrate wires it into the existing body of knowledge. Compress cuts everything that no longer earns attention. Verify checks that the compression did not break load-bearing claims. **Excrete** — the step most knowledge systems forget — actively ejects knowledge that has decayed, been superseded, or stopped being true. A digestive tract without an outlet is a tumor. The seven-step pipeline is Myco's core metabolic act, and the verbs are named from it on purpose: `eat` / `evaluate` / `extract` / `integrate` / `compress` / `view` / `prune` / `hunger`.
 
 ### 2. Meta-evolution — the substrate rewrites its own rules
 
@@ -183,7 +183,7 @@ Myco is early, and the highest-value contribution you can make is to pick one of
 3. **Alignment at depth.** If Myco evolves rules the human can no longer meaningfully evaluate, how is it kept aligned? Transparency is necessary but not sufficient — we need *legible* transparency at scale.
 4. **Compression engineering.** What to drop, when, without losing load-bearing tacit knowledge? The three candidate criteria are starting points, not solutions.
 5. **Structural decay detection (Self-Model C layer).** Factual decay is caught. Structural decay — when the architecture right on day 3 is wrong on day 30 — is not yet. Arguably the hardest problem in the space.
-6. **Dead-knowledge tracking (Self-Model D layer).** D is declared, not yet implemented. Minimum viable seed is on the roadmap.
+6. **Dead-knowledge tracking (Self-Model D layer).** Minimum viable seed shipped (Wave 18, v1.4.0) — `myco view` records `view_count` + `last_viewed_at`, `myco hunger` reports the `dead_knowledge` signal, `myco prune` (Wave 33) is the auto-excretion path. Still open: view audit log, cross-reference graph, adaptive thresholds that evolve with substrate age.
 
 The continuously-maintained registry lives at [`docs/open_problems.md`](docs/open_problems.md). If you want to contribute something high-impact, pick one of these and go.
 
@@ -193,7 +193,7 @@ The continuously-maintained registry lives at [`docs/open_problems.md`](docs/ope
 
 | Phase | What is true | What is coming |
 |-------|-------------|----------------|
-| **v0.x (today)** | Four inward gears shipped · 15-dimension lint green · metabolism CLI live · MCP server exposes 9 tools · kernel/instance separation enforced · one unconscious prototype (ASCC) validated end-to-end | The metabolic inlet is a declared primitive; first live forage batch completed 2026-04-11. Self-Model D layer is declared, not wired. Most gear-firing is still human-triggered. |
+| **v0.x (today)** | Four inward gears shipped · 19-dimension lint green · metabolism CLI live · MCP server exposes 9 tools · kernel/instance separation enforced · one unconscious prototype (ASCC) validated end-to-end · Self-Model D layer seeded (view tracking + dead-knowledge signal + `myco prune` auto-excretion) · Metabolic Inlet MVP scaffold shipped (`myco inlet`, Wave 35 / v0.27.0) | Inlet cold-start, autonomous trigger signals, and continuous compression remain open. Most gear-firing is still human-triggered. |
 | **v1.0** | Metabolic inlet fully autonomous · Self-Model D implemented · structural decay detector seeded · trigger signals replaced by learned heuristics | Human is no longer the engine; human is strictly the selection pressure. |
 | **v∞** | Kernel evolves without any single human being able to hold its structure in their head — but *any* human can still audit any change, because C2 Transparent never lifts. | Open question. This is where [Open Problem 3](#open-problems) becomes load-bearing. |
 
@@ -236,10 +236,18 @@ Myco's verbs are metaphorical on purpose — metabolism is the mental model. If 
 | Myco verb | Plain English | CLI | MCP tool |
 |---|---|---|---|
 | `eat` | Capture content as a durable note | `myco eat` | `myco_eat` |
-| `digest` | Move a note through its lifecycle (raw → extracted → integrated → excreted) | `myco digest` | `myco_digest` |
-| `view` | Read notes with filters | `myco view` | `myco_view` |
-| `lint` | 15-dimension substrate health check | `myco lint` | `myco_lint` |
+| `digest` | Move a note through its lifecycle (raw → digesting → extracted → integrated → excreted) | `myco digest` | `myco_digest` |
+| `evaluate` | Score a raw note for substrate fit (extract / discard / shelve) | `myco evaluate` | (CLI only) |
+| `extract` | Lift the load-bearing structure out of a digesting note | `myco extract` | (CLI only) |
+| `integrate` | Wire an extracted note into the existing knowledge body | `myco integrate` | (CLI only) |
+| `compress` | Rewrite a heavy note as a lighter summary while preserving the original | `myco compress` | (CLI only) |
+| `uncompress` | Restore the pre-compression original from `.original` | `myco uncompress` | (CLI only) |
+| `prune` | Auto-excrete dead-knowledge notes flagged by the D-layer signal | `myco prune` | (CLI only) |
+| `view` | Read notes with filters (records `view_count` + `last_viewed_at`) | `myco view` | `myco_view` |
+| `lint` | 19-dimension substrate health check (alias: `myco immune`) | `myco lint` | `myco_lint` |
+| `correct` | Apply auto-fixes from a prior lint pass (alias: `myco molt`) | `myco correct` | (CLI only) |
 | `forage` | Pull external sources into the metabolic inlet | `myco forage` | (CLI only) |
+| `inlet` | Run the Metabolic Inlet MVP — discover/evaluate/extract from a configured source | `myco inlet` | (CLI only) |
 | `hunger` | Metabolic dashboard: raw backlog, stale notes, dead knowledge | `myco hunger` | `myco_hunger` |
 | `absorb` | Sync kernel improvements from downstream instances | `myco upstream absorb` | (CLI only) |
 

@@ -194,7 +194,7 @@ system:                              # 跨项目通用
   principles_count: 12               # W1-W12（十二原则）
   principles_label: "十二原则"
   wiki_page_types: [entity, concept, operations, analysis, craft]
-  lint_dimensions: 15                # L0-L14 (contract v0.8.0)
+  lint_dimensions: 19                # L0-L18 (current substrate)
   claude_md_max_lines: 300
   stale_patterns: ["五原则", "六原则", "七原则"]  # 已知过时表述
 
