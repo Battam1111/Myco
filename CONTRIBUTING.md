@@ -148,25 +148,25 @@ Myco/
 
 ## From Battle Report to Featured Example
 
-Myco is a living substrate — its framework knowledge grows as more projects complete Gear 4 distillation. Your project experience can become part of Myco's knowledge base through a three-level contribution pipeline:
+Myco is a living substrate — its framework knowledge grows as more projects complete cross-project distillation. Your project experience can become part of Myco's knowledge base through a three-level contribution pipeline:
 
 ### Level 1: Discussion Post (low bar, anyone can do this)
 
-Post in [GitHub Discussions → Show & Tell](https://github.com/Battam1111/Myco/discussions). Share your project background, which Myco features you used, and what you learned. A few paragraphs is enough. You don't need to have completed Gear 4.
+Post in [GitHub Discussions → Show & Tell](https://github.com/Battam1111/Myco/discussions). Share your project background, which Myco features you used, and what you learned. A few paragraphs is enough. You don't need to have completed Cross-Project Distillation.
 
-### Level 2: Battle Report (medium bar, after at least one Gear 3)
+### Level 2: Battle Report (medium bar, after at least one Milestone Retrospective)
 
 Submit a [Battle Report issue](https://github.com/Battam1111/Myco/issues/new?template=battle_report.md) with project statistics, evolution timeline, key learnings, and improvement suggestions. This gives the community concrete data on how Myco performs across project types.
 
-### Level 3: Featured Example (high bar, requires Gear 4)
+### Level 3: Featured Example (high bar, requires Cross-Project Distillation)
 
-If your project completes the full Myco lifecycle including Gear 4 distillation, it can become a Featured Example in `examples/`. This is the highest-impact contribution — it demonstrates Myco's core value proposition (knowledge evolving and flowing between projects).
+If your project completes the full Myco lifecycle including cross-project distillation, it can become a Featured Example in `examples/`. This is the highest-impact contribution — it demonstrates Myco's core value proposition (knowledge evolving and flowing between projects).
 
 **What a Featured Example includes:**
 - Harvest snapshot: structure files from your completed project (MYCO.md, _canon.yaml, log.md, WORKFLOW.md — content can be redacted where needed)
-- Evolution Timeline: how your knowledge system grew from `myco init` to Gear 4
-- Gear 4 reverse link: what universal patterns were distilled, and where they now live in Myco's `docs/`
-- Your Gear 4 distillation products themselves — submitted as a PR to Myco's `docs/`
+- Evolution Timeline: how your knowledge system grew from `myco init` to Cross-Project Distillation
+- Cross-Project Distillation reverse link: what universal patterns were distilled, and where they now live in Myco's `docs/`
+- Your cross-project distillation products themselves — submitted as a PR to Myco's `docs/`
 
 **Acceptance criteria (v0.x):** The distilled knowledge must be useful to at least two project types, not just your own. The maintainer reviews this qualitatively.
 
