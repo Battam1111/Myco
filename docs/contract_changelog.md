@@ -38,6 +38,36 @@ Commit message 格式必须使用 Conventional Commits 风格并带 `[contract:*
 
 ---
 
+## v0.36.0 — 2026-04-12 (minor · Wave 47 Link Graph + Backlinks — structural mycelium connectivity)
+
+**What changed**:
+
+Wave 47 adds structural link graph infrastructure — the first step toward
+the "everything connected like mycelium" vision (6-point directive #5).
+
+New module `src/myco/graph.py`:
+
+1. **`extract_links(filepath, root)`** — Parse .md files for outbound links:
+   markdown links, backtick paths, YAML frontmatter refs (compressed_from,
+   compressed_into, digest_target), craft file references, note ID references.
+   Code-fence-aware (lines inside fences skipped).
+2. **`build_link_graph(root)`** — Two-pass construction: forward map from all
+   .md files, then invert to build backlinks. On-demand, no cache.
+3. **`query_backlinks(graph, target)`** — Who references this file?
+4. **`find_orphans(graph)`** — Files with zero inbound links. Structural roots
+   (MYCO.md, _canon.yaml, log.md, README*) excluded.
+5. **`find_clusters(graph)`** — BFS connected components on undirected graph.
+6. **`graph_stats(graph)`** — Nodes, edges, orphan count, cluster count,
+   hub (most backlinks), authority (most forward links).
+
+New CLI verb: `myco graph {backlinks|orphans|clusters|stats}` (graph_cmd.py).
+New MCP tool: `myco_graph` (tool #16, readOnlyHint=True).
+5 unit tests in `tests/unit/test_graph.py`.
+
+**Contract surface**: v0.35.0 → v0.36.0.
+
+---
+
 ## v0.35.0 — 2026-04-12 (minor · Wave 46 Signal-to-Action wiring — HungerReport.actions closes advisory→execution gap)
 
 **What changed**:

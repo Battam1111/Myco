@@ -6,8 +6,8 @@ system:
   # Authoritative source: docs/agent_protocol.md §8
   # Craft record:         docs/primordia/upstream_protocol_craft_2026-04-11.md
   # Changelog:             docs/contract_changelog.md
-  contract_version: "v0.35.0"  # Wave 46: signal-to-action wiring — HungerReport.actions closes advisory-to-execution gap
-  synced_contract_version: "v0.35.0"  # Wave 46 — self-reference: kernel's own lock
+  contract_version: "v0.36.0"  # Wave 47: link graph + backlinks — structural mycelium connectivity
+  synced_contract_version: "v0.36.0"  # Wave 47 — self-reference: kernel's own lock
   upstream_scan_last_run: "2026-04-11T15:21:31Z"
 
   # --- Upstream scan staleness reader (Wave 17, contract v0.16.0) ---
