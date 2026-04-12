@@ -17,6 +17,298 @@ def get_date():
     return datetime.now().strftime("%Y-%m-%d")
 
 
+###############################################################################
+# Auto-detect: detect_tools + per-tool MCP config generators
+###############################################################################
+
+# Canonical Myco MCP server definition — single source of truth.
+_MYCO_SERVER_STDIO = {
+    "command": "python",
+    "args": ["-m", "myco.mcp_server"],
+}
+
+
+def detect_tools(project_dir: Path) -> dict[str, bool]:
+    """
+    Detect which AI tools / editors are available.
+
+    Returns a dict mapping tool name -> detected (bool).
+    Detection heuristics per tool:
+      Claude Code : ``claude`` on PATH
+      Cursor      : ``.cursor/`` in project dir  OR  ``cursor`` on PATH
+      VS Code     : ``.vscode/`` in project dir  OR  ``code`` on PATH
+      Codex       : ``~/.codex/`` exists          OR  ``codex`` on PATH
+      Cline       : ``cline_mcp_settings.json`` in project dir
+      Continue    : ``.continue/`` in project dir
+      Zed         : ``zed`` on PATH
+    """
+    home = Path.home()
+    return {
+        "Claude Code": shutil.which("claude") is not None,
+        "Cursor":      (project_dir / ".cursor").is_dir()
+                       or shutil.which("cursor") is not None,
+        "VS Code":     (project_dir / ".vscode").is_dir()
+                       or shutil.which("code") is not None,
+        "Codex":       (home / ".codex").is_dir()
+                       or shutil.which("codex") is not None,
+        "Cline":       (project_dir / "cline_mcp_settings.json").is_file(),
+        "Continue":    (project_dir / ".continue").is_dir(),
+        "Zed":         shutil.which("zed") is not None,
+    }
+
+
+def _deep_merge(base: dict, override: dict) -> dict:
+    """Recursively merge *override* into *base*, preserving nested dicts."""
+    result = dict(base)
+    for k, v in override.items():
+        if isinstance(v, dict) and isinstance(result.get(k), dict):
+            result[k] = _deep_merge(result[k], v)
+        else:
+            result[k] = v
+    return result
+
+
+def _json_merge_write(path: Path, patch: dict, *, deep_key: str | None = None) -> str:
+    """
+    Deep-merge *patch* into the JSON file at *path*.
+
+    If the file exists, parse it and recursively merge so that nested
+    dict keys (e.g. ``mcpServers.other``) are preserved when adding
+    ``mcpServers.myco``.
+    If the file does not exist (or is invalid JSON), write *patch* as-is.
+
+    Returns a human-readable status string ("merged", "created", "created -- old file was invalid").
+    """
+    if path.exists():
+        try:
+            existing = json.loads(path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, ValueError):
+            path.write_text(json.dumps(patch, indent=2) + "\n", encoding="utf-8")
+            return "created \u2014 old file was invalid"
+        existing = _deep_merge(existing, patch)
+        path.write_text(json.dumps(existing, indent=2) + "\n", encoding="utf-8")
+        return "merged"
+    else:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(patch, indent=2) + "\n", encoding="utf-8")
+        return "created"
+
+
+def _toml_merge_write(path: Path, myco_block: str) -> str:
+    """
+    Merge a TOML snippet (``[mcp.servers.myco]`` block) into *path*.
+
+    Naive but correct for the codex config shape: if the file exists and
+    already contains ``[mcp.servers.myco]``, skip; otherwise append.
+    """
+    if path.exists():
+        existing = path.read_text(encoding="utf-8")
+        if "[mcp.servers.myco]" in existing:
+            return "already configured — skipped"
+        path.write_text(existing.rstrip() + "\n\n" + myco_block + "\n", encoding="utf-8")
+        return "merged"
+    else:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(myco_block + "\n", encoding="utf-8")
+        return "created"
+
+
+# ── Per-tool config generators ────────────────────────────────────────
+
+def _gen_claude_code(project_dir: Path) -> str:
+    """Generate / merge .mcp.json for Claude Code."""
+    payload = {
+        "mcpServers": {
+            "myco": {
+                **_MYCO_SERVER_STDIO,
+                "env": {},
+            }
+        }
+    }
+    path = project_dir / ".mcp.json"
+    return _json_merge_write(path, payload)
+
+
+def _gen_cursor(project_dir: Path) -> str:
+    """Generate / merge .cursor/mcp.json for Cursor."""
+    payload = {
+        "mcpServers": {
+            "myco": {
+                **_MYCO_SERVER_STDIO,
+                "env": {},
+            }
+        }
+    }
+    cursor_dir = project_dir / ".cursor"
+    cursor_dir.mkdir(exist_ok=True)
+    path = cursor_dir / "mcp.json"
+    return _json_merge_write(path, payload)
+
+
+def _gen_vscode(project_dir: Path) -> str:
+    """Generate / merge .vscode/settings.json for VS Code."""
+    payload = {
+        "mcp": {
+            "servers": {
+                "myco": {**_MYCO_SERVER_STDIO}
+            }
+        }
+    }
+    vscode_dir = project_dir / ".vscode"
+    vscode_dir.mkdir(exist_ok=True)
+    path = vscode_dir / "settings.json"
+    return _json_merge_write(path, payload)
+
+
+def _gen_codex(project_dir: Path) -> str:
+    """Generate / merge ~/.codex/config.toml for Codex."""
+    block = (
+        '[mcp.servers.myco]\n'
+        'transport = "stdio"\n'
+        'command = "python"\n'
+        'args = ["-m", "myco.mcp_server"]'
+    )
+    path = Path.home() / ".codex" / "config.toml"
+    return _toml_merge_write(path, block)
+
+
+def _gen_cline(project_dir: Path) -> str:
+    """Generate / merge cline_mcp_settings.json for Cline."""
+    payload = {
+        "mcpServers": {
+            "myco": {**_MYCO_SERVER_STDIO}
+        }
+    }
+    path = project_dir / "cline_mcp_settings.json"
+    return _json_merge_write(path, payload)
+
+
+def _gen_continue(project_dir: Path) -> str:
+    """Generate / merge .continue/mcpServers/myco.json for Continue."""
+    payload = {**_MYCO_SERVER_STDIO}
+    cont_dir = project_dir / ".continue" / "mcpServers"
+    cont_dir.mkdir(parents=True, exist_ok=True)
+    path = cont_dir / "myco.json"
+    # For Continue the file IS the server definition — overwrite is safe
+    # since the file is tool-specific (myco.json).
+    already_exists = path.exists()
+    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    return "merged" if already_exists else "created"
+
+
+def _gen_zed(project_dir: Path) -> str:
+    """Generate / merge settings.json (Zed) with context_servers block."""
+    payload = {
+        "context_servers": {
+            "myco": {
+                "source": "custom",
+                **_MYCO_SERVER_STDIO,
+            }
+        }
+    }
+    # Zed uses a global settings.json; for project-local we write to
+    # .zed/settings.json (Zed's project-settings convention).
+    zed_dir = project_dir / ".zed"
+    zed_dir.mkdir(exist_ok=True)
+    path = zed_dir / "settings.json"
+    return _json_merge_write(path, payload)
+
+
+def _gen_claude_md(project_dir: Path, replacements: dict) -> str:
+    """Generate / merge CLAUDE.md as the universal entry point."""
+    claude_content = fill_template(get_template("CLAUDE.md"), replacements)
+    claude_path = project_dir / "CLAUDE.md"
+    if claude_path.exists():
+        existing = claude_path.read_text(encoding="utf-8")
+        if "myco" not in existing.lower() and "Myco" not in existing:
+            merged = existing.rstrip() + "\n\n---\n\n" + claude_content
+            claude_path.write_text(merged, encoding="utf-8")
+            return "Myco section appended"
+        else:
+            return "already contains Myco config — skipped"
+    else:
+        claude_path.write_text(claude_content, encoding="utf-8")
+        return "created"
+
+
+# Mapping from tool name to (generator_func, config_path_description)
+_TOOL_GENERATORS: dict[str, tuple] = {
+    "Claude Code": (_gen_claude_code, ".mcp.json"),
+    "Cursor":      (_gen_cursor,      ".cursor/mcp.json"),
+    "VS Code":     (_gen_vscode,      ".vscode/settings.json"),
+    "Codex":       (_gen_codex,       "~/.codex/config.toml"),
+    "Cline":       (_gen_cline,       "cline_mcp_settings.json"),
+    "Continue":    (_gen_continue,    ".continue/mcpServers/myco.json"),
+    "Zed":         (_gen_zed,         ".zed/settings.json"),
+}
+
+
+def run_auto_detect(args) -> int:
+    """Entry point for ``myco init --auto-detect``."""
+    if args.dir:
+        project_dir = Path(args.dir)
+    else:
+        project_dir = Path.cwd() / args.name
+
+    project_dir.mkdir(parents=True, exist_ok=True)
+
+    entry_point = "CLAUDE.md"  # auto-detect always uses CLAUDE.md
+
+    replacements = {
+        "PROJECT_NAME": args.name,
+        "DATE": get_date(),
+        "CURRENT_PHASE": "Phase 0 — Setup",
+        "PROJECT_DESCRIPTION": f"[{args.name} — describe your project goal in one sentence]",
+        "PROJECT_SUMMARY": "[Describe the project's core objective and methodology in 2-3 sentences]",
+        "GITHUB_USER": args.github_user,
+        "ENTRY_POINT": entry_point,
+    }
+
+    level_names = {0: "Minimal", 1: "Standard", 2: "Full"}
+
+    print(f"\n\U0001f344 Myco \u2014 Initializing project: {args.name}")
+    print(f"   Level: L{args.level} ({level_names[args.level]})")
+    print(f"   Entry point: {entry_point}")
+    print(f"   Location: {project_dir.resolve()}")
+    print()
+
+    # Scaffold the project at the requested level
+    if args.level == 0:
+        init_level_0(project_dir, replacements, entry_point)
+    elif args.level == 1:
+        init_level_1(project_dir, replacements, entry_point)
+    elif args.level == 2:
+        init_level_2(project_dir, replacements, entry_point)
+
+    # Detect tools
+    detected = detect_tools(project_dir)
+
+    print(f"\n\U0001f344 Myco \u2014 Auto-detected tools:")
+
+    for tool_name, is_detected in detected.items():
+        if is_detected:
+            gen_fn, config_desc = _TOOL_GENERATORS[tool_name]
+            status = gen_fn(project_dir)
+            print(f"  \u2705 {tool_name} ({config_desc} {status})")
+        else:
+            _, config_desc = _TOOL_GENERATORS[tool_name]
+            print(f"  \u23ed\ufe0f  {tool_name} (not detected)")
+
+    # Always generate CLAUDE.md as universal entry point
+    md_status = _gen_claude_md(project_dir, replacements)
+    print(f"  \u2705 CLAUDE.md ({md_status})")
+
+    print(f"\n\U0001f344 Done! Myco auto-detect complete.")
+    print(f"   MCP configs generated for all detected tools.")
+    print(f"   Run your preferred AI tool in {project_dir.resolve()}")
+
+    return 0
+
+
+###############################################################################
+# Level-based scaffolding (existing)
+###############################################################################
+
 def init_level_0(project_dir: Path, replacements: dict, entry_point: str):
     """Minimal: entry_point + log.md"""
     entry_content = fill_template(get_template("MYCO.md"), replacements)
@@ -127,6 +419,10 @@ def init_level_2(project_dir: Path, replacements: dict, entry_point: str):
 
 def run_init(args) -> int:
     """Entry point called from CLI dispatcher."""
+    # Auto-detect mode: detect all tools and generate configs
+    if getattr(args, "auto_detect", False):
+        return run_auto_detect(args)
+
     if args.dir:
         project_dir = Path(args.dir)
     else:
