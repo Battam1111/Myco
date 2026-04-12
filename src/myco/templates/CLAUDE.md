@@ -12,8 +12,11 @@ Together you form a complete cognitive entity. Neither is whole alone.
 ## Session Flow
 
 1. **Boot**: `myco_hunger(execute=true)` — checks substrate health, auto-executes repairs
-2. **Work**: Do the human's task. Use `myco_eat` to capture decisions. Use `myco_search` before answering factual questions.
-3. **End**: `myco_reflect()` — Gear 2 session reflection
+2. **Work**: Do the human's task. Follow these ALWAYS rules:
+   - `myco_eat` IMMEDIATELY when: user gives feedback, you make a decision, you learn something, you hit friction
+   - `myco_search` BEFORE answering any factual question about the project
+   - `myco_eat` user's natural language feedback THE MOMENT they say it — don't wait, don't treat it as casual conversation
+3. **End**: `myco_reflect()` — session-end reflection (auto-captures execution learnings)
 
 ## Context Loading (hierarchical)
 
