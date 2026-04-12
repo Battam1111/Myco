@@ -2,12 +2,16 @@
 Myco Link Graph — structural link analysis across the substrate.
 
 Wave 47 (contract v0.36.0): Build and query a link graph across all Myco
-surfaces (MYCO.md, wiki/, docs/, notes/, log.md). Computes forward links,
-backlinks, orphan detection, and connected-component clusters on-demand
-from the file system — no cached state, same philosophy as lint.
+surfaces (MYCO.md, wiki/, docs/, notes/, log.md, src/myco/*.py). Computes
+forward links, backlinks, orphan detection, and connected-component
+clusters on-demand from the file system — no cached state, same philosophy
+as lint.
 
 Authoritative design: plan Waves 47-53 §Wave 47.
 """
+# --- Mycelium references ---
+# Architecture:  docs/architecture.md §Link graph
+# Open problems: docs/open_problems.md §5 (structural decay, orphan drift)
 
 from __future__ import annotations
 
@@ -37,6 +41,19 @@ _CRAFT_REF_RE = re.compile(
 
 # YAML list values that look like note IDs (compressed_from field)
 _YAML_LIST_ID_RE = re.compile(r"- (n_\d{8}T\d{6}_[0-9a-f]{4})")
+
+# Python comment/string references to substrate files (mycelium references).
+# Matches paths like docs/architecture.md, wiki/page.md, _canon.yaml, MYCO.md,
+# notes/n_xxx.md, src/myco/lint.py — appearing in comments or string literals.
+_PY_PATH_RE = re.compile(
+    r"(?:^|\s|[\"'`])"                        # boundary: start, space, or quote
+    r"((?:docs|wiki|notes|src)/[a-zA-Z0-9_./-]+\.(?:md|yaml|yml|py)"  # dir-prefixed
+    r"|_canon\.yaml"                           # top-level _canon.yaml
+    r"|MYCO\.md"                               # top-level MYCO.md
+    r"|log\.md"                                # top-level log.md
+    r"|README(?:_[a-z]{2})?\.md"               # README variants
+    r")"
+)
 
 # Structural roots that are never orphans (they are entry points by design)
 _STRUCTURAL_ROOTS = {

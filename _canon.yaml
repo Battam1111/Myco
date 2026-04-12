@@ -1,3 +1,10 @@
+# --- Cross-references (mycelium graph) ---
+# Architecture spec:   docs/architecture.md
+# Protocol contract:   docs/agent_protocol.md
+# Lint reader:         src/myco/lint.py (reads this file for all lint configs)
+# Hunger reader:       src/myco/notes.py (reads this file for hunger configs)
+# Dashboard SSoT:      MYCO.md (indicators reference canonical values here)
+
 system:
   principles_count: 13
   principles_label: 十三原则

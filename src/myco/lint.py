@@ -34,6 +34,10 @@ Dimensions:
     L21 Contract Version Inline Consistency — forward-looking inline contract version SSoT (Wave 40, v0.31.0)
     L22 Wave-Seed Lifecycle — raw wave-seed orphan detection (seven-step pipeline post-condition, Wave 41, v0.32.0)
 """
+# --- Mycelium references ---
+# Canon SSoT:      _canon.yaml (all lint thresholds, stale patterns, write surface)
+# Architecture:    docs/architecture.md §Immune system
+# Design decisions: wiki/design-decisions.md (lint dimension rationale)
 
 import os
 import re

@@ -9,6 +9,10 @@ Wave C1-C3: Absorbed from hermes-agent-self-evolution patterns.
 Design principle (Bitter Lesson): Myco provides scaffolding, Agent provides
 intelligence via llm_fn callable. Myco never calls an LLM directly.
 """
+# --- Mycelium references ---
+# Engine spec:  docs/evolution_engine.md (full design, constraint gates, scoring)
+# Output dir:   skills/.evolved/ (mutated skill variants land here)
+# Absorption:   docs/primordia/hermes_absorption_craft (C1-C3 lineage)
 
 from __future__ import annotations
 

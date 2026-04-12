@@ -99,7 +99,7 @@ def init_level_2(project_dir: Path, replacements: dict, entry_point: str):
         '"""Myco Knowledge Lint — standalone version.\n'
         "Run: python scripts/lint_knowledge.py [--quick] [--fix-report]\n"
         "\n"
-        "For the full CLI, install myco: pip install myco && myco lint\n"
+        "For the full CLI, install myco: pip install -e . && myco lint\n"
         '"""\n'
         "\n"
         "import subprocess, sys\n"
@@ -108,7 +108,7 @@ def init_level_2(project_dir: Path, replacements: dict, entry_point: str):
         "    from myco.lint import main\n"
         "    sys.exit(main())\n"
         "except ImportError:\n"
-        '    print("myco package not installed. Install with: pip install myco")\n'
+        '    print("myco package not installed. Install with: git clone + pip install -e .")\n'
         '    print("Or use the standalone lint from the Myco repository.")\n'
         "    sys.exit(1)\n"
     )
@@ -242,6 +242,8 @@ def run_init(args) -> int:
         has_mcp = _check_mcp_sdk()
         print(f"\n🍄 Done! Myco is wired for Claude Code.")
         print(f"   MCP: {'✅ ready' if has_mcp else '⚠️  install with: pip install myco[mcp]'}")
+        print(f"   Editable install: the full system is yours to mutate.")
+        print(f"   evolve.py can rewrite kernel code — Myco evolves with you.")
         print(f"   Run `claude` in {project_dir.resolve()} — Myco will auto-load.")
 
     elif agent == "cursor":
@@ -260,6 +262,8 @@ def run_init(args) -> int:
         has_mcp = _check_mcp_sdk()
         print(f"\n🍄 Done! Myco is wired for Cursor.")
         print(f"   MCP: {'✅ ready' if has_mcp else '⚠️  install with: pip install myco[mcp]'}")
+        print(f"   Editable install: the full system is yours to mutate.")
+        print(f"   evolve.py can rewrite kernel code — Myco evolves with you.")
         print(f"   Open {project_dir.resolve()} in Cursor — .cursorrules loads automatically.")
 
     elif agent == "gpt":
@@ -270,6 +274,8 @@ def run_init(args) -> int:
 
         # No .mcp.json — GPT doesn't support MCP. CLI-only.
         print(f"\n🍄 Done! Myco is wired for GPT/Codex.")
+        print(f"   Editable install: the full system is yours to mutate.")
+        print(f"   evolve.py can rewrite kernel code — Myco evolves with you.")
         print(f"   GPT uses CLI commands (no MCP). Boot sequence:")
         print(f"   1. Load GPT.md as system prompt context")
         print(f"   2. Run: myco hunger --execute")
@@ -277,6 +283,8 @@ def run_init(args) -> int:
 
     else:
         print(f"\n🍄 Done! Your Myco-powered project is ready.")
+        print(f"   Editable install: the full system is yours to mutate.")
+        print(f"   evolve.py can rewrite kernel code — Myco evolves with you.")
         print(f"   Next steps:")
         print(f"   1. Edit {entry_point} — fill in project description and phases")
         print(f"   2. Start working — the system grows organically from practice")

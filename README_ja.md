@@ -222,25 +222,17 @@ Myco はまだ初期だ。最大インパクトの貢献は、以下の六つの
 読むのをやめて走らせたいなら：
 
 ```bash
-# ソースからインストール（PyPI 公開準備中）
-pip install git+https://github.com/Battam1111/Myco.git
-
-# カーネル上に新しいインスタンスを立ち上げる
-myco init my-project --level 2
-
-# あるいは既存プロジェクトを移行（非破壊；CLAUDE.md はそのまま）
-myco migrate ./your-project --entry-point CLAUDE.md
-myco lint --project-dir ./your-project     # 基質のベースラインを確立
-myco hunger --project-dir ./your-project   # 代謝ダッシュボード
+git clone https://github.com/Battam1111/Myco.git
+cd Myco
+pip install -e ".[mcp]"
+myco init --agent claude my-project
 ```
 
-**MCP 統合** —— エージェントが自動的に 19 のツールを得る。手動プロンプトは不要：
+Myco は生きた有機体だ —— 編集可能インストールはシステム全体が自己進化できることを意味する：カーネルコード、テンプレート、lint ルール、hunger シグナル。凍結された pip install は進化の範囲を制限する。
 
-```bash
-pip install 'git+https://github.com/Battam1111/Myco.git#egg=myco[mcp]'
-```
+> **クイックプレビュー：** `pip install myco`（凍結スナップショット、進化が制限される）
 
-リポジトリにはすぐ使える `.mcp.json` が同梱されている。Claude Code、Cursor、または MCP を話すどのクライアントにインストールしても、エージェントは自動発見する：
+**MCP 統合** —— 上記の `.[mcp]` エクストラですべて含まれている。リポジトリにはすぐ使える `.mcp.json` が同梱されている。Claude Code、Cursor、または MCP を話すどのクライアントにインストールしても、エージェントは自動発見する：
 
 - **基質の健全性**：`myco_lint` · `myco_status` · `myco_search` · `myco_log` · `myco_reflect`
 - **知識代謝**：`myco_eat` · `myco_digest` · `myco_view` · `myco_hunger`

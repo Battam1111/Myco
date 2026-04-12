@@ -8,6 +8,9 @@ that should be searchable and metabolizable.
 Absorbs: hermes-agent hermes_state.py session store + session_search_tool.py
 FTS5 search pattern, adapted for Myco's file-based substrate.
 """
+# --- Mycelium references ---
+# Protocol:   docs/agent_protocol.md §2.5 (session memory triggers)
+# State:      .myco_state/sessions.db (FTS5 index, auto-created)
 
 from __future__ import annotations
 

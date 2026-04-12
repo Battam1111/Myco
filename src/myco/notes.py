@@ -38,6 +38,11 @@ Storage layout:
 This file MUST NOT import from myco.cli or myco.mcp_server (one-way
 dependency: cli/mcp → notes, never the reverse).
 """
+# --- Mycelium references ---
+# Contract:      docs/agent_protocol.md §2.2 (eat/digest/view/hunger triggers)
+# Canon SSoT:    _canon.yaml::system.notes_schema, system.hunger
+# Architecture:  docs/architecture.md §Digestive loop
+# Open problems: docs/open_problems.md §3 (compression quality), §5 (structural decay)
 
 from __future__ import annotations
 

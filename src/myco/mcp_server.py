@@ -28,6 +28,10 @@ Tools:
 
 Transport: stdio (local subprocess of the AI client)
 """
+# --- Mycelium references ---
+# Protocol:    docs/agent_protocol.md (tool trigger conditions, anti-patterns)
+# MCP config:  .mcp.json (client-side wiring)
+# Skills:      skills/ (skill resolution for evolved tools)
 
 import json
 import os

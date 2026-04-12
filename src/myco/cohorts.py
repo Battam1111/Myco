@@ -7,6 +7,8 @@ all knowledge is unprocessed). Pure engine — no CLI, no MCP imports.
 
 Authoritative design: plan Waves 47-53 §Wave 48.
 """
+# --- Mycelium references ---
+# Architecture: docs/architecture.md §Compression pipeline
 
 from __future__ import annotations
 
