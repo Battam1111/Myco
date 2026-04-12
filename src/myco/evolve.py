@@ -244,3 +244,83 @@ def evaluate_variant(
             feedback[dim] = "not evaluated"
 
     return EvalResult(scores=scores, feedback=feedback)
+
+
+# ---------------------------------------------------------------------------
+# E3: Cross-instance skill transfer (horizontal gene transfer)
+# ---------------------------------------------------------------------------
+
+def export_evolved_skill(
+    variant: SkillVariant,
+    *,
+    source_project: str = "",
+    evolution_metrics: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Package an evolved skill into an upstream-compatible bundle.
+
+    The receiving instance evaluates the skill against its local context
+    via LLM-as-judge before absorbing. Good mutations spread across Myco
+    instances — this is horizontal gene transfer.
+
+    Returns a bundle dict ready for serialization to YAML/JSON.
+    """
+    bundle = {
+        "type": "evolved_skill",
+        "version": "1.0",
+        "meta": dict(variant.meta),
+        "body": variant.body,
+        "parent_hash": variant.parent_hash,
+        "generation": variant.generation,
+        "content_hash": variant.content_hash,
+        "source_project": source_project,
+    }
+    if evolution_metrics:
+        bundle["metrics"] = evolution_metrics
+    return bundle
+
+
+def import_evolved_skill(
+    bundle: Dict[str, Any],
+    target_dir: Path,
+    *,
+    llm_fn: Optional[Callable[[str], str]] = None,
+    relevance_threshold: float = 0.6,
+) -> Optional[Path]:
+    """Import an evolved skill from another instance.
+
+    Evaluates relevance before writing. Returns skill path if accepted,
+    None if rejected.
+    """
+    if bundle.get("type") != "evolved_skill":
+        return None
+
+    variant = SkillVariant(
+        meta=bundle.get("meta", {}),
+        body=bundle.get("body", ""),
+        parent_hash=bundle.get("parent_hash"),
+        generation=bundle.get("generation", 0),
+    )
+
+    # Evaluate relevance if llm_fn available
+    if llm_fn:
+        prompt = (
+            f"Is this skill relevant to the current project?\n\n"
+            f"Skill: {variant.meta.get('name', 'unknown')}\n"
+            f"Description: {variant.meta.get('description', '')}\n"
+            f"Body preview: {variant.body[:300]}\n\n"
+            f"Rate relevance 0.0-1.0. Output ONLY a number:"
+        )
+        try:
+            score = float(llm_fn(prompt).strip().split()[0])
+            if score < relevance_threshold:
+                return None
+        except (ValueError, IndexError):
+            pass  # proceed with import on evaluation failure
+
+    # Write skill
+    name = variant.meta.get("name", "imported-skill")
+    skill_dir = target_dir / "skills"
+    skill_dir.mkdir(parents=True, exist_ok=True)
+    skill_path = skill_dir / f"{name}.md"
+    skill_path.write_text(serialize_skill(variant), encoding="utf-8")
+    return skill_path

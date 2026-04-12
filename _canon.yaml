@@ -260,6 +260,17 @@ system:
       # AS PART OF landing a craft conclusion.
       evidence_pattern: '(docs/primordia/[a-z0-9_]+_craft_\d{4}-\d{2}-\d{2}(_[0-9a-f]{4})?\.md|craft_reference\s*:)'
 
+  # --- Skill Evolution (Wave E2) ---
+  # Opt-in: disabled by default. When enabled, the metabolic cycle can
+  # auto-evolve skills based on session performance data.
+  # Myco provides scaffolding (evolve.py); Agent provides intelligence (llm_fn).
+  evolution:
+    enabled: false                    # opt-in; set true when ready
+    skill_success_threshold: 0.7      # below this → trigger mutation
+    min_sessions_before_evolve: 5     # wait for data before evolving
+    max_mutations_per_cycle: 1        # prevent runaway evolution
+    require_git_clean: true           # don't evolve on dirty tree
+
   # --- Vertical Traceability Index (Wave 56) ---
   # Agent navigation map: when ANY layer changes, read this index to find
   # the full impact path across Story→Vision→Contract→Verification→Code.
