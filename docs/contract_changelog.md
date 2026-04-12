@@ -38,6 +38,26 @@ Commit message 格式必须使用 Conventional Commits 风格并带 `[contract:*
 
 ---
 
+## v0.39.0 — 2026-04-12 (minor · Wave 50 Continuous Compression — compression_pressure metric + metabolic-cycle skill)
+
+**What changed**:
+
+Wave 50 adds `compression_pressure` metric and a metabolic-cycle boot ritual
+skill. Partially closes `docs/open_problems.md` §4.
+
+1. **`compute_compression_pressure(root)`** in notes.py — returns
+   `(raw + digesting) / max(1, extracted + integrated)`.
+2. Hunger signal fires when pressure > threshold (default 2.0).
+3. Hunger action recommends `compress --cohort auto` when pressure high.
+4. **`skills/metabolic-cycle.md`** — boot ritual procedure document.
+5. **`_canon.yaml`** additions: `pressure_threshold`, `compression_pressure`
+   in boot_brief signals, `skills/` in write_surface.
+4 unit tests in `tests/unit/test_compression_pressure.py`.
+
+**Contract surface**: v0.38.0 → v0.39.0.
+
+---
+
 ## v0.38.0 — 2026-04-12 (minor · Wave 49 Inlet Trigger Policy — search miss tracking + cohort gap detection)
 
 **What changed**:

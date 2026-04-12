@@ -13,7 +13,7 @@ system:
   # See kernel docs/agent_protocol.md §8. Instance agents MUST compare
   # synced_contract_version against the kernel's contract_version at boot
   # and refresh local reflexes if drift is detected.
-  synced_contract_version: "v0.38.0"  # last kernel contract the instance aligned with
+  synced_contract_version: "v0.39.0"  # last kernel contract the instance aligned with
   upstream_scan_last_run: null         # ISO-8601 timestamp of last upstream scan
 
   # --- Upstream scan staleness reader (Wave 17, v0.16.0) ---
@@ -33,6 +33,7 @@ system:
       - upstream_scan_stale
       - craft_reflex_missing
       - session_end_drift
+      - compression_pressure   # Wave 50 (v0.39.0)
 
   # --- Self-Correction Contract (Wave 19, contract v0.18.0) --------------
   # Hard Contract rule #3 special clause declarative form. `myco correct`
@@ -293,6 +294,7 @@ system:
     compression:
       ripe_threshold: 5
       ripe_age_days: 7
+      pressure_threshold: 2.0    # Wave 50 (v0.39.0)
 
     # Wave 35 (v0.27.0) — Metabolic Inlet primitive scaffold.
     # Authoritative design: kernel docs/primordia/metabolic_inlet_design_craft_2026-04-12.md
@@ -379,6 +381,7 @@ system:
       - notes/
       - wiki/
       - forage/                        # v0.7.0 — external reference substrate
+      - skills/                        # Wave 50 — operational procedures
       - docs/
       - log.md
       - MYCO.md
