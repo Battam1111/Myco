@@ -188,7 +188,7 @@ local edit 都合法"。
 - 无法用 lint 检测（lint 是结构检查，不是**趋势** 检查）。
 - LLM self-critique 有已知的 over-confident bias。
 
-**当前的 non-solution**：lint 13/14 维覆盖静态 invariant，craft protocol 覆盖
+**当前的 non-solution**：lint 23 维覆盖静态 invariant，craft protocol 覆盖
 决策形式，但**没有任何一环覆盖 substrate 组织模式的时间演化**。
 
 **出口条件**：至少一个可计算的结构性退化 proxy metric（哪怕是 wiki 页面的
