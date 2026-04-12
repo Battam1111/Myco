@@ -38,6 +38,28 @@ Commit message 格式必须使用 Conventional Commits 风格并带 `[contract:*
 
 ---
 
+## v0.40.0 — 2026-04-12 (minor · Wave 52 Session Memory + Search — FTS5 indexing of agent conversations)
+
+**What changed**:
+
+Wave 52 adds session memory: FTS5 full-text search across Claude Code
+conversation transcripts. Absorbs hermes-agent session search pattern.
+
+New module `src/myco/sessions.py`:
+
+1. **`index_sessions(root)`** — Scan `.claude/projects/*/` for .jsonl files,
+   parse user/assistant turns, index into SQLite FTS5 at `.myco_state/sessions.db`.
+2. **`search_sessions(root, query)`** — FTS5 MATCH query with snippet extraction.
+3. **`prune_sessions(root)`** — Remove old index entries.
+
+New CLI verb: `myco session {index|search|prune}` (sessions_cmd.py).
+New MCP tool: `myco_session` (tool #18).
+4 unit tests in `tests/unit/test_sessions.py`.
+
+**Contract surface**: v0.39.0 → v0.40.0.
+
+---
+
 ## v0.39.0 — 2026-04-12 (minor · Wave 50 Continuous Compression — compression_pressure metric + metabolic-cycle skill)
 
 **What changed**:

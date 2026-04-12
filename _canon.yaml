@@ -6,8 +6,8 @@ system:
   # Authoritative source: docs/agent_protocol.md §8
   # Craft record:         docs/primordia/upstream_protocol_craft_2026-04-11.md
   # Changelog:             docs/contract_changelog.md
-  contract_version: "v0.39.0"  # Wave 50: continuous compression — compression_pressure metric + metabolic-cycle skill
-  synced_contract_version: "v0.39.0"  # Wave 50 — self-reference: kernel's own lock
+  contract_version: "v0.40.0"  # Wave 52: session memory + FTS5 search across agent conversations
+  synced_contract_version: "v0.40.0"  # Wave 52 — self-reference: kernel's own lock
   upstream_scan_last_run: "2026-04-11T15:21:31Z"
 
   # --- Upstream scan staleness reader (Wave 17, contract v0.16.0) ---
@@ -535,6 +535,15 @@ system:
     min_unit_tests: 4               # Wave 25 seed count (catch regressions)
     integration_marker: integration  # matches pyproject pytest markers
     unit_subdir: tests/unit/
+
+  # --- Session Memory (Wave 52, contract v0.40.0) ---
+  # FTS5 indexing of Claude Code conversation transcripts.
+  # Absorbs hermes-agent session search pattern.
+  sessions:
+    enabled: true
+    db_path: ".myco_state/sessions.db"
+    claude_projects_dir: null    # auto-detect from ~/.claude/projects/
+    max_age_days: 90
 
   write_surface:
     # L11 Write-Surface Lint — defines the only legal write targets for

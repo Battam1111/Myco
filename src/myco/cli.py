@@ -712,6 +712,25 @@ def main():
     c_gaps.add_argument("--json", action="store_true")
     c_gaps.add_argument("--limit", type=int, default=20)
 
+    # ── myco session (Wave 52, v0.40.0) ─────────────────────────────
+    session_parser = subparsers.add_parser(
+        "session",
+        help="Session memory: index, search, prune agent conversation transcripts",
+    )
+    session_sub = session_parser.add_subparsers(dest="session_subcommand")
+    s_index = session_sub.add_parser("index", help="Index .jsonl session files into FTS5")
+    s_index.add_argument("--project-dir", type=str, default=".")
+    s_index.add_argument("--json", action="store_true")
+    s_search = session_sub.add_parser("search", help="Full-text search across sessions")
+    s_search.add_argument("query", type=str, help="Search query")
+    s_search.add_argument("--limit", type=int, default=20)
+    s_search.add_argument("--project-dir", type=str, default=".")
+    s_search.add_argument("--json", action="store_true")
+    s_prune = session_sub.add_parser("prune", help="Remove old session index entries")
+    s_prune.add_argument("--max-age-days", dest="max_age_days", type=int, default=90)
+    s_prune.add_argument("--project-dir", type=str, default=".")
+    s_prune.add_argument("--json", action="store_true")
+
     # ── myco version (explicit subcommand) ─────────────────────────
     subparsers.add_parser("version", help="Show version")
 
@@ -830,6 +849,11 @@ def main():
     if args.command == "cohort":
         from myco.cohorts_cmd import run_cohort
         sys.exit(run_cohort(args))
+
+    # Wave 52 (v0.40.0): session memory + search.
+    if args.command == "session":
+        from myco.sessions_cmd import run_session
+        sys.exit(run_session(args))
 
 
 if __name__ == "__main__":

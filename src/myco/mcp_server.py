@@ -23,6 +23,7 @@ Tools:
     myco_upstream   — Inter-instance knowledge transfer (Wave 43)
     myco_graph      — Structural link graph analysis (Wave 47)
     myco_cohort     — Semantic cohort intelligence (Wave 48)
+    myco_session    — Session memory search (Wave 52)
 
 Transport: stdio (local subprocess of the AI client)
 """
@@ -1618,6 +1619,61 @@ async def myco_cohort(
         return json.dumps(gaps[:limit])
 
     return json.dumps({"error": f"Unknown action: {action}. Use matrix/suggest/gaps."})
+
+
+# ---------------------------------------------------------------------------
+# Wave 52 (v0.40.0): Session memory + search
+# ---------------------------------------------------------------------------
+
+@mcp.tool(
+    name="myco_session",
+    annotations={
+        "title": "Myco Session Memory — FTS5 search across agent conversations",
+        "readOnlyHint": False,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": False,
+    },
+)
+async def myco_session(
+    action: str,
+    query: Optional[str] = None,
+    max_age_days: int = 90,
+    project_dir: Optional[str] = None,
+) -> str:
+    """Index and search agent conversation transcripts.
+
+    Actions:
+      index — Scan .jsonl session files, index into SQLite FTS5
+      search <query> — Full-text search across indexed sessions
+      prune — Remove old index entries
+
+    Args:
+        action: One of 'index', 'search', 'prune'.
+        query: Search query (required for 'search' action).
+        max_age_days: Max age for indexing/pruning (default 90).
+        project_dir: Path to Myco project root. Auto-detected if omitted.
+    """
+    from myco.sessions import index_sessions, prune_sessions, search_sessions
+
+    root = Path(project_dir) if project_dir else _find_project_root()
+    root = root.resolve()
+
+    if action == "index":
+        stats = index_sessions(root, max_age_days=max_age_days)
+        return json.dumps(stats)
+
+    if action == "search":
+        if not query:
+            return json.dumps({"error": "query is required for 'search' action"})
+        results = search_sessions(root, query)
+        return json.dumps(results)
+
+    if action == "prune":
+        stats = prune_sessions(root, max_age_days=max_age_days)
+        return json.dumps(stats)
+
+    return json.dumps({"error": f"Unknown action: {action}. Use index/search/prune."})
 
 
 # ---------------------------------------------------------------------------
