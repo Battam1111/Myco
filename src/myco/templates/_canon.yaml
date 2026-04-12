@@ -303,6 +303,7 @@ system:
       ripe_threshold: 5
       ripe_age_days: 7
       pressure_threshold: 2.0    # Wave 50 (v0.39.0)
+      gap_stale_days: 14         # Wave 59: cohort staleness threshold
 
     # Wave 35 (v0.27.0) — Metabolic Inlet primitive scaffold.
     # Authoritative design: kernel docs/primordia/metabolic_inlet_design_craft_2026-04-12.md
