@@ -19,7 +19,7 @@
 <!-- MYCO-BOOT-SIGNALS:END -->
 
 **项目**：Myco — 可自进化的 AI 延伸认知基质（框架本身）
-**当前阶段**：v0.2.0 pre-release — public launch 准备中（尚未 1.0）；Phase 2 消化道迭代进行中。**54 波落地**，kernel contract v0.44.0。关键里程碑：23 维 lint (L0-L22) + 19 MCP tools + 60 tests + Signal-to-Action hunger 自动执行闭环 + Link Graph 菌丝互联 + Semantic Cohort Intelligence + Inlet Trigger Policy + Continuous Compression + Session Memory FTS5 + **Wave 54 Agent-First Integration（hunger execute=true + scheduled metabolic cycle）**
+**当前阶段**：v0.2.0 pre-release — public launch 准备中（尚未 1.0）；Phase 2 消化道迭代进行中。**Metamorphosis plan 完成**，kernel contract v0.44.0。关键里程碑：23 维 lint (L0-L22) + 19 MCP tools + 122 tests + Signal-to-Action hunger 自动执行闭环 + Link Graph 菌丝互联 + Semantic Cohort Intelligence + Inlet Trigger Policy + Continuous Compression + Session Memory FTS5 + **Wave 54 Agent-First Integration（hunger execute=true + scheduled metabolic cycle）**
 
 **框架开发中最容易出错的 N 件事** ⚠️：
 1. 更新 `pyproject.toml` 版本号但忘记同步 `src/myco/__init__.py`（两处版本号必须一致）
@@ -141,7 +141,7 @@ Python 打包环境（hatchling + twine）。模板唯一来源：`src/myco/temp
 
 ## 0. 项目摘要
 
-Myco 是一个可自进化的 AI 延伸认知基质框架。它给 AI agent 提供持久记忆、结构化知识和跨会话的自进化能力。v0.2.0 已可从源码安装（PyPI 公开发布准备中），提供 `myco init / migrate / lint / eat / evaluate / extract / integrate / digest / view / compress / uncompress / prune / inlet / hunger / forage / upstream / correct / graph / cohort / session` CLI。当前 kernel contract v0.44.0（23 维 lint L0-L22 + 19 MCP tools + 60 tests + hunger auto-execute 自主代谢闭环 + Link Graph 菌丝互联 + Cohort Intelligence 智能分组 + Session Memory FTS5 + Scheduled Metabolic Cycle 每日自动代谢）。
+Myco 是一个可自进化的 AI 延伸认知基质框架。它给 AI agent 提供持久记忆、结构化知识和跨会话的自进化能力。v0.2.0 已可从源码安装（PyPI 公开发布准备中），提供 `myco init / migrate / lint / eat / evaluate / extract / integrate / digest / view / compress / uncompress / prune / inlet / hunger / forage / upstream / correct / graph / cohort / session` CLI。当前 kernel contract v0.44.0（23 维 lint + Agent Review hybrid 免疫 + 19 MCP tools + 122 tests + hunger auto-execute + `myco init --agent claude` 一键就位 + evolve.py 自我进化 + discover.py 主动觅食 + predict_knowledge_needs 需求预判）。
 
 核心设计：agent-agnostic（Claude、GPT、Codex 等均可运行），框架本身通过 Myco 管理自身的知识。
 
