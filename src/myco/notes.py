@@ -1906,10 +1906,36 @@ def compute_hunger_report(
 
     if dead_threshold_days is None or terminal_statuses is None:
         canon_days, canon_terms = _load_dead_config(root)
-        if dead_threshold_days is None:
-            dead_threshold_days = canon_days
         if terminal_statuses is None:
             terminal_statuses = canon_terms
+        if dead_threshold_days is None:
+            # Organ 4: adaptive dead threshold based on substrate age.
+            # Younger substrates use shorter thresholds (more aggressive pruning).
+            # canon_days is the CEILING (max), 7 is the FLOOR (min).
+            try:
+                all_notes = list_notes(root)
+                if all_notes:
+                    ages = []
+                    for np in all_notes:
+                        m, _ = read_note(np)
+                        c = m.get("created")
+                        if c:
+                            try:
+                                cd = datetime.strptime(str(c).strip(), _ISO_FMT)
+                                ages.append((now - cd).days)
+                            except ValueError:
+                                pass
+                    if ages:
+                        ages.sort()
+                        median_age = ages[len(ages) // 2]
+                        adaptive = int(median_age * 0.5)
+                        dead_threshold_days = min(canon_days, max(7, adaptive))
+                    else:
+                        dead_threshold_days = canon_days
+                else:
+                    dead_threshold_days = canon_days
+            except Exception:
+                dead_threshold_days = canon_days
     dead_cutoff = now - timedelta(days=dead_threshold_days)
 
     # Wave 13 (v0.12.0): pull raw_backlog exemption config.
