@@ -44,8 +44,8 @@ if str(_SRC) not in sys.path:
 # and should happen inside those specific tests, not globally.
 _MIN_CANON = """\
 system:
-  principles_count: 12
-  principles_label: "十二原则"
+  principles_count: 13
+  principles_label: "十三原則"
   entry_point: MYCO.md
   contract_version: "v0.24.0"
   synced_contract_version: "v0.24.0"

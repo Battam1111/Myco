@@ -89,7 +89,7 @@ Phase 2  [自定义]        ⏳ 待实现
 ### 核心协议
 | 文档 | 内容 |
 |------|------|
-| `docs/WORKFLOW.md` | 工作流手册（十二原则 W1-W12 + 会话流程 + 进化引擎） |
+| `docs/WORKFLOW.md` | 工作流手册（十三原則 W1-W13 + 会话流程 + 代谢引擎） |
 | `docs/craft_protocol.md` | **W3 Craft Protocol v1 正式规范** — 结构化自对抗辩论 schema + L13 lint + 置信度阶梯 |
 
 ### 辩论记录
