@@ -75,6 +75,12 @@ def main():
              "and L1 scans. (ASCC ce72 friction — v0.9.0 discoverability fix)",
     )
     init_parser.add_argument(
+        "--agent", type=str, default=None,
+        choices=["claude", "cursor", "gpt", "hermes", "generic"],
+        help="Wave B1: Agent-specific setup. 'claude' generates CLAUDE.md + .mcp.json. "
+             "'cursor' generates .cursorrules. Others: generic MYCO.md.",
+    )
+    init_parser.add_argument(
         "--github-user", type=str, default="your-username",
         help="GitHub username for Myco link in entry point document",
     )

@@ -129,7 +129,11 @@ def run_init(args) -> int:
     else:
         project_dir = Path.cwd() / args.name
 
+    # Wave B1: --agent shortcut overrides entry_point
+    agent = getattr(args, "agent", None)
     entry_point = args.entry_point.strip()
+    if agent == "claude":
+        entry_point = "CLAUDE.md"
     if not entry_point.endswith(".md"):
         entry_point += ".md"
 
@@ -160,12 +164,30 @@ def run_init(args) -> int:
     elif args.level == 2:
         init_level_2(project_dir, replacements, entry_point)
 
-    print(f"\n🍄 Done! Your Myco-powered project is ready.")
-    print(f"   Next steps:")
-    print(f"   1. Edit {entry_point} — fill in project description and phases")
-    print(f"   2. Start working — the system grows organically from practice")
-    print(f"   3. Create wiki pages when you need them, not before")
-    if args.level >= 1:
-        print(f"   4. Run `myco lint` periodically to check consistency")
+    # Wave B1: Agent-specific file generation
+    if agent == "claude":
+        # Generate CLAUDE.md from template (may override MYCO.md entry)
+        if entry_point == "CLAUDE.md":
+            claude_content = fill_template(get_template("CLAUDE.md"), replacements)
+            (project_dir / "CLAUDE.md").write_text(claude_content, encoding="utf-8")
+            print(f"  ✅ CLAUDE.md (Agent-First entry point)")
+
+        # Generate .mcp.json
+        import json
+        mcp_config = json.loads(get_template("mcp.json"))
+        (project_dir / ".mcp.json").write_text(
+            json.dumps(mcp_config, indent=2), encoding="utf-8")
+        print(f"  ✅ .mcp.json (MCP server auto-discovery)")
+
+        print(f"\n🍄 Done! Myco is wired for Claude Code.")
+        print(f"   Run `claude` in {project_dir.resolve()} — Myco is ready.")
+    else:
+        print(f"\n🍄 Done! Your Myco-powered project is ready.")
+        print(f"   Next steps:")
+        print(f"   1. Edit {entry_point} — fill in project description and phases")
+        print(f"   2. Start working — the system grows organically from practice")
+        print(f"   3. Create wiki pages when you need them, not before")
+        if args.level >= 1:
+            print(f"   4. Run `myco lint` periodically to check consistency")
 
     return 0
