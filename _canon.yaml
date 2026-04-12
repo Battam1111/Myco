@@ -646,6 +646,8 @@ system:
     - .gitignore
     - .github/
     - .mcp.json
+    - .agents/                   # Wave 55+: agent skills (PUA etc.)
+    - skills-lock.json           # skills installer lockfile
     # --- Hard-forbidden top-level (even if created, L11 will flag) ---
     forbidden_top_level:
     - scratch.md
