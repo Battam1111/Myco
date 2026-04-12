@@ -243,7 +243,7 @@ Myco 的动词是故意用的隐喻 —— 代谢就是正确的心智模型。
 | `uncompress` | 从 `.original` 恢复压缩前的原件 | `myco uncompress` | （仅 CLI） |
 | `prune` | D 层自动排出：扫描死知识笔记并打 excreted 标 | `myco prune` | （仅 CLI） |
 | `view` | 按过滤器读笔记（同时写入 `view_count` + `last_viewed_at`） | `myco view` | `myco_view` |
-| `lint` | 23 维基质健康检查（别名：`myco immune`） | `myco lint` | `myco_lint` |
+| `lint` | 23 维基质健康检查 | `myco lint` | `myco_lint` |
 | `correct` | 应用上一次 lint 的自动修复（别名：`myco molt`） | `myco correct` | （仅 CLI） |
 | `forage` | 把外部资源拉进代谢入口 | `myco forage` | （仅 CLI） |
 | `inlet` | 代谢入口 MVP —— 从配置好的源做 discover/evaluate/extract | `myco inlet` | （仅 CLI） |

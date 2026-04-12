@@ -98,15 +98,9 @@ def main():
     )
 
     # ── myco lint ──────────────────────────────────────────────────
-    # Wave 29 note: `myco lint` is the generic software-engineering term and
-    # stays as a universal-discoverability verb. The biomimetic name for this
-    # same operation is `myco immune` (Wave 29 adds it as a new verb that
-    # runs the same 23-dimension substrate immune scan). Both verbs remain
-    # primary — neither is deprecated. Design rationale:
-    # `docs/primordia/biomimetic_nomenclature_craft_2026-04-12.md §1.3 + §2.3`.
     lint_parser = subparsers.add_parser(
         "lint",
-        help="Run 23-dimension substrate immune scan (alias: `myco immune`)",
+        help="Run 23-dimension substrate health check",
     )
     lint_parser.add_argument(
         "--quick", action="store_true",
@@ -117,29 +111,6 @@ def main():
         help="Output fix suggestions",
     )
     lint_parser.add_argument(
-        "--project-dir", type=str, default=".",
-        help="Project root directory (default: current directory)",
-    )
-
-    # ── myco immune ────────────────────────────────────────────────
-    # Wave 29 (Biomimetic Nomenclature rewrite, phase 1 additive): the
-    # substrate's 23-dimension immune scan is the immune system of the
-    # knowledge organism. `myco immune` is the biomimetic name; `myco lint`
-    # is the universal software-engineering alias. Both dispatch to the
-    # same handler. Craft: biomimetic_nomenclature_craft_2026-04-12.md.
-    immune_parser = subparsers.add_parser(
-        "immune",
-        help="Run 23-dimension substrate immune scan (alias: `myco lint`)",
-    )
-    immune_parser.add_argument(
-        "--quick", action="store_true",
-        help="Quick mode: only L0-L3 checks",
-    )
-    immune_parser.add_argument(
-        "--fix-report", action="store_true",
-        help="Output fix suggestions",
-    )
-    immune_parser.add_argument(
         "--project-dir", type=str, default=".",
         help="Project root directory (default: current directory)",
     )
@@ -711,11 +682,6 @@ def main():
         sys.exit(run_migrate(args))
 
     if args.command == "lint":
-        from myco.lint import run_lint
-        sys.exit(run_lint(args))
-
-    # Wave 29 biomimetic alias — dispatches to the same immune scan handler.
-    if args.command == "immune":
         from myco.lint import run_lint
         sys.exit(run_lint(args))
 

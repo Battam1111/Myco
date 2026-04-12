@@ -244,7 +244,7 @@ Myco's verbs are metaphorical on purpose — metabolism is the mental model. If 
 | `uncompress` | Restore the pre-compression original from `.original` | `myco uncompress` | (CLI only) |
 | `prune` | Auto-excrete dead-knowledge notes flagged by the D-layer signal | `myco prune` | (CLI only) |
 | `view` | Read notes with filters (records `view_count` + `last_viewed_at`) | `myco view` | `myco_view` |
-| `lint` | 23-dimension substrate health check (alias: `myco immune`) | `myco lint` | `myco_lint` |
+| `lint` | 23-dimension substrate health check | `myco lint` | `myco_lint` |
 | `correct` | Apply auto-fixes from a prior lint pass (alias: `myco molt`) | `myco correct` | (CLI only) |
 | `forage` | Pull external sources into the metabolic inlet | `myco forage` | (CLI only) |
 | `inlet` | Run the Metabolic Inlet MVP — discover/evaluate/extract from a configured source | `myco inlet` | (CLI only) |
