@@ -9,7 +9,7 @@
 
 ## 0.5 两条入口：CLI 和 MCP 任选其一
 
-Myco 的 19 个工具都有**两套等价入口**，底层共享 `src/myco/notes.py`
+Myco 的 21 个工具都有**两套等价入口**，底层共享 `src/myco/notes.py`
 和 `src/myco/lint.py`，落盘文件完全一致。
 
 | 能力 | CLI（shell 命令） | MCP tool |
@@ -30,7 +30,7 @@ Cowork 下的 agent（通过 Bash 工具调用）。
 快速预览：`pip install myco`（冻结快照，进化受限）。
 
 **可选**：在 agent host 的 MCP 配置里注册 `python -m myco.mcp_server`。
-注册后 19 个工具会以原生 MCP tool 的形式出现在 agent 的工具列表里，
+注册后 21 个工具会以原生 MCP tool 的形式出现在 agent 的工具列表里，
 带详细 trigger-condition 描述和结构化参数。Cowork 用户在桌面应用的
 MCP 设置里加一条即可（一次性，持久生效）。
 
@@ -99,7 +99,7 @@ Myco v1.2 Phase ① 引入了消化系统（`eat / digest / view / hunger` + `no
 
 ---
 
-## 2. Tool Protocol — 19 个 MCP 工具的触发条件
+## 2. Tool Protocol — 21 个 MCP 工具的触发条件
 
 每个工具都有 **WHEN to call** 的触发条件列表。如果匹配其中任一条，**必须**调用对应工具，不能用自由写入代替。
 
@@ -302,7 +302,7 @@ Phase ② 开工的第一件事就是 `myco view --tag friction-phase2 --status 
 1. **重读项目 `MYCO.md`**：应该已经包含对本协议的引用。
 2. **重读本文件**：`docs/agent_protocol.md`。
 3. **检查 write_surface**：项目的 `_canon.yaml → system.write_surface` 列出的目录才是合法写入目标。
-4. **遵守触发条件**：§2 的 19 个 tool trigger conditions 对你**同样生效**。
+4. **遵守触发条件**：§2 的 21 个 tool trigger conditions 对你**同样生效**。
 5. **摩擦 = `friction-phase2` tag**：ASCC 运行中发现 Myco 的任何不顺手，立刻 eat。这些 note 会直接喂给 Phase ②。
 
 **ASCC agent 的 3 条铁律**（粘贴到 ASCC 自己的 `MYCO.md` 或 `CLAUDE.md`）：

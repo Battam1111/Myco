@@ -2027,6 +2027,8 @@ def compute_hunger_report(
         - "no_excretion":    zero excreted notes (compression doctrine ignored)
         - "dead_knowledge":  ≥1 terminal note cold + unviewed past threshold
                              (Self-Model D layer seed, v0.4.0)
+        - "skill_degradation": skill exists but never evolved + older than
+                             stale_active_threshold_days (default 7)
         - "healthy":         none of the above triggered
 
     Dead-knowledge detection (v0.4.0) flags a note iff ALL of:
@@ -2212,7 +2214,13 @@ def compute_hunger_report(
             "no_deep_digest: no note has been digested twice AND no note has "
             "reached extracted/integrated — milestone retrospective may be starving."
         )
-    if by_status.get("excreted", 0) == 0 and len(paths) >= 20:
+    # Check lifetime excretion counter (survives note deletion after
+    # compression). On-disk excreted count alone produces false positives
+    # when excreted notes are cleaned up from disk.
+    _lifetime_exc = read_excretion_counter(root).get("lifetime_excretions", 0)
+    if (by_status.get("excreted", 0) == 0
+            and _lifetime_exc == 0
+            and len(paths) >= 20):
         signals.append(
             "no_excretion: zero notes excreted despite ≥20 total notes. "
             "Compression doctrine ('attention finite') is being ignored."
@@ -2445,6 +2453,15 @@ def compute_hunger_report(
                        "timestamp": _now_iso()}, f)
     except Exception:
         pass
+    # Skill degradation signal — fires when a skill has never been evolved
+    # despite being old enough to warrant review. Nudges the Agent to run
+    # myco_evolve. Config: _canon.yaml::system.evolution.
+    skill_degradation_signals: List[str] = []
+    try:
+        skill_degradation_signals = detect_skill_degradation(root, now=now)
+        signals.extend(skill_degradation_signals)
+    except Exception:
+        pass  # grandfather-compatible: missing skills/ or canon = feature off
     if not signals:
         signals.append("healthy: notes/ is metabolizing normally.")
 
@@ -2496,6 +2513,17 @@ def compute_hunger_report(
                 "verb": "digest",
                 "args": {"note_id": pc.get("id"), "to_status": "integrated"},
                 "reason": f"promote_ready: note {pc.get('id')} flagged promote_candidate=true",
+            })
+    if skill_degradation_signals:
+        for sd_sig in skill_degradation_signals:
+            # Extract skill filename from signal message.
+            # Format: "skill_degradation: skills/<name>.md has never been ..."
+            _sd_m = re.search(r"skills/(\S+\.md)", sd_sig)
+            skill_file = _sd_m.group(1) if _sd_m else "unknown"
+            actions.append({
+                "verb": "evolve",
+                "args": {"skill": skill_file},
+                "reason": sd_sig,
             })
 
     return HungerReport(

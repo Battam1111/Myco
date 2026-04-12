@@ -118,7 +118,12 @@ def _ensure_db(db_path: Path) -> sqlite3.Connection:
 
 
 def _parse_jsonl_turns(filepath: Path) -> List[Dict[str, Any]]:
-    """Parse a .jsonl file and extract user/assistant turns."""
+    """Parse a .jsonl file and extract user/assistant turns.
+
+    Supports two formats:
+    1. Direct: {role: "user", content: "..."}
+    2. Claude Code wrapper: {message: {role: "user", content: "..."}, ...}
+    """
     turns = []
     try:
         with open(filepath, "r", encoding="utf-8", errors="replace") as f:
@@ -130,12 +135,16 @@ def _parse_jsonl_turns(filepath: Path) -> List[Dict[str, Any]]:
                     obj = json.loads(line)
                 except json.JSONDecodeError:
                     continue
-                role = obj.get("role", "")
+                # Support Claude Code's nested message format
+                msg = obj
+                if "message" in obj and isinstance(obj["message"], dict):
+                    msg = obj["message"]
+                role = msg.get("role", "")
                 if role not in ("user", "assistant"):
                     continue
                 # Extract text content
                 content = ""
-                raw_content = obj.get("content", "")
+                raw_content = msg.get("content", "")
                 if isinstance(raw_content, str):
                     content = raw_content
                 elif isinstance(raw_content, list):
@@ -183,10 +192,10 @@ def index_sessions(
     indexed_turns = 0
     skipped_files = 0
 
-    # Collect all .jsonl files
+    # Collect all .jsonl files (including subagents/ subdirectories)
     jsonl_files: List[Path] = []
     for d in session_dirs:
-        for f in sorted(d.glob("*.jsonl")):
+        for f in sorted(d.glob("**/*.jsonl")):
             jsonl_files.append(f)
 
     for filepath in jsonl_files:
