@@ -80,7 +80,7 @@
 
 ### WORKFLOW.md：原则库
 
-包含 10-15 条项目工作原则（W1-W12 通用原则 + 项目特定原则）。例：
+包含 10-15 条项目工作原则（W1-W13 通用原则 + 项目特定原则）。例：
 - W1：即时沉淀——关键决策当下就写入文档
 - W3：传统手艺——重大决策需多轮深度辩论
 - W6：近端丰富化——提供丰富的失败路径和操作细节
@@ -92,7 +92,7 @@
 
 ```yaml
 system:
-  principles_count: 12
+  principles_count: 13
   workflow_sections: 12
   wiki_page_types: [entity, concept, operations, analysis, craft]
   lint_dimensions: 9
@@ -439,7 +439,7 @@ project:                    # 项目启动时填充
 
 1. **Entry point is always accessible** — An agent can always find its way in through `MYCO.md` (or whatever entry point was configured at init/migrate time). No hidden state.
 2. **Transparent to humans** — Every piece of knowledge is readable, auditable, and editable by humans without any tool intermediary. Plain text, plain Markdown.
-3. **Perpetual evolution** — The system evolves itself, including the rules of evolution. W1-W12 are a bootstrap, not a ceiling.
+3. **Perpetual evolution** — The system evolves itself, including the rules of evolution. W1-W13 are a bootstrap, not a ceiling.
 
 ---
 
@@ -447,13 +447,13 @@ project:                    # 项目启动时填充
 
 > Moved from README for depth readers.
 
-Myco takes the **Bitter Lesson** (Rich Sutton, 2019) seriously: hand-crafted rules should eventually be replaceable by system-discovered rules. The current W1-W12 principles are a legitimate bootstrap hot-start from practice — but every one of them is meant to be gradually replaced or refined by rules the system discovers through its own evolution.
+Myco takes the **Bitter Lesson** (Rich Sutton, 2019) seriously: hand-crafted rules should eventually be replaceable by system-discovered rules. The current W1-W13 principles are a legitimate bootstrap hot-start from practice — but every one of them is meant to be gradually replaced or refined by rules the system discovers through its own evolution.
 
 Meta-evolution isn't vaporware here: Myco's evolution targets text files — the medium LLMs operate best in — not model parameters. This makes true meta-evolution achievable today without gradient descent or training loops.
 
 ---
 
-## Appendix C — The Twelve Principles (W1-W12)
+## Appendix C — The Twelve Principles (W1-W13)
 
 > Moved from README. Full details in `docs/WORKFLOW.md`.
 

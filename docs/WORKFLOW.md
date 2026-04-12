@@ -78,7 +78,7 @@ project-root/
 5. 迭代至所有攻击点有可信防御
 6. 收尾：① 更新任务队列 ② 完整记录 → docs/primordia/ ③ 结论萃取 → wiki/MYCO.md ④ log.md
 
-> **详细规范**：上述为人类可读流程摘要。正式 schema（文件名、frontmatter、置信度阶梯、状态机、集成点、废弃标准）见 `docs/craft_protocol.md`（Craft Protocol v1，Myco contract v1.3.0 起锁定），由 L13 Craft Protocol Schema lint 强制执行。
+> **详细规范**：上述为人类可读流程摘要。正式 schema（文件名、frontmatter、置信度阶梯、状态机、集成点、废弃标准）见 `docs/craft_protocol.md`（Craft Protocol v1，参见 docs/craft_protocol.md），由 L13 Craft Protocol Schema lint 强制执行。
 
 ---
 

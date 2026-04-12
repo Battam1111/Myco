@@ -87,7 +87,7 @@ Polanyi（1966）："我们能知道的比能说出来的多。" AI agent 在操
 | Friction log + Operational narratives | Polanyi（1966）隐性知识 | 将隐性操作知识显性化的正式机制 |
 | Gear 1-4 四齿轮进化引擎 | Argyris & Schön（1978）双环/三环学习 | Gear 1/2 = 单/双环；Gear 3 = 系统层双环；Gear 4 = 三环 |
 | 整体架构 | Clark & Chalmers（1998）延伸心智论 | Myco 是满足 Otto 条件的 AI 延伸认知系统 |
-| Bitter Lesson 立场 | Sutton（2019）；元学习理论 | W1-W12 是合法的 bootstrap 热启动，终极目标是被系统发现的规则取代 |
+| Bitter Lesson 立场 | Sutton（2019）；元学习理论 | W1-W13 是合法的 bootstrap 热启动，终极目标是被系统发现的规则取代 |
 
 ---
 
@@ -106,7 +106,7 @@ Polanyi（1966）："我们能知道的比能说出来的多。" AI agent 在操
 ## 六、开放张力（Active Tensions）⚡
 
 ⚡ **T1：手工规则 vs. Bitter Lesson**
-W1-W12 是手工制定的规则。Sutton 的 Bitter Lesson 认为手工规则终将被学习到的规则超越。Myco 的立场是：W1-W12 是"合法的 bootstrap 热启动"——基于实战蒸馏的初始化，不是终态。但如何在实践中推进这个过渡，是 v1.0+ 的核心问题。
+W1-W13 是手工制定的规则。Sutton 的 Bitter Lesson 认为手工规则终将被学习到的规则超越。Myco 的立场是：W1-W13 是"合法的 bootstrap 热启动"——基于实战蒸馏的初始化，不是终态。但如何在实践中推进这个过渡，是 v1.0+ 的核心问题。
 
 ⚡ **T2：显性化 vs. 表达损耗**
 将隐性知识显性化是 Myco 的核心目标之一，但 Polanyi 的洞察也指出：显性化必然伴随损耗（the act of articulation changes what is articulated）。如何在 operational narratives 中最大程度保留原始摩擦的全貌，而不是过度抽象化？
