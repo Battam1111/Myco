@@ -53,4 +53,4 @@
 
 *Promoted from notes/n_20260412T233542_e1a9 (compressed founding architecture decisions) on 2026-04-12.*
 
-[Back to MYCO.md](../MYCO.md)
+**Back to** [MYCO.md](../MYCO.md)

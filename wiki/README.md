@@ -1,9 +1,9 @@
 # wiki/ — L1.5 Refined-Knowledge Layer
 
-> **状态**：空目录 + 章程（dormant organ）。截至 contract v0.45.0 尚无 promoted page。
+> **状态**：活跃（3 pages promoted）。首批 wiki 页面于 2026-04-12 从 notes/ 压缩笔记 promote。
 > **用途**：存放从 `notes/` 提炼后进入"长期可引用"阶段的知识页面。
 > **在 Myco 架构中的位置**：L1（MYCO.md 索引） → **L1.5（本目录）** → L2（docs/ 参考规格） → L3（notes/ 原始消化）
-> **为什么现在是空的**：Myco 自用 notes 还没有跑完足够多的 extract/integrate 循环达到 promote 阈值。第一个真实 wiki 页面将在首次 promote 时落地，届时 `myco digest` + Agent 裁定会把那条 note 提拔到本目录。
+> **当前页面**：`identity.md`（concept）、`design-decisions.md`（operations）、`architecture-decisions.md`（operations）
 
 ---
 

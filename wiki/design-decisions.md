@@ -60,4 +60,4 @@
 
 *Promoted from notes/n_20260412T233541_e3c9 (compressed founding design decisions) on 2026-04-12.*
 
-[Back to MYCO.md](../MYCO.md)
+**Back to** [MYCO.md](../MYCO.md)

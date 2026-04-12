@@ -956,3 +956,5 @@ Friction: (1) Notes orphan exemption was lazy thinking — user caught it, corre
 System structure changes: (1) L2 lint now mechanically verifies numeric_claims (root cause fix for stale numbers). (2) All time thresholds tightened from 7-30d to 1-7d. (3) graph.py orphan exemption corrected — only archive is exempt, notes stay visible. (4) 50 excreted notes deleted (substrate pollution cleanup).
 
 Pattern: The "越找越多" problem (stale content multiplying) was a SYSTEM failure, not a diligence failure. Mechanical lint (L2 Part B) is the correct fix — not "try harder to remember."
+
+## [2026-04-12] milestone | evolve.py first production run: metabolic-cycle.md → gen1 mutation. 6-step pipeline (parse→mutate→gates→diff→export→save), 4/4 hard gates passed, 42% size growth. Output: skills/.evolved/metabolic-cycle_gen1_f523a4d46159.md. Self-evolution is no longer theoretical.

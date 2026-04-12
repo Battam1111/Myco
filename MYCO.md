@@ -110,7 +110,7 @@ Python 打包环境（hatchling + twine）。模板唯一来源：`src/myco/temp
 | 层级 | 位置 | 加载方式 | 说明 |
 |------|------|---------|------|
 | **L1 Index** | 本文件（MYCO.md） | 自动加载 | 纯索引 + schema，agent-agnostic |
-| **L1.5 Wiki** | `wiki/*.md` | 按需读取 | 结构化知识页（有机生长，现为空） |
+| **L1.5 Wiki** | `wiki/*.md` | 按需读取 | 结构化知识页（3 pages: identity, design-decisions, architecture-decisions） |
 | **L2 Docs** | `docs/*.md` + `docs/primordia/*.md` | 按需读取 | 框架文档、辩论记录 |
 | **L3 Code** | `src/myco/` + `scripts/` | 按需读取 | 包源码 + 工具脚本 |
 | **Timeline** | `log.md` | 按需读取 | Append-only 时间线 |
