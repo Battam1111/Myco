@@ -746,7 +746,7 @@ def lint_dotfile_hygiene(canon, root):
     }
     # Wave 17: .myco_state/ files match any .md or .json name — no
     # bundle-pattern constraint. We validate extension only.
-    STATE_ALLOWED_EXTS = {".md", ".json"}
+    STATE_ALLOWED_EXTS = {".md", ".json", ".db"}  # .db added Wave 52 (sessions.db)
     thirty_days = 30 * 86400
     now = _time.time()
 
