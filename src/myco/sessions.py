@@ -365,20 +365,41 @@ def predict_knowledge_needs(
     try:
         # Extract most common content words from user turns
         cursor = conn.execute(
-            "SELECT content FROM session_turns WHERE role = 'user' LIMIT 200"
+            "SELECT content FROM session_turns WHERE role = 'user' LIMIT 500"
         )
         word_freq: Dict[str, int] = {}
-        stop_words = {"the", "a", "an", "is", "it", "to", "and", "of", "in", "for",
-                      "on", "with", "that", "this", "can", "you", "my", "how", "what",
-                      "do", "i", "me", "we", "be", "not", "but", "or", "if", "from"}
+        # Expanded stop words: common English + conversation filler
+        stop_words = {
+            "the", "a", "an", "is", "it", "to", "and", "of", "in", "for",
+            "on", "with", "that", "this", "can", "you", "my", "how", "what",
+            "do", "i", "me", "we", "be", "not", "but", "or", "if", "from",
+            "your", "have", "has", "had", "are", "was", "were", "will",
+            "been", "being", "does", "did", "done", "just", "only", "also",
+            "than", "then", "when", "where", "which", "while", "after",
+            "before", "about", "into", "through", "each", "all", "any",
+            "both", "more", "most", "other", "some", "such", "them",
+            "their", "they", "these", "those", "here", "there", "would",
+            "could", "should", "shall", "might", "must", "need", "make",
+            "like", "over", "very", "well", "still", "also", "back",
+            "even", "first", "last", "long", "great", "much", "many",
+            "please", "thanks", "sure", "okay", "right", "don't", "it's",
+            "you're", "you've", "i'm", "i've", "let's", "that's", "what's",
+            "there's", "here's", "they're", "we're", "he's", "she's",
+            "tried", "checked", "yourself", "anything", "everything",
+            "something", "nothing", "already", "really", "truly",
+        }
         for (content,) in cursor:
             if not content:
                 continue
             words = content.lower().split()
             for w in words:
-                w = w.strip(".,!?:;\"'()[]{}").lower()
-                if len(w) > 3 and w not in stop_words:
-                    word_freq[w] = word_freq.get(w, 0) + 1
+                w = w.strip(".,!?:;\"'()[]{}#*`~<>@/\\").lower()
+                # Skip short words, stop words, paths, markdown artifacts
+                if (len(w) <= 4 or w in stop_words
+                        or ":" in w or "/" in w or "\\" in w
+                        or w.startswith("**") or w.startswith("--")):
+                    continue
+                word_freq[w] = word_freq.get(w, 0) + 1
 
         # Topics that appear frequently but may not be in notes
         from myco.notes import list_notes, read_note
@@ -390,7 +411,8 @@ def predict_knowledge_needs(
             except Exception:
                 continue
 
-        for word, count in sorted(word_freq.items(), key=lambda x: -x[1])[:20]:
+        # Scan top 200 candidates (not just 20) to find real gaps
+        for word, count in sorted(word_freq.items(), key=lambda x: -x[1])[:200]:
             if count >= 3 and word not in note_content:
                 predictions.append({
                     "type": "undocumented_recurring_topic",
