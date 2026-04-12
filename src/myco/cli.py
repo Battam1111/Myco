@@ -74,11 +74,18 @@ def main():
              "The choice writes through to _canon.yaml::system.entry_point "
              "and L1 scans. (ASCC ce72 friction — v0.9.0 discoverability fix)",
     )
-    init_parser.add_argument(
+    agent_group = init_parser.add_mutually_exclusive_group()
+    agent_group.add_argument(
         "--agent", type=str, default=None,
         choices=["claude", "cursor", "gpt", "hermes", "generic"],
         help="Wave B1: Agent-specific setup. 'claude' generates CLAUDE.md + .mcp.json. "
              "'cursor' generates .cursorrules. Others: generic MYCO.md.",
+    )
+    agent_group.add_argument(
+        "--auto-detect", action="store_true", default=False,
+        dest="auto_detect",
+        help="Auto-detect ALL installed AI tools and generate MCP configs "
+             "for each. Mutually exclusive with --agent.",
     )
     init_parser.add_argument(
         "--github-user", type=str, default="your-username",
