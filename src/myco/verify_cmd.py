@@ -69,13 +69,18 @@ def run_verify(args) -> int:
 
     # --- 2. MCP server ---
     total += 1
-    mcp_json = root / ".mcp.json"
-    if mcp_json.exists():
-        print(f"  ✅ .mcp.json exists")
+    mcp_configs = [
+        root / ".mcp.json",
+        root / ".cursor" / "mcp.json",
+        root / ".vscode" / "mcp.json",
+    ]
+    if any(p.exists() for p in mcp_configs):
+        found = [str(p.relative_to(root)) for p in mcp_configs if p.exists()]
+        print(f"  ✅ MCP config found ({', '.join(found)})")
         passed += 1
     else:
-        print(f"  ⚠️  .mcp.json missing (MCP tools won't auto-load)")
-        issues.append(".mcp.json missing — run `myco init --agent claude`")
+        print(f"  ⚠️  No MCP config found")
+        issues.append("No MCP config — run `myco init --auto-detect`")
 
     total += 1
     try:
