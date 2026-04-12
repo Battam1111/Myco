@@ -946,3 +946,13 @@ conclusion note: `notes/n_20260411T225901_4d39.md` (integrated)
 ## [2026-04-12] meta | Waves 56-61 session reflection：五层精化模型从概念到落地。关键认知：(1) lint 是死的，Agent 才是免疫系统——追溯索引是给 Agent 的导航图不是给 lint 的规则。(2) 全部 18 个 MCP 工具现在都有"何时调用"文档，Agent 不需要猜。(3) architecture.md 从 v1.1 到 v1.2，首次记录 graph/cohorts/sessions 子系统。(4) 原子写入修复了 dogfood 发现的空文件 bug。(5) 72 个测试覆盖了 io_utils/forage/upstream 三个之前零测试的模块。Dogfood 全程执行：hunger boot → eat decisions → search before building → digest after landing → hunger end。
 
 ## [2026-04-12] milestone | Myco MCP dogfood begins. 19/19 tools loaded via .mcp.json auto-discovery. First real myco_hunger + myco_eat calls successful. Substrate state: 131 notes, 0 raw backlog, 23/23 lint, 122 tests. Advisory signals: no_excretion + graph_orphans (non-blocking).
+
+## [2026-04-12] reflection | Session reflection: First Myco MCP dogfood session.
+
+Knowledge created: 5 compressed notes (self-correction patterns, forage digests, wave seeds), 3 new notes (user non-negotiables, dogfood milestone, automation gaps), myco verify command, settings.json template, enhanced init_cmd.
+
+Friction: (1) Notes orphan exemption was lazy thinking — user caught it, corrected to keep notes as real signal. (2) HungerReport returns dataclass not dict — verify_cmd needed attribute access fix. (3) MCP SDK wasn't installed despite being in optional deps — init should warn.
+
+System structure changes: (1) L2 lint now mechanically verifies numeric_claims (root cause fix for stale numbers). (2) All time thresholds tightened from 7-30d to 1-7d. (3) graph.py orphan exemption corrected — only archive is exempt, notes stay visible. (4) 50 excreted notes deleted (substrate pollution cleanup).
+
+Pattern: The "越找越多" problem (stale content multiplying) was a SYSTEM failure, not a diligence failure. Mechanical lint (L2 Part B) is the correct fix — not "try harder to remember."
