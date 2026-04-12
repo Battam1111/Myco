@@ -118,7 +118,32 @@ Myco v1.2 Phase ① 引入了消化系统（`eat / digest / view / hunger` + `no
 | `myco_view` | (a) 开始新任务前扫 `--status raw --tag <topic>`；(b) 找之前吃过的某段代码/决策；(c) 人类问 "你记不记得……" 时 | 不能凭记忆回答 |
 | `myco_hunger` | (a) 新会话开始（`myco_status` 之后）；(b) 会话中段自检；(c) 会话结束前 | 不能忽略其返回的信号 |
 
-### 2.3 非线性生命周期跳转
+### 2.3 Compression Pipeline（压缩管道，Wave 30-33）
+
+| Tool | 何时调用（trigger conditions） | 禁止 |
+|------|------------------------------|------|
+| `myco_compress` | (a) `myco_hunger` 报 `compression_ripe`（tag cohort ≥5 raw notes 且最老 ≥7d）；(b) `compression_pressure` > 2.0；(c) Agent 判断多条笔记应合成；(d) `myco_cohort suggest` 返回建议 | 不能手动合并笔记内容到 wiki 而不走 compress 审计轨迹 |
+| `myco_uncompress` | 发现某次压缩遗失了重要内容，需要恢复输入笔记 | 极少使用；不能直接手改 excreted 笔记的 status |
+| `myco_prune` | (a) `myco_hunger` 报 `dead_knowledge`（terminal 状态笔记 ≥30d 未查看）；(b) 主动清理积压 | 不能手动删除 notes/*.md 文件 |
+
+### 2.4 External Metabolism（外部代谢，Wave 35-52）
+
+| Tool | 何时调用（trigger conditions） | 禁止 |
+|------|------------------------------|------|
+| `myco_inlet` | (a) `myco_hunger` 报 `inlet_ripe`（搜索缺失 + 知识缺口）；(b) Agent 有外部文件/内容要摄入；(c) 人类提供了参考资料 | 不能把外部内容直接粘贴进 notes/ 而不走 inlet 来源追踪 |
+| `myco_forage` | (a) Agent 发现相关论文/仓库/文章；(b) 人类说"去看看 X"；(c) `myco_hunger` 报 `forage_backlog` | 不能把外部资料存在 notes/ 里，forage/ 是暂存区 |
+| `myco_upstream` | (a) `myco_hunger` 报 `upstream_scan_stale`；(b) 定期（≤7d）扫描上游更新；(c) 人类说"同步一下" | 不能手动复制上游文件 |
+| `myco_search` | (a) **回答任何项目事实性问题之前**；(b) 开始新功能/修 bug 前查已有知识；(c) 人类问"有没有……" | 不能凭记忆回答——基质是事实来源 |
+
+### 2.5 Structural Intelligence（结构智能，Wave 47-52）
+
+| Tool | 何时调用（trigger conditions） | 禁止 |
+|------|------------------------------|------|
+| `myco_graph` | (a) 想知道谁引用了某个文件；(b) 检测知识孤岛/断裂；(c) 重构前评估影响范围；(d) `myco_hunger` 报 `graph_orphans` | 不能靠手动 grep 替代结构化链接分析 |
+| `myco_cohort` | (a) 准备压缩时选择最佳分组（`myco_cohort suggest`）；(b) 检测知识缺口（`myco_cohort gaps`）；(c) 分析 tag 共现关系 | 不能凭直觉选压缩对象 |
+| `myco_session` | (a) 需要回忆之前对话的具体内容；(b) 人类问"上次我们讨论了什么"；(c) 跨会话延续工作 | 不能说"我不记得之前的对话" |
+
+### 2.7 非线性生命周期跳转
 
 `raw → digesting → {extracted | integrated | excreted}` 允许跨级跳转。合法场景：
 - **raw → integrated**：note 内容已经足够成熟，可直接并入 canonical 结构。必须在 digest 步骤显式 `--to integrated` 并写 reason。

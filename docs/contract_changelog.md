@@ -38,6 +38,24 @@ Commit message 格式必须使用 Conventional Commits 风格并带 `[contract:*
 
 ---
 
+## v0.43.0 — 2026-04-12 (minor · Wave 57 Tool Trigger Contract — 18/18 MCP tool trigger documentation)
+
+**What changed**:
+
+Wave 57 documents trigger conditions for ALL 18 MCP tools in agent_protocol.md.
+Previously only 9/18 had trigger docs (§2.1-§2.2). Added:
+- §2.3 Compression Pipeline (compress, uncompress, prune)
+- §2.4 External Metabolism (inlet, forage, upstream, search)
+- §2.5 Structural Intelligence (graph, cohort, session)
+
+Key rule: `myco_search` MUST be called BEFORE answering any factual question.
+
+Craft: `tool_trigger_contract_craft_2026-04-12.md` (kernel_contract, 2 rounds, 0.90).
+
+**Contract surface**: v0.42.0 → v0.43.0.
+
+---
+
 ## v0.42.0 — 2026-04-12 (minor · Wave 55 Identity Anchor Agent-First Revision — mutation-selection internalized)
 
 **What changed**:
