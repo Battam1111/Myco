@@ -270,7 +270,7 @@ local edit 都合法"。
 
 ---
 
-## 6. Self Model D 层 — 死知识追踪（未实现）
+## 6. Self Model D 层 — 死知识追踪（种子已落地，完整实现仍 open）
 
 **身份锚点关联**：四层自我模型（#5）—— "D 效能层：死知识追踪"。
 
@@ -281,8 +281,9 @@ local edit 都合法"。
 **为什么是 open problem 而不是 feature**：
 - "死"的判定需要时间窗——太短会误杀慢燃 note，太长发现太晚。
 - 时间窗应当随 substrate 年龄进化（身份锚点 4）——不能硬编码。
-- view 事件目前没有审计日志（`myco view` 是只读命令，不记录谁在什么上下文下读了啥）。
-- 没有 view audit → 没法算 dead—这是一条未铺的基础设施。
+- view 事件目前有基础审计（`record_view()` 写 `view_count` + `last_viewed_at` 到
+  frontmatter），但**不记录谁在什么上下文下读了啥**——粒度不足以做精细死知识判定。
+- cross-reference graph 已有（`myco graph`），但未集成进死知识判定逻辑。
 
 **最小可行种子** — ✅ **已落地于 contract v1.4.0**
 （craft 决议：[`docs/primordia/dead_knowledge_seed_craft_2026-04-11.md`](primordia/dead_knowledge_seed_craft_2026-04-11.md)，

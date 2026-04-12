@@ -47,3 +47,8 @@ At the start of any non-trivial development task (feature, bugfix, refactor).
 
 Every step that changes code must be verified with evidence before claiming "done."
 "I think it works" is not evidence. "Here's the output" is.
+
+## References
+
+- `docs/agent_protocol.md` — contract that governs tool trigger conditions used in every pipeline step
+- `docs/WORKFLOW.md` — project-level workflow context this pipeline operates within

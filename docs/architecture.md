@@ -562,3 +562,22 @@ The three modules are **sensing instruments** — they provide data to the
 hunger signal pipeline, which provides recommendations to the Agent. The
 Agent's intelligence decides execution. This is the Bitter Lesson applied:
 Myco provides scaffolding, the Agent provides judgment.
+
+---
+
+## See Also
+
+- [docs/theory.md](theory.md) -- 理论基础：延伸心智论、三环学习、认知科学对应
+- [docs/vision.md](vision.md) -- 愿景文档：五大核心能力、三条宪法、演进路线图
+- [docs/evolution_engine.md](evolution_engine.md) -- 进化引擎 v3.0：代谢循环详细机制、evolve.py 技能变异
+- [docs/reusable_system_design.md](reusable_system_design.md) -- 通用架构与 Bootstrap 指南（蒸馏版本）
+- [docs/open_problems.md](open_problems.md) -- 未解难题：架构中已知的结构性盲点
+- [docs/agent_protocol.md](agent_protocol.md) -- Agent 协议：MCP 工具契约与写面规则
+- [wiki/architecture-decisions.md](../wiki/architecture-decisions.md) -- 创始架构决策（A1-A3）：notes.py SSoT、痛点驱动、扁平 notes
+- [wiki/design-decisions.md](../wiki/design-decisions.md) -- 创始设计决策（D1-D5）：hunger 排序、非零退出码、四命令最小循环
+- [_canon.yaml](../_canon.yaml) -- 规范值 SSoT：所有关键数字的单一信息源
+- [src/myco/lint.py](../src/myco/lint.py) -- 23 维 Lint 免疫系统实现
+- [src/myco/notes.py](../src/myco/notes.py) -- Note 生命周期 SSoT（A1 决策的实现）
+- [src/myco/graph.py](../src/myco/graph.py) -- Link Graph 结构智能（Appendix F.1）
+- [src/myco/cohorts.py](../src/myco/cohorts.py) -- Cohort Intelligence 语义分析（Appendix F.2）
+- [src/myco/sessions.py](../src/myco/sessions.py) -- Session Memory FTS5 索引（Appendix F.3）

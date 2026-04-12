@@ -32,3 +32,9 @@ This skill is a PROTOCOL, not code. The Agent's intelligence decides:
 - Whether a source is relevant (Agent judgment, not keyword matching)
 - How to extract useful knowledge (Agent summarization)
 Myco provides: gap detection, ingestion pipeline, audit trail.
+
+## References
+
+- `src/myco/discover.py` — implementation of `myco_discover` gap detection and candidate ranking
+- `docs/open_problems.md` — cold-start problem and other open questions that motivate discovery
+- `notes/` (tag: `inlet`) — ingested notes produced by this loop; search with `myco_view --status raw --tag inlet`

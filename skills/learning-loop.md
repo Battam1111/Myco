@@ -34,3 +34,8 @@ This skill captures WHAT the Agent learned, not HOW to learn. The Agent's
 intelligence decides what's worth capturing. Myco provides the persistence
 layer. If the Agent gets smarter, the learnings get better — without
 changing this protocol.
+
+## References
+
+- `src/myco/evolve.py` — evolution engine that promotes repeated learnings into skill mutations
+- `skills/metabolic-cycle.md` — metabolic cycle step 7 (Reflect) is when this loop typically fires
