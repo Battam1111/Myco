@@ -212,7 +212,7 @@ def main():
     # Craft of record:
     #   docs/primordia/myco_correct_shortcut_craft_2026-04-11.md
     #
-    # Wave 29 note: `myco molt` is the biomimetic alias for this verb.
+    # Wave A2: `myco molt` was the biomimetic alias; now deprecated.
     # Molt = shedding an outdated assertion like a fungus shedding aged
     # hyphae. Both verbs remain primary — neither is deprecated.
     # Biomimetic design: biomimetic_nomenclature_craft_2026-04-12.md.
@@ -220,7 +220,7 @@ def main():
         "correct",
         help=("Self-correction shortcut — eat a friction note with "
               "mandatory tags 'friction-phase2, on-self-correction' "
-              "(Hard Contract rule #3). Biomimetic alias: `myco molt`."),
+              "(Hard Contract rule #3)."),
     )
     correct_parser.add_argument("--content", type=str, default=None,
         help="Inline content (alternative: --file or stdin)")
@@ -238,33 +238,8 @@ def main():
     correct_parser.add_argument("--project-dir", type=str, default=".",
         help="Project root (default: current directory)")
 
-    # ── myco molt (Wave 29, Biomimetic Nomenclature rewrite) ──────
-    # Biomimetic alias for `myco correct`. Molting is the organism's act
-    # of shedding an outdated layer to reveal the new structure beneath —
-    # exactly what a self-correction is at the substrate level. Both verbs
-    # are primary and dispatch to the same handler (run_correct). Craft:
-    #   docs/primordia/biomimetic_nomenclature_craft_2026-04-12.md
-    molt_parser = subparsers.add_parser(
-        "molt",
-        help=("Self-correction shortcut (biomimetic alias for `myco correct`) "
-              "— shed an outdated assertion by eating a friction note with "
-              "mandatory tags 'friction-phase2, on-self-correction'."),
-    )
-    molt_parser.add_argument("--content", type=str, default=None,
-        help="Inline content (alternative: --file or stdin)")
-    molt_parser.add_argument("--file", type=str, default=None,
-        help="Path to a file whose contents should be eaten")
-    molt_parser.add_argument("--tags", type=str, default="",
-        help="Additional tags, merged with the mandatory pair "
-             "(friction-phase2, on-self-correction)")
-    molt_parser.add_argument("--source", type=str, default="eat",
-        choices=["chat", "eat", "promote", "import", "bootstrap"])
-    molt_parser.add_argument("--title", type=str, default=None,
-        help="Optional H1 title to prepend to the note body")
-    molt_parser.add_argument("--json", action="store_true",
-        help="Emit a machine-readable JSON result")
-    molt_parser.add_argument("--project-dir", type=str, default=".",
-        help="Project root (default: current directory)")
+    # ── myco molt — DEPRECATED (Wave A2). Use `myco correct` instead.
+    subparsers.add_parser("molt", help="DEPRECATED — use `myco correct`")
 
     # ── myco digest ────────────────────────────────────────────────
     digest_parser = subparsers.add_parser(
@@ -778,10 +753,10 @@ def main():
         from myco.notes_cmd import run_correct
         sys.exit(run_correct(args))
 
-    # Wave 29 biomimetic alias — dispatches to the same self-correction handler.
+    # Wave A2: molt deprecated — use `myco correct` instead.
     if args.command == "molt":
-        from myco.notes_cmd import run_correct
-        sys.exit(run_correct(args))
+        print("myco molt: DEPRECATED. Use `myco correct` instead.", file=sys.stderr)
+        sys.exit(2)
 
     if args.command == "digest":
         from myco.notes_cmd import run_digest
