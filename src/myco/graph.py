@@ -221,7 +221,18 @@ def query_backlinks(graph: Dict[str, Dict[str, List[str]]], target: str) -> List
 
 
 def find_orphans(graph: Dict[str, Dict[str, List[str]]]) -> List[str]:
-    """Find files with zero inbound links, excluding structural roots."""
+    """Find files with zero inbound links, excluding structural roots.
+
+    Archived primordia are excluded — they are historical records stored
+    in git history that are not expected to be referenced.
+
+    Notes ARE included because unreferenced notes represent knowledge
+    that is accumulating but not flowing.  However, the hunger signal
+    layer may choose to filter very recent notes (< threshold days)
+    since they haven't had time to be referenced yet.
+    """
+    # Only archived primordia are exempt — notes stay visible as orphans
+    _ORPHAN_EXEMPT_PREFIXES = ("docs/primordia/archive/", "docs\\primordia\\archive\\")
     orphans = []
     for node, data in sorted(graph.items()):
         # Skip structural roots
@@ -230,6 +241,9 @@ def find_orphans(graph: Dict[str, Dict[str, List[str]]]) -> List[str]:
             continue
         # Skip directories (README.md in subdirs are charters)
         if basename.lower() == "readme.md":
+            continue
+        # Skip archived primordia — historical records
+        if node.startswith(_ORPHAN_EXEMPT_PREFIXES):
             continue
         if not data["backlinks"]:
             orphans.append(node)
