@@ -2558,6 +2558,50 @@ FULL_CHECKS = QUICK_CHECKS + (
 # Main
 # ---------------------------------------------------------------------------
 
+def _compute_agent_review(canon: dict, root: Path) -> list:
+    """Wave A4: compute Agent Review items — judgment questions for the Agent.
+
+    These are things lint can't mechanically check but the Agent should
+    verify using its intelligence. Configurable via
+    _canon.yaml::system.lint.agent_review_items (future; hardcoded for now).
+    """
+    items = []
+    try:
+        # 1. MCP tool count consistency
+        mcp_path = root / "src" / "myco" / "mcp_server.py"
+        if mcp_path.exists():
+            content = mcp_path.read_text(encoding="utf-8", errors="replace")
+            tool_count = content.count("async def myco_")
+            items.append(
+                f"MCP tool count: mcp_server.py has {tool_count} tools. "
+                f"Do all {tool_count} have triggers in agent_protocol.md?"
+            )
+
+        # 2. Identity anchors freshness
+        items.append(
+            "Identity anchors: are MYCO.md anchors still semantically "
+            "aligned with docs/vision.md and actual behavior?"
+        )
+
+        # 3. Indicators staleness
+        items.append(
+            "Indicators dashboard: are MYCO.md indicator values still "
+            "accurate? (check lint_coverage, compression_discipline, etc.)"
+        )
+
+        # 4. Open problems status
+        op_path = root / "docs" / "open_problems.md"
+        if op_path.exists():
+            items.append(
+                "Open problems: has any problem in docs/open_problems.md "
+                "been partially closed by recent work?"
+            )
+    except Exception:
+        pass  # best-effort; never block lint output
+
+    return items
+
+
 def main(root: Path = None, quick: bool = False, fix_report: bool = False) -> int:
     """Run lint checks. Can be called programmatically or from CLI."""
     if root is None:
@@ -2588,8 +2632,16 @@ def main(root: Path = None, quick: bool = False, fix_report: bool = False) -> in
 
     print(bold(f"\n{'='*60}"))
 
+    # Wave A4: Agent Review section — judgment questions that lint can't answer.
+    # These are configurable in _canon.yaml::system.lint.agent_review_items.
+    agent_review = _compute_agent_review(canon, root)
+
     if not all_issues:
         print(green(bold("  ✅ ALL CHECKS PASSED — 0 issues found")))
+        if agent_review:
+            print(bold(f"\n  AGENT REVIEW NEEDED ({len(agent_review)} items):"))
+            for item in agent_review:
+                print(yellow(f"    ⚠ {item}"))
         print(bold(f"{'='*60}\n"))
         return 0
 
@@ -2616,6 +2668,13 @@ def main(root: Path = None, quick: bool = False, fix_report: bool = False) -> in
         for lint_id, filepath, msg in items:
             print(f"    {lint_id} | {filepath}")
             print(f"         {msg}")
+        print()
+
+    # Wave A4: also show agent review even when issues exist
+    if agent_review:
+        print(bold(f"  AGENT REVIEW NEEDED ({len(agent_review)} items):"))
+        for ar_item in agent_review:
+            print(yellow(f"    ⚠ {ar_item}"))
         print()
 
     return 2 if critical else (1 if high else 0)
