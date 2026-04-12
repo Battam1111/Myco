@@ -175,9 +175,9 @@ system:
         kernel_contract:
           - "{{ENTRY_POINT}}"
           - _canon.yaml
-          - docs/*.md
+          - docs/WORKFLOW.md
         public_claim:
-          - README.md
+          - "{{ENTRY_POINT}}"
       evidence_pattern: '(docs/primordia/[a-z0-9_]+_craft_\d{4}-\d{2}-\d{2}(_[0-9a-f]{4})?\.md|craft_reference\s*:)'
 
   # ── Skill Schema (absorbed from gstack) ───────────────────────────
