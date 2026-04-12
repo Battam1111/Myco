@@ -14,7 +14,11 @@
 </p>
 
 <p align="center">
-  <a href="#はじめに">はじめに</a> · <a href="docs/theory.md">理論</a> · <a href="docs/agent_protocol.md">プロトコル</a> · <a href="docs/architecture.md">アーキテクチャ</a>
+  <a href="#はじめに">はじめに</a> · <a href="#何ができるか">機能</a> · <a href="#なぜ違うのか">差別化</a> · <a href="#アーキテクチャ">構造</a>
+</p>
+
+<p align="center">
+  <b>Languages:</b> <a href="README.md">English</a> · <a href="README_zh.md">中文</a> · 日本語
 </p>
 
 ---
@@ -29,6 +33,8 @@
 
 メモは「これはもう古いよ」と教えてくれない。ブックマークは重複を自動でまとめてくれない。AIは先週あなたが何を決めたか覚えていない。新しい会話を開くたびに――すべてゼロからやり直し。
 
+<br>
+
 別の生き方を想像してみろ。
 
 メモを整理しない。フレームワークを比較しない。論文を追わない。AIにプロジェクトの背景を繰り返し説明しない。バカみたいにただ人間の言葉で話す。
@@ -37,7 +43,7 @@
 
 これはSFじゃない。
 
-**これが Myco だ。**
+<h3 align="center">これが Myco だ。</h3>
 
 ---
 
@@ -97,8 +103,4 @@ cd Myco && pip install -e ".[mcp,dev]"
 pytest tests/
 ```
 
-[CONTRIBUTING.md](CONTRIBUTING.md)
-
-## ライセンス
-
-MIT — [LICENSE](LICENSE)
+詳しくは [CONTRIBUTING.md](CONTRIBUTING.md) · MIT — [LICENSE](LICENSE)
