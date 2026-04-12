@@ -291,7 +291,7 @@ Phase ② 开工的第一件事就是 `myco view --tag friction-phase2 --status 
 1. **重读项目 `MYCO.md`**：应该已经包含对本协议的引用。
 2. **重读本文件**：`docs/agent_protocol.md`。
 3. **检查 write_surface**：项目的 `_canon.yaml → system.write_surface` 列出的目录才是合法写入目标。
-4. **遵守触发条件**：§2 的 9 个 tool trigger conditions 对你**同样生效**。
+4. **遵守触发条件**：§2 的 19 个 tool trigger conditions 对你**同样生效**。
 5. **摩擦 = `friction-phase2` tag**：ASCC 运行中发现 Myco 的任何不顺手，立刻 eat。这些 note 会直接喂给 Phase ②。
 
 **ASCC agent 的 3 条铁律**（粘贴到 ASCC 自己的 `MYCO.md` 或 `CLAUDE.md`）：
