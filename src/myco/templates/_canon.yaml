@@ -71,7 +71,7 @@ system:
     grandfather_ceiling_minor_versions: 5
 
   # --- Session End Reflex Arc (Wave 14, contract v0.13.0) ----------------
-  # Advisory detector for Gear 2 reflection + Gear 4 sweep drift. LOW
+  # Advisory detector for session-end reflection drift. LOW
   # severity — appears in hunger advisory list, does not block task work.
   # Authoritative craft: kernel docs/primordia/session_end_reflex_arc_craft_2026-04-11.md
   session_end_reflex:
@@ -246,12 +246,18 @@ system:
     - operations
     - analysis
     - craft
-  evolution_gears: 4                 # Gear 1-4
+  metabolic_phases: 4               # Hunger Sensing, Session Reflection, Milestone Retrospective, Cross-Project Distillation
   myco_md_max_lines: 300
   stale_patterns:                    # Known outdated phrases to detect
     - "五原则"
     - "六原则"
     - "七原则"
+    - "十二原则"
+    - "四齿轮"
+    - "Gear 1"
+    - "Gear 2"
+    - "Gear 3"
+    - "Gear 4"
 
   # ── Digestive substrate (four-command set: eat/digest/view/hunger) ────────
   # Atomic notes live in <root>/notes/ as flat files with YAML frontmatter.

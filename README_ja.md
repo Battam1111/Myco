@@ -8,7 +8,7 @@
 
 *あなたのエージェントは CPU。Myco はそれ以外のすべて —— そしてこの OS は自己升級する（自己升级 / 自己升級）。*
 
-[![PyPI](https://img.shields.io/badge/PyPI-公開準備中-lightgrey?style=for-the-badge)](https://github.com/Battam1111/Myco)
+[![PyPI](https://img.shields.io/badge/PyPI-v0.2.0-blue?style=for-the-badge)](https://pypi.org/project/myco/)
 [![Python](https://img.shields.io/badge/Python-3.8%2B-blue?style=for-the-badge)](https://www.python.org/)
 [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
 [![Lint](https://img.shields.io/badge/Lint-23%2F23%20全緑-brightgreen?style=for-the-badge)](#三つの不可変憲法)

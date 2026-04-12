@@ -13,7 +13,7 @@
 # 1. Boot:  myco_hunger(execute=true) — checks substrate health, auto-executes repairs
 # 2. Work:  Do the human's task. Use myco_eat to capture decisions.
 #           Use myco_search before answering factual questions.
-# 3. End:   myco_reflect() — Gear 2 session reflection
+# 3. End:   myco_reflect() — session reflection (captures execution learnings)
 
 # ─── MCP Integration ────────────────────────────────────────────────────────
 # Cursor supports MCP natively. The .mcp.json file in the project root

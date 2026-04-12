@@ -13,7 +13,7 @@ Together you form a complete cognitive entity. Neither is whole alone.
 
 1. **Boot**: `myco hunger --execute` — checks substrate health, auto-executes repairs
 2. **Work**: Do the human's task. Use `myco eat` to capture decisions. Use `myco search` before answering factual questions.
-3. **End**: `myco reflect` — Gear 2 session reflection
+3. **End**: `myco reflect` — session reflection (captures execution learnings)
 
 ## CLI Integration (no MCP)
 

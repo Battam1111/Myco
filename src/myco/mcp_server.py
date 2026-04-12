@@ -335,7 +335,7 @@ async def myco_status(
             "docs_files": docs_count,
             "adapters": adapter_count,
             "principles_count": canon.get("system", {}).get("principles_count", "?"),
-            "evolution_gears": canon.get("system", {}).get("evolution_gears", "?"),
+            "metabolic_phases": canon.get("system", {}).get("metabolic_phases", "?"),
         },
         "recent_log_entries": recent_log,
         "task_queue": tasks,
