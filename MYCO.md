@@ -161,11 +161,13 @@ v2.0      Metabolic Inlet 原语               🔄 MVP scaffold 落地 (Wave 35
 
 ## 2. Wiki 索引（L1.5 层）
 
-| Wiki 页面 | 内容 | 关键信息速查 |
-|-----------|------|-------------|
-| [按需创建——不预建空页面] | | |
+| Wiki 页面 | 类型 | 内容 | 关键信息速查 |
+|-----------|------|------|-------------|
+| [wiki/identity.md](wiki/identity.md) | concept | Myco 身份定义 — Agent-First Symbiotic Cognitive Organism | 四词各自承重；七条生命标准；五层体现；三条不可变宪法 |
+| [wiki/design-decisions.md](wiki/design-decisions.md) | operations | 创始设计决策（5 项） | hunger 紧迫度排序；非零退出码；ID 格式；四命令最小循环；非线性生命周期 |
+| [wiki/architecture-decisions.md](wiki/architecture-decisions.md) | operations | 创始架构决策（3 项） | notes.py 单一 SSoT；ASCC 痛点驱动；扁平 notes 优于文件夹层级 |
 
-> wiki/ 当前为空，遵循"有机生长"原则。
+> 首批 wiki 页面于 2026-04-12 从 notes/ 压缩笔记 promote 而来。遵循"有机生长"原则——只在笔记达到足够密度后才提升为 wiki 页面。
 
 ---
 

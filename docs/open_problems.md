@@ -3,8 +3,11 @@
 > **类型**：持续维护的诚实清单（living registry），不是 craft，不是决策，不是承诺。
 > **状态**：ACTIVE
 > **更新频率**：每当新的结构性 blind spot 被发现（typically 伴随 craft 或 vision recovery）。
+> **上次审计**：2026-04-12（Wave A2+ codebase audit — 全部 8 条逐一对照代码验证）。
 > **相关**：`docs/primordia/vision_recovery_craft_2026-04-10.md` §4 "盲点列表"、
-> `docs/theory.md`、`docs/agent_protocol.md §8` Upstream Protocol。
+> `docs/theory.md`、`docs/agent_protocol.md §8` Upstream Protocol、
+> [`docs/contract_changelog.md`](contract_changelog.md)（版本线 v0.27–v0.45 覆盖大量 partial closes）、
+> [`_canon.yaml`](../_canon.yaml) `system.inlet_triggers` / `system.notes_schema`。
 
 ---
 
@@ -73,9 +76,21 @@ open problem（谁维护 manifest？manifest 怎么演化？）。
 
 **Wave 35 status update（2026-04-12）**：scaffold 原语已落地，但 "何时触发 inlet" 的信号定义
 **没有变化**。Wave 34 §2.4 D5 把这个问题 defer 给 operator-as-daemon 模式（agent 周期性
-检查 hunger，决定是否调用 inlet）。本节继续 open。Wave 36+ 候选之一：把 hunger 加上
-`inlet_ripe` advisory signal，通过 hunger 报告里的 friction 信号（wiki miss rate、craft
-密度、未解决的 raw notes）触发 advisor 提示。这个候选就是关闭本节的最小步骤之一。
+检查 hunger，决定是否调用 inlet）。Wave 36+ 候选之一：把 hunger 加上
+`inlet_ripe` advisory signal。
+
+**Wave 49 status update（2026-04-12, contract v0.38.0）**：**`inlet_ripe` hunger signal 已落地。**
+[`docs/primordia/proactive_discovery_craft_2026-04-12.md`](primordia/proactive_discovery_craft_2026-04-12.md)
++ `src/myco/notes.py::detect_inlet_trigger()` 实现了两条触发信号：
+(1) search miss 累积 >= `search_miss_threshold`（default 5，`_canon.yaml::system.inlet_triggers`）；
+(2) cohort gap count >= `gap_threshold`（default 3，由 `myco.cohorts.gap_detection` 驱动）。
+任一触发 → hunger 报告包含 `inlet_ripe` advisory + `myco_discover` candidates 路径。
+4 个 seed tests（`tests/unit/test_inlet_trigger.py`）覆盖 no-trigger / miss-trigger / gap-trigger / disabled 场景。
+Wave 50 (v0.39.0) 进一步加了 `compression_pressure` metric + metabolic-cycle skill。
+Wave 54 (v0.41.0) 加了 `myco_hunger(execute=true)` auto-execute + `cold_start` signal。
+**这些构成了第一条可操作的触发信号链（search miss → inlet_ripe → myco_discover → myco_inlet）。**
+本节从 "完全无信号" 升级为 "有信号但无经验数据验证"。出口条件仍未满足（需要
+>=10 次真实 friction->inlet->integration 审计链）。
 
 **问题**：假设冷启动已解，"何时触发 inlet" 仍需可操作的信号定义。目前只知道
 **不能用什么**：

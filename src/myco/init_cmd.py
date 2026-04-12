@@ -4,6 +4,7 @@ Myco Project Initializer — creates a new Myco-powered project scaffold.
 """
 
 import shutil
+import sys
 from datetime import datetime
 from pathlib import Path
 
@@ -168,16 +169,25 @@ def run_init(args) -> int:
     elif args.level == 2:
         init_level_2(project_dir, replacements, entry_point)
 
-    # --- MCP SDK check (all MCP-capable agents) ---
+    # --- MCP SDK check + auto-install (all MCP-capable agents) ---
     def _check_mcp_sdk():
-        """Check if MCP SDK is available, offer install guidance."""
+        """Check if MCP SDK is available; auto-install if missing."""
         try:
             import mcp  # noqa: F401
             return True
         except ImportError:
-            print(f"\n  ⚠️  MCP SDK not installed. MCP tools won't be available.")
-            print(f"     Install with: pip install 'myco[mcp]'")
-            return False
+            print(f"\n  ⚠️  MCP SDK not installed. Auto-installing...")
+            import subprocess
+            result = subprocess.run(
+                [sys.executable, "-m", "pip", "install", "myco[mcp]"],
+                capture_output=True, text=True,
+            )
+            if result.returncode == 0:
+                print(f"  ✅ MCP SDK installed successfully")
+                return True
+            else:
+                print(f"  ❌ Auto-install failed. Manual fix: pip install 'myco[mcp]'")
+                return False
 
     # Wave B1: Agent-specific file generation
     if agent == "claude":

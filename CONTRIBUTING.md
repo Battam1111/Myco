@@ -170,8 +170,6 @@ If your project completes the full Myco lifecycle including cross-project distil
 
 **Acceptance criteria (v0.x):** The distilled knowledge must be useful to at least two project types, not just your own. The maintainer reviews this qualitatively.
 
-See [`examples/ascc/`](examples/ascc/) for what a Featured Example looks like.
-
 ## Discussions
 
 For questions, ideas, and open-ended conversations, use [GitHub Discussions](https://github.com/Battam1111/Myco/discussions):
