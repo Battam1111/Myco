@@ -2066,8 +2066,7 @@ async def myco_evolve(
                 "skill_path": skill_path,
                 "diff": diff,
                 "gates_passed": True,
-                "gate_count": len(check_gates.__wrapped__.__code__.co_consts)
-                    if hasattr(check_gates, "__wrapped__") else 4,
+                "gate_count": 4,
             })
 
         # Save to skills/.evolved/

@@ -289,6 +289,9 @@ system:
     min_sessions_before_evolve: 5     # wait for data before evolving
     max_mutations_per_cycle: 1        # prevent runaway evolution
     require_git_clean: true           # don't evolve on dirty tree
+    stale_active_threshold_days: 7    # skill_degradation hunger signal fires
+                                      # when a skill has never been evolved
+                                      # AND is older than this many days
 
   # --- Vertical Traceability Index (Wave 56) ---
   # Agent navigation map: when ANY layer changes, read this index to find

@@ -97,3 +97,214 @@ def test_hunger_cohort_staleness_signal(signal_project):
     report = compute_hunger_report(signal_project)
     has_staleness = any("cohort_staleness" in s for s in report.signals)
     assert has_staleness
+
+
+# ---------------------------------------------------------------------------
+# no_excretion signal + lifetime excretion counter
+# ---------------------------------------------------------------------------
+
+def test_no_excretion_fires_when_no_excretions_ever(signal_project):
+    """no_excretion signal fires when >=20 notes and zero lifetime excretions."""
+    from myco.notes import compute_hunger_report
+    notes = signal_project / "notes"
+    for i in range(25):
+        _write_note(notes, f"n_20260401T0000{i:02d}_{i:04x}", "raw")
+    report = compute_hunger_report(signal_project)
+    has_no_excretion = any("no_excretion" in s for s in report.signals)
+    assert has_no_excretion
+
+
+def test_no_excretion_suppressed_by_lifetime_counter(signal_project):
+    """no_excretion signal does NOT fire when lifetime counter > 0,
+    even if zero excreted notes exist on disk."""
+    from myco.notes import compute_hunger_report, increment_excretion_counter
+    notes = signal_project / "notes"
+    # 25 raw notes, zero excreted on disk
+    for i in range(25):
+        _write_note(notes, f"n_20260401T0000{i:02d}_{i:04x}", "raw")
+    # Record that excretions happened in the past (notes since deleted)
+    increment_excretion_counter(signal_project, count=3)
+    report = compute_hunger_report(signal_project)
+    has_no_excretion = any("no_excretion" in s for s in report.signals)
+    assert not has_no_excretion, (
+        "no_excretion signal should be suppressed when lifetime_excretions > 0"
+    )
+
+
+def test_no_excretion_suppressed_by_on_disk_excreted(signal_project):
+    """no_excretion signal does NOT fire when excreted notes exist on disk."""
+    from myco.notes import compute_hunger_report
+    notes = signal_project / "notes"
+    for i in range(24):
+        _write_note(notes, f"n_20260401T0000{i:02d}_{i:04x}", "raw")
+    # One excreted note on disk
+    eid = "n_20260401T000099_00ff"
+    content = (
+        f"---\nid: {eid}\nstatus: excreted\nsource: eat\n"
+        f"tags: [test]\ncreated: 2026-04-01\nlast_touched: 2026-04-01\n"
+        f"digest_count: 0\npromote_candidate: false\n"
+        f"excrete_reason: test excretion\n---\n\nExcreted.\n"
+    )
+    (notes / f"{eid}.md").write_text(content)
+    report = compute_hunger_report(signal_project)
+    has_no_excretion = any("no_excretion" in s for s in report.signals)
+    assert not has_no_excretion
+
+
+def test_excretion_counter_read_write(signal_project):
+    """read/increment_excretion_counter round-trips correctly."""
+    from myco.notes import read_excretion_counter, increment_excretion_counter
+    # Initially zero
+    state = read_excretion_counter(signal_project)
+    assert state["lifetime_excretions"] == 0
+    assert state["last_excretion"] is None
+    # Increment by 1
+    state = increment_excretion_counter(signal_project)
+    assert state["lifetime_excretions"] == 1
+    assert state["last_excretion"] is not None
+    # Increment by 5
+    state = increment_excretion_counter(signal_project, count=5)
+    assert state["lifetime_excretions"] == 6
+    # Persists on re-read
+    state = read_excretion_counter(signal_project)
+    assert state["lifetime_excretions"] == 6
+
+
+def test_update_note_increments_excretion_counter(signal_project):
+    """update_note auto-increments excretion counter on status -> excreted."""
+    from myco.notes import update_note, read_excretion_counter
+    notes = signal_project / "notes"
+    nid = "n_20260401T000000_0000"
+    _write_note(notes, nid, "raw")
+    note_path = notes / f"{nid}.md"
+    update_note(note_path, status="excreted", excrete_reason="test")
+    state = read_excretion_counter(signal_project)
+    assert state["lifetime_excretions"] == 1
+
+
+# ---------------------------------------------------------------------------
+# skill_degradation signal
+# ---------------------------------------------------------------------------
+
+def _add_evolution_config(canon_path, enabled=True, stale_days=7):
+    """Patch _canon.yaml to include evolution config."""
+    import yaml as _yaml
+    canon = _yaml.safe_load(canon_path.read_text(encoding="utf-8")) or {}
+    canon.setdefault("system", {})["evolution"] = {
+        "enabled": enabled,
+        "stale_active_threshold_days": stale_days,
+    }
+    canon_path.write_text(_yaml.dump(canon, default_flow_style=False),
+                          encoding="utf-8")
+
+
+def test_skill_degradation_fires_for_unevolved_old_skill(signal_project):
+    """skill_degradation fires when a skill is old and never evolved."""
+    import os
+    import time
+    from datetime import datetime, timedelta
+    from myco.notes import detect_skill_degradation
+
+    _add_evolution_config(signal_project / "_canon.yaml", enabled=True,
+                          stale_days=7)
+
+    skills = signal_project / "skills"
+    skills.mkdir()
+    skill_file = skills / "test-skill.md"
+    skill_file.write_text("# Test Skill\n\nDoes things.\n")
+    # Backdate the file mtime by 10 days.
+    old_time = time.time() - (10 * 86400)
+    os.utime(str(skill_file), (old_time, old_time))
+
+    sigs = detect_skill_degradation(signal_project)
+    assert len(sigs) == 1
+    assert "skill_degradation" in sigs[0]
+    assert "test-skill.md" in sigs[0]
+    assert "myco_evolve" in sigs[0]
+
+
+def test_skill_degradation_silent_when_evolved(signal_project):
+    """skill_degradation does NOT fire for skills with evolved variants."""
+    import os
+    import time
+    from myco.notes import detect_skill_degradation
+
+    _add_evolution_config(signal_project / "_canon.yaml", enabled=True,
+                          stale_days=7)
+
+    skills = signal_project / "skills"
+    skills.mkdir()
+    skill_file = skills / "my-skill.md"
+    skill_file.write_text("# My Skill\n")
+    old_time = time.time() - (10 * 86400)
+    os.utime(str(skill_file), (old_time, old_time))
+
+    # Create an evolved variant.
+    evolved = skills / ".evolved"
+    evolved.mkdir()
+    (evolved / "my-skill_gen1_abc123.md").write_text("# Evolved\n")
+
+    sigs = detect_skill_degradation(signal_project)
+    assert len(sigs) == 0
+
+
+def test_skill_degradation_silent_when_young(signal_project):
+    """skill_degradation does NOT fire for skills younger than threshold."""
+    from myco.notes import detect_skill_degradation
+
+    _add_evolution_config(signal_project / "_canon.yaml", enabled=True,
+                          stale_days=7)
+
+    skills = signal_project / "skills"
+    skills.mkdir()
+    # File created just now — mtime is today, age < 7 days.
+    (skills / "new-skill.md").write_text("# Fresh\n")
+
+    sigs = detect_skill_degradation(signal_project)
+    assert len(sigs) == 0
+
+
+def test_skill_degradation_silent_when_evolution_disabled(signal_project):
+    """skill_degradation does NOT fire when evolution is disabled."""
+    import os
+    import time
+    from myco.notes import detect_skill_degradation
+
+    _add_evolution_config(signal_project / "_canon.yaml", enabled=False,
+                          stale_days=7)
+
+    skills = signal_project / "skills"
+    skills.mkdir()
+    skill_file = skills / "stale-skill.md"
+    skill_file.write_text("# Stale\n")
+    old_time = time.time() - (20 * 86400)
+    os.utime(str(skill_file), (old_time, old_time))
+
+    sigs = detect_skill_degradation(signal_project)
+    assert len(sigs) == 0
+
+
+def test_skill_degradation_wired_into_hunger_report(signal_project):
+    """skill_degradation signals appear in compute_hunger_report and
+    produce corresponding evolve actions."""
+    import os
+    import time
+    from myco.notes import compute_hunger_report
+
+    _add_evolution_config(signal_project / "_canon.yaml", enabled=True,
+                          stale_days=7)
+
+    skills = signal_project / "skills"
+    skills.mkdir()
+    skill_file = skills / "rusty-skill.md"
+    skill_file.write_text("# Rusty\n")
+    old_time = time.time() - (15 * 86400)
+    os.utime(str(skill_file), (old_time, old_time))
+
+    report = compute_hunger_report(signal_project)
+    has_degradation = any("skill_degradation" in s for s in report.signals)
+    assert has_degradation
+
+    evolve_actions = [a for a in report.actions if a["verb"] == "evolve"]
+    assert len(evolve_actions) == 1
+    assert evolve_actions[0]["args"]["skill"] == "rusty-skill.md"
