@@ -131,6 +131,7 @@ def _read_file(path: Path) -> Optional[str]:
         "destructiveHint": False,
         "idempotentHint": True,
         "openWorldHint": False,
+        "modelHint": "any",  # agent-routing: recommended model class
     },
 )
 async def myco_lint(
@@ -243,6 +244,7 @@ async def myco_lint(
         "destructiveHint": False,
         "idempotentHint": True,
         "openWorldHint": False,
+        "modelHint": "any",  # agent-routing: recommended model class
     },
 )
 async def myco_status(
@@ -384,6 +386,7 @@ async def myco_status(
         "destructiveHint": False,
         "idempotentHint": True,
         "openWorldHint": False,
+        "modelHint": "any",  # agent-routing: recommended model class
     },
 )
 async def myco_search(
@@ -501,6 +504,7 @@ async def myco_search(
         "destructiveHint": False,
         "idempotentHint": False,
         "openWorldHint": False,
+        "modelHint": "any",  # agent-routing: recommended model class
     },
 )
 async def myco_log(
@@ -567,6 +571,7 @@ async def myco_log(
         "destructiveHint": False,
         "idempotentHint": True,
         "openWorldHint": False,
+        "modelHint": "sonnet",  # agent-routing: recommended model class
     },
 )
 async def myco_reflect(
@@ -645,15 +650,39 @@ async def myco_reflect(
             "Consider: is there knowledge that should be promoted from docs/ to wiki/?"
         )
 
+    # Learning Loop (absorbed from gstack): auto-capture execution summary
+    # as a note with execution-learning tag. This is NOT just a document —
+    # it's code that runs every time reflect is called.
+    learning_note_id = None
+    try:
+        from myco.notes import write_note
+        learning_body = (
+            f"## Execution Learning (auto-captured at session end)\n\n"
+            f"Friction entries this session: {len(friction_entries)}\n"
+            f"Lint status: {'clean' if not quick_issues else f'{len(quick_issues)} issues'}\n"
+        )
+        if friction_entries:
+            learning_body += f"Recent friction: {'; '.join(f[:60] for f in friction_entries[-3:])}\n"
+        path = write_note(
+            root, learning_body,
+            tags=["execution-learning", "auto-captured", "gear2"],
+            source="eat",
+        )
+        learning_note_id = path.stem
+    except Exception:
+        pass  # best-effort; never block reflection
+
     reflection = {
         "gear": "Gear 2 — Session-End Reflection",
         "timestamp": datetime.now().isoformat(),
         "recent_friction": friction_entries,
         "lint_status": "clean" if not quick_issues else f"{len(quick_issues)} issues",
         "prompts": prompts,
+        "learning_note": learning_note_id,
         "instruction": (
             "Answer these prompts briefly, then call myco_log with "
-            "entry_type='reflection' to persist your reflection."
+            "entry_type='reflection' to persist your reflection. "
+            "An execution-learning note was auto-captured."
         ),
     }
 
@@ -672,6 +701,7 @@ async def myco_reflect(
         "destructiveHint": False,
         "idempotentHint": False,
         "openWorldHint": False,
+        "modelHint": "any",  # agent-routing: recommended model class
     },
 )
 async def myco_eat(
@@ -768,6 +798,7 @@ _DIGEST_PROMPTS = [
         "destructiveHint": False,
         "idempotentHint": False,
         "openWorldHint": False,
+        "modelHint": "sonnet",  # agent-routing: recommended model class
     },
 )
 async def myco_digest(
@@ -918,6 +949,7 @@ async def myco_digest(
         "destructiveHint": False,
         "idempotentHint": True,
         "openWorldHint": False,
+        "modelHint": "any",  # agent-routing: recommended model class
     },
 )
 async def myco_view(
@@ -1022,6 +1054,7 @@ async def myco_view(
         "destructiveHint": False,
         "idempotentHint": True,
         "openWorldHint": False,
+        "modelHint": "any",  # agent-routing: recommended model class
     },
 )
 async def myco_hunger(
@@ -1147,6 +1180,16 @@ async def myco_hunger(
             execution_results.append(exec_result)
         result["execution_results"] = execution_results
 
+    # Sprint Pipeline hint (absorbed from gstack): tell Agent where they are
+    # in the development loop based on current substrate state.
+    if report.signals and any("healthy" in s for s in report.signals):
+        result["pipeline_hint"] = "Build — substrate healthy, proceed with task work"
+    elif report.actions:
+        result["pipeline_hint"] = "Think — substrate needs attention, execute actions first"
+    else:
+        result["pipeline_hint"] = "Build — signals advisory only, proceed with caution"
+    result["pipeline_ref"] = "skills/sprint-pipeline.md"
+
     return json.dumps(result, ensure_ascii=False, indent=2)
 
 
@@ -1162,6 +1205,7 @@ async def myco_hunger(
         "destructiveHint": False,
         "idempotentHint": False,
         "openWorldHint": False,
+        "modelHint": "opus",  # agent-routing: recommended model class
     },
 )
 async def myco_compress(
@@ -1249,6 +1293,7 @@ async def myco_compress(
         "destructiveHint": False,
         "idempotentHint": False,
         "openWorldHint": False,
+        "modelHint": "any",  # agent-routing: recommended model class
     },
 )
 async def myco_uncompress(
@@ -1306,6 +1351,7 @@ async def myco_uncompress(
         "destructiveHint": False,
         "idempotentHint": True,
         "openWorldHint": False,
+        "modelHint": "sonnet",  # agent-routing: recommended model class
     },
 )
 async def myco_prune(
@@ -1371,6 +1417,7 @@ async def myco_prune(
         "destructiveHint": False,
         "idempotentHint": False,
         "openWorldHint": True,
+        "modelHint": "sonnet",  # agent-routing: recommended model class
     },
 )
 async def myco_inlet(
@@ -1440,6 +1487,7 @@ async def myco_inlet(
         "destructiveHint": False,
         "idempotentHint": False,
         "openWorldHint": True,
+        "modelHint": "any",  # agent-routing: recommended model class
     },
 )
 async def myco_forage(
@@ -1531,6 +1579,7 @@ async def myco_forage(
         "destructiveHint": False,
         "idempotentHint": False,
         "openWorldHint": False,
+        "modelHint": "any",  # agent-routing: recommended model class
     },
 )
 async def myco_upstream(
@@ -1604,6 +1653,7 @@ async def myco_upstream(
         "destructiveHint": False,
         "idempotentHint": True,
         "openWorldHint": False,
+        "modelHint": "any",  # agent-routing: recommended model class
     },
 )
 async def myco_graph(
@@ -1684,6 +1734,7 @@ async def myco_graph(
         "destructiveHint": False,
         "idempotentHint": True,
         "openWorldHint": False,
+        "modelHint": "any",  # agent-routing: recommended model class
     },
 )
 async def myco_cohort(
@@ -1748,6 +1799,7 @@ async def myco_cohort(
         "destructiveHint": False,
         "idempotentHint": True,
         "openWorldHint": False,
+        "modelHint": "any",  # agent-routing: recommended model class
     },
 )
 async def myco_session(
@@ -1811,6 +1863,7 @@ async def myco_session(
         "destructiveHint": False,
         "idempotentHint": True,
         "openWorldHint": True,
+        "modelHint": "opus",  # agent-routing: recommended model class
     },
 )
 async def myco_discover(
