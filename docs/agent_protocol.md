@@ -127,6 +127,20 @@ Myco v1.2 Phase ① 引入了消化系统（`eat / digest / view / hunger` + `no
 
 **禁止**：跳过 `digest` 直接手改 frontmatter 的 `status` 字段。永远走工具。
 
+### 2.6 纵向追溯导航（Wave 56）
+
+**`_canon.yaml::system.traceability`** 是 Agent 的纵向导航图。
+
+**规程**：修改任何内核表面之前，读 traceability.anchors 找到完整影响路径。
+例如：要修改 anchor #3（自主代谢管道）→ 追溯告诉你：vision.md §三 + 
+agent_protocol.md §2.2/§3/§4 + _canon.yaml::notes_schema + lint L10/L18/L22 + 
+notes.py/compress_cmd.py/inlet_cmd.py + hunger raw_backlog/stale_raw/
+compression_ripe/compression_pressure 全部可能需要同步更新。
+
+**目的**：防止"改了一层、漏了另一层"的漂移（如 MCP 工具从 9 增到 18 但 README 
+腐烂 10+ 个 wave 未发现）。追溯索引不是 lint——它是给 Agent 的智能导航，Agent 
+用自己的判断力决定哪些下游层需要更新。
+
 ---
 
 ## 3. Session Boot Sequence — 会话启动硬流程
