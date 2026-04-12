@@ -1072,14 +1072,14 @@ def detect_session_end_drift(
     or Gear 4 sweep discipline has drifted in log.md, else None.
 
     Two sub-checks (both optional via canon; either can be disabled):
-        gear2 — count non-meta `## [YYYY-MM-DD] <type>` entries after the
+        reflection_cfg — count non-meta `## [YYYY-MM-DD] <type>` entries after the
                 most recent `## [YYYY-MM-DD] meta |` entry. If the count
-                exceeds `drift_threshold_entries`, gear2 fires.
-        gear4 — find the oldest `g4-candidate` line whose entry date is
+                exceeds `drift_threshold_entries`, reflection_cfg fires.
+        distillation_cfg — find the oldest `g4-candidate` line whose entry date is
                 older than `drift_threshold_days` and has no resolution
                 marker (`g4-pass` / `g4-landed` / `g4-resolved`) in the
                 same line, and does not reference a craft file that
-                exists on disk. If any such line exists, gear4 fires.
+                exists on disk. If any such line exists, distillation_cfg fires.
 
     Signal tier: LOW (advisory). Does not use the `[REFLEX HIGH]` prefix —
     see docs/primordia/session_end_reflex_arc_craft_2026-04-11.md §B4 for
@@ -1105,8 +1105,8 @@ def detect_session_end_drift(
     if not cfg or not cfg.get("enabled", False):
         return None
 
-    g2_cfg = cfg.get("gear2") or {}
-    g4_cfg = cfg.get("gear4") or {}
+    g2_cfg = cfg.get("reflection_cfg") or {}
+    g4_cfg = cfg.get("distillation_cfg") or {}
     scan_cap = int(cfg.get("log_scan_cap_bytes", 5_242_880))
 
     log_path = Path(root) / "log.md"
@@ -1153,7 +1153,7 @@ def detect_session_end_drift(
             non_meta_after = len(header_positions)
         if non_meta_after > threshold:
             parts.append(
-                f"gear2 ({non_meta_after} log entries since last "
+                f"reflection_cfg ({non_meta_after} log entries since last "
                 f"`{marker}` reflection, threshold {threshold})"
             )
 
@@ -1209,7 +1209,7 @@ def detect_session_end_drift(
         if stale_count > 0 and oldest_stale_date is not None:
             age_days = (now_dt - oldest_stale_date).days
             parts.append(
-                f"gear4 ({stale_count} unresolved `{marker}` entries "
+                f"distillation_cfg ({stale_count} unresolved `{marker}` entries "
                 f"older than {threshold_days}d, oldest "
                 f"{oldest_stale_date.strftime('%Y-%m-%d')} = {age_days}d old)"
             )

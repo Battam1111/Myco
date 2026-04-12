@@ -191,8 +191,8 @@ Type 枚举（可扩展）：`milestone` / `decision` / `debug` / `deploy` / `de
 
 ```yaml
 system:                              # 跨项目通用
-  principles_count: 12               # W1-W12（十二原则）
-  principles_label: "十二原则"
+  principles_count: 13               # W1-W12（十三原则）
+  principles_label: "十三原则"
   wiki_page_types: [entity, concept, operations, analysis, craft]
   lint_dimensions: 23                # L0-L22 (current substrate)
   claude_md_max_lines: 300

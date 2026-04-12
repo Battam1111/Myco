@@ -19,7 +19,7 @@
 <!-- MYCO-BOOT-SIGNALS:END -->
 
 **项目**：Myco — 可自进化的 AI 延伸认知基质（框架本身）
-**当前阶段**：v0.2.0 pre-release — public launch 准备中（尚未 1.0）；Phase 2 消化道迭代进行中。**Metamorphosis plan 完成**，kernel contract v0.45.0。关键里程碑：23 维 lint (L0-L22) + 19 MCP tools + 122 tests + Signal-to-Action hunger 自动执行闭环 + Link Graph 菌丝互联 + Semantic Cohort Intelligence + Inlet Trigger Policy + Continuous Compression + Session Memory FTS5 + **Wave 54 Agent-First Integration（hunger execute=true + scheduled metabolic cycle）**
+**当前阶段**：v0.2.0 pre-release — public launch 准备中（尚未 1.0）；Post-Metamorphosis — Agent-First 有机体已建成。**Metamorphosis plan 完成**，kernel contract v0.45.0。关键里程碑：23 维 lint (L0-L22) + 19 MCP tools + 122 tests + Signal-to-Action hunger 自动执行闭环 + Link Graph 菌丝互联 + Semantic Cohort Intelligence + Inlet Trigger Policy + Continuous Compression + Session Memory FTS5 + **Wave 54 Agent-First Integration（hunger execute=true + scheduled metabolic cycle）**
 
 **框架开发中最容易出错的 N 件事** ⚠️：
 1. 更新 `pyproject.toml` 版本号但忘记同步 `src/myco/__init__.py`（两处版本号必须一致）
@@ -176,7 +176,7 @@ v2.0      Metabolic Inlet 原语               🔄 MVP scaffold 落地 (Wave 35
 |------|------|------|
 | `docs/agent_protocol.md` | **Agent 运行硬契约** — write surface / tool protocol / boot-end sequence / anti-patterns（由 L11 lint 执行） | **[ACTIVE] [CONTRACT]** |
 | `docs/craft_protocol.md` | **W3 Craft Protocol v1 正式规范** — 文件名/frontmatter schema、置信度阶梯（kernel 0.90 / instance 0.85 / exploration 0.75）、状态机、集成矩阵、grandfather 规则、废弃标准（由 L13 lint 执行） | **[ACTIVE] [CONTRACT]** |
-| `docs/WORKFLOW.md` | 工作流手册（十二原则 W1-W12 + 进化引擎 + 会话流程） | [ACTIVE] |
+| `docs/WORKFLOW.md` | 工作流手册（十三原则 W1-W13 + 进化引擎 + 会话流程） | [ACTIVE] |
 
 ### 框架知识文档
 | 文档 | 内容 | 状态 |

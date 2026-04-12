@@ -78,11 +78,11 @@ system:
     enabled: true
     severity: LOW
     log_scan_cap_bytes: 5242880
-    gear2:
+    reflection:
       enabled: true
       drift_threshold_entries: 15
       reflection_marker: meta
-    gear4:
+    distillation:
       enabled: true
       drift_threshold_days: 5
       candidate_marker: g4-candidate

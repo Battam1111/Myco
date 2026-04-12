@@ -1,6 +1,6 @@
 system:
-  principles_count: 12
-  principles_label: 十二原则
+  principles_count: 13
+  principles_label: 十三原则
   entry_point: MYCO.md
   # --- Upstream Protocol v1.0 (contract version lock) ---
   # Authoritative source: docs/agent_protocol.md §8
@@ -87,21 +87,21 @@ system:
   # hunger advisory list, does not block task work. See craft §B4.
   #
   # Two drift detectors bundled:
-  #   gear2 — "N log entries since last `## [YYYY-MM-DD] meta |` line".
+  # reflection — "N log entries since last `## [YYYY-MM-DD] meta |` line".
   #           Proxy for "did you reflect at all today?". Default threshold
   #           15 ≈ one active kernel day.
-  #   gear4 — "oldest `g4-candidate` entry older than K days without
+  # distillation — "oldest `g4-candidate` entry older than K days without
   #           resolution marker (`g4-pass` inline or craft file on disk)".
   #           Drives Gear 4 sweep discipline.
   session_end_reflex:
     enabled: true
     severity: LOW                       # asymmetric with boot_reflex HIGH
     log_scan_cap_bytes: 5242880         # 5 MB — constant-bound scan (C2)
-    gear2:
+    reflection:
       enabled: true
       drift_threshold_entries: 15
       reflection_marker: meta           # token after `[YYYY-MM-DD]`
-    gear4:
+    distillation:
       enabled: true
       drift_threshold_days: 5
       candidate_marker: g4-candidate
@@ -397,7 +397,7 @@ system:
   - operations
   - analysis
   - craft
-  evolution_gears: 4
+  # evolution_gears: removed Wave Metamorphosis — replaced by metabolic-cycle skill
   myco_md_max_lines: 300
   stale_patterns:
   - 五原则
