@@ -6,7 +6,7 @@ When configured in .mcp.json, AI agents (Claude Code, Cursor, etc.) automaticall
 discover these tools and call them at the right moments — no manual prompting needed.
 
 Tools:
-    myco_lint       — Run 15-dimensional consistency checks (L0-L14)
+    myco_lint       — Run 19-dimensional consistency checks (L0-L18)
     myco_status     — Quick overview of knowledge system health
     myco_search     — Search across wiki/docs/MYCO.md knowledge base
     myco_log        — Append friction/reflection entries to log.md
@@ -105,12 +105,13 @@ async def myco_lint(
     modified wiki/, docs/, MYCO.md, _canon.yaml, or notes/. Also run after any
     Gear 3 retrospective or before commits that touch multiple knowledge files.
 
-    This is the 15-dimensional immune system of the knowledge substrate. It
+    This is the 19-dimensional immune system of the knowledge substrate. It
     catches contradictions across files, orphan references, stale patterns,
     version drift, write-surface violations, upstream transport hygiene, craft
-    protocol schema violations, and forage substrate hygiene issues — things
-    markdown linters and prose linters cannot see because they check syntax,
-    not cross-file semantic consistency.
+    protocol schema violations, forage substrate hygiene issues, craft reflex
+    arc compliance, boot brief freshness, contract drift, and compression
+    integrity — things markdown linters and prose linters cannot see because
+    they check syntax, not cross-file semantic consistency.
 
     Checks: L0 Canon schema, L1 Reference integrity, L2 Number consistency,
     L3 Stale patterns, L4 Orphan detection, L5 Log coverage, L6 Date consistency,
@@ -118,7 +119,11 @@ async def myco_lint(
     L11 Write surface (agent contract from docs/agent_protocol.md §1),
     L12 Upstream dotfile hygiene (.myco_upstream_{outbox,inbox}/ rules from §8.5),
     L13 Craft Protocol schema (docs/primordia/*_craft_*.md frontmatter),
-    L14 Forage Hygiene (forage/_index.yaml manifest + lifecycle, contract v0.8.0).
+    L14 Forage Hygiene (forage/_index.yaml manifest + lifecycle),
+    L15 Craft Reflex (craft must accompany kernel/public_claim surface touches),
+    L16 Boot Brief Freshness (.myco_state/boot_brief.md staleness),
+    L17 Contract Drift (synced_contract_version lag detection),
+    L18 Compression Integrity (.original / extracted note hash audit).
 
     Args:
         project_dir: Path to Myco project root. Auto-detected if omitted.
@@ -181,7 +186,7 @@ async def myco_lint(
     report = {
         "project": str(root),
         "timestamp": datetime.now().isoformat(),
-        "mode": "quick (L0-L3)" if quick else "full (L0-L14)",
+        "mode": "quick (L0-L3)" if quick else "full (L0-L18)",
         "total_issues": total_issues,
         "all_passed": total_issues == 0,
         "checks": results,
