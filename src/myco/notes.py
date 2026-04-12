@@ -317,8 +317,24 @@ def write_note(
     }
 
     path = notes_dir / id_to_filename(nid)
+
+    # Wave B3: inline frontmatter validation before write.
+    # Catches missing required fields at write time, not at lint time.
+    required = {"id", "status", "source", "tags", "created", "last_touched",
+                "digest_count", "promote_candidate", "excrete_reason"}
+    missing = required - set(meta.keys())
+    if missing:
+        raise ValueError(
+            f"write_note: missing required frontmatter fields: {missing}. "
+            f"Note {nid} not written."
+        )
+    if meta.get("status") not in VALID_STATUSES:
+        raise ValueError(
+            f"write_note: invalid status '{meta.get('status')}'. "
+            f"Valid: {VALID_STATUSES}. Note {nid} not written."
+        )
+
     # Wave 59: atomic write prevents empty files on failure (dogfood friction).
-    # io_utils.atomic_write_text uses tempfile+os.replace (Wave 30 design).
     from myco.io_utils import atomic_write_text
     atomic_write_text(path, serialize_note(meta, body + "\n"))
     return path
