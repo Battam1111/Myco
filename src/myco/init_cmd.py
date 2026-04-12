@@ -38,8 +38,9 @@ def detect_tools(project_dir: Path) -> dict[str, bool]:
       Cursor      : ``.cursor/`` in project dir  OR  ``cursor`` on PATH
       VS Code     : ``.vscode/`` in project dir  OR  ``code`` on PATH
       Codex       : ``~/.codex/`` exists          OR  ``codex`` on PATH
-      Cline       : ``cline_mcp_settings.json`` in project dir
+      Cline       : global ``cline_mcp_settings.json`` exists (OS-specific)
       Continue    : ``.continue/`` in project dir
+      Windsurf    : ``windsurf`` on PATH  OR  ``~/.codeium/windsurf/`` exists
       Zed         : ``zed`` on PATH
     """
     home = Path.home()
@@ -51,8 +52,10 @@ def detect_tools(project_dir: Path) -> dict[str, bool]:
                        or shutil.which("code") is not None,
         "Codex":       (home / ".codex").is_dir()
                        or shutil.which("codex") is not None,
-        "Cline":       (project_dir / "cline_mcp_settings.json").is_file(),
+        "Cline":       _cline_settings_path().is_file(),
         "Continue":    (project_dir / ".continue").is_dir(),
+        "Windsurf":    shutil.which("windsurf") is not None
+                       or (home / ".codeium" / "windsurf").is_dir(),
         "Zed":         shutil.which("zed") is not None,
     }
 
@@ -96,13 +99,16 @@ def _json_merge_write(path: Path, patch: dict, *, deep_key: str | None = None) -
 
 def _toml_merge_write(path: Path, myco_block: str) -> str:
     """
-    Merge a TOML snippet (``[mcp.servers.myco]`` block) into *path*.
+    Merge a TOML snippet (``[mcp_servers.myco]`` block) into *path*.
 
     Naive but correct for the codex config shape: if the file exists and
-    already contains ``[mcp.servers.myco]``, skip; otherwise append.
+    already contains ``[mcp_servers.myco]``, skip; otherwise append.
     """
     if path.exists():
         existing = path.read_text(encoding="utf-8")
+        if "[mcp_servers.myco]" in existing:
+            return "already configured — skipped"
+        # Also detect legacy wrong table name from older Myco versions
         if "[mcp.servers.myco]" in existing:
             return "already configured — skipped"
         path.write_text(existing.rstrip() + "\n\n" + myco_block + "\n", encoding="utf-8")
@@ -146,25 +152,25 @@ def _gen_cursor(project_dir: Path) -> str:
 
 
 def _gen_vscode(project_dir: Path) -> str:
-    """Generate / merge .vscode/settings.json for VS Code."""
+    """Generate / merge .vscode/mcp.json for VS Code + Copilot."""
     payload = {
-        "mcp": {
-            "servers": {
-                "myco": {**_MYCO_SERVER_STDIO}
+        "servers": {
+            "myco": {
+                "type": "stdio",
+                **_MYCO_SERVER_STDIO,
             }
         }
     }
     vscode_dir = project_dir / ".vscode"
     vscode_dir.mkdir(exist_ok=True)
-    path = vscode_dir / "settings.json"
+    path = vscode_dir / "mcp.json"
     return _json_merge_write(path, payload)
 
 
 def _gen_codex(project_dir: Path) -> str:
     """Generate / merge ~/.codex/config.toml for Codex."""
     block = (
-        '[mcp.servers.myco]\n'
-        'transport = "stdio"\n'
+        '[mcp_servers.myco]\n'
         'command = "python"\n'
         'args = ["-m", "myco.mcp_server"]'
     )
@@ -172,28 +178,54 @@ def _gen_codex(project_dir: Path) -> str:
     return _toml_merge_write(path, block)
 
 
+def _cline_settings_path() -> Path:
+    """Return the OS-specific path for Cline's global MCP settings file."""
+    if sys.platform == "win32":
+        appdata = os.environ.get("APPDATA", "")
+        if appdata:
+            return Path(appdata) / "Code" / "User" / "globalStorage" / "saoudrizwan.claude-dev" / "settings" / "cline_mcp_settings.json"
+        # Fallback if APPDATA is not set
+        return Path.home() / "AppData" / "Roaming" / "Code" / "User" / "globalStorage" / "saoudrizwan.claude-dev" / "settings" / "cline_mcp_settings.json"
+    elif sys.platform == "darwin":
+        return Path.home() / "Library" / "Application Support" / "Code" / "User" / "globalStorage" / "saoudrizwan.claude-dev" / "settings" / "cline_mcp_settings.json"
+    else:
+        # Linux and other Unix-like systems
+        return Path.home() / ".config" / "Code" / "User" / "globalStorage" / "saoudrizwan.claude-dev" / "settings" / "cline_mcp_settings.json"
+
+
 def _gen_cline(project_dir: Path) -> str:
-    """Generate / merge cline_mcp_settings.json for Cline."""
+    """Generate / merge cline_mcp_settings.json for Cline (global, OS-specific path)."""
     payload = {
         "mcpServers": {
             "myco": {**_MYCO_SERVER_STDIO}
         }
     }
-    path = project_dir / "cline_mcp_settings.json"
+    path = _cline_settings_path()
     return _json_merge_write(path, payload)
 
 
 def _gen_continue(project_dir: Path) -> str:
-    """Generate / merge .continue/mcpServers/myco.json for Continue."""
-    payload = {**_MYCO_SERVER_STDIO}
-    cont_dir = project_dir / ".continue" / "mcpServers"
+    """Generate / merge .continue/config.json for Continue."""
+    payload = {
+        "mcpServers": {
+            "myco": {**_MYCO_SERVER_STDIO}
+        }
+    }
+    cont_dir = project_dir / ".continue"
     cont_dir.mkdir(parents=True, exist_ok=True)
-    path = cont_dir / "myco.json"
-    # For Continue the file IS the server definition — overwrite is safe
-    # since the file is tool-specific (myco.json).
-    already_exists = path.exists()
-    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
-    return "merged" if already_exists else "created"
+    path = cont_dir / "config.json"
+    return _json_merge_write(path, payload)
+
+
+def _gen_windsurf(project_dir: Path) -> str:
+    """Generate / merge ~/.codeium/windsurf/mcp_config.json for Windsurf."""
+    payload = {
+        "mcpServers": {
+            "myco": {**_MYCO_SERVER_STDIO}
+        }
+    }
+    path = Path.home() / ".codeium" / "windsurf" / "mcp_config.json"
+    return _json_merge_write(path, payload)
 
 
 def _gen_zed(project_dir: Path) -> str:
@@ -235,10 +267,11 @@ def _gen_claude_md(project_dir: Path, replacements: dict) -> str:
 _TOOL_GENERATORS: dict[str, tuple] = {
     "Claude Code": (_gen_claude_code, ".mcp.json"),
     "Cursor":      (_gen_cursor,      ".cursor/mcp.json"),
-    "VS Code":     (_gen_vscode,      ".vscode/settings.json"),
+    "VS Code":     (_gen_vscode,      ".vscode/mcp.json"),
     "Codex":       (_gen_codex,       "~/.codex/config.toml"),
-    "Cline":       (_gen_cline,       "cline_mcp_settings.json"),
-    "Continue":    (_gen_continue,    ".continue/mcpServers/myco.json"),
+    "Cline":       (_gen_cline,       "cline_mcp_settings.json (global)"),
+    "Continue":    (_gen_continue,    ".continue/config.json"),
+    "Windsurf":    (_gen_windsurf,    "~/.codeium/windsurf/mcp_config.json"),
     "Zed":         (_gen_zed,         ".zed/settings.json"),
 }
 

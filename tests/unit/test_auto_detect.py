@@ -16,8 +16,10 @@ from myco.init_cmd import (
     _gen_codex,
     _gen_cline,
     _gen_continue,
+    _gen_windsurf,
     _gen_zed,
     _gen_claude_md,
+    _cline_settings_path,
     _json_merge_write,
     _toml_merge_write,
 )
@@ -79,8 +81,11 @@ class TestDetectTools:
             assert result["Codex"] is True
 
     def test_detects_cline_settings(self, tmp_path):
-        (tmp_path / "cline_mcp_settings.json").write_text("{}", encoding="utf-8")
-        with patch("myco.init_cmd.shutil.which", return_value=None):
+        """Cline is detected when the global settings file exists."""
+        fake_cline_path = tmp_path / "cline_mcp_settings.json"
+        fake_cline_path.write_text("{}", encoding="utf-8")
+        with patch("myco.init_cmd.shutil.which", return_value=None), \
+             patch("myco.init_cmd._cline_settings_path", return_value=fake_cline_path):
             result = detect_tools(tmp_path)
         assert result["Cline"] is True
 
@@ -96,9 +101,27 @@ class TestDetectTools:
             result = detect_tools(tmp_path)
         assert result["Zed"] is True
 
+    def test_detects_windsurf_on_path(self, tmp_path):
+        with patch("myco.init_cmd.shutil.which") as mock_which, \
+             patch("myco.init_cmd._cline_settings_path", return_value=tmp_path / "nonexistent"):
+            mock_which.side_effect = lambda cmd: "/usr/bin/windsurf" if cmd == "windsurf" else None
+            result = detect_tools(tmp_path)
+        assert result["Windsurf"] is True
+
+    def test_detects_windsurf_dir(self, tmp_path):
+        fake_home = tmp_path / "fakehome"
+        fake_home.mkdir()
+        (fake_home / ".codeium" / "windsurf").mkdir(parents=True)
+        with patch("myco.init_cmd.shutil.which", return_value=None), \
+             patch("myco.init_cmd.Path.home", return_value=fake_home), \
+             patch("myco.init_cmd._cline_settings_path", return_value=tmp_path / "nonexistent"):
+            result = detect_tools(tmp_path)
+        assert result["Windsurf"] is True
+
     def test_nothing_detected(self, tmp_path):
         with patch("myco.init_cmd.shutil.which", return_value=None), \
-             patch("myco.init_cmd.Path.home") as mock_home:
+             patch("myco.init_cmd.Path.home") as mock_home, \
+             patch("myco.init_cmd._cline_settings_path", return_value=tmp_path / "nonexistent"):
             fake_home = tmp_path / "fakehome"
             fake_home.mkdir()
             mock_home.return_value = fake_home
@@ -152,31 +175,39 @@ class TestTomlMergeWrite:
 
     def test_creates_new_toml(self, tmp_path):
         path = tmp_path / "config.toml"
-        block = '[mcp.servers.myco]\ncommand = "python"'
+        block = '[mcp_servers.myco]\ncommand = "python"'
         status = _toml_merge_write(path, block)
         assert status == "created"
-        assert "[mcp.servers.myco]" in path.read_text(encoding="utf-8")
+        assert "[mcp_servers.myco]" in path.read_text(encoding="utf-8")
 
     def test_merges_into_existing_toml(self, tmp_path):
         path = tmp_path / "config.toml"
         path.write_text('[other]\nkey = "value"', encoding="utf-8")
-        block = '[mcp.servers.myco]\ncommand = "python"'
+        block = '[mcp_servers.myco]\ncommand = "python"'
         status = _toml_merge_write(path, block)
         assert status == "merged"
         content = path.read_text(encoding="utf-8")
         assert "[other]" in content
-        assert "[mcp.servers.myco]" in content
+        assert "[mcp_servers.myco]" in content
 
     def test_skips_if_already_present(self, tmp_path):
         path = tmp_path / "config.toml"
+        path.write_text('[mcp_servers.myco]\ncommand = "python"', encoding="utf-8")
+        block = '[mcp_servers.myco]\ncommand = "python"'
+        status = _toml_merge_write(path, block)
+        assert status == "already configured \u2014 skipped"
+
+    def test_skips_if_legacy_format_present(self, tmp_path):
+        """Detect old [mcp.servers.myco] format and skip rather than duplicate."""
+        path = tmp_path / "config.toml"
         path.write_text('[mcp.servers.myco]\ncommand = "python"', encoding="utf-8")
-        block = '[mcp.servers.myco]\ncommand = "python"'
+        block = '[mcp_servers.myco]\ncommand = "python"'
         status = _toml_merge_write(path, block)
         assert status == "already configured \u2014 skipped"
 
     def test_creates_parent_dirs(self, tmp_path):
         path = tmp_path / "deep" / "config.toml"
-        block = '[mcp.servers.myco]\ncommand = "python"'
+        block = '[mcp_servers.myco]\ncommand = "python"'
         status = _toml_merge_write(path, block)
         assert status == "created"
         assert path.exists()
@@ -231,24 +262,24 @@ class TestGenCursor:
 class TestGenVSCode:
     """Tests for _gen_vscode()."""
 
-    def test_creates_vscode_settings(self, tmp_path):
+    def test_creates_vscode_mcp_json(self, tmp_path):
         status = _gen_vscode(tmp_path)
         assert status == "created"
-        data = json.loads((tmp_path / ".vscode" / "settings.json").read_text(encoding="utf-8"))
-        assert "myco" in data["mcp"]["servers"]
+        data = json.loads((tmp_path / ".vscode" / "mcp.json").read_text(encoding="utf-8"))
+        assert "myco" in data["servers"]
+        assert data["servers"]["myco"]["type"] == "stdio"
 
-    def test_merges_existing_settings(self, tmp_path):
+    def test_merges_existing_mcp_json(self, tmp_path):
         vscode_dir = tmp_path / ".vscode"
         vscode_dir.mkdir()
-        (vscode_dir / "settings.json").write_text(
-            json.dumps({"editor.fontSize": 14, "mcp": {"servers": {"other": {}}}}),
+        (vscode_dir / "mcp.json").write_text(
+            json.dumps({"servers": {"other": {"type": "stdio", "command": "node"}}}),
             encoding="utf-8")
         status = _gen_vscode(tmp_path)
         assert status == "merged"
-        data = json.loads((vscode_dir / "settings.json").read_text(encoding="utf-8"))
-        assert data["editor.fontSize"] == 14
-        assert "other" in data["mcp"]["servers"]
-        assert "myco" in data["mcp"]["servers"]
+        data = json.loads((vscode_dir / "mcp.json").read_text(encoding="utf-8"))
+        assert "other" in data["servers"]
+        assert "myco" in data["servers"]
 
 
 class TestGenCodex:
@@ -259,27 +290,39 @@ class TestGenCodex:
             status = _gen_codex(tmp_path)
         assert status == "created"
         content = (tmp_path / ".codex" / "config.toml").read_text(encoding="utf-8")
-        assert "[mcp.servers.myco]" in content
+        assert "[mcp_servers.myco]" in content
         assert 'command = "python"' in content
+        assert "transport" not in content  # Codex infers stdio from 'command'
 
 
 class TestGenCline:
     """Tests for _gen_cline()."""
 
     def test_creates_cline_settings(self, tmp_path):
-        status = _gen_cline(tmp_path)
+        fake_path = tmp_path / "global" / "cline_mcp_settings.json"
+        with patch("myco.init_cmd._cline_settings_path", return_value=fake_path):
+            status = _gen_cline(tmp_path)
         assert status == "created"
-        data = json.loads((tmp_path / "cline_mcp_settings.json").read_text(encoding="utf-8"))
+        data = json.loads(fake_path.read_text(encoding="utf-8"))
         assert "myco" in data["mcpServers"]
 
     def test_merges_existing(self, tmp_path):
-        (tmp_path / "cline_mcp_settings.json").write_text(
+        fake_path = tmp_path / "global" / "cline_mcp_settings.json"
+        fake_path.parent.mkdir(parents=True, exist_ok=True)
+        fake_path.write_text(
             json.dumps({"mcpServers": {"existing": {}}}), encoding="utf-8")
-        status = _gen_cline(tmp_path)
+        with patch("myco.init_cmd._cline_settings_path", return_value=fake_path):
+            status = _gen_cline(tmp_path)
         assert status == "merged"
-        data = json.loads((tmp_path / "cline_mcp_settings.json").read_text(encoding="utf-8"))
+        data = json.loads(fake_path.read_text(encoding="utf-8"))
         assert "existing" in data["mcpServers"]
         assert "myco" in data["mcpServers"]
+
+    def test_cline_settings_path_returns_path(self):
+        """_cline_settings_path always returns a Path ending with the expected filename."""
+        path = _cline_settings_path()
+        assert path.name == "cline_mcp_settings.json"
+        assert "saoudrizwan.claude-dev" in str(path)
 
 
 class TestGenContinue:
@@ -289,9 +332,47 @@ class TestGenContinue:
         status = _gen_continue(tmp_path)
         assert status == "created"
         data = json.loads(
-            (tmp_path / ".continue" / "mcpServers" / "myco.json").read_text(encoding="utf-8"))
-        assert data["command"] == "python"
-        assert data["args"] == ["-m", "myco.mcp_server"]
+            (tmp_path / ".continue" / "config.json").read_text(encoding="utf-8"))
+        assert "myco" in data["mcpServers"]
+        assert data["mcpServers"]["myco"]["command"] == "python"
+        assert data["mcpServers"]["myco"]["args"] == ["-m", "myco.mcp_server"]
+
+    def test_merges_existing(self, tmp_path):
+        cont_dir = tmp_path / ".continue"
+        cont_dir.mkdir()
+        (cont_dir / "config.json").write_text(
+            json.dumps({"mcpServers": {"existing": {}}}), encoding="utf-8")
+        status = _gen_continue(tmp_path)
+        assert status == "merged"
+        data = json.loads((cont_dir / "config.json").read_text(encoding="utf-8"))
+        assert "existing" in data["mcpServers"]
+        assert "myco" in data["mcpServers"]
+
+
+class TestGenWindsurf:
+    """Tests for _gen_windsurf()."""
+
+    def test_creates_windsurf_config(self, tmp_path):
+        with patch("myco.init_cmd.Path.home", return_value=tmp_path):
+            status = _gen_windsurf(tmp_path)
+        assert status == "created"
+        data = json.loads(
+            (tmp_path / ".codeium" / "windsurf" / "mcp_config.json").read_text(encoding="utf-8"))
+        assert "myco" in data["mcpServers"]
+        assert data["mcpServers"]["myco"]["command"] == "python"
+        assert data["mcpServers"]["myco"]["args"] == ["-m", "myco.mcp_server"]
+
+    def test_merges_existing(self, tmp_path):
+        ws_dir = tmp_path / ".codeium" / "windsurf"
+        ws_dir.mkdir(parents=True)
+        (ws_dir / "mcp_config.json").write_text(
+            json.dumps({"mcpServers": {"existing": {}}}), encoding="utf-8")
+        with patch("myco.init_cmd.Path.home", return_value=tmp_path):
+            status = _gen_windsurf(tmp_path)
+        assert status == "merged"
+        data = json.loads((ws_dir / "mcp_config.json").read_text(encoding="utf-8"))
+        assert "existing" in data["mcpServers"]
+        assert "myco" in data["mcpServers"]
 
 
 class TestGenZed:
@@ -398,6 +479,7 @@ class TestRunAutoDetect:
                 "Codex": False,
                 "Cline": False,
                 "Continue": False,
+                "Windsurf": False,
                 "Zed": False,
             }
             rc = run_auto_detect(args)
@@ -425,14 +507,15 @@ class TestRunAutoDetect:
                 "Codex": False,
                 "Cline": False,
                 "Continue": False,
+                "Windsurf": False,
                 "Zed": False,
             }
             rc = run_auto_detect(args)
         assert rc == 0
         assert (target / ".mcp.json").exists()
         assert (target / ".cursor" / "mcp.json").exists()
-        # VS Code not detected, so no .vscode/settings.json
-        assert not (target / ".vscode" / "settings.json").exists()
+        # VS Code not detected, so no .vscode/mcp.json
+        assert not (target / ".vscode" / "mcp.json").exists()
 
     def test_run_init_dispatches_to_auto_detect(self, tmp_path):
         """run_init delegates to run_auto_detect when --auto-detect is set."""
@@ -456,6 +539,7 @@ class TestRunAutoDetect:
                 "Codex": False,
                 "Cline": False,
                 "Continue": False,
+                "Windsurf": False,
                 "Zed": False,
             }
             rc = run_init(args)
@@ -475,8 +559,10 @@ class TestRunAutoDetect:
             auto_detect=True,
             agent=None,
         )
+        fake_cline_path = tmp_path / "global_cline" / "cline_mcp_settings.json"
         with patch("myco.init_cmd.detect_tools") as mock_detect, \
-             patch("myco.init_cmd.Path.home", return_value=tmp_path):
+             patch("myco.init_cmd.Path.home", return_value=tmp_path), \
+             patch("myco.init_cmd._cline_settings_path", return_value=fake_cline_path):
             mock_detect.return_value = {
                 "Claude Code": True,
                 "Cursor": True,
@@ -484,6 +570,7 @@ class TestRunAutoDetect:
                 "Codex": True,
                 "Cline": True,
                 "Continue": True,
+                "Windsurf": True,
                 "Zed": True,
             }
             rc = run_auto_detect(args)
@@ -491,9 +578,10 @@ class TestRunAutoDetect:
         # Verify all config files exist
         assert (target / ".mcp.json").exists()
         assert (target / ".cursor" / "mcp.json").exists()
-        assert (target / ".vscode" / "settings.json").exists()
+        assert (target / ".vscode" / "mcp.json").exists()
         assert (tmp_path / ".codex" / "config.toml").exists()
-        assert (target / "cline_mcp_settings.json").exists()
-        assert (target / ".continue" / "mcpServers" / "myco.json").exists()
+        assert fake_cline_path.exists()
+        assert (target / ".continue" / "config.json").exists()
+        assert (tmp_path / ".codeium" / "windsurf" / "mcp_config.json").exists()
         assert (target / ".zed" / "settings.json").exists()
         assert (target / "CLAUDE.md").exists()

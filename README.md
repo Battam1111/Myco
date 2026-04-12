@@ -4,16 +4,14 @@
 
 # Myco
 
-**An Autonomous Cognitive Substrate for AI agents.**
-
-*Your agent is a CPU. Myco is everything else — and the operating system upgrades itself.*
+**The knowledge system that digests itself so you don't have to.**
 
 [![PyPI](https://img.shields.io/badge/PyPI-v0.2.0-blue?style=for-the-badge)](https://pypi.org/project/myco/)
 [![Python](https://img.shields.io/badge/Python-3.8%2B-blue?style=for-the-badge)](https://www.python.org/)
 [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
-[![Lint](https://img.shields.io/badge/Lint-23%2F23%20green-brightgreen?style=for-the-badge)](#three-immutable-laws)
+[![Lint](https://img.shields.io/badge/Lint-23%2F23%20green-brightgreen?style=for-the-badge)](#architecture)
 
-[The Living Substrate](#the-living-substrate) · [Why Myco](#why-myco) · [Five Capabilities](#five-capabilities) · [How You Work With Myco](#how-you-work-with-myco) · [Three Immutable Laws](#three-immutable-laws) · [Standing on Fifty Years](#standing-on-fifty-years) · [Try It Today](#try-it-today)
+[The Problem](#the-problem) · [What Myco Does](#what-myco-does) · [Why It's Different](#why-its-different) · [Architecture](#architecture) · [Quick Start](#quick-start) · [Contributing](#contributing)
 
 **Languages:** English (canonical) · [中文](README_zh.md) · [日本語](README_ja.md)
 
@@ -21,278 +19,142 @@
 
 ---
 
-## The Living Substrate
+## The Problem
 
-Modern LLM agents are brilliant and amnesiac. Each session is a fresh CPU boot — raw compute, zero persistence. What the agent learned yesterday evaporates at the session boundary. What the team learned last month rots into contradiction. The ground the agent stands on is not actually ground; it is a pile of static files hoping to survive contact with reality.
+You used LangChain in 2024. Someone told you LangGraph was better. You switched. Then it was CrewAI. Then DSPy. Then AutoGen. Then some new framework dropped on a Tuesday and your Discord lit up with people saying everything you just learned was already obsolete.
 
-Myco is the ground.
+You mass-starred repos. 50 followed, 3 actually read. You bookmarked articles. 200 saved, maybe 10 opened twice. You kept notes -- Notion, Obsidian, a markdown folder you swore you'd organize. 500 notes. Last sorted: three months ago. Probably longer.
 
-> **Myco is an Autonomous Cognitive Substrate for AI agents. Your agent is the CPU: raw compute, zero persistence. Myco is everything else — the memory, the filesystem, the operating system, the peripherals — and the OS upgrades itself. All evolution is non-parametric: text, structure, lint rules on disk. No model weights are ever touched. This is why Myco works across agent vendors, survives model swaps, and accumulates value in exactly the medium LLM agents are best at manipulating.**
+Here's what nobody talks about: **everything you saved is quietly rotting.**
 
-This framing is not a metaphor dressed up as architecture. It is the architecture. The **kernel** is a project-agnostic cognitive OS. Each project directory is an **instance** — an application running on that OS. Upgrades to the kernel flow downstream; friction discovered inside instances flows back upstream. The substrate is alive in the thermodynamic sense: it **metabolizes** inbound knowledge, compresses it into the shape your agent's attention can actually use, and **excretes** what no longer earns its keep. A substrate that stops metabolizing is not a stable knowledge base — it is a corpse. **Stagnation is death.** **Perpetual evolution** is not a nice-to-have; it is the single condition under which the substrate stays a substrate.
+That API pattern you noted three weeks ago? The library released a breaking change. That "best practice" from last month's top HN post? The community already moved on. That architecture doc you spent a weekend writing? Two of its assumptions are wrong now, and nothing is telling you which two. Your knowledge isn't growing. It's decaying. And the more you save, the more you're burying the signal under dead weight you'll never go back and check.
+
+Now imagine a different version of yourself. One who does nothing. No note-taking. No tool comparison. No paper chasing. No "getting organized." You just talk to your AI -- about your project, your problems, your ideas. You go to sleep. You wake up. You talk some more. Six months pass. And your AI is sharper, more contextual, more *yours* than any amount of manual curation could have produced. Not because you worked harder. Because something underneath was doing the work for you -- digesting, compressing, verifying, throwing out what went stale, and quietly getting smarter while you weren't looking.
+
+That something is Myco.
 
 ---
 
-## Why Myco
+## What Myco Does
 
-The landscape of AI memory and knowledge systems falls into three categories. Myco is in a category of its own.
+Myco is an **Autonomous Cognitive Substrate** for AI agents. Your agent is a CPU -- raw compute, no persistence. Myco is everything else: the memory, the filesystem, the operating system. And the OS upgrades itself.
 
-| | Memory-as-a-Service | Knowledge Compilation | Knowledge Organism |
+- **Devour** -- Anything you mention in conversation -- a debug trick, a design decision, a hard-won insight -- gets captured as a durable note. Zero friction. You talk; the substrate eats.
+- **Self-check** -- A 23-dimension immune system continuously verifies the substrate against contradiction, staleness, orphaned references, and structural drift. Knowledge that stops being true gets flagged before it poisons a decision.
+- **Excrete** -- Most knowledge systems only grow. Myco is the only one that actively *ejects* what has decayed, been superseded, or stopped earning its place. A digestive tract without an outlet is a tumor.
+- **Evolve** -- The substrate doesn't just store knowledge -- it rewrites its own rules. Lint thresholds, compression strategies, even the evolution engine itself mutate and adapt. You are the selection pressure.
+- **Connect** -- Knowledge doesn't sit in isolation. The link graph tracks how ideas reference each other. Orphans are detected. Clusters emerge. The substrate knows its own shape.
+- **Just talk** -- No tagging rituals. No filing systems. No weekly reviews. You talk to your agent. The substrate does the rest. Six months later, it knows your project better than you do.
+
+---
+
+## Why It's Different
+
+Every AI memory system you've seen falls into one of two categories. Myco is neither.
+
+| | Memory-as-a-Service | Knowledge Compilation | **Myco** |
 |---|---|---|---|
-| **Examples** | Mem0, Zep, LangMem | Karpathy LLM Wiki | **Myco** |
+| **Examples** | Mem0, Zep, LangMem | Karpathy LLM Wiki | **Knowledge Organism** |
 | **Core verb** | Store and retrieve | Compile and index | **Metabolize** |
-| **Knowledge lifecycle** | None. Data enters, sits, gets queried. | Ingest and lint. No lifecycle state. | Full pipeline: raw -> digesting -> extracted -> integrated -> excreted |
-| **Self-verification** | None | Basic contradiction/orphan checks | 23-dimension immune system (L0-L22) |
+| **Knowledge lifecycle** | None. Data enters, sits, gets queried. | Ingest and lint. No lifecycle. | Full pipeline: raw -> digesting -> extracted -> integrated -> excreted |
+| **Self-verification** | None | Basic contradiction checks | 23-dimension immune system (L0-L22) |
 | **Self-evolution** | None | Static schema | Craft protocol evolves the substrate's own rules |
 | **Excretion** | Never. Storage grows forever. | Never. | Active: dead-knowledge detection, auto-pruning, temporal expiry |
 
-**Memory services store. Knowledge compilers compile. Myco metabolizes.** A system that ingests but never excretes is not a living knowledge base -- it is a tumor. Myco is the only system that treats knowledge as having a full lifecycle: born, digested, verified, compressed, and -- when it stops earning its place -- excreted. The biological vocabulary is not decoration. It is the architecture.
+**Memory services store. Knowledge compilers compile. Myco metabolizes.**
+
+A system that ingests but never excretes is not a living knowledge base -- it is a tumor. Myco treats knowledge as having a full lifecycle: born, digested, verified, compressed, and -- when it stops earning its place -- excreted. The biological vocabulary is not decoration. It is the architecture.
 
 ---
 
-## Five Capabilities
-
-Myco is not a memory layer, not an agent runtime, and not a skill framework. It is the layer beneath all three — the living ground they run on. Five capabilities define what that ground does.
-
-### 1. Knowledge metabolism — the seven-step pipeline
-
-A memory layer stores and retrieves. A substrate **metabolizes**. Every piece of inbound content — a paper you read, a friction your agent hit, a design decision made in chat — flows through a seven-step pipeline:
-
-**Discover → Evaluate → Extract → Integrate → Compress → Verify → Excrete**
-
-Discover scans inbound channels. Evaluate decides whether the content is worth the substrate's attention. Extract pulls out the load-bearing structure. Integrate wires it into the existing body of knowledge. Compress cuts everything that no longer earns attention. Verify checks that the compression did not break load-bearing claims. **Excrete** — the step most knowledge systems forget — actively ejects knowledge that has decayed, been superseded, or stopped being true. A digestive tract without an outlet is a tumor. The seven-step pipeline is Myco's core metabolic act, and the verbs are named from it on purpose: `eat` / `evaluate` / `extract` / `integrate` / `compress` / `view` / `prune` / `hunger`.
-
-### 2. Meta-evolution — the substrate rewrites its own rules
-
-Every LLM system evolves *the agent's behavior*. Myco evolves **the ground the agent stands on**. When a lint rule stops catching real problems, or starts catching false positives, or the canon schema outgrows itself, Myco's metabolic evolution engine notices and proposes a change. Hunger signals sense friction during normal work. Session reflection captures execution learnings automatically. Predictive hunger anticipates future knowledge needs from session history. Cross-instance skill transfer distills universal patterns back into the kernel. Alongside these four inward gears, a fifth face — the **metabolic inlet** — turns outward, pulling in external papers, repos, and articles. Evolution proceeds by **mutation and selection**: the system generates candidate rule changes, and the human is the selection pressure that decides which mutations survive.
-
-### 3. Self-model — a substrate that knows itself
-
-Myco maintains a four-layer self-model so that it can tell, at any moment, what it contains and whether that knowledge is still alive:
-
-- **A · Inventory** — what exists in the substrate right now (automated).
-- **B · Gap sensing** — what the substrate *should* know but doesn't yet (semi-automated).
-- **C · Decay sensing** — what used to be true but no longer is, split into *factual decay* (version drift, renamed files) and *structural decay* (the architecture that was right at day 3 is wrong at day 30). Factual decay is what `myco lint` already catches; structural decay is the hardest open problem in the whole design space.
-- **D · Efficacy** — **dead-knowledge detection**: notes that entered the substrate and were never read again. If knowledge is not consumed, it is not knowledge; it is sediment.
-
-The self-model is what lets Myco ask the only question that matters for a living knowledge system: *is this still earning its place?*
-
-### 4. Cross-session continuity — the substrate that outlives any one conversation
-
-Everything above the substrate is ephemeral — chats end, models roll, runtimes restart. Myco is what persists. It is the one artifact the next session inherits *in full*, regardless of which agent vendor the next session happens to use. Tacit knowledge that used to be rediscovered every Monday morning becomes durable; the expensive part of getting smart about a project happens exactly once.
-
-### 5. Agent-adaptive universality — the substrate reshapes to the agent
-
-The substrate is not a pre-carved mold your agent must fit. Myco's entry points, compression rules, and lint thresholds are expected to evolve to match whichever agent is operating on it — Claude, GPT, Cursor, Claude Code, a future model we haven't seen yet. Universality runs in the right direction: the ground adapts to the tree, not the other way around.
-
----
-
-## A Picture of the Whole
+## Architecture
 
 ```
-                   ┌─────────────────────────────────────┐
-                   │             LLM Agent               │
-                   │      (CPU — raw compute, no RAM)    │
-                   └──────────────▲──────────────────────┘
-                                  │ 21 MCP tools + CLI
-                                  │ (read / eat / digest / lint …)
-                   ┌──────────────┴──────────────────────┐
-                   │         Myco Kernel (OS)            │
-                   │  metabolism · self-model · lint ·   │
-                   │  four gears · metabolic inlet       │
-                   │      ↑ upstream absorb              │
-                   │      ↓ kernel updates               │
-                   └──────────────┬──────────────────────┘
-                                  │
-      ┌───────────────────────────┼────────────────────────────┐
-      ▼                           ▼                            ▼
- ┌─────────┐                ┌─────────┐                  ┌─────────┐
- │ Project │                │ Project │                  │ Project │
- │ Instance│                │ Instance│                  │ Instance│
- │    A    │                │    B    │                  │    C    │
- └─────────┘                └─────────┘                  └─────────┘
- (an application running on the cognitive OS — wiki / _canon / notes / log)
+         You
+          |
+          | (just talk)
+          v
+   ┌──────────────┐
+   │   LLM Agent  │  <-- CPU: raw compute, no RAM
+   └──────┬───────┘
+          │ 21 MCP tools + CLI
+          │ (eat / digest / lint / hunger ...)
+   ┌──────┴───────┐
+   │  Myco Kernel │  <-- OS: metabolism, self-model,
+   │     (OS)     │      lint, evolution engine,
+   │              │      metabolic inlet
+   └──────┬───────┘
+          │
+    ┌─────┼─────┐
+    v     v     v
+ [Proj] [Proj] [Proj]   <-- Instances: wiki / notes / log / canon
+   A      B      C
 ```
 
-**Kernel** is the project-agnostic cognitive OS: shared code, shared lint engine, shared evolution protocol. **Instance** is your project directory — an application running on that OS. Upgrades to the kernel flow downstream to every instance on upgrade. Friction and distilled patterns discovered inside an instance flow back up to the kernel via the upstream outbox. This is not an analogy. It is literally how Myco is structured, and the L11 lint dimension enforces that write-surface hygiene.
+**Kernel** is the project-agnostic cognitive OS: shared code, shared lint engine, shared evolution protocol. **Instances** are your project directories -- applications running on that OS. Kernel upgrades flow downstream. Friction discovered inside instances flows back upstream. This is not a metaphor. It is literally how Myco is structured.
+
+All evolution is **non-parametric**: text, structure, and lint rules on disk. No model weights are ever touched. This is why Myco works across agent vendors, survives model swaps, and accumulates value in exactly the medium LLM agents are best at manipulating.
 
 ---
 
-## How You Work With Myco
-
-Traditional knowledge bases assume a human author and a machine reader. Myco flips that. Your agent is the primary subject — it reads the substrate, writes into it, proposes changes to it, and runs its daily work on it. You are the **occasional gatekeeper**: the selection pressure that approves mutations, vetoes bad directions, and calls craft sessions when structural assumptions need to be challenged.
-
-Three dynamics define the collaboration:
-
-**Mutation and selection.** Myco mutates. You select. The system constantly proposes new knowledge, new lint rules, new compression strategies; your role is not to author these proposals but to judge which ones deserve to survive. Selection pressure — applied consistently — is what keeps a self-evolving substrate from going cancerous.
-
-**Transparency as survival mechanism.** Every change in Myco is auditable: every note has provenance, every lint rule has a debate record, every kernel upgrade has an upstream bundle. This is not a bureaucratic virtue. **Transparency → legibility → human selection pressure → anti-cancer.** Lose transparency, lose legibility; lose legibility, lose selection pressure; lose selection pressure, and a self-optimizing substrate begins metastasizing in directions no one can evaluate. Transparency is the immune system, not the paperwork.
-
-**Agent-as-subject.** The classical "Second Brain" puts the human in the driver's seat and the tool in the passenger seat. Myco inverts this. The agent is the primary reader, writer, thinker-on-substrate; you step in when selection, strategy, or structural judgment is needed. This inversion is what distinguishes a **substrate** from a personal knowledge manager.
-
----
-
-## Three Immutable Laws
-
-Everything in Myco can evolve — knowledge structure, compression rules, lint dimensions, even the evolution engine itself. Everything except these three. The L9 lint dimension enforces the identity of the substrate against drift; the L13 lint dimension enforces that every rule change has an auditable craft record.
-
-| # | Law | Why it is load-bearing |
-|---|-----|------------------------|
-| **C1** | **Accessible** | Any agent, from any vendor, must be able to find the entry point and self-explain the substrate without prior training. If the ground is not accessible, the tree cannot grow on it. |
-| **C2** | **Transparent** | Every change must be auditable by a human. This is what sustains human selection pressure against a self-evolving system. Lose transparency → lose selection pressure → the substrate becomes **cancerous**. |
-| **C3** | **Perpetually Evolving** | **Stagnation is death.** A substrate that stops metabolizing is definitionally no longer a substrate; it is a static knowledge base, which is the failure mode of every prior system Myco was built to escape. |
-
-These three are the constitution. Everything else is legislation.
-
----
-
-## Compression Is Cognition
-
-Myco's operating assumption:
-
-> **Storage is infinite. Attention is not.**
-
-Disks grow on demand; your agent's context window does not. So Myco **never forgets** — nothing is deleted from cold storage — but it **aggressively compresses** what flows into attention. This is not engineering plumbing; it is the substrate's primary cognitive act. Three candidate criteria shape what gets compressed and when:
-
-- **Usage frequency** — pages no agent has read recently go cold.
-- **Temporal relevance** — time-bound facts excrete at expiry.
-- **Exclusivity** — knowledge your agent already has from pretraining wastes substrate space; keep only what your agent would otherwise lack.
-
-Compression is also **agent-adaptive**: what needs to be written down for one agent may be redundant for another with different pretraining. The substrate adjusts; the agent does not. Irreducible texture is lost on purpose; if you need lexical fidelity, keep a raw archive. What the substrate preserves is the load-bearing structure — the provenance chain, the decisions, the reasons a thing is true.
-
----
-
-## Standing on Fifty Years
-
-Myco did not fall out of the sky. It stands on the shoulders of five traditions, each contributing one load-bearing insight:
-
-- **Karpathy LLM Wiki** — a structured knowledge compilation is the correct substrate shape for an agent, not a chat log or a vector store. This is the geometric assumption.
-- **Polanyi Tacit Knowledge** — most operational intelligence is tacit, held in proximal/distal structure, and cannot be captured by enumeration. This is why Myco persists procedures and narratives, not just facts.
-- **Argyris Double-Loop Learning** — single-loop learning fixes actions, double-loop learning fixes the rules that govern actions. This is the L-struct / L-meta split and the reason the substrate itself must evolve.
-- **Toyota PDCA** — Plan / Do / Check / Act is the base cycle of a self-improving system. The four gears are PDCA compiled onto an LLM substrate.
-- **Voyager Skill Library** — iterative, grounded skill accumulation is possible if you store what worked and let the next episode build on it. This is the shape of cross-project distillation.
-
-Myco is the first system to put these five on the same base and let them run as one metabolism. See [`docs/theory.md`](docs/theory.md).
-
----
-
-## Already Running Unconsciously
-
-The uncomfortable, load-bearing truth: **we were already running the primitive version of this system without realizing it.** An 8-day, 80+ file reinforcement-learning research project ran the complete four-gear cycle to completion by hand. Manually triggered lint. Verbal friction logs. Human-driven meta-evolution. Fifteen-plus structured debates. It worked. And then it worked *again* on the next project.
-
-<div align="center">
-
-| 80+ files | 10 wiki pages | 15+ structured debates | 23/23 lint dimensions green |
-|:---------:|:-------------:|:----------------------:|:----------------------------:|
-
-</div>
-
-Myco is the formalization of a pattern that already proved itself in the wild. The v0.x → v1.0 trajectory is not "invent new things"; it is "make what was working by hand work by itself." Patterns extracted via cross-project distillation now live in the kernel. We are not asking you to trust a theory. We are asking you to trust a pattern that already kept a demanding research project honest across 80+ files and 15+ debates — and to help us turn the dials that make it run without the human having to be the engine.
-
----
-
-## Open Problems
-
-Myco is early, and the highest-value contribution you can make is to pick one of these and push:
-
-1. **Cold start.** How does the substrate bootstrap on a brand-new project with no history, no canon, no friction record? Current answer: hand-crafted `myco init` templates. Desired: the substrate learns its own bootstrap from prior distillations.
-2. **Trigger signals.** What fires session reflection? What fires the metabolic inlet? Friction count is a proxy; the right signals are an open research question.
-3. **Alignment at depth.** If Myco evolves rules the human can no longer meaningfully evaluate, how is it kept aligned? Transparency is necessary but not sufficient — we need *legible* transparency at scale.
-4. **Compression engineering.** What to drop, when, without losing load-bearing tacit knowledge? The three candidate criteria are starting points, not solutions.
-5. **Structural decay detection (Self-Model C layer).** Factual decay is caught. Structural decay — when the architecture right on day 3 is wrong on day 30 — is not yet. Arguably the hardest problem in the space.
-6. **Dead-knowledge tracking (Self-Model D layer).** Minimum viable seed shipped (Wave 18, v1.4.0) — `myco view` records `view_count` + `last_viewed_at`, `myco hunger` reports the `dead_knowledge` signal, `myco prune` (Wave 33) is the auto-excretion path. Still open: view audit log, cross-reference graph, adaptive thresholds that evolve with substrate age.
-
-The continuously-maintained registry lives at [`docs/open_problems.md`](docs/open_problems.md). If you want to contribute something high-impact, pick one of these and go.
-
----
-
-## Today and Tomorrow
-
-| Phase | What is true | What is coming |
-|-------|-------------|----------------|
-| **v0.x (today)** | Four inward gears shipped · 23-dimension lint green · metabolism CLI live · MCP server exposes 21 tools · kernel/instance separation enforced · unconscious prototype validated end-to-end · Self-Model D layer seeded (view tracking + dead-knowledge signal + `myco prune` auto-excretion) · Metabolic Inlet MVP scaffold shipped (`myco inlet`, Wave 35 / v0.27.0) · L19 dimension-count consistency lint (Wave 38 / v0.29.0) · L20 translation mirror lint (Wave 39 / v0.30.0) · L21 contract version inline lint (Wave 40 / v0.31.0) · L22 wave-seed lifecycle lint (Wave 41 / v0.32.0) | Inlet cold-start, autonomous trigger signals, and continuous compression remain open. Most gear-firing is still human-triggered. |
-| **v1.0** | Metabolic inlet fully autonomous · Self-Model D implemented · structural decay detector seeded · trigger signals replaced by learned heuristics | Human is no longer the engine; human is strictly the selection pressure. |
-| **v∞** | Kernel evolves without any single human being able to hold its structure in their head — but *any* human can still audit any change, because C2 Transparent never lifts. | Open question. This is where [Open Problem 3](#open-problems) becomes load-bearing. |
-
----
-
-## Try It Today
-
-If you want to stop reading and start running:
+## Quick Start
 
 ```bash
 git clone https://github.com/Battam1111/Myco.git
-cd Myco
-pip install -e ".[mcp]"
-myco init --agent claude my-project
+cd Myco && pip install -e ".[mcp]"
+myco init --auto-detect my-project
 ```
 
-Myco is a living organism — editable install means the entire system can self-evolve: kernel code, templates, lint rules, hunger signals. A frozen pip install limits what can evolve.
+Three commands. Auto-detects your environment — Claude Code · Cursor · VS Code · Codex · Cline · Continue · Zed · Windsurf · Cowork — configures everything in one shot.
 
-> **Quick preview:** `pip install myco` (frozen snapshot, limited evolution)
+Editable install — the entire system is yours to rewrite, including the engine itself. Don't want to touch it? That's fine. It evolves on its own.
 
-**MCP integration** — the `.[mcp]` extra above already includes everything. A ready-to-use `.mcp.json` ships in the repo. Once installed in Claude Code, Cursor, or any MCP-speaking client, your agent auto-discovers:
+The CLI alone is enough. The MCP layer is what turns capture into a reflex. Call `myco_hunger(execute=true)` at session boot -- the substrate self-heals.
 
-- **Substrate health** · `myco_lint` · `myco_status` · `myco_search` · `myco_log` · `myco_reflect`
-- **Knowledge metabolism** · `myco_eat` · `myco_digest` · `myco_view` · `myco_hunger`
-- **Compression & excretion** · `myco_compress` · `myco_uncompress` · `myco_prune`
-- **External intake** · `myco_inlet` · `myco_forage` · `myco_upstream`
-- **Intelligence** · `myco_graph` · `myco_cohort` · `myco_session` · `myco_discover`
+### The biological vocabulary
 
-The CLI alone is enough to use Myco. The MCP layer is what turns capture into a reflex. Call `myco_hunger(execute=true)` at session boot — the substrate self-heals.
+Myco's verbs are metabolic on purpose. Here is the plain-English map:
 
-### The biological vocabulary in one table
-
-Myco's verbs are metaphorical on purpose — metabolism is the mental model. If you want the plain-English map without reading the theory:
-
-| Myco verb | Plain English | CLI | MCP tool |
+| Myco verb | What it does | CLI | MCP tool |
 |---|---|---|---|
 | `eat` | Capture content as a durable note | `myco eat` | `myco_eat` |
-| `digest` | Move a note through its lifecycle (raw → digesting → extracted → integrated → excreted) | `myco digest` | `myco_digest` |
-| `evaluate` | Score a raw note for substrate fit (extract / discard / shelve) | `myco evaluate` | (CLI only) |
-| `extract` | Lift the load-bearing structure out of a digesting note | `myco extract` | (CLI only) |
+| `digest` | Move a note through its lifecycle (raw -> extracted -> integrated -> excreted) | `myco digest` | `myco_digest` |
+| `evaluate` | Score a raw note for substrate fit | `myco evaluate` | (CLI only) |
+| `extract` | Pull the load-bearing structure out of a digesting note | `myco extract` | (CLI only) |
 | `integrate` | Wire an extracted note into the existing knowledge body | `myco integrate` | (CLI only) |
-| `compress` | Synthesize N raw/digesting notes into 1 extracted note with audit trail | `myco compress` | `myco_compress` |
-| `uncompress` | Reverse a compression, restore inputs to pre-compression state | `myco uncompress` | `myco_uncompress` |
-| `prune` | Auto-excrete dead-knowledge notes flagged by the D-layer signal | `myco prune` | `myco_prune` |
-| `view` | Read notes with filters (records `view_count` + `last_viewed_at`) | `myco view` | `myco_view` |
+| `compress` | Synthesize N notes into 1 extracted note with audit trail | `myco compress` | `myco_compress` |
+| `uncompress` | Reverse a compression, restore inputs | `myco uncompress` | `myco_uncompress` |
+| `prune` | Auto-excrete dead-knowledge notes | `myco prune` | `myco_prune` |
+| `view` | Read notes with filters (tracks view count) | `myco view` | `myco_view` |
 | `lint` | 23-dimension substrate health check | `myco lint` | `myco_lint` |
-| `correct` | Apply auto-fixes from a prior lint pass (alias: `myco molt`) | `myco correct` | (CLI only) |
-| `forage` | Manage external source material (add/list/digest) | `myco forage` | `myco_forage` |
+| `correct` | Apply auto-fixes from a prior lint pass | `myco correct` | (CLI only) |
+| `forage` | Manage external source material | `myco forage` | `myco_forage` |
 | `inlet` | Ingest external content with provenance tracking | `myco inlet` | `myco_inlet` |
-| `hunger` | Metabolic dashboard: raw backlog, stale notes, dead knowledge | `myco hunger` | `myco_hunger` |
+| `hunger` | Metabolic dashboard: backlog, staleness, dead knowledge | `myco hunger` | `myco_hunger` |
 | `absorb` | Sync kernel improvements from downstream instances | `myco upstream absorb` | `myco_upstream` |
-| `graph` | Link graph analysis: backlinks, orphans, clusters, stats | `myco graph` | `myco_graph` |
-| `cohort` | Semantic cohort intelligence: tag co-occurrence, compression suggestions, gaps | `myco cohort` | `myco_cohort` |
-| `session` | Session memory: index, search, prune agent conversation transcripts | `myco session` | `myco_session` |
+| `graph` | Link graph: backlinks, orphans, clusters, stats | `myco graph` | `myco_graph` |
+| `cohort` | Tag co-occurrence, compression suggestions, knowledge gaps | `myco cohort` | `myco_cohort` |
+| `session` | Index, search, and prune agent conversation transcripts | `myco session` | `myco_session` |
 
 ---
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). The highest-impact contributions are:
+See [CONTRIBUTING.md](CONTRIBUTING.md). The highest-impact contributions:
 
-1. **Battle reports** on any of the six [Open Problems](#open-problems).
+1. **Battle reports** on any of the six [open problems](docs/open_problems.md).
 2. **Platform adapters** in [`docs/adapters/`](docs/adapters/) for the agent environment you already use.
-3. **Design sketches** for the Metabolic Inlet primitive — particularly discover / evaluate / extract phases.
-4. **Translations** of this README. Current: English canonical · [中文](README_zh.md) · [日本語](README_ja.md).
+3. **Design sketches** for the Metabolic Inlet -- particularly the discover / evaluate / extract phases.
+4. **Translations** of this README. Current: English (canonical) / [中文](README_zh.md) / [日本語](README_ja.md).
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
-
----
-
-## The Mycelium
-
-The name is not decoration. Mycelium is the underground fungal network beneath every forest: it is not plumbing. It secretes enzymes that decompose fallen leaves into nutrients (**metabolism**). It remembers effective growth paths and redirects strategy accordingly (**meta-evolution**). It redistributes resources from abundant zones to starved ones (**intelligent compression**). It forms symbiosis with the roots of trees of every species it encounters (**agent-adaptive universality**). A healthy mycelium is the reason a forest is a forest and not a stand of lonely trunks.
-
-Agents are the trees above ground. Myco is the living network beneath, making the whole forest work.
+MIT -- see [LICENSE](LICENSE).
 
 ---
 
 <div align="center">
 
-**Your agent is a CPU. Myco is everything else — and the operating system upgrades itself.**
+*Your agent is a CPU. Myco is everything else -- and the operating system upgrades itself.*
 
 </div>
