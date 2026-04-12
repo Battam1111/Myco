@@ -28,7 +28,7 @@ import_steps:
   3: "Classify daily notes: recent (last 30 days) → wiki/ | older → L0 Archive (log.md references)"
   4: "Move SOUL.md content into MYCO.md §Hot Zone 'Operational Feel' section (≤5 lines)"
   5: "Run: myco lint --project-dir . — expect L4 orphan warnings for unmapped content (fix iteratively)"
-  6: "After first lint pass, run Gear 2 reflection: what from MEMORY.md never got used?"
+  6: "After first lint pass, run Session Reflection: what from MEMORY.md never got used?"
 
 # ── File Mapping ─────────────────────────────────────────────
 layer_mapping:
@@ -54,8 +54,8 @@ value_proposition: |
   by context pressure, not by accuracy.
 
   Myco after 6 months: Lint catches inconsistencies before they cascade.
-  Gear 3 retrospective questions which facts are still true.
-  Gear 4 distills universal patterns into the next project's bootstrap.
+  Milestone Retrospective questions which facts are still true.
+  Cross-Project Distillation distills universal patterns into the next project's bootstrap.
 
   You keep your OpenClaw files. Myco adds the metabolism layer on top.
 
@@ -68,5 +68,5 @@ roadmap:
 notes:
   - "Do NOT import all of MEMORY.md as a single wiki page — that recreates the original problem."
   - "The goal is decomposition: MEMORY.md facts → typed wiki pages (entity/concept/operations)."
-  - "OpenClaw's 'dreaming consolidation' and Myco's Gear 2 serve similar purposes but with different standards: dreaming retains by salience, Gear 2 retains by verified accuracy."
+  - "OpenClaw's 'dreaming consolidation' and Myco's Session Reflection serve similar purposes but with different standards: dreaming retains by salience, Session Reflection retains by verified accuracy."
   - "SOUL.md is the closest OpenClaw equivalent to Myco's Operational Feel / W6 proximal priming."

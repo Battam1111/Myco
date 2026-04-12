@@ -6,7 +6,7 @@
 #
 # The key transformation:
 #   Hermes gives your skills immortality (they never get questioned).
-#   Myco gives your skills a lifespan (Gear 2 reviews usage, Gear 3 questions assumptions).
+#   Myco gives your skills a lifespan (Session Reflection reviews usage, Milestone Retrospective questions assumptions).
 #
 # Version: 0.1 | Status: Manual protocol (CLI in v1.0)
 
@@ -14,7 +14,7 @@ name: "Hermes Agent"
 version: "0.1"
 description: |
   Import Hermes Agent skill files into Myco's evolution cycle.
-  Skills become mortal: Gear 2 flags unused skills, Gear 3 questions
+  Skills become mortal: Session Reflection flags unused skills, Milestone Retrospective questions
   whether the skill's underlying approach still holds.
 
 source_type: "skill_directory"    # ~/.hermes/skills/*.md
@@ -47,8 +47,8 @@ lint_checks:
 # ── What You Get ─────────────────────────────────────────────
 value_proposition: |
   Hermes skills: immortal (never reviewed, never retired, may conflict silently)
-  Myco skills:   metabolized (Gear 2 flags if unused for 30+ days, Gear 3 questions
-                 whether the approach still holds, Gear 4 distills universal patterns)
+  Myco skills:   metabolized (Session Reflection flags if unused for 30+ days, Milestone Retrospective questions
+                 whether the approach still holds, Cross-Project Distillation distills universal patterns)
 
   The integration is asymmetric: you bring Hermes skills in, but Myco's
   evolution engine decides which ones survive.

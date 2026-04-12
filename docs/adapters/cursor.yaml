@@ -50,7 +50,7 @@ cursorrules_snippet: |
   #   log.md                   — Append-only project timeline
   #
   # Consistency rule: never contradict _canon.yaml values in wiki/ or code.
-  # Friction rule: when you hit the same problem twice, log it and consider Gear 2.
+  # Friction rule: when you hit the same problem twice, log it and consider Session Reflection.
   # Evolution rule: when a wiki page recurs in 3+ sessions, promote to _canon.yaml.
 
 # ── File Ownership ─────────────────────────────────────────
@@ -88,7 +88,7 @@ workflow_compatibility:
   W4_wiki_w8:             "✅ Cursor can create W8-format wiki pages when instructed"
   W5_lint_gate:           "✅ Run myco lint in Cursor terminal or as a Makefile target"
   W8_format:              "✅ Full W8 header (type/date/cross-refs) + Back-to footer"
-  W12_gear_protocol:      "⚠️  Cursor doesn't auto-trigger Gear 2/3 — add to .cursorrules as reminder"
+  W12_gear_protocol:      "⚠️  Cursor doesn't auto-trigger Session Reflection/Milestone Retrospective — add to .cursorrules as reminder"
 
 # ── Value Proposition ─────────────────────────────────────
 value_proposition: |
@@ -101,7 +101,7 @@ value_proposition: |
     - wiki/ pages give Cursor compiled, lint-verified domain knowledge
     - log.md gives Cursor a timestamped record of what changed and why
     - myco lint catches when Cursor's generated code contradicts project decisions
-    - Gear 4 distills patterns from this project that Cursor can reuse in your next project
+    - Cross-Project Distillation distills patterns from this project that Cursor can reuse in your next project
 
   The combination is: Cursor generates at speed. Myco ensures it stays consistent.
 
@@ -109,7 +109,7 @@ value_proposition: |
 roadmap:
   v1_1: "myco init --entry-point CURSOR.md generates .cursorrules snippet automatically"
   v1_2: "myco lint --output cursor-format → Cursor Problems panel integration"
-  v2_0: "Cursor Rule that auto-triggers Gear 1 friction log on 'same error twice' pattern"
+  v2_0: "Cursor Rule that auto-triggers Hunger Sensing friction log on 'same error twice' pattern"
 
 # ── Notes ────────────────────────────────────────────────────
 notes:
