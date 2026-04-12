@@ -66,6 +66,38 @@ def _find_project_root() -> Path:
     return find_project_root(strict=False)
 
 
+def _compute_sidecar(root: Path) -> dict:
+    """Wave B2: lightweight hunger summary for sidecar injection.
+
+    Attached to every MCP tool response so Agent always sees substrate health
+    without explicitly calling hunger. Push-mode, not pull-mode.
+    """
+    try:
+        notes_dir = root / "notes"
+        if not notes_dir.is_dir():
+            return {"raw_count": 0, "signals_count": 0, "top_signal": "healthy"}
+        raw = sum(1 for f in notes_dir.glob("n_*.md")
+                  if "status: raw" in f.read_text(encoding="utf-8", errors="replace")[:200])
+        # Quick signal count from last boot brief if available
+        brief = root / ".myco_state" / "boot_brief.md"
+        signals_count = 0
+        top_signal = "healthy"
+        if brief.exists():
+            brief_text = brief.read_text(encoding="utf-8", errors="replace")
+            signals_count = brief_text.count("•")
+            for line in brief_text.split("\n"):
+                if "•" in line and "healthy" not in line:
+                    top_signal = line.split("•")[-1].strip()[:60]
+                    break
+        return {
+            "raw_count": raw,
+            "signals_count": signals_count,
+            "top_signal": top_signal,
+        }
+    except Exception:
+        return {"raw_count": -1, "signals_count": -1, "top_signal": "error"}
+
+
 def _load_canon(root: Path) -> dict:
     """Load _canon.yaml from project root."""
     if yaml is None:
@@ -449,6 +481,9 @@ async def myco_search(
             record_search_miss(root, query)
         except Exception:
             pass  # best-effort — don't break search on tracking failure
+
+    # Wave B2: hunger sidecar — Agent sees substrate health on search calls
+    result["_myco_sidecar"] = _compute_sidecar(root)
 
     return json.dumps(result, indent=2, ensure_ascii=False)
 
