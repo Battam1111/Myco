@@ -1182,10 +1182,14 @@ async def myco_hunger(
 
     # Sprint Pipeline hint (absorbed from gstack): tell Agent where they are
     # in the development loop based on current substrate state.
+    has_gaps = any("inlet_ripe" in s or "cold_start" in s or "cohort_staleness" in s
+                    for s in report.signals)
     if report.signals and any("healthy" in s for s in report.signals):
         result["pipeline_hint"] = "Build — substrate healthy, proceed with task work"
     elif report.actions:
         result["pipeline_hint"] = "Think — substrate needs attention, execute actions first"
+    elif has_gaps:
+        result["pipeline_hint"] = "Discover — knowledge gaps detected, call myco_discover(action='candidates') then search+ingest"
     else:
         result["pipeline_hint"] = "Build — signals advisory only, proceed with caution"
     result["pipeline_ref"] = "skills/sprint-pipeline.md"
@@ -1901,13 +1905,22 @@ async def myco_discover(
 
     if action == "candidates":
         candidates = create_discovery_candidates(gaps)
+        candidate_list = [
+            {"topic": c.topic, "search_query": c.search_query,
+             "source_signal": c.source_signal, "status": c.status}
+            for c in candidates
+        ]
         return json.dumps({
-            "candidates": [
-                {"topic": c.topic, "search_query": c.search_query,
-                 "source_signal": c.source_signal, "status": c.status}
-                for c in candidates
-            ],
-            "count": len(candidates),
+            "candidates": candidate_list,
+            "count": len(candidate_list),
+            "next_steps": (
+                "For EACH candidate (top 3 by priority):\n"
+                "1. WebSearch the search_query to find relevant sources\n"
+                "2. Evaluate: is the source relevant (>0.6)? novel (not in substrate)?\n"
+                "3. If yes: call myco_inlet with the content + provenance\n"
+                "4. If no: skip and log reason via myco_log\n"
+                "Max 3 ingestions per session to prevent bloat."
+            ) if candidate_list else "No knowledge gaps detected. Substrate is well-fed.",
         })
 
     return json.dumps({"error": f"Unknown action: {action}. Use gaps/candidates."})

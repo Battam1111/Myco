@@ -134,6 +134,10 @@ def run_init(args) -> int:
     entry_point = args.entry_point.strip()
     if agent == "claude":
         entry_point = "CLAUDE.md"
+    elif agent == "cursor":
+        entry_point = "MYCO.md"  # Cursor uses .cursorrules, MYCO.md as fallback index
+    elif agent == "gpt":
+        entry_point = "GPT.md"
     if not entry_point.endswith(".md"):
         entry_point += ".md"
 

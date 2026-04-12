@@ -278,7 +278,7 @@ system:
   # auto-evolve skills based on session performance data.
   # Myco provides scaffolding (evolve.py); Agent provides intelligence (llm_fn).
   evolution:
-    enabled: false                    # opt-in; set true when ready
+    enabled: true                     # activated — organism can now self-evolve skills
     skill_success_threshold: 0.7      # below this → trigger mutation
     min_sessions_before_evolve: 5     # wait for data before evolving
     max_mutations_per_cycle: 1        # prevent runaway evolution
