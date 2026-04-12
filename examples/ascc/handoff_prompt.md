@@ -99,7 +99,7 @@ Myco kernel 截至 contract v0.9.0 已经落地的硬能力（每一条都会影
    §6、§8 Upstream Protocol、§8.9 三通道代谢分类）
    - §0.5：CLI 和 MCP 是等价入口
    - §1：write surface 白名单
-   - §2：9 个工具的触发条件
+   - §2：18 个工具的触发条件
    - §3-4：session boot/end 硬流程
    - §6：给 ASCC 的铁律
    - §8：Upstream Protocol 全部（class_x/y/z、craft_reference、bundle 格式）

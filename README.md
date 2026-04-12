@@ -77,7 +77,7 @@ The substrate is not a pre-carved mold your agent must fit. Myco's entry points,
                    │             LLM Agent               │
                    │      (CPU — raw compute, no RAM)    │
                    └──────────────▲──────────────────────┘
-                                  │ 9 MCP tools + CLI
+                                  │ 18 MCP tools + CLI
                                   │ (read / eat / digest / lint …)
                    ┌──────────────┴──────────────────────┐
                    │         Myco Kernel (OS)            │
@@ -193,7 +193,7 @@ The continuously-maintained registry lives at [`docs/open_problems.md`](docs/ope
 
 | Phase | What is true | What is coming |
 |-------|-------------|----------------|
-| **v0.x (today)** | Four inward gears shipped · 23-dimension lint green · metabolism CLI live · MCP server exposes 9 tools · kernel/instance separation enforced · one unconscious prototype (ASCC) validated end-to-end · Self-Model D layer seeded (view tracking + dead-knowledge signal + `myco prune` auto-excretion) · Metabolic Inlet MVP scaffold shipped (`myco inlet`, Wave 35 / v0.27.0) · L19 dimension-count consistency lint (Wave 38 / v0.29.0) · L20 translation mirror lint (Wave 39 / v0.30.0) · L21 contract version inline lint (Wave 40 / v0.31.0) · L22 wave-seed lifecycle lint (Wave 41 / v0.32.0) | Inlet cold-start, autonomous trigger signals, and continuous compression remain open. Most gear-firing is still human-triggered. |
+| **v0.x (today)** | Four inward gears shipped · 23-dimension lint green · metabolism CLI live · MCP server exposes 18 tools · kernel/instance separation enforced · one unconscious prototype (ASCC) validated end-to-end · Self-Model D layer seeded (view tracking + dead-knowledge signal + `myco prune` auto-excretion) · Metabolic Inlet MVP scaffold shipped (`myco inlet`, Wave 35 / v0.27.0) · L19 dimension-count consistency lint (Wave 38 / v0.29.0) · L20 translation mirror lint (Wave 39 / v0.30.0) · L21 contract version inline lint (Wave 40 / v0.31.0) · L22 wave-seed lifecycle lint (Wave 41 / v0.32.0) | Inlet cold-start, autonomous trigger signals, and continuous compression remain open. Most gear-firing is still human-triggered. |
 | **v1.0** | Metabolic inlet fully autonomous · Self-Model D implemented · structural decay detector seeded · trigger signals replaced by learned heuristics | Human is no longer the engine; human is strictly the selection pressure. |
 | **v∞** | Kernel evolves without any single human being able to hold its structure in their head — but *any* human can still audit any change, because C2 Transparent never lifts. | Open question. This is where [Open Problem 3](#open-problems) becomes load-bearing. |
 
@@ -216,7 +216,7 @@ myco lint --project-dir ./your-project     # baseline the substrate
 myco hunger --project-dir ./your-project   # metabolic dashboard
 ```
 
-**MCP integration** — your agent gets 9 tools automatically, no manual prompting:
+**MCP integration** — your agent gets 18 tools automatically, no manual prompting:
 
 ```bash
 pip install 'git+https://github.com/Battam1111/Myco.git#egg=myco[mcp]'
@@ -226,8 +226,11 @@ A ready-to-use `.mcp.json` ships in the repo. Once installed in Claude Code, Cur
 
 - **Substrate health** · `myco_lint` · `myco_status` · `myco_search` · `myco_log` · `myco_reflect`
 - **Knowledge metabolism** · `myco_eat` · `myco_digest` · `myco_view` · `myco_hunger`
+- **Compression & excretion** · `myco_compress` · `myco_uncompress` · `myco_prune`
+- **External intake** · `myco_inlet` · `myco_forage` · `myco_upstream`
+- **Intelligence** · `myco_graph` · `myco_cohort` · `myco_session`
 
-The CLI alone is enough to use Myco. The MCP layer is what turns capture into a reflex.
+The CLI alone is enough to use Myco. The MCP layer is what turns capture into a reflex. Call `myco_hunger(execute=true)` at session boot — the substrate self-heals.
 
 ### The biological vocabulary in one table
 
@@ -240,16 +243,19 @@ Myco's verbs are metaphorical on purpose — metabolism is the mental model. If 
 | `evaluate` | Score a raw note for substrate fit (extract / discard / shelve) | `myco evaluate` | (CLI only) |
 | `extract` | Lift the load-bearing structure out of a digesting note | `myco extract` | (CLI only) |
 | `integrate` | Wire an extracted note into the existing knowledge body | `myco integrate` | (CLI only) |
-| `compress` | Rewrite a heavy note as a lighter summary while preserving the original | `myco compress` | (CLI only) |
-| `uncompress` | Restore the pre-compression original from `.original` | `myco uncompress` | (CLI only) |
-| `prune` | Auto-excrete dead-knowledge notes flagged by the D-layer signal | `myco prune` | (CLI only) |
+| `compress` | Synthesize N raw/digesting notes into 1 extracted note with audit trail | `myco compress` | `myco_compress` |
+| `uncompress` | Reverse a compression, restore inputs to pre-compression state | `myco uncompress` | `myco_uncompress` |
+| `prune` | Auto-excrete dead-knowledge notes flagged by the D-layer signal | `myco prune` | `myco_prune` |
 | `view` | Read notes with filters (records `view_count` + `last_viewed_at`) | `myco view` | `myco_view` |
 | `lint` | 23-dimension substrate health check | `myco lint` | `myco_lint` |
 | `correct` | Apply auto-fixes from a prior lint pass (alias: `myco molt`) | `myco correct` | (CLI only) |
-| `forage` | Pull external sources into the metabolic inlet | `myco forage` | (CLI only) |
-| `inlet` | Run the Metabolic Inlet MVP — discover/evaluate/extract from a configured source | `myco inlet` | (CLI only) |
+| `forage` | Manage external source material (add/list/digest) | `myco forage` | `myco_forage` |
+| `inlet` | Ingest external content with provenance tracking | `myco inlet` | `myco_inlet` |
 | `hunger` | Metabolic dashboard: raw backlog, stale notes, dead knowledge | `myco hunger` | `myco_hunger` |
-| `absorb` | Sync kernel improvements from downstream instances | `myco upstream absorb` | (CLI only) |
+| `absorb` | Sync kernel improvements from downstream instances | `myco upstream absorb` | `myco_upstream` |
+| `graph` | Link graph analysis: backlinks, orphans, clusters, stats | `myco graph` | `myco_graph` |
+| `cohort` | Semantic cohort intelligence: tag co-occurrence, compression suggestions, gaps | `myco cohort` | `myco_cohort` |
+| `session` | Session memory: index, search, prune agent conversation transcripts | `myco session` | `myco_session` |
 
 ---
 

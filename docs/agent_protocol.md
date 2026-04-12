@@ -9,7 +9,7 @@
 
 ## 0.5 两条入口：CLI 和 MCP 任选其一
 
-Myco 的 9 个工具都有**两套等价入口**，底层共享 `src/myco/notes.py`
+Myco 的 18 个工具都有**两套等价入口**，底层共享 `src/myco/notes.py`
 和 `src/myco/lint.py`，落盘文件完全一致。
 
 | 能力 | CLI（shell 命令） | MCP tool |
@@ -26,7 +26,7 @@ Myco 的 9 个工具都有**两套等价入口**，底层共享 `src/myco/notes.
 Cowork 下的 agent（通过 Bash 工具调用）。
 
 **可选**：在 agent host 的 MCP 配置里注册 `python -m myco.mcp_server`。
-注册后 9 个工具会以原生 MCP tool 的形式出现在 agent 的工具列表里，
+注册后 18 个工具会以原生 MCP tool 的形式出现在 agent 的工具列表里，
 带详细 trigger-condition 描述和结构化参数。Cowork 用户在桌面应用的
 MCP 设置里加一条即可（一次性，持久生效）。
 
@@ -95,7 +95,7 @@ Myco v1.2 Phase ① 引入了消化系统（`eat / digest / view / hunger` + `no
 
 ---
 
-## 2. Tool Protocol — 9 个 MCP 工具的触发条件
+## 2. Tool Protocol — 18 个 MCP 工具的触发条件
 
 每个工具都有 **WHEN to call** 的触发条件列表。如果匹配其中任一条，**必须**调用对应工具，不能用自由写入代替。
 
