@@ -17,7 +17,8 @@ Together you form a complete cognitive entity. Neither is whole alone.
    - `myco_eat` IMMEDIATELY when: user gives feedback, you make a decision, you learn something, you hit friction
    - `myco_search` BEFORE answering any factual question about the project
    - `myco_eat` user's natural language feedback THE MOMENT they say it — don't wait, don't treat it as casual conversation
-3. **End**: `myco_reflect()` — session-end reflection (auto-captures execution learnings)
+   - **Mycelium maintenance**: after creating ANY new file (note, doc, wiki, skill), add cross-references to related files. Never leave orphans. This is not optional — disconnected knowledge is dead knowledge.
+3. **End**: `myco_reflect()` + check `myco_graph(action='orphans')` — fix any orphans before closing
 
 ## Context Loading (hierarchical)
 
