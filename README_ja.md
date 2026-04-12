@@ -13,7 +13,7 @@
 [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
 [![Lint](https://img.shields.io/badge/Lint-23%2F23%20全緑-brightgreen?style=for-the-badge)](#三つの不可変憲法)
 
-[生きた基質](#生きた基質) · [五つの核心能力](#五つの核心能力) · [Myco-との協働のしかた](#myco-との協働のしかた) · [三つの不可変憲法](#三つの不可変憲法) · [五十年の肩の上で](#五十年の肩の上で) · [今日から試す](#今日から試す)
+[生きた基質](#生きた基質) · [なぜ Myco か](#なぜ-myco-か) · [五つの核心能力](#五つの核心能力) · [Myco-との協働のしかた](#myco-との協働のしかた) · [三つの不可変憲法](#三つの不可変憲法) · [五十年の肩の上で](#五十年の肩の上で) · [今日から試す](#今日から試す)
 
 **言語：** [English](README.md) · [中文](README_zh.md) · 日本語（現在）
 

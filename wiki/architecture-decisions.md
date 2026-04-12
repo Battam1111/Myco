@@ -53,4 +53,18 @@
 
 *Promoted from notes/n_20260412T233542_e1a9 (compressed founding architecture decisions) on 2026-04-12.*
 
+---
+
+## See Also
+
+- [docs/architecture.md](../docs/architecture.md) -- 技术架构：四支柱 + 进化引擎（这些架构决策的全景上下文）
+- [wiki/design-decisions.md](design-decisions.md) -- 创始设计决策（D1-D5）：行为层面的互补决策
+- [wiki/identity.md](identity.md) -- Myco 身份定义：Agent-First Symbiotic Cognitive Organism
+- [docs/theory.md](../docs/theory.md) -- 理论基础：Polanyi 隐性知识（A2 痛点驱动的理论根基）
+- [docs/vision.md](../docs/vision.md) -- 愿景文档：五大核心能力
+- [src/myco/notes.py](../src/myco/notes.py) -- notes.py 单一 SSoT 实现（A1 决策的代码）
+- [src/myco/lint.py](../src/myco/lint.py) -- 23 维 Lint 免疫系统（A2 一致性验证痛点的解）
+- [docs/agent_protocol.md](../docs/agent_protocol.md) -- Agent 协议：notes 写面规则（A1 依赖方向的契约化）
+- [_canon.yaml](../_canon.yaml) -- 规范值 SSoT
+
 **Back to** [MYCO.md](../MYCO.md)
