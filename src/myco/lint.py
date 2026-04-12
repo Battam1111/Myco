@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Myco Knowledge System — Automated 22-Dimension Substrate Immune System.
+Myco Knowledge System — Automated 23-Dimension Substrate Immune System.
 
 The canonical dimension count is `len(FULL_CHECKS)` (computed at module load
 time, see bottom of this file). This docstring's dimension table below is a
@@ -32,6 +32,7 @@ Dimensions:
     L19 Lint Dimension Count Consistency — downstream-cache drift detection (Wave 38, v0.29.0)
     L20 Translation Mirror Consistency — locale README skeleton parity (Wave 39, v0.30.0)
     L21 Contract Version Inline Consistency — forward-looking inline contract version SSoT (Wave 40, v0.31.0)
+    L22 Wave-Seed Lifecycle — raw wave-seed orphan detection (seven-step pipeline post-condition, Wave 41, v0.32.0)
 """
 
 import os
@@ -2366,11 +2367,163 @@ def lint_contract_version_inline(canon, root):
 
 
 # ---------------------------------------------------------------------------
+# L22 Wave-Seed Lifecycle (Wave 41, v0.32.0)
+# ---------------------------------------------------------------------------
+# Wave-seed orphan detection: a raw note tagged `wave{N}-seed` where wave N
+# has already landed (its milestone exists in `log.md`) is a structural
+# post-condition violation of the seven-step pipeline (anchor #3). The seed
+# was captured during the wave as evidence input but never advanced past
+# `raw` after the wave closed. L22 catches each such orphan as a HIGH
+# issue, naming the canonical advancement command.
+#
+# Sister to L19/L20/L21: each is a structural drift detector for a
+# different scar class. Together they form the substrate's silent-rot
+# fence around its most fragile referential surfaces.
+#
+# Authoritative craft:
+#     docs/primordia/wave_seed_lifecycle_craft_2026-04-12.md
+
+# Tag pattern (Wave 41 D6): exact `wave\d+-seed`. No loose variations.
+_L22_WAVE_SEED_RE = re.compile(r"^wave(\d+)-seed$")
+
+# log.md milestone pattern (Wave 41 D3): bold `**Wave N landed**` with
+# optional trailing parenthetical context inside the bold. Stable across
+# 40+ waves of log.md history.
+_L22_MILESTONE_RE = re.compile(
+    r"\*\*Wave\s+(\d+)\s+landed[^*]*\*\*",
+    re.IGNORECASE,
+)
+
+
+def _l22_parse_closed_waves(root):
+    """Parse log.md and return the set of closed wave numbers (Wave 41 D2).
+
+    Returns an empty set if log.md is missing or unreadable. The set is
+    composed of integers parsed from `**Wave N landed**` milestone bold
+    headers anywhere in the file.
+    """
+    log_path = root / "log.md"
+    if not log_path.exists():
+        return set()
+    try:
+        content = log_path.read_text(encoding="utf-8")
+    except Exception:
+        return set()
+
+    closed = set()
+    for match in _L22_MILESTONE_RE.finditer(content):
+        try:
+            closed.add(int(match.group(1)))
+        except (ValueError, TypeError):
+            continue
+    return closed
+
+
+def lint_wave_seed_orphan(canon, root):
+    """L22 (Wave 41, contract v0.32.0) — wave-seed orphan detection.
+
+    Catches the structural post-condition violation where a raw note
+    tagged `wave{N}-seed` exists for a wave N whose `**Wave N landed**`
+    milestone is already in `log.md`. The seed was captured as evidence
+    input to the wave's craft but was never advanced past `raw` after
+    the wave's closing commit. This violates anchor #3 (the seven-step
+    metabolic pipeline: raw must advance).
+
+    Detection (Wave 41 D1):
+        A note is an orphan iff ALL of:
+        1. status == "raw"
+        2. some tag matches `wave\\d+-seed`
+        3. the parsed wave number has a milestone in log.md
+
+    What L22 does NOT enforce (Wave 41 §0.2):
+        - That every wave MUST create a seed bundle
+        - That seeds must reach a specific terminal state
+        - That non-wave-tagged raw notes must advance
+        - Seeds tagged for waves not yet landed (allowed to stay raw
+          while wave is in progress)
+        - Seeds in `digesting` (advanced once, then forgotten — separate
+          dimension if needed)
+
+    Severity: HIGH for each orphan (no tier system per Wave 41 D4).
+
+    Authoritative craft:
+        docs/primordia/wave_seed_lifecycle_craft_2026-04-12.md
+    """
+    issues = []
+
+    # Determine notes/ directory (mirror L10 logic for schema-driven dir).
+    schema = (canon.get("system") or {}).get("notes_schema") or {}
+    notes_dir = root / schema.get("dir", "notes")
+    if not notes_dir.exists():
+        return issues
+
+    closed_waves = _l22_parse_closed_waves(root)
+    if not closed_waves:
+        # C8: empty/missing log.md or no landed waves → nothing to enforce.
+        return issues
+
+    for path in sorted(notes_dir.glob("*.md")):
+        name = path.name
+        if not name.startswith("n_"):
+            continue  # skip README and similar
+
+        content = read_file(path)
+        if content is None:
+            continue
+
+        m = _FRONTMATTER_RE.match(content)
+        if not m:
+            continue  # L10 will catch the missing frontmatter
+
+        try:
+            meta = yaml.safe_load(m.group("fm")) or {}
+        except Exception:
+            continue  # L10 will catch the malformed frontmatter
+        if not isinstance(meta, dict):
+            continue
+
+        if meta.get("status") != "raw":
+            continue
+
+        tags = meta.get("tags") or []
+        if not isinstance(tags, list):
+            continue
+
+        # Find the first wave-seed tag whose wave is closed (D2 — first
+        # match wins to bound noise; one issue per orphan, not per tag).
+        rel = str(path.relative_to(root)).replace("\\", "/")
+        note_id = meta.get("id") or path.stem
+        for tag in tags:
+            if not isinstance(tag, str):
+                continue
+            tm = _L22_WAVE_SEED_RE.match(tag)
+            if tm is None:
+                continue
+            try:
+                wave_n = int(tm.group(1))
+            except (ValueError, TypeError):
+                continue
+            if wave_n in closed_waves:
+                issues.append((
+                    "L22", "HIGH", rel,
+                    f"wave-seed orphan: tag `wave{wave_n}-seed` references "
+                    f"a closed wave but note status is still `raw`. "
+                    f"Advance via `myco digest --to extracted {note_id}` "
+                    f"(seven-step pipeline post-condition — Wave 41 D1). "
+                    f"Authoritative craft: "
+                    f"docs/primordia/wave_seed_lifecycle_craft_2026-04-12.md"
+                ))
+                break  # one issue per orphan note
+
+    return issues
+
+
+# ---------------------------------------------------------------------------
 # Module-level checks lists (Wave 38 D2 — SSoT for LINT_DIMENSION_COUNT)
 # ---------------------------------------------------------------------------
 
 # QUICK_CHECKS = the L0-L3 fast subset run when `myco lint --quick`.
-# FULL_CHECKS  = the full L0-L21 sequence (default). `len(FULL_CHECKS)` is
+# FULL_CHECKS  = the full L0-L22 sequence (default). `len(FULL_CHECKS)` is
 # the canonical lint dimension count — see L19 docstring for the rot story.
 QUICK_CHECKS = (
     ("L0 Canon Self-Check", lint_canon_schema),
@@ -2398,6 +2551,7 @@ FULL_CHECKS = QUICK_CHECKS + (
     ("L19 Lint Dimension Count Consistency", lint_dimension_count_consistency),
     ("L20 Translation Mirror Consistency", lint_translation_mirror_consistency),
     ("L21 Contract Version Inline Consistency", lint_contract_version_inline),
+    ("L22 Wave-Seed Lifecycle", lint_wave_seed_orphan),
 )
 
 

@@ -6,7 +6,7 @@ When configured in .mcp.json, AI agents (Claude Code, Cursor, etc.) automaticall
 discover these tools and call them at the right moments — no manual prompting needed.
 
 Tools:
-    myco_lint       — Run 22-dimensional consistency checks (L0-L21)
+    myco_lint       — Run 23-dimensional consistency checks (L0-L22)
     myco_status     — Quick overview of knowledge system health
     myco_search     — Search across wiki/docs/MYCO.md knowledge base
     myco_log        — Append friction/reflection entries to log.md
@@ -87,7 +87,7 @@ def _read_file(path: Path) -> Optional[str]:
 @mcp.tool(
     name="myco_lint",
     annotations={
-        "title": "Myco Lint — 22-Dimension Consistency Check",
+        "title": "Myco Lint — 23-Dimension Consistency Check",
         "readOnlyHint": True,
         "destructiveHint": False,
         "idempotentHint": True,
@@ -105,14 +105,14 @@ async def myco_lint(
     modified wiki/, docs/, MYCO.md, _canon.yaml, or notes/. Also run after any
     Gear 3 retrospective or before commits that touch multiple knowledge files.
 
-    This is the 22-dimensional immune system of the knowledge substrate. It
+    This is the 23-dimensional immune system of the knowledge substrate. It
     catches contradictions across files, orphan references, stale patterns,
     version drift, write-surface violations, upstream transport hygiene, craft
     protocol schema violations, forage substrate hygiene issues, craft reflex
     arc compliance, boot brief freshness, contract drift, compression
     integrity, lint dimension count drift, translation mirror skeleton drift,
-    and inline contract version drift — things markdown linters and prose
-    linters cannot see because they
+    inline contract version drift, and wave-seed lifecycle orphans — things
+    markdown linters and prose linters cannot see because they
     check syntax, not cross-file semantic consistency.
 
     Checks: L0 Canon schema, L1 Reference integrity, L2 Number consistency,
@@ -129,7 +129,12 @@ async def myco_lint(
     L19 Lint Dimension Count Consistency (downstream-cache integrity for
     LINT_DIMENSION_COUNT — narrative surfaces must mirror len(lint.FULL_CHECKS)),
     L20 Translation Mirror Consistency (locale README skeleton parity —
-    h2/h3/code-fence/table-row/badge counts must match across en/zh/ja).
+    h2/h3/code-fence/table-row/badge counts must match across en/zh/ja),
+    L21 Contract Version Inline Consistency (inline contract version SSoT —
+    forward-looking pattern; narrative surfaces must mirror canon contract_version),
+    L22 Wave-Seed Lifecycle (raw wave-seed orphan detection — seven-step
+    pipeline post-condition: a wave-{N}-seed tagged raw note must advance
+    out of raw before its wave's milestone lands in log.md).
 
     Args:
         project_dir: Path to Myco project root. Auto-detected if omitted.
@@ -170,7 +175,7 @@ async def myco_lint(
     report = {
         "project": str(root),
         "timestamp": datetime.now().isoformat(),
-        "mode": "quick (L0-L3)" if quick else "full (L0-L21)",
+        "mode": "quick (L0-L3)" if quick else "full (L0-L22)",
         "total_issues": total_issues,
         "all_passed": total_issues == 0,
         "checks": results,
