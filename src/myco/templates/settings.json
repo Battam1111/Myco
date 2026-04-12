@@ -1,15 +1,9 @@
 {
-  "hooks": {
-    "UserPromptSubmit": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python -c \"from myco.cli import main; import sys; sys.argv=['myco','hunger','--execute']; main()\" 2>/dev/null || true"
-          }
-        ]
-      }
+  "permissions": {
+    "allow": [
+      "mcp__myco__*",
+      "Bash(python -m myco*)",
+      "Bash(python -c *myco*)"
     ]
   }
 }
