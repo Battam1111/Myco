@@ -179,6 +179,23 @@ def run_init(args) -> int:
             json.dumps(mcp_config, indent=2), encoding="utf-8")
         print(f"  ✅ .mcp.json (MCP server auto-discovery)")
 
+        # Wave B4: create scheduled metabolic cycle task
+        sched_dir = project_dir / ".claude" / "scheduled-tasks" / "myco-metabolic-cycle"
+        sched_dir.mkdir(parents=True, exist_ok=True)
+        (sched_dir / "SKILL.md").write_text(
+            "---\n"
+            "name: myco-metabolic-cycle\n"
+            "description: Daily Myco metabolic cycle — hunger check + auto-execute\n"
+            "---\n\n"
+            "Run the Myco metabolic cycle:\n"
+            "1. Call myco_hunger(execute=true) to auto-heal the substrate\n"
+            "2. If session index is missing, call myco_session(action='index')\n"
+            "3. Call myco_lint() to verify substrate integrity\n"
+            "4. Report: 'Metabolic cycle complete. Status: [healthy/N issues]'\n",
+            encoding="utf-8",
+        )
+        print(f"  ✅ .claude/scheduled-tasks/myco-metabolic-cycle/ (daily metabolic cycle)")
+
         print(f"\n🍄 Done! Myco is wired for Claude Code.")
         print(f"   Run `claude` in {project_dir.resolve()} — Myco is ready.")
     else:
