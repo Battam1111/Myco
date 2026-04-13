@@ -41,7 +41,7 @@ But the implementation naming is **half biomimetic, half software-engineering-ge
 - `wiki/` (says "Wikipedia-style doc collection")
 - `_canon.yaml` (says "canonical config file")
 - `src/myco/notes.py` (says "notes data structure")
-- `src/myco/lint.py` (says "static analyzer")
+- `src/myco/immune.py` (says "static analyzer")
 - `system.notes_schema` canon key (says "notes data schema")
 - `L0 Canon Self-Check` / `L7 Wiki Format` / `L10 Notes Schema` (lint dimension labels)
 - `myco correct` (says "fix an error")
@@ -54,7 +54,7 @@ Wave 10 `vision_recovery_craft §0` diagnosed the same tension at the README/nar
 
 Naming shapes what contributors (including future-me in a new session) believe the project IS:
 
-- If I open `src/myco/lint.py`, I think "this is where the linter code lives"
+- If I open `src/myco/immune.py`, I think "this is where the linter code lives"
 - If I open src/myco/immune.py (proposed), I think "this is where the substrate's immune system lives"
 
 These are **not the same cognitive frame**. The first invites "better linter" thinking; the second invites "better immune response" thinking. Over many sessions, the dominant cognitive frame shapes which PRs are written, which refactors get proposed, which metaphors the next craft reaches for.
@@ -251,7 +251,7 @@ Prose renames cascade as a search-and-replace during Wave 29 but don't add new c
 2. `_canon.yaml` → `_genome.yaml` (file + 100+ reference sites)
 3. `src/myco/notes.py` → src/myco/metabolism.py (module + imports)
 4. `src/myco/notes_cmd.py` → src/myco/metabolism_cmd.py (module + imports)
-5. `src/myco/lint.py` → src/myco/immune.py (module + imports + L15 trigger surface list)
+5. `src/myco/immune.py` → src/myco/immune.py (module + imports + L15 trigger surface list)
 
 **MEDIUM cost** (focused file set):
 6. `myco correct` → `myco molt` (CLI verb + MCP tool + canon key + install hook + agent_protocol)
@@ -400,7 +400,7 @@ This plus README update plus L0 lint label change ("Genome Self-Check" in lint o
 | 2 | Top-level file | `_canon.yaml` | `_genome.yaml` | CRITICAL | L0, all src refs, all doc refs |
 | 3 | Python module | `src/myco/notes.py` | src/myco/metabolism.py | HIGH | all imports, canon key, L10 |
 | 4 | Python module | `src/myco/notes_cmd.py` | src/myco/metabolism_cmd.py | HIGH | cli.py dispatch |
-| 5 | Python module | `src/myco/lint.py` | src/myco/immune.py | HIGH | all imports, scripts/lint_knowledge.py shim, L0-L17 all embedded |
+| 5 | Python module | `src/myco/immune.py` | src/myco/immune.py | HIGH | all imports, scripts/lint_knowledge.py shim, L0-L17 all embedded |
 | 6 | CLI verb + MCP tool | `myco correct` / `myco_correct` | `myco molt` / `myco_molt` | MEDIUM | canon, install_git_hooks, agent_protocol §5.1(c), MYCO.md |
 | 7 | CLI verb + MCP tool | `myco lint` / `myco_lint` | `myco immune` / `myco_immune` | HIGH | README examples, every pre-commit hook, every dogfood script, every CI config, myco_lint help text |
 | 8 | Canon key tree | `system.notes_schema.*` | `system.metabolism_schema.*` | CRITICAL | L10 lint + notes.py schema validation + template canon |
@@ -423,7 +423,7 @@ Wave 29 is kernel_contract class, 3 rounds, 0.92 confidence target (slightly abo
 - Rename `_canon.yaml` → `_genome.yaml` in kernel
 - Rename `src/myco/notes.py` → src/myco/metabolism.py + update all imports
 - Rename `src/myco/notes_cmd.py` → src/myco/metabolism_cmd.py + update all imports
-- Rename `src/myco/lint.py` → src/myco/immune.py + update all imports + scripts/lint_knowledge.py shim
+- Rename `src/myco/immune.py` → src/myco/immune.py + update all imports + scripts/lint_knowledge.py shim
 - Rename `wiki/` → `hyphae/` (it's empty today so no file moves needed, just directory rename + canon update)
 - Update `src/myco/cli.py` to dispatch `molt` and `immune` verbs (adding, not removing — keep old verb names as aliases for one transition wave to soften the breakage)
 
@@ -438,7 +438,7 @@ Wave 29 is kernel_contract class, 3 rounds, 0.92 confidence target (slightly abo
 - `src/myco/templates/MYCO.md` prose updates (lint/wiki/canon/correct → immune/hyphae/genome/molt)
 - `README.md` / `README_zh.md` / `README_ja.md` examples
 - `docs/agent_protocol.md` prose updates
-- `docs/craft_protocol.md` prose updates (specifically the reflex trigger surface list which mentions `_canon.yaml` and `src/myco/lint.py` and `src/myco/notes.py` — these need new paths)
+- `docs/craft_protocol.md` prose updates (specifically the reflex trigger surface list which mentions `_canon.yaml` and `src/myco/immune.py` and `src/myco/notes.py` — these need new paths)
 - `docs/WORKFLOW.md` references
 
 **Phase E — Lint updates**:

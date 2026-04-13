@@ -30,19 +30,19 @@ setup_steps:
   1: "Install Myco: pip install -e '.[mcp]' (editable) or pip install myco"
   2: |
     Initialize with Claude Code agent preset:
-    Run: myco init my-project --agent claude
+    Run: myco seed my-project --agent claude
     This creates: CLAUDE.md (L1 entry point) + .mcp.json (MCP server config)
     + _canon.yaml + notes/ + wiki/ + log.md + skills/ + .myco_state/
   3: |
     If migrating from an existing CLAUDE.md:
-    Run: myco migrate ./your-project --entry-point CLAUDE.md
+    Run: myco graft ./your-project --entry-point CLAUDE.md
     Myco preserves your existing CLAUDE.md content and wraps it with
     the evolution scaffold (index, canon, wiki, log).
   4: |
     Verify MCP connection: open Claude Code in the project directory.
     The 20 Myco MCP tools should appear automatically.
-    Test with: call myco_status() — should return substrate health dashboard.
-  5: "Run: myco lint --project-dir . — establish your baseline"
+    Test with: call myco_pulse() — should return substrate health dashboard.
+  5: "Run: myco immune --project-dir . — establish your baseline"
   6: "First session: call myco_hunger(execute=true) — the organism wakes up"
 
 # -- CLAUDE.md Entry Point -------------------------------------------------
@@ -56,7 +56,7 @@ entry_point:
     (boot signals from hunger), session flow instructions, and hierarchical
     context loading rules.
   template: "src/myco/templates/CLAUDE.md"
-  generation: "myco init --agent claude"
+  generation: "myco seed --agent claude"
 
 # -- MCP Integration -------------------------------------------------------
 mcp_config:
@@ -80,13 +80,13 @@ mcp_config:
     - "myco_hunger — metabolic dashboard + auto-execute repairs"
     - "myco_eat — zero-friction knowledge capture"
     - "myco_digest — lifecycle transitions with reflection prompts"
-    - "myco_compress — cohort-based forward compression"
-    - "myco_lint — 23-dimensional consistency checking"
-    - "myco_graph — structural link graph (backlinks, orphans, clusters)"
-    - "myco_search — full-text search across the substrate"
-    - "myco_inlet — external content ingestion with provenance"
-    - "myco_session — FTS5 session memory index and search"
-    - "myco_status — quick health dashboard"
+    - "myco_condense — cohort-based forward compression"
+    - "myco_immune — 23-dimensional consistency checking"
+    - "myco_mycelium — structural link graph (backlinks, orphans, clusters)"
+    - "myco_sense — full-text search across the substrate"
+    - "myco_absorb — external content ingestion with provenance"
+    - "myco_memory — FTS5 session memory index and search"
+    - "myco_pulse — quick health dashboard"
 
 # -- File Ownership ---------------------------------------------------------
 coexistence_notes:
@@ -127,7 +127,7 @@ workflow_compatibility:
   W2_session_reflection:  "Full — MCP myco_reflect generates prompts from log + lint"
   W3_canon_first:         "Full — agent reads _canon.yaml via CLAUDE.md boot"
   W4_wiki_w8:             "Full — agent creates wiki pages via filesystem access"
-  W5_lint_gate:           "Full — MCP myco_lint runs 23-dimensional check"
+  W5_lint_gate:           "Full — MCP myco_immune runs 23-dimensional check"
   W8_format:              "Full — CLAUDE.md template includes W8 headers"
   W12_gear_protocol:      "Full — myco_hunger auto-triggers Session Reflection via scheduled metabolic cycle"
   boot_reflex:            "Full — CLAUDE.md hot zone displays hunger boot signals"
@@ -159,14 +159,14 @@ limitations:
 
 # -- Roadmap ----------------------------------------------------------------
 roadmap:
-  v0_3: "myco init --agent claude auto-detects existing CLAUDE.md and offers merge"
+  v0_3: "myco seed --agent claude auto-detects existing CLAUDE.md and offers merge"
   v0_4: "Boot brief injection: hunger signals rendered directly in CLAUDE.md hot zone"
   v1_0: "Full scheduled metabolic cycle with configurable cron expression"
 
 # -- Notes ------------------------------------------------------------------
 notes:
   - "This adapter is ACTIVE (v1.0). Claude Code is the primary development agent for Myco itself."
-  - "myco init --agent claude is the one-command setup. No manual file creation needed."
+  - "myco seed --agent claude is the one-command setup. No manual file creation needed."
   - "The .mcp.json file must be at the project root for Claude Code to detect it."
   - "Editable install (pip install -e '.[mcp]') is recommended for Myco developers."
   - "CLAUDE.md supports hierarchical loading: subdirectory CLAUDE.md files override parent."

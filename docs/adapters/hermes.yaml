@@ -27,7 +27,7 @@ import_steps:
   2: "Classify each skill: procedural (how-to) → wiki/{skill_name}.md | operational (failure paths) → docs/operational_narratives.md (append)"
   3: "For wiki imports: add W8 header (type: operations | date: today) and Back-to footer"
   4: "For operational_narratives imports: follow the P-NNN format (trigger → pre-check → steps → known pitfalls → verification)"
-  5: "Run: myco lint --project-dir . to verify W8 format compliance and reference integrity"
+  5: "Run: myco immune --project-dir . to verify W8 format compliance and reference integrity"
   6: "Update _canon.yaml wiki_pages count if new wiki pages were created"
   7: "Add a log entry: [YYYY-MM-DD] milestone | Imported N Hermes skills: {skill names}"
 
@@ -55,7 +55,7 @@ value_proposition: |
 
 # ── Roadmap ──────────────────────────────────────────────────
 roadmap:
-  v1_0: "myco import --from hermes ./skills/ → auto-classify, auto-format, auto-lint"
+  v1_0: "myco assimilate --from hermes ./skills/ → auto-classify, auto-format, auto-lint"
   v2_0: "Bi-directional sync: Myco can push refined skills back to Hermes format"
 
 # ── Notes ────────────────────────────────────────────────────

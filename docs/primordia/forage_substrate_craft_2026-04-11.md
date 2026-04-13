@@ -169,7 +169,7 @@ system:
 3. `_canon.yaml::system.forage_schema` block
 4. `src/myco/templates/_canon.yaml::system.forage_schema` block mirror
 5. `_canon.yaml::upstream_channels.class_z` adds `forage/_index.yaml`
-6. **L14 Forage Hygiene** lint (new, in `src/myco/lint.py` only — single
+6. **L14 Forage Hygiene** lint (new, in `src/myco/immune.py` only — single
    SSoT per Wave 6)
 7. `detect_forage_backlog()` read-only signal wired into
    `compute_hunger_report`
@@ -385,9 +385,9 @@ Strict ordering to minimize churn and maximize early-fail feedback:
    detect_forage_backlog, add/list/digest helpers)
 8. Create `src/myco/forage_cmd.py` (CLI dispatch)
 9. Wire `myco forage` into `src/myco/cli.py`
-10. Add L14 `lint_forage_hygiene` in `src/myco/lint.py` (single SSoT,
+10. Add L14 `lint_forage_hygiene` in `src/myco/immune.py` (single SSoT,
     per Wave 6)
-11. Update `main()` checks list in `src/myco/lint.py` to 15 dimensions
+11. Update `main()` checks list in `src/myco/immune.py` to 15 dimensions
 12. Wire `detect_forage_backlog` into `compute_hunger_report` after
     `structural_bloat`
 13. Update `docs/agent_protocol.md` §8.9 (three-channel classification)

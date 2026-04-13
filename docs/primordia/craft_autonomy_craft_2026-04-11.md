@@ -378,7 +378,7 @@ failure, not a hypothetical one).
   downstream but severity change is potentially breaking for CI pipelines
   that treat lint exit code strictly)
 
-**D3 — `src/myco/lint.py::lint_craft_reflex`**:
+**D3 — `src/myco/immune.py::lint_craft_reflex`**:
 - Read `trivial_exempt_lines` from canon (default 20)
 - Before firing a reflex issue, invoke `git diff --stat HEAD <path>`
   (wrapped in try/except); if touched lines ≤ threshold, skip
@@ -427,7 +427,7 @@ failure, not a hypothetical one).
 
 1. ✅ L1 — This craft file (`craft_autonomy_craft_2026-04-11.md`)
 2. L2 — `_canon.yaml`: reflex.severity HIGH + trivial_exempt_lines 20 + version bump v0.11.0
-3. L3 — `src/myco/lint.py::lint_craft_reflex`: read severity from canon, trivial_exempt via git diff with fallback
+3. L3 — `src/myco/immune.py::lint_craft_reflex`: read severity from canon, trivial_exempt via git diff with fallback
 4. L4 — `docs/craft_protocol.md`: §1 rewrite + §3.1 rewrite + §5 collaboration subsection + §4 prose + §7 update
 5. L5 — `src/myco/templates/_canon.yaml`: reflex sync
 6. L6 — `src/myco/templates/MYCO.md`: hot zone W3 clause
@@ -459,7 +459,7 @@ failure, not a hypothetical one).
    failure is a harder constraint than A7's ex-ante reasoning.
 6. **Meta-level self-reference**: this craft fires L15 on its own
    kernel-contract surface touches (it edits `_canon.yaml`,
-   `docs/craft_protocol.md`, `src/myco/lint.py`, etc.). L15 is
+   `docs/craft_protocol.md`, `src/myco/immune.py`, etc.). L15 is
    satisfied by the existence of this file itself (mtime primary),
    so the loop closes. But in a hypothetical world where this craft
    is reverted, the revert commit would fire L15 HIGH on the next

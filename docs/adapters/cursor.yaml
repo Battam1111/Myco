@@ -29,14 +29,14 @@ setup_steps:
   1: "Install Myco: pip install myco"
   2: |
     If your project has a .cursorrules file or CURSOR.md:
-    Run: myco migrate ./your-project --entry-point CURSOR.md
+    Run: myco graft ./your-project --entry-point CURSOR.md
     Myco will detect CURSOR.md, keep it untouched, and create the evolution scaffold alongside it.
   3: |
     If starting fresh:
-    Run: myco init my-project --level 2 --entry-point CURSOR.md
+    Run: myco seed my-project --level 2 --entry-point CURSOR.md
     This creates CURSOR.md as the L1 entry point (instead of MYCO.md).
   4: "Add Myco structure awareness to .cursorrules (see cursorrules_snippet below)"
-  5: "Run: myco lint --project-dir . — establish your baseline"
+  5: "Run: myco immune --project-dir . — establish your baseline"
   6: "The first inconsistency lint catches after you start working is your aha moment"
 
 # ── .cursorrules Integration Snippet ─────────────────────────
@@ -86,7 +86,7 @@ workflow_compatibility:
   W2_session_reflection:  "✅ Session-end summary appended to log.md"
   W3_canon_first:         "✅ Cursor should read _canon.yaml before writing project-specific values"
   W4_wiki_w8:             "✅ Cursor can create W8-format wiki pages when instructed"
-  W5_lint_gate:           "✅ Run myco lint in Cursor terminal or as a Makefile target"
+  W5_lint_gate:           "✅ Run myco immune in Cursor terminal or as a Makefile target"
   W8_format:              "✅ Full W8 header (type/date/cross-refs) + Back-to footer"
   W12_gear_protocol:      "⚠️  Cursor doesn't auto-trigger Session Reflection/Milestone Retrospective — add to .cursorrules as reminder"
 
@@ -100,15 +100,15 @@ value_proposition: |
     - _canon.yaml defines canonical values Cursor always checks first (no contradictions)
     - wiki/ pages give Cursor compiled, lint-verified domain knowledge
     - log.md gives Cursor a timestamped record of what changed and why
-    - myco lint catches when Cursor's generated code contradicts project decisions
+    - myco immune catches when Cursor's generated code contradicts project decisions
     - Cross-Project Distillation distills patterns from this project that Cursor can reuse in your next project
 
   The combination is: Cursor generates at speed. Myco ensures it stays consistent.
 
 # ── Roadmap ──────────────────────────────────────────────────
 roadmap:
-  v1_1: "myco init --entry-point CURSOR.md generates .cursorrules snippet automatically"
-  v1_2: "myco lint --output cursor-format → Cursor Problems panel integration"
+  v1_1: "myco seed --entry-point CURSOR.md generates .cursorrules snippet automatically"
+  v1_2: "myco immune --output cursor-format → Cursor Problems panel integration"
   v2_0: "Cursor Rule that auto-triggers Hunger Sensing friction log on 'same error twice' pattern"
 
 # ── Notes ────────────────────────────────────────────────────

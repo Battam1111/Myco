@@ -46,7 +46,7 @@ import_steps:
   2: "Add [mempalace] section to your project's _canon.yaml: endpoint, collection_name, version"
   3: "Ingest your project's L0 Archive sources into MemPalace: old logs, archived docs, session transcripts"
   4: "Add retrieval hook to your agent prompt: 'For deep-archive queries, search MemPalace collection {collection_name} before answering'"
-  5: "Run: myco lint --project-dir . — verify _canon.yaml MemPalace section is well-formed"
+  5: "Run: myco immune --project-dir . — verify _canon.yaml MemPalace section is well-formed"
   6: "First retrieval test: ask your agent something that requires old archived knowledge — confirm MemPalace is consulted"
 
 # ── Config Schema (what _canon.yaml gains) ────────────────────
@@ -108,7 +108,7 @@ value_proposition: |
 
 # ── Roadmap ──────────────────────────────────────────────────
 roadmap:
-  v1_0: "myco config --set mempalace.endpoint http://localhost:8765 → write _canon.yaml section; myco ingest --source log.md --backend mempalace"
+  v1_0: "myco genome --set mempalace.endpoint http://localhost:8765 → write _canon.yaml section; myco ingest --source log.md --backend mempalace"
   v1_1: "myco promote --from-mempalace {query} → auto-create wiki page from retrieval result"
   v2_0: "Bi-directional: Session Reflection can query MemPalace to check if archived facts contradict current wiki/ content"
 
