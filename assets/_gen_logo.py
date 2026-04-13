@@ -1,199 +1,189 @@
-"""Myco logo v3 — Devouring Spiral: spiral growth + open core + asymmetric burst."""
+"""Myco Logo v8 — Dense Microscopic Mycelium with anastomosis."""
 import math
 import os
-from PIL import Image, ImageDraw, ImageFilter, ImageFont
+import random
+from PIL import Image, ImageDraw, ImageFilter
 from pathlib import Path
 
-FONTS_DIR = Path(os.environ.get("MYCO_FONTS_DIR", "./fonts"))
 OUT_DIR = Path(__file__).parent
-
-MYCO_GREEN = (0, 229, 176)
-MYCO_DARK_GREEN = (0, 135, 94)
-WHITE = (255, 255, 255)
+random.seed(42)
 
 
-def bezier_cubic(t, p0, p1, p2, p3):
-    """Cubic bezier."""
-    u = 1 - t
-    return (
-        u**3 * p0[0] + 3*u**2*t * p1[0] + 3*u*t**2 * p2[0] + t**3 * p3[0],
-        u**3 * p0[1] + 3*u**2*t * p1[1] + 3*u*t**2 * p2[1] + t**3 * p3[1],
-    )
-
-
-def draw_tapered_curve_cubic(img, p0, p1, p2, p3, color, max_w, min_w,
-                              a_start=220, a_end=60, steps=100):
-    """Smooth tapered cubic bezier with alpha gradient."""
-    for i in range(steps):
-        t0, t1 = i / steps, (i + 1) / steps
-        x0, y0 = bezier_cubic(t0, p0, p1, p2, p3)
-        x1, y1 = bezier_cubic(t1, p0, p1, p2, p3)
-        w = max_w + (min_w - max_w) * t0
-        a = int(a_start + (a_end - a_start) * t0)
-        layer = Image.new('RGBA', img.size, (0, 0, 0, 0))
-        ld = ImageDraw.Draw(layer, 'RGBA')
-        ld.line([(x0, y0), (x1, y1)], fill=(*color, a), width=max(1, round(w)))
-        img.alpha_composite(layer)
-
-
-def soft_glow(img, cx, cy, r, color, alpha, blur=0.7):
-    layer = Image.new('RGBA', img.size, (0, 0, 0, 0))
-    d = ImageDraw.Draw(layer, 'RGBA')
-    d.ellipse([cx-r, cy-r, cx+r, cy+r], fill=(*color, alpha))
-    layer = layer.filter(ImageFilter.GaussianBlur(radius=max(1, int(r * blur))))
-    img.alpha_composite(layer)
-
-
-def soft_dot(img, cx, cy, r, color, alpha, blur=0):
-    layer = Image.new('RGBA', img.size, (0, 0, 0, 0))
-    d = ImageDraw.Draw(layer, 'RGBA')
-    d.ellipse([cx-r, cy-r, cx+r, cy+r], fill=(*color, alpha))
-    if blur > 0:
-        layer = layer.filter(ImageFilter.GaussianBlur(radius=blur))
-    img.alpha_composite(layer)
-
-
-def draw_arc_segment(img, cx, cy, r, color, start_angle, end_angle, width, alpha):
-    """Draw an arc (part of a circle) — for the open core."""
-    layer = Image.new('RGBA', img.size, (0, 0, 0, 0))
-    d = ImageDraw.Draw(layer, 'RGBA')
-    bbox = [cx - r, cy - r, cx + r, cy + r]
-    d.arc(bbox, start_angle, end_angle, fill=(*color, alpha), width=width)
-    img.alpha_composite(layer)
-
-
-def generate_logo(size=512, dark_mode=True):
+def generate_mycelium_logo(size=1024, dark_mode=True, pad=0.10):
     img = Image.new('RGBA', (size, size), (0, 0, 0, 0))
-    color = MYCO_GREEN if dark_mode else MYCO_DARK_GREEN
-    cx, cy = size * 0.48, size * 0.50  # slightly left of center (asymmetric)
-    s = size / 100
 
-    # === Ambient glow (bioluminescent aura) ===
-    soft_glow(img, int(cx), int(cy), int(28*s), color, 8, blur=1.2)
-    soft_glow(img, int(cx), int(cy), int(16*s), color, 16, blur=0.8)
+    color = (0, 229, 176) if dark_mode else (0, 135, 94)
+    cx, cy = size * 0.48, size * 0.50
+    max_r = size * (0.5 - pad)
+    scale = size / 512
 
-    # === FILAMENT A: The Devouring Spiral (longest, curves upward-right in a spiral arc) ===
-    # This is the dominant arm — it's mid-lunge, reaching for the next thing to consume
-    a_p0 = (cx, cy)
-    a_p1 = (cx + 12*s, cy - 20*s)   # pulls upward
-    a_p2 = (cx + 28*s, cy - 28*s)   # continues sweeping
-    a_p3 = (cx + 38*s, cy - 18*s)   # curves back inward (spiral motion)
-    draw_tapered_curve_cubic(img, a_p0, a_p1, a_p2, a_p3, color,
-                              max_w=3.2*s, min_w=0.8*s, a_start=230, a_end=90)
-    soft_dot(img, int(a_p3[0]), int(a_p3[1]), int(4.5*s), color, 200, blur=2)
-    # Glow at the tip (it just consumed something — brightest point after core)
-    soft_glow(img, int(a_p3[0]), int(a_p3[1]), int(6*s), color, 30, blur=0.6)
+    segments = []  # (x1, y1, x2, y2, width, alpha, depth)
+    dots = []      # (x, y, radius, alpha)
+    tips = []      # Track all tip positions for anastomosis
 
-    # Branch from spiral arm (secondary growth — evolution evidence)
-    br_start_t = 0.6
-    brx, bry = bezier_cubic(br_start_t, a_p0, a_p1, a_p2, a_p3)
-    br_p0 = (brx, bry)
-    br_p1 = (brx + 8*s, bry - 12*s)
-    br_p2 = (brx + 14*s, bry - 18*s)
-    br_p3 = (brx + 16*s, bry - 28*s)
-    draw_tapered_curve_cubic(img, br_p0, br_p1, br_p2, br_p3, color,
-                              max_w=1.6*s, min_w=0.4*s, a_start=150, a_end=40)
-    soft_dot(img, int(br_p3[0]), int(br_p3[1]), int(2.8*s), color, 120, blur=1)
+    def grow(x, y, angle, length, width, opacity, depth, max_depth):
+        if depth > max_depth or length < 1.5 or width < 0.2 or opacity < 8:
+            return
 
-    # === FILAMENT B: Downward reach (shorter, still growing) ===
-    b_p0 = (cx, cy)
-    b_p1 = (cx + 6*s, cy + 14*s)
-    b_p2 = (cx + 16*s, cy + 24*s)
-    b_p3 = (cx + 24*s, cy + 30*s)
-    draw_tapered_curve_cubic(img, b_p0, b_p1, b_p2, b_p3, color,
-                              max_w=2.6*s, min_w=0.7*s, a_start=200, a_end=70)
-    soft_dot(img, int(b_p3[0]), int(b_p3[1]), int(3.5*s), color, 170, blur=1)
+        # Organic bend
+        angle += random.gauss(0, 0.18)
+        ex = x + math.cos(angle) * length
+        ey = y + math.sin(angle) * length
 
-    # === FILAMENT C: Left tendril (thinnest, youngest — just sprouted) ===
-    c_p0 = (cx, cy)
-    c_p1 = (cx - 10*s, cy + 4*s)
-    c_p2 = (cx - 22*s, cy - 2*s)
-    c_p3 = (cx - 30*s, cy - 8*s)
-    draw_tapered_curve_cubic(img, c_p0, c_p1, c_p2, c_p3, color,
-                              max_w=2.0*s, min_w=0.5*s, a_start=170, a_end=55)
-    soft_dot(img, int(c_p3[0]), int(c_p3[1]), int(2.8*s), color, 140, blur=1)
+        # Boundary fade
+        dist = math.sqrt((ex - cx)**2 + (ey - cy)**2)
+        if dist > max_r * 1.15:
+            return
+        edge_fade = max(0.15, 1.0 - (dist / max_r) ** 1.3)
+        alpha = int(opacity * edge_fade)
 
-    # === CENTRAL CORE: Open ring (devouring — has a gap/mouth) ===
-    # The gap faces upper-right toward the spiral arm (the direction of consumption)
-    core_r = int(7*s)
+        segments.append((x, y, ex, ey, width, alpha, depth))
+        tips.append((ex, ey, depth))
 
-    # Glow behind core
-    soft_glow(img, int(cx), int(cy), int(10*s), color, 50, blur=0.5)
+        # Terminal dot
+        if depth >= max_depth - 1 or (random.random() < 0.25 and depth > 3):
+            dots.append((ex, ey, width * 1.3, alpha))
 
-    # Draw open ring (arc with gap)
-    # Gap from about -30 to 30 degrees (upper-right opening)
-    draw_arc_segment(img, int(cx), int(cy), core_r, color,
-                     start_angle=40, end_angle=340, width=max(2, int(2.8*s)), alpha=230)
+        # Main continuation
+        grow(ex, ey, angle + random.gauss(0, 0.08),
+             length * random.uniform(0.72, 0.86),
+             width * random.uniform(0.80, 0.90),
+             opacity * 0.87, depth + 1, max_depth)
 
-    # Inner bright spot (the digestive fire)
-    soft_dot(img, int(cx), int(cy), int(3*s), WHITE, 220)
-    # Tiny glow on the inner spot
-    soft_glow(img, int(cx), int(cy), int(4*s), WHITE, 40, blur=0.4)
+        # Primary branch (high probability)
+        if random.random() < 0.6 and depth < max_depth - 1:
+            side = angle + random.choice([-1, 1]) * random.uniform(0.35, 0.85)
+            grow(ex, ey, side,
+                 length * random.uniform(0.5, 0.7),
+                 width * random.uniform(0.5, 0.7),
+                 opacity * 0.65, depth + 1, max_depth)
+
+        # Secondary branch (medium probability — adds density)
+        if random.random() < 0.3 and depth < max_depth - 2:
+            side2 = angle + random.choice([-1, 1]) * random.uniform(0.5, 1.1)
+            grow(ex, ey, side2,
+                 length * random.uniform(0.35, 0.55),
+                 width * random.uniform(0.35, 0.55),
+                 opacity * 0.45, depth + 1, max_depth)
+
+        # Rare tertiary (creates fine detail)
+        if random.random() < 0.12 and depth < max_depth - 3:
+            side3 = angle + random.choice([-1, 1]) * random.uniform(0.7, 1.4)
+            grow(ex, ey, side3,
+                 length * random.uniform(0.25, 0.4),
+                 width * random.uniform(0.25, 0.4),
+                 opacity * 0.3, depth + 1, max_depth)
+
+    # === Generate from center — 8 primary hyphae ===
+    for i in range(8):
+        base_angle = (2 * math.pi * i / 8) + random.gauss(0, 0.3)
+        grow(cx, cy, base_angle,
+             random.uniform(58, 78) * scale,
+             random.uniform(3.8, 5.5) * scale,
+             235, 0, 9)
+
+    # === Anastomosis: connect nearby tips ===
+    anastomosis = []
+    for i, (x1, y1, d1) in enumerate(tips):
+        for j, (x2, y2, d2) in enumerate(tips):
+            if i >= j:
+                continue
+            dist = math.sqrt((x2 - x1)**2 + (y2 - y1)**2)
+            # Connect tips that are close but from different primary hyphae
+            if 10 * scale < dist < 40 * scale and abs(d1 - d2) <= 2:
+                if random.random() < 0.15:  # Sparse connections
+                    alpha = int(40 * max(0.2, 1.0 - (dist / (40 * scale))))
+                    w = 0.8 * scale
+                    anastomosis.append((x1, y1, x2, y2, w, alpha))
+
+    # === Draw everything ===
+    # Layer 1: deep branches (behind)
+    segments.sort(key=lambda s: -s[6])
+    for (x1, y1, x2, y2, w, a, d) in segments:
+        draw = ImageDraw.Draw(img, 'RGBA')
+        draw.line([(x1, y1), (x2, y2)], fill=(*color, min(255, a)), width=max(1, round(w)))
+
+    # Layer 2: anastomosis connections (network feel)
+    for (x1, y1, x2, y2, w, a) in anastomosis:
+        draw = ImageDraw.Draw(img, 'RGBA')
+        draw.line([(x1, y1), (x2, y2)], fill=(*color, min(255, a)), width=max(1, round(w)))
+
+    # Layer 3: terminal dots
+    draw = ImageDraw.Draw(img, 'RGBA')
+    for (x, y, r, a) in dots:
+        r = max(0.8, r)
+        draw.ellipse([x-r, y-r, x+r, y+r], fill=(*color, min(255, a)))
+
+    # === Floating spores (being consumed — approaching the organism) ===
+    for _ in range(12):
+        angle = random.uniform(0, 2 * math.pi)
+        dist = random.uniform(max_r * 0.85, max_r * 1.05)
+        sx = cx + math.cos(angle) * dist
+        sy = cy + math.sin(angle) * dist
+        sr = random.uniform(0.8, 1.8) * scale
+        sa = random.randint(15, 40)
+        draw.ellipse([sx-sr, sy-sr, sx+sr, sy+sr], fill=(*color, sa))
+
+    # === Central glow ===
+    for gr, ga in [(30*scale, 20), (20*scale, 35), (12*scale, 55)]:
+        glow = Image.new('RGBA', (size, size), (0, 0, 0, 0))
+        gd = ImageDraw.Draw(glow, 'RGBA')
+        gd.ellipse([cx-gr, cy-gr, cx+gr, cy+gr], fill=(*color, ga))
+        glow = glow.filter(ImageFilter.GaussianBlur(radius=int(gr * 0.6)))
+        img.alpha_composite(glow)
+
+    # Open arc core
+    draw = ImageDraw.Draw(img, 'RGBA')
+    core_r = int(8 * scale)
+    arc_img = Image.new('RGBA', (size, size), (0, 0, 0, 0))
+    ad = ImageDraw.Draw(arc_img, 'RGBA')
+    ad.arc([int(cx-core_r), int(cy-core_r), int(cx+core_r), int(cy+core_r)],
+           start=35, end=335, fill=(*color, 240), width=max(2, int(3.5 * scale)))
+    img.alpha_composite(arc_img)
+
+    # White hot center
+    cl = Image.new('RGBA', (size, size), (0, 0, 0, 0))
+    cd = ImageDraw.Draw(cl, 'RGBA')
+    cr = int(3.5 * scale)
+    cd.ellipse([cx-cr, cy-cr, cx+cr, cy+cr], fill=(255, 255, 255, 240))
+    cl = cl.filter(ImageFilter.GaussianBlur(radius=max(1, int(1.5 * scale))))
+    img.alpha_composite(cl)
 
     return img
 
 
-def generate_with_wordmark(size=512, dark_mode=True):
-    total_h = int(size * 1.22)
-    canvas = Image.new('RGBA', (size, total_h), (0, 0, 0, 0))
-    logo = generate_logo(size, dark_mode)
-    canvas.paste(logo, (0, 0), logo)
-
-    draw = ImageDraw.Draw(canvas, 'RGBA')
-    color = MYCO_GREEN if dark_mode else MYCO_DARK_GREEN
-    try:
-        font = ImageFont.truetype(str(FONTS_DIR / "GeistMono-Regular.ttf"), int(size * 0.065))
-    except Exception:
-        font = ImageFont.load_default()
-
-    text = "m y c o"
-    bbox = draw.textbbox((0, 0), text, font=font)
-    tw = bbox[2] - bbox[0]
-    tx = (size - tw) // 2
-    ty = size + int(size * 0.03)
-    draw.text((tx, ty), text, fill=(*color, 170), font=font)
-    return canvas
-
-
 if __name__ == "__main__":
-    # Icon variants
-    for sz, name in [(512, "512"), (280, "280"), (64, "64"), (32, "32")]:
-        logo = generate_logo(512, dark_mode=True)
-        if sz != 512:
+    for sz, name in [(1024, "1024"), (512, "512"), (280, "280"), (64, "64"), (32, "32")]:
+        logo = generate_mycelium_logo(1024, dark_mode=True)
+        if sz != 1024:
             logo = logo.resize((sz, sz), Image.LANCZOS)
         logo.save(OUT_DIR / f"logo_dark_{name}.png")
 
-    generate_logo(512, False).save(OUT_DIR / "logo_light_512.png")
-    generate_logo(512, True).save(OUT_DIR / "logo_transparent_512.png")
+    generate_mycelium_logo(1024, False).resize((512, 512), Image.LANCZOS).save(OUT_DIR / "logo_light_512.png")
 
-    # Wordmark
-    generate_with_wordmark(512, True).save(OUT_DIR / "myco_full_dark.png")
-    generate_with_wordmark(512, False).save(OUT_DIR / "myco_full_light.png")
-
-    # Social preview 1280x640
+    # Social preview
     social = Image.new('RGBA', (1280, 640), (12, 15, 20, 255))
-    logo_sp = generate_logo(420, True)
-    social.paste(logo_sp, (430, 40), logo_sp)
-    draw = ImageDraw.Draw(social, 'RGBA')
+    logo_sp = generate_mycelium_logo(520, dark_mode=True)
+    social.paste(logo_sp, (380, 10), logo_sp)
     try:
-        font = ImageFont.truetype(str(FONTS_DIR / "GeistMono-Regular.ttf"), 38)
-        small = ImageFont.truetype(str(FONTS_DIR / "GeistMono-Regular.ttf"), 15)
+        from PIL import ImageFont
+        fd = os.environ.get("MYCO_FONTS_DIR", "./fonts")
+        font = ImageFont.truetype(os.path.join(fd, "GeistMono-Regular.ttf"), 38)
+        small = ImageFont.truetype(os.path.join(fd, "GeistMono-Regular.ttf"), 15)
     except Exception:
-        font = small = ImageFont.load_default()
-
-    text = "m y c o"
-    bbox = draw.textbbox((0, 0), text, font=font)
-    draw.text(((1280 - (bbox[2]-bbox[0])) // 2, 485), text, fill=(0, 229, 176, 180), font=font)
-
-    tag = "devour everything. evolve forever. you just talk."
-    bbox2 = draw.textbbox((0, 0), tag, font=small)
-    draw.text(((1280 - (bbox2[2]-bbox2[0])) // 2, 540), tag, fill=(0, 229, 176, 90), font=small)
-
+        from PIL import ImageFont
+        font = ImageFont.load_default()
+        small = font
+    sd = ImageDraw.Draw(social, 'RGBA')
+    t = "m y c o"
+    bb = sd.textbbox((0, 0), t, font=font)
+    sd.text(((1280-(bb[2]-bb[0]))//2, 540), t, fill=(0, 229, 176, 180), font=font)
+    tg = "devour everything. evolve forever. you just talk."
+    bb2 = sd.textbbox((0, 0), tg, font=small)
+    sd.text(((1280-(bb2[2]-bb2[0]))//2, 590), tg, fill=(0, 229, 176, 90), font=small)
     social.save(OUT_DIR / "social_preview.png")
 
-    print("Generated all logo v3 variants:")
+    print("Generated v8 mycelium logo:")
     for f in sorted(OUT_DIR.glob("logo_*.png")):
-        print(f"   {f.name} ({f.stat().st_size // 1024}KB)")
-    for f in sorted(OUT_DIR.glob("myco_*.png")):
         print(f"   {f.name} ({f.stat().st_size // 1024}KB)")
     print(f"   social_preview.png ({(OUT_DIR / 'social_preview.png').stat().st_size // 1024}KB)")
