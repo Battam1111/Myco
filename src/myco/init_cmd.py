@@ -58,9 +58,8 @@ def _metabolic_skill_content(project_dir: str) -> str:
         "\n"
         "If MCP tools are unavailable, use these Bash commands instead:\n"
         "```bash\n"
-        f"python -m myco hunger --execute --project-dir \"{project_dir}\"\n"
-        f"python -m myco lint --project-dir \"{project_dir}\"\n"
-        f"python -m myco status --project-dir \"{project_dir}\"\n"
+        f"cd \"{project_dir}\" && python -m myco hunger --execute\n"
+        f"cd \"{project_dir}\" && python -m myco lint\n"
         "```\n"
         "These match the allowed Bash patterns in settings.json and run without approval.\n"
     )
@@ -328,32 +327,6 @@ _TOOL_GENERATORS: dict[str, tuple] = {
     "Zed":         (_gen_zed,         ".zed/settings.json"),
 }
 
-# -- Metabolic cycle SKILL.md content (single source of truth) --------
-# Used by both run_auto_detect() and run_init(agent="claude").
-# The skill uses MCP tools as the primary path and CLI fallback commands
-# that match the Bash permission patterns in settings.json:
-#   Bash(python -m myco*)  and  Bash(python -c *myco*)
-# so the scheduled task can auto-execute without approval prompts.
-_METABOLIC_SKILL_CONTENT = (
-    "---\n"
-    "name: myco-metabolic-cycle\n"
-    "description: Myco metabolic cycle — hunger check + auto-heal + lint\n"
-    "allowed-tools:\n"
-    "  - Bash\n"
-    "---\n\n"
-    "Run the Myco metabolic cycle using CLI commands.\n"
-    "These match the Bash patterns in .claude/settings.json and run without approval.\n\n"
-    "1. Run hunger with auto-heal:\n"
-    "   ```bash\n"
-    "   python -m myco hunger --execute\n"
-    "   ```\n\n"
-    "2. Run lint:\n"
-    "   ```bash\n"
-    "   python -m myco lint\n"
-    "   ```\n\n"
-    "3. Report: 'Metabolic cycle complete. Status: [healthy/N issues]'\n"
-)
-
 # Tip printed after SKILL.md creation to guide first-run permission grant.
 _METABOLIC_TIP = (
     "\n"
@@ -435,6 +408,7 @@ def run_auto_detect(args) -> int:
             encoding="utf-8",
         )
     print(f"  \u2705 .claude/scheduled-tasks/myco-metabolic-cycle/")
+    print(_METABOLIC_TIP)
 
     # Cowork-compatible skill stubs
     _cowork_skills = {
@@ -715,11 +689,13 @@ def run_init(args) -> int:
         # Scheduled metabolic cycle task
         sched_dir = project_dir / ".claude" / "scheduled-tasks" / "myco-metabolic-cycle"
         sched_dir.mkdir(parents=True, exist_ok=True)
+        proj_str = str(project_dir.resolve()).replace("\\", "/")
         (sched_dir / "SKILL.md").write_text(
-            _METABOLIC_SKILL_CONTENT,
+            _metabolic_skill_content(proj_str),
             encoding="utf-8",
         )
         print(f"  ✅ .claude/scheduled-tasks/myco-metabolic-cycle/")
+        print(_METABOLIC_TIP)
 
         # Cowork-compatible skill stubs (.claude/skills/<name>/SKILL.md)
         _cowork_skills = {
