@@ -41,6 +41,13 @@ def _metabolic_skill_content(project_dir: str) -> str:
         "  - mcp__myco__myco_cohort\n"
         "  - mcp__myco__myco_graph\n"
         "  - mcp__myco__myco_discover\n"
+        "  - mcp__myco__myco_reflect\n"
+        "  - mcp__myco__myco_evolve\n"
+        "  - mcp__myco__myco_evolve_list\n"
+        "  - mcp__myco__myco_inlet\n"
+        "  - mcp__myco__myco_forage\n"
+        "  - mcp__myco__myco_upstream\n"
+        "  - mcp__myco__myco_uncompress\n"
         "---\n"
         "\n"
         f"Run the Myco metabolic cycle. The project root is {project_dir}.\n"
@@ -77,7 +84,17 @@ def get_date():
 _MYCO_SERVER_STDIO = {
     "command": "python",
     "args": ["-m", "myco.mcp_server"],
+    "env": {"PYTHONUNBUFFERED": "1"},
 }
+
+# Bash patterns auto-allowed in .claude/settings.json — single source of truth.
+_MYCO_BASH_PATTERNS: list[str] = [
+    "mcp__myco__*",
+    "Bash(python -m myco*)",
+    "Bash(python3 -m myco*)",
+    "Bash(python -c *myco*)",
+    "Bash(myco *)",
+]
 
 
 def detect_tools(project_dir: Path) -> dict[str, bool]:
@@ -177,10 +194,7 @@ def _gen_claude_code(project_dir: Path) -> str:
     """Generate / merge .mcp.json for Claude Code."""
     payload = {
         "mcpServers": {
-            "myco": {
-                **_MYCO_SERVER_STDIO,
-                "env": {},
-            }
+            "myco": {**_MYCO_SERVER_STDIO}
         }
     }
     path = project_dir / ".mcp.json"
@@ -191,10 +205,7 @@ def _gen_cursor(project_dir: Path) -> str:
     """Generate / merge .cursor/mcp.json for Cursor."""
     payload = {
         "mcpServers": {
-            "myco": {
-                **_MYCO_SERVER_STDIO,
-                "env": {},
-            }
+            "myco": {**_MYCO_SERVER_STDIO}
         }
     }
     cursor_dir = project_dir / ".cursor"
@@ -335,6 +346,31 @@ _METABOLIC_TIP = (
     "     This grants permissions so the daily cycle runs automatically.\n"
 )
 
+# Cowork-compatible skill stubs — single source of truth for both code paths.
+_COWORK_SKILLS: dict[str, str] = {
+    "myco-boot": (
+        "---\nname: myco-boot\n"
+        "description: Boot Myco substrate — run hunger check and auto-heal\n"
+        "---\n\nCall myco_hunger(execute=true) to check substrate health and auto-fix issues.\n"
+        "If any REFLEX HIGH signals appear, address them before other work.\n"
+        "Then report substrate status.\n"
+    ),
+    "myco-eat": (
+        "---\nname: myco-eat\n"
+        "description: Capture knowledge into Myco — decisions, insights, friction, feedback\n"
+        "---\n\nCall myco_eat with the content to capture. Add relevant tags.\n"
+        "Use this whenever: a decision is made, friction is encountered,\n"
+        "the user gives feedback, or you learn something important.\n"
+    ),
+    "myco-search": (
+        "---\nname: myco-search\n"
+        "description: Search Myco substrate for existing knowledge before answering\n"
+        "---\n\nCall myco_search with the query. Check results before answering\n"
+        "factual questions about the project. The substrate may already\n"
+        "have the answer.\n"
+    ),
+}
+
 
 def run_auto_detect(args) -> int:
     """Entry point for ``myco init --auto-detect``."""
@@ -410,31 +446,8 @@ def run_auto_detect(args) -> int:
     print(f"  \u2705 .claude/scheduled-tasks/myco-metabolic-cycle/")
     print(_METABOLIC_TIP)
 
-    # Cowork-compatible skill stubs
-    _cowork_skills = {
-        "myco-boot": (
-            "---\nname: myco-boot\n"
-            "description: Boot Myco substrate — run hunger check and auto-heal\n"
-            "---\n\nCall myco_hunger(execute=true) to check substrate health and auto-fix issues.\n"
-            "If any REFLEX HIGH signals appear, address them before other work.\n"
-            "Then report substrate status.\n"
-        ),
-        "myco-eat": (
-            "---\nname: myco-eat\n"
-            "description: Capture knowledge into Myco — decisions, insights, friction, feedback\n"
-            "---\n\nCall myco_eat with the content to capture. Add relevant tags.\n"
-            "Use this whenever: a decision is made, friction is encountered,\n"
-            "the user gives feedback, or you learn something important.\n"
-        ),
-        "myco-search": (
-            "---\nname: myco-search\n"
-            "description: Search Myco substrate for existing knowledge before answering\n"
-            "---\n\nCall myco_search with the query. Check results before answering\n"
-            "factual questions about the project. The substrate may already\n"
-            "have the answer.\n"
-        ),
-    }
-    for skill_name, skill_content in _cowork_skills.items():
+    # Cowork-compatible skill stubs (uses module-level _COWORK_SKILLS)
+    for skill_name, skill_content in _COWORK_SKILLS.items():
         skill_dir = project_dir / ".claude" / "skills" / skill_name
         skill_file = skill_dir / "SKILL.md"
         if not skill_file.exists():
@@ -442,21 +455,16 @@ def run_auto_detect(args) -> int:
             skill_file.write_text(skill_content, encoding="utf-8")
     print(f"  \u2705 .claude/skills/myco-*/  (Cowork-compatible skill stubs)")
 
-    # Settings.json with auto-allow for Myco MCP tools
+    # Settings.json with auto-allow for Myco MCP tools (merge into existing)
     settings_dir = project_dir / ".claude"
     settings_file = settings_dir / "settings.json"
-    if not settings_file.exists():
-        settings_dir.mkdir(parents=True, exist_ok=True)
-        settings_file.write_text(json.dumps({
-            "permissions": {
-                "allow": [
-                    "mcp__myco__*",
-                    "Bash(python -m myco*)",
-                    "Bash(python -c *myco*)"
-                ]
-            }
-        }, indent=2), encoding="utf-8")
-    print(f"  \u2705 .claude/settings.json (auto-allow Myco tools)")
+    myco_settings = {
+        "permissions": {
+            "allow": _MYCO_BASH_PATTERNS
+        }
+    }
+    status = _json_merge_write(settings_file, myco_settings)
+    print(f"  \u2705 .claude/settings.json ({status})")
 
     print(f"\n\U0001f344 Done! Myco auto-detect complete.")
     print(f"   MCP configs generated for all detected tools.")
@@ -686,48 +694,21 @@ def run_init(args) -> int:
             mcp_path.write_text(json.dumps(myco_server, indent=2), encoding="utf-8")
             print(f"  ✅ .mcp.json (MCP server auto-discovery)")
 
-        # Scheduled metabolic cycle task
+        # Scheduled metabolic cycle task (skip if already exists)
         sched_dir = project_dir / ".claude" / "scheduled-tasks" / "myco-metabolic-cycle"
         sched_dir.mkdir(parents=True, exist_ok=True)
-        proj_str = str(project_dir.resolve()).replace("\\", "/")
-        (sched_dir / "SKILL.md").write_text(
-            _metabolic_skill_content(proj_str),
-            encoding="utf-8",
-        )
+        sched_skill = sched_dir / "SKILL.md"
+        if not sched_skill.exists():
+            proj_str = str(project_dir.resolve()).replace("\\", "/")
+            sched_skill.write_text(
+                _metabolic_skill_content(proj_str),
+                encoding="utf-8",
+            )
         print(f"  ✅ .claude/scheduled-tasks/myco-metabolic-cycle/")
         print(_METABOLIC_TIP)
 
-        # Cowork-compatible skill stubs (.claude/skills/<name>/SKILL.md)
-        _cowork_skills = {
-            "myco-boot": (
-                "---\n"
-                "name: myco-boot\n"
-                "description: Boot Myco substrate — run hunger check and auto-heal\n"
-                "---\n\n"
-                "Call myco_hunger(execute=true) to check substrate health and auto-fix issues.\n"
-                "If any REFLEX HIGH signals appear, address them before other work.\n"
-                "Then report substrate status.\n"
-            ),
-            "myco-eat": (
-                "---\n"
-                "name: myco-eat\n"
-                "description: Capture knowledge into Myco — decisions, insights, friction, feedback\n"
-                "---\n\n"
-                "Call myco_eat with the content to capture. Add relevant tags.\n"
-                "Use this whenever: a decision is made, friction is encountered,\n"
-                "the user gives feedback, or you learn something important.\n"
-            ),
-            "myco-search": (
-                "---\n"
-                "name: myco-search\n"
-                "description: Search Myco substrate for existing knowledge before answering\n"
-                "---\n\n"
-                "Call myco_search with the query. Check results before answering\n"
-                "factual questions about the project. The substrate may already\n"
-                "have the answer.\n"
-            ),
-        }
-        for skill_name, skill_content in _cowork_skills.items():
+        # Cowork-compatible skill stubs (uses module-level _COWORK_SKILLS)
+        for skill_name, skill_content in _COWORK_SKILLS.items():
             skill_dir = project_dir / ".claude" / "skills" / skill_name
             skill_file = skill_dir / "SKILL.md"
             if not skill_file.exists():
@@ -735,21 +716,16 @@ def run_init(args) -> int:
                 skill_file.write_text(skill_content, encoding="utf-8")
         print(f"  ✅ .claude/skills/myco-*/  (Cowork-compatible skill stubs)")
 
-        # Claude Code settings with hooks template
+        # Claude Code settings with hooks template (merge into existing)
         settings_dir = project_dir / ".claude"
         settings_file = settings_dir / "settings.json"
-        if not settings_file.exists():
-            settings_dir.mkdir(parents=True, exist_ok=True)
-            settings_file.write_text(json.dumps({
-                "permissions": {
-                    "allow": [
-                        "mcp__myco__*",
-                        "Bash(python -m myco*)",
-                        "Bash(python -c *myco*)"
-                    ]
-                }
-            }, indent=2), encoding="utf-8")
-            print(f"  ✅ .claude/settings.json (auto-allow Myco tools)")
+        myco_settings = {
+            "permissions": {
+                "allow": _MYCO_BASH_PATTERNS
+            }
+        }
+        status = _json_merge_write(settings_file, myco_settings)
+        print(f"  ✅ .claude/settings.json ({status})")
 
         has_mcp = _check_mcp_sdk()
         print(f"\n🍄 Done! Myco is wired for Claude Code.")
