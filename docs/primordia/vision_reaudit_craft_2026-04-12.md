@@ -11,7 +11,7 @@ decision_class: kernel_contract
 
 # Vision Re-Audit — Doctrine ↔ Implementation Reconciliation (post Wave 25)
 
-> **Evidence bundle**: this craft's source evidence lives in `notes/n_20260412T***_****.md` (eaten alongside this craft's landing; tagged `wave26-seed`, `vision-reaudit`, `forage-digest`).
+> **Evidence bundle**: this craft's source evidence lives in notes/n\_20260412T\*\*\*\_\*\*\*\*.md (eaten alongside this craft's landing; tagged `wave26-seed`, `vision-reaudit`, `forage-digest`).
 >
 > **Parent anchor document**: `docs/primordia/vision_recovery_craft_2026-04-10.md` (Wave 10, re-read in full as Round 1 input). This craft does NOT supersede the Wave 10 recovery — it *reconciles* the 8 anchors with the 15 waves of implementation state (W11–W25) that have accumulated since.
 >
@@ -112,7 +112,7 @@ Scoring: `doctrine_clarity` (wording ambiguity), `implementation_coverage`
 > *"Agent 权重永不改动，所有学习在基质里（md/yaml/目录结构）。"*
 
 **Implementation trace**:
-- Non-parametric learning surfaces: `notes/*.md` lifecycle (raw → integrated/excreted), `docs/primordia/*_craft_*.md` debate record, `_canon.yaml` schema evolution, `log.md` append-only history
+- Non-parametric learning surfaces: notes/\*.md lifecycle (raw → integrated/excreted), docs/primordia/\*\_craft\_\*.md debate record, `_canon.yaml` schema evolution, `log.md` append-only history
 - Self-rewriting rulebook: L0–L17 lint dimensions (18 total), each defined in `src/myco/lint.py` as Python code — itself in the substrate
 - Agent-autonomous mutation: Wave 12 `craft_autonomy_craft` upgraded L15 reflex severity LOW → HIGH, making craft an agent-autonomous obligation rather than advisory
 
@@ -133,7 +133,7 @@ Scoring: `doctrine_clarity` (wording ambiguity), `implementation_coverage`
 - **Step 2 (评估)**: implicit, no verb, no state machine. Agent judgment at `myco digest` time
 - **Step 3 (萃取)**: state transition `raw → extracted` via `myco digest --to extracted` — NO dedicated verb
 - **Step 4 (整合)**: state transition `raw/extracted → integrated` via `myco digest --to integrated` — NO dedicated verb
-- **Step 5 (压缩)**: NO verb, NO state, NO scheduled pass. The only compression that exists is (a) `docs/primordia/` COMPILED/SUPERSEDED state machine (Wave 22 W13 principle) and (b) the manual `scripts/compress_original.py` batch tool. Neither is a substrate-level compress operation on `notes/*.md`.
+- **Step 5 (压缩)**: NO verb, NO state, NO scheduled pass. The only compression that exists is (a) `docs/primordia/` COMPILED/SUPERSEDED state machine (Wave 22 W13 principle) and (b) the manual `scripts/compress_original.py` batch tool. Neither is a substrate-level compress operation on notes/\*.md.
 - **Step 6 (验证)**: `myco lint` (L0–L17) ✅ present
 - **Step 7 (淘汰)**: `myco digest --excrete REASON` ✅ present with mandatory audit trail
 
@@ -188,7 +188,7 @@ Gears 1-4 are the internal nervous system (partial; §evolution_engine.md). Meta
   - `_canon.yaml::notes_schema.dead_knowledge_threshold_days = 30` (configurable)
   - `_canon.yaml::notes_schema.terminal_statuses = [extracted, integrated]`
   - `_canon.yaml::notes_schema.optional_fields = [view_count, last_viewed_at]` L10-recognized
-  - Wave 18 craft: `docs/primordia/dead_knowledge_seed_craft_2026-04-11.md` (v1.4.0 landed)
+  - Wave 18 craft: `docs/primordia/archive/dead_knowledge_seed_craft_2026-04-11.md` (v1.4.0 landed)
 
 **Drift since Wave 10**: **major drift in #5 wording**. The anchor currently says "D 效能（『死知识』追踪，未实现）" and "今天 Myco 实现 A+B+partial C". **Both clauses are factually wrong**. Wave 18 landed a working D-layer minimum seed. The hunger signal fires and the frontmatter fields are written by `record_view()`. What's still missing from full D-layer is: (a) view audit log (who read what in what context), (b) cross-reference graph, (c) adaptive threshold, (d) automatic excretion workflow. These are residuals, not the core D-layer.
 
@@ -397,7 +397,7 @@ Based on Round 1 coverage + Round 2 DAG + attack resolutions:
 
 **Wave 27 class**: `exploration` (target 0.85, 3 rounds, no code).
 
-**Wave 27 output**: a single craft document `docs/primordia/compression_primitive_craft_YYYY-MM-DD.md` answering:
+**Wave 27 output**: a single craft document `docs/primordia/compression_primitive_craft_2026-04-12.md` answering:
 
 1. **What is the unit of forward compression?** A raw note group by tag? A time-windowed cohort? A semantic cluster? A manually-specified bundle?
 2. **What is the trigger?** Manual (`myco compress <tag>`), scheduled (`myco compress --auto` cron), or friction-driven (hunger signal fires `compression_ripe`)?

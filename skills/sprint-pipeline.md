@@ -10,7 +10,7 @@ At the start of any non-trivial development task (feature, bugfix, refactor).
 
 ### 1. Think
 - `myco_hunger(execute=true)` — substrate health check
-- `myco_discover(action="gaps")` — what knowledge is missing?
+- `myco_cohort(action="gaps")` — what knowledge is missing?
 - `myco_search` — what does the substrate already know about this topic?
 
 ### 2. Plan

@@ -6,11 +6,11 @@
 
 - During metabolic cycle (after hunger check, before session work)
 - When `myco_hunger` reports `inlet_ripe` or `cohort_staleness`
-- When `myco_discover(action="gaps")` returns non-empty results
+- When `myco_cohort(action="gaps")` returns non-empty results
 
 ## Steps
 
-1. **Detect gaps**: Call `myco_discover(action="candidates")` to get prioritized knowledge gaps.
+1. **Detect gaps**: Call `myco_cohort(action="gaps")` to get prioritized knowledge gaps.
 2. **For each candidate** (top 3 by priority):
    a. **Search**: Use WebSearch to find relevant sources (papers, docs, articles)
    b. **Evaluate**: Is the source relevant (≥0.6)? Is it high quality? Is it novel (not already in substrate)?
@@ -35,6 +35,6 @@ Myco provides: gap detection, ingestion pipeline, audit trail.
 
 ## References
 
-- `src/myco/discover.py` — implementation of `myco_discover` gap detection and candidate ranking
+- `src/myco/cohorts.py` — implementation of `myco_cohort` gap detection and analysis
 - `docs/open_problems.md` — cold-start problem and other open questions that motivate discovery
 - `notes/` (tag: `inlet`) — ingested notes produced by this loop; search with `myco_view --status raw --tag inlet`

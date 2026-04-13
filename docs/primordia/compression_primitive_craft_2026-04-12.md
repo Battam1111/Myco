@@ -142,7 +142,7 @@ to act on the signal in session (same shape as Wave 13 boot reflex arc).
 - **(B) Consumptive with audit**: new extracted note; originals are marked
   `excreted` with `excrete_reason: compressed into <new_id>`, preserving
   the audit chain but removing them from the active substrate
-- **(C) Wiki page synthesis**: compression produces a `wiki/*.md` page, not
+- **(C) Wiki page synthesis**: compression produces a wiki/\*.md page, not
   a note
 - **(D) In-place promotion**: pick one existing note as "representative",
   mark the others excreted, no new note created
@@ -575,7 +575,7 @@ myco compress --tag <TAG> --dry-run
 4. Reject if any input is in a terminal-protected status (excreted already)
 5. If `--dry-run`, print cohort + proposed rationale + proposed output path, exit 0
 6. Otherwise:
-   a. Write output note to `notes/n_<ts>_<suffix>.md` with `status: extracted`,
+   a. Write output note to notes/n\_\<ts\>\_\<suffix\>.md with `status: extracted`,
       `source: compress` (new source value, added to canon in Wave 28), and all
       the audit frontmatter fields (§1.4)
    b. For each input: flip `status` → `excreted`, set `excrete_reason`, set

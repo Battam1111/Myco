@@ -23,7 +23,6 @@ Boot: hunger(execute=true)
   → 参考 discovery-loop → 检测知识缺口 → 搜索 → 摄入
   → 参考 learning-loop → 捕获执行学习
   → evolve.py → 变异表现不佳的 skills → 约束门检验 → 好的变异存活
-  → cross-instance transfer → 好的 skills 跨实例传播
 ```
 
 ### 旧模型 → 新模型映射
@@ -69,10 +68,9 @@ Agent 提供 `llm_fn`，Myco 提供脚手架：
 4. `evaluate_variant()` — 多维评分（clarity/completeness/conciseness/correctness）
 5. 好的变异替代原 skill，git commit
 
-### 跨实例传播
-`export_evolved_skill()` 打包进化后的 skill 为 upstream bundle。
-接收实例通过 LLM-as-judge 评估相关性后吸收或拒绝。
-好的变异跨 Myco 实例传播——水平基因转移。
+### 进化后的技能管理
+好的变异替代原 skill 并保存在 `skills/.evolved/` 目录。
+Agent 通过 `myco_evolve_list` 查看进化历史和当前代数。
 
 ---
 

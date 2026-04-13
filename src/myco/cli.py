@@ -5,7 +5,7 @@ Myco CLI — Unified command-line interface.
 Usage:
     myco init <name> [--level 0|1|2] [--entry-point MYCO.md] [--dir /path]
     myco migrate <project_dir> [--level 0|1|2] [--entry-point MYCO.md] [--dry-run]
-    myco lint [--quick] [--fix-report] [--project-dir /path]
+    myco lint [--quick] [--fix] [--fix-report] [--project-dir /path]
 
     # Digestive substrate (four-command set):
     myco eat     [--content ... | --file ... | <stdin>] [--tags t1,t2] [--title "…"]
@@ -117,7 +117,12 @@ def main():
     )
     lint_parser.add_argument(
         "--quick", action="store_true",
-        help="Quick mode: only L0-L3 checks",
+        help="Quick mode: only L0-L22 checks",
+    )
+    lint_parser.add_argument(
+        "--fix", action="store_true",
+        help="Auto-fix mechanical issues (L2 numeric claims, L12 broken links, "
+             "L16 boot brief staleness, L19 dimension count drift)",
     )
     lint_parser.add_argument(
         "--fix-report", action="store_true",
@@ -225,10 +230,6 @@ def main():
     # Craft of record:
     #   docs/primordia/myco_correct_shortcut_craft_2026-04-11.md
     #
-    # Wave A2: `myco molt` was the biomimetic alias; now deprecated.
-    # Molt = shedding an outdated assertion like a fungus shedding aged
-    # hyphae. Both verbs remain primary — neither is deprecated.
-    # Biomimetic design: biomimetic_nomenclature_craft_2026-04-12.md.
     correct_parser = subparsers.add_parser(
         "correct",
         help=("Self-correction shortcut — eat a friction note with "
@@ -250,9 +251,6 @@ def main():
         help="Emit a machine-readable JSON result")
     correct_parser.add_argument("--project-dir", type=str, default=".",
         help="Project root (default: current directory)")
-
-    # ── myco molt — DEPRECATED (Wave A2). Use `myco correct` instead.
-    subparsers.add_parser("molt", help="DEPRECATED — use `myco correct`")
 
     # ── myco digest ────────────────────────────────────────────────
     digest_parser = subparsers.add_parser(
@@ -608,56 +606,6 @@ def main():
     forage_digest.add_argument("--project-dir", type=str, default=".",
                                help="Project root (default: .)")
 
-    # ── myco upstream ───────────────────────────────────────────────
-    # Kernel-side reception of downstream friction bundles — the
-    # returning leg of the outbound channel. Contract v0.9.0.
-    # Authoritative design: docs/primordia/upstream_absorb_craft_2026-04-11.md
-    upstream_parser = subparsers.add_parser(
-        "upstream",
-        help="Absorb downstream friction bundles into kernel inbox + ingest "
-             "into notes/ as pointer notes",
-    )
-    upstream_sub = upstream_parser.add_subparsers(
-        dest="upstream_subcommand", help="Upstream subcommand"
-    )
-
-    up_scan = upstream_sub.add_parser(
-        "scan", help="List pending bundles in the kernel inbox"
-    )
-    up_scan.add_argument("--project-dir", type=str, default=".",
-                         help="Project root (default: .)")
-    up_scan.add_argument("--json", action="store_true",
-                         help="Emit machine-readable JSON")
-
-    up_absorb = upstream_sub.add_parser(
-        "absorb",
-        help="Copy bundles from a downstream instance's .myco_upstream_outbox/ "
-             "into kernel .myco_upstream_inbox/"
-    )
-    up_absorb.add_argument("instance_path", type=str,
-                           help="Absolute or relative path to the downstream "
-                                "instance root (must contain "
-                                ".myco_upstream_outbox/). Use the Courier "
-                                "Fallback in docs/agent_protocol.md §8 if "
-                                "the instance is not accessible from this "
-                                "session.")
-    up_absorb.add_argument("--project-dir", type=str, default=".",
-                           help="Kernel project root (default: .)")
-    up_absorb.add_argument("--json", action="store_true",
-                           help="Emit machine-readable JSON")
-
-    up_ingest = upstream_sub.add_parser(
-        "ingest",
-        help="Create a pointer note for a bundle and archive bundle body "
-             "to .myco_upstream_inbox/absorbed/"
-    )
-    up_ingest.add_argument("bundle_id", type=str,
-                           help="Bundle id, e.g. n_20260411T004215_ce72")
-    up_ingest.add_argument("--project-dir", type=str, default=".",
-                           help="Kernel project root (default: .)")
-    up_ingest.add_argument("--json", action="store_true",
-                           help="Emit machine-readable JSON")
-
     # ── myco graph (Wave 47, v0.36.0) ───────────────────────────────
     graph_parser = subparsers.add_parser(
         "graph",
@@ -731,6 +679,16 @@ def main():
         "--project-dir", type=str, default=".",
         help="Project directory to verify (default: current dir)")
 
+    # ── myco propagate ────────────────────────────────────────────
+    propagate_parser = subparsers.add_parser(
+        "propagate",
+        help="Push _canon.yaml SSoT numeric claims to all cited_in surfaces",
+    )
+    propagate_parser.add_argument(
+        "--project-dir", type=str, default=".",
+        help="Project root directory (default: current directory)",
+    )
+
     # ── myco version (explicit subcommand) ─────────────────────────
     subparsers.add_parser("version", help="Show version")
 
@@ -759,6 +717,9 @@ def main():
 
     if args.command == "lint":
         from myco.lint import run_lint
+        # Ensure 'fix' attr exists even if parser was built without it
+        if not hasattr(args, 'fix'):
+            args.fix = False
         sys.exit(run_lint(args))
 
     if args.command == "config":
@@ -776,11 +737,6 @@ def main():
     if args.command == "correct":
         from myco.notes_cmd import run_correct
         sys.exit(run_correct(args))
-
-    # Wave A2: molt deprecated — use `myco correct` instead.
-    if args.command == "molt":
-        print("myco molt: DEPRECATED. Use `myco correct` instead.", file=sys.stderr)
-        sys.exit(2)
 
     if args.command == "digest":
         from myco.notes_cmd import run_digest
@@ -840,9 +796,6 @@ def main():
         from myco.forage_cmd import run_forage
         sys.exit(run_forage(args))
 
-    if args.command == "upstream":
-        from myco.upstream_cmd import run_upstream
-        sys.exit(run_upstream(args))
 
     # Wave 47 (v0.36.0): link graph analysis.
     if args.command == "graph":
@@ -858,6 +811,10 @@ def main():
     if args.command == "session":
         from myco.sessions_cmd import run_session
         sys.exit(run_session(args))
+
+    if args.command == "propagate":
+        from myco.propagate_cmd import run_propagate
+        sys.exit(run_propagate(args))
 
 
 if __name__ == "__main__":

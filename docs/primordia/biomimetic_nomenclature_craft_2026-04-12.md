@@ -55,7 +55,7 @@ Wave 10 `vision_recovery_craft §0` diagnosed the same tension at the README/nar
 Naming shapes what contributors (including future-me in a new session) believe the project IS:
 
 - If I open `src/myco/lint.py`, I think "this is where the linter code lives"
-- If I open `src/myco/immune.py`, I think "this is where the substrate's immune system lives"
+- If I open src/myco/immune.py (proposed), I think "this is where the substrate's immune system lives"
 
 These are **not the same cognitive frame**. The first invites "better linter" thinking; the second invites "better immune response" thinking. Over many sessions, the dominant cognitive frame shapes which PRs are written, which refactors get proposed, which metaphors the next craft reaches for.
 
@@ -249,9 +249,9 @@ Prose renames cascade as a search-and-replace during Wave 29 but don't add new c
 **HIGH / CRITICAL cost** (touches many files):
 1. `wiki/` → `hyphae/` (directory)
 2. `_canon.yaml` → `_genome.yaml` (file + 100+ reference sites)
-3. `src/myco/notes.py` → `src/myco/metabolism.py` (module + imports)
-4. `src/myco/notes_cmd.py` → `src/myco/metabolism_cmd.py` (module + imports)
-5. `src/myco/lint.py` → `src/myco/immune.py` (module + imports + L15 trigger surface list)
+3. `src/myco/notes.py` → src/myco/metabolism.py (module + imports)
+4. `src/myco/notes_cmd.py` → src/myco/metabolism_cmd.py (module + imports)
+5. `src/myco/lint.py` → src/myco/immune.py (module + imports + L15 trigger surface list)
 
 **MEDIUM cost** (focused file set):
 6. `myco correct` → `myco molt` (CLI verb + MCP tool + canon key + install hook + agent_protocol)
@@ -372,7 +372,7 @@ These are not three subsystems. They are **three phases of one rename transforma
 
 ### 2.8 Defense of M
 
-**Defense 1 — The "canonical schema file" convention is not strong enough to justify**. Check against prior art: hermes uses `~/.hermes/config.yaml`, not `~/.hermes/canon.yaml`. OpenClaw uses `~/.openclaw/state/`. gbrain uses Postgres + Markdown with no single schema file. nuwa-skill uses `skills/*.md` with implicit schema. **There is no established convention for "schemas live in `_canon.yaml`"**. Myco invented that name for itself; renaming it does not violate community consensus because there is no community consensus on this filename.
+**Defense 1 — The "canonical schema file" convention is not strong enough to justify**. Check against prior art: hermes uses ~/.hermes/config.yaml, not ~/.hermes/canon.yaml. OpenClaw uses ~/.openclaw/state/. gbrain uses Postgres + Markdown with no single schema file. nuwa-skill uses skills/\*.md with implicit schema. **There is no established convention for "schemas live in `_canon.yaml`"**. Myco invented that name for itself; renaming it does not violate community consensus because there is no community consensus on this filename.
 
 **Defense 2 — Search-and-navigate replaces convention**. A new contributor in a Myco repo runs `ls -la` in project root, sees `_genome.yaml` alongside `MYCO.md`, reads `README.md` which says "project genome lives in `_genome.yaml`", and navigates directly. The onboarding cost is one line of README. This is lower than the cost of "why is the canonical config file called 'canon'? seems redundant with 'canonical'" — a question the current name invites every time someone hears it for the first time.
 
@@ -398,9 +398,9 @@ This plus README update plus L0 lint label change ("Genome Self-Check" in lint o
 |---|---|---|---|---|---|
 | 1 | Top-level directory | `wiki/` | `hyphae/` | HIGH | L7, canon key |
 | 2 | Top-level file | `_canon.yaml` | `_genome.yaml` | CRITICAL | L0, all src refs, all doc refs |
-| 3 | Python module | `src/myco/notes.py` | `src/myco/metabolism.py` | HIGH | all imports, canon key, L10 |
-| 4 | Python module | `src/myco/notes_cmd.py` | `src/myco/metabolism_cmd.py` | HIGH | cli.py dispatch |
-| 5 | Python module | `src/myco/lint.py` | `src/myco/immune.py` | HIGH | all imports, scripts/lint_knowledge.py shim, L0-L17 all embedded |
+| 3 | Python module | `src/myco/notes.py` | src/myco/metabolism.py | HIGH | all imports, canon key, L10 |
+| 4 | Python module | `src/myco/notes_cmd.py` | src/myco/metabolism_cmd.py | HIGH | cli.py dispatch |
+| 5 | Python module | `src/myco/lint.py` | src/myco/immune.py | HIGH | all imports, scripts/lint_knowledge.py shim, L0-L17 all embedded |
 | 6 | CLI verb + MCP tool | `myco correct` / `myco_correct` | `myco molt` / `myco_molt` | MEDIUM | canon, install_git_hooks, agent_protocol §5.1(c), MYCO.md |
 | 7 | CLI verb + MCP tool | `myco lint` / `myco_lint` | `myco immune` / `myco_immune` | HIGH | README examples, every pre-commit hook, every dogfood script, every CI config, myco_lint help text |
 | 8 | Canon key tree | `system.notes_schema.*` | `system.metabolism_schema.*` | CRITICAL | L10 lint + notes.py schema validation + template canon |
@@ -421,9 +421,9 @@ Wave 29 is kernel_contract class, 3 rounds, 0.92 confidence target (slightly abo
 
 **Phase B — Core kernel renames** (single commit or sequential commits):
 - Rename `_canon.yaml` → `_genome.yaml` in kernel
-- Rename `src/myco/notes.py` → `src/myco/metabolism.py` + update all imports
-- Rename `src/myco/notes_cmd.py` → `src/myco/metabolism_cmd.py` + update all imports
-- Rename `src/myco/lint.py` → `src/myco/immune.py` + update all imports + `scripts/lint_knowledge.py` shim
+- Rename `src/myco/notes.py` → src/myco/metabolism.py + update all imports
+- Rename `src/myco/notes_cmd.py` → src/myco/metabolism_cmd.py + update all imports
+- Rename `src/myco/lint.py` → src/myco/immune.py + update all imports + scripts/lint_knowledge.py shim
 - Rename `wiki/` → `hyphae/` (it's empty today so no file moves needed, just directory rename + canon update)
 - Update `src/myco/cli.py` to dispatch `molt` and `immune` verbs (adding, not removing — keep old verb names as aliases for one transition wave to soften the breakage)
 
@@ -431,10 +431,10 @@ Wave 29 is kernel_contract class, 3 rounds, 0.92 confidence target (slightly abo
 - `_genome.yaml::system.metabolism_schema.*`
 - `_genome.yaml::system.molt.*`
 - `_genome.yaml::system.hyphae_page_types`
-- Mirror into `src/myco/templates/_genome.yaml`
+- Mirror into src/myco/templates/_genome.yaml
 
 **Phase D — Template + docs + README cascades**:
-- `src/myco/templates/_genome.yaml` (mirror Phase C)
+- src/myco/templates/_genome.yaml (mirror Phase C)
 - `src/myco/templates/MYCO.md` prose updates (lint/wiki/canon/correct → immune/hyphae/genome/molt)
 - `README.md` / `README_zh.md` / `README_ja.md` examples
 - `docs/agent_protocol.md` prose updates
@@ -442,17 +442,17 @@ Wave 29 is kernel_contract class, 3 rounds, 0.92 confidence target (slightly abo
 - `docs/WORKFLOW.md` references
 
 **Phase E — Lint updates**:
-- `src/myco/immune.py::main()` check list labels: L0, L7, L10
-- `src/myco/immune.py::lint_canon_schema` → `lint_genome_schema` (function rename, optional but consistent)
+- src/myco/immune.py::main() check list labels: L0, L7, L10
+- src/myco/immune.py::lint_canon_schema → lint_genome_schema (function rename, optional but consistent)
 - Update error messages throughout immune.py to say "genome" not "canon" where user-visible
 
 **Phase F — Tests updates**:
 - `tests/conftest.py::_isolate_myco_project` — create `_genome.yaml` not `_canon.yaml` in tmp project
-- `tests/unit/test_notes.py` — rename to `tests/unit/test_metabolism.py` if module renamed (or keep test file name? Decision: rename to match module. `test_metabolism.py`)
+- `tests/unit/test_notes.py` — rename to tests/unit/test_metabolism.py if module renamed (or keep test file name? Decision: rename to match module. test_metabolism.py)
 - Update imports: `from myco import notes` → `from myco import metabolism`
 
 **Phase G — Craft file references**:
-- `docs/primordia/*_craft_*.md` — 11 ACTIVE crafts may contain references to old names. Scan for `_canon` / `notes.py` / `lint.py` / `myco correct` / `wiki/` and update where the reference is to a CURRENT surface (not historical). Do NOT rewrite historical prose that explicitly references "at Wave N we called this _canon.yaml" — that's history, not current.
+- docs/primordia/\*\_craft\_\*.md — 11 ACTIVE crafts may contain references to old names. Scan for `_canon` / `notes.py` / `lint.py` / `myco correct` / `wiki/` and update where the reference is to a CURRENT surface (not historical). Do NOT rewrite historical prose that explicitly references "at Wave N we called this _canon.yaml" — that's history, not current.
 
 **Phase H — Migration tool**:
 - Extend `src/myco/migrate.py` with `run_biomimetic_migration(args)` function

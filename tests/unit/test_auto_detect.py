@@ -331,20 +331,20 @@ class TestGenContinue:
     def test_creates_continue_config(self, tmp_path):
         status = _gen_continue(tmp_path)
         assert status == "created"
-        data = json.loads(
-            (tmp_path / ".continue" / "config.json").read_text(encoding="utf-8"))
+        config_path = tmp_path / ".continue" / "mcpServers" / "myco.json"
+        data = json.loads(config_path.read_text(encoding="utf-8"))
         assert "myco" in data["mcpServers"]
         assert data["mcpServers"]["myco"]["command"] == "python"
         assert data["mcpServers"]["myco"]["args"] == ["-m", "myco.mcp_server"]
 
     def test_merges_existing(self, tmp_path):
-        cont_dir = tmp_path / ".continue"
-        cont_dir.mkdir()
-        (cont_dir / "config.json").write_text(
+        mcp_dir = tmp_path / ".continue" / "mcpServers"
+        mcp_dir.mkdir(parents=True)
+        (mcp_dir / "myco.json").write_text(
             json.dumps({"mcpServers": {"existing": {}}}), encoding="utf-8")
         status = _gen_continue(tmp_path)
         assert status == "merged"
-        data = json.loads((cont_dir / "config.json").read_text(encoding="utf-8"))
+        data = json.loads((mcp_dir / "myco.json").read_text(encoding="utf-8"))
         assert "existing" in data["mcpServers"]
         assert "myco" in data["mcpServers"]
 
@@ -581,7 +581,7 @@ class TestRunAutoDetect:
         assert (target / ".vscode" / "mcp.json").exists()
         assert (tmp_path / ".codex" / "config.toml").exists()
         assert fake_cline_path.exists()
-        assert (target / ".continue" / "config.json").exists()
+        assert (target / ".continue" / "mcpServers" / "myco.json").exists()
         assert (tmp_path / ".codeium" / "windsurf" / "mcp_config.json").exists()
         assert (target / ".zed" / "settings.json").exists()
         assert (target / "CLAUDE.md").exists()

@@ -1,13 +1,12 @@
 """
 Myco Skill Evolution — metadata-preserving mutations with constraint gates.
 
-Wave C1-C3: Absorbed from hermes-agent-self-evolution patterns.
-- C1: SkillVariant dataclass, mutate_skill(), diff_variants()
+Wave C1-C2: Absorbed from hermes-agent-self-evolution patterns.
+- C1: SkillVariant dataclass, diff_variants()
 - C2: HARD_GATES constraint system, secret redaction
-- C3: Multi-dimensional scoring with LLM-as-judge
 
-Design principle (Bitter Lesson): Myco provides scaffolding, Agent provides
-intelligence via llm_fn callable. Myco never calls an LLM directly.
+Design principle (Bitter Lesson): Myco provides scaffolding (parse, serialize,
+gate checks), Agent provides intelligence via MCP tool layer.
 """
 # --- Mycelium references ---
 # Engine spec:  docs/evolution_engine.md (full design, constraint gates, scoring)
@@ -17,10 +16,9 @@ intelligence via llm_fn callable. Myco never calls an LLM directly.
 from __future__ import annotations
 
 import hashlib
-import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 import yaml
 
@@ -67,43 +65,6 @@ def serialize_skill(variant: SkillVariant) -> str:
     """Serialize a SkillVariant back to SKILL.md format."""
     meta_str = yaml.dump(variant.meta, default_flow_style=False, allow_unicode=True).strip()
     return f"---\n{meta_str}\n---\n\n{variant.body}\n"
-
-
-def mutate_skill(
-    skill_path: Path,
-    mutation_prompt: str,
-    *,
-    llm_fn: Callable[[str], str],
-) -> SkillVariant:
-    """Create a mutated variant of a skill using Agent intelligence.
-
-    Args:
-        skill_path: Path to the skill file.
-        mutation_prompt: What to change about the skill.
-        llm_fn: Agent-provided callable that takes a prompt and returns text.
-            Myco never calls LLMs directly (Bitter Lesson compliance).
-
-    Returns:
-        New SkillVariant with preserved metadata and mutated body.
-    """
-    original = parse_skill(skill_path)
-
-    prompt = (
-        f"You are evolving a Myco skill. Preserve ALL YAML frontmatter exactly.\n"
-        f"Only modify the markdown body below the frontmatter.\n\n"
-        f"Current body:\n{original.body}\n\n"
-        f"Mutation request: {mutation_prompt}\n\n"
-        f"Output ONLY the new body (no frontmatter, no fences):"
-    )
-
-    new_body = llm_fn(prompt)
-
-    return SkillVariant(
-        meta=dict(original.meta),  # Preserve metadata immutably
-        body=new_body.strip(),
-        parent_hash=original.content_hash,
-        generation=original.generation + 1,
-    )
 
 
 def diff_variants(old: SkillVariant, new: SkillVariant) -> Dict[str, Any]:
@@ -175,83 +136,7 @@ def check_gates(old: SkillVariant, new: SkillVariant) -> List[str]:
 
 
 # ---------------------------------------------------------------------------
-# C3: Multi-dimensional scoring
-# ---------------------------------------------------------------------------
-
-SCORING_DIMENSIONS = ["clarity", "completeness", "conciseness", "correctness"]
-
-
-@dataclass
-class EvalResult:
-    """Result of evaluating a skill variant."""
-    scores: Dict[str, float]   # dimension -> 0.0-1.0
-    feedback: Dict[str, str]   # dimension -> textual feedback
-    composite: float = 0.0     # weighted composite score
-
-    def __post_init__(self):
-        if self.scores and not self.composite:
-            weights = {"clarity": 0.2, "completeness": 0.3,
-                       "conciseness": 0.2, "correctness": 0.3}
-            self.composite = sum(
-                self.scores.get(d, 0.0) * weights.get(d, 0.25)
-                for d in SCORING_DIMENSIONS
-            )
-
-
-def evaluate_variant(
-    variant: SkillVariant,
-    examples: List[Dict[str, str]],
-    *,
-    llm_fn: Callable[[str], str],
-) -> EvalResult:
-    """Evaluate a variant against examples using Agent as judge.
-
-    Args:
-        variant: The skill variant to evaluate.
-        examples: List of {task_input, expected_behavior} dicts.
-        llm_fn: Agent-provided callable for LLM-as-judge evaluation.
-
-    Returns:
-        EvalResult with per-dimension scores and feedback.
-    """
-    prompt = (
-        f"Rate this skill on 4 dimensions (0.0-1.0).\n\n"
-        f"Skill body:\n{variant.body[:2000]}\n\n"
-        f"Test examples:\n"
-    )
-    for ex in examples[:3]:
-        prompt += f"- Input: {ex.get('task_input', '')[:200]}\n"
-        prompt += f"  Expected: {ex.get('expected_behavior', '')[:200]}\n"
-    prompt += (
-        f"\nRate each dimension and explain:\n"
-        f"clarity: [0.0-1.0] [explanation]\n"
-        f"completeness: [0.0-1.0] [explanation]\n"
-        f"conciseness: [0.0-1.0] [explanation]\n"
-        f"correctness: [0.0-1.0] [explanation]\n"
-    )
-
-    response = llm_fn(prompt)
-
-    # Parse response — best-effort extraction
-    scores = {}
-    feedback = {}
-    for dim in SCORING_DIMENSIONS:
-        match = re.search(rf"{dim}:\s*([\d.]+)\s*(.*)", response, re.IGNORECASE)
-        if match:
-            try:
-                scores[dim] = min(1.0, max(0.0, float(match.group(1))))
-            except ValueError:
-                scores[dim] = 0.5
-            feedback[dim] = match.group(2).strip()
-        else:
-            scores[dim] = 0.5
-            feedback[dim] = "not evaluated"
-
-    return EvalResult(scores=scores, feedback=feedback)
-
-
-# ---------------------------------------------------------------------------
-# E3: Cross-instance skill transfer (horizontal gene transfer)
+# E3: Skill export (portable bundle for archival/sharing)
 # ---------------------------------------------------------------------------
 
 def export_evolved_skill(
@@ -260,11 +145,10 @@ def export_evolved_skill(
     source_project: str = "",
     evolution_metrics: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
-    """Package an evolved skill into an upstream-compatible bundle.
+    """Package an evolved skill into a portable bundle.
 
-    The receiving instance evaluates the skill against its local context
-    via LLM-as-judge before absorbing. Good mutations spread across Myco
-    instances — this is horizontal gene transfer.
+    Can be used for skill export, sharing, or archival. Good mutations
+    can be manually transferred between Myco instances.
 
     Returns a bundle dict ready for serialization to YAML/JSON.
     """
@@ -283,48 +167,3 @@ def export_evolved_skill(
     return bundle
 
 
-def import_evolved_skill(
-    bundle: Dict[str, Any],
-    target_dir: Path,
-    *,
-    llm_fn: Optional[Callable[[str], str]] = None,
-    relevance_threshold: float = 0.6,
-) -> Optional[Path]:
-    """Import an evolved skill from another instance.
-
-    Evaluates relevance before writing. Returns skill path if accepted,
-    None if rejected.
-    """
-    if bundle.get("type") != "evolved_skill":
-        return None
-
-    variant = SkillVariant(
-        meta=bundle.get("meta", {}),
-        body=bundle.get("body", ""),
-        parent_hash=bundle.get("parent_hash"),
-        generation=bundle.get("generation", 0),
-    )
-
-    # Evaluate relevance if llm_fn available
-    if llm_fn:
-        prompt = (
-            f"Is this skill relevant to the current project?\n\n"
-            f"Skill: {variant.meta.get('name', 'unknown')}\n"
-            f"Description: {variant.meta.get('description', '')}\n"
-            f"Body preview: {variant.body[:300]}\n\n"
-            f"Rate relevance 0.0-1.0. Output ONLY a number:"
-        )
-        try:
-            score = float(llm_fn(prompt).strip().split()[0])
-            if score < relevance_threshold:
-                return None
-        except (ValueError, IndexError):
-            pass  # proceed with import on evaluation failure
-
-    # Write skill
-    name = variant.meta.get("name", "imported-skill")
-    skill_dir = target_dir / "skills"
-    skill_dir.mkdir(parents=True, exist_ok=True)
-    skill_path = skill_dir / f"{name}.md"
-    skill_path.write_text(serialize_skill(variant), encoding="utf-8")
-    return skill_path

@@ -71,13 +71,11 @@ EXPECTED_MCP_TOOLS = [
     "mcp__myco__myco_search",
     "mcp__myco__myco_cohort",
     "mcp__myco__myco_graph",
-    "mcp__myco__myco_discover",
     "mcp__myco__myco_reflect",
     "mcp__myco__myco_evolve",
     "mcp__myco__myco_evolve_list",
     "mcp__myco__myco_inlet",
     "mcp__myco__myco_forage",
-    "mcp__myco__myco_upstream",
     "mcp__myco__myco_uncompress",
 ]
 
@@ -199,7 +197,7 @@ class TestInitAgentClaudeLevel2:
         )
         assert skill.exists()
 
-    def test_metabolic_skill_has_21_tools(self, project):
+    def test_metabolic_skill_has_20_tools(self, project):
         skill = (
             project / ".claude" / "scheduled-tasks"
             / "myco-metabolic-cycle" / "SKILL.md"
@@ -220,8 +218,8 @@ class TestInitAgentClaudeLevel2:
             for line in content.splitlines()
             if line.strip().startswith("- mcp__myco__")
         ]
-        assert len(tool_lines) == 21, (
-            f"Expected 21 MCP tools in SKILL.md, found {len(tool_lines)}: {tool_lines}"
+        assert len(tool_lines) == 19, (
+            f"Expected 19 MCP tools in SKILL.md, found {len(tool_lines)}: {tool_lines}"
         )
 
     # -- Cowork skill stubs --
@@ -323,7 +321,7 @@ class TestInitAutoDetect:
         )
         assert skill.exists()
 
-    def test_metabolic_skill_has_21_tools(self, project):
+    def test_metabolic_skill_has_20_tools(self, project):
         skill = (
             project / ".claude" / "scheduled-tasks"
             / "myco-metabolic-cycle" / "SKILL.md"
@@ -539,19 +537,19 @@ class TestSkillMdNoOverwrite:
 class TestMetabolicSkillContent:
     """Verify the single-source-of-truth helper produces correct content."""
 
-    def test_contains_all_21_tools(self):
+    def test_contains_all_20_tools(self):
         content = _metabolic_skill_content("/fake/path")
         for tool in EXPECTED_MCP_TOOLS:
             assert tool in content
 
-    def test_tool_count_is_exactly_21(self):
+    def test_tool_count_is_exactly_19(self):
         content = _metabolic_skill_content("/fake/path")
         tool_lines = [
             line.strip()
             for line in content.splitlines()
             if line.strip().startswith("- mcp__myco__")
         ]
-        assert len(tool_lines) == 21
+        assert len(tool_lines) == 19
 
     def test_contains_project_dir(self):
         content = _metabolic_skill_content("/my/project")

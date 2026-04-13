@@ -116,12 +116,6 @@ VALID_SOURCES: Tuple[str, ...] = (
     "import",             # bulk ingested from external tool
     "bootstrap",          # created during `myco init` / first-run scaffolding
     "forage",             # v0.7.0 — digested extract from a forage/ item
-    "upstream_absorbed",  # v0.9.0 — pointer note produced by
-                          # `myco upstream ingest` when a downstream
-                          # instance's kernel friction bundle is absorbed
-                          # into kernel inbox. Evidence lives at
-                          # .myco_upstream_inbox/<...>.bundle.yaml.
-                          # Debate: docs/primordia/upstream_absorb_craft_2026-04-11.md
     "compress",           # v0.26.0 (Wave 30) — extracted note produced by
                           # `myco compress` from N raw/digesting inputs.
                           # Carries `compressed_from` audit trail.
@@ -159,6 +153,10 @@ OPTIONAL_FIELDS: Tuple[str, ...] = (
     "inlet_method",            # str — "file" | "url-fetched-by-agent" | "explicit-content"
     "inlet_fetched_at",        # str — ISO-8601 timestamp content was captured
     "inlet_content_hash",      # str — sha256 hex digest of body bytes (tamper detection)
+    # Wave 61 — Mycelium Wrapping: backward link from note → forage item.
+    # Set when a note is produced from forage-derived content.
+    # Authoritative design: mycelium wrapping (forage structural connectivity).
+    "forage_source",           # str — forage item id (e.g. f_20260413T..._xxxx)
 )
 
 # Default dead-knowledge threshold (canon can override via
@@ -311,6 +309,7 @@ def write_note(
     status: str = "raw",
     title: Optional[str] = None,
     now: Optional[datetime] = None,
+    forage_source: Optional[str] = None,
 ) -> Path:
     """Create a new note on disk and return its path.
 
@@ -346,6 +345,10 @@ def write_note(
         "promote_candidate": False,
         "excrete_reason": None,
     }
+
+    # Wave 61: mycelium wrapping — backward link from note → forage item.
+    if forage_source is not None:
+        meta["forage_source"] = forage_source
 
     path = notes_dir / id_to_filename(nid)
 
@@ -1142,7 +1145,7 @@ def detect_contract_drift(
         return (
             f"{prefix} contract_drift: synced_contract_version={synced!r} "
             f"!= kernel contract_version={kernel_version!r}. "
-            "IMMUTABLE REFLEX (Upstream Protocol v1.0 §8.4, contract "
+            "IMMUTABLE REFLEX (contract "
             "v0.12.0): read docs/contract_changelog.md entries between "
             f"{synced} and {kernel_version}, refresh local reflex rules "
             "and update _canon.yaml::system.synced_contract_version "
@@ -1313,95 +1316,6 @@ def detect_session_end_drift(
         "to log.md (session reflection) and/or annotate stale g4-candidate lines with "
         "`g4-pass: <reason>` / `g4-landed: <ref>` / craft file. See "
         "docs/primordia/session_end_reflex_arc_craft_2026-04-11.md."
-    )
-
-
-def detect_upstream_scan_stale(
-    root: Path,
-    *,
-    now: Optional[datetime] = None,
-) -> Optional[str]:
-    """Return an `upstream_scan_stale` signal if the last scan is stale.
-
-    Wave 17 (contract v0.16.0) — closes Wave 13 Boot Reflex Arc craft §A7
-    split: Wave 16 landed the writer (`system.upstream_scan_last_run`),
-    this is the reader half.
-
-    Tiers:
-        HIGH   — stale AND .myco_upstream_inbox/ has bundle files pending
-        MEDIUM — stale AND no bundles pending
-        None   — fresh OR feature disabled OR no timestamp yet
-
-    See docs/primordia/boot_brief_injector_craft_2026-04-11.md §D3.
-    Fails open on any IO/parse error (returns None).
-    """
-    try:
-        import yaml as _yaml
-    except ImportError:
-        return None
-
-    canon_path = Path(root) / "_canon.yaml"
-    if not canon_path.exists():
-        return None
-    try:
-        canon = _yaml.safe_load(canon_path.read_text(encoding="utf-8")) or {}
-    except Exception:
-        return None
-
-    system = canon.get("system") or {}
-    cfg = system.get("upstream_scan") or {}
-    if not cfg.get("enabled", True):
-        return None
-
-    stale_days = int(cfg.get("stale_days", 7))
-    last_run = system.get("upstream_scan_last_run")
-    if not last_run:
-        # Never scanned — that's a reader-side concern but we don't want
-        # to nag fresh installs. Fire MEDIUM only if bundles pending.
-        inbox = Path(root) / ".myco_upstream_inbox"
-        pending = _count_pending_bundles(inbox)
-        if pending > 0:
-            return (
-                f"upstream_scan_stale: never scanned (timestamp null) "
-                f"and {pending} bundle(s) pending in "
-                f".myco_upstream_inbox/. Run `myco upstream scan`."
-            )
-        return None
-
-    # Parse timestamp — accept trailing Z per Wave 16 format.
-    try:
-        ts_text = str(last_run).rstrip("Z")
-        last_dt = datetime.fromisoformat(ts_text)
-    except (ValueError, TypeError):
-        return (
-            f"upstream_scan_stale: `upstream_scan_last_run` value "
-            f"{last_run!r} is malformed (expected ISO-8601). Run "
-            f"`myco upstream scan` to rewrite."
-        )
-
-    now_dt = now or datetime.now(tz=None)
-    age = now_dt - last_dt
-    if age < timedelta(days=stale_days):
-        return None
-
-    inbox = Path(root) / ".myco_upstream_inbox"
-    pending = _count_pending_bundles(inbox)
-    age_days = int(age.total_seconds() // 86400)
-
-    if pending > 0:
-        return (
-            f"[REFLEX HIGH] upstream_scan_stale: last scan was "
-            f"{age_days}d ago (threshold {stale_days}d) AND {pending} "
-            f"bundle(s) pending in .myco_upstream_inbox/. Upstream "
-            f"Protocol v1.0 autopilot violation — run `myco upstream "
-            f"scan` + `myco upstream ingest <bundle>` in this session "
-            f"before task work. See "
-            f"docs/primordia/boot_brief_injector_craft_2026-04-11.md."
-        )
-    return (
-        f"upstream_scan_stale: last scan was {age_days}d ago "
-        f"(threshold {stale_days}d); no bundles pending. Run "
-        f"`myco upstream scan` to refresh freshness stamp."
     )
 
 
@@ -1675,26 +1589,6 @@ def compute_compression_pressure(
     return round(pressure, 2), breakdown
 
 
-def _count_pending_bundles(inbox: Path) -> int:
-    """Count bundle-pattern files at the top level of .myco_upstream_inbox/
-    (not counting the absorbed/ subdirectory). Best-effort.
-    """
-    if not inbox.exists() or not inbox.is_dir():
-        return 0
-    try:
-        count = 0
-        for child in inbox.iterdir():
-            if child.is_dir():
-                continue
-            name = child.name
-            if name == "README.md":
-                continue
-            if name.endswith((".bundle.yaml", ".bundle.yml", ".bundle.json")):
-                count += 1
-        return count
-    except OSError:
-        return 0
-
 
 def write_boot_brief(
     root: Path,
@@ -1864,7 +1758,6 @@ def render_entry_point_signals_block(
     priority = cfg.get("priority_signals") or [
         "contract_drift",
         "raw_backlog",
-        "upstream_scan_stale",
         "craft_reflex_missing",
         "session_end_drift",
     ]
@@ -2181,8 +2074,8 @@ def compute_hunger_report(
     raw_count = by_status.get("raw", 0)
 
     signals: List[str] = []
-    # Wave 13 (contract v0.12.0): contract drift check fires first — it is
-    # the upstream-protocol invariant and gates everything else if violated.
+    # Wave 13 (contract v0.12.0): contract drift check fires first — it
+    # gates everything else if violated.
     try:
         drift_signal = detect_contract_drift(root)
         if drift_signal:
@@ -2260,15 +2153,6 @@ def compute_hunger_report(
         sed_signal = detect_session_end_drift(root, now=now)
         if sed_signal:
             signals.append(sed_signal)
-    except Exception:
-        pass  # grandfather-compatible: missing canon block = feature off
-    # Upstream scan stale signal (contract v0.16.0, Wave 17) — closes
-    # Wave 13 A7 split by wiring the reader half of the writer Wave 16
-    # landed. See docs/primordia/boot_brief_injector_craft_2026-04-11.md.
-    try:
-        scan_signal = detect_upstream_scan_stale(root, now=now)
-        if scan_signal:
-            signals.append(scan_signal)
     except Exception:
         pass  # grandfather-compatible: missing canon block = feature off
     # Forage backlog signal (contract v0.7.0) — read-only scan of
@@ -2401,7 +2285,7 @@ def compute_hunger_report(
             signals.append(
                 f"predicted_need: {len(predictions)} anticipated knowledge "
                 f"need(s) from session history (top: {topics}). Consider "
-                f"proactive acquisition via `myco_discover`."
+                f"proactive acquisition via `myco_inlet`."
             )
     except Exception:
         pass  # grandfather-compatible
@@ -2424,7 +2308,7 @@ def compute_hunger_report(
         if note_count < cold_threshold and not has_inlet:
             signals.append(
                 f"cold_start: substrate has only {note_count} notes and no inlet "
-                f"history. Consider running `myco inlet` or `myco_discover` to "
+                f"history. Consider running `myco inlet` to "
                 f"bootstrap initial knowledge."
             )
     except Exception:
@@ -2462,6 +2346,71 @@ def compute_hunger_report(
         signals.extend(skill_degradation_signals)
     except Exception:
         pass  # grandfather-compatible: missing skills/ or canon = feature off
+    # Vestigial organ detection — find src/myco/ modules that no other
+    # module imports. These are "alive in code but dead in practice" —
+    # like the removed upstream.py, discover.py, session_miner.py.
+    # The Agent reviews flagged modules and decides: keep or excise.
+    try:
+        _root = Path(root).resolve() if not isinstance(root, Path) else root.resolve()
+        src_dir = _root / "src" / "myco"
+        if src_dir.is_dir():
+            import os as _os
+            # Exclude entry points (they ARE the top-level; nobody imports them)
+            _ENTRY_POINTS = {
+                "__init__.py", "__main__.py",
+                "cli.py", "mcp_server.py",  # top-level dispatchers
+            }
+            py_files = [
+                f for f in _os.listdir(str(src_dir))
+                if f.endswith(".py") and not f.startswith("_")
+                and f not in _ENTRY_POINTS
+            ]
+            # For each module, check if any OTHER .py file imports it
+            vestigial = []
+            for pyf in py_files:
+                mod_name = pyf[:-3]  # strip .py
+                # Search all .py files for import of this module
+                import_patterns = (
+                    f"from myco.{mod_name}",
+                    f"from myco import {mod_name}",
+                    f"import myco.{mod_name}",
+                )
+                found_importer = False
+                for check_dir in [src_dir, _root / "tests"]:
+                    if not check_dir.is_dir():
+                        continue
+                    for dirpath, _, filenames in _os.walk(str(check_dir)):
+                        for fn in filenames:
+                            if not fn.endswith(".py"):
+                                continue
+                            fpath = _os.path.join(dirpath, fn)
+                            # Don't count self-imports
+                            if _os.path.basename(fpath) == pyf and \
+                               _os.path.dirname(fpath) == str(src_dir):
+                                continue
+                            try:
+                                content = open(fpath, "r",
+                                               encoding="utf-8",
+                                               errors="replace").read()
+                                if any(p in content for p in import_patterns):
+                                    found_importer = True
+                                    break
+                            except OSError:
+                                continue
+                        if found_importer:
+                            break
+                if not found_importer:
+                    vestigial.append(mod_name)
+            if vestigial:
+                mods = ", ".join(sorted(vestigial))
+                signals.append(
+                    f"vestigial_organ: {len(vestigial)} module(s) in src/myco/ "
+                    f"with zero importers: {mods}. "
+                    f"Review: keep (justify) or excise (remove)."
+                )
+    except Exception:
+        pass  # grandfather-compatible
+
     if not signals:
         signals.append("healthy: notes/ is metabolizing normally.")
 

@@ -210,10 +210,10 @@ Myco 的回应：
 
 - [docs/theory.md](theory.md) -- 理论基础：延伸心智、三环学习、与现有系统的学术对比
 - [docs/architecture.md](architecture.md) -- 技术架构：四支柱 + 进化引擎的工程实现
-- [docs/evolution_engine.md](evolution_engine.md) -- 进化引擎 v3.0：代谢循环、evolve.py 技能变异、跨实例传播
+- [docs/evolution_engine.md](evolution_engine.md) -- 进化引擎 v3.0：代谢循环、evolve.py 技能变异
 - [docs/open_problems.md](open_problems.md) -- 未解难题：愿景中尚未收敛的结构性盲点（Inlet 冷启动、Self Model C/D 层等）
 - [docs/reusable_system_design.md](reusable_system_design.md) -- 通用架构与 Bootstrap 指南
 - [wiki/identity.md](../wiki/identity.md) -- Myco 身份定义：Agent-First Symbiotic Cognitive Organism + 七条生命标准
 - [_canon.yaml](../_canon.yaml) -- 规范值 SSoT
-- [docs/agent_protocol.md](agent_protocol.md) -- Agent 协议：21 个 MCP 工具契约
+- [docs/agent_protocol.md](agent_protocol.md) -- Agent 协议：20 个 MCP 工具契约
 - [skills/metabolic-cycle.md](../skills/metabolic-cycle.md) -- Boot ritual 技能：hunger -> digest -> compress -> discover -> evolve

@@ -80,7 +80,7 @@ Myco 这个项目名取自真菌（*Myco*-rhizal = 菌根），但在 v1.4.0 之
 - **对应 Myco 基质**：`scripts/`（`myco_init.py`, `myco_migrate.py`,
   `lint_knowledge.py`）——这些脚本是基质分泌到"环境"里主动处理事情的工具，
   不是基质的一部分但服务于它。`src/myco/lint.py` 本身也是 exoenzyme
-  的核心——把原始文档预消化成 15 维一致性信号（v1.7.0 起新增 L14
+  的核心——把原始文档预消化成 23 维一致性信号（v1.7.0 起新增 L14
   Forage Hygiene）。
 
 **Foraging（觅食）/ Forage**
@@ -98,7 +98,7 @@ Myco 这个项目名取自真菌（*Myco*-rhizal = 菌根），但在 v1.4.0 之
 
 **Septum（隔膜）** / plural: **Septa**
 - 菌丝内部的隔墙——控制细胞质和资源在 hyphae 之间的流动。
-- **对应 Myco 基质**：L11 write-surface 白名单、L12 upstream dotfile 隔离、
+- **对应 Myco 基质**：L11 write-surface 白名单、L12 Internal Link Integrity（内部链接完整性检查）、
   L13 craft_protocol schema——这三条 lint 是基质内部的 septa，严格控制
   什么东西可以流到什么位置。
 
@@ -121,7 +121,7 @@ Myco 这个项目名取自真菌（*Myco*-rhizal = 菌根），但在 v1.4.0 之
 - 菌丝最前端的生长点，主动向未知环境探测。
 - **对应 Myco 基质**：`docs/open_problems.md` 登记的每一条未解难题——
   这些是基质明确承认"不知道这里应该怎么走"的前线。本文档建议未来将
-  open_problems.md 重命名为 `docs/hyphal_tips.md`，但这需要独立 craft
+  open_problems.md 重命名为 hyphal_tips.md，但这需要独立 craft
   和 open_problems §7 登记规则的更新。**本 craft 不执行此 rename**，
   登记为未来工作。
 

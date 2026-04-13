@@ -238,7 +238,7 @@ def run_verify(args) -> int:
     if found_entry:
         try:
             content = (root / found_entry).read_text(encoding="utf-8")
-            if "myco_hunger" in content:
+            if "myco_hunger" in content or "myco hunger" in content:
                 boot_ritual_found = True
         except OSError:
             pass

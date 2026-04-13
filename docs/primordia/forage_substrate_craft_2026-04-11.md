@@ -234,7 +234,7 @@ explaining the metaphor and lifecycle in 3 paragraphs.
 
 **Defense**: size and state. `myco eat` is designed for
 **summary/thought/observation** capture — atomic notes of < 1 KB
-typical. A 50-page PDF does not belong in `notes/n_*.md` frontmatter.
+typical. A 50-page PDF does not belong in notes/n\_\*.md frontmatter.
 Forage/ holds the **pre-digested original**; notes/ holds the
 **post-digestion extract**. They are different points in the pipeline,
 not duplicates. Analogy: stomach vs bloodstream — you don't store raw
@@ -356,7 +356,7 @@ files. Agents forget. Make it automatic."*
 
 **Defense**: Wave 7 ships a default `forage/.gitignore` that excludes
 `papers/**`, `repos/**`, and `articles/**/*.html`, but **does NOT**
-exclude `articles/**/*.md` (small markdown extracts are fine). The
+exclude articles/\*\*/\*.md (small markdown extracts are fine). The
 `_index.yaml` is always committed. This makes the common case safe by
 default; the agent can override per-item by explicitly `git add -f`
 for items with clearly permissive licenses. Moves the safety from

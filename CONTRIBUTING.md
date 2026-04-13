@@ -126,7 +126,7 @@ Editable install (`-e`) is the only recommended path. Myco is a living organism 
 
 ### Code Style
 
-- Python 3.8+ compatibility
+- Python 3.10+ compatibility
 - Type hints where they add clarity
 - Minimal external dependencies (currently only PyYAML)
 - Docstrings on public functions
@@ -143,14 +143,12 @@ Myco/
 │   ├── notes.py           # Atomic note engine (eat/digest/view)
 │   ├── compress_cmd.py    # Compression primitive
 │   ├── graph.py           # Structural link graph
-│   ├── mcp_server.py      # MCP tool server (21 tools)
+│   ├── mcp_server.py      # MCP tool server (19 tools)
 │   ├── sessions.py        # Session transcript indexing
-│   ├── discover.py        # Knowledge gap detection
 │   ├── forage.py          # External material ingestion
-│   ├── upstream.py        # Inter-instance knowledge transfer
 │   ├── templates.py       # Template resolution (importlib.resources)
 │   └── templates/         # Bundled project templates (single source of truth)
-├── tests/                 # 29 test files, 183 unit tests
+├── tests/                 # 31 test files, 246 unit tests
 ├── skills/                # Agent skill definitions
 ├── docs/                  # Framework documentation
 ├── scripts/               # Legacy standalone scripts

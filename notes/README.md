@@ -25,7 +25,7 @@ pattern (this README is ignored by L10 because it does not match).
 
 ## Why flat, not tree?
 
-See `docs/current/digestive_architecture_craft_2026-04-10.md` — the 4-round
+See `docs/primordia/digestive_architecture_craft_2026-04-10.md` — the 4-round
 debate record. TL;DR: Zettelkasten/A-Mem/Obsidian Dataview all validate that
 flat + metadata scales better than folder hierarchies once note count passes
 ~100. Status lifecycle is a property, not a location.

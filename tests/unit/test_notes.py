@@ -430,3 +430,42 @@ def test_prune_respects_grace_period(_isolate_myco_project: Path) -> None:
     old_meta, _ = notes.read_note(p_old)
     assert old_meta["status"] == "excreted", \
         "old note must be excreted"
+
+
+# ── Wave 61: Mycelium Wrapping ──
+
+
+def test_write_note_with_forage_source(_isolate_myco_project: Path) -> None:
+    """write_note with forage_source includes it in frontmatter."""
+    project = _isolate_myco_project
+
+    path = notes.write_note(
+        project,
+        body="Insight extracted from foraged paper.",
+        tags=["forage-test"],
+        source="forage",
+        forage_source="f_20260413T120000_ab12",
+    )
+
+    meta, body = notes.read_note(path)
+    assert meta.get("forage_source") == "f_20260413T120000_ab12", \
+        "forage_source must appear in frontmatter when provided to write_note"
+    # All required fields still present.
+    for field in notes.REQUIRED_FIELDS:
+        assert field in meta, f"missing required field: {field}"
+
+
+def test_write_note_without_forage_source(_isolate_myco_project: Path) -> None:
+    """write_note without forage_source does not add the field."""
+    project = _isolate_myco_project
+
+    path = notes.write_note(
+        project,
+        body="Normal note, no forage link.",
+        tags=["test"],
+        source="eat",
+    )
+
+    meta, _ = notes.read_note(path)
+    assert "forage_source" not in meta, \
+        "forage_source must NOT appear when not provided"

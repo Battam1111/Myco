@@ -11,7 +11,7 @@ items:
   license_checked_at: '2026-04-11T18:03:58'
   size_bytes: 0
   digest_target:
-  - n_20260411T183403_a984
+  - n_20260412T232227_2796
   why: 'Garry Tan''s gbrain — a personal knowledge management / brain-as-service prototype.
     Foraging to compare its architectural choices (entity graph, memory lanes) against
     Myco''s notes substrate and forage-digestion-notes pipeline. Looking for: (1)
@@ -27,7 +27,7 @@ items:
   license_checked_at: '2026-04-11T18:04:09'
   size_bytes: 0
   digest_target:
-  - n_20260411T183115_f5c5
+  - n_20260412T232227_2796
   why: 'Nuwa-Skill (花叔) — already referenced in Myco''s W8-W12 evolution_engine debate
     (see docs/current/nuwa_caveman_integration_2026-04-07.md). This is the upstream
     code to re-read now that Myco''s metabolic phases model has matured. Looking for: (1)
@@ -43,7 +43,7 @@ items:
   license_checked_at: '2026-04-11T18:04:16'
   size_bytes: 0
   digest_target:
-  - n_20260411T183722_c1b2
+  - n_20260412T232227_2796
   why: 'Nous Research''s hermes-agent — a production-grade open-source agent framework.
     Foraging to pressure-test Myco''s Hard Contract against a mature competitor: (1)
     how do they handle session boundaries and identity persistence, (2) their tool-use
@@ -59,7 +59,7 @@ items:
   license_checked_at: '2026-04-11T18:04:25'
   size_bytes: 0
   digest_target:
-  - n_20260411T184726_2ef7
+  - n_20260412T232227_2796
   why: 'MemPalace — a memory palace / spatial mnemonic agent prototype. Relevant to
     Myco''s open question around ''how does an agent use its accumulated notes substrate
     as working memory beyond simple retrieval?'' Looking for: (1) spatial/associative
@@ -76,7 +76,7 @@ items:
   license_checked_at: '2026-04-11T18:04:34'
   size_bytes: 2396
   digest_target:
-  - n_20260411T184826_4256
+  - n_20260412T232227_2796
   why: 'Anthropic''s Claude Managed Agents announcement (2026-04-08). Market-state
     context for Myco''s positioning: what is the commercial production-agent stack
     offering as of now, how does Myco''s ''cognitive substrate that agents live on''
@@ -94,7 +94,7 @@ items:
   license_checked_at: '2026-04-11T18:54:10'
   size_bytes: 12289
   digest_target:
-  - n_20260411T185410_2e13
+  - n_20260412T232227_2796
   why: Karpathy's 'LLM Wiki' gist — already the direct intellectual ancestor of Myco's
     four-layer knowledge architecture (cited in docs/current/llm_wiki_debate_2026-04-07.md).
     Re-foraging now because (1) Karpathy may have revised the gist since our last

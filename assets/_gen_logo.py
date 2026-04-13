@@ -1,4 +1,4 @@
-"""Myco Logo v9 — Devouring + Evolving Mycelium."""
+"""Myco Logo v11 — Vivid Mycelium: sharp lines, dense network, strong colors."""
 import math
 import os
 import random
@@ -9,204 +9,260 @@ OUT_DIR = Path(__file__).parent
 random.seed(42)
 
 
-def generate_mycelium_logo(size=1024, dark_mode=True, pad=0.10):
+def lerp_color(c1, c2, t):
+    """Interpolate between two RGB tuples."""
+    return tuple(int(a + (b - a) * t) for a, b in zip(c1, c2))
+
+
+def generate_mycelium_logo(size=1024, dark_mode=True, pad=0.08):
     img = Image.new('RGBA', (size, size), (0, 0, 0, 0))
-    color = (0, 229, 176) if dark_mode else (0, 135, 94)
-    # Center offset left — the organism is REACHING rightward (evolution direction)
-    cx, cy = size * 0.44, size * 0.48
+
+    # Color gradient: vivid core → mid → edge
+    if dark_mode:
+        core_color = (180, 255, 240)    # Near-white teal (hottest)
+        mid_color = (0, 229, 176)       # #00E5B0 (Myco Green)
+        edge_color = (0, 120, 100)      # Deep teal
+        opacity_init = 240
+        opacity_decay = 0.84
+        branch_opacity_mult = 0.6
+        sub_opacity_mult = 0.4
+        fine_opacity_mult = 0.25
+        alpha_floor = 6
+    else:
+        # Strong dark colors for white backgrounds
+        core_color = (0, 50, 38)        # Near-black green core
+        mid_color = (0, 95, 70)         # Dark forest green
+        edge_color = (0, 140, 105)      # Medium teal edges
+        opacity_init = 255              # Full opacity start
+        opacity_decay = 0.92            # Very slow decay
+        branch_opacity_mult = 0.80      # Branches highly visible
+        sub_opacity_mult = 0.60
+        fine_opacity_mult = 0.40
+        alpha_floor = 35                # Minimum alpha — nothing invisible
+
+    cx, cy = size * 0.5, size * 0.5
     max_r = size * (0.5 - pad)
     scale = size / 512
 
     segments = []
     dots = []
-    tips = []
-    growth_tips = []  # Brightest tips — actively extending
+    growth_tips = []
 
-    def grow(x, y, angle, length, width, opacity, depth, max_depth, is_dominant=False):
-        if depth > max_depth or length < 1.5 or width < 0.2 or opacity < 8:
+    def get_color(dist_ratio):
+        """Color based on distance from center."""
+        if dist_ratio < 0.3:
+            return lerp_color(core_color, mid_color, dist_ratio / 0.3)
+        else:
+            t = min(1.0, (dist_ratio - 0.3) / 0.7)
+            return lerp_color(mid_color, edge_color, t)
+
+    def grow(x, y, angle, length, width, opacity, depth, max_depth):
+        if depth > max_depth or length < 1.0 or width < 0.15 or opacity < 5:
             return
-        angle += random.gauss(0, 0.16)
-        # Spiral bias — slight clockwise twist = perpetual rotation feel
-        angle += 0.03
+
+        angle += random.gauss(0, 0.12)
         ex = x + math.cos(angle) * length
         ey = y + math.sin(angle) * length
 
         dist = math.sqrt((ex - cx)**2 + (ey - cy)**2)
-        if dist > max_r * 1.15:
+        if dist > max_r * 1.05:
             return
-        edge_fade = max(0.08, 1.0 - (dist / max_r) ** 2.0)
-        alpha = int(opacity * edge_fade)
 
-        segments.append((x, y, ex, ey, width, alpha, depth))
-        tips.append((ex, ey, depth, alpha))
+        dist_ratio = dist / max_r
+        # Sharper edge fade — maintains density longer, then cuts hard
+        edge_fade = max(0.08, 1.0 - dist_ratio ** 2.5)
+        alpha = max(alpha_floor, int(opacity * edge_fade))
 
-        # Growth tips glow (youngest, most active)
+        color = get_color(dist_ratio)
+        segments.append((x, y, ex, ey, width, alpha, depth, color))
+
+        # Growth glow at active tips (smaller, sharper)
         if depth >= max_depth - 2 and alpha > 30:
-            growth_tips.append((ex, ey, width * 2.5, int(alpha * 0.7)))
+            growth_tips.append((ex, ey, width * 1.5, int(alpha * 0.5), color))
 
-        if depth >= max_depth - 1 or (random.random() < 0.25 and depth > 3):
-            dots.append((ex, ey, width * 1.2, alpha))
+        if depth >= max_depth - 1 or (random.random() < 0.35 and depth > 2):
+            dots.append((ex, ey, width * 1.0, alpha, color))
 
-        # Dominant arms get deeper branching
-        effective_max = max_depth + (1 if is_dominant else 0)
+        # Main continuation
+        grow(ex, ey, angle + random.gauss(0, 0.07),
+             length * random.uniform(0.76, 0.89),
+             width * random.uniform(0.84, 0.93),
+             opacity * opacity_decay, depth + 1, max_depth)
 
-        grow(ex, ey, angle + random.gauss(0, 0.08),
-             length * random.uniform(0.72, 0.86),
-             width * random.uniform(0.80, 0.90),
-             opacity * 0.78, depth + 1, effective_max, is_dominant)
-
-        if random.random() < 0.7 and depth < effective_max - 1:
-            side = angle + random.choice([-1, 1]) * random.uniform(0.35, 0.85)
+        # Primary branch
+        if random.random() < 0.65 and depth < max_depth - 1:
+            side = angle + random.choice([-1, 1]) * random.uniform(0.3, 0.75)
             grow(ex, ey, side,
                  length * random.uniform(0.5, 0.7),
                  width * random.uniform(0.5, 0.7),
-                 opacity * 0.50, depth + 1, effective_max, False)
+                 opacity * branch_opacity_mult, depth + 1, max_depth)
 
-        if random.random() < 0.4 and depth < effective_max - 2:
-            side2 = angle + random.choice([-1, 1]) * random.uniform(0.5, 1.1)
+        # Secondary branch
+        if random.random() < 0.35 and depth < max_depth - 2:
+            side2 = angle + random.choice([-1, 1]) * random.uniform(0.45, 0.95)
             grow(ex, ey, side2,
                  length * random.uniform(0.35, 0.55),
                  width * random.uniform(0.35, 0.55),
-                 opacity * 0.35, depth + 1, effective_max, False)
+                 opacity * sub_opacity_mult, depth + 1, max_depth)
 
-        if random.random() < 0.18 and depth < effective_max - 3:
-            side3 = angle + random.choice([-1, 1]) * random.uniform(0.7, 1.4)
+        # Fine detail
+        if random.random() < 0.18 and depth < max_depth - 3:
+            side3 = angle + random.choice([-1, 1]) * random.uniform(0.5, 1.2)
             grow(ex, ey, side3,
-                 length * random.uniform(0.25, 0.4),
-                 width * random.uniform(0.25, 0.4),
-                 opacity * 0.22, depth + 1, effective_max, False)
+                 length * random.uniform(0.2, 0.4),
+                 width * random.uniform(0.2, 0.4),
+                 opacity * fine_opacity_mult, depth + 1, max_depth)
 
-    # === ASYMMETRIC growth: right side is DOMINANT (just evolved) ===
-    primary_angles = []
+    # === 12 primary hyphae — evenly spaced, slight organic jitter ===
     for i in range(12):
-        a = (2 * math.pi * i / 12) + random.gauss(0, 0.22)
-        primary_angles.append(a)
+        base_angle = (2 * math.pi * i / 12) + random.gauss(0, 0.1)
+        init_len = random.uniform(45, 60) * scale
+        init_w = random.uniform(3.8, 5.5) * scale
+        grow(cx, cy, base_angle, init_len, init_w, opacity_init, 0, 9)
 
-    for i, angle in enumerate(primary_angles):
-        # Right-side hyphae (angle near 0 or ±pi/4) are dominant — longer, deeper
-        is_right = abs(math.cos(angle)) > 0.5 and math.cos(angle) > 0
-        is_dominant = is_right or (i == 0)
-        base_len = random.uniform(65, 85) if is_dominant else random.uniform(45, 65)
-        base_w = random.uniform(4.2, 5.8) if is_dominant else random.uniform(3.0, 4.5)
-        max_d = 9 if is_dominant else 7
-        grow(cx, cy, angle, base_len * scale, base_w * scale, 240, 0, max_d, is_dominant)
-
-    # === Anastomosis ===
+    # === Anastomosis (cross-connections for network feel) ===
+    tips_list = [(s[2], s[3], s[6], s[5]) for s in segments if s[6] >= 3]
     anastomosis = []
-    for i, (x1, y1, d1, a1) in enumerate(tips):
-        for j, (x2, y2, d2, a2) in enumerate(tips):
-            if i >= j:
-                continue
-            dist = math.sqrt((x2 - x1)**2 + (y2 - y1)**2)
-            if 8 * scale < dist < 35 * scale and abs(d1 - d2) <= 2:
-                if random.random() < 0.12:
-                    a = int(30 * max(0.2, 1.0 - (dist / (35 * scale))))
-                    anastomosis.append((x1, y1, x2, y2, 0.7 * scale, a))
+    for i in range(len(tips_list)):
+        x1, y1, d1, a1 = tips_list[i]
+        for j in range(i+1, min(i+60, len(tips_list))):
+            x2, y2, d2, a2 = tips_list[j]
+            dist = math.sqrt((x2-x1)**2 + (y2-y1)**2)
+            if 5*scale < dist < 28*scale and abs(d1-d2) <= 2 and random.random() < 0.10:
+                a = max(alpha_floor, int(25 * max(0.2, 1.0 - dist/(28*scale))))
+                dr = math.sqrt(((x1+x2)/2-cx)**2 + ((y1+y2)/2-cy)**2) / max_r
+                c = get_color(dr)
+                anastomosis.append((x1, y1, x2, y2, 0.7*scale, a, c))
 
-    # === DEVOURING: particles converging toward center ===
+    # === Converging spores (being devoured) ===
     spores = []
-    for _ in range(35):
-        # Particles at various distances, with "absorption trails" toward nearest hypha
-        angle = random.uniform(0, 2 * math.pi)
-        dist = random.uniform(max_r * 0.6, max_r * 1.1)
-        sx = cx + math.cos(angle) * dist
-        sy = cy + math.sin(angle) * dist
-        sr = random.uniform(0.6, 2.0) * scale
-
-        # Opacity: closer = brighter (being consumed)
-        rel_dist = dist / max_r
-        sa = int(random.uniform(12, 50) * (1.2 - rel_dist))
-        sa = max(5, min(60, sa))
-        spores.append((sx, sy, sr, sa))
-
-    # Absorption trails: thin lines from spores toward center
-    absorption_trails = []
-    for (sx, sy, sr, sa) in spores:
-        if sa > 20:  # Only visible spores get trails
-            # Trail points toward center
-            trail_len = random.uniform(8, 20) * scale
-            angle_to_center = math.atan2(cy - sy, cx - sx)
-            tx = sx + math.cos(angle_to_center) * trail_len
-            ty = sy + math.sin(angle_to_center) * trail_len
-            absorption_trails.append((sx, sy, tx, ty, 0.5 * scale, int(sa * 0.5)))
+    for _ in range(25):
+        angle = random.uniform(0, 2*math.pi)
+        dist = random.uniform(max_r*0.65, max_r*1.0)
+        sx = cx + math.cos(angle)*dist
+        sy = cy + math.sin(angle)*dist
+        sr = random.uniform(0.5, 1.8)*scale
+        sa = max(alpha_floor, int(random.uniform(15, 45)*(1.1 - dist/max_r)))
+        dr = dist/max_r
+        sc = get_color(dr)
+        spores.append((sx, sy, sr, sa, sc))
+        # Absorption trail
+        if sa > 18:
+            tl = random.uniform(6, 18)*scale
+            atc = math.atan2(cy-sy, cx-sx)
+            tx = sx + math.cos(atc)*tl
+            ty = sy + math.sin(atc)*tl
+            spores.append(('trail', sx, sy, tx, ty, 0.5*scale, int(sa*0.45), sc))
 
     # === DRAW ===
-    # Absorption trails first (behind everything)
     draw = ImageDraw.Draw(img, 'RGBA')
-    for (x1, y1, x2, y2, w, a) in absorption_trails:
-        draw.line([(x1, y1), (x2, y2)], fill=(*color, a), width=max(1, round(w)))
 
-    # Spores
-    for (sx, sy, sr, sa) in spores:
-        draw.ellipse([sx-sr, sy-sr, sx+sr, sy+sr], fill=(*color, sa))
+    # Spore trails
+    for s in spores:
+        if s[0] == 'trail':
+            _, x1, y1, x2, y2, w, a, c = s
+            draw.line([(x1,y1),(x2,y2)], fill=(*c, a), width=max(1, round(w)))
 
-    # Branches (deep first)
+    # Spore dots
+    for s in spores:
+        if s[0] != 'trail':
+            sx, sy, sr, sa, sc = s
+            draw.ellipse([sx-sr, sy-sr, sx+sr, sy+sr], fill=(*sc, sa))
+
+    # Branches (deep first for proper layering)
     segments.sort(key=lambda s: -s[6])
-    for (x1, y1, x2, y2, w, a, d) in segments:
-        draw.line([(x1, y1), (x2, y2)], fill=(*color, min(255, a)), width=max(1, round(w)))
+    for (x1, y1, x2, y2, w, a, d, c) in segments:
+        draw.line([(x1,y1),(x2,y2)], fill=(*c, min(255, a)), width=max(1, round(w)))
 
     # Anastomosis
-    for (x1, y1, x2, y2, w, a) in anastomosis:
-        draw.line([(x1, y1), (x2, y2)], fill=(*color, min(255, a)), width=max(1, round(w)))
+    for (x1, y1, x2, y2, w, a, c) in anastomosis:
+        draw.line([(x1,y1),(x2,y2)], fill=(*c, min(255, a)), width=max(1, round(w)))
 
     # Terminal dots
-    for (x, y, r, a) in dots:
-        r = max(0.8, r)
-        draw.ellipse([x-r, y-r, x+r, y+r], fill=(*color, min(255, a)))
+    for (x, y, r, a, c) in dots:
+        r = max(0.6, r)
+        draw.ellipse([x-r, y-r, x+r, y+r], fill=(*c, min(255, a)))
 
-    # Growth tip glows (brightest points — actively extending = EVOLVING)
-    for (gx, gy, gr, ga) in growth_tips:
+    # Growth tip glows — MUCH smaller blur for sharpness
+    for (gx, gy, gr, ga, gc) in growth_tips:
         gl = Image.new('RGBA', (size, size), (0, 0, 0, 0))
         gd = ImageDraw.Draw(gl, 'RGBA')
-        gr = max(2, gr)
-        gd.ellipse([gx-gr, gy-gr, gx+gr, gy+gr], fill=(*color, min(255, ga)))
-        gl = gl.filter(ImageFilter.GaussianBlur(radius=max(1, int(gr * 0.5))))
+        gr = max(1.5, gr)
+        gd.ellipse([gx-gr, gy-gr, gx+gr, gy+gr], fill=(*gc, min(255, ga)))
+        gl = gl.filter(ImageFilter.GaussianBlur(radius=max(1, int(gr*0.25))))
         img.alpha_composite(gl)
 
-    # Central glow
-    for gr, ga in [(32*scale, 18), (20*scale, 32), (12*scale, 52)]:
+    # === Central glow — tighter, less blur ===
+    if dark_mode:
+        glow_layers = [(25*scale, core_color, 10), (15*scale, mid_color, 22), (8*scale, core_color, 40)]
+    else:
+        glow_layers = [(20*scale, mid_color, 15), (12*scale, core_color, 30), (6*scale, core_color, 55)]
+    for gr, c, ga in glow_layers:
         glow = Image.new('RGBA', (size, size), (0, 0, 0, 0))
         gd = ImageDraw.Draw(glow, 'RGBA')
-        gd.ellipse([cx-gr, cy-gr, cx+gr, cy+gr], fill=(*color, ga))
-        glow = glow.filter(ImageFilter.GaussianBlur(radius=int(gr * 0.6)))
+        gd.ellipse([cx-gr, cy-gr, cx+gr, cy+gr], fill=(*c, ga))
+        glow = glow.filter(ImageFilter.GaussianBlur(radius=int(gr*0.4)))
         img.alpha_composite(glow)
 
     # Open arc core
     draw = ImageDraw.Draw(img, 'RGBA')
-    core_r = int(8 * scale)
+    cr = int(6*scale)
     arc = Image.new('RGBA', (size, size), (0, 0, 0, 0))
     ad = ImageDraw.Draw(arc, 'RGBA')
-    ad.arc([int(cx-core_r), int(cy-core_r), int(cx+core_r), int(cy+core_r)],
-           start=30, end=340, fill=(*color, 240), width=max(2, int(3.5 * scale)))
+    arc_color = core_color if dark_mode else (0, 70, 50)
+    ad.arc([int(cx-cr), int(cy-cr), int(cx+cr), int(cy+cr)],
+           start=30, end=345, fill=(*arc_color, 240), width=max(2, int(2.5*scale)))
     img.alpha_composite(arc)
 
-    # White center
+    # Center dot — white for dark mode, dark for light mode
     cl = Image.new('RGBA', (size, size), (0, 0, 0, 0))
     cd = ImageDraw.Draw(cl, 'RGBA')
-    cr = int(3.5 * scale)
-    cd.ellipse([cx-cr, cy-cr, cx+cr, cy+cr], fill=(255, 255, 255, 240))
-    cl = cl.filter(ImageFilter.GaussianBlur(radius=max(1, int(1.5 * scale))))
+    wr = int(2.5*scale)
+    dot_color = (255, 255, 255, 240) if dark_mode else (0, 80, 60, 240)
+    cd.ellipse([cx-wr, cy-wr, cx+wr, cy+wr], fill=dot_color)
+    cl = cl.filter(ImageFilter.GaussianBlur(radius=max(1, int(0.8*scale))))
     img.alpha_composite(cl)
 
     return img
 
 
 if __name__ == "__main__":
-    for sz, name in [(1024, "1024"), (512, "512"), (280, "280"), (64, "64"), (32, "32")]:
-        logo = generate_mycelium_logo(1024, dark_mode=True)
-        if sz != 1024:
-            logo = logo.resize((sz, sz), Image.LANCZOS)
-        logo.save(OUT_DIR / f"logo_dark_{name}.png")
+    # Render natively at each size for maximum sharpness
+    for sz in [1024, 512, 280, 64, 32]:
+        logo = generate_mycelium_logo(sz, dark_mode=True)
+        logo.save(OUT_DIR / f"logo_dark_{sz}.png")
 
-    generate_mycelium_logo(1024, False).resize((512, 512), Image.LANCZOS).save(OUT_DIR / "logo_light_512.png")
+    for sz in [1024, 512, 280, 64]:
+        logo = generate_mycelium_logo(sz, dark_mode=False)
+        logo.save(OUT_DIR / f"logo_light_{sz}.png")
 
-    # Social preview: pure organism, no text
-    social = Image.new('RGBA', (1280, 640), (12, 15, 20, 255))
-    logo_sp = generate_mycelium_logo(600, dark_mode=True)
-    social.paste(logo_sp, (340, 20), logo_sp)
+    # Social preview — white background with project name for GitHub OG
+    from PIL import ImageFont
+    social = Image.new('RGBA', (1280, 640), (255, 255, 255, 255))
+    logo_sp = generate_mycelium_logo(420, dark_mode=False)
+    social.paste(logo_sp, (430, 30), logo_sp)
+    sd = ImageDraw.Draw(social, 'RGBA')
+    # Project name below logo
+    try:
+        font_large = ImageFont.truetype("arial.ttf", 64)
+        font_small = ImageFont.truetype("arial.ttf", 24)
+    except OSError:
+        font_large = ImageFont.load_default()
+        font_small = ImageFont.load_default()
+    title_color = (0, 80, 60, 230)
+    sub_color = (0, 120, 90, 180)
+    # "Myco" centered
+    bbox = sd.textbbox((0, 0), "Myco", font=font_large)
+    tw = bbox[2] - bbox[0]
+    sd.text(((1280 - tw) // 2, 470), "Myco", fill=title_color, font=font_large)
+    # Tagline
+    tagline = "Eternal Devouring. Eternal Evolution."
+    bbox2 = sd.textbbox((0, 0), tagline, font=font_small)
+    tw2 = bbox2[2] - bbox2[0]
+    sd.text(((1280 - tw2) // 2, 550), tagline, fill=sub_color, font=font_small)
     social.save(OUT_DIR / "social_preview.png")
 
-    print("Generated v9 devouring+evolving mycelium:")
+    print("Generated v11 vivid mycelium (native resolution):")
     for f in sorted(OUT_DIR.glob("logo_*.png")):
         print(f"   {f.name} ({f.stat().st_size // 1024}KB)")
     print(f"   social_preview.png ({(OUT_DIR / 'social_preview.png').stat().st_size // 1024}KB)")

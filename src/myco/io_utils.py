@@ -48,8 +48,7 @@ to make crash-during-compress recoverable in practice.
 **Not in Wave 30 scope**:
 
   - General-purpose retrofit of `notes.py::write_note`, `forage.py::add_item`,
-    `upstream.py::ingest_bundle`, etc. Those file writers stay as-is in
-    Wave 30 and may be retrofitted in Wave 31+ as friction demands. The
+    etc. Those file writers stay as-is and may be retrofitted as friction demands. The
     surface here is small enough that future retrofits can copy the pattern
     without depending on this module.
   - File locking (concurrent-write coordination). The substrate is single-
