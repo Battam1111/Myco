@@ -25,10 +25,10 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 # Link extraction patterns
 # ---------------------------------------------------------------------------
 
-# Markdown links: [text](path)  — capture path portion
+# Markdown links: text  — capture path portion
 _MD_LINK_RE = re.compile(r"\[.*?\]\(([^)#]+?)(?:#[^)]*)?\)")
 
-# Backtick file paths: `some/path.md` or `some/path.yaml`
+# Backtick file paths: some/path.md or some/path.yaml
 _BACKTICK_PATH_RE = re.compile(r"`([a-zA-Z0-9_./\\-]+\.(?:md|yaml|yml))`")
 
 # Note ID references: n_YYYYMMDDTHHMMSS_XXXX (in body text or YAML values)

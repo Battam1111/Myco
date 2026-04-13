@@ -147,7 +147,7 @@ def hermes_skill_to_wiki(skill: dict, project_dir: Path, dry_run: bool) -> dict:
         f"",
         f"---",
         f"",
-        f"← [Back to MYCO.md](../MYCO.md)",
+        f"← Back to MYCO.md",
     ])
 
     content = "\n".join(content_lines)
@@ -352,7 +352,7 @@ def create_section_stub(section: dict, project_dir: Path, dry_run: bool) -> dict
             f"",
             f"---",
             f"",
-            f"← [Back to MYCO.md](../MYCO.md)",
+            f"← Back to MYCO.md",
         ])
 
         if not dry_run:

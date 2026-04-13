@@ -7,10 +7,10 @@ in Wave 10's vision recovery, but no implementation existed before this wave.
 Wave 26 §2.3 catalogued the gap, Wave 34 designed the scaffold, and Wave 35
 implements the MVP.
 
-**Authoritative design**: ``docs/primordia/metabolic_inlet_design_craft_2026-04-12.md``
+**Authoritative design**: docs/primordia/archive/metabolic_inlet_design_craft_2026-04-12.md
 (Wave 34, exploration 0.85, 8 design questions answered, 6 attacks defended).
 
-**Implementation craft**: ``docs/primordia/inlet_mvp_craft_2026-04-12.md``
+**Implementation craft**: docs/primordia/archive/inlet_mvp_craft_2026-04-12.md
 (Wave 35, kernel_contract 0.90, validates Wave 34's scaffold under impl pressure).
 
 **Verb shape** (locked in Wave 34 §3.1):

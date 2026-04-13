@@ -1104,7 +1104,7 @@ def detect_contract_drift(
         4. If either is unreadable → silent LOW (return a LOW signal
            string instead of None so the agent at least notices).
 
-    See `docs/primordia/boot_reflex_arc_craft_2026-04-11.md` D1.
+    See docs/primordia/boot_reflex_arc_craft_2026-04-11.md D1.
     Respects `_canon.yaml::system.boot_reflex.enabled`; disabled = None.
     """
     try:
@@ -1892,7 +1892,7 @@ def render_entry_point_signals_block(
 
     block_lines.append(">")
     brief_rel = cfg.get("brief_path", ".myco_state/boot_brief.md")
-    block_lines.append(f"> Full brief: [`{brief_rel}`]({brief_rel})")
+    block_lines.append(f"> Full brief: `{brief_rel}`")
     block_lines.append("")
     block_lines.append("<!-- MYCO-BOOT-SIGNALS:END -->")
 
