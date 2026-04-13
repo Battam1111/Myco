@@ -6,7 +6,7 @@ When configured in .mcp.json, AI agents (Claude Code, Cursor, etc.) automaticall
 discover these tools and call them at the right moments — no manual prompting needed.
 
 Tools:
-    myco_immune       — Run 23-dimensional consistency checks (L0-L22)
+    myco_immune       — Run 25-dimensional consistency checks (L0-L24)
     myco_pulse     — Quick overview of knowledge system health
     myco_sense     — Search across wiki/docs/MYCO.md knowledge base
     myco_trace        — Append friction/reflection entries to log.md
@@ -343,7 +343,7 @@ def compute_perfusion(root: Path) -> dict:
 @mcp.tool(
     name="myco_immune",
     annotations={
-        "title": "Myco Immune — 23-Dimension Consistency Check",
+        "title": "Myco Immune — 25-Dimension Consistency Check",
         "readOnlyHint": False,
         "destructiveHint": False,
         "idempotentHint": True,
