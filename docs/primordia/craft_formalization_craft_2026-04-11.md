@@ -17,7 +17,7 @@ rounds: 3
 
 > **Date**: 2026-04-11
 > **Protocol**: W3 Craft Protocol (self-referential dogfood — the craft that formalizes Craft)
-> **Trigger**: Yanjun 2026-04-11:
+> **Trigger**: the creator 2026-04-11:
 >
 > > "传统手艺可能要起一个正式名字，并且以合理、符合逻辑的形式嵌入 Myco 之中。"
 >

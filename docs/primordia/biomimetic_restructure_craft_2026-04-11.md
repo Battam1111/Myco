@@ -289,7 +289,7 @@ Round 1 之后，Claim 的真实形态已被攻击大幅收窄：
 
 ### R2.1 · Windows Symlink Viability Attack
 
-> "ASCC 是 Windows 仓（用户 Yanjun 本地环境），Windows 的 symlink 需要管理员
+> "ASCC 是 Windows 仓（用户 the creator 本地环境），Windows 的 symlink 需要管理员
 > 权限或 Developer Mode。如果下游 instance 在 Windows 上跑 migration，symlink
 > 会失败。你的 Phase A2 symlink 过渡方案对下游不可用。"
 

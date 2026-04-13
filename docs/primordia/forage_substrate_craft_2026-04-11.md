@@ -20,7 +20,7 @@ decision_class: kernel_contract
 
 ## §0 Why a craft — and why kernel_contract class
 
-Yanjun's Q2 in the 2026-04-11 panorama follow-up: *"我想要在 Myco 中有
+the creator's Q2 in the 2026-04-11 panorama follow-up: *"我想要在 Myco 中有
 一个专门下载、存放各种资料的地方，比如说能够帮助它进化的各种 GitHub
 项目、博客、论文等等，目前 Myco 中有吗？是否与它原有的结构相契合？"*
 Answer to the factual part: **no**, Myco currently has no such place.
