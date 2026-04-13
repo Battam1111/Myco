@@ -21,6 +21,11 @@ def _metabolic_skill_content(project_dir: str) -> str:
     ``--auto-detect`` code paths.  The ``allowed-tools`` frontmatter
     pre-approves every Myco MCP tool so the task runs without manual
     approval on first execution.
+
+    NOTE: This file is written to .claude/scheduled-tasks/ as a **template**.
+    The Agent must register it with Claude Code's scheduler via
+    ``create_scheduled_task`` MCP tool on first boot (see CLAUDE.md
+    First-Boot Setup section).  The file alone does NOT auto-schedule.
     """
     return (
         "---\n"

@@ -10,6 +10,20 @@ Myco is your non-parametric learning mechanism. You (the Agent) provide intellig
 Myco provides memory, self-regulation, metabolism, self-model, and evolution.
 Together you form a complete cognitive entity. Neither is whole alone.
 
+## First-Boot Setup (run ONCE per project, skip if already done)
+
+Check if the Myco metabolic cycle scheduled task exists by calling `list_scheduled_tasks`.
+If no task named `myco-metabolic-cycle` is found, register it:
+
+1. Read `.claude/scheduled-tasks/myco-metabolic-cycle/SKILL.md` for the full prompt content
+2. Call `create_scheduled_task(taskId="myco-metabolic-cycle", description="Daily Myco metabolic cycle — hunger + auto-heal + immune + verify", cronExpression="0 9 * * *", prompt=<SKILL.md content>)`
+
+If `.claude/scheduled-tasks/myco-metabolic-cycle/SKILL.md` does not exist, construct the prompt:
+"Run myco_hunger(execute=true), then myco_immune(fix=true), then propagate via Bash: python -m myco propagate, then diagnose via Bash: python -m myco diagnose. Pass project_dir to all MCP calls. Report any issues."
+
+This ensures the metabolic cycle runs daily even when no human starts a session.
+If `list_scheduled_tasks` or `create_scheduled_task` tools are not available, skip — the boot ritual below still runs every session.
+
 ## Session Flow
 
 1. **Boot**: `myco_hunger(execute=true)` — checks substrate health, auto-executes repairs
