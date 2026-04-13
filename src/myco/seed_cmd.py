@@ -449,10 +449,7 @@ def run_connect(args) -> int:
     settings_path = settings_dir / "settings.json"
     settings_payload = {
         "permissions": {
-            "allow": [
-                "mcp__myco__*",
-                *_MYCO_BASH_PATTERNS,
-            ]
+            "allow": _MYCO_BASH_PATTERNS
         }
     }
     _json_merge_write(settings_path, settings_payload)
@@ -496,38 +493,46 @@ _METABOLIC_TIP = (
 )
 
 # Cowork-compatible skill stubs — single source of truth for both code paths.
-# Each skill includes project_dir guidance so MCP tools target the right project.
+# Skills use dual-mode instructions: try MCP first, fall back to CLI via Bash.
+# This ensures they work on any platform (Claude Code, Cowork, Cursor, etc.).
 _COWORK_SKILLS: dict[str, str] = {
     "myco-boot": (
         "---\nname: myco-boot\n"
         "description: Boot Myco substrate — run hunger check and auto-heal\n"
-        "---\n\nIMPORTANT: Pass project_dir to every Myco MCP tool call.\n"
-        "Detect the project root by looking for _canon.yaml in the current\n"
-        "working directory or its parents.\n\n"
+        "---\n\n"
+        "## MCP mode (preferred)\n"
         "Call myco_hunger(execute=true, project_dir=<project_root>) to check\n"
-        "substrate health and auto-fix issues.\n"
+        "substrate health and auto-fix issues.\n\n"
+        "## CLI mode (fallback — if MCP tools are not available)\n"
+        "Run via Bash: `myco hunger --execute --json`\n"
+        "Parse the JSON output for signals and actions.\n\n"
+        "## Either mode\n"
         "If any REFLEX HIGH signals appear, address them before other work.\n"
-        "Then report substrate status.\n"
+        "Then report substrate status to the user.\n"
     ),
     "myco-eat": (
         "---\nname: myco-eat\n"
         "description: Capture knowledge into Myco — decisions, insights, friction, feedback\n"
-        "---\n\nIMPORTANT: Pass project_dir to every Myco MCP tool call.\n"
-        "Detect the project root by looking for _canon.yaml in the current\n"
-        "working directory or its parents.\n\n"
-        "Call myco_eat with the content to capture. Add relevant tags.\n"
-        "Always pass project_dir=<project_root>.\n"
+        "---\n\n"
+        "## MCP mode (preferred)\n"
+        "Call myco_eat(content=..., tags=..., project_dir=<project_root>).\n\n"
+        "## CLI mode (fallback — if MCP tools are not available)\n"
+        "Run via Bash: `myco eat --content \"...\" --tags \"t1,t2\" --json`\n\n"
+        "## Either mode\n"
         "Use this whenever: a decision is made, friction is encountered,\n"
         "the user gives feedback, or you learn something important.\n"
+        "Always include relevant tags for future retrieval.\n"
     ),
     "myco-search": (
         "---\nname: myco-search\n"
         "description: Search Myco substrate for existing knowledge before answering\n"
-        "---\n\nIMPORTANT: Pass project_dir to every Myco MCP tool call.\n"
-        "Detect the project root by looking for _canon.yaml in the current\n"
-        "working directory or its parents.\n\n"
-        "Call myco_sense with the query. Always pass project_dir=<project_root>.\n"
-        "Check results before answering factual questions about the project.\n"
+        "---\n\n"
+        "## MCP mode (preferred)\n"
+        "Call myco_sense(query=..., project_dir=<project_root>).\n\n"
+        "## CLI mode (fallback — if MCP tools are not available)\n"
+        "Run via Bash: `myco memory sense \"<query>\" --json`\n\n"
+        "## Either mode\n"
+        "Check results BEFORE answering factual questions about the project.\n"
         "The substrate may already have the answer.\n"
     ),
 }

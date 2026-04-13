@@ -19,15 +19,13 @@ session per `docs/agent_protocol.md` §3).
    - `verb: "inlet"` → log the recommendation for human/agent decision (inlet is not fully autonomous yet)
 3. **Re-check hunger**: Run `myco hunger` again to confirm pressure reduced.
 4. **Proceed with session work** once hunger reports healthy or only low-severity signals.
-
-4. **Discover** (Wave D2): If hunger signals include `inlet_ripe` or `cohort_staleness`,
+5. **Discover** (Wave D2): If hunger signals include `inlet_ripe` or `cohort_staleness`,
    run the Discovery Loop skill (`skills/discovery-loop.md`) to proactively acquire
    external knowledge for detected gaps.
-
-5. **Evolve** (Wave E2): If `_canon.yaml::system.evolution.enabled` is true
+6. **Evolve** (Wave E2): If `_canon.yaml::system.evolution.enabled` is true
    AND session count > `min_sessions_before_evolve`, check skill performance.
-   If any skill's success rate < `skill_success_threshold`, call `evolve.mutate_skill`
-   with the Agent's llm_fn, run constraint gates, score, and if improved,
+   If any skill's success rate < `skill_success_threshold`, call `myco_evolve`
+   with the target skill, run constraint gates, score, and if improved,
    atomically replace + git commit. Max `max_mutations_per_cycle` per run.
 
 ## Thresholds
@@ -48,6 +46,6 @@ improves — without changing this document. Myco provides the scaffolding
 ## References
 
 - `docs/agent_protocol.md` — §3 Session Boot Sequence defines the boot ritual this skill implements
-- `docs/evolution_engine.md` — evolution engine that can mutate this skill via `evolve.mutate_skill`
+- `docs/evolution_engine.md` — evolution engine; use `myco_evolve` MCP tool to trigger skill mutation
 - `src/myco/notes.py` — hunger computation logic (`compute_hunger_report`) that drives the action list
 - `_canon.yaml` — all thresholds (backlog, compression pressure, inlet triggers) live here
