@@ -499,10 +499,10 @@ def init_level_1(project_dir: Path, replacements: dict, entry_point: str):
     print(f"  ✅ _canon.yaml (Canonical Values SSoT)")
 
     (project_dir / "wiki").mkdir(exist_ok=True)
-    (project_dir / "docs" / "current").mkdir(exist_ok=True)
+    (project_dir / "docs" / "primordia").mkdir(exist_ok=True)
     (project_dir / "scripts").mkdir(exist_ok=True)
     print(f"  ✅ wiki/ (Knowledge pages — create on demand)")
-    print(f"  ✅ docs/primordia/ (Debate records — append-only)")
+    print(f"  ✅ docs/primordia/ (Craft debate records — append-only)")
     print(f"  ✅ scripts/ (Tool scripts)")
 
     # Digestive substrate — notes/ directory with a README stub so the
