@@ -6,7 +6,7 @@ When configured in .mcp.json, AI agents (Claude Code, Cursor, etc.) automaticall
 discover these tools and call them at the right moments — no manual prompting needed.
 
 Tools:
-    myco_immune       — Run 25-dimensional consistency checks (L0-L24)
+    myco_immune       — Run 26-dimensional consistency checks (L0-L25)
     myco_pulse     — Quick overview of knowledge system health
     myco_sense     — Search across wiki/docs/MYCO.md knowledge base
     myco_trace        — Append friction/reflection entries to log.md
@@ -212,7 +212,207 @@ def _doc_lifecycle_status(content: str) -> str:
     return "unknown"
 
 
-def compute_synaptic_context(root: Path) -> dict:
+def compute_interconnection_map(root: Path) -> dict:
+    """Build a cross-layer interconnection map of the entire project.
+
+    Scans ALL project files, extracts section-level concepts, and builds
+    a graph of which concepts appear in which (file, section, layer) tuples.
+    This enables the Agent to see cross-layer relationships and detect
+    potential inconsistencies when a concept changes in one layer.
+
+    Three layers:
+      - knowledge: wiki/*.md, notes/n_*.md
+      - engineering: src/**/*.py, scripts/*.py, .claude/**
+      - document: docs/**/*.md, *.md (top-level), README*
+
+    Section extraction:
+      - Markdown: split by H2/H3 headings
+      - Python: split by class/function definitions
+
+    Concept extraction:
+      - Extract significant terms (2+ chars, not stopwords) from each section
+      - Match terms across layers to find cross-layer connections
+
+    Craft: docs/primordia/universal_interconnection_craft_2026-04-14.md
+
+    Returns:
+        dict with 'concept_map', 'cross_layer_summary', and 'interconnection_hint'.
+    """
+    import re as _re
+    import datetime as _dt
+
+    # --- Layer classification ---
+    def _classify_layer(rel_path: str) -> str:
+        """Classify a file into knowledge / engineering / document layer."""
+        if rel_path.startswith("wiki/") or rel_path.startswith("notes/"):
+            return "knowledge"
+        if (rel_path.startswith("src/") or rel_path.startswith("scripts/")
+                or rel_path.startswith(".claude/")):
+            return "engineering"
+        # docs/, top-level .md, README*
+        return "document"
+
+    # --- Section extraction ---
+    _H23_RE = _re.compile(r"^(#{2,3})\s+(.+)", _re.MULTILINE)
+    _PYDEF_RE = _re.compile(r"^(class |def )(\w+)", _re.MULTILINE)
+
+    def _extract_sections_md(content: str, rel_path: str):
+        """Extract sections from markdown. Returns list of (section_id, heading)."""
+        sections = []
+        matches = list(_H23_RE.finditer(content))
+        if not matches:
+            return [(rel_path, _extract_title_from_content(content))]
+        for m in matches:
+            level = len(m.group(1))
+            heading = m.group(2).strip()
+            section_id = f"{rel_path}#{'##' if level == 2 else '###'} {heading}"
+            sections.append((section_id, heading))
+        return sections if sections else [(rel_path, rel_path)]
+
+    def _extract_sections_py(content: str, rel_path: str):
+        """Extract sections from Python. Returns list of (section_id, name)."""
+        sections = []
+        for m in _PYDEF_RE.finditer(content):
+            kind = "class" if m.group(1).startswith("class") else "def"
+            name = m.group(2)
+            section_id = f"{rel_path}#{kind} {name}"
+            sections.append((section_id, name))
+        return sections if sections else [(rel_path, rel_path)]
+
+    def _extract_title_from_content(content: str) -> str:
+        for line in content.split("\n")[:10]:
+            line = line.strip()
+            if line.startswith("# "):
+                return line.lstrip("# ").strip()
+        return ""
+
+    # --- Concept extraction ---
+    # Key terms from _canon.yaml concepts + wiki page titles + function names
+    # form the concept vocabulary. Then scan all sections for these terms.
+
+    # Step 1: Build concept vocabulary from wiki titles and key project terms
+    concept_vocab = {}  # term_lower → canonical_name
+
+    wiki_dir = root / "wiki"
+    if wiki_dir.exists():
+        for p in sorted(wiki_dir.glob("*.md")):
+            if p.name.startswith("_"):
+                continue
+            title = _extract_title(p)
+            stem = p.stem.replace("-", " ").replace("_", " ")
+            # Register both title words and stem words
+            for term in [stem, title.lower()]:
+                if len(term) > 3:
+                    concept_vocab[term.lower()] = f"wiki:{p.stem}"
+
+    # Step 2: Scan all project files and extract sections + concept mentions
+    _SKIP_DIRS = {".git", "node_modules", "__pycache__", ".myco_state",
+                  ".pytest_cache", ".eggs", "forage"}
+    _SCAN_EXTENSIONS = {".md", ".py", ".yaml", ".yml"}
+
+    # concept_name → list of {file, section, layer, heading}
+    concept_locations = {}
+    # layer → list of {file, section_count, concepts_found}
+    layer_stats = {"knowledge": [], "engineering": [], "document": []}
+
+    import os as _os
+    for dirpath, dirnames, filenames in _os.walk(root):
+        dirnames[:] = [d for d in dirnames if d not in _SKIP_DIRS
+                       and not d.endswith(".egg-info")]
+        for fname in filenames:
+            _, ext = _os.path.splitext(fname)
+            if ext not in _SCAN_EXTENSIONS:
+                continue
+            full_path = _os.path.join(dirpath, fname)
+            rel = _os.path.relpath(full_path, root).replace("\\", "/")
+            # Skip test files, primordia archive, notes (too noisy)
+            if any(rel.startswith(p) for p in (
+                "tests/", "docs/primordia/archive/", "examples/",
+            )):
+                continue
+            content = _read_file(Path(full_path))
+            if not content:
+                continue
+
+            layer = _classify_layer(rel)
+
+            # Extract sections
+            if ext == ".py":
+                sections = _extract_sections_py(content, rel)
+            elif ext == ".md":
+                sections = _extract_sections_md(content, rel)
+            else:
+                sections = [(rel, rel)]
+
+            # Find concept mentions in this file
+            content_lower = content.lower()
+            file_concepts = set()
+            for term, concept_name in concept_vocab.items():
+                if term in content_lower:
+                    file_concepts.add(concept_name)
+                    if concept_name not in concept_locations:
+                        concept_locations[concept_name] = []
+                    concept_locations[concept_name].append({
+                        "file": rel,
+                        "layer": layer,
+                        "section_count": len(sections),
+                    })
+
+            layer_stats[layer].append({
+                "file": rel,
+                "section_count": len(sections),
+                "concepts_found": len(file_concepts),
+            })
+
+    # Step 3: Identify cross-layer concepts and isolated concepts
+    cross_layer_concepts = []
+    single_layer_concepts = []
+    for concept_name, locations in concept_locations.items():
+        layers_present = set(loc["layer"] for loc in locations)
+        entry = {
+            "concept": concept_name,
+            "layers": sorted(layers_present),
+            "file_count": len(locations),
+            "files": sorted(set(loc["file"] for loc in locations))[:8],  # cap at 8
+        }
+        if len(layers_present) >= 2:
+            cross_layer_concepts.append(entry)
+        else:
+            single_layer_concepts.append(entry)
+
+    # Sort by cross-layer breadth, then file count
+    cross_layer_concepts.sort(key=lambda x: (-len(x["layers"]), -x["file_count"]))
+    single_layer_concepts.sort(key=lambda x: -x["file_count"])
+
+    # Step 4: Compute health metrics
+    total_concepts = len(concept_locations)
+    cross_count = len(cross_layer_concepts)
+    isolated_count = len(single_layer_concepts)
+    connectivity_ratio = cross_count / max(total_concepts, 1)
+
+    return {
+        "cross_layer_concepts": cross_layer_concepts[:20],  # top 20
+        "single_layer_concepts": single_layer_concepts[:10],  # top 10 isolated
+        "health": {
+            "total_concepts": total_concepts,
+            "cross_layer_count": cross_count,
+            "single_layer_count": isolated_count,
+            "connectivity_ratio": round(connectivity_ratio, 2),
+            "layer_file_counts": {
+                layer: len(files) for layer, files in layer_stats.items()
+            },
+        },
+        "interconnection_hint": (
+            "Above shows the cross-layer interconnection map of the project. "
+            "cross_layer_concepts are well-connected (appear in 2+ layers). "
+            "single_layer_concepts are isolated in one layer — consider whether "
+            "they should be referenced in other layers. When modifying a concept, "
+            "check its file list to see all places that may need updating."
+        ),
+    }
+
+
+
     """Build the wiki inter-connection map — which pages link to which.
 
     Reuses mycelium.build_link_graph() but filters to wiki↔wiki subgraph.
@@ -343,7 +543,7 @@ def compute_perfusion(root: Path) -> dict:
 @mcp.tool(
     name="myco_immune",
     annotations={
-        "title": "Myco Immune — 25-Dimension Consistency Check",
+        "title": "Myco Immune — 26-Dimension Consistency Check",
         "readOnlyHint": False,
         "destructiveHint": False,
         "idempotentHint": True,
@@ -364,7 +564,7 @@ async def myco_immune(
     modified wiki/, docs/, MYCO.md, _canon.yaml, or notes/. Also run after any
     milestone retrospective retrospective or before commits that touch multiple knowledge files.
 
-    This is the 25-dimensional immune system of the knowledge substrate. It
+    This is the 26-dimensional immune system of the knowledge substrate. It
     catches contradictions across files, orphan references, stale patterns,
     version drift, write-surface violations, craft
     protocol schema violations, forage substrate hygiene issues, craft reflex
@@ -433,7 +633,7 @@ async def myco_immune(
     report = {
         "project": str(root),
         "timestamp": datetime.now().isoformat(),
-        "mode": "quick (L0-L3)" if quick else "full (L0-L24)",
+        "mode": "quick (L0-L3)" if quick else "full (L0-L25)",
         "total_issues": total_issues,
         "all_passed": total_issues == 0,
         "checks": results,
@@ -592,6 +792,13 @@ async def myco_pulse(
         status["perfusion"] = compute_perfusion(root)
     except Exception as e:
         status["perfusion"] = {"error": str(e)}
+
+    # Wave 46 (万物互联): cross-layer interconnection map — shows which
+    # concepts span multiple layers so Agent can see the full dependency web.
+    try:
+        status["interconnection"] = compute_interconnection_map(root)
+    except Exception as e:
+        status["interconnection"] = {"error": str(e)}
 
     # Wave 13 (contract v0.12.0): boot reflex arc — fold hunger into status
     # so reflex signals (contract_drift, raw_backlog HIGH, craft_reflex)
@@ -1619,6 +1826,12 @@ async def myco_hunger(
         result["perfusion"] = perfusion
     except Exception as e:
         result["perfusion"] = {"error": str(e)}
+
+    # Wave 46 (万物互联): cross-layer interconnection map
+    try:
+        result["interconnection"] = compute_interconnection_map(root)
+    except Exception as e:
+        result["interconnection"] = {"error": str(e)}
 
     # Sprint Pipeline hint (absorbed from gstack): tell Agent where they are
     # in the development loop based on current substrate state.

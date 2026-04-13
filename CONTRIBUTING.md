@@ -139,7 +139,7 @@ Myco/
 │   ├── cli.py             # CLI dispatcher (26+ subcommands)
 │   ├── seed_cmd.py        # Project initialization
 │   ├── graft.py         # Hot-start migration
-│   ├── immune.py            # 25-dimension consistency checker (L0-L24)
+│   ├── immune.py            # 26-dimension consistency checker (L0-L25)
 │   ├── notes.py           # Atomic note engine (eat/digest/observe)
 │   ├── condense_cmd.py    # Compression primitive
 │   ├── mycelium.py           # Structural link graph
