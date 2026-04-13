@@ -302,7 +302,7 @@ class TestCraftDirectory:
 # ===========================================================================
 
 class TestTotalCount:
-    def test_total_is_13(self, tmp_path, monkeypatch, capsys):
+    def test_total_is_14(self, tmp_path, monkeypatch, capsys):
         """Verify total checks is now 13 (8 original + 5 new)."""
         _scaffold_project(tmp_path)
         fake_home = tmp_path / "fake_home" / ".claude"
@@ -314,5 +314,5 @@ class TestTotalCount:
         from myco.diagnose_cmd import run_verify
         run_verify(_make_verify_args(str(tmp_path)))
         out = capsys.readouterr().out
-        # The summary line shows "X/13 passed"
-        assert "/13 passed" in out or "/13 CHECKS PASSED" in out
+        # The summary line shows "X/14 passed"
+        assert "/14 passed" in out or "/14 CHECKS PASSED" in out

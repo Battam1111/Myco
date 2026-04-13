@@ -267,6 +267,56 @@ def run_verify(args) -> int:
             "create the craft directory (not docs/current/)"
         )
 
+    # 5f. External file tool name consistency
+    # Checks that ~/.claude/scheduled-tasks and .claude/skills reference
+    # actual MCP tool names (not stale old names).
+    total += 1
+    external_stale = []
+    try:
+        # Get actual MCP tool names from mcp_server.py
+        import re as _re
+        mcp_path = root / "src" / "myco" / "mcp_server.py"
+        if mcp_path.exists():
+            mcp_content = mcp_path.read_text(encoding="utf-8", errors="replace")
+            actual_tools = set(_re.findall(r'name="(myco_\w+)"', mcp_content))
+            actual_mcp = {f"mcp__myco__{t}" for t in actual_tools}
+
+            # Check scheduled task SKILL.md
+            sched_dir = _user_claude_dir() / "scheduled-tasks"
+            if sched_dir.is_dir():
+                for skill_file in sched_dir.rglob("SKILL.md"):
+                    skill_text = skill_file.read_text(encoding="utf-8", errors="replace")
+                    refs = set(_re.findall(r"mcp__myco__myco_\w+", skill_text))
+                    stale = refs - actual_mcp
+                    for s in stale:
+                        external_stale.append(f"{skill_file.name}: {s}")
+
+            # Check Cowork skills
+            skills_dir = root / ".claude" / "skills"
+            if skills_dir.is_dir():
+                for skill_file in skills_dir.rglob("SKILL.md"):
+                    skill_text = skill_file.read_text(encoding="utf-8", errors="replace")
+                    refs = set(_re.findall(r"myco_\w+", skill_text))
+                    # Only check myco_ prefixed names (not Python keywords)
+                    tool_refs = {r for r in refs if r.startswith("myco_") and r != "myco_hunger"}
+                    stale = tool_refs - actual_tools - {"myco_hunger"}
+                    for s in stale:
+                        external_stale.append(f"{skill_file.parent.name}/SKILL.md: {s}")
+    except Exception:
+        pass
+
+    if not external_stale:
+        print(f"  ✅ External tool names: all match MCP server")
+        passed += 1
+    else:
+        print(f"  ❌ External tool names: {len(external_stale)} stale reference(s)")
+        for s in external_stale[:5]:
+            print(f"       {s}")
+        issues.append(
+            f"{len(external_stale)} stale tool name(s) in ~/.claude/ files — "
+            "re-run `myco seed --auto-detect` or manually update"
+        )
+
     # --- Summary ---
     print()
     print(f"  {'='*50}")
