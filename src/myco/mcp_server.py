@@ -1378,8 +1378,9 @@ async def myco_expand(
 ) -> str:
     """Reverse a previous compression — restore input notes and delete the output.
 
-    Use when a compression was done incorrectly or when you need to
-    re-process the original inputs differently.
+    WHEN TO CALL:
+      (a) When a compression was done incorrectly.
+      (b) When you need to re-process the original inputs differently.
 
     Args:
         output_id: The id of the extracted (output) note to reverse.
