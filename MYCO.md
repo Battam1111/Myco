@@ -2,7 +2,7 @@
 
 > 最后更新：2026-04-13
 > **知识系统**：[Myco](https://github.com/Battam1111/Myco) v0.2.0（[PyPI 已发布](https://pypi.org/project/myco/0.2.0/)；kernel contract v0.45.0）
-> **⚠️ Wave 8 re-baseline**：历史上 v1.x 的包版本号和 v1.x.y 的 contract 版本号在 2026-04-11 全部下调到 0 开头，因为 Myco 尚未进行过真正的 1.0 正式发布。历史记录中的 v1.x 标识符保持不动作为 immutable history；当前生效版本一律以 v0.x 计。详见 `docs/primordia/archive/pre_release_rebaseline_craft_2026-04-11.md` 与 `docs/contract_changelog.md` 顶部 banner。
+> **⚠️ Wave 8 re-baseline**：历史上 v1.x 的包版本号和 v1.x.y 的 contract 版本号在 2026-04-11 全部下调到 0 开头，因为 Myco 尚未进行过真正的 1.0 正式发布。历史记录中的 v1.x 标识符保持不动作为 immutable history；当前生效版本一律以 v0.x 计。详见 `docs/contract_changelog.md` 顶部 banner。
 
 ---
 
@@ -218,16 +218,9 @@ v2.0      Metabolic Inlet 原语               🔄 MVP scaffold 落地 (Wave 35
 | `docs/primordia/usability_positioning_craft_2026-04-11.md` | [ACTIVE] | 易用性与定位辩论 |
 | `docs/primordia/system_evolution_debate_2026-04-08.md` | [ACTIVE] | 系统进化多轮辩论记录（早期） |
 
-#### 归档辩论（docs/primordia/archive/）
+#### 归档辩论
 
-> 56 份归档 craft。完整列表见 `docs/primordia/archive/`。以下仅列出仍被引用的关键归档。
-
-| 文档 | 状态 | 内容 |
-|------|------|------|
-| `docs/primordia/archive/positioning_craft_2026-04-09.md` | [ARCHIVED] | 深度定位辩论（6 轮，92%）：OpenClaw 威胁分析、tagline→metabolism |
-| `docs/primordia/archive/decoupling_craft_2026-04-09.md` | [ARCHIVED] | ASCC/Myco 解耦辩论（3 轮，93%）：边界判断 + 通用化替换策略 |
-| `docs/primordia/archive/myco_self_apply_craft_2026-04-09.md` | [ARCHIVED] | Myco 自我应用设计辩论（6 项决策，88%） |
-| `docs/primordia/archive/pre_release_rebaseline_craft_2026-04-11.md` | [ARCHIVED] | Wave 8 版本号全方位下调记录 |
+> 归档 craft 辩论记录保留在本地 `docs/primordia/archive/`（不上传至公共仓库）。
 
 ---
 
