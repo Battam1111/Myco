@@ -315,7 +315,7 @@ system:
         cited_in: ["MYCO.md", "docs/architecture.md", "docs/reusable_system_design.md", "docs/vision.md", "docs/theory.md", "src/myco/templates/_canon.yaml"]
       lint_dimensions:
         ssot: "len(FULL_CHECKS) in src/myco/immune.py"
-        value: 23
+        value: 25
         cited_in: ["MYCO.md", "docs/architecture.md", "docs/reusable_system_design.md", "src/myco/mcp_server.py", "src/myco/cli.py"]
       mcp_tool_count:
         ssot: "count of @mcp.tool in src/myco/mcp_server.py"
