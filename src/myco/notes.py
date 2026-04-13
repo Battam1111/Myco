@@ -114,7 +114,7 @@ VALID_SOURCES: Tuple[str, ...] = (
     "eat",                # user/agent invoked `myco eat` explicitly
     "promote",            # grown from another note
     "import",             # bulk ingested from external tool
-    "bootstrap",          # created during `myco init` / first-run scaffolding
+    "bootstrap",          # created during `myco seed` / first-run scaffolding
     "forage",             # v0.7.0 — digested extract from a forage/ item
     "compress",           # v0.26.0 (Wave 30) — extracted note produced by
                           # `myco compress` from N raw/digesting inputs.

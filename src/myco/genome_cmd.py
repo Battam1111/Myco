@@ -4,7 +4,7 @@ Myco Config Command — read/write adapter configuration in _canon.yaml.
 
 Manages the [adapters] section of _canon.yaml, which is reserved for
 external tool configuration (MemPalace endpoints, adapter settings, etc.).
-The [adapters] section is NOT validated by myco lint — it's external config,
+The [adapters] section is NOT validated by myco immune — it's external config,
 not knowledge consistency. This keeps lint focused on what matters.
 
 Usage:
@@ -81,7 +81,7 @@ def run_config(args) -> int:
 
     if canon_path is None:
         print(f"❌ No _canon.yaml found in {project_dir}")
-        print(f"   Run: myco init <name> --level 1  to create one")
+        print(f"   Run: myco seed <name> --level 1  to create one")
         return 1
 
     data = _load_canon(canon_path)

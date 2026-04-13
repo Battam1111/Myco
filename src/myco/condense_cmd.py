@@ -717,7 +717,7 @@ def _execute_uncompression(
             raise RuntimeError(
                 f"uncompress: input note {input_id} listed in {output_path.name}'s "
                 f"compressed_from is missing from notes/ — broken audit chain. "
-                f"Run `myco lint` for details (L18 should have caught this earlier)."
+                f"Run `myco immune` for details (L18 should have caught this earlier)."
             )
         try:
             in_meta, in_body = read_note(in_path)
