@@ -38,14 +38,31 @@ MCP 设置里加一条即可（一次性，持久生效）。
 下划线形式的名字，指的是**同一个工具的任一入口**——读者可以自动替
 换为对应的 CLI 命令 `myco eat` / `myco digest`。两种写法等价。
 
-**Cowork 运行环境的一个实际区别**：
-- CLI 路径：每次会话需要确保 `myco` 已在 Python 环境中（`pip install -e`
-  是否持久取决于 Cowork 的 sandbox 卷策略）。不持久时把安装步骤写进
-  session boot hook 或 `CLAUDE.md`。
-- MCP 路径：一次配置永久有效，无 sandbox 重建问题。跨会话零成本。
+**Cowork 运行环境的三条路径**：
 
-对 ASCC 等下游项目的建议：**先用 CLI 起跑**（零配置，今天就能跑），
-**稳定后切到 MCP**（零摩擦，适合长期）。两条路径也可以共存。
+| 路径 | 机制 | 持久性 | 自动注入 |
+|------|------|--------|---------|
+| **CLI Fallback** | `pip install` + Bash 调用 | ❌ 每次会话需重装（sandbox 不持久） | ❌ 需 agent 主动调用 |
+| **项目 `.mcp.json`** | `myco connect` 生成 | ⚠️ 文件持久但 Cowork 不读取项目级 `.mcp.json` | ❌ 仅 Claude Code 有效 |
+| **Cowork Plugin** ⭐ | `.plugin` 文件安装 | ✅ 一次安装永久生效 | ✅ Hook 自动触发 + MCP 工具自动加载 |
+
+**⚠️ 关键发现**：Cowork 不读取项目目录的 `.mcp.json`——这与 Claude Code 行为不同。
+`myco connect` 生成的配置在 Cowork 里**不会生效**。要在 Cowork 中获得 MCP 自动注入，
+必须将 Myco 打包为 Cowork Plugin（`.plugin` 格式）。
+
+**Cowork Plugin 打包要点**：
+1. 插件包含 `.mcp.json`（指向 bootstrap wrapper）、`skills/`（agent 协议）、`hooks/`（自动触发）
+2. Bootstrap wrapper（`servers/start-myco.sh`）自动检测挂载的 Myco 源码并 `pip install`，
+   解决 sandbox 每次重建的问题
+3. `SessionStart` hook 自动触发 `myco_hunger(execute=true)`
+4. `PreCompact` hook 自动触发 `myco_reflect` + `myco_immune`
+5. 插件安装后 19 个 MCP 工具以 `mcp__plugin_myco-knowledge-system_myco__*` 形式出现
+
+**对下游项目的建议**（修正）：
+- **Claude Code**：`myco connect` 即可（读取项目级 `.mcp.json`）
+- **Cowork**：安装 `myco-knowledge-system.plugin`（唯一可靠的自动注入路径）
+- **Cursor / VS Code / 其他**：`myco connect` + 各 IDE 的 MCP 配置机制
+- CLI fallback 在所有平台通用，但无自动注入
 
 ---
 
@@ -78,10 +95,10 @@ Myco v1.2 Phase ① 引入了消化系统（`eat / digest / view / hunger` + `no
 | 目标位置 | 合法写入通道 | 说明 |
 |----------|-------------|------|
 | `notes/n_*.md` | `myco eat` / `myco digest` / MCP `myco_eat`, `myco_digest` | **永远**不要手写 notes 文件。必须经由工具生成，保证 frontmatter 合规。 |
-| `wiki/*.md` | `myco_extract`（待实现）或人类明确授权 | 结构化知识页。agent 自主写入前必须先 `digest → extracted` 一条 note。 |
+| `wiki/*.md` | Agent 自主写入（作为 `myco_digest` 吸收流程的 Phase 2）或人类明确授权 | 结构化知识页。Agent 写入 nutrient 后须添加 `<!-- nutrient-from: n_xxx -->` 代谢溯源标记，然后用 `myco_digest --to extracted --site <path> --nutrient <text>` 封印。 |
 | `docs/primordia/*.md` | `myco_craft`（待实现）或人类明确授权 | 辩论/决策记录。允许 agent 在多轮 debate 任务中创建，但必须是 `*_craft_YYYY-MM-DD.md` 或 `*_debate_YYYY-MM-DD.md` 命名。 |
 | `log.md` | `myco_trace` MCP tool（append-only） | 只能追加。永远不要 rewrite 或删除历史条目。 |
-| `MYCO.md` | `myco_integrate`（待实现）或人类明确授权 | 硬上限 300 行 (`system.myco_md_max_lines`)。只能 integrate 已经 extracted 的 note。 |
+| `MYCO.md` | Agent 自主写入（作为 `myco_digest` 吸收流程的 Phase 2）或人类明确授权 | 硬上限 300 行 (`system.myco_md_max_lines`)。写入 nutrient 后须添加 `<!-- nutrient-from: n_xxx -->` 标记，然后用 `myco_digest --to integrated --site MYCO.md --nutrient <text>` 封印。 |
 | `_canon.yaml` | 🛑 **人类明确授权** | Schema 的 Single Source of Truth。Agent 永远不能单独修改。 |
 | `pyproject.toml` / `src/myco/__init__.py` 版本号 | 🛑 **人类明确授权** | 版本发布走 release 流程。 |
 | `src/**` / `scripts/**` | ✅ 任务明确要求时 | 代码修改属于执行层，不是基质写入。 |
@@ -99,7 +116,7 @@ Myco v1.2 Phase ① 引入了消化系统（`eat / digest / view / hunger` + `no
 
 ---
 
-## 2. Tool Protocol — 20 个 MCP 工具的触发条件
+## 2. Tool Protocol — 19 个 MCP 工具的触发条件
 
 每个工具都有 **WHEN to call** 的触发条件列表。如果匹配其中任一条，**必须**调用对应工具，不能用自由写入代替。
 
@@ -107,19 +124,77 @@ Myco v1.2 Phase ① 引入了消化系统（`eat / digest / view / hunger` + `no
 
 | Tool | 何时调用 | 禁止 |
 |------|---------|------|
-| `myco_pulse` | 新会话第一次动作之前 | 不能用 `cat MYCO.md` 代替 |
+| `myco_pulse` | 新会话第一次动作之前。**返回值包含 `perfusion` 字段**——wiki 全页面目录+活跃 docs 目录。Agent 必须审阅此目录，根据当前任务自主决定先读哪些页面再开始工作。 | 不能用 `cat MYCO.md` 代替；不能忽略 perfusion 目录 |
 | `myco_trace` | 完成一个非平凡任务后；解决一个 bug 后；做出一个决策后 | 不能 `echo >> log.md` |
 | `myco_reflect` | 会话结束前；任一任务完成后；遇到意外结果时 | 不能只在心里反思 |
 | `myco_immune` | 长会话结束前；修改 `_canon.yaml` 后；引入新文档类型后 | 不能只看 "应该没问题" |
 
+### 2.1.1 Perfusion（灌注——知识循环系统）
+
+**问题**：知识被消化吸收进 wiki/docs 后，Agent 在后续会话中不知道那里有什么，导致已有知识被忽略。
+
+**解法**：`myco_pulse` 和 `myco_hunger` 的返回值中自动附带 `perfusion` 字段——完整的知识组织目录（wiki 页面名+标题+修改日期+大小，活跃 docs 列表）。
+
+**Agent 的义务**：
+1. 收到 `perfusion` 后，**根据当前任务自主判断**哪些页面需要先读
+2. 在开始实质工作前，用 `Read` 或 `myco_sense` 读取相关页面
+3. 不需要读全部——Agent 的判断力就是这里的智能
+
+**工具不做的事**（Bitter Lesson 合规）：
+- 不做关键词匹配、不做相关性排名、不做推荐
+- 只提供目录元数据，所有判断交给 Agent
+
+**仿生类比**：血液循环系统不决定哪个器官需要什么营养——它把营养送到全身，器官自己的受体决定吸收什么。
+
+Craft: `docs/primordia/perfusion_system_craft_2026-04-14.md`
+
+### 2.1.2 Synaptogenesis（突触生成——知识互联保障）
+
+**问题**：wiki 页面之间缺乏交叉引用，知识以孤岛形式存在，即使 mycelium 工具能查询链接关系，也没有机制保障新知识被编织进网络。
+
+**五层保障机制**：
+
+1. **编织前上下文**（digest Phase 1）：`myco_digest` 返回 `synaptic_context`——所有 wiki 页面的互联地图（谁链向谁）。Agent 在决定 absorption_site 时同时看到连接关系，自然考虑交叉引用。
+
+2. **编织后检查**（digest Phase 3 seal 成功）：返回 `weaving_hint`——absorption_site 的当前连接状态。如果该页面是孤立的，明确提示 Agent 添加 cross-references。
+
+3. **自动编织**（eat-time）：`_auto_link_note` 增强——不仅匹配 tag→note，还扫描 note body 中出现的 wiki 页面标题关键词，自动建立 note→wiki 链接。
+
+4. **审计层**（immune L24 Synaptogenesis Health）：扫描所有 wiki 页面，检测无跨页引用的孤立页面。>50% 孤立 → HIGH 级别告警。
+
+5. **信号层**（hunger `weak_synapses`）：wiki 孤立率 >30% 时触发信号，在每次 hunger 检查时主动告警。
+
+**Agent 的义务**：
+- 写入 wiki 时，查看 `synaptic_context`，添加到相关页面的 `See also` 链接
+- 收到 `weaving_hint` 中的孤立警告时，补充交叉引用
+- `weak_synapses` hunger 信号出现时，主动修复孤立 wiki 页面
+
+**仿生类比**：神经元必须通过突触与周围网络连接才能发挥作用。孤立的神经元 = 无效的知识。
+
+Craft: `docs/primordia/synaptogenesis_craft_2026-04-14.md`
+
 ### 2.2 Digestive Substrate（消化层，Phase ①）
+
+消化是四阶段吸收门控流程（详见 `docs/primordia/digest_pipeline_craft_2026-04-14.md`）：
+
+```
+Phase 1: DIGEST — myco_digest(note_id) → 返回 note 内容 + 分析模板 + synaptic_context（wiki 互联地图），status: raw → digesting
+Phase 2: ABSORB — Agent 自行将 nutrient 写入 absorption site + 添加 <!-- nutrient-from: n_xxx --> 标记 + 添加到相关 wiki 页面的交叉引用
+Phase 3: SEAL   — myco_digest(note_id, to_status="extracted", absorption_site=..., nutrient=...)
+                   工具验证吸收证明 → 通过则转换状态，失败则拒绝
+Phase 4: VERIFY — immune L23 定期扫描所有 extracted/integrated notes 检测幽灵消化
+```
+
+**吸收门控（Absorption Gate）**：转换到 `extracted` 或 `integrated` 需要提供 `absorption_site`（目标组织路径）和 `nutrient`（一句话核心洞见），工具会验证目标组织存在且包含 `<!-- nutrient-from: {note_id} -->` 代谢溯源标记。排泄（`excreted`）只需 `excrete_reason`，不需要吸收证明。
+
+**Bitter Lesson 合规**：真正的消化智能（理解内容、决定去向、写入总结）由 Agent 提供（Phase 2），工具只负责结构、门控、验证（Phase 1/3/4）。
 
 | Tool | 何时调用（trigger conditions） | 禁止 |
 |------|------------------------------|------|
 | `myco_eat` | (a) 刚写出能跑通的代码片段；(b) 做出有理由的决策；(c) 定位到 bug 根因；(d) 用户粘贴了一段长内容；(e) 自然萌生 "TIL / 原来如此 / 这个以后会忘" 的念头；(f) 任何硬学到的知识 | 不能把这些内容直接写进 `MYCO.md` 或 `wiki/` |
-| `myco_digest` | (a) `myco_hunger` 报 `raw_backlog` 或 `stale_raw`；(b) 准备 extract 到 wiki 前；(c) 每次 `myco_reflect` 时顺便消化 1-2 条 | 不能跳过 digest 直接 extract |
+| `myco_digest` | (a) `myco_hunger` 报 `raw_backlog` 或 `stale_raw`；(b) 准备将 nutrient 吸收到组织前；(c) 每次 `myco_reflect` 时顺便消化 1-2 条；(d) 补填历史 note 的吸收证明（backfill 模式：只传 `absorption_site` + `nutrient`，不改 status） | 不能跳过 digest 直接写入组织；不能只改标签不做实际吸收 |
 | `myco_observe` | (a) 开始新任务前扫 `--status raw --tag <topic>`；(b) 找之前吃过的某段代码/决策；(c) 人类问 "你记不记得……" 时 | 不能凭记忆回答 |
-| `myco_hunger` | (a) 新会话开始（`myco_pulse` 之后）；(b) 会话中段自检；(c) 会话结束前 | 不能忽略其返回的信号 |
+| `myco_hunger` | (a) 新会话开始（`myco_pulse` 之后）；(b) 会话中段自检；(c) 会话结束前 | 不能忽略其返回的信号（特别注意新增的 `phantom_digestion` 信号） |
 
 ### 2.3 Compression Pipeline（压缩管道，Wave 30-33）
 
@@ -155,9 +230,11 @@ Myco v1.2 Phase ① 引入了消化系统（`eat / digest / view / hunger` + `no
 ### 2.7 非线性生命周期跳转
 
 `raw → digesting → {extracted | integrated | excreted}` 允许跨级跳转。合法场景：
-- **raw → integrated**：note 内容已经足够成熟，可直接并入 canonical 结构。必须在 digest 步骤显式 `--to integrated` 并写 reason。
-- **raw → excreted**：明显是噪音/重复/错误。必须填 `excrete_reason`。
-- **digesting → excreted**：digest 过程中发现没有保留价值。必须填 `excrete_reason`。
+- **raw → integrated**：note 内容已经足够成熟，可直接并入 canonical 结构。必须在 digest 步骤显式 `--to integrated`，**且必须提供吸收证明**（`absorption_site` + `nutrient` + 目标组织中的 `<!-- nutrient-from: n_xxx -->` 标记）。
+- **raw → excreted**：明显是噪音/重复/错误。必须填 `excrete_reason`。不需要吸收证明。
+- **digesting → excreted**：digest 过程中发现没有保留价值。必须填 `excrete_reason`。不需要吸收证明。
+
+**吸收门控铁律**：任何到 `extracted` 或 `integrated` 的转换都需要通过吸收门控验证。工具会自动检查 absorption_site 文件存在 + 包含代谢溯源标记。验证失败 → 拒绝转换，不修改任何文件。
 
 **禁止**：跳过 `digest` 直接手改 frontmatter 的 `status` 字段。永远走工具。
 
@@ -337,8 +414,3 @@ Phase ② 开工的第一件事就是 `myco observe --tag friction-phase2 --stat
 
 本协议本身也是 Myco 基质的一部分，随 Phase ② 一起迭代。
 
-- 修改本文件 = 修改 agent-kernel 契约，需要在 `log.md` 记 `meta` 条目
-- 新增写入白名单项 = 修改 `_canon.yaml → system.write_surface`，需要人类明确批准
-- 发现新的 anti-pattern = `myco_eat` 标 `protocol-evolution`
-
-> **一句话总结**：**Agent 把基质当产品，不是当草稿纸。基质是 CPU 以外的一切，包括这份契约本身。**
