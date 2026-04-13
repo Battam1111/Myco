@@ -16,7 +16,7 @@ def cmd_project(tmp_path):
         "    dir: notes\n"
         "    required_fields: [id, status, source, tags, created, last_touched, digest_count, promote_candidate, excrete_reason]\n"
         "    valid_statuses: [raw, digesting, extracted, integrated, excreted]\n"
-        "    valid_sources: [chat, eat, promote, import, bootstrap, forage, upstream_absorbed, compress, inlet]\n"
+        "    valid_sources: [chat, eat, promote, import, bootstrap, forage, compress, inlet]\n"
         "    terminal_statuses: [extracted, integrated]\n"
         "    dead_knowledge_threshold_days: 30\n"
         "    compression:\n"

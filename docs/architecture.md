@@ -95,7 +95,7 @@ system:
   principles_count: 13
   workflow_sections: 12
   wiki_page_types: [entity, concept, operations, analysis, craft]
-  lint_dimensions: 23               # L0-L22
+  lint_dimensions: 23               # L0-L22 (L12 removed)
   entry_point: "MYCO.md"    # Entry point filename (primary) — alternative names may exist per project
   myco_md_max_lines: 300
 

@@ -69,7 +69,6 @@ Topic must be at least two underscore-separated tokens. Optional 4-hex
 suffix resolves same-day collisions.
 
 Examples:
-- `upstream_protocol_craft_2026-04-11.md` ✅
 - `craft_formalization_craft_2026-04-11.md` ✅
 - `a_craft_2026-04-11.md` ❌ (only one topic token)
 - `Upstream_Craft_2026-04-11.md` ❌ (uppercase)
@@ -216,7 +215,7 @@ per-craft log entries.
 
 | `decision_class` | Floor target | Examples |
 |---|---|---|
-| `kernel_contract` | **0.90** | Agent Protocol changes, lint dimensions, canon schema, upstream protocol |
+| `kernel_contract` | **0.90** | Agent Protocol changes, lint dimensions, canon schema |
 | `instance_contract` | **0.85** | Per-project knowledge architecture, wiki schema, tag taxonomy |
 | `exploration` | **0.75** | Naming questions, open research, tentative designs |
 
@@ -269,7 +268,6 @@ always supersede.
 | `notes/` (via `myco eat`) | Every craft conclusion MUST be eaten as a raw note with tags including `craft-conclusion` + `decision-class-<class>` |
 | `log.md` | Every craft completion (DRAFT → ACTIVE) appends a milestone entry referencing the craft file and final `current_confidence` |
 | `_canon.yaml` | Any canon modification in `kernel_contract` class MUST cite a supporting craft file in its commit body |
-| `docs/agent_protocol.md §8` (Upstream Protocol) | Instance → kernel upstream bundles MUST include a `craft_reference` field pointing to the supporting craft. Bundle's `decision_class` determines `target_confidence` floor |
 | `docs/contract_changelog.md` | Each entry MUST cite the craft(s) that justified the change |
 | L9 Vision Anchor lint | Vision-related conclusions inside a craft are still subject to L9 anchor checks (craft is not a lint exception) |
 | L10 Notes Schema | `craft-conclusion` notes follow normal L10 schema rules |
@@ -316,7 +314,7 @@ nothing forces rewrite.
    tokens or lines. Goodhart residue (whitespace / filler) is still
    possible but requires visible effort; transparency countermeasure in
    §4 remains primary defense. Authoritative argument:
-   `docs/primordia/l13_body_schema_craft_2026-04-11.md`.
+   `docs/primordia/archive/l13_body_schema_craft_2026-04-11.md`.
 4. **Bootstrap file exemption.** The craft that introduced this protocol
    (`docs/primordia/craft_formalization_craft_2026-04-11.md`) intentionally
    omits `craft_protocol_version` to avoid recursive self-regulation,

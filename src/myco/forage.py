@@ -81,7 +81,7 @@ DEFAULT_FORAGE_SCHEMA: Dict[str, Any] = {
         "discarded", "quarantined",
     ],
     "max_item_size_bytes": 10 * 1024 * 1024,              # 10 MB
-    "forage_backlog_threshold": 5,
+    "forage_backlog_threshold": 1,
     "stale_raw_days": 14,
     "total_budget_bytes": 200 * 1024 * 1024,              # 200 MB
     "hard_budget_bytes": 1024 * 1024 * 1024,              # 1 GB
@@ -342,7 +342,45 @@ def update_item_status(
             break
     manifest["items"] = items
     save_manifest(root, manifest)
+
+    # Wave 61: Mycelium wrapping — auto cross-reference.
+    # When transitioning to "digested" with a digest_target, ensure each
+    # referenced note has `forage_source` in its frontmatter. This creates
+    # bidirectional linking even if the caller forgot to set forage_source
+    # during myco_eat.
+    if new_status == "digested":
+        dt = target.get("digest_target") or []
+        if dt:
+            _backpatch_forage_source(root, item_id, dt)
+
     return target
+
+
+def _backpatch_forage_source(
+    root: Path, forage_item_id: str, note_ids: List[str]
+) -> None:
+    """Add forage_source to notes that lack it (best-effort, no exceptions)."""
+    notes_dir = Path(root) / "notes"
+    for nid in note_ids:
+        note_path = notes_dir / f"{nid}.md"
+        if not note_path.exists():
+            continue
+        try:
+            text = note_path.read_text(encoding="utf-8")
+            # Quick check: if forage_source already present, skip.
+            if "forage_source:" in text:
+                continue
+            # Parse frontmatter, inject field, rewrite.
+            from myco.notes import parse_frontmatter, serialize_note
+            meta, body = parse_frontmatter(text)
+            if not meta:
+                continue
+            meta["forage_source"] = forage_item_id
+            from myco.io_utils import atomic_write_text
+            atomic_write_text(note_path, serialize_note(meta, body))
+        except Exception:
+            # Best-effort: never let cross-ref failure block status update.
+            pass
 
 
 # ---------------------------------------------------------------------------

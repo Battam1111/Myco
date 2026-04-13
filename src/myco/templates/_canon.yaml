@@ -9,17 +9,7 @@ system:
   principles_label: "十三原则"
   entry_point: "{{ENTRY_POINT}}"      # Filename of the L1 entry document (override: CLAUDE.md for Claude, GPT.md for GPT, etc.)
 
-  # ── Upstream Protocol v1.0 (contract version lock) ─────────────────────────
-  # See kernel docs/agent_protocol.md §8. Instance agents MUST compare
-  # synced_contract_version against the kernel's contract_version at boot
-  # and refresh local reflexes if drift is detected.
   synced_contract_version: "v0.45.0"  # last kernel contract the instance aligned with
-  upstream_scan_last_run: null         # ISO-8601 timestamp of last upstream scan
-
-  # --- Upstream scan staleness reader (Wave 17, v0.16.0) ---
-  upstream_scan:
-    stale_days: 7
-    enabled: true
 
   # --- Boot Brief Injector (Wave 17, v0.16.0) --------------
   boot_brief:
@@ -30,7 +20,6 @@ system:
     priority_signals:
       - contract_drift
       - raw_backlog
-      - upstream_scan_stale
       - craft_reflex_missing
       - session_end_drift
       - compression_pressure   # Wave 50 (v0.39.0)
@@ -90,24 +79,6 @@ system:
         - g4-pass
         - g4-landed
         - g4-resolved
-
-  upstream_channels:
-    # Path-based classification — strictest-class-wins. See §8.2.
-    class_x:                           # Auto-mergeable
-      - log.md
-      - notes/**
-    class_y:                           # Inline-confirm (docs / wiki prose)
-      - wiki/**
-      - docs/**
-    class_z:                           # Review-required (contract / lint / templates)
-      - docs/agent_protocol.md
-      - docs/craft_protocol.md
-      - scripts/lint_knowledge.py
-      - src/myco/lint.py
-      - src/myco/mcp_server.py
-      - _canon.yaml
-      - src/myco/templates/**
-      - forage/_index.yaml             # v0.7.0 — forage manifest is class_z
 
   # ── Craft Protocol v1 (W3, kernel contract v0.3.0) ─────────────────────────
   # Formal ritual for raising decision confidence via structured self-
@@ -300,7 +271,6 @@ system:
       - import              # bulk ingested from external tool
       - bootstrap           # created during myco init
       - forage              # v0.7.0 — digested extract from a forage/ item
-      - upstream_absorbed   # v0.9.0 — pointer note from myco upstream ingest
       - compress            # v0.26.0 (Wave 30) — extracted note from `myco compress`
       - inlet               # v0.27.0 (Wave 35) — raw note produced by
                             # `myco inlet` from external content (file or
@@ -374,7 +344,7 @@ system:
       - discarded
       - quarantined
     max_item_size_bytes: 10485760        # 10 MB per-item soft cap
-    forage_backlog_threshold: 5          # ≥5 raw items triggers hunger
+    forage_backlog_threshold: 1          # ≥1 raw item triggers hunger (mycelium wrapping)
     stale_raw_days: 1                    # raw > 1 day triggers hunger
     total_budget_bytes: 209715200        # 200 MB soft total (hunger)
     hard_budget_bytes: 1073741824        # 1 GB hard cap (L14 HIGH)

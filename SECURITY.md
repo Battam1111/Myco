@@ -4,9 +4,8 @@
 
 | Version | Supported |
 |---------|-----------|
-| 1.1.x   | ✅ Active support |
-| 1.0.x   | ✅ Security fixes only |
-| < 1.0   | ❌ No longer supported |
+| 0.2.x   | ✅ Active support |
+| < 0.2   | ❌ No longer supported |
 
 ## Scope
 

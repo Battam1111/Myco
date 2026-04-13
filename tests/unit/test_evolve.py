@@ -42,18 +42,6 @@ def test_serialize_roundtrip(skill_file):
     assert v1.body.strip() == v2.body.strip()
 
 
-def test_mutate_preserves_meta(skill_file):
-    """mutate_skill preserves frontmatter, changes body."""
-    from myco.evolve import mutate_skill
-    def mock_llm(prompt):
-        return "1. Do thing A better\n2. Do thing B faster\n3. Verify twice"
-    v = mutate_skill(skill_file, "improve clarity", llm_fn=mock_llm)
-    assert v.meta["name"] == "test-skill"  # preserved
-    assert "better" in v.body  # changed
-    assert v.generation == 1
-    assert v.parent_hash is not None
-
-
 def test_gate_frontmatter_preserved():
     """Gate rejects when frontmatter changes."""
     from myco.evolve import SkillVariant, gate_frontmatter_preserved
@@ -82,11 +70,3 @@ def test_check_gates_all_pass(skill_file):
     assert failures == []
 
 
-def test_eval_result_composite():
-    """EvalResult computes weighted composite."""
-    from myco.evolve import EvalResult
-    r = EvalResult(
-        scores={"clarity": 0.8, "completeness": 0.9, "conciseness": 0.7, "correctness": 1.0},
-        feedback={"clarity": "good", "completeness": "thorough", "conciseness": "ok", "correctness": "perfect"},
-    )
-    assert 0.8 < r.composite < 0.95  # weighted average

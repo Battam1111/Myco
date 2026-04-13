@@ -209,7 +209,7 @@
 
 **E2. 修复 SESSION_PROTOCOL.md 的 deprecated 引用**
 
-将 `docs/server-workflow.md` 引用替换为 `wiki/ssh_hpc.md`。
+将 docs/server-workflow.md (since deleted) 引用替换为 wiki/ssh_hpc.md (since deleted)。
 
 **E3. 清理 _canon.yaml 进度字段**
 

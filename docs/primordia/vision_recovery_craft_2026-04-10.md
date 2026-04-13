@@ -468,7 +468,7 @@ Internal:
 
 - `docs/primordia/archive/myco_vision_2026-04-08.md` — canonical 04-08 vision (Wave 22 archived)
 - `docs/primordia/archive/vision_debate_2026-04-08.md` — 04-08 structured vision debate (Wave 22 archived)
-- `docs/primordia/readme_craft_2026-04-10.md` — most recent README craft (gitignored)
+- `docs/primordia/archive/readme_craft_2026-04-10.md` — most recent README craft (archived)
 - Session `2f34106c-6d60-4aae-b5eb-176776fd08cd.jsonl` — 04-08 Myco 设计会谈 (local archival, gitignored via `ascc_sessions/`)
 
 ---

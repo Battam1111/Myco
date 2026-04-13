@@ -2,7 +2,7 @@
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="assets/logo_dark_512.png">
     <source media="(prefers-color-scheme: light)" srcset="assets/logo_light_512.png">
-    <img src="assets/logo_dark_512.png" width="160" alt="Myco">
+    <img src="assets/logo_light_512.png" width="160" alt="Myco">
   </picture>
 </p>
 
@@ -12,7 +12,7 @@
 
 <p align="center">
   <a href="https://pypi.org/project/myco/"><img src="https://img.shields.io/pypi/v/myco?style=flat" alt="PyPI"></a>
-  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.8+-blue?style=flat" alt="Python"></a>
+  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.10+-blue?style=flat" alt="Python"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=flat" alt="License"></a>
   <a href="https://github.com/Battam1111/Myco"><img src="https://img.shields.io/github/stars/Battam1111/Myco?style=flat" alt="Stars"></a>
 </p>
@@ -45,8 +45,6 @@
 
 但六个月后，你的 AI 比任何人的都聪明。它了解你所有项目的完整历史。它自动吞噬了你领域里最新的论文和工具。它自己发现了知识盲区并补上了。它自己检查了所有旧知识还对不对——不对的，已经扔了。它甚至改写了自己的工作规则，因为旧规则不够好了。
 
-这不是科幻。
-
 <h3 align="center">这是 Myco。</h3>
 
 ---
@@ -59,7 +57,7 @@ cd Myco && pip install -e ".[mcp]"
 myco init --auto-detect my-project
 ```
 
-三行命令。自动检测你的环境——Claude Code · Cursor · VS Code · Codex · Cline · Continue · Zed · Windsurf · Cowork——检测到哪个配哪个，一次全部配好。
+三行命令。自动检测你的环境——Claude Code · Cowork · Cursor · VS Code · Codex · Cline · Continue · Zed · Windsurf——检测到哪个配哪个，一次全部配好。
 
 可编辑安装——整个系统都能改，包括引擎本身。不改也行，它自己会进化。
 
@@ -70,7 +68,7 @@ myco init --auto-detect my-project
 - 💀 **该死的会死** — 过时的知识被自动检测并清除。知识系统没有排泄功能 = 肿瘤
 - 🔄 **永恒进化** — 不只是内容在进化，连引擎自己的规则都在变异。整个系统是活的
 - 🍄 **万物互联** — 每一个文件都是菌丝网络的节点，知识不是一条条孤立的记录，是一张越来越密的网
-- 🤖 **你只管说话** — 21 个工具全自动。人类不需要懂任何技术细节
+- 🤖 **你只管说话** — 19 个工具全自动。人类不需要懂任何技术细节
 
 ## 凭什么不一样
 
@@ -94,7 +92,7 @@ Myco（吞噬、消化、验证、进化）
   ├── 精炼知识（从原子中提纯的长期知识）
   ├── 技能（可自我进化的操作规程）
   ├── 引擎代码（可编辑，可变异——对，连代码自己都能进化）
-  └── 真值源（一切数字、规则的唯一来源）
+  └── 免疫系统（知识腐烂了？它自己会发现，自己会处理）
 ```
 
 三个角色：你给方向，Agent 给智能，Myco 给记忆和进化。缺一不可。

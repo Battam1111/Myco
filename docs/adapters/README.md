@@ -58,8 +58,8 @@ If you've successfully integrated another tool with Myco, please submit an adapt
 
 Acceptance criteria: Manually tested on ≥1 real project. All lint checks pass.
 
-See [CONTRIBUTING.md](../CONTRIBUTING.md) for details.
+See [CONTRIBUTING.md](../../CONTRIBUTING.md) for details.
 
 ---
 
-← [Back to Myco root](../README.md)
+← [Back to Myco root](../../README.md)

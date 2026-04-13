@@ -30,7 +30,7 @@ Priority (highest wins): session override > project CLAUDE.md > user ~/.claude >
 If a `skills/` directory exists, check for matching skills before starting a task.
 If no skill matches (or no skills/ directory), proceed with agent judgment.
 
-## Tool Triggers (21 MCP tools)
+## Tool Triggers (19 MCP tools)
 
 | Category | Tools | When to Call |
 |----------|-------|-------------|
@@ -40,7 +40,7 @@ If no skill matches (or no skills/ directory), proceed with agent judgment.
 | **Process** | `myco_digest`, `myco_compress`, `myco_prune` | When hunger signals recommend |
 | **Search** | `myco_search`, `myco_session` | BEFORE answering factual questions |
 | **Analyze** | `myco_graph`, `myco_cohort` | Before refactoring, compression |
-| **External** | `myco_inlet`, `myco_forage`, `myco_upstream` | When gaps detected |
+| **External** | `myco_inlet`, `myco_forage` | When gaps detected |
 | **Log** | `myco_log`, `myco_reflect` | After completing tasks, session end |
 | **View** | `myco_view` | When recalling past decisions |
 

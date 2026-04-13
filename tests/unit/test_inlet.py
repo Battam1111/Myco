@@ -110,7 +110,6 @@ system:
       - import
       - bootstrap
       - forage
-      - upstream_absorbed
       - compress
       - inlet
     inlet:

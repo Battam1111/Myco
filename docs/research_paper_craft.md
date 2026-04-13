@@ -219,7 +219,7 @@ for ax in [ax_badge, ax_content, ax_cap]:
    → 建议：在 Myco 的 skill 选择指引中明确标注 canvas-design 不适用于学术图，并指向本文档。
 
 2. **工具选型知识缺失**：新 Myco 项目启动时没有图像工具的引导，会浪费 1-2 次迭代。
-   → 建议：在 `templates/WORKFLOW.md` 的 W1 或 W6 中增加"研究型项目绘图工具链"引用。
+   → 建议：在 `src/myco/templates/WORKFLOW.md` 的 W1 或 W6 中增加"研究型项目绘图工具链"引用。
 
 3. **LaTeX 环境变量**：沙箱 TeX Live 不完整，type1ec.sty 缺失是高频痛点。
    → 建议：在 operational_narratives 模板中增加 LaTeX fallback 标准操作。

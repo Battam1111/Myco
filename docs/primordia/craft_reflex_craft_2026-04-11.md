@@ -295,7 +295,7 @@ lookback_days * 86400` 则判定为 "recently touched"。这样：
 - 3 days 是合理的第一档 —— 超过这个窗口还没 craft，说明绝对不是"我正在做"
 
 这个修正**彻底解决** C1 的不确定和 C2 的 regex 难题。**主判据 mtime, 辅助
-判据**是 log.md 扫描是否在同窗口内提到 `docs/primordia/*_craft_*.md` 或
+判据**是 log.md 扫描是否在同窗口内提到 docs/primordia/\*\_craft\_\*.md 或
 `craft_reference:` 字样 —— 这个辅助判据只在 L15 决定要 warn 之前做一次
 "已有 craft 证据吗？" 的 sanity check。
 

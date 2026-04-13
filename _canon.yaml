@@ -9,23 +9,9 @@ system:
   principles_count: 13
   principles_label: 十三原则
   entry_point: MYCO.md
-  # --- Upstream Protocol v1.0 (contract version lock) ---
-  # Authoritative source: docs/agent_protocol.md §8
-  # Craft record:         docs/primordia/upstream_protocol_craft_2026-04-11.md
   # Changelog:             docs/contract_changelog.md
   contract_version: "v0.45.0"  # Primordia compression + external absorption (best-practice + gstack)
   synced_contract_version: "v0.45.0"  # self-reference
-  upstream_scan_last_run: "2026-04-13T04:05:40Z"
-
-  # --- Upstream scan staleness reader (Wave 17, contract v0.16.0) ---
-  # Feeds detect_upstream_scan_stale() in src/myco/notes.py. Fires
-  # HIGH if stale AND bundles pending in .myco_upstream_inbox/,
-  # MEDIUM if stale AND no bundles, silent otherwise.
-  # Closes Wave 13 A7 split's reader half (Wave 16 landed the writer).
-  upstream_scan:
-    stale_days: 1              # default: scan older than 1d is stale
-    enabled: true              # hunger channel toggle
-
   # --- Boot Brief Injector (Wave 17, contract v0.16.0) --------------
   # See docs/primordia/boot_brief_injector_craft_2026-04-11.md.
   # Writes .myco_state/boot_brief.md + patches entry point file's
@@ -40,7 +26,6 @@ system:
     priority_signals:
       - contract_drift
       - raw_backlog
-      - upstream_scan_stale
       - craft_reflex_missing
       - session_end_drift
       - compression_pressure   # Wave 50 (v0.39.0)
@@ -116,41 +101,6 @@ system:
         - g4-pass
         - g4-landed
         - g4-resolved
-
-  upstream_channels:
-    # Path-based classification — strictest-class-wins. An instance agent
-    # MUST map any proposed upstream change to one of these classes by path
-    # and MUST NOT self-escalate. Class Z is the hardest gate.
-    class_x:            # Auto-mergeable (notes / append-only log)
-    - log.md
-    - notes/**
-    class_y:            # Inline-confirm (docs / wiki prose)
-    - wiki/**
-    - docs/**           # except docs/agent_protocol.md (see class_z)
-    class_z:            # Review-required (contract / lint / templates / canon)
-    - docs/agent_protocol.md
-    - docs/craft_protocol.md
-    - scripts/lint_knowledge.py
-    - src/myco/lint.py
-    - src/myco/mcp_server.py
-    - src/myco/upstream.py    # v0.9.0 — kernel absorb module
-    - _canon.yaml
-    - src/myco/templates/**
-    - forage/_index.yaml      # v1.7.0 — forage manifest is discipline surface
-
-  # --- Upstream Protocol v0.9.0 (absorb impl) ---
-  # Debate: docs/primordia/upstream_absorb_craft_2026-04-11.md
-  # Kernel side receiving dock: .myco_upstream_inbox/ (L11 dotdir-exempt).
-  # CLI verbs:   myco upstream {scan, absorb, ingest}
-  # Bundle flow: instance outbox → absorb → kernel inbox → ingest → pointer
-  #              note (source: upstream_absorbed) + evidence archive.
-  upstream_absorb:
-    kernel_inbox_dir: .myco_upstream_inbox
-    absorbed_subdir: absorbed
-    bundle_filename_pattern: '^n_\d{8}T\d{6}_[0-9a-f]+\.bundle\.(yaml|yml|json)$'
-    kernel_bundle_filename_pattern: '^\d{8}T\d{6}_n_\d{8}T\d{6}_[0-9a-f]+\.bundle\.(yaml|yml|json)$'
-    pointer_note_source: upstream_absorbed
-    batch_ingest_cap: 10       # max bundles per single ingest invocation
 
   # --- Craft Protocol v1 (W3) ---
   # Authoritative spec:    docs/craft_protocol.md
@@ -369,11 +319,11 @@ system:
         cited_in: ["MYCO.md", "docs/architecture.md", "docs/reusable_system_design.md", "src/myco/mcp_server.py", "src/myco/cli.py"]
       mcp_tool_count:
         ssot: "count of @mcp.tool in src/myco/mcp_server.py"
-        value: 21
+        value: 19
         cited_in: ["README.md", "README_zh.md", "README_ja.md", "MYCO.md", "docs/agent_protocol.md"]
       test_count:
         ssot: "pytest tests/ output"
-        value: 183
+        value: 240
         cited_in: ["MYCO.md"]
 
   # --- Structural Limits (contract v1.5.0) ---
@@ -545,8 +495,6 @@ system:
     - import              # bulk ingested from external tool
     - bootstrap           # created during myco init / first-run scaffolding
     - forage              # v0.7.0 — digested extract from a forage/ item
-    - upstream_absorbed   # v0.9.0 — pointer note from myco upstream ingest;
-                          # body + evidence file in .myco_upstream_inbox/absorbed/
     - compress            # v0.26.0 (Wave 30) — extracted note produced by
                           # `myco compress` from N raw/digesting inputs.
                           # Carries `compressed_from` audit trail.
@@ -638,7 +586,7 @@ system:
     - quarantined            # failed license check / lint, needs review
     # Seeded thresholds — not adaptive. Future work in open_problems §4.
     max_item_size_bytes: 10485760        # 10 MB soft cap per item
-    forage_backlog_threshold: 5          # ≥5 raw items triggers hunger
+    forage_backlog_threshold: 1          # ≥1 raw item triggers hunger (mycelium wrapping)
     stale_raw_days: 1                    # raw > 1 day triggers hunger
     total_budget_bytes: 209715200        # 200 MB soft total budget (hunger)
     hard_budget_bytes: 1073741824        # 1 GB hard limit (L14 HIGH)
@@ -761,12 +709,8 @@ system:
     - identity_anchor_confidence
     - forage_backlog_pressure
     - notes_digestion_pressure
-    - upstream_inbox_pressure   # v0.9.0 — pending bundles / ceiling(5);
-                                # ceiling is bootstrap, pending friction data.
-                                # Debate: docs/primordia/upstream_absorb_craft_2026-04-11.md
     - mycelium_density          # structural: edges/nodes ratio (raw graph density, not [0,1])
     - graph_orphan_pressure     # structural: orphans/total ratio (zero-inlink node fraction)
-    upstream_inbox_ceiling: 5   # count at which pressure saturates to 1.0
 
 architecture:
   layers: 4

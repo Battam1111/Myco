@@ -10,7 +10,7 @@ Tools:
     myco_status     — Quick overview of knowledge system health
     myco_search     — Search across wiki/docs/MYCO.md knowledge base
     myco_log        — Append friction/reflection entries to log.md
-    myco_reflect    — Trigger session reflection session-end reflection prompts
+    myco_reflect    — Trigger session-end reflection prompts
     myco_eat        — Capture a chunk of content as a raw atomic note
     myco_digest     — Move a note through the lifecycle (raw→…→excreted)
     myco_view       — Read-only lens on notes/ (list or single note)
@@ -20,11 +20,9 @@ Tools:
     myco_prune      — Auto-excrete dead-knowledge notes (Wave 43)
     myco_inlet      — Ingest external content with provenance (Wave 43)
     myco_forage     — Manage external source material (Wave 43)
-    myco_upstream   — Inter-instance knowledge transfer (Wave 43)
     myco_graph      — Structural link graph analysis (Wave 47)
     myco_cohort     — Semantic cohort intelligence (Wave 48)
     myco_session    — Session memory search (Wave 52)
-    myco_discover   — Proactive knowledge gap detection (Wave D1)
     myco_evolve     — Agent-driven skill self-improvement (Wave E3)
     myco_evolve_list — List skills and evolution history (Wave E3)
 
@@ -151,9 +149,9 @@ async def myco_lint(
     modified wiki/, docs/, MYCO.md, _canon.yaml, or notes/. Also run after any
     milestone retrospective retrospective or before commits that touch multiple knowledge files.
 
-    This is the 23-dimensional immune system of the knowledge substrate. It
+    This is the 55-dimensional immune system of the knowledge substrate. It
     catches contradictions across files, orphan references, stale patterns,
-    version drift, write-surface violations, upstream transport hygiene, craft
+    version drift, write-surface violations, craft
     protocol schema violations, forage substrate hygiene issues, craft reflex
     arc compliance, boot brief freshness, contract drift, compression
     integrity, lint dimension count drift, translation mirror skeleton drift,
@@ -165,7 +163,6 @@ async def myco_lint(
     L3 Stale patterns, L4 Orphan detection, L5 Log coverage, L6 Date consistency,
     L7 Wiki format, L8 .original sync, L9 Vision anchor, L10 Notes schema,
     L11 Write surface (agent contract from docs/agent_protocol.md §1),
-    L12 Upstream dotfile hygiene (.myco_upstream_{outbox,inbox}/ rules from §8.5),
     L13 Craft Protocol schema (docs/primordia/*_craft_*.md frontmatter),
     L14 Forage Hygiene (forage/_index.yaml manifest + lifecycle),
     L15 Craft Reflex (craft must accompany kernel/public_claim surface touches),
@@ -1215,7 +1212,7 @@ async def myco_hunger(
     elif report.actions:
         result["pipeline_hint"] = "Think — substrate needs attention, execute actions first"
     elif has_gaps:
-        result["pipeline_hint"] = "Discover — knowledge gaps detected, call myco_discover(action='candidates') then search+ingest"
+        result["pipeline_hint"] = "Discover — knowledge gaps detected, use myco_cohort(action='gaps') then myco_inlet to ingest"
     else:
         result["pipeline_hint"] = "Build — signals advisory only, proceed with caution"
     result["pipeline_ref"] = "skills/sprint-pipeline.md"
@@ -1598,80 +1595,6 @@ async def myco_forage(
 
 
 # ---------------------------------------------------------------------------
-# Tool: myco_upstream  —  inter-instance knowledge flow
-# ---------------------------------------------------------------------------
-
-@mcp.tool(
-    name="myco_upstream",
-    annotations={
-        "title": "Myco Upstream — Inter-Instance Knowledge Transfer",
-        "readOnlyHint": False,
-        "destructiveHint": False,
-        "idempotentHint": False,
-        "openWorldHint": False,
-        "modelHint": "opus",  # agent-routing: recommended model class
-    },
-)
-async def myco_upstream(
-    action: str,
-    instance_path: Optional[str] = None,
-    bundle_id: Optional[str] = None,
-    project_dir: Optional[str] = None,
-) -> str:
-    """Manage upstream knowledge transfer between Myco instances.
-
-    WHEN TO CALL:
-      (a) When upstream_scan_stale hunger signal fires.
-      (b) When absorbing knowledge from a downstream instance.
-      (c) When ingesting a pending upstream bundle.
-
-    Actions:
-      - scan: List pending bundles in the kernel inbox.
-      - absorb: Copy bundles from a downstream instance's outbox.
-      - ingest: Create a pointer note for a pending bundle.
-
-    Args:
-        action: One of 'scan', 'absorb', 'ingest'.
-        instance_path: Path to downstream instance (for 'absorb').
-        bundle_id: Bundle id to ingest (for 'ingest').
-        project_dir: Path to Myco project root. Auto-detected if omitted.
-
-    Returns:
-        JSON with action result.
-    """
-    import argparse
-
-    root = Path(project_dir) if project_dir else _find_project_root()
-    root = root.resolve()
-
-    if not (root / "_canon.yaml").exists():
-        return json.dumps({"error": f"Not a Myco project (no _canon.yaml at {root})"})
-
-    if action not in ("scan", "absorb", "ingest"):
-        return json.dumps({"error": f"Invalid action {action!r}. Use 'scan', 'absorb', or 'ingest'."})
-
-    args = argparse.Namespace(
-        upstream_subcommand=action,
-        instance_path=instance_path,
-        bundle_id=bundle_id,
-        json=True,
-        project_dir=str(root),
-    )
-
-    from myco.upstream_cmd import run_upstream
-    import io, contextlib
-    buf = io.StringIO()
-    with contextlib.redirect_stdout(buf):
-        exit_code = run_upstream(args)
-
-    output = buf.getvalue().strip()
-    if exit_code == 0:
-        return output if output else json.dumps({"status": "ok"})
-    else:
-        return json.dumps({"error": f"Upstream {action} failed (exit {exit_code})", "output": output})
-
-
-# ---------------------------------------------------------------------------
 # Wave 47 (v0.36.0): Link graph analysis
 # ---------------------------------------------------------------------------
 
@@ -1881,75 +1804,6 @@ async def myco_session(
     return json.dumps({"error": f"Unknown action: {action}. Use index/search/prune."})
 
 
-# ---------------------------------------------------------------------------
-# Wave D1: Proactive Discovery
-# ---------------------------------------------------------------------------
-
-@mcp.tool(
-    name="myco_discover",
-    annotations={
-        "title": "Myco Proactive Discovery — gap-driven knowledge acquisition",
-        "readOnlyHint": True,
-        "destructiveHint": False,
-        "idempotentHint": True,
-        "openWorldHint": True,
-        "modelHint": "opus",  # agent-routing: recommended model class
-    },
-)
-async def myco_discover(
-    action: str = "gaps",
-    project_dir: Optional[str] = None,
-) -> str:
-    """Detect knowledge gaps and provide discovery candidates for the Agent.
-
-    WHEN TO CALL:
-      (a) hunger reports inlet_ripe or cohort_staleness — discover what's missing
-      (b) Periodically in metabolic cycle — check for knowledge gaps
-      (c) Agent encounters a topic it can't answer from the substrate
-
-    This tool READS gaps but does NOT search the internet or ingest. The
-    Agent uses its own intelligence (WebSearch, evaluation) to act on
-    the candidates. Myco provides the gap detection; Agent provides the hunt.
-
-    Actions:
-      gaps       — list all detected knowledge gaps with priorities
-      candidates — convert gaps into structured discovery candidates
-
-    Args:
-        action: 'gaps' or 'candidates'.
-        project_dir: Path to Myco project root. Auto-detected if omitted.
-    """
-    from myco.discover import create_discovery_candidates, detect_knowledge_gaps
-
-    root = Path(project_dir) if project_dir else _find_project_root()
-    root = root.resolve()
-
-    gaps = detect_knowledge_gaps(root)
-
-    if action == "gaps":
-        return json.dumps({"gaps": gaps, "count": len(gaps)})
-
-    if action == "candidates":
-        candidates = create_discovery_candidates(gaps)
-        candidate_list = [
-            {"topic": c.topic, "search_query": c.search_query,
-             "source_signal": c.source_signal, "status": c.status}
-            for c in candidates
-        ]
-        return json.dumps({
-            "candidates": candidate_list,
-            "count": len(candidate_list),
-            "next_steps": (
-                "For EACH candidate (top 3 by priority):\n"
-                "1. WebSearch the search_query to find relevant sources\n"
-                "2. Evaluate: is the source relevant (>0.6)? novel (not in substrate)?\n"
-                "3. If yes: call myco_inlet with the content + provenance\n"
-                "4. If no: skip and log reason via myco_log\n"
-                "Max 3 ingestions per session to prevent bloat."
-            ) if candidate_list else "No knowledge gaps detected. Substrate is well-fed.",
-        })
-
-    return json.dumps({"error": f"Unknown action: {action}. Use gaps/candidates."})
 
 
 # ---------------------------------------------------------------------------

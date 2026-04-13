@@ -2,7 +2,7 @@
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="assets/logo_dark_512.png">
     <source media="(prefers-color-scheme: light)" srcset="assets/logo_light_512.png">
-    <img src="assets/logo_dark_512.png" width="160" alt="Myco">
+    <img src="assets/logo_light_512.png" width="160" alt="Myco">
   </picture>
 </p>
 
@@ -12,7 +12,7 @@
 
 <p align="center">
   <a href="https://pypi.org/project/myco/"><img src="https://img.shields.io/pypi/v/myco?style=flat" alt="PyPI"></a>
-  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.8+-blue?style=flat" alt="Python"></a>
+  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.10+-blue?style=flat" alt="Python"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=flat" alt="License"></a>
   <a href="https://github.com/Battam1111/Myco"><img src="https://img.shields.io/github/stars/Battam1111/Myco?style=flat" alt="Stars"></a>
 </p>
@@ -45,8 +45,6 @@
 
 でも6ヶ月後、あなたのAIは誰のよりも賢い。すべてのプロジェクトの完全な履歴を知っている。あなたの分野の最新の論文やツールを自動で喰らった。知識の盲点を自分で見つけて埋めた。古い知識がまだ正しいか自分でチェックした――間違っていたものは、もう捨てた。自分の作業ルールさえ書き換えた。古いルールでは足りなかったから。
 
-これはSFじゃない。
-
 <h3 align="center">これが Myco だ。</h3>
 
 ---
@@ -59,7 +57,7 @@ cd Myco && pip install -e ".[mcp]"
 myco init --auto-detect my-project
 ```
 
-3行のコマンド。環境を自動検出――Claude Code · Cursor · VS Code · Codex · Cline · Continue · Zed · Windsurf · Cowork――検出したものを全部一発で設定。
+3行のコマンド。環境を自動検出――Claude Code · Cowork · Cursor · VS Code · Codex · Cline · Continue · Zed · Windsurf――検出したものを全部一発で設定。
 
 編集可能インストール――エンジン自体を含むシステム全体を書き換えられる。いじらなくてもいい、勝手に進化する。
 
@@ -70,7 +68,7 @@ myco init --auto-detect my-project
 - 💀 **死ぬべきものは死ぬ** — 古くなった知識は自動で検出・除去される。排泄のない知識システムは腫瘍だ
 - 🔄 **永遠に進化する** — コンテンツだけじゃない、エンジン自体のルールも変異する。システム全体が生きている
 - 🍄 **すべてが繋がる** — すべてのファイルが菌糸ネットワークのノード。知識は孤立した記録じゃない、どんどん密になる網だ
-- 🤖 **あなたはただ話すだけ** — 21のツールが全自動。人間は技術的な詳細を一切知らなくていい
+- 🤖 **あなたはただ話すだけ** — 19のツールが全自動。人間は技術的な詳細を一切知らなくていい
 
 ## なぜ違うのか
 
@@ -94,7 +92,7 @@ Myco（喰らう・消化する・検証する・進化する）
   ├── 精錬知識（原子から抽出した長期知識）
   ├── スキル（自己進化する操作手順）
   ├── エンジンコード（編集可能、変異可能――そう、コード自体も進化する）
-  └── 真実の源（すべての数値・ルールの唯一の出典）
+  └── 免疫システム（知識が腐った？自分で見つけて、自分で対処する）
 ```
 
 3つの役割：あなたが方向を、Agentが知性を、Mycoが記憶と進化を。どれが欠けても成り立たない。
