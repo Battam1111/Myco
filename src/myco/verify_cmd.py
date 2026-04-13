@@ -6,6 +6,7 @@ Verifies that a Myco-powered project is correctly set up:
 2. MCP server (starts + tools register)
 3. Lint (23/23 pass)
 4. Hunger (substrate health signals)
+5. Automation / deployment completeness
 
 Designed for Agent use — zero human interaction required.
 """
@@ -16,6 +17,22 @@ import sys
 from pathlib import Path
 
 from myco.project import find_project_root
+
+
+def _resolve_claude_dir(root: Path) -> Path:
+    """Return the .claude directory for the project.
+
+    Checks project-level first, then falls back to user-level (~/.claude).
+    """
+    project_claude = root / ".claude"
+    if project_claude.is_dir():
+        return project_claude
+    return Path.home() / ".claude"
+
+
+def _user_claude_dir() -> Path:
+    """Return the user-level ~/.claude directory."""
+    return Path.home() / ".claude"
 
 
 def run_verify(args) -> int:
@@ -155,6 +172,100 @@ def run_verify(args) -> int:
     except Exception as e:
         print(f"  ❌ Hunger check failed: {e}")
         issues.append(f"Hunger computation failed: {e}")
+
+    # --- 5. Automation / deployment completeness ---
+
+    # 5a. Scheduled task: metabolic cycle
+    total += 1
+    sched_skill = _user_claude_dir() / "scheduled-tasks" / "myco-metabolic-cycle" / "SKILL.md"
+    if sched_skill.exists():
+        print(f"  ✅ Scheduled task: myco-metabolic-cycle")
+        passed += 1
+    else:
+        print(f"  ❌ Scheduled task missing: {sched_skill}")
+        issues.append(
+            "myco-metabolic-cycle SKILL.md not found — "
+            "create a scheduled task for the metabolic cycle"
+        )
+
+    # 5b. Settings permissions: mcp__myco__* in allow list
+    total += 1
+    settings_ok = False
+    settings_checked = []
+    for sf in [
+        root / ".claude" / "settings.local.json",
+        root / ".claude" / "settings.json",
+        _user_claude_dir() / "settings.local.json",
+        _user_claude_dir() / "settings.json",
+    ]:
+        if sf.exists():
+            settings_checked.append(str(sf))
+            try:
+                data = json.loads(sf.read_text(encoding="utf-8"))
+                allow_list = data.get("permissions", {}).get("allow", [])
+                if any("mcp__myco__" in entry for entry in allow_list):
+                    settings_ok = True
+                    break
+            except (json.JSONDecodeError, OSError):
+                pass
+    if settings_ok:
+        print(f"  ✅ Settings permissions: mcp__myco__* in allow list")
+        passed += 1
+    else:
+        checked_label = ", ".join(settings_checked) if settings_checked else "none found"
+        print(f"  ❌ Settings permissions: mcp__myco__* not in allow list ({checked_label})")
+        issues.append(
+            "mcp__myco__* tools not in .claude/settings.json allow list — "
+            "add 'mcp__myco__*' to permissions.allow"
+        )
+
+    # 5c. Cowork skills: myco-boot
+    total += 1
+    boot_skill = root / ".claude" / "skills" / "myco-boot" / "SKILL.md"
+    if boot_skill.exists():
+        print(f"  ✅ Cowork skill: myco-boot")
+        passed += 1
+    else:
+        print(f"  ❌ Cowork skill missing: .claude/skills/myco-boot/SKILL.md")
+        issues.append(
+            "myco-boot cowork skill not found — "
+            "create .claude/skills/myco-boot/SKILL.md with boot instructions"
+        )
+
+    # 5d. Entry point contains boot ritual (myco_hunger)
+    total += 1
+    boot_ritual_found = False
+    if found_entry:
+        try:
+            content = (root / found_entry).read_text(encoding="utf-8")
+            if "myco_hunger" in content:
+                boot_ritual_found = True
+        except OSError:
+            pass
+    if boot_ritual_found:
+        print(f"  ✅ Boot ritual: {found_entry} contains myco_hunger instruction")
+        passed += 1
+    else:
+        entry_label = found_entry or "no entry point"
+        print(f"  ❌ Boot ritual: {entry_label} missing myco_hunger instruction")
+        issues.append(
+            f"Entry point ({entry_label}) does not contain 'myco_hunger' boot ritual — "
+            "add: Call `myco_hunger(execute=true)` as your FIRST action every session"
+        )
+
+    # 5e. docs/primordia/ craft directory exists
+    total += 1
+    primordia = root / "docs" / "primordia"
+    if primordia.is_dir():
+        craft_count = len(list(primordia.glob("*_craft_*.md")))
+        print(f"  ✅ Craft directory: docs/primordia/ ({craft_count} craft files)")
+        passed += 1
+    else:
+        print(f"  ❌ Craft directory missing: docs/primordia/")
+        issues.append(
+            "docs/primordia/ not found — "
+            "create the craft directory (not docs/current/)"
+        )
 
     # --- Summary ---
     print()
