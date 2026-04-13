@@ -192,6 +192,9 @@ def test_step_verbs_extract_transitions_to_extracted(
     Constructs a digest-shaped namespace mimicking the cli.py dispatch path
     in `args.command in ("evaluate", "extract", "integrate")`, calls
     run_digest directly, asserts post-state.
+
+    Updated for absorption gate: must provide --site + --nutrient and
+    write a <!-- nutrient-from: --> marker in the target file.
     """
     from myco.notes_cmd import run_digest
     project = _isolate_myco_project
@@ -202,11 +205,25 @@ def test_step_verbs_extract_transitions_to_extracted(
     )
     note_id = p.stem
 
+    # Create absorption site with nutrient-from marker
+    wiki_dir = project / "wiki"
+    wiki_dir.mkdir(exist_ok=True)
+    absorption_site = "wiki/test_extract_target.md"
+    target_file = project / absorption_site
+    target_file.write_text(
+        f"# Test Extract Target\n\n"
+        f"<!-- nutrient-from: {note_id} -->\n"
+        f"Extracted claim lives here.\n",
+        encoding="utf-8",
+    )
+
     # Mimic cli.py dispatch: extract → run_digest with to='extracted'
     args = SimpleNamespace(
         note_id=note_id,
         to="extracted",
         excrete=None,
+        site=absorption_site,
+        nutrient="Test extraction claim",
         project_dir=str(project),
     )
     rc = run_digest(args)
@@ -217,6 +234,10 @@ def test_step_verbs_extract_transitions_to_extracted(
         "extract must leave the note in status=extracted"
     assert int(meta_after.get("digest_count") or 0) == 1, \
         "extract must increment digest_count"
+    assert meta_after.get("absorption_site") == absorption_site, \
+        "extract must record absorption_site"
+    assert meta_after.get("nutrient") == "Test extraction claim", \
+        "extract must record nutrient"
 
 
 def test_step_verbs_integrate_transitions_to_integrated(
@@ -225,6 +246,9 @@ def test_step_verbs_integrate_transitions_to_integrated(
     """Wave 32 D2: `myco integrate <id>` transitions a note to status='integrated'.
 
     Mirrors the extract test for the integrate alias.
+
+    Updated for absorption gate: must provide --site + --nutrient and
+    write a <!-- nutrient-from: --> marker in the target file.
     """
     from myco.notes_cmd import run_digest
     project = _isolate_myco_project
@@ -235,10 +259,22 @@ def test_step_verbs_integrate_transitions_to_integrated(
     )
     note_id = p.stem
 
+    # Create absorption site with nutrient-from marker
+    absorption_site = "MYCO.md"
+    myco_path = project / absorption_site
+    myco_content = myco_path.read_text(encoding="utf-8") if myco_path.exists() else ""
+    myco_content += (
+        f"\n<!-- nutrient-from: {note_id} -->\n"
+        f"Integrated claim lives here.\n"
+    )
+    myco_path.write_text(myco_content, encoding="utf-8")
+
     args = SimpleNamespace(
         note_id=note_id,
         to="integrated",
         excrete=None,
+        site=absorption_site,
+        nutrient="Test integration claim",
         project_dir=str(project),
     )
     rc = run_digest(args)
@@ -247,6 +283,8 @@ def test_step_verbs_integrate_transitions_to_integrated(
     meta_after, _ = notes.read_note(p)
     assert meta_after["status"] == "integrated"
     assert int(meta_after.get("digest_count") or 0) == 1
+    assert meta_after.get("absorption_site") == absorption_site
+    assert meta_after.get("nutrient") == "Test integration claim"
 
 
 def test_step_verbs_evaluate_transitions_to_digesting(
