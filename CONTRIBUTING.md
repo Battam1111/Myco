@@ -140,15 +140,15 @@ Myco/
 │   ├── seed_cmd.py        # Project initialization
 │   ├── graft.py         # Hot-start migration
 │   ├── immune.py            # 23-dimension consistency checker (L0-L22)
-│   ├── notes.py           # Atomic note engine (eat/digest/view)
+│   ├── notes.py           # Atomic note engine (eat/digest/observe)
 │   ├── condense_cmd.py    # Compression primitive
 │   ├── mycelium.py           # Structural link graph
-│   ├── mcp_server.py      # MCP tool server (19 tools)
+│   ├── mcp_server.py      # MCP sidecar server (19 tools)
 │   ├── memory.py        # Session transcript indexing
 │   ├── forage.py          # External material ingestion
 │   ├── templates.py       # Template resolution (importlib.resources)
 │   └── templates/         # Bundled project templates (single source of truth)
-├── tests/                 # 31 test files, 246 unit tests
+├── tests/                 # 31 test files, 281 unit tests
 ├── skills/                # Agent skill definitions
 ├── docs/                  # Framework documentation
 ├── scripts/               # Legacy standalone scripts

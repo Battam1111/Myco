@@ -90,7 +90,7 @@ open problem（谁维护 manifest？manifest 怎么演化？）。
 [`docs/primordia/archive/proactive_discovery_craft_2026-04-12.md`](primordia/archive/proactive_discovery_craft_2026-04-12.md)
 + `src/myco/notes.py::detect_inlet_trigger()` 实现了两条触发信号：
 (1) search miss 累积 >= `search_miss_threshold`（default 5，`_canon.yaml::system.inlet_triggers`）；
-(2) cohort gap count >= `gap_threshold`（default 3，由 `myco.cohorts.gap_detection` 驱动）。
+(2) cohort gap count >= `gap_threshold`（default 3，由 `myco.colony.gap_detection` 驱动）。
 任一触发 → hunger 报告包含 `inlet_ripe` advisory + `myco_colony gaps` 路径。
 4 个 seed tests（`tests/unit/test_absorb_trigger.py`）覆盖 no-trigger / miss-trigger / gap-trigger / disabled 场景。
 Wave 50 (v0.39.0) 进一步加了 `compression_pressure` metric + metabolic-cycle skill。

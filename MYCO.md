@@ -1,7 +1,7 @@
 # Myco
 
 > 最后更新：2026-04-13
-> **知识系统**：[Myco](https://github.com/Battam1111/Myco) v0.2.0（[PyPI 已发布](https://pypi.org/project/myco/0.2.0/)；kernel contract v0.45.0）
+> **知识系统**：[Myco](https://github.com/Battam1111/Myco) v0.3.0（[PyPI 已发布](https://pypi.org/project/myco/0.3.0/)；kernel contract v0.45.0）
 > **⚠️ Wave 8 re-baseline**：历史上 v1.x 的包版本号和 v1.x.y 的 contract 版本号在 2026-04-11 全部下调到 0 开头，因为 Myco 尚未进行过真正的 1.0 正式发布。历史记录中的 v1.x 标识符保持不动作为 immutable history；当前生效版本一律以 v0.x 计。详见 `docs/contract_changelog.md` 顶部 banner。
 
 ---
@@ -20,7 +20,7 @@
 
 <!-- MYCO-BOOT-SIGNALS:END -->
 
-**项目**：Myco — 可自进化的 AI 延伸认知基质（框架本身）
+**项目**：Myco — Agent-First 共生认知有机体（框架本身）
 **当前阶段**：v0.3.0 beta — PyPI 已发布，Show HN 待执行（尚未 1.0）；Post-Metamorphosis — Agent-First 有机体已建成。**Metamorphosis plan 完成**，kernel contract v0.45.0。关键里程碑：23 维 lint (L0-L22) + 19 MCP tools + 281 tests + Signal-to-Action hunger 自动执行闭环 + Link Graph 菌丝互联 + Semantic Cohort Intelligence + Inlet Trigger Policy + Continuous Compression + Session Memory FTS5 + **Wave 54 Agent-First Integration（hunger execute=true + scheduled metabolic cycle）**
 
 **框架开发中最容易出错的 N 件事** ⚠️：
@@ -41,12 +41,12 @@
 > **Myco 是 Agent-First 的共生认知有机体。** 四个词各自承重：**Agent-First**（Agent 是唯一操作者，人类只需自然语言）+ **Symbiotic**（Agent 提供智能，Myco 提供记忆/代谢/免疫/进化，缺一不可）+ **Cognitive**（不只是存储——它代谢、验证、自我建模、进化规则本身）+ **Organism**（满足全部 7 条生物学生命标准，自主运转不等触发）。详见第四永久锚点 `docs/primordia/myco_identity_definitive_craft_2026-04-12.md`。
 
 1. **Agent-First 共生体**：Agent 是唯一操作者（sole operator）。Myco 的每个表面（MCP tool descriptions, hunger signals, lint）都为 Agent 可发现性和可操作性设计。人类用自然语言提供方向，不需要懂技术细节。Agent 通过 MCP 连接 Myco = 共生键合（symbiotic bond）。架构：内核（本仓库）+ 实例（项目目录），如 OS 与应用。
-2. **非参数进化**：Agent 权重永不改动，所有学习在基质里（md/yaml/目录结构）。
+2. **非参数进化**：Agent 权重永不改动，所有学习在有机体里（md/yaml/目录结构）。
 3. **自主代谢管道**：七步管道（发现→评估→萃取→整合→压缩→验证→**淘汰**）由 Agent 自主驱动。`hunger(execute=true)` 读取信号、推荐行动、自动执行。Scheduled metabolic cycle 确保代谢持续运转。人类不需要触发管道——Agent IS the daemon。没有第七步就不是代谢，是消化。代谢阶段 是自主神经系统（内向稳态）；代谢入口是消化系统（外向摄取）。
-4. **压缩即认知**：存储无限，注意力有限。"不遗忘，只压缩" 是 doctrine 不是工程细节——压缩决策是基质的首要认知行为。三条判据：频率 · 时效 · 排他性。Cohort intelligence + compression_pressure 提供感知层，Agent 自主执行压缩。压缩策略本身也进化。
+4. **压缩即认知**：存储无限，注意力有限。"不遗忘，只压缩" 是 doctrine 不是工程细节——压缩决策是有机体的首要认知行为。三条判据：频率 · 时效 · 排他性。Cohort intelligence + compression_pressure 提供感知层，Agent 自主执行压缩。压缩策略本身也进化。
 5. **四层自我模型**：A 库存 · B 缺口 · C 退化（事实性 + 结构性 via graph orphan/cluster 检测）· D 效能（dead_knowledge 追踪 + session memory 时间线）。今天 Myco 实现 **A + B + partial C + D-seed**。完整 C 层仍需结构性退化指标（open problem）；完整 D 层仍需自适应阈值 + 自动淘汰工作流。
-6. **内化的变异-选择**：变异和选择都发生在 Agent+Substrate 内部。Agent 产生变异（eat/digest/compress/inlet），Substrate 的免疫系统执行选择（lint 23 维 + hunger signals + compression_pressure + dead_knowledge detection）。人类提供方向和信任，不需要做技术选择。透明性不可变——不是为了让人类选择，而是为了可审计性；没有审计能力 → 失去信任 → 系统被废弃。**永恒进化**（Perpetual Evolution）是三条不可变律之一：**停滞即死**——代谢循环停止运转的基质会退化为静态缓存。
-7. **理论血统**：Karpathy LLM Wiki + Polanyi Tacit + Argyris Double-Loop + Toyota PDCA + Voyager Skill Library + **Rich Sutton Bitter Lesson**（不要把智能硬编码进基质，建造随 agent 能力伸缩的脚手架）。详见 `docs/theory.md`。
+6. **内化的变异-选择**：变异和选择都发生在 Agent+Organism 内部。Agent 产生变异（eat/digest/condense/absorb），Organism 的免疫系统执行选择（lint 23 维 + hunger signals + compression_pressure + dead_knowledge detection）。人类提供方向和信任，不需要做技术选择。透明性不可变——不是为了让人类选择，而是为了可审计性；没有审计能力 → 失去信任 → 系统被废弃。**永恒进化**（Perpetual Evolution）是三条不可变律之一：**停滞即死**——代谢循环停止运转的有机体会退化为静态缓存。
+7. **理论血统**：Karpathy LLM Wiki + Polanyi Tacit + Argyris Double-Loop + Toyota PDCA + Voyager Skill Library + **Rich Sutton Bitter Lesson**（不要把智能硬编码进有机体，建造随 agent 能力伸缩的脚手架）。详见 `docs/theory.md`。
 8. **永久锚点文档**：四份互补、均为永久——
    - `docs/primordia/vision_recovery_craft_2026-04-10.md`（Wave 10：18 项丢失元素回溯——有机体的解剖学）
    - `docs/primordia/vision_reaudit_craft_2026-04-12.md`（Wave 26：实现成熟度——哪些器官成熟/哪些 vestigial）
@@ -55,7 +55,7 @@
    任何一次上下文压缩后第一件事是重读它们。
 
 **Agent 行为准则**：
-- **📜 硬契约** — 运行前必读 [`docs/agent_protocol.md`](docs/agent_protocol.md)（write surface / tool protocol / boot-end sequence / anti-patterns）。**L11** write surface + **L13** Craft Protocol schema 自动执行，违约 = 基质污染。
+- **📜 硬契约** — 运行前必读 [`docs/agent_protocol.md`](docs/agent_protocol.md)（write surface / tool protocol / boot-end sequence / anti-patterns）。**L11** write surface + **L13** Craft Protocol schema 自动执行，违约 = 有机体污染。
 - **🛠️ Craft Protocol (W3)** — 影响 kernel 契约 / 实例架构 / 置信度 < 0.80 的决策必须走 [`docs/craft_protocol.md`](docs/craft_protocol.md) 规范的结构化自对抗辩论；产物写入 `docs/primordia/<topic>_craft_YYYY-MM-DD.md` 并含 `craft_protocol_version: 1` frontmatter。L13 强制 schema。kernel_contract 决策 floor 0.90 / instance_contract 0.85 / exploration 0.75。
 - **即时沉淀** — 关键决策当下 `myco_eat` 为 raw note，不手建 scratch/TODO/MEMO 文件
 - **在线验证** — 数字型 claim 必须 WebSearch 交叉验证
@@ -73,12 +73,12 @@ Python 打包环境（hatchling + twine）。模板唯一来源：`src/myco/temp
 
 | 方向 | 状态 | 关键能力 |
 |------|------|---------|
-| 代谢管道 | ✅ 基本完整 | eat/digest/compress/prune/inlet + hunger auto-execute |
-| 主动觅食 | ✅ 已落地 | `myco_colony gaps` + `inlet_ripe` + discovery-loop skill |
+| 代谢管道 | ✅ 基本完整 | eat/digest/condense/prune/absorb + hunger auto-execute |
+| 主动觅食 | ✅ 已落地 | `myco_colony gaps` + `inlet_ripe` + forage manifest |
 | 自我进化 | ✅ 框架就位 | evolve.py (mutation/gates/scoring) + auto-evolve config |
 | 跨实例迁移 | ❌ 已废弃 | 所有项目共用一套 Myco，Agent 自行迁移知识 |
 | 需求预判 | ✅ 已落地 | predict_knowledge_needs from session history |
-| 冷启动 | ⏳ open problem | 无摩擦历史时如何触发 inlet？v2.0 级 |
+| 冷启动 | ⏳ open problem | 无摩擦历史时如何触发 absorb？v2.0 级 |
 | 结构性退化检测 | ⏳ open problem | graph orphans 在位，无可计算退化指标 |
 
 > 详见 `docs/open_problems.md` 了解所有开放问题的完整描述和退出条件。
@@ -95,7 +95,7 @@ Python 打包环境（hatchling + twine）。模板唯一来源：`src/myco/temp
 | 指标 | 值 | rationale | 证据锚 |
 |------|----|-----------|--------|
 | `v1_launch_progress` | 0.65 | PyPI v0.3.0 已发布；kernel contract v0.45.0；23 lint + Agent Review + 19 MCP tools + 281 tests；dist/ 1.1.0 wheel 已清理。剩余：README v1 里程碑对齐、Show HN launch | PyPI 0.3.0 live, Metamorphosis plan |
-| `three_channel_maturity` | 0.70 | inbound (forage v0.7.0) + internal (notes v0.4.0) + outbound/outbound→inbound (upstream v0.3.0) schema & lint 全部在位；Wave 9 首次闭环 absorb 验证（ce72+3356 从 ASCC 吸收 → pointer-note 落地），n=1；**Wave 9 first-live forage batch 完成 6/6**（nuwa+gbrain+hermes+mempalace+CMA+karpathy 全部 raw→digested，产出 6 条 extracted notes，跨项目 convergent pattern 3 条进入 Wave 10/11 预留），inbound 通道首次 end-to-end 真实负载验证 | contract v0.9.0, L14/L10/L12, forage manifest 6× digested, `n_20260411T1831..185410_*` |
+| `three_channel_maturity` | 0.65 | inbound (forage v0.7.0) + internal (notes v0.4.0) schema & lint 在位；upstream 已移除（v0.3.0 废弃），outbound 通道不再独立追踪。Wave 9 首次闭环 absorb 验证（ce72+3356 从 ASCC 吸收 → pointer-note 落地），n=1；**Wave 9 first-live forage batch 完成 6/6**（nuwa+gbrain+hermes+mempalace+CMA+karpathy 全部 raw→digested，产出 6 条 extracted notes，跨项目 convergent pattern 3 条进入 Wave 10/11 预留），inbound 通道首次 end-to-end 真实负载验证。下调 0.70→0.65（upstream 移除缩减了通道覆盖面） | contract v0.9.0, L14/L10/L12, forage manifest 6× digested, `n_20260411T1831..185410_*` |
 | `lint_coverage_confidence` | 0.85 | **23 维 L0-L22 全绿** + 281 tests（from 38）+ 29 modules + Waves A1-E3 新增 evolve.py/redact.py/project.py 全部测试 + hybrid lint（mechanical 22 dims + Agent Review 4 items）+ inline frontmatter validation on writes + hunger sidecar push-mode。上调至 0.85 | Metamorphosis plan commits + 183/183 pytest + 23/23 lint + Agent Review |
 | `compression_discipline_maturity` | 0.65 | 首次真实排泄：19 notes excreted with explicit reasons（9 primordia-archive summaries + 5 best-practice already-in-code + 5 gstack already-as-skills）。压缩教条首次被实际执行而非空谈。上调 0.55→0.65 | dogfood session 2026-04-12, 19 excretions |
 | `identity_anchor_confidence` | 0.70 | 身份锚点 8 条稳定多 wave；L9 Vision Anchor 执行中；但自评偏差无外部独立确认 | vision_recovery craft |
@@ -123,7 +123,7 @@ Python 打包环境（hatchling + twine）。模板唯一来源：`src/myco/temp
 
 ## 0. 项目摘要
 
-Myco 是一个可自进化的 AI 延伸认知基质框架。它给 AI agent 提供持久记忆、结构化知识和跨会话的自进化能力。v0.3.0 已发布至 PyPI（推荐：`git clone` + `pip install -e ".[mcp]"`；快速预览：`pip install myco`），提供 `myco seed / graft / immune / genome / assimilate / eat / correct / digest / evaluate / extract / integrate / observe / condense / expand / prune / absorb / hunger / forage / mycelium / colony / memory / diagnose / propagate / rename` CLI。当前 kernel contract v0.45.0（23 维 lint + Agent Review hybrid 免疫 + 19 MCP tools + 281 tests + hunger auto-execute + `myco seed --agent claude` 一键就位 + evolve.py 自我进化 + predict_knowledge_needs 需求预判）。
+Myco 是一个 Agent-First 共生认知有机体框架。它给 AI agent 提供持久记忆、结构化知识和跨会话的自进化能力。v0.3.0 已发布至 PyPI（推荐：`git clone` + `pip install -e ".[mcp]"`；快速预览：`pip install myco`），提供 `myco seed / graft / immune / genome / assimilate / eat / correct / digest / evaluate / extract / integrate / observe / condense / expand / prune / absorb / hunger / forage / mycelium / colony / memory / diagnose / propagate / rename` CLI。当前 kernel contract v0.45.0（23 维 lint + Agent Review hybrid 免疫 + 19 MCP tools + 281 tests + hunger auto-execute + `myco seed --agent claude` 一键就位 + evolve.py 自我进化 + predict_knowledge_needs 需求预判）。
 
 核心设计：agent-agnostic（Claude、GPT、Codex 等均可运行），框架本身通过 Myco 管理自身的知识。
 
@@ -136,14 +136,14 @@ Phase 0   基础打包 + PyPI 上线               ✅ 完成 (v0.9.0, 2026-04-0
 Phase 1   自我应用 + 社区文件 + v1.0          ✅ 完成 (v1.0.0, 2026-04-09)
 Phase 1b  CLI 自动化 + v1.1                   ✅ 完成 (v1.1.0, 2026-04-10)
 Phase 2   Public Release                      🔄 PyPI 0.3.0 已发布，Show HN 待执行
-Phase 3   非 ASCC 项目示例                    ⏳ post-v0.2 目标
+Phase 3   非 ASCC 项目示例                    ⏳ post-v0.3 目标
 —— 消化道（Digestive Tract）----------------
 Phase ①   eat/digest/view/hunger 闭环        ✅ 完成 (2026-04-10)
 Phase ②   摩擦驱动迭代                       🔄 进行中
            · Internal Link Integrity (L12)    ✅ contract v0.2.0 (2026-04-11, post-rebase 映射)
            · Craft Protocol v1 (L13)          ✅ contract v0.3.0 (2026-04-11, post-rebase 映射)
            · D 层 dead_knowledge 种子 (Wave 18)  ✅ contract v0.17.0
-           · `myco condense` / `uncompress`   ✅ Waves 30-31 (v0.26.0)
+           · `myco condense` / `expand`        ✅ Waves 30-31 (v0.26.0)
            · `myco prune` D-layer 自动排出    ✅ Wave 33
            · `myco absorb` MVP scaffold         ✅ Wave 35 (v0.27.0)
            · Signal-to-Action wiring            ✅ Wave 46 (v0.35.0)
@@ -158,7 +158,7 @@ Phase ②   摩擦驱动迭代                       🔄 进行中
            · 当前 contract                    v0.45.0
 Phase ③   Commons 上线                       ⏳ 门槛：Phase ② 收敛
 —— 身份级声明（非 v1.x） --------------------
-v2.0      Metabolic Inlet 原语               🔄 MVP scaffold 落地 (Wave 35, v0.27.0)；冷启动/自主仍 open
+v2.0      Metabolic Absorb 原语              🔄 MVP scaffold 落地 (Wave 35, v0.27.0)；冷启动/自主仍 open
 ```
 
 ---
@@ -193,7 +193,7 @@ v2.0      Metabolic Inlet 原语               🔄 MVP scaffold 落地 (Wave 35
 | `docs/evolution_engine.md` | 四代谢阶段详述 (v2.1)，权限级别说明 | [ACTIVE] |
 | `docs/reusable_system_design.md` | 通用知识系统架构 v2.1，Bootstrap 指南（来自 ASCC Cross-Project Distillation 蒸馏） | [ACTIVE] |
 | `docs/research_paper_craft.md` | 科研绘图方法 + 写作技法（适用于学术项目类型，来自 ASCC Cross-Project Distillation 蒸馏） | [ACTIVE] |
-| `docs/open_problems.md` | **诚实登记册** — 结构性 blind spots（inlet 冷启动 / 触发信号 / 对齐 / 压缩工程 / Self Model C 结构退化 / D 死知识）。不是 feature backlog；是 **尚未收敛到可辩论阶段** 的根本盲点 | [ACTIVE] |
+| `docs/open_problems.md` | **诚实登记册** — 结构性 blind spots（absorb 冷启动 / 触发信号 / 对齐 / 压缩工程 / Self Model C 结构退化 / D 死知识）。不是 feature backlog；是 **尚未收敛到可辩论阶段** 的根本盲点 | [ACTIVE] |
 | `docs/biomimetic_map.md` | Myco 概念与真菌生物学的正式映射 — 菌丝体隐喻的诚实对照表（conceptual overlay，不强制 rename） | [ACTIVE] |
 
 ### 辩论记录（docs/primordia/）
@@ -210,11 +210,11 @@ v2.0      Metabolic Inlet 原语               🔄 MVP scaffold 落地 (Wave 35
 | `docs/primordia/craft_formalization_craft_2026-04-11.md` | **[ACTIVE]** | **Craft Protocol v1 形式化（3轮，91%）**：schema + L13 lint + grandfather 规则 |
 | `docs/primordia/digestive_architecture_craft_2026-04-10.md` | [ACTIVE] | 消化结构与跨项目架构辩论 |
 | `docs/primordia/biomimetic_restructure_craft_2026-04-11.md` | [ACTIVE] | 生物模拟重构与结构压缩 |
-| `docs/primordia/biomimetic_nomenclature_craft_2026-04-12.md` | [ACTIVE] | 命名架构：菌丝体作为基质的命名体系 |
-| `docs/primordia/compression_primitive_craft_2026-04-12.md` | [ACTIVE] | 前向压缩：基质原语设计 |
+| `docs/primordia/biomimetic_nomenclature_craft_2026-04-12.md` | [ACTIVE] | 命名架构：菌丝体作为有机体的命名体系 |
+| `docs/primordia/compression_primitive_craft_2026-04-12.md` | [ACTIVE] | 前向压缩：有机体原语设计 |
 | `docs/primordia/craft_autonomy_craft_2026-04-11.md` | [ACTIVE] | Craft 自主性：从调用循环中移除人类 |
 | `docs/primordia/craft_reflex_craft_2026-04-11.md` | [ACTIVE] | Craft 反射弧：Craft Protocol 在应触发时主动呼叫 agent |
-| `docs/primordia/forage_substrate_craft_2026-04-11.md` | [ACTIVE] | 觅食基质：外部引用摄取作为一级器官 |
+| `docs/primordia/forage_substrate_craft_2026-04-11.md` | [ACTIVE] | 觅食有机体：外部引用摄取作为一级器官 |
 | `docs/primordia/usability_positioning_craft_2026-04-11.md` | [ACTIVE] | 易用性与定位辩论 |
 | `docs/primordia/system_evolution_debate_2026-04-08.md` | [ACTIVE] | 系统进化多轮辩论记录（早期） |
 
@@ -228,7 +228,7 @@ v2.0      Metabolic Inlet 原语               🔄 MVP scaffold 落地 (Wave 35
 
 | 脚本 | 用途 |
 |------|------|
-| `scripts/lint_knowledge.py` | 23 维度自动化一致性检查（对照 `_canon.yaml`） |
+| `scripts/lint_knowledge.py` | 23 维度自动化一致性检查（对照 `_canon.yaml`）；推荐通过 `myco immune` 调用 |
 | `scripts/myco_init.py` | 项目初始化脚本 |
 | `scripts/myco_migrate.py` | 从 CLAUDE.md 等迁移 |
 | `scripts/compress_original.py` | 知识压缩工具 |
@@ -246,4 +246,4 @@ v2.0      Metabolic Inlet 原语               🔄 MVP scaffold 落地 (Wave 35
 4. 新 Bug/决策 → `wiki/` 对应页面或 `docs/primordia/`
 5. Session Reflection 反思："框架本身哪里可以改进？" → `log.md` `meta` 条目
 6. **Cross-Project Distillation sweep**：扫描 log.md 中 `g4-candidate` 条目 → 写入 `docs/` 或标注 `g4-pass: [原因]`
-7. 长会话 → `python scripts/lint_knowledge.py --project-dir .`
+7. 长会话 → `myco immune --project-dir .`

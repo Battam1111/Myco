@@ -35,6 +35,6 @@ Myco provides: gap detection, ingestion pipeline, audit trail.
 
 ## References
 
-- src/myco/cohorts.py — implementation of `myco_colony` gap detection and analysis
+- src/myco/colony.py — implementation of `myco_colony` gap detection and analysis
 - `docs/open_problems.md` — cold-start problem and other open questions that motivate discovery
 - `notes/` (tag: `inlet`) — ingested notes produced by this loop; search with `myco_observe --status raw --tag inlet`

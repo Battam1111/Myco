@@ -110,8 +110,8 @@ project-root/
 ## W7: 系统化 Lint
 
 **频率**：长会话结束前 / 每 3 次短会话
-**工具**：`scripts/lint_knowledge.py` + `_canon.yaml`
-**运行方式**：`python scripts/lint_knowledge.py --project-dir .`（从 Myco repo 根目录）
+**工具**：`myco immune`（`src/myco/immune.py`）+ `_canon.yaml`
+**运行方式**：`python -m myco immune --project-dir .`（从 Myco repo 根目录）
 **更新流程**：先改 _canon.yaml → 运行 Lint → 逐一修复 → 再跑确认
 
 ---

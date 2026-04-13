@@ -130,8 +130,8 @@ future machine extractors:
 
 Run a Craft when any of the following is true:
 
-1. **Kernel contract change** (Class Z in Upstream Protocol §8.2): any edit
-   to `docs/agent_protocol.md`, `_canon.yaml`, `scripts/lint_knowledge.py`,
+1. **Kernel contract change** (Class Z in Agent Protocol §1): any edit
+   to `docs/agent_protocol.md`, `_canon.yaml`,
    src/myco/immune.py, `src/myco/mcp_server.py`, or `src/myco/templates/**`.
    Minimum `target_confidence: 0.90`, `decision_class: kernel_contract`.
 
@@ -318,7 +318,7 @@ nothing forces rewrite.
 4. **Bootstrap file exemption.** The craft that introduced this protocol
    (`docs/primordia/craft_formalization_craft_2026-04-11.md`) intentionally
    omits `craft_protocol_version` to avoid recursive self-regulation,
-   symmetric with Upstream Protocol §8.7 bootstrap exemption.
+   symmetric with Agent Protocol bootstrap exemption.
 5. **Honor-system ceiling for agent-autonomous crafts** (Wave 12).
    With Wave 12's severity=HIGH, an agent under time pressure can
    still write a hollow craft with handwaved attacks to pass L15. The

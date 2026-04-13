@@ -69,7 +69,7 @@ git -C C:\path\to\repo commit -F commit_msg.txt
 where myco  (cmd) / which myco  (bash)
 
 # Fallback 1: 直接调用脚本
-python scripts\lint_knowledge.py --project-dir .
+python -m myco immune --project-dir .
 
 # Fallback 2: 确认 editable install
 pip show myco  # 应显示 Location: ...src
