@@ -469,3 +469,119 @@ def test_write_note_without_forage_source(_isolate_myco_project: Path) -> None:
     meta, _ = notes.read_note(path)
     assert "forage_source" not in meta, \
         "forage_source must NOT appear when not provided"
+
+
+# ---------------------------------------------------------------------------
+# Mycelium auto-linking (cross-references via shared tags)
+# ---------------------------------------------------------------------------
+
+def test_auto_link_creates_bidirectional_references(
+    _isolate_myco_project: Path,
+) -> None:
+    """write_note auto-links new notes to existing notes with shared tags.
+
+    Creates two notes with the same tag and verifies both end up with
+    a ## Related section pointing to each other -- the mycelium wrapping
+    behavior where new knowledge automatically connects to the network.
+    """
+    project = _isolate_myco_project
+
+    # First note -- no related notes exist yet, so no linking.
+    path_a = notes.write_note(
+        project,
+        body="First note about testing.",
+        tags=["mycelium-test", "alpha"],
+        source="eat",
+        title="Note Alpha",
+    )
+
+    # Second note shares the "mycelium-test" tag with the first.
+    path_b = notes.write_note(
+        project,
+        body="Second note about testing.",
+        tags=["mycelium-test", "beta"],
+        source="eat",
+        title="Note Beta",
+    )
+
+    content_a = path_a.read_text(encoding="utf-8")
+    content_b = path_b.read_text(encoding="utf-8")
+
+    # Note B should have a Related section pointing to Note A.
+    assert "## Related" in content_b, \
+        "Note B should have a ## Related section linking to Note A"
+    assert path_a.name in content_b, \
+        "Note B's Related section should reference Note A's filename"
+
+    # Note A should have a backlink pointing to Note B.
+    assert "## Related" in content_a, \
+        "Note A should have a ## Related backlink to Note B"
+    assert path_b.name in content_a, \
+        "Note A's Related section should reference Note B's filename"
+
+
+def test_auto_link_skips_notes_without_shared_tags(
+    _isolate_myco_project: Path,
+) -> None:
+    """Notes with no tag overlap should not be cross-linked."""
+    project = _isolate_myco_project
+
+    path_a = notes.write_note(
+        project,
+        body="Apples and oranges.",
+        tags=["fruit"],
+        source="eat",
+    )
+
+    path_b = notes.write_note(
+        project,
+        body="Cars and trucks.",
+        tags=["vehicles"],
+        source="eat",
+    )
+
+    content_a = path_a.read_text(encoding="utf-8")
+    content_b = path_b.read_text(encoding="utf-8")
+
+    assert path_b.name not in content_a, \
+        "Note A should NOT link to Note B (no shared tags)"
+    assert path_a.name not in content_b, \
+        "Note B should NOT link to Note A (no shared tags)"
+
+
+def test_auto_link_no_duplicate_links(
+    _isolate_myco_project: Path,
+) -> None:
+    """Creating a third note should not duplicate existing links."""
+    project = _isolate_myco_project
+
+    path_a = notes.write_note(
+        project,
+        body="First",
+        tags=["dup-test"],
+        source="eat",
+        title="Note A",
+    )
+    path_b = notes.write_note(
+        project,
+        body="Second",
+        tags=["dup-test"],
+        source="eat",
+        title="Note B",
+    )
+    # Third note shares the same tag -- should link to A and B,
+    # and A/B should each get exactly one backlink to C (not another to each other).
+    path_c = notes.write_note(
+        project,
+        body="Third",
+        tags=["dup-test"],
+        source="eat",
+        title="Note C",
+    )
+
+    content_a = path_a.read_text(encoding="utf-8")
+    # Note A should mention B once (from B's creation) and C once (from C's creation).
+    assert content_a.count(path_b.name) == 1, \
+        "Note A should reference Note B exactly once"
+    assert content_a.count(path_c.name) == 1, \
+        "Note A should reference Note C exactly once"

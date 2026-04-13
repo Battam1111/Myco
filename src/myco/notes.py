@@ -300,6 +300,90 @@ def _validate_frontmatter_inline(meta: Dict[str, Any], context: str = "write") -
             f"Valid: {VALID_STATUSES}")
 
 
+def _auto_link_note(
+    root: Path,
+    new_note_path: Path,
+    new_tags: Optional[List[str]],
+    new_title: Optional[str],
+) -> None:
+    """Automatically find related notes and add cross-references.
+
+    This is the mycelium wrapping behavior -- new knowledge nodes
+    automatically connect to the existing network via shared tags.
+
+    Design constraints:
+    - Best-effort: exceptions are caught by the caller.
+    - Only links notes with overlapping tags (semantic relevance).
+    - Limits to top 5 related notes (don't spam).
+    - Bidirectional: new note links to old, old notes link back.
+    - Idempotent: won't duplicate existing links.
+    """
+    if not new_tags:
+        return
+    notes_dir = root / "notes"
+    if not notes_dir.is_dir():
+        return
+
+    new_note_id = new_note_path.stem  # e.g. n_20260413T...
+    new_tag_set = set(new_tags)
+    related: List[Tuple[Path, str, int]] = []
+
+    # Scan existing notes for tag overlap.
+    for p in notes_dir.glob("n_*.md"):
+        if p == new_note_path:
+            continue
+        try:
+            content = p.read_text(encoding="utf-8", errors="replace")
+            # Parse frontmatter to extract tags.
+            if not content.startswith("---"):
+                continue
+            end_idx = content.index("---", 3)
+            fm = yaml.safe_load(content[3:end_idx])
+            if not isinstance(fm, dict):
+                continue
+            other_tags = fm.get("tags", [])
+            if isinstance(other_tags, str):
+                other_tags = [t.strip() for t in other_tags.split(",")]
+            overlap = len(new_tag_set & set(other_tags or []))
+            if overlap > 0:
+                other_title = fm.get("title") or fm.get("id") or p.stem
+                related.append((p, other_title, overlap))
+        except Exception:
+            continue
+
+    if not related:
+        return
+
+    # Sort by overlap descending (most related first), cap at 5.
+    related.sort(key=lambda x: -x[2])
+    related = related[:5]
+
+    # Append ## Related section to the new note.
+    lines = ["\n\n## Related\n"]
+    for p, title, overlap in related:
+        lines.append(f"- [{title}]({p.name}) ({overlap} shared tags)\n")
+
+    with open(new_note_path, "a", encoding="utf-8") as f:
+        f.writelines(lines)
+
+    # Add backlinks in related notes (bidirectional).
+    link_label = new_title or new_note_id
+    for p, _, _ in related:
+        try:
+            content = p.read_text(encoding="utf-8")
+            if new_note_id in content:
+                continue  # Already linked, skip.
+            if "## Related" in content:
+                # Append to the existing Related section.
+                content = content.rstrip() + f"\n- [{link_label}]({new_note_path.name})\n"
+            else:
+                # Add a new Related section at the end.
+                content = content.rstrip() + f"\n\n## Related\n- [{link_label}]({new_note_path.name})\n"
+            p.write_text(content, encoding="utf-8")
+        except Exception:
+            continue  # Best-effort per note.
+
+
 def write_note(
     root: Path,
     body: str,
@@ -358,6 +442,14 @@ def write_note(
     # Wave 59: atomic write prevents empty files on failure (dogfood friction).
     from myco.io_utils import atomic_write_text
     atomic_write_text(path, serialize_note(meta, body + "\n"))
+
+    # Mycelium wrapping: auto-link to related notes by shared tags.
+    # Best-effort — failures here must never prevent note creation.
+    try:
+        _auto_link_note(root, path, tags, title)
+    except Exception:
+        pass  # silent — linking is advisory, not critical
+
     return path
 
 
