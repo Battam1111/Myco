@@ -25,7 +25,7 @@ def _metabolic_skill_content(project_dir: str) -> str:
     return (
         "---\n"
         "name: myco-metabolic-cycle\n"
-        "description: Daily Myco metabolic cycle — hunger check + auto-heal + lint verification\n"
+        "description: Daily Myco metabolic cycle — hunger check + auto-heal + lint verification + self-verify\n"
         "allowed-tools:\n"
         "  - mcp__myco__myco_hunger\n"
         "  - mcp__myco__myco_lint\n"
@@ -59,7 +59,10 @@ def _metabolic_skill_content(project_dir: str) -> str:
         f"3. If session_index_missing signal appears, call myco_session(action='index', project_dir=\"{project_dir}\")\n"
         f"4. Call myco_lint(project_dir=\"{project_dir}\") to verify substrate integrity — fix any issues found\n"
         f"5. Call myco_log(entry_type='system', message='Metabolic cycle complete. Status: [healthy/N issues]', project_dir=\"{project_dir}\")\n"
-        "6. Report completion\n"
+        f"6. Self-verify: Run deployment health check via Bash: `cd \"{project_dir}\" && python -m myco verify --project-dir \"{project_dir}\"`\n"
+        f"7. If verify finds issues (non-zero exit code), call myco_log(entry_type='system', message='CRITICAL: Deployment verification failed: [list issues from verify output]', project_dir=\"{project_dir}\")\n"
+        "8. If any check in the cycle failed (hunger REFLEX HIGH, lint issues, or verify issues), report: \"METABOLIC CYCLE FOUND DEPLOYMENT ISSUES: [list all issues]\"\n"
+        "9. Report completion\n"
         "\n"
         "## Fallback: CLI commands (auto-approved via settings.json)\n"
         "\n"
@@ -67,6 +70,7 @@ def _metabolic_skill_content(project_dir: str) -> str:
         "```bash\n"
         f"cd \"{project_dir}\" && python -m myco hunger --execute\n"
         f"cd \"{project_dir}\" && python -m myco lint\n"
+        f"cd \"{project_dir}\" && python -m myco verify\n"
         "```\n"
         "These match the allowed Bash patterns in settings.json and run without approval.\n"
     )

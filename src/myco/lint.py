@@ -1393,6 +1393,21 @@ def lint_craft_reflex(canon, root):
     now = _time.time()
     window = lookback_days * 86400
 
+    # --- Bootstrap exemption (init-created files) -------------------------
+    # Files whose mtime is within 60s of _canon.yaml's creation time were
+    # scaffolded by `myco init`, not manually modified. Skip the craft
+    # reflex for these — they had no decision to debate.
+    _BOOTSTRAP_GRACE_SECS = 60
+    canon_path = root / "_canon.yaml"
+    try:
+        canon_ctime = canon_path.stat().st_mtime
+    except OSError:
+        canon_ctime = 0.0
+
+    def _is_bootstrap_file(mtime: float) -> bool:
+        """True if the file was created at roughly the same time as _canon.yaml."""
+        return canon_ctime > 0 and abs(mtime - canon_ctime) < _BOOTSTRAP_GRACE_SECS
+
     # --- Step 1: collect recently-touched surfaces ----------------------
     recent_touches = []   # list of (class_name, rel_path, mtime)
     for cls_name, paths in (("kernel_contract", kernel_surfaces),
@@ -1411,6 +1426,9 @@ def lint_craft_reflex(canon, root):
             except OSError:
                 continue
             if now - mt < window:
+                # Skip files scaffolded by myco init (bootstrap grace)
+                if _is_bootstrap_file(mt):
+                    continue
                 recent_touches.append((cls_name, rel, mt))
 
     if not recent_touches:
