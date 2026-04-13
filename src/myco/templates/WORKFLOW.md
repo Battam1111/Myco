@@ -22,6 +22,7 @@
 | 编译协议 | W10 | 外部知识 5 步提取流程 |
 | 验证范围 | W11 | 结论标注"在哪些条件下验证过" |
 | 信息密度 | W12 | 按任务复杂度调整上下文加载深度 |
+| 原始压缩 | W13 | structural_bloat 信号触发压缩或审计延迟 |
 
 ---
 
@@ -165,6 +166,22 @@ project-root/
 ## W12: 信息密度感知
 
 Agent 根据任务复杂度自然调整加载深度：简单任务仅热区，默认加热区+相关 wiki，深度决策加载全量上下文。
+
+---
+
+## W13: 原始压缩（Primordia Compression）
+
+**触发信号**：`structural_bloat`（docs/primordia/ 文件数超过 `primordia_soft_limit`）
+
+**响应**：
+- **压缩**：将相关 craft 记录合并为综合文档，保留审计链
+- **审计延迟**：如果当前不适合压缩，明确记录延迟理由并设定回顾日期
+
+| 信号 | 动作 |
+|------|------|
+| `structural_bloat` | 检查 docs/primordia/ 文件数 vs `_canon.yaml::structural_limits.primordia_soft_limit` |
+| 超过软限制 | 选择：① 压缩相关 craft → 合并文档 ② 审计延迟 → log.md 记录理由 |
+| 压缩完成 | 旧文件标记 `[COMPILED]`，更新索引 |
 
 ---
 

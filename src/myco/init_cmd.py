@@ -107,7 +107,9 @@ def detect_tools(project_dir: Path) -> dict[str, bool]:
 
     Returns a dict mapping tool name -> detected (bool).
     Detection heuristics per tool:
-      Claude Code : ``claude`` on PATH
+      Claude Code : ``claude`` on PATH  OR  ``CLAUDE_CODE`` env var  OR
+                    ``.mcp.json`` in project dir  OR  parent process name
+                    contains "claude" (covers running FROM Claude Code)
       Cursor      : ``.cursor/`` in project dir  OR  ``cursor`` on PATH
       VS Code     : ``.vscode/`` in project dir  OR  ``code`` on PATH
       Codex       : ``~/.codex/`` exists          OR  ``codex`` on PATH
@@ -117,8 +119,28 @@ def detect_tools(project_dir: Path) -> dict[str, bool]:
       Zed         : ``zed`` on PATH
     """
     home = Path.home()
+
+    # Claude Code: multi-signal detection (CLI may not be on PATH when
+    # running FROM Claude Code itself).
+    def _detect_claude_code() -> bool:
+        if shutil.which("claude") is not None:
+            return True
+        if os.environ.get("CLAUDE_CODE"):
+            return True
+        if (project_dir / ".mcp.json").is_file():
+            return True
+        # Best-effort: check parent process name
+        try:
+            import psutil
+            parent = psutil.Process(os.getpid()).parent()
+            if parent and "claude" in (parent.name() or "").lower():
+                return True
+        except Exception:
+            pass
+        return False
+
     return {
-        "Claude Code": shutil.which("claude") is not None,
+        "Claude Code": _detect_claude_code(),
         "Cursor":      (project_dir / ".cursor").is_dir()
                        or shutil.which("cursor") is not None,
         "VS Code":     (project_dir / ".vscode").is_dir()
@@ -351,27 +373,39 @@ _METABOLIC_TIP = (
 )
 
 # Cowork-compatible skill stubs — single source of truth for both code paths.
+# Each skill includes project_dir guidance so MCP tools target the right project.
 _COWORK_SKILLS: dict[str, str] = {
     "myco-boot": (
         "---\nname: myco-boot\n"
         "description: Boot Myco substrate — run hunger check and auto-heal\n"
-        "---\n\nCall myco_hunger(execute=true) to check substrate health and auto-fix issues.\n"
+        "---\n\nIMPORTANT: Pass project_dir to every Myco MCP tool call.\n"
+        "Detect the project root by looking for _canon.yaml in the current\n"
+        "working directory or its parents.\n\n"
+        "Call myco_hunger(execute=true, project_dir=<project_root>) to check\n"
+        "substrate health and auto-fix issues.\n"
         "If any REFLEX HIGH signals appear, address them before other work.\n"
         "Then report substrate status.\n"
     ),
     "myco-eat": (
         "---\nname: myco-eat\n"
         "description: Capture knowledge into Myco — decisions, insights, friction, feedback\n"
-        "---\n\nCall myco_eat with the content to capture. Add relevant tags.\n"
+        "---\n\nIMPORTANT: Pass project_dir to every Myco MCP tool call.\n"
+        "Detect the project root by looking for _canon.yaml in the current\n"
+        "working directory or its parents.\n\n"
+        "Call myco_eat with the content to capture. Add relevant tags.\n"
+        "Always pass project_dir=<project_root>.\n"
         "Use this whenever: a decision is made, friction is encountered,\n"
         "the user gives feedback, or you learn something important.\n"
     ),
     "myco-search": (
         "---\nname: myco-search\n"
         "description: Search Myco substrate for existing knowledge before answering\n"
-        "---\n\nCall myco_search with the query. Check results before answering\n"
-        "factual questions about the project. The substrate may already\n"
-        "have the answer.\n"
+        "---\n\nIMPORTANT: Pass project_dir to every Myco MCP tool call.\n"
+        "Detect the project root by looking for _canon.yaml in the current\n"
+        "working directory or its parents.\n\n"
+        "Call myco_search with the query. Always pass project_dir=<project_root>.\n"
+        "Check results before answering factual questions about the project.\n"
+        "The substrate may already have the answer.\n"
     ),
 }
 
@@ -482,13 +516,28 @@ def run_auto_detect(args) -> int:
 # Level-based scaffolding (existing)
 ###############################################################################
 
+_GITIGNORE_CONTENT = """\
+__pycache__/
+*.pyc
+.myco_state/
+.env
+.env.*
+"""
+
+
 def init_level_0(project_dir: Path, replacements: dict, entry_point: str):
-    """Minimal: entry_point + log.md"""
+    """Minimal: entry_point + log.md + .gitignore"""
     entry_content = fill_template(get_template("MYCO.md"), replacements)
     (project_dir / entry_point).write_text(entry_content, encoding="utf-8")
 
     log_content = fill_template(get_template("log.md"), replacements)
     (project_dir / "log.md").write_text(log_content, encoding="utf-8")
+
+    # .gitignore — only create if absent (never overwrite user's .gitignore)
+    gitignore_path = project_dir / ".gitignore"
+    if not gitignore_path.exists():
+        gitignore_path.write_text(_GITIGNORE_CONTENT, encoding="utf-8")
+        print(f"  ✅ .gitignore")
 
     print(f"  ✅ {entry_point} (L1 Index)")
     print(f"  ✅ log.md (Timeline)")

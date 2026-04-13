@@ -23,7 +23,7 @@ system:
 
   # --- Boot Brief Injector (Wave 17, v0.16.0) --------------
   boot_brief:
-    enabled: true
+    enabled: false                      # Enable after first `myco hunger` run
     brief_path: ".myco_state/boot_brief.md"
     sentinel_begin: "<!-- MYCO-BOOT-SIGNALS:BEGIN"
     sentinel_end: "<!-- MYCO-BOOT-SIGNALS:END -->"
