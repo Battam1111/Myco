@@ -278,16 +278,35 @@ def lint_numbers(canon, root):
     # that each cited_in file contains the SSoT value. This prevents the
     # "越找越多" problem — stale numbers are caught mechanically, not by
     # Agent memory.
+    #
+    # Two-tier scan (Wave 46, 万物互联 upgrade):
+    #   Tier 1 (HIGH) — cited_in files: explicitly listed surfaces that MUST
+    #     contain the SSoT value. Missing value = HIGH.
+    #   Tier 2 (MEDIUM) — auto-discovery: scan ALL project files (including
+    #     .claude/) for the OLD value. If a file contains the old value but
+    #     NOT the new SSoT value, it's a stale reference. This catches drift
+    #     in files nobody remembered to add to cited_in.
     traceability = system.get("traceability", {})
     claims = traceability.get("numeric_claims", {})
+
+    # Directories to skip during auto-discovery scan.
+    _L2_AUTODISCOVERY_SKIP = {
+        ".git", "node_modules", "__pycache__", ".myco_state",
+        ".pytest_cache", ".eggs", "*.egg-info",
+    }
+    # File extensions to scan.
+    _L2_SCAN_EXTENSIONS = {".md", ".py", ".yaml", ".yml", ".json", ".toml"}
+
     for claim_name, claim_def in claims.items():
         if not isinstance(claim_def, dict):
             continue
         ssot_value = claim_def.get("value")
         cited_in = claim_def.get("cited_in", [])
-        if ssot_value is None or not cited_in:
+        if ssot_value is None:
             continue
         ssot_str = str(ssot_value)
+
+        # --- Tier 1: cited_in files (HIGH) ---
         for cited_file in cited_in:
             filepath = Path(root) / cited_file
             if not filepath.exists():
@@ -304,6 +323,83 @@ def lint_numbers(canon, root):
                                f"Numeric claim '{claim_name}': SSoT value "
                                f"{ssot_str} not found in file. The file may "
                                f"contain a stale number."))
+
+        # --- Tier 2: auto-discovery (MEDIUM) ---
+        # Scan ALL project files for references to this claim that contain
+        # a stale value. Only checks value-1 and value-2 (the most common
+        # drift scenario: forgot to bump after a recent change). Wider
+        # historical gaps are pinned by design (craft docs, changelog, etc.).
+        cited_in_set = set(cited_in)
+        try:
+            ssot_int = int(ssot_value)
+            # Only the 2 most recent stale values — avoids false positives
+            # on historical documents that correctly recorded older counts.
+            old_candidates = [str(n) for n in range(max(1, ssot_int - 2), ssot_int)]
+        except (ValueError, TypeError):
+            old_candidates = []
+
+        if not old_candidates:
+            continue
+
+        # Keywords for context-aware matching. Explicit in canon, or derived.
+        claim_keywords = claim_def.get("keywords", [])
+        if not claim_keywords:
+            claim_keywords = [w for w in claim_name.split("_") if len(w) > 2]
+        if not claim_keywords:
+            continue  # Cannot safely auto-discover without keywords
+
+        # Directories to skip during Tier 2 scan.
+        _L2_PINNED_PREFIXES = (
+            "log.md", "notes/", "docs/primordia/",
+            "contract_changelog.md", "docs/contract_changelog.md",
+            "tests/", "forage/", "examples/",
+            "_canon.yaml", "src/myco/immune.py",
+        )
+
+        for dirpath, dirnames, filenames in os.walk(root):
+            dirnames[:] = [d for d in dirnames
+                           if d not in _L2_AUTODISCOVERY_SKIP
+                           and not d.endswith(".egg-info")]
+            for fname in filenames:
+                _, ext = os.path.splitext(fname)
+                if ext not in _L2_SCAN_EXTENSIONS:
+                    continue
+                full_path = os.path.join(dirpath, fname)
+                rel = os.path.relpath(full_path, root).replace("\\", "/")
+                if rel in cited_in_set:
+                    continue
+                if any(rel.startswith(p) for p in _L2_PINNED_PREFIXES):
+                    continue
+                content = read_file(full_path)
+                if not content:
+                    continue
+                for old_val in old_candidates:
+                    pat = r"(?<!\d)" + re.escape(old_val) + r"(?!\d)"
+                    for m in re.finditer(pat, content):
+                        # Tight context: 40 chars each side
+                        start = max(0, m.start() - 40)
+                        end = min(len(content), m.end() + 40)
+                        ctx = content[start:end].lower()
+                        # Require at least one claim keyword in immediate context
+                        if not any(kw.lower() in ctx for kw in claim_keywords):
+                            continue
+                        line_num = content[:m.start()].count("\n") + 1
+                        lines = content.splitlines()
+                        line_text = lines[line_num - 1] if line_num <= len(lines) else ""
+                        # Skip historical/migration context
+                        if any(kw in line_text.lower() for kw in [
+                            "→", "改为", "stale", "过时", "was ", "from ",
+                            "previously", "old", "before", "deprecated",
+                            "pattern", "exception", "已知",
+                        ]):
+                            continue
+                        issues.append(("L2", "MEDIUM", rel,
+                                       f"Numeric claim '{claim_name}': "
+                                       f"stale value {old_val} found at "
+                                       f"line {line_num} (SSoT is "
+                                       f"{ssot_str}). Auto-discovered "
+                                       f"— not in cited_in list."))
+                        break  # One hit per file per old_val is enough
 
     return issues
 
@@ -752,6 +848,7 @@ _L12_BACKTICK_PATH_RE = re.compile(r'`([^`]+)`')
 _L12_FENCE_RE = re.compile(r'^(`{3,}|~{3,})')
 
 # Directories to skip when walking .md files.
+# NOTE: .claude/ is deliberately NOT skipped — 万物互联 requires full coverage.
 _L12_SKIP_DIRS = {".git", "node_modules", ".myco_state", "forage", "tests", "notes"}
 
 # Files to skip entirely (historical records that may reference removed files).
@@ -2082,6 +2179,38 @@ def lint_dimension_count_consistency(canon, root):
         _scan(rel, "HIGH")
     for rel in _L19_MEDIUM_SURFACES:
         _scan(rel, "MEDIUM")
+
+    # --- Auto-discovery scan (Wave 46, 万物互联 upgrade) ---
+    # Walk the entire project tree (including .claude/) to find files that
+    # reference the dimension count but aren't in the explicit surface lists.
+    # These are reported as MEDIUM to surface drift in forgotten corners.
+    known_surfaces = set(_L19_HIGH_SURFACES) | set(_L19_MEDIUM_SURFACES)
+    _l19_skip_dirs = {".git", "node_modules", "__pycache__", ".myco_state",
+                      ".pytest_cache", ".eggs"}
+    # Pinned path prefixes: historical records that correctly preserve old
+    # numbers. Same philosophy as L2 Tier 2: craft docs, changelogs, notes,
+    # forage (external), and the SSoT file itself are frozen-in-time.
+    _l19_pinned_prefixes = (
+        "log.md", "notes/", "docs/primordia/",
+        "contract_changelog.md", "docs/contract_changelog.md",
+        "tests/", "forage/", "examples/",
+    )
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = [d for d in dirnames
+                       if d not in _l19_skip_dirs
+                       and not d.endswith(".egg-info")]
+        for fname in filenames:
+            if not fname.endswith((".md", ".py", ".yaml", ".yml")):
+                continue
+            full_path = os.path.join(dirpath, fname)
+            rel = os.path.relpath(full_path, root).replace("\\", "/")
+            if rel in known_surfaces:
+                continue
+            if rel == "src/myco/immune.py":
+                continue
+            if any(rel.startswith(p) for p in _l19_pinned_prefixes):
+                continue
+            _scan(rel, "MEDIUM")
 
     return issues
 
