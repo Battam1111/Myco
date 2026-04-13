@@ -3162,7 +3162,7 @@ def collect_all_issues(canon, root, quick=False):
 # ---------------------------------------------------------------------------
 
 # QUICK_CHECKS = the L0-L3 fast subset run when `myco immune --quick`.
-# FULL_CHECKS  = the full L0-L22 sequence (default). `len(FULL_CHECKS)` is
+# FULL_CHECKS  = the full L0-L24 sequence (default). `len(FULL_CHECKS)` is
 # the canonical lint dimension count — see L19 docstring for the rot story.
 QUICK_CHECKS = (
     ("L0 Canon Self-Check", lint_canon_schema),

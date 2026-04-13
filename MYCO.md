@@ -123,7 +123,7 @@ Python 打包环境（hatchling + twine）。模板唯一来源：`src/myco/temp
 
 ## 0. 项目摘要
 
-Myco 是一个 Agent-First 共生认知有机体框架。它给 AI agent 提供持久记忆、结构化知识和跨会话的自进化能力。v0.3.0 已发布至 PyPI（推荐：`git clone` + `pip install -e ".[mcp]"`；快速预览：`pip install myco`），提供 `myco seed / graft / immune / genome / assimilate / eat / correct / digest / evaluate / extract / integrate / observe / condense / expand / prune / absorb / hunger / forage / mycelium / colony / memory / diagnose / propagate / rename` CLI。当前 kernel contract v0.45.0（23 维 lint + Agent Review hybrid 免疫 + 19 MCP tools + 282 tests + hunger auto-execute + `myco seed --agent claude` 一键就位 + evolve.py 自我进化 + predict_knowledge_needs 需求预判）。
+Myco 是一个 Agent-First 共生认知有机体框架。它给 AI agent 提供持久记忆、结构化知识和跨会话的自进化能力。v0.3.0 已发布至 PyPI（推荐：`git clone` + `pip install -e ".[mcp]"`；快速预览：`pip install myco`），提供 `myco seed / graft / immune / genome / assimilate / eat / correct / digest / evaluate / extract / integrate / observe / condense / expand / prune / absorb / hunger / forage / mycelium / colony / memory / diagnose / propagate / rename` CLI。当前 kernel contract v0.45.0（25 维 lint + Agent Review hybrid 免疫 + 19 MCP tools + 282 tests + hunger auto-execute + `myco seed --agent claude` 一键就位 + evolve.py 自我进化 + predict_knowledge_needs 需求预判）。
 
 核心设计：agent-agnostic（Claude、GPT、Codex 等均可运行），框架本身通过 Myco 管理自身的知识。
 
