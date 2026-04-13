@@ -13,7 +13,7 @@
 >
 > - (run `myco hunger` to populate this block)
 >
-> Full brief: [`.myco_state/boot_brief.md`](.myco_state/boot_brief.md)
+> Full brief: `.myco_state/boot_brief.md` (auto-generated after first `myco hunger`)
 
 <!-- MYCO-BOOT-SIGNALS:END -->
 

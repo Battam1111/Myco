@@ -1,5 +1,5 @@
 """
-CLI dispatch for ``myco session`` — session memory management.
+CLI dispatch for ``myco memory`` — session memory management.
 
 Wave 52 (contract v0.40.0).
 """
@@ -19,7 +19,7 @@ def _project_root(args: Any) -> Path:
 
 
 def run_session(args: Any) -> int:
-    """Dispatch ``myco session`` subcommands."""
+    """Dispatch ``myco memory`` subcommands."""
     from myco.memory import index_sessions, prune_sessions, search_sessions
 
     root = _project_root(args)
@@ -27,7 +27,7 @@ def run_session(args: Any) -> int:
     sub = getattr(args, "session_subcommand", None)
 
     if sub is None:
-        print("Usage: myco session {index|search|prune}", file=sys.stderr)
+        print("Usage: myco memory {index|sense|prune}", file=sys.stderr)
         return 1
 
     if sub == "index":
@@ -45,10 +45,10 @@ def run_session(args: Any) -> int:
                 print(f"  DB path:       {stats['db_path']}")
         return 0
 
-    if sub == "search":
+    if sub == "sense":
         query = getattr(args, "query", None)
         if not query:
-            print("Usage: myco session search <query>", file=sys.stderr)
+            print("Usage: myco memory sense <query>", file=sys.stderr)
             return 1
         limit = getattr(args, "limit", 20) or 20
         results = search_sessions(root, query, limit=limit)

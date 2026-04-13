@@ -3,14 +3,14 @@
 Myco CLI — Unified command-line interface.
 
 Usage:
-    myco init <name> [--level 0|1|2] [--entry-point MYCO.md] [--dir /path]
-    myco migrate <project_dir> [--level 0|1|2] [--entry-point MYCO.md] [--dry-run]
-    myco lint [--quick] [--fix] [--fix-report] [--project-dir /path]
+    myco seed <name> [--level 0|1|2] [--entry-point MYCO.md] [--dir /path]
+    myco graft <project_dir> [--level 0|1|2] [--entry-point MYCO.md] [--dry-run]
+    myco immune [--quick] [--fix] [--fix-report] [--project-dir /path]
 
     # Digestive substrate (four-command set):
     myco eat     [--content ... | --file ... | <stdin>] [--tags t1,t2] [--title "…"]
     myco digest  [<note_id>] [--to STATUS | --excrete REASON]
-    myco view    [<note_id>] [--status STATUS] [--limit N] [--json]
+    myco observe    [<note_id>] [--status STATUS] [--limit N] [--json]
     myco hunger  [--json]
 
     myco version
@@ -53,7 +53,7 @@ def main():
 
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
-    # ── myco init ──────────────────────────────────────────────────
+    # ── myco seed ──────────────────────────────────────────────────
     init_parser = subparsers.add_parser(
         "seed", help="Initialize a new Myco-powered project"
     )
@@ -92,7 +92,7 @@ def main():
         help="GitHub username for Myco link in entry point document",
     )
 
-    # ── myco migrate ───────────────────────────────────────────────
+    # ── myco graft ───────────────────────────────────────────────
     migrate_parser = subparsers.add_parser(
         "graft", help="Migrate an existing project to Myco (non-destructive)"
     )
@@ -110,7 +110,7 @@ def main():
         help="Show what would be done without making changes",
     )
 
-    # ── myco lint ──────────────────────────────────────────────────
+    # ── myco immune ──────────────────────────────────────────────────
     lint_parser = subparsers.add_parser(
         "immune",
         help="Run 23-dimension substrate health check",
@@ -133,7 +133,7 @@ def main():
         help="Project root directory (default: current directory)",
     )
 
-    # ── myco config ────────────────────────────────────────────────
+    # ── myco genome ────────────────────────────────────────────────
     config_parser = subparsers.add_parser(
         "genome", help="Read/write adapter configuration in _canon.yaml [adapters] section"
     )
@@ -159,7 +159,7 @@ def main():
         help="Remove an adapters.* key",
     )
 
-    # ── myco import ────────────────────────────────────────────────
+    # ── myco assimilate ────────────────────────────────────────────────
     import_parser = subparsers.add_parser(
         "assimilate", help="Semi-automated content import from external tools (Hermes, OpenClaw)"
     )
@@ -330,7 +330,7 @@ def main():
         help="Project root (default: current directory)",
     )
 
-    # ── myco view ──────────────────────────────────────────────────
+    # ── myco observe ──────────────────────────────────────────────────
     view_parser = subparsers.add_parser(
         "observe",
         help="List notes (optionally filtered by status) or show a single note",
@@ -368,7 +368,7 @@ def main():
              "(exact match). Sorted by last_touched desc.",
     )
 
-    # ── myco compress ──────────────────────────────────────────────
+    # ── myco condense ──────────────────────────────────────────────
     # Wave 30 (kernel_contract, contract v0.26.0): forward compression —
     # take N raw/digesting notes and produce 1 extracted synthesis with a
     # full audit trail (compressed_from / compressed_into back-reference,
@@ -430,7 +430,7 @@ def main():
         help="Project root (default: current directory)",
     )
 
-    # ── myco uncompress ────────────────────────────────────────────
+    # ── myco expand ────────────────────────────────────────────
     # Wave 31: closes Wave 30 L4 limitation. Reverses a single compress
     # output: restores each input note to its `pre_compression_status`
     # and deletes the output extracted note. Bidirectional back-link
@@ -438,7 +438,7 @@ def main():
     # an output whose audit chain is broken.
     uncompress_parser = subparsers.add_parser(
         "expand",
-        help="Reverse a previous `myco compress` — restore each input from "
+        help="Reverse a previous `myco condense` — restore each input from "
              "its pre_compression_status and delete the extracted output.",
     )
     uncompress_parser.add_argument(
@@ -458,7 +458,7 @@ def main():
     # ── myco prune (Wave 33: D-layer auto-excretion) ──────────────
     # Closes the dead_knowledge hunger-signal loop. Default --dry-run is
     # SAFE (no writes); opt-in --apply mutates. Inverse asymmetry from
-    # `myco compress --dry-run` (additive verb defaults to apply, opt-in
+    # `myco condense --dry-run` (additive verb defaults to apply, opt-in
     # dry-run; destructive verb defaults to dry-run, opt-in apply).
     prune_parser = subparsers.add_parser(
         "prune",
@@ -484,7 +484,7 @@ def main():
         help="Project root (default: current directory)",
     )
 
-    # ── myco inlet (Wave 35: Metabolic Inlet primitive scaffold) ──
+    # ── myco absorb (Wave 35: Metabolic Inlet primitive scaffold) ──
     # Closes the longest-deferred gap in Myco's identity surface (anchor #3
     # Metabolic Inlet, declared Wave 10, scaffolded Wave 34, implemented Wave 35).
     # Verb shape locked in docs/primordia/metabolic_inlet_design_craft_2026-04-12.md §3.1.
@@ -504,7 +504,7 @@ def main():
         "--content", type=str, default=None,
         help="Explicit content body (use with --provenance). The "
              "agent-fetched-URL pattern: WebFetch the URL, then "
-             "`myco inlet --content \"<body>\" --provenance \"<url>\"`.",
+             "`myco absorb --content \"<body>\" --provenance \"<url>\"`.",
     )
     inlet_parser.add_argument(
         "--provenance", type=str, default=None,
@@ -515,7 +515,7 @@ def main():
         "--tags", type=str, default=None,
         help="Comma-separated tags. If omitted, the canon default tag "
              "(`notes_schema.inlet.default_tag`, normally 'inlet') is applied "
-             "so the existing `myco compress --tag inlet` chain works without "
+             "so the existing `myco condense --tag inlet` chain works without "
              "operators having to remember the convention.",
     )
     inlet_parser.add_argument(
@@ -606,7 +606,7 @@ def main():
     forage_digest.add_argument("--project-dir", type=str, default=".",
                                help="Project root (default: .)")
 
-    # ── myco graph (Wave 47, v0.36.0) ───────────────────────────────
+    # ── myco mycelium (Wave 47, v0.36.0) ───────────────────────────────
     graph_parser = subparsers.add_parser(
         "mycelium",
         help="Link graph analysis: backlinks, orphans, clusters, stats",
@@ -634,7 +634,7 @@ def main():
     g_stats.add_argument("--json", action="store_true",
                          help="Emit machine-readable JSON")
 
-    # ── myco cohort (Wave 48, v0.37.0) ──────────────────────────────
+    # ── myco colony (Wave 48, v0.37.0) ──────────────────────────────
     cohort_parser = subparsers.add_parser(
         "colony",
         help="Semantic cohort analysis: tag co-occurrence, compression suggestions, gaps",
@@ -653,7 +653,7 @@ def main():
     c_gaps.add_argument("--json", action="store_true")
     c_gaps.add_argument("--limit", type=int, default=20)
 
-    # ── myco session (Wave 52, v0.40.0) ─────────────────────────────
+    # ── myco memory (Wave 52, v0.40.0) ─────────────────────────────
     session_parser = subparsers.add_parser(
         "memory",
         help="Session memory: index, search, prune agent conversation transcripts",
@@ -672,7 +672,7 @@ def main():
     s_prune.add_argument("--project-dir", type=str, default=".")
     s_prune.add_argument("--json", action="store_true")
 
-    # ── myco verify (deployment health check) ──────────────────────
+    # ── myco diagnose (deployment health check) ──────────────────────
     verify_parser = subparsers.add_parser(
         "diagnose", help="Verify Myco deployment: MCP server, tools, lint, substrate health")
     verify_parser.add_argument(

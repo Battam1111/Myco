@@ -11,7 +11,7 @@ Adapters come in three types based on their integration model:
 - **Coexistence guide** (Cursor, GPT): configure a different agent type to work alongside Myco
 - **L0 backend** (MemPalace): plug in a retrieval service as Myco's archive layer
 
-In the current release (package v0.2.0 on PyPI, kernel contract v0.45.0), content-import adapters are available as CLI commands for Hermes and OpenClaw (`myco import --from hermes ./skills/`) and as manual protocols for the rest. Coexistence adapters are ready to use today — no CLI automation needed, just follow the YAML. L0 backends (MemPalace) remain design-spec until the first real deployment.
+In the current release (package v0.2.0 on PyPI, kernel contract v0.45.0), content-import adapters are available as CLI commands for Hermes and OpenClaw (`myco assimilate --from hermes ./skills/`) and as manual protocols for the rest. Coexistence adapters are ready to use today — no CLI automation needed, just follow the YAML. L0 backends (MemPalace) remain design-spec until the first real deployment.
 
 ## Adapter Schema
 
@@ -40,11 +40,11 @@ lint_checks, promotion_loop, value_proposition, roadmap, notes
 
 | Tool | Integration Type | Status | Notes |
 |------|-----------------|--------|-------|
-| [Claude Code (CLAUDE.md)](./claude_code.yaml) | Entry Point Upgrade | ✅ CLI | `myco migrate --entry-point CLAUDE.md` |
+| [Claude Code (CLAUDE.md)](./claude_code.yaml) | Entry Point Upgrade | ✅ CLI | `myco graft --entry-point CLAUDE.md` |
 | [Cursor](./cursor.yaml) | Coexistence Guide | ✅ Active | File-aware coexistence, no migration needed |
 | [GPT (OpenAI)](./gpt.yaml) | Coexistence Guide | ✅ Active | System prompt / ChatGPT Projects / Assistants API |
-| [Hermes Agent](./hermes.yaml) | Content Import (Skills) | ✅ CLI | `myco import --from hermes ./skills/` |
-| [OpenClaw (MEMORY.md)](./openclaw.yaml) | Content Import (Memory) | ✅ CLI | `myco import --from openclaw ./MEMORY.md` |
+| [Hermes Agent](./hermes.yaml) | Content Import (Skills) | ✅ CLI | `myco assimilate --from hermes ./skills/` |
+| [OpenClaw (MEMORY.md)](./openclaw.yaml) | Content Import (Memory) | ✅ CLI | `myco assimilate --from openclaw ./MEMORY.md` |
 | [MemPalace](./mempalace.yaml) | L0 Retrieval Backend | 📋 Design spec | Post-1.0 API integration |
 
 ## Contributing an Adapter
@@ -53,7 +53,7 @@ If you've successfully integrated another tool with Myco, please submit an adapt
 
 1. Copy this schema, fill in for your tool
 2. Test the import steps manually on your project
-3. Confirm `myco lint` passes after the import
+3. Confirm `myco immune` passes after the import
 4. Submit a PR with your `docs/adapters/<toolname>.yaml`
 
 Acceptance criteria: Manually tested on ≥1 real project. All lint checks pass.

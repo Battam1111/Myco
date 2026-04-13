@@ -7,7 +7,7 @@ Filename pattern: `n_YYYYMMDDTHHMMSS_xxxx.md`
 
 - `myco eat`     — capture content as a raw note (zero-friction)
 - `myco digest`  — move a note through the lifecycle
-- `myco view`    — list or read notes
+- `myco observe`    — list or read notes
 - `myco hunger`  — metabolic dashboard with actionable signals
 
 ## Lifecycle
