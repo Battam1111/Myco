@@ -199,6 +199,7 @@ def _read_file(path: Path) -> Optional[str]:
 async def myco_immune(
     project_dir: Optional[str] = None,
     quick: bool = False,
+    fix: bool = False,
 ) -> str:
     """Check the project for contradictions, stale references, and knowledge drift.
 
@@ -281,6 +282,28 @@ async def myco_immune(
         "all_passed": total_issues == 0,
         "checks": results,
     }
+
+    # Auto-fix if requested
+    if fix and total_issues > 0:
+        try:
+            from myco.immune import auto_fix_issues, collect_all_issues
+            all_issues = []
+            for r in results:
+                for iss in r.get("issues", []):
+                    all_issues.append((
+                        iss["level"], iss["severity"],
+                        iss["file"], iss["message"]
+                    ))
+            fixed_count = auto_fix_issues(root, all_issues, canon)
+            report["auto_fixed"] = fixed_count
+            # Re-check after fix
+            recheck_issues = 0
+            for name, checker in checks:
+                recheck_issues += len(checker(canon, root))
+            report["total_issues_after_fix"] = recheck_issues
+            total_issues = recheck_issues
+        except Exception as e:
+            report["auto_fix_error"] = str(e)
 
     if total_issues == 0:
         report["summary"] = "✅ ALL CHECKS PASSED — knowledge system is healthy."
