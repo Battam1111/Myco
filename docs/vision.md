@@ -1,15 +1,15 @@
 # Myco — 愿景文档
 
 > **名称**：Myco（/ˈmaɪkoʊ/）
-> **Tagline**：*The Living Substrate — Self-Evolving Cognition for LLM Agents*
-> **定位**：与任何 AI Agent 共生的自主认知基质
-> **核心机制**：知识代谢 + 元进化 + 自我模型
+> **Tagline**：*Eternal Devouring. Eternal Evolution.*
+> **定位**：Agent-First 共生认知有机体（Symbiotic Cognitive Organism）
+> **核心机制**：知识代谢 + 免疫自修复 + 技能进化 + 自我模型
 
 ---
 
 ## 一、Myco 是什么
 
-**一句话**：一个为 LLM Agent 提供跨会话、自进化、结构化知识的外部基质。
+**一句话**：Agent-First 共生认知有机体——Agent 的另一半。它记忆、验证、消化、进化，让 Agent 不再每次从零开始。
 
 **展开**：
 - **Agent 的角色**：推理和执行（推导、计划、行动）

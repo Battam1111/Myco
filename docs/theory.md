@@ -7,7 +7,7 @@
 
 ## 一、Myco 是什么——核心定义
 
-**Myco 是可自进化的 AI 延伸认知基质（Self-Evolving Extended Cognitive Substrate for AI Agents）。**
+**Myco 是 Agent-First 的共生认知有机体（Agent-First Symbiotic Cognitive Organism）。**
 
 这个定义由两个支柱构成：
 
