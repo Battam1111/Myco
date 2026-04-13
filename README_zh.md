@@ -54,7 +54,7 @@
 ```bash
 git clone https://github.com/Battam1111/Myco.git
 cd Myco && pip install -e ".[mcp]"
-myco init --auto-detect my-project
+myco seed --auto-detect my-project
 ```
 
 三行命令。自动检测你的环境——Claude Code · Cowork · Cursor · VS Code · Codex · Cline · Continue · Zed · Windsurf——检测到哪个配哪个，一次全部配好。

@@ -20,7 +20,7 @@ def _project_root(args: Any) -> Path:
 
 def run_cohort(args: Any) -> int:
     """Dispatch ``myco cohort`` subcommands."""
-    from myco.cohorts import (
+    from myco.colony import (
         compression_cohort_suggest,
         gap_detection,
         tag_cooccurrence,

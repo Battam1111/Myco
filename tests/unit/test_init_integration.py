@@ -20,7 +20,7 @@ from unittest.mock import patch
 
 import pytest
 
-from myco.init_cmd import run_init, run_auto_detect, _metabolic_skill_content
+from myco.seed_cmd import run_init, run_auto_detect, _metabolic_skill_content
 
 
 # ---------------------------------------------------------------------------
@@ -51,32 +51,32 @@ def _make_args(
 
 def _patch_mcp_sdk():
     """Patch _check_mcp_sdk to avoid real pip install during tests."""
-    return patch("myco.init_cmd._check_mcp_sdk", return_value=True) if hasattr(
-        __import__("myco.init_cmd", fromlist=["_check_mcp_sdk"]), "_check_mcp_sdk"
+    return patch("myco.seed_cmd._check_mcp_sdk", return_value=True) if hasattr(
+        __import__("myco.seed_cmd", fromlist=["_check_mcp_sdk"]), "_check_mcp_sdk"
     ) else patch("builtins.__import__", side_effect=lambda *a, **kw: None)
 
 
 # The 21 canonical MCP tools that SKILL.md must list.
 EXPECTED_MCP_TOOLS = [
     "mcp__myco__myco_hunger",
-    "mcp__myco__myco_lint",
-    "mcp__myco__myco_log",
-    "mcp__myco__myco_session",
+    "mcp__myco__myco_immune",
+    "mcp__myco__myco_trace",
+    "mcp__myco__myco_memory",
     "mcp__myco__myco_digest",
-    "mcp__myco__myco_compress",
+    "mcp__myco__myco_condense",
     "mcp__myco__myco_prune",
-    "mcp__myco__myco_status",
-    "mcp__myco__myco_view",
+    "mcp__myco__myco_pulse",
+    "mcp__myco__myco_observe",
     "mcp__myco__myco_eat",
-    "mcp__myco__myco_search",
-    "mcp__myco__myco_cohort",
-    "mcp__myco__myco_graph",
+    "mcp__myco__myco_sense",
+    "mcp__myco__myco_colony",
+    "mcp__myco__myco_mycelium",
     "mcp__myco__myco_reflect",
     "mcp__myco__myco_evolve",
     "mcp__myco__myco_evolve_list",
-    "mcp__myco__myco_inlet",
+    "mcp__myco__myco_absorb",
     "mcp__myco__myco_forage",
-    "mcp__myco__myco_uncompress",
+    "mcp__myco__myco_expand",
 ]
 
 
@@ -97,7 +97,7 @@ class TestInitAgentClaudeLevel2:
         with patch.dict("os.environ", {}, clear=False):
             try:
                 # _check_mcp_sdk is a nested function, patch the import check
-                import myco.init_cmd as mod
+                import myco.seed_cmd as mod
                 original = getattr(mod, "_check_mcp_sdk", None)
             except Exception:
                 original = None
@@ -257,7 +257,7 @@ class TestInitAutoDetect:
         args = _make_args(
             target, level=2, agent=None, auto_detect=True,
         )
-        with patch("myco.init_cmd.detect_tools") as mock_detect:
+        with patch("myco.seed_cmd.detect_tools") as mock_detect:
             mock_detect.return_value = {
                 "Claude Code": False,
                 "Cursor": False,
@@ -518,7 +518,7 @@ class TestSkillMdNoOverwrite:
         (sched_dir / "SKILL.md").write_text(custom, encoding="utf-8")
 
         args = _make_args(target, level=2, agent=None, auto_detect=True)
-        with patch("myco.init_cmd.detect_tools") as mock_detect:
+        with patch("myco.seed_cmd.detect_tools") as mock_detect:
             mock_detect.return_value = {k: False for k in [
                 "Claude Code", "Cursor", "VS Code", "Codex",
                 "Cline", "Continue", "Windsurf", "Zed",

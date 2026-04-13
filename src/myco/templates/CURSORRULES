@@ -12,7 +12,7 @@
 # ─── Session Flow ────────────────────────────────────────────────────────────
 # 1. Boot:  myco_hunger(execute=true) — checks substrate health, auto-executes repairs
 # 2. Work:  Do the human's task. Use myco_eat to capture decisions.
-#           Use myco_search before answering factual questions.
+#           Use myco_sense before answering factual questions.
 # 3. End:   myco_reflect() — session reflection (captures execution learnings)
 
 # ─── MCP Integration ────────────────────────────────────────────────────────
@@ -42,28 +42,28 @@
 #   myco_hunger(execute=true)
 #
 # HEALTH (end of session, after modifying docs):
-#   myco_lint, myco_status
+#   myco_immune, myco_pulse
 #
 # CAPTURE (after decisions, insights, friction):
 #   myco_eat
 #
 # PROCESS (when hunger signals recommend):
-#   myco_digest, myco_compress, myco_prune
+#   myco_digest, myco_condense, myco_prune
 #
 # SEARCH (before answering factual questions):
-#   myco_search, myco_session
+#   myco_sense, myco_memory
 #
 # ANALYZE (before refactoring, compression):
-#   myco_graph, myco_cohort
+#   myco_mycelium, myco_colony
 #
 # EXTERNAL (when gaps detected):
-#   myco_inlet, myco_forage
+#   myco_absorb, myco_forage
 #
 # LOG (after completing tasks, session end):
-#   myco_log, myco_reflect
+#   myco_trace, myco_reflect
 #
 # VIEW (when recalling past decisions):
-#   myco_view
+#   myco_observe
 
 # ─── Reflex Arcs (auto-enforced) ────────────────────────────────────────────
 # [REFLEX HIGH] raw_backlog    — digest notes before any task work

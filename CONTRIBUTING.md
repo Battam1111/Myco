@@ -21,7 +21,7 @@ There are four formal contribution types, each with a clear acceptance bar. Code
 
 **Acceptance criteria:**
 - Tested manually on ≥1 real project (your own counts)
-- All lint checks in the YAML actually pass after running `myco lint`
+- All lint checks in the YAML actually pass after running `myco immune`
 - `docs/adapters/README.md` table updated with your adapter entry
 
 **Effort estimate:** 1-2 hours. This is the fastest path to a merged contribution. Start here.
@@ -45,7 +45,7 @@ There are four formal contribution types, each with a clear acceptance bar. Code
 ---
 
 ### 3. Lint Rules
-**What:** A proposed new consistency check for `myco lint`, submitted as a GitHub Discussion + (optionally) a pull request to `src/myco/lint.py`.
+**What:** A proposed new consistency check for `myco immune`, submitted as a GitHub Discussion + (optionally) a pull request to src/myco/immune.py.
 
 **Why this matters:** Lint rules are Myco's immune system. Each new rule is a pattern of failure that was caught in the real world.
 
@@ -104,8 +104,8 @@ Use [GitHub Issues](https://github.com/Battam1111/Myco/issues) with the appropri
 4. Test locally:
    ```bash
    pip install -e ".[mcp]"
-   myco init --agent claude test-project
-   myco lint --project-dir test-project
+   myco seed --agent claude test-project
+   myco immune --project-dir test-project
    ```
 5. Submit a pull request
 
@@ -118,8 +118,8 @@ pip install -e ".[mcp]"
 
 # Verify installation
 myco --version
-myco init --agent claude /tmp/test-project
-myco lint --project-dir /tmp/test-project
+myco seed --agent claude /tmp/test-project
+myco immune --project-dir /tmp/test-project
 ```
 
 Editable install (`-e`) is the only recommended path. Myco is a living organism — the kernel code, templates, lint rules, and hunger signals are all meant to self-evolve. A frozen install limits what can evolve.
@@ -137,14 +137,14 @@ Editable install (`-e`) is the only recommended path. Myco is a living organism 
 Myco/
 ├── src/myco/              # Python package (pip installable)
 │   ├── cli.py             # CLI dispatcher (26+ subcommands)
-│   ├── init_cmd.py        # Project initialization
-│   ├── migrate.py         # Hot-start migration
-│   ├── lint.py            # 23-dimension consistency checker (L0-L22)
+│   ├── seed_cmd.py        # Project initialization
+│   ├── graft.py         # Hot-start migration
+│   ├── immune.py            # 23-dimension consistency checker (L0-L22)
 │   ├── notes.py           # Atomic note engine (eat/digest/view)
-│   ├── compress_cmd.py    # Compression primitive
-│   ├── graph.py           # Structural link graph
+│   ├── condense_cmd.py    # Compression primitive
+│   ├── mycelium.py           # Structural link graph
 │   ├── mcp_server.py      # MCP tool server (19 tools)
-│   ├── sessions.py        # Session transcript indexing
+│   ├── memory.py        # Session transcript indexing
 │   ├── forage.py          # External material ingestion
 │   ├── templates.py       # Template resolution (importlib.resources)
 │   └── templates/         # Bundled project templates (single source of truth)
@@ -173,7 +173,7 @@ If your project completes the full Myco lifecycle including cross-project distil
 
 **What a Featured Example includes:**
 - Harvest snapshot: structure files from your completed project (MYCO.md, _canon.yaml, log.md, WORKFLOW.md — content can be redacted where needed)
-- Evolution Timeline: how your knowledge system grew from `myco init` to Cross-Project Distillation
+- Evolution Timeline: how your knowledge system grew from `myco seed` to Cross-Project Distillation
 - Cross-Project Distillation reverse link: what universal patterns were distilled, and where they now live in Myco's `docs/`
 - Your cross-project distillation products themselves — submitted as a PR to Myco's `docs/`
 

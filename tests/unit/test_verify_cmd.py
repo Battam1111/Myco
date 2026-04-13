@@ -1,4 +1,4 @@
-"""Unit tests for myco.verify_cmd — deployment health check.
+"""Unit tests for myco.diagnose_cmd — deployment health check.
 
 Tests the 5 automation/deployment completeness checks added to verify:
   5a. Scheduled task (myco-metabolic-cycle)
@@ -48,10 +48,10 @@ class TestScheduledTask:
         (sched / "SKILL.md").write_text("# metabolic cycle\n", encoding="utf-8")
 
         monkeypatch.setattr(
-            "myco.verify_cmd._user_claude_dir", lambda: fake_home_claude
+            "myco.diagnose_cmd._user_claude_dir", lambda: fake_home_claude
         )
 
-        from myco.verify_cmd import run_verify
+        from myco.diagnose_cmd import run_verify
         run_verify(_make_verify_args(str(tmp_path)))
         out = capsys.readouterr().out
         assert "Scheduled task: myco-metabolic-cycle" in out
@@ -63,10 +63,10 @@ class TestScheduledTask:
         fake_home_claude.mkdir(parents=True)
 
         monkeypatch.setattr(
-            "myco.verify_cmd._user_claude_dir", lambda: fake_home_claude
+            "myco.diagnose_cmd._user_claude_dir", lambda: fake_home_claude
         )
 
-        from myco.verify_cmd import run_verify
+        from myco.diagnose_cmd import run_verify
         run_verify(_make_verify_args(str(tmp_path)))
         out = capsys.readouterr().out
         assert "Scheduled task missing" in out
@@ -93,10 +93,10 @@ class TestSettingsPermissions:
         fake_home = tmp_path / "fake_home" / ".claude"
         fake_home.mkdir(parents=True)
         monkeypatch.setattr(
-            "myco.verify_cmd._user_claude_dir", lambda: fake_home
+            "myco.diagnose_cmd._user_claude_dir", lambda: fake_home
         )
 
-        from myco.verify_cmd import run_verify
+        from myco.diagnose_cmd import run_verify
         run_verify(_make_verify_args(str(tmp_path)))
         out = capsys.readouterr().out
         assert "mcp__myco__* in allow list" in out
@@ -116,10 +116,10 @@ class TestSettingsPermissions:
         fake_home = tmp_path / "fake_home" / ".claude"
         fake_home.mkdir(parents=True)
         monkeypatch.setattr(
-            "myco.verify_cmd._user_claude_dir", lambda: fake_home
+            "myco.diagnose_cmd._user_claude_dir", lambda: fake_home
         )
 
-        from myco.verify_cmd import run_verify
+        from myco.diagnose_cmd import run_verify
         run_verify(_make_verify_args(str(tmp_path)))
         out = capsys.readouterr().out
         assert "mcp__myco__* in allow list" in out
@@ -139,10 +139,10 @@ class TestSettingsPermissions:
         fake_home = tmp_path / "fake_home" / ".claude"
         fake_home.mkdir(parents=True)
         monkeypatch.setattr(
-            "myco.verify_cmd._user_claude_dir", lambda: fake_home
+            "myco.diagnose_cmd._user_claude_dir", lambda: fake_home
         )
 
-        from myco.verify_cmd import run_verify
+        from myco.diagnose_cmd import run_verify
         run_verify(_make_verify_args(str(tmp_path)))
         out = capsys.readouterr().out
         assert "not in allow list" in out
@@ -152,10 +152,10 @@ class TestSettingsPermissions:
         fake_home = tmp_path / "fake_home" / ".claude"
         fake_home.mkdir(parents=True)
         monkeypatch.setattr(
-            "myco.verify_cmd._user_claude_dir", lambda: fake_home
+            "myco.diagnose_cmd._user_claude_dir", lambda: fake_home
         )
 
-        from myco.verify_cmd import run_verify
+        from myco.diagnose_cmd import run_verify
         run_verify(_make_verify_args(str(tmp_path)))
         out = capsys.readouterr().out
         assert "not in allow list" in out
@@ -175,10 +175,10 @@ class TestCoworkSkills:
         fake_home = tmp_path / "fake_home" / ".claude"
         fake_home.mkdir(parents=True)
         monkeypatch.setattr(
-            "myco.verify_cmd._user_claude_dir", lambda: fake_home
+            "myco.diagnose_cmd._user_claude_dir", lambda: fake_home
         )
 
-        from myco.verify_cmd import run_verify
+        from myco.diagnose_cmd import run_verify
         run_verify(_make_verify_args(str(tmp_path)))
         out = capsys.readouterr().out
         assert "Cowork skill: myco-boot" in out
@@ -189,10 +189,10 @@ class TestCoworkSkills:
         fake_home = tmp_path / "fake_home" / ".claude"
         fake_home.mkdir(parents=True)
         monkeypatch.setattr(
-            "myco.verify_cmd._user_claude_dir", lambda: fake_home
+            "myco.diagnose_cmd._user_claude_dir", lambda: fake_home
         )
 
-        from myco.verify_cmd import run_verify
+        from myco.diagnose_cmd import run_verify
         run_verify(_make_verify_args(str(tmp_path)))
         out = capsys.readouterr().out
         assert "Cowork skill missing" in out
@@ -212,10 +212,10 @@ class TestBootRitual:
         fake_home = tmp_path / "fake_home" / ".claude"
         fake_home.mkdir(parents=True)
         monkeypatch.setattr(
-            "myco.verify_cmd._user_claude_dir", lambda: fake_home
+            "myco.diagnose_cmd._user_claude_dir", lambda: fake_home
         )
 
-        from myco.verify_cmd import run_verify
+        from myco.diagnose_cmd import run_verify
         run_verify(_make_verify_args(str(tmp_path)))
         out = capsys.readouterr().out
         assert "Boot ritual: MYCO.md contains myco_hunger" in out
@@ -227,10 +227,10 @@ class TestBootRitual:
         fake_home = tmp_path / "fake_home" / ".claude"
         fake_home.mkdir(parents=True)
         monkeypatch.setattr(
-            "myco.verify_cmd._user_claude_dir", lambda: fake_home
+            "myco.diagnose_cmd._user_claude_dir", lambda: fake_home
         )
 
-        from myco.verify_cmd import run_verify
+        from myco.diagnose_cmd import run_verify
         run_verify(_make_verify_args(str(tmp_path)))
         out = capsys.readouterr().out
         assert "missing myco_hunger" in out
@@ -247,10 +247,10 @@ class TestBootRitual:
         fake_home = tmp_path / "fake_home" / ".claude"
         fake_home.mkdir(parents=True)
         monkeypatch.setattr(
-            "myco.verify_cmd._user_claude_dir", lambda: fake_home
+            "myco.diagnose_cmd._user_claude_dir", lambda: fake_home
         )
 
-        from myco.verify_cmd import run_verify
+        from myco.diagnose_cmd import run_verify
         run_verify(_make_verify_args(str(tmp_path)))
         out = capsys.readouterr().out
         assert "Boot ritual: CLAUDE.md contains myco_hunger" in out
@@ -270,10 +270,10 @@ class TestCraftDirectory:
         fake_home = tmp_path / "fake_home" / ".claude"
         fake_home.mkdir(parents=True)
         monkeypatch.setattr(
-            "myco.verify_cmd._user_claude_dir", lambda: fake_home
+            "myco.diagnose_cmd._user_claude_dir", lambda: fake_home
         )
 
-        from myco.verify_cmd import run_verify
+        from myco.diagnose_cmd import run_verify
         run_verify(_make_verify_args(str(tmp_path)))
         out = capsys.readouterr().out
         assert "Craft directory: docs/primordia/ (1 craft files)" in out
@@ -288,10 +288,10 @@ class TestCraftDirectory:
         fake_home = tmp_path / "fake_home" / ".claude"
         fake_home.mkdir(parents=True)
         monkeypatch.setattr(
-            "myco.verify_cmd._user_claude_dir", lambda: fake_home
+            "myco.diagnose_cmd._user_claude_dir", lambda: fake_home
         )
 
-        from myco.verify_cmd import run_verify
+        from myco.diagnose_cmd import run_verify
         run_verify(_make_verify_args(str(tmp_path)))
         out = capsys.readouterr().out
         assert "Craft directory missing" in out
@@ -308,10 +308,10 @@ class TestTotalCount:
         fake_home = tmp_path / "fake_home" / ".claude"
         fake_home.mkdir(parents=True)
         monkeypatch.setattr(
-            "myco.verify_cmd._user_claude_dir", lambda: fake_home
+            "myco.diagnose_cmd._user_claude_dir", lambda: fake_home
         )
 
-        from myco.verify_cmd import run_verify
+        from myco.diagnose_cmd import run_verify
         run_verify(_make_verify_args(str(tmp_path)))
         out = capsys.readouterr().out
         # The summary line shows "X/13 passed"

@@ -132,7 +132,7 @@ Run a Craft when any of the following is true:
 
 1. **Kernel contract change** (Class Z in Upstream Protocol §8.2): any edit
    to `docs/agent_protocol.md`, `_canon.yaml`, `scripts/lint_knowledge.py`,
-   `src/myco/lint.py`, `src/myco/mcp_server.py`, or `src/myco/templates/**`.
+   src/myco/lint.py, `src/myco/mcp_server.py`, or `src/myco/templates/**`.
    Minimum `target_confidence: 0.90`, `decision_class: kernel_contract`.
 
 2. **Instance-level architectural decision**: any decision that will shape
@@ -165,7 +165,7 @@ reflex immutable and agent-autonomous.
 
 1. Agent touches a file in
    `_canon.yaml: system.craft_protocol.reflex.trigger_surfaces.*`.
-2. Detection (runs every `myco lint` / `myco hunger` / session boot):
+2. Detection (runs every `myco immune` / `myco hunger` / session boot):
    `now - path.stat().st_mtime < lookback_days * 86400`. Auxiliary
    evidence check on `log.md` + `docs/primordia/*_craft_*.md` mtimes
    for the same window — if craft evidence is present, arc is
@@ -183,7 +183,7 @@ reflex immutable and agent-autonomous.
 Trigger surfaces are split into two classes:
 
 - `kernel_contract` — `docs/agent_protocol.md`, `docs/craft_protocol.md`,
-  `_canon.yaml`, `src/myco/lint.py`, `src/myco/mcp_server.py`,
+  `_canon.yaml`, src/myco/lint.py, `src/myco/mcp_server.py`,
   `src/myco/templates/_canon.yaml`, `src/myco/templates/MYCO.md`.
   Touching any of these maps to Trigger #1 above.
 - `public_claim` — `README.md`, `README_zh.md`, `README_ja.md`,
@@ -194,7 +194,7 @@ Trigger surfaces are split into two classes:
 Wave 11 LOW). The reasoning: Wave 11 treated the reflex as a signal
 because the design still implicitly relied on a human to decide
 whether to act on it. Wave 12 overturns that: the agent acts on the
-signal immutably. HIGH severity is what makes `myco lint` refuse to
+signal immutably. HIGH severity is what makes `myco immune` refuse to
 return 0 until the craft exists, and the agent's protocol-bound
 response is never to suppress lint — it is to write the craft.
 

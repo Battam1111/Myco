@@ -1,4 +1,4 @@
-"""Unit tests for myco.graph — Wave 47 link graph infrastructure."""
+"""Unit tests for myco.mycelium — Wave 47 link graph infrastructure."""
 
 from pathlib import Path
 
@@ -44,7 +44,7 @@ def graph_project(tmp_path):
 
 def test_extract_links_markdown(graph_project):
     """Verify markdown links and backtick paths are extracted."""
-    from myco.graph import extract_links
+    from myco.mycelium import extract_links
 
     myco_md = graph_project / "MYCO.md"
     links = extract_links(myco_md, graph_project)
@@ -54,7 +54,7 @@ def test_extract_links_markdown(graph_project):
 
 def test_build_graph_backlinks(graph_project):
     """A→B→C chain: verify A in B's backlinks, B in C's backlinks."""
-    from myco.graph import build_link_graph
+    from myco.mycelium import build_link_graph
 
     graph = build_link_graph(graph_project)
 
@@ -67,7 +67,7 @@ def test_build_graph_backlinks(graph_project):
 
 def test_find_orphans(graph_project):
     """Unlinked file detected as orphan; linked files are not."""
-    from myco.graph import build_link_graph, find_orphans
+    from myco.mycelium import build_link_graph, find_orphans
 
     # Add an orphan file
     (graph_project / "docs" / "orphan.md").write_text("# Orphan\nNo one links here.\n")
@@ -82,7 +82,7 @@ def test_find_orphans(graph_project):
 
 def test_find_clusters(graph_project):
     """Two disconnected file pairs produce 2+ clusters."""
-    from myco.graph import build_link_graph, find_clusters
+    from myco.mycelium import build_link_graph, find_clusters
 
     # Add a disconnected pair
     (graph_project / "docs" / "island_x.md").write_text(
@@ -109,7 +109,7 @@ def test_find_clusters(graph_project):
 
 def test_graph_stats(graph_project):
     """Stats returns expected structure."""
-    from myco.graph import build_link_graph, graph_stats
+    from myco.mycelium import build_link_graph, graph_stats
 
     graph = build_link_graph(graph_project)
     stats = graph_stats(graph)
@@ -165,7 +165,7 @@ def py_project(tmp_path):
 
 def test_extract_links_py_comment_refs(py_project):
     """Python comment references to substrate files are extracted."""
-    from myco.graph import extract_links_py
+    from myco.mycelium import extract_links_py
 
     lint_py = py_project / "src" / "myco" / "lint.py"
     links = extract_links_py(lint_py, py_project)
@@ -177,7 +177,7 @@ def test_extract_links_py_comment_refs(py_project):
 
 def test_extract_links_py_string_refs(py_project):
     """Python string references like MYCO.md are extracted."""
-    from myco.graph import extract_links_py
+    from myco.mycelium import extract_links_py
 
     notes_py = py_project / "src" / "myco" / "notes.py"
     links = extract_links_py(notes_py, py_project)
@@ -188,7 +188,7 @@ def test_extract_links_py_string_refs(py_project):
 
 def test_py_files_in_graph(py_project):
     """Python files appear as nodes in the link graph."""
-    from myco.graph import build_link_graph
+    from myco.mycelium import build_link_graph
 
     graph = build_link_graph(py_project)
 
@@ -198,7 +198,7 @@ def test_py_files_in_graph(py_project):
 
 def test_py_forward_links(py_project):
     """Python file forward links point to the docs they reference."""
-    from myco.graph import build_link_graph
+    from myco.mycelium import build_link_graph
 
     graph = build_link_graph(py_project)
 
@@ -209,7 +209,7 @@ def test_py_forward_links(py_project):
 
 def test_py_backlinks(py_project):
     """Docs referenced by Python files show those .py files in backlinks."""
-    from myco.graph import build_link_graph
+    from myco.mycelium import build_link_graph
 
     graph = build_link_graph(py_project)
 
@@ -222,7 +222,7 @@ def test_py_backlinks(py_project):
 
 def test_py_files_not_orphans(py_project):
     """Python files are never reported as orphans (code is infrastructure)."""
-    from myco.graph import build_link_graph, find_orphans
+    from myco.mycelium import build_link_graph, find_orphans
 
     graph = build_link_graph(py_project)
     orphans = find_orphans(graph)
@@ -233,7 +233,7 @@ def test_py_files_not_orphans(py_project):
 
 def test_py_scan_does_not_break_md(py_project):
     """Adding .py scanning does not interfere with existing .md link extraction."""
-    from myco.graph import build_link_graph
+    from myco.mycelium import build_link_graph
 
     # Add a markdown cross-reference
     (py_project / "docs" / "architecture.md").write_text(

@@ -1,4 +1,4 @@
-"""Unit tests for myco.init_cmd — project initialization (Wave A3)."""
+"""Unit tests for myco.seed_cmd — project initialization (Wave A3)."""
 
 from pathlib import Path
 import pytest
@@ -6,7 +6,7 @@ import pytest
 
 def test_init_level0_creates_entry_and_log(tmp_path):
     """init_level_0 creates entry_point and log.md."""
-    from myco.init_cmd import init_level_0
+    from myco.seed_cmd import init_level_0
     replacements = {
         "PROJECT_NAME": "TestProject",
         "GITHUB_USER": "testuser",
@@ -21,7 +21,7 @@ def test_init_level0_creates_entry_and_log(tmp_path):
 
 def test_init_level1_creates_canon_and_dirs(tmp_path):
     """init_level_1 creates _canon.yaml, notes/, wiki/."""
-    from myco.init_cmd import init_level_0, init_level_1
+    from myco.seed_cmd import init_level_0, init_level_1
     replacements = {
         "PROJECT_NAME": "TestProject",
         "GITHUB_USER": "testuser",
@@ -38,7 +38,7 @@ def test_init_level1_creates_canon_and_dirs(tmp_path):
 def test_run_init_returns_zero(tmp_path):
     """run_init succeeds on fresh directory."""
     import argparse
-    from myco.init_cmd import run_init
+    from myco.seed_cmd import run_init
     target = tmp_path / "newproject"
     target.mkdir()
     args = argparse.Namespace(
@@ -61,7 +61,7 @@ class TestPreCommitHookGeneration:
 
     def test_pre_commit_hook_generated(self, tmp_path):
         """After init with .git/ present, pre-commit hook exists and contains 'myco'."""
-        from myco.init_cmd import _generate_pre_commit_hook
+        from myco.seed_cmd import _generate_pre_commit_hook
 
         # Simulate a git repo
         (tmp_path / ".git").mkdir()
@@ -77,7 +77,7 @@ class TestPreCommitHookGeneration:
 
     def test_no_hook_without_git(self, tmp_path):
         """No .git/ directory means no hook is generated."""
-        from myco.init_cmd import _generate_pre_commit_hook
+        from myco.seed_cmd import _generate_pre_commit_hook
 
         result = _generate_pre_commit_hook(tmp_path)
 
@@ -86,7 +86,7 @@ class TestPreCommitHookGeneration:
 
     def test_existing_myco_hook_not_overwritten(self, tmp_path):
         """Existing hook that already has 'myco' is left untouched."""
-        from myco.init_cmd import _generate_pre_commit_hook
+        from myco.seed_cmd import _generate_pre_commit_hook
 
         (tmp_path / ".git" / "hooks").mkdir(parents=True)
         hook_path = tmp_path / ".git" / "hooks" / "pre-commit"
@@ -100,7 +100,7 @@ class TestPreCommitHookGeneration:
 
     def test_existing_non_myco_hook_appended(self, tmp_path):
         """Existing non-Myco hook gets Myco lint appended."""
-        from myco.init_cmd import _generate_pre_commit_hook
+        from myco.seed_cmd import _generate_pre_commit_hook
 
         (tmp_path / ".git" / "hooks").mkdir(parents=True)
         hook_path = tmp_path / ".git" / "hooks" / "pre-commit"
@@ -118,7 +118,7 @@ class TestPreCommitHookGeneration:
 
     def test_init_level0_generates_hook_when_git_exists(self, tmp_path):
         """init_level_0 generates the pre-commit hook when .git/ is present."""
-        from myco.init_cmd import init_level_0
+        from myco.seed_cmd import init_level_0
 
         # Simulate git repo
         (tmp_path / ".git").mkdir()

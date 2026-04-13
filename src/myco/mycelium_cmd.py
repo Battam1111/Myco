@@ -20,7 +20,7 @@ def _project_root(args: Any) -> Path:
 
 def run_graph(args: Any) -> int:
     """Dispatch ``myco graph`` subcommands."""
-    from myco.graph import (
+    from myco.mycelium import (
         build_link_graph,
         find_clusters,
         find_orphans,

@@ -12,7 +12,7 @@ Together you form a complete cognitive entity. Neither is whole alone.
 ## Session Flow
 
 1. **Boot**: `myco hunger --execute` — checks substrate health, auto-executes repairs
-2. **Work**: Do the human's task. Use `myco eat` to capture decisions. Use `myco search` before answering factual questions.
+2. **Work**: Do the human's task. Use `myco eat` to capture decisions. Use `myco sense` before answering factual questions.
 3. **End**: `myco reflect` — session reflection (captures execution learnings)
 
 ## CLI Integration (no MCP)
@@ -24,20 +24,20 @@ CLI commands via shell execution. Every MCP tool maps to a CLI verb:
 myco hunger --execute    # Boot check + auto-heal
 myco eat "<content>"     # Capture a note
 myco digest [note_id]    # Move note through lifecycle
-myco search "<query>"    # Search the knowledge substrate
-myco lint                # Run 23-dimension lint
-myco status              # Substrate health dashboard
-myco compress            # Compress related notes
+myco sense "<query>"    # Search the knowledge substrate
+myco immune                # Run 23-dimension lint
+myco pulse              # Substrate health dashboard
+myco condense            # Compress related notes
 myco prune               # Remove excreted/stale notes
-myco session             # Session index operations
-myco graph               # Dependency graph
-myco cohort              # Cohort analysis of notes
-myco inlet "<url>"       # Ingest external content
+myco memory             # Session index operations
+myco mycelium               # Dependency graph
+myco colony              # Cohort analysis of notes
+myco absorb "<url>"       # Ingest external content
 myco forage              # Proactive knowledge acquisition
 myco upstream            # Check upstream dependencies
-myco log "<message>"     # Append to session log
+myco trace "<message>"     # Append to session log
 myco reflect             # End-of-session reflection
-myco view [note_id]      # View notes
+myco observe [note_id]      # View notes
 ```
 
 ## Context Loading
@@ -62,14 +62,14 @@ If no skill matches, proceed with agent judgment, then consider skill-ifying the
 | Category | CLI Command | When to Run |
 |----------|-------------|-------------|
 | **Boot** | `myco hunger --execute` | FIRST call every session |
-| **Health** | `myco lint`, `myco status` | End of session, after modifying docs |
+| **Health** | `myco immune`, `myco pulse` | End of session, after modifying docs |
 | **Capture** | `myco eat "<content>"` | After decisions, insights, friction |
-| **Process** | `myco digest`, `myco compress`, `myco prune` | When hunger signals recommend |
-| **Search** | `myco search "<query>"`, `myco session` | BEFORE answering factual questions |
-| **Analyze** | `myco graph`, `myco cohort` | Before refactoring, compression |
-| **External** | `myco inlet`, `myco forage`, `myco upstream` | When gaps detected |
-| **Log** | `myco log`, `myco reflect` | After completing tasks, session end |
-| **View** | `myco view` | When recalling past decisions |
+| **Process** | `myco digest`, `myco condense`, `myco prune` | When hunger signals recommend |
+| **Search** | `myco sense "<query>"`, `myco memory` | BEFORE answering factual questions |
+| **Analyze** | `myco mycelium`, `myco colony` | Before refactoring, compression |
+| **External** | `myco absorb`, `myco forage`, `myco upstream` | When gaps detected |
+| **Log** | `myco trace`, `myco reflect` | After completing tasks, session end |
+| **View** | `myco observe` | When recalling past decisions |
 
 ## Reflex Arcs (auto-enforced)
 
@@ -89,4 +89,4 @@ Anything outside = substrate pollution.
 - **State**: GPT does not persist state between sessions. Run `myco hunger --execute`
   at the start of every session to re-establish substrate awareness.
 - **Batch operations**: Chain commands with `&&` for efficiency:
-  `myco hunger --execute && myco search "recent decisions" && myco status`
+  `myco hunger --execute && myco sense "recent decisions" && myco pulse`

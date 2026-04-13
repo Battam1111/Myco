@@ -41,7 +41,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from myco.lint import (
+from myco.immune import (
     _L21_SKIP_MARKER,
     lint_contract_version_inline,
     load_canon,

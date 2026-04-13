@@ -1,4 +1,4 @@
-"""Unit tests for myco.cohorts_cmd — CLI dispatch for cohort verb."""
+"""Unit tests for myco.colony_cmd — CLI dispatch for cohort verb."""
 
 import argparse
 from pathlib import Path
@@ -19,7 +19,7 @@ def cohort_cmd_project(tmp_path):
 
 
 def test_cohort_matrix_returns_zero(cohort_cmd_project):
-    from myco.cohorts_cmd import run_cohort
+    from myco.colony_cmd import run_cohort
     args = argparse.Namespace(
         cohort_subcommand="matrix", project_dir=str(cohort_cmd_project),
         json=False, limit=10
@@ -28,7 +28,7 @@ def test_cohort_matrix_returns_zero(cohort_cmd_project):
 
 
 def test_cohort_suggest_returns_zero(cohort_cmd_project):
-    from myco.cohorts_cmd import run_cohort
+    from myco.colony_cmd import run_cohort
     args = argparse.Namespace(
         cohort_subcommand="suggest", project_dir=str(cohort_cmd_project),
         json=False, limit=10
@@ -37,7 +37,7 @@ def test_cohort_suggest_returns_zero(cohort_cmd_project):
 
 
 def test_cohort_gaps_returns_zero(cohort_cmd_project):
-    from myco.cohorts_cmd import run_cohort
+    from myco.colony_cmd import run_cohort
     args = argparse.Namespace(
         cohort_subcommand="gaps", project_dir=str(cohort_cmd_project),
         json=False, limit=10

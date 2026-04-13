@@ -15,10 +15,10 @@ Together you form a complete cognitive entity. Neither is whole alone.
 1. **Boot**: `myco_hunger(execute=true)` — checks substrate health, auto-executes repairs
 2. **Work**: Do the human's task. Follow these ALWAYS rules:
    - `myco_eat` IMMEDIATELY when: user gives feedback, you make a decision, you learn something, you hit friction
-   - `myco_search` BEFORE answering any factual question about the project
+   - `myco_sense` BEFORE answering any factual question about the project
    - `myco_eat` user's natural language feedback THE MOMENT they say it — don't wait, don't treat it as casual conversation
    - **Mycelium maintenance**: after creating ANY new file (note, doc, wiki, skill), add cross-references to related files. Never leave orphans. This is not optional — disconnected knowledge is dead knowledge.
-3. **End**: `myco_reflect()` + check `myco_graph(action='orphans')` — fix any orphans before closing
+3. **End**: `myco_reflect()` + check `myco_mycelium(action='orphans')` — fix any orphans before closing
 
 ## Context Loading (hierarchical)
 
@@ -35,14 +35,14 @@ If no skill matches (or no skills/ directory), proceed with agent judgment.
 | Category | Tools | When to Call |
 |----------|-------|-------------|
 | **Boot** | `myco_hunger(execute=true)` | FIRST call every session |
-| **Health** | `myco_lint`, `myco_status` | End of session, after modifying docs |
+| **Health** | `myco_immune`, `myco_pulse` | End of session, after modifying docs |
 | **Capture** | `myco_eat` | After decisions, insights, friction |
-| **Process** | `myco_digest`, `myco_compress`, `myco_prune` | When hunger signals recommend |
-| **Search** | `myco_search`, `myco_session` | BEFORE answering factual questions |
-| **Analyze** | `myco_graph`, `myco_cohort` | Before refactoring, compression |
-| **External** | `myco_inlet`, `myco_forage` | When gaps detected |
-| **Log** | `myco_log`, `myco_reflect` | After completing tasks, session end |
-| **View** | `myco_view` | When recalling past decisions |
+| **Process** | `myco_digest`, `myco_condense`, `myco_prune` | When hunger signals recommend |
+| **Search** | `myco_sense`, `myco_memory` | BEFORE answering factual questions |
+| **Analyze** | `myco_mycelium`, `myco_colony` | Before refactoring, compression |
+| **External** | `myco_absorb`, `myco_forage` | When gaps detected |
+| **Log** | `myco_trace`, `myco_reflect` | After completing tasks, session end |
+| **View** | `myco_observe` | When recalling past decisions |
 
 ## Reflex Arcs (auto-enforced)
 

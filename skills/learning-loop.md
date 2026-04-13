@@ -16,7 +16,7 @@
    - What was surprising or non-obvious?
    - Would you do it differently next time?
 
-2. **Pattern check**: `myco_search` for similar past learnings.
+2. **Pattern check**: `myco_sense` for similar past learnings.
    - If this is a REPEATED lesson → it should become a skill or a reflex
    - If this is NEW → raw note is sufficient
 

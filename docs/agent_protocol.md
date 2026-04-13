@@ -10,16 +10,16 @@
 ## 0.5 两条入口：CLI 和 MCP 任选其一
 
 Myco 的 19 个工具都有**两套等价入口**，底层共享 `src/myco/notes.py`
-和 `src/myco/lint.py`，落盘文件完全一致。
+和 src/myco/immune.py，落盘文件完全一致。
 
 | 能力 | CLI（shell 命令） | MCP tool |
 |---|---|---|
 | 捕获 | `myco eat --content "..."` | `myco_eat` |
 | 消化 | `myco digest <id> --to integrated` | `myco_digest` |
-| 查看 | `myco view --status raw` | `myco_view` |
+| 查看 | `myco observe --status raw` | `myco_observe` |
 | 饥饿度 | `myco hunger` | `myco_hunger` |
-| Lint | `myco lint` | `myco_lint` |
-| 状态/日志/反思 | （待实现 CLI）| `myco_status` / `myco_log` / `myco_reflect` |
+| Lint | `myco immune` | `myco_immune` |
+| 状态/日志/反思 | （待实现 CLI）| `myco_pulse` / `myco_trace` / `myco_reflect` |
 
 **推荐安装**（可编辑模式，支持自进化）：
 ```bash
@@ -80,7 +80,7 @@ Myco v1.2 Phase ① 引入了消化系统（`eat / digest / view / hunger` + `no
 | `notes/n_*.md` | `myco eat` / `myco digest` / MCP `myco_eat`, `myco_digest` | **永远**不要手写 notes 文件。必须经由工具生成，保证 frontmatter 合规。 |
 | `wiki/*.md` | `myco_extract`（待实现）或人类明确授权 | 结构化知识页。agent 自主写入前必须先 `digest → extracted` 一条 note。 |
 | `docs/primordia/*.md` | `myco_craft`（待实现）或人类明确授权 | 辩论/决策记录。允许 agent 在多轮 debate 任务中创建，但必须是 `*_craft_YYYY-MM-DD.md` 或 `*_debate_YYYY-MM-DD.md` 命名。 |
-| `log.md` | `myco_log` MCP tool（append-only） | 只能追加。永远不要 rewrite 或删除历史条目。 |
+| `log.md` | `myco_trace` MCP tool（append-only） | 只能追加。永远不要 rewrite 或删除历史条目。 |
 | `MYCO.md` | `myco_integrate`（待实现）或人类明确授权 | 硬上限 300 行 (`system.myco_md_max_lines`)。只能 integrate 已经 extracted 的 note。 |
 | `_canon.yaml` | 🛑 **人类明确授权** | Schema 的 Single Source of Truth。Agent 永远不能单独修改。 |
 | `pyproject.toml` / `src/myco/__init__.py` 版本号 | 🛑 **人类明确授权** | 版本发布走 release 流程。 |
@@ -107,10 +107,10 @@ Myco v1.2 Phase ① 引入了消化系统（`eat / digest / view / hunger` + `no
 
 | Tool | 何时调用 | 禁止 |
 |------|---------|------|
-| `myco_status` | 新会话第一次动作之前 | 不能用 `cat MYCO.md` 代替 |
-| `myco_log` | 完成一个非平凡任务后；解决一个 bug 后；做出一个决策后 | 不能 `echo >> log.md` |
+| `myco_pulse` | 新会话第一次动作之前 | 不能用 `cat MYCO.md` 代替 |
+| `myco_trace` | 完成一个非平凡任务后；解决一个 bug 后；做出一个决策后 | 不能 `echo >> log.md` |
 | `myco_reflect` | 会话结束前；任一任务完成后；遇到意外结果时 | 不能只在心里反思 |
-| `myco_lint` | 长会话结束前；修改 `_canon.yaml` 后；引入新文档类型后 | 不能只看 "应该没问题" |
+| `myco_immune` | 长会话结束前；修改 `_canon.yaml` 后；引入新文档类型后 | 不能只看 "应该没问题" |
 
 ### 2.2 Digestive Substrate（消化层，Phase ①）
 
@@ -118,32 +118,32 @@ Myco v1.2 Phase ① 引入了消化系统（`eat / digest / view / hunger` + `no
 |------|------------------------------|------|
 | `myco_eat` | (a) 刚写出能跑通的代码片段；(b) 做出有理由的决策；(c) 定位到 bug 根因；(d) 用户粘贴了一段长内容；(e) 自然萌生 "TIL / 原来如此 / 这个以后会忘" 的念头；(f) 任何硬学到的知识 | 不能把这些内容直接写进 `MYCO.md` 或 `wiki/` |
 | `myco_digest` | (a) `myco_hunger` 报 `raw_backlog` 或 `stale_raw`；(b) 准备 extract 到 wiki 前；(c) 每次 `myco_reflect` 时顺便消化 1-2 条 | 不能跳过 digest 直接 extract |
-| `myco_view` | (a) 开始新任务前扫 `--status raw --tag <topic>`；(b) 找之前吃过的某段代码/决策；(c) 人类问 "你记不记得……" 时 | 不能凭记忆回答 |
-| `myco_hunger` | (a) 新会话开始（`myco_status` 之后）；(b) 会话中段自检；(c) 会话结束前 | 不能忽略其返回的信号 |
+| `myco_observe` | (a) 开始新任务前扫 `--status raw --tag <topic>`；(b) 找之前吃过的某段代码/决策；(c) 人类问 "你记不记得……" 时 | 不能凭记忆回答 |
+| `myco_hunger` | (a) 新会话开始（`myco_pulse` 之后）；(b) 会话中段自检；(c) 会话结束前 | 不能忽略其返回的信号 |
 
 ### 2.3 Compression Pipeline（压缩管道，Wave 30-33）
 
 | Tool | 何时调用（trigger conditions） | 禁止 |
 |------|------------------------------|------|
-| `myco_compress` | (a) `myco_hunger` 报 `compression_ripe`（tag cohort ≥5 raw notes 且最老 ≥7d）；(b) `compression_pressure` > 2.0；(c) Agent 判断多条笔记应合成；(d) `myco_cohort suggest` 返回建议 | 不能手动合并笔记内容到 wiki 而不走 compress 审计轨迹 |
-| `myco_uncompress` | 发现某次压缩遗失了重要内容，需要恢复输入笔记 | 极少使用；不能直接手改 excreted 笔记的 status |
+| `myco_condense` | (a) `myco_hunger` 报 `compression_ripe`（tag cohort ≥5 raw notes 且最老 ≥7d）；(b) `compression_pressure` > 2.0；(c) Agent 判断多条笔记应合成；(d) `myco_colony suggest` 返回建议 | 不能手动合并笔记内容到 wiki 而不走 compress 审计轨迹 |
+| `myco_expand` | 发现某次压缩遗失了重要内容，需要恢复输入笔记 | 极少使用；不能直接手改 excreted 笔记的 status |
 | `myco_prune` | (a) `myco_hunger` 报 `dead_knowledge`（terminal 状态笔记 ≥30d 未查看）；(b) 主动清理积压 | 不能手动删除 notes/*.md 文件 |
 
 ### 2.4 External Metabolism（外部代谢，Wave 35-52）
 
 | Tool | 何时调用（trigger conditions） | 禁止 |
 |------|------------------------------|------|
-| `myco_inlet` | (a) `myco_hunger` 报 `inlet_ripe`（搜索缺失 + 知识缺口）；(b) Agent 有外部文件/内容要摄入；(c) 人类提供了参考资料 | 不能把外部内容直接粘贴进 notes/ 而不走 inlet 来源追踪 |
+| `myco_absorb` | (a) `myco_hunger` 报 `inlet_ripe`（搜索缺失 + 知识缺口）；(b) Agent 有外部文件/内容要摄入；(c) 人类提供了参考资料 | 不能把外部内容直接粘贴进 notes/ 而不走 inlet 来源追踪 |
 | `myco_forage` | (a) Agent 发现相关论文/仓库/文章；(b) 人类说"去看看 X"；(c) `myco_hunger` 报 `forage_backlog` | 不能把外部资料存在 notes/ 里，forage/ 是暂存区 |
-| `myco_search` | (a) **回答任何项目事实性问题之前**；(b) 开始新功能/修 bug 前查已有知识；(c) 人类问"有没有……" | 不能凭记忆回答——基质是事实来源 |
+| `myco_sense` | (a) **回答任何项目事实性问题之前**；(b) 开始新功能/修 bug 前查已有知识；(c) 人类问"有没有……" | 不能凭记忆回答——基质是事实来源 |
 
 ### 2.5 Structural Intelligence（结构智能，Wave 47-52）
 
 | Tool | 何时调用（trigger conditions） | 禁止 |
 |------|------------------------------|------|
-| `myco_graph` | (a) 想知道谁引用了某个文件；(b) 检测知识孤岛/断裂；(c) 重构前评估影响范围；(d) `myco_hunger` 报 `graph_orphans` | 不能靠手动 grep 替代结构化链接分析 |
-| `myco_cohort` | (a) 准备压缩时选择最佳分组（`myco_cohort suggest`）；(b) 检测知识缺口（`myco_cohort gaps`）；(c) 分析 tag 共现关系 | 不能凭直觉选压缩对象 |
-| `myco_session` | (a) 需要回忆之前对话的具体内容；(b) 人类问"上次我们讨论了什么"；(c) 跨会话延续工作 | 不能说"我不记得之前的对话" |
+| `myco_mycelium` | (a) 想知道谁引用了某个文件；(b) 检测知识孤岛/断裂；(c) 重构前评估影响范围；(d) `myco_hunger` 报 `graph_orphans` | 不能靠手动 grep 替代结构化链接分析 |
+| `myco_colony` | (a) 准备压缩时选择最佳分组（`myco_colony suggest`）；(b) 检测知识缺口（`myco_colony gaps`）；(c) 分析 tag 共现关系 | 不能凭直觉选压缩对象 |
+| `myco_memory` | (a) 需要回忆之前对话的具体内容；(b) 人类问"上次我们讨论了什么"；(c) 跨会话延续工作 | 不能说"我不记得之前的对话" |
 
 ### 2.6 Evolution Engine（进化引擎）
 
@@ -168,7 +168,7 @@ Myco v1.2 Phase ① 引入了消化系统（`eat / digest / view / hunger` + `no
 **规程**：修改任何内核表面之前，读 traceability.anchors 找到完整影响路径。
 例如：要修改 anchor #3（自主代谢管道）→ 追溯告诉你：vision.md §三 + 
 agent_protocol.md §2.2/§3/§4 + _canon.yaml::notes_schema + lint L10/L18/L22 + 
-notes.py/compress_cmd.py/inlet_cmd.py + hunger raw_backlog/stale_raw/
+notes.py/condense_cmd.py/absorb_cmd.py + hunger raw_backlog/stale_raw/
 compression_ripe/compression_pressure 全部可能需要同步更新。
 
 **目的**：防止"改了一层、漏了另一层"的漂移（如 MCP 工具从 9 增到 18 但 README 
@@ -201,7 +201,7 @@ Myco 配置遵循五级优先级（从高到低）：
 ```
 
 **Wave 54 (v0.41.0) Agent-First 重写**：`myco_hunger(execute=true)` 取代了
-原来的 `myco_status → 手动处理信号` 两步。一次调用完成：检查 hunger + 自动
+原来的 `myco_pulse → 手动处理信号` 两步。一次调用完成：检查 hunger + 自动
 digest 过期笔记 + 自动 compress 积压 + 自动 prune 死知识。返回的 JSON 含
 `signals`（全部信号）、`actions`（推荐动作）、`execution_results`（自动执行
 结果）。只有 [REFLEX HIGH] 级别的信号需要人工/Agent 判断。
@@ -245,7 +245,7 @@ Wave 14 (contract v0.13.0) 把这一段从 5 步 prose 改为 **2 步反射弧**
 `docs/primordia/session_end_reflex_arc_craft_2026-04-11.md §B4`.
 
 **传统的 5 步流程（仍然有效，但由 hunger 驱动而非记硬背）**：
-`myco_reflect` → `myco_log` → `myco_hunger` → `myco_lint`（改动 ≥5 文件
+`myco_reflect` → `myco_trace` → `myco_hunger` → `myco_immune`（改动 ≥5 文件
 或改了 canon 时）→ 更新 MYCO.md（任务队列或 §1 进度变了时）。
 
 **未完成的想法怎么办？** → `myco_eat` 一条 raw note，tags 带 `followup`。不要写进 `TODO.md`，不要写进 `MYCO.md`。
@@ -295,7 +295,7 @@ workaround：<临时怎么处理的>
 根因分析：<为什么会发生>
 ```
 
-Phase ② 开工的第一件事就是 `myco view --tag friction-phase2 --status raw`，把这些 note 聚类成新器官的需求。
+Phase ② 开工的第一件事就是 `myco observe --tag friction-phase2 --status raw`，把这些 note 聚类成新器官的需求。
 
 ---
 
@@ -323,13 +323,13 @@ Phase ② 开工的第一件事就是 `myco view --tag friction-phase2 --status 
 
 | 违约类型 | 检测者 | 代价 |
 |---------|--------|------|
-| 写入非白名单位置 | L11 Write-Surface Lint（CRITICAL）| 下次 `myco_lint` 直接红灯 |
+| 写入非白名单位置 | L11 Write-Surface Lint（CRITICAL）| 下次 `myco_immune` 直接红灯 |
 | `notes/*.md` frontmatter 不合规 | L10 Notes Schema Lint（CRITICAL）| 同上 |
 | 愿景漂移（README/MYCO.md 丢锚点）| L9 Vision Anchor Lint（CRITICAL）| 同上 |
-| 跳过 `myco_log` 的关键事件 | 会在 `myco_reflect` 时被发现 | Cross-Project Distillation 数据缺失 |
+| 跳过 `myco_trace` 的关键事件 | 会在 `myco_reflect` 时被发现 | Cross-Project Distillation 数据缺失 |
 | 摩擦未标 `friction-phase2` | Phase ② 启动时会被发现 | 数据丢失无法追回 |
 
-**补救**：违约本身不是灾难，**隐瞒**才是。发现违约立刻 `myco_log` 记录 + `myco_eat` 一条 `friction-phase2` note 说明为什么违约（多半是工具/文档不够清楚）。
+**补救**：违约本身不是灾难，**隐瞒**才是。发现违约立刻 `myco_trace` 记录 + `myco_eat` 一条 `friction-phase2` note 说明为什么违约（多半是工具/文档不够清楚）。
 
 ---
 

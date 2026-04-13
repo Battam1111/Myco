@@ -65,7 +65,7 @@ Myco 这个项目名取自真菌（*Myco*-rhizal = 菌根），但在 v1.4.0 之
 
 **Spore（孢子）**
 - 子实体释放的繁殖单位——落到合适的土壤就发芽成新的菌丝。
-- **对应 Myco 基质**：`src/myco/templates/`——`myco init` 调用这个目录把
+- **对应 Myco 基质**：`src/myco/templates/`——`myco seed` 调用这个目录把
   新 instance 播种出去，每个 instance 是一颗发芽的孢子。
 
 **Rhizomorph（菌索）**
@@ -79,7 +79,7 @@ Myco 这个项目名取自真菌（*Myco*-rhizal = 菌根），但在 v1.4.0 之
 - 真菌分泌到细胞外的酶——先把环境里的大分子预消化，再吸收。
 - **对应 Myco 基质**：`scripts/`（`myco_init.py`, `myco_migrate.py`,
   `lint_knowledge.py`）——这些脚本是基质分泌到"环境"里主动处理事情的工具，
-  不是基质的一部分但服务于它。`src/myco/lint.py` 本身也是 exoenzyme
+  不是基质的一部分但服务于它。src/myco/lint.py 本身也是 exoenzyme
   的核心——把原始文档预消化成 23 维一致性信号（v1.7.0 起新增 L14
   Forage Hygiene）。
 
@@ -131,12 +131,12 @@ Myco 这个项目名取自真菌（*Myco*-rhizal = 菌根），但在 v1.4.0 之
 
 | 基质位置 | 生物学类比 | 是否 rename | 为什么 |
 |---|---|---|---|
-| `notes/` | hypha / hyphae | ❌ 保留原名 | 代码硬编码 15+ 处、MCP 工具名 `myco_eat`/`myco_view`、用户口语混用——rename 成本远超语义增益。通过本文档声明生物学类比即可。 |
+| `notes/` | hypha / hyphae | ❌ 保留原名 | 代码硬编码 15+ 处、MCP 工具名 `myco_eat`/`myco_observe`、用户口语混用——rename 成本远超语义增益。通过本文档声明生物学类比即可。 |
 | `wiki/` | mycelium | ❌ 保留原名 | Karpathy LLM Wiki 血统正向、contract 文档 50+ 处引用、概念承载深度高——rename 是 cross-cutting refactor 不是 cosmetic 改动。通过本文档声明类比。 |
 | `docs/current/` | primordia | ✅ **已 rename** → `docs/primordia/` | "current" 过于通用、不表达"早期发育"的语义；canon SSoT (`craft_protocol.dir`) 使代码路径受 canon 控制、rename 影响半径可控（~80 refs，80% 是文档字符串）；**生物学类比带来真实信息增益**（primordia = 未定型、可塑、可退化）。 |
 | （v1.7.0 新设） | foraging / exoenzyme phase | ✅ **第一天即命名** → `forage/` | **首次** contract-level 目录在诞生当天就拿生物学名字。候选 `refs/` / `library/` / `corpus/` / `external/` 全部承诺"永久存储"，与压缩即智能学说冲突；`forage` 是动词形，天然暗示临时性 + 前消化态。信息增益 ≫ 学习成本（用户不会把 `forage/` 误当作永久资料库）。Manifest-authoritative 的 `forage/_index.yaml` 同时充当 class_z 契约锚点（`agent_protocol.md §8.9`）。|
 | `docs/*.md`（contract 级） | rhizomorph | ❌ 保留原名 | `agent_protocol` / `craft_protocol` / `contract_changelog` / `WORKFLOW` 这些名字本身就是最清晰的功能性命名，套 `rhizomorph/` 会增加冷启动摩擦。类比留在本文档。 |
-| `src/myco/templates/` | spore | ❌ 保留原名 | `templates` 是 Python 打包约定、`myco init` 引用路径；rename 会破坏 setuptools / hatchling 的 package_data 配置。 |
+| `src/myco/templates/` | spore | ❌ 保留原名 | `templates` 是 Python 打包约定、`myco seed` 引用路径；rename 会破坏 setuptools / hatchling 的 package_data 配置。 |
 | `scripts/` | exoenzyme | ❌ 保留原名 | 行业通用目录名。 |
 | `src/myco/` | genome | ❌ 保留原名 | Python 包根，rename 会破坏 `import myco`。 |
 | `_canon.yaml` | rhizomorph (main cord) / DNA | ❌ 保留原名 | SSoT，被 15+ 代码文件和所有 instance 引用。 |

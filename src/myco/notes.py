@@ -1582,7 +1582,7 @@ def detect_inlet_trigger(root: Path, *, now: Optional[datetime] = None) -> Optio
     # Check 2: cohort gaps
     gap_count = 0
     try:
-        from myco.cohorts import gap_detection
+        from myco.colony import gap_detection
         gaps = gap_detection(root)
         qualifying_gaps = [g for g in gaps if g.get("total", 0) >= gap_threshold]
         gap_count = len(qualifying_gaps)
@@ -1604,7 +1604,7 @@ def detect_inlet_trigger(root: Path, *, now: Optional[datetime] = None) -> Optio
 def record_search_miss(root: Path, query: str) -> None:
     """Record a search miss in .myco_state/search_misses.yaml.
 
-    Called by myco_search MCP tool when a query returns zero results.
+    Called by myco_sense MCP tool when a query returns zero results.
     The miss state file is read by detect_inlet_trigger to fire inlet_ripe.
     """
     canon_path = root / "_canon.yaml"
@@ -2303,7 +2303,7 @@ def compute_hunger_report(
     # connectivity check. Fires when orphan file count exceeds threshold.
     orphan_count = 0
     try:
-        from myco.graph import build_link_graph, find_orphans
+        from myco.mycelium import build_link_graph, find_orphans
         graph = build_link_graph(root)
         orphans = find_orphans(graph)
         orphan_count = len(orphans)
@@ -2344,7 +2344,7 @@ def compute_hunger_report(
     # ONLY raw/digesting notes for > gap_stale_days (default 14). Uses
     # cohorts.gap_detection with a time filter on the oldest note's age.
     try:
-        from myco.cohorts import gap_detection
+        from myco.colony import gap_detection
         canon_path = root / "_canon.yaml"
         gap_stale_days = 14
         if canon_path.exists():
@@ -2370,14 +2370,14 @@ def compute_hunger_report(
     # Predictive hunger signal (Wave E1) — anticipate knowledge needs
     # from session history analysis.
     try:
-        from myco.sessions import predict_knowledge_needs
+        from myco.memory import predict_knowledge_needs
         predictions = predict_knowledge_needs(root, limit=3)
         if predictions:
             topics = ", ".join(p["topic"] for p in predictions[:3])
             signals.append(
                 f"predicted_need: {len(predictions)} anticipated knowledge "
                 f"need(s) from session history (top: {topics}). Consider "
-                f"proactive acquisition via `myco_inlet`."
+                f"proactive acquisition via `myco_absorb`."
             )
     except Exception:
         pass  # grandfather-compatible
@@ -2408,7 +2408,7 @@ def compute_hunger_report(
     # Organ 3: Structural decay metric — fires when orphan count is increasing
     try:
         decay_path = root / ".myco_state" / "decay_baseline.yaml"
-        from myco.graph import build_link_graph, find_orphans
+        from myco.mycelium import build_link_graph, find_orphans
         graph = build_link_graph(root)
         current_orphans = len(find_orphans(graph))
         if decay_path.exists():
