@@ -95,7 +95,7 @@ system:
   principles_count: 13
   workflow_sections: 12
   wiki_page_types: [entity, concept, operations, analysis, craft]
-  lint_dimensions: 25               # L0-L24
+  lint_dimensions: 26               # L0-L25
   entry_point: "MYCO.md"    # Entry point filename (primary) — alternative names may exist per project
   myco_md_max_lines: 300
 
@@ -577,7 +577,7 @@ Myco provides scaffolding, the Agent provides judgment.
 - [wiki/architecture-decisions.md](../wiki/architecture-decisions.md) -- 创始架构决策（A1-A3）：notes.py SSoT、痛点驱动、扁平 notes
 - [wiki/design-decisions.md](../wiki/design-decisions.md) -- 创始设计决策（D1-D5）：hunger 排序、非零退出码、四命令最小循环
 - [_canon.yaml](../_canon.yaml) -- 规范值 SSoT：所有关键数字的单一信息源
-- src/myco/immune.py -- 25 维 Lint 免疫系统实现
+- src/myco/immune.py -- 26 维 Lint 免疫系统实现
 - [src/myco/notes.py](../src/myco/notes.py) -- Note 生命周期 SSoT（A1 决策的实现）
 - src/myco/mycelium.py -- Link Graph 结构智能（Appendix F.1）
 - src/myco/colony.py -- Cohort Intelligence 语义分析（Appendix F.2）

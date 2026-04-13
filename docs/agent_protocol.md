@@ -173,6 +173,36 @@ Craft: `docs/primordia/perfusion_system_craft_2026-04-14.md`
 
 Craft: `docs/primordia/synaptogenesis_craft_2026-04-14.md`
 
+### 2.1.3 Interconnection（万物互联——跨层概念互联）
+
+**问题**：wiki↔wiki 链接（L24）只覆盖知识层内部的连接。但项目有三个层——知识层（wiki/, notes/）、工程层（src/, scripts/, .claude/）、文档层（docs/, *.md）。概念如果只存在于单一层，更新时极易遗漏其他层的引用。
+
+**解法**：`myco_pulse` 和 `myco_hunger` 的返回值中自动附带 `interconnection` 字段——跨层概念互联地图（`compute_interconnection_map()`）。
+
+**三层分类**：
+- **知识层**（knowledge）：wiki/*.md, notes/n_*.md — 抽象知识、经验洞察
+- **工程层**（engineering）：src/**/*.py, scripts/*.py, .claude/** — 代码实现、配置
+- **文档层**（document）：docs/**/*.md, *.md (top-level), README* — 文档说明
+
+**返回数据**：
+- `cross_layer_concepts`: 跨 2+ 层出现的概念（健康的互联）
+- `single_layer_concepts`: 仅在单层出现的概念（潜在孤岛）
+- `health.connectivity_ratio`: 跨层连接率（>0.5 健康，<0.3 需关注）
+
+**Agent 的义务**：
+- 修改涉及某个概念时，查看其 `files` 列表确认所有层的引用是否需要同步更新
+- 在 `connectivity_ratio` 低于 0.3 时，主动考虑在其他层添加对应引用
+- L25 Cross-Layer Interconnection Health 维度会自动检测并报告跨层健康度
+
+**免疫层保障**（L2 Tier 2 + L19 auto-discovery + L25）：
+- L2 自动发现：扫描整个项目树，检测数字型 claim 的陈旧引用
+- L19 自动发现：扫描整个项目树，检测维度计数漂移
+- L25 跨层健康：检测概念是否被孤立在单一层中
+
+**仿生类比**：有机体的循环系统不仅在单个器官内部运行——它连接所有器官。万物互联是基质的循环系统，确保每个概念在所有相关层中保持一致。
+
+Craft: `docs/primordia/universal_interconnection_craft_2026-04-14.md`
+
 ### 2.2 Digestive Substrate（消化层，Phase ①）
 
 消化是四阶段吸收门控流程（详见 `docs/primordia/digest_pipeline_craft_2026-04-14.md`）：

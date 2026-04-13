@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Myco Knowledge System — Automated 23-Dimension Substrate Immune System.
+Myco Knowledge System — Automated 26-Dimension Substrate Immune System.
 
 The canonical dimension count is `len(FULL_CHECKS)` (computed at module load
 time, see bottom of this file). This docstring's dimension table below is a
@@ -33,6 +33,9 @@ Dimensions:
     L20 Translation Mirror Consistency — locale README skeleton parity (Wave 39, v0.30.0)
     L21 Contract Version Inline Consistency — forward-looking inline contract version SSoT (Wave 40, v0.31.0)
     L22 Wave-Seed Lifecycle — raw wave-seed orphan detection (seven-step pipeline post-condition, Wave 41, v0.32.0)
+    L23 Absorption Verification — digest integrity proof audit (Wave 43)
+    L24 Synaptogenesis Health — wiki↔wiki cross-reference connectivity (Wave 44)
+    L25 Cross-Layer Interconnection Health — cross-layer concept connectivity (Wave 46, 万物互联)
 """
 # --- Mycelium references ---
 # Canon SSoT:      _canon.yaml (all lint thresholds, stale patterns, write surface)
@@ -2909,6 +2912,78 @@ def lint_synaptogenesis_health(canon: dict, root: Path) -> list:
     return issues
 
 
+def lint_cross_layer_health(canon: dict, root: Path) -> list:
+    """L25 Cross-Layer Interconnection Health — 万物互联 consistency check.
+
+    Uses compute_interconnection_map() from mcp_server to detect concepts
+    that are isolated to a single layer. A healthy project has high cross-layer
+    connectivity: wiki concepts should appear in docs and/or code, code concepts
+    should be documented, etc.
+
+    Severity:
+      - connectivity_ratio < 0.3 → HIGH (most concepts are siloed)
+      - connectivity_ratio < 0.5 → MEDIUM (moderate isolation)
+      - connectivity_ratio >= 0.5 → healthy (no issues)
+
+    This is the capstone of the 万物互联 infrastructure (Wave 46):
+      - L2 Tier 2 auto-discovers numeric claim drift across ALL files
+      - L19 auto-discovers dimension count drift across ALL files
+      - L24 checks wiki↔wiki link connectivity
+      - L25 checks cross-layer concept connectivity (knowledge↔engineering↔document)
+
+    Craft: docs/primordia/universal_interconnection_craft_2026-04-14.md
+    """
+    issues = []
+
+    try:
+        # Import from sibling module to avoid circular import
+        import importlib
+        mcp_mod = importlib.import_module("myco.mcp_server")
+        interconnection_map = mcp_mod.compute_interconnection_map(root)
+    except Exception as e:
+        issues.append((
+            "L25", "LOW", "src/myco/mcp_server.py",
+            f"Could not compute interconnection map: {e}"
+        ))
+        return issues
+
+    health = interconnection_map.get("health", {})
+    total = health.get("total_concepts", 0)
+    cross = health.get("cross_layer_count", 0)
+    isolated = health.get("single_layer_count", 0)
+    ratio = health.get("connectivity_ratio", 1.0)
+
+    if total == 0:
+        return issues  # No concepts found — nothing to check
+
+    if ratio < 0.3:
+        issues.append((
+            "L25", "HIGH", "project-wide",
+            f"Cross-layer connectivity critically low: {cross}/{total} concepts "
+            f"({round(ratio*100)}%) span 2+ layers. Most knowledge is siloed "
+            f"in a single layer. Review single_layer_concepts in interconnection map."
+        ))
+    elif ratio < 0.5:
+        issues.append((
+            "L25", "MEDIUM", "project-wide",
+            f"Cross-layer connectivity moderate: {cross}/{total} concepts "
+            f"({round(ratio*100)}%) span 2+ layers. Consider cross-referencing "
+            f"isolated concepts."
+        ))
+
+    # Flag individual high-file-count concepts that are single-layer
+    for concept in interconnection_map.get("single_layer_concepts", [])[:5]:
+        if concept.get("file_count", 0) >= 3:
+            issues.append((
+                "L25", "LOW", concept["files"][0] if concept.get("files") else "unknown",
+                f"Concept '{concept['concept']}' appears in {concept['file_count']} "
+                f"files but only in the '{concept['layers'][0]}' layer. "
+                f"Consider documenting or referencing it in other layers."
+            ))
+
+    return issues
+
+
 # ---------------------------------------------------------------------------
 # Auto-fix engine (--fix mode)
 # ---------------------------------------------------------------------------
@@ -3291,7 +3366,7 @@ def collect_all_issues(canon, root, quick=False):
 # ---------------------------------------------------------------------------
 
 # QUICK_CHECKS = the L0-L3 fast subset run when `myco immune --quick`.
-# FULL_CHECKS  = the full L0-L24 sequence (default). `len(FULL_CHECKS)` is
+# FULL_CHECKS  = the full L0-L25 sequence (default). `len(FULL_CHECKS)` is
 # the canonical lint dimension count — see L19 docstring for the rot story.
 QUICK_CHECKS = (
     ("L0 Canon Self-Check", lint_canon_schema),
@@ -3322,6 +3397,7 @@ FULL_CHECKS = QUICK_CHECKS + (
     ("L22 Wave-Seed Lifecycle", lint_wave_seed_orphan),
     ("L23 Absorption Verification", lint_digest_integrity),
     ("L24 Synaptogenesis Health", lint_synaptogenesis_health),
+    ("L25 Cross-Layer Interconnection Health", lint_cross_layer_health),
 )
 
 
