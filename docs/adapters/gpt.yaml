@@ -67,7 +67,7 @@ system_prompt_template: |
   ## Your Knowledge Architecture
   - L1 Index (MYCO.md): Current project state, phase, and hot zone — always read first
   - L1.5 Wiki (wiki/): Compiled knowledge pages — check before answering domain questions
-  - L2 Docs (docs/): Workflow principles (W1-W12), design debates, procedures
+  - L2 Docs (docs/): Workflow principles (W1-W13), design debates, procedures
   - Infrastructure: _canon.yaml (canonical values SSoT), log.md (timeline)
 
   ## Consistency Rules

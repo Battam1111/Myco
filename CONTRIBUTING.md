@@ -136,12 +136,22 @@ Editable install (`-e`) is the only recommended path. Myco is a living organism 
 ```
 Myco/
 ├── src/myco/              # Python package (pip installable)
-│   ├── cli.py             # CLI dispatcher (myco init/migrate/lint)
+│   ├── cli.py             # CLI dispatcher (26+ subcommands)
 │   ├── init_cmd.py        # Project initialization
 │   ├── migrate.py         # Hot-start migration
 │   ├── lint.py            # 23-dimension consistency checker (L0-L22)
+│   ├── notes.py           # Atomic note engine (eat/digest/view)
+│   ├── compress_cmd.py    # Compression primitive
+│   ├── graph.py           # Structural link graph
+│   ├── mcp_server.py      # MCP tool server (21 tools)
+│   ├── sessions.py        # Session transcript indexing
+│   ├── discover.py        # Knowledge gap detection
+│   ├── forage.py          # External material ingestion
+│   ├── upstream.py        # Inter-instance knowledge transfer
 │   ├── templates.py       # Template resolution (importlib.resources)
 │   └── templates/         # Bundled project templates (single source of truth)
+├── tests/                 # 29 test files, 183 unit tests
+├── skills/                # Agent skill definitions
 ├── docs/                  # Framework documentation
 ├── scripts/               # Legacy standalone scripts
 └── pyproject.toml         # Package metadata
