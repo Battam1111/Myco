@@ -1,9 +1,7 @@
 <p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/logo_dark_512.png">
-    <source media="(prefers-color-scheme: light)" srcset="assets/logo_light_512.png">
-    <img src="assets/logo_light_512.png" width="160" alt="Myco">
-  </picture>
+  <a href="https://github.com/Battam1111/Myco">
+    <img src="https://raw.githubusercontent.com/Battam1111/Myco/main/assets/logo_light_512.png" width="160" alt="Myco">
+  </a>
 </p>
 
 <h1 align="center">Myco</h1>
