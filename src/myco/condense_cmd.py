@@ -481,7 +481,7 @@ def run_compress(args) -> int:
             )
             return 2
         try:
-            from myco.cohorts import compression_cohort_suggest
+            from myco.colony import compression_cohort_suggest
             suggestions = compression_cohort_suggest(root)
             if not suggestions:
                 print("compress: --cohort auto found no ripe cohorts", file=sys.stderr)

@@ -41,9 +41,9 @@
 **理由**: 来自 Zettelkasten 研究的核心洞见——文件夹层级强制单一分类维度（一个 note 只能放在一个文件夹里），而 tags 支持多维分类（一个 note 可以同时是 `architecture` + `design` + `tradeoff`）。
 
 **具体优势**:
-- **多维查询**: `myco view --status=raw` 或按 tag 过滤——文件夹做不到跨类查询
+- **多维查询**: `myco observe --status=raw` 或按 tag 过滤——文件夹做不到跨类查询
 - **无分类焦虑**: 不需要在创建 note 时就决定"这属于哪个类别"
-- **压缩友好**: `myco compress --tag=architecture` 可以跨"类别"压缩相关 notes
+- **压缩友好**: `myco condense --tag=architecture` 可以跨"类别"压缩相关 notes
 - **可伸缩**: 100 个 notes 在扁平目录里 glob 搜索是 O(n)，和文件夹遍历一样快；1000 个 notes 时文件夹层级反而因为人工维护成本更高
 - **简单性**: 文件系统操作只需处理一层，减少路径拼接错误
 
@@ -63,7 +63,7 @@
 - [docs/theory.md](../docs/theory.md) -- 理论基础：Polanyi 隐性知识（A2 痛点驱动的理论根基）
 - [docs/vision.md](../docs/vision.md) -- 愿景文档：五大核心能力
 - [src/myco/notes.py](../src/myco/notes.py) -- notes.py 单一 SSoT 实现（A1 决策的代码）
-- [src/myco/lint.py](../src/myco/lint.py) -- 23 维 Lint 免疫系统（A2 一致性验证痛点的解）
+- src/myco/lint.py -- 23 维 Lint 免疫系统（A2 一致性验证痛点的解）
 - [docs/agent_protocol.md](../docs/agent_protocol.md) -- Agent 协议：notes 写面规则（A1 依赖方向的契约化）
 - [_canon.yaml](../_canon.yaml) -- 规范值 SSoT
 

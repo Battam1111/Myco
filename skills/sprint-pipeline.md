@@ -10,8 +10,8 @@ At the start of any non-trivial development task (feature, bugfix, refactor).
 
 ### 1. Think
 - `myco_hunger(execute=true)` — substrate health check
-- `myco_cohort(action="gaps")` — what knowledge is missing?
-- `myco_search` — what does the substrate already know about this topic?
+- `myco_colony(action="gaps")` — what knowledge is missing?
+- `myco_sense` — what does the substrate already know about this topic?
 
 ### 2. Plan
 - If confidence < 0.80 on approach → start a Craft (structured debate)
@@ -21,10 +21,10 @@ At the start of any non-trivial development task (feature, bugfix, refactor).
 ### 3. Build
 - Implement the change
 - `myco_eat` each significant decision as it happens
-- Use `myco_search` before answering factual questions
+- Use `myco_sense` before answering factual questions
 
 ### 4. Review
-- `myco_lint` — mechanical immune check (23 dims)
+- `myco_immune` — mechanical immune check (23 dims)
 - Read Agent Review items — semantic alignment check
 - Check traceability index for downstream impact
 

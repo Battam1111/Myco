@@ -53,13 +53,13 @@ from types import SimpleNamespace
 import pytest
 
 from myco import notes
-from myco.compress_cmd import (
+from myco.condense_cmd import (
     _execute_compression,
     _resolve_cohort_by_tag,
     run_compress,
     run_uncompress,
 )
-from myco.lint import lint_compression_integrity, load_canon
+from myco.immune import lint_compression_integrity, load_canon
 
 
 # ---------------------------------------------------------------------------

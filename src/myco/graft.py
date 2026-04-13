@@ -166,7 +166,7 @@ def create_myco_scaffold(project_dir: Path, replacements: dict, entry_point: str
         if lint_dst.exists():
             actions.append(("SKIP", "scripts/lint_knowledge.py already exists"))
         else:
-            actions.append(("CREATE", "scripts/lint_knowledge.py (23-dimension Lint shim → myco.lint)"))
+            actions.append(("CREATE", "scripts/lint_knowledge.py (23-dimension Lint shim → myco.immune)"))
             if not dry_run:
                 (project_dir / "scripts").mkdir(exist_ok=True)
                 standalone_lint = (
@@ -177,7 +177,7 @@ def create_myco_scaffold(project_dir: Path, replacements: dict, entry_point: str
                     '"""\n\n'
                     "import sys\n\n"
                     "try:\n"
-                    "    from myco.lint import main\n"
+                    "    from myco.immune import main\n"
                     "    sys.exit(main())\n"
                     "except ImportError:\n"
                     '    print("myco package not installed. Install with: pip install myco")\n'

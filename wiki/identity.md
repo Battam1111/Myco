@@ -92,6 +92,6 @@ Human ──自然语言──→ Agent ──MCP──→ Myco
 - [docs/primordia/myco_identity_definitive_craft_2026-04-12.md](../docs/primordia/myco_identity_definitive_craft_2026-04-12.md) -- 身份定义性 Craft（Round 5, 0.92 confidence）
 - [docs/primordia/anchor_agentfirst_revision_craft_2026-04-12.md](../docs/primordia/anchor_agentfirst_revision_craft_2026-04-12.md) -- Agent-First mutation-selection 内化
 - [_canon.yaml](../_canon.yaml) -- 身份锚点 + 规范值 SSoT
-- [src/myco/lint.py](../src/myco/lint.py) -- 23 维 Lint 免疫系统（五层体现第 4 层的实现）
+- src/myco/lint.py -- 23 维 Lint 免疫系统（五层体现第 4 层的实现）
 
 **Back to** [MYCO.md](../MYCO.md)

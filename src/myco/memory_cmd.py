@@ -20,7 +20,7 @@ def _project_root(args: Any) -> Path:
 
 def run_session(args: Any) -> int:
     """Dispatch ``myco session`` subcommands."""
-    from myco.sessions import index_sessions, prune_sessions, search_sessions
+    from myco.memory import index_sessions, prune_sessions, search_sessions
 
     root = _project_root(args)
     use_json = getattr(args, "json", False)

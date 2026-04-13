@@ -54,7 +54,7 @@ But six months later, your AI is sharper than anyone else's. It knows the full h
 ```bash
 git clone https://github.com/Battam1111/Myco.git
 cd Myco && pip install -e ".[mcp]"
-myco init --auto-detect my-project
+myco seed --auto-detect my-project
 ```
 
 Three commands. Auto-detects your environment — Claude Code · Cowork · Cursor · VS Code · Codex · Cline · Continue · Zed · Windsurf — finds what you have, configures all of it in one shot.

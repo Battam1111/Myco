@@ -1,4 +1,4 @@
-"""Unit tests for myco.graph_cmd — CLI dispatch for graph verb."""
+"""Unit tests for myco.mycelium_cmd — CLI dispatch for graph verb."""
 
 import argparse
 from pathlib import Path
@@ -20,7 +20,7 @@ def graph_cmd_project(tmp_path):
 
 
 def test_graph_stats_returns_zero(graph_cmd_project):
-    from myco.graph_cmd import run_graph
+    from myco.mycelium_cmd import run_graph
     args = argparse.Namespace(
         graph_subcommand="stats", project_dir=str(graph_cmd_project), json=False
     )
@@ -28,7 +28,7 @@ def test_graph_stats_returns_zero(graph_cmd_project):
 
 
 def test_graph_orphans_returns_zero(graph_cmd_project):
-    from myco.graph_cmd import run_graph
+    from myco.mycelium_cmd import run_graph
     args = argparse.Namespace(
         graph_subcommand="orphans", project_dir=str(graph_cmd_project), json=False
     )
@@ -36,7 +36,7 @@ def test_graph_orphans_returns_zero(graph_cmd_project):
 
 
 def test_graph_backlinks_returns_zero(graph_cmd_project):
-    from myco.graph_cmd import run_graph
+    from myco.mycelium_cmd import run_graph
     args = argparse.Namespace(
         graph_subcommand="backlinks", file="docs/a.md",
         project_dir=str(graph_cmd_project), json=False
@@ -45,7 +45,7 @@ def test_graph_backlinks_returns_zero(graph_cmd_project):
 
 
 def test_graph_clusters_returns_zero(graph_cmd_project):
-    from myco.graph_cmd import run_graph
+    from myco.mycelium_cmd import run_graph
     args = argparse.Namespace(
         graph_subcommand="clusters", project_dir=str(graph_cmd_project), json=False
     )

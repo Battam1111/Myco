@@ -1,4 +1,4 @@
-"""Unit tests for myco.config_cmd — configuration management (Wave A3)."""
+"""Unit tests for myco.genome_cmd — configuration management (Wave A3)."""
 
 import argparse
 from pathlib import Path
@@ -16,7 +16,7 @@ def config_project(tmp_path):
 
 def test_run_config_get_returns_value(config_project):
     """config --get reads a value from _canon.yaml."""
-    from myco.config_cmd import run_config
+    from myco.genome_cmd import run_config
     args = argparse.Namespace(
         project_dir=str(config_project),
         get="adapters.mempalace.endpoint",
@@ -29,7 +29,7 @@ def test_run_config_get_returns_value(config_project):
 
 def test_run_config_list_shows_section(config_project):
     """config --list shows config section."""
-    from myco.config_cmd import run_config
+    from myco.genome_cmd import run_config
     args = argparse.Namespace(
         project_dir=str(config_project),
         get=None, set=None, list="", unset=None,
@@ -40,7 +40,7 @@ def test_run_config_list_shows_section(config_project):
 
 def test_run_config_handles_missing_key(config_project):
     """config --get with nonexistent key doesn't crash."""
-    from myco.config_cmd import run_config
+    from myco.genome_cmd import run_config
     args = argparse.Namespace(
         project_dir=str(config_project),
         get="system.nonexistent_key",

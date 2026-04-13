@@ -40,7 +40,7 @@ system:
   # Three reflexes enforced in-session at HIGH severity:
   #   (1) contract_drift   — local synced_contract_version ≠ kernel contract_version
   #   (2) raw_backlog HIGH — W1 violation when pure-raw count > threshold
-  #   (3) boot hunger wiring — myco_status surfaces reflex signals on invocation
+  #   (3) boot hunger wiring — myco_pulse surfaces reflex signals on invocation
   #
   # `[REFLEX HIGH]` prefix distinguishes reflex signals from advisory ones.
   # raw_backlog counts only pure-raw notes: digest_count == 0 AND
@@ -236,8 +236,8 @@ system:
       - excrete_reason
     # Optional fields (v0.4.0+) — documented for discovery, not enforced by L10.
     optional_fields:
-      - view_count              # int, default 0; bumped by `myco view <id>`
-      - last_viewed_at          # ISO str or null; set by `myco view <id>`
+      - view_count              # int, default 0; bumped by `myco observe <id>`
+      - last_viewed_at          # ISO str or null; set by `myco observe <id>`
       # Wave 30 (v0.26.0) — forward-compression audit trail.
       - compressed_from         # list[str]: input note ids on output extracted note
       - compressed_into         # str: output note id on excreted input notes
@@ -269,11 +269,11 @@ system:
       - eat                 # user/agent invoked `myco eat` explicitly
       - promote             # grown from another note
       - import              # bulk ingested from external tool
-      - bootstrap           # created during myco init
+      - bootstrap           # created during myco seed
       - forage              # v0.7.0 — digested extract from a forage/ item
-      - compress            # v0.26.0 (Wave 30) — extracted note from `myco compress`
+      - compress            # v0.26.0 (Wave 30) — extracted note from `myco condense`
       - inlet               # v0.27.0 (Wave 35) — raw note produced by
-                            # `myco inlet` from external content (file or
+                            # `myco absorb` from external content (file or
                             # agent-fetched URL). Carries `inlet_*` provenance
                             # fields. Wave 34 design craft establishes the
                             # scaffold; the verb defers all 4 open_problems
@@ -293,7 +293,7 @@ system:
     # The verb is operator-deferred for all 4 open_problems §1-4 sub-problems
     # (cold start, trigger signals, alignment, continuous compression).
     # Default tag is applied automatically when --tags is not provided so
-    # the existing `myco compress --tag inlet` chain can act on accumulated
+    # the existing `myco condense --tag inlet` chain can act on accumulated
     # inlet outputs without operators having to remember the convention.
     inlet:
       default_tag: "inlet"
@@ -439,8 +439,8 @@ project:
   # baselines: {}
 
 # ── Adapter Configuration ───────────────────────────────────────────────────
-# Managed by: myco config --set adapters.<tool>.<key> <value>
-# NOT validated by myco lint — this is external service config, not knowledge.
+# Managed by: myco genome --set adapters.<tool>.<key> <value>
+# NOT validated by myco immune — this is external service config, not knowledge.
 # adapters:
 #   mempalace:
 #     endpoint: "http://localhost:8765"

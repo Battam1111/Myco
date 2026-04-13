@@ -38,7 +38,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from myco.lint import (
+from myco.immune import (
     FULL_CHECKS,
     QUICK_CHECKS,
     lint_dimension_count_consistency,

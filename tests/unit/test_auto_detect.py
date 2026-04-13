@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 import pytest
 
-from myco.init_cmd import (
+from myco.seed_cmd import (
     detect_tools,
     run_auto_detect,
     _gen_claude_code,
@@ -33,31 +33,31 @@ class TestDetectTools:
     """Tests for detect_tools()."""
 
     def test_detects_claude_on_path(self, tmp_path):
-        with patch("myco.init_cmd.shutil.which") as mock_which:
+        with patch("myco.seed_cmd.shutil.which") as mock_which:
             mock_which.side_effect = lambda cmd: "/usr/bin/claude" if cmd == "claude" else None
             result = detect_tools(tmp_path)
         assert result["Claude Code"] is True
 
     def test_detects_cursor_dir(self, tmp_path):
         (tmp_path / ".cursor").mkdir()
-        with patch("myco.init_cmd.shutil.which", return_value=None):
+        with patch("myco.seed_cmd.shutil.which", return_value=None):
             result = detect_tools(tmp_path)
         assert result["Cursor"] is True
 
     def test_detects_cursor_on_path(self, tmp_path):
-        with patch("myco.init_cmd.shutil.which") as mock_which:
+        with patch("myco.seed_cmd.shutil.which") as mock_which:
             mock_which.side_effect = lambda cmd: "/usr/bin/cursor" if cmd == "cursor" else None
             result = detect_tools(tmp_path)
         assert result["Cursor"] is True
 
     def test_detects_vscode_dir(self, tmp_path):
         (tmp_path / ".vscode").mkdir()
-        with patch("myco.init_cmd.shutil.which", return_value=None):
+        with patch("myco.seed_cmd.shutil.which", return_value=None):
             result = detect_tools(tmp_path)
         assert result["VS Code"] is True
 
     def test_detects_vscode_on_path(self, tmp_path):
-        with patch("myco.init_cmd.shutil.which") as mock_which:
+        with patch("myco.seed_cmd.shutil.which") as mock_which:
             mock_which.side_effect = lambda cmd: "/usr/bin/code" if cmd == "code" else None
             result = detect_tools(tmp_path)
         assert result["VS Code"] is True
@@ -66,13 +66,13 @@ class TestDetectTools:
         codex_dir = Path.home() / ".codex"
         if codex_dir.is_dir():
             # Already exists on this system
-            with patch("myco.init_cmd.shutil.which", return_value=None):
+            with patch("myco.seed_cmd.shutil.which", return_value=None):
                 result = detect_tools(tmp_path)
             assert result["Codex"] is True
         else:
             # Mock the home directory check
-            with patch("myco.init_cmd.shutil.which", return_value=None), \
-                 patch("myco.init_cmd.Path.home") as mock_home:
+            with patch("myco.seed_cmd.shutil.which", return_value=None), \
+                 patch("myco.seed_cmd.Path.home") as mock_home:
                 fake_home = tmp_path / "fakehome"
                 fake_home.mkdir()
                 (fake_home / ".codex").mkdir()
@@ -84,26 +84,26 @@ class TestDetectTools:
         """Cline is detected when the global settings file exists."""
         fake_cline_path = tmp_path / "cline_mcp_settings.json"
         fake_cline_path.write_text("{}", encoding="utf-8")
-        with patch("myco.init_cmd.shutil.which", return_value=None), \
-             patch("myco.init_cmd._cline_settings_path", return_value=fake_cline_path):
+        with patch("myco.seed_cmd.shutil.which", return_value=None), \
+             patch("myco.seed_cmd._cline_settings_path", return_value=fake_cline_path):
             result = detect_tools(tmp_path)
         assert result["Cline"] is True
 
     def test_detects_continue_dir(self, tmp_path):
         (tmp_path / ".continue").mkdir()
-        with patch("myco.init_cmd.shutil.which", return_value=None):
+        with patch("myco.seed_cmd.shutil.which", return_value=None):
             result = detect_tools(tmp_path)
         assert result["Continue"] is True
 
     def test_detects_zed_on_path(self, tmp_path):
-        with patch("myco.init_cmd.shutil.which") as mock_which:
+        with patch("myco.seed_cmd.shutil.which") as mock_which:
             mock_which.side_effect = lambda cmd: "/usr/bin/zed" if cmd == "zed" else None
             result = detect_tools(tmp_path)
         assert result["Zed"] is True
 
     def test_detects_windsurf_on_path(self, tmp_path):
-        with patch("myco.init_cmd.shutil.which") as mock_which, \
-             patch("myco.init_cmd._cline_settings_path", return_value=tmp_path / "nonexistent"):
+        with patch("myco.seed_cmd.shutil.which") as mock_which, \
+             patch("myco.seed_cmd._cline_settings_path", return_value=tmp_path / "nonexistent"):
             mock_which.side_effect = lambda cmd: "/usr/bin/windsurf" if cmd == "windsurf" else None
             result = detect_tools(tmp_path)
         assert result["Windsurf"] is True
@@ -112,16 +112,16 @@ class TestDetectTools:
         fake_home = tmp_path / "fakehome"
         fake_home.mkdir()
         (fake_home / ".codeium" / "windsurf").mkdir(parents=True)
-        with patch("myco.init_cmd.shutil.which", return_value=None), \
-             patch("myco.init_cmd.Path.home", return_value=fake_home), \
-             patch("myco.init_cmd._cline_settings_path", return_value=tmp_path / "nonexistent"):
+        with patch("myco.seed_cmd.shutil.which", return_value=None), \
+             patch("myco.seed_cmd.Path.home", return_value=fake_home), \
+             patch("myco.seed_cmd._cline_settings_path", return_value=tmp_path / "nonexistent"):
             result = detect_tools(tmp_path)
         assert result["Windsurf"] is True
 
     def test_nothing_detected(self, tmp_path):
-        with patch("myco.init_cmd.shutil.which", return_value=None), \
-             patch("myco.init_cmd.Path.home") as mock_home, \
-             patch("myco.init_cmd._cline_settings_path", return_value=tmp_path / "nonexistent"):
+        with patch("myco.seed_cmd.shutil.which", return_value=None), \
+             patch("myco.seed_cmd.Path.home") as mock_home, \
+             patch("myco.seed_cmd._cline_settings_path", return_value=tmp_path / "nonexistent"):
             fake_home = tmp_path / "fakehome"
             fake_home.mkdir()
             mock_home.return_value = fake_home
@@ -286,7 +286,7 @@ class TestGenCodex:
     """Tests for _gen_codex()."""
 
     def test_creates_codex_config(self, tmp_path):
-        with patch("myco.init_cmd.Path.home", return_value=tmp_path):
+        with patch("myco.seed_cmd.Path.home", return_value=tmp_path):
             status = _gen_codex(tmp_path)
         assert status == "created"
         content = (tmp_path / ".codex" / "config.toml").read_text(encoding="utf-8")
@@ -300,7 +300,7 @@ class TestGenCline:
 
     def test_creates_cline_settings(self, tmp_path):
         fake_path = tmp_path / "global" / "cline_mcp_settings.json"
-        with patch("myco.init_cmd._cline_settings_path", return_value=fake_path):
+        with patch("myco.seed_cmd._cline_settings_path", return_value=fake_path):
             status = _gen_cline(tmp_path)
         assert status == "created"
         data = json.loads(fake_path.read_text(encoding="utf-8"))
@@ -311,7 +311,7 @@ class TestGenCline:
         fake_path.parent.mkdir(parents=True, exist_ok=True)
         fake_path.write_text(
             json.dumps({"mcpServers": {"existing": {}}}), encoding="utf-8")
-        with patch("myco.init_cmd._cline_settings_path", return_value=fake_path):
+        with patch("myco.seed_cmd._cline_settings_path", return_value=fake_path):
             status = _gen_cline(tmp_path)
         assert status == "merged"
         data = json.loads(fake_path.read_text(encoding="utf-8"))
@@ -353,7 +353,7 @@ class TestGenWindsurf:
     """Tests for _gen_windsurf()."""
 
     def test_creates_windsurf_config(self, tmp_path):
-        with patch("myco.init_cmd.Path.home", return_value=tmp_path):
+        with patch("myco.seed_cmd.Path.home", return_value=tmp_path):
             status = _gen_windsurf(tmp_path)
         assert status == "created"
         data = json.loads(
@@ -367,7 +367,7 @@ class TestGenWindsurf:
         ws_dir.mkdir(parents=True)
         (ws_dir / "mcp_config.json").write_text(
             json.dumps({"mcpServers": {"existing": {}}}), encoding="utf-8")
-        with patch("myco.init_cmd.Path.home", return_value=tmp_path):
+        with patch("myco.seed_cmd.Path.home", return_value=tmp_path):
             status = _gen_windsurf(tmp_path)
         assert status == "merged"
         data = json.loads((ws_dir / "mcp_config.json").read_text(encoding="utf-8"))
@@ -470,8 +470,8 @@ class TestRunAutoDetect:
             agent=None,
         )
         # Mock all tools as not detected to avoid filesystem side effects
-        with patch("myco.init_cmd.detect_tools") as mock_detect, \
-             patch("myco.init_cmd.shutil.which", return_value=None):
+        with patch("myco.seed_cmd.detect_tools") as mock_detect, \
+             patch("myco.seed_cmd.shutil.which", return_value=None):
             mock_detect.return_value = {
                 "Claude Code": False,
                 "Cursor": False,
@@ -499,7 +499,7 @@ class TestRunAutoDetect:
             auto_detect=True,
             agent=None,
         )
-        with patch("myco.init_cmd.detect_tools") as mock_detect:
+        with patch("myco.seed_cmd.detect_tools") as mock_detect:
             mock_detect.return_value = {
                 "Claude Code": True,
                 "Cursor": True,
@@ -519,7 +519,7 @@ class TestRunAutoDetect:
 
     def test_run_init_dispatches_to_auto_detect(self, tmp_path):
         """run_init delegates to run_auto_detect when --auto-detect is set."""
-        from myco.init_cmd import run_init
+        from myco.seed_cmd import run_init
         target = tmp_path / "dispatch_test"
         target.mkdir()
         args = argparse.Namespace(
@@ -531,7 +531,7 @@ class TestRunAutoDetect:
             auto_detect=True,
             agent=None,
         )
-        with patch("myco.init_cmd.detect_tools") as mock_detect:
+        with patch("myco.seed_cmd.detect_tools") as mock_detect:
             mock_detect.return_value = {
                 "Claude Code": False,
                 "Cursor": False,
@@ -560,9 +560,9 @@ class TestRunAutoDetect:
             agent=None,
         )
         fake_cline_path = tmp_path / "global_cline" / "cline_mcp_settings.json"
-        with patch("myco.init_cmd.detect_tools") as mock_detect, \
-             patch("myco.init_cmd.Path.home", return_value=tmp_path), \
-             patch("myco.init_cmd._cline_settings_path", return_value=fake_cline_path):
+        with patch("myco.seed_cmd.detect_tools") as mock_detect, \
+             patch("myco.seed_cmd.Path.home", return_value=tmp_path), \
+             patch("myco.seed_cmd._cline_settings_path", return_value=fake_cline_path):
             mock_detect.return_value = {
                 "Claude Code": True,
                 "Cursor": True,

@@ -505,7 +505,7 @@ neatly into the four-pillar diagram. They serve the Self-Model (Anchor #5)
 and the Autonomous Pipeline (Anchor #3) by providing sensing and analysis
 capabilities that feed into the hunger signal pipeline.
 
-### F.1 Link Graph (`src/myco/graph.py`, Wave 47)
+### F.1 Link Graph (src/myco/mycelium.py, Wave 47)
 
 On-demand structural link graph across all .md files. No cache — computed
 from the file system each time (same philosophy as lint).
@@ -520,7 +520,7 @@ from the file system each time (same philosophy as lint).
 signal fires when orphan count > 10, prompting the Agent to investigate
 disconnected knowledge.
 
-### F.2 Cohort Intelligence (`src/myco/cohorts.py`, Wave 48)
+### F.2 Cohort Intelligence (src/myco/colony.py, Wave 48)
 
 Tag-based semantic analysis for compression intelligence and gap detection.
 
@@ -530,10 +530,10 @@ Tag-based semantic analysis for compression intelligence and gap detection.
 - **gap_detection**: Tags where ALL notes are raw/digesting (unprocessed knowledge domains)
 
 **Self-Model role**: B-layer gap sensing. `inlet_ripe` hunger signal uses
-gap_detection to identify unprocessed domains. `myco compress --cohort auto`
+gap_detection to identify unprocessed domains. `myco condense --cohort auto`
 uses cohort suggestions for intelligent grouping.
 
-### F.3 Session Memory (`src/myco/sessions.py`, Wave 52)
+### F.3 Session Memory (src/myco/memory.py, Wave 52)
 
 FTS5 full-text index of Claude Code conversation transcripts stored in
 `.myco_state/sessions.db` (SQLite).
@@ -577,8 +577,8 @@ Myco provides scaffolding, the Agent provides judgment.
 - [wiki/architecture-decisions.md](../wiki/architecture-decisions.md) -- 创始架构决策（A1-A3）：notes.py SSoT、痛点驱动、扁平 notes
 - [wiki/design-decisions.md](../wiki/design-decisions.md) -- 创始设计决策（D1-D5）：hunger 排序、非零退出码、四命令最小循环
 - [_canon.yaml](../_canon.yaml) -- 规范值 SSoT：所有关键数字的单一信息源
-- [src/myco/lint.py](../src/myco/lint.py) -- 23 维 Lint 免疫系统实现
+- src/myco/immune.py -- 23 维 Lint 免疫系统实现
 - [src/myco/notes.py](../src/myco/notes.py) -- Note 生命周期 SSoT（A1 决策的实现）
-- [src/myco/graph.py](../src/myco/graph.py) -- Link Graph 结构智能（Appendix F.1）
-- [src/myco/cohorts.py](../src/myco/cohorts.py) -- Cohort Intelligence 语义分析（Appendix F.2）
-- [src/myco/sessions.py](../src/myco/sessions.py) -- Session Memory FTS5 索引（Appendix F.3）
+- src/myco/mycelium.py -- Link Graph 结构智能（Appendix F.1）
+- src/myco/colony.py -- Cohort Intelligence 语义分析（Appendix F.2）
+- src/myco/memory.py -- Session Memory FTS5 索引（Appendix F.3）

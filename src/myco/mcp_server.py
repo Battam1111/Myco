@@ -6,23 +6,23 @@ When configured in .mcp.json, AI agents (Claude Code, Cursor, etc.) automaticall
 discover these tools and call them at the right moments — no manual prompting needed.
 
 Tools:
-    myco_lint       — Run 23-dimensional consistency checks (L0-L22)
-    myco_status     — Quick overview of knowledge system health
-    myco_search     — Search across wiki/docs/MYCO.md knowledge base
-    myco_log        — Append friction/reflection entries to log.md
+    myco_immune       — Run 23-dimensional consistency checks (L0-L22)
+    myco_pulse     — Quick overview of knowledge system health
+    myco_sense     — Search across wiki/docs/MYCO.md knowledge base
+    myco_trace        — Append friction/reflection entries to log.md
     myco_reflect    — Trigger session-end reflection prompts
     myco_eat        — Capture a chunk of content as a raw atomic note
     myco_digest     — Move a note through the lifecycle (raw→…→excreted)
-    myco_view       — Read-only lens on notes/ (list or single note)
+    myco_observe       — Read-only lens on notes/ (list or single note)
     myco_hunger     — Metabolic dashboard with actionable signals
-    myco_compress   — Synthesize notes into extracted knowledge (Wave 43)
-    myco_uncompress — Reverse a compression operation (Wave 43)
+    myco_condense   — Synthesize notes into extracted knowledge (Wave 43)
+    myco_expand — Reverse a compression operation (Wave 43)
     myco_prune      — Auto-excrete dead-knowledge notes (Wave 43)
-    myco_inlet      — Ingest external content with provenance (Wave 43)
+    myco_absorb      — Ingest external content with provenance (Wave 43)
     myco_forage     — Manage external source material (Wave 43)
-    myco_graph      — Structural link graph analysis (Wave 47)
-    myco_cohort     — Semantic cohort intelligence (Wave 48)
-    myco_session    — Session memory search (Wave 52)
+    myco_mycelium      — Structural link graph analysis (Wave 47)
+    myco_colony     — Semantic cohort intelligence (Wave 48)
+    myco_memory    — Session memory search (Wave 52)
     myco_evolve     — Agent-driven skill self-improvement (Wave E3)
     myco_evolve_list — List skills and evolution history (Wave E3)
 
@@ -124,11 +124,11 @@ def _read_file(path: Path) -> Optional[str]:
 
 
 # ---------------------------------------------------------------------------
-# Tool: myco_lint
+# Tool: myco_immune
 # ---------------------------------------------------------------------------
 
 @mcp.tool(
-    name="myco_lint",
+    name="myco_immune",
     annotations={
         "title": "Myco Lint — 23-Dimension Consistency Check",
         "readOnlyHint": True,
@@ -138,7 +138,7 @@ def _read_file(path: Path) -> Optional[str]:
         "modelHint": "opus",  # agent-routing: recommended model class
     },
 )
-async def myco_lint(
+async def myco_immune(
     project_dir: Optional[str] = None,
     quick: bool = False,
 ) -> str:
@@ -197,7 +197,7 @@ async def myco_lint(
     # MUST NOT maintain a duplicate checks list. len(FULL_CHECKS) is the
     # canonical LINT_DIMENSION_COUNT (Wave 38 D1) and any local cache here
     # would silently drop newly added dimensions (the very bug Wave 38 fixes).
-    from myco.lint import FULL_CHECKS, QUICK_CHECKS
+    from myco.immune import FULL_CHECKS, QUICK_CHECKS
 
     checks = list(QUICK_CHECKS) if quick else list(FULL_CHECKS)
 
@@ -236,11 +236,11 @@ async def myco_lint(
 
 
 # ---------------------------------------------------------------------------
-# Tool: myco_status
+# Tool: myco_pulse
 # ---------------------------------------------------------------------------
 
 @mcp.tool(
-    name="myco_status",
+    name="myco_pulse",
     annotations={
         "title": "Myco Status — Knowledge System Overview",
         "readOnlyHint": True,
@@ -250,7 +250,7 @@ async def myco_lint(
         "modelHint": "opus",  # agent-routing: recommended model class
     },
 )
-async def myco_status(
+async def myco_pulse(
     project_dir: Optional[str] = None,
     include_hunger: bool = True,
 ) -> str:
@@ -270,7 +270,7 @@ async def myco_status(
         include_hunger: When True (default, Wave 13 / v0.12.0), the status
             response includes a `hunger_signals` block scanned from
             `compute_hunger_report`. This folds the boot sequence
-            (`myco_status` → `myco_hunger`) into one atomic call so that
+            (`myco_pulse` → `myco_hunger`) into one atomic call so that
             contract_drift + raw_backlog reflex signals surface before any
             task work. **Setting `include_hunger=False` while raw_backlog
             is above threshold is a W1 autopilot violation** — see
@@ -343,9 +343,9 @@ async def myco_status(
         "recent_log_entries": recent_log,
         "task_queue": tasks,
         "hint": (
-            "Run myco_lint to check for inconsistencies. "
-            "Use myco_search to find specific knowledge. "
-            "Use myco_log to record friction or reflections."
+            "Run myco_immune to check for inconsistencies. "
+            "Use myco_sense to find specific knowledge. "
+            "Use myco_trace to record friction or reflections."
         ),
     }
 
@@ -378,11 +378,11 @@ async def myco_status(
 
 
 # ---------------------------------------------------------------------------
-# Tool: myco_search
+# Tool: myco_sense
 # ---------------------------------------------------------------------------
 
 @mcp.tool(
-    name="myco_search",
+    name="myco_sense",
     annotations={
         "title": "Myco Search — Knowledge Base Lookup",
         "readOnlyHint": True,
@@ -392,7 +392,7 @@ async def myco_status(
         "modelHint": "opus",  # agent-routing: recommended model class
     },
 )
-async def myco_search(
+async def myco_sense(
     query: str,
     project_dir: Optional[str] = None,
     scope: str = "all",
@@ -496,11 +496,11 @@ async def myco_search(
 
 
 # ---------------------------------------------------------------------------
-# Tool: myco_log
+# Tool: myco_trace
 # ---------------------------------------------------------------------------
 
 @mcp.tool(
-    name="myco_log",
+    name="myco_trace",
     annotations={
         "title": "Myco Log — Record Friction or Reflection",
         "readOnlyHint": False,
@@ -510,7 +510,7 @@ async def myco_search(
         "modelHint": "opus",  # agent-routing: recommended model class
     },
 )
-async def myco_log(
+async def myco_trace(
     entry_type: str,
     message: str,
     project_dir: Optional[str] = None,
@@ -589,7 +589,7 @@ async def myco_reflect(
 
     Returns session reflection reflection prompts derived from recent log entries, lint
     results, and knowledge gaps. The agent should answer the prompts and log
-    the reflection via myco_log. session reflection is how the substrate evolves its own
+    the reflection via myco_trace. session reflection is how the substrate evolves its own
     rules — skipping it is how drift compounds.
 
     Args:
@@ -617,7 +617,7 @@ async def myco_reflect(
             )[-5:]
 
     # Quick lint check
-    from myco.lint import (
+    from myco.immune import (
         lint_canon_schema, lint_references, lint_numbers, lint_stale_patterns,
     )
     quick_issues = []
@@ -655,7 +655,7 @@ async def myco_reflect(
 
     # Mycelium self-maintenance: check for orphans at session end
     try:
-        from myco.graph import build_link_graph, find_orphans
+        from myco.mycelium import build_link_graph, find_orphans
         graph = build_link_graph(root)
         orphans = find_orphans(graph)
         note_orphans = [o for o in orphans if o.startswith("notes/")]
@@ -699,7 +699,7 @@ async def myco_reflect(
         "prompts": prompts,
         "learning_note": learning_note_id,
         "instruction": (
-            "Answer these prompts briefly, then call myco_log with "
+            "Answer these prompts briefly, then call myco_trace with "
             "entry_type='reflection' to persist your reflection. "
             "An execution-learning note was auto-captured."
         ),
@@ -961,11 +961,11 @@ async def myco_digest(
 
 
 # ---------------------------------------------------------------------------
-# Tool: myco_view  —  read-only lens on notes/
+# Tool: myco_observe  —  read-only lens on notes/
 # ---------------------------------------------------------------------------
 
 @mcp.tool(
-    name="myco_view",
+    name="myco_observe",
     annotations={
         "title": "Myco View — List or Read Atomic Notes",
         "readOnlyHint": True,
@@ -975,7 +975,7 @@ async def myco_digest(
         "modelHint": "opus",  # agent-routing: recommended model class
     },
 )
-async def myco_view(
+async def myco_observe(
     note_id: Optional[str] = None,
     status: Optional[str] = None,
     limit: int = 50,
@@ -989,10 +989,10 @@ async def myco_view(
       (a) BEFORE answering any question that might already live in notes/
           — grep your memory substrate first, not your training weights.
       (b) User asks "what were we doing?" / "where did we leave off?" →
-          myco_view status='raw' or 'digesting' shows the active queue.
-      (c) Starting a new task on a known topic → myco_view with a
+          myco_observe status='raw' or 'digesting' shows the active queue.
+      (c) Starting a new task on a known topic → myco_observe with a
           specific note_id or status filter to rehydrate context.
-      (d) Phase ② prep → myco_view status='raw' filters to notes tagged
+      (d) Phase ② prep → myco_observe status='raw' filters to notes tagged
           'friction-phase2' to review accumulated friction signals.
 
     ANTI-PATTERNS:
@@ -1177,7 +1177,7 @@ async def myco_hunger(
                         status=None, confidence=0.85, dry_run=False,
                         json=False, project_dir=str(root),
                         cohort=cohort)
-                    from myco.compress_cmd import run_compress
+                    from myco.condense_cmd import run_compress
                     import io, contextlib
                     buf = io.StringIO()
                     with contextlib.redirect_stdout(buf):
@@ -1212,7 +1212,7 @@ async def myco_hunger(
     elif report.actions:
         result["pipeline_hint"] = "Think — substrate needs attention, execute actions first"
     elif has_gaps:
-        result["pipeline_hint"] = "Discover — knowledge gaps detected, use myco_cohort(action='gaps') then myco_inlet to ingest"
+        result["pipeline_hint"] = "Discover — knowledge gaps detected, use myco_colony(action='gaps') then myco_absorb to ingest"
     else:
         result["pipeline_hint"] = "Build — signals advisory only, proceed with caution"
     result["pipeline_ref"] = "skills/sprint-pipeline.md"
@@ -1221,11 +1221,11 @@ async def myco_hunger(
 
 
 # ---------------------------------------------------------------------------
-# Tool: myco_compress  —  forward compression synthesis
+# Tool: myco_condense  —  forward compression synthesis
 # ---------------------------------------------------------------------------
 
 @mcp.tool(
-    name="myco_compress",
+    name="myco_condense",
     annotations={
         "title": "Myco Compress — Synthesize Notes into Extracted Knowledge",
         "readOnlyHint": False,
@@ -1235,7 +1235,7 @@ async def myco_hunger(
         "modelHint": "opus",  # agent-routing: recommended model class
     },
 )
-async def myco_compress(
+async def myco_condense(
     rationale: str,
     tag: Optional[str] = None,
     note_ids: Optional[List[str]] = None,
@@ -1292,7 +1292,7 @@ async def myco_compress(
         project_dir=str(root),
     )
 
-    from myco.compress_cmd import run_compress
+    from myco.condense_cmd import run_compress
     import io, contextlib
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf):
@@ -1309,11 +1309,11 @@ async def myco_compress(
 
 
 # ---------------------------------------------------------------------------
-# Tool: myco_uncompress  —  reverse compression
+# Tool: myco_expand  —  reverse compression
 # ---------------------------------------------------------------------------
 
 @mcp.tool(
-    name="myco_uncompress",
+    name="myco_expand",
     annotations={
         "title": "Myco Uncompress — Reverse a Compression Operation",
         "readOnlyHint": False,
@@ -1323,7 +1323,7 @@ async def myco_compress(
         "modelHint": "opus",  # agent-routing: recommended model class
     },
 )
-async def myco_uncompress(
+async def myco_expand(
     output_id: str,
     project_dir: Optional[str] = None,
 ) -> str:
@@ -1353,7 +1353,7 @@ async def myco_uncompress(
         project_dir=str(root),
     )
 
-    from myco.compress_cmd import run_uncompress
+    from myco.condense_cmd import run_uncompress
     import io, contextlib
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf):
@@ -1433,11 +1433,11 @@ async def myco_prune(
 
 
 # ---------------------------------------------------------------------------
-# Tool: myco_inlet  —  external content ingestion
+# Tool: myco_absorb  —  external content ingestion
 # ---------------------------------------------------------------------------
 
 @mcp.tool(
-    name="myco_inlet",
+    name="myco_absorb",
     annotations={
         "title": "Myco Inlet — Ingest External Content with Provenance",
         "readOnlyHint": False,
@@ -1447,7 +1447,7 @@ async def myco_prune(
         "modelHint": "opus",  # agent-routing: recommended model class
     },
 )
-async def myco_inlet(
+async def myco_absorb(
     content: str,
     provenance: str,
     tags: Optional[str] = None,
@@ -1489,7 +1489,7 @@ async def myco_inlet(
         project_dir=str(root),
     )
 
-    from myco.inlet_cmd import run_inlet
+    from myco.absorb_cmd import run_inlet
     import io, contextlib
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf):
@@ -1599,7 +1599,7 @@ async def myco_forage(
 # ---------------------------------------------------------------------------
 
 @mcp.tool(
-    name="myco_graph",
+    name="myco_mycelium",
     annotations={
         "title": "Myco Link Graph — structural link analysis",
         "readOnlyHint": True,
@@ -1609,7 +1609,7 @@ async def myco_forage(
         "modelHint": "opus",  # agent-routing: recommended model class
     },
 )
-async def myco_graph(
+async def myco_mycelium(
     action: str,
     target_file: Optional[str] = None,
     project_dir: Optional[str] = None,
@@ -1638,7 +1638,7 @@ async def myco_graph(
         target_file: Required for 'backlinks'. Relative path to the target file.
         project_dir: Path to Myco project root. Auto-detected if omitted.
     """
-    from myco.graph import (
+    from myco.mycelium import (
         build_link_graph,
         find_clusters,
         find_orphans,
@@ -1680,7 +1680,7 @@ async def myco_graph(
 # ---------------------------------------------------------------------------
 
 @mcp.tool(
-    name="myco_cohort",
+    name="myco_colony",
     annotations={
         "title": "Myco Cohort Intelligence — tag co-occurrence and gap analysis",
         "readOnlyHint": True,
@@ -1690,7 +1690,7 @@ async def myco_graph(
         "modelHint": "opus",  # agent-routing: recommended model class
     },
 )
-async def myco_cohort(
+async def myco_colony(
     action: str,
     limit: int = 10,
     project_dir: Optional[str] = None,
@@ -1698,7 +1698,7 @@ async def myco_cohort(
     """Analyze tag-based cohorts across notes for compression and gap detection.
 
     WHEN TO CALL:
-      (a) Before running myco_compress — use action='suggest' to pick the
+      (a) Before running myco_condense — use action='suggest' to pick the
           best cohort instead of guessing which tag to compress
       (b) hunger reports cohort_staleness or inlet_ripe — use action='gaps'
           to see which knowledge domains are unprocessed
@@ -1715,7 +1715,7 @@ async def myco_cohort(
         limit: Max results to return (default 10).
         project_dir: Path to Myco project root. Auto-detected if omitted.
     """
-    from myco.cohorts import (
+    from myco.colony import (
         compression_cohort_suggest,
         gap_detection,
         tag_cooccurrence,
@@ -1745,7 +1745,7 @@ async def myco_cohort(
 # ---------------------------------------------------------------------------
 
 @mcp.tool(
-    name="myco_session",
+    name="myco_memory",
     annotations={
         "title": "Myco Session Memory — FTS5 search across agent conversations",
         "readOnlyHint": False,
@@ -1755,7 +1755,7 @@ async def myco_cohort(
         "modelHint": "opus",  # agent-routing: recommended model class
     },
 )
-async def myco_session(
+async def myco_memory(
     action: str,
     query: Optional[str] = None,
     max_age_days: int = 90,
@@ -1782,7 +1782,7 @@ async def myco_session(
         max_age_days: Max age for indexing/pruning (default 90).
         project_dir: Path to Myco project root. Auto-detected if omitted.
     """
-    from myco.sessions import index_sessions, prune_sessions, search_sessions
+    from myco.memory import index_sessions, prune_sessions, search_sessions
 
     root = Path(project_dir) if project_dir else _find_project_root()
     root = root.resolve()

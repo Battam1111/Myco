@@ -10,7 +10,7 @@
 ## Scope
 
 Myco is a local CLI tool and Python library that operates entirely on your filesystem. It does not:
-- Make network requests (except `myco migrate` which may call external services if you configure it)
+- Make network requests (except `myco graft` which may call external services if you configure it)
 - Store credentials or personal data
 - Run code from user-supplied inputs
 - Expose network endpoints

@@ -55,7 +55,7 @@ def main():
 
     # ── myco init ──────────────────────────────────────────────────
     init_parser = subparsers.add_parser(
-        "init", help="Initialize a new Myco-powered project"
+        "seed", help="Initialize a new Myco-powered project"
     )
     init_parser.add_argument("name", help="Project name")
     init_parser.add_argument(
@@ -94,7 +94,7 @@ def main():
 
     # ── myco migrate ───────────────────────────────────────────────
     migrate_parser = subparsers.add_parser(
-        "migrate", help="Migrate an existing project to Myco (non-destructive)"
+        "graft", help="Migrate an existing project to Myco (non-destructive)"
     )
     migrate_parser.add_argument("project_dir", help="Path to existing project")
     migrate_parser.add_argument(
@@ -112,7 +112,7 @@ def main():
 
     # ── myco lint ──────────────────────────────────────────────────
     lint_parser = subparsers.add_parser(
-        "lint",
+        "immune",
         help="Run 23-dimension substrate health check",
     )
     lint_parser.add_argument(
@@ -135,7 +135,7 @@ def main():
 
     # ── myco config ────────────────────────────────────────────────
     config_parser = subparsers.add_parser(
-        "config", help="Read/write adapter configuration in _canon.yaml [adapters] section"
+        "genome", help="Read/write adapter configuration in _canon.yaml [adapters] section"
     )
     config_parser.add_argument(
         "--project-dir", type=str, default=".",
@@ -161,7 +161,7 @@ def main():
 
     # ── myco import ────────────────────────────────────────────────
     import_parser = subparsers.add_parser(
-        "import", help="Semi-automated content import from external tools (Hermes, OpenClaw)"
+        "assimilate", help="Semi-automated content import from external tools (Hermes, OpenClaw)"
     )
     import_parser.add_argument(
         "--from", dest="from_tool", required=True, metavar="TOOL",
@@ -206,7 +206,7 @@ def main():
     )
     eat_parser.add_argument(
         "--source", type=str, default="eat",
-        choices=["chat", "eat", "promote", "import", "bootstrap"],
+        choices=["chat", "eat", "promote", "assimilate", "bootstrap"],
         help="Provenance label (default: eat)",
     )
     eat_parser.add_argument(
@@ -244,7 +244,7 @@ def main():
         help="Additional tags, merged with the mandatory pair "
              "(friction-phase2, on-self-correction)")
     correct_parser.add_argument("--source", type=str, default="eat",
-        choices=["chat", "eat", "promote", "import", "bootstrap"])
+        choices=["chat", "eat", "promote", "assimilate", "bootstrap"])
     correct_parser.add_argument("--title", type=str, default=None,
         help="Optional H1 title to prepend to the note body")
     correct_parser.add_argument("--json", action="store_true",
@@ -332,7 +332,7 @@ def main():
 
     # ── myco view ──────────────────────────────────────────────────
     view_parser = subparsers.add_parser(
-        "view",
+        "observe",
         help="List notes (optionally filtered by status) or show a single note",
     )
     view_parser.add_argument(
@@ -378,7 +378,7 @@ def main():
     # (Wave 27, exploration 0.85). Implementation craft:
     # docs/primordia/compress_mvp_craft_2026-04-12.md (Wave 30, kernel_contract 0.90).
     compress_parser = subparsers.add_parser(
-        "compress",
+        "condense",
         help="Forward compression — synthesize N raw/digesting notes into "
              "1 extracted note with audit trail (anchor #4 service verb).",
     )
@@ -437,7 +437,7 @@ def main():
     # integrity is validated before any writes — refuses to operate on
     # an output whose audit chain is broken.
     uncompress_parser = subparsers.add_parser(
-        "uncompress",
+        "expand",
         help="Reverse a previous `myco compress` — restore each input from "
              "its pre_compression_status and delete the extracted output.",
     )
@@ -490,7 +490,7 @@ def main():
     # Verb shape locked in docs/primordia/metabolic_inlet_design_craft_2026-04-12.md §3.1.
     # Operator-deferred for all 4 open_problems §1-4 sub-problems.
     inlet_parser = subparsers.add_parser(
-        "inlet",
+        "absorb",
         help="Metabolic Inlet: ingest external content (file or "
              "agent-piped URL body) as a raw note with provenance scaffold "
              "(inlet_origin, inlet_method, inlet_fetched_at, inlet_content_hash).",
@@ -608,7 +608,7 @@ def main():
 
     # ── myco graph (Wave 47, v0.36.0) ───────────────────────────────
     graph_parser = subparsers.add_parser(
-        "graph",
+        "mycelium",
         help="Link graph analysis: backlinks, orphans, clusters, stats",
     )
     graph_sub = graph_parser.add_subparsers(dest="graph_subcommand")
@@ -636,7 +636,7 @@ def main():
 
     # ── myco cohort (Wave 48, v0.37.0) ──────────────────────────────
     cohort_parser = subparsers.add_parser(
-        "cohort",
+        "colony",
         help="Semantic cohort analysis: tag co-occurrence, compression suggestions, gaps",
     )
     cohort_sub = cohort_parser.add_subparsers(dest="cohort_subcommand")
@@ -655,14 +655,14 @@ def main():
 
     # ── myco session (Wave 52, v0.40.0) ─────────────────────────────
     session_parser = subparsers.add_parser(
-        "session",
+        "memory",
         help="Session memory: index, search, prune agent conversation transcripts",
     )
     session_sub = session_parser.add_subparsers(dest="session_subcommand")
     s_index = session_sub.add_parser("index", help="Index .jsonl session files into FTS5")
     s_index.add_argument("--project-dir", type=str, default=".")
     s_index.add_argument("--json", action="store_true")
-    s_search = session_sub.add_parser("search", help="Full-text search across sessions")
+    s_search = session_sub.add_parser("sense", help="Full-text search across sessions")
     s_search.add_argument("query", type=str, help="Search query")
     s_search.add_argument("--limit", type=int, default=20)
     s_search.add_argument("--project-dir", type=str, default=".")
@@ -674,7 +674,7 @@ def main():
 
     # ── myco verify (deployment health check) ──────────────────────
     verify_parser = subparsers.add_parser(
-        "verify", help="Verify Myco deployment: MCP server, tools, lint, substrate health")
+        "diagnose", help="Verify Myco deployment: MCP server, tools, lint, substrate health")
     verify_parser.add_argument(
         "--project-dir", type=str, default=".",
         help="Project directory to verify (default: current dir)")
@@ -703,31 +703,31 @@ def main():
         print(f"myco {__version__}")
         sys.exit(0)
 
-    if args.command == "verify":
-        from myco.verify_cmd import run_verify
+    if args.command == "diagnose":
+        from myco.diagnose_cmd import run_verify
         sys.exit(run_verify(args))
 
-    if args.command == "init":
-        from myco.init_cmd import run_init
+    if args.command == "seed":
+        from myco.seed_cmd import run_init
         sys.exit(run_init(args))
 
-    if args.command == "migrate":
-        from myco.migrate import run_migrate
+    if args.command == "graft":
+        from myco.graft import run_migrate
         sys.exit(run_migrate(args))
 
-    if args.command == "lint":
-        from myco.lint import run_lint
+    if args.command == "immune":
+        from myco.immune import run_lint
         # Ensure 'fix' attr exists even if parser was built without it
         if not hasattr(args, 'fix'):
             args.fix = False
         sys.exit(run_lint(args))
 
-    if args.command == "config":
-        from myco.config_cmd import run_config
+    if args.command == "genome":
+        from myco.genome_cmd import run_config
         sys.exit(run_config(args))
 
-    if args.command == "import":
-        from myco.import_cmd import run_import
+    if args.command == "assimilate":
+        from myco.assimilate_cmd import run_import
         sys.exit(run_import(args))
 
     if args.command == "eat":
@@ -763,7 +763,7 @@ def main():
         )
         sys.exit(run_digest(wrapped))
 
-    if args.command == "view":
+    if args.command == "observe":
         from myco.notes_cmd import run_view
         sys.exit(run_view(args))
 
@@ -777,19 +777,19 @@ def main():
         sys.exit(run_prune(args))
 
     # Wave 30 (v0.26.0): forward compression verb. Anchor #4 service.
-    if args.command == "compress":
-        from myco.compress_cmd import run_compress
+    if args.command == "condense":
+        from myco.condense_cmd import run_compress
         sys.exit(run_compress(args))
 
     # Wave 31: reverse compression verb. Closes Wave 30 L4 limitation.
-    if args.command == "uncompress":
-        from myco.compress_cmd import run_uncompress
+    if args.command == "expand":
+        from myco.condense_cmd import run_uncompress
         sys.exit(run_uncompress(args))
 
     # Wave 35 (v0.27.0): Metabolic Inlet primitive. Anchor #3 service.
     # Closes the longest-deferred gap (declared Wave 10, scaffolded Wave 34).
-    if args.command == "inlet":
-        from myco.inlet_cmd import run_inlet
+    if args.command == "absorb":
+        from myco.absorb_cmd import run_inlet
         sys.exit(run_inlet(args))
 
     if args.command == "forage":
@@ -798,18 +798,18 @@ def main():
 
 
     # Wave 47 (v0.36.0): link graph analysis.
-    if args.command == "graph":
-        from myco.graph_cmd import run_graph
+    if args.command == "mycelium":
+        from myco.mycelium_cmd import run_graph
         sys.exit(run_graph(args))
 
     # Wave 48 (v0.37.0): semantic cohort intelligence.
-    if args.command == "cohort":
-        from myco.cohorts_cmd import run_cohort
+    if args.command == "colony":
+        from myco.colony_cmd import run_cohort
         sys.exit(run_cohort(args))
 
     # Wave 52 (v0.40.0): session memory + search.
-    if args.command == "session":
-        from myco.sessions_cmd import run_session
+    if args.command == "memory":
+        from myco.memory_cmd import run_session
         sys.exit(run_session(args))
 
     if args.command == "propagate":

@@ -1,4 +1,4 @@
-"""Unit tests for myco.sessions_cmd — CLI dispatch for session verb."""
+"""Unit tests for myco.memory_cmd — CLI dispatch for session verb."""
 
 import argparse
 from pathlib import Path
@@ -22,7 +22,7 @@ def session_cmd_project(tmp_path):
 
 
 def test_session_index_returns_zero(session_cmd_project):
-    from myco.sessions_cmd import run_session
+    from myco.memory_cmd import run_session
     args = argparse.Namespace(
         session_subcommand="index", project_dir=str(session_cmd_project), json=False
     )
@@ -30,7 +30,7 @@ def test_session_index_returns_zero(session_cmd_project):
 
 
 def test_session_search_returns_zero(session_cmd_project):
-    from myco.sessions_cmd import run_session
+    from myco.memory_cmd import run_session
     args = argparse.Namespace(
         session_subcommand="search", query="test",
         project_dir=str(session_cmd_project), json=False, limit=10
@@ -39,7 +39,7 @@ def test_session_search_returns_zero(session_cmd_project):
 
 
 def test_session_prune_returns_zero(session_cmd_project):
-    from myco.sessions_cmd import run_session
+    from myco.memory_cmd import run_session
     args = argparse.Namespace(
         session_subcommand="prune", max_age_days=0,
         project_dir=str(session_cmd_project), json=False

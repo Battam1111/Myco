@@ -14,7 +14,7 @@ session per `docs/agent_protocol.md` §3).
 1. **Read hunger actions**: Run `myco hunger --json` and parse the `actions` array.
 2. **Execute each action in order**:
    - `verb: "digest"` → run `myco digest <note_id>` (or bulk if no note_id)
-   - `verb: "compress"` → run `myco compress --tag <tag> --rationale "<auto>"` (or `--cohort auto` if args.cohort is present)
+   - `verb: "compress"` → run `myco condense --tag <tag> --rationale "<auto>"` (or `--cohort auto` if args.cohort is present)
    - `verb: "prune"` → run `myco prune --apply`
    - `verb: "inlet"` → log the recommendation for human/agent decision (inlet is not fully autonomous yet)
 3. **Re-check hunger**: Run `myco hunger` again to confirm pressure reduced.

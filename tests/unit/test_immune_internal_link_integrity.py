@@ -24,7 +24,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from myco.lint import (
+from myco.immune import (
     lint_internal_link_integrity,
     load_canon,
 )

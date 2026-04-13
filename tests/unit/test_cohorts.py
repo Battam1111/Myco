@@ -1,4 +1,4 @@
-"""Unit tests for myco.cohorts — Wave 48 semantic cohort intelligence."""
+"""Unit tests for myco.colony — Wave 48 semantic cohort intelligence."""
 
 from datetime import datetime, timezone
 from pathlib import Path
@@ -47,7 +47,7 @@ def _write_note(notes_dir, note_id, status, tags, created=None):
 
 def test_tag_cooccurrence_basic(cohort_project):
     """3 notes with overlapping tags produce correct co-occurrence counts."""
-    from myco.cohorts import tag_cooccurrence
+    from myco.colony import tag_cooccurrence
 
     notes = cohort_project / "notes"
     _write_note(notes, "n_20260401T000001_0001", "raw", ["alpha", "beta"])
@@ -64,7 +64,7 @@ def test_tag_cooccurrence_basic(cohort_project):
 
 def test_cooccurrence_empty(cohort_project):
     """No notes produces empty co-occurrence."""
-    from myco.cohorts import tag_cooccurrence
+    from myco.colony import tag_cooccurrence
 
     pairs = tag_cooccurrence(cohort_project)
     assert pairs == []
@@ -72,7 +72,7 @@ def test_cooccurrence_empty(cohort_project):
 
 def test_gap_detection(cohort_project):
     """Raw-only tag detected as gap; tag with integrated notes is not."""
-    from myco.cohorts import gap_detection
+    from myco.colony import gap_detection
 
     notes = cohort_project / "notes"
     # "untouched" tag — only raw notes
@@ -90,7 +90,7 @@ def test_gap_detection(cohort_project):
 
 def test_compression_cohort_suggest(cohort_project):
     """Ripe tag cohort produces a compression suggestion."""
-    from myco.cohorts import compression_cohort_suggest
+    from myco.colony import compression_cohort_suggest
 
     notes = cohort_project / "notes"
     # 4 raw notes aged > 1 day with same tag (threshold=3, age=1 in fixture)
@@ -108,7 +108,7 @@ def test_compression_cohort_suggest(cohort_project):
 
 def test_gap_detection_no_gaps(cohort_project):
     """All tags have synthesized output — no gaps."""
-    from myco.cohorts import gap_detection
+    from myco.colony import gap_detection
 
     notes = cohort_project / "notes"
     _write_note(notes, "n_20260401T000001_0001", "extracted", ["topic-a"])

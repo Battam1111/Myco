@@ -99,7 +99,7 @@ def test_forage_status_validation(forage_project):
 
 def test_l14_broken_digest_target(forage_project):
     """digest_target pointing to a nonexistent note emits MEDIUM issue."""
-    from myco.lint import lint_forage_hygiene
+    from myco.immune import lint_forage_hygiene
 
     canon = yaml.safe_load(
         (forage_project / "_canon.yaml").read_text(encoding="utf-8")
@@ -127,7 +127,7 @@ def test_l14_broken_digest_target(forage_project):
 
 def test_l14_valid_digest_target(forage_project):
     """digest_target pointing to an existing note emits no issue."""
-    from myco.lint import lint_forage_hygiene
+    from myco.immune import lint_forage_hygiene
 
     canon = yaml.safe_load(
         (forage_project / "_canon.yaml").read_text(encoding="utf-8")

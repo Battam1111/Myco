@@ -24,7 +24,7 @@
 **框架开发中最容易出错的 N 件事** ⚠️：
 1. 更新 `pyproject.toml` 版本号但忘记同步 `src/myco/__init__.py`（两处版本号必须一致）
 2. 在 MYCO.md 里写"已实现"的功能，实际上是 roadmap（诚实原则）
-3. 运行 `myco lint` 检查 Myco 自身时，`--project-dir` 指向 repo 根，不是 `src/` 子目录
+3. 运行 `myco immune` 检查 Myco 自身时，`--project-dir` 指向 repo 根，不是 `src/` 子目录
 4. 修改模板后忘记 rebuild + 重新 `pip install -e ".[mcp]"`（本地测试时 importlib.resources 读的是 src/，无需 build；但 wheel 测试必须重建）
 
 **对外定位一句话**：
@@ -72,7 +72,7 @@ Python 打包环境（hatchling + twine）。模板唯一来源：`src/myco/temp
 | 方向 | 状态 | 关键能力 |
 |------|------|---------|
 | 代谢管道 | ✅ 基本完整 | eat/digest/compress/prune/inlet + hunger auto-execute |
-| 主动觅食 | ✅ 已落地 | `myco_cohort gaps` + `inlet_ripe` + discovery-loop skill |
+| 主动觅食 | ✅ 已落地 | `myco_colony gaps` + `inlet_ripe` + discovery-loop skill |
 | 自我进化 | ✅ 框架就位 | evolve.py (mutation/gates/scoring) + auto-evolve config |
 | 跨实例迁移 | ❌ 已废弃 | 所有项目共用一套 Myco，Agent 自行迁移知识 |
 | 需求预判 | ✅ 已落地 | predict_knowledge_needs from session history |
@@ -99,8 +99,8 @@ Python 打包环境（hatchling + twine）。模板唯一来源：`src/myco/temp
 | `identity_anchor_confidence` | 0.70 | 身份锚点 8 条稳定多 wave；L9 Vision Anchor 执行中；但自评偏差无外部独立确认 | vision_recovery craft |
 | `forage_backlog_pressure` | 0.00 | 8 items 全部 digested（空 raw backlog）；manifest schema_version=1 稳定 | L14, forage/_index.yaml |
 | `notes_digestion_pressure` | 0.47 | 64 notes，20 raw / 0 digesting / 13 extracted / 30 integrated / 0 excreted。pressure = 20/max(1,13+30) = 0.465。raw backlog 积压（post-primordia archive 后大量笔记被排出，新 raw 笔记待消化） | myco hunger 2026-04-13, 64 notes |
-| `mycelium_density` | 3.86 | 菌丝网络密度（edges/nodes）= 845/219。结构性互联指标，非 [0,1] 区间——原始图密度值，越高表示知识节点间连接越密。作为 Self Model C 层结构性退化的可计算基线：密度下降 = 结构退化信号 | `myco graph stats` 2026-04-13, 219 nodes / 845 edges |
-| `graph_orphan_pressure` | 0.00 | 孤儿节点比率（orphans/total）= 1/219。零入链节点占比，衡量知识孤岛程度。hunger `graph_orphans` 信号的量化基线；上升 = 知识碎片化加剧。大幅下降归因于 primordia archive 链接整合 | `myco graph stats` 2026-04-13, 1 orphan / 219 total |
+| `mycelium_density` | 3.86 | 菌丝网络密度（edges/nodes）= 845/219。结构性互联指标，非 [0,1] 区间——原始图密度值，越高表示知识节点间连接越密。作为 Self Model C 层结构性退化的可计算基线：密度下降 = 结构退化信号 | `myco mycelium stats` 2026-04-13, 219 nodes / 845 edges |
+| `graph_orphan_pressure` | 0.00 | 孤儿节点比率（orphans/total）= 1/219。零入链节点占比，衡量知识孤岛程度。hunger `graph_orphans` 信号的量化基线；上升 = 知识碎片化加剧。大幅下降归因于 primordia archive 链接整合 | `myco mycelium stats` 2026-04-13, 1 orphan / 219 total |
 
 **自评偏差护栏**（Wave 8 craft R2.2）：以上数值在无外部 evidence 情况下都以 0.70 为软顶。下调可随时，上调任何一项都需要在 `log.md` 追加一条 milestone + 关联 commit hash。**不要把 dashboard 当成奖杯榜**。
 
@@ -121,7 +121,7 @@ Python 打包环境（hatchling + twine）。模板唯一来源：`src/myco/temp
 
 ## 0. 项目摘要
 
-Myco 是一个可自进化的 AI 延伸认知基质框架。它给 AI agent 提供持久记忆、结构化知识和跨会话的自进化能力。v0.2.0 已发布至 PyPI（推荐：`git clone` + `pip install -e ".[mcp]"`；快速预览：`pip install myco`），提供 `myco init / migrate / lint / config / import / eat / correct / digest / evaluate / extract / integrate / view / compress / uncompress / prune / inlet / hunger / forage / graph / cohort / session / verify` CLI。当前 kernel contract v0.45.0（23 维 lint + Agent Review hybrid 免疫 + 19 MCP tools + 240 tests + hunger auto-execute + `myco init --agent claude` 一键就位 + evolve.py 自我进化 + predict_knowledge_needs 需求预判）。
+Myco 是一个可自进化的 AI 延伸认知基质框架。它给 AI agent 提供持久记忆、结构化知识和跨会话的自进化能力。v0.2.0 已发布至 PyPI（推荐：`git clone` + `pip install -e ".[mcp]"`；快速预览：`pip install myco`），提供 `myco seed / migrate / lint / config / import / eat / correct / digest / evaluate / extract / integrate / view / compress / uncompress / prune / inlet / hunger / forage / graph / cohort / session / verify` CLI。当前 kernel contract v0.45.0（23 维 lint + Agent Review hybrid 免疫 + 19 MCP tools + 240 tests + hunger auto-execute + `myco seed --agent claude` 一键就位 + evolve.py 自我进化 + predict_knowledge_needs 需求预判）。
 
 核心设计：agent-agnostic（Claude、GPT、Codex 等均可运行），框架本身通过 Myco 管理自身的知识。
 
@@ -141,9 +141,9 @@ Phase ②   摩擦驱动迭代                       🔄 进行中
            · Upstream Protocol v1.0 (L12)    ✅ contract v0.2.0 (2026-04-11, post-rebase 映射)
            · Craft Protocol v1 (L13)          ✅ contract v0.3.0 (2026-04-11, post-rebase 映射)
            · D 层 dead_knowledge 种子 (Wave 18)  ✅ contract v0.17.0
-           · `myco compress` / `uncompress`   ✅ Waves 30-31 (v0.26.0)
+           · `myco condense` / `uncompress`   ✅ Waves 30-31 (v0.26.0)
            · `myco prune` D-layer 自动排出    ✅ Wave 33
-           · `myco inlet` MVP scaffold         ✅ Wave 35 (v0.27.0)
+           · `myco absorb` MVP scaffold         ✅ Wave 35 (v0.27.0)
            · Signal-to-Action wiring            ✅ Wave 46 (v0.35.0)
            · Link Graph 菌丝互联              ✅ Wave 47 (v0.36.0)
            · Semantic Cohort Intelligence      ✅ Wave 48 (v0.37.0)
@@ -235,7 +235,7 @@ v2.0      Metabolic Inlet 原语               🔄 MVP scaffold 落地 (Wave 35
 |------|------|
 | `scripts/lint_knowledge.py` | 23 维度自动化一致性检查（对照 `_canon.yaml`） |
 | `scripts/myco_init.py` | 项目初始化脚本 |
-| `scripts/myco_migrate.py` | 从 CLAUDE.md 等迁移 |
+| `scripts/myco_graft.py` | 从 CLAUDE.md 等迁移 |
 | `scripts/compress_original.py` | 知识压缩工具 |
 
 ---

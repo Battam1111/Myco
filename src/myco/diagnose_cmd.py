@@ -131,7 +131,7 @@ def run_verify(args) -> int:
     # --- 3. Lint ---
     total += 1
     try:
-        from myco.lint import run_lint as _run_lint
+        from myco.immune import run_lint as _run_lint
         import argparse
         lint_args = argparse.Namespace(
             project_dir=str(root), quick=False, fix_report=False

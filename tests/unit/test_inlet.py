@@ -45,13 +45,13 @@ from types import SimpleNamespace
 import pytest
 
 from myco import notes
-from myco.inlet_cmd import (
+from myco.absorb_cmd import (
     _build_inlet_meta,
     _resolve_default_tag,
     _resolve_inlet_input,
     run_inlet,
 )
-from myco.lint import lint_notes_schema, load_canon
+from myco.immune import lint_notes_schema, load_canon
 
 
 # ---------------------------------------------------------------------------

@@ -33,7 +33,7 @@ from __future__ import annotations
 import yaml
 from pathlib import Path
 
-from myco.lint import (
+from myco.immune import (
     FULL_CHECKS,
     QUICK_CHECKS,
     auto_fix_issues,

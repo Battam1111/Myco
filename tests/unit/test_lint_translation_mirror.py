@@ -38,7 +38,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from myco.lint import (
+from myco.immune import (
     _count_skeleton,
     _L20_SKIP_MARKER,
     lint_translation_mirror_consistency,

@@ -42,7 +42,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from myco.lint import (
+from myco.immune import (
     lint_wave_seed_orphan,
     load_canon,
 )

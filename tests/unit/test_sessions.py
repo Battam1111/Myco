@@ -1,4 +1,4 @@
-"""Unit tests for myco.sessions — Wave 52 session memory."""
+"""Unit tests for myco.memory — Wave 52 session memory."""
 
 import json
 from pathlib import Path
@@ -43,7 +43,7 @@ def session_project(tmp_path):
 
 def test_index_empty(tmp_path):
     """No session files found produces empty stats."""
-    from myco.sessions import index_sessions
+    from myco.memory import index_sessions
 
     # Point to a non-existent dir so no real sessions are found
     empty_sessions = tmp_path / "empty_sessions"
@@ -61,7 +61,7 @@ def test_index_empty(tmp_path):
 
 def test_index_and_search_roundtrip(session_project):
     """Index mock sessions, search for known term, verify match."""
-    from myco.sessions import index_sessions, search_sessions
+    from myco.memory import index_sessions, search_sessions
 
     db_path = session_project / ".myco_state" / "sessions.db"
     stats = index_sessions(session_project, db_path=db_path)
@@ -75,7 +75,7 @@ def test_index_and_search_roundtrip(session_project):
 
 def test_prune_removes_old(session_project):
     """Index then prune with max_age_days=0 removes all."""
-    from myco.sessions import index_sessions, prune_sessions
+    from myco.memory import index_sessions, prune_sessions
 
     db_path = session_project / ".myco_state" / "sessions.db"
     index_sessions(session_project, db_path=db_path)
@@ -87,7 +87,7 @@ def test_prune_removes_old(session_project):
 
 def test_search_no_results(session_project):
     """Search for absent term returns empty."""
-    from myco.sessions import index_sessions, search_sessions
+    from myco.memory import index_sessions, search_sessions
 
     db_path = session_project / ".myco_state" / "sessions.db"
     index_sessions(session_project, db_path=db_path)

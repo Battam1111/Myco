@@ -1,7 +1,7 @@
 # --- Cross-references (mycelium graph) ---
 # Architecture spec:   docs/architecture.md
 # Protocol contract:   docs/agent_protocol.md
-# Lint reader:         src/myco/lint.py (reads this file for all lint configs)
+# Lint reader:         src/myco/immune.py (reads this file for all lint configs)
 # Hunger reader:       src/myco/notes.py (reads this file for hunger configs)
 # Dashboard SSoT:      MYCO.md (indicators reference canonical values here)
 
@@ -51,7 +51,7 @@ system:
   # Three reflexes closed:
   #   (1) contract_drift   — local synced_contract_version ≠ kernel contract_version
   #   (2) raw_backlog HIGH — W1 violation when pure-raw count > threshold
-  #   (3) boot hunger wiring — myco_status surfaces reflex signals on invocation
+  #   (3) boot hunger wiring — myco_pulse surfaces reflex signals on invocation
   #
   # `[REFLEX HIGH]` prefix distinguishes reflex signals from advisory ones.
   boot_reflex:
@@ -194,7 +194,7 @@ system:
         - docs/craft_protocol.md
         - docs/contract_changelog.md   # Wave 18 (v0.17.0): authoritative ledger
         - _canon.yaml
-        - src/myco/lint.py
+        - src/myco/immune.py
         - src/myco/mcp_server.py
         - src/myco/notes.py             # Wave 18 (v0.17.0): hunger/detect/write logic
         - src/myco/notes_cmd.py         # Wave 18 (v0.17.0): CLI plumbing
@@ -257,7 +257,7 @@ system:
         vision: ["docs/vision.md:§一"]
         contract: ["_canon.yaml::architecture", "docs/agent_protocol.md:§0.5"]
         lint: [L1, L4, L11]
-        code: [cli.py, mcp_server.py, init_cmd.py]
+        code: [cli.py, mcp_server.py, seed_cmd.py]
       non_parametric:                # Anchor #2: 非参数进化
         story: "MYCO.md:§身份锚点:2"
         vision: ["docs/vision.md:§九"]
@@ -269,28 +269,28 @@ system:
         vision: ["docs/vision.md:§三"]
         contract: ["_canon.yaml::notes_schema", "docs/agent_protocol.md:§2.2,§3,§4"]
         lint: [L10, L18, L22]
-        code: [notes.py, notes_cmd.py, compress_cmd.py, inlet_cmd.py]
+        code: [notes.py, notes_cmd.py, condense_cmd.py, absorb_cmd.py]
         hunger: [raw_backlog, stale_raw, compression_ripe, compression_pressure]
       compression_cognition:         # Anchor #4: 压缩即认知
         story: "MYCO.md:§身份锚点:4"
         vision: ["docs/vision.md:§三"]
         contract: ["_canon.yaml::notes_schema.compression"]
         lint: [L18]
-        code: [compress_cmd.py, cohorts.py]
+        code: [condense_cmd.py, colony.py]
         hunger: [compression_ripe, compression_pressure]
       self_model:                    # Anchor #5: 四层自我模型
         story: "MYCO.md:§身份锚点:5"
         vision: ["docs/vision.md:§三"]
         contract: ["_canon.yaml::notes_schema.dead_knowledge_threshold_days"]
         lint: [L10]
-        code: [notes.py, graph.py, sessions.py]
+        code: [notes.py, mycelium.py, memory.py]
         hunger: [dead_knowledge, graph_orphans, session_index_missing]
       internalized_selection:        # Anchor #6: 内化的变异-选择
         story: "MYCO.md:§身份锚点:6"
         vision: ["docs/vision.md:§二:C2", "docs/vision.md:§五"]
         contract: ["_canon.yaml::boot_reflex", "docs/agent_protocol.md:§7"]
         lint: [L0-L22]              # lint IS the selection mechanism
-        code: [lint.py, "notes.py::compute_hunger_report"]
+        code: [immune.py, "notes.py::compute_hunger_report"]
         hunger: [contract_drift, craft_reflex_missing]
       theoretical_lineage:           # Anchor #7: 理论血统
         story: "MYCO.md:§身份锚点:7"
@@ -314,7 +314,7 @@ system:
         value: 13
         cited_in: ["MYCO.md", "docs/architecture.md", "docs/reusable_system_design.md", "docs/vision.md", "docs/theory.md", "src/myco/templates/_canon.yaml"]
       lint_dimensions:
-        ssot: "len(FULL_CHECKS) in src/myco/lint.py"
+        ssot: "len(FULL_CHECKS) in src/myco/immune.py"
         value: 23
         cited_in: ["MYCO.md", "docs/architecture.md", "docs/reusable_system_design.md", "src/myco/mcp_server.py", "src/myco/cli.py"]
       mcp_tool_count:
@@ -459,8 +459,8 @@ system:
     # docs/primordia/dead_knowledge_seed_craft_2026-04-11.md and
     # docs/primordia/compression_primitive_craft_2026-04-12.md (Wave 27 D4).
     optional_fields:
-    - view_count              # int, default 0; incremented by `myco view <id>` single-note mode
-    - last_viewed_at          # ISO str or null; set by `myco view <id>` single-note mode
+    - view_count              # int, default 0; incremented by `myco observe <id>` single-note mode
+    - last_viewed_at          # ISO str or null; set by `myco observe <id>` single-note mode
     # Wave 30 (v0.26.0) — forward-compression audit trail.
     - compressed_from         # list[str]: ids of input notes (set on output extracted note)
     - compressed_into         # str: id of output note (set on excreted input notes)
@@ -493,13 +493,13 @@ system:
     - eat                 # user/agent invoked `myco eat` explicitly
     - promote             # grown from another note
     - import              # bulk ingested from external tool
-    - bootstrap           # created during myco init / first-run scaffolding
+    - bootstrap           # created during myco seed / first-run scaffolding
     - forage              # v0.7.0 — digested extract from a forage/ item
     - compress            # v0.26.0 (Wave 30) — extracted note produced by
-                          # `myco compress` from N raw/digesting inputs.
+                          # `myco condense` from N raw/digesting inputs.
                           # Carries `compressed_from` audit trail.
     - inlet               # v0.27.0 (Wave 35) — raw note produced by
-                          # `myco inlet` from external content (file or
+                          # `myco absorb` from external content (file or
                           # agent-fetched URL). Carries `inlet_*` provenance
                           # fields. Wave 34 design craft establishes the
                           # scaffold; the verb defers all 4 open_problems
@@ -510,7 +510,7 @@ system:
     # The hunger signal `compression_ripe` (Wave 27 D2) fires when a tag
     # cohort has ≥`ripe_threshold` raw notes AND the oldest is ≥`ripe_age_days`
     # old. The signal is non-blocking advisory; agents act on it via
-    # `myco compress --tag <X>` or ignore it.
+    # `myco condense --tag <X>` or ignore it.
     compression:
       ripe_threshold: 5
       ripe_age_days: 1
@@ -523,7 +523,7 @@ system:
     # The verb is operator-deferred for all 4 open_problems §1-4 sub-problems
     # (cold start, trigger signals, alignment, continuous compression).
     # Default tag is applied automatically when --tags is not provided so
-    # the existing `myco compress --tag inlet` chain can act on accumulated
+    # the existing `myco condense --tag inlet` chain can act on accumulated
     # inlet outputs without operators having to remember the convention.
     inlet:
       default_tag: "inlet"
@@ -638,7 +638,7 @@ system:
     - forage/                # v1.7.0 — external material pre-digestion (see forage_schema)
     - skills/                # Wave 50 — operational procedure documents (metabolic-cycle etc.)
     - docs/                  # framework docs
-    - log.md                 # append-only via myco_log
+    - log.md                 # append-only via myco_trace
     - MYCO.md                # L1 index
     - _canon.yaml            # SSoT — human approval in practice
     # --- Code / packaging ---
