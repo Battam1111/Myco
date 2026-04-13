@@ -33,6 +33,7 @@ Transport: stdio (local subprocess of the AI client)
 # MCP config:  .mcp.json (client-side wiring)
 # Skills:      skills/ (skill resolution for evolved tools)
 
+import functools
 import json
 import os
 import re
@@ -103,6 +104,46 @@ def _compute_sidecar(root: Path) -> dict:
         return {"raw_count": -1, "signals_count": -1, "top_signal": "error"}
 
 
+def _inject_sidecar(response_str: str, root: Path) -> str:
+    """Inject hunger sidecar into any JSON response."""
+    try:
+        data = json.loads(response_str)
+        sidecar = _compute_sidecar(root)
+        if isinstance(data, dict):
+            data["_myco_sidecar"] = sidecar
+            return json.dumps(data, indent=2, ensure_ascii=False)
+        if isinstance(data, list):
+            # Wrap bare lists so sidecar can be attached
+            wrapped = {"items": data, "_myco_sidecar": sidecar}
+            return json.dumps(wrapped, indent=2, ensure_ascii=False)
+    except (json.JSONDecodeError, TypeError):
+        pass
+    return response_str
+
+
+def _with_sidecar(fn):
+    """Decorator: inject hunger sidecar into every MCP tool response.
+
+    Wave B2+: push-mode substrate health — Agent always sees it without
+    explicitly calling myco_hunger. Applied to ALL 19 MCP tools.
+    """
+    @functools.wraps(fn)
+    async def wrapper(*args, **kwargs):
+        result = await fn(*args, **kwargs)
+        # Resolve project root from the project_dir kwarg (present on every tool)
+        project_dir = kwargs.get("project_dir")
+        if project_dir is None:
+            # Also check positional args — but project_dir is always a kwarg
+            # in MCP tool signatures. Fall back to auto-detection.
+            pass
+        try:
+            root = Path(project_dir).resolve() if project_dir else _find_project_root().resolve()
+            return _inject_sidecar(result, root)
+        except Exception:
+            return result
+    return wrapper
+
+
 def _load_canon(root: Path) -> dict:
     """Load _canon.yaml from project root."""
     if yaml is None:
@@ -138,6 +179,7 @@ def _read_file(path: Path) -> Optional[str]:
         "modelHint": "opus",  # agent-routing: recommended model class
     },
 )
+@_with_sidecar
 async def myco_immune(
     project_dir: Optional[str] = None,
     quick: bool = False,
@@ -250,6 +292,7 @@ async def myco_immune(
         "modelHint": "opus",  # agent-routing: recommended model class
     },
 )
+@_with_sidecar
 async def myco_pulse(
     project_dir: Optional[str] = None,
     include_hunger: bool = True,
@@ -392,6 +435,7 @@ async def myco_pulse(
         "modelHint": "opus",  # agent-routing: recommended model class
     },
 )
+@_with_sidecar
 async def myco_sense(
     query: str,
     project_dir: Optional[str] = None,
@@ -489,9 +533,6 @@ async def myco_sense(
         except Exception:
             pass  # best-effort — don't break search on tracking failure
 
-    # Wave B2: hunger sidecar — Agent sees substrate health on search calls
-    result["_myco_sidecar"] = _compute_sidecar(root)
-
     return json.dumps(result, indent=2, ensure_ascii=False)
 
 
@@ -510,6 +551,7 @@ async def myco_sense(
         "modelHint": "opus",  # agent-routing: recommended model class
     },
 )
+@_with_sidecar
 async def myco_trace(
     entry_type: str,
     message: str,
@@ -577,6 +619,7 @@ async def myco_trace(
         "modelHint": "opus",  # agent-routing: recommended model class
     },
 )
+@_with_sidecar
 async def myco_reflect(
     project_dir: Optional[str] = None,
 ) -> str:
@@ -723,6 +766,7 @@ async def myco_reflect(
         "modelHint": "opus",  # agent-routing: recommended model class
     },
 )
+@_with_sidecar
 async def myco_eat(
     content: str,
     tags: Optional[List[str]] = None,
@@ -824,6 +868,7 @@ _DIGEST_PROMPTS = [
         "modelHint": "opus",  # agent-routing: recommended model class
     },
 )
+@_with_sidecar
 async def myco_digest(
     note_id: Optional[str] = None,
     to_status: Optional[str] = None,
@@ -975,6 +1020,7 @@ async def myco_digest(
         "modelHint": "opus",  # agent-routing: recommended model class
     },
 )
+@_with_sidecar
 async def myco_observe(
     note_id: Optional[str] = None,
     status: Optional[str] = None,
@@ -1080,6 +1126,7 @@ async def myco_observe(
         "modelHint": "opus",  # agent-routing: recommended model class
     },
 )
+@_with_sidecar
 async def myco_hunger(
     execute: bool = False,
     project_dir: Optional[str] = None,
@@ -1235,6 +1282,7 @@ async def myco_hunger(
         "modelHint": "opus",  # agent-routing: recommended model class
     },
 )
+@_with_sidecar
 async def myco_condense(
     rationale: str,
     tag: Optional[str] = None,
@@ -1323,6 +1371,7 @@ async def myco_condense(
         "modelHint": "opus",  # agent-routing: recommended model class
     },
 )
+@_with_sidecar
 async def myco_expand(
     output_id: str,
     project_dir: Optional[str] = None,
@@ -1381,6 +1430,7 @@ async def myco_expand(
         "modelHint": "opus",  # agent-routing: recommended model class
     },
 )
+@_with_sidecar
 async def myco_prune(
     apply: bool = False,
     threshold_days: Optional[int] = None,
@@ -1447,6 +1497,7 @@ async def myco_prune(
         "modelHint": "opus",  # agent-routing: recommended model class
     },
 )
+@_with_sidecar
 async def myco_absorb(
     content: str,
     provenance: str,
@@ -1517,6 +1568,7 @@ async def myco_absorb(
         "modelHint": "opus",  # agent-routing: recommended model class
     },
 )
+@_with_sidecar
 async def myco_forage(
     action: str,
     source_url: Optional[str] = None,
@@ -1609,6 +1661,7 @@ async def myco_forage(
         "modelHint": "opus",  # agent-routing: recommended model class
     },
 )
+@_with_sidecar
 async def myco_mycelium(
     action: str,
     target_file: Optional[str] = None,
@@ -1690,6 +1743,7 @@ async def myco_mycelium(
         "modelHint": "opus",  # agent-routing: recommended model class
     },
 )
+@_with_sidecar
 async def myco_colony(
     action: str,
     limit: int = 10,
@@ -1755,6 +1809,7 @@ async def myco_colony(
         "modelHint": "opus",  # agent-routing: recommended model class
     },
 )
+@_with_sidecar
 async def myco_memory(
     action: str,
     query: Optional[str] = None,
@@ -1821,6 +1876,7 @@ async def myco_memory(
         "modelHint": "opus",  # agent-routing: recommended model class
     },
 )
+@_with_sidecar
 async def myco_evolve(
     skill_path: str,
     action: str = "propose",
@@ -2009,6 +2065,7 @@ async def myco_evolve(
         "modelHint": "opus",  # agent-routing: recommended model class
     },
 )
+@_with_sidecar
 async def myco_evolve_list(
     project_dir: Optional[str] = None,
 ) -> str:
