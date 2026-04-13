@@ -175,23 +175,28 @@ def run_correct(args) -> int:
 # ---------------------------------------------------------------------------
 
 _DIGEST_PROMPTS = [
-    "What is the single most compressible claim in this note?",
-    "Is there an existing wiki page or MYCO.md section this belongs to?",
-    "If this were lost tomorrow, what would break?",
-    "What should the new status be: extracted / integrated / excreted?",
+    "What is the ONE core claim or insight in this note? (one sentence)",
+    "Which file should this claim live in? (wiki/*.md / docs/*.md / MYCO.md)",
+    "Write the claim there with <!-- nutrient-from: NOTE_ID --> marker, then:\n"
+    "       myco digest NOTE_ID --to extracted --site <path> --nutrient '<insight>'",
 ]
 
 
 @_guard_project
 def run_digest(args) -> int:
-    """`myco digest` — move a note along the lifecycle.
+    """`myco digest` — move a note along the lifecycle with absorption gates.
 
     Modes:
-        myco digest                     # pick oldest raw note, print prompts
-        myco digest <id>                # target specific note
-        myco digest <id> --to extracted # apply a transition
-        myco digest <id> --excrete "why"# shortcut to excreted
+        myco digest                           # pick oldest raw, print prompts
+        myco digest <id>                      # target specific note
+        myco digest <id> --to extracted \\
+            --site wiki/x.md \\
+            --nutrient "the core insight"     # seal with absorption proof
+        myco digest <id> --excrete "why"      # shortcut to excreted
     """
+    from myco.notes import verify_absorption, ABSORPTION_REQUIRED_STATUSES
+    from datetime import datetime
+
     root = _project_root(args)
 
     # Resolve target note
@@ -225,7 +230,24 @@ def run_digest(args) -> int:
         print(f"🍄 Excreted {target.stem}: {args.excrete}")
         return 0
 
-    # Explicit transition
+    # Backfill mode: add absorption proof to already-extracted note
+    site = getattr(args, "site", None)
+    nut = getattr(args, "nutrient", None)
+    if site and not args.to:
+        ok, msg = verify_absorption(root, target.stem, site)
+        if not ok:
+            print(f"digest: absorption verification failed: {msg}", file=sys.stderr)
+            return 2
+        update_note(
+            target,
+            absorption_site=site,
+            nutrient=nut or "",
+            absorbed_at=datetime.now().isoformat(),
+        )
+        print(f"🍄 {target.stem}: absorption proof added → {site}")
+        return 0
+
+    # Explicit transition with gate
     if args.to:
         if args.to not in VALID_STATUSES:
             print(
@@ -234,8 +256,33 @@ def run_digest(args) -> int:
                 file=sys.stderr,
             )
             return 2
-        update_note(target, status=args.to, _increment_digest=True)
+
+        # GATE: extracted/integrated require absorption proof
+        if args.to in ABSORPTION_REQUIRED_STATUSES:
+            if not site or not nut:
+                print(
+                    f"digest: transition to '{args.to}' requires --site and --nutrient.\n"
+                    f"  1. Write the note's claim into a wiki/doc file\n"
+                    f"  2. Add <!-- nutrient-from: {target.stem} --> marker\n"
+                    f"  3. Run: myco digest {target.stem} --to {args.to} "
+                    f"--site <path> --nutrient '<insight>'",
+                    file=sys.stderr,
+                )
+                return 2
+            ok, msg = verify_absorption(root, target.stem, site)
+            if not ok:
+                print(f"digest: absorption verification failed: {msg}", file=sys.stderr)
+                return 2
+
+        update_fields = dict(status=args.to, _increment_digest=True)
+        if site:
+            update_fields["absorption_site"] = site
+            update_fields["nutrient"] = nut or ""
+            update_fields["absorbed_at"] = datetime.now().isoformat()
+        update_note(target, **update_fields)
         print(f"🍄 {target.stem}: {meta.get('status', 'raw')} → {args.to}")
+        if site:
+            print(f"   absorbed into: {site} — nutrient: {nut}")
         return 0
 
     # Default: transition to 'digesting' and print prompts
@@ -259,8 +306,10 @@ def run_digest(args) -> int:
     for i, q in enumerate(_DIGEST_PROMPTS, 1):
         print(f"    {i}. {q}")
     print(
-        "\n  Next: answer above, then `myco digest "
-        f"{target.stem} --to extracted|integrated|excreted`."
+        f"\n  Next: write the claim into the target file with "
+        f"<!-- nutrient-from: {target.stem} --> marker, then:\n"
+        f"  myco digest {target.stem} --to extracted "
+        f"--site <path> --nutrient '<insight>'"
     )
     return 0
 
@@ -545,6 +594,15 @@ def run_hunger(args) -> int:
                     continue
             elif verb == "prune":
                 cmd_parts += ["prune", "--apply", "--project-dir", str(root)]
+            elif verb == "auto_link_orphans":
+                # Orphan linking requires note content inspection — advisory in CLI
+                print(f"    🔗 auto_link_orphans: {reason[:80]}")
+                print(f"       (use MCP myco_hunger(execute=true) for full auto-link)")
+                continue
+            elif verb == "evolve":
+                skill_file = action.get("args", {}).get("skill", "")
+                print(f"    🧬 evolve recommended: {skill_file} — {reason[:80]}")
+                continue
             elif verb == "inlet":
                 # Inlet requires content — advisory only in auto mode
                 print(f"    📋 inlet recommended: {reason}")

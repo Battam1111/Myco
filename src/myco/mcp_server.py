@@ -189,6 +189,153 @@ def _read_file(path: Path) -> Optional[str]:
         return None
 
 
+def _extract_title(path: Path) -> str:
+    """Extract the first H1/H2 heading from a markdown file, or return stem."""
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line.startswith("# "):
+                    return line.lstrip("# ").strip()
+                if line.startswith("## "):
+                    return line.lstrip("# ").strip()
+        return path.stem
+    except Exception:
+        return path.stem
+
+
+def _doc_lifecycle_status(content: str) -> str:
+    """Extract [ACTIVE]/[COMPILED]/[SUPERSEDED] from doc content, or 'unknown'."""
+    for tag in ("ACTIVE", "COMPILED", "SUPERSEDED", "COMPILED→Myco"):
+        if f"[{tag}]" in content:
+            return tag
+    return "unknown"
+
+
+def compute_synaptic_context(root: Path) -> dict:
+    """Build the wiki inter-connection map — which pages link to which.
+
+    Reuses mycelium.build_link_graph() but filters to wiki↔wiki subgraph.
+    No ranking, no recommendations — Agent applies its own judgment.
+
+    Craft: docs/primordia/synaptogenesis_craft_2026-04-14.md
+
+    Returns:
+        dict with wiki_connectivity (per-page links) and health summary.
+    """
+    try:
+        from myco.mycelium import build_link_graph
+    except ImportError:
+        return {"error": "mycelium module not available"}
+
+    graph = build_link_graph(root)
+
+    wiki_pages = [n for n in graph if n.startswith("wiki/") and n.endswith(".md")]
+    connectivity = []
+    isolated_count = 0
+
+    for page in sorted(wiki_pages):
+        data = graph.get(page, {"forward": [], "backlinks": []})
+        # Filter to only wiki↔wiki links (not notes or docs)
+        outbound_wiki = [t for t in data["forward"] if t.startswith("wiki/") and t != page]
+        inbound_wiki = [s for s in data["backlinks"] if s.startswith("wiki/") and s != page]
+        # Also track non-wiki connections for full picture
+        inbound_notes = [s for s in data["backlinks"] if s.startswith("notes/")]
+        inbound_docs = [s for s in data["backlinks"] if s.startswith("docs/")]
+
+        is_isolated = len(outbound_wiki) == 0 and len(inbound_wiki) == 0
+        if is_isolated:
+            isolated_count += 1
+
+        connectivity.append({
+            "page": page,
+            "outbound_wiki": outbound_wiki,
+            "inbound_wiki": inbound_wiki,
+            "inbound_notes": len(inbound_notes),
+            "inbound_docs": len(inbound_docs),
+            "isolated": is_isolated,
+        })
+
+    total_wiki = len(wiki_pages)
+    return {
+        "wiki_connectivity": connectivity,
+        "health": {
+            "total_wiki_pages": total_wiki,
+            "isolated_wiki_pages": isolated_count,
+            "connectivity_ratio": round(
+                (total_wiki - isolated_count) / total_wiki, 2
+            ) if total_wiki > 0 else 0,
+        },
+        "synaptogenesis_hint": (
+            "Above shows how wiki pages connect to each other. "
+            "When writing to a wiki page, consider adding cross-references "
+            "to related pages (e.g., 'see also wiki/X.md'). "
+            "Isolated pages represent knowledge islands — connect them."
+        ),
+    }
+
+
+def compute_perfusion(root: Path) -> dict:
+    """Build a perfusion map — lightweight catalog of available knowledge tissue.
+
+    Pure filesystem metadata collection. No NLP, no ranking, no filtering.
+    The Agent applies its own intelligence to decide what to read.
+
+    Craft: docs/primordia/perfusion_system_craft_2026-04-14.md
+
+    Returns:
+        dict with 'wiki_pages' and 'docs_active' lists.
+    """
+    import datetime
+
+    wiki_dir = root / "wiki"
+    docs_current = root / "docs" / "current"
+
+    wiki_pages = []
+    if wiki_dir.exists():
+        for p in sorted(wiki_dir.glob("*.md")):
+            if p.name.startswith("_"):
+                continue  # skip internal/test files
+            stat = p.stat()
+            wiki_pages.append({
+                "path": f"wiki/{p.name}",
+                "title": _extract_title(p),
+                "last_modified": datetime.datetime.fromtimestamp(
+                    stat.st_mtime
+                ).strftime("%Y-%m-%d"),
+                "size_kb": round(stat.st_size / 1024, 1),
+            })
+
+    docs_active = []
+    if docs_current.exists():
+        for p in sorted(docs_current.glob("*.md")):
+            content = _read_file(p)
+            if not content:
+                continue
+            status = _doc_lifecycle_status(content)
+            if status not in ("ACTIVE",):
+                continue  # only surface active docs
+            stat = p.stat()
+            docs_active.append({
+                "path": f"docs/current/{p.name}",
+                "title": _extract_title(p),
+                "status": status,
+                "last_modified": datetime.datetime.fromtimestamp(
+                    stat.st_mtime
+                ).strftime("%Y-%m-%d"),
+            })
+
+    return {
+        "wiki_pages": wiki_pages,
+        "docs_active": docs_active,
+        "perfusion_hint": (
+            "Above is the full catalog of available knowledge tissue. "
+            "Based on your current task, decide which pages to read before proceeding. "
+            "Use Read tool or myco_sense to access specific content."
+        ),
+    }
+
+
 # ---------------------------------------------------------------------------
 # Tool: myco_immune
 # ---------------------------------------------------------------------------
@@ -197,7 +344,7 @@ def _read_file(path: Path) -> Optional[str]:
     name="myco_immune",
     annotations={
         "title": "Myco Immune — 23-Dimension Consistency Check",
-        "readOnlyHint": True,
+        "readOnlyHint": False,
         "destructiveHint": False,
         "idempotentHint": True,
         "openWorldHint": False,
@@ -217,7 +364,7 @@ async def myco_immune(
     modified wiki/, docs/, MYCO.md, _canon.yaml, or notes/. Also run after any
     milestone retrospective retrospective or before commits that touch multiple knowledge files.
 
-    This is the 55-dimensional immune system of the knowledge substrate. It
+    This is the 23-dimensional immune system of the knowledge substrate. It
     catches contradictions across files, orphan references, stale patterns,
     version drift, write-surface violations, craft
     protocol schema violations, forage substrate hygiene issues, craft reflex
@@ -439,6 +586,12 @@ async def myco_pulse(
             "Use myco_trace to record friction or reflections."
         ),
     }
+
+    # Perfusion: attach full knowledge catalog so Agent can decide what to read
+    try:
+        status["perfusion"] = compute_perfusion(root)
+    except Exception as e:
+        status["perfusion"] = {"error": str(e)}
 
     # Wave 13 (contract v0.12.0): boot reflex arc — fold hunger into status
     # so reflex signals (contract_drift, raw_backlog HIGH, craft_reflex)
@@ -678,7 +831,7 @@ async def myco_reflect(
     trigger like "what did we learn", or whenever an operation finishes cleanly
     and ≥3 log entries were added during the session.
 
-    Returns session reflection reflection prompts derived from recent log entries, lint
+    Returns session reflection prompts derived from recent log entries, lint
     results, and knowledge gaps. The agent should answer the prompts and log
     the reflection via myco_trace. session reflection is how the substrate evolves its own
     rules — skipping it is how drift compounds.
@@ -898,10 +1051,11 @@ async def myco_eat(
 # ---------------------------------------------------------------------------
 
 _DIGEST_PROMPTS = [
-    "What is the single most compressible claim in this note?",
-    "Is there an existing wiki page or MYCO.md section this belongs to?",
-    "If this were lost tomorrow, what would break?",
-    "What should the new status be: extracted / integrated / excreted?",
+    "What is the ONE core claim or insight in this note? (one sentence)",
+    "Which file should this claim live in? (wiki/*.md / docs/*.md / MYCO.md)",
+    "Write the claim into that file with a <!-- nutrient-from: NOTE_ID --> marker, "
+    "then call: myco_digest(note_id, to_status='extracted', "
+    "absorption_site='<path>', nutrient='<claim>')",
 ]
 
 
@@ -921,43 +1075,57 @@ async def myco_digest(
     note_id: Optional[str] = None,
     to_status: Optional[str] = None,
     excrete_reason: Optional[str] = None,
+    absorption_site: Optional[str] = None,
+    nutrient: Optional[str] = None,
     project_dir: Optional[str] = None,
 ) -> str:
-    """Move a note along the digestive lifecycle: raw → digesting → {extracted | integrated | excreted}.
+    """Move a note along the digestive lifecycle with proof-of-work gates.
 
-    Contract: docs/agent_protocol.md §2.2 + §2.3. L10 lint enforces frontmatter.
+    Contract: docs/agent_protocol.md §2.2. L10 + L24 enforce compliance.
 
-    WHEN TO CALL (trigger conditions):
-      (a) At session start, after myco_hunger — if hunger reports
-          raw_backlog or stale_raw, call myco_digest with no note_id to
-          process the oldest raw note.
-      (b) Before extracting a note's claim into wiki/ or MYCO.md — run
-          digest first to walk the reflection prompts, THEN transition.
-      (c) When a note is obsolete / duplicate / wrong → call with
-          excrete_reason (required by L10).
-      (d) Non-linear jumps (raw → integrated, raw → excreted) are legal
-          but MUST go through this tool. Never hand-edit the status
-          frontmatter field.
+    == REAL DIGESTION WORKFLOW (4 phases) ==
+
+    Phase 1 — CLAIM: call digest(note_id) with no to_status.
+      Returns the note body + structured prompts. Agent reads the content,
+      identifies the core claim, decides which wiki/doc file it belongs in.
+      Status: raw → digesting.
+
+    Phase 2 — PLACE: Agent writes the claim into the target file.
+      Add a <!-- nutrient-from: NOTE_ID --> marker near the extracted content.
+      This step is done by the Agent using Write/Edit tools, NOT by digest.
+
+    Phase 3 — SEAL: call digest(note_id, to_status="extracted",
+      absorption_site="wiki/xxx.md", nutrient="the claim").
+      Tool VERIFIES: target file exists AND contains the source marker.
+      Only then does the status transition to extracted.
+      If verification fails → error, no status change.
+
+    Phase 4 — VERIFY: immune L24 periodically scans all extracted/integrated
+      notes to catch "phantom digestion" (status changed without real extraction).
+
+    == GATE RULES ==
+    - to_status="extracted" or "integrated" REQUIRES absorption_site +
+      nutrient. Without them → error.
+    - to_status="excreted" REQUIRES excrete_reason. No proof needed.
+    - to_status="digesting" or "raw" → free transition.
+    - Backfill mode: if note is already extracted/integrated and you just
+      want to add missing proof fields, pass absorption_site + nutrient
+      without to_status.
 
     ANTI-PATTERNS (do NOT do these):
+      - Calling to_status='extracted' without absorption_site (BLOCKED)
       - Manually editing notes/*.md to change status
-      - Skipping digest and writing directly into wiki/ or MYCO.md
-      - Calling excreted without excrete_reason
-      - Bulk-transitioning many notes at once without reading them
-
-    Modes:
-      1. Reflective (default): note_id=None or omit to_status → picks
-         oldest raw note, flips it to 'digesting', returns prompts.
-      2. Transition: supply to_status in {raw, digesting, extracted,
-         integrated, excreted}.
-      3. Shortcut: supply excrete_reason → marks as excreted with reason.
+      - Skipping Phase 2 (actually writing the claim) before Phase 3
 
     Args:
         note_id: Target note id (e.g. 'n_20260410T143027_7f3a'). If None,
                  picks the oldest raw note in the queue.
-        to_status: Explicit transition target. Takes precedence over
-                   the default reflective flow.
+        to_status: Explicit transition target.
         excrete_reason: If set, marks the note as excreted with this reason.
+        absorption_site: Relative path to the file where the claim was written.
+                          REQUIRED when to_status is 'extracted' or 'integrated'.
+        nutrient: One-sentence summary of what was extracted.
+                           REQUIRED when to_status is 'extracted' or 'integrated'.
         project_dir: Path to Myco project root. Auto-detected if omitted.
 
     Returns:
@@ -965,6 +1133,7 @@ async def myco_digest(
     """
     from myco.notes import (
         read_note, update_note, list_notes, id_to_filename, VALID_STATUSES,
+        verify_absorption, ABSORPTION_REQUIRED_STATUSES,
     )
 
     root = Path(project_dir) if project_dir else _find_project_root()
@@ -990,6 +1159,29 @@ async def myco_digest(
     except Exception as e:
         return json.dumps({"error": f"Failed to read note: {e}"})
 
+    # Backfill mode: add extraction proof to an already-extracted note
+    if absorption_site and not to_status and not excrete_reason:
+        ok, msg = verify_absorption(root, target.stem, absorption_site)
+        if not ok:
+            return json.dumps({"error": msg, "gate": "extraction_verification"})
+        try:
+            update_note(
+                target,
+                absorption_site=absorption_site,
+                nutrient=nutrient or "",
+                absorbed_at=datetime.now().isoformat(),
+            )
+        except Exception as e:
+            return json.dumps({"error": f"Backfill failed: {e}"})
+        return json.dumps({
+            "status": "ok",
+            "id": target.stem,
+            "mode": "backfill",
+            "absorption_site": absorption_site,
+            "nutrient": nutrient or "",
+            "message": "Extraction proof added to existing note.",
+        }, ensure_ascii=False)
+
     # Excrete shortcut
     if excrete_reason:
         try:
@@ -1008,20 +1200,82 @@ async def myco_digest(
             "reason": excrete_reason,
         }, ensure_ascii=False)
 
-    # Explicit transition
+    # Explicit transition with extraction gate
     if to_status:
         if to_status not in VALID_STATUSES:
             return json.dumps({
                 "error": f"Invalid to_status {to_status!r}. Expected: {list(VALID_STATUSES)}",
             })
+
+        # GATE: extracted/integrated require proof-of-work
+        if to_status in ABSORPTION_REQUIRED_STATUSES:
+            if not absorption_site or not nutrient:
+                return json.dumps({
+                    "error": (
+                        f"Transition to '{to_status}' requires absorption_site "
+                        f"and nutrient. You must first write the note's "
+                        f"core claim into a wiki/doc file with a "
+                        f"'<!-- nutrient-from: {target.stem} -->' marker, then pass "
+                        f"absorption_site='<relative_path>' and "
+                        f"nutrient='<one sentence claim>'."
+                    ),
+                    "gate": "absorption_proof_required",
+                    "hint": _DIGEST_PROMPTS,
+                })
+            # Verify the extraction actually happened
+            ok, msg = verify_absorption(root, target.stem, absorption_site)
+            if not ok:
+                return json.dumps({
+                    "error": msg,
+                    "gate": "extraction_verification",
+                })
+
         try:
-            update_note(target, status=to_status, _increment_digest=True)
+            update_fields = dict(status=to_status, _increment_digest=True)
+            if absorption_site:
+                update_fields["absorption_site"] = absorption_site
+                update_fields["nutrient"] = nutrient or ""
+                update_fields["absorbed_at"] = datetime.now().isoformat()
+            update_note(target, **update_fields)
         except Exception as e:
             return json.dumps({"error": f"Transition failed: {e}"})
+
+        # Synaptogenesis: post-seal weaving hint — show the absorption
+        # site's current connectivity so Agent can check cross-links.
+        weaving_hint = None
+        if absorption_site and to_status in ABSORPTION_REQUIRED_STATUSES:
+            try:
+                synaptic = compute_synaptic_context(root)
+                site_data = next(
+                    (p for p in synaptic.get("wiki_connectivity", [])
+                     if p["page"] == absorption_site),
+                    None,
+                )
+                if site_data:
+                    if site_data["isolated"]:
+                        weaving_hint = (
+                            f"⚠️ '{absorption_site}' is currently ISOLATED — "
+                            f"no cross-references to/from other wiki pages. "
+                            f"Consider adding 'See also: [page](wiki/xxx.md)' "
+                            f"links to connect it to the knowledge network."
+                        )
+                    else:
+                        weaving_hint = (
+                            f"'{absorption_site}' connects to: "
+                            f"outbound={site_data['outbound_wiki']}, "
+                            f"inbound={site_data['inbound_wiki']}. "
+                            f"Verify these connections still make sense."
+                        )
+            except Exception:
+                pass  # best-effort
+
         return json.dumps({
             "status": "ok",
             "id": target.stem,
             "transition": f"{meta.get('status')} → {to_status}",
+            **({"absorption_site": absorption_site} if absorption_site else {}),
+            **({"nutrient": nutrient} if nutrient else {}),
+            **({"weaving_hint": weaving_hint} if weaving_hint else {}),
         }, ensure_ascii=False)
 
     # Default: flip raw → digesting and return prompts
@@ -1036,6 +1290,15 @@ async def myco_digest(
         return json.dumps({"error": f"Update failed: {e}"})
 
     preview_lines = body.splitlines()[:20]
+
+    # Synaptogenesis: provide wiki interconnection map so Agent considers
+    # cross-linking when deciding where to place the nutrient.
+    synaptic = {}
+    try:
+        synaptic = compute_synaptic_context(root)
+    except Exception:
+        pass  # best-effort
+
     return json.dumps({
         "status": "reflect",
         "id": target.stem,
@@ -1046,10 +1309,15 @@ async def myco_digest(
         "body_truncated": len(body.splitlines()) > 20,
         "prompts": _DIGEST_PROMPTS,
         "instruction": (
-            "Answer the prompts, then call myco_digest again with "
-            "to_status='extracted' | 'integrated' | 'excreted' (with "
-            "excrete_reason if excreted)."
+            "1. Identify the core nutrient (claim/insight). "
+            "2. Write it into the absorption site (wiki/docs file) with "
+            "a <!-- nutrient-from: NOTE_ID --> marker. "
+            "3. When writing, ADD cross-references to related wiki pages "
+            "(check synaptic_context below for current connections). "
+            "4. Seal: myco_digest(note_id, to_status='extracted', "
+            "absorption_site='<path>', nutrient='<one sentence>')."
         ),
+        "synaptic_context": synaptic,
     }, ensure_ascii=False)
 
 
@@ -1167,7 +1435,7 @@ async def myco_observe(
     name="myco_hunger",
     annotations={
         "title": "Myco Hunger — Metabolic Substrate Dashboard",
-        "readOnlyHint": True,
+        "readOnlyHint": False,
         "destructiveHint": False,
         "idempotentHint": True,
         "openWorldHint": False,
@@ -1315,6 +1583,12 @@ async def myco_hunger(
                         except Exception:
                             continue
                     exec_result["status"] = f"ok: linked {linked} orphan notes"
+                elif verb == "evolve":
+                    skill_file = action.get("args", {}).get("skill", "")
+                    exec_result["status"] = (
+                        f"advisory (skill '{skill_file}' needs evolution — "
+                        f"call myco_evolve(skill='{skill_file}') to propose mutation)"
+                    )
                 elif verb == "inlet":
                     exec_result["status"] = "advisory (inlet needs human/agent decision)"
                 else:
@@ -1323,6 +1597,28 @@ async def myco_hunger(
                 exec_result["status"] = f"error: {e}"
             execution_results.append(exec_result)
         result["execution_results"] = execution_results
+
+    # Perfusion: attach knowledge catalog + task context for Agent's own
+    # relevance judgment. No tool-side filtering — Agent decides what matters.
+    try:
+        perfusion = compute_perfusion(root)
+        # Also include raw task queue text so Agent can correlate
+        canon = _load_canon(root)
+        entry_point = canon.get("system", {}).get("entry_point", "MYCO.md")
+        myco_path = root / entry_point
+        task_text = ""
+        if myco_path.exists():
+            mc = _read_file(myco_path)
+            if mc:
+                # Extract task table section
+                task_matches = re.findall(
+                    r"\|\s*\d+\s*\|\s*[^\|]+\|\s*[^\|]+\|[^\n]*", mc
+                )
+                task_text = "\n".join(task_matches[:10])
+        perfusion["current_tasks_raw"] = task_text or "(no task queue found)"
+        result["perfusion"] = perfusion
+    except Exception as e:
+        result["perfusion"] = {"error": str(e)}
 
     # Sprint Pipeline hint (absorbed from gstack): tell Agent where they are
     # in the development loop based on current substrate state.
@@ -2225,11 +2521,3 @@ async def myco_evolve_list(
         "total_skills": len(skills),
         "total_evolved_variants": sum(s["evolution_count"] for s in skills),
     }, ensure_ascii=False, indent=2)
-
-
-# ---------------------------------------------------------------------------
-# Entry point
-# ---------------------------------------------------------------------------
-
-if __name__ == "__main__":
-    mcp.run()

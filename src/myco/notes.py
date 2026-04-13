@@ -306,78 +306,126 @@ def _auto_link_note(
     new_tags: Optional[List[str]],
     new_title: Optional[str],
 ) -> None:
-    """Automatically find related notes and add cross-references.
+    """Automatically weave a new note into the existing knowledge network.
 
-    This is the mycelium wrapping behavior -- new knowledge nodes
-    automatically connect to the existing network via shared tags.
+    This is the synaptogenesis behavior — new knowledge nodes automatically
+    connect to the existing network via two mechanisms:
+    1. Tag overlap with other notes (original behavior)
+    2. Content-based matching against wiki page titles (enhanced)
 
     Design constraints:
     - Best-effort: exceptions are caught by the caller.
-    - Only links notes with overlapping tags (semantic relevance).
     - Limits to top 5 related notes (don't spam).
     - Bidirectional: new note links to old, old notes link back.
     - Idempotent: won't duplicate existing links.
+
+    Craft: docs/primordia/synaptogenesis_craft_2026-04-14.md
     """
-    if not new_tags:
-        return
-    notes_dir = root / "notes"
-    if not notes_dir.is_dir():
-        return
-
     new_note_id = new_note_path.stem  # e.g. n_20260413T...
-    new_tag_set = set(new_tags)
-    related: List[Tuple[Path, str, int]] = []
+    new_tag_set = set(new_tags or [])
+    related_notes: List[Tuple[Path, str, int]] = []
+    related_wiki: List[Tuple[str, str]] = []  # (wiki_rel_path, title)
 
-    # Scan existing notes for tag overlap.
-    for p in notes_dir.glob("n_*.md"):
-        if p == new_note_path:
-            continue
+    # --- Mechanism 1: Tag overlap with other notes ---
+    notes_dir = root / "notes"
+    if notes_dir.is_dir() and new_tag_set:
+        for p in notes_dir.glob("n_*.md"):
+            if p == new_note_path:
+                continue
+            try:
+                content = p.read_text(encoding="utf-8", errors="replace")
+                if not content.startswith("---"):
+                    continue
+                end_idx = content.index("---", 3)
+                fm = yaml.safe_load(content[3:end_idx])
+                if not isinstance(fm, dict):
+                    continue
+                other_tags = fm.get("tags", [])
+                if isinstance(other_tags, str):
+                    other_tags = [t.strip() for t in other_tags.split(",")]
+                overlap = len(new_tag_set & set(other_tags or []))
+                if overlap > 0:
+                    other_title = fm.get("title") or fm.get("id") or p.stem
+                    related_notes.append((p, other_title, overlap))
+            except Exception:
+                continue
+
+    # --- Mechanism 2: Content-based wiki title matching ---
+    # Scan note body for occurrences of wiki page titles/keywords
+    wiki_dir = root / "wiki"
+    if wiki_dir.is_dir():
         try:
-            content = p.read_text(encoding="utf-8", errors="replace")
-            # Parse frontmatter to extract tags.
-            if not content.startswith("---"):
-                continue
-            end_idx = content.index("---", 3)
-            fm = yaml.safe_load(content[3:end_idx])
-            if not isinstance(fm, dict):
-                continue
-            other_tags = fm.get("tags", [])
-            if isinstance(other_tags, str):
-                other_tags = [t.strip() for t in other_tags.split(",")]
-            overlap = len(new_tag_set & set(other_tags or []))
-            if overlap > 0:
-                other_title = fm.get("title") or fm.get("id") or p.stem
-                related.append((p, other_title, overlap))
+            note_content = new_note_path.read_text(encoding="utf-8", errors="replace")
+            note_lower = note_content.lower()
         except Exception:
-            continue
+            note_lower = ""
 
-    if not related:
-        return
+        if note_lower:
+            for wp in wiki_dir.glob("*.md"):
+                if wp.name.startswith("_"):
+                    continue
+                # Extract title from first heading
+                wiki_title = wp.stem.replace("_", " ")
+                try:
+                    with open(wp, "r", encoding="utf-8") as f:
+                        for line in f:
+                            line = line.strip()
+                            if line.startswith("# "):
+                                wiki_title = line.lstrip("# ").strip()
+                                break
+                except Exception:
+                    pass
 
-    # Sort by overlap descending (most related first), cap at 5.
-    related.sort(key=lambda x: -x[2])
-    related = related[:5]
+                # Match: filename stem (e.g., "algorithms") or significant
+                # title words (>3 chars) appear in note body
+                stem_lower = wp.stem.lower().replace("_", " ")
+                title_words = [w.lower() for w in wiki_title.split()
+                               if len(w) > 3 and w.lower() not in (
+                                   "with", "from", "that", "this", "have",
+                                   "been", "will", "would", "could", "should",
+                                   "about", "which", "where", "when", "what",
+                               )]
 
-    # Append ## Related section to the new note.
-    lines = ["\n\n## Related\n"]
-    for p, title, overlap in related:
+                # Check if stem or ≥2 significant title words appear in note
+                stem_match = stem_lower in note_lower
+                word_matches = sum(1 for w in title_words if w in note_lower)
+                if stem_match or word_matches >= 2:
+                    wiki_rel = f"wiki/{wp.name}"
+                    related_wiki.append((wiki_rel, wiki_title))
+
+    # --- Build the Related section ---
+    has_related = False
+
+    # Sort notes by overlap, cap at 5
+    related_notes.sort(key=lambda x: -x[2])
+    related_notes = related_notes[:5]
+
+    lines = []
+    if related_notes or related_wiki:
+        lines.append("\n\n## Related\n")
+        has_related = True
+
+    if related_wiki:
+        for wiki_rel, wiki_title in related_wiki[:5]:
+            lines.append(f"- [{wiki_title}]({wiki_rel})\n")
+
+    for p, title, overlap in related_notes:
         lines.append(f"- [{title}]({p.name}) ({overlap} shared tags)\n")
 
-    with open(new_note_path, "a", encoding="utf-8") as f:
-        f.writelines(lines)
+    if lines:
+        with open(new_note_path, "a", encoding="utf-8") as f:
+            f.writelines(lines)
 
     # Add backlinks in related notes (bidirectional).
     link_label = new_title or new_note_id
-    for p, _, _ in related:
+    for p, _, _ in related_notes:
         try:
             content = p.read_text(encoding="utf-8")
             if new_note_id in content:
                 continue  # Already linked, skip.
             if "## Related" in content:
-                # Append to the existing Related section.
                 content = content.rstrip() + f"\n- [{link_label}]({new_note_path.name})\n"
             else:
-                # Add a new Related section at the end.
                 content = content.rstrip() + f"\n\n## Related\n- [{link_label}]({new_note_path.name})\n"
             p.write_text(content, encoding="utf-8")
         except Exception:
@@ -456,6 +504,44 @@ def write_note(
 def read_note(path: Path) -> Tuple[Dict[str, Any], str]:
     text = Path(path).read_text(encoding="utf-8")
     return parse_frontmatter(text)
+
+
+def verify_absorption(
+    project_root: Path,
+    note_id: str,
+    absorption_site: str,
+) -> Tuple[bool, str]:
+    """Verify that a note's nutrient was actually absorbed into the target tissue.
+
+    Checks:
+      1. absorption_site file exists (relative to project_root)
+      2. Target tissue contains a nutrient marker: <!-- nutrient-from: {note_id} -->
+
+    Returns (ok, message).
+    """
+    target_path = project_root / absorption_site
+    if not target_path.exists():
+        return False, (
+            f"absorption_site '{absorption_site}' does not exist. "
+            f"Write the digested nutrient into {absorption_site} first, "
+            f"then call digest again."
+        )
+    try:
+        content = target_path.read_text(encoding="utf-8")
+    except Exception as e:
+        return False, f"Cannot read {absorption_site}: {e}"
+
+    nutrient_marker = f"<!-- nutrient-from: {note_id} -->"
+    if nutrient_marker not in content:
+        return False, (
+            f"Absorption site '{absorption_site}' exists but does not contain "
+            f"the nutrient marker '{nutrient_marker}'. Add this marker near the "
+            f"absorbed content, then call digest again."
+        )
+    return True, "Absorption verified."
+
+
+ABSORPTION_REQUIRED_STATUSES = ("extracted", "integrated")
 
 
 def update_note(path: Path, **field_updates: Any) -> Dict[str, Any]:
@@ -2330,6 +2416,42 @@ def compute_hunger_report(
             )
     except Exception:
         pass  # grandfather-compatible: graph module not available
+
+    # Synaptogenesis: weak_synapses signal — fires when wiki pages are
+    # isolated from each other (no wiki↔wiki cross-references).
+    # Craft: docs/primordia/synaptogenesis_craft_2026-04-14.md
+    try:
+        wiki_dir = root / "wiki"
+        if wiki_dir.exists():
+            # Reuse graph if already built above, otherwise build fresh
+            if 'graph' not in dir():
+                from myco.mycelium import build_link_graph
+                graph = build_link_graph(root)
+            wiki_files = [n for n in graph if n.startswith("wiki/")
+                          and n.endswith(".md") and not n.split("/")[-1].startswith("_")]
+            isolated_wiki = []
+            for wf in wiki_files:
+                data = graph.get(wf, {"forward": [], "backlinks": []})
+                out_wiki = [t for t in data["forward"]
+                            if t.startswith("wiki/") and t != wf]
+                in_wiki = [s for s in data["backlinks"]
+                           if s.startswith("wiki/") and s != wf]
+                if not out_wiki and not in_wiki:
+                    isolated_wiki.append(wf)
+            if isolated_wiki and len(wiki_files) > 0:
+                ratio = len(isolated_wiki) / len(wiki_files)
+                if ratio > 0.3:  # >30% isolated = signal
+                    signals.append(
+                        f"weak_synapses: {len(isolated_wiki)}/{len(wiki_files)} "
+                        f"wiki pages ({round(ratio*100)}%) have zero cross-references "
+                        f"to other wiki pages. Isolated: "
+                        f"{', '.join(isolated_wiki[:5])}"
+                        f"{'...' if len(isolated_wiki) > 5 else ''}. "
+                        f"When writing to wiki, add 'See also' cross-links."
+                    )
+    except Exception:
+        pass  # best-effort
+
     # Session index staleness (Wave 54) — nudge to re-index sessions.
     try:
         db_path = root / ".myco_state" / "sessions.db"
@@ -2346,17 +2468,18 @@ def compute_hunger_report(
     try:
         from myco.colony import gap_detection
         canon_path = root / "_canon.yaml"
-        gap_stale_days = 14
+        gap_min_size = 3  # default minimum cohort size for staleness signal
         if canon_path.exists():
             with open(canon_path, "r", encoding="utf-8") as f:
                 _gc = yaml.safe_load(f) or {}
-            gap_stale_days = int(
-                _gc.get("system", {}).get("notes_schema", {})
-                   .get("compression", {}).get("gap_stale_days", 14))
+            # Use inlet_triggers.gap_threshold as min cohort size for staleness
+            gap_min_size = int(
+                _gc.get("system", {}).get("inlet_triggers", {})
+                   .get("gap_threshold", 3))
         gaps = gap_detection(root)
         stale_gaps = []
         for g in gaps:
-            if g.get("total", 0) >= 3:  # minimum cohort size for staleness
+            if g.get("total", 0) >= gap_min_size:
                 stale_gaps.append(g["tag"])
         if stale_gaps:
             tags_preview = ", ".join(stale_gaps[:3])
@@ -2557,8 +2680,6 @@ def compute_hunger_report(
             })
     if skill_degradation_signals:
         for sd_sig in skill_degradation_signals:
-            # Extract skill filename from signal message.
-            # Format: "skill_degradation: skills/<name>.md has never been ..."
             _sd_m = re.search(r"skills/(\S+\.md)", sd_sig)
             skill_file = _sd_m.group(1) if _sd_m else "unknown"
             actions.append({

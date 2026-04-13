@@ -283,6 +283,16 @@ def main():
         help="Shortcut: mark as excreted with the given reason",
     )
     digest_parser.add_argument(
+        "--site", type=str, default=None, metavar="PATH",
+        help="Absorption site: relative path to the tissue (wiki/doc file) "
+             "where the nutrient was placed (required for --to extracted/integrated)",
+    )
+    digest_parser.add_argument(
+        "--nutrient", type=str, default=None, metavar="TEXT",
+        help="The core nutrient (one-sentence claim/insight) absorbed from this note "
+             "(required for --to extracted/integrated)",
+    )
+    digest_parser.add_argument(
         "--project-dir", type=str, default=".",
         help="Project root (default: current directory)",
     )

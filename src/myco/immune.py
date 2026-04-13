@@ -2619,6 +2619,168 @@ def lint_wave_seed_orphan(canon, root):
 
 
 # ---------------------------------------------------------------------------
+# L23  Digest Integrity — extracted/integrated notes must have proof-of-work
+# ---------------------------------------------------------------------------
+
+def lint_digest_integrity(canon, root):
+    """L23 (Digest Pipeline Craft, 2026-04-14) — phantom digestion detection.
+
+    Catches notes that have been moved to 'extracted' or 'integrated' status
+    without proving their nutrient was actually absorbed into a tissue (wiki/doc).
+
+    For each note with status in (extracted, integrated):
+      1. frontmatter must contain non-empty `absorption_site`
+      2. The tissue at `absorption_site` must exist (relative to root)
+      3. The tissue must contain `<!-- nutrient-from: {note_id} -->` marker
+      4. frontmatter must contain non-empty `nutrient`
+
+    Missing absorption fields → WARNING (allows migration time for historical
+    notes). Broken references (tissue missing, marker missing) → HIGH.
+
+    Authoritative craft: docs/primordia/digest_pipeline_craft_2026-04-14.md
+    """
+    issues = []
+
+    schema = (canon.get("system") or {}).get("notes_schema") or {}
+    notes_dir = root / schema.get("dir", "notes")
+    if not notes_dir.exists():
+        return issues
+
+    for path in sorted(notes_dir.glob("*.md")):
+        if not path.name.startswith("n_"):
+            continue
+
+        content = read_file(path)
+        if content is None:
+            continue
+
+        m = _FRONTMATTER_RE.match(content)
+        if not m:
+            continue
+        try:
+            meta = yaml.safe_load(m.group("fm")) or {}
+        except Exception:
+            continue
+        if not isinstance(meta, dict):
+            continue
+
+        status = meta.get("status", "raw")
+        if status not in ("extracted", "integrated"):
+            continue
+
+        rel = str(path.relative_to(root)).replace("\\", "/")
+        note_id = meta.get("id") or path.stem
+
+        site = meta.get("absorption_site")
+        nut = meta.get("nutrient")
+
+        # Check 1+4: absorption proof fields exist
+        if not site or not nut:
+            issues.append((
+                "L23", "WARNING", rel,
+                f"Note is '{status}' but missing absorption proof "
+                f"(absorption_site={'present' if site else 'MISSING'}, "
+                f"nutrient={'present' if nut else 'MISSING'}). "
+                f"Backfill with: myco digest {note_id} --site <path> "
+                f"--nutrient '<insight>'"
+            ))
+            continue
+
+        # Check 2: absorption site (tissue) exists
+        tissue_path = root / site
+        if not tissue_path.exists():
+            issues.append((
+                "L23", "HIGH", rel,
+                f"absorption_site '{site}' does not exist. "
+                f"The absorbed nutrient may have been lost or the tissue moved."
+            ))
+            continue
+
+        # Check 3: nutrient-from marker present in tissue
+        try:
+            tissue_content = tissue_path.read_text(encoding="utf-8")
+        except Exception:
+            tissue_content = ""
+
+        nutrient_marker = f"<!-- nutrient-from: {note_id} -->"
+        if nutrient_marker not in tissue_content:
+            issues.append((
+                "L23", "HIGH", rel,
+                f"absorption_site '{site}' exists but does not contain "
+                f"nutrient marker '{nutrient_marker}'. The metabolic link "
+                f"between note and absorbed knowledge is broken."
+            ))
+
+    return issues
+
+
+def lint_synaptogenesis_health(canon: dict, root: Path) -> list:
+    """L24 Synaptogenesis Health — check wiki↔wiki interconnection.
+
+    Scans all wiki/*.md pages and checks whether each page has at least one
+    cross-reference to another wiki page (outbound or inbound). Pages that
+    are completely isolated from the wiki network are flagged.
+
+    This catches the "knowledge island" anti-pattern: wiki pages that contain
+    valuable knowledge but aren't woven into the broader network.
+
+    Authoritative craft: docs/primordia/synaptogenesis_craft_2026-04-14.md
+    """
+    issues = []
+
+    wiki_dir = root / "wiki"
+    if not wiki_dir.exists():
+        return issues
+
+    wiki_files = sorted(wiki_dir.glob("*.md"))
+    if not wiki_files:
+        return issues
+
+    try:
+        from myco.mycelium import build_link_graph
+        graph = build_link_graph(root)
+    except Exception:
+        return issues  # mycelium not available
+
+    isolated_pages = []
+    total_wiki = 0
+
+    for wf in wiki_files:
+        if wf.name.startswith("_"):
+            continue  # skip internal files
+        total_wiki += 1
+        rel = f"wiki/{wf.name}"
+        data = graph.get(rel, {"forward": [], "backlinks": []})
+
+        # Check wiki↔wiki connections only
+        outbound_wiki = [t for t in data["forward"]
+                         if t.startswith("wiki/") and t != rel]
+        inbound_wiki = [s for s in data["backlinks"]
+                        if s.startswith("wiki/") and s != rel]
+
+        if not outbound_wiki and not inbound_wiki:
+            isolated_pages.append(rel)
+            issues.append((
+                "L24", "WARNING", rel,
+                f"Wiki page has zero cross-references to/from other wiki pages. "
+                f"This is a knowledge island — consider adding "
+                f"'See also: [page](wiki/xxx.md)' links to connect it to "
+                f"the network."
+            ))
+
+    # Summary-level issue if isolation ratio is high
+    if total_wiki > 0 and len(isolated_pages) > total_wiki * 0.5:
+        issues.append((
+            "L24", "HIGH", "wiki/",
+            f"{len(isolated_pages)}/{total_wiki} wiki pages are isolated "
+            f"({round(len(isolated_pages)/total_wiki*100)}%). "
+            f"The knowledge network has poor connectivity."
+        ))
+
+    return issues
+
+
+# ---------------------------------------------------------------------------
 # Auto-fix engine (--fix mode)
 # ---------------------------------------------------------------------------
 
@@ -3029,6 +3191,8 @@ FULL_CHECKS = QUICK_CHECKS + (
     ("L20 Translation Mirror Consistency", lint_translation_mirror_consistency),
     ("L21 Contract Version Inline Consistency", lint_contract_version_inline),
     ("L22 Wave-Seed Lifecycle", lint_wave_seed_orphan),
+    ("L23 Absorption Verification", lint_digest_integrity),
+    ("L24 Synaptogenesis Health", lint_synaptogenesis_health),
 )
 
 
@@ -3157,6 +3321,8 @@ def main(root: Path = None, quick: bool = False, fix_report: bool = False,
     print(bold(f"  Myco Knowledge System Lint"))
     if fix:
         print(bold(f"  MODE: --fix (auto-repair enabled)"))
+    elif fix_report:
+        print(bold(f"  MODE: --fix-report (showing fixable issues)"))
     print(bold(f"  {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"))
     print(bold(f"  Project: {root}"))
     print(bold(f"{'='*60}\n"))
@@ -3226,7 +3392,6 @@ def main(root: Path = None, quick: bool = False, fix_report: bool = False,
     print(bold(f"\n{'='*60}"))
 
     # Wave A4: Agent Review section — judgment questions that lint can't answer.
-    # These are configurable in _canon.yaml::system.lint.agent_review_items.
     agent_review = _compute_agent_review(canon, root)
 
     if not all_issues:
@@ -3263,7 +3428,6 @@ def main(root: Path = None, quick: bool = False, fix_report: bool = False,
             print(f"         {msg}")
         print()
 
-    # Wave A4: also show agent review even when issues exist
     if agent_review:
         print(bold(f"  AGENT REVIEW NEEDED ({len(agent_review)} items):"))
         for ar_item in agent_review:

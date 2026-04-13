@@ -645,6 +645,10 @@ def run_auto_detect(args) -> int:
     print(f"   MCP configs generated for all detected tools.")
     print(f"   Scheduled metabolic cycle + Cowork skills ready.")
     print(f"   Run your preferred AI tool in {project_dir.resolve()}")
+    print(f"")
+    print(f"   \u26a0\ufe0f  Cowork users: project-level .mcp.json is NOT auto-loaded by Cowork.")
+    print(f"   Install the myco-knowledge-system.plugin for full MCP auto-injection.")
+    print(f"   See: docs/agent_protocol.md \u00a70.5 'Cowork Plugin' for details.")
 
     return 0
 
