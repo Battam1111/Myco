@@ -310,6 +310,33 @@ def build_plan(old: str, new: str, project_dir: str) -> RenamePlan:
                     count=len(matches),
                 ))
 
+    # Also scan external files (~/.claude/ scheduled tasks + .claude/skills)
+    external_dirs = [
+        root / ".claude" / "skills",
+        Path.home() / ".claude" / "scheduled-tasks",
+    ]
+    for ext_dir in external_dirs:
+        if not ext_dir.is_dir():
+            continue
+        for ext_file in ext_dir.rglob("*.md"):
+            try:
+                content = ext_file.read_text(encoding="utf-8")
+            except (UnicodeDecodeError, PermissionError):
+                continue
+            for desc, pattern, replacement in all_patterns:
+                if desc in cli_only_descs:
+                    continue
+                matches = re.findall(pattern, content)
+                if matches:
+                    # Use absolute path for external files
+                    plan.actions.append(RenameAction(
+                        kind="replace",
+                        source=str(ext_file),
+                        pattern=f"[{desc}] {pattern}",
+                        replacement=replacement,
+                        count=len(matches),
+                    ))
+
     return plan
 
 
