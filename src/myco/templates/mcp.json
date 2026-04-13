@@ -3,7 +3,7 @@
     "myco": {
       "command": "python",
       "args": ["-m", "myco.mcp_server"],
-      "env": {}
+      "env": {"PYTHONUNBUFFERED": "1"}
     }
   }
 }
