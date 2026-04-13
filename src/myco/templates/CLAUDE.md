@@ -43,6 +43,8 @@ If no skill matches (or no skills/ directory), proceed with agent judgment.
 | **External** | `myco_absorb`, `myco_forage` | When gaps detected |
 | **Log** | `myco_trace`, `myco_reflect` | After completing tasks, session end |
 | **View** | `myco_observe` | When recalling past decisions |
+| **Evolve** | `myco_evolve`, `myco_evolve_list` | When skill_degradation hunger signal fires |
+| **Undo** | `myco_expand` | When a compression was incorrect |
 
 ## Reflex Arcs (auto-enforced)
 
