@@ -770,7 +770,7 @@ system:
 
 architecture:
   layers: 4
-  wiki_pages: 0
+  wiki_pages: 3
 project:
   name: Myco
   current_phase: Phase 2 — v0.2.0 pre-release, preparing public launch (pre-1.0)

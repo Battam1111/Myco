@@ -1,9 +1,10 @@
 """Myco logo v3 — Devouring Spiral: spiral growth + open core + asymmetric burst."""
 import math
+import os
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 from pathlib import Path
 
-FONTS_DIR = Path(r"C:\Users\10350\AppData\Roaming\Claude\local-agent-mode-sessions\skills-plugin\1fa6c297-5df4-4be7-97fe-2df0766e7550\6ed041c6-b471-4d81-8a07-040da4c12a25\skills\canvas-design\canvas-fonts")
+FONTS_DIR = Path(os.environ.get("MYCO_FONTS_DIR", "./fonts"))
 OUT_DIR = Path(__file__).parent
 
 MYCO_GREEN = (0, 229, 176)

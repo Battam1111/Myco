@@ -29,6 +29,10 @@ Thumbs.db
 # Misc
 *.orig
 
+# Environment secrets
+.env
+.env.*
+
 # Claude Code session-local settings (not source of truth)
 .claude/
 
