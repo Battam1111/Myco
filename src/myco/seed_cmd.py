@@ -370,6 +370,74 @@ _TOOL_GENERATORS: dict[str, tuple] = {
     "Zed":         (_gen_zed,         ".zed/settings.json"),
 }
 
+def run_connect(args) -> int:
+    """Connect a project to a global Myco instance.
+
+    Generates .mcp.json (+ platform configs) pointing to MYCO_ROOT.
+    Does NOT create notes/, wiki/, _canon.yaml etc. — those live in
+    the global Myco directory.
+    """
+    import os
+    myco_root = getattr(args, "myco_root", None) or os.environ.get("MYCO_ROOT")
+    if not myco_root:
+        # Try to find Myco installation
+        candidates = [
+            Path.home() / "Myco",
+            Path.home() / "Desktop" / "Myco",
+            Path.home() / "myco",
+        ]
+        for c in candidates:
+            if (c / "_canon.yaml").exists():
+                myco_root = str(c.resolve())
+                break
+    if not myco_root or not Path(myco_root).exists():
+        print("Error: Cannot find Myco installation.")
+        print("  Either set MYCO_ROOT environment variable, or pass --myco-root PATH")
+        print("  Myco should be installed via: git clone ... && pip install -e '.[mcp]'")
+        return 1
+
+    myco_root = str(Path(myco_root).resolve())
+    project_dir = Path(getattr(args, "project_dir", ".")).resolve()
+
+    print(f"\n🍄 Myco — Connecting project to global instance")
+    print(f"   Myco root: {myco_root}")
+    print(f"   Project:   {project_dir}\n")
+
+    # Generate .mcp.json with MYCO_ROOT env var
+    server_with_root = {
+        "command": "python",
+        "args": ["-m", "myco.mcp_server"],
+        "env": {
+            "PYTHONUNBUFFERED": "1",
+            "MYCO_ROOT": myco_root,
+        },
+    }
+    mcp_payload = {"mcpServers": {"myco": server_with_root}}
+    mcp_path = project_dir / ".mcp.json"
+    _json_merge_write(mcp_path, mcp_payload)
+    print(f"  ✅ .mcp.json (pointing to {myco_root})")
+
+    # Auto-detect and configure other platforms
+    detected = detect_tools(project_dir)
+    for tool_name, is_detected in detected.items():
+        if is_detected and tool_name in _TOOL_GENERATORS:
+            gen_func, desc = _TOOL_GENERATORS[tool_name]
+            # For platform configs, we need to patch MYCO_ROOT into env
+            # The generators use _MYCO_SERVER_STDIO which doesn't have MYCO_ROOT
+            # So we temporarily patch it
+            old_env = _MYCO_SERVER_STDIO.get("env", {})
+            _MYCO_SERVER_STDIO["env"] = {**old_env, "MYCO_ROOT": myco_root}
+            try:
+                status = gen_func(project_dir)
+                print(f"  ✅ {desc} ({status})")
+            finally:
+                _MYCO_SERVER_STDIO["env"] = old_env
+
+    print(f"\n🍄 Connected! Myco tools will use knowledge from {myco_root}")
+    print(f"   All projects sharing one Myco = one brain, many hands.\n")
+    return 0
+
+
 # Tip printed after SKILL.md creation to guide first-run permission grant.
 _METABOLIC_TIP = (
     "\n"

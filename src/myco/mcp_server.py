@@ -67,7 +67,16 @@ mcp = FastMCP("myco_mcp")
 # ---------------------------------------------------------------------------
 
 def _find_project_root() -> Path:
-    """Wave A1: delegates to centralized find_project_root (non-strict for MCP)."""
+    """Find Myco project root. Priority: MYCO_ROOT env var > walk-up search.
+
+    MYCO_ROOT allows global Myco: install once, connect from any project.
+    """
+    import os
+    myco_root = os.environ.get("MYCO_ROOT")
+    if myco_root:
+        p = Path(myco_root).resolve()
+        if (p / "_canon.yaml").exists():
+            return p
     from myco.project import find_project_root
     return find_project_root(strict=False)
 

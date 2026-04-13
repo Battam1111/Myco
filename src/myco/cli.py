@@ -92,6 +92,19 @@ def main():
         help="GitHub username for Myco link in entry point document",
     )
 
+    # ── myco connect ──────────────────────────────────────────────
+    connect_parser = subparsers.add_parser(
+        "connect", help="Connect a project to a global Myco instance"
+    )
+    connect_parser.add_argument(
+        "--myco-root", type=str, default=None,
+        help="Path to Myco installation (default: auto-detect or MYCO_ROOT env)",
+    )
+    connect_parser.add_argument(
+        "--project-dir", type=str, default=".",
+        help="Project directory to connect (default: .)",
+    )
+
     # ── myco graft ───────────────────────────────────────────────
     migrate_parser = subparsers.add_parser(
         "graft", help="Migrate an existing project to Myco (non-destructive)"
@@ -732,6 +745,10 @@ def main():
     if args.command == "seed":
         from myco.seed_cmd import run_init
         sys.exit(run_init(args))
+
+    if args.command == "connect":
+        from myco.seed_cmd import run_connect
+        sys.exit(run_connect(args))
 
     if args.command == "graft":
         from myco.graft import run_migrate
