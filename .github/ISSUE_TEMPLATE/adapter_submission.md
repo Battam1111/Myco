@@ -28,7 +28,7 @@ How would Myco coexist with or import from this tool?
 Have you tested this on a real project?
 - [ ] Tested personally (project type: __)
 - [ ] Draft YAML ready (attach or paste below)
-- [ ] myco lint passes after integration
+- [ ] myco immune passes after integration
 
 ## Adapter YAML Draft (optional — paste below)
 
