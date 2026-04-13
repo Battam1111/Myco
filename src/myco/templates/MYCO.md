@@ -24,10 +24,10 @@
 1. [从实际踩坑中提炼——删除本占位符，在实践中积累]
 
 **Agent 行为准则**：
-- **📜 硬契约** — 运行前必读 Myco kernel 的 `docs/agent_protocol.md`：write surface / tool protocol / boot-end sequence / anti-patterns。L11 write-surface lint + L12 upstream dotfile hygiene + L13 Craft Protocol schema 会自动执行。
-- **🛠️ Craft Protocol (W3, agent-autonomous since v0.11.0)** — 影响 kernel 契约 / 实例架构 / 置信度 < 0.80 / 公共声明 (README/vision) 的决策必须走 `docs/craft_protocol.md` 规范的自对抗辩论；产物写入 `docs/primordia/<topic>_craft_YYYY-MM-DD.md` 并含 `craft_protocol_version: 1` frontmatter。**Reflex arc（不可绕过）**：L15 Craft Reflex 或 `myco hunger: [REFLEX HIGH] craft_reflex_missing` 信号时，agent 的不可变反射是**在同一 session 内立刻写出缺失的 craft**，然后再继续任务——不是"考虑以后写"，不是"问用户要不要写"。通过 `--no-verify` 或忽略信号都属 W3 违规。Trivial edits (≤20 行 + 无新 identifier) 由 `trivial_exempt_lines` 自动豁免。L13 强制 schema。
-- **🔖 Boot Reflex Arc (v0.12.0)** — 会话启动第一步 = `myco_status`（默认 `include_hunger=True` 一次性返回 status + hunger + 反射信号）。如果响应里出现 `[REFLEX HIGH] contract_drift` → 先读 `docs/contract_changelog.md` 在 synced↔kernel 之间对齐，再写回本地 `synced_contract_version`。出现 `[REFLEX HIGH] raw_backlog` → 本会话内先 `myco digest` 到阈值下再开工（W1 违规即视为未启动）。**切勿** 通过 `include_hunger=False` 绕过，这是与 `--no-verify` 等价的 W1 违规。
-- **🔚 Session End Reflex Arc (v0.13.0)** — 会话结束 = `myco_hunger` 后处理 `session_end_drift` advisory：看到 `reflection (...)` 就补一行 `## [YYYY-MM-DD] meta | ...` 反思；看到 `distillation (...)` 就为 stale `distillation-candidate` 行补 `distill-pass: <reason>` / `distill-landed: <ref>` 或写 craft 引用。**LOW 级，不阻塞任务**。跳过 advisory 不算违规但会在下次 boot 继续 surface。完整论证：`docs/primordia/session_end_reflex_arc_craft_2026-04-11.md`。
+- **📜 硬契约** — If docs/agent_protocol.md exists, follow its boot sequence: write surface / tool protocol / boot-end sequence / anti-patterns. L11 write-surface lint + L12 upstream dotfile hygiene + L13 Craft Protocol schema 会自动执行。
+- **🛠️ Craft Protocol (W3, agent-autonomous since v0.11.0)** — 影响 kernel 契约 / 实例架构 / 置信度 < 0.80 / 公共声明 (README/vision) 的决策必须走 Craft Protocol 规范的自对抗辩论（if docs/craft_protocol.md exists, follow its schema）；产物写入 `docs/primordia/<topic>_craft_YYYY-MM-DD.md` 并含 `craft_protocol_version: 1` frontmatter。**Reflex arc（不可绕过）**：L15 Craft Reflex 或 `myco hunger: [REFLEX HIGH] craft_reflex_missing` 信号时，agent 的不可变反射是**在同一 session 内立刻写出缺失的 craft**，然后再继续任务——不是"考虑以后写"，不是"问用户要不要写"。通过 `--no-verify` 或忽略信号都属 W3 违规。Trivial edits (≤20 行 + 无新 identifier) 由 `trivial_exempt_lines` 自动豁免。L13 强制 schema。
+- **🔖 Boot Reflex Arc (v0.12.0)** — 会话启动第一步 = `myco_status`（默认 `include_hunger=True` 一次性返回 status + hunger + 反射信号）。如果响应里出现 `[REFLEX HIGH] contract_drift` → 先读 contract changelog (if docs/contract_changelog.md exists) 在 synced↔kernel 之间对齐，再写回本地 `synced_contract_version`。出现 `[REFLEX HIGH] raw_backlog` → 本会话内先 `myco digest` 到阈值下再开工（W1 违规即视为未启动）。**切勿** 通过 `include_hunger=False` 绕过，这是与 `--no-verify` 等价的 W1 违规。
+- **🔚 Session End Reflex Arc (v0.13.0)** — 会话结束 = `myco_hunger` 后处理 `session_end_drift` advisory：看到 `reflection (...)` 就补一行 `## [YYYY-MM-DD] meta | ...` 反思；看到 `distillation (...)` 就为 stale `distillation-candidate` 行补 `distill-pass: <reason>` / `distill-landed: <ref>` 或写 craft 引用。**LOW 级，不阻塞任务**。跳过 advisory 不算违规但会在下次 boot 继续 surface。
 - **即时沉淀** — 关键决策当下 `myco_eat` 为 raw note，不手建 scratch/TODO/MEMO 文件
 - **在线验证** — 数字型 claim 必须 WebSearch 交叉验证
 - **摩擦必捕** — Myco 工具不顺手 → `myco_eat` + `friction-phase2` tag。**🆕 自承错误触发点**：同一 turn 内说出"我之前说的 X 是错的"类表述，**立即** `myco_eat` + `on-self-correction` tag。
@@ -90,7 +90,7 @@ Phase 2  [自定义]        ⏳ 待实现
 | 文档 | 内容 |
 |------|------|
 | `docs/WORKFLOW.md` | 工作流手册（十三原則 W1-W13 + 会话流程 + 代谢引擎） |
-| `docs/craft_protocol.md` | **W3 Craft Protocol v1 正式规范** — 结构化自对抗辩论 schema + L13 lint + 置信度阶梯 |
+| (if exists) docs/craft_protocol.md | **W3 Craft Protocol v1 正式规范** — 结构化自对抗辩论 schema + L13 lint + 置信度阶梯 |
 
 ### 辩论记录
 > 生命周期标签：`[ACTIVE]` 仍在使用 | `[COMPILED]` 结论已编译到 wiki | `[SUPERSEDED]` 被新版取代
