@@ -209,7 +209,7 @@ def run_hermes_import(source_arg: str | None, project_dir: Path, all_flag: bool,
 
         print(f"\n✨ Created {created} stub(s), skipped {skipped} (already exist)")
         print(f"   Next: Fill in each wiki/ stub with actual content from the SKILL.md")
-        print(f"   Then: myco lint --project-dir . to verify W8 format")
+        print(f"   Then: myco immune --project-dir . to verify W8 format")
     elif dry_run:
         print(f"\n   (dry run — would create {created} stub(s), skip {skipped})")
 
@@ -438,7 +438,7 @@ def run_openclaw_import(source_arg: str | None, project_dir: Path, all_flag: boo
 
         print(f"\n✨ Created {created} stub(s), skipped {skipped} (already exist)")
         print(f"   Next: Review each stub, remove the 'imported from' header if no longer needed")
-        print(f"   Then: myco lint --project-dir . to verify format")
+        print(f"   Then: myco immune --project-dir . to verify format")
         print(f"   Note: Do NOT import all of MEMORY.md as-is — each section should be reviewed")
     elif dry_run:
         print(f"\n   (dry run — would create {created} stub(s), skip {skipped})")

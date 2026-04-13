@@ -117,5 +117,5 @@ def run_propagate(args) -> int:
     if total_fixed == 0:
         print("  All surfaces already aligned with _canon.yaml SSoT.")
     else:
-        print(f"\n  Propagated {total_fixed} value(s). Run `myco lint` to verify.")
+        print(f"\n  Propagated {total_fixed} value(s). Run `myco immune` to verify.")
     return 0

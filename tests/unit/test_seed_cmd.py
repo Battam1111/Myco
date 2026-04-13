@@ -73,7 +73,7 @@ class TestPreCommitHookGeneration:
         assert hook_path.exists()
         content = hook_path.read_text(encoding="utf-8")
         assert "myco" in content
-        assert "python -m myco lint --quick" in content
+        assert "python -m myco immune --quick" in content
 
     def test_no_hook_without_git(self, tmp_path):
         """No .git/ directory means no hook is generated."""
@@ -114,7 +114,7 @@ class TestPreCommitHookGeneration:
         # Original content preserved
         assert "other tool" in content
         # Myco section appended
-        assert "python -m myco lint --quick" in content
+        assert "python -m myco immune --quick" in content
 
     def test_init_level0_generates_hook_when_git_exists(self, tmp_path):
         """init_level_0 generates the pre-commit hook when .git/ is present."""

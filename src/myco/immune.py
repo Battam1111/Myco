@@ -1439,7 +1439,7 @@ def lint_craft_reflex(canon, root):
 
     # --- Bootstrap exemption (init-created files) -------------------------
     # Files whose mtime is within 60s of _canon.yaml's creation time were
-    # scaffolded by `myco init`, not manually modified. Skip the craft
+    # scaffolded by `myco seed`, not manually modified. Skip the craft
     # reflex for these — they had no decision to debate.
     _BOOTSTRAP_GRACE_SECS = 60
     canon_path = root / "_canon.yaml"
@@ -1470,7 +1470,7 @@ def lint_craft_reflex(canon, root):
             except OSError:
                 continue
             if now - mt < window:
-                # Skip files scaffolded by myco init (bootstrap grace)
+                # Skip files scaffolded by myco seed (bootstrap grace)
                 if _is_bootstrap_file(mt):
                     continue
                 recent_touches.append((cls_name, rel, mt))
@@ -1679,8 +1679,8 @@ def lint_contract_drift(canon, root):
     Closes panorama-#3 hole NH-10: `myco hunger` correctly reports
     `[REFLEX HIGH] contract_drift` when an instance's
     `synced_contract_version` lags the kernel (and when grandfather
-    ceiling is exceeded, escalates appropriately), but `myco lint` had
-    no equivalent surfacing. Agents running only `myco lint` — which is
+    ceiling is exceeded, escalates appropriately), but `myco immune` had
+    no equivalent surfacing. Agents running only `myco immune` — which is
     the surface invoked by the Wave 18 pre-commit hook — would see
     "ALL CHECKS PASSED" while the system was screaming drift. Same
     silent-fail pathology class as NH-1 (grandfather ceiling).
@@ -2014,7 +2014,7 @@ def lint_dimension_count_consistency(canon, root):
     expected = len(FULL_CHECKS)
     expected_l_max = expected - 1
     # Quick-mode subset is a legitimate sub-range claim (e.g. `L0-L3` in
-    # `myco lint --quick` help text and the MCP `quick: L0-L3` arg description).
+    # `myco immune --quick` help text and the MCP `quick: L0-L3` arg description).
     # Pattern 4 must NOT flag L0-L<quick_max> as drift because it's the
     # documented sub-range, not a current full-range claim.
     quick_l_max = len(QUICK_CHECKS) - 1
@@ -2999,7 +2999,7 @@ def collect_all_issues(canon, root, quick=False):
 # Module-level checks lists (Wave 38 D2 — SSoT for LINT_DIMENSION_COUNT)
 # ---------------------------------------------------------------------------
 
-# QUICK_CHECKS = the L0-L3 fast subset run when `myco lint --quick`.
+# QUICK_CHECKS = the L0-L3 fast subset run when `myco immune --quick`.
 # FULL_CHECKS  = the full L0-L22 sequence (default). `len(FULL_CHECKS)` is
 # the canonical lint dimension count — see L19 docstring for the rot story.
 QUICK_CHECKS = (

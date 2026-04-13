@@ -173,7 +173,7 @@ def create_myco_scaffold(project_dir: Path, replacements: dict, entry_point: str
                     "#!/usr/bin/env python3\n"
                     '"""Myco Knowledge Lint — standalone version.\n'
                     "Run: python scripts/lint_knowledge.py [--quick]\n"
-                    "Or:  myco lint [--quick]\n"
+                    "Or:  myco immune [--quick]\n"
                     '"""\n\n'
                     "import sys\n\n"
                     "try:\n"
@@ -217,7 +217,7 @@ def generate_migration_notes(findings: dict) -> list:
         if kd["name"] == "wiki" and kd["file_count"] > 0:
             notes.append(
                 f"📚 Found existing wiki/ with {kd['file_count']} files. "
-                f"Run `myco lint` to check consistency with _canon.yaml."
+                f"Run `myco immune` to check consistency with _canon.yaml."
             )
         if kd["name"] == "docs" and kd["file_count"] > 0:
             notes.append(
@@ -302,7 +302,7 @@ def write_migration_report(project_dir: Path, findings: dict, actions: list,
         "2. If you have existing MEMORY.md or skill files, consider importing their content into wiki/ pages",
         "3. Establish your lint baseline now:",
         "   ```bash",
-        "   myco lint --project-dir .",
+        "   myco immune --project-dir .",
         "   ```",
         "   On a fresh migration this will show **zero issues** — that's expected. The scaffold is internally consistent.",
         "   Start working. The first time lint finds something after you've added content is your **aha moment** — that's Myco working for you.",
@@ -408,7 +408,7 @@ def run_migrate(args) -> int:
         print(f"   Next: Edit {entry_point} → fill in project description → start working")
         print()
         print(f"   🔍 Establish your lint baseline:")
-        print(f"      myco lint --project-dir {project_dir}")
+        print(f"      myco immune --project-dir {project_dir}")
         print(f"   A clean scaffold shows zero issues. The first inconsistency lint catches")
         print(f"   after you start working is your aha moment — that's Myco working for you.")
 

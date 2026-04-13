@@ -57,7 +57,7 @@ def run_verify(args) -> int:
         passed += 1
     else:
         print(f"  ❌ _canon.yaml missing")
-        issues.append("_canon.yaml not found — run `myco init`")
+        issues.append("_canon.yaml not found — run `myco seed`")
 
     total += 1
     notes_dir = root / "notes"
@@ -67,7 +67,7 @@ def run_verify(args) -> int:
         passed += 1
     else:
         print(f"  ❌ notes/ directory missing")
-        issues.append("notes/ not found — run `myco init`")
+        issues.append("notes/ not found — run `myco seed`")
 
     # Check entry point
     total += 1
@@ -82,7 +82,7 @@ def run_verify(args) -> int:
         passed += 1
     else:
         print(f"  ❌ No entry point found ({', '.join(entry_candidates)})")
-        issues.append("No entry point — run `myco init --agent claude`")
+        issues.append("No entry point — run `myco seed --agent claude`")
 
     # --- 2. MCP server ---
     total += 1
@@ -97,7 +97,7 @@ def run_verify(args) -> int:
         passed += 1
     else:
         print(f"  ⚠️  No MCP config found")
-        issues.append("No MCP config — run `myco init --auto-detect`")
+        issues.append("No MCP config — run `myco seed --auto-detect`")
 
     total += 1
     try:
@@ -143,7 +143,7 @@ def run_verify(args) -> int:
             passed += 1
         else:
             print(f"  ⚠️  Lint: {result} issue(s)")
-            issues.append(f"Lint has {result} issue(s) — run `myco lint`")
+            issues.append(f"Lint has {result} issue(s) — run `myco immune`")
     except Exception as e:
         print(f"  ❌ Lint failed: {e}")
         issues.append(f"Lint execution failed: {e}")
