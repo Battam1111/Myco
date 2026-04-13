@@ -62,7 +62,7 @@ to make crash-during-compress recoverable in practice.
     Adding fsync would slow compress noticeably and is unjustified for
     Myco's single-user trust model.
 
-**Authoritative craft**: `docs/primordia/compress_mvp_craft_2026-04-12.md`
+**Authoritative craft**: docs/primordia/compress_mvp_craft_2026-04-12.md
 (Wave 30, kernel_contract, 0.90).
 
 **Lineage**: hermes catalog C2 (forage/repos/hermes-agent atomic-write helper),

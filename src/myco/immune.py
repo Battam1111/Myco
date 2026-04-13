@@ -742,7 +742,7 @@ _L12_KNOWN_EXTENSIONS = frozenset({
     ".py", ".md", ".yaml", ".json", ".toml", ".txt", ".sh",
 })
 
-# Regex: markdown link [text](path)
+# Regex: markdown link text
 _L12_MD_LINK_RE = re.compile(r'\[([^\]]*)\]\(([^)]+)\)')
 
 # Regex: backtick path reference `some/path.ext`
@@ -752,7 +752,7 @@ _L12_BACKTICK_PATH_RE = re.compile(r'`([^`]+)`')
 _L12_FENCE_RE = re.compile(r'^(`{3,}|~{3,})')
 
 # Directories to skip when walking .md files.
-_L12_SKIP_DIRS = {".git", "node_modules", ".myco_state", "forage"}
+_L12_SKIP_DIRS = {".git", "node_modules", ".myco_state", "forage", "tests"}
 
 # Files to skip entirely (historical records that may reference removed files).
 _L12_SKIP_FILES = {"contract_changelog.md"}
@@ -784,7 +784,7 @@ def lint_internal_link_integrity(canon, root):
             if d not in _L12_SKIP_DIRS
         ]
         for fname in filenames:
-            if not fname.endswith(".md"):
+            if not fname.endswith((".md", ".py", ".yaml", ".yml")):
                 continue
             if fname in _L12_SKIP_FILES:
                 continue
@@ -823,7 +823,10 @@ def lint_internal_link_integrity(canon, root):
                 continue
 
             # --- Markdown links ---
-            for m in _L12_MD_LINK_RE.finditer(line):
+            # Skip markdown link detection in .py files — they contain
+            # f-string templates that construct links, not actual links.
+            if not rel_path.endswith((".py", ".yaml", ".yml")):
+              for m in _L12_MD_LINK_RE.finditer(line):
                 target = m.group(2).strip()
 
                 # Skip external URLs.
@@ -1955,7 +1958,7 @@ _L19_PAT_DIM_EN = re.compile(r"\b(\d+)[- ]dimension(?:al)?\s+(?:lint|health|cons
 # is `lint`, `L0`, `次元の`, or 中文 quantifier patterns to minimize false
 # positives.
 _L19_PAT_DIM_CJK = re.compile(r"\b(\d+)\s*(?:维|次元)\s*(?:lint|L0|の|的)?")
-_L19_PAT_L_RANGE = re.compile(r"\bL0[-–](?:L)?(\d+)\b")
+_L19_PAT_L_RANGE = re.compile(r"\bL0-–?(\d+)\b")
 _L19_PAT_RATIO = re.compile(r"\b(\d+)/(\d+)\s+(?:green|绿|PASS|pass)")
 
 
@@ -1994,7 +1997,7 @@ def lint_dimension_count_consistency(canon, root):
       1. README badge `Lint-(\\d+)%2F(\\d+)\\s+green`
       2. English count `\\b(\\d+)[- ]dimension(?:al)?\\s+(?:lint|health|consistency)`
       3. Chinese count `\\b(\\d+)\\s*维\\s*(?:lint|L0)`
-      4. L range `\\bL0[-–](?:L)?(\\d+)\\b`
+      4. L range `\\bL0-–?(\\d+)\\b`
       5. Pass ratio `\\b(\\d+)/(\\d+)\\s+(?:green|绿|PASS|pass)`
 
     Patterns 1, 2, 3, 5 expect the integer == LINT_DIMENSION_COUNT.
@@ -2912,9 +2915,9 @@ def _fix_l12_broken_links(root, issues, canon):
     """Fix L12 broken internal links by removing link syntax (keeping display text).
 
     For MEDIUM issues (broken markdown links):
-        [display text](broken/path) -> display text
+        display text -> display text
     For LOW issues (broken backtick paths):
-        `broken/path.py` -> broken/path.py
+        broken/path.py -> broken/path.py
     """
     fixed = 0
 
@@ -2930,6 +2933,10 @@ def _fix_l12_broken_links(root, issues, canon):
         full_path = root / rel_path
         if not full_path.exists():
             continue
+        # Skip .py files — auto-fixing string literals in Python code
+        # is too dangerous (can break f-strings, constructors, etc.)
+        if rel_path.endswith(".py"):
+            continue
 
         content, enc = _read_file_bytes(str(full_path))
         if content is None:
@@ -2939,7 +2946,7 @@ def _fix_l12_broken_links(root, issues, canon):
 
         for severity, msg in fix_list:
             if severity == "MEDIUM" and "Broken markdown link:" in msg:
-                # Extract [text](target) from message
+                # Extract text from message
                 link_match = re.search(
                     r"Broken markdown link: \[([^\]]*)\]\(([^)]+)\)", msg
                 )

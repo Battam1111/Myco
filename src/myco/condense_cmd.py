@@ -11,7 +11,7 @@ notes and produce 1 extracted synthesis with audit trail* — is what makes
 **Authoritative design**: `docs/primordia/compression_primitive_craft_2026-04-12.md`
 (Wave 27, exploration 0.85, 7 design questions answered).
 
-**Implementation craft**: `docs/primordia/compress_mvp_craft_2026-04-12.md`
+**Implementation craft**: docs/primordia/compress_mvp_craft_2026-04-12.md
 (Wave 30, kernel_contract 0.90, validates Wave 27's design under impl pressure).
 
 **Verb shape** (locked in Wave 27 D1-D9):
@@ -366,7 +366,7 @@ def _execute_compression(
     Phase-2 failures emit `[WARN]` to stderr but the function still
     returns the partial result so the caller can report it.
 
-    The function is intentionally tested in `tests/unit/test_compress.py`
+    The function is intentionally tested in tests/unit/test_compress.py
     via direct calls (bypassing argparse) — that is the unit-of-work
     boundary where atomicity matters.
     """

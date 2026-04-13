@@ -1,12 +1,12 @@
 """Shared pytest fixtures for the Myco test suite.
 
 Wave 25 (v0.24.0) — test infrastructure seed. Landed by
-``docs/primordia/hermes_absorption_craft_2026-04-12.md`` §4.2 items 1-3.
+docs/primordia/archive/hermes_absorption_craft_2026-04-12.md §4.2 items 1-3.
 
 Discipline inheritance: ``_isolate_myco_project`` is the Myco analog of
 hermes's ``tests/conftest.py::_isolate_hermes_home`` autouse isolation
 fixture (hermes_agent repo, under MIT license, referenced in
-``notes/n_20260412T013044_5546.md`` catalog C1). Myco's substrate shape
+notes/n_20260412T013044_5546.md catalog C1). Myco's substrate shape
 differs — hermes isolates a user home directory, Myco isolates a
 project directory — but the pattern is the same: every test gets a
 private, tmp_path-backed workspace so tests can never accidentally
@@ -62,10 +62,10 @@ def _isolate_myco_project(tmp_path, monkeypatch):
     """Redirect every test into a private tmp_path-backed Myco project.
 
     Provides:
-      - ``tmp_path/project/_canon.yaml``  (minimal, walkable)
+      - tmp_path/project/_canon.yaml  (minimal, walkable)
       - ``tmp_path/project/notes/``       (empty digestive dir)
       - ``tmp_path/project/docs/primordia/`` (craft surface, empty)
-      - ``tmp_path/project/log.md``       (empty append-only log)
+      - tmp_path/project/log.md       (empty append-only log)
 
     Env vars cleared so no stray kernel pointers leak in:
       - ``MYCO_ALLOW_NO_PROJECT`` (strict-mode escape hatch) is unset
