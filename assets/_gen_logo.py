@@ -19,9 +19,9 @@ def generate_mycelium_logo(size=1024, dark_mode=True, pad=0.08):
 
     # Color gradient: vivid core → mid → edge
     if dark_mode:
-        core_color = (180, 255, 240)    # Near-white teal (hottest)
-        mid_color = (0, 229, 176)       # #00E5B0 (Myco Green)
-        edge_color = (0, 120, 100)      # Deep teal
+        core_color = (220, 255, 245)    # Near-white (hottest, like a star core)
+        mid_color = (0, 220, 170)       # Vibrant Myco green
+        edge_color = (0, 80, 80)        # Deep dark teal (cool)
         opacity_init = 240
         opacity_decay = 0.84
         branch_opacity_mult = 0.6
@@ -30,15 +30,15 @@ def generate_mycelium_logo(size=1024, dark_mode=True, pad=0.08):
         alpha_floor = 6
     else:
         # Strong dark colors for white backgrounds
-        core_color = (0, 50, 38)        # Near-black green core
-        mid_color = (0, 95, 70)         # Dark forest green
-        edge_color = (0, 140, 105)      # Medium teal edges
+        core_color = (0, 60, 50)        # Very dark green-black (core is densest)
+        mid_color = (0, 140, 100)       # Mid green
+        edge_color = (80, 190, 160)     # Lighter teal-cyan (edges fade lighter)
         opacity_init = 255              # Full opacity start
         opacity_decay = 0.92            # Very slow decay
         branch_opacity_mult = 0.80      # Branches highly visible
         sub_opacity_mult = 0.60
         fine_opacity_mult = 0.40
-        alpha_floor = 35                # Minimum alpha — nothing invisible
+        alpha_floor = 50                # Minimum alpha — nothing invisible
 
     cx, cy = size * 0.5, size * 0.5
     max_r = size * (0.5 - pad)
