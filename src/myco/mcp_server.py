@@ -1257,6 +1257,32 @@ async def myco_hunger(
                     with contextlib.redirect_stdout(buf):
                         rc = run_prune(ns)
                     exec_result["status"] = "ok" if rc == 0 else f"exit {rc}"
+                elif verb == "auto_link_orphans":
+                    # Retroactively link orphan notes to the mycelium
+                    from myco.mycelium import build_link_graph, find_orphans
+                    from myco.notes import _auto_link_note
+                    import yaml as _yaml
+                    graph = build_link_graph(root)
+                    orphans = find_orphans(graph)
+                    linked = 0
+                    for orphan_rel in orphans:
+                        if not orphan_rel.startswith("notes/"):
+                            continue
+                        orphan_path = root / orphan_rel
+                        if not orphan_path.exists():
+                            continue
+                        try:
+                            oc = orphan_path.read_text(encoding="utf-8")
+                            parts = oc.split("---", 2)
+                            if len(parts) >= 3:
+                                fm = _yaml.safe_load(parts[1])
+                                tags = fm.get("tags", [])
+                                title = fm.get("title", orphan_path.stem)
+                                _auto_link_note(root, orphan_path, tags, title)
+                                linked += 1
+                        except Exception:
+                            continue
+                    exec_result["status"] = f"ok: linked {linked} orphan notes"
                 elif verb == "inlet":
                     exec_result["status"] = "advisory (inlet needs human/agent decision)"
                 else:
