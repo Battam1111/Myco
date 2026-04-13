@@ -46,7 +46,7 @@ cursorrules_snippet: |
   #   CURSOR.md (or MYCO.md)  — L1 Index: start here every session
   #   _canon.yaml              — Single Source of Truth for canonical values
   #   wiki/                    — Compiled knowledge pages (W8 format)
-  #   docs/WORKFLOW.md         — 12 workflow principles (W1-W12)
+  #   docs/WORKFLOW.md         — 13 workflow principles (W1-W13)
   #   log.md                   — Append-only project timeline
   #
   # Consistency rule: never contradict _canon.yaml values in wiki/ or code.

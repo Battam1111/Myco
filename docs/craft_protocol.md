@@ -2,7 +2,7 @@
 
 > **Status**: ACTIVE · CONTRACT
 > **Version**: v1 (first landed in Myco contract v0.9.0, 2026-04-11)
-> **Bound principle**: W3 of the Twelve Principles (`docs/WORKFLOW.md`)
+> **Bound principle**: W3 of the Thirteen Principles (`docs/WORKFLOW.md`)
 > **Debates of record**:
 > - `docs/primordia/craft_formalization_craft_2026-04-11.md` (v1 schema, Wave 8)
 > - `docs/primordia/craft_reflex_craft_2026-04-11.md` (discovery surface + L15, Wave 11)
@@ -372,10 +372,10 @@ These criteria are documented here to prevent the "can't delete a lint
 once added" failure mode. A lint that has outlived its purpose should be
 removed with the same discipline with which it was added.
 
-## 9. Relationship to the Twelve Principles
+## 9. Relationship to the Thirteen Principles
 
 Craft Protocol is the formal implementation of **W3 传统手艺**. The prose
-gloss of W3 in `docs/WORKFLOW.md` remains the human-readable summary;
+gloss of W3 in `docs/WORKFLOW.md` (Thirteen Principles) remains the human-readable summary;
 this document is the machine-verifiable specification. In case of
 conflict, `docs/WORKFLOW.md` describes the *spirit*, this document
 describes the *schema*, and `_canon.yaml` is the *single source of truth*

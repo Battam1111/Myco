@@ -471,6 +471,7 @@ Meta-evolution isn't vaporware here: Myco's evolution targets text files — the
 | W10 | Compilation Protocol | 5-step external knowledge extraction |
 | W11 | Verification Scope | Label what conditions conclusions were verified under |
 | W12 | Information Density | Adapt context loading depth to task complexity |
+| W13 | Primordia Compression | Respond to structural_bloat: compress OR audit-trail deferral |
 
 ---
 
