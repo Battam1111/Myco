@@ -2,9 +2,9 @@
 # Myco — Optional pre-commit hook installer (Wave 18, contract v0.17.0).
 # Wave 23 (v0.22.0): +MYCO_PRECOMMIT_PYTEST opt-in test gate (NH-9).
 #
-# Closes H-5 (L15 depends on manual `myco lint` — commits that skip lint
+# Closes H-5 (L15 depends on manual `myco immune` — commits that skip lint
 # silently bypass the reflex). This is a defensive, opt-in second layer;
-# L15 at `myco lint` time remains the primary surface, and the Wave 17
+# L15 at `myco immune` time remains the primary surface, and the Wave 17
 # boot brief injector remains the primary passive read path.
 #
 # Usage:
@@ -74,7 +74,7 @@ cat > "$HOOK" << 'HOOK_EOF'
 command -v myco >/dev/null 2>&1 || exit 0
 
 ROOT="$(git rev-parse --show-toplevel)"
-OUT="$(myco lint --project-dir "$ROOT" 2>&1)" || true
+OUT="$(myco immune --project-dir "$ROOT" 2>&1)" || true
 
 # Block commit only on CRITICAL or HIGH issues. MEDIUM/LOW print but pass.
 if echo "$OUT" | grep -E -q "(\[CRITICAL\]|\[HIGH\])"; then

@@ -752,7 +752,7 @@ _L12_BACKTICK_PATH_RE = re.compile(r'`([^`]+)`')
 _L12_FENCE_RE = re.compile(r'^(`{3,}|~{3,})')
 
 # Directories to skip when walking .md files.
-_L12_SKIP_DIRS = {".git", "node_modules", ".myco_state", "forage", "tests"}
+_L12_SKIP_DIRS = {".git", "node_modules", ".myco_state", "forage", "tests", "notes"}
 
 # Files to skip entirely (historical records that may reference removed files).
 _L12_SKIP_FILES = {"contract_changelog.md"}
@@ -891,7 +891,7 @@ def lint_internal_link_integrity(canon, root):
                     if " " in ref:
                         continue
                     # Skip placeholder patterns (e.g. `path/YYYY-MM-DD.md`).
-                    if "YYYY" in ref or "xxx" in ref:
+                    if "YYYY" in ref or "xxx" in ref or "{" in ref:
                         continue
 
                     # Try both project-root-relative AND file-relative.

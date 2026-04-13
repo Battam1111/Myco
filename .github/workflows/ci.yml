@@ -23,7 +23,7 @@ jobs:
       - name: Run tests
         run: pytest tests/ -q --tb=short
       - name: Run lint
-        run: python -m myco lint --project-dir .
+        run: python -m myco immune --project-dir .
 
   lint-quick:
     runs-on: ubuntu-latest
@@ -36,4 +36,4 @@ jobs:
       - name: Install
         run: pip install -e ".[mcp]"
       - name: Quick lint
-        run: python -m myco lint --quick --project-dir .
+        run: python -m myco immune --quick --project-dir .

@@ -689,6 +689,28 @@ def main():
         help="Project root directory (default: current directory)",
     )
 
+    # ── myco rename ──────────────────────────────────────────────────
+    rename_parser = subparsers.add_parser(
+        "rename",
+        help="Syntax-aware module/command renaming (prevents sed-on-Python disasters)",
+    )
+    rename_parser.add_argument(
+        "--old", type=str, required=True,
+        help="Current module name (e.g. 'lint')",
+    )
+    rename_parser.add_argument(
+        "--new", type=str, required=True,
+        help="New module name (e.g. 'immune')",
+    )
+    rename_parser.add_argument(
+        "--project-dir", type=str, default=".",
+        help="Project root directory (default: current directory)",
+    )
+    rename_parser.add_argument(
+        "--dry-run", dest="dry_run", action="store_true",
+        help="Show all planned changes without executing them",
+    )
+
     # ── myco version (explicit subcommand) ─────────────────────────
     subparsers.add_parser("version", help="Show version")
 
@@ -815,6 +837,10 @@ def main():
     if args.command == "propagate":
         from myco.propagate_cmd import run_propagate
         sys.exit(run_propagate(args))
+
+    if args.command == "rename":
+        from myco.rename_cmd import run_rename
+        sys.exit(run_rename(args))
 
 
 if __name__ == "__main__":
