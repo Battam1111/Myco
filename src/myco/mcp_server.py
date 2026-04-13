@@ -95,11 +95,27 @@ def _compute_sidecar(root: Path) -> dict:
                 if "•" in line and "healthy" not in line:
                     top_signal = line.split("•")[-1].strip()[:60]
                     break
-        return {
+        # Check if boot ritual was executed this session.
+        # If boot_brief is older than 2 hours, Agent likely hasn't run
+        # myco_hunger(execute=true) this session → nag.
+        import time as _time
+        boot_stale = True
+        if brief.exists():
+            age_seconds = _time.time() - brief.stat().st_mtime
+            boot_stale = age_seconds > 7200  # 2 hours
+
+        result = {
             "raw_count": raw,
             "signals_count": signals_count,
             "top_signal": top_signal,
         }
+        if boot_stale:
+            result["WARNING"] = (
+                "Boot ritual not executed this session! "
+                "Call myco_hunger(execute=true) IMMEDIATELY — "
+                "this is the FIRST action every session per MYCO.md."
+            )
+        return result
     except Exception:
         return {"raw_count": -1, "signals_count": -1, "top_signal": "error"}
 
@@ -1263,6 +1279,13 @@ async def myco_hunger(
     else:
         result["pipeline_hint"] = "Build — signals advisory only, proceed with caution"
     result["pipeline_ref"] = "skills/sprint-pipeline.md"
+
+    # Refresh boot brief so sidecar knows hunger was run this session
+    try:
+        from myco.notes import write_boot_brief
+        write_boot_brief(root, report)
+    except Exception:
+        pass  # best-effort
 
     return json.dumps(result, ensure_ascii=False, indent=2)
 
