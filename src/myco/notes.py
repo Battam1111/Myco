@@ -2567,6 +2567,15 @@ def compute_hunger_report(
                 "reason": sd_sig,
             })
 
+    # Auto-link orphan notes (mycelium wrapping for existing notes)
+    if orphan_count > 0:
+        actions.append({
+            "verb": "auto_link_orphans",
+            "args": {},
+            "reason": f"graph_orphans: {orphan_count} notes with zero inbound links. "
+                      f"Running retroactive auto-link to connect them to the mycelium.",
+        })
+
     return HungerReport(
         total=len(paths),
         by_status=by_status,
