@@ -43,7 +43,7 @@ Human ──自然语言──→ Agent ──MCP──→ Myco
 | 代谢 | eat/digest/compress/inlet — 持续转化输入为输出 |
 | 稳态 | lint 23 维 + hunger signals — 自我调节维持稳定 |
 | 应激反应 | hunger 感知变化并推荐行动 |
-| 生长 | 55+ waves, 100+ notes — 复杂度持续增长 |
+| 生长 | 60+ waves, 60+ notes — 复杂度持续增长 |
 | 繁殖 | kernel → instance 模板分裂 |
 | 进化 | 规则本身可被 evolve.py 修改 |
 | 排泄 | prune + dead_knowledge 检测 — 移除废物 |
