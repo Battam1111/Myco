@@ -13,6 +13,59 @@ from pathlib import Path
 from myco.templates import get_templates_dir, get_template, fill_template
 
 
+def _metabolic_skill_content(project_dir: str) -> str:
+    """
+    Return the SKILL.md content for the scheduled metabolic cycle task.
+
+    Single source of truth -- used by both ``--agent claude`` and
+    ``--auto-detect`` code paths.  The ``allowed-tools`` frontmatter
+    pre-approves every Myco MCP tool so the task runs without manual
+    approval on first execution.
+    """
+    return (
+        "---\n"
+        "name: myco-metabolic-cycle\n"
+        "description: Daily Myco metabolic cycle — hunger check + auto-heal + lint verification\n"
+        "allowed-tools:\n"
+        "  - mcp__myco__myco_hunger\n"
+        "  - mcp__myco__myco_lint\n"
+        "  - mcp__myco__myco_log\n"
+        "  - mcp__myco__myco_session\n"
+        "  - mcp__myco__myco_digest\n"
+        "  - mcp__myco__myco_compress\n"
+        "  - mcp__myco__myco_prune\n"
+        "  - mcp__myco__myco_status\n"
+        "  - mcp__myco__myco_view\n"
+        "  - mcp__myco__myco_eat\n"
+        "  - mcp__myco__myco_search\n"
+        "  - mcp__myco__myco_cohort\n"
+        "  - mcp__myco__myco_graph\n"
+        "  - mcp__myco__myco_discover\n"
+        "---\n"
+        "\n"
+        f"Run the Myco metabolic cycle. The project root is {project_dir}.\n"
+        f"Pass project_dir=\"{project_dir}\" to EVERY myco MCP tool call.\n"
+        "\n"
+        "Steps:\n"
+        f"1. Call myco_hunger(execute=true, project_dir=\"{project_dir}\") to auto-heal the substrate\n"
+        "2. If any signal is REFLEX HIGH, address it immediately using the appropriate tool (always pass project_dir)\n"
+        f"3. If session_index_missing signal appears, call myco_session(action='index', project_dir=\"{project_dir}\")\n"
+        f"4. Call myco_lint(project_dir=\"{project_dir}\") to verify substrate integrity — fix any issues found\n"
+        f"5. Call myco_log(entry_type='system', message='Metabolic cycle complete. Status: [healthy/N issues]', project_dir=\"{project_dir}\")\n"
+        "6. Report completion\n"
+        "\n"
+        "## Fallback: CLI commands (auto-approved via settings.json)\n"
+        "\n"
+        "If MCP tools are unavailable, use these Bash commands instead:\n"
+        "```bash\n"
+        f"python -m myco hunger --execute --project-dir \"{project_dir}\"\n"
+        f"python -m myco lint --project-dir \"{project_dir}\"\n"
+        f"python -m myco status --project-dir \"{project_dir}\"\n"
+        "```\n"
+        "These match the allowed Bash patterns in settings.json and run without approval.\n"
+    )
+
+
 def get_date():
     return datetime.now().strftime("%Y-%m-%d")
 
@@ -275,6 +328,40 @@ _TOOL_GENERATORS: dict[str, tuple] = {
     "Zed":         (_gen_zed,         ".zed/settings.json"),
 }
 
+# -- Metabolic cycle SKILL.md content (single source of truth) --------
+# Used by both run_auto_detect() and run_init(agent="claude").
+# The skill uses MCP tools as the primary path and CLI fallback commands
+# that match the Bash permission patterns in settings.json:
+#   Bash(python -m myco*)  and  Bash(python -c *myco*)
+# so the scheduled task can auto-execute without approval prompts.
+_METABOLIC_SKILL_CONTENT = (
+    "---\n"
+    "name: myco-metabolic-cycle\n"
+    "description: Myco metabolic cycle — hunger check + auto-heal + lint\n"
+    "allowed-tools:\n"
+    "  - Bash\n"
+    "---\n\n"
+    "Run the Myco metabolic cycle using CLI commands.\n"
+    "These match the Bash patterns in .claude/settings.json and run without approval.\n\n"
+    "1. Run hunger with auto-heal:\n"
+    "   ```bash\n"
+    "   python -m myco hunger --execute\n"
+    "   ```\n\n"
+    "2. Run lint:\n"
+    "   ```bash\n"
+    "   python -m myco lint\n"
+    "   ```\n\n"
+    "3. Report: 'Metabolic cycle complete. Status: [healthy/N issues]'\n"
+)
+
+# Tip printed after SKILL.md creation to guide first-run permission grant.
+_METABOLIC_TIP = (
+    "\n"
+    "  \U0001f4a1 TIP: Run the metabolic cycle once now to pre-approve tools:\n"
+    "     In Claude Code, type: /myco-boot\n"
+    "     This grants permissions so the daily cycle runs automatically.\n"
+)
+
 
 def run_auto_detect(args) -> int:
     """Entry point for ``myco init --auto-detect``."""
@@ -341,18 +428,10 @@ def run_auto_detect(args) -> int:
     sched_dir.mkdir(parents=True, exist_ok=True)
     sched_skill = sched_dir / "SKILL.md"
     if not sched_skill.exists():
+        # Use forward slashes for the project_dir in the SKILL.md content
+        proj_str = str(project_dir.resolve()).replace("\\", "/")
         sched_skill.write_text(
-            "---\n"
-            "name: myco-metabolic-cycle\n"
-            "description: Myco metabolic cycle — hunger check + auto-heal + lint\n"
-            "---\n\n"
-            "Run the Myco metabolic cycle:\n"
-            "1. Call myco_hunger(execute=true) to auto-heal the substrate\n"
-            "2. If any signal is REFLEX HIGH, address it immediately\n"
-            "3. If session index is missing, call myco_session(action='index')\n"
-            "4. Call myco_lint() to verify substrate integrity\n"
-            "5. If lint has issues, fix them\n"
-            "6. Report: 'Metabolic cycle complete. Status: [healthy/N issues]'\n",
+            _metabolic_skill_content(proj_str),
             encoding="utf-8",
         )
     print(f"  \u2705 .claude/scheduled-tasks/myco-metabolic-cycle/")
@@ -637,17 +716,7 @@ def run_init(args) -> int:
         sched_dir = project_dir / ".claude" / "scheduled-tasks" / "myco-metabolic-cycle"
         sched_dir.mkdir(parents=True, exist_ok=True)
         (sched_dir / "SKILL.md").write_text(
-            "---\n"
-            "name: myco-metabolic-cycle\n"
-            "description: Myco metabolic cycle — hunger check + auto-heal + lint\n"
-            "---\n\n"
-            "Run the Myco metabolic cycle:\n"
-            "1. Call myco_hunger(execute=true) to auto-heal the substrate\n"
-            "2. If any signal is REFLEX HIGH, address it immediately\n"
-            "3. If session index is missing, call myco_session(action='index')\n"
-            "4. Call myco_lint() to verify substrate integrity\n"
-            "5. If lint has issues, fix them\n"
-            "6. Report: 'Metabolic cycle complete. Status: [healthy/N issues]'\n",
+            _METABOLIC_SKILL_CONTENT,
             encoding="utf-8",
         )
         print(f"  ✅ .claude/scheduled-tasks/myco-metabolic-cycle/")
