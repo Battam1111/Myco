@@ -18,7 +18,7 @@ decision_class: kernel_contract
 # Usability + Positioning Craft · 易用性与定位传统手艺
 
 **Author**: Claude (Myco kernel agent, autonomous run under user grant)
-**Trigger**: Yanjun 2026-04-11, after Wave 9 first-live forage batch:
+**Trigger**: the creator 2026-04-11, after Wave 9 first-live forage batch:
 
 > "Myco 是否能够像我们吃下的那几个项目一样能够容易使用，并且稳定地触发与使用？Myco 的定位是什么？和目前主流的工具的关系是什么？这是最重要的问题，涉及到能不能真的实际拿来用。"
 
