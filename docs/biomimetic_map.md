@@ -79,7 +79,7 @@ Myco 这个项目名取自真菌（*Myco*-rhizal = 菌根），但在 v1.4.0 之
 - 真菌分泌到细胞外的酶——先把环境里的大分子预消化，再吸收。
 - **对应 Myco 基质**：`scripts/`（`myco_init.py`, `myco_migrate.py`,
   `lint_knowledge.py`）——这些脚本是基质分泌到"环境"里主动处理事情的工具，
-  不是基质的一部分但服务于它。src/myco/lint.py 本身也是 exoenzyme
+  不是基质的一部分但服务于它。src/myco/immune.py 本身也是 exoenzyme
   的核心——把原始文档预消化成 23 维一致性信号（v1.7.0 起新增 L14
   Forage Hygiene）。
 

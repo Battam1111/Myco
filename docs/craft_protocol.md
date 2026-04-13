@@ -8,7 +8,7 @@
 > - `docs/primordia/craft_reflex_craft_2026-04-11.md` (discovery surface + L15, Wave 11)
 > - `docs/primordia/craft_autonomy_craft_2026-04-11.md` (agent-autonomous reflex arc, Wave 12)
 > **Schema of record**: `_canon.yaml: system.craft_protocol`
-> **Lint of record**: L13 Craft Protocol Schema + L15 Craft Reflex (src/myco/lint.py)
+> **Lint of record**: L13 Craft Protocol Schema + L15 Craft Reflex (src/myco/immune.py)
 
 ## 1. What it is
 
@@ -132,7 +132,7 @@ Run a Craft when any of the following is true:
 
 1. **Kernel contract change** (Class Z in Upstream Protocol §8.2): any edit
    to `docs/agent_protocol.md`, `_canon.yaml`, `scripts/lint_knowledge.py`,
-   src/myco/lint.py, `src/myco/mcp_server.py`, or `src/myco/templates/**`.
+   src/myco/immune.py, `src/myco/mcp_server.py`, or `src/myco/templates/**`.
    Minimum `target_confidence: 0.90`, `decision_class: kernel_contract`.
 
 2. **Instance-level architectural decision**: any decision that will shape
@@ -183,7 +183,7 @@ reflex immutable and agent-autonomous.
 Trigger surfaces are split into two classes:
 
 - `kernel_contract` — `docs/agent_protocol.md`, `docs/craft_protocol.md`,
-  `_canon.yaml`, src/myco/lint.py, `src/myco/mcp_server.py`,
+  `_canon.yaml`, src/myco/immune.py, `src/myco/mcp_server.py`,
   `src/myco/templates/_canon.yaml`, `src/myco/templates/MYCO.md`.
   Touching any of these maps to Trigger #1 above.
 - `public_claim` — `README.md`, `README_zh.md`, `README_ja.md`,
@@ -384,7 +384,7 @@ for field definitions.
 **Canonical references**
 - Principle: `docs/WORKFLOW.md` W3
 - Schema: `_canon.yaml: system.craft_protocol` (reflex subblock: v0.10.0; severity HIGH + trivial_exempt: v0.11.0)
-- Lint: `src/myco/lint.py::lint_craft_protocol` (L13) + `src/myco/lint.py::lint_craft_reflex` (L15, severity HIGH)
+- Lint: `src/myco/immune.py::lint_craft_protocol` (L13) + `src/myco/immune.py::lint_craft_reflex` (L15, severity HIGH)
 - Hunger signal: `src/myco/notes.py::detect_craft_reflex_missing` (`craft_reflex_missing`)
 - Debate records:
   - `docs/primordia/craft_formalization_craft_2026-04-11.md` (v1 schema, Wave 8)

@@ -23,11 +23,11 @@ target_layer: "multi_layer"    # Maps to different layers depending on content
 
 # ── Import Steps (v0.x Manual Protocol) ─────────────────────
 import_steps:
-  1: "Run: myco migrate ./your-openclaw-project to create Myco scaffold (non-destructive)"
+  1: "Run: myco graft ./your-openclaw-project to create Myco scaffold (non-destructive)"
   2: "Map MEMORY.md sections to Myco layers (see layer_mapping below)"
   3: "Classify daily notes: recent (last 30 days) → wiki/ | older → L0 Archive (log.md references)"
   4: "Move SOUL.md content into MYCO.md §Hot Zone 'Operational Feel' section (≤5 lines)"
-  5: "Run: myco lint --project-dir . — expect L4 orphan warnings for unmapped content (fix iteratively)"
+  5: "Run: myco immune --project-dir . — expect L4 orphan warnings for unmapped content (fix iteratively)"
   6: "After first lint pass, run Session Reflection: what from MEMORY.md never got used?"
 
 # ── File Mapping ─────────────────────────────────────────────
@@ -61,7 +61,7 @@ value_proposition: |
 
 # ── Roadmap ──────────────────────────────────────────────────
 roadmap:
-  v1_0: "myco import --from openclaw ./project/ → auto-classify MEMORY.md sections, create wiki pages"
+  v1_0: "myco assimilate --from openclaw ./project/ → auto-classify MEMORY.md sections, create wiki pages"
   v1_1: "myco watch --openclaw → incremental sync as MEMORY.md grows"
 
 # ── Notes ────────────────────────────────────────────────────

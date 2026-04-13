@@ -31,34 +31,34 @@ integration_modes:
     description: "Serialize Myco's L1 + hot zone into the system prompt at session start"
     when_to_use: "OpenAI API calls with gpt-4o, gpt-4-turbo, or similar"
     setup_steps:
-      1: "Run: myco init my-project --level 2 (creates standard Myco scaffold)"
+      1: "Run: myco seed my-project --level 2 (creates standard Myco scaffold)"
       2: "Create a prompt builder script that reads MYCO.md hot zone + _canon.yaml"
       3: "Inject serialized content as system prompt prefix (see system_prompt_template below)"
       4: "Include reminder: 'After each session, append a log entry to log.md'"
-      5: "Run: myco lint --project-dir . to check consistency"
+      5: "Run: myco immune --project-dir . to check consistency"
 
   mode_B_chatgpt_projects:
     name: "ChatGPT Projects (file upload)"
     description: "Upload Myco knowledge files to ChatGPT Project as context documents"
     when_to_use: "ChatGPT Plus/Teams/Enterprise with Projects feature"
     setup_steps:
-      1: "Run: myco init my-project --level 2"
+      1: "Run: myco seed my-project --level 2"
       2: "Upload to ChatGPT Project knowledge: MYCO.md, _canon.yaml, relevant wiki/*.md pages"
       3: "Add custom instructions: 'Before answering, check _canon.yaml for canonical values. Log significant decisions to log.md.'"
       4: "Re-upload updated files after major Session Reflection/Milestone Retrospective evolutions"
-      5: "Run: myco lint --project-dir . locally to verify consistency"
+      5: "Run: myco immune --project-dir . locally to verify consistency"
 
   mode_C_assistant_api:
     name: "OpenAI Assistants API with File Search"
     description: "Create an Assistant with Myco project files in its vector store"
     when_to_use: "Production agents built on Assistants API"
     setup_steps:
-      1: "Run: myco init my-project --level 2"
+      1: "Run: myco seed my-project --level 2"
       2: "Create vector store and upload: MYCO.md, _canon.yaml, wiki/*.md, docs/WORKFLOW.md"
       3: "Set Assistant instructions: see system_prompt_template below"
       4: "Enable file_search tool on the Assistant"
       5: "Implement sync logic: after Session Reflection/Milestone Retrospective evolution, re-upload updated files to vector store"
-      6: "Run: myco lint --project-dir . as part of your CI/deployment pipeline"
+      6: "Run: myco immune --project-dir . as part of your CI/deployment pipeline"
 
 # ── System Prompt Template ────────────────────────────────────
 system_prompt_template: |
@@ -101,7 +101,7 @@ coexistence_notes:
   key_difference: |
     Unlike Claude Code or Cursor, GPT does not have native filesystem access in most modes.
     This means Myco's files must be explicitly provided to GPT at each session.
-    The lint gate (myco lint) runs locally or in CI — not inside the GPT context.
+    The lint gate (myco immune) runs locally or in CI — not inside the GPT context.
 
 # ── Layer Mapping ──────────────────────────────────────────
 layer_mapping:
@@ -117,7 +117,7 @@ workflow_compatibility:
   W2_session_reflection:  "✅ Include 'append to log.md at session end' in system prompt"
   W3_canon_first:         "✅ _canon.yaml injected in system prompt — GPT checks it"
   W4_wiki_w8:             "⚠️  GPT needs explicit instruction to use W8 header format"
-  W5_lint_gate:           "✅ Run myco lint locally after sessions — GPT outputs files, lint verifies"
+  W5_lint_gate:           "✅ Run myco immune locally after sessions — GPT outputs files, lint verifies"
   W8_format:              "⚠️  Include W8 format spec in system prompt for wiki creation tasks"
   W12_gear_protocol:      "⚠️  Session Reflection/Milestone Retrospective/Cross-Project Distillation require human coordination — GPT can suggest but human triggers"
 
@@ -131,7 +131,7 @@ value_proposition: |
     - System prompt injection delivers structured project context in every call
     - _canon.yaml prevents GPT from contradicting established values
     - log.md gives you a session-by-session record of GPT's contributions
-    - myco lint catches inconsistencies GPT introduces without realizing
+    - myco immune catches inconsistencies GPT introduces without realizing
     - Cross-Project Distillation distills the patterns GPT helped discover across projects
 
   Best for: API-based GPT usage where you control the system prompt.
@@ -149,7 +149,7 @@ limitations:
 roadmap:
   v1_1: "myco export --format system-prompt → serializes MYCO.md hot zone + canon for API injection"
   v1_2: "myco sync --backend openai-assistant → auto-uploads updated wiki files to vector store"
-  v2_0: "GPT function calling integration: GPT calls myco_lint() and myco_log() as tools during session"
+  v2_0: "GPT function calling integration: GPT calls myco_immune() and myco_trace() as tools during session"
 
 # ── Notes ────────────────────────────────────────────────────
 notes:

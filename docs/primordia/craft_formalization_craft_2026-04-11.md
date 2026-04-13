@@ -283,7 +283,7 @@ B3. `src/myco/templates/_canon.yaml` 同步添加（精简版 + 注释）。
 
 **C. Lint 实现**
 C4. `scripts/lint_knowledge.py` 新增 `lint_craft_protocol` + 注册 L13。
-C5. `src/myco/lint.py` 同款实现 + 注册 + 更新模块 docstring 到 "14-Dimension"。
+C5. `src/myco/immune.py` 同款实现 + 注册 + 更新模块 docstring 到 "14-Dimension"。
 C6. `src/myco/mcp_server.py` 升级 title + docstring 到 "14-dimensional" + 注册 lint_craft_protocol。
 
 **D. 文档交叉引用**

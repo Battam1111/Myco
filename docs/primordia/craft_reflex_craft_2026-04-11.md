@@ -43,7 +43,7 @@ hunger 信号 + 热区文档锚点。
 
 **Claim 1**: Add a new lint dimension L15 "Craft Citation Reflex" that scans
 `log.md` for recent entries touching kernel-contract surfaces
-(`docs/agent_protocol.md`, `_canon.yaml`, `src/myco/lint.py`,
+(`docs/agent_protocol.md`, `_canon.yaml`, `src/myco/immune.py`,
 `src/myco/mcp_server.py`, `src/myco/templates/**`) and warns if no craft file
 was created or referenced in the same lookback window. Severity LOW initially.
 
@@ -161,7 +161,7 @@ trigger_surfaces:
   kernel_contract:        # Trigger #1 per craft_protocol §3
   - docs/agent_protocol.md
   - _canon.yaml
-  - src/myco/lint.py
+  - src/myco/immune.py
   - src/myco/mcp_server.py
   - src/myco/templates/**
   public_claim:           # Trigger #4 per craft_protocol §3
@@ -338,7 +338,7 @@ reflex:
     kernel_contract:
     - docs/agent_protocol.md
     - _canon.yaml
-    - src/myco/lint.py
+    - src/myco/immune.py
     - src/myco/mcp_server.py
     - src/myco/templates/_canon.yaml
     - src/myco/templates/MYCO.md
@@ -351,7 +351,7 @@ reflex:
   evidence_pattern: '(docs/primordia/[a-z0-9_]+_craft_\d{4}-\d{2}-\d{2}(_[0-9a-f]{4})?\.md|craft_reference\s*:)'
 ```
 
-**D2** — `src/myco/lint.py` 新函数 `lint_craft_reflex`，签名同 L13。注册为
+**D2** — `src/myco/immune.py` 新函数 `lint_craft_reflex`，签名同 L13。注册为
 **L15 Craft Citation Reflex**。模块 docstring 更新到 "16-Dimension"（现在
 L0–L14 共 15 维 + L15 = 16 维）。
 
@@ -386,7 +386,7 @@ friction-phase2, wave11`。
 
 - **L1**: 本 craft 文件落盘（正在写）✅
 - **L2**: `_canon.yaml` system.craft_protocol.reflex 新块 + contract_version bump
-- **L3**: `src/myco/lint.py` 加 `lint_craft_reflex` + 注册 + docstring 升到 16-dim
+- **L3**: `src/myco/immune.py` 加 `lint_craft_reflex` + 注册 + docstring 升到 16-dim
 - **L4**: `src/myco/notes.py` `compute_hunger_report` 加 craft_reflex_missing signal
 - **L5**: `docs/craft_protocol.md` §3.1 Discovery surface + §8 扩展
 - **L6**: `src/myco/templates/_canon.yaml` 同步 reflex 子块
