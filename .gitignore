@@ -67,3 +67,9 @@ scripts/pypi_upload.bat
 .myco_state/search_misses.yaml
 .myco_state/excretion_counter.json
 .pytest_cache/
+
+# Knowledge notes (project-specific learning journal, not for public distribution)
+notes/n_*.md
+
+# Archived craft debates (historical, not needed for public release)
+docs/primordia/archive/
