@@ -433,8 +433,57 @@ def run_connect(args) -> int:
             finally:
                 _MYCO_SERVER_STDIO["env"] = old_env
 
+    # Generate CLAUDE.md entry point with Myco instructions
+    from myco.templates import get_template, fill_template
+    replacements = {
+        "PROJECT_NAME": project_dir.name,
+        "DATE": get_date(),
+        "GITHUB_USER": "your-username",
+    }
+    status = _gen_claude_md(project_dir, replacements)
+    print(f"  ✅ CLAUDE.md ({status})")
+
+    # Generate settings.json with auto-allow patterns
+    settings_dir = project_dir / ".claude"
+    settings_dir.mkdir(parents=True, exist_ok=True)
+    settings_path = settings_dir / "settings.json"
+    settings_payload = {
+        "permissions": {
+            "allow": [
+                "mcp__myco__*",
+                *_MYCO_BASH_PATTERNS,
+            ]
+        }
+    }
+    _json_merge_write(settings_path, settings_payload)
+    print(f"  ✅ .claude/settings.json (auto-allow patterns)")
+
+    # Generate Cowork skill stubs
+    for skill_name, skill_content in _COWORK_SKILLS.items():
+        skill_dir = settings_dir / "skills" / skill_name
+        skill_dir.mkdir(parents=True, exist_ok=True)
+        skill_path = skill_dir / "SKILL.md"
+        if not skill_path.exists():
+            skill_path.write_text(skill_content, encoding="utf-8")
+    print(f"  ✅ .claude/skills/myco-*/  (Cowork skill stubs)")
+
+    # Generate scheduled metabolic cycle
+    sched_dir = Path.home() / ".claude" / "scheduled-tasks" / "myco-metabolic-cycle"
+    sched_dir.mkdir(parents=True, exist_ok=True)
+    skill_md = sched_dir / "SKILL.md"
+    skill_content = _metabolic_skill_content(myco_root)
+    skill_md.write_text(skill_content, encoding="utf-8")
+    print(f"  ✅ ~/.claude/scheduled-tasks/myco-metabolic-cycle/")
+
+    # Generate pre-commit hook if .git exists
+    _generate_pre_commit_hook(project_dir)
+    git_hooks = project_dir / ".git" / "hooks" / "pre-commit"
+    if git_hooks.exists():
+        print(f"  ✅ .git/hooks/pre-commit (immune gate)")
+
     print(f"\n🍄 Connected! Myco tools will use knowledge from {myco_root}")
-    print(f"   All projects sharing one Myco = one brain, many hands.\n")
+    print(f"   All projects sharing one Myco = one brain, many hands.")
+    print(f"   Run `myco diagnose --project-dir .` to verify everything works.\n")
     return 0
 
 
