@@ -194,7 +194,7 @@ system:                              # 跨项目通用
   principles_count: 13               # W1-W13（十三原则）
   principles_label: "十三原则"
   wiki_page_types: [entity, concept, operations, analysis, craft]
-  lint_dimensions: 23               # L0-L22 (L12 removed) (current substrate)
+  lint_dimensions: 25               # L0-L24 (current substrate)
   claude_md_max_lines: 300
   stale_patterns: ["五原则", "六原则", "七原则"]  # 已知过时表述
 
