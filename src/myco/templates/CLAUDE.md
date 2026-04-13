@@ -52,6 +52,30 @@ If no skill matches (or no skills/ directory), proceed with agent judgment.
 - **[REFLEX HIGH] contract_drift** — sync contract version first
 - **[REFLEX HIGH] craft_reflex_missing** — write craft before kernel changes
 
+## CLI Fallback (for platforms without MCP)
+
+If MCP tools are not available (e.g., Cowork, terminal-only agents), use CLI equivalents via Bash:
+
+| MCP Tool | CLI Equivalent |
+|----------|---------------|
+| `myco_hunger(execute=true)` | `myco hunger --execute` |
+| `myco_immune(fix=true)` | `myco immune --fix` |
+| `myco_eat(content=..., tags=...)` | `myco eat --content "..." --tags "t1,t2"` |
+| `myco_digest(note_id=...)` | `myco digest <note_id>` |
+| `myco_condense(tag=...)` | `myco condense --tag "..."` |
+| `myco_expand(output_id=...)` | `myco expand <output_id>` |
+| `myco_prune()` | `myco prune [--apply]` |
+| `myco_sense(query=...)` | `myco memory sense "..."` |
+| `myco_memory()` | `myco memory index` |
+| `myco_mycelium(action=...)` | `myco mycelium orphans\|backlinks\|clusters\|stats` |
+| `myco_colony(action=...)` | `myco colony suggest\|matrix\|gaps` |
+| `myco_observe(note_id=...)` | `myco observe [<note_id>]` |
+| `myco_absorb(source=...)` | `myco absorb <source>` |
+| `myco_forage(...)` | `myco forage add\|list\|digest` |
+
+MCP-only tools (no CLI equivalent): `myco_pulse`, `myco_trace`, `myco_reflect`, `myco_evolve`, `myco_evolve_list`.
+All CLI commands support `--json` for machine-readable output. Run `myco <command> --help` for full options.
+
 ## Write Surface
 
 Only write to paths listed in `_canon.yaml::system.write_surface.allowed`.
