@@ -40,8 +40,8 @@ Human ──自然语言──→ Agent ──MCP──→ Myco
 
 | 标准 | Myco 实现 |
 |------|----------|
-| 代谢 | eat/digest/compress/inlet — 持续转化输入为输出 |
-| 稳态 | lint 23 维 + hunger signals — 自我调节维持稳定 |
+| 代谢 | eat/digest/condense/absorb — 持续转化输入为输出 |
+| 稳态 | immune 23 维 + hunger signals — 自我调节维持稳定 |
 | 应激反应 | hunger 感知变化并推荐行动 |
 | 生长 | 60+ waves, 60+ notes — 复杂度持续增长 |
 | 繁殖 | kernel → instance 模板分裂 |
@@ -55,8 +55,8 @@ Human ──自然语言──→ Agent ──MCP──→ Myco
 | 1. 身份 (DNA) | 基因组 | 8 身份锚点 + _canon.yaml |
 | 2. 愿景 (表型计划) | 体型蓝图 | docs/vision.md |
 | 3. 契约 (调控基因) | 基因表达规则 | agent_protocol.md + _canon.yaml 规则 |
-| 4. 验证 (免疫系统) | T 细胞 + 抗体 | lint 23 维 + hunger signals |
-| 5. 实现 (器官) | 功能器官 | src/myco/*.py (21 MCP tools) |
+| 4. 验证 (免疫系统) | T 细胞 + 抗体 | immune 23 维 + hunger signals |
+| 5. 实现 (器官) | 功能器官 | src/myco/*.py (19 MCP tools) |
 
 ## 身份演化弧线
 
@@ -92,6 +92,6 @@ Human ──自然语言──→ Agent ──MCP──→ Myco
 - [docs/primordia/myco_identity_definitive_craft_2026-04-12.md](../docs/primordia/myco_identity_definitive_craft_2026-04-12.md) -- 身份定义性 Craft（Round 5, 0.92 confidence）
 - [docs/primordia/anchor_agentfirst_revision_craft_2026-04-12.md](../docs/primordia/anchor_agentfirst_revision_craft_2026-04-12.md) -- Agent-First mutation-selection 内化
 - [_canon.yaml](../_canon.yaml) -- 身份锚点 + 规范值 SSoT
-- src/myco/lint.py -- 23 维 Lint 免疫系统（五层体现第 4 层的实现）
+- src/myco/immune.py -- 23 维 Lint 免疫系统（五层体现第 4 层的实现）
 
 **Back to** [MYCO.md](../MYCO.md)

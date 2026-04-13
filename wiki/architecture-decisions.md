@@ -10,7 +10,7 @@
 
 ## A1: notes.py 是单一运行时 SSoT
 
-**决策**: 所有 note 的读写、状态转换、frontmatter 验证都集中在 `src/myco/notes.py` 一个模块中。其他模块（hunger, compress, digest 等）通过 notes.py 的 API 访问 notes，绝不直接读写 `notes/*.md` 文件。
+**决策**: 所有 note 的读写、状态转换、frontmatter 验证都集中在 `src/myco/notes.py` 一个模块中。其他模块（hunger, condense, digest 等）通过 notes.py 的 API 访问 notes，绝不直接读写 `notes/*.md` 文件。
 
 **理由**: Note 是 Myco 最核心的数据结构。如果多个模块各自直接读写 note 文件，frontmatter schema 的一致性就无法保证——一个模块可能写入 `status: raw`，另一个可能写入 `state: raw`。单一 SSoT 模块确保：
 - Frontmatter schema 在一个地方定义和验证
@@ -18,7 +18,7 @@
 - Status 转换规则集中管理
 - 审计字段（digest_count, last_touched）不会被遗漏
 
-**依赖方向**: notes.py 不依赖任何其他 Myco 业务模块（hunger, compress 等）。依赖是单向的：其他模块 → notes.py。这防止循环依赖，也让 notes.py 成为最稳定的模块。
+**依赖方向**: notes.py 不依赖任何其他 Myco 业务模块（hunger, condense 等）。依赖是单向的：其他模块 → notes.py。这防止循环依赖，也让 notes.py 成为最稳定的模块。
 
 ## A2: 三个 ASCC 痛点映射到三个架构缺口
 
@@ -27,7 +27,7 @@
 | ASCC 痛点 | 根因诊断 | Myco 架构回应 |
 |-----------|---------|-------------|
 | 每次新会话 Agent 忘记之前学到的东西 | 没有跨会话持久化的知识层 | notes/ + digest 生命周期 |
-| 文档和代码逐渐不一致 | 没有自动化的一致性验证 | lint 23 维免疫系统 |
+| 文档和代码逐渐不一致 | 没有自动化的一致性验证 | immune 23 维免疫系统 |
 | 相同的错误反复发生 | 没有 tacit knowledge（隐性知识）的结构化捕获 | eat + friction tag + operational_narratives |
 
 **理由**: 自下而上比自上而下更可靠。从真实痛点出发确保每个架构组件都解决实际问题，而不是理论上"应该有"的问题。ASCC 是 Myco 的首个宿主项目（7 天深度验证），这三个痛点是在 80+ 文件、12+ 次 craft 辩论中反复观察到的。
@@ -63,7 +63,7 @@
 - [docs/theory.md](../docs/theory.md) -- 理论基础：Polanyi 隐性知识（A2 痛点驱动的理论根基）
 - [docs/vision.md](../docs/vision.md) -- 愿景文档：五大核心能力
 - [src/myco/notes.py](../src/myco/notes.py) -- notes.py 单一 SSoT 实现（A1 决策的代码）
-- src/myco/lint.py -- 23 维 Lint 免疫系统（A2 一致性验证痛点的解）
+- src/myco/immune.py -- 23 维 Lint 免疫系统（A2 一致性验证痛点的解）
 - [docs/agent_protocol.md](../docs/agent_protocol.md) -- Agent 协议：notes 写面规则（A1 依赖方向的契约化）
 - [_canon.yaml](../_canon.yaml) -- 规范值 SSoT
 

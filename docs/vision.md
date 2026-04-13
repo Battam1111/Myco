@@ -114,7 +114,7 @@ Agent 启动时调 `hunger(execute=true)` 完成 boot（<10s），按需调 sear
 | **Mem0** | 用户记忆 | ❌ | ❌ | ❌ | 存储 SaaS |
 | **企业 KMS** | 文档库 | ❌ | ❌ | ❌ | 静态知识库 |
 
-**我们的独特定位**："第一个能自我进化的外部认知基质"——Agent+Substrate 共生体自主运转代谢循环（23 维 lint + hunger 自动执行 + 每日 scheduled task），人类只需用自然语言提供方向。
+**我们的独特定位**："第一个能自我进化的共生认知有机体"——Agent+Substrate 共生体自主运转代谢循环（23 维 lint + hunger 自动执行 + 每日 scheduled task），人类只需用自然语言提供方向。
 
 ---
 

@@ -40,12 +40,12 @@ Wave 8.2 架构师审计曾短暂考虑过"空目录就是 vaporware，应当删
 
 - L1.5 层是 Myco 四层知识架构的结构性声明，删除等于修改 contract（需要 craft_protocol）
 - 空目录 + 章程 = 明确告诉未来 agent "这里要放什么"、"放错会 lint 红"，这是架构指引而非 vaporware
-- `README.md` 本身被 L4/L7 lint 明确豁免（见 `src/myco/lint.py::lint_orphans` 和 `lint_wiki_format`），所以章程本身不触发 lint 噪音
+- `README.md` 本身被 L4/L7 lint 明确豁免（见 `src/myco/immune.py::lint_orphans` 和 `lint_wiki_format`），所以章程本身不触发 lint 噪音
 
 ## 相关文档
 
 - `docs/architecture.md` — 四层知识架构总览
-- `src/myco/lint.py::lint_wiki_format` — L7 实现
-- `src/myco/lint.py::lint_orphans` — L4 实现
+- `src/myco/immune.py::lint_wiki_format` — L7 实现
+- `src/myco/immune.py::lint_orphans` — L4 实现
 - `_canon.yaml::system.wiki_page_types` — 合法类型白名单
 - `docs/WORKFLOW.md` — promote/digest 流程

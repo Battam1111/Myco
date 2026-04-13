@@ -18,13 +18,13 @@ session per `docs/agent_protocol.md` §3).
 1. **Read hunger actions**: Run `myco hunger --json` and parse the `actions` array.
    - **If MCP tools are unavailable**: Fall back to direct CLI invocation
      (`python -m myco.mcp_server hunger`). Log a friction entry via
-     `myco log --type friction "MCP tools unavailable, using CLI fallback"`.
+     `myco trace --type friction "MCP tools unavailable, using CLI fallback"`.
 2. **Execute each action in order**:
    - `verb: "digest"` → run `myco digest <note_id>` (or bulk if no note_id)
-   - `verb: "compress"` → run `myco compress --tag <tag> --rationale "<auto>"` (or `--cohort auto` if args.cohort is present)
+   - `verb: "compress"` → run `myco condense --tag <tag> --rationale "<auto>"` (or `--cohort auto` if args.cohort is present)
    - `verb: "prune"` → run `myco prune --apply`
    - `verb: "inlet"` → log the recommendation for human/agent decision (inlet is not fully autonomous yet)
-   - **On tool failure**: Catch the error, log it via `myco log --type friction`,
+   - **On tool failure**: Catch the error, log it via `myco trace --type friction`,
      skip the failed action, and continue with the remaining actions.
      Do NOT abort the entire cycle for a single action failure.
 3. **Re-check hunger**: Run `myco hunger` again to confirm pressure reduced.
@@ -45,7 +45,7 @@ session per `docs/agent_protocol.md` §3).
 ## Error Handling
 
 When any MCP tool call fails during the metabolic cycle:
-1. **Log the failure** — `myco log --type friction "<tool> failed: <error>"`
+1. **Log the failure** — `myco trace --type friction "<tool> failed: <error>"`
 2. **Try CLI fallback** — if the MCP server is down, invoke via `python -m myco.mcp_server`
 3. **Skip and continue** — a single failed action must not block the rest of the cycle
 4. **Report at end** — summarize all failures in the session's closing hunger re-check

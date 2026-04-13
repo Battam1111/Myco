@@ -351,7 +351,7 @@ project:                    # 项目启动时填充
 在 Level 1 基础上：
   MYCO.md 升级为 Full (~300 行)
   创建 docs/operational_narratives.md
-  复制 lint_knowledge.py
+  安装 myco（pip install -e ".[mcp]"）
   完整 _canon.yaml (system: + project:)
   WORKFLOW.md 启用四个metabolic phase
 ```
