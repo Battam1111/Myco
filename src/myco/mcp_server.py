@@ -130,7 +130,7 @@ def _read_file(path: Path) -> Optional[str]:
 @mcp.tool(
     name="myco_immune",
     annotations={
-        "title": "Myco Lint — 23-Dimension Consistency Check",
+        "title": "Myco Immune — 23-Dimension Consistency Check",
         "readOnlyHint": True,
         "destructiveHint": False,
         "idempotentHint": True,
@@ -242,7 +242,7 @@ async def myco_immune(
 @mcp.tool(
     name="myco_pulse",
     annotations={
-        "title": "Myco Status — Knowledge System Overview",
+        "title": "Myco Pulse — Knowledge System Overview",
         "readOnlyHint": True,
         "destructiveHint": False,
         "idempotentHint": True,
@@ -384,7 +384,7 @@ async def myco_pulse(
 @mcp.tool(
     name="myco_sense",
     annotations={
-        "title": "Myco Search — Knowledge Base Lookup",
+        "title": "Myco Sense — Knowledge Base Lookup",
         "readOnlyHint": True,
         "destructiveHint": False,
         "idempotentHint": True,
@@ -502,7 +502,7 @@ async def myco_sense(
 @mcp.tool(
     name="myco_trace",
     annotations={
-        "title": "Myco Log — Record Friction or Reflection",
+        "title": "Myco Trace — Record Friction or Reflection",
         "readOnlyHint": False,
         "destructiveHint": False,
         "idempotentHint": False,
@@ -569,7 +569,7 @@ async def myco_trace(
 @mcp.tool(
     name="myco_reflect",
     annotations={
-        "title": "Myco Reflect — session reflection Session-End Prompts",
+        "title": "Myco Reflect — Session-End Prompts",
         "readOnlyHint": True,
         "destructiveHint": False,
         "idempotentHint": True,
@@ -967,7 +967,7 @@ async def myco_digest(
 @mcp.tool(
     name="myco_observe",
     annotations={
-        "title": "Myco View — List or Read Atomic Notes",
+        "title": "Myco Observe — List or Read Atomic Notes",
         "readOnlyHint": True,
         "destructiveHint": False,
         "idempotentHint": True,
@@ -1227,7 +1227,7 @@ async def myco_hunger(
 @mcp.tool(
     name="myco_condense",
     annotations={
-        "title": "Myco Compress — Synthesize Notes into Extracted Knowledge",
+        "title": "Myco Condense — Synthesize Notes into Extracted Knowledge",
         "readOnlyHint": False,
         "destructiveHint": False,
         "idempotentHint": False,
@@ -1315,7 +1315,7 @@ async def myco_condense(
 @mcp.tool(
     name="myco_expand",
     annotations={
-        "title": "Myco Uncompress — Reverse a Compression Operation",
+        "title": "Myco Expand — Reverse a Compression Operation",
         "readOnlyHint": False,
         "destructiveHint": False,
         "idempotentHint": False,
@@ -1439,7 +1439,7 @@ async def myco_prune(
 @mcp.tool(
     name="myco_absorb",
     annotations={
-        "title": "Myco Inlet — Ingest External Content with Provenance",
+        "title": "Myco Absorb — Ingest External Content with Provenance",
         "readOnlyHint": False,
         "destructiveHint": False,
         "idempotentHint": False,
@@ -1601,7 +1601,7 @@ async def myco_forage(
 @mcp.tool(
     name="myco_mycelium",
     annotations={
-        "title": "Myco Link Graph — structural link analysis",
+        "title": "Myco Mycelium — structural link analysis",
         "readOnlyHint": True,
         "destructiveHint": False,
         "idempotentHint": True,
@@ -1682,7 +1682,7 @@ async def myco_mycelium(
 @mcp.tool(
     name="myco_colony",
     annotations={
-        "title": "Myco Cohort Intelligence — tag co-occurrence and gap analysis",
+        "title": "Myco Colony — tag co-occurrence and gap analysis",
         "readOnlyHint": True,
         "destructiveHint": False,
         "idempotentHint": True,
@@ -1747,7 +1747,7 @@ async def myco_colony(
 @mcp.tool(
     name="myco_memory",
     annotations={
-        "title": "Myco Session Memory — FTS5 search across agent conversations",
+        "title": "Myco Memory — FTS5 search across agent conversations",
         "readOnlyHint": False,
         "destructiveHint": False,
         "idempotentHint": True,

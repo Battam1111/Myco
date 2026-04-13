@@ -1927,7 +1927,7 @@ def lint_compression_integrity(canon, root):
 # NOT scanned (per Wave 38 D5):
 #   - log.md, contract_changelog.md, docs/primordia/*, notes/*, examples/ascc/*
 #     (pinned by Hard Contract #2 — historical claims correctly preserved)
-#   - src/myco/lint.py itself (own-file self-reference loophole, Wave 38 L1)
+#   - src/myco/immune.py itself (own-file self-reference loophole, Wave 38 L1)
 _L19_HIGH_SURFACES = (
     "README.md",
     "README_zh.md",
@@ -2033,7 +2033,7 @@ def lint_dimension_count_consistency(canon, root):
                         "L19", severity, rel,
                         f"line {line_no}: badge `Lint-{n1}/{n2}` drifted "
                         f"from current LINT_DIMENSION_COUNT={expected} "
-                        f"(SSoT is len(FULL_CHECKS) in src/myco/lint.py — "
+                        f"(SSoT is len(FULL_CHECKS) in src/myco/immune.py — "
                         f"Wave 37 D1)",
                     ))
             # Pattern 2 — English count
@@ -2386,7 +2386,7 @@ def lint_contract_version_inline(canon, root):
         - C4: missing allowlist file → silent skip
         - C5: missing canon → silent pass (L0 enforces canon presence)
         - C6: code-fence aware
-        - C7: src/myco/lint.py itself is not in the allowlist
+        - C7: src/myco/immune.py itself is not in the allowlist
 
     Authoritative craft:
         docs/primordia/contract_version_inline_craft_2026-04-12.md

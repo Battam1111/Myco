@@ -323,7 +323,7 @@ system:
         cited_in: ["README.md", "README_zh.md", "README_ja.md", "MYCO.md", "docs/agent_protocol.md"]
       test_count:
         ssot: "pytest tests/ output"
-        value: 240
+        value: 264
         cited_in: ["MYCO.md"]
 
   # --- Structural Limits (contract v1.5.0) ---

@@ -41,7 +41,7 @@ Claude 自己——看到某项出现在这里时应当理解：这**不是**被
 **Wave 35 status update（2026-04-12）**：scaffold 原语已落地（`myco absorb`，contract v0.27.0，
 [`docs/primordia/archive/inlet_mvp_craft_2026-04-12.md`](primordia/archive/inlet_mvp_craft_2026-04-12.md)，
 [`docs/primordia/archive/metabolic_inlet_design_craft_2026-04-12.md`](primordia/archive/metabolic_inlet_design_craft_2026-04-12.md)，
-5 seed tests in `tests/unit/test_inlet.py`），但本节描述的**冷启动决策本身**
+5 seed tests in `tests/unit/test_absorb.py`），但本节描述的**冷启动决策本身**
 仍然 open。verb 现在能 ingest 任何 file 或 agent-fetched URL，但 "新 instance 第一次启动时该 inlet
 什么内容" 仍然由 operator 决定，不由 substrate 决定。Wave 34 §2.4 显式 defer 这个问题给 operator。
 
@@ -92,7 +92,7 @@ open problem（谁维护 manifest？manifest 怎么演化？）。
 (1) search miss 累积 >= `search_miss_threshold`（default 5，`_canon.yaml::system.inlet_triggers`）；
 (2) cohort gap count >= `gap_threshold`（default 3，由 `myco.cohorts.gap_detection` 驱动）。
 任一触发 → hunger 报告包含 `inlet_ripe` advisory + `myco_colony gaps` 路径。
-4 个 seed tests（`tests/unit/test_inlet_trigger.py`）覆盖 no-trigger / miss-trigger / gap-trigger / disabled 场景。
+4 个 seed tests（`tests/unit/test_absorb_trigger.py`）覆盖 no-trigger / miss-trigger / gap-trigger / disabled 场景。
 Wave 50 (v0.39.0) 进一步加了 `compression_pressure` metric + metabolic-cycle skill。
 Wave 54 (v0.41.0) 加了 `myco_hunger(execute=true)` auto-execute + `cold_start` signal。
 **这些构成了第一条可操作的触发信号链（search miss → inlet_ripe → myco_colony gaps → myco_absorb）。**
@@ -179,7 +179,7 @@ metric 已落地，且 hunger auto-execute 闭环。**
 - Wave 50 (v0.39.0)：`compute_compression_pressure(root)` 计算 `(raw+digesting)/max(1, extracted+integrated)`，
   超过 `pressure_threshold`（default 2.0，`_canon.yaml::system.notes_schema.compression.pressure_threshold`）
   时 hunger 报告发出 `compression_pressure` 信号 + `compress --cohort auto` action recommendation。
-  4 个 seed tests（`tests/unit/test_compression_pressure.py`）。
+  4 个 seed tests（`tests/unit/test_condense_pressure.py`）。
   `skills/metabolic-cycle.md` 定义 boot ritual 标准流程。
 - Wave 54 (v0.41.0)：`myco_hunger(execute=true)` auto-execute 所有 recommended actions
   （digest + compress + prune）。agent 调一次 tool，substrate 自愈。scheduled metabolic

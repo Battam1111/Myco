@@ -32,7 +32,7 @@ def test_session_index_returns_zero(session_cmd_project):
 def test_session_search_returns_zero(session_cmd_project):
     from myco.memory_cmd import run_session
     args = argparse.Namespace(
-        session_subcommand="search", query="test",
+        session_subcommand="sense", query="test",
         project_dir=str(session_cmd_project), json=False, limit=10
     )
     assert run_session(args) == 0

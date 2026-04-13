@@ -43,12 +43,12 @@
 | `vision_reaudit_craft_2026-04-12.md` | 2026-04-12 | kernel_contract | 0.90 | Vision re-audit: doctrine vs implementation reconciliation (post Wave 25) |
 | `biomimetic_nomenclature_craft_2026-04-12.md` | 2026-04-12 | kernel_contract | 0.90 | Biomimetic nomenclature: naming architecture for Myco as fungal substrate |
 | `biomimetic_execution_craft_2026-04-12.md` | 2026-04-12 | kernel_contract | 0.90 | Biomimetic execution: Wave 29 rename implementation |
-| `compress_mvp_craft_2026-04-12.md` | 2026-04-12 | kernel_contract | 0.91 | `myco compress` MVP (Wave 30, v0.26.0) |
-| `uncompress_mvp_craft_2026-04-12.md` | 2026-04-12 | exploration | 0.85 | `myco uncompress` MVP (Wave 31) |
+| `compress_mvp_craft_2026-04-12.md` | 2026-04-12 | kernel_contract | 0.91 | `myco condense` MVP (Wave 30, v0.26.0) |
+| `uncompress_mvp_craft_2026-04-12.md` | 2026-04-12 | exploration | 0.85 | `myco expand` MVP (Wave 31) |
 | `step_verbs_craft_2026-04-12.md` | 2026-04-12 | exploration | 0.85 | Anchor #3 step verbs: `evaluate` / `extract` / `integrate` (Wave 32) |
 | `d_layer_prune_craft_2026-04-12.md` | 2026-04-12 | exploration | 0.85 | `myco prune` D-layer auto-excretion (Wave 33) |
 | `metabolic_inlet_design_craft_2026-04-12.md` | 2026-04-12 | exploration | 0.85 | Metabolic inlet primitive design (Wave 34) — SUPERSEDED by inlet_mvp |
-| `inlet_mvp_craft_2026-04-12.md` | 2026-04-12 | kernel_contract | 0.90 | `myco inlet` MVP: metabolic inlet primitive scaffold (Wave 35) |
+| `inlet_mvp_craft_2026-04-12.md` | 2026-04-12 | kernel_contract | 0.90 | `myco absorb` MVP: metabolic inlet primitive scaffold (Wave 35) |
 | `primordia_soft_limit_rebaseline_craft_2026-04-12.md` | 2026-04-12 | kernel_contract | 0.90 | Primordia soft limit re-baseline 40 to 60 (Wave 36) |
 | `readme_staleness_sweep_craft_2026-04-12.md` | 2026-04-12 | kernel_contract | 0.90 | README + doctrinal-surface staleness sweep (Wave 37) |
 | `lint_dimension_count_consistency_craft_2026-04-12.md` | 2026-04-12 | kernel_contract | 0.90 | L19 lint dimension count consistency (Wave 38) |
