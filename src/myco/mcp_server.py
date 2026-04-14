@@ -6,7 +6,7 @@ When configured in .mcp.json, AI agents (Claude Code, Cursor, etc.) automaticall
 discover these tools and call them at the right moments — no manual prompting needed.
 
 Tools:
-    myco_immune       — Run 26-dimensional consistency checks (L0-L25)
+    myco_immune       — Run 29-dimensional consistency checks (L0-L28)
     myco_pulse     — Quick overview of knowledge system health
     myco_sense     — Search across wiki/docs/MYCO.md knowledge base
     myco_trace        — Append friction/reflection entries to log.md
@@ -208,7 +208,7 @@ def _with_sidecar(fn):
     """Decorator: inject hunger sidecar into every MCP tool response.
 
     Wave B2+: push-mode substrate health — Agent always sees it without
-    explicitly calling myco_hunger. Applied to ALL 19 MCP tools.
+    explicitly calling myco_hunger. Applied to ALL 25 MCP tools.
     """
     @functools.wraps(fn)
     async def wrapper(*args, **kwargs):
@@ -623,7 +623,7 @@ async def myco_immune(
     modified wiki/, docs/, MYCO.md, _canon.yaml, or notes/. Also run after any
     milestone retrospective retrospective or before commits that touch multiple knowledge files.
 
-    This is the 26-dimensional immune system of the knowledge substrate. It
+    This is the 29-dimensional immune system of the knowledge substrate. It
     catches contradictions across files, orphan references, stale patterns,
     version drift, write-surface violations, craft
     protocol schema violations, forage substrate hygiene issues, craft reflex
@@ -692,7 +692,7 @@ async def myco_immune(
     report = {
         "project": str(root),
         "timestamp": datetime.now().isoformat(),
-        "mode": "quick (L0-L3)" if quick else "full (L0-L25)",
+        "mode": "quick (L0-L3)" if quick else "full (L0-L28)",
         "total_issues": total_issues,
         "all_passed": total_issues == 0,
         "checks": results,

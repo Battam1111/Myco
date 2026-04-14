@@ -68,7 +68,7 @@ Editable install. The entire system is yours to rewrite, including the engine it
 - 💀 **Kill what's dead**. Outdated knowledge gets detected and purged. A knowledge system without excretion is a tumor.
 - 🔄 **Evolve forever**. Not just the content evolving, the engine's own rules mutate too. The whole system is alive.
 - 🍄 **Connect everything**. Every file is a node in a mycelial network. Knowledge isn't isolated records, it's a web that grows denser over time.
-- 🤖 **You just talk**. 19 tools, fully automated. Humans don't need to understand a single technical detail.
+- 🤖 **You just talk**. 25 tools, fully automated. Humans don't need to understand a single technical detail.
 
 ## Why It's Different
 

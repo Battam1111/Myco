@@ -296,6 +296,12 @@ def lint_numbers(canon, root):
     _L2_AUTODISCOVERY_SKIP = {
         ".git", "node_modules", "__pycache__", ".myco_state",
         ".pytest_cache", ".eggs", "*.egg-info",
+        # Wave 59: .claude/worktrees/ holds ephemeral agent-created git
+        # worktrees that mirror the project tree. Scanning them produces
+        # duplicate numeric-claim violations for every main-tree file,
+        # flooding L2 with noise that blocks CI. The primary tree still
+        # gets scanned; we just skip the worktree mirrors.
+        ".claude",
     }
     # File extensions to scan.
     _L2_SCAN_EXTENSIONS = {".md", ".py", ".yaml", ".yml", ".json", ".toml"}

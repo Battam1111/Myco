@@ -127,7 +127,7 @@ workflow_compatibility:
   W2_session_reflection:  "Full — MCP myco_reflect generates prompts from log + lint"
   W3_canon_first:         "Full — agent reads _canon.yaml via CLAUDE.md boot"
   W4_wiki_w8:             "Full — agent creates wiki pages via filesystem access"
-  W5_lint_gate:           "Full — MCP myco_immune runs 23-dimensional check"
+  W5_lint_gate:           "Full — MCP myco_immune runs 29-dimensional check"
   W8_format:              "Full — CLAUDE.md template includes W8 headers"
   W12_gear_protocol:      "Full — myco_hunger auto-triggers Session Reflection via scheduled metabolic cycle"
   boot_reflex:            "Full — CLAUDE.md hot zone displays hunger boot signals"
