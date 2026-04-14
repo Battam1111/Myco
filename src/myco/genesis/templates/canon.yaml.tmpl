@@ -1,0 +1,63 @@
+# _canon.yaml — authored by `myco genesis` on $generated_at
+# Schema: docs/architecture/L1_CONTRACT/canon_schema.md
+schema_version: "1"
+contract_version: "$contract_version"
+
+identity:
+  substrate_id: "$substrate_id"
+  tags: $tags_flow
+  entry_point: "$entry_point"
+
+system:
+  write_surface:
+    allowed:
+      - "_canon.yaml"
+      - "notes/**"
+      - "docs/**"
+      - "src/**"
+  hard_contract:
+    rules_ref: "docs/architecture/L1_CONTRACT/protocol.md"
+    rule_count: 7
+
+versioning:
+  package_version_ref: "src/myco/__init__.py"
+  pyproject_dynamic: true
+
+lint:
+  categories:
+    - mechanical
+    - shipped
+    - metabolic
+    - semantic
+  exit_policy:
+    default: "mechanical:critical,shipped:critical,metabolic:never,semantic:never"
+  skeleton_downgrade:
+    marker: ".myco_state/autoseeded.txt"
+    affected_dimensions: ["L0"]
+
+subsystems:
+  genesis:
+    doc: "docs/architecture/L2_DOCTRINE/genesis.md"
+    package: "src/myco/genesis/"
+  ingestion:
+    doc: "docs/architecture/L2_DOCTRINE/ingestion.md"
+    package: "src/myco/ingestion/"
+  digestion:
+    doc: "docs/architecture/L2_DOCTRINE/digestion.md"
+    package: "src/myco/digestion/"
+  circulation:
+    doc: "docs/architecture/L2_DOCTRINE/circulation.md"
+    package: "src/myco/circulation/"
+  homeostasis:
+    doc: "docs/architecture/L2_DOCTRINE/homeostasis.md"
+    package: "src/myco/homeostasis/"
+
+commands:
+  manifest_ref: "src/myco/surface/manifest.yaml"
+
+metrics:
+  test_count: 0
+
+waves:
+  current: 1
+  log_ref: "docs/contract_changelog.md"
