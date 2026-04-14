@@ -51,10 +51,17 @@ Thumbs.db
 .env
 .env.*
 
-# Claude Code / Cowork session-local settings (not source of truth).
-# NOTE: The Stage C release will re-introduce a tracked `.claude/hooks/`
-# subtree; at that point this rule will be narrowed to exclude hooks/.
-.claude/
+# Claude Code / Cowork session-local settings.
+# Stage C.2 (re-)introduced the tracked `.claude/hooks/` and
+# `.claude/settings.local.json` subtree — those wire the SessionStart
+# + PreCompact hooks to the v0.4.0 CLI. Everything else under .claude/
+# remains session-local and untracked.
+/.claude/*
+!/.claude/hooks/
+!/.claude/settings.local.json
+# legacy_v0_3/.claude/ was excluded under the old `.claude/` rule; keep
+# it excluded under the new anchored form.
+legacy_v0_3/.claude/
 
 # Pre-rewrite marketing/ was gitignored in v0.3 and is now present inside
 # legacy_v0_3/ only for reference. Keep it untracked — legacy_v0_3/ is
