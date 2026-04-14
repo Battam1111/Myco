@@ -5,7 +5,7 @@
 
 ## 核心哲学
 
-Myco 是 Agent-First 的共生认知有机体。进化不是手动触发的——它是有机体的持续代谢过程。旧的四齿轮模型要求人类换挡；新的代谢模型由 Agent + Substrate 自主运转。
+Myco 是 Agent-First 的共生认知基质。进化不是手动触发的，它是基质的持续代谢过程。旧的四齿轮模型要求人类换挡；新的代谢模型由 Agent + Substrate 自主运转。
 
 **三层学习**（不变）：
 1. **Single-loop**（行为修正）：hunger 信号检测矛盾 → Agent 自动修复
@@ -37,7 +37,7 @@ Boot: hunger(execute=true)
 ### 关键区别
 
 **旧模型**：人类手动换挡（"现在做 Gear 2 反思"）
-**新模型**：有机体自主运转（hunger 检测 → actions 推荐 → execute=true 自动执行）
+**新模型**：基质自主运转（hunger 检测，actions 推荐，execute=true 自动执行）
 
 **旧模型**：四个离散档位，顺序推进
 **新模型**：持续代谢循环，所有阶段在每个 session 都可能触发
