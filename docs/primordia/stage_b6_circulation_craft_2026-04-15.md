@@ -22,8 +22,9 @@ Graph source material:
 
 - `_canon.yaml::*._ref` fields (scalar path strings).
 - Frontmatter `references:` in notes under `notes/`.
-- Markdown link syntax `[text](relative/path.md)` in `notes/**`,
-  `docs/**`, and the entry-point file.
+- Standard markdown link syntax (bracketed text followed by a
+  parenthesized target) in `notes/**`, `docs/**`, and the entry-point
+  file.
 
 Graph nodes: substrate-relative path strings. Edges: (src_path →
 dst_path, kind). `kind` is one of `canon_ref`, `note_ref`,
