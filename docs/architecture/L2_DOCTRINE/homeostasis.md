@@ -16,6 +16,13 @@ observed reality (files on disk, tests, package state).
 Where Circulation asks "is the graph well-formed?", Homeostasis asks
 "does the substrate still match what it claims to be?"
 
+Critically, Homeostasis operates **under continuous change**. L0
+principle 3 (永恒进化) means the substrate's own shape is mutable — but
+mutation must go through governance (craft + bump), not through drift.
+Homeostasis is what distinguishes the two: sanctioned evolution passes
+silently; unsanctioned drift is a finding. A "calm" substrate that never
+changes is as suspect as a chaotic one — principle 3 expects evolution.
+
 ## Lint dimensions
 
 A lint **dimension** is a single, named check. Each dimension:

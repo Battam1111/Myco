@@ -11,14 +11,19 @@
 
 ## Responsibility
 
-Circulation owns the **mycelium graph**: the network of cross-references
-connecting notes, doctrine docs, canon fields, and external artifacts.
-Integrity of this graph is what lets an agent chase context without
-dead-ending.
+Circulation is the subsystem that realizes L0 principle 5 (万物互联 —
+universal interconnection, the mycelium network). It owns the **mycelium
+graph**: the network of cross-references connecting notes, doctrine docs,
+canon fields, external artifacts, and — across substrate boundaries —
+peer substrates. Integrity of this graph is what lets an agent chase
+context without dead-ending.
 
-Circulation is also where **cross-substrate movement** lives: pushing
-digested content from this Myco substrate to another host substrate (the
-redefined `propagate`).
+Circulation operates at two scales:
+
+- **Intra-substrate**: the cross-reference graph inside one substrate.
+- **Inter-substrate**: `propagate` moves integrated knowledge across
+  substrates in a general-purpose federation (no project boundary — per
+  L0 principle "通用型" framing).
 
 ## What "cross-reference" means precisely
 

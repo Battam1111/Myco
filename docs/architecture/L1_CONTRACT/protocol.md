@@ -10,9 +10,10 @@
 
 ## Purpose
 
-L0 gives Myco its identity and three invariants. L1 translates those
-invariants into **seven enforceable rules** that an agent can follow
-mechanically and that the immune system can lint automatically.
+L0 gives Myco its five root principles (Only For Agent, 永恒吞噬, 永恒进化,
+永恒迭代, 万物互联) and three derived invariants. L1 translates those into
+**seven enforceable rules** that an agent can follow mechanically and that
+the immune system can lint automatically.
 
 The rules are numbered R1–R7. They are deliberately few. Adding an eighth
 rule requires a craft doc, a contract-version bump, and explicit owner
@@ -46,13 +47,14 @@ degraded substrate.
 
 ### R3 — Sense before asserting
 
-**Before any factual claim about the project — a number, a name, a path, a
-decision, a contract version — the agent calls `myco sense` first.** Memory
-is not a source; the substrate is.
+**Before any factual claim about the substrate — a number, a name, a path,
+a decision, a contract version — the agent calls `myco sense` first.**
+Memory is not a source; the substrate is.
 
 Why: the whole reason Myco exists is that agent memory across sessions is
-unreliable. Asserting project facts without sensing them contradicts L0's
-agent-first invariant.
+unreliable. Asserting substrate-held facts without sensing them
+contradicts L0 principle 1 (Only For Agent — the agent reads the
+substrate, not its memory).
 
 ### R4 — Eat insights the moment they occur
 

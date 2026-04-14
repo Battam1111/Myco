@@ -8,12 +8,16 @@
 
 ## Responsibility
 
-Ingestion owns the **intake surface** of the substrate. It captures raw
-material from the world (agent observations, user feedback, debate
-outcomes) and reports back what the substrate is currently hungry for.
+Ingestion owns the **intake surface** of the substrate. It implements
+L0 principle 2 (永恒吞噬 — eternal ingestion, devour everything): any
+input the agent can point at is ingestible raw material, without filter
+on what enters.
 
-Ingestion does **not** transform what it captures. Transformation belongs
-to Digestion.
+Ingestion captures raw material and reports back what the substrate is
+currently hungry for. It does **not** transform what it captures —
+transformation belongs to Digestion. Ingestion is therefore cheap and
+permissive; rejection at intake is reserved for write-surface (R6)
+violations, never for content judgment.
 
 ## Boundary
 
