@@ -1298,7 +1298,18 @@ async def myco_eat(
         return json.dumps({"error": f"Failed to write note: {e}"})
 
     rel = str(path.relative_to(root))
-    return json.dumps({
+
+    # Reflex chain (Wave 57 Wave 2): detect near-duplicate older notes and
+    # surface them as supersede candidates. Non-destructive — the Agent
+    # decides whether to apply.
+    supersede_info: Dict[str, Any] = {"supersedes": [], "errors": []}
+    try:
+        from myco.reflex import detect_supersede_candidates
+        supersede_info = detect_supersede_candidates(root, path.stem)
+    except Exception as e:
+        supersede_info = {"supersedes": [], "errors": [f"reflex: {e}"]}
+
+    response = {
         "status": "ok",
         "id": path.stem,
         "file": rel,
@@ -1309,7 +1320,18 @@ async def myco_eat(
             "IMPORTANT: add cross-references (## Related section) linking "
             "this note to related notes/docs. Orphaned knowledge is dead knowledge."
         ),
-    }, ensure_ascii=False)
+    }
+    if supersede_info.get("supersedes"):
+        old_ids = [c["note_id"] for c in supersede_info["supersedes"]]
+        response["reflex"] = {
+            "chain": "eat_to_supersede",
+            "candidates": supersede_info["supersedes"],
+            "suggested_call": (
+                f"myco_supersede(new_note_id='{path.stem}', "
+                f"old_note_ids={old_ids})"
+            ),
+        }
+    return json.dumps(response, ensure_ascii=False)
 
 
 # ---------------------------------------------------------------------------
@@ -1906,6 +1928,59 @@ async def myco_hunger(
         result["pipeline_hint"] = "Build — signals advisory only, proceed with caution"
     result["pipeline_ref"] = "skills/sprint-pipeline.md"
 
+    # Reflex chain (Wave 57 Wave 2): hunger → scent.
+    # Surface concrete myco_scent(topic=…) calls derived from scent-verb
+    # actions in the hunger report. Zero side-effects; Agent executes.
+    try:
+        from myco.reflex import hunger_to_scent
+        reflex_payload = hunger_to_scent(root, report, execute=False)
+        if reflex_payload.get("scents"):
+            result["reflex_scents"] = reflex_payload["scents"]
+    except Exception as e:
+        result["reflex_scents_error"] = str(e)
+
+    # Wave 58 (Wave 3): auto-verify batch. Surface up to 5 oldest
+    # time_sensitive notes past their freshness window so the Agent can
+    # verify them in a single pass. Computed cheaply from disk.
+    try:
+        from myco.verify_cmd import run_verify as _vrun  # noqa: F401 (reuse classes only)
+        from myco.notes import read_note
+        import datetime as _dt
+        stale_batch: List[Dict[str, Any]] = []
+        now_v = _dt.datetime.now()
+        thresholds = {"time_sensitive": 90, "live": 7}
+        for p in sorted((root / "notes").glob("n_*.md")):
+            try:
+                meta, _ = read_note(p)
+            except Exception:
+                continue
+            if meta.get("status") not in ("extracted", "integrated"):
+                continue
+            fresh = meta.get("freshness", "time_sensitive")
+            if fresh == "static":
+                continue
+            lv = meta.get("last_verified") or meta.get("created")
+            try:
+                lv_dt = _dt.datetime.strptime(str(lv), "%Y-%m-%dT%H:%M:%S")
+            except Exception:
+                continue
+            age = (now_v - lv_dt).days
+            thr = thresholds.get(fresh, 90)
+            if age > thr:
+                stale_batch.append({
+                    "note_id": meta.get("id"),
+                    "freshness": fresh,
+                    "age_days": age,
+                    "threshold_days": thr,
+                    "suggested_call": f"myco_verify(note_id='{meta.get('id')}')",
+                })
+            if len(stale_batch) >= 5:
+                break
+        if stale_batch:
+            result["verify_batch"] = stale_batch
+    except Exception as e:
+        result["verify_batch_error"] = str(e)
+
     # Refresh boot brief so sidecar knows hunger was run this session
     try:
         from myco.notes import write_boot_brief
@@ -2501,17 +2576,21 @@ async def myco_colony(
           topics co-occur (helps understand knowledge structure)
 
     Actions:
-      matrix  — tag co-occurrence pairs (which tags appear together?)
-      suggest — compression cohort suggestions (which notes to compress together?)
-      gaps    — knowledge gaps (tags where all notes are raw/digesting)
+      matrix       — tag co-occurrence pairs (which tags appear together?)
+      suggest      — compression cohort suggestions (which notes to compress together?)
+      gaps         — knowledge gaps (tags where all notes are raw/digesting)
+      cross        — cross-project tag clusters (Wave 58)
+      auto_promote — cross-project auto-promote to wiki/cross_project/ (Wave 58)
 
     Args:
-        action: One of 'matrix', 'suggest', 'gaps'.
+        action: One of 'matrix', 'suggest', 'gaps', 'cross', 'auto_promote'.
         limit: Max results to return (default 10).
         project_dir: Path to Myco project root. Auto-detected if omitted.
     """
     from myco.colony import (
+        auto_promote_cross_project,
         compression_cohort_suggest,
+        cross_project_cluster,
         gap_detection,
         tag_cooccurrence,
     )
@@ -2532,7 +2611,18 @@ async def myco_colony(
         gaps = gap_detection(root)
         return json.dumps(gaps[:limit])
 
-    return json.dumps({"error": f"Unknown action: {action}. Use matrix/suggest/gaps."})
+    if action == "cross":
+        cc = cross_project_cluster(min_cluster_size=2)
+        return json.dumps(cc, ensure_ascii=False, indent=2)
+
+    if action == "auto_promote":
+        out = auto_promote_cross_project(root)
+        return json.dumps(out, ensure_ascii=False, indent=2)
+
+    return json.dumps({
+        "error": f"Unknown action: {action}. "
+                 "Use matrix/suggest/gaps/cross/auto_promote."
+    })
 
 
 # ---------------------------------------------------------------------------
@@ -2937,3 +3027,310 @@ async def myco_session_end(
         refresh_brief=refresh_brief,
     )
     return json.dumps(result, ensure_ascii=False, indent=2)
+
+
+# ---------------------------------------------------------------------------
+# Tool: myco_observe_turn — Agent reflex arc (Wave 57 / Wave 2)
+# ---------------------------------------------------------------------------
+
+@mcp.tool(
+    name="myco_observe_turn",
+    annotations={
+        "title": "Myco Observe Turn — Agent Reflex Suggestions",
+        "readOnlyHint": True,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": False,
+    },
+)
+@_with_sidecar
+async def myco_observe_turn(
+    user_turn_text: str,
+    previous_assistant_text: str = "",
+    project_dir: Optional[str] = None,
+) -> str:
+    """Analyze the most-recent user turn and return reflex suggestions.
+
+    WHEN TO CALL — once per user turn, as cheaply as possible. This is
+    the Agent's introspection hook: it scans for decision markers,
+    new vocabulary, unfamiliar topics, freshness-dependent claims, and
+    completion markers, then returns concrete `suggested_calls` the
+    Agent can execute without protocol reasoning.
+
+    Zero LLM calls under the hood — pattern matching only, <1ms latency.
+
+    Args:
+        user_turn_text: The text of the user's most recent message.
+        previous_assistant_text: Optional — the assistant's prior response,
+                                 used for context (currently unused, reserved).
+        project_dir: Myco project root. Auto-detected if omitted.
+
+    Returns:
+        JSON: {
+          should_eat, should_scent, should_verify, should_digest,
+          suggested_calls: [{tool, args, reason, priority}, ...],
+          reasons: [...], turn_length, confidence
+        }
+    """
+    from myco.observe_turn import observe_turn
+
+    root = Path(project_dir) if project_dir else _find_project_root()
+    try:
+        root = root.resolve()
+    except Exception:
+        root = None
+    result = observe_turn(
+        user_turn_text,
+        root=root,
+        previous_assistant_text=previous_assistant_text,
+    )
+    return json.dumps(result, ensure_ascii=False, indent=2)
+
+
+# ---------------------------------------------------------------------------
+# Tool: myco_verify — Truth immune (Wave 57 Wave 2 exposure of G3 CLI)
+# ---------------------------------------------------------------------------
+
+@mcp.tool(
+    name="myco_verify",
+    annotations={
+        "title": "Myco Verify — Truth Immune Re-validation",
+        "readOnlyHint": False,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": False,
+    },
+)
+@_with_sidecar
+async def myco_verify(
+    note_id: Optional[str] = None,
+    mark: Optional[str] = None,
+    scope: str = "time_sensitive",
+    limit: int = 20,
+    project_dir: Optional[str] = None,
+) -> str:
+    """Re-validate time-sensitive notes. Part of the truth-immune loop.
+
+    WHEN TO CALL:
+      - After myco_hunger surfaces a `verify_batch`, loop through each
+        entry and call this tool with the note_id.
+      - When a user claim references 'latest' / 'current' / 'still valid',
+        call with scope='time_sensitive' to list stale notes.
+      - When external research contradicts a note, call with
+        mark='contradicted' — this quarantines the note AND triggers
+        the verify→rescent reflex chain.
+
+    Args:
+        note_id: If provided together with `mark`, applies the mark.
+                 If provided alone, returns the note's freshness state.
+        mark: One of {'still_true', 'ambiguous', 'contradicted'}. When
+              'contradicted', a scent suggestion is appended for rescue.
+        scope: 'time_sensitive' | 'live' | 'all' — scope for listing.
+        limit: Max stale notes to return when listing.
+        project_dir: Myco project root. Auto-detected if omitted.
+
+    Returns:
+        JSON: list-mode → {stale_count, notes[...]}; mark-mode →
+              {id, mark, reflex: {...}} (reflex present iff mark='contradicted').
+    """
+    from myco.notes import read_note, update_note, _now_iso
+    import datetime as _dt
+
+    root = Path(project_dir) if project_dir else _find_project_root()
+    root = root.resolve()
+    if not (root / "_canon.yaml").exists():
+        return json.dumps({"error": f"Not a Myco project (no _canon.yaml at {root})"})
+
+    # Mark mode
+    if note_id and mark:
+        if mark not in {"still_true", "ambiguous", "contradicted"}:
+            return json.dumps({"error": f"invalid mark: {mark}"})
+        from myco.notes import id_to_filename
+        target = root / "notes" / id_to_filename(note_id)
+        if not target.exists():
+            return json.dumps({"error": f"note not found: {note_id}"})
+        now = _dt.datetime.now()
+        try:
+            if mark == "still_true":
+                update_note(target, last_verified=_now_iso(now))
+            elif mark == "ambiguous":
+                meta, _ = read_note(target)
+                old = meta.get("freshness_window_days", 90)
+                update_note(
+                    target,
+                    last_verified=_now_iso(now),
+                    freshness_window_days=max(1, old // 2),
+                )
+            else:  # contradicted
+                update_note(
+                    target,
+                    status="quarantine",
+                    quarantine_reason=f"contradicted during verify at {_now_iso(now)}",
+                )
+        except Exception as e:
+            return json.dumps({"error": f"update failed: {e}"})
+
+        response: Dict[str, Any] = {"status": "ok", "id": note_id, "mark": mark}
+
+        # Reflex chain: contradicted → rescent the topic.
+        if mark == "contradicted":
+            try:
+                from myco.reflex import verify_to_scent
+                rx = verify_to_scent(root, note_id, mark, execute=False)
+                if rx.get("triggered"):
+                    response["reflex"] = {
+                        "chain": "verify_to_rescent",
+                        "topic": rx["topic"],
+                        "suggested_call": rx["suggested_call"],
+                        "reason": (
+                            "Note was contradicted — forage fresh sources "
+                            "to replace stale claim."
+                        ),
+                    }
+            except Exception as e:
+                response["reflex_error"] = str(e)
+        return json.dumps(response, ensure_ascii=False, indent=2)
+
+    # List mode
+    if note_id and not mark:
+        from myco.notes import id_to_filename
+        target = root / "notes" / id_to_filename(note_id)
+        if not target.exists():
+            return json.dumps({"error": f"note not found: {note_id}"})
+        meta, _ = read_note(target)
+        return json.dumps({
+            "id": note_id,
+            "freshness": meta.get("freshness"),
+            "last_verified": meta.get("last_verified"),
+            "status": meta.get("status"),
+        }, ensure_ascii=False, indent=2)
+
+    # Listing mode
+    now = _dt.datetime.now()
+    thresholds = {"time_sensitive": 90, "live": 7, "all": 0}
+    stale: List[Dict[str, Any]] = []
+    for p in sorted((root / "notes").glob("n_*.md")):
+        try:
+            meta, _ = read_note(p)
+        except Exception:
+            continue
+        if meta.get("status") not in ("extracted", "integrated"):
+            continue
+        f = meta.get("freshness", "time_sensitive")
+        if scope != "all" and f != scope:
+            continue
+        if f == "static":
+            continue
+        lv = meta.get("last_verified") or meta.get("created")
+        try:
+            lv_dt = _dt.datetime.strptime(str(lv), "%Y-%m-%dT%H:%M:%S")
+        except Exception:
+            continue
+        age = (now - lv_dt).days
+        thr = thresholds.get(f, 90)
+        if age > thr:
+            stale.append({
+                "id": meta.get("id"),
+                "freshness": f,
+                "age_days": age,
+                "threshold_days": thr,
+            })
+        if len(stale) >= limit:
+            break
+    stale.sort(key=lambda x: -x["age_days"])
+    return json.dumps({"stale_count": len(stale), "notes": stale}, ensure_ascii=False, indent=2)
+
+
+# ---------------------------------------------------------------------------
+# Tool: myco_supersede — Apply eat→supersede reflex decision
+# ---------------------------------------------------------------------------
+
+@mcp.tool(
+    name="myco_supersede",
+    annotations={
+        "title": "Myco Supersede — Apply Supersede Reflex",
+        "readOnlyHint": False,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": False,
+    },
+)
+@_with_sidecar
+async def myco_supersede(
+    new_note_id: str,
+    old_note_ids: List[str],
+    project_dir: Optional[str] = None,
+) -> str:
+    """Mark old notes as superseded by a new one and record the link.
+
+    WHEN TO CALL — after myco_eat returns a `reflex.candidates` block,
+    review the candidates and call this tool with the ids you want to
+    supersede. Writes `supersedes: [...]` on the new note and
+    `superseded_by: <new_id>` on each old note. Excretion of old notes
+    is handled by the next prune cycle (superseded is one of its
+    multipath signals).
+
+    Args:
+        new_note_id: The fresh note.
+        old_note_ids: Ids of notes to mark as superseded by `new_note_id`.
+        project_dir: Myco project root. Auto-detected if omitted.
+    """
+    from myco.reflex import apply_supersede
+
+    root = Path(project_dir) if project_dir else _find_project_root()
+    root = root.resolve()
+    if not (root / "_canon.yaml").exists():
+        return json.dumps({"error": f"Not a Myco project (no _canon.yaml at {root})"})
+
+    out = apply_supersede(root, new_note_id, list(old_note_ids or []))
+    return json.dumps(out, ensure_ascii=False, indent=2)
+
+
+# ---------------------------------------------------------------------------
+# Tool: myco_ingest_transcript — Passive session ingest (Wave 58 / Wave 3)
+# ---------------------------------------------------------------------------
+
+@mcp.tool(
+    name="myco_ingest_transcript",
+    annotations={
+        "title": "Myco Ingest Transcript — Passive Auto-Eat",
+        "readOnlyHint": False,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": False,
+    },
+)
+@_with_sidecar
+async def myco_ingest_transcript(
+    chunks: List[Dict[str, Any]],
+    max_eat: int = 5,
+    dry_run: bool = False,
+    project_dir: Optional[str] = None,
+) -> str:
+    """Scan transcript chunks and auto-eat decision / preference / vocab /
+    root-cause findings as raw notes.
+
+    WHEN TO CALL — host hooks invoke this on idle ticks or at session end.
+    Agents may also call it on demand with the last N turns. Deduped by
+    content hash against .myco_state/transcript_ingested.json.
+
+    Disable globally by touching .myco_state/transcript_monitor.off.
+
+    Args:
+        chunks: list of {"role": "user"|"assistant", "text": str}.
+        max_eat: per-call upper bound on new notes (default 5).
+        dry_run: if True, classify but do not write notes.
+        project_dir: Myco project root. Auto-detected if omitted.
+
+    Returns:
+        JSON summary: scanned, classified, ate, skipped_duplicate, disabled.
+    """
+    from myco.transcript_monitor import ingest_transcript
+
+    root = Path(project_dir) if project_dir else _find_project_root()
+    root = root.resolve()
+    if not (root / "_canon.yaml").exists():
+        return json.dumps({"error": f"Not a Myco project (no _canon.yaml at {root})"})
+
+    out = ingest_transcript(root, chunks, max_eat=max_eat, dry_run=dry_run)
+    return json.dumps(out, ensure_ascii=False, indent=2)

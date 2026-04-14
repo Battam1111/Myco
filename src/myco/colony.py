@@ -295,3 +295,141 @@ def cross_project_cluster(
         })
 
     return {"clusters": clusters}
+
+
+def auto_promote_cross_project(
+    host_root: Path,
+    *,
+    global_myco_root: Optional[Path] = None,
+    min_cluster_size: int = 2,
+    min_total_notes: int = 3,
+    dry_run: bool = False,
+) -> Dict[str, Any]:
+    """Wave 58 / Wave 3: auto-write wiki/cross_project/<slug>.md for
+    clusters that span ≥ min_cluster_size projects with ≥ min_total_notes
+    notes total.
+
+    Idempotent: if target page already exists AND its first-body SHA-1
+    matches, we skip. Otherwise we rewrite.
+
+    Args:
+        host_root:        The project whose wiki/cross_project/ receives
+                          the promoted pages (usually the "hub" project).
+        global_myco_root: Root of all Myco projects (default ~/Myco).
+        min_cluster_size: Lower bound on distinct projects in cluster.
+        min_total_notes:  Lower bound on total note count in cluster.
+        dry_run:          If True, compute but do not write.
+
+    Returns:
+        {"promoted": [{"slug","path","projects","notes"}, ...],
+         "skipped": [...], "errors": [...]}
+    """
+    import hashlib as _hashlib
+
+    result: Dict[str, Any] = {"promoted": [], "skipped": [], "errors": []}
+
+    try:
+        cc = cross_project_cluster(
+            global_myco_root=global_myco_root,
+            min_cluster_size=min_cluster_size,
+        )
+    except Exception as e:
+        result["errors"].append(f"cluster: {e}")
+        return result
+
+    if cc.get("error"):
+        result["errors"].append(cc["error"])
+        return result
+
+    clusters = cc.get("clusters") or []
+    if not clusters:
+        return result
+
+    host_root = Path(host_root)
+    target_dir = host_root / "wiki" / "cross_project"
+    if not dry_run:
+        target_dir.mkdir(parents=True, exist_ok=True)
+
+    for cluster in clusters:
+        if cluster.get("total_notes", 0) < min_total_notes:
+            result["skipped"].append({
+                "slug": cluster.get("topic_slug"),
+                "reason": f"only {cluster.get('total_notes')} notes (min {min_total_notes})",
+            })
+            continue
+
+        slug = cluster.get("topic_slug") or "unknown"
+        label = cluster.get("topic_label") or slug
+        projects = cluster.get("contributing_projects") or []
+        contribs = cluster.get("project_contributions") or {}
+
+        body_lines = [
+            f"# Cross-Project: {label}",
+            "",
+            "> Auto-promoted by `colony.auto_promote_cross_project`.",
+            f"> Clustered across {len(projects)} projects — "
+            f"{cluster.get('total_notes', 0)} notes total.",
+            "",
+            "## Contributing projects",
+            "",
+        ]
+        for p in sorted(projects):
+            info = contribs.get(p) or {}
+            body_lines.append(
+                f"- **{p}** — {info.get('note_count', 0)} note(s): "
+                f"{info.get('nutrient', '')}"
+            )
+        body_lines.append("")
+        body_lines.append("## Synthesis")
+        body_lines.append("")
+        body_lines.append(
+            "_(placeholder — an agent should expand this page by eating "
+            "the contributing notes and condensing. Promotion here is "
+            "a signal, not a synthesis.)_"
+        )
+        body_lines.append("")
+
+        body = "\n".join(body_lines)
+        target = target_dir / f"{slug}.md"
+
+        # Idempotency: skip if existing page already has same contributing
+        # projects fingerprint.
+        if target.exists():
+            try:
+                existing = target.read_text(encoding="utf-8")
+                fp_old = _hashlib.sha1(
+                    (",".join(sorted(projects))).encode("utf-8")
+                ).hexdigest()[:12]
+                if fp_old in existing:
+                    result["skipped"].append({
+                        "slug": slug,
+                        "reason": "fingerprint match — no change",
+                    })
+                    continue
+            except Exception:
+                pass
+        fp = _hashlib.sha1((",".join(sorted(projects))).encode("utf-8")).hexdigest()[:12]
+        body = body + f"\n<!-- cross_project_fp: {fp} -->\n"
+
+        if dry_run:
+            result["promoted"].append({
+                "slug": slug,
+                "path": str(target.relative_to(host_root)),
+                "projects": projects,
+                "notes": cluster.get("total_notes", 0),
+                "dry_run": True,
+            })
+            continue
+
+        try:
+            target.write_text(body, encoding="utf-8")
+            result["promoted"].append({
+                "slug": slug,
+                "path": str(target.relative_to(host_root)),
+                "projects": projects,
+                "notes": cluster.get("total_notes", 0),
+            })
+        except Exception as e:
+            result["errors"].append(f"write {slug}: {e}")
+
+    return result

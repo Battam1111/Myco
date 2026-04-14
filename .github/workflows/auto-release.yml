@@ -66,6 +66,12 @@ jobs:
           fi
           echo "level=$LEVEL" >> $GITHUB_OUTPUT
           echo "Bump level: $LEVEL"
+          # Wave 58 (2026-04-14): warn loudly when a push to main falls
+          # through every conventional-commit grep — silent no-release was
+          # the root cause of several "why didn't PyPI update?" reports.
+          if [ "$LEVEL" = "none" ]; then
+            echo "::warning::No conventional-commit prefix matched in commits since $LAST_TAG — auto-release will be skipped. Use 'feat:' / 'fix:' / 'minor:' prefixes to trigger a bump."
+          fi
 
       - name: Compute new version
         if: steps.bump.outputs.level != 'none'
