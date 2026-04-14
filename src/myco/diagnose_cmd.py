@@ -4,7 +4,7 @@ myco verify — Deployment health check.
 Verifies that a Myco-powered project is correctly set up:
 1. Substrate structure (files exist)
 2. MCP server (starts + tools register)
-3. Lint (23/23 pass)
+3. Lint (29/29 pass)
 4. Hunger (substrate health signals)
 5. Automation / deployment completeness
 

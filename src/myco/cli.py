@@ -126,7 +126,7 @@ def main():
     # ── myco immune ──────────────────────────────────────────────────
     lint_parser = subparsers.add_parser(
         "immune",
-        help="Run 26-dimension substrate health check",
+        help="Run 29-dimension substrate health check",
     )
     lint_parser.add_argument(
         "--quick", action="store_true",

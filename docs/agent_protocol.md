@@ -30,7 +30,7 @@ Cowork 下的 agent（通过 Bash 工具调用）。
 快速预览：`pip install myco`（冻结快照，进化受限）。
 
 **可选**：在 agent host 的 MCP 配置里注册 `python -m myco.mcp_server`。
-注册后 19 个工具会以原生 MCP tool 的形式出现在 agent 的工具列表里，
+注册后 25 个工具会以原生 MCP tool 的形式出现在 agent 的工具列表里，
 带详细 trigger-condition 描述和结构化参数。Cowork 用户在桌面应用的
 MCP 设置里加一条即可（一次性，持久生效）。
 

@@ -194,7 +194,7 @@ system:                              # 跨项目通用
   principles_count: 13               # W1-W13（十三原则）
   principles_label: "十三原则"
   wiki_page_types: [entity, concept, operations, analysis, craft]
-  lint_dimensions: 26               # L0-L25 (current substrate)
+  lint_dimensions: 29               # L0-L28 (current substrate)
   claude_md_max_lines: 300
   stale_patterns: ["五原则", "六原则", "七原则"]  # 已知过时表述
 
@@ -497,5 +497,5 @@ project_template 在 ASCC 之外从未被测试过。声称通用但缺乏验证
 - [docs/open_problems.md](open_problems.md) -- 未解难题：通用架构中尚未解决的结构性盲点
 - [docs/agent_protocol.md](agent_protocol.md) -- Agent 协议：MCP 工具契约
 - [_canon.yaml](../_canon.yaml) -- 规范值 SSoT
-- src/myco/immune.py -- 26 维 Lint 免疫系统实现（本文 §Pillar 4 的代码对应）
+- src/myco/immune.py -- 29 维 Lint 免疫系统实现（本文 §Pillar 4 的代码对应）
 - [src/myco/notes.py](../src/myco/notes.py) -- Note 生命周期 SSoT（本文 §Knowledge Layer 的代码对应）
