@@ -1,0 +1,43 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m myco hunger*)",
+      "Bash(python -m myco session-end*)",
+      "Bash(python -m myco immune*)",
+      "Bash(python -m myco sense*)",
+      "Bash(python -m myco forage*)",
+      "Bash(python -m myco eat*)",
+      "Bash(python -m myco reflect*)",
+      "Bash(python -m myco digest*)",
+      "Bash(python -m myco distill*)",
+      "Bash(python -m myco perfuse*)",
+      "Bash(python -m myco propagate*)",
+      "Bash(python -m myco genesis*)",
+      "Bash(pytest*)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python -m myco --json --project-dir \"$CLAUDE_PROJECT_DIR\" hunger"
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python -m myco --json --project-dir \"$CLAUDE_PROJECT_DIR\" session-end"
+          }
+        ]
+      }
+    ]
+  }
+}
