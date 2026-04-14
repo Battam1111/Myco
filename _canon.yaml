@@ -1,0 +1,87 @@
+# _canon.yaml — Myco self-substrate, v0.4.0.
+# Schema: docs/architecture/L1_CONTRACT/canon_schema.md
+# Comments in this file are reserved for schema annotations only
+# (per canon_schema.md rule 1). Narrative cross-references live under
+# `_ref`-suffixed fields, not here.
+
+schema_version: "1"
+contract_version: "v0.4.0"
+synced_contract_version: "v0.4.0"
+
+identity:
+  substrate_id: "myco-self"
+  tags:
+    - "myco"
+    - "agent-substrate"
+    - "python-package"
+  entry_point: "MYCO.md"
+
+system:
+  write_surface:
+    allowed:
+      - "_canon.yaml"
+      - "MYCO.md"
+      - "CHANGELOG.md"
+      - "README.md"
+      - "pyproject.toml"
+      - "notes/**"
+      - "docs/**"
+      - "src/**"
+      - "tests/**"
+      - "scripts/**"
+      - ".claude/**"
+  hard_contract:
+    rules_ref: "docs/architecture/L1_CONTRACT/protocol.md"
+    rule_count: 7
+
+versioning:
+  package_version_ref: "src/myco/__init__.py"
+  pyproject_dynamic: true
+
+lint:
+  categories:
+    - mechanical
+    - shipped
+    - metabolic
+    - semantic
+  dimensions:
+    M1: mechanical
+    M2: mechanical
+    M3: mechanical
+    MB1: metabolic
+    MB2: metabolic
+    SE1: semantic
+    SE2: semantic
+    SH1: shipped
+  exit_policy:
+    default: "mechanical:critical,shipped:critical,metabolic:never,semantic:never"
+  skeleton_downgrade:
+    marker: ".myco_state/autoseeded.txt"
+    affected_dimensions: []
+
+subsystems:
+  circulation:
+    doc: "docs/architecture/L2_DOCTRINE/circulation.md"
+    package: "src/myco/circulation/"
+  digestion:
+    doc: "docs/architecture/L2_DOCTRINE/digestion.md"
+    package: "src/myco/digestion/"
+  genesis:
+    doc: "docs/architecture/L2_DOCTRINE/genesis.md"
+    package: "src/myco/genesis/"
+  homeostasis:
+    doc: "docs/architecture/L2_DOCTRINE/homeostasis.md"
+    package: "src/myco/homeostasis/"
+  ingestion:
+    doc: "docs/architecture/L2_DOCTRINE/ingestion.md"
+    package: "src/myco/ingestion/"
+
+commands:
+  manifest_ref: "src/myco/surface/manifest.yaml"
+
+metrics:
+  test_count: 283
+
+waves:
+  current: 1
+  log_ref: "docs/contract_changelog.md"
