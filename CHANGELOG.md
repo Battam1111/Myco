@@ -3,6 +3,11 @@
 All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## v1.1.2 — 2026-04-14
+
+### Features
+- feat: wave b/c/d — 9-symbiont auto-setup + hosts→symbionts + doctor/diagnose→pulse
+
 ## v0.6.1 — 2026-04-14
 
 ### Bug Fixes
