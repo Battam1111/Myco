@@ -62,6 +62,9 @@ def test_all_sorted_by_id() -> None:
     assert ids == ["T1", "T2"]
 
 
-def test_default_registry_includes_smoke_dim() -> None:
+def test_default_registry_includes_b8_dimensions() -> None:
     reg = default_registry()
-    assert reg.has("L0")
+    for dim_id in ("M1", "M2", "M3", "SH1", "MB1", "MB2", "SE1", "SE2"):
+        assert reg.has(dim_id), f"missing {dim_id}"
+    # L0 smoke dim was removed at Stage B.8.
+    assert not reg.has("L0")

@@ -133,10 +133,17 @@ def test_payload_records_context(seeded_substrate: Path) -> None:
     assert result.payload["skeleton_downgrade_applied"] is False
 
 
-def test_default_registry_smoke_run(seeded_substrate: Path) -> None:
+def test_default_registry_runs_end_to_end(seeded_substrate: Path) -> None:
     reg = default_registry()
     ctx = _mk_ctx(seeded_substrate)
     result = run_immune(ctx, reg, exit_on="critical")
-    # L0 smoke dim emits a LOW finding; critical threshold ignores → exit 0.
+    # The seeded fixture lacks an entry-point file and a write_surface
+    # declaration, so M2 (HIGH) and M3 (MEDIUM) fire. Neither trips
+    # the `critical` threshold → exit 0.
     assert result.exit_code == 0
-    assert any(f.dimension_id == "L0" for f in result.findings)
+    fired = {f.dimension_id for f in result.findings}
+    assert "M2" in fired
+    assert "M3" in fired
+    # With exit_on="high", M2's HIGH trips → exit 1.
+    result_high = run_immune(ctx, reg, exit_on="high")
+    assert result_high.exit_code == 1
