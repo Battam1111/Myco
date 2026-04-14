@@ -3,6 +3,14 @@
 All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## v0.6.0 — 2026-04-14
+
+### Features
+- feat: Wave 57/58 zero-touch Agent reflex + self-loop
+
+### Bug Fixes
+- fix(release): push annotated tags so gh release create finds them Root cause of v0.4.0 / v0.5.0 release failures: git tag creates lightweight tags by default, and git push --follow-tags only pushes annotated tags. Commit got pushed, tag stayed local to the runner, gh release create then failed with 'tag exists locally but has not been pushed'. - auto-release.yml: tag -a with message, explicit git push origin <tag> - bump_version.py: [^" ] * regex also matches empty \\ so we recover from
+
 ## v0.5.0 — 2026-04-14
 
 ### Features
