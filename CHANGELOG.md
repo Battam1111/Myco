@@ -3,6 +3,14 @@
 All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## v0.6.1 — 2026-04-14
+
+### Bug Fixes
+- fix(ci): restore truncated Publish-to-PyPI step in auto-release.yml
+- fix(ci): allow scoped conventional commits like fix(lint): to trigger auto-release
+- fix(lint): skip .claude worktrees + update stale 26->29 / 19->25 numeric claims
+- fix(release): inline PyPI publish + patch-only + CHANGELOG walkback
+
 ## v0.6.0 — 2026-04-14
 
 ### Features

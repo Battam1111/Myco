@@ -5,4 +5,4 @@ Myco is an autonomous cognitive substrate that gives AI agents persistent memory
 structured knowledge, and self-evolving capabilities across sessions.
 """
 
-__version__ = "0.6.0"
+__version__ = "0.6.1"
