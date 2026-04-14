@@ -16,17 +16,17 @@ Design choices (per Stage B.2 craft Round 2.5):
 
 from __future__ import annotations
 
-from typing import Sequence
+from typing import Mapping, Sequence
 
 from myco.core.context import MycoContext, Result
 from myco.core.errors import UsageError
 
 from .exit_policy import parse_exit_policy
 from .finding import Finding
-from .registry import DimensionRegistry
+from .registry import DimensionRegistry, default_registry
 from .skeleton import apply_skeleton_downgrade
 
-__all__ = ["run_immune"]
+__all__ = ["run_immune", "run_cli"]
 
 
 def run_immune(
@@ -70,4 +70,28 @@ def run_immune(
             "exit_on": exit_on,
             "fix": fix,  # echo back; no effect at B.2
         },
+    )
+
+
+def run_cli(args: Mapping[str, object], *, ctx: MycoContext) -> Result:
+    """Manifest-shaped handler for ``myco immune``.
+
+    Accepts ``dimensions`` (optional id list), ``fix`` (bool), and
+    ``exit_on`` (spec string; defaults to ``critical``). The surface
+    CLI/MCP layers translate global flags into these keys.
+    """
+    dims_raw = args.get("dimensions") or ()
+    selected: Sequence[str] | None
+    if isinstance(dims_raw, (list, tuple)) and dims_raw:
+        selected = tuple(str(d) for d in dims_raw)
+    else:
+        selected = None
+    fix = bool(args.get("fix", False))
+    exit_on = str(args.get("exit_on") or "critical")
+    return run_immune(
+        ctx,
+        default_registry(),
+        selected=selected,
+        exit_on=exit_on,
+        fix=fix,
     )
