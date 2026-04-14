@@ -1,0 +1,91 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "myco"
+dynamic = ["version"]
+description = "Editable non-parametric learning mechanism for AI Agents — git clone, pip install -e ., evolve"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [
+    { name = "Myco Contributors" },
+]
+keywords = [
+    "ai", "agents", "knowledge-management", "self-evolving",
+    "cognitive-substrate", "llm", "memory", "extended-cognition",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "pyyaml>=5.0",
+]
+
+[project.optional-dependencies]
+mcp = ["mcp>=1.0.0"]
+# Wave 25 (v0.24.0) — test infrastructure seed. Craft of record:
+#   docs/primordia/hermes_absorption_craft_2026-04-12.md §4.2
+# Kept deliberately minimal. Add a new lib only when a test needs it.
+dev = [
+    "pytest>=7.0,<9",
+    "pytest-xdist>=3.0,<4",
+]
+
+[project.urls]
+Homepage = "https://github.com/Battam1111/Myco"
+Repository = "https://github.com/Battam1111/Myco"
+Issues = "https://github.com/Battam1111/Myco/issues"
+Documentation = "https://github.com/Battam1111/Myco/tree/main/docs"
+
+[project.scripts]
+myco = "myco.cli:main"
+
+# v0.3.4 (D6): single-source version from src/myco/__init__.py so
+# pyproject.toml and the package metadata can never drift. Before this
+# change, both hardcoded "0.3.3" and L29 had to babysit them.
+[tool.hatch.version]
+path = "src/myco/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/myco"]
+include = [
+    "src/myco/templates/**",
+]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "src/myco/**",
+    "README.md",
+    "LICENSE",
+    "pyproject.toml",
+]
+
+# -----------------------------------------------------------------------------
+# Pytest configuration (Wave 25, v0.24.0 — tests infrastructure seed).
+# -----------------------------------------------------------------------------
+# testpaths locks pytest to tests/ only so the Wave 23 scar does not
+# repeat — a bare `pytest` from repo root would otherwise crawl
+# forage/repos/hermes-agent/tests/ and fail on ModuleNotFoundError:
+# acp. The install_git_hooks.sh pre-commit gate reads test_dir from
+# _canon.yaml::system.tests.test_dir so both surfaces share one truth.
+#
+# The `integration` marker is reserved for future tests that need
+# external services (network, subprocess, real git); excluded by
+# default so `pytest tests/` stays fast and hermetic.
+# -----------------------------------------------------------------------------
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "integration: marks tests requiring external services (network/git/subprocess)",
+]

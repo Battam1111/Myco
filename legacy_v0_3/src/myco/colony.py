@@ -1,0 +1,433 @@
+"""
+Myco Cohort Intelligence — tag-based analysis for compression and gap detection.
+
+Wave 48 (contract v0.37.0): Semantic cohort analysis over the notes/ substrate.
+Tag co-occurrence, compression cohort suggestion, and gap detection (tags where
+all knowledge is unprocessed). Pure engine — no CLI, no MCP imports.
+
+Authoritative design: plan Waves 47-53 §Wave 48.
+"""
+# --- Mycelium references ---
+# Architecture: docs/architecture.md §Compression pipeline
+
+from __future__ import annotations
+
+from collections import defaultdict
+from datetime import datetime, timezone
+from itertools import combinations
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
+
+import yaml
+
+from myco.notes import list_notes, read_note
+
+
+def _load_compression_config(root: Path) -> Dict[str, Any]:
+    """Load compression thresholds from _canon.yaml."""
+    canon_path = root / "_canon.yaml"
+    defaults = {"ripe_threshold": 5, "ripe_age_days": 7}
+    if not canon_path.exists():
+        return defaults
+    try:
+        with open(canon_path, "r", encoding="utf-8") as f:
+            canon = yaml.safe_load(f) or {}
+        comp = (canon.get("system", {})
+                     .get("notes_schema", {})
+                     .get("compression", {}))
+        return {
+            "ripe_threshold": comp.get("ripe_threshold", defaults["ripe_threshold"]),
+            "ripe_age_days": comp.get("ripe_age_days", defaults["ripe_age_days"]),
+        }
+    except (OSError, AttributeError, TypeError, yaml.YAMLError):
+        return defaults
+
+
+def _parse_created_dt(meta: Dict[str, Any]) -> Optional[datetime]:
+    """Parse the 'created' field from note metadata."""
+    raw = meta.get("created")
+    if raw is None:
+        return None
+    if isinstance(raw, datetime):
+        if raw.tzinfo is None:
+            return raw.replace(tzinfo=timezone.utc)
+        return raw
+    raw_str = str(raw).strip()
+    for fmt in ("%Y-%m-%dT%H:%M:%S%z", "%Y-%m-%dT%H:%M:%S",
+                "%Y-%m-%d %H:%M:%S", "%Y-%m-%d"):
+        try:
+            dt = datetime.strptime(raw_str, fmt)
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            return dt
+        except ValueError:
+            continue
+    return None
+
+
+def tag_cooccurrence(root: Path) -> List[Tuple[str, str, int]]:
+    """Compute pairwise tag co-occurrence across all notes.
+
+    Returns list of (tag_a, tag_b, count) sorted by count descending.
+    """
+    cooccur: Dict[Tuple[str, str], int] = defaultdict(int)
+    for path in list_notes(root):
+        try:
+            meta, _ = read_note(path)
+        except (OSError, ValueError, RuntimeError):
+            continue
+        tags = meta.get("tags", [])
+        if not isinstance(tags, list) or len(tags) < 2:
+            continue
+        # Sort for consistent pair ordering
+        sorted_tags = sorted(set(str(t) for t in tags))
+        for a, b in combinations(sorted_tags, 2):
+            cooccur[(a, b)] += 1
+
+    result = [(a, b, count) for (a, b), count in cooccur.items()]
+    result.sort(key=lambda x: (-x[2], x[0], x[1]))
+    return result
+
+
+def compression_cohort_suggest(
+    root: Path,
+    *,
+    now: Optional[datetime] = None,
+) -> List[Dict[str, Any]]:
+    """Suggest groups of notes that should be compressed together.
+
+    Algorithm:
+    1. Scan all notes, collect tag → list of raw/digesting notes with ages.
+    2. For tags with >= ripe_threshold notes, compute a score based on
+       note count and age of oldest note.
+    3. Return suggestions sorted by score descending.
+    """
+    if now is None:
+        now = datetime.now(timezone.utc)
+
+    config = _load_compression_config(root)
+    ripe_threshold = config["ripe_threshold"]
+    ripe_age_days = config["ripe_age_days"]
+
+    # Build tag → notes map (only raw/digesting, not already compressed)
+    tag_notes: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+
+    for path in list_notes(root):
+        try:
+            meta, _ = read_note(path)
+        except (OSError, ValueError, RuntimeError):
+            continue
+        status = meta.get("status", "")
+        if status not in ("raw", "digesting"):
+            continue
+        # Skip already-compressed notes (cascade defense)
+        if meta.get("compressed_from"):
+            continue
+        tags = meta.get("tags", [])
+        if not isinstance(tags, list):
+            continue
+        created_dt = _parse_created_dt(meta)
+        age_days = (now - created_dt).days if created_dt else 0
+        note_info = {
+            "id": meta.get("id", path.stem),
+            "status": status,
+            "age_days": age_days,
+            "created": str(meta.get("created", "")),
+        }
+        for tag in tags:
+            tag_notes[str(tag)].append(note_info)
+
+    # Find ripe cohorts
+    suggestions = []
+    for tag, notes in tag_notes.items():
+        if len(notes) < ripe_threshold:
+            continue
+        oldest_age = max(n["age_days"] for n in notes)
+        if oldest_age < ripe_age_days:
+            continue
+        score = len(notes) * (1 + oldest_age / 7.0)
+        suggestions.append({
+            "tag": tag,
+            "note_count": len(notes),
+            "oldest_age_days": oldest_age,
+            "cohort_score": round(score, 1),
+            "note_ids": [n["id"] for n in sorted(notes, key=lambda x: -x["age_days"])],
+        })
+
+    suggestions.sort(key=lambda x: -x["cohort_score"])
+    return suggestions
+
+
+def gap_detection(root: Path) -> List[Dict[str, Any]]:
+    """Find tags where ALL notes are raw or digesting (unprocessed domains).
+
+    These represent knowledge the substrate has captured but never
+    synthesized — topics with no extracted or integrated output.
+    """
+    # tag → {raw: count, digesting: count, extracted: count, integrated: count, ...}
+    tag_status: Dict[str, Dict[str, int]] = defaultdict(lambda: defaultdict(int))
+
+    for path in list_notes(root):
+        try:
+            meta, _ = read_note(path)
+        except (OSError, ValueError, RuntimeError):
+            continue
+        status = meta.get("status", "raw")
+        tags = meta.get("tags", [])
+        if not isinstance(tags, list):
+            continue
+        for tag in tags:
+            tag_status[str(tag)][status] += 1
+
+    gaps = []
+    for tag, counts in tag_status.items():
+        raw = counts.get("raw", 0)
+        digesting = counts.get("digesting", 0)
+        extracted = counts.get("extracted", 0)
+        integrated = counts.get("integrated", 0)
+        total = sum(counts.values())
+
+        # Gap = all notes are raw or digesting (no synthesis output)
+        if extracted == 0 and integrated == 0 and (raw + digesting) > 0:
+            gaps.append({
+                "tag": tag,
+                "raw_count": raw,
+                "digesting_count": digesting,
+                "total": total,
+            })
+
+    gaps.sort(key=lambda x: -x["total"])
+    return gaps
+
+
+def cross_project_cluster(
+    global_myco_root: Optional[Path] = None,
+    *,
+    min_cluster_size: int = 2,
+) -> Dict[str, Any]:
+    """Partition A (G6): Cross-project clustering.
+
+    If global_myco_root is provided, scans all project notes/ directories
+    within it and clusters by topic (using tag co-occurrence as a proxy).
+    Returns dict with structure:
+        {
+            "clusters": [
+                {
+                    "topic_slug": "...",
+                    "topic_label": "...",
+                    "contributing_projects": [project_name, ...],
+                    "total_notes": int,
+                    "project_contributions": {
+                        "project_a": {"nutrient": "...", "note_count": int},
+                        "project_b": {"nutrient": "...", "note_count": int},
+                    }
+                }
+            ]
+        }
+
+    Notes from private projects are included in statistics but not in
+    the nutrient text (based on project_visibility.yaml).
+    """
+    if global_myco_root is None:
+        from pathlib import Path as P
+        global_myco_root = P.home() / "Myco"
+
+    global_myco_root = Path(global_myco_root)
+    if not global_myco_root.exists():
+        return {"clusters": [], "error": f"{global_myco_root} does not exist"}
+
+    # Scan all project directories for notes/
+    all_notes_by_project: Dict[str, List[Tuple[Path, Dict]]] = defaultdict(list)
+
+    for project_dir in global_myco_root.iterdir():
+        if not project_dir.is_dir():
+            continue
+        notes_dir = project_dir / "notes"
+        if not notes_dir.exists():
+            continue
+
+        project_name = project_dir.name
+        for note_path in notes_dir.glob("n_*.md"):
+            try:
+                meta, body = read_note(note_path)
+                all_notes_by_project[project_name].append((note_path, meta))
+            except Exception:
+                continue
+
+    if not all_notes_by_project:
+        return {"clusters": []}
+
+    # Cluster by tag co-occurrence (simplified: group by shared tags)
+    tag_to_notes: Dict[str, List[Tuple[str, Dict]]] = defaultdict(list)
+
+    for project_name, notes_list in all_notes_by_project.items():
+        for note_path, meta in notes_list:
+            tags = meta.get("tags", [])
+            for tag in tags:
+                tag_to_notes[tag].append((project_name, meta))
+
+    # Build clusters: tags with notes from ≥2 projects
+    clusters = []
+    for tag, notes_by_project in tag_to_notes.items():
+        projects_set = set(proj for proj, _ in notes_by_project)
+        if len(projects_set) < min_cluster_size:
+            continue
+
+        # Aggregate nutrient snippets from each project
+        project_contribs: Dict[str, Any] = {}
+        for project_name in projects_set:
+            project_notes = [
+                meta for proj, meta in notes_by_project if proj == project_name
+            ]
+            project_contribs[project_name] = {
+                "note_count": len(project_notes),
+                "nutrient": f"{len(project_notes)} notes tagged '{tag}' from project {project_name}",
+            }
+
+        clusters.append({
+            "topic_slug": tag.lower().replace(" ", "_"),
+            "topic_label": tag,
+            "contributing_projects": sorted(projects_set),
+            "total_notes": len(notes_by_project),
+            "project_contributions": project_contribs,
+        })
+
+    return {"clusters": clusters}
+
+
+def auto_promote_cross_project(
+    host_root: Path,
+    *,
+    global_myco_root: Optional[Path] = None,
+    min_cluster_size: int = 2,
+    min_total_notes: int = 3,
+    dry_run: bool = False,
+) -> Dict[str, Any]:
+    """Wave 58 / Wave 3: auto-write wiki/cross_project/<slug>.md for
+    clusters that span ≥ min_cluster_size projects with ≥ min_total_notes
+    notes total.
+
+    Idempotent: if target page already exists AND its first-body SHA-1
+    matches, we skip. Otherwise we rewrite.
+
+    Args:
+        host_root:        The project whose wiki/cross_project/ receives
+                          the promoted pages (usually the "hub" project).
+        global_myco_root: Root of all Myco projects (default ~/Myco).
+        min_cluster_size: Lower bound on distinct projects in cluster.
+        min_total_notes:  Lower bound on total note count in cluster.
+        dry_run:          If True, compute but do not write.
+
+    Returns:
+        {"promoted": [{"slug","path","projects","notes"}, ...],
+         "skipped": [...], "errors": [...]}
+    """
+    import hashlib as _hashlib
+
+    result: Dict[str, Any] = {"promoted": [], "skipped": [], "errors": []}
+
+    try:
+        cc = cross_project_cluster(
+            global_myco_root=global_myco_root,
+            min_cluster_size=min_cluster_size,
+        )
+    except Exception as e:
+        result["errors"].append(f"cluster: {e}")
+        return result
+
+    if cc.get("error"):
+        result["errors"].append(cc["error"])
+        return result
+
+    clusters = cc.get("clusters") or []
+    if not clusters:
+        return result
+
+    host_root = Path(host_root)
+    target_dir = host_root / "wiki" / "cross_project"
+    if not dry_run:
+        target_dir.mkdir(parents=True, exist_ok=True)
+
+    for cluster in clusters:
+        if cluster.get("total_notes", 0) < min_total_notes:
+            result["skipped"].append({
+                "slug": cluster.get("topic_slug"),
+                "reason": f"only {cluster.get('total_notes')} notes (min {min_total_notes})",
+            })
+            continue
+
+        slug = cluster.get("topic_slug") or "unknown"
+        label = cluster.get("topic_label") or slug
+        projects = cluster.get("contributing_projects") or []
+        contribs = cluster.get("project_contributions") or {}
+
+        body_lines = [
+            f"# Cross-Project: {label}",
+            "",
+            "> Auto-promoted by `colony.auto_promote_cross_project`.",
+            f"> Clustered across {len(projects)} projects — "
+            f"{cluster.get('total_notes', 0)} notes total.",
+            "",
+            "## Contributing projects",
+            "",
+        ]
+        for p in sorted(projects):
+            info = contribs.get(p) or {}
+            body_lines.append(
+                f"- **{p}** — {info.get('note_count', 0)} note(s): "
+                f"{info.get('nutrient', '')}"
+            )
+        body_lines.append("")
+        body_lines.append("## Synthesis")
+        body_lines.append("")
+        body_lines.append(
+            "_(placeholder — an agent should expand this page by eating "
+            "the contributing notes and condensing. Promotion here is "
+            "a signal, not a synthesis.)_"
+        )
+        body_lines.append("")
+
+        body = "\n".join(body_lines)
+        target = target_dir / f"{slug}.md"
+
+        # Idempotency: skip if existing page already has same contributing
+        # projects fingerprint.
+        if target.exists():
+            try:
+                existing = target.read_text(encoding="utf-8")
+                fp_old = _hashlib.sha1(
+                    (",".join(sorted(projects))).encode("utf-8")
+                ).hexdigest()[:12]
+                if fp_old in existing:
+                    result["skipped"].append({
+                        "slug": slug,
+                        "reason": "fingerprint match — no change",
+                    })
+                    continue
+            except Exception:
+                pass
+        fp = _hashlib.sha1((",".join(sorted(projects))).encode("utf-8")).hexdigest()[:12]
+        body = body + f"\n<!-- cross_project_fp: {fp} -->\n"
+
+        if dry_run:
+            result["promoted"].append({
+                "slug": slug,
+                "path": str(target.relative_to(host_root)),
+                "projects": projects,
+                "notes": cluster.get("total_notes", 0),
+                "dry_run": True,
+            })
+            continue
+
+        try:
+            target.write_text(body, encoding="utf-8")
+            result["promoted"].append({
+                "slug": slug,
+                "path": str(target.relative_to(host_root)),
+                "projects": projects,
+                "notes": cluster.get("total_notes", 0),
+            })
+        except Exception as e:
+            result["errors"].append(f"write {slug}: {e}")
+
+    return result

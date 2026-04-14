@@ -1,0 +1,75 @@
+# {{PROJECT_NAME}} — Myco-Powered Project (Cursor)
+
+# Boot ritual: Call `myco_hunger(execute=true)` as your FIRST action every session.
+# Contract: `docs/agent_protocol.md` | Schema: `_canon.yaml`
+
+# ─── What Is Myco ───────────────────────────────────────────────────────────
+# Myco is your non-parametric learning mechanism. You (the Agent) provide
+# intelligence. Myco provides memory, self-regulation, metabolism, self-model,
+# and evolution. Together you form a complete cognitive entity. Neither is
+# whole alone.
+
+# ─── Session Flow ────────────────────────────────────────────────────────────
+# 1. Boot:  myco_hunger(execute=true) — checks substrate health, auto-executes repairs
+# 2. Work:  Do the human's task. Use myco_eat to capture decisions.
+#           Use myco_sense before answering factual questions.
+# 3. End:   myco_reflect() — session reflection (captures execution learnings)
+
+# ─── MCP Integration ────────────────────────────────────────────────────────
+# Cursor supports MCP natively. The .mcp.json file in the project root
+# registers the Myco MCP server. All 19 tools are available via MCP.
+# If MCP is not connected, fall back to CLI: `myco <command>` in terminal.
+
+# ─── Context Loading ────────────────────────────────────────────────────────
+# Cursor reads .cursorrules at project root automatically.
+# This file is loaded once per session and applies to all files in the project.
+# For subdirectory-specific context, check for local .cursorrules files.
+
+# ─── Skill Resolution ───────────────────────────────────────────────────────
+# When a task matches a skill in `skills/`, load and follow it:
+# - skills/metabolic-cycle.md   — boot ritual + auto-heal
+# - skills/sprint-pipeline.md   — Think>Plan>Build>Review>Test>Ship>Reflect
+# - skills/discovery-loop.md    — proactive knowledge acquisition
+# - skills/agent-routing.md     — model selection by task type
+# - skills/learning-loop.md     — capture execution learnings
+#
+# If no skill matches, proceed with agent judgment, then consider
+# skill-ifying the process.
+
+# ─── Tool Triggers (19 MCP tools) ───────────────────────────────────────────
+#
+# BOOT (first call every session):
+#   myco_hunger(execute=true)
+#
+# HEALTH (end of session, after modifying docs):
+#   myco_immune, myco_pulse
+#
+# CAPTURE (after decisions, insights, friction):
+#   myco_eat
+#
+# PROCESS (when hunger signals recommend):
+#   myco_digest, myco_condense, myco_prune
+#
+# SEARCH (before answering factual questions):
+#   myco_sense, myco_memory
+#
+# ANALYZE (before refactoring, compression):
+#   myco_mycelium, myco_colony
+#
+# EXTERNAL (when gaps detected):
+#   myco_absorb, myco_forage
+#
+# LOG (after completing tasks, session end):
+#   myco_trace, myco_reflect
+#
+# VIEW (when recalling past decisions):
+#   myco_observe
+
+# ─── Reflex Arcs (auto-enforced) ────────────────────────────────────────────
+# [REFLEX HIGH] raw_backlog    — digest notes before any task work
+# [REFLEX HIGH] contract_drift — sync contract version first
+# [REFLEX HIGH] craft_reflex_missing — write craft before kernel changes
+
+# ─── Write Surface ──────────────────────────────────────────────────────────
+# Only write to paths listed in `_canon.yaml::system.write_surface.allowed`.
+# Anything outside = substrate pollution.

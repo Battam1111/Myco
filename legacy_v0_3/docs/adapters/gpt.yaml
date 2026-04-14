@@ -1,0 +1,160 @@
+# Myco Adapter: GPT (OpenAI API + ChatGPT)
+# ============================================================
+# Integration guide for using Myco with GPT-based agents.
+# Covers: OpenAI API (gpt-4o, gpt-4-turbo), ChatGPT Projects,
+#         and custom GPT Assistants with file search.
+#
+# GPT integration is fundamentally different from Claude/Cursor:
+#   Claude Code / Cursor: native filesystem access — reads Myco files directly
+#   GPT API:             system prompt injection — Myco knowledge must be serialized
+#   ChatGPT Projects:    file upload — Myco files can be uploaded to project knowledge
+#
+# This adapter covers all three modes.
+#
+# Version: 1.0 | Status: Active
+
+name: "GPT (OpenAI)"
+version: "1.0"
+description: |
+  Use Myco as the knowledge substrate for GPT-powered agents.
+  Unlike Claude Code (which reads files natively), GPT requires explicit
+  knowledge injection via system prompts or file uploads.
+  Myco provides the structure that makes this injection systematic and consistent.
+
+agent_type: "gpt-4o"  # Also applies to: gpt-4-turbo, gpt-3.5-turbo, o1, o3
+integration_model: "system_prompt"  # Primary mode; see also: file_upload, assistant_api
+
+# ── Integration Modes ─────────────────────────────────────────
+integration_modes:
+  mode_A_system_prompt:
+    name: "System Prompt Injection (API usage)"
+    description: "Serialize Myco's L1 + hot zone into the system prompt at session start"
+    when_to_use: "OpenAI API calls with gpt-4o, gpt-4-turbo, or similar"
+    setup_steps:
+      1: "Run: myco seed my-project --level 2 (creates standard Myco scaffold)"
+      2: "Create a prompt builder script that reads MYCO.md hot zone + _canon.yaml"
+      3: "Inject serialized content as system prompt prefix (see system_prompt_template below)"
+      4: "Include reminder: 'After each session, append a log entry to log.md'"
+      5: "Run: myco immune --project-dir . to check consistency"
+
+  mode_B_chatgpt_projects:
+    name: "ChatGPT Projects (file upload)"
+    description: "Upload Myco knowledge files to ChatGPT Project as context documents"
+    when_to_use: "ChatGPT Plus/Teams/Enterprise with Projects feature"
+    setup_steps:
+      1: "Run: myco seed my-project --level 2"
+      2: "Upload to ChatGPT Project knowledge: MYCO.md, _canon.yaml, relevant wiki/*.md pages"
+      3: "Add custom instructions: 'Before answering, check _canon.yaml for canonical values. Log significant decisions to log.md.'"
+      4: "Re-upload updated files after major Session Reflection/Milestone Retrospective evolutions"
+      5: "Run: myco immune --project-dir . locally to verify consistency"
+
+  mode_C_assistant_api:
+    name: "OpenAI Assistants API with File Search"
+    description: "Create an Assistant with Myco project files in its vector store"
+    when_to_use: "Production agents built on Assistants API"
+    setup_steps:
+      1: "Run: myco seed my-project --level 2"
+      2: "Create vector store and upload: MYCO.md, _canon.yaml, wiki/*.md, docs/WORKFLOW.md"
+      3: "Set Assistant instructions: see system_prompt_template below"
+      4: "Enable file_search tool on the Assistant"
+      5: "Implement sync logic: after Session Reflection/Milestone Retrospective evolution, re-upload updated files to vector store"
+      6: "Run: myco immune --project-dir . as part of your CI/deployment pipeline"
+
+# ── System Prompt Template ────────────────────────────────────
+system_prompt_template: |
+  You are working within a Myco-structured knowledge system.
+
+  ## Your Knowledge Architecture
+  - L1 Index (MYCO.md): Current project state, phase, and hot zone — always read first
+  - L1.5 Wiki (wiki/): Compiled knowledge pages — check before answering domain questions
+  - L2 Docs (docs/): Workflow principles (W1-W13), design debates, procedures
+  - Infrastructure: _canon.yaml (canonical values SSoT), log.md (timeline)
+
+  ## Consistency Rules
+  - Never contradict values defined in _canon.yaml
+  - When you encounter a value (version number, file count, terminology), verify it matches _canon.yaml
+  - If you detect a contradiction, flag it with: ⚠️ LINT FLAG: [description]
+
+  ## Evolution Protocol
+  - Friction (same problem twice): log to log.md as `## [date] friction | [description]`
+  - Session reflection: append summary to log.md at session end
+  - If you see a wiki page becoming stale or a new pattern emerging, note it for Session Reflection
+
+  ## Session Start
+  Read MYCO.md → check hot zone → understand current phase → proceed with task
+
+  ## Session End
+  Append to log.md: `## [date] milestone/decision/debug | [what happened]`
+
+# ── File Ownership ─────────────────────────────────────────
+coexistence_notes:
+  gpt_reads:
+    - "MYCO.md (injected or uploaded)"
+    - "_canon.yaml (injected or uploaded)"
+    - "wiki/*.md (injected or uploaded)"
+    - "docs/WORKFLOW.md (injected or uploaded)"
+  myco_manages:
+    - "All of the above — GPT reads them; Myco creates and lint-checks them"
+  gpt_writes:
+    - "log.md (append only — GPT should append, never overwrite)"
+    - "wiki/*.md (GPT can create new wiki pages when instructed)"
+  key_difference: |
+    Unlike Claude Code or Cursor, GPT does not have native filesystem access in most modes.
+    This means Myco's files must be explicitly provided to GPT at each session.
+    The lint gate (myco immune) runs locally or in CI — not inside the GPT context.
+
+# ── Layer Mapping ──────────────────────────────────────────
+layer_mapping:
+  "System prompt prefix":   "L1 equivalent (session-injected MYCO.md hot zone)"
+  "ChatGPT Project files":  "L1.5 + L2 (uploaded wiki/ and docs/)"
+  "Assistant vector store": "L0 + L1.5 (semantic search over all Myco files)"
+  "_canon.yaml":            "SSoT — always injected, never optional"
+  "log.md":                 "GPT appends; Myco lint checks format"
+
+# ── Workflow Compatibility ─────────────────────────────────
+workflow_compatibility:
+  W1_friction_sensing:    "⚠️  GPT must be explicitly prompted to log friction; no auto-trigger"
+  W2_session_reflection:  "✅ Include 'append to log.md at session end' in system prompt"
+  W3_canon_first:         "✅ _canon.yaml injected in system prompt — GPT checks it"
+  W4_wiki_w8:             "⚠️  GPT needs explicit instruction to use W8 header format"
+  W5_lint_gate:           "✅ Run myco immune locally after sessions — GPT outputs files, lint verifies"
+  W8_format:              "⚠️  Include W8 format spec in system prompt for wiki creation tasks"
+  W12_gear_protocol:      "⚠️  Session Reflection/Milestone Retrospective/Cross-Project Distillation require human coordination — GPT can suggest but human triggers"
+
+# ── Value Proposition ─────────────────────────────────────
+value_proposition: |
+  GPT alone (for project work): intelligent but amnesiac.
+  Each API call starts fresh. Without explicit injection, GPT has no memory of
+  previous decisions, no awareness of canonical values, no record of evolution.
+
+  GPT + Myco:
+    - System prompt injection delivers structured project context in every call
+    - _canon.yaml prevents GPT from contradicting established values
+    - log.md gives you a session-by-session record of GPT's contributions
+    - myco immune catches inconsistencies GPT introduces without realizing
+    - Cross-Project Distillation distills the patterns GPT helped discover across projects
+
+  Best for: API-based GPT usage where you control the system prompt.
+  Partial value: ChatGPT Projects (files persist, but no automatic lint gate).
+
+# ── Limitations ────────────────────────────────────────────
+limitations:
+  - "GPT does not read files natively — knowledge must be serialized and injected"
+  - "Context window limits apply: for large projects (>200 wiki pages), use Assistants API with file_search"
+  - "Lint gate is manual (run locally) — no in-context lint feedback loop"
+  - "Session Reflection/Milestone Retrospective require human coordination: GPT can flag candidates but cannot self-trigger evolution"
+  - "ChatGPT Projects re-upload: after Session Reflection/Milestone Retrospective, updated files must be manually re-uploaded"
+
+# ── Roadmap ──────────────────────────────────────────────────
+roadmap:
+  v1_1: "myco export --format system-prompt → serializes MYCO.md hot zone + canon for API injection"
+  v1_2: "myco sync --backend openai-assistant → auto-uploads updated wiki files to vector store"
+  v2_0: "GPT function calling integration: GPT calls myco_immune() and myco_trace() as tools during session"
+
+# ── Notes ────────────────────────────────────────────────────
+notes:
+  - "This adapter is ACTIVE (v1.0). No CLI automation needed for basic usage."
+  - "For serious project work, Mode A (system prompt injection) is most reliable."
+  - "Mode C (Assistants API) is recommended for production agents."
+  - "The system_prompt_template above is a starting point — customize per project."
+  - "Token budget: MYCO.md hot zone (~500 tokens) + _canon.yaml (~300 tokens) is feasible in any modern GPT model."

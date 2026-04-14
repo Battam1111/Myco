@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__myco__*",
+      "Bash(python -m myco*)",
+      "Bash(python -c *myco*)"
+    ]
+  }
+}

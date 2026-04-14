@@ -1,0 +1,43 @@
+name: Publish to PyPI (manual recovery)
+
+# Primary publish path is inline in auto-release.yml (Wave 59 —
+# releases created by GITHUB_TOKEN do not trigger downstream
+# workflows, so a release-event listener never fires on bot releases).
+# This workflow stays only for manual recovery:
+#   - A release was drafted manually in the UI (event fires normally).
+#   - An earlier release was created but publish failed; re-run via
+#     workflow_dispatch with the tag.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to publish (e.g. v0.6.0). Leave empty to use the latest release.'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write  # trusted publishing
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.event.release.tag_name || github.ref }}
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install build tools
+        run: pip install --upgrade build
+      - name: Build package
+        run: python -m build
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1

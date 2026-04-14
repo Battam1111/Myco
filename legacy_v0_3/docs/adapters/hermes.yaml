@@ -1,0 +1,65 @@
+# Myco Adapter: Hermes Agent
+# ============================================================
+# Bridges Hermes Agent's skill library into Myco's evolution cycle.
+# Hermes stores skills as SKILL.md files in ~/.hermes/skills/
+# Myco receives them as wiki pages or operational narratives.
+#
+# The key transformation:
+#   Hermes gives your skills immortality (they never get questioned).
+#   Myco gives your skills a lifespan (Session Reflection reviews usage, Milestone Retrospective questions assumptions).
+#
+# Version: 0.1 | Status: Manual protocol (CLI in v1.0)
+
+name: "Hermes Agent"
+version: "0.1"
+description: |
+  Import Hermes Agent skill files into Myco's evolution cycle.
+  Skills become mortal: Session Reflection flags unused skills, Milestone Retrospective questions
+  whether the skill's underlying approach still holds.
+
+source_type: "skill_directory"    # ~/.hermes/skills/*.md
+integration_type: "content_import"
+target_layer: "L1.5_wiki_or_L2_docs"
+
+# ── Import Steps (v0.x Manual Protocol) ─────────────────────
+import_steps:
+  1: "Select the 3-5 most-used Hermes skills (don't batch-import all — curate first)"
+  2: "Classify each skill: procedural (how-to) → wiki/{skill_name}.md | operational (failure paths) → docs/operational_narratives.md (append)"
+  3: "For wiki imports: add W8 header (type: operations | date: today) and Back-to footer"
+  4: "For operational_narratives imports: follow the P-NNN format (trigger → pre-check → steps → known pitfalls → verification)"
+  5: "Run: myco immune --project-dir . to verify W8 format compliance and reference integrity"
+  6: "Update _canon.yaml wiki_pages count if new wiki pages were created"
+  7: "Add a log entry: [YYYY-MM-DD] milestone | Imported N Hermes skills: {skill names}"
+
+# ── File Mapping ─────────────────────────────────────────────
+layer_mapping:
+  "SKILL.md (procedural, step-by-step)": "wiki/{skill_name}.md"
+  "SKILL.md (operational, failure-heavy)": "docs/operational_narratives.md (append as P-NNN)"
+  "MEMORY.md (Hermes context)": "MYCO.md §Hot Zone (merge relevant lines, max 5)"
+
+# ── Lint Checks After Import ──────────────────────────────────
+lint_checks:
+  - "All imported wiki pages have W8 header (type + date) and Back-to footer"
+  - "No broken cross-references introduced"
+  - "_canon.yaml wiki_pages count matches actual wiki/ file count"
+  - "operational_narratives.md P-NNN entries follow trigger→steps→pitfalls format"
+
+# ── What You Get ─────────────────────────────────────────────
+value_proposition: |
+  Hermes skills: immortal (never reviewed, never retired, may conflict silently)
+  Myco skills:   metabolized (Session Reflection flags if unused for 30+ days, Milestone Retrospective questions
+                 whether the approach still holds, Cross-Project Distillation distills universal patterns)
+
+  The integration is asymmetric: you bring Hermes skills in, but Myco's
+  evolution engine decides which ones survive.
+
+# ── Roadmap ──────────────────────────────────────────────────
+roadmap:
+  v1_0: "myco assimilate --from hermes ./skills/ → auto-classify, auto-format, auto-lint"
+  v2_0: "Bi-directional sync: Myco can push refined skills back to Hermes format"
+
+# ── Notes ────────────────────────────────────────────────────
+notes:
+  - "Hermes MEMORY.md (3575 char limit) → don't import wholesale into MYCO.md. Extract only the 1-3 most project-relevant lines."
+  - "Hermes USER.md (persona) → skip. Myco doesn't use user persona files."
+  - "Hermes SQLite session store → skip. Myco doesn't import session history (that's L0 Archive territory)."
