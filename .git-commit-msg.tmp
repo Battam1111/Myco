@@ -1,19 +1,14 @@
-refactor: substrate identity upgrade + Wave archival + terminology sweep
+rename: myco-knowledge-system plugin to myco + sync READMEs
 
-- wiki/identity.md: rewrite as Agent-First Symbiotic Cognitive Substrate;
-  add four structural features: autopoiesis, selective permeability,
-  temporal organization, co-evolutionary niche; evolution arc uses
-  version numbers instead of Wave NN.
-- docs/vision.md: substrate terminology, 26 dimension count, reference
-  substrate_identity_upgrade_craft.
-- docs/primordia/substrate_identity_upgrade_craft_2026-04-14.md: new
-  craft doc introducing the four substrate features.
-- docs/archive/wave_lineage.md: archive Wave 1-58 grouped into four
-  phases (Foundation, Contract, Metabolism, Structural Intelligence)
-  plus Substrate Upgrade as the current phase.
-- MYCO.md: substrate identity anchor, simplified Wave tags to version
-  numbers, substrate upgrade anchor added.
-- docs/theory.md, evolution_engine.md, agent_protocol.md: substrate
-  term + strip Wave NN from section titles.
-- src/myco/immune.py: simplify docstring Wave tags to version tags.
-- wiki/architecture-decisions.md: 23 to 26 dimension count sync.
+- README.md: em-dash cleanup, plugin rename to myco.plugin.
+- README_zh.md: add missing Cowork plugin paragraph, em-dash cleanup,
+  plugin rename.
+- README_ja.md: add missing Cowork plugin paragraph, em-dash cleanup,
+  plugin rename.
+- docs/agent_protocol.md: MCP tool prefix updated to
+  mcp__plugin_myco_myco__*, plugin name updated to myco.plugin.
+- src/myco/seed_cmd.py: seed completion message updated to myco.plugin.
+- remove stray .git-commit-msg.tmp from previous commit.
+
+All three README trilogy versions are now in sync: same sections,
+same Cowork plugin guidance, same em-dash-free style.
