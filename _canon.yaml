@@ -657,6 +657,7 @@ system:
     # examples/ removed — no example projects needed
     - assets/                # images / branding
     - dist/                  # build output (ephemeral; recreated by hatchling)
+    - plugin/                 # Cowork/Claude Code plugin bundle (myco-v*.plugin)
     # --- Standard repo files ---
     - README.md
     - README_zh.md
