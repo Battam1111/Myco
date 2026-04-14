@@ -10,13 +10,16 @@
 ## Purpose
 
 `_canon.yaml` is the **single source of truth** for every number, name,
-path, and contract version that L2/L3/L4 cite. When a wiki page says
-"test_count: 600", the 600 comes from canon, not from the wiki. When the
-immune kernel computes exit codes, category mappings come from canon, not
-from a hard-coded table.
+path, and contract version that L2/L3/L4 cite. It is consumed by the
+agent and by tooling on the agent's behalf (L0 principle 1). It is not a
+human-readable document.
 
-The pre-rewrite canon (745 lines) violated this: it grew into a general
-configuration dump with narrative comments, wave logs, and
+Per L0 principle 2 (永恒吞噬), the substrate has no project boundary —
+`identity.tags` is free-form and non-exclusive. Per L0 principle 3
+(永恒进化), the schema itself may evolve; `schema_version` tracks that.
+
+The pre-rewrite canon (745 lines) violated SSoT discipline: it grew into
+a general configuration dump with narrative comments, wave logs, and
 subsystem-specific state. The v0.4.0 canon is SSoT-only.
 
 ## Top-level shape
@@ -27,10 +30,13 @@ schema_version: "1"                # bumps on structural schema change
 contract_version: "v0.4.0"         # must match L1 protocol.md
 synced_contract_version: "v0.4.0"  # updated by `myco reflect`
 
-identity:                          # who this substrate belongs to
-  project: "<name>"                # e.g. "myco", "ascc"
-  steward: "<human name>"
-  entry_point: "MYCO.md"           # or "CLAUDE.md" for downstream projects
+identity:                          # substrate self-identification
+  substrate_id: "<slug>"           # globally unique; e.g. "myco-self", "ascc-research"
+  tags: ["<domain>", ...]          # free-form affiliations (project names, domains); NOT boundaries
+  entry_point: "MYCO.md"           # agent-entry file (CLAUDE.md in symbiont substrates)
+  # NOTE: no "steward" or "owner" field. Governance (craft approval) is
+  # external to the substrate and is not modeled here. Humans do not
+  # consume this file (L0 principle 1: 人类无感知).
 
 system:
   write_surface:

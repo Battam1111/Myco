@@ -1,7 +1,12 @@
 # Myco Architecture — v0.4.0 Rewrite
 
 > **Status**: top-down design APPROVED 2026-04-15. Implementation in progress.
-> **Governing craft**: `docs/primordia/greenfield_rewrite_craft_2026-04-15.md` (§9 decisions).
+> **Audience**: the **agent**. Per L0 principle 1 (Only For Agent —
+> 人类无感知), these pages are authored for agent consumption. Humans may
+> read them to approve craft-doc changes, but are not the design target.
+> **Governing crafts**:
+> - `docs/primordia/greenfield_rewrite_craft_2026-04-15.md` (§9 approved decisions)
+> - `docs/primordia/l0_identity_revision_craft_2026-04-15.md` (L0 revised to five root principles)
 
 This directory is the **authoritative architecture**. Every layer is
 subordinate to the layer above it. In any conflict, the upper layer wins.
@@ -18,7 +23,8 @@ subordinate to the layer above it. In any conflict, the upper layer wins.
 
 ## Reading order (new agent)
 
-1. `L0_VISION.md` — one paragraph; sets identity.
+1. `L0_VISION.md` — five root principles (Only For Agent / 永恒吞噬 /
+   永恒进化 / 永恒迭代 / 万物互联) + three derived invariants.
 2. `L1_CONTRACT/protocol.md` — seven rules you must follow.
 3. `L1_CONTRACT/exit_codes.md` — when commands succeed and fail.
 4. `L2_DOCTRINE/*.md` — the five subsystems in this order:

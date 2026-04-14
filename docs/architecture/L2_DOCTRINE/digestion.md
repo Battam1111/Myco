@@ -12,25 +12,32 @@
 
 Digestion owns the transformation pipeline: **raw notes → integrated,
 structured, cross-referenced knowledge**. It is the metabolic engine of
-the substrate.
+the substrate and the subsystem that realizes L0 principles 3 and 4
+(永恒进化 + 永恒迭代) — the continuous reshape of substrate content.
 
-The pipeline is strictly directional. A note moves forward through stages;
-it does not reverse. Stages are named biologically and are load-bearing.
+The pipeline stages are named biologically and are load-bearing. Forward
+flow is the default; retro-editing an already-integrated note is
+allowed when a later session sharpens prior context (principle 4:
+eternal iteration — "final" is not a status).
 
 ## Stages
 
 ```
 raw  →  digesting  →  integrated  →  distilled
+              ↑_______________↓        ↑
+              re-digest allowed        shape-change allowed
+              (principle 4)            (principle 3)
 ```
 
 - **raw**: as captured by `myco eat`. Owned by Ingestion before digest.
 - **digesting**: claimed by a `myco reflect` invocation. Short-lived.
 - **integrated**: finalized as an `n_*.md` note with frontmatter
   `status: integrated`, cross-referenced to canon, doctrine, and sibling
-  notes.
+  notes. **Not** terminal — a later session may re-digest it when
+  context sharpens.
 - **distilled**: rare; a group of integrated notes whose shared insight
   has been lifted into an L2 doctrine doc or a new `_canon.yaml` field.
-  Distilled notes are marked `status: distilled` and retained as history.
+  Distillation is the engine of substrate-shape evolution (principle 3).
 
 ## Boundary
 
