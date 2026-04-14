@@ -8,4 +8,4 @@ The ``.dev`` suffix is carried throughout Stage A and Stage B and is
 dropped to ``"0.4.0"`` at the Stage C release commit.
 """
 
-__version__ = "0.4.0.dev"
+__version__ = "0.4.0"
