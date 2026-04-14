@@ -1,0 +1,74 @@
+"""Tests for ``myco.ingestion.forage``."""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+
+from myco.core.context import MycoContext
+from myco.core.errors import UsageError
+from myco.ingestion.forage import list_candidates, run
+
+
+def _mk_ctx(root: Path) -> MycoContext:
+    return MycoContext.for_testing(root=root)
+
+
+def test_list_candidates_filters_by_suffix(tmp_path: Path) -> None:
+    (tmp_path / "a.md").write_text("# x", encoding="utf-8")
+    (tmp_path / "b.txt").write_text("x", encoding="utf-8")
+    (tmp_path / "c.bin").write_bytes(b"\x00\x01")
+    (tmp_path / "d.py").write_text("print()", encoding="utf-8")
+    items = list_candidates(target_dir=tmp_path)
+    suffixes = {it.suffix for it in items}
+    assert ".md" in suffixes
+    assert ".txt" in suffixes
+    assert ".bin" not in suffixes
+    assert ".py" not in suffixes
+
+
+def test_list_candidates_recurses(tmp_path: Path) -> None:
+    (tmp_path / "sub").mkdir()
+    (tmp_path / "sub" / "deep.md").write_text("x", encoding="utf-8")
+    items = list_candidates(target_dir=tmp_path)
+    assert any("deep.md" in it.path for it in items)
+
+
+def test_list_candidates_rejects_missing_dir(tmp_path: Path) -> None:
+    with pytest.raises(UsageError, match="does not exist"):
+        list_candidates(target_dir=tmp_path / "nope")
+
+
+def test_list_candidates_rejects_file(tmp_path: Path) -> None:
+    f = tmp_path / "f.md"
+    f.write_text("x", encoding="utf-8")
+    with pytest.raises(UsageError, match="not a directory"):
+        list_candidates(target_dir=f)
+
+
+def test_run_default_target_is_substrate_root(genesis_substrate: Path) -> None:
+    ctx = _mk_ctx(genesis_substrate)
+    result = run({}, ctx=ctx)
+    assert result.exit_code == 0
+    assert result.payload["target"] == str(genesis_substrate.resolve())
+    # MYCO.md and _canon.yaml should be discoverable.
+    paths = [it["path"] for it in result.payload["items"]]
+    assert any("MYCO.md" in p for p in paths)
+    assert any("_canon.yaml" in p for p in paths)
+
+
+def test_run_with_explicit_path(tmp_path: Path, genesis_substrate: Path) -> None:
+    ext = tmp_path / "external"
+    ext.mkdir()
+    (ext / "a.md").write_text("x", encoding="utf-8")
+    ctx = _mk_ctx(genesis_substrate)
+    result = run({"path": str(ext)}, ctx=ctx)
+    assert result.payload["target"] == str(ext.resolve())
+    assert len(result.payload["items"]) == 1
+
+
+def test_digest_on_read_not_implemented(genesis_substrate: Path) -> None:
+    ctx = _mk_ctx(genesis_substrate)
+    with pytest.raises(NotImplementedError, match="Stage B.5"):
+        run({"digest_on_read": True}, ctx=ctx)
