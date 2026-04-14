@@ -37,7 +37,7 @@
 > **Disambiguation**: Myco is **not** a memory layer (Mem0/Zep), **not** an agent runtime (Hermes/LangGraph), **not** a skill framework (PUA/nuwa), **not** infrastructure. It is an autopoietic substrate, a co-evolutionary niche none of those provide, the other half that makes an agent complete.
 
 **⚠️ 外传易错反模式**（对外起草任何文案 / Show HN title / marketing hero 前必读）：
-把 Myco 说成 "agent memory substrate"、"persistent memory for agents"、"memory + self-evolving" ——**都直接踩进 Disambiguation 里第一个被否认的赛道（Mem0/Zep）**。正确做法：永远用 "Agent-First symbiotic cognitive substrate" / "your agent's other half" 打破默认分类，再用 "CPU vs memory-immune-metabolism-self-model" 的类比建立新心智模型。四词（Agent-First / Symbiotic / Cognitive / Substrate）缺一必错。记录：`notes/n_20260414T233127_b8bb.md`，craft：`docs/primordia/myco_identity_definitive_craft_2026-04-12.md`。
+把 Myco 说成 "agent memory substrate"、"persistent memory for agents"、"memory + self-evolving" ——**都直接踩进 Disambiguation 里第一个被否认的赛道（Mem0/Zep）**。正确做法：永远用 "Agent-First symbiotic cognitive substrate" / "your agent's other half" 打破默认分类，再用 "CPU vs memory-immune-metabolism-self-model" 的类比建立新心智模型。四词（Agent-First / Symbiotic / Cognitive / Substrate）缺一必错。craft 参考：`docs/primordia/myco_identity_definitive_craft_2026-04-12.md`。
 
 **🧭 身份锚点**（抗漂移——每次上下文压缩后 agent 必须重读）：
 
