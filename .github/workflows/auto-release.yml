@@ -25,9 +25,17 @@ on:
 
 permissions:
   contents: write
+  # id-token:write enables PyPI trusted publishing in the same job —
+  # we previously had a separate publish.yml listening to `release`,
+  # but releases created by GITHUB_TOKEN do NOT trigger downstream
+  # workflows (GitHub recursion guard). This was the root cause of
+  # v0.6.0 being tagged on GitHub but never reaching PyPI
+  # (2026-04-14). Publishing inline here sidesteps the trigger gap.
+  id-token: write
 
 jobs:
   release:
+    environment: pypi
     if: "!contains(github.event.head_commit.message, 'chore(release):')"
     runs-on: ubuntu-latest
     steps:
@@ -43,23 +51,26 @@ jobs:
 
       - name: Determine bump level
         id: bump
-        # Conservative policy (2026-04-14): feat: alone only bumps patch —
-        # we were churning through minors (0.3.1 -> 0.4.0 -> 0.5.0 in one
-        # afternoon). Minor bumps now require an explicit `minor:` prefix
-        # OR `MINOR-RELEASE` in the commit body. Major still requires
-        # `feat!:` / `BREAKING:`. Use workflow_dispatch force_bump for ad-hoc.
+        # Ultra-conservative policy (2026-04-14, user directive):
+        # commit messages NEVER trigger minor or major bumps automatically —
+        # every auto-release is a patch. Minor/major bumps only via
+        # workflow_dispatch `force_bump` input (human-in-the-loop).
+        # Rationale: we were churning through minors (0.5.0 → 0.6.0 in one
+        # session) and lost human oversight over the middle digit. The
+        # middle digit now semantically means "human-approved milestone",
+        # never "another commit landed". Patch-only auto keeps release
+        # cadence real-time while preserving semver signal for humans.
         run: |
           LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
           echo "last_tag=$LAST_TAG" >> $GITHUB_OUTPUT
           COMMITS=$(git log ${LAST_TAG}..HEAD --pretty=format:"%s")
-          BODIES=$(git log ${LAST_TAG}..HEAD --pretty=format:"%B")
           if [ -n "${{ inputs.force_bump }}" ]; then
+            # Manual dispatch — honor whatever the human selected.
             LEVEL="${{ inputs.force_bump }}"
-          elif echo "$COMMITS" | grep -qE "^(BREAKING:|feat!:)"; then
-            LEVEL="major"
-          elif echo "$COMMITS" | grep -qE "^minor:" || echo "$BODIES" | grep -q "MINOR-RELEASE"; then
-            LEVEL="minor"
-          elif echo "$COMMITS" | grep -qE "^(feat:|fix:|docs:|refactor:|perf:|chore:|test:)"; then
+          elif echo "$COMMITS" | grep -qE "^(feat!:|BREAKING:|feat:|fix:|docs:|refactor:|perf:|chore:|test:|minor:|style:|build:|ci:|revert:)"; then
+            # Every conventional-commit variant → patch. No exceptions on
+            # the auto path. `feat!:` / `minor:` still bump, but only the
+            # last digit; they do NOT promote to major/minor automatically.
             LEVEL="patch"
           else
             LEVEL="none"
@@ -109,3 +120,13 @@ jobs:
           gh release create "v${{ steps.version.outputs.new }}" \
             --title "v${{ steps.version.outputs.new }}" \
             --notes "$NOTES"
+
+      - name: Build distribution
+        if: steps.bump.outputs.level != 'none'
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build
+
+      - name: Publish to PyPI (trusted publishing)
+        if: steps.bump.outputs.level != 'none'
+        uses: pypa/gh-action-pypi-publish@release/v1
