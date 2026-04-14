@@ -59,14 +59,11 @@ Thumbs.db
 /.claude/*
 !/.claude/hooks/
 !/.claude/settings.local.json
-# legacy_v0_3/.claude/ was excluded under the old `.claude/` rule; keep
-# it excluded under the new anchored form.
-legacy_v0_3/.claude/
-
-# Pre-rewrite marketing/ was gitignored in v0.3 and is now present inside
-# legacy_v0_3/ only for reference. Keep it untracked — legacy_v0_3/ is
-# scheduled for deletion at Stage C.
-legacy_v0_3/marketing/
+# Pre-rewrite tree. C.4 deleted it from git, but belt-and-suspenders:
+# a top-level ignore rule means that even if a stray copy of the
+# directory reappears in the working tree (restored backup, mount-point
+# ghost, etc.), `git add` will refuse to re-stage it.
+legacy_v0_3/
 
 # Myco runtime substrate state (generated at runtime, not source of truth).
 # The `.myco_state/` directory itself does not exist until Stage C; this

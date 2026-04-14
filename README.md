@@ -1,86 +1,109 @@
-# Myco — v0.4.0 Greenfield Rewrite (in progress)
+<p align="center">
+  <a href="https://github.com/Battam1111/Myco">
+    <img src="https://raw.githubusercontent.com/Battam1111/Myco/main/assets/logo_light_512.png" width="160" alt="Myco">
+  </a>
+</p>
 
-> **Audience**: the LLM agent. Per L0 principle 1 (Only For Agent —
-> 人类无感知), this repository's interior surfaces are authored for agent
-> consumption.
+<h1 align="center">Myco</h1>
+
+<p align="center"><b>Devour everything. Evolve forever. You just talk.</b></p>
+
+<p align="center">
+  <a href="https://pypi.org/project/myco/"><img src="https://img.shields.io/pypi/v/myco?style=flat&cache_seconds=0" alt="PyPI"></a>
+  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.10+-blue?style=flat" alt="Python"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=flat" alt="License"></a>
+  <a href="https://github.com/Battam1111/Myco"><img src="https://img.shields.io/github/stars/Battam1111/Myco?style=flat" alt="Stars"></a>
+</p>
+
+<p align="center">
+  <a href="#quick-start">Quick Start</a> · <a href="#daily-flow">Daily Flow</a> · <a href="#architecture">Architecture</a> · <a href="#integrations">Integrations</a>
+</p>
+
+<p align="center">
+  <b>Languages:</b> English · <a href="README_zh.md">中文</a> · <a href="README_ja.md">日本語</a>
+</p>
 
 ---
 
-## Current state
+LangChain. LangGraph. CrewAI. DSPy. Hermes. Every month a new framework promises to be the one. You spend more time picking tools than building with them.
 
-Myco is mid-rewrite. The pre-rewrite kernel, substrate, tests, docs,
-wiki, and all other v0.3 content have been quarantined into
-[`legacy_v0_3/`](./legacy_v0_3/) so they do not influence the rewrite.
-Only the new top-down architecture, its governing crafts, and the
-Stage A+ build surface live at the top level.
+And it's not just frameworks. Papers, APIs, best practices — everything refreshes daily. Your note app has 500 entries. Last organized: three months ago, maybe longer. Those carefully written notes? They're rotting. That API from three weeks back? Version changed. **Nothing is checking for you.**
+
+Your AI doesn't remember last week's decisions either. Every new conversation, back to zero.
+
+<br>
+
+Now imagine you just talk. No organizing, no comparing frameworks, no re-explaining your project. Six months later your AI is sharper than anyone's — it devoured the latest work in your field on its own, found its own blind spots, threw out what stopped being true, and rewrote its own operating rules when they weren't good enough.
+
+<h3 align="center">This is Myco.</h3>
+
+---
+
+## What it is
+
+Myco is an **Agent-First symbiotic cognitive substrate** — your agent's other half. Not a memory layer, not an agent runtime, not a skill framework. An **autopoietic substrate**: the agent brings intelligence; Myco brings memory, immunity, metabolism, self-model, and its own evolution. Neither is whole without the other.
+
+> **v0.4.0 — Greenfield Rewrite.** Every verb, every dimension, every contract surface re-authored from L0. Upgrading from v0.3.x: see [`CHANGELOG.md`](CHANGELOG.md) and [`scripts/migrate_ascc_substrate.py`](scripts/migrate_ascc_substrate.py).
+
+## Quick Start
+
+```bash
+pip install myco
+
+cd /path/to/your/project
+myco genesis . --substrate-id my-project
+```
+
+For **Claude Code / Cowork**, copy this repo's `.claude/` folder into your project — SessionStart fires `myco hunger`, PreCompact fires `myco session-end`. Zero manual ceremony.
+
+For **any MCP host** (Cursor, Continue, Zed, …), Myco ships a manifest-driven MCP server:
+
+```python
+from myco.surface.mcp import build_server
+build_server().run()          # requires `pip install mcp`
+```
+
+A `python -m myco.mcp` launcher, a `[mcp]` extras target, and an official `.plugin` bundle ship in **v0.4.1**.
+
+## Daily Flow
+
+Your agent drives it; you don't memorize anything. The 12 verbs group into 5 subsystems:
+
+| Subsystem | Verbs | What happens |
+|---|---|---|
+| **Genesis** | `genesis` | Bootstrap a fresh substrate. |
+| **Ingestion** | `hunger` · `sense` · `forage` · `eat` | What the substrate needs; keyword search; list ingestibles; capture a raw note. |
+| **Digestion** | `reflect` · `digest` · `distill` | Promote raw → integrated; distill integrated → doctrine. |
+| **Circulation** | `perfuse` · `propagate` | Graph health; publish to downstream substrates. |
+| **Homeostasis** | `immune` | Eight-dimension lint across 4 categories (`--fix` available). |
+| *(meta)* | `session-end` | `reflect` + `immune --fix`; auto-fired by PreCompact. |
+
+CLI: `myco VERB` — global flags (`--project-dir`, `--json`, `--exit-on`) go **before** the verb. MCP: one tool per verb, derived mechanically from `src/myco/surface/manifest.yaml` (the shared SSoT).
+
+## Architecture
 
 ```
-/
-├── docs/
-│   ├── architecture/          # L0-L3 authoritative design (start here)
-│   └── primordia/             # Governing craft docs
-├── src/myco/                  # reborn Myco — THE myco (no v4 suffix)
-├── tests/                     # unit + integration tests for the new kernel
-├── pyproject.toml             # fresh build config (hatchling dynamic version)
-├── legacy_v0_3/               # Frozen pre-rewrite snapshot (to be deleted at v0.4.0)
-├── CHANGELOG.md
-├── LICENSE
-├── README.md
-└── .git/
+You ──▶ Agent ──▶ Myco substrate
+                    ├── _canon.yaml        SSoT: identity · write-surface · lint policy
+                    ├── MYCO.md            agent entry page (R1)
+                    ├── notes/{raw,integrated,distilled}/
+                    ├── docs/architecture/ L0 vision · L1 contract · L2 doctrine · L3 impl
+                    ├── src/myco/          genesis · ingestion · digestion · circulation · homeostasis · surface
+                    └── .claude/hooks/     SessionStart → hunger · PreCompact → session-end
 ```
 
-The `_canon.yaml` substrate and `MYCO.md` agent entry page do **not**
-yet exist at the root; they are authored fresh at Stage C.
+Three roles — **you** set direction, **agent** brings intelligence, **Myco** brings memory and continuity. Seven hard rules (R1–R7) enforced partly by hooks, partly by the immune system, partly by agent discipline. Full contract: [`L1_CONTRACT/protocol.md`](docs/architecture/L1_CONTRACT/protocol.md).
 
-## For the agent
+## Integrations
 
-Read, in order:
+- **Claude Code / Cowork** — drop in `.claude/`, done. Official `.plugin` bundle in v0.4.1.
+- **Any MCP host** — wire `myco.surface.mcp:build_server()` into the host's config.
+- **Downstream substrates** — `myco propagate` publishes; adapters live in `myco.symbionts`.
 
-1. [`docs/architecture/L0_VISION.md`](./docs/architecture/L0_VISION.md) —
-   five root principles (Only For Agent / 永恒吞噬 / 永恒进化 / 永恒迭代 /
-   万物互联).
-2. [`docs/architecture/L1_CONTRACT/`](./docs/architecture/L1_CONTRACT/) —
-   seven hard rules, versioning, exit codes, canon schema.
-3. [`docs/architecture/L2_DOCTRINE/`](./docs/architecture/L2_DOCTRINE/) —
-   five subsystems (Genesis / Ingestion / Digestion / Circulation /
-   Homeostasis).
-4. [`docs/architecture/L3_IMPLEMENTATION/`](./docs/architecture/L3_IMPLEMENTATION/) —
-   package map, command manifest, migration strategy.
-5. [`docs/primordia/greenfield_rewrite_craft_2026-04-15.md`](./docs/primordia/greenfield_rewrite_craft_2026-04-15.md) —
-   the approved greenfield charter (§9 decisions are binding).
-6. [`docs/primordia/l0_identity_revision_craft_2026-04-15.md`](./docs/primordia/l0_identity_revision_craft_2026-04-15.md) —
-   the L0 identity revision (five root principles).
+## Learn more
 
-## What's in `legacy_v0_3/`
+[`L0_VISION.md`](docs/architecture/L0_VISION.md) · [`L1_CONTRACT/`](docs/architecture/L1_CONTRACT/) · [`L2_DOCTRINE/`](docs/architecture/L2_DOCTRINE/) · [`CONTRIBUTING.md`](CONTRIBUTING.md) *(v0.4.1)* · [Issues](https://github.com/Battam1111/Myco/issues)
 
-Everything the pre-rewrite Myco shipped — `src/myco/` v0.3 kernel, the
-old `MYCO.md` / `CLAUDE.md` / READMEs, the old `_canon.yaml`, every
-`notes/` and `wiki/` entry, every old craft doc, CI workflows, plugin
-bundle, and assets. **None of it is referenced by the new architecture.**
-It exists only so that:
+Contributing: `pip install -e ".[dev]"`; architectural changes land as dated craft docs under [`docs/primordia/`](docs/primordia/).
 
-- The history tag `v0.3.4-final` remains reviewable on disk (not just in
-  git history) while the rewrite is in progress.
-- The ASCC migration script (Stage C) has a local reference when it
-  translates old substrate fields into the new schema.
-- If a specific well-defined piece of v0.3 logic turns out to be worth
-  re-authoring under v0.4 doctrine, the agent can read it — NOT port it
-  verbatim.
-
-The pre-rewrite directory will be **deleted** at the v0.4.0 release
-commit (Stage C). Nothing inside it is a dependency of the rewrite.
-
-## Upcoming work (per migration strategy)
-
-The plan is laid out in
-[`docs/architecture/L3_IMPLEMENTATION/migration_strategy.md`](./docs/architecture/L3_IMPLEMENTATION/migration_strategy.md):
-
-- **Stage A** — scaffold `src/myco/` and `tests/` directly. No v4
-  marker, no staging path — this IS the reborn Myco itself.
-- **Stage B** — build the eight packages top-down (core → homeostasis
-  kernel → genesis → ingestion → digestion → circulation → surface →
-  dimensions).
-- **Stage C** — fresh `_canon.yaml` + `MYCO.md`, ASCC migration
-  script, delete `legacy_v0_3/`, tag `v0.4.0`.
-
-Nothing is pushed to origin until v0.4.0 AND separate owner approval.
+MIT · [`LICENSE`](LICENSE) · [PyPI](https://pypi.org/project/myco/) · [Releases](https://github.com/Battam1111/Myco/releases)
