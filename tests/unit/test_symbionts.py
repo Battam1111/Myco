@@ -1,4 +1,4 @@
-"""Tests for myco.hosts — host environment detection and hook checking."""
+"""Tests for myco.symbionts — host environment detection and hook checking."""
 
 import os
 from pathlib import Path
@@ -6,12 +6,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from myco.hosts import (
+from myco.symbionts import (
     check_all_hooks,
-    detect_active_host,
+    detect_active_symbiont,
     effective_hook_level,
 )
-from myco.hosts import cowork, claude_code, cursor, vscode
+from myco.symbionts import cowork, claude_code, cursor, vscode
 
 
 class TestDetectActiveHost:
@@ -20,42 +20,42 @@ class TestDetectActiveHost:
     def test_detect_cowork_from_env(self, monkeypatch):
         """Detect Cowork from COWORK_SESSION env var."""
         monkeypatch.setenv("COWORK_SESSION", "test-session")
-        assert detect_active_host() == "cowork"
+        assert detect_active_symbiont() == "cowork"
 
     def test_detect_cowork_from_path(self, tmp_path, monkeypatch):
         """Detect Cowork from /sessions/ path prefix."""
         # Mock cwd to return a /sessions/ path
         with patch("pathlib.Path.cwd") as mock_cwd:
             mock_cwd.return_value = Path("/sessions/test-session/mnt/Myco")
-            assert detect_active_host() == "cowork"
+            assert detect_active_symbiont() == "cowork"
 
     def test_detect_claude_code(self, tmp_path, monkeypatch):
         """Detect Claude Code from .claude/ directory."""
         monkeypatch.chdir(tmp_path)
         (tmp_path / ".claude").mkdir()
-        assert detect_active_host() == "claude_code"
+        assert detect_active_symbiont() == "claude_code"
 
     def test_detect_cursor_from_env(self, monkeypatch):
         """Detect Cursor from CURSOR_SESSION env var."""
         monkeypatch.setenv("CURSOR_SESSION", "test")
-        assert detect_active_host() == "cursor"
+        assert detect_active_symbiont() == "cursor"
 
     def test_detect_cursor_from_dir(self, tmp_path, monkeypatch):
         """Detect Cursor from .cursor/ directory."""
         monkeypatch.chdir(tmp_path)
         (tmp_path / ".cursor").mkdir()
-        assert detect_active_host() == "cursor"
+        assert detect_active_symbiont() == "cursor"
 
     def test_detect_vscode(self, tmp_path, monkeypatch):
         """Detect VS Code from .vscode/ directory."""
         monkeypatch.chdir(tmp_path)
         (tmp_path / ".vscode").mkdir()
-        assert detect_active_host() == "vscode"
+        assert detect_active_symbiont() == "vscode"
 
     def test_detect_none(self, tmp_path, monkeypatch):
         """Return None when no host detected."""
         monkeypatch.chdir(tmp_path)
-        assert detect_active_host() is None
+        assert detect_active_symbiont() is None
 
 
 class TestEffectiveHookLevel:
@@ -63,31 +63,31 @@ class TestEffectiveHookLevel:
 
     def test_cowork_native(self, tmp_path):
         """Cowork has native hooks."""
-        with patch("myco.hosts.detect_active_host", return_value="cowork"):
+        with patch("myco.symbionts.detect_active_symbiont", return_value="cowork"):
             level = effective_hook_level(tmp_path)
             assert level == "native"
 
     def test_claude_code_native(self, tmp_path):
         """Claude Code has native hooks."""
-        with patch("myco.hosts.detect_active_host", return_value="claude_code"):
+        with patch("myco.symbionts.detect_active_symbiont", return_value="claude_code"):
             level = effective_hook_level(tmp_path)
             assert level == "native"
 
     def test_cursor_native(self, tmp_path):
         """Cursor has native hooks."""
-        with patch("myco.hosts.detect_active_host", return_value="cursor"):
+        with patch("myco.symbionts.detect_active_symbiont", return_value="cursor"):
             level = effective_hook_level(tmp_path)
             assert level == "native"
 
     def test_vscode_protocol(self, tmp_path):
         """VS Code degrades to protocol."""
-        with patch("myco.hosts.detect_active_host", return_value="vscode"):
+        with patch("myco.symbionts.detect_active_symbiont", return_value="vscode"):
             level = effective_hook_level(tmp_path)
             assert level == "protocol"
 
     def test_unknown_protocol(self, tmp_path):
         """Unknown host degrades to protocol."""
-        with patch("myco.hosts.detect_active_host", return_value=None):
+        with patch("myco.symbionts.detect_active_symbiont", return_value=None):
             level = effective_hook_level(tmp_path)
             assert level == "protocol"
 
@@ -127,19 +127,62 @@ class TestClaudeCodeAdapter:
             assert claude_code.detect() is True
 
     def test_check_hooks_missing_settings(self, tmp_path):
-        """Check hooks when .claude/settings.json missing."""
+        """Check hooks when both settings.local.json and settings.json are missing."""
         state = tmp_path / ".myco_state"
         state.mkdir()
-        # Need to create .claude directory for detection
-        claude_dir = Path.cwd() / ".claude"
         original_cwd = Path.cwd()
         try:
             import os
             os.chdir(tmp_path)
-            tmp_path_cwd = tmp_path / ".claude"
-            tmp_path_cwd.mkdir()
+            (tmp_path / ".claude").mkdir()
             result = claude_code.check_hooks(tmp_path)
-            assert any("settings.json" in issue for issue in result["issues"])
+            assert any("settings" in issue for issue in result["issues"])
+        finally:
+            os.chdir(original_cwd)
+
+    def test_check_hooks_accepts_settings_local_json(self, tmp_path):
+        """settings.local.json with myco hook counts as installed (Cowork default)."""
+        import json
+        import os
+        state = tmp_path / ".myco_state"
+        state.mkdir()
+        claude_dir = tmp_path / ".claude"
+        claude_dir.mkdir()
+        (claude_dir / "settings.local.json").write_text(
+            json.dumps({"hooks": {"SessionStart": [
+                {"hooks": [{"type": "command", "command": "myco hunger --execute"}]}
+            ]}}),
+            encoding="utf-8",
+        )
+        original_cwd = Path.cwd()
+        try:
+            os.chdir(tmp_path)
+            result = claude_code.check_hooks(tmp_path)
+            assert not any("missing myco hook" in issue for issue in result["issues"]), (
+                f"settings.local.json should satisfy hook check, got: {result['issues']}"
+            )
+        finally:
+            os.chdir(original_cwd)
+
+    def test_check_hooks_accepts_settings_json(self, tmp_path):
+        """settings.json with myco hook also counts as installed."""
+        import json
+        import os
+        state = tmp_path / ".myco_state"
+        state.mkdir()
+        claude_dir = tmp_path / ".claude"
+        claude_dir.mkdir()
+        (claude_dir / "settings.json").write_text(
+            json.dumps({"hooks": {"SessionStart": [
+                {"hooks": [{"type": "command", "command": "myco hunger --execute"}]}
+            ]}}),
+            encoding="utf-8",
+        )
+        original_cwd = Path.cwd()
+        try:
+            os.chdir(tmp_path)
+            result = claude_code.check_hooks(tmp_path)
+            assert not any("missing myco hook" in issue for issue in result["issues"])
         finally:
             os.chdir(original_cwd)
 
@@ -195,7 +238,7 @@ class TestCheckAllHooks:
         (state / "boot_brief.md").touch()
 
         result = check_all_hooks(tmp_path)
-        assert "detected_host" in result
+        assert "detected_symbiont" in result
         assert "effective_level" in result
         assert "adapters" in result
         assert "summary" in result

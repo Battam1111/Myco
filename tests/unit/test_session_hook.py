@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from myco.bootstrap import first_contact_seed
+from myco.inoculate import first_contact_seed
 from myco.session_hook import run_session_end, _refresh_boot_brief
 
 

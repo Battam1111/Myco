@@ -11,11 +11,9 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from myco.project import resolve_project_dir
 
-def _project_root(args: Any) -> Path:
-    """Wave A1: delegates to centralized find_project_root."""
-    from myco.project import find_project_root
-    return find_project_root(getattr(args, "project_dir", None), strict=False)
+
 
 
 def run_cohort(args: Any) -> int:
@@ -26,7 +24,7 @@ def run_cohort(args: Any) -> int:
         tag_cooccurrence,
     )
 
-    root = _project_root(args)
+    root = resolve_project_dir(args, strict=False)
     use_json = getattr(args, "json", False)
     limit = getattr(args, "limit", 20) or 20
     sub = getattr(args, "cohort_subcommand", None)

@@ -9,7 +9,7 @@
 
 ## 0.5 两条入口：CLI 和 MCP 任选其一
 
-Myco 的 19 个工具都有**两套等价入口**，底层共享 `src/myco/notes.py`
+Myco 的 25 个工具都有**两套等价入口**，底层共享 `src/myco/notes.py`
 和 src/myco/immune.py，落盘文件完全一致。
 
 | 能力 | CLI（shell 命令） | MCP tool |
@@ -52,11 +52,11 @@ MCP 设置里加一条即可（一次性，持久生效）。
 
 **Cowork Plugin 打包要点**：
 1. 插件包含 `.mcp.json`（指向 bootstrap wrapper）、`skills/`（agent 协议）、`hooks/`（自动触发）
-2. Bootstrap wrapper（`servers/start-myco.sh`）自动检测挂载的 Myco 源码并 `pip install`，
+2. Bootstrap wrapper（plugin `.mcp.json` 的 command entry）自动检测挂载的 Myco 源码并 `pip install`，
    解决 sandbox 每次重建的问题
 3. `SessionStart` hook 自动触发 `myco_hunger(execute=true)`
 4. `PreCompact` hook 自动触发 `myco_reflect` + `myco_immune`
-5. 插件安装后 19 个 MCP 工具以 `mcp__plugin_myco_myco__*` 形式出现
+5. 插件安装后 25 个 MCP 工具以 `mcp__plugin_myco_myco__*` 形式出现
 
 **对下游项目的建议**（修正）：
 - **Claude Code**：`myco connect` 即可（读取项目级 `.mcp.json`）
@@ -116,7 +116,7 @@ Myco v1.2 Phase ① 引入了消化系统（`eat / digest / view / hunger` + `no
 
 ---
 
-## 2. Tool Protocol — 19 个 MCP 工具的触发条件
+## 2. Tool Protocol — 25 个 MCP 工具的触发条件
 
 每个工具都有 **WHEN to call** 的触发条件列表。如果匹配其中任一条，**必须**调用对应工具，不能用自由写入代替。
 
@@ -349,7 +349,7 @@ Wave 14 (contract v0.13.0) 把这一段从 5 步 prose 改为 **2 步反射弧**
 关闭或调阈值。与 Wave 13 的 HIGH 反射不同，本反射**刻意 LOW** — W5
 （持续进化）是一个 drive，不是 W1 级的 data-loss constraint；过度升级会
 让 agent 学会忽视整个 advisory 列表。见
-`docs/primordia/session_end_reflex_arc_craft_2026-04-11.md §B4`.
+`docs/primordia/archive/session_end_reflex_arc_craft_2026-04-11.md §B4`.
 
 **传统的 5 步流程（仍然有效，但由 hunger 驱动而非记硬背）**：
 `myco_reflect` → `myco_trace` → `myco_hunger` → `myco_immune`（改动 ≥5 文件

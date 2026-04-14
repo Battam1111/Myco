@@ -2,7 +2,7 @@
 
 import pytest
 
-from myco.bootstrap import first_contact_seed
+from myco.inoculate import first_contact_seed
 from myco.transcript_monitor import (
     _classify_chunk,
     ingest_transcript,

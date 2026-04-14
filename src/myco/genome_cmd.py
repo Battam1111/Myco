@@ -16,6 +16,8 @@ Usage:
 
 from pathlib import Path
 
+from myco.io_utils import load_yaml_safe
+
 
 def _find_canon(project_dir: Path) -> Path | None:
     canon = project_dir / "_canon.yaml"
@@ -23,13 +25,7 @@ def _find_canon(project_dir: Path) -> Path | None:
 
 
 def _load_canon(canon_path: Path) -> dict:
-    try:
-        import yaml
-    except ImportError:
-        return {}
-    with open(canon_path, encoding="utf-8") as f:
-        data = yaml.safe_load(f) or {}
-    return data
+    return load_yaml_safe(canon_path)
 
 
 def _save_canon(canon_path: Path, data: dict):

@@ -12,13 +12,11 @@ Authoritative design: plan Waves 47-53 §Wave 48.
 
 from __future__ import annotations
 
-import os
-import re
 from collections import defaultdict
 from datetime import datetime, timezone
 from itertools import combinations
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import yaml
 
@@ -41,7 +39,7 @@ def _load_compression_config(root: Path) -> Dict[str, Any]:
             "ripe_threshold": comp.get("ripe_threshold", defaults["ripe_threshold"]),
             "ripe_age_days": comp.get("ripe_age_days", defaults["ripe_age_days"]),
         }
-    except Exception:
+    except (OSError, AttributeError, TypeError, yaml.YAMLError):
         return defaults
 
 
@@ -76,7 +74,7 @@ def tag_cooccurrence(root: Path) -> List[Tuple[str, str, int]]:
     for path in list_notes(root):
         try:
             meta, _ = read_note(path)
-        except Exception:
+        except (OSError, ValueError, RuntimeError):
             continue
         tags = meta.get("tags", [])
         if not isinstance(tags, list) or len(tags) < 2:
@@ -117,7 +115,7 @@ def compression_cohort_suggest(
     for path in list_notes(root):
         try:
             meta, _ = read_note(path)
-        except Exception:
+        except (OSError, ValueError, RuntimeError):
             continue
         status = meta.get("status", "")
         if status not in ("raw", "digesting"):
@@ -172,7 +170,7 @@ def gap_detection(root: Path) -> List[Dict[str, Any]]:
     for path in list_notes(root):
         try:
             meta, _ = read_note(path)
-        except Exception:
+        except (OSError, ValueError, RuntimeError):
             continue
         status = meta.get("status", "raw")
         tags = meta.get("tags", [])

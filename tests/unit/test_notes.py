@@ -35,7 +35,7 @@ import pytest
 
 from myco import notes
 from myco.notes import MycoProjectNotFound
-from myco.notes_cmd import _project_root
+from myco.project import resolve_project_dir
 
 
 def test_write_note_roundtrip(_isolate_myco_project: Path) -> None:
@@ -166,7 +166,7 @@ def test_project_root_raises_on_nonexistent_path(tmp_path: Path) -> None:
     args = SimpleNamespace(project_dir=str(orphan))
 
     with pytest.raises(MycoProjectNotFound) as excinfo:
-        _project_root(args)
+        resolve_project_dir(args, strict=True)
 
     msg = str(excinfo.value)
     assert "not a Myco project" in msg

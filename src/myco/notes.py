@@ -66,9 +66,9 @@ except ImportError:  # pragma: no cover — yaml is a hard dep elsewhere
 # ---------------------------------------------------------------------------
 
 # Wave A1: MycoProjectNotFound moved to project.py; re-exported here for compat.
-from myco.project import MycoProjectNotFound  # noqa: F401 — public re-export
-
-
+# Use the `X as X` form so static analyzers recognize this as an intentional
+# re-export rather than a dead import.
+from myco.project import MycoProjectNotFound as MycoProjectNotFound
 
 
 def _parse_version_tuple(s: Optional[str]) -> Optional[Tuple[int, int, int]]:
@@ -185,6 +185,20 @@ NOTE_FILENAME_RE = re.compile(
 
 # ISO 8601-ish (we omit timezone for human-friendliness — Myco is single-user).
 _ISO_FMT = "%Y-%m-%dT%H:%M:%S"
+
+def _parse_iso(v: Any) -> Optional[datetime]:
+    """Parse ISO 8601 timestamp string to datetime, None-safe.
+    
+    Handles missing/invalid values gracefully (returns None).
+    Shared helper extracted from multiple locations (notes_cmd, forage.py).
+    """
+    if not v:
+        return None
+    try:
+        return datetime.strptime(str(v), _ISO_FMT)
+    except Exception:
+        return None
+
 
 
 # ---------------------------------------------------------------------------
@@ -720,14 +734,6 @@ def detect_prune_candidates_multipath(
     """
     now = now or datetime.now()
 
-    def _parse_iso(v: Any) -> Optional[datetime]:
-        if not v:
-            return None
-        try:
-            return datetime.strptime(str(v), _ISO_FMT)
-        except Exception:
-            return None
-
     def _count_note_links(note_path: Path, all_notes: List[Path]) -> Tuple[int, int]:
         """Count inbound and outbound links for a single note.
 
@@ -854,14 +860,6 @@ def find_dead_knowledge_notes(
         _, terminal_statuses = _load_dead_config(root)
 
     cutoff = now - timedelta(days=threshold_days)
-
-    def _parse_iso(v: Any) -> Optional[datetime]:
-        if not v:
-            return None
-        try:
-            return datetime.strptime(str(v), _ISO_FMT)
-        except Exception:
-            return None
 
     candidates: List[Tuple[Path, Dict[str, Any], Dict[str, Any]]] = []
     for p in list_notes(root):
@@ -2401,14 +2399,6 @@ def compute_hunger_report(
     dead_notes: List[Dict[str, Any]] = []
     excreted_with_reason = 0
     pure_raw_count = 0
-
-    def _parse_iso(v: Any) -> Optional[datetime]:
-        if not v:
-            return None
-        try:
-            return datetime.strptime(str(v), _ISO_FMT)
-        except Exception:
-            return None
 
     for p in paths:
         try:

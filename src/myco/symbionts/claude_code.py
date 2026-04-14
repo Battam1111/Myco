@@ -12,9 +12,13 @@ def detect() -> bool:
 def check_hooks(root: Path) -> Dict[str, Any]:
     """Check if Claude Code session hooks are installed.
 
-    Looks for .claude/settings.json with myco hook configuration.
-    Returns {session_start: bool, session_end: bool, notes: str, issues: [str]}.
+    Looks for .claude/settings.local.json (preferred, user-local) or
+    .claude/settings.json (shared) with myco hook configuration.
+    Either file satisfying the check counts as installed. Returns
+    {session_start: bool, session_end: bool, notes: str, issues: [str]}.
     """
+    import json
+
     issues = []
 
     claude_dir = Path.cwd() / ".claude"
@@ -28,22 +32,34 @@ def check_hooks(root: Path) -> Dict[str, Any]:
             "issues": issues,
         }
 
-    # Check for settings.json with myco hooks
-    settings_file = claude_dir / "settings.json"
+    # Check both settings.local.json (user-local, gitignored) and
+    # settings.json (shared). Cowork writes to settings.local.json.
+    candidate_files = [
+        claude_dir / "settings.local.json",
+        claude_dir / "settings.json",
+    ]
     has_settings = False
-    if settings_file.exists():
+    read_errors = []
+    for settings_file in candidate_files:
+        if not settings_file.exists():
+            continue
         try:
-            import json
-            with open(settings_file, "r") as f:
+            with open(settings_file, "r", encoding="utf-8") as f:
                 settings = json.load(f)
-            # Simple check: does config reference myco?
             config_str = json.dumps(settings)
-            has_settings = "myco" in config_str.lower()
-        except Exception as e:
-            issues.append(f"failed to read .claude/settings.json: {e}")
+            if "myco" in config_str.lower():
+                has_settings = True
+                break
+        except (OSError, ValueError) as e:
+            read_errors.append(f"failed to read .claude/{settings_file.name}: {e}")
 
     if not has_settings:
-        issues.append(".claude/settings.json missing myco hook configuration")
+        # Only surface read errors when no candidate succeeded.
+        issues.extend(read_errors)
+        issues.append(
+            ".claude/settings.local.json or .claude/settings.json missing "
+            "myco hook configuration"
+        )
 
     # Check .myco_state
     myco_state = root / ".myco_state"

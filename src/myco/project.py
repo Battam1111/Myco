@@ -62,3 +62,26 @@ def find_project_root(
         f"{root}. Did you forget to cd, or pass --project-dir? "
         f"Set MYCO_ALLOW_NO_PROJECT=1 to override (not recommended)."
     )
+
+
+def resolve_project_dir(args, *, strict: bool = True) -> Path:
+    """Resolve project directory from CLI args.
+
+    Wave A1: Centralized wrapper replacing per-command _project_root/_project_dir
+    helpers. Reads args.project_dir (default ".") and passes it through
+    find_project_root(strict=strict), falling back to an absolute path when
+    strict=False and no marker file is found upward.
+
+    Args:
+        args: argparse Namespace with optional project_dir attribute.
+        strict: If True (default), raise MycoProjectNotFound if root not found.
+            If False, return args.project_dir as absolute path silently.
+
+    Returns:
+        Resolved Path to the project root.
+
+    Raises:
+        MycoProjectNotFound: If strict=True and no _canon.yaml found.
+    """
+    hint = getattr(args, "project_dir", None) or "."
+    return find_project_root(hint, strict=strict)

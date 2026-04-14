@@ -43,6 +43,20 @@ def _ensure_utf8() -> None:
 
 def main():
     _ensure_utf8()
+
+    # Wave B2: Auto-setup on first run
+    # Intercept before argparse to avoid blocking help/version
+    if len(sys.argv) > 1 and sys.argv[1] not in ("--help", "-h", "--version"):
+        try:
+            from pathlib import Path
+            from myco.germinate import run_if_first_time
+
+            summary = run_if_first_time(Path.cwd())
+            if summary and summary.get("installed") == "true":
+                print(f"  Myco auto-setup: {summary['host']} ({summary['level']})")
+        except Exception:
+            pass  # Never crash on first-run setup error
+
     parser = argparse.ArgumentParser(
         prog="myco",
         description="Myco — Self-Evolving Knowledge Substrate for AI Agents",
@@ -731,20 +745,19 @@ def main():
         help="Project root (default: current directory)",
     )
 
-    # ── myco doctor (Partition B, G7: Zero-touch Hooks) ────────────────
-    doctor_parser = subparsers.add_parser(
-        "doctor",
-        help="Check session-hook health across hosts (Cowork/Claude Code/Cursor/VS Code)",
+    # ── myco pulse (Wave 56, merged doctor+diagnose) ──────────────────
+    # Rationale: "pulse" invokes organism/symbiont rhythm metaphor.
+    # Consolidates session-hook health + deployment verification into one command.
+    pulse_parser = subparsers.add_parser(
+        "pulse",
+        help="System health and deployment verification",
+        description="Check Myco environment setup, contract adherence, and deployment completeness.",
     )
-    doctor_parser.add_argument(
+    pulse_parser.add_argument(
         "--json", action="store_true",
-        help="Emit machine-readable JSON",
+        help="Output machine-readable JSON",
     )
-    doctor_parser.add_argument(
-        "--fix", action="store_true",
-        help="Attempt auto-remediation of detected issues",
-    )
-    doctor_parser.add_argument(
+    pulse_parser.add_argument(
         "--project-dir", type=str, default=".",
         help="Project root (default: current directory)",
     )
@@ -773,13 +786,6 @@ def main():
     session_end_parser.add_argument(
         "--json", action="store_true", help="Emit machine-readable JSON",
     )
-
-    # ── myco diagnose (deployment health check) ──────────────────────
-    verify_parser = subparsers.add_parser(
-        "diagnose", help="Verify Myco deployment: MCP server, tools, lint, substrate health")
-    verify_parser.add_argument(
-        "--project-dir", type=str, default=".",
-        help="Project directory to verify (default: current dir)")
 
     # ── myco propagate ────────────────────────────────────────────
     propagate_parser = subparsers.add_parser(
@@ -827,9 +833,9 @@ def main():
         print(f"myco {__version__}")
         sys.exit(0)
 
-    if args.command == "diagnose":
-        from myco.diagnose_cmd import run_verify
-        sys.exit(run_verify(args))
+    if args.command == "pulse":
+        from myco.pulse_cmd import run_pulse
+        sys.exit(run_pulse(args))
 
     if args.command == "seed":
         from myco.seed_cmd import run_init
@@ -950,9 +956,6 @@ def main():
         from myco.introspect_cmd import run_introspect
         sys.exit(run_introspect(args))
 
-    if args.command == "doctor":
-        from myco.doctor_cmd import run_doctor
-        sys.exit(run_doctor(args))
 
     if args.command == "session-end":
         from myco.session_hook import run_session_end

@@ -1,7 +1,7 @@
 """Myco Hosts Adapter: Cowork (Claude Code in Cowork environment)."""
 
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 
 def detect() -> bool:

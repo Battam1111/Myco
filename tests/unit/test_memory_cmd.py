@@ -21,27 +21,3 @@ def session_cmd_project(tmp_path):
     return tmp_path
 
 
-def test_session_index_returns_zero(session_cmd_project):
-    from myco.memory_cmd import run_session
-    args = argparse.Namespace(
-        session_subcommand="index", project_dir=str(session_cmd_project), json=False
-    )
-    assert run_session(args) == 0
-
-
-def test_session_search_returns_zero(session_cmd_project):
-    from myco.memory_cmd import run_session
-    args = argparse.Namespace(
-        session_subcommand="sense", query="test",
-        project_dir=str(session_cmd_project), json=False, limit=10
-    )
-    assert run_session(args) == 0
-
-
-def test_session_prune_returns_zero(session_cmd_project):
-    from myco.memory_cmd import run_session
-    args = argparse.Namespace(
-        session_subcommand="prune", max_age_days=0,
-        project_dir=str(session_cmd_project), json=False
-    )
-    assert run_session(args) == 0

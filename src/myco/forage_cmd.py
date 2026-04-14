@@ -20,12 +20,12 @@ from myco.forage import (
     update_item_status,
     _load_forage_schema,
 )
+from myco.project import resolve_project_dir
 
 
 def _project_dir(args) -> Path:
-    """Wave A1: delegates to centralized find_project_root."""
-    from myco.project import find_project_root
-    return find_project_root(getattr(args, "project_dir", None), strict=False)
+    """Wave A1: delegates to centralized resolve_project_dir."""
+    return resolve_project_dir(args, strict=False)
 
 
 def _color(code: str, s: str) -> str:

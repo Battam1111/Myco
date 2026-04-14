@@ -49,6 +49,7 @@ from __future__ import annotations
 import secrets
 from datetime import datetime, timedelta
 from pathlib import Path
+from myco.notes import _parse_iso
 from typing import Any, Dict, List, Optional
 
 try:
@@ -371,7 +372,7 @@ def _backpatch_forage_source(
             if "forage_source:" in text:
                 continue
             # Parse frontmatter, inject field, rewrite.
-            from myco.notes import parse_frontmatter, serialize_note
+            from myco.notes import _parse_iso, parse_frontmatter, serialize_note
             meta, body = parse_frontmatter(text)
             if not meta:
                 continue
@@ -386,14 +387,6 @@ def _backpatch_forage_source(
 # ---------------------------------------------------------------------------
 # Hunger signal — read-only
 # ---------------------------------------------------------------------------
-
-def _parse_iso(v: Any) -> Optional[datetime]:
-    if not v:
-        return None
-    try:
-        return datetime.strptime(str(v), _ISO_FMT)
-    except Exception:
-        return None
 
 
 def detect_forage_backlog(root: Path) -> Optional[str]:

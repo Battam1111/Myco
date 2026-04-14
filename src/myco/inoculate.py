@@ -67,7 +67,7 @@ def first_contact_seed(root: Path, *, silent: bool = True) -> Optional[dict]:
     """
     try:
         root = Path(root).resolve()
-    except Exception:
+    except (OSError, TypeError, RuntimeError):
         return None
 
     if is_bootstrapped(root):
@@ -92,7 +92,7 @@ def first_contact_seed(root: Path, *, silent: bool = True) -> Optional[dict]:
         (root / ".myco_state" / "bootstrapped").write_text(
             f"auto-seeded at {name} via {entry_point}\n", encoding="utf-8"
         )
-    except Exception:
+    except OSError:
         # Read-only filesystem or similar — abort silently.
         return None
 

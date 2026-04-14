@@ -15,7 +15,6 @@ FTS5 search pattern, adapted for Myco's file-based substrate.
 from __future__ import annotations
 
 import json
-import os
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path

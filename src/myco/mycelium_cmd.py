@@ -9,13 +9,11 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
+
+from myco.project import resolve_project_dir
 
 
-def _project_root(args: Any) -> Path:
-    """Wave A1: delegates to centralized find_project_root."""
-    from myco.project import find_project_root
-    return find_project_root(getattr(args, "project_dir", None), strict=False)
 
 
 def run_graph(args: Any) -> int:
@@ -28,7 +26,7 @@ def run_graph(args: Any) -> int:
         query_backlinks,
     )
 
-    root = _project_root(args)
+    root = resolve_project_dir(args, strict=False)
     use_json = getattr(args, "json", False)
     sub = getattr(args, "graph_subcommand", None)
 

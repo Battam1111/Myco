@@ -115,6 +115,7 @@ def find_files(pattern, root):
 # ---------------------------------------------------------------------------
 
 def lint_canon_schema(canon, root):
+    """L0 — Validate _canon.yaml contains all required structural keys."""
     issues = []
     universal_required = {
         "system.principles_count": ["system", "principles_count"],
@@ -244,6 +245,7 @@ def lint_references(canon, root):
 # ---------------------------------------------------------------------------
 
 def lint_numbers(canon, root):
+    """L2 — Detect stale number patterns and validate key numeric claims."""
     issues = []
     system = canon.get("system", {})
 
@@ -392,6 +394,25 @@ def lint_numbers(canon, root):
                         # Require at least one claim keyword in immediate context
                         if not any(kw.lower() in ctx for kw in claim_keywords):
                             continue
+                        # Wave 60: skip structural false positives. The old-value
+                        # regex matches ANY bare integer, which collides with
+                        # semver ("v0.24.0"), ISO dates ("2026-04-11"), unicode
+                        # escapes ("\u23ed"), and range notation ("L0–L28").
+                        # These are not numeric claims about the tracked metric.
+                        immediate_start = max(0, m.start() - 5)
+                        immediate_end = min(len(content), m.end() + 5)
+                        immediate = content[immediate_start:immediate_end]
+                        if re.search(r"\bv?\d+\.\d+", immediate):
+                            continue  # version string
+                        if re.search(r"\d{4}-\d{2}-\d{2}", content[max(0,m.start()-10):m.end()+10]):
+                            continue  # ISO date
+                        if re.search(r"\\u[0-9a-fA-F]{0,4}$", content[max(0,m.start()-3):m.end()]):
+                            continue  # unicode escape
+                        if re.search(r"L\d+[–\-]L?\d+", content[max(0,m.start()-8):m.end()+3]):
+                            continue  # lint-dim range notation like "L0-L28" / "L0–L28"
+                        # "12+" / "12+ 次" — open-ended approximate count, not a tracked claim
+                        if m.end() < len(content) and content[m.end():m.end()+1] == "+":
+                            continue
                         line_num = content[:m.start()].count("\n") + 1
                         lines = content.splitlines()
                         line_text = lines[line_num - 1] if line_num <= len(lines) else ""
@@ -418,6 +439,7 @@ def lint_numbers(canon, root):
 # ---------------------------------------------------------------------------
 
 def lint_stale_patterns(canon, root):
+    """L3 — Scan for known outdated phrases indicating stale content."""
     issues = []
     valid_sections = set(canon.get("system", {}).get("valid_sections", [0, 1, 2, 3, 4, 5]))
     entry_point = get_entry_point(canon)
@@ -450,6 +472,16 @@ def lint_stale_patterns(canon, root):
 # ---------------------------------------------------------------------------
 
 def lint_orphans(canon, root):
+    """L4 — flag wiki pages not referenced from the entry-point document.
+
+    Scans ``wiki/*.md`` and reports any page whose filename or relative
+    path is absent from the entry document (``MYCO.md`` / ``CLAUDE.md``).
+    This is the weakest form of orphan detection — it only catches pages
+    that aren't listed in the top-level index. Richer wiki↔wiki graph
+    analysis lives in L24 (synaptogenesis) and L25 (cross-layer).
+
+    README.md inside wiki/ is treated as a directory charter and skipped.
+    """
     issues = []
     entry_point = get_entry_point(canon)
     entry_content = read_file(root / entry_point) or ""
@@ -470,6 +502,7 @@ def lint_orphans(canon, root):
 # ---------------------------------------------------------------------------
 
 def lint_log(canon, root):
+    """L5 — Validate log.md format and entry type consistency."""
     issues = []
     log_content = read_file(root / "log.md")
     if not log_content:
@@ -510,6 +543,7 @@ def lint_log(canon, root):
 # ---------------------------------------------------------------------------
 
 def lint_dates(canon, root):
+    """L6 — Verify header dates match actual file modification times."""
     issues = []
     entry_point = get_entry_point(canon)
     for rel_path in [entry_point, "docs/WORKFLOW.md"]:
@@ -528,6 +562,14 @@ def lint_dates(canon, root):
 # ---------------------------------------------------------------------------
 
 def lint_wiki_format(canon, root):
+    """L7 — Wiki W8 page-shape conformance.
+
+    Every ``wiki/*.md`` page (except ``README.md``, the directory charter)
+    must carry the W8 header pair (``**类型**`` + ``**最后更新**``) and a
+    ``**Back to**`` footer. Missing header/footer fields surface as MEDIUM;
+    unknown ``类型`` values as LOW. Valid types come from
+    ``_canon.yaml → system.wiki_page_types``.
+    """
     issues = []
     valid_types = set(canon.get("system", {}).get("wiki_page_types",
                       ["entity", "concept", "operations", "analysis", "craft"]))
@@ -559,7 +601,8 @@ def lint_wiki_format(canon, root):
 
 
 # ---------------------------------------------------------------------------
-# L8: .original Sync (v2.5)
+# ---------------------------------------------------------------------------
+# L9 & L10: Vision Anchors & Notes Schema
 # ---------------------------------------------------------------------------
 
 _FRONTMATTER_RE = re.compile(
@@ -716,6 +759,7 @@ def lint_notes_schema(canon, root):
 
 
 def lint_original_sync(canon, root):
+    """L8 — Verify compressed .md files match timestamps and markers of .original.md."""
     issues = []
     for orig_path in root.rglob("*.original.md"):
         rel_orig = str(orig_path.relative_to(root))
@@ -901,6 +945,12 @@ def lint_internal_link_integrity(canon, root):
                 continue
             # Skip template files (contain placeholder paths for new projects).
             if rel.startswith("src/myco/templates/"):
+                continue
+            # Wave 60: skip .claude/worktrees/ — ephemeral agent-created git
+            # worktrees that mirror the project tree and flood L12 with
+            # duplicate broken-link findings from their own copies of
+            # primordia/README.md etc. Primary tree still gets scanned.
+            if rel.startswith(".claude/worktrees/"):
                 continue
             md_files.append((full, rel))
 
@@ -2165,9 +2215,15 @@ def lint_dimension_count_consistency(canon, root):
                     ))
             # Pattern 4 — L range. Exempt the quick-mode subset claim
             # (L0-L<quick_max>) per the legitimate_l_max set above.
+            # Wave 60: require lint-domain context on the same line to avoid
+            # false positives from knowledge-layer notation (e.g. "L0-1"
+            # in docs/architecture.md tables classifying project knowledge
+            # depth, which is a different domain from lint dimensions).
             for m in _L19_PAT_L_RANGE.finditer(line):
                 n = int(m.group(1))
                 if n in legitimate_l_max:
+                    continue
+                if not re.search(r"lint|immune|dim|维|dimension", line, re.IGNORECASE):
                     continue
                 issues.append((
                     "L19", severity, rel,
@@ -2203,6 +2259,10 @@ def lint_dimension_count_consistency(canon, root):
         "log.md", "notes/", "docs/primordia/",
         "contract_changelog.md", "docs/contract_changelog.md",
         "tests/", "forage/", "examples/",
+        # Wave 60: .claude/worktrees/ holds ephemeral agent worktree mirrors
+        # that would flood L19 with duplicate drift findings from every
+        # copy of the main surfaces. Skip them — the primary tree is scanned.
+        ".claude/worktrees/",
     )
     for dirpath, dirnames, filenames in os.walk(root):
         dirnames[:] = [d for d in dirnames
@@ -2267,8 +2327,6 @@ def _count_skeleton(content: str) -> tuple:
     skip_next_heading = False
     prev_nonblank_was_skip = False
 
-    badge_re = re.compile(r"\bLint-\d+%2F\d+\b")
-
     for raw_line in content.splitlines():
         line = raw_line.rstrip()
 
@@ -2311,7 +2369,7 @@ def _count_skeleton(content: str) -> tuple:
             # for "table density" and is sufficient for skeleton parity.
             table_rows += 1
             prev_nonblank_was_skip = False
-        elif badge_re.search(line):
+        elif _L19_PAT_BADGE.search(line):
             badge += 1
             prev_nonblank_was_skip = False
         else:
@@ -3068,7 +3126,7 @@ def lint_freshness_debt(canon: dict, root: Path) -> list:
         return issues
 
     try:
-        from datetime import datetime, timezone
+        from datetime import timezone
     except Exception:
         return issues
 
@@ -3081,13 +3139,25 @@ def lint_freshness_debt(canon: dict, root: Path) -> list:
         return issues
 
     for n in notes:
-        status = n.get("status")
-        if status not in ("integrated", "extracted"):
-            continue
+        # list_notes returns List[Path]; load each to inspect status + meta.
         try:
-            full = read_note(root, n["id"])
-            meta = full.get("meta", {}) if full else {}
+            if isinstance(n, Path):
+                note_id = n.stem
+                full = read_note(root, note_id)
+            elif isinstance(n, dict):
+                note_id = n.get("id")
+                if not note_id:
+                    continue
+                full = read_note(root, note_id)
+            else:
+                continue
+            if not full:
+                continue
+            meta = full.get("meta", {}) or {}
+            status = meta.get("status") or full.get("status")
         except Exception:
+            continue
+        if status not in ("integrated", "extracted"):
             continue
         freshness = meta.get("freshness", "time_sensitive")
         if freshness == "static":
@@ -3143,7 +3213,7 @@ def lint_protocol_adherence(canon: dict, root: Path) -> list:
     issues = []
 
     try:
-        from myco.notes import list_notes, read_note
+        from myco.notes import list_notes
     except ImportError:
         return issues
 
@@ -3190,7 +3260,6 @@ def lint_protocol_adherence(canon: dict, root: Path) -> list:
             violation_count += 1
             violation_types.add("missing_boot_brief")
         else:
-            from datetime import datetime, timedelta
             mtime = datetime.fromtimestamp(boot_brief.stat().st_mtime)
             age = (datetime.now() - mtime).days
             if age > 3:  # not run in 3 days
@@ -3355,7 +3424,7 @@ def _fix_l2_numeric_claims(root, issues, canon):
 
         elif claim_name == "test_count":
             # Replace stale test counts in cited surfaces
-            for stale in range(1, 1000):
+            for stale in range(1, 200):
                 if stale == ssot_value:
                     continue
                 content = re.sub(
@@ -3412,7 +3481,6 @@ def _fix_l16_boot_brief(root, issues, canon):
             fixed += 1
         elif "stale" in msg:
             # Touch the file to update mtime
-            import time
             brief_path.touch()
             # Also update the content timestamp marker
             fixed += 1
