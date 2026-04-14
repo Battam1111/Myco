@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "myco"
-version = "0.5.0"
+version = "0.6.0"
 description = "Editable non-parametric learning mechanism for AI Agents — git clone, pip install -e ., evolve"
 readme = "README.md"
 license = "MIT"
