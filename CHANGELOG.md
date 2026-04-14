@@ -3,6 +3,17 @@
 All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## v0.3.3 — 2026-04-14
+
+### Features
+- feat(autoseed): zero-friction first-contact initializer (`src/myco/autoseed.py`). `myco hunger --execute` now silently auto-seeds a minimal substrate (`_canon.yaml` + `notes/` + `.myco_state/`) when run in an unseeded project, gated by project-marker safety heuristic (`.git`, `pyproject.toml`, `package.json`, …) and blocked for home/system dirs. Opt-out via `MYCO_NO_AUTOSEED=1`.
+- feat(cli): add `myco reflect` subcommand as alias for `session-end`, matching the PreCompact hook contract shipped in the plugin.
+
+### Bug Fixes
+- fix(hunger): graceful degrade on unseeded projects — emit JSON hint + exit 0 instead of raising `MycoProjectNotFound`. Unblocks `SessionStart` hooks on fresh/unseeded projects.
+- fix(immune): graceful skip when `_canon.yaml` is absent; `PreCompact` hook no longer fails session compaction on unseeded projects.
+- fix(reflect/session-end): graceful skip when substrate missing.
+
 ## v0.3.2 — 2026-04-14
 
 ### Bug Fixes

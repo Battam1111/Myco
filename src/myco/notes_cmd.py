@@ -505,10 +505,76 @@ def run_view(args) -> int:
 # hunger  — metabolic dashboard
 # ---------------------------------------------------------------------------
 
-@_guard_project
 def run_hunger(args) -> int:
-    """`myco hunger` — show metabolic state + actionable signals."""
-    root = resolve_project_dir(args, strict=True)
+    """`myco hunger` — show metabolic state + actionable signals.
+
+    v0.3.3: Graceful degrade on unseeded projects. If `_canon.yaml` is
+    missing and `--execute` is set, silently auto-seed a minimal
+    substrate (safety-gated by project markers). Otherwise emit a JSON
+    hint and exit 0 so SessionStart hooks never block session boot.
+    """
+    # --- v0.3.3 graceful degrade / silent auto-seed ---------------------
+    try:
+        root = resolve_project_dir(args, strict=True)
+    except MycoProjectNotFound as e:
+        from myco.autoseed import autoseed
+        target = Path(getattr(args, "project_dir", None) or Path.cwd()).expanduser()
+        autoseed_result = None
+        if getattr(args, "execute", False):
+            autoseed_result = autoseed(target)
+            if autoseed_result.get("seeded"):
+                # Re-resolve now that substrate exists
+                try:
+                    root = resolve_project_dir(args, strict=True)
+                except MycoProjectNotFound:
+                    # Autoseed claimed success but substrate still not
+                    # discoverable — emit graceful JSON and exit 0.
+                    payload = {
+                        "status": "autoseed_unresolved",
+                        "autoseed": autoseed_result,
+                        "hint": "_canon.yaml created but not resolvable; check project-dir",
+                    }
+                    if getattr(args, "json", False):
+                        print(json.dumps(payload, ensure_ascii=False, indent=2))
+                    else:
+                        print(f"myco hunger: {payload['hint']}", file=sys.stderr)
+                    return 0
+            else:
+                payload = {
+                    "status": "not_seeded",
+                    "autoseed_attempted": True,
+                    "autoseed": autoseed_result,
+                    "hint": (
+                        "Auto-seed refused (likely not a project dir). "
+                        "Run `myco seed --level 1` in your project root "
+                        "or set MYCO_NO_AUTOSEED=0 and retry."
+                    ),
+                    "error": str(e),
+                }
+                if getattr(args, "json", False):
+                    print(json.dumps(payload, ensure_ascii=False, indent=2))
+                else:
+                    print(f"myco hunger: substrate not found; {payload['hint']}",
+                          file=sys.stderr)
+                return 0
+        else:
+            payload = {
+                "status": "not_seeded",
+                "autoseed_attempted": False,
+                "hint": (
+                    "No Myco substrate found. Run `myco hunger --execute` "
+                    "to auto-initialize, or `myco seed --level 1` for full "
+                    "scaffolding."
+                ),
+                "error": str(e),
+            }
+            if getattr(args, "json", False):
+                print(json.dumps(payload, ensure_ascii=False, indent=2))
+            else:
+                print(f"myco hunger: substrate not found; {payload['hint']}",
+                      file=sys.stderr)
+            return 0
+
     report = compute_hunger_report(root)
 
     # Wave 17 (contract v0.16.0) — Boot Brief Injector.

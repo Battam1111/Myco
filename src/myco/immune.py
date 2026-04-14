@@ -3948,8 +3948,25 @@ def main(root: Path = None, quick: bool = False, fix_report: bool = False,
 
 
 def run_lint(args) -> int:
-    """Entry point called from CLI dispatcher."""
+    """Entry point called from CLI dispatcher.
+
+    v0.3.3: Graceful skip if substrate is unseeded. PreCompact hook
+    must never block session compaction just because _canon.yaml is
+    missing in an unseeded project.
+    """
     root = Path(args.project_dir).resolve()
+    if not (root / "_canon.yaml").exists():
+        payload = {
+            "status": "not_seeded",
+            "hint": "No _canon.yaml; skipping immune lint (graceful).",
+            "root": str(root),
+        }
+        if getattr(args, "json", False):
+            import json as _json
+            print(_json.dumps(payload, ensure_ascii=False, indent=2))
+        else:
+            print(f"myco immune: {payload['hint']}")
+        return 0
     return main(
         root=root,
         quick=args.quick,

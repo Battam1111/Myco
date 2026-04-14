@@ -787,6 +787,31 @@ def main():
         "--json", action="store_true", help="Emit machine-readable JSON",
     )
 
+    # ── myco reflect (v0.3.3 alias for session-end, used by PreCompact hook) ──
+    reflect_parser = subparsers.add_parser(
+        "reflect",
+        help="Consolidate session learnings (alias for session-end)",
+    )
+    reflect_parser.add_argument(
+        "--summary", type=str, default=None,
+        help="Session summary to auto-eat as raw note",
+    )
+    reflect_parser.add_argument(
+        "--no-prune", dest="prune", action="store_false",
+        help="Skip auto-prune step",
+    )
+    reflect_parser.add_argument(
+        "--no-brief", dest="refresh_brief", action="store_false",
+        help="Skip boot-brief refresh",
+    )
+    reflect_parser.add_argument(
+        "--project-dir", type=str, default=".",
+        help="Project root (default: current directory)",
+    )
+    reflect_parser.add_argument(
+        "--json", action="store_true", help="Emit machine-readable JSON",
+    )
+
     # ── myco propagate ────────────────────────────────────────────
     propagate_parser = subparsers.add_parser(
         "propagate",
@@ -957,10 +982,24 @@ def main():
         sys.exit(run_introspect(args))
 
 
-    if args.command == "session-end":
+    if args.command in ("session-end", "reflect"):
         from myco.session_hook import run_session_end
         from pathlib import Path as _P
         root = _P(args.project_dir).resolve()
+        # v0.3.3: Graceful degrade on unseeded projects — PreCompact hook
+        # must never fail session compaction because _canon.yaml is absent.
+        if not (root / "_canon.yaml").exists():
+            payload = {
+                "status": "not_seeded",
+                "hint": f"No _canon.yaml at {root}; skipping {args.command} (graceful).",
+                "root": str(root),
+            }
+            if getattr(args, "json", False):
+                import json as _json
+                print(_json.dumps(payload, ensure_ascii=False, indent=2))
+            else:
+                print(f"myco {args.command}: {payload['hint']}")
+            sys.exit(0)
         result = run_session_end(
             root,
             summary=args.summary,
