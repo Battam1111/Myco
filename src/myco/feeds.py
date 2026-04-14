@@ -27,13 +27,11 @@ Storage layout:
 
 from __future__ import annotations
 
-import json
 import logging
-import re
 import xml.etree.ElementTree as ET
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Tuple
 from urllib.error import URLError
 from urllib.request import urlopen
 
@@ -399,7 +397,6 @@ def immune_filter(root: Path, candidate: Dict[str, Any]) -> Tuple[bool, str]:
 
 def setup_wizard(root: Path) -> None:
     """Interactive setup: prompt for interests and seed feeds."""
-    import sys
     print("\nMyco Forage Setup Wizard")
     print("=" * 40)
     print("\nEnter 3-5 topics you want to track (e.g., 'reinforcement learning', 'distributed systems'):")

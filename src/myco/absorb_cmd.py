@@ -77,14 +77,12 @@ from myco.notes import (
 
 
 # ---------------------------------------------------------------------------
-# Project root resolution (mirrors notes_cmd._project_root + compress_cmd._project_root,
-# kept local to avoid circular import — all three modules sit beside each other)
+# Project root resolution — now centralized in project.py
 # ---------------------------------------------------------------------------
 
-def _project_root(args) -> Path:
-    """Wave A1: delegates to centralized find_project_root (strict)."""
-    from myco.project import find_project_root
-    return find_project_root(getattr(args, "project_dir", None))
+from myco.project import resolve_project_dir
+
+
 
 
 # ---------------------------------------------------------------------------
@@ -102,7 +100,9 @@ def _resolve_default_tag(root: Path) -> str:
         import yaml  # type: ignore
 
         canon = yaml.safe_load((root / "_canon.yaml").read_text(encoding="utf-8")) or {}
-    except Exception:
+    except (OSError, ImportError):
+        # Missing canon file or missing PyYAML — safe default. YAML parse
+        # errors are NOT silenced; a corrupt canon should surface.
         return "inlet"
     notes_schema = (canon.get("system") or {}).get("notes_schema") or {}
     inlet_cfg = notes_schema.get("inlet") or {}
@@ -290,7 +290,7 @@ def run_inlet(args) -> int:
       5 — io error (cannot read project, cannot write notes/)
     """
     try:
-        root = _project_root(args)
+        root = resolve_project_dir(args, strict=True)
     except MycoProjectNotFound as e:
         print(f"inlet: {e}", file=sys.stderr)
         return 5

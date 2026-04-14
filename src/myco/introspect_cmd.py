@@ -17,12 +17,9 @@ from datetime import datetime
 from typing import Any
 
 from myco.metabolism import read_metabolism_log, detect_worsening_metrics
+from myco.project import resolve_project_dir
 
 
-def _project_root(args: Any) -> Path:
-    """Delegates to centralized find_project_root."""
-    from myco.project import find_project_root
-    return find_project_root(getattr(args, "project_dir", None), strict=False)
 
 
 def run_introspect(args: Any) -> int:
@@ -30,7 +27,7 @@ def run_introspect(args: Any) -> int:
 
     Reads metabolism.jsonl, detects worsening trends, outputs report.
     """
-    root = _project_root(args)
+    root = resolve_project_dir(args, strict=False)
 
     entries = read_metabolism_log(root, lookback_days=30)
     if not entries:

@@ -22,7 +22,7 @@ import json
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional
+from typing import Optional
 
 from myco.notes import (
     VALID_STATUSES,
@@ -37,16 +37,13 @@ from myco.notes import (
     update_note,
     write_note,
 )
+from myco.project import resolve_project_dir
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _project_root(args) -> Path:
-    """Wave A1: delegates to centralized find_project_root."""
-    from myco.project import find_project_root
-    return find_project_root(getattr(args, "project_dir", None))
 
 
 def _guard_project(func):
@@ -99,7 +96,7 @@ def run_eat(args) -> int:
     the content is malformed, that's fine — the digestive tract can handle
     garbage-in at this stage.
     """
-    root = _project_root(args)
+    root = resolve_project_dir(args, strict=True)
     try:
         body = _read_body_from_args(args)
     except (FileNotFoundError, ValueError) as e:
@@ -197,7 +194,7 @@ def run_digest(args) -> int:
     from myco.notes import verify_absorption, ABSORPTION_REQUIRED_STATUSES
     from datetime import datetime
 
-    root = _project_root(args)
+    root = resolve_project_dir(args, strict=True)
 
     # Resolve target note
     target: Optional[Path] = None
@@ -332,7 +329,7 @@ def run_view(args) -> int:
     the verb agent-facing value (closes NH-7). The positional-id mode
     and the default list mode are unchanged.
     """
-    root = _project_root(args)
+    root = resolve_project_dir(args, strict=True)
 
     # Wave 21 --next-raw mode: show the body of the oldest raw note.
     if getattr(args, "next_raw", False):
@@ -511,7 +508,7 @@ def run_view(args) -> int:
 @_guard_project
 def run_hunger(args) -> int:
     """`myco hunger` — show metabolic state + actionable signals."""
-    root = _project_root(args)
+    root = resolve_project_dir(args, strict=True)
     report = compute_hunger_report(root)
 
     # Wave 17 (contract v0.16.0) — Boot Brief Injector.
@@ -661,7 +658,7 @@ def run_prune(args) -> int:
     """
     from myco.notes import auto_excrete_dead_knowledge
 
-    root = _project_root(args)
+    root = resolve_project_dir(args, strict=True)
     threshold_days = getattr(args, "threshold_days", None)
     apply_mode = bool(getattr(args, "apply", False))
     json_out = bool(getattr(args, "json", False))

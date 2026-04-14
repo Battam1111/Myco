@@ -830,7 +830,7 @@ def init_level_2(project_dir: Path, replacements: dict, entry_point: str):
         "    sys.exit(1)\n"
     )
     (scripts_dir / "lint_knowledge.py").write_text(standalone_lint, encoding="utf-8")
-    print(f"  ✅ scripts/lint_knowledge.py (23-dimension Lint shim → myco.immune)")
+    print(f"  ✅ scripts/lint_knowledge.py (29-dimension Lint shim → myco.immune)")
 
     # Operational narratives
     on_content = fill_template(get_template("operational_narratives.md"), replacements)

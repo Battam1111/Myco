@@ -35,7 +35,6 @@ Transport: stdio (local subprocess of the AI client)
 
 import functools
 import json
-import os
 import re
 import sys
 from datetime import datetime
@@ -87,11 +86,37 @@ def _find_project_root() -> Path:
     # silently seed L1 defaults so any MCP tool call works immediately.
     if os.environ.get("MYCO_NO_AUTOSEED") != "1" and not (root / "_canon.yaml").exists():
         try:
-            from myco.bootstrap import first_contact_seed
+            from myco.inoculate import first_contact_seed
             first_contact_seed(root, silent=True)
         except Exception:
             pass
     return root
+
+
+def _get_root(project_dir: Optional[str] = None) -> Path:
+    """Resolve project root from project_dir parameter or auto-discovery.
+
+    Consolidates the repeated pattern: Path(project_dir) if project_dir else _find_project_root()
+    """
+    return Path(project_dir).resolve() if project_dir else _find_project_root()
+
+
+def _check_canon(root: Path) -> tuple[dict, Optional[dict]]:
+    """Load _canon.yaml and return (canon_dict, error_dict_or_None).
+
+    Consolidates the repeated error pattern:
+        canon = _load_canon(root)
+        if "error" in canon:
+            return json.dumps({"error": canon["error"]}, indent=2)
+
+    Returns:
+        (canon_dict, None) if successful
+        ({}, {"error": "..."}) if _canon.yaml not found or invalid
+    """
+    canon = _load_canon(root)
+    if "error" in canon:
+        return {}, canon
+    return canon, None
 
 
 def _compute_sidecar(root: Path) -> dict:
@@ -298,7 +323,6 @@ def compute_interconnection_map(root: Path) -> dict:
         dict with 'concept_map', 'cross_layer_summary', and 'interconnection_hint'.
     """
     import re as _re
-    import datetime as _dt
 
     # --- Layer classification ---
     def _classify_layer(rel_path: str) -> str:
@@ -471,7 +495,7 @@ def compute_interconnection_map(root: Path) -> dict:
     }
 
 
-
+def compute_synaptic_context(root: Path) -> dict:
     """Build the wiki inter-connection map — which pages link to which.
 
     Reuses mycelium.build_link_graph() but filters to wiki↔wiki subgraph.
@@ -545,8 +569,6 @@ def compute_perfusion(root: Path) -> dict:
     Returns:
         dict with 'wiki_pages' and 'docs_active' lists.
     """
-    import datetime
-
     wiki_dir = root / "wiki"
     docs_current = root / "docs" / "current"
 
@@ -559,7 +581,7 @@ def compute_perfusion(root: Path) -> dict:
             wiki_pages.append({
                 "path": f"wiki/{p.name}",
                 "title": _extract_title(p),
-                "last_modified": datetime.datetime.fromtimestamp(
+                "last_modified": datetime.fromtimestamp(
                     stat.st_mtime
                 ).strftime("%Y-%m-%d"),
                 "size_kb": round(stat.st_size / 1024, 1),
@@ -602,7 +624,7 @@ def compute_perfusion(root: Path) -> dict:
 @mcp.tool(
     name="myco_immune",
     annotations={
-        "title": "Myco Immune — 26-Dimension Consistency Check",
+        "title": "Myco Immune — 29-Dimension Consistency Check",
         "readOnlyHint": False,
         "destructiveHint": False,
         "idempotentHint": True,
@@ -660,12 +682,11 @@ async def myco_immune(
     Returns:
         Structured lint report with pass/fail per dimension and issue details.
     """
-    root = Path(project_dir) if project_dir else _find_project_root()
-    root = root.resolve()
+    root = _get_root(project_dir)
 
-    canon = _load_canon(root)
-    if "error" in canon:
-        return json.dumps({"error": canon["error"]}, indent=2)
+    canon, err = _check_canon(root)
+    if err:
+        return json.dumps(err, indent=2)
 
     # Import the dispatch SSoT directly — Wave 38 D9: mcp_server.py
     # MUST NOT maintain a duplicate checks list. len(FULL_CHECKS) is the
@@ -701,7 +722,7 @@ async def myco_immune(
     # Auto-fix if requested
     if fix and total_issues > 0:
         try:
-            from myco.immune import auto_fix_issues, collect_all_issues
+            from myco.immune import auto_fix_issues
             all_issues = []
             for r in results:
                 for iss in r.get("issues", []):
@@ -776,12 +797,11 @@ async def myco_pulse(
     Returns:
         JSON overview of knowledge system state.
     """
-    root = Path(project_dir) if project_dir else _find_project_root()
-    root = root.resolve()
+    root = _get_root(project_dir)
 
-    canon = _load_canon(root)
-    if "error" in canon:
-        return json.dumps({"error": canon["error"]}, indent=2)
+    canon, err = _check_canon(root)
+    if err:
+        return json.dumps(err, indent=2)
 
     # Count wiki pages
     wiki_dir = root / "wiki"
@@ -927,8 +947,7 @@ async def myco_sense(
     Returns:
         JSON list of matches with file path, line number, and context.
     """
-    root = Path(project_dir) if project_dir else _find_project_root()
-    root = root.resolve()
+    root = _get_root(project_dir)
 
     # Determine search paths based on scope
     search_paths: List[Path] = []
@@ -1049,8 +1068,7 @@ async def myco_trace(
             "error": f"Invalid entry_type '{entry_type}'. Must be one of: {', '.join(sorted(valid_types))}",
         })
 
-    root = Path(project_dir) if project_dir else _find_project_root()
-    root = root.resolve()
+    root = _get_root(project_dir)
     log_path = root / "log.md"
 
     if not log_path.exists():
@@ -1108,12 +1126,11 @@ async def myco_reflect(
     Returns:
         Structured reflection prompts based on current project state.
     """
-    root = Path(project_dir) if project_dir else _find_project_root()
-    root = root.resolve()
+    root = _get_root(project_dir)
 
-    canon = _load_canon(root)
-    if "error" in canon:
-        return json.dumps({"error": canon["error"]}, indent=2)
+    canon, err = _check_canon(root)
+    if err:
+        return json.dumps(err, indent=2)
 
     # Gather recent friction entries
     log_path = root / "log.md"
@@ -1278,8 +1295,7 @@ async def myco_eat(
             "error": f"Invalid source {source!r}. Expected one of: {list(VALID_SOURCES)}",
         })
 
-    root = Path(project_dir) if project_dir else _find_project_root()
-    root = root.resolve()
+    root = _get_root(project_dir)
 
     if not (root / "_canon.yaml").exists():
         return json.dumps({
@@ -1424,8 +1440,7 @@ async def myco_digest(
         verify_absorption, ABSORPTION_REQUIRED_STATUSES,
     )
 
-    root = Path(project_dir) if project_dir else _find_project_root()
-    root = root.resolve()
+    root = _get_root(project_dir)
 
     # Resolve target
     if note_id:
@@ -1662,8 +1677,7 @@ async def myco_observe(
     """
     from myco.notes import read_note, list_notes, id_to_filename, VALID_STATUSES
 
-    root = Path(project_dir) if project_dir else _find_project_root()
-    root = root.resolve()
+    root = _get_root(project_dir)
 
     if note_id:
         nid = note_id if note_id.startswith("n_") else f"n_{note_id}"
@@ -1781,8 +1795,7 @@ async def myco_hunger(
     """
     from myco.notes import compute_hunger_report
 
-    root = Path(project_dir) if project_dir else _find_project_root()
-    root = root.resolve()
+    root = _get_root(project_dir)
 
     if not (root / "_canon.yaml").exists():
         return json.dumps({"error": f"Not a Myco project (no _canon.yaml at {root})"})
@@ -1943,11 +1956,9 @@ async def myco_hunger(
     # time_sensitive notes past their freshness window so the Agent can
     # verify them in a single pass. Computed cheaply from disk.
     try:
-        from myco.verify_cmd import run_verify as _vrun  # noqa: F401 (reuse classes only)
         from myco.notes import read_note
-        import datetime as _dt
         stale_batch: List[Dict[str, Any]] = []
-        now_v = _dt.datetime.now()
+        now_v = datetime.now()
         thresholds = {"time_sensitive": 90, "live": 7}
         for p in sorted((root / "notes").glob("n_*.md")):
             try:
@@ -1961,7 +1972,7 @@ async def myco_hunger(
                 continue
             lv = meta.get("last_verified") or meta.get("created")
             try:
-                lv_dt = _dt.datetime.strptime(str(lv), "%Y-%m-%dT%H:%M:%S")
+                lv_dt = datetime.strptime(str(lv), "%Y-%m-%dT%H:%M:%S")
             except Exception:
                 continue
             age = (now_v - lv_dt).days
@@ -2038,8 +2049,7 @@ async def myco_condense(
     """
     import argparse
 
-    root = Path(project_dir) if project_dir else _find_project_root()
-    root = root.resolve()
+    root = _get_root(project_dir)
 
     if not (root / "_canon.yaml").exists():
         return json.dumps({"error": f"Not a Myco project (no _canon.yaml at {root})"})
@@ -2115,8 +2125,7 @@ async def myco_expand(
     """
     import argparse
 
-    root = Path(project_dir) if project_dir else _find_project_root()
-    root = root.resolve()
+    root = _get_root(project_dir)
 
     if not (root / "_canon.yaml").exists():
         return json.dumps({"error": f"Not a Myco project (no _canon.yaml at {root})"})
@@ -2181,8 +2190,7 @@ async def myco_prune(
     """
     import argparse
 
-    root = Path(project_dir) if project_dir else _find_project_root()
-    root = root.resolve()
+    root = _get_root(project_dir)
 
     if not (root / "_canon.yaml").exists():
         return json.dumps({"error": f"Not a Myco project (no _canon.yaml at {root})"})
@@ -2232,12 +2240,23 @@ async def myco_absorb(
     """Ingest external content into the metabolic pipeline with full provenance tracking.
 
     WHEN TO CALL:
-      (a) After fetching external content (web page, repo README, paper abstract).
-      (b) When the user shares a document or URL content for the substrate to absorb.
-      (c) When a cohort gap or wiki miss suggests the substrate needs external knowledge.
+      (a) You already have the content body in hand (fetched via
+          WebFetch, pasted by user, copied from a README) and need
+          it to become a raw note with full provenance.
+      (b) User shares a document/URL body and asks Myco to remember it.
+      (c) A cohort gap (myco_colony action='gaps') points at a topic
+          you have fresh external material for.
+
+    DO NOT CALL WHEN:
+      - You only have a URL and no body yet — use `myco_scent`
+        (autonomous fetch + filter) or `myco_forage action='add'`
+        (register for later manual digest) instead.
+      - The material is an internal project artifact — use `myco_eat`.
 
     Each inlet note gets provenance fields: inlet_origin, inlet_method,
-    inlet_fetched_at, inlet_content_hash (SHA256).
+    inlet_fetched_at, inlet_content_hash (SHA256). The note enters the
+    standard raw→digesting→integrated pipeline; call `myco_digest`
+    when ready to route it into wiki/MYCO.md.
 
     Args:
         content: The external content body to ingest.
@@ -2250,8 +2269,7 @@ async def myco_absorb(
     """
     import argparse
 
-    root = Path(project_dir) if project_dir else _find_project_root()
-    root = root.resolve()
+    root = _get_root(project_dir)
 
     if not (root / "_canon.yaml").exists():
         return json.dumps({"error": f"Not a Myco project (no _canon.yaml at {root})"})
@@ -2309,9 +2327,20 @@ async def myco_forage(
     """Manage the forage substrate — register, list, and digest external material.
 
     WHEN TO CALL:
-      (a) After discovering an external repo/paper/article worth absorbing.
-      (b) When forage_backlog hunger signal fires.
-      (c) After producing digest notes from a foraged item.
+      (a) You found an external repo/paper/article worth absorbing
+          *later* but don't have time now — `action='add'` parks it
+          with a `why` statement so future-you (or another agent)
+          can pick it up.
+      (b) `forage_backlog` hunger signal fires — `action='list'`
+          shows what's waiting, then digest the top item.
+      (c) After producing digest notes from a foraged item —
+          `action='digest'` updates the manifest so the backlog
+          shrinks honestly.
+
+    DO NOT CALL WHEN:
+      - You want to ingest content right now — use `myco_absorb`
+        (you have the body) or `myco_scent` (autonomous topical fetch).
+      - Forage is a *to-read queue*, not an inbox.
 
     Actions:
       - add: Register a new external source (requires source_url, source_type, license, why).
@@ -2335,8 +2364,7 @@ async def myco_forage(
     """
     import argparse
 
-    root = Path(project_dir) if project_dir else _find_project_root()
-    root = root.resolve()
+    root = _get_root(project_dir)
 
     if not (root / "_canon.yaml").exists():
         return json.dumps({"error": f"Not a Myco project (no _canon.yaml at {root})"})
@@ -2395,9 +2423,19 @@ async def myco_scent(
     """Opportunistic autonomous forage — discover and ingest content on demand.
 
     WHEN TO CALL:
-      When current task reveals a knowledge gap in a topic not yet in wiki.
-      Agent detects the gap, calls scent() with topic name, and Myco fetches
-      + filters + auto-adds passing candidates to forage manifest.
+      (a) Current task reveals a knowledge gap in a topic that isn't
+          in wiki and that the user hasn't supplied material for.
+          Hand over the topic name; Myco does the arxiv query +
+          license/dedup/interest filter and drops survivors into the
+          forage manifest as `raw_fetch`.
+      (b) A `cohort_gap` or `wiki_miss` hunger signal names a topic —
+          scent it to populate the intake end of the pipeline.
+
+    DO NOT CALL WHEN:
+      - You already have the body in hand — use `myco_absorb`.
+      - You want to register a specific URL you found yourself —
+        use `myco_forage action='add'`.
+      - You're searching existing substrate memory — use `myco_sense`.
 
     Args:
         topic: Search query/topic name (e.g., "reinforcement learning").
@@ -2413,11 +2451,10 @@ async def myco_scent(
       3. Auto-add passing candidates to forage/_index.yaml status=raw_fetch.
       4. Return summary.
     """
-    from myco.feeds import fetch_due_feeds, immune_filter
+    from myco.feeds import immune_filter
     from myco.forage import add_item, generate_forage_id
 
-    root = Path(project_dir) if project_dir else _find_project_root()
-    root = root.resolve()
+    root = _get_root(project_dir)
 
     if not (root / "_canon.yaml").exists():
         return json.dumps({"error": f"Not a Myco project (no _canon.yaml at {root})"})
@@ -2515,8 +2552,7 @@ async def myco_mycelium(
         query_backlinks,
     )
 
-    root = Path(project_dir) if project_dir else _find_project_root()
-    root = root.resolve()
+    root = _get_root(project_dir)
 
     graph = build_link_graph(root)
 
@@ -2568,12 +2604,22 @@ async def myco_colony(
     """Analyze tag-based cohorts across notes for compression and gap detection.
 
     WHEN TO CALL:
-      (a) Before running myco_condense — use action='suggest' to pick the
-          best cohort instead of guessing which tag to compress
-      (b) hunger reports cohort_staleness or inlet_ripe — use action='gaps'
-          to see which knowledge domains are unprocessed
-      (c) Exploring tag relationships — use action='matrix' to see which
-          topics co-occur (helps understand knowledge structure)
+      (a) Before `myco_condense` — run `action='suggest'` to pick
+          the cohort with the highest compression payoff instead of
+          guessing which tag to compress.
+      (b) `cohort_staleness` / `inlet_ripe` hunger signals fire —
+          `action='gaps'` reveals which knowledge domains are stuck
+          in raw/digesting and need a digest pass.
+      (c) Planning a refactor of the knowledge layer —
+          `action='matrix'` surfaces tag co-occurrence so you can
+          see which topics cluster.
+      (d) Cross-project reconnaissance — `action='cross'` for
+          clusters across projects, `action='auto_promote'` to
+          promote cross-project nutrients to `wiki/cross_project/`.
+
+    DO NOT CALL WHEN:
+      - Searching for a specific note — use `myco_sense`.
+      - Inspecting the wiki link graph — use `myco_mycelium`.
 
     Actions:
       matrix       — tag co-occurrence pairs (which tags appear together?)
@@ -2595,8 +2641,7 @@ async def myco_colony(
         tag_cooccurrence,
     )
 
-    root = Path(project_dir) if project_dir else _find_project_root()
-    root = root.resolve()
+    root = _get_root(project_dir)
 
     if action == "matrix":
         pairs = tag_cooccurrence(root)
@@ -2633,7 +2678,7 @@ async def myco_colony(
     name="myco_memory",
     annotations={
         "title": "Myco Memory — FTS5 search across agent conversations",
-        "readOnlyHint": False,
+        "readOnlyHint": True,
         "destructiveHint": False,
         "idempotentHint": True,
         "openWorldHint": False,
@@ -2647,15 +2692,26 @@ async def myco_memory(
     max_age_days: int = 90,
     project_dir: Optional[str] = None,
 ) -> str:
-    """Index and search agent conversation transcripts.
+    """Index and search agent conversation transcripts (session memory).
 
     WHEN TO CALL:
-      (a) hunger reports session_index_missing → action='index' to build index
-      (b) Need to recall what was discussed in a previous session →
-          action='search', query='the topic'
-      (c) Human asks "what did we talk about last time?" → action='search'
-      (d) Periodically (weekly) to keep index current → action='index'
-      (e) Index getting large → action='prune' to remove old entries
+      (a) `session_index_missing` hunger signal → `action='index'`
+          to build / refresh the SQLite FTS5 index over .jsonl
+          transcripts.
+      (b) User asks "what did we talk about last time?" / "what
+          did we decide about X?" / "when did we first hit this
+          bug?" → `action='search'` with the topic.
+      (c) You're about to redo work and want to check whether a
+          past session already explored the same ground →
+          `action='search'` first.
+      (d) Weekly-ish maintenance → `action='index'` to catch new
+          transcripts.
+      (e) Index has grown beyond `max_age_days` → `action='prune'`.
+
+    DO NOT CALL WHEN:
+      - Searching substrate notes / wiki — use `myco_sense` (that
+        operates on the digested layer; `myco_memory` operates on
+        raw transcripts).
 
     Actions:
       index — Scan .jsonl session files, index into SQLite FTS5
@@ -2670,8 +2726,7 @@ async def myco_memory(
     """
     from myco.memory import index_sessions, prune_sessions, search_sessions
 
-    root = Path(project_dir) if project_dir else _find_project_root()
-    root = root.resolve()
+    root = _get_root(project_dir)
 
     if action == "index":
         stats = index_sessions(root, max_age_days=max_age_days)
@@ -2757,8 +2812,7 @@ async def myco_evolve(
         parse_skill, serialize_skill,
     )
 
-    root = Path(project_dir) if project_dir else _find_project_root()
-    root = root.resolve()
+    root = _get_root(project_dir)
 
     if not (root / "_canon.yaml").exists():
         return json.dumps({"error": f"Not a Myco project (no _canon.yaml at {root})"})
@@ -2918,8 +2972,7 @@ async def myco_evolve_list(
     """
     from myco.evolve import parse_skill
 
-    root = Path(project_dir) if project_dir else _find_project_root()
-    root = root.resolve()
+    root = _get_root(project_dir)
 
     skills_dir = root / "skills"
     if not skills_dir.exists():
@@ -2987,6 +3040,7 @@ async def myco_evolve_list(
         "destructiveHint": False,
         "idempotentHint": True,
         "openWorldHint": False,
+        "modelHint": "opus",
     },
 )
 @_with_sidecar
@@ -3018,8 +3072,7 @@ async def myco_session_end(
     """
     from myco.session_hook import run_session_end
 
-    root = Path(project_dir) if project_dir else _find_project_root()
-    root = root.resolve()
+    root = _get_root(project_dir)
     result = run_session_end(
         root,
         summary=summary,
@@ -3074,9 +3127,8 @@ async def myco_observe_turn(
     """
     from myco.observe_turn import observe_turn
 
-    root = Path(project_dir) if project_dir else _find_project_root()
     try:
-        root = root.resolve()
+        root = _get_root(project_dir)
     except Exception:
         root = None
     result = observe_turn(
@@ -3099,6 +3151,7 @@ async def myco_observe_turn(
         "destructiveHint": False,
         "idempotentHint": True,
         "openWorldHint": False,
+        "modelHint": "opus",
     },
 )
 @_with_sidecar
@@ -3134,10 +3187,8 @@ async def myco_verify(
               {id, mark, reflex: {...}} (reflex present iff mark='contradicted').
     """
     from myco.notes import read_note, update_note, _now_iso
-    import datetime as _dt
 
-    root = Path(project_dir) if project_dir else _find_project_root()
-    root = root.resolve()
+    root = _get_root(project_dir)
     if not (root / "_canon.yaml").exists():
         return json.dumps({"error": f"Not a Myco project (no _canon.yaml at {root})"})
 
@@ -3149,7 +3200,7 @@ async def myco_verify(
         target = root / "notes" / id_to_filename(note_id)
         if not target.exists():
             return json.dumps({"error": f"note not found: {note_id}"})
-        now = _dt.datetime.now()
+        now = datetime.now()
         try:
             if mark == "still_true":
                 update_note(target, last_verified=_now_iso(now))
@@ -3277,8 +3328,7 @@ async def myco_supersede(
     """
     from myco.reflex import apply_supersede
 
-    root = Path(project_dir) if project_dir else _find_project_root()
-    root = root.resolve()
+    root = _get_root(project_dir)
     if not (root / "_canon.yaml").exists():
         return json.dumps({"error": f"Not a Myco project (no _canon.yaml at {root})"})
 
@@ -3327,8 +3377,7 @@ async def myco_ingest_transcript(
     """
     from myco.transcript_monitor import ingest_transcript
 
-    root = Path(project_dir) if project_dir else _find_project_root()
-    root = root.resolve()
+    root = _get_root(project_dir)
     if not (root / "_canon.yaml").exists():
         return json.dumps({"error": f"Not a Myco project (no _canon.yaml at {root})"})
 

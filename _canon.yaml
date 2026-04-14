@@ -330,7 +330,7 @@ system:
         cited_in: ["README.md", "README_zh.md", "README_ja.md", "MYCO.md", "docs/agent_protocol.md", "docs/vision.md"]
       test_count:
         ssot: "pytest tests/ output"
-        value: 443
+        value: 573
         keywords: ["test", "测试", "pytest"]
         cited_in: ["MYCO.md"]
 
@@ -647,7 +647,8 @@ system:
     - skills/                # Wave 50 — operational procedure documents (metabolic-cycle etc.)
     - docs/                  # framework docs
     - log.md                 # append-only via myco_trace
-    - MYCO.md                # L1 index
+    - MYCO.md                # L1 index (identity + doctrine)
+    - CLAUDE.md              # L1 operational gateway for Claude Code / Cowork
     - _canon.yaml            # SSoT — human approval in practice
     # --- Code / packaging ---
     - src/                   # package source
@@ -661,6 +662,7 @@ system:
     - README_zh.md
     - README_ja.md
     - LICENSE
+    - CHANGELOG.md            # conventional-commit changelog (auto-release workflow)
     - CODE_OF_CONDUCT.md
     - CONTRIBUTING.md
     - SECURITY.md

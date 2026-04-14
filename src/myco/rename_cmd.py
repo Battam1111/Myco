@@ -23,7 +23,6 @@ The key insight: use PRECISE patterns, not global sed:
 
 from __future__ import annotations
 
-import glob
 import os
 import re
 import subprocess

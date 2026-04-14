@@ -44,21 +44,22 @@ Priority (highest wins): session override > project CLAUDE.md > user ~/.claude >
 If a `skills/` directory exists, check for matching skills before starting a task.
 If no skill matches (or no skills/ directory), proceed with agent judgment.
 
-## Tool Triggers (19 MCP tools)
+## Tool Triggers (25 MCP tools)
 
 | Category | Tools | When to Call |
 |----------|-------|-------------|
 | **Boot** | `myco_hunger(execute=true)` | FIRST call every session |
-| **Health** | `myco_immune`, `myco_pulse` | End of session, after modifying docs |
+| **Health** | `myco_immune`, `myco_pulse`, `myco_verify` | End of session, after modifying docs |
 | **Capture** | `myco_eat` | After decisions, insights, friction |
-| **Process** | `myco_digest`, `myco_condense`, `myco_prune` | When hunger signals recommend |
-| **Search** | `myco_sense`, `myco_memory` | BEFORE answering factual questions |
+| **Process** | `myco_digest`, `myco_condense`, `myco_prune`, `myco_supersede` | When hunger signals recommend |
+| **Search** | `myco_sense`, `myco_scent`, `myco_memory` | BEFORE answering factual questions |
 | **Analyze** | `myco_mycelium`, `myco_colony` | Before refactoring, compression |
-| **External** | `myco_absorb`, `myco_forage` | When gaps detected |
-| **Log** | `myco_trace`, `myco_reflect` | After completing tasks, session end |
+| **External** | `myco_absorb`, `myco_forage`, `myco_ingest_transcript` | When gaps detected |
+| **Log** | `myco_trace`, `myco_reflect`, `myco_observe_turn` | After completing tasks, session end |
 | **View** | `myco_observe` | When recalling past decisions |
 | **Evolve** | `myco_evolve`, `myco_evolve_list` | When skill_degradation hunger signal fires |
 | **Undo** | `myco_expand` | When a compression was incorrect |
+| **Session** | `myco_session_end` | Closing a session cleanly |
 
 ## Reflex Arcs (auto-enforced)
 

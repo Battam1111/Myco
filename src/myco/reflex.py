@@ -20,7 +20,6 @@ structured entries in the returned dict.
 from __future__ import annotations
 
 import re
-from datetime import datetime
 from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Any, Dict, List, Optional

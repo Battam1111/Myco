@@ -7,16 +7,10 @@ Scans for recognized knowledge patterns (CLAUDE.md, MEMORY.md, skills/, etc.)
 and maps them to Myco's four-layer architecture.
 """
 
-import shutil
-import sys
-from datetime import datetime
 from pathlib import Path
 
-from myco.templates import get_templates_dir, get_template, fill_template
-
-
-def get_date():
-    return datetime.now().strftime("%Y-%m-%d")
+from myco.templates import get_template, fill_template
+from myco.util import get_date
 
 
 # ─── Pattern Detection ──────────────────────────────────────────────
@@ -166,7 +160,7 @@ def create_myco_scaffold(project_dir: Path, replacements: dict, entry_point: str
         if lint_dst.exists():
             actions.append(("SKIP", "scripts/lint_knowledge.py already exists"))
         else:
-            actions.append(("CREATE", "scripts/lint_knowledge.py (23-dimension Lint shim → myco.immune)"))
+            actions.append(("CREATE", "scripts/lint_knowledge.py (29-dimension Lint shim → myco.immune)"))
             if not dry_run:
                 (project_dir / "scripts").mkdir(exist_ok=True)
                 standalone_lint = (

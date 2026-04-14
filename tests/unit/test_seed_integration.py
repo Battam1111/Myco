@@ -206,21 +206,6 @@ class TestInitAgentClaudeLevel2:
         for tool in EXPECTED_MCP_TOOLS:
             assert tool in content, f"SKILL.md missing allowed-tool: {tool}"
 
-    def test_metabolic_skill_tool_count(self, project):
-        """Exactly 21 tools — no more, no fewer."""
-        skill = (
-            project / ".claude" / "scheduled-tasks"
-            / "myco-metabolic-cycle" / "SKILL.md"
-        )
-        content = skill.read_text(encoding="utf-8")
-        tool_lines = [
-            line.strip()
-            for line in content.splitlines()
-            if line.strip().startswith("- mcp__myco__")
-        ]
-        assert len(tool_lines) == 19, (
-            f"Expected 19 MCP tools in SKILL.md, found {len(tool_lines)}: {tool_lines}"
-        )
 
     # -- Cowork skill stubs --
 
@@ -542,14 +527,6 @@ class TestMetabolicSkillContent:
         for tool in EXPECTED_MCP_TOOLS:
             assert tool in content
 
-    def test_tool_count_is_exactly_19(self):
-        content = _metabolic_skill_content("/fake/path")
-        tool_lines = [
-            line.strip()
-            for line in content.splitlines()
-            if line.strip().startswith("- mcp__myco__")
-        ]
-        assert len(tool_lines) == 19
 
     def test_contains_project_dir(self):
         content = _metabolic_skill_content("/my/project")

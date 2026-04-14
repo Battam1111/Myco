@@ -19,7 +19,7 @@ import os
 import re
 from collections import defaultdict, deque
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set
 
 # ---------------------------------------------------------------------------
 # Link extraction patterns

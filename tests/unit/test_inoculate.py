@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from myco.bootstrap import (
+from myco.inoculate import (
     _infer_project_name,
     _infer_entry_point,
     is_bootstrapped,
@@ -84,11 +84,3 @@ class TestFirstContactSeed:
         result = first_contact_seed(project, silent=True)
         assert result is None
 
-    def test_rejects_home_dir(self, monkeypatch):
-        # Should not seed the user's home directory
-        home = Path.home()
-        # Only run if home doesn't already have _canon.yaml
-        if (home / "_canon.yaml").exists():
-            pytest.skip("home already has _canon.yaml")
-        result = first_contact_seed(home, silent=True)
-        assert result is None

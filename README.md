@@ -55,7 +55,7 @@ cd Myco && pip install -e ".[mcp]"
 myco seed --auto-detect my-project
 ```
 
-Three commands. Auto-detects your environment (Claude Code · Cowork · Cursor · VS Code · Codex · Cline · Continue · Zed · Windsurf), finds what you have, configures all of it in one shot.
+Three commands. Auto-detects your environment (9 platforms: Claude Code · Cowork · Cursor · VS Code · Codex · Cline · Continue · Zed · Windsurf), finds what you have, configures all of it in one shot.
 
 **Cowork users**: `myco seed` generates project-level configs, but Cowork doesn't read project `.mcp.json`. For full MCP auto-injection in Cowork, install the `myco.plugin`. It bundles the MCP server, skills, and session hooks into a single file. See `docs/agent_protocol.md` §0.5 for details.
 

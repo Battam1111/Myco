@@ -81,7 +81,7 @@ mcp_config:
     - "myco_eat — zero-friction knowledge capture"
     - "myco_digest — lifecycle transitions with reflection prompts"
     - "myco_condense — cohort-based forward compression"
-    - "myco_immune — 23-dimensional consistency checking"
+    - "myco_immune — 29-dimensional consistency checking"
     - "myco_mycelium — structural link graph (backlinks, orphans, clusters)"
     - "myco_sense — full-text search across the substrate"
     - "myco_absorb — external content ingestion with provenance"
@@ -143,7 +143,7 @@ value_proposition: |
     - CLAUDE.md boots the agent with project context every session (auto-loaded)
     - .mcp.json gives direct access to 20 metabolic tools (no wrapper needed)
     - hunger(execute=true) auto-heals: digests stale notes, compresses ripe cohorts
-    - 23-dimensional lint catches contradictions across the entire substrate
+    - 29-dimensional lint catches contradictions across the entire substrate
     - Link graph tracks structural connectivity — no orphan knowledge
     - Session memory (FTS5) lets the agent search what happened 3 weeks ago
     - Skills evolve through mutation-selection within the substrate

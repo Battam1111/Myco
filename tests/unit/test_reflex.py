@@ -2,7 +2,7 @@
 
 import pytest
 
-from myco.bootstrap import first_contact_seed
+from myco.inoculate import first_contact_seed
 from myco.notes import write_note
 from myco.reflex import (
     apply_supersede,

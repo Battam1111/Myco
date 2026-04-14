@@ -14,21 +14,19 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
-from typing import Any, Optional
-from datetime import datetime, timedelta
+from typing import Any
+from datetime import datetime
+
+from myco.project import resolve_project_dir
 
 
-def _project_root(args: Any) -> Path:
-    """Delegates to centralized find_project_root."""
-    from myco.project import find_project_root
-    return find_project_root(getattr(args, "project_dir", None), strict=False)
 
 
 def run_verify(args: Any) -> int:
     """Dispatch ``myco verify`` subcommand."""
     from myco.notes import read_note, update_note, list_notes, _now_iso
 
-    root = _project_root(args)
+    root = resolve_project_dir(args, strict=False)
     mark_action = getattr(args, "mark_action", None)
     mark_note_id = getattr(args, "mark_note_id", None)
     json_output = getattr(args, "json", False)

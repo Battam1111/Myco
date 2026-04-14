@@ -2,7 +2,7 @@
 
 import pytest
 
-from myco.bootstrap import first_contact_seed
+from myco.inoculate import first_contact_seed
 from myco.colony import auto_promote_cross_project
 from myco.notes import write_note
 

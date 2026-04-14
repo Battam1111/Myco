@@ -12,17 +12,14 @@ from pathlib import Path
 from typing import Any
 
 
-def _project_root(args: Any) -> Path:
-    """Wave A1: delegates to centralized find_project_root."""
-    from myco.project import find_project_root
-    return find_project_root(getattr(args, "project_dir", None), strict=False)
 
 
 def run_session(args: Any) -> int:
     """Dispatch ``myco memory`` subcommands."""
+    from myco.project import resolve_project_dir
     from myco.memory import index_sessions, prune_sessions, search_sessions
 
-    root = _project_root(args)
+    root = resolve_project_dir(args, strict=False)
     use_json = getattr(args, "json", False)
     sub = getattr(args, "session_subcommand", None)
 

@@ -17,13 +17,9 @@ Usage:
 """
 
 import re
-import sys
-from datetime import datetime
 from pathlib import Path
 
-
-def get_date():
-    return datetime.now().strftime("%Y-%m-%d")
+from myco.util import get_date
 
 
 # ── Hermes Import ────────────────────────────────────────────────────────────

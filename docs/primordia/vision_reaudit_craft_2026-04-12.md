@@ -15,7 +15,7 @@ decision_class: kernel_contract
 >
 > **Parent anchor document**: `docs/primordia/vision_recovery_craft_2026-04-10.md` (Wave 10, re-read in full as Round 1 input). This craft does NOT supersede the Wave 10 recovery — it *reconciles* the 8 anchors with the 15 waves of implementation state (W11–W25) that have accumulated since.
 >
-> **Supersedes**: `docs/primordia/hermes_absorption_craft_2026-04-12.md §4.1 D3` (the "friction-driven Wave 26+ ordering" decision). New D3 text lives in §3 below.
+> **Supersedes**: `docs/primordia/archive/hermes_absorption_craft_2026-04-12.md §4.1 D3` (the "friction-driven Wave 26+ ordering" decision). New D3 text lives in §3 below.
 
 ## 0. Problem definition
 
@@ -369,7 +369,7 @@ Based on Round 1 coverage + Round 2 DAG + attack resolutions:
 
 ## 3. Round 3 — Supersession of Wave 25 D3 + Wave 27 scope lock
 
-### 3.1 Old D3 (from `docs/primordia/hermes_absorption_craft_2026-04-12.md §4.1`)
+### 3.1 Old D3 (from `docs/primordia/archive/hermes_absorption_craft_2026-04-12.md §4.1`)
 
 > *"D3 — Wave 26+ ordering is friction-driven, NOT schedule-driven. The Wave 25
 > test suite will catch bugs. The first caught bug determines Wave 26's subject.
@@ -473,7 +473,7 @@ Attack E lands as "this is a methodology choice, not a optimality claim". Accept
 
 ### 4.4 Supersession pointer
 
-- Supersedes: `docs/primordia/hermes_absorption_craft_2026-04-12.md §4.1 D3` (friction-driven Wave 26+ ordering). The rest of the Wave 25 craft (C1 landing, catalog C2–C20 inventory, Round 1-3 attacks on absorption shape) remains in force.
+- Supersedes: `docs/primordia/archive/hermes_absorption_craft_2026-04-12.md §4.1 D3` (friction-driven Wave 26+ ordering). The rest of the Wave 25 craft (C1 landing, catalog C2–C20 inventory, Round 1-3 attacks on absorption shape) remains in force.
 - Does NOT supersede: `docs/primordia/vision_recovery_craft_2026-04-10.md` (sibling anchor document).
 - Does NOT supersede: Wave 25 D1/D2/D4/D5/D6 (those remain in force — only D3 changes).
 

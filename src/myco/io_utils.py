@@ -1,10 +1,10 @@
 """Atomic-write helpers for the substrate.
 
 **Wave 30 (kernel_contract, contract v0.26.0)**: introduces `atomic_write_text`
-and `atomic_write_yaml` as the substrate's first general-purpose atomic-write
-helpers. Created as a declared dependency of `myco compress` (per Wave 27 D8 +
-Wave 30 craft §3.1) — `compress` is a multi-file mutation that must be
-all-or-nothing across N input notes + 1 output note.
+as the substrate's first general-purpose atomic-write helper. Created as a
+declared dependency of `myco compress` (per Wave 27 D8 + Wave 30 craft §3.1) —
+`compress` is a multi-file mutation that must be all-or-nothing across N input
+notes + 1 output note.
 
 **Why this module exists** (hermes catalog C2 — atomic writes):
 
@@ -43,7 +43,6 @@ to make crash-during-compress recoverable in practice.
 `myco compress` needs; future waves can extend as friction demands):
 
   - `atomic_write_text(path, text, *, encoding="utf-8")` — write str → file
-  - `atomic_write_yaml(path, data)` — write dict → YAML file via PyYAML
 
 **Not in Wave 30 scope**:
 
@@ -79,7 +78,7 @@ from typing import Any, Dict, Union
 
 try:
     import yaml
-except ImportError:  # pragma: no cover — PyYAML is a hard dep elsewhere
+except ImportError:  # pragma: no cover
     yaml = None
 
 
@@ -140,32 +139,25 @@ def atomic_write_text(
     return target
 
 
-def atomic_write_yaml(
-    path: Union[str, Path],
-    data: Dict[str, Any],
-) -> Path:
-    """Atomically write a dict as YAML to `path`.
+def load_yaml_safe(path: Path) -> Dict[str, Any]:
+    """Load YAML from `path` returning {} on missing/empty/malformed files.
 
-    Convenience wrapper over `atomic_write_text` that serializes via PyYAML
-    with stable, diff-friendly formatting (sort_keys=False, allow_unicode,
-    block style).
+    Centralizes the `yaml.safe_load(f) or {}` pattern scattered across the
+    codebase. Silently handles FileNotFoundError and empty files; raises on
+    parse errors so bugs surface early.
 
-    Used by `myco compress` for any future YAML output (e.g. compression
-    audit sidecars). Wave 30 itself only writes Markdown notes via the
-    text helper, but ships the YAML helper for completeness so consumers
-    don't have to reach into PyYAML directly.
+    Args:
+        path: Path to YAML file to load.
 
-    Raises `RuntimeError` if PyYAML is not installed (matches the rest
-    of the substrate, where PyYAML is a hard dependency).
+    Returns:
+        Parsed YAML dict, or {} if file is missing/empty.
+
+    Raises:
+        yaml.YAMLError: If the file exists but contains invalid YAML.
     """
-    if yaml is None:
-        raise RuntimeError(
-            "PyYAML is required for atomic_write_yaml; install via `pip install pyyaml`"
-        )
-    text = yaml.safe_dump(
-        data,
-        sort_keys=False,
-        allow_unicode=True,
-        default_flow_style=False,
-    )
-    return atomic_write_text(path, text)
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+    except FileNotFoundError:
+        return {}
+    return data or {}

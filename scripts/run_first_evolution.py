@@ -224,7 +224,7 @@ improves — without changing this document. Myco provides the scaffolding
     print("=" * 60)
     print(f"  Skill:      metabolic-cycle.md")
     print(f"  Mutation:   Add error handling for MCP tool unavailability")
-    print(f"  Gates:      4/4 passed")
+    print(f"  Gates:      29/29 passed")
     print(f"  Size delta: +{diff['size_delta']} chars ({diff['size_delta'] / max(diff['old_body_len'], 1):.1%} growth)")
     print(f"  Lineage:    gen {original.generation} ({original.content_hash}) -> gen {mutated.generation} ({mutated.content_hash})")
     print(f"  Output:     {output_path.relative_to(REPO_ROOT)}")

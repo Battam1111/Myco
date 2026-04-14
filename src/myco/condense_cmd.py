@@ -85,21 +85,18 @@ from myco.notes import (
     generate_id,
     id_to_filename,
     list_notes,
-    parse_frontmatter,
     read_note,
     serialize_note,
 )
 
 
 # ---------------------------------------------------------------------------
-# Project root resolution (mirrors notes_cmd._project_root, kept local to
-# avoid circular import — both modules sit beside each other in myco/)
+# Project root resolution — now centralized in project.py
 # ---------------------------------------------------------------------------
 
-def _project_root(args) -> Path:
-    """Wave A1: delegates to centralized find_project_root (strict)."""
-    from myco.project import find_project_root
-    return find_project_root(getattr(args, "project_dir", None))
+from myco.project import resolve_project_dir
+
+
 
 
 # ---------------------------------------------------------------------------
@@ -136,7 +133,7 @@ def _resolve_cohort_by_tag(
     for p in list_notes(root):
         try:
             meta, _ = read_note(p)
-        except Exception:
+        except (OSError, ValueError, RuntimeError):
             continue
         tags = meta.get("tags") or []
         if not isinstance(tags, list):
@@ -252,7 +249,7 @@ def _build_output_body(cohort: List[Path], rationale: str) -> str:
     for p in cohort:
         try:
             meta, _ = read_note(p)
-        except Exception:
+        except (OSError, ValueError, RuntimeError):
             lines.append(f"- `{p.stem}` (read error)")
             continue
         tags = ", ".join(meta.get("tags") or [])
@@ -297,7 +294,7 @@ def _build_output_meta(
     for p in cohort:
         try:
             meta, _ = read_note(p)
-        except Exception:
+        except (OSError, ValueError, RuntimeError):
             continue
         for t in (meta.get("tags") or []):
             if t not in seen:
@@ -431,7 +428,7 @@ def _execute_compression(
         try:
             from myco.notes import increment_excretion_counter
             increment_excretion_counter(root, count=excretion_count)
-        except Exception:
+        except (OSError, ImportError, ValueError):
             pass  # best-effort — never block compression
 
     return output_path, [p for p, _ in pending_updates]
@@ -456,7 +453,7 @@ def run_compress(args) -> int:
       5 — io error (cannot read project, cannot write notes/)
     """
     try:
-        root = _project_root(args)
+        root = resolve_project_dir(args, strict=True)
     except MycoProjectNotFound as e:
         print(f"compress: {e}", file=sys.stderr)
         return 5
@@ -792,7 +789,7 @@ def run_uncompress(args) -> int:
       5 — io error (cannot read project, cannot write notes/)
     """
     try:
-        root = _project_root(args)
+        root = resolve_project_dir(args, strict=True)
     except MycoProjectNotFound as e:
         print(f"uncompress: {e}", file=sys.stderr)
         return 5
