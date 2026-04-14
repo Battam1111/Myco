@@ -1,11 +1,28 @@
 """``myco.homeostasis`` — immune system + sanctioned evolution.
 
 Governing doctrine: ``docs/architecture/L2_DOCTRINE/homeostasis.md``.
-Kernel + exit policy + skeleton downgrade land in Stage B.2; the per-
-dimension rules in ``dimensions/`` are authored fresh at Stage B.8.
-
-Responsibility: detect drift (bad) and distinguish it from sanctioned
-evolution (good). Four lint categories: mechanical / shipped /
-metabolic / semantic. Severity ladder: CRITICAL > HIGH > MEDIUM > LOW.
-Kernel budget: ≤ 1500 LoC.
+Stage B.2 surface — kernel infrastructure only; real dimensions land
+in Stage B.8.
 """
+
+from __future__ import annotations
+
+from .dimension import Dimension
+from .exit_policy import ExitPolicy, Threshold, parse_exit_policy
+from .finding import Category, Finding
+from .kernel import run_immune
+from .registry import DimensionRegistry, default_registry
+from .skeleton import apply_skeleton_downgrade
+
+__all__ = [
+    "Category",
+    "Finding",
+    "Dimension",
+    "DimensionRegistry",
+    "default_registry",
+    "Threshold",
+    "ExitPolicy",
+    "parse_exit_policy",
+    "apply_skeleton_downgrade",
+    "run_immune",
+]
