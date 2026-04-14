@@ -67,12 +67,18 @@ def write_version(new_version: str) -> None:
     if INIT.exists():
         init_text = INIT.read_text(encoding="utf-8")
         if "__version__" in init_text:
-            init_text = re.sub(
-                r'__version__\s*=\s*"[^"]+"',
+            # [^"]* (zero-or-more) matches empty "" too, so we recover from
+            # the corrupt-state bug that produced __version__ = "" in the
+            # v0.4.0 run chain. If even this fails (no quotes at all), append.
+            new_text = re.sub(
+                r'__version__\s*=\s*"[^"]*"',
                 f'__version__ = "{new_version}"',
                 init_text,
                 count=1,
             )
+            if new_text == init_text:
+                new_text = init_text.rstrip() + f'\n\n__version__ = "{new_version}"\n'
+            init_text = new_text
         else:
             init_text = init_text.rstrip() + f'\n\n__version__ = "{new_version}"\n'
         INIT.write_text(init_text, encoding="utf-8")

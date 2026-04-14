@@ -81,8 +81,12 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add pyproject.toml src/myco/__init__.py CHANGELOG.md
           git commit -m "chore(release): v${{ steps.version.outputs.new }}"
-          git tag "v${{ steps.version.outputs.new }}"
-          git push origin main --follow-tags
+          # Annotated tag so --follow-tags picks it up; also push tag
+          # explicitly so `gh release create` can see it (root cause of
+          # v0.4.0 / v0.5.0 release failures, 2026-04-14).
+          git tag -a "v${{ steps.version.outputs.new }}" -m "Release v${{ steps.version.outputs.new }}"
+          git push origin main
+          git push origin "v${{ steps.version.outputs.new }}"
 
       - name: Create GitHub Release
         if: steps.bump.outputs.level != 'none'
