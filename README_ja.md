@@ -47,6 +47,16 @@
 
 ---
 
+## Myco とは何か、何でないか
+
+Myco は **Agent-First 共生認知基質**（Agent-First symbiotic cognitive substrate）——*あなたのエージェントのもう半身*だ。
+
+**記憶レイヤー**（Mem0/Zep）**ではない**。**エージェントランタイム**（Hermes/LangGraph）**でもない**。**スキルフレームワーク**（PUA/nuwa）**でもない**。外付けの**インフラでもない**。
+
+これは**自己創出する基質**だ：エージェントが知性をもたらし、Myco が記憶・免疫・代謝・自己モデル・自己進化をもたらす——どちらが欠けても完全ではない。CPU と、それが宿る「記憶-免疫-代謝-自己モデル」器官との関係に近い。四つの語——*Agent-First / Symbiotic / Cognitive / Substrate*——はそれぞれ重量を担っており、どれか一つでも落とせばカテゴリーは「ただの記憶ツール」というデフォルトに崩れ落ちる。
+
+---
+
 ## はじめに
 
 **デフォルトは編集可能インストール。** Myco は自分で変異する——skill が自分を書き換え、ルールが進化し、エンジン自体が substrate だ。PyPI からピン止めインストール = 一つのスナップショットに自分を凍結させること。編集可能インストール = 変異のすべてがあなたの作業ツリーにゼロコストで届く。これが Myco の全部の意味だ。どちらでも**設定ゼロ**——Myco は新しいプロジェクトに初めて入った時に **substrate を自動で芽吹かせる**。`myco seed` を覚える必要はない。
@@ -169,9 +179,9 @@ Myco substrate                        │
 
 **`ModuleNotFoundError: No module named 'myco'`**——plugin の MCP / hook が走る Python 環境にエンジンが入っていない。その環境で Myco clone から `pip install -e ".[mcp]"` を実行（またはピン止めなら `pip install 'myco>=0.3.3'`）。
 
-**agent が「Myco のソースがマウントされていない」と言う**——agent の推論バグ。Myco は PyPI パッケージで、ソースツリーをマウントする必要はない。agent を `$CLAUDE_PROJECT_DIR/_canon.yaml` に向けろ。
+**agent が「Myco のソースがマウントされていない」と言う**——agent の推論バグ。Myco は PyPI パッケージで、ソースツリーをマウントする必要はない。agent をプロジェクトルートの `_canon.yaml`（`$CLAUDE_PROJECT_DIR` 配下）に向けろ。
 
-**`SessionStart` hook がタイムアウトする**——非常に大きな substrate（1 万+ ノート、密な菌糸グラフ）はデフォルトの 60s を超えることがある。`hooks/hooks.json` で `timeout` を上げるか、`myco hunger --fast` を使え。
+**`SessionStart` hook がタイムアウトする**——非常に大きな substrate（1 万+ ノート、密な菌糸グラフ）はデフォルトの 60s を超えることがある。`.claude/settings.local.json` で `timeout` を上げるか、`myco hunger --fast` を使え。
 
 **空のディレクトリで自動芽吹きが拒否される**——意図通り。Myco はプロジェクトマーカー（`.git`、`pyproject.toml`、`package.json`、`README.md`、……）が一つもないディレクトリでは芽吹きを拒否する。home / システムディレクトリの汚染を防ぐため。マーカーを一つ作るか、明示的に `myco seed --level 1` を走らせろ。
 

@@ -47,6 +47,16 @@
 
 ---
 
+## Myco 是什么，不是什么
+
+Myco 是一个 **Agent-First 共生认知基质**（Agent-First symbiotic cognitive substrate）——*你的 agent 的另一半*。
+
+它**不是**记忆层（Mem0/Zep）。**不是** agent runtime（Hermes/LangGraph）。**不是**技能框架（PUA/nuwa）。**不是**挂在外面的基础设施。
+
+它是一个**自创生的基质**：agent 出智能，Myco 出记忆、免疫、代谢、自我建模和自我进化——二者缺一不完整。就像 CPU 和它所栖身的"记忆-免疫-代谢-自我建模"器官之间的关系。四个词——*Agent-First / Symbiotic / Cognitive / Substrate*——每一个都承重，缺一就会塌回"又一个记忆工具"那个默认赛道里去。
+
+---
+
 ## 开始
 
 **默认就是可编辑安装。** Myco 自己会变异——skill 自己改写，规则自己进化，引擎本身就是 substrate。从 PyPI 锁定版本安装 = 把自己冻结在某个快照；可编辑安装 = 每一次变异都直接落到你的工作树，零成本继承。这就是 Myco 的全部意义。两种装法都**零配置**——Myco 在首次进入新项目时**自动播种** substrate，不用你记 `myco seed`。
@@ -169,9 +179,9 @@ Myco substrate                     │
 
 **`ModuleNotFoundError: No module named 'myco'`**——plugin 的 MCP / hook 所用的 Python 环境里没装引擎。在该环境里从 Myco clone 跑 `pip install -e ".[mcp]"`（或锁定版本 `pip install 'myco>=0.3.3'`）。
 
-**agent 说 "Myco 源码没挂载"**——agent 推理出了 bug。Myco 是 PyPI 包，不需要 clone 任何源码树。把 agent 指向 `$CLAUDE_PROJECT_DIR/_canon.yaml` 就行。
+**agent 说 "Myco 源码没挂载"**——agent 推理出了 bug。Myco 是 PyPI 包，不需要 clone 任何源码树。把 agent 指向项目根目录的 `_canon.yaml`（位于 `$CLAUDE_PROJECT_DIR`）即可。
 
-**`SessionStart` hook 超时**——substrate 特别大（1 万+ 笔记、菌丝图密集）可能超过 60s 默认。在 `hooks/hooks.json` 里调大 `timeout`，或跑 `myco hunger --fast`。
+**`SessionStart` hook 超时**——substrate 特别大（1 万+ 笔记、菌丝图密集）可能超过 60s 默认。在 `.claude/settings.local.json` 里调大 `timeout`，或跑 `myco hunger --fast`。
 
 **空目录里自动播种被拒**——这是故意的。Myco 拒绝在缺少任何项目标记（`.git`、`pyproject.toml`、`package.json`、`README.md`、……）的目录里播种，以免污染 home / 系统目录。加一个标记文件，或显式 `myco seed --level 1`。
 
