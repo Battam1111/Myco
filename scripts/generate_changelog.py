@@ -36,18 +36,23 @@ CATEGORIES = [
 
 
 def git_log(since: str) -> list[str]:
+    # encoding="utf-8" + errors="replace" — avoid GBK decode errors on
+    # Windows when commit messages contain non-ASCII (Chinese text,
+    # em-dashes, etc.). text=True uses locale default which breaks on GBK.
     try:
         out = subprocess.check_output(
             ["git", "log", f"{since}..HEAD", "--pretty=format:%s", "--no-merges"],
             cwd=ROOT,
-            text=True,
+            encoding="utf-8",
+            errors="replace",
         )
     except subprocess.CalledProcessError:
         # Fallback — no previous tag
         out = subprocess.check_output(
             ["git", "log", "--pretty=format:%s", "--no-merges"],
             cwd=ROOT,
-            text=True,
+            encoding="utf-8",
+            errors="replace",
         )
     return [line for line in out.splitlines() if line.strip()]
 
