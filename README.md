@@ -47,6 +47,16 @@ But six months later, your AI is sharper than anyone else's. It knows the full h
 
 ---
 
+## What Myco is, and is not
+
+Myco is an **Agent-First symbiotic cognitive substrate** — *your agent's other half*.
+
+It is **not** a memory layer (Mem0/Zep). **Not** an agent runtime (Hermes/LangGraph). **Not** a skill framework (PUA/nuwa). **Not** infrastructure you bolt on.
+
+It is an **autopoietic substrate**: the agent brings intelligence; Myco brings memory, immunity, metabolism, self-model, and its own evolution. Neither is whole without the other. Think of it as the difference between a CPU and the memory-immune-metabolism-self-model organ an agent lives inside. All four words — *Agent-First / Symbiotic / Cognitive / Substrate* — carry weight; drop any one and the category collapses back into "just another memory tool."
+
+---
+
 ## Quick Start
 
 **Default is editable install.** Myco mutates itself — skills rewrite themselves, rules evolve, the engine itself is substrate. A pinned PyPI install freezes you at one snapshot; editable install means every mutation lands in your working tree for free. That's the whole point. Zero config either way — Myco **auto-seeds** a substrate on first contact, so there's no `myco seed` step to remember.
@@ -169,9 +179,9 @@ Rules 1–2 are mechanical. Rules 3–6 are agent discipline, surfaced by immune
 
 **`ModuleNotFoundError: No module named 'myco'`** — the engine isn't installed in the Python environment the plugin's MCP/hooks run in. Run `pip install -e ".[mcp]"` from your Myco clone (or `pip install 'myco>=0.3.3'` for a pinned install) in that environment.
 
-**Agent says "Myco source is not mounted"** — bug in agent reasoning. Myco is a PyPI package; no source tree needs to be mounted. Point the agent at `$CLAUDE_PROJECT_DIR/_canon.yaml`.
+**Agent says "Myco source is not mounted"** — bug in agent reasoning. Myco is a PyPI package; no source tree needs to be mounted. Point the agent at the project's `_canon.yaml` (located at `$CLAUDE_PROJECT_DIR`).
 
-**`SessionStart` hook times out** — a very large substrate (10k+ notes, dense mycelium graph) may exceed the 60s default. Raise `timeout` in `hooks/hooks.json` or run `myco hunger --fast`.
+**`SessionStart` hook times out** — a very large substrate (10k+ notes, dense mycelium graph) may exceed the 60s default. Raise `timeout` in `.claude/settings.local.json` or run `myco hunger --fast`.
 
 **Auto-seed refused in an empty dir** — intentional. Myco refuses to seed dirs without at least one project marker (`.git`, `pyproject.toml`, `package.json`, `README.md`, …) to protect against polluting home / system dirs. Create one marker or run `myco seed --level 1` explicitly.
 
