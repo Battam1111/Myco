@@ -127,4 +127,6 @@ jobs:
           python -m pip install --upgrade pip build
           python -m build
 
-      - name: Publish 
+      - name: Publish to PyPI (trusted publishing)
+        if: steps.bump.outputs.level != 'none'
+        uses: pypa/gh-action-pypi-publish@release/v1
