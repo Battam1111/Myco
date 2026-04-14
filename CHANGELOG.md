@@ -3,6 +3,11 @@
 All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## v0.3.2 — 2026-04-14
+
+### Bug Fixes
+- Consolidated fixes across adapters, CLI, and lint surfaces.
+
 ## v0.6.1 — 2026-04-14
 
 ### Bug Fixes
