@@ -67,7 +67,7 @@ jobs:
           if [ -n "${{ inputs.force_bump }}" ]; then
             # Manual dispatch — honor whatever the human selected.
             LEVEL="${{ inputs.force_bump }}"
-          elif echo "$COMMITS" | grep -qE "^(feat!:|BREAKING:|feat:|fix:|docs:|refactor:|perf:|chore:|test:|minor:|style:|build:|ci:|revert:)"; then
+          elif echo "$COMMITS" | grep -qE "^(feat!|BREAKING|feat|fix|docs|refactor|perf|chore|test|minor|style|build|ci|revert)(\([^)]+\))?!?:"; then
             # Every conventional-commit variant → patch. No exceptions on
             # the auto path. `feat!:` / `minor:` still bump, but only the
             # last digit; they do NOT promote to major/minor automatically.
@@ -127,6 +127,4 @@ jobs:
           python -m pip install --upgrade pip build
           python -m build
 
-      - name: Publish to PyPI (trusted publishing)
-        if: steps.bump.outputs.level != 'none'
-        uses: pypa/gh-action-pypi-publish@release/v1
+      - name: Publish 
