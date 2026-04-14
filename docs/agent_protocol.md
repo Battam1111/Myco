@@ -226,7 +226,7 @@ Phase 4: VERIFY — immune L23 定期扫描所有 extracted/integrated notes 检
 | `myco_observe` | (a) 开始新任务前扫 `--status raw --tag <topic>`；(b) 找之前吃过的某段代码/决策；(c) 人类问 "你记不记得……" 时 | 不能凭记忆回答 |
 | `myco_hunger` | (a) 新会话开始（`myco_pulse` 之后）；(b) 会话中段自检；(c) 会话结束前 | 不能忽略其返回的信号（特别注意新增的 `phantom_digestion` 信号） |
 
-### 2.3 Compression Pipeline（压缩管道，Wave 30-33）
+### 2.3 Compression Pipeline（压缩管道）
 
 | Tool | 何时调用（trigger conditions） | 禁止 |
 |------|------------------------------|------|
@@ -234,7 +234,7 @@ Phase 4: VERIFY — immune L23 定期扫描所有 extracted/integrated notes 检
 | `myco_expand` | 发现某次压缩遗失了重要内容，需要恢复输入笔记 | 极少使用；不能直接手改 excreted 笔记的 status |
 | `myco_prune` | (a) `myco_hunger` 报 `dead_knowledge`（terminal 状态笔记 ≥30d 未查看）；(b) 主动清理积压 | 不能手动删除 notes/*.md 文件 |
 
-### 2.4 External Metabolism（外部代谢，Wave 35-52）
+### 2.4 External Metabolism（外部代谢）
 
 | Tool | 何时调用（trigger conditions） | 禁止 |
 |------|------------------------------|------|
@@ -242,7 +242,7 @@ Phase 4: VERIFY — immune L23 定期扫描所有 extracted/integrated notes 检
 | `myco_forage` | (a) Agent 发现相关论文/仓库/文章；(b) 人类说"去看看 X"；(c) `myco_hunger` 报 `forage_backlog` | 不能把外部资料存在 notes/ 里，forage/ 是暂存区 |
 | `myco_sense` | (a) **回答任何项目事实性问题之前**；(b) 开始新功能/修 bug 前查已有知识；(c) 人类问"有没有……" | 不能凭记忆回答——基质是事实来源 |
 
-### 2.5 Structural Intelligence（结构智能，Wave 47-52）
+### 2.5 Structural Intelligence（结构智能）
 
 | Tool | 何时调用（trigger conditions） | 禁止 |
 |------|------------------------------|------|
@@ -268,7 +268,7 @@ Phase 4: VERIFY — immune L23 定期扫描所有 extracted/integrated notes 检
 
 **禁止**：跳过 `digest` 直接手改 frontmatter 的 `status` 字段。永远走工具。
 
-### 2.6 纵向追溯导航（Wave 56）
+### 2.6 纵向追溯导航
 
 **`_canon.yaml::system.traceability`** 是 Agent 的纵向导航图。
 

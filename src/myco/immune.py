@@ -26,16 +26,16 @@ Dimensions:
     L13 Craft Protocol Schema — docs/primordia/*_craft_*.md frontmatter (v0.3.0, W3)
     L14 Forage Hygiene — forage/_index.yaml manifest + files (v0.7.0)
     L15 Craft Reflex — trigger-surface touches must cite craft evidence (v0.10.0, W3)
-    L16 Boot Brief Freshness — .myco_state/boot_brief.md mtime sanity (Wave 21, v0.20.0)
-    L17 Contract Drift — synced_contract_version vs kernel contract_version (Wave 24, v0.23.0)
-    L18 Compression Integrity — forward-compression bidirectional link audit (Wave 30, v0.26.0)
-    L19 Lint Dimension Count Consistency — downstream-cache drift detection (Wave 38, v0.29.0)
-    L20 Translation Mirror Consistency — locale README skeleton parity (Wave 39, v0.30.0)
-    L21 Contract Version Inline Consistency — forward-looking inline contract version SSoT (Wave 40, v0.31.0)
-    L22 Wave-Seed Lifecycle — raw wave-seed orphan detection (seven-step pipeline post-condition, Wave 41, v0.32.0)
-    L23 Absorption Verification — digest integrity proof audit (Wave 43)
-    L24 Synaptogenesis Health — wiki↔wiki cross-reference connectivity (Wave 44)
-    L25 Cross-Layer Interconnection Health — cross-layer concept connectivity (Wave 46, 万物互联)
+    L16 Boot Brief Freshness — .myco_state/boot_brief.md mtime sanity (v0.20.0)
+    L17 Contract Drift — synced_contract_version vs kernel contract_version (v0.23.0)
+    L18 Compression Integrity — forward-compression bidirectional link audit (v0.26.0)
+    L19 Lint Dimension Count Consistency — downstream-cache drift detection (v0.29.0)
+    L20 Translation Mirror Consistency — locale README skeleton parity (v0.30.0)
+    L21 Contract Version Inline Consistency — forward-looking inline contract version SSoT (v0.31.0)
+    L22 Wave-Seed Lifecycle — raw wave-seed orphan detection (seven-step pipeline post-condition, v0.32.0)
+    L23 Absorption Verification — digest integrity proof audit
+    L24 Synaptogenesis Health — wiki↔wiki cross-reference connectivity
+    L25 Cross-Layer Interconnection Health — cross-layer concept connectivity (万物互联)
 """
 # --- Mycelium references ---
 # Canon SSoT:      _canon.yaml (all lint thresholds, stale patterns, write surface)
@@ -282,7 +282,7 @@ def lint_numbers(canon, root):
     # "越找越多" problem — stale numbers are caught mechanically, not by
     # Agent memory.
     #
-    # Two-tier scan (Wave 46, 万物互联 upgrade):
+    # Two-tier scan (万物互联):
     #   Tier 1 (HIGH) — cited_in files: explicitly listed surfaces that MUST
     #     contain the SSoT value. Missing value = HIGH.
     #   Tier 2 (MEDIUM) — auto-discovery: scan ALL project files (including
@@ -1271,7 +1271,7 @@ def lint_craft_protocol(canon, root):
                                    f"declared rounds={rounds} but no `Round N` "
                                    f"headings detected in body — consider adding "
                                    f"explicit `## Round N` anchors so L13 body "
-                                   f"schema can verify structure (Wave 15)"))
+                                   f"schema can verify structure"))
 
                 # MEDIUM: per-round slice below per-round floor
                 for rnum, pchars in sorted(per_round_chars.items()):
@@ -1620,7 +1620,7 @@ def lint_craft_reflex(canon, root):
     if evidence_present:
         return issues
 
-    # --- Step 3: trivial-edit exemption (Wave 12, v0.11.0) ---------------
+    # --- Step 3: trivial-edit exemption (v0.11.0) ---------------
     # A surface touch whose `git diff` stat is <= trivial_exempt_lines AND
     # introduces no new identifiers is exempt. Wrapped in try/except so
     # non-git environments or untracked files fall back to "not exempt"
@@ -1691,7 +1691,7 @@ def lint_craft_reflex(canon, root):
 
 
 def lint_boot_brief_freshness(canon, root):
-    """L16 (Wave 21, contract v0.20.0) — Boot Brief Freshness.
+    """L16 (v0.20.0) — Boot Brief Freshness.
 
     The Wave 17 Boot Brief Injector writes `.myco_state/boot_brief.md`
     as a side effect of `myco hunger`, and the brief is injected into
@@ -1774,7 +1774,7 @@ def lint_boot_brief_freshness(canon, root):
 
 
 def lint_contract_drift(canon, root):
-    """L17 (Wave 24, contract v0.23.0) — Contract Drift Surfacing in Lint.
+    """L17 (v0.23.0) — Contract Drift Surfacing in Lint.
 
     Closes panorama-#3 hole NH-10: `myco hunger` correctly reports
     `[REFLEX HIGH] contract_drift` when an instance's
@@ -1863,11 +1863,11 @@ def lint_contract_drift(canon, root):
 
 
 # ---------------------------------------------------------------------------
-# L18: Compression Integrity (Wave 30, v0.26.0)
+# L18: Compression Integrity (v0.26.0)
 # ---------------------------------------------------------------------------
 
 def lint_compression_integrity(canon, root):
-    """L18 (Wave 30, contract v0.26.0) — forward-compression audit-trail integrity.
+    """L18 (v0.26.0) — forward-compression audit-trail integrity.
 
     Closes Wave 27 D4 + Wave 27 §2.1 defense #4: forward compression's
     bidirectional link integrity is enforced at lint time, not at
@@ -1903,8 +1903,8 @@ def lint_compression_integrity(canon, root):
     Attack F (hallucination) is unbounded.
 
     Authoritative craft:
-        docs/primordia/compression_primitive_craft_2026-04-12.md (Wave 27)
-        docs/primordia/compress_mvp_craft_2026-04-12.md (Wave 30)
+        docs/primordia/compression_primitive_craft_2026-04-12.md
+        docs/primordia/compress_mvp_craft_2026-04-12.md
     """
     issues = []
     schema = canon.get("system", {}).get("notes_schema") or {}
@@ -2017,7 +2017,7 @@ def lint_compression_integrity(canon, root):
 
 
 # ---------------------------------------------------------------------------
-# L19: Lint Dimension Count Consistency  (Wave 38, contract v0.29.0)
+# L19: Lint Dimension Count Consistency  (v0.29.0)
 # ---------------------------------------------------------------------------
 
 # Surface lists for L19 — hardcoded per Wave 38 D4. NOT in canon.yaml because
@@ -2063,7 +2063,7 @@ _L19_PAT_RATIO = re.compile(r"\b(\d+)/(\d+)\s+(?:green|绿|PASS|pass)")
 
 
 def lint_dimension_count_consistency(canon, root):
-    """L19 (Wave 38, contract v0.29.0) — LINT_DIMENSION_COUNT downstream-cache integrity.
+    """L19 (v0.29.0) — LINT_DIMENSION_COUNT downstream-cache integrity.
 
     Closes Wave 37 D7 candidate #1 + enforces Wave 37 D1 ("SSoT for
     LINT_DIMENSION_COUNT is `len(FULL_CHECKS)`; every other surface is a
@@ -2183,7 +2183,7 @@ def lint_dimension_count_consistency(canon, root):
     for rel in _L19_MEDIUM_SURFACES:
         _scan(rel, "MEDIUM")
 
-    # --- Auto-discovery scan (Wave 46, 万物互联 upgrade) ---
+    # --- Auto-discovery scan (万物互联) ---
     # Walk the entire project tree (including .claude/) to find files that
     # reference the dimension count but aren't in the explicit surface lists.
     # These are reported as MEDIUM to surface drift in forgotten corners.
@@ -2219,7 +2219,7 @@ def lint_dimension_count_consistency(canon, root):
 
 
 # ---------------------------------------------------------------------------
-# L20 — Translation Mirror Consistency (Wave 39, contract v0.30.0)
+# L20 — Translation Mirror Consistency (v0.30.0)
 # ---------------------------------------------------------------------------
 
 # The three locale-mirror READMEs that L20 enforces. README.md is the
@@ -2318,7 +2318,7 @@ def _count_skeleton(content: str) -> tuple:
 
 
 def lint_translation_mirror_consistency(canon, root):
-    """L20 (Wave 39, contract v0.30.0) — locale README skeleton parity.
+    """L20 (v0.30.0) — locale README skeleton parity.
 
     Closes Wave 37 D7 followup #2 + Wave 38 forward path. Enforces that
     `README_zh.md` and `README_ja.md` mirror `README.md`'s structural
@@ -2399,7 +2399,7 @@ def lint_translation_mirror_consistency(canon, root):
 
 
 # ---------------------------------------------------------------------------
-# L21 Contract Version Inline Consistency (Wave 40, v0.31.0)
+# L21 Contract Version Inline Consistency (v0.31.0)
 # ---------------------------------------------------------------------------
 # Forward-looking inline contract version claims (e.g. "kernel contract
 # v0.X.Y") in narrative surfaces must match `_canon.yaml::system.contract_version`.
@@ -2486,7 +2486,7 @@ def _l21_is_historical(line, prev_nonblank_line):
 
 
 def lint_contract_version_inline(canon, root):
-    """L21 (Wave 40, contract v0.31.0) — inline contract version SSoT enforcement.
+    """L21 (v0.31.0) — inline contract version SSoT enforcement.
 
     Closes Wave 37 D7 followup #3, the third + final candidate from the
     Wave 37 manual sweep. Sister to Wave 38 L19 (dimension count) and
@@ -2599,7 +2599,7 @@ def lint_contract_version_inline(canon, root):
 
 
 # ---------------------------------------------------------------------------
-# L22 Wave-Seed Lifecycle (Wave 41, v0.32.0)
+# L22 Wave-Seed Lifecycle (v0.32.0)
 # ---------------------------------------------------------------------------
 # Wave-seed orphan detection: a raw note tagged `wave{N}-seed` where wave N
 # has already landed (its milestone exists in `log.md`) is a structural
@@ -2652,7 +2652,7 @@ def _l22_parse_closed_waves(root):
 
 
 def lint_wave_seed_orphan(canon, root):
-    """L22 (Wave 41, contract v0.32.0) — wave-seed orphan detection.
+    """L22 (v0.32.0) — wave-seed orphan detection.
 
     Catches the structural post-condition violation where a raw note
     tagged `wave{N}-seed` exists for a wave N whose `**Wave N landed**`
@@ -2925,7 +2925,7 @@ def lint_cross_layer_health(canon: dict, root: Path) -> list:
       - connectivity_ratio < 0.5 → MEDIUM (moderate isolation)
       - connectivity_ratio >= 0.5 → healthy (no issues)
 
-    This is the capstone of the 万物互联 infrastructure (Wave 46):
+    This is the capstone of the 万物互联 infrastructure:
       - L2 Tier 2 auto-discovers numeric claim drift across ALL files
       - L19 auto-discovers dimension count drift across ALL files
       - L24 checks wiki↔wiki link connectivity

@@ -20,7 +20,7 @@
 
 <!-- MYCO-BOOT-SIGNALS:END -->
 
-**项目**：Myco — Agent-First 共生认知有机体（框架本身）
+**项目**：Myco，Agent-First 共生认知基质（框架本身）
 **当前阶段**：v0.3.0 beta — PyPI 已发布，Show HN 待执行（尚未 1.0）；Post-Metamorphosis — Agent-First 有机体已建成。**Metamorphosis plan 完成**，kernel contract v0.45.0。关键里程碑：26 维 lint (L0-L25) + 19 MCP tools + 282 tests + Signal-to-Action hunger 自动执行闭环 + Link Graph 菌丝互联 + Semantic Cohort Intelligence + Inlet Trigger Policy + Continuous Compression + Session Memory FTS5 + **Wave 54 Agent-First Integration（hunger execute=true + scheduled metabolic cycle）**
 
 **框架开发中最容易出错的 N 件事** ⚠️：
@@ -30,15 +30,15 @@
 4. 修改模板后忘记 rebuild + 重新 `pip install -e ".[mcp]"`（本地测试时 importlib.resources 读的是 src/，无需 build；但 wheel 测试必须重建）
 
 **对外定位一句话**：
-> **Primary**: "Myco is an Agent-First symbiotic cognitive organism — your agent's other half. It remembers, verifies, digests, and evolves so your agent doesn't start from zero every session."
-> **Secondary**: "Agent is the CPU. Myco is the memory + immune system + metabolism + self-model. Connect via MCP, call `hunger(execute=true)`, the organism self-heals. All evolution is non-parametric — markdown, YAML, lint rules. No weights touched."
-> **Tagline**: "Git tracks your code. Myco tracks what your code knows." · *Other tools give memory. Myco gives metabolism — and a self-rewriting immune system.*
-> **For humans**: "Tell your agent what you want in plain words. Myco handles the knowledge infrastructure silently."
-> **Disambiguation**: Myco is **not** a memory layer (Mem0/Zep), **not** an agent runtime (Hermes/LangGraph), **not** a skill framework (PUA/nuwa). It's the living substrate none of those provide — the organism that makes an agent complete.
+> **Primary**: "Myco is an Agent-First symbiotic cognitive substrate, your agent's other half. It remembers, verifies, digests, and evolves so your agent doesn't start from zero every session."
+> **Secondary**: "Agent is the CPU. Myco is the memory, immune system, metabolism, and self-model. Connect via MCP, call `hunger(execute=true)`, the substrate self-heals. All evolution is non-parametric (markdown, YAML, lint rules). No weights touched."
+> **Tagline**: "Git tracks your code. Myco tracks what your code knows." · *Other tools give memory. Myco gives metabolism and a self-rewriting immune system.*
+> **For humans**: "Tell your agent what you want in plain words. Myco handles the cognitive substrate silently."
+> **Disambiguation**: Myco is **not** a memory layer (Mem0/Zep), **not** an agent runtime (Hermes/LangGraph), **not** a skill framework (PUA/nuwa), **not** infrastructure. It is an autopoietic substrate, a co-evolutionary niche none of those provide, the other half that makes an agent complete.
 
 **🧭 身份锚点**（抗漂移——每次上下文压缩后 agent 必须重读）：
 
-> **Myco 是 Agent-First 的共生认知有机体。** 四个词各自承重：**Agent-First**（Agent 是唯一操作者，人类只需自然语言）+ **Symbiotic**（Agent 提供智能，Myco 提供记忆/代谢/免疫/进化，缺一不可）+ **Cognitive**（不只是存储——它代谢、验证、自我建模、进化规则本身）+ **Organism**（满足全部 7 条生物学生命标准，自主运转不等触发）。详见第四永久锚点 `docs/primordia/myco_identity_definitive_craft_2026-04-12.md`。
+> **Myco 是 Agent-First 的共生认知基质（Substrate）。** 四个词各自承重：**Agent-First**（Agent 是唯一操作者，人类只需自然语言）+ **Symbiotic**（Agent 提供智能，Myco 提供记忆、代谢、免疫、进化，缺一不可）+ **Cognitive**（不只是存储，它代谢、验证、自我建模、进化规则本身）+ **Substrate**（满足全部 7 条生物学生命标准 + 4 项基质结构特征：autopoiesis / selective permeability / temporal organization / co-evolutionary niche，自主运转不等触发）。详见 `wiki/identity.md` 与 `docs/primordia/substrate_identity_upgrade_craft_2026-04-14.md`。
 
 1. **Agent-First 共生体**：Agent 是唯一操作者（sole operator）。Myco 的每个表面（MCP tool descriptions, hunger signals, lint）都为 Agent 可发现性和可操作性设计。人类用自然语言提供方向，不需要懂技术细节。Agent 通过 MCP 连接 Myco = 共生键合（symbiotic bond）。架构：内核（本仓库）+ 实例（项目目录），如 OS 与应用。
 2. **非参数进化**：Agent 权重永不改动，所有学习在有机体里（md/yaml/目录结构）。
@@ -48,9 +48,10 @@
 6. **内化的变异-选择**：变异和选择都发生在 Agent+Organism 内部。Agent 产生变异（eat/digest/condense/absorb），Organism 的免疫系统执行选择（lint 26 维 + hunger signals + compression_pressure + dead_knowledge detection）。人类提供方向和信任，不需要做技术选择。透明性不可变——不是为了让人类选择，而是为了可审计性；没有审计能力 → 失去信任 → 系统被废弃。**永恒进化**（Perpetual Evolution）是三条不可变律之一：**停滞即死**——代谢循环停止运转的有机体会退化为静态缓存。
 7. **理论血统**：Karpathy LLM Wiki + Polanyi Tacit + Argyris Double-Loop + Toyota PDCA + Voyager Skill Library + **Rich Sutton Bitter Lesson**（不要把智能硬编码进有机体，建造随 agent 能力伸缩的脚手架）。详见 `docs/theory.md`。
 8. **永久锚点文档**：四份互补、均为永久——
-   - `docs/primordia/vision_recovery_craft_2026-04-10.md`（Wave 10：18 项丢失元素回溯——有机体的解剖学）
-   - `docs/primordia/vision_reaudit_craft_2026-04-12.md`（Wave 26：实现成熟度——哪些器官成熟/哪些 vestigial）
-   - `docs/primordia/anchor_agentfirst_revision_craft_2026-04-12.md`（Wave 55：mutation-selection 内化——有机体的免疫系统）
+   - `docs/primordia/vision_recovery_craft_2026-04-10.md`（v0.10：18 项丢失元素回溯，基质的解剖学）
+   - `docs/primordia/vision_reaudit_craft_2026-04-12.md`（v0.26：实现成熟度，哪些器官成熟/哪些 vestigial）
+   - `docs/primordia/anchor_agentfirst_revision_craft_2026-04-12.md`（v0.40：mutation-selection 内化，基质的免疫系统）
+   - `docs/primordia/substrate_identity_upgrade_craft_2026-04-14.md`（v0.45：infrastructure → substrate，四项结构特征）
    - `docs/primordia/myco_identity_definitive_craft_2026-04-12.md`（**定义性身份：Agent-First 共生认知有机体——四词各自承重**）
    任何一次上下文压缩后第一件事是重读它们。
 
@@ -142,23 +143,24 @@ Phase ①   eat/digest/view/hunger 闭环        ✅ 完成 (2026-04-10)
 Phase ②   摩擦驱动迭代                       🔄 进行中
            · Internal Link Integrity (L12)    ✅ contract v0.2.0 (2026-04-11, post-rebase 映射)
            · Craft Protocol v1 (L13)          ✅ contract v0.3.0 (2026-04-11, post-rebase 映射)
-           · D 层 dead_knowledge 种子 (Wave 18)  ✅ contract v0.17.0
-           · `myco condense` / `expand`        ✅ Waves 30-31 (v0.26.0)
-           · `myco prune` D-layer 自动排出    ✅ Wave 33
-           · `myco absorb` MVP scaffold         ✅ Wave 35 (v0.27.0)
-           · Signal-to-Action wiring            ✅ Wave 46 (v0.35.0)
-           · Link Graph 菌丝互联              ✅ Wave 47 (v0.36.0)
-           · Semantic Cohort Intelligence      ✅ Wave 48 (v0.37.0)
-           · Inlet Trigger Policy              ✅ Wave 49 (v0.38.0)
-           · Continuous Compression            ✅ Wave 50 (v0.39.0)
-           · Session Memory + Search           ✅ Wave 52 (v0.40.0)
-           · Agent-First 闭环                 ✅ Wave 54 (v0.41.0)
-           · 身份锚点 Agent-First 修订        ✅ Wave 55 (v0.42.0)
-           · Phase A 基础清理                 ✅ Wave A2 (v0.44.0)
+           · D 层 dead_knowledge 种子            ✅ contract v0.17.0
+           · `myco condense` / `expand`        ✅ v0.26.0
+           · `myco prune` D-layer 自动排出    ✅ v0.26.1
+           · `myco absorb` MVP scaffold         ✅ v0.27.0
+           · Signal-to-Action wiring            ✅ v0.35.0
+           · Link Graph 菌丝互联              ✅ v0.36.0
+           · Semantic Cohort Intelligence      ✅ v0.37.0
+           · Inlet Trigger Policy              ✅ v0.38.0
+           · Continuous Compression            ✅ v0.39.0
+           · Session Memory + Search           ✅ v0.40.0
+           · Agent-First 闭环                 ✅ v0.41.0
+           · 身份锚点 Agent-First 修订        ✅ v0.42.0
+           · Phase A 基础清理                 ✅ v0.44.0
+           · 基质身份升级 (substrate)           ✅ v0.45.0
            · 当前 contract                    v0.45.0
 Phase ③   Commons 上线                       ⏳ 门槛：Phase ② 收敛
 —— 身份级声明（非 v1.x） --------------------
-v2.0      Metabolic Absorb 原语              🔄 MVP scaffold 落地 (Wave 35, v0.27.0)；冷启动/自主仍 open
+v2.0      Metabolic Absorb 原语              🔄 MVP scaffold 落地 (v0.27.0)；冷启动/自主仍 open
 ```
 
 ---
@@ -167,7 +169,7 @@ v2.0      Metabolic Absorb 原语              🔄 MVP scaffold 落地 (Wave 35
 
 | Wiki 页面 | 类型 | 内容 | 关键信息速查 |
 |-----------|------|------|-------------|
-| [wiki/identity.md](wiki/identity.md) | concept | Myco 身份定义 — Agent-First Symbiotic Cognitive Organism | 四词各自承重；七条生命标准；五层体现；三条不可变宪法 |
+| [wiki/identity.md](wiki/identity.md) | concept | Myco 身份定义：Agent-First Symbiotic Cognitive Substrate | 四词各自承重；七条生命标准 + 四项基质结构特征；五层体现；三条不可变宪法 |
 | [wiki/design-decisions.md](wiki/design-decisions.md) | operations | 创始设计决策（5 项） | hunger 紧迫度排序；非零退出码；ID 格式；四命令最小循环；非线性生命周期 |
 | [wiki/architecture-decisions.md](wiki/architecture-decisions.md) | operations | 创始架构决策（3 项） | notes.py 单一 SSoT；ASCC 痛点驱动；扁平 notes 优于文件夹层级 |
 
@@ -204,8 +206,9 @@ v2.0      Metabolic Absorb 原语              🔄 MVP scaffold 落地 (Wave 35
 | 文档 | 状态 | 内容 |
 |------|------|------|
 | `docs/primordia/vision_recovery_craft_2026-04-10.md` | **[ANCHOR]** | **愿景恢复（4轮，≥92%）**：18 项被压缩丢失的愿景元素——有机体的解剖学。**每次上下文压缩后必读** |
-| `docs/primordia/vision_reaudit_craft_2026-04-12.md` | **[ANCHOR]** | **实现成熟度审计（Wave 26）**：哪些器官成熟/哪些 vestigial |
-| `docs/primordia/anchor_agentfirst_revision_craft_2026-04-12.md` | **[ANCHOR]** | **Agent-First 身份修订（Wave 55）**：mutation-selection 内化——有机体的免疫系统 |
+| `docs/primordia/vision_reaudit_craft_2026-04-12.md` | **[ANCHOR]** | **实现成熟度审计（v0.26）**：哪些器官成熟/哪些 vestigial |
+| `docs/primordia/anchor_agentfirst_revision_craft_2026-04-12.md` | **[ANCHOR]** | **Agent-First 身份修订（v0.40）**：mutation-selection 内化，基质的免疫系统 |
+| `docs/primordia/substrate_identity_upgrade_craft_2026-04-14.md` | **[ANCHOR]** | **基质身份升级（v0.45）**：从 infrastructure 到 substrate + 四项结构特征 |
 | `docs/primordia/myco_identity_definitive_craft_2026-04-12.md` | **[ANCHOR]** | **定义性身份**：Agent-First 共生认知有机体——四词各自承重 |
 | `docs/primordia/craft_formalization_craft_2026-04-11.md` | **[ACTIVE]** | **Craft Protocol v1 形式化（3轮，91%）**：schema + L13 lint + grandfather 规则 |
 | `docs/primordia/digestive_architecture_craft_2026-04-10.md` | [ACTIVE] | 消化结构与跨项目架构辩论 |
