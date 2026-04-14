@@ -11,18 +11,26 @@
 Myco is mid-rewrite. The pre-rewrite kernel, substrate, tests, docs,
 wiki, and all other v0.3 content have been quarantined into
 [`legacy_v0_3/`](./legacy_v0_3/) so they do not influence the rewrite.
-Only the new top-down architecture and its governing crafts live at the
-top level.
+Only the new top-down architecture, its governing crafts, and the
+Stage A+ build surface live at the top level.
 
 ```
 /
 ├── docs/
 │   ├── architecture/          # L0-L3 authoritative design (start here)
-│   └── primordia/             # Governing craft docs (2026-04-15)
-├── legacy_v0_3/               # Frozen pre-rewrite snapshot
+│   └── primordia/             # Governing craft docs
+├── src/myco/                  # reborn Myco — THE myco (no v4 suffix)
+├── tests/                     # unit + integration tests for the new kernel
+├── pyproject.toml             # fresh build config (hatchling dynamic version)
+├── legacy_v0_3/               # Frozen pre-rewrite snapshot (to be deleted at v0.4.0)
+├── CHANGELOG.md
 ├── LICENSE
+├── README.md
 └── .git/
 ```
+
+The `_canon.yaml` substrate and `MYCO.md` agent entry page do **not**
+yet exist at the root; they are authored fresh at Stage C.
 
 ## For the agent
 
@@ -67,9 +75,12 @@ commit (Stage C). Nothing inside it is a dependency of the rewrite.
 The plan is laid out in
 [`docs/architecture/L3_IMPLEMENTATION/migration_strategy.md`](./docs/architecture/L3_IMPLEMENTATION/migration_strategy.md):
 
-- **Stage A** — scaffold `src/myco_v4/` and `tests/v4/`.
-- **Stage B** — build the eight packages top-down (core → homeostasis →
-  genesis → ingestion → digestion → circulation → surface → dimensions).
-- **Stage C** — atomic swap, fresh substrate re-export, tag `v0.4.0`.
+- **Stage A** — scaffold `src/myco/` and `tests/` directly. No v4
+  marker, no staging path — this IS the reborn Myco itself.
+- **Stage B** — build the eight packages top-down (core → homeostasis
+  kernel → genesis → ingestion → digestion → circulation → surface →
+  dimensions).
+- **Stage C** — fresh `_canon.yaml` + `MYCO.md`, ASCC migration
+  script, delete `legacy_v0_3/`, tag `v0.4.0`.
 
 Nothing is pushed to origin until v0.4.0 AND separate owner approval.

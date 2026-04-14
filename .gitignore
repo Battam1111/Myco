@@ -1,3 +1,13 @@
+# -----------------------------------------------------------------------------
+# Myco v0.4.0 .gitignore
+#
+# This file is fresh-authored for the greenfield rewrite. The pre-rewrite
+# .gitignore referenced v0.3 concepts (Wave 8 cleanup notes, notes/n_*.md,
+# docs/primordia/archive/, etc.) that now live under legacy_v0_3/ and no
+# longer need root-level rules. That content is preserved inside
+# legacy_v0_3/.gitignore_v0_3 for historical reference if needed.
+# -----------------------------------------------------------------------------
+
 # Python
 __pycache__/
 *.py[cod]
@@ -14,6 +24,14 @@ build/
 .venv/
 venv/
 env/
+
+# Test / tooling caches
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.mypy_cache/
+.ruff_cache/
 
 # OS files
 .DS_Store
@@ -33,44 +51,22 @@ Thumbs.db
 .env
 .env.*
 
-# Claude Code session-local settings (not source of truth)
+# Claude Code / Cowork session-local settings (not source of truth).
+# NOTE: The Stage C release will re-introduce a tracked `.claude/hooks/`
+# subtree; at that point this rule will be narrowed to exclude hooks/.
 .claude/
 
-# Local archival substrate (not published)
-# Wave 8 root-directory hygiene (2026-04-11): collapsed root-level scratch
-# entries — all were either deleted outright or relocated under nested
-# natural homes. See docs/contract_changelog.md v0.8.0 banner.
-#
-# ASCC session transcripts (relocated from ascc_sessions/)
-examples/ascc/.local_sessions/
-# Ad-hoc extraction scratch pattern for any future vision-recovery runs
-_vision_recovery_*.txt
-# Local narrative draft if re-created
-CORE_NARRATIVE_SYNTHESIS.md
-# Locally generated assets (not source of truth)
-assets/architecture.png
-# Local publishing helper
-scripts/pypi_upload.bat
+# Pre-rewrite marketing/ was gitignored in v0.3 and is now present inside
+# legacy_v0_3/ only for reference. Keep it untracked — legacy_v0_3/ is
+# scheduled for deletion at Stage C.
+legacy_v0_3/marketing/
 
-# NOTE (Wave 8, contract v0.8.0): the six `docs/current/*_craft_*.md`
-# entries that used to live here were removed — docs/current/ was renamed
-# to docs/primordia/ in contract v1.5.0 (historical label; see
-# contract_changelog.md Wave 8 re-baseline notice). The underlying craft
-# files now live in docs/primordia/ and are tracked normally.
-# The Wave 8 cleanup also physically deleted _extract_session.py,
-# _myco_user_msgs.txt, _myco_assistant_vision_hits.txt, commit_msg.txt,
-# and PYPI_SETUP.md from the root — they no longer need gitignore entries.
-# Myco local state (generated at runtime, not published)
+# Myco runtime substrate state (generated at runtime, not source of truth).
+# The `.myco_state/` directory itself does not exist until Stage C; this
+# rule is pre-positioned so that ephemeral runtime files never get staged.
 .myco_state/sessions.db
 .myco_state/boot_brief.md
+.myco_state/autoseeded.txt
 .myco_state/decay_baseline.yaml
 .myco_state/search_misses.yaml
 .myco_state/excretion_counter.json
-.pytest_cache/
-
-# Knowledge notes (project-specific learning journal, not for public distribution)
-notes/n_*.md
-
-# Archived craft debates (historical, not needed for public release)
-docs/primordia/archive/
-marketing/
