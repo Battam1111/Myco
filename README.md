@@ -27,13 +27,13 @@
 
 You used LangChain in 2024. Someone said LangGraph was better. Then CrewAI. Then DSPy. Then Hermes. Every month a new framework promised to be the one. You spent more time picking tools than building anything with them.
 
-And it wasn't just frameworks. Papers, blog posts, best practices, new models, new APIs, new paradigms — everything refreshing every single day. You followed 50 repos, read 3. Bookmarked 200 articles, opened 10. Your note app had 500 entries. Last organized: three months ago. Maybe longer.
+And it wasn't just frameworks. Papers, blog posts, best practices, new models, new APIs, new paradigms, everything refreshing every single day. You followed 50 repos, read 3. Bookmarked 200 articles, opened 10. Your note app had 500 entries. Last organized: three months ago. Maybe longer.
 
 It's not that you're lazy. **The world is moving faster than anyone can keep up with.**
 
-Here's the part that really stings — those notes you carefully organized, those lessons you wrote down, those "how did I do this last time" entries — they're rotting. That API call you documented three weeks ago? Version changed. That best practice from last month? The community already moved on. Your knowledge base keeps growing, but how much of it is still true? Nobody knows. **Nothing is checking for you.**
+Here's the part that really stings. Those notes you carefully organized, those lessons you wrote down, those "how did I do this last time" entries, they're rotting. That API call you documented three weeks ago? Version changed. That best practice from last month? The community already moved on. Your knowledge base keeps growing, but how much of it is still true? Nobody knows. **Nothing is checking for you.**
 
-Your notes don't tell you "this one's outdated." Your bookmarks don't merge duplicates on their own. Your AI doesn't remember what you decided last week. Every new conversation — back to zero.
+Your notes don't tell you "this one's outdated." Your bookmarks don't merge duplicates on their own. Your AI doesn't remember what you decided last week. Every new conversation, back to zero.
 
 <br>
 
@@ -41,7 +41,7 @@ Now imagine living differently.
 
 You don't organize notes. You don't compare frameworks. You don't chase papers. You don't re-explain your project to your AI every time. You just talk like a normal person.
 
-But six months later, your AI is sharper than anyone else's. It knows the full history of every project you've touched. It devoured the latest papers and tools in your field on its own. It found its own blind spots and filled them in. It checked every piece of old knowledge to see if it was still true — whatever wasn't, it threw out. It even rewrote its own operating rules, because the old ones weren't good enough anymore.
+But six months later, your AI is sharper than anyone else's. It knows the full history of every project you've touched. It devoured the latest papers and tools in your field on its own. It found its own blind spots and filled them in. It checked every piece of old knowledge to see if it was still true, whatever wasn't, it threw out. It even rewrote its own operating rules, because the old ones weren't good enough anymore.
 
 <h3 align="center">This is Myco.</h3>
 
@@ -55,20 +55,20 @@ cd Myco && pip install -e ".[mcp]"
 myco seed --auto-detect my-project
 ```
 
-Three commands. Auto-detects your environment — Claude Code · Cowork · Cursor · VS Code · Codex · Cline · Continue · Zed · Windsurf — finds what you have, configures all of it in one shot.
+Three commands. Auto-detects your environment (Claude Code · Cowork · Cursor · VS Code · Codex · Cline · Continue · Zed · Windsurf), finds what you have, configures all of it in one shot.
 
-**Cowork users**: `myco seed` generates project-level configs, but Cowork doesn't read project `.mcp.json`. For full MCP auto-injection in Cowork, install the `myco-knowledge-system.plugin` — it bundles the MCP server, skills, and session hooks into a single file. See `docs/agent_protocol.md` §0.5 for details.
+**Cowork users**: `myco seed` generates project-level configs, but Cowork doesn't read project `.mcp.json`. For full MCP auto-injection in Cowork, install the `myco.plugin`. It bundles the MCP server, skills, and session hooks into a single file. See `docs/agent_protocol.md` §0.5 for details.
 
-Editable install — the entire system is yours to rewrite, including the engine itself. Don't want to touch it? Fine. It evolves on its own.
+Editable install. The entire system is yours to rewrite, including the engine itself. Don't want to touch it? Fine. It evolves on its own.
 
 ## What It Does
 
-- 🧬 **Devour everything** — Papers, code, blog posts, conversations — feed it anything and it digests it into capability, not files
-- 🛡️ **Self-check** — Automatically detects stale knowledge, contradictions, and gaps without you lifting a finger
-- 💀 **Kill what's dead** — Outdated knowledge gets detected and purged. A knowledge system without excretion is a tumor
-- 🔄 **Evolve forever** — Not just the content evolving — the engine's own rules mutate too. The whole system is alive
-- 🍄 **Connect everything** — Every file is a node in a mycelial network. Knowledge isn't isolated records — it's a web that grows denser over time
-- 🤖 **You just talk** — 19 tools, fully automated. Humans don't need to understand a single technical detail
+- 🧬 **Devour everything**. Papers, code, blog posts, conversations. Feed it anything and it digests it into capability, not files.
+- 🛡️ **Self-check**. Automatically detects stale knowledge, contradictions, and gaps without you lifting a finger.
+- 💀 **Kill what's dead**. Outdated knowledge gets detected and purged. A knowledge system without excretion is a tumor.
+- 🔄 **Evolve forever**. Not just the content evolving, the engine's own rules mutate too. The whole system is alive.
+- 🍄 **Connect everything**. Every file is a node in a mycelial network. Knowledge isn't isolated records, it's a web that grows denser over time.
+- 🤖 **You just talk**. 19 tools, fully automated. Humans don't need to understand a single technical detail.
 
 ## Why It's Different
 
@@ -88,10 +88,10 @@ You (just talk)
 AI Agent (thinks, executes)
   ↓ auto-connected
 Myco (devours, digests, verifies, evolves)
-  ├── Knowledge atoms (lifecycle-aware — what should die, dies)
+  ├── Knowledge atoms (lifecycle-aware; what should die, dies)
   ├── Refined knowledge (long-term truths distilled from atoms)
   ├── Skills (self-evolving operating procedures)
-  ├── Engine code (editable, mutable — yes, even the code itself evolves)
+  ├── Engine code (editable, mutable; yes, even the code itself evolves)
   └── Immune system (knowledge rotting? it detects and handles it on its own)
 ```
 
@@ -105,4 +105,4 @@ cd Myco && pip install -e ".[mcp,dev]"
 pytest tests/
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) · MIT — [LICENSE](LICENSE)
+See [CONTRIBUTING.md](CONTRIBUTING.md) · MIT · [LICENSE](LICENSE)

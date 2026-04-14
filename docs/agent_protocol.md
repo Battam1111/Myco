@@ -56,11 +56,11 @@ MCP 设置里加一条即可（一次性，持久生效）。
    解决 sandbox 每次重建的问题
 3. `SessionStart` hook 自动触发 `myco_hunger(execute=true)`
 4. `PreCompact` hook 自动触发 `myco_reflect` + `myco_immune`
-5. 插件安装后 19 个 MCP 工具以 `mcp__plugin_myco-knowledge-system_myco__*` 形式出现
+5. 插件安装后 19 个 MCP 工具以 `mcp__plugin_myco_myco__*` 形式出现
 
 **对下游项目的建议**（修正）：
 - **Claude Code**：`myco connect` 即可（读取项目级 `.mcp.json`）
-- **Cowork**：安装 `myco-knowledge-system.plugin`（唯一可靠的自动注入路径）
+- **Cowork**：安装 `myco.plugin`（唯一可靠的自动注入路径）
 - **Cursor / VS Code / 其他**：`myco connect` + 各 IDE 的 MCP 配置机制
 - CLI fallback 在所有平台通用，但无自动注入
 
