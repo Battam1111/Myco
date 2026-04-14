@@ -38,6 +38,64 @@ Commit message 格式必须使用 Conventional Commits 风格并带 `[contract:*
 
 ---
 
+## v0.46.0 — 2026-04-15 (minor · Wave 63 — Kernel Contract Convergence: v0.3.4 D1–D7)
+
+**What changed**:
+
+Wave 63 ships the seven-item audit (`docs/primordia/contract_audit_craft_2026-04-15.md`)
+as one consolidated release per user mandate 2026-04-15 ("v0.3.5 的内容合并到
+v0.3.4 中，不要延期"). All seven design-interface weaknesses identified by the
+three-round craft close in this version.
+
+**D1 — Skeleton-mode severity downgrade**:
+- New helper `_is_skeleton_substrate(root)` detects cold substrate via
+  `.myco_state/autoseeded.txt` + absence of integrated/extracted notes.
+- L0 (canon schema) and L1 (entry-point references) auto-downgrade CRITICAL→HIGH
+  when skeleton is detected. A just-seeded substrate legitimately lacks digested
+  notes — that's diagnostic, not broken state.
+
+**D2 + D5 — Lint category exit policies (`--exit-on`)**:
+- New `--exit-on` flag on `myco immune|hunger|reflect` with two grammars:
+  - Global: `--exit-on=never|critical|high|concerning`
+  - Per-category: `--exit-on=mechanical:critical,shipped:critical,metabolic:never,semantic:never`
+- Helpers: `parse_exit_on(spec)` + `_compute_exit_code(...)`.
+- Replaces CI's `|| echo` workarounds; cold-substrate signal tolerance is now
+  architectural, not papered-over.
+
+**D3 + D7 — Gitignore-aware severity**:
+- New helpers `_is_gitignored()` (with 3s `git check-ignore` subprocess + per-run
+  cache) and `_gitignore_downgrade()` (one-notch ladder).
+- L1 (broken wiki cross-ref), L12 (broken markdown/backtick link), L14 (missing
+  `local_path` in `notes/forage/*`) downgrade severity when the referenced path
+  is gitignored. Untracked local artifacts no longer fire CRITICAL.
+
+**D4 — Dimension category taxonomy**:
+- All 30 lint dimensions (L0–L29) mapped in `DIMENSION_CATEGORY` to one of:
+  `mechanical` (exact mechanical contracts), `shipped` (user-facing / external
+  surfaces), `metabolic` (substrate health signals), `semantic` (rich
+  cross-reference checks). Report groups issues by category.
+
+**D6 + L29 — Version single-source**:
+- `pyproject.toml` migrated to hatchling `dynamic = ["version"]` with
+  `[tool.hatch.version] path = "src/myco/__init__.py"`. `__version__` is the
+  single source of truth.
+- New **L29 Version Single Source** lint checks for dual-source drift, missing
+  `__version__`, static+dynamic collision, or dynamic without hatch path
+  configured.
+- L28 (PyPI sync) now reads the SSoT from `__init__.py` (pyproject fallback).
+
+**Lint dimension count**: 29 → **30** (L29 added).
+
+**Contract surface**: v0.45.0 → v0.46.0.
+
+**Breaking changes**: None. All additions are backward-compatible (new flag
+is optional; default exit behavior is legacy `2 if critical else (1 if high
+else 0)` when `--exit-on` is unset).
+
+**Package version**: `0.3.3` → `0.3.4`.
+
+---
+
 ## v0.6.0 — 2026-04-14 (major · Wave 56 — Architecture Refactor: Hosts→Symbionts, Doctor+Diagnose→Pulse)
 
 **What changed**:

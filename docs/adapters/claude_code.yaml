@@ -81,7 +81,7 @@ mcp_config:
     - "myco_eat — zero-friction knowledge capture"
     - "myco_digest — lifecycle transitions with reflection prompts"
     - "myco_condense — cohort-based forward compression"
-    - "myco_immune — 29-dimensional consistency checking"
+    - "myco_immune — 30-dimensional consistency checking"
     - "myco_mycelium — structural link graph (backlinks, orphans, clusters)"
     - "myco_sense — full-text search across the substrate"
     - "myco_absorb — external content ingestion with provenance"
@@ -127,7 +127,7 @@ workflow_compatibility:
   W2_session_reflection:  "Full — MCP myco_reflect generates prompts from log + lint"
   W3_canon_first:         "Full — agent reads _canon.yaml via CLAUDE.md boot"
   W4_wiki_w8:             "Full — agent creates wiki pages via filesystem access"
-  W5_lint_gate:           "Full — MCP myco_immune runs 29-dimensional check"
+  W5_lint_gate:           "Full — MCP myco_immune runs 30-dimensional check"
   W8_format:              "Full — CLAUDE.md template includes W8 headers"
   W12_gear_protocol:      "Full — myco_hunger auto-triggers Session Reflection via scheduled metabolic cycle"
   boot_reflex:            "Full — CLAUDE.md hot zone displays hunger boot signals"
@@ -143,7 +143,7 @@ value_proposition: |
     - CLAUDE.md boots the agent with project context every session (auto-loaded)
     - .mcp.json gives direct access to 20 metabolic tools (no wrapper needed)
     - hunger(execute=true) auto-heals: digests stale notes, compresses ripe cohorts
-    - 29-dimensional lint catches contradictions across the entire substrate
+    - 30-dimensional lint catches contradictions across the entire substrate
     - Link graph tracks structural connectivity — no orphan knowledge
     - Session memory (FTS5) lets the agent search what happened 3 weeks ago
     - Skills evolve through mutation-selection within the substrate

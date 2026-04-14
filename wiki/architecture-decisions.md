@@ -27,7 +27,7 @@
 | ASCC 痛点 | 根因诊断 | Myco 架构回应 |
 |-----------|---------|-------------|
 | 每次新会话 Agent 忘记之前学到的东西 | 没有跨会话持久化的知识层 | notes/ + digest 生命周期 |
-| 文档和代码逐渐不一致 | 没有自动化的一致性验证 | immune 29 维免疫系统 |
+| 文档和代码逐渐不一致 | 没有自动化的一致性验证 | immune 30 维免疫系统 |
 | 相同的错误反复发生 | 没有 tacit knowledge（隐性知识）的结构化捕获 | eat + friction tag + operational_narratives |
 
 **理由**: 自下而上比自上而下更可靠。从真实痛点出发确保每个架构组件都解决实际问题，而不是理论上"应该有"的问题。ASCC 是 Myco 的首个宿主项目（7 天深度验证），这三个痛点是在 80+ 文件、12+ 次 craft 辩论中反复观察到的。
@@ -63,7 +63,7 @@
 - [docs/theory.md](../docs/theory.md) -- 理论基础：Polanyi 隐性知识（A2 痛点驱动的理论根基）
 - [docs/vision.md](../docs/vision.md) -- 愿景文档：五大核心能力
 - [src/myco/notes.py](../src/myco/notes.py) -- notes.py 单一 SSoT 实现（A1 决策的代码）
-- src/myco/immune.py -- 29 维 Lint 免疫系统（A2 一致性验证痛点的解）
+- src/myco/immune.py -- 30 维 Lint 免疫系统（A2 一致性验证痛点的解）
 - [docs/agent_protocol.md](../docs/agent_protocol.md) -- Agent 协议：notes 写面规则（A1 依赖方向的契约化）
 - [_canon.yaml](../_canon.yaml) -- 规范值 SSoT
 

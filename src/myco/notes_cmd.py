@@ -687,7 +687,11 @@ def run_hunger(args) -> int:
                 print(f"      ❌ error: {e}")
         print()
 
-    # Non-zero exit if the substrate is in a concerning state.
+    # v0.3.4 (D2): --exit-on policy decouples "metabolic concern" from
+    # "mechanical failure." SessionStart hooks should tolerate cold-start
+    # signals (raw_backlog=0, no_deep_digest on day one); CI pre-release
+    # should fail on critical drift only. Legacy default ("concerning")
+    # preserves v0.3.3 behavior.
     concerning = any(
         sig.startswith(
             ("raw_backlog", "stale_raw", "no_deep_digest",
@@ -695,6 +699,20 @@ def run_hunger(args) -> int:
         )
         for sig in report.signals
     )
+    # "Critical" hunger signals would be catastrophic substrate states
+    # (e.g. corrupt canon, unreadable notes/ dir). Currently none emit
+    # at CRITICAL — reserved for future metabolism pathologies.
+    critical = False  # reserved for v0.3.5+ signal severity model
+
+    policy = (getattr(args, "exit_on", None) or "concerning").strip().lower()
+    if policy == "never":
+        return 0
+    if policy == "critical":
+        return 1 if critical else 0
+    if policy == "high":
+        # "high" = concerning OR critical; same as concerning for now.
+        return 1 if (critical or concerning) else 0
+    # Default / "concerning": legacy v0.3.3 behavior.
     return 1 if concerning else 0
 
 

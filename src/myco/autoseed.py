@@ -142,7 +142,7 @@ system:
 
 dimensions:
   principles_count: 13
-  lint_dimensions: 29
+  lint_dimensions: 30
   mcp_tool_count: 25
 """
 

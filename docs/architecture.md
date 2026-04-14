@@ -379,7 +379,7 @@ project:                    # 项目启动时填充
 | **学术论文** | 论文方向、理论 claim、reviewer 攻击 | 理论框架、论文策略、实验设计、写作技法 | L2 |
 | **软件产品** | 架构、技术选型、UX 决策 | API 设计、Bug、部署流程、反馈 | L1-2 |
 | **数据分析** | 方法论、结论解释、偏差 | 数据源、分析方法、可视化规范 | L1 |
-| **学习计划** | 学习路径、资源评估 | 知识图谱、进度追踪 | L0-1 |
+| **学习计划** | 学习路径、资源评估 | 知识图谱、进度追踪 | L0-29 |
 | **创业项目** | 商业模式、融资、定位 | 市场分析、竞品对比、用户画像 | L1-2 |
 
 **注**：每个项目类型的"传统手艺触发"和 wiki 页面侧重都不同，因为决策风险点不同。学术论文的核心风险在理论 claim，软件项目的核心风险在架构决策，数据分析的核心风险在方法论，等等。
@@ -494,7 +494,7 @@ Don't pre-build empty structures. Create wiki pages when you need them, write pr
 | Academic Paper | Theory claims, reviewer attacks | Framework, strategy, experiments | L2 |
 | Software Product | Architecture, tech choice, UX | API design, bugs, deployment | L1-2 |
 | Data Analysis | Methodology, conclusions, bias | Data sources, methods, visualizations | L1 |
-| Learning Plan | Learning path, resource evaluation | Knowledge graph, progress tracking | L0-1 |
+| Learning Plan | Learning path, resource evaluation | Knowledge graph, progress tracking | L0-29 |
 
 ---
 
@@ -577,7 +577,7 @@ Myco provides scaffolding, the Agent provides judgment.
 - [wiki/architecture-decisions.md](../wiki/architecture-decisions.md) -- 创始架构决策（A1-A3）：notes.py SSoT、痛点驱动、扁平 notes
 - [wiki/design-decisions.md](../wiki/design-decisions.md) -- 创始设计决策（D1-D5）：hunger 排序、非零退出码、四命令最小循环
 - [_canon.yaml](../_canon.yaml) -- 规范值 SSoT：所有关键数字的单一信息源
-- src/myco/immune.py -- 29 维 Lint 免疫系统实现
+- src/myco/immune.py -- 30 维 Lint 免疫系统实现
 - [src/myco/notes.py](../src/myco/notes.py) -- Note 生命周期 SSoT（A1 决策的实现）
 - src/myco/mycelium.py -- Link Graph 结构智能（Appendix F.1）
 - src/myco/colony.py -- Cohort Intelligence 语义分析（Appendix F.2）

@@ -10,8 +10,8 @@ system:
   principles_label: 十三原则
   entry_point: MYCO.md
   # Changelog:             docs/contract_changelog.md
-  contract_version: "v0.45.0"  # Primordia compression + external absorption (best-practice + gstack)
-  synced_contract_version: "v0.45.0"  # self-reference
+  contract_version: "v0.46.0"  # Wave 63 — Kernel contract convergence (v0.3.4 D1-D7)
+  synced_contract_version: "v0.46.0"  # self-reference
   # --- Boot Brief Injector (Wave 17, contract v0.16.0) --------------
   # See docs/primordia/boot_brief_injector_craft_2026-04-11.md.
   # Writes .myco_state/boot_brief.md + patches entry point file's
@@ -320,7 +320,7 @@ system:
         cited_in: ["MYCO.md", "docs/architecture.md", "docs/reusable_system_design.md", "docs/vision.md", "docs/theory.md", "src/myco/templates/_canon.yaml"]
       lint_dimensions:
         ssot: "len(FULL_CHECKS) in src/myco/immune.py"
-        value: 29
+        value: 30
         keywords: ["lint", "dimension", "维", "immune", "免疫"]
         cited_in: ["MYCO.md", "docs/architecture.md", "docs/reusable_system_design.md", "src/myco/mcp_server.py", "src/myco/cli.py"]
       mcp_tool_count:
@@ -330,7 +330,7 @@ system:
         cited_in: ["README.md", "README_zh.md", "README_ja.md", "MYCO.md", "docs/agent_protocol.md", "docs/vision.md"]
       test_count:
         ssot: "pytest tests/ output"
-        value: 573
+        value: 600
         keywords: ["test", "测试", "pytest"]
         cited_in: ["MYCO.md"]
 

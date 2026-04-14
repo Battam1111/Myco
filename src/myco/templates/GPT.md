@@ -25,7 +25,7 @@ myco hunger --execute    # Boot check + auto-heal
 myco eat "<content>"     # Capture a note
 myco digest [note_id]    # Move note through lifecycle
 myco sense "<query>"    # Search the knowledge substrate
-myco immune                # Run 29-dimension lint
+myco immune                # Run 30-dimension lint
 myco pulse              # Substrate health dashboard
 myco condense            # Compress related notes
 myco prune               # Remove excreted/stale notes

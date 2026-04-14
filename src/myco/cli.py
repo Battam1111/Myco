@@ -159,6 +159,17 @@ def main():
         "--project-dir", type=str, default=".",
         help="Project root directory (default: current directory)",
     )
+    lint_parser.add_argument(
+        "--exit-on", type=str, default=None, metavar="SPEC",
+        help="Exit-code policy (v0.3.4). Accepts severity name "
+             "(critical|high|never), or per-category overrides "
+             "(mechanical:critical,metabolic:never). Default preserves "
+             "legacy v0.3.3 behavior (2 on CRITICAL, 1 on HIGH, else 0).",
+    )
+    lint_parser.add_argument(
+        "--json", action="store_true",
+        help="(v0.3.4 reserved) Emit machine-readable JSON output.",
+    )
 
     # ── myco genome ────────────────────────────────────────────────
     config_parser = subparsers.add_parser(
@@ -582,6 +593,13 @@ def main():
         help="Wave 54: auto-execute ALL recommended actions (digest, compress, "
              "prune). Agent-first: closes the signals→execution gap.",
     )
+    hunger_parser.add_argument(
+        "--exit-on", type=str, default=None, metavar="SPEC",
+        help="Exit-code policy (v0.3.4). 'concerning' (legacy default) exits 1 "
+             "on any concerning signal; 'never' always exits 0 (useful for "
+             "SessionStart hooks on cold substrates); 'critical' reserves 1 "
+             "for truly broken states. See contract_audit_craft_2026-04-15.md.",
+    )
 
     # ── myco forage ────────────────────────────────────────────────
     # External reference material intake — the inbound channel
@@ -811,6 +829,12 @@ def main():
     reflect_parser.add_argument(
         "--json", action="store_true", help="Emit machine-readable JSON",
     )
+    reflect_parser.add_argument(
+        "--exit-on", type=str, default=None, metavar="SPEC",
+        help="Exit-code policy (v0.3.4). 'error' (legacy default) exits 1 on "
+             "failure; 'never' always exits 0 (useful when consolidation is "
+             "best-effort). See contract_audit_craft_2026-04-15.md.",
+    )
 
     # ── myco propagate ────────────────────────────────────────────
     propagate_parser = subparsers.add_parser(
@@ -1015,6 +1039,12 @@ def main():
             if result["errors"]:
                 for e in result["errors"]:
                     print(f"  ! {e}")
+        # v0.3.4 (D2): reflect/session-end honors --exit-on. Legacy default
+        # exits 1 on any error; 'never' is useful for PreCompact hooks that
+        # should never block session compaction on best-effort failure.
+        policy = (getattr(args, "exit_on", None) or "error").strip().lower()
+        if policy == "never":
+            sys.exit(0)
         sys.exit(0 if result["ok"] else 1)
 
     if args.command == "propagate":

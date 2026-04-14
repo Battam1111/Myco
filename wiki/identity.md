@@ -15,7 +15,7 @@
 |----|------|-----------------|
 | **Agent-First** | Agent 是唯一操作者，每个表面为 Agent 可发现性设计。人类用自然语言给方向，不需懂内部。 | "能否仅通过 MCP tool description 发现并正确使用？" |
 | **Symbiotic** | Agent 提供智能，基质提供记忆、代谢、免疫、进化。缺一不可。连接即共生键合。 | "没有对方，这一半是否不完整？" |
-| **Cognitive** | 不只是存储。代谢（七步管道），验证（29 维免疫），自我建模（四层），进化规则本身可变。 | "它是否在代谢、验证、建模、进化？" |
+| **Cognitive** | 不只是存储。代谢（七步管道），验证（30 维免疫），自我建模（四层），进化规则本身可变。 | "它是否在代谢、验证、建模、进化？" |
 | **Substrate** | 满足全部七条生物学生命标准（代谢、稳态、应激、生长、繁殖、进化、排泄），同时具备基质的四项结构特征（见下节）。 | "它是否自主运转而非等待触发？它是否具备自生成性？" |
 
 ## 基质的四项结构特征（新增）
@@ -30,7 +30,7 @@
 
 ### 2. Selective permeability（选择性通透）
 
-基质不是无差别吞噬，而是选择性吞噬。write surface 白名单、pinned prefixes、digest 的 absorption gate、29 维 immune lint 的交叉约束，共同构成基质的身份边界。免疫系统不是辅助模块，它定义了 Myco 之所以是 Myco。
+基质不是无差别吞噬，而是选择性吞噬。write surface 白名单、pinned prefixes、digest 的 absorption gate、30 维 immune lint 的交叉约束，共同构成基质的身份边界。免疫系统不是辅助模块，它定义了 Myco 之所以是 Myco。
 
 ### 3. Temporal organization（时间组织）
 
@@ -64,7 +64,7 @@ Human  自然语言  Agent  MCP  Substrate
 | 标准 | Myco 实现 |
 |------|----------|
 | 代谢 | eat / digest / condense / absorb，持续转化输入为输出 |
-| 稳态 | immune 29 维 + hunger signals，自我调节维持稳定 |
+| 稳态 | immune 30 维 + hunger signals，自我调节维持稳定 |
 | 应激反应 | hunger 感知变化并推荐行动 |
 | 生长 | 60+ 版本迭代，100+ notes，复杂度持续增长 |
 | 繁殖 | kernel 到 instance 的模板分裂 |
@@ -78,7 +78,7 @@ Human  自然语言  Agent  MCP  Substrate
 | 1. 身份（DNA） | 基因组 | 8 身份锚点 + _canon.yaml |
 | 2. 愿景（表型计划） | 体型蓝图 | docs/vision.md |
 | 3. 契约（调控基因） | 基因表达规则 | agent_protocol.md + _canon.yaml 规则 |
-| 4. 验证（免疫系统） | T 细胞 + 抗体 | immune 29 维 + hunger signals |
+| 4. 验证（免疫系统） | T 细胞 + 抗体 | immune 30 维 + hunger signals |
 | 5. 实现（器官） | 功能器官 | src/myco/*.py（19 MCP tools） |
 
 ## 身份演化弧线
@@ -117,6 +117,6 @@ Human  自然语言  Agent  MCP  Substrate
 - [docs/primordia/substrate_identity_upgrade_craft_2026-04-14.md](../docs/primordia/substrate_identity_upgrade_craft_2026-04-14.md)：基质身份升级 Craft
 - [docs/primordia/anchor_agentfirst_revision_craft_2026-04-12.md](../docs/primordia/anchor_agentfirst_revision_craft_2026-04-12.md)：Agent-First mutation-selection 内化
 - [_canon.yaml](../_canon.yaml)：身份锚点 + 规范值 SSoT
-- src/myco/immune.py：29 维 Lint 免疫系统（五层体现第 4 层的实现）
+- src/myco/immune.py：30 维 Lint 免疫系统（五层体现第 4 层的实现）
 
 **Back to** [MYCO.md](../MYCO.md)

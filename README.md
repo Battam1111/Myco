@@ -105,7 +105,7 @@ Once installed, you mostly don't think about Myco — your agent drives it via M
 | `myco digest <id>` | Promote a matured raw note into durable knowledge (wiki / MYCO.md / code). |
 | `myco search <query>` | Semantic + structural search across the whole substrate. |
 | `myco reflect` | Consolidate the session's learnings. Runs automatically at context compaction. |
-| `myco immune --fix` | 29-dimension consistency lint, with mechanical auto-fix. Runs automatically at session end. |
+| `myco immune --fix` | 30-dimension consistency lint, with mechanical auto-fix. Runs automatically at session end. |
 
 All six are also MCP tools (`myco_hunger`, `myco_eat`, …) so your agent calls them directly. 25 tools total, full list in [`docs/agent_protocol.md`](docs/agent_protocol.md).
 
@@ -144,7 +144,7 @@ Myco substrate                     │
   ├── _canon.yaml        single source of truth for every number, name, path
   ├── skills/            self-evolving operating procedures
   ├── src/myco/          engine code (editable, mutable — yes, even this evolves)
-  └── immune system      29-dimension consistency lint, auto-fix on session end
+  └── immune system      30-dimension consistency lint, auto-fix on session end
   │                                │
   └────── metabolism loop ─────────┘
           (eat → digest → reflect → immune → prune)
