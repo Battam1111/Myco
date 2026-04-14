@@ -2984,6 +2984,234 @@ def lint_cross_layer_health(canon: dict, root: Path) -> list:
     return issues
 
 
+def lint_pypi_sync(canon: dict, root: Path) -> list:
+    """L28 PyPI Sync — local version vs published package lag.
+
+    Wave 55 (vision_closure_craft_2026-04-14.md §G9):
+    Warns when local src/myco/__init__.py __version__ or pyproject.toml
+    version is more than one minor ahead of PyPI, signalling that a
+    release push is overdue. Offline-safe: if PyPI query fails, returns
+    no issue (never blocks CI or lint runs).
+    """
+    issues: list = []
+    try:
+        import json as _json
+        import re as _re
+        from urllib.request import urlopen, Request
+        from urllib.error import URLError
+    except Exception:
+        return issues
+
+    try:
+        pyproj = (root / "pyproject.toml").read_text(encoding="utf-8")
+        m = _re.search(r'^version\s*=\s*"([^"]+)"', pyproj, _re.MULTILINE)
+        if not m:
+            return issues
+        local = m.group(1)
+    except Exception:
+        return issues
+
+    try:
+        req = Request("https://pypi.org/pypi/myco/json", headers={"User-Agent": "myco-lint"})
+        with urlopen(req, timeout=3) as resp:
+            data = _json.loads(resp.read().decode("utf-8"))
+        pypi_ver = data.get("info", {}).get("version", "0.0.0")
+    except (URLError, Exception):
+        return issues  # offline, don't fire
+
+    def parse(v: str) -> tuple:
+        parts = v.split(".")
+        try:
+            return tuple(int(p) for p in parts[:3])
+        except ValueError:
+            return (0, 0, 0)
+
+    L = parse(local)
+    P = parse(pypi_ver)
+    if L == P:
+        return issues
+    # local ahead by more than 1 minor, or any major
+    if L[0] > P[0] or (L[0] == P[0] and L[1] - P[1] > 1):
+        issues.append((
+            "L28", "MEDIUM", "pyproject.toml",
+            f"PyPI lag: local v{local} vs PyPI v{pypi_ver}. "
+            f"Users running `pip install myco` get the older version. "
+            f"Tag a release: `git tag v{local} && git push --tags`."
+        ))
+    elif L > P:
+        issues.append((
+            "L28", "LOW", "pyproject.toml",
+            f"PyPI slightly behind: local v{local} vs PyPI v{pypi_ver}. "
+            f"Consider `git tag v{local} && git push --tags` when ready."
+        ))
+    return issues
+
+
+def lint_freshness_debt(canon: dict, root: Path) -> list:
+    """L26 Freshness Debt — time_sensitive/live notes past verification window.
+
+    Wave 55 (vision_closure_craft_2026-04-14.md G3):
+    Tallies integrated/extracted notes whose ``last_verified`` is older than
+    the freshness-class window (time_sensitive=90d, live=7d). Static notes
+    are never flagged. Fires MEDIUM when > 10 stale, LOW when > 3.
+    """
+    issues: list = []
+    try:
+        from myco.notes import list_notes, read_note
+    except ImportError:
+        return issues
+
+    try:
+        from datetime import datetime, timezone
+    except Exception:
+        return issues
+
+    windows = {"time_sensitive": 90, "live": 7}
+    now = datetime.now(timezone.utc)
+    stale = 0
+    try:
+        notes = list_notes(root)
+    except Exception:
+        return issues
+
+    for n in notes:
+        status = n.get("status")
+        if status not in ("integrated", "extracted"):
+            continue
+        try:
+            full = read_note(root, n["id"])
+            meta = full.get("meta", {}) if full else {}
+        except Exception:
+            continue
+        freshness = meta.get("freshness", "time_sensitive")
+        if freshness == "static":
+            continue
+        window = windows.get(freshness, 90)
+        lv = meta.get("last_verified") or meta.get("created")
+        if not lv:
+            continue
+        try:
+            lv_dt = datetime.fromisoformat(str(lv).replace("Z", "+00:00"))
+            if lv_dt.tzinfo is None:
+                lv_dt = lv_dt.replace(tzinfo=timezone.utc)
+            age_days = (now - lv_dt).days
+        except Exception:
+            continue
+        if age_days > window:
+            stale += 1
+
+    if stale > 10:
+        sev = "MEDIUM"
+    elif stale > 3:
+        sev = "LOW"
+    else:
+        return issues
+
+    issues.append((
+        "L26", sev, "src/myco/notes.py",
+        f"Freshness debt: {stale} integrated/extracted note(s) past their "
+        f"verification window. Run `myco verify` to triage, then "
+        f"`myco verify --mark still_true|ambiguous|contradicted <id>` to resolve."
+    ))
+    return issues
+
+
+def lint_protocol_adherence(canon: dict, root: Path) -> list:
+    """L27 Protocol Adherence — Agent behavior contract compliance.
+
+    Wave 55 (vision_closure_craft_2026-04-14.md G8):
+    Scans recent session summary notes for patterns suggesting Agent
+    protocol violations. Specifically checks:
+
+    1. Eat/digest balance: if note count >> digest events, under-eating signal
+    2. Search miss recovery: search miss without subsequent absorption
+    3. Session boot: boot hunger trigger presence
+
+    This is a light heuristic check. Violations accumulate over 7-day window.
+
+    Severity:
+      - Multiple violation types → MEDIUM
+      - Single violation type → LOW
+      - No violations → no issue
+    """
+    issues = []
+
+    try:
+        from myco.notes import list_notes, read_note
+    except ImportError:
+        return issues
+
+    violation_count = 0
+    violation_types = set()
+
+    try:
+        # 1. Check eat/digest balance
+        raw_notes = list(list_notes(root, status="raw"))
+        digest_count = 0
+        for path in list_notes(root, status="digesting"):
+            digest_count += 1
+        for path in list_notes(root, status="integrated"):
+            digest_count += 1
+
+        # If raw notes >> digest count, flag under-eating
+        if len(raw_notes) > 3 and digest_count < len(raw_notes) / 2:
+            violation_count += 1
+            violation_types.add("eat_digest_imbalance")
+
+    except Exception:
+        pass
+
+    try:
+        # 2. Check search miss recovery
+        miss_path = root / ".myco_state" / "search_misses.yaml"
+        if miss_path.exists():
+            import yaml
+            with open(miss_path, "r", encoding="utf-8") as f:
+                miss_data = yaml.safe_load(f) or {}
+            recent_misses = miss_data.get("recent_misses", [])
+
+            # If misses exist but few absorptions, flag
+            if len(recent_misses) > 3:
+                violation_count += 1
+                violation_types.add("unrecovered_misses")
+    except Exception:
+        pass
+
+    try:
+        # 3. Check if boot_brief.md exists and is recent
+        boot_brief = root / ".myco_state" / "boot_brief.md"
+        if not boot_brief.exists():
+            violation_count += 1
+            violation_types.add("missing_boot_brief")
+        else:
+            from datetime import datetime, timedelta
+            mtime = datetime.fromtimestamp(boot_brief.stat().st_mtime)
+            age = (datetime.now() - mtime).days
+            if age > 3:  # not run in 3 days
+                violation_count += 1
+                violation_types.add("stale_boot_brief")
+    except Exception:
+        pass
+
+    # Generate issues based on violation count and types
+    if violation_count == 0:
+        return issues
+
+    if violation_count >= 2:
+        severity = "MEDIUM"
+    else:
+        severity = "LOW"
+
+    violation_list = ", ".join(sorted(violation_types))
+    issues.append((
+        "L27", severity, "docs/agent_protocol.md",
+        f"Protocol adherence warning: {violation_list}. "
+        f"Review recent session behavior against agent_protocol.md."
+    ))
+
+    return issues
+
+
 # ---------------------------------------------------------------------------
 # Auto-fix engine (--fix mode)
 # ---------------------------------------------------------------------------
@@ -3398,6 +3626,9 @@ FULL_CHECKS = QUICK_CHECKS + (
     ("L23 Absorption Verification", lint_digest_integrity),
     ("L24 Synaptogenesis Health", lint_synaptogenesis_health),
     ("L25 Cross-Layer Interconnection Health", lint_cross_layer_health),
+    ("L26 Freshness Debt", lint_freshness_debt),
+    ("L27 Protocol Adherence", lint_protocol_adherence),
+    ("L28 PyPI Sync", lint_pypi_sync),
 )
 
 

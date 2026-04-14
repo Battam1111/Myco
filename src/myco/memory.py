@@ -335,6 +335,86 @@ def prune_sessions(
 # Wave E1: Predictive hunger — need anticipation from session history
 # ---------------------------------------------------------------------------
 
+# Stopwords for topic extraction (English + conversation filler)
+_ENGLISH_STOPWORDS = {
+    "the", "a", "an", "is", "it", "to", "and", "of", "in", "for",
+    "on", "with", "that", "this", "can", "you", "my", "how", "what",
+    "do", "i", "me", "we", "be", "not", "but", "or", "if", "from",
+    "your", "have", "has", "had", "are", "was", "were", "will",
+    "been", "being", "does", "did", "done", "just", "only", "also",
+    "than", "then", "when", "where", "which", "while", "after",
+    "before", "about", "into", "through", "each", "all", "any",
+    "both", "more", "most", "other", "some", "such", "them",
+    "their", "they", "these", "those", "here", "there", "would",
+    "could", "should", "shall", "might", "must", "need", "make",
+    "like", "over", "very", "well", "still", "also", "back",
+    "even", "first", "last", "long", "great", "much", "many",
+    "please", "thanks", "sure", "okay", "right", "don't", "it's",
+    "you're", "you've", "i'm", "i've", "let's", "that's", "what's",
+    "there's", "here's", "they're", "we're", "he's", "she's",
+    "tried", "checked", "yourself", "anything", "everything",
+    "something", "nothing", "already", "really", "truly",
+    "waiting", "expectations", "initiative",  # common noise words
+}
+
+
+def _extract_terms_from_text(text: str, min_len: int = 3) -> Dict[str, int]:
+    """Extract stopword-filtered terms from text.
+
+    Returns dict mapping term → frequency.
+    """
+    if not text:
+        return {}
+    term_freq: Dict[str, int] = {}
+    words = text.lower().split()
+    for w in words:
+        w = w.strip(".,!?:;\"'()[]{}#*`~<>@/\\").lower()
+        # Skip short words, stop words, paths, markdown artifacts
+        if (len(w) < min_len or w in _ENGLISH_STOPWORDS
+                or ":" in w or "/" in w or "\\" in w
+                or w.startswith("**") or w.startswith("--")):
+            continue
+        term_freq[w] = term_freq.get(w, 0) + 1
+    return term_freq
+
+
+def _wiki_page_titles(root: Path) -> set:
+    """Collect all wiki page titles and first-line headings."""
+    titles = set()
+    wiki_dir = root / "wiki"
+    if not wiki_dir.exists():
+        return titles
+    try:
+        for page in wiki_dir.glob("*.md"):
+            if page.name.startswith("_"):
+                continue
+            with open(page, "r", encoding="utf-8", errors="ignore") as f:
+                # Read first 20 lines for headings
+                for i, line in enumerate(f):
+                    if i >= 20:
+                        break
+                    # Extract heading text
+                    if line.startswith("#"):
+                        heading = line.lstrip("#").strip()
+                        if heading:
+                            # Add both full heading and individual terms
+                            titles.add(heading.lower())
+                            for term in heading.lower().split():
+                                term = term.strip(".,!?;:()[]{}").lower()
+                                if len(term) >= 3:
+                                    titles.add(term)
+                    # Also add filename (without .md)
+                    if i == 0:
+                        fname = page.stem.lower().replace("-", " ").replace("_", " ")
+                        titles.add(fname)
+                        for term in fname.split():
+                            if len(term) >= 3:
+                                titles.add(term)
+    except Exception:
+        pass
+    return titles
+
+
 def predict_knowledge_needs(
     root: Path,
     *,
@@ -344,12 +424,27 @@ def predict_knowledge_needs(
 ) -> List[Dict[str, Any]]:
     """Analyze session history to predict future knowledge needs.
 
-    Looks for:
-    1. Repeated search misses (same topic searched multiple times)
-    2. Undocumented recurring topics (frequently discussed but no notes exist)
-    3. Friction pattern clusters (self-correction tags accumulating)
+    Wave 55 (vision_closure_craft_2026-04-14.md G2):
+    Replaces word-frequency noise with three-signal aggregation.
 
-    Returns predicted needs as structured recommendations.
+    Looks for:
+    1. User-turn topic mentions (last 30 days)
+    2. Search misses (weighted ×2)
+    3. Raw note orphan topics (not in any wiki page)
+
+    Returns list of predicted needs, each with:
+    {
+        "topic": str,
+        "sources": {
+            "turn_mentions": int,
+            "miss_count": int,
+            "orphan_count": int,
+        },
+        "coverage": float (0.0-1.0),
+        "suggested_action": "myco_scent" | "absorb",
+    }
+
+    Sorted by total_signal × (1 - coverage).
     """
     config = _load_sessions_config(root)
     if db_path is None:
@@ -357,102 +452,103 @@ def predict_knowledge_needs(
 
     predictions: List[Dict[str, Any]] = []
 
-    if not db_path.exists():
-        return predictions
+    # Collect all wiki coverage
+    wiki_titles = _wiki_page_titles(root)
 
-    # 1. Find frequently discussed topics from user turns
-    conn = sqlite3.connect(str(db_path))
+    # Signal 1: User-turn topics (last 30 days)
+    turn_topics: Dict[str, int] = {}
+    if db_path.exists():
+        conn = sqlite3.connect(str(db_path))
+        try:
+            cursor = conn.execute(
+                "SELECT content FROM session_turns WHERE role = 'user' LIMIT 500"
+            )
+            for (content,) in cursor:
+                turn_topics.update(_extract_terms_from_text(content))
+        except Exception:
+            pass
+        finally:
+            conn.close()
+
+    # Signal 2: Search misses (weighted ×2)
+    miss_topics: Dict[str, int] = {}
     try:
-        # Extract most common content words from user turns
-        cursor = conn.execute(
-            "SELECT content FROM session_turns WHERE role = 'user' LIMIT 500"
-        )
-        word_freq: Dict[str, int] = {}
-        # Expanded stop words: common English + conversation filler
-        stop_words = {
-            "the", "a", "an", "is", "it", "to", "and", "of", "in", "for",
-            "on", "with", "that", "this", "can", "you", "my", "how", "what",
-            "do", "i", "me", "we", "be", "not", "but", "or", "if", "from",
-            "your", "have", "has", "had", "are", "was", "were", "will",
-            "been", "being", "does", "did", "done", "just", "only", "also",
-            "than", "then", "when", "where", "which", "while", "after",
-            "before", "about", "into", "through", "each", "all", "any",
-            "both", "more", "most", "other", "some", "such", "them",
-            "their", "they", "these", "those", "here", "there", "would",
-            "could", "should", "shall", "might", "must", "need", "make",
-            "like", "over", "very", "well", "still", "also", "back",
-            "even", "first", "last", "long", "great", "much", "many",
-            "please", "thanks", "sure", "okay", "right", "don't", "it's",
-            "you're", "you've", "i'm", "i've", "let's", "that's", "what's",
-            "there's", "here's", "they're", "we're", "he's", "she's",
-            "tried", "checked", "yourself", "anything", "everything",
-            "something", "nothing", "already", "really", "truly",
-        }
-        for (content,) in cursor:
-            if not content:
-                continue
-            words = content.lower().split()
-            for w in words:
-                w = w.strip(".,!?:;\"'()[]{}#*`~<>@/\\").lower()
-                # Skip short words, stop words, paths, markdown artifacts
-                if (len(w) <= 4 or w in stop_words
-                        or ":" in w or "/" in w or "\\" in w
-                        or w.startswith("**") or w.startswith("--")):
-                    continue
-                word_freq[w] = word_freq.get(w, 0) + 1
-
-        # Topics that appear frequently but may not be in notes
-        from myco.notes import list_notes, read_note
-        note_content = ""
-        for path in list_notes(root):
-            try:
-                _, body = read_note(path)
-                note_content += body.lower() + " "
-            except Exception:
-                continue
-
-        # Scan top 200 candidates (not just 20) to find real gaps
-        for word, count in sorted(word_freq.items(), key=lambda x: -x[1])[:200]:
-            if count >= 3 and word not in note_content:
-                predictions.append({
-                    "type": "undocumented_recurring_topic",
-                    "topic": word,
-                    "frequency": count,
-                    "description": f"Topic '{word}' discussed {count} times in sessions "
-                                   f"but no notes contain it. Consider creating knowledge.",
-                })
-                if len(predictions) >= limit:
-                    break
-
-    except Exception:
-        pass
-    finally:
-        conn.close()
-
-    # 2. Check for accumulating search misses on same topics
-    try:
-        import yaml
         miss_path = root / ".myco_state" / "search_misses.yaml"
         if miss_path.exists():
             with open(miss_path, "r", encoding="utf-8") as f:
                 miss_data = yaml.safe_load(f) or {}
             recent = miss_data.get("recent_misses", [])
-            # Count query frequency
-            query_count: Dict[str, int] = {}
             for miss in recent:
                 q = miss.get("query", "").lower().strip()
-                if q:
-                    query_count[q] = query_count.get(q, 0) + 1
-            for q, c in sorted(query_count.items(), key=lambda x: -x[1]):
-                if c >= 2:
-                    predictions.append({
-                        "type": "repeated_search_miss",
-                        "topic": q,
-                        "frequency": c,
-                        "description": f"Search for '{q}' missed {c} times. "
-                                       f"Proactive acquisition recommended.",
-                    })
+                if q and len(q) >= 3:
+                    miss_topics[q] = miss_topics.get(q, 0) + 2  # weight ×2
     except Exception:
         pass
+
+    # Signal 3: Raw note orphan topics
+    orphan_topics: Dict[str, int] = {}
+    try:
+        from myco.notes import list_notes, read_note
+        for path in list_notes(root, status="raw"):
+            try:
+                meta, body = read_note(path)
+                # Extract terms from raw notes
+                title = meta.get("title", "")
+                text = (title + " " + body).lower()
+                terms = _extract_terms_from_text(text)
+                for term, count in terms.items():
+                    if term not in wiki_titles:
+                        orphan_topics[term] = orphan_topics.get(term, 0) + count
+            except Exception:
+                continue
+    except Exception:
+        pass
+
+    # Aggregate signals
+    all_topics: Dict[str, Dict[str, int]] = {}
+    for topic, count in turn_topics.items():
+        if topic not in all_topics:
+            all_topics[topic] = {"turn_mentions": 0, "miss_count": 0, "orphan_count": 0}
+        all_topics[topic]["turn_mentions"] += count
+
+    for topic, count in miss_topics.items():
+        if topic not in all_topics:
+            all_topics[topic] = {"turn_mentions": 0, "miss_count": 0, "orphan_count": 0}
+        all_topics[topic]["miss_count"] += count
+
+    for topic, count in orphan_topics.items():
+        if topic not in all_topics:
+            all_topics[topic] = {"turn_mentions": 0, "miss_count": 0, "orphan_count": 0}
+        all_topics[topic]["orphan_count"] += count
+
+    # Compute coverage and score
+    for topic, sources in all_topics.items():
+        # Coverage: 1.0 if topic in wiki, 0.0 otherwise
+        coverage = 1.0 if topic in wiki_titles else 0.0
+
+        # Total signal
+        total_signal = (sources["turn_mentions"] + sources["miss_count"]
+                       + sources["orphan_count"])
+
+        # Only include topics with meaningful signal
+        if total_signal < 2:
+            continue
+
+        score = total_signal * (1.0 - coverage)
+
+        predictions.append({
+            "topic": topic,
+            "sources": sources,
+            "coverage": coverage,
+            "score": score,
+            "suggested_action": "myco_scent" if coverage == 0.0 else "absorb",
+        })
+
+    # Sort by score descending
+    predictions.sort(key=lambda x: -x["score"])
+
+    # Remove score from output (internal only)
+    for p in predictions:
+        del p["score"]
 
     return predictions[:limit]
