@@ -43,17 +43,23 @@ jobs:
 
       - name: Determine bump level
         id: bump
+        # Conservative policy (2026-04-14): feat: alone only bumps patch —
+        # we were churning through minors (0.3.1 -> 0.4.0 -> 0.5.0 in one
+        # afternoon). Minor bumps now require an explicit `minor:` prefix
+        # OR `MINOR-RELEASE` in the commit body. Major still requires
+        # `feat!:` / `BREAKING:`. Use workflow_dispatch force_bump for ad-hoc.
         run: |
           LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
           echo "last_tag=$LAST_TAG" >> $GITHUB_OUTPUT
           COMMITS=$(git log ${LAST_TAG}..HEAD --pretty=format:"%s")
+          BODIES=$(git log ${LAST_TAG}..HEAD --pretty=format:"%B")
           if [ -n "${{ inputs.force_bump }}" ]; then
             LEVEL="${{ inputs.force_bump }}"
           elif echo "$COMMITS" | grep -qE "^(BREAKING:|feat!:)"; then
             LEVEL="major"
-          elif echo "$COMMITS" | grep -qE "^feat:"; then
+          elif echo "$COMMITS" | grep -qE "^minor:" || echo "$BODIES" | grep -q "MINOR-RELEASE"; then
             LEVEL="minor"
-          elif echo "$COMMITS" | grep -qE "^(fix:|docs:|refactor:|perf:|chore:|test:)"; then
+          elif echo "$COMMITS" | grep -qE "^(feat:|fix:|docs:|refactor:|perf:|chore:|test:)"; then
             LEVEL="patch"
           else
             LEVEL="none"
