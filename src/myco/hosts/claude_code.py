@@ -60,9 +60,46 @@ def check_hooks(root: Path) -> Dict[str, Any]:
 
 
 def install_hooks(root: Path) -> bool:
-    """Install Claude Code hooks (requires manual setup in settings.json).
+    """Install Claude Code native hooks.
 
-    This is a placeholder — actual hook installation requires user to
-    configure .claude/settings.json manually.
+    Wave 56: merges SessionStart + SessionEnd hook entries into
+    .claude/settings.json so `myco hunger --execute` fires on session
+    start and `myco session-end` fires on close. Idempotent — skips if
+    the exact hook is already present.
     """
-    return check_hooks(root)["session_start"] == True
+    import json
+
+    claude_dir = root / ".claude"
+    claude_dir.mkdir(parents=True, exist_ok=True)
+    settings_file = claude_dir / "settings.json"
+
+    try:
+        if settings_file.exists():
+            settings = json.loads(settings_file.read_text(encoding="utf-8"))
+        else:
+            settings = {}
+    except Exception:
+        settings = {}
+
+    hooks = settings.setdefault("hooks", {})
+
+    start_hook = {"command": "myco hunger --execute", "description": "Myco boot ritual"}
+    end_hook = {"command": "myco session-end", "description": "Myco close-out ritual"}
+
+    # SessionStart
+    ss = hooks.setdefault("SessionStart", [])
+    if not any(h.get("command") == start_hook["command"] for h in ss if isinstance(h, dict)):
+        ss.append(start_hook)
+    # SessionEnd
+    se = hooks.setdefault("SessionEnd", [])
+    if not any(h.get("command") == end_hook["command"] for h in se if isinstance(h, dict)):
+        se.append(end_hook)
+
+    try:
+        settings_file.write_text(
+            json.dumps(settings, indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        return True
+    except Exception:
+        return False

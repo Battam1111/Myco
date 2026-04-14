@@ -70,6 +70,10 @@ def _find_project_root() -> Path:
     """Find Myco project root. Priority: MYCO_ROOT env var > walk-up search.
 
     MYCO_ROOT allows global Myco: install once, connect from any project.
+
+    Wave 56 zero-touch: if no _canon.yaml is found in the walk-up chain,
+    trigger first-contact auto-seed so the user never has to type
+    `myco init`. Opt-out via MYCO_NO_AUTOSEED=1.
     """
     import os
     myco_root = os.environ.get("MYCO_ROOT")
@@ -78,7 +82,16 @@ def _find_project_root() -> Path:
         if (p / "_canon.yaml").exists():
             return p
     from myco.project import find_project_root
-    return find_project_root(strict=False)
+    root = find_project_root(strict=False)
+    # First-contact auto-seed: if this dir isn't a Myco project yet,
+    # silently seed L1 defaults so any MCP tool call works immediately.
+    if os.environ.get("MYCO_NO_AUTOSEED") != "1" and not (root / "_canon.yaml").exists():
+        try:
+            from myco.bootstrap import first_contact_seed
+            first_contact_seed(root, silent=True)
+        except Exception:
+            pass
+    return root
 
 
 def _compute_sidecar(root: Path) -> dict:
@@ -129,17 +142,62 @@ def _compute_sidecar(root: Path) -> dict:
         return {"raw_count": -1, "signals_count": -1, "top_signal": "error"}
 
 
-def _inject_sidecar(response_str: str, root: Path) -> str:
-    """Inject hunger sidecar into any JSON response."""
+def _compute_claude_hint(sidecar: dict, tool_name: str, root: Path) -> Optional[str]:
+    """Wave 56: next-action hint for the Agent.
+
+    Zero-forget layer — small rules produce a directive the Agent can
+    follow without reasoning from scratch. Returns None if no hint.
+    """
+    try:
+        # Highest priority: boot ritual missed.
+        if sidecar.get("WARNING"):
+            return "Call myco_hunger(execute=true) NOW — boot ritual not executed this session."
+        raw = sidecar.get("raw_count", 0)
+        # Post-eat: tell Agent to digest soon, not immediately.
+        if tool_name == "myco_eat":
+            return (
+                "Note captured. When the conversation reaches a natural break, "
+                "call myco_digest to move raw notes toward extracted/integrated."
+            )
+        if tool_name == "myco_digest":
+            return "After digest, call myco_immune to verify nutrient placement was valid."
+        if tool_name == "myco_scent":
+            return "Scent returned candidate sources — call myco_eat on the most relevant chunk."
+        if tool_name == "myco_hunger":
+            if raw > 5:
+                return f"{raw} raw notes pending — run myco_digest on the oldest batch."
+            return None
+        # Global fallback: raw notes backlog.
+        if raw >= 8:
+            return f"Backlog: {raw} raw notes. Consider running myco_digest soon."
+        # Freshness debt hint — cheap heuristic: check recent notes count.
+        notes_dir = root / "notes"
+        if notes_dir.is_dir():
+            stale = sum(1 for f in notes_dir.glob("n_*.md")
+                        if "quarantine_reason:" in f.read_text(encoding="utf-8", errors="replace")[:400])
+            if stale >= 3:
+                return f"{stale} quarantined notes — run myco_verify to revalidate."
+    except Exception:
+        return None
+    return None
+
+
+def _inject_sidecar(response_str: str, root: Path, tool_name: str = "") -> str:
+    """Inject hunger sidecar + claude_hint into any JSON response."""
     try:
         data = json.loads(response_str)
         sidecar = _compute_sidecar(root)
+        hint = _compute_claude_hint(sidecar, tool_name, root)
         if isinstance(data, dict):
             data["_myco_sidecar"] = sidecar
+            if hint and "claude_hint" not in data:
+                data["claude_hint"] = hint
             return json.dumps(data, indent=2, ensure_ascii=False)
         if isinstance(data, list):
             # Wrap bare lists so sidecar can be attached
             wrapped = {"items": data, "_myco_sidecar": sidecar}
+            if hint:
+                wrapped["claude_hint"] = hint
             return json.dumps(wrapped, indent=2, ensure_ascii=False)
     except (json.JSONDecodeError, TypeError):
         pass
@@ -163,7 +221,8 @@ def _with_sidecar(fn):
             pass
         try:
             root = Path(project_dir).resolve() if project_dir else _find_project_root().resolve()
-            return _inject_sidecar(result, root)
+            tool_name = getattr(fn, "__name__", "")
+            return _inject_sidecar(result, root, tool_name=tool_name)
         except Exception:
             return result
     return wrapper
@@ -2825,3 +2884,56 @@ async def myco_evolve_list(
         "total_skills": len(skills),
         "total_evolved_variants": sum(s["evolution_count"] for s in skills),
     }, ensure_ascii=False, indent=2)
+
+# ---------------------------------------------------------------------------
+# Tool: myco_session_end — Zero-touch close-out ritual (Wave 56)
+# ---------------------------------------------------------------------------
+
+@mcp.tool(
+    name="myco_session_end",
+    annotations={
+        "title": "Myco Session End — Automated Close-Out",
+        "readOnlyHint": False,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": False,
+    },
+)
+@_with_sidecar
+async def myco_session_end(
+    summary: Optional[str] = None,
+    prune: bool = True,
+    refresh_brief: bool = True,
+    project_dir: Optional[str] = None,
+) -> str:
+    """Run the session-end ritual: eat summary, auto-prune, refresh boot brief.
+
+    WHEN TO CALL — at the end of a working session, or when the user
+    signals they are wrapping up ("let's call it", "session end",
+    "before I go", "that's enough for today"). Do not wait for explicit
+    permission; this is the agent's zero-forget counterpart to the
+    session-start hunger ritual.
+
+    Args:
+        summary: Short summary of what happened this session. Auto-eaten
+                 as a raw note tagged [session-end, auto]. Omit to skip.
+        prune: If True (default), call auto-prune to excrete multipath-
+               orphaned notes.
+        refresh_brief: If True (default), regenerate boot_brief.md so the
+                       next session opens hot.
+        project_dir: Path to Myco project root. Auto-detected if omitted.
+
+    Returns:
+        JSON: {ate, pruned, brief_refreshed, errors}.
+    """
+    from myco.session_hook import run_session_end
+
+    root = Path(project_dir) if project_dir else _find_project_root()
+    root = root.resolve()
+    result = run_session_end(
+        root,
+        summary=summary,
+        prune=prune,
+        refresh_brief=refresh_brief,
+    )
+    return json.dumps(result, ensure_ascii=False, indent=2)

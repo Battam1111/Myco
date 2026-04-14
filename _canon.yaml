@@ -325,12 +325,12 @@ system:
         cited_in: ["MYCO.md", "docs/architecture.md", "docs/reusable_system_design.md", "src/myco/mcp_server.py", "src/myco/cli.py"]
       mcp_tool_count:
         ssot: "count of @mcp.tool in src/myco/mcp_server.py"
-        value: 20
+        value: 21
         keywords: ["MCP", "tool", "工具"]
         cited_in: ["README.md", "README_zh.md", "README_ja.md", "MYCO.md", "docs/agent_protocol.md", "docs/vision.md"]
       test_count:
         ssot: "pytest tests/ output"
-        value: 372
+        value: 400
         keywords: ["test", "测试", "pytest"]
         cited_in: ["MYCO.md"]
 

@@ -749,6 +749,31 @@ def main():
         help="Project root (default: current directory)",
     )
 
+    # ── myco session-end (Wave 56, zero-touch close-out) ─────────────
+    session_end_parser = subparsers.add_parser(
+        "session-end",
+        help="Run session-end ritual: auto-eat summary, prune, refresh boot brief",
+    )
+    session_end_parser.add_argument(
+        "--summary", type=str, default=None,
+        help="Session summary to auto-eat as raw note",
+    )
+    session_end_parser.add_argument(
+        "--no-prune", dest="prune", action="store_false",
+        help="Skip auto-prune step",
+    )
+    session_end_parser.add_argument(
+        "--no-brief", dest="refresh_brief", action="store_false",
+        help="Skip boot-brief refresh",
+    )
+    session_end_parser.add_argument(
+        "--project-dir", type=str, default=".",
+        help="Project root (default: current directory)",
+    )
+    session_end_parser.add_argument(
+        "--json", action="store_true", help="Emit machine-readable JSON",
+    )
+
     # ── myco diagnose (deployment health check) ──────────────────────
     verify_parser = subparsers.add_parser(
         "diagnose", help="Verify Myco deployment: MCP server, tools, lint, substrate health")
@@ -928,6 +953,27 @@ def main():
     if args.command == "doctor":
         from myco.doctor_cmd import run_doctor
         sys.exit(run_doctor(args))
+
+    if args.command == "session-end":
+        from myco.session_hook import run_session_end
+        from pathlib import Path as _P
+        root = _P(args.project_dir).resolve()
+        result = run_session_end(
+            root,
+            summary=args.summary,
+            prune=getattr(args, "prune", True),
+            refresh_brief=getattr(args, "refresh_brief", True),
+        )
+        if getattr(args, "json", False):
+            import json as _json
+            print(_json.dumps(result, ensure_ascii=False, indent=2))
+        else:
+            print(f"Session end: ate={result['ate']}, pruned={result['pruned']}, "
+                  f"brief={result['brief_refreshed']}")
+            if result["errors"]:
+                for e in result["errors"]:
+                    print(f"  ! {e}")
+        sys.exit(0 if result["ok"] else 1)
 
     if args.command == "propagate":
         from myco.propagate_cmd import run_propagate
