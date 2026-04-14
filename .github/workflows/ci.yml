@@ -57,9 +57,13 @@ jobs:
           cd /tmp/myco-smoke
           printf '# Smoke Test Project\n\nUsed by Myco CI smoke-install job.\n' > README.md
       - name: Auto-seed via hunger
+        # hunger returns non-zero on "concerning" substrate signals
+        # (cold_start / no_deep_digest) which will always fire on a fresh
+        # empty substrate — that's expected, not a failure. We care that
+        # the substrate got seeded; the next step asserts that.
         run: |
           cd /tmp/myco-smoke
-          python -m myco hunger --execute --project-dir .
+          python -m myco hunger --execute --project-dir . || echo "hunger exited non-zero (expected on cold substrate)"
       - name: Verify substrate was seeded
         run: |
           cd /tmp/myco-smoke
