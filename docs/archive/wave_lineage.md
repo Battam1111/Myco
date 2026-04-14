@@ -72,4 +72,6 @@ Wave 序号停止使用。2026-04-14 的基质身份升级（`docs/primordia/sub
 - `docs/primordia/archive/`：被超越的早期 craft doc，按 Wave 归档。
 - `src/myco/immune.py` 与 `tests/`：代码中保留的 Wave 注释仅作历史出处记录，不作为当前版本计量。
 
+<!-- nutrient-from: n_20260414T134657_bc5a -->
+
 **Back to** [MYCO.md](../../MYCO.md)

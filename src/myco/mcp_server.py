@@ -2238,6 +2238,97 @@ async def myco_forage(
 
 
 # ---------------------------------------------------------------------------
+# Wave 55 (v0.46.0): Autonomous foraging — opportunistic scent-driven fetch
+# ---------------------------------------------------------------------------
+
+@mcp.tool(
+    name="myco_scent",
+    annotations={
+        "title": "Myco Scent — opportunistic on-demand foraging",
+        "readOnlyHint": False,
+        "destructiveHint": False,
+        "idempotentHint": False,
+        "openWorldHint": True,
+        "modelHint": "haiku",  # lightweight task
+    },
+)
+@_with_sidecar
+async def myco_scent(
+    topic: str,
+    budget: int = 5,
+    project_dir: Optional[str] = None,
+) -> str:
+    """Opportunistic autonomous forage — discover and ingest content on demand.
+
+    WHEN TO CALL:
+      When current task reveals a knowledge gap in a topic not yet in wiki.
+      Agent detects the gap, calls scent() with topic name, and Myco fetches
+      + filters + auto-adds passing candidates to forage manifest.
+
+    Args:
+        topic: Search query/topic name (e.g., "reinforcement learning").
+        budget: Max candidates to fetch and process (default 5).
+        project_dir: Path to Myco project root. Auto-detected if omitted.
+
+    Returns:
+        JSON with {added: N, rejected: M, reasons: [...]}.
+
+    Implementation:
+      1. Query arxiv for topic (top `budget` results).
+      2. Run each through immune_filter (dedup + interests + license).
+      3. Auto-add passing candidates to forage/_index.yaml status=raw_fetch.
+      4. Return summary.
+    """
+    from myco.feeds import fetch_due_feeds, immune_filter
+    from myco.forage import add_item, generate_forage_id
+
+    root = Path(project_dir) if project_dir else _find_project_root()
+    root = root.resolve()
+
+    if not (root / "_canon.yaml").exists():
+        return json.dumps({"error": f"Not a Myco project (no _canon.yaml at {root})"})
+
+    try:
+        from myco.feeds import _fetch_arxiv
+        candidates = _fetch_arxiv(topic, limit=budget)
+    except Exception as exc:
+        return json.dumps({"error": f"Failed to fetch topic '{topic}': {exc}"})
+
+    added = 0
+    rejected = 0
+    reasons = []
+
+    for candidate in candidates:
+        passed, reason = immune_filter(root, candidate)
+        if passed:
+            try:
+                # Auto-add to forage manifest
+                forage_id = generate_forage_id()
+                add_item(
+                    root,
+                    source_url=candidate["source_url"],
+                    source_type=candidate["source_type"],
+                    local_path=None,
+                    license=candidate["license_guess"],
+                    why=f"Scent-triggered fetch for topic '{topic}'",
+                )
+                added += 1
+            except Exception as e:
+                rejected += 1
+                reasons.append(f"Failed to add {candidate['source_url']}: {e}")
+        else:
+            rejected += 1
+            reasons.append(f"Rejected {candidate['title']}: {reason}")
+
+    return json.dumps({
+        "topic": topic,
+        "added": added,
+        "rejected": rejected,
+        "reasons": reasons[:10],  # cap at 10 for output
+    })
+
+
+# ---------------------------------------------------------------------------
 # Wave 47 (v0.36.0): Link graph analysis
 # ---------------------------------------------------------------------------
 

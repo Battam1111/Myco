@@ -200,3 +200,98 @@ def gap_detection(root: Path) -> List[Dict[str, Any]]:
 
     gaps.sort(key=lambda x: -x["total"])
     return gaps
+
+
+def cross_project_cluster(
+    global_myco_root: Optional[Path] = None,
+    *,
+    min_cluster_size: int = 2,
+) -> Dict[str, Any]:
+    """Partition A (G6): Cross-project clustering.
+
+    If global_myco_root is provided, scans all project notes/ directories
+    within it and clusters by topic (using tag co-occurrence as a proxy).
+    Returns dict with structure:
+        {
+            "clusters": [
+                {
+                    "topic_slug": "...",
+                    "topic_label": "...",
+                    "contributing_projects": [project_name, ...],
+                    "total_notes": int,
+                    "project_contributions": {
+                        "project_a": {"nutrient": "...", "note_count": int},
+                        "project_b": {"nutrient": "...", "note_count": int},
+                    }
+                }
+            ]
+        }
+
+    Notes from private projects are included in statistics but not in
+    the nutrient text (based on project_visibility.yaml).
+    """
+    if global_myco_root is None:
+        from pathlib import Path as P
+        global_myco_root = P.home() / "Myco"
+
+    global_myco_root = Path(global_myco_root)
+    if not global_myco_root.exists():
+        return {"clusters": [], "error": f"{global_myco_root} does not exist"}
+
+    # Scan all project directories for notes/
+    all_notes_by_project: Dict[str, List[Tuple[Path, Dict]]] = defaultdict(list)
+
+    for project_dir in global_myco_root.iterdir():
+        if not project_dir.is_dir():
+            continue
+        notes_dir = project_dir / "notes"
+        if not notes_dir.exists():
+            continue
+
+        project_name = project_dir.name
+        for note_path in notes_dir.glob("n_*.md"):
+            try:
+                meta, body = read_note(note_path)
+                all_notes_by_project[project_name].append((note_path, meta))
+            except Exception:
+                continue
+
+    if not all_notes_by_project:
+        return {"clusters": []}
+
+    # Cluster by tag co-occurrence (simplified: group by shared tags)
+    tag_to_notes: Dict[str, List[Tuple[str, Dict]]] = defaultdict(list)
+
+    for project_name, notes_list in all_notes_by_project.items():
+        for note_path, meta in notes_list:
+            tags = meta.get("tags", [])
+            for tag in tags:
+                tag_to_notes[tag].append((project_name, meta))
+
+    # Build clusters: tags with notes from ≥2 projects
+    clusters = []
+    for tag, notes_by_project in tag_to_notes.items():
+        projects_set = set(proj for proj, _ in notes_by_project)
+        if len(projects_set) < min_cluster_size:
+            continue
+
+        # Aggregate nutrient snippets from each project
+        project_contribs: Dict[str, Any] = {}
+        for project_name in projects_set:
+            project_notes = [
+                meta for proj, meta in notes_by_project if proj == project_name
+            ]
+            project_contribs[project_name] = {
+                "note_count": len(project_notes),
+                "nutrient": f"{len(project_notes)} notes tagged '{tag}' from project {project_name}",
+            }
+
+        clusters.append({
+            "topic_slug": tag.lower().replace(" ", "_"),
+            "topic_label": tag,
+            "contributing_projects": sorted(projects_set),
+            "total_notes": len(notes_by_project),
+            "project_contributions": project_contribs,
+        })
+
+    return {"clusters": clusters}

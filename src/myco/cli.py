@@ -695,6 +695,60 @@ def main():
     s_prune.add_argument("--project-dir", type=str, default=".")
     s_prune.add_argument("--json", action="store_true")
 
+    # ── myco verify (Partition A, G3: Truth Immune) ────────────────────
+    # Freshness verification for time-sensitive and live notes.
+    verify_cmd_parser = subparsers.add_parser(
+        "verify",
+        help="Verify freshness of time-sensitive and live notes",
+    )
+    verify_cmd_parser.add_argument(
+        "--mark", type=str, default=None,
+        choices=["still_true", "ambiguous", "contradicted"],
+        metavar="ACTION",
+        help="Mark a specific note as verified (ACTION: still_true | ambiguous | contradicted)",
+    )
+    verify_cmd_parser.add_argument(
+        "note_id", nargs="?", default=None,
+        help="Note id to mark (required if --mark is set)",
+    )
+    verify_cmd_parser.add_argument(
+        "--json", action="store_true",
+        help="Emit machine-readable JSON",
+    )
+    verify_cmd_parser.add_argument(
+        "--project-dir", type=str, default=".",
+        help="Project root (default: current directory)",
+    )
+
+    # ── myco introspect (Partition A, G5: Engine Self-Evolution) ───────
+    # Self-critique scanner for metabolic trends.
+    introspect_parser = subparsers.add_parser(
+        "introspect",
+        help="Self-critique scanner: detect worsening metrics and metabolic trends",
+    )
+    introspect_parser.add_argument(
+        "--project-dir", type=str, default=".",
+        help="Project root (default: current directory)",
+    )
+
+    # ── myco doctor (Partition B, G7: Zero-touch Hooks) ────────────────
+    doctor_parser = subparsers.add_parser(
+        "doctor",
+        help="Check session-hook health across hosts (Cowork/Claude Code/Cursor/VS Code)",
+    )
+    doctor_parser.add_argument(
+        "--json", action="store_true",
+        help="Emit machine-readable JSON",
+    )
+    doctor_parser.add_argument(
+        "--fix", action="store_true",
+        help="Attempt auto-remediation of detected issues",
+    )
+    doctor_parser.add_argument(
+        "--project-dir", type=str, default=".",
+        help="Project root (default: current directory)",
+    )
+
     # ── myco diagnose (deployment health check) ──────────────────────
     verify_parser = subparsers.add_parser(
         "diagnose", help="Verify Myco deployment: MCP server, tools, lint, substrate health")
@@ -860,6 +914,20 @@ def main():
     if args.command == "memory":
         from myco.memory_cmd import run_session
         sys.exit(run_session(args))
+
+    # Partition A (G3): Truth Immune — freshness verification
+    if args.command == "verify":
+        from myco.verify_cmd import run_verify
+        sys.exit(run_verify(args))
+
+    # Partition A (G5): Engine Self-Evolution — metabolic trend analysis
+    if args.command == "introspect":
+        from myco.introspect_cmd import run_introspect
+        sys.exit(run_introspect(args))
+
+    if args.command == "doctor":
+        from myco.doctor_cmd import run_doctor
+        sys.exit(run_doctor(args))
 
     if args.command == "propagate":
         from myco.propagate_cmd import run_propagate

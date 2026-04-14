@@ -106,6 +106,7 @@ VALID_STATUSES: Tuple[str, ...] = (
     "digesting",    # currently being read/summarized/extracted
     "extracted",    # key claim has been lifted into wiki / MYCO.md
     "integrated",   # fully merged into canonical structures
+    "quarantine",   # flagged as potentially stale/contradicted, not in default search (v0.46.0 G3)
     "excreted",     # deliberately removed from active rotation
 )
 
@@ -157,6 +158,17 @@ OPTIONAL_FIELDS: Tuple[str, ...] = (
     # Set when a note is produced from forage-derived content.
     # Authoritative design: mycelium wrapping (forage structural connectivity).
     "forage_source",           # str — forage item id (e.g. f_20260413T..._xxxx)
+    # Partition A (Vision Closure, G4) — Aggressive Excretion & Supersedes
+    "supersedes",              # list[str] — note ids that this note supersedes (default: [])
+    "superseded_by",           # str — note id that superseded this one (default: None)
+    # Partition A (Vision Closure, G3) — Truth Immune / Freshness
+    "freshness",               # str — "static" | "time_sensitive" | "live" (default: "time_sensitive")
+    "last_verified",           # ISO str — when this note's truth was last verified (default: created)
+    "quarantine_reason",       # str — reason note is in quarantine, if status=="quarantine" (default: None)
+    # Partition A (Vision Closure, G6) — Cross-project Conduction
+    "project",                 # str — project name this note belongs to (default: inferred from CWD)
+    # Partition A (Vision Closure, G5) — Engine Self-Evolution
+    # (metabolism.jsonl handles this; no additional frontmatter fields)
 )
 
 # Default dead-knowledge threshold (canon can override via
@@ -273,6 +285,24 @@ def ensure_notes_dir(root: Path) -> Path:
 
 def _now_iso(now: Optional[datetime] = None) -> str:
     return (now or datetime.now()).strftime(_ISO_FMT)
+
+
+def infer_project_name(root: Path) -> str:
+    """Infer project name from root directory.
+
+    Partition A (G6): Auto project tag. Walk up for .git or _canon.yaml,
+    or use directory name as fallback. Returns a sanitized project name.
+    """
+    root = Path(root).resolve()
+
+    # Walk up looking for .git or _canon.yaml
+    for p in [root] + list(root.parents):
+        if (p / ".git").exists() or (p / "_canon.yaml").exists():
+            # Found the project root, use its directory name
+            return p.name
+
+    # Fallback: use the passed root's directory name
+    return root.name
 
 
 # ---------------------------------------------------------------------------
@@ -442,12 +472,15 @@ def write_note(
     title: Optional[str] = None,
     now: Optional[datetime] = None,
     forage_source: Optional[str] = None,
+    project: Optional[str] = None,
 ) -> Path:
     """Create a new note on disk and return its path.
 
     `title`, if provided, is inserted as an H1 at the top of the body
     (unless the body already starts with one). The note's id is derived
     from `now` so callers can reproduce it in tests.
+
+    Partition A (G6): Auto-infers `project` name from CWD if not provided.
     """
     if status not in VALID_STATUSES:
         raise ValueError(f"Invalid status {status!r}; expected one of {VALID_STATUSES}")
@@ -477,6 +510,15 @@ def write_note(
         "promote_candidate": False,
         "excrete_reason": None,
     }
+
+    # Partition A (G3): Freshness defaults
+    meta["freshness"] = "time_sensitive"
+    meta["last_verified"] = meta["created"]
+
+    # Partition A (G6): Auto-infer project name
+    if project is None:
+        project = infer_project_name(root)
+    meta["project"] = project
 
     # Wave 61: mycelium wrapping — backward link from note → forage item.
     if forage_source is not None:
@@ -651,6 +693,138 @@ def list_notes(root: Path, *, status: Optional[str] = None) -> List[Path]:
 
 
 # ---------------------------------------------------------------------------
+# Partition A (Vision Closure, G4) — Aggressive Excretion Multi-Rule Detection
+# ---------------------------------------------------------------------------
+
+def detect_prune_candidates_multipath(
+    root: Path,
+    *,
+    now: Optional[datetime] = None,
+) -> List[Tuple[Path, Dict[str, Any], List[str]]]:
+    """Partition A (G4): Extended multi-path prune candidate detection.
+
+    A note is a `prune` candidate if it hits ANY of these rules:
+    1. **Orphan**: inbound_links=0 AND outbound_links ≤ 1 AND age_days > 14
+    2. **Superseded**: `superseded_by` field is set (automatic dead)
+    3. **Low-value raw**: status="raw" AND digest_count=0 AND age_days > 30
+       AND inbound_links=0
+    4. **Quarantine stale**: status="quarantine" AND age_since_quarantine > 14
+    5. **Plus existing dead-threshold rule** (cold terminal + low view)
+
+    Returns list of (path, meta, rules_hit) tuples. rules_hit is a list of
+    human-readable rule names that fired (e.g. ["superseded", "orphan"]).
+
+    If 2+ rules fire simultaneously, the note is a strong excretion candidate
+    for --auto mode. If only 1 rule fires, --auto will skip it and require
+    human confirmation.
+    """
+    now = now or datetime.now()
+
+    def _parse_iso(v: Any) -> Optional[datetime]:
+        if not v:
+            return None
+        try:
+            return datetime.strptime(str(v), _ISO_FMT)
+        except Exception:
+            return None
+
+    def _count_note_links(note_path: Path, all_notes: List[Path]) -> Tuple[int, int]:
+        """Count inbound and outbound links for a single note.
+
+        Returns (inbound_count, outbound_count).
+        Inbound: other notes that reference this note's id.
+        Outbound: this note references other notes (internal links).
+        """
+        try:
+            content = note_path.read_text(encoding="utf-8")
+        except Exception:
+            return 0, 0
+
+        note_id = filename_to_id(note_path.name)
+        if not note_id:
+            return 0, 0
+
+        inbound = 0
+        outbound = 0
+
+        # Inbound: count how many other notes reference our id
+        for p in all_notes:
+            if p == note_path:
+                continue
+            try:
+                other_content = p.read_text(encoding="utf-8")
+                if note_id in other_content:
+                    inbound += 1
+            except Exception:
+                continue
+
+        # Outbound: count links in body section (simplistic: look for [text](n_*.md))
+        # Pattern: [...](...n_YYYYMMDDTHHMMSS_xxxx...)
+        link_pattern = r'\(n_\d{8}T\d{6}_[0-9a-f]{4}'
+        outbound = len(re.findall(link_pattern, content))
+
+        return inbound, outbound
+
+    all_notes = list_notes(root)
+    candidates: List[Tuple[Path, Dict[str, Any], List[str]]] = []
+
+    for p in all_notes:
+        try:
+            meta, _ = read_note(p)
+        except Exception:
+            continue
+
+        rules_hit: List[str] = []
+        created = _parse_iso(meta.get("created"))
+        quarantine_ts = _parse_iso(meta.get("last_touched"))  # Proxy for quarantine entry time
+        status = meta.get("status", "raw")
+
+        if created is None:
+            continue
+
+        age_days = (now - created).days
+
+        # Rule 1: Orphan (inbound=0, outbound ≤ 1, age > 14)
+        inbound, outbound = _count_note_links(p, all_notes)
+        if inbound == 0 and outbound <= 1 and age_days > 14:
+            rules_hit.append("orphan")
+
+        # Rule 2: Superseded (superseded_by is set)
+        if meta.get("superseded_by"):
+            rules_hit.append("superseded")
+
+        # Rule 3: Low-value raw (raw, digest_count=0, age > 30, inbound=0)
+        if (status == "raw" and
+            int(meta.get("digest_count", 0)) == 0 and
+            age_days > 30 and
+            inbound == 0):
+            rules_hit.append("low_value_raw")
+
+        # Rule 4: Quarantine stale (quarantine status, age > 14)
+        if status == "quarantine" and age_days > 14:
+            rules_hit.append("quarantine_stale")
+
+        # Rule 5: Existing dead-threshold check
+        threshold_days, terminal_statuses = _load_dead_config(root)
+        if status in terminal_statuses:
+            lt = _parse_iso(meta.get("last_touched"))
+            last_viewed = _parse_iso(meta.get("last_viewed_at"))
+            view_count = int(meta.get("view_count", 0))
+
+            cutoff = now - timedelta(days=threshold_days)
+            if (lt is not None and lt < cutoff and
+                (last_viewed is None or last_viewed < cutoff) and
+                view_count < 2):
+                rules_hit.append("cold_terminal")
+
+        # Only include notes that hit at least one rule
+        if rules_hit:
+            candidates.append((p, meta, rules_hit))
+
+    return candidates
+
+
+# ---------------------------------------------------------------------------
 # Wave 33 — D-layer auto-excretion (prune)
 # ---------------------------------------------------------------------------
 
@@ -793,6 +967,62 @@ def auto_excrete_dead_knowledge(
             except Exception as exc:
                 result["error"] = str(exc)
         results.append(result)
+    return results
+
+
+def auto_excrete_multipath_candidates(
+    root: Path,
+    *,
+    auto: bool = False,
+    dry_run: bool = True,
+    now: Optional[datetime] = None,
+) -> List[Dict[str, Any]]:
+    """Partition A (G4): Auto-excrete notes matching multi-path prune criteria.
+
+    Scans using `detect_prune_candidates_multipath`. If auto=True, will
+    excrete notes that hit 2+ rules simultaneously (high confidence).
+    If auto=False, returns all candidates without mutation (for review).
+
+    Returns a list of result dicts, one per candidate:
+        - id, file, prior_status, rules_hit, excrete_reason, applied (bool)
+
+    The excrete_reason includes all rules that fired and their specifics.
+    """
+    candidates = detect_prune_candidates_multipath(root, now=now)
+    results: List[Dict[str, Any]] = []
+
+    for path, meta, rules_hit in candidates:
+        rule_details = ", ".join(rules_hit)
+        # Only auto-excrete if 2+ rules fire
+        should_auto_excrete = auto and len(rules_hit) >= 2
+
+        reason = (
+            f"multi-path prune: {rule_details} "
+            f"(note id={meta.get('id')}, age={(now or datetime.now() - datetime.strptime(meta.get('created', ''), _ISO_FMT)).days if meta.get('created') else '?'}d)"
+        )
+
+        result = {
+            "id": meta.get("id"),
+            "file": path.name,
+            "prior_status": meta.get("status", "unknown"),
+            "rules_hit": rules_hit,
+            "excrete_reason": reason,
+            "applied": False,
+        }
+
+        if should_auto_excrete and not dry_run:
+            try:
+                update_note(
+                    path,
+                    status="excreted",
+                    excrete_reason=reason,
+                )
+                result["applied"] = True
+            except Exception as exc:
+                result["error"] = str(exc)
+
+        results.append(result)
+
     return results
 
 
