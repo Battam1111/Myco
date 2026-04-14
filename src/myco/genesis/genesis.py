@@ -22,6 +22,7 @@ from myco.core.errors import ContractError, UsageError
 
 __all__ = [
     "bootstrap",
+    "run_cli",
     "DEFAULT_CONTRACT_VERSION",
     "DEFAULT_ENTRY_POINT",
 ]
@@ -219,4 +220,30 @@ def _render_entry_point(
         entry_point_title=title,
         substrate_id=substrate_id,
         generated_at=generated_at,
+    )
+
+
+def run_cli(args: Mapping[str, object]) -> Result:
+    """Manifest-shaped handler for ``myco genesis``.
+
+    Genesis predates the substrate, so this handler deliberately does
+    not accept a ``ctx``; the :mod:`myco.surface.manifest` dispatcher
+    short-circuits context construction for ``pre_substrate`` verbs.
+    """
+    project_dir_raw = args.get("project_dir")
+    if project_dir_raw is None:
+        raise UsageError("genesis requires --project-dir")
+    substrate_id = str(args.get("substrate_id") or "")
+    if not substrate_id:
+        raise UsageError("genesis requires --substrate-id")
+    tags_raw = args.get("tags") or ()
+    tags = tuple(str(t) for t in tags_raw) if isinstance(tags_raw, (list, tuple)) else ()
+    entry_point = str(args.get("entry_point") or DEFAULT_ENTRY_POINT)
+    dry_run = bool(args.get("dry_run", False))
+    return bootstrap(
+        project_dir=Path(str(project_dir_raw)),
+        substrate_id=substrate_id,
+        tags=tags,
+        entry_point=entry_point,
+        dry_run=dry_run,
     )

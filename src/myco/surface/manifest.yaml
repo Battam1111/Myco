@@ -1,0 +1,183 @@
+# Myco v0.4.0 command manifest — SSoT for CLI + MCP verb surface.
+#
+# Governing doc: docs/architecture/L3_IMPLEMENTATION/command_manifest.md
+# Every verb appears here exactly once. CLI and MCP both read this file.
+schema_version: "1"
+
+commands:
+  - name: "genesis"
+    subsystem: "genesis"
+    handler: "myco.genesis.genesis:run_cli"
+    summary: "Bootstrap a fresh Myco substrate in project-dir."
+    mcp_tool: "myco_genesis"
+    pre_substrate: true
+    args:
+      - name: "project-dir"
+        type: "path"
+        required: true
+        help: "Directory that will host the new substrate."
+      - name: "substrate-id"
+        type: "str"
+        required: true
+        help: "Identifier for the new substrate."
+      - name: "tags"
+        type: "list[str]"
+        default: []
+        help: "Affiliation tags (not boundaries)."
+      - name: "entry-point"
+        type: "str"
+        default: "MYCO.md"
+        help: "Agent-entry filename."
+      - name: "dry-run"
+        type: "bool"
+        default: false
+        help: "Preview files without writing."
+
+  - name: "hunger"
+    subsystem: "ingestion"
+    handler: "myco.ingestion.hunger:run"
+    summary: "Report substrate hunger and optionally patch entry-point."
+    mcp_tool: "myco_hunger"
+    args:
+      - name: "execute"
+        type: "bool"
+        default: false
+        help: "Write boot brief and patch entry-point signals."
+
+  - name: "eat"
+    subsystem: "ingestion"
+    handler: "myco.ingestion.eat:run"
+    summary: "Capture a raw note."
+    mcp_tool: "myco_eat"
+    args:
+      - name: "content"
+        type: "str"
+        required: true
+        help: "Note body."
+      - name: "tags"
+        type: "list[str]"
+        default: []
+        help: "Tags attached to this note."
+      - name: "source"
+        type: "str"
+        default: "agent"
+        help: "Origin tag for this note."
+
+  - name: "sense"
+    subsystem: "ingestion"
+    handler: "myco.ingestion.sense:run"
+    summary: "Search the substrate by keyword."
+    mcp_tool: "myco_sense"
+    args:
+      - name: "query"
+        type: "str"
+        required: true
+        help: "Search term."
+
+  - name: "forage"
+    subsystem: "ingestion"
+    handler: "myco.ingestion.forage:run"
+    summary: "List ingestible files under a path."
+    mcp_tool: "myco_forage"
+    args:
+      - name: "path"
+        type: "path"
+        default: null
+        help: "Directory to scan (defaults to substrate root)."
+
+  - name: "reflect"
+    subsystem: "digestion"
+    handler: "myco.digestion.reflect:run"
+    summary: "Bulk-promote raw notes to integrated."
+    mcp_tool: "myco_reflect"
+    args:
+      - name: "note-id"
+        type: "str"
+        default: null
+        help: "Optional single note id to promote."
+
+  - name: "digest"
+    subsystem: "digestion"
+    handler: "myco.digestion.digest:run"
+    summary: "Promote a single raw note to integrated."
+    mcp_tool: "myco_digest"
+    args:
+      - name: "note-id"
+        type: "str"
+        required: true
+        help: "Stem of the note to promote."
+      - name: "dry-run"
+        type: "bool"
+        default: false
+        help: "Preview without moving the file."
+
+  - name: "distill"
+    subsystem: "digestion"
+    handler: "myco.digestion.distill:run"
+    summary: "Author a distillation proposal for integrated notes."
+    mcp_tool: "myco_distill"
+    args:
+      - name: "slug"
+        type: "str"
+        required: true
+        help: "Slug for the proposed doctrine."
+      - name: "sources"
+        type: "list[str]"
+        default: []
+        help: "Optional explicit source note paths."
+
+  - name: "perfuse"
+    subsystem: "circulation"
+    handler: "myco.circulation.perfuse:run"
+    summary: "Report cross-reference graph health."
+    mcp_tool: "myco_perfuse"
+    args:
+      - name: "scope"
+        type: "str"
+        default: "all"
+        help: "One of: canon, notes, docs, all."
+
+  - name: "propagate"
+    subsystem: "circulation"
+    handler: "myco.circulation.propagate:run"
+    summary: "Publish integrated/distilled notes to a downstream substrate."
+    mcp_tool: "myco_propagate"
+    args:
+      - name: "dst"
+        type: "path"
+        required: true
+        help: "Downstream substrate root."
+      - name: "select"
+        type: "str"
+        default: "integrated"
+        help: "One of: integrated, distilled, both."
+      - name: "commit"
+        type: "str"
+        default: null
+        help: "Source commit stamp."
+      - name: "dry-run"
+        type: "bool"
+        default: false
+        help: "Preview without writing."
+
+  - name: "immune"
+    subsystem: "homeostasis"
+    handler: "myco.homeostasis.kernel:run_cli"
+    summary: "Run immune lint over the substrate."
+    mcp_tool: "myco_immune"
+    args:
+      - name: "dimensions"
+        type: "list[str]"
+        default: []
+        help: "Optional subset of dimension ids."
+      - name: "fix"
+        type: "bool"
+        default: false
+        help: "Apply safe fixes (no-op at B.7)."
+
+  - name: "session-end"
+    subsystem: "meta"
+    handler: "myco.meta:session_end_run"
+    summary: "Run reflect and then immune --fix (session wrap-up)."
+    mcp_tool: "myco_session_end"
+    args: []

@@ -1,12 +1,10 @@
-"""Stage A sanity test.
+"""Stage A/B sanity test.
 
 Verifies:
   1. Every package in the eight-subsystem layout imports cleanly.
   2. ``myco.__version__`` is the Stage A/B marker ``"0.4.0.dev"``.
-  3. ``python -m myco`` raises the deliberate ``NotImplementedError``
-     (documents that the CLI surface is intentionally absent until B.7).
-
-If any of these fail, the Stage A commit is not ready.
+  3. ``python -m myco --help`` exits zero and lists the manifest verbs
+     (confirms Stage B.7 surface has landed).
 """
 
 from __future__ import annotations
@@ -44,14 +42,14 @@ def test_version_is_stage_ab_marker() -> None:
     assert myco.__version__ == "0.4.0.dev", myco.__version__
 
 
-def test_dunder_main_is_deliberately_unimplemented() -> None:
-    """``python -m myco`` should raise NotImplementedError until Stage B.7."""
+def test_dunder_main_help_lists_verbs() -> None:
+    """``python -m myco --help`` should succeed and list manifest verbs."""
     result = subprocess.run(
-        [sys.executable, "-m", "myco"],
+        [sys.executable, "-m", "myco", "--help"],
         capture_output=True,
         text=True,
         check=False,
     )
-    assert result.returncode != 0, result.stdout
-    assert "NotImplementedError" in result.stderr, result.stderr
-    assert "Stage B.7" in result.stderr, result.stderr
+    assert result.returncode == 0, result.stderr
+    for verb in ("genesis", "eat", "reflect", "immune", "session-end"):
+        assert verb in result.stdout, result.stdout
