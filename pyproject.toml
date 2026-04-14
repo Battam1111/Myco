@@ -78,7 +78,5 @@ include = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 markers = [
-    "integration: marks tests requiring external services (run with -m integration)",
+    "integration: marks tests requiring external services (network/git/subprocess)",
 ]
-addopts = "-m 'not integration'"
-
