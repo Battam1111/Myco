@@ -258,7 +258,7 @@ local edit 都合法"。
 **当前的 partial solution（Wave 47/54）**：
 - src/myco/mycelium.py 提供 link graph + orphan detection + cluster analysis。
 - `compute_hunger_report()` Organ 3 用 orphan delta 检测连通性退化。
-- lint 29 维覆盖静态 invariant，craft protocol 覆盖决策形式。
+- lint 30 维覆盖静态 invariant，craft protocol 覆盖决策形式。
 - **仍然没有覆盖**：语义一致性退化、组织模式时间演化趋势、知识密度下降。
 
 **出口条件**：~~至少一个可计算的结构性退化 proxy metric 被提议并进入 exploration 级 craft。~~

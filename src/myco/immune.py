@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Myco Knowledge System — Automated 26-Dimension Substrate Immune System.
+Myco Knowledge System — Automated 30-Dimension Substrate Immune System.
 
 The canonical dimension count is `len(FULL_CHECKS)` (computed at module load
 time, see bottom of this file). This docstring's dimension table below is a
@@ -8,6 +8,29 @@ maintainer-facing index, not the source of truth — when a new dimension
 lands, FULL_CHECKS auto-updates and L19 enforces that every downstream cache
 (README badges, MYCO.md headlines, mcp_server.py tool
 description, cli.py help strings, etc.) tracks it.
+
+Severity ladder: CRITICAL > HIGH > MEDIUM > LOW (ranks 4/3/2/1).
+
+Dimension categories (v0.46.0, see DIMENSION_CATEGORY dict):
+    - mechanical: exact machine-checkable contracts (schema/paths/counts)
+    - shipped:    user-facing / external surfaces (README, PyPI, docs/adapters)
+    - metabolic:  substrate health signals (hunger, freshness, drift)
+    - semantic:   rich cross-reference integrity (links, absorption, synaptogenesis)
+
+Exit-code policy (v0.46.0): `main(exit_on=...)` supports four grammars:
+    - None (legacy):  `2 if critical else (1 if high else 0)`
+    - "never":        always 0
+    - "critical"|"high"|"concerning": global threshold
+    - "mechanical:critical,shipped:critical,metabolic:never,semantic:never":
+                      per-category thresholds (CI-friendly)
+
+Skeleton-mode downgrade (v0.46.0): when `.myco_state/autoseeded.txt` marks a
+cold substrate AND `notes/{integrated,extracted}` are empty, L0/L1 auto-downgrade
+CRITICAL→HIGH so auto-seed's legitimate incompleteness doesn't trip CI.
+
+Gitignore-aware severity (v0.46.0): L1 (cross-refs), L12 (links), L14 (forage
+local_path) downgrade severity one notch when the referenced path is covered
+by `.gitignore` — untracked local artifacts shouldn't fire CRITICAL.
 
 Dimensions:
     L0  Canon Self-Check — _canon.yaml contains all required keys
@@ -36,6 +59,10 @@ Dimensions:
     L23 Absorption Verification — digest integrity proof audit
     L24 Synaptogenesis Health — wiki↔wiki cross-reference connectivity
     L25 Cross-Layer Interconnection Health — cross-layer concept connectivity (万物互联)
+    L26 Freshness Debt — digest backlog age sanity (v0.43.0)
+    L27 Protocol Adherence — MCP tool usage vs documented triggers (v0.44.0)
+    L28 PyPI Sync — local package version vs PyPI registry (v0.45.0)
+    L29 Version Single Source — __version__ SSoT + hatch dynamic config (v0.46.0)
 """
 # --- Mycelium references ---
 # Canon SSoT:      _canon.yaml (all lint thresholds, stale patterns, write surface)
@@ -46,6 +73,7 @@ import os
 import re
 import sys
 import glob
+import subprocess
 from pathlib import Path
 from datetime import datetime
 from collections import defaultdict
@@ -111,6 +139,232 @@ def find_files(pattern, root):
 
 
 # ---------------------------------------------------------------------------
+# v0.3.4 (D1, D3, D4, D7): skeleton detection, gitignore awareness,
+# severity-policy helpers, and dimension categories.
+#
+# Why these exist: the CI triple-failure on v0.3.3 proved that immune's
+# single-axis severity ladder (CRITICAL/HIGH/MEDIUM/LOW) conflates four
+# semantically different things — mechanical validation, shipped-artifact
+# contract, metabolic monitoring, and semantic (judgment) review. The
+# v0.3.4 contract craft (docs/primordia/contract_audit_craft_2026-04-15.md)
+# decided to tag each dimension with a category and gate exit codes on
+# category+severity pairs rather than just severity alone.
+# ---------------------------------------------------------------------------
+
+# --- Skeleton detection (D1) -------------------------------------------------
+
+def _is_skeleton_substrate(root: Path) -> bool:
+    """Return True if substrate was auto-seeded and nothing has grown yet.
+
+    A fresh ``myco hunger --execute`` on a cold directory creates only the
+    minimal skeleton (``_canon.yaml`` stub + ``notes/README.md`` + marker).
+    That skeleton CANNOT satisfy L0/L1's CRITICAL triggers — not because
+    it's broken, but because no metabolism has happened. Immune should
+    still report the gaps, but as HIGH (actionable for the operator), not
+    CRITICAL (which would block CI and release pipelines).
+
+    Downgrade applies only when BOTH hold:
+      1. ``.myco_state/autoseeded.txt`` exists (marker from autoseed.py).
+      2. No notes carry ``status: integrated`` or ``status: extracted``
+         (i.e. the substrate has not started digesting yet).
+    """
+    marker = root / ".myco_state" / "autoseeded.txt"
+    if not marker.exists():
+        return False
+    notes_dir = root / "notes"
+    if not notes_dir.is_dir():
+        return True
+    try:
+        for note in notes_dir.glob("n_*.md"):
+            head = note.read_text(encoding="utf-8", errors="replace")[:500]
+            if "status: integrated" in head or "status: extracted" in head:
+                return False
+    except Exception:
+        pass
+    return True
+
+
+def _skeleton_downgrade(sev: str, root: Path) -> str:
+    """Downgrade CRITICAL→HIGH on a skeleton substrate; pass through others."""
+    if sev == "CRITICAL" and _is_skeleton_substrate(root):
+        return "HIGH"
+    return sev
+
+
+# --- Gitignore awareness (D3 + D7) ------------------------------------------
+
+_GITIGNORE_CACHE: dict = {}
+
+
+def _is_gitignored(root: Path, rel_path: str) -> bool:
+    """Return True if ``rel_path`` is excluded by .gitignore under ``root``.
+
+    L1/L12/L14 currently fire CRITICAL/HIGH on references to paths that are
+    intentionally gitignored (``notes/*``, ``forage/articles/*``,
+    ``docs/primordia/archive/*``). Those citations are valid within the
+    working tree but invisible to downstream consumers — they should not
+    block CI.
+
+    Result is cached per-run to keep L1+L12+L14 from spawning hundreds of
+    ``git check-ignore`` subprocesses on large substrates.
+    """
+    key = (str(root), rel_path)
+    if key in _GITIGNORE_CACHE:
+        return _GITIGNORE_CACHE[key]
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(root), "check-ignore", "--quiet", rel_path],
+            capture_output=True, text=True, timeout=3,
+        )
+        # exit 0 = ignored, 1 = not ignored, 128 = not a git repo
+        ignored = (result.returncode == 0)
+    except Exception:
+        ignored = False
+    _GITIGNORE_CACHE[key] = ignored
+    return ignored
+
+
+def _gitignore_downgrade(sev: str, root: Path, rel_path: str) -> str:
+    """Drop severity one notch if ``rel_path`` is gitignored."""
+    if not _is_gitignored(root, rel_path):
+        return sev
+    ladder = {"CRITICAL": "HIGH", "HIGH": "MEDIUM",
+              "MEDIUM": "LOW", "LOW": "LOW"}
+    return ladder.get(sev, sev)
+
+
+# --- Dimension categories (D4) ----------------------------------------------
+#
+# Four categories with fundamentally different failure semantics:
+#   mechanical  — structural validation that ALWAYS matters (broken refs,
+#                 canon schema, write-surface violations). A CRITICAL here
+#                 means the code/contract is broken.
+#   shipped     — what downstream consumers see (PyPI version drift, public
+#                 README links, translation mirrors, version consistency).
+#                 CRITICAL here should block releases.
+#   metabolic   — substrate dynamics (absorption verification, cross-layer
+#                 connectivity, freshness debt, wave-seed lifecycle).
+#                 CRITICAL here means "metabolism is stuck," not "code is
+#                 broken." This is legitimately non-critical for CI.
+#   semantic    — judgment questions the agent must review (vision-anchor
+#                 drift, craft-reflex, protocol adherence). Never a CI
+#                 blocker — always requires human/agent reading.
+#
+# ``--exit-on`` uses these categories. Default behavior (unchanged from
+# v0.3.3): ``--exit-on=critical`` returns 2 on any CRITICAL regardless of
+# category. Opt-in per-category: ``--exit-on=mechanical:critical,metabolic:never``.
+
+DIMENSION_CATEGORY = {
+    "L0":  "mechanical",   "L1":  "mechanical",   "L2":  "shipped",
+    "L3":  "shipped",      "L4":  "mechanical",   "L5":  "mechanical",
+    "L6":  "shipped",      "L7":  "shipped",      "L8":  "mechanical",
+    "L9":  "semantic",     "L10": "mechanical",   "L11": "mechanical",
+    "L12": "mechanical",   "L13": "mechanical",   "L14": "metabolic",
+    "L15": "semantic",     "L16": "shipped",      "L17": "shipped",
+    "L18": "mechanical",   "L19": "mechanical",   "L20": "shipped",
+    "L21": "shipped",      "L22": "metabolic",    "L23": "metabolic",
+    "L24": "metabolic",    "L25": "metabolic",    "L26": "metabolic",
+    "L27": "semantic",     "L28": "shipped",      "L29": "shipped",
+}
+
+
+# --- Exit-code policy (D2 + D5) ---------------------------------------------
+
+# Severity ladder — higher number = more severe. Used by ``--exit-on``
+# comparisons so ``--exit-on=high`` fires on HIGH or CRITICAL.
+_SEVERITY_RANK = {"LOW": 1, "MEDIUM": 2, "HIGH": 3, "CRITICAL": 4}
+_CATEGORIES = ("mechanical", "shipped", "metabolic", "semantic")
+
+
+def parse_exit_on(spec: str) -> dict:
+    """Parse a ``--exit-on`` spec into ``{category: severity_threshold}``.
+
+    Accepted syntaxes:
+      ``critical``                     — any CRITICAL anywhere triggers exit 2.
+      ``high``                         — any HIGH+ anywhere triggers exit 2.
+      ``never``                        — never exit non-zero (lint is informational).
+      ``mechanical:critical,metabolic:never``
+                                       — per-category thresholds.
+      ``critical,metabolic:never``     — CRITICAL everywhere except metabolic.
+
+    Default (when spec is None or empty) preserves v0.3.3 behavior:
+    ``CRITICAL→2, HIGH→1, else 0`` via the legacy path in
+    ``_compute_exit_code``.
+
+    Returns a dict mapping each of the four categories to either a
+    severity name (``"CRITICAL"``/``"HIGH"``/...) or the sentinel
+    ``"NEVER"``. Unknown tokens raise ``ValueError``.
+    """
+    if not spec:
+        return {}
+    default_threshold = None
+    overrides: dict = {}
+    for tok in spec.split(","):
+        tok = tok.strip().lower()
+        if not tok:
+            continue
+        if tok == "never":
+            default_threshold = "NEVER"
+        elif ":" in tok:
+            cat, sev = tok.split(":", 1)
+            cat = cat.strip()
+            sev = sev.strip().upper()
+            if cat not in _CATEGORIES:
+                raise ValueError(f"--exit-on: unknown category '{cat}'")
+            if sev != "NEVER" and sev not in _SEVERITY_RANK:
+                raise ValueError(f"--exit-on: unknown severity '{sev}'")
+            overrides[cat] = sev
+        else:
+            sev = tok.upper()
+            if sev not in _SEVERITY_RANK:
+                raise ValueError(f"--exit-on: unknown severity '{sev}'")
+            default_threshold = sev
+    policy = {cat: (default_threshold or "CRITICAL") for cat in _CATEGORIES}
+    policy.update(overrides)
+    return policy
+
+
+def _compute_exit_code(
+    critical: int, high: int,
+    by_category: dict | None = None,
+    exit_on: str | None = None,
+) -> int:
+    """Compute the process exit code from per-severity + per-category counts.
+
+    Backward-compatible default: when ``exit_on`` is falsy, preserves the
+    v0.3.3 formula ``return 2 if critical else (1 if high else 0)``.
+
+    When ``exit_on`` is set (via ``--exit-on=...``), each category is
+    gated independently. Any category whose highest-observed severity
+    meets or exceeds its threshold pushes the exit code to 2. If none
+    meet the threshold but HIGHs exist anywhere, exit 1. Else 0.
+    """
+    # Legacy path
+    if not exit_on:
+        return 2 if critical else (1 if high else 0)
+
+    try:
+        policy = parse_exit_on(exit_on)
+    except ValueError:
+        # Malformed flag — fall back to legacy, don't crash lint.
+        return 2 if critical else (1 if high else 0)
+
+    # Explicit --exit-on overrides the legacy "1 on HIGH" fallback.
+    # When operators opt into the policy, "no category tripped its
+    # threshold" means 0, period — otherwise per-category overrides
+    # would silently leak through the legacy ladder.
+    by_category = by_category or {}
+    for cat in _CATEGORIES:
+        threshold = policy.get(cat, "CRITICAL")
+        if threshold == "NEVER":
+            continue
+        max_sev = by_category.get(cat, "")
+        if max_sev and _SEVERITY_RANK.get(max_sev, 0) >= _SEVERITY_RANK[threshold]:
+            return 2
+    return 0
+
+
+# ---------------------------------------------------------------------------
 # L0: Canon Self-Check
 # ---------------------------------------------------------------------------
 
@@ -131,7 +385,11 @@ def lint_canon_schema(canon, root):
                 val = None
                 break
         if val is None:
-            issues.append(("L0", "CRITICAL", "_canon.yaml",
+            # v0.3.4 (D1): on a freshly auto-seeded skeleton, these keys
+            # are legitimately missing — downgrade CRITICAL→HIGH so CI
+            # doesn't block on the cold-start cycle.
+            sev = _skeleton_downgrade("CRITICAL", root)
+            issues.append(("L0", sev, "_canon.yaml",
                            f"Missing required key: {key_path}"))
     return issues
 
@@ -165,7 +423,11 @@ def lint_references(canon, root):
     entry_point = get_entry_point(canon)
     entry_file = read_file(root / entry_point)
     if not entry_file:
-        issues.append(("L1", "CRITICAL", entry_point, f"Cannot read {entry_point}"))
+        # v0.3.4 (D1): skeleton substrate downgrade — cold-start cycle
+        # hasn't produced the entry doc yet; HIGH surfaces the gap without
+        # blocking CI.
+        sev = _skeleton_downgrade("CRITICAL", root)
+        issues.append(("L1", sev, entry_point, f"Cannot read {entry_point}"))
         return issues
 
     # Canon-level explicit exclude list (3356 option c — escape hatch)
@@ -223,7 +485,10 @@ def lint_references(canon, root):
 
         path = root / ref
         if not path.exists():
-            issues.append(("L1", "HIGH", entry_point,
+            # v0.3.4 (D3): gitignored paths are intentionally local; their
+            # absence from the working tree is not a contract violation.
+            sev = _gitignore_downgrade("HIGH", root, ref)
+            issues.append(("L1", sev, entry_point,
                            f"Referenced file missing: {ref}"))
 
     for wiki_file in find_files("wiki/*.md", root):
@@ -235,7 +500,14 @@ def lint_references(canon, root):
             target = (Path(wiki_file).parent / link).resolve()
             if not target.exists():
                 rel = str(Path(wiki_file).relative_to(root))
-                issues.append(("L1", "HIGH", rel,
+                # v0.3.4 (D3): compute target path relative to root for the
+                # gitignore check — git check-ignore wants workspace-relative.
+                try:
+                    target_rel = str(target.relative_to(root))
+                except ValueError:
+                    target_rel = link
+                sev = _gitignore_downgrade("HIGH", root, target_rel)
+                issues.append(("L1", sev, rel,
                                f"Broken cross-reference: {link}"))
     return issues
 
@@ -1004,8 +1276,11 @@ def lint_internal_link_integrity(canon, root):
                 file_resolved = os.path.normpath(os.path.join(file_dir, path_part))
                 root_resolved = os.path.normpath(os.path.join(str(root), path_part))
                 if not os.path.exists(file_resolved) and not os.path.exists(root_resolved):
+                    # v0.3.4 (D3): gitignored link target = intentional local
+                    # citation, not a broken contract. Drop MEDIUM→LOW.
+                    sev = _gitignore_downgrade("MEDIUM", root, path_part)
                     issues.append((
-                        "L12", "MEDIUM", rel_path,
+                        "L12", sev, rel_path,
                         f"Broken markdown link: [{m.group(1)}]({target}) "
                         f"— target does not exist"
                     ))
@@ -1059,8 +1334,12 @@ def lint_internal_link_integrity(canon, root):
                     )
                     if (not os.path.exists(root_resolved)
                             and not os.path.exists(file_resolved)):
+                        # v0.3.4 (D3): already LOW; gitignore downgrade is
+                        # a no-op at the floor, but recorded for category-
+                        # aware exit-code computation.
+                        sev = _gitignore_downgrade("LOW", root, ref)
                         issues.append((
-                            "L12", "LOW", rel_path,
+                            "L12", sev, rel_path,
                             f"Broken backtick path reference: `{ref}` "
                             f"— target does not exist"
                         ))
@@ -1450,7 +1729,11 @@ def lint_forage_hygiene(canon, root):
         if lp:
             abs_lp = (root / lp).resolve()
             if not abs_lp.exists():
-                issues.append(("L14", "MEDIUM", tag,
+                # v0.3.4 (D7): forage local_paths are nearly always gitignored
+                # (forage/articles/*, forage/repos/*). Their absence from a
+                # fresh clone is expected, not a breach.
+                sev = _gitignore_downgrade("MEDIUM", root, lp)
+                issues.append(("L14", sev, tag,
                                f"local_path {lp!r} does not exist on disk"))
             else:
                 try:
@@ -3066,12 +3349,25 @@ def lint_pypi_sync(canon: dict, root: Path) -> list:
     except Exception:
         return issues
 
+    # v0.3.4 (D6): pyproject.toml now declares ``dynamic = ["version"]`` and
+    # hatch reads the real version from ``src/myco/__init__.py``. L28 follows
+    # the new SSoT. Legacy pyproject fallback is kept for downstream forks
+    # that haven't migrated yet.
     try:
-        pyproj = (root / "pyproject.toml").read_text(encoding="utf-8")
-        m = _re.search(r'^version\s*=\s*"([^"]+)"', pyproj, _re.MULTILINE)
-        if not m:
-            return issues
-        local = m.group(1)
+        init_path = root / "src" / "myco" / "__init__.py"
+        if init_path.exists():
+            init_src = init_path.read_text(encoding="utf-8")
+            m = _re.search(r'^__version__\s*=\s*"([^"]+)"', init_src, _re.MULTILINE)
+            if m:
+                local = m.group(1)
+            else:
+                raise ValueError("no __version__ in __init__.py")
+        else:
+            pyproj = (root / "pyproject.toml").read_text(encoding="utf-8")
+            m = _re.search(r'^version\s*=\s*"([^"]+)"', pyproj, _re.MULTILINE)
+            if not m:
+                return issues
+            local = m.group(1)
     except Exception:
         return issues
 
@@ -3663,6 +3959,93 @@ def collect_all_issues(canon, root, quick=False):
     return all_issues
 
 
+def lint_version_single_source(canon: dict, root: Path) -> list:
+    """L29 Version Consistency — ensure there is exactly one version SSoT.
+
+    v0.3.4 (D6): ``pyproject.toml`` should declare ``dynamic = ["version"]``
+    and point at ``src/myco/__init__.py::__version__`` via
+    ``[tool.hatch.version]``. Any other configuration (static version in
+    both files; neither dynamic nor static; dynamic declared but pointing
+    at a non-existent module) will silently bake the wrong version into
+    published wheels. L29 catches this mechanically, pre-release.
+
+    Returns CRITICAL if divergence would ship a wrong version, HIGH if the
+    config is merely inconsistent but recoverable.
+    """
+    issues: list = []
+    try:
+        import re as _re
+    except Exception:
+        return issues
+
+    pyproj_path = root / "pyproject.toml"
+    init_path = root / "src" / "myco" / "__init__.py"
+    if not pyproj_path.exists() or not init_path.exists():
+        return issues
+
+    try:
+        pyproj = pyproj_path.read_text(encoding="utf-8")
+        init_src = init_path.read_text(encoding="utf-8")
+    except Exception:
+        return issues
+
+    # Extract __version__ from __init__.py
+    m_init = _re.search(r'^__version__\s*=\s*"([^"]+)"', init_src, _re.MULTILINE)
+    init_version = m_init.group(1) if m_init else None
+
+    # Detect pyproject declaration mode
+    has_dynamic = bool(_re.search(
+        r'^\s*dynamic\s*=\s*\[[^\]]*["\']version["\']', pyproj, _re.MULTILINE
+    ))
+    m_static = _re.search(r'^version\s*=\s*"([^"]+)"', pyproj, _re.MULTILINE)
+    static_version = m_static.group(1) if m_static else None
+    has_hatch_path = bool(_re.search(
+        r'\[tool\.hatch\.version\][^\[]*path\s*=', pyproj, _re.DOTALL
+    ))
+
+    if init_version is None:
+        issues.append((
+            "L29", "CRITICAL", "src/myco/__init__.py",
+            "No __version__ = \"...\" found; build backend has no version source."
+        ))
+        return issues
+
+    if static_version and has_dynamic:
+        issues.append((
+            "L29", "CRITICAL", "pyproject.toml",
+            "Both static version and dynamic=['version'] declared — "
+            "hatchling will refuse to build. Remove one."
+        ))
+        return issues
+
+    if static_version and not has_dynamic:
+        if static_version != init_version:
+            issues.append((
+                "L29", "CRITICAL", "pyproject.toml",
+                f"Version drift: pyproject.toml={static_version} vs "
+                f"src/myco/__init__.py={init_version}. Package will ship "
+                f"the wrong version."
+            ))
+        else:
+            # Consistent but still double-sourced — operators must remember
+            # to bump both places.
+            issues.append((
+                "L29", "HIGH", "pyproject.toml",
+                f"Version {static_version} duplicated in pyproject.toml and "
+                f"src/myco/__init__.py. Migrate to dynamic=['version'] + "
+                f"[tool.hatch.version] path for a single SSoT."
+            ))
+        return issues
+
+    if has_dynamic and not has_hatch_path:
+        issues.append((
+            "L29", "HIGH", "pyproject.toml",
+            "dynamic=['version'] declared but [tool.hatch.version] path is "
+            "missing — hatch cannot resolve the version."
+        ))
+    return issues
+
+
 # ---------------------------------------------------------------------------
 # Module-level checks lists (Wave 38 D2 — SSoT for LINT_DIMENSION_COUNT)
 # ---------------------------------------------------------------------------
@@ -3703,6 +4086,7 @@ FULL_CHECKS = QUICK_CHECKS + (
     ("L26 Freshness Debt", lint_freshness_debt),
     ("L27 Protocol Adherence", lint_protocol_adherence),
     ("L28 PyPI Sync", lint_pypi_sync),
+    ("L29 Version Single Source", lint_version_single_source),
 )
 
 
@@ -3816,13 +4200,19 @@ def _compute_agent_review(canon: dict, root: Path) -> list:
 
 
 def main(root: Path = None, quick: bool = False, fix_report: bool = False,
-         fix: bool = False) -> int:
+         fix: bool = False, exit_on: str | None = None) -> int:
     """Run lint checks. Can be called programmatically or from CLI.
 
     When ``fix=True``, detected issues are auto-repaired where possible
     (L2, L12, L16, L19), then detection re-runs to verify zero residual
     issues. The fix loop is idempotent — running it twice produces the
     same result.
+
+    ``exit_on`` controls the final exit code (v0.3.4 D2 + D5). When None
+    or empty, legacy behavior applies: 2 on any CRITICAL, 1 on any HIGH,
+    else 0. When set, the spec is parsed by :func:`parse_exit_on` and the
+    exit code reflects per-category thresholds. See craft doc at
+    ``docs/primordia/contract_audit_craft_2026-04-15.md`` for rationale.
     """
     if root is None:
         root = Path.cwd()
@@ -3923,8 +4313,37 @@ def main(root: Path = None, quick: bool = False, fix_report: bool = False,
     medium = len(by_severity.get("MEDIUM", []))
     low = len(by_severity.get("LOW", []))
 
+    # v0.3.4 (D4): compute the highest severity seen per dimension category
+    # so _compute_exit_code can apply per-category thresholds.
+    by_category_max: dict = {}
+    by_category_count: dict = {c: {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0}
+                               for c in _CATEGORIES}
+    for lint_id, severity, _fp, _msg in all_issues:
+        # strip the "L5 Something" → "L5"
+        lnum = lint_id.split()[0] if " " in lint_id else lint_id
+        cat = DIMENSION_CATEGORY.get(lnum)
+        if not cat:
+            continue
+        by_category_count[cat][severity] = by_category_count[cat].get(severity, 0) + 1
+        cur = by_category_max.get(cat)
+        if cur is None or _SEVERITY_RANK.get(severity, 0) > _SEVERITY_RANK.get(cur, 0):
+            by_category_max[cat] = severity
+
     print(red(bold(f"  \u26a0\ufe0f  {total} issue(s): "
                    f"{critical} CRITICAL, {high} HIGH, {medium} MEDIUM, {low} LOW")))
+    # v0.3.4 (D4): per-category breakdown so the operator can tell at a glance
+    # whether the noise is mechanical (must fix), metabolic (substrate drift),
+    # or semantic (agent review).
+    cat_line_parts = []
+    for cat in _CATEGORIES:
+        cts = by_category_count[cat]
+        n = cts["CRITICAL"] + cts["HIGH"] + cts["MEDIUM"] + cts["LOW"]
+        if n:
+            cat_line_parts.append(
+                f"{cat}={cts['CRITICAL']}C/{cts['HIGH']}H/{cts['MEDIUM']}M/{cts['LOW']}L"
+            )
+    if cat_line_parts:
+        print(cyan(f"  by category: {' · '.join(cat_line_parts)}"))
     print(bold(f"{'='*60}\n"))
 
     for severity in ["CRITICAL", "HIGH", "MEDIUM", "LOW"]:
@@ -3934,7 +4353,9 @@ def main(root: Path = None, quick: bool = False, fix_report: bool = False,
         color = red if severity in ("CRITICAL", "HIGH") else yellow
         print(color(bold(f"  [{severity}]")))
         for lint_id, filepath, msg in items:
-            print(f"    {lint_id} | {filepath}")
+            lnum = lint_id.split()[0] if " " in lint_id else lint_id
+            cat = DIMENSION_CATEGORY.get(lnum, "?")
+            print(f"    {lint_id} [{cat}] | {filepath}")
             print(f"         {msg}")
         print()
 
@@ -3944,7 +4365,11 @@ def main(root: Path = None, quick: bool = False, fix_report: bool = False,
             print(yellow(f"    \u26a0 {ar_item}"))
         print()
 
-    return 2 if critical else (1 if high else 0)
+    return _compute_exit_code(
+        critical, high,
+        by_category=by_category_max,
+        exit_on=exit_on,
+    )
 
 
 def run_lint(args) -> int:
@@ -3972,4 +4397,5 @@ def run_lint(args) -> int:
         quick=args.quick,
         fix_report=args.fix_report,
         fix=getattr(args, 'fix', False),
+        exit_on=getattr(args, 'exit_on', None),
     )

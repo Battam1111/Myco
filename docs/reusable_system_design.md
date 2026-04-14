@@ -497,5 +497,5 @@ project_template 在 ASCC 之外从未被测试过。声称通用但缺乏验证
 - [docs/open_problems.md](open_problems.md) -- 未解难题：通用架构中尚未解决的结构性盲点
 - [docs/agent_protocol.md](agent_protocol.md) -- Agent 协议：MCP 工具契约
 - [_canon.yaml](../_canon.yaml) -- 规范值 SSoT
-- src/myco/immune.py -- 29 维 Lint 免疫系统实现（本文 §Pillar 4 的代码对应）
+- src/myco/immune.py -- 30 维 Lint 免疫系统实现（本文 §Pillar 4 的代码对应）
 - [src/myco/notes.py](../src/myco/notes.py) -- Note 生命周期 SSoT（本文 §Knowledge Layer 的代码对应）

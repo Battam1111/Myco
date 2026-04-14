@@ -440,6 +440,54 @@ Phase ② 开工的第一件事就是 `myco observe --tag friction-phase2 --stat
 
 ---
 
+## 7.5 Exit-Code Contract（v0.46.0+）
+
+`myco immune|hunger|reflect` 的 exit code 行为由可选的 `--exit-on` 旗标控制。
+
+**Legacy（默认，未传 `--exit-on`）**：
+- `immune`：`2` if any CRITICAL，`1` if any HIGH，`0` otherwise
+- `hunger`：`1` if any concerning signal，`0` otherwise
+- `reflect`：`1` if any concerning signal，`0` otherwise
+
+**全局阈值 `--exit-on={never|critical|high|concerning}`**：
+- `never` — 任何严重度都不 fail（适合 CI 的 cold-substrate smoke-install 阶段）
+- `critical` — 只在 CRITICAL 时 fail（immune 默认行为）
+- `high` — CRITICAL 或 HIGH 都 fail
+- `concerning` — hunger/reflect 的默认，任何 concerning signal 都 fail
+
+**Per-category 阈值（immune 专用）** — 用逗号分隔，每项 `category:threshold`：
+
+```bash
+myco immune --exit-on=mechanical:critical,shipped:critical,metabolic:never,semantic:never
+```
+
+类别定义见 `immune.py::DIMENSION_CATEGORY`：
+
+| Category | 含义 | 包含维度 |
+|----------|------|----------|
+| `mechanical` | 精确机械契约（schema/路径/count）| L0, L10, L11, L13, L19, L21, L22, L24, L29, ... |
+| `shipped` | 用户可见 / 外部 surface | L2, L9, L20, L28, ... |
+| `metabolic` | 基质代谢健康信号 | L3 (hunger), L6, L15, L16, L17, L26, ... |
+| `semantic` | 丰富 cross-reference 检查 | L1, L12, L14, L23, L25, L27 |
+
+设计理由：`metabolic:never` 允许 CI 在 cold substrate 上跑 smoke-install（必然会冒 raw_backlog / no_deep_digest 等代谢信号，但那是诊断，不是 broken state）；`mechanical:critical` 同时保证 schema/版本号等硬契约仍然是硬错误。
+
+**Skeleton mode auto-downgrade**：若 `.myco_state/autoseeded.txt` 存在且 `notes/{integrated,extracted}` 为空，L0/L1 的 CRITICAL 会自动降为 HIGH — 让刚 auto-seed 的 substrate 合法通过 `--exit-on=*:critical`。
+
+---
+
+## 7.6 Version Single Source（v0.46.0+）
+
+版本号单一真相源：`src/myco/__init__.py::__version__`。`pyproject.toml` 用 hatchling `dynamic = ["version"]` + `[tool.hatch.version] path = "src/myco/__init__.py"` 自动读取。
+
+**禁止**：
+- `pyproject.toml` 同时声明 `version = "x.y.z"` 和 `dynamic = ["version"]`（hatch 会拒绝 build）
+- 两处手动维护版本号（易漂移，曾多次导致 release 打错 tag）
+
+**Version Single Source** dimension (lint index twenty-nine) 会检测：`__version__` 缺失 / static+dynamic 同时存在 / static ≠ init drift / dynamic 但未配 hatch path。
+
+---
+
 ## 8. 演进
 
 本协议本身也是 Myco 基质的一部分，随 Phase ② 一起迭代。

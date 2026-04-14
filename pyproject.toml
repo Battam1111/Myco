@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "myco"
-version = "0.3.3"
+dynamic = ["version"]
 description = "Editable non-parametric learning mechanism for AI Agents — git clone, pip install -e ., evolve"
 readme = "README.md"
 license = "MIT"
@@ -50,6 +50,12 @@ Documentation = "https://github.com/Battam1111/Myco/tree/main/docs"
 
 [project.scripts]
 myco = "myco.cli:main"
+
+# v0.3.4 (D6): single-source version from src/myco/__init__.py so
+# pyproject.toml and the package metadata can never drift. Before this
+# change, both hardcoded "0.3.3" and L29 had to babysit them.
+[tool.hatch.version]
+path = "src/myco/__init__.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/myco"]

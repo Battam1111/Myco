@@ -28,7 +28,7 @@ A glossary mapping all Myco terms to their biological inspiration. This page doc
 | **metabolism** | Energy conversion, chemical cycles | Seven-step pipeline: discover→evaluate→extract→integrate→compress→verify→excrete. | `src/myco/metabolism.py` |
 | **inlet** | Membrane pore, selective entry point | Gate for external content absorption. Tracks provenance. | `--inlet <source>` parameter |
 | **outlet** | Membrane exit, excretion point | Gate for dead knowledge ejection. Tracks reason. | `myco_prune --excrete-reason "..."` |
-| **immunity** | Immune system, pathogen detection | 29-dimensional lint system (L0–L28). Detects structural corruption. | `myco_immune` (Agent Review hybrid) |
+| **immunity** | Immune system, pathogen detection | 30-dimensional lint system (L0–L28). Detects structural corruption. | `myco_immune` (Agent Review hybrid) |
 | **scent** | Chemical signal, pheromone | Search results from wiki/docs/notes. Attractant for Agent attention. | `myco_scent <query>` (Wave 55+) |
 | **sense** | Perception, proprioception | Unified search across knowledge base. Organism's self-awareness. | `myco_sense <query>` |
 | **observe** | Visual inspection, sensory awareness | Read-only view of notes/ state. Non-invasive introspection. | `myco_observe --status raw` |
