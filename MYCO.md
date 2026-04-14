@@ -36,6 +36,9 @@
 > **For humans**: "Tell your agent what you want in plain words. Myco handles the cognitive substrate silently."
 > **Disambiguation**: Myco is **not** a memory layer (Mem0/Zep), **not** an agent runtime (Hermes/LangGraph), **not** a skill framework (PUA/nuwa), **not** infrastructure. It is an autopoietic substrate, a co-evolutionary niche none of those provide, the other half that makes an agent complete.
 
+**⚠️ 外传易错反模式**（对外起草任何文案 / Show HN title / marketing hero 前必读）：
+把 Myco 说成 "agent memory substrate"、"persistent memory for agents"、"memory + self-evolving" ——**都直接踩进 Disambiguation 里第一个被否认的赛道（Mem0/Zep）**。正确做法：永远用 "Agent-First symbiotic cognitive substrate" / "your agent's other half" 打破默认分类，再用 "CPU vs memory-immune-metabolism-self-model" 的类比建立新心智模型。四词（Agent-First / Symbiotic / Cognitive / Substrate）缺一必错。记录：`notes/n_20260414T233127_b8bb.md`，craft：`docs/primordia/myco_identity_definitive_craft_2026-04-12.md`。
+
 **🧭 身份锚点**（抗漂移——每次上下文压缩后 agent 必须重读）：
 
 > **Myco 是 Agent-First 的共生认知基质（Substrate）。** 四个词各自承重：**Agent-First**（Agent 是唯一操作者，人类只需自然语言）+ **Symbiotic**（Agent 提供智能，Myco 提供记忆、代谢、免疫、进化，缺一不可）+ **Cognitive**（不只是存储，它代谢、验证、自我建模、进化规则本身）+ **Substrate**（满足全部 7 条生物学生命标准 + 4 项基质结构特征：autopoiesis / selective permeability / temporal organization / co-evolutionary niche，自主运转不等触发）。详见 `wiki/identity.md` 与 `docs/primordia/substrate_identity_upgrade_craft_2026-04-14.md`。
