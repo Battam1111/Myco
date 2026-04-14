@@ -35,19 +35,62 @@ CATEGORIES = [
 ]
 
 
+def _resolve_since(since: str) -> str | None:
+    """Resolve `since` to an existing ref, else fall back to most recent
+    tag that IS reachable. Returns None if no tag exists at all.
+
+    Wave 59 fix (2026-04-14): previously an unresolvable --since (e.g.
+    v0.4.0 referenced but tag push had failed) fell through to a full
+    `git log` which duplicated every commit into every subsequent
+    release entry (v0.4.0/v0.5.0 both listed the same features). Now we
+    walk back to the newest reachable tag instead of replaying history.
+    """
+    # Is `since` itself a real ref?
+    try:
+        subprocess.check_output(
+            ["git", "rev-parse", "--verify", f"{since}^{{commit}}"],
+            cwd=ROOT, stderr=subprocess.DEVNULL,
+        )
+        return since
+    except subprocess.CalledProcessError:
+        pass
+    # Walk back through tags, newest first, pick the first one that resolves.
+    try:
+        tags = subprocess.check_output(
+            ["git", "tag", "--sort=-creatordate"],
+            cwd=ROOT, encoding="utf-8", errors="replace",
+        ).splitlines()
+    except subprocess.CalledProcessError:
+        return None
+    for tag in tags:
+        tag = tag.strip()
+        if not tag:
+            continue
+        try:
+            subprocess.check_output(
+                ["git", "rev-parse", "--verify", f"{tag}^{{commit}}"],
+                cwd=ROOT, stderr=subprocess.DEVNULL,
+            )
+            return tag
+        except subprocess.CalledProcessError:
+            continue
+    return None
+
+
 def git_log(since: str) -> list[str]:
     # encoding="utf-8" + errors="replace" — avoid GBK decode errors on
     # Windows when commit messages contain non-ASCII (Chinese text,
     # em-dashes, etc.). text=True uses locale default which breaks on GBK.
-    try:
+    resolved = _resolve_since(since)
+    if resolved is not None:
         out = subprocess.check_output(
-            ["git", "log", f"{since}..HEAD", "--pretty=format:%s", "--no-merges"],
+            ["git", "log", f"{resolved}..HEAD", "--pretty=format:%s", "--no-merges"],
             cwd=ROOT,
             encoding="utf-8",
             errors="replace",
         )
-    except subprocess.CalledProcessError:
-        # Fallback — no previous tag
+    else:
+        # No tags at all — first release. Emit full history.
         out = subprocess.check_output(
             ["git", "log", "--pretty=format:%s", "--no-merges"],
             cwd=ROOT,
