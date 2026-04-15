@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "myco"
 dynamic = ["version"]
-description = "Agent-First symbiotic cognitive substrate — v0.4.0 greenfield rewrite."
+description = "Agent-First symbiotic cognitive substrate."
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.10"
@@ -17,14 +17,21 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# ``pip install 'myco[mcp]'`` — pulls in the Model Context Protocol SDK
+# so ``python -m myco.mcp`` (and any other MCP adapter) has what it needs.
+# Floor of 1.2 covers the FastMCP.run() entry point used by the launcher;
+# the low-level Server API has been stable across the entire 1.x line.
+mcp = [
+  "mcp>=1.2",
+]
 dev = [
   "pytest>=8.0",
   "pytest-cov>=5.0",
 ]
 
 [project.scripts]
-# Points at a target that does not yet exist; lands with Stage B.7 (surface/cli.py).
-# Documented in docs/primordia/stage_a_scaffold_craft_2026-04-15.md.
+# Console-script entry point for ``myco``. Implemented by
+# src/myco/surface/cli.py (manifest-driven).
 myco = "myco.surface.cli:main"
 
 [tool.hatch.version]
