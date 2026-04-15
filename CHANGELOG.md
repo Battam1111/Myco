@@ -149,13 +149,31 @@ README roadmap line. No other features are in scope for this release.
   re-authored across all three language READMEs (English, Chinese,
   Japanese) to embody rather than merely mention L0's five root
   principles. Every principle gets a one-sentence practical
-  phrasing (e.g. "Devour everything — no filter on intake") plus a
-  consequence. The three roles name concrete behaviors instead of
-  abstract nouns ("Myco runs a metabolism ... `hunger`, `eat`,
-  `reflect / digest / distill`, `immune`, `propagate`"). Word
-  counts: en 1343, zh 719, ja 707 — within the 1000-1500 sweet
-  spot (CJK density ~1.5x compression vs English) and trilingual
-  structure stays identically lined (169 lines each).
+  phrasing plus a consequence. The three roles name concrete
+  behaviors instead of abstract nouns ("Myco runs a metabolism ...
+  `hunger`, `eat`, `reflect / digest / distill`, `immune`,
+  `propagate`"). Structure stays identically lined (169 lines each).
+- **"Substrate that ingests frameworks" positioning + em-dash
+  cleanup** (Stage D.7). Second pass on the trilingual READMEs
+  tightening the core claim that sets Myco apart from competitors:
+    * **Devour everything** is broadened to include code repositories,
+      framework documentation, datasets, and papers by name (not
+      just "notes and decisions"). The tagline is hardened to "not
+      a framework, a substrate that ingests frameworks."
+    * **Self-evolving shape** promises that even a complete internal
+      rewrite remains a `myco` version bump, not a new dependency.
+      The underlying substrate is never thrown away; users never
+      migrate again. This is the real differentiator from every
+      "agent framework" or "memory layer" on the market.
+    * The rewrite explicitly frames why it works now and could not
+      work before: "Agents are finally intelligent enough to
+      maintain the system themselves; earlier attempts died because
+      humans could not keep up."
+    * Zero em-dashes across all three language READMEs. Replaced
+      with colons, commas, parentheses, or sentence splits. The
+      reading cadence now relies on full stops and clear nouns,
+      which survives translation to CJK densities better than
+      em-dash-heavy English. Word counts: en 1353, zh 636, ja 632.
 
 ### Planned
 
