@@ -12,11 +12,22 @@ Versioning: [SemVer](https://semver.org/).
 
 ---
 
-## [Unreleased] — `0.4.1.dev`
+## [Unreleased]
 
-First maintenance release after the greenfield rewrite. Scope is fixed
-by the four explicit promises in the v0.4.0 release notes and the
-README roadmap line. No other features are in scope for this release.
+*(next development head, no entries yet)*
+
+---
+
+## [0.4.1] — 2026-04-15
+
+First maintenance release after the v0.4.0 greenfield rewrite.
+Ships the four public promises (`[mcp]` extras, `python -m myco.mcp`
+launcher, official plugin bundle, `CONTRIBUTING.md`) plus two
+cross-platform passes that turn "works in Claude Code" into "works
+across every active MCP host on the 2026-04 landscape," plus a
+narrative rewrite that positions Myco as the substrate that
+ingests other frameworks rather than yet another framework that
+gets replaced.
 
 ### Added
 
