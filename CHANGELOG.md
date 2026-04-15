@@ -18,23 +18,34 @@ First maintenance release after the greenfield rewrite. Scope is fixed
 by the four explicit promises in the v0.4.0 release notes and the
 README roadmap line. No other features are in scope for this release.
 
+### Added
+
+- **`[mcp]` optional-dependency target** (Stage D.1). `pyproject.toml`
+  now declares `mcp = ["mcp>=1.2"]` so `pip install "myco[mcp]"` pulls
+  the Model Context Protocol SDK alongside the package. Lower bound of
+  1.2 covers `FastMCP.run()`, the synchronous stdio entry point that
+  `python -m myco.mcp` relies on; the rest of the 1.x line is accepted
+  because the low-level API has been stable across all 1.x releases.
+
 ### Planned
 
 - **`python -m myco.mcp` standalone launcher.** A `__main__.py` under a
   new `src/myco/mcp/` subpackage that boots the manifest-driven server
   returned by `myco.surface.mcp.build_server`. Users no longer have to
   write Python to launch the MCP stdio server.
-- **`[mcp]` optional-dependency target.** In `pyproject.toml`, an
-  `[project.optional-dependencies] mcp = ["mcp>=1.0"]` entry so
-  `pip install "myco[mcp]"` brings the MCP SDK with it. Lower bound
-  pinned at 1.0 — the low-level `Server` + `stdio_server` API has been
-  stable across the entire 1.x line.
 - **Official `.plugin` bundle.** A Cowork / Claude-Code plugin packaging
   Myco's CLI, the manifest-driven MCP server, and the existing
   `.claude/hooks/` wiring. Drop-in install target.
 - **`CONTRIBUTING.md`.** Repo root. Covers dev install, test runner,
   three-round craft convention, where architectural changes land, and
   commit-message style.
+
+### Changed
+
+- **Package description cleaned** (Stage D.1). `pyproject.toml` no
+  longer self-describes as "v0.4.0 greenfield rewrite" in its PyPI
+  summary; that phrasing was accurate at the v0.4.0 release and stale
+  the moment v0.4.1 became the development head.
 
 ### Post-release hygiene from v0.4.0 (Stage C.7)
 
