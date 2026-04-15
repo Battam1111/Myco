@@ -26,13 +26,19 @@ README roadmap line. No other features are in scope for this release.
   1.2 covers `FastMCP.run()`, the synchronous stdio entry point that
   `python -m myco.mcp` relies on; the rest of the 1.x line is accepted
   because the low-level API has been stable across all 1.x releases.
+- **`python -m myco.mcp` standalone launcher** (Stage D.2). New
+  `src/myco/mcp/` subpackage with an `__init__.py` that re-exports
+  `build_server` and a `main()` entry, plus a thin `__main__.py` that
+  wires argparse to `FastMCP.run`. Three transports are selectable
+  (`--transport {stdio, sse, streamable-http}`, default `stdio`). When
+  the MCP SDK is not installed the launcher fails loud with a single
+  sentence telling the user to `pip install 'myco[mcp]'` and a POSIX
+  exit code of 2 — never a raw `ImportError` traceback. Library users
+  who embed the server in their own process can import the shared
+  `build_server` directly.
 
 ### Planned
 
-- **`python -m myco.mcp` standalone launcher.** A `__main__.py` under a
-  new `src/myco/mcp/` subpackage that boots the manifest-driven server
-  returned by `myco.surface.mcp.build_server`. Users no longer have to
-  write Python to launch the MCP stdio server.
 - **Official `.plugin` bundle.** A Cowork / Claude-Code plugin packaging
   Myco's CLI, the manifest-driven MCP server, and the existing
   `.claude/hooks/` wiring. Drop-in install target.
