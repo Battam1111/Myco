@@ -47,6 +47,13 @@ Thumbs.db
 # Misc
 *.orig
 
+# Release ephemerals. gh release --notes-file, twine upload logs, and
+# other scratch artifacts produced during the release playbook
+# (documented in docs/primordia/agent_handoff_v0_4_1_2026-04-15.md §7)
+# must never get committed or shipped in sdist.
+.release_notes_*.md
+upload*.log
+
 # Environment secrets
 .env
 .env.*

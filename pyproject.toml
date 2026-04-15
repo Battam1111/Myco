@@ -30,9 +30,17 @@ dev = [
 ]
 
 [project.scripts]
-# Console-script entry point for ``myco``. Implemented by
-# src/myco/surface/cli.py (manifest-driven).
+# Two stable PATH-level entry points so `.mcp.json` and hook configs
+# never have to reason about the user's venv or whether `python` vs
+# `python3` is the right alias.
+#
+#   myco              — the manifest-driven CLI (12 verbs).
+#   mcp-server-myco   — the MCP stdio/sse launcher; follows the
+#                       community `mcp-server-<name>` convention so
+#                       tools like uvx, pipx, and the MCP Registry
+#                       can pick it up without configuration.
 myco = "myco.surface.cli:main"
+mcp-server-myco = "myco.mcp:main"
 
 [tool.hatch.version]
 # Single source of truth for the package version — per L1 versioning.md.
@@ -40,6 +48,44 @@ path = "src/myco/__init__.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/myco"]
+
+[tool.hatch.build.targets.sdist]
+# Ephemeral / dev-only files that should never ship to PyPI even if
+# they happen to sit at the repo root mid-release. The .gitignore
+# mostly covers these already; this block is belt-and-suspenders so
+# a stray `python -m build` while a release-notes scratch file is
+# present does not leak it into the tarball.
+include = [
+  "/src",
+  "/tests",
+  "/docs",
+  "/scripts",
+  "/assets",
+  "/skills",
+  "/hooks",
+  "/.claude-plugin",
+  "/.claude",
+  "/.mcp.json",
+  "/_canon.yaml",
+  "/MYCO.md",
+  "/README.md",
+  "/README_zh.md",
+  "/README_ja.md",
+  "/CHANGELOG.md",
+  "/CONTRIBUTING.md",
+  "/LICENSE",
+  "/pyproject.toml",
+]
+exclude = [
+  "/.release_notes_*.md",
+  "/upload*.log",
+  "/dist",
+  "/build",
+  "/legacy_v0_3",
+  "/.pytest_cache",
+  "/.venv",
+  "**/__pycache__",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

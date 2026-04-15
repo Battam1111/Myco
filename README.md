@@ -43,38 +43,60 @@ Now imagine you just talk. No organizing, no comparing frameworks, no re-explain
 
 Myco is an **Agent-First symbiotic cognitive substrate** — your agent's other half. Not a memory layer, not an agent runtime, not a skill framework. An **autopoietic substrate**: the agent brings intelligence; Myco brings memory, immunity, metabolism, self-model, and its own evolution. Neither is whole without the other.
 
-> **v0.4.0 — Greenfield Rewrite.** Every verb, every dimension, every contract surface re-authored from L0. Upgrading from v0.3.x: see [`CHANGELOG.md`](CHANGELOG.md) and [`scripts/migrate_ascc_substrate.py`](scripts/migrate_ascc_substrate.py).
+> **Stable kernel, mutable substrate.** A `pip install` locks the kernel at a released version; everything the agent evolves day-to-day lives in your substrate (`_canon.yaml`, `notes/`, `docs/primordia/`), driven by the 12 MCP verbs. Kernel evolution is upstream governance: craft → PR → bump.
 
 ## Quick Start
 
 ```bash
-pip install 'myco[mcp]'          # package + MCP SDK
-
+pip install 'myco[mcp]'          # package + MCP SDK + console scripts
 cd /path/to/your/project
 myco genesis . --substrate-id my-project
 ```
 
-For **Claude Code / Cowork**, install the official plugin:
+Two console scripts land on your PATH:
+
+- `myco` — the 12-verb CLI.
+- `mcp-server-myco` — the universal MCP stdio launcher. Drop it into any host.
+
+For **Claude Code / Cowork**, install the official plugin (hooks + skills + MCP wired in one step):
 
 ```
 /plugin marketplace add Battam1111/Myco
 /plugin install myco@myco
 ```
 
-The plugin wires up the MCP server, the SessionStart / PreCompact hooks (boot ritual + session-end ritual), and two slash skills (`/myco:hunger`, `/myco:session-end`) in one step. Zero manual ceremony. If you prefer to avoid the plugin system, copy this repo's `.claude/` folder into your project — same hooks, same behavior.
+For **any other MCP host**, the same line works everywhere — Myco ships a stable console script so you never have to reason about `python` vs `python3` or which venv the host will spawn:
 
-For **any MCP host** (Cursor, Continue, Zed, …) or direct launch:
-
-```bash
-python -m myco.mcp                      # stdio (default)
-python -m myco.mcp --transport sse      # HTTP SSE
+```json
+{ "mcpServers": { "myco": { "command": "mcp-server-myco", "args": [] } } }
 ```
 
-Library embedding:
+| Host | Config path | Install action |
+|---|---|---|
+| **Cursor** | `.cursor/mcp.json` (project) or `~/.cursor/mcp.json` (global) | paste the snippet above |
+| **Windsurf** | `~/.codeium/windsurf/mcp_config.json` | paste the snippet above |
+| **Zed** | `~/.config/zed/settings.json` → `context_servers.myco` | `{"source":"custom","command":"mcp-server-myco","args":[]}` |
+| **Codex CLI** | one-liner or `~/.codex/config.toml` | `codex mcp add myco -- mcp-server-myco` |
+| **Gemini CLI** | `~/.gemini/settings.json` → `mcpServers.myco` | paste the snippet above |
+| **Continue** | `.continue/mcpServers/myco.yaml` | `name: Myco` · `type: stdio` · `command: mcp-server-myco` |
+| **Claude Desktop** | `claude_desktop_config.json` → `mcpServers.myco` | paste the snippet above |
+| **LangChain / CrewAI / DSPy / Agent Framework** | Python | `StdioServerParameters(command="mcp-server-myco")` |
+
+*Aider does not support MCP natively yet (see aider-ai/aider #4506); a community bridge such as `mcpm-aider` works in the meantime.*
+
+For library embedding:
 
 ```python
 from myco.mcp import build_server
-build_server().run()
+build_server().run()                   # stdio (default)
+build_server().run(transport="sse")    # HTTP SSE
+```
+
+Contributing or forking? Use editable install:
+
+```bash
+git clone https://github.com/Battam1111/Myco && cd Myco
+pip install -e '.[dev,mcp]'
 ```
 
 ## Daily Flow
@@ -106,10 +128,19 @@ You ──▶ Agent ──▶ Myco substrate
 
 Three roles — **you** set direction, **agent** brings intelligence, **Myco** brings memory and continuity. Seven hard rules (R1–R7) enforced partly by hooks, partly by the immune system, partly by agent discipline. Full contract: [`L1_CONTRACT/protocol.md`](docs/architecture/L1_CONTRACT/protocol.md).
 
+## Cross-platform enforcement
+
+R1–R7 are hook-enforced inside Claude Code / Cowork. Everywhere else, they ride inside the MCP server itself:
+
+- **Initialization instructions.** On `initialize`, every host receives a short R1–R7 summary linking to [`L1_CONTRACT/protocol.md`](docs/architecture/L1_CONTRACT/protocol.md). Agents that read instructions see the contract before the first tool call.
+- **`substrate_pulse` sidecar.** Every tool response includes a `substrate_pulse` field carrying the current `contract_version`, the `substrate_id`, and a rule hint that escalates from R1 (hunger not yet called) to R3 (sense before assert) once boot is confirmed. The sidecar is a server-side push — agents cannot accidentally forget the contract.
+
+The sidecar works on Cursor, Windsurf, Zed, Codex, Gemini, Continue, and Claude Desktop without any host-side configuration.
+
 ## Integrations
 
 - **Claude Code / Cowork** — `/plugin marketplace add Battam1111/Myco` then `/plugin install myco@myco`, or drop `.claude/` in by hand. Both routes wire SessionStart → `hunger` and PreCompact → `session-end`.
-- **Any MCP host** — `python -m myco.mcp` over stdio, or `myco.mcp:build_server` for library embedding.
+- **Any MCP host** — `mcp-server-myco` console script over stdio (or `--transport sse` for HTTP), or `myco.mcp:build_server` for library embedding.
 - **Downstream substrates** — `myco propagate` publishes; adapters live in `myco.symbionts`.
 
 ## Learn more
