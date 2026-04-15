@@ -41,48 +41,64 @@ LangChain。LangGraph。CrewAI。DSPy。Hermes。每个月都有新框架承诺"
 
 ## Myco 是什么
 
-Myco 是一个 **面向 Agent 的共生认知底物**——*你那位 Agent 的另一半*。不是记忆层、不是 Agent 运行时、不是技能框架。它是一个 **自创生底物（autopoietic substrate）**：Agent 带来智能；Myco 带来记忆、免疫、代谢、自我模型，以及它自身的进化。少了哪一半都不完整。
+想象一个 AI——它从不忘记你教过它什么。它吞噬你抛过来的每一篇论文、每一个决定、每一句"我之前搞错了"。它会注意到自己的理解已经过期，然后自己修好。它把今天的想法和三个月前你早就忘掉的那条笔记连在一起，这样你不用自己记。
 
-> **kernel 稳定，substrate 可变。** `pip install` 把 kernel 锁在一个已发布版本；Agent 日常演化的所有东西（`_canon.yaml`、`notes/`、`docs/primordia/`）都在你的 substrate 里，由 12 个 MCP verb 驱动。kernel 的演化走 upstream 治理：craft → PR → bump。
+这就是 Myco。
+
+Myco 是 **你那位 AI Agent 的活体认知底物**——Agent 的另一半，由它来喂养、消化、守护、陪你一起长。不是记忆数据库、不是 Agent 运行时、不是技能框架。它活在 Agent 旁边，把 Agent 变成一个**会记事的搭档**。
+
+### 它立在五条原则之上
+
+- **只为 Agent 而生。** 你不浏览 Myco。你和 Agent 说话；Agent 读 Myco。每一个表面——`_canon.yaml`、notes、doctrine 文档、boot brief——都是写给 Agent 读的主材料，不是给人看的文档。
+- **吞噬万物。** 摄入不设过滤。决策、摩擦、论文、日志、半成型的念头——谁来谁进，raw 留着。形状以后再说。错过信号的代价永远高于吃多的代价。
+- **形态在演化。** canon schema、lint 维度、连契约本身都是一等可变对象。僵死的底物就是死的底物。演化走治理（craft → PR → bump），不是走漂移。
+- **没有"最终版"。** `integrated` 是状态不是终点。今天消化完的笔记，明天 context 锐化了可以再消化一遍。反思是心跳，不是家务。
+- **菌丝网络。** 每条 note、每个 canon 字段、每份 doctrine 页都靠遍历连到别的上。孤儿就是死组织。这个图就是 Agent 读知识的方式——所以它必须一直活着。
+
+### 三种角色，合作着干活
+
+**你** —— 定方向。说要做什么。不记 CLI、不整理文件、不向第二个会话重新解释你的项目。
+
+**Agent** —— 出智能。读你说的话，读 Myco，挑 verb，写回去。
+
+**Myco** —— 跑代谢。你说完一句话到下一句话之间，它 **hunger**（缺什么？）、**eat**（raw 进来）、**reflect / digest / distill**（raw → 结构化 → doctrine）、用 **immune** 系统防漂移、用 **propagate** 把学到的跨项目扩散。12 个 verb、1 份 manifest、两个面：CLI 给你观察，MCP 让 Agent 自己开。
+
+> **kernel 稳定，substrate 可变。** `pip install` 把 kernel 锁在一个已发布版本；substrate（`_canon.yaml`、`notes/`、`docs/primordia/`）由 12 个 MCP verb 驱动日常演化。kernel 的演化走 upstream 治理。
 
 ## 快速上手
 
 ```bash
-pip install 'myco[mcp]'          # 包 + MCP SDK + 控制台脚本
+pip install 'myco[mcp]'
 cd /path/to/your/project
 myco genesis . --substrate-id my-project
 ```
 
-两个控制台脚本会进 PATH：
+三个控制台脚本进 PATH：
 
 - `myco` —— 12 个 verb 的 CLI。
 - `mcp-server-myco` —— 通用 MCP stdio 启动器，插进任何 host 都能跑。
+- `myco-install` —— 一条命令装进七个主流 MCP host。
 
-**Claude Code / Cowork** 装官方 plugin（hooks + skills + MCP 一步到位）：
+**Claude Code / Cowork** 官方 plugin 一步装好（MCP + hooks + slash skills）：
 
 ```
 /plugin marketplace add Battam1111/Myco
 /plugin install myco@myco
 ```
 
-**任何其他 MCP host** 一行配置通吃——Myco 提供稳定的控制台脚本，你不用再纠结 `python` 还是 `python3`、host 会 spawn 到哪个 venv：
+**其他 MCP host** 一条命令搞定：
+
+```bash
+myco-install cursor        # 也可以：claude-desktop / windsurf / zed / vscode / openclaw
+```
+
+或者把通用片段贴进 host 的配置文件——适用 `mcpServers` 家族（Claude Desktop、Cursor、Windsurf、Cline、Roo Code、Gemini CLI、Qwen Code、JetBrains AI、Augment Code、AiderDesk）：
 
 ```json
 { "mcpServers": { "myco": { "command": "mcp-server-myco", "args": [] } } }
 ```
 
-| Host | 配置路径 | 安装动作 |
-|---|---|---|
-| **Cursor** | `.cursor/mcp.json`（项目）或 `~/.cursor/mcp.json`（全局） | 粘贴上面那段 |
-| **Windsurf** | `~/.codeium/windsurf/mcp_config.json` | 粘贴上面那段 |
-| **Zed** | `~/.config/zed/settings.json` → `context_servers.myco` | `{"source":"custom","command":"mcp-server-myco","args":[]}` |
-| **Codex CLI** | 一行或 `~/.codex/config.toml` | `codex mcp add myco -- mcp-server-myco` |
-| **Gemini CLI** | `~/.gemini/settings.json` → `mcpServers.myco` | 粘贴上面那段 |
-| **Continue** | `.continue/mcpServers/myco.yaml` | `name: Myco` · `type: stdio` · `command: mcp-server-myco` |
-| **Claude Desktop** | `claude_desktop_config.json` → `mcpServers.myco` | 粘贴上面那段 |
-| **LangChain / CrewAI / DSPy / Agent Framework** | Python | `StdioServerParameters(command="mcp-server-myco")` |
-
-*Aider 目前原生不支持 MCP（见 aider-ai/aider #4506），社区 bridge `mcpm-aider` 可以过渡。*
+配置 schema 不一样的 8 个 host —— VS Code Copilot（`servers`）、Zed（`context_servers`）、OpenClaw（`mcp.servers` + CLI）、OpenHands（TOML）、OpenCode / Kilo Code（`mcp`）、Codex CLI（TOML）、Goose（YAML `extensions`）、Continue（YAML block）、Warp（`mcp_servers`）—— 每个都有自己精确的片段，在 [`docs/INSTALL.md`](docs/INSTALL.md)，连带 Python 框架 adapter（LangChain · CrewAI · DSPy · Smolagents · Agno · PraisonAI · Microsoft Agent Framework · Claude Agent SDK）。
 
 库方式嵌入：
 
@@ -126,26 +142,27 @@ CLI：`myco VERB`——全局 flag（`--project-dir`、`--json`、`--exit-on`）
                    └── .claude/hooks/     SessionStart → hunger · PreCompact → session-end
 ```
 
-三种角色——**你** 定方向，**Agent** 带智能，**Myco** 带记忆和连续性。7 条硬契约（R1–R7）由 hook、免疫系统、Agent 自律三方共同强制。完整条文：[`L1_CONTRACT/protocol.md`](docs/architecture/L1_CONTRACT/protocol.md)。
+7 条硬契约（R1–R7）由 hook、免疫系统、Agent 自律三方共同强制。完整条文：[`L1_CONTRACT/protocol.md`](docs/architecture/L1_CONTRACT/protocol.md)。
 
-## 跨平台强制机制
+## 跨平台强制机制 —— 一个都不漏
 
-R1–R7 在 Claude Code / Cowork 里是 hook 强制的。其它 host 没有 hook 概念——但强制藏在 MCP server 本身：
+R1–R7 在 Claude Code / Cowork 里是 hook 强制的。其它 host —— Cursor、Windsurf、Zed、Codex、Gemini、Continue、Claude Desktop、OpenClaw、OpenHands —— 强制**藏在 MCP server 本身**：
 
 - **初始化指令。** `initialize` 阶段每个 host 都收到一份简短的 R1–R7 摘要，链到 [`L1_CONTRACT/protocol.md`](docs/architecture/L1_CONTRACT/protocol.md)。读 instructions 的 Agent 在首次调 tool 前就看到契约。
 - **`substrate_pulse` 边车字段。** 每个 tool 响应都携带 `substrate_pulse`，包含当前 `contract_version`、`substrate_id`，以及一条会从 R1（hunger 未调）升级到 R3（sense before assert）的 rule hint。这是服务端主动推——Agent 想忘也忘不了。
 
-边车机制在 Cursor、Windsurf、Zed、Codex、Gemini、Continue、Claude Desktop 上都生效，host 侧零配置。
+host 侧零配置，每个 MCP 客户端都生效。
 
 ## 集成
 
-- **Claude Code / Cowork** —— `/plugin marketplace add Battam1111/Myco` 再 `/plugin install myco@myco`，或者手工拷 `.claude/`。两条路都把 SessionStart → `hunger`、PreCompact → `session-end` 接好。
-- **任何 MCP host** —— `mcp-server-myco` 控制台脚本走 stdio（或 `--transport sse` 走 HTTP），或者 `myco.mcp:build_server` 嵌库。
+- **Claude Code / Cowork** —— `/plugin marketplace add Battam1111/Myco` → `/plugin install myco@myco`。或者手工拷 `.claude/`。
+- **任何 MCP host** —— 七个常见 host 用 `myco-install <client>`，其它地方用 `mcp-server-myco` stdio。精确的 per-host 片段见 [`docs/INSTALL.md`](docs/INSTALL.md)。
+- **Python agent 框架** —— LangChain · CrewAI · DSPy · Smolagents · Agno · PraisonAI · Microsoft Agent Framework · Claude Agent SDK 都通过 `StdioServerParameters(command="mcp-server-myco")` 消费 Myco。
 - **下游 substrate** —— `myco propagate` 发布；adapter 住在 `myco.symbionts`。
 
 ## 了解更多
 
-[`L0_VISION.md`](docs/architecture/L0_VISION.md) · [`L1_CONTRACT/`](docs/architecture/L1_CONTRACT/) · [`L2_DOCTRINE/`](docs/architecture/L2_DOCTRINE/) · [`CONTRIBUTING.md`](CONTRIBUTING.md) · [Issues](https://github.com/Battam1111/Myco/issues)
+[`L0_VISION.md`](docs/architecture/L0_VISION.md) · [`L1_CONTRACT/`](docs/architecture/L1_CONTRACT/) · [`L2_DOCTRINE/`](docs/architecture/L2_DOCTRINE/) · [`INSTALL.md`](docs/INSTALL.md) · [`CONTRIBUTING.md`](CONTRIBUTING.md) · [Issues](https://github.com/Battam1111/Myco/issues)
 
 贡献：`pip install -e ".[dev]"`；架构性改动落地为 [`docs/primordia/`](docs/primordia/) 下带日期的 craft 文档。
 
