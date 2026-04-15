@@ -1,5 +1,5 @@
 {
-  "description": "Myco boot and session-end rituals. Mirrors the project's own .claude/settings.local.json hooks so installing the plugin and dogfooding Myco in-repo produce identical behavior. See docs/architecture/L1_CONTRACT/protocol.md for R1 and R2.",
+  "description": "Myco boot and session-end rituals. See docs/architecture/L1_CONTRACT/protocol.md for R1 and R2. Uses the myco console script (installed by pyproject [project.scripts]) rather than python -m myco, so paths do not depend on whether the host's PATH resolves `python` or `python3` to the venv that installed myco.",
   "hooks": {
     "SessionStart": [
       {
@@ -7,7 +7,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python -m myco --json --project-dir \"$CLAUDE_PROJECT_DIR\" hunger"
+            "command": "myco --json --project-dir \"$CLAUDE_PROJECT_DIR\" hunger"
           }
         ]
       }
@@ -18,7 +18,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python -m myco --json --project-dir \"$CLAUDE_PROJECT_DIR\" session-end"
+            "command": "myco --json --project-dir \"$CLAUDE_PROJECT_DIR\" session-end"
           }
         ]
       }

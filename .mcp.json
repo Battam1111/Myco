@@ -1,8 +1,8 @@
 {
   "mcpServers": {
     "myco": {
-      "command": "python",
-      "args": ["-m", "myco.mcp"]
+      "command": "mcp-server-myco",
+      "args": []
     }
   }
 }

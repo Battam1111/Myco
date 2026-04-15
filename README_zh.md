@@ -43,38 +43,60 @@ LangChain。LangGraph。CrewAI。DSPy。Hermes。每个月都有新框架承诺"
 
 Myco 是一个 **面向 Agent 的共生认知底物**——*你那位 Agent 的另一半*。不是记忆层、不是 Agent 运行时、不是技能框架。它是一个 **自创生底物（autopoietic substrate）**：Agent 带来智能；Myco 带来记忆、免疫、代谢、自我模型，以及它自身的进化。少了哪一半都不完整。
 
-> **v0.4.0 —— 从零重写（Greenfield Rewrite）。** 每一个 verb、每一个维度、每一层契约表面都从 L0 重新写过。从 v0.3.x 升级请看 [`CHANGELOG.md`](CHANGELOG.md) 和 [`scripts/migrate_ascc_substrate.py`](scripts/migrate_ascc_substrate.py)。
+> **kernel 稳定，substrate 可变。** `pip install` 把 kernel 锁在一个已发布版本；Agent 日常演化的所有东西（`_canon.yaml`、`notes/`、`docs/primordia/`）都在你的 substrate 里，由 12 个 MCP verb 驱动。kernel 的演化走 upstream 治理：craft → PR → bump。
 
 ## 快速上手
 
 ```bash
-pip install 'myco[mcp]'          # 包本体 + MCP SDK
-
+pip install 'myco[mcp]'          # 包 + MCP SDK + 控制台脚本
 cd /path/to/your/project
 myco genesis . --substrate-id my-project
 ```
 
-**Claude Code / Cowork**：装官方 plugin：
+两个控制台脚本会进 PATH：
+
+- `myco` —— 12 个 verb 的 CLI。
+- `mcp-server-myco` —— 通用 MCP stdio 启动器，插进任何 host 都能跑。
+
+**Claude Code / Cowork** 装官方 plugin（hooks + skills + MCP 一步到位）：
 
 ```
 /plugin marketplace add Battam1111/Myco
 /plugin install myco@myco
 ```
 
-Plugin 一步到位把 MCP 服务器、SessionStart / PreCompact 钩子（boot 仪式 + session-end 仪式）、以及两个 slash skill（`/myco:hunger`、`/myco:session-end`）全部接好。零手工仪式。不想走 plugin 系统也行——把本仓库的 `.claude/` 拷进你的项目，同样的钩子，同样的行为。
+**任何其他 MCP host** 一行配置通吃——Myco 提供稳定的控制台脚本，你不用再纠结 `python` 还是 `python3`、host 会 spawn 到哪个 venv：
 
-**任何 MCP host**（Cursor、Continue、Zed ⋯）或直接启动：
-
-```bash
-python -m myco.mcp                      # stdio（默认）
-python -m myco.mcp --transport sse      # HTTP SSE
+```json
+{ "mcpServers": { "myco": { "command": "mcp-server-myco", "args": [] } } }
 ```
+
+| Host | 配置路径 | 安装动作 |
+|---|---|---|
+| **Cursor** | `.cursor/mcp.json`（项目）或 `~/.cursor/mcp.json`（全局） | 粘贴上面那段 |
+| **Windsurf** | `~/.codeium/windsurf/mcp_config.json` | 粘贴上面那段 |
+| **Zed** | `~/.config/zed/settings.json` → `context_servers.myco` | `{"source":"custom","command":"mcp-server-myco","args":[]}` |
+| **Codex CLI** | 一行或 `~/.codex/config.toml` | `codex mcp add myco -- mcp-server-myco` |
+| **Gemini CLI** | `~/.gemini/settings.json` → `mcpServers.myco` | 粘贴上面那段 |
+| **Continue** | `.continue/mcpServers/myco.yaml` | `name: Myco` · `type: stdio` · `command: mcp-server-myco` |
+| **Claude Desktop** | `claude_desktop_config.json` → `mcpServers.myco` | 粘贴上面那段 |
+| **LangChain / CrewAI / DSPy / Agent Framework** | Python | `StdioServerParameters(command="mcp-server-myco")` |
+
+*Aider 目前原生不支持 MCP（见 aider-ai/aider #4506），社区 bridge `mcpm-aider` 可以过渡。*
 
 库方式嵌入：
 
 ```python
 from myco.mcp import build_server
-build_server().run()
+build_server().run()                   # stdio（默认）
+build_server().run(transport="sse")    # HTTP SSE
+```
+
+想贡献或 fork？走 editable install：
+
+```bash
+git clone https://github.com/Battam1111/Myco && cd Myco
+pip install -e '.[dev,mcp]'
 ```
 
 ## 日常流程
@@ -106,10 +128,19 @@ CLI：`myco VERB`——全局 flag（`--project-dir`、`--json`、`--exit-on`）
 
 三种角色——**你** 定方向，**Agent** 带智能，**Myco** 带记忆和连续性。7 条硬契约（R1–R7）由 hook、免疫系统、Agent 自律三方共同强制。完整条文：[`L1_CONTRACT/protocol.md`](docs/architecture/L1_CONTRACT/protocol.md)。
 
+## 跨平台强制机制
+
+R1–R7 在 Claude Code / Cowork 里是 hook 强制的。其它 host 没有 hook 概念——但强制藏在 MCP server 本身：
+
+- **初始化指令。** `initialize` 阶段每个 host 都收到一份简短的 R1–R7 摘要，链到 [`L1_CONTRACT/protocol.md`](docs/architecture/L1_CONTRACT/protocol.md)。读 instructions 的 Agent 在首次调 tool 前就看到契约。
+- **`substrate_pulse` 边车字段。** 每个 tool 响应都携带 `substrate_pulse`，包含当前 `contract_version`、`substrate_id`，以及一条会从 R1（hunger 未调）升级到 R3（sense before assert）的 rule hint。这是服务端主动推——Agent 想忘也忘不了。
+
+边车机制在 Cursor、Windsurf、Zed、Codex、Gemini、Continue、Claude Desktop 上都生效，host 侧零配置。
+
 ## 集成
 
 - **Claude Code / Cowork** —— `/plugin marketplace add Battam1111/Myco` 再 `/plugin install myco@myco`，或者手工拷 `.claude/`。两条路都把 SessionStart → `hunger`、PreCompact → `session-end` 接好。
-- **任何 MCP host** —— `python -m myco.mcp` 走 stdio，或者 `myco.mcp:build_server` 嵌库。
+- **任何 MCP host** —— `mcp-server-myco` 控制台脚本走 stdio（或 `--transport sse` 走 HTTP），或者 `myco.mcp:build_server` 嵌库。
 - **下游 substrate** —— `myco propagate` 发布；adapter 住在 `myco.symbionts`。
 
 ## 了解更多

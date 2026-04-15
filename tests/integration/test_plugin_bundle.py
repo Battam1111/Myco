@@ -98,12 +98,30 @@ def test_marketplace_lists_exactly_one_plugin_at_repo_root() -> None:
 
 
 def test_mcp_config_points_at_myco_mcp_launcher() -> None:
+    """The plugin's .mcp.json must invoke the mcp-server-myco console
+    script rather than `python -m myco.mcp`. Rationale: MCP clients
+    spawn their servers in whatever PATH they inherit, not the venv
+    where the user `pip install`ed myco. `python` vs `python3`
+    aliasing differs across OS/distro; the console script is stable.
+    """
     data = _load(MCP_CONFIG)
     servers = data["mcpServers"]
     assert "myco" in servers
     entry = servers["myco"]
-    assert entry["command"] in ("python", "python3")
-    assert entry["args"] == ["-m", "myco.mcp"]
+    assert entry["command"] == "mcp-server-myco", entry
+    assert entry["args"] == [], entry
+
+
+def test_hooks_use_myco_console_script() -> None:
+    """Hook commands must invoke the `myco` console script rather than
+    `python -m myco`, for the same PATH-stability reasons as the MCP
+    launcher.
+    """
+    data = _load(HOOKS_CONFIG)
+    for event in ("SessionStart", "PreCompact"):
+        cmd = data["hooks"][event][0]["hooks"][0]["command"]
+        assert cmd.startswith("myco "), (event, cmd)
+        assert "python -m myco" not in cmd, (event, cmd)
 
 
 # ---------------------------------------------------------------------------

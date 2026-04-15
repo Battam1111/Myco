@@ -72,6 +72,48 @@ README roadmap line. No other features are in scope for this release.
   style (optional for external contributors), governance, code of
   conduct. The READMEs' `*(v0.4.1)*` placeholder marker on the
   `CONTRIBUTING.md` link is removed now that the file exists.
+- **`mcp-server-myco` console script** (Stage D.5). `pyproject.toml`
+  now declares a second entry point alongside `myco`, following the
+  community `mcp-server-<name>` convention. Every MCP host config
+  (Cursor, Windsurf, Zed, Codex, Gemini, Continue, Claude Desktop,
+  LangChain / CrewAI / DSPy) can now just point at
+  `command: "mcp-server-myco"` without having to reason about
+  `python` vs `python3` aliasing or which venv the host will spawn.
+  Usable via `pipx install 'myco[mcp]'` or
+  `uvx mcp-server-myco` for zero-venv install.
+- **Cross-platform install matrix** (Stage D.5). Trilingual READMEs
+  now carry an eight-row table covering every MCP-supporting host
+  on the 2026-04 landscape — each row is the exact config path and
+  the exact line to paste. Aider is flagged as awaiting upstream MCP
+  support (aider-ai/aider #4506).
+- **`substrate_pulse` sidecar + initialization instructions**
+  (Stage D.5). `myco.surface.mcp.build_server` now attaches a
+  `substrate_pulse` field to every MCP tool response (current
+  `substrate_id`, `contract_version`, and a rule hint that escalates
+  from R1 → R3 once `myco_hunger` has fired), and populates the
+  FastMCP `instructions` block with a compact R1–R7 summary linking
+  to `docs/architecture/L1_CONTRACT/protocol.md`. This is the
+  cross-platform analogue of the Claude-Code SessionStart hook:
+  every MCP client (Cursor, Windsurf, Zed, Codex, Gemini, Continue,
+  Claude Desktop) sees it without any host-side configuration.
+- **"Stable kernel, mutable substrate" positioning** (Stage D.5).
+  Trilingual READMEs swap the stale "v0.4.0 — Greenfield Rewrite"
+  banner for a positioning line that names the design split
+  explicitly: `pip install` locks the kernel; substrate evolution
+  runs via the twelve MCP verbs. Contributor editable-install path
+  is promoted into Quick Start.
+- **Release-ephemerals excluded from sdist** (Stage D.5).
+  `pyproject.toml` gains explicit `[tool.hatch.build.targets.sdist]`
+  include/exclude lists so `.release_notes_*.md`, `upload*.log`,
+  `dist/`, `build/`, `legacy_v0_3/`, `.pytest_cache/`, and every
+  `__pycache__/` stay out of the PyPI tarball even if they happen
+  to sit in the working tree at build time. `.gitignore` gains the
+  same patterns as belt-and-suspenders.
+- **Hook commands prefer `myco` over `python -m myco`**
+  (Stage D.5). Both `hooks/hooks.json` (plugin) and
+  `.claude/settings.local.json` (dogfooding) now invoke the `myco`
+  console script rather than `python -m myco`, closing the same
+  `python` / `python3` / venv gap the MCP launcher just closed.
 
 ### Planned
 
