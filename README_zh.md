@@ -114,7 +114,7 @@ CLI：`myco VERB`——全局 flag（`--project-dir`、`--json`、`--exit-on`）
 
 ## 了解更多
 
-[`L0_VISION.md`](docs/architecture/L0_VISION.md) · [`L1_CONTRACT/`](docs/architecture/L1_CONTRACT/) · [`L2_DOCTRINE/`](docs/architecture/L2_DOCTRINE/) · [`CONTRIBUTING.md`](CONTRIBUTING.md) *(v0.4.1)* · [Issues](https://github.com/Battam1111/Myco/issues)
+[`L0_VISION.md`](docs/architecture/L0_VISION.md) · [`L1_CONTRACT/`](docs/architecture/L1_CONTRACT/) · [`L2_DOCTRINE/`](docs/architecture/L2_DOCTRINE/) · [`CONTRIBUTING.md`](CONTRIBUTING.md) · [Issues](https://github.com/Battam1111/Myco/issues)
 
 贡献：`pip install -e ".[dev]"`；架构性改动落地为 [`docs/primordia/`](docs/primordia/) 下带日期的 craft 文档。
 
