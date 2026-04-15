@@ -3,7 +3,7 @@
 All notable changes to Myco are recorded here. This changelog tracks the
 **package version** (`src/myco/__init__.py::__version__`). Contract-layer
 changes (L0/L1/L2 doctrine) are recorded separately in
-`docs/contract_changelog.md` (created at Stage C).
+`docs/contract_changelog.md`.
 
 The pre-rewrite changelog is preserved at `legacy_v0_3/CHANGELOG.md`.
 
@@ -12,35 +12,121 @@ Versioning: [SemVer](https://semver.org/).
 
 ---
 
-## [Unreleased] — `0.4.0.dev`
+## [Unreleased] — `0.4.1.dev`
 
-Greenfield rewrite in progress. The pre-rewrite codebase (v0.3.4 lineage)
-is quarantined in `legacy_v0_3/` and will be removed at the v0.4.0
-release commit.
+First maintenance release after the greenfield rewrite. Scope is fixed
+by the four explicit promises in the v0.4.0 release notes and the
+README roadmap line. No other features are in scope for this release.
+
+### Planned
+
+- **`python -m myco.mcp` standalone launcher.** A `__main__.py` under a
+  new `src/myco/mcp/` subpackage that boots the manifest-driven server
+  returned by `myco.surface.mcp.build_server`. Users no longer have to
+  write Python to launch the MCP stdio server.
+- **`[mcp]` optional-dependency target.** In `pyproject.toml`, an
+  `[project.optional-dependencies] mcp = ["mcp>=1.0"]` entry so
+  `pip install "myco[mcp]"` brings the MCP SDK with it. Lower bound
+  pinned at 1.0 — the low-level `Server` + `stdio_server` API has been
+  stable across the entire 1.x line.
+- **Official `.plugin` bundle.** A Cowork / Claude-Code plugin packaging
+  Myco's CLI, the manifest-driven MCP server, and the existing
+  `.claude/hooks/` wiring. Drop-in install target.
+- **`CONTRIBUTING.md`.** Repo root. Covers dev install, test runner,
+  three-round craft convention, where architectural changes land, and
+  commit-message style.
+
+### Post-release hygiene from v0.4.0 (Stage C.7)
+
+- **Scaffold version assertion is now version-agnostic.** The Stage A/B
+  sanity test previously hard-coded `"0.4.0.dev"`; it now accepts any
+  PEP 440 release or `.dev` marker via regex. Release bumps no longer
+  force a test edit.
+- **`myco --help` reports `__version__` dynamically** instead of a
+  hard-coded `"v0.4.0"` literal. The description line is now derived
+  from the SSoT at `src/myco/__init__.py`.
+- **CHANGELOG.md header corrected.** The v0.4.0 release commit
+  (Stage C.4, `198470f`) left the header as `[Unreleased] — 0.4.0.dev`;
+  this is now promoted to a proper `[0.4.0] — 2026-04-15` section with
+  a fresh `[Unreleased]` segment above.
+- **v0.4.1 handoff brief landed** at
+  `docs/primordia/agent_handoff_v0_4_1_2026-04-15.md` — onboarding doc
+  for the session that executes the four promises above.
+
+---
+
+## [0.4.0] — 2026-04-15
+
+Greenfield rewrite release. Backward-incompatible with v0.3.x. The
+pre-rewrite codebase (v0.3.4 lineage) is preserved at tag
+`v0.3.4-final`; consumers (e.g. ASCC) remain pinned there until they
+migrate via the fresh re-export path.
 
 ### Added
 
-- **Stage A scaffold.** Fresh `pyproject.toml` (Hatchling dynamic version,
-  SSoT at `src/myco/__init__.py`), `src/myco/` with eight packages
-  (`core`, `genesis`, `ingestion`, `digestion`, `circulation`,
-  `homeostasis`, `surface`, `symbionts`), mirror `tests/` layout, and a
-  sanity test verifying every package imports and `myco.__version__`
-  equals `"0.4.0.dev"`. See
-  `docs/primordia/stage_a_scaffold_craft_2026-04-15.md`.
+- **Eight-package source layout** under `src/myco/`: `core`, `genesis`,
+  `ingestion`, `digestion`, `circulation`, `homeostasis`, `surface`,
+  `symbionts`. Each subsystem maps to a biological role per L0's
+  authoritative metaphor table.
+- **Twelve verbs, manifest-driven.** `genesis` · `hunger` · `eat` ·
+  `sense` · `forage` · `reflect` · `digest` · `distill` · `perfuse` ·
+  `propagate` · `immune` · `session-end`. The single source of truth is
+  `src/myco/surface/manifest.yaml`; CLI and MCP surfaces are both
+  derived from it. Adding a verb edits the manifest, not `cli.py` or
+  `mcp.py`.
+- **Eight lint dimensions** authored fresh (not ported from v0.3's
+  30-dim table):
+  - Mechanical: M1 (canon identity), M2 (entry-point exists),
+    M3 (write-surface declared).
+  - Shipped: SH1 (package-version ref resolves).
+  - Metabolic: MB1 (raw-notes backlog), MB2 (no integrated yet).
+  - Semantic: SE1 (dangling refs), SE2 (orphan integrated).
+- **Seven L1 hard rules (R1–R7)** with explicit mechanical /
+  disciplinary enforcement mapping. See
+  `docs/architecture/L1_CONTRACT/protocol.md`.
+- **`_canon.yaml`, `MYCO.md`, `.claude/hooks/`** materialized fresh at
+  the repository root. The SessionStart hook fires `myco hunger`; the
+  PreCompact hook fires `myco session-end`.
+- **ASCC substrate migrator** at `scripts/migrate_ascc_substrate.py`
+  (dry-run default, `--execute` opt-in). Maps v0.3 canon fields into
+  the v0.4 schema per the "fresh re-export" discipline.
+- **Trilingual READMEs** (`README.md`, `README_zh.md`, `README_ja.md`)
+  ported to the new surface.
+- **Assets** — `assets/_gen_logo.py` generator plus produced PNGs
+  referenced by the READMEs (restored Stage C.6 after an overly broad
+  Stage C.4 sweep).
 
 ### Architecture
 
-- **L0–L3 authoritative design** landed under `docs/architecture/`. Five
+- **L0–L3 top-down design** landed under `docs/architecture/`. Five
   root principles (Only For Agent / 永恒吞噬 / 永恒进化 / 永恒迭代 /
-  万物互联), seven L1 hard rules, five biological subsystems, eight-package
-  L3 map. Governing crafts:
+  万物互联), three derived invariants, seven L1 hard rules, five
+  biological subsystems, eight-package L3 map. Governing crafts:
   `docs/primordia/greenfield_rewrite_craft_2026-04-15.md` and
   `docs/primordia/l0_identity_revision_craft_2026-04-15.md`.
+- **Single-path rewrite discipline** — v0.4 code is written directly
+  into `src/myco/`, not under a `src/myco_v4/` staging path. No v4
+  marker appears anywhere in paths, package names, or commit subjects.
+  Rationale in
+  `docs/architecture/L3_IMPLEMENTATION/migration_strategy.md`.
+- **Contract changelog separation.** `docs/contract_changelog.md` now
+  tracks L0/L1/L2 doctrine changes separately from this package
+  changelog. First entry records the v0.4.0 contract surface and the
+  break from v0.3.x.
 
-### Notes
+### Removed
 
-- This entry will be split into proper `Added` / `Changed` / `Removed`
-  sections as Stage B lands each subsystem.
-- The `0.4.0.dev` suffix is dropped at Stage C when `_canon.yaml`,
-  `MYCO.md`, and the ASCC migration script are authored and
-  `legacy_v0_3/` is deleted.
+- **Pre-rewrite quarantine (`legacy_v0_3/`) removed from the working
+  tree.** Git history is preserved; tag `v0.3.4-final` is the sole
+  anchor for the pre-rewrite lineage.
+- **v0.3 30-dimension lint table** superseded by the fresh 8-dimension
+  set above.
+
+### Release mechanics
+
+- Annotated tag `v0.4.0` (`git tag -a`, never lightweight).
+- GitHub release published at `Myco-v0.4.0`.
+- PyPI upload: wheel + sdist, `PYTHONIOENCODING=utf-8` plus
+  `--disable-progress-bar` to survive the GBK Windows console.
+
+---

@@ -69,9 +69,10 @@ def _add_arg(subparser: argparse.ArgumentParser, arg: ArgSpec) -> None:
 
 def build_parser(manifest: Manifest | None = None) -> argparse.ArgumentParser:
     m = manifest or load_manifest()
+    from myco import __version__ as _mv
     parser = argparse.ArgumentParser(
         prog="myco",
-        description="Myco v0.4.0 — agent-first symbiotic substrate.",
+        description=f"Myco v{_mv} — agent-first symbiotic substrate.",
     )
     parser.add_argument(
         "--project-dir", type=Path, default=None,
