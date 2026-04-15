@@ -63,12 +63,20 @@ README roadmap line. No other features are in scope for this release.
   Chinese, and Japanese READMEs now document the plugin install path
   alongside the manual-copy fallback, and the "ships in v0.4.1"
   forward-looking paragraphs are replaced with current-state prose.
+- **`CONTRIBUTING.md`** (Stage D.4). Root-level contributor guide,
+  roughly 1100 words. Sections: welcome (dual human + agent
+  audience), before-you-start, dev environment, daily loop, the
+  top-down L0–L3 rule, the three-round craft convention, what agents
+  should do differently, what not to touch without discussion, PR
+  checklist, AI-assisted contributions, bug reports, internal commit
+  style (optional for external contributors), governance, code of
+  conduct. The READMEs' `*(v0.4.1)*` placeholder marker on the
+  `CONTRIBUTING.md` link is removed now that the file exists.
 
 ### Planned
 
-- **`CONTRIBUTING.md`.** Repo root. Covers dev install, test runner,
-  three-round craft convention, where architectural changes land, and
-  commit-message style.
+*(empty — the four v0.4.1 promises are all landed; Stage E is the
+release itself.)*
 
 ### Changed
 
