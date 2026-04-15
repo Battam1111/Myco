@@ -32,6 +32,7 @@ PACKAGES = [
     "myco.homeostasis.dimensions",
     "myco.surface",
     "myco.symbionts",
+    "myco.mcp",
 ]
 
 
