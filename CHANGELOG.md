@@ -36,12 +36,36 @@ README roadmap line. No other features are in scope for this release.
   exit code of 2 — never a raw `ImportError` traceback. Library users
   who embed the server in their own process can import the shared
   `build_server` directly.
+- **Official Claude-Code / Cowork plugin bundle** (Stage D.3). The
+  repo root now ships a full plugin manifest tree alongside the
+  Python source: `.claude-plugin/plugin.json`, a one-plugin
+  `marketplace.json`, a `.mcp.json` pointing at `python -m myco.mcp`,
+  a `hooks/hooks.json` wrapping SessionStart → `hunger` and
+  PreCompact → `session-end`, and two slash skills under `skills/`
+  (`/myco:hunger`, `/myco:session-end`). Users install with:
+
+        /plugin marketplace add Battam1111/Myco
+        /plugin install myco@myco
+
+  The plugin tree coexists with the project's own `.claude/` folder;
+  the two do not conflict because `.claude/` is the dogfooding config
+  for the Myco repo itself while `.claude-plugin/` + root-level files
+  are the distribution artifact.
+- **Plugin-bundle structural tests** (Stage D.3). A new
+  `tests/integration/test_plugin_bundle.py` validates the manifest
+  shape, version-alignment with `myco.__version__`, hooks wiring, and
+  skill-frontmatter completeness so a malformed plugin cannot ship
+  silently.
+- **Write-surface extended** (Stage D.3). `_canon.yaml` now whitelists
+  `.claude-plugin/**`, `.mcp.json`, `hooks/**`, and `skills/**` so
+  future plugin-file edits stay within R6 without a doctrine bump.
+- **Trilingual README install flow updated** (Stage D.3). The English,
+  Chinese, and Japanese READMEs now document the plugin install path
+  alongside the manual-copy fallback, and the "ships in v0.4.1"
+  forward-looking paragraphs are replaced with current-state prose.
 
 ### Planned
 
-- **Official `.plugin` bundle.** A Cowork / Claude-Code plugin packaging
-  Myco's CLI, the manifest-driven MCP server, and the existing
-  `.claude/hooks/` wiring. Drop-in install target.
 - **`CONTRIBUTING.md`.** Repo root. Covers dev install, test runner,
   three-round craft convention, where architectural changes land, and
   commit-message style.

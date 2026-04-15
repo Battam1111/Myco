@@ -30,6 +30,14 @@ system:
       - "tests/**"
       - "scripts/**"
       - ".claude/**"
+      # v0.4.1 plugin bundle (Stage D.3). Repo root doubles as a
+      # Claude-Code / Cowork plugin so users can run
+      # `/plugin marketplace add Battam1111/Myco` then
+      # `/plugin install myco@myco`.
+      - ".claude-plugin/**"
+      - ".mcp.json"
+      - "hooks/**"
+      - "skills/**"
   hard_contract:
     rules_ref: "docs/architecture/L1_CONTRACT/protocol.md"
     rule_count: 7
