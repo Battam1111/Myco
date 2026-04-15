@@ -30,7 +30,7 @@ dev = [
 ]
 
 [project.scripts]
-# Two stable PATH-level entry points so `.mcp.json` and hook configs
+# Three stable PATH-level entry points so `.mcp.json` and hook configs
 # never have to reason about the user's venv or whether `python` vs
 # `python3` is the right alias.
 #
@@ -39,8 +39,13 @@ dev = [
 #                       community `mcp-server-<name>` convention so
 #                       tools like uvx, pipx, and the MCP Registry
 #                       can pick it up without configuration.
+#   myco-install      — zero-copy-paste install into any of seven MCP
+#                       hosts (Claude Code, Claude Desktop, Cursor,
+#                       Windsurf, Zed, VS Code, OpenClaw). Writes the
+#                       correct schema per host; idempotent.
 myco = "myco.surface.cli:main"
 mcp-server-myco = "myco.mcp:main"
+myco-install = "myco.install:main"
 
 [tool.hatch.version]
 # Single source of truth for the package version — per L1 versioning.md.
@@ -75,6 +80,7 @@ include = [
   "/CONTRIBUTING.md",
   "/LICENSE",
   "/pyproject.toml",
+  "/docs/INSTALL.md",
 ]
 exclude = [
   "/.release_notes_*.md",

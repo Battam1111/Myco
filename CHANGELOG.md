@@ -114,6 +114,48 @@ README roadmap line. No other features are in scope for this release.
   `.claude/settings.local.json` (dogfooding) now invoke the `myco`
   console script rather than `python -m myco`, closing the same
   `python` / `python3` / venv gap the MCP launcher just closed.
+- **`myco-install` one-command installer for seven MCP hosts**
+  (Stage D.6). New `src/myco/install/` subpackage; third console
+  script `myco-install`. Writes the correct schema per host
+  (handles the four dominant schema variants: `mcpServers` JSON,
+  `context_servers` JSON, `servers` JSON with `"type": "stdio"`, and
+  OpenClaw's CLI-mediated `mcp.servers` nesting). Preserves any
+  sibling servers in existing config files; idempotent; supports
+  `--dry-run`, `--global`, `--uninstall`. Covers Claude Code,
+  Claude Desktop, Cursor, Windsurf, Zed, VS Code, OpenClaw. Remaining
+  hosts documented with per-platform snippets in
+  [`docs/INSTALL.md`](docs/INSTALL.md).
+- **OpenClaw support** (Stage D.6). OpenClaw uses a nested
+  `mcp.servers.<name>` schema mutated via its own `openclaw mcp set`
+  CLI, not the standard `mcpServers` key at repo root. The
+  `myco-install openclaw` path shells out with the correct payload;
+  documentation surfaces both the one-line helper and the manual
+  path. Addresses the long-tail platform story the mainline
+  "one snippet everywhere" framing cannot cover.
+- **`docs/INSTALL.md` — comprehensive per-host matrix** (Stage D.6).
+  New top-level install guide listing every MCP host active on the
+  2026-04 landscape with the exact config path and exact line for
+  each: `mcpServers`-family (11 hosts), VS Code, Zed, OpenClaw,
+  OpenHands (TOML), OpenCode / Kilo Code (`mcp` key), Codex CLI
+  (TOML), Goose (YAML), Warp (`mcp_servers`), Continue (YAML block),
+  JetBrains AI, Devin (UI form), Bolt.new (UI form), Claude Desktop
+  (three OS paths). Plus Python-framework adapter snippets for
+  LangChain / CrewAI / DSPy / Smolagents / Agno / PraisonAI /
+  Microsoft Agent Framework / Claude Agent SDK. Hosts without
+  native MCP (Aider CLI, SWE-agent, Void) are flagged explicitly so
+  users do not waste time there.
+- **Narrative README rewrite** (Stage D.6). The "What it is"
+  opening, five-principles block, and three-roles framing are
+  re-authored across all three language READMEs (English, Chinese,
+  Japanese) to embody rather than merely mention L0's five root
+  principles. Every principle gets a one-sentence practical
+  phrasing (e.g. "Devour everything — no filter on intake") plus a
+  consequence. The three roles name concrete behaviors instead of
+  abstract nouns ("Myco runs a metabolism ... `hunger`, `eat`,
+  `reflect / digest / distill`, `immune`, `propagate`"). Word
+  counts: en 1343, zh 719, ja 707 — within the 1000-1500 sweet
+  spot (CJK density ~1.5x compression vs English) and trilingual
+  structure stays identically lined (169 lines each).
 
 ### Planned
 

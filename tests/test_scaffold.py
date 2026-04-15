@@ -33,6 +33,7 @@ PACKAGES = [
     "myco.surface",
     "myco.symbionts",
     "myco.mcp",
+    "myco.install",
 ]
 
 
