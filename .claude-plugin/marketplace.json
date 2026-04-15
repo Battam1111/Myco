@@ -1,0 +1,17 @@
+{
+  "name": "myco",
+  "owner": {
+    "name": "Yanjun",
+    "url": "https://github.com/Battam1111"
+  },
+  "description": "Single-plugin marketplace for Myco — the Agent-First symbiotic cognitive substrate.",
+  "plugins": [
+    {
+      "name": "myco",
+      "source": ".",
+      "description": "Agent-First substrate: CLI, MCP server, boot / session-end hooks, and two slash skills.",
+      "category": "agent-substrate",
+      "keywords": ["agent", "substrate", "mcp"]
+    }
+  ]
+}

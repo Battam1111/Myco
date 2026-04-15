@@ -48,22 +48,34 @@ Myco は **Agent-First な共生認知基層**——*あなたのエージェン
 ## クイックスタート
 
 ```bash
-pip install myco
+pip install 'myco[mcp]'          # パッケージ本体 + MCP SDK
 
 cd /path/to/your/project
 myco genesis . --substrate-id my-project
 ```
 
-**Claude Code / Cowork**：本リポジトリの `.claude/` ディレクトリをあなたのプロジェクトにコピー——SessionStart が `myco hunger` を、PreCompact が `myco session-end` を発火。手動儀式ゼロ。
+**Claude Code / Cowork**：公式プラグインをインストール：
 
-**MCP 対応のあらゆるホスト**（Cursor、Continue、Zed ⋯）：Myco はマニフェスト駆動の MCP サーバーを同梱します：
-
-```python
-from myco.surface.mcp import build_server
-build_server().run()          # pip install mcp が必要
+```
+/plugin marketplace add Battam1111/Myco
+/plugin install myco@myco
 ```
 
-スタンドアロン `python -m myco.mcp` ランチャー、`[mcp]` extras、公式 `.plugin` バンドルは **v0.4.1** で提供予定。
+プラグインは MCP サーバー、SessionStart / PreCompact フック（ブート儀式 + セッション終了儀式）、そして 2 つの slash スキル（`/myco:hunger`、`/myco:session-end`）を一度に配線します。手動儀式ゼロ。プラグインを使わずに済ませたい場合は、本リポジトリの `.claude/` をあなたのプロジェクトへコピー——同じフック、同じ挙動。
+
+**MCP 対応のあらゆるホスト**（Cursor、Continue、Zed ⋯）または直接起動：
+
+```bash
+python -m myco.mcp                      # stdio（デフォルト）
+python -m myco.mcp --transport sse      # HTTP SSE
+```
+
+ライブラリ組み込み：
+
+```python
+from myco.mcp import build_server
+build_server().run()
+```
 
 ## 日常のフロー
 
@@ -96,8 +108,8 @@ CLI：`myco VERB`——グローバル flag（`--project-dir`、`--json`、`--ex
 
 ## 統合
 
-- **Claude Code / Cowork** —— `.claude/` をコピーするだけ。公式 `.plugin` バンドルは v0.4.1 で。
-- **MCP 対応ホスト** —— `myco.surface.mcp:build_server()` をホストの設定から wire。
+- **Claude Code / Cowork** —— `/plugin marketplace add Battam1111/Myco` → `/plugin install myco@myco`、または手動で `.claude/` をコピー。どちらでも SessionStart → `hunger`、PreCompact → `session-end` が配線されます。
+- **MCP 対応ホスト** —— `python -m myco.mcp` を stdio で、もしくは `myco.mcp:build_server` でライブラリ組み込み。
 - **下流 substrate** —— `myco propagate` が発行；adapter は `myco.symbionts` に。
 
 ## もっと知る

@@ -48,22 +48,34 @@ Myco is an **Agent-First symbiotic cognitive substrate** — your agent's other 
 ## Quick Start
 
 ```bash
-pip install myco
+pip install 'myco[mcp]'          # package + MCP SDK
 
 cd /path/to/your/project
 myco genesis . --substrate-id my-project
 ```
 
-For **Claude Code / Cowork**, copy this repo's `.claude/` folder into your project — SessionStart fires `myco hunger`, PreCompact fires `myco session-end`. Zero manual ceremony.
+For **Claude Code / Cowork**, install the official plugin:
 
-For **any MCP host** (Cursor, Continue, Zed, …), Myco ships a manifest-driven MCP server:
-
-```python
-from myco.surface.mcp import build_server
-build_server().run()          # requires `pip install mcp`
+```
+/plugin marketplace add Battam1111/Myco
+/plugin install myco@myco
 ```
 
-A `python -m myco.mcp` launcher, a `[mcp]` extras target, and an official `.plugin` bundle ship in **v0.4.1**.
+The plugin wires up the MCP server, the SessionStart / PreCompact hooks (boot ritual + session-end ritual), and two slash skills (`/myco:hunger`, `/myco:session-end`) in one step. Zero manual ceremony. If you prefer to avoid the plugin system, copy this repo's `.claude/` folder into your project — same hooks, same behavior.
+
+For **any MCP host** (Cursor, Continue, Zed, …) or direct launch:
+
+```bash
+python -m myco.mcp                      # stdio (default)
+python -m myco.mcp --transport sse      # HTTP SSE
+```
+
+Library embedding:
+
+```python
+from myco.mcp import build_server
+build_server().run()
+```
 
 ## Daily Flow
 
@@ -96,8 +108,8 @@ Three roles — **you** set direction, **agent** brings intelligence, **Myco** b
 
 ## Integrations
 
-- **Claude Code / Cowork** — drop in `.claude/`, done. Official `.plugin` bundle in v0.4.1.
-- **Any MCP host** — wire `myco.surface.mcp:build_server()` into the host's config.
+- **Claude Code / Cowork** — `/plugin marketplace add Battam1111/Myco` then `/plugin install myco@myco`, or drop `.claude/` in by hand. Both routes wire SessionStart → `hunger` and PreCompact → `session-end`.
+- **Any MCP host** — `python -m myco.mcp` over stdio, or `myco.mcp:build_server` for library embedding.
 - **Downstream substrates** — `myco propagate` publishes; adapters live in `myco.symbionts`.
 
 ## Learn more
