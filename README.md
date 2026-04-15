@@ -25,15 +25,13 @@
 
 ---
 
-LangChain. LangGraph. CrewAI. DSPy. Hermes. Every month a new framework promises to be the one. You spend more time picking tools than building with them.
+LangChain. LangGraph. CrewAI. DSPy. Claude Code skills. OpenHands. OpenClaw. Every few months the next framework drops and you migrate again.
 
-And it's not just frameworks. Papers, APIs, best practices — everything refreshes daily. Your note app has 500 entries. Last organized: three months ago, maybe longer. Those carefully written notes? They're rotting. That API from three weeks back? Version changed. **Nothing is checking for you.**
-
-Your AI doesn't remember last week's decisions either. Every new conversation, back to zero.
+Your notes rot too. The API you read three weeks back has changed. The doc you wrote last year is wrong now. Your AI does not even remember last week's decisions. Every new conversation starts from zero.
 
 <br>
 
-Now imagine you just talk. No organizing, no comparing frameworks, no re-explaining your project. Six months later your AI is sharper than anyone's — it devoured the latest work in your field on its own, found its own blind spots, threw out what stopped being true, and rewrote its own operating rules when they weren't good enough.
+Now imagine one living substrate. It ingests the frameworks, the papers, the APIs, the codebases, the datasets, the decisions, the frictions. It keeps them connected in a graph the agent actually reads. It catches its own drift. It reshapes itself when your work outgrows its old form. For six months. For six years. No migration.
 
 <h3 align="center">This is Myco.</h3>
 
@@ -41,29 +39,31 @@ Now imagine you just talk. No organizing, no comparing frameworks, no re-explain
 
 ## What it is
 
-Imagine an AI that never forgets what you taught it. That devours every paper, every decision, every "I was wrong about that" you throw at it. That notices when its own understanding has gone stale and repairs itself. That connects today's idea to a half-forgotten note from three months back so you don't have to.
+Myco is a living cognitive substrate for your AI agent. **Not a framework. A substrate that ingests frameworks.**
 
-That's Myco.
+Myco devours code repositories, framework documentation, datasets, papers, chat logs, decisions, and frictions. Anything the agent can point at becomes raw material. It digests the material, links it into a mycelium graph, immune-checks against drift, and propagates knowledge across projects. When the work changes shape, Myco changes with it: the agent proposes (craft), you approve, the kernel bumps. New canon fields, new lint dimensions, new verbs, new subsystems. Even a complete internal rewrite stays a `myco` release, not a new dependency. The underlying substrate is never thrown away.
 
-Myco is a **living cognitive substrate for your AI agent** — a second half the agent feeds, digests, defends, and grows alongside you. Not a memory database, not an agent runtime, not a skill framework. It lives next to the agent and turns it into a partner that remembers.
+**You never migrate again.**
 
-### Five principles it rests on
+This works now, not because the idea is new, but because agents are finally intelligent enough to maintain the system themselves. Earlier attempts died because humans could not keep up. Myco bakes the assumption "the maintainer is an agent" into every surface and every verb.
 
-- **Only for the agent.** You don't browse Myco. You talk to the agent; the agent reads Myco. Every surface — `_canon.yaml`, notes, doctrine pages, the boot brief — is primary material for the agent, not documentation for a reader.
-- **Devour everything.** No filter on intake. Decisions, frictions, papers, logs, half-formed hunches — whatever shows up is captured raw. Shape comes later. The cost of missing a signal is always higher than the cost of eating too much.
-- **Self-evolving shape.** Canon schema, lint dimensions, the contract itself — all mutable, first-class. A frozen substrate is a dead one. Evolution goes through governance (craft → PR → bump), never through drift.
-- **Nothing is final.** `integrated` is a state, not an endpoint. A note digested today can be re-digested tomorrow when context sharpens. Reflection is a heartbeat, not a chore.
-- **Mycelium network.** Every note, canon field, doctrine page links to every other by traversal. Orphans are dead tissue. The graph is how the agent reads — so the graph has to stay alive.
+### Five principles
 
-### Three roles, working together
+- **Only for the agent.** You do not browse Myco. You talk to the agent. The agent reads Myco. Every surface (`_canon.yaml`, notes, doctrine pages, the boot brief) is primary material for the agent, not documentation for a reader.
+- **Devour everything.** No filter on intake. Code repositories, frameworks, papers, datasets, logs, half-formed hunches, raw decisions. Whatever the agent can point at, the substrate eats. Shape comes later. The cost of missing a signal is always higher than the cost of eating too much.
+- **Self-evolving shape.** Canon schema, lint dimensions, verbs, the contract itself, all mutable. When the work outgrows the current shape, the agent proposes, you approve, Myco reshapes. A frozen substrate is a dead substrate.
+- **Nothing is final.** `integrated` is a state, not an endpoint. A note digested today gets re-digested tomorrow as context sharpens. Reflection is a heartbeat.
+- **Mycelium network.** Every note, canon field, and doctrine page links to every other by traversal. Orphans are dead tissue. The graph is how the agent reads, so the graph stays alive.
 
-**You** — set direction. Say what to do. Never memorize a CLI, never organize files, never re-explain your project.
+### Three roles
 
-**The agent** — brings intelligence. Reads your words, reads Myco, picks verbs, writes back.
+**You** set direction. You never memorize a CLI, organize files, or explain your project twice.
 
-**Myco** — runs a metabolism. Between turns it **hungers** (what's missing?), **eats** (raw in), **reflects / digests / distills** (raw → structured → doctrine), keeps an **immune** system against drift, and **propagates** learning across projects. Twelve verbs, one manifest, two surfaces: CLI for observation, MCP for the agent to drive.
+**The agent** brings intelligence. It reads your words, reads Myco, picks verbs, writes back.
 
-> **Stable kernel, mutable substrate.** `pip install` locks the kernel at a released version; the substrate (`_canon.yaml`, `notes/`, `docs/primordia/`) evolves through the twelve MCP verbs. Kernel evolution is upstream governance.
+**Myco** runs a metabolism. Between your turns it asks what is missing (`hunger`), takes in raw material (`eat`), cooks raw into structured knowledge (`reflect`, `digest`, `distill`), defends its identity against drift (`immune`), and propagates learning across projects (`propagate`). Twelve verbs, one manifest, two surfaces: a CLI for observation, an MCP server for the agent to drive.
+
+> **Stable kernel, mutable substrate.** `pip install` locks the kernel at a released version. The substrate (`_canon.yaml`, `notes/`, `docs/primordia/`) evolves daily through the twelve MCP verbs. The kernel itself evolves across versions, proposed by the agent through craft, approved by you, never by drift.
 
 ## Quick Start
 
@@ -75,30 +75,30 @@ myco genesis . --substrate-id my-project
 
 Three scripts land on your PATH:
 
-- `myco` — the 12-verb CLI.
-- `mcp-server-myco` — the universal MCP stdio launcher. Drop it into any host.
-- `myco-install` — one-command install into any of seven MCP hosts.
+- `myco`: the twelve-verb CLI.
+- `mcp-server-myco`: the universal MCP stdio launcher. Drop it into any host.
+- `myco-install`: one-command install into any of seven MCP hosts.
 
-For **Claude Code / Cowork** — the official plugin wires MCP + hooks + slash skills in one step:
+For **Claude Code and Cowork**, the official plugin wires the MCP server, hooks, and slash skills in one step:
 
 ```
 /plugin marketplace add Battam1111/Myco
 /plugin install myco@myco
 ```
 
-For **every other MCP host** — one helper writes the correct config for you:
+For **every other MCP host**, one helper writes the correct config for you:
 
 ```bash
-myco-install cursor        # or: claude-desktop / windsurf / zed / vscode / openclaw
+myco-install cursor        # or: claude-desktop, windsurf, zed, vscode, openclaw
 ```
 
-Or paste the universal snippet into the host's config — works across the `mcpServers` family (Claude Desktop, Cursor, Windsurf, Cline, Roo Code, Gemini CLI, Qwen Code, JetBrains AI, Augment Code, AiderDesk):
+Or paste the universal snippet into the host's config. It works across the `mcpServers` family (Claude Desktop, Cursor, Windsurf, Cline, Roo Code, Gemini CLI, Qwen Code, JetBrains AI, Augment Code, AiderDesk):
 
 ```json
 { "mcpServers": { "myco": { "command": "mcp-server-myco", "args": [] } } }
 ```
 
-The eight hosts with different schemas — VS Code Copilot (`servers`), Zed (`context_servers`), OpenClaw (`mcp.servers` + CLI), OpenHands (TOML), OpenCode / Kilo Code (`mcp`), Codex CLI (TOML), Goose (YAML `extensions`), Continue (YAML block), Warp (`mcp_servers`) — each get their own exact snippet in [`docs/INSTALL.md`](docs/INSTALL.md), along with Python-framework adapters (LangChain · CrewAI · DSPy · Smolagents · Agno · PraisonAI · Microsoft Agent Framework · Claude Agent SDK).
+The nine hosts with divergent schemas (VS Code Copilot `servers`, Zed `context_servers`, OpenClaw `mcp.servers` + CLI, OpenHands TOML, OpenCode and Kilo Code `mcp`, Codex CLI TOML, Goose YAML `extensions`, Continue YAML block, Warp `mcp_servers`) each get their own exact snippet in [`docs/INSTALL.md`](docs/INSTALL.md), along with Python-framework adapters for LangChain, CrewAI, DSPy, Smolagents, Agno, PraisonAI, Microsoft Agent Framework, and Claude Agent SDK.
 
 For library embedding:
 
@@ -117,18 +117,18 @@ pip install -e '.[dev,mcp]'
 
 ## Daily Flow
 
-Your agent drives it; you don't memorize anything. The 12 verbs group into 5 subsystems:
+The agent drives it. You memorize nothing. Twelve verbs group into five subsystems:
 
 | Subsystem | Verbs | What happens |
 |---|---|---|
 | **Genesis** | `genesis` | Bootstrap a fresh substrate. |
-| **Ingestion** | `hunger` · `sense` · `forage` · `eat` | What the substrate needs; keyword search; list ingestibles; capture a raw note. |
-| **Digestion** | `reflect` · `digest` · `distill` | Promote raw → integrated; distill integrated → doctrine. |
-| **Circulation** | `perfuse` · `propagate` | Graph health; publish to downstream substrates. |
-| **Homeostasis** | `immune` | Eight-dimension lint across 4 categories (`--fix` available). |
-| *(meta)* | `session-end` | `reflect` + `immune --fix`; auto-fired by PreCompact. |
+| **Ingestion** | `hunger`, `sense`, `forage`, `eat` | What the substrate needs; keyword search; list ingestibles; capture a raw note. |
+| **Digestion** | `reflect`, `digest`, `distill` | Promote raw to integrated; distill integrated to doctrine. |
+| **Circulation** | `perfuse`, `propagate` | Graph health; publish to downstream substrates. |
+| **Homeostasis** | `immune` | Eight-dimension lint across four categories, with `--fix` available. |
+| *(meta)* | `session-end` | `reflect` plus `immune --fix`, auto-fired by PreCompact. |
 
-CLI: `myco VERB` — global flags (`--project-dir`, `--json`, `--exit-on`) go **before** the verb. MCP: one tool per verb, derived mechanically from `src/myco/surface/manifest.yaml` (the shared SSoT).
+CLI usage is `myco VERB`, with global flags (`--project-dir`, `--json`, `--exit-on`) placed **before** the verb. MCP exposes one tool per verb, derived mechanically from `src/myco/surface/manifest.yaml`, the shared source of truth.
 
 ## Architecture
 
@@ -142,23 +142,23 @@ You ──▶ Agent ──▶ Myco substrate
                     └── .claude/hooks/     SessionStart → hunger · PreCompact → session-end
 ```
 
-Seven hard rules (R1–R7) enforced partly by hooks, partly by the immune system, partly by agent discipline. Full contract: [`L1_CONTRACT/protocol.md`](docs/architecture/L1_CONTRACT/protocol.md).
+Seven hard rules (R1 through R7) are enforced partly by hooks, partly by the immune system, partly by agent discipline. Full contract at [`L1_CONTRACT/protocol.md`](docs/architecture/L1_CONTRACT/protocol.md).
 
-## Cross-platform enforcement — no host left behind
+## Cross-platform enforcement: no host left behind
 
-R1–R7 are hook-enforced inside Claude Code / Cowork. Everywhere else — Cursor, Windsurf, Zed, Codex, Gemini, Continue, Claude Desktop, OpenClaw, OpenHands — they ride **inside the MCP server itself**:
+R1 through R7 are hook-enforced inside Claude Code and Cowork. Everywhere else (Cursor, Windsurf, Zed, Codex, Gemini, Continue, Claude Desktop, OpenClaw, OpenHands) they ride **inside the MCP server itself**:
 
-- **Initialization instructions.** On `initialize`, every host receives a short R1–R7 summary linking to [`L1_CONTRACT/protocol.md`](docs/architecture/L1_CONTRACT/protocol.md). Agents that read instructions see the contract before the first tool call.
-- **`substrate_pulse` sidecar.** Every tool response includes a `substrate_pulse` field carrying the current `contract_version`, `substrate_id`, and a rule hint that escalates from R1 (hunger not called) to R3 (sense before assert) once boot is confirmed. The sidecar is a server-side push — agents cannot accidentally forget the contract.
+- **Initialization instructions.** On `initialize`, every host receives a short R1 through R7 summary linking to [`L1_CONTRACT/protocol.md`](docs/architecture/L1_CONTRACT/protocol.md). Agents that read instructions see the contract before the first tool call.
+- **`substrate_pulse` sidecar.** Every tool response includes a `substrate_pulse` field carrying the current `contract_version`, `substrate_id`, and a rule hint that escalates from R1 (hunger not called) to R3 (sense before assert) once boot is confirmed. The sidecar is a server-side push. Agents cannot accidentally forget the contract.
 
 Zero host-side configuration. Works on every MCP client.
 
 ## Integrations
 
-- **Claude Code / Cowork** — `/plugin marketplace add Battam1111/Myco` → `/plugin install myco@myco`. Or drop `.claude/` in by hand.
-- **Any MCP host** — `myco-install <client>` for the seven most common hosts, `mcp-server-myco` stdio anywhere else. Exact per-host snippets in [`docs/INSTALL.md`](docs/INSTALL.md).
-- **Python agent frameworks** — LangChain · CrewAI · DSPy · Smolagents · Agno · PraisonAI · Microsoft Agent Framework · Claude Agent SDK all consume Myco via `StdioServerParameters(command="mcp-server-myco")`.
-- **Downstream substrates** — `myco propagate` publishes; adapters live in `myco.symbionts`.
+- **Claude Code and Cowork**: `/plugin marketplace add Battam1111/Myco`, then `/plugin install myco@myco`. Or drop `.claude/` in by hand.
+- **Any MCP host**: `myco-install <client>` for the seven most common hosts, `mcp-server-myco` over stdio anywhere else. Exact per-host snippets live in [`docs/INSTALL.md`](docs/INSTALL.md).
+- **Python agent frameworks**: LangChain, CrewAI, DSPy, Smolagents, Agno, PraisonAI, Microsoft Agent Framework, and Claude Agent SDK all consume Myco via `StdioServerParameters(command="mcp-server-myco")`.
+- **Downstream substrates**: `myco propagate` publishes; adapters live in `myco.symbionts`.
 
 ## Learn more
 
