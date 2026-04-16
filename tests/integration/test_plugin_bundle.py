@@ -98,11 +98,10 @@ def test_marketplace_lists_exactly_one_plugin_at_repo_root() -> None:
 
 
 def test_mcp_config_points_at_myco_mcp_launcher() -> None:
-    """The plugin's .mcp.json must invoke the mcp-server-myco console
-    script rather than `python -m myco.mcp`. Rationale: MCP clients
-    spawn their servers in whatever PATH they inherit, not the venv
-    where the user `pip install`ed myco. `python` vs `python3`
-    aliasing differs across OS/distro; the console script is stable.
+    """The repo-root .mcp.json uses the bare mcp-server-myco console
+    script (for Claude Code terminal use where PATH is inherited).
+    GUI apps should use myco-install which writes the absolute Python
+    path instead.
     """
     data = _load(MCP_CONFIG)
     servers = data["mcpServers"]
