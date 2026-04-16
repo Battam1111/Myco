@@ -16,6 +16,7 @@ import pytest
 from myco.install.clients import (
     CLIENTS,
     MCP_COMMAND,
+    MCP_ARGS,
     MycoInstallError,
     dispatch,
 )
@@ -57,16 +58,18 @@ def test_dispatch_rejects_unknown_client(tmp_path: Path) -> None:
 def test_install_creates_or_updates_file_for_json_clients(
     client: str, tmp_path: Path
 ) -> None:
-    """Every JSON-schema client should produce a JSON file containing
-    the myco command. Shape varies (key name, entry fields) but the
-    command string is invariant.
+    """Every JSON-schema client should produce a JSON file that uses
+    the absolute-python-path form (sys.executable + -m myco.mcp)
+    so GUI apps that don't inherit PATH can find the server.
     """
     _install(client, tmp_path)
-    # Walk tmp to find the produced JSON file
     produced = list(tmp_path.rglob("*.json"))
     assert produced, f"{client} did not create any JSON file under {tmp_path}"
     text = produced[0].read_text(encoding="utf-8")
-    assert MCP_COMMAND in text, (client, produced[0], text)
+    # The command should contain "python" (the absolute interpreter path)
+    # and the args should contain "-m" and "myco.mcp"
+    assert "myco.mcp" in text, (client, produced[0], text)
+    assert "-m" in text, (client, produced[0], text)
 
 
 # ---------------------------------------------------------------------------
@@ -185,4 +188,6 @@ def test_openclaw_invokes_cli_on_real_install(tmp_path: Path) -> None:
     called_cmd = runner.call_args[0][0]
     assert called_cmd[:4] == ["openclaw", "mcp", "set", "myco"]
     payload = json.loads(called_cmd[4])
-    assert payload["command"] == MCP_COMMAND
+    # OpenClaw gets the absolute-path form too
+    assert "python" in payload["command"].lower()
+    assert payload["args"] == MCP_ARGS

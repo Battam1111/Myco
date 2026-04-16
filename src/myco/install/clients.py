@@ -26,8 +26,19 @@ class MycoInstallError(Exception):
     """
 
 
-MCP_COMMAND = "mcp-server-myco"
-MCP_ARGS: list[str] = []
+# GUI MCP hosts (Claude Desktop, Cursor, Windsurf, Zed) do NOT
+# inherit the user's shell PATH. Bare "mcp-server-myco" → ENOENT.
+# Fix: use the absolute Python executable path that has myco installed
+# plus "-m myco.mcp". This is the MCP-docs-recommended pattern for
+# Python servers and guarantees the right interpreter finds the
+# right package regardless of PATH or venv state.
+#
+# Terminal hosts (Claude Code, Codex CLI, Gemini CLI) DO inherit PATH,
+# so the bare console script works there. The .mcp.json at repo root
+# still uses "mcp-server-myco" for that reason. But myco-install
+# targets GUI-heavy users, so we default to the robust absolute form.
+MCP_COMMAND = sys.executable  # e.g. "/usr/bin/python3" or "C:\Python313\python.exe"
+MCP_ARGS: list[str] = ["-m", "myco.mcp"]
 
 
 # ---------------------------------------------------------------------------

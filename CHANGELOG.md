@@ -18,6 +18,25 @@ Versioning: [SemVer](https://semver.org/).
 
 ---
 
+## [0.4.3] — 2026-04-16
+
+Hotfix for the most common MCP install failure: `spawn ENOENT`.
+
+### Fixed
+
+- **`myco-install` now writes the absolute Python interpreter path**
+  (`sys.executable` plus `-m myco.mcp`) instead of the bare
+  `mcp-server-myco` console script. GUI MCP hosts (Claude Desktop,
+  Cursor, Windsurf) do not inherit the user's shell PATH, so the
+  console script is invisible to them. The absolute-path form works
+  regardless of PATH, venv, or `python`/`python3` aliasing.
+- **`docs/INSTALL.md` adds a troubleshooting section** covering the
+  three most common MCP failures: ENOENT, missing `[mcp]` extra,
+  and "server disconnected" timeout. Manual-config users get the
+  absolute-path form alongside the bare console-script form.
+
+---
+
 ## [0.4.2] — 2026-04-16
 
 Closes the five BLOCKER gaps surfaced by the v0.4.1 post-release

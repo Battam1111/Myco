@@ -16,6 +16,13 @@ pip install 'myco[mcp]'
 myco-install <client>
 ```
 
+`myco-install` writes the **absolute Python interpreter path** plus
+`-m myco.mcp` into the host's config. This sidesteps the most
+common MCP failure: GUI apps (Claude Desktop, Cursor, Windsurf) do
+NOT inherit the shell PATH, so the bare `mcp-server-myco` console
+script is invisible to them. The absolute-path form works regardless
+of PATH, venv, or `python` vs `python3` aliasing.
+
 Supported clients (writes the correct schema, preserves any sibling
 servers, idempotent, supports `--dry-run` and `--uninstall`):
 
@@ -311,7 +318,6 @@ agent = ClaudeAgent(
 
 ## 5. Installing the MCP server itself
 
-Everything above assumes `mcp-server-myco` is on the user's PATH.
 Three install routes:
 
 ```bash
@@ -321,3 +327,54 @@ uvx mcp-server-myco         # zero-install, runs ephemerally
 ```
 
 Verify with `mcp-server-myco --help` or `myco --version`.
+
+---
+
+## 6. Troubleshooting
+
+### `spawn mcp-server-myco ENOENT` (most common)
+
+**GUI apps (Claude Desktop, Cursor, Windsurf) do NOT inherit your
+shell PATH.** The `mcp-server-myco` console script might be in
+`~/.local/bin` or `C:\Users\...\Python313\Scripts`, but GUI apps
+don't see those directories.
+
+**Fix**: use `myco-install <client>` which writes the absolute
+Python interpreter path into the config. If you prefer to configure
+by hand, use this form instead of the bare console-script name:
+
+```json
+{
+  "mcpServers": {
+    "myco": {
+      "command": "/absolute/path/to/python3",
+      "args": ["-m", "myco.mcp"]
+    }
+  }
+}
+```
+
+Find your absolute Python path with:
+
+```bash
+python -c "import sys; print(sys.executable)"
+```
+
+### `ModuleNotFoundError: No module named 'mcp'`
+
+You installed `myco` without the MCP extra. Reinstall:
+
+```bash
+pip install 'myco[mcp]'
+```
+
+### "Server disconnected" with no details
+
+Check the server can start manually:
+
+```bash
+python -m myco.mcp --help
+```
+
+If that fails, look at the error. Common causes: wrong Python
+version (need >=3.10), or missing `mcp` dependency.
