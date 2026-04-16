@@ -12,7 +12,13 @@ Versioning: [SemVer](https://semver.org/).
 
 ---
 
-## [Unreleased] — `0.4.2.dev`
+## [Unreleased]
+
+*(next development head, no entries yet)*
+
+---
+
+## [0.4.2] — 2026-04-16
 
 Closes the five BLOCKER gaps surfaced by the v0.4.1 post-release
 audit (docs/primordia/v0_4_1_audit_craft_2026-04-15.md). The README
