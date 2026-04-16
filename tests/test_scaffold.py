@@ -34,6 +34,7 @@ PACKAGES = [
     "myco.symbionts",
     "myco.mcp",
     "myco.install",
+    "myco.ingestion.adapters",
 ]
 
 

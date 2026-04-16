@@ -98,15 +98,45 @@ def distill_proposal(
         for p in source_paths
     ]
 
+    # Derive shared tags and a theme sentence from sources
+    all_tags: dict[str, int] = {}
+    summaries: list[str] = []
+    for path in source_paths:
+        note = parse_note(path.read_text(encoding="utf-8"))
+        for tag in note.frontmatter.get("tags", []):
+            all_tags[tag] = all_tags.get(tag, 0) + 1
+        first = (note.body.splitlines() or [""])[0].strip()
+        if first:
+            summaries.append(first)
+
+    top_tags = sorted(all_tags, key=lambda t: -all_tags[t])[:5]
+    theme_line = (
+        f"Theme: {', '.join(top_tags)}" if top_tags else "Theme: (no shared tags)"
+    )
+
     body_lines = [
         f"# Distillation proposal: {slug}",
         "",
-        "Sources:",
+        theme_line,
+        f"Sources: {len(source_paths)} integrated notes",
+        "",
+        "## Source summaries",
         "",
     ]
     for path, rel in zip(source_paths, rel_sources):
         body_lines.append(f"- `{rel}` — {_summary_line(path)}")
     body_lines.append("")
+    if summaries:
+        body_lines.append("## Synthesis seed")
+        body_lines.append("")
+        body_lines.append(
+            "The following first-line claims from the sources suggest "
+            "the doctrine page should address:"
+        )
+        body_lines.append("")
+        for s in summaries[:10]:
+            body_lines.append(f"- {s}")
+        body_lines.append("")
     body_lines.append(
         "Promote to L2 doctrine via craft (see "
         "`docs/architecture/L2_DOCTRINE/`)."
@@ -136,7 +166,8 @@ def run(args: Mapping[str, object], *, ctx: MycoContext) -> Result:
     if raw_sources is None:
         sources = None
     elif isinstance(raw_sources, (list, tuple)):
-        sources = tuple(str(s) for s in raw_sources)
+        # Fix: empty list should mean "use all integrated", not "zero sources".
+        sources = tuple(str(s) for s in raw_sources) or None
     else:
         raise UsageError("distill sources must be a list")
     path = distill_proposal(ctx=ctx, slug=slug, sources=sources)

@@ -76,15 +76,82 @@ def append_note(
 
 
 def run(args: Mapping[str, object], *, ctx: MycoContext) -> Result:
-    """Manifest handler: append a note and return a Result."""
-    content = str(args.get("content", ""))
+    """Manifest handler: append a note and return a Result.
+
+    Three intake modes (mutually exclusive):
+
+    1. ``--content "..."`` — literal string, written verbatim.
+    2. ``--path ./file-or-dir`` — dispatched through the adapter
+       registry. A single file produces one note; a directory
+       produces one note per ingestible file inside it.
+    3. ``--url https://...`` — fetched and dispatched by the URL
+       adapter (requires ``httpx`` from ``[adapters]`` extras).
+
+    The adapter populates ``source`` with the real provenance
+    (file path, URL, repo root) instead of the default ``"agent"``.
+    """
+    content = args.get("content")
+    path_arg = args.get("path")
+    url_arg = args.get("url")
+
     raw_tags = args.get("tags") or ()
     if not isinstance(raw_tags, (list, tuple)):
         raw_tags = ()
-    tags = tuple(str(t) for t in raw_tags)
+    tags = list(str(t) for t in raw_tags)
     source = str(args.get("source", "agent"))
 
-    outcome = append_note(ctx=ctx, content=content, tags=tags, source=source)
+    # --- Mode: adapter dispatch (path or url) ----------------------
+
+    if path_arg or url_arg:
+        target = str(path_arg or url_arg)
+        from myco.ingestion.adapters import find_adapter
+        adapter = find_adapter(target)
+        if adapter is None:
+            return Result(
+                exit_code=2,
+                payload={
+                    "error": (
+                        f"No adapter can handle {target!r}. "
+                        "Install 'myco[adapters]' for PDF, HTML, and "
+                        "URL support, or point at a text/code file."
+                    ),
+                },
+            )
+        results = adapter.ingest(target)
+        outcomes = []
+        for r in results:
+            merged_tags = tuple(set(tags) | set(r.tags))
+            outcome = append_note(
+                ctx=ctx,
+                content=r.body,
+                tags=merged_tags,
+                source=r.source or source,
+            )
+            outcomes.append({
+                "path": str(outcome.path),
+                "captured_at": outcome.captured_at.strftime(
+                    "%Y-%m-%dT%H:%M:%SZ"
+                ),
+                "title": r.title,
+                "source": r.source,
+            })
+        return Result(
+            exit_code=0,
+            payload={
+                "adapter": adapter.name,
+                "notes_created": len(outcomes),
+                "notes": outcomes,
+            },
+        )
+
+    # --- Mode: literal content (existing behavior) -----------------
+
+    outcome = append_note(
+        ctx=ctx,
+        content=str(content or ""),
+        tags=tuple(tags),
+        source=source,
+    )
     return Result(
         exit_code=0,
         payload={

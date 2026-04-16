@@ -12,9 +12,64 @@ Versioning: [SemVer](https://semver.org/).
 
 ---
 
-## [Unreleased]
+## [Unreleased] — `0.4.2.dev`
 
-*(next development head, no entries yet)*
+Closes the five BLOCKER gaps surfaced by the v0.4.1 post-release
+audit (docs/primordia/v0_4_1_audit_craft_2026-04-15.md). The README
+promise "devours code repositories, framework documentation,
+datasets, papers" is now mechanically honored by the code, not just
+the prose.
+
+### Added
+
+- **Ingestion adapter protocol** (Stage F.1). New
+  `src/myco/ingestion/adapters/` subpackage with an `Adapter` ABC,
+  `IngestResult` dataclass, and a global registry. Built-in adapters
+  auto-register at import time; external adapters call `register()`.
+- **Six built-in adapters** (Stage F.1):
+  - `text-file`: any UTF-8 file including `.py`, `.js`, `.ts`, `.go`,
+    `.rs`, `.rb`, `.sh`, `.c`, `.cpp`, `.java`, `.kt`, `.swift`,
+    `.lua`, `.r`, `.sql`, `.toml`, `.ini`, `.cfg`, `.xml`, `.css`,
+    `.md`, `.yaml`, `.json`, `.log`, Makefiles, Dockerfiles, and
+    60+ more extensions. Binary detection via null-byte heuristic.
+  - `code-repo`: walks a directory, delegates per file to `text-file`,
+    respects `.gitignore` if `pathspec` is installed. Capped at 500
+    files. Provenance carries `<repo>/<relative-path>`.
+  - `url`: HTTP GET via `httpx`, dispatches by Content-Type to
+    `html`/`pdf`/`json`/plain-text. Requires `[adapters]` extras.
+  - `pdf`: local `.pdf` via `pypdf`, one `IngestResult` per page
+    with page numbers. Requires `[adapters]` extras.
+  - `html`: local `.html` via `beautifulsoup4`, strips nav/footer/
+    script/style. Requires `[adapters]` extras.
+  - `tabular`: `.csv`, `.tsv`, `.json`, `.jsonl` via stdlib
+    `csv`/`json`. Produces a summary (columns, row count, preview
+    rows). No optional deps needed.
+- **`eat --path` and `eat --url`** (Stage F.1). The `eat` verb now
+  accepts `--path <file-or-dir>` or `--url <https://...>` in
+  addition to `--content`. Each dispatches through the adapter
+  registry and produces one note per `IngestResult`. Provenance is
+  automatically set from the adapter rather than defaulting to
+  `"agent"`.
+- **`[adapters]` optional-dependency target** (Stage F.1).
+  `pip install 'myco[adapters]'` pulls `httpx>=0.27`,
+  `pypdf>=4.0`, `beautifulsoup4>=4.12`. Stdlib-only adapters
+  (text-file, code-repo, tabular) work without this target.
+
+### Changed
+
+- **`forage` no longer silently drops files** (Stage F.1). The
+  hardcoded 7-extension whitelist (`_INGESTIBLE_SUFFIXES`) is
+  replaced by the adapter registry: a file is listed if any adapter
+  claims it. Unreachable files are counted in a new `skipped` field
+  in the payload so users know the listing is intentionally
+  narrowed, not silently lossy. `forage --path ./src/myco` now
+  returns 66 files (was 1 in v0.4.1).
+- **`distill` derives a synthesis seed** (Stage F.1). The stub
+  proposal now includes shared-tag theme analysis and first-line
+  claim extraction from all source notes (was: filename listing
+  only). Also fixes the empty-list CLI bug where `--sources` with
+  no arguments was coerced to `()` instead of `None`, skipping the
+  "use all integrated notes" path and raising `ContractError`.
 
 ---
 

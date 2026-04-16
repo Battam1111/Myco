@@ -25,11 +25,15 @@ def test_list_arg_has_items_schema() -> None:
     assert tool["inputSchema"]["properties"]["tags"]["items"] == {"type": "string"}
 
 
-def test_required_flags_in_required_list() -> None:
+def test_eat_has_content_path_and_url_properties() -> None:
+    """v0.4.2: content is no longer required (path/url are alternatives)."""
     m = load_manifest()
     eat = m.by_name("eat")
     tool = build_tool_spec(eat)
-    assert "content" in tool["inputSchema"]["required"]
+    props = tool["inputSchema"]["properties"]
+    assert "content" in props
+    assert "path" in props
+    assert "url" in props
 
 
 def test_bool_and_path_types_map_correctly() -> None:
