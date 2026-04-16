@@ -47,13 +47,18 @@ commands:
   - name: "eat"
     subsystem: "ingestion"
     handler: "myco.ingestion.eat:run"
-    summary: "Capture a raw note."
+    summary: "Capture a raw note from text, a file path, a directory, or a URL."
     mcp_tool: "myco_eat"
     args:
       - name: "content"
         type: "str"
-        required: true
-        help: "Note body."
+        help: "Note body (literal text). Mutually exclusive with --path/--url."
+      - name: "path"
+        type: "path"
+        help: "File or directory to ingest via the adapter registry. A dir produces one note per ingestible file."
+      - name: "url"
+        type: "str"
+        help: "URL to fetch and ingest (requires myco[adapters] extras)."
       - name: "tags"
         type: "list[str]"
         default: []
@@ -61,7 +66,7 @@ commands:
       - name: "source"
         type: "str"
         default: "agent"
-        help: "Origin tag for this note."
+        help: "Origin tag for this note (overridden by adapter provenance when using --path/--url)."
 
   - name: "sense"
     subsystem: "ingestion"

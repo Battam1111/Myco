@@ -1,4 +1,10 @@
-"""Tests for ``myco.ingestion.forage``."""
+"""Tests for ``myco.ingestion.forage``.
+
+v0.4.2 (Stage F.1) replaced the hardcoded extension whitelist with
+the adapter registry. Tests now verify that forage includes anything
+an adapter claims, reports what it skips, and no longer silently
+drops code files.
+"""
 
 from __future__ import annotations
 
@@ -15,24 +21,42 @@ def _mk_ctx(root: Path) -> MycoContext:
     return MycoContext.for_testing(root=root)
 
 
-def test_list_candidates_filters_by_suffix(tmp_path: Path) -> None:
+def test_list_candidates_includes_code_files(tmp_path: Path) -> None:
+    """Core v0.4.2 fix: .py must be listed (text-file adapter claims it)."""
     (tmp_path / "a.md").write_text("# x", encoding="utf-8")
     (tmp_path / "b.txt").write_text("x", encoding="utf-8")
-    (tmp_path / "c.bin").write_bytes(b"\x00\x01")
     (tmp_path / "d.py").write_text("print()", encoding="utf-8")
-    items = list_candidates(target_dir=tmp_path)
+    items, skipped = list_candidates(target_dir=tmp_path)
     suffixes = {it.suffix for it in items}
     assert ".md" in suffixes
     assert ".txt" in suffixes
+    assert ".py" in suffixes, (
+        ".py must be listed now that the text-file adapter handles it"
+    )
+
+
+def test_list_candidates_skips_binary_and_reports_count(tmp_path: Path) -> None:
+    (tmp_path / "a.md").write_text("# x", encoding="utf-8")
+    (tmp_path / "c.bin").write_bytes(b"\x00\x01\x02\x03" * 100)
+    items, skipped = list_candidates(target_dir=tmp_path)
+    suffixes = {it.suffix for it in items}
+    assert ".md" in suffixes
     assert ".bin" not in suffixes
-    assert ".py" not in suffixes
+    assert skipped >= 1, "binary files should be counted as skipped"
 
 
 def test_list_candidates_recurses(tmp_path: Path) -> None:
     (tmp_path / "sub").mkdir()
     (tmp_path / "sub" / "deep.md").write_text("x", encoding="utf-8")
-    items = list_candidates(target_dir=tmp_path)
+    items, _skipped = list_candidates(target_dir=tmp_path)
     assert any("deep.md" in it.path for it in items)
+
+
+def test_list_candidates_reports_adapter_name(tmp_path: Path) -> None:
+    (tmp_path / "hello.py").write_text("print('hi')", encoding="utf-8")
+    items, _ = list_candidates(target_dir=tmp_path)
+    assert items
+    assert items[0].adapter == "text-file"
 
 
 def test_list_candidates_rejects_missing_dir(tmp_path: Path) -> None:
@@ -58,6 +82,12 @@ def test_run_default_target_is_substrate_root(genesis_substrate: Path) -> None:
     assert any("_canon.yaml" in p for p in paths)
 
 
+def test_run_payload_includes_skipped_count(genesis_substrate: Path) -> None:
+    ctx = _mk_ctx(genesis_substrate)
+    result = run({}, ctx=ctx)
+    assert "skipped" in result.payload
+
+
 def test_run_with_explicit_path(tmp_path: Path, genesis_substrate: Path) -> None:
     ext = tmp_path / "external"
     ext.mkdir()
@@ -65,10 +95,4 @@ def test_run_with_explicit_path(tmp_path: Path, genesis_substrate: Path) -> None
     ctx = _mk_ctx(genesis_substrate)
     result = run({"path": str(ext)}, ctx=ctx)
     assert result.payload["target"] == str(ext.resolve())
-    assert len(result.payload["items"]) == 1
-
-
-def test_digest_on_read_not_implemented(genesis_substrate: Path) -> None:
-    ctx = _mk_ctx(genesis_substrate)
-    with pytest.raises(NotImplementedError, match="Stage B.5"):
-        run({"digest_on_read": True}, ctx=ctx)
+    assert result.payload["count"] == 1

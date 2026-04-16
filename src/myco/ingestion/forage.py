@@ -1,8 +1,10 @@
 """``myco forage`` — inspect an external directory for ingestible material.
 
-Forage is read-only by default. ``--digest-on-read`` delegates to
-Digestion (Stage B.5); B.4 raises ``NotImplementedError`` on that path
-so the flag surface is stable.
+Forage is read-only. It lists files under a target directory that at
+least one registered adapter can handle (per L0 principle 2: "no
+filter on what enters"). Files that no adapter recognizes are still
+reported in a ``skipped`` count so the user knows the listing is
+intentionally narrowed, not silently lossy.
 """
 
 from __future__ import annotations
@@ -17,13 +19,8 @@ from myco.core.errors import UsageError
 __all__ = ["ForageItem", "list_candidates", "run"]
 
 
-#: Extensions considered ingestible. Binary-ish types are skipped.
-_INGESTIBLE_SUFFIXES: frozenset[str] = frozenset(
-    {".md", ".txt", ".yaml", ".yml", ".json", ".rst", ".log"}
-)
-
 #: Cap on items listed (to avoid context bombs).
-MAX_ITEMS: int = 200
+MAX_ITEMS: int = 500
 
 
 @dataclass(frozen=True)
@@ -31,14 +28,22 @@ class ForageItem:
     path: str
     size: int
     suffix: str
+    adapter: str
 
 
 def list_candidates(
     *,
     target_dir: Path,
     max_items: int = MAX_ITEMS,
-) -> tuple[ForageItem, ...]:
-    """List ingestible files under ``target_dir`` (read-only)."""
+) -> tuple[tuple[ForageItem, ...], int]:
+    """List ingestible files under ``target_dir`` (read-only).
+
+    Returns ``(items, skipped_count)``. ``skipped_count`` is the
+    number of files no adapter claimed; reporting it prevents the
+    silent-loss bug that existed in v0.4.1.
+    """
+    from myco.ingestion.adapters import find_adapter
+
     target_dir = target_dir.resolve()
     if not target_dir.exists():
         raise UsageError(f"forage target does not exist: {target_dir}")
@@ -46,10 +51,13 @@ def list_candidates(
         raise UsageError(f"forage target is not a directory: {target_dir}")
 
     items: list[ForageItem] = []
+    skipped = 0
     for path in sorted(target_dir.rglob("*")):
         if not path.is_file():
             continue
-        if path.suffix.lower() not in _INGESTIBLE_SUFFIXES:
+        adapter = find_adapter(str(path))
+        if adapter is None:
+            skipped += 1
             continue
         try:
             size = path.stat().st_size
@@ -60,37 +68,37 @@ def list_candidates(
                 path=str(path),
                 size=size,
                 suffix=path.suffix.lower(),
+                adapter=adapter.name,
             )
         )
         if len(items) >= max_items:
             break
-    return tuple(items)
+    return tuple(items), skipped
 
 
 def run(args: Mapping[str, object], *, ctx: MycoContext) -> Result:
-    """Manifest handler: list candidates, optionally delegate to digest."""
+    """Manifest handler: list candidates."""
     raw_path = args.get("path")
     if raw_path is None:
         target = ctx.substrate.root
     else:
         target = Path(str(raw_path))
 
-    digest_on_read = bool(args.get("digest_on_read", False))
-    if digest_on_read:
-        raise NotImplementedError(
-            "--digest-on-read requires Digestion (Stage B.5), "
-            "which has not yet landed"
-        )
-
-    items = list_candidates(target_dir=target)
+    items, skipped = list_candidates(target_dir=target)
     return Result(
         exit_code=0,
         payload={
             "target": str(target.resolve()),
+            "count": len(items),
+            "skipped": skipped,
             "items": [
-                {"path": it.path, "size": it.size, "suffix": it.suffix}
+                {
+                    "path": it.path,
+                    "size": it.size,
+                    "suffix": it.suffix,
+                    "adapter": it.adapter,
+                }
                 for it in items
             ],
-            "digest_on_read": digest_on_read,
         },
     )
