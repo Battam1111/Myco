@@ -18,6 +18,85 @@ Versioning: [SemVer](https://semver.org/).
 
 ---
 
+## [0.5.2] — 2026-04-17
+
+Editable-by-default install model. Closes the architectural mismatch
+Yanjun flagged in the v0.5.1 post-release review: the "Stable kernel,
+mutable substrate" framing (introduced at v0.4.1) contradicted L0
+principles 3 and 4 (永恒进化 / 永恒迭代). A read-only `site-packages`
+install freezes the kernel code — but Myco's own source tree *is* a
+substrate, and the kernel is its innermost ring. Locking that ring
+meant the agent couldn't scaffold a new verb with a real path
+(v0.5 `scaffold` writes to `src/myco/`, read-only in the wrong
+install model), couldn't register a substrate-local lint rule
+without publishing a separate PyPI package, couldn't fix a kernel
+bug without a release.
+
+Governing craft:
+`docs/primordia/v0_5_2_editable_default_craft_2026-04-17.md`.
+
+### Added
+
+- **`myco-install fresh [TARGET]`** — the new primary install
+  path. Subcommand of `myco-install`. Clones Myco's source to
+  `TARGET` (default `~/myco`), runs `pip install -e` on it in the
+  current Python environment, verifies via `python -m myco --help`,
+  and optionally configures one or more MCP hosts in the same
+  step (`--configure claude-code cursor windsurf`). Supports
+  `--repo` (override clone source), `--branch` / `--depth` (git
+  clone options), `--extras` (e.g. `mcp,dev,adapters`), `--force`
+  (overwrite non-empty target), `--dry-run` (preview every step
+  without side effects), `--yes` (non-interactive). Refuses a
+  non-empty target unless `--force`. Requires `git` on PATH and
+  prints a clear install-git-first message if absent.
+- **`myco-install host <client>`** — explicit subcommand for the
+  existing per-host MCP config writers. Legacy
+  `myco-install <client>` (v0.4/v0.5 shape with the client as
+  first positional) still works; a CLI-level sniff auto-routes it
+  to `host <client>`.
+- **`tests/unit/install/test_fresh.py`** — 11 tests covering
+  dry-run rendering, non-empty-target refusal, unknown-client
+  rejection, `--configure` path, CLI subparser routing,
+  legacy-sniff compatibility, and git-missing error message.
+
+### Changed
+
+- **Trilingual READMEs rewritten (en / zh / ja).** The paragraph
+  *"Stable kernel, mutable substrate. `pip install` locks the
+  kernel at a released version."* is replaced with *"Editable by
+  default. The kernel IS substrate."* Quick Start section leads
+  with `pipx run --spec 'myco[mcp]' myco-install fresh ~/myco`.
+  New "Non-evolving install" subsection documents the plain
+  `pip install` path for library consumers, CI, and vendoring.
+  Line count preserved; each language pair kept in lockstep.
+- **`docs/INSTALL.md` restructured.** New section 0 ("Primary
+  path — `myco-install fresh`") with the full flag table and
+  upgrade flow (`git pull`, not `pip install --upgrade`). Existing
+  per-host matrix moved to section 1 and renamed "Per-host MCP
+  config". Table cells updated to the canonical
+  `myco-install host <client>` form; legacy short form is
+  documented as backward-compatible but no longer primary.
+- **`src/myco/install/__init__.py` restructured** to use
+  argparse subparsers (`fresh`, `host`). Entry point still
+  `myco.install:main`; `python -m myco.install` also still
+  works. No breaking change to downstream callers thanks to the
+  legacy-sniff on the first positional arg.
+- **`__version__`, `.claude-plugin/plugin.json::version`,
+  `_canon.yaml::contract_version`, `_canon.yaml::
+  synced_contract_version`** → `0.5.2` / `v0.5.2`.
+- **`docs/contract_changelog.md`** — new `## v0.5.2 — 2026-04-17
+  — Editable-by-default install model` section.
+
+### Doctrine note
+
+No L0/L1/L2 text was found that hardcoded "pip install locks the
+kernel" as a rule; the problematic phrasing was only in READMEs +
+CHANGELOG v0.4.1 entry. The CHANGELOG v0.4.1 entry is preserved
+as historical audit record; the v0.5.2 entry supersedes the
+framing going forward.
+
+---
+
 ## [0.5.1] — 2026-04-17
 
 > *(PyPI-release-metadata note: the `myco-0.5.0` wheel filename

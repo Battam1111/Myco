@@ -63,14 +63,34 @@ Myco 吞噬代码仓库、框架文档、数据集、论文、聊天记录、决
 
 **Myco** 跑代谢。你说完一句话到下一句话之间，它问缺什么（`hunger`）、吃进原料（`eat`）、把 raw 煮成结构化知识（`reflect`、`digest`、`distill`）、用免疫系统防漂移（`immune`）、跨项目扩散学到的（`propagate`）。12 个 verb、1 份 manifest、两个面：CLI 给你观察，MCP 给 Agent 自己开。
 
-> **kernel 稳定，substrate 可变。** `pip install` 把 kernel 锁在一个已发布版本。substrate（`_canon.yaml`、`notes/`、`docs/primordia/`）由 12 个 MCP verb 驱动日常演化。kernel 自身跨版本演进，靠 Agent 用 craft 提议、你批准，不靠漂移。
+> **默认可编辑安装，kernel 本身就是 substrate。** Myco 自己的源码树就是一个 substrate（有 `_canon.yaml`、`MYCO.md`、`docs/primordia/`）。`src/myco/` 下的 kernel 代码只是这个 substrate 最里层的一圈。把这一圈锁进 `site-packages` 只读，就违反了 永恒进化 + 永恒迭代——Agent 变成别人代码的消费者，而不是自己维护的代码的作者。所以主路径是 clone 源码后 `pip install -e` 装成可编辑。PyPI 还在，只作为 bootstrap 通道和纯库消费路径，不再是正常安装路径。
 
 ## 快速上手
 
+一条命令，不用预先 `git clone`，也不留任何 bootstrap 残留：
+
+```bash
+pipx run --spec 'myco[mcp]' myco-install fresh ~/myco
+```
+
+把本仓库 clone 到 `~/myco`，`pip install -e` 装成可编辑，留给你一份可写的 kernel + substrate。两步版也行：
+
 ```bash
 pip install 'myco[mcp]'
+myco-install fresh ~/myco         # clone + 可编辑安装；--dry-run 可预览
+```
+
+然后在任意项目内 bootstrap 下游 substrate：
+
+```bash
 cd /path/to/your/project
 myco genesis . --substrate-id my-project
+```
+
+以后升级 kernel 直接在 `~/myco` 里 `git pull`，不是 `pip install --upgrade`：
+
+```bash
+cd ~/myco && git pull && myco immune        # 升级后跑免疫确认没漂移
 ```
 
 三个控制台脚本进 PATH：
@@ -108,11 +128,24 @@ build_server().run()                   # stdio（默认）
 build_server().run(transport="sse")    # HTTP SSE
 ```
 
-想贡献或 fork？走 editable install：
+### 非演化安装（库消费者、CI、vendor）
+
+如果你是把 Myco 作为依赖引入到另一个 Python 项目、或者在容器里要一份故意冻结的 kernel，普通只读安装仍然可用：
 
 ```bash
-git clone https://github.com/Battam1111/Myco && cd Myco
-pip install -e '.[dev,mcp]'
+pip install 'myco[mcp]'
+```
+
+但 `myco scaffold`、Myco 自身的 kernel-level `craft`/`bump`、任何形式的 kernel 演化在这条路上都被堵死——这是设计，不是 bug。只读安装是给消费者用的，不是给作者用的。
+
+### 想贡献 Myco
+
+和主安装路径一样——`myco-install fresh` 就是贡献者路径。`--extras dev,mcp` 顺便拉测试工具：
+
+```bash
+pipx run --spec 'myco[mcp]' myco-install fresh ~/myco --extras dev,mcp
+cd ~/myco
+pytest
 ```
 
 ## 日常流程

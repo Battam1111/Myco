@@ -1,6 +1,6 @@
 {
   "name": "myco",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "description": "Agent-First symbiotic cognitive substrate. Manifest-driven CLI and MCP surface with sixteen verbs (including the v0.5 governance set: craft / bump / evolve / scaffold), boot / session-end hooks, and slash-skill entry points.",
   "author": {
     "name": "Yanjun",
