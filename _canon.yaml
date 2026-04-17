@@ -5,8 +5,8 @@
 # `_ref`-suffixed fields, not here.
 
 schema_version: "1"
-contract_version: "v0.5.3"
-synced_contract_version: "v0.5.3"
+contract_version: "v0.5.4"
+synced_contract_version: "v0.5.4"
 
 identity:
   substrate_id: "myco-self"

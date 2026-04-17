@@ -26,15 +26,26 @@ __all__ = ["HungerReport", "LocalPluginsSummary", "compose_hunger_report", "run"
 
 @dataclass(frozen=True)
 class LocalPluginsSummary:
-    """Terse view of the substrate-local plugin surface."""
+    """Terse view of the substrate-local plugin surface.
+
+    v0.5.4 added :attr:`count_by_kind` to match the v0.5.3 CHANGELOG
+    promise that the payload breaks the count down per registration
+    kind. The flat ``count`` is retained for backward compatibility.
+    """
 
     count: int
     errors: tuple[str, ...]
     overlay_verbs: tuple[str, ...]
+    #: Per-kind breakdown. Keys: ``"dimension"``, ``"adapter"``,
+    #: ``"schema_upgrader"``, ``"overlay_verb"``. Missing keys default
+    #: to 0 when any kind is absent. Added at v0.5.4 to align the
+    #: hunger payload with the v0.5.3 release-notes promise.
+    count_by_kind: Mapping[str, int] = field(default_factory=dict)
 
     def as_dict(self) -> dict[str, object]:
         return {
             "count": self.count,
+            "count_by_kind": dict(self.count_by_kind),
             "errors": list(self.errors),
             "overlay_verbs": list(self.overlay_verbs),
         }
@@ -76,25 +87,31 @@ def _summarize_local_plugins(ctx: MycoContext) -> LocalPluginsSummary:
     """
     errors = tuple(ctx.substrate.local_plugin_errors)
 
-    # Count registered items; mirror graft._collect_plugins but don't
-    # pull that module in to avoid a cycle of hunger → graft → ctx.
-    count = 0
+    # Count registered items per kind; mirror graft._collect_plugins
+    # without importing that module to avoid a cycle of hunger → graft
+    # → ctx. v0.5.4 changed `count` from a bare int to an int +
+    # `count_by_kind` dict so the agent sees what's registered without
+    # a second verb call.
+    by_kind: dict[str, int] = {
+        "dimension": 0, "adapter": 0,
+        "schema_upgrader": 0, "overlay_verb": 0,
+    }
     try:
         from myco.homeostasis.registry import default_registry as _reg
 
-        count += len(_reg().all())
+        by_kind["dimension"] = len(_reg().all())
     except Exception:  # noqa: BLE001
         pass
     try:
         from myco.ingestion.adapters import all_adapters
 
-        count += len(list(all_adapters()))
+        by_kind["adapter"] = len(list(all_adapters()))
     except Exception:  # noqa: BLE001
         pass
     try:
         from myco.core.canon import schema_upgraders
 
-        count += len(schema_upgraders)
+        by_kind["schema_upgrader"] = len(schema_upgraders)
     except Exception:  # noqa: BLE001
         pass
 
@@ -105,12 +122,16 @@ def _summarize_local_plugins(ctx: MycoContext) -> LocalPluginsSummary:
         overlay_verbs = tuple(
             c.name for c in merged.commands if c.name not in base_names
         )
-        count += len(overlay_verbs)
+        by_kind["overlay_verb"] = len(overlay_verbs)
     except Exception as exc:  # noqa: BLE001
         errors = errors + (f"manifest overlay parse failed: {exc}",)
 
+    count = sum(by_kind.values())
     return LocalPluginsSummary(
-        count=count, errors=errors, overlay_verbs=overlay_verbs
+        count=count,
+        errors=errors,
+        overlay_verbs=overlay_verbs,
+        count_by_kind=dict(by_kind),
     )
 
 

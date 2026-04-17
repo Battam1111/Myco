@@ -39,8 +39,13 @@ def _add_arg(subparser: argparse.ArgumentParser, arg: ArgSpec) -> None:
             help=arg.help,
         )
     elif arg.type == "list[str]":
+        # v0.5.3-fix: ``nargs="*"`` + ``action="extend"`` lets users
+        # write either ``--tags a b c`` (natural) or ``--tags a
+        # --tags b --tags c`` (explicit). Before: only the repeated
+        # form worked; the natural form errored with "unrecognized
+        # arguments". See dogfood bug #3.
         subparser.add_argument(
-            flag, action="append", default=None, help=arg.help,
+            flag, nargs="*", action="extend", default=None, help=arg.help,
         )
     elif arg.type == "int":
         subparser.add_argument(
@@ -74,6 +79,15 @@ def build_parser(manifest: Manifest | None = None) -> argparse.ArgumentParser:
         prog="myco",
         description=f"Myco v{_mv} — agent-first symbiotic substrate.",
     )
+    # v0.5.3-fix: ``--version`` / ``-V`` prints the package version
+    # and exits 0, matching standard CLI convention. Before: no
+    # --version flag existed so ``myco --version`` errored with
+    # "VERB required". See dogfood bug #1.
+    parser.add_argument(
+        "--version", "-V",
+        action="version",
+        version=f"myco {_mv}",
+    )
     parser.add_argument(
         "--project-dir", type=Path, default=None,
         help="Override substrate discovery start directory.",
@@ -86,7 +100,13 @@ def build_parser(manifest: Manifest | None = None) -> argparse.ArgumentParser:
         "--json", action="store_true",
         help="Emit structured JSON instead of human-readable text.",
     )
-    subparsers = parser.add_subparsers(dest="verb", metavar="VERB")
+    # Use a private-looking dest name so the subparser's stored verb
+    # identifier never collides with a manifest arg named ``verb``
+    # (e.g. ``ramify --verb <name>``). Before v0.5.3-fix this collision
+    # silently overwrote the subcommand with the inner --verb default,
+    # making ``myco ramify --dimension ...`` fail with "unknown
+    # command: None". See dogfood bug #6.
+    subparsers = parser.add_subparsers(dest="_subcmd", metavar="VERB")
     subparsers.required = True
     for spec in m.commands:
         # Canonical subparser.
@@ -127,7 +147,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     manifest = load_manifest()
     parser = build_parser(manifest)
     ns = parser.parse_args(argv)
-    spec = manifest.by_name(ns.verb)
+    subcmd = getattr(ns, "_subcmd", None)
+    if not subcmd:
+        parser.print_help(sys.stderr)
+        return 2
+    spec = manifest.by_name(subcmd)
 
     raw_args = _extract_args(spec, ns)
     # Forward --exit-on to immune / session-end if they accept it.
@@ -148,8 +172,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 130
 
     if ns.json:
+        # v0.5.4-fix: findings list is now surfaced in the JSON output
+        # so the Agent sees WHY an exit was nonzero (which dimension
+        # fired at what severity on which path) without a follow-up
+        # verb call. Empty list when the handler produced no findings.
         out = {
             "exit_code": result.exit_code,
+            "findings": [_finding_to_dict(f) for f in result.findings],
             "payload": _jsonable(result.payload),
         }
         print(json.dumps(out, default=str, indent=2))
@@ -166,6 +195,33 @@ def _jsonable(obj: Any) -> Any:
     if isinstance(obj, Path):
         return str(obj)
     return obj
+
+
+def _finding_to_dict(finding: Any) -> dict[str, Any]:
+    """Serialize a :class:`myco.homeostasis.finding.Finding` (or a dict
+    shaped like one) for the ``--json`` output. Kept tolerant of non-
+    Finding values so handlers that return free-form finding-like
+    mappings still render."""
+    if isinstance(finding, Mapping):
+        return {str(k): _jsonable(v) for k, v in finding.items()}
+    # Finding dataclass has `dimension_id`, `category`, `severity`,
+    # `message`, `path`, `line`, `fixable` — all attributes.
+    out: dict[str, Any] = {}
+    for attr in (
+        "dimension_id", "category", "severity",
+        "message", "path", "line", "fixable",
+    ):
+        if hasattr(finding, attr):
+            val = getattr(finding, attr)
+            # Category/Severity are enums; render as their lowercase
+            # label (matches the --list payload shape).
+            if hasattr(val, "value") and isinstance(val.value, str):
+                out[attr] = val.value
+            elif hasattr(val, "label") and callable(val.label):
+                out[attr] = val.label()
+            else:
+                out[attr] = _jsonable(val)
+    return out
 
 
 if __name__ == "__main__":  # pragma: no cover
