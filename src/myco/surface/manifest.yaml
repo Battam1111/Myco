@@ -1,16 +1,25 @@
-# Myco v0.4.0 command manifest — SSoT for CLI + MCP verb surface.
+# Myco v0.5.3 command manifest — SSoT for CLI + MCP verb surface.
 #
 # Governing doc: docs/architecture/L3_IMPLEMENTATION/command_manifest.md
+# Governing craft: docs/primordia/v0_5_3_fungal_vocabulary_craft_2026-04-17.md
+#
 # Every verb appears here exactly once. CLI and MCP both read this file.
+#
+# v0.5.3 renamed 9 verbs to fungal-bionic canonical names. Every old
+# name is retained as an alias (CLI + MCP); invoking an alias fires a
+# one-shot DeprecationWarning. Aliases are scheduled to be removed at
+# v1.0.0, giving the entire 0.x tail full backward compatibility.
 schema_version: "1"
 
 commands:
-  - name: "genesis"
-    subsystem: "genesis"
-    handler: "myco.genesis.genesis:run_cli"
-    summary: "Bootstrap a fresh Myco substrate in project-dir."
-    mcp_tool: "myco_genesis"
+  - name: "germinate"
+    subsystem: "germination"
+    handler: "myco.germination.germinate:run_cli"
+    summary: "Germinate a fresh Myco substrate in project-dir."
+    mcp_tool: "myco_germinate"
     pre_substrate: true
+    aliases: ["genesis"]
+    mcp_tool_aliases: ["myco_genesis"]
     args:
       - name: "project-dir"
         type: "path"
@@ -90,11 +99,13 @@ commands:
         default: null
         help: "Directory to scan (defaults to substrate root)."
 
-  - name: "reflect"
+  - name: "assimilate"
     subsystem: "digestion"
-    handler: "myco.digestion.reflect:run"
-    summary: "Bulk-promote raw notes to integrated."
-    mcp_tool: "myco_reflect"
+    handler: "myco.digestion.assimilate:run"
+    summary: "Assimilate raw notes into integrated (bulk-promote)."
+    mcp_tool: "myco_assimilate"
+    aliases: ["reflect"]
+    mcp_tool_aliases: ["myco_reflect"]
     args:
       - name: "note-id"
         type: "str"
@@ -116,11 +127,13 @@ commands:
         default: false
         help: "Preview without moving the file."
 
-  - name: "distill"
+  - name: "sporulate"
     subsystem: "digestion"
-    handler: "myco.digestion.distill:run"
-    summary: "Author a distillation proposal for integrated notes."
-    mcp_tool: "myco_distill"
+    handler: "myco.digestion.sporulate:run"
+    summary: "Sporulate a distillation proposal from integrated notes."
+    mcp_tool: "myco_sporulate"
+    aliases: ["distill"]
+    mcp_tool_aliases: ["myco_distill"]
     args:
       - name: "slug"
         type: "str"
@@ -131,11 +144,13 @@ commands:
         default: []
         help: "Optional explicit source note paths."
 
-  - name: "perfuse"
+  - name: "traverse"
     subsystem: "circulation"
-    handler: "myco.circulation.perfuse:run"
-    summary: "Report cross-reference graph health."
-    mcp_tool: "myco_perfuse"
+    handler: "myco.circulation.traverse:run"
+    summary: "Walk the mycelial graph to report anastomotic health."
+    mcp_tool: "myco_traverse"
+    aliases: ["perfuse"]
+    mcp_tool_aliases: ["myco_perfuse"]
     args:
       - name: "scope"
         type: "str"
@@ -145,7 +160,7 @@ commands:
   - name: "propagate"
     subsystem: "circulation"
     handler: "myco.circulation.propagate:run"
-    summary: "Publish integrated/distilled notes to a downstream substrate."
+    summary: "Propagate integrated/distilled notes to a downstream substrate."
     mcp_tool: "myco_propagate"
     args:
       - name: "dst"
@@ -188,18 +203,22 @@ commands:
         default: null
         help: "Print the prose description for a single dimension id."
 
-  - name: "session-end"
-    subsystem: "meta"
-    handler: "myco.meta.session_end:run"
-    summary: "Run reflect and then immune --fix (session wrap-up)."
-    mcp_tool: "myco_session_end"
+  - name: "senesce"
+    subsystem: "cycle"
+    handler: "myco.cycle.senesce:run"
+    summary: "Senesce the session: assimilate + immune --fix before compaction."
+    mcp_tool: "myco_senesce"
+    aliases: ["session-end"]
+    mcp_tool_aliases: ["myco_session_end"]
     args: []
 
-  - name: "craft"
-    subsystem: "meta"
-    handler: "myco.meta.craft:run"
-    summary: "Scaffold a new three-round primordia doc under docs/primordia/."
-    mcp_tool: "myco_craft"
+  - name: "fruit"
+    subsystem: "cycle"
+    handler: "myco.cycle.fruit:run"
+    summary: "Fruit a new three-round primordia doc under docs/primordia/."
+    mcp_tool: "myco_fruit"
+    aliases: ["craft"]
+    mcp_tool_aliases: ["myco_craft"]
     args:
       - name: "topic"
         type: "str"
@@ -214,16 +233,18 @@ commands:
         default: null
         help: "Override the date stamp (YYYY-MM-DD); defaults to today."
 
-  - name: "bump"
-    subsystem: "meta"
-    handler: "myco.meta.bump:run"
-    summary: "Bump canon contract_version and append a contract_changelog entry."
-    mcp_tool: "myco_bump"
+  - name: "molt"
+    subsystem: "cycle"
+    handler: "myco.cycle.molt:run"
+    summary: "Molt the contract version: bump _canon.yaml + append contract_changelog entry."
+    mcp_tool: "myco_molt"
+    aliases: ["bump"]
+    mcp_tool_aliases: ["myco_bump"]
     args:
       - name: "contract"
         type: "str"
         required: true
-        help: "New contract version (e.g. 'v0.5.0')."
+        help: "New contract version (e.g. 'v0.5.3')."
       - name: "dry-run"
         type: "bool"
         default: false
@@ -233,28 +254,75 @@ commands:
         default: null
         help: "Override the date stamp (YYYY-MM-DD); defaults to today."
 
-  - name: "evolve"
-    subsystem: "meta"
-    handler: "myco.meta.evolve:run"
-    summary: "Validate a proposal document's shape against craft-protocol gates."
-    mcp_tool: "myco_evolve"
+  - name: "winnow"
+    subsystem: "cycle"
+    handler: "myco.cycle.winnow:run"
+    summary: "Winnow a proposal document's shape against craft-protocol gates."
+    mcp_tool: "myco_winnow"
+    aliases: ["evolve"]
+    mcp_tool_aliases: ["myco_evolve"]
     args:
       - name: "proposal"
         type: "path"
         required: true
         help: "Path to the proposal markdown (relative to substrate root or absolute)."
 
-  - name: "scaffold"
-    subsystem: "meta"
-    handler: "myco.meta.scaffold:run"
-    summary: "Generate a handler stub from a manifest-declared verb."
-    mcp_tool: "myco_scaffold"
+  - name: "ramify"
+    subsystem: "cycle"
+    handler: "myco.cycle.ramify:run"
+    summary: "Ramify: scaffold a new verb / dimension / adapter (kernel or substrate-local)."
+    mcp_tool: "myco_ramify"
+    aliases: ["scaffold"]
+    mcp_tool_aliases: ["myco_scaffold"]
     args:
       - name: "verb"
         type: "str"
-        required: true
+        default: null
         help: "Manifest verb name whose handler stub to generate."
+      - name: "dimension"
+        type: "str"
+        default: null
+        help: "Lint dimension id to scaffold (e.g. 'LOCAL1'). Requires --category and --severity."
+      - name: "category"
+        type: "str"
+        default: null
+        help: "Dimension category (mechanical/shipped/metabolic/semantic). Used with --dimension."
+      - name: "severity"
+        type: "str"
+        default: null
+        help: "Dimension default severity (low/medium/high/critical). Used with --dimension."
+      - name: "adapter"
+        type: "str"
+        default: null
+        help: "Adapter name to scaffold (e.g. 'jira'). Requires --extensions."
+      - name: "extensions"
+        type: "list[str]"
+        default: []
+        help: "File extensions the adapter handles (e.g. .jira .json). Used with --adapter."
+      - name: "substrate-local"
+        type: "bool"
+        default: false
+        help: "Write under <substrate>/.myco/plugins/ instead of src/myco/. Auto-on when substrate != myco-self."
       - name: "force"
         type: "bool"
         default: false
-        help: "Overwrite an existing handler file (default: refuse)."
+        help: "Overwrite an existing file (default: refuse)."
+
+  - name: "graft"
+    subsystem: "cycle"
+    handler: "myco.cycle.graft:run"
+    summary: "Enumerate / validate / explain substrate-local plugins (hyphal anastomosis observer)."
+    mcp_tool: "myco_graft"
+    args:
+      - name: "list"
+        type: "bool"
+        default: false
+        help: "List every loaded local plugin (kind, name, source path)."
+      - name: "validate"
+        type: "bool"
+        default: false
+        help: "Re-run the import + registration gate and report any errors."
+      - name: "explain"
+        type: "str"
+        default: null
+        help: "Single plugin name to describe (source file + docstring)."

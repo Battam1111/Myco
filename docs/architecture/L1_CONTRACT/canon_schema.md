@@ -28,7 +28,7 @@ subsystem-specific state. The v0.4.0 canon is SSoT-only.
 # _canon.yaml — v0.4.0 schema
 schema_version: "1"                # bumps on structural schema change
 contract_version: "v0.4.0"         # must match L1 protocol.md
-synced_contract_version: "v0.4.0"  # updated by `myco reflect`
+synced_contract_version: "v0.4.0"  # updated by `myco assimilate` (v0.5.2 alias: `reflect`)
 
 identity:                          # substrate self-identification
   substrate_id: "<slug>"           # globally unique; e.g. "myco-self", "ascc-research"

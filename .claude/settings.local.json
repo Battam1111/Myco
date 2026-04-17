@@ -2,6 +2,7 @@
   "permissions": {
     "allow": [
       "Bash(python -m myco hunger*)",
+      "Bash(python -m myco senesce*)",
       "Bash(python -m myco session-end*)",
       "Bash(python -m myco immune*)",
       "Bash(python -m myco sense*)",
@@ -34,7 +35,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python -m myco --json --project-dir \"$CLAUDE_PROJECT_DIR\" session-end"
+            "command": "python -m myco --json --project-dir \"$CLAUDE_PROJECT_DIR\" senesce"
           }
         ]
       }

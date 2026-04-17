@@ -52,23 +52,26 @@ Consequences:
 
 Myco's **own shape evolves**. The schema of canon, the roster of
 subsystems, the lint dimensions, the contract itself — all of these are
-first-class mutable objects, changed by governance through craft + bump.
-An unchanging substrate is a dead substrate.
+first-class mutable objects, changed by governance through `fruit` +
+`molt` (v0.5.3 canonical names; aliases `craft` + `bump` still
+resolve). An unchanging substrate is a dead substrate.
 
 Consequences:
 
-- Contract-version bumps are normal, not exceptional.
+- Contract-version molts are normal, not exceptional.
 - The substrate reshapes itself as the agent's needs change.
 - Sclerotic pattern ("this is how it's always been") is a
   Homeostasis-level warning, not a feature.
-- Distillation (integrated notes → doctrine → canon) is the engine of
+- Sporulation (integrated notes → doctrine → canon) is the engine of
   evolution; it is a core loop, not a clean-up task.
 
 ### 4. 永恒迭代 — Eternal Iteration
 
-Every session refines what prior sessions produced. Reflect → digest →
-distill is a continuous cycle, not a terminal workflow. A note that is
-"done" today may be re-digested tomorrow as context sharpens.
+Every session refines what prior sessions produced.
+`assimilate → digest → sporulate` (v0.5.3 canonical; v0.5.2 aliases
+`reflect → digest → distill` still resolve) is a continuous cycle,
+not a terminal workflow. A note that is "done" today may be re-
+assimilated tomorrow as context sharpens.
 
 Consequences:
 
@@ -137,7 +140,7 @@ metaphor names five load-bearing subsystems:
 |-----------|-----------------|--------------|
 | **Genesis** | Seeding, birth | Spawn a fresh substrate skeleton |
 | **Ingestion** | Feeding (eat / hunger / sense / forage) | Devour raw inputs without filter (principle 2) |
-| **Digestion** | Metabolism (reflect / digest / distill) | Drive eternal iteration + evolution (principles 3, 4) |
+| **Digestion** | Metabolism (assimilate / digest / sporulate — v0.5.3 canonical; aliases `reflect` / `distill` still resolve) | Drive eternal iteration + evolution (principles 3, 4) |
 | **Circulation** | Perfusion, signaling, propagation | Maintain the mycelium graph inside and across substrates (principle 5) |
 | **Homeostasis** | Immune + regulation | Enforce invariants during continuous change (principles 1, 3) |
 

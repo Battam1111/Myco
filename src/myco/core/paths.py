@@ -60,3 +60,23 @@ class SubstratePaths:
         driven version is resolved in ``Substrate.load``.
         """
         return self.root / "MYCO.md"
+
+    # --- v0.5.3 substrate-local plugin surface ---
+    # Governing doctrine: docs/architecture/L2_DOCTRINE/homeostasis.md
+    # (substrate-local plugin health) and
+    # docs/primordia/v0_5_3_fungal_vocabulary_craft_2026-04-17.md.
+
+    @property
+    def local_plugins_dir(self) -> Path:
+        """``.myco/plugins/`` — substrate-local plugin package root."""
+        return self.root / ".myco" / "plugins"
+
+    @property
+    def local_plugins_init(self) -> Path:
+        """``.myco/plugins/__init__.py`` — the entry-point importer."""
+        return self.root / ".myco" / "plugins" / "__init__.py"
+
+    @property
+    def manifest_overlay(self) -> Path:
+        """``.myco/manifest_overlay.yaml`` — per-substrate verb overlay."""
+        return self.root / ".myco" / "manifest_overlay.yaml"

@@ -41,9 +41,11 @@ LangChain。LangGraph。CrewAI。DSPy。Claude Code skills。OpenHands。OpenCla
 
 Myco 是你那位 AI Agent 的活体认知底物。**不是框架。是吞噬框架的底物。**
 
-Myco 吞噬代码仓库、框架文档、数据集、论文、聊天记录、决策和摩擦。Agent 能指向的任何东西都成为原料。它把这些消化掉，接入菌丝图，用免疫系统防漂移，把知识跨项目扩散。当工作改变形状时，Myco 跟着改：Agent 提议（craft），你批准，kernel bump。新的 canon 字段、新的 lint 维度、新的 verb、新的 subsystem。哪怕整个内部完全重写，也只是一次 `myco` 的版本升级，不是换一个依赖。底层的底物永远不被扔掉。
+Myco 吞噬代码仓库、框架文档、数据集、论文、聊天记录、决策和摩擦。Agent 能指向的任何东西都成为原料。Agent 把这些消化掉，接入菌丝图，用免疫系统防漂移，把知识跨项目扩散。当工作改变形状时，Myco 跟着改：Agent 发 fruit 提出方案、你批准、kernel molt 换代。新的 canon 字段、新的 lint 维度、新的 verb、新的 subsystem。哪怕整个内部完全重写，也只是一次 `myco` 的版本升级，不是换一个依赖。底层的底物永远不被扔掉。
 
 **你从此不需要再迁移。**
+
+> **v0.5.3 —— 真菌语汇迁移。** 9 个 verb 和 2 个 package 全部改名为真菌生物学术语，词义严格对应 verb 的行为（`genesis` → `germinate`、`reflect` → `assimilate`、`distill` → `sporulate`、`perfuse` → `traverse`、`session-end` → `senesce`、`craft` → `fruit`、`bump` → `molt`、`evolve` → `winnow`、`scaffold` → `ramify`；package `myco.genesis` → `myco.germination`、`myco.meta` → `myco.cycle`）。**v0.5.x 的所有调用继续能用** —— 旧名通过一次性 `DeprecationWarning` 别名解析，保留到 v1.0.0。下面的 verb 表列出全部旧新映射；原因在 L2 doctrine 和 [`docs/primordia/v0_5_3_fungal_vocabulary_craft_2026-04-17.md`](docs/primordia/v0_5_3_fungal_vocabulary_craft_2026-04-17.md)。
 
 这件事现在能做到，不是因为想法新，而是因为 Agent 终于聪明到能自己维护这套系统。以前的尝试都死在人跟不上上面。Myco 从第一个表面到最后一个 verb，都把"维护者是 Agent"当作设计前提。
 
@@ -51,8 +53,8 @@ Myco 吞噬代码仓库、框架文档、数据集、论文、聊天记录、决
 
 - **只为 Agent 而生。** 你不浏览 Myco。你和 Agent 说话，Agent 读 Myco。每个表面（`_canon.yaml`、notes、doctrine 文档、boot brief）都是写给 Agent 读的主材料，不是给人看的文档。
 - **吞噬万物。** 摄入不设过滤。代码仓库、框架、论文、数据集、日志、半成型的念头、raw 决策。Agent 能指向什么，底物就吃什么。形状以后再说。错过信号的代价，永远高于多吃一点的代价。
-- **形态在演化。** canon schema、lint 维度、verb、连契约本身都可变。工作超出旧形状时，Agent 提议，你批准，Myco 重塑。僵死的底物就是死的底物。
-- **没有"最终版"。** `integrated` 是状态不是终点。今天消化完的笔记，明天 context 锐化了可以再消化一遍。反思是心跳。
+- **形态在演化。** canon schema、lint 维度、verb、连契约本身都可变。工作超出旧形状时，Agent fruit 提出方案，你批准，Myco 重塑。僵死的底物就是死的底物。
+- **没有"最终版"。** `integrated` 是状态不是终点。今天 assimilate 完的笔记，明天 context 锐化了可以再 assimilate 一遍。反思是心跳。
 - **菌丝网络。** 每条 note、每个 canon 字段、每份 doctrine 页都靠遍历连到别的上。孤儿就是死组织。这张图就是 Agent 读知识的方式，所以它必须一直活着。
 
 ### 三种角色
@@ -61,7 +63,7 @@ Myco 吞噬代码仓库、框架文档、数据集、论文、聊天记录、决
 
 **Agent** 出智能。读你的话，读 Myco，挑 verb，写回去。
 
-**Myco** 跑代谢。你说完一句话到下一句话之间，它问缺什么（`hunger`）、吃进原料（`eat`）、把 raw 煮成结构化知识（`reflect`、`digest`、`distill`）、用免疫系统防漂移（`immune`）、跨项目扩散学到的（`propagate`）。12 个 verb、1 份 manifest、两个面：CLI 给你观察，MCP 给 Agent 自己开。
+**Myco** 跑代谢。你说完一句话到下一句话之间，Agent 问缺什么（`hunger`）、吃进原料（`eat`）、把 raw 煮成结构化知识（`assimilate`、`digest`、`sporulate`）、用免疫系统防漂移（`immune`）、跨项目扩散学到的（`propagate`）。17 个 verb、1 份 manifest、两个面：CLI 给你观察，MCP 给 Agent 自己开。**每个 verb 都是一条真菌生物学术语，词义严格对应 verb 的行为** —— `germinate` 起始菌落、`fruit` 生出子实体、`molt` 脱旧换新、`ramify` 菌丝分枝、`graft` 把外源菌丝嫁接进网络。
 
 > **默认可编辑安装，kernel 本身就是 substrate。** Myco 自己的源码树就是一个 substrate（有 `_canon.yaml`、`MYCO.md`、`docs/primordia/`）。`src/myco/` 下的 kernel 代码只是这个 substrate 最里层的一圈。把这一圈锁进 `site-packages` 只读，就违反了 永恒进化 + 永恒迭代——Agent 变成别人代码的消费者，而不是自己维护的代码的作者。所以主路径是 clone 源码后 `pip install -e` 装成可编辑。PyPI 还在，只作为 bootstrap 通道和纯库消费路径，不再是正常安装路径。
 
@@ -80,11 +82,11 @@ pip install 'myco[mcp]'
 myco-install fresh ~/myco         # clone + 可编辑安装；--dry-run 可预览
 ```
 
-然后在任意项目内 bootstrap 下游 substrate：
+然后 Agent 在任意项目里 germinate 一个下游 substrate：
 
 ```bash
 cd /path/to/your/project
-myco genesis . --substrate-id my-project
+myco germinate . --substrate-id my-project
 ```
 
 以后升级 kernel 直接在 `~/myco` 里 `git pull`，不是 `pip install --upgrade`：
@@ -95,7 +97,7 @@ cd ~/myco && git pull && myco immune        # 升级后跑免疫确认没漂移
 
 三个控制台脚本进 PATH：
 
-- `myco`：12 个 verb 的 CLI。
+- `myco`：17 个 verb 的 CLI。
 - `mcp-server-myco`：通用 MCP stdio 启动器，插进任何 host 都能跑。
 - `myco-install`：一条命令装进七个主流 MCP host。
 
@@ -136,7 +138,7 @@ build_server().run(transport="sse")    # HTTP SSE
 pip install 'myco[mcp]'
 ```
 
-但 `myco scaffold`、Myco 自身的 kernel-level `craft`/`bump`、任何形式的 kernel 演化在这条路上都被堵死——这是设计，不是 bug。只读安装是给消费者用的，不是给作者用的。
+但 `myco ramify`、Myco 自身的 kernel-level `fruit`/`molt`、任何形式的 kernel 演化在这条路上都被堵死——这是设计，不是 bug。只读安装是给消费者用的，不是给作者用的。
 
 ### 想贡献 Myco
 
@@ -150,18 +152,33 @@ pytest
 
 ## 日常流程
 
-Agent 自己驱动，你什么都不用背。12 个 verb 按 5 个 subsystem 分组如下：
+Agent 自己驱动，你什么都不用背。17 个 verb 按 6 个 subsystem 分组如下。v0.5.2 的每个旧 verb 名都仍然能用（会打一次性的 `DeprecationWarning`）——别名保留到 v1.0.0。
 
-| Subsystem | Verbs | 做什么 |
-|---|---|---|
-| **Genesis** | `genesis` | 起一个新 substrate。 |
-| **Ingestion** | `hunger`、`sense`、`forage`、`eat` | 当前需要什么；关键词搜索；列出可摄入文件；记录一条 raw note。 |
-| **Digestion** | `reflect`、`digest`、`distill` | raw 升到 integrated；integrated 蒸馏为 doctrine。 |
-| **Circulation** | `perfuse`、`propagate` | 交叉引用图健康度；发布到下游 substrate。 |
-| **Homeostasis** | `immune` | 4 类 / 8 维一致性 lint，支持 `--fix`。 |
-| *（meta）* | `session-end` | `reflect` 加 `immune --fix`，由 PreCompact 自动触发。 |
+| Subsystem | Verb | 旧别名（已弃用） | 做什么 |
+|---|---|---|---|
+| **Germination** | `germinate` | `genesis` | 萌发一个新 substrate |
+| **Ingestion** | `hunger` |  | 汇报 substrate 当前缺什么 |
+| **Ingestion** | `eat` |  | 从文本 / 路径 / URL 摄入一条 raw note |
+| **Ingestion** | `sense` |  | 关键词搜索整个 substrate |
+| **Ingestion** | `forage` |  | 列出路径下的可摄入文件 |
+| **Digestion** | `assimilate` | `reflect` | 把 raw note 升到 integrated（吸收进菌体） |
+| **Digestion** | `digest` |  | 单条 raw note 定点升到 integrated |
+| **Digestion** | `sporulate` | `distill` | 把 integrated 浓缩成可传播的 proposal |
+| **Circulation** | `traverse` | `perfuse` | 走一遍菌丝网络，报告吻合度健康 |
+| **Circulation** | `propagate` |  | 把 integrated / distilled 发布到下游 substrate |
+| **Homeostasis** | `immune` |  | 4 类 / 10 维一致性 lint，支持 `--fix` |
+| **Cycle** | `senesce` | `session-end` | 入眠前老化：`assimilate` + `immune --fix` |
+| **Cycle** | `fruit` | `craft` | 结出一份三轮 primordia 提案文档 |
+| **Cycle** | `molt` | `bump` | 蜕掉旧的 contract 版本，换新的 |
+| **Cycle** | `winnow` | `evolve` | 用 craft-protocol 门验证提案的形状 |
+| **Cycle** | `ramify` | `scaffold` | 菌丝分枝：scaffold 新 verb / dimension / adapter |
+| **Cycle** | `graft` |  | 列出 / 校验 / 解释 substrate 本地插件 |
 
-CLI 用法是 `myco VERB`，全局 flag（`--project-dir`、`--json`、`--exit-on`）放在 verb **之前**。MCP 一 verb 一 tool，参数由 `src/myco/surface/manifest.yaml` 机械派生，CLI 和 MCP 共用这份 SSoT。
+CLI 用法是 `myco VERB`，全局 flag（`--project-dir`、`--json`、`--exit-on`）放在 verb **之前**。MCP 一 verb 一 tool，参数由 `src/myco/surface/manifest.yaml` 机械派生，CLI 和 MCP 共用这份 SSoT。弃用别名解析到同一个 handler，同时也注册旧 MCP tool 名（`myco_genesis`、`myco_craft`……），所以 v0.5.2 缓存下来的调用照常跑。
+
+### Substrate 本地插件
+
+下游 substrate 可以不 fork Myco 就带自己的 dimensions、adapters、verbs。Agent 跑 `myco ramify --dimension LOCAL1 --category mechanical --severity medium --substrate-local`（substrate 不是 `myco-self` 时这个 flag 自动开），scaffold 出来的类文件写进 `<substrate>/.myco/plugins/`。下一次 `Substrate.load()` 会自动 import `.myco/plugins/` 包、触发注册；`<substrate>/.myco/manifest_overlay.yaml` 会合并进运行时 manifest，这样本地写的 verb 和内置 verb 一起生效。`myco graft --list` 列出所有嫁接上的东西、`myco graft --validate` 重跑一遍 import + 注册闸门、`myco graft --explain <name>` 给出单个插件的源文件 + docstring。新的 `MF2` lint 维度（mechanical / HIGH）会在 `.myco/plugins/` 结构坏了或者 manifest overlay 出错时点亮，让隐式 import 永远留下响声。
 
 ## 系统架构
 
@@ -171,8 +188,9 @@ CLI 用法是 `myco VERB`，全局 flag（`--project-dir`、`--json`、`--exit-o
                    ├── MYCO.md            Agent 入口页（R1）
                    ├── notes/{raw,integrated,distilled}/
                    ├── docs/architecture/ L0 vision · L1 contract · L2 doctrine · L3 impl
-                   ├── src/myco/          genesis · ingestion · digestion · circulation · homeostasis · surface
-                   └── .claude/hooks/     SessionStart → hunger · PreCompact → session-end
+                   ├── src/myco/          germination · ingestion · digestion · circulation · homeostasis · cycle · surface
+                   ├── .myco/plugins/     substrate 本地 dimensions · adapters · verbs（可选）
+                   └── .claude/hooks/     SessionStart → hunger · PreCompact → senesce
 ```
 
 7 条硬契约（R1 到 R7）由 hook、免疫系统、Agent 自律三方共同强制。完整条文在 [`L1_CONTRACT/protocol.md`](docs/architecture/L1_CONTRACT/protocol.md)。

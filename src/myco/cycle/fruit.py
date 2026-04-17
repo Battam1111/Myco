@@ -68,8 +68,8 @@ def _title_case(slug: str) -> str:
 
 def _load_template() -> str:
     return (
-        _pkg_files("myco.meta.templates")
-        .joinpath("craft.md.tmpl")
+        _pkg_files("myco.cycle.templates")
+        .joinpath("fruit.md.tmpl")
         .read_text(encoding="utf-8")
     )
 

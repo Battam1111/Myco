@@ -89,9 +89,19 @@ def build_parser(manifest: Manifest | None = None) -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="verb", metavar="VERB")
     subparsers.required = True
     for spec in m.commands:
+        # Canonical subparser.
         sp = subparsers.add_parser(spec.name, help=spec.summary)
         for arg in spec.args:
             _add_arg(sp, arg)
+        # Aliased subparsers — same args, help text marks them as
+        # deprecated so users see it in --help output immediately.
+        for alias in spec.aliases:
+            alias_sp = subparsers.add_parser(
+                alias,
+                help=f"[deprecated alias for {spec.name!r}] {spec.summary}",
+            )
+            for arg in spec.args:
+                _add_arg(alias_sp, arg)
     return parser
 
 

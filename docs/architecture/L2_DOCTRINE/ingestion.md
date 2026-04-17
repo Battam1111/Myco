@@ -3,6 +3,10 @@
 > **Status**: APPROVED (2026-04-15, greenfield rewrite §9).
 > **Layer**: L2. Subordinate to `L0_VISION.md` and `L1_CONTRACT/*`.
 > **Upward mapping**: implements L1 R1 (hunger), R3 (sense), R4 (eat).
+> **v0.5.3 note**: the four Ingestion verbs (`hunger`, `eat`,
+> `sense`, `forage`) kept their names through the fungal-vocabulary
+> rename — each is already a biologically accurate term for what the
+> verb does.
 
 ---
 
@@ -72,3 +76,8 @@ backlog, patch entry-point, cache brief). In v0.4 these are still the
 same four outputs, but their implementations are split by subsystem:
 drift detection and reflex severity come from Homeostasis; hunger
 composes them into a single user-visible report.
+
+**v0.5.3**: the hunger payload gains a `local_plugins: {count,
+health}` block so the agent sees on every boot what has been
+grafted onto the substrate from `.myco/plugins/` — kept visible so
+substrate-local extensions are never invisible magic.

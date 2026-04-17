@@ -18,7 +18,8 @@ Where Circulation asks "is the graph well-formed?", Homeostasis asks
 
 Critically, Homeostasis operates **under continuous change**. L0
 principle 3 (永恒进化) means the substrate's own shape is mutable — but
-mutation must go through governance (craft + bump), not through drift.
+mutation must go through governance (`fruit` + `molt` — the v0.5.2
+aliases `craft` + `bump` still resolve), not through drift.
 Homeostasis is what distinguishes the two: sanctioned evolution passes
 silently; unsanctioned drift is a finding. A "calm" substrate that never
 changes is as suspect as a chaotic one — principle 3 expects evolution.
@@ -47,6 +48,19 @@ for dev checkouts without `pip install -e .`. The v0.5 inventory
 adds `MF1` (mechanical/HIGH: declared subsystems exist on disk) —
 the first cross-check between `_canon.yaml::subsystems` and the
 actual package layout.
+
+**v0.5.3**: `MF2` joins the inventory (mechanical/HIGH: substrate-
+local plugin health). It fires on broken `.myco/plugins/` shape,
+missing `__init__.py`, manifest-overlay YAML errors, import-time
+registration failures, or duplicate verb names across the overlay
+and the packaged manifest. Substrate-local plugins auto-import at
+`Substrate.load()` — MF2 is what keeps that magic audible. The
+`graft` verb (Cycle subsystem, new at v0.5.3) is the Agent's
+introspection surface for MF2 findings: `graft --list` enumerates
+every registered plugin, `graft --validate` re-runs the import-plus-
+registration gate, and `graft --explain <name>` prints the source
+file and class docstring for a single plugin. Combined with MF1,
+the immune system now has ten dimensions (was nine).
 
 ## Boundary
 

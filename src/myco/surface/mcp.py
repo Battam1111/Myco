@@ -251,9 +251,24 @@ def build_server(manifest: Manifest | None = None):  # pragma: no cover - integr
             _handler.__doc__ = spec_local.summary
             return _handler
 
+        # Canonical tool registration.
         server.add_tool(
             _make_handler(spec),
             name=tool["name"],
             description=tool["description"],
         )
+        # v0.5.3 alias registration: every ``mcp_tool_alias`` exposes
+        # the same handler under the legacy MCP tool name so existing
+        # MCP clients that cached ``myco_genesis`` / ``myco_craft`` /
+        # etc. keep working. Description is prefixed to advertise the
+        # deprecation.
+        for legacy_name in spec.mcp_tool_aliases:
+            server.add_tool(
+                _make_handler(spec),
+                name=legacy_name,
+                description=(
+                    f"[deprecated alias for {spec.mcp_tool!r}] "
+                    f"{spec.summary}"
+                ),
+            )
     return server

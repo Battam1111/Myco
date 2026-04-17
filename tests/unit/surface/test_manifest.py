@@ -27,23 +27,28 @@ def test_dash_to_snake() -> None:
 
 def test_load_manifest_has_every_v0_5_verb() -> None:
     """v0.5 expanded from 12 verbs (v0.4) to 16 — added governance
-    verbs (craft/bump/evolve) plus scaffold. Kept as an at-least-these
-    set so a future minor release adding a new verb does not force a
-    test edit (the inverse direction, "every handler resolves", is
-    covered by :func:`test_every_handler_resolves` below)."""
+    verbs (craft/bump/evolve) plus scaffold. v0.5.3 renamed 9 verbs
+    to fungal-bionic canonical names but kept every old name as an
+    alias so this still resolves. Kept as an at-least-these set so a
+    future minor release adding a new verb does not force a test
+    edit (the inverse direction, "every handler resolves", is covered
+    by :func:`test_every_handler_resolves` below)."""
     m = load_manifest()
     assert m.schema_version == "1"
-    names = set(m.names())
+    # Every v0.5 invokable name (canonical + alias) — v0.5.3 aliases
+    # the pre-rename names; ``all_names_including_aliases`` surfaces
+    # both axes of the compatibility surface.
+    all_names = set(m.all_names_including_aliases())
     must_have = {
-        # v0.4 set
+        # v0.4 set (now aliases post-v0.5.3 rename).
         "genesis", "hunger", "eat", "sense", "forage",
         "reflect", "digest", "distill",
         "perfuse", "propagate",
         "immune", "session-end",
-        # v0.5 governance + scaffold
+        # v0.5 governance + scaffold (aliases post-v0.5.3 rename).
         "craft", "bump", "evolve", "scaffold",
     }
-    missing = must_have - names
+    missing = must_have - all_names
     assert not missing, f"manifest missing verbs: {sorted(missing)}"
 
 

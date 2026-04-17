@@ -11,6 +11,73 @@ Format: one section per `contract_version`, newest first.
 
 ---
 
+## v0.5.3 — 2026-04-17 — Fungal vocabulary + Agent-First + substrate-local plugins
+
+Three concerns merged into one MINOR release. None of them breaks
+the v0.5.2 contract surface; every prior invocation keeps working.
+Governing craft:
+`docs/primordia/v0_5_3_fungal_vocabulary_craft_2026-04-17.md`.
+
+### Contract surface at v0.5.3
+
+- **R1–R7** unchanged.
+- **Exit-code grammar** unchanged.
+- **Five subsystems** unchanged: Germination (was Genesis),
+  Ingestion, Digestion, Circulation, Homeostasis. Cross-cutting
+  `cycle/` package (was `meta/`) houses the life-cycle composers.
+- **Seventeen verbs** (was sixteen): the v0.5.2 set with nine
+  renamed to canonical fungal-biology terms, plus one new verb
+  `graft`. Canonical / alias pairs: `germinate` / `genesis`,
+  `assimilate` / `reflect`, `sporulate` / `distill`, `traverse` /
+  `perfuse`, `senesce` / `session-end`, `fruit` / `craft`, `molt` /
+  `bump`, `winnow` / `evolve`, `ramify` / `scaffold`. `hunger`,
+  `eat`, `sense`, `forage`, `digest`, `propagate`, `immune` kept
+  their v0.4-era names — each is already a biologically accurate
+  fungal term.
+- **Ten lint dimensions** (was nine): `MF2` added
+  (mechanical / HIGH — substrate-local plugin health).
+
+### What changed
+
+1. **Fungal vocabulary rename.** Nine verbs and two packages
+   (`myco.genesis` → `myco.germination`, `myco.meta` →
+   `myco.cycle`) moved to fungal-biology terms whose semantics
+   match the verb's behavior. Old names register as CLI aliases
+   and as MCP tool aliases; the Python shim packages at the old
+   paths re-export every name from the new location. Cycle's
+   `fruit.md.tmpl` replaces `craft.md.tmpl`.
+2. **Agent-First framing fix.** Trilingual READMEs, `MYCO.md`,
+   `INSTALL.md`, and the L1/L2/L3 doctrine pages audited for
+   sentences that said "when you run `myco X`" or "the user runs
+   X". L0 principle 1 (只为 Agent) says humans speak natural
+   language and the Agent invokes verbs — every verb-invoking
+   sentence now names the Agent as the grammatical subject.
+3. **Substrate-local plugin loading.** `Substrate.load()` auto-
+   imports `<root>/.myco/plugins/__init__.py` under an isolated
+   module name; `load_manifest_with_overlay(substrate_root)`
+   merges `<root>/.myco/manifest_overlay.yaml` into the packaged
+   manifest at `build_context()` time. The new `graft` verb
+   (`--list | --validate | --explain <name>`) is the Agent's
+   introspection surface; the extended `ramify` verb
+   (`--dimension | --adapter | --verb --substrate-local`) is the
+   authoring surface. `MF2` lint dimension surfaces shape errors.
+   `hunger` payload carries a `local_plugins: {loaded,
+   count_by_kind, errors, module}` block so the Agent sees on
+   every boot what has grafted onto the substrate.
+
+### Break from v0.5.2
+
+None. Every v0.5.2 `_canon.yaml` parses under v0.5.3 unchanged.
+Every v0.5.2 CLI invocation resolves (one-shot `DeprecationWarning`
+per alias). Every v0.5.2 MCP tool name (`myco_genesis`,
+`myco_reflect`, etc.) remains registered. Every v0.5.2 Python
+import path (`from myco.genesis import ...`, `from myco.meta import
+session_end_run`) keeps working through its shim package. Alias
+removal is scheduled for **v1.0.0** only — the entire 0.x line
+stays backward-compatible.
+
+---
+
 ## v0.5.2 — 2026-04-17 — Editable-by-default install model
 
 The "Stable kernel, mutable substrate" framing introduced at v0.4.1
