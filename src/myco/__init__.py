@@ -11,4 +11,4 @@ commit. Examples: ``0.4.0.dev`` → ``0.4.0`` at the v0.4.0 release;
 ``0.4.1.dev`` → ``0.4.1`` at the v0.4.1 release.
 """
 
-__version__ = "0.4.3"
+__version__ = "0.4.4"

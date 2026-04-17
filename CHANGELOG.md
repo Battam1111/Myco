@@ -18,6 +18,36 @@ Versioning: [SemVer](https://semver.org/).
 
 ---
 
+## [0.4.4] — 2026-04-16
+
+Hotfix for hook-invocation failures when a stale `myco` exists on
+PATH (Anaconda, older venvs, etc.) or when the console-script
+Scripts dir is not on PATH at all.
+
+### Fixed
+
+- **`hooks/hooks.json` and `.claude/settings.local.json`** now
+  invoke `python -m myco --json ...` instead of bare `myco --json
+  ...`. The bare form assumes the currently-installed myco's
+  Scripts dir is on PATH; in practice any pre-v0.4 myco on PATH
+  (common with Anaconda or system Python) will shadow the target
+  version and fail because v0.3 CLIs do not accept
+  `--project-dir`. Using `python -m myco` dispatches through
+  `sys.path`, which finds the correct package regardless of
+  Scripts-dir PATH state.
+- **Regression test** `test_hooks_use_python_m_myco` in
+  `tests/integration/test_plugin_bundle.py` pins the new convention.
+
+### User action required (if hit on <=0.4.3)
+
+```bash
+pip install --upgrade 'myco[mcp]'
+# Re-install the plugin / re-run myco-install to pick up the new
+# hook command form, or hand-edit your existing hook config files.
+```
+
+---
+
 ## [0.4.3] — 2026-04-16
 
 Hotfix for the most common MCP install failure: `spawn ENOENT`.

@@ -111,16 +111,21 @@ def test_mcp_config_points_at_myco_mcp_launcher() -> None:
     assert entry["args"] == [], entry
 
 
-def test_hooks_use_myco_console_script() -> None:
-    """Hook commands must invoke the `myco` console script rather than
-    `python -m myco`, for the same PATH-stability reasons as the MCP
-    launcher.
+def test_hooks_use_python_m_myco() -> None:
+    """Hook commands must invoke ``python -m myco`` rather than the
+    bare ``myco`` console script.
+
+    Rationale (v0.4.4 hotfix): the console script lands in a pip
+    Scripts directory that may not be on PATH, and any stale
+    pre-v0.4 myco on PATH will shadow the current version and fail
+    the hook (v0.3 does not understand ``--project-dir``). Using
+    ``python -m myco`` dispatches through whichever Python is on
+    PATH, which then finds the currently-installed myco package.
     """
     data = _load(HOOKS_CONFIG)
     for event in ("SessionStart", "PreCompact"):
         cmd = data["hooks"][event][0]["hooks"][0]["command"]
-        assert cmd.startswith("myco "), (event, cmd)
-        assert "python -m myco" not in cmd, (event, cmd)
+        assert cmd.startswith("python -m myco "), (event, cmd)
 
 
 # ---------------------------------------------------------------------------

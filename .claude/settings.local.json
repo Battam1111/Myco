@@ -23,7 +23,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "myco --json --project-dir \"$CLAUDE_PROJECT_DIR\" hunger"
+            "command": "python -m myco --json --project-dir \"$CLAUDE_PROJECT_DIR\" hunger"
           }
         ]
       }
@@ -34,7 +34,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "myco --json --project-dir \"$CLAUDE_PROJECT_DIR\" session-end"
+            "command": "python -m myco --json --project-dir \"$CLAUDE_PROJECT_DIR\" session-end"
           }
         ]
       }
