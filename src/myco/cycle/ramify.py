@@ -225,6 +225,7 @@ from __future__ import annotations
 import importlib
 import pkgutil
 
+from myco.homeostasis.dimension import Dimension
 from myco.homeostasis.registry import register_external_dimension
 
 __all__ = ["register_all"]
@@ -233,9 +234,9 @@ __all__ = ["register_all"]
 def register_all() -> None:
     """Walk this subpackage and register every ``Dimension`` subclass."""
     for mod_info in pkgutil.iter_modules(__path__):  # type: ignore[name-defined]
-        mod = importlib.import_module(f"{{__name__}}.{{mod_info.name}}")
+        mod = importlib.import_module(f"{__name__}.{mod_info.name}")
         for obj in vars(mod).values():
-            if isinstance(obj, type):
+            if isinstance(obj, type) and obj is not Dimension and issubclass(obj, Dimension):
                 try:
                     register_external_dimension(obj)
                 except TypeError:
@@ -263,7 +264,7 @@ __all__ = ["register_all"]
 def register_all() -> None:
     """Walk this subpackage and register every adapter class instance."""
     for mod_info in pkgutil.iter_modules(__path__):  # type: ignore[name-defined]
-        mod = importlib.import_module(f"{{__name__}}.{{mod_info.name}}")
+        mod = importlib.import_module(f"{__name__}.{mod_info.name}")
         for obj in vars(mod).values():
             if isinstance(obj, type) and hasattr(obj, "can_handle") and hasattr(obj, "ingest"):
                 try:

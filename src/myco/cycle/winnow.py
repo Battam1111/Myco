@@ -49,6 +49,58 @@ _MIN_ROUND_BODY_CHARS: int = 150
 #: split into sibling proposals.
 _MAX_BODY_CHARS: int = 250_000
 
+#: Fraction of body lines that may match fruit-template signatures
+#: before ``G6_template_boilerplate`` fires. v0.5.4 gate added after
+#: dogfood observation #4: a freshly-fruited craft skeleton passed
+#: G1-G5 with no content filled in, which defeats winnow's purpose
+#: as a "did the agent actually do the craft work" signal.
+#:
+#: The threshold is 40%: a fresh skeleton is ~70% template signatures,
+#: a modest craft that quotes a few template lines while filling in
+#: real content stays below 40%.
+_MAX_BOILERPLATE_FRACTION: float = 0.40
+
+#: Fingerprint substrings the fruit template emits verbatim. A body
+#: with many of these lines is a skeleton the agent has not filled
+#: in. Patterns are listed as substrings (not exact lines) so minor
+#: edits (whitespace, added punctuation) do not bypass the gate.
+_BOILERPLATE_MARKERS: tuple[str, ...] = (
+    # L0/contract-sketch placeholders
+    "TBD (L0",
+    "TBD (files",
+    "TBD (L0 principles",
+    # Direct "fill in" prompts
+    "(Fill in.)",
+    "(Fill in",
+    "(Brief bullets on what surfaced",
+    "(tension)",
+    "(addresses T",
+    # Round-skeleton lists the template plants verbatim
+    "- **T1**: (tension)",
+    "- **T2**: (tension)",
+    "- **T3**: (tension)",
+    "- **R1** (addresses T1):",
+    "- **R2** (addresses T2):",
+    "- **R3** (addresses T3):",
+    "- **F1**:",
+    "- **F2**:",
+    "- **F3**:",
+    # Distinctive instructional prose the template ships
+    "State the initial proposal clearly. What is being changed",
+    "List the strongest tensions against the claim. Number them",
+    "Answer each tension. Key each response with R1/R2/R3",
+    "Run a second adversarial pass. Do any revisions introduce",
+    "Final synthesis. Which revisions are accepted? Which are",
+    "### What this craft revealed",
+    "(file) — what lands, where.",
+    "(test) — what proves it lands correctly.",
+    "(doctrine) — what L0/L1/L2/L3 edits ride with this craft.",
+    "(pytest) — passing command(s).",
+    "(behavioral) — agent-observable changes that must hold.",
+    "(non-regression) — what must NOT break.",
+)
+
+
 #: Round-marker pattern. Matches the v0.4 convention
 #: (``## Round 1 — 主张``, ``## Round 1.5 — 自我反驳``, etc.) and the
 #: legacy aliases (``## R(N)`` / ``## 第N轮`` / ``## ラウンド N``).
@@ -206,6 +258,32 @@ def run(args: Mapping[str, object], *, ctx: MycoContext) -> Result:
                 ),
             }
         )
+
+    # Gate G6 — body is not mostly template boilerplate (v0.5.4).
+    # Counts lines that match any ``_BOILERPLATE_MARKERS`` token; if
+    # the ratio exceeds ``_MAX_BOILERPLATE_FRACTION``, the proposal
+    # is flagged as "fruit skeleton, not filled in yet". Guards the
+    # v0.5.4 dogfood finding where a fresh fruit-template doc passed
+    # G1-G5 by construction.
+    body_lines = [ln for ln in body.splitlines() if ln.strip()]
+    if body_lines:
+        boilerplate_lines = sum(
+            1 for ln in body_lines
+            if any(marker in ln for marker in _BOILERPLATE_MARKERS)
+        )
+        fraction = boilerplate_lines / len(body_lines)
+        if fraction > _MAX_BOILERPLATE_FRACTION:
+            violations.append(
+                {
+                    "gate": "G6_template_boilerplate",
+                    "message": (
+                        f"proposal body is {fraction:.0%} template "
+                        f"boilerplate (threshold "
+                        f"{_MAX_BOILERPLATE_FRACTION:.0%}); the "
+                        f"agent has not filled in the craft sections."
+                    ),
+                }
+            )
 
     # Gate G5 — every round body segment clears the per-round floor.
     per_round = _round_body_lengths(body)

@@ -11,6 +11,43 @@ Format: one section per `contract_version`, newest first.
 
 ---
 
+## v0.5.4 — 2026-04-17 — Dogfood-session patch (seven bugs fixed)
+
+Patch release; no contract-surface change. Yanjun asked the Agent
+to dogfood Myco on the Myco repo; the end-to-end pass surfaced two
+critical bugs (broken `ramify` subcommand parsing + broken
+substrate-local plugin auto-registration) plus five smaller ones.
+All seven are fixed and pinned with regression tests.
+
+### Contract surface at v0.5.4
+
+Unchanged from v0.5.3: R1-R7, 17 verbs (9 with aliases), 10 lint
+dimensions, 5 subsystems plus cycle/ package. The substrate-local
+plugin seam (`.myco/plugins/` + `manifest_overlay.yaml`) now
+actually works end-to-end; before v0.5.4, dimensions registered via
+`ramify` were silently invisible to every verb that reads the
+registry.
+
+### What changed
+
+1. `myco --version` / `-V` added.
+2. Multi-value list flags (`--tags a b c`) parse naturally.
+3. Subparser dest renamed from `verb` to `_subcmd` so `ramify
+   --verb <name>` no longer clobbers the subcommand selector.
+4. `ramify` template fixed: `{{__name__}}` → `{__name__}`.
+5. `hunger` payload gains `local_plugins.count_by_kind`.
+6. `--json` output gains a top-level `findings: [...]` array.
+7. `winnow` gains `G6_template_boilerplate` gate.
+
+### Break from v0.5.3
+
+None. Every v0.5.3 invocation keeps working. The dogfood bugs
+were covered-up gaps that only surfaced when the full verb surface
+was exercised end-to-end; pre-release tests happened to not cover
+these specific paths.
+
+---
+
 ## v0.5.3 — 2026-04-17 — Fungal vocabulary + Agent-First + substrate-local plugins
 
 Three concerns merged into one MINOR release. None of them breaks

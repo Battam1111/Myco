@@ -18,6 +18,97 @@ Versioning: [SemVer](https://semver.org/).
 
 ---
 
+## [0.5.4] — 2026-04-17
+
+Dogfood-session patch release. Yanjun asked the Agent to run Myco
+on the Myco repo as an end-to-end smoke test. Seven bugs surfaced;
+all seven are fixed in this release. No break from v0.5.3 —
+substrate readers and handlers are unchanged.
+
+### Fixed
+
+- **Bug #1 — `myco --version` / `-V`**. The CLI lacked a version
+  flag. Running `myco --version` errored with "VERB required". Now
+  the flag prints `myco 0.5.4` and exits 0, matching standard CLI
+  convention. (`src/myco/surface/cli.py`)
+- **Bug #3 — list flags accept natural multi-value form**. Before:
+  `myco eat --content X --tags a b c` errored with "unrecognized
+  arguments: b c" because `action="append"` only absorbs one value
+  per flag. Now: `nargs="*"` + `action="extend"` means `--tags a
+  b c` works naturally and the legacy repeated form `--tags a
+  --tags b` still works. (`src/myco/surface/cli.py`)
+- **Bug #6 — subparser dest collision (CRITICAL)**. Before:
+  `myco-install` parser used `dest="verb"` for its subcommand
+  selector, and `ramify` has a `--verb <name>` argument. Running
+  `myco ramify --dimension X1 --category mechanical --severity low`
+  crashed with "unknown command: None" because the `--verb` flag's
+  default None overwrote `ns.verb` (which also held the subcommand
+  name). Fix: rename the subparsers destination to `_subcmd`
+  (private, non-colliding). Every `ramify --dimension / --adapter`
+  invocation was previously broken. (`src/myco/surface/cli.py`)
+- **Bug #7 — substrate-local plugin template (CRITICAL)**. Before:
+  `myco ramify --dimension LOCAL1` in a downstream substrate wrote
+  a correct `local1.py` but ALSO generated a broken
+  `.myco/plugins/dimensions/__init__.py` whose `register_all()`
+  contained a literal `{{__name__}}` token. As Python that f-string
+  escape resolved to `{__name__}`, making `importlib.import_module`
+  try to import a module literally named `{__name__}.local1`. The
+  ModuleNotFoundError was silently swallowed by the outer
+  `plugins/__init__.py`'s best-effort try/except. Result: every
+  substrate-local dimension registered via `ramify` was invisible
+  to `default_registry()`, `graft --list`, and `immune`. Fix:
+  replace `{{__name__}}` with `{__name__}` in the ramify template
+  strings (they're written verbatim, not through `.format`). Also
+  tightened the register loop to check `issubclass(obj, Dimension)`
+  so only real dimension classes register. (`src/myco/cycle/ramify.py`)
+- **Bug #2 — `hunger` payload `local_plugins.count_by_kind`**. The
+  v0.5.3 CHANGELOG promised `{loaded, count_by_kind, errors,
+  module}` but the implementation shipped a flat `count` integer.
+  Now the payload carries both a flat `count` (backward-compat
+  alias for the sum) AND a `count_by_kind: {dimension, adapter,
+  schema_upgrader, overlay_verb}` dict. (`src/myco/ingestion/hunger.py`)
+- **Bug #5 — `--json` output surfaces findings**. Before: the
+  `findings` tuple on `Result` was dropped from the JSON envelope;
+  agents that saw `exit_code: 1` had to issue a follow-up call to
+  learn which dimension at what severity on which path had fired.
+  Now every `--json` response carries a top-level `findings: [...]`
+  list with `dimension_id / category / severity / message / path /
+  line / fixable` per finding. Empty list when the handler produced
+  none. (`src/myco/surface/cli.py`)
+- **Observation #4 — `winnow` G6_template_boilerplate gate**. A
+  freshly-`fruit`-ed craft skeleton (all `TBD` / `(Fill in.)` /
+  template instructional prose) used to pass every shape gate by
+  construction, defeating winnow's purpose as a "did the agent
+  actually do the craft work" signal. New G6 gate fires when the
+  body is >40% fruit-template fingerprints. All three existing
+  v0.5.x craft records still pass winnow (zero violations on v0.5.0
+  / v0.5.2 / v0.5.3 crafts). (`src/myco/cycle/winnow.py`)
+
+### Tests
+
+- `tests/unit/surface/test_cli_v0_5_4_fixes.py` — 7 regression
+  tests pinning `--version` / `-V`, `--tags a b c`, subparser
+  collision, `ramify --dimension` E2E, `--json` findings envelope.
+- `tests/unit/meta/test_ramify_template_integrity.py` — 2 tests
+  pinning the fixed template shape + end-to-end
+  `Substrate.load()`-auto-imports-and-registers flow.
+- `tests/unit/ingestion/test_hunger_count_by_kind.py` — 1 test
+  pinning the new payload shape.
+- `tests/unit/meta/test_winnow_g6.py` — 2 tests: G6 trips on a
+  fresh skeleton, passes on a filled-in craft.
+
+Test total: **499 passed** (was 486 at v0.5.3; +12 new regression
+tests, +1 LOCAL1 registration surfaced via graft).
+
+### Migration note
+
+No action required. Every v0.5.3 CLI invocation still works. The
+`local_plugins.count` field remains in the hunger payload for
+backward compat; `count_by_kind` is additive. The G6 gate is
+additive to winnow (existing valid crafts continue to pass).
+
+---
+
 ## [0.5.3] — 2026-04-17
 
 Fungal vocabulary migration + Agent-First framing fix + substrate-
