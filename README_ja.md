@@ -63,14 +63,34 @@ Myco はコードリポジトリ、フレームワークドキュメント、デ
 
 **Myco** が代謝を回します。あなたの発話の合間に、何が足りないかを聞き（`hunger`）、raw を取り込み（`eat`）、raw を構造化知識に煮る（`reflect`、`digest`、`distill`）、ドリフトに対してアイデンティティを守り（`immune`）、学びをプロジェクト間に広げる（`propagate`）。12 個の verb、1 つの manifest、2 つの面：観察のための CLI、エージェントが駆動する MCP サーバー。
 
-> **kernel は安定、substrate は可変。** `pip install` は kernel をリリース版でロックする。substrate（`_canon.yaml`、`notes/`、`docs/primordia/`）は 12 個の MCP verb によって日々進化する。kernel 自体はバージョンをまたいで進化する。エージェントが craft で提案、あなたが承認、ドリフトでは進化しない。
+> **デフォルトで editable install。kernel 自体が substrate。** Myco のソースツリーそのものが substrate です（`_canon.yaml`、`MYCO.md`、`docs/primordia/` を持っています）。`src/myco/` の kernel コードは、その substrate の最も内側の環に過ぎません。この環を読み取り専用の `site-packages` に閉じ込めることは、永恒进化 + 永恒迭代と矛盾します — エージェントが、他人が書いたコードの消費者になってしまい、自分が保守するコードの著者ではなくなります。だから主たるインストール経路はソースを clone して `pip install -e` すること。PyPI は bootstrap チャネルとライブラリ消費者用の経路として残りますが、通常のインストール経路ではありません。
 
 ## クイックスタート
 
+1 行、事前の `git clone` 不要、bootstrap 残留もなし：
+
+```bash
+pipx run --spec 'myco[mcp]' myco-install fresh ~/myco
+```
+
+このリポジトリを `~/myco` に clone して `pip install -e` を走らせ、書き込み可能な kernel + substrate を残します。あるいは 2 ステップ形式も可：
+
 ```bash
 pip install 'myco[mcp]'
+myco-install fresh ~/myco         # clone + editable install；--dry-run でプレビュー
+```
+
+その後、任意のプロジェクトで下流 substrate を bootstrap：
+
+```bash
 cd /path/to/your/project
 myco genesis . --substrate-id my-project
+```
+
+kernel のアップグレードは、`~/myco` の中で `git pull` するだけで、`pip install --upgrade` は使いません：
+
+```bash
+cd ~/myco && git pull && myco immune        # アップグレード後、ドリフトがないか免疫で検証
 ```
 
 3 つのコンソールスクリプトが PATH に載ります：
@@ -108,11 +128,24 @@ build_server().run()                   # stdio（デフォルト）
 build_server().run(transport="sse")    # HTTP SSE
 ```
 
-コントリビュートまたは fork する場合は editable install：
+### 非進化インストール（ライブラリ消費者、CI、vendor）
+
+Myco を別の Python プロジェクトの依存として import する場合、あるいは kernel を意図的に凍結したコンテナで動かす場合、従来の読み取り専用インストールはそのまま使えます：
 
 ```bash
-git clone https://github.com/Battam1111/Myco && cd Myco
-pip install -e '.[dev,mcp]'
+pip install 'myco[mcp]'
+```
+
+ただし `myco scaffold`、Myco 自身の kernel レベル `craft`/`bump`、あらゆる形の kernel 進化はこのパス上では遮断されます — これは設計であり、バグではありません。読み取り専用インストールは消費者向けであり、著者向けではありません。
+
+### Myco に貢献する場合
+
+主たるインストール経路と同じ — `myco-install fresh` がコントリビューター向けパスです。`--extras dev,mcp` でテストツールも同時に引けます：
+
+```bash
+pipx run --spec 'myco[mcp]' myco-install fresh ~/myco --extras dev,mcp
+cd ~/myco
+pytest
 ```
 
 ## 日常のフロー

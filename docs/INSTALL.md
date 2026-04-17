@@ -1,20 +1,85 @@
-# Installing Myco into your MCP host
+# Installing Myco
+
+Two things need configuring: **(a)** Myco itself on your machine,
+and **(b)** the MCP host(s) that will talk to it. Most users do both
+in one shot.
+
+The primary install path is **editable** (v0.5.2+). Kernel code
+lives at a writable location the agent can mutate — this is what
+makes 永恒进化 / 永恒迭代 real in code, not just README prose. A
+classic read-only `pip install` still works for library consumers
+and ephemeral containers; it's a second-class path documented later.
+
+---
+
+## 0. Primary path — `myco-install fresh`
+
+One line, no git ceremony, no lingering bootstrap install:
+
+```bash
+pipx run --spec 'myco[mcp]' myco-install fresh ~/myco
+```
+
+Or two steps if you prefer:
+
+```bash
+pip install 'myco[mcp]'
+myco-install fresh ~/myco
+```
+
+Both forms:
+
+1. `git clone` this repo into `~/myco` (override with a positional
+   `<target>`; the default is `~/myco`).
+2. `pip install -e` the clone into the current Python environment
+   (override extras with `--extras mcp,adapters,dev`).
+3. Verify by running `python -m myco --help`.
+
+Optional: configure one or more MCP hosts in the same step.
+
+```bash
+myco-install fresh ~/myco --configure claude-code cursor windsurf
+```
+
+Common flags:
+
+| Flag | Meaning |
+|---|---|
+| `--target <path>` (positional) | Where to clone. Default: `~/myco`. |
+| `--repo <url>` | Override clone source (e.g. a fork or mirror). |
+| `--branch <ref>` | Check out a specific branch or tag. |
+| `--depth <N>` | Shallow clone (history-audit evidence is lost). |
+| `--extras mcp,dev,adapters` | Pip extras installed alongside. Default: `mcp`. |
+| `--configure <client ...>` | Run `myco-install host <client>` for each after install. |
+| `--force` | Overwrite a non-empty target (destructive). |
+| `--dry-run` | Print every step; make no changes. |
+
+Upgrade later with plain `git pull` inside `~/myco` (not
+`pip install --upgrade`):
+
+```bash
+cd ~/myco && git pull
+myco immune                       # verify no post-upgrade drift
+```
+
+---
+
+## 1. Per-host MCP config — `myco-install host`
 
 Myco runs as an MCP server, so any host that speaks MCP can talk to
 it. The wrinkle: the ecosystem **fragmented on config schema** —
 `mcpServers` is most common, but seven popular hosts use their own
 key name or their own file format. Copy-paste one snippet everywhere
-does not work. This doc lists every host, the correct command or
-snippet, and whether `myco-install` can do it for you.
-
----
-
-## 1. One-command path — `myco-install`
+does not work. `myco-install host` writes the correct schema per
+host.
 
 ```bash
-pip install 'myco[mcp]'
-myco-install <client>
+myco-install host <client>
 ```
+
+Legacy form `myco-install <client>` (without the `host` subcommand)
+still works — it's auto-routed to `host <client>` for backward
+compatibility with v0.4/v0.5 scripts.
 
 `myco-install` writes the **absolute Python interpreter path** plus
 `-m myco.mcp` into the host's config. This sidesteps the most
@@ -28,17 +93,17 @@ servers, idempotent, supports `--dry-run` and `--uninstall`):
 
 | Client | Command | Notes |
 |---|---|---|
-| Claude Code | `myco-install claude-code` | Writes project `.mcp.json`; `--global` writes `~/.claude.json` |
-| Claude Desktop | `myco-install claude-desktop` | OS-correct path (macOS / Windows / Linux) |
-| Cursor | `myco-install cursor` | Project `.cursor/mcp.json`; `--global` writes `~/.cursor/mcp.json` |
-| Windsurf | `myco-install windsurf` | `~/.codeium/windsurf/mcp_config.json` |
-| Zed | `myco-install zed` | Uses the `context_servers` key, not `mcpServers` |
-| VS Code | `myco-install vscode` | Uses the `servers` key in `.vscode/mcp.json` |
-| OpenClaw | `myco-install openclaw` | Shells out to `openclaw mcp set myco …`; CLI must be on PATH |
+| Claude Code | `myco-install host claude-code` | Writes project `.mcp.json`; `--global` writes `~/.claude.json` |
+| Claude Desktop | `myco-install host claude-desktop` | OS-correct path (macOS / Windows / Linux) |
+| Cursor | `myco-install host cursor` | Project `.cursor/mcp.json`; `--global` writes `~/.cursor/mcp.json` |
+| Windsurf | `myco-install host windsurf` | `~/.codeium/windsurf/mcp_config.json` |
+| Zed | `myco-install host zed` | Uses the `context_servers` key, not `mcpServers` |
+| VS Code | `myco-install host vscode` | Uses the `servers` key in `.vscode/mcp.json` |
+| OpenClaw | `myco-install host openclaw` | Shells out to `openclaw mcp set myco …`; CLI must be on PATH |
 
-Run `myco-install <client> --dry-run` first to see exactly what
-will be written. Run `myco-install <client> --uninstall` to remove
-the entry.
+Run `myco-install host <client> --dry-run` first to see exactly
+what will be written. Run `myco-install host <client> --uninstall`
+to remove the entry.
 
 ---
 

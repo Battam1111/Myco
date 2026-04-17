@@ -63,14 +63,34 @@ This works now, not because the idea is new, but because agents are finally inte
 
 **Myco** runs a metabolism. Between your turns it asks what is missing (`hunger`), takes in raw material (`eat`), cooks raw into structured knowledge (`reflect`, `digest`, `distill`), defends its identity against drift (`immune`), and propagates learning across projects (`propagate`). Twelve verbs, one manifest, two surfaces: a CLI for observation, an MCP server for the agent to drive.
 
-> **Stable kernel, mutable substrate.** `pip install` locks the kernel at a released version. The substrate (`_canon.yaml`, `notes/`, `docs/primordia/`) evolves daily through the twelve MCP verbs. The kernel itself evolves across versions, proposed by the agent through craft, approved by you, never by drift.
+> **Editable by default. The kernel IS substrate.** Myco's own source tree is a substrate (it has `_canon.yaml`, `MYCO.md`, `docs/primordia/`). The kernel code under `src/myco/` is just the innermost ring. Freezing that ring into a read-only `site-packages` contradicts 永恒进化 + 永恒迭代 — the agent would be a consumer of code someone else wrote, not the author of code it maintains. So the primary install path clones the source and `pip install -e`s it. PyPI still exists as a bootstrap channel and as a library-consumer path; it is not the normal install.
 
 ## Quick Start
 
+One line, no git ceremony, no lingering bootstrap install:
+
+```bash
+pipx run --spec 'myco[mcp]' myco-install fresh ~/myco
+```
+
+That clones this repo to `~/myco`, `pip install -e`s it, and leaves you with a writable kernel + substrate. Or the two-step form if you prefer:
+
 ```bash
 pip install 'myco[mcp]'
+myco-install fresh ~/myco         # clone + editable install; --dry-run to preview
+```
+
+Then bootstrap a downstream substrate anywhere:
+
+```bash
 cd /path/to/your/project
 myco genesis . --substrate-id my-project
+```
+
+Upgrade the kernel later with plain `git pull` inside `~/myco`, not `pip install --upgrade`:
+
+```bash
+cd ~/myco && git pull && myco immune        # verify no post-upgrade drift
 ```
 
 Three scripts land on your PATH:
@@ -108,11 +128,24 @@ build_server().run()                   # stdio (default)
 build_server().run(transport="sse")    # HTTP SSE
 ```
 
-Contributing or forking? Use editable install:
+### Non-evolving install (library consumers, CI, vendoring)
+
+If you are importing Myco as a dependency in another Python project, or running it in an ephemeral container where the kernel is intentionally frozen, the plain read-only install still works:
 
 ```bash
-git clone https://github.com/Battam1111/Myco && cd Myco
-pip install -e '.[dev,mcp]'
+pip install 'myco[mcp]'
+```
+
+Just know that `myco scaffold`, kernel-level `craft`/`bump` on Myco itself, and any form of kernel evolution is blocked on that path — by design. The read-only install is for consumers, not authors.
+
+### Contributing to Myco
+
+Same as the primary install — `myco-install fresh` is the contributor path too. `--extras dev,mcp` pulls test tooling alongside:
+
+```bash
+pipx run --spec 'myco[mcp]' myco-install fresh ~/myco --extras dev,mcp
+cd ~/myco
+pytest
 ```
 
 ## Daily Flow

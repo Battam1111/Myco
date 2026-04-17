@@ -11,6 +11,51 @@ Format: one section per `contract_version`, newest first.
 
 ---
 
+## v0.5.2 — 2026-04-17 — Editable-by-default install model
+
+The "Stable kernel, mutable substrate" framing introduced at v0.4.1
+— paraphrased as "`pip install` locks the kernel at a released
+version" — contradicts L0 principles 3 (永恒进化) and 4 (永恒迭代):
+read-only `site-packages` prevents the agent from authoring kernel
+code, but L0 principle 1 (只为 Agent) says the agent IS the author.
+v0.5.2 flips the documented primary install path to editable and
+adds the `myco-install fresh` subcommand to make that path one
+command for new users.
+
+### Contract surface at v0.5.2
+
+- **R1–R7** unchanged.
+- **Exit-code grammar** unchanged.
+- **Subsystems** unchanged (5 + `meta/` package from v0.5.1).
+- **Sixteen verbs** unchanged.
+- **Nine lint dimensions** unchanged.
+- **`myco-install`** — new subcommand layout (`fresh` + `host`);
+  legacy `myco-install <client>` still works via auto-route.
+
+### What changed
+
+- Primary documented install: `pipx run --spec 'myco[mcp]'
+  myco-install fresh ~/myco` (or the two-step equivalent).
+- `pip install myco` demoted to a secondary, library-consumer
+  path. Not deprecated — still produces a working install; just
+  does not deliver on L0 principle 3/4 because the kernel at
+  `<site-packages>/myco/` is read-only.
+- Kernel upgrades migrate from `pip install --upgrade` to
+  `git pull` inside the editable clone + `myco immune` to verify
+  no drift.
+- Legacy `myco-install <client>` form kept working via a
+  first-arg-is-a-known-client sniff that routes to
+  `host <client>`.
+
+### Break from v0.5.1
+
+None for substrate readers. `_canon.yaml` emitted by v0.5.1 parses
+under v0.5.2 unchanged. No verb signatures changed. No manifest
+edits needed in downstream substrates. Only user-facing doc and
+the `myco-install` CLI's subcommand shape moved.
+
+---
+
 ## v0.5.1 — 2026-04-17 — 永恒进化 delivered in code (MAJOR 6–10)
 
 *(The v0.5.0 wheel filename was burned on PyPI prior to first
