@@ -18,7 +18,14 @@ Versioning: [SemVer](https://semver.org/).
 
 ---
 
-## [0.5.0] — 2026-04-17
+## [0.5.1] — 2026-04-17
+
+> *(PyPI-release-metadata note: the `myco-0.5.0` wheel filename
+> was burned on a prior upload to the index and cannot be reused
+> per PyPI's filename-reuse policy. `0.5.1` is the first MINOR-
+> release wheel on PyPI carrying the full "永恒进化 delivered in
+> code" content below. No code or doctrine difference vs what
+> would have been 0.5.0.)*
 
 Closes all five MAJOR gaps from the v0.4.1 post-release audit
 (`docs/primordia/v0_4_1_audit_craft_2026-04-15.md`). The README's
