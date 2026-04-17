@@ -11,7 +11,12 @@ Format: one section per `contract_version`, newest first.
 
 ---
 
-## v0.5.0 — 2026-04-17 — 永恒进化 delivered in code (MAJOR 6–10)
+## v0.5.1 — 2026-04-17 — 永恒进化 delivered in code (MAJOR 6–10)
+
+*(The v0.5.0 wheel filename was burned on PyPI prior to first
+successful upload; v0.5.1 is the first released wheel carrying
+this contract. Semantic content is identical to the v0.5.0 plan.)*
+
 
 Closes all five MAJOR gaps from the v0.4.1 post-release audit
 (`docs/primordia/v0_4_1_audit_craft_2026-04-15.md`). The README's
