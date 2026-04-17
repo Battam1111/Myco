@@ -1,6 +1,8 @@
 # L2 — Circulation
 
-> **Status**: APPROVED (2026-04-15, greenfield rewrite §9).
+> **Status**: APPROVED (2026-04-15, greenfield rewrite §9; verb
+> vocabulary revised at v0.5.3 per
+> `docs/primordia/v0_5_3_fungal_vocabulary_craft_2026-04-17.md`).
 > **Layer**: L2. Subordinate to `L0_VISION.md` and `L1_CONTRACT/*`.
 > **Upward mapping**: implements L1 R5 (cross-reference on creation) and
 > the "agent-first consumption" invariant (L0 #1) — an agent reads
@@ -41,7 +43,8 @@ can detect:
 Circulation **does**:
 
 - Maintain an index of cross-references (built on demand, not stored).
-- Run `myco perfuse` to inject missing cross-refs (with user review).
+- Run `myco traverse` to walk the mycelial graph and surface
+  anastomotic health (dangling refs, orphans, one-way links).
 - Run `myco propagate` — cross-substrate push (see §propagate below).
 - Report graph health as a semantic-category finding at immune time.
 
@@ -56,9 +59,13 @@ Circulation **does not**:
 ## Interfaces
 
 ```
-myco perfuse   [--dry-run] [--scope ...]
+myco traverse  [--scope canon|notes|docs|all]
 myco propagate --to <path-to-downstream-substrate> [--dry-run]
 ```
+
+The v0.5.2 alias `myco perfuse` still resolves to the `traverse`
+handler throughout the 0.x line; alias removal is scheduled for
+v1.0.0.
 
 ## `propagate` — redefined per §9 E4
 
@@ -73,7 +80,8 @@ substrate into a downstream substrate. It is *not*:
 
 It *is*: "publish the integrated notes and doctrine snapshots from this
 host into that host's inbox, so that host's agent can digest them into
-its own substrate on next reflect."
+its own substrate on next `assimilate` (the v0.5.2 alias `reflect`
+still resolves if a script has that name cached)."
 
 ### Boundary
 

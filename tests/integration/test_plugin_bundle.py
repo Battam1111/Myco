@@ -146,14 +146,16 @@ def test_hooks_declares_session_boundaries() -> None:
 
 
 def test_hooks_invoke_myco_verbs() -> None:
-    """SessionStart must fire hunger, PreCompact must fire session-end —
-    R1 and R2 of the Hard Contract.
-    """
+    """SessionStart must fire hunger, PreCompact must fire the session-
+    close verb — R1 and R2 of the Hard Contract. v0.5.3 renamed
+    ``session-end`` → ``senesce``; the PreCompact hook may use either
+    the canonical name or the legacy alias (both resolve via the
+    manifest's ``aliases`` field)."""
     data = _load(HOOKS_CONFIG)
     ss_cmd = data["hooks"]["SessionStart"][0]["hooks"][0]["command"]
     pc_cmd = data["hooks"]["PreCompact"][0]["hooks"][0]["command"]
     assert " hunger" in ss_cmd
-    assert " session-end" in pc_cmd
+    assert " senesce" in pc_cmd or " session-end" in pc_cmd
 
 
 # ---------------------------------------------------------------------------

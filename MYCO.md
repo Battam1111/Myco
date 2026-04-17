@@ -2,7 +2,8 @@
 
 > You are an LLM agent reading this file at session start. Everything
 > in this substrate is **for you**. Humans do not browse here (L0
-> principle 1). Read this page top to bottom; it is short by design.
+> principle 1 — 只为 Agent). They speak natural language; you invoke
+> the verbs. Read this page top to bottom; it is short by design.
 
 ## What this substrate is
 
@@ -22,12 +23,15 @@ it.
 
 ## What to do first
 
-1. `python -m myco hunger` — computes and writes the session boot
-   brief to `.myco_state/boot_brief.md`, then prints the summary.
-   Every non-trivial session starts with this.
+1. Call `python -m myco hunger` yourself (or rely on the
+   SessionStart hook, which already fired it). This is R1 of the hard
+   contract; it computes and writes the session boot brief to
+   `.myco_state/boot_brief.md`, then prints the summary. Every non-
+   trivial session starts with this. The human never calls `hunger` —
+   you do.
 2. Check `log.md` (if present) for the last five entries — the tail
    of the timeline tells you what the previous session touched.
-3. If you're about to write code: consult the relevant subsystem
+3. If you are about to write code: consult the relevant subsystem
    doctrine page under `docs/architecture/L2_DOCTRINE/` before
    reaching into `src/myco/<subsystem>/`. L2 is the contract between
    what a subsystem *should* do and what the code in it *does* do.
@@ -40,14 +44,16 @@ Both the CLI (`python -m myco <verb>`) and the MCP tool server
 (`myco.surface.mcp.build_server`) are generated from it. If you need
 to know what verbs exist, read that file — not this page.
 
-Twelve verbs, grouped by subsystem:
+Seventeen verbs (v0.5.3), grouped by subsystem. Every v0.5.2 alias
+still resolves through v1.0.0 with a one-shot `DeprecationWarning`;
+the canonical form is what you should emit in new calls:
 
-- **genesis**     — `genesis` (bootstrap a fresh substrate)
-- **ingestion**   — `hunger`, `eat`, `sense`, `forage`
-- **digestion**   — `reflect`, `digest`, `distill`
-- **circulation** — `perfuse`, `propagate`
-- **homeostasis** — `immune`
-- **meta**        — `session-end` (composes reflect + immune)
+- **germination**  — `germinate` (was `genesis`)
+- **ingestion**    — `hunger`, `eat`, `sense`, `forage`
+- **digestion**    — `assimilate` (was `reflect`), `digest`, `sporulate` (was `distill`)
+- **circulation**  — `traverse` (was `perfuse`), `propagate`
+- **homeostasis**  — `immune`
+- **cycle**        — `senesce` (was `session-end`), `fruit` (was `craft`), `molt` (was `bump`), `winnow` (was `evolve`), `ramify` (was `scaffold`), `graft` (new at v0.5.3)
 
 Every verb accepts `--project-dir`, `--exit-on`, and `--json`.
 
@@ -72,27 +78,51 @@ Each lower layer is strictly subordinate to every higher layer. If L4
 disagrees with L3, L3 wins — but the disagreement is a finding to
 record, not to silence.
 
+## Substrate-local plugins (v0.5.3)
+
+A downstream substrate (any substrate whose `canon.identity.substrate_id`
+is not `myco-self`) can carry its own lint dimensions, ingestion
+adapters, schema upgraders, and even brand-new verbs without forking
+Myco. Scaffold them with `myco ramify --dimension <ID>`,
+`--adapter <name>`, or `--verb <name>` (pass `--substrate-local`
+explicitly to override autodetection). They land under
+`<substrate>/.myco/plugins/` and are auto-imported on
+`Substrate.load()`; any verb the overlay at
+`<substrate>/.myco/manifest_overlay.yaml` declares appears alongside
+the built-ins. You inspect what has grafted on with
+`myco graft --list | --validate | --explain <name>`. The `MF2` lint
+dimension (mechanical / HIGH) keeps the auto-import audible — it
+fires on shape errors, overlay-YAML errors, or verb-name collisions.
+
+**Note for `myco-self`**: this repository IS the kernel. There is no
+`.myco/plugins/` tree here, and `ramify` defaults `--substrate-local`
+OFF so new kernel verbs / dimensions land inside `src/myco/`. Pass
+`--substrate-local` only if you need to dogfood the overlay path.
+
 ## What NOT to do
 
 - **Do not edit L0, L1, or L2 files as a consequence of implementation
-  work.** If implementation reveals a gap in doctrine, stop, write a
-  craft doc under `docs/primordia/`, get owner approval, then resume.
+  work.** If implementation reveals a gap in doctrine, stop, fruit a
+  craft doc under `docs/primordia/` (via `myco fruit`), get owner
+  approval, then resume.
 - **Do not carry forward `legacy_v0_3/`.** The pre-rewrite code is
   quarantined. It is not imported, tested, or referenced by any live
   file. Git history preserves it; `v0.3.4-final` is the anchor tag.
 - **Do not treat `integrated` as final.** Per L0 principle 4, every
-  note is a work in progress until it is distilled out of existence.
+  note is a work in progress until it is sporulated out of existence.
 
 ## When you finish a session
 
-Run `python -m myco session-end`. That composes `reflect` (promote raw
+Run `python -m myco senesce` yourself (or rely on the PreCompact hook,
+which already fires it). That composes `assimilate` (promote raw
 notes) with `immune --fix` (auto-correctable lint findings) and
-returns a structured payload. A clean session-end is the only
-acceptable end state; a dirty one is the starting point of the next
-session.
+returns a structured payload. A clean senesce is the only acceptable
+end state; a dirty one is the starting point of the next session.
+The legacy `session-end` alias still resolves if you find it in an
+older script.
 
 ## When you are stuck
 
 Re-read L0. Then re-read the relevant L2 page. Then re-read this file.
-If you are still stuck, ingest a note describing the stuck-ness (`eat`)
-and let reflection decide.
+If you are still stuck, ingest a note describing the stuck-ness (call
+`myco eat`) and let the next assimilation decide.

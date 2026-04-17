@@ -3,16 +3,21 @@
 Governing doctrine: ``docs/architecture/L2_DOCTRINE/digestion.md``.
 Craft: ``docs/primordia/stage_b5_digestion_craft_2026-04-15.md``.
 
-Pipeline: ``raw → digesting → integrated → distilled``. Verbs:
+Pipeline: ``raw → digesting → integrated → distilled``. Verbs (v0.5.3+
+canonical names, with aliases for the v0.5.x names):
 
-- ``reflect`` (bulk) — promote all raw notes.
+- ``assimilate`` (bulk; aliased ``reflect``) — promote all raw notes.
 - ``digest <note-id>`` — promote one note, with ``--dry-run``.
-- ``distill <slug>`` — author a doctrine proposal note under
-  ``notes/distilled/``.
+- ``sporulate <slug>`` (aliased ``distill``) — author a doctrine
+  proposal note under ``notes/distilled/``.
+
+Function names inside are unchanged (``reflect``, ``distill_proposal``)
+to avoid per-call-site churn. Only module names and CLI verb names
+moved.
 """
 
+from .assimilate import reflect
 from .digest import digest_one
-from .distill import distill_proposal
 from .pipeline import (
     NOTE_STAGES,
     Note,
@@ -20,7 +25,7 @@ from .pipeline import (
     promote_to_integrated,
     render_note,
 )
-from .reflect import reflect
+from .sporulate import distill_proposal
 
 __all__ = [
     "NOTE_STAGES",

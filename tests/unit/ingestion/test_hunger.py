@@ -83,5 +83,10 @@ def test_report_as_dict_serializable(genesis_substrate: Path) -> None:
     ctx = _mk_ctx(genesis_substrate)
     report = compose_hunger_report(ctx)
     d = report.as_dict()
-    assert set(d.keys()) == {"contract_drift", "raw_backlog", "reflex_signals", "advice"}
+    # v0.5.3 adds the ``local_plugins`` block for substrate-local plugin
+    # surface visibility; the pre-v0.5.3 keys remain intact.
+    assert {"contract_drift", "raw_backlog", "reflex_signals", "advice"}.issubset(
+        d.keys()
+    )
+    assert "local_plugins" in d
     assert isinstance(d["advice"], list)

@@ -18,6 +18,139 @@ Versioning: [SemVer](https://semver.org/).
 
 ---
 
+## [0.5.3] — 2026-04-17
+
+Fungal vocabulary migration + Agent-First framing fix + substrate-
+local plugin loading. Three concerns merged into one MINOR release
+because they emerged from the same post-v0.5.2 audit and share a
+governing three-round craft
+(`docs/primordia/v0_5_3_fungal_vocabulary_craft_2026-04-17.md`).
+**No break from v0.5.2**: every prior CLI invocation, every prior
+MCP tool name, every prior Python import path keeps working.
+Deprecation warnings fire once per alias per process; alias removal
+waits for v1.0.0.
+
+### Added
+
+- **Nine renamed verbs, one new verb, seventeen total.** The
+  canonical / deprecated-alias pairs are:
+  `germinate` / `genesis`, `assimilate` / `reflect`, `sporulate` /
+  `distill`, `traverse` / `perfuse`, `senesce` / `session-end`,
+  `fruit` / `craft`, `molt` / `bump`, `winnow` / `evolve`,
+  `ramify` / `scaffold`. `graft` is new at v0.5.3. Old names
+  register as both CLI aliases and MCP tool aliases
+  (`myco_genesis`, `myco_craft`, etc.) so cached v0.5.2
+  invocations resolve unchanged. `hunger`, `eat`, `sense`,
+  `forage`, `digest`, `propagate`, `immune` kept their names —
+  each already maps cleanly to a fungal-biology term.
+- **Two renamed packages, two shim packages.** `src/myco/genesis/`
+  became `src/myco/germination/`; `src/myco/meta/` became
+  `src/myco/cycle/`. Shim packages live at the old paths; their
+  `__init__.py` re-exports every public name from the new
+  location and emits a `DeprecationWarning` on import.
+  `from myco.meta import session_end_run` and
+  `from myco.genesis import run_cli` still work.
+- **Substrate-local plugin loading.**
+  `<root>/.myco/plugins/__init__.py` auto-imports on
+  `Substrate.load()` under an isolated module name; import errors
+  are captured on `Substrate.local_plugin_errors` for MF2 to
+  surface rather than crashing boot.
+  `load_manifest_with_overlay(substrate_root)` merges
+  `<root>/.myco/manifest_overlay.yaml` into the packaged manifest
+  at `build_context()` time; overlay verbs that name-collide with
+  packaged verbs are rejected. `register_external_dimension(cls)`
+  in `myco.homeostasis.registry` is the public API substrate-local
+  plugins call at import time.
+- **New verb `graft`** (`--list | --validate | --explain <name>`)
+  — the Agent's introspection surface for substrate-local plugins.
+  Biology: hyphal anastomosis is the fusion of foreign hyphae onto
+  the mycelial network. Authoring happens elsewhere; `graft` is
+  read-only.
+- **Extended `ramify` modes** — beyond the v0.5.2 `--verb <name>`
+  mode, `ramify` now accepts `--dimension <ID> --category <cat>
+  --severity <sev>` (scaffold a lint dimension),
+  `--adapter <name> --extensions <ext,ext>` (scaffold an ingestion
+  adapter), and `--substrate-local` (write under
+  `<substrate>/.myco/plugins/` instead of `src/myco/`; auto-on
+  when `canon.identity.substrate_id != "myco-self"` OR
+  `<substrate_root>/src/myco/` does not exist).
+- **`MF2` lint dimension** (mechanical / HIGH) — fires on broken
+  `.myco/plugins/` shape, missing `__init__.py`, manifest-overlay
+  YAML errors, import-time registration failures, or duplicate
+  verb names across the overlay and the packaged manifest. Ten
+  built-in dimensions total (was nine).
+- **`hunger` payload `local_plugins` block** — every `hunger`
+  call now reports `{loaded, count_by_kind, errors, module}` so
+  the Agent sees on every boot what has grafted onto the
+  substrate. Invisible magic stays audible.
+
+### Changed
+
+- **Trilingual READMEs rewritten.** Verb references across
+  `README.md`, `README_zh.md`, `README_ja.md` updated to canonical
+  fungal names with the old alias shown in parentheses inside the
+  verb table. A `v0.5.3 — fungal vocabulary migration` callout
+  appears under the positioning paragraph. New `Substrate-local
+  plugins` subsection explains the `.myco/plugins/` path, the
+  `ramify --dimension` authoring flow, and the `graft --list`
+  introspection. Daily-flow rewritten as
+  `hunger → eat → assimilate → digest → sporulate → traverse →
+  propagate`. Editable-by-default install flow preserved from
+  v0.5.2. Zero em-dashes. Line count preserved within ~1%.
+- **Agent-First framing fix.** Every sentence in READMEs / MYCO.md
+  / INSTALL.md / L1 / L2 / L3 doctrine that described a verb
+  invocation now names the Agent as the grammatical subject. L0
+  principle 1 (只为 Agent) says the Agent invokes verbs; humans
+  speak natural language.
+- **`docs/INSTALL.md`** — section 6 `Substrate-local plugins` added
+  (covering `.myco/plugins/`, `manifest_overlay.yaml`, the extended
+  `ramify` modes, and `graft` introspection). Verb references in
+  per-host snippets and troubleshooting section updated to
+  canonical names or clarified as aliases. Section 0 `--configure`
+  note added.
+- **L1 / L2 / L3 doctrine pages** — `L1/protocol.md` R2 now names
+  `assimilate` + `senesce` (aliases noted). `L1/canon_schema.md`
+  example comment swapped `reflect` → `assimilate`.
+  `L2/digestion.md`, `L2/circulation.md`, `L2/genesis.md` carry
+  headers noting the v0.5.3 rename; body verb references updated.
+  `L2/homeostasis.md` documents `MF2` + `graft` cross-reference.
+  `L3/command_manifest.md` rebuilt the seventeen-verb inventory
+  table with alias column. `L3/package_map.md` updated filesystem
+  tree (`germination/`, `cycle/`, shim `genesis/` + `meta/`, new
+  `.myco/plugins/` layout) plus the mapping matrix.
+- **`docs/contract_changelog.md`** — new `v0.5.3` top section.
+- **`MYCO.md`** — seventeen-verb list with alias annotations;
+  Agent-First framing pass; substrate-local plugins subsection
+  added; `senesce` (was `session-end`) named in the
+  finish-a-session block.
+- **`hooks/hooks.json`** — PreCompact hook command changed from
+  `session-end` to the canonical `senesce`. Description block
+  updated. `.claude/settings.local.json` PreCompact hook and
+  permissions allowlist updated to match; the `session-end` entry
+  remains for backward compatibility with cached sessions.
+- **`.claude-plugin/plugin.json`** — `version` at `0.5.3`;
+  description mentions fungal vocabulary, substrate-local plugins,
+  seventeen verbs.
+- **`__version__`, `_canon.yaml::contract_version`,
+  `_canon.yaml::synced_contract_version`,
+  `src/myco/surface/manifest.yaml`** all at `0.5.3` / `v0.5.3`
+  (source-of-truth files; already landed via the v0.5.3 code
+  work, not touched in this doc pass).
+
+### Migration note
+
+**Every v0.5.x invocation still works.** The CLI emits one
+`DeprecationWarning` per alias per process (e.g. using
+`myco reflect` instead of `myco assimilate`); MCP tool calls to
+`myco_reflect` resolve to the same handler as `myco_assimilate`;
+Python imports like `from myco.meta import session_end_run` and
+`from myco.genesis import run_cli` still resolve through shim
+packages that emit a `DeprecationWarning` on import. Alias
+removal is scheduled for **v1.0.0** — migrate at your own pace
+through the entire 0.x line.
+
+---
+
 ## [0.5.2] — 2026-04-17
 
 Editable-by-default install model. Closes the architectural mismatch

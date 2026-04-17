@@ -5,8 +5,8 @@
 # `_ref`-suffixed fields, not here.
 
 schema_version: "1"
-contract_version: "v0.5.2"
-synced_contract_version: "v0.5.2"
+contract_version: "v0.5.3"
+synced_contract_version: "v0.5.3"
 
 identity:
   substrate_id: "myco-self"
@@ -59,6 +59,7 @@ lint:
     MB1: metabolic
     MB2: metabolic
     MF1: mechanical
+    MF2: mechanical
     SE1: semantic
     SE2: semantic
     SH1: shipped
@@ -75,9 +76,9 @@ subsystems:
   digestion:
     doc: "docs/architecture/L2_DOCTRINE/digestion.md"
     package: "src/myco/digestion/"
-  genesis:
+  germination:
     doc: "docs/architecture/L2_DOCTRINE/genesis.md"
-    package: "src/myco/genesis/"
+    package: "src/myco/germination/"
   homeostasis:
     doc: "docs/architecture/L2_DOCTRINE/homeostasis.md"
     package: "src/myco/homeostasis/"

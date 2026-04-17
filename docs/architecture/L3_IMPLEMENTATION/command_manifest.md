@@ -68,8 +68,12 @@ commands:
         type: "str"
         default: "agent"
 
-  # … sense, forage, reflect, digest, distill,
-  #    perfuse, propagate, immune, genesis, session-end
+  # … sense, forage, assimilate, digest, sporulate,
+  #    traverse, propagate, immune, germinate, senesce,
+  #    fruit, molt, winnow, ramify, graft
+  # (v0.5.2 aliases — reflect, distill, perfuse, genesis,
+  #  session-end, craft, bump, evolve, scaffold — remain
+  #  registered as cli_aliases + mcp_tool_aliases entries.)
 
 returns:
   hunger_report:
@@ -128,62 +132,126 @@ lint run:
 - No orphan entries in the manifest pointing at non-existent handlers.
 - CLI subcommand set == MCP tool set (no divergence).
 
-## Initial verb inventory
+## Verb inventory (v0.5.3)
 
-The v0.4.0 manifest included exactly eleven verbs + one meta-composer.
-**v0.5 adds four governance verbs** (MAJOR 9 and 10). Current inventory:
+v0.4.0 shipped twelve verbs. v0.5.1 added four governance verbs
+(MAJOR 9 and 10) to reach sixteen. v0.5.3 **renames nine** existing
+verbs to canonical fungal-bionic names (old names kept as
+deprecated aliases throughout 0.x) and **adds one** new verb
+(`graft`). Current total: **seventeen verbs**.
 
-| Subsystem | Verbs |
-|-----------|-------|
-| Genesis | `genesis` |
-| Ingestion | `hunger`, `eat`, `sense`, `forage` |
-| Digestion | `reflect`, `digest`, `distill` |
-| Circulation | `perfuse`, `propagate` |
-| Homeostasis | `immune` |
-| Meta (package, v0.5+) | `session-end`, `craft`, `bump`, `evolve`, `scaffold` |
+| Subsystem | Verb | Alias (deprecated) | Handler |
+|---|---|---|---|
+| Germination | `germinate` | `genesis` | `myco.germination.germinate:run_cli` |
+| Ingestion | `hunger` |  | `myco.ingestion.hunger:run` |
+| Ingestion | `eat` |  | `myco.ingestion.eat:run` |
+| Ingestion | `sense` |  | `myco.ingestion.sense:run` |
+| Ingestion | `forage` |  | `myco.ingestion.forage:run` |
+| Digestion | `assimilate` | `reflect` | `myco.digestion.assimilate:run` |
+| Digestion | `digest` |  | `myco.digestion.digest:run` |
+| Digestion | `sporulate` | `distill` | `myco.digestion.sporulate:run` |
+| Circulation | `traverse` | `perfuse` | `myco.circulation.traverse:run` |
+| Circulation | `propagate` |  | `myco.circulation.propagate:run` |
+| Homeostasis | `immune` |  | `myco.homeostasis.kernel:run_cli` |
+| Cycle | `senesce` | `session-end` | `myco.cycle.senesce:run` |
+| Cycle | `fruit` | `craft` | `myco.cycle.fruit:run` |
+| Cycle | `molt` | `bump` | `myco.cycle.molt:run` |
+| Cycle | `winnow` | `evolve` | `myco.cycle.winnow:run` |
+| Cycle | `ramify` | `scaffold` | `myco.cycle.ramify:run` |
+| Cycle | `graft` |  | `myco.cycle.graft:run` |
 
-The `meta` package (new at v0.5) replaces the single-file `meta.py`
-that held only `session_end_run` in v0.4. Each governance verb is its
-own submodule under `src/myco/meta/`.
+The `cycle/` package (renamed from `meta/` at v0.5.3; shim package
+preserves `from myco.meta import session_end_run`) houses every
+life-cycle composer: the germinate / fruit / molt / winnow / ramify
+/ senesce / graft group. Each governance verb is its own submodule.
 
-## Governance verbs (v0.5+, MAJOR 9 and 10)
+### Alias mechanism
+
+`CommandSpec.aliases: tuple[str, ...]` plus
+`CommandSpec.mcp_tool_aliases: tuple[str, ...]` encode the backward-
+compat surface in the manifest. `Manifest.by_name()` consults both
+canonical and alias lists. CLI and MCP both surface each alias as
+its own invocation path; invoking an alias fires a single
+`DeprecationWarning` per alias per process. Alias removal is
+scheduled for **v1.0.0** only — the entire 0.x line stays backward-
+compatible.
+
+## Governance verbs (Cycle subsystem)
 
 Governance verbs let the agent perform contract-level changes that
 were previously Markdown-social conventions or hand-edits:
 
-- **`myco craft <topic>`** — scaffold a dated primordia doc under
-  `docs/primordia/<slug>_craft_<date>.md` from the three-round
-  template. Does not enforce that all three rounds get filled in;
-  that is the agent's job, and the `myco evolve` verb validates the
+- **`myco fruit --topic <phrase>`** (alias: `craft`) — fruit a
+  dated primordia doc under `docs/primordia/<slug>_craft_<date>.md`
+  from the three-round template. Biology: the fruiting body is the
+  reproductive structure; a primordia doc is Myco's reproductive
+  content. Does not enforce that all three rounds get filled in;
+  that is the agent's job, and the `myco winnow` verb validates the
   shape after authoring.
-- **`myco bump --contract <v>`** — the first code path that mutates
-  a post-genesis `_canon.yaml`. Line-patches `contract_version` and
-  `synced_contract_version`, re-reads via `load_canon` to verify the
-  result still parses, then prepends a new section to
+- **`myco molt --contract <v>`** (alias: `bump`) — shed the old
+  contract version for a new one. Line-patches `contract_version`
+  and `synced_contract_version`, re-reads via `load_canon` to verify
+  the result still parses, then prepends a new section to
   `docs/contract_changelog.md`. Restores the original canon text on
-  any post-write parse error.
-- **`myco evolve --proposal <path>`** — shape validator for a
-  proposal/craft doc. Runs five gates (frontmatter type, title,
-  body size bounds, round-marker count, per-round body floor) and
-  returns either `exit 0 + verdict: pass` or `exit 1 + violations`.
-  Does not mutate anything; this is a lint-style read.
-- **`myco scaffold --verb <name>`** — auto-generate a handler stub
-  for a verb that is already in the manifest but has no Python
-  module. Derives the target filesystem path from the manifest's
-  `handler:` string (not the `subsystem:` tag, which is purely
-  descriptive). The stub returns an `exit 0` `Result` with
-  `payload.stub = True` and emits a `DeprecationWarning` on every
-  invocation so unfinished verbs are not silently benign.
+  any post-write parse error. Biology: molting is shedding an old
+  form for a new stage.
+- **`myco winnow --proposal <path>`** (alias: `evolve`) — selection
+  pressure applied to a craft doc. Runs five gates (frontmatter
+  type, title, body size bounds, round-marker count, per-round body
+  floor) and returns either `exit 0 + verdict: pass` or `exit 1 +
+  violations`. Does not mutate anything; lint-style read.
+- **`myco ramify --verb <name>`** (alias: `scaffold`) — auto-
+  generate a handler stub for a verb that is already in the
+  manifest but has no Python module. Biology: hyphae ramify
+  (branch out) into new territory. Extended at v0.5.3 with
+  `--dimension <id> --category <cat> --severity <sev>` (scaffold a
+  lint dimension), `--adapter <name> --extensions <ext,ext>`
+  (scaffold an ingestion adapter), and `--substrate-local` (write
+  under `<substrate>/.myco/plugins/` instead of `src/myco/`; auto-
+  on when `canon.identity.substrate_id != "myco-self"` OR
+  `<substrate_root>/src/myco/` does not exist).
+- **`myco graft --list | --validate | --explain <name>`** (new at
+  v0.5.3) — enumerate, validate, or explain substrate-local
+  plugins. Biology: hyphal anastomosis is the fusion of foreign
+  hyphae onto the mycelial network. Introspection-only; authoring
+  happens via `ramify --dimension` / `--adapter` / `--verb` with
+  `--substrate-local`.
+- **`myco senesce`** (alias: `session-end`) — the end-of-session
+  composer: runs `assimilate` then `immune --fix` before
+  compaction. Biology: senescence is aging into dormancy before
+  sleep.
 
-`scaffold` is what closes the v0.4-era "add a verb means write a
+`ramify` is what closes the v0.4-era "add a verb means write a
 Python file by hand" friction. The intended order is still
-**manifest first, handler second** — `scaffold` refuses to act on a
-verb the manifest does not declare.
+**manifest first, handler second** — `ramify` refuses to act on a
+kernel verb the manifest does not declare. For substrate-local
+verbs, the overlay `<substrate>/.myco/manifest_overlay.yaml`
+declares them; `ramify --verb <name> --substrate-local` writes both
+the overlay entry and the handler stub.
+
+## Substrate-local plugins (v0.5.3)
+
+A substrate can carry its own dimensions, adapters, schema
+upgraders, and verbs without forking Myco:
+
+| Path | Role |
+|---|---|
+| `<substrate>/.myco/plugins/__init__.py` | Auto-imported on `Substrate.load()`. Registration side effects fire here. |
+| `<substrate>/.myco/manifest_overlay.yaml` | Merged into the runtime manifest at `build_context()` time (not at `load_manifest()` — the manifest cache stays clean). |
+
+Introspection is via `myco graft --list | --validate | --explain
+<name>`. Authoring is via `myco ramify --dimension | --adapter |
+--verb --substrate-local`. The `hunger` payload carries a
+`local_plugins: {count, health}` block so the agent sees on every
+boot what has grafted on. The `MF2` lint dimension (mechanical /
+HIGH) fires on broken plugin shape or overlay YAML errors.
 
 ## Change policy
 
-Adding a verb: craft doc (via `myco craft`) + contract bump (via
-`myco bump`) + manifest entry + handler (via `myco scaffold`, then
+Adding a verb: craft doc (via `myco fruit`) + contract bump (via
+`myco molt`) + manifest entry + handler (via `myco ramify`, then
 flesh out) + tests. Removing a verb: deprecation notice for one
-minor version, then removal with a craft + contract bump. Renaming a
-verb: a removal + an add (no silent rename).
+minor version, then removal with a fruit + molt cycle. Renaming a
+verb: add the new canonical name + keep the old as an alias for one
+major-version tail (the v0.5.3 migration is the reference case).
+Alias removal happens only at a major-version boundary.

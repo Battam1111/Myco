@@ -37,12 +37,14 @@ cannot make safe decisions. Hunger is not optional.
 
 ### R2 — Session end is ritualized
 
-**Every session ends with `myco reflect` followed by `myco immune --fix`.**
-The PreCompact hook fires these automatically; `myco session-end` is the
-manual wrapper.
+**Every session ends with `myco assimilate` followed by `myco immune --fix`.**
+The PreCompact hook fires these automatically; `myco senesce` is the
+manual wrapper. The Agent invokes it — humans never call it directly.
+The v0.5.2 names `reflect` and `session-end` still resolve as deprecated
+aliases (one-shot `DeprecationWarning`) throughout the 0.x line.
 
 Why: unconsolidated ingest accumulates. Unfixed drift compounds. A session
-that skips reflection leaves the next session's agent starting from a
+that skips assimilation leaves the next session's agent starting from a
 degraded substrate.
 
 ### R3 — Sense before asserting
@@ -107,7 +109,7 @@ disciplined half.
 | Rule | Mechanical enforcement | Agent discipline |
 |------|------------------------|------------------|
 | R1 | `SessionStart` hook; `myco_hunger` first-call detection | Invoke manually if hook fails |
-| R2 | `PreCompact` hook; `myco session-end` summary | Invoke manually before `/compact` |
+| R2 | `PreCompact` hook; `myco senesce` summary (alias: `session-end`) | Agent invokes manually before `/compact` |
 | R3 | — (not mechanically enforceable) | Call `myco sense` before factual claims |
 | R4 | — | Call `myco eat` on every decision/insight |
 | R5 | Immune lint: orphan file detection | Add cross-refs at file creation |

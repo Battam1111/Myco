@@ -1,9 +1,13 @@
-"""session-end verb: reflect + immune(fix=True) composer.
+"""``senesce`` verb — close the session: assimilate + immune(fix=True).
 
-Extracted from the v0.4 ``myco/meta.py`` single-file module into its
-own submodule at v0.5. Behaviour unchanged; only the module path and
-the function name (``session_end_run`` → ``run`` to match the verb-
-handler convention).
+v0.5.3: renamed from ``session_end`` (was ``myco session-end``). In
+fungal biology, senescence is the aging-into-dormancy phase where
+the mycelium consolidates what it has absorbed and wards off
+pathogens before sleep — which is exactly what this verb does
+(bulk-promote raw notes, then lint with --fix before compaction).
+
+Behavior unchanged from v0.5.x; the manifest alias
+``session-end`` still invokes this handler through v1.0.0.
 """
 
 from __future__ import annotations
@@ -11,7 +15,7 @@ from __future__ import annotations
 from typing import Mapping
 
 from myco.core.context import MycoContext, Result
-from myco.digestion.reflect import reflect
+from myco.digestion.assimilate import reflect
 from myco.homeostasis.kernel import run_immune
 from myco.homeostasis.registry import default_registry
 

@@ -1,24 +1,84 @@
-"""Cross-cutting meta-verbs that compose multiple subsystems.
+"""Deprecation shim for ``myco.meta`` → ``myco.cycle``.
 
-v0.5 (MAJOR 9/10): what was a single-file ``meta.py`` in v0.4 is now
-a package. The five meta-verbs — ``session-end``, ``craft``,
-``bump``, ``evolve``, ``scaffold`` — each live in their own
-submodule, mirroring the one-verb-per-file discipline that the
-subsystem packages already follow.
+v0.5.3 renamed the cross-cutting verb-composer package ``meta`` →
+``cycle`` because every verb it holds (``germinate``/``fruit``/
+``molt``/``winnow``/``ramify``/``senesce``/``graft``) is a life-
+cycle event of the fungal substrate. "meta" was a programming-
+meta-ism, "cycle" matches the biology. Shim preserves every v0.5.x
+import path. Scheduled for removal at v1.0.0.
 
-The ``session_end_run`` re-export below preserves backward compatibility
-for any out-of-tree caller that imported it from the old
-``myco.meta`` module. The manifest (v0.5+) points directly at
-``myco.meta.session_end:run``; the alias here is purely defensive.
+Particularly important: ``from myco.meta import session_end_run``
+was the public-surface name for v0.4 and the backward-compat re-
+export at v0.5.0-v0.5.2. It keeps importing here with the old name.
 
-Kept outside ``surface/`` so that package stays pure adaptation
-per L3 package_map invariant 4. The ``meta`` package is *not* a
-subsystem (it does not appear in ``canon.subsystems``); it is a
-cross-cutting verb composer — see ``L3_IMPLEMENTATION/package_map.md``.
+Submodule re-exports (bump/craft/evolve/scaffold/session_end):
+loading ``myco.meta.<old_name>`` returns the renamed ``myco.cycle``
+module under the old name so pre-v0.5.3 test suites continue to
+import them unchanged.
 """
-
 from __future__ import annotations
 
-from .session_end import run as session_end_run
+import sys as _sys
+import warnings as _w
 
-__all__ = ["session_end_run"]
+from myco.cycle.senesce import run as session_end_run
+from myco.cycle import (
+    fruit as _fruit_mod,
+    molt as _molt_mod,
+    winnow as _winnow_mod,
+    ramify as _ramify_mod,
+    senesce as _senesce_mod,
+)
+
+
+_WARNED = False
+
+
+def _warn_once() -> None:
+    global _WARNED
+    if _WARNED:
+        return
+    _WARNED = True
+    _w.warn(
+        "myco.meta is a deprecated shim for myco.cycle "
+        "(renamed at v0.5.3 for fungal-vocabulary consistency: "
+        "every verb is a life-cycle event). Both import paths work "
+        "across the 0.x line; the shim is scheduled for removal at "
+        "v1.0.0.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+
+
+_warn_once()
+
+
+# Re-export the renamed modules under their v0.5.0-v0.5.2 names so
+# ``from myco.meta.scaffold import _handler_path`` and cousins keep
+# resolving without an edit to the caller.
+craft = _fruit_mod
+bump = _molt_mod
+evolve = _winnow_mod
+scaffold = _ramify_mod
+session_end = _senesce_mod
+
+# Register them in ``sys.modules`` so `import myco.meta.scaffold`
+# works (not just `from myco.meta import scaffold`).
+for _alias, _mod in (
+    ("craft", _fruit_mod),
+    ("bump", _molt_mod),
+    ("evolve", _winnow_mod),
+    ("scaffold", _ramify_mod),
+    ("session_end", _senesce_mod),
+):
+    _sys.modules[f"myco.meta.{_alias}"] = _mod
+
+
+__all__ = [
+    "session_end_run",
+    "craft",
+    "bump",
+    "evolve",
+    "scaffold",
+    "session_end",
+]

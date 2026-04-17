@@ -35,7 +35,13 @@ Both forms:
    (override extras with `--extras mcp,adapters,dev`).
 3. Verify by running `python -m myco --help`.
 
-Optional: configure one or more MCP hosts in the same step.
+Optional: configure one or more MCP hosts in the same step. The
+flag is a shorthand — `--configure claude-code cursor` is exactly
+equivalent to running `myco-install host claude-code` and
+`myco-install host cursor` after `fresh` completes. Each listed
+client goes through the same schema-aware writer documented in
+section 1 (MCP host config), preserving any sibling servers already
+present.
 
 ```bash
 myco-install fresh ~/myco --configure claude-code cursor windsurf
@@ -61,6 +67,16 @@ Upgrade later with plain `git pull` inside `~/myco` (not
 cd ~/myco && git pull
 myco immune                       # verify no post-upgrade drift
 ```
+
+Once installed, the agent germinates a downstream substrate anywhere:
+
+```bash
+myco germinate --project-dir /path/to/project --substrate-id my-project
+```
+
+`germinate` is the v0.5.3 canonical name; the legacy `genesis`
+alias still resolves (with a one-shot `DeprecationWarning`) for
+v0.5.2 cached invocations.
 
 ---
 
@@ -395,7 +411,53 @@ Verify with `mcp-server-myco --help` or `myco --version`.
 
 ---
 
-## 6. Troubleshooting
+## 6. Substrate-local plugins
+
+A downstream substrate can carry its own lint dimensions, ingestion
+adapters, schema upgraders, and even brand-new verbs without
+forking Myco or publishing a PyPI package. The mechanism is two
+paths under the substrate root:
+
+| Path | Role |
+|---|---|
+| `<substrate>/.myco/plugins/__init__.py` | Auto-imported on `Substrate.load()`. Registration side effects (new `Dimension` subclass, new `Adapter`, new `schema_upgrader`, new verb handler) run here. |
+| `<substrate>/.myco/manifest_overlay.yaml` | Merged into the runtime command manifest at `build_context()` time. Locally-authored verbs appear alongside built-ins. |
+
+The agent scaffolds these via the extended `ramify` verb:
+
+```bash
+# Scaffold a local lint dimension (writes to .myco/plugins/dimensions/local1.py)
+myco ramify --dimension LOCAL1 --category mechanical --severity medium
+
+# Scaffold a local ingestion adapter
+myco ramify --adapter jira --extensions .jira,.json
+
+# Scaffold a local verb handler stub
+myco ramify --verb mythinking
+```
+
+`--substrate-local` defaults ON when `canon.identity.substrate_id`
+is not `myco-self` (i.e. any downstream substrate) OR when
+`<substrate_root>/src/myco/` does not exist. On `myco-self` itself
+the flag is OFF by default and `ramify` writes into the kernel
+tree; pass `--substrate-local` explicitly to override.
+
+Once plugins are in place, `myco graft` inspects them:
+
+```bash
+myco graft --list                 # Enumerate every loaded local plugin
+myco graft --validate             # Re-run the import + registration gate
+myco graft --explain <name>       # Source file + class docstring
+```
+
+The new `MF2` lint dimension (mechanical / HIGH) fires on broken
+`.myco/plugins/` shape, missing `__init__.py`, manifest-overlay
+YAML errors, or duplicate verb names across the overlay and the
+packaged manifest. Magical imports stay audible.
+
+---
+
+## 7. Troubleshooting
 
 ### `spawn mcp-server-myco ENOENT` (most common)
 

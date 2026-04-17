@@ -1,5 +1,5 @@
 {
-  "description": "Myco boot and session-end rituals. See docs/architecture/L1_CONTRACT/protocol.md for R1 and R2. Uses the myco console script (installed by pyproject [project.scripts]) rather than python -m myco, so paths do not depend on whether the host's PATH resolves `python` or `python3` to the venv that installed myco.",
+  "description": "Myco boot and senescence rituals. See docs/architecture/L1_CONTRACT/protocol.md for R1 and R2. The Agent runs these automatically; humans never invoke them directly. Uses `python -m myco` so dispatch goes through sys.path (immune to stale `myco` consoles on PATH); `senesce` is the v0.5.3 canonical name for the end-of-session composer, and `session-end` still resolves as a deprecated alias for v0.5.x cached installs.",
   "hooks": {
     "SessionStart": [
       {
@@ -18,7 +18,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python -m myco --json --project-dir \"$CLAUDE_PROJECT_DIR\" session-end"
+            "command": "python -m myco --json --project-dir \"$CLAUDE_PROJECT_DIR\" senesce"
           }
         ]
       }

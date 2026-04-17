@@ -43,6 +43,7 @@ from .m1_canon_identity_fields import M1CanonIdentityFields
 from .m2_entry_point_exists import M2EntryPointExists
 from .m3_write_surface_declared import M3WriteSurfaceDeclared
 from .mf1_declared_subsystems_exist import MF1DeclaredSubsystemsExist
+from .mf2_substrate_local_plugin_health import MF2SubstrateLocalPluginHealth
 from .sh1_package_version_ref import SH1PackageVersionRef
 from .mb1_raw_notes_backlog import MB1RawNotesBacklog
 from .mb2_no_integrated_yet import MB2NoIntegratedYet
@@ -56,6 +57,7 @@ __all__ = [
     "M2EntryPointExists",
     "M3WriteSurfaceDeclared",
     "MF1DeclaredSubsystemsExist",
+    "MF2SubstrateLocalPluginHealth",
     "SH1PackageVersionRef",
     "MB1RawNotesBacklog",
     "MB2NoIntegratedYet",
@@ -73,6 +75,7 @@ _BUILT_IN: tuple[type[Dimension], ...] = (
     M2EntryPointExists,
     M3WriteSurfaceDeclared,
     MF1DeclaredSubsystemsExist,
+    MF2SubstrateLocalPluginHealth,
     SH1PackageVersionRef,
     MB1RawNotesBacklog,
     MB2NoIntegratedYet,

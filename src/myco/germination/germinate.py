@@ -1,11 +1,18 @@
-"""``myco genesis`` — one-shot substrate bootstrap.
+"""``myco germinate`` — one-shot substrate bootstrap.
 
-Governing doc: ``docs/architecture/L2_DOCTRINE/genesis.md``.
+v0.5.3 renamed ``genesis`` → ``germinate`` (spore germination starts
+the fungal colony). The legacy ``myco genesis`` invocation still
+works via a manifest alias; the shim package ``myco.genesis``
+re-exports this module.
+
+Governing doc: ``docs/architecture/L2_DOCTRINE/genesis.md`` (the
+file keeps its v0.4 filename until the next doctrine-file pass;
+the content refers to the new verb name).
 Craft: ``docs/primordia/stage_b3_genesis_craft_2026-04-15.md``.
 
-Genesis creates a minimal, lint-clean substrate skeleton from scratch.
-It is invoked exactly once per project lifetime. Re-running it on an
-established substrate raises ``ContractError``.
+Germinate creates a minimal, lint-clean substrate skeleton from
+scratch. It is invoked exactly once per project lifetime. Re-
+running it on an established substrate raises ``ContractError``.
 """
 
 from __future__ import annotations
@@ -171,8 +178,8 @@ def bootstrap(
 
 
 def _load_template(name: str) -> str:
-    """Read a template asset from ``myco.genesis.templates``."""
-    pkg = _pkg_files("myco.genesis.templates")
+    """Read a template asset from ``myco.germination.templates``."""
+    pkg = _pkg_files("myco.germination.templates")
     return (pkg / name).read_text(encoding="utf-8")
 
 
