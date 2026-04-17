@@ -13,7 +13,12 @@ from myco.core.errors import UsageError
 from myco.core.severity import Severity
 from myco.homeostasis.dimension import Dimension
 from myco.homeostasis.finding import Category, Finding
-from myco.homeostasis.kernel import run_immune
+from myco.homeostasis.kernel import (
+    run_cli,
+    run_explain,
+    run_immune,
+    run_list,
+)
 from myco.homeostasis.registry import DimensionRegistry, default_registry
 
 
@@ -131,6 +136,62 @@ def test_payload_records_context(seeded_substrate: Path) -> None:
     assert result.payload["exit_on"] == "critical"
     assert result.payload["fix"] is True
     assert result.payload["skeleton_downgrade_applied"] is False
+
+
+def test_run_list_enumerates_without_running(seeded_substrate: Path) -> None:
+    """``--list`` returns the dimension catalog, runs no dimensions."""
+    reg = DimensionRegistry()
+    reg.register(_Fires())
+    reg.register(_Quiet())
+    r = run_list(reg)
+    assert r.exit_code == 0
+    assert r.payload["mode"] == "list"
+    assert r.payload["count"] == 2
+    ids = {d["id"] for d in r.payload["dimensions"]}
+    assert ids == {"F1", "Q1"}
+    # Entry shape
+    f1 = next(d for d in r.payload["dimensions"] if d["id"] == "F1")
+    assert f1["category"] == "mechanical"
+    assert f1["default_severity"] == "critical"
+
+
+def test_run_explain_returns_prose(seeded_substrate: Path) -> None:
+    reg = DimensionRegistry()
+    reg.register(_Fires())
+    r = run_explain(reg, "F1")
+    assert r.exit_code == 0
+    assert r.payload["mode"] == "explain"
+    assert r.payload["id"] == "F1"
+    assert r.payload["category"] == "mechanical"
+    assert r.payload["default_severity"] == "critical"
+    assert "always fires" in r.payload["explain"].lower()
+
+
+def test_run_explain_unknown_dim_raises(seeded_substrate: Path) -> None:
+    reg = DimensionRegistry()
+    reg.register(_Fires())
+    with pytest.raises(UsageError, match="unknown dimension"):
+        run_explain(reg, "NOPE")
+
+
+def test_run_cli_dispatches_list(seeded_substrate: Path) -> None:
+    ctx = _mk_ctx(seeded_substrate)
+    r = run_cli({"list": True}, ctx=ctx)
+    assert r.payload["mode"] == "list"
+    assert r.payload["count"] >= 1
+
+
+def test_run_cli_dispatches_explain(seeded_substrate: Path) -> None:
+    ctx = _mk_ctx(seeded_substrate)
+    r = run_cli({"explain": "M1"}, ctx=ctx)
+    assert r.payload["mode"] == "explain"
+    assert r.payload["id"] == "M1"
+
+
+def test_run_cli_list_and_explain_are_mutex(seeded_substrate: Path) -> None:
+    ctx = _mk_ctx(seeded_substrate)
+    with pytest.raises(UsageError, match="mutually exclusive"):
+        run_cli({"list": True, "explain": "M1"}, ctx=ctx)
 
 
 def test_default_registry_runs_end_to_end(seeded_substrate: Path) -> None:

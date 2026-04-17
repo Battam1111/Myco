@@ -179,10 +179,82 @@ commands:
         type: "bool"
         default: false
         help: "Apply safe fixes (no-op at B.7)."
+      - name: "list"
+        type: "bool"
+        default: false
+        help: "Enumerate every dimension (id, category, severity) without running."
+      - name: "explain"
+        type: "str"
+        default: null
+        help: "Print the prose description for a single dimension id."
 
   - name: "session-end"
     subsystem: "meta"
-    handler: "myco.meta:session_end_run"
+    handler: "myco.meta.session_end:run"
     summary: "Run reflect and then immune --fix (session wrap-up)."
     mcp_tool: "myco_session_end"
     args: []
+
+  - name: "craft"
+    subsystem: "meta"
+    handler: "myco.meta.craft:run"
+    summary: "Scaffold a new three-round primordia doc under docs/primordia/."
+    mcp_tool: "myco_craft"
+    args:
+      - name: "topic"
+        type: "str"
+        required: true
+        help: "Topic phrase; slugged to <slug> and written as <slug>_craft_<date>.md."
+      - name: "kind"
+        type: "str"
+        default: "design"
+        help: "Free-form kind tag (design / audit / migration / …)."
+      - name: "date"
+        type: "str"
+        default: null
+        help: "Override the date stamp (YYYY-MM-DD); defaults to today."
+
+  - name: "bump"
+    subsystem: "meta"
+    handler: "myco.meta.bump:run"
+    summary: "Bump canon contract_version and append a contract_changelog entry."
+    mcp_tool: "myco_bump"
+    args:
+      - name: "contract"
+        type: "str"
+        required: true
+        help: "New contract version (e.g. 'v0.5.0')."
+      - name: "dry-run"
+        type: "bool"
+        default: false
+        help: "Preview the canon patch + changelog section without writing."
+      - name: "date"
+        type: "str"
+        default: null
+        help: "Override the date stamp (YYYY-MM-DD); defaults to today."
+
+  - name: "evolve"
+    subsystem: "meta"
+    handler: "myco.meta.evolve:run"
+    summary: "Validate a proposal document's shape against craft-protocol gates."
+    mcp_tool: "myco_evolve"
+    args:
+      - name: "proposal"
+        type: "path"
+        required: true
+        help: "Path to the proposal markdown (relative to substrate root or absolute)."
+
+  - name: "scaffold"
+    subsystem: "meta"
+    handler: "myco.meta.scaffold:run"
+    summary: "Generate a handler stub from a manifest-declared verb."
+    mcp_tool: "myco_scaffold"
+    args:
+      - name: "verb"
+        type: "str"
+        required: true
+        help: "Manifest verb name whose handler stub to generate."
+      - name: "force"
+        type: "bool"
+        default: false
+        help: "Overwrite an existing handler file (default: refuse)."

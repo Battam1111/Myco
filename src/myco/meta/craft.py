@@ -1,0 +1,117 @@
+"""craft verb: scaffold a new three-round primordia doc.
+
+MAJOR 9 (v0.5): elevates "craft" from a markdown-social-convention to
+a real agent-callable verb. Given a ``--topic <slug>`` (and optional
+``--kind`` tag), writes a new file at::
+
+    docs/primordia/<slug>_craft_<YYYY-MM-DD>.md
+
+with the three-round skeleton (claim / self-rebuttal / revision /
+counter-rebuttal / reflection) pre-structured. The agent fills in
+each section; the immune kernel (a future dimension CR1) verifies
+the body shape meets the protocol floor.
+
+Refuses to overwrite an existing file. Emits the final path in the
+Result payload so the caller can open it.
+
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/surface.md``
+(governance-verbs appendix, v0.5). Legacy reference:
+``legacy_v0_3/docs/craft_protocol.md``.
+"""
+
+from __future__ import annotations
+
+import re
+import string
+from datetime import date as _date
+from importlib.resources import files as _pkg_files
+from typing import Mapping
+
+from myco.core.context import MycoContext, Result
+from myco.core.errors import ContractError, UsageError
+
+__all__ = ["run"]
+
+
+_SLUG_RE = re.compile(r"^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$")
+
+
+def _slugify(raw: str) -> str:
+    """Normalize ``raw`` to a craft-slug shape.
+
+    Accepts human-written phrases ("Schema forward-compat") and emits
+    ``schema_forward_compat``. Rejects slugs that cannot be made
+    conforming (e.g. bare digits, punctuation-only).
+    """
+    lowered = raw.strip().lower()
+    # Replace any non-alnum with underscores, collapse runs, trim.
+    normalized = re.sub(r"[^a-z0-9]+", "_", lowered).strip("_")
+    # Ensure leading char is a letter.
+    if not normalized or not normalized[0].isalpha():
+        raise UsageError(
+            f"craft: topic {raw!r} does not yield a valid slug. "
+            f"Topic must start with a letter and contain letters, "
+            f"digits, spaces, or underscores."
+        )
+    if not _SLUG_RE.match(normalized):
+        raise UsageError(
+            f"craft: derived slug {normalized!r} does not match the "
+            f"craft-slug pattern [a-z][a-z0-9_]*."
+        )
+    return normalized
+
+
+def _title_case(slug: str) -> str:
+    """Turn ``schema_forward_compat`` into ``Schema Forward Compat``."""
+    return " ".join(part.capitalize() for part in slug.split("_"))
+
+
+def _load_template() -> str:
+    return (
+        _pkg_files("myco.meta.templates")
+        .joinpath("craft.md.tmpl")
+        .read_text(encoding="utf-8")
+    )
+
+
+def run(args: Mapping[str, object], *, ctx: MycoContext) -> Result:
+    topic_raw = args.get("topic")
+    if not topic_raw:
+        raise UsageError("craft: --topic is required")
+
+    slug = _slugify(str(topic_raw))
+    kind = str(args.get("kind") or "design").strip() or "design"
+    today = str(args.get("date") or _date.today().isoformat())
+
+    primordia_dir = ctx.substrate.root / "docs" / "primordia"
+    primordia_dir.mkdir(parents=True, exist_ok=True)
+
+    filename = f"{slug}_craft_{today}.md"
+    target = primordia_dir / filename
+    if target.exists():
+        raise ContractError(
+            f"craft: refusing to overwrite existing {target}. "
+            f"Either edit it directly or rename it."
+        )
+
+    template = string.Template(_load_template())
+    body = template.safe_substitute(
+        topic=str(topic_raw),
+        slug=slug,
+        kind=kind,
+        date=today,
+        title=_title_case(slug),
+    )
+    target.write_text(body, encoding="utf-8")
+
+    return Result(
+        exit_code=0,
+        payload={
+            "path": str(target.relative_to(ctx.substrate.root)),
+            "slug": slug,
+            "kind": kind,
+            "date": today,
+            "rounds": 3,
+            "status": "DRAFT",
+        },
+    )

@@ -56,6 +56,33 @@ myco = "myco.surface.cli:main"
 mcp-server-myco = "myco.mcp:main"
 myco-install = "myco.install:main"
 
+# v0.5 (MAJOR 6) — dimension registration via entry-points.
+#
+# Myco's own built-in dimensions register here, the same way a third-
+# party substrate plugin would. `default_registry()` discovers this
+# table at runtime via `importlib.metadata.entry_points(group=
+# "myco.dimensions")`. Adding a dimension means: write the class, add
+# a row here, run `pip install -e .` (installed users get it
+# automatically on next `pip install`). No edit to
+# `src/myco/homeostasis/dimensions/__init__.py`'s `_BUILT_IN` tuple is
+# strictly required after v0.5 — the tuple is the dev-checkout
+# fallback, not the SSoT.
+#
+# Third-party dimension packages follow the same shape:
+#
+#   [project.entry-points."myco.dimensions"]
+#   my_id = "mypkg.lint:MyDimensionClass"
+[project.entry-points."myco.dimensions"]
+M1 = "myco.homeostasis.dimensions.m1_canon_identity_fields:M1CanonIdentityFields"
+M2 = "myco.homeostasis.dimensions.m2_entry_point_exists:M2EntryPointExists"
+M3 = "myco.homeostasis.dimensions.m3_write_surface_declared:M3WriteSurfaceDeclared"
+MF1 = "myco.homeostasis.dimensions.mf1_declared_subsystems_exist:MF1DeclaredSubsystemsExist"
+SH1 = "myco.homeostasis.dimensions.sh1_package_version_ref:SH1PackageVersionRef"
+MB1 = "myco.homeostasis.dimensions.mb1_raw_notes_backlog:MB1RawNotesBacklog"
+MB2 = "myco.homeostasis.dimensions.mb2_no_integrated_yet:MB2NoIntegratedYet"
+SE1 = "myco.homeostasis.dimensions.se1_dangling_refs:SE1DanglingRefs"
+SE2 = "myco.homeostasis.dimensions.se2_orphan_integrated:SE2OrphanIntegrated"
+
 [tool.hatch.version]
 # Single source of truth for the package version — per L1 versioning.md.
 path = "src/myco/__init__.py"

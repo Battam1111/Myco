@@ -2,35 +2,97 @@
 
 Governing doc: ``docs/architecture/L1_CONTRACT/canon_schema.md``.
 
-Strict-parse semantics (Stage B.1):
+Forward-compat parse semantics (v0.5+, updated from B.1 strict):
 
 - Missing *required* top-level keys → ``CanonSchemaError``.
-- Unknown ``schema_version`` → ``CanonSchemaError``.
+- Unknown ``schema_version`` → ``UserWarning`` (was: error).
+  A registered entry in :data:`schema_upgraders` transforms the raw
+  mapping to a known shape before the warning would fire; an unknown
+  version with no upgrader is best-effort-read and the warning is
+  surfaced to the caller.
 - Known top-level keys are read into typed slots on ``Canon``.
 - Unknown top-level keys are preserved in ``Canon.extras``.
 - Unknown *nested* keys are silently ignored here; the immune kernel
   (Stage B.2) will re-scan the raw YAML for ``unknown key at known
   section`` as a ``mechanical:HIGH`` finding.
 
-This module only *reads* canon. Writing (fresh authoring) is Genesis's
-job (Stage B.3).
+The v0.5 forward-compat flip is what lets "You never migrate again"
+stand as a load-bearing README claim: a newer substrate read by an
+older kernel, or an older substrate read by a newer kernel, warns
+rather than failing. See ``docs/primordia/v0_5_0_major_6_10_craft_
+2026-04-17.md`` for the audit trail.
+
+This module only *reads* canon. Writing (contract bumps) is the
+``myco bump`` verb's job (v0.5); fresh authoring is Genesis's
+(Stage B.3).
 """
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Callable, Mapping
 
 import yaml
 
 from .errors import CanonSchemaError
 
-__all__ = ["Canon", "load_canon", "KNOWN_SCHEMA_VERSIONS"]
+__all__ = [
+    "Canon",
+    "load_canon",
+    "KNOWN_SCHEMA_VERSIONS",
+    "schema_upgraders",
+]
 
 
-#: Schema versions this kernel knows how to read.
+#: Schema versions this kernel knows how to read without invoking the
+#: upgrader chain. Bumping requires concurrent L1 ``canon_schema.md``
+#: revision + a ``contract_changelog.md`` entry.
 KNOWN_SCHEMA_VERSIONS: frozenset[str] = frozenset({"1"})
+
+#: Registry of canon schema upgraders, forward-compat seam.
+#:
+#: Keyed by observed ``schema_version`` string. The callable receives the
+#: raw canon mapping (a dict copy; safe to mutate) and MUST return a
+#: mapping whose ``schema_version`` is either a
+#: :data:`KNOWN_SCHEMA_VERSIONS` entry or another registered upgrader's
+#: key (chained).
+#:
+#: Empty at v0.5 — schema v1 is the only shipped shape. This registry
+#: makes the "no migration" promise *tenable*: when schema v2 lands,
+#: the kernel that introduces v2 registers ``{"1": _v1_to_v2}`` and
+#: every v1 substrate parses silently.
+schema_upgraders: dict[
+    str, Callable[[Mapping[str, Any]], Mapping[str, Any]]
+] = {}
+
+
+def _apply_upgraders(
+    version: str,
+    raw: Mapping[str, Any],
+    *,
+    _seen: frozenset[str] | None = None,
+) -> Mapping[str, Any]:
+    """Chain-apply :data:`schema_upgraders` until version is known.
+
+    Returns ``raw`` unchanged (same identity) if no upgrader matches
+    the observed version, signalling the caller to emit a warning and
+    proceed best-effort. Raises ``CanonSchemaError`` on cycles.
+    """
+    seen = _seen or frozenset()
+    if version in seen:
+        raise CanonSchemaError(
+            f"schema_upgrader cycle detected at version {version!r}"
+        )
+    upgrader = schema_upgraders.get(version)
+    if upgrader is None:
+        return raw
+    upgraded = upgrader(dict(raw))
+    next_version = str(upgraded.get("schema_version", version))
+    if next_version in KNOWN_SCHEMA_VERSIONS:
+        return upgraded
+    return _apply_upgraders(next_version, upgraded, _seen=seen | {version})
 
 #: Top-level keys that MUST be present for a canon to be considered valid.
 _REQUIRED_TOP_LEVEL: tuple[str, ...] = (
@@ -132,10 +194,24 @@ def load_canon(path: Path) -> Canon:
 
     schema_version = str(raw["schema_version"])
     if schema_version not in KNOWN_SCHEMA_VERSIONS:
-        raise CanonSchemaError(
-            f"unknown schema_version {schema_version!r} "
-            f"(known: {sorted(KNOWN_SCHEMA_VERSIONS)})"
-        )
+        upgraded = _apply_upgraders(schema_version, raw)
+        if upgraded is raw:
+            # No upgrader registered. Warn and proceed best-effort —
+            # v0.5 forward-compat contract. The ``.get(...)``-tolerant
+            # downstream readers handle any shape drift.
+            warnings.warn(
+                f"_canon.yaml schema_version {schema_version!r} is not "
+                f"recognized by this Myco kernel "
+                f"(known: {sorted(KNOWN_SCHEMA_VERSIONS)}). "
+                f"Proceeding best-effort. Register a "
+                f"myco.core.canon.schema_upgraders entry to silence "
+                f"and transform.",
+                UserWarning,
+                stacklevel=2,
+            )
+        else:
+            raw = dict(upgraded)
+            schema_version = str(raw.get("schema_version", schema_version))
 
     def _mapping(key: str) -> Mapping[str, Any]:
         val = raw.get(key, {})

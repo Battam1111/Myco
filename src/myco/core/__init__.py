@@ -8,7 +8,12 @@ package map.
 
 from __future__ import annotations
 
-from .canon import KNOWN_SCHEMA_VERSIONS, Canon, load_canon
+from .canon import (
+    KNOWN_SCHEMA_VERSIONS,
+    Canon,
+    load_canon,
+    schema_upgraders,
+)
 from .context import MycoContext, Result
 from .errors import (
     CanonSchemaError,
@@ -27,6 +32,7 @@ __all__ = [
     "Canon",
     "load_canon",
     "KNOWN_SCHEMA_VERSIONS",
+    "schema_upgraders",
     # context
     "MycoContext",
     "Result",

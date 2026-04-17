@@ -34,7 +34,7 @@ def minimal_canon_text() -> str:
             rule_count: 7
         subsystems:
           genesis:
-            package: "src/myco/genesis/"
+            doc: "docs/architecture/L2_DOCTRINE/genesis.md"
         """
     )
 

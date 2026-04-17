@@ -18,6 +18,125 @@ Versioning: [SemVer](https://semver.org/).
 
 ---
 
+## [0.5.0] — 2026-04-17
+
+Closes all five MAJOR gaps from the v0.4.1 post-release audit
+(`docs/primordia/v0_4_1_audit_craft_2026-04-15.md`). The README's
+"the substrate changes shape with the work" (L0 principle 3,
+永恒进化) and "you never migrate again" promises are now mechanically
+backed, not aspirational prose. The governing three-round craft is
+`docs/primordia/v0_5_0_major_6_10_craft_2026-04-17.md`.
+
+### Added
+
+- **MAJOR 6 — Dimension registration via entry-points.**
+  `pyproject.toml` now declares every built-in lint dimension under
+  `[project.entry-points."myco.dimensions"]`. Third-party substrates
+  register their own dimensions the same way — no fork of Myco, no
+  source edit, just a single row in their own `pyproject.toml`.
+  Discovery is driven by
+  `importlib.metadata.entry_points(group="myco.dimensions")`; the
+  hardcoded `_BUILT_IN` tuple (renamed from `ALL`) is a dev-checkout
+  fallback that fires a `DeprecationWarning` when used. Broken
+  third-party entry-points are skipped with a `UserWarning` rather
+  than killing the kernel.
+- **`myco immune --list`** enumerates every registered dimension
+  (id / category / default_severity / one-line summary) without
+  running any of them. Output is sorted by id; safe on any
+  substrate.
+- **`myco immune --explain <dim>`** prints the dimension's class
+  docstring as prose. `--list` and `--explain` are mutually
+  exclusive; passing both raises `UsageError`.
+- **MAJOR 7 — `MF1` lint dimension.** Mechanical / HIGH: every
+  `canon.subsystems.<name>.package` path must resolve to an
+  existing directory under substrate root. Silent when a subsystem
+  entry has no `package:` field (documentation-only subsystems stay
+  valid). The first cross-check between the canon's `subsystems`
+  block and the actual package layout.
+- **MAJOR 8 — Forward-compatible canon reader.** An unknown
+  `schema_version` in `_canon.yaml` now emits a `UserWarning` and
+  proceeds best-effort instead of raising `CanonSchemaError`. A new
+  module-level registry `myco.core.canon.schema_upgraders:
+  dict[str, Callable]` is the seam for future v1→v2 in-code
+  upgraders (chain-applied; cycle-detected). Empty at v0.5 — schema
+  v1 is still the only shipped shape. This is the single code-level
+  change that makes "you never migrate again" a load-bearing claim:
+  an older kernel reading a newer canon warns rather than halting.
+- **MAJOR 9 — Governance as verbs.** Three new agent-callable
+  CLI/MCP verbs; previously all three were Markdown-social
+  conventions:
+  - **`myco craft --topic <phrase>`** scaffolds a dated primordia
+    doc at `docs/primordia/<slug>_craft_<date>.md` from a three-round
+    template (claim / self-rebuttal / revision / counter-rebuttal /
+    reflection, with YAML frontmatter carrying `type`, `slug`,
+    `kind`, `date`, `rounds`, `status`). Refuses to overwrite.
+  - **`myco bump --contract <v>`** is the first code path in Myco
+    that mutates a post-genesis `_canon.yaml`. Regex-patches the
+    top-level `contract_version:` and `synced_contract_version:`
+    fields, re-reads via `load_canon` to validate, then prepends a
+    new section to `docs/contract_changelog.md`. Restores the
+    original canon text on any post-write parse error. `--dry-run`
+    previews without writing.
+  - **`myco evolve --proposal <path>`** runs five shape gates on a
+    craft or proposal doc (frontmatter `type`, title, body size
+    bounds, round-marker count ≥ 2, per-round body ≥ 150 chars).
+    Returns `exit 0` with `verdict: pass` on clean, `exit 1` with
+    `violations: [{gate, message}]` on fail. Read-only; does not
+    mutate.
+- **MAJOR 10 — Handler auto-scaffolding.**
+  **`myco scaffold --verb <name>`** generates a minimal handler
+  stub at the filesystem path derived from the manifest's
+  `handler:` string (not the `subsystem:` tag). The stub returns a
+  well-formed `Result(exit_code=0, payload={"stub": True, "verb":
+  <name>})` and emits a `DeprecationWarning` on every invocation,
+  so unfinished verbs are neither silent successes nor crashes.
+  Refuses to act on a verb the manifest does not declare (manifest
+  stays SSoT); refuses to overwrite unless `--force` is passed.
+- **`myco.meta/` package.** What was a single-file
+  `src/myco/meta.py` in v0.4 is now a package with five submodules
+  (`session_end.py`, `craft.py`, `bump.py`, `evolve.py`,
+  `scaffold.py`) plus a `templates/` subdirectory holding the
+  craft-doc template. `meta/__init__.py` re-exports
+  `session_end_run` so any out-of-tree caller that imported from
+  the old module path keeps working unchanged.
+- **Sixteen verbs.** v0.4 shipped twelve; v0.5 adds `craft`, `bump`,
+  `evolve`, `scaffold`.
+- **Nine lint dimensions.** v0.4 shipped eight; v0.5 adds `MF1`.
+
+### Changed
+
+- **`session-end` manifest handler path.** Moved from
+  `myco.meta:session_end_run` to `myco.meta.session_end:run` as a
+  consequence of the `meta.py → meta/` package migration. The
+  backward-compat re-export in `meta/__init__.py` means imports
+  like `from myco.meta import session_end_run` still work.
+- **`test_scaffold.py::PACKAGES`** switched from a hardcoded
+  14-entry list to `pkgutil.walk_packages(myco.__path__)`. Adding
+  a new subsystem package no longer forces a test edit. The
+  module's prose header also corrected — it previously claimed
+  "eight-subsystem layout" against a 14-entry list.
+- **Genesis canon template no longer claims `package:` paths.**
+  A fresh substrate starts with `subsystems.<name>.doc` only;
+  `package:` is opt-in for substrates whose subsystems correspond
+  to code packages under the substrate root (e.g. Myco's own
+  `_canon.yaml`). Prevents `MF1` from firing on every fresh-genesis
+  fixture.
+- **Doctrine updates bundled with the release.**
+  - `docs/architecture/L1_CONTRACT/canon_schema.md` rule 4 — text
+    moved from "refuses to read unknown `schema_version`" to
+    "warns and preserves, with `schema_upgraders` as the forward-
+    compat seam".
+  - `docs/architecture/L2_DOCTRINE/homeostasis.md` — entry-points-
+    driven registration, `MF1` in the inventory, `--list` /
+    `--explain` surface documented, dimension-adding workflow
+    updated.
+  - `docs/architecture/L3_IMPLEMENTATION/command_manifest.md` —
+    governance-verbs section added, 16-verb inventory table.
+  - `docs/architecture/L3_IMPLEMENTATION/package_map.md` — `meta/`
+    as a package, mapping matrix updated.
+
+---
+
 ## [0.4.4] — 2026-04-16
 
 Hotfix for hook-invocation failures when a stale `myco` exists on

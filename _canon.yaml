@@ -5,8 +5,8 @@
 # `_ref`-suffixed fields, not here.
 
 schema_version: "1"
-contract_version: "v0.4.0"
-synced_contract_version: "v0.4.0"
+contract_version: "v0.5.0"
+synced_contract_version: "v0.5.0"
 
 identity:
   substrate_id: "myco-self"
@@ -58,6 +58,7 @@ lint:
     M3: mechanical
     MB1: metabolic
     MB2: metabolic
+    MF1: mechanical
     SE1: semantic
     SE2: semantic
     SH1: shipped

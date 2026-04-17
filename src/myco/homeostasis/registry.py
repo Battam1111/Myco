@@ -48,14 +48,30 @@ class DimensionRegistry:
 
 
 def default_registry() -> DimensionRegistry:
-    """Build a fresh registry populated with every built-in dimension.
+    """Build a fresh registry populated with every discovered dimension.
 
-    Lazily imports the ``dimensions`` subpackage to trigger
-    registration side effects.
+    v0.5+: discovery is driven by
+    ``importlib.metadata.entry_points(group="myco.dimensions")``.
+    See ``myco.homeostasis.dimensions.discover_dimension_classes``
+    for fallback semantics and third-party plugin registration.
     """
     reg = DimensionRegistry()
     from . import dimensions as _dims  # noqa: F401 - side-effect import
 
-    for cls in _dims.ALL:
-        reg.register(cls())
+    for cls in _dims.discover_dimension_classes():
+        try:
+            reg.register(cls())
+        except ContractError:
+            # Duplicate id across entry-points (e.g. built-in + a
+            # third-party that picked the same id). Myco's built-ins
+            # win because they appear first; surface the clash as a
+            # warning, not a crash, so the immune kernel still runs.
+            import warnings
+            warnings.warn(
+                f"dimension class {cls.__name__!r} is shadowed by an "
+                f"earlier registration for id {getattr(cls, 'id', '??')!r}. "
+                f"Skipping.",
+                UserWarning,
+                stacklevel=2,
+            )
     return reg

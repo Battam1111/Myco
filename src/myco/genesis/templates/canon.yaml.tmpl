@@ -36,21 +36,21 @@ lint:
     affected_dimensions: ["L0"]
 
 subsystems:
+  # Fresh substrates declare only the doctrine pointers. `package:` is
+  # opt-in at v0.5+ and only appears in substrates whose subsystems
+  # correspond to code packages under this root (e.g. Myco's self-
+  # substrate). MF1 validates `package:` when present but treats its
+  # absence as "this substrate uses subsystems for documentation only".
   genesis:
     doc: "docs/architecture/L2_DOCTRINE/genesis.md"
-    package: "src/myco/genesis/"
   ingestion:
     doc: "docs/architecture/L2_DOCTRINE/ingestion.md"
-    package: "src/myco/ingestion/"
   digestion:
     doc: "docs/architecture/L2_DOCTRINE/digestion.md"
-    package: "src/myco/digestion/"
   circulation:
     doc: "docs/architecture/L2_DOCTRINE/circulation.md"
-    package: "src/myco/circulation/"
   homeostasis:
     doc: "docs/architecture/L2_DOCTRINE/homeostasis.md"
-    package: "src/myco/homeostasis/"
 
 commands:
   manifest_ref: "src/myco/surface/manifest.yaml"
