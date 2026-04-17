@@ -1,6 +1,6 @@
 {
   "name": "myco",
-  "version": "0.4.3",
+  "version": "0.4.4",
   "description": "Agent-First symbiotic cognitive substrate. Manifest-driven CLI and MCP surface, boot / session-end hooks, and slash-skill entry points for the twelve Myco verbs.",
   "author": {
     "name": "Yanjun",
