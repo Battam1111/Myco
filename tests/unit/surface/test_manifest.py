@@ -25,17 +25,26 @@ def test_dash_to_snake() -> None:
     assert dash_to_snake("abc") == "abc"
 
 
-def test_load_manifest_has_eleven_plus_one_verbs() -> None:
+def test_load_manifest_has_every_v0_5_verb() -> None:
+    """v0.5 expanded from 12 verbs (v0.4) to 16 — added governance
+    verbs (craft/bump/evolve) plus scaffold. Kept as an at-least-these
+    set so a future minor release adding a new verb does not force a
+    test edit (the inverse direction, "every handler resolves", is
+    covered by :func:`test_every_handler_resolves` below)."""
     m = load_manifest()
     assert m.schema_version == "1"
-    names = m.names()
-    expected = {
+    names = set(m.names())
+    must_have = {
+        # v0.4 set
         "genesis", "hunger", "eat", "sense", "forage",
         "reflect", "digest", "distill",
         "perfuse", "propagate",
         "immune", "session-end",
+        # v0.5 governance + scaffold
+        "craft", "bump", "evolve", "scaffold",
     }
-    assert set(names) == expected
+    missing = must_have - names
+    assert not missing, f"manifest missing verbs: {sorted(missing)}"
 
 
 def test_every_handler_resolves() -> None:

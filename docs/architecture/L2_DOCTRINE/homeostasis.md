@@ -37,6 +37,17 @@ from v0.3's 30-dimension inventory). Each dimension lives in its own file
 under `src/myco/homeostasis/dimensions/` — never bundled into a
 megafile.
 
+**v0.5+ (MAJOR 6 and 7)**: dimension registration is entry-points-
+driven. Myco's built-ins register via
+`[project.entry-points."myco.dimensions"]` in `pyproject.toml`;
+third-party substrates register their own dimensions the same way
+(no fork of Myco required). The hardcoded `_BUILT_IN` tuple in
+`src/myco/homeostasis/dimensions/__init__.py` is now only a fallback
+for dev checkouts without `pip install -e .`. The v0.5 inventory
+adds `MF1` (mechanical/HIGH: declared subsystems exist on disk) —
+the first cross-check between `_canon.yaml::subsystems` and the
+actual package layout.
+
 ## Boundary
 
 Homeostasis **does**:
@@ -58,10 +69,19 @@ Homeostasis **does not**:
 ## Interfaces
 
 ```
-myco immune [--fix] [--exit-on <spec>] [--json] [--only <dim>...]
-myco immune --list          # enumerate dimensions, categories, severities
-myco immune --explain <dim> # prose description from the dimension's own file
+myco immune [--fix] [--exit-on <spec>] [--json] [--dimensions <dim>...]
+myco immune --list           # enumerate dimensions, categories, severities
+myco immune --explain <dim>  # prose description from the dimension's class docstring
 ```
+
+At v0.5, `--list` returns `payload.dimensions = [{id, category,
+default_severity, summary}, …]` (sorted by id; summary is the first
+line of the dimension's class docstring). `--explain <dim>` returns
+`payload.explain = <class __doc__>` — the full block, not just the
+one-line summary. Both modes skip `run()` entirely so they are safe
+on any substrate, including ones whose immune kernel would otherwise
+emit findings. `--list` and `--explain` are mutually exclusive; the
+CLI surface maps them to `run_list` and `run_explain` respectively.
 
 ## Cross-subsystem contract
 
@@ -77,13 +97,24 @@ myco immune --explain <dim> # prose description from the dimension's own file
 A new dimension requires:
 
 1. A one-file implementation under `src/myco/homeostasis/dimensions/`
-   named `l<N>_<slug>.py` with a dimension-local docstring that becomes
-   the `--explain` output.
-2. A category assignment in `_canon.yaml::lint.dimensions`.
-3. A test under `tests/unit/homeostasis/` named `test_l<N>_*.py`.
-4. A changelog entry in `docs/contract_changelog.md` (contract bump
+   named `<id_lowercase>_<slug>.py` with a dimension-local docstring
+   (module level) and a class-level docstring (used by
+   `myco immune --explain`).
+2. A row in `pyproject.toml::[project.entry-points."myco.dimensions"]`
+   of the shape `<id> = "module.path:ClassName"`. Built-ins additionally
+   append to the `_BUILT_IN` tuple in
+   `src/myco/homeostasis/dimensions/__init__.py` to keep dev-checkout
+   imports working without `pip install -e .`.
+3. A category assignment in `_canon.yaml::lint.dimensions`.
+4. A test under `tests/unit/homeostasis/dimensions/` named
+   `test_<id_lowercase>_*.py`.
+5. A changelog entry in `docs/contract_changelog.md` (contract bump
    required if it changes category semantics; not required if it's a
    pure addition within an existing category).
+
+Third-party substrates register dimensions by step 2 alone in their
+own `pyproject.toml` — `default_registry()` picks them up
+automatically on next import.
 
 ## What changed from pre-rewrite
 

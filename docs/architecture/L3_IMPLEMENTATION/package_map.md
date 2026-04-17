@@ -63,8 +63,19 @@ src/myco/
 ├── surface/                 # how the outside world talks to Myco
 │   ├── __init__.py
 │   ├── manifest.py          # command manifest loader (SSoT for surfaces)
+│   ├── manifest.yaml        # the 16-verb table (v0.5+)
 │   ├── cli.py               # argparse wrapper; generated from manifest
 │   └── mcp.py               # MCP server; generated from manifest
+│
+├── meta/                    # cross-cutting verbs (v0.5+, was meta.py in v0.4)
+│   ├── __init__.py          # re-exports session_end_run for backward-compat
+│   ├── session_end.py       # reflect + immune(fix=True) composer
+│   ├── craft.py             # `myco craft <topic>` (MAJOR 9)
+│   ├── bump.py              # `myco bump --contract <v>` (MAJOR 9)
+│   ├── evolve.py            # `myco evolve --proposal <path>` (MAJOR 9)
+│   ├── scaffold.py          # `myco scaffold --verb <name>` (MAJOR 10)
+│   └── templates/
+│       └── craft.md.tmpl    # three-round primordia skeleton
 │
 └── symbionts/               # downstream-project adapters (opt-in, isolated)
     ├── __init__.py
@@ -100,6 +111,7 @@ src/myco/
 | `src/myco/circulation/` | Circulation | `docs/architecture/L2_DOCTRINE/circulation.md` |
 | `src/myco/homeostasis/` | Homeostasis | `docs/architecture/L2_DOCTRINE/homeostasis.md` |
 | `src/myco/surface/` | (cross-cutting — adapters for CLI and MCP) | L1 protocol + command manifest |
+| `src/myco/meta/` (v0.5+) | (cross-cutting — multi-subsystem verb composer; houses `session-end`, `craft`, `bump`, `evolve`, `scaffold`) | `command_manifest.md` governance-verbs section |
 | `src/myco/symbionts/` | (external integrations) | per-symbiont doc under `docs/adapters/` |
 
 ## Test layout mirror

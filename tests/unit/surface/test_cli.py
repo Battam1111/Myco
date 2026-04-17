@@ -16,11 +16,16 @@ from myco.surface.cli import build_parser, main
 def test_build_parser_lists_all_verbs() -> None:
     parser = build_parser()
     help_text = parser.format_help()
+    # v0.5: the verb set grew from 12 to 16. This test asserts the
+    # baseline set is still surfaced; additions after v0.5 do not
+    # require an edit here.
     for verb in (
         "genesis", "hunger", "eat", "sense", "forage",
         "reflect", "digest", "distill",
         "perfuse", "propagate",
         "immune", "session-end",
+        # v0.5 governance + scaffold
+        "craft", "bump", "evolve", "scaffold",
     ):
         assert verb in help_text
 

@@ -112,8 +112,21 @@ waves:                             # history of contract-level changes
    anywhere else. Other files either reference canon or are validated
    against canon.
 
-4. **Schema-versioned.** `schema_version` bumps when the top-level shape
-   changes. The immune system refuses to read an unknown `schema_version`.
+4. **Schema-versioned, forward-compatible.** `schema_version` bumps when
+   the top-level shape changes. **v0.5+ (MAJOR 8):** an unknown
+   `schema_version` triggers a `UserWarning`, not a hard error. The
+   kernel reads the canon best-effort (every downstream consumer uses
+   `.get(...)` with defaults, so unknown nested fields are tolerated).
+   A registered entry in
+   `myco.core.canon.schema_upgraders: dict[str, Callable]` transforms
+   the observed shape to a known one in-flight; the warning fires only
+   when no upgrader is registered. This is what lets "you never migrate
+   again" (L0 principle 3) stand as a load-bearing claim rather than
+   aspirational prose — an older kernel reading a newer canon still
+   works, and a newer kernel reading an older canon chains through
+   registered upgraders silently. Pre-v0.5 substrates that relied on
+   the old raise-behavior to catch typos should adopt `myco immune` +
+   a MF-class dimension for shape validation instead.
 
 5. **Alphabetical within sections.** Deterministic ordering for diffs.
 

@@ -130,8 +130,8 @@ lint run:
 
 ## Initial verb inventory
 
-The v0.4.0 manifest includes exactly these eleven verbs, grouped by
-subsystem:
+The v0.4.0 manifest included exactly eleven verbs + one meta-composer.
+**v0.5 adds four governance verbs** (MAJOR 9 and 10). Current inventory:
 
 | Subsystem | Verbs |
 |-----------|-------|
@@ -140,11 +140,50 @@ subsystem:
 | Digestion | `reflect`, `digest`, `distill` |
 | Circulation | `perfuse`, `propagate` |
 | Homeostasis | `immune` |
-| (meta) | `session-end` — orchestrates `reflect` + `immune --fix`; lives in `surface/` |
+| Meta (package, v0.5+) | `session-end`, `craft`, `bump`, `evolve`, `scaffold` |
+
+The `meta` package (new at v0.5) replaces the single-file `meta.py`
+that held only `session_end_run` in v0.4. Each governance verb is its
+own submodule under `src/myco/meta/`.
+
+## Governance verbs (v0.5+, MAJOR 9 and 10)
+
+Governance verbs let the agent perform contract-level changes that
+were previously Markdown-social conventions or hand-edits:
+
+- **`myco craft <topic>`** — scaffold a dated primordia doc under
+  `docs/primordia/<slug>_craft_<date>.md` from the three-round
+  template. Does not enforce that all three rounds get filled in;
+  that is the agent's job, and the `myco evolve` verb validates the
+  shape after authoring.
+- **`myco bump --contract <v>`** — the first code path that mutates
+  a post-genesis `_canon.yaml`. Line-patches `contract_version` and
+  `synced_contract_version`, re-reads via `load_canon` to verify the
+  result still parses, then prepends a new section to
+  `docs/contract_changelog.md`. Restores the original canon text on
+  any post-write parse error.
+- **`myco evolve --proposal <path>`** — shape validator for a
+  proposal/craft doc. Runs five gates (frontmatter type, title,
+  body size bounds, round-marker count, per-round body floor) and
+  returns either `exit 0 + verdict: pass` or `exit 1 + violations`.
+  Does not mutate anything; this is a lint-style read.
+- **`myco scaffold --verb <name>`** — auto-generate a handler stub
+  for a verb that is already in the manifest but has no Python
+  module. Derives the target filesystem path from the manifest's
+  `handler:` string (not the `subsystem:` tag, which is purely
+  descriptive). The stub returns an `exit 0` `Result` with
+  `payload.stub = True` and emits a `DeprecationWarning` on every
+  invocation so unfinished verbs are not silently benign.
+
+`scaffold` is what closes the v0.4-era "add a verb means write a
+Python file by hand" friction. The intended order is still
+**manifest first, handler second** — `scaffold` refuses to act on a
+verb the manifest does not declare.
 
 ## Change policy
 
-Adding a verb: craft doc + contract bump + manifest entry + handler +
-tests. Removing a verb: deprecation notice for one minor version, then
-removal with a craft + contract bump. Renaming a verb: a removal + an
-add (no silent rename).
+Adding a verb: craft doc (via `myco craft`) + contract bump (via
+`myco bump`) + manifest entry + handler (via `myco scaffold`, then
+flesh out) + tests. Removing a verb: deprecation notice for one
+minor version, then removal with a craft + contract bump. Renaming a
+verb: a removal + an add (no silent rename).

@@ -1,9 +1,9 @@
-"""Cross-cutting meta-verbs that compose multiple subsystems.
+"""session-end verb: reflect + immune(fix=True) composer.
 
-Currently holds ``session_end_run`` — the handler for ``myco
-session-end``, which orchestrates ``reflect`` followed by ``immune
---fix``. Kept outside ``surface/`` so that package stays pure
-adaptation per L3 package_map invariant 4.
+Extracted from the v0.4 ``myco/meta.py`` single-file module into its
+own submodule at v0.5. Behaviour unchanged; only the module path and
+the function name (``session_end_run`` → ``run`` to match the verb-
+handler convention).
 """
 
 from __future__ import annotations
@@ -15,14 +15,15 @@ from myco.digestion.reflect import reflect
 from myco.homeostasis.kernel import run_immune
 from myco.homeostasis.registry import default_registry
 
-__all__ = ["session_end_run"]
+__all__ = ["run"]
 
 
-def session_end_run(args: Mapping[str, object], *, ctx: MycoContext) -> Result:
+def run(args: Mapping[str, object], *, ctx: MycoContext) -> Result:
     """Run reflect + immune(fix=True) and merge results.
 
-    Exit code is the worse (higher) of the two sub-results' exit codes.
-    Payload bundles both summaries under ``reflect`` and ``immune``.
+    Exit code is the worse (higher) of the two sub-results' exit
+    codes. Payload bundles both summaries under ``reflect`` and
+    ``immune``.
     """
     del args  # no args at B.7
 
@@ -35,7 +36,11 @@ def session_end_run(args: Mapping[str, object], *, ctx: MycoContext) -> Result:
         fix=True,
     )
 
-    reflect_exit = 1 if reflect_summary["errors"] and reflect_summary["promoted"] == 0 else 0
+    reflect_exit = (
+        1
+        if reflect_summary["errors"] and reflect_summary["promoted"] == 0
+        else 0
+    )
     combined_exit = max(reflect_exit, immune_result.exit_code)
 
     return Result(
