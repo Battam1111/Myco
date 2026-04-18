@@ -88,6 +88,12 @@ def test_dunder_main_help_lists_verbs() -> None:
         [sys.executable, "-m", "myco", "--help"],
         capture_output=True,
         text=True,
+        # Child writes UTF-8 (myco.core.io.ensure_utf8_stdio); decode it as
+        # such regardless of the parent's locale (cp936/GBK on Chinese Windows
+        # otherwise crashes the reader thread on the box-drawing / smart-quote
+        # bytes that argparse and DeprecationWarning emit).
+        encoding="utf-8",
+        errors="replace",
         check=False,
     )
     assert result.returncode == 0, result.stderr

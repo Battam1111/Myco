@@ -16,6 +16,7 @@ from typing import Any, Mapping, Sequence
 
 from myco.core.context import Result
 from myco.core.errors import MycoError, UsageError
+from myco.core.io import ensure_utf8_stdio
 
 from .manifest import (
     ArgSpec,
@@ -144,6 +145,7 @@ def _render_human(result: Result) -> str:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    ensure_utf8_stdio()
     manifest = load_manifest()
     parser = build_parser(manifest)
     ns = parser.parse_args(argv)

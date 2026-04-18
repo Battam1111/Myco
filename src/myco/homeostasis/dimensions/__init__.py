@@ -16,7 +16,9 @@ metadata has not been materialized). When the fallback fires, a
 Dimension categories (v0.5):
 
 - **Mechanical** — M1 (canon identity), M2 (entry-point exists),
-  M3 (write-surface declared), MF1 (declared subsystems exist).
+  M3 (write-surface declared), MF1 (declared subsystems exist),
+  MF2 (substrate-local plugin health), MP1 (no LLM provider imports
+  in the substrate kernel — v0.5.6 mycelium-purity seam).
 - **Shipped**    — SH1 (package-version ref resolves).
 - **Metabolic**  — MB1 (raw-note backlog), MB2 (nothing integrated yet).
 - **Semantic**   — SE1 (dangling refs), SE2 (orphan integrated notes).
@@ -44,6 +46,7 @@ from .m2_entry_point_exists import M2EntryPointExists
 from .m3_write_surface_declared import M3WriteSurfaceDeclared
 from .mf1_declared_subsystems_exist import MF1DeclaredSubsystemsExist
 from .mf2_substrate_local_plugin_health import MF2SubstrateLocalPluginHealth
+from .mp1_no_provider_imports import MP1NoProviderImports
 from .sh1_package_version_ref import SH1PackageVersionRef
 from .mb1_raw_notes_backlog import MB1RawNotesBacklog
 from .mb2_no_integrated_yet import MB2NoIntegratedYet
@@ -58,6 +61,7 @@ __all__ = [
     "M3WriteSurfaceDeclared",
     "MF1DeclaredSubsystemsExist",
     "MF2SubstrateLocalPluginHealth",
+    "MP1NoProviderImports",
     "SH1PackageVersionRef",
     "MB1RawNotesBacklog",
     "MB2NoIntegratedYet",
@@ -76,6 +80,7 @@ _BUILT_IN: tuple[type[Dimension], ...] = (
     M3WriteSurfaceDeclared,
     MF1DeclaredSubsystemsExist,
     MF2SubstrateLocalPluginHealth,
+    MP1NoProviderImports,
     SH1PackageVersionRef,
     MB1RawNotesBacklog,
     MB2NoIntegratedYet,

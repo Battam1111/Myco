@@ -53,6 +53,43 @@ Circulation **does**:
   `code_doc_ref` edges link module docstrings to the doctrine and
   primordia paths they cite (closing the v0.4.1 audit gap that left
   code outside the mycelium).
+
+### Graph API (v0.5.5+)
+
+The graph module exposes four callables that compose the build /
+cache / persist surface:
+
+- `build_graph(ctx, use_cache=True)` — build the mycelium graph.
+  With `use_cache=True` (default) reuses
+  `.myco_state/graph.json` when its fingerprint still matches
+  observed state; with `use_cache=False` always rebuilds from
+  scratch.
+- `invalidate_graph_cache(substrate)` — delete the persisted cache
+  so the next build starts fresh. Call sites: `molt` (contract
+  bump invalidates), `ramify` (new verb / dimension / adapter
+  invalidates), tests that mutate `src/` in-place.
+- `load_persisted_graph(path)` — read `.myco_state/graph.json`
+  and reconstruct the graph object without rebuilding. Used by
+  `traverse` when the fingerprint matches.
+- `persist_graph(graph, path)` — serialize the graph to
+  `.myco_state/graph.json` after a rebuild.
+
+**Fingerprint formula**: the cache fingerprint is
+`sha256(canon_text) + sorted((path, mtime) for path in <root>/src/**/*.py)`.
+Any canon mutation or any `.py` file mtime change invalidates the
+cache; no other substrate change (notes, docs, primordia) triggers
+a rebuild because those are re-read directly on every traverse.
+
+**Cache location**: `<substrate_root>/.myco_state/graph.json`.
+The file is written atomically (temp file + rename). Corrupt or
+missing cache is a silent miss — traverse falls back to a full
+build and overwrites.
+
+**`traverse` payload** at v0.5.6 carries two new fields:
+`src_node_count` (how many `.py` files are represented as graph
+nodes) and `cached` (True when this call served from
+`.myco_state/graph.json` without rebuild, False when the
+fingerprint mismatched or the cache was absent).
 - Run `myco traverse` to walk the mycelial graph and surface
   anastomotic health (dangling refs, orphans, one-way links).
 - Run `myco propagate` — cross-substrate push (see §propagate below).

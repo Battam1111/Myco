@@ -31,6 +31,7 @@ import sys
 from pathlib import Path
 from typing import Sequence
 
+from ..core.io import ensure_utf8_stdio
 from .clients import CLIENTS, MycoInstallError, dispatch
 from .fresh import DEFAULT_REPO, run_fresh
 
@@ -168,6 +169,7 @@ def _legacy_sniff(argv: Sequence[str]) -> list[str]:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    ensure_utf8_stdio()
     raw = list(argv) if argv is not None else sys.argv[1:]
     raw = _legacy_sniff(raw)
 

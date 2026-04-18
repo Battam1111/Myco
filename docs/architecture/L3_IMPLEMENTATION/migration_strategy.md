@@ -6,6 +6,17 @@
 > **Layer**: L3 procedural. Explains how the v0.4.0 rewrite is built
 > into `src/myco/` directly, without any `src/myco_v4/` staging path.
 
+> **Historical note (v0.5.3 rename)**: throughout this document,
+> `genesis/` refers to the v0.4.0 package name. v0.5.3 renamed the
+> package to `germination/`; the legacy import path is preserved
+> through v1.0.0 as a shim (`from myco.genesis import ...` continues to
+> resolve with a `DeprecationWarning`). Similarly, `meta/` → `cycle/`
+> at v0.5.3 with the same shim treatment. This migration_strategy
+> document describes the v0.4.0 greenfield plan and is retained as
+> historical audit record; the body is NOT rewritten to the new names,
+> so that the record of "what the v0.4.0 plan actually said" stays
+> intact. For current package layout see `package_map.md`.
+
 ---
 
 ## Why single-path (supersedes earlier parallel-build sketch)
@@ -99,7 +110,8 @@ the substrate:
    strictly following L0's five root principles. Not a port of the
    old `legacy_v0_3/MYCO.md`.
 3. **Fresh `.claude/hooks/`** — SessionStart + PreCompact hooks
-   wired to the new `myco hunger` / `myco session-end` surface.
+   wired to the new `myco hunger` / `myco senesce` (alias
+   `session-end`) surface.
 4. **ASCC migration script** under `scripts/migrate_ascc_substrate.py`
    (dry-run default, `--execute` opt-in). Maps ASCC's v0.3 canon
    fields into the new schema per §9 E2 "fresh re-export" discipline.

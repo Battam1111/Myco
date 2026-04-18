@@ -193,7 +193,7 @@ commands:
       - name: "fix"
         type: "bool"
         default: false
-        help: "Apply safe fixes (no-op at B.7)."
+        help: "Apply safe fixes where the dimension supports them (v0.5.5: M2 + MB1 fixable; safe-fix discipline in L2 homeostasis.md)."
       - name: "list"
         type: "bool"
         default: false

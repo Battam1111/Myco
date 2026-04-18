@@ -37,6 +37,12 @@ Germination **does**:
 - Create the minimal `notes/`, `docs/`, and entry-point file
   (`MYCO.md` for Myco itself; `CLAUDE.md` for downstream projects)
   from a template that references the approved architecture docs.
+  The entry-point file is also the target of the `M2` fixable
+  dimension (see `homeostasis.md`): a substrate whose entry-point
+  file is missing at immune time — regardless of germination path —
+  will have `M2` auto-create the file from a minimal skeleton when
+  `myco immune --fix` runs, provided safe-fix discipline holds
+  (idempotent / narrow / non-destructive / bounded).
 - Register the write-surface allowlist in the new canon.
 
 Germination **does not**:
