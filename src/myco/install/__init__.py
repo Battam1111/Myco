@@ -10,9 +10,11 @@ Two subcommands at v0.5.2:
   not just import it from a read-only ``site-packages``.
 
 - ``myco-install host <client>`` — configure an existing Myco
-  install into one of the seven automated MCP hosts. This was
-  the only subcommand in v0.4/v0.5; at v0.5.2 it's renamed to
-  an explicit subcommand so ``fresh`` can coexist.
+  install into one of the ten automated MCP hosts (seven JSON,
+  one TOML via block-level surgery, one YAML with ``extensions``
+  schema, plus OpenClaw via its own CLI mutator). This was the
+  only subcommand in v0.4/v0.5; at v0.5.2 it's renamed to an
+  explicit subcommand so ``fresh`` can coexist.
 
 Backward compatibility: legacy ``myco-install <client>`` (where
 the first positional is a known client name) auto-routes to
@@ -45,9 +47,8 @@ def _build_parser() -> argparse.ArgumentParser:
             "supported host config files."
         ),
         epilog=(
-            "Hosts not yet automated (Gemini CLI, Codex CLI, OpenHands, "
-            "Continue, Goose, Warp) are documented in docs/INSTALL.md "
-            "with manual per-host snippets."
+            "Hosts not yet automated (OpenHands, Continue, Warp) are "
+            "documented in docs/INSTALL.md with manual per-host snippets."
         ),
     )
     sub = parser.add_subparsers(dest="subcommand", metavar="SUBCOMMAND")

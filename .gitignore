@@ -81,3 +81,4 @@ legacy_v0_3/
 .myco_state/decay_baseline.yaml
 .myco_state/search_misses.yaml
 .myco_state/excretion_counter.json
+.myco_state/graph.json

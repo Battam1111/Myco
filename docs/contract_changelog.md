@@ -11,6 +11,64 @@ Format: one section per `contract_version`, newest first.
 
 ---
 
+## v0.5.5 — 2026-04-17 — Close every audit loose thread
+
+Eight MAJORs merged into one release. No contract-surface shape
+change: 17 verbs + 10 lint dimensions + 5 subsystems + cycle/
+package unchanged. The `meta.py` → `meta/` shim, the 9 verb
+aliases (`genesis`/`reflect`/`distill`/`perfuse`/`session-end`/
+`craft`/`bump`/`evolve`/`scaffold`), the schema_version-permissive
+canon reader, and the substrate-local `.myco/plugins/` seam all
+keep working.
+
+Governing craft:
+`docs/primordia/v0_5_5_close_audit_loose_threads_craft_2026-04-17.md`.
+
+### Contract surface at v0.5.5
+
+- **17 verbs** (was 16, +1 for `brief`). The new `brief` is the
+  one explicit human-facing verb — L0 principle 1's single carved
+  exception. Does NOT replace any agent-side verb; rolls up their
+  outputs for a human review moment.
+- **10 dimensions** unchanged count-wise, but **M2 and MB1** are
+  now **fixable** — the first real implementations of a feature
+  the `immune --fix` flag has promised since v0.4.0. A safe-fix
+  discipline (idempotent / narrow / non-destructive / write-
+  surface-bounded) is added to L2 homeostasis as new doctrine.
+- **5 subsystems + cycle/ package** unchanged. The `symbionts/`
+  package is formally defined at v0.5.5 as per-host Agent-sugar
+  adapters (orthogonal to substrate-local `.myco/plugins/`); no
+  concrete symbiont ships at v0.5.5 but the L3
+  `symbiont_protocol.md` documents the slot.
+- **`schema_upgraders`** gains its first registered entry: a demo
+  `v0→v1` upgrader under key `"0"` (a version never shipped in
+  real canons). Substrates with `schema_version: "0"` parse
+  silently through the chain-apply path. Real v1→v2 upgrader
+  (when schema v2 ships) will register the same way.
+- **`myco-install host`** covers 10 hosts (was 7): adds
+  gemini-cli (JSON), codex-cli (TOML via block-level surgery),
+  goose (YAML with `extensions:` key).
+- **Circulation graph** now covers `src/**` (AST-based import +
+  docstring-doc-reference edges) and persists to
+  `.myco_state/graph.json` with a canon+src fingerprint.
+
+### What changed
+
+- `sporulate` doctrine explicitly bounded: prepares scaffolding,
+  does NOT call an LLM. Agent writes the synthesis prose. L0
+  principle 1 invariant ("Agent calls LLM, substrate does not")
+  now has an explicit doctrine anchor.
+- L3 `symbiont_protocol.md` added; `symbionts/__init__.py` rewrites
+  to reflect the per-host framing; pre-v0.5.5 "downstream-substrate
+  adapters" framing superseded.
+
+### Break from v0.5.4
+
+None. No verb renamed, no manifest shape changed, no canon field
+removed. Every v0.5.4 invocation resolves unchanged.
+
+---
+
 ## v0.5.4 — 2026-04-17 — Dogfood-session patch (seven bugs fixed)
 
 Patch release; no contract-surface change. Yanjun asked the Agent

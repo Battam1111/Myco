@@ -65,6 +65,18 @@ Digestion **does not**:
   question).
 - Edit canon (sporulation proposes canon changes; Homeostasis
   validates them on the next immune pass).
+- **Call an LLM or any external synthesis model.** v0.5.5 writes
+  this boundary explicitly (see craft
+  `v0_5_5_close_audit_loose_threads_craft_2026-04-17.md` §MAJOR-C):
+  `sporulate` prepares the scaffolding — selects integrated-note
+  sources, extracts shared tags, materializes a proposal skeleton
+  under `notes/distilled/d_<slug>.md` — but the actual synthesis
+  prose is the **Agent's** job. Per L0 principle 1 the Agent reads
+  sporulate's output, calls its own model, and writes the synthesis
+  back into the proposal file. The substrate never embeds a model
+  call. This separation keeps Myco provider-agnostic (works with
+  any Agent on any Claude/GPT/local model) and keeps the L0
+  "Agent calls LLM, substrate does not" invariant intact.
 
 ## Interfaces
 

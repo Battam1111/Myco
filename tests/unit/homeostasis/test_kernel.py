@@ -208,3 +208,136 @@ def test_default_registry_runs_end_to_end(seeded_substrate: Path) -> None:
     # With exit_on="high", M2's HIGH trips → exit 1.
     result_high = run_immune(ctx, reg, exit_on="high")
     assert result_high.exit_code == 1
+
+
+# ---------------------------------------------------------------------------
+# v0.5.5 MAJOR-A — kernel-level fix dispatch
+# ---------------------------------------------------------------------------
+
+
+class _FixableProbe(Dimension):
+    """Test dimension that always fires and records every fix() call."""
+
+    id = "FIXPROBE"
+    category = Category.MECHANICAL
+    default_severity = Severity.HIGH
+    fixable = True
+
+    def __init__(self) -> None:
+        self.calls: list[tuple[object, Finding]] = []
+        self.return_applied = True
+
+    def run(self, ctx) -> Iterable[Finding]:  # noqa: ARG002
+        yield Finding(
+            dimension_id=self.id,
+            category=self.category,
+            severity=self.default_severity,
+            message="probe fires",
+            path="probe.md",
+        )
+
+    def fix(self, ctx, finding):  # type: ignore[override]
+        self.calls.append((ctx, finding))
+        return {
+            "applied": self.return_applied,
+            "detail": "probe-fixed",
+            "probe_path": finding.path,
+        }
+
+
+def test_fix_results_appear_in_payload(seeded_substrate: Path) -> None:
+    """With fix=True, payload["fixes"] is always present."""
+    reg = DimensionRegistry()
+    reg.register(_Fires())  # non-fixable; produces one finding
+    ctx = _mk_ctx(seeded_substrate)
+    result = run_immune(ctx, reg, exit_on="never", fix=True)
+    assert "fixes" in result.payload
+    # _Fires is not fixable, so the list is empty.
+    assert result.payload["fixes"] == []
+
+    # Without fix=True, the "fixes" key is absent entirely (no need
+    # to confuse consumers with an empty list they never asked for).
+    result2 = run_immune(ctx, reg, exit_on="never", fix=False)
+    assert "fixes" not in result2.payload
+
+
+def test_run_immune_with_fix_invokes_fixable_dimensions(
+    seeded_substrate: Path,
+) -> None:
+    """fix=True dispatches to dim.fix(); non-fixable dims stay untouched."""
+    reg = DimensionRegistry()
+    probe = _FixableProbe()
+    non_fixable = _Fires()
+    reg.register(probe)
+    reg.register(non_fixable)
+    ctx = _mk_ctx(seeded_substrate)
+
+    # fix=False → probe is never called.
+    run_immune(ctx, reg, exit_on="never", fix=False)
+    assert probe.calls == []
+
+    # fix=True → probe called exactly once, and the payload has both
+    # findings but only one fix entry (for the fixable dim).
+    result = run_immune(ctx, reg, exit_on="never", fix=True)
+    assert len(probe.calls) == 1
+    assert len(result.payload["fixes"]) == 1
+    entry = result.payload["fixes"][0]
+    assert entry["dimension_id"] == "FIXPROBE"
+    assert entry["applied"] is True
+    assert entry["detail"] == "probe-fixed"
+    # Structured extras from the fix() return flow through.
+    assert entry["probe_path"] == "probe.md"
+    assert entry["path"] == "probe.md"
+
+
+def test_run_immune_without_fix_does_not_invoke_fixable_dim(
+    seeded_substrate: Path,
+) -> None:
+    """fix=False must NOT call dim.fix() even on fixable dimensions."""
+    reg = DimensionRegistry()
+    probe = _FixableProbe()
+    reg.register(probe)
+    ctx = _mk_ctx(seeded_substrate)
+    result = run_immune(ctx, reg, exit_on="never", fix=False)
+    assert probe.calls == []
+    # And the payload has no fixes key.
+    assert "fixes" not in result.payload
+    # But the finding was still emitted.
+    assert len(result.findings) == 1
+
+
+def test_run_immune_fix_captures_raised_exceptions(
+    seeded_substrate: Path,
+) -> None:
+    """A fix() that raises records an error entry; kernel does not crash."""
+
+    class _Explodes(Dimension):
+        """Fixable dimension whose fix() always raises."""
+
+        id = "BOOM"
+        category = Category.MECHANICAL
+        default_severity = Severity.HIGH
+        fixable = True
+
+        def run(self, ctx) -> Iterable[Finding]:  # noqa: ARG002
+            yield Finding(
+                dimension_id=self.id,
+                category=self.category,
+                severity=self.default_severity,
+                message="x",
+                path="anywhere.md",
+            )
+
+        def fix(self, ctx, finding):  # type: ignore[override]
+            raise RuntimeError("kaboom")
+
+    reg = DimensionRegistry()
+    reg.register(_Explodes())
+    ctx = _mk_ctx(seeded_substrate)
+    result = run_immune(ctx, reg, exit_on="never", fix=True)
+    assert len(result.payload["fixes"]) == 1
+    entry = result.payload["fixes"][0]
+    assert entry["dimension_id"] == "BOOM"
+    assert entry["applied"] is False
+    assert "RuntimeError" in entry["error"]
+    assert "kaboom" in entry["error"]

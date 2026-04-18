@@ -1,9 +1,28 @@
-"""``myco distill <doctrine-slug>`` — author a distillation proposal.
+"""``myco sporulate <slug>`` (alias ``distill``) — bundle integrated
+notes into a proposal skeleton.
 
-Writes ``notes/distilled/d_<slug>.md`` summarizing the integrated
-notes that contribute to the proposed doctrine. Does **not** touch
-canon or ``docs/architecture/``. The user (or a follow-up craft) is
-responsible for promoting the proposal into real doctrine.
+v0.5.5 (MAJOR-C) writes the doctrine boundary explicitly: sporulate
+**prepares material**; the Agent **writes synthesis**. That is:
+
+- sporulate SELECTS the contributing integrated notes (by ``--sources``
+  or auto-discovers them by shared tags).
+- sporulate EXTRACTS the shared-tag theme + first-line claims.
+- sporulate WRITES ``notes/distilled/d_<slug>.md`` with the selected
+  sources, the extracted theme, a first-line-per-note seed list, and
+  a TODO for the Agent to replace with real synthesis prose.
+
+sporulate does **NOT** call an LLM or any external synthesis model.
+Per L0 principle 1, the Agent calls its own model and writes the
+synthesis back into the proposal file. The substrate stays provider-
+agnostic (works with any Agent on any Claude/GPT/local model) and
+the "Agent calls LLM, substrate does not" invariant stays intact.
+
+Does **not** touch canon or ``docs/architecture/``. Promoting the
+proposal into real doctrine is a follow-up ``fruit`` (craft) + ``molt``
+(contract bump) pair, done by the Agent.
+
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/digestion.md``
+§"Digestion does not" — sporulate boundary added at v0.5.5.
 """
 
 from __future__ import annotations

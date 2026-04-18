@@ -13,11 +13,29 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
 from pathlib import Path
-from typing import Callable
+from typing import Any, Callable
+
+# tomllib is stdlib on Python 3.11+. Myco's pyproject floor is 3.10,
+# so on 3.10 we fall back to tomli (if installed) and finally to a
+# narrow regex parser that only understands our own ``[mcp_servers.myco]``
+# block — which is all we ever need to read or write anyway.
+try:  # Python 3.11+
+    import tomllib as _tomllib  # type: ignore[import-not-found]
+    _HAVE_TOMLLIB = True
+except ImportError:  # pragma: no cover — 3.10 path
+    try:
+        import tomli as _tomllib  # type: ignore[import-not-found,no-redef]
+        _HAVE_TOMLLIB = True
+    except ImportError:
+        _tomllib = None  # type: ignore[assignment]
+        _HAVE_TOMLLIB = False
+
+import yaml
 
 
 class MycoInstallError(Exception):
@@ -112,6 +130,147 @@ def _appdata(home: Path) -> Path:
     if home == Path.home():
         return Path(os.environ.get("XDG_CONFIG_HOME", str(home / ".config")))
     return home / ".config"
+
+
+# ---------------------------------------------------------------------------
+# YAML helpers (Goose-style ``extensions`` schema)
+# ---------------------------------------------------------------------------
+
+
+def _read_yaml(path: Path) -> dict:
+    if not path.exists():
+        return {}
+    text = path.read_text(encoding="utf-8")
+    if not text.strip():
+        return {}
+    try:
+        data = yaml.safe_load(text) or {}
+    except yaml.YAMLError as exc:
+        raise MycoInstallError(
+            f"existing config at {path} is not valid YAML: {exc}. "
+            f"Fix it or back it up before re-running."
+        ) from exc
+    if not isinstance(data, dict):
+        raise MycoInstallError(
+            f"existing config at {path} is not a YAML mapping "
+            f"(got {type(data).__name__}). Fix it or back it up."
+        )
+    return data
+
+
+def _write_yaml(path: Path, data: dict, dry_run: bool) -> str:
+    body = yaml.safe_dump(data, sort_keys=False, allow_unicode=True)
+    if dry_run:
+        return f"[dry-run] would write {path}:\n{body}"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(body, encoding="utf-8")
+    return f"wrote {path}"
+
+
+def _mutate_yaml_extensions(
+    path: Path,
+    dry_run: bool,
+    uninstall: bool,
+    *,
+    entry: dict[str, Any] | None = None,
+) -> str:
+    """Add or remove ``extensions.myco`` in a YAML config file.
+
+    Goose (``~/.config/goose/config.yaml``) is the only client using
+    this shape today. Sibling ``extensions.*`` entries are preserved.
+    """
+    data = _read_yaml(path)
+    exts = data.setdefault("extensions", {})
+    if not isinstance(exts, dict):
+        raise MycoInstallError(
+            f"{path}: 'extensions' key exists but is not a mapping."
+        )
+    if uninstall:
+        exts.pop("myco", None)
+    else:
+        exts["myco"] = entry or {
+            "type": "stdio",
+            "command": MCP_COMMAND,
+            "args": MCP_ARGS,
+            "enabled": True,
+        }
+    return _write_yaml(path, data, dry_run)
+
+
+# ---------------------------------------------------------------------------
+# TOML helpers (Codex CLI ``[mcp_servers.<name>]`` schema)
+# ---------------------------------------------------------------------------
+
+
+# Match the entire ``[mcp_servers.myco]`` block: the header line plus
+# every subsequent line until the next TOML table header (``[...]``)
+# or end of file. Anchored to start-of-line so it does not match a
+# comment or string that happens to contain ``[mcp_servers.myco]``.
+_CODEX_MYCO_BLOCK = re.compile(
+    r"(?ms)^\[mcp_servers\.myco\]\s*\n"      # header
+    r"(?:(?!^\[).*\n?)*"                     # body up to next [header]
+)
+
+
+def _render_codex_myco_block() -> str:
+    """Hand-render the ``[mcp_servers.myco]`` TOML section.
+
+    We render by hand rather than pull in a TOML writer dependency:
+    the block is small, the schema is fixed, and the string encoding
+    is unambiguous (command is a filesystem path, args are short
+    flag tokens — no embedded quotes or newlines).
+    """
+    args_toml = "[" + ", ".join(json.dumps(a) for a in MCP_ARGS) + "]"
+    return (
+        "[mcp_servers.myco]\n"
+        f"command = {json.dumps(MCP_COMMAND)}\n"
+        f"args = {args_toml}\n"
+    )
+
+
+def _mutate_codex_toml(path: Path, dry_run: bool, uninstall: bool) -> str:
+    """Upsert or remove ``[mcp_servers.myco]`` in ``~/.codex/config.toml``.
+
+    We never fully re-serialize the TOML file — that would destroy
+    user comments and formatting. Instead we do block-level surgery
+    on the raw text, preserving everything outside our own section.
+
+    If ``tomllib`` is available we validate the existing file parses
+    before touching it (so we fail loud on a pre-existing syntax
+    error rather than silently clobbering a broken config).
+    """
+    existing = path.read_text(encoding="utf-8") if path.exists() else ""
+
+    # Validate existing TOML parses (when we can). Missing file or
+    # empty file are both fine; we are about to write a fresh block.
+    if existing.strip() and _HAVE_TOMLLIB:
+        try:
+            _tomllib.loads(existing)  # type: ignore[union-attr]
+        except Exception as exc:  # tomllib raises TOMLDecodeError
+            raise MycoInstallError(
+                f"existing config at {path} is not valid TOML: {exc}. "
+                f"Fix it or back it up before re-running."
+            ) from exc
+
+    # Strip any pre-existing ``[mcp_servers.myco]`` block.
+    stripped = _CODEX_MYCO_BLOCK.sub("", existing)
+    # Normalize trailing whitespace so repeated runs are idempotent.
+    stripped = stripped.rstrip() + ("\n" if stripped.strip() else "")
+
+    if uninstall:
+        body = stripped
+    else:
+        block = _render_codex_myco_block()
+        if stripped:
+            body = stripped.rstrip() + "\n\n" + block
+        else:
+            body = block
+
+    if dry_run:
+        return f"[dry-run] would write {path}:\n{body}"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(body, encoding="utf-8")
+    return f"wrote {path}"
 
 
 # ---------------------------------------------------------------------------
@@ -213,6 +372,40 @@ def install_openclaw(
     return (result.stdout + result.stderr).strip() or "openclaw: OK"
 
 
+def install_gemini_cli(
+    home: Path, cwd: Path, dry_run: bool, global_: bool, uninstall: bool
+) -> str:
+    """Gemini CLI reads ``~/.gemini/settings.json`` with the standard
+    ``mcpServers`` schema. ``--global`` is a no-op here — there is
+    only one settings path.
+    """
+    path = home / ".gemini" / "settings.json"
+    return _mutate_mcp_servers_json(path, dry_run, uninstall)
+
+
+def install_codex_cli(
+    home: Path, cwd: Path, dry_run: bool, global_: bool, uninstall: bool
+) -> str:
+    """Codex CLI uses ``~/.codex/config.toml`` with a nested
+    ``[mcp_servers.<name>]`` table per server. We do block-level
+    surgery on the raw text so that other tables and user comments
+    survive untouched. ``--global`` is ignored; there is only one path.
+    """
+    path = home / ".codex" / "config.toml"
+    return _mutate_codex_toml(path, dry_run, uninstall)
+
+
+def install_goose(
+    home: Path, cwd: Path, dry_run: bool, global_: bool, uninstall: bool
+) -> str:
+    """Goose reads ``~/.config/goose/config.yaml`` with its own
+    ``extensions.<name>`` schema (not ``mcpServers``). ``--global``
+    is ignored; there is only one settings path.
+    """
+    path = home / ".config" / "goose" / "config.yaml"
+    return _mutate_yaml_extensions(path, dry_run, uninstall)
+
+
 # ---------------------------------------------------------------------------
 # Registry
 # ---------------------------------------------------------------------------
@@ -228,6 +421,9 @@ CLIENTS: dict[str, ClientFunc] = {
     "zed": install_zed,
     "vscode": install_vscode,
     "openclaw": install_openclaw,
+    "gemini-cli": install_gemini_cli,
+    "codex-cli": install_codex_cli,
+    "goose": install_goose,
 }
 
 

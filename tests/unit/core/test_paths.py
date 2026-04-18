@@ -17,6 +17,7 @@ def test_all_paths_derive_from_root(tmp_path: Path) -> None:
     assert p.state == tmp_path / ".myco_state"
     assert p.autoseeded_marker == tmp_path / ".myco_state" / "autoseeded.txt"
     assert p.boot_brief == tmp_path / ".myco_state" / "boot_brief.md"
+    assert p.graph_cache == tmp_path / ".myco_state" / "graph.json"
     assert p.entry_point == tmp_path / "MYCO.md"
 
 

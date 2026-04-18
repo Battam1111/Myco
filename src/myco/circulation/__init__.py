@@ -14,8 +14,24 @@ borrowed from animal circulation metaphor). Internal function name
 stays ``perfuse()`` to minimize churn.
 """
 
-from .graph import Edge, Graph, build_graph
+from .graph import (
+    Edge,
+    Graph,
+    build_graph,
+    invalidate_graph_cache,
+    load_persisted_graph,
+    persist_graph,
+)
 from .propagate import propagate
 from .traverse import perfuse
 
-__all__ = ["Edge", "Graph", "build_graph", "perfuse", "propagate"]
+__all__ = [
+    "Edge",
+    "Graph",
+    "build_graph",
+    "invalidate_graph_cache",
+    "load_persisted_graph",
+    "perfuse",
+    "persist_graph",
+    "propagate",
+]

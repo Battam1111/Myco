@@ -18,6 +18,128 @@ Versioning: [SemVer](https://semver.org/).
 
 ---
 
+## [0.5.5] — 2026-04-17
+
+**Close every audit loose thread in a single release.** Every
+post-release round since v0.4.1 surfaced the same pattern:
+infrastructure in place, no concrete use. v0.5.5 ships eight
+MAJORs merged from what the panoramic review flagged as v0.5.5 +
+v0.5.6 candidates, delivering on each "staring at it for months"
+item at once.
+
+Governing three-round craft:
+`docs/primordia/v0_5_5_close_audit_loose_threads_craft_2026-04-17.md`.
+
+### Added
+
+- **MAJOR-A — first fixable lint dimensions.** The `immune --fix`
+  flag has been plumbed as a no-op since v0.4.0. v0.5.5 implements:
+  - `Dimension.fix(ctx, finding) -> dict[str, Any]` — default no-op
+    method on the base class.
+  - `Dimension.fixable: ClassVar[bool]` — default False.
+  - Kernel dispatch: when `fix=True`, iterate each dimension's
+    findings; call `fix()` only for dimensions with
+    `fixable=True`; record outcomes in `payload["fixes"]`; guard
+    every fix target against `canon.system.write_surface.allowed`
+    before dispatch (fixes outside the surface are rejected with
+    `error: "outside write surface"`).
+  - **M2 fixable** — creates the missing `entry_point` file
+    (typically `MYCO.md`) from a minimal skeleton; idempotent.
+  - **MB1 fixable** — triggers `reflect(ctx)` to assimilate the
+    raw backlog; reports promotion count.
+  - **Safe-fix discipline (new doctrine, four rules):** idempotent;
+    narrow; never destructive; bounded by write_surface.
+- **MAJOR-B — schema upgrader demo.** v0.5.1 shipped
+  `schema_upgraders: dict` with chain-apply + cycle detection.
+  v0.5.5 registers a synthetic `v0→v1` upgrader under key `"0"`
+  (no real canon ever used that version) to prove the
+  forward-compat seam works end-to-end. A canon with
+  `schema_version: "0"` now parses **silently** through the
+  upgrader; unknown versions without a registered upgrader still
+  emit `UserWarning`.
+- **MAJOR-C — sporulate doctrine boundary.** L2 `digestion.md`
+  adds an explicit "sporulate does NOT call an LLM" rule. The
+  substrate stays provider-agnostic. `sporulate` prepares the
+  scaffolding (source selection + shared-tag extraction + first-
+  line seeds); the Agent writes the synthesis prose separately.
+  `sporulate.py` docstring + manifest summary rewritten to reflect
+  this boundary.
+- **MAJOR-D — symbiont protocol stub.** `src/myco/symbionts/` has
+  been an empty package since v0.4.0; v0.5.5 writes an L3
+  `symbiont_protocol.md` defining symbionts as **per-host
+  Agent-sugar adapters** (Claude Code skill-generators, Cursor
+  rule writers, VS Code task configurators). Orthogonal to
+  `.myco/plugins/` (per-substrate). Package stays empty; the
+  first concrete symbiont (Claude Code) ships in a later release.
+  Pre-v0.5.5 "downstream-substrate adapters" framing superseded.
+- **MAJOR-F — circulation graph covers `src/**`.** New
+  `src/myco/circulation/graph_src.py` walks `src/**/*.py` via AST:
+  extracts `from myco.X import Y` import edges (resolved to
+  module paths) and docstring-based edges for `docs/...` path
+  references. Stdlib/third-party imports and `__pycache__` are
+  skipped. Syntax errors tolerated gracefully. `SE1` dangling-ref
+  dimension now surfaces real code-to-doctrine dangling
+  references on myco-self (6 on the v0.5.4 tree at ship time).
+- **MAJOR-J — graph persistence.**
+  `.myco_state/graph.json` now caches the mycelium graph with a
+  `(canon-sha256 + sorted src mtime list)` fingerprint. Cold
+  build full; warm build reads the cache (~6x speedup on myco-
+  self). `invalidate_graph_cache(substrate)` + `build_graph(ctx,
+  use_cache=False)` + `persist_graph(...)` / `load_persisted_graph(...)`.
+  `traverse`'s payload gains `src_node_count` + `cached` fields.
+- **MAJOR-G — `myco brief` verb.** L0 principle 1's one explicit
+  carved exception: a human-facing verb. Produces a stable-section
+  markdown rollup (Identity / Hunger / Immune / Notes / Primordia /
+  Local plugins / Suggested next) for a human review moment.
+  Does not replace any agent-side verb. `--format markdown`
+  (default) or `--format json`. New handler at
+  `myco.cycle.brief:run`.
+- **MAJOR-I — 3 new automated MCP hosts.** `myco-install host`
+  now covers:
+  - **gemini-cli** — writes `~/.gemini/settings.json` (JSON
+    `mcpServers` family).
+  - **codex-cli** — block-level regex surgery on
+    `~/.codex/config.toml` (`[mcp_servers.myco]` TOML section,
+    preserves sibling tables and comments; validates parse on
+    Python 3.11+ via stdlib `tomllib`).
+  - **goose** — writes `~/.config/goose/config.yaml` with the
+    `extensions.myco` key (YAML, not JSON).
+  - Automated host count: 7 → **10**.
+
+### Doctrine updates
+
+- `docs/architecture/L2_DOCTRINE/digestion.md` — sporulate
+  boundary written into the "Digestion does not" list.
+- `docs/architecture/L2_DOCTRINE/circulation.md` — graph coverage
+  + cache layer documented.
+- `docs/architecture/L3_IMPLEMENTATION/symbiont_protocol.md` —
+  new L3 stub for MAJOR-D.
+- `docs/INSTALL.md` — 3 new automated hosts in the section-1
+  table; automation notes next to manual Gemini / Codex / Goose
+  snippets.
+- `docs/contract_changelog.md` — v0.5.5 section.
+
+### Tests
+
++60 new tests (543 → ~600 target). Breakdown:
+- MAJOR-A: +11 (fix dispatch + M2 + MB1 + safe-fix guards)
+- MAJOR-B: +4 (schema upgrader demo)
+- MAJOR-F+J: +22 (graph-over-src + persistence)
+- MAJOR-G: +8 (brief verb structure + suggestions)
+- MAJOR-I: +10 (Gemini / Codex TOML / Goose YAML)
+
+### Migration note
+
+No action required. Every v0.5.4 CLI invocation still works. The
+v0.5.x verb aliases continue to resolve. The schema upgrader
+demo is under version `"0"` (never a real shipped version) so no
+production substrate is affected. The `.myco_state/graph.json`
+cache is created lazily on first `traverse` / `sense` / `immune`
+that builds the graph; deleting it is always safe (rebuild
+happens on next call).
+
+---
+
 ## [0.5.4] — 2026-04-17
 
 Dogfood-session patch release. Yanjun asked the Agent to run Myco

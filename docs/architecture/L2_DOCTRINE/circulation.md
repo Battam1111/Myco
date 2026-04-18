@@ -42,7 +42,17 @@ can detect:
 
 Circulation **does**:
 
-- Maintain an index of cross-references (built on demand, not stored).
+- Maintain an index of cross-references. The graph is built from the
+  authoritative sources (canon + notes + docs + `src/**/*.py`) and
+  persisted to `.myco_state/graph.json` at v0.5.5+ with a canon+src
+  fingerprint; subsequent builds reuse the cache when the fingerprint
+  still matches. The cache is always reconstructable — it is not a
+  source of truth, just an acceleration.
+- Cover Python source under `src/**` at v0.5.5+: each `.py` file is a
+  graph node; `import` edges track internal module dependencies;
+  `code_doc_ref` edges link module docstrings to the doctrine and
+  primordia paths they cite (closing the v0.4.1 audit gap that left
+  code outside the mycelium).
 - Run `myco traverse` to walk the mycelial graph and surface
   anastomotic health (dangling refs, orphans, one-way links).
 - Run `myco propagate` — cross-substrate push (see §propagate below).

@@ -84,10 +84,10 @@ v0.5.2 cached invocations.
 
 Myco runs as an MCP server, so any host that speaks MCP can talk to
 it. The wrinkle: the ecosystem **fragmented on config schema** —
-`mcpServers` is most common, but seven popular hosts use their own
-key name or their own file format. Copy-paste one snippet everywhere
-does not work. `myco-install host` writes the correct schema per
-host.
+`mcpServers` is most common, but several popular hosts use their own
+key name (`servers`, `context_servers`, `extensions`) or their own
+file format (TOML, YAML). Copy-paste one snippet everywhere does not
+work. `myco-install host` writes the correct schema per host.
 
 ```bash
 myco-install host <client>
@@ -116,10 +116,15 @@ servers, idempotent, supports `--dry-run` and `--uninstall`):
 | Zed | `myco-install host zed` | Uses the `context_servers` key, not `mcpServers` |
 | VS Code | `myco-install host vscode` | Uses the `servers` key in `.vscode/mcp.json` |
 | OpenClaw | `myco-install host openclaw` | Shells out to `openclaw mcp set myco …`; CLI must be on PATH |
+| Gemini CLI | `myco-install host gemini-cli` | `~/.gemini/settings.json`, standard `mcpServers` schema |
+| Codex CLI | `myco-install host codex-cli` | `~/.codex/config.toml`, `[mcp_servers.myco]` table; block-level TOML surgery preserves comments and other tables |
+| Goose | `myco-install host goose` | `~/.config/goose/config.yaml`, uses the `extensions` key, not `mcpServers` |
 
 Run `myco-install host <client> --dry-run` first to see exactly
-what will be written. Run `myco-install host <client> --uninstall`
-to remove the entry.
+what will be written (works for every client above, including the
+TOML-based Codex CLI and YAML-based Goose). Run `myco-install host
+<client> --uninstall` to remove the entry and leave any sibling
+servers untouched.
 
 ---
 
@@ -155,7 +160,7 @@ Config paths:
 | Windsurf | `~/.codeium/windsurf/mcp_config.json` |
 | Cline | `cline_mcp_settings.json` in VS Code's global storage |
 | Roo Code | `mcp_settings.json` (global) or `.roo/mcp.json` (project) |
-| Gemini CLI | `~/.gemini/settings.json` |
+| Gemini CLI | `~/.gemini/settings.json` (also automated via `myco-install host gemini-cli`) |
 | Qwen Code | `~/.qwen/settings.json` |
 | AiderDesk | UI → Settings → MCP |
 
@@ -241,6 +246,9 @@ args = []
 ```
 
 Or one-liner: `codex mcp add myco -- mcp-server-myco`.
+(Also automated via `myco-install host codex-cli` — does block-level
+TOML surgery so your other `[mcp_servers.*]` tables and comments
+survive untouched.)
 
 ### Goose (YAML, different key)
 
@@ -254,6 +262,9 @@ extensions:
     args: []
     enabled: true
 ```
+
+(Also automated via `myco-install host goose` — preserves sibling
+`extensions.*` entries and unrelated top-level keys.)
 
 ### Warp (cloud agent YAML)
 

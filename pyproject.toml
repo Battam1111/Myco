@@ -48,10 +48,11 @@ dev = [
 #                       community `mcp-server-<name>` convention so
 #                       tools like uvx, pipx, and the MCP Registry
 #                       can pick it up without configuration.
-#   myco-install      — zero-copy-paste install into any of seven MCP
+#   myco-install      — zero-copy-paste install into any of ten MCP
 #                       hosts (Claude Code, Claude Desktop, Cursor,
-#                       Windsurf, Zed, VS Code, OpenClaw). Writes the
-#                       correct schema per host; idempotent.
+#                       Windsurf, Zed, VS Code, OpenClaw, Gemini CLI,
+#                       Codex CLI, Goose). Writes the correct schema
+#                       per host (JSON / TOML / YAML); idempotent.
 myco = "myco.surface.cli:main"
 mcp-server-myco = "myco.mcp:main"
 myco-install = "myco.install:main"
