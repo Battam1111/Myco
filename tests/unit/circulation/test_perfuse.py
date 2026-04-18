@@ -92,3 +92,40 @@ def test_run_rejects_bad_scope(genesis_substrate: Path) -> None:
     ctx = _mk_ctx(genesis_substrate)
     with pytest.raises(UsageError, match="invalid perfuse scope"):
         run({"scope": "bogus"}, ctx=ctx)
+
+
+def test_perfuse_payload_includes_src_node_count_and_cached(
+    genesis_substrate: Path,
+) -> None:
+    """v0.5.5 MAJOR-F/J: payload must carry src_node_count + cached."""
+    ctx = _mk_ctx(genesis_substrate)
+    # First call: no cache yet, so cached=False and cache gets written.
+    first = perfuse(ctx=ctx)
+    assert "src_node_count" in first.payload
+    assert "cached" in first.payload
+    assert first.payload["cached"] is False
+    # src_node_count counts nodes under src/. Genesis substrate has no
+    # src/ dir itself but canon may reference src/*.py paths — so we
+    # assert it's an int, not that it's specifically zero.
+    assert isinstance(first.payload["src_node_count"], int)
+
+    # Second call: canon + src haven't changed → cache hits.
+    second = perfuse(ctx=ctx)
+    assert second.payload["cached"] is True
+
+
+def test_perfuse_counts_src_nodes_when_src_present(
+    seeded_substrate: Path,
+) -> None:
+    """A substrate with ``src/**/*.py`` must show the walked src files
+    as nodes under ``src/``."""
+    src_dir = seeded_substrate / "src" / "myco"
+    src_dir.mkdir(parents=True, exist_ok=True)
+    (src_dir / "mod.py").write_text(
+        '"""test module."""\nX = 1\n', encoding="utf-8"
+    )
+    ctx = _mk_ctx(seeded_substrate)
+    result = perfuse(ctx=ctx)
+    # seeded_substrate has an empty canon (no src refs), so the only
+    # src-prefixed node is the one we just wrote.
+    assert result.payload["src_node_count"] >= 1

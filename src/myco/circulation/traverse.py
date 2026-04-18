@@ -15,7 +15,14 @@ from typing import Literal, Mapping
 from myco.core.context import MycoContext, Result
 from myco.core.errors import UsageError
 
-from .graph import Edge, Graph, build_graph
+from .graph import (
+    Edge,
+    Graph,
+    _build_graph_uncached,
+    _canon_fingerprint,
+    load_persisted_graph,
+    persist_graph,
+)
 
 __all__ = ["perfuse", "run", "Scope"]
 
@@ -83,6 +90,42 @@ def _proposals(
     return props
 
 
+def _build_graph_with_cache_info(ctx: MycoContext) -> tuple[Graph, bool]:
+    """Build the graph and report whether the cache hit.
+
+    Returns ``(graph, cached)``. Cache hits skip the scan + write-back
+    entirely; misses run the full scan and persist. This mirrors the
+    logic inside :func:`build_graph` but exposes the hit/miss signal
+    that :func:`perfuse` wants to surface to callers (v0.5.5 MAJOR-J).
+    """
+    substrate = ctx.substrate
+    cache_path = substrate.paths.graph_cache
+    current_fp = _canon_fingerprint(substrate)
+    loaded = load_persisted_graph(cache_path)
+    if loaded is not None:
+        graph, cached_fp = loaded
+        if cached_fp == current_fp:
+            return graph, True
+    graph = _build_graph_uncached(ctx)
+    try:
+        persist_graph(graph, cache_path, fingerprint=current_fp)
+    except OSError:
+        pass
+    return graph, False
+
+
+def _count_src_nodes(graph: Graph) -> int:
+    """Count graph nodes whose path starts with ``src/``.
+
+    This is the coverage signal for the v0.5.5 MAJOR-F rollout: a
+    substrate whose ``perfuse`` report has ``src_node_count == 0`` is
+    either a pure-doctrine substrate (by design) or a code substrate
+    where the src walker didn't engage (bug). The single number is
+    cheap to compute and diff across runs.
+    """
+    return sum(1 for n in graph.nodes if n.startswith("src/"))
+
+
 def perfuse(
     *,
     ctx: MycoContext,
@@ -100,6 +143,8 @@ def perfuse(
             "proposals": list[str],
             "node_count": int,
             "edge_count": int,
+            "src_node_count": int,   # v0.5.5: nodes under src/
+            "cached": bool,          # v0.5.5: graph came from persisted cache
         }
     """
     if scope not in _VALID_SCOPES:
@@ -108,7 +153,7 @@ def perfuse(
             f"must be one of {sorted(_VALID_SCOPES)}"
         )
 
-    graph = build_graph(ctx)
+    graph, cached = _build_graph_with_cache_info(ctx)
     dangling = _dangling(graph, ctx.substrate.root, scope)
     orphans = _orphans(graph, scope)
     proposals = _proposals(orphans, dangling)
@@ -122,6 +167,8 @@ def perfuse(
             "proposals": tuple(proposals),
             "node_count": len(graph.nodes),
             "edge_count": len(graph.edges),
+            "src_node_count": _count_src_nodes(graph),
+            "cached": cached,
         },
     )
 

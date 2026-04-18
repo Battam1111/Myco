@@ -53,7 +53,7 @@ def test_dispatch_rejects_unknown_client(tmp_path: Path) -> None:
 
 @pytest.mark.parametrize("client", [
     "claude-code", "claude-desktop", "cursor",
-    "windsurf", "zed", "vscode",
+    "windsurf", "zed", "vscode", "gemini-cli",
 ])
 def test_install_creates_or_updates_file_for_json_clients(
     client: str, tmp_path: Path
@@ -191,3 +191,193 @@ def test_openclaw_invokes_cli_on_real_install(tmp_path: Path) -> None:
     # OpenClaw gets the absolute-path form too
     assert "python" in payload["command"].lower()
     assert payload["args"] == MCP_ARGS
+
+
+# ---------------------------------------------------------------------------
+# Gemini CLI (JSON via the shared mcpServers helper)
+# ---------------------------------------------------------------------------
+
+
+def test_gemini_cli_lands_at_gemini_settings_json(tmp_path: Path) -> None:
+    """Gemini CLI reads ``~/.gemini/settings.json`` — make sure that's
+    exactly where the writer lands (no stray files elsewhere).
+    """
+    _install("gemini-cli", tmp_path)
+    path = tmp_path / ".gemini" / "settings.json"
+    assert path.exists()
+    data = json.loads(path.read_text(encoding="utf-8"))
+    assert data["mcpServers"]["myco"]["command"] == MCP_COMMAND
+    assert data["mcpServers"]["myco"]["args"] == MCP_ARGS
+
+
+def test_gemini_cli_preserves_siblings_and_uninstalls_cleanly(
+    tmp_path: Path,
+) -> None:
+    cfg = tmp_path / ".gemini" / "settings.json"
+    cfg.parent.mkdir(parents=True, exist_ok=True)
+    cfg.write_text(json.dumps({
+        "theme": "dark",
+        "mcpServers": {
+            "other": {"command": "other", "args": []},
+        },
+    }), encoding="utf-8")
+
+    _install("gemini-cli", tmp_path)
+    data = json.loads(cfg.read_text(encoding="utf-8"))
+    assert data["theme"] == "dark"
+    assert "other" in data["mcpServers"]
+    assert "myco" in data["mcpServers"]
+
+    _install("gemini-cli", tmp_path, uninstall=True)
+    data = json.loads(cfg.read_text(encoding="utf-8"))
+    assert data["theme"] == "dark"
+    assert "other" in data["mcpServers"]
+    assert "myco" not in data["mcpServers"]
+
+
+# ---------------------------------------------------------------------------
+# Codex CLI (TOML with ``[mcp_servers.<name>]`` nesting)
+# ---------------------------------------------------------------------------
+
+
+def _read_codex_toml(path: Path) -> dict:
+    """Test-side TOML read. ``tomllib`` is stdlib on 3.11+; fall back
+    to ``tomli`` (dev extra) on 3.10, else parse by hand — tests run
+    under whatever Python the dev has.
+    """
+    text = path.read_text(encoding="utf-8")
+    try:
+        import tomllib  # type: ignore[import-not-found]
+    except ImportError:  # pragma: no cover — 3.10 path
+        import tomli as tomllib  # type: ignore[no-redef]
+    return tomllib.loads(text)
+
+
+def test_codex_cli_toml_adds_and_preserves_entries(tmp_path: Path) -> None:
+    """Seed an existing TOML with another ``[mcp_servers.other]`` and
+    a top-level user comment; after install both the sibling section
+    and the comment must survive; after uninstall myco is gone but
+    the sibling stays.
+    """
+    cfg = tmp_path / ".codex" / "config.toml"
+    cfg.parent.mkdir(parents=True, exist_ok=True)
+    cfg.write_text(
+        "# user comment preserved across re-runs\n"
+        "[mcp_servers.other]\n"
+        'command = "/usr/bin/other"\n'
+        'args = ["--flag"]\n',
+        encoding="utf-8",
+    )
+
+    _install("codex-cli", tmp_path)
+    text = cfg.read_text(encoding="utf-8")
+    assert "# user comment preserved across re-runs" in text
+    parsed = _read_codex_toml(cfg)
+    assert parsed["mcp_servers"]["other"]["command"] == "/usr/bin/other"
+    assert parsed["mcp_servers"]["myco"]["command"] == MCP_COMMAND
+    assert parsed["mcp_servers"]["myco"]["args"] == MCP_ARGS
+
+    _install("codex-cli", tmp_path, uninstall=True)
+    text_after = cfg.read_text(encoding="utf-8")
+    assert "# user comment preserved across re-runs" in text_after
+    parsed_after = _read_codex_toml(cfg)
+    assert "other" in parsed_after["mcp_servers"]
+    assert "myco" not in parsed_after.get("mcp_servers", {})
+
+
+def test_codex_cli_toml_idempotent(tmp_path: Path) -> None:
+    """Running the installer twice in a row produces byte-identical
+    files — the second run is a no-op.
+    """
+    _install("codex-cli", tmp_path)
+    first = (tmp_path / ".codex" / "config.toml").read_text(encoding="utf-8")
+    _install("codex-cli", tmp_path)
+    second = (tmp_path / ".codex" / "config.toml").read_text(encoding="utf-8")
+    assert first == second
+
+
+def test_codex_cli_dry_run_previews_without_writing(tmp_path: Path) -> None:
+    output = _install("codex-cli", tmp_path, dry_run=True)
+    assert "[dry-run]" in output
+    assert "[mcp_servers.myco]" in output
+    assert not (tmp_path / ".codex" / "config.toml").exists()
+
+
+def test_codex_cli_rejects_malformed_existing_toml(tmp_path: Path) -> None:
+    """If the user's existing config.toml is broken, we refuse rather
+    than silently clobber it (only when tomllib is available).
+    """
+    import myco.install.clients as _clients
+    if not _clients._HAVE_TOMLLIB:
+        pytest.skip("tomllib not available; validation path inactive")
+    cfg = tmp_path / ".codex" / "config.toml"
+    cfg.parent.mkdir(parents=True, exist_ok=True)
+    cfg.write_text("this = is = not valid\n", encoding="utf-8")
+    with pytest.raises(MycoInstallError) as exc_info:
+        _install("codex-cli", tmp_path)
+    assert "not valid TOML" in str(exc_info.value)
+
+
+# ---------------------------------------------------------------------------
+# Goose (YAML with ``extensions.<name>`` nesting — not ``mcpServers``)
+# ---------------------------------------------------------------------------
+
+
+def test_goose_yaml_uses_extensions_key(tmp_path: Path) -> None:
+    """Goose's schema is ``extensions:`` at the top level. We must
+    NOT write ``mcpServers`` — that would be invisible to Goose.
+    """
+    import yaml
+    _install("goose", tmp_path)
+    path = tmp_path / ".config" / "goose" / "config.yaml"
+    assert path.exists()
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    assert "extensions" in data
+    assert "mcpServers" not in data
+    myco_entry = data["extensions"]["myco"]
+    assert myco_entry["type"] == "stdio"
+    assert myco_entry["command"] == MCP_COMMAND
+    assert myco_entry["args"] == MCP_ARGS
+    assert myco_entry["enabled"] is True
+
+
+def test_goose_yaml_preserves_other_extensions(tmp_path: Path) -> None:
+    """Sibling ``extensions.*`` entries (and unrelated top-level
+    keys) must survive both install and uninstall.
+    """
+    import yaml
+    cfg = tmp_path / ".config" / "goose" / "config.yaml"
+    cfg.parent.mkdir(parents=True, exist_ok=True)
+    cfg.write_text(yaml.safe_dump({
+        "provider": "anthropic",
+        "extensions": {
+            "developer": {
+                "type": "stdio", "command": "developer",
+                "args": [], "enabled": True,
+            },
+        },
+    }), encoding="utf-8")
+
+    _install("goose", tmp_path)
+    data = yaml.safe_load(cfg.read_text(encoding="utf-8"))
+    assert data["provider"] == "anthropic"
+    assert "developer" in data["extensions"]
+    assert "myco" in data["extensions"]
+
+    _install("goose", tmp_path, uninstall=True)
+    data = yaml.safe_load(cfg.read_text(encoding="utf-8"))
+    assert data["provider"] == "anthropic"
+    assert "developer" in data["extensions"]
+    assert "myco" not in data["extensions"]
+
+
+def test_goose_yaml_idempotent(tmp_path: Path) -> None:
+    _install("goose", tmp_path)
+    first = (tmp_path / ".config" / "goose" / "config.yaml").read_text(
+        encoding="utf-8"
+    )
+    _install("goose", tmp_path)
+    second = (tmp_path / ".config" / "goose" / "config.yaml").read_text(
+        encoding="utf-8"
+    )
+    assert first == second

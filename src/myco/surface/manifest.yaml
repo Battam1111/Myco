@@ -130,7 +130,7 @@ commands:
   - name: "sporulate"
     subsystem: "digestion"
     handler: "myco.digestion.sporulate:run"
-    summary: "Sporulate a distillation proposal from integrated notes."
+    summary: "Bundle integrated notes into a proposal skeleton (Agent writes the synthesis prose separately)."
     mcp_tool: "myco_sporulate"
     aliases: ["distill"]
     mcp_tool_aliases: ["myco_distill"]
@@ -326,3 +326,10 @@ commands:
         type: "str"
         default: null
         help: "Single plugin name to describe (source file + docstring)."
+
+  - name: "brief"
+    subsystem: "cycle"
+    handler: "myco.cycle.brief:run"
+    summary: "Markdown rollup of substrate state for the one human reading moment (L0 principle 1's single carved exception)."
+    mcp_tool: "myco_brief"
+    args: []

@@ -68,6 +68,35 @@ schema_upgraders: dict[
 ] = {}
 
 
+def _demo_v0_to_v1(raw: Mapping[str, Any]) -> Mapping[str, Any]:
+    """Demo upgrader registered at v0.5.5 (MAJOR-B).
+
+    Promotes a hypothetical ``schema_version: "0"`` canon to the
+    current ``"1"`` shape. The transformation is intentionally
+    minimal — just stamps the version — because no substrate
+    actually shipped under schema_version 0; v0.4.0 started at "1".
+    The purpose is to exercise the chain-apply + warning-silencing
+    path end-to-end, proving the forward-compat seam designed at
+    v0.5.1 MAJOR-8 works when a real v1→v2 upgrader lands later.
+
+    A substrate with ``schema_version: "0"`` parses cleanly through
+    this path with no warning; without the upgrader the caller would
+    see a ``UserWarning`` about the unknown version. Tests in
+    ``tests/unit/core/test_canon_schema_upgrader_demo.py`` pin
+    both modes.
+    """
+    data = dict(raw)
+    data["schema_version"] = "1"
+    return data
+
+
+#: v0.5.5 registers the demo v0 → v1 upgrader unconditionally. Harmless
+#: for production substrates because no real canon ever had
+#: ``schema_version: "0"``; the entry serves as a canonical example of
+#: how real v1→v2 upgraders should be registered when schema v2 ships.
+schema_upgraders["0"] = _demo_v0_to_v1
+
+
 def _apply_upgraders(
     version: str,
     raw: Mapping[str, Any],

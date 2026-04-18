@@ -52,6 +52,18 @@ class SubstratePaths:
         return self.state / "boot_brief.md"
 
     @property
+    def graph_cache(self) -> Path:
+        """``.myco_state/graph.json`` — persisted circulation graph.
+
+        The graph cache is written by :func:`myco.circulation.graph.build_graph`
+        when ``use_cache=True`` (the default) and read on the next call as
+        long as the canon + src fingerprint matches. Lives under
+        ``.myco_state/`` because it's runtime state, not source of truth —
+        safe to delete at any time (next ``build_graph`` rebuilds).
+        """
+        return self.state / "graph.json"
+
+    @property
     def entry_point(self) -> Path:
         """Default agent entry page.
 
