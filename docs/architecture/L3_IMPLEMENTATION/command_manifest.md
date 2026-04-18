@@ -132,13 +132,22 @@ lint run:
 - No orphan entries in the manifest pointing at non-existent handlers.
 - CLI subcommand set == MCP tool set (no divergence).
 
-## Verb inventory (v0.5.3)
+## Verb inventory (v0.5.6)
 
 v0.4.0 shipped twelve verbs. v0.5.1 added four governance verbs
-(MAJOR 9 and 10) to reach sixteen. v0.5.3 **renames nine** existing
+(MAJOR 9 and 10) to reach sixteen. v0.5.3 **renamed nine** existing
 verbs to canonical fungal-bionic names (old names kept as
-deprecated aliases throughout 0.x) and **adds one** new verb
-(`graft`). Current total: **seventeen verbs**.
+deprecated aliases throughout 0.x) and **added one** new verb
+(`graft`), reaching seventeen. v0.5.5 added `brief` — the one
+carved human-facing exception to L0 principle 1. Current total:
+**eighteen verbs** (17 agent + 1 human).
+
+At v0.5.6 the dimension roster that polices the manifest gains
+**MP1** (mechanical/HIGH — "no LLM-provider import from inside
+`src/myco/**` unless `canon.system.no_llm_in_substrate: false`").
+MP1 is the mechanical guard behind the "Agent calls LLM; substrate
+does not" invariant. See `L2_DOCTRINE/homeostasis.md` for the
+dimension enumeration.
 
 | Subsystem | Verb | Alias (deprecated) | Handler |
 |---|---|---|---|
@@ -159,11 +168,13 @@ deprecated aliases throughout 0.x) and **adds one** new verb
 | Cycle | `winnow` | `evolve` | `myco.cycle.winnow:run` |
 | Cycle | `ramify` | `scaffold` | `myco.cycle.ramify:run` |
 | Cycle | `graft` |  | `myco.cycle.graft:run` |
+| Cycle | `brief` |  | `myco.cycle.brief:run` |
 
 The `cycle/` package (renamed from `meta/` at v0.5.3; shim package
 preserves `from myco.meta import session_end_run`) houses every
 life-cycle composer: the germinate / fruit / molt / winnow / ramify
-/ senesce / graft group. Each governance verb is its own submodule.
+/ senesce / graft / brief group. Each governance verb is its own
+submodule.
 
 ### Alias mechanism
 
@@ -196,10 +207,13 @@ were previously Markdown-social conventions or hand-edits:
   any post-write parse error. Biology: molting is shedding an old
   form for a new stage.
 - **`myco winnow --proposal <path>`** (alias: `evolve`) — selection
-  pressure applied to a craft doc. Runs five gates (frontmatter
+  pressure applied to a craft doc. Runs six gates (frontmatter
   type, title, body size bounds, round-marker count, per-round body
-  floor) and returns either `exit 0 + verdict: pass` or `exit 1 +
-  violations`. Does not mutate anything; lint-style read.
+  floor, and `G6_template_boilerplate` — which rejects an unedited
+  three-round skeleton emitted by `myco fruit` when the author has
+  not yet filled it in; added at v0.5.4) and returns either
+  `exit 0 + verdict: pass` or `exit 1 + violations`. Does not
+  mutate anything; lint-style read.
 - **`myco ramify --verb <name>`** (alias: `scaffold`) — auto-
   generate a handler stub for a verb that is already in the
   manifest but has no Python module. Biology: hyphae ramify
@@ -220,6 +234,38 @@ were previously Markdown-social conventions or hand-edits:
   composer: runs `assimilate` then `immune --fix` before
   compaction. Biology: senescence is aging into dormancy before
   sleep.
+
+### Brief — the one carved human-facing exception
+
+At v0.5.5 a single verb was carved out from the
+"agent-only-consumption" rule (L0 principle 1):
+
+- **`myco brief`** (no alias) — emit a markdown rollup of the
+  substrate's current state, intended for the one human moment
+  that is not avoidable: "what has happened since the last session
+  I actually paid attention to?". The default output is markdown
+  with **7 stable sections**: identity (substrate_id, contract
+  version, package version), hunger snapshot, recent notes (raw
+  + integrated counts + last-N titles), immune summary (category
+  counts), graph health (orphans / dangling refs / one-way),
+  governance activity (recent craft / molt / winnow events), and
+  open reflex signals. `--format markdown|json` toggles the output
+  representation; `markdown` is the default and the design target.
+
+  `brief` **does not replace** any agent-side verb. `hunger`,
+  `sense`, `traverse`, and `immune` remain the canonical agent
+  consumption surfaces. `brief` is a derived read-only rollup
+  that composes fields those verbs already surface; it writes
+  nothing and is safe to call at any point. It is the single
+  carved exception under L0 principle 1's addendum (see
+  `L0_VISION.md` §"Addendum — declared exceptions"). A human who
+  reads `brief` still does not become a Myco user — they remain a
+  reader of a single scoped rollup produced on demand by the
+  agent on their behalf.
+
+  `brief` reads from the hunger payload (via `L2_DOCTRINE/ingestion.md`)
+  plus immune findings plus traverse output, composing them into
+  markdown; it performs no standalone scan.
 
 `ramify` is what closes the v0.4-era "add a verb means write a
 Python file by hand" friction. The intended order is still
@@ -242,9 +288,14 @@ upgraders, and verbs without forking Myco:
 Introspection is via `myco graft --list | --validate | --explain
 <name>`. Authoring is via `myco ramify --dimension | --adapter |
 --verb --substrate-local`. The `hunger` payload carries a
-`local_plugins: {count, health}` block so the agent sees on every
-boot what has grafted on. The `MF2` lint dimension (mechanical /
-HIGH) fires on broken plugin shape or overlay YAML errors.
+`local_plugins: {loaded, count_by_kind: {dimension, adapter,
+schema_upgrader, overlay_verb}, errors, module}` block (v0.5.4+
+shape) so the agent sees on every boot what has grafted on: whether
+`.myco/plugins/__init__.py` imported (`loaded`), how many items
+registered per kind (`count_by_kind`), any import-time errors
+(`errors`), and the isolated module name (`module`). The `MF2`
+lint dimension (mechanical / HIGH) fires on broken plugin shape
+or overlay YAML errors.
 
 ## Change policy
 

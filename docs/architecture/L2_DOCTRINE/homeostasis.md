@@ -60,7 +60,45 @@ introspection surface for MF2 findings: `graft --list` enumerates
 every registered plugin, `graft --validate` re-runs the import-plus-
 registration gate, and `graft --explain <name>` prints the source
 file and class docstring for a single plugin. Combined with MF1,
-the immune system now has ten dimensions (was nine).
+the immune system has ten dimensions at v0.5.5 (was nine). MF2's
+scope — substrate-local extension — is one axis of a two-axis
+extension model; the per-host axis is `src/myco/symbionts/`. Both
+axes are documented together in `extensibility.md` (in-progress;
+see also `L3_IMPLEMENTATION/symbiont_protocol.md` for the per-host
+seam's contract).
+
+**v0.5.6**: `MP1` joins the inventory (mechanical/HIGH:
+"Agent calls LLM; substrate does not"). MP1 forbids a `src/myco/**`
+module from importing a known LLM provider SDK (`anthropic`,
+`openai`, `google.generativeai`, the `litellm`-family wrappers,
+…) unless `_canon.yaml::system.no_llm_in_substrate: false`. The
+opt-out form requires populating `src/myco/providers/` (v0.5.6
+reserves the package; empty at release) and a contract-bumping
+molt. MP1 is the mechanical half of the L0-principle-1 addendum
+"Agent calls the LLM; the substrate does not". Combined with MF1
+and MF2, the immune system now has **eleven dimensions** at v0.5.6.
+
+### Dimension enumeration (v0.5.6, all 11)
+
+| ID | Category | Default severity | Fixable? | One-line summary |
+|---|---|---|---|---|
+| `M1` | mechanical | CRITICAL |  | Required canon fields present; top-level shape parses |
+| `M2` | mechanical | HIGH | ✓ | Declared entry-point file exists (fix: create minimal skeleton) |
+| `M3` | mechanical | CRITICAL |  | All writes stay inside `system.write_surface.allowed` |
+| `MF1` | mechanical | HIGH |  | Declared subsystems resolve to real packages on disk |
+| `MF2` | mechanical | HIGH |  | Substrate-local plugin shape + overlay YAML + registration all clean |
+| `MP1` | mechanical | HIGH |  | No LLM-provider import from `src/myco/**` unless `no_llm_in_substrate: false` (v0.5.6) |
+| `SH1` | shipped | CRITICAL |  | `__version__` is the single source; no static `version=` alongside `dynamic` |
+| `MB1` | metabolic | MEDIUM | ✓ | Stale assimilation markers cleaned up (fix: prune stale markers) |
+| `MB2` | metabolic | MEDIUM |  | Undigested-note backlog pressure — surfaces but never blocks |
+| `SE1` | semantic | HIGH |  | Cross-references resolve (no orphans, no dangling refs) |
+| `SE2` | semantic | HIGH |  | Canon-cited numbers and paths match observed reality |
+
+Fixable dimensions (marked ✓) declare `Dimension.fixable = True`
+and implement the `fix()` protocol (see "Homeostasis does" below).
+At v0.5.6 two dimensions are fixable: `M2` and `MB1`. Every other
+dimension is report-only; `myco immune --fix` calls `fix()` only
+on fixables and leaves the rest to Agent discretion.
 
 ## Boundary
 
@@ -73,12 +111,86 @@ Homeostasis **does**:
 - Auto-fix findings when `--fix` is passed and the dimension declares
   itself fixable.
 
+### Fixable-dimension protocol (v0.5.5)
+
+A dimension declares itself fixable by setting
+`Dimension.fixable: ClassVar[bool] = True` on the class and
+implementing `fix(ctx, finding) -> dict[str, Any]`. The return
+shape is:
+
+```python
+{
+    "applied": bool,          # True if the fix was performed; False if a
+                              # guard short-circuited (e.g. the file
+                              # already exists with non-empty content).
+    "detail": str,            # one-line description of what was done or
+                              # why it was skipped — surfaced to the
+                              # Agent via `immune --fix` output.
+    # dimension-specific keys allowed: "path", "bytes_written", etc.
+}
+```
+
+`myco immune --fix` iterates findings, calls `fix(ctx, finding)`
+on each finding whose emitting dimension has `fixable=True`, and
+aggregates the per-finding return dicts into the command-level
+result. A dimension with `fixable=False` ignores `--fix` entirely;
+a dimension with `fixable=True` must handle every finding it can
+emit (partial coverage is a contract bug).
+
+**M2** (missing entry-point file) and **MB1** (stale assimilation
+markers) are the first concrete fixable dimensions, both landing
+at v0.5.5. Future fixable additions land the same way: declare
+`fixable=True`, implement `fix`, mark the row in the dimension
+enumeration table above.
+
 Homeostasis **does not**:
 
 - Infer user intent from findings.
 - Rewrite prose or code to "look healthier".
 - Decide what's worth checking — that decision is made upstream in L2
   (this doc) and L3 (dimension inventory).
+
+## Safe-fix discipline (v0.5.5)
+
+A fixable dimension's `fix()` implementation must obey four rules.
+These are doctrine, not style — the kernel guards them before
+dispatch, and a dimension that breaks any of them is a contract
+bug that MUST be rolled back on discovery.
+
+1. **Idempotent.** Re-running a fix on the same substrate state is
+   a no-op. The second call observes the first call's result and
+   short-circuits; it does not re-write identical bytes, and it does
+   not amplify. Formally: `fix` is applied *to* a finding; if the
+   finding no longer exists on re-scan, `fix` returns
+   `{"applied": False, "detail": "already resolved", ...}`.
+
+2. **Narrow.** A single `fix` call creates or corrects **exactly one**
+   named file or field. It never cascades — fixing M2 does not also
+   create `notes/`, populate canon, or register a dimension. If a
+   finding implies a chain of changes, that chain is N separate
+   findings from N separate dimensions, each with its own narrow
+   fix. Cascades are how drift-healing turns into drift-creating.
+
+3. **Non-destructive.** A fix NEVER deletes. A fix NEVER overwrites
+   non-empty content. If the fix would overwrite non-empty content,
+   the fix short-circuits with `{"applied": False, "detail":
+   "would-overwrite: <reason>"}` and emits an informational finding
+   so the Agent sees the conflict. The Agent decides whether to
+   proceed — the substrate does not guess.
+
+4. **Bounded.** The fix target path MUST resolve under
+   `canon.system.write_surface.allowed`. The kernel guards this
+   before calling `fix()`; a `fix()` that targets outside the
+   allowed surface is a contract violation and is blocked — the
+   dimension sees a `PermissionError` and the finding stays
+   unresolved. This ties safe-fix discipline back to R6 (write-
+   surface) and prevents fixes from writing beyond the substrate's
+   declared boundary.
+
+The four rules compose: a safe fix is idempotent AND narrow AND
+non-destructive AND bounded. A fix that is idempotent but
+unbounded is not safe. A fix that is narrow but destructive is
+not safe. "Safe" is the conjunction.
 
 ## Interfaces
 

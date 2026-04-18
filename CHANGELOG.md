@@ -18,6 +18,180 @@ Versioning: [SemVer](https://semver.org/).
 
 ---
 
+## [0.5.6] — 2026-04-17
+
+**Doctrine realignment + mechanical LLM-boundary guard + bitter-
+lesson note.** The v0.5.5 panoramic review surfaced 39 drift items
+across L0-L3: 15 load-bearing contradictions (verb count, dimension
+enumeration, package_map staleness), 11 stale cross-references,
+13 missing anchors for v0.5.5 mechanisms (fixable dimensions,
+`brief` verb, safe-fix discipline, graph-over-src, sporulate LLM
+boundary, symbiont protocol, schema upgrader demo, hunger payload
+shape, 10-host automation, etc.). v0.5.6 closes the whole gap +
+mechanically enforces the "Agent calls LLM, substrate does not"
+boundary that was previously doctrine-by-convention.
+
+Governing three-round craft:
+`docs/primordia/v0_5_6_doctrine_realignment_craft_2026-04-17.md`.
+
+### Added
+
+- **MP1 lint dimension (mechanical / HIGH / fixable=False).** New
+  in v0.5.6. AST-based scan of every `.py` under `src/myco/`
+  (excluding `providers/` whitelist, `__pycache__/`, hidden dirs)
+  for imports matching a provider-SDK blacklist: `openai`,
+  `anthropic`, `mistralai`, `cohere`, `voyageai`,
+  `google.generativeai`, `google.genai`, `langchain`,
+  `langchain_core`, `langchain_openai`, `langchain_anthropic`,
+  `llama_index`, `llama_cpp`, `ollama`. Cross-checks against
+  new canon field `system.no_llm_in_substrate`:
+  - `true` (default) + violation → `HIGH` (contract violation,
+    CI gates)
+  - `false` + violation → `LOW` (opt-out declared, boundary
+    disarmed)
+  - clean → no finding
+  `--fix` is intentionally disabled: deleting an LLM import is
+  destructive; human review required. Bitter-lesson-aligned:
+  keeps Myco compute-scale-invariant and provider-agnostic.
+- **`system.no_llm_in_substrate` canon field.** New at v0.5.6.
+  Default `true`. Graceful for v0.5.5 canons (reader uses
+  `canon.system.get("no_llm_in_substrate", True)`). Declares the
+  substrate's posture on L0 principle 1's Agent-calls-LLM
+  boundary. Flipping to `false` is a contract-bumping event
+  requiring `molt` + craft approval.
+- **`src/myco/providers/` reserved package.** Empty escape hatch
+  for future LLM-provider coupling. Path is whitelisted by MP1;
+  any module placed here is exempt from the provider-import scan.
+  Populating the package requires the `no_llm_in_substrate:
+  false` toggle + a contract bump. README in the package declares
+  the contract.
+- **`L2_DOCTRINE/extensibility.md` — new doctrine page.** Cross-
+  cutting L2 doc for the two orthogonal extension axes:
+  per-substrate (`.myco/plugins/`) and per-host
+  (`src/myco/symbionts/`). Scope boundaries, authoring verbs,
+  audit verbs, enforcement dimensions all in one table. Cross-
+  linked from L0 principle 5, L2 homeostasis.md, L3
+  symbiont_protocol.md.
+- **L0 principle 1 addendum** — carves the two declared exceptions
+  (`brief` human window + Agent-calls-LLM boundary) inline in L0
+  so every downstream reader sees them from the top.
+- **L0 bitter-lesson appendix** — explicit acknowledgment that
+  Myco's coordination surface (18 verbs + canon schema + 11 lint
+  dimensions) is a live bet against Sutton's bitter lesson.
+  Names the review cadence (every MAJOR re-audits), names the
+  replacement trigger (if Agents can maintain 1M-file substrates
+  without structured verbs, Myco must re-justify). Labeled as
+  appendix to principles 1/3/4; not a sixth principle.
+
+### Changed — doctrine realignment (34 audit items)
+
+Every S1/S2/S3 finding from the v0.5.5 panoramic audit landed as
+a concrete text correction:
+
+- **`L0_VISION.md`** — principle 1 addendum, bitter-lesson
+  appendix, biological-metaphor table annotations (Germination
+  rename, Cycle row added), principle 5 extended with `src/**`
+  graph coverage + two-axes cross-link.
+- **`L1_CONTRACT/canon_schema.md`** — example dimension IDs
+  replaced with real ones (M1/M2/M3/MF1/MF2/MP1/SH1/MB1/MB2/SE1/
+  SE2); example subsystem `genesis:` → `germination:`; example
+  version updated to v0.5.6; `no_llm_in_substrate` field added;
+  `affected_dimensions: []` reflects v0.5.6 reality; runtime-
+  state-exclusion list adds `.myco_state/graph.json`; demo-
+  upgrader note added to rule 4; dangling `L4_SUBSTRATE/
+  export_plan.md` reference removed.
+- **`L1_CONTRACT/versioning.md`** — "clean reflect" → "clean
+  assimilate (alias reflect still resolves)"; Current-state
+  (v0.5.6) row added alongside v0.4.0 starting-point row.
+- **`L1_CONTRACT/exit_codes.md`** — `DIMENSION_CATEGORY` table
+  reference → `Dimension.category: ClassVar[Category]`
+  explanation; skeleton-downgrade-now-empty paragraph rewritten.
+- **`L2_DOCTRINE/genesis.md`** — M2-fix cross-link added to
+  entry-point section.
+- **`L2_DOCTRINE/ingestion.md`** — eat full v0.5.4+ signature
+  (`--content`/`--path`/`--url`); hunger payload shape corrected
+  to `{loaded, count_by_kind, errors, module}` with per-field
+  meanings; brief cross-link added; traverse companion note.
+- **`L2_DOCTRINE/digestion.md`** — sporulate output shape
+  documented (`notes/distilled/d_<slug>.md` frontmatter +
+  scaffolding body); MP1 cross-link.
+- **`L2_DOCTRINE/circulation.md`** — graph API documented
+  (`build_graph(use_cache)`, `persist_graph`,
+  `load_persisted_graph`, `invalidate_graph_cache`); fingerprint
+  formula (`sha256(canon_text) + sorted((path, mtime) for path in
+  <root>/src/**/*.py)`); traverse payload fields (`src_node_count`,
+  `cached`).
+- **`L2_DOCTRINE/homeostasis.md`** — 11-dimension enumeration
+  table (including MP1); fixable-dimension protocol (M2 + MB1 at
+  v0.5.5); safe-fix discipline (4-rule doctrine: idempotent /
+  narrow / non-destructive / write-surface-bounded); MP1
+  paragraph; extensibility cross-link.
+- **`L3_IMPLEMENTATION/command_manifest.md`** — Verb-inventory
+  header updated to v0.5.6; 18-verb table (with `brief` row);
+  governance-verbs section adds "Brief — the one carved human-
+  facing exception"; winnow "five gates" → "six gates"
+  (G6_template_boilerplate); hunger payload shape corrected.
+- **`L3_IMPLEMENTATION/package_map.md`** — src tree refreshed:
+  `install/`, `mcp/`, `providers/` (v0.5.6 NEW) added;
+  `cycle/brief.py` listed; symbionts description updated to
+  per-host framing with `symbiont_protocol.md` pointer; test
+  layout uses `germination/` and adds `cycle/`; mapping matrix
+  extended.
+- **`L3_IMPLEMENTATION/migration_strategy.md`** — historical-note
+  banner declaring v0.4.0 greenfield-plan status; `senesce`
+  canonical name with `session-end` alias annotation.
+- **`L3_IMPLEMENTATION/symbiont_protocol.md`** — 10-host
+  automation inventory added; `myco.install.clients` adapter
+  layer cross-link.
+- **`docs/architecture/README.md`** — full rewrite to v0.5.6
+  status; L0-L3 table refreshed with current file list.
+- **`src/myco/surface/manifest.yaml`** — `immune --fix` arg
+  `help` corrected from stale "no-op at B.7" to "Apply safe
+  fixes where the dimension supports them (v0.5.5: M2 + MB1
+  fixable; safe-fix discipline in L2 homeostasis.md)".
+
+### Tests
+
++16 new (580 total, was 564): 12 MP1 tests (registration, clean
+scan, detection per major provider, from-imports, nested
+imports, relative-import exemption, providers/ whitelist,
+__pycache__ skip, syntax-error tolerance, LOW-severity opt-out,
+kernel-only scope) + 4 canon-field tests (default-true-on-missing,
+explicit true/false, missing-system-block edge case).
+
+### Migration note
+
+No substrate-reader break. v0.5.5 canons parse under v0.5.6
+unchanged: the new `system.no_llm_in_substrate` field is read via
+`.get()` with default `True`, so v0.5.5 canons behave as
+canonical-declared-true. Every v0.5.5 CLI invocation still works.
+Every v0.5.x verb alias still resolves. The `contract_version`
+bumps from `v0.5.5` to `v0.5.6` because the new canon field
+shapes the contract surface (even though it's optional-with-
+default); explicit declaration in fresh substrates is the new
+norm.
+
+To upgrade a v0.5.5 substrate: `cd ~/myco && git pull && myco
+immune` — MP1 runs clean on a kernel that imports no provider
+SDKs; if MP1 fires on your downstream substrate, review the
+imports and decide whether to (a) remove them, (b) move them to
+`src/myco/providers/` + molt the canon toggle, or (c) accept
+the LOW opt-out finding as advisory.
+
+### Verification commands
+
+- `myco --version` → `myco 0.5.6`
+- `myco immune --list` → 11 dimensions (was 10; MP1 added)
+- `myco immune --dimensions MP1` → clean on myco-self
+- `myco immune --explain MP1` → full class docstring with
+  blacklist + canon-cross-check semantics
+- `myco winnow docs/primordia/v0_5_6_doctrine_realignment_craft_
+  2026-04-17.md` → verdict: pass
+- Architecture greps (`local_plugins: {count, health}` etc.)
+  return zero live matches per the doctrine alignment report.
+
+---
+
 ## [0.5.5] — 2026-04-17
 
 **Close every audit loose thread in a single release.** Every

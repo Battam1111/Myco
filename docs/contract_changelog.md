@@ -11,6 +11,101 @@ Format: one section per `contract_version`, newest first.
 
 ---
 
+## v0.5.6 — 2026-04-17 — Doctrine realignment + mechanical LLM-boundary guard + bitter-lesson appendix
+
+A contract-layer release with two user-visible contract-surface
+deltas + a deep doctrine realignment across all L0-L3 pages.
+
+Governing craft:
+`docs/primordia/v0_5_6_doctrine_realignment_craft_2026-04-17.md`.
+
+### Contract surface at v0.5.6
+
+- **18 verbs** unchanged from v0.5.5 (17 agent + 1 human-facing
+  `brief`). No new verb ships at v0.5.6.
+- **11 lint dimensions** (was 10): **MP1** added (mechanical /
+  HIGH / not fixable). "No LLM-provider import from `src/myco/**`
+  unless `canon.system.no_llm_in_substrate: false`." Mechanically
+  enforces the v0.5.5 L0-principle-1 addendum "Agent calls the
+  LLM; the substrate does not".
+- **New canon field** `system.no_llm_in_substrate: bool`. Default
+  `true`. Opt-out requires `false` + populating
+  `src/myco/providers/` + contract bump. Graceful on v0.5.5 canons
+  (optional-with-default).
+- **New L2 doctrine page** `L2_DOCTRINE/extensibility.md`. Single-
+  source for the two orthogonal extension axes (per-substrate
+  `.myco/plugins/` ⊥ per-host `src/myco/symbionts/`). Cross-linked
+  from L0 principle 5 and L2 homeostasis.
+- **L0 principle 1 addendum** — declared exceptions (`brief` human
+  window + Agent-calls-LLM boundary) written inline.
+- **L0 bitter-lesson appendix** — names the review cadence for the
+  coordination-surface bet (every MAJOR re-audits) and the
+  redesign trigger.
+
+### What changed
+
+1. **MP1 mechanical guard** — scans `src/myco/` for provider-SDK
+   imports; cross-checks canon `no_llm_in_substrate`; HIGH
+   finding when declared-true-but-violated. Bitter-lesson-aligned
+   (keeps Myco compute-scale-invariant).
+2. **`system.no_llm_in_substrate` canon field** — declared
+   intent, backed by MP1 mechanical scan.
+3. **`src/myco/providers/` reserved package** — declared opt-in
+   escape hatch for future LLM-coupling. Empty at v0.5.6.
+4. **34 doctrine alignment edits** — every S1/S2/S3 from the
+   v0.5.5 panoramic audit landed as concrete corrections across
+   L0/L1/L2/L3 + architecture README. Top items: 18-verb
+   inventory (was 17), 11-dimension enumeration table, fixable-
+   dimension + safe-fix discipline doctrine, hunger payload shape
+   correction, sporulate output-shape doctrine, graph API
+   doctrine, package_map refresh.
+5. **Bitter-lesson appendix** at L0 — holds principles 3 and 4
+   accountable to a review cadence rather than treating the
+   current structure as eternal truth.
+
+### Break from v0.5.5
+
+None for substrate readers. v0.5.5 canons parse under v0.5.6
+unchanged (new field is optional-with-default-true). Every v0.5.5
+verb invocation still works. Every v0.5.x alias still resolves.
+
+One visible contract-surface addition: **fresh substrates
+authored via `myco germinate` at v0.5.6 now include
+`system.no_llm_in_substrate: true` explicitly** in their canon,
+declaring their posture on the Agent-LLM-boundary invariant.
+
+### Doctrine files touched
+
+- `L0_VISION.md` — principle 1 addendum + bitter-lesson appendix
+  + principle 5 extended with src graph + two-axes; biological-
+  metaphor table refreshed
+- `L1_CONTRACT/canon_schema.md` — 4 example corrections + new
+  field + demo-upgrader note + dangling-ref removal
+- `L1_CONTRACT/versioning.md` — current-state v0.5.6 row; "clean
+  reflect" → "clean assimilate"
+- `L1_CONTRACT/exit_codes.md` — `DIMENSION_CATEGORY` ref removed;
+  skeleton-downgrade-now-empty clarified
+- `L1_CONTRACT/protocol.md` — two-axes cross-link near R1-R7
+- `L2_DOCTRINE/genesis.md` — M2-fix cross-link
+- `L2_DOCTRINE/ingestion.md` — eat 3-mode signature + hunger
+  payload shape + brief cross-link
+- `L2_DOCTRINE/digestion.md` — sporulate output-shape + MP1 guard
+- `L2_DOCTRINE/circulation.md` — graph API + fingerprint + cache
+  semantics
+- `L2_DOCTRINE/homeostasis.md` — 11-dimension table + fixable
+  protocol + safe-fix discipline + MP1 section
+- `L2_DOCTRINE/extensibility.md` — **NEW** cross-cutting doctrine
+- `L3_IMPLEMENTATION/command_manifest.md` — 18-verb table + brief
+  sub-section + six gates + payload fixes
+- `L3_IMPLEMENTATION/package_map.md` — src tree + mapping matrix
+  refresh + providers/ row
+- `L3_IMPLEMENTATION/migration_strategy.md` — historical-note
+  banner + senesce canonical
+- `L3_IMPLEMENTATION/symbiont_protocol.md` — 10-host inventory
+- `docs/architecture/README.md` — full rewrite
+
+---
+
 ## v0.5.5 — 2026-04-17 — Close every audit loose thread
 
 Eight MAJORs merged into one release. No contract-surface shape

@@ -25,10 +25,10 @@ subsystem-specific state. The v0.4.0 canon is SSoT-only.
 ## Top-level shape
 
 ```yaml
-# _canon.yaml — v0.4.0 schema
+# _canon.yaml — v0.4.0 schema (example shape; values are illustrative)
 schema_version: "1"                # bumps on structural schema change
-contract_version: "v0.4.0"         # must match L1 protocol.md
-synced_contract_version: "v0.4.0"  # updated by `myco assimilate` (v0.5.2 alias: `reflect`)
+contract_version: "v0.5.6"         # must match L1 protocol.md
+synced_contract_version: "v0.5.6"  # updated by `myco assimilate` (v0.5.2 alias: `reflect`)
 
 identity:                          # substrate self-identification
   substrate_id: "<slug>"           # globally unique; e.g. "myco-self", "ascc-research"
@@ -45,7 +45,18 @@ system:
       - "notes/**"
       - "docs/**"
       - "src/**"
+      - ".myco/**"                 # substrate-local plugins, if used (v0.5.3+);
+                                   # include when the substrate registers
+                                   # anything under `.myco/plugins/` or
+                                   # `.myco/manifest_overlay.yaml`
       # …project-specific additions
+  no_llm_in_substrate: true        # v0.5.6: default true. "Agent calls LLM;
+                                   # substrate does not" — mechanically
+                                   # enforced by the MP1 dimension (no
+                                   # provider-SDK imports from inside
+                                   # `src/myco/**`). Opt-out is `false` +
+                                   # populating `src/myco/providers/` +
+                                   # a contract-bumping molt.
   hard_contract:
     rules_ref: "docs/architecture/L1_CONTRACT/protocol.md"
     rule_count: 7                  # must match R1–R7
@@ -55,10 +66,18 @@ versioning:
   pyproject_dynamic: true
 
 lint:
-  dimensions:                      # dimension_id → category
-    L0: mechanical
-    L1: mechanical
-    # …
+  dimensions:                      # dimension_id → category (v0.5.6 roster)
+    M1: mechanical                 # core write-surface / required-field shape
+    M2: mechanical                 # fixable — missing entry-point file
+    M3: mechanical                 # write-surface violations
+    MF1: mechanical                # declared subsystems exist on disk
+    MF2: mechanical                # substrate-local plugin health
+    MP1: mechanical                # v0.5.6 NEW — "Agent calls LLM; substrate does not"
+    SH1: shipped                   # package version sync
+    MB1: metabolic                 # fixable — stale assimilation markers
+    MB2: metabolic                 # undigested-note backlog pressure
+    SE1: semantic                  # orphan / dangling cross-references
+    SE2: semantic                  # canon ↔ reality drift (numbers, paths)
   categories:                      # the four fixed categories
     - mechanical
     - shipped
@@ -68,12 +87,17 @@ lint:
     default: "mechanical:critical,shipped:critical,metabolic:never,semantic:never"
   skeleton_downgrade:
     marker: ".myco_state/autoseeded.txt"
-    affected_dimensions: [L0, L1]
+    affected_dimensions: []        # v0.5.6: empty — no dimension is currently
+                                   # downgraded in skeleton mode. The field is
+                                   # retained so future dimension retirements
+                                   # (or new dimensions that earn skeleton
+                                   # grace) can be declared here without a
+                                   # schema bump.
 
-subsystems:                        # mirrors L2 Doctrine exactly
-  genesis:
+subsystems:                        # mirrors L2 Doctrine exactly (v0.5.3+ names)
+  germination:                     # was "genesis" pre-v0.5.3; doc filename preserved
     doc: "docs/architecture/L2_DOCTRINE/genesis.md"
-    package: "src/myco/genesis/"
+    package: "src/myco/germination/"
   ingestion:
     doc: "docs/architecture/L2_DOCTRINE/ingestion.md"
     package: "src/myco/ingestion/"
@@ -128,6 +152,14 @@ waves:                             # history of contract-level changes
    the old raise-behavior to catch typos should adopt `myco immune` +
    a MF-class dimension for shape validation instead.
 
+   v0.5.5 registered the first demo entry under key `"0"` (a schema
+   version that never shipped in real canons) to prove the chain-
+   apply path end-to-end. A canon declaring `schema_version: "0"`
+   parses silently; the demo upgrader maps it to the current shape.
+   Real v1 → v2 upgraders (when schema v2 ships) will register the
+   same way — the mechanism is exercised from day one so the first
+   real bump does not also have to debug a cold code path.
+
 5. **Alphabetical within sections.** Deterministic ordering for diffs.
 
 ## What does NOT go in canon
@@ -138,13 +170,18 @@ waves:                             # history of contract-level changes
 - Note digests (→ `notes/`)
 - Wave narratives (→ `docs/contract_changelog.md`)
 - Per-dimension lint rules (→ `src/myco/homeostasis/` code)
+- Runtime state (→ `.myco_state/`): including the mycelium graph cache at
+  `.myco_state/graph.json` (see L2 `circulation.md`), the skeleton-mode
+  marker `.myco_state/autoseeded.txt`, and the boot-brief snapshot
+  `.myco_state/boot_brief.md`. These are derivable / reconstructable and
+  must stay out of canon so the SSoT boundary remains clean.
 
 If in doubt: canon only contains **things lint checks cite**. Everything
 else lives in its natural home and is cross-referenced.
 
 ## Migration note
 
-The v0.3.4 canon (745 lines) will not be edited. At L4 re-export, a fresh
-canon is authored from this schema, carrying over only the values that
-still apply. See `docs/architecture/L4_SUBSTRATE/export_plan.md` (to be
-authored at Phase 9).
+The v0.3.4 canon (745 lines) is not edited. The v0.3.4 canon is preserved
+at tag `v0.3.4-final`; v0.4.0+ substrates are authored fresh from this
+schema, carrying over only the values that still apply. See
+`docs/contract_changelog.md` for the version-bump history.

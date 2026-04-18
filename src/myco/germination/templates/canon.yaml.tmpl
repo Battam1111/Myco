@@ -18,6 +18,11 @@ system:
   hard_contract:
     rules_ref: "docs/architecture/L1_CONTRACT/protocol.md"
     rule_count: 7
+  # v0.5.6 (L0 principle 1 enforcement): declares whether this
+  # substrate opts out of the "Agent calls LLM, substrate does
+  # not" invariant. Default true. MP1 dimension cross-checks
+  # against kernel scans.
+  no_llm_in_substrate: true
 
 versioning:
   package_version_ref: "src/myco/__init__.py"

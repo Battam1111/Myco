@@ -24,6 +24,7 @@ import argparse
 import sys
 from typing import Sequence
 
+from myco.core.io import ensure_utf8_stdio
 from myco.surface.mcp import build_server
 
 __all__ = ["build_server", "main"]
@@ -58,6 +59,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     blocks on its transport and does not return under normal
     operation.
     """
+    ensure_utf8_stdio()
     args = _build_parser().parse_args(argv)
     try:
         server = build_server()

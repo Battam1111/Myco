@@ -48,9 +48,14 @@ belongs to exactly one.
 | **metabolic** | Health of ongoing digestion | undigested notes, stale reflections |
 | **semantic** | Correctness of cross-references and claims | orphan links, canon-reality drift |
 
-The mapping of dimension → category is defined in L3 and is SSoT'd in the
-immune kernel (`DIMENSION_CATEGORY` table). It cannot be changed without a
-contract bump.
+Each dimension declares its category via the
+`Dimension.category: ClassVar[Category]` attribute. The `Category` enum
+(`mechanical` / `shipped` / `metabolic` / `semantic`) is defined in
+`src/myco/homeostasis/finding.py`. Canon mirrors this via
+`lint.dimensions: <id> → <category>` to keep the mapping human-
+auditable at substrate read time. A category change is still a
+contract bump; the class-attribute form is the mechanical SSoT, the
+canon block is the legible SSoT, and the two must agree.
 
 ## `--exit-on` grammar
 
@@ -87,14 +92,18 @@ ignore ongoing metabolic/semantic noise.
 ## Skeleton-mode downgrade
 
 When the substrate is a fresh auto-seeded skeleton (presence of
-`.myco_state/autoseeded.txt` marker and no digested `n_*.md` notes), lint
-dimensions L0 and L1 are auto-downgraded from CRITICAL to HIGH. Rationale:
-a just-born substrate is *expected* to be incomplete, and failing a
-first-run hunger call blocks legitimate adoption.
+`.myco_state/autoseeded.txt` marker and no digested `n_*.md` notes), the
+dimensions listed in `_canon.yaml::lint.skeleton_downgrade.affected_dimensions`
+are auto-downgraded from CRITICAL to HIGH. Rationale: a just-born
+substrate is *expected* to be incomplete, and failing a first-run hunger
+call blocks legitimate adoption.
 
-The downgrade is a property of the kernel, not the flag set. Once the
-substrate metabolizes its first note, the marker is stale and downgrade
-stops applying.
+At v0.5.6 that list is empty — no dimension is currently skeleton-
+downgraded. The field is retained so future dimension retirements (or
+new dimensions that earn skeleton grace) can be declared there without
+a schema bump. The downgrade is a property of the kernel, not the flag
+set. Once the substrate metabolizes its first note, the marker is stale
+and downgrade stops applying.
 
 ## Legacy behavior (pre-v0.4.0)
 

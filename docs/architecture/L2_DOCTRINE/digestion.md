@@ -78,6 +78,36 @@ Digestion **does not**:
   any Agent on any Claude/GPT/local model) and keeps the L0
   "Agent calls LLM, substrate does not" invariant intact.
 
+### Sporulate output shape
+
+`sporulate <slug>` writes exactly one file:
+`notes/distilled/d_<slug>.md`. The file's frontmatter carries:
+
+- `kind: distilled` — the fixed distilled-note kind tag.
+- `sources: [<note-path>, ...]` — the integrated-note paths the
+  sporulate call bundled; the Agent can always trace back.
+- `tags: [<tag>, ...]` — the auto-extracted shared-tag theme
+  (tags that appear across the source notes' frontmatter).
+
+The body is auto-generated scaffolding only:
+
+1. An auto-extracted **shared-tag theme** summary — plain text
+   listing the tags the sporulate call identified as common
+   across sources.
+2. A **first-line-per-source seed list** — one line per source
+   note, taken from its first non-frontmatter prose line, so the
+   Agent has a fast preview of what each source contributes.
+3. A `TODO: synthesis prose` placeholder — the empty slot where
+   the Agent's downstream synthesis call writes the actual
+   distilled doctrine.
+
+The `MP1` lint dimension (mechanical/HIGH at v0.5.6) is the
+mechanical guard that prevents sporulate from ever acquiring a
+model call inside the substrate: MP1 flags any
+`src/myco/digestion/sporulate.py` import of a provider SDK unless
+`canon.system.no_llm_in_substrate: false`. The separation is not
+stylistic; it is mechanically enforced.
+
 ## Interfaces
 
 ```

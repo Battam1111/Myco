@@ -155,6 +155,31 @@ does the above in one step. Until then, the manual plugin-install
 path (already documented in `docs/INSTALL.md`) covers the same
 ground.
 
+## Automated hosts at v0.5.6
+
+Symbionts are the declared **authoring** seam on top of the set of
+hosts that Myco already knows how to install MCP configuration into.
+At v0.5.6 the automated-host inventory (exposed via
+`myco-install host <client>`) is:
+
+- Claude Code
+- Claude Desktop
+- Cursor
+- Windsurf
+- Zed
+- VS Code
+- OpenClaw
+- Gemini CLI
+- Codex CLI (TOML config surface)
+- Goose (YAML config surface)
+
+The adapter layer for MCP itself is `myco.install.clients` — one
+module per host. When symbiont modules ship (v0.6+ or earlier if
+demand surfaces), each symbiont will partner with one of these
+hosts by name and extend the install flow with host-native
+authoring (skills, slash-commands, rule files, task entries, file-
+watch hooks).
+
 ## Governing craft
 
 `docs/primordia/v0_5_5_close_audit_loose_threads_craft_2026-04-17.md`

@@ -7,7 +7,7 @@
 
 ---
 
-## The `src/myco/` layout (v0.5.3)
+## The `src/myco/` layout (v0.5.6)
 
 ```
 src/myco/
@@ -35,7 +35,7 @@ src/myco/
 ├── ingestion/               # L2 Ingestion
 │   ├── __init__.py
 │   ├── eat.py
-│   ├── hunger.py            # payload gains local_plugins: {count, health} at v0.5.3
+│   ├── hunger.py            # payload includes local_plugins: {loaded, count_by_kind: {dimension, adapter, schema_upgrader, overlay_verb}, errors, module} (v0.5.4+)
 │   ├── sense.py
 │   ├── forage.py
 │   ├── adapters/            # ingestion adapter protocol (registry; v0.4.2)
@@ -83,15 +83,29 @@ src/myco/
 │   ├── winnow.py            # was meta/evolve.py — proposal shape validator
 │   ├── ramify.py            # was meta/scaffold.py — extended with --dimension/--adapter/--substrate-local
 │   ├── graft.py             # v0.5.3 new — substrate-local plugin introspection
+│   ├── brief.py             # v0.5.5 new — human-facing markdown rollup (L0 p.1 carved exception)
 │   └── templates/
 │       └── fruit.md.tmpl    # three-round primordia skeleton (was craft.md.tmpl)
 │
 ├── meta/                    # shim package (v0.5.3) — re-exports myco.cycle.*
 │   └── __init__.py          # preserves `from myco.meta import session_end_run`; DeprecationWarning
 │
-└── symbionts/               # downstream-project adapters (opt-in, isolated)
-    ├── __init__.py
-    └── claude_code.py       # Claude Code / Cowork specific surface sugar
+├── install/                 # v0.5.5 — host MCP writers + fresh-substrate bootstrap
+│   ├── __init__.py
+│   ├── clients/             # one module per automated host: claude_code, claude_desktop, cursor, windsurf, zed, vscode, openclaw, gemini_cli, codex_cli (TOML), goose (YAML)
+│   └── fresh.py             # `myco-install fresh` — germinate + wire hooks in one step
+│
+├── mcp/                     # v0.5.5 — `python -m myco.mcp` MCP launcher
+│   └── __init__.py          # thin delegator to surface.mcp so the MCP server has a stable module path
+│
+├── providers/               # v0.5.6 NEW — reserved opt-in for LLM-provider coupling
+│   └── __init__.py          # empty; populating this package requires
+│                            # `canon.system.no_llm_in_substrate: false` + a
+│                            # contract-bumping molt. MP1 guards the rest of
+│                            # `src/myco/**` against provider-SDK imports.
+│
+└── symbionts/               # v0.5.5 — per-host Agent-sugar seam (defined-but-empty at v0.5.6)
+    └── __init__.py          # points at `symbiont_protocol.md`; no concrete symbionts yet
 ```
 
 ### Substrate-local extension paths (v0.5.3)
@@ -142,9 +156,12 @@ errors as mechanical/HIGH findings.
 | `src/myco/circulation/` | Circulation | `docs/architecture/L2_DOCTRINE/circulation.md` |
 | `src/myco/homeostasis/` | Homeostasis | `docs/architecture/L2_DOCTRINE/homeostasis.md` |
 | `src/myco/surface/` | (cross-cutting — adapters for CLI and MCP) | L1 protocol + command manifest |
-| `src/myco/cycle/` (v0.5.3) | (life-cycle composer verbs: `germinate`, `senesce`, `fruit`, `molt`, `winnow`, `ramify`, `graft`) | `command_manifest.md` governance-verbs section |
+| `src/myco/cycle/` (v0.5.3) | (life-cycle composer verbs: `germinate`, `senesce`, `fruit`, `molt`, `winnow`, `ramify`, `graft`, `brief`) | `command_manifest.md` governance-verbs section |
 | `src/myco/meta/` (v0.5.3 shim) | (backward-compat re-export of `cycle`; preserves `from myco.meta import session_end_run`) | — |
-| `src/myco/symbionts/` | (external integrations) | per-symbiont doc under `docs/adapters/` |
+| `src/myco/install/` (v0.5.5) | (MCP host writers + fresh-substrate bootstrap; 10 automated hosts at v0.5.6) | `docs/INSTALL.md` |
+| `src/myco/mcp/` (v0.5.5) | (MCP launcher surface: `python -m myco.mcp`) | `L1_CONTRACT/protocol.md` + `command_manifest.md` |
+| `src/myco/providers/` (v0.5.6 NEW) | (reserved opt-in for LLM provider coupling; empty at v0.5.6; requires `canon.system.no_llm_in_substrate: false` + contract bump to populate) | `L2_DOCTRINE/digestion.md` §"sporulate does NOT call an LLM" + `providers/README.md` |
+| `src/myco/symbionts/` | per-host Agent-sugar adapters (Claude Code skill-generators, Cursor rule writers, VS Code task configurators, etc.) | `L3_IMPLEMENTATION/symbiont_protocol.md`; package defined-but-empty at v0.5.6 |
 
 ### Shim packages (v0.5.3)
 
@@ -164,12 +181,15 @@ emits a `DeprecationWarning` on import. Examples:
 ```
 tests/unit/
 ├── core/
-├── genesis/
+├── germination/         # v0.5.3+ (was `genesis/` at v0.4.0–v0.5.2)
 ├── ingestion/
 ├── digestion/
 ├── circulation/
 ├── homeostasis/
 │   └── dimensions/      # one test file per dimension
+├── cycle/               # v0.5.3+ (was `meta/` at v0.5.1–v0.5.2)
+├── install/             # v0.5.5+ — MCP host writers + `fresh` bootstrap
+├── mcp/                 # v0.5.5+ — `python -m myco.mcp` entry
 └── surface/
 ```
 

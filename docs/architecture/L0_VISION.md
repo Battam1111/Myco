@@ -33,6 +33,32 @@ Consequences:
 - Myco does not produce documentation, summaries, or reports for humans.
   The agent produces those, on demand, using Myco.
 
+#### Addendum — declared exceptions (v0.5.5 / v0.5.6)
+
+Principle 1 is absolute by default. Two exceptions are **explicitly
+declared**, named, and scoped — they do not erode the rule, they
+exhaust the list of places where the rule yields:
+
+1. **`myco brief`** — the one verb explicitly optimized for human
+   consumption. A markdown rollup (7 stable sections) for the
+   unavoidable "what has happened since the last session I actually
+   paid attention to?" moment. It reads what the agent-side verbs
+   (`hunger`, `sense`, `traverse`, `immune`) already surface and
+   composes a scoped read-only rollup; it does NOT replace any
+   agent-side verb. See `L3_IMPLEMENTATION/command_manifest.md`
+   §"Brief — the one carved human-facing exception".
+2. **Agent calls the LLM; the substrate does not.** The substrate
+   never embeds provider-SDK calls in its own logic. `sporulate`
+   prepares scaffolding; the Agent reads that scaffolding, calls
+   its own model, and writes the synthesis back. Opt-in coupling
+   lives behind `canon.system.no_llm_in_substrate: false` plus the
+   reserved `src/myco/providers/` package plus a contract-bumping
+   molt. Mechanically enforced at v0.5.6 by the `MP1` dimension
+   (mechanical/HIGH — "no LLM-provider import from inside
+   `src/myco/**` unless opted out via canon"). See
+   `L2_DOCTRINE/digestion.md` §"sporulate does NOT call an LLM"
+   and `L2_DOCTRINE/homeostasis.md` for MP1's enumeration.
+
 ### 2. 永恒吞噬 — Eternal Ingestion （吞噬万物）
 
 Myco consumes without bound. Any input the agent can point at — a
@@ -97,6 +123,17 @@ Consequences:
   afterthought.
 - Graph traversability is how the agent reads Myco; a broken edge is a
   reading failure.
+- At v0.5.5 the mycelium graph extends to cover `src/**/*.py` (via AST
+  import + docstring doc-reference edges), so the graph spans code →
+  doctrine → notes → canon as a single reachability relation. See
+  `L2_DOCTRINE/circulation.md`.
+- Substrates extend along **two orthogonal axes**: per-substrate via
+  `.myco/plugins/` (one substrate's project-specific rules, adapters,
+  schema upgraders, overlay verbs) and per-host via
+  `src/myco/symbionts/` (Agent-sugar shared across every substrate on
+  one host — skill-generators, rule writers, task configurators).
+  The two axes compose freely. See `L3_IMPLEMENTATION/symbiont_protocol.md`
+  and the in-progress `L2_DOCTRINE/extensibility.md`.
 
 ---
 
@@ -138,14 +175,65 @@ metaphor names five load-bearing subsystems:
 
 | Subsystem | Biological role | Role in Myco |
 |-----------|-----------------|--------------|
-| **Genesis** | Seeding, birth | Spawn a fresh substrate skeleton |
+| **Germination** (v0.5.3 canonical; alias `genesis` resolves) | Spore → first hyphae; the birth of a new colony | Spawn a fresh substrate skeleton — minimal, self-identifying, lint-clean |
 | **Ingestion** | Feeding (eat / hunger / sense / forage) | Devour raw inputs without filter (principle 2) |
 | **Digestion** | Metabolism (assimilate / digest / sporulate — v0.5.3 canonical; aliases `reflect` / `distill` still resolve) | Drive eternal iteration + evolution (principles 3, 4) |
-| **Circulation** | Perfusion, signaling, propagation | Maintain the mycelium graph inside and across substrates (principle 5) |
+| **Circulation** (v0.5.3 canonical; verb alias `perfuse` → `traverse` still resolves) | Perfusion, signaling, propagation | Maintain the mycelium graph inside and across substrates (principle 5) |
 | **Homeostasis** | Immune + regulation | Enforce invariants during continuous change (principles 1, 3) |
+| **Cycle** (v0.5.3; houses `senesce` / `fruit` / `molt` / `winnow` / `ramify` / `graft` / `brief` + `germinate` itself) | Life-cycle composer verbs — the governance and session-boundary surface | Compose the substrate's own shape change (principles 3, 4) |
 
 Commands, subsystem names, and directory names at every layer must match
 this taxonomy exactly. No alternate vocabulary.
+
+---
+
+## Appendix — Living bets (v0.5.6)
+
+This appendix is explicitly subordinate to principles 1, 3, and 4.
+It names the load-bearing structural bets that Myco is making and
+acknowledges they are not eternal truths.
+
+**The bet.** Myco's coordination surface — 17 agent verbs + 1 human
+verb, the canon schema as a single source of truth, and 11 lint
+dimensions that police the substrate — has value *at every tier of
+Agent intelligence*. Whether the Agent is a 2026-class Claude or a
+future 10×-larger successor, a standardized substrate vocabulary for
+"ingest / digest / traverse / immune / molt / fruit" lets the Agent
+coordinate across sessions, across hosts, and across substrates
+without re-deriving the shape each time.
+
+**The counter-reading.** Sutton's bitter lesson says that general-
+purpose methods with more compute eventually outperform hand-coded
+structure. A strong reading of that lesson would predict that a
+sufficiently capable future Agent will not need a structured
+vocabulary at all — it will just hold the substrate's state in its
+context and act coherently without explicit verbs. If that reading
+wins, Myco's verb surface is scaffolding that a smarter Agent
+simply discards.
+
+**Myco's wager.** We bet coordination vocabulary survives model
+growth the way `cp`/`mv`/`grep` survive IDEs. The verbs are not a
+user interface for the human — they are a coordination grammar for
+the Agent, and grammars persist as abstractions even when the
+underlying actor gets smarter. A smarter `grep` user still runs
+`grep`; a smarter Agent still runs `myco hunger` because the
+substrate is a shared object the Agent coordinates *with*, not
+just a memory it holds. But this bet is undetermined, not proven.
+
+**Review cadence.** Every MAJOR release (v0.6, v0.7, v1.0) re-audits
+this appendix. The concrete trigger for rewrite: if a future Agent
+can maintain a 1M-file substrate *without* structured verbs — just
+from reading the raw tree and holding it in context — Myco must
+re-justify its existence or redesign. Until that trigger fires,
+the five root principles stand.
+
+**Not a principle.** This appendix does not introduce a sixth
+principle. It holds principles 3 (永恒进化) and 4 (永恒迭代)
+accountable to a cadence, and it tempers principle 1 (Only For
+Agent) with an honest statement of *which* Agent-tier the current
+shape is optimized for. It is a meta-commitment, not a rule.
+
+---
 
 ## Changes to this page
 
