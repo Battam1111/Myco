@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Iterable
+from collections.abc import Iterable
 
 import pytest
 
@@ -34,7 +34,7 @@ def test_concrete_subclass_works() -> None:
         category = Category.SEMANTIC
         default_severity = Severity.MEDIUM
 
-        def run(self, ctx) -> Iterable[Finding]:  # noqa: ARG002
+        def run(self, ctx) -> Iterable[Finding]:
             return ()
 
     d = Good()

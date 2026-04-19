@@ -4,13 +4,14 @@ Uses only the Python standard library (``csv``, ``json``), so no
 optional deps are needed. Produces a summary note: column names,
 row count, first few rows.
 """
+
 from __future__ import annotations
 
 import csv
 import io
 import json
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Sequence
 
 from .protocol import Adapter, IngestResult
 
@@ -56,13 +57,15 @@ class TabularReader(Adapter):
         ]
         for row in preview:
             lines.append("  " + json.dumps(row, ensure_ascii=False))
-        return [IngestResult(
-            title=p.name,
-            body="\n".join(lines),
-            tags=["tabular", suffix.lstrip(".")],
-            source=str(p.resolve()),
-            metadata={"columns": cols, "row_count": len(rows)},
-        )]
+        return [
+            IngestResult(
+                title=p.name,
+                body="\n".join(lines),
+                tags=["tabular", suffix.lstrip(".")],
+                source=str(p.resolve()),
+                metadata={"columns": cols, "row_count": len(rows)},
+            )
+        ]
 
     def _ingest_jsonl(self, p: Path) -> list[IngestResult]:
         text = p.read_text(encoding="utf-8", errors="replace")
@@ -83,32 +86,38 @@ class TabularReader(Adapter):
         ]
         for obj in preview:
             lines.append("  " + json.dumps(obj, ensure_ascii=False))
-        return [IngestResult(
-            title=p.name,
-            body="\n".join(lines),
-            tags=["tabular", "jsonl"],
-            source=str(p.resolve()),
-            metadata={"record_count": len(objects)},
-        )]
+        return [
+            IngestResult(
+                title=p.name,
+                body="\n".join(lines),
+                tags=["tabular", "jsonl"],
+                source=str(p.resolve()),
+                metadata={"record_count": len(objects)},
+            )
+        ]
 
     def _ingest_json(self, p: Path) -> list[IngestResult]:
         text = p.read_text(encoding="utf-8", errors="replace")
         try:
             data = json.loads(text)
         except json.JSONDecodeError:
-            return [IngestResult(
-                title=p.name,
-                body=text[:2000],
-                tags=["json", "file"],
-                source=str(p.resolve()),
-            )]
+            return [
+                IngestResult(
+                    title=p.name,
+                    body=text[:2000],
+                    tags=["json", "file"],
+                    source=str(p.resolve()),
+                )
+            ]
         body = json.dumps(data, indent=2, ensure_ascii=False)
         if len(body) > 5000:
             body = body[:5000] + "\n... (truncated)"
-        return [IngestResult(
-            title=p.name,
-            body=body,
-            tags=["json", "file"],
-            source=str(p.resolve()),
-            metadata={"type": type(data).__name__},
-        )]
+        return [
+            IngestResult(
+                title=p.name,
+                body=body,
+                tags=["json", "file"],
+                source=str(p.resolve()),
+                metadata={"type": type(data).__name__},
+            )
+        ]

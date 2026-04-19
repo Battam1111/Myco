@@ -4,6 +4,7 @@ Uses ``tmp_path`` as a stand-in ``home`` / ``cwd`` so no real user
 config is touched. Idempotency and sibling-preservation are pinned
 because those are what make the helper safe to re-run.
 """
+
 from __future__ import annotations
 
 import json
@@ -14,13 +15,11 @@ from unittest.mock import patch
 import pytest
 
 from myco.install.clients import (
-    CLIENTS,
-    MCP_COMMAND,
     MCP_ARGS,
+    MCP_COMMAND,
     MycoInstallError,
     dispatch,
 )
-
 
 # ---------------------------------------------------------------------------
 # Common helpers
@@ -45,16 +44,29 @@ def _install(client: str, tmp_path: Path, **kwargs) -> str:
 
 def test_dispatch_rejects_unknown_client(tmp_path: Path) -> None:
     with pytest.raises(MycoInstallError) as exc_info:
-        dispatch("does-not-exist",
-                 dry_run=False, global_=False, uninstall=False,
-                 home=tmp_path, cwd=tmp_path)
+        dispatch(
+            "does-not-exist",
+            dry_run=False,
+            global_=False,
+            uninstall=False,
+            home=tmp_path,
+            cwd=tmp_path,
+        )
     assert "unknown client" in str(exc_info.value).lower()
 
 
-@pytest.mark.parametrize("client", [
-    "claude-code", "claude-desktop", "cursor",
-    "windsurf", "zed", "vscode", "gemini-cli",
-])
+@pytest.mark.parametrize(
+    "client",
+    [
+        "claude-code",
+        "claude-desktop",
+        "cursor",
+        "windsurf",
+        "zed",
+        "vscode",
+        "gemini-cli",
+    ],
+)
 def test_install_creates_or_updates_file_for_json_clients(
     client: str, tmp_path: Path
 ) -> None:
@@ -91,11 +103,16 @@ def test_dry_run_does_not_write(tmp_path: Path) -> None:
 def test_cursor_install_preserves_existing_sibling_servers(tmp_path: Path) -> None:
     cfg = tmp_path / ".cursor" / "mcp.json"
     cfg.parent.mkdir(parents=True, exist_ok=True)
-    cfg.write_text(json.dumps({
-        "mcpServers": {
-            "other-server": {"command": "other", "args": ["--flag"]},
-        },
-    }), encoding="utf-8")
+    cfg.write_text(
+        json.dumps(
+            {
+                "mcpServers": {
+                    "other-server": {"command": "other", "args": ["--flag"]},
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
 
     _install("cursor", tmp_path)
 
@@ -121,12 +138,17 @@ def test_cursor_install_is_idempotent(tmp_path: Path) -> None:
 def test_uninstall_removes_only_myco_entry(tmp_path: Path) -> None:
     cfg = tmp_path / ".cursor" / "mcp.json"
     cfg.parent.mkdir(parents=True, exist_ok=True)
-    cfg.write_text(json.dumps({
-        "mcpServers": {
-            "other-server": {"command": "other", "args": []},
-            "myco": {"command": MCP_COMMAND, "args": []},
-        },
-    }), encoding="utf-8")
+    cfg.write_text(
+        json.dumps(
+            {
+                "mcpServers": {
+                    "other-server": {"command": "other", "args": []},
+                    "myco": {"command": MCP_COMMAND, "args": []},
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
 
     _install("cursor", tmp_path, uninstall=True)
 
@@ -179,10 +201,17 @@ def test_openclaw_dry_run_shows_command_without_running(tmp_path: Path) -> None:
 
 def test_openclaw_invokes_cli_on_real_install(tmp_path: Path) -> None:
     fake_result = subprocess.CompletedProcess(
-        args=[], returncode=0, stdout="ok\n", stderr="",
+        args=[],
+        returncode=0,
+        stdout="ok\n",
+        stderr="",
     )
-    with patch("myco.install.clients.shutil.which", return_value="/fake/openclaw"), \
-         patch("myco.install.clients.subprocess.run", return_value=fake_result) as runner:
+    with (
+        patch("myco.install.clients.shutil.which", return_value="/fake/openclaw"),
+        patch(
+            "myco.install.clients.subprocess.run", return_value=fake_result
+        ) as runner,
+    ):
         _install("openclaw", tmp_path)
     assert runner.called
     called_cmd = runner.call_args[0][0]
@@ -215,12 +244,17 @@ def test_gemini_cli_preserves_siblings_and_uninstalls_cleanly(
 ) -> None:
     cfg = tmp_path / ".gemini" / "settings.json"
     cfg.parent.mkdir(parents=True, exist_ok=True)
-    cfg.write_text(json.dumps({
-        "theme": "dark",
-        "mcpServers": {
-            "other": {"command": "other", "args": []},
-        },
-    }), encoding="utf-8")
+    cfg.write_text(
+        json.dumps(
+            {
+                "theme": "dark",
+                "mcpServers": {
+                    "other": {"command": "other", "args": []},
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
 
     _install("gemini-cli", tmp_path)
     data = json.loads(cfg.read_text(encoding="utf-8"))
@@ -308,6 +342,7 @@ def test_codex_cli_rejects_malformed_existing_toml(tmp_path: Path) -> None:
     than silently clobber it (only when tomllib is available).
     """
     import myco.install.clients as _clients
+
     if not _clients._HAVE_TOMLLIB:
         pytest.skip("tomllib not available; validation path inactive")
     cfg = tmp_path / ".codex" / "config.toml"
@@ -328,6 +363,7 @@ def test_goose_yaml_uses_extensions_key(tmp_path: Path) -> None:
     NOT write ``mcpServers`` — that would be invisible to Goose.
     """
     import yaml
+
     _install("goose", tmp_path)
     path = tmp_path / ".config" / "goose" / "config.yaml"
     assert path.exists()
@@ -346,17 +382,25 @@ def test_goose_yaml_preserves_other_extensions(tmp_path: Path) -> None:
     keys) must survive both install and uninstall.
     """
     import yaml
+
     cfg = tmp_path / ".config" / "goose" / "config.yaml"
     cfg.parent.mkdir(parents=True, exist_ok=True)
-    cfg.write_text(yaml.safe_dump({
-        "provider": "anthropic",
-        "extensions": {
-            "developer": {
-                "type": "stdio", "command": "developer",
-                "args": [], "enabled": True,
-            },
-        },
-    }), encoding="utf-8")
+    cfg.write_text(
+        yaml.safe_dump(
+            {
+                "provider": "anthropic",
+                "extensions": {
+                    "developer": {
+                        "type": "stdio",
+                        "command": "developer",
+                        "args": [],
+                        "enabled": True,
+                    },
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
 
     _install("goose", tmp_path)
     data = yaml.safe_load(cfg.read_text(encoding="utf-8"))
@@ -373,9 +417,7 @@ def test_goose_yaml_preserves_other_extensions(tmp_path: Path) -> None:
 
 def test_goose_yaml_idempotent(tmp_path: Path) -> None:
     _install("goose", tmp_path)
-    first = (tmp_path / ".config" / "goose" / "config.yaml").read_text(
-        encoding="utf-8"
-    )
+    first = (tmp_path / ".config" / "goose" / "config.yaml").read_text(encoding="utf-8")
     _install("goose", tmp_path)
     second = (tmp_path / ".config" / "goose" / "config.yaml").read_text(
         encoding="utf-8"

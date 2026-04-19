@@ -39,6 +39,17 @@
           }
         ]
       }
+    ],
+    "SessionEnd": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python -m myco --json --project-dir \"$CLAUDE_PROJECT_DIR\" senesce --quick"
+          }
+        ]
+      }
     ]
   }
 }

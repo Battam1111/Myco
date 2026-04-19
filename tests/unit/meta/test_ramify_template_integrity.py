@@ -18,11 +18,8 @@ without raising.
 
 from __future__ import annotations
 
-import importlib.util
 import sys
 from pathlib import Path
-
-import pytest
 
 from myco.core.context import MycoContext
 from myco.cycle.ramify import run as ramify_run
@@ -71,9 +68,8 @@ def test_dimensions_init_template_imports_cleanly(
         "dimensions/__init__.py still has the broken double-brace "
         "template; bug #7 has regressed"
     )
-    assert "f\"{__name__}." in dims_body, (
-        "dimensions/__init__.py should reference __name__ via a real "
-        "f-string"
+    assert 'f"{__name__}.' in dims_body, (
+        "dimensions/__init__.py should reference __name__ via a real f-string"
     )
 
 
@@ -107,9 +103,7 @@ def test_substrate_load_auto_imports_dimension(
     # Reset external-registration state so this test is independent
     # of ordering.
     _EXTERNAL_DIMENSION_CLASSES.clear()
-    mod_name = _substrate_plugin_module_name(
-        genesis_substrate, ctx.substrate.canon
-    )
+    mod_name = _substrate_plugin_module_name(genesis_substrate, ctx.substrate.canon)
     sys.modules.pop(mod_name, None)
 
     fresh = Substrate.load(genesis_substrate)

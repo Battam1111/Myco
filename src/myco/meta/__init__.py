@@ -16,20 +16,28 @@ loading ``myco.meta.<old_name>`` returns the renamed ``myco.cycle``
 module under the old name so pre-v0.5.3 test suites continue to
 import them unchanged.
 """
+
 from __future__ import annotations
 
 import sys as _sys
 import warnings as _w
 
-from myco.cycle.senesce import run as session_end_run
 from myco.cycle import (
     fruit as _fruit_mod,
+)
+from myco.cycle import (
     molt as _molt_mod,
-    winnow as _winnow_mod,
+)
+from myco.cycle import (
     ramify as _ramify_mod,
+)
+from myco.cycle import (
     senesce as _senesce_mod,
 )
-
+from myco.cycle import (
+    winnow as _winnow_mod,
+)
+from myco.cycle.senesce import run as session_end_run
 
 _WARNED = False
 

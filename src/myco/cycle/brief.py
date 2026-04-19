@@ -30,9 +30,10 @@ dict for agents that want to pass it through.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 from myco.core.context import MycoContext, Result
 
@@ -69,10 +70,8 @@ def _immune_section(ctx: MycoContext) -> dict[str, Any]:
     from myco.homeostasis.registry import default_registry
 
     try:
-        result = run_immune(
-            ctx, default_registry(), exit_on="never", fix=False
-        )
-    except Exception as exc:  # noqa: BLE001 — brief must not crash on immune
+        result = run_immune(ctx, default_registry(), exit_on="never", fix=False)
+    except Exception as exc:
         return {
             "ok": False,
             "error": f"{type(exc).__name__}: {exc}",
@@ -150,19 +149,19 @@ def _local_plugins_section(ctx: MycoContext) -> dict[str, Any]:
         from myco.homeostasis.registry import default_registry as _reg
 
         by_kind["dimension"] = len(_reg().all())
-    except Exception:  # noqa: BLE001
+    except Exception:
         pass
     try:
         from myco.ingestion.adapters import all_adapters
 
         by_kind["adapter"] = len(list(all_adapters()))
-    except Exception:  # noqa: BLE001
+    except Exception:
         pass
     try:
         from myco.core.canon import schema_upgraders
 
         by_kind["schema_upgrader"] = len(schema_upgraders)
-    except Exception:  # noqa: BLE001
+    except Exception:
         pass
     try:
         from myco.surface.manifest import (
@@ -174,7 +173,7 @@ def _local_plugins_section(ctx: MycoContext) -> dict[str, Any]:
         base_names = {c.name for c in load_manifest().commands}
         overlay = [c.name for c in merged.commands if c.name not in base_names]
         by_kind["overlay_verb"] = len(overlay)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         errors.append(f"manifest overlay parse failed: {exc}")
     return {
         "count": sum(by_kind.values()),
@@ -273,12 +272,8 @@ def _render_markdown(payload: Mapping[str, Any]) -> str:
         )
         if imm.get("findings"):
             lines.append("")
-            lines.append(
-                "| ID | severity | category | message | path |"
-            )
-            lines.append(
-                "|---|---|---|---|---|"
-            )
+            lines.append("| ID | severity | category | message | path |")
+            lines.append("|---|---|---|---|---|")
             for f in imm["findings"]:
                 msg = (f.get("message") or "").replace("|", "\\|")
                 path = f.get("path") or "-"

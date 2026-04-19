@@ -11,7 +11,6 @@ from myco.core.errors import ContractError, UsageError
 from myco.core.substrate import Substrate
 from myco.genesis import DEFAULT_CONTRACT_VERSION, bootstrap
 
-
 # --- happy path ------------------------------------------------------------
 
 
@@ -82,9 +81,7 @@ def test_bootstrap_stamps_generated_at(tmp_path: Path) -> None:
 
 
 def test_dry_run_writes_nothing(tmp_path: Path) -> None:
-    result = bootstrap(
-        project_dir=tmp_path, substrate_id="dry", dry_run=True
-    )
+    result = bootstrap(project_dir=tmp_path, substrate_id="dry", dry_run=True)
     assert result.exit_code == 0
     assert result.payload["dry_run"] is True
     assert result.payload["files_created"] == ()

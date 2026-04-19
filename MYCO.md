@@ -44,16 +44,17 @@ Both the CLI (`python -m myco <verb>`) and the MCP tool server
 (`myco.surface.mcp.build_server`) are generated from it. If you need
 to know what verbs exist, read that file — not this page.
 
-Seventeen verbs (v0.5.3), grouped by subsystem. Every v0.5.2 alias
-still resolves through v1.0.0 with a one-shot `DeprecationWarning`;
-the canonical form is what you should emit in new calls:
+Eighteen verbs (v0.5.7: 17 agent + 1 human-facing `brief`), grouped
+by subsystem. Every v0.5.2 alias still resolves through v1.0.0 with
+a one-shot `DeprecationWarning`; the canonical form is what you
+should emit in new calls:
 
 - **germination**  — `germinate` (was `genesis`)
 - **ingestion**    — `hunger`, `eat`, `sense`, `forage`
 - **digestion**    — `assimilate` (was `reflect`), `digest`, `sporulate` (was `distill`)
 - **circulation**  — `traverse` (was `perfuse`), `propagate`
 - **homeostasis**  — `immune`
-- **cycle**        — `senesce` (was `session-end`), `fruit` (was `craft`), `molt` (was `bump`), `winnow` (was `evolve`), `ramify` (was `scaffold`), `graft` (new at v0.5.3)
+- **cycle**        — `senesce` (was `session-end`; `--quick` flag at v0.5.7 for SessionEnd hook), `fruit` (was `craft`), `molt` (was `bump`), `winnow` (was `evolve`), `ramify` (was `scaffold`), `graft` (new at v0.5.3), `brief` (new at v0.5.5 — the one human-facing exception to L0 principle 1)
 
 Every verb accepts `--project-dir`, `--exit-on`, and `--json`.
 
@@ -114,12 +115,15 @@ OFF so new kernel verbs / dimensions land inside `src/myco/`. Pass
 ## When you finish a session
 
 Run `python -m myco senesce` yourself (or rely on the PreCompact hook,
-which already fires it). That composes `assimilate` (promote raw
-notes) with `immune --fix` (auto-correctable lint findings) and
-returns a structured payload. A clean senesce is the only acceptable
-end state; a dirty one is the starting point of the next session.
-The legacy `session-end` alias still resolves if you find it in an
-older script.
+which already fires it at `/compact`). That composes `assimilate`
+(promote raw notes) with `immune --fix` (auto-correctable lint
+findings) and returns a structured payload. For non-compact session
+exits (`/exit`, Ctrl+D, window-close), the SessionEnd hook fires
+`python -m myco senesce --quick` (assimilate only) to stay inside
+Claude Code's ~1.5 s SessionEnd kill budget — `immune` runs on the
+next boot. A clean senesce (either mode) is the acceptable end state;
+a dirty one is the starting point of the next session. The legacy
+`session-end` alias still resolves if you find it in an older script.
 
 ## When you are stuck
 

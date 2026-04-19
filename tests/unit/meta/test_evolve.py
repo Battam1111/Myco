@@ -6,10 +6,10 @@ import textwrap
 from pathlib import Path
 
 import pytest
+from myco.meta.evolve import run
 
 from myco.core.context import MycoContext
 from myco.core.errors import ContractError, UsageError
-from myco.meta.evolve import run
 
 
 def _ctx(root: Path) -> MycoContext:

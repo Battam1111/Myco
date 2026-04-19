@@ -9,8 +9,9 @@ here.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Literal, Mapping
+from typing import Literal
 
 from myco.core.context import MycoContext, Result
 from myco.core.errors import UsageError
@@ -79,9 +80,7 @@ def _orphans(graph: Graph, scope: Scope) -> list[str]:
     return sorted(orphans)
 
 
-def _proposals(
-    orphans: list[str], dangling: list[tuple[str, str]]
-) -> list[str]:
+def _proposals(orphans: list[str], dangling: list[tuple[str, str]]) -> list[str]:
     props: list[str] = []
     for o in orphans:
         props.append(f"orphan: consider linking {o} from canon or an index doc")
@@ -130,7 +129,7 @@ def perfuse(
     *,
     ctx: MycoContext,
     scope: Scope = "all",
-    dry_run: bool = False,  # noqa: ARG001 — accepted for CLI parity
+    dry_run: bool = False,
 ) -> Result:
     """Scan the substrate and return a health report.
 
@@ -149,8 +148,7 @@ def perfuse(
     """
     if scope not in _VALID_SCOPES:
         raise UsageError(
-            f"invalid perfuse scope {scope!r}: "
-            f"must be one of {sorted(_VALID_SCOPES)}"
+            f"invalid perfuse scope {scope!r}: must be one of {sorted(_VALID_SCOPES)}"
         )
 
     graph, cached = _build_graph_with_cache_info(ctx)
@@ -178,8 +176,7 @@ def run(args: Mapping[str, object], *, ctx: MycoContext) -> Result:
     scope = str(scope_raw)
     if scope not in _VALID_SCOPES:
         raise UsageError(
-            f"invalid perfuse scope {scope!r}: "
-            f"must be one of {sorted(_VALID_SCOPES)}"
+            f"invalid perfuse scope {scope!r}: must be one of {sorted(_VALID_SCOPES)}"
         )
     dry_run = bool(args.get("dry_run", False))
     return perfuse(ctx=ctx, scope=scope, dry_run=dry_run)  # type: ignore[arg-type]

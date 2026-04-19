@@ -20,9 +20,9 @@ Semantics:
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from enum import Enum
-from typing import Iterable, Mapping
 
 from myco.core.errors import ContractError
 from myco.core.severity import Severity
@@ -85,7 +85,7 @@ def parse_exit_policy(spec: str) -> ExitPolicy:
                 f" (expected one of {sorted(_GLOBAL_KEYWORDS)})"
             )
         t = Threshold(spec)
-        return ExitPolicy({c: t for c in Category})
+        return ExitPolicy(dict.fromkeys(Category, t))
 
     # Per-category list.
     explicit: dict[Category, Threshold] = {}

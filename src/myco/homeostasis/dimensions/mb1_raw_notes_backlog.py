@@ -17,7 +17,8 @@ so the user can see what the queue rejected.
 
 from __future__ import annotations
 
-from typing import Any, ClassVar, Iterable
+from collections.abc import Iterable
+from typing import Any, ClassVar
 
 from myco.core.context import MycoContext
 from myco.core.severity import Severity
@@ -67,9 +68,7 @@ class MB1RawNotesBacklog(Dimension):
             path="notes/raw",
         )
 
-    def fix(
-        self, ctx: MycoContext, finding: Finding
-    ) -> dict[str, Any]:
+    def fix(self, ctx: MycoContext, finding: Finding) -> dict[str, Any]:
         """Bulk-promote raw notes by calling ``reflect`` in-process.
 
         Narrow contract (v0.5.5):
@@ -93,19 +92,22 @@ class MB1RawNotesBacklog(Dimension):
         from myco.digestion.assimilate import reflect
 
         summary = reflect(ctx=ctx)
-        promoted = int(summary.get("promoted", 0))
-        already = int(summary.get("already_integrated", 0))
+        # reflect() returns a ``dict[str, object]`` shape; narrow the
+        # int-valued keys via an isinstance guard so mypy is happy and
+        # stray non-int values (shouldn't happen, belt + suspenders)
+        # degrade to 0 instead of raising.
+        _promoted = summary.get("promoted", 0)
+        promoted = _promoted if isinstance(_promoted, int) else 0
+        _already = summary.get("already_integrated", 0)
+        already = _already if isinstance(_already, int) else 0
         errors = summary.get("errors") or []
         err_count = len(errors) if isinstance(errors, list) else 0
 
         if promoted > 0:
-            detail = (
-                f"assimilated {promoted} raw note(s)"
-                + (
-                    f" ({already} already-integrated, {err_count} error(s))"
-                    if (already or err_count)
-                    else ""
-                )
+            detail = f"assimilated {promoted} raw note(s)" + (
+                f" ({already} already-integrated, {err_count} error(s))"
+                if (already or err_count)
+                else ""
             )
             return {
                 "applied": True,
@@ -119,8 +121,7 @@ class MB1RawNotesBacklog(Dimension):
         # got here (unlikely race), or every candidate errored. Either
         # way, not counted as an applied fix.
         detail = (
-            f"no notes promoted "
-            f"({already} already-integrated, {err_count} error(s))"
+            f"no notes promoted ({already} already-integrated, {err_count} error(s))"
         )
         return {
             "applied": False,

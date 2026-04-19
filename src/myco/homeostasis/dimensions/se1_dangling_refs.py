@@ -11,7 +11,7 @@ hit 404s) but don't corrupt state.
 
 from __future__ import annotations
 
-from typing import Iterable
+from collections.abc import Iterable
 
 from myco.core.context import MycoContext
 from myco.core.severity import Severity
@@ -44,9 +44,6 @@ class SE1DanglingRefs(Dimension):
                 dimension_id=self.id,
                 category=self.category,
                 severity=self.default_severity,
-                message=(
-                    f"{edge.src} references missing {edge.dst} "
-                    f"({edge.kind})"
-                ),
+                message=(f"{edge.src} references missing {edge.dst} ({edge.kind})"),
                 path=edge.src,
             )

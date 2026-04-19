@@ -1,6 +1,6 @@
 # `src/myco/providers/` — declared LLM provider escape hatch
 
-**Status at v0.5.6:** empty by design.
+**Status at v0.5.7:** empty by design (invariant mechanically enforced since v0.5.6 via MP1).
 
 ## What this directory is
 

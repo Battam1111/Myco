@@ -11,13 +11,13 @@ actually exist.
 Failing any of these blocks release: a malformed manifest will fail
 silently in Claude Code's marketplace view rather than erroring loudly.
 """
+
 from __future__ import annotations
 
 import json
 from pathlib import Path
 
 import pytest
-
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PLUGIN_MANIFEST = REPO_ROOT / ".claude-plugin" / "plugin.json"
@@ -47,8 +47,15 @@ def test_plugin_manifest_has_required_fields() -> None:
     # Required
     assert data["name"] == "myco"
     # Strongly recommended
-    for field in ("version", "description", "author", "homepage",
-                  "repository", "license", "keywords"):
+    for field in (
+        "version",
+        "description",
+        "author",
+        "homepage",
+        "repository",
+        "license",
+        "keywords",
+    ):
         assert field in data, field
 
 
@@ -66,6 +73,7 @@ def test_plugin_version_tracks_package_version() -> None:
     update detection and PyPI release stay aligned.
     """
     import myco
+
     data = _load(PLUGIN_MANIFEST)
     assert data["version"] == myco.__version__, (
         f"plugin.json version {data['version']!r} does not match "

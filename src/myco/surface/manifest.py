@@ -23,19 +23,19 @@ from __future__ import annotations
 
 import importlib
 import os
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from functools import lru_cache
 from importlib.resources import files as _pkg_files
 from pathlib import Path
-from typing import Any, Callable, Mapping, Sequence
+from typing import Any
 
 import yaml
 
 from myco.core.context import MycoContext, Result
 from myco.core.errors import (
     ContractError,
-    MycoError,
     SubstrateNotFound,
     UsageError,
 )
@@ -53,9 +53,7 @@ __all__ = [
 ]
 
 
-_VALID_TYPES: frozenset[str] = frozenset(
-    {"str", "bool", "int", "path", "list[str]"}
-)
+_VALID_TYPES: frozenset[str] = frozenset({"str", "bool", "int", "path", "list[str]"})
 
 
 def dash_to_snake(name: str) -> str:
@@ -142,8 +140,7 @@ class CommandSpec:
         func = getattr(module, func_name, None)
         if func is None or not callable(func):
             raise ContractError(
-                f"handler for {self.name!r} not found or not callable: "
-                f"{self.handler}"
+                f"handler for {self.name!r} not found or not callable: {self.handler}"
             )
         return func
 
@@ -195,6 +192,7 @@ def _warn_alias(alias: str, canonical: str) -> None:
     not spam warnings on every tool call.
     """
     import warnings as _w
+
     if alias in _ALIAS_WARNED:
         return
     _ALIAS_WARNED.add(alias)
@@ -210,14 +208,10 @@ def _warn_alias(alias: str, canonical: str) -> None:
 def _parse_command(raw: Mapping[str, Any]) -> CommandSpec:
     for required in ("name", "subsystem", "handler", "summary", "mcp_tool"):
         if required not in raw:
-            raise ContractError(
-                f"manifest command missing {required!r}: {raw}"
-            )
+            raise ContractError(f"manifest command missing {required!r}: {raw}")
     args_raw = raw.get("args") or ()
     if not isinstance(args_raw, (list, tuple)):
-        raise ContractError(
-            f"manifest command {raw['name']!r}: args must be a list"
-        )
+        raise ContractError(f"manifest command {raw['name']!r}: args must be a list")
     args: list[ArgSpec] = []
     for a in args_raw:
         if not isinstance(a, Mapping):
@@ -244,9 +238,7 @@ def _parse_command(raw: Mapping[str, Any]) -> CommandSpec:
         )
     aliases_raw = raw.get("aliases") or ()
     if not isinstance(aliases_raw, (list, tuple)):
-        raise ContractError(
-            f"manifest command {raw['name']!r}: aliases must be a list"
-        )
+        raise ContractError(f"manifest command {raw['name']!r}: aliases must be a list")
     mcp_aliases_raw = raw.get("mcp_tool_aliases") or ()
     if not isinstance(mcp_aliases_raw, (list, tuple)):
         raise ContractError(
@@ -269,9 +261,7 @@ def _parse_command(raw: Mapping[str, Any]) -> CommandSpec:
 def load_manifest() -> Manifest:
     """Load + validate the bundled ``manifest.yaml``."""
     text = (
-        _pkg_files("myco.surface").joinpath("manifest.yaml").read_text(
-            encoding="utf-8"
-        )
+        _pkg_files("myco.surface").joinpath("manifest.yaml").read_text(encoding="utf-8")
     )
     try:
         raw = yaml.safe_load(text) or {}
@@ -281,18 +271,14 @@ def load_manifest() -> Manifest:
         raise ContractError("manifest.yaml top level must be a mapping")
     schema_version = str(raw.get("schema_version", ""))
     if schema_version != "1":
-        raise ContractError(
-            f"unknown manifest schema_version: {schema_version!r}"
-        )
+        raise ContractError(f"unknown manifest schema_version: {schema_version!r}")
     commands_raw = raw.get("commands") or ()
     if not isinstance(commands_raw, (list, tuple)):
         raise ContractError("manifest commands must be a list")
     commands = tuple(_parse_command(c) for c in commands_raw)
     names = [c.name for c in commands]
     if len(names) != len(set(names)):
-        raise ContractError(
-            f"manifest has duplicate command names: {sorted(names)}"
-        )
+        raise ContractError(f"manifest has duplicate command names: {sorted(names)}")
     # Check aliases do not collide with any canonical name or any
     # other alias — the dispatcher has to deterministically route a
     # single token to a single handler.
@@ -301,8 +287,7 @@ def load_manifest() -> Manifest:
         for a in c.aliases:
             if a in all_names:
                 raise ContractError(
-                    f"manifest alias {a!r} collides with existing verb "
-                    f"{all_names[a]!r}"
+                    f"manifest alias {a!r} collides with existing verb {all_names[a]!r}"
                 )
             all_names[a] = c.name
     return Manifest(schema_version=schema_version, commands=commands)
@@ -355,9 +340,7 @@ def load_manifest_with_overlay(
         )
     commands_raw = raw.get("commands") or ()
     if not isinstance(commands_raw, (list, tuple)):
-        raise ContractError(
-            f"manifest_overlay.yaml: commands must be a list"
-        )
+        raise ContractError("manifest_overlay.yaml: commands must be a list")
     overlay_commands: list[CommandSpec] = []
     for c in commands_raw:
         if not isinstance(c, Mapping):
@@ -416,6 +399,7 @@ def build_context(
         ) from exc
     substrate = Substrate.load(root)
     import sys
+
     return MycoContext(
         substrate=substrate,
         now=now or datetime.now(timezone.utc),
@@ -425,9 +409,7 @@ def build_context(
     )
 
 
-def build_handler_args(
-    spec: CommandSpec, raw: Mapping[str, Any]
-) -> dict[str, Any]:
+def build_handler_args(spec: CommandSpec, raw: Mapping[str, Any]) -> dict[str, Any]:
     """Coerce and default the input dict for a command.
 
     Keys in ``raw`` may be dash-case or snake_case; the returned dict
@@ -440,11 +422,11 @@ def build_handler_args(
         if arg.snake in snake_raw:
             normalized[arg.snake] = arg.coerce(snake_raw[arg.snake])
         elif arg.required:
-            raise UsageError(
-                f"{spec.name}: missing required arg {arg.name!r}"
-            )
+            raise UsageError(f"{spec.name}: missing required arg {arg.name!r}")
         else:
-            normalized[arg.snake] = arg.coerce(arg.default) if arg.default is not None else None
+            normalized[arg.snake] = (
+                arg.coerce(arg.default) if arg.default is not None else None
+            )
     # Preserve unknown keys (for future forward-compat) as-is.
     extra = set(snake_raw) - {a.snake for a in spec.args}
     for k in extra:
@@ -505,9 +487,7 @@ def dispatch(
                     # by_name surface the UsageError.
                     effective_manifest = base
                 else:
-                    effective_manifest = load_manifest_with_overlay(
-                        substrate_root
-                    )
+                    effective_manifest = load_manifest_with_overlay(substrate_root)
             else:
                 if peek.pre_substrate:
                     effective_manifest = base
@@ -522,18 +502,14 @@ def dispatch(
                         # resolution remains valid.
                         effective_manifest = base
                     else:
-                        effective_manifest = load_manifest_with_overlay(
-                            substrate_root
-                        )
+                        effective_manifest = load_manifest_with_overlay(substrate_root)
 
     spec = effective_manifest.by_name(name)
     args = build_handler_args(spec, raw_args or {})
     handler = spec.resolve_handler()
 
     if ctx is None:
-        ctx = build_context(
-            project_dir=project_dir, pre_substrate=spec.pre_substrate
-        )
+        ctx = build_context(project_dir=project_dir, pre_substrate=spec.pre_substrate)
 
     if spec.pre_substrate:
         # Genesis-shaped handlers accept only args.
@@ -542,7 +518,5 @@ def dispatch(
         result = handler(args, ctx=ctx)
 
     if not isinstance(result, Result):
-        raise ContractError(
-            f"handler {spec.handler} did not return a Result"
-        )
+        raise ContractError(f"handler {spec.handler} did not return a Result")
     return result

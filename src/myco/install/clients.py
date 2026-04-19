@@ -9,6 +9,7 @@ All writers take a ``home`` and ``cwd`` parameter for testability.
 In production :func:`dispatch` fills them with ``Path.home()`` and
 ``Path.cwd()``.
 """
+
 from __future__ import annotations
 
 import json
@@ -17,22 +18,25 @@ import re
 import shutil
 import subprocess
 import sys
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 # tomllib is stdlib on Python 3.11+. Myco's pyproject floor is 3.10,
 # so on 3.10 we fall back to tomli (if installed) and finally to a
 # narrow regex parser that only understands our own ``[mcp_servers.myco]``
 # block — which is all we ever need to read or write anyway.
 try:  # Python 3.11+
-    import tomllib as _tomllib  # type: ignore[import-not-found]
+    import tomllib as _tomllib  # type: ignore[import-not-found,unused-ignore]
+
     _HAVE_TOMLLIB = True
 except ImportError:  # pragma: no cover — 3.10 path
     try:
-        import tomli as _tomllib  # type: ignore[import-not-found,no-redef]
+        import tomli as _tomllib  # type: ignore[import-not-found,no-redef,unused-ignore]
+
         _HAVE_TOMLLIB = True
     except ImportError:
-        _tomllib = None  # type: ignore[assignment]
+        _tomllib = None  # type: ignore[assignment,unused-ignore]
         _HAVE_TOMLLIB = False
 
 import yaml
@@ -182,9 +186,7 @@ def _mutate_yaml_extensions(
     data = _read_yaml(path)
     exts = data.setdefault("extensions", {})
     if not isinstance(exts, dict):
-        raise MycoInstallError(
-            f"{path}: 'extensions' key exists but is not a mapping."
-        )
+        raise MycoInstallError(f"{path}: 'extensions' key exists but is not a mapping.")
     if uninstall:
         exts.pop("myco", None)
     else:
@@ -207,8 +209,8 @@ def _mutate_yaml_extensions(
 # or end of file. Anchored to start-of-line so it does not match a
 # comment or string that happens to contain ``[mcp_servers.myco]``.
 _CODEX_MYCO_BLOCK = re.compile(
-    r"(?ms)^\[mcp_servers\.myco\]\s*\n"      # header
-    r"(?:(?!^\[).*\n?)*"                     # body up to next [header]
+    r"(?ms)^\[mcp_servers\.myco\]\s*\n"  # header
+    r"(?:(?!^\[).*\n?)*"  # body up to next [header]
 )
 
 
@@ -222,9 +224,7 @@ def _render_codex_myco_block() -> str:
     """
     args_toml = "[" + ", ".join(json.dumps(a) for a in MCP_ARGS) + "]"
     return (
-        "[mcp_servers.myco]\n"
-        f"command = {json.dumps(MCP_COMMAND)}\n"
-        f"args = {args_toml}\n"
+        f"[mcp_servers.myco]\ncommand = {json.dumps(MCP_COMMAND)}\nargs = {args_toml}\n"
     )
 
 
@@ -245,7 +245,7 @@ def _mutate_codex_toml(path: Path, dry_run: bool, uninstall: bool) -> str:
     # empty file are both fine; we are about to write a fresh block.
     if existing.strip() and _HAVE_TOMLLIB:
         try:
-            _tomllib.loads(existing)  # type: ignore[union-attr]
+            _tomllib.loads(existing)  # type: ignore[union-attr,unused-ignore]
         except Exception as exc:  # tomllib raises TOMLDecodeError
             raise MycoInstallError(
                 f"existing config at {path} is not valid TOML: {exc}. "
@@ -261,10 +261,7 @@ def _mutate_codex_toml(path: Path, dry_run: bool, uninstall: bool) -> str:
         body = stripped
     else:
         block = _render_codex_myco_block()
-        if stripped:
-            body = stripped.rstrip() + "\n\n" + block
-        else:
-            body = block
+        body = stripped.rstrip() + "\n\n" + block if stripped else block
 
     if dry_run:
         return f"[dry-run] would write {path}:\n{body}"
@@ -323,7 +320,9 @@ def install_zed(
     """
     path = home / ".config" / "zed" / "settings.json"
     return _mutate_mcp_servers_json(
-        path, dry_run, uninstall,
+        path,
+        dry_run,
+        uninstall,
         key="context_servers",
         entry={"source": "custom", "command": MCP_COMMAND, "args": MCP_ARGS},
     )
@@ -337,7 +336,9 @@ def install_vscode(
     """
     path = cwd / ".vscode" / "mcp.json"
     return _mutate_mcp_servers_json(
-        path, dry_run, uninstall,
+        path,
+        dry_run,
+        uninstall,
         key="servers",
         entry={"type": "stdio", "command": MCP_COMMAND, "args": MCP_ARGS},
     )
@@ -366,8 +367,7 @@ def install_openclaw(
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:
         raise MycoInstallError(
-            f"openclaw returned {result.returncode}:\n"
-            f"{result.stdout}{result.stderr}"
+            f"openclaw returned {result.returncode}:\n{result.stdout}{result.stderr}"
         )
     return (result.stdout + result.stderr).strip() or "openclaw: OK"
 
@@ -443,5 +443,7 @@ def dispatch(
     return CLIENTS[client](
         home or Path.home(),
         cwd or Path.cwd(),
-        dry_run, global_, uninstall,
+        dry_run,
+        global_,
+        uninstall,
     )

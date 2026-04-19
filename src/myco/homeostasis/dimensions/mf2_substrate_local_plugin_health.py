@@ -27,7 +27,7 @@ case and MF2 must not cost anything.
 
 from __future__ import annotations
 
-from typing import Iterable
+from collections.abc import Iterable
 
 import yaml
 
@@ -73,9 +73,7 @@ class MF2SubstrateLocalPluginHealth(Dimension):
                 dimension_id=self.id,
                 category=self.category,
                 severity=self.default_severity,
-                message=(
-                    f"substrate-local plugin package failed to import: {err}"
-                ),
+                message=(f"substrate-local plugin package failed to import: {err}"),
                 path=".myco/plugins/__init__.py",
             )
 
@@ -83,17 +81,13 @@ class MF2SubstrateLocalPluginHealth(Dimension):
         overlay_path = paths.manifest_overlay
         if overlay_path.is_file():
             try:
-                raw = yaml.safe_load(
-                    overlay_path.read_text(encoding="utf-8")
-                ) or {}
+                raw = yaml.safe_load(overlay_path.read_text(encoding="utf-8")) or {}
             except yaml.YAMLError as exc:
                 yield Finding(
                     dimension_id=self.id,
                     category=self.category,
                     severity=self.default_severity,
-                    message=(
-                        f"manifest overlay is malformed: {exc}"
-                    ),
+                    message=(f"manifest overlay is malformed: {exc}"),
                     path=".myco/manifest_overlay.yaml",
                 )
                 return
@@ -117,9 +111,7 @@ class MF2SubstrateLocalPluginHealth(Dimension):
                     dimension_id=self.id,
                     category=self.category,
                     severity=self.default_severity,
-                    message=(
-                        "manifest overlay is malformed: commands must be a list"
-                    ),
+                    message=("manifest overlay is malformed: commands must be a list"),
                     path=".myco/manifest_overlay.yaml",
                 )
                 return

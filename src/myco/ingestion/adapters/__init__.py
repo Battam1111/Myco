@@ -7,9 +7,10 @@ Import ordering matters: more specific adapters (PDF, HTML, URL)
 are registered before the generic text-file adapter so
 ``find_adapter`` resolves the most specific handler first.
 """
+
 from __future__ import annotations
 
-from typing import Sequence
+from collections.abc import Sequence
 
 from .protocol import Adapter, IngestResult
 
@@ -56,6 +57,7 @@ def handled_extensions() -> frozenset[str]:
 
 # --- Auto-register built-in adapters (most-specific first) --------
 
+
 def _try_register(cls_path: str) -> None:
     """Import *cls_path* (dot-separated), instantiate, register.
     Silently skip if optional deps are missing.
@@ -63,6 +65,7 @@ def _try_register(cls_path: str) -> None:
     module_path, cls_name = cls_path.rsplit(".", 1)
     try:
         import importlib
+
         mod = importlib.import_module(module_path)
         cls = getattr(mod, cls_name)
         register(cls())

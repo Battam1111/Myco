@@ -24,12 +24,13 @@ See ``docs/INSTALL.md`` for the full host matrix and
 ``docs/primordia/v0_5_2_editable_default_craft_2026-04-17.md``
 for the design record.
 """
+
 from __future__ import annotations
 
 import argparse
 import sys
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Sequence
 
 from ..core.io import ensure_utf8_stdio
 from .clients import CLIENTS, MycoInstallError, dispatch
@@ -67,29 +68,36 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
     p_fresh.add_argument(
-        "target", nargs="?", default=None,
+        "target",
+        nargs="?",
+        default=None,
         help=(
             "Directory to clone into. Defaults to ~/myco. Must be "
             "empty unless --force is passed."
         ),
     )
     p_fresh.add_argument(
-        "--repo", default=DEFAULT_REPO,
+        "--repo",
+        default=DEFAULT_REPO,
         help=f"Upstream clone source. Default: {DEFAULT_REPO}",
     )
     p_fresh.add_argument(
-        "--branch", default=None,
+        "--branch",
+        default=None,
         help="Git branch or tag to check out (default: repo default).",
     )
     p_fresh.add_argument(
-        "--depth", type=int, default=None,
+        "--depth",
+        type=int,
+        default=None,
         help=(
             "Shallow-clone depth. Omit for full history (recommended: "
             "the kernel IS the substrate; history is audit-evidence)."
         ),
     )
     p_fresh.add_argument(
-        "--extras", default="mcp",
+        "--extras",
+        default="mcp",
         help=(
             "Pip extras to install alongside (comma-separated inside "
             "one bracketed group, e.g. 'mcp,adapters'). "
@@ -97,7 +105,10 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
     p_fresh.add_argument(
-        "--configure", nargs="*", default=(), metavar="CLIENT",
+        "--configure",
+        nargs="*",
+        default=(),
+        metavar="CLIENT",
         help=(
             "Also run `myco-install host <client>` for each "
             "named client after the editable install succeeds. "
@@ -105,22 +116,27 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
     p_fresh.add_argument(
-        "--global", dest="global_", action="store_true",
+        "--global",
+        dest="global_",
+        action="store_true",
         help="When used with --configure, target the user-global host config.",
     )
     p_fresh.add_argument(
-        "--force", action="store_true",
+        "--force",
+        action="store_true",
         help=(
             "Overwrite an existing non-empty target directory. "
             "Destroys whatever is in there; use with care."
         ),
     )
     p_fresh.add_argument(
-        "--dry-run", action="store_true",
+        "--dry-run",
+        action="store_true",
         help="Print every step without executing anything.",
     )
     p_fresh.add_argument(
-        "--yes", action="store_true",
+        "--yes",
+        action="store_true",
         help="Non-interactive (reserved for future prompts).",
     )
 
@@ -140,15 +156,19 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Host to target.",
     )
     p_host.add_argument(
-        "--dry-run", action="store_true",
+        "--dry-run",
+        action="store_true",
         help="Print what would be written; make no changes.",
     )
     p_host.add_argument(
-        "--global", dest="global_", action="store_true",
+        "--global",
+        dest="global_",
+        action="store_true",
         help="Target the user-global config (where the client supports it).",
     )
     p_host.add_argument(
-        "--uninstall", action="store_true",
+        "--uninstall",
+        action="store_true",
         help="Remove the myco entry instead of adding it.",
     )
 

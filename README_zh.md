@@ -97,9 +97,9 @@ cd ~/myco && git pull && myco immune        # 升级后跑免疫确认没漂移
 
 三个控制台脚本进 PATH：
 
-- `myco`：17 个 verb 的 CLI。
+- `myco`：18 个 verb 的 CLI（17 个 agent verb + 1 个人类向的 `brief`）。
 - `mcp-server-myco`：通用 MCP stdio 启动器，插进任何 host 都能跑。
-- `myco-install`：一条命令装进七个主流 MCP host。
+- `myco-install`：一条命令装进十个自动化 MCP host（Claude Code / Claude Desktop / Cursor / Windsurf / Zed / VS Code / OpenClaw / Gemini CLI / Codex CLI / Goose）。
 
 **Claude Code / Cowork** 官方 plugin 一步装好（MCP 服务器、hooks、slash skills 一起接线）：
 
@@ -152,7 +152,7 @@ pytest
 
 ## 日常流程
 
-Agent 自己驱动，你什么都不用背。17 个 verb 按 6 个 subsystem 分组如下。v0.5.2 的每个旧 verb 名都仍然能用（会打一次性的 `DeprecationWarning`）——别名保留到 v1.0.0。
+Agent 自己驱动，你什么都不用背。18 个 verb（17 个 agent + 1 个人类向 `brief`）按 6 个 subsystem 分组如下。v0.5.2 的每个旧 verb 名都仍然能用（会打一次性的 `DeprecationWarning`）——别名保留到 v1.0.0。
 
 | Subsystem | Verb | 旧别名（已弃用） | 做什么 |
 |---|---|---|---|
@@ -166,13 +166,14 @@ Agent 自己驱动，你什么都不用背。17 个 verb 按 6 个 subsystem 分
 | **Digestion** | `sporulate` | `distill` | 把 integrated 浓缩成可传播的 proposal |
 | **Circulation** | `traverse` | `perfuse` | 走一遍菌丝网络，报告吻合度健康 |
 | **Circulation** | `propagate` |  | 把 integrated / distilled 发布到下游 substrate |
-| **Homeostasis** | `immune` |  | 4 类 / 10 维一致性 lint，支持 `--fix` |
-| **Cycle** | `senesce` | `session-end` | 入眠前老化：`assimilate` + `immune --fix` |
+| **Homeostasis** | `immune` |  | 4 类 / 11 维一致性 lint，支持 `--fix` |
+| **Cycle** | `senesce [--quick]` | `session-end` | 入眠前老化：full（`assimilate` + `immune --fix`，PreCompact 触发）/ quick（仅 `assimilate`，SessionEnd 触发） |
 | **Cycle** | `fruit` | `craft` | 结出一份三轮 primordia 提案文档 |
 | **Cycle** | `molt` | `bump` | 蜕掉旧的 contract 版本，换新的 |
 | **Cycle** | `winnow` | `evolve` | 用 craft-protocol 门验证提案的形状 |
 | **Cycle** | `ramify` | `scaffold` | 菌丝分枝：scaffold 新 verb / dimension / adapter |
 | **Cycle** | `graft` |  | 列出 / 校验 / 解释 substrate 本地插件 |
+| **Cycle** | `brief` |  | 人类向 substrate 状态 markdown 汇总（L0 principle 1 的唯一例外） |
 
 CLI 用法是 `myco VERB`，全局 flag（`--project-dir`、`--json`、`--exit-on`）放在 verb **之前**。MCP 一 verb 一 tool，参数由 `src/myco/surface/manifest.yaml` 机械派生，CLI 和 MCP 共用这份 SSoT。弃用别名解析到同一个 handler，同时也注册旧 MCP tool 名（`myco_genesis`、`myco_craft`……），所以 v0.5.2 缓存下来的调用照常跑。
 

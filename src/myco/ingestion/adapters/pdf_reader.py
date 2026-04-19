@@ -2,14 +2,15 @@
 
 Requires ``pypdf`` (part of the ``[adapters]`` extras).
 """
+
 from __future__ import annotations
 
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Sequence
-
-from .protocol import Adapter, IngestResult
 
 from pypdf import PdfReader as _PR  # ImportError if not installed
+
+from .protocol import Adapter, IngestResult
 
 
 class PdfReader(Adapter):
@@ -30,15 +31,17 @@ class PdfReader(Adapter):
         reader = _PR(str(p))
         pages = [page.extract_text() or "" for page in reader.pages]
         body = "\n\n---\n\n".join(
-            f"[Page {i+1}]\n{text}" for i, text in enumerate(pages) if text.strip()
+            f"[Page {i + 1}]\n{text}" for i, text in enumerate(pages) if text.strip()
         )
-        return [IngestResult(
-            title=p.stem,
-            body=body or "(no extractable text)",
-            tags=["pdf", "file"],
-            source=str(p.resolve()),
-            metadata={
-                "path": str(p),
-                "page_count": len(reader.pages),
-            },
-        )]
+        return [
+            IngestResult(
+                title=p.stem,
+                body=body or "(no extractable text)",
+                tags=["pdf", "file"],
+                source=str(p.resolve()),
+                metadata={
+                    "path": str(p),
+                    "page_count": len(reader.pages),
+                },
+            )
+        ]

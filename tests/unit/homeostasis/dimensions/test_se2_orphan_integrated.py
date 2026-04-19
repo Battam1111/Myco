@@ -16,9 +16,7 @@ def test_silent_when_no_integrated(genesis_substrate: Path) -> None:
 def test_fires_on_unreferenced_integrated(genesis_substrate: Path) -> None:
     integ = genesis_substrate / "notes" / "integrated"
     integ.mkdir(parents=True, exist_ok=True)
-    (integ / "n_lonely.md").write_text(
-        "---\nid: lonely\n---\nbody\n", encoding="utf-8"
-    )
+    (integ / "n_lonely.md").write_text("---\nid: lonely\n---\nbody\n", encoding="utf-8")
     ctx = MycoContext.for_testing(root=genesis_substrate)
     findings = list(SE2OrphanIntegrated().run(ctx))
     assert any("n_lonely.md" in f.message for f in findings)
@@ -38,7 +36,5 @@ def test_silent_when_referenced(genesis_substrate: Path) -> None:
         encoding="utf-8",
     )
     ctx = MycoContext.for_testing(root=genesis_substrate)
-    findings = [
-        f for f in SE2OrphanIntegrated().run(ctx) if "n_a.md" in f.message
-    ]
+    findings = [f for f in SE2OrphanIntegrated().run(ctx) if "n_a.md" in f.message]
     assert findings == []

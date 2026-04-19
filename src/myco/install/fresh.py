@@ -36,12 +36,11 @@ moving on and aborts loud on any error. No half-states.
 
 from __future__ import annotations
 
-import os
 import shutil
 import subprocess
 import sys
+from collections.abc import Iterable, Sequence
 from pathlib import Path
-from typing import Iterable, Sequence
 
 from .clients import CLIENTS, MycoInstallError, dispatch
 
@@ -50,6 +49,7 @@ __all__ = ["run_fresh", "DEFAULT_REPO"]
 
 #: Default upstream source. Override with ``--repo``.
 DEFAULT_REPO: str = "https://github.com/Battam1111/Myco.git"
+
 
 #: Default target directory for ``fresh``. Picked to be out of
 #: ``$HOME`` root (so ``ls ~`` doesn't get cluttered) but still a
@@ -73,20 +73,16 @@ def _run(
     the would-run command and return None."""
     rendered = " ".join(str(c) for c in cmd)
     if dry_run:
-        prefix = f"[dry-run] " + (f"(cd {cwd}) " if cwd else "")
+        prefix = "[dry-run] " + (f"(cd {cwd}) " if cwd else "")
         print(f"{prefix}{rendered}")
         return None
     print(f"$ {rendered}" + (f"  # in {cwd}" if cwd else ""))
     if stream:
         result = subprocess.run(cmd, cwd=cwd, check=False)
         if result.returncode != 0:
-            raise MycoInstallError(
-                f"command exited {result.returncode}: {rendered}"
-            )
+            raise MycoInstallError(f"command exited {result.returncode}: {rendered}")
         return result  # type: ignore[return-value]
-    return subprocess.run(
-        cmd, cwd=cwd, capture_output=True, text=True, check=False
-    )
+    return subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, check=False)
 
 
 def _require_git(dry_run: bool) -> str:
@@ -106,8 +102,7 @@ def _assert_target_available(target: Path, force: bool, dry_run: bool) -> None:
         return
     if not target.is_dir():
         raise MycoInstallError(
-            f"target {target} exists but is not a directory; pick "
-            f"another --target path"
+            f"target {target} exists but is not a directory; pick another --target path"
         )
     # Empty is fine (git clone handles that); non-empty requires --force.
     has_children = any(target.iterdir())
@@ -141,8 +136,7 @@ def _configure_hosts(
     unknown = [c for c in clients if c not in CLIENTS]
     if unknown:
         raise MycoInstallError(
-            f"unknown --configure client(s): {unknown}. "
-            f"Known: {sorted(CLIENTS)}"
+            f"unknown --configure client(s): {unknown}. Known: {sorted(CLIENTS)}"
         )
     for client in clients:
         if dry_run:
@@ -189,8 +183,7 @@ def run_fresh(
         unknown = [c for c in configure if c not in CLIENTS]
         if unknown:
             raise MycoInstallError(
-                f"unknown --configure client(s): {unknown}. "
-                f"Known: {sorted(CLIENTS)}"
+                f"unknown --configure client(s): {unknown}. Known: {sorted(CLIENTS)}"
             )
 
     git = git or _require_git(dry_run)
@@ -213,7 +206,12 @@ def run_fresh(
     #    install lands in this environment.
     pip_target = f"{target}[{extras}]" if extras else str(target)
     pip_cmd: list[str] = [
-        python_exe, "-m", "pip", "install", "-e", pip_target,
+        python_exe,
+        "-m",
+        "pip",
+        "install",
+        "-e",
+        pip_target,
     ]
     _run(pip_cmd, dry_run=dry_run)
 
@@ -223,7 +221,10 @@ def run_fresh(
         print(f"[dry-run] would verify: {' '.join(verify_cmd)}")
     else:
         result = subprocess.run(
-            verify_cmd, cwd=target, capture_output=True, text=True,
+            verify_cmd,
+            cwd=target,
+            capture_output=True,
+            text=True,
             check=False,
         )
         if result.returncode != 0:
@@ -264,18 +265,20 @@ def _print_summary(
     else:
         lines.append("")
         lines.append(f"Myco installed editable at:  {target}")
-        lines.append(f"Source (clone origin):       {repo}"
-                     + (f" @ {branch}" if branch else ""))
+        lines.append(
+            f"Source (clone origin):       {repo}" + (f" @ {branch}" if branch else "")
+        )
         lines.append(f"Python interpreter:          {python_exe}")
         if configured:
-            lines.append(f"MCP hosts configured:        "
-                         f"{', '.join(configured)}")
+            lines.append(f"MCP hosts configured:        {', '.join(configured)}")
         lines.append("")
         lines.append("Next:")
         lines.append(f"  cd {target}")
         lines.append("  myco --help                    # sanity-check the CLI")
         lines.append("  myco genesis --project-dir <your-project> \\")
-        lines.append("               --substrate-id <slug>        # bootstrap a downstream substrate")
+        lines.append(
+            "               --substrate-id <slug>        # bootstrap a downstream substrate"
+        )
         lines.append("")
         lines.append("Upgrade your kernel later with:")
         lines.append(f"  cd {target} && git pull")

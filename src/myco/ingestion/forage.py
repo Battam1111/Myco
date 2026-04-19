@@ -9,9 +9,9 @@ intentionally narrowed, not silently lossy.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Mapping
 
 from myco.core.context import MycoContext, Result
 from myco.core.errors import UsageError
@@ -79,10 +79,7 @@ def list_candidates(
 def run(args: Mapping[str, object], *, ctx: MycoContext) -> Result:
     """Manifest handler: list candidates."""
     raw_path = args.get("path")
-    if raw_path is None:
-        target = ctx.substrate.root
-    else:
-        target = Path(str(raw_path))
+    target = ctx.substrate.root if raw_path is None else Path(str(raw_path))
 
     items, skipped = list_candidates(target_dir=target)
     return Result(

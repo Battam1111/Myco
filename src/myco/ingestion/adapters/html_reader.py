@@ -2,14 +2,15 @@
 
 Requires ``beautifulsoup4`` (part of the ``[adapters]`` extras).
 """
+
 from __future__ import annotations
 
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Sequence
-
-from .protocol import Adapter, IngestResult
 
 from bs4 import BeautifulSoup  # ImportError if not installed
+
+from .protocol import Adapter, IngestResult
 
 
 class HtmlReader(Adapter):
@@ -34,10 +35,12 @@ class HtmlReader(Adapter):
         title_tag = soup.find("title")
         title = title_tag.get_text(strip=True) if title_tag else p.stem
         body = soup.get_text(separator="\n", strip=True)
-        return [IngestResult(
-            title=title[:120],
-            body=body,
-            tags=["html", "file"],
-            source=str(p.resolve()),
-            metadata={"path": str(p)},
-        )]
+        return [
+            IngestResult(
+                title=title[:120],
+                body=body,
+                tags=["html", "file"],
+                source=str(p.resolve()),
+                metadata={"path": str(p)},
+            )
+        ]

@@ -33,13 +33,9 @@ def test_search_finds_note_content(genesis_substrate: Path) -> None:
 def test_scope_canon_restricts_search(genesis_substrate: Path) -> None:
     ctx = _mk_ctx(genesis_substrate)
     append_note(ctx=ctx, content="only-in-notes-marker")
-    canon_hits = search_substrate(
-        ctx=ctx, query="only-in-notes-marker", scope="canon"
-    )
+    canon_hits = search_substrate(ctx=ctx, query="only-in-notes-marker", scope="canon")
     assert canon_hits == ()
-    all_hits = search_substrate(
-        ctx=ctx, query="only-in-notes-marker", scope="all"
-    )
+    all_hits = search_substrate(ctx=ctx, query="only-in-notes-marker", scope="all")
     assert len(all_hits) >= 1
 
 

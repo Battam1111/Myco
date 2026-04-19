@@ -27,8 +27,8 @@ subsystem-specific state. The v0.4.0 canon is SSoT-only.
 ```yaml
 # _canon.yaml — v0.4.0 schema (example shape; values are illustrative)
 schema_version: "1"                # bumps on structural schema change
-contract_version: "v0.5.6"         # must match L1 protocol.md
-synced_contract_version: "v0.5.6"  # updated by `myco assimilate` (v0.5.2 alias: `reflect`)
+contract_version: "v0.5.7"         # must match L1 protocol.md
+synced_contract_version: "v0.5.7"  # updated by `myco assimilate` (v0.5.2 alias: `reflect`)
 
 identity:                          # substrate self-identification
   substrate_id: "<slug>"           # globally unique; e.g. "myco-self", "ascc-research"
@@ -66,7 +66,7 @@ versioning:
   pyproject_dynamic: true
 
 lint:
-  dimensions:                      # dimension_id → category (v0.5.6 roster)
+  dimensions:                      # dimension_id → category (v0.5.7 roster, unchanged from v0.5.6)
     M1: mechanical                 # core write-surface / required-field shape
     M2: mechanical                 # fixable — missing entry-point file
     M3: mechanical                 # write-surface violations
@@ -87,7 +87,7 @@ lint:
     default: "mechanical:critical,shipped:critical,metabolic:never,semantic:never"
   skeleton_downgrade:
     marker: ".myco_state/autoseeded.txt"
-    affected_dimensions: []        # v0.5.6: empty — no dimension is currently
+    affected_dimensions: []        # v0.5.7: empty — no dimension is currently
                                    # downgraded in skeleton mode. The field is
                                    # retained so future dimension retirements
                                    # (or new dimensions that earn skeleton

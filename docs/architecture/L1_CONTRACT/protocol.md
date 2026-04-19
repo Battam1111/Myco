@@ -37,15 +37,25 @@ cannot make safe decisions. Hunger is not optional.
 
 ### R2 — Session end is ritualized
 
-**Every session ends with `myco assimilate` followed by `myco immune --fix`.**
-The PreCompact hook fires these automatically; `myco senesce` is the
-manual wrapper. The Agent invokes it — humans never call it directly.
-The v0.5.2 names `reflect` and `session-end` still resolve as deprecated
-aliases (one-shot `DeprecationWarning`) throughout the 0.x line.
+**Every session ends with `myco senesce`.** Two modes, one verb:
+**full** (`myco senesce` — runs `assimilate` then `immune --fix`)
+bound to the **PreCompact** hook, which blocks until done;
+**quick** (`myco senesce --quick` — runs `assimilate` only) bound
+to the **SessionEnd** hook, which kills the process at a short
+(~1.5 s in Claude Code) budget. The canonical session-end is the
+full form at `/compact`; the quick form is a defense-in-depth
+fallback for sessions that exit without compacting (`/exit`,
+Ctrl+D, window-close). The Agent invokes either form; humans
+never call senesce directly. The v0.5.2 names `reflect` and
+`session-end` still resolve as deprecated aliases (one-shot
+`DeprecationWarning`) throughout the 0.x line.
 
-Why: unconsolidated ingest accumulates. Unfixed drift compounds. A session
-that skips assimilation leaves the next session's agent starting from a
-degraded substrate.
+Why: unconsolidated ingest accumulates. Unfixed drift compounds. A
+session that skips even the quick ritual leaves the next session's
+agent starting from a degraded substrate. Defense-in-depth across
+the two hooks guarantees every session boundary fires at least
+`assimilate` — `immune --fix` is additive when there is budget for
+it.
 
 ### R3 — Sense before asserting
 
@@ -109,7 +119,7 @@ disciplined half.
 | Rule | Mechanical enforcement | Agent discipline |
 |------|------------------------|------------------|
 | R1 | `SessionStart` hook; `myco_hunger` first-call detection | Invoke manually if hook fails |
-| R2 | `PreCompact` hook; `myco senesce` summary (alias: `session-end`) | Agent invokes manually before `/compact` |
+| R2 | `PreCompact` hook fires `myco senesce` (full: assimilate + immune --fix); `SessionEnd` hook fires `myco senesce --quick` (assimilate-only fallback under ~1.5 s kill budget); alias `session-end` still resolves | Agent invokes `myco senesce` before `/compact`; `--quick` manually if time-pressed |
 | R3 | — (not mechanically enforceable) | Call `myco sense` before factual claims |
 | R4 | — | Call `myco eat` on every decision/insight |
 | R5 | Immune lint: orphan file detection | Add cross-refs at file creation |

@@ -5,6 +5,7 @@ regressions (missing console script, stray ephemeral in sdist, lost
 extras target, MCP command drift) fail loudly in CI rather than
 silently at user install time.
 """
+
 from __future__ import annotations
 
 import re
@@ -14,8 +15,6 @@ try:
     import tomllib  # Python 3.11+
 except ModuleNotFoundError:  # pragma: no cover
     import tomli as tomllib  # type: ignore[no-redef]
-
-import pytest
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -77,9 +76,14 @@ def test_sdist_excludes_release_ephemerals() -> None:
     """
     sdist_cfg = _pyproject()["tool"]["hatch"]["build"]["targets"]["sdist"]
     excludes = sdist_cfg["exclude"]
-    expected = {"/.release_notes_*.md", "/upload*.log", "/dist", "/build",
-                "/legacy_v0_3"}
-    assert expected.issubset(set(excludes)), (expected - set(excludes))
+    expected = {
+        "/.release_notes_*.md",
+        "/upload*.log",
+        "/dist",
+        "/build",
+        "/legacy_v0_3",
+    }
+    assert expected.issubset(set(excludes)), expected - set(excludes)
 
 
 def test_gitignore_covers_release_ephemerals() -> None:

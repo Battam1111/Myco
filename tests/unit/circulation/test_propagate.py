@@ -69,9 +69,7 @@ def test_propagate_dry_run_writes_nothing(
     genesis_substrate: Path, dst_substrate: Path
 ) -> None:
     src_ctx = _seed_src(genesis_substrate, n=1)
-    result = propagate(
-        src_ctx=src_ctx, dst_root=dst_substrate, dry_run=True
-    )
+    result = propagate(src_ctx=src_ctx, dst_root=dst_substrate, dry_run=True)
     assert result.payload["dry_run"] is True
     inbox = dst_substrate / "notes" / "raw"
     assert not list(inbox.glob("n_*.md"))
@@ -92,9 +90,7 @@ def test_propagate_select_both_includes_distilled(
 ) -> None:
     src_ctx = _seed_src(genesis_substrate, n=2)
     distill_proposal(ctx=src_ctx, slug="doctrine")
-    result = propagate(
-        src_ctx=src_ctx, dst_root=dst_substrate, select="both"
-    )
+    result = propagate(src_ctx=src_ctx, dst_root=dst_substrate, select="both")
     assert result.payload["count"] == 3  # 2 integrated + 1 distilled
     inbox = dst_substrate / "notes" / "raw"
     assert (inbox / "d_doctrine.md").is_file()
@@ -105,9 +101,7 @@ def test_propagate_select_distilled_only(
 ) -> None:
     src_ctx = _seed_src(genesis_substrate, n=1)
     distill_proposal(ctx=src_ctx, slug="only")
-    result = propagate(
-        src_ctx=src_ctx, dst_root=dst_substrate, select="distilled"
-    )
+    result = propagate(src_ctx=src_ctx, dst_root=dst_substrate, select="distilled")
     assert result.payload["count"] == 1
     inbox = dst_substrate / "notes" / "raw"
     assert (inbox / "d_only.md").is_file()
@@ -120,7 +114,9 @@ def test_propagate_rejects_bad_select(
     src_ctx = _mk_ctx(genesis_substrate)
     with pytest.raises(UsageError, match="invalid propagate select"):
         propagate(
-            src_ctx=src_ctx, dst_root=dst_substrate, select="bogus"  # type: ignore[arg-type]
+            src_ctx=src_ctx,
+            dst_root=dst_substrate,
+            select="bogus",  # type: ignore[arg-type]
         )
 
 
@@ -158,23 +154,18 @@ def test_propagate_minor_mismatch_warns(
     dst_canon.write_text(text, encoding="utf-8")
     src_ctx = _seed_src(genesis_substrate, n=1)
     result = propagate(src_ctx=src_ctx, dst_root=dst_substrate)
-    assert any(
-        "minor version mismatch" in w for w in result.payload["compat_warnings"]
-    )
+    assert any("minor version mismatch" in w for w in result.payload["compat_warnings"])
 
 
 def test_propagate_dry_run_and_real_match(
     genesis_substrate: Path, dst_substrate: Path
 ) -> None:
     from datetime import datetime, timezone
+
     src_ctx = _seed_src(genesis_substrate, n=2)
     fixed = datetime(2026, 4, 15, 12, 0, 0, tzinfo=timezone.utc)
-    dry = propagate(
-        src_ctx=src_ctx, dst_root=dst_substrate, dry_run=True, now=fixed
-    )
-    real = propagate(
-        src_ctx=src_ctx, dst_root=dst_substrate, dry_run=False, now=fixed
-    )
+    dry = propagate(src_ctx=src_ctx, dst_root=dst_substrate, dry_run=True, now=fixed)
+    real = propagate(src_ctx=src_ctx, dst_root=dst_substrate, dry_run=False, now=fixed)
     assert dry.payload["propagated"] == real.payload["propagated"]
 
 
@@ -191,9 +182,7 @@ def test_run_missing_dst_raises(genesis_substrate: Path) -> None:
         run({}, ctx=ctx)
 
 
-def test_run_rejects_bad_select(
-    genesis_substrate: Path, dst_substrate: Path
-) -> None:
+def test_run_rejects_bad_select(genesis_substrate: Path, dst_substrate: Path) -> None:
     ctx = _mk_ctx(genesis_substrate)
     with pytest.raises(UsageError, match="invalid propagate select"):
         run({"dst": str(dst_substrate), "select": "nope"}, ctx=ctx)

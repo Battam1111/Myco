@@ -57,8 +57,9 @@ repairing is human/agent work.
 from __future__ import annotations
 
 import ast
+from collections.abc import Iterable
 from pathlib import Path
-from typing import ClassVar, Iterable
+from typing import ClassVar
 
 from myco.core.context import MycoContext
 from myco.core.severity import Severity
@@ -213,9 +214,7 @@ class MP1NoProviderImports(Dimension):
                 return True
         return False
 
-    def _scan_file(
-        self, py_file: Path
-    ) -> Iterable[tuple[str, int, str]]:
+    def _scan_file(self, py_file: Path) -> Iterable[tuple[str, int, str]]:
         """Yield ``(rel_path_posix, line, imported_name)`` for each violation.
 
         Returns an empty iterator when the file cannot be parsed —

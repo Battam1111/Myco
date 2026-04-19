@@ -4,14 +4,15 @@ Requires ``httpx`` (part of the ``[adapters]`` extras).
 Dispatches to other adapters by Content-Type when possible (e.g.
 PDF, HTML), or falls back to treating the body as plain text.
 """
+
 from __future__ import annotations
 
-from typing import Sequence
+from collections.abc import Sequence
 from urllib.parse import urlparse
 
-from .protocol import Adapter, IngestResult
-
 import httpx  # will ImportError if not installed; registry skips
+
+from .protocol import Adapter, IngestResult
 
 
 class UrlFetcher(Adapter):
@@ -44,18 +45,21 @@ class UrlFetcher(Adapter):
             body = resp.text
 
         title = domain + urlparse(target).path.rstrip("/").rsplit("/", 1)[-1]
-        return [IngestResult(
-            title=title[:120] or domain,
-            body=body,
-            tags=tags,
-            source=target,
-            metadata={"status": resp.status_code, "content_type": ct},
-        )]
+        return [
+            IngestResult(
+                title=title[:120] or domain,
+                body=body,
+                tags=tags,
+                source=target,
+                metadata={"status": resp.status_code, "content_type": ct},
+            )
+        ]
 
     @staticmethod
     def _strip_html(html: str) -> str:
         try:
             from bs4 import BeautifulSoup
+
             soup = BeautifulSoup(html, "html.parser")
             for tag in soup(["script", "style", "nav", "footer", "header"]):
                 tag.decompose()
@@ -63,13 +67,16 @@ class UrlFetcher(Adapter):
         except ImportError:
             # Rough fallback: strip tags with regex
             import re
+
             return re.sub(r"<[^>]+>", "", html)
 
     @staticmethod
     def _extract_pdf_bytes(data: bytes) -> str:
         try:
             import io
+
             from pypdf import PdfReader as _PR
+
             reader = _PR(io.BytesIO(data))
             pages = [p.extract_text() or "" for p in reader.pages]
             return "\n\n---\n\n".join(pages)

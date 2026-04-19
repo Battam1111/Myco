@@ -8,9 +8,10 @@ the cap can short-circuit large substrates.
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Literal, Mapping
+from typing import Literal
 
 from myco.core.context import MycoContext, Result
 from myco.core.errors import UsageError
@@ -51,16 +52,14 @@ def search_substrate(
         raise UsageError("sense query must be non-empty")
     if scope not in _VALID_SCOPES:
         raise UsageError(
-            f"unknown sense scope {scope!r}; "
-            f"expected one of {sorted(_VALID_SCOPES)}"
+            f"unknown sense scope {scope!r}; expected one of {sorted(_VALID_SCOPES)}"
         )
 
     needle = query.lower()
     paths = ctx.substrate.paths
     roots: list[Path] = []
-    if scope in ("canon", "all"):
-        if paths.canon.is_file():
-            roots.append(paths.canon)
+    if scope in ("canon", "all") and paths.canon.is_file():
+        roots.append(paths.canon)
     if scope in ("notes", "all") and paths.notes.is_dir():
         roots.append(paths.notes)
     if scope in ("docs", "all") and paths.docs.is_dir():
@@ -89,8 +88,7 @@ def run(args: Mapping[str, object], *, ctx: MycoContext) -> Result:
             "query": query,
             "scope": scope_arg,
             "hits": [
-                {"path": h.path, "line": h.line, "snippet": h.snippet}
-                for h in hits
+                {"path": h.path, "line": h.line, "snippet": h.snippet} for h in hits
             ],
         },
     )
@@ -109,9 +107,7 @@ def _walk_searchable(root: Path) -> Iterable[Path]:
             yield path
 
 
-def _scan_file(
-    path: Path, needle: str, substrate_root: Path
-) -> Iterable[SenseHit]:
+def _scan_file(path: Path, needle: str, substrate_root: Path) -> Iterable[SenseHit]:
     try:
         text = path.read_text(encoding="utf-8")
     except (OSError, UnicodeDecodeError):

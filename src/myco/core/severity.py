@@ -29,7 +29,7 @@ class Severity(IntEnum):
     CRITICAL = 4
 
     @classmethod
-    def from_name(cls, name: str) -> "Severity":
+    def from_name(cls, name: str) -> Severity:
         """Parse a case-insensitive name; raises ``ValueError`` on miss."""
         try:
             return cls[name.upper()]

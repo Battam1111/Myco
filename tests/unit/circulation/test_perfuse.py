@@ -121,9 +121,7 @@ def test_perfuse_counts_src_nodes_when_src_present(
     as nodes under ``src/``."""
     src_dir = seeded_substrate / "src" / "myco"
     src_dir.mkdir(parents=True, exist_ok=True)
-    (src_dir / "mod.py").write_text(
-        '"""test module."""\nX = 1\n', encoding="utf-8"
-    )
+    (src_dir / "mod.py").write_text('"""test module."""\nX = 1\n', encoding="utf-8")
     ctx = _mk_ctx(seeded_substrate)
     result = perfuse(ctx=ctx)
     # seeded_substrate has an empty canon (no src refs), so the only

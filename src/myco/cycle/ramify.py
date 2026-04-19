@@ -1,7 +1,9 @@
 """ramify verb: scaffold a new verb / dimension / adapter.
 
-Governing doctrine: ``docs/architecture/L2_DOCTRINE/surface.md``
-(governance-verbs appendix). Governing craft:
+Governing manifest: ``docs/architecture/L3_IMPLEMENTATION/command_manifest.md``
+(governance-verbs section — per v0.5.0 craft §R13, no new L2
+surface.md was created; governance-verbs content lives at L3).
+Governing craft:
 ``docs/primordia/v0_5_3_fungal_vocabulary_craft_2026-04-17.md``
 (MAJOR 10 — the substrate-local extension seam).
 
@@ -309,17 +311,13 @@ def _slug(raw: str) -> str:
 def _handler_path(handler: str, substrate_root: Path) -> Path:
     """Turn ``"myco.ingestion.foo:run"`` into ``<root>/src/myco/ingestion/foo.py``."""
     if ":" not in handler:
-        raise ContractError(
-            f"scaffold: handler {handler!r} must be 'module:function'"
-        )
+        raise ContractError(f"scaffold: handler {handler!r} must be 'module:function'")
     module_path, _func = handler.split(":", 1)
     parts = module_path.split(".")
     return substrate_root.joinpath("src", *parts).with_suffix(".py")
 
 
-def _detect_substrate_local(
-    ctx: MycoContext, explicit: object, *, mode: str
-) -> bool:
+def _detect_substrate_local(ctx: MycoContext, explicit: object, *, mode: str) -> bool:
     """Decide whether ramify should write under ``.myco/plugins/``.
 
     ``mode`` is one of ``"verb"``, ``"dimension"``, ``"adapter"``.
@@ -347,9 +345,7 @@ def _detect_substrate_local(
     if sid != "myco-self":
         return True
     kernel_src = ctx.substrate.root / "src" / "myco"
-    if not kernel_src.is_dir():
-        return True
-    return False
+    return bool(not kernel_src.is_dir())
 
 
 def _ensure_pkg(dir_path: Path, init_body: str | None = None) -> None:
@@ -403,9 +399,7 @@ def _append_overlay_verb(
 
     commands = raw.setdefault("commands", [])
     if not isinstance(commands, list):
-        raise ContractError(
-            "ramify: manifest overlay commands must be a list"
-        )
+        raise ContractError("ramify: manifest overlay commands must be a list")
     # Refuse to duplicate.
     for entry in commands:
         if isinstance(entry, dict) and entry.get("name") == verb:
@@ -420,9 +414,7 @@ def _append_overlay_verb(
             "args": [],
         }
     )
-    overlay_path.write_text(
-        yaml.safe_dump(raw, sort_keys=False), encoding="utf-8"
-    )
+    overlay_path.write_text(yaml.safe_dump(raw, sort_keys=False), encoding="utf-8")
     return overlay_path
 
 
@@ -594,18 +586,21 @@ def _run_adapter_mode(
     args: Mapping[str, object], ctx: MycoContext, substrate_local: bool, force: bool
 ) -> Result:
     adapter_name = str(args["adapter"]).strip()
-    extensions = args.get("extensions") or ()
-    if isinstance(extensions, str):
-        extensions = (extensions,)
-    extensions = tuple(str(e).strip() for e in extensions if str(e).strip())
+    extensions_raw = args.get("extensions") or ()
+    if isinstance(extensions_raw, str):
+        extensions_raw = (extensions_raw,)
+    if not isinstance(extensions_raw, (list, tuple)):
+        raise UsageError(
+            "ramify: --extensions must be a list/tuple of strings "
+            f"(got {type(extensions_raw).__name__})"
+        )
+    extensions = tuple(str(e).strip() for e in extensions_raw if str(e).strip())
     if not extensions:
         raise UsageError(
             "ramify: --adapter requires --extensions (e.g. --extensions .json,.csv)"
         )
     # Normalize extensions to lead with ".".
-    norm_exts = tuple(
-        e if e.startswith(".") else f".{e}" for e in extensions
-    )
+    norm_exts = tuple(e if e.startswith(".") else f".{e}" for e in extensions)
 
     slug = _slug(adapter_name)
     class_name = "".join(p.capitalize() for p in slug.split("_")) + "Adapter"
@@ -676,9 +671,7 @@ def run(args: Mapping[str, object], *, ctx: MycoContext) -> Result:
     dimension = args.get("dimension")
     adapter = args.get("adapter")
 
-    modes_set = sum(
-        [1 if verb else 0, 1 if dimension else 0, 1 if adapter else 0]
-    )
+    modes_set = sum([1 if verb else 0, 1 if dimension else 0, 1 if adapter else 0])
     if modes_set == 0:
         raise UsageError(
             "scaffold: --verb <name> is required (or --dimension / --adapter "
@@ -696,12 +689,8 @@ def run(args: Mapping[str, object], *, ctx: MycoContext) -> Result:
         substrate_local = _detect_substrate_local(ctx, explicit_local, mode="verb")
         return _run_verb_mode(args, ctx, substrate_local, force)
     if dimension:
-        substrate_local = _detect_substrate_local(
-            ctx, explicit_local, mode="dimension"
-        )
+        substrate_local = _detect_substrate_local(ctx, explicit_local, mode="dimension")
         return _run_dimension_mode(args, ctx, substrate_local, force)
     # adapter
-    substrate_local = _detect_substrate_local(
-        ctx, explicit_local, mode="adapter"
-    )
+    substrate_local = _detect_substrate_local(ctx, explicit_local, mode="adapter")
     return _run_adapter_mode(args, ctx, substrate_local, force)

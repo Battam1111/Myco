@@ -10,9 +10,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from myco.meta.session_end import run as session_end_run
+
 from myco.core.context import MycoContext
 from myco.ingestion.eat import append_note
-from myco.meta.session_end import run as session_end_run
 
 
 def _mk_ctx(root: Path) -> MycoContext:

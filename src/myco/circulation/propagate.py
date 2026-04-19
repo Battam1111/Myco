@@ -17,9 +17,10 @@ Discipline:
 
 from __future__ import annotations
 
+from collections.abc import Mapping, MutableMapping
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Literal, Mapping, MutableMapping
+from typing import Any, Literal
 
 from myco.core.canon import load_canon
 from myco.core.context import MycoContext, Result
@@ -48,22 +49,14 @@ def _iter_sources(ctx: MycoContext, select: Select) -> list[Path]:
     return out
 
 
-def _compat_warnings(
-    src: ContractVersion, dst: ContractVersion
-) -> list[str]:
+def _compat_warnings(src: ContractVersion, dst: ContractVersion) -> list[str]:
     warnings: list[str] = []
     if src.minor != dst.minor:
-        warnings.append(
-            f"minor version mismatch: src={src} dst={dst}"
-        )
+        warnings.append(f"minor version mismatch: src={src} dst={dst}")
     elif src.patch != dst.patch:
-        warnings.append(
-            f"patch version mismatch: src={src} dst={dst}"
-        )
+        warnings.append(f"patch version mismatch: src={src} dst={dst}")
     elif (src._has_final, src._tag) != (dst._has_final, dst._tag):
-        warnings.append(
-            f"pre-release tag mismatch: src={src} dst={dst}"
-        )
+        warnings.append(f"pre-release tag mismatch: src={src} dst={dst}")
     return warnings
 
 
@@ -108,9 +101,7 @@ def propagate(
     dst_root = dst_root.resolve()
     dst_canon_path = dst_root / "_canon.yaml"
     if not dst_canon_path.is_file():
-        raise ContractError(
-            f"dst is not a Myco substrate (no _canon.yaml): {dst_root}"
-        )
+        raise ContractError(f"dst is not a Myco substrate (no _canon.yaml): {dst_root}")
     dst_canon = load_canon(dst_canon_path)
 
     try:
@@ -120,8 +111,7 @@ def propagate(
         raise ContractError(f"unparseable contract_version: {exc}") from exc
     if src_ver.major != dst_ver.major:
         raise ContractError(
-            f"contract-version major mismatch: "
-            f"src={src_ver} dst={dst_ver}"
+            f"contract-version major mismatch: src={src_ver} dst={dst_ver}"
         )
     compat_warnings = _compat_warnings(src_ver, dst_ver)
 
@@ -163,13 +153,10 @@ def propagate(
         inbox.mkdir(parents=True, exist_ok=True)
         for target, rendered in plan:
             target.write_text(rendered, encoding="utf-8")
-            propagated.append(
-                str(target.relative_to(dst_root)).replace("\\", "/")
-            )
+            propagated.append(str(target.relative_to(dst_root)).replace("\\", "/"))
     else:
         propagated = [
-            str(target.relative_to(dst_root)).replace("\\", "/")
-            for target, _ in plan
+            str(target.relative_to(dst_root)).replace("\\", "/") for target, _ in plan
         ]
 
     return Result(

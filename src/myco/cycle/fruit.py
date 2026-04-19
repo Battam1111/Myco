@@ -14,18 +14,20 @@ the body shape meets the protocol floor.
 Refuses to overwrite an existing file. Emits the final path in the
 Result payload so the caller can open it.
 
-Governing doctrine: ``docs/architecture/L2_DOCTRINE/surface.md``
-(governance-verbs appendix, v0.5). Legacy reference:
-``legacy_v0_3/docs/craft_protocol.md``.
+Governing manifest: ``docs/architecture/L3_IMPLEMENTATION/command_manifest.md``
+(governance-verbs section, v0.5 — per v0.5.0 craft §R13, no new L2
+surface.md was created; the governance-verbs content lives at L3
+alongside the rest of the verb surface). Legacy reference: the
+pre-rewrite ``craft_protocol.md`` under ``legacy_v0_3/``.
 """
 
 from __future__ import annotations
 
 import re
 import string
+from collections.abc import Mapping
 from datetime import date as _date
 from importlib.resources import files as _pkg_files
-from typing import Mapping
 
 from myco.core.context import MycoContext, Result
 from myco.core.errors import ContractError, UsageError

@@ -38,11 +38,9 @@ def test_reflect_records_errors_and_continues(genesis_substrate: Path) -> None:
     ctx = _mk_ctx(genesis_substrate)
     raw = genesis_substrate / "notes" / "raw"
     raw.mkdir(parents=True, exist_ok=True)
-    (raw / "good.md").write_text(
-        "---\nstage: raw\n---\nbody\n", encoding="utf-8"
-    )
+    (raw / "good.md").write_text("---\nstage: raw\n---\nbody\n", encoding="utf-8")
     (raw / "bad.md").write_text(
-        "---\nstage: raw\nreferences: [\"notes/missing.md\"]\n---\nbody\n",
+        '---\nstage: raw\nreferences: ["notes/missing.md"]\n---\nbody\n',
         encoding="utf-8",
     )
     summary = reflect(ctx=ctx)
@@ -67,7 +65,7 @@ def test_run_exit_code_all_errored(genesis_substrate: Path) -> None:
     raw = genesis_substrate / "notes" / "raw"
     raw.mkdir(parents=True, exist_ok=True)
     (raw / "bad.md").write_text(
-        "---\nstage: raw\nreferences: [\"notes/missing.md\"]\n---\nbody\n",
+        '---\nstage: raw\nreferences: ["notes/missing.md"]\n---\nbody\n',
         encoding="utf-8",
     )
     result = run({}, ctx=ctx)

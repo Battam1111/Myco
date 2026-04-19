@@ -5,16 +5,47 @@ build-backend = "hatchling.build"
 [project]
 name = "myco"
 dynamic = ["version"]
-description = "Agent-First symbiotic cognitive substrate."
+description = "Agent-First symbiotic cognitive substrate — 18 fungal-named verbs (17 agent + 1 human `brief`), 11-dimension immune, substrate-local plugins, editable-by-default install, universal MCP stdio server."
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.10"
 authors = [
   { name = "Yanjun" },
 ]
+keywords = [
+  "agent",
+  "substrate",
+  "knowledge-management",
+  "mcp",
+  "model-context-protocol",
+  "mycelium",
+  "cognitive",
+  "agent-first",
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "Typing :: Typed",
+]
 dependencies = [
   "pyyaml>=6.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/Battam1111/Myco"
+Repository = "https://github.com/Battam1111/Myco"
+Documentation = "https://github.com/Battam1111/Myco/tree/main/docs"
+Changelog = "https://github.com/Battam1111/Myco/blob/main/CHANGELOG.md"
+"Bug Tracker" = "https://github.com/Battam1111/Myco/issues"
 
 [project.optional-dependencies]
 # ``pip install 'myco[mcp]'`` — pulls in the Model Context Protocol SDK
@@ -36,6 +67,18 @@ adapters = [
 dev = [
   "pytest>=8.0",
   "pytest-cov>=5.0",
+  # v0.5.7: pin the type-stub floor so `mypy src/myco` runs clean on a
+  # fresh `pip install -e ".[dev]"` without an extra "missing stubs"
+  # round. types-PyYAML provides the stubs mypy asks for when it sees
+  # our ``import yaml`` / ``yaml.safe_load`` calls.
+  "types-PyYAML>=6.0",
+  # Linter + formatter for the baseline encoded in [tool.ruff] below.
+  # Floor pegged at the ruff that introduced --unsafe-fixes stabilized
+  # semantics so CI rules do not drift as ruff releases roll forward.
+  "ruff>=0.5",
+  # Static type checker for the baseline in [tool.mypy] below. Any
+  # 1.x release works; we pin the floor so CI's mypy is predictable.
+  "mypy>=1.8",
 ]
 
 [project.scripts]
@@ -43,7 +86,8 @@ dev = [
 # never have to reason about the user's venv or whether `python` vs
 # `python3` is the right alias.
 #
-#   myco              — the manifest-driven CLI (12 verbs).
+#   myco              — the manifest-driven CLI (18 verbs at v0.5.7:
+#                       17 agent + 1 human-facing `brief`).
 #   mcp-server-myco   — the MCP stdio/sse launcher; follows the
 #                       community `mcp-server-<name>` convention so
 #                       tools like uvx, pipx, and the MCP Registry
@@ -109,6 +153,7 @@ include = [
   "/hooks",
   "/.claude-plugin",
   "/.claude",
+  "/.github",
   "/.mcp.json",
   "/_canon.yaml",
   "/MYCO.md",
@@ -136,3 +181,90 @@ exclude = [
 testpaths = ["tests"]
 addopts = "-ra --strict-markers --strict-config"
 pythonpath = ["src"]
+
+# -----------------------------------------------------------------------------
+# v0.5.7 — Tool baselines (locked for CI consumption)
+# -----------------------------------------------------------------------------
+
+[tool.mypy]
+# The v0.5.7 baseline is deliberately permissive: we opt in to the two
+# hygiene flags (unused ignores, redundant casts) without forcing
+# strict-mode over the whole repo. That lets us fix real type drift
+# incrementally without blocking small PRs on an explosion of Any leaks.
+# The CI workflow runs `mypy src/myco` only (not tests/) — tests import
+# via fixtures that would need extensive stub work.
+python_version = "3.10"
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_unreachable = false
+show_error_codes = true
+# Modules without third-party stubs: don't crash, just log.
+ignore_missing_imports = true
+# Per-module overrides can live under [[tool.mypy.overrides]] below as
+# tightening lands. For v0.5.7 we ship the baseline only.
+
+[tool.ruff]
+target-version = "py310"
+line-length = 88
+src = ["src", "tests"]
+# Exclude the legacy quarantine and runtime caches so ruff doesn't
+# report on files we intentionally do not maintain.
+exclude = [
+  "legacy_v0_3",
+  ".myco_state",
+  ".venv",
+  "dist",
+  "build",
+]
+
+[tool.ruff.lint]
+# Conservative but non-trivial selection: errors + pycodestyle
+# warnings + import discipline + modernization + common security
+# + common correctness + common simplification. S (bandit) is kept
+# out of the default because `assert` use in tests would flood
+# findings; tests opt in via per-file-ignores below if needed.
+select = [
+  "E",     # pycodestyle errors
+  "W",     # pycodestyle warnings
+  "F",     # pyflakes
+  "I",     # isort (import ordering)
+  "B",     # flake8-bugbear
+  "UP",    # pyupgrade (3.10+ idioms)
+  "SIM",   # flake8-simplify
+  "C4",    # flake8-comprehensions
+  "RUF",   # ruff-specific
+]
+# RUF001 (ambiguous unicode) fires on legitimate typographic dashes in
+# changelog templates; RUF022 (unsorted __all__) is low-value churn;
+# E501 line-too-long is covered informally by `ruff format`. Line
+# length enforcement happens through the formatter, not the linter.
+ignore = [
+  "E501",
+  "RUF001",
+  "RUF022",
+  "RUF043",  # pytest.raises ambiguous pattern — low-signal
+  "SIM105",  # contextlib.suppress rewrite — cosmetic
+  "SIM108",  # if-else vs if-exp — cosmetic
+  "SIM110",  # any() rewrite — cosmetic
+  "SIM117",  # combined with statements — cosmetic on test I/O contexts
+  "B904",    # raise from — cosmetic on already-intentional patterns
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Test files are allowed to use asserts and may skip some stylistic
+# rules that make sense only in production code.
+"tests/**" = ["B017"]
+# Generated / template strings in the ramify scaffolder include
+# example code that intentionally uses old-style typing etc.
+"src/myco/cycle/ramify.py" = ["UP035"]
+
+[tool.ruff.format]
+# Ruff's formatter is stable enough to be our canonical formatter.
+# Running `ruff format` produces deterministic output identical to
+# `black` on the vast majority of cases (double-quoted strings,
+# trailing commas in multi-line collections, etc.). Declaring it here
+# pins the convention so contributor diffs don't churn on formatter
+# version drift.
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false

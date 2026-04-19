@@ -11,6 +11,100 @@ Format: one section per `contract_version`, newest first.
 
 ---
 
+## v0.5.7 — 2026-04-19 — Bimodal senesce + v0.5.6 postponement closure
+
+Contract-layer release with one user-visible contract-surface delta
+(R2 now names both PreCompact-full and SessionEnd-quick paths) and
+one new payload invariant (every `senesce` Result carries a `mode`
+key and a shape-stable `immune` field).
+
+Governing crafts:
+`docs/primordia/v0_5_7_senesce_quick_mode_craft_2026-04-19.md` (the
+bimodal-senesce design) and
+`docs/primordia/v0_5_7_release_craft_2026-04-19.md` (the release-
+closure audit that bundles all four v0.5.7 audit streams).
+
+### Contract surface at v0.5.7
+
+- **18 verbs** unchanged from v0.5.6 (17 agent + 1 human `brief`).
+  No new verb. The `senesce` verb gains one bool arg (`quick`,
+  default false) — manifest-level addition, not a verb addition.
+- **11 lint dimensions** unchanged from v0.5.6.
+- **R2 wording** expanded: *"Every session ends with `myco senesce`
+  — full (assimilate + immune --fix) on PreCompact, quick
+  (assimilate only) on SessionEnd. The canonical session-end is
+  the full form; quick is defense-in-depth for short-budget
+  hosts."* R1, R3-R7 unchanged.
+- **New payload invariant (promise across v0.5.x):** every
+  `senesce` Result payload has shape `{reflect: {...}, immune:
+  {...}, mode: "full"|"quick"}`. In quick mode, `immune` is
+  `{skipped: true, reason: <str>}`. In full mode, `immune` is the
+  full `run_immune` payload dict. Downstream consumers (`brief`,
+  hunger sidecar, MCP initialize echo) read `payload["immune"]`
+  unconditionally; both modes produce a dict.
+- **Hook layout: three hooks (was two)** — SessionStart,
+  PreCompact, SessionEnd — documented in `.claude/hooks/*.md`,
+  `hooks/hooks.json` description, and the L1 R2 enforcement
+  table.
+
+### What changed
+
+1. **R2 text upgrade** in `L1_CONTRACT/protocol.md` to name both
+   hook-bound execution paths and the full/quick split.
+2. **MCP instructions template** (`src/myco/surface/mcp.py`) —
+   the R2 echo updated to match the new L1 wording verbatim.
+   Every non-Claude-Code MCP client sees the upgraded contract at
+   `initialize`. Canonical verb name in the echo is now
+   `myco_senesce` (was `myco_session_end`) and `assimilate` (was
+   `reflect`).
+3. **`senesce` payload `mode` key** — additive, backward-
+   compatible. Old readers ignore it; new readers can switch on
+   it. The `immune: {skipped: true, ...}` shape in quick mode is
+   the invariant downstream consumers key on.
+4. **Editorial drift cleanup from v0.5.6 postponements** —
+   seventeen → eighteen verbs, ten → eleven dimensions, seven →
+   ten hosts, stale `metrics.test_count` in canon, plugin.json
+   description, R2 enforcement table across all 19+ doctrine /
+   surface files.
+5. **Mechanical CI baseline** — `.github/workflows/ci.yml` runs
+   ruff + mypy + pytest + immune + build + twine on push/PR.
+   Baseline lets the next release cycle depend on mechanical
+   enforcement of what v0.5.7 had to clean up by hand.
+
+### Break from v0.5.6
+
+None for substrate readers. v0.5.6 canons parse under v0.5.7
+unchanged. Every v0.5.6 verb invocation still resolves. The only
+user-visible behavior change is that installing the Myco plugin in
+Claude Code now registers a third SessionEnd hook — which simply
+runs `senesce --quick` at session exit. If a downstream has
+customized its Claude Code hooks config, the upgrade is additive
+(drop in the third hook block).
+
+### Doctrine files touched
+
+- `L1_CONTRACT/protocol.md` — R2 prose + enforcement table.
+- `L1_CONTRACT/versioning.md` — Current state block v0.5.6 →
+  v0.5.7.
+- `L1_CONTRACT/canon_schema.md` — Example YAML shape v0.5.6 →
+  v0.5.7 (dimension roster + affected_dimensions annotations).
+- `L1_CONTRACT/exit_codes.md` — `At v0.5.6 that list is empty` →
+  `v0.5.7`.
+- `L3_IMPLEMENTATION/command_manifest.md` — Verb inventory header
+  + senesce row `--quick` arg annotation.
+- `L3_IMPLEMENTATION/package_map.md` — Layout header + providers/
+  + symbionts/ + install/ state annotations.
+- `L3_IMPLEMENTATION/symbiont_protocol.md` — "Automated hosts at
+  v0.5.6" → v0.5.7.
+- `src/myco/surface/mcp.py` — `_INSTRUCTIONS_TEMPLATE` R2 line.
+- `src/myco/cycle/senesce.py` — quick-mode implementation + full
+  module docstring.
+- `MYCO.md` — finish-a-session block names both hooks.
+- Trilingual READMEs — verb table + daily-flow paragraph name
+  the SessionEnd/senesce-quick path.
+
+---
+
 ## v0.5.6 — 2026-04-17 — Doctrine realignment + mechanical LLM-boundary guard + bitter-lesson appendix
 
 A contract-layer release with two user-visible contract-surface

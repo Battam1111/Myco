@@ -16,9 +16,10 @@ second ``--fix`` pass is a silent no-op.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from datetime import timezone
 from string import Template
-from typing import Any, ClassVar, Iterable
+from typing import Any, ClassVar
 
 from myco.core.context import MycoContext
 from myco.core.severity import Severity
@@ -68,9 +69,7 @@ class M2EntryPointExists(Dimension):
                 path=entry,
             )
 
-    def fix(
-        self, ctx: MycoContext, finding: Finding
-    ) -> dict[str, Any]:
+    def fix(self, ctx: MycoContext, finding: Finding) -> dict[str, Any]:
         """Create the missing entry-point file from a skeleton template.
 
         Idempotent + narrow contract (v0.5.5):
@@ -106,9 +105,7 @@ class M2EntryPointExists(Dimension):
             }
 
         substrate_id = ctx.substrate.canon.substrate_id or "unnamed"
-        generated_at = ctx.now.astimezone(timezone.utc).strftime(
-            "%Y-%m-%dT%H:%M:%SZ"
-        )
+        generated_at = ctx.now.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         body = _ENTRY_POINT_TEMPLATE.substitute(
             substrate_id=substrate_id,
             generated_at=generated_at,

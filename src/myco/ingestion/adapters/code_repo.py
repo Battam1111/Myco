@@ -5,18 +5,29 @@ Walks the directory, delegates each ingestible file to
 Respects ``.gitignore`` patterns if the ``pathspec`` library is
 installed; otherwise falls back to a short hardcoded skip-list.
 """
+
 from __future__ import annotations
 
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Sequence
 
 from .protocol import Adapter, IngestResult
 from .text_file import TextFileAdapter
 
 _ALWAYS_SKIP = {
-    ".git", "__pycache__", "node_modules", ".venv", "venv",
-    ".tox", ".mypy_cache", ".ruff_cache", ".pytest_cache",
-    "dist", "build", ".eggs", "*.egg-info",
+    ".git",
+    "__pycache__",
+    "node_modules",
+    ".venv",
+    "venv",
+    ".tox",
+    ".mypy_cache",
+    ".ruff_cache",
+    ".pytest_cache",
+    "dist",
+    "build",
+    ".eggs",
+    "*.egg-info",
 }
 
 _MAX_FILES = 500
@@ -79,6 +90,7 @@ class CodeRepoAdapter(Adapter):
             return None
         try:
             import pathspec
+
             return pathspec.PathSpec.from_lines(
                 "gitwildmatch", gi.read_text(encoding="utf-8").splitlines()
             )

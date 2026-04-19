@@ -7,7 +7,18 @@ date: 2026-04-17
 rounds: 3
 craft_protocol_version: 1
 status: COMPILED
+children:
+  - v0_5_6_mp1_mycelium_purity_craft_2026-04-18.md
 ---
+
+> **Child crafts**: the MP1 dimension justification lives in its
+> own narrow craft at
+> `docs/primordia/v0_5_6_mp1_mycelium_purity_craft_2026-04-18.md`
+> — added at v0.5.7 release closure to give MP1's blacklist
+> roster + `providers/` opt-in package + `no_llm_in_substrate`
+> canon field their own reviewable record, separate from this
+> umbrella audit.
+
 
 # v0.5.6 — Doctrine Realignment + Mechanical LLM-Boundary Guard + Bitter-Lesson Note
 

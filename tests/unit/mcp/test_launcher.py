@@ -10,6 +10,7 @@ tests instead cover the surface contract:
   * ``main`` parses ``--help`` and ``--transport`` cleanly
   * an invalid ``--transport`` choice is rejected with exit code 2
 """
+
 from __future__ import annotations
 
 import pytest
@@ -28,6 +29,7 @@ def test_subpackage_exposes_main() -> None:
 def test_build_server_is_shared_with_surface_layer() -> None:
     """Re-export must be the same object, not a wrapper."""
     from myco.surface.mcp import build_server as surface_builder
+
     assert pkg.build_server is surface_builder
 
 
@@ -48,9 +50,7 @@ def test_invalid_transport_is_rejected() -> None:
 def test_parser_advertises_documented_transports() -> None:
     """Keep the transport surface coherent with :mod:`mcp.server.fastmcp`."""
     parser = pkg._build_parser()
-    transport_action = next(
-        a for a in parser._actions if a.dest == "transport"
-    )
+    transport_action = next(a for a in parser._actions if a.dest == "transport")
     assert set(transport_action.choices) == {"stdio", "sse", "streamable-http"}
     assert transport_action.default == "stdio"
 
@@ -59,6 +59,7 @@ def test_main_returns_2_when_mcp_sdk_missing(monkeypatch) -> None:
     """If the MCP SDK is absent, main reports it and exits 2 — never
     crashes with a raw ImportError.
     """
+
     def _raise(*_, **__):
         raise ImportError("No module named 'mcp.server.fastmcp'")
 

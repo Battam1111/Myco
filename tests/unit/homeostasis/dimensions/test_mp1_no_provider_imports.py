@@ -35,7 +35,6 @@ from myco.homeostasis.dimensions.mp1_no_provider_imports import (
 )
 from myco.homeostasis.finding import Category
 
-
 _MINIMAL_CANON = textwrap.dedent(
     """\
     schema_version: "1"
@@ -72,14 +71,12 @@ _CANON_OPTED_OUT = textwrap.dedent(
 )
 
 
-def _seed_substrate(
-    root: Path, canon: str = _MINIMAL_CANON
-) -> MycoContext:
+def _seed_substrate(root: Path, canon: str = _MINIMAL_CANON) -> MycoContext:
     """Write a canon + an empty ``src/myco/`` skeleton and return a ctx."""
     (root / "_canon.yaml").write_text(canon, encoding="utf-8")
     (root / "src" / "myco").mkdir(parents=True)
     (root / "src" / "myco" / "__init__.py").write_text(
-        "\"\"\"Kernel test fixture.\"\"\"\n", encoding="utf-8"
+        '"""Kernel test fixture."""\n', encoding="utf-8"
     )
     return MycoContext.for_testing(root=root)
 
@@ -185,9 +182,7 @@ def test_mp1_detects_nested_langchain(tmp_path: Path) -> None:
 def test_mp1_ignores_relative_imports(tmp_path: Path) -> None:
     """``from .pipeline import x`` is a relative import; MP1 ignores it."""
     ctx = _seed_substrate(tmp_path)
-    (tmp_path / "src" / "myco" / "pipeline.py").write_text(
-        "", encoding="utf-8"
-    )
+    (tmp_path / "src" / "myco" / "pipeline.py").write_text("", encoding="utf-8")
     (tmp_path / "src" / "myco" / "consumer.py").write_text(
         "from .pipeline import x  # noqa\n",
         encoding="utf-8",
@@ -202,9 +197,7 @@ def test_mp1_ignores_providers_directory(tmp_path: Path) -> None:
     providers_dir = tmp_path / "src" / "myco" / "providers"
     providers_dir.mkdir()
     (providers_dir / "__init__.py").write_text("", encoding="utf-8")
-    (providers_dir / "openai_bridge.py").write_text(
-        "import openai\n", encoding="utf-8"
-    )
+    (providers_dir / "openai_bridge.py").write_text("import openai\n", encoding="utf-8")
     findings = list(MP1NoProviderImports().run(ctx))
     assert findings == []
 
@@ -214,14 +207,10 @@ def test_mp1_ignores_pycache(tmp_path: Path) -> None:
     ctx = _seed_substrate(tmp_path)
     cache_dir = tmp_path / "src" / "myco" / "__pycache__"
     cache_dir.mkdir()
-    (cache_dir / "evil.cpython-312.py").write_text(
-        "import openai\n", encoding="utf-8"
-    )
+    (cache_dir / "evil.cpython-312.py").write_text("import openai\n", encoding="utf-8")
     hidden_dir = tmp_path / "src" / "myco" / ".hidden"
     hidden_dir.mkdir()
-    (hidden_dir / "sneaky.py").write_text(
-        "import openai\n", encoding="utf-8"
-    )
+    (hidden_dir / "sneaky.py").write_text("import openai\n", encoding="utf-8")
     findings = list(MP1NoProviderImports().run(ctx))
     assert findings == []
 

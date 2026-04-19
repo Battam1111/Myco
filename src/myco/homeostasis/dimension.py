@@ -23,7 +23,8 @@ and MB1); future dimensions follow the same shape.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, ClassVar, Iterable
+from collections.abc import Iterable
+from typing import Any, ClassVar
 
 from myco.core.context import MycoContext
 from myco.core.severity import Severity
@@ -73,9 +74,7 @@ class Dimension(ABC):
         dimension that crashes is a bug, not a finding.
         """
 
-    def fix(
-        self, ctx: MycoContext, finding: Finding
-    ) -> dict[str, Any]:
+    def fix(self, ctx: MycoContext, finding: Finding) -> dict[str, Any]:
         """Attempt to repair a single ``finding`` emitted by this dimension.
 
         Default implementation is a no-op that returns

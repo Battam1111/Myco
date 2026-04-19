@@ -13,8 +13,8 @@ state on every boot. Governing craft:
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Mapping
 
 from myco.core.context import MycoContext, Result
 from myco.surface.manifest import load_manifest, load_manifest_with_overlay
@@ -93,26 +93,28 @@ def _summarize_local_plugins(ctx: MycoContext) -> LocalPluginsSummary:
     # `count_by_kind` dict so the agent sees what's registered without
     # a second verb call.
     by_kind: dict[str, int] = {
-        "dimension": 0, "adapter": 0,
-        "schema_upgrader": 0, "overlay_verb": 0,
+        "dimension": 0,
+        "adapter": 0,
+        "schema_upgrader": 0,
+        "overlay_verb": 0,
     }
     try:
         from myco.homeostasis.registry import default_registry as _reg
 
         by_kind["dimension"] = len(_reg().all())
-    except Exception:  # noqa: BLE001
+    except Exception:
         pass
     try:
         from myco.ingestion.adapters import all_adapters
 
         by_kind["adapter"] = len(list(all_adapters()))
-    except Exception:  # noqa: BLE001
+    except Exception:
         pass
     try:
         from myco.core.canon import schema_upgraders
 
         by_kind["schema_upgrader"] = len(schema_upgraders)
-    except Exception:  # noqa: BLE001
+    except Exception:
         pass
 
     overlay_verbs: tuple[str, ...] = ()
@@ -123,8 +125,8 @@ def _summarize_local_plugins(ctx: MycoContext) -> LocalPluginsSummary:
             c.name for c in merged.commands if c.name not in base_names
         )
         by_kind["overlay_verb"] = len(overlay_verbs)
-    except Exception as exc:  # noqa: BLE001
-        errors = errors + (f"manifest overlay parse failed: {exc}",)
+    except Exception as exc:
+        errors = (*errors, f"manifest overlay parse failed: {exc}")
 
     count = sum(by_kind.values())
     return LocalPluginsSummary(
@@ -163,9 +165,7 @@ def compose_hunger_report(ctx: MycoContext) -> HungerReport:
             f"synced={synced}; run `myco reflect`"
         )
     if raw_backlog > 0:
-        advice_parts.append(
-            f"raw_backlog={raw_backlog}; consider `myco digest`"
-        )
+        advice_parts.append(f"raw_backlog={raw_backlog}; consider `myco digest`")
     if not advice_parts:
         advice_parts.append("substrate quiet; no action required")
 

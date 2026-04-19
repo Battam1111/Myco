@@ -18,11 +18,12 @@ Library users embedding the server in their own process can import
     server = build_server()
     server.run(transport="stdio")
 """
+
 from __future__ import annotations
 
 import argparse
 import sys
-from typing import Sequence
+from collections.abc import Sequence
 
 from myco.core.io import ensure_utf8_stdio
 from myco.surface.mcp import build_server

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import warnings
-from typing import Iterable
+from collections.abc import Iterable
 
 import pytest
 
@@ -23,7 +23,7 @@ class _Dim(Dimension):
     category = Category.MECHANICAL
     default_severity = Severity.LOW
 
-    def run(self, ctx) -> Iterable[Finding]:  # noqa: ARG002
+    def run(self, ctx) -> Iterable[Finding]:
         return ()
 
 
@@ -32,7 +32,7 @@ class _Dim2(Dimension):
     category = Category.SEMANTIC
     default_severity = Severity.HIGH
 
-    def run(self, ctx) -> Iterable[Finding]:  # noqa: ARG002
+    def run(self, ctx) -> Iterable[Finding]:
         return ()
 
 
@@ -100,7 +100,7 @@ def test_discover_dimension_classes_fallback_warns(
     DeprecationWarning so dev-checkout users know to ``pip install -e .``."""
     import myco.homeostasis.dimensions as _dims
 
-    def _empty_entry_points(group: str):  # noqa: ARG001
+    def _empty_entry_points(group: str):
         return ()
 
     monkeypatch.setattr(_dims, "entry_points", _empty_entry_points)
@@ -112,6 +112,6 @@ def test_discover_dimension_classes_fallback_warns(
     # Fallback must still yield the built-ins (they come from the
     # `_BUILT_IN` tuple when entry-points is empty).
     assert len(result) == len(_dims._BUILT_IN)
-    assert any(
-        issubclass(w.category, DeprecationWarning) for w in caught
-    ), "expected DeprecationWarning on fallback path"
+    assert any(issubclass(w.category, DeprecationWarning) for w in caught), (
+        "expected DeprecationWarning on fallback path"
+    )

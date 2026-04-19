@@ -119,9 +119,7 @@ def test_graph_records_unresolved_as_dangling_edge(
     )
     g = build_graph(ctx)
     md_edges = [
-        e
-        for e in g.edges
-        if e.kind == "markdown_link" and e.src.endswith("bad.md")
+        e for e in g.edges if e.kind == "markdown_link" and e.src.endswith("bad.md")
     ]
     # Edge is still recorded (dst is relative path that won't exist);
     # perfuse will flag it as dangling.

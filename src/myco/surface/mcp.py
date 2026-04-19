@@ -22,15 +22,16 @@ through the same dispatcher the CLI uses.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Mapping, Optional
+from typing import Any
 
 from .manifest import CommandSpec, Manifest, dispatch, load_manifest
 
 try:  # pyyaml is a hard dep, but load failures should not break imports
-    import yaml  # noqa: F401
+    import yaml
 except Exception:  # pragma: no cover
-    yaml = None  # type: ignore[assignment]
+    yaml = None  # type: ignore[assignment,unused-ignore]
 
 __all__ = ["build_server", "build_tool_spec", "build_initialization_instructions"]
 
@@ -59,8 +60,11 @@ The Hard Contract (R1-R7, full text at
 docs/architecture/L1_CONTRACT/protocol.md) governs every session:
 
   R1  Boot ritual      — call myco_hunger first in every session.
-  R2  Session-end      — call myco_session_end (reflect + immune --fix)
-                          before compaction.
+  R2  Session-end      — call myco_senesce (assimilate + immune --fix)
+                          before compaction (PreCompact hook). On abrupt
+                          exit with a ~1.5 s kill budget (SessionEnd hook)
+                          call myco_senesce with quick=true — assimilate
+                          only; immune runs at the next SessionStart.
   R3  Sense before     — call myco_sense before asserting a substrate
       assert              fact. Memory is not a source.
   R4  Eat insights     — capture decisions / frictions via myco_eat the
@@ -97,7 +101,7 @@ def build_initialization_instructions(manifest: Manifest | None = None) -> str:
 # ---------------------------------------------------------------------------
 
 
-def _load_canon(project_dir: Optional[Path] = None) -> dict[str, Any]:
+def _load_canon(project_dir: Path | None = None) -> dict[str, Any]:
     """Best-effort canon read. Never raises — the pulse degrades
     gracefully if the substrate is absent or unreadable.
     """
@@ -108,7 +112,7 @@ def _load_canon(project_dir: Optional[Path] = None) -> dict[str, Any]:
         canon_path = candidate / "_canon.yaml"
         if canon_path.exists():
             try:
-                with open(canon_path, "r", encoding="utf-8") as fh:
+                with open(canon_path, encoding="utf-8") as fh:
                     return yaml.safe_load(fh) or {}
             except Exception:
                 return {}
@@ -117,7 +121,7 @@ def _load_canon(project_dir: Optional[Path] = None) -> dict[str, Any]:
 
 def _compute_substrate_pulse(
     verb: str,
-    project_dir: Optional[Path] = None,
+    project_dir: Path | None = None,
     hunger_called: bool = False,
 ) -> dict[str, Any]:
     """Produce the sidecar payload attached to every tool response.
@@ -267,8 +271,7 @@ def build_server(manifest: Manifest | None = None):  # pragma: no cover - integr
                 _make_handler(spec),
                 name=legacy_name,
                 description=(
-                    f"[deprecated alias for {spec.mcp_tool!r}] "
-                    f"{spec.summary}"
+                    f"[deprecated alias for {spec.mcp_tool!r}] {spec.summary}"
                 ),
             )
     return server

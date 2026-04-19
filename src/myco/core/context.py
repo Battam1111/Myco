@@ -17,11 +17,12 @@ is typed as ``tuple[Any, ...]`` — it will be tightened to
 from __future__ import annotations
 
 import os
+import sys
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Mapping, TextIO
-import sys
+from typing import Any, TextIO
 
 from .substrate import Substrate
 
@@ -53,7 +54,7 @@ class MycoContext:
         env: Mapping[str, str] | None = None,
         stdout: TextIO | None = None,
         stderr: TextIO | None = None,
-    ) -> "MycoContext":
+    ) -> MycoContext:
         """Construct a ``MycoContext`` for tests.
 
         Either ``root`` (load the substrate at that path) or
