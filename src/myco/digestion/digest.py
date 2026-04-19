@@ -7,8 +7,7 @@ existing ``notes/integrated/n_<id>.md``, returns exit 0 with
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Mapping
+from collections.abc import Mapping
 
 from myco.core.context import MycoContext, Result
 from myco.core.errors import UsageError
@@ -32,9 +31,7 @@ def digest_one(
     """Promote a single note by ``note_id`` (filename stem, with or without ``n_``)."""
     stem = _normalize_id(note_id)
     raw_path = ctx.substrate.paths.notes / "raw" / f"{stem}.md"
-    integrated_path = (
-        ctx.substrate.paths.notes / "integrated" / f"n_{stem}.md"
-    )
+    integrated_path = ctx.substrate.paths.notes / "integrated" / f"n_{stem}.md"
 
     if integrated_path.is_file():
         return {
@@ -46,13 +43,10 @@ def digest_one(
 
     if not raw_path.is_file():
         raise UsageError(
-            f"unknown note id: {note_id} "
-            f"(looked for {raw_path} and {integrated_path})"
+            f"unknown note id: {note_id} (looked for {raw_path} and {integrated_path})"
         )
 
-    target = promote_to_integrated(
-        ctx=ctx, raw_path=raw_path, dry_run=dry_run
-    )
+    target = promote_to_integrated(ctx=ctx, raw_path=raw_path, dry_run=dry_run)
     return {
         "status": "dry_run" if dry_run else "promoted",
         "path": str(target),

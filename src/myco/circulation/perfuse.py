@@ -7,11 +7,12 @@ v0.5.2 public symbols.
 
 Scheduled for removal at v1.0.0.
 """
+
 from __future__ import annotations
 
 import warnings as _w
 
-from .traverse import perfuse, run, Scope
+from .traverse import Scope, perfuse, run
 
 __all__ = ["perfuse", "run", "Scope"]
 

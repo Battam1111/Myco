@@ -11,8 +11,8 @@ The set of affected dimensions is canon-driven
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import replace
-from typing import Iterable
 
 from myco.core.context import MycoContext
 from myco.core.severity import Severity

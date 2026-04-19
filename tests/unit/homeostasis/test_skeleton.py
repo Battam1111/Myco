@@ -66,7 +66,7 @@ def test_downgrades_affected_when_skeleton(
     ctx = _mk_ctx(tmp_path)
     fs = [
         _mk_finding("L0", Severity.CRITICAL),
-        _mk_finding("L1", Severity.HIGH),       # not CRITICAL, unchanged
+        _mk_finding("L1", Severity.HIGH),  # not CRITICAL, unchanged
         _mk_finding("L2", Severity.CRITICAL),  # not affected, unchanged
     ]
     out = apply_skeleton_downgrade(fs, ctx=ctx)

@@ -28,9 +28,9 @@ Governing doctrine: ``docs/architecture/L2_DOCTRINE/digestion.md``
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping, Sequence
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Mapping, Sequence
 
 from myco.core.context import MycoContext, Result
 from myco.core.errors import ContractError, UsageError
@@ -75,16 +75,13 @@ def distill_proposal(
     """
     if not _SLUG_RE.match(slug):
         raise UsageError(
-            f"invalid distill slug {slug!r}: must match "
-            f"[a-z][a-z0-9_-]{{0,63}}"
+            f"invalid distill slug {slug!r}: must match [a-z][a-z0-9_-]{{0,63}}"
         )
 
     distilled_dir = ctx.substrate.paths.notes / "distilled"
     target = distilled_dir / f"d_{slug}.md"
     if target.exists():
-        raise ContractError(
-            f"distilled proposal already exists: {target}"
-        )
+        raise ContractError(f"distilled proposal already exists: {target}")
 
     if sources is None:
         source_paths = _integrated_notes(ctx)
@@ -95,9 +92,7 @@ def distill_proposal(
             try:
                 p.relative_to(ctx.substrate.root.resolve())
             except ValueError as exc:
-                raise ContractError(
-                    f"distill source escapes substrate: {rel}"
-                ) from exc
+                raise ContractError(f"distill source escapes substrate: {rel}") from exc
             if not p.is_file():
                 raise ContractError(f"distill source missing: {rel}")
             source_paths.append(p)
@@ -113,8 +108,7 @@ def distill_proposal(
 
     root = ctx.substrate.root.resolve()
     rel_sources = [
-        str(p.resolve().relative_to(root)).replace("\\", "/")
-        for p in source_paths
+        str(p.resolve().relative_to(root)).replace("\\", "/") for p in source_paths
     ]
 
     # Derive shared tags and a theme sentence from sources
@@ -142,7 +136,7 @@ def distill_proposal(
         "## Source summaries",
         "",
     ]
-    for path, rel in zip(source_paths, rel_sources):
+    for path, rel in zip(source_paths, rel_sources, strict=False):
         body_lines.append(f"- `{rel}` — {_summary_line(path)}")
     body_lines.append("")
     if summaries:
@@ -157,8 +151,7 @@ def distill_proposal(
             body_lines.append(f"- {s}")
         body_lines.append("")
     body_lines.append(
-        "Promote to L2 doctrine via craft (see "
-        "`docs/architecture/L2_DOCTRINE/`)."
+        "Promote to L2 doctrine via craft (see `docs/architecture/L2_DOCTRINE/`)."
     )
     body = "\n".join(body_lines) + "\n"
 

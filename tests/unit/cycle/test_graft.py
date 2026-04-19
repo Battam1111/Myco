@@ -1,0 +1,162 @@
+"""Tests for ``myco.cycle.graft`` — substrate-local plugin introspection.
+
+Graft has three mutually-exclusive modes (``--list`` / ``--validate`` /
+``--explain <name>``). This file covers:
+
+* mode-dispatch semantics (usage errors on no-mode / multi-mode),
+* the ``--list`` payload shape (every built-in dimension + every
+  built-in adapter shows up with kind/name/source),
+* the ``--validate`` pass on a clean substrate (no errors, returns
+  zero),
+* the ``--explain`` pass for known and unknown plugin names.
+
+Coverage gap closed at v0.5.7 — graft had 0% test coverage before.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+
+from myco.core.context import MycoContext
+from myco.core.errors import UsageError
+from myco.cycle.graft import run as graft_run
+
+
+def _mk_ctx(root: Path) -> MycoContext:
+    return MycoContext.for_testing(root=root)
+
+
+# ---------------------------------------------------------------------------
+# Mode dispatch — usage errors
+# ---------------------------------------------------------------------------
+
+
+def test_no_mode_raises_usage_error(genesis_substrate: Path) -> None:
+    """Passing no flag is a usage error — must specify one of the
+    three modes explicitly."""
+    ctx = _mk_ctx(genesis_substrate)
+    with pytest.raises(UsageError, match="specify exactly one"):
+        graft_run({}, ctx=ctx)
+
+
+def test_two_modes_at_once_raises(genesis_substrate: Path) -> None:
+    """The three modes are mutually exclusive."""
+    ctx = _mk_ctx(genesis_substrate)
+    with pytest.raises(UsageError, match="mutually exclusive"):
+        graft_run({"list": True, "validate": True}, ctx=ctx)
+
+
+def test_list_and_explain_at_once_raises(genesis_substrate: Path) -> None:
+    ctx = _mk_ctx(genesis_substrate)
+    with pytest.raises(UsageError, match="mutually exclusive"):
+        graft_run({"list": True, "explain": "M1"}, ctx=ctx)
+
+
+# ---------------------------------------------------------------------------
+# --list mode
+# ---------------------------------------------------------------------------
+
+
+def test_list_mode_enumerates_dimensions(genesis_substrate: Path) -> None:
+    """--list returns every built-in dimension (M1, M2, ..., MP1, SE1,
+    SE2 — 11 dimensions at v0.5.7) under kind=dimension."""
+    ctx = _mk_ctx(genesis_substrate)
+    result = graft_run({"list": True}, ctx=ctx)
+    assert result.exit_code == 0
+    plugins = result.payload["plugins"]
+    dim_names = {p["name"] for p in plugins if p["kind"] == "dimension"}
+    # A few representative dimensions that must be present.
+    assert {"M1", "MP1", "SE1", "MB1"} <= dim_names
+
+
+def test_list_mode_enumerates_adapters(genesis_substrate: Path) -> None:
+    """--list returns built-in adapters under kind=adapter."""
+    ctx = _mk_ctx(genesis_substrate)
+    result = graft_run({"list": True}, ctx=ctx)
+    kinds = {p["kind"] for p in result.payload["plugins"]}
+    # Adapter kind present means the ingestion module loaded.
+    assert "adapter" in kinds
+
+
+def test_list_mode_every_plugin_has_shape(genesis_substrate: Path) -> None:
+    """Every plugin entry has keys: kind, name, source."""
+    ctx = _mk_ctx(genesis_substrate)
+    result = graft_run({"list": True}, ctx=ctx)
+    for entry in result.payload["plugins"]:
+        assert set(entry.keys()) >= {"kind", "name", "source"}
+        assert entry["kind"] in {
+            "dimension",
+            "adapter",
+            "schema_upgrader",
+            "overlay_verb",
+        }
+
+
+# ---------------------------------------------------------------------------
+# --validate mode
+# ---------------------------------------------------------------------------
+
+
+def test_validate_clean_substrate_returns_zero(genesis_substrate: Path) -> None:
+    """On a fresh substrate with no .myco/plugins/, --validate exits 0
+    with an empty errors list."""
+    ctx = _mk_ctx(genesis_substrate)
+    result = graft_run({"validate": True}, ctx=ctx)
+    assert result.exit_code == 0
+    assert result.payload["errors"] == []
+
+
+def test_validate_reports_errors_key_in_payload(genesis_substrate: Path) -> None:
+    """Payload always has an ``errors`` list (possibly empty)."""
+    ctx = _mk_ctx(genesis_substrate)
+    result = graft_run({"validate": True}, ctx=ctx)
+    assert "errors" in result.payload
+    assert isinstance(result.payload["errors"], list)
+
+
+# ---------------------------------------------------------------------------
+# --explain mode
+# ---------------------------------------------------------------------------
+
+
+def test_explain_known_dimension_returns_details(genesis_substrate: Path) -> None:
+    """--explain M1 → a payload describing the M1 dimension.
+
+    Payload shape is ``{mode: "explain", name, kind, source, docstring}``
+    with the explanation fields spread at top level (not nested under
+    an ``explanation`` key).
+    """
+    ctx = _mk_ctx(genesis_substrate)
+    result = graft_run({"explain": "M1"}, ctx=ctx)
+    assert result.exit_code == 0
+    payload = result.payload
+    assert payload["mode"] == "explain"
+    assert payload["name"] == "M1"
+    assert payload["kind"] == "dimension"
+    assert payload["source"] != ""
+    # M1 has a non-empty class docstring.
+    assert payload["docstring"]
+
+
+def test_explain_unknown_name_raises(genesis_substrate: Path) -> None:
+    """--explain <missing> is a usage error pointing at --list."""
+    ctx = _mk_ctx(genesis_substrate)
+    with pytest.raises(UsageError, match="unknown plugin name"):
+        graft_run({"explain": "NONEXISTENT_DIM"}, ctx=ctx)
+
+
+# ---------------------------------------------------------------------------
+# Result payload integration
+# ---------------------------------------------------------------------------
+
+
+def test_list_result_has_count_field(genesis_substrate: Path) -> None:
+    """--list exposes a ``count`` for cheap summaries."""
+    ctx = _mk_ctx(genesis_substrate)
+    result = graft_run({"list": True}, ctx=ctx)
+    assert "count" in result.payload
+    assert result.payload["count"] == len(result.payload["plugins"])
+    # Sanity: at least the 11 built-in dimensions plus some adapters.
+    assert result.payload["count"] >= 11

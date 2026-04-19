@@ -6,9 +6,9 @@ import textwrap
 from pathlib import Path
 
 from myco.core.context import MycoContext
+from myco.core.severity import Severity
 from myco.homeostasis.dimensions.m2_entry_point_exists import M2EntryPointExists
 from myco.homeostasis.finding import Category, Finding
-from myco.core.severity import Severity
 
 
 def test_fires_when_entry_file_missing(seeded_substrate: Path) -> None:

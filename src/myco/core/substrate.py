@@ -20,7 +20,6 @@ import sys
 import threading
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Tuple
 
 from .canon import Canon, load_canon
 from .errors import CanonSchemaError, SubstrateNotFound
@@ -64,9 +63,7 @@ def find_substrate_root(start: Path) -> Path:
         load_canon(canon_path)
         return candidate
 
-    raise SubstrateNotFound(
-        f"no _canon.yaml found walking up from {start}"
-    )
+    raise SubstrateNotFound(f"no _canon.yaml found walking up from {start}")
 
 
 @dataclass(frozen=True)
@@ -173,15 +170,13 @@ def load_local_plugins(
                 return LocalPluginLoadResult(
                     loaded=False,
                     module_name=module_name,
-                    errors=(
-                        f"could not build import spec for {init_file}",
-                    ),
+                    errors=(f"could not build import spec for {init_file}",),
                 )
             module = importlib.util.module_from_spec(spec)
             sys.modules[module_name] = module
             try:
                 spec.loader.exec_module(module)
-            except Exception as exc:  # noqa: BLE001 - defensive for plugin failures
+            except Exception as exc:
                 # Back out the sys.modules registration + path inject so
                 # the environment is unchanged by a broken plugin.
                 sys.modules.pop(module_name, None)
@@ -193,11 +188,9 @@ def load_local_plugins(
                 return LocalPluginLoadResult(
                     loaded=False,
                     module_name=module_name,
-                    errors=(
-                        f"{type(exc).__name__}: {exc}",
-                    ),
+                    errors=(f"{type(exc).__name__}: {exc}",),
                 )
-        except Exception as exc:  # noqa: BLE001 - spec building edge cases
+        except Exception as exc:
             if path_injected and myco_dir in sys.path:
                 try:
                     sys.path.remove(myco_dir)
@@ -209,9 +202,7 @@ def load_local_plugins(
                 errors=(f"{type(exc).__name__}: {exc}",),
             )
 
-    return LocalPluginLoadResult(
-        loaded=True, module_name=module_name, errors=()
-    )
+    return LocalPluginLoadResult(loaded=True, module_name=module_name, errors=())
 
 
 @dataclass(frozen=True)
@@ -228,14 +219,14 @@ class Substrate:
     #: Tuple of human-readable error strings captured during local plugin
     #: load. Empty when the load was clean (whether or not any plugins
     #: were found). Never re-raises; broken plugins must not brick load.
-    local_plugin_errors: Tuple[str, ...] = field(default_factory=tuple)
+    local_plugin_errors: tuple[str, ...] = field(default_factory=tuple)
     #: Isolated module name the plugin package was imported under. Used
     #: by ``graft --explain`` / ``graft --validate`` to introspect the
     #: already-loaded plugin space without re-importing.
     local_plugins_module: str | None = None
 
     @classmethod
-    def load(cls, root: Path) -> "Substrate":
+    def load(cls, root: Path) -> Substrate:
         """Load a substrate given its root (no walk-up).
 
         Raises ``CanonSchemaError`` if ``root/_canon.yaml`` is missing
@@ -246,9 +237,7 @@ class Substrate:
         root = root.resolve()
         canon_path = root / "_canon.yaml"
         if not canon_path.is_file():
-            raise CanonSchemaError(
-                f"_canon.yaml not found at substrate root: {root}"
-            )
+            raise CanonSchemaError(f"_canon.yaml not found at substrate root: {root}")
         canon = load_canon(canon_path)
         plugin_result = load_local_plugins(root, canon=canon)
         return cls(
@@ -261,7 +250,7 @@ class Substrate:
         )
 
     @classmethod
-    def discover(cls, start: Path) -> "Substrate":
+    def discover(cls, start: Path) -> Substrate:
         """Walk up from ``start`` and load the innermost substrate."""
         root = find_substrate_root(start)
         return cls.load(root)

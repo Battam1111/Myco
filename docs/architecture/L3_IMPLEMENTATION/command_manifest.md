@@ -132,7 +132,7 @@ lint run:
 - No orphan entries in the manifest pointing at non-existent handlers.
 - CLI subcommand set == MCP tool set (no divergence).
 
-## Verb inventory (v0.5.6)
+## Verb inventory (v0.5.7)
 
 v0.4.0 shipped twelve verbs. v0.5.1 added four governance verbs
 (MAJOR 9 and 10) to reach sixteen. v0.5.3 **renamed nine** existing
@@ -142,12 +142,19 @@ deprecated aliases throughout 0.x) and **added one** new verb
 carved human-facing exception to L0 principle 1. Current total:
 **eighteen verbs** (17 agent + 1 human).
 
-At v0.5.6 the dimension roster that polices the manifest gains
+At v0.5.6 the dimension roster that polices the manifest gained
 **MP1** (mechanical/HIGH — "no LLM-provider import from inside
 `src/myco/**` unless `canon.system.no_llm_in_substrate: false`").
 MP1 is the mechanical guard behind the "Agent calls LLM; substrate
 does not" invariant. See `L2_DOCTRINE/homeostasis.md` for the
 dimension enumeration.
+
+At v0.5.7 the `senesce` verb gains a `--quick` bool arg (default
+false). Quick mode runs `assimilate` only; skips `immune --fix`.
+Bound to the Claude Code `SessionEnd` hook (~1.5 s kill budget).
+Full mode (no `--quick`) is unchanged and remains bound to
+`PreCompact` (blocking). See
+`docs/primordia/v0_5_7_senesce_quick_mode_craft_2026-04-19.md`.
 
 | Subsystem | Verb | Alias (deprecated) | Handler |
 |---|---|---|---|
@@ -230,10 +237,14 @@ were previously Markdown-social conventions or hand-edits:
   hyphae onto the mycelial network. Introspection-only; authoring
   happens via `ramify --dimension` / `--adapter` / `--verb` with
   `--substrate-local`.
-- **`myco senesce`** (alias: `session-end`) — the end-of-session
-  composer: runs `assimilate` then `immune --fix` before
-  compaction. Biology: senescence is aging into dormancy before
-  sleep.
+- **`myco senesce [--quick]`** (alias: `session-end`) — the end-
+  of-session composer. Default (full) mode runs `assimilate` then
+  `immune --fix`; bound to the PreCompact hook (blocking).
+  `--quick` (v0.5.7) runs `assimilate` only; bound to the
+  SessionEnd hook (~1.5 s kill). Biology: senescence is aging into
+  dormancy before sleep — quick mode is fast-dormancy (close cell
+  walls only), full mode is seasonal dormancy (close + prune +
+  reinforce).
 
 ### Brief — the one carved human-facing exception
 

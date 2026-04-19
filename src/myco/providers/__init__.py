@@ -38,7 +38,7 @@ Adding a real provider is reversible: delete the module, flip the
 canon field back to ``true``, bump the contract again. MP1 will
 start enforcing on the next ``myco immune`` pass.
 
-For most substrates — including Myco's self-substrate at v0.5.6 —
+For most substrates — including Myco's self-substrate at v0.5.7 —
 this package should remain empty. The escape hatch exists so the
 invariant stays true-by-mechanism rather than
 true-because-nobody-needed-to-break-it; embedded provider coupling

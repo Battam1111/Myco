@@ -4,11 +4,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from myco.core.context import MycoContext
-from myco.cycle.winnow import run as winnow_run
 from myco.cycle.fruit import run as fruit_run
+from myco.cycle.winnow import run as winnow_run
 
 
 def _ctx(root: Path) -> MycoContext:

@@ -63,7 +63,7 @@ This works now, not because the idea is new, but because agents are finally inte
 
 **The agent** brings intelligence. It reads your words, reads Myco, picks verbs, writes back.
 
-**Myco** runs a metabolism. Between your turns the agent asks what is missing (`hunger`), takes in raw material (`eat`), cooks raw into structured knowledge (`assimilate`, `digest`, `sporulate`), defends its identity against drift (`immune`), and propagates learning across projects (`propagate`). Seventeen verbs, one manifest, two surfaces: a CLI for observation, an MCP server for the agent to drive. **Every verb is a fungal biology term whose meaning matches what the verb does** — `germinate` starts a colony, `fruit` produces reproductive structure, `molt` sheds the old form, `ramify` branches out, `graft` fuses foreign hyphae onto the network.
+**Myco** runs a metabolism. Between your turns the agent asks what is missing (`hunger`), takes in raw material (`eat`), cooks raw into structured knowledge (`assimilate`, `digest`, `sporulate`), defends its identity against drift (`immune`), and propagates learning across projects (`propagate`). Eighteen verbs (17 agent + 1 human-facing `brief`), one manifest, two surfaces: a CLI for observation, an MCP server for the agent to drive. **Every verb is a fungal biology term whose meaning matches what the verb does** — `germinate` starts a colony, `fruit` produces reproductive structure, `molt` sheds the old form, `ramify` branches out, `graft` fuses foreign hyphae onto the network, `senesce` ages into dormancy (full at `/compact`, `--quick` at non-compact session exits).
 
 > **Editable by default. The kernel IS substrate.** Myco's own source tree is a substrate (it has `_canon.yaml`, `MYCO.md`, `docs/primordia/`). The kernel code under `src/myco/` is just the innermost ring. Freezing that ring into a read-only `site-packages` contradicts 永恒进化 + 永恒迭代 — the agent would be a consumer of code someone else wrote, not the author of code it maintains. So the primary install path clones the source and `pip install -e`s it. PyPI still exists as a bootstrap channel and as a library-consumer path; it is not the normal install.
 
@@ -97,9 +97,9 @@ cd ~/myco && git pull && myco immune        # verify no post-upgrade drift
 
 Three scripts land on your PATH:
 
-- `myco`: the seventeen-verb CLI.
+- `myco`: the eighteen-verb CLI (17 agent + 1 human-facing `brief`).
 - `mcp-server-myco`: the universal MCP stdio launcher. Drop it into any host.
-- `myco-install`: one-command install into any of seven MCP hosts.
+- `myco-install`: one-command install into any of ten MCP hosts (Claude Code, Claude Desktop, Cursor, Windsurf, Zed, VS Code, OpenClaw, Gemini CLI, Codex CLI, Goose).
 
 For **Claude Code and Cowork**, the official plugin wires the MCP server, hooks, and slash skills in one step:
 
@@ -152,7 +152,7 @@ pytest
 
 ## Daily Flow
 
-The agent drives it. You memorize nothing. Seventeen verbs group into six subsystems. Every old name from v0.5.2 still resolves (with a one-shot `DeprecationWarning`) — aliases carry through to v1.0.0.
+The agent drives it. You memorize nothing. Eighteen verbs (17 agent + 1 human-facing `brief`) group into six subsystems. Every old name from v0.5.2 still resolves (with a one-shot `DeprecationWarning`) — aliases carry through to v1.0.0.
 
 | Subsystem | Verb | Alias (deprecated) | What it does |
 |---|---|---|---|
@@ -166,13 +166,14 @@ The agent drives it. You memorize nothing. Seventeen verbs group into six subsys
 | **Digestion** | `sporulate` | `distill` | Concentrate integrated notes into a dispersible proposal |
 | **Circulation** | `traverse` | `perfuse` | Walk the mycelial graph for anastomotic health |
 | **Circulation** | `propagate` |  | Publish integrated / distilled content to a downstream substrate |
-| **Homeostasis** | `immune` |  | Ten-dimension lint across four categories, with `--fix` |
-| **Cycle** | `senesce` | `session-end` | Aging into dormancy: `assimilate` + `immune --fix` before compaction |
+| **Homeostasis** | `immune` |  | Eleven-dimension lint across four categories, with `--fix` |
+| **Cycle** | `senesce [--quick]` | `session-end` | Aging into dormancy: full (`assimilate` + `immune --fix`) at `/compact`, quick (`assimilate` only) at SessionEnd |
 | **Cycle** | `fruit` | `craft` | Fruit a three-round primordia proposal doc |
 | **Cycle** | `molt` | `bump` | Shed the old contract version for a new one |
 | **Cycle** | `winnow` | `evolve` | Winnow a proposal's shape against craft-protocol gates |
 | **Cycle** | `ramify` | `scaffold` | Branch out: scaffold a new verb / dimension / adapter |
 | **Cycle** | `graft` |  | Enumerate / validate / explain substrate-local plugins |
+| **Cycle** | `brief` |  | Human-facing markdown rollup of substrate state (L0 principle 1's single carved exception) |
 
 CLI usage is `myco VERB`, with global flags (`--project-dir`, `--json`, `--exit-on`) placed **before** the verb. MCP exposes one tool per verb, derived mechanically from `src/myco/surface/manifest.yaml`, the shared source of truth. Deprecated aliases resolve to the same handler and also register their legacy MCP tool names (`myco_genesis`, `myco_craft`, …) so cached v0.5.2 invocations keep working.
 
@@ -190,7 +191,7 @@ You ──▶ Agent ──▶ Myco substrate
                     ├── docs/architecture/ L0 vision · L1 contract · L2 doctrine · L3 impl
                     ├── src/myco/          germination · ingestion · digestion · circulation · homeostasis · cycle · surface
                     ├── .myco/plugins/     substrate-local dimensions · adapters · verbs (optional)
-                    └── .claude/hooks/     SessionStart → hunger · PreCompact → senesce
+                    └── .claude/hooks/     SessionStart → hunger · PreCompact → senesce (full) · SessionEnd → senesce --quick
 ```
 
 Seven hard rules (R1 through R7) are enforced partly by hooks, partly by the immune system, partly by agent discipline. Full contract at [`L1_CONTRACT/protocol.md`](docs/architecture/L1_CONTRACT/protocol.md).
@@ -207,7 +208,7 @@ Zero host-side configuration. Works on every MCP client.
 ## Integrations
 
 - **Claude Code and Cowork**: `/plugin marketplace add Battam1111/Myco`, then `/plugin install myco@myco`. Or drop `.claude/` in by hand.
-- **Any MCP host**: `myco-install <client>` for the seven most common hosts, `mcp-server-myco` over stdio anywhere else. Exact per-host snippets live in [`docs/INSTALL.md`](docs/INSTALL.md).
+- **Any MCP host**: `myco-install <client>` for the ten automated hosts (Claude Code, Claude Desktop, Cursor, Windsurf, Zed, VS Code, OpenClaw, Gemini CLI, Codex CLI, Goose), `mcp-server-myco` over stdio anywhere else. Exact per-host snippets live in [`docs/INSTALL.md`](docs/INSTALL.md).
 - **Python agent frameworks**: LangChain, CrewAI, DSPy, Smolagents, Agno, PraisonAI, Microsoft Agent Framework, and Claude Agent SDK all consume Myco via `StdioServerParameters(command="mcp-server-myco")`.
 - **Downstream substrates**: `myco propagate` publishes; adapters live in `myco.symbionts`.
 

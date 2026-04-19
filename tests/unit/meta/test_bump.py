@@ -6,16 +6,16 @@ import textwrap
 from pathlib import Path
 
 import pytest
-
-from myco.core.canon import load_canon
-from myco.core.context import MycoContext
-from myco.core.errors import ContractError, UsageError
 from myco.meta.bump import (
     _VERSION_RE,
     _insert_changelog_entry,
     _patch_canon_field,
     run,
 )
+
+from myco.core.canon import load_canon
+from myco.core.context import MycoContext
+from myco.core.errors import ContractError, UsageError
 
 
 def _ctx(root: Path) -> MycoContext:

@@ -7,20 +7,18 @@ supports session hooks. Tests here pin the contract of that sidecar
 so future refactors cannot silently drop the substrate_pulse or
 strip the R1-R7 block from the initialization instructions.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
+from myco.surface.manifest import load_manifest
 from myco.surface.mcp import (
-    _ServerState,
     _compute_substrate_pulse,
     _invoke,
+    _ServerState,
     build_initialization_instructions,
 )
-from myco.surface.manifest import load_manifest
-
 
 # ---------------------------------------------------------------------------
 # build_initialization_instructions
@@ -58,8 +56,7 @@ def test_instructions_mention_substrate_pulse_field() -> None:
 
 def test_pulse_has_required_keys() -> None:
     pulse = _compute_substrate_pulse("hunger")
-    for key in ("substrate_id", "contract_version", "hard_contract_ref",
-                "rules_hint"):
+    for key in ("substrate_id", "contract_version", "hard_contract_ref", "rules_hint"):
         assert key in pulse, key
 
 
@@ -129,7 +126,8 @@ def test_invoke_wraps_response_with_pulse(tmp_path: Path) -> None:
     sense_spec = m.by_name("sense")
     state = _ServerState()
     result = _invoke(
-        sense_spec, m,
+        sense_spec,
+        m,
         {"query": "x", "project_dir": str(tmp_path)},
         state,
     )
@@ -161,7 +159,8 @@ def test_invoke_sets_hunger_called_on_hunger(tmp_path: Path) -> None:
 
     sense_spec = m.by_name("sense")
     second = _invoke(
-        sense_spec, m,
+        sense_spec,
+        m,
         {"query": "x", "project_dir": str(tmp_path)},
         state,
     )

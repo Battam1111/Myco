@@ -56,9 +56,7 @@ def test_missing_required_key_raises(tmp_path: Path) -> None:
         load_canon(p)
 
 
-def test_unknown_schema_version_warns(
-    tmp_path: Path, minimal_canon_text: str
-) -> None:
+def test_unknown_schema_version_warns(tmp_path: Path, minimal_canon_text: str) -> None:
     """Forward-compat (v0.5): unknown schema_version warns, does not raise.
 
     "You never migrate again" requires that an older kernel reading a
@@ -91,9 +89,7 @@ def test_schema_upgrader_runs_and_silences_warning(
     try:
         p = tmp_path / "_canon.yaml"
         p.write_text(
-            minimal_canon_text.replace(
-                'schema_version: "1"', 'schema_version: "2"'
-            ),
+            minimal_canon_text.replace('schema_version: "1"', 'schema_version: "2"'),
             encoding="utf-8",
         )
         import warnings as _w
@@ -106,9 +102,7 @@ def test_schema_upgrader_runs_and_silences_warning(
         _canon.schema_upgraders.pop("2", None)
 
 
-def test_schema_upgrader_cycle_raises(
-    tmp_path: Path, minimal_canon_text: str
-) -> None:
+def test_schema_upgrader_cycle_raises(tmp_path: Path, minimal_canon_text: str) -> None:
     from myco.core import canon as _canon
 
     def _loop(raw):
@@ -120,9 +114,7 @@ def test_schema_upgrader_cycle_raises(
     try:
         p = tmp_path / "_canon.yaml"
         p.write_text(
-            minimal_canon_text.replace(
-                'schema_version: "1"', 'schema_version: "loop"'
-            ),
+            minimal_canon_text.replace('schema_version: "1"', 'schema_version: "loop"'),
             encoding="utf-8",
         )
         with pytest.raises(CanonSchemaError, match="cycle"):

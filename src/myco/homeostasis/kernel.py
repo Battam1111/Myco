@@ -23,8 +23,9 @@ Design choices (per Stage B.2 craft Round 2.5, extended at v0.5.5):
 from __future__ import annotations
 
 import fnmatch
+from collections.abc import Mapping, Sequence
 from pathlib import Path, PurePosixPath
-from typing import Any, Mapping, Sequence
+from typing import Any
 
 from myco.core.context import MycoContext, Result
 from myco.core.errors import UsageError
@@ -101,9 +102,7 @@ def _path_is_under_write_surface(
     return False
 
 
-def _fix_target_path(
-    finding: Finding, ctx: MycoContext
-) -> Path | None:
+def _fix_target_path(finding: Finding, ctx: MycoContext) -> Path | None:
     """Best-effort guess of the absolute path a fix would write to.
 
     Uses ``finding.path`` (substrate-relative) when present. Returns
@@ -154,7 +153,7 @@ def _apply_fix(
 
     try:
         outcome = dim.fix(ctx, finding)
-    except Exception as exc:  # noqa: BLE001 - defensive per design
+    except Exception as exc:
         entry["error"] = f"{type(exc).__name__}: {exc}"
         return entry
 
@@ -227,12 +226,10 @@ def run_immune(
         # dimension. ``apply_skeleton_downgrade`` preserves order and
         # does not add or drop findings (only rewrites severity), so
         # the index alignment is stable.
-        for origin, finding_t in zip(origins, findings_t):
+        for origin, finding_t in zip(origins, findings_t, strict=False):
             if not getattr(type(origin), "fixable", False):
                 continue
-            fixes.append(
-                _apply_fix(origin, ctx, finding_t, patterns=patterns)
-            )
+            fixes.append(_apply_fix(origin, ctx, finding_t, patterns=patterns))
 
     policy = parse_exit_policy(exit_on)
     exit_code = policy.compute(findings_t)
@@ -332,9 +329,7 @@ def run_cli(args: Mapping[str, object], *, ctx: MycoContext) -> Result:
     explain_id = str(explain_raw) if explain_raw else None
 
     if list_mode and explain_id:
-        raise UsageError(
-            "immune: --list and --explain are mutually exclusive"
-        )
+        raise UsageError("immune: --list and --explain are mutually exclusive")
 
     if list_mode or explain_id:
         registry = default_registry()

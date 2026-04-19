@@ -30,9 +30,10 @@ This module only *reads* canon. Writing (contract bumps) is the
 from __future__ import annotations
 
 import warnings
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Mapping
+from typing import Any
 
 import yaml
 
@@ -63,9 +64,7 @@ KNOWN_SCHEMA_VERSIONS: frozenset[str] = frozenset({"1"})
 #: makes the "no migration" promise *tenable*: when schema v2 lands,
 #: the kernel that introduces v2 registers ``{"1": _v1_to_v2}`` and
 #: every v1 substrate parses silently.
-schema_upgraders: dict[
-    str, Callable[[Mapping[str, Any]], Mapping[str, Any]]
-] = {}
+schema_upgraders: dict[str, Callable[[Mapping[str, Any]], Mapping[str, Any]]] = {}
 
 
 def _demo_v0_to_v1(raw: Mapping[str, Any]) -> Mapping[str, Any]:
@@ -111,9 +110,7 @@ def _apply_upgraders(
     """
     seen = _seen or frozenset()
     if version in seen:
-        raise CanonSchemaError(
-            f"schema_upgrader cycle detected at version {version!r}"
-        )
+        raise CanonSchemaError(f"schema_upgrader cycle detected at version {version!r}")
     upgrader = schema_upgraders.get(version)
     if upgrader is None:
         return raw
@@ -122,6 +119,7 @@ def _apply_upgraders(
     if next_version in KNOWN_SCHEMA_VERSIONS:
         return upgraded
     return _apply_upgraders(next_version, upgraded, _seen=seen | {version})
+
 
 #: Top-level keys that MUST be present for a canon to be considered valid.
 _REQUIRED_TOP_LEVEL: tuple[str, ...] = (

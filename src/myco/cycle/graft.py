@@ -1,8 +1,8 @@
 """``myco graft`` — substrate-local plugin introspection.
 
 Serves L2 ``homeostasis.md`` (observability of grafted code) and L2
-``surface.md`` (substrate-local plugin surface). The verb itself is a
-life-cycle observer: a graft is the hyphal anastomosis where a
+``extensibility.md`` (substrate-local plugin seam). The verb itself is
+a life-cycle observer: a graft is the hyphal anastomosis where a
 downstream substrate's own code fuses with the Myco kernel at import
 time. This handler lets an agent enumerate, validate, or explain
 those fused plugins without leaving the CLI.
@@ -24,10 +24,9 @@ exit-codes 0 on a hit, raises UsageError on a miss.
 
 from __future__ import annotations
 
-import importlib
 import inspect
-from pathlib import Path
-from typing import Any, Mapping
+from collections.abc import Mapping
+from typing import Any
 
 from myco.core.context import MycoContext, Result
 from myco.core.errors import UsageError
@@ -54,19 +53,19 @@ def _collect_plugins(ctx: MycoContext) -> list[dict[str, Any]]:
 
         reg = _reg_mod.default_registry()
         for dim in reg.all():
-            cls = type(dim)
+            dim_cls = type(dim)
             try:
-                src = inspect.getsourcefile(cls) or "<unknown>"
+                src = inspect.getsourcefile(dim_cls) or "<unknown>"
             except TypeError:
                 src = "<unknown>"
             plugins.append(
                 {
                     "kind": "dimension",
-                    "name": getattr(cls, "id", cls.__name__),
+                    "name": getattr(dim_cls, "id", dim_cls.__name__),
                     "source": src,
                 }
             )
-    except Exception:  # noqa: BLE001 — don't let a bad registry brick graft
+    except Exception:
         pass
 
     # Adapters.
@@ -74,19 +73,19 @@ def _collect_plugins(ctx: MycoContext) -> list[dict[str, Any]]:
         from myco.ingestion import adapters as _adapters_mod
 
         for ad in _adapters_mod.all_adapters():
-            cls = type(ad)
+            ad_cls = type(ad)
             try:
-                src = inspect.getsourcefile(cls) or "<unknown>"
+                src = inspect.getsourcefile(ad_cls) or "<unknown>"
             except TypeError:
                 src = "<unknown>"
             plugins.append(
                 {
                     "kind": "adapter",
-                    "name": cls.__name__,
+                    "name": ad_cls.__name__,
                     "source": src,
                 }
             )
-    except Exception:  # noqa: BLE001
+    except Exception:
         pass
 
     # Schema upgraders.
@@ -105,16 +104,13 @@ def _collect_plugins(ctx: MycoContext) -> list[dict[str, Any]]:
                     "source": src,
                 }
             )
-    except Exception:  # noqa: BLE001
+    except Exception:
         pass
 
     # Overlay verbs.
     try:
         manifest = load_manifest_with_overlay(ctx.substrate.root)
-        base_names = {
-            c.name
-            for c in load_manifest_with_overlay(None).commands
-        }
+        base_names = {c.name for c in load_manifest_with_overlay(None).commands}
         for c in manifest.commands:
             if c.name in base_names:
                 continue
@@ -125,7 +121,7 @@ def _collect_plugins(ctx: MycoContext) -> list[dict[str, Any]]:
                     "source": str(ctx.substrate.paths.manifest_overlay),
                 }
             )
-    except Exception:  # noqa: BLE001
+    except Exception:
         pass
 
     return plugins
@@ -144,14 +140,10 @@ def _validate(ctx: MycoContext) -> list[str]:
 
     from myco.core.substrate import _substrate_plugin_module_name
 
-    mod_name = _substrate_plugin_module_name(
-        ctx.substrate.root, ctx.substrate.canon
-    )
+    mod_name = _substrate_plugin_module_name(ctx.substrate.root, ctx.substrate.canon)
     # Force a fresh import pass.
     _sys.modules.pop(mod_name, None)
-    result = load_local_plugins(
-        ctx.substrate.root, canon=ctx.substrate.canon
-    )
+    result = load_local_plugins(ctx.substrate.root, canon=ctx.substrate.canon)
     return list(result.errors)
 
 
@@ -185,7 +177,7 @@ def _explain(ctx: MycoContext, name: str) -> dict[str, Any]:
                 elif kind == "overlay_verb":
                     manifest = load_manifest_with_overlay(ctx.substrate.root)
                     docstring = manifest.by_name(name).summary
-            except Exception:  # noqa: BLE001
+            except Exception:
                 docstring = ""
             return {
                 "name": name,

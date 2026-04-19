@@ -29,9 +29,7 @@ from myco.core.context import MycoContext
 def test_persist_and_load_roundtrip(seeded_substrate: Path) -> None:
     graph = Graph(
         nodes=frozenset({"_canon.yaml", "notes/r.md"}),
-        edges=(
-            Edge(src="notes/r.md", dst="_canon.yaml", kind="note_ref"),
-        ),
+        edges=(Edge(src="notes/r.md", dst="_canon.yaml", kind="note_ref"),),
     )
     cache = seeded_substrate / ".myco_state" / "graph.json"
     persist_graph(graph, cache, fingerprint="deadbeef")
@@ -226,9 +224,7 @@ def test_persisted_graph_includes_generated_at(seeded_substrate: Path) -> None:
     ctx = MycoContext.for_testing(root=seeded_substrate)
     build_graph(ctx)
     payload = json.loads(
-        (seeded_substrate / ".myco_state" / "graph.json").read_text(
-            encoding="utf-8"
-        )
+        (seeded_substrate / ".myco_state" / "graph.json").read_text(encoding="utf-8")
     )
     assert "generated_at" in payload
     assert payload["generated_at"].endswith("Z")

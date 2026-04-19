@@ -7,11 +7,12 @@ the v0.5.2 public symbols.
 
 Scheduled for removal at v1.0.0.
 """
+
 from __future__ import annotations
 
 import warnings as _w
 
-from .assimilate import reflect, assimilate, run
+from .assimilate import assimilate, reflect, run
 
 __all__ = ["reflect", "assimilate", "run"]
 

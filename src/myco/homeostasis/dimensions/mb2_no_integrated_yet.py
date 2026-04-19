@@ -10,7 +10,7 @@ Severity: LOW.
 
 from __future__ import annotations
 
-from typing import Iterable
+from collections.abc import Iterable
 
 from myco.core.context import MycoContext
 from myco.core.severity import Severity

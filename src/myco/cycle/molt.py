@@ -22,15 +22,16 @@ Post-write validation: re-invoke :func:`myco.core.canon.load_canon`
 on the mutated file; abort and restore the original text on any
 ``CanonSchemaError``.
 
-Governing doctrine: ``docs/architecture/L2_DOCTRINE/surface.md``
-(governance-verbs appendix, v0.5).
+Governing manifest: ``docs/architecture/L3_IMPLEMENTATION/command_manifest.md``
+(governance-verbs section, v0.5 — per v0.5.0 craft §R13, no new L2
+surface.md was created; governance-verbs content lives at L3).
 """
 
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
 from datetime import date as _date
-from typing import Mapping
 
 from myco.core.canon import load_canon
 from myco.core.context import MycoContext, Result
@@ -44,9 +45,7 @@ __all__ = ["run"]
 #: Matches ``v0.5.0``, ``v0.5.0-alpha.1``, ``v0.5.0.dev``, ``0.5.0``.
 #: Intentionally permissive — Myco's ``ContractVersion`` class handles
 #: strict parsing elsewhere; this bound keeps typos out of the canon.
-_VERSION_RE = re.compile(
-    r"^v?\d+\.\d+\.\d+(?:[-.][A-Za-z0-9]+(?:\.[A-Za-z0-9]+)*)?$"
-)
+_VERSION_RE = re.compile(r"^v?\d+\.\d+\.\d+(?:[-.][A-Za-z0-9]+(?:\.[A-Za-z0-9]+)*)?$")
 
 
 def _patch_canon_field(text: str, field: str, new_value: str) -> str:
@@ -88,9 +87,7 @@ def _insert_changelog_entry(text: str, new_section: str) -> str:
     return text[:idx] + new_section.rstrip() + "\n\n---\n\n" + text[idx:]
 
 
-def _render_changelog_section(
-    *, new_version: str, old_version: str, today: str
-) -> str:
+def _render_changelog_section(*, new_version: str, old_version: str, today: str) -> str:
     return (
         f"## {new_version} — {today} — Contract bump via `myco bump`\n\n"
         f"Replaces `{old_version}` at `_canon.yaml::contract_version`. "
@@ -125,9 +122,7 @@ def run(args: Mapping[str, object], *, ctx: MycoContext) -> Result:
     today = str(args.get("date") or _date.today().isoformat())
 
     canon_path = ctx.substrate.paths.canon
-    changelog_path = (
-        ctx.substrate.root / "docs" / "contract_changelog.md"
-    )
+    changelog_path = ctx.substrate.root / "docs" / "contract_changelog.md"
 
     if not canon_path.is_file():
         raise ContractError(f"bump: canon not found at {canon_path}")
@@ -140,9 +135,7 @@ def run(args: Mapping[str, object], *, ctx: MycoContext) -> Result:
             f"bump: contract_version is already {new_version!r}; nothing to do"
         )
 
-    patched_canon = _patch_canon_field(
-        original_canon, "contract_version", new_version
-    )
+    patched_canon = _patch_canon_field(original_canon, "contract_version", new_version)
     # synced_contract_version moves in lockstep at v0.5 (see doctrine
     # note in surface.md governance-verbs appendix). If the field is
     # absent, skip silently — some downstream substrates may not track
@@ -164,12 +157,8 @@ def run(args: Mapping[str, object], *, ctx: MycoContext) -> Result:
                 "new_version": new_version,
                 "synced_touched": synced_touched,
                 "canon_path": str(canon_path.relative_to(ctx.substrate.root)),
-                "changelog_path": str(
-                    changelog_path.relative_to(ctx.substrate.root)
-                ),
-                "canon_preview_head": "\n".join(
-                    patched_canon.splitlines()[:12]
-                ),
+                "changelog_path": str(changelog_path.relative_to(ctx.substrate.root)),
+                "canon_preview_head": "\n".join(patched_canon.splitlines()[:12]),
             },
         )
 
@@ -202,9 +191,7 @@ def run(args: Mapping[str, object], *, ctx: MycoContext) -> Result:
     new_section = _render_changelog_section(
         new_version=new_version, old_version=old_version, today=today
     )
-    patched_changelog = _insert_changelog_entry(
-        original_changelog, new_section
-    )
+    patched_changelog = _insert_changelog_entry(original_changelog, new_section)
     changelog_path.write_text(patched_changelog, encoding="utf-8")
 
     return Result(
@@ -215,8 +202,6 @@ def run(args: Mapping[str, object], *, ctx: MycoContext) -> Result:
             "new_version": new_version,
             "synced_touched": synced_touched,
             "canon_path": str(canon_path.relative_to(ctx.substrate.root)),
-            "changelog_path": str(
-                changelog_path.relative_to(ctx.substrate.root)
-            ),
+            "changelog_path": str(changelog_path.relative_to(ctx.substrate.root)),
         },
     )

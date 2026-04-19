@@ -18,6 +18,205 @@ Versioning: [SemVer](https://semver.org/).
 
 ---
 
+## [0.5.7] — 2026-04-19
+
+**Defense-in-depth session-end + v0.5.6 post-release cleanup.** The
+v0.5.6 panoramic-release dogfood surfaced a coverage gap in R2:
+sessions that end via `/exit`, Ctrl+D, or window-close never fire
+PreCompact, so the R2 ritual silently skipped. The user's fix — a
+third hook, SessionEnd, bound to the same `myco senesce` — hit a
+~1.5 s kill budget that `senesce` (1.656 s on myco-self) already
+exceeded. v0.5.7 lands a two-mode senesce so all three session-
+termination paths land inside their host budgets, plus cleans up
+every editorial drift item the v0.5.6 release postponed, plus adds
+a mechanical CI baseline so the drift class can't silently
+re-accumulate.
+
+Governing crafts:
+`docs/primordia/v0_5_7_senesce_quick_mode_craft_2026-04-19.md`
+(quick-mode design) and
+`docs/primordia/v0_5_7_release_craft_2026-04-19.md`
+(release closure — bundles all four audit streams into one coherent
+release).
+
+### Added
+
+- **`myco senesce --quick` flag.** New bool arg on the `senesce`
+  verb. `--quick` runs `assimilate` only (skips the `immune --fix`
+  pass), producing a payload of shape
+  `{reflect: {...}, immune: {skipped: true, reason: <str>}, mode: "quick"}`.
+  Exit code derived from assimilate alone. Default (full) mode
+  unchanged: payload shape gains a new `mode: "full"` key; every
+  existing consumer of `payload["immune"]` keeps working because
+  the dict is always present. Wall-clock on myco-self (Python 3.13,
+  Windows): full 1.533 s, quick 0.399 s (3.8× safety margin under
+  the 1.5 s SessionEnd kill).
+- **SessionEnd hook binding.** Both `hooks/hooks.json` (plugin
+  distribution) and `.claude/settings.local.json` (self-dogfood)
+  gain a third hook:
+  `SessionEnd → python -m myco --json --project-dir "$CLAUDE_PROJECT_DIR" senesce --quick`.
+  PreCompact stays on full `senesce`. SessionStart stays on `hunger`.
+  Every downstream substrate that installs the Myco Claude Code
+  plugin inherits the new three-hook layout. New doc
+  `.claude/hooks/SessionEnd.md` explains the quick-mode role.
+- **MP1 dedicated craft doc.** `docs/primordia/v0_5_6_mp1_mycelium_purity_craft_2026-04-18.md`
+  — the narrow, independently-reviewable justification for MP1's
+  blacklist roster, `providers/` opt-in package, and the
+  `system.no_llm_in_substrate` canon field. Linked up from the
+  v0.5.6 realignment umbrella craft.
+- **pyproject metadata.** `classifiers`, `keywords`, `project.urls`
+  (Homepage / Repository / Documentation / Changelog / Bug Tracker).
+  PyPI release page now renders with a complete audience +
+  Python-version matrix + license + topic classification.
+- **pyproject tool baselines.** `[tool.mypy]` (permissive v1 baseline:
+  `warn_unused_ignores`, `warn_redundant_casts`,
+  `ignore_missing_imports`) and `[tool.ruff]` (target py310, select
+  E/W/F/I/B/UP/SIM/C4/RUF, line-length 88, per-file ignores for
+  tests and the ramify scaffolder). `types-PyYAML`, `ruff`, and
+  `mypy` added to the `dev` extras so `pip install -e ".[dev]"`
+  reproduces CI's tool set.
+- **CI workflow.** `.github/workflows/ci.yml` runs `ruff check` +
+  `ruff format --check` + `mypy src/myco` + `pytest` +
+  `myco immune` + `python -m build` + `twine check` on every push
+  and pull-request. Matrix covers Python 3.10 / 3.11 / 3.12 / 3.13
+  on Ubuntu plus a Windows cell on the newest Python (catches
+  CRLF / cp936 locale issues).
+- **Release process runbook.** `docs/release_process.md` — the
+  canonical eight-step runbook for shipping to all four delivery
+  channels (git main, git tag, GitHub Release, PyPI). Replaces the
+  implicit "read prior CHANGELOG verification commands" flow.
+- **New test coverage** (+24 tests; total 609):
+  - `tests/unit/cycle/test_senesce.py` — 13 tests (was new at
+    v0.5.7-buffer) covering default-full behavior, explicit quick,
+    payload shape, exit-code derivation, manifest declaration, MCP
+    tool-spec parity, `session-end` alias survival, and dispatcher-
+    path parity.
+  - `tests/unit/cycle/test_graft.py` — 11 new tests (closes the
+    0-coverage gap Audit C flagged: mode dispatch, `--list`
+    enumeration, `--validate` clean-substrate path, `--explain`
+    known + unknown, mutually-exclusive modes).
+  - `tests/unit/surface/test_manifest.py` — 2 new tests for the
+    string → bool coercion path (`"true"`, `"1"`, `"on"`, case-
+    insensitive; plus falsy literals).
+  - `tests/unit/surface/test_cli.py` — 3 new tests for the
+    `senesce` + `senesce --quick` + `session-end` CLI end-to-end
+    (argparse → dispatcher → handler round-trip).
+
+### Changed — doctrine realignment (v0.5.6 postponements)
+
+- **R2 rewording** in `docs/architecture/L1_CONTRACT/protocol.md`:
+  "Every session ends with `myco senesce` — **full** (assimilate +
+  immune --fix) on PreCompact (blocking), **quick** (assimilate
+  only) on SessionEnd (short-budget fallback). The canonical
+  session-end is the full form; quick is the defense-in-depth
+  fallback." Enforcement-table R2 row updated to name both hooks.
+- **MCP initialization instructions echo** (`src/myco/surface/mcp.py::_INSTRUCTIONS_TEMPLATE`):
+  R2 line updated from "call myco_session_end (reflect + immune
+  --fix) before compaction" to match the new L1 wording. Cross-
+  platform MCP clients (Cursor, Windsurf, Zed, Codex, Gemini,
+  Continue, Claude Desktop) see the updated contract at initialize.
+  Canonical MCP tool name in the echo is now `myco_senesce` (was
+  the deprecated `myco_session_end`); canonical verb name in the
+  echo is `assimilate` (was the deprecated `reflect`).
+- **Stale claim cleanup** — 20 line-level corrections across
+  `README.md`, `README_zh.md`, `README_ja.md`, `MYCO.md`,
+  `CONTRIBUTING.md`, `pyproject.toml` (console-script comment),
+  `.claude-plugin/plugin.json` (version + description),
+  `.claude/hooks/PreCompact.md` (rewrite), two skill files,
+  `src/myco/germination/templates/entry_point.md.tmpl`
+  (`genesis` → `germinate`, `session-end` → `senesce --quick` split),
+  `tests/test_scaffold.py` (canonical + alias dual assertion),
+  `docs/architecture/README.md`, `docs/architecture/L1_CONTRACT/versioning.md`,
+  `docs/architecture/L1_CONTRACT/canon_schema.md`,
+  `docs/architecture/L1_CONTRACT/exit_codes.md`,
+  `docs/architecture/L3_IMPLEMENTATION/package_map.md`,
+  `docs/architecture/L3_IMPLEMENTATION/command_manifest.md`,
+  `docs/architecture/L3_IMPLEMENTATION/symbiont_protocol.md`,
+  `src/myco/providers/__init__.py`, `src/myco/providers/README.md`.
+  Corrections: seventeen → eighteen verbs, ten → eleven dimensions,
+  seven → ten MCP hosts, v0.5.6 → v0.5.7 current-state markers
+  (historical markers preserved).
+- **`brief` verb rendering.** When the last `senesce` ran in
+  `mode == "quick"`, `brief` annotates the summary that immune has
+  not yet run in this session boundary — the next PreCompact or
+  SessionStart-hunger will surface any findings. (Deferred
+  implementation to v0.5.8; v0.5.7 ships the payload invariant
+  but not the brief-UI change.)
+
+### Fixed
+
+- **Runtime contract violation** in `src/myco/cycle/senesce.py`:
+  `Result.findings` is typed `tuple[Finding, ...]` but quick-mode
+  payload passed `findings=[]` (list). Now `findings=()` — aligns
+  with the declared type. Test updated accordingly.
+- **25 mypy errors** (graph.py type narrowing via dedicated
+  `_SkipType` singleton class, mb1 int coercion guard, ramify
+  iter guard, graft.py `cls` variable shadow, mcp.py
+  `Optional[Path]` → `Path | None`, unused `# type: ignore`
+  directives). `python -m mypy src/myco` now passes with 0 errors.
+- **230+ ruff findings** (F401 unused imports, UP035 deprecated
+  `typing.X` imports → `collections.abc.X`, UP045
+  `Optional[X]` → `X | None`, RUF100 unused `# noqa`, I001
+  import ordering, RUF013 implicit-optional — plus 86 files
+  reformatted via `ruff format`). `python -m ruff check` and
+  `python -m ruff format --check` both pass clean.
+- **9 inherited immune findings** from v0.5.6:
+  - SE1 × 7 dangling code→doc refs — `fruit.py` / `molt.py` /
+    `ramify.py` / `winnow.py` docstrings redirected from the
+    never-created `L2_DOCTRINE/surface.md` to
+    `L3_IMPLEMENTATION/command_manifest.md` (where governance-verbs
+    section lives per v0.5.0 craft §R13); `fruit.py` + `winnow.py`
+    `legacy_v0_3/docs/craft_protocol.md` references rewritten to
+    break the phantom regex match;
+    `mp1_no_provider_imports.py` auto-resolves via the new MP1
+    craft doc.
+  - SE2 × 2 orphan integrated notes deleted — they were v0.5.3
+    dogfood-test artifacts with no inbound references and no
+    semantic content (`"bug-fix-test"` literal body + three-word
+    test marker); safe to remove per Audit A's per-finding
+    analysis.
+- **`tests/conftest.py` DeprecationWarning noise.** The
+  `genesis_substrate` fixture imported `bootstrap` from the
+  `myco.genesis` shim, firing a DeprecationWarning on every test
+  run. Now imports from `myco.germination` (canonical); fixture
+  name preserved for test readability.
+- **`_canon.yaml::metrics.test_count`**: `283` → `609` (four
+  versions stale — the field has not been updated since v0.4.0).
+
+### Changed — version bumps
+
+- `src/myco/__init__.py::__version__`: `0.5.6` → `0.5.7`
+- `_canon.yaml::contract_version` + `synced_contract_version`:
+  `v0.5.6` → `v0.5.7`
+- `.claude-plugin/plugin.json::version`: `0.5.6` → `0.5.7`
+
+### Migration note
+
+No substrate-reader break. v0.5.6 canons parse under v0.5.7
+unchanged. Every v0.5.6 CLI invocation still works; `myco senesce`
+without `--quick` remains the v0.5.6 behavior bit-for-bit. The new
+`--quick` flag on `senesce` is opt-in; callers that don't pass it
+get the v0.5.6 behavior (full assimilate + immune --fix) exactly.
+Every v0.5.x verb alias (`session-end`, `reflect`, `genesis`, …)
+still resolves.
+
+To upgrade a v0.5.6 substrate: `cd ~/myco && git pull && myco molt
+--contract v0.5.7 && myco immune`. Downstream substrates that
+installed the Myco Claude Code plugin pick up the new SessionEnd
+hook automatically on next `/plugin update`.
+
+### Verification commands
+
+- `myco --version` → `myco 0.5.7`
+- `myco immune --list` → 11 dimensions (unchanged from v0.5.6)
+- `myco senesce --quick` on myco-self → ≤ 0.5 s, `mode: "quick"`,
+  `immune.skipped: True`.
+- `myco senesce` on myco-self → ≤ 2.0 s, `mode: "full"`, full
+  assimilate + immune payload.
+- `pytest` → 609 passed.
+
+---
+
 ## [0.5.6] — 2026-04-17
 
 **Doctrine realignment + mechanical LLM-boundary guard + bitter-

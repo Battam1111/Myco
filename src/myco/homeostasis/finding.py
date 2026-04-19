@@ -24,7 +24,7 @@ class Category(str, Enum):
     SEMANTIC = "semantic"
 
     @classmethod
-    def from_name(cls, name: str) -> "Category":
+    def from_name(cls, name: str) -> Category:
         try:
             return cls(name.lower())
         except ValueError as exc:
@@ -47,7 +47,7 @@ class Finding:
     path: str | None = None
     line: int | None = None
     fixable: bool = False  # consumed by auto-fix; no dimension declares
-                           # itself fixable at B.2 (first fixable dim in B.8)
+    # itself fixable at B.2 (first fixable dim in B.8)
 
     @classmethod
     def from_path(
@@ -60,7 +60,7 @@ class Finding:
         path: Path | None = None,
         line: int | None = None,
         fixable: bool = False,
-    ) -> "Finding":
+    ) -> Finding:
         """Ergonomic constructor that accepts a ``Path`` instead of a string."""
         return cls(
             dimension_id=dimension_id,

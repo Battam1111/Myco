@@ -6,35 +6,97 @@ UTF-8. Code files (.py, .js, .ts, .go, .rs, .rb, .sh, .c, .cpp,
 .java, .kt, .swift, .lua, .r, .sql, .tf, .toml, .ini, .cfg, .env,
 .dockerfile, makefile, etc.) all land here.
 """
+
 from __future__ import annotations
 
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Sequence
 
 from .protocol import Adapter, IngestResult
 
 # Common extensions that are almost certainly UTF-8 text.
 # The adapter also tries any unlisted extension via a decode attempt.
-_CODE_EXTS = frozenset({
-    ".py", ".pyi", ".pyx",
-    ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs",
-    ".go", ".rs", ".rb", ".sh", ".bash", ".zsh", ".fish",
-    ".c", ".h", ".cpp", ".hpp", ".cc", ".cxx",
-    ".java", ".kt", ".kts", ".scala", ".clj", ".cljs",
-    ".swift", ".m", ".mm",
-    ".lua", ".r", ".jl", ".zig", ".nim", ".v", ".d",
-    ".sql", ".graphql", ".gql",
-    ".tf", ".hcl",
-    ".toml", ".ini", ".cfg", ".env", ".properties",
-    ".xml", ".xsl", ".xsd", ".svg",
-    ".css", ".scss", ".sass", ".less",
-    ".md", ".markdown", ".txt", ".rst", ".adoc", ".org",
-    ".yaml", ".yml", ".json", ".json5", ".jsonc", ".jsonl",
-    ".log", ".conf", ".diff", ".patch",
-    ".dockerfile",
-    ".gitignore", ".gitattributes", ".editorconfig",
-    ".makefile",
-})
+_CODE_EXTS = frozenset(
+    {
+        ".py",
+        ".pyi",
+        ".pyx",
+        ".js",
+        ".jsx",
+        ".ts",
+        ".tsx",
+        ".mjs",
+        ".cjs",
+        ".go",
+        ".rs",
+        ".rb",
+        ".sh",
+        ".bash",
+        ".zsh",
+        ".fish",
+        ".c",
+        ".h",
+        ".cpp",
+        ".hpp",
+        ".cc",
+        ".cxx",
+        ".java",
+        ".kt",
+        ".kts",
+        ".scala",
+        ".clj",
+        ".cljs",
+        ".swift",
+        ".m",
+        ".mm",
+        ".lua",
+        ".r",
+        ".jl",
+        ".zig",
+        ".nim",
+        ".v",
+        ".d",
+        ".sql",
+        ".graphql",
+        ".gql",
+        ".tf",
+        ".hcl",
+        ".toml",
+        ".ini",
+        ".cfg",
+        ".env",
+        ".properties",
+        ".xml",
+        ".xsl",
+        ".xsd",
+        ".svg",
+        ".css",
+        ".scss",
+        ".sass",
+        ".less",
+        ".md",
+        ".markdown",
+        ".txt",
+        ".rst",
+        ".adoc",
+        ".org",
+        ".yaml",
+        ".yml",
+        ".json",
+        ".json5",
+        ".jsonc",
+        ".jsonl",
+        ".log",
+        ".conf",
+        ".diff",
+        ".patch",
+        ".dockerfile",
+        ".gitignore",
+        ".gitattributes",
+        ".editorconfig",
+        ".makefile",
+    }
+)
 
 
 class TextFileAdapter(Adapter):
@@ -53,9 +115,17 @@ class TextFileAdapter(Adapter):
         if p.suffix.lower() in _CODE_EXTS:
             return True
         if p.name.lower() in {
-            "makefile", "dockerfile", "vagrantfile", "procfile",
-            "gemfile", "rakefile", "cmakelists.txt", "license",
-            "readme", "contributing", "changelog",
+            "makefile",
+            "dockerfile",
+            "vagrantfile",
+            "procfile",
+            "gemfile",
+            "rakefile",
+            "cmakelists.txt",
+            "license",
+            "readme",
+            "contributing",
+            "changelog",
         }:
             return True
         # Last resort: read a small chunk, reject if it contains null
@@ -76,10 +146,12 @@ class TextFileAdapter(Adapter):
         except UnicodeDecodeError:
             return []
         lang = p.suffix.lstrip(".") or "text"
-        return [IngestResult(
-            title=p.name,
-            body=body,
-            tags=[lang, "file"],
-            source=str(p.resolve()),
-            metadata={"path": str(p), "size_bytes": p.stat().st_size},
-        )]
+        return [
+            IngestResult(
+                title=p.name,
+                body=body,
+                tags=[lang, "file"],
+                source=str(p.resolve()),
+                metadata={"path": str(p), "size_bytes": p.stat().st_size},
+            )
+        ]

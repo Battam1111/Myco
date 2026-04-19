@@ -11,20 +11,18 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any
 
 from myco.core.context import Result
-from myco.core.errors import MycoError, UsageError
+from myco.core.errors import MycoError
 from myco.core.io import ensure_utf8_stdio
 
 from .manifest import (
     ArgSpec,
     CommandSpec,
     Manifest,
-    build_context,
-    build_handler_args,
-    dash_to_snake,
     dispatch,
     load_manifest,
 )
@@ -36,7 +34,9 @@ def _add_arg(subparser: argparse.ArgumentParser, arg: ArgSpec) -> None:
     flag = f"--{arg.name}"
     if arg.type == "bool":
         subparser.add_argument(
-            flag, action="store_true", default=bool(arg.default or False),
+            flag,
+            action="store_true",
+            default=bool(arg.default or False),
             help=arg.help,
         )
     elif arg.type == "list[str]":
@@ -46,7 +46,11 @@ def _add_arg(subparser: argparse.ArgumentParser, arg: ArgSpec) -> None:
         # form worked; the natural form errored with "unrecognized
         # arguments". See dogfood bug #3.
         subparser.add_argument(
-            flag, nargs="*", action="extend", default=None, help=arg.help,
+            flag,
+            nargs="*",
+            action="extend",
+            default=None,
+            help=arg.help,
         )
     elif arg.type == "int":
         subparser.add_argument(
@@ -76,6 +80,7 @@ def _add_arg(subparser: argparse.ArgumentParser, arg: ArgSpec) -> None:
 def build_parser(manifest: Manifest | None = None) -> argparse.ArgumentParser:
     m = manifest or load_manifest()
     from myco import __version__ as _mv
+
     parser = argparse.ArgumentParser(
         prog="myco",
         description=f"Myco v{_mv} — agent-first symbiotic substrate.",
@@ -85,20 +90,25 @@ def build_parser(manifest: Manifest | None = None) -> argparse.ArgumentParser:
     # --version flag existed so ``myco --version`` errored with
     # "VERB required". See dogfood bug #1.
     parser.add_argument(
-        "--version", "-V",
+        "--version",
+        "-V",
         action="version",
         version=f"myco {_mv}",
     )
     parser.add_argument(
-        "--project-dir", type=Path, default=None,
+        "--project-dir",
+        type=Path,
+        default=None,
         help="Override substrate discovery start directory.",
     )
     parser.add_argument(
-        "--exit-on", default="critical",
+        "--exit-on",
+        default="critical",
         help="Exit-policy spec for `immune` (default: critical).",
     )
     parser.add_argument(
-        "--json", action="store_true",
+        "--json",
+        action="store_true",
         help="Emit structured JSON instead of human-readable text.",
     )
     # Use a private-looking dest name so the subparser's stored verb
@@ -210,8 +220,13 @@ def _finding_to_dict(finding: Any) -> dict[str, Any]:
     # `message`, `path`, `line`, `fixable` — all attributes.
     out: dict[str, Any] = {}
     for attr in (
-        "dimension_id", "category", "severity",
-        "message", "path", "line", "fixable",
+        "dimension_id",
+        "category",
+        "severity",
+        "message",
+        "path",
+        "line",
+        "fixable",
     ):
         if hasattr(finding, attr):
             val = getattr(finding, attr)

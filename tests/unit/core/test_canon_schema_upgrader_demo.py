@@ -57,7 +57,8 @@ def test_v0_canon_parses_silently(tmp_path: Path) -> None:
 
 
 def test_unknown_version_still_warns(
-    tmp_path: Path, minimal_canon_text: str,
+    tmp_path: Path,
+    minimal_canon_text: str,
 ) -> None:
     """Versions without a registered upgrader still warn. Proves the
     demo doesn't accidentally silence other unknown versions."""

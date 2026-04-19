@@ -10,7 +10,7 @@ fresh substrate with zero integrated notes never fires this.
 
 from __future__ import annotations
 
-from typing import Iterable
+from collections.abc import Iterable
 
 from myco.core.context import MycoContext
 from myco.core.severity import Severity
@@ -34,9 +34,7 @@ class SE2OrphanIntegrated(Dimension):
         integrated_dir = ctx.substrate.paths.notes / "integrated"
         if not integrated_dir.is_dir():
             return
-        integrated = [
-            p for p in integrated_dir.glob("*.md") if p.is_file()
-        ]
+        integrated = [p for p in integrated_dir.glob("*.md") if p.is_file()]
         if not integrated:
             return
 

@@ -47,12 +47,10 @@ class PackageVersion:
     _GRAMMAR: ClassVar[str] = "MAJOR.MINOR.PATCH[.devN]"
 
     @classmethod
-    def parse(cls, text: str) -> "PackageVersion":
+    def parse(cls, text: str) -> PackageVersion:
         m = _PACKAGE_RE.match(text)
         if not m:
-            raise ValueError(
-                f"not a valid package version ({cls._GRAMMAR}): {text!r}"
-            )
+            raise ValueError(f"not a valid package version ({cls._GRAMMAR}): {text!r}")
         dev = m.group("dev")
         if dev is None:
             kind, num = 1, 0
@@ -94,12 +92,10 @@ class ContractVersion:
     _GRAMMAR: ClassVar[str] = "vMAJOR.MINOR.PATCH[-<tag>]"
 
     @classmethod
-    def parse(cls, text: str) -> "ContractVersion":
+    def parse(cls, text: str) -> ContractVersion:
         m = _CONTRACT_RE.match(text)
         if not m:
-            raise ValueError(
-                f"not a valid contract version ({cls._GRAMMAR}): {text!r}"
-            )
+            raise ValueError(f"not a valid contract version ({cls._GRAMMAR}): {text!r}")
         tag = m["tag"] or ""
         return cls(
             int(m["major"]),

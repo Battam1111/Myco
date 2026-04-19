@@ -26,7 +26,7 @@ def test_list_candidates_includes_code_files(tmp_path: Path) -> None:
     (tmp_path / "a.md").write_text("# x", encoding="utf-8")
     (tmp_path / "b.txt").write_text("x", encoding="utf-8")
     (tmp_path / "d.py").write_text("print()", encoding="utf-8")
-    items, skipped = list_candidates(target_dir=tmp_path)
+    items, _skipped = list_candidates(target_dir=tmp_path)
     suffixes = {it.suffix for it in items}
     assert ".md" in suffixes
     assert ".txt" in suffixes

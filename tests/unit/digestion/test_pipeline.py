@@ -115,7 +115,7 @@ def test_promote_rejects_missing_reference(genesis_substrate: Path) -> None:
     raw_dir.mkdir(parents=True, exist_ok=True)
     bad = raw_dir / "ref.md"
     bad.write_text(
-        "---\nstage: raw\nreferences: [\"notes/missing.md\"]\n---\nbody\n",
+        '---\nstage: raw\nreferences: ["notes/missing.md"]\n---\nbody\n',
         encoding="utf-8",
     )
     with pytest.raises(ContractError, match="does not exist"):
@@ -128,7 +128,7 @@ def test_promote_accepts_existing_reference(genesis_substrate: Path) -> None:
     raw_dir.mkdir(parents=True, exist_ok=True)
     bad = raw_dir / "ref.md"
     bad.write_text(
-        "---\nstage: raw\nreferences: [\"_canon.yaml\"]\n---\nbody\n",
+        '---\nstage: raw\nreferences: ["_canon.yaml"]\n---\nbody\n',
         encoding="utf-8",
     )
     target = promote_to_integrated(ctx=ctx, raw_path=bad)
@@ -141,7 +141,7 @@ def test_promote_ignores_url_references(genesis_substrate: Path) -> None:
     raw_dir.mkdir(parents=True, exist_ok=True)
     bad = raw_dir / "urlref.md"
     bad.write_text(
-        "---\nstage: raw\nreferences: [\"https://example.com\"]\n---\nbody\n",
+        '---\nstage: raw\nreferences: ["https://example.com"]\n---\nbody\n',
         encoding="utf-8",
     )
     # Should succeed: URLs are not substrate paths.
@@ -157,7 +157,7 @@ def test_promote_rejects_reference_escaping_substrate(
     raw_dir.mkdir(parents=True, exist_ok=True)
     bad = raw_dir / "escape.md"
     bad.write_text(
-        "---\nstage: raw\nreferences: [\"../escape.md\"]\n---\nbody\n",
+        '---\nstage: raw\nreferences: ["../escape.md"]\n---\nbody\n',
         encoding="utf-8",
     )
     with pytest.raises(ContractError, match="escapes substrate"):

@@ -1,5 +1,5 @@
 {
-  "description": "Myco boot and senescence rituals. See docs/architecture/L1_CONTRACT/protocol.md for R1 and R2. The Agent runs these automatically; humans never invoke them directly. Uses `python -m myco` so dispatch goes through sys.path (immune to stale `myco` consoles on PATH); `senesce` is the v0.5.3 canonical name for the end-of-session composer, and `session-end` still resolves as a deprecated alias for v0.5.x cached installs.",
+  "description": "Myco boot and senescence rituals. See docs/architecture/L1_CONTRACT/protocol.md for R1 and R2. The Agent runs these automatically; humans never invoke them directly. Uses `python -m myco` so dispatch goes through sys.path (immune to stale `myco` consoles on PATH). Three events: SessionStart runs hunger; PreCompact runs the full senesce (assimilate + immune --fix), which blocks until done; SessionEnd (the Claude Code hook, not the deprecated verb alias) runs senesce --quick (assimilate only), staying inside Claude Code's ~1.5s SessionEnd kill budget. `senesce` is the v0.5.3 canonical verb name; `session-end` still resolves as a deprecated verb alias for v0.5.x cached installs.",
   "hooks": {
     "SessionStart": [
       {
@@ -19,6 +19,17 @@
           {
             "type": "command",
             "command": "python -m myco --json --project-dir \"$CLAUDE_PROJECT_DIR\" senesce"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python -m myco --json --project-dir \"$CLAUDE_PROJECT_DIR\" senesce --quick"
           }
         ]
       }

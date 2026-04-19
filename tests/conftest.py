@@ -52,12 +52,19 @@ def seeded_substrate(tmp_substrate_root: Path, minimal_canon_text: str) -> Path:
 
 @pytest.fixture
 def genesis_substrate(tmp_path: Path) -> Path:
-    """A substrate produced by ``myco.genesis.bootstrap``.
+    """A substrate produced by ``myco.germination.bootstrap``.
 
     Useful when tests need a realistic substrate, including the entry-
     point file and ``.myco_state/autoseeded.txt`` marker.
+
+    v0.5.7: canonical import path is ``myco.germination`` (the v0.5.3
+    rename); the ``myco.genesis`` shim still resolves through v1.0.0
+    but our own test harness uses the canonical path to avoid
+    emitting self-inflicted DeprecationWarnings on every test run.
+    Fixture name stays ``genesis_substrate`` for test-readability
+    continuity.
     """
-    from myco.genesis import bootstrap
+    from myco.germination import bootstrap
 
     bootstrap(project_dir=tmp_path, substrate_id="test-substrate")
     return tmp_path

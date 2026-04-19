@@ -10,11 +10,12 @@ without scoring or ranking.
 Third-party adapters can subclass ``Adapter`` and call
 ``myco.ingestion.adapters.register()`` at import time.
 """
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Sequence
 
 
 @dataclass
@@ -25,6 +26,7 @@ class IngestResult:
     title becomes the note slug, body becomes the note body, tags and
     source flow into frontmatter fields.
     """
+
     title: str
     body: str
     tags: list[str] = field(default_factory=list)

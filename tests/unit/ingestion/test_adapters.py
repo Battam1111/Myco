@@ -3,23 +3,20 @@
 These tests cover the v0.4.2 BLOCKER fixes: forage must list .py files,
 eat must accept --path, adapters must produce valid IngestResults.
 """
+
 from __future__ import annotations
 
 import json
 from pathlib import Path
 
-import pytest
-
 from myco.ingestion.adapters import (
+    all_adapters,
     find_adapter,
     handled_extensions,
-    all_adapters,
-    IngestResult,
 )
-from myco.ingestion.adapters.text_file import TextFileAdapter
 from myco.ingestion.adapters.code_repo import CodeRepoAdapter
 from myco.ingestion.adapters.tabular import TabularReader
-
+from myco.ingestion.adapters.text_file import TextFileAdapter
 
 # ---------------------------------------------------------------------------
 # Registry smoke tests

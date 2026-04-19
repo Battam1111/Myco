@@ -58,8 +58,9 @@ def test_every_subsystem_has_a_matching_package() -> None:
     path points to a directory that actually exists. This is the
     dynamic equivalent of the MF1 dimension and acts as a belt-and-
     suspenders check for the scaffold-level invariant (MAJOR 7)."""
-    import yaml
     from pathlib import Path
+
+    import yaml
 
     canon_path = Path(__file__).resolve().parent.parent / "_canon.yaml"
     data = yaml.safe_load(canon_path.read_text(encoding="utf-8"))
@@ -97,10 +98,35 @@ def test_dunder_main_help_lists_verbs() -> None:
         check=False,
     )
     assert result.returncode == 0, result.stderr
-    # v0.5 expanded the verb set. Sample one per subsystem plus the
-    # governance verbs so the test stays stable across additions.
+    # v0.5.3 renamed nine verbs to fungal-bionic canonical names;
+    # the old names are retained as aliases through v1.0.0. Assert
+    # BOTH sets appear in --help output so:
+    #   (a) alias-resolution stays wired (test_scaffold doubles as
+    #       the alias-survival smoke),
+    #   (b) canonical names are surfaced in the help text.
+    # v0.5.3 legacy aliases (still resolve).
     for verb in (
-        "genesis", "eat", "reflect", "immune", "session-end",
-        "craft", "bump", "evolve", "scaffold",
+        "genesis",
+        "reflect",
+        "session-end",
+        "craft",
+        "bump",
+        "evolve",
+        "scaffold",
+    ):
+        assert verb in result.stdout, result.stdout
+    # v0.5.3+ canonical names.
+    for verb in (
+        "germinate",
+        "eat",
+        "assimilate",
+        "immune",
+        "senesce",
+        "fruit",
+        "molt",
+        "winnow",
+        "ramify",
+        "graft",
+        "brief",
     ):
         assert verb in result.stdout, result.stdout

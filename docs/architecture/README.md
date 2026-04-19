@@ -1,7 +1,7 @@
-# Myco Architecture — v0.5.6
+# Myco Architecture — v0.5.7
 
-> **Status**: updated through v0.5.6 (2026-04-17). Top-down-refinement
-> active; doctrine pages track the canonical v0.5.6 state. See
+> **Status**: updated through v0.5.7 (2026-04-19). Top-down-refinement
+> active; doctrine pages track the canonical v0.5.7 state. See
 > `docs/contract_changelog.md` for contract-level history.
 > **Audience**: the **agent**. Per L0 principle 1 (Only For Agent —
 > 人类无感知), these pages are authored for agent consumption. Humans
@@ -14,6 +14,9 @@
 > - `docs/primordia/v0_5_3_fungal_vocabulary_craft_2026-04-17.md` (fungal verb rename)
 > - `docs/primordia/v0_5_5_close_audit_loose_threads_craft_2026-04-17.md` (8 MAJORs — brief, safe-fix, symbiont protocol, src-in-graph, LLM-boundary, …)
 > - `docs/primordia/v0_5_6_doctrine_realignment_craft_2026-04-17.md` (MP1 + doctrine-alignment pass)
+> - `docs/primordia/v0_5_6_mp1_mycelium_purity_craft_2026-04-18.md` (MP1 dedicated craft — blacklist roster, providers/ opt-in, canon field)
+> - `docs/primordia/v0_5_7_senesce_quick_mode_craft_2026-04-19.md` (bimodal senesce + SessionEnd hook coverage)
+> - `docs/primordia/v0_5_7_release_craft_2026-04-19.md` (v0.5.7 release closure — bundles all four audit streams)
 
 This directory is the **authoritative architecture**. Every layer is
 subordinate to the layer above it. In any conflict, the upper layer wins.
@@ -49,9 +52,9 @@ This README references it so future readers follow the cross-link.
    Germination → Ingestion → Digestion → Circulation → Homeostasis.
 5. `L3_IMPLEMENTATION/package_map.md` — where code lives.
 6. `L3_IMPLEMENTATION/command_manifest.md` — how commands (18 verbs
-   at v0.5.6: 17 agent + 1 human `brief`) are registered.
+   at v0.5.7: 17 agent + 1 human `brief`) are registered.
 7. `L3_IMPLEMENTATION/symbiont_protocol.md` — per-host Agent-sugar
-   seam (defined-but-empty at v0.5.6).
+   seam (defined-but-empty at v0.5.7).
 
 ## Contract version discipline
 
@@ -66,11 +69,16 @@ L3 changes within an existing L2 doctrine are ordinary code changes and
 do not require a contract bump (but must still land with tests and
 changelog lines).
 
-## What v0.5.6 means
+## What v0.5.7 means
 
-- **Version**: `__version__ = "0.5.6"`, `contract_version = "v0.5.6"`.
+- **Version**: `__version__ = "0.5.7"`, `contract_version = "v0.5.7"`.
 - **18 verbs**: 17 agent verbs + 1 human-facing `brief` (L0 principle 1's
   single carved exception).
+- **Bimodal senesce (v0.5.7 NEW)**: `myco senesce` runs full
+  (assimilate + immune --fix), bound to the blocking PreCompact
+  hook; `myco senesce --quick` runs assimilate only, bound to the
+  SessionEnd hook (stays inside Claude Code's ~1.5 s kill budget).
+  R2 now covers both `/compact` and non-compact session-exit paths.
 - **11 lint dimensions**: M1, M2 (fixable), M3, MF1, MF2, MP1 (v0.5.6
   NEW), SH1, MB1 (fixable), MB2, SE1, SE2.
 - **LLM boundary**: Agent calls the LLM; the substrate does not.
@@ -86,3 +94,7 @@ changelog lines).
 - **10 automated MCP hosts** via `myco-install host <client>`:
   Claude Code, Claude Desktop, Cursor, Windsurf, Zed, VS Code,
   OpenClaw, Gemini CLI, Codex CLI (TOML), Goose (YAML).
+- **Tooling baseline** (v0.5.7 NEW): `pyproject.toml` carries
+  `[tool.mypy]` and `[tool.ruff]` sections declaring the type-check
+  + lint baseline; a minimal `.github/workflows/ci.yml` runs
+  pytest + ruff + mypy + build + twine check on push/PR.

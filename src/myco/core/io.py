@@ -3,6 +3,7 @@ default (e.g. GBK on Chinese Windows) cannot encode the Unicode that
 Myco emits (box-drawing glyphs in embedded prompts, non-ASCII note
 content, JSON with any user-supplied text).
 """
+
 from __future__ import annotations
 
 import sys

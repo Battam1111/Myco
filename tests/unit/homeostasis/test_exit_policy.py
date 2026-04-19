@@ -6,9 +6,8 @@ import pytest
 
 from myco.core.errors import ContractError
 from myco.core.severity import Severity
-from myco.homeostasis.exit_policy import ExitPolicy, Threshold, parse_exit_policy
+from myco.homeostasis.exit_policy import Threshold, parse_exit_policy
 from myco.homeostasis.finding import Category, Finding
-
 
 # --- parsing ---------------------------------------------------------------
 
@@ -116,10 +115,7 @@ def test_compute_critical_in_cat_high_returns_two() -> None:
 
 def test_compute_never_suppresses_everything() -> None:
     p = parse_exit_policy("never")
-    assert (
-        p.compute([_mk_finding(Category.MECHANICAL, Severity.CRITICAL)])
-        == 0
-    )
+    assert p.compute([_mk_finding(Category.MECHANICAL, Severity.CRITICAL)]) == 0
 
 
 def test_compute_worst_wins() -> None:
@@ -148,7 +144,4 @@ def test_compute_per_cat_isolation() -> None:
 
 def test_compute_medium_never_trips() -> None:
     p = parse_exit_policy("high")
-    assert (
-        p.compute([_mk_finding(Category.MECHANICAL, Severity.MEDIUM)])
-        == 0
-    )
+    assert p.compute([_mk_finding(Category.MECHANICAL, Severity.MEDIUM)]) == 0

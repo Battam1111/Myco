@@ -7,6 +7,7 @@ module path so existing imports keep working.
 
 Scheduled for removal at v1.0.0.
 """
+
 from __future__ import annotations
 
 import warnings as _w

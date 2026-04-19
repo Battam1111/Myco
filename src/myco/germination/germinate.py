@@ -18,11 +18,11 @@ running it on an established substrate raises ``ContractError``.
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping, Sequence
 from datetime import datetime, timezone
 from importlib.resources import files as _pkg_files
 from pathlib import Path
 from string import Template
-from typing import Mapping, Sequence
 
 from myco.core.context import Result
 from myco.core.errors import ContractError, UsageError
@@ -135,8 +135,7 @@ def bootstrap(
         generated_at=generated_at,
     )
     marker_text = (
-        f"autoseeded by myco genesis at {generated_at}\n"
-        f"substrate_id={substrate_id}\n"
+        f"autoseeded by myco genesis at {generated_at}\nsubstrate_id={substrate_id}\n"
     )
 
     preview: dict[str, str] = {
@@ -191,7 +190,10 @@ def _yaml_flow_list(items: Sequence[str]) -> str:
     """
     if not items:
         return "[]"
-    parts = [f'"{str(x).replace(chr(92), chr(92) * 2).replace(chr(34), chr(92) + chr(34))}"' for x in items]
+    parts = [
+        f'"{str(x).replace(chr(92), chr(92) * 2).replace(chr(34), chr(92) + chr(34))}"'
+        for x in items
+    ]
     return "[" + ", ".join(parts) + "]"
 
 
@@ -244,7 +246,9 @@ def run_cli(args: Mapping[str, object]) -> Result:
     if not substrate_id:
         raise UsageError("genesis requires --substrate-id")
     tags_raw = args.get("tags") or ()
-    tags = tuple(str(t) for t in tags_raw) if isinstance(tags_raw, (list, tuple)) else ()
+    tags = (
+        tuple(str(t) for t in tags_raw) if isinstance(tags_raw, (list, tuple)) else ()
+    )
     entry_point = str(args.get("entry_point") or DEFAULT_ENTRY_POINT)
     dry_run = bool(args.get("dry_run", False))
     return bootstrap(

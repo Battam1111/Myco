@@ -8,10 +8,10 @@ violations (which don't exist yet — Stage B.8 will add that check).
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Mapping, Sequence
 
 from myco.core.context import MycoContext, Result
 
@@ -97,7 +97,7 @@ def run(args: Mapping[str, object], *, ctx: MycoContext) -> Result:
     raw_tags = args.get("tags") or ()
     if not isinstance(raw_tags, (list, tuple)):
         raw_tags = ()
-    tags = list(str(t) for t in raw_tags)
+    tags = [str(t) for t in raw_tags]
     source = str(args.get("source", "agent"))
 
     # --- Mode: adapter dispatch (path or url) ----------------------
@@ -105,6 +105,7 @@ def run(args: Mapping[str, object], *, ctx: MycoContext) -> Result:
     if path_arg or url_arg:
         target = str(path_arg or url_arg)
         from myco.ingestion.adapters import find_adapter
+
         adapter = find_adapter(target)
         if adapter is None:
             return Result(
@@ -127,14 +128,14 @@ def run(args: Mapping[str, object], *, ctx: MycoContext) -> Result:
                 tags=merged_tags,
                 source=r.source or source,
             )
-            outcomes.append({
-                "path": str(outcome.path),
-                "captured_at": outcome.captured_at.strftime(
-                    "%Y-%m-%dT%H:%M:%SZ"
-                ),
-                "title": r.title,
-                "source": r.source,
-            })
+            outcomes.append(
+                {
+                    "path": str(outcome.path),
+                    "captured_at": outcome.captured_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                    "title": r.title,
+                    "source": r.source,
+                }
+            )
         return Result(
             exit_code=0,
             payload={
@@ -180,9 +181,7 @@ def _render_note(
     source: str,
     content: str,
 ) -> str:
-    tags_flow = "[]" if not tags else (
-        "[" + ", ".join(f'"{t}"' for t in tags) + "]"
-    )
+    tags_flow = "[]" if not tags else ("[" + ", ".join(f'"{t}"' for t in tags) + "]")
     stamp = captured_at.strftime("%Y-%m-%dT%H:%M:%SZ")
     body = content.rstrip("\n") + "\n"
     return (

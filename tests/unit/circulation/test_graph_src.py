@@ -19,7 +19,7 @@ from __future__ import annotations
 import textwrap
 from pathlib import Path
 
-from myco.circulation.graph import Edge, build_graph
+from myco.circulation.graph import build_graph
 from myco.circulation.graph_src import walk_src_graph
 from myco.core.context import MycoContext
 
@@ -57,8 +57,7 @@ def test_graph_covers_py_files(seeded_substrate: Path) -> None:
     assert "src/myco/bar.py" in g.nodes
     import_edges = [e for e in g.edges if e.kind == "import"]
     assert any(
-        e.src == "src/myco/bar.py" and e.dst == "src/myco/foo.py"
-        for e in import_edges
+        e.src == "src/myco/bar.py" and e.dst == "src/myco/foo.py" for e in import_edges
     )
 
 
@@ -141,9 +140,7 @@ def test_graph_skips_stdlib_imports(seeded_substrate: Path) -> None:
     g = build_graph(ctx, use_cache=False)
     # No import edges should originate from this file.
     outgoing_imports = [
-        e
-        for e in g.edges
-        if e.kind == "import" and e.src == "src/myco/standalone.py"
+        e for e in g.edges if e.kind == "import" and e.src == "src/myco/standalone.py"
     ]
     assert outgoing_imports == []
     # But the node itself must still be present.
@@ -166,10 +163,10 @@ def test_graph_handles_syntax_error_gracefully(seeded_substrate: Path) -> None:
     _seed_src(
         seeded_substrate,
         "myco/broken.py",
-        '''
+        """
         def (:
             broken
-        ''',
+        """,
     )
     ctx = MycoContext.for_testing(root=seeded_substrate)
     # Must not raise.
@@ -179,9 +176,7 @@ def test_graph_handles_syntax_error_gracefully(seeded_substrate: Path) -> None:
     assert "src/myco/broken.py" in g.nodes
     # Broken file has no outgoing import edges (couldn't parse).
     broken_outs = [
-        e
-        for e in g.edges
-        if e.kind == "import" and e.src == "src/myco/broken.py"
+        e for e in g.edges if e.kind == "import" and e.src == "src/myco/broken.py"
     ]
     assert broken_outs == []
 
@@ -207,9 +202,7 @@ def test_walk_src_graph_skips_pycache(seeded_substrate: Path) -> None:
     cache_dir.mkdir(parents=True, exist_ok=True)
     # ``.py`` under __pycache__ is very unusual but exercises the
     # skip-dir filter regardless of extension matching.
-    (cache_dir / "real.cpython-313.py").write_text(
-        "# synthetic", encoding="utf-8"
-    )
+    (cache_dir / "real.cpython-313.py").write_text("# synthetic", encoding="utf-8")
     result = walk_src_graph(seeded_substrate)
     assert any(n == "src/myco/real.py" for n in result.nodes)
     assert not any("__pycache__" in n for n in result.nodes)

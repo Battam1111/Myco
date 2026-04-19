@@ -10,6 +10,7 @@ through the entire 0.x line.
 
 Scheduled for removal at v1.0.0.
 """
+
 from __future__ import annotations
 
 import warnings as _w
@@ -20,7 +21,6 @@ from myco.germination import (
     bootstrap,
     run_cli,
 )
-
 
 _WARNED = False
 

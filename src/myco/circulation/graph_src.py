@@ -27,8 +27,8 @@ from __future__ import annotations
 
 import ast
 import re
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Iterator
 
 __all__ = [
     "walk_src_graph",
@@ -87,7 +87,7 @@ class SrcGraphResult:
       are still emitted — the dangling-edge machinery surfaces them.
     """
 
-    __slots__ = ("nodes", "import_edges", "doc_edges")
+    __slots__ = ("doc_edges", "import_edges", "nodes")
 
     def __init__(self) -> None:
         self.nodes: set[str] = set()
@@ -260,10 +260,7 @@ def walk_src_graph(
     # Honor ``include_tests`` by optionally removing the ``tests`` ban
     # from the skip set for this walk. We build the effective set
     # locally so ``_SKIP_DIRS`` stays frozen at module level.
-    if include_tests:
-        effective_skip = _SKIP_DIRS - {"tests"}
-    else:
-        effective_skip = _SKIP_DIRS
+    effective_skip = _SKIP_DIRS - {"tests"} if include_tests else _SKIP_DIRS
 
     for py in _walk_py(src_dir, effective_skip):
         rel = _rel(root, py)
@@ -289,9 +286,7 @@ def walk_src_graph(
                         alias.name, src_dir, internal_prefix=internal_prefix
                     )
                     if target is not None:
-                        result.import_edges.append(
-                            (rel, _rel(root, target))
-                        )
+                        result.import_edges.append((rel, _rel(root, target)))
             elif isinstance(node, ast.ImportFrom):
                 # ``node.level`` = 0 means absolute; >=1 means relative.
                 if node.level and node.level > 0:
@@ -303,9 +298,7 @@ def walk_src_graph(
                         internal_prefix=internal_prefix,
                     )
                     if base_target is not None:
-                        result.import_edges.append(
-                            (rel, _rel(root, base_target))
-                        )
+                        result.import_edges.append((rel, _rel(root, base_target)))
                     # ``from . import sibling`` / ``from .pkg import mod``
                     # — each alias may itself be a submodule. Try each
                     # as a relative import one level deeper (append the
@@ -315,9 +308,7 @@ def walk_src_graph(
                         if alias.name == "*":
                             continue
                         combined = (
-                            f"{node.module}.{alias.name}"
-                            if node.module
-                            else alias.name
+                            f"{node.module}.{alias.name}" if node.module else alias.name
                         )
                         sub_target = _resolve_relative_import(
                             py,
@@ -327,9 +318,7 @@ def walk_src_graph(
                             internal_prefix=internal_prefix,
                         )
                         if sub_target is not None and sub_target != base_target:
-                            result.import_edges.append(
-                                (rel, _rel(root, sub_target))
-                            )
+                            result.import_edges.append((rel, _rel(root, sub_target)))
                     continue
                 base = node.module or ""
                 # First try the bare ``from pkg.mod import X`` form —
@@ -338,9 +327,7 @@ def walk_src_graph(
                     base, src_dir, internal_prefix=internal_prefix
                 )
                 if base_target is not None:
-                    result.import_edges.append(
-                        (rel, _rel(root, base_target))
-                    )
+                    result.import_edges.append((rel, _rel(root, base_target)))
                 # Also try ``from pkg import submodule`` — each name
                 # may itself be a module. We add both edges when the
                 # submodule form resolves; this keeps the graph faithful
@@ -353,9 +340,7 @@ def walk_src_graph(
                         dotted, src_dir, internal_prefix=internal_prefix
                     )
                     if sub_target is not None and sub_target != base_target:
-                        result.import_edges.append(
-                            (rel, _rel(root, sub_target))
-                        )
+                        result.import_edges.append((rel, _rel(root, sub_target)))
 
         # --- docstring doc refs ----------------------------------------
         docstring = ast.get_docstring(tree)

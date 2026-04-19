@@ -18,16 +18,19 @@ Exit codes:
 - ``3`` — operational error (file not found, unreadable). Raised as
   ``ContractError`` / ``UsageError`` by the gate pre-checks.
 
-Governing doctrine: ``docs/architecture/L2_DOCTRINE/surface.md``
-(governance-verbs appendix, v0.5). Legacy reference:
-``legacy_v0_3/docs/craft_protocol.md`` body-schema lint (Round 3).
+Governing manifest: ``docs/architecture/L3_IMPLEMENTATION/command_manifest.md``
+(governance-verbs section, v0.5 — per v0.5.0 craft §R13, no new L2
+surface.md was created; governance-verbs content lives at L3).
+Legacy reference: the pre-rewrite ``craft_protocol.md`` under
+``legacy_v0_3/`` (body-schema lint, Round 3).
 """
 
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 from myco.core.context import MycoContext, Result
 from myco.core.errors import ContractError, UsageError
@@ -114,9 +117,7 @@ _ROUND_MARKER_RE = re.compile(
 #: Accept the compact ``## Round 1.5 — 自我反驳`` form without the
 #: paren variant the legacy regex required. (Supplementary to the
 #: main regex above — union applied in :func:`_count_rounds`.)
-_ROUND_MARKER_FALLBACK_RE = re.compile(
-    r"^##\s+Round\s+\d+(?:\.\d+)?", re.MULTILINE
-)
+_ROUND_MARKER_FALLBACK_RE = re.compile(r"^##\s+Round\s+\d+(?:\.\d+)?", re.MULTILINE)
 
 
 def _parse_frontmatter(text: str) -> tuple[dict[str, Any], str]:
@@ -130,20 +131,16 @@ def _parse_frontmatter(text: str) -> tuple[dict[str, Any], str]:
     if not match:
         return {}, text
     fm_text = match.group(1)
-    body = text[match.end():]
+    body = text[match.end() :]
 
     import yaml
 
     try:
         fm = yaml.safe_load(fm_text) or {}
     except yaml.YAMLError as exc:
-        raise ContractError(
-            f"evolve: frontmatter is not valid YAML: {exc}"
-        ) from exc
+        raise ContractError(f"evolve: frontmatter is not valid YAML: {exc}") from exc
     if not isinstance(fm, dict):
-        raise ContractError(
-            "evolve: frontmatter top-level must be a YAML mapping"
-        )
+        raise ContractError("evolve: frontmatter top-level must be a YAML mapping")
     return fm, body
 
 
@@ -165,10 +162,7 @@ def _round_body_lengths(body: str) -> list[int]:
     if not positions:
         return []
     positions.append(len(body))
-    return [
-        positions[i + 1] - positions[i]
-        for i in range(len(positions) - 1)
-    ]
+    return [positions[i + 1] - positions[i] for i in range(len(positions) - 1)]
 
 
 def run(args: Mapping[str, object], *, ctx: MycoContext) -> Result:
@@ -184,9 +178,7 @@ def run(args: Mapping[str, object], *, ctx: MycoContext) -> Result:
     try:
         text = target.read_text(encoding="utf-8")
     except OSError as exc:
-        raise ContractError(
-            f"evolve: cannot read proposal: {exc}"
-        ) from exc
+        raise ContractError(f"evolve: cannot read proposal: {exc}") from exc
 
     fm, body = _parse_frontmatter(text)
     violations: list[dict[str, str]] = []
@@ -268,7 +260,8 @@ def run(args: Mapping[str, object], *, ctx: MycoContext) -> Result:
     body_lines = [ln for ln in body.splitlines() if ln.strip()]
     if body_lines:
         boilerplate_lines = sum(
-            1 for ln in body_lines
+            1
+            for ln in body_lines
             if any(marker in ln for marker in _BOILERPLATE_MARKERS)
         )
         fraction = boilerplate_lines / len(body_lines)
@@ -289,7 +282,8 @@ def run(args: Mapping[str, object], *, ctx: MycoContext) -> Result:
     per_round = _round_body_lengths(body)
     if per_round:
         short_rounds = [
-            i + 1 for i, length in enumerate(per_round)
+            i + 1
+            for i, length in enumerate(per_round)
             if length < _MIN_ROUND_BODY_CHARS
         ]
         if short_rounds:
@@ -308,9 +302,11 @@ def run(args: Mapping[str, object], *, ctx: MycoContext) -> Result:
     return Result(
         exit_code=exit_code,
         payload={
-            "proposal": str(target.relative_to(ctx.substrate.root)
-                            if target.is_relative_to(ctx.substrate.root)
-                            else target),
+            "proposal": str(
+                target.relative_to(ctx.substrate.root)
+                if target.is_relative_to(ctx.substrate.root)
+                else target
+            ),
             "verdict": verdict,
             "round_count": round_count,
             "body_chars": body_len,

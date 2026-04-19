@@ -7,11 +7,10 @@ from pathlib import Path
 import pytest
 
 from myco.core.context import MycoContext, Result
-from myco.core.errors import ContractError, UsageError
+from myco.core.errors import UsageError
 from myco.surface.manifest import (
     ArgSpec,
     CommandSpec,
-    Manifest,
     build_context,
     build_handler_args,
     dash_to_snake,
@@ -41,12 +40,23 @@ def test_load_manifest_has_every_v0_5_verb() -> None:
     all_names = set(m.all_names_including_aliases())
     must_have = {
         # v0.4 set (now aliases post-v0.5.3 rename).
-        "genesis", "hunger", "eat", "sense", "forage",
-        "reflect", "digest", "distill",
-        "perfuse", "propagate",
-        "immune", "session-end",
+        "genesis",
+        "hunger",
+        "eat",
+        "sense",
+        "forage",
+        "reflect",
+        "digest",
+        "distill",
+        "perfuse",
+        "propagate",
+        "immune",
+        "session-end",
         # v0.5 governance + scaffold (aliases post-v0.5.3 rename).
-        "craft", "bump", "evolve", "scaffold",
+        "craft",
+        "bump",
+        "evolve",
+        "scaffold",
     }
     missing = must_have - all_names
     assert not missing, f"manifest missing verbs: {sorted(missing)}"
@@ -86,6 +96,31 @@ def test_arg_coercion_bool() -> None:
     assert a.coerce(1) is True
 
 
+def test_arg_coercion_bool_string_literals() -> None:
+    """v0.5.7 test-coverage closure: the str→bool path accepts the full
+    four-way vocabulary (`1 / true / yes / on` → True) and rejects
+    everything else (→ False). Previously only ``"yes"``/``"no"`` were
+    covered, so a downstream substrate writing ``--quick=true`` via a
+    manifest overlay would have been rejected silently on first test.
+    """
+    a = ArgSpec(name="x", type="bool")
+    # The four affirmative literals that ``ArgSpec.coerce`` knows.
+    for truthy in ("1", "true", "yes", "on", "TRUE", "YES", "On"):
+        assert a.coerce(truthy) is True, f"truthy literal {truthy!r}"
+    # Everything else — empty, "0", "false", whitespace, garbage.
+    for falsy in ("0", "false", "no", "off", "", " ", "garbage", "None"):
+        assert a.coerce(falsy) is False, f"falsy literal {falsy!r}"
+
+
+def test_arg_coercion_bool_none_returns_none() -> None:
+    """``None`` passes through as ``None`` (not coerced to False),
+    preserving the "unset vs explicitly false" distinction the
+    dispatcher relies on.
+    """
+    a = ArgSpec(name="x", type="bool")
+    assert a.coerce(None) is None
+
+
 def test_arg_coercion_path() -> None:
     a = ArgSpec(name="x", type="path")
     assert a.coerce("/tmp") == Path("/tmp")
@@ -101,8 +136,11 @@ def test_arg_coercion_list() -> None:
 
 def test_build_handler_args_defaults_and_required() -> None:
     spec = CommandSpec(
-        name="x", subsystem="s", handler="m:f",
-        summary="", mcp_tool="tx",
+        name="x",
+        subsystem="s",
+        handler="m:f",
+        summary="",
+        mcp_tool="tx",
         args=(
             ArgSpec(name="a", type="str", required=True),
             ArgSpec(name="b", type="bool", default=False),

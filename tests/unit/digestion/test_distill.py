@@ -64,9 +64,7 @@ def test_distill_with_explicit_sources(genesis_substrate: Path) -> None:
     _seed_integrated(genesis_substrate, n=2)
     ctx = _mk_ctx(genesis_substrate)
     # Pick one integrated file explicitly.
-    integrated = sorted(
-        (genesis_substrate / "notes" / "integrated").glob("n_*.md")
-    )
+    integrated = sorted((genesis_substrate / "notes" / "integrated").glob("n_*.md"))
     rel = str(integrated[0].relative_to(genesis_substrate)).replace("\\", "/")
     target = distill_proposal(ctx=ctx, slug="explicit", sources=[rel])
     note = parse_note(target.read_text(encoding="utf-8"))

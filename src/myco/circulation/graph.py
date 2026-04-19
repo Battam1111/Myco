@@ -29,10 +29,11 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from collections.abc import Iterable, Iterator, Mapping
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterable, Iterator, Literal, Mapping
+from typing import Any, Literal
 
 import yaml
 
@@ -114,9 +115,7 @@ def _is_external(ref: str) -> bool:
     if lower.startswith(("http://", "https://", "mailto:", "#", "/")):
         return True
     # Windows-style absolute
-    if len(lower) >= 2 and lower[1] == ":":
-        return True
-    return False
+    return bool(len(lower) >= 2 and lower[1] == ":")
 
 
 def _strip_fragment(ref: str) -> str:
@@ -132,7 +131,7 @@ def _iter_canon_refs(node: Any, path: tuple[str, ...] = ()) -> Iterator[str]:
     """Yield every scalar found under a key ending in ``_ref``."""
     if isinstance(node, Mapping):
         for key, value in node.items():
-            sub_path = path + (str(key),)
+            sub_path = (*path, str(key))
             key_is_ref = str(key).endswith("_ref")
             if key_is_ref and isinstance(value, str):
                 yield value
@@ -160,12 +159,32 @@ def _iter_markdown_links(text: str) -> Iterator[str]:
             yield m.group(1)
 
 
-_SKIP = object()  # sentinel: external ref, drop silently
+class _SkipType:
+    """Sentinel class for external refs that ``_resolve`` intentionally
+    drops. Using a dedicated class (instead of ``object()``) lets mypy
+    narrow ``result is _SKIP`` statically, so the downstream
+    ``Edge(dst=resolved)`` and ``nodes.add(resolved)`` calls don't
+    require a cast to ``str``.
+    """
+
+    _instance: _SkipType | None = None
+
+    def __new__(cls) -> _SkipType:
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+
+
+_SKIP: _SkipType = _SkipType()  # sentinel: external ref, drop silently
 
 
 def _resolve(
-    root: Path, owner_rel: str, ref: str, *, anchor: str = "file"
-) -> str | object | None:
+    root: Path,
+    owner_rel: str,
+    ref: str,
+    *,
+    anchor: str = "file",
+) -> str | None | _SkipType:
     """Resolve ``ref`` to a substrate-relative path.
 
     Returns:
@@ -178,10 +197,7 @@ def _resolve(
     ref = _strip_fragment(ref)
     if _is_external(ref):
         return _SKIP
-    if anchor == "root":
-        base = root
-    else:
-        base = (root / owner_rel).parent
+    base = root if anchor == "root" else (root / owner_rel).parent
     try:
         target = (base / ref).resolve()
         target.relative_to(root.resolve())
@@ -251,10 +267,9 @@ def _canon_fingerprint(substrate: Substrate) -> str:
                         mtime_ns = child.stat().st_mtime_ns
                     except OSError:
                         continue
-                    rel = (
-                        str(child.resolve().relative_to(substrate.root.resolve()))
-                        .replace("\\", "/")
-                    )
+                    rel = str(
+                        child.resolve().relative_to(substrate.root.resolve())
+                    ).replace("\\", "/")
                     entries.append((rel, mtime_ns))
         entries.sort()
         for rel, mtime_ns in entries:
@@ -385,7 +400,7 @@ def _build_graph_uncached(ctx: MycoContext) -> Graph:
             raw = {}
         for ref in _iter_canon_refs(raw):
             resolved = _resolve(root, canon_rel, ref, anchor="root")
-            if resolved is _SKIP:
+            if isinstance(resolved, _SkipType):
                 continue
             if resolved is None:
                 edges.append(Edge(src=canon_rel, dst=ref, kind="canon_ref"))
@@ -410,7 +425,7 @@ def _build_graph_uncached(ctx: MycoContext) -> Graph:
             refs = ()
         for ref in refs:
             resolved = _resolve(root, rel, ref, anchor="root")
-            if resolved is _SKIP:
+            if isinstance(resolved, _SkipType):
                 continue
             if resolved is None:
                 edges.append(Edge(src=rel, dst=ref, kind="note_ref"))
@@ -424,7 +439,7 @@ def _build_graph_uncached(ctx: MycoContext) -> Graph:
             body = text
         for link in _iter_markdown_links(body):
             resolved = _resolve(root, rel, link)
-            if resolved is _SKIP:
+            if isinstance(resolved, _SkipType):
                 continue
             if resolved is None:
                 edges.append(Edge(src=rel, dst=link, kind="markdown_link"))
@@ -448,7 +463,7 @@ def _build_graph_uncached(ctx: MycoContext) -> Graph:
             continue
         for link in _iter_markdown_links(text):
             resolved = _resolve(root, rel, link)
-            if resolved is _SKIP:
+            if isinstance(resolved, _SkipType):
                 continue
             if resolved is None:
                 edges.append(Edge(src=rel, dst=link, kind="markdown_link"))

@@ -8,10 +8,11 @@ promotes a raw note to ``integrated`` state by moving it from
 
 from __future__ import annotations
 
+from collections.abc import Mapping, MutableMapping
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Mapping, MutableMapping
+from typing import Any
 
 import yaml
 
@@ -27,9 +28,7 @@ __all__ = [
 ]
 
 #: Known ``stage`` values in a note's frontmatter.
-NOTE_STAGES: frozenset[str] = frozenset(
-    {"raw", "digesting", "integrated", "distilled"}
-)
+NOTE_STAGES: frozenset[str] = frozenset({"raw", "digesting", "integrated", "distilled"})
 
 
 @dataclass(frozen=True)
@@ -93,9 +92,7 @@ def _is_substrate_ref(s: str) -> bool:
     if not s:
         return False
     lowered = s.lower()
-    if lowered.startswith(("http://", "https://", "mailto:", "#", "/")):
-        return False
-    return True
+    return not lowered.startswith(("http://", "https://", "mailto:", "#", "/"))
 
 
 def _validate_references(note: Note, *, substrate_root: Path) -> None:
@@ -106,13 +103,9 @@ def _validate_references(note: Note, *, substrate_root: Path) -> None:
         try:
             target.relative_to(substrate_root.resolve())
         except ValueError as exc:
-            raise ContractError(
-                f"note reference escapes substrate: {ref}"
-            ) from exc
+            raise ContractError(f"note reference escapes substrate: {ref}") from exc
         if not target.exists():
-            raise ContractError(
-                f"note reference does not exist: {ref}"
-            )
+            raise ContractError(f"note reference does not exist: {ref}")
 
 
 def _now_iso(now: datetime | None) -> str:
@@ -149,9 +142,7 @@ def promote_to_integrated(
     try:
         raw_path.relative_to(raw_dir)
     except ValueError as exc:
-        raise UsageError(
-            f"note is not under notes/raw/: {raw_path}"
-        ) from exc
+        raise UsageError(f"note is not under notes/raw/: {raw_path}") from exc
 
     text = raw_path.read_text(encoding="utf-8")
     note = parse_note(text)

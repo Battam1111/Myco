@@ -29,8 +29,8 @@ is. When in doubt, open a discussion.
 git clone https://github.com/Battam1111/Myco.git
 cd Myco
 pip install -e ".[dev,mcp]"
-pytest                              # full suite, ~4s locally
-python -m myco immune               # all 8 lint dimensions green
+pytest                              # full suite
+python -m myco immune               # all 11 lint dimensions green
 python -m myco --version
 ```
 
@@ -83,7 +83,8 @@ automatically; this block is the fallback when hooks are unavailable:
 ```
 python -m myco hunger --execute     # boot: surface HIGH reflexes first
 # ... your actual work ...
-python -m myco session-end          # close: reflect + immune --fix
+python -m myco senesce              # close (full, for /compact): assimilate + immune --fix
+python -m myco senesce --quick      # close (quick, for abrupt exits): assimilate only
 ```
 
 Agents must also:

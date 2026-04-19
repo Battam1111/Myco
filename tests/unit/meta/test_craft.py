@@ -5,10 +5,10 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from myco.meta.craft import _slugify, _title_case, run
 
 from myco.core.context import MycoContext
 from myco.core.errors import ContractError, UsageError
-from myco.meta.craft import _slugify, _title_case, run
 
 
 def _ctx(root: Path) -> MycoContext:

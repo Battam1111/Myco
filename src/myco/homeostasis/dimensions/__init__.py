@@ -37,21 +37,21 @@ and ``pip install`` it. Discovery is automatic.
 from __future__ import annotations
 
 import warnings
+from collections.abc import Iterator
 from importlib.metadata import entry_points
-from typing import Iterator
 
 from ..dimension import Dimension
 from .m1_canon_identity_fields import M1CanonIdentityFields
 from .m2_entry_point_exists import M2EntryPointExists
 from .m3_write_surface_declared import M3WriteSurfaceDeclared
+from .mb1_raw_notes_backlog import MB1RawNotesBacklog
+from .mb2_no_integrated_yet import MB2NoIntegratedYet
 from .mf1_declared_subsystems_exist import MF1DeclaredSubsystemsExist
 from .mf2_substrate_local_plugin_health import MF2SubstrateLocalPluginHealth
 from .mp1_no_provider_imports import MP1NoProviderImports
-from .sh1_package_version_ref import SH1PackageVersionRef
-from .mb1_raw_notes_backlog import MB1RawNotesBacklog
-from .mb2_no_integrated_yet import MB2NoIntegratedYet
 from .se1_dangling_refs import SE1DanglingRefs
 from .se2_orphan_integrated import SE2OrphanIntegrated
+from .sh1_package_version_ref import SH1PackageVersionRef
 
 __all__ = [
     "ALL",
@@ -126,7 +126,7 @@ def discover_dimension_classes() -> tuple[type[Dimension], ...]:
     for ep in eps:
         try:
             cls = ep.load()
-        except Exception as exc:  # noqa: BLE001 — defensive for plugin failures
+        except Exception as exc:
             warnings.warn(
                 f"myco.dimensions entry-point {ep.name!r} failed to "
                 f"load: {type(exc).__name__}: {exc}. Skipping.",

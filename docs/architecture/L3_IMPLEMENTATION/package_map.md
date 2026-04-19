@@ -7,7 +7,7 @@
 
 ---
 
-## The `src/myco/` layout (v0.5.6)
+## The `src/myco/` layout (v0.5.7)
 
 ```
 src/myco/
@@ -104,7 +104,7 @@ src/myco/
 │                            # contract-bumping molt. MP1 guards the rest of
 │                            # `src/myco/**` against provider-SDK imports.
 │
-└── symbionts/               # v0.5.5 — per-host Agent-sugar seam (defined-but-empty at v0.5.6)
+└── symbionts/               # v0.5.5 — per-host Agent-sugar seam (defined-but-empty at v0.5.7)
     └── __init__.py          # points at `symbiont_protocol.md`; no concrete symbionts yet
 ```
 
@@ -158,10 +158,10 @@ errors as mechanical/HIGH findings.
 | `src/myco/surface/` | (cross-cutting — adapters for CLI and MCP) | L1 protocol + command manifest |
 | `src/myco/cycle/` (v0.5.3) | (life-cycle composer verbs: `germinate`, `senesce`, `fruit`, `molt`, `winnow`, `ramify`, `graft`, `brief`) | `command_manifest.md` governance-verbs section |
 | `src/myco/meta/` (v0.5.3 shim) | (backward-compat re-export of `cycle`; preserves `from myco.meta import session_end_run`) | — |
-| `src/myco/install/` (v0.5.5) | (MCP host writers + fresh-substrate bootstrap; 10 automated hosts at v0.5.6) | `docs/INSTALL.md` |
+| `src/myco/install/` (v0.5.5) | (MCP host writers + fresh-substrate bootstrap; 10 automated hosts at v0.5.7) | `docs/INSTALL.md` |
 | `src/myco/mcp/` (v0.5.5) | (MCP launcher surface: `python -m myco.mcp`) | `L1_CONTRACT/protocol.md` + `command_manifest.md` |
-| `src/myco/providers/` (v0.5.6 NEW) | (reserved opt-in for LLM provider coupling; empty at v0.5.6; requires `canon.system.no_llm_in_substrate: false` + contract bump to populate) | `L2_DOCTRINE/digestion.md` §"sporulate does NOT call an LLM" + `providers/README.md` |
-| `src/myco/symbionts/` | per-host Agent-sugar adapters (Claude Code skill-generators, Cursor rule writers, VS Code task configurators, etc.) | `L3_IMPLEMENTATION/symbiont_protocol.md`; package defined-but-empty at v0.5.6 |
+| `src/myco/providers/` (v0.5.6 NEW) | (reserved opt-in for LLM provider coupling; empty at v0.5.7; requires `canon.system.no_llm_in_substrate: false` + contract bump to populate) | `L2_DOCTRINE/digestion.md` §"sporulate does NOT call an LLM" + `providers/README.md` |
+| `src/myco/symbionts/` | per-host Agent-sugar adapters (Claude Code skill-generators, Cursor rule writers, VS Code task configurators, etc.) | `L3_IMPLEMENTATION/symbiont_protocol.md`; package defined-but-empty at v0.5.7 |
 
 ### Shim packages (v0.5.3)
 

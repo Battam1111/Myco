@@ -98,7 +98,7 @@ are auto-downgraded from CRITICAL to HIGH. Rationale: a just-born
 substrate is *expected* to be incomplete, and failing a first-run hunger
 call blocks legitimate adoption.
 
-At v0.5.6 that list is empty — no dimension is currently skeleton-
+At v0.5.7 that list is empty — no dimension is currently skeleton-
 downgraded. The field is retained so future dimension retirements (or
 new dimensions that earn skeleton grace) can be declared there without
 a schema bump. The downgrade is a property of the kernel, not the flag

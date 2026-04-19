@@ -10,8 +10,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from myco.core.context import MycoContext
 from myco.cycle.brief import run as brief_run
 
@@ -101,7 +99,8 @@ def test_brief_suggests_assimilate_on_raw_backlog(
 
 
 def test_brief_does_not_crash_on_missing_primordia(
-    tmp_path: Path, minimal_canon_text: str,
+    tmp_path: Path,
+    minimal_canon_text: str,
 ) -> None:
     """Substrates without docs/primordia/ (freshly germinated) still
     produce a valid brief."""
@@ -113,7 +112,8 @@ def test_brief_does_not_crash_on_missing_primordia(
 
 
 def test_brief_renders_immune_findings_table_when_present(
-    tmp_path: Path, minimal_canon_text: str,
+    tmp_path: Path,
+    minimal_canon_text: str,
 ) -> None:
     """If immune produces findings, they surface as a markdown table.
     seeded substrate lacks write_surface + entry-point file → M2+M3

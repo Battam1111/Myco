@@ -9,8 +9,7 @@ from __future__ import annotations
 
 import io
 import json
-import sys
-from contextlib import redirect_stdout, redirect_stderr
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 
 import pytest
@@ -64,7 +63,8 @@ def test_short_version_flag() -> None:
 
 
 def test_list_flag_accepts_natural_multi_value(
-    genesis_substrate: Path, monkeypatch: pytest.MonkeyPatch,
+    genesis_substrate: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """``--tags a b c`` must parse as ``["a", "b", "c"]``. Before
     v0.5.4 only the repeated form (``--tags a --tags b``) worked;
@@ -79,7 +79,8 @@ def test_list_flag_accepts_natural_multi_value(
 
 
 def test_list_flag_still_accepts_repeated_form(
-    genesis_substrate: Path, monkeypatch: pytest.MonkeyPatch,
+    genesis_substrate: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Legacy ``--tags a --tags b`` form still works (extend semantics)."""
     monkeypatch.chdir(genesis_substrate)
@@ -103,18 +104,27 @@ def test_subparser_dest_does_not_collide_with_verb_arg() -> None:
     'unknown command'."""
     parser = build_parser()
     ns = parser.parse_args(
-        ["ramify", "--dimension", "D1", "--category", "mechanical", "--severity", "medium"]
+        [
+            "ramify",
+            "--dimension",
+            "D1",
+            "--category",
+            "mechanical",
+            "--severity",
+            "medium",
+        ]
     )
     subcmd = getattr(ns, "_subcmd", None)
     assert subcmd == "ramify"
     # The --verb arg still works when explicitly set.
     ns2 = parser.parse_args(["ramify", "--verb", "some_verb"])
-    assert getattr(ns2, "_subcmd") == "ramify"
+    assert ns2._subcmd == "ramify"
     assert ns2.verb == "some_verb"
 
 
 def test_ramify_dimension_mode_no_verb_flag(
-    genesis_substrate: Path, monkeypatch: pytest.MonkeyPatch,
+    genesis_substrate: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """End-to-end reproduction: ramify --dimension without --verb
     must succeed. Before v0.5.4 it errored with 'unknown command: None'."""
@@ -122,8 +132,16 @@ def test_ramify_dimension_mode_no_verb_flag(
     # which isn't "myco-self", so --substrate-local auto-on.
     monkeypatch.chdir(genesis_substrate)
     rc, stdout, stderr = _run(
-        ["--json", "ramify", "--dimension", "X1",
-         "--category", "mechanical", "--severity", "low"]
+        [
+            "--json",
+            "ramify",
+            "--dimension",
+            "X1",
+            "--category",
+            "mechanical",
+            "--severity",
+            "low",
+        ]
     )
     assert rc == 0, stderr
     data = json.loads(stdout)
@@ -138,7 +156,8 @@ def test_ramify_dimension_mode_no_verb_flag(
 
 
 def test_json_output_includes_findings_key(
-    genesis_substrate: Path, monkeypatch: pytest.MonkeyPatch,
+    genesis_substrate: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Every ``--json`` response carries a ``findings`` field (empty
     list when the handler produces none). Before v0.5.4, findings
@@ -152,14 +171,15 @@ def test_json_output_includes_findings_key(
 
 
 def test_json_findings_render_dimension_id_and_severity(
-    genesis_substrate: Path, monkeypatch: pytest.MonkeyPatch,
+    genesis_substrate: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """When immune fires a finding, the JSON output exposes the
     finding's dimension_id + category + severity for the agent."""
     # genesis_substrate lacks an entry-point file; M2 fires HIGH.
     monkeypatch.chdir(genesis_substrate)
     (genesis_substrate / "MYCO.md").unlink(missing_ok=True)
-    rc, stdout, _ = _run(["--json", "--exit-on", "high", "immune"])
+    _rc, stdout, _ = _run(["--json", "--exit-on", "high", "immune"])
     data = json.loads(stdout)
     findings = data["findings"]
     assert findings, "expected at least one finding"

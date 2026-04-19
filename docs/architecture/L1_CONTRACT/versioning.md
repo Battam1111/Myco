@@ -50,17 +50,17 @@ is currently aligned with. Lives in `_canon.yaml::contract_version`.
 | `_canon.yaml::synced_contract_version` | same as `contract_version` on a clean `assimilate` (alias `reflect` still resolves) |
 | Wave numbering | resets to **Wave 1** at v0.4.0 (per §9 E5) |
 
-## Current state (v0.5.6)
+## Current state (v0.5.7)
 
-| Field | Value at v0.5.6 tag |
+| Field | Value at v0.5.7 tag |
 |-------|---------------------|
-| `__version__` | `"0.5.6"` |
-| `_canon.yaml::contract_version` | `"v0.5.6"` |
-| `_canon.yaml::synced_contract_version` | `"v0.5.6"` (equal after a clean `assimilate`) |
+| `__version__` | `"0.5.7"` |
+| `_canon.yaml::contract_version` | `"v0.5.7"` |
+| `_canon.yaml::synced_contract_version` | `"v0.5.7"` (equal after a clean `assimilate`) |
 | Wave numbering | continues monotonically from Wave 1 |
 
 The "Starting points" row above is retained for historical reference.
-Current substrates (including `myco-self`) track the v0.5.6 row.
+Current substrates (including `myco-self`) track the v0.5.7 row.
 
 ## Pre-rewrite tags
 

@@ -206,11 +206,15 @@ commands:
   - name: "senesce"
     subsystem: "cycle"
     handler: "myco.cycle.senesce:run"
-    summary: "Senesce the session: assimilate + immune --fix before compaction."
+    summary: "Senesce the session: reflect (+ immune --fix in full mode) before compaction or exit."
     mcp_tool: "myco_senesce"
     aliases: ["session-end"]
     mcp_tool_aliases: ["myco_session_end"]
-    args: []
+    args:
+      - name: "quick"
+        type: "bool"
+        default: false
+        help: "Reflect-only mode for SessionEnd hooks with a short kill budget (~1.5s). Skips immune; the next PreCompact or SessionStart catches up. Default false = full reflect + immune --fix."
 
   - name: "fruit"
     subsystem: "cycle"

@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import textwrap
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable
 
 import pytest
 
@@ -29,7 +29,7 @@ class _Fires(Dimension):
     category = Category.MECHANICAL
     default_severity = Severity.CRITICAL
 
-    def run(self, ctx) -> Iterable[Finding]:  # noqa: ARG002
+    def run(self, ctx) -> Iterable[Finding]:
         yield Finding(
             dimension_id=self.id,
             category=self.category,
@@ -43,7 +43,7 @@ class _Quiet(Dimension):
     category = Category.METABOLIC
     default_severity = Severity.MEDIUM
 
-    def run(self, ctx) -> Iterable[Finding]:  # noqa: ARG002
+    def run(self, ctx) -> Iterable[Finding]:
         return ()
 
 
@@ -227,7 +227,7 @@ class _FixableProbe(Dimension):
         self.calls: list[tuple[object, Finding]] = []
         self.return_applied = True
 
-    def run(self, ctx) -> Iterable[Finding]:  # noqa: ARG002
+    def run(self, ctx) -> Iterable[Finding]:
         yield Finding(
             dimension_id=self.id,
             category=self.category,
@@ -319,7 +319,7 @@ def test_run_immune_fix_captures_raised_exceptions(
         default_severity = Severity.HIGH
         fixable = True
 
-        def run(self, ctx) -> Iterable[Finding]:  # noqa: ARG002
+        def run(self, ctx) -> Iterable[Finding]:
             yield Finding(
                 dimension_id=self.id,
                 category=self.category,

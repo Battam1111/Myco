@@ -24,8 +24,8 @@ gets ``exit_code = 1`` so CI gates notice. This matches the L1
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Mapping
 
 from myco.core.context import MycoContext, Result
 from myco.core.errors import MycoError

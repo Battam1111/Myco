@@ -155,11 +155,11 @@ does the above in one step. Until then, the manual plugin-install
 path (already documented in `docs/INSTALL.md`) covers the same
 ground.
 
-## Automated hosts at v0.5.6
+## Automated hosts at v0.5.7
 
 Symbionts are the declared **authoring** seam on top of the set of
 hosts that Myco already knows how to install MCP configuration into.
-At v0.5.6 the automated-host inventory (exposed via
+At v0.5.7 the automated-host inventory (exposed via
 `myco-install host <client>`) is:
 
 - Claude Code

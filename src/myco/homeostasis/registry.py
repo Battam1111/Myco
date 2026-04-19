@@ -35,9 +35,7 @@ class DimensionRegistry:
     def register(self, dim: Dimension) -> None:
         """Register ``dim``. Raises on type mismatch or duplicate id."""
         if not isinstance(dim, Dimension):
-            raise TypeError(
-                f"expected Dimension instance, got {type(dim).__name__}"
-            )
+            raise TypeError(f"expected Dimension instance, got {type(dim).__name__}")
         if dim.id in self._dims:
             raise ContractError(
                 f"duplicate dimension id: {dim.id!r}"
@@ -128,7 +126,7 @@ def default_registry() -> DimensionRegistry:
     :class:`UserWarning` and is skipped — packaged wins.
     """
     reg = DimensionRegistry()
-    from . import dimensions as _dims  # noqa: F401 - side-effect import
+    from . import dimensions as _dims
 
     def _try_register(cls: type[Dimension]) -> None:
         try:
@@ -139,6 +137,7 @@ def default_registry() -> DimensionRegistry:
             # win because they appear first; surface the clash as a
             # warning, not a crash, so the immune kernel still runs.
             import warnings
+
             warnings.warn(
                 f"dimension class {cls.__name__!r} is shadowed by an "
                 f"earlier registration for id {getattr(cls, 'id', '??')!r}. "

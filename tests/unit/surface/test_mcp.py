@@ -49,4 +49,5 @@ def test_build_server_imports() -> None:
     # Just verify the function is callable; actual server transport
     # isn't exercised here.
     from myco.surface import mcp as mcp_mod
+
     assert callable(mcp_mod.build_server)

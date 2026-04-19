@@ -2,10 +2,7 @@
 
 from __future__ import annotations
 
-import io
 import sys
-
-import pytest
 
 from myco.core.io import ensure_utf8_stdio
 
