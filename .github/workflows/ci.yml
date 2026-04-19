@@ -52,10 +52,18 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: pip
 
-      - name: Install dev + mcp extras
+      - name: Install dev + mcp + adapters extras
+        # CI installs ``[adapters]`` too so `test_package_imports` in
+        # `tests/test_scaffold.py` can walk every sub-package — the
+        # HTML / PDF / URL adapters import `bs4` / `pypdf` / `httpx`
+        # at module top (Adapter protocol, not lazy). Without the
+        # extras, `pkgutil.walk_packages` hits ModuleNotFoundError
+        # before any test body runs. End users installing `myco[mcp]`
+        # without adapters don't hit this: they simply never import
+        # the adapter subpackage. CI exercises the full matrix.
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e ".[dev,mcp]"
+          python -m pip install -e ".[dev,mcp,adapters]"
 
       - name: Ruff lint
         run: python -m ruff check src tests
