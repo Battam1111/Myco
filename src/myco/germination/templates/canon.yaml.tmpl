@@ -2,6 +2,12 @@
 # Schema: docs/architecture/L1_CONTRACT/canon_schema.md
 schema_version: "1"
 contract_version: "$contract_version"
+# v0.5.8: germinate stamps synced_contract_version in lockstep with
+# contract_version so a fresh substrate starts in a synced state.
+# Drift detection in hunger + the DC3 migration dimension (v0.5.8)
+# compare canon.contract_version vs synced_contract_version; missing
+# synced = permanent no-drift which hides every future upgrade need.
+synced_contract_version: "$contract_version"
 
 identity:
   substrate_id: "$substrate_id"
