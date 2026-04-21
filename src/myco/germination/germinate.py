@@ -51,11 +51,28 @@ _SUBSTRATE_ID_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_-]{0,63}$")
 _WINDOWS_RESERVED: frozenset[str] = frozenset(
     name.upper()
     for name in (
-        "CON", "PRN", "AUX", "NUL",
-        "COM1", "COM2", "COM3", "COM4", "COM5",
-        "COM6", "COM7", "COM8", "COM9",
-        "LPT1", "LPT2", "LPT3", "LPT4", "LPT5",
-        "LPT6", "LPT7", "LPT8", "LPT9",
+        "CON",
+        "PRN",
+        "AUX",
+        "NUL",
+        "COM1",
+        "COM2",
+        "COM3",
+        "COM4",
+        "COM5",
+        "COM6",
+        "COM7",
+        "COM8",
+        "COM9",
+        "LPT1",
+        "LPT2",
+        "LPT3",
+        "LPT4",
+        "LPT5",
+        "LPT6",
+        "LPT7",
+        "LPT8",
+        "LPT9",
     )
 )
 
@@ -71,6 +88,7 @@ def _resolve_default_contract_version() -> str:
     6+ versions stale and never triggered drift detection.
     """
     from myco import __version__ as _myco_version
+
     return f"v{_myco_version}"
 
 
@@ -116,7 +134,7 @@ def bootstrap(
     substrate_id: str,
     tags: Sequence[str] = (),
     entry_point: str = DEFAULT_ENTRY_POINT,
-    contract_version: str = DEFAULT_CONTRACT_VERSION,
+    contract_version: str | _ContractVersionDescriptor = DEFAULT_CONTRACT_VERSION,
     dry_run: bool = False,
     now: datetime | None = None,
 ) -> Result:
@@ -191,9 +209,7 @@ def bootstrap(
             f"denied ({exc}). Pick a writable location."
         ) from exc
     except OSError as exc:
-        raise UsageError(
-            f"cannot prepare project_dir {project_dir}: {exc}"
-        ) from exc
+        raise UsageError(f"cannot prepare project_dir {project_dir}: {exc}") from exc
     if not project_dir.is_dir():
         raise UsageError(f"project_dir is not a directory: {project_dir}")
 
@@ -223,11 +239,16 @@ def bootstrap(
     now = now or datetime.now(timezone.utc)
     generated_at = now.strftime("%Y-%m-%dT%H:%M:%SZ")
 
+    # Normalise ``contract_version`` to a concrete string. The default
+    # is a :class:`_ContractVersionDescriptor` which resolves to the
+    # current kernel version on ``str()``; explicit string callers pass
+    # through unchanged.
+    contract_version_str = str(contract_version)
     canon_text = _render_canon(
         substrate_id=substrate_id,
         tags=tuple(tags),
         entry_point=entry_point,
-        contract_version=contract_version,
+        contract_version=contract_version_str,
         generated_at=generated_at,
     )
     entry_text = _render_entry_point(
@@ -239,10 +260,22 @@ def bootstrap(
         f"autoseeded by myco germinate at {generated_at}\nsubstrate_id={substrate_id}\n"
     )
 
-    preview: dict[str, str] = {
+    preview_full: dict[str, str] = {
         "_canon.yaml": canon_text,
         entry_point: entry_text,
         ".myco_state/autoseeded.txt": marker_text,
+    }
+
+    # v0.5.8 (Lens 5 P1-09-germinate-preview): the ``preview`` payload
+    # key previously returned full file contents — a ~2 KB canon YAML
+    # dump plus the MYCO.md template plus the marker. Rendered in the
+    # default human-readable CLI output it drowned the useful
+    # ``files_created`` summary in boilerplate. The dict is now a
+    # byte-count summary by default; the full text is preserved under
+    # ``preview_full`` so ``--json`` callers still have the raw data.
+    preview: dict[str, object] = {
+        name: {"bytes": len(text), "first_line": text.splitlines()[0] if text else ""}
+        for name, text in preview_full.items()
     }
 
     files_created: tuple[str, ...] = ()
@@ -250,27 +283,50 @@ def bootstrap(
         # Directories first.
         state_dir.mkdir(exist_ok=True)
         (project_dir / "notes").mkdir(exist_ok=True)
+        # v0.5.8 (Lens 13 FR1-pre): fresh substrates now provision
+        # ``notes/raw/`` and ``notes/integrated/`` up front. Previously
+        # the first ``eat`` call created ``notes/raw/`` lazily, and
+        # ``notes/integrated/`` was only created on the first
+        # ``assimilate`` pass — which left FR1 and friends unable to
+        # distinguish "fresh substrate not yet used" from "substrate
+        # corrupted by a missing directory". Pre-creating both dirs
+        # makes the post-germinate state deterministic.
+        (project_dir / "notes" / "raw").mkdir(exist_ok=True)
+        (project_dir / "notes" / "integrated").mkdir(exist_ok=True)
         (project_dir / "docs").mkdir(exist_ok=True)
         # Files.
-        canon_path.write_text(canon_text, encoding="utf-8")
-        entry_path.write_text(entry_text, encoding="utf-8")
-        marker_path.write_text(marker_text, encoding="utf-8")
+        # v0.5.8 (Lens 10 P1-C): LF-only for every genesis artifact.
+        # Previously on Windows the canon, entry file, and marker were
+        # written with CRLF, which caused drift for downstream tooling
+        # that fingerprints canon by byte hash and for agents that
+        # diff artifacts across platforms.
+        canon_path.write_text(canon_text, encoding="utf-8", newline="\n")
+        entry_path.write_text(entry_text, encoding="utf-8", newline="\n")
+        marker_path.write_text(marker_text, encoding="utf-8", newline="\n")
         files_created = (
             "_canon.yaml",
             entry_point,
             ".myco_state/autoseeded.txt",
         )
 
+    payload: dict[str, object] = {
+        "files_created": files_created,
+        "preview": preview,
+        "dry_run": dry_run,
+        "project_dir": str(project_dir),
+        "substrate_id": substrate_id,
+    }
+    # Only include the full-text preview on ``--dry-run`` runs — on a
+    # real germination the files are on disk and the CLI doesn't need
+    # to echo the content back. Skipping ``preview_full`` for real
+    # runs keeps the payload about 6x smaller in the common path.
+    if dry_run:
+        payload["preview_full"] = preview_full
+
     return Result(
         exit_code=0,
         findings=(),
-        payload={
-            "files_created": files_created,
-            "preview": preview,
-            "dry_run": dry_run,
-            "project_dir": str(project_dir),
-            "substrate_id": substrate_id,
-        },
+        payload=payload,
     )
 
 

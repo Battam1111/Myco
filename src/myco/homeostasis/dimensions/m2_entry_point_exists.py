@@ -112,7 +112,7 @@ class M2EntryPointExists(Dimension):
         )
 
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(body, encoding="utf-8")
+        target.write_text(body, encoding="utf-8", newline="\n")
         return {
             "applied": True,
             "detail": f"created entry point {entry!r} ({len(body)} bytes)",

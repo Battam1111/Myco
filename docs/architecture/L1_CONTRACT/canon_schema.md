@@ -66,7 +66,8 @@ versioning:
   pyproject_dynamic: true
 
 lint:
-  dimensions:                      # dimension_id → category (v0.5.7 roster, unchanged from v0.5.6)
+  dimensions:                      # dimension_id → category (v0.5.8 roster, 25 dims)
+    # v0.5.0–v0.5.7 (11 dims):
     M1: mechanical                 # core write-surface / required-field shape
     M2: mechanical                 # fixable — missing entry-point file
     M3: mechanical                 # write-surface violations
@@ -78,6 +79,21 @@ lint:
     MB2: metabolic                 # undigested-note backlog pressure
     SE1: semantic                  # orphan / dangling cross-references
     SE2: semantic                  # canon ↔ reality drift (numbers, paths)
+    # v0.5.8 additions (14 new dims, Phase 14 of the v0.5.8 cleanup):
+    MP2: mechanical                # plugin-tree companion to MP1
+    DC1: mechanical                # module docstring present
+    DC2: mechanical                # public function/method docstring present
+    DC3: mechanical                # public class docstring present
+    DC4: mechanical                # non-trivial module references doctrine
+    CS1: mechanical                # synced_contract_version matches contract_version (fixable)
+    FR1: mechanical                # fresh-substrate directory invariants
+    PA1: mechanical                # write_surface covers core v0.5.x paths
+    CG1: mechanical                # every L2 doctrine has a src code reference
+    CG2: mechanical                # every src subpackage links out to doctrine
+    DI1: mechanical                # discipline hooks present when .claude/ is declared
+    MB3: metabolic                 # raw-notes high watermark (≥50 pending; fixable)
+    SE3: semantic                  # graph contains no self-cycles
+    RL1: semantic                  # every R1-R7 rule is referenced somewhere
   categories:                      # the four fixed categories
     - mechanical
     - shipped

@@ -18,6 +18,213 @@ Versioning: [SemVer](https://semver.org/).
 
 ---
 
+## [0.5.8] — 2026-04-21
+
+**Cleanup release: 14 new lint dimensions + foundation helpers +
+audit-driven fixes.** v0.5.8 is the v0.5.x cleanup-and-consolidation
+pass. It does not add user-visible verbs (surface stays at 18), but
+it nearly doubles the lint surface (11 → 25 dimensions) so every
+R1-R7 rule and every L0 principle has at least one mechanical
+anchor, not just a doctrine sentence. Four new core helpers ship
+ready to be wired into every write/read site in v0.5.9+. Thirteen
+concrete P0/P1 bugs from a four-iteration opus-lens audit are
+closed.
+
+Governing crafts:
+`docs/primordia/v0_5_8_discipline_enforcement_craft_2026-04-21.md`
+(the 14-dim expansion + foundation helpers design) and
+`docs/primordia/v0_5_8_release_craft_2026-04-21.md` (release
+closure — bundles audit response + cleanup + doctrine alignment).
+
+### Added
+
+- **14 new lint dimensions** under
+  `src/myco/homeostasis/dimensions/`:
+  - `MP2` — plugin-tree companion to MP1 (LLM-SDK boundary
+    extended from `src/myco/**` to `.myco/plugins/**`).
+    MEDIUM when `no_llm_in_substrate: true`; LOW on opt-out.
+  - `DC1` — every `src/myco/**/*.py` file has a module
+    docstring. LOW.
+  - `DC2` — every public function/method has a docstring. LOW.
+  - `DC3` — every public class has a docstring. LOW.
+  - `DC4` — non-trivial modules (>40 SLOC) reference at least one
+    doctrine/notes path in their module docstring. LOW.
+  - `CS1` — `canon.synced_contract_version` matches
+    `canon.contract_version`. HIGH, fixable (delegates to the
+    same helper `assimilate` uses).
+  - `RL1` — every L1 R1-R7 rule is referenced by some substrate
+    artefact (code, doc, test, note). LOW.
+  - `FR1` — fresh-substrate directory invariants preserved:
+    `_canon.yaml`, entry-point file, `notes/raw/`,
+    `notes/integrated/`, `docs/`. HIGH on root anchors, MEDIUM
+    on directories.
+  - `PA1` — `system.write_surface.allowed` covers the five core
+    v0.5.x paths (`notes/raw/**/*.md`, `notes/integrated/**/*.md`,
+    `notes/distilled/**/*.md`, `_canon.yaml`,
+    `docs/contract_changelog.md`). MEDIUM per missing path.
+  - `SE3` — substrate graph contains no self-cycles. LOW.
+  - `MB3` — raw-notes backlog ≥ 50 (high watermark). HIGH,
+    fixable (same `reflect` helper MB1 uses).
+  - `CG1` — every L2 doctrine page has at least one `code_doc_ref`
+    edge from `src/myco/**`. LOW.
+  - `CG2` — every `src/myco/**` subpackage references doctrine in
+    at least one module docstring. LOW.
+  - `DI1` — `.claude/hooks.json` (or `settings.json` with a
+    `"hooks"` key) present when `.claude/` directory is declared.
+    MEDIUM.
+- **Four new core helpers** under `src/myco/core/`:
+  - `io_atomic.py` — `atomic_utf8_write` (temp + `os.replace`),
+    `bounded_read_text`, `bounded_read_bytes`, default 10 MB cap.
+  - `trust.py` — `safe_frontmatter_field`, `strip_controls`,
+    `flatten_newlines`, `strip_markdown_meta`.
+  - `skip_dirs.py` — canonical `DEFAULT_SKIP_DIRS` (21 entries)
+    + `should_skip_dir(name)` / `should_skip_path(path, ...)`.
+    Unifies three previously-divergent skip lists.
+  - `write_surface.py` — `is_path_allowed`, `guarded_write`,
+    `WriteSurfaceViolation`, `UNSAFE_WRITE_ENV`.
+- **Fresh-substrate directory pre-provisioning.** `myco germinate`
+  now creates `notes/raw/` and `notes/integrated/` up front.
+  Pre-v0.5.8 they were created lazily on first `eat` / `assimilate`,
+  which left FR1 unable to distinguish "fresh unused" from
+  "corrupted via missing dir".
+- **`.gitattributes` (new).** Forces LF endings across every text
+  surface. Prevents CRLF contamination of the persisted graph
+  checksum on mixed-OS contributor setups.
+- **`.pre-commit-config.yaml` (new).** Ships the ruff + mypy +
+  LF-hygiene + `myco immune` gate as an optional contributor
+  pre-commit hook. CI runs the same checks; this shortens the
+  feedback loop from minutes to seconds.
+- **`src/myco/py.typed` (new).** Marks the package as typed per
+  PEP 561 so downstream consumers get type info from
+  `pip install myco`.
+- **Gap-fill dimension discovery.** `discover_dimension_classes()`
+  now merges installed entry-points with the `_BUILT_IN` tuple by
+  dimension id. A dev checkout that added a new dim but hasn't
+  refreshed the editable install still gets full discovery. The
+  full-empty fallback (pre-v0.5.8 behavior) is preserved.
+
+### Changed
+
+- **Exit-code differentiation.** `SubstrateNotFound.exit_code`
+  bumps from `3` → `4`. `CanonSchemaError.exit_code` bumps from
+  `3` → `5`. Both stay within the contract-reserved `≥3`
+  operational-failure band. CI scripts that only check `exit != 0`
+  are unaffected; scripts that special-case `== 3` get a more
+  precise signal on two common failure classes. Documented in
+  `docs/contract_changelog.md`.
+- **Immune human output shows findings.** `_render_human` in
+  `myco/surface/cli.py` now enumerates each finding by dim, severity,
+  category, location, and message. Pre-v0.5.8 the default text
+  output only showed `exit_code` + dim-run list; agents had to
+  pass `--json` to see *why* a non-zero exit fired.
+- **Germinate preview trimmed.** The payload's `preview` key no
+  longer dumps full file contents (~2 KB per run). `--dry-run`
+  retains the full text under a new `preview_full` key;
+  non-dry-run runs drop it entirely (files are on disk).
+- **SE1 set-membership optimization.** The dangling-ref dimension
+  switched from per-edge `target.exists()` filesystem stat to
+  set-membership against `graph.nodes`. On myco-self (2400+
+  edges) this cut SE1 wall-clock from ~410 ms to < 2 ms.
+- **MCP pulse canon cache.** `myco/surface/mcp.py::_load_canon`
+  caches the parsed canon keyed on `mtime_ns`. Repeated tool
+  calls within a session share the parse.
+- **Graph builder: nodes = files that exist.** `_build_graph_uncached`
+  now checks `(root / resolved).is_file()` before `nodes.add`.
+  Previously `nodes` contained resolved paths regardless of
+  disk existence, which made SE1's set-membership check
+  unsafe. v0.5.8 tightens the invariant.
+- **Symlink cycle guard in graph walkers.** `_walk_py`,
+  `_iter_py_files`, and the fingerprint walker in `graph.py`
+  now skip symlinks and keep a `(st_dev, st_ino)` visited set.
+  Previously a symlink loop inside `src/` would recurse forever.
+- **LF-only line endings on every `write_text` site.** 18+ write
+  sites under `src/myco/` now pass `newline="\n"`. On Windows,
+  Python's default text-mode newline translation produced CRLF,
+  which (a) changed the persisted-graph byte hash between OSes
+  and (b) caused phantom line-ending churn in git diffs.
+- **Adapter size caps.** `text_file` / `pdf_reader` / `html_reader`
+  / `tabular` / `url_fetcher` now reject files > 10 MB
+  (`DEFAULT_MAX_INGEST_BYTES`). `url_fetcher` additionally aborts
+  streaming reads when the byte-count exceeds the cap.
+- **`url_fetcher` SSRF guard.** Scheme limited to `http`/`https`;
+  host rejected if it resolves to loopback / link-local / private
+  / multicast / reserved; redirect targets re-validated.
+- **Adapter POSIX source normalisation.** Every adapter now
+  normalises the `source` metadata to POSIX separators for
+  cross-platform payload consistency.
+- **Forage walker rewrite.** `myco forage` now prunes skip-dirs
+  mid-walk (was stat-ing every `.git` file) and yields
+  incrementally so the `MAX_ITEMS=500` cap short-circuits
+  correctly. On the Myco self-substrate this cut forage wall-
+  clock from 5.5-6.4 s to < 400 ms.
+- **Eat TOCTOU fix.** `append_note` now opens its output file
+  with `os.open(path, O_WRONLY | O_CREAT | O_EXCL)` in a
+  collision-retry loop (up to 10,000 attempts). Pre-v0.5.8 the
+  `while path.exists()` loop had a race window where two
+  concurrent agents could both believe the name was free.
+- **Eat uses `yaml.safe_dump` for frontmatter.** Hand-rolled
+  YAML rendering was vulnerable to injection via attacker-
+  controlled `tags` or `source`. v0.5.8 dumps through
+  `yaml.safe_dump` and pre-sanitises fields via
+  `trust.safe_frontmatter_field`.
+- **`.env` removed from `_CODE_EXTS`.** Text-file adapter no
+  longer treats `.env` as text, and a credential-filename
+  denylist (`.env*`, `*.env`, `id_rsa*`, `*.pem`, `*.key`,
+  `.npmrc`, `.netrc`, `.pypirc`, `credentials*`, `secrets*`,
+  `*.p12`, `*.pfx`) rejects credential-bearing files regardless
+  of extension.
+- **Subprocess encoding explicit on Windows.** All
+  `subprocess.run(..., text=True)` call sites in
+  `install/fresh.py` and `install/clients.py` now pass
+  `encoding="utf-8", errors="replace", check=False`.
+  Pre-v0.5.8, Chinese-locale Windows (cp936) would mis-decode
+  subprocess output and either crash with `UnicodeDecodeError`
+  or silently mangle bytes.
+- **Propagate strips `n_`/`d_` prefix.** Cross-substrate note
+  propagation now strips the `n_` raw-note / `d_` digested-note
+  prefix from the destination filename. Both substrates see
+  a clean `<stem>.md`.
+
+### Fixed
+
+- Credential exfiltration via `eat --path`: pre-v0.5.8, a user
+  running `myco eat --path ~/project` could slurp the project's
+  `.env` (AWS keys, OpenAI keys, DB passwords) into plaintext
+  raw notes. Now rejected at `can_handle`.
+- Forage scanning every `.git` object file on repo-root runs
+  (previously 5.5-6.4 s on myco-self; now < 400 ms).
+- Windows filenames landing on reserved names (`CON`, `PRN`,
+  `NUL`, `COM1-9`, `LPT1-9`) silently no-op'd `write_text`.
+  `germinate` now validates substrate_id + entry_point against
+  a reserved-name set.
+- Dynamic `DEFAULT_CONTRACT_VERSION` descriptor — reads
+  `myco.__version__` at call time instead of at import time, so
+  an editable install that bumps `__version__` sees the new value
+  in germinate output without a re-import.
+- Legacy canons without `synced_contract_version` silently
+  ignored the drift check. `molt` now writes the field on every
+  bump; `assimilate` falls back to no-op when the field is
+  absent (pre-v0.5.8 substrate).
+- `waves.current` was declared monotonic in L1 but never
+  incremented. `molt` now increments it on every successful bump.
+
+### Docs
+
+- `docs/primordia/v0_5_8_discipline_enforcement_craft_2026-04-21.md`
+  — 14-dim expansion + 4 foundation helpers design craft (3 rounds,
+  APPROVED).
+- `docs/primordia/v0_5_8_release_craft_2026-04-21.md` — release
+  closure craft (3 rounds, APPROVED).
+- `docs/architecture/L2_DOCTRINE/homeostasis.md` — dimension
+  enumeration table updated from 11 rows to 25, per-dim severity/
+  fixable/summary columns preserved.
+- `docs/architecture/L1_CONTRACT/canon_schema.md` —
+  `lint.dimensions` block updated to the 25-dim roster with
+  per-dim category + source citation.
+- `docs/contract_changelog.md` — v0.5.8 entry added.
+
+---
+
 ## [0.5.7] — 2026-04-19
 
 **Defense-in-depth session-end + v0.5.6 post-release cleanup.** The

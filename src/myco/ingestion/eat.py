@@ -170,8 +170,7 @@ def run(args: Mapping[str, object], *, ctx: MycoContext) -> Result:
         )
     if _mode_count > 1:
         raise UsageError(
-            "eat: --content, --path, and --url are mutually "
-            "exclusive; pass only one."
+            "eat: --content, --path, and --url are mutually exclusive; pass only one."
         )
 
     # --- Mode: adapter dispatch (path or url) ----------------------

@@ -160,7 +160,7 @@ def propagate(
     if not dry_run:
         inbox.mkdir(parents=True, exist_ok=True)
         for target, rendered in plan:
-            target.write_text(rendered, encoding="utf-8")
+            target.write_text(rendered, encoding="utf-8", newline="\n")
             propagated.append(str(target.relative_to(dst_root)).replace("\\", "/"))
     else:
         propagated = [

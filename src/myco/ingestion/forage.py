@@ -5,16 +5,26 @@ least one registered adapter can handle (per L0 principle 2: "no
 filter on what enters"). Files that no adapter recognizes are still
 reported in a ``skipped`` count so the user knows the listing is
 intentionally narrowed, not silently lossy.
+
+v0.5.8 (Lens 7 P0-02 / Lens 4 P1-10): the walker now honors
+``myco.core.skip_dirs`` so ``myco forage`` in a real-world project
+no longer stats every file in ``.git`` / ``.venv`` / ``node_modules``.
+Previous behavior on this repo took 5.5-6.4 seconds (87% of which
+was .git traversal); now the walker prunes those subtrees at their
+roots. Also switched from ``sorted(rglob)`` (which materialises the
+full listing before the cap triggers) to a manual DFS that yields
+files incrementally so the cap short-circuits correctly.
 """
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
 from myco.core.context import MycoContext, Result
 from myco.core.errors import UsageError
+from myco.core.skip_dirs import should_skip_dir
 
 __all__ = ["ForageItem", "list_candidates", "run"]
 
@@ -29,6 +39,32 @@ class ForageItem:
     size: int
     suffix: str
     adapter: str
+
+
+def _walk_forage(root: Path) -> Iterator[Path]:
+    """Manual DFS with skip-dir pruning.
+
+    Yields files in sorted order within each directory so the listing
+    is deterministic, but prunes ``should_skip_dir`` subtrees (``.git``,
+    ``.venv``, ``node_modules`` etc.) before descending — avoids the
+    Lens 7 P0-02 cliff where forage on a repo root scanned ~10k
+    git-object files.
+    """
+    try:
+        entries = sorted(root.iterdir())
+    except OSError:
+        return
+    for entry in entries:
+        if entry.is_symlink():
+            # Skip symlinks entirely to avoid cycles + to match the
+            # graph walker's semantics (Lens 13 P1-13-9).
+            continue
+        if entry.is_dir():
+            if should_skip_dir(entry.name):
+                continue
+            yield from _walk_forage(entry)
+        elif entry.is_file():
+            yield entry
 
 
 def list_candidates(
@@ -52,9 +88,7 @@ def list_candidates(
 
     items: list[ForageItem] = []
     skipped = 0
-    for path in sorted(target_dir.rglob("*")):
-        if not path.is_file():
-            continue
+    for path in _walk_forage(target_dir):
         adapter = find_adapter(str(path))
         if adapter is None:
             skipped += 1
@@ -65,7 +99,9 @@ def list_candidates(
             continue
         items.append(
             ForageItem(
-                path=str(path),
+                # Normalise to POSIX separators for cross-platform
+                # payload consistency (Lens 10 P1-C).
+                path=str(path).replace("\\", "/"),
                 size=size,
                 suffix=path.suffix.lower(),
                 adapter=adapter.name,

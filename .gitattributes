@@ -1,0 +1,36 @@
+# Myco — LF-only line endings across every text surface.
+#
+# Rationale (v0.5.8, Lens 10 P1-C): canon fingerprinting, graph
+# persistence, and cross-platform artifact diffing all assume LF
+# line endings. Without this file, Windows contributors would land
+# CRLF in committed files and the persisted graph checksum would
+# drift between OSes on the same source tree.
+*               text=auto eol=lf
+
+# Explicit overrides for content-typed files that must never be
+# rewritten by git's text heuristics.
+*.md            text eol=lf
+*.py            text eol=lf
+*.yaml          text eol=lf
+*.yml           text eol=lf
+*.toml          text eol=lf
+*.json          text eol=lf
+*.cfg           text eol=lf
+*.ini           text eol=lf
+*.txt           text eol=lf
+*.sh            text eol=lf
+
+# Binary artifacts — never touch.
+*.png           binary
+*.jpg           binary
+*.jpeg          binary
+*.gif           binary
+*.ico           binary
+*.pdf           binary
+*.woff          binary
+*.woff2         binary
+*.ttf           binary
+*.otf           binary
+*.zip           binary
+*.gz            binary
+*.whl           binary

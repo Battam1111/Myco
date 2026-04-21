@@ -104,7 +104,7 @@ def run(args: Mapping[str, object], *, ctx: MycoContext) -> Result:
         date=today,
         title=_title_case(slug),
     )
-    target.write_text(body, encoding="utf-8")
+    target.write_text(body, encoding="utf-8", newline="\n")
 
     return Result(
         exit_code=0,

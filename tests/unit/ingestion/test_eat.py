@@ -15,7 +15,13 @@ def _mk_ctx(root: Path, *, now: datetime | None = None) -> MycoContext:
 
 def test_append_note_creates_raw_dir(genesis_substrate: Path) -> None:
     ctx = _mk_ctx(genesis_substrate)
-    # genesis doesn't create notes/raw/ specifically; eat should.
+    # v0.5.8: ``germinate`` now pre-creates ``notes/raw/`` and
+    # ``notes/integrated/`` (FR1 dimension expects them present).
+    # We test by nuking the dir and verifying eat recreates it
+    # idempotently — eat must still work on a deleted-notes path.
+    import shutil
+
+    shutil.rmtree(genesis_substrate / "notes" / "raw", ignore_errors=True)
     assert not (genesis_substrate / "notes" / "raw").exists()
     outcome = append_note(ctx=ctx, content="hello world")
     assert outcome.path.is_file()

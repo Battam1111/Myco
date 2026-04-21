@@ -156,6 +156,7 @@ def test_propagate_rejects_major_version_mismatch(
     # germinate stamps the live kernel version, so we rewrite to
     # anything with a distinct major.
     import re as _re
+
     dst_canon = dst_substrate / "_canon.yaml"
     text = dst_canon.read_text(encoding="utf-8")
     text = _re.sub(
@@ -183,11 +184,13 @@ def test_propagate_minor_mismatch_warns(
     the compat-warning fires regardless of which kernel version
     germinated the fixtures."""
     import re as _re
+
     dst_canon = dst_substrate / "_canon.yaml"
     text = dst_canon.read_text(encoding="utf-8")
     # Rewrite dst canon to a deliberately-different minor within the
     # same major as whatever the live kernel stamps.
     from myco import __version__ as _myco_version
+
     parts = _myco_version.split(".")
     major = parts[0]
     bumped_minor = str(int(parts[1]) + 7)  # guarantee a delta

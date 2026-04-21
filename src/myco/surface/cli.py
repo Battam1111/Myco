@@ -147,9 +147,40 @@ def _extract_args(spec: CommandSpec, namespace: argparse.Namespace) -> dict[str,
 
 
 def _render_human(result: Result) -> str:
+    """Render ``result`` as a human-readable report.
+
+    v0.5.8 (Lens 5 P1-09-human-immune): findings are now enumerated
+    in the text output. Previously an agent running ``myco immune``
+    without ``--json`` saw only ``exit_code: 1`` with no indication
+    of *which* dimension fired, at what severity, on what path.
+    The payload's ``dimensions_run`` list was shown but the actual
+    findings list was hidden. Human users and log-scraping agents
+    both suffered.
+    """
     lines = [f"exit_code: {result.exit_code}"]
+    if result.findings:
+        lines.append(f"findings ({len(result.findings)}):")
+        for f in result.findings:
+            # Category/Severity are enums with ``value`` / ``label``.
+            sev = (
+                f.severity.label() if hasattr(f.severity, "label") else str(f.severity)
+            )
+            cat = f.category.value if hasattr(f.category, "value") else str(f.category)
+            location = f.path or ""
+            if f.line:
+                location = f"{location}:{f.line}"
+            head = f"  [{sev} {f.dimension_id} {cat}]"
+            if location:
+                head = f"{head} {location}"
+            lines.append(head)
+            lines.append(f"    {f.message}")
     if result.payload:
+        # Keep the payload rendering but suppress the verbose
+        # ``findings`` key (if some handler stashed a duplicate there)
+        # — the dedicated findings block above is what the user sees.
         for k, v in result.payload.items():
+            if k == "findings":
+                continue
             lines.append(f"  {k}: {v}")
     return "\n".join(lines)
 

@@ -11,6 +11,92 @@ Format: one section per `contract_version`, newest first.
 
 ---
 
+## v0.5.8 — 2026-04-21 — Cleanup release: 14-dim lint expansion + foundation helpers
+
+Contract-layer release with one visible contract-surface delta
+(two `MycoError` exit codes differentiated within the `≥3` band)
+and a substantial lint-roster expansion (11 → 25 dims, all within
+existing categories).
+
+Governing crafts:
+`docs/primordia/v0_5_8_discipline_enforcement_craft_2026-04-21.md`
+(14-dim expansion + 4 foundation helpers design) and
+`docs/primordia/v0_5_8_release_craft_2026-04-21.md` (release
+closure craft).
+
+### What changed
+
+- **Lint dimension inventory: 11 → 25.** All 14 new dims land in
+  existing categories (no new `Category` enum values; no
+  exit-policy grammar change). Per v0.5.7 policy, adding a dim
+  inside an existing category is a changelog line but not a
+  hard-contract change — the bump from v0.5.7 to v0.5.8 is
+  motivated by the *exit-code differentiation* below, not the
+  dim count. New dims:
+
+  | ID | Category | Severity | Summary |
+  |---|---|---|---|
+  | `MP2` | mechanical | MEDIUM | Plugin-tree LLM-SDK import ban |
+  | `DC1` | mechanical | LOW | Module docstring present |
+  | `DC2` | mechanical | LOW | Public function/method docstring |
+  | `DC3` | mechanical | LOW | Public class docstring |
+  | `DC4` | mechanical | LOW | Non-trivial module references doctrine |
+  | `CS1` | mechanical | HIGH (fixable) | `synced_contract_version` sync |
+  | `FR1` | mechanical | HIGH/MEDIUM | Fresh-substrate directory invariants |
+  | `PA1` | mechanical | MEDIUM | `write_surface.allowed` coverage |
+  | `CG1` | mechanical | LOW | L2 doctrine has src reference |
+  | `CG2` | mechanical | LOW | src subpackage has doctrine link |
+  | `DI1` | mechanical | MEDIUM | `.claude/hooks.json` present |
+  | `MB3` | metabolic | HIGH (fixable) | Raw-notes high watermark |
+  | `SE3` | semantic | LOW | Graph has no self-cycles |
+  | `RL1` | semantic | LOW | R1-R7 rules each referenced |
+
+- **Exit-code differentiation.**
+  - `SubstrateNotFound.exit_code` was `3`; is now `4`.
+  - `CanonSchemaError.exit_code` was `3`; is now `5`.
+  - All other `MycoError` subclasses unchanged (`ContractError`,
+    `UsageError`: `3`).
+  - Both new codes stay within the `≥3` operational-failure band
+    the L1 exit-code contract reserves. CI scripts that check
+    `exit != 0` see no change; scripts that special-case `== 3`
+    for substrate/canon failures now see `== 4` / `== 5`.
+
+- **Fresh-substrate directory invariants pre-provisioned.**
+  `myco germinate` now creates `notes/raw/` and
+  `notes/integrated/` up front (was: lazy on first
+  `eat`/`assimilate`). No contract-surface impact on existing
+  substrates; only fresh germinations see the new layout.
+
+- **Canon schema `lint.dimensions` block expanded.** The canonical
+  roster at `_canon.yaml::lint.dimensions` now declares all 25
+  dims. Substrates upgrading from v0.5.7 continue to parse
+  cleanly — unknown dim ids in the canon are tolerated (MF1
+  cross-checks but does not reject).
+
+### Break from v0.5.7
+
+- **Exit codes**: any downstream script that string-matches on
+  `exit == 3` for `SubstrateNotFound` or `CanonSchemaError` sees
+  different behaviour at v0.5.8. The new codes are additive
+  within the contract band; scripts checking `exit != 0` are
+  unaffected.
+- **Lint surface**: a substrate that ran `myco immune` clean at
+  v0.5.7 may see new MEDIUM/LOW findings at v0.5.8 from the 14
+  new dims. The default CI gate
+  (`--exit-on=mechanical:critical,shipped:critical,…`) is
+  unaffected; operators who gate at MEDIUM or lower should
+  review the new findings.
+- **Fresh-substrate shape**: new germinations include
+  `notes/raw/` + `notes/integrated/`. Substrates relying on
+  "notes/ empty until first eat" as a signal of freshness should
+  switch to the `.myco_state/autoseeded.txt` marker (canonical
+  since v0.4.0).
+
+Everything else — R1-R7 text, category enum, exit-policy grammar,
+manifest shapes, the 18-verb surface — is unchanged from v0.5.7.
+
+---
+
 ## v0.5.7 — 2026-04-19 — Bimodal senesce + v0.5.6 postponement closure
 
 Contract-layer release with one user-visible contract-surface delta
