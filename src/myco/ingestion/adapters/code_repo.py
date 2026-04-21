@@ -31,6 +31,16 @@ _MAX_FILES = 500
 
 
 class CodeRepoAdapter(Adapter):
+    """Directory-scope adapter for a repo subtree.
+
+    Walks ``target`` (a directory), delegates each ingestible file to
+    :class:`TextFileAdapter`, and returns one :class:`IngestResult`
+    per file. Honors ``.gitignore`` via ``pathspec`` when installed,
+    falls back to a hardcoded skip list from
+    :mod:`myco.core.skip_dirs` otherwise. Caps the result at
+    :data:`_MAX_FILES`.
+    """
+
     def __init__(self) -> None:
         self._text = TextFileAdapter()
 

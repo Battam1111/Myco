@@ -34,7 +34,7 @@ from pathlib import Path
 
 from myco.core.context import MycoContext, Result
 from myco.core.errors import ContractError, UsageError
-from myco.core.io_atomic import atomic_utf8_write
+from myco.core.io_atomic import atomic_utf8_write, bounded_read_text
 from myco.core.write_surface import check_write_allowed
 
 from .pipeline import Note, parse_note, render_note
@@ -54,7 +54,7 @@ def _integrated_notes(ctx: MycoContext) -> list[Path]:
 
 def _summary_line(path: Path) -> str:
     try:
-        text = path.read_text(encoding="utf-8")
+        text = bounded_read_text(path)
     except OSError:
         return path.name
     note = parse_note(text)
@@ -117,7 +117,7 @@ def distill_proposal(
     all_tags: dict[str, int] = {}
     summaries: list[str] = []
     for path in source_paths:
-        note = parse_note(path.read_text(encoding="utf-8"))
+        note = parse_note(bounded_read_text(path))
         for tag in note.frontmatter.get("tags", []):
             all_tags[tag] = all_tags.get(tag, 0) + 1
         first = (note.body.splitlines() or [""])[0].strip()

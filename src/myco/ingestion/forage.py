@@ -35,6 +35,15 @@ MAX_ITEMS: int = 500
 
 @dataclass(frozen=True)
 class ForageItem:
+    """One row in ``myco forage`` output.
+
+    Describes a single file the walker claims is ingestible. ``path``
+    is POSIX-normalised (cross-platform payload invariant); ``size``
+    is bytes; ``suffix`` is lower-cased extension (``.md``, ``.py``);
+    ``adapter`` is the registered adapter name that will handle the
+    file if ``myco eat --path <path>`` is invoked.
+    """
+
     path: str
     size: int
     suffix: str

@@ -14,7 +14,8 @@ from pathlib import Path
 from typing import Literal
 
 from myco.core.context import MycoContext, Result
-from myco.core.errors import UsageError
+from myco.core.errors import MycoError, UsageError
+from myco.core.io_atomic import bounded_read_text
 
 __all__ = ["SenseHit", "search_substrate", "run"]
 
@@ -31,6 +32,13 @@ _VALID_SCOPES: frozenset[str] = frozenset({"canon", "notes", "docs", "all"})
 
 @dataclass(frozen=True)
 class SenseHit:
+    """One grep match returned by ``myco sense``.
+
+    ``path`` is substrate-relative (POSIX separators); ``line`` is
+    1-based; ``snippet`` is the matching line's text with surrounding
+    context trimmed to keep payloads agent-readable.
+    """
+
     path: str
     line: int
     snippet: str
@@ -108,9 +116,12 @@ def _walk_searchable(root: Path) -> Iterable[Path]:
 
 
 def _scan_file(path: Path, needle: str, substrate_root: Path) -> Iterable[SenseHit]:
+    # v0.5.8: bounded read so a multi-GB note can't OOM sense. An
+    # oversized file becomes a silent skip (same as a decode error)
+    # rather than raising — sense is a permissive scan by design.
     try:
-        text = path.read_text(encoding="utf-8")
-    except (OSError, UnicodeDecodeError):
+        text = bounded_read_text(path)
+    except (OSError, UnicodeDecodeError, MycoError):
         return
     rel = path.relative_to(substrate_root) if path.is_absolute() else path
     for lineno, line in enumerate(text.splitlines(), start=1):

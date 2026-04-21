@@ -1,5 +1,9 @@
 """SE3 — substrate graph contains no self-cycles.
 
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/homeostasis.md``
+§ "Dimension enumeration" (v0.5.8 addition).
+
+
 A node whose outgoing edge set includes itself is a one-step
 cycle: the file references itself as a source-of-truth. This
 usually means a copy-paste error ("references: [./this_file.md]")

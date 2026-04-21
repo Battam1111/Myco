@@ -168,6 +168,15 @@ _CODE_EXTS = frozenset(
 
 
 class TextFileAdapter(Adapter):
+    """Fallback adapter for UTF-8-decodable text files.
+
+    Accepts any file whose extension appears in :data:`_CODE_EXTS` or
+    whose first 512 bytes look like UTF-8 with no NUL byte. Refuses
+    files matched by :data:`_CREDENTIAL_DENY_GLOBS` regardless of
+    content, and refuses files over :data:`DEFAULT_MAX_INGEST_BYTES`
+    regardless of extension.
+    """
+
     @property
     def name(self) -> str:
         return "text-file"

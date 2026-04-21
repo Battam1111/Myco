@@ -104,6 +104,17 @@ def _validate_url(url: str) -> None:
 
 
 class UrlFetcher(Adapter):
+    """Adapter for ``http(s)://`` URLs via ``httpx``.
+
+    Fetches the URL with streaming + byte-cap abort (response bodies
+    over :data:`DEFAULT_MAX_INGEST_BYTES` raise
+    :class:`UrlFetchError` rather than buffer in memory). The host
+    is validated by :func:`_validate_url` (SSRF guard: loopback /
+    link-local / private / multicast / reserved addresses refused;
+    scheme restricted to ``http`` / ``https``). Redirect targets
+    re-validate.
+    """
+
     @property
     def name(self) -> str:
         return "url"

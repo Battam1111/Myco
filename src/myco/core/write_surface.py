@@ -1,5 +1,13 @@
 """Write-surface policy + guarded-write helper.
 
+Governing doctrine: ``docs/architecture/L1_CONTRACT/protocol.md`` R6
+("Write only to paths in ``_canon.yaml::system.write_surface.allowed``")
+and ``docs/architecture/L2_DOCTRINE/homeostasis.md`` § "Safe-fix
+discipline" rule 4 ("Bounded"). This module is the mechanical
+enforcement of both — every verb that mutates substrate content
+routes its path through :func:`check_write_allowed` or
+:func:`guarded_write`.
+
 v0.5.8 upgraded R6 (the "write only to allowed surface" hard-contract
 rule) from "checked by `immune --fix`" to "enforced on every
 kernel-side write". Previously every verb that mutated the substrate

@@ -1,5 +1,9 @@
 """MB3 — raw-notes high watermark escalation.
 
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/homeostasis.md``
+§ "Dimension enumeration" (v0.5.8 addition, fixable HIGH).
+
+
 Companion to :class:`MB1RawNotesBacklog`. MB1 fires MEDIUM at >10
 and LOW in the 1-10 band. MB3 fires HIGH at an absolute ceiling
 (default 50): at that point the substrate has accumulated enough

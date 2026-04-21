@@ -1,5 +1,10 @@
 """DC4 — every non-trivial module has at least one doctrine reference.
 
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/homeostasis.md``
+§ "Dimension enumeration" (v0.5.8 addition, self-referential: this
+module itself carries the reference it requires from others).
+
+
 A module's docstring should name the L0/L1/L2/L3 doctrine page it
 implements — that's how the circulation graph builds
 ``code_doc_ref`` edges (see :mod:`myco.circulation.graph_src`).

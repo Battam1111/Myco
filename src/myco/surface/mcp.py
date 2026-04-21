@@ -158,6 +158,8 @@ def _compute_substrate_pulse(
     exist and that the agent is inside a Myco substrate, not a
     stateless function call.
     """
+    from myco.core.trust import safe_frontmatter_field
+
     canon = _load_canon(project_dir)
     identity = canon.get("identity", {}) if isinstance(canon, dict) else {}
     rules_hint: str
@@ -171,9 +173,19 @@ def _compute_substrate_pulse(
             "already. Your future tool responses will tell you when "
             "it has been called."
         )
+    # v0.5.8 Phase 8-10: the pulse crosses the trust boundary into
+    # agent prompt context on every MCP tool response, so any
+    # substrate-derived scalar (substrate_id, contract_version)
+    # passes through ``safe_frontmatter_field`` first — strips ANSI
+    # escapes, newlines, and other prompt-injection vectors that a
+    # hostile canon could plant.
+    raw_substrate_id = identity.get("substrate_id") or "(no substrate detected)"
+    raw_contract_version = canon.get("contract_version") or "(unknown)"
     return {
-        "substrate_id": identity.get("substrate_id") or "(no substrate detected)",
-        "contract_version": canon.get("contract_version") or "(unknown)",
+        "substrate_id": safe_frontmatter_field(str(raw_substrate_id), max_len=128),
+        "contract_version": safe_frontmatter_field(
+            str(raw_contract_version), max_len=64
+        ),
         "hard_contract_ref": "docs/architecture/L1_CONTRACT/protocol.md",
         "rules_hint": rules_hint,
     }

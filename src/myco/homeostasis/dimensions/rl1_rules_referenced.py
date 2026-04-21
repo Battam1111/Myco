@@ -1,5 +1,9 @@
 """RL1 — every rule in the Hard Contract is referenced by some artefact.
 
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/homeostasis.md``
+§ "Dimension enumeration" (v0.5.8 addition).
+
+
 The Hard Contract at
 ``docs/architecture/L1_CONTRACT/protocol.md`` enumerates R1-R7.
 For the contract to remain enforceable, each rule must appear in

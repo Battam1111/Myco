@@ -28,6 +28,15 @@ DEFAULT_MAX_INGEST_BYTES: int = DEFAULT_MAX_READ_BYTES
 
 
 class PdfReader(Adapter):
+    """Adapter for ``.pdf`` files via the ``pypdf`` library.
+
+    Extracts per-page text and concatenates with page markers
+    (``[Page N]``). Refuses files over
+    :data:`DEFAULT_MAX_INGEST_BYTES` (10 MB) at ``can_handle``;
+    pypdf buffers pages in memory so oversized PDFs can OOM the
+    reader before extraction finishes.
+    """
+
     @property
     def name(self) -> str:
         return "pdf"

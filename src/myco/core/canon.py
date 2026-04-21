@@ -201,8 +201,14 @@ def load_canon(path: Path) -> Canon:
     if not path.exists():
         raise CanonSchemaError(f"_canon.yaml not found: {path}")
 
+    # v0.5.8 Phase 8-10: bounded read. A malicious or accidentally
+    # multi-GB canon can no longer OOM the kernel — the cap raises
+    # ``MycoError`` with a clear message instead of Python materialising
+    # the whole file.
+    from myco.core.io_atomic import bounded_read_text
+
     try:
-        raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+        raw = yaml.safe_load(bounded_read_text(path))
     except yaml.YAMLError as exc:
         raise CanonSchemaError(f"_canon.yaml is not valid YAML: {exc}") from exc
 

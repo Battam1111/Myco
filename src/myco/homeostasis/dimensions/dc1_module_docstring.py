@@ -1,5 +1,9 @@
 """DC1 — every ``src/myco/**/*.py`` file has a module docstring.
 
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/homeostasis.md``
+§ "Dimension enumeration" (v0.5.8 addition).
+
+
 A module without a docstring is an orphan from the circulation
 graph's perspective: the docstring is where ``code_doc_ref`` edges
 come from (see :mod:`myco.circulation.graph_src`). No docstring
