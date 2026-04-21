@@ -1,5 +1,9 @@
 """MP2 — substrate-local plugins import no LLM provider SDK.
 
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/homeostasis.md``
+§ "Dimension enumeration" (v0.5.8 addition; companion to MP1).
+
+
 Companion to :class:`MP1NoProviderImports`. MP1 scans the kernel
 (``src/myco/**/*.py``); MP2 scans the substrate-local plugin tree
 (``.myco/plugins/**/*.py``). The doctrine that motivates MP1 — L0

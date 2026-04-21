@@ -1,5 +1,9 @@
 """CG1 — every L2 doctrine page is referenced by at least one src module.
 
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/homeostasis.md``
+§ "Dimension enumeration" (v0.5.8 addition).
+
+
 L2 doctrine pages (``docs/architecture/L2_DOCTRINE/*.md``) describe
 subsystems; every page that describes a real subsystem must have at
 least one ``code_doc_ref`` edge landing at it (from

@@ -1,5 +1,10 @@
 """Canonical directory-skip list for every filesystem walker in Myco.
 
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/circulation.md``
+(Circulation § "Scope" — the graph walker's skip rules live here).
+Also consumed by ``docs/architecture/L2_DOCTRINE/ingestion.md`` §
+"Forage" and by MP1/MP2 dimensions.
+
 v0.5.8 consolidated three previously-divergent ``_SKIP_DIRS`` lists
 (``circulation/graph_src.py``, ``ingestion/adapters/code_repo.py``, and
 an inline predicate in ``homeostasis/dimensions/mp1_no_provider_imports.py``)

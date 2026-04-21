@@ -18,7 +18,7 @@ import yaml
 
 from myco.core.context import MycoContext
 from myco.core.errors import ContractError, UsageError
-from myco.core.io_atomic import atomic_utf8_write
+from myco.core.io_atomic import atomic_utf8_write, bounded_read_text
 from myco.core.write_surface import check_write_allowed
 
 __all__ = [
@@ -146,7 +146,7 @@ def promote_to_integrated(
     except ValueError as exc:
         raise UsageError(f"note is not under notes/raw/: {raw_path}") from exc
 
-    text = raw_path.read_text(encoding="utf-8")
+    text = bounded_read_text(raw_path)
     note = parse_note(text)
     _validate_references(note, substrate_root=root)
 

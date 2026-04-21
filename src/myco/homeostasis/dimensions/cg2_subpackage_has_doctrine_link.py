@@ -1,5 +1,9 @@
 """CG2 — every ``src/myco/`` subpackage links out to doctrine.
 
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/homeostasis.md``
+§ "Dimension enumeration" (v0.5.8 addition).
+
+
 Inverse of :class:`CG1DoctrineHasSrcReference`: CG1 asks "does
 every L2 doctrine page have a code anchor?"; CG2 asks "does every
 src subpackage have at least one outgoing doctrine reference?"

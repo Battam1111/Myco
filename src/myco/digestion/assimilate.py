@@ -64,7 +64,10 @@ def _sync_contract_version(ctx: MycoContext) -> bool:
     canon_path = ctx.substrate.paths.canon
     if not canon_path.is_file():
         return False
-    text = canon_path.read_text(encoding="utf-8")
+    # v0.5.8 Phase 8-10: bounded read for DoS protection.
+    from myco.core.io_atomic import bounded_read_text
+
+    text = bounded_read_text(canon_path)
     pattern = _re.compile(
         r'^(?P<prefix>synced_contract_version:\s*)(?P<q>["\'])[^"\']*(?P=q)\s*$',
         _re.MULTILINE,

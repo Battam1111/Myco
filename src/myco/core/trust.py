@@ -1,5 +1,12 @@
 """Trust-boundary sanitisation helpers.
 
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/ingestion.md``
+(Ingestion § "Trust boundary" — raw notes are attacker-controlled
+by design, so every scalar that escapes the notes directory into
+agent context must pass through a sanitiser). See also
+``docs/architecture/L1_CONTRACT/protocol.md`` R1-R7 for the higher-
+level mandate that agent context stays uncorrupted.
+
 Every string that crosses from **substrate content** (potentially
 attacker-controlled) into **Agent prompt context** (MCP tool response,
 CLI JSON output, finding message, brief rollup) MUST pass through one

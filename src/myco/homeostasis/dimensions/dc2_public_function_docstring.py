@@ -1,5 +1,9 @@
 """DC2 — every public function/method in ``src/myco/`` has a docstring.
 
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/homeostasis.md``
+§ "Dimension enumeration" (v0.5.8 addition).
+
+
 "Public" = name does not start with an underscore, and the
 function is not a dunder (``__init__`` etc.). Docstrings on public
 functions are the primary vehicle for agent-facing documentation:

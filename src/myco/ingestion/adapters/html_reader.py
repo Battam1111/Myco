@@ -23,6 +23,14 @@ DEFAULT_MAX_INGEST_BYTES: int = DEFAULT_MAX_READ_BYTES
 
 
 class HtmlReader(Adapter):
+    """Adapter for ``.html`` / ``.htm`` files using BeautifulSoup.
+
+    Extracts text via ``soup.get_text``, stripping ``<script>``,
+    ``<style>``, ``<nav>``, ``<header>``, ``<footer>`` first. Refuses
+    files over :data:`DEFAULT_MAX_INGEST_BYTES` (10 MB) at
+    ``can_handle`` so oversized web dumps can't OOM BeautifulSoup.
+    """
+
     @property
     def name(self) -> str:
         return "html"

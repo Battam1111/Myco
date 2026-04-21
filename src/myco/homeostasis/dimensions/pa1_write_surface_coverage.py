@@ -1,5 +1,9 @@
 """PA1 — canon ``system.write_surface.allowed`` covers the core paths.
 
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/homeostasis.md``
+§ "Dimension enumeration" (v0.5.8 addition).
+
+
 Myco enforces R6 (write surface) via ``write_surface.allowed``: an
 agent calling any verb that writes gets its path checked against
 this list. A substrate whose list is missing one of the core paths

@@ -1,5 +1,9 @@
 """DI1 — discipline-enforcement hooks are declared.
 
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/homeostasis.md``
+§ "Dimension enumeration" (v0.5.8 addition).
+
+
 R1-R7 are enforced in Claude Code / Cowork via the ``.claude/
 hooks.json`` mechanism. Other MCP hosts carry the discipline via
 the MCP ``initialization`` block that :mod:`myco.surface.mcp`

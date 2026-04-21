@@ -17,7 +17,7 @@ from pathlib import Path
 
 from myco.core.context import MycoContext
 from myco.core.errors import ContractError
-from myco.core.io_atomic import atomic_utf8_write
+from myco.core.io_atomic import atomic_utf8_write, bounded_read_text
 from myco.core.write_surface import check_write_allowed
 
 __all__ = [
@@ -67,7 +67,7 @@ def patch_entry_point(
             f"entry-point {entry_name!r} not found at {ctx.substrate.root}"
         )
 
-    text = path.read_text(encoding="utf-8")
+    text = bounded_read_text(path)
     block = render_signals_block(signals)
     new_text = _apply_block(text, block)
     # v0.5.8 guarded rollout: the entry point file lives at substrate

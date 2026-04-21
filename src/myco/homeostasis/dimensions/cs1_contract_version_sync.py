@@ -1,5 +1,9 @@
 """CS1 — ``synced_contract_version`` matches ``contract_version``.
 
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/homeostasis.md``
+§ "Dimension enumeration" (v0.5.8 addition, fixable HIGH).
+
+
 This is the lint-visible form of the contract-drift check that
 :mod:`myco.ingestion.hunger` also reports as a reflex signal.
 Promoting it to a first-class dimension means:

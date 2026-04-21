@@ -1,6 +1,12 @@
 """Atomic file I/O helpers — the single chokepoint every kernel write
 routes through.
 
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/homeostasis.md``
+(Homeostasis § "Safe-fix discipline" — rule 3 "Non-destructive"
+depends on atomic replace semantics to hold). Companion helper to
+:mod:`myco.core.write_surface`, which adds the R6 surface check on
+top of every write.
+
 v0.5.8 introduced this module to absorb a cluster of concurrency,
 cross-platform, and sanitization findings surfaced by Iteration 1-4
 audits:

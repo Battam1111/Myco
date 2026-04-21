@@ -1,5 +1,9 @@
 """DC3 — every public class in ``src/myco/`` has a docstring.
 
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/homeostasis.md``
+§ "Dimension enumeration" (v0.5.8 addition).
+
+
 "Public" = name does not start with an underscore. Class
 docstrings carry the contract of the type: what it represents,
 what invariants it holds, what fields the caller may rely on.

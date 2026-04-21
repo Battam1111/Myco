@@ -1,5 +1,9 @@
 """FR1 — fresh-substrate directory invariants.
 
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/homeostasis.md``
+§ "Dimension enumeration" (v0.5.8 addition).
+
+
 A healthy substrate has, at minimum:
 
 - ``_canon.yaml`` at the root,

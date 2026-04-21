@@ -35,6 +35,14 @@ def _posix(p: Path) -> str:
 
 
 class TabularReader(Adapter):
+    """Adapter for CSV / TSV / JSON / JSONL data files.
+
+    Emits one :class:`IngestResult` per file containing a summary
+    (column names, row count) plus a preview of the first
+    :data:`_MAX_PREVIEW_ROWS` rows. Refuses files over
+    :data:`DEFAULT_MAX_INGEST_BYTES` at ``can_handle``.
+    """
+
     @property
     def name(self) -> str:
         return "tabular"
