@@ -39,6 +39,7 @@ from pathlib import Path
 
 from myco.core.context import MycoContext, Result
 from myco.core.errors import MycoError
+from myco.core.io_atomic import atomic_utf8_write
 
 from .digest import digest_one
 
@@ -74,7 +75,7 @@ def _sync_contract_version(ctx: MycoContext) -> bool:
         # reporting degrades gracefully (hunger reports canon's own
         # stated value).
         return False
-    canon_path.write_text(new_text, encoding="utf-8", newline="\n")
+    atomic_utf8_write(canon_path, new_text)
     return True
 
 

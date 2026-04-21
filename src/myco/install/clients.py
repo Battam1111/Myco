@@ -8,6 +8,17 @@ only the ``myco`` entry and leaves sibling entries alone.
 All writers take a ``home`` and ``cwd`` parameter for testability.
 In production :func:`dispatch` fills them with ``Path.home()`` and
 ``Path.cwd()``.
+
+v0.5.8 Phase 16 refactor: the seven JSON-shaped installers (Claude
+Code, Claude Desktop, Cursor, Windsurf, Zed, VS Code, Gemini CLI)
+are now **declarative rows** in :data:`_JSON_CLIENT_SPECS`. Each row
+encodes path resolution + JSON-key variant + entry shape. Previously
+each was a near-identical 5-line function that duplicated the
+idempotent-upsert pattern; now adding a new MCP host is a one-row
+edit to the spec table rather than a new function. The three
+non-JSON clients (OpenClaw CLI, Codex CLI TOML, Goose YAML) keep
+dedicated handlers because their on-disk shape differs enough that
+data-driven expression would obscure intent.
 """
 
 from __future__ import annotations
@@ -19,8 +30,11 @@ import shutil
 import subprocess
 import sys
 from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+
+from myco.core.io_atomic import atomic_utf8_write
 
 # tomllib is stdlib on Python 3.11+. Myco's pyproject floor is 3.10,
 # so on 3.10 we fall back to tomli (if installed) and finally to a
@@ -87,11 +101,10 @@ def _write_json(path: Path, data: dict, dry_run: bool) -> str:
     body = json.dumps(data, indent=2, ensure_ascii=False)
     if dry_run:
         return f"[dry-run] would write {path}:\n{body}"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    # v0.5.8 (Lens 10 P1-C): LF-only. Clients (Claude Code, Codex, etc.)
-    # read JSON/YAML config with strict parsers that tolerate CRLF but
-    # agents diffing across OSes saw phantom line-ending churn.
-    path.write_text(body, encoding="utf-8", newline="\n")
+    # v0.5.8 Phase 8-10: atomic write via shared chokepoint. Protects
+    # MCP client configs from mid-edit reads when two ``myco install``
+    # calls race or when an agent restart happens mid-write.
+    atomic_utf8_write(path, body)
     return f"wrote {path}"
 
 
@@ -169,8 +182,7 @@ def _write_yaml(path: Path, data: dict, dry_run: bool) -> str:
     body = yaml.safe_dump(data, sort_keys=False, allow_unicode=True)
     if dry_run:
         return f"[dry-run] would write {path}:\n{body}"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(body, encoding="utf-8", newline="\n")
+    atomic_utf8_write(path, body)
     return f"wrote {path}"
 
 
@@ -268,83 +280,121 @@ def _mutate_codex_toml(path: Path, dry_run: bool, uninstall: bool) -> str:
 
     if dry_run:
         return f"[dry-run] would write {path}:\n{body}"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(body, encoding="utf-8", newline="\n")
+    atomic_utf8_write(path, body)
     return f"wrote {path}"
 
 
 # ---------------------------------------------------------------------------
-# Individual client writers
+# Declarative JSON-client spec table (v0.5.8 Phase 16 refactor)
 # ---------------------------------------------------------------------------
 
 
-def install_claude_code(
-    home: Path, cwd: Path, dry_run: bool, global_: bool, uninstall: bool
-) -> str:
-    """Claude Code auto-loads ``.mcp.json`` (project) or ``~/.claude.json``
-    (user scope). The repo's own ``.mcp.json`` already wires myco, so
-    this writer is chiefly for users who want a new standalone project
-    without cloning this repo.
+@dataclass(frozen=True)
+class JsonClientSpec:
+    """Data-driven description of a JSON-shaped MCP client.
+
+    Replaces seven near-identical ``install_*`` functions that each
+    computed a config path and called :func:`_mutate_mcp_servers_json`
+    with slight variations. Adding a new host = appending one row to
+    :data:`_JSON_CLIENT_SPECS`.
+
+    Fields:
+
+    - ``path_fn``: ``(home, cwd, global_) → Path`` — the config location.
+      Kept as a callable because ``global_`` toggles the path for some
+      clients (Claude Code, Cursor).
+    - ``key``: top-level JSON key that holds the server map. Defaults
+      to ``"mcpServers"`` (standard MCP shape); VS Code uses
+      ``"servers"``, Zed uses ``"context_servers"``.
+    - ``entry_fn``: ``() → dict`` producing the server entry. ``None``
+      means the default ``{"command": MCP_COMMAND, "args": MCP_ARGS}``.
+      Zed + VS Code override to add ``type``/``source`` fields.
     """
-    path = home / ".claude.json" if global_ else cwd / ".mcp.json"
-    return _mutate_mcp_servers_json(path, dry_run, uninstall)
+
+    path_fn: Callable[[Path, Path, bool], Path]
+    key: str = "mcpServers"
+    entry_fn: Callable[[], dict[str, Any]] | None = None
 
 
-def install_claude_desktop(
-    home: Path, cwd: Path, dry_run: bool, global_: bool, uninstall: bool
-) -> str:
-    """``claude_desktop_config.json`` location varies by OS; this picks
-    the right one per :mod:`sys.platform`, anchored to the injected
-    ``home`` so tests stay inside ``tmp_path``.
-    """
-    path = _appdata(home) / "Claude" / "claude_desktop_config.json"
-    return _mutate_mcp_servers_json(path, dry_run, uninstall)
+def _default_entry() -> dict[str, Any]:
+    return {"command": MCP_COMMAND, "args": MCP_ARGS}
 
 
-def install_cursor(
-    home: Path, cwd: Path, dry_run: bool, global_: bool, uninstall: bool
-) -> str:
-    path = home / ".cursor" / "mcp.json" if global_ else cwd / ".cursor" / "mcp.json"
-    return _mutate_mcp_servers_json(path, dry_run, uninstall)
+def _zed_entry() -> dict[str, Any]:
+    return {"source": "custom", "command": MCP_COMMAND, "args": MCP_ARGS}
 
 
-def install_windsurf(
-    home: Path, cwd: Path, dry_run: bool, global_: bool, uninstall: bool
-) -> str:
-    path = home / ".codeium" / "windsurf" / "mcp_config.json"
-    return _mutate_mcp_servers_json(path, dry_run, uninstall)
+def _vscode_entry() -> dict[str, Any]:
+    return {"type": "stdio", "command": MCP_COMMAND, "args": MCP_ARGS}
 
 
-def install_zed(
-    home: Path, cwd: Path, dry_run: bool, global_: bool, uninstall: bool
-) -> str:
-    """Zed uses ``context_servers`` with an explicit ``source: custom``
-    field rather than ``mcpServers``.
-    """
-    path = home / ".config" / "zed" / "settings.json"
-    return _mutate_mcp_servers_json(
-        path,
-        dry_run,
-        uninstall,
+#: v0.5.8 Phase 16: the seven JSON-shaped installers condensed into one
+#: table. Ordering is stable for --help output.
+_JSON_CLIENT_SPECS: dict[str, JsonClientSpec] = {
+    "claude-code": JsonClientSpec(
+        path_fn=lambda home, cwd, global_: (
+            home / ".claude.json" if global_ else cwd / ".mcp.json"
+        ),
+    ),
+    "claude-desktop": JsonClientSpec(
+        path_fn=lambda home, cwd, global_: (
+            _appdata(home) / "Claude" / "claude_desktop_config.json"
+        ),
+    ),
+    "cursor": JsonClientSpec(
+        path_fn=lambda home, cwd, global_: (
+            home / ".cursor" / "mcp.json" if global_ else cwd / ".cursor" / "mcp.json"
+        ),
+    ),
+    "windsurf": JsonClientSpec(
+        path_fn=lambda home, cwd, global_: (
+            home / ".codeium" / "windsurf" / "mcp_config.json"
+        ),
+    ),
+    "zed": JsonClientSpec(
+        path_fn=lambda home, cwd, global_: home / ".config" / "zed" / "settings.json",
         key="context_servers",
-        entry={"source": "custom", "command": MCP_COMMAND, "args": MCP_ARGS},
-    )
+        entry_fn=_zed_entry,
+    ),
+    "vscode": JsonClientSpec(
+        path_fn=lambda home, cwd, global_: cwd / ".vscode" / "mcp.json",
+        key="servers",
+        entry_fn=_vscode_entry,
+    ),
+    "gemini-cli": JsonClientSpec(
+        path_fn=lambda home, cwd, global_: home / ".gemini" / "settings.json",
+    ),
+}
 
 
-def install_vscode(
-    home: Path, cwd: Path, dry_run: bool, global_: bool, uninstall: bool
+def _install_json(
+    spec: JsonClientSpec,
+    home: Path,
+    cwd: Path,
+    dry_run: bool,
+    global_: bool,
+    uninstall: bool,
 ) -> str:
-    """VS Code GitHub Copilot uses ``servers`` (not ``mcpServers``)
-    inside ``.vscode/mcp.json``.
+    """Apply a :class:`JsonClientSpec` to a concrete ``(home, cwd)``.
+
+    Shared core for every JSON-shaped client. Resolves the config path,
+    materialises the entry, and delegates to the universal
+    :func:`_mutate_mcp_servers_json`.
     """
-    path = cwd / ".vscode" / "mcp.json"
+    path = spec.path_fn(home, cwd, global_)
+    entry = spec.entry_fn() if spec.entry_fn is not None else None
     return _mutate_mcp_servers_json(
         path,
         dry_run,
         uninstall,
-        key="servers",
-        entry={"type": "stdio", "command": MCP_COMMAND, "args": MCP_ARGS},
+        key=spec.key,
+        entry=entry,
     )
+
+
+# ---------------------------------------------------------------------------
+# Non-JSON client writers (kept as dedicated handlers)
+# ---------------------------------------------------------------------------
 
 
 def install_openclaw(
@@ -384,17 +434,6 @@ def install_openclaw(
     return (result.stdout + result.stderr).strip() or "openclaw: OK"
 
 
-def install_gemini_cli(
-    home: Path, cwd: Path, dry_run: bool, global_: bool, uninstall: bool
-) -> str:
-    """Gemini CLI reads ``~/.gemini/settings.json`` with the standard
-    ``mcpServers`` schema. ``--global`` is a no-op here — there is
-    only one settings path.
-    """
-    path = home / ".gemini" / "settings.json"
-    return _mutate_mcp_servers_json(path, dry_run, uninstall)
-
-
 def install_codex_cli(
     home: Path, cwd: Path, dry_run: bool, global_: bool, uninstall: bool
 ) -> str:
@@ -419,21 +458,39 @@ def install_goose(
 
 
 # ---------------------------------------------------------------------------
-# Registry
+# Registry + dispatch
 # ---------------------------------------------------------------------------
 
 
 ClientFunc = Callable[..., str]
 
+
+def _json_installer(
+    name: str,
+) -> ClientFunc:
+    """Build a thin wrapper around :func:`_install_json` that closes
+    over one of the :data:`_JSON_CLIENT_SPECS` entries. The wrapper has
+    the same signature every client handler does, so
+    :data:`CLIENTS` can hold a uniform ``ClientFunc`` type.
+    """
+    spec = _JSON_CLIENT_SPECS[name]
+
+    def _run(
+        home: Path, cwd: Path, dry_run: bool, global_: bool, uninstall: bool
+    ) -> str:
+        return _install_json(spec, home, cwd, dry_run, global_, uninstall)
+
+    _run.__name__ = f"install_{name.replace('-', '_')}"
+    _run.__doc__ = f"Auto-generated JSON-client installer for {name!r}."
+    return _run
+
+
+#: v0.5.8 Phase 16 refactor result: the 7 JSON clients share one
+#: dispatch path; the 3 bespoke clients keep their own handlers.
+#: Pre-v0.5.8 this was 10 hand-written ``install_*`` functions.
 CLIENTS: dict[str, ClientFunc] = {
-    "claude-code": install_claude_code,
-    "claude-desktop": install_claude_desktop,
-    "cursor": install_cursor,
-    "windsurf": install_windsurf,
-    "zed": install_zed,
-    "vscode": install_vscode,
+    **{name: _json_installer(name) for name in _JSON_CLIENT_SPECS},
     "openclaw": install_openclaw,
-    "gemini-cli": install_gemini_cli,
     "codex-cli": install_codex_cli,
     "goose": install_goose,
 }

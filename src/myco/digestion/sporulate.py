@@ -34,6 +34,7 @@ from pathlib import Path
 
 from myco.core.context import MycoContext, Result
 from myco.core.errors import ContractError, UsageError
+from myco.core.io_atomic import atomic_utf8_write
 
 from .pipeline import Note, parse_note, render_note
 
@@ -165,7 +166,7 @@ def distill_proposal(
         body=body,
     )
     distilled_dir.mkdir(parents=True, exist_ok=True)
-    target.write_text(render_note(note), encoding="utf-8", newline="\n")
+    atomic_utf8_write(target, render_note(note))
     return target
 
 

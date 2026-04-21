@@ -38,6 +38,7 @@ from typing import Any, Literal
 import yaml
 
 from myco.core.context import MycoContext
+from myco.core.io_atomic import atomic_utf8_write
 from myco.core.substrate import Substrate
 from myco.digestion.pipeline import parse_note
 
@@ -318,16 +319,12 @@ def persist_graph(graph: Graph, path: Path, *, fingerprint: str) -> None:
         "nodes": sorted(graph.nodes),
         "edges": [[e.src, e.dst, e.kind] for e in graph.edges],
     }
-    # v0.5.8 (Lens 10 P1-C): force LF endings. On Windows, Python's
-    # text-mode write_text translates "\n" → "\r\n" by default, which
-    # made the persisted graph checksum differ between platforms and
-    # produced CRLF-contaminated JSON payloads. Every write surface in
-    # Myco is now LF-only so artifacts round-trip cleanly across OSes.
-    path.write_text(
-        json.dumps(payload, indent=2, ensure_ascii=False),
-        encoding="utf-8",
-        newline="\n",
-    )
+    # v0.5.8 Phase 8-10: the persisted graph cache now goes through the
+    # shared atomic chokepoint (temp + fsync + os.replace). A concurrent
+    # ``build_graph`` on the same substrate can no longer see a
+    # half-written ``graph.json`` — readers observe either the old cache
+    # or the new, never a torn JSON mid-write.
+    atomic_utf8_write(path, json.dumps(payload, indent=2, ensure_ascii=False))
 
 
 def load_persisted_graph(path: Path) -> tuple[Graph, str] | None:

@@ -26,6 +26,7 @@ from string import Template
 
 from myco.core.context import Result
 from myco.core.errors import ContractError, UsageError
+from myco.core.io_atomic import atomic_utf8_write
 
 __all__ = [
     "bootstrap",
@@ -295,14 +296,15 @@ def bootstrap(
         (project_dir / "notes" / "integrated").mkdir(exist_ok=True)
         (project_dir / "docs").mkdir(exist_ok=True)
         # Files.
-        # v0.5.8 (Lens 10 P1-C): LF-only for every genesis artifact.
-        # Previously on Windows the canon, entry file, and marker were
-        # written with CRLF, which caused drift for downstream tooling
-        # that fingerprints canon by byte hash and for agents that
-        # diff artifacts across platforms.
-        canon_path.write_text(canon_text, encoding="utf-8", newline="\n")
-        entry_path.write_text(entry_text, encoding="utf-8", newline="\n")
-        marker_path.write_text(marker_text, encoding="utf-8", newline="\n")
+        # v0.5.8 (Lens 10 P1-C + Phase 8-10): every genesis artifact is
+        # written atomically with LF line endings via the shared
+        # ``atomic_utf8_write`` chokepoint. Previously (pre-v0.5.8) the
+        # writes were non-atomic, non-LF-forced, and non-UTF-8-forced
+        # individually; a partial crash mid-genesis could leave the
+        # substrate with a torn canon and no entry point.
+        atomic_utf8_write(canon_path, canon_text)
+        atomic_utf8_write(entry_path, entry_text)
+        atomic_utf8_write(marker_path, marker_text)
         files_created = (
             "_canon.yaml",
             entry_point,

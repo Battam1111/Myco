@@ -17,6 +17,7 @@ from pathlib import Path
 
 from myco.core.context import MycoContext
 from myco.core.errors import ContractError
+from myco.core.io_atomic import atomic_utf8_write
 
 __all__ = [
     "BEGIN_MARKER",
@@ -68,7 +69,7 @@ def patch_entry_point(
     text = path.read_text(encoding="utf-8")
     block = render_signals_block(signals)
     new_text = _apply_block(text, block)
-    path.write_text(new_text, encoding="utf-8", newline="\n")
+    atomic_utf8_write(path, new_text)
     return path
 
 

@@ -18,6 +18,7 @@ import yaml
 
 from myco.core.context import MycoContext
 from myco.core.errors import ContractError, UsageError
+from myco.core.io_atomic import atomic_utf8_write
 
 __all__ = [
     "Note",
@@ -166,6 +167,6 @@ def promote_to_integrated(
             f"integrated target already exists: {target}; "
             f"promote aborted to avoid data loss"
         )
-    target.write_text(rendered, encoding="utf-8", newline="\n")
+    atomic_utf8_write(target, rendered)
     raw_path.unlink()
     return target
