@@ -25,6 +25,7 @@ from typing import Any, Literal
 from myco.core.canon import load_canon
 from myco.core.context import MycoContext, Result
 from myco.core.errors import ContractError, UsageError
+from myco.core.io_atomic import atomic_utf8_write
 from myco.core.version import ContractVersion
 from myco.digestion.pipeline import Note, parse_note, render_note
 
@@ -160,7 +161,7 @@ def propagate(
     if not dry_run:
         inbox.mkdir(parents=True, exist_ok=True)
         for target, rendered in plan:
-            target.write_text(rendered, encoding="utf-8", newline="\n")
+            atomic_utf8_write(target, rendered)
             propagated.append(str(target.relative_to(dst_root)).replace("\\", "/"))
     else:
         propagated = [

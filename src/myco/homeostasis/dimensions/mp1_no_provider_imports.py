@@ -107,10 +107,20 @@ class MP1NoProviderImports(Dimension):
     #: Top-level dotted paths of known LLM provider SDKs. A match is
     #: either an exact equality or a dotted-prefix equality (so
     #: ``langchain_openai.chat_models`` matches the ``langchain_openai``
-    #: entry). Curated 2026-04 per the v0.5.6 craft; extending the
-    #: blacklist requires a craft entry + a contract-version bump.
+    #: entry). Curated 2026-04 per the v0.5.6 craft; extended 2026-04-21
+    #: (v0.5.8 Phase 16c audit) to cover the provider ecosystem that has
+    #: landed since v0.5.6. Extending the blacklist requires a craft
+    #: entry + a contract-version bump.
+    #:
+    #: Note: this is a blacklist (fail-open on unknown SDKs). The
+    #: bitter-lesson alternative — an allowlist + "everything else
+    #: is kernel-internal" — was considered in the v0.5.6 craft and
+    #: rejected as too strict for a substrate that imports stdlib +
+    #: pyyaml + httpx + pypdf + bs4 widely. A future v0.6.x
+    #: MP-series dim may invert the polarity; MP1 stays blacklist.
     BLACKLIST: ClassVar[frozenset[str]] = frozenset(
         {
+            # v0.5.6 baseline — first-party provider SDKs
             "openai",
             "anthropic",
             "mistralai",
@@ -118,13 +128,39 @@ class MP1NoProviderImports(Dimension):
             "voyageai",
             "google.generativeai",
             "google.genai",
+            # LangChain ecosystem
             "langchain",
             "langchain_core",
             "langchain_openai",
             "langchain_anthropic",
+            # v0.5.8 extension — LangChain provider integrations
+            "langchain_google_genai",
+            "langchain_mistralai",
+            "langchain_cohere",
+            "langchain_community",
+            # LlamaIndex + llama.cpp
             "llama_index",
             "llama_cpp",
+            "llama_cpp_python",
+            # Local-first runtimes
             "ollama",
+            # v0.5.8 extension — cloud provider SDKs
+            "together",
+            "fireworks",
+            "groq",
+            "deepseek",
+            "zhipuai",
+            "replicate",
+            "huggingface_hub",
+            # v0.5.8 extension — aggregator / router SDKs
+            "litellm",
+            "aisuite",
+            "portkey_ai",
+            "instructor",
+            # v0.5.8 extension — orchestration frameworks that
+            # themselves dispatch to providers
+            "guidance",
+            "dspy",
         }
     )
 

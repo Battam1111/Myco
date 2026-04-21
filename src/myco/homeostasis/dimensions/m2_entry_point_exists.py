@@ -22,6 +22,7 @@ from string import Template
 from typing import Any, ClassVar
 
 from myco.core.context import MycoContext
+from myco.core.io_atomic import atomic_utf8_write
 from myco.core.severity import Severity
 
 from ..dimension import Dimension
@@ -111,8 +112,7 @@ class M2EntryPointExists(Dimension):
             generated_at=generated_at,
         )
 
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(body, encoding="utf-8", newline="\n")
+        atomic_utf8_write(target, body)
         return {
             "applied": True,
             "detail": f"created entry point {entry!r} ({len(body)} bytes)",

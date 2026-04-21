@@ -36,6 +36,7 @@ from datetime import date as _date
 from myco.core.canon import load_canon
 from myco.core.context import MycoContext, Result
 from myco.core.errors import CanonSchemaError, ContractError, UsageError
+from myco.core.io_atomic import atomic_utf8_write
 
 __all__ = ["run"]
 
@@ -165,11 +166,14 @@ def run(args: Mapping[str, object], *, ctx: MycoContext) -> Result:
     # Commit canon change; validate by re-reading. Restore original on
     # any parse error — we must not leave the substrate in a half-
     # valid state.
-    canon_path.write_text(patched_canon, encoding="utf-8", newline="\n")
+    # v0.5.8 Phase 8-10: atomic canon writes. If validation fails, the
+    # rollback is itself atomic via the same chokepoint, so the substrate
+    # never observes a torn canon even under crash-between-writes.
+    atomic_utf8_write(canon_path, patched_canon)
     try:
         load_canon(canon_path)
     except CanonSchemaError as exc:
-        canon_path.write_text(original_canon, encoding="utf-8", newline="\n")
+        atomic_utf8_write(canon_path, original_canon)
         raise ContractError(
             f"bump: post-write validation failed; canon restored. "
             f"Underlying error: {exc}"
@@ -192,7 +196,7 @@ def run(args: Mapping[str, object], *, ctx: MycoContext) -> Result:
         new_version=new_version, old_version=old_version, today=today
     )
     patched_changelog = _insert_changelog_entry(original_changelog, new_section)
-    changelog_path.write_text(patched_changelog, encoding="utf-8", newline="\n")
+    atomic_utf8_write(changelog_path, patched_changelog)
 
     # v0.5.8 P0 FIX (Lens 2 P0-9): increment waves.current. The field
     # was declared as monotonic-incrementing in L1 versioning.md but
@@ -212,7 +216,7 @@ def run(args: Mapping[str, object], *, ctx: MycoContext) -> Result:
             new_text = (
                 current_text[: m.start("n")] + str(new_n) + current_text[m.end("n") :]
             )
-            canon_path.write_text(new_text, encoding="utf-8", newline="\n")
+            atomic_utf8_write(canon_path, new_text)
             waves_touched = True
     except (OSError, ValueError):
         pass
