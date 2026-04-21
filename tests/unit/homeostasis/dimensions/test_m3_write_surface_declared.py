@@ -16,9 +16,23 @@ def _ctx_with_canon(tmp_path: Path, canon: str) -> MycoContext:
     return MycoContext.for_testing(root=tmp_path)
 
 
-def test_fires_when_write_surface_absent(seeded_substrate: Path) -> None:
-    # The minimal fixture omits write_surface.
-    ctx = MycoContext.for_testing(root=seeded_substrate)
+def test_fires_when_write_surface_absent(tmp_path: Path) -> None:
+    # v0.5.8: the shared ``minimal_canon_text`` fixture now declares a
+    # write_surface so other write-verb tests work out of the box.
+    # This test specifically exercises the "surface absent" path, so
+    # we build our own narrow canon without write_surface.
+    canon = textwrap.dedent(
+        """\
+        schema_version: "1"
+        contract_version: "v0.4.0"
+        identity: {substrate_id: "x", entry_point: "MYCO.md"}
+        system:
+          hard_contract: {rule_count: 7}
+        subsystems:
+          genesis: {package: "src/myco/genesis/"}
+        """
+    )
+    ctx = _ctx_with_canon(tmp_path, canon)
     findings = list(M3WriteSurfaceDeclared().run(ctx))
     assert len(findings) == 1
 

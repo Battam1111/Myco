@@ -32,6 +32,7 @@ import yaml
 
 from myco.core.context import MycoContext, Result
 from myco.core.errors import UsageError
+from myco.core.write_surface import check_write_allowed
 
 __all__ = ["append_note", "EatOutcome", "run"]
 
@@ -90,6 +91,15 @@ def append_note(
     # silent data loss. Now: try create-exclusive; on FileExistsError
     # bump the counter and retry.
     path = raw_dir / f"{base_name}.md"
+
+    # v0.5.8 Phase 8-10 guarded_write rollout: the first candidate is
+    # checked against the substrate's write surface. Siblings in the
+    # same ``raw_dir`` share the same glob match, so one check covers
+    # the full collision-retry loop. ``check_write_allowed`` honors the
+    # ``MYCO_ALLOW_UNSAFE_WRITE`` env bypass so scripted workflows can
+    # override when they know what they're doing.
+    check_write_allowed(ctx, path, verb="eat")
+
     counter = 2
     while True:
         try:

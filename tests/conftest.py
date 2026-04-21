@@ -20,6 +20,12 @@ def minimal_canon_text() -> str:
 
     Contains exactly the required top-level keys plus a non-empty
     ``identity``, ``system``, and ``subsystems``.
+
+    v0.5.8: now includes a permissive ``system.write_surface.allowed``
+    so the shared ``seeded_substrate`` fixture works with
+    ``write_surface``-enforcing verbs (eat, sporulate, fruit, molt,
+    ramify, etc.). Tests that specifically exercise write-surface
+    violation paths create their own canon with a narrower surface.
     """
     return textwrap.dedent(
         """\
@@ -30,6 +36,14 @@ def minimal_canon_text() -> str:
           tags: ["test"]
           entry_point: "MYCO.md"
         system:
+          write_surface:
+            allowed:
+              - "_canon.yaml"
+              - "MYCO.md"
+              - "notes/**"
+              - "docs/**"
+              - "src/**"
+              - ".myco/**"
           hard_contract:
             rule_count: 7
         subsystems:

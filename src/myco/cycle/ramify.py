@@ -45,6 +45,7 @@ import yaml
 from myco.core.context import MycoContext, Result
 from myco.core.errors import ContractError, UsageError
 from myco.core.io_atomic import atomic_utf8_write
+from myco.core.write_surface import check_write_allowed
 from myco.surface.manifest import load_manifest
 
 __all__ = ["run"]
@@ -353,6 +354,10 @@ def _ensure_pkg(dir_path: Path, init_body: str | None = None) -> None:
     dir_path.mkdir(parents=True, exist_ok=True)
     init = dir_path / "__init__.py"
     if not init.exists():
+        # The surrounding ``_run_*_mode`` function guards the real
+        # target file against the write_surface before calling here,
+        # so this ``__init__.py`` (in the same tree) is covered by
+        # that check transitively.
         atomic_utf8_write(init, init_body or "")
 
 
@@ -415,6 +420,7 @@ def _append_overlay_verb(
             "args": [],
         }
     )
+    check_write_allowed(ctx, overlay_path, verb="ramify-overlay")
     atomic_utf8_write(overlay_path, yaml.safe_dump(raw, sort_keys=False))
     return overlay_path
 
@@ -463,6 +469,11 @@ def _run_verb_mode(
         )
 
     stub = _VERB_STUB_TEMPLATE.format(verb=verb_name)
+    # v0.5.8 guarded rollout: ramify writes into kernel ``src/**`` or
+    # substrate-local ``.myco/**``; both are in the default seeded
+    # fixture's write_surface but the check catches substrates that
+    # narrowed their allowed list.
+    check_write_allowed(ctx, target, verb="ramify")
     atomic_utf8_write(target, stub)
 
     if substrate_local:
@@ -560,6 +571,7 @@ def _run_dimension_mode(
         category_const=_CATEGORY_CONSTS[category],
         severity_const=_SEVERITY_CONSTS[severity],
     )
+    check_write_allowed(ctx, target, verb="ramify")
     atomic_utf8_write(target, body)
 
     return Result(
@@ -645,6 +657,7 @@ def _run_adapter_mode(
         extensions_tuple=", ".join(repr(e) for e in norm_exts)
         + ("," if len(norm_exts) == 1 else ""),
     )
+    check_write_allowed(ctx, target, verb="ramify")
     atomic_utf8_write(target, body)
 
     return Result(

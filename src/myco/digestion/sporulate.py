@@ -35,6 +35,7 @@ from pathlib import Path
 from myco.core.context import MycoContext, Result
 from myco.core.errors import ContractError, UsageError
 from myco.core.io_atomic import atomic_utf8_write
+from myco.core.write_surface import check_write_allowed
 
 from .pipeline import Note, parse_note, render_note
 
@@ -166,6 +167,9 @@ def distill_proposal(
         body=body,
     )
     distilled_dir.mkdir(parents=True, exist_ok=True)
+    # v0.5.8 guarded rollout: verify the distilled path is inside the
+    # substrate's declared write surface before we emit bytes.
+    check_write_allowed(ctx, target, verb="sporulate")
     atomic_utf8_write(target, render_note(note))
     return target
 

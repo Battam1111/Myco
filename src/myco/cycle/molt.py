@@ -37,6 +37,7 @@ from myco.core.canon import load_canon
 from myco.core.context import MycoContext, Result
 from myco.core.errors import CanonSchemaError, ContractError, UsageError
 from myco.core.io_atomic import atomic_utf8_write
+from myco.core.write_surface import check_write_allowed
 
 __all__ = ["run"]
 
@@ -169,6 +170,8 @@ def run(args: Mapping[str, object], *, ctx: MycoContext) -> Result:
     # v0.5.8 Phase 8-10: atomic canon writes. If validation fails, the
     # rollback is itself atomic via the same chokepoint, so the substrate
     # never observes a torn canon even under crash-between-writes.
+    # Write-surface guard: canon itself must be in the declared surface.
+    check_write_allowed(ctx, canon_path, verb="molt:canon")
     atomic_utf8_write(canon_path, patched_canon)
     try:
         load_canon(canon_path)
@@ -196,6 +199,7 @@ def run(args: Mapping[str, object], *, ctx: MycoContext) -> Result:
         new_version=new_version, old_version=old_version, today=today
     )
     patched_changelog = _insert_changelog_entry(original_changelog, new_section)
+    check_write_allowed(ctx, changelog_path, verb="molt:changelog")
     atomic_utf8_write(changelog_path, patched_changelog)
 
     # v0.5.8 P0 FIX (Lens 2 P0-9): increment waves.current. The field

@@ -16,8 +16,10 @@ from myco.core.context import MycoContext
 from myco.core.write_surface import (
     UNSAFE_WRITE_ENV,
     WriteSurfaceViolation,
+    check_write_allowed,
     guarded_write,
     is_path_allowed,
+    unsafe_bypass_enabled,
 )
 
 
@@ -155,3 +157,71 @@ class TestWriteSurfaceViolationIsMycoError:
 
     def test_exit_code_three(self) -> None:
         assert WriteSurfaceViolation.exit_code == 3
+
+
+class TestCheckWriteAllowed:
+    """``check_write_allowed`` is the public bypass-aware guard used
+    by verbs that do their own file I/O (eat's O_EXCL loop etc.) but
+    still want the full write_surface + env-bypass semantics."""
+
+    def test_allowed_path_is_silent(self, seeded_substrate: Path) -> None:
+        ctx = MycoContext.for_testing(root=seeded_substrate)
+        _set_surface(ctx, ["notes/**"])
+        target = seeded_substrate / "notes" / "hello.md"
+        # Does not raise.
+        check_write_allowed(ctx, target, verb="test")
+
+    def test_disallowed_path_raises(self, seeded_substrate: Path) -> None:
+        ctx = MycoContext.for_testing(root=seeded_substrate)
+        _set_surface(ctx, ["notes/**"])
+        target = seeded_substrate / "src" / "leak.py"
+        with pytest.raises(WriteSurfaceViolation, match="test:"):
+            check_write_allowed(ctx, target, verb="test")
+
+    def test_verb_name_surfaces_in_message(self, seeded_substrate: Path) -> None:
+        ctx = MycoContext.for_testing(root=seeded_substrate)
+        _set_surface(ctx, [])
+        target = seeded_substrate / "any.md"
+        with pytest.raises(WriteSurfaceViolation) as exc_info:
+            check_write_allowed(ctx, target, verb="my-verb-name")
+        assert "my-verb-name:" in str(exc_info.value)
+
+    def test_bypass_env_suppresses_raise(
+        self, seeded_substrate: Path, monkeypatch
+    ) -> None:
+        ctx = MycoContext.for_testing(root=seeded_substrate)
+        _set_surface(ctx, ["notes/**"])
+        target = seeded_substrate / "src" / "leak.py"
+        monkeypatch.setenv(UNSAFE_WRITE_ENV, "1")
+        # Does not raise despite being outside surface.
+        check_write_allowed(ctx, target, verb="test")
+
+    def test_violation_lists_allowed_patterns(self, seeded_substrate: Path) -> None:
+        ctx = MycoContext.for_testing(root=seeded_substrate)
+        _set_surface(ctx, ["a/**", "b/**"])
+        target = seeded_substrate / "c" / "x.md"
+        with pytest.raises(WriteSurfaceViolation) as exc_info:
+            check_write_allowed(ctx, target, verb="test")
+        msg = str(exc_info.value)
+        assert "a/**" in msg
+        assert "b/**" in msg
+
+
+class TestUnsafeBypassEnabled:
+    def test_unset_is_false(self, monkeypatch) -> None:
+        monkeypatch.delenv(UNSAFE_WRITE_ENV, raising=False)
+        assert not unsafe_bypass_enabled()
+
+    def test_truthy_values(self, monkeypatch) -> None:
+        for value in ("1", "true", "TRUE", "yes", "YES", "on", "ON"):
+            monkeypatch.setenv(UNSAFE_WRITE_ENV, value)
+            assert unsafe_bypass_enabled(), f"expected truthy on {value!r}"
+
+    def test_falsy_values(self, monkeypatch) -> None:
+        for value in ("", "0", "false", "FALSE", "no", "NO", "off", "random"):
+            monkeypatch.setenv(UNSAFE_WRITE_ENV, value)
+            assert not unsafe_bypass_enabled(), f"expected falsy on {value!r}"
+
+    def test_whitespace_trimmed(self, monkeypatch) -> None:
+        monkeypatch.setenv(UNSAFE_WRITE_ENV, "  1  ")
+        assert unsafe_bypass_enabled()

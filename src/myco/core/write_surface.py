@@ -51,6 +51,8 @@ __all__ = [
     "UNSAFE_WRITE_ENV",
     "is_path_allowed",
     "guarded_write",
+    "check_write_allowed",
+    "unsafe_bypass_enabled",
 ]
 
 
@@ -71,10 +73,64 @@ class WriteSurfaceViolation(MycoError):
     """
 
 
-def _unsafe_bypass_enabled() -> bool:
-    """Return True if MYCO_ALLOW_UNSAFE_WRITE is truthy."""
+def unsafe_bypass_enabled() -> bool:
+    """Return True if ``MYCO_ALLOW_UNSAFE_WRITE`` is set to a truthy
+    value (``"1"`` / ``"true"`` / ``"yes"`` / ``"on"``).
+
+    v0.5.8 promoted this from a private helper so verbs that use
+    ``os.open(O_EXCL)`` or other bespoke write paths (``eat``'s
+    collision-retry loop is the canonical case) can reproduce the
+    same bypass semantics ``guarded_write`` uses without reimplementing
+    the env-var parsing.
+    """
     value = os.environ.get(UNSAFE_WRITE_ENV, "").strip().lower()
     return value in {"1", "true", "yes", "on"}
+
+
+# Backward-compat alias; v0.5.8 kept the underscored name live because
+# it was referenced by :func:`guarded_write` below.
+_unsafe_bypass_enabled = unsafe_bypass_enabled
+
+
+def check_write_allowed(
+    ctx: MycoContext,
+    path: Path,
+    *,
+    verb: str,
+) -> None:
+    """Raise :class:`WriteSurfaceViolation` if ``path`` is not in the
+    substrate's declared write surface AND the unsafe-write bypass is
+    not set.
+
+    Public helper for verbs that do their own file I/O (e.g. ``eat``'s
+    ``O_EXCL`` collision loop) but still want the write-surface + env-
+    bypass semantics ``guarded_write`` provides.
+
+    Args:
+        ctx: the substrate context whose canon declares the surface.
+        path: the target path (will be resolved + matched).
+        verb: caller verb name surfaced in the error message, e.g.
+            ``"eat"``. Purely diagnostic.
+    """
+    allowed, rel = is_path_allowed(path, ctx)
+    if allowed:
+        return
+    if unsafe_bypass_enabled():
+        return
+    surface_list: list[str] = []
+    system = ctx.substrate.canon.system or {}
+    surface_map = system.get("write_surface") or {}
+    if isinstance(surface_map, dict):
+        raw_allowed = surface_map.get("allowed")
+        if isinstance(raw_allowed, list):
+            surface_list = [str(p) for p in raw_allowed]
+    raise WriteSurfaceViolation(
+        f"{verb}: target {rel if rel is not None else path} is not "
+        f"matched by any pattern in "
+        f"canon.system.write_surface.allowed = {surface_list}. "
+        f"Add a covering pattern, or set "
+        f"{UNSAFE_WRITE_ENV}=1 in the environment to override."
+    )
 
 
 def _normalise_to_substrate_relative(path: Path, substrate_root: Path) -> str | None:
