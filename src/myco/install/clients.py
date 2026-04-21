@@ -88,7 +88,10 @@ def _write_json(path: Path, data: dict, dry_run: bool) -> str:
     if dry_run:
         return f"[dry-run] would write {path}:\n{body}"
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(body, encoding="utf-8")
+    # v0.5.8 (Lens 10 P1-C): LF-only. Clients (Claude Code, Codex, etc.)
+    # read JSON/YAML config with strict parsers that tolerate CRLF but
+    # agents diffing across OSes saw phantom line-ending churn.
+    path.write_text(body, encoding="utf-8", newline="\n")
     return f"wrote {path}"
 
 
@@ -167,7 +170,7 @@ def _write_yaml(path: Path, data: dict, dry_run: bool) -> str:
     if dry_run:
         return f"[dry-run] would write {path}:\n{body}"
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(body, encoding="utf-8")
+    path.write_text(body, encoding="utf-8", newline="\n")
     return f"wrote {path}"
 
 
@@ -266,7 +269,7 @@ def _mutate_codex_toml(path: Path, dry_run: bool, uninstall: bool) -> str:
     if dry_run:
         return f"[dry-run] would write {path}:\n{body}"
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(body, encoding="utf-8")
+    path.write_text(body, encoding="utf-8", newline="\n")
     return f"wrote {path}"
 
 

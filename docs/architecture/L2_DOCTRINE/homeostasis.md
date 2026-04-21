@@ -78,27 +78,69 @@ molt. MP1 is the mechanical half of the L0-principle-1 addendum
 "Agent calls the LLM; the substrate does not". Combined with MF1
 and MF2, the immune system now has **eleven dimensions** at v0.5.6.
 
-### Dimension enumeration (v0.5.6, all 11)
+**v0.5.8** (this release) adds **fourteen dimensions** at once,
+taking the immune system from 11 to 25 dims. The additions fall
+into four thematic clusters:
+
+- **Plugin-boundary purity**: `MP2` mirrors MP1 on the
+  `.myco/plugins/` tree (LLM-SDK imports banned there too).
+- **Documentation completeness**: `DC1`–`DC4` fence the
+  docstring surface — module docstrings present, public-function
+  docstrings present, public-class docstrings present, and
+  non-trivial modules referencing at least one doctrine page.
+  All LOW severity because missing docstrings erode readability
+  without corrupting state.
+- **Contract & substrate hygiene**: `CS1` (synced_contract_version
+  drift, fixable HIGH), `FR1` (fresh-substrate directory
+  invariants, HIGH/MEDIUM), `PA1` (write_surface coverage, MEDIUM),
+  `CG1`/`CG2` (code ↔ doctrine link fences, both LOW), `DI1`
+  (discipline hooks present, MEDIUM).
+- **Graph / backlog / rules**: `SE3` (graph self-cycle, LOW),
+  `MB3` (raw-notes high watermark ≥50, fixable HIGH), `RL1`
+  (every R1-R7 rule referenced somewhere, LOW).
+
+Several of these replace linkages that previously lived outside
+the lint system (e.g. CS1 was hunger-reflex-only; now
+first-class). The count will stay at 25 through v0.5.x unless a
+follow-up craft promotes specific v0.5.8 LOW dims into
+MEDIUM/HIGH tiers.
+
+### Dimension enumeration (v0.5.8, all 25)
 
 | ID | Category | Default severity | Fixable? | One-line summary |
 |---|---|---|---|---|
-| `M1` | mechanical | CRITICAL |  | Required canon fields present; top-level shape parses |
+| `M1` | mechanical | HIGH |  | Required canon fields present; top-level shape parses |
 | `M2` | mechanical | HIGH | ✓ | Declared entry-point file exists (fix: create minimal skeleton) |
-| `M3` | mechanical | CRITICAL |  | All writes stay inside `system.write_surface.allowed` |
+| `M3` | mechanical | HIGH |  | All writes stay inside `system.write_surface.allowed` |
 | `MF1` | mechanical | HIGH |  | Declared subsystems resolve to real packages on disk |
 | `MF2` | mechanical | HIGH |  | Substrate-local plugin shape + overlay YAML + registration all clean |
-| `MP1` | mechanical | HIGH |  | No LLM-provider import from `src/myco/**` unless `no_llm_in_substrate: false` (v0.5.6) |
-| `SH1` | shipped | CRITICAL |  | `__version__` is the single source; no static `version=` alongside `dynamic` |
-| `MB1` | metabolic | MEDIUM | ✓ | Stale assimilation markers cleaned up (fix: prune stale markers) |
-| `MB2` | metabolic | MEDIUM |  | Undigested-note backlog pressure — surfaces but never blocks |
-| `SE1` | semantic | HIGH |  | Cross-references resolve (no orphans, no dangling refs) |
-| `SE2` | semantic | HIGH |  | Canon-cited numbers and paths match observed reality |
+| `MP1` | mechanical | HIGH |  | No LLM-provider import from `src/myco/**` unless `no_llm_in_substrate: false` |
+| `MP2` | mechanical | MEDIUM |  | Same purity invariant applied to `.myco/plugins/` (v0.5.8 NEW) |
+| `DC1` | mechanical | LOW |  | Every `src/myco/**/*.py` file has a module docstring (v0.5.8 NEW) |
+| `DC2` | mechanical | LOW |  | Every public function/method has a docstring (v0.5.8 NEW) |
+| `DC3` | mechanical | LOW |  | Every public class has a docstring (v0.5.8 NEW) |
+| `DC4` | mechanical | LOW |  | Non-trivial modules reference doctrine (v0.5.8 NEW) |
+| `CS1` | mechanical | HIGH | ✓ | `synced_contract_version` matches `contract_version` (v0.5.8 NEW; fix: delegate to assimilate helper) |
+| `FR1` | mechanical | HIGH |  | Fresh-substrate directory invariants preserved (v0.5.8 NEW) |
+| `PA1` | mechanical | MEDIUM |  | `write_surface.allowed` covers core v0.5.x paths (v0.5.8 NEW) |
+| `CG1` | mechanical | LOW |  | Every L2 doctrine page has at least one `code_doc_ref` edge (v0.5.8 NEW) |
+| `CG2` | mechanical | LOW |  | Every `src/myco/**` subpackage references doctrine in at least one docstring (v0.5.8 NEW) |
+| `DI1` | mechanical | MEDIUM |  | `.claude/hooks.json` present when a `.claude/` directory is declared (v0.5.8 NEW) |
+| `SH1` | shipped | HIGH |  | `__version__` is the single source; no static `version=` alongside `dynamic` |
+| `MB1` | metabolic | MEDIUM | ✓ | Raw-note backlog >10 (fix: bulk-assimilate in place) |
+| `MB2` | metabolic | MEDIUM |  | Nothing integrated yet; fresh substrate advisory |
+| `MB3` | metabolic | HIGH | ✓ | Raw-note backlog ≥50 (v0.5.8 NEW; fix: bulk-assimilate in place) |
+| `SE1` | semantic | MEDIUM |  | Cross-references resolve (no orphans, no dangling refs) |
+| `SE2` | semantic | LOW |  | Canon-cited numbers and paths match observed reality |
+| `SE3` | semantic | LOW |  | Substrate graph contains no self-cycles (v0.5.8 NEW) |
+| `RL1` | semantic | LOW |  | Every R1-R7 rule has at least one substrate reference (v0.5.8 NEW) |
 
 Fixable dimensions (marked ✓) declare `Dimension.fixable = True`
 and implement the `fix()` protocol (see "Homeostasis does" below).
-At v0.5.6 two dimensions are fixable: `M2` and `MB1`. Every other
-dimension is report-only; `myco immune --fix` calls `fix()` only
-on fixables and leaves the rest to Agent discretion.
+v0.5.8 raises the fixable count from 2 (M2, MB1) to **4**: `M2`,
+`MB1`, `CS1`, `MB3`. Every other dimension is report-only; `myco
+immune --fix` calls `fix()` only on fixables and leaves the rest
+to Agent discretion.
 
 ## Boundary
 

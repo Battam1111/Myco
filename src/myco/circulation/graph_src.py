@@ -106,10 +106,17 @@ def _iter_py_files(src_dir: Path) -> Iterator[Path]:
     DFS that honors :data:`_SKIP_DIRS`. This matters because a ``.venv/``
     left inside a contributor's substrate can add tens of thousands of
     files and blow up graph-build time.
+
+    v0.5.8 (Lens 13 P1-13-9): symlinks are skipped. Following a
+    symlink into a parent directory would create an infinite walk;
+    following one into a separate source tree would blow the node
+    budget with files that don't belong to the substrate. Matching
+    the forage-walker semantics keeps every graph walker consistent.
     """
     if not src_dir.is_dir():
         return
     stack: list[Path] = [src_dir]
+    visited: set[tuple[int, int]] = set()
     while stack:
         here = stack.pop()
         try:
@@ -119,9 +126,19 @@ def _iter_py_files(src_dir: Path) -> Iterator[Path]:
             # graph-build on a permissions issue.
             continue
         for entry in entries:
+            if entry.is_symlink():
+                continue
             if entry.is_dir():
                 if entry.name in _SKIP_DIRS:
                     continue
+                try:
+                    st = entry.stat()
+                    key = (st.st_dev, st.st_ino)
+                except OSError:
+                    continue
+                if key in visited:
+                    continue
+                visited.add(key)
                 stack.append(entry)
             elif entry.is_file() and entry.suffix == ".py":
                 yield entry
@@ -362,10 +379,14 @@ def _walk_py(src_dir: Path, effective_skip: frozenset[str]) -> Iterator[Path]:
     Split out from :func:`_iter_py_files` so ``walk_src_graph`` can
     toggle the ``tests`` exclusion at call time without mutating the
     module-level frozenset.
+
+    v0.5.8 (Lens 13 P1-13-9): symlinks skipped and inode-visited set
+    guards cycles. See :func:`_iter_py_files` for the rationale.
     """
     if not src_dir.is_dir():
         return
     stack: list[Path] = [src_dir]
+    visited: set[tuple[int, int]] = set()
     while stack:
         here = stack.pop()
         try:
@@ -373,9 +394,19 @@ def _walk_py(src_dir: Path, effective_skip: frozenset[str]) -> Iterator[Path]:
         except OSError:
             continue
         for entry in entries:
+            if entry.is_symlink():
+                continue
             if entry.is_dir():
                 if entry.name in effective_skip:
                     continue
+                try:
+                    st = entry.stat()
+                    key = (st.st_dev, st.st_ino)
+                except OSError:
+                    continue
+                if key in visited:
+                    continue
+                visited.add(key)
                 stack.append(entry)
             elif entry.is_file() and entry.suffix == ".py":
                 yield entry

@@ -101,21 +101,48 @@ def build_initialization_instructions(manifest: Manifest | None = None) -> str:
 # ---------------------------------------------------------------------------
 
 
+#: Process-local cache: ``{canon_path_str: (mtime_ns, parsed_dict)}``.
+#:
+#: v0.5.8 (Lens 11 P1-PERF-mcp): every MCP tool response carries a
+#: ``substrate_pulse`` sidecar, which means ``_load_canon`` fires on
+#: every call. Re-parsing YAML is ~300 µs, which adds up on a
+#: workflow that fires 500+ tool calls per session. The cache is
+#: keyed on canon ``mtime_ns`` so any edit — from ``molt``, from
+#: ``germinate``, from a human — invalidates automatically.
+_CANON_CACHE: dict[str, tuple[int, dict[str, Any]]] = {}
+
+
 def _load_canon(project_dir: Path | None = None) -> dict[str, Any]:
     """Best-effort canon read. Never raises — the pulse degrades
     gracefully if the substrate is absent or unreadable.
+
+    v0.5.8: mtime-keyed cache. Repeated calls with an unchanged
+    canon return the cached parse in O(1) after the first call.
     """
     if yaml is None:
         return {}
     root = project_dir or Path.cwd()
     for candidate in (root, *root.parents):
         canon_path = candidate / "_canon.yaml"
-        if canon_path.exists():
-            try:
-                with open(canon_path, encoding="utf-8") as fh:
-                    return yaml.safe_load(fh) or {}
-            except Exception:
-                return {}
+        if not canon_path.exists():
+            continue
+        try:
+            mtime_ns = canon_path.stat().st_mtime_ns
+        except OSError:
+            return {}
+        key = str(canon_path.resolve()).replace("\\", "/")
+        cached = _CANON_CACHE.get(key)
+        if cached is not None and cached[0] == mtime_ns:
+            return cached[1]
+        try:
+            with open(canon_path, encoding="utf-8") as fh:
+                parsed = yaml.safe_load(fh) or {}
+        except Exception:
+            return {}
+        if not isinstance(parsed, dict):
+            parsed = {}
+        _CANON_CACHE[key] = (mtime_ns, parsed)
+        return parsed
     return {}
 
 

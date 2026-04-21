@@ -165,11 +165,11 @@ def run(args: Mapping[str, object], *, ctx: MycoContext) -> Result:
     # Commit canon change; validate by re-reading. Restore original on
     # any parse error — we must not leave the substrate in a half-
     # valid state.
-    canon_path.write_text(patched_canon, encoding="utf-8")
+    canon_path.write_text(patched_canon, encoding="utf-8", newline="\n")
     try:
         load_canon(canon_path)
     except CanonSchemaError as exc:
-        canon_path.write_text(original_canon, encoding="utf-8")
+        canon_path.write_text(original_canon, encoding="utf-8", newline="\n")
         raise ContractError(
             f"bump: post-write validation failed; canon restored. "
             f"Underlying error: {exc}"
@@ -210,9 +210,7 @@ def run(args: Mapping[str, object], *, ctx: MycoContext) -> Result:
         if m is not None:
             new_n = int(m.group("n")) + 1
             new_text = (
-                current_text[: m.start("n")]
-                + str(new_n)
-                + current_text[m.end("n"):]
+                current_text[: m.start("n")] + str(new_n) + current_text[m.end("n") :]
             )
             canon_path.write_text(new_text, encoding="utf-8", newline="\n")
             waves_touched = True

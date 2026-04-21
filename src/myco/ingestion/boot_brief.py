@@ -68,7 +68,7 @@ def patch_entry_point(
     text = path.read_text(encoding="utf-8")
     block = render_signals_block(signals)
     new_text = _apply_block(text, block)
-    path.write_text(new_text, encoding="utf-8")
+    path.write_text(new_text, encoding="utf-8", newline="\n")
     return path
 
 

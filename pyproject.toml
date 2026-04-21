@@ -129,6 +129,21 @@ MB1 = "myco.homeostasis.dimensions.mb1_raw_notes_backlog:MB1RawNotesBacklog"
 MB2 = "myco.homeostasis.dimensions.mb2_no_integrated_yet:MB2NoIntegratedYet"
 SE1 = "myco.homeostasis.dimensions.se1_dangling_refs:SE1DanglingRefs"
 SE2 = "myco.homeostasis.dimensions.se2_orphan_integrated:SE2OrphanIntegrated"
+# v0.5.8 additions (Phase 14 of the v0.5.8 cleanup):
+MP2 = "myco.homeostasis.dimensions.mp2_plugin_provider_imports:MP2PluginProviderImports"
+DC1 = "myco.homeostasis.dimensions.dc1_module_docstring:DC1ModuleDocstring"
+DC2 = "myco.homeostasis.dimensions.dc2_public_function_docstring:DC2PublicFunctionDocstring"
+DC3 = "myco.homeostasis.dimensions.dc3_public_class_docstring:DC3PublicClassDocstring"
+DC4 = "myco.homeostasis.dimensions.dc4_module_doc_ref:DC4ModuleDocRef"
+CS1 = "myco.homeostasis.dimensions.cs1_contract_version_sync:CS1ContractVersionSync"
+RL1 = "myco.homeostasis.dimensions.rl1_rules_referenced:RL1RulesReferenced"
+FR1 = "myco.homeostasis.dimensions.fr1_fresh_substrate_invariants:FR1FreshSubstrateInvariants"
+PA1 = "myco.homeostasis.dimensions.pa1_write_surface_coverage:PA1WriteSurfaceCoverage"
+SE3 = "myco.homeostasis.dimensions.se3_link_self_cycle:SE3LinkSelfCycle"
+MB3 = "myco.homeostasis.dimensions.mb3_raw_notes_high_watermark:MB3RawNotesHighWatermark"
+CG1 = "myco.homeostasis.dimensions.cg1_doctrine_has_src_reference:CG1DoctrineHasSrcReference"
+CG2 = "myco.homeostasis.dimensions.cg2_subpackage_has_doctrine_link:CG2SubpackageHasDoctrineLink"
+DI1 = "myco.homeostasis.dimensions.di1_discipline_hooks_present:DI1DisciplineHooksPresent"
 
 [tool.hatch.version]
 # Single source of truth for the package version — per L1 versioning.md.

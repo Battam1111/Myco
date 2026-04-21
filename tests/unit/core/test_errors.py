@@ -35,7 +35,23 @@ def test_raise_and_catch_preserves_type() -> None:
     with pytest.raises(ContractError) as exc_info:
         raise CanonSchemaError("bad schema")
     assert isinstance(exc_info.value, CanonSchemaError)
-    assert exc_info.value.exit_code == 3
+    # v0.5.8: CanonSchemaError exits 5 (canon-specific failure) to
+    # let CI scripts distinguish it from generic operational
+    # failures without string-matching stderr.
+    assert exc_info.value.exit_code == 5
+
+
+def test_differentiated_exit_codes() -> None:
+    """v0.5.8: operational exit codes are now differentiated within
+    the ``≥3`` contract band so downstream consumers can handle
+    substrate-not-found and canon-schema errors separately from the
+    generic bucket.
+    """
+    assert MycoError.exit_code == 3
+    assert ContractError.exit_code == 3
+    assert UsageError.exit_code == 3
+    assert SubstrateNotFound.exit_code == 4
+    assert CanonSchemaError.exit_code == 5
 
 
 def test_myco_error_catches_everything() -> None:

@@ -4,6 +4,17 @@ Walks the directory, delegates each ingestible file to
 :class:`TextFileAdapter`, and returns one ``IngestResult`` per file.
 Respects ``.gitignore`` patterns if the ``pathspec`` library is
 installed; otherwise falls back to a short hardcoded skip-list.
+
+v0.5.8: the always-skip directory list now delegates to
+``myco.core.skip_dirs`` so every walker in Myco (graph, forage,
+sense, MP1) shares the same set. Previously three overlapping lists
+diverged; adding a new cache dir required 3 PRs.
+
+.gitignore matching now uses ``rel.as_posix()`` so Windows users
+(with backslash rel paths) get the same semantics as POSIX users.
+Previously ``spec.match_file("notes\\temp\\x.md")`` returned False
+for rule ``notes/temp/``, silently ingesting files the user's
+.gitignore excluded.
 """
 
 from __future__ import annotations
@@ -11,24 +22,10 @@ from __future__ import annotations
 from collections.abc import Sequence
 from pathlib import Path
 
+from myco.core.skip_dirs import should_skip_dir
+
 from .protocol import Adapter, IngestResult
 from .text_file import TextFileAdapter
-
-_ALWAYS_SKIP = {
-    ".git",
-    "__pycache__",
-    "node_modules",
-    ".venv",
-    "venv",
-    ".tox",
-    ".mypy_cache",
-    ".ruff_cache",
-    ".pytest_cache",
-    "dist",
-    "build",
-    ".eggs",
-    "*.egg-info",
-}
 
 _MAX_FILES = 500
 
@@ -70,14 +67,21 @@ class CodeRepoAdapter(Adapter):
     @staticmethod
     def _should_skip(path: Path, root: Path, spec) -> bool:
         rel = path.relative_to(root)
-        # Always-skip dirs
+        # v0.5.8: delegate to the canonical skip-dirs module so every
+        # walker in Myco sees the same set (graph_src, forage, sense,
+        # MP1, this adapter — previously four divergent lists).
         for part in rel.parts:
-            if part in _ALWAYS_SKIP or part.endswith(".egg-info"):
+            if should_skip_dir(part):
                 return True
-        # pathspec match (if available)
+        # pathspec match (if available). v0.5.8 P1-B fix: pass the
+        # POSIX form of the relative path. pathspec's gitwildmatch
+        # semantics expect forward slashes; a Windows backslash path
+        # silently fails to match rules like ``notes/temp/``, which
+        # caused the repo's own .gitignore to be ignored on Windows
+        # (credential files slipped through).
         if spec is not None:
             try:
-                if spec.match_file(str(rel)):
+                if spec.match_file(rel.as_posix()):
                     return True
             except Exception:
                 pass

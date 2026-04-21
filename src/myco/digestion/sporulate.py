@@ -165,7 +165,7 @@ def distill_proposal(
         body=body,
     )
     distilled_dir.mkdir(parents=True, exist_ok=True)
-    target.write_text(render_note(note), encoding="utf-8")
+    target.write_text(render_note(note), encoding="utf-8", newline="\n")
     return target
 
 

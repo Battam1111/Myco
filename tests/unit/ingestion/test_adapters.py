@@ -51,7 +51,11 @@ def test_text_file_handles_py(tmp_path: Path) -> None:
     results = adapter.ingest(str(f))
     assert len(results) == 1
     assert "sign_token" in results[0].body
-    assert results[0].source == str(f.resolve())
+    # v0.5.8: source is POSIX-normalized for cross-platform payload
+    # consistency (Lens 10 P1-C); previously the test accepted the
+    # platform-native path, which hid a Windows inconsistency in
+    # downstream graph/traverse machinery.
+    assert results[0].source == str(f.resolve()).replace("\\", "/")
     assert "py" in results[0].tags
 
 

@@ -38,7 +38,7 @@ from __future__ import annotations
 import fnmatch
 import os
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from .errors import MycoError
 from .io_atomic import atomic_utf8_write
@@ -77,9 +77,7 @@ def _unsafe_bypass_enabled() -> bool:
     return value in {"1", "true", "yes", "on"}
 
 
-def _normalise_to_substrate_relative(
-    path: Path, substrate_root: Path
-) -> str | None:
+def _normalise_to_substrate_relative(path: Path, substrate_root: Path) -> str | None:
     """Return ``path`` as a POSIX substrate-relative string, or None
     if ``path`` escapes ``substrate_root``.
 
@@ -102,7 +100,7 @@ def _normalise_to_substrate_relative(
 
 def is_path_allowed(
     path: Path,
-    ctx: "MycoContext",
+    ctx: MycoContext,
 ) -> tuple[bool, str | None]:
     """Check whether ``path`` falls within the substrate's declared
     write surface.
@@ -126,11 +124,16 @@ def is_path_allowed(
     if rel is None:
         return (False, None)
 
-    try:
-        surface: Any = ctx.substrate.canon.system.write_surface
-        patterns: list[str] = list(surface.allowed)
-    except AttributeError:
+    # ``canon.system`` is a ``Mapping[str, Any]`` so we dig through
+    # dict-level keys rather than attribute access. ``write_surface``
+    # may be absent (pre-v0.5.0 canons), an empty dict, or a mapping
+    # with ``allowed`` being a list of fnmatch globs.
+    system = ctx.substrate.canon.system or {}
+    surface = system.get("write_surface") or {}
+    allowed_raw = surface.get("allowed") if isinstance(surface, dict) else None
+    if not isinstance(allowed_raw, list):
         return (False, rel)
+    patterns: list[str] = [str(p) for p in allowed_raw]
 
     for pattern in patterns:
         # fnmatch.fnmatch is case-insensitive on Windows; we want
@@ -144,7 +147,7 @@ def is_path_allowed(
 
 
 def guarded_write(
-    ctx: "MycoContext",
+    ctx: MycoContext,
     path: Path,
     content: str,
     *,
@@ -171,13 +174,13 @@ def guarded_write(
             # future SE-class dimension that surfaces bypass frequency.
             pass
         else:
-            surface_list = []
-            try:
-                surface_list = list(
-                    ctx.substrate.canon.system.write_surface.allowed
-                )
-            except AttributeError:
-                pass
+            surface_list: list[str] = []
+            system = ctx.substrate.canon.system or {}
+            surface_map = system.get("write_surface") or {}
+            if isinstance(surface_map, dict):
+                raw_allowed = surface_map.get("allowed")
+                if isinstance(raw_allowed, list):
+                    surface_list = [str(p) for p in raw_allowed]
             raise WriteSurfaceViolation(
                 f"refusing to write outside allowed surface: "
                 f"{rel if rel is not None else path} is not matched "

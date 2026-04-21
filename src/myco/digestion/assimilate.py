@@ -67,9 +67,7 @@ def _sync_contract_version(ctx: MycoContext) -> bool:
         r'^(?P<prefix>synced_contract_version:\s*)(?P<q>["\'])[^"\']*(?P=q)\s*$',
         _re.MULTILINE,
     )
-    new_text, n = pattern.subn(
-        rf'\g<prefix>"{canon.contract_version}"', text, count=1
-    )
+    new_text, n = pattern.subn(rf'\g<prefix>"{canon.contract_version}"', text, count=1)
     if n == 0:
         # Legacy canon missing the synced field — leave alone. molt
         # will add it on the next contract bump; meanwhile drift
@@ -152,7 +150,7 @@ def run(args: Mapping[str, object], *, ctx: MycoContext) -> Result:
     # condition instead of looping forever. Silent no-op if canon
     # was already synced, which keeps the operation idempotent.
     synced_updated = False
-    if exit_code == 0 and not summary["errors"]:  # type: ignore[arg-type]
+    if exit_code == 0 and not summary["errors"]:
         try:
             synced_updated = _sync_contract_version(ctx)
         except OSError:

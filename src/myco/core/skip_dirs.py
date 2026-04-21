@@ -28,8 +28,9 @@ skip set so graph-walkers cover test-doc refs correctly; pass
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Final, Iterable
+from typing import Final
 
 __all__ = [
     "DEFAULT_SKIP_DIRS",
@@ -112,9 +113,7 @@ def should_skip_dir(
 
     if name in skip_set:
         return True
-    if name.endswith(".egg-info"):
-        return True
-    return False
+    return name.endswith(".egg-info")
 
 
 def should_skip_path(
@@ -140,8 +139,6 @@ def should_skip_path(
         parts = path.parts
 
     for part in parts:
-        if should_skip_dir(
-            part, include_tests=include_tests, extra=extra
-        ):
+        if should_skip_dir(part, include_tests=include_tests, extra=extra):
             return True
     return False

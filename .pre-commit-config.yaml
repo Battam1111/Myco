@@ -1,0 +1,53 @@
+# Pre-commit hooks for Myco contributors (v0.5.8).
+#
+# Install: ``pre-commit install`` after ``pip install pre-commit``.
+# This is optional — CI runs the same checks — but reduces the
+# "PR is red on push" feedback loop from minutes to seconds.
+#
+# Hook choice rationale:
+# - ruff: lint + format in one pass (replaces flake8 + black + isort)
+# - mypy: type-check (strict on src/, permissive on tests/)
+# - end-of-file-fixer / trailing-whitespace: LF hygiene
+# - check-yaml / check-toml: catch syntax errors pre-commit
+# - myco immune (local): substrate invariants before landing changes
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: check-yaml
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: mixed-line-ending
+        args: ["--fix=lf"]
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.9
+    hooks:
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+      - id: ruff-format
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.11.2
+    hooks:
+      - id: mypy
+        files: ^src/myco/
+        additional_dependencies:
+          - pyyaml
+          - types-PyYAML
+
+  # Local hook: run `myco immune` on the substrate itself so
+  # contributors get the same lint gate CI enforces. Only the
+  # mechanical-category gates on the threshold so ongoing metabolic
+  # noise doesn't block a PR that didn't touch the backlog.
+  - repo: local
+    hooks:
+      - id: myco-immune
+        name: myco immune (substrate self-lint)
+        entry: python -m myco.surface.cli immune --exit-on=mechanical:high,shipped:high,metabolic:never,semantic:never
+        language: system
+        pass_filenames: false
+        stages: [pre-commit]

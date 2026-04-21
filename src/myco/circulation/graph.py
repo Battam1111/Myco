@@ -251,6 +251,10 @@ def _canon_fingerprint(substrate: Substrate) -> str:
         from .graph_src import _SKIP_DIRS
 
         stack: list[Path] = [src_dir]
+        # v0.5.8 (Lens 13 P1-13-9): inode-visited guard + symlink skip
+        # so the fingerprint walker cannot hit an infinite loop on a
+        # symlinked source tree. Matches ``graph_src._walk_py``.
+        visited: set[tuple[int, int]] = set()
         while stack:
             here = stack.pop()
             try:
@@ -258,9 +262,19 @@ def _canon_fingerprint(substrate: Substrate) -> str:
             except OSError:
                 continue
             for child in children:
+                if child.is_symlink():
+                    continue
                 if child.is_dir():
                     if child.name in _SKIP_DIRS:
                         continue
+                    try:
+                        st = child.stat()
+                        key = (st.st_dev, st.st_ino)
+                    except OSError:
+                        continue
+                    if key in visited:
+                        continue
+                    visited.add(key)
                     stack.append(child)
                 elif child.is_file() and child.suffix == ".py":
                     try:
@@ -304,9 +318,15 @@ def persist_graph(graph: Graph, path: Path, *, fingerprint: str) -> None:
         "nodes": sorted(graph.nodes),
         "edges": [[e.src, e.dst, e.kind] for e in graph.edges],
     }
+    # v0.5.8 (Lens 10 P1-C): force LF endings. On Windows, Python's
+    # text-mode write_text translates "\n" → "\r\n" by default, which
+    # made the persisted graph checksum differ between platforms and
+    # produced CRLF-contaminated JSON payloads. Every write surface in
+    # Myco is now LF-only so artifacts round-trip cleanly across OSes.
     path.write_text(
         json.dumps(payload, indent=2, ensure_ascii=False),
         encoding="utf-8",
+        newline="\n",
     )
 
 
@@ -405,7 +425,12 @@ def _build_graph_uncached(ctx: MycoContext) -> Graph:
             if resolved is None:
                 edges.append(Edge(src=canon_rel, dst=ref, kind="canon_ref"))
             else:
-                nodes.add(resolved)
+                # v0.5.8 (Lens 16 P0-SE1-perf): only add to ``nodes`` when
+                # the resolved target actually exists. This makes
+                # ``Graph.nodes`` the single source of truth for
+                # "exists on disk", letting SE1 skip per-edge stat(2).
+                if (root / resolved).is_file():
+                    nodes.add(resolved)
                 edges.append(Edge(src=canon_rel, dst=resolved, kind="canon_ref"))
 
     # --- 2) note frontmatter refs + markdown links in notes ----------------
@@ -430,7 +455,8 @@ def _build_graph_uncached(ctx: MycoContext) -> Graph:
             if resolved is None:
                 edges.append(Edge(src=rel, dst=ref, kind="note_ref"))
             else:
-                nodes.add(resolved)
+                if (root / resolved).is_file():
+                    nodes.add(resolved)
                 edges.append(Edge(src=rel, dst=resolved, kind="note_ref"))
         # Markdown body links
         try:
@@ -444,7 +470,8 @@ def _build_graph_uncached(ctx: MycoContext) -> Graph:
             if resolved is None:
                 edges.append(Edge(src=rel, dst=link, kind="markdown_link"))
             else:
-                nodes.add(resolved)
+                if (root / resolved).is_file():
+                    nodes.add(resolved)
                 edges.append(Edge(src=rel, dst=resolved, kind="markdown_link"))
 
     # --- 3) markdown links in docs/ + entry-point --------------------------
@@ -468,7 +495,8 @@ def _build_graph_uncached(ctx: MycoContext) -> Graph:
             if resolved is None:
                 edges.append(Edge(src=rel, dst=link, kind="markdown_link"))
             else:
-                nodes.add(resolved)
+                if (root / resolved).is_file():
+                    nodes.add(resolved)
                 edges.append(Edge(src=rel, dst=resolved, kind="markdown_link"))
 
     # --- 4) src/**/*.py — imports + docstring doc refs --------------------
@@ -478,7 +506,14 @@ def _build_graph_uncached(ctx: MycoContext) -> Graph:
     for node in src_walk.nodes:
         nodes.add(node)
     for src_rel, dst_rel in src_walk.import_edges:
-        nodes.add(dst_rel)
+        # Import targets come from ``_module_to_path`` which only
+        # returns paths for files that exist. Still, guard the
+        # nodes.add with an ``is_file`` so the invariant "nodes is
+        # the set of existing files" holds even if a caller later
+        # supplies a pre-computed walker result from a different
+        # tree state.
+        if (ctx.substrate.root / dst_rel).is_file():
+            nodes.add(dst_rel)
         edges.append(Edge(src=src_rel, dst=dst_rel, kind="import"))
     for src_rel, dst_rel in src_walk.doc_edges:
         # doc edges may point to a file that exists or may be dangling

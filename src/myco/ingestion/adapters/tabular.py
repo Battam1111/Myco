@@ -3,6 +3,11 @@
 Uses only the Python standard library (``csv``, ``json``), so no
 optional deps are needed. Produces a summary note: column names,
 row count, first few rows.
+
+v0.5.8: size cap + POSIX source normalization. Tabular corpora
+from data-science workflows routinely hit multi-GB sizes; without
+a cap, ``p.read_text`` would OOM before the preview-truncation
+logic even runs.
 """
 
 from __future__ import annotations
@@ -13,9 +18,20 @@ import json
 from collections.abc import Sequence
 from pathlib import Path
 
+from myco.core.io_atomic import DEFAULT_MAX_READ_BYTES
+
 from .protocol import Adapter, IngestResult
 
 _MAX_PREVIEW_ROWS = 10
+
+#: Size ceiling for a single tabular file (10 MB). Oversized files
+#: are rejected by ``can_handle`` so ingestion cannot OOM the process.
+DEFAULT_MAX_INGEST_BYTES: int = DEFAULT_MAX_READ_BYTES
+
+
+def _posix(p: Path) -> str:
+    """Normalise ``p.resolve()`` to POSIX separators (Lens 10 P1-C)."""
+    return str(p.resolve()).replace("\\", "/")
 
 
 class TabularReader(Adapter):
@@ -29,7 +45,14 @@ class TabularReader(Adapter):
 
     def can_handle(self, target: str) -> bool:
         p = Path(target)
-        return p.is_file() and p.suffix.lower() in self.extensions
+        if not (p.is_file() and p.suffix.lower() in self.extensions):
+            return False
+        try:
+            if p.stat().st_size > DEFAULT_MAX_INGEST_BYTES:
+                return False
+        except OSError:
+            return False
+        return True
 
     def ingest(self, target: str) -> Sequence[IngestResult]:
         p = Path(target)
@@ -62,7 +85,7 @@ class TabularReader(Adapter):
                 title=p.name,
                 body="\n".join(lines),
                 tags=["tabular", suffix.lstrip(".")],
-                source=str(p.resolve()),
+                source=_posix(p),
                 metadata={"columns": cols, "row_count": len(rows)},
             )
         ]
@@ -91,7 +114,7 @@ class TabularReader(Adapter):
                 title=p.name,
                 body="\n".join(lines),
                 tags=["tabular", "jsonl"],
-                source=str(p.resolve()),
+                source=_posix(p),
                 metadata={"record_count": len(objects)},
             )
         ]
@@ -106,7 +129,7 @@ class TabularReader(Adapter):
                     title=p.name,
                     body=text[:2000],
                     tags=["json", "file"],
-                    source=str(p.resolve()),
+                    source=_posix(p),
                 )
             ]
         body = json.dumps(data, indent=2, ensure_ascii=False)
@@ -117,7 +140,7 @@ class TabularReader(Adapter):
                 title=p.name,
                 body=body,
                 tags=["json", "file"],
-                source=str(p.resolve()),
+                source=_posix(p),
                 metadata={"type": type(data).__name__},
             )
         ]

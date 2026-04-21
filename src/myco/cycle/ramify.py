@@ -352,7 +352,7 @@ def _ensure_pkg(dir_path: Path, init_body: str | None = None) -> None:
     dir_path.mkdir(parents=True, exist_ok=True)
     init = dir_path / "__init__.py"
     if not init.exists():
-        init.write_text(init_body or "", encoding="utf-8")
+        init.write_text(init_body or "", encoding="utf-8", newline="\n")
 
 
 def _ensure_plugin_tree(ctx: MycoContext, kind: str) -> Path:
@@ -414,7 +414,9 @@ def _append_overlay_verb(
             "args": [],
         }
     )
-    overlay_path.write_text(yaml.safe_dump(raw, sort_keys=False), encoding="utf-8")
+    overlay_path.write_text(
+        yaml.safe_dump(raw, sort_keys=False), encoding="utf-8", newline="\n"
+    )
     return overlay_path
 
 
@@ -463,7 +465,7 @@ def _run_verb_mode(
 
     target.parent.mkdir(parents=True, exist_ok=True)
     stub = _VERB_STUB_TEMPLATE.format(verb=verb_name)
-    target.write_text(stub, encoding="utf-8")
+    target.write_text(stub, encoding="utf-8", newline="\n")
 
     if substrate_local:
         # Wire the overlay so the verb is invokable without a pyproject change.
@@ -560,7 +562,7 @@ def _run_dimension_mode(
         category_const=_CATEGORY_CONSTS[category],
         severity_const=_SEVERITY_CONSTS[severity],
     )
-    target.write_text(body, encoding="utf-8")
+    target.write_text(body, encoding="utf-8", newline="\n")
 
     return Result(
         exit_code=0,
@@ -645,7 +647,7 @@ def _run_adapter_mode(
         extensions_tuple=", ".join(repr(e) for e in norm_exts)
         + ("," if len(norm_exts) == 1 else ""),
     )
-    target.write_text(body, encoding="utf-8")
+    target.write_text(body, encoding="utf-8", newline="\n")
 
     return Result(
         exit_code=0,

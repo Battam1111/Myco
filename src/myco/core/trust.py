@@ -52,19 +52,20 @@ __all__ = [
 ]
 
 
-#: C0 control characters (U+0000–U+001F) except for the three that are
+#: C0 control characters (U+0000-U+001F) except for the three that are
 #: legitimate in text streams (tab, LF, CR). C1 extended controls
-#: (U+0080–U+009F) and the DEL (U+007F) are also stripped since they
+#: (U+0080-U+009F) and the DEL (U+007F) are also stripped since they
 #: are almost never intended and appear most often in prompt-injection
 #: attempts via ANSI escape sequences.
 _CONTROL_CHARS: Final[frozenset[str]] = frozenset(
     chr(c)
     for c in (
-        list(range(0x00, 0x09))
-        + [0x0B, 0x0C]
-        + list(range(0x0E, 0x20))
-        + [0x7F]
-        + list(range(0x80, 0xA0))
+        *range(0x00, 0x09),
+        0x0B,
+        0x0C,
+        *range(0x0E, 0x20),
+        0x7F,
+        *range(0x80, 0xA0),
     )
 )
 
@@ -103,8 +104,10 @@ def flatten_newlines(s: str, *, replacement: str = " ") -> str:
     """
     if not s:
         return s
-    return s.replace("\r\n", replacement).replace("\n", replacement).replace(
-        "\r", replacement
+    return (
+        s.replace("\r\n", replacement)
+        .replace("\n", replacement)
+        .replace("\r", replacement)
     )
 
 
