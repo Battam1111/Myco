@@ -44,8 +44,8 @@ Both the CLI (`python -m myco <verb>`) and the MCP tool server
 (`myco.surface.mcp.build_server`) are generated from it. If you need
 to know what verbs exist, read that file — not this page.
 
-Eighteen verbs (v0.5.7: 17 agent + 1 human-facing `brief`), grouped
-by subsystem. Every v0.5.2 alias still resolves through v1.0.0 with
+Eighteen verbs (17 agent + 1 human-facing `brief`), grouped by
+subsystem. Every v0.5.2 alias still resolves through v1.0.0 with
 a one-shot `DeprecationWarning`; the canonical form is what you
 should emit in new calls:
 
@@ -57,6 +57,47 @@ should emit in new calls:
 - **cycle**        — `senesce` (was `session-end`; `--quick` flag at v0.5.7 for SessionEnd hook), `fruit` (was `craft`), `molt` (was `bump`), `winnow` (was `evolve`), `ramify` (was `scaffold`), `graft` (new at v0.5.3), `brief` (new at v0.5.5 — the one human-facing exception to L0 principle 1)
 
 Every verb accepts `--project-dir`, `--exit-on`, and `--json`.
+
+## The immune surface
+
+`myco immune` runs every registered dimension against the substrate
+and reports findings. At v0.5.10 the roster is **25 dimensions**
+across four categories:
+
+- **Mechanical (18)** — `M1`, `M2★`, `M3`, `MF1`, `MF2`, `MP1`, `MP2`,
+  `DC1`–`DC4`, `CS1★`, `FR1`, `PA1`, `CG1`, `CG2`, `DI1`
+- **Shipped (1)** — `SH1`
+- **Metabolic (3)** — `MB1★`, `MB2`, `MB3★`
+- **Semantic (3)** — `SE1`, `SE2`, `SE3`, `RL1`
+
+★ = fixable via `immune --fix`. The full enumeration + severities +
+fixability are in
+[`docs/architecture/L2_DOCTRINE/homeostasis.md`](docs/architecture/L2_DOCTRINE/homeostasis.md)
+§ "Dimension enumeration". `immune --list` prints the live list;
+`immune --explain <ID>` prints the prose description.
+
+Baseline: `myco-self` runs immune-clean (exit 0, 0 findings) since
+v0.5.9; every new finding on the self-substrate is therefore real
+signal.
+
+## Canon validation (v0.5.9+)
+
+`_canon.yaml` is validated twice:
+
+1. **At kernel import** — `myco.core.canon.load_canon` raises
+   `CanonSchemaError` (exit 5) on shape violations.
+2. **At edit time** (optional) — IDEs that understand JSON-Schema
+   validate against
+   [`docs/schema/canon.schema.json`](docs/schema/canon.schema.json).
+   Wiring snippets for VS Code / JetBrains / Neovim are in the
+   schema folder's [README](docs/schema/README.md).
+
+## Upgrading between versions
+
+Boundary-specific migration notes live under
+[`docs/migration/`](docs/migration/README.md). Start there when
+upgrading a downstream substrate across a MINOR bump — each file
+translates contract-layer deltas into operator-visible steps.
 
 ## How to read the substrate
 
