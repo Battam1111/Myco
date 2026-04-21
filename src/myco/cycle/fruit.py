@@ -32,6 +32,7 @@ from importlib.resources import files as _pkg_files
 from myco.core.context import MycoContext, Result
 from myco.core.errors import ContractError, UsageError
 from myco.core.io_atomic import atomic_utf8_write
+from myco.core.write_surface import check_write_allowed
 
 __all__ = ["run"]
 
@@ -105,6 +106,9 @@ def run(args: Mapping[str, object], *, ctx: MycoContext) -> Result:
         date=today,
         title=_title_case(slug),
     )
+    # v0.5.8 guarded rollout: fruit writes craft docs under
+    # ``docs/primordia/``; verify the target is in-surface before emit.
+    check_write_allowed(ctx, target, verb="fruit")
     atomic_utf8_write(target, body)
 
     return Result(

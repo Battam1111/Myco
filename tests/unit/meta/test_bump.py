@@ -23,6 +23,8 @@ def _ctx(root: Path) -> MycoContext:
 
 
 def _bumpable_canon() -> str:
+    # v0.5.8: includes write_surface so molt's check_write_allowed
+    # guard permits the canon patch + contract_changelog append.
     return textwrap.dedent(
         """\
         schema_version: "1"
@@ -32,6 +34,10 @@ def _bumpable_canon() -> str:
           substrate_id: "x"
           entry_point: "MYCO.md"
         system:
+          write_surface:
+            allowed:
+              - "_canon.yaml"
+              - "docs/**"
           hard_contract: {rule_count: 7}
         subsystems:
           genesis:

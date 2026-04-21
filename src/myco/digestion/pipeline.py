@@ -19,6 +19,7 @@ import yaml
 from myco.core.context import MycoContext
 from myco.core.errors import ContractError, UsageError
 from myco.core.io_atomic import atomic_utf8_write
+from myco.core.write_surface import check_write_allowed
 
 __all__ = [
     "Note",
@@ -167,6 +168,12 @@ def promote_to_integrated(
             f"integrated target already exists: {target}; "
             f"promote aborted to avoid data loss"
         )
+    # v0.5.8 guarded rollout: enforce write_surface on the integrated
+    # target. The raw-path unlink that follows is not surface-gated
+    # because removing content the substrate already owns is a
+    # different semantic axis (it's under notes/raw/ by construction
+    # and assimilate's contract says the raw copy moves, not duplicates).
+    check_write_allowed(ctx, target, verb="digest")
     atomic_utf8_write(target, rendered)
     raw_path.unlink()
     return target

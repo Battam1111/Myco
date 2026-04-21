@@ -198,13 +198,14 @@ def test_default_registry_runs_end_to_end(seeded_substrate: Path) -> None:
     reg = default_registry()
     ctx = _mk_ctx(seeded_substrate)
     result = run_immune(ctx, reg, exit_on="critical")
-    # The seeded fixture lacks an entry-point file and a write_surface
-    # declaration, so M2 (HIGH) and M3 (MEDIUM) fire. Neither trips
-    # the `critical` threshold → exit 0.
+    # The seeded fixture lacks an entry-point file so M2 (HIGH) fires.
+    # v0.5.8: the fixture now declares a write_surface so M3 stays
+    # silent — this test checks M2 plus the exit-policy ladder. A
+    # dedicated test in ``test_m3_write_surface_declared.py`` pins the
+    # M3-on-absence behaviour with its own narrow canon.
     assert result.exit_code == 0
     fired = {f.dimension_id for f in result.findings}
     assert "M2" in fired
-    assert "M3" in fired
     # With exit_on="high", M2's HIGH trips → exit 1.
     result_high = run_immune(ctx, reg, exit_on="high")
     assert result_high.exit_code == 1
@@ -233,7 +234,9 @@ class _FixableProbe(Dimension):
             category=self.category,
             severity=self.default_severity,
             message="probe fires",
-            path="probe.md",
+            # v0.5.8: path lives under the seeded fixture's write_surface
+            # (``notes/**``) so the kernel's R6 guard permits the fix.
+            path="notes/probe.md",
         )
 
     def fix(self, ctx, finding):  # type: ignore[override]
@@ -285,9 +288,11 @@ def test_run_immune_with_fix_invokes_fixable_dimensions(
     assert entry["dimension_id"] == "FIXPROBE"
     assert entry["applied"] is True
     assert entry["detail"] == "probe-fixed"
-    # Structured extras from the fix() return flow through.
-    assert entry["probe_path"] == "probe.md"
-    assert entry["path"] == "probe.md"
+    # Structured extras from the fix() return flow through. v0.5.8:
+    # path moved to ``notes/probe.md`` so it lives under the seeded
+    # fixture's write_surface (``notes/**``).
+    assert entry["probe_path"] == "notes/probe.md"
+    assert entry["path"] == "notes/probe.md"
 
 
 def test_run_immune_without_fix_does_not_invoke_fixable_dim(
@@ -325,7 +330,9 @@ def test_run_immune_fix_captures_raised_exceptions(
                 category=self.category,
                 severity=self.default_severity,
                 message="x",
-                path="anywhere.md",
+                # v0.5.8: lives under ``notes/**`` so the write-surface
+                # guard doesn't intercept before the fix raises.
+                path="notes/anywhere.md",
             )
 
         def fix(self, ctx, finding):  # type: ignore[override]

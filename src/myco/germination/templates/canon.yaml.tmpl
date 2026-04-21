@@ -18,9 +18,16 @@ system:
   write_surface:
     allowed:
       - "_canon.yaml"
+      - "MYCO.md"
       - "notes/**"
       - "docs/**"
       - "src/**"
+      # v0.5.8: ``.myco/**`` is required for substrate-local
+      # extensibility (``myco ramify --substrate-local`` writes here,
+      # and every substrate-local plugin lives under
+      # ``.myco/plugins/**``). Fresh substrates that expect to host
+      # local extensions or overlay verbs need this pattern covered.
+      - ".myco/**"
   hard_contract:
     rules_ref: "docs/architecture/L1_CONTRACT/protocol.md"
     rule_count: 7

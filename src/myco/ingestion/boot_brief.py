@@ -18,6 +18,7 @@ from pathlib import Path
 from myco.core.context import MycoContext
 from myco.core.errors import ContractError
 from myco.core.io_atomic import atomic_utf8_write
+from myco.core.write_surface import check_write_allowed
 
 __all__ = [
     "BEGIN_MARKER",
@@ -69,6 +70,10 @@ def patch_entry_point(
     text = path.read_text(encoding="utf-8")
     block = render_signals_block(signals)
     new_text = _apply_block(text, block)
+    # v0.5.8 guarded rollout: the entry point file lives at substrate
+    # root; verify it's covered by the canon's write surface before we
+    # overwrite the marker-delimited block.
+    check_write_allowed(ctx, path, verb="hunger:patch_entry_point")
     atomic_utf8_write(path, new_text)
     return path
 

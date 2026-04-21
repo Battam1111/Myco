@@ -40,6 +40,7 @@ from pathlib import Path
 from myco.core.context import MycoContext, Result
 from myco.core.errors import MycoError
 from myco.core.io_atomic import atomic_utf8_write
+from myco.core.write_surface import check_write_allowed
 
 from .digest import digest_one
 
@@ -75,6 +76,10 @@ def _sync_contract_version(ctx: MycoContext) -> bool:
         # reporting degrades gracefully (hunger reports canon's own
         # stated value).
         return False
+    # v0.5.8 guarded rollout: canon is in the default write surface
+    # but narrower canons may exclude it; the check makes the refusal
+    # loud instead of silent.
+    check_write_allowed(ctx, canon_path, verb="assimilate:sync_contract_version")
     atomic_utf8_write(canon_path, new_text)
     return True
 
