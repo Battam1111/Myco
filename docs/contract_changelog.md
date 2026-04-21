@@ -11,6 +11,60 @@ Format: one section per `contract_version`, newest first.
 
 ---
 
+## v0.5.9 — 2026-04-21 — Immune-zero cleanup release (no contract-shape change)
+
+Contract-layer release with **zero contract-surface deltas**. This
+molt exists solely to pair a version number to the immune-zero
+baseline substrate state + the JSON-Schema / migration-guide
+ecosystem additions.
+
+Governing crafts:
+[`docs/primordia/v0_5_9_immune_zero_craft_2026-04-21.md`](primordia/v0_5_9_immune_zero_craft_2026-04-21.md)
+(design) and
+[`docs/primordia/v0_5_9_release_craft_2026-04-21.md`](primordia/v0_5_9_release_craft_2026-04-21.md)
+(release closure).
+
+### What changed
+
+- **Nothing in the R1–R7 rule text.** No rule added, removed, or
+  semantically modified.
+- **Nothing in the category enum** (`mechanical` / `shipped` /
+  `metabolic` / `semantic` unchanged) or the exit-policy grammar.
+- **Nothing in the 18-verb manifest surface** (no new verb, no
+  arg-shape change, no alias retirement).
+- **Nothing in the dimension roster count** (still 25). One dim's
+  _implementation_ refined (DC2 exempts `@property` +
+  abstract-protocol overrides, matching its v0.5.8 docstring
+  intent); no change to its id, category, or severity.
+- **Nothing in the MycoError exit-code ladder** (3 / 4 / 5
+  unchanged from v0.5.8).
+
+### Added (non-contract, additive)
+
+- Canon JSON-Schema at `docs/schema/canon.schema.json` (Draft
+  2020-12). Second mechanical check alongside
+  `myco.core.canon.load_canon`.
+- Migration guides at `docs/migration/v0_5_7_to_v0_5_8.md` +
+  `docs/migration/v0_5_8_to_v0_5_9.md`.
+- Public `check_write_allowed` + `unsafe_bypass_enabled` API in
+  `myco.core.write_surface` (promoted from private naming).
+- Doctrine-ref anchors in 32 pre-v0.5.8 kernel module docstrings
+  (completes the code → doctrine mycelium edges).
+
+### Break from v0.5.8
+
+None at the contract layer. Operators upgrading from v0.5.8
+require **no code changes, no canon edits, no script adjustments**.
+Everything additive; every old behavior preserved.
+
+The only observable difference at the lint layer: `myco immune` on
+the self-substrate now reports 0 findings where v0.5.8 reported
+121 LOW. Downstream substrates will see their own DC2/DC4/CG1/CG2
+findings reduced proportionally (the DC2 refinement in particular
+drops findings for every adapter / dimension subclass).
+
+---
+
 ## v0.5.8 — 2026-04-21 — Cleanup release: 14-dim lint expansion + foundation helpers
 
 Contract-layer release with one visible contract-surface delta

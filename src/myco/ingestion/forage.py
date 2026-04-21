@@ -1,5 +1,8 @@
 """``myco forage`` — inspect an external directory for ingestible material.
 
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/ingestion.md``
+§ "Forage" (read-only reconnaissance verb; prelude to ``eat --path``).
+
 Forage is read-only. It lists files under a target directory that at
 least one registered adapter can handle (per L0 principle 2: "no
 filter on what enters"). Files that no adapter recognizes are still

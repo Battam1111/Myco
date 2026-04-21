@@ -1,5 +1,8 @@
 """Maintain a marker-delimited signals block in the entry-point file.
 
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/ingestion.md``
+§ "Hunger + boot brief" (the signals block hunger writes on R1).
+
 The entry-point (``MYCO.md`` or ``CLAUDE.md``) carries an
 agent-visible "signals" block wedged between HTML-comment markers::
 

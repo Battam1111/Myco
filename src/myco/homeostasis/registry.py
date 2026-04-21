@@ -44,9 +44,11 @@ class DimensionRegistry:
         self._dims[dim.id] = dim
 
     def get(self, dim_id: str) -> Dimension:
+        """Return the registered ``Dimension`` for ``dim_id`` (raises KeyError if absent)."""
         return self._dims[dim_id]
 
     def has(self, dim_id: str) -> bool:
+        """Return True iff ``dim_id`` is a registered dimension."""
         return dim_id in self._dims
 
     def all(self) -> tuple[Dimension, ...]:

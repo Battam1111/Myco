@@ -43,6 +43,7 @@ class LocalPluginsSummary:
     count_by_kind: Mapping[str, int] = field(default_factory=dict)
 
     def as_dict(self) -> dict[str, object]:
+        """JSON-safe view for the hunger payload + MCP/CLI rendering."""
         return {
             "count": self.count,
             "count_by_kind": dict(self.count_by_kind),
@@ -66,6 +67,7 @@ class HungerReport:
     )
 
     def as_dict(self) -> dict[str, object]:
+        """JSON-safe view for the hunger payload + MCP/CLI rendering."""
         return {
             "contract_drift": self.contract_drift,
             "raw_backlog": self.raw_backlog,

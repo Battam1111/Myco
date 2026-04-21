@@ -1,5 +1,8 @@
 """M2 — the canon-declared entry point file exists on disk.
 
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/homeostasis.md``
+§ "Dimension enumeration" (fixable HIGH).
+
 Reads ``canon.identity.entry_point`` (default ``"MYCO.md"``) and
 confirms a file at that substrate-relative path exists. A missing
 entry-point file breaks the boot-brief contract (ingestion/hunger

@@ -1,5 +1,10 @@
 """ramify verb: scaffold a new verb / dimension / adapter.
 
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/extensibility.md``
+(the two-axis extension model — ``.myco/plugins/`` for per-substrate,
+``src/myco/symbionts/`` for per-host). ramify is the authoring
+half; :mod:`myco.cycle.graft` is the audit half.
+
 Governing manifest: ``docs/architecture/L3_IMPLEMENTATION/command_manifest.md``
 (governance-verbs section — per v0.5.0 craft §R13, no new L2
 surface.md was created; governance-verbs content lives at L3).
@@ -44,7 +49,7 @@ import yaml
 
 from myco.core.context import MycoContext, Result
 from myco.core.errors import ContractError, UsageError
-from myco.core.io_atomic import atomic_utf8_write
+from myco.core.io_atomic import atomic_utf8_write, bounded_read_text
 from myco.core.write_surface import check_write_allowed
 from myco.surface.manifest import load_manifest
 
@@ -395,7 +400,7 @@ def _append_overlay_verb(
     overlay_path.parent.mkdir(parents=True, exist_ok=True)
 
     if overlay_path.exists():
-        raw = yaml.safe_load(overlay_path.read_text(encoding="utf-8")) or {}
+        raw = yaml.safe_load(bounded_read_text(overlay_path)) or {}
         if not isinstance(raw, dict):
             raise ContractError(
                 f"ramify: existing manifest overlay is not a mapping: {overlay_path}"
@@ -680,6 +685,14 @@ def _run_adapter_mode(
 
 
 def run(args: Mapping[str, object], *, ctx: MycoContext) -> Result:
+    """Manifest handler: scaffold a verb / dimension / adapter stub.
+
+    Exactly one of ``verb`` / ``dimension`` / ``adapter`` must be
+    supplied; ``modes_set > 1`` or ``== 0`` raises ``UsageError``.
+    Target is kernel-mode on ``myco-self``, substrate-local
+    (``.myco/plugins/**``) on every other substrate. All writes
+    pass through :func:`check_write_allowed` so R6 is honoured.
+    """
     verb = args.get("verb")
     dimension = args.get("dimension")
     adapter = args.get("adapter")

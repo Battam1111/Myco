@@ -1,5 +1,9 @@
 """Manifest-driven MCP server.
 
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/circulation.md``
+§ "MCP surface" (the MCP server is a first-class Agent-facing
+circulation path; the pulse sidecar is the R1-R7 reminder shape).
+
 Each manifest verb becomes one FastMCP tool with a JSON-schema input
 derived from the verb's ``args`` list. Tool return is a dict with
 ``exit_code``, ``payload``, and a ``substrate_pulse`` sidecar that

@@ -175,6 +175,12 @@ def distill_proposal(
 
 
 def run(args: Mapping[str, object], *, ctx: MycoContext) -> Result:
+    """Manifest handler: bundle integrated notes into a proposal skeleton.
+
+    Writes ``notes/distilled/d_<slug>.md`` with the selected source
+    list, extracted theme, and a synthesis-seed TODO that the Agent
+    fills in separately. Never calls an LLM (L0 principle 1).
+    """
     slug = str(args.get("slug") or "")
     if not slug:
         raise UsageError("distill requires a slug")

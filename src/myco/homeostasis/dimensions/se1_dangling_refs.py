@@ -1,5 +1,8 @@
 """SE1 — dangling references in the substrate graph.
 
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/homeostasis.md``
+§ "Dimension enumeration" (semantic / MEDIUM).
+
 Uses ``myco.circulation.build_graph`` and emits one MEDIUM finding per
 edge whose destination does not resolve to an existing file under the
 substrate root. External URLs are skipped by the graph builder and

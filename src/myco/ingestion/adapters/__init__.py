@@ -1,5 +1,10 @@
 """Ingestion adapter registry.
 
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/ingestion.md``
+§ "Adapters" — the extension seam that lets ``myco eat --path`` /
+``myco eat --url`` dispatch to format-specific readers without
+baking their list into the core.
+
 Built-in adapters are registered at import time. External adapters
 can call :func:`register` to add themselves.
 
@@ -42,6 +47,7 @@ def find_adapter(target: str) -> Adapter | None:
 
 
 def all_adapters() -> Sequence[Adapter]:
+    """Return the registered adapter list in registration order."""
     return list(_REGISTRY)
 
 

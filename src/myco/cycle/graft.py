@@ -192,6 +192,12 @@ def _explain(ctx: MycoContext, name: str) -> dict[str, Any]:
 
 
 def run(args: Mapping[str, object], *, ctx: MycoContext) -> Result:
+    """Manifest handler: enumerate / validate / explain local plugins.
+
+    Dispatches on the mutually-exclusive ``list`` / ``validate`` /
+    ``explain`` flags. Passing none is a ``UsageError``; validate's
+    exit code is finding-driven, the others always return 0 on hit.
+    """
     list_mode = bool(args.get("list"))
     validate_mode = bool(args.get("validate"))
     explain_name = args.get("explain")

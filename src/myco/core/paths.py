@@ -1,5 +1,9 @@
 """Canonical paths within a substrate.
 
+Governing doctrine: ``docs/architecture/L1_CONTRACT/canon_schema.md``
+(the canon declares ``system.write_surface.allowed`` globs against
+which these canonical paths are matched).
+
 Pure functions of the substrate root. No I/O.
 """
 

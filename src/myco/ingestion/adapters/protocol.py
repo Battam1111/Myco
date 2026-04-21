@@ -1,5 +1,8 @@
 """Adapter protocol for ingestion.
 
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/ingestion.md``
+§ "Adapters" (the shape every registered adapter implements).
+
 An adapter converts one external artifact (a file, URL, or directory)
 into one or more ``IngestResult`` objects that ``eat`` writes as raw
 notes. The protocol is deliberately thin: adapters do format

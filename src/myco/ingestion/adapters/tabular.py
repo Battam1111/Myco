@@ -1,5 +1,8 @@
 """Adapter for tabular data files (CSV, JSON, JSONL).
 
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/ingestion.md``
+§ "Adapters".
+
 Uses only the Python standard library (``csv``, ``json``), so no
 optional deps are needed. Produces a summary note: column names,
 row count, first few rows.

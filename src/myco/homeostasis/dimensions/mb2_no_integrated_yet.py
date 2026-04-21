@@ -1,5 +1,8 @@
 """MB2 — raw notes exist but nothing has been integrated yet.
 
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/homeostasis.md``
+§ "Dimension enumeration" (metabolic / LOW).
+
 Fires a single LOW finding when ``notes/raw/`` is non-empty and
 ``notes/integrated/`` contains zero files. Signals that digest has
 never run in this substrate; newborn substrates that haven't ingested

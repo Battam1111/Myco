@@ -1,5 +1,8 @@
 """Adapter for a directory containing code (a repo or a subtree).
 
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/ingestion.md``
+§ "Adapters".
+
 Walks the directory, delegates each ingestible file to
 :class:`TextFileAdapter`, and returns one ``IngestResult`` per file.
 Respects ``.gitignore`` patterns if the ``pathspec`` library is
@@ -105,8 +108,10 @@ class CodeRepoAdapter(Adapter):
         try:
             import pathspec
 
+            from myco.core.io_atomic import bounded_read_text
+
             return pathspec.PathSpec.from_lines(
-                "gitwildmatch", gi.read_text(encoding="utf-8").splitlines()
+                "gitwildmatch", bounded_read_text(gi).splitlines()
             )
         except ImportError:
             return None

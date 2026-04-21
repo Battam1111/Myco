@@ -34,6 +34,7 @@ from typing import Any
 
 from myco.core.context import MycoContext, Result
 from myco.core.errors import ContractError, UsageError
+from myco.core.io_atomic import bounded_read_text
 
 __all__ = ["run"]
 
@@ -166,6 +167,12 @@ def _round_body_lengths(body: str) -> list[int]:
 
 
 def run(args: Mapping[str, object], *, ctx: MycoContext) -> Result:
+    """Manifest handler: gate-check a craft proposal's shape.
+
+    Reads ``args["proposal"]`` (a path), verifies the three-round
+    markers exist + status advanced appropriately, and returns a
+    Result whose ``exit_code`` is non-zero on shape violations.
+    """
     raw_path = args.get("proposal")
     if not raw_path:
         raise UsageError("evolve: --proposal <path> is required")
@@ -176,7 +183,7 @@ def run(args: Mapping[str, object], *, ctx: MycoContext) -> Result:
         raise UsageError(f"evolve: proposal file not found: {target}")
 
     try:
-        text = target.read_text(encoding="utf-8")
+        text = bounded_read_text(target)
     except OSError as exc:
         raise ContractError(f"evolve: cannot read proposal: {exc}") from exc
 

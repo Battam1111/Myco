@@ -1,5 +1,8 @@
 """Dimension base class.
 
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/homeostasis.md``
+§ "Lint dimensions" (the shape every subclass conforms to).
+
 Every lint dimension subclasses ``Dimension``, overrides ``run``, and
 declares three class attributes: ``id``, ``category``,
 ``default_severity``. Dimensions live one-per-file under

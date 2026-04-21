@@ -1,5 +1,8 @@
 """M3 — ``system.write_surface.allowed`` is a non-empty list.
 
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/homeostasis.md``
+§ "Dimension enumeration" (mechanical / MEDIUM).
+
 Governance depends on an explicit write-surface declaration: tools
 that auto-create files (genesis, eat, digest) promise to stay within
 it. An empty or absent list means anything can be written anywhere —

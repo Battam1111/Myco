@@ -25,6 +25,11 @@ class Category(str, Enum):
 
     @classmethod
     def from_name(cls, name: str) -> Category:
+        """Parse a category name (case-insensitive) into a ``Category``.
+
+        Raises ``ValueError`` with the offending input echoed back
+        on any name that's not one of the four canonical categories.
+        """
         try:
             return cls(name.lower())
         except ValueError as exc:

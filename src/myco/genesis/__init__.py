@@ -1,5 +1,9 @@
 """Deprecation shim for ``myco.genesis`` → ``myco.germination``.
 
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/genesis.md``
+(the doctrine file kept its v0.4 filename; the content references
+the v0.5.3 canonical verb name ``germinate``).
+
 v0.5.3 renamed the subsystem ``genesis`` → ``germination`` to match
 the fungal vocabulary project-wide (a spore ``germinates``; Greek-
 theological ``genesis`` was a holdover from pre-Myco naming). This

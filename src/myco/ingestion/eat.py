@@ -1,5 +1,8 @@
 """``myco eat`` — append a raw note.
 
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/ingestion.md``
+§ "Ingestion is cheap and permissive" (L0 principle 2 realised).
+
 Per L2 ingestion.md: cheap, permissive, loss-preserving. Content is
 never rejected on shape; rejection is reserved for write-surface
 violations + empty-input + multi-intake-mode conflicts.

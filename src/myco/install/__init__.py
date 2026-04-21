@@ -189,6 +189,12 @@ def _legacy_sniff(argv: Sequence[str]) -> list[str]:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    """``myco-install`` entry point. Returns a POSIX exit code.
+
+    Sniffs a legacy positional ``<client>`` form and rewrites to the
+    canonical ``host <client>`` form so pre-v0.5.0 scripts keep
+    working, then dispatches through ``argparse``.
+    """
     ensure_utf8_stdio()
     raw = list(argv) if argv is not None else sys.argv[1:]
     raw = _legacy_sniff(raw)

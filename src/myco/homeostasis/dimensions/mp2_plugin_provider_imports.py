@@ -39,6 +39,8 @@ from pathlib import Path
 from typing import ClassVar
 
 from myco.core.context import MycoContext
+from myco.core.errors import MycoError
+from myco.core.io_atomic import bounded_read_text
 from myco.core.severity import Severity
 
 from ..dimension import Dimension
@@ -99,8 +101,8 @@ class MP2PluginProviderImports(Dimension):
         self, py_file: Path, ctx: MycoContext
     ) -> Iterable[tuple[str, int, str]]:
         try:
-            source = py_file.read_text(encoding="utf-8")
-        except (OSError, UnicodeDecodeError):
+            source = bounded_read_text(py_file)
+        except (OSError, UnicodeDecodeError, MycoError):
             return
         try:
             tree = ast.parse(source, filename=str(py_file))

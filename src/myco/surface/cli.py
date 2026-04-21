@@ -1,5 +1,9 @@
 """Manifest-driven argparse CLI.
 
+Governing doctrine: ``docs/architecture/L3_IMPLEMENTATION/command_manifest.md``
+(the manifest-driven verb surface; CLI and MCP share the same
+declaration).
+
 Builds one subparser per verb from :func:`myco.surface.manifest.load_manifest`.
 Global flags: ``--project-dir`` (passed into context discovery),
 ``--exit-on`` (forwarded to ``immune`` verb), ``--json`` (structured
@@ -78,6 +82,13 @@ def _add_arg(subparser: argparse.ArgumentParser, arg: ArgSpec) -> None:
 
 
 def build_parser(manifest: Manifest | None = None) -> argparse.ArgumentParser:
+    """Return the ``argparse`` parser for the Myco CLI.
+
+    One subparser per manifest verb (plus every declared alias).
+    Global flags: ``--project-dir``, ``--exit-on``, ``--json``,
+    ``--version``/``-V``. Exposed separately from :func:`main` so
+    tests can inspect / drive the parser without running dispatch.
+    """
     m = manifest or load_manifest()
     from myco import __version__ as _mv
 
@@ -186,6 +197,13 @@ def _render_human(result: Result) -> str:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    """CLI entry point. Returns a POSIX-style exit code.
+
+    Parses ``argv`` (defaulting to ``sys.argv[1:]``), dispatches the
+    manifest handler, and renders either human-readable or JSON
+    output based on ``--json``. Uncaught :class:`MycoError` maps to
+    its ``exit_code``; ``KeyboardInterrupt`` maps to ``130``.
+    """
     ensure_utf8_stdio()
     manifest = load_manifest()
     parser = build_parser(manifest)

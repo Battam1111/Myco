@@ -1,5 +1,10 @@
 """Deprecation shim for ``myco.meta`` → ``myco.cycle``.
 
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/homeostasis.md``
+§ "Governance verbs" (the senesce / fruit / molt / winnow / ramify
+/ graft cluster). The old ``meta`` name predated the v0.5.3 fungal
+vocabulary rename; both import paths resolve through v1.0.0.
+
 v0.5.3 renamed the cross-cutting verb-composer package ``meta`` →
 ``cycle`` because every verb it holds (``germinate``/``fruit``/
 ``molt``/``winnow``/``ramify``/``senesce``/``graft``) is a life-

@@ -1,5 +1,8 @@
 """Adapter for local HTML files.
 
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/ingestion.md``
+§ "Adapters".
+
 Requires ``beautifulsoup4`` (part of the ``[adapters]`` extras).
 
 v0.5.8: size cap + POSIX source normalization. See ``pdf_reader``
