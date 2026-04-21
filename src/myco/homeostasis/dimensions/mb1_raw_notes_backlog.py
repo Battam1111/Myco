@@ -55,7 +55,7 @@ class MB1RawNotesBacklog(Dimension):
             severity = Severity.MEDIUM
             msg = (
                 f"{n} raw notes in notes/raw/ (over threshold "
-                f"{_BACKLOG_MEDIUM_THRESHOLD}); run `myco reflect`"
+                f"{_BACKLOG_MEDIUM_THRESHOLD}); run `myco assimilate`"
             )
         else:
             severity = Severity.LOW

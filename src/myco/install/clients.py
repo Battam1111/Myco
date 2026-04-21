@@ -364,7 +364,16 @@ def install_openclaw(
         cmd = ["openclaw", "mcp", "set", "myco", payload]
     if dry_run:
         return f"[dry-run] would run: {' '.join(cmd)}"
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    # v0.5.8 P0: explicit utf-8 + errors=replace + check=False so
+    # cp936 parent decoders don't crash on non-ASCII openclaw output.
+    result = subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+    )
     if result.returncode != 0:
         raise MycoInstallError(
             f"openclaw returned {result.returncode}:\n{result.stdout}{result.stderr}"

@@ -137,9 +137,17 @@ def propagate(
             commit=commit,
             now_iso=now_iso,
         )
-        target = inbox / src_path.name
+        # v0.5.8 FIX: the source is from notes/integrated/n_<stem>.md
+        # or notes/distilled/d_<stem>.md; the canonical raw filename
+        # (what digest_one looks for) is notes/raw/<stem>.md without
+        # the tier-prefix. Before this fix, dst wrote n_<stem>.md and
+        # digest_one stripped the prefix then failed to find the file.
+        dst_name = src_path.name
+        if dst_name.startswith("n_") or dst_name.startswith("d_"):
+            dst_name = dst_name[2:]
+        target = inbox / dst_name
         if target.exists():
-            collisions.append(src_path.name)
+            collisions.append(dst_name)
         plan.append((target, render_note(stamped)))
 
     if collisions:

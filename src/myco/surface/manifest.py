@@ -394,8 +394,10 @@ def build_context(
         root = find_substrate_root(start)
     except SubstrateNotFound as exc:
         raise UsageError(
-            f"no Myco substrate found at or above {start}. "
-            f"Run `myco genesis --project-dir <dir> --substrate-id <id>` first."
+            f"no Myco substrate found at or above {start} (searched for "
+            f"_canon.yaml in every parent). Run `myco germinate "
+            f"--project-dir <dir> --substrate-id <slug>` to bootstrap "
+            f"one, or cd into an existing substrate."
         ) from exc
     substrate = Substrate.load(root)
     import sys

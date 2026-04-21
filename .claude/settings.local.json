@@ -14,7 +14,10 @@
       "Bash(python -m myco perfuse*)",
       "Bash(python -m myco propagate*)",
       "Bash(python -m myco genesis*)",
-      "Bash(pytest*)"
+      "Bash(pytest*)",
+      "Bash(mkdir -p /c/Users/10350/.claude/projects/C--Users-10350-Desktop-7×24全自动赚钱系统/memory)",
+      "Bash(cp '/c/Users/10350/.claude/projects/C--Users-10350-Desktop-Myco/memory/*.md' /c/Users/10350/.claude/projects/C--Users-10350-Desktop-7×24全自动赚钱系统/memory/)",
+      "Read(//c/Users/10350/.claude/projects/C--Users-10350-Desktop-7×24全自动赚钱系统/**)"
     ]
   },
   "hooks": {

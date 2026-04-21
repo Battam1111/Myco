@@ -162,10 +162,12 @@ def compose_hunger_report(ctx: MycoContext) -> HungerReport:
     if contract_drift:
         advice_parts.append(
             f"contract drifted: canon={canon.contract_version}, "
-            f"synced={synced}; run `myco reflect`"
+            f"synced={synced}; run `myco assimilate` to reconcile "
+            f"(or `myco molt --contract <version>` to publish a "
+            f"new contract)"
         )
     if raw_backlog > 0:
-        advice_parts.append(f"raw_backlog={raw_backlog}; consider `myco digest`")
+        advice_parts.append(f"raw_backlog={raw_backlog}; consider `myco assimilate`")
     if not advice_parts:
         advice_parts.append("substrate quiet; no action required")
 

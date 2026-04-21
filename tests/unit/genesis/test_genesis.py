@@ -116,15 +116,26 @@ def test_allows_mixed_case_substrate_id(tmp_path: Path) -> None:
     assert result.exit_code == 0
 
 
-def test_rejects_missing_project_dir(tmp_path: Path) -> None:
-    with pytest.raises(UsageError, match="does not exist"):
-        bootstrap(project_dir=tmp_path / "nope", substrate_id="x")
+def test_creates_missing_project_dir(tmp_path: Path) -> None:
+    """v0.5.8 change: germinate auto-creates ``project_dir`` when
+    missing (one-shot bootstrap, per Lens 14 W1 friction finding).
+    Previously it raised ``UsageError: does not exist`` and forced
+    the Agent to mkdir first."""
+    target = tmp_path / "nope"
+    assert not target.exists()
+    result = bootstrap(project_dir=target, substrate_id="x")
+    assert result.exit_code == 0
+    assert target.is_dir()
+    assert (target / "_canon.yaml").is_file()
 
 
 def test_rejects_file_as_project_dir(tmp_path: Path) -> None:
+    """When ``project_dir`` points to an existing non-directory file,
+    ``mkdir(exist_ok=True)`` fails with FileExistsError which germinate
+    converts to a clean UsageError."""
     f = tmp_path / "f"
     f.write_text("", encoding="utf-8")
-    with pytest.raises(UsageError, match="not a directory"):
+    with pytest.raises(UsageError, match="cannot prepare project_dir"):
         bootstrap(project_dir=f, substrate_id="x")
 
 

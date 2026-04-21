@@ -34,10 +34,6 @@ __all__ = [
     "DEFAULT_ENTRY_POINT",
 ]
 
-#: Contract version stamped into freshly-authored canons. Surface layer
-#: (Stage B.7) may override via CLI flag; the default is the SSoT.
-DEFAULT_CONTRACT_VERSION: str = "v0.4.0-alpha.1"
-
 #: Default agent-entry filename. Symbiont substrates (e.g. ASCC under
 #: Claude Code) may override via the ``entry_point`` argument to match
 #: the host tooling's expectation (``CLAUDE.md``).
@@ -47,6 +43,71 @@ DEFAULT_ENTRY_POINT: str = "MYCO.md"
 #: real-world names like ``ASCC-research``); whitespace and leading
 #: digit/punct rejected.
 _SUBSTRATE_ID_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_-]{0,63}$")
+
+#: Windows reserved filesystem names (case-insensitive). Writing to
+#: these paths silently black-holes content (Windows redirects them to
+#: device files). Reject in ``_validate_entry_point`` and in
+#: substrate_id validation.
+_WINDOWS_RESERVED: frozenset[str] = frozenset(
+    name.upper()
+    for name in (
+        "CON", "PRN", "AUX", "NUL",
+        "COM1", "COM2", "COM3", "COM4", "COM5",
+        "COM6", "COM7", "COM8", "COM9",
+        "LPT1", "LPT2", "LPT3", "LPT4", "LPT5",
+        "LPT6", "LPT7", "LPT8", "LPT9",
+    )
+)
+
+
+def _resolve_default_contract_version() -> str:
+    """Return the contract-version string freshly-germinated substrates
+    should stamp.
+
+    v0.5.8 fix: reads ``myco.__version__`` at call time (not at import
+    time) so a substrate germinated by kernel vX.Y.Z gets
+    ``contract_version: vX.Y.Z`` instead of the previous hard-coded
+    ``v0.4.0-alpha.1`` stamp. Previously every new substrate was born
+    6+ versions stale and never triggered drift detection.
+    """
+    from myco import __version__ as _myco_version
+    return f"v{_myco_version}"
+
+
+def _is_windows_reserved(name: str) -> bool:
+    """Return True if ``name`` (bare filename, no extension) is a
+    Windows reserved device name. Matches case-insensitively; also
+    matches ``CON.md`` (stem is ``CON``)."""
+    stem = Path(name).stem if "." in name else name
+    return stem.upper() in _WINDOWS_RESERVED
+
+
+# Back-compat public alias. ``DEFAULT_CONTRACT_VERSION`` is consumed
+# by a few tests + legacy callers; they now get the live-resolved
+# value on every access.
+class _ContractVersionDescriptor:
+    """Module-level descriptor so ``from myco.germination import
+    DEFAULT_CONTRACT_VERSION`` returns the live value, not a cached
+    import-time constant."""
+
+    def __repr__(self) -> str:
+        return _resolve_default_contract_version()
+
+    def __str__(self) -> str:
+        return _resolve_default_contract_version()
+
+    def __eq__(self, other: object) -> bool:
+        return str(self) == other
+
+    def __hash__(self) -> int:
+        return hash(str(self))
+
+
+# Expose a module-level string-like sentinel. Most callers that read
+# this value immediately stringify; the descriptor supports that.
+# NOTE: callers that compare `foo == DEFAULT_CONTRACT_VERSION` get the
+# expected equality via the dunder.
+DEFAULT_CONTRACT_VERSION = _ContractVersionDescriptor()
 
 
 def bootstrap(
@@ -89,10 +150,50 @@ def bootstrap(
             f"invalid substrate_id {substrate_id!r}: must match "
             f"[A-Za-z][A-Za-z0-9_-]{{0,63}}"
         )
+    if _is_windows_reserved(substrate_id):
+        raise UsageError(
+            f"substrate_id {substrate_id!r} is a Windows reserved "
+            f"filesystem name (CON/PRN/AUX/NUL/COM1-9/LPT1-9). "
+            f"Pick a different id."
+        )
 
-    project_dir = project_dir.resolve()
-    if not project_dir.exists():
-        raise UsageError(f"project_dir does not exist: {project_dir}")
+    # v0.5.8 P0 FIX: validate entry-point path safety + Windows
+    # reserved names. Path traversal via "../../evil" and reserved
+    # stems like "CON.md" silently black-hole on Windows.
+    _ep = Path(entry_point)
+    if (
+        _ep.is_absolute()
+        or ".." in _ep.parts
+        or "/" in entry_point
+        or "\\" in entry_point
+    ):
+        raise UsageError(
+            f"invalid entry_point {entry_point!r}: must be a single "
+            f"filename (no path separators, no parent-dir traversal)"
+        )
+    if _is_windows_reserved(entry_point):
+        raise UsageError(
+            f"entry_point {entry_point!r} is a Windows reserved "
+            f"filesystem name (CON/PRN/AUX/NUL/COM1-9/LPT1-9). "
+            f"Pick a different filename."
+        )
+
+    # v0.5.8 P0 FIX: resolve project_dir safely (previously raised
+    # uncaught PermissionError on restricted paths like ``/``). We try
+    # to create it (idempotently) then validate. If the OS refuses
+    # access the user gets a clean UsageError, not a raw traceback.
+    try:
+        project_dir.mkdir(parents=True, exist_ok=True)
+        project_dir = project_dir.resolve()
+    except PermissionError as exc:
+        raise UsageError(
+            f"cannot access project_dir {project_dir}: permission "
+            f"denied ({exc}). Pick a writable location."
+        ) from exc
+    except OSError as exc:
+        raise UsageError(
+            f"cannot prepare project_dir {project_dir}: {exc}"
+        ) from exc
     if not project_dir.is_dir():
         raise UsageError(f"project_dir is not a directory: {project_dir}")
 
@@ -135,7 +236,7 @@ def bootstrap(
         generated_at=generated_at,
     )
     marker_text = (
-        f"autoseeded by myco genesis at {generated_at}\nsubstrate_id={substrate_id}\n"
+        f"autoseeded by myco germinate at {generated_at}\nsubstrate_id={substrate_id}\n"
     )
 
     preview: dict[str, str] = {
