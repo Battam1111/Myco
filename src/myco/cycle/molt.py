@@ -192,7 +192,32 @@ def run(args: Mapping[str, object], *, ctx: MycoContext) -> Result:
         new_version=new_version, old_version=old_version, today=today
     )
     patched_changelog = _insert_changelog_entry(original_changelog, new_section)
-    changelog_path.write_text(patched_changelog, encoding="utf-8")
+    changelog_path.write_text(patched_changelog, encoding="utf-8", newline="\n")
+
+    # v0.5.8 P0 FIX (Lens 2 P0-9): increment waves.current. The field
+    # was declared as monotonic-incrementing in L1 versioning.md but
+    # never written by any code path since v0.4.0. molt is the right
+    # writer: every molt is a wave boundary. Silent no-op if the
+    # canon doesn't carry a waves.current line (pre-v0.5.x).
+    waves_touched = False
+    try:
+        current_text = canon_path.read_text(encoding="utf-8")
+        waves_pattern = re.compile(
+            r"^(?P<prefix>\s*current:\s*)(?P<n>\d+)\s*$",
+            re.MULTILINE,
+        )
+        m = waves_pattern.search(current_text)
+        if m is not None:
+            new_n = int(m.group("n")) + 1
+            new_text = (
+                current_text[: m.start("n")]
+                + str(new_n)
+                + current_text[m.end("n"):]
+            )
+            canon_path.write_text(new_text, encoding="utf-8", newline="\n")
+            waves_touched = True
+    except (OSError, ValueError):
+        pass
 
     return Result(
         exit_code=0,
@@ -201,6 +226,7 @@ def run(args: Mapping[str, object], *, ctx: MycoContext) -> Result:
             "old_version": old_version,
             "new_version": new_version,
             "synced_touched": synced_touched,
+            "waves_touched": waves_touched,
             "canon_path": str(canon_path.relative_to(ctx.substrate.root)),
             "changelog_path": str(changelog_path.relative_to(ctx.substrate.root)),
         },

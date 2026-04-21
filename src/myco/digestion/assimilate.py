@@ -20,10 +20,20 @@ the ``errors`` list of the payload; the call itself still returns
 exit 0 unless *every* candidate errored, in which case the caller
 gets ``exit_code = 1`` so CI gates notice. This matches the L1
 "high" exit semantics.
+
+v0.5.8: after a successful reflect pass (no errors on every
+candidate), ``assimilate`` also updates
+``_canon.yaml::synced_contract_version`` to equal
+``contract_version``. This closes the "hunger reports drift →
+advice says run assimilate → assimilate was a no-op on synced"
+gap that Lens 11 P0-5 identified. The update uses the same
+line-level regex patch molt uses, so it preserves comments and
+ordering.
 """
 
 from __future__ import annotations
 
+import re as _re
 from collections.abc import Mapping
 from pathlib import Path
 
@@ -33,6 +43,41 @@ from myco.core.errors import MycoError
 from .digest import digest_one
 
 __all__ = ["reflect", "assimilate", "run"]
+
+
+def _sync_contract_version(ctx: MycoContext) -> bool:
+    """Write ``synced_contract_version = contract_version`` to canon.
+
+    Returns True if a write occurred (drift was resolved), False if
+    canon was already synced or the file could not be patched safely.
+
+    Uses the same line-level regex patch molt uses so comments and
+    ordering are preserved. Silent no-op if the canon doesn't carry a
+    ``synced_contract_version:`` line (legacy substrates pre-v0.5.8).
+    """
+    canon = ctx.substrate.canon
+    synced = canon.synced_contract_version
+    if synced == canon.contract_version:
+        return False
+    canon_path = ctx.substrate.paths.canon
+    if not canon_path.is_file():
+        return False
+    text = canon_path.read_text(encoding="utf-8")
+    pattern = _re.compile(
+        r'^(?P<prefix>synced_contract_version:\s*)(?P<q>["\'])[^"\']*(?P=q)\s*$',
+        _re.MULTILINE,
+    )
+    new_text, n = pattern.subn(
+        rf'\g<prefix>"{canon.contract_version}"', text, count=1
+    )
+    if n == 0:
+        # Legacy canon missing the synced field — leave alone. molt
+        # will add it on the next contract bump; meanwhile drift
+        # reporting degrades gracefully (hunger reports canon's own
+        # stated value).
+        return False
+    canon_path.write_text(new_text, encoding="utf-8", newline="\n")
+    return True
 
 
 def _list_raw(ctx: MycoContext) -> list[Path]:
@@ -99,4 +144,23 @@ def run(args: Mapping[str, object], *, ctx: MycoContext) -> Result:
     # Exit 1 only when we tried and *every* candidate errored.
     total = len(summary["outcomes"]) + len(summary["errors"])  # type: ignore[arg-type]
     exit_code = 1 if (total > 0 and not summary["outcomes"]) else 0
-    return Result(exit_code=exit_code, payload=summary)
+
+    # v0.5.8 P0 FIX (Lens 11 P0-5): on a clean reflect pass (zero
+    # errors), sync the contract_version marker so subsequent hunger
+    # calls stop reporting a false drift. This is the mechanism that
+    # makes "hunger says run assimilate" actually resolve the drift
+    # condition instead of looping forever. Silent no-op if canon
+    # was already synced, which keeps the operation idempotent.
+    synced_updated = False
+    if exit_code == 0 and not summary["errors"]:  # type: ignore[arg-type]
+        try:
+            synced_updated = _sync_contract_version(ctx)
+        except OSError:
+            # Best-effort. Failing the assimilate call because the
+            # synced-marker write failed would regress the primary
+            # operation. Hunger will re-surface the drift next run.
+            synced_updated = False
+
+    payload = dict(summary)
+    payload["synced_contract_version_updated"] = synced_updated
+    return Result(exit_code=exit_code, payload=payload)
