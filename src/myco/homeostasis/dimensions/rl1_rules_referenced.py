@@ -58,7 +58,19 @@ class RL1RulesReferenced(Dimension):
     fixable: ClassVar[bool] = False
 
     def run(self, ctx: MycoContext) -> Iterable[Finding]:
+        # v0.5.10: skip gracefully when the substrate does not ship
+        # the L1 protocol doc. Pre-v0.5.10 every fresh substrate
+        # fired RL1 on all seven rules (protocol.md wasn't present,
+        # no rule was referenced), producing 7 LOW findings on every
+        # germinate. RL1's intent is to catch drift between doctrine
+        # and code in substrates that DO mirror Myco's L1 tree — if
+        # the substrate doesn't ship protocol.md at all, the check
+        # doesn't apply.
         root = ctx.substrate.root
+        protocol_path = root / "docs" / "architecture" / "L1_CONTRACT" / "protocol.md"
+        if not protocol_path.is_file():
+            return
+
         seen: set[str] = set()
         for path in _iter_scannable(root):
             try:

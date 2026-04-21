@@ -125,6 +125,29 @@ class TestGuardedWrite:
         assert rel == "bypass/x.txt"
         assert target.read_text(encoding="utf-8") == "allowed via env"
 
+    def test_unsafe_bypass_writes_to_audit_log(
+        self, seeded_substrate: Path, monkeypatch
+    ) -> None:
+        """v0.5.10: every bypassed write appends one line to
+        ``.myco_state/unsafe_writes.log`` so a future SE-class dim
+        can count bypass frequency without per-call overhead."""
+        ctx = MycoContext.for_testing(root=seeded_substrate)
+        _set_surface(ctx, ["notes/**"])
+        target = seeded_substrate / "bypass" / "x.txt"
+        monkeypatch.setenv(UNSAFE_WRITE_ENV, "1")
+        guarded_write(ctx, target, "payload")
+        log_path = seeded_substrate / ".myco_state" / "unsafe_writes.log"
+        assert log_path.is_file()
+        log_lines = log_path.read_text(encoding="utf-8").splitlines()
+        assert len(log_lines) == 1
+        # Shape: "<ISO-8601 UTC> <target>"
+        assert "bypass/x.txt" in log_lines[0]
+
+        # A second bypassed write appends, not overwrites.
+        target2 = seeded_substrate / "bypass" / "y.txt"
+        guarded_write(ctx, target2, "payload2")
+        assert len(log_path.read_text(encoding="utf-8").splitlines()) == 2
+
     def test_unsafe_bypass_false_values_do_not_enable(
         self, seeded_substrate: Path, monkeypatch
     ) -> None:
