@@ -40,13 +40,21 @@ def dst_substrate(tmp_path: Path) -> Path:
 def test_propagate_integrated_round_trip(
     genesis_substrate: Path, dst_substrate: Path
 ) -> None:
+    """v0.5.8 P0 fix: propagate now writes notes/raw/<stem>.md (without
+    the ``n_``/``d_`` tier-prefix) so ``digest_one`` can locate the
+    file at ``notes/raw/<stem>.md`` after it strips the prefix from
+    the note-id. Previously propagate preserved ``n_<stem>.md`` and
+    every downstream assimilate failed with UsageError."""
     src_ctx = _seed_src(genesis_substrate, n=2)
     result = propagate(src_ctx=src_ctx, dst_root=dst_substrate, commit="abc1234")
     assert result.exit_code == 0
     assert result.payload["count"] == 2
     inbox = dst_substrate / "notes" / "raw"
-    files = list(inbox.glob("n_*.md"))
+    # v0.5.8: stem-only names (prefix stripped) in raw/.
+    files = list(inbox.glob("*.md"))
     assert len(files) == 2
+    # No n_ prefix at the destination.
+    assert not any(f.name.startswith("n_") for f in files)
     # Source-trace frontmatter is stamped.
     note = parse_note(files[0].read_text(encoding="utf-8"))
     assert note.frontmatter["source"].startswith("test-substrate@abc1234")
@@ -60,7 +68,10 @@ def test_propagate_unknown_commit_when_none(
     src_ctx = _seed_src(genesis_substrate, n=1)
     result = propagate(src_ctx=src_ctx, dst_root=dst_substrate)
     inbox = dst_substrate / "notes" / "raw"
-    note = parse_note(next(inbox.glob("n_*.md")).read_text(encoding="utf-8"))
+    # v0.5.8: no n_ prefix at destination.
+    candidates = list(inbox.glob("*.md"))
+    assert len(candidates) == 1
+    note = parse_note(candidates[0].read_text(encoding="utf-8"))
     assert note.frontmatter["source"].endswith("@unknown")
     assert result.payload["commit"] == "unknown"
 
@@ -72,7 +83,8 @@ def test_propagate_dry_run_writes_nothing(
     result = propagate(src_ctx=src_ctx, dst_root=dst_substrate, dry_run=True)
     assert result.payload["dry_run"] is True
     inbox = dst_substrate / "notes" / "raw"
-    assert not list(inbox.glob("n_*.md"))
+    # v0.5.8: prefix stripped in destination raw/.
+    assert not list(inbox.glob("*.md"))
 
 
 def test_propagate_rejects_collision(
@@ -88,12 +100,15 @@ def test_propagate_rejects_collision(
 def test_propagate_select_both_includes_distilled(
     genesis_substrate: Path, dst_substrate: Path
 ) -> None:
+    """v0.5.8: ``d_`` prefix stripped at destination, so the
+    distilled source ``distilled/d_doctrine.md`` lands at
+    ``notes/raw/doctrine.md``."""
     src_ctx = _seed_src(genesis_substrate, n=2)
     distill_proposal(ctx=src_ctx, slug="doctrine")
     result = propagate(src_ctx=src_ctx, dst_root=dst_substrate, select="both")
     assert result.payload["count"] == 3  # 2 integrated + 1 distilled
     inbox = dst_substrate / "notes" / "raw"
-    assert (inbox / "d_doctrine.md").is_file()
+    assert (inbox / "doctrine.md").is_file()
 
 
 def test_propagate_select_distilled_only(
@@ -104,8 +119,12 @@ def test_propagate_select_distilled_only(
     result = propagate(src_ctx=src_ctx, dst_root=dst_substrate, select="distilled")
     assert result.payload["count"] == 1
     inbox = dst_substrate / "notes" / "raw"
-    assert (inbox / "d_only.md").is_file()
+    # v0.5.8: d_ prefix stripped.
+    assert (inbox / "only.md").is_file()
+    # Integrated prefix would also be stripped, but select=distilled.
+    # This double-check keeps the test semantic.
     assert not list(inbox.glob("n_*.md"))
+    assert not list(inbox.glob("d_*.md"))
 
 
 def test_propagate_rejects_bad_select(
@@ -133,10 +152,23 @@ def test_propagate_rejects_non_substrate_dst(
 def test_propagate_rejects_major_version_mismatch(
     genesis_substrate: Path, dst_substrate: Path
 ) -> None:
-    # Forcibly rewrite dst canon to a different major version.
+    # Forcibly rewrite dst canon to a different major version. v0.5.8:
+    # germinate stamps the live kernel version, so we rewrite to
+    # anything with a distinct major.
+    import re as _re
     dst_canon = dst_substrate / "_canon.yaml"
-    text = dst_canon.read_text(encoding="utf-8").replace(
-        "v0.4.0-alpha.1", "v1.0.0-alpha.1"
+    text = dst_canon.read_text(encoding="utf-8")
+    text = _re.sub(
+        r'contract_version:\s*"[^"]+"',
+        'contract_version: "v1.0.0-alpha.1"',
+        text,
+        count=1,
+    )
+    text = _re.sub(
+        r'synced_contract_version:\s*"[^"]+"',
+        'synced_contract_version: "v1.0.0-alpha.1"',
+        text,
+        count=1,
     )
     dst_canon.write_text(text, encoding="utf-8")
     src_ctx = _seed_src(genesis_substrate, n=1)
@@ -147,9 +179,30 @@ def test_propagate_rejects_major_version_mismatch(
 def test_propagate_minor_mismatch_warns(
     genesis_substrate: Path, dst_substrate: Path
 ) -> None:
+    """v0.5.8: force src+dst to have same major but distinct minor so
+    the compat-warning fires regardless of which kernel version
+    germinated the fixtures."""
+    import re as _re
     dst_canon = dst_substrate / "_canon.yaml"
-    text = dst_canon.read_text(encoding="utf-8").replace(
-        "v0.4.0-alpha.1", "v0.5.0-alpha.1"
+    text = dst_canon.read_text(encoding="utf-8")
+    # Rewrite dst canon to a deliberately-different minor within the
+    # same major as whatever the live kernel stamps.
+    from myco import __version__ as _myco_version
+    parts = _myco_version.split(".")
+    major = parts[0]
+    bumped_minor = str(int(parts[1]) + 7)  # guarantee a delta
+    target_ver = f"v{major}.{bumped_minor}.0"
+    text = _re.sub(
+        r'contract_version:\s*"[^"]+"',
+        f'contract_version: "{target_ver}"',
+        text,
+        count=1,
+    )
+    text = _re.sub(
+        r'synced_contract_version:\s*"[^"]+"',
+        f'synced_contract_version: "{target_ver}"',
+        text,
+        count=1,
     )
     dst_canon.write_text(text, encoding="utf-8")
     src_ctx = _seed_src(genesis_substrate, n=1)

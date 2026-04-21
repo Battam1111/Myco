@@ -23,6 +23,15 @@ def test_append_note_creates_raw_dir(genesis_substrate: Path) -> None:
 
 
 def test_append_note_writes_frontmatter(genesis_substrate: Path) -> None:
+    """v0.5.8: frontmatter now renders via ``yaml.safe_dump`` (block
+    style, single-quoted scalars) to defeat YAML injection via
+    attacker-controlled ``source``/``tags``. The test validates the
+    structural shape via ``parse_note`` rather than exact string
+    matches so the assertion is stable across YAML-library output
+    variants.
+    """
+    from myco.digestion.pipeline import parse_note
+
     ctx = _mk_ctx(genesis_substrate)
     now = datetime(2026, 4, 15, 12, 0, 0, tzinfo=timezone.utc)
     outcome = append_note(
@@ -34,18 +43,23 @@ def test_append_note_writes_frontmatter(genesis_substrate: Path) -> None:
     )
     text = outcome.path.read_text(encoding="utf-8")
     assert text.startswith("---\n")
-    assert 'captured_at: "2026-04-15T12:00:00Z"' in text
-    assert 'tags: ["alpha", "beta"]' in text
-    assert 'source: "agent"' in text
-    assert 'stage: "raw"' in text
+    note = parse_note(text)
+    assert note.frontmatter["captured_at"] == "2026-04-15T12:00:00Z"
+    assert list(note.frontmatter["tags"]) == ["alpha", "beta"]
+    assert note.frontmatter["source"] == "agent"
+    assert note.frontmatter["stage"] == "raw"
     assert "some content\n" in text
 
 
 def test_append_note_empty_tags_render_empty_list(genesis_substrate: Path) -> None:
+    """Empty tags list — shape-stable across safe_dump vs hand-rolled."""
+    from myco.digestion.pipeline import parse_note
+
     ctx = _mk_ctx(genesis_substrate)
     outcome = append_note(ctx=ctx, content="body")
     text = outcome.path.read_text(encoding="utf-8")
-    assert "tags: []" in text
+    note = parse_note(text)
+    assert note.frontmatter["tags"] == []
 
 
 def test_collision_resolution(genesis_substrate: Path) -> None:

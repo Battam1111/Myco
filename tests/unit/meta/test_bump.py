@@ -127,7 +127,7 @@ def test_run_updates_canon_and_changelog(tmp_path: Path) -> None:
 
     # Changelog has the new section above the v0.4.0 one.
     log = (tmp_path / "docs" / "contract_changelog.md").read_text(encoding="utf-8")
-    assert "## v0.5.0 — 2026-04-17 — Contract bump" in log
+    assert "## v0.5.0 - 2026-04-17 - Contract molt via `myco molt`" in log
     assert log.index("## v0.5.0") < log.index("## v0.4.0")
 
 

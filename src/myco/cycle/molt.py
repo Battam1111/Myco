@@ -3,11 +3,11 @@
 MAJOR 9 (v0.5): the first code path in Myco that *mutates* a
 post-genesis ``_canon.yaml``. Operates in two shapes:
 
-- ``myco bump --contract <new_version>`` — change
+- ``myco molt --contract <new_version>`` — change
   ``_canon.yaml::contract_version`` (and ``synced_contract_version``,
   held in lockstep) to ``<new_version>``, then append a section to
-  ``docs/contract_changelog.md`` describing the bump.
-- ``myco bump --contract <new_version> --dry-run`` — preview only,
+  ``docs/contract_changelog.md`` describing the molt.
+- ``myco molt --contract <new_version> --dry-run`` — preview only,
   writes nothing.
 
 Write strategy: **line-level regex patch** on the known top-level
@@ -89,15 +89,15 @@ def _insert_changelog_entry(text: str, new_section: str) -> str:
 
 def _render_changelog_section(*, new_version: str, old_version: str, today: str) -> str:
     return (
-        f"## {new_version} — {today} — Contract bump via `myco bump`\n\n"
+        f"## {new_version} - {today} - Contract molt via `myco molt`\n\n"
         f"Replaces `{old_version}` at `_canon.yaml::contract_version`. "
-        f"Issued via the `myco bump --contract {new_version}` agent-\n"
-        f"callable verb (v0.5 MAJOR 9). `synced_contract_version` is\n"
-        f"updated in lockstep.\n\n"
+        f"Issued via the `myco molt --contract {new_version}` agent-\n"
+        f"callable verb. `synced_contract_version` is updated in\n"
+        f"lockstep.\n\n"
         f"### What changed\n\n"
-        f"(Fill in: which R1–R7 rules, subsystem definitions, exit-code\n"
+        f"(Fill in: which R1-R7 rules, subsystem definitions, exit-code\n"
         f"grammar, lint-dimension semantics, or command manifest shapes\n"
-        f"changed. `myco bump` only records the version; the authoring\n"
+        f"changed. `myco molt` only records the version; the authoring\n"
         f"agent is responsible for this narrative.)\n\n"
         f"### Break from {old_version}\n\n"
         f"(Fill in: backward-compatibility note. If none, say so explicitly.)\n"

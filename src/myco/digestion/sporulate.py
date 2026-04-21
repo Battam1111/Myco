@@ -99,8 +99,8 @@ def distill_proposal(
 
     if not source_paths:
         raise ContractError(
-            "no integrated notes found to distill from; "
-            "run `myco reflect` first or pass explicit --source"
+            "no integrated notes found to sporulate from; "
+            "run `myco assimilate` first or pass explicit --source"
         )
 
     now = now or datetime.now(timezone.utc)

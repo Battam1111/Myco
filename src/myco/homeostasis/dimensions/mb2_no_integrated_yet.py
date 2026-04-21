@@ -50,7 +50,7 @@ class MB2NoIntegratedYet(Dimension):
             severity=self.default_severity,
             message=(
                 f"{len(raws)} raw note(s) present but notes/integrated/ "
-                f"is empty; `myco digest` or `myco reflect` to promote"
+                f"is empty; `myco digest` or `myco assimilate` to promote"
             ),
             path="notes/integrated",
         )

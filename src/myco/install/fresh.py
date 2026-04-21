@@ -82,7 +82,21 @@ def _run(
         if result.returncode != 0:
             raise MycoInstallError(f"command exited {result.returncode}: {rendered}")
         return result  # type: ignore[return-value]
-    return subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, check=False)
+    # v0.5.8 P0 FIX: pin subprocess decoder to UTF-8 (+ replace on
+    # malformed bytes) so this works on Chinese Windows (cp936/GBK
+    # parent). Child processes always emit UTF-8 (myco enforces
+    # ensure_utf8_stdio); without this pin, parent decodes as the
+    # system codepage and any em-dash or Chinese character crashes
+    # `myco-install fresh`.
+    return subprocess.run(
+        cmd,
+        cwd=cwd,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+    )
 
 
 def _require_git(dry_run: bool) -> str:
@@ -225,6 +239,8 @@ def run_fresh(
             cwd=target,
             capture_output=True,
             text=True,
+            encoding="utf-8",  # v0.5.8 P0: cp936 Windows decode fix
+            errors="replace",
             check=False,
         )
         if result.returncode != 0:
@@ -275,7 +291,7 @@ def _print_summary(
         lines.append("Next:")
         lines.append(f"  cd {target}")
         lines.append("  myco --help                    # sanity-check the CLI")
-        lines.append("  myco genesis --project-dir <your-project> \\")
+        lines.append("  myco germinate --project-dir <your-project> \\")
         lines.append(
             "               --substrate-id <slug>        # bootstrap a downstream substrate"
         )
