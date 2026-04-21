@@ -29,6 +29,11 @@ env/
 .pytest_cache/
 .coverage
 .coverage.*
+# v0.5.10: coverage.json was tracked by accident in v0.5.x. Re-
+# ignoring it here so ``coverage run --format=json`` output cannot
+# re-enter the tree.
+coverage.json
+coverage.xml
 htmlcov/
 .mypy_cache/
 .ruff_cache/
