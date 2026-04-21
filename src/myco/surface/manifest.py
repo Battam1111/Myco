@@ -1,5 +1,8 @@
 """Command manifest loader + dispatcher.
 
+Governing doctrine: ``docs/architecture/L3_IMPLEMENTATION/command_manifest.md``
+(the canonical verb surface declaration).
+
 Reads ``manifest.yaml`` from the package resources, validates each
 entry against a small schema, resolves each ``handler`` into an
 importable callable, and exposes:
@@ -57,6 +60,7 @@ _VALID_TYPES: frozenset[str] = frozenset({"str", "bool", "int", "path", "list[st
 
 
 def dash_to_snake(name: str) -> str:
+    """Convert dash-cased ``name`` to snake_case (manifest arg name adapter)."""
     return name.replace("-", "_")
 
 
@@ -169,6 +173,7 @@ class Manifest:
         raise UsageError(f"unknown command: {name!r}")
 
     def names(self) -> tuple[str, ...]:
+        """Return the canonical verb names (aliases excluded)."""
         return tuple(c.name for c in self.commands)
 
     def all_names_including_aliases(self) -> tuple[str, ...]:

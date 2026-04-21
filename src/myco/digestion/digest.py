@@ -1,5 +1,8 @@
 """``myco digest <note-id>`` — promote one note by id.
 
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/digestion.md``
+§ "Per-note promotion" (the single-id path; assimilate is the bulk path).
+
 Idempotent on an already-integrated note: if the id resolves to an
 existing ``notes/integrated/n_<id>.md``, returns exit 0 with
 ``status: "already_integrated"``.
@@ -56,6 +59,12 @@ def digest_one(
 
 
 def run(args: Mapping[str, object], *, ctx: MycoContext) -> Result:
+    """Manifest handler: promote a single raw note by id.
+
+    Idempotent on already-integrated notes (returns ``status:
+    "already_integrated"`` without raising). ``dry_run=True``
+    previews the target path without moving bytes.
+    """
     note_id = str(args.get("note_id") or args.get("note-id") or "")
     if not note_id:
         raise UsageError("digest requires a note-id")

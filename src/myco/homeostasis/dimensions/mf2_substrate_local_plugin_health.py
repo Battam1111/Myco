@@ -81,7 +81,9 @@ class MF2SubstrateLocalPluginHealth(Dimension):
         overlay_path = paths.manifest_overlay
         if overlay_path.is_file():
             try:
-                raw = yaml.safe_load(overlay_path.read_text(encoding="utf-8")) or {}
+                from myco.core.io_atomic import bounded_read_text
+
+                raw = yaml.safe_load(bounded_read_text(overlay_path)) or {}
             except yaml.YAMLError as exc:
                 yield Finding(
                     dimension_id=self.id,

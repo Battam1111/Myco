@@ -1,5 +1,9 @@
 """``myco propagate`` — push integrated/distilled notes to a downstream substrate.
 
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/circulation.md``
+§ "Propagation" — the cross-substrate edge that federates basins
+of knowledge without merging them.
+
 Redefined per §9 E4: propagate publishes notes from ``src_ctx`` into
 ``dst_root``'s ``notes/raw/`` inbox, stamping source-trace frontmatter
 so the downstream substrate can reason about provenance. This is not
@@ -24,8 +28,8 @@ from typing import Any, Literal
 
 from myco.core.canon import load_canon
 from myco.core.context import MycoContext, Result
-from myco.core.errors import ContractError, UsageError
-from myco.core.io_atomic import atomic_utf8_write
+from myco.core.errors import ContractError, MycoError, UsageError
+from myco.core.io_atomic import atomic_utf8_write, bounded_read_text
 from myco.core.version import ContractVersion
 from myco.digestion.pipeline import Note, parse_note, render_note
 
@@ -128,8 +132,8 @@ def propagate(
     collisions: list[str] = []
     for src_path in sources:
         try:
-            text = src_path.read_text(encoding="utf-8")
-        except OSError as exc:
+            text = bounded_read_text(src_path)
+        except (OSError, MycoError) as exc:
             raise ContractError(f"failed to read {src_path}: {exc}") from exc
         note = parse_note(text)
         stamped = _stamp_note(
@@ -184,6 +188,12 @@ def propagate(
 
 
 def run(args: Mapping[str, object], *, ctx: MycoContext) -> Result:
+    """Manifest handler: propagate notes to a downstream substrate.
+
+    Dispatches on ``args["dst"]`` (required), ``args["select"]``
+    (integrated / distilled / both), and ``args["dry_run"]``. Writes
+    transactionally: collect → verify → write-all or raise.
+    """
     dst_raw = args.get("dst")
     if not dst_raw:
         raise UsageError("propagate requires a dst path")

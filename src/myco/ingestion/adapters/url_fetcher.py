@@ -1,5 +1,8 @@
 """Adapter for HTTP/HTTPS URLs.
 
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/ingestion.md``
+§ "Adapters".
+
 Requires ``httpx`` (part of the ``[adapters]`` extras).
 Dispatches to other adapters by Content-Type when possible (e.g.
 PDF, HTML), or falls back to treating the body as plain text.

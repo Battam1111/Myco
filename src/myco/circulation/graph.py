@@ -1,5 +1,8 @@
 """Cross-reference graph for a substrate.
 
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/circulation.md``
+(the mycelium graph that integrates every substrate node).
+
 Per L2 ``circulation.md`` and the Stage B.6 craft, the graph is built
 on demand from these sources:
 
@@ -38,7 +41,8 @@ from typing import Any, Literal
 import yaml
 
 from myco.core.context import MycoContext
-from myco.core.io_atomic import atomic_utf8_write
+from myco.core.errors import MycoError
+from myco.core.io_atomic import atomic_utf8_write, bounded_read_text
 from myco.core.substrate import Substrate
 from myco.digestion.pipeline import parse_note
 
@@ -96,9 +100,11 @@ class Graph:
     edges: tuple[Edge, ...] = field(default_factory=tuple)
 
     def outgoing(self, src: str) -> tuple[Edge, ...]:
+        """Return every edge with ``src`` as origin (agent-traversal helper)."""
         return tuple(e for e in self.edges if e.src == src)
 
     def incoming(self, dst: str) -> tuple[Edge, ...]:
+        """Return every edge with ``dst`` as target (reverse traversal)."""
         return tuple(e for e in self.edges if e.dst == dst)
 
 
@@ -344,8 +350,8 @@ def load_persisted_graph(path: Path) -> tuple[Graph, str] | None:
     if not path.is_file():
         return None
     try:
-        raw = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+        raw = json.loads(bounded_read_text(path))
+    except (OSError, json.JSONDecodeError, MycoError):
         return None
     if not isinstance(raw, Mapping):
         return None
@@ -412,8 +418,8 @@ def _build_graph_uncached(ctx: MycoContext) -> Graph:
     if canon_path.is_file():
         nodes.add(canon_rel)
         try:
-            raw = yaml.safe_load(canon_path.read_text(encoding="utf-8")) or {}
-        except yaml.YAMLError:
+            raw = yaml.safe_load(bounded_read_text(canon_path)) or {}
+        except (yaml.YAMLError, MycoError):
             raw = {}
         for ref in _iter_canon_refs(raw):
             resolved = _resolve(root, canon_rel, ref, anchor="root")
@@ -436,8 +442,8 @@ def _build_graph_uncached(ctx: MycoContext) -> Graph:
         rel = _rel(root, md)
         nodes.add(rel)
         try:
-            text = md.read_text(encoding="utf-8")
-        except OSError:
+            text = bounded_read_text(md)
+        except (OSError, MycoError):
             continue
         # Frontmatter references
         try:
@@ -482,8 +488,8 @@ def _build_graph_uncached(ctx: MycoContext) -> Graph:
         rel = _rel(root, f)
         nodes.add(rel)
         try:
-            text = f.read_text(encoding="utf-8")
-        except OSError:
+            text = bounded_read_text(f)
+        except (OSError, MycoError):
             continue
         for link in _iter_markdown_links(text):
             resolved = _resolve(root, rel, link)

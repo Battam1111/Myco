@@ -36,7 +36,7 @@ from datetime import date as _date
 from myco.core.canon import load_canon
 from myco.core.context import MycoContext, Result
 from myco.core.errors import CanonSchemaError, ContractError, UsageError
-from myco.core.io_atomic import atomic_utf8_write
+from myco.core.io_atomic import atomic_utf8_write, bounded_read_text
 from myco.core.write_surface import check_write_allowed
 
 __all__ = ["run"]
@@ -107,6 +107,14 @@ def _render_changelog_section(*, new_version: str, old_version: str, today: str)
 
 
 def run(args: Mapping[str, object], *, ctx: MycoContext) -> Result:
+    """Manifest handler: bump contract version + append changelog + waves.
+
+    Line-level regex-patches ``_canon.yaml::contract_version`` (and
+    ``synced_contract_version`` in lockstep), appends a section to
+    ``docs/contract_changelog.md``, and increments ``waves.current``.
+    Post-write validates by re-reading canon; rolls back atomically
+    on ``CanonSchemaError``.
+    """
     raw = args.get("contract")
     if not raw:
         raise UsageError(
@@ -129,7 +137,7 @@ def run(args: Mapping[str, object], *, ctx: MycoContext) -> Result:
     if not canon_path.is_file():
         raise ContractError(f"bump: canon not found at {canon_path}")
 
-    original_canon = canon_path.read_text(encoding="utf-8")
+    original_canon = bounded_read_text(canon_path)
     old_version = str(ctx.substrate.canon.contract_version)
 
     if old_version == new_version:
@@ -185,7 +193,7 @@ def run(args: Mapping[str, object], *, ctx: MycoContext) -> Result:
     # Append changelog entry. If the changelog file doesn't exist,
     # create it with a minimal header so the entry is readable.
     if changelog_path.exists():
-        original_changelog = changelog_path.read_text(encoding="utf-8")
+        original_changelog = bounded_read_text(changelog_path)
     else:
         changelog_path.parent.mkdir(parents=True, exist_ok=True)
         original_changelog = (
@@ -209,7 +217,7 @@ def run(args: Mapping[str, object], *, ctx: MycoContext) -> Result:
     # canon doesn't carry a waves.current line (pre-v0.5.x).
     waves_touched = False
     try:
-        current_text = canon_path.read_text(encoding="utf-8")
+        current_text = bounded_read_text(canon_path)
         waves_pattern = re.compile(
             r"^(?P<prefix>\s*current:\s*)(?P<n>\d+)\s*$",
             re.MULTILINE,

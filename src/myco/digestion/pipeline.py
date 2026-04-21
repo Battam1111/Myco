@@ -1,5 +1,8 @@
 """Digestion pipeline primitives.
 
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/digestion.md``
+(shared parse + render helpers for every digestion verb).
+
 Parses the YAML frontmatter written by ingestion (see
 ``myco.ingestion.eat._render_note``), validates cross-references, and
 promotes a raw note to ``integrated`` state by moving it from

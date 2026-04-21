@@ -30,6 +30,9 @@ import re
 from collections.abc import Iterator
 from pathlib import Path
 
+from myco.core.errors import MycoError
+from myco.core.io_atomic import bounded_read_text
+
 __all__ = [
     "walk_src_graph",
     "SrcGraphResult",
@@ -283,8 +286,8 @@ def walk_src_graph(
         rel = _rel(root, py)
         result.nodes.add(rel)
         try:
-            source = py.read_text(encoding="utf-8")
-        except OSError:
+            source = bounded_read_text(py)
+        except (OSError, MycoError):
             continue
         try:
             tree = ast.parse(source, filename=str(py))

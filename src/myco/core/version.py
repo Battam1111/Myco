@@ -1,5 +1,9 @@
 """Version primitives.
 
+Governing doctrine: ``docs/architecture/L1_CONTRACT/versioning.md``
+(contract version grammar + package version sync rules; consumed
+by :class:`SH1PackageVersionRef`).
+
 Two grammars are supported — one for package versions (PEP 440 subset)
 and one for contract versions (``vMAJOR.MINOR.PATCH[-<tag>]``). Both
 are deliberately minimal re-implementations rather than delegating to
@@ -48,6 +52,11 @@ class PackageVersion:
 
     @classmethod
     def parse(cls, text: str) -> PackageVersion:
+        """Parse ``text`` (``MAJOR.MINOR.PATCH[.devN]``) into a ``PackageVersion``.
+
+        Raises ``ValueError`` on shape mismatch. Accepts ``.dev``
+        (anonymous dev) as well as ``.dev<int>`` (numbered).
+        """
         m = _PACKAGE_RE.match(text)
         if not m:
             raise ValueError(f"not a valid package version ({cls._GRAMMAR}): {text!r}")
@@ -93,6 +102,12 @@ class ContractVersion:
 
     @classmethod
     def parse(cls, text: str) -> ContractVersion:
+        """Parse ``text`` (``vMAJOR.MINOR.PATCH[-<tag>]``) into a ``ContractVersion``.
+
+        Leading ``v`` is optional on read and dropped in storage;
+        ``__str__`` re-adds it. Raises ``ValueError`` on shape
+        mismatch.
+        """
         m = _CONTRACT_RE.match(text)
         if not m:
             raise ValueError(f"not a valid contract version ({cls._GRAMMAR}): {text!r}")

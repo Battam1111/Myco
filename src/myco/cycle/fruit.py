@@ -79,6 +79,12 @@ def _load_template() -> str:
 
 
 def run(args: Mapping[str, object], *, ctx: MycoContext) -> Result:
+    """Manifest handler: scaffold a primordia craft doc.
+
+    Writes ``docs/primordia/<slug>_craft_<date>.md`` with the
+    three-round skeleton (claim → rebuttal → revision → counter →
+    convergence). Refuses to overwrite; agent fills in each section.
+    """
     topic_raw = args.get("topic")
     if not topic_raw:
         raise UsageError("craft: --topic is required")

@@ -215,6 +215,21 @@ audit on the cleaner baseline.
    `dimensions` subtable by default — the canon roster is
    declarative, the kernel uses class attrs as mechanical SSoT).
 
+## Source notes (audit consolidations the craft digested)
+
+The 4-iteration opus-lens audit left six integrated consolidation
+notes under ``notes/integrated/``. This craft builds on them; the
+markdown links below make the trail reachable to SE2's
+inbound-link check (arrows the mycelium graph from this doc to
+each source note, satisfying L0 principle 5's 万物互联 mandate):
+
+- [Scope formation decision (2026-04-20T17:38Z)](../../notes/integrated/n_20260420T173825Z_v0-5-8-scope-formation-decision-the-user.md)
+- [Plan confirmed by user (2026-04-20T17:44Z)](../../notes/integrated/n_20260420T174458Z_v0-5-8-plan-confirmed-by-user-open-quest.md)
+- [Phase 1 Iteration 1 consolidated (2026-04-20T18:00Z)](../../notes/integrated/n_20260420T180058Z_v0-5-8-phase-1-iteration-1-consolidated-.md)
+- [Phase 1 Iteration 2 consolidated (2026-04-20T18:21Z)](../../notes/integrated/n_20260420T182157Z_v0-5-8-phase-1-iteration-2-consolidated-.md)
+- [Iteration 3 consolidated, 4 lenses (2026-04-20T18:50Z)](../../notes/integrated/n_20260420T185011Z_v0-5-8-iteration-3-consolidated-4-lenses.md)
+- [Iteration 4 consolidated, 4 lenses (2026-04-20T19:21Z)](../../notes/integrated/n_20260420T192123Z_v0-5-8-iter-4-consolidated-4-lenses-lens.md)
+
 ## Why this matters (L0 tie-in)
 
 - **Only For Agent**: every new dim is a mechanical signal the

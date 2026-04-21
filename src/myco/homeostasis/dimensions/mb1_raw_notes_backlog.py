@@ -1,5 +1,8 @@
 """MB1 — raw-notes backlog.
 
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/homeostasis.md``
+§ "Dimension enumeration" (fixable MEDIUM; escalates to MB3 at HW).
+
 Counts ``notes/raw/*.md`` and emits a single finding sized by the
 backlog. >10 files is MEDIUM; 1-10 is LOW; empty is silent.
 

@@ -1,5 +1,8 @@
 """``myco sense`` — read-only lookup across canon, notes, docs.
 
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/ingestion.md``
+§ "Sense" (L1 R3's mechanical half — agents sense before asserting).
+
 Minimal B.4 implementation: case-insensitive substring search over
 Markdown/YAML files, capped to avoid context bombs. Each hit carries
 path, line number, and snippet. Walking each tree is done lazily so

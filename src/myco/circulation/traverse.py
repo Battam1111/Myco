@@ -1,5 +1,8 @@
 """``myco perfuse`` — report graph health.
 
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/circulation.md``
+§ "Traversal" — the report-only read path over the mycelium graph.
+
 At Stage B.6 this is a **report-only** subsystem. L2 doctrine forbids
 auto-edit: perfuse surfaces orphans, dangling refs, and human-readable
 proposals; humans do the editing. The ``dry_run`` flag is accepted for
@@ -172,6 +175,12 @@ def perfuse(
 
 
 def run(args: Mapping[str, object], *, ctx: MycoContext) -> Result:
+    """Manifest handler: report mycelium-graph health in ``scope``.
+
+    ``scope`` is one of canon / notes / docs / all. Report-only —
+    no writes. See L2 circulation.md for the forbidden-auto-edit
+    invariant.
+    """
     scope_raw = args.get("scope") or "all"
     scope = str(scope_raw)
     if scope not in _VALID_SCOPES:

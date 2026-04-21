@@ -1,5 +1,8 @@
 """Adapter for local PDF files.
 
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/ingestion.md``
+§ "Adapters".
+
 Requires ``pypdf`` (part of the ``[adapters]`` extras).
 
 v0.5.8: adopts the same safety envelope as the text adapter.

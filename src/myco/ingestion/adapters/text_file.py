@@ -1,5 +1,8 @@
 """Adapter for any UTF-8 readable text file.
 
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/ingestion.md``
+§ "Adapters".
+
 This is the fallback adapter: it handles any file extension that no
 more-specific adapter claims, as long as the file is decodable as
 UTF-8. Code files (.py, .js, .ts, .go, .rs, .rb, .sh, .c, .cpp,

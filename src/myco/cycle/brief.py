@@ -36,6 +36,8 @@ from pathlib import Path
 from typing import Any
 
 from myco.core.context import MycoContext, Result
+from myco.core.errors import MycoError
+from myco.core.io_atomic import bounded_read_text
 
 __all__ = ["run"]
 
@@ -125,11 +127,11 @@ def _primordia_section(ctx: MycoContext, *, limit: int = 5) -> list[dict[str, An
     for name, path in entries[:limit]:
         try:
             first_heading = ""
-            for line in path.read_text(encoding="utf-8").splitlines():
+            for line in bounded_read_text(path).splitlines():
                 if line.startswith("# "):
                     first_heading = line[2:].strip()
                     break
-        except OSError:
+        except (OSError, MycoError):
             first_heading = ""
         out.append(
             {

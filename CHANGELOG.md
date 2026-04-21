@@ -18,6 +18,103 @@ Versioning: [SemVer](https://semver.org/).
 
 ---
 
+## [0.5.9] — 2026-04-21
+
+**Immune-zero cleanup release.** v0.5.9 lands the discipline
+consequence of v0.5.8: the 25-dimension surface v0.5.8 expanded
+reported 121 LOW findings on the self-substrate; v0.5.9 reports
+**0**. No new verbs, no contract shape changes, no behavioural
+breaks at R1–R7. The release's value is a clean baseline for the
+next feature release (v0.6.0) to be judged for drift against.
+
+Governing crafts:
+[`docs/primordia/v0_5_9_immune_zero_craft_2026-04-21.md`](docs/primordia/v0_5_9_immune_zero_craft_2026-04-21.md)
+(the 5-move cleanup design) and
+[`docs/primordia/v0_5_9_release_craft_2026-04-21.md`](docs/primordia/v0_5_9_release_craft_2026-04-21.md)
+(release closure craft).
+
+### Changed
+
+- **DC2 refinement**: `@property` accessors and abstract-protocol
+  overrides (subclasses of `Adapter` / `Protocol` / `Dimension`)
+  are now exempt from the public-function-docstring check. This
+  matches the dimension's own docstring-stated scope from v0.5.8;
+  the implementation just didn't match. Reduces DC2 findings on
+  myco-self from 78 → 0 without gutting real-regression catch.
+- **`bounded_read_text` rollout**: v0.5.8 shipped the helper with
+  0 callsites. v0.5.9 wires it into every canon / note / dim-scan
+  / graph / propagate / `.gitignore` read path. A multi-GB file at
+  any substrate-read position now raises ``MycoError`` instead of
+  OOM-ing the kernel. Sites covered: `core/canon.py`,
+  `digestion/assimilate.py` + `pipeline.py` + `sporulate.py`,
+  `ingestion/boot_brief.py` + `sense.py`, `cycle/winnow.py` +
+  `brief.py` + `molt.py` + `ramify.py`, `circulation/graph.py` +
+  `graph_src.py` + `propagate.py`,
+  `homeostasis/dimensions/mp1.py` + `mp2.py` + `mf2.py`,
+  `ingestion/adapters/code_repo.py` (.gitignore read).
+- **Kernel module docstrings carry doctrine anchors**: 32
+  pre-v0.5.8 modules that predated the DC4 dim expansion now
+  include `Governing doctrine: ``docs/architecture/...md``` refs.
+  Completes the code → doctrine mycelium edges that CG1 + CG2
+  were written to enforce.
+- **v0.5.8 audit notes referenced** from the v0.5.8
+  discipline-enforcement craft via proper markdown links so SE2's
+  inbound-link check walks the craft → audit-note edges.
+
+### Added
+
+- **Canon JSON-Schema** at
+  [`docs/schema/canon.schema.json`](docs/schema/canon.schema.json)
+  (JSON-Schema 2020-12). Second mechanical check paired with
+  `myco.core.canon.load_canon`; runs in IDEs at edit time. See
+  [`docs/schema/README.md`](docs/schema/README.md) for VS Code /
+  JetBrains / Neovim wiring snippets.
+- **Migration guides** under
+  [`docs/migration/`](docs/migration/README.md):
+  [`v0_5_7_to_v0_5_8.md`](docs/migration/v0_5_7_to_v0_5_8.md) +
+  [`v0_5_8_to_v0_5_9.md`](docs/migration/v0_5_8_to_v0_5_9.md).
+- **Public `check_write_allowed` + `unsafe_bypass_enabled`** in
+  `myco.core.write_surface` (promoted from private in v0.5.8;
+  tested in v0.5.8; documented as API in v0.5.9).
+- **Docstrings on the remaining 26 public functions** that DC2
+  (post-refinement) still flagged — verb handler `run()`
+  functions, `Graph.outgoing` / `.incoming`, version parsers,
+  registry getters, hunger `as_dict`, etc.
+- **`MycoError`-aware exception handling** at every
+  `bounded_read_text` callsite (cap-exceeded failure path).
+
+### Fixed
+
+- **Immune on myco-self reports 0 findings.** Pre-v0.5.9: 121 LOW
+  (78 DC2 + 32 DC4 + 6 SE2 + 4 CG2 + 1 CG1). Post-v0.5.9: 0.
+- **`bounded_read_text` was unused**: fixed by wiring (see Changed).
+
+### Gate status at release
+
+- pytest: **755/755** passing
+- ruff + ruff format: clean
+- mypy src/myco: 0 errors
+- myco immune (default): exit 0, **0 findings**
+- myco immune --exit-on=high: exit 0
+- myco hunger: clean (no drift, no backlog, no reflex signals)
+- python -m build + twine check: PASSED × 2
+- jsonschema-validate `_canon.yaml` against shipped schema: OK
+
+### Not in v0.5.9 scope (deferred by design)
+
+- **SC1 schema-consistency dim** (cross-check the Python
+  `load_canon` invariants against the shipped JSON-Schema).
+  Planned for v0.6+.
+- **Full `bounded_read_text` coverage** of package-resource
+  reads (germinate / fruit templates). Low risk; revisit only if
+  shipped template content approaches 10 MB.
+- **DC2 third-party ABC detection** beyond the three whitelisted
+  names (Adapter / Protocol / Dimension). Broader inheritance-
+  awareness needs ABC introspection, which DC2 can't do from a
+  pure AST walk.
+
+---
+
 ## [0.5.8] — 2026-04-21
 
 **Cleanup release: 14 new lint dimensions + foundation helpers +

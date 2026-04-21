@@ -1,5 +1,8 @@
 """Immune-kernel orchestrator.
 
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/homeostasis.md``
+§ "Interfaces" (what ``myco immune`` / ``myco immune --fix`` guarantee).
+
 One entry point — :func:`run_immune` — that the ``myco immune``
 handler invokes with a single call.
 

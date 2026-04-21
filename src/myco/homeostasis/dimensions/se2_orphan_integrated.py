@@ -1,5 +1,8 @@
 """SE2 — integrated notes with no inbound references.
 
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/homeostasis.md``
+§ "Dimension enumeration" (semantic / LOW).
+
 An integrated note (``notes/integrated/*.md``) that nothing else
 references is likely forgotten knowledge. Emits one LOW finding per
 orphan.

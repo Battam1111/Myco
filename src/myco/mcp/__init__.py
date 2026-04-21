@@ -1,5 +1,11 @@
 """Myco MCP launcher subpackage.
 
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/circulation.md``
+§ "MCP surface" — per L0 principle 1, the MCP server is a
+first-class Agent interface, not an afterthought. The pulse sidecar
+that every tool response carries is defined in
+``docs/architecture/L1_CONTRACT/protocol.md`` (R1-R7 reminder shape).
+
 Executable entry point for ``python -m myco.mcp``. Boots the
 manifest-driven Model Context Protocol server returned by
 :func:`myco.surface.mcp.build_server` over whichever transport the

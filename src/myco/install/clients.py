@@ -1,5 +1,9 @@
 """Per-client MCP config writers.
 
+Governing doctrine: ``docs/architecture/L3_IMPLEMENTATION/symbiont_protocol.md``
+(per-host axis of the extensibility model described in
+``docs/architecture/L2_DOCTRINE/extensibility.md``).
+
 Each writer is idempotent: running it twice produces the same file
 contents. Running it after a user has added their own servers
 preserves those servers. Running it with ``uninstall=True`` removes
@@ -505,6 +509,12 @@ def dispatch(
     home: Path | None = None,
     cwd: Path | None = None,
 ) -> str:
+    """Run the installer for ``client`` (one of :data:`CLIENTS`).
+
+    Returns a single-line status string. ``home`` / ``cwd`` are
+    injectable for tests; production defaults to ``Path.home()`` /
+    ``Path.cwd()``. Unknown client names raise ``MycoInstallError``.
+    """
     if client not in CLIENTS:
         raise MycoInstallError(
             f"unknown client {client!r}. Choose from: {sorted(CLIENTS)}."

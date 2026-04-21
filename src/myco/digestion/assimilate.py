@@ -1,5 +1,9 @@
 """``myco assimilate`` — bulk-promote raw notes into the organism.
 
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/digestion.md``
+§ "The three-stage pipeline" (raw → integrated → distilled; this
+verb owns the raw → integrated transition).
+
 v0.5.3: renamed from ``reflect`` (module + verb). In fungal biology,
 assimilation is the uptake of absorbed (``eat``-en) nutrients into
 the mycelium proper — the raw → integrated transition that this
@@ -144,6 +148,12 @@ assimilate = reflect
 
 
 def run(args: Mapping[str, object], *, ctx: MycoContext) -> Result:
+    """Manifest handler: bulk-promote raw notes (or a single ``note_id``).
+
+    On a clean pass (zero errors, exit 0) also syncs
+    ``canon.synced_contract_version`` via :func:`_sync_contract_version`,
+    closing the hunger → assimilate drift-resolution loop.
+    """
     note_id = args.get("note_id") or args.get("note")
     note_id_str = str(note_id) if note_id else None
     summary = reflect(ctx=ctx, note_id=note_id_str)

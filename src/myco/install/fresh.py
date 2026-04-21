@@ -1,5 +1,9 @@
 """``myco-install fresh`` — editable-default bootstrap.
 
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/genesis.md``
+§ "Editable-default install" (L0 principle 3 realised: the agent
+can mutate the kernel, not just read it).
+
 v0.5.2 (MAJOR 11): the primary install path for anyone running
 Myco as the L0 doctrine intends — as a substrate whose kernel the
 agent can mutate, not as a frozen library imported from
