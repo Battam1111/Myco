@@ -11,6 +11,60 @@ Format: one section per `contract_version`, newest first.
 
 ---
 
+## v0.5.10 — 2026-04-21 — Audit-response hotfix (no contract-shape change)
+
+Contract-layer molt with **zero contract-surface deltas**, exactly
+like v0.5.9. This molt pairs a version number to four bug fixes
+surfaced by a seven-round post-release audit of v0.5.9.
+
+### What changed
+
+- **Nothing in the R1–R7 rule text.** No rule added, removed, or
+  semantically modified.
+- **Nothing in the category enum, the exit-policy grammar, or the
+  exit-code ladder** (3 / 4 / 5).
+- **Nothing in the 18-verb manifest surface.**
+- **Nothing in the dimension roster count** (still 25).
+
+### Bugs fixed (audit response)
+
+1. **``SubstrateNotFound`` exit-code preserved** — `build_context`
+   no longer wraps the exception in `UsageError`, restoring the
+   v0.5.8 contract-promised exit 4. Scripts that check `exit == 4`
+   for "no substrate at this path" now actually work.
+2. **Fresh-substrate lint noise removed** — the canon template
+   trimmed of kernel-path `_ref` fields that produced 5 MEDIUM
+   findings on every freshly-germinated substrate. Fresh
+   substrates now report 0 immune findings out of the box.
+3. **RL1 skips on missing protocol.md** — RL1 requires
+   ``docs/architecture/L1_CONTRACT/protocol.md`` to exist; fresh
+   substrates without it produce no RL1 findings.
+4. **Canon JSON-Schema ``subsystems.*.doc`` made optional** to
+   match the Python kernel validator's actual requirements.
+
+### Added (non-contract, additive)
+
+- ``.myco_state/unsafe_writes.log`` — best-effort audit trail that
+  `guarded_write` appends to on every `MYCO_ALLOW_UNSAFE_WRITE=1`
+  bypass. Resolves a v0.5.9 deferred TODO.
+
+### Break from v0.5.9
+
+None at the contract layer. Operators upgrading from v0.5.9
+require **no code changes, no canon edits, no script adjustments**.
+
+Observable differences for new germinations:
+- The canon template is smaller: `versioning`, `commands.manifest_ref`,
+  `subsystems.*.doc`, `hard_contract.rules_ref`, `waves.log_ref` are
+  no longer stamped by default. Kernel-like substrates that want
+  them back add them manually.
+- Fresh substrates get 0 immune findings (was 10 on v0.5.9).
+
+Existing v0.5.9 substrates with the full canon shape continue to
+load and lint cleanly under v0.5.10.
+
+---
+
 ## v0.5.9 — 2026-04-21 — Immune-zero cleanup release (no contract-shape change)
 
 Contract-layer release with **zero contract-surface deltas**. This

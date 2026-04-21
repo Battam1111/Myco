@@ -158,8 +158,14 @@ def test_build_context_pre_substrate_returns_none() -> None:
 
 
 def test_build_context_raises_when_no_substrate(tmp_path: Path) -> None:
-    with pytest.raises(UsageError, match="no Myco substrate"):
+    # v0.5.10: ``SubstrateNotFound`` (exit 4) not ``UsageError`` (exit 3),
+    # preserving the v0.5.8 exit-code differentiation that the earlier
+    # UsageError-wrap silently broke.
+    from myco.core.errors import SubstrateNotFound
+
+    with pytest.raises(SubstrateNotFound, match="no Myco substrate") as exc_info:
         build_context(project_dir=tmp_path)
+    assert exc_info.value.exit_code == 4
 
 
 def test_build_context_happy_path(genesis_substrate: Path) -> None:

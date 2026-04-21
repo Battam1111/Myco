@@ -398,7 +398,11 @@ def build_context(
     try:
         root = find_substrate_root(start)
     except SubstrateNotFound as exc:
-        raise UsageError(
+        # v0.5.10 fix: re-raise ``SubstrateNotFound`` with the helpful
+        # message rather than wrapping in ``UsageError``. The previous
+        # wrap silently downgraded exit code 4 → 3 and broke the
+        # v0.5.8 contract-promised exit-code differentiation.
+        raise SubstrateNotFound(
             f"no Myco substrate found at or above {start} (searched for "
             f"_canon.yaml in every parent). Run `myco germinate "
             f"--project-dir <dir> --substrate-id <slug>` to bootstrap "

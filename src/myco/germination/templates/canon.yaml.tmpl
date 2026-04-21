@@ -29,7 +29,12 @@ system:
       # local extensions or overlay verbs need this pattern covered.
       - ".myco/**"
   hard_contract:
-    rules_ref: "docs/architecture/L1_CONTRACT/protocol.md"
+    # v0.5.10: ``rules_ref`` is no longer stamped by default. It
+    # pointed at ``docs/architecture/L1_CONTRACT/protocol.md`` which
+    # doesn't exist in a fresh substrate, causing SE1 MEDIUM dangling
+    # findings on every freshly-germinated substrate right after
+    # ``myco germinate``. Operators who mirror the Myco-self doctrine
+    # tree add ``rules_ref`` back once that file is materialized.
     rule_count: 7
   # v0.5.6 (L0 principle 1 enforcement): declares whether this
   # substrate opts out of the "Agent calls LLM, substrate does
@@ -37,9 +42,12 @@ system:
   # against kernel scans.
   no_llm_in_substrate: true
 
-versioning:
-  package_version_ref: "src/myco/__init__.py"
-  pyproject_dynamic: true
+# v0.5.10: ``versioning`` block removed from the default template.
+# It only makes sense for substrates that carry a Python package at
+# ``src/myco/__init__.py`` (Myco-self, kernel-like substrates). A
+# fresh non-kernel substrate has no such file, so SH1 would fire
+# MEDIUM on every germinate. Kernel-like substrates add the block
+# back when they grow code.
 
 lint:
   categories:
@@ -51,31 +59,34 @@ lint:
     default: "mechanical:critical,shipped:critical,metabolic:never,semantic:never"
   skeleton_downgrade:
     marker: ".myco_state/autoseeded.txt"
-    affected_dimensions: ["L0"]
+    # v0.5.10: ``affected_dimensions`` is empty. Pre-v0.5 the list
+    # held ``L0`` but that dim was retired at Stage B.8; no dim
+    # currently earns skeleton grace. Retained as an explicit seam
+    # for future dimensions that need fresh-substrate downgrade.
+    affected_dimensions: []
 
 subsystems:
-  # Fresh substrates declare only the doctrine pointers. `package:` is
-  # opt-in at v0.5+ and only appears in substrates whose subsystems
-  # correspond to code packages under this root (e.g. Myco's self-
-  # substrate). MF1 validates `package:` when present but treats its
-  # absence as "this substrate uses subsystems for documentation only".
-  germination:
-    doc: "docs/architecture/L2_DOCTRINE/genesis.md"
-  ingestion:
-    doc: "docs/architecture/L2_DOCTRINE/ingestion.md"
-  digestion:
-    doc: "docs/architecture/L2_DOCTRINE/digestion.md"
-  circulation:
-    doc: "docs/architecture/L2_DOCTRINE/circulation.md"
-  homeostasis:
-    doc: "docs/architecture/L2_DOCTRINE/homeostasis.md"
+  # v0.5.10: default template omits ``doc:`` sub-keys. They stamped
+  # paths at ``docs/architecture/L2_DOCTRINE/*.md`` which don't exist
+  # in a fresh substrate, producing spurious SE1 findings on every
+  # new substrate right after ``myco germinate``. Operators who mirror
+  # the Myco-self doctrine tree add ``doc:`` back once those files
+  # are materialized. Subsystem NAMES remain canonically declared
+  # (MF1 cross-checks present subsystems against the kernel's list)
+  # but the per-subsystem pointers are optional.
+  germination: {}
+  ingestion: {}
+  digestion: {}
+  circulation: {}
+  homeostasis: {}
 
-commands:
-  manifest_ref: "src/myco/surface/manifest.yaml"
-
-metrics:
-  test_count: 0
+# v0.5.10: ``commands.manifest_ref`` removed. Pointed at
+# ``src/myco/surface/manifest.yaml`` which only exists in Myco-self.
+# Kernel-like substrates add it back.
 
 waves:
   current: 1
-  log_ref: "docs/contract_changelog.md"
+  # v0.5.10: ``log_ref`` removed. The contract_changelog.md is a
+  # kernel convention; fresh substrates don't ship one. ``myco molt``
+  # auto-creates it on first bump; operators may add the ref back
+  # to canon once the file exists.

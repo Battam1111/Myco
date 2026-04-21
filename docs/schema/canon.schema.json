@@ -153,13 +153,13 @@
     },
     "subsystems": {
       "type": "object",
-      "description": "L2 subsystem declarations. Each key is a canonical subsystem name; `doc` is its governing doctrine page; `package` (optional) is the code tree.",
+      "description": "L2 subsystem declarations. Each key is a canonical subsystem name; optional `doc` points at the L2 doctrine page, optional `package` points at the code tree. Both are additive — fresh substrates often declare subsystems without either (kernel's `load_canon` does not require them; only the subsystem NAMES are checked against MF1).",
       "additionalProperties": {
         "type": "object",
-        "required": ["doc"],
+        "additionalProperties": true,
         "properties": {
-          "doc": {"type": "string", "description": "Relative path to the L2 doctrine page."},
-          "package": {"type": "string", "description": "Relative path to the code package (optional for doc-only substrates)."}
+          "doc": {"type": "string", "description": "Optional relative path to the L2 doctrine page."},
+          "package": {"type": "string", "description": "Optional relative path to the code package."}
         }
       }
     },
