@@ -11,6 +11,95 @@ Format: one section per `contract_version`, newest first.
 
 ---
 
+## v0.5.14 — 2026-04-22 — MCP roots/list auto-discovery (a.k.a. "一劳永逸")
+
+Contract-layer molt with **zero contract-surface deltas**. The
+strategic answer to "do I have to configure every project on every
+host forever?" — no, you don't, because Myco now uses the MCP
+protocol's own ``roots/list`` channel to discover the user's
+workspace automatically on any spec-compliant client.
+
+### What changed
+
+- **Nothing in the R1–R7 rule text.**
+- **Nothing in the category enum, the exit-policy grammar, or the
+  exit-code ladder.**
+- **Nothing in the 18-verb manifest surface.**
+- **Nothing in the dimension roster count** (still 25).
+
+### Added — MCP ``roots/list`` auto-discovery
+
+The MCP protocol defines a standard server-to-client RPC
+(``roots/list``) that lets the server ask the host which folder(s)
+the user currently has open. Every spec-compliant client — Cowork /
+Claude Desktop, Cursor, Zed, Windsurf, VS Code, Codex, Gemini,
+Continue, OpenHands, OpenClaw — supports it. v0.5.13 and earlier
+never used this channel; v0.5.14 does, and it fixes the
+substrate-discovery problem universally.
+
+New flow inside ``myco.surface.mcp._invoke``:
+
+  1. Pull ``kwargs.project_dir`` if explicitly given.
+  2. Otherwise, query ``session.list_roots()`` and walk each
+     returned root's ancestry for a ``_canon.yaml``.
+  3. Otherwise, fall through to ``MYCO_PROJECT_DIR`` (v0.5.13) or
+     ``CLAUDE_PROJECT_DIR`` (new, see below).
+  4. Finally, ``Path.cwd()`` as the legacy floor.
+
+Failure modes of levels 2–4 are all graceful: the MCP call
+short-circuits as soon as something answers; if nothing answers,
+a new and much more useful ``SubstrateNotFound`` message explains
+exactly which paths were tried and what the three fix routes are.
+
+### Added — ``CLAUDE_PROJECT_DIR`` env fallback
+
+``build_context``'s env-var ladder now also reads
+``CLAUDE_PROJECT_DIR`` (after ``MYCO_PROJECT_DIR``). Claude Code
+injects this variable in hook processes (SessionStart, PreCompact,
+SessionEnd). Honouring it means shared Claude-Code + Myco setups
+need zero Myco-specific env wiring.
+
+### Fixed — latent ``kwargs.project_dir`` drop bug
+
+The MCP layer extracted ``kwargs.project_dir`` only long enough to
+label the substrate-pulse sidecar — it was dropped by
+``build_handler_args`` before reaching the actual ``build_context``
+call. In practice, the only way to steer a verb to a non-default
+substrate was the new env-var fallback (v0.5.13) or the shell
+cwd. v0.5.14 extracts ``project_dir`` BEFORE dispatch and passes it
+as a first-class parameter, so the per-call override works as
+documented.
+
+### Fixed — ``SubstrateNotFound`` error message
+
+Previously said simply ``no substrate at or above {cwd}``. Now
+enumerates every detection path tried (explicit arg, MYCO_PROJECT_DIR,
+CLAUDE_PROJECT_DIR, cwd) so operators can tell whether a env var
+was silently dropped, whether they forgot to set one, or whether
+their cwd is somewhere unexpected. Also surfaces the three fix
+options (germinate, env, workspace-roots) in the error body.
+
+### Break from v0.5.13
+
+None at the contract layer. Operators upgrading from v0.5.13
+require **no code changes, no canon edits, no script adjustments**.
+
+Observable deltas:
+- On Cowork / Claude Desktop / Cursor / Zed / Windsurf / etc., a
+  freshly-germinated substrate is auto-discovered the moment you
+  open its folder — no config-file edits, no env-var pinning.
+  ``MYCO_PROJECT_DIR`` is still honoured when set; it just isn't
+  required.
+- Users who previously pinned ``env: MYCO_PROJECT_DIR`` in their
+  host configs can remove that line on v0.5.14+ without breaking
+  anything, as long as they open the substrate's folder as a
+  workspace in the host.
+- ``kwargs.project_dir`` passed by an agent now actually routes to
+  the correct substrate (previous versions silently dropped it and
+  used cwd/env).
+
+---
+
 ## v0.5.13 — 2026-04-22 — MYCO_PROJECT_DIR env-var fallback + bump-script UTF-8 fix
 
 Contract-layer molt with **zero contract-surface deltas**, same
