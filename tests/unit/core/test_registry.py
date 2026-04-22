@@ -3,12 +3,26 @@
 Covers the round-trip (register + list), stale detection,
 timestamp semantics, and graceful degradation on malformed files.
 Added in v0.5.16.
+
+Note: the session-wide ``_isolate_global_registry`` conftest fixture
+sets ``MYCO_REGISTRY_DISABLED=1`` so other tests don't pollute the
+real registry. This file's tests EXERCISE the registry directly, so
+each one re-enables writes via ``monkeypatch.delenv``.
 """
 
 from __future__ import annotations
 
 from datetime import datetime, timezone
 from pathlib import Path
+
+import pytest
+
+
+@pytest.fixture(autouse=True)
+def _enable_registry_writes(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Reverse the session-wide opt-out so these tests can actually
+    write to the registry (under an isolated ``home=tmp_path``)."""
+    monkeypatch.delenv("MYCO_REGISTRY_DISABLED", raising=False)
 
 
 def test_register_and_list_round_trip(tmp_path: Path) -> None:
