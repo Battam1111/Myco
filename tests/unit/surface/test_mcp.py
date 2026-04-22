@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from myco.surface.manifest import load_manifest
 from myco.surface.mcp import build_tool_spec
 
@@ -213,3 +215,88 @@ def test_resolve_project_via_roots_skips_non_file_uri(
     got = _run(_resolve_project_via_roots(ctx))
     assert got is not None
     assert got.resolve() == tmp_path.resolve()
+
+
+# v0.5.16: _detect_workspace_root + auto-germ advice soft response.
+
+
+def test_detect_workspace_root_returns_first_file_uri_regardless_of_substrate(
+    tmp_path: Path,
+) -> None:
+    """Unlike _resolve_project_via_roots, _detect_workspace_root
+    returns the first file:// root even when it has no substrate —
+    so v0.5.16 can suggest where to germinate."""
+    from myco.surface.mcp import _detect_workspace_root
+
+    # No _canon.yaml anywhere under tmp_path.
+    uri = tmp_path.resolve().as_uri()
+    ctx = _FakeContext(_FakeSession(_FakeRootsResult([_FakeRoot(uri)])))
+    got = _run(_detect_workspace_root(ctx))
+    assert got is not None
+    assert got.resolve() == tmp_path.resolve()
+
+
+def test_detect_workspace_root_returns_none_when_client_silent() -> None:
+    from myco.surface.mcp import _detect_workspace_root
+
+    ctx = _FakeContext(None)
+    got = _run(_detect_workspace_root(ctx))
+    assert got is None
+
+
+def test_auto_germ_advice_response_shape(tmp_path: Path) -> None:
+    """The soft-fail response exposes exit_code 4, a germinate hint
+    in the pulse, and the workspace path in the payload."""
+    from myco.core.errors import SubstrateNotFound
+    from myco.surface.mcp import _auto_germ_advice_response
+
+    resp = _auto_germ_advice_response(
+        verb="hunger",
+        workspace_root=tmp_path,
+        exc=SubstrateNotFound("test"),
+        hunger_called=False,
+    )
+    assert resp["exit_code"] == 4
+    assert resp["payload"]["error"] == "SubstrateNotFound"
+    assert resp["payload"]["workspace_root"] == str(tmp_path)
+    pulse = resp["substrate_pulse"]
+    assert "myco_germinate" in pulse["rules_hint"]
+    assert str(tmp_path) in pulse["rules_hint"]
+    assert "no substrate" in pulse["substrate_id"].lower()
+
+
+def test_invoke_returns_auto_germ_advice_when_roots_lack_substrate(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """End-to-end: ``_invoke`` sees a workspace root via roots/list,
+    no _canon.yaml at or above, dispatch would raise SubstrateNotFound
+    → we return a soft advice response instead.
+    """
+    from myco.surface.manifest import load_manifest
+    from myco.surface.mcp import _invoke, _ServerState
+
+    # Empty workspace (no substrate).
+    empty = tmp_path / "fresh-project"
+    empty.mkdir()
+
+    # Prevent build_context's env + cwd fallbacks from finding a
+    # different substrate (Myco self-substrate if pytest runs from
+    # the Myco repo) and silently masking the SubstrateNotFound we
+    # need to trigger.
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("MYCO_PROJECT_DIR", raising=False)
+    monkeypatch.delenv("CLAUDE_PROJECT_DIR", raising=False)
+
+    m = load_manifest()
+    sense_spec = m.by_name("sense")
+    state = _ServerState()
+
+    ctx = _FakeContext(
+        _FakeSession(_FakeRootsResult([_FakeRoot(empty.resolve().as_uri())]))
+    )
+    result = _run(_invoke(sense_spec, m, {"query": "x"}, state, mcp_ctx=ctx))
+
+    assert result["exit_code"] == 4
+    assert result["payload"]["workspace_root"] == str(empty.resolve())
+    assert "myco_germinate" in result["substrate_pulse"]["rules_hint"]

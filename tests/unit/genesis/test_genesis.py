@@ -187,3 +187,46 @@ def test_empty_tags_render_empty_flow_list(tmp_path: Path) -> None:
     bootstrap(project_dir=tmp_path, substrate_id="notag")
     canon_text = (tmp_path / "_canon.yaml").read_text(encoding="utf-8")
     assert "tags: []" in canon_text
+
+
+# --- v0.5.16: germinate auto-registers in ~/.myco/substrates.yaml ----------
+
+
+def test_bootstrap_registers_substrate_in_global_registry(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Successful bootstrap writes a row into ``~/.myco/substrates.yaml``."""
+    from myco.core.registry import list_substrates
+
+    # Redirect Path.home() to an isolated tmp dir so the real user
+    # registry isn't touched.
+    fake_home = tmp_path / "home"
+    fake_home.mkdir()
+    monkeypatch.setattr(Path, "home", staticmethod(lambda: fake_home))
+
+    project_dir = tmp_path / "project"
+    project_dir.mkdir()
+    bootstrap(project_dir=project_dir, substrate_id="reg-test")
+
+    entries = list_substrates(home=fake_home)
+    assert len(entries) == 1
+    assert entries[0].substrate_id == "reg-test"
+    assert entries[0].path == project_dir.resolve()
+
+
+def test_bootstrap_dry_run_skips_registry(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """--dry-run must NOT touch the registry (matches its "write
+    nothing" contract)."""
+    from myco.core.registry import list_substrates
+
+    fake_home = tmp_path / "home"
+    fake_home.mkdir()
+    monkeypatch.setattr(Path, "home", staticmethod(lambda: fake_home))
+
+    project_dir = tmp_path / "project"
+    project_dir.mkdir()
+    bootstrap(project_dir=project_dir, substrate_id="dry", dry_run=True)
+
+    assert list_substrates(home=fake_home) == []

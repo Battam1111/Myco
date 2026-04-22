@@ -30,6 +30,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
+from ..core.errors import SubstrateNotFound
 from .manifest import CommandSpec, Manifest, dispatch, load_manifest
 
 try:  # pyyaml is a hard dep, but load failures should not break imports
@@ -284,6 +285,14 @@ async def _invoke(
     Any of 1/2 succeeding short-circuits the chain. 3/4 are
     fallbacks when neither an explicit arg nor a responsive client
     yields anything.
+
+    v0.5.16: when the client returned a workspace root but that root
+    has no substrate, Myco returns a soft response (exit_code 0) with
+    a ``substrate_pulse.rules_hint`` that tells the agent to call
+    ``myco_germinate --project-dir=<workspace_root>``. This fixes the
+    "user opens a fresh project and Myco yells at them" class of UX
+    regression. The agent relays the suggestion; the user approves;
+    germinate runs. Never auto-germinates — that would be surprising.
     """
     args_in = dict(args)  # mutable copy; we may pop/overwrite project_dir
 
@@ -294,18 +303,40 @@ async def _invoke(
     project_dir: Path | None = Path(project_dir_str) if project_dir_str else None
 
     # Level 2: MCP roots/list — query the client for workspace roots.
+    # v0.5.16: also capture the first raw root (regardless of whether
+    # it has a substrate) so we can suggest germinating there if
+    # dispatch falls through to SubstrateNotFound.
+    workspace_root: Path | None = None
     if project_dir is None and mcp_ctx is not None:
         discovered = await _resolve_project_via_roots(mcp_ctx)
         if discovered is not None:
             project_dir = discovered
+        else:
+            workspace_root = await _detect_workspace_root(mcp_ctx)
 
     # Levels 3-4 fall through to build_context's own env / cwd chain.
-    result = dispatch(
-        spec.name,
-        args_in,
-        manifest=manifest,
-        project_dir=project_dir,
-    )
+    try:
+        result = dispatch(
+            spec.name,
+            args_in,
+            manifest=manifest,
+            project_dir=project_dir,
+        )
+    except SubstrateNotFound as exc:
+        # v0.5.16: if we know a workspace root but it has no substrate,
+        # return a soft auto-germ advice instead of erroring. Agent
+        # sees a normal tool response with a clear germinate hint in
+        # the pulse rules_hint; user gets asked before anything is
+        # written to disk.
+        if workspace_root is not None and not spec.pre_substrate:
+            return _auto_germ_advice_response(
+                verb=spec.name,
+                workspace_root=workspace_root,
+                exc=exc,
+                hunger_called=state.hunger_called,
+            )
+        raise
+
     if spec.name == "hunger":
         state.hunger_called = True
     pulse = _compute_substrate_pulse(
@@ -357,6 +388,83 @@ async def _resolve_project_via_roots(ctx: Any) -> Path | None:
         if _has_substrate_at_or_above(candidate):
             return candidate
     return None
+
+
+async def _detect_workspace_root(ctx: Any) -> Path | None:
+    """Return the first ``file://`` workspace root the client exposes,
+    **regardless of whether it has a substrate**.
+
+    Paired with :func:`_resolve_project_via_roots` as the "did the
+    client at least tell us something about the workspace?" probe.
+    If ``_resolve_project_via_roots`` returned ``None`` (no root had
+    a substrate), we still want to know where the user's workspace
+    IS so we can suggest germinating a substrate there.
+
+    v0.5.16 addition.
+    """
+    try:
+        session = getattr(ctx, "session", None)
+        if session is None or not hasattr(session, "list_roots"):
+            return None
+        result = await session.list_roots()
+    except Exception:
+        return None
+    roots = getattr(result, "roots", None) or []
+    for root in roots:
+        uri = getattr(root, "uri", None)
+        if not uri:
+            continue
+        candidate = _uri_to_path(str(uri))
+        if candidate is not None:
+            return candidate
+    return None
+
+
+def _auto_germ_advice_response(
+    *,
+    verb: str,
+    workspace_root: Path,
+    exc: SubstrateNotFound,
+    hunger_called: bool,
+) -> dict[str, Any]:
+    """Return a soft-fail MCP tool response when the workspace has no
+    substrate yet. The agent sees a normal-shaped response whose pulse
+    tells it to call ``myco_germinate`` with the workspace root.
+
+    Why soft-fail: raising ``SubstrateNotFound`` here would surface
+    as a transport-level error on the MCP client, blocking the agent
+    from relaying the suggestion to the user. A dict response with
+    advice in the pulse gets the agent to say "this folder doesn't
+    have a Myco substrate yet — want me to germinate one?" which is
+    the UX we want.
+
+    ``exit_code`` is set to 4 (``SubstrateNotFound``'s canonical exit
+    code per the v0.5.8 contract) so anything that checks exit codes
+    still differentiates "no substrate" from other error classes.
+    The agent reads the pulse advice.
+
+    v0.5.16 addition.
+    """
+    suggested = (
+        f"no substrate at {workspace_root}. Call "
+        f"myco_germinate(project_dir={str(workspace_root)!r}, "
+        "substrate_id=<slug>) to bootstrap one."
+    )
+    return {
+        "exit_code": 4,
+        "payload": {
+            "error": "SubstrateNotFound",
+            "detail": str(exc),
+            "workspace_root": str(workspace_root),
+            "advice": suggested,
+        },
+        "substrate_pulse": {
+            "substrate_id": "(no substrate — workspace detected)",
+            "contract_version": "(unknown)",
+            "hard_contract_ref": "docs/architecture/L1_CONTRACT/protocol.md",
+            "rules_hint": suggested,
+        },
+    }
 
 
 def _uri_to_path(uri: str) -> Path | None:

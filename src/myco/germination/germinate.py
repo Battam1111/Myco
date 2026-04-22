@@ -325,6 +325,22 @@ def bootstrap(
     if dry_run:
         payload["preview_full"] = preview_full
 
+    # v0.5.16: record the new substrate in ``~/.myco/substrates.yaml``
+    # so ``myco graft --list-substrates`` can enumerate it later. Best
+    # effort — never fail the germination because of a registry write
+    # problem (disk full, permissions, etc.). Skipped on dry-run.
+    if not dry_run:
+        try:
+            from myco.core.registry import register_substrate
+
+            register_substrate(
+                substrate_id=substrate_id,
+                path=project_dir,
+                now=now,
+            )
+        except Exception:
+            pass
+
     return Result(
         exit_code=0,
         findings=(),

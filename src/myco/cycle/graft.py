@@ -195,27 +195,36 @@ def run(args: Mapping[str, object], *, ctx: MycoContext) -> Result:
     """Manifest handler: enumerate / validate / explain local plugins.
 
     Dispatches on the mutually-exclusive ``list`` / ``validate`` /
-    ``explain`` flags. Passing none is a ``UsageError``; validate's
-    exit code is finding-driven, the others always return 0 on hit.
+    ``explain`` / ``list-substrates`` flags. Passing none is a
+    ``UsageError``; validate's exit code is finding-driven, the
+    others always return 0 on hit.
+
+    v0.5.16 adds ``--list-substrates`` which returns every substrate
+    registered in ``~/.myco/substrates.yaml`` (cross-project
+    enumeration, not just this substrate's grafts).
     """
     list_mode = bool(args.get("list"))
     validate_mode = bool(args.get("validate"))
     explain_name = args.get("explain")
+    list_substrates_mode = bool(args.get("list_substrates"))
 
     modes_set = sum(
         [
             1 if list_mode else 0,
             1 if validate_mode else 0,
             1 if explain_name else 0,
+            1 if list_substrates_mode else 0,
         ]
     )
     if modes_set == 0:
         raise UsageError(
-            "graft: specify exactly one of --list / --validate / --explain."
+            "graft: specify exactly one of --list / --validate / "
+            "--explain / --list-substrates."
         )
     if modes_set > 1:
         raise UsageError(
-            "graft: --list / --validate / --explain are mutually exclusive."
+            "graft: --list / --validate / --explain / --list-substrates "
+            "are mutually exclusive."
         )
 
     if list_mode:
@@ -237,6 +246,33 @@ def run(args: Mapping[str, object], *, ctx: MycoContext) -> Result:
                 "mode": "validate",
                 "errors": errors,
                 "ok": not errors,
+            },
+        )
+
+    if list_substrates_mode:
+        # v0.5.16: enumerate every substrate registered in the global
+        # registry (``~/.myco/substrates.yaml``). The registry is
+        # populated by ``myco germinate`` on each successful bootstrap.
+        from myco.core.registry import list_substrates
+
+        entries = list_substrates()
+        return Result(
+            exit_code=0,
+            payload={
+                "mode": "list-substrates",
+                "substrates": [
+                    {
+                        "substrate_id": e.substrate_id,
+                        "path": str(e.path),
+                        "registered_at": e.registered_at.isoformat(),
+                        "last_seen_at": e.last_seen_at.isoformat(),
+                        "exists": e.exists,
+                    }
+                    for e in entries
+                ],
+                "count": len(entries),
+                "live_count": sum(1 for e in entries if e.exists),
+                "stale_count": sum(1 for e in entries if not e.exists),
             },
         )
 
