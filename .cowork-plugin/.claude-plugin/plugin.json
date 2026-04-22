@@ -1,0 +1,21 @@
+{
+  "name": "myco",
+  "version": "0.5.18",
+  "description": "Myco — agent-first cognitive substrate. 18 manifest-driven verbs (germinate / hunger / eat / sense / forage / assimilate / digest / sporulate / traverse / propagate / immune / senesce / fruit / molt / winnow / ramify / graft / brief) over a self-validating markdown+YAML filesystem. 25 lint dimensions enforce contract invariants mechanically. Adds a myco-substrate skill that onboards the agent when the user's workspace contains `_canon.yaml` or the user mentions Myco-flavoured operations.",
+  "author": {
+    "name": "Battam1111",
+    "url": "https://github.com/Battam1111"
+  },
+  "homepage": "https://github.com/Battam1111/Myco",
+  "repository": "https://github.com/Battam1111/Myco",
+  "license": "MIT",
+  "keywords": [
+    "agent-first",
+    "cognitive-substrate",
+    "long-running-agents",
+    "mcp",
+    "mycelium",
+    "self-evolving",
+    "substrate"
+  ]
+}

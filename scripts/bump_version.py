@@ -143,6 +143,17 @@ def main() -> int:
     changes += _bump_plugin_json(
         REPO / ".claude-plugin" / "plugin.json", target, args.dry_run
     )
+    # Cowork plugin bundle carries a parallel plugin.json — its version
+    # must stay in lockstep so the Cowork UI, PyPI release, and Claude
+    # Code plugin all report the same number. The file format is
+    # identical to .claude-plugin/plugin.json, so _bump_plugin_json
+    # reuses cleanly. See .cowork-plugin/README.md for why this ships
+    # as a separate tree from the Claude Code bundle at repo root.
+    changes += _bump_plugin_json(
+        REPO / ".cowork-plugin" / ".claude-plugin" / "plugin.json",
+        target,
+        args.dry_run,
+    )
     changes += _bump_citation_cff(REPO / "CITATION.cff", target, args.dry_run)
     changes += _bump_server_json(REPO / "server.json", target, args.dry_run)
     for line in changes:

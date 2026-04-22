@@ -1,6 +1,14 @@
 """Global substrate registry — the user-level directory of every
 Myco substrate germinated on this machine.
 
+Governing doctrine:
+``docs/architecture/L2_DOCTRINE/genesis.md`` — the substrate-birth
+subsystem. The registry is a side-effect index written at
+``germinate`` time; see also
+``docs/architecture/L1_CONTRACT/protocol.md`` R1 boot-ritual for
+how routing to the right substrate (multi-project pattern)
+interacts with ``_canon.yaml`` resolution.
+
 Lives at ``~/.myco/substrates.yaml`` (XDG-compliant on Linux;
 ``%APPDATA%/.myco/`` on Windows). Per-user, never committed to
 version control, never shared across machines. Modelled on shell

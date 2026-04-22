@@ -111,6 +111,7 @@ servers, idempotent, supports `--dry-run` and `--uninstall`):
 |---|---|---|
 | Claude Code | `myco-install host claude-code` | Writes project `.mcp.json`; `--global` writes `~/.claude.json` |
 | Claude Desktop | `myco-install host claude-desktop` | OS-correct path (macOS / Windows / Linux) |
+| Cowork (Claude Desktop's local-agent-mode) | `myco-install host cowork` | Writes the same MCP config as `claude-desktop` *and* installs the `myco-substrate` plugin skill into every Cowork workspace registry (see [§ 3](#3-cowork-plugin-install-optional)) |
 | Cursor | `myco-install host cursor` | Project `.cursor/mcp.json`; `--global` writes `~/.cursor/mcp.json` |
 | Windsurf | `myco-install host windsurf` | `~/.codeium/windsurf/mcp_config.json` |
 | Zed | `myco-install host zed` | Uses the `context_servers` key, not `mcpServers` |
@@ -125,6 +126,42 @@ what will be written (works for every client above, including the
 TOML-based Codex CLI and YAML-based Goose). Run `myco-install host
 <client> --uninstall` to remove the entry and leave any sibling
 servers untouched.
+
+### Cowork (Claude Desktop's local-agent-mode) — also installs the onboarding skill
+
+Cowork is Claude Desktop's **local-agent-mode** — the Agent Window,
+where Claude acts autonomously on your workspace instead of waiting
+for every turn. Cowork does **not** implement Claude Code's
+session-hook contract, so the `myco_hunger` / `myco_senesce` hooks
+that land for every other host do not fire there. Instead, Cowork
+shapes agent behavior through **Skills** — markdown files with YAML
+frontmatter that match against user intent + agent context.
+
+`myco-install host cowork` does two things in one step:
+
+1. Writes the Myco MCP server entry into `claude_desktop_config.json`
+   (same as `myco-install host claude-desktop`).
+2. Copies the `.cowork-plugin/` template — a skill named `myco-substrate`
+   carrying the R1-R7 onboarding brief — into every Cowork workspace
+   registry at
+   `<APPDATA>/Claude/local-agent-mode-sessions/<owner>/<workspace>/rpm/plugin_myco/`,
+   and upserts a row in each `rpm/manifest.json`.
+
+Either subcommand works:
+
+```bash
+myco-install host cowork             # MCP + plugin (recommended for Cowork users)
+myco-install cowork-plugin           # plugin only (MCP already configured)
+myco-install cowork-plugin --dry-run
+myco-install cowork-plugin --uninstall
+```
+
+`myco-install host --all-hosts` auto-runs the plugin install when
+Claude Desktop is detected, so most users never touch either
+subcommand directly. Restart Claude Desktop after install for the
+skill to load. See `.cowork-plugin/README.md` in the repo for the
+full rationale (why a skill, not a hook; why this install path
+differs from the Claude Code `.claude-plugin/` bundle).
 
 ---
 

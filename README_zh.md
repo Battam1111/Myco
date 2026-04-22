@@ -90,8 +90,9 @@ myco germinate . --substrate-id your-project
 
 一条命令把 Myco 挂进你的 Agent host：
 
-- **Claude Code / Cowork** —— `/plugin marketplace add Battam1111/Myco`，然后 `/plugin install myco@myco`。
-- **其它 MCP host** —— `myco-install <cursor | windsurf | zed | vscode | openclaw | claude-desktop | gemini | codex | goose>`。
+- **Claude Code** —— `/plugin marketplace add Battam1111/Myco`，然后 `/plugin install myco@myco`。
+- **Claude Desktop / Cowork** —— `myco-install host cowork` 同步写 MCP 入口并把 `myco-substrate` 技能装进每个 Cowork 工作区，agent 下次启动就看得见。
+- **其它 MCP host** —— `myco-install host <cursor | windsurf | zed | vscode | openclaw | claude-desktop | gemini-cli | codex-cli | goose>`，或 `--all-hosts` 一键自动检测本机全部 host。
 - **通过官方 MCP Registry** —— 命名空间 [`io.github.Battam1111/myco`](https://registry.modelcontextprotocol.io/v0/servers?search=Battam1111)，支持命名空间自解析的客户端可以直接发现。
 
 其它 9 个 schema 不一致的 host、Python 框架 adapter（LangChain / CrewAI / DSPy / Smolagents / Agno / PraisonAI / MS Agent Framework / Claude Agent SDK）、以及库嵌入示例，完整片段在 [`INSTALL.md`](docs/INSTALL.md)。
@@ -122,7 +123,8 @@ host 侧零配置。R1-R7 住在 MCP server 自己身上，所以每个客户端
 
 ## 集成
 
-- **Claude Code 和 Cowork。** 官方 plugin 一条命令接好 MCP + hooks + slash skills。或者手工拷 `.claude/`。
+- **Claude Code。** 官方 plugin 一条命令接好 MCP + hooks + slash skills。或者手工拷 `.claude/`。
+- **Cowork（Claude Desktop local-agent-mode）。** `myco-install host cowork` 一次装好 MCP + `myco-substrate` onboarding 技能，Cowork agent 下一个 session 看到 `_canon.yaml` 就会按 R1-R7 走。Cowork 不暴露 hooks，所以 boot ritual 挂在 skill 上 —— 完整理由见 [`INSTALL.md`](docs/INSTALL.md) 和 `.cowork-plugin/README.md`。
 - **任何 MCP host。** 十个通过 `myco-install` 自动化；另外九个带各自精确片段在 [`INSTALL.md`](docs/INSTALL.md)；其它客户端用 `mcp-server-myco` stdio 直接跑。
 - **Python agent 框架。** LangChain、CrewAI、DSPy、Smolagents、Agno、PraisonAI、MS Agent Framework、Claude Agent SDK 全部通过 `StdioServerParameters(command="mcp-server-myco")` 消费 Myco。
 - **下游 substrate。** `myco propagate` 负责发布，adapter 住在 `myco.symbionts`。
