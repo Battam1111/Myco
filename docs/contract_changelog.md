@@ -11,6 +11,75 @@ Format: one section per `contract_version`, newest first.
 
 ---
 
+## v0.5.15 — 2026-04-22 — Universal host installer (`--all-hosts`) + cowork alias
+
+Contract-layer molt with **zero contract-surface deltas**. Closes
+the ergonomic gap v0.5.14 left open: auto-discovery at runtime is
+free, but first-time host configuration still required 10 separate
+commands. v0.5.15 compresses that to one.
+
+### What changed
+
+- **Nothing in the R1–R7 rule text.**
+- **Nothing in the category enum / exit-policy / exit codes.**
+- **Nothing in the 18-verb manifest surface.**
+- **Nothing in the dimension roster count** (still 25).
+
+### Added — `myco-install host --all-hosts`
+
+`myco-install` grows a new flag that auto-detects every MCP host
+installed on the operator's machine and runs the per-host install
+for each detection hit:
+
+```
+$ myco-install host --all-hosts
+[installed] claude-code  →  wrote ~/.claude.json
+[installed] claude-desktop  →  wrote %APPDATA%/Claude/claude_desktop_config.json
+[installed] cursor  →  wrote ~/.cursor/mcp.json
+[skipped]   windsurf  (not detected on this machine)
+[skipped]   zed  (not detected on this machine)
+...
+3/3 host(s) installed, 8 skipped, 0 errored.
+```
+
+Detection probes each host's user-level config directory (`~/.cursor/`,
+`~/.codex/`, `%APPDATA%/Claude/`, …) plus `shutil.which("openclaw")`
+for the one binary-on-PATH host. Hosts absent from the probe signal
+are skipped with a note; they can still be installed manually by
+name.
+
+`--all-hosts` implies `--global`: the intent is "every host on this
+machine knows where Myco is, regardless of which folder I'm in", so
+writing project-level configs to whatever cwd happens to be active
+would be the wrong level of scope.
+
+Public API: `myco.install.clients.detect_installed_hosts(home=None)`
+returns `{client: signal-or-None}` for every entry in `CLIENTS`.
+Callers use it to drive custom provisioning flows.
+
+### Added — `cowork` as an explicit host target
+
+Cowork is a mode inside Claude Desktop — the config file is shared
+(`claude_desktop_config.json`). Previously operators searching for
+"Cowork MCP setup" had to know this; now `myco-install host cowork`
+just works and writes the right file. The `--all-hosts` path
+dedups so we don't write the same file twice.
+
+### Break from v0.5.14
+
+None at the contract layer. Operators upgrading from v0.5.14
+require no code, canon, or script changes.
+
+Observable delta:
+- Operators with multiple MCP hosts installed can now run one
+  command instead of ten.
+- The positional `client` argument on `myco-install host` is now
+  optional (``nargs="?"``) — it's required when `--all-hosts` is
+  absent, forbidden-in-intent when `--all-hosts` is present. The
+  CLI emits a clear usage error when neither is given.
+
+---
+
 ## v0.5.14 — 2026-04-22 — MCP roots/list auto-discovery (a.k.a. "一劳永逸")
 
 Contract-layer molt with **zero contract-surface deltas**. The

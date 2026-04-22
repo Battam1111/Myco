@@ -5,8 +5,8 @@
 # `_ref`-suffixed fields, not here.
 
 schema_version: "1"
-contract_version: "v0.5.14"
-synced_contract_version: "v0.5.14"
+contract_version: "v0.5.15"
+synced_contract_version: "v0.5.15"
 identity:
   substrate_id: "myco-self"
   tags:
@@ -128,5 +128,5 @@ metrics:
   test_count: 668
 
 waves:
-  current: 8
+  current: 9
   log_ref: "docs/contract_changelog.md"
