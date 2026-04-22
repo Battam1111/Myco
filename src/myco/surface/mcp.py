@@ -26,6 +26,7 @@ through the same dispatcher the CLI uses.
 
 from __future__ import annotations
 
+import os
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
@@ -103,6 +104,17 @@ version, and any HIGH reflex that is unresolved. If `pulse.rules_hint`
 says "hunger not yet called this session", call myco_hunger before
 your next substantive action.
 
+**Multi-project hint (v0.5.17).** When you know which project folder
+the user is working on, pass `project_dir="<absolute path>"` in every
+tool call's kwargs. Hosts that don't implement the MCP `roots/list`
+capability (Claude Desktop / Cowork, at time of writing) rely on this
+to route to the right substrate; otherwise Myco falls through to env
+vars and finally cwd, which may not match the user's workspace. The
+`pulse.project_dir_source` field on every response tells you which
+level of the resolution chain was used — if it says anything other
+than `kwargs.project_dir` and the user is in a specific folder, pass
+it explicitly next call.
+
 Five root principles from L0 (docs/architecture/L0_VISION.md):
 Only For Agent / 永恒吞噬 / 永恒进化 / 永恒迭代 / 万物互联.
 """
@@ -171,6 +183,7 @@ def _compute_substrate_pulse(
     verb: str,
     project_dir: Path | None = None,
     hunger_called: bool = False,
+    project_dir_source: str | None = None,
 ) -> dict[str, Any]:
     """Produce the sidecar payload attached to every tool response.
 
@@ -178,6 +191,15 @@ def _compute_substrate_pulse(
     touch notes/. The goal is a constant-time reminder that R1-R7
     exist and that the agent is inside a Myco substrate, not a
     stateless function call.
+
+    v0.5.17: ``project_dir_source`` + ``resolved_project_dir`` are
+    included in the returned dict when the caller knows them, so the
+    agent can see at a glance WHICH level of the substrate-resolution
+    chain answered (explicit arg / MCP roots / env var / cwd). This
+    is the canonical debugging aid for the "I'm in folder X but Myco
+    thinks I'm in Y" class of mystery — the pulse now says where
+    Myco got its answer. Harmless when ``project_dir_source`` is
+    ``None`` — the fields stay absent rather than lying.
     """
     from myco.core.trust import safe_frontmatter_field
 
@@ -202,7 +224,7 @@ def _compute_substrate_pulse(
     # hostile canon could plant.
     raw_substrate_id = identity.get("substrate_id") or "(no substrate detected)"
     raw_contract_version = canon.get("contract_version") or "(unknown)"
-    return {
+    pulse: dict[str, Any] = {
         "substrate_id": safe_frontmatter_field(str(raw_substrate_id), max_len=128),
         "contract_version": safe_frontmatter_field(
             str(raw_contract_version), max_len=64
@@ -210,6 +232,17 @@ def _compute_substrate_pulse(
         "hard_contract_ref": "docs/architecture/L1_CONTRACT/protocol.md",
         "rules_hint": rules_hint,
     }
+    # v0.5.17: resolution transparency. Included only when we know
+    # how project_dir was resolved (MCP path; CLI path leaves it None).
+    if project_dir_source is not None:
+        pulse["project_dir_source"] = safe_frontmatter_field(
+            project_dir_source, max_len=64
+        )
+        pulse["resolved_project_dir"] = safe_frontmatter_field(
+            str(project_dir) if project_dir else "(none — build_context picked cwd)",
+            max_len=512,
+        )
+    return pulse
 
 
 # ---------------------------------------------------------------------------
@@ -296,11 +329,22 @@ async def _invoke(
     """
     args_in = dict(args)  # mutable copy; we may pop/overwrite project_dir
 
+    # v0.5.17: centralise the full resolution chain here (was split
+    # between _invoke and build_context). Track the source so the
+    # pulse can tell the agent which level answered — the canonical
+    # debugging aid for "why did Myco pick substrate X when I'm in
+    # folder Y?" mysteries.
+    source: str  # one of: kwargs.project_dir, mcp.roots/list,
+    #   env.MYCO_PROJECT_DIR, env.CLAUDE_PROJECT_DIR, Path.cwd()
+    project_dir: Path | None = None
+
     # Level 1: explicit kwargs.project_dir (fix for a latent bug —
     # previously this key survived only long enough to compute the
     # pulse sidecar; it never reached dispatch or build_context).
     project_dir_str = args_in.pop("project_dir", None)
-    project_dir: Path | None = Path(project_dir_str) if project_dir_str else None
+    if project_dir_str:
+        project_dir = Path(str(project_dir_str)).expanduser()
+        source = "kwargs.project_dir"
 
     # Level 2: MCP roots/list — query the client for workspace roots.
     # v0.5.16: also capture the first raw root (regardless of whether
@@ -311,10 +355,26 @@ async def _invoke(
         discovered = await _resolve_project_via_roots(mcp_ctx)
         if discovered is not None:
             project_dir = discovered
+            source = "mcp.roots/list"
         else:
             workspace_root = await _detect_workspace_root(mcp_ctx)
 
-    # Levels 3-4 fall through to build_context's own env / cwd chain.
+    # Level 3/4: env vars. Walk MYCO_PROJECT_DIR then CLAUDE_PROJECT_DIR
+    # (mirrors build_context's chain — inlined here so we can report
+    # the exact source back to the agent via the pulse).
+    if project_dir is None:
+        for env_var in ("MYCO_PROJECT_DIR", "CLAUDE_PROJECT_DIR"):
+            env_val = os.environ.get(env_var, "").strip()
+            if env_val:
+                project_dir = Path(env_val).expanduser()
+                source = f"env.{env_var}"
+                break
+
+    # Level 5: cwd. Record as the source even though build_context
+    # would have reached this anyway — makes the report complete.
+    if project_dir is None:
+        source = "Path.cwd()"
+
     try:
         result = dispatch(
             spec.name,
@@ -337,12 +397,19 @@ async def _invoke(
             )
         raise
 
+    # If level 5 (cwd) was the answer, fill in the resolved path now
+    # that dispatch has happened. (build_context's resolve -> substrate
+    # root might differ slightly from cwd if it walked up — we report
+    # the dispatch-requested value.)
+    pulse_project_dir = project_dir if project_dir is not None else Path.cwd()
+
     if spec.name == "hunger":
         state.hunger_called = True
     pulse = _compute_substrate_pulse(
         verb=spec.name,
-        project_dir=project_dir,
+        project_dir=pulse_project_dir,
         hunger_called=state.hunger_called,
+        project_dir_source=source,
     )
     return {
         "exit_code": result.exit_code,
