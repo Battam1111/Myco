@@ -5,8 +5,8 @@
 # `_ref`-suffixed fields, not here.
 
 schema_version: "1"
-contract_version: "v0.5.10"
-synced_contract_version: "v0.5.10"
+contract_version: "v0.5.11"
+synced_contract_version: "v0.5.11"
 identity:
   substrate_id: "myco-self"
   tags:
@@ -37,6 +37,14 @@ system:
       - ".mcp.json"
       - "hooks/**"
       - "skills/**"
+      # v0.5.11 MCP Registry onboarding (registry.modelcontextprotocol.io).
+      # Declares package identifier / transport / PyPI pinning so clients
+      # can discover + install Myco via the official registry. README also
+      # carries an `<!-- mcp-name: io.github.battam1111/myco -->` sentinel
+      # used by the registry to verify the PyPI package belongs to this
+      # GitHub namespace.
+      - "server.json"
+      - "CITATION.cff"
   hard_contract:
     rules_ref: "docs/architecture/L1_CONTRACT/protocol.md"
     rule_count: 7
@@ -114,5 +122,5 @@ metrics:
   test_count: 668
 
 waves:
-  current: 4
+  current: 5
   log_ref: "docs/contract_changelog.md"

@@ -219,3 +219,6 @@ Zero host-side configuration. Works on every MCP client.
 Contributing: `pip install -e ".[dev]"`; architectural changes land as dated craft docs under [`docs/primordia/`](docs/primordia/).
 
 MIT · [`LICENSE`](LICENSE) · [PyPI](https://pypi.org/project/myco/) · [Releases](https://github.com/Battam1111/Myco/releases)
+
+<!-- mcp-name: io.github.battam1111/myco -->
+
