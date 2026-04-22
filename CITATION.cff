@@ -32,7 +32,7 @@ keywords:
   - biomimetics
   - autonomous-agents
   - knowledge-management
-version: "0.5.16"
+version: "0.5.17"
 date-released: "2026-04-22"
 preferred-citation:
   type: software
@@ -42,5 +42,5 @@ preferred-citation:
       given-names: "1111"
       alias: Battam1111
   url: "https://github.com/Battam1111/Myco"
-  version: "0.5.16"
+  version: "0.5.17"
   year: 2026
