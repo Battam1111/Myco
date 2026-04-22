@@ -1,0 +1,107 @@
+name: Bug report
+description: Something in Myco is broken or behaves unexpectedly.
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report. Myco is an agent-first
+        substrate, so bug reports are most useful when they include the
+        exact command the agent ran + the Myco output. Run the four
+        relevant introspection commands and paste their output below —
+        they take under 10 seconds and answer 90% of our follow-up
+        questions preemptively.
+
+  - type: input
+    id: myco_version
+    attributes:
+      label: Myco version
+      description: Output of `python -m myco --version`
+      placeholder: "myco 0.5.10"
+    validations:
+      required: true
+
+  - type: input
+    id: python_version
+    attributes:
+      label: Python version
+      placeholder: "3.12.3"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Linux (distro + version below)
+        - macOS (version below)
+        - Windows (version below)
+        - Other (specify below)
+    validations:
+      required: true
+
+  - type: input
+    id: os_detail
+    attributes:
+      label: OS detail
+      placeholder: "Ubuntu 24.04 / macOS 15.2 / Windows 11 24H2 / ..."
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: The exact commands (or MCP tool calls) that trigger the bug.
+      placeholder: |
+        1. `myco germinate --project-dir /tmp/repro --substrate-id repro`
+        2. `cd /tmp/repro && myco eat --content "hello"`
+        3. `myco assimilate`
+        4. (bug happens here)
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+      placeholder: "assimilate should return exit 0 and move n_*.md to notes/integrated/"
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: What actually happened
+      description: Include the full error output + exit code.
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: hunger
+    attributes:
+      label: "`myco --json hunger` output"
+      description: Paste the JSON output. Hunger surfaces canon drift + raw-note backlog + reflex signals.
+      render: json
+
+  - type: textarea
+    id: immune
+    attributes:
+      label: "`myco --json immune` output (findings only)"
+      description: Just the `findings` array from the JSON output is enough.
+      render: json
+
+  - type: textarea
+    id: canon
+    attributes:
+      label: "Relevant `_canon.yaml` excerpt"
+      description: If the bug might depend on canon shape, paste the relevant block.
+      render: yaml
+
+  - type: textarea
+    id: other
+    attributes:
+      label: Anything else
+      description: Pre-existing substrate customization, unusual environment, screenshots, etc.

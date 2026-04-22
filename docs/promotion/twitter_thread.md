@@ -1,0 +1,172 @@
+# Twitter / X thread draft
+
+Twelve-tweet thread. Each tweet is under 280 chars. Numbering
+uses "1/" convention; replies stay linked.
+
+---
+
+**1/**
+
+```
+I built a long-term memory layer for LLM agents that survives across sessions, projects, and model versions.
+
+Not a framework. Not a vector DB. Not an API.
+
+A filesystem shape + 18 verbs + a lint system that enforces the contract mechanically.
+
+Here's the shape ↓
+```
+
+**2/**
+
+```
+The agent is the sole consumer. Humans don't browse Myco — they speak natural language to the agent.
+
+Every artefact (canon, notes, doctrine pages) is primary material for the agent. Human-readable only by accident.
+
+This is L0 principle 1: Only For Agent (人类无感知).
+```
+
+**3/**
+
+```
+The kernel itself is a substrate.
+
+Myco's source tree uses Myco — _canon.yaml at the repo root, notes/ and docs/ are agent-read artefacts.
+
+"Editable by default" isn't a feature. It's a doctrine. Your agent maintains the kernel that maintains your substrate.
+```
+
+**4/**
+
+```
+18 verbs, grouped by biological subsystem:
+
+🌱 germinate
+🧪 eat / hunger / sense / forage
+🔥 assimilate / digest / sporulate
+🩸 traverse / propagate
+🛡️ immune
+🍄 senesce / fruit / molt / winnow / ramify / graft / brief
+
+CLI + MCP both derive from the same manifest.yaml.
+```
+
+**5/**
+
+```
+The hard contract: R1-R7. Seven rules every session honors.
+
+R1: Session boot = `myco hunger`
+R2: Session end = `myco senesce`
+R3: Sense before asserting
+R4: Eat insights the moment they occur
+R5: Cross-reference on creation
+R6: Write only to allowed surface
+R7: Top-down subordination
+```
+
+**6/**
+
+```
+25 lint dimensions enforce the contract mechanically.
+
+R6 (write surface) in v0.5.8 went from "checked at lint time" to "every verb refuses writes outside the surface, raises WriteSurfaceViolation exit 3".
+
+Discipline-by-doctrine → discipline-by-mechanism.
+```
+
+**7/**
+
+```
+The mycelium graph isn't embedding-based.
+
+Edges come from four explicit sources: canon _ref fields, note frontmatter references:, markdown [text](path) links, and AST import edges between Python modules.
+
+Deterministic. Diffable. Debuggable. "Why did retrieval miss?" becomes a graph query.
+```
+
+**8/**
+
+```
+Contract evolution is a first-class verb loop:
+
+fruit → writes a 3-round craft doc
+winnow → gates the craft's shape
+molt → bumps contract_version + logs the change
+
+10 molts since v0.5.0. Every molt has a craft-doc trail. No silent contract drift.
+```
+
+**9/**
+
+```
+10 MCP host integrations via one `myco-install` command:
+
+Claude Code · Claude Desktop · Cursor · Windsurf · Zed · VS Code · Codex CLI · Gemini CLI · Goose · OpenClaw
+
+Every tool response carries a pulse sidecar echoing R1-R7 to the agent on every call.
+```
+
+**10/**
+
+```
+Living bet:
+
+Myco wagers that agent-coordination vocabulary survives model-intelligence growth the way cp/mv/grep survived IDEs.
+
+If a future agent can hold a 1M-file substrate in context and act coherently without verbs, Myco's surface is scaffolding a smarter agent discards.
+
+We revisit this every MAJOR release.
+```
+
+**11/**
+
+```
+v0.5.10 shipped today (actually yesterday by now).
+
+757 tests passing. 0 immune findings on the self-substrate. Editable install on PyPI. MIT-licensed. Python 3.10+.
+
+Every lint dim that fires on myco-self is real signal, not noise.
+```
+
+**12/**
+
+```
+Repo: https://github.com/Battam1111/Myco
+PyPI: pip install myco (or pipx run --spec 'myco[mcp]' myco-install fresh ~/myco)
+Docs: https://github.com/Battam1111/Myco/tree/main/docs
+
+18 verbs. 25 lint dims. Kernel is a substrate.
+
+Would love to hear from anyone else thinking about agent persistence as a contract problem, not a retrieval problem.
+```
+
+---
+
+## Posting notes
+
+- **Cadence**: post tweets 30-60 seconds apart so the thread
+  stays tight; not 5-minute gaps that lose readers.
+- **First tweet** pins best via native Twitter "start thread"
+  flow; don't retweet your own first tweet.
+- **Don't use 🧵 emoji** — audiences have pattern-trained on
+  "🧵" = start of marketing thread. The "Here's the shape ↓"
+  line in tweet 1 serves the same function without the code
+  smell.
+- **Tweet 4's verb list** — the emoji groupings are optional.
+  Remove them if the thread is long + you want tight text-only.
+- **Tweet 12** closes with a specific invitation ("agent
+  persistence as a contract problem"); the specificity filters
+  respondents. Generic invitations get generic responses.
+
+## After the thread
+
+If the thread gets > 100 engagements in the first 6 hours,
+reply to the first tweet with a single follow-up tweet linking
+the HN submission (or vice versa). Don't double-post; cross-link.
+
+If engagement stays low, don't delete. Let it sit. Twitter
+rewards consistency over virality; a quiet thread now still
+feeds discovery later when someone searches "agent memory
+substrate".
