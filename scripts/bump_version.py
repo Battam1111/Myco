@@ -86,7 +86,12 @@ def main() -> int:
     parser.add_argument(
         "--no-test",
         action="store_true",
-        help="Skip the trailing `pytest tests -q -x` verification.",
+        help="Skip the trailing pytest + lint + type verification.",
+    )
+    parser.add_argument(
+        "--no-lint",
+        action="store_true",
+        help="Skip ruff + mypy checks (still runs pytest unless --no-test).",
     )
     args = parser.parse_args()
 
@@ -119,8 +124,12 @@ def main() -> int:
 
     print()  # blank line before diff
     changes: list[str] = []
-    changes += _bump_pyversion(REPO / "src" / "myco" / "__init__.py", target, args.dry_run)
-    changes += _bump_plugin_json(REPO / ".claude-plugin" / "plugin.json", target, args.dry_run)
+    changes += _bump_pyversion(
+        REPO / "src" / "myco" / "__init__.py", target, args.dry_run
+    )
+    changes += _bump_plugin_json(
+        REPO / ".claude-plugin" / "plugin.json", target, args.dry_run
+    )
     changes += _bump_citation_cff(REPO / "CITATION.cff", target, args.dry_run)
     changes += _bump_server_json(REPO / "server.json", target, args.dry_run)
     for line in changes:
@@ -142,12 +151,41 @@ def main() -> int:
             return 4
 
     if not args.no_test:
-        cmd = [sys.executable, "-m", "pytest", "tests", "-q", "-x", "--no-header"]
-        print(f"\n→ {' '.join(cmd)}")
-        rc = subprocess.call(cmd, cwd=REPO)
-        if rc != 0:
-            _err(f"pytest failed (exit {rc}). The bump left your worktree modified; inspect + fix.")
-            return 4
+        # Mirror ci.yml's "test" job exactly so the bump pre-flight
+        # catches everything CI would catch. Historical gap: v0.5.13
+        # prep missed `ruff format --check` locally because only
+        # `ruff check` was in the mental checklist; CI caught it on
+        # the push. Running the full quintet here closes the gap.
+        gates: list[tuple[str, list[str]]] = []
+        if not args.no_lint:
+            gates.append(
+                ("ruff lint", [sys.executable, "-m", "ruff", "check", "src", "tests"])
+            )
+            gates.append(
+                (
+                    "ruff format (check only)",
+                    [sys.executable, "-m", "ruff", "format", "--check", "src", "tests"],
+                )
+            )
+            gates.append(("mypy", [sys.executable, "-m", "mypy", "src/myco"]))
+        gates.append(
+            (
+                "pytest",
+                [sys.executable, "-m", "pytest", "tests", "-q", "-x", "--no-header"],
+            )
+        )
+        gates.append(("myco immune", [sys.executable, "-m", "myco", "immune"]))
+
+        for label, cmd in gates:
+            print(f"\n→ [{label}] {' '.join(cmd)}")
+            rc = subprocess.call(cmd, cwd=REPO)
+            if rc != 0:
+                _err(
+                    f"{label} failed (exit {rc}). The bump left your worktree "
+                    "modified; inspect + `git restore` to roll back, fix the "
+                    "underlying issue, then re-run the bump."
+                )
+                return 4
 
     print(f"\n✓ bumped: {current} → {target}")
     print(
@@ -248,7 +286,9 @@ def _bump_citation_cff(path: Path, target: str, dry_run: bool) -> list[str]:
     if not before_matches:
         return [f"[skip]  {_rel(path)} (no version: lines)"]
     if all(v == target for _, v in before_matches):
-        return [f"[skip]  {_rel(path)} already at {target} ({len(before_matches)} line(s))"]
+        return [
+            f"[skip]  {_rel(path)} already at {target} ({len(before_matches)} line(s))"
+        ]
     new = re.sub(pattern, rf'\1"{target}"\3', text)
     if not dry_run:
         path.write_text(new, encoding="utf-8")
