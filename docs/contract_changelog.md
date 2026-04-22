@@ -11,6 +11,135 @@ Format: one section per `contract_version`, newest first.
 
 ---
 
+## v0.5.21 — 2026-04-23 — MCP handler schema hotfix (flat-args regression)
+
+**Zero R1–R7 surface deltas.** Pure host-axis hotfix. Any verb that
+takes parameters was unusable via MCP in v0.5.20 and earlier — this
+release makes them work.
+
+### Symptom
+
+`myco_eat`, `myco_sense`, `myco_digest`, and every other
+parameter-taking verb returned
+
+```
+eat: must pass one of --content '<text>' | --path <file-or-dir> | --url <url>.
+```
+
+regardless of what the agent put in the MCP tool call input.
+`myco_hunger` / `myco_forage` / `myco_immune` / `myco_traverse`
+kept working because they have no required args — their handlers
+don't care if the kwargs dict is empty.
+
+### Root cause
+
+`build_server` in `myco.surface.mcp` registered every verb as:
+
+```python
+async def _handler(ctx: Context, **kwargs: Any) -> dict: ...
+```
+
+FastMCP's schema derivation (in
+`mcp.server.fastmcp.utilities.func_metadata`) runs
+`inspect.signature(fn)` and sees `**kwargs: Any` as **a single
+required dict parameter named `"kwargs"`** — not as a varkw sink.
+The emitted JSON Schema was:
+
+```json
+{"required": ["kwargs"], "properties": {"kwargs": {...}}, "type": "object"}
+```
+
+Agents following that schema sent either:
+
+- `{"content": "..."}` (flat, because the agent has common sense) →
+  pydantic ValidationError at the MCP boundary: `kwargs: Field required`.
+- `{"kwargs": {"content": "..."}}` (nested, matching the schema) →
+  FastMCP binds `kwargs = {"content": "..."}` which collects into
+  the handler's Python varkw as `{"kwargs": {"content": "..."}}`.
+  Then `build_handler_args(eat, {"kwargs": {...}})` treats the
+  top-level key `kwargs` as unknown and defaults every declared
+  manifest arg (`content`, `path`, `url`) to `None`. Eat's handler
+  reads `args.get("content")` → `None` → UsageError.
+
+Either way, the real args never reached the verb. And because the
+tool schema lied about the shape, agents couldn't discover the
+correct call shape from the tool's own advertised surface.
+
+### Fix
+
+`src/myco/surface/mcp.py`:
+
+- New `_build_handler_signature(spec)` builds an
+  `inspect.Signature` with one `Parameter` per manifest arg
+  (typed, defaulted per manifest), plus `ctx: Context` and an
+  optional `project_dir` override.
+- `_make_handler` now assigns that Signature to the handler's
+  `__signature__` before registration. FastMCP's introspection
+  respects `__signature__`, so the emitted JSON Schema now has one
+  property per verb input — no "kwargs" wrapper. Python runtime
+  still gets `**kwargs` in the actual function body, so nothing
+  else about binding changes.
+- Handler body drops `None` values before `_invoke` so optional
+  args that FastMCP default-binds to `None` don't shadow the
+  manifest's own default-providing logic in `build_handler_args`
+  (relevant for args like `source` whose manifest default is
+  `"agent"`, not `None`).
+
+### Tests
+
+Seven regression tests lock the fix shape (`tests/unit/surface/test_mcp.py`):
+
+- `test_handler_signature_has_manifest_args_not_varkw` — no verb
+  handler may expose a bare `**kwargs` to introspection.
+- `test_handler_signature_marks_required_args_without_default` —
+  `required: true` manifest args surface as default-less Parameters.
+- `test_handler_signature_exposes_project_dir_override` —
+  multi-project routing override is discoverable on every verb.
+- `test_fastmcp_tool_schema_exposes_individual_properties` —
+  end-to-end schema shape via `build_server().list_tools()`.
+- `test_fastmcp_call_eat_with_flat_args_succeeds` — closing
+  regression: actual `myco_eat` flat call over FastMCP succeeds.
+- `test_fastmcp_call_sense_with_flat_query_arg_succeeds` — same
+  for a required-arg verb (different pydantic codepath).
+- `test_fastmcp_none_values_dont_shadow_manifest_defaults` — guards
+  the None-stripping in the handler body.
+
+### Break from v0.5.20
+
+None for well-formed agents. Agents that were working around the
+bug by sending nested `{"kwargs": {...}}` will now see their
+double-wrapped args split across two namespaces (top-level
+`kwargs` is now an undeclared property and gets preserved by
+`build_handler_args` but ignored by the verb handlers). In
+practice: nobody was successfully using the nested shape (it
+couldn't reach the handler either way), so there's no real break.
+
+### Operator action
+
+```
+pip install -U myco            # or pip install --upgrade myco[mcp]
+```
+
+Then restart any open Cowork / Claude Desktop session so the MCP
+server boots with the fixed code. No re-upload of the `.plugin`
+bundle needed — the bundle only declares which Python module to
+spawn (`python -m myco.mcp`); the module code comes from the
+user's PyPI install.
+
+### Lesson
+
+v0.5.20 shipped a plugin bundle that routed every manifest verb
+to an MCP handler that the MCP surface couldn't actually dispatch
+to — and no test caught it because the tests called `_invoke`
+directly (the internal dispatcher), bypassing FastMCP's schema
+derivation entirely. The regression gap was "we tested the
+dispatcher" without "we tested the MCP boundary the client talks
+to." v0.5.21 closes that gap by exercising `FastMCP.call_tool` in
+its tests, not just `_invoke`. Future MCP changes must pass
+through `call_tool` in at least one test before shipping.
+
+---
+
 ## v0.5.20 — 2026-04-23 — Cowork plugin install: retraction + drag-drop fix
 
 **v0.5.19 shipped a broken installer.** This release retracts the
