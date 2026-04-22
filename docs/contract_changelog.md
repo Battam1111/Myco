@@ -11,6 +11,83 @@ Format: one section per `contract_version`, newest first.
 
 ---
 
+## v0.5.13 — 2026-04-22 — MYCO_PROJECT_DIR env-var fallback + bump-script UTF-8 fix
+
+Contract-layer molt with **zero contract-surface deltas**, same
+class as v0.5.9 through v0.5.12. Ships one feature + one tooling fix.
+
+### What changed
+
+- **Nothing in the R1–R7 rule text.**
+- **Nothing in the category enum, the exit-policy grammar, or the
+  exit-code ladder.**
+- **Nothing in the 18-verb manifest surface.**
+- **Nothing in the dimension roster count** (still 25).
+
+### Added — `MYCO_PROJECT_DIR` env-var fallback
+
+`myco.surface.manifest.build_context` now reads a three-level
+substrate-resolution chain:
+
+  1. Explicit `project_dir` argument (CLI `--project-dir`, MCP
+     `kwargs.project_dir`).
+  2. **`MYCO_PROJECT_DIR` environment variable (new).**
+  3. `Path.cwd()` — legacy behaviour, unchanged.
+
+**Why.** Claude Desktop — and by inference several other MCP hosts —
+spawns MCP server subprocesses with `cwd = C:\Windows\System32` on
+Windows and silently drops the `mcpServers.<name>.cwd` field from
+the host config. Without this feature, any substrate outside the
+host process's own cwd was unreachable: `find_substrate_root`
+walked up from System32, found no `_canon.yaml` anywhere, and
+raised `SubstrateNotFound` on every tool call.
+
+**The fix.** `env` *is* part of the standard MCP config schema and
+every host honours it. Operators pin a substrate via:
+
+    "myco": {
+      "command": "...",
+      "args": ["-m", "myco.mcp"],
+      "env": { "MYCO_PROJECT_DIR": "/path/to/substrate" }
+    }
+
+`~` expansion runs on the env-var path so `MYCO_PROJECT_DIR=~/project`
+works cross-platform without relying on shell expansion.
+
+**Tests.** Three new unit tests in `tests/unit/surface/test_manifest.py`
+cover the three precedence outcomes — env wins over cwd, explicit
+arg wins over env, whitespace-only env falls through to cwd.
+
+### Fixed — `scripts/bump_version.py` Windows console UnicodeEncodeError
+
+The release-helper script printed `✓` and `→` glyphs in status
+output, which crashed on Windows consoles running cp936 (gbk) / cp1252
+with a `UnicodeEncodeError`. The version bump itself completed
+before the print — no file was ever left half-written — but the
+script exited non-zero, obscuring that fact.
+
+Fix: reconfigure `sys.stdout` / `sys.stderr` to UTF-8 with
+`errors='replace'` at script start. Python 3.7+ is required for
+`.reconfigure()`; older Pythons fall through the `try/except` and
+keep the original encoding. Glyphs now print cleanly on modern
+Windows Terminal / PowerShell and degrade to replacement
+characters on legacy consoles instead of crashing.
+
+### Break from v0.5.12
+
+None at the contract layer. Operators upgrading from v0.5.12
+require **no code changes, no canon edits, no script adjustments**.
+
+Observable deltas:
+- MCP host configs that use `cwd` (previously broken on Claude
+  Desktop) can keep working — but switching to `env` is recommended
+  because it's universal and explicit. See
+  [`docs/INSTALL.md`](INSTALL.md) / the host-specific snippet.
+- Claude Code substrates that rely on shell cwd are unchanged.
+  The env fallback only fires when `project_dir` is unset.
+
+---
+
 ## v0.5.12 — 2026-04-22 — MCP Registry namespace-casing hotfix
 
 Contract-layer molt with **zero contract-surface deltas**. v0.5.11
