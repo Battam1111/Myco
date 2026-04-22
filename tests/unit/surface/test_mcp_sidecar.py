@@ -107,61 +107,57 @@ def test_server_state_starts_cold() -> None:
     assert state.hunger_called is False
 
 
-def test_invoke_wraps_response_with_pulse(tmp_path: Path) -> None:
+def test_invoke_wraps_response_with_pulse(genesis_substrate: Path) -> None:
     """Every tool response must carry a substrate_pulse dict — the
     very point of the sidecar.
     """
-    (tmp_path / "_canon.yaml").write_text(
-        "schema_version: '1'\n"
-        "contract_version: 'v0.4.1-test'\n"
-        "identity:\n"
-        "  substrate_id: 'invoke-test'\n"
-        "  entry_point: 'MYCO.md'\n"
-        "system:\n"
-        "  write_surface:\n"
-        "    allowed: ['notes/**']\n",
-        encoding="utf-8",
-    )
+    import asyncio
+
+    # v0.5.14: ``_invoke`` now correctly passes ``project_dir`` through
+    # to ``build_context`` (fixing a prior latent bug where the key was
+    # dropped by ``build_handler_args``). That means the substrate has
+    # to actually validate; use the shared ``genesis_substrate`` fixture
+    # instead of the prior minimal inline canon.
     m = load_manifest()
     sense_spec = m.by_name("sense")
     state = _ServerState()
-    result = _invoke(
-        sense_spec,
-        m,
-        {"query": "x", "project_dir": str(tmp_path)},
-        state,
+    # ``_invoke`` became async in v0.5.14 to accommodate ``roots/list``
+    # discovery. When ``mcp_ctx`` is None (as here), no coroutine I/O
+    # actually fires — but the function itself is a coroutine, so we
+    # drive it via ``asyncio.run``.
+    result = asyncio.run(
+        _invoke(
+            sense_spec,
+            m,
+            {"query": "x", "project_dir": str(genesis_substrate)},
+            state,
+        )
     )
     assert "substrate_pulse" in result
-    assert result["substrate_pulse"]["substrate_id"] == "invoke-test"
+    # ``genesis_substrate`` germinates with substrate_id "test-substrate".
+    assert result["substrate_pulse"]["substrate_id"] == "test-substrate"
 
 
-def test_invoke_sets_hunger_called_on_hunger(tmp_path: Path) -> None:
+def test_invoke_sets_hunger_called_on_hunger(genesis_substrate: Path) -> None:
     """After a hunger invocation, subsequent pulses should hint at R3
     rather than R1.
     """
-    (tmp_path / "_canon.yaml").write_text(
-        "schema_version: '1'\n"
-        "contract_version: 'v0.4.1-test'\n"
-        "identity:\n"
-        "  substrate_id: 'hunger-tracking-test'\n"
-        "  entry_point: 'MYCO.md'\n"
-        "system:\n"
-        "  write_surface:\n"
-        "    allowed: ['notes/**']\n",
-        encoding="utf-8",
-    )
+    import asyncio
+
     m = load_manifest()
     hunger_spec = m.by_name("hunger")
     state = _ServerState()
     assert state.hunger_called is False
-    _invoke(hunger_spec, m, {"project_dir": str(tmp_path)}, state)
+    asyncio.run(_invoke(hunger_spec, m, {"project_dir": str(genesis_substrate)}, state))
     assert state.hunger_called is True
 
     sense_spec = m.by_name("sense")
-    second = _invoke(
-        sense_spec,
-        m,
-        {"query": "x", "project_dir": str(tmp_path)},
-        state,
+    second = asyncio.run(
+        _invoke(
+            sense_spec,
+            m,
+            {"query": "x", "project_dir": str(genesis_substrate)},
+            state,
+        )
     )
     assert "R3" in second["substrate_pulse"]["rules_hint"]
