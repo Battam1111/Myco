@@ -134,6 +134,60 @@ Write messages that explain the why; anything clearer than "update"
 is welcome. (Maintainers use `Stage X.Y: <description>` internally;
 that convention is not required of you.)
 
+## Release automation
+
+`.github/workflows/release.yml` fans every tag push out to the four
+channels that must stay in lockstep: PyPI, the MCP Registry, the
+GitHub release, and the tagged commit on `main`. The pre-flight
+step inside the workflow verifies that `GITHUB_REF` matches
+`src/myco/__init__.py`'s `__version__`, `server.json::version`,
+`server.json::packages[0].version`, and `.claude-plugin/plugin.json`'s
+`version` before anything is published — preventing the "0.5.12 on
+PyPI, 0.5.11 in the registry" drift class that tripped us on v0.5.11.
+
+Release ceremony for maintainers:
+
+```bash
+# 1. Bump every version-carrying file. Use the helper or edit manually:
+#    src/myco/__init__.py  — __version__
+#    server.json           — version + packages[0].version
+#    .claude-plugin/plugin.json — version
+#    CITATION.cff          — version + preferred-citation.version
+# 2. Bump canon + changelog:
+python -m myco molt --contract vX.Y.Z
+# 3. Replace the auto-stubbed changelog section with the real narrative
+#    (the workflow uses this as the GitHub release body).
+# 4. Commit, tag, push:
+git add -A && git commit -m "vX.Y.Z — <summary>"
+git tag vX.Y.Z
+git push origin main vX.Y.Z
+# 5. Watch the Release workflow run — it handles everything else.
+```
+
+One-time setup (done once per repo, never again):
+
+1. **PyPI trusted publisher.** Visit
+   https://pypi.org/manage/project/myco/settings/publishing/ and add a
+   publisher with `Owner: Battam1111`, `Repository name: Myco`,
+   `Workflow name: release.yml`, `Environment name` blank. Save.
+   After this, the workflow's `pypa/gh-action-pypi-publish` step
+   uploads via OIDC and no secret is needed in the repo.
+2. **MCP Registry GitHub-OIDC.** No UI configuration — the registry
+   already trusts any GitHub Actions OIDC token whose repository
+   matches a claimed namespace (`io.github.Battam1111/*`).
+
+Fallback if trusted publisher isn't configured: add a PyPI API
+token as a repo secret named `PYPI_API_TOKEN` and uncomment the
+`with: password:` line in `release.yml`. Works identically, just
+less secure.
+
+The workflow is idempotent — if PyPI already has the version, it
+`skip-existing: true` silently. If the GitHub release already
+exists (you created it manually), it skips that step too. Only
+the MCP Registry publish fails noisily on duplicate, which is the
+correct behaviour (you don't want to silently "republish" the
+same version).
+
 ## AI-assisted contributions
 
 Agents are welcome to land changes. The only rule is the one above:

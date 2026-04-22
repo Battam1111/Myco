@@ -1,0 +1,135 @@
+name: Release
+
+# v0.5.13 release automation. Fires on any `v*` tag push and
+# synchronises the four release channels that every Myco version
+# must hit to stay consistent:
+#
+#   1. Build  — sdist + wheel, twine metadata check.
+#   2. PyPI   — upload via trusted publisher (no token in secrets).
+#   3. MCP Registry — mcp-publisher login github-oidc → publish.
+#                     Reads server.json at the tagged commit, so
+#                     version + mcp-name sentinel must already be
+#                     in sync (enforced by the tag-verify step).
+#   4. GitHub release — auto-create from contract_changelog.md's
+#                       section for this tag, falling back to
+#                       --generate-notes if no matching section
+#                       exists. Idempotent: skips if already created.
+#
+# Pre-flight safety:
+#   - Verifies GITHUB_REF tag matches `src/myco/__init__.py` AND
+#     `server.json::version` AND `server.json::packages[0].version`.
+#     Any mismatch fails the job before anything is published —
+#     preventing the "PyPI 0.5.12, registry 0.5.11" class of drift.
+#
+# One-time setup the user must do in a browser (see CONTRIBUTING
+# "Release automation"):
+#   - PyPI trusted publisher: https://pypi.org/manage/project/myco/
+#     → "Publishing" → add Battam1111/Myco, workflow=release.yml,
+#     environment leave blank. Once this is saved, PyPI upload via
+#     OIDC works with no repo secret.
+#   - MCP Registry OIDC: automatic — the registry trusts any
+#     GitHub Actions OIDC token whose repo matches `Battam1111/*`
+#     for the `io.github.Battam1111/*` namespace. No UI config.
+#
+# Manual fallback: if trusted publisher isn't configured, set a
+# `PYPI_API_TOKEN` secret on the repo and uncomment the `with:
+# password:` line on the publish step.
+
+on:
+  push:
+    tags: ["v*"]
+
+# Releases shouldn't be cancelled mid-flight.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Publish to PyPI + MCP Registry + GitHub release
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write   # PyPI trusted publisher + MCP Registry OIDC
+      contents: write   # gh release create
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Verify tag matches version in every file
+        # Catches the "committed 0.5.12 but tagged 0.5.13" class of
+        # bug before anything touches PyPI or the MCP Registry.
+        run: |
+          set -eo pipefail
+          TAG="${GITHUB_REF#refs/tags/v}"
+          PKG=$(python -c "import re; print(re.search(r'__version__ = \"([^\"]+)\"', open('src/myco/__init__.py').read()).group(1))")
+          SRV=$(python -c "import json; print(json.load(open('server.json'))['version'])")
+          SRV_PKG=$(python -c "import json; d=json.load(open('server.json')); print(d['packages'][0]['version'])")
+          PLUGIN=$(python -c "import json; print(json.load(open('.claude-plugin/plugin.json'))['version'])")
+          echo "tag:                           v$TAG"
+          echo "src/myco/__init__.py:          $PKG"
+          echo "server.json::version:          $SRV"
+          echo "server.json::packages[0]:      $SRV_PKG"
+          echo ".claude-plugin/plugin.json:    $PLUGIN"
+          [ "$TAG" = "$PKG"     ] || { echo "::error::tag v$TAG ≠ __version__ $PKG"; exit 1; }
+          [ "$TAG" = "$SRV"     ] || { echo "::error::tag v$TAG ≠ server.json version $SRV"; exit 1; }
+          [ "$TAG" = "$SRV_PKG" ] || { echo "::error::tag v$TAG ≠ server.json packages[0].version $SRV_PKG"; exit 1; }
+          [ "$TAG" = "$PLUGIN"  ] || { echo "::error::tag v$TAG ≠ plugin.json version $PLUGIN"; exit 1; }
+
+      - name: Build sdist + wheel
+        run: |
+          python -m pip install --upgrade pip build twine
+          python -m build
+          python -m twine check dist/*
+
+      - name: Publish to PyPI (trusted publisher)
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          skip-existing: true
+          # Fallback path: uncomment + set PYPI_API_TOKEN secret on the
+          # repo if trusted publisher isn't configured.
+          # password: ${{ secrets.PYPI_API_TOKEN }}
+
+      - name: Install mcp-publisher
+        run: |
+          set -eo pipefail
+          curl -fsSL \
+            "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_linux_amd64.tar.gz" \
+            | tar xz mcp-publisher
+          sudo install -m 0755 mcp-publisher /usr/local/bin/mcp-publisher
+          mcp-publisher --help | head -4
+
+      - name: Publish to MCP Registry via GitHub OIDC
+        run: |
+          set -eo pipefail
+          mcp-publisher login github-oidc
+          mcp-publisher publish
+
+      - name: Create GitHub release (idempotent)
+        # Prefers the contract_changelog.md section for this tag
+        # (which `myco molt` writes) as the release body, falling
+        # back to GitHub's auto-generated commit-scraping notes.
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eo pipefail
+          TAG="${GITHUB_REF#refs/tags/}"
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            echo "GitHub release $TAG already exists — skipping."
+            exit 0
+          fi
+          # Extract "## $TAG —" ... up to (but not including) the next "---"
+          SECTION=$(awk "/^## $TAG /{flag=1} flag; /^---$/{if(flag){flag=0; exit}}" docs/contract_changelog.md \
+                    | sed '$d' || true)
+          if [ -n "$SECTION" ]; then
+            echo "Using contract_changelog.md $TAG section as release body."
+            printf '%s\n' "$SECTION" > /tmp/release_notes.md
+            gh release create "$TAG" --title "$TAG" --notes-file /tmp/release_notes.md
+          else
+            echo "No contract_changelog.md section for $TAG — using --generate-notes."
+            gh release create "$TAG" --title "$TAG" --generate-notes
+          fi
