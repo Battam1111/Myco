@@ -11,6 +11,51 @@ Format: one section per `contract_version`, newest first.
 
 ---
 
+## v0.5.12 — 2026-04-22 — MCP Registry namespace-casing hotfix
+
+Contract-layer molt with **zero contract-surface deltas**. v0.5.11
+shipped the MCP Registry onboarding artefacts (`server.json`,
+README `mcp-name` sentinel) using a lower-case `io.github.battam1111`
+namespace, but the registry's GitHub auth (case-sensitive) grants
+namespace permissions matching the GitHub username's actual casing
+— for this account that's `io.github.Battam1111/*`. `mcp-publisher
+publish` on v0.5.11 returned HTTP 403 on ownership check. v0.5.12
+corrects the casing in both `server.json` and the README sentinel
+so the registry's PyPI verifier accepts the claim.
+
+### What changed
+
+- **Nothing in the R1–R7 rule text.**
+- **Nothing in the category enum, the exit-policy grammar, or the
+  exit-code ladder.**
+- **Nothing in the 18-verb manifest surface.**
+- **Nothing in the dimension roster count** (still 25).
+
+### Fixed
+
+- **`server.json::name`** `io.github.battam1111/myco` →
+  `io.github.Battam1111/myco` (capital B, matching the GitHub
+  username exactly).
+- **`README.md` sentinel** `<!-- mcp-name: io.github.battam1111/myco
+  -->` → `<!-- mcp-name: io.github.Battam1111/myco -->`.
+- **`server.json::version` + `packages[0].version`** bumped
+  `0.5.11` → `0.5.12` so the registry verifier greps the live
+  PyPI 0.5.12 release (which carries the corrected sentinel) and
+  not 0.5.11 (which does not).
+
+### Break from v0.5.11
+
+None at the contract layer. Operators upgrading from v0.5.11
+require **no code changes, no canon edits, no script adjustments**.
+
+### Relationship to v0.5.11 on PyPI
+
+v0.5.11 stays on PyPI as a historical artefact (PyPI disallows
+version reuse). It is installable but not registry-verified. The
+canonical release pinned by the MCP Registry is v0.5.12.
+
+---
+
 ## v0.5.11 — 2026-04-22 — MCP Registry onboarding (no contract-shape change)
 
 Contract-layer molt with **zero contract-surface deltas**, exactly

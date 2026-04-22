@@ -220,5 +220,5 @@ Contributing: `pip install -e ".[dev]"`; architectural changes land as dated cra
 
 MIT · [`LICENSE`](LICENSE) · [PyPI](https://pypi.org/project/myco/) · [Releases](https://github.com/Battam1111/Myco/releases)
 
-<!-- mcp-name: io.github.battam1111/myco -->
+<!-- mcp-name: io.github.Battam1111/myco -->
 
