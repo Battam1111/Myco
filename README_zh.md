@@ -16,7 +16,7 @@
 </p>
 
 <p align="center">
-  <a href="#快速上手">快速上手</a> · <a href="#日常流程">日常流程</a> · <a href="#系统架构">系统架构</a> · <a href="#集成">集成</a>
+  <a href="#myco-是什么">它是什么</a> · <a href="#它如何活着">如何活着</a> · <a href="#快速上手">快速上手</a> · <a href="#十八个-verb">动词</a> · <a href="#自我验证">自我验证</a>
 </p>
 
 <p align="center">
@@ -39,183 +39,98 @@ LangChain。LangGraph。CrewAI。DSPy。Claude Code skills。OpenHands。OpenCla
 
 ## Myco 是什么
 
-Myco 是你那位 AI Agent 的活体认知底物。**不是框架。是吞噬框架的底物。**
+Myco 是你的 AI Agent 的活体认知底物。
 
-Myco 吞噬代码仓库、框架文档、数据集、论文、聊天记录、决策和摩擦。Agent 能指向的任何东西都成为原料。Agent 把这些消化掉，接入菌丝图，用免疫系统防漂移，把知识跨项目扩散。当工作改变形状时，Myco 跟着改：Agent 发 fruit 提出方案、你批准、kernel molt 换代。新的 canon 字段、新的 lint 维度、新的 verb、新的 subsystem。哪怕整个内部完全重写，也只是一次 `myco` 的版本升级，不是换一个依赖。底层的底物永远不被扔掉。
+Agent 读到、写入的一切 —— 代码、论文、决策、摩擦 —— 都以 markdown + YAML 的形式住在你的文件系统上，织成一张菌丝图。Agent 吞噬原料、消化成整合知识、用免疫系统防漂移、把学习跨项目扩散；当你的工作超出旧形状时，它自己重塑底物。**支撑这一切运行的 kernel 本身也是一个底物**：默认可编辑，由使用它的那个 Agent 亲自维护。
 
-**你从此不需要再迁移。**
+不是框架。不是向量库。不是托管服务。是一个活着的文件系统，给你说话的那位 Agent 用。
 
-> **v0.5.3 —— 真菌语汇迁移。** 9 个 verb 和 2 个 package 全部改名为真菌生物学术语，词义严格对应 verb 的行为（`genesis` → `germinate`、`reflect` → `assimilate`、`distill` → `sporulate`、`perfuse` → `traverse`、`session-end` → `senesce`、`craft` → `fruit`、`bump` → `molt`、`evolve` → `winnow`、`scaffold` → `ramify`；package `myco.genesis` → `myco.germination`、`myco.meta` → `myco.cycle`）。**v0.5.x 的所有调用继续能用** —— 旧名通过一次性 `DeprecationWarning` 别名解析，保留到 v1.0.0。下面的 verb 表列出全部旧新映射；原因在 L2 doctrine 和 [`docs/primordia/v0_5_3_fungal_vocabulary_craft_2026-04-17.md`](docs/primordia/v0_5_3_fungal_vocabulary_craft_2026-04-17.md)。
+这件事现在能做到，不是因为想法新，而是因为 Agent 终于聪明到能自己维护这套系统。以前的尝试都死在人跟不上。Myco 把"维护者是 Agent"作为设计前提，织进每一个表面、每一个 verb、每一条规则。
 
-这件事现在能做到，不是因为想法新，而是因为 Agent 终于聪明到能自己维护这套系统。以前的尝试都死在人跟不上上面。Myco 从第一个表面到最后一个 verb，都把"维护者是 Agent"当作设计前提。
+## 它如何活着
 
-### 五条原则
+你说话。Agent 听。你的两句话之间，Myco 跑一轮代谢：
 
-- **只为 Agent 而生。** 你不浏览 Myco。你和 Agent 说话，Agent 读 Myco。每个表面（`_canon.yaml`、notes、doctrine 文档、boot brief）都是写给 Agent 读的主材料，不是给人看的文档。
-- **吞噬万物。** 摄入不设过滤。代码仓库、框架、论文、数据集、日志、半成型的念头、raw 决策。Agent 能指向什么，底物就吃什么。形状以后再说。错过信号的代价，永远高于多吃一点的代价。
-- **形态在演化。** canon schema、lint 维度、verb、连契约本身都可变。工作超出旧形状时，Agent fruit 提出方案，你批准，Myco 重塑。僵死的底物就是死的底物。
-- **没有"最终版"。** `integrated` 是状态不是终点。今天 assimilate 完的笔记，明天 context 锐化了可以再 assimilate 一遍。反思是心跳。
-- **菌丝网络。** 每条 note、每个 canon 字段、每份 doctrine 页都靠遍历连到别的上。孤儿就是死组织。这张图就是 Agent 读知识的方式，所以它必须一直活着。
+- **摄入（Ingestion）。** `hunger` 问缺什么。`eat` 吃下你指向的任何东西 —— 一条路径、一个 URL、一段文字。`sense` 和 `forage` 扫描已有的素材。
+- **消化（Digestion）。** `assimilate` 把 raw note 煮成整合知识。`sporulate` 把整合知识浓缩成可传播的提案。
+- **循环（Circulation）。** `traverse` 遍历菌丝图，检查连通性。`propagate` 把学到的扩散到下游 substrate。
+- **稳态（Homeostasis）。** `immune` 按七条硬规则跑 25 维 lint。`senesce` 让每次会话优雅入眠。
+- **演化（Evolution）。** 当底物的形状不够用了 —— 缺个 canon 字段、需要新的 lint 维度、verb 得改 —— `fruit` 写一份三轮 craft 提案、`winnow` 把关形状、`molt` 发版换代。
 
-### 三种角色
+18 个 verb，一份 manifest，两张脸（CLI 用来观察，MCP 给 Agent 自己开）。你什么都不用背，Agent 自己开车。
 
-**你** 定方向。不记 CLI、不整理文件、不在新会话里重新解释项目。
+## 五条原则
 
-**Agent** 出智能。读你的话，读 Myco，挑 verb，写回去。
+- **只为 Agent 而生。** 每一个表面都是写给 Agent 的一手素材，不是给人类读者看的文档。
+- **吞噬万物。** 摄入不设过滤。错过一个信号的代价，永远高于多吃一点。
+- **形态在演化。** canon、lint 维度、verb、连契约本身都可变 —— 通过一套受治理的 craft 循环。
+- **没有"最终版"。** `integrated` 是状态不是终点。今天的结论是明天的 raw 素材。
+- **菌丝网络。** 每个节点都能靠遍历连到任何其它节点。孤儿就是死组织。
 
-**Myco** 跑代谢。你说完一句话到下一句话之间，Agent 问缺什么（`hunger`）、吃进原料（`eat`）、把 raw 煮成结构化知识（`assimilate`、`digest`、`sporulate`）、用免疫系统防漂移（`immune`）、跨项目扩散学到的（`propagate`）。17 个 verb、1 份 manifest、两个面：CLI 给你观察，MCP 给 Agent 自己开。**每个 verb 都是一条真菌生物学术语，词义严格对应 verb 的行为** —— `germinate` 起始菌落、`fruit` 生出子实体、`molt` 脱旧换新、`ramify` 菌丝分枝、`graft` 把外源菌丝嫁接进网络。
+## kernel 本身就是 substrate
 
-> **默认可编辑安装，kernel 本身就是 substrate。** Myco 自己的源码树就是一个 substrate（有 `_canon.yaml`、`MYCO.md`、`docs/primordia/`）。`src/myco/` 下的 kernel 代码只是这个 substrate 最里层的一圈。把这一圈锁进 `site-packages` 只读，就违反了 永恒进化 + 永恒迭代——Agent 变成别人代码的消费者，而不是自己维护的代码的作者。所以主路径是 clone 源码后 `pip install -e` 装成可编辑。PyPI 还在，只作为 bootstrap 通道和纯库消费路径，不再是正常安装路径。
+Myco 自己的源码树就是一个 substrate。根目录有 `_canon.yaml`。`MYCO.md` 是 Agent 入口页。`docs/primordia/` 保存每一次契约升级背后的三轮 craft 文档。`src/myco/` 下的 Python 代码，是这个生态最里层的一圈 —— 不是别人写好的只读制品。
+
+所以正常安装路径就是 clone 源码 + `pip install -e`。使用 Myco 的那位 Agent，就是维护 Myco 的那位 Agent；它要新加一条 lint 维度，自己 `myco ramify` 搭骨架、`myco fruit` 写提案、`myco molt` 发版。不用 fork，不用等 PR。**永恒进化。**
+
+PyPI 作为 bootstrap 通道和库消费者通道保留，但不是正常的安装路径。
 
 ## 快速上手
-
-一条命令，不用预先 `git clone`，也不留任何 bootstrap 残留：
 
 ```bash
 pipx run --spec 'myco[mcp]' myco-install fresh ~/myco
 ```
 
-把本仓库 clone 到 `~/myco`，`pip install -e` 装成可编辑，留给你一份可写的 kernel + substrate。两步版也行：
+把仓库 clone 到 `~/myco`，`pip install -e` 装成可编辑，留给你一份可写的 kernel。然后在任何项目里 germinate 一个 substrate：
 
 ```bash
-pip install 'myco[mcp]'
-myco-install fresh ~/myco         # clone + 可编辑安装；--dry-run 可预览
+cd your-project
+myco germinate . --substrate-id your-project
 ```
 
-然后 Agent 在任意项目里 germinate 一个下游 substrate：
+一条命令把 Myco 挂进你的 Agent host：
 
-```bash
-cd /path/to/your/project
-myco germinate . --substrate-id my-project
-```
+- **Claude Code / Cowork** —— `/plugin marketplace add Battam1111/Myco`，然后 `/plugin install myco@myco`。
+- **其它 MCP host** —— `myco-install <cursor | windsurf | zed | vscode | openclaw | claude-desktop | gemini | codex | goose>`。
+- **通过官方 MCP Registry** —— 命名空间 [`io.github.Battam1111/myco`](https://registry.modelcontextprotocol.io/v0/servers?search=Battam1111)，支持命名空间自解析的客户端可以直接发现。
 
-以后升级 kernel 直接在 `~/myco` 里 `git pull`，不是 `pip install --upgrade`：
+其它 9 个 schema 不一致的 host、Python 框架 adapter（LangChain / CrewAI / DSPy / Smolagents / Agno / PraisonAI / MS Agent Framework / Claude Agent SDK）、以及库嵌入示例，完整片段在 [`INSTALL.md`](docs/INSTALL.md)。
 
-```bash
-cd ~/myco && git pull && myco immune        # 升级后跑免疫确认没漂移
-```
+## 十八个 verb
 
-三个控制台脚本进 PATH：
+6 个 subsystem。每个 verb 都是真菌生物学术语，词义严格对应 verb 的行为。
 
-- `myco`：18 个 verb 的 CLI（17 个 agent verb + 1 个人类向的 `brief`）。
-- `mcp-server-myco`：通用 MCP stdio 启动器，插进任何 host 都能跑。
-- `myco-install`：一条命令装进十个自动化 MCP host（Claude Code / Claude Desktop / Cursor / Windsurf / Zed / VS Code / OpenClaw / Gemini CLI / Codex CLI / Goose）。
+- **Germination** —— `germinate` 萌发一个新 substrate。
+- **Ingestion** —— `hunger`（缺什么？）、`eat`（摄入原料）、`sense`（关键词搜索）、`forage`（扫描可摄入路径）。
+- **Digestion** —— `assimilate`（raw → integrated）、`digest`（单条升格）、`sporulate`（integrated → 可传播提案）。
+- **Circulation** —— `traverse`（遍历图）、`propagate`（发布到下游）。
+- **Homeostasis** —— `immune`（25 维 lint，`--fix` 自动修机械类）。
+- **Cycle** —— `senesce`（会话入眠）、`fruit`（三轮 craft）、`winnow`（把关 craft 形状）、`molt`（发版契约升级）、`ramify`（scaffold 新维度 / verb / adapter）、`graft`（substrate 本地插件管理）、`brief`（人类向状态汇总）。
 
-**Claude Code / Cowork** 官方 plugin 一步装好（MCP 服务器、hooks、slash skills 一起接线）：
+每一个 verb 都住在 [`src/myco/surface/manifest.yaml`](src/myco/surface/manifest.yaml)。CLI（`myco VERB`）和 MCP tool 表面都从这份 manifest 机械派生 —— 两张脸同一个单源。下游 substrate 可以 `ramify` 出自己的 dimensions 或 verb 写进 `.myco/plugins/`，不用 fork Myco。
 
-```
-/plugin marketplace add Battam1111/Myco
-/plugin install myco@myco
-```
+## 自我验证
 
-**其他 MCP host** 一条命令搞定：
+Myco 不信任 Agent 会记住契约。它去强制。
 
-```bash
-myco-install cursor        # 也可以：claude-desktop, windsurf, zed, vscode, openclaw
-```
+- **25 维 lint**，分四类 —— *mechanical*（canon 不变式、写面、LLM 边界）、*shipped*（package ↔ canon 版本对齐）、*metabolic*（raw 积压、陈旧 integrated）、*semantic*（图连通、孤儿检测）。`myco immune --fix` 尽可能机械自修。
+- **7 条硬规则（R1-R7）** 治理每一次会话 —— boot ritual、session-end、sense-before-assert、eat-on-friction、cross-reference-on-creation、write-surface discipline、top-down layering。完整契约在 [`L1_CONTRACT/protocol.md`](docs/architecture/L1_CONTRACT/protocol.md)。
+- **Pulse 边车。** 每个 MCP tool 响应都带一个 `substrate_pulse`，携带当前 contract version 和一条会随会话升级（R1 → R3 → …）的规则提示。服务端主动推 —— Agent 想忘也忘不了。
+- **写面强制。** 任何写到 `_canon.yaml::system.write_surface.allowed` 之外的操作，都会被 `WriteSurfaceViolation` 拒掉。纪律是机制，不是请求。
 
-或者把通用片段贴进 host 的配置文件。适用 `mcpServers` 家族（Claude Desktop、Cursor、Windsurf、Cline、Roo Code、Gemini CLI、Qwen Code、JetBrains AI、Augment Code、AiderDesk）：
-
-```json
-{ "mcpServers": { "myco": { "command": "mcp-server-myco", "args": [] } } }
-```
-
-配置 schema 不一样的 9 个 host（VS Code Copilot `servers`、Zed `context_servers`、OpenClaw `mcp.servers` + CLI、OpenHands TOML、OpenCode / Kilo Code `mcp`、Codex CLI TOML、Goose YAML `extensions`、Continue YAML block、Warp `mcp_servers`）每个都有自己精确的片段，在 [`docs/INSTALL.md`](docs/INSTALL.md)。同一份 INSTALL.md 也覆盖 Python 框架 adapter（LangChain、CrewAI、DSPy、Smolagents、Agno、PraisonAI、Microsoft Agent Framework、Claude Agent SDK）。
-
-库方式嵌入：
-
-```python
-from myco.mcp import build_server
-build_server().run()                   # stdio（默认）
-build_server().run(transport="sse")    # HTTP SSE
-```
-
-### 非演化安装（库消费者、CI、vendor）
-
-如果你是把 Myco 作为依赖引入到另一个 Python 项目、或者在容器里要一份故意冻结的 kernel，普通只读安装仍然可用：
-
-```bash
-pip install 'myco[mcp]'
-```
-
-但 `myco ramify`、Myco 自身的 kernel-level `fruit`/`molt`、任何形式的 kernel 演化在这条路上都被堵死——这是设计，不是 bug。只读安装是给消费者用的，不是给作者用的。
-
-### 想贡献 Myco
-
-和主安装路径一样——`myco-install fresh` 就是贡献者路径。`--extras dev,mcp` 顺便拉测试工具：
-
-```bash
-pipx run --spec 'myco[mcp]' myco-install fresh ~/myco --extras dev,mcp
-cd ~/myco
-pytest
-```
-
-## 日常流程
-
-Agent 自己驱动，你什么都不用背。18 个 verb（17 个 agent + 1 个人类向 `brief`）按 6 个 subsystem 分组如下。v0.5.2 的每个旧 verb 名都仍然能用（会打一次性的 `DeprecationWarning`）——别名保留到 v1.0.0。
-
-| Subsystem | Verb | 旧别名（已弃用） | 做什么 |
-|---|---|---|---|
-| **Germination** | `germinate` | `genesis` | 萌发一个新 substrate |
-| **Ingestion** | `hunger` |  | 汇报 substrate 当前缺什么 |
-| **Ingestion** | `eat` |  | 从文本 / 路径 / URL 摄入一条 raw note |
-| **Ingestion** | `sense` |  | 关键词搜索整个 substrate |
-| **Ingestion** | `forage` |  | 列出路径下的可摄入文件 |
-| **Digestion** | `assimilate` | `reflect` | 把 raw note 升到 integrated（吸收进菌体） |
-| **Digestion** | `digest` |  | 单条 raw note 定点升到 integrated |
-| **Digestion** | `sporulate` | `distill` | 把 integrated 浓缩成可传播的 proposal |
-| **Circulation** | `traverse` | `perfuse` | 走一遍菌丝网络，报告吻合度健康 |
-| **Circulation** | `propagate` |  | 把 integrated / distilled 发布到下游 substrate |
-| **Homeostasis** | `immune` |  | 4 类 / 11 维一致性 lint，支持 `--fix` |
-| **Cycle** | `senesce [--quick]` | `session-end` | 入眠前老化：full（`assimilate` + `immune --fix`，PreCompact 触发）/ quick（仅 `assimilate`，SessionEnd 触发） |
-| **Cycle** | `fruit` | `craft` | 结出一份三轮 primordia 提案文档 |
-| **Cycle** | `molt` | `bump` | 蜕掉旧的 contract 版本，换新的 |
-| **Cycle** | `winnow` | `evolve` | 用 craft-protocol 门验证提案的形状 |
-| **Cycle** | `ramify` | `scaffold` | 菌丝分枝：scaffold 新 verb / dimension / adapter |
-| **Cycle** | `graft` |  | 列出 / 校验 / 解释 substrate 本地插件 |
-| **Cycle** | `brief` |  | 人类向 substrate 状态 markdown 汇总（L0 principle 1 的唯一例外） |
-
-CLI 用法是 `myco VERB`，全局 flag（`--project-dir`、`--json`、`--exit-on`）放在 verb **之前**。MCP 一 verb 一 tool，参数由 `src/myco/surface/manifest.yaml` 机械派生，CLI 和 MCP 共用这份 SSoT。弃用别名解析到同一个 handler，同时也注册旧 MCP tool 名（`myco_genesis`、`myco_craft`……），所以 v0.5.2 缓存下来的调用照常跑。
-
-### Substrate 本地插件
-
-下游 substrate 可以不 fork Myco 就带自己的 dimensions、adapters、verbs。Agent 跑 `myco ramify --dimension LOCAL1 --category mechanical --severity medium --substrate-local`（substrate 不是 `myco-self` 时这个 flag 自动开），scaffold 出来的类文件写进 `<substrate>/.myco/plugins/`。下一次 `Substrate.load()` 会自动 import `.myco/plugins/` 包、触发注册；`<substrate>/.myco/manifest_overlay.yaml` 会合并进运行时 manifest，这样本地写的 verb 和内置 verb 一起生效。`myco graft --list` 列出所有嫁接上的东西、`myco graft --validate` 重跑一遍 import + 注册闸门、`myco graft --explain <name>` 给出单个插件的源文件 + docstring。新的 `MF2` lint 维度（mechanical / HIGH）会在 `.myco/plugins/` 结构坏了或者 manifest overlay 出错时点亮，让隐式 import 永远留下响声。
-
-## 系统架构
-
-```
-你 ──▶ Agent ──▶ Myco substrate
-                   ├── _canon.yaml        SSoT：identity · 写面 · lint 策略
-                   ├── MYCO.md            Agent 入口页（R1）
-                   ├── notes/{raw,integrated,distilled}/
-                   ├── docs/architecture/ L0 vision · L1 contract · L2 doctrine · L3 impl
-                   ├── src/myco/          germination · ingestion · digestion · circulation · homeostasis · cycle · surface
-                   ├── .myco/plugins/     substrate 本地 dimensions · adapters · verbs（可选）
-                   └── .claude/hooks/     SessionStart → hunger · PreCompact → senesce
-```
-
-7 条硬契约（R1 到 R7）由 hook、免疫系统、Agent 自律三方共同强制。完整条文在 [`L1_CONTRACT/protocol.md`](docs/architecture/L1_CONTRACT/protocol.md)。
-
-## 跨平台强制机制：一个都不漏
-
-R1 到 R7 在 Claude Code 和 Cowork 里是 hook 强制的。其它 host（Cursor、Windsurf、Zed、Codex、Gemini、Continue、Claude Desktop、OpenClaw、OpenHands）强制**藏在 MCP server 本身**：
-
-- **初始化指令。** `initialize` 阶段每个 host 都收到一份简短的 R1 到 R7 摘要，链到 [`L1_CONTRACT/protocol.md`](docs/architecture/L1_CONTRACT/protocol.md)。读 instructions 的 Agent 在首次调 tool 前就看到契约。
-- **`substrate_pulse` 边车字段。** 每个 tool 响应都携带 `substrate_pulse`，包含当前 `contract_version`、`substrate_id`，以及一条会从 R1（hunger 未调）升级到 R3（sense before assert）的 rule hint。这是服务端主动推，Agent 想忘也忘不了。
-
-host 侧零配置，每个 MCP 客户端都生效。
+host 侧零配置。R1-R7 住在 MCP server 自己身上，所以每个客户端 —— Claude Code、Cursor、Windsurf、Zed、Codex、Gemini、Continue、Claude Desktop、OpenClaw、OpenHands —— boot 时都拿到同一份契约。
 
 ## 集成
 
-- **Claude Code 和 Cowork**：`/plugin marketplace add Battam1111/Myco`，然后 `/plugin install myco@myco`。或者手工拷 `.claude/`。
-- **任何 MCP host**：七个常见 host 用 `myco-install <client>`，其它地方用 `mcp-server-myco` stdio。精确的 per-host 片段见 [`docs/INSTALL.md`](docs/INSTALL.md)。
-- **Python agent 框架**：LangChain、CrewAI、DSPy、Smolagents、Agno、PraisonAI、Microsoft Agent Framework、Claude Agent SDK 都通过 `StdioServerParameters(command="mcp-server-myco")` 消费 Myco。
-- **下游 substrate**：`myco propagate` 发布，adapter 住在 `myco.symbionts`。
+- **Claude Code 和 Cowork。** 官方 plugin 一条命令接好 MCP + hooks + slash skills。或者手工拷 `.claude/`。
+- **任何 MCP host。** 十个通过 `myco-install` 自动化；另外九个带各自精确片段在 [`INSTALL.md`](docs/INSTALL.md)；其它客户端用 `mcp-server-myco` stdio 直接跑。
+- **Python agent 框架。** LangChain、CrewAI、DSPy、Smolagents、Agno、PraisonAI、MS Agent Framework、Claude Agent SDK 全部通过 `StdioServerParameters(command="mcp-server-myco")` 消费 Myco。
+- **下游 substrate。** `myco propagate` 负责发布，adapter 住在 `myco.symbionts`。
 
 ## 了解更多
 
 [`L0_VISION.md`](docs/architecture/L0_VISION.md) · [`L1_CONTRACT/`](docs/architecture/L1_CONTRACT/) · [`L2_DOCTRINE/`](docs/architecture/L2_DOCTRINE/) · [`INSTALL.md`](docs/INSTALL.md) · [`CONTRIBUTING.md`](CONTRIBUTING.md) · [Issues](https://github.com/Battam1111/Myco/issues)
 
-贡献：`pip install -e ".[dev]"`；架构性改动落地为 [`docs/primordia/`](docs/primordia/) 下带日期的 craft 文档。
+架构级改动作为带日期的 craft 文档落到 [`docs/primordia/`](docs/primordia/)。每次发版都先走一轮三轮辩论、再 `molt`、再由自动化 workflow 扇出到 PyPI + MCP Registry + GitHub release。
 
 MIT · [`LICENSE`](LICENSE) · [PyPI](https://pypi.org/project/myco/) · [Releases](https://github.com/Battam1111/Myco/releases)
