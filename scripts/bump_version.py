@@ -46,6 +46,19 @@ import subprocess
 import sys
 from pathlib import Path
 
+# Windows default console encoding is cp936 (gbk) or cp1252 — both
+# fail on the `✓` / `→` glyphs the script uses for readability on
+# Linux/macOS + modern Windows Terminal. Reconfigure stdout/stderr to
+# UTF-8 with a `replace` error handler so the script never crashes
+# on a decorative print, and falls back to a replacement char when a
+# legacy console can't render the glyph. Python 3.7+ only.
+for _stream in (sys.stdout, sys.stderr):
+    if hasattr(_stream, "reconfigure"):
+        try:
+            _stream.reconfigure(encoding="utf-8", errors="replace")
+        except (OSError, ValueError):
+            pass
+
 REPO = Path(__file__).resolve().parent.parent
 
 # Permissive-ish semver (majors + minors + patch). Pre-release and
