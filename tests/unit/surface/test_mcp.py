@@ -246,7 +246,8 @@ def test_detect_workspace_root_returns_none_when_client_silent() -> None:
 
 def test_auto_germ_advice_response_shape(tmp_path: Path) -> None:
     """The soft-fail response exposes exit_code 4, a germinate hint
-    in the pulse, and the workspace path in the payload."""
+    in the pulse, the workspace path in the payload, and the v0.5.18
+    transparency fields ``project_dir_source`` + ``resolved_project_dir``."""
     from myco.core.errors import SubstrateNotFound
     from myco.surface.mcp import _auto_germ_advice_response
 
@@ -263,6 +264,10 @@ def test_auto_germ_advice_response_shape(tmp_path: Path) -> None:
     assert "myco_germinate" in pulse["rules_hint"]
     assert str(tmp_path) in pulse["rules_hint"]
     assert "no substrate" in pulse["substrate_id"].lower()
+    # v0.5.18: transparency fields tell the operator that roots/list
+    # DID work (otherwise we wouldn't be in this branch).
+    assert "mcp.roots/list" in pulse["project_dir_source"]
+    assert str(tmp_path) in pulse["resolved_project_dir"]
 
 
 def test_pulse_includes_resolution_source_when_provided(tmp_path: Path) -> None:

@@ -510,8 +510,16 @@ def _auto_germ_advice_response(
     still differentiates "no substrate" from other error classes.
     The agent reads the pulse advice.
 
-    v0.5.16 addition.
+    v0.5.16 initial shape. v0.5.18 bugfix: also include the
+    ``project_dir_source`` + ``resolved_project_dir`` transparency
+    fields that v0.5.17 added to the normal dispatch path — reaching
+    this function PROVES ``_detect_workspace_root`` got a workspace
+    back from the client, which is itself the most useful debugging
+    signal (confirms roots/list works even though _resolve_... came
+    up empty because the root had no substrate).
     """
+    from myco.core.trust import safe_frontmatter_field
+
     suggested = (
         f"no substrate at {workspace_root}. Call "
         f"myco_germinate(project_dir={str(workspace_root)!r}, "
@@ -530,6 +538,14 @@ def _auto_germ_advice_response(
             "contract_version": "(unknown)",
             "hard_contract_ref": "docs/architecture/L1_CONTRACT/protocol.md",
             "rules_hint": suggested,
+            # v0.5.18: transparency — reaching this path means
+            # _detect_workspace_root returned a file:// root from the
+            # client. So roots/list IS working; it just returned a
+            # folder without a substrate.
+            "project_dir_source": "mcp.roots/list (root has no substrate)",
+            "resolved_project_dir": safe_frontmatter_field(
+                str(workspace_root), max_len=512
+            ),
         },
     }
 
