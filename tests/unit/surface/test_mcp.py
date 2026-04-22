@@ -392,3 +392,236 @@ def test_invoke_returns_auto_germ_advice_when_roots_lack_substrate(
     assert result["exit_code"] == 4
     assert result["payload"]["workspace_root"] == str(empty.resolve())
     assert "myco_germinate" in result["substrate_pulse"]["rules_hint"]
+
+
+# ---------------------------------------------------------------------------
+# v0.5.21 regression: FastMCP signature-derivation bug.
+#
+# v0.5.20 and earlier registered handlers as ``async def _handler(ctx,
+# **kwargs)``. FastMCP's JSON-schema derivation (via
+# ``mcp.server.fastmcp.utilities.func_metadata``) interpreted
+# ``**kwargs: Any`` as a single required dict parameter named
+# ``kwargs``. The emitted schema was
+# ``{"required": ["kwargs"], "properties": {"kwargs": {...}}}`` —
+# agents sending flat args got a pydantic validation error, and
+# agents sending nested ``{"kwargs": {"content": "..."}}`` had the
+# real args buried in Python's varkw sink. The fix: override
+# ``__signature__`` with per-manifest-arg parameters. These tests
+# lock the behavior so the bug can never silently return.
+# ---------------------------------------------------------------------------
+
+
+def test_handler_signature_has_manifest_args_not_varkw() -> None:
+    """Every verb's registered handler must advertise a real signature
+    whose parameters mirror the manifest. FastMCP's schema derivation
+    reads ``inspect.signature(fn)`` — if any handler still exposes a
+    bare ``**kwargs`` to introspection, the JSON schema collapses to
+    ``{"required": ["kwargs"]}`` and flat-args calls break again.
+    """
+    import inspect
+
+    from myco.surface.mcp import _build_handler_signature
+
+    m = load_manifest()
+    for spec in m.commands:
+        sig = _build_handler_signature(spec)
+        # First param is always ctx (injected by FastMCP).
+        param_names = list(sig.parameters.keys())
+        assert param_names[0] == "ctx", spec.name
+        # Every declared manifest arg appears by its snake_case name.
+        manifest_arg_names = {arg.snake for arg in spec.args}
+        sig_names = set(param_names[1:])
+        missing = manifest_arg_names - sig_names
+        assert not missing, (spec.name, missing)
+        # No varkw (``**kwargs``) or varargs — those are the bug shapes
+        # that caused FastMCP to emit the broken schema.
+        for p in sig.parameters.values():
+            assert p.kind != inspect.Parameter.VAR_KEYWORD, spec.name
+            assert p.kind != inspect.Parameter.VAR_POSITIONAL, spec.name
+
+
+def test_handler_signature_marks_required_args_without_default() -> None:
+    """``required: true`` in the manifest must surface as a parameter
+    with no default (Pydantic reads the default-less params as
+    ``required`` in the JSON Schema it emits to the client)."""
+    import inspect
+
+    from myco.surface.mcp import _build_handler_signature
+
+    m = load_manifest()
+    sense = m.by_name("sense")  # query is required
+    sig = _build_handler_signature(sense)
+    query = sig.parameters["query"]
+    assert query.default is inspect.Parameter.empty
+
+    eat = m.by_name("eat")  # none are required
+    sig = _build_handler_signature(eat)
+    for name in ("content", "path", "url"):
+        assert sig.parameters[name].default is None
+
+
+def test_handler_signature_exposes_project_dir_override() -> None:
+    """Every verb (except those that already take project-dir as a
+    manifest arg, e.g. germinate) must surface ``project_dir`` as an
+    optional parameter so the agent can pin a substrate explicitly.
+    The sidecar contract relies on this for multi-project routing."""
+    from myco.surface.mcp import _build_handler_signature
+
+    m = load_manifest()
+    # hunger, eat, sense, etc. don't declare project-dir in the manifest
+    # — _build_handler_signature appends it.
+    for verb in ("hunger", "eat", "sense", "forage", "immune"):
+        spec = m.by_name(verb)
+        sig = _build_handler_signature(spec)
+        assert "project_dir" in sig.parameters, verb
+
+    # germinate DOES declare project-dir in the manifest — skip the
+    # append so the signature stays unique.
+    germinate = m.by_name("germinate")
+    sig = _build_handler_signature(germinate)
+    project_dir_params = [p for p in sig.parameters if p == "project_dir"]
+    assert len(project_dir_params) == 1  # no duplicate
+
+
+def test_fastmcp_tool_schema_exposes_individual_properties() -> None:
+    """End-to-end: after ``build_server`` runs, FastMCP's emitted
+    ``inputSchema`` must have ``content``, ``path``, ``url`` as
+    individual properties — NOT a single ``kwargs`` property. This
+    is the shape the MCP client sees over the wire, so it's what
+    actually determines whether the bug is present."""
+    import asyncio
+
+    from myco.surface.mcp import build_server
+
+    m = load_manifest()
+    server = build_server(m)
+
+    async def _list_tools():
+        return await server.list_tools()
+
+    tools = asyncio.run(_list_tools())
+    eat = next(t for t in tools if t.name == "myco_eat")
+    props = eat.inputSchema["properties"]
+    # The bug shape: schema with a single "kwargs" property.
+    assert set(props.keys()) != {"kwargs"}
+    # The fix shape: individual properties for each manifest arg.
+    for prop in ("content", "path", "url", "tags", "source", "project_dir"):
+        assert prop in props, prop
+
+
+def test_fastmcp_call_eat_with_flat_args_succeeds() -> None:
+    """The closing regression: calling ``myco_eat`` via FastMCP's
+    ``call_tool`` with flat ``{"content": "..."}`` must reach the
+    eat handler and return a successful Result (exit_code 0). Pre-
+    v0.5.21 this raised a pydantic validation error at the MCP
+    boundary OR surfaced the dispatcher's "must pass one of"
+    UsageError from eat.py (depending on which shape the agent
+    tried to work around the broken schema with).
+    """
+    import asyncio
+
+    from myco.surface.mcp import build_server
+
+    # Need a real substrate root for eat to write to. Use the repo
+    # itself — it has _canon.yaml + the write_surface includes notes/**.
+    repo_root = Path(__file__).resolve().parents[3]
+    assert (repo_root / "_canon.yaml").is_file()
+
+    m = load_manifest()
+    server = build_server(m)
+
+    async def _call():
+        return await server.call_tool(
+            "myco_eat",
+            {
+                "content": "v0.5.21 regression-test marker — safe to delete",
+                "tags": ["regression-test"],
+                "project_dir": str(repo_root),
+            },
+        )
+
+    result = asyncio.run(_call())
+    # FastMCP returns a list[TextContent]; parse the JSON body.
+    import json as _json
+
+    payload_text = result[0].text if result else ""
+    payload = _json.loads(payload_text)
+    assert payload["exit_code"] == 0, payload
+    # Handler wrote the note to notes/raw/ — clean it up so the test
+    # suite stays hermetic.
+    written = Path(payload["payload"]["path"])
+    try:
+        if written.is_file():
+            written.unlink()
+    except OSError:
+        pass  # best-effort cleanup; not fatal.
+
+
+def test_fastmcp_call_sense_with_flat_query_arg_succeeds() -> None:
+    """Same regression for ``sense``, which has ``query`` as a
+    *required* arg. Required-arg verbs exercise a different Pydantic
+    code path than optional-arg verbs, so we lock it separately."""
+    import asyncio
+
+    from myco.surface.mcp import build_server
+
+    repo_root = Path(__file__).resolve().parents[3]
+    m = load_manifest()
+    server = build_server(m)
+
+    async def _call():
+        return await server.call_tool(
+            "myco_sense",
+            {"query": "substrate", "project_dir": str(repo_root)},
+        )
+
+    result = asyncio.run(_call())
+    import json as _json
+
+    payload = _json.loads(result[0].text)
+    # exit_code 0 == found matches or no matches (both legal); non-zero
+    # would mean the call itself failed. We only care that dispatch
+    # reached sense.run rather than tripping the MCP surface.
+    assert "exit_code" in payload
+    assert "substrate_pulse" in payload
+
+
+def test_fastmcp_none_values_dont_shadow_manifest_defaults() -> None:
+    """The v0.5.21 handler drops ``None`` keys before ``_invoke`` so
+    an omitted optional arg (which FastMCP default-binds to ``None``)
+    doesn't shadow the manifest's own default-providing logic. Without
+    this cleanup, ``tags: None`` would reach ``eat.run`` which calls
+    ``isinstance(raw_tags, (list, tuple))`` and silently coerces to
+    empty — fine for tags, but breaks for any arg whose manifest
+    default is a non-None sentinel."""
+    import asyncio
+
+    from myco.surface.mcp import build_server
+
+    repo_root = Path(__file__).resolve().parents[3]
+    m = load_manifest()
+    server = build_server(m)
+
+    async def _call():
+        # Omit tags + source entirely — rely on manifest defaults.
+        return await server.call_tool(
+            "myco_eat",
+            {
+                "content": "defaults-check marker",
+                "project_dir": str(repo_root),
+            },
+        )
+
+    import json as _json
+
+    result = asyncio.run(_call())
+    payload = _json.loads(result[0].text)
+    assert payload["exit_code"] == 0
+    # Manifest default for source is "agent"; if None had shadowed it,
+    # the handler would have stringified None and written "source: None".
+    assert payload["payload"]["source"] == "agent"
+    # Clean up.
+    try:
+        Path(payload["payload"]["path"]).unlink()
+    except OSError:
+        pass
