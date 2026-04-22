@@ -26,6 +26,7 @@ through the same dispatcher the CLI uses.
 
 from __future__ import annotations
 
+import inspect
 import os
 from collections.abc import Mapping
 from pathlib import Path
@@ -64,6 +65,24 @@ _PY_TYPE_MAP = {
     "int": "integer",
     "path": "string",
     "list[str]": "array",
+}
+
+# v0.5.21 Python type mapping — used when building ``inspect.Signature``
+# for FastMCP handlers. FastMCP inspects the handler's signature to
+# derive the tool's JSON inputSchema. We map manifest types to the
+# closest Python types so Pydantic (which FastMCP uses internally)
+# generates useful JSON Schema properties + a proper validator.
+#
+# Paths arrive from MCP clients as JSON strings; the manifest's
+# ``path`` type is coerced to ``Path`` by ``arg.coerce`` downstream in
+# ``build_handler_args`` — the signature only needs ``str`` so MCP
+# accepts the wire format. Boolean, integer, and string pass through.
+_PY_RUNTIME_TYPE_MAP: dict[str, type] = {
+    "str": str,
+    "bool": bool,
+    "int": int,
+    "path": str,
+    "list[str]": list,
 }
 
 
@@ -275,6 +294,85 @@ def build_tool_spec(spec: CommandSpec) -> dict[str, Any]:
             "required": required,
         },
     }
+
+
+def _build_handler_signature(spec: CommandSpec) -> inspect.Signature:
+    """Build the ``inspect.Signature`` FastMCP will introspect.
+
+    **Why this exists (v0.5.21 hotfix).** FastMCP derives the tool's
+    JSON input schema from the Python signature of the registered
+    handler via :mod:`mcp.server.fastmcp.utilities.func_metadata`. The
+    pre-v0.5.21 handler was declared as ``async def _handler(ctx,
+    **kwargs)``. FastMCP / Pydantic interpret ``**kwargs: Any`` not as
+    a varkw sink but as **a single required parameter named
+    ``kwargs``** — so the emitted schema was
+    ``{"required": ["kwargs"], "properties": {"kwargs": {...}}}``.
+    Every MCP client saw ``myco_eat(kwargs: dict)`` instead of
+    ``myco_eat(content: str?, path: str?, url: str?, ...)``. Agents
+    sending flat args ``{"content": "..."}`` got a pydantic validation
+    error; agents sending nested ``{"kwargs": {"content": "..."}}``
+    had the ``content`` key buried inside Python's varkw sink as
+    ``kwargs = {"kwargs": {"content": "..."}}``, which then surfaced
+    as the dispatcher's "missing --content | --path | --url" error
+    because ``build_handler_args`` only looks at the top level.
+
+    The fix: generate a real ``inspect.Signature`` whose parameters
+    match the manifest. FastMCP sees a named parameter for every
+    manifest arg, the JSON schema reflects the actual verb surface,
+    and varkw stops swallowing keys. The actual function body keeps
+    its ``**kwargs`` varkw so Python runtime binding still works.
+
+    We ALSO expose ``project_dir`` as a first-class optional
+    parameter because :func:`_invoke`'s resolution chain treats it
+    specially (level-1 override of the substrate routing — see
+    ``docs/architecture/L1_CONTRACT/protocol.md`` multi-project
+    pattern). Without this, agents that want to pin a non-default
+    substrate can't discover the override through the tool schema.
+    """
+    params: list[inspect.Parameter] = [
+        inspect.Parameter(
+            "ctx",
+            inspect.Parameter.POSITIONAL_OR_KEYWORD,
+            annotation=_MCPContext,
+        ),
+    ]
+    for arg in spec.args:
+        runtime_type = _PY_RUNTIME_TYPE_MAP[arg.type]
+        # Optional params get ``X | None`` annotation and a default of
+        # ``None`` (unless the manifest specifies one). Required params
+        # get no default — Pydantic surfaces them in ``required`` in
+        # the emitted JSON schema.
+        if arg.required:
+            annotation: Any = runtime_type
+            default: Any = inspect.Parameter.empty
+        else:
+            annotation = runtime_type | None
+            default = arg.default if arg.default is not None else None
+        params.append(
+            inspect.Parameter(
+                arg.snake,
+                inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                default=default,
+                annotation=annotation,
+            )
+        )
+    # project_dir: user-facing multi-project override. Always optional;
+    # _invoke pops it before dispatch so it never confuses manifest
+    # handlers that don't declare it. Skip when the manifest already
+    # declares it as an arg (e.g. ``germinate`` takes ``project-dir``
+    # as a required positional) — duplicating would raise ValueError
+    # in ``inspect.Signature.__init__``.
+    already_has_project_dir = any(p.name == "project_dir" for p in params)
+    if not already_has_project_dir:
+        params.append(
+            inspect.Parameter(
+                "project_dir",
+                inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                default=None,
+                annotation=str | None,
+            )
+        )
+    return inspect.Signature(params)
 
 
 # ---------------------------------------------------------------------------
@@ -618,10 +716,24 @@ def build_server(manifest: Manifest | None = None):  # pragma: no cover - integr
                 # given, giving the substrate discovery chain a way to
                 # find the user's workspace on MCP hosts that spawn the
                 # server with cwd = system dir.
-                return await _invoke(spec_local, m, kwargs, state, mcp_ctx=ctx)
+                #
+                # v0.5.21: explicit-param binding puts each declared arg
+                # into ``kwargs`` by name (thanks to ``__signature__``
+                # override below). Drop keys whose value is ``None`` so
+                # optional-with-default-None args don't shadow the
+                # manifest's own defaulting logic — ``build_handler_args``
+                # re-applies defaults for omitted keys.
+                clean = {k: v for k, v in kwargs.items() if v is not None}
+                return await _invoke(spec_local, m, clean, state, mcp_ctx=ctx)
 
             _handler.__name__ = spec_local.mcp_tool
             _handler.__doc__ = spec_local.summary
+            # v0.5.21 hotfix: override the Python signature so FastMCP's
+            # schema derivation sees each manifest arg as an individual
+            # JSON property rather than collapsing ``**kwargs`` into a
+            # single required ``{"kwargs": dict}`` property. See
+            # :func:`_build_handler_signature` for the full rationale.
+            _handler.__signature__ = _build_handler_signature(spec_local)  # type: ignore[attr-defined]
             return _handler
 
         # Canonical tool registration.
