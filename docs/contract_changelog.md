@@ -11,6 +11,58 @@ Format: one section per `contract_version`, newest first.
 
 ---
 
+## v0.5.11 — 2026-04-22 — MCP Registry onboarding (no contract-shape change)
+
+Contract-layer molt with **zero contract-surface deltas**, exactly
+like v0.5.9 and v0.5.10. This molt pairs a version number to
+onboarding Myco into the official [MCP Registry](https://registry.modelcontextprotocol.io/)
+so every MCP-capable host can discover and install Myco through
+the standard registry flow rather than via manual config.
+
+### What changed
+
+- **Nothing in the R1–R7 rule text.** No rule added, removed, or
+  semantically modified.
+- **Nothing in the category enum, the exit-policy grammar, or the
+  exit-code ladder** (3 / 4 / 5).
+- **Nothing in the 18-verb manifest surface.**
+- **Nothing in the dimension roster count** (still 25).
+
+### Added (non-contract, additive)
+
+- **`server.json`** at the repo root. Describes Myco as an MCP
+  server in the [2025-12-11 ServerJSON
+  schema](https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json):
+  namespace `io.github.battam1111/myco`, stdio transport, PyPI
+  package `myco==0.5.11` pinned. Validated via
+  `mcp-publisher validate` against the live registry.
+- **`<!-- mcp-name: io.github.battam1111/myco -->` sentinel** in
+  `README.md`. PyPI's long-description becomes the package page
+  body, and the registry's PyPI verifier greps the body for
+  `mcp-name: <namespace>` to prove the package belongs to the
+  claimed GitHub namespace. HTML comment is invisible to human
+  readers; string is machine-readable.
+- **Write-surface additions.** `server.json` and `CITATION.cff`
+  join the `_canon.yaml::system.write_surface.allowed` list so
+  future agent-initiated version bumps can rewrite them in place
+  without tripping PA1 or WriteSurfaceViolation.
+
+### Break from v0.5.10
+
+None at the contract layer. Operators upgrading from v0.5.10
+require **no code changes, no canon edits, no script adjustments**.
+
+Observable differences:
+- `mcp-server-myco` is now advertised in the official MCP Registry.
+  Clients that resolve namespaces via the registry (Claude Desktop,
+  future auto-install flows) will find Myco without a manual config
+  paste.
+- PyPI 0.5.11 release includes the `mcp-name` sentinel in the
+  long-description. Old releases (< 0.5.11) remain installable but
+  are not registry-verified.
+
+---
+
 ## v0.5.10 — 2026-04-21 — Audit-response hotfix (no contract-shape change)
 
 Contract-layer molt with **zero contract-surface deltas**, exactly
