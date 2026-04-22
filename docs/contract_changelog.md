@@ -11,6 +11,126 @@ Format: one section per `contract_version`, newest first.
 
 ---
 
+## v0.5.19 — 2026-04-23 — Cowork plugin install: the permanent onboarding fix
+
+Contract-layer patch with **zero R1–R7 surface deltas**. Everything in
+v0.5.19 lives at the host-axis of the extensibility model (see
+`docs/architecture/L3_IMPLEMENTATION/symbiont_protocol.md`), not at
+the contract itself.
+
+### What changed
+
+- **Nothing in R1–R7 rule text.**
+- **Nothing in the category enum / exit-policy / exit codes.**
+- **Nothing in the 18-verb manifest surface.**
+- **Nothing in the dimension roster count** (still 25).
+
+### The problem this release fixes
+
+Cowork (Claude Desktop's local-agent-mode) is a first-class Myco
+host, but until now the agent wouldn't *recognize* a Myco substrate
+without the user explicitly asking for it. Unlike Claude Code, Cowork
+does not implement the SessionStart / PreCompact hook contract the
+`.claude/hooks/` entries ride on — those hooks never fire in Cowork
+sessions.
+
+Diagnostically: the user opens a Cowork workspace with `_canon.yaml`
+at its root, and the agent's first turn proceeds as if Myco isn't
+there. Only after the user says "run `myco hunger`" does the agent
+connect the dots. R1 is effectively unenforced.
+
+### The fix
+
+Cowork *does* honor **Skills** — markdown files with YAML frontmatter
+that the host matches against user intent + agent context. v0.5.19
+ships a `.cowork-plugin/` template carrying a single skill
+(`myco-substrate`) plus an installer that drops it into every Cowork
+workspace registry on this machine.
+
+New surface:
+
+- **`.cowork-plugin/`** template tree (plugin.json + skills/myco-
+  substrate/SKILL.md + .mcp.json + README.md). The SKILL.md body is
+  the full onboarding brief: what Myco is (cognitive substrate, NOT
+  memory tool — this framing is enforced by
+  `test_cowork_skill_body_asserts_correct_framing`), 18 verbs by
+  subsystem, R1-R7 contract text, how to read `substrate_pulse`,
+  first-call checklist, multi-project pattern with `project_dir=`
+  override, and a "what NOT to do" guardrail list.
+- **`src/myco/install/cowork_plugin.py`** — library installer.
+- **`scripts/install_cowork_plugin.py`** — thin shim over the library
+  for users who clone the repo without running `pip install -e .`.
+- **`myco-install cowork-plugin`** — first-class subcommand with
+  `--dry-run` / `--uninstall` / `--cowork-root`.
+- **`myco-install host cowork`** now writes the MCP config *and*
+  installs the plugin tree in one step.
+- **`myco-install host --all-hosts`** auto-runs the Cowork plugin
+  install whenever it detects Claude Desktop — one command, every
+  host on this machine primed, Cowork onboarding included.
+
+The installer is idempotent: re-running upserts the manifest row and
+refreshes the plugin tree without creating duplicates. `--uninstall`
+is symmetric — removes the tree + manifest row, preserves sibling
+entries (e.g. cowork-plugin-management, productivity from the Anthropic
+marketplace).
+
+### Cross-cutting infrastructure
+
+- **`_canon.yaml::system.write_surface.allowed`** adds
+  `.cowork-plugin/**`.
+- **`scripts/bump_version.py`** now bumps `.cowork-plugin/plugin.json`
+  in lockstep with the repo-root `.claude-plugin/plugin.json`, so
+  both plugin bundles always carry the same version as the Python
+  package + PyPI release + MCP Registry entry.
+- **`tests/integration/test_cowork_plugin_bundle.py`** — template
+  structural invariants (plugin.json + .mcp.json parse; SKILL.md
+  frontmatter shape; skill body carries the correct framing + R1-R7
+  + pulse contract).
+- **`tests/integration/test_install_cowork_plugin.py`** — installer
+  behavior on synthetic appdata: discovery walks the glob correctly,
+  idempotent upsert preserves sibling plugins, dry-run never writes,
+  uninstall is symmetric, OS-specific appdata resolution on Windows
+  / macOS / Linux, `--all-hosts` side-effect fires when Claude
+  Desktop is detected.
+- **README + README_zh + README_ja + docs/INSTALL.md** — corrected
+  the Cowork install instruction (was wrongly pointing at the
+  Claude Code `/plugin marketplace` command; Cowork does not
+  support it).
+
+### Why a contract bump if R1–R7 didn't change?
+
+Precedent set at v0.5.17: onboarding-surface changes that shift
+which rule the agent sees first at boot time (R1 → skill-mediated
+vs R1 → hook-mediated) count as contract-adjacent and earn a bump.
+The skill body in `.cowork-plugin/skills/myco-substrate/SKILL.md`
+is agent-facing contract material — if Myco's framing changes in
+future releases (e.g. "cognitive substrate" → something else),
+that *is* a contract change even though no rule number moves.
+
+### Break from v0.5.18
+
+None. Pure additive. Claude Code users unaffected (the old
+`.claude-plugin/` bundle still ships). Cowork users who previously
+got by on ad-hoc reminder prompts will now see the agent
+auto-orient at session start.
+
+### Operator action
+
+After `pip install -U myco` (or restart of an editable install),
+users who want the Cowork fix should run:
+
+```
+myco-install cowork-plugin           # installs skill + manifest entries
+# or
+myco-install host --all-hosts        # does everything else too
+```
+
+then restart Claude Desktop. On the next Cowork session the agent
+will follow R1-R7 the moment it sees `_canon.yaml` or the user
+mentions Myco.
+
+---
+
 ## v0.5.18 — 2026-04-23 — auto-germ pulse carries transparency fields
 
 Contract-layer patch with **zero contract-surface deltas**. v0.5.17
