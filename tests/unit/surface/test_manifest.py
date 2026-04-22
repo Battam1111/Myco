@@ -174,6 +174,56 @@ def test_build_context_happy_path(genesis_substrate: Path) -> None:
     assert ctx.substrate.root == genesis_substrate.resolve()
 
 
+# v0.5.13: ``MYCO_PROJECT_DIR`` env var fallback — the middle rung of
+# the substrate-resolution chain (explicit arg > env > cwd). Exists so
+# MCP hosts that ignore the ``cwd`` field in their mcpServers config
+# (Claude Desktop is the known offender; others likely do the same)
+# can still pin a substrate through the universally-supported ``env``
+# field. Three tests cover the three precedence outcomes.
+
+
+def test_build_context_uses_myco_project_dir_env(
+    genesis_substrate: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """When no explicit ``project_dir`` is given, ``MYCO_PROJECT_DIR`` wins
+    over ``Path.cwd()`` — the fix for MCP-host-without-cwd scenarios."""
+    # cwd is tmp_path (NO substrate). Env points at a real substrate.
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("MYCO_PROJECT_DIR", str(genesis_substrate))
+    ctx = build_context()
+    assert ctx is not None
+    assert ctx.substrate.root == genesis_substrate.resolve()
+
+
+def test_build_context_explicit_arg_beats_env(
+    genesis_substrate: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """Explicit ``project_dir`` wins over ``MYCO_PROJECT_DIR``."""
+    # Env points at a NON-substrate dir; explicit arg points at a real one.
+    # If env took precedence we'd see SubstrateNotFound; we see success.
+    monkeypatch.setenv("MYCO_PROJECT_DIR", str(tmp_path))
+    ctx = build_context(project_dir=genesis_substrate)
+    assert ctx is not None
+    assert ctx.substrate.root == genesis_substrate.resolve()
+
+
+def test_build_context_empty_env_var_falls_through_to_cwd(
+    genesis_substrate: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Empty or whitespace-only ``MYCO_PROJECT_DIR`` is treated as unset —
+    falls through to cwd. Guards against shells that set empty strings."""
+    monkeypatch.chdir(genesis_substrate)
+    monkeypatch.setenv("MYCO_PROJECT_DIR", "   ")  # whitespace only
+    ctx = build_context()
+    assert ctx is not None
+    assert ctx.substrate.root == genesis_substrate.resolve()
+
+
 def test_dispatch_runs_handler(genesis_substrate: Path) -> None:
     ctx = MycoContext.for_testing(root=genesis_substrate)
     result = dispatch("eat", {"content": "hi"}, ctx=ctx)
