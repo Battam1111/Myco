@@ -95,8 +95,18 @@ jobs:
         # dist/myco-<version>.plugin alongside the sdist + wheel and
         # gets attached to the GitHub release as a downloadable asset.
         # Build rationale: ``src/myco/install/plugin_bundle.py``.
+        #
+        # We install pyyaml explicitly because scripts/build_plugin.py
+        # imports ``myco.install.plugin_bundle``, which goes through
+        # ``myco/install/__init__.py`` → ``myco/core/__init__.py`` →
+        # ``yaml``. The ``python -m build`` step above only populates
+        # the wheel, not the CI Python's site-packages, so ``yaml``
+        # isn't yet on path. The alternative would be
+        # ``pip install dist/*.whl`` but that pulls the full transitive
+        # closure for a 10-line script — wasteful on the hot path.
         run: |
           set -eo pipefail
+          python -m pip install pyyaml
           python scripts/build_plugin.py
           ls -lh dist/*.plugin
 
