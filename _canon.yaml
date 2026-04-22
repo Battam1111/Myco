@@ -37,6 +37,12 @@ system:
       - ".mcp.json"
       - "hooks/**"
       - "skills/**"
+      # v0.5.19 Cowork plugin bundle. Mirrors .claude-plugin/ but
+      # ships to Claude Desktop's local-agent-mode (Cowork) via
+      # scripts/install_cowork_plugin.py / `myco-install cowork-plugin`.
+      # Cowork doesn't implement session hooks — agent onboarding
+      # rides on a skill instead. See .cowork-plugin/README.md.
+      - ".cowork-plugin/**"
       # v0.5.11 MCP Registry onboarding (registry.modelcontextprotocol.io).
       # Declares package identifier / transport / PyPI pinning so clients
       # can discover + install Myco via the official registry. README also

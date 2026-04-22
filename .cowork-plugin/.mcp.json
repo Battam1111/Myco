@@ -1,0 +1,12 @@
+{
+  "_note": "Myco MCP server entry. The Cowork plugin loader reads this; Claude Desktop's standalone mcpServers config at %APPDATA%/Claude/claude_desktop_config.json can continue to carry the same entry for non-Cowork modes — they don't conflict. The plugin-level entry wins when the agent is running inside a Cowork session that loaded this plugin.",
+  "mcpServers": {
+    "myco": {
+      "command": "python",
+      "args": [
+        "-m",
+        "myco.mcp"
+      ]
+    }
+  }
+}

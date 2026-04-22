@@ -34,6 +34,13 @@ from pathlib import Path
 
 from ..core.io import ensure_utf8_stdio
 from .clients import CLIENTS, MycoInstallError, detect_installed_hosts, dispatch
+from .cowork_plugin import (
+    claude_appdata_root,
+    discover_rpm_dirs,
+    install_cowork_plugin,
+    repo_template_root,
+    uninstall_cowork_plugin,
+)
 from .fresh import DEFAULT_REPO, run_fresh
 
 __all__ = ["main", "CLIENTS", "MycoInstallError", "dispatch"]
@@ -184,7 +191,80 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Remove the myco entry instead of adding it.",
     )
 
+    # -- cowork-plugin ---------------------------------------------
+    p_cw = sub.add_parser(
+        "cowork-plugin",
+        help=(
+            "Install the Myco plugin template into every Cowork "
+            "workspace's rpm/ dir (v0.5.19 one-time-per-machine setup "
+            "so the Cowork agent sees the myco-substrate onboarding "
+            "skill on next session)."
+        ),
+        description=(
+            "Cowork (Claude Desktop's local-agent-mode) loads plugins "
+            "from a per-workspace registry at %%APPDATA%%/Claude/"
+            "local-agent-mode-sessions/<owner>/<workspace>/rpm/. Myco "
+            "doesn't have a Cowork marketplace yet, so this subcommand "
+            "populates the same registry directly by copying the repo's "
+            ".cowork-plugin/ template into every rpm/ dir and upserting "
+            "a plugins entry in each manifest.json. Idempotent and "
+            "safe to re-run. Restart Claude Desktop after install."
+        ),
+    )
+    p_cw.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print what would change without writing anything.",
+    )
+    p_cw.add_argument(
+        "--uninstall",
+        action="store_true",
+        help="Remove the Myco plugin from every Cowork workspace registry.",
+    )
+    p_cw.add_argument(
+        "--cowork-root",
+        type=Path,
+        default=None,
+        help=(
+            "Override the Claude Desktop application-data root "
+            "(default: OS-specific — auto-detected)."
+        ),
+    )
+
     return parser
+
+
+def _run_cowork_plugin(
+    *,
+    dry_run: bool,
+    uninstall: bool,
+    cowork_root: Path | None = None,
+) -> int:
+    """Install (or uninstall) the Myco Cowork plugin template tree.
+
+    Thin orchestration layer over :mod:`myco.install.cowork_plugin`:
+    resolves the Claude-Desktop appdata root, enumerates every
+    workspace registry, and dispatches to the library.
+
+    Returns 0 on success (including "nothing to do" when no Cowork
+    sessions are found), 1 when the repo template is missing.
+
+    v0.5.19 addition. Also wired into ``--all-hosts`` so one
+    ``myco-install host --all-hosts`` configures every MCP host AND
+    primes the Cowork onboarding skill in the same pass.
+    """
+    claude_root = cowork_root or claude_appdata_root()
+    targets = discover_rpm_dirs(claude_root)
+    print(f"Claude Desktop root: {claude_root}")
+    print(f"Discovered {len(targets)} Cowork workspace(s).")
+    if uninstall:
+        result = uninstall_cowork_plugin(targets, dry_run=dry_run)
+    else:
+        template = repo_template_root()
+        result = install_cowork_plugin(template, targets, dry_run=dry_run)
+    if result < 0:
+        return 1
+    return 0
 
 
 def _run_all_hosts(
@@ -265,6 +345,23 @@ def _run_all_hosts(
         f"{len(installed)}/{total_detected} host(s) {verb}, "
         f"{len(skipped)} skipped, {len(failed)} errored."
     )
+
+    # v0.5.19: if Claude Desktop (and therefore Cowork) was detected,
+    # also install the Cowork plugin template tree so the Cowork agent
+    # sees the myco-substrate onboarding skill on next session. This
+    # is the permanent fix for "agent doesn't auto-recognize Myco in
+    # Cowork" — the MCP server entry alone gives tools but no context.
+    # Skipped silently when Claude Desktop was not in the install set,
+    # so hosts that don't run Cowork (e.g. pure Cursor users) are
+    # unaffected.
+    desktop_was_touched = any(
+        client in ("claude-desktop", "cowork") for client, _ in installed
+    )
+    if desktop_was_touched:
+        print()
+        print("--- Cowork plugin (myco-substrate skill) ---")
+        _run_cowork_plugin(dry_run=dry_run, uninstall=uninstall)
+
     return 0 if not failed else 1
 
 
@@ -335,7 +432,26 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
             if output:
                 print(output)
+            # v0.5.19: `myco-install host cowork` also installs the
+            # plugin template tree (since Cowork only becomes useful
+            # when both the MCP entry AND the onboarding skill are in
+            # place). `claude-desktop` does NOT trigger this because
+            # the non-Cowork Claude Desktop doesn't use the local-agent
+            # plugin registry and the MCP entry alone is enough.
+            if args.client == "cowork":
+                print()
+                print("--- Cowork plugin (myco-substrate skill) ---")
+                _run_cowork_plugin(
+                    dry_run=args.dry_run,
+                    uninstall=args.uninstall,
+                )
             return 0
+        if args.subcommand == "cowork-plugin":
+            return _run_cowork_plugin(
+                dry_run=args.dry_run,
+                uninstall=args.uninstall,
+                cowork_root=args.cowork_root,
+            )
     except MycoInstallError as exc:
         sys.stderr.write(f"myco-install: {exc}\n")
         return 2

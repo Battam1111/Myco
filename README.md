@@ -90,8 +90,9 @@ myco germinate . --substrate-id your-project
 
 Hook Myco into your agent host in one command:
 
-- **Claude Code / Cowork** — `/plugin marketplace add Battam1111/Myco`, then `/plugin install myco@myco`.
-- **Any other MCP host** — `myco-install <cursor | windsurf | zed | vscode | openclaw | claude-desktop | gemini | codex | goose>`.
+- **Claude Code** — `/plugin marketplace add Battam1111/Myco`, then `/plugin install myco@myco`.
+- **Claude Desktop / Cowork** — `myco-install host cowork` writes the MCP entry *and* installs the `myco-substrate` onboarding skill into every Cowork workspace.
+- **Any other MCP host** — `myco-install host <cursor | windsurf | zed | vscode | openclaw | claude-desktop | gemini-cli | codex-cli | goose>`, or `--all-hosts` to auto-detect every host on this machine.
 - **Via the official MCP Registry** — [`io.github.Battam1111/myco`](https://registry.modelcontextprotocol.io/v0/servers?search=Battam1111) for clients that auto-resolve namespaces.
 
 Per-host snippets for the nine hosts with divergent schemas, Python-framework adapters (LangChain / CrewAI / DSPy / Smolagents / Agno / PraisonAI / MS Agent Framework / Claude Agent SDK), and library-embedding examples live in [`INSTALL.md`](docs/INSTALL.md).
@@ -122,7 +123,8 @@ Zero host-side configuration. R1–R7 ride inside the MCP server itself, so ever
 
 ## Integrations
 
-- **Claude Code and Cowork.** Official plugin wires MCP + hooks + slash skills in one command. Or drop `.claude/` in by hand.
+- **Claude Code.** Official plugin wires MCP + hooks + slash skills in one command. Or drop `.claude/` in by hand.
+- **Cowork (Claude Desktop local-agent-mode).** `myco-install host cowork` installs MCP + the `myco-substrate` onboarding skill so the Cowork agent follows R1-R7 the moment it sees `_canon.yaml`. Cowork doesn't expose hooks, so the boot ritual rides on a skill instead — see [`INSTALL.md`](docs/INSTALL.md) and `.cowork-plugin/README.md` for rationale.
 - **Any MCP host.** Ten automated via `myco-install`; another nine with per-host snippets in [`INSTALL.md`](docs/INSTALL.md); any other client via `mcp-server-myco` over stdio.
 - **Python agent frameworks.** LangChain, CrewAI, DSPy, Smolagents, Agno, PraisonAI, MS Agent Framework, Claude Agent SDK all consume Myco via `StdioServerParameters(command="mcp-server-myco")`.
 - **Downstream substrates.** `myco propagate` publishes; adapters live in `myco.symbionts`.
