@@ -1,0 +1,52 @@
+# .dockerignore — keep the image build context small. The image
+# installs `myco[mcp]` from PyPI, so none of the local source tree
+# needs to enter the build context. Only Dockerfile itself does.
+
+# VCS
+.git
+.gitignore
+.github
+
+# Python build / test artifacts
+__pycache__
+*.py[cod]
+.pytest_cache
+.ruff_cache
+.mypy_cache
+.coverage
+coverage.*
+htmlcov
+build
+dist
+*.egg-info
+
+# Editor / OS
+.vscode
+.idea
+.DS_Store
+Thumbs.db
+
+# Myco substrate state + source tree (unused in this image — see
+# Dockerfile for why we install from PyPI rather than COPY)
+src
+tests
+notes
+docs
+examples
+.myco
+.myco_state
+.claude
+.claude-plugin
+.mcp.json
+hooks
+skills
+scripts
+assets
+
+# Doc + changelog files
+*.md
+CITATION.cff
+_canon.yaml
+server.json
+pyproject.toml
+LICENSE

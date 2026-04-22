@@ -45,6 +45,12 @@ system:
       # GitHub namespace.
       - "server.json"
       - "CITATION.cff"
+      # v0.5.13 Dockerfile for Glama's OCI-based introspection check
+      # and any MCP client that prefers OCI over pip/pipx. Carries
+      # `io.modelcontextprotocol.server.name` label = `io.github.Battam1111/myco`
+      # for OCI-registryType namespace verification.
+      - "Dockerfile"
+      - ".dockerignore"
   hard_contract:
     rules_ref: "docs/architecture/L1_CONTRACT/protocol.md"
     rule_count: 7

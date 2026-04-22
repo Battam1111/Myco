@@ -145,24 +145,30 @@ step inside the workflow verifies that `GITHUB_REF` matches
 `version` before anything is published — preventing the "0.5.12 on
 PyPI, 0.5.11 in the registry" drift class that tripped us on v0.5.11.
 
-Release ceremony for maintainers:
+Release ceremony for maintainers (one helper + four git verbs):
 
 ```bash
-# 1. Bump every version-carrying file. Use the helper or edit manually:
-#    src/myco/__init__.py  — __version__
-#    server.json           — version + packages[0].version
-#    .claude-plugin/plugin.json — version
-#    CITATION.cff          — version + preferred-citation.version
-# 2. Bump canon + changelog:
-python -m myco molt --contract vX.Y.Z
-# 3. Replace the auto-stubbed changelog section with the real narrative
-#    (the workflow uses this as the GitHub release body).
-# 4. Commit, tag, push:
+# 1. Atomic bump of every version-carrying file + canon + changelog.
+#    Does __init__.py / plugin.json / CITATION.cff / server.json (x2),
+#    then runs `myco molt --contract vX.Y.Z`, then runs pytest.
+#    Refuses dirty worktree + downgrades by default.
+python scripts/bump_version.py --to X.Y.Z
+
+# 2. Replace the `(Fill in: ...)` auto-stub in
+#    docs/contract_changelog.md with the real narrative — the
+#    Release workflow uses that section as the GitHub-release body.
+
+# 3. Commit, tag, push.
 git add -A && git commit -m "vX.Y.Z — <summary>"
 git tag vX.Y.Z
 git push origin main vX.Y.Z
-# 5. Watch the Release workflow run — it handles everything else.
+
+# 4. Watch the Release workflow (~3 min) publish to PyPI, MCP
+#    Registry, and create the GitHub release.
 ```
+
+For edge cases (pre-releases, rollback), see
+``scripts/bump_version.py --help``.
 
 One-time setup (done once per repo, never again):
 
