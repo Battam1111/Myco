@@ -42,7 +42,9 @@ def test_bump_pyversion_rewrites_version_literal(tmp_path: Path, bump) -> None:
     p = tmp_path / "init.py"
     p.write_text('"""docstring."""\n\n__version__ = "0.5.12"\n', encoding="utf-8")
     changes = bump._bump_pyversion(p, "0.5.13", dry_run=False)
-    assert p.read_text(encoding="utf-8") == '"""docstring."""\n\n__version__ = "0.5.13"\n'
+    assert (
+        p.read_text(encoding="utf-8") == '"""docstring."""\n\n__version__ = "0.5.13"\n'
+    )
     assert any("0.5.12 → 0.5.13" in c for c in changes)
 
 
@@ -90,11 +92,16 @@ def test_bump_plugin_json_preserves_other_keys(tmp_path: Path, bump) -> None:
 def test_bump_plugin_json_preserves_key_order(tmp_path: Path, bump) -> None:
     p = tmp_path / "plugin.json"
     p.write_text(
-        json.dumps({"name": "myco", "version": "0.5.12", "description": "x"}, indent=2) + "\n",
+        json.dumps({"name": "myco", "version": "0.5.12", "description": "x"}, indent=2)
+        + "\n",
         encoding="utf-8",
     )
     bump._bump_plugin_json(p, "0.5.13", dry_run=False)
-    assert list(json.loads(p.read_text(encoding="utf-8"))) == ["name", "version", "description"]
+    assert list(json.loads(p.read_text(encoding="utf-8"))) == [
+        "name",
+        "version",
+        "description",
+    ]
 
 
 # --------------------------------------------------- CITATION.cff
@@ -137,16 +144,18 @@ def test_bump_citation_preserves_other_fields(tmp_path: Path, bump) -> None:
     p.write_text(original, encoding="utf-8")
     bump._bump_citation_cff(p, "1.0.1", dry_run=False)
     text = p.read_text(encoding="utf-8")
-    assert 'cff-version: 1.2.0' in text
+    assert "cff-version: 1.2.0" in text
     assert 'title: "Example Project"' in text
-    assert 'family-names: Smith' in text
+    assert "family-names: Smith" in text
     assert 'version: "1.0.1"' in text
 
 
 # ------------------------------------------------------ server.json
 
 
-def test_bump_server_json_updates_root_and_package_versions(tmp_path: Path, bump) -> None:
+def test_bump_server_json_updates_root_and_package_versions(
+    tmp_path: Path, bump
+) -> None:
     p = tmp_path / "server.json"
     p.write_text(
         json.dumps(
@@ -177,7 +186,11 @@ def test_bump_server_json_handles_multiple_packages(tmp_path: Path, bump) -> Non
                 "version": "1.0.0",
                 "packages": [
                     {"registryType": "pypi", "identifier": "y", "version": "1.0.0"},
-                    {"registryType": "oci", "identifier": "y:1.0.0", "version": "1.0.0"},
+                    {
+                        "registryType": "oci",
+                        "identifier": "y:1.0.0",
+                        "version": "1.0.0",
+                    },
                 ],
             },
             indent=2,
@@ -202,7 +215,9 @@ def test_semver_regex_accepts_basic(bump) -> None:
 
 def test_semver_regex_rejects_malformed(bump) -> None:
     assert bump.SEMVER_RE.match("0.5") is None
-    assert bump.SEMVER_RE.match("v0.5.13") is None  # leading 'v' is stripped in main(), not here
+    assert (
+        bump.SEMVER_RE.match("v0.5.13") is None
+    )  # leading 'v' is stripped in main(), not here
     assert bump.SEMVER_RE.match("0.5.13.4") is None
     assert bump.SEMVER_RE.match("not-a-version") is None
 
