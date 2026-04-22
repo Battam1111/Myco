@@ -395,26 +395,29 @@ def build_context(
     Substrate resolution chain (highest precedence first):
 
     1. Explicit ``project_dir`` argument — CLI ``--project-dir`` or
-       MCP ``kwargs.project_dir`` lands here.
-    2. ``MYCO_PROJECT_DIR`` environment variable — standard fallback
-       for MCP hosts that spawn server subprocesses without setting
-       cwd (Claude Desktop, OpenHands, Continue, many others). The
-       ``mcpServers.<name>.env`` field in every host's config schema
-       lets operators pin a substrate path without editing shell
-       launch ceremony. Added in v0.5.13.
-    3. ``Path.cwd()`` — legacy behaviour. Claude Code's shell cwd
+       MCP ``kwargs.project_dir`` lands here. The MCP surface also
+       uses ``roots/list`` to fill this in automatically on hosts
+       that expose workspace roots (v0.5.14+).
+    2. ``MYCO_PROJECT_DIR`` env var — explicit Myco pin. v0.5.13+.
+    3. ``CLAUDE_PROJECT_DIR`` env var — Claude Code injects this in
+       hook processes (SessionStart, PreCompact, etc.). Reusing it
+       means a shared ``~/myco`` + hook setup needs zero Myco-specific
+       configuration. v0.5.14+.
+    4. ``Path.cwd()`` — legacy behaviour. Claude Code's shell cwd
        flows through this path; nothing breaks for existing setups.
 
-    ``~`` expansion runs on the env-var path so operators can write
+    ``~`` expansion runs on the env-var paths so operators can write
     ``MYCO_PROJECT_DIR=~/project`` without worrying about shell
     expansion on Windows.
     """
     if pre_substrate:
         return None
     if project_dir is None:
-        env_dir = os.environ.get("MYCO_PROJECT_DIR", "").strip()
-        if env_dir:
-            project_dir = Path(env_dir).expanduser()
+        for env_var in ("MYCO_PROJECT_DIR", "CLAUDE_PROJECT_DIR"):
+            env_dir = os.environ.get(env_var, "").strip()
+            if env_dir:
+                project_dir = Path(env_dir).expanduser()
+                break
     start = (project_dir or Path.cwd()).resolve()
     try:
         root = find_substrate_root(start)
@@ -423,12 +426,40 @@ def build_context(
         # message rather than wrapping in ``UsageError``. The previous
         # wrap silently downgraded exit code 4 → 3 and broke the
         # v0.5.8 contract-promised exit-code differentiation.
-        raise SubstrateNotFound(
-            f"no Myco substrate found at or above {start} (searched for "
-            f"_canon.yaml in every parent). Run `myco germinate "
-            f"--project-dir <dir> --substrate-id <slug>` to bootstrap "
-            f"one, or cd into an existing substrate."
-        ) from exc
+        #
+        # v0.5.14: error message now enumerates every detection path
+        # that was tried so operators can tell whether env vars were
+        # ignored vs set-but-wrong, MCP roots were queried vs unavailable,
+        # etc. This cut debugging time from ~30 min to ~30 s in the
+        # C3-substrate setup dogfood session.
+        tried: list[str] = []
+        if project_dir is not None:
+            tried.append(f"explicit project_dir → {start}")
+        for env_var in ("MYCO_PROJECT_DIR", "CLAUDE_PROJECT_DIR"):
+            env_val = os.environ.get(env_var, "").strip()
+            if env_val:
+                tried.append(f"${env_var}={env_val!r}")
+        if not tried:
+            tried.append(f"cwd → {start}")
+        lines = ["no Myco substrate found. Tried:"]
+        for t in tried:
+            lines.append(f"  - {t}")
+        lines.append("")
+        lines.append("No _canon.yaml at or above any of these. Fix one of:")
+        lines.append(
+            "  - germinate a new substrate: "
+            "`myco germinate --project-dir <dir> --substrate-id <slug>`"
+        )
+        lines.append(
+            "  - cd into an existing substrate (CLI), or set "
+            "MYCO_PROJECT_DIR in the host's MCP server env (MCP hosts)"
+        )
+        lines.append(
+            "  - on MCP hosts that expose `roots/list` (Cowork, Cursor, "
+            "Zed, Windsurf, …), just open the substrate folder as a "
+            "workspace — Myco auto-discovers it via protocol."
+        )
+        raise SubstrateNotFound("\n".join(lines)) from exc
     substrate = Substrate.load(root)
     import sys
 

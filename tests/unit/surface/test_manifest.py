@@ -219,9 +219,71 @@ def test_build_context_empty_env_var_falls_through_to_cwd(
     falls through to cwd. Guards against shells that set empty strings."""
     monkeypatch.chdir(genesis_substrate)
     monkeypatch.setenv("MYCO_PROJECT_DIR", "   ")  # whitespace only
+    # Also clear CLAUDE_PROJECT_DIR so it doesn't leak in and divert us
+    # to a substrate we didn't ask for.
+    monkeypatch.delenv("CLAUDE_PROJECT_DIR", raising=False)
     ctx = build_context()
     assert ctx is not None
     assert ctx.substrate.root == genesis_substrate.resolve()
+
+
+# v0.5.14: ``CLAUDE_PROJECT_DIR`` is injected by Claude Code in hook
+# processes. Honouring it means a shared hook + MCP setup needs zero
+# Myco-specific env wiring — reusing Claude Code's own pointer.
+
+
+def test_build_context_uses_claude_project_dir_env(
+    genesis_substrate: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """With MYCO_PROJECT_DIR unset, ``CLAUDE_PROJECT_DIR`` is honoured."""
+    monkeypatch.chdir(tmp_path)  # cwd: no substrate
+    monkeypatch.delenv("MYCO_PROJECT_DIR", raising=False)
+    monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(genesis_substrate))
+    ctx = build_context()
+    assert ctx is not None
+    assert ctx.substrate.root == genesis_substrate.resolve()
+
+
+def test_build_context_myco_env_wins_over_claude_env(
+    genesis_substrate: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """When both envs are set, MYCO_PROJECT_DIR wins — the explicit Myco
+    pointer must override the Claude-Code-injected one."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("MYCO_PROJECT_DIR", str(genesis_substrate))
+    # CLAUDE_PROJECT_DIR points at a NON-substrate dir; if it won, we'd
+    # see SubstrateNotFound.
+    monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(tmp_path))
+    ctx = build_context()
+    assert ctx is not None
+    assert ctx.substrate.root == genesis_substrate.resolve()
+
+
+def test_substrate_not_found_message_lists_every_tried_path(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Error message enumerates every detection path that was tried, so
+    operators can tell WHICH level of the chain failed (v0.5.14)."""
+    from myco.core.errors import SubstrateNotFound
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("MYCO_PROJECT_DIR", raising=False)
+    monkeypatch.delenv("CLAUDE_PROJECT_DIR", raising=False)
+
+    with pytest.raises(SubstrateNotFound) as exc_info:
+        build_context()
+    msg = str(exc_info.value)
+    # Shows cwd since no env was set.
+    assert "cwd" in msg
+    # Suggests the three fix paths.
+    assert "germinate" in msg
+    assert "MYCO_PROJECT_DIR" in msg
+    assert "roots/list" in msg
 
 
 def test_dispatch_runs_handler(genesis_substrate: Path) -> None:

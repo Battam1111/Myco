@@ -37,6 +37,22 @@ try:  # pyyaml is a hard dep, but load failures should not break imports
 except Exception:  # pragma: no cover
     yaml = None  # type: ignore[assignment,unused-ignore]
 
+# v0.5.14: FastMCP detects Context parameters via ``typing.get_type_hints``
+# which resolves string annotations against module globals. Context must
+# therefore live at module level. The MCP SDK is an optional extra (see
+# ``pip install 'myco[mcp]'``), so fall back to a harmless stub when it
+# isn't installed — in that case ``build_server`` fails on its own
+# FastMCP import anyway, so the stub never feeds a real server.
+try:
+    from mcp.server.fastmcp import Context as _MCPContext
+except Exception:  # pragma: no cover - MCP SDK not installed
+
+    class _MCPContext:  # type: ignore[no-redef]
+        """Runtime stub for the MCP ``Context`` type when the SDK is absent."""
+
+        session: Any = None
+
+
 __all__ = ["build_server", "build_tool_spec", "build_initialization_instructions"]
 
 
@@ -242,17 +258,56 @@ class _ServerState:
         self.hunger_called: bool = False
 
 
-def _invoke(
+async def _invoke(
     spec: CommandSpec,
     manifest: Manifest,
     args: Mapping[str, Any],
     state: _ServerState,
+    mcp_ctx: Any = None,
 ) -> dict[str, Any]:
-    result = dispatch(spec.name, args, manifest=manifest)
+    """Invoke a manifest verb from the MCP surface.
+
+    v0.5.14 resolution chain for project_dir (highest first):
+
+    1. ``kwargs.project_dir`` explicit argument — extracted here and
+       passed as a first-class dispatch parameter so it reaches the
+       handler + ``build_context``. (In v0.5.12 it was silently dropped
+       by ``build_handler_args`` which filters to per-verb spec args.)
+    2. **MCP ``roots/list`` from client** — async query. The MCP
+       protocol defines this capability for exactly this case: host
+       tells server which folder(s) the user has open. If the client
+       supports it and at least one root has a substrate at or above
+       it, we use that.
+    3. ``MYCO_PROJECT_DIR`` env var — handled by ``build_context``.
+    4. ``Path.cwd()`` — handled by ``build_context``.
+
+    Any of 1/2 succeeding short-circuits the chain. 3/4 are
+    fallbacks when neither an explicit arg nor a responsive client
+    yields anything.
+    """
+    args_in = dict(args)  # mutable copy; we may pop/overwrite project_dir
+
+    # Level 1: explicit kwargs.project_dir (fix for a latent bug —
+    # previously this key survived only long enough to compute the
+    # pulse sidecar; it never reached dispatch or build_context).
+    project_dir_str = args_in.pop("project_dir", None)
+    project_dir: Path | None = Path(project_dir_str) if project_dir_str else None
+
+    # Level 2: MCP roots/list — query the client for workspace roots.
+    if project_dir is None and mcp_ctx is not None:
+        discovered = await _resolve_project_via_roots(mcp_ctx)
+        if discovered is not None:
+            project_dir = discovered
+
+    # Levels 3-4 fall through to build_context's own env / cwd chain.
+    result = dispatch(
+        spec.name,
+        args_in,
+        manifest=manifest,
+        project_dir=project_dir,
+    )
     if spec.name == "hunger":
         state.hunger_called = True
-    project_dir_arg = args.get("project_dir")
-    project_dir = Path(project_dir_arg) if project_dir_arg else None
     pulse = _compute_substrate_pulse(
         verb=spec.name,
         project_dir=project_dir,
@@ -263,6 +318,80 @@ def _invoke(
         "payload": _jsonable(result.payload),
         "substrate_pulse": pulse,
     }
+
+
+async def _resolve_project_via_roots(ctx: Any) -> Path | None:
+    """Ask the MCP client for its workspace roots via ``roots/list``.
+
+    Returns the first root whose path has a Myco substrate (a
+    ``_canon.yaml`` at it or any ancestor). Returns ``None`` when:
+
+    - the client doesn't support ``roots/list`` (raises / no capability)
+    - the client returns an empty roots list
+    - no root's URI is a ``file://`` URI
+    - no root has a substrate anywhere along its ancestry
+
+    This is the core ``一劳永逸`` fix for MCP hosts that don't set a
+    useful cwd on MCP-server subprocesses (Claude Desktop, Cowork,
+    Cursor, Zed, …). Every spec-compliant MCP client exposes
+    workspace roots via this protocol method; Myco uses that
+    standard channel rather than each host's bespoke config field.
+    """
+    try:
+        session = getattr(ctx, "session", None)
+        if session is None or not hasattr(session, "list_roots"):
+            return None
+        result = await session.list_roots()
+    except Exception:
+        # Client doesn't support `roots/list`, network error,
+        # unsupported MCP version, any other reason — fall through.
+        return None
+    roots = getattr(result, "roots", None) or []
+    for root in roots:
+        uri = getattr(root, "uri", None)
+        if not uri:
+            continue
+        candidate = _uri_to_path(str(uri))
+        if candidate is None:
+            continue
+        if _has_substrate_at_or_above(candidate):
+            return candidate
+    return None
+
+
+def _uri_to_path(uri: str) -> Path | None:
+    """Parse a ``file://`` URI to a local ``Path``.
+
+    Handles POSIX (``file:///home/user/x``) and Windows
+    (``file:///C:/Users/x`` or ``file://C:/Users/x``) URIs, plus
+    percent-encoded spaces / non-ASCII characters. Returns ``None``
+    for non-file schemes (``https://``, ``git+ssh://``, etc).
+    """
+    import urllib.parse
+    import urllib.request
+
+    try:
+        parsed = urllib.parse.urlparse(uri)
+    except Exception:
+        return None
+    if parsed.scheme != "file":
+        return None
+    try:
+        return Path(urllib.request.url2pathname(parsed.path))
+    except Exception:
+        return None
+
+
+def _has_substrate_at_or_above(path: Path) -> bool:
+    """True when ``path`` or any ancestor contains a ``_canon.yaml``."""
+    try:
+        p = path.resolve()
+    except OSError:
+        return False
+    for candidate in [p, *p.parents]:
+        if (candidate / "_canon.yaml").is_file():
+            return True
+    return False
 
 
 def _jsonable(obj: Any) -> Any:
@@ -291,8 +420,14 @@ def build_server(manifest: Manifest | None = None):  # pragma: no cover - integr
         tool = build_tool_spec(spec)
 
         def _make_handler(spec_local: CommandSpec):
-            def _handler(**kwargs: Any) -> dict[str, Any]:
-                return _invoke(spec_local, m, kwargs, state)
+            async def _handler(ctx: _MCPContext, **kwargs: Any) -> dict[str, Any]:
+                # ``ctx`` is FastMCP's Context object, injected because of
+                # the ``_MCPContext`` type annotation. ``_invoke`` queries
+                # it for ``roots/list`` when no explicit project_dir is
+                # given, giving the substrate discovery chain a way to
+                # find the user's workspace on MCP hosts that spawn the
+                # server with cwd = system dir.
+                return await _invoke(spec_local, m, kwargs, state, mcp_ctx=ctx)
 
             _handler.__name__ = spec_local.mcp_tool
             _handler.__doc__ = spec_local.summary
