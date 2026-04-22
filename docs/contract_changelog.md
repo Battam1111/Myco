@@ -11,6 +11,48 @@ Format: one section per `contract_version`, newest first.
 
 ---
 
+## v0.5.18 — 2026-04-23 — auto-germ pulse carries transparency fields
+
+Contract-layer patch with **zero contract-surface deltas**. v0.5.17
+oversight: the auto-germ soft-fail path
+(``_auto_germ_advice_response``) builds its own pulse dict inline
+rather than going through ``_compute_substrate_pulse``, so it
+missed the ``project_dir_source`` + ``resolved_project_dir`` fields
+that v0.5.17 added to every other dispatch response.
+
+### What changed
+
+- **Nothing in the R1–R7 rule text.**
+- **Nothing in the category enum / exit-policy / exit codes.**
+- **Nothing in the 18-verb manifest surface.**
+- **Nothing in the dimension roster count** (still 25).
+
+### Fixed — auto-germ advice pulse now includes the transparency fields
+
+Reaching ``_auto_germ_advice_response`` proves that
+``_detect_workspace_root`` returned a ``file://`` root from the MCP
+client, so the patched pulse can confidently report:
+
+    "project_dir_source": "mcp.roots/list (root has no substrate)"
+    "resolved_project_dir": "<workspace root path>"
+
+Two-part diagnostic value:
+- Confirms ``roots/list`` IS working on this host (previously the
+  operator would wonder whether it was even reached).
+- Names the exact workspace path the client exposed (for when the
+  client claims workspace X but Myco expected Y).
+
+### Break from v0.5.17
+
+None. This patch is purely additive to the auto-germ path's pulse.
+
+Observable delta: operators running a Myco tool in a workspace that
+has no substrate will now see the ``project_dir_source`` +
+``resolved_project_dir`` keys in the pulse sidecar (they were absent
+in v0.5.17 for this specific branch).
+
+---
+
 ## v0.5.17 — 2026-04-23 — Resolution transparency in pulse + multi-project hint in init instructions
 
 Contract-layer molt with **zero contract-surface deltas**. Diagnostic
