@@ -11,6 +11,81 @@ Format: one section per `contract_version`, newest first.
 
 ---
 
+## v0.5.17 — 2026-04-23 — Resolution transparency in pulse + multi-project hint in init instructions
+
+Contract-layer molt with **zero contract-surface deltas**. Diagnostic
+v0.5.14 left out — the one the user correctly asked for after
+v0.5.16 shipped: the pulse sidecar now tells the agent WHICH level
+of the substrate-resolution chain answered.
+
+### Motivation
+
+v0.5.14 + v0.5.16 built the auto-resolve-via-MCP-roots path. But
+Claude Desktop's MCP client does not advertise the ``roots``
+capability (verified in live logs — client sends
+``capabilities: {extensions: ...}`` with no ``roots`` key). Every
+``_resolve_project_via_roots`` call returned None, the chain fell
+through to env/cwd, and operators saw "substrate_id was the same in
+every workspace" with no way to tell why.
+
+The fix: surface the chain.
+
+### What changed
+
+- **Nothing in the R1–R7 rule text.**
+- **Nothing in the category enum / exit-policy / exit codes.**
+- **Nothing in the 18-verb manifest surface.**
+- **Nothing in the dimension roster count** (still 25).
+
+### Added — ``project_dir_source`` + ``resolved_project_dir`` pulse fields
+
+Every MCP tool response now carries, in ``substrate_pulse``:
+
+- ``project_dir_source`` — one of ``kwargs.project_dir`` /
+  ``mcp.roots/list`` / ``env.MYCO_PROJECT_DIR`` /
+  ``env.CLAUDE_PROJECT_DIR`` / ``Path.cwd()``.
+- ``resolved_project_dir`` — the actual filesystem path Myco used
+  as the resolution's starting point.
+
+The two fields are omitted (rather than lying) when the caller
+doesn't know the source (CLI path).
+
+### Moved — substrate-resolution chain centralised in ``_invoke``
+
+v0.5.14 split the resolution chain between ``_invoke`` (levels 1-2)
+and ``build_context`` (levels 3-4). v0.5.17 has ``_invoke`` own all
+five levels end-to-end, tracking ``source`` as each answers, so the
+pulse can report the exact level. ``build_context`` still has its
+own chain for CLI callers; the two are kept in sync manually and
+both are pinned by tests.
+
+### Added — multi-project hint in initialization instructions
+
+The MCP ``initialize``-time instructions block now tells agents:
+"When you know which project folder the user is working on, pass
+``project_dir="<absolute path>"`` in every tool call's kwargs".
+
+This is the actionable workaround for MCP clients that don't
+implement ``roots/list`` (Claude Desktop / Cowork as of writing).
+Agents that read initialization instructions will see the hint and
+route tool calls correctly even on non-roots-capable hosts.
+
+### Break from v0.5.16
+
+None at the contract layer. Operators upgrading from v0.5.16
+require no code, canon, or script changes.
+
+Observable deltas:
+- Every MCP tool response gains two new pulse fields. Consumers
+  that parse the pulse with ``dict.get`` see new keys; strict
+  typed consumers may need a schema update.
+- Agents that follow the updated initialization instructions will
+  start passing ``project_dir`` in kwargs, overriding fallback
+  resolution. This is the correct behaviour; it matches what the
+  user wanted from v0.5.14.
+
+---
+
 ## v0.5.16 — 2026-04-22 — Global substrate registry + auto-germ advice + graft --list-substrates
 
 Contract-layer molt with **zero contract-surface deltas**. Third
