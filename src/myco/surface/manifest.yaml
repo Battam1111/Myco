@@ -330,6 +330,10 @@ commands:
         type: "str"
         default: null
         help: "Single plugin name to describe (source file + docstring)."
+      - name: "list-substrates"
+        type: "bool"
+        default: false
+        help: "v0.5.16: list every substrate registered on this machine (~/.myco/substrates.yaml), sorted by last-seen. Includes stale entries whose on-disk path no longer has a _canon.yaml."
 
   - name: "brief"
     subsystem: "cycle"

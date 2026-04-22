@@ -160,3 +160,66 @@ def test_list_result_has_count_field(genesis_substrate: Path) -> None:
     assert result.payload["count"] == len(result.payload["plugins"])
     # Sanity: at least the 11 built-in dimensions plus some adapters.
     assert result.payload["count"] >= 11
+
+
+# ---------------------------------------------------------------------------
+# v0.5.16: --list-substrates (cross-project registry enumeration)
+# ---------------------------------------------------------------------------
+
+
+def test_list_substrates_returns_empty_when_registry_missing(
+    tmp_path: Path,
+    genesis_substrate: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """With no ``~/.myco/substrates.yaml`` yet, --list-substrates
+    returns an empty list and count 0 — not an error."""
+    fake_home = tmp_path / "home"
+    fake_home.mkdir()
+    monkeypatch.setattr(Path, "home", staticmethod(lambda: fake_home))
+
+    ctx = _mk_ctx(genesis_substrate)
+    result = graft_run({"list_substrates": True}, ctx=ctx)
+    assert result.exit_code == 0
+    assert result.payload["mode"] == "list-substrates"
+    assert result.payload["count"] == 0
+    assert result.payload["substrates"] == []
+
+
+def test_list_substrates_returns_registered_entries(
+    tmp_path: Path,
+    genesis_substrate: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Pre-register two substrates; --list-substrates enumerates them."""
+    from myco.core.registry import register_substrate
+
+    fake_home = tmp_path / "home"
+    fake_home.mkdir()
+    monkeypatch.setattr(Path, "home", staticmethod(lambda: fake_home))
+
+    sub_a = tmp_path / "subA"
+    sub_b = tmp_path / "subB"
+    sub_a.mkdir()
+    (sub_a / "_canon.yaml").write_text("x")
+    sub_b.mkdir()  # no canon → stale
+    register_substrate("alpha", sub_a, home=fake_home)
+    register_substrate("beta", sub_b, home=fake_home)
+
+    ctx = _mk_ctx(genesis_substrate)
+    result = graft_run({"list_substrates": True}, ctx=ctx)
+    assert result.exit_code == 0
+    assert result.payload["count"] == 2
+    assert result.payload["live_count"] == 1
+    assert result.payload["stale_count"] == 1
+    ids = {s["substrate_id"] for s in result.payload["substrates"]}
+    assert ids == {"alpha", "beta"}
+
+
+def test_list_substrates_is_mutually_exclusive_with_other_modes(
+    genesis_substrate: Path,
+) -> None:
+    """Passing both --list and --list-substrates must raise UsageError."""
+    ctx = _mk_ctx(genesis_substrate)
+    with pytest.raises(UsageError, match="mutually exclusive"):
+        graft_run({"list": True, "list_substrates": True}, ctx=ctx)
