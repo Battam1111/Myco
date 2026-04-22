@@ -432,9 +432,17 @@ def test_goose_yaml_idempotent(tmp_path: Path) -> None:
 
 def test_cowork_alias_writes_claude_desktop_config(tmp_path: Path) -> None:
     """``cowork`` is an alias for ``claude-desktop`` — same config file
-    because Cowork runs inside Claude Desktop."""
+    because Cowork runs inside Claude Desktop.
+
+    Uses ``_appdata`` to compute the expected path so the assertion
+    holds on every platform: Windows maps ``%APPDATA%`` to
+    ``~/AppData/Roaming``, macOS to ``~/Library/Application Support``,
+    Linux to ``$XDG_CONFIG_HOME`` or ``~/.config``.
+    """
+    from myco.install.clients import _appdata
+
     dispatch("cowork", dry_run=False, global_=False, uninstall=False, home=tmp_path)
-    cfg = tmp_path / "AppData" / "Roaming" / "Claude" / "claude_desktop_config.json"
+    cfg = _appdata(tmp_path) / "Claude" / "claude_desktop_config.json"
     assert cfg.exists()
     data = json.loads(cfg.read_text(encoding="utf-8"))
     assert "myco" in data["mcpServers"]
