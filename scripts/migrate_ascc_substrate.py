@@ -31,11 +31,11 @@ from __future__ import annotations
 
 import argparse
 import sys
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 import yaml
-
 
 # Legacy keys that have no v0.4.0 analogue. Surfacing these so the
 # operator knows what was dropped.
@@ -86,8 +86,7 @@ _V0_4_0_DIMENSIONS = {
 def _require_mapping(node: Any, label: str) -> Mapping[str, Any]:
     if not isinstance(node, dict):
         raise SystemExit(
-            f"migrate: expected a mapping at {label!r}, got "
-            f"{type(node).__name__}"
+            f"migrate: expected a mapping at {label!r}, got {type(node).__name__}"
         )
     return node
 
@@ -225,7 +224,7 @@ def _render_report(
     executed: bool,
 ) -> str:
     lines: list[str] = [
-        f"# ASCC → v0.4.0 migration report",
+        "# ASCC → v0.4.0 migration report",
         f"# source:   {source}",
         f"# target:   {target or '(dry-run; stdout only)'}",
         f"# executed: {executed}",
