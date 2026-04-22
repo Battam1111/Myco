@@ -70,21 +70,35 @@ jobs:
           SRV=$(python -c "import json; print(json.load(open('server.json'))['version'])")
           SRV_PKG=$(python -c "import json; d=json.load(open('server.json')); print(d['packages'][0]['version'])")
           PLUGIN=$(python -c "import json; print(json.load(open('.claude-plugin/plugin.json'))['version'])")
-          echo "tag:                           v$TAG"
-          echo "src/myco/__init__.py:          $PKG"
-          echo "server.json::version:          $SRV"
-          echo "server.json::packages[0]:      $SRV_PKG"
-          echo ".claude-plugin/plugin.json:    $PLUGIN"
+          COWORK=$(python -c "import json; print(json.load(open('.cowork-plugin/.claude-plugin/plugin.json'))['version'])")
+          echo "tag:                                       v$TAG"
+          echo "src/myco/__init__.py:                      $PKG"
+          echo "server.json::version:                      $SRV"
+          echo "server.json::packages[0]:                  $SRV_PKG"
+          echo ".claude-plugin/plugin.json:                $PLUGIN"
+          echo ".cowork-plugin/.claude-plugin/plugin.json: $COWORK"
           [ "$TAG" = "$PKG"     ] || { echo "::error::tag v$TAG ≠ __version__ $PKG"; exit 1; }
           [ "$TAG" = "$SRV"     ] || { echo "::error::tag v$TAG ≠ server.json version $SRV"; exit 1; }
           [ "$TAG" = "$SRV_PKG" ] || { echo "::error::tag v$TAG ≠ server.json packages[0].version $SRV_PKG"; exit 1; }
           [ "$TAG" = "$PLUGIN"  ] || { echo "::error::tag v$TAG ≠ plugin.json version $PLUGIN"; exit 1; }
+          [ "$TAG" = "$COWORK"  ] || { echo "::error::tag v$TAG ≠ cowork-plugin version $COWORK"; exit 1; }
 
       - name: Build sdist + wheel
         run: |
           python -m pip install --upgrade pip build twine
           python -m build
           python -m twine check dist/*
+
+      - name: Build Cowork .plugin bundle
+        # v0.5.20: produce the drag-drop bundle Cowork users upload
+        # via Claude Desktop → Settings → Plugins → Upload. Lives at
+        # dist/myco-<version>.plugin alongside the sdist + wheel and
+        # gets attached to the GitHub release as a downloadable asset.
+        # Build rationale: ``src/myco/install/plugin_bundle.py``.
+        run: |
+          set -eo pipefail
+          python scripts/build_plugin.py
+          ls -lh dist/*.plugin
 
       - name: Publish to PyPI (trusted publisher)
         uses: pypa/gh-action-pypi-publish@release/v1
@@ -133,3 +147,27 @@ jobs:
             echo "No contract_changelog.md section for $TAG — using --generate-notes."
             gh release create "$TAG" --title "$TAG" --generate-notes
           fi
+
+      - name: Attach .plugin bundle to GitHub release
+        # v0.5.20: the Cowork plugin drag-drop artifact. Upload as a
+        # release asset so users can
+        # ``curl -L -o myco.plugin \
+        #     https://github.com/Battam1111/Myco/releases/latest/download/myco-<ver>.plugin``
+        # and drag it into Claude Desktop's plugin upload UI. This is
+        # the only persistent install path for Cowork — filesystem
+        # writes to rpm/ get clobbered by Anthropic's cloud sync.
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eo pipefail
+          TAG="${GITHUB_REF#refs/tags/}"
+          BUNDLE=$(ls dist/*.plugin | head -1)
+          if [ -z "$BUNDLE" ] || [ ! -f "$BUNDLE" ]; then
+            echo "::error::no .plugin file found in dist/ — did 'Build Cowork .plugin bundle' run?"
+            exit 1
+          fi
+          # Idempotent: --clobber replaces an existing asset with the
+          # same name (matters when a release is re-run after a
+          # failure mid-upload).
+          gh release upload "$TAG" "$BUNDLE" --clobber
+          echo "Uploaded $BUNDLE to release $TAG."

@@ -11,7 +11,129 @@ Format: one section per `contract_version`, newest first.
 
 ---
 
+## v0.5.20 — 2026-04-23 — Cowork plugin install: retraction + drag-drop fix
+
+**v0.5.19 shipped a broken installer.** This release retracts the
+"permanent fix" framing and delivers the actual permanent fix.
+
+### What v0.5.19 claimed vs what actually happened
+
+v0.5.19's `myco-install cowork-plugin` wrote a plugin tree into
+`<APPDATA>/Claude/local-agent-mode-sessions/<owner>/<ws>/rpm/plugin_myco/`
+and upserted an entry in each `rpm/manifest.json`. The release
+changelog described this as "the permanent fix for agent onboarding
+in Cowork." It is not. Cowork's `[RemotePluginManager]` regenerates
+`rpm/manifest.json` from an Anthropic cloud marketplace on **every
+session start**, and sync runs drop any `plugins[]` row that does not
+correspond to a cloud entry — the v0.5.19 writes are wiped silently
+between sessions.
+
+Symptom (as reported on 2026-04-23): after restart and a fresh Cowork
+session, the `myco-substrate` skill was missing from the agent's
+available-skills list even though the installer exited zero a moment
+earlier. Direct inspection confirmed `rpm/manifest.json` no longer
+contained the `plugin_myco` row we wrote.
+
+### Root cause
+
+The source of truth for Cowork plugins is an Anthropic cloud
+marketplace (`marketplace_01UDYDZqTLSQBkNqpTGCfzNM` for account
+uploads), not the local `rpm/` directory. Claude Desktop's drag-drop
+UI POSTs the bundle to
+`https://api.anthropic.com/api/organizations/{orgId}/marketplaces/{marketplaceId}/plugins/account-upload`,
+and the server-side record is what every Cowork session syncs from.
+`rpm/` is a cache, never a source. Reading the decompiled
+`app.asar:433299-433340` confirmed this end-to-end.
+
+### v0.5.20 fix
+
+- **New `src/myco/install/plugin_bundle.py`**: builds a
+  `myco-<version>.plugin` ZIP (single top-level dir `myco/` holding
+  `.claude-plugin/plugin.json` + `.mcp.json` + `skills/myco-substrate/`
+  — the layout Claude Desktop's upload handler validates against).
+- **New `scripts/build_plugin.py`**: thin CLI wrapping the library;
+  the GitHub Release workflow now runs it and attaches the `.plugin`
+  as a release asset, so users can either `curl -L` the latest or
+  `python scripts/build_plugin.py` from a repo checkout.
+- **`myco-install cowork-plugin` rewritten**: drops the `rpm/` writer
+  entirely. Default action now builds the bundle, prints exact
+  drag-drop instructions, and exits. `--cleanup-legacy` removes
+  v0.5.19-era cruft (`rpm/plugin_myco/` dirs + manifest rows).
+- **`myco-install host cowork` + `--all-hosts`**: the flow that
+  auto-ran the (broken) plugin install now builds the bundle and
+  prints upload instructions instead. Uninstall paths are silent —
+  removing the plugin is a user action in Claude Desktop's UI.
+- **Legacy-function regression guard**: the old
+  `install_cowork_plugin()` function now raises `RuntimeError` with a
+  migration message, so any script that still imports it gets a loud
+  failure rather than a silent wrong install.
+- **Release workflow**: `.github/workflows/release.yml` adds a
+  `.cowork-plugin/plugin.json` version check alongside the existing
+  four-file parity gate, builds the `.plugin`, and uploads it via
+  `gh release upload` with `--clobber` for idempotency.
+
+### What did NOT change
+
+- **R1–R7 rule text.** Unchanged.
+- **Category enum / exit-policy / exit codes.** Unchanged.
+- **18-verb manifest.** Unchanged.
+- **25 lint dimensions.** Unchanged.
+- **Claude Code plugin bundle** (`.claude-plugin/` at repo root).
+  Unchanged — that install path works correctly and was never
+  affected by the `rpm/` misunderstanding.
+
+### Break from v0.5.19
+
+Cosmetic. The CLI still has `myco-install cowork-plugin`, but its
+flags and behavior differ: `--uninstall` is gone (no CLI uninstall —
+remove through Claude Desktop UI), replaced with `--cleanup-legacy`;
+new `--output` controls where the `.plugin` file is written.
+Anyone whose v0.5.19 install "succeeded" should run:
+
+```bash
+myco-install cowork-plugin --cleanup-legacy
+```
+
+to scrub the residue, then follow the drag-drop upload flow below.
+
+### Operator action
+
+```bash
+# 1. MCP config (write once)
+myco-install host cowork
+
+# 2. Build the .plugin bundle
+myco-install cowork-plugin
+# or:
+curl -L -o myco.plugin https://github.com/Battam1111/Myco/releases/latest/download/myco.plugin
+
+# 3. Drag dist/myco-<version>.plugin into Claude Desktop:
+#    Settings → Plugins (or Extensions) → Upload → select the file
+# 4. Restart any open Cowork session
+```
+
+Full rationale + screenshots: `docs/INSTALL.md § 1.1`.
+
+### Lesson
+
+v0.5.19 shipped a fix whose correctness I verified only by checking
+the post-install filesystem state, not by checking the post-restart
+filesystem state. The regression shipped because "installer wrote to
+disk successfully" and "plugin persists across restarts" are
+different claims and I tested only the first. Future host-axis
+installers must be tested end-to-end across a session restart before
+shipping a "permanent fix" label.
+
+---
+
 ## v0.5.19 — 2026-04-23 — Cowork plugin install: the permanent onboarding fix
+
+> **Retracted by v0.5.20.** The "permanent fix" claim below turned
+> out to be wrong — the installer wrote to a local cache Cowork
+> regenerates from cloud on every restart. v0.5.20 ships the actual
+> fix (drag-drop `.plugin` upload). Keeping this section intact for
+> archaeology; the narrative below describes the intent, not the
+> shipped behavior. See v0.5.20 above for the post-mortem.
 
 Contract-layer patch with **zero R1–R7 surface deltas**. Everything in
 v0.5.19 lives at the host-axis of the extensibility model (see

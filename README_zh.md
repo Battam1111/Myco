@@ -91,7 +91,7 @@ myco germinate . --substrate-id your-project
 一条命令把 Myco 挂进你的 Agent host：
 
 - **Claude Code** —— `/plugin marketplace add Battam1111/Myco`，然后 `/plugin install myco@myco`。
-- **Claude Desktop / Cowork** —— `myco-install host cowork` 同步写 MCP 入口并把 `myco-substrate` 技能装进每个 Cowork 工作区，agent 下次启动就看得见。
+- **Claude Desktop / Cowork** —— 两步：(1) `myco-install host cowork` 写 MCP 入口；(2) 从 [GitHub releases](https://github.com/Battam1111/Myco/releases/latest) 下载 `myco-<ver>.plugin`，拖进 Claude Desktop → Settings → Plugins → Upload。Claude Desktop 把它上传到你账号的私有 Cowork marketplace，此后每个 session 自动装 `myco-substrate` 技能。Cowork 不认 hooks、不读本地 plugin dir，拖拽是唯一持久路径。
 - **其它 MCP host** —— `myco-install host <cursor | windsurf | zed | vscode | openclaw | claude-desktop | gemini-cli | codex-cli | goose>`，或 `--all-hosts` 一键自动检测本机全部 host。
 - **通过官方 MCP Registry** —— 命名空间 [`io.github.Battam1111/myco`](https://registry.modelcontextprotocol.io/v0/servers?search=Battam1111)，支持命名空间自解析的客户端可以直接发现。
 
@@ -124,7 +124,7 @@ host 侧零配置。R1-R7 住在 MCP server 自己身上，所以每个客户端
 ## 集成
 
 - **Claude Code。** 官方 plugin 一条命令接好 MCP + hooks + slash skills。或者手工拷 `.claude/`。
-- **Cowork（Claude Desktop local-agent-mode）。** `myco-install host cowork` 一次装好 MCP + `myco-substrate` onboarding 技能，Cowork agent 下一个 session 看到 `_canon.yaml` 就会按 R1-R7 走。Cowork 不暴露 hooks，所以 boot ritual 挂在 skill 上 —— 完整理由见 [`INSTALL.md`](docs/INSTALL.md) 和 `.cowork-plugin/README.md`。
+- **Cowork（Claude Desktop local-agent-mode）。** 两步走：(1) `myco-install host cowork` 写 MCP；(2) 从 [GitHub releases](https://github.com/Battam1111/Myco/releases/latest) 拖 `.plugin` 到 Claude Desktop 插件上传入口。Claude Desktop 把它上传到你账号私有的 Cowork marketplace，每个 session 自动装 `myco-substrate` 技能，agent 见到 `_canon.yaml` 就按 R1-R7 走。Cowork 不暴露 hooks、不读本地 plugin dir，拖拽是唯一持久路径 —— 完整理由见 [`INSTALL.md`](docs/INSTALL.md)。
 - **任何 MCP host。** 十个通过 `myco-install` 自动化；另外九个带各自精确片段在 [`INSTALL.md`](docs/INSTALL.md)；其它客户端用 `mcp-server-myco` stdio 直接跑。
 - **Python agent 框架。** LangChain、CrewAI、DSPy、Smolagents、Agno、PraisonAI、MS Agent Framework、Claude Agent SDK 全部通过 `StdioServerParameters(command="mcp-server-myco")` 消费 Myco。
 - **下游 substrate。** `myco propagate` 负责发布，adapter 住在 `myco.symbionts`。

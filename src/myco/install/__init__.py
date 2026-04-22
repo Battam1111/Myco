@@ -35,13 +35,15 @@ from pathlib import Path
 from ..core.io import ensure_utf8_stdio
 from .clients import CLIENTS, MycoInstallError, detect_installed_hosts, dispatch
 from .cowork_plugin import (
+    UPLOAD_INSTRUCTIONS,
     claude_appdata_root,
+    cleanup_legacy_rpm_install,
     discover_rpm_dirs,
-    install_cowork_plugin,
+    prepare_plugin_for_upload,
     repo_template_root,
-    uninstall_cowork_plugin,
 )
 from .fresh import DEFAULT_REPO, run_fresh
+from .plugin_bundle import PluginBundleError
 
 __all__ = ["main", "CLIENTS", "MycoInstallError", "dispatch"]
 
@@ -195,31 +197,48 @@ def _build_parser() -> argparse.ArgumentParser:
     p_cw = sub.add_parser(
         "cowork-plugin",
         help=(
-            "Install the Myco plugin template into every Cowork "
-            "workspace's rpm/ dir (v0.5.19 one-time-per-machine setup "
-            "so the Cowork agent sees the myco-substrate onboarding "
-            "skill on next session)."
+            "Build a .plugin bundle for drag-drop upload into Claude "
+            "Desktop. v0.5.20: replaces v0.5.19's rpm/ writer (which "
+            "didn't persist — Cowork regenerates rpm/ from its cloud "
+            "marketplace on every session start)."
         ),
         description=(
-            "Cowork (Claude Desktop's local-agent-mode) loads plugins "
-            "from a per-workspace registry at %%APPDATA%%/Claude/"
-            "local-agent-mode-sessions/<owner>/<workspace>/rpm/. Myco "
-            "doesn't have a Cowork marketplace yet, so this subcommand "
-            "populates the same registry directly by copying the repo's "
-            ".cowork-plugin/ template into every rpm/ dir and upserting "
-            "a plugins entry in each manifest.json. Idempotent and "
-            "safe to re-run. Restart Claude Desktop after install."
+            "Cowork (Claude Desktop's local-agent-mode) persists "
+            "third-party plugins only via its Anthropic cloud "
+            "marketplace. The only way to upload a plugin there is "
+            "Claude Desktop's drag-drop UI. This subcommand produces "
+            "the .plugin bundle you drag in. Heavy lifting lives in "
+            "myco.install.plugin_bundle; the bundle copy of this "
+            "command matches what the GitHub Release workflow attaches "
+            "to every tag. After drag-drop, restart any open Cowork "
+            "session — the plugin syncs down automatically and the "
+            "myco-substrate skill activates when you mention Myco or "
+            "open a workspace with _canon.yaml."
+        ),
+    )
+    p_cw.add_argument(
+        "--output",
+        "--out",
+        dest="output",
+        type=Path,
+        default=None,
+        help=("Directory to write the .plugin file into (default: <repo-root>/dist)."),
+    )
+    p_cw.add_argument(
+        "--cleanup-legacy",
+        action="store_true",
+        help=(
+            "Also remove any rpm/plugin_myco/ directories + manifest "
+            "rows written by the v0.5.19 installer (harmless on "
+            "machines that never ran v0.5.19; Cowork cloud-sync would "
+            "wipe them anyway, but this makes the state clean "
+            "immediately)."
         ),
     )
     p_cw.add_argument(
         "--dry-run",
         action="store_true",
-        help="Print what would change without writing anything.",
-    )
-    p_cw.add_argument(
-        "--uninstall",
-        action="store_true",
-        help="Remove the Myco plugin from every Cowork workspace registry.",
+        help="Print what would happen without writing anything.",
     )
     p_cw.add_argument(
         "--cowork-root",
@@ -227,43 +246,69 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         help=(
             "Override the Claude Desktop application-data root "
-            "(default: OS-specific — auto-detected)."
+            "(default: OS-specific — auto-detected). Only used when "
+            "--cleanup-legacy is passed."
         ),
     )
 
     return parser
 
 
+def _read_package_version() -> str:
+    """Cheap ``__version__`` extractor that avoids circular imports."""
+    # Reach for the installed package via a tiny inline import to
+    # avoid circularity during module init (_run_cowork_plugin is
+    # only called at runtime, not at import time, so this is safe).
+    from .. import __version__ as _v
+
+    return _v
+
+
 def _run_cowork_plugin(
     *,
     dry_run: bool,
-    uninstall: bool,
+    cleanup_legacy: bool,
+    output: Path | None = None,
     cowork_root: Path | None = None,
 ) -> int:
-    """Install (or uninstall) the Myco Cowork plugin template tree.
+    """Build the Cowork .plugin bundle + show upload instructions.
 
-    Thin orchestration layer over :mod:`myco.install.cowork_plugin`:
-    resolves the Claude-Desktop appdata root, enumerates every
-    workspace registry, and dispatches to the library.
+    This is the v0.5.20 replacement for v0.5.19's ``rpm/`` writer.
+    The library does the work (:func:`myco.install.cowork_plugin.prepare_plugin_for_upload`);
+    this function glues it to the CLI flags and optionally runs the
+    ``--cleanup-legacy`` migration path.
 
-    Returns 0 on success (including "nothing to do" when no Cowork
-    sessions are found), 1 when the repo template is missing.
-
-    v0.5.19 addition. Also wired into ``--all-hosts`` so one
-    ``myco-install host --all-hosts`` configures every MCP host AND
-    primes the Cowork onboarding skill in the same pass.
+    Returns 0 on success, 1 when the template is missing or malformed.
     """
-    claude_root = cowork_root or claude_appdata_root()
-    targets = discover_rpm_dirs(claude_root)
-    print(f"Claude Desktop root: {claude_root}")
-    print(f"Discovered {len(targets)} Cowork workspace(s).")
-    if uninstall:
-        result = uninstall_cowork_plugin(targets, dry_run=dry_run)
+    version = _read_package_version()
+    repo_root = repo_template_root().parent
+    if dry_run:
+        bundle = repo_root / "dist" / f"myco-{version}.plugin"
+        print(f"[dry-run] would build {bundle}")
+        print()
+        print(UPLOAD_INSTRUCTIONS)
     else:
-        template = repo_template_root()
-        result = install_cowork_plugin(template, targets, dry_run=dry_run)
-    if result < 0:
-        return 1
+        try:
+            prepare_plugin_for_upload(repo_root, version=version, dest_dir=output)
+        except PluginBundleError as exc:
+            sys.stderr.write(f"myco-install cowork-plugin: {exc}\n")
+            return 1
+
+    if cleanup_legacy:
+        claude_root = cowork_root or claude_appdata_root()
+        targets = discover_rpm_dirs(claude_root)
+        if targets:
+            print()
+            print("--- v0.5.19 rpm/ cleanup ---")
+            print(f"Scanning Claude Desktop root: {claude_root}")
+            changed = cleanup_legacy_rpm_install(targets, dry_run=dry_run)
+            verb = "would remove" if dry_run else "removed"
+            if changed == 0:
+                print(
+                    "No v0.5.19-era rpm/plugin_myco/ entries found — nothing to clean."
+                )
+            else:
+                print(f"{verb} v0.5.19 entries from {changed} workspace(s).")
     return 0
 
 
@@ -346,21 +391,22 @@ def _run_all_hosts(
         f"{len(skipped)} skipped, {len(failed)} errored."
     )
 
-    # v0.5.19: if Claude Desktop (and therefore Cowork) was detected,
-    # also install the Cowork plugin template tree so the Cowork agent
-    # sees the myco-substrate onboarding skill on next session. This
-    # is the permanent fix for "agent doesn't auto-recognize Myco in
-    # Cowork" — the MCP server entry alone gives tools but no context.
-    # Skipped silently when Claude Desktop was not in the install set,
-    # so hosts that don't run Cowork (e.g. pure Cursor users) are
-    # unaffected.
+    # v0.5.20: when Claude Desktop was touched we ALSO build the Cowork
+    # .plugin bundle + print the drag-drop upload instructions, so the
+    # user sees exactly what to do next. The plugin install itself is a
+    # manual UI step in Claude Desktop — v0.5.19's attempt to automate
+    # via rpm/ writes was wrong (cloud sync clobbers them). See
+    # src/myco/install/cowork_plugin.py module docstring for the full
+    # story. Uninstall flow: we DON'T print upload instructions when
+    # uninstall=True — the drag-drop marketplace entry is removed via
+    # Claude Desktop's UI, not a CLI pathway.
     desktop_was_touched = any(
         client in ("claude-desktop", "cowork") for client, _ in installed
     )
-    if desktop_was_touched:
+    if desktop_was_touched and not uninstall:
         print()
-        print("--- Cowork plugin (myco-substrate skill) ---")
-        _run_cowork_plugin(dry_run=dry_run, uninstall=uninstall)
+        print("--- Cowork plugin (next step: upload via Claude Desktop UI) ---")
+        _run_cowork_plugin(dry_run=dry_run, cleanup_legacy=False)
 
     return 0 if not failed else 1
 
@@ -432,24 +478,29 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
             if output:
                 print(output)
-            # v0.5.19: `myco-install host cowork` also installs the
-            # plugin template tree (since Cowork only becomes useful
-            # when both the MCP entry AND the onboarding skill are in
-            # place). `claude-desktop` does NOT trigger this because
-            # the non-Cowork Claude Desktop doesn't use the local-agent
-            # plugin registry and the MCP entry alone is enough.
-            if args.client == "cowork":
+            # v0.5.20: `myco-install host cowork` also builds the
+            # .plugin bundle + prints drag-drop instructions, since
+            # Cowork only onboards correctly when both the MCP entry
+            # (written by `dispatch` above) AND the `myco-substrate`
+            # skill (shipped via the uploaded plugin) are in place.
+            # `claude-desktop` does NOT trigger this because non-Cowork
+            # Claude Desktop doesn't use the local-agent plugin
+            # registry and the MCP entry alone is sufficient.
+            # Uninstall path is silent: the plugin is removed via the
+            # Claude Desktop UI, not a CLI pathway.
+            if args.client == "cowork" and not args.uninstall:
                 print()
-                print("--- Cowork plugin (myco-substrate skill) ---")
+                print("--- Cowork plugin (next step: upload via Claude Desktop UI) ---")
                 _run_cowork_plugin(
                     dry_run=args.dry_run,
-                    uninstall=args.uninstall,
+                    cleanup_legacy=False,
                 )
             return 0
         if args.subcommand == "cowork-plugin":
             return _run_cowork_plugin(
                 dry_run=args.dry_run,
-                uninstall=args.uninstall,
+                cleanup_legacy=args.cleanup_legacy,
+                output=args.output,
                 cowork_root=args.cowork_root,
             )
     except MycoInstallError as exc:
