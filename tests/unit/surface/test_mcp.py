@@ -265,6 +265,93 @@ def test_auto_germ_advice_response_shape(tmp_path: Path) -> None:
     assert "no substrate" in pulse["substrate_id"].lower()
 
 
+def test_pulse_includes_resolution_source_when_provided(tmp_path: Path) -> None:
+    """v0.5.17: pulse surfaces ``project_dir_source`` + ``resolved_project_dir``
+    when the caller tells it the source — the transparency aid for
+    multi-project debugging."""
+    from myco.surface.mcp import _compute_substrate_pulse
+
+    (tmp_path / "_canon.yaml").write_text(
+        "schema_version: '1'\n"
+        "contract_version: 'v0.5.17'\n"
+        "identity: { substrate_id: 'src-test' }\n",
+        encoding="utf-8",
+    )
+    pulse = _compute_substrate_pulse(
+        "hunger",
+        project_dir=tmp_path,
+        project_dir_source="mcp.roots/list",
+    )
+    assert pulse["project_dir_source"] == "mcp.roots/list"
+    assert str(tmp_path) in pulse["resolved_project_dir"]
+
+
+def test_pulse_omits_resolution_source_when_not_provided() -> None:
+    """CLI path leaves the source None; fields stay absent (no lies)."""
+    from myco.surface.mcp import _compute_substrate_pulse
+
+    pulse = _compute_substrate_pulse("hunger")
+    assert "project_dir_source" not in pulse
+    assert "resolved_project_dir" not in pulse
+
+
+def test_invoke_reports_env_source_when_myco_env_set(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """End-to-end: with MYCO_PROJECT_DIR set and no roots/list, the
+    pulse says the env var was the source."""
+    from myco.surface.manifest import load_manifest
+    from myco.surface.mcp import _invoke, _ServerState
+
+    (tmp_path / "_canon.yaml").write_text(
+        "schema_version: '1'\n"
+        "contract_version: 'v0.5.17'\n"
+        "identity: { substrate_id: 'env-source' }\n"
+        "system: { write_surface: { allowed: ['notes/**'] } }\n"
+        "subsystems: { x: {} }\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("MYCO_PROJECT_DIR", str(tmp_path))
+    monkeypatch.delenv("CLAUDE_PROJECT_DIR", raising=False)
+
+    m = load_manifest()
+    spec = m.by_name("sense")
+    state = _ServerState()
+    result = _run(_invoke(spec, m, {"query": "x"}, state, mcp_ctx=None))
+
+    assert result["substrate_pulse"]["project_dir_source"] == "env.MYCO_PROJECT_DIR"
+    assert str(tmp_path) in result["substrate_pulse"]["resolved_project_dir"]
+
+
+def test_invoke_reports_kwargs_source_when_project_dir_explicit(
+    tmp_path: Path,
+) -> None:
+    """Explicit kwargs.project_dir wins the source attribution too."""
+    from myco.surface.manifest import load_manifest
+    from myco.surface.mcp import _invoke, _ServerState
+
+    (tmp_path / "_canon.yaml").write_text(
+        "schema_version: '1'\n"
+        "contract_version: 'v0.5.17'\n"
+        "identity: { substrate_id: 'kw-source' }\n"
+        "system: { write_surface: { allowed: ['notes/**'] } }\n"
+        "subsystems: { x: {} }\n",
+        encoding="utf-8",
+    )
+
+    m = load_manifest()
+    spec = m.by_name("sense")
+    state = _ServerState()
+    result = _run(
+        _invoke(
+            spec, m, {"query": "x", "project_dir": str(tmp_path)}, state, mcp_ctx=None
+        )
+    )
+
+    assert result["substrate_pulse"]["project_dir_source"] == "kwargs.project_dir"
+
+
 def test_invoke_returns_auto_germ_advice_when_roots_lack_substrate(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
