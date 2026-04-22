@@ -89,12 +89,22 @@ jobs:
           python -m build
           python -m twine check dist/*
 
+      - name: Publish to PyPI (trusted publisher)
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          skip-existing: true
+          # Fallback path: uncomment + set PYPI_API_TOKEN secret on the
+          # repo if trusted publisher isn't configured.
+          # password: ${{ secrets.PYPI_API_TOKEN }}
+
       - name: Build Cowork .plugin bundle
         # v0.5.20: produce the drag-drop bundle Cowork users upload
-        # via Claude Desktop → Settings → Plugins → Upload. Lives at
-        # dist/myco-<version>.plugin alongside the sdist + wheel and
-        # gets attached to the GitHub release as a downloadable asset.
-        # Build rationale: ``src/myco/install/plugin_bundle.py``.
+        # via Claude Desktop → Settings → Plugins → Upload. Only the
+        # GitHub release asset needs it — PyPI and MCP Registry would
+        # both choke on it as an "unknown distribution format", so we
+        # build it AFTER the PyPI publish step and write it alongside
+        # the sdist+wheel (dist/) for the `gh release upload` step
+        # below to pick up.
         #
         # We install pyyaml explicitly because scripts/build_plugin.py
         # imports ``myco.install.plugin_bundle``, which goes through
@@ -109,14 +119,6 @@ jobs:
           python -m pip install pyyaml
           python scripts/build_plugin.py
           ls -lh dist/*.plugin
-
-      - name: Publish to PyPI (trusted publisher)
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          skip-existing: true
-          # Fallback path: uncomment + set PYPI_API_TOKEN secret on the
-          # repo if trusted publisher isn't configured.
-          # password: ${{ secrets.PYPI_API_TOKEN }}
 
       - name: Install mcp-publisher
         run: |
