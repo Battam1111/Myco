@@ -11,6 +11,105 @@ Format: one section per `contract_version`, newest first.
 
 ---
 
+## v0.5.16 — 2026-04-22 — Global substrate registry + auto-germ advice + graft --list-substrates
+
+Contract-layer molt with **zero contract-surface deltas**. Third
+ergonomic release in the one-劳永逸 arc (v0.5.14 + v0.5.15 + v0.5.16).
+Closes the last three cross-project UX gaps: operators need to be
+able to enumerate every substrate they've germinated, germinate
+a new one inside a workspace the host has opened without seeing an
+error, and have the registry accumulate on its own without manual
+intervention.
+
+### What changed
+
+- **Nothing in the R1–R7 rule text.**
+- **Nothing in the category enum / exit-policy / exit codes.**
+- **Nothing in the 18-verb manifest surface.** (Graft grew a flag,
+  not a new verb.)
+- **Nothing in the dimension roster count** (still 25).
+
+### Added — `~/.myco/substrates.yaml` global substrate registry
+
+New module ``myco.core.registry``:
+
+- ``register_substrate(id, path)`` — upsert a row. Idempotent.
+- ``touch_substrate(id, path)`` — best-effort last-seen update.
+- ``list_substrates()`` — enumerate all, sorted by recency.
+- ``SubstrateEntry.exists`` — live vs stale filter.
+
+File format: YAML map keyed by ``substrate_id``, one row per
+substrate with ``path`` / ``registered_at`` / ``last_seen_at``.
+Atomically written via ``atomic_utf8_write``; concurrent writes
+never corrupt. Malformed files degrade to empty registry — never
+raises into the calling code.
+
+Per-user only; never shared across machines; never committed to
+VCS. Mirrors shell-history / editor-recent-files semantics.
+
+### Added — germinate → registry auto-hook
+
+``myco.germination.germinate.bootstrap`` now calls
+``register_substrate()`` on every successful (non-``--dry-run``)
+germination. Failures (disk full, perms) are swallowed — a
+registry-write error must never break germination. ``--dry-run``
+skips the registry write entirely, matching its "write nothing"
+contract.
+
+### Added — `myco graft --list-substrates` flag
+
+New mode on the existing ``graft`` verb. Mutually-exclusive with
+``--list`` / ``--validate`` / ``--explain``. Returns the full
+registry (across projects) with ``count`` / ``live_count`` /
+``stale_count`` counters. Example payload entry:
+
+    {
+      "substrate_id": "c3-neurips2026",
+      "path": "C:\\Users\\10350\\Desktop\\C3",
+      "registered_at": "2026-04-22T13:29:11+00:00",
+      "last_seen_at":  "2026-04-23T09:14:05+00:00",
+      "exists": true
+    }
+
+Agent tooling integrates via the ``myco_graft`` MCP tool's new
+``list_substrates`` kwarg.
+
+### Added — auto-germ advice soft response in `_invoke`
+
+When the MCP client exposes a workspace root (via ``roots/list``)
+but that root has no ``_canon.yaml``, v0.5.15 would raise
+``SubstrateNotFound`` with a message. v0.5.16 upgrades the UX:
+the MCP layer catches the exception, captures the first ``file://``
+root from the client via a new ``_detect_workspace_root`` helper,
+and returns a SOFT response whose ``substrate_pulse.rules_hint``
+tells the agent to call ``myco_germinate`` with the workspace path.
+
+``exit_code`` stays 4 (the canonical ``SubstrateNotFound`` code per
+v0.5.8's contract), the payload carries ``workspace_root`` as a
+first-class field, and the agent reads the advice and offers to
+germinate. Never auto-germinates silently — that would be surprising.
+
+### Break from v0.5.15
+
+None at the contract layer. Operators upgrading from v0.5.15
+require no code, canon, or script changes.
+
+Observable deltas:
+- ``myco germinate`` writes a row to ``~/.myco/substrates.yaml``
+  on every successful non-dry-run call. Users who want to opt out
+  can ``rm ~/.myco/substrates.yaml`` at any time; Myco reads None
+  gracefully. Future doctrine work may add a ``canon`` opt-out
+  flag; today the registry is always-on.
+- Fresh workspaces opened in Cowork / Claude Desktop / Cursor / …
+  used to surface ``SubstrateNotFound`` errors on the first Myco
+  tool call. They now surface a germinate-this-workspace hint in
+  the pulse sidecar instead, which the agent can relay.
+- ``myco graft`` now has a fourth mode (``--list-substrates``)
+  in addition to ``--list`` / ``--validate`` / ``--explain``.
+  Existing invocations unchanged.
+
+---
+
 ## v0.5.15 — 2026-04-22 — Universal host installer (`--all-hosts`) + cowork alias
 
 Contract-layer molt with **zero contract-surface deltas**. Closes
