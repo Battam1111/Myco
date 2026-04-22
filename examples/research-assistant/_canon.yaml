@@ -1,0 +1,70 @@
+# Research-assistant Myco substrate — demonstration canon.
+# Adapt substrate_id when you fork this for your own research.
+
+schema_version: "1"
+contract_version: "v0.5.10"
+synced_contract_version: "v0.5.10"
+
+identity:
+  substrate_id: "research-assistant-example"
+  tags:
+    - "research"
+    - "example"
+    - "paper"
+    - "decision"
+    - "friction"
+    - "idea"
+    - "open-question"
+  entry_point: "MYCO.md"
+
+system:
+  write_surface:
+    allowed:
+      - "_canon.yaml"
+      - "MYCO.md"
+      - "notes/**"
+      - "docs/**"
+      - "research/**"
+      - ".myco/**"
+  hard_contract:
+    rules_ref: "https://github.com/Battam1111/Myco/blob/main/docs/architecture/L1_CONTRACT/protocol.md"
+    rule_count: 7
+  no_llm_in_substrate: true
+
+versioning:
+  package_version_ref: "pyproject.toml"
+  pyproject_dynamic: false
+
+lint:
+  categories:
+    - mechanical
+    - shipped
+    - metabolic
+    - semantic
+  exit_policy:
+    default: "mechanical:critical,shipped:critical,metabolic:never,semantic:never"
+  skeleton_downgrade:
+    marker: ".myco_state/autoseeded.txt"
+    affected_dimensions: []
+
+subsystems:
+  germination:
+    doc: "https://github.com/Battam1111/Myco/blob/main/docs/architecture/L2_DOCTRINE/genesis.md"
+  ingestion:
+    doc: "https://github.com/Battam1111/Myco/blob/main/docs/architecture/L2_DOCTRINE/ingestion.md"
+  digestion:
+    doc: "https://github.com/Battam1111/Myco/blob/main/docs/architecture/L2_DOCTRINE/digestion.md"
+  circulation:
+    doc: "https://github.com/Battam1111/Myco/blob/main/docs/architecture/L2_DOCTRINE/circulation.md"
+  homeostasis:
+    doc: "https://github.com/Battam1111/Myco/blob/main/docs/architecture/L2_DOCTRINE/homeostasis.md"
+
+commands:
+  manifest_ref: "https://github.com/Battam1111/Myco/blob/main/src/myco/surface/manifest.yaml"
+
+metrics:
+  test_count: 0
+
+waves:
+  current: 1
+  log_ref: "docs/contract_changelog.md"

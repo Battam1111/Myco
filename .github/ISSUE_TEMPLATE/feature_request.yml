@@ -1,0 +1,86 @@
+name: Feature request
+description: Propose a new verb, dimension, adapter, or doctrine change.
+title: "[feat] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Myco evolves through three-round craft documents under
+        `docs/primordia/`. A feature request is the raw-note phase
+        of that loop — the agent/human surfaces a shape proposal;
+        the maintainers (or the user, via their agent) turn it
+        into a craft if it's worth doing.
+
+        **Before filing**: read [L0_VISION.md](https://github.com/Battam1111/Myco/blob/main/docs/architecture/L0_VISION.md)
+        for the five root principles and
+        [protocol.md](https://github.com/Battam1111/Myco/blob/main/docs/architecture/L1_CONTRACT/protocol.md)
+        for R1–R7. A feature that contradicts either is unlikely
+        to land (but is still welcome as a counter-argument —
+        we've updated L0 before).
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: What layer does this touch?
+      options:
+        - L0 (vision — new root principle or invariant shift)
+        - L1 (contract — new rule / exit-code / canon field)
+        - L2 (doctrine — subsystem-level behaviour change)
+        - L3 (implementation — new verb / dimension / adapter)
+        - L4 (substrate-local — my substrate needs this; happy to ship under .myco/plugins/)
+        - unsure
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What's the concrete problem?
+      description: The current pain, not the speculative future one. Agent-in-session examples preferred.
+      placeholder: |
+        While running `myco eat --url` on a redirect chain, I'd like a signal
+        about the final resolved URL so I can tag the note correctly. Today
+        the agent has to re-fetch the URL out-of-band to see the final target.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would you change?
+      description: Minimum viable shape. A full craft doc is not needed here — just the load-bearing claim.
+      placeholder: |
+        `url_fetcher` already tracks the final URL via httpx's `resp.url`.
+        Expose it in the `IngestResult.metadata` dict as `final_url`, alongside
+        the existing `status` and `content_type`.
+    validations:
+      required: true
+
+  - type: textarea
+    id: principles
+    attributes:
+      label: Which L0 principle does this serve?
+      description: Every change stands on at least one of the five. Name it.
+      placeholder: |
+        Principle 5 (万物互联): the final URL is a first-class node in the
+        mycelium graph; losing it at ingest-time creates an orphan at the
+        provenance layer.
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you considered
+      description: What did you think about and reject, and why?
+
+  - type: dropdown
+    id: willing_to_pr
+    attributes:
+      label: Are you willing to submit a PR?
+      options:
+        - "Yes — I'll write the craft doc and the code"
+        - "Yes — I'll write the code, but I need help with the craft doc"
+        - "Yes — I can write the craft doc but not the code"
+        - "No — I'm surfacing this for someone else to pick up"
+    validations:
+      required: true
