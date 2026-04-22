@@ -492,12 +492,108 @@ def _json_installer(
 #: v0.5.8 Phase 16 refactor result: the 7 JSON clients share one
 #: dispatch path; the 3 bespoke clients keep their own handlers.
 #: Pre-v0.5.8 this was 10 hand-written ``install_*`` functions.
+#:
+#: v0.5.15: ``cowork`` registered as an explicit alias that writes to
+#: the same ``claude_desktop_config.json`` Claude Desktop uses. Cowork
+#: is a mode inside Claude Desktop (not a separate app), so the
+#: underlying config is shared — but documenting a ``cowork`` target
+#: so users searching for "Cowork MCP setup" find the right path.
 CLIENTS: dict[str, ClientFunc] = {
     **{name: _json_installer(name) for name in _JSON_CLIENT_SPECS},
+    "cowork": _json_installer("claude-desktop"),
     "openclaw": install_openclaw,
     "codex-cli": install_codex_cli,
     "goose": install_goose,
 }
+
+
+# ---------------------------------------------------------------------------
+# Host detection (for --all-hosts)
+# ---------------------------------------------------------------------------
+
+
+def _host_install_signal(client: str, home: Path) -> Path | str | None:
+    """Return evidence that ``client`` is installed on this machine,
+    or ``None`` when no signal is found.
+
+    The signal is either:
+
+    - A directory/file path (usually the host's user-level config dir)
+      that, if present, indicates the host has been run at least once.
+    - A string path from ``shutil.which`` when the host is a
+      standalone CLI binary (``openclaw``).
+
+    Probes are intentionally cheap (one ``exists()`` per host) and
+    conservative — false negatives are preferable to false positives,
+    because false-negative hosts can be explicitly added via
+    ``myco-install host <name>``. False-positive writes are harmless
+    but clutter disk.
+    """
+    if client == "claude-code":
+        # ~/.claude/ is Claude Code's global state dir.
+        p = home / ".claude"
+        return p if p.exists() else None
+    if client in ("claude-desktop", "cowork"):
+        # %APPDATA%/Claude/ or ~/Library/Application Support/Claude/.
+        p = _appdata(home) / "Claude"
+        return p if p.exists() else None
+    if client == "cursor":
+        p = home / ".cursor"
+        return p if p.exists() else None
+    if client == "windsurf":
+        p = home / ".codeium" / "windsurf"
+        return p if p.exists() else None
+    if client == "zed":
+        # ~/.config/zed/ on Linux, ~/Library/Application Support/Zed on macOS.
+        for candidate in (
+            home / ".config" / "zed",
+            home / "Library" / "Application Support" / "Zed",
+        ):
+            if candidate.exists():
+                return candidate
+        return None
+    if client == "vscode":
+        # VS Code user-level dir differs per platform. Probe the
+        # common ones. This catches VS Code itself, not
+        # project-level ``.vscode/`` folders.
+        for candidate in (
+            _appdata(home) / "Code" / "User",  # Windows: %APPDATA%/Code/User
+            home / "Library" / "Application Support" / "Code" / "User",  # macOS
+            home / ".config" / "Code" / "User",  # Linux
+        ):
+            if candidate.exists():
+                return candidate
+        return None
+    if client == "gemini-cli":
+        p = home / ".gemini"
+        return p if p.exists() else None
+    if client == "codex-cli":
+        p = home / ".codex"
+        return p if p.exists() else None
+    if client == "goose":
+        p = home / ".config" / "goose"
+        return p if p.exists() else None
+    if client == "openclaw":
+        # Standalone CLI — the existence of a binary on PATH is the signal.
+        which = shutil.which("openclaw")
+        return which if which else None
+    # Unknown client — no signal.
+    return None
+
+
+def detect_installed_hosts(home: Path | None = None) -> dict[str, Path | str | None]:
+    """Return ``{client: signal-or-None}`` for every client in
+    :data:`CLIENTS`.
+
+    Callers use this to drive ``--all-hosts`` mode in ``myco-install``:
+    iterate over the dict, run ``dispatch(client)`` for each entry
+    whose value is not ``None``, skip the rest.
+
+    ``home`` is injectable for tests; production defaults to
+    :func:`Path.home`.
+    """
+    base = home or Path.home()
+    return {client: _host_install_signal(client, base) for client in CLIENTS}
 
 
 def dispatch(
