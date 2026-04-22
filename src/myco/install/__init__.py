@@ -33,7 +33,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from ..core.io import ensure_utf8_stdio
-from .clients import CLIENTS, MycoInstallError, dispatch
+from .clients import CLIENTS, MycoInstallError, detect_installed_hosts, dispatch
 from .fresh import DEFAULT_REPO, run_fresh
 
 __all__ = ["main", "CLIENTS", "MycoInstallError", "dispatch"]
@@ -152,8 +152,20 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     p_host.add_argument(
         "client",
+        nargs="?",  # v0.5.15: optional when --all-hosts is given
         choices=sorted(CLIENTS.keys()),
-        help="Host to target.",
+        help="Host to target. Omit when using --all-hosts.",
+    )
+    p_host.add_argument(
+        "--all-hosts",
+        dest="all_hosts",
+        action="store_true",
+        help=(
+            "v0.5.15: auto-detect every MCP host installed on this "
+            "machine (probing each host's user-level config dir) and "
+            "run the install for each one. Idempotent; safe to rerun. "
+            "Hosts with no detection signal are skipped with a note."
+        ),
     )
     p_host.add_argument(
         "--dry-run",
@@ -173,6 +185,87 @@ def _build_parser() -> argparse.ArgumentParser:
     )
 
     return parser
+
+
+def _run_all_hosts(
+    *,
+    dry_run: bool,
+    global_: bool,
+    uninstall: bool,
+) -> int:
+    """Iterate over every :data:`CLIENTS` entry whose
+    :func:`detect_installed_hosts` probe returned a truthy signal, and
+    run the install (or uninstall) for each one. Used by
+    ``myco-install host --all-hosts``.
+
+    Skipped hosts are reported but do not cause failure — false
+    negatives are preferred to false positives, and any missed host
+    can still be installed by explicit name.
+
+    Returns 0 when every attempted install succeeded; 1 when one or
+    more attempts raised :class:`MycoInstallError`. Exit code 1 is a
+    soft failure (partial success); exit 2 is reserved for usage
+    errors.
+
+    v0.5.15 addition. ``--all-hosts`` forces ``global_=True`` when
+    not explicitly set, because the intent is "wire every host on this
+    machine to find Myco regardless of cwd" — project-level configs
+    in the current cwd are the wrong level for that intent. If the
+    operator really wants project-local writes they can still loop
+    over hosts by name.
+    """
+    if not global_:
+        global_ = True  # --all-hosts implies --global
+    signals = detect_installed_hosts()
+    installed: list[tuple[str, str]] = []  # (client, output)
+    skipped: list[tuple[str, str]] = []  # (client, reason)
+    failed: list[tuple[str, str]] = []  # (client, reason)
+
+    # Dedup the cowork alias: claude-desktop covers it. If both detected,
+    # we'd write the same config file twice (idempotent but noisy).
+    seen_desktop = False
+
+    for client, signal in signals.items():
+        if not signal:
+            skipped.append((client, "not detected on this machine"))
+            continue
+        if client == "cowork" and seen_desktop:
+            skipped.append((client, "covered by claude-desktop (same config file)"))
+            continue
+        try:
+            output = dispatch(
+                client,
+                dry_run=dry_run,
+                global_=global_,
+                uninstall=uninstall,
+            )
+        except MycoInstallError as exc:
+            failed.append((client, str(exc)))
+            continue
+        installed.append((client, output or ""))
+        if client == "claude-desktop":
+            seen_desktop = True
+
+    # Report in three groups, each one line per entry, so machine-
+    # parseable consumers can grep/awk.
+    verb = "uninstalled" if uninstall else "installed"
+    for client, output in installed:
+        line = f"[{verb}] {client}"
+        if output:
+            line += f"  →  {output}"
+        print(line)
+    for client, reason in skipped:
+        print(f"[skipped] {client}  ({reason})")
+    for client, reason in failed:
+        sys.stderr.write(f"[error] {client}: {reason}\n")
+
+    total_detected = len(installed) + len(failed)
+    print()
+    print(
+        f"{len(installed)}/{total_detected} host(s) {verb}, "
+        f"{len(skipped)} skipped, {len(failed)} errored."
+    )
+    return 0 if not failed else 1
 
 
 def _legacy_sniff(argv: Sequence[str]) -> list[str]:
@@ -221,6 +314,19 @@ def main(argv: Sequence[str] | None = None) -> int:
                 extras=args.extras,
             )
         if args.subcommand == "host":
+            # v0.5.15: --all-hosts iterates every detected host.
+            if args.all_hosts:
+                return _run_all_hosts(
+                    dry_run=args.dry_run,
+                    global_=args.global_,
+                    uninstall=args.uninstall,
+                )
+            if not args.client:
+                sys.stderr.write(
+                    "myco-install: host subcommand requires either a "
+                    "client name or --all-hosts\n"
+                )
+                return 2
             output = dispatch(
                 args.client,
                 dry_run=args.dry_run,

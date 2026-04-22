@@ -423,3 +423,64 @@ def test_goose_yaml_idempotent(tmp_path: Path) -> None:
         encoding="utf-8"
     )
     assert first == second
+
+
+# ---------------------------------------------------------------------------
+# v0.5.15: cowork alias + detect_installed_hosts + --all-hosts
+# ---------------------------------------------------------------------------
+
+
+def test_cowork_alias_writes_claude_desktop_config(tmp_path: Path) -> None:
+    """``cowork`` is an alias for ``claude-desktop`` — same config file
+    because Cowork runs inside Claude Desktop."""
+    dispatch("cowork", dry_run=False, global_=False, uninstall=False, home=tmp_path)
+    cfg = tmp_path / "AppData" / "Roaming" / "Claude" / "claude_desktop_config.json"
+    assert cfg.exists()
+    data = json.loads(cfg.read_text(encoding="utf-8"))
+    assert "myco" in data["mcpServers"]
+
+
+def test_detect_installed_hosts_all_missing_returns_all_none(tmp_path: Path) -> None:
+    """On a fresh home with no host ever run, every signal is ``None``."""
+    from myco.install.clients import CLIENTS, detect_installed_hosts
+
+    signals = detect_installed_hosts(home=tmp_path)
+    assert set(signals) == set(CLIENTS)
+    assert all(v is None for v in signals.values()), signals
+
+
+def test_detect_installed_hosts_finds_claude_code(tmp_path: Path) -> None:
+    """Creating ``~/.claude/`` makes the probe return a Path."""
+    from myco.install.clients import detect_installed_hosts
+
+    (tmp_path / ".claude").mkdir()
+    signals = detect_installed_hosts(home=tmp_path)
+    assert signals["claude-code"] is not None
+    # Other hosts still None — single dir doesn't mask everything else.
+    assert signals["cursor"] is None
+    assert signals["goose"] is None
+
+
+def test_detect_installed_hosts_finds_multiple(tmp_path: Path) -> None:
+    """Probes are independent — multiple dirs detected in parallel."""
+    from myco.install.clients import detect_installed_hosts
+
+    (tmp_path / ".claude").mkdir()
+    (tmp_path / ".cursor").mkdir()
+    (tmp_path / ".codex").mkdir()
+    signals = detect_installed_hosts(home=tmp_path)
+    assert signals["claude-code"] is not None
+    assert signals["cursor"] is not None
+    assert signals["codex-cli"] is not None
+    assert signals["goose"] is None
+
+
+def test_detect_installed_hosts_cowork_matches_claude_desktop(tmp_path: Path) -> None:
+    """Cowork and claude-desktop share a signal (both point at
+    ``%APPDATA%/Claude/``). Either detected ⇒ both detected."""
+    from myco.install.clients import _appdata, detect_installed_hosts
+
+    (_appdata(tmp_path) / "Claude").mkdir(parents=True)
+    signals = detect_installed_hosts(home=tmp_path)
+    assert signals["claude-desktop"] is not None
+    assert signals["cowork"] is not None
