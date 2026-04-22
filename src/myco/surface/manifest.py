@@ -391,9 +391,30 @@ def build_context(
 
     Returns ``None`` for pre_substrate verbs (genesis); they don't need
     a loaded substrate.
+
+    Substrate resolution chain (highest precedence first):
+
+    1. Explicit ``project_dir`` argument — CLI ``--project-dir`` or
+       MCP ``kwargs.project_dir`` lands here.
+    2. ``MYCO_PROJECT_DIR`` environment variable — standard fallback
+       for MCP hosts that spawn server subprocesses without setting
+       cwd (Claude Desktop, OpenHands, Continue, many others). The
+       ``mcpServers.<name>.env`` field in every host's config schema
+       lets operators pin a substrate path without editing shell
+       launch ceremony. Added in v0.5.13.
+    3. ``Path.cwd()`` — legacy behaviour. Claude Code's shell cwd
+       flows through this path; nothing breaks for existing setups.
+
+    ``~`` expansion runs on the env-var path so operators can write
+    ``MYCO_PROJECT_DIR=~/project`` without worrying about shell
+    expansion on Windows.
     """
     if pre_substrate:
         return None
+    if project_dir is None:
+        env_dir = os.environ.get("MYCO_PROJECT_DIR", "").strip()
+        if env_dir:
+            project_dir = Path(env_dir).expanduser()
     start = (project_dir or Path.cwd()).resolve()
     try:
         root = find_substrate_root(start)
