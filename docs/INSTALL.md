@@ -111,7 +111,7 @@ servers, idempotent, supports `--dry-run` and `--uninstall`):
 |---|---|---|
 | Claude Code | `myco-install host claude-code` | Writes project `.mcp.json`; `--global` writes `~/.claude.json` |
 | Claude Desktop | `myco-install host claude-desktop` | OS-correct path (macOS / Windows / Linux) |
-| Cowork (Claude Desktop's local-agent-mode) | `myco-install host cowork` | Writes the same MCP config as `claude-desktop` *and* installs the `myco-substrate` plugin skill into every Cowork workspace registry (see [§ 3](#3-cowork-plugin-install-optional)) |
+| Cowork (Claude Desktop's local-agent-mode) | `myco-install host cowork` | Writes MCP config, then see the Cowork-specific drag-drop step in § 1.1 below — `.plugin` bundle from GitHub releases → Claude Desktop UI |
 | Cursor | `myco-install host cursor` | Project `.cursor/mcp.json`; `--global` writes `~/.cursor/mcp.json` |
 | Windsurf | `myco-install host windsurf` | `~/.codeium/windsurf/mcp_config.json` |
 | Zed | `myco-install host zed` | Uses the `context_servers` key, not `mcpServers` |
@@ -127,41 +127,75 @@ TOML-based Codex CLI and YAML-based Goose). Run `myco-install host
 <client> --uninstall` to remove the entry and leave any sibling
 servers untouched.
 
-### Cowork (Claude Desktop's local-agent-mode) — also installs the onboarding skill
+### 1.1 Cowork (Claude Desktop's local-agent-mode) — the drag-drop path
 
-Cowork is Claude Desktop's **local-agent-mode** — the Agent Window,
-where Claude acts autonomously on your workspace instead of waiting
-for every turn. Cowork does **not** implement Claude Code's
-session-hook contract, so the `myco_hunger` / `myco_senesce` hooks
-that land for every other host do not fire there. Instead, Cowork
-shapes agent behavior through **Skills** — markdown files with YAML
-frontmatter that match against user intent + agent context.
+Cowork is Claude Desktop's **local-agent-mode** (the Agent Window —
+Claude acts autonomously on your workspace rather than waiting for
+every turn). Cowork does **not** implement Claude Code's session-hook
+contract, so the `myco_hunger` / `myco_senesce` hooks that ride with
+every other host do not fire there. Cowork shapes agent behavior
+through **Skills** — markdown files with YAML frontmatter that match
+against user intent + agent context — and the only permanent way to
+add a third-party skill is Claude Desktop's **drag-drop plugin upload**
+UI, which POSTs the bundle to Anthropic's per-account marketplace so
+every subsequent Cowork session auto-installs it.
 
-`myco-install host cowork` does two things in one step:
+> **v0.5.19 regression retracted.** v0.5.19 shipped an installer that
+> wrote to `<APPDATA>/Claude/local-agent-mode-sessions/<owner>/<ws>/rpm/`.
+> That approach is defeated by Cowork's cloud-sync on every session
+> start. v0.5.20 replaces the broken installer with the drag-drop flow
+> below and provides a `--cleanup-legacy` flag to scrub any residue.
+> Full narrative in `docs/contract_changelog.md::v0.5.20`.
 
-1. Writes the Myco MCP server entry into `claude_desktop_config.json`
-   (same as `myco-install host claude-desktop`).
-2. Copies the `.cowork-plugin/` template — a skill named `myco-substrate`
-   carrying the R1-R7 onboarding brief — into every Cowork workspace
-   registry at
-   `<APPDATA>/Claude/local-agent-mode-sessions/<owner>/<workspace>/rpm/plugin_myco/`,
-   and upserts a row in each `rpm/manifest.json`.
-
-Either subcommand works:
+Steps:
 
 ```bash
-myco-install host cowork             # MCP + plugin (recommended for Cowork users)
-myco-install cowork-plugin           # plugin only (MCP already configured)
-myco-install cowork-plugin --dry-run
-myco-install cowork-plugin --uninstall
+# 1. Write the MCP server entry (fast; no cloud call).
+myco-install host cowork
+
+# 2. Build the .plugin bundle. In a repo checkout:
+myco-install cowork-plugin
+# or directly:
+python scripts/build_plugin.py
+# (Outputs dist/myco-<version>.plugin.)
+
+# 2b. If you don't have a repo checkout, download the same artifact
+# from the latest GitHub release:
+curl -L -o myco.plugin \
+  https://github.com/Battam1111/Myco/releases/latest/download/myco.plugin
 ```
 
-`myco-install host --all-hosts` auto-runs the plugin install when
-Claude Desktop is detected, so most users never touch either
-subcommand directly. Restart Claude Desktop after install for the
-skill to load. See `.cowork-plugin/README.md` in the repo for the
-full rationale (why a skill, not a hook; why this install path
-differs from the Claude Code `.claude-plugin/` bundle).
+**3. Drag the file into Claude Desktop.** Settings → Plugins (or
+Extensions) → Upload → select the file. Claude Desktop validates
+the ZIP, uploads it to your account's private Cowork marketplace
+(`marketplace_<ULID>`, one per account, labelled "My Uploads"), and
+confirms with a notification. Every subsequent Cowork session then
+runs its normal cloud sync, pulls the plugin down, and activates the
+`myco-substrate` skill — the agent follows R1-R7 on next boot.
+
+**4. Restart any open Cowork session.** Plugins are synced at session
+start; existing sessions don't pick up new uploads mid-flight.
+
+Cleanup + options:
+
+```bash
+# Scrub v0.5.19's rpm/plugin_myco/ residue (harmless if never installed).
+myco-install cowork-plugin --cleanup-legacy
+
+# Preview without writing.
+myco-install cowork-plugin --dry-run
+
+# To uninstall: delete the plugin from Claude Desktop's Plugins UI.
+# There is no CLI uninstall — the state lives in Anthropic's cloud.
+```
+
+Why can't we automate the upload? The endpoint
+(`POST /api/organizations/{orgId}/marketplaces/{marketplaceId}/plugins/account-upload`)
+requires the user's OAuth token, which we cannot responsibly harvest
+from `config.json`. Claude Desktop's drag-drop UI is the sanctioned
+user-consent surface for that call. The `.plugin` artifact we build
+is identical to what Claude Desktop would build from the same files —
+we just save the user one ZIP step.
 
 ---
 

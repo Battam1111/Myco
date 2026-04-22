@@ -1,56 +1,22 @@
 #!/usr/bin/env python3
-"""Install / uninstall the Myco plugin for Claude Desktop's Cowork mode.
+"""DEPRECATED in v0.5.20 — kept as a redirector so people who saved
+the v0.5.19 command line still get useful output.
 
-Cowork (local-agent-mode) loads plugins from a per-workspace registry
-at ``<CLAUDE_APPDATA>/local-agent-mode-sessions/<owner>/<workspace>/rpm/``.
-Marketplace installs populate that directory automatically. We don't
-have a Cowork marketplace for Myco today, so this script is the
-equivalent: it copies the `.cowork-plugin/` template tree into every
-``rpm/`` directory it can find on this machine, and upserts a
-``plugins`` entry in every ``rpm/manifest.json``.
+v0.5.19 shipped this script as an installer that wrote plugin
+metadata into Claude Desktop's ``rpm/`` directory. That approach was
+wrong: Cowork regenerates ``rpm/`` from its cloud marketplace on
+every session start, so the writes were immediately undone.
 
-Why a skill, not a hook? Cowork does not implement Claude Code's
-session-hook contract. Agent behavior is shaped by Skills — markdown
-files with YAML frontmatter that Cowork matches against user intent
-+ agent context. The single skill we ship, ``myco-substrate``, carries
-the full onboarding brief (what Myco is, 18 verbs, R1-R7, pulse
-reading, multi-project pattern) and triggers whenever the user
-mentions Myco, opens a workspace containing ``_canon.yaml``, or a
-prior tool response referenced a substrate.
+The real permanent-install path is:
 
-Install path per OS:
+    python scripts/build_plugin.py          # build myco-<ver>.plugin
+    # then drag the produced file into Claude Desktop:
+    #   Settings → Plugins → Upload → select myco-<ver>.plugin
 
-    Windows:  %APPDATA%\\Claude\\local-agent-mode-sessions\\...
-    macOS:    ~/Library/Application Support/Claude/local-agent-mode-sessions/...
-    Linux:    ~/.config/Claude/local-agent-mode-sessions/...
-
-This script is a thin shim over ``myco.install.cowork_plugin``. The
-library module does all the work; the script exposes the CLI so users
-with the repo checked out can run the installer without needing
-``pip install -e .`` first.
-
-Usage
------
-
-    # preview what would change (no writes)
-    python scripts/install_cowork_plugin.py --dry-run
-
-    # install / re-install (idempotent; safe to run twice)
-    python scripts/install_cowork_plugin.py
-
-    # uninstall
-    python scripts/install_cowork_plugin.py --uninstall
-
-Equivalent ``myco-install`` subcommands (same library calls):
-
-    myco-install cowork-plugin
-    myco-install cowork-plugin --uninstall
-    myco-install cowork-plugin --dry-run
-
-After install, restart Claude Desktop. On the next Cowork session
-start the agent will see a skill named ``myco-substrate`` and follow
-the R1-R7 boot ritual whenever Myco is mentioned or a workspace
-contains ``_canon.yaml``.
+This script redirects to ``build_plugin.py`` when called without
+``--uninstall``, and runs the v0.5.19 cleanup path when called with
+``--uninstall``. Either way it prints a pointer to the canonical
+entry points (``myco-install cowork-plugin`` and ``scripts/build_plugin.py``).
 """
 
 from __future__ import annotations
@@ -59,111 +25,90 @@ import argparse
 import sys
 from pathlib import Path
 
-# Make Windows consoles happy with the decorative glyphs we print for status.
 if sys.platform == "win32":
     try:
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[attr-defined]
         sys.stderr.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[attr-defined]
-    except Exception:  # pragma: no cover - older Python / non-TTY
+    except Exception:  # pragma: no cover
         pass
 
-# Put the repo's src/ on sys.path so we can import myco without requiring
-# the user to have run `pip install -e .` first. This mirrors what
-# `scripts/bump_version.py` does for the same reason.
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 _SRC = _REPO_ROOT / "src"
 if _SRC.is_dir() and str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
-from myco.install.cowork_plugin import (  # noqa: E402
-    PLUGIN_ID,
-    claude_appdata_root,
-    discover_rpm_dirs,
-    install_cowork_plugin,
-    uninstall_cowork_plugin,
-)
 
-
-# ---------------------------------------------------------------------------
-# Re-exports used by the test-suite, which imports this script as a module
-# via ``importlib.util.spec_from_file_location``. Keeping the symbols here
-# lets the tests treat the script as the single public surface while the
-# heavy lifting lives in ``myco.install.cowork_plugin``.
-# ---------------------------------------------------------------------------
-
-
-def _claude_appdata_root(env=None):
-    return claude_appdata_root(env)
-
-
-# ---------------------------------------------------------------------------
-# CLI.
-# ---------------------------------------------------------------------------
-
-
-def _parse_argv(argv: list[str] | None) -> argparse.Namespace:
+def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(
         prog="install_cowork_plugin",
         description=(
-            "Install the Myco plugin into every Cowork workspace registry on "
-            "this machine. Idempotent — safe to run repeatedly."
+            "[Deprecated in v0.5.20] Redirects to scripts/build_plugin.py + "
+            "manual drag-drop into Claude Desktop. The v0.5.19 rpm/ writer "
+            "is gone — Cowork's cloud sync defeats any filesystem-level "
+            "install. With --uninstall, scrubs v0.5.19-era cruft."
+        ),
+    )
+    p.add_argument(
+        "--uninstall",
+        action="store_true",
+        help=(
+            "Remove v0.5.19 plugin_myco/ dirs + manifest rows from every "
+            "Cowork workspace on this machine (harmless if never installed)."
         ),
     )
     p.add_argument(
         "--dry-run",
         action="store_true",
-        help="Print what would change without writing anything.",
-    )
-    p.add_argument(
-        "--uninstall",
-        action="store_true",
-        help="Remove the Myco plugin from every Cowork workspace registry.",
+        help="Print what would happen without making changes.",
     )
     p.add_argument(
         "--cowork-root",
         type=Path,
         default=None,
-        help=(
-            "Override the Claude Desktop application-data root (default: "
-            "OS-specific — %%APPDATA%%/Claude on Windows, ~/Library/"
-            "Application Support/Claude on macOS, ~/.config/Claude on Linux)."
-        ),
+        help="Override Claude Desktop's appdata root (diagnostic use).",
     )
-    p.add_argument(
-        "--repo-root",
-        type=Path,
-        default=None,
-        help=(
-            "Override the Myco repo root (default: the parent of this "
-            "script's directory)."
-        ),
+    # Swallow deprecated v0.5.19 flags for backwards compat (they do
+    # nothing under the new model but we don't want argparse to error).
+    p.add_argument("--repo-root", type=Path, default=None, help=argparse.SUPPRESS)
+    args = p.parse_args(argv)
+
+    from myco.install.cowork_plugin import (
+        claude_appdata_root,
+        cleanup_legacy_rpm_install,
+        discover_rpm_dirs,
     )
-    return p.parse_args(argv)
 
+    print(
+        "[install_cowork_plugin] This script is deprecated in v0.5.20.\n"
+        "The Cowork plugin install path is now:\n"
+        "    1. python scripts/build_plugin.py           (builds myco-<ver>.plugin)\n"
+        "    2. Drag the produced file into Claude Desktop Plugin upload.\n"
+        "    3. Restart any open Cowork session.\n"
+        "See docs/INSTALL.md § Cowork for details.\n"
+    )
 
-def main(argv: list[str] | None = None) -> int:
-    args = _parse_argv(argv)
-    repo_root = args.repo_root or _REPO_ROOT
-    cowork_root = args.cowork_root or claude_appdata_root()
-    template = repo_root / ".cowork-plugin"
-    targets = discover_rpm_dirs(cowork_root)
-    print(f"Claude Desktop root: {cowork_root}")
-    print(f"Myco repo root:      {repo_root}")
-    print(f"Discovered {len(targets)} Cowork workspace(s).")
     if args.uninstall:
-        result = uninstall_cowork_plugin(targets, dry_run=args.dry_run)
-    else:
-        result = install_cowork_plugin(template, targets, dry_run=args.dry_run)
-    if result < 0:
-        return 1
-    if not args.dry_run and result > 0 and not args.uninstall:
-        print(
-            f"\nNext step: restart Claude Desktop. On the next Cowork session "
-            f"the agent will see the `{PLUGIN_ID[len('plugin_'):]}-substrate` "
-            f"skill and follow the R1-R7 boot ritual whenever Myco is "
-            f"mentioned or a workspace contains `_canon.yaml`."
-        )
-    return 0
+        claude_root = args.cowork_root or claude_appdata_root()
+        targets = discover_rpm_dirs(claude_root)
+        if not targets:
+            print("No Cowork workspaces found — nothing to clean up.")
+            return 0
+        print(f"Scanning {len(targets)} Cowork workspace(s) for v0.5.19 cruft...")
+        changed = cleanup_legacy_rpm_install(targets, dry_run=args.dry_run)
+        verb = "would remove" if args.dry_run else "removed"
+        if changed == 0:
+            print("No v0.5.19-era plugin_myco/ entries found.")
+        else:
+            print(f"{verb} v0.5.19 entries from {changed} workspace(s).")
+        return 0
+
+    # Non-uninstall path: build the bundle via the canonical script so
+    # both entry points stay in lockstep.
+    print("Running scripts/build_plugin.py for you...")
+    print()
+    from build_plugin import main as build_main  # type: ignore[import-not-found]
+
+    return build_main([])
 
 
 if __name__ == "__main__":

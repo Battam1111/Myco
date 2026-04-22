@@ -1,42 +1,43 @@
-"""Cowork-plugin installer — library side of ``scripts/install_cowork_plugin.py``.
+"""Cowork-plugin install support — v0.5.20 rewrite.
 
 Governing doctrine:
 ``docs/architecture/L3_IMPLEMENTATION/symbiont_protocol.md`` — per-host
-axis of the extensibility model. Cowork is registered in the host
-matrix (``docs/INSTALL.md``) alongside the other ten automated hosts,
-but its install format diverges enough to live in its own module
-rather than being folded into :mod:`myco.install.clients`.
+axis of the extensibility model.
 
-Cowork (Claude Desktop's local-agent-mode) loads plugins from a
-per-workspace registry at
-``<CLAUDE_APPDATA>/local-agent-mode-sessions/<owner>/<workspace>/rpm/``.
-Marketplace installs populate that directory automatically. We don't
-have a Cowork marketplace for Myco yet, so this module is the
-equivalent: it copies the repo's ``.cowork-plugin/`` template into
-every ``rpm/`` directory it can find and upserts a row in each
-``rpm/manifest.json``.
+**v0.5.19 was wrong.** That release shipped an installer that wrote
+plugin metadata directly into Cowork's ``rpm/manifest.json``, under the
+belief that was the source of truth. It is not. On every session
+start, Claude Desktop's ``[RemotePluginManager]`` syncs the plugin
+list from an Anthropic cloud marketplace and **regenerates** ``rpm/``
+from that response. Any local edits are clobbered. v0.5.20 retracts
+the installer and replaces it with the real mechanism.
 
-The logic lives here rather than only in ``scripts/install_cowork_plugin.py``
-so that:
+**What actually persists a third-party plugin in Cowork.** The
+Anthropic cloud exposes a per-account marketplace (one per user,
+named "My Uploads"). A plugin lands there when Claude Desktop's
+drag-drop UI uploads a ``.plugin`` ZIP via
+``POST https://api.anthropic.com/api/organizations/{orgId}/``
+``marketplaces/{marketplaceId}/plugins/account-upload``. Once uploaded,
+every Cowork session syncs it down automatically — the skill is then
+visible to the agent on next boot. There is no other persistent path
+short of Anthropic publishing Myco in a first-party marketplace.
 
-- ``myco-install host --all-hosts`` can call it as a natural
-  continuation of host-config writing (when Claude Desktop is
-  detected, we also want the Cowork plugin tree populated).
-- ``myco-install cowork-plugin`` provides a first-class subcommand
-  for users who only want the plugin installed without re-touching
-  MCP host configs.
-- It has proper test coverage via ``tests/integration/test_install_cowork_plugin.py``.
+**What this module does now.** It helps the user get the right
+``.plugin`` bundle onto disk and gives them the exact drag-drop
+instructions. Heavy lifting (building the ZIP) lives in
+``myco.install.plugin_bundle``. This module glues:
 
-The standalone script at ``scripts/install_cowork_plugin.py`` becomes
-a thin shim that calls into this module, so users who clone the repo
-and want a one-liner (``python scripts/install_cowork_plugin.py``)
-still work without needing ``pip install -e .`` first.
+- Template location (``.cowork-plugin/`` in the repo checkout).
+- Bundle builder (:func:`myco.install.plugin_bundle.build_plugin_bundle`).
+- Diagnostic helpers (:func:`claude_appdata_root`, :func:`discover_rpm_dirs`)
+  that let users sanity-check Cowork's install state after upload.
+- The ``rpm/plugin_myco/`` cleanup path for machines that ran the
+  v0.5.19 installer — removes stale directories so Cowork's next
+  cloud-sync doesn't race against stale files.
 
-Install path per OS:
-
-    Windows:  %APPDATA%\\Claude\\local-agent-mode-sessions\\...
-    macOS:    ~/Library/Application Support/Claude/local-agent-mode-sessions/...
-    Linux:    ~/.config/Claude/local-agent-mode-sessions/...
+There is intentionally no "install the plugin via filesystem" function
+any more. The `UPLOAD_INSTRUCTIONS` constant is the only outbound
+surface for new installs.
 """
 
 from __future__ import annotations
@@ -47,64 +48,68 @@ import shutil
 import sys
 import time
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import TextIO
+
+from .plugin_bundle import (
+    PLUGIN_NAME,
+    TEMPLATE_DIRNAME,
+    build_plugin_bundle,
+)
 
 __all__ = [
     "RpmTarget",
     "claude_appdata_root",
     "discover_rpm_dirs",
-    "install_cowork_plugin",
-    "uninstall_cowork_plugin",
     "repo_template_root",
+    "prepare_plugin_for_upload",
+    "cleanup_legacy_rpm_install",
+    "UPLOAD_INSTRUCTIONS",
     "PLUGIN_ID",
     "PLUGIN_NAME",
     "TEMPLATE_DIRNAME",
 ]
 
-# ---------------------------------------------------------------------------
-# Constants.
-# ---------------------------------------------------------------------------
-
-#: Directory in this repo holding the template tree copied to each rpm dir.
-TEMPLATE_DIRNAME = ".cowork-plugin"
-
-#: Stable plugin id used in each rpm/manifest.json entry. Keeping it stable
-#: makes the upsert idempotent: re-running the installer updates the existing
-#: row rather than creating duplicates. Marketplace-installed plugins use
-#: ULID ids (``plugin_<ULID>``); we use ``plugin_myco`` to make the local-
-#: install origin obvious on inspection.
+#: Stable plugin id v0.5.19's broken installer used in manifest rows.
+#: Kept as a constant so :func:`cleanup_legacy_rpm_install` can target
+#: the exact rows it wrote without touching anything else.
 PLUGIN_ID = "plugin_myco"
 
-#: Human-visible plugin name surfaced in Cowork UI.
-PLUGIN_NAME = "myco"
+#: Human-facing upload instructions shown by every command that
+#: prepares a ``.plugin`` file. Keeping the exact wording in one place
+#: means the CLI, tests, and docs all display the same steps.
+UPLOAD_INSTRUCTIONS = """\
+To install Myco into Cowork permanently:
 
-#: Marker shown in rpm/manifest.json so it is obvious these entries did not
-#: come from a real Cowork marketplace.
-LOCAL_MARKETPLACE_ID = "local"
-LOCAL_MARKETPLACE_NAME = "local (myco repo install)"
+  1. Open Claude Desktop → Settings → Plugins (or Extensions) → Upload.
+  2. Select the .plugin file shown above.
+  3. Claude Desktop uploads it to your account's Cowork marketplace
+     (private to you). A notification confirms the upload succeeded.
+  4. Close any open Cowork session and start a new one. The plugin
+     syncs down automatically; the ``myco-substrate`` skill activates
+     when you mention Myco or open a workspace containing ``_canon.yaml``.
+
+Why drag-drop rather than an automated installer? Cowork plugins
+persist only in Anthropic's cloud marketplace. Writing to the local
+``rpm/`` directory is futile — the cloud sync overwrites it on every
+session start. v0.5.19 learned this the hard way; see the v0.5.20
+changelog for the full story.
+"""
 
 
 # ---------------------------------------------------------------------------
-# Types.
+# Diagnostic helpers — read-only, harmless to invoke at any time.
 # ---------------------------------------------------------------------------
 
 
 @dataclass(frozen=True)
 class RpmTarget:
-    """A single Cowork workspace registry we can install into.
+    """A single Cowork workspace registry Claude Desktop populates.
 
-    Attributes
-    ----------
-    rpm_dir:
-        The ``<owner>/<workspace>/rpm/`` directory.
-    manifest_path:
-        ``rpm_dir / "manifest.json"``.
-    plugin_dir:
-        Where the Myco plugin tree will live: ``rpm_dir / PLUGIN_ID``.
-    owner_uuid, workspace_uuid:
-        Parsed from the path, for human-readable status output.
+    Emitted by :func:`discover_rpm_dirs` for diagnostic use — e.g.
+    "show me every Cowork workspace on this machine and what plugins
+    it thinks are installed." The v0.5.19 installer used to write
+    here; v0.5.20 only reads.
     """
 
     rpm_dir: Path
@@ -114,23 +119,16 @@ class RpmTarget:
     workspace_uuid: str
 
 
-# ---------------------------------------------------------------------------
-# Discovery.
-# ---------------------------------------------------------------------------
-
-
 def claude_appdata_root(env: os._Environ[str] | dict[str, str] | None = None) -> Path:
     """Return the OS-specific Claude Desktop application-data directory.
 
-    Resolution order per platform:
+    * Windows: ``%APPDATA%\\Claude``
+    * macOS: ``~/Library/Application Support/Claude``
+    * Linux / other POSIX: ``$XDG_CONFIG_HOME/Claude`` if set, else
+      ``~/.config/Claude``.
 
-    * Windows: ``%APPDATA%\\Claude`` (typically ``C:\\Users\\<user>\\AppData\\Roaming\\Claude``).
-    * macOS: ``~/Library/Application Support/Claude``.
-    * Linux / other POSIX: ``$XDG_CONFIG_HOME/Claude`` if set, else ``~/.config/Claude``.
-
-    The resolved path is *not* guaranteed to exist — callers should treat a
-    missing directory as "Cowork has never run on this machine" rather than
-    an error.
+    The resolved path is not guaranteed to exist; callers should treat
+    a missing directory as "Cowork has never run on this machine".
     """
     env = env if env is not None else os.environ
     if sys.platform == "win32":
@@ -146,14 +144,16 @@ def claude_appdata_root(env: os._Environ[str] | dict[str, str] | None = None) ->
 def discover_rpm_dirs(claude_root: Path) -> list[RpmTarget]:
     """Enumerate every per-workspace ``rpm/`` directory under ``claude_root``.
 
-    We look for the glob ``local-agent-mode-sessions/*/*/rpm``. The two
-    wildcard components correspond to the owner-uuid and workspace-uuid that
-    Cowork creates per account / project.
+    Glob: ``local-agent-mode-sessions/*/*/rpm``. The two wildcard
+    components are the owner-uuid and workspace-uuid Cowork creates
+    per account / project. Returns an empty list when the sessions
+    root does not exist (fine — the user has never opened a Cowork
+    workspace here).
 
-    Returns an empty list — not an error — when the sessions dir does not
-    exist yet (i.e. the user has never opened a Cowork workspace on this
-    machine). Callers should treat zero targets as "nothing to do" and
-    exit cleanly.
+    v0.5.20: used only for diagnostics. The v0.5.19-era ``install``
+    / ``uninstall`` functions that wrote to these directories are
+    gone; see :func:`cleanup_legacy_rpm_install` for the migration
+    helper.
     """
     sessions_root = claude_root / "local-agent-mode-sessions"
     if not sessions_root.is_dir():
@@ -162,10 +162,6 @@ def discover_rpm_dirs(claude_root: Path) -> list[RpmTarget]:
     for owner_dir in sorted(sessions_root.iterdir()):
         if not owner_dir.is_dir():
             continue
-        # Skip non-session bookkeeping dirs like ``skills-plugin``. Session
-        # dirs are UUID-shaped, but we accept anything whose child has an
-        # ``rpm/`` subdir — more tolerant than a UUID regex if Cowork
-        # introduces new sentinel dirs later.
         for ws_dir in sorted(owner_dir.iterdir()) if owner_dir.is_dir() else []:
             if not ws_dir.is_dir():
                 continue
@@ -185,56 +181,120 @@ def discover_rpm_dirs(claude_root: Path) -> list[RpmTarget]:
 
 
 def repo_template_root() -> Path:
-    """Locate the ``.cowork-plugin/`` directory shipped with the Myco repo.
-
-    In development (``pip install -e .``) this resolves to the repo root;
-    in a wheel install it resolves to wherever setuptools placed the
-    package data. We walk up from this file's location until we find a
-    directory named :data:`TEMPLATE_DIRNAME` — the repo layout (package
-    at ``src/myco/`` with template at repo root) gives us a stable
-    ``parents[3]`` anchor, but we defensively walk up in case the
-    package is bundled differently.
-    """
+    """Locate the ``.cowork-plugin/`` directory shipped with the Myco repo."""
     here = Path(__file__).resolve()
     for parent in (here.parents[3], here.parents[2], here.parents[4]):
         candidate = parent / TEMPLATE_DIRNAME
         if candidate.is_dir():
             return candidate
-    # Last-resort: return the expected v0.5.19 path even if missing, so
-    # the caller's "template not found" error message names the file we
-    # actually looked for.
     return here.parents[3] / TEMPLATE_DIRNAME
 
 
 # ---------------------------------------------------------------------------
-# Manifest I/O.
+# New behavior: produce the .plugin bundle + tell the user what to do.
+# ---------------------------------------------------------------------------
+
+
+def prepare_plugin_for_upload(
+    repo_root: Path,
+    *,
+    version: str,
+    dest_dir: Path | None = None,
+    stdout: TextIO | None = None,
+) -> Path:
+    """Build the ``.plugin`` bundle and print drag-drop instructions.
+
+    This is the v0.5.20 replacement for the old
+    ``install_cowork_plugin`` function. Returns the absolute path of
+    the written bundle. The caller's responsibility ends at "bundle
+    exists on disk" — the actual install is a user action in Claude
+    Desktop's UI (see :data:`UPLOAD_INSTRUCTIONS`).
+
+    Parameters
+    ----------
+    repo_root:
+        Repo root containing ``.cowork-plugin/``.
+    version:
+        Advertised in the output filename. Must match the template's
+        ``plugin.json::version``; :func:`build_plugin_bundle` enforces
+        this.
+    dest_dir:
+        Where to write. Defaults to ``repo_root/dist`` — same as
+        :mod:`scripts.build_plugin`.
+
+    Raises :class:`myco.install.plugin_bundle.PluginBundleError` when
+    the template is missing or malformed.
+    """
+    out = stdout if stdout is not None else sys.stdout
+    path = build_plugin_bundle(repo_root, version=version, dest_dir=dest_dir)
+    print(f"built {path}", file=out)
+    print("", file=out)
+    print(UPLOAD_INSTRUCTIONS, file=out)
+    return path
+
+
+# ---------------------------------------------------------------------------
+# Migration from v0.5.19 — remove the broken-installer cruft.
+# ---------------------------------------------------------------------------
+
+
+def cleanup_legacy_rpm_install(
+    targets: list[RpmTarget],
+    *,
+    dry_run: bool,
+    stdout: TextIO | None = None,
+) -> int:
+    """Remove v0.5.19's ``plugin_myco/`` dirs + manifest rows.
+
+    v0.5.19's installer wrote ``<rpm>/plugin_myco/`` + a corresponding
+    ``rpm/manifest.json::plugins[]`` row. Cowork's cloud-sync clobbers
+    those on its own schedule, but we do a direct cleanup so the user
+    isn't confused by stale directories during the grace period.
+
+    Returns the count of rpm/ directories that changed. Safe to call
+    when no legacy install exists — a no-op.
+    """
+    out = stdout if stdout is not None else sys.stdout
+    if not targets:
+        return 0
+    changed = 0
+    for target in targets:
+        verb = "would remove" if dry_run else "removing"
+        if target.plugin_dir.exists() or _manifest_has_legacy_row(target.manifest_path):
+            print(
+                f"  {verb} -> {target.owner_uuid[:8]}.../"
+                f"{target.workspace_uuid[:8]}.../rpm/{PLUGIN_ID}/",
+                file=out,
+            )
+        if not dry_run and target.plugin_dir.exists():
+            shutil.rmtree(target.plugin_dir)
+        if target.manifest_path.exists():
+            manifest = _load_manifest(target.manifest_path)
+            manifest, mutated = _drop_legacy_row(manifest)
+            if mutated and not dry_run:
+                _save_manifest(target.manifest_path, manifest)
+            if mutated:
+                changed += 1
+    return changed
+
+
+# ---------------------------------------------------------------------------
+# Private helpers (manifest I/O).
 # ---------------------------------------------------------------------------
 
 
 def _load_manifest(path: Path) -> dict[str, object]:
-    """Read a Cowork ``rpm/manifest.json`` or return an empty skeleton.
-
-    Tolerant of missing keys — Cowork has produced manifests with and
-    without ``lastUpdated`` in the wild — but the returned dict always
-    has ``plugins: list`` so callers can mutate in place.
-    """
     if not path.is_file():
         return {"lastUpdated": _ms_now(), "plugins": []}
     raw = path.read_text(encoding="utf-8")
     data: dict[str, object] = json.loads(raw) if raw.strip() else {}
     data.setdefault("lastUpdated", _ms_now())
-    plugins = data.get("plugins")
-    if not isinstance(plugins, list):
+    if not isinstance(data.get("plugins"), list):
         data["plugins"] = []
     return data
 
 
 def _save_manifest(path: Path, data: dict[str, object]) -> None:
-    """Atomically write a Cowork ``rpm/manifest.json``.
-
-    Uses the temp-file + replace idiom so a crash mid-write cannot
-    leave a half-written manifest that Cowork would refuse to parse.
-    """
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(path.suffix + ".tmp")
     tmp.write_text(
@@ -245,56 +305,23 @@ def _save_manifest(path: Path, data: dict[str, object]) -> None:
 
 
 def _ms_now() -> int:
-    """Milliseconds since epoch — matches the format Cowork itself writes."""
     return int(time.time() * 1000)
 
 
-def _iso_now() -> str:
-    """Current UTC time as ISO-8601 with a ``Z`` suffix (Cowork's format)."""
-    return (
-        datetime.now(tz=timezone.utc)
-        .isoformat(timespec="microseconds")
-        .replace("+00:00", "Z")
-    )
+def _manifest_has_legacy_row(path: Path) -> bool:
+    if not path.is_file():
+        return False
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return False
+    plugins = data.get("plugins") if isinstance(data, dict) else None
+    if not isinstance(plugins, list):
+        return False
+    return any(isinstance(row, dict) and row.get("id") == PLUGIN_ID for row in plugins)
 
 
-def _register_in_manifest(
-    manifest: dict[str, object],
-) -> tuple[dict[str, object], bool]:
-    """Upsert the Myco entry in a manifest. Returns (manifest, changed)."""
-    plugins = manifest["plugins"]
-    assert isinstance(plugins, list)
-    now = _iso_now()
-    for row in plugins:
-        if isinstance(row, dict) and row.get("id") == PLUGIN_ID:
-            # Already registered. Touch updatedAt but leave everything else
-            # alone — the user may have flipped ``installationPreference``
-            # to ``disabled`` from the Cowork UI and we shouldn't override
-            # that choice on every re-run.
-            if row.get("updatedAt") == now:
-                return manifest, False
-            row["updatedAt"] = now
-            manifest["lastUpdated"] = _ms_now()
-            return manifest, True
-    plugins.append(
-        {
-            "id": PLUGIN_ID,
-            "name": PLUGIN_NAME,
-            "updatedAt": now,
-            "marketplaceId": LOCAL_MARKETPLACE_ID,
-            "marketplaceName": LOCAL_MARKETPLACE_NAME,
-            "installedBy": "user",
-            "installationPreference": "available",
-        }
-    )
-    manifest["lastUpdated"] = _ms_now()
-    return manifest, True
-
-
-def _remove_from_manifest(
-    manifest: dict[str, object],
-) -> tuple[dict[str, object], bool]:
-    """Drop the Myco entry from a manifest. Returns (manifest, changed)."""
+def _drop_legacy_row(manifest: dict[str, object]) -> tuple[dict[str, object], bool]:
     plugins = manifest["plugins"]
     assert isinstance(plugins, list)
     keep = [
@@ -310,78 +337,26 @@ def _remove_from_manifest(
 
 
 # ---------------------------------------------------------------------------
-# Plugin tree copy.
+# Backward-compat shims. Call into the new code paths; the old names
+# emit a DeprecationWarning so downstream scripts that still use them
+# get a loud hint to migrate.
 # ---------------------------------------------------------------------------
 
 
-def _copy_plugin_tree(template: Path, dst: Path, *, dry_run: bool) -> None:
-    """Replace ``dst`` with a fresh copy of ``template``.
+def install_cowork_plugin(*args: object, **kwargs: object) -> int:
+    """Deprecated alias. v0.5.19 wrote to ``rpm/``; that was wrong.
 
-    We unconditionally wipe the destination so stale skill files from an
-    earlier Myco version cannot linger when the template shrinks. ``dst``
-    is only ever ``<rpm>/plugin_myco/``, owned entirely by this installer —
-    no risk of clobbering the user's own files.
+    Raises :class:`RuntimeError` with migration instructions. Not a
+    silent warning because a silent no-op here would re-create the
+    v0.5.19 failure mode where users thought install had succeeded.
     """
-    if dry_run:
-        return
-    if dst.exists():
-        shutil.rmtree(dst)
-    shutil.copytree(template, dst)
-
-
-# ---------------------------------------------------------------------------
-# Orchestration.
-# ---------------------------------------------------------------------------
-
-
-def install_cowork_plugin(
-    template_root: Path,
-    targets: list[RpmTarget],
-    *,
-    dry_run: bool,
-    stdout: TextIO | None = None,
-) -> int:
-    """Copy the template into every rpm dir and upsert the manifest entry.
-
-    Returns the number of manifests that changed, or ``-1`` when the
-    template root is missing (fatal: the caller wrote or referenced the
-    wrong repo layout). A return of zero means "no targets found" (benign
-    — the user simply has no Cowork sessions on this machine).
-    """
-    out = stdout if stdout is not None else sys.stdout
-    if not template_root.is_dir():
-        print(
-            f"error: template directory not found: {template_root}\n"
-            "Run this installer from a Myco repo checkout, or pass "
-            "--repo-root if the template lives elsewhere.",
-            file=sys.stderr,
-        )
-        return -1
-    if not targets:
-        print(
-            "No Cowork rpm/ directories found on this machine. Either "
-            "Cowork has never run here, or it stores its sessions in a "
-            "non-default location. Nothing to do.",
-            file=out,
-        )
-        return 0
-    changed = 0
-    for target in targets:
-        action = "would install" if dry_run else "installing"
-        print(
-            f"  {action} -> {target.owner_uuid[:8]}.../{target.workspace_uuid[:8]}.../rpm/{PLUGIN_ID}/",
-            file=out,
-        )
-        _copy_plugin_tree(template_root, target.plugin_dir, dry_run=dry_run)
-        manifest = _load_manifest(target.manifest_path)
-        manifest, mutated = _register_in_manifest(manifest)
-        if mutated and not dry_run:
-            _save_manifest(target.manifest_path, manifest)
-        if mutated:
-            changed += 1
-    verb = "would change" if dry_run else "changed"
-    print(f"Done: {verb} {changed} of {len(targets)} manifest(s).", file=out)
-    return changed
+    raise RuntimeError(
+        "install_cowork_plugin is removed in v0.5.20 — writing to "
+        "rpm/ is futile because Cowork regenerates it from the "
+        "Anthropic cloud marketplace on every session start. Use "
+        "prepare_plugin_for_upload (or `myco-install cowork-plugin`) "
+        "to build a .plugin file and drag it into Claude Desktop."
+    )
 
 
 def uninstall_cowork_plugin(
@@ -390,32 +365,12 @@ def uninstall_cowork_plugin(
     dry_run: bool,
     stdout: TextIO | None = None,
 ) -> int:
-    """Remove the Myco plugin tree + manifest entry from every rpm dir.
+    """v0.5.20 alias for :func:`cleanup_legacy_rpm_install`.
 
-    Returns the number of manifests that changed. Idempotent: calling
-    uninstall on a machine where Myco was never installed is a no-op
-    that prints a friendly "nothing to do" line.
+    The old function name ``uninstall_cowork_plugin`` used to remove
+    an install-via-rpm that v0.5.19 mistakenly performed. v0.5.20
+    keeps the name as a thin shim for backward compatibility but
+    renames the canonical function to reflect what it actually does
+    (migration cleanup, not a real uninstall).
     """
-    out = stdout if stdout is not None else sys.stdout
-    if not targets:
-        print("No Cowork rpm/ directories found. Nothing to uninstall.", file=out)
-        return 0
-    changed = 0
-    for target in targets:
-        action = "would remove" if dry_run else "removing"
-        print(
-            f"  {action} -> {target.owner_uuid[:8]}.../{target.workspace_uuid[:8]}.../rpm/{PLUGIN_ID}/",
-            file=out,
-        )
-        if not dry_run and target.plugin_dir.exists():
-            shutil.rmtree(target.plugin_dir)
-        if target.manifest_path.exists():
-            manifest = _load_manifest(target.manifest_path)
-            manifest, mutated = _remove_from_manifest(manifest)
-            if mutated and not dry_run:
-                _save_manifest(target.manifest_path, manifest)
-            if mutated:
-                changed += 1
-    verb = "would change" if dry_run else "changed"
-    print(f"Done: {verb} {changed} of {len(targets)} manifest(s).", file=out)
-    return changed
+    return cleanup_legacy_rpm_install(targets, dry_run=dry_run, stdout=stdout)
