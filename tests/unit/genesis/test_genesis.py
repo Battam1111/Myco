@@ -198,6 +198,9 @@ def test_bootstrap_registers_substrate_in_global_registry(
     """Successful bootstrap writes a row into ``~/.myco/substrates.yaml``."""
     from myco.core.registry import list_substrates
 
+    # Session-wide ``_isolate_global_registry`` fixture disables writes
+    # for leak-safety; this test exercises the registry, so re-enable.
+    monkeypatch.delenv("MYCO_REGISTRY_DISABLED", raising=False)
     # Redirect Path.home() to an isolated tmp dir so the real user
     # registry isn't touched.
     fake_home = tmp_path / "home"
@@ -221,6 +224,7 @@ def test_bootstrap_dry_run_skips_registry(
     nothing" contract)."""
     from myco.core.registry import list_substrates
 
+    monkeypatch.delenv("MYCO_REGISTRY_DISABLED", raising=False)
     fake_home = tmp_path / "home"
     fake_home.mkdir()
     monkeypatch.setattr(Path, "home", staticmethod(lambda: fake_home))

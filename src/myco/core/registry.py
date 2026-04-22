@@ -62,6 +62,7 @@ Added in v0.5.16.
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -201,6 +202,18 @@ def _write_registry(
 # -------------------------------------------------------- public surface
 
 
+def _registry_disabled() -> bool:
+    """True when ``MYCO_REGISTRY_DISABLED=1`` is set in the environment.
+
+    Used by the test suite (via a conftest autouse fixture) to prevent
+    germinate tests from polluting the operator's real
+    ``~/.myco/substrates.yaml`` with pytest tmp-dir paths. Also gives
+    privacy-conscious operators a runtime opt-out without needing to
+    edit canon.
+    """
+    return os.environ.get("MYCO_REGISTRY_DISABLED", "").strip() in {"1", "true", "yes"}
+
+
 def register_substrate(
     substrate_id: str,
     path: Path,
@@ -214,7 +227,12 @@ def register_substrate(
     ``last_seen_at`` are set to now. If it already exists, only
     ``last_seen_at`` + ``path`` are updated (handles the "substrate
     moved to a new location" case cleanly).
+
+    Respects the ``MYCO_REGISTRY_DISABLED`` env var opt-out (tests
+    and privacy-conscious operators).
     """
+    if _registry_disabled():
+        return
     entries = load_registry(home)
     stamp = now or _utc_now()
     existing = entries.get(substrate_id)

@@ -8,6 +8,30 @@ from pathlib import Path
 import pytest
 
 
+@pytest.fixture(autouse=True)
+def _isolate_global_registry(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Disable ``~/.myco/substrates.yaml`` writes across every test.
+
+    v0.5.16 hooked ``myco.germination.bootstrap`` to call
+    ``register_substrate`` on success, which means any test that
+    germinates — there are a lot of them — would pollute the real
+    operator's registry with pytest tmp-dir paths. The
+    ``MYCO_REGISTRY_DISABLED`` env var (honoured by
+    ``register_substrate``) short-circuits the write; this fixture
+    sets it for the full test session.
+
+    Tests that specifically exercise the registry code path either
+    (a) pass ``home=`` explicitly — those bypass this fixture because
+    ``_registry_disabled`` is checked first — so they need an
+    explicit ``monkeypatch.delenv`` or (b) call the lower-level
+    functions directly with an explicit ``home`` kwarg. See
+    ``tests/unit/core/test_registry.py`` for the pattern.
+    """
+    monkeypatch.setenv("MYCO_REGISTRY_DISABLED", "1")
+
+
 @pytest.fixture
 def tmp_substrate_root(tmp_path: Path) -> Path:
     """An empty directory that can stand in for a substrate root."""

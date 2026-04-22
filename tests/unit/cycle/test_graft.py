@@ -194,6 +194,8 @@ def test_list_substrates_returns_registered_entries(
     """Pre-register two substrates; --list-substrates enumerates them."""
     from myco.core.registry import register_substrate
 
+    # Session fixture disables registry writes; re-enable for this test.
+    monkeypatch.delenv("MYCO_REGISTRY_DISABLED", raising=False)
     fake_home = tmp_path / "home"
     fake_home.mkdir()
     monkeypatch.setattr(Path, "home", staticmethod(lambda: fake_home))
