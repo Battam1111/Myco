@@ -1,4 +1,5 @@
-"""Regression test for v0.5.4 bug #2 (hunger count_by_kind)."""
+"""Regression test for v0.5.4 bug #2 (hunger count_by_kind) +
+v0.5.22 bug #4 (only substrate-local plugins count as "local")."""
 
 from __future__ import annotations
 
@@ -14,7 +15,13 @@ def test_hunger_payload_includes_count_by_kind(
     """The hunger payload's ``local_plugins`` block exposes
     ``count_by_kind`` with entries for every plugin category.
     Before v0.5.4 only a flat ``count`` shipped, contradicting the
-    v0.5.3 CHANGELOG promise."""
+    v0.5.3 CHANGELOG promise.
+
+    v0.5.22 additionally asserts that a **fresh substrate** with no
+    ``.myco/plugins/`` tree reports zeros for every kind — pre-v0.5.22
+    this reported 32+ because every kernel built-in was
+    misclassified as "local".
+    """
     ctx = MycoContext.for_testing(root=genesis_substrate)
     report = compose_hunger_report(ctx)
     payload = report.as_dict()
@@ -29,5 +36,10 @@ def test_hunger_payload_includes_count_by_kind(
         assert isinstance(by_kind[key], int)
     # Total should equal the sum.
     assert lp["count"] == sum(by_kind.values())
-    # At least the built-in dimensions register.
-    assert by_kind["dimension"] >= 1
+    # v0.5.22 semantics: a fresh substrate has no substrate-local
+    # plugins — kernel built-ins don't count. Pre-fix this was 32+.
+    assert by_kind["dimension"] == 0
+    assert by_kind["adapter"] == 0
+    assert by_kind["schema_upgrader"] == 0
+    assert by_kind["overlay_verb"] == 0
+    assert lp["count"] == 0

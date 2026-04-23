@@ -37,13 +37,45 @@ __all__ = ["run"]
 
 
 def _collect_plugins(ctx: MycoContext) -> list[dict[str, Any]]:
-    """Introspect kernel registries + overlay for substrate-local plugins.
+    """Introspect kernel registries + overlay for every loaded plugin.
 
-    Returns a list of ``{kind, name, source}`` dicts. ``kind`` is one
-    of ``"dimension"``, ``"adapter"``, ``"schema_upgrader"``,
-    ``"overlay_verb"``. ``source`` is the source file path (best
-    effort — may be ``"<unknown>"`` for registered-in-memory items).
+    Returns a list of ``{kind, name, source, scope}`` dicts. Fields:
+
+    - ``kind``: one of ``"dimension"``, ``"adapter"``,
+      ``"schema_upgrader"``, ``"overlay_verb"``.
+    - ``source``: the source file path (best effort — may be
+      ``"<unknown>"`` for in-memory registrations).
+    - ``scope`` (v0.5.22): one of ``"kernel"`` (shipped with the myco
+      package) or ``"substrate"`` (loaded from
+      ``<root>/.myco/plugins/`` or ``manifest_overlay.yaml``). This
+      lets callers like ``hunger`` and ``brief`` count only genuinely
+      substrate-local contributions — pre-v0.5.22 those verbs
+      conflated the two and reported "32 local plugins" on every
+      fresh substrate. See ``docs/contract_changelog.md::v0.5.22`` for
+      the full narrative.
     """
+    from pathlib import Path
+
+    substrate_plugins_root = (ctx.substrate.root / ".myco" / "plugins").resolve()
+
+    def _classify_scope(src: str) -> str:
+        """Return ``"substrate"`` iff ``src`` is a real path under
+        ``<root>/.myco/plugins/``; ``"kernel"`` otherwise. Unknown
+        or unresolvable paths fall through as ``"kernel"`` — we would
+        rather undercount than mislabel a built-in.
+        """
+        if not src or src == "<unknown>":
+            return "kernel"
+        try:
+            src_resolved = Path(src).resolve()
+        except OSError:
+            return "kernel"
+        try:
+            src_resolved.relative_to(substrate_plugins_root)
+        except ValueError:
+            return "kernel"
+        return "substrate"
+
     plugins: list[dict[str, Any]] = []
 
     # Dimensions (from the default registry — includes anything a
@@ -63,6 +95,7 @@ def _collect_plugins(ctx: MycoContext) -> list[dict[str, Any]]:
                     "kind": "dimension",
                     "name": getattr(dim_cls, "id", dim_cls.__name__),
                     "source": src,
+                    "scope": _classify_scope(src),
                 }
             )
     except Exception:
@@ -83,6 +116,7 @@ def _collect_plugins(ctx: MycoContext) -> list[dict[str, Any]]:
                     "kind": "adapter",
                     "name": ad_cls.__name__,
                     "source": src,
+                    "scope": _classify_scope(src),
                 }
             )
     except Exception:
@@ -102,12 +136,14 @@ def _collect_plugins(ctx: MycoContext) -> list[dict[str, Any]]:
                     "kind": "schema_upgrader",
                     "name": str(key),
                     "source": src,
+                    "scope": _classify_scope(src),
                 }
             )
     except Exception:
         pass
 
-    # Overlay verbs.
+    # Overlay verbs. Every overlay verb is substrate-local by
+    # construction — the overlay file itself lives inside the substrate.
     try:
         manifest = load_manifest_with_overlay(ctx.substrate.root)
         base_names = {c.name for c in load_manifest_with_overlay(None).commands}
@@ -119,6 +155,7 @@ def _collect_plugins(ctx: MycoContext) -> list[dict[str, Any]]:
                     "kind": "overlay_verb",
                     "name": c.name,
                     "source": str(ctx.substrate.paths.manifest_overlay),
+                    "scope": "substrate",
                 }
             )
     except Exception:

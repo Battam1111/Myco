@@ -11,6 +11,73 @@ Format: one section per `contract_version`, newest first.
 
 ---
 
+## v0.5.22 — 2026-04-23 — Dogfood bugfixes: local_plugins scope + URL adapter error
+
+**Zero R1–R7 surface deltas.** Pure observability / UX hotfix
+surfaced by an end-to-end dogfood run of all 18 verbs.
+
+### Fixes
+
+- **`hunger.local_plugins` / `brief`'s "Local plugins" section** now
+  count **substrate-local** plugins only. Pre-v0.5.22 they counted
+  every kernel-built-in dimension + adapter + schema_upgrader as a
+  "local plugin", so every fresh substrate reported misleading
+  "32 local plugins" on first hunger. Root cause: ``hunger._summarize_local_plugins``
+  and ``brief._local_plugins_section`` both read the global registries
+  and returned a raw total. Fix: delegate to ``graft._collect_plugins``
+  which now stamps each entry with a ``scope`` field (``"kernel"`` vs
+  ``"substrate"``); hunger + brief filter for ``scope == "substrate"``
+  so only genuine ``.myco/plugins/*`` contributions count. Fresh
+  substrate now correctly reports 0; a substrate with one ramified
+  dimension reports 1.
+
+- **`eat --url` error now surfaces the real rejection reason.** When
+  the URL adapter's SSRF guard refused a host (loopback / link-local
+  / private / reserved IP ranges), the old error said "No adapter
+  can handle 'https://...'. Install 'myco[adapters]' for PDF, HTML
+  and URL support" — actively misleading, since the adapter *was*
+  installed and *was* loaded. New error surfaces the specific
+  UrlFetchError message (e.g. "URL adapter refused: url host
+  'example.com' resolves to a non-routable address") so operators
+  can distinguish a corporate-network DNS quirk from a genuine
+  block. Not a new escape hatch — the SSRF guard still fires — just
+  an honest error message.
+
+### Shape changes
+
+- `graft --list` payload entries gain a ``scope`` key (``"kernel"``
+  or ``"substrate"``). Existing consumers that didn't know about
+  ``scope`` continue to work — the field is additive.
+
+### Tests
+
+- `tests/unit/ingestion/test_hunger_count_by_kind.py` now asserts
+  zero local plugins on a fresh substrate (pre-v0.5.22 this test
+  asserted the bug as a feature — `dimension >= 1`).
+- `tests/unit/cycle/test_graft.py` gains two tests locking the
+  ``scope`` field shape + the fresh-substrate-all-kernel invariant.
+- `tests/unit/ingestion/test_eat.py` gains three tests for the URL
+  error path: helper function returns the SSRF reason for a
+  loopback URL, returns None for non-URL targets, and the full
+  ``eat`` run surfaces "URL adapter refused" rather than the
+  "Install myco[adapters]" misdirection.
+
+### Break from v0.5.21
+
+None for anyone reading the raw `local_plugins.count`. Anyone who
+was *depending* on "fresh substrate reports 32+" (no one should be)
+would see a 0 there now — but that's the whole point of the fix.
+
+### Dogfood findings NOT fixed in this release
+
+- **CLI `--project-dir` position asymmetry**: `myco VERB --project-dir X`
+  fails; must be `myco --project-dir X VERB`. MCP surface accepts it
+  as a per-verb kwarg. Tracked for v0.5.23.
+- **CLI `myco sense "query"` (positional)**: requires `--query`.
+  Tracked for v0.5.23.
+
+---
+
 ## v0.5.21 — 2026-04-23 — MCP handler schema hotfix (flat-args regression)
 
 **Zero R1–R7 surface deltas.** Pure host-axis hotfix. Any verb that

@@ -17,7 +17,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 
 from myco.core.context import MycoContext, Result
-from myco.surface.manifest import load_manifest, load_manifest_with_overlay
+from myco.surface.manifest import load_manifest_with_overlay
 
 from .boot_brief import patch_entry_point
 
@@ -80,61 +80,55 @@ class HungerReport:
 def _summarize_local_plugins(ctx: MycoContext) -> LocalPluginsSummary:
     """Compute the count/errors/overlay_verbs triple for the hunger report.
 
-    - ``count``: total plugins surfaced by ``graft --list`` equivalent
-      logic — dimensions + adapters + schema_upgraders + overlay_verbs.
-      Zero when there is no ``.myco/plugins/`` and no overlay.
+    v0.5.22: count **substrate-local** plugins only. Delegates to
+    ``graft._collect_plugins`` and filters by its ``scope`` field so
+    kernel built-ins don't appear as "local" (which was the
+    pre-v0.5.22 bug that showed "32 local plugins" on every fresh
+    substrate). See ``docs/contract_changelog.md::v0.5.22``.
+
+    - ``count``: total substrate-local plugins (dimensions + adapters
+      + schema_upgraders + overlay_verbs whose source file lives under
+      ``<root>/.myco/plugins/`` or is the overlay manifest itself).
     - ``errors``: whatever ``Substrate.local_plugin_errors`` captured
-      at load time (empty on clean load).
+      at load time plus any enumeration failures here.
     - ``overlay_verbs``: names of verbs contributed by the overlay.
     """
-    errors = tuple(ctx.substrate.local_plugin_errors)
+    from myco.cycle.graft import _collect_plugins
 
-    # Count registered items per kind; mirror graft._collect_plugins
-    # without importing that module to avoid a cycle of hunger → graft
-    # → ctx. v0.5.4 changed `count` from a bare int to an int +
-    # `count_by_kind` dict so the agent sees what's registered without
-    # a second verb call.
+    errors = list(ctx.substrate.local_plugin_errors)
     by_kind: dict[str, int] = {
         "dimension": 0,
         "adapter": 0,
         "schema_upgrader": 0,
         "overlay_verb": 0,
     }
-    try:
-        from myco.homeostasis.registry import default_registry as _reg
+    overlay_verbs: list[str] = []
 
-        by_kind["dimension"] = len(_reg().all())
-    except Exception:
-        pass
     try:
-        from myco.ingestion.adapters import all_adapters
-
-        by_kind["adapter"] = len(list(all_adapters()))
-    except Exception:
-        pass
-    try:
-        from myco.core.canon import schema_upgraders
-
-        by_kind["schema_upgrader"] = len(schema_upgraders)
-    except Exception:
-        pass
-
-    overlay_verbs: tuple[str, ...] = ()
-    try:
-        merged = load_manifest_with_overlay(ctx.substrate.root)
-        base_names = {c.name for c in load_manifest().commands}
-        overlay_verbs = tuple(
-            c.name for c in merged.commands if c.name not in base_names
-        )
-        by_kind["overlay_verb"] = len(overlay_verbs)
+        for entry in _collect_plugins(ctx):
+            if entry.get("scope") != "substrate":
+                continue
+            kind = entry.get("kind")
+            if kind in by_kind:
+                by_kind[kind] += 1
+            if kind == "overlay_verb":
+                overlay_verbs.append(str(entry.get("name", "")))
     except Exception as exc:
-        errors = (*errors, f"manifest overlay parse failed: {exc}")
+        errors.append(f"local-plugin enumeration failed: {exc}")
+
+    # Retain the manifest-overlay parse so an unrelated overlay file
+    # syntax error still surfaces on hunger (it would have thrown
+    # inside _collect_plugins too, but we want the user-facing line).
+    try:
+        load_manifest_with_overlay(ctx.substrate.root)
+    except Exception as exc:
+        errors.append(f"manifest overlay parse failed: {exc}")
 
     count = sum(by_kind.values())
     return LocalPluginsSummary(
         count=count,
-        errors=errors,
-        overlay_verbs=overlay_verbs,
+        errors=tuple(errors),
+        overlay_verbs=tuple(overlay_verbs),
         count_by_kind=dict(by_kind),
     )
 
