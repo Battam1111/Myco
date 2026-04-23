@@ -144,39 +144,29 @@ def _primordia_section(ctx: MycoContext, *, limit: int = 5) -> list[dict[str, An
 
 
 def _local_plugins_section(ctx: MycoContext) -> dict[str, Any]:
-    """Mirror the ``graft --list`` shape but trimmed to per-kind counts."""
+    """Count **substrate-local** plugins only — kernel built-ins do not
+    count as "local" even though they live in the same Python registry.
+
+    v0.5.22: delegates to ``graft._collect_plugins`` so the scope
+    classification is shared between ``graft``, ``hunger``, and this
+    rollup. Pre-v0.5.22 this function (and its ``hunger`` sibling)
+    counted every loaded dimension/adapter regardless of source,
+    reporting "Local plugins: 32" on a fresh substrate where the
+    actually-local count was zero.
+    """
+    from myco.cycle.graft import _collect_plugins
+
     by_kind = {"dimension": 0, "adapter": 0, "schema_upgrader": 0, "overlay_verb": 0}
     errors: list[str] = list(ctx.substrate.local_plugin_errors)
     try:
-        from myco.homeostasis.registry import default_registry as _reg
-
-        by_kind["dimension"] = len(_reg().all())
-    except Exception:
-        pass
-    try:
-        from myco.ingestion.adapters import all_adapters
-
-        by_kind["adapter"] = len(list(all_adapters()))
-    except Exception:
-        pass
-    try:
-        from myco.core.canon import schema_upgraders
-
-        by_kind["schema_upgrader"] = len(schema_upgraders)
-    except Exception:
-        pass
-    try:
-        from myco.surface.manifest import (
-            load_manifest,
-            load_manifest_with_overlay,
-        )
-
-        merged = load_manifest_with_overlay(ctx.substrate.root)
-        base_names = {c.name for c in load_manifest().commands}
-        overlay = [c.name for c in merged.commands if c.name not in base_names]
-        by_kind["overlay_verb"] = len(overlay)
+        for entry in _collect_plugins(ctx):
+            if entry.get("scope") != "substrate":
+                continue
+            kind = entry.get("kind")
+            if kind in by_kind:
+                by_kind[kind] += 1
     except Exception as exc:
-        errors.append(f"manifest overlay parse failed: {exc}")
+        errors.append(f"local-plugin enumeration failed: {exc}")
     return {
         "count": sum(by_kind.values()),
         "count_by_kind": by_kind,

@@ -44,6 +44,35 @@ _SLUG_RE = re.compile(r"[^a-z0-9]+")
 _SLUG_MAX = 40
 
 
+def _url_adapter_rejection_reason(target: str) -> str | None:
+    """Return the SSRF / scheme rejection reason when ``target`` looks
+    like a URL the ``UrlFetcher`` adapter would have handled but
+    refused, or ``None`` if the target doesn't look like a URL (or
+    the adapter module isn't importable).
+
+    v0.5.22 UX fix for the class of errors where ``find_adapter``
+    returns ``None`` because ``UrlFetcher.can_handle`` silently
+    returned ``False`` after ``_validate_url`` raised. Previously the
+    user only saw "No adapter can handle 'https://…'" with no hint
+    that the SSRF guard was the real gate — especially confusing on
+    corporate networks / VPNs where a public hostname can legitimately
+    resolve to a CGNAT / benchmark / private IP.
+    """
+    if not (target.startswith("http://") or target.startswith("https://")):
+        return None
+    try:
+        from myco.ingestion.adapters.url_fetcher import UrlFetchError, _validate_url
+    except ImportError:
+        # Adapters extra not installed — existing "Install myco[adapters]"
+        # hint in the caller is already right for this case.
+        return None
+    try:
+        _validate_url(target)
+    except UrlFetchError as exc:
+        return str(exc)
+    return None
+
+
 @dataclass(frozen=True)
 class EatOutcome:
     """Typed result of a successful eat."""
@@ -194,15 +223,31 @@ def run(args: Mapping[str, object], *, ctx: MycoContext) -> Result:
 
         adapter = find_adapter(target)
         if adapter is None:
+            # v0.5.22 UX fix: the generic "No adapter can handle X"
+            # swallows the actual rejection reason when the URL adapter
+            # IS registered but refuses at ``can_handle`` (most commonly
+            # because the SSRF guard rejected the host — loopback,
+            # link-local, private, or reserved IP range). Surface the
+            # specific reason when the target looks like a URL we might
+            # otherwise have handled, so the agent can distinguish
+            # "install adapters extra" from "host is blocked".
+            extra_reason = _url_adapter_rejection_reason(target)
+            base_error = f"No adapter can handle {target!r}."
+            if extra_reason:
+                # SSRF / scheme guard fired. The URL adapter IS loaded
+                # — telling the user to install the adapters extra
+                # would be misleading. Surface the specific reason so
+                # they can diagnose a corporate-network DNS quirk vs a
+                # genuine block.
+                error_msg = f"{base_error} URL adapter refused: {extra_reason}."
+            else:
+                error_msg = (
+                    f"{base_error} Install 'myco[adapters]' for PDF, "
+                    "HTML, and URL support, or point at a text/code file."
+                )
             return Result(
                 exit_code=2,
-                payload={
-                    "error": (
-                        f"No adapter can handle {target!r}. "
-                        "Install 'myco[adapters]' for PDF, HTML, and "
-                        "URL support, or point at a text/code file."
-                    ),
-                },
+                payload={"error": error_msg},
             )
         results = adapter.ingest(target)
         outcomes = []

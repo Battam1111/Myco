@@ -81,17 +81,71 @@ def test_list_mode_enumerates_adapters(genesis_substrate: Path) -> None:
 
 
 def test_list_mode_every_plugin_has_shape(genesis_substrate: Path) -> None:
-    """Every plugin entry has keys: kind, name, source."""
+    """Every plugin entry has keys: kind, name, source, scope."""
     ctx = _mk_ctx(genesis_substrate)
     result = graft_run({"list": True}, ctx=ctx)
     for entry in result.payload["plugins"]:
-        assert set(entry.keys()) >= {"kind", "name", "source"}
+        # v0.5.22: ``scope`` is now part of the shape so downstream
+        # callers (hunger, brief) can filter kernel vs substrate.
+        assert set(entry.keys()) >= {"kind", "name", "source", "scope"}
         assert entry["kind"] in {
             "dimension",
             "adapter",
             "schema_upgrader",
             "overlay_verb",
         }
+        assert entry["scope"] in {"kernel", "substrate"}
+
+
+# ---------------------------------------------------------------------------
+# v0.5.22 — scope classification (the bug #4 fix).
+# ---------------------------------------------------------------------------
+
+
+def test_list_on_fresh_substrate_classifies_everything_as_kernel(
+    genesis_substrate: Path,
+) -> None:
+    """A fresh substrate has no ``.myco/plugins/``. Every loaded
+    dimension/adapter/schema_upgrader lives in the installed myco
+    package (kernel), so ``scope`` must be ``"kernel"`` for all.
+    Pre-v0.5.22 hunger/brief counted these as "local plugins" — the
+    absence of a single ``substrate``-scoped entry is what makes the
+    count correctly zero."""
+    ctx = _mk_ctx(genesis_substrate)
+    result = graft_run({"list": True}, ctx=ctx)
+    substrate_scoped = [
+        e for e in result.payload["plugins"] if e["scope"] == "substrate"
+    ]
+    assert substrate_scoped == [], substrate_scoped
+
+
+def test_scope_classification_maps_kernel_path_correctly(
+    genesis_substrate: Path,
+) -> None:
+    """Unit check on the ``_classify_scope`` inner closure via its
+    observable effect: given a fresh substrate, every registered
+    dimension's ``source`` path is under site-packages / the installed
+    myco package, never under ``<root>/.myco/plugins/``. The classifier
+    must therefore label all of them ``"kernel"``.
+
+    (A full round-trip test that creates a local dimension + verifies
+    the ``"substrate"`` label is in ``tests/integration/`` — it needs
+    a real ``ramify``/reload cycle that unit tests can't cleanly
+    stage without cross-process plugin-module caching quirks.)
+    """
+    ctx = _mk_ctx(genesis_substrate)
+    result = graft_run({"list": True}, ctx=ctx)
+    plugins = result.payload["plugins"]
+    assert len(plugins) > 0  # at least the kernel 32-ish are present
+    for entry in plugins:
+        # Fresh substrate has no .myco/plugins/; every entry's source
+        # must live elsewhere and thus classify as kernel.
+        if entry["source"] == "<unknown>":
+            assert entry["scope"] == "kernel"
+        else:
+            src = entry["source"].replace("\\", "/")
+            assert ".myco/plugins/" not in src, (entry["name"], src)
+            assert entry["scope"] == "kernel", (entry["name"], src)
 
 
 # ---------------------------------------------------------------------------

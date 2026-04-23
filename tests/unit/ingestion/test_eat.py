@@ -104,3 +104,53 @@ def test_run_handler_returns_result(genesis_substrate: Path) -> None:
     assert Path(result.payload["path"]).is_file()
     assert result.payload["tags"] == ("t1",)
     assert result.payload["source"] == "test"
+
+
+# ---------------------------------------------------------------------------
+# v0.5.22 regression — URL adapter error message surfaces the specific
+# SSRF / scheme rejection reason instead of swallowing it under a
+# generic "No adapter can handle" line.
+# ---------------------------------------------------------------------------
+
+
+def test_url_rejection_reason_helper_returns_ssrf_message() -> None:
+    """``_url_adapter_rejection_reason`` returns the UrlFetchError
+    message when the SSRF guard would reject the host. ``127.0.0.1``
+    is loopback — universally non-routable — so this test is
+    network-independent."""
+    from myco.ingestion.eat import _url_adapter_rejection_reason
+
+    reason = _url_adapter_rejection_reason("http://127.0.0.1/x")
+    assert reason is not None
+    assert "127.0.0.1" in reason
+    assert "non-routable" in reason or "SSRF" in reason
+
+
+def test_url_rejection_reason_helper_returns_none_for_non_url() -> None:
+    """Non-URL targets return ``None`` — the helper only fires when the
+    target looks like something ``UrlFetcher`` would have handled."""
+    from myco.ingestion.eat import _url_adapter_rejection_reason
+
+    assert _url_adapter_rejection_reason("local_file.txt") is None
+    assert _url_adapter_rejection_reason("/abs/path.md") is None
+    assert _url_adapter_rejection_reason("ftp://example.com/") is None
+
+
+def test_run_url_rejected_by_ssrf_guard_surfaces_specific_reason(
+    genesis_substrate: Path,
+) -> None:
+    """When ``eat --url`` trips the SSRF guard, the error payload must
+    include the actual rejection reason (SSRF / scheme), not the
+    generic "No adapter" line that would misdirect the user into
+    installing the adapters extra they already have.
+    """
+    ctx = _mk_ctx(genesis_substrate)
+    result = run({"url": "http://127.0.0.1/steal-credentials"}, ctx=ctx)
+    assert result.exit_code == 2
+    err = result.payload.get("error", "")
+    # The specific reason must come through.
+    assert "URL adapter refused" in err, err
+    assert "127.0.0.1" in err, err
+    # And the misleading install hint must NOT come through (adapters
+    # extra is installed — the issue is the host).
+    assert "Install 'myco[adapters]'" not in err, err
