@@ -1,4 +1,4 @@
-# Myco v0.5.3 command manifest — SSoT for CLI + MCP verb surface.
+# Myco v0.5.23 command manifest — SSoT for CLI + MCP verb surface.
 #
 # Governing doc: docs/architecture/L3_IMPLEMENTATION/command_manifest.md
 # Governing craft: docs/primordia/v0_5_3_fungal_vocabulary_craft_2026-04-17.md
@@ -9,6 +9,15 @@
 # name is retained as an alias (CLI + MCP); invoking an alias fires a
 # one-shot DeprecationWarning. Aliases are scheduled to be removed at
 # v1.0.0, giving the entire 0.x tail full backward compatibility.
+#
+# v0.5.23 schema: each verb may declare BOTH a short ``summary`` (CLI
+# --help, short and scannable) and a long-form ``description`` (MCP
+# tool description, covers what-it-does / when-to-use / side-effects
+# / return-shape per Glama's Tool Definition Quality rubric). When a
+# command omits ``description``, the MCP tool description falls back
+# to ``summary``. Every arg's ``help`` text is propagated verbatim
+# into the MCP JSON schema as the parameter's ``description`` field
+# via pydantic's Annotated[T, Field(description=...)] wrapping.
 schema_version: "1"
 
 commands:
@@ -16,6 +25,30 @@ commands:
     subsystem: "germination"
     handler: "myco.germination.germinate:run_cli"
     summary: "Germinate a fresh Myco substrate in project-dir."
+    description: |
+      Bootstrap a new Myco substrate: creates _canon.yaml (contract +
+      identity + subsystems), MYCO.md (or the named entry-point), and
+      .myco_state/autoseeded.txt at the target project directory.
+      Call this once per project — for every subsequent action, other
+      verbs take over and this one raises "substrate already exists".
+
+      Use this when: starting a brand-new substrate for a project that
+      does not yet have _canon.yaml. Do NOT use this when: the project
+      already has a substrate (pulse reports substrate_id), when the
+      workspace has _canon.yaml in a parent directory (you are already
+      inside a substrate), or when you only want to ingest into an
+      existing substrate (use myco_eat instead).
+
+      Side effects: writes 3 files (see germination doctrine for the
+      exact canon shape); registers the substrate in
+      ~/.myco/substrates.yaml so `myco graft --list-substrates` finds
+      it. Honors R6 write_surface (the freshly-stamped canon includes
+      notes/**, docs/**, src/**, .myco/** by default).
+
+      Returns: { exit_code, files_created, preview, dry_run,
+      project_dir, substrate_id }. The ``preview`` dict shows the
+      first line and byte count of each written file; ``dry_run=true``
+      returns the same shape without writing.
     mcp_tool: "myco_germinate"
     pre_substrate: true
     aliases: ["genesis"]
@@ -24,85 +57,213 @@ commands:
       - name: "project-dir"
         type: "path"
         required: true
-        help: "Directory that will host the new substrate."
+        help: "Absolute or relative path of the directory that will host the new substrate. Must exist and be writable; the _canon.yaml will be created inside this directory (not a subdirectory). Use forward slashes or escaped backslashes on Windows."
       - name: "substrate-id"
         type: "str"
         required: true
-        help: "Identifier for the new substrate."
+        help: "Stable slug identifying this substrate across the mycelial network. Used in cross-substrate propagation + the ~/.myco/substrates.yaml registry. Recommend kebab-case, human-readable (e.g. 'neurips-2026-research' or 'my-company-infra'). No uniqueness check; reuse silently overwrites registry entries."
       - name: "tags"
         type: "list[str]"
         default: []
-        help: "Affiliation tags (not boundaries)."
+        help: "Free-form affiliation tags attached to the substrate identity (e.g. ['research','production','personal']). Per L0: tags are NOT boundaries — they don't gate writes, they only describe. Stored at _canon.yaml::identity.tags and surfaced in substrate_pulse for grep-friendly discovery."
       - name: "entry-point"
         type: "str"
         default: "MYCO.md"
-        help: "Agent-entry filename."
+        help: "Filename of the agent-entry markdown that the substrate opens with. Defaults to MYCO.md (Myco-native convention). Override to 'CLAUDE.md' when you want the substrate to share an entry with Claude-ecosystem conventions. The file gets created if absent; existing files are not overwritten unless --force."
       - name: "dry-run"
         type: "bool"
         default: false
-        help: "Preview files without writing."
+        help: "When true, compute the files that would be written + return their byte count and first line in the preview payload, but do NOT touch disk. Use for 'what would happen if I germinate here' inspection without committing. Default false (writes immediately)."
 
   - name: "hunger"
     subsystem: "ingestion"
     handler: "myco.ingestion.hunger:run"
     summary: "Report substrate hunger and optionally patch entry-point."
+    description: |
+      Compose the substrate's hunger report: contract drift (canon
+      version mismatch), raw-note backlog (integer count of
+      notes/raw/*.md pending assimilation), active reflex signals
+      (HIGH/MEDIUM/LOW), concrete next-action advice, and per-kind
+      count of substrate-local plugins. This is the R1 BOOT RITUAL —
+      the mandatory first substantive action every session per the
+      Hard Contract.
+
+      Use this: as the FIRST tool call of every session without
+      exception (R1 is a contract rule, not a suggestion). Use it
+      again mid-session whenever the agent wants a fresh state
+      snapshot — it's cheap and idempotent. Do NOT use it as a
+      substitute for myco_brief (which is human-facing markdown,
+      this is agent-facing structured data).
+
+      Side effects: none by default. When ``execute=true``, patches
+      <entry_point>'s `<!-- MYCO-BOOT-SIGNALS:BEGIN ... END -->`
+      block with the current hunger signals, respecting R6
+      write_surface. On abrupt exit (~1.5s kill budget, SessionEnd
+      hook) prefer myco_senesce with quick=true; hunger itself does
+      not auto-trigger senesce.
+
+      Returns: { exit_code, report: { contract_drift, raw_backlog,
+      reflex_signals, advice, local_plugins: { count, count_by_kind,
+      errors, overlay_verbs } }, execute, entry_point_patched }. The
+      substrate_pulse sidecar then tells you which rule to honor next
+      (advances from R1 → R3 after first hunger call).
     mcp_tool: "myco_hunger"
     args:
       - name: "execute"
         type: "bool"
         default: false
-        help: "Write boot brief and patch entry-point signals."
+        help: "When true, write the boot_brief.md + patch the entry-point's MYCO-BOOT-SIGNALS block with current reflex signals. When false (default), compute the report but make zero writes — useful for 'peek without touching'. R6 write_surface still applies to the patched entry-point path."
 
   - name: "eat"
     subsystem: "ingestion"
     handler: "myco.ingestion.eat:run"
     summary: "Capture a raw note from text, a file path, a directory, or a URL."
+    description: |
+      Ingest raw material into the substrate: one of literal text
+      content, a local file or directory, or an http(s) URL. Writes
+      a markdown file to notes/raw/ with frontmatter (id, source,
+      tags, captured_at). The note enters the raw state of the
+      substrate's metabolism — subsequent myco_assimilate or
+      myco_digest promotes it to integrated.
+
+      Use this the MOMENT a decision, friction point, or ingestible
+      artifact appears (R4 of the Hard Contract — "capture insights
+      immediately"). Pass exactly ONE of content/path/url; passing
+      none or more than one is a UsageError. For URLs, install the
+      myco[adapters] extras (PDF, HTML, URL fetchers); the SSRF guard
+      refuses loopback/private/reserved IP ranges (use a text/code
+      file instead when the target is non-public). For path= pointing
+      at a directory, one note is produced per ingestible file found
+      by the adapter registry.
+
+      Side effects: creates 1+ files under notes/raw/ (R6-gated by
+      write_surface). Filename pattern: <UTC-timestamp>_<slug>.md
+      where slug is derived from content/path basename. Atomic
+      O_EXCL create prevents silent overwrites on same-second
+      collisions. merged tags = union(tags, adapter-produced tags),
+      sorted for deterministic output.
+
+      Returns (content mode): { exit_code, path, captured_at, tags,
+      source }. Returns (path/url mode): { exit_code, adapter,
+      notes_created, notes: [ { path, captured_at, title, source } ] }.
     mcp_tool: "myco_eat"
     args:
       - name: "content"
         type: "str"
-        help: "Note body (literal text). Mutually exclusive with --path/--url."
+        help: "Literal text body of the note, passed inline as a string. Mutually exclusive with path and url. Use for capturing decisions, frictions, ideas expressed in prose. Empty-string is rejected as UsageError to prevent silent empty notes — pass content=' ' (single space) if you really want an empty body. Max size bounded by normal memory; no hard limit enforced."
       - name: "path"
         type: "path"
-        help: "File or directory to ingest via the adapter registry. A dir produces one note per ingestible file."
+        help: "Absolute or relative path to a local file or directory to ingest. Resolved against substrate root when relative. Mutually exclusive with content and url. File adapters auto-selected by extension (text, code, PDF via pypdf, HTML via beautifulsoup if myco[adapters] installed). Directory ingestion walks recursively and produces one note per ingestible file; non-ingestible files are silently skipped."
       - name: "url"
         type: "str"
-        help: "URL to fetch and ingest (requires myco[adapters] extras)."
+        help: "http:// or https:// URL to fetch and ingest. Mutually exclusive with content and path. Requires myco[adapters] (httpx). SSRF-guarded: rejects loopback (127.0.0.0/8), link-local, private (10.x/172.16-31.x/192.168.x), multicast, and reserved IANA ranges; scheme restricted to http/https (no file/gopher/ftp/data). Response body capped at 10MB. Content-Type auto-detected: text/html strips tags, application/pdf extracts text, application/json preserves, otherwise raw text."
       - name: "tags"
         type: "list[str]"
         default: []
-        help: "Tags attached to this note."
+        help: "Tags attached to the ingested note's frontmatter, merged with any adapter-provided tags (URL adapter adds 'url' + the domain; file adapters may add extension-based tags). Final tag list is sorted deterministically. Tags are free-form — no validation. Common patterns: decisions, frictions, insights, boilerplate-type labels like 'chat-log' or 'paper-draft'."
       - name: "source"
         type: "str"
         default: "agent"
-        help: "Origin tag for this note (overridden by adapter provenance when using --path/--url)."
+        help: "Provenance tag recorded in the note's source frontmatter field. Default 'agent' for agent-authored content. For path/url ingestion, the adapter overrides this with the actual provenance (file path or URL), so this default only affects content= mode. Use to distinguish eat-sourced notes from propagation-sourced or bootstrap-sourced notes in the substrate metabolism."
 
   - name: "sense"
     subsystem: "ingestion"
     handler: "myco.ingestion.sense:run"
     summary: "Search the substrate by keyword."
+    description: |
+      Perform a keyword substring search across the substrate's
+      markdown + yaml surface and return ranked hits with file path,
+      line number, and snippet. This is the R3 SENSE-BEFORE-ASSERT
+      mechanism: before asserting a substrate fact from training
+      memory, the agent calls this to check ground truth from the
+      substrate itself (R3 of the Hard Contract).
+
+      Use this before making any claim about what the substrate
+      contains — e.g. "the substrate says X" should always be
+      preceded by a sense call that returned a hit for X. Fast (no
+      embedding, no LLM, no network) — this is a literal substring
+      scan over notes/, docs/, _canon.yaml, and MYCO.md. For broader
+      semantic search, compose multiple sense calls with different
+      keyword synonyms rather than expanding the query.
+
+      Side effects: none. Pure read. Does not touch .myco_state/ or
+      any cache.
+
+      Returns: { exit_code, query, scope, hits: [ { path, line,
+      snippet } ] }. `hits` is ordered by path then line number;
+      snippet is the full matching line trimmed to reasonable width.
+      Empty `hits` is a successful call with no matches — agent
+      should treat "absence of hit" as "fact not in substrate" per R3.
     mcp_tool: "myco_sense"
     args:
       - name: "query"
         type: "str"
         required: true
-        help: "Search term."
+        help: "Literal substring to search for. Case-insensitive. No regex, no glob — pass 'error' not 'err.*' (regex-in-query is treated as literal). For multi-term search, call sense multiple times and union results. Whitespace-only queries return empty hits."
 
   - name: "forage"
     subsystem: "ingestion"
     handler: "myco.ingestion.forage:run"
     summary: "List ingestible files under a path."
+    description: |
+      Enumerate every file under the given path that a Myco adapter
+      can ingest — the "what could myco_eat do here?" preflight. Each
+      returned item includes file path, size, suffix, and the
+      matching adapter's name (text-file, pdf, html, tabular,
+      code-repo, url-fetcher).
+
+      Use this before a bulk myco_eat --path=<dir> invocation to see
+      what will actually get ingested (and what will be silently
+      skipped because no adapter handles it). Also useful for
+      "what's in this directory" inventory without reading every
+      file's content. Do NOT use this on the substrate root itself
+      recursively — for that, prefer myco_sense or direct filesystem
+      access; forage is for potential-intake surveys.
+
+      Side effects: none. Pure read. Adapter registry is walked in
+      import order; more-specific adapters (PDF, HTML, URL) win over
+      the generic text-file adapter.
+
+      Returns: { exit_code, target, count, skipped, items: [ { path,
+      size, suffix, adapter } ] }. `skipped` counts files that matched
+      no adapter (binary blobs, non-text non-code non-document files).
     mcp_tool: "myco_forage"
     args:
       - name: "path"
         type: "path"
         default: null
-        help: "Directory to scan (defaults to substrate root)."
+        help: "Absolute or relative path to scan. When null/omitted, defaults to the substrate root. Directory is walked recursively; files are checked one-by-one against the adapter registry. For a single-file preflight, pass the file path directly (items list will have 0 or 1 entries)."
 
   - name: "assimilate"
     subsystem: "digestion"
     handler: "myco.digestion.assimilate:run"
     summary: "Assimilate raw notes into integrated (bulk-promote)."
+    description: |
+      Promote notes from notes/raw/ to notes/integrated/ — in bulk
+      (all eligible raw notes) or for a single named note. Integrated
+      notes are the substrate's stable knowledge layer; raw notes are
+      the intake queue. A bulk promotion is typical during
+      session-end or before a release: assimilate sweeps the raw
+      queue, re-writes filenames to the n_<id>.md convention, and
+      leaves raw/ empty.
+
+      Use this when: raw_backlog reported by myco_hunger is > 0 and
+      you want to integrate the pending captures. Use with note_id=
+      when you want to promote exactly one specific note (e.g. a
+      high-priority decision that needs immediate visibility); for
+      that case myco_digest is the single-note equivalent. Do NOT
+      assimilate before the note is ready (integration is supposed to
+      represent stable knowledge, not half-thoughts).
+
+      Side effects: moves files from notes/raw/ to notes/integrated/
+      (delete + create; atomic). Updates frontmatter (status,
+      promoted_at). R6 write_surface must cover both directories.
+      Errors on a per-note basis are collected and returned; one
+      failed note does not abort the whole batch.
+
+      Returns: { exit_code, promoted, already_integrated, errors,
+      outcomes: [ { status, path, dry_run, note_id } ],
+      synced_contract_version_updated }.
     mcp_tool: "myco_assimilate"
     aliases: ["reflect"]
     mcp_tool_aliases: ["myco_reflect"]
@@ -110,27 +271,70 @@ commands:
       - name: "note-id"
         type: "str"
         default: null
-        help: "Optional single note id to promote."
+        help: "Optional stem of a single raw note to promote (e.g. '20260423T054055Z_v0-5-22-migration-marker'). When null/omitted, assimilates ALL eligible notes in notes/raw/. Pass the stem (no extension, no directory prefix) as you'd read it from the filename. Nonexistent stems are returned as errors in the outcomes list, not raised."
 
   - name: "digest"
     subsystem: "digestion"
     handler: "myco.digestion.digest:run"
     summary: "Promote a single raw note to integrated."
+    description: |
+      Promote exactly one raw note to integrated — the single-note
+      equivalent of myco_assimilate. Used when you need to integrate
+      a specific capture without sweeping the whole raw queue
+      (e.g. a decision that must be visible now while other raw
+      notes need more marination).
+
+      Use this when: one specific note must be integrated right now
+      and the rest of the raw queue should stay put. For bulk
+      promotion, use myco_assimilate (same underlying pipeline, no
+      note_id filter).
+
+      Side effects: moves one file from notes/raw/ to
+      notes/integrated/. Atomic. Updates frontmatter. R6
+      write_surface must cover both directories. Fails with exit_code
+      3 if note_id does not match any raw note.
+
+      Returns: { exit_code, status, path, dry_run, note_id }. status
+      is one of: 'promoted', 'already_integrated' (no-op), or
+      raised as UsageError.
     mcp_tool: "myco_digest"
     args:
       - name: "note-id"
         type: "str"
         required: true
-        help: "Stem of the note to promote."
+        help: "Stem of the raw note to promote (filename minus the .md extension, no directory prefix). Example: '20260423T054055Z_v0-5-22-migration-marker'. Look up stems via myco_forage or by listing notes/raw/ directly. Passing an already-integrated note's id is a no-op with status='already_integrated'."
       - name: "dry-run"
         type: "bool"
         default: false
-        help: "Preview without moving the file."
+        help: "When true, compute what would happen (which file would move, to where) but perform no filesystem change. Useful for confirmation before destructive single-note promotion. Default false (moves immediately)."
 
   - name: "sporulate"
     subsystem: "digestion"
     handler: "myco.digestion.sporulate:run"
     summary: "Bundle integrated notes into a proposal skeleton (Agent writes the synthesis prose separately)."
+    description: |
+      Produce a dispersible proposal scaffold by bundling integrated
+      notes into a notes/distilled/d_<slug>.md document. The output
+      is a skeleton — frontmatter + source list + empty section
+      headers — which the agent then fills with the actual synthesis
+      prose. Sporulate prepares the substrate's knowledge for
+      external dispersion (propagation to other substrates, or
+      publishing as craft proposals).
+
+      Use this when: a body of integrated notes have accumulated
+      that belong together and you want to produce a consolidated
+      view. Do NOT use this expecting auto-synthesis — sporulate
+      builds the container; the agent writes the content. For
+      cross-substrate material sharing, pair with myco_propagate.
+      For substrate-internal contract evolution, pair with
+      myco_fruit (which produces a 3-round craft doc instead).
+
+      Side effects: creates 1 file at notes/distilled/d_<slug>.md.
+      R6 write_surface must cover notes/distilled/. Filename
+      collision with an existing distilled doc at the same slug is
+      an error (no overwrite).
+
+      Returns: { exit_code, path, slug }.
     mcp_tool: "myco_sporulate"
     aliases: ["distill"]
     mcp_tool_aliases: ["myco_distill"]
@@ -138,16 +342,39 @@ commands:
       - name: "slug"
         type: "str"
         required: true
-        help: "Slug for the proposed doctrine."
+        help: "Kebab-case identifier for the distilled proposal (becomes d_<slug>.md). Example: 'v0521-glama-findings'. Should be descriptive enough to disambiguate from sibling proposals. No validation beyond the filesystem's own filename rules; avoid slashes, spaces, and reserved chars."
       - name: "sources"
         type: "list[str]"
         default: []
-        help: "Optional explicit source note paths."
+        help: "Optional explicit list of note paths (relative to substrate root) to include as sources. When empty/omitted, sporulate auto-selects integrated notes whose tags match the slug's keywords. Pass explicit sources for tight control over what gets bundled. Paths that don't exist are errors."
 
   - name: "traverse"
     subsystem: "circulation"
     handler: "myco.circulation.traverse:run"
     summary: "Walk the mycelial graph to report anastomotic health."
+    description: |
+      Walk the substrate's cross-reference graph and report health:
+      node count, edge count, src-node count (code files under src/),
+      orphan nodes (no inbound references), dangling edges (point at
+      missing targets), and per-node proposals for reconnection.
+      Anastomosis is the fungal analogy: hyphae (markdown files +
+      references:) fuse into a connected network; orphans + dangling
+      edges are the dead tissue signal.
+
+      Use this: periodically (weekly / per-release cadence) to
+      detect knowledge islands forming; before a release to verify
+      docs haven't drifted from code; when debugging "why can't I
+      find X" — dangling edges show what the substrate thinks
+      exists but doesn't. Cheap and read-only — safe to run often.
+
+      Side effects: none. Writes a cached graph JSON to
+      .myco_state/graph.json for subsequent traverse calls (bypass
+      with internal use_cache=false). The cache is invalidated by
+      file mtime on re-entry.
+
+      Returns: { exit_code, scope, orphans: [...], dangling: [...],
+      proposals: [...], node_count, edge_count, src_node_count,
+      cached }.
     mcp_tool: "myco_traverse"
     aliases: ["perfuse"]
     mcp_tool_aliases: ["myco_perfuse"]
@@ -155,58 +382,131 @@ commands:
       - name: "scope"
         type: "str"
         default: "all"
-        help: "One of: canon, notes, docs, all."
+        help: "Which subset of the substrate to walk. One of: 'canon' (just _canon.yaml + its outbound refs), 'notes' (notes/raw/**, notes/integrated/**, notes/distilled/**), 'docs' (docs/**), 'all' (default — everything including src/ python imports). Narrow scopes are cheaper on large substrates."
 
   - name: "propagate"
     subsystem: "circulation"
     handler: "myco.circulation.propagate:run"
     summary: "Propagate integrated/distilled notes to a downstream substrate."
+    description: |
+      Copy integrated and/or distilled notes from this substrate to
+      a downstream target substrate's notes/raw/. The receiver's
+      agent then chooses which to assimilate — propagate is the
+      source-side push; the receiver's own metabolism filters.
+      Today's integrated-in-A becomes tomorrow's raw-in-B (per L0
+      principle 4: 永恒迭代, today's conclusion is tomorrow's raw
+      material).
+
+      Use this when: knowledge produced in substrate A should feed
+      substrate B (cross-project knowledge sharing). Do NOT use
+      this as a replacement for git (propagation is a knowledge
+      artifact movement, not version-control). The receiver must
+      have a valid _canon.yaml at dst; propagation refuses if dst
+      is not a substrate (no auto-germinate).
+
+      Side effects: writes 1+ files under <dst>/notes/raw/ on the
+      DOWNSTREAM substrate (not this one). R6 write_surface check is
+      applied to the destination substrate's canon, not the source.
+      Dry-run available.
+
+      Returns: { exit_code, select, src_substrate_id, dst_root,
+      count, propagated: [...source paths...], compat_warnings,
+      dry_run, commit }.
     mcp_tool: "myco_propagate"
     args:
       - name: "dst"
         type: "path"
         required: true
-        help: "Downstream substrate root."
+        help: "Absolute or relative path to the downstream substrate's root (must contain _canon.yaml). When relative, resolved against this substrate's root. The downstream must already be a Myco substrate — propagate will NOT auto-germinate a dst; run myco_germinate there first."
       - name: "select"
         type: "str"
         default: "integrated"
-        help: "One of: integrated, distilled, both."
+        help: "Which layer of this substrate's metabolism to propagate. One of: 'integrated' (default, notes/integrated/**.md), 'distilled' (notes/distilled/**.md), 'both'. Raw notes are never propagated (they haven't graduated past the intake queue yet). The propagated files land in the destination's notes/raw/ regardless — receiver re-metabolizes."
       - name: "commit"
         type: "str"
         default: null
-        help: "Source commit stamp."
+        help: "Optional git commit SHA (of the source substrate) to record in the propagated notes' frontmatter as the provenance stamp. When null, 'unknown' is recorded. Useful for traceability: lets downstream agents audit 'what version of source A produced this note'."
       - name: "dry-run"
         type: "bool"
         default: false
-        help: "Preview without writing."
+        help: "When true, list which notes would be propagated and to where, but write nothing. Default false (writes immediately to the destination)."
 
   - name: "immune"
     subsystem: "homeostasis"
     handler: "myco.homeostasis.kernel:run_cli"
     summary: "Run immune lint over the substrate."
+    description: |
+      Run the substrate's 25 lint dimensions and report findings
+      (severity + category + location + message per finding).
+      Dimensions fall in four categories: mechanical (canon
+      invariants, write-surface coverage, LLM-boundary),
+      shipped (package version ↔ canon version parity), metabolic
+      (raw-note backlog, stale integrated), semantic (graph
+      connectedness, orphan detection). Per L2 homeostasis.md, this
+      is the substrate's autonomic health check.
+
+      Use this: routinely during development (cheap, ~1-2s), at
+      release time (R7 top-down layering checks); with fix=true
+      to auto-repair mechanically-fixable findings (M2 entry-point,
+      MB1 raw_backlog). Do NOT use this to validate external code
+      hygiene — immune only checks substrate contract invariants,
+      not application correctness (that's what pytest is for).
+
+      Side effects: none by default. With fix=true, applies safe
+      repairs per each dimension's fixable contract: M2 creates
+      missing entry-point stubs, MB1 can auto-assimilate raw notes
+      over threshold. All fixes respect R6 write_surface. List-mode
+      + explain-mode are pure read.
+
+      Returns: { exit_code, findings: [...], dimensions_run,
+      skeleton_downgrade_applied, exit_on, fix, fixes: [...] }.
+      exit_code 0 when no critical findings; non-zero otherwise.
     mcp_tool: "myco_immune"
     args:
       - name: "dimensions"
         type: "list[str]"
         default: []
-        help: "Optional subset of dimension ids."
+        help: "Optional subset of dimension IDs to run (e.g. ['M1','SE1','MB2']). When empty, runs all 25. Use to re-check specific dimensions after fixing their findings without the full suite's cost. IDs are case-sensitive; see myco_immune --list for the full enumeration."
       - name: "fix"
         type: "bool"
         default: false
-        help: "Apply safe fixes where the dimension supports them (v0.5.5: M2 + MB1 fixable; safe-fix discipline in L2 homeostasis.md)."
+        help: "When true, apply safe auto-repairs for fixable dimensions (M2 entry-point stub creation, MB1 raw-note promotion). Only dimensions with fixable=True in their class definition act; others remain informational. Respects R6 write_surface — a fix attempt that would write outside allowed paths is refused. Default false (report-only)."
       - name: "list"
         type: "bool"
         default: false
-        help: "Enumerate every dimension (id, category, severity) without running."
+        help: "When true, enumerate every registered dimension (id, category, default_severity, fixable, doc) without actually running them. Useful for discovery. Mutually incompatible with fix=true and explain= (mode-level exclusivity; CLI enforces)."
       - name: "explain"
         type: "str"
         default: null
-        help: "Print the prose description for a single dimension id."
+        help: "When non-null, print the prose documentation (class docstring) for the named dimension and exit. Passing an unknown dimension id raises UsageError. Mutually incompatible with fix=true and list=true."
 
   - name: "senesce"
     subsystem: "cycle"
     handler: "myco.cycle.senesce:run"
     summary: "Senesce the session: reflect (+ immune --fix in full mode) before compaction or exit."
+    description: |
+      Put the session into dormancy: run a reflect pass (which may
+      promote raw notes, update integrated frontmatter, and patch
+      boot_brief.md). In full mode (default), also run
+      myco_immune --fix to repair any mechanically-fixable findings
+      the session produced. This is the R2 SESSION-END RITUAL per
+      the Hard Contract.
+
+      Use this: at session end BEFORE compaction (PreCompact hook
+      calls this with quick=false — full mode). On abrupt exit with
+      a tight kill budget (~1.5s, SessionEnd hook), pass quick=true
+      — reflect only, skip immune; the next SessionStart catches
+      up. Do NOT skip this at session end: without senesce, the raw
+      queue backs up across sessions and reflex signals go stale.
+
+      Side effects: may write to notes/integrated/ (promotions),
+      boot_brief.md (signal refresh), and trigger full immune --fix
+      in default mode (which may write to various R6-allowed paths).
+      In quick=true mode: reflect only, no immune.
+
+      Returns: { exit_code, findings: [...], reflect: { promoted,
+      errors, outcomes }, immune: { dimensions_run,
+      skeleton_downgrade_applied, exit_on, fix, fixes }, mode }.
     mcp_tool: "myco_senesce"
     aliases: ["session-end"]
     mcp_tool_aliases: ["myco_session_end"]
@@ -214,12 +514,38 @@ commands:
       - name: "quick"
         type: "bool"
         default: false
-        help: "Reflect-only mode for SessionEnd hooks with a short kill budget (~1.5s). Skips immune; the next PreCompact or SessionStart catches up. Default false = full reflect + immune --fix."
+        help: "When true, skip immune --fix and run only reflect (the note-promotion + boot-brief patch subset). Use from SessionEnd hook where the process has ~1.5s before kill. The next SessionStart or PreCompact picks up the skipped immune work. Default false = full reflect + immune --fix pass (slower, typically 2-5s)."
 
   - name: "fruit"
     subsystem: "cycle"
     handler: "myco.cycle.fruit:run"
     summary: "Fruit a new three-round primordia doc under docs/primordia/."
+    description: |
+      Scaffold a new 3-round craft proposal doc under
+      docs/primordia/<slug>_craft_<date>.md with the canonical
+      three-round debate structure (Round 1 claim → 1.5 self-
+      rebuttal → Round 2 revision → 2.5 counter-rebuttal → Round 3
+      reflection/decision). This is how Myco governs architectural
+      change: every contract or doctrine evolution flows through a
+      fruiting cycle before it lands.
+
+      Use this when: an architectural change needs governance (new
+      verb / dimension / subsystem / contract rule). The agent fills
+      in the tensions and revisions, then myco_winnow gates the
+      shape. Do NOT use this for feature requests or bug reports
+      (those go in notes/raw/ via myco_eat); fruit is for
+      substrate-level evolution decisions only.
+
+      Side effects: creates one file at
+      docs/primordia/<slug>_craft_<date>.md. R6 write_surface must
+      cover docs/primordia/. Filename collision with existing
+      primordium at same slug+date is an error (bump date or pick a
+      new slug). Agent is expected to fill in the template fields
+      after scaffolding.
+
+      Returns: { exit_code, path, slug, kind, date, rounds, status }.
+      status is 'DRAFT' on scaffold; agent flips to 'LANDED' once
+      winnow passes.
     mcp_tool: "myco_fruit"
     aliases: ["craft"]
     mcp_tool_aliases: ["myco_craft"]
@@ -227,20 +553,44 @@ commands:
       - name: "topic"
         type: "str"
         required: true
-        help: "Topic phrase; slugged to <slug> and written as <slug>_craft_<date>.md."
+        help: "Human-readable topic phrase, used as the doc title. Automatically slugged to lowercase-kebab (spaces → underscores, non-alphanumerics → underscores) and embedded in the filename as <slug>_craft_<date>.md. Example: 'Glama onboarding runbook' becomes glama_onboarding_runbook_craft_2026-04-24.md."
       - name: "kind"
         type: "str"
         default: "design"
-        help: "Free-form kind tag (design / audit / migration / …)."
+        help: "Free-form kind tag describing the craft's nature: 'design' (default, default architectural proposals), 'audit' (retrospective of an existing system), 'migration' (contract/data schema shift), 'operational' (runbook), etc. Recorded in frontmatter as kind:<value>; used for docs/primordia/ categorization by readers."
       - name: "date"
         type: "str"
         default: null
-        help: "Override the date stamp (YYYY-MM-DD); defaults to today."
+        help: "Override the date stamp in the filename + frontmatter (YYYY-MM-DD format). When null, uses today (UTC). Pass an explicit date to bump out of a filename collision with an existing primordium or to back-date for historical reconstruction."
 
   - name: "molt"
     subsystem: "cycle"
     handler: "myco.cycle.molt:run"
     summary: "Molt the contract version: bump _canon.yaml + append contract_changelog entry."
+    description: |
+      Ship a contract-version bump: update _canon.yaml's
+      contract_version and synced_contract_version fields to the new
+      value, append a stub section to docs/contract_changelog.md
+      with placeholders, and advance waves.current counter. The
+      atomic molt keeps all three version knobs in lockstep and
+      produces a reviewable one-commit diff.
+
+      Use this AT RELEASE TIME, not during development. Pair with
+      scripts/bump_version.py which orchestrates molt alongside the
+      package-version bump in __init__.py, plugin.json, and
+      CITATION.cff. Do NOT call this mid-session for ad-hoc
+      experiments — the contract_changelog is append-only and
+      reverting a molt requires an explicit down-bump.
+
+      Side effects: writes _canon.yaml + docs/contract_changelog.md.
+      R6 write_surface must cover both. Dry-run prints the diff
+      that would be applied. Skip-molt option in bump_version.py
+      exists for cases where the version parity step is separate
+      from the canon stamp.
+
+      Returns: { exit_code, new_version, synced_touched,
+      waves_touched, canon_path, changelog_path,
+      canon_preview_head }.
     mcp_tool: "myco_molt"
     aliases: ["bump"]
     mcp_tool_aliases: ["myco_bump"]
@@ -248,20 +598,42 @@ commands:
       - name: "contract"
         type: "str"
         required: true
-        help: "New contract version (e.g. 'v0.5.3')."
+        help: "New contract version string, in the form 'v<semver>' (e.g. 'v0.5.23'). Must be strictly greater than the current canon's contract_version per semver comparison. Down-bumps are refused unless --allow-downgrade is passed at the bump_version.py layer (molt itself has no such flag)."
       - name: "dry-run"
         type: "bool"
         default: false
-        help: "Preview the canon patch + changelog section without writing."
+        help: "When true, compute the exact canon patch + changelog section that would be applied and return them in the response, without writing. Use to preview before committing the atomic version bump. Default false (writes + returns the same preview so the agent can diff against its pre-bump state)."
       - name: "date"
         type: "str"
         default: null
-        help: "Override the date stamp (YYYY-MM-DD); defaults to today."
+        help: "Override the date stamp in the contract_changelog.md section header (YYYY-MM-DD format). When null, uses today (UTC). Useful for back-dating a release whose molt was delayed, or for reproducing historical molts exactly."
 
   - name: "winnow"
     subsystem: "cycle"
     handler: "myco.cycle.winnow:run"
     summary: "Winnow a proposal document's shape against craft-protocol gates."
+    description: |
+      Gate a docs/primordia/ craft proposal against the craft
+      protocol shape: 3 (or 5) rounds present, required sections
+      (Claim / Self-Rebuttal / Revision / Counter-Rebuttal /
+      Reflection) populated, frontmatter keys complete, body is not
+      mostly template boilerplate (> 40% boilerplate triggers G6),
+      etc. Returns pass/fail verdict and specific violations.
+
+      Use this: after fruit scaffolds a craft doc and the agent
+      fills in the tensions and revisions — winnow tells whether
+      the proposal has enough substance to land. Do NOT use winnow
+      as a content quality check (it checks STRUCTURE, not whether
+      the argument is good). For content review, human judgment
+      still applies.
+
+      Side effects: none. Pure read.
+
+      Returns: { exit_code, proposal, verdict: 'pass'|'fail',
+      round_count, body_chars, violations: [ { gate, message } ],
+      frontmatter_keys }. exit_code 0 on pass, 1 on fail. Agents
+      typically fix violations and re-winnow until pass before
+      declaring a craft 'LANDED'.
     mcp_tool: "myco_winnow"
     aliases: ["evolve"]
     mcp_tool_aliases: ["myco_evolve"]
@@ -269,12 +641,36 @@ commands:
       - name: "proposal"
         type: "path"
         required: true
-        help: "Path to the proposal markdown (relative to substrate root or absolute)."
+        help: "Path to the craft proposal markdown under docs/primordia/ (relative to substrate root or absolute). Must exist and be a valid markdown file with a craft-shaped YAML frontmatter block. Winnow reads but does not modify the file; post-winnow, the agent edits to address violations and re-runs winnow."
 
   - name: "ramify"
     subsystem: "cycle"
     handler: "myco.cycle.ramify:run"
     summary: "Ramify: scaffold a new verb / dimension / adapter (kernel or substrate-local)."
+    description: |
+      Scaffold the code skeleton for a new extension point: a
+      manifest verb, a lint dimension, or an ingestion adapter.
+      Writes a stub file into the appropriate location — either
+      src/myco/ (kernel, for core Myco evolution) or
+      <substrate>/.myco/plugins/ (substrate-local, for project-
+      specific extensions). Auto-detects substrate-local mode when
+      the substrate is not the myco-self kernel substrate.
+
+      Use this when: an agent or operator wants to add a new verb
+      / dimension / adapter without hand-writing boilerplate.
+      Exactly ONE of verb/dimension/adapter must be specified;
+      combining raises UsageError. Do NOT use this to modify
+      existing plugins — ramify is scaffold-only, refuses to
+      overwrite unless --force.
+
+      Side effects: creates one Python file at the computed target
+      path. R6 write_surface must cover the target; for substrate-
+      local mode, .myco/plugins/ must be in the substrate's
+      write_surface. Dimension mode also requires category +
+      severity; adapter mode requires extensions list.
+
+      Returns: { exit_code, mode, <kind>, class, category, severity,
+      path, written, overwritten, substrate_local }.
     mcp_tool: "myco_ramify"
     aliases: ["scaffold"]
     mcp_tool_aliases: ["myco_scaffold"]
@@ -282,62 +678,111 @@ commands:
       - name: "verb"
         type: "str"
         default: null
-        help: "Manifest verb name whose handler stub to generate."
+        help: "New manifest verb name to scaffold (kebab-case, e.g. 'my-verb'). Writes a handler stub + manifest_overlay.yaml entry. Mutually exclusive with dimension and adapter. Kernel scaffolds go under src/myco/cycle/; substrate-local under .myco/plugins/verbs/."
       - name: "dimension"
         type: "str"
         default: null
-        help: "Lint dimension id to scaffold (e.g. 'LOCAL1'). Requires --category and --severity."
+        help: "New lint dimension ID to scaffold (case-sensitive, e.g. 'LOCAL1'). Requires --category and --severity. Mutually exclusive with verb and adapter. Kernel scaffolds go under src/myco/homeostasis/dimensions/; substrate-local under .myco/plugins/dimensions/."
       - name: "category"
         type: "str"
         default: null
-        help: "Dimension category (mechanical/shipped/metabolic/semantic). Used with --dimension."
+        help: "Dimension category. One of: 'mechanical' (canon invariants), 'shipped' (version parity), 'metabolic' (raw-note / stale-integrated signals), 'semantic' (graph connectedness). Used only with --dimension."
       - name: "severity"
         type: "str"
         default: null
-        help: "Dimension default severity (low/medium/high/critical). Used with --dimension."
+        help: "Default severity for findings the scaffolded dimension emits. One of: 'low', 'medium', 'high', 'critical'. Critical findings cause myco_immune to exit non-zero. Used only with --dimension."
       - name: "adapter"
         type: "str"
         default: null
-        help: "Adapter name to scaffold (e.g. 'jira'). Requires --extensions."
+        help: "New ingestion adapter name to scaffold (e.g. 'jira', 'slack-export'). Requires --extensions. Mutually exclusive with verb and dimension. Kernel scaffolds go under src/myco/ingestion/adapters/; substrate-local under .myco/plugins/adapters/."
       - name: "extensions"
         type: "list[str]"
         default: []
-        help: "File extensions the adapter handles (e.g. .jira .json). Used with --adapter."
+        help: "File extensions (with leading dot) the adapter handles, e.g. ['.jira', '.json']. Used with --adapter. Extensions register in the adapter registry for myco_eat --path dispatch; more-specific adapters (via registration order) win over generic ones."
       - name: "substrate-local"
         type: "bool"
         default: false
-        help: "Write under <substrate>/.myco/plugins/ instead of src/myco/. Auto-on when substrate != myco-self."
+        help: "When true, scaffold under <substrate>/.myco/plugins/ (substrate-local). When false, scaffold under src/myco/ (kernel, only valid when operating on the myco-self kernel substrate). Auto-forced true when substrate != myco-self. Override when hand-editing kernel code from within a different substrate."
       - name: "force"
         type: "bool"
         default: false
-        help: "Overwrite an existing file (default: refuse)."
+        help: "When true, overwrite an existing file at the target path. When false (default), refuse overwrite with a UsageError. Use to refresh boilerplate after manifest schema changes. Does NOT implicitly revert git history."
 
   - name: "graft"
     subsystem: "cycle"
     handler: "myco.cycle.graft:run"
     summary: "Enumerate / validate / explain substrate-local plugins (hyphal anastomosis observer)."
+    description: |
+      Introspect the substrate's plugin surface: list every loaded
+      dimension / adapter / schema_upgrader / overlay_verb with
+      (kind, name, source, scope), validate plugins by re-importing
+      under isolation, or explain a single plugin (source path +
+      docstring). Scope classifies each plugin as 'kernel' (shipped
+      with myco package) or 'substrate' (loaded from
+      <root>/.myco/plugins/).
+
+      Use this when: debugging "why is my plugin not loading",
+      auditing what's actually registered, or listing substrates
+      across the machine (--list-substrates mode, reads
+      ~/.myco/substrates.yaml). Do NOT confuse with myco_immune's
+      dimension-listing mode — graft inspects plugin binaries,
+      immune inspects findings.
+
+      Side effects: none. Pure read. --validate mode does re-import
+      plugins, which executes their __init__.py; the execution
+      occurs in an isolated module namespace and is idempotent —
+      safe even for plugins that register into global registries.
+
+      Returns (by mode). --list: { exit_code, mode:'list',
+      plugins: [...], count }. --validate: { exit_code, mode:
+      'validate', errors: [...] }. --explain: { exit_code, mode:
+      'explain', name, kind, source, scope, docstring }.
+      --list-substrates: { exit_code, mode:'list-substrates',
+      substrates: [...], count, live_count, stale_count }.
     mcp_tool: "myco_graft"
     args:
       - name: "list"
         type: "bool"
         default: false
-        help: "List every loaded local plugin (kind, name, source path)."
+        help: "When true, enumerate every plugin currently loaded in this substrate's registry (kernel + substrate-local). Returns one row per plugin with kind + name + source (file path) + scope (kernel|substrate). Mutually exclusive with validate / explain / list-substrates."
       - name: "validate"
         type: "bool"
         default: false
-        help: "Re-run the import + registration gate and report any errors."
+        help: "When true, re-import every substrate-local plugin in isolation and collect any exceptions. Used to sanity-check plugins after editing. Mutually exclusive with list / explain / list-substrates."
       - name: "explain"
         type: "str"
         default: null
-        help: "Single plugin name to describe (source file + docstring)."
+        help: "When set, return the source path + docstring + kind for the named plugin. Pass the plugin's registered name (e.g. 'M1' for a dimension, 'UrlFetcher' for an adapter). Unknown names raise UsageError. Mutually exclusive with list / validate / list-substrates."
       - name: "list-substrates"
         type: "bool"
         default: false
-        help: "v0.5.16: list every substrate registered on this machine (~/.myco/substrates.yaml), sorted by last-seen. Includes stale entries whose on-disk path no longer has a _canon.yaml."
+        help: "v0.5.16: list every substrate registered on this machine (reads ~/.myco/substrates.yaml), sorted by last-seen-at. Returns stale entries (exists=false) whose on-disk path no longer has a _canon.yaml for cleanup insight. Mutually exclusive with list / validate / explain."
 
   - name: "brief"
     subsystem: "cycle"
     handler: "myco.cycle.brief:run"
     summary: "Markdown rollup of substrate state for the one human reading moment (L0 principle 1's single carved exception)."
+    description: |
+      Produce a human-facing markdown rollup of substrate state:
+      hunger summary, immune findings, note counts by layer, recent
+      primordia, local-plugin inventory, and a "suggested next"
+      action list. Per L0 principle 1 ("Only For Agent"), this is
+      the single carved exception where Myco authors human-facing
+      prose — every other verb's output is primary material for
+      the agent alone.
+
+      Use this when: a human operator wants to glance at substrate
+      state (weekly / release-time check-in). For agent-to-agent
+      reporting prefer hunger (structured) or the substrate_pulse
+      sidecar (automatic on every verb). Do NOT use brief as an
+      input to other verbs — it's a terminal rollup, not a
+      structured protocol surface.
+
+      Side effects: none. Pure read. Output goes to stdout as
+      markdown; agent / human reads, nothing is written.
+
+      Returns: { exit_code, markdown: '...' }. The markdown
+      string is the full rollup; callers print it or surface it in
+      UI as-is. No other fields beyond exit_code + markdown.
     mcp_tool: "myco_brief"
     args: []

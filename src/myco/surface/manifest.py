@@ -126,6 +126,22 @@ class CommandSpec:
     #: the MCP surface — new MCP clients use ``mcp_tool``; old
     #: clients still see the legacy name.
     mcp_tool_aliases: tuple[str, ...] = ()
+    #: v0.5.23: long-form description for the MCP tool surface. When
+    #: empty, the MCP tool description falls back to ``summary``. When
+    #: set, the MCP tool description uses this richer text (covering
+    #: what / when-to-use / side-effects / return-shape per Glama TDQS
+    #: rubric) while CLI ``--help`` stays on the short ``summary``.
+    description: str = ""
+
+    @property
+    def mcp_description(self) -> str:
+        """Text used as the MCP tool's ``description`` field.
+
+        Falls back to ``summary`` when the manifest didn't supply a
+        richer ``description`` — preserves v0.5.22 behavior for any
+        verb whose manifest entry hasn't been enriched yet.
+        """
+        return self.description.strip() if self.description else self.summary
 
     def resolve_handler(self) -> Callable[..., Result]:
         """Import and return the handler callable."""
@@ -259,6 +275,7 @@ def _parse_command(raw: Mapping[str, Any]) -> CommandSpec:
         pre_substrate=bool(raw.get("pre_substrate", False)),
         aliases=tuple(str(a) for a in aliases_raw),
         mcp_tool_aliases=tuple(str(a) for a in mcp_aliases_raw),
+        description=str(raw.get("description", "")),
     )
 
 

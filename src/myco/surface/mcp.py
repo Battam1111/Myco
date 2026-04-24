@@ -30,7 +30,7 @@ import inspect
 import os
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
 from ..core.errors import SubstrateNotFound
 from .manifest import CommandSpec, Manifest, dispatch, load_manifest
@@ -287,7 +287,7 @@ def build_tool_spec(spec: CommandSpec) -> dict[str, Any]:
             required.append(arg.snake)
     return {
         "name": spec.mcp_tool,
-        "description": spec.summary,
+        "description": spec.mcp_description,
         "inputSchema": {
             "type": "object",
             "properties": properties,
@@ -329,6 +329,16 @@ def _build_handler_signature(spec: CommandSpec) -> inspect.Signature:
     pattern). Without this, agents that want to pin a non-default
     substrate can't discover the override through the tool schema.
     """
+    # v0.5.23: wrap each parameter's annotation in ``Annotated[T,
+    # Field(description=...)]`` so FastMCP/Pydantic includes the
+    # manifest's ``help:`` text as the JSON schema ``description`` for
+    # every parameter. Glama's TDQS rubric weights "parameterSemantics"
+    # at 15% per tool and — pre-v0.5.23 — every tool scored 1/5 on it
+    # because the emitted schema had bare properties with no
+    # descriptions. Threading ``Field(description=arg.help)`` through
+    # the signature closes that deduction across all 26 tools.
+    from pydantic import Field  # lazy import — pydantic is a FastMCP dep
+
     params: list[inspect.Parameter] = [
         inspect.Parameter(
             "ctx",
@@ -343,11 +353,18 @@ def _build_handler_signature(spec: CommandSpec) -> inspect.Signature:
         # get no default — Pydantic surfaces them in ``required`` in
         # the emitted JSON schema.
         if arg.required:
-            annotation: Any = runtime_type
+            base_type: Any = runtime_type
             default: Any = inspect.Parameter.empty
         else:
-            annotation = runtime_type | None
+            base_type = runtime_type | None
             default = arg.default if arg.default is not None else None
+        # Wrap in Annotated so Pydantic picks the description up and
+        # emits it into the JSON schema. ``arg.help`` is the
+        # manifest's canonical human-readable description of the
+        # parameter; if empty, fall back to a synthesised "Optional
+        # <name>" string so the schema is never description-less.
+        desc = arg.help.strip() if arg.help else f"The {arg.snake} argument."
+        annotation = Annotated[base_type, Field(description=desc)]
         params.append(
             inspect.Parameter(
                 arg.snake,
@@ -369,7 +386,18 @@ def _build_handler_signature(spec: CommandSpec) -> inspect.Signature:
                 "project_dir",
                 inspect.Parameter.POSITIONAL_OR_KEYWORD,
                 default=None,
-                annotation=str | None,
+                annotation=Annotated[
+                    str | None,
+                    Field(
+                        description=(
+                            "Absolute path of the workspace / project whose Myco "
+                            "substrate this call targets. Overrides auto-discovery. "
+                            "When omitted, Myco resolves via MCP roots/list, then "
+                            "MYCO_PROJECT_DIR, then cwd — the substrate_pulse field "
+                            "in every response echoes which source answered."
+                        ),
+                    ),
+                ],
             )
         )
     return inspect.Signature(params)

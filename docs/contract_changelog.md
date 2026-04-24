@@ -11,6 +11,113 @@ Format: one section per `contract_version`, newest first.
 
 ---
 
+## v0.5.23 — 2026-04-24 — Tool description richness (Glama TDQS C→A lift)
+
+**Zero R1–R7 surface deltas.** Pure description-quality hotfix.
+v0.5.22 scored C (2.53/5) on Glama's Tool Definition Quality
+rubric; this release lifts every tool surface to satisfy the TDQS
+six-dimension check.
+
+### Symptom
+
+Glama's TDQS scored Myco at C tier with server-level 2.53/5:
+- `parameterSemantics: 1.22/5 avg` across all 27 tools
+- `contextualCompleteness: 1.67/5 avg`
+- `behavioralTransparency: 2.04/5 avg`
+- Worst 4 tools at D tier (tdqs 1.7-1.9): `myco_immune`,
+  `myco_winnow`, `myco_assimilate`, `myco_sense`
+
+### Root cause
+
+Two independent gaps:
+
+1. **JSON schema emitted no parameter descriptions** because
+   `_build_handler_signature` (added in v0.5.21 to fix the
+   flat-args regression) wrapped types as bare annotations without
+   Pydantic `Field(description=...)` metadata. Every tool showed
+   "Schema description coverage is 0%" in Glama's per-tool
+   justification.
+2. **MCP tool descriptions were the one-line CLI `summary`** —
+   correct for CLI `--help`, insufficient for LLM reasoning.
+   Glama's rubric wants: what the tool does, when to use / NOT
+   use, side effects / idempotency, return-value shape. One-liners
+   score 2-3/5 on `purposeClarity` and 1-2/5 on every other
+   dimension.
+
+### Fix
+
+- **`src/myco/surface/mcp.py`**: `_build_handler_signature` wraps
+  every parameter's type in `Annotated[T, Field(description=arg.help)]`
+  so Pydantic emits `description` into the JSON schema. The
+  `project_dir` override parameter gets a full multi-sentence
+  description covering the resolution chain.
+- **`src/myco/surface/manifest.py`**: `CommandSpec` gains an
+  optional `description: str = ""` field + `mcp_description`
+  property that returns `description` when set, falling back to
+  `summary`. Loader plumbs the new yaml key through.
+- **`src/myco/surface/manifest.yaml`**: every one of the 18
+  canonical verbs now has a multi-paragraph `description:` field
+  covering (1) what it does, (2) when to use / when NOT to use /
+  disambiguation from siblings, (3) side effects + R6 write-
+  surface implications, (4) return shape. Every arg's `help:`
+  field enriched to cover: what it controls, valid values /
+  format, default behavior when omitted, interactions with other
+  args. Manifest went from 343 → ~700 lines of structured prose.
+- **`src/myco/surface/mcp.py::build_tool_spec`**: uses
+  `spec.mcp_description` as the tool description (was
+  `spec.summary`).
+
+### Regression tests
+
+- `test_every_verb_has_tool_spec` updated to check against
+  `spec.mcp_description` (the new fallback-aware accessor).
+- `test_every_verb_has_rich_mcp_description` — new: every canonical
+  verb's description must be >= 200 chars (floor for "covers
+  what/when/side-effects").
+- `test_every_param_has_schema_description` — new: every parameter
+  on every tool, as seen in FastMCP's emitted `inputSchema`, must
+  have a non-empty `description` >= 20 chars. Guards the
+  Annotated/Field wiring against future signature-builder
+  regressions.
+
+All 859 pre-existing tests still pass. Ruff + mypy + immune clean.
+
+### Break from v0.5.22
+
+None for MCP protocol. Tool schemas have richer metadata (extra
+`description` fields per parameter, longer top-level tool
+descriptions) — strictly additive from the client's perspective.
+Pydantic emits these as JSON schema `description` keys which
+well-behaved MCP clients either use or ignore.
+
+CLI `--help` output for verbs is unchanged (still shows short
+`summary`; the long `description` is MCP-only).
+
+### Operator action
+
+1. `pip install -U myco` to get 0.5.23 in your local Python env.
+   (Note: close all Claude Code / Claude Desktop sessions first —
+   Windows file-lock contract from v0.5.20 onboarding.)
+2. Visit <https://glama.ai/mcp/servers/Battam1111/Myco> → Admin →
+   click **Build & Release** to trigger a re-scan against the new
+   v0.5.23 manifest.
+3. Expect per-tool tdqs to rise from ~2.5 avg (C) to ~3.5+ (A) on
+   re-scan. Server-level quality should flip from C to A.
+
+### Lesson
+
+Glama's TDQS is a well-designed LLM-as-judge rubric that rewards
+pre-LLM-era-good-API-documentation hygiene: stable parameter
+descriptions, explicit "when to use" notes, documented side
+effects, return-shape commitments. v0.5.22's assumption that
+"correct JSON schema shape" was sufficient missed that the rubric
+grades *semantic* richness on top of *structural* correctness.
+Future MCP server releases should budget for description writing
+alongside code writing — they are different skills and the LLM
+judge can tell.
+
+---
+
 ## v0.5.22 — 2026-04-23 — Dogfood bugfixes: local_plugins scope + URL adapter error
 
 **Zero R1–R7 surface deltas.** Pure observability / UX hotfix
