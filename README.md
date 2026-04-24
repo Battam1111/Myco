@@ -17,6 +17,16 @@
 </p>
 
 <p align="center">
+  <a href="https://glama.ai/mcp/servers/Battam1111/Myco">
+    <img src="https://img.shields.io/badge/Try_it_live_on-Glama-8b5cf6?style=for-the-badge" alt="Try it live on Glama" height="36">
+  </a>
+</p>
+
+<p align="center">
+  <sub>Claude&nbsp;Code&nbsp; <code>/plugin install myco@myco</code> &nbsp;·&nbsp; Claude&nbsp;Desktop&nbsp; <code>myco-install host cowork</code> &nbsp;·&nbsp; Any&nbsp;MCP&nbsp;host&nbsp; <code>pip install 'myco[mcp]'</code></sub>
+</p>
+
+<p align="center">
   <a href="#what-it-is">What it is</a> · <a href="#how-it-lives">How it lives</a> · <a href="#quick-start">Quick start</a> · <a href="#the-eighteen-verbs">Verbs</a> · <a href="#self-validation">Self-validation</a>
 </p>
 

@@ -17,6 +17,16 @@
 </p>
 
 <p align="center">
+  <a href="https://glama.ai/mcp/servers/Battam1111/Myco">
+    <img src="https://img.shields.io/badge/Glama%20%E3%81%A7-%E4%BB%8A%E3%81%99%E3%81%90%E8%A9%A6%E3%81%99-8b5cf6?style=for-the-badge" alt="Glama で今すぐ試す" height="36">
+  </a>
+</p>
+
+<p align="center">
+  <sub>Claude&nbsp;Code：<code>/plugin install myco@myco</code> &nbsp;·&nbsp; Claude&nbsp;Desktop：<code>myco-install host cowork</code> &nbsp;·&nbsp; 任意の&nbsp;MCP&nbsp;host：<code>pip install 'myco[mcp]'</code></sub>
+</p>
+
+<p align="center">
   <a href="#myco-とは">Myco とは</a> · <a href="#どう生きているか">どう生きているか</a> · <a href="#クイックスタート">クイックスタート</a> · <a href="#十八の-verb">verb 一覧</a> · <a href="#自己検証">自己検証</a>
 </p>
 

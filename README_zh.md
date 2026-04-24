@@ -17,6 +17,16 @@
 </p>
 
 <p align="center">
+  <a href="https://glama.ai/mcp/servers/Battam1111/Myco">
+    <img src="https://img.shields.io/badge/%E5%9C%A8%20Glama%20%E4%B8%8A-%E5%8D%B3%E5%88%BB%E8%AF%95%E7%94%A8-8b5cf6?style=for-the-badge" alt="在 Glama 上即刻试用" height="36">
+  </a>
+</p>
+
+<p align="center">
+  <sub>Claude&nbsp;Code：<code>/plugin install myco@myco</code> &nbsp;·&nbsp; Claude&nbsp;Desktop：<code>myco-install host cowork</code> &nbsp;·&nbsp; 任意&nbsp;MCP&nbsp;host：<code>pip install 'myco[mcp]'</code></sub>
+</p>
+
+<p align="center">
   <a href="#myco-是什么">它是什么</a> · <a href="#它如何活着">如何活着</a> · <a href="#快速上手">快速上手</a> · <a href="#十八个-verb">动词</a> · <a href="#自我验证">自我验证</a>
 </p>
 
