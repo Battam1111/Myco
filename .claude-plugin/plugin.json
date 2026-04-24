@@ -1,6 +1,6 @@
 {
   "name": "myco",
-  "version": "0.5.22",
+  "version": "0.5.23",
   "description": "Agent-First symbiotic cognitive substrate. Eighteen fungal-named verbs (17 agent + 1 human-facing `brief`): germinate/fruit/molt/winnow/ramify/senesce/assimilate/sporulate/traverse + graft + brief. Bimodal senesce (full for PreCompact, --quick for SessionEnd) with 25-dimension immune (v0.5.8: 14 new dims added at once \u2014 MP2/DC1-4/CS1/RL1/FR1/PA1/SE3/MB3/CG1-2/DI1) including MP1 mycelium-purity guard. Editable-by-default install, substrate-local plugin loading via .myco/plugins/, ten automated MCP host writers. Every v0.5.2 verb alias still works through v1.0.0.",
   "author": {
     "name": "Yanjun",
