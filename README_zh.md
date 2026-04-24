@@ -13,6 +13,7 @@
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.10+-blue?style=flat" alt="Python"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=flat" alt="License"></a>
   <a href="https://github.com/Battam1111/Myco"><img src="https://img.shields.io/github/stars/Battam1111/Myco?style=flat" alt="Stars"></a>
+  <a href="https://glama.ai/mcp/servers/Battam1111/Myco"><img src="https://glama.ai/mcp/servers/Battam1111/Myco/badges/score.svg" alt="Glama score"></a>
 </p>
 
 <p align="center">
