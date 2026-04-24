@@ -307,3 +307,109 @@ def test_dispatch_pre_substrate_genesis(tmp_path: Path) -> None:
 def test_dispatch_unknown_verb() -> None:
     with pytest.raises(UsageError, match="unknown command"):
         dispatch("not-a-verb", {})
+
+
+# ---------------------------------------------------------------------------
+# v0.5.24 regressions
+# ---------------------------------------------------------------------------
+
+
+def test_v0_5_24_no_mcp_tool_aliases() -> None:
+    """v0.5.24 dropped the MCP alias surface: every legacy tool name
+    (``myco_session_end``, ``myco_reflect``, ``myco_distill``, etc.)
+    was a duplicate of its canonical counterpart, and Glama's TDQS
+    min-dimension penalty dragged the server score because the
+    deprecated aliases inherited weaker descriptions. CLI aliases
+    (``aliases:``) remain — they keep the fungal-vocabulary migration
+    promise for shell users. Only the MCP-tool aliases
+    (``mcp_tool_aliases:``) were removed. This test guards against
+    accidental reintroduction.
+    """
+    m = load_manifest()
+    offenders = [c.name for c in m.commands if c.mcp_tool_aliases]
+    assert not offenders, (
+        "v0.5.24 removed all MCP tool aliases; these commands still "
+        f"carry mcp_tool_aliases: {offenders}"
+    )
+
+
+def test_v0_5_24_excrete_is_present() -> None:
+    """v0.5.24 added the ``myco_excrete`` ingestion verb for raw-note
+    deletion with audit tombstone. Regression guard against accidental
+    removal.
+    """
+    m = load_manifest()
+    names = {c.name for c in m.commands}
+    assert "excrete" in names, (
+        "v0.5.24 requires the 'excrete' verb; manifest has: "
+        f"{sorted(names)}"
+    )
+    excrete = m.by_name("excrete")
+    assert excrete.mcp_tool == "myco_excrete"
+    assert excrete.subsystem == "ingestion"
+    # Contract: note-id + reason are required, dry-run is optional.
+    arg_names = {a.name for a in excrete.args}
+    assert {"note-id", "reason", "dry-run"} <= arg_names
+    required = {a.name for a in excrete.args if a.required}
+    assert required == {"note-id", "reason"}
+
+
+def test_v0_5_24_examples_populated_on_high_value_args() -> None:
+    """v0.5.24 threaded manifest ``examples: [...]`` into the MCP JSON
+    schema to lift Glama's parameterSemantics dimension. Not every arg
+    needs an example (bare bools like ``--dry-run`` are
+    self-explanatory), but every ``path`` and every required
+    non-bool arg should ship at least one. Regression guard: refuse to
+    let a future PR drop all examples off a critical arg without
+    noticing.
+    """
+    m = load_manifest()
+    # Sample of args where an example is load-bearing for agent UX.
+    must_have_examples = {
+        ("germinate", "project-dir"),
+        ("germinate", "substrate-id"),
+        ("eat", "content"),
+        ("eat", "path"),
+        ("eat", "url"),
+        ("sense", "query"),
+        ("excrete", "note-id"),
+        ("excrete", "reason"),
+        ("assimilate", "note-id"),
+        ("digest", "note-id"),
+        ("sporulate", "slug"),
+        ("propagate", "dst"),
+        ("molt", "contract"),
+        ("winnow", "proposal"),
+        ("fruit", "topic"),
+    }
+    missing: list[tuple[str, str]] = []
+    for cmd_name, arg_name in must_have_examples:
+        cmd = m.by_name(cmd_name)
+        arg = next((a for a in cmd.args if a.name == arg_name), None)
+        if arg is None or not arg.examples:
+            missing.append((cmd_name, arg_name))
+    assert not missing, (
+        "v0.5.24 expects Field(examples=[...]) on these args; missing: "
+        f"{missing}"
+    )
+
+
+def test_v0_5_24_mcp_schema_embeds_examples() -> None:
+    """Downstream verification: the MCP handler signature wraps arg
+    annotations in ``Annotated[T, Field(description=..., examples=...)]``
+    so pydantic emits ``examples`` into the JSON schema. Without this
+    thread, the manifest ``examples:`` key would be a dead letter.
+    """
+    import json
+
+    from pydantic import TypeAdapter
+
+    from myco.surface.mcp import _build_handler_signature
+
+    m = load_manifest()
+    excrete = m.by_name("excrete")
+    sig = _build_handler_signature(excrete)
+    note_id_param = sig.parameters["note_id"]
+    sch = TypeAdapter(note_id_param.annotation).json_schema()
+    assert "examples" in sch, f"no examples in schema: {json.dumps(sch)}"
+    assert sch["examples"], "examples list is empty in emitted schema"

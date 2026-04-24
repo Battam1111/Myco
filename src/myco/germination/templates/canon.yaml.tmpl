@@ -28,6 +28,17 @@ system:
       # ``.myco/plugins/**``). Fresh substrates that expect to host
       # local extensions or overlay verbs need this pattern covered.
       - ".myco/**"
+      # v0.5.24: ``.myco_state/**`` covers the substrate's runtime
+      # state directory — reflex ledger, pulse cache, session
+      # markers, and the ``excreted/`` tombstone directory where
+      # ``myco excrete`` moves raw notes that should never have been
+      # captured (typo / accidental ingest / duplicate). Without
+      # this pattern, ``myco_excrete`` fails on a fresh substrate
+      # with a WriteSurfaceViolation for the tombstone. ``.myco_state/``
+      # itself is gitignored — this pattern only authorises writes
+      # from within Myco's write-surface guard, it does NOT publish
+      # the directory to version control.
+      - ".myco_state/**"
   hard_contract:
     # v0.5.10: ``rules_ref`` is no longer stamped by default. It
     # pointed at ``docs/architecture/L1_CONTRACT/protocol.md`` which

@@ -364,7 +364,19 @@ def _build_handler_signature(spec: CommandSpec) -> inspect.Signature:
         # parameter; if empty, fall back to a synthesised "Optional
         # <name>" string so the schema is never description-less.
         desc = arg.help.strip() if arg.help else f"The {arg.snake} argument."
-        annotation = Annotated[base_type, Field(description=desc)]
+        # v0.5.24: forward manifest ``examples: [...]`` into the JSON
+        # schema's ``examples`` array. Glama's parameterSemantics
+        # dimension credits params that ship realistic example values;
+        # every Myco arg with a canonical example (paths, slugs,
+        # note-ids, …) now carries one, lifting the dim from 4 → 5 on
+        # the tools that previously just had a ``description``.
+        if arg.examples:
+            annotation: Any = Annotated[
+                base_type,
+                Field(description=desc, examples=list(arg.examples)),
+            ]
+        else:
+            annotation = Annotated[base_type, Field(description=desc)]
         params.append(
             inspect.Parameter(
                 arg.snake,

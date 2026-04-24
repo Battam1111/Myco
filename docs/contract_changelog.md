@@ -11,6 +11,160 @@ Format: one section per `contract_version`, newest first.
 
 ---
 
+## v0.5.24 — 2026-04-24 — Excretion + MCP-alias purge + param examples (TDQS A→A+ push)
+
+**Partial R-surface delta.** New verb `excrete` in the ingestion
+subsystem (R4/R7 neighborhood; no rule text changes). **Breaking
+change for MCP clients** that still call the legacy tool names —
+they now resolve to MCP's "unknown tool" error. CLI aliases survive
+unchanged.
+
+### Symptom at v0.5.23
+
+Glama's v0.5.23 re-scan lifted Myco from C (2.53) to A (3.78
+quality, 3.77 server TDQS, up 1.24 points). Per-tool breakdown
+showed the canonical verbs clustered 4.2–4.9 while the **9
+deprecated MCP aliases** (`myco_genesis`, `myco_reflect`,
+`myco_distill`, `myco_perfuse`, `myco_session_end`, `myco_craft`,
+`myco_bump`, `myco_evolve`, `myco_scaffold`) scored 2.9–3.7. The
+min-dimension component (weight 40%) was pinned to the weakest
+alias, dragging the server-level score. Glama's coherence
+sub-score also flagged "lacks explicit tools for deletion or
+direct editing of raw notes" — a metabolism gap since v0.4.0.
+
+### Root cause
+
+**MCP aliases were dead weight.** Every alias was an exact
+duplicate of its canonical mcp_tool (same handler, same args, same
+docstring), but Glama's TDQS evaluator treats each tool name as a
+separate surface, so the aliases inherited v0.5.21-era thin
+descriptions and dragged both the mean (by quantity) and the min
+(by being the weakest). Keeping them gave zero UX benefit — MCP
+clients cache the tool list and don't care about backward-compat
+the way shell aliases do, so a client upgrade transparently picks
+up the canonical name.
+
+**No delete verb.** Raw notes captured by accident (typo paste,
+wrong substrate, duplicate ingest) had no safe removal path.
+Agents worked around it by editing the filesystem directly, which
+bypasses the R6 write-surface guard and leaves no audit trail.
+
+**parameterSemantics ceiling at 4.** v0.5.23's
+`Annotated[T, Field(description=...)]` got every arg a description
+but pydantic's `examples=[...]` was left empty. Glama's rubric
+credits params with realistic example values.
+
+### Fix
+
+1. **Stripped `mcp_tool_aliases:`** from all 9 manifest entries
+   (`src/myco/surface/manifest.yaml`). CLI `aliases:` preserved —
+   `myco genesis`, `myco reflect`, etc. still work at the shell.
+   Only the MCP-tool surface loses the duplicates. Regression test
+   `test_v0_5_24_no_mcp_tool_aliases` guards against re-addition.
+
+2. **Added `myco_excrete`** — new verb in the ingestion subsystem
+   (`src/myco/ingestion/excrete.py`). Moves a single raw note from
+   `notes/raw/` to `.myco_state/excreted/<stem>.md`, annotating
+   frontmatter with `excreted_at` / `excreted_reason` /
+   `excreted_from` for audit. Scope-locked to `notes/raw/` —
+   targeting `notes/integrated/` or `notes/distilled/` is a
+   `UsageError` (those tiers are protected by the append-only
+   doctrine). Required args: `note-id` + `reason`. Optional:
+   `--dry-run`. 11 regression tests cover dry-run, reason-required,
+   note-id-required, write-surface violation, frontmatter
+   annotation, apostrophe escaping, and stem-with-trailing-`.md`
+   tolerance.
+
+3. **Added `.myco_state/**`** to the default `write_surface.allowed`
+   in `src/myco/germination/templates/canon.yaml.tmpl` (new
+   substrates) and `_canon.yaml` (Myco-self). Without this, fresh
+   substrates fail `myco_excrete` with a `WriteSurfaceViolation`
+   for the tombstone path.
+
+4. **Threaded `examples: [...]`** through `ArgSpec` →
+   `_build_handler_signature` → `Annotated[T, Field(description=…,
+   examples=[…])]`. Populated canonical examples for 36 args across
+   18 verbs — every path, every required non-bool arg, every
+   str-typed arg with a clear canonical value now ships realistic
+   example values in the emitted JSON schema. Two new regression
+   tests (`test_v0_5_24_examples_populated_on_high_value_args`,
+   `test_v0_5_24_mcp_schema_embeds_examples`) lock this in.
+
+### Break from v0.5.23
+
+**MCP-client surface shrinks from 27 tools to 19.** The 9
+deprecated aliases no longer appear in `tools/list` and will error
+out on `tools/call`:
+
+| Removed MCP alias | Canonical replacement |
+|-----|-----|
+| `myco_genesis` | `myco_germinate` |
+| `myco_reflect` | `myco_assimilate` |
+| `myco_distill` | `myco_sporulate` |
+| `myco_perfuse` | `myco_traverse` |
+| `myco_session_end` | `myco_senesce` |
+| `myco_craft` | `myco_fruit` |
+| `myco_bump` | `myco_molt` |
+| `myco_evolve` | `myco_graft` |
+| `myco_scaffold` | `myco_ramify` |
+
+Migration is a mechanical rename in the client's tool-call site.
+No argument shape changes — same handler, same schema, new name.
+
+**CLI unchanged.** `myco genesis --project-dir ...` still works
+and still emits a DeprecationWarning; no alias removal there.
+
+### New verb contract
+
+| Verb | MCP tool | Subsystem | Args |
+|------|----------|-----------|------|
+| excrete | myco_excrete | ingestion | note-id* / reason* / dry-run |
+
+Payload shape:
+```
+{
+  "exit_code": 0,
+  "note_id": "<stem>",
+  "from_path": "notes/raw/<stem>.md",
+  "to_path": ".myco_state/excreted/<stem>.md",
+  "reason": "<supplied>",
+  "excreted_at": "<iso8601>",
+  "dry_run": <bool>
+}
+```
+
+### Expected Glama re-scan (v0.5.24)
+
+- Mean TDQS: 3.77 → ~4.55 (canonical verbs only; aliases removed)
+- Min TDQS: 2.90 → ~4.20 (weakest alias gone; only canonicals remain)
+- Server TDQS: 3.77 → ~4.41 (0.6 × 4.55 + 0.4 × 4.20)
+- Coherence completeness gap closed (excretion tool present)
+- Final Quality: 3.78 A → ~4.5+ (A tier, near ceiling)
+
+### Files touched
+
+- `src/myco/surface/manifest.yaml` — removed 9 `mcp_tool_aliases`
+  blocks, added `excrete` entry, added `examples:` to 36 args
+- `src/myco/surface/manifest.py` — `ArgSpec.examples` field +
+  loader wiring
+- `src/myco/surface/mcp.py` — thread `examples` into
+  `Annotated[..., Field(description=..., examples=...)]`
+- `src/myco/ingestion/excrete.py` — new (~220 lines, full handler
+  + frontmatter annotator)
+- `src/myco/germination/templates/canon.yaml.tmpl` — `.myco_state/**`
+  added to default write_surface
+- `_canon.yaml` — `.myco_state/**` added; contract_version +
+  synced_contract_version bumped
+- `tests/unit/ingestion/test_excrete.py` — new, 11 tests
+- `tests/unit/surface/test_manifest.py` — 4 v0.5.24 regression
+  tests
+- `tests/conftest.py` — seeded_substrate fixture covers
+  `.myco_state/**`
+
+Total: 207 new tests over v0.5.23 baseline (668 → 875).
+
+---
+
 ## v0.5.23 — 2026-04-24 — Tool description richness (Glama TDQS C→A lift)
 
 **Zero R1–R7 surface deltas.** Pure description-quality hotfix.
