@@ -1,7 +1,7 @@
 # Promotion drafts
 
 **Copy-paste-ready content** for publicising Myco across common
-channels. These are drafts — you (the human operator) decide
+channels. These are drafts; you (the human operator) decide
 when to post, and adjust tone to your account's voice before
 sending. Every draft aims to be honest-not-hype: names what
 Myco actually is + who it's actually for + leaves marketing
@@ -46,7 +46,7 @@ can actually respond to comments:
   ([`mcp_registry_submission.md`](mcp_registry_submission.md))
 
 Skip r/MachineLearning and LinkedIn unless you have a
-specific reason — they're the weakest-fit channels and posting
+specific reason. They're the weakest-fit channels and posting
 there without a strong prior angle reads like spam.
 
 ## Tone guardrails
@@ -59,13 +59,13 @@ Every draft in this folder obeys three rules:
 2. **Name the real competitors by name** (LangChain memory,
    Mem0, Letta, MemGPT, Cognee) and state where Myco differs
    without bashing them. Each tool has its niche.
-3. **Concrete numbers only**. "18 verbs", "25 dimensions",
-   "2400× SE1 speedup" — not "fast" or "comprehensive".
+3. **Concrete numbers only.** "19 verbs", "25 dimensions",
+   "2400× SE1 speedup", not "fast" or "comprehensive".
 
 ## Attribution
 
 If you adapt a draft, the substrate's contribution should be
 credited (link back to
 https://github.com/Battam1111/Myco). If you reuse a draft for
-a piece of writing you publish under your name, that's fine
-— the drafts are MIT-licensed content.
+a piece of writing you publish under your name, that's fine.
+The drafts are MIT-licensed content.

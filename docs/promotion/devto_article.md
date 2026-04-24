@@ -20,7 +20,7 @@ Building Myco: a cognitive substrate for LLM agents whose kernel is editable by 
 ## Cover image
 
 Use `assets/social_preview.png` (already in the repo). dev.to's
-1000×420 constraint — check whether the social preview fits; if
+1000×420 constraint: check whether the social preview fits; if
 not, use `assets/logo_dark_512.png` centered on a dark
 background (any image editor + 30 seconds).
 
@@ -31,13 +31,13 @@ background (any image editor + 30 seconds).
 ```markdown
 After six months of using LLM agents to maintain a long-running knowledge base, I hit a wall that wasn't about retrieval quality.
 
-The problem wasn't that the agent couldn't find the right chunk. The problem was that the substrate — the 80 MB of notes, decisions, code snippets, and project histories — **contradicted itself**, and nobody noticed until a query returned three mutually-inconsistent facts.
+The problem wasn't that the agent couldn't find the right chunk. The problem was that the substrate (80 MB of notes, decisions, code snippets, and project histories) **contradicted itself**, and nobody noticed until a query returned three mutually-inconsistent facts.
 
 This essay is about the tool I built to fix that: [Myco](https://github.com/Battam1111/Myco), a cognitive substrate for LLM agents whose kernel is editable by the agent that uses it.
 
 ## The design thesis
 
-Most agent-memory tools optimise a retrieval metric: precision@k, chunk relevance, embedding recall, latency. That optimisation is real and valuable — Mem0, Letta, MemGPT, LangChain's memory helpers all do it well.
+Most agent-memory tools optimise a retrieval metric: precision@k, chunk relevance, embedding recall, latency. That optimisation is real and valuable. Mem0, Letta, MemGPT, LangChain's memory helpers all do it well.
 
 Myco optimises a different variable: **drift resistance under continuous edit**.
 
@@ -47,26 +47,26 @@ Three concrete examples of what "validates itself" looks like:
 
 **1. Canon as single source of truth.** Every number, name, and path that matters (contract version, dimension roster, subsystem list, lint exit-code policy) lives in exactly one file: `_canon.yaml`. Other files reference this file by YAML `_ref`-suffixed fields; they never duplicate its values. A lint dimension (M1) fires when canon is missing required fields; another (SH1) fires when `__version__` in the Python package diverges from canon's declared version.
 
-**2. Write-surface enforcement.** Every agent-writable path is declared in `_canon.yaml::system.write_surface.allowed` as an fnmatch-style glob. A dimension (M3) fires when the declaration is missing. At v0.5.8, this was strengthened from "lint catches writes outside the surface after the fact" to "verbs refuse to write outside the surface in the first place, raising `WriteSurfaceViolation` (exit 3)". Discipline-by-doctrine → discipline-by-mechanism.
+**2. Write-surface enforcement.** Every agent-writable path is declared in `_canon.yaml::system.write_surface.allowed` as an fnmatch-style glob. A dimension (M3) fires when the declaration is missing. At v0.5.8, this was strengthened from "lint catches writes outside the surface after the fact" to "verbs refuse to write outside the surface in the first place, raising `WriteSurfaceViolation` (exit 3)". Discipline-by-doctrine became discipline-by-mechanism.
 
 **3. Graph connectedness.** The substrate is a graph: every node (canon field, note, doctrine page, code module) is reachable from every other by traversal. Edges come from four explicit sources (canon _ref fields, note frontmatter `references:` lists, markdown `[text](path)` links, AST import edges in Python modules). A dimension (SE1) fires per dangling edge; another (SE2) per orphan integrated note; another (SE3) per self-cycle.
 
-25 dimensions total at v0.5.10. The full roster + fixability is in [L2 homeostasis.md](https://github.com/Battam1111/Myco/blob/main/docs/architecture/L2_DOCTRINE/homeostasis.md).
+25 dimensions total at v0.5.24. The full roster + fixability is in [L2 homeostasis.md](https://github.com/Battam1111/Myco/blob/main/docs/architecture/L2_DOCTRINE/homeostasis.md).
 
-## The 18-verb surface
+## The 19-verb surface
 
-Every agent interaction with Myco goes through a verb. There are 18 total, grouped by biological subsystem:
+Every agent interaction with Myco goes through a verb. There are 19 total, grouped by biological subsystem:
 
 ```
 germination   germinate
-ingestion     hunger · eat · sense · forage
+ingestion     hunger · eat · sense · forage · excrete
 digestion     assimilate · digest · sporulate
 circulation   traverse · propagate
 homeostasis   immune
 cycle         senesce · fruit · molt · winnow · ramify · graft · brief
 ```
 
-All 18 are declared in [one YAML file](https://github.com/Battam1111/Myco/blob/main/src/myco/surface/manifest.yaml). The CLI (`python -m myco <verb>`) and the MCP tool server (via `myco.surface.mcp.build_server`) both derive from this file; there's no second registry to keep in sync.
+All 19 are declared in [one YAML file](https://github.com/Battam1111/Myco/blob/main/src/myco/surface/manifest.yaml). The CLI (`python -m myco <verb>`) and the MCP tool server (via `myco.surface.mcp.build_server`) both derive from this file; there's no second registry to keep in sync.
 
 A typical session looks like:
 
@@ -98,17 +98,17 @@ Consequence: the agent that maintains Myco is the same agent a user would use to
 
 Consequence²: `pip install myco` installs in editable mode by default (`pip install -e`). When the agent needs a new verb or a new lint dimension for its specific use case, it scaffolds one with `myco ramify --dimension NEW1 --category mechanical --severity low`. The scaffold lands under `src/myco/homeostasis/dimensions/new1_...py` (for kernel substrates) or under `.myco/plugins/dimensions/` (for downstream substrates).
 
-The doctrine term for this is **永恒进化** — eternal evolution. The substrate's own shape is a first-class mutable object. Nothing in the kernel is "private API an agent must not touch".
+The doctrine term for this is **永恒进化**, eternal evolution. The substrate's own shape is a first-class mutable object. Nothing in the kernel is "private API an agent must not touch".
 
 ## The governance loop
 
 Kernel edits need governance, otherwise the eternal-evolution principle degrades into continuous drift. Three verbs compose the loop:
 
-- `myco fruit --topic "some-slug"` scaffolds a three-round craft doc under `docs/primordia/` with the 主张 → 自反 → 修正 → 再驳 → 收敛 structure.
+- `myco fruit --topic "some-slug"` scaffolds a three-round craft doc under `docs/primordia/` with the 主张, 自反, 修正, 再驳, 收敛 structure.
 - `myco winnow --proposal docs/primordia/<file>` gates the craft's shape against a protocol (all five rounds present, not template boilerplate, frontmatter well-formed). Exit 1 if the shape fails.
 - `myco molt --contract v<new>` mutates `_canon.yaml::contract_version` in lockstep with `synced_contract_version`, appends a section to `docs/contract_changelog.md`, and increments `waves.current`. Post-write validates by re-reading canon; rolls back on schema error.
 
-v0.5.0 shipped on 2026-04-17. v0.5.10 shipped on 2026-04-22. Ten molts in five days, each with its own craft-doc trail at [docs/primordia/](https://github.com/Battam1111/Myco/tree/main/docs/primordia). The cadence is rapid because the substrate is young; the point is that *every* molt is visible, not silent.
+v0.5.0 shipped on 2026-04-17. v0.5.24 shipped on 2026-04-24. 24 molts in one week, each with its own craft-doc trail at [docs/primordia/](https://github.com/Battam1111/Myco/tree/main/docs/primordia). The cadence is rapid because the substrate is young; the point is that *every* molt is visible, not silent.
 
 ## What's inside a lint dimension
 
@@ -151,7 +151,7 @@ class CS1ContractVersionSync(Dimension):
         }
 ```
 
-One class per file. Registered via `[project.entry-points."myco.dimensions"]` in `pyproject.toml`. Third-party substrates add their own dimensions the same way — no fork of Myco required.
+One class per file. Registered via `[project.entry-points."myco.dimensions"]` in `pyproject.toml`. Third-party substrates add their own dimensions the same way, no fork of Myco required.
 
 ## What Myco is not
 
@@ -177,29 +177,29 @@ Five commands, thirty seconds, and you have a working substrate. Ctrl+C out of i
 
 If the shape interests you, the ten-minute read is:
 
-1. [L0_VISION.md](https://github.com/Battam1111/Myco/blob/main/docs/architecture/L0_VISION.md) — five root principles
-2. [L1_CONTRACT/protocol.md](https://github.com/Battam1111/Myco/blob/main/docs/architecture/L1_CONTRACT/protocol.md) — R1-R7 rules
-3. The [verb manifest](https://github.com/Battam1111/Myco/blob/main/src/myco/surface/manifest.yaml) for the 18-verb surface
+1. [L0_VISION.md](https://github.com/Battam1111/Myco/blob/main/docs/architecture/L0_VISION.md): five root principles
+2. [L1_CONTRACT/protocol.md](https://github.com/Battam1111/Myco/blob/main/docs/architecture/L1_CONTRACT/protocol.md): R1 through R7 rules
+3. The [verb manifest](https://github.com/Battam1111/Myco/blob/main/src/myco/surface/manifest.yaml) for the 19-verb surface
 
-Feedback on the architecture — especially on where the 25-dim lint surface is over-engineered or under-engineered for the drift-resistance target — is most welcome.
+Feedback on the architecture, especially on where the 25-dim lint surface is over-engineered or under-engineered for the drift-resistance target, is most welcome.
 
 Repo: https://github.com/Battam1111/Myco
 PyPI: https://pypi.org/project/myco/
 
-MIT-licensed. Python 3.10+. 757 tests passing, 0 immune findings on the self-substrate at v0.5.10.
+MIT-licensed. Python 3.10+. 875 tests passing, 0 immune findings on the self-substrate at v0.5.24, A-tier on Glama's Tool Definition Quality rubric.
 ```
 
 ---
 
 ## Why this shape
 
-- **1500-2000 words** hits dev.to's "full article" sweet spot
-  — longer than a blog post, shorter than a whitepaper.
+- **1500-2000 words** hits dev.to's "full article" sweet spot:
+  longer than a blog post, shorter than a whitepaper.
 - **Opens with a concrete problem** (6 months, 80 MB, contradicting itself). Reader
   pattern-matches immediately.
-- **"Design thesis" → "18-verb surface" → "The kernel IS a
-  substrate" → "The governance loop" → "What's inside a lint
-  dimension" → "What it is not" → "Try it"** structure lets
+- **"Design thesis" to "19-verb surface" to "The kernel IS a
+  substrate" to "The governance loop" to "What's inside a lint
+  dimension" to "What it is not" to "Try it"** structure lets
   readers drop out at any section with something useful.
 - **Concrete code block** (CS1 dimension) turns an abstract
   "25 lint dims" claim into something the reader can point
@@ -211,7 +211,7 @@ MIT-licensed. Python 3.10+. 757 tests passing, 0 immune findings on the self-sub
 
 - Publish during US weekday morning; dev.to's algorithm
   favours engagement in the first 4 hours.
-- Add the canonical URL if mirroring to Medium (dev.to → rel=canonical,
+- Add the canonical URL if mirroring to Medium (dev.to gets rel=canonical,
   to keep SEO unified).
 - Pick one cover image; dev.to articles without covers look
   unfinished.

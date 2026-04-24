@@ -31,8 +31,10 @@ README-side changes (shipped in the same commit); the admin-panel +
 community side is a checklist that the maintainer executes out-of-
 band.
 
-Cross-ref substrate note: captured via `myco_eat` at ingest time; see
-`notes/raw/` for the v0.5.24 ship record.
+Cross-ref substrate note: [`notes/integrated/n_20260424T084628Z_v0-5-24-shipped-2026-04-24-excrete-verb-.md`](../../notes/integrated/n_20260424T084628Z_v0-5-24-shipped-2026-04-24-excrete-verb-.md)
+captures the v0.5.24 ship record (19 verbs, MCP alias purge, examples
+thread, A-tier Glama score) as primary source for this runbook's
+assumptions.
 
 ---
 
@@ -247,7 +249,7 @@ Checklist — execute in order, tick as each lands:
 - [ ] **Phase 4b** — MCP official Discord `#showcase` post: one-
       paragraph description + Glama link + GitHub link.
 - [ ] **Phase 4c** — r/ClaudeAI launch post with headline
-      "A-tier on Glama: Myco, an 18-verb cognitive substrate for
+      "A-tier on Glama: Myco, a 19-verb cognitive substrate for
       Claude-based agents." Include the Glama score screenshot.
 
 ### Success criteria

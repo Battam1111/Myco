@@ -27,7 +27,7 @@ context. The single skill shipped here — `myco-substrate` — triggers
 whenever the user mentions Myco, opens a workspace containing
 `_canon.yaml`, or a prior `substrate_pulse` response referenced the
 substrate. The skill's body is the full onboarding brief (what Myco
-is, the 18 verbs, R1-R7, pulse reading, multi-project pattern).
+is, the 19 verbs, R1-R7, pulse reading, multi-project pattern).
 
 ## What Cowork loads
 

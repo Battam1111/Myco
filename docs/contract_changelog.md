@@ -81,13 +81,14 @@ credits params with realistic example values.
    substrates fail `myco_excrete` with a `WriteSurfaceViolation`
    for the tombstone path.
 
-4. **Threaded `examples: [...]`** through `ArgSpec` →
-   `_build_handler_signature` → `Annotated[T, Field(description=…,
+4. **Threaded `examples: [...]`** through `ArgSpec`,
+   `_build_handler_signature`, `Annotated[T, Field(description=…,
    examples=[…])]`. Populated canonical examples for 36 args across
-   18 verbs — every path, every required non-bool arg, every
-   str-typed arg with a clear canonical value now ships realistic
-   example values in the emitted JSON schema. Two new regression
-   tests (`test_v0_5_24_examples_populated_on_high_value_args`,
+   16 verbs (every path, every required non-bool arg, every
+   str-typed arg with a clear canonical value), including the new
+   `excrete` verb, now ships realistic example values in the
+   emitted JSON schema. Two new regression tests
+   (`test_v0_5_24_examples_populated_on_high_value_args`,
    `test_v0_5_24_mcp_schema_embeds_examples`) lock this in.
 
 ### Break from v0.5.23

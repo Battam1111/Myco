@@ -1,4 +1,4 @@
-# HN FAQ — pre-drafted responses to predictable comments
+# HN FAQ: pre-drafted responses to predictable comments
 
 The HN comment section on a Show HN follows predictable shapes.
 Having concise responses pre-drafted lets you reply in minutes
@@ -20,7 +20,7 @@ replying to; keep each response < 200 words.
 >
 > Myco is a long-lived, self-validating filesystem shape + a 25-dim
 > lint surface + a governance loop the agent uses to mutate its own
-> contract. No chain, no retrieval-on-each-call — the agent reads
+> contract. No chain, no retrieval-on-each-call. The agent reads
 > the substrate by traversal, not by embedding similarity.
 >
 > Different tool. If you want retrieval-for-one-turn, LangChain
@@ -34,12 +34,12 @@ replying to; keep each response < 200 words.
 > main context + archival storage + recall hooks. I read their
 > paper before starting Myco.
 >
-> Where Myco diverges: (1) the governance surface — MemGPT has
+> Where Myco diverges: (1) the governance surface. MemGPT has
 > memories; Myco has memories + a contract that explicitly
-> describes how memories may evolve, enforced by 25 lint dims;
-> (2) the kernel itself is a substrate — Myco is editable by the
-> agent that maintains it, not a library the agent imports; (3)
-> no vector DB hard-coupling — Myco's graph is AST + markdown-link
+> describes how memories may evolve, enforced by 25 lint dims.
+> (2) The kernel itself is a substrate. Myco is editable by the
+> agent that maintains it, not a library the agent imports. (3)
+> No vector DB hard-coupling. Myco's graph is AST + markdown-link
 > derived, not embedding-derived.
 >
 > Letta is the right pick for "give my LLM a long context window";
@@ -47,7 +47,7 @@ replying to; keep each response < 200 words.
 
 ### "Isn't this just Mem0?"
 
-> Mem0 is a managed memory API — you POST memories to their
+> Mem0 is a managed memory API: you POST memories to their
 > service, they vector-index, and GET them back on retrieval.
 > Great if you want zero-config memory + can ship the data to
 > their cloud.
@@ -60,9 +60,9 @@ replying to; keep each response < 200 words.
 ### "Isn't this just a Notion / Obsidian / Logseq for agents?"
 
 > Three differences. (1) Notion/Obsidian/Logseq are designed for
-> human reading; Myco is designed for agent reading — every
+> human reading; Myco is designed for agent reading. Every
 > surface is primary material for the agent, not rendered for a
-> human. (2) They have no lint surface — a broken cross-reference
+> human. (2) They have no lint surface. A broken cross-reference
 > is a UI issue, not a kernel finding. Myco's SE1 flags dangling
 > refs mechanically. (3) Their governance is "the user edits
 > freely"; Myco's governance is the craft + winnow + molt loop
@@ -82,7 +82,7 @@ replying to; keep each response < 200 words.
 >
 > The counter-wager is that `cp`/`mv`/`grep` survived IDEs
 > because they're coordination grammar, not UI. Myco's verbs
-> serve the same purpose — a shared vocabulary for agents
+> serve the same purpose: a shared vocabulary for agents
 > coordinating WITH each other or WITH the human, not a UI for
 > the human to operate.
 >
@@ -102,17 +102,17 @@ replying to; keep each response < 200 words.
 > it end-to-end, you don't need Myco. If either of those
 > breaks, you might.
 
-### "Why 18 verbs? Isn't that too many?"
+### "Why 19 verbs? Isn't that too many?"
 
-> 17 agent-facing + 1 human-facing (`brief`). Grouped into six
-> biological subsystems, each exposing 2-7 verbs. The count
+> 18 agent-facing + 1 human-facing (`brief`). Grouped into six
+> biological subsystems, each exposing 2 to 7 verbs. The count
 > comes from the life-cycle metaphor (germination / ingestion /
 > digestion / circulation / homeostasis / cycle), not from
 > feature-creep.
 >
 > An agent that knows the six subsystems can derive the verb
 > it needs without memorising the full list. That's the design
-> target — agents learn the structure, not the enumeration.
+> target: agents learn the structure, not the enumeration.
 
 ---
 
@@ -120,11 +120,11 @@ replying to; keep each response < 200 words.
 
 ### "What happens when the agent makes bad edits?"
 
-> Three layers of defence. (1) R6 write-surface enforcement —
+> Three layers of defence. (1) R6 write-surface enforcement:
 > verbs can only write paths declared in `_canon.yaml`; anything
 > else raises `WriteSurfaceViolation` (exit 3). (2) Atomic writes
-> via `atomic_utf8_write` — a crash mid-edit can't leave a torn
-> file. (3) Git history — same as any other project. If the agent
+> via `atomic_utf8_write`: a crash mid-edit can't leave a torn
+> file. (3) Git history, same as any other project. If the agent
 > corrupts content inside the surface, `git reset` is your last
 > line of defence.
 
@@ -140,7 +140,7 @@ replying to; keep each response < 200 words.
 > Myco itself is MIT-licensed software that runs wherever Python
 > runs; no per-query cost, no infrastructure cost. The LLM
 > inference cost is whatever you already pay your provider. Myco
-> doesn't add API calls in the happy path — it's a filesystem
+> doesn't add API calls in the happy path. It's a filesystem
 > shape + a CLI + an MCP server, all local.
 
 ---
@@ -151,7 +151,7 @@ replying to; keep each response < 200 words.
 
 > The top-level contract lives in five specific markdown files:
 > `docs/architecture/L0_VISION.md` (5 root principles),
-> `docs/architecture/L1_CONTRACT/protocol.md` (R1-R7 rules),
+> `docs/architecture/L1_CONTRACT/protocol.md` (R1 through R7 rules),
 > `L1_CONTRACT/canon_schema.md`, `L1_CONTRACT/exit_codes.md`,
 > `L1_CONTRACT/versioning.md`.
 >
@@ -172,7 +172,7 @@ replying to; keep each response < 200 words.
 
 ### "Who is actually using this in production?"
 
-> Myco itself uses Myco (the kernel IS a substrate — see the
+> Myco itself uses Myco (the kernel IS a substrate; see the
 > `_canon.yaml` at the repo root). A few private substrates
 > downstream of Myco-self exist but haven't gone public. The
 > honest answer is "pre-adoption, early 2026; the primary
