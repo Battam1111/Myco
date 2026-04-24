@@ -57,6 +57,16 @@ system:
       # for OCI-registryType namespace verification.
       - "Dockerfile"
       - ".dockerignore"
+      # v0.5.22 (2026-04-23) Glama registry ownership marker. Carries
+      # `$schema` + `maintainers: ["Battam1111"]` — the minimal and
+      # complete glama.json surface per
+      # https://glama.ai/mcp/schemas/server.json (which defines ONLY
+      # those two fields). Category / displayName / description are
+      # NOT glama.json fields; they live on the Glama dashboard and
+      # are edited via the web UI after the maintainer claims the
+      # server. See docs/primordia/glama_onboarding_craft_*.md for
+      # the full onboarding runbook.
+      - "glama.json"
   hard_contract:
     rules_ref: "docs/architecture/L1_CONTRACT/protocol.md"
     rule_count: 7
