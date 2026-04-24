@@ -5,8 +5,8 @@
 # `_ref`-suffixed fields, not here.
 
 schema_version: "1"
-contract_version: "v0.5.23"
-synced_contract_version: "v0.5.23"
+contract_version: "v0.5.24"
+synced_contract_version: "v0.5.24"
 identity:
   substrate_id: "myco-self"
   tags:
@@ -150,8 +150,8 @@ commands:
   manifest_ref: "src/myco/surface/manifest.yaml"
 
 metrics:
-  test_count: 668
+  test_count: 875
 
 waves:
-  current: 17
+  current: 18
   log_ref: "docs/contract_changelog.md"

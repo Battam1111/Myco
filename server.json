@@ -7,14 +7,14 @@
     "url": "https://github.com/Battam1111/Myco",
     "source": "github"
   },
-  "version": "0.5.23",
+  "version": "0.5.24",
   "websiteUrl": "https://github.com/Battam1111/Myco",
   "packages": [
     {
       "registryType": "pypi",
       "registryBaseUrl": "https://pypi.org",
       "identifier": "myco",
-      "version": "0.5.23",
+      "version": "0.5.24",
       "runtimeHint": "python",
       "transport": {
         "type": "stdio"
