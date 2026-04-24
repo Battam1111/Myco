@@ -3,7 +3,7 @@
 ## Title
 
 ```
-Myco — a substrate layer below LangChain memory, not a replacement for it
+Myco: a substrate layer below LangChain memory, not a replacement for it
 ```
 
 ## Body
@@ -15,14 +15,14 @@ Myco (https://github.com/Battam1111/Myco) is a persistent filesystem shape + a C
 
 Where the two overlap
 
-- LangChain's `ConversationBufferMemory` + `VectorStoreMemory` = retrieve-on-each-call memory. Myco has no equivalent — it's a filesystem, not a retriever. If the agent needs to find something, it calls `myco sense` (keyword grep) or `myco traverse` (graph walk).
-- LangChain's `Agent` abstraction + tool-calling = how you wire an LLM to external capabilities. Myco's 18 verbs are such external capabilities; a LangChain agent can call them via the MCP adapter or subprocess.
+- LangChain's `ConversationBufferMemory` + `VectorStoreMemory` = retrieve-on-each-call memory. Myco has no equivalent: it's a filesystem, not a retriever. If the agent needs to find something, it calls `myco sense` (keyword grep) or `myco traverse` (graph walk).
+- LangChain's `Agent` abstraction + tool-calling = how you wire an LLM to external capabilities. Myco's 19 verbs are such external capabilities; a LangChain agent can call them via the MCP adapter or subprocess.
 
 Where they diverge
 
 - LangChain memory lives inside the chain object; when the chain dies, the memory dies (unless you wired it to a vector DB or Redis). Myco memory is on disk, under your control, survives every LangChain object's lifetime.
-- LangChain's retrieval is embedding-based. Myco's graph is AST + markdown-link derived — deterministic, diffable, debuggable.
-- LangChain iterates versions fast; code written against v0.0.x may not work on v0.3.x. Myco's contract is slow — v0.5.x has held R1-R7 semantics stable for 10 molts. If you want the memory layer to not churn when LangChain does, having it as a separate substrate underneath helps.
+- LangChain's retrieval is embedding-based. Myco's graph is AST + markdown-link derived: deterministic, diffable, debuggable.
+- LangChain iterates versions fast; code written against v0.0.x may not work on v0.3.x. Myco's contract is slow: v0.5.x has held R1 through R7 semantics stable across every molt in the series. If you want the memory layer to not churn when LangChain does, having it as a separate substrate underneath helps.
 
 When Myco is a fit
 
@@ -51,7 +51,7 @@ Feedback + comparisons welcome.
 
 ## Why this shape
 
-- **Title frames the post as not-a-replacement** — crucial for
+- **Title frames the post as not-a-replacement.** Crucial for
   r/LangChain, where "alternative to" posts get defensive
   responses. "Layer below" is non-threatening.
 - **"Where they overlap / diverge / fit / don't fit"** structure
@@ -60,7 +60,7 @@ Feedback + comparisons welcome.
   handle the drift problem?") converts the post from
   announcement to peer conversation, which is the only shape
   that works on r/LangChain for non-LangChain tools.
-- **No code snippets** — this sub's readers know Python; they
+- **No code snippets.** This sub's readers know Python; they
   don't need a quick-start. They need the positioning argument.
 
 ## Risk

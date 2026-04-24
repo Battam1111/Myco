@@ -1,13 +1,13 @@
-# MYCO.md — agent entry page for the `myco-self` substrate
+# MYCO.md: agent entry page for the `myco-self` substrate
 
 > You are an LLM agent reading this file at session start. Everything
 > in this substrate is **for you**. Humans do not browse here (L0
-> principle 1 — 只为 Agent). They speak natural language; you invoke
+> principle 1, 只为 Agent). They speak natural language; you invoke
 > the verbs. Read this page top to bottom; it is short by design.
 
 ## What this substrate is
 
-This repository is Myco — the cognitive substrate — and also
+This repository is Myco, the cognitive substrate, and also
 **Myco's own substrate**: the codebase uses Myco on itself, eating its
 own dogfood through `_canon.yaml`, `notes/`, and `docs/`. Treat every
 surface you encounter here as agent-readable primary material, not as
@@ -27,9 +27,9 @@ it.
    SessionStart hook, which already fired it). This is R1 of the hard
    contract; it computes and writes the session boot brief to
    `.myco_state/boot_brief.md`, then prints the summary. Every non-
-   trivial session starts with this. The human never calls `hunger` —
-   you do.
-2. Check `log.md` (if present) for the last five entries — the tail
+   trivial session starts with this. The human never calls `hunger`.
+   You do.
+2. Check `log.md` (if present) for the last five entries. The tail
    of the timeline tells you what the previous session touched.
 3. If you are about to write code: consult the relevant subsystem
    doctrine page under `docs/architecture/L2_DOCTRINE/` before
@@ -42,19 +42,19 @@ All verbs are defined by a single manifest:
 [`src/myco/surface/manifest.yaml`](src/myco/surface/manifest.yaml).
 Both the CLI (`python -m myco <verb>`) and the MCP tool server
 (`myco.surface.mcp.build_server`) are generated from it. If you need
-to know what verbs exist, read that file — not this page.
+to know what verbs exist, read that file, not this page.
 
-Eighteen verbs (17 agent + 1 human-facing `brief`), grouped by
+Nineteen verbs (18 agent + 1 human-facing `brief`), grouped by
 subsystem. Every v0.5.2 alias still resolves through v1.0.0 with
 a one-shot `DeprecationWarning`; the canonical form is what you
 should emit in new calls:
 
-- **germination**  — `germinate` (was `genesis`)
-- **ingestion**    — `hunger`, `eat`, `sense`, `forage`
-- **digestion**    — `assimilate` (was `reflect`), `digest`, `sporulate` (was `distill`)
-- **circulation**  — `traverse` (was `perfuse`), `propagate`
-- **homeostasis**  — `immune`
-- **cycle**        — `senesce` (was `session-end`; `--quick` flag at v0.5.7 for SessionEnd hook), `fruit` (was `craft`), `molt` (was `bump`), `winnow` (was `evolve`), `ramify` (was `scaffold`), `graft` (new at v0.5.3), `brief` (new at v0.5.5 — the one human-facing exception to L0 principle 1)
+- **germination**: `germinate` (was `genesis`)
+- **ingestion**: `hunger`, `eat`, `sense`, `forage`, `excrete` (new at v0.5.24, safely delete a raw note with an audit tombstone)
+- **digestion**: `assimilate` (was `reflect`), `digest`, `sporulate` (was `distill`)
+- **circulation**: `traverse` (was `perfuse`), `propagate`
+- **homeostasis**: `immune`
+- **cycle**: `senesce` (was `session-end`; `--quick` flag at v0.5.7 for SessionEnd hook), `fruit` (was `craft`), `molt` (was `bump`), `winnow` (was `evolve`), `ramify` (was `scaffold`), `graft` (new at v0.5.3), `brief` (new at v0.5.5, the one human-facing exception to L0 principle 1)
 
 Every verb accepts `--project-dir`, `--exit-on`, and `--json`.
 
@@ -64,11 +64,11 @@ Every verb accepts `--project-dir`, `--exit-on`, and `--json`.
 and reports findings. At v0.5.10 the roster is **25 dimensions**
 across four categories:
 
-- **Mechanical (18)** — `M1`, `M2★`, `M3`, `MF1`, `MF2`, `MP1`, `MP2`,
-  `DC1`–`DC4`, `CS1★`, `FR1`, `PA1`, `CG1`, `CG2`, `DI1`
-- **Shipped (1)** — `SH1`
-- **Metabolic (3)** — `MB1★`, `MB2`, `MB3★`
-- **Semantic (3)** — `SE1`, `SE2`, `SE3`, `RL1`
+- **Mechanical (18)**: `M1`, `M2★`, `M3`, `MF1`, `MF2`, `MP1`, `MP2`,
+  `DC1` through `DC4`, `CS1★`, `FR1`, `PA1`, `CG1`, `CG2`, `DI1`
+- **Shipped (1)**: `SH1`
+- **Metabolic (3)**: `MB1★`, `MB2`, `MB3★`
+- **Semantic (3)**: `SE1`, `SE2`, `SE3`, `RL1`
 
 ★ = fixable via `immune --fix`. The full enumeration + severities +
 fixability are in
@@ -84,9 +84,9 @@ signal.
 
 `_canon.yaml` is validated twice:
 
-1. **At kernel import** — `myco.core.canon.load_canon` raises
+1. **At kernel import.** `myco.core.canon.load_canon` raises
    `CanonSchemaError` (exit 5) on shape violations.
-2. **At edit time** (optional) — IDEs that understand JSON-Schema
+2. **At edit time** (optional). IDEs that understand JSON-Schema
    validate against
    [`docs/schema/canon.schema.json`](docs/schema/canon.schema.json).
    Wiring snippets for VS Code / JetBrains / Neovim are in the
@@ -96,13 +96,13 @@ signal.
 
 Boundary-specific migration notes live under
 [`docs/migration/`](docs/migration/README.md). Start there when
-upgrading a downstream substrate across a MINOR bump — each file
+upgrading a downstream substrate across a MINOR bump; each file
 translates contract-layer deltas into operator-visible steps.
 
 ## How to read the substrate
 
 The substrate is a **graph**, not a tree (L0 principle 5). Every node
-— canon field, note, doctrine page, code module, external artifact —
+(canon field, note, doctrine page, code module, external artifact)
 is reachable from every other by traversal. If you find an orphan,
 that is circulation work.
 
@@ -117,7 +117,7 @@ L4  _canon.yaml + code + notes/                the live substrate
 ```
 
 Each lower layer is strictly subordinate to every higher layer. If L4
-disagrees with L3, L3 wins — but the disagreement is a finding to
+disagrees with L3, L3 wins, but the disagreement is a finding to
 record, not to silence.
 
 ## Substrate-local plugins (v0.5.3)
@@ -133,7 +133,7 @@ explicitly to override autodetection). They land under
 `<substrate>/.myco/manifest_overlay.yaml` declares appears alongside
 the built-ins. You inspect what has grafted on with
 `myco graft --list | --validate | --explain <name>`. The `MF2` lint
-dimension (mechanical / HIGH) keeps the auto-import audible — it
+dimension (mechanical / HIGH) keeps the auto-import audible: it
 fires on shape errors, overlay-YAML errors, or verb-name collisions.
 
 **Note for `myco-self`**: this repository IS the kernel. There is no
@@ -161,7 +161,7 @@ which already fires it at `/compact`). That composes `assimilate`
 findings) and returns a structured payload. For non-compact session
 exits (`/exit`, Ctrl+D, window-close), the SessionEnd hook fires
 `python -m myco senesce --quick` (assimilate only) to stay inside
-Claude Code's ~1.5 s SessionEnd kill budget — `immune` runs on the
+Claude Code's ~1.5 s SessionEnd kill budget; `immune` runs on the
 next boot. A clean senesce (either mode) is the acceptable end state;
 a dirty one is the starting point of the next session. The legacy
 `session-end` alias still resolves if you find it in an older script.

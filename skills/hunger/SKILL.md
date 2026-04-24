@@ -48,9 +48,9 @@ JSON with at least:
 
 ## Related verbs
 
-- `/myco:session-end` — the matched ritual at session close (the
+- `/myco:session-end`: the matched ritual at session close (the
   skill is kept under its legacy directory name; the canonical verb
   is `myco senesce`, with `--quick` for SessionEnd hooks).
-- Full verb set (18 verbs at v0.5.7: 17 agent + 1 human-facing
+- Full verb set (19 verbs at v0.5.24: 18 agent + 1 human-facing
   `brief`) is exposed as MCP tools when the plugin's MCP server is
   running.

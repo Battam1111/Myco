@@ -2,7 +2,7 @@
 #
 # Minimal OCI image for Myco's MCP server over stdio.
 #
-# Myco's primary install path is editable (`pip install -e`) —
+# Myco's primary install path is editable (`pip install -e`);
 # see CONTRIBUTING.md "Dev environment". This image is the
 # "install from PyPI + start over stdio" path, used by:
 #
@@ -19,7 +19,7 @@ FROM python:3.12-slim
 
 LABEL io.modelcontextprotocol.server.name="io.github.Battam1111/myco"
 LABEL org.opencontainers.image.title="Myco"
-LABEL org.opencontainers.image.description="Agent-first cognitive substrate for LLM agents. 18 verbs + 25 lint dims over a self-validating graph."
+LABEL org.opencontainers.image.description="Agent-first cognitive substrate for LLM agents. 19 verbs + 25 lint dims over a self-validating graph."
 LABEL org.opencontainers.image.source="https://github.com/Battam1111/Myco"
 LABEL org.opencontainers.image.documentation="https://github.com/Battam1111/Myco/tree/main/docs"
 LABEL org.opencontainers.image.licenses="MIT"
@@ -31,6 +31,6 @@ LABEL org.opencontainers.image.authors="Battam1111"
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir 'myco[mcp]'
 
-# stdio transport — the MCP host pipes stdin/stdout into this
+# stdio transport: the MCP host pipes stdin/stdout into this
 # process. Exec form so signals reach Python directly.
 ENTRYPOINT ["mcp-server-myco"]

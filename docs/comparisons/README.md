@@ -3,7 +3,7 @@
 Honest comparison against the five closest tools in the
 "agent memory / long-term context" space: **LangChain memory**,
 **MemGPT / Letta**, **Mem0**, **Cognee**, and **LlamaIndex
-memory**. No "we win at everything" narrative — each tool
+memory**. No "we win at everything" narrative. Each tool
 solves a real problem; Myco solves a different one.
 
 Use this doc to decide: do you want Myco, or do you want one of
@@ -38,7 +38,7 @@ the others (or both)?
 
 Myco is in the upper-right: self-hosted, drift-resistance-over-
 retrieval-latency. It's the corner of the design space nobody
-else is sitting in — every other tool prioritises retrieval
+else is sitting in. Every other tool prioritises retrieval
 quality over substrate integrity.
 
 ## Detailed comparisons
@@ -70,10 +70,10 @@ call Myco's MCP tools or shell out to its CLI.
 
 | Axis | MemGPT / Letta | Myco |
 |---|---|---|
-| Core abstraction | Memory paging (main ↔ archival) | Filesystem graph + 18 verbs |
+| Core abstraction | Memory paging (main / archival) | Filesystem graph + 19 verbs |
 | Retrieval | Embedding + recall triggers | Graph traversal + keyword grep |
-| Governance | Implicit (the agent decides when to page) | Explicit (`fruit`/`winnow`/`molt` loop) |
-| Graph | Not primary — memory is a store | Primary — substrate IS a graph |
+| Governance | Implicit (the agent decides when to page) | Explicit (`fruit` / `winnow` / `molt` loop) |
+| Graph | Not primary, memory is a store | Primary, substrate IS a graph |
 | Extension | Agent types + tools | Entry-points-driven dims + adapters + verbs |
 
 MemGPT's tiered-memory paper was one of Myco's inspirations;
@@ -86,7 +86,7 @@ memories may evolve, enforced by lint.
 context window" product with multi-agent support.
 
 **Pick Myco when**: you want the agent to maintain the kernel
-that maintains the memory — editable by default, doctrine-
+that maintains the memory: editable by default, doctrine-
 first, self-validating.
 
 ### Myco vs Mem0
@@ -136,7 +136,7 @@ explicit + auditable.
 | Graph | Not primary | Primary |
 
 LlamaIndex's memory abstractions handle chat-history well.
-Myco's scope is wider — a substrate outlives any single
+Myco's scope is wider. A substrate outlives any single
 LlamaIndex session.
 
 **Pick LlamaIndex memory when**: you're already on LlamaIndex
@@ -153,7 +153,7 @@ Myco is a badly-matched tool when:
    with < 500 KB of material works great with vanilla context.
    Myco's overhead only pays off at scale.
 2. **You need sub-100 ms retrieval latency.** Myco's
-   `myco sense` is grep — fast for < 100 MB substrates,
+   `myco sense` is grep. Fast for < 100 MB substrates,
    slower than optimized vector DBs for GB-scale corpora.
 3. **You want a managed service.** Myco is self-hosted; if the
    operator doesn't want to install anything, Mem0 or Letta's
@@ -174,10 +174,10 @@ of the relevant comparison table above. Myco is not universal.
 | Self-host | ⭐ | ⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐ |
 | Graph determinism | ⭐ | ⭐ | ⭐ | ⭐⭐ | ⭐⭐ | ⭐⭐⭐ |
 | Multi-host | ⭐⭐ | ⭐⭐ | ⭐ | ⭐ | ⭐ | ⭐⭐⭐ |
-| Contract governance | — | — | — | — | — | ⭐⭐⭐ |
+| Contract governance | n/a | n/a | n/a | n/a | n/a | ⭐⭐⭐ |
 
 Myco wins on drift-resistance, graph determinism, multi-host
-operation, and contract governance — because those are the axes
+operation, and contract governance, because those are the axes
 it was built to optimise. It loses on retrieval latency because
 it doesn't try. Pick on your axis.
 
@@ -187,6 +187,6 @@ Read the [L0_VISION.md](../architecture/L0_VISION.md)'s five
 root principles. If those five sentences describe what you
 want from your agent's memory layer, Myco is a fit. If any
 one of them strikes you as unnecessary structure, use one of
-the simpler tools above — you'll be happier.
+the simpler tools above. You'll be happier.
 
 Myco is opinionated on purpose. That's not for everyone.

@@ -1,8 +1,8 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.Battam1111/myco",
-  "title": "Myco \u2014 Agent-First Cognitive Substrate",
-  "description": "Cognitive substrate for LLM agents. 18 verbs + 25 lint dims over a self-validating graph.",
+  "title": "Myco: Agent-First Cognitive Substrate",
+  "description": "Cognitive substrate for LLM agents. 19 verbs + 25 lint dims over a self-validating graph.",
   "repository": {
     "url": "https://github.com/Battam1111/Myco",
     "source": "github"

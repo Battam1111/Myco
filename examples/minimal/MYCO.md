@@ -17,8 +17,8 @@ day one; as you `myco eat` material in, it grows.
    required" and writes a boot brief to
    `.myco_state/boot_brief.md`.
 2. Read [the full Myco README](https://github.com/Battam1111/Myco/blob/main/README.md)
-   if you haven't yet. It explains the 18-verb surface + the
-   five L0 principles + R1-R7 of the hard contract.
+   if you haven't yet. It explains the 19-verb surface + the
+   five L0 principles + R1 through R7 of the hard contract.
 3. When you have something to capture, call
    `python -m myco eat --content "<your insight>"`.
 

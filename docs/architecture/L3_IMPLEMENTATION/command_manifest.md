@@ -132,15 +132,19 @@ lint run:
 - No orphan entries in the manifest pointing at non-existent handlers.
 - CLI subcommand set == MCP tool set (no divergence).
 
-## Verb inventory (v0.5.7)
+## Verb inventory (v0.5.24)
 
 v0.4.0 shipped twelve verbs. v0.5.1 added four governance verbs
 (MAJOR 9 and 10) to reach sixteen. v0.5.3 **renamed nine** existing
 verbs to canonical fungal-bionic names (old names kept as
 deprecated aliases throughout 0.x) and **added one** new verb
-(`graft`), reaching seventeen. v0.5.5 added `brief` — the one
-carved human-facing exception to L0 principle 1. Current total:
-**eighteen verbs** (17 agent + 1 human).
+(`graft`), reaching seventeen. v0.5.5 added `brief`, the one
+carved human-facing exception to L0 principle 1, reaching eighteen.
+v0.5.24 added `excrete`, a new ingestion verb that safely deletes
+a raw note by moving it to `.myco_state/excreted/` with an audit
+tombstone (scope-locked to `notes/raw/`; integrated and distilled
+notes are protected by the append-only ingestion doctrine).
+Current total: **nineteen verbs** (18 agent + 1 human).
 
 At v0.5.6 the dimension roster that polices the manifest gained
 **MP1** (mechanical/HIGH — "no LLM-provider import from inside

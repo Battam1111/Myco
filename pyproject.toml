@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "myco"
 dynamic = ["version"]
-description = "Agent-First symbiotic cognitive substrate — 18 fungal-named verbs (17 agent + 1 human `brief`), 11-dimension immune, substrate-local plugins, editable-by-default install, universal MCP stdio server."
+description = "Agent-First symbiotic cognitive substrate. 19 fungal-named verbs (18 agent + 1 human `brief`), 25-dimension immune, substrate-local plugins, editable-by-default install, universal MCP stdio server."
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.10"
@@ -86,13 +86,13 @@ dev = [
 # never have to reason about the user's venv or whether `python` vs
 # `python3` is the right alias.
 #
-#   myco              — the manifest-driven CLI (18 verbs at v0.5.7:
-#                       17 agent + 1 human-facing `brief`).
-#   mcp-server-myco   — the MCP stdio/sse launcher; follows the
-#                       community `mcp-server-<name>` convention so
-#                       tools like uvx, pipx, and the MCP Registry
-#                       can pick it up without configuration.
-#   myco-install      — zero-copy-paste install into any of ten MCP
+#   myco              the manifest-driven CLI (19 verbs at v0.5.24:
+#                     18 agent + 1 human-facing `brief`).
+#   mcp-server-myco   the MCP stdio/sse launcher; follows the
+#                     community `mcp-server-<name>` convention so
+#                     tools like uvx, pipx, and the MCP Registry
+#                     can pick it up without configuration.
+#   myco-install      zero-copy-paste install into any of ten MCP
 #                       hosts (Claude Code, Claude Desktop, Cursor,
 #                       Windsurf, Zed, VS Code, OpenClaw, Gemini CLI,
 #                       Codex CLI, Goose). Writes the correct schema

@@ -8,7 +8,7 @@
 ## Title
 
 ```
-[P] Myco — a self-validating cognitive substrate for long-running LLM agents (25 lint dims, AST-derived mycelium graph, no vector DB)
+[P] Myco: a self-validating cognitive substrate for long-running LLM agents (25 lint dims, AST-derived mycelium graph, no vector DB)
 ```
 
 ## Body
@@ -18,12 +18,12 @@ I've been building Myco (https://github.com/Battam1111/Myco), a long-lived files
 
 Design thesis
 
-Most agent-memory systems optimise a retrieval metric (precision@k, latency, relevant-chunks-returned). Myco optimises a different variable: drift resistance under continuous edit. After six months of unstructured-text-file memory the failure mode isn't "the agent couldn't find the right chunk" — it's "the substrate contradicts itself and nobody noticed". Myco's primary mechanism for this is a 25-dimension lint system enforced mechanically:
+Most agent-memory systems optimise a retrieval metric (precision@k, latency, relevant-chunks-returned). Myco optimises a different variable: drift resistance under continuous edit. After six months of unstructured-text-file memory the failure mode isn't "the agent couldn't find the right chunk". It's "the substrate contradicts itself and nobody noticed". Myco's primary mechanism for this is a 25-dimension lint system enforced mechanically:
 
-- 18 mechanical dims (canon shape, write-surface, subsystem presence, docstring hygiene, ...)
+- 18 mechanical dims (canon shape, write-surface, subsystem presence, docstring hygiene, and more)
 - 1 shipped dim (package-version sync)
 - 3 metabolic dims (raw-backlog, integration progress)
-- 3 semantic dims (graph connectedness, canon ↔ reality drift, self-cycles) + 1 rule-reference dim
+- 3 semantic dims (graph connectedness, canon and reality drift, self-cycles) + 1 rule-reference dim
 
 Every dim is one file under src/myco/homeostasis/dimensions/; registration is entry-points-driven so third-party substrates add their own lint rules without forking.
 
@@ -36,23 +36,24 @@ The mycelium graph is not embedding-derived. Nodes are substrate-relative paths;
 3. Markdown `[text](path)` links in markdown bodies (fenced code skipped)
 4. AST import edges between Python modules under src/**/*.py + docstring doc-ref edges from module docstrings
 
-That makes the graph deterministic + debuggable — "why did the agent miss this connection?" becomes "which of the four sources should have carried the edge?" instead of "which embedding-similarity threshold needs tuning?".
+That makes the graph deterministic and debuggable. "Why did the agent miss this connection?" becomes "which of the four sources should have carried the edge?" instead of "which embedding-similarity threshold needs tuning?".
 
 Contract evolution
 
 The contract itself is first-class mutable. Three verbs compose the governance loop:
 
-- fruit: scaffolds a three-round craft doc (claim → rebuttal → revision → counter-rebuttal → convergence) under docs/primordia/
+- fruit: scaffolds a three-round craft doc (claim, rebuttal, revision, counter-rebuttal, convergence) under docs/primordia/
 - winnow: gates the craft's shape against a protocol (all five rounds present + not boilerplate + frontmatter well-formed)
 - molt: mutates _canon.yaml's contract_version in lockstep with synced_contract_version, appends to docs/contract_changelog.md, increments waves.current
 
-v0.5.10 is 10 molts past v0.5.0 (2026-04-17). Every molt has a craft doc trail; no silent contract drift.
+v0.5.24 is 24 molts past v0.5.0 (2026-04-24). Every molt has a craft doc trail; no silent contract drift.
 
 Concrete numbers
 
-- 757 pytest passing
-- 0 immune findings on the self-substrate (v0.5.9 + v0.5.10 cleanup baseline)
+- 875 pytest passing
+- 0 immune findings on the self-substrate (v0.5.9 cleanup baseline, held through v0.5.24)
 - 10 MCP host integrations via one `myco-install` command
+- A-tier on Glama's Tool Definition Quality rubric (2.53 to 3.78 across v0.5.22 through v0.5.23, pushing higher in v0.5.24)
 - 3 exit-code bands (0-2 lint-driven, 3 operational, 4 substrate-not-found, 5 canon-schema)
 
 What this is not
@@ -66,7 +67,7 @@ Repo + PyPI + doctrine:
 - https://pypi.org/project/myco/
 - https://github.com/Battam1111/Myco/tree/main/docs/architecture
 
-Questions / critiques welcome — especially on where the 25-dim surface is over-engineered or under-engineered for the drift-resistance target.
+Questions / critiques welcome, especially on where the 25-dim surface is over-engineered or under-engineered for the drift-resistance target.
 ```
 
 ---
@@ -75,8 +76,8 @@ Questions / critiques welcome — especially on where the 25-dim surface is over
 
 - **`[P]` tag** is mandatory for project posts; without it
   moderators will flag.
-- **"Design thesis" → "Graph representation" → "Contract
-  evolution" → "Concrete numbers" → "What this is not"** is the
+- **"Design thesis" to "Graph representation" to "Contract
+  evolution" to "Concrete numbers" to "What this is not"** is the
   r/MachineLearning-friendly structure. Thesis first, evidence
   second, honest-limits last.
 - **The "what this is not" section** matters more here than on
@@ -85,7 +86,7 @@ Questions / critiques welcome — especially on where the 25-dim surface is over
   evaluation?" critique without defensiveness.
 - **No marketing superlatives.** This sub will downvote anything
   that feels pitch-y.
-- **Direct link to doctrine tree** — readers who want to verify
+- **Direct link to doctrine tree.** Readers who want to verify
   the claims can click through to the actual L0/L1/L2 markdown.
 
 ## Reality check
