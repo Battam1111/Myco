@@ -341,8 +341,7 @@ def test_v0_5_24_excrete_is_present() -> None:
     m = load_manifest()
     names = {c.name for c in m.commands}
     assert "excrete" in names, (
-        "v0.5.24 requires the 'excrete' verb; manifest has: "
-        f"{sorted(names)}"
+        f"v0.5.24 requires the 'excrete' verb; manifest has: {sorted(names)}"
     )
     excrete = m.by_name("excrete")
     assert excrete.mcp_tool == "myco_excrete"
@@ -389,8 +388,7 @@ def test_v0_5_24_examples_populated_on_high_value_args() -> None:
         if arg is None or not arg.examples:
             missing.append((cmd_name, arg_name))
     assert not missing, (
-        "v0.5.24 expects Field(examples=[...]) on these args; missing: "
-        f"{missing}"
+        f"v0.5.24 expects Field(examples=[...]) on these args; missing: {missing}"
     )
 
 

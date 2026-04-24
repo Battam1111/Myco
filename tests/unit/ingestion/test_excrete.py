@@ -76,9 +76,7 @@ def test_excrete_real_run_moves_note_and_annotates_frontmatter(
     # Original gone.
     assert not note.exists()
     # Tombstone present.
-    tombstone = (
-        genesis_substrate / ".myco_state" / "excreted" / f"{stem}.md"
-    )
+    tombstone = genesis_substrate / ".myco_state" / "excreted" / f"{stem}.md"
     assert tombstone.is_file()
     text = tombstone.read_text(encoding="utf-8")
     assert "excreted_at: '" in text
