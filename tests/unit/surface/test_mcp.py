@@ -11,14 +11,70 @@ from myco.surface.mcp import build_tool_spec
 
 
 def test_every_verb_has_tool_spec() -> None:
+    """v0.5.23: tool spec description is ``spec.mcp_description`` (the
+    rich long-form text), falling back to ``spec.summary`` only when
+    the manifest entry didn't supply a ``description`` field. Every
+    emitted spec must have a non-empty description + object schema
+    with a ``properties`` map.
+    """
     m = load_manifest()
     for spec in m.commands:
         tool = build_tool_spec(spec)
         assert tool["name"] == spec.mcp_tool
-        assert tool["description"] == spec.summary
+        assert tool["description"] == spec.mcp_description
+        assert tool["description"]  # non-empty
         schema = tool["inputSchema"]
         assert schema["type"] == "object"
         assert "properties" in schema
+
+
+def test_every_verb_has_rich_mcp_description() -> None:
+    """v0.5.23: enforce a floor on MCP tool description quality. Every
+    non-deprecated verb must have a description >= 200 chars covering
+    what/when/side-effects — the minimum to score a passable tdqs on
+    Glama's TDQS rubric. Deprecated aliases get a one-line redirect
+    header and do not participate in this check.
+    """
+    m = load_manifest()
+    for spec in m.commands:
+        # Canonical verbs only (aliases point at the same spec, so
+        # iterating spec.commands iterates canonicals).
+        desc = spec.mcp_description
+        assert len(desc) >= 200, (
+            f"{spec.name} has MCP description of {len(desc)} chars "
+            f"(< 200 floor); enrich manifest.yaml::description for "
+            f"this verb"
+        )
+
+
+def test_every_param_has_schema_description() -> None:
+    """v0.5.23: every parameter on every tool must have a non-empty
+    schema ``description`` field (the ``help`` from the manifest,
+    propagated via Annotated[T, Field(description=...)] in
+    ``_build_handler_signature``). The check runs against FastMCP's
+    emitted schema, not ``build_tool_spec``, to lock the
+    wire-level contract the MCP client sees.
+    """
+    import asyncio
+
+    from myco.surface.mcp import build_server
+
+    m = load_manifest()
+    server = build_server(m)
+    tools = asyncio.run(server.list_tools())
+    for t in tools:
+        props = t.inputSchema.get("properties", {})
+        for pname, pschema in props.items():
+            desc = pschema.get("description", "")
+            assert desc, (
+                f"tool {t.name!r} param {pname!r} has no description "
+                f"in its JSON schema — check manifest.yaml or the "
+                f"signature builder's Field(description=...) wrapping"
+            )
+            assert len(desc) >= 20, (
+                f"tool {t.name!r} param {pname!r} description is too "
+                f"short ({len(desc)} chars): {desc!r}"
+            )
 
 
 def test_list_arg_has_items_schema() -> None:
