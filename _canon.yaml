@@ -67,6 +67,15 @@ system:
       # server. See docs/primordia/glama_onboarding_craft_*.md for
       # the full onboarding runbook.
       - "glama.json"
+      # v0.5.24 (2026-04-24) runtime state directory. Required by
+      # ``myco_excrete`` (new ingestion verb) which moves deleted raw
+      # notes into ``.myco_state/excreted/`` as an audit tombstone
+      # rather than hard-deleting them. Also covers the reflex ledger
+      # / pulse cache / session markers that the kernel writes here.
+      # The directory is gitignored; this pattern only authorises
+      # Myco's own write-surface guard to touch it — it does NOT
+      # publish state to version control.
+      - ".myco_state/**"
   hard_contract:
     rules_ref: "docs/architecture/L1_CONTRACT/protocol.md"
     rule_count: 7

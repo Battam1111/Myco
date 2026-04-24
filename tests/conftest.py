@@ -68,6 +68,7 @@ def minimal_canon_text() -> str:
               - "docs/**"
               - "src/**"
               - ".myco/**"
+              - ".myco_state/**"
           hard_contract:
             rule_count: 7
         subsystems:

@@ -1,4 +1,4 @@
-# Myco v0.5.23 command manifest — SSoT for CLI + MCP verb surface.
+# Myco v0.5.24 command manifest — SSoT for CLI + MCP verb surface.
 #
 # Governing doc: docs/architecture/L3_IMPLEMENTATION/command_manifest.md
 # Governing craft: docs/primordia/v0_5_3_fungal_vocabulary_craft_2026-04-17.md
@@ -6,18 +6,29 @@
 # Every verb appears here exactly once. CLI and MCP both read this file.
 #
 # v0.5.3 renamed 9 verbs to fungal-bionic canonical names. Every old
-# name is retained as an alias (CLI + MCP); invoking an alias fires a
-# one-shot DeprecationWarning. Aliases are scheduled to be removed at
-# v1.0.0, giving the entire 0.x tail full backward compatibility.
+# name was retained as an alias (CLI + MCP); invoking an alias fires
+# a one-shot DeprecationWarning.
 #
-# v0.5.23 schema: each verb may declare BOTH a short ``summary`` (CLI
-# --help, short and scannable) and a long-form ``description`` (MCP
-# tool description, covers what-it-does / when-to-use / side-effects
-# / return-shape per Glama's Tool Definition Quality rubric). When a
-# command omits ``description``, the MCP tool description falls back
-# to ``summary``. Every arg's ``help`` text is propagated verbatim
-# into the MCP JSON schema as the parameter's ``description`` field
-# via pydantic's Annotated[T, Field(description=...)] wrapping.
+# v0.5.24: MCP-side aliases REMOVED (previously under
+# ``mcp_tool_aliases:`` on each entry). CLI-side aliases
+# (``aliases:``) still resolve for scripts invoking ``myco genesis``
+# etc. The removal closes Glama TDQS's minimum-tool penalty (the 9
+# deprecated MCP aliases were pulling the min from 4.2 → 2.9 and
+# the toolCountAppropriateness coherence score from 5 → 3). MCP
+# clients must migrate to the canonical tool names (myco_germinate,
+# myco_assimilate, myco_sporulate, myco_traverse, myco_senesce,
+# myco_fruit, myco_molt, myco_winnow, myco_ramify). The migration
+# deadline was always v1.0.0; v0.5.24 accelerates only the MCP side.
+#
+# v0.5.23+ schema: each verb may declare BOTH a short ``summary``
+# (CLI --help, short and scannable) and a long-form ``description``
+# (MCP tool description, covers what-it-does / when-to-use / side-
+# effects / return-shape per Glama's Tool Definition Quality
+# rubric). When a command omits ``description``, the MCP tool
+# description falls back to ``summary``. Every arg's ``help`` text
+# is propagated verbatim into the MCP JSON schema as the parameter's
+# ``description`` field via pydantic's
+# Annotated[T, Field(description=...)] wrapping.
 schema_version: "1"
 
 commands:
@@ -52,24 +63,36 @@ commands:
     mcp_tool: "myco_germinate"
     pre_substrate: true
     aliases: ["genesis"]
-    mcp_tool_aliases: ["myco_genesis"]
     args:
       - name: "project-dir"
         type: "path"
         required: true
         help: "Absolute or relative path of the directory that will host the new substrate. Must exist and be writable; the _canon.yaml will be created inside this directory (not a subdirectory). Use forward slashes or escaped backslashes on Windows."
+        examples:
+          - "/workspace/neurips-2026-research"
+          - "C:/Users/you/projects/my-company-infra"
       - name: "substrate-id"
         type: "str"
         required: true
         help: "Stable slug identifying this substrate across the mycelial network. Used in cross-substrate propagation + the ~/.myco/substrates.yaml registry. Recommend kebab-case, human-readable (e.g. 'neurips-2026-research' or 'my-company-infra'). No uniqueness check; reuse silently overwrites registry entries."
+        examples:
+          - "neurips-2026-research"
+          - "my-company-infra"
       - name: "tags"
         type: "list[str]"
         default: []
         help: "Free-form affiliation tags attached to the substrate identity (e.g. ['research','production','personal']). Per L0: tags are NOT boundaries — they don't gate writes, they only describe. Stored at _canon.yaml::identity.tags and surfaced in substrate_pulse for grep-friendly discovery."
+        examples:
+          - "research"
+          - "production"
+          - "personal"
       - name: "entry-point"
         type: "str"
         default: "MYCO.md"
         help: "Filename of the agent-entry markdown that the substrate opens with. Defaults to MYCO.md (Myco-native convention). Override to 'CLAUDE.md' when you want the substrate to share an entry with Claude-ecosystem conventions. The file gets created if absent; existing files are not overwritten unless --force."
+        examples:
+          - "MYCO.md"
+          - "CLAUDE.md"
       - name: "dry-run"
         type: "bool"
         default: false
@@ -151,20 +174,37 @@ commands:
       - name: "content"
         type: "str"
         help: "Literal text body of the note, passed inline as a string. Mutually exclusive with path and url. Use for capturing decisions, frictions, ideas expressed in prose. Empty-string is rejected as UsageError to prevent silent empty notes — pass content=' ' (single space) if you really want an empty body. Max size bounded by normal memory; no hard limit enforced."
+        examples:
+          - "Decision: pin python 3.12 in CI because 3.13 breaks httpx."
+          - "Friction: README quickstart example fails on Windows path separators."
       - name: "path"
         type: "path"
         help: "Absolute or relative path to a local file or directory to ingest. Resolved against substrate root when relative. Mutually exclusive with content and url. File adapters auto-selected by extension (text, code, PDF via pypdf, HTML via beautifulsoup if myco[adapters] installed). Directory ingestion walks recursively and produces one note per ingestible file; non-ingestible files are silently skipped."
+        examples:
+          - "docs/primordia/v0521_glama_findings.md"
+          - "/tmp/meeting_2026-04-24.txt"
       - name: "url"
         type: "str"
         help: "http:// or https:// URL to fetch and ingest. Mutually exclusive with content and path. Requires myco[adapters] (httpx). SSRF-guarded: rejects loopback (127.0.0.0/8), link-local, private (10.x/172.16-31.x/192.168.x), multicast, and reserved IANA ranges; scheme restricted to http/https (no file/gopher/ftp/data). Response body capped at 10MB. Content-Type auto-detected: text/html strips tags, application/pdf extracts text, application/json preserves, otherwise raw text."
+        examples:
+          - "https://modelcontextprotocol.io/specification/server"
+          - "https://glama.ai/mcp/servers/@Battam1111/myco"
       - name: "tags"
         type: "list[str]"
         default: []
         help: "Tags attached to the ingested note's frontmatter, merged with any adapter-provided tags (URL adapter adds 'url' + the domain; file adapters may add extension-based tags). Final tag list is sorted deterministically. Tags are free-form — no validation. Common patterns: decisions, frictions, insights, boilerplate-type labels like 'chat-log' or 'paper-draft'."
+        examples:
+          - "decision"
+          - "friction"
+          - "chat-log"
       - name: "source"
         type: "str"
         default: "agent"
         help: "Provenance tag recorded in the note's source frontmatter field. Default 'agent' for agent-authored content. For path/url ingestion, the adapter overrides this with the actual provenance (file path or URL), so this default only affects content= mode. Use to distinguish eat-sourced notes from propagation-sourced or bootstrap-sourced notes in the substrate metabolism."
+        examples:
+          - "agent"
+          - "operator"
+          - "propagation"
 
   - name: "sense"
     subsystem: "ingestion"
@@ -200,6 +240,10 @@ commands:
         type: "str"
         required: true
         help: "Literal substring to search for. Case-insensitive. No regex, no glob — pass 'error' not 'err.*' (regex-in-query is treated as literal). For multi-term search, call sense multiple times and union results. Whitespace-only queries return empty hits."
+        examples:
+          - "write_surface"
+          - "R4 eat"
+          - "assimilate"
 
   - name: "forage"
     subsystem: "ingestion"
@@ -233,6 +277,65 @@ commands:
         type: "path"
         default: null
         help: "Absolute or relative path to scan. When null/omitted, defaults to the substrate root. Directory is walked recursively; files are checked one-by-one against the adapter registry. For a single-file preflight, pass the file path directly (items list will have 0 or 1 entries)."
+        examples:
+          - "notes/raw"
+          - "docs/primordia"
+          - "/tmp/inbox"
+
+  - name: "excrete"
+    subsystem: "ingestion"
+    handler: "myco.ingestion.excrete:run"
+    summary: "Delete a raw note (typo / accidental ingest / duplicate), with an audit tombstone."
+    description: |
+      Remove a single raw note from notes/raw/ when it should never
+      have been captured: typo-paste, accidental project_dir routing,
+      duplicate ingest, test data. The note is NOT unlinked —
+      excrete moves it to .myco_state/excreted/<stem>.md and
+      annotates its frontmatter with excreted_at, excreted_reason,
+      and excreted_from, preserving an audit trail.
+
+      Use this when: you just ran myco_eat and immediately realized
+      the content was garbage, or myco_hunger shows a raw note that
+      should not have been captured. Do NOT use this to remove
+      integrated or distilled notes — those are protected (R4 eat-
+      insights + R7 top-down layering: integrated is a stable lower
+      layer, silent deletion would rewrite history). Attempts to
+      target notes/integrated/ or notes/distilled/ are refused with
+      UsageError. For substantive removal of integrated material,
+      use a myco_fruit craft proposal + myco_winnow review cycle.
+
+      Side effects: moves one file from notes/raw/ to
+      .myco_state/excreted/. Writes the moved file with augmented
+      frontmatter. .myco_state/ must be in R6 write_surface (added
+      to template write_surfaces in v0.5.24; existing substrates may
+      need to add .myco_state/** manually to _canon.yaml). Excreted
+      tombstones are gitignored by default.
+
+      Returns: { exit_code, note_id, from_path, to_path, reason,
+      excreted_at, dry_run }. exit_code 3 on UsageError (missing
+      note_id, missing reason, or note not in notes/raw/); 0 on
+      success, including dry-run.
+    mcp_tool: "myco_excrete"
+    args:
+      - name: "note-id"
+        type: "str"
+        required: true
+        help: "Stem of the raw note to excrete (filename minus .md, no directory prefix). Example: '20260424T080500Z_typo-paste'. List available stems via myco_forage --path notes/raw. The stem is looked up under notes/raw/ — targeting anything outside that directory is a UsageError."
+        examples:
+          - "20260424T080500Z_typo-paste"
+          - "20260423T145910Z_duplicate-of-abc"
+      - name: "reason"
+        type: "str"
+        required: true
+        help: "Human-readable explanation of why this note is being deleted. Required — there is no way to excrete without a reason. The text is recorded in the tombstone's frontmatter as excreted_reason. Common values: 'typo-paste', 'wrong-substrate', 'accidental-ingest', 'duplicate-of-<other-note-id>', 'test-data-cleanup'. Single-quoted YAML scalar; apostrophes are auto-escaped."
+        examples:
+          - "typo-paste"
+          - "wrong-substrate"
+          - "duplicate-of-20260423T145910Z_abc"
+      - name: "dry-run"
+        type: "bool"
+        default: false
+        help: "When true, compute the exact move (from/to paths, excreted_at timestamp) and return the audit payload without writing. Use before destructive calls to confirm the right note is selected. Default false (moves immediately)."
 
   - name: "assimilate"
     subsystem: "digestion"
@@ -266,12 +369,14 @@ commands:
       synced_contract_version_updated }.
     mcp_tool: "myco_assimilate"
     aliases: ["reflect"]
-    mcp_tool_aliases: ["myco_reflect"]
     args:
       - name: "note-id"
         type: "str"
         default: null
         help: "Optional stem of a single raw note to promote (e.g. '20260423T054055Z_v0-5-22-migration-marker'). When null/omitted, assimilates ALL eligible notes in notes/raw/. Pass the stem (no extension, no directory prefix) as you'd read it from the filename. Nonexistent stems are returned as errors in the outcomes list, not raised."
+        examples:
+          - "20260423T054055Z_v0-5-22-migration-marker"
+          - "20260424T091230Z_decision-pin-py312"
 
   - name: "digest"
     subsystem: "digestion"
@@ -303,6 +408,9 @@ commands:
         type: "str"
         required: true
         help: "Stem of the raw note to promote (filename minus the .md extension, no directory prefix). Example: '20260423T054055Z_v0-5-22-migration-marker'. Look up stems via myco_forage or by listing notes/raw/ directly. Passing an already-integrated note's id is a no-op with status='already_integrated'."
+        examples:
+          - "20260423T054055Z_v0-5-22-migration-marker"
+          - "20260424T091230Z_decision-pin-py312"
       - name: "dry-run"
         type: "bool"
         default: false
@@ -337,16 +445,21 @@ commands:
       Returns: { exit_code, path, slug }.
     mcp_tool: "myco_sporulate"
     aliases: ["distill"]
-    mcp_tool_aliases: ["myco_distill"]
     args:
       - name: "slug"
         type: "str"
         required: true
         help: "Kebab-case identifier for the distilled proposal (becomes d_<slug>.md). Example: 'v0521-glama-findings'. Should be descriptive enough to disambiguate from sibling proposals. No validation beyond the filesystem's own filename rules; avoid slashes, spaces, and reserved chars."
+        examples:
+          - "v0521-glama-findings"
+          - "q2-2026-metabolism-review"
       - name: "sources"
         type: "list[str]"
         default: []
         help: "Optional explicit list of note paths (relative to substrate root) to include as sources. When empty/omitted, sporulate auto-selects integrated notes whose tags match the slug's keywords. Pass explicit sources for tight control over what gets bundled. Paths that don't exist are errors."
+        examples:
+          - "notes/integrated/20260420T120000Z_glama-score.md"
+          - "notes/integrated/20260421T090000Z_glama-rescan.md"
 
   - name: "traverse"
     subsystem: "circulation"
@@ -377,12 +490,16 @@ commands:
       cached }.
     mcp_tool: "myco_traverse"
     aliases: ["perfuse"]
-    mcp_tool_aliases: ["myco_perfuse"]
     args:
       - name: "scope"
         type: "str"
         default: "all"
         help: "Which subset of the substrate to walk. One of: 'canon' (just _canon.yaml + its outbound refs), 'notes' (notes/raw/**, notes/integrated/**, notes/distilled/**), 'docs' (docs/**), 'all' (default — everything including src/ python imports). Narrow scopes are cheaper on large substrates."
+        examples:
+          - "all"
+          - "canon"
+          - "notes"
+          - "docs"
 
   - name: "propagate"
     subsystem: "circulation"
@@ -418,14 +535,24 @@ commands:
         type: "path"
         required: true
         help: "Absolute or relative path to the downstream substrate's root (must contain _canon.yaml). When relative, resolved against this substrate's root. The downstream must already be a Myco substrate — propagate will NOT auto-germinate a dst; run myco_germinate there first."
+        examples:
+          - "/workspace/downstream-substrate"
+          - "../sibling-project"
       - name: "select"
         type: "str"
         default: "integrated"
         help: "Which layer of this substrate's metabolism to propagate. One of: 'integrated' (default, notes/integrated/**.md), 'distilled' (notes/distilled/**.md), 'both'. Raw notes are never propagated (they haven't graduated past the intake queue yet). The propagated files land in the destination's notes/raw/ regardless — receiver re-metabolizes."
+        examples:
+          - "integrated"
+          - "distilled"
+          - "both"
       - name: "commit"
         type: "str"
         default: null
         help: "Optional git commit SHA (of the source substrate) to record in the propagated notes' frontmatter as the provenance stamp. When null, 'unknown' is recorded. Useful for traceability: lets downstream agents audit 'what version of source A produced this note'."
+        examples:
+          - "a1b2c3d4"
+          - "HEAD"
       - name: "dry-run"
         type: "bool"
         default: false
@@ -467,6 +594,11 @@ commands:
         type: "list[str]"
         default: []
         help: "Optional subset of dimension IDs to run (e.g. ['M1','SE1','MB2']). When empty, runs all 25. Use to re-check specific dimensions after fixing their findings without the full suite's cost. IDs are case-sensitive; see myco_immune --list for the full enumeration."
+        examples:
+          - "M1"
+          - "SE1"
+          - "MB2"
+          - "DC4"
       - name: "fix"
         type: "bool"
         default: false
@@ -479,6 +611,10 @@ commands:
         type: "str"
         default: null
         help: "When non-null, print the prose documentation (class docstring) for the named dimension and exit. Passing an unknown dimension id raises UsageError. Mutually incompatible with fix=true and list=true."
+        examples:
+          - "M1"
+          - "SE1"
+          - "CG2"
 
   - name: "senesce"
     subsystem: "cycle"
@@ -509,7 +645,6 @@ commands:
       skeleton_downgrade_applied, exit_on, fix, fixes }, mode }.
     mcp_tool: "myco_senesce"
     aliases: ["session-end"]
-    mcp_tool_aliases: ["myco_session_end"]
     args:
       - name: "quick"
         type: "bool"
@@ -548,20 +683,30 @@ commands:
       winnow passes.
     mcp_tool: "myco_fruit"
     aliases: ["craft"]
-    mcp_tool_aliases: ["myco_craft"]
     args:
       - name: "topic"
         type: "str"
         required: true
         help: "Human-readable topic phrase, used as the doc title. Automatically slugged to lowercase-kebab (spaces → underscores, non-alphanumerics → underscores) and embedded in the filename as <slug>_craft_<date>.md. Example: 'Glama onboarding runbook' becomes glama_onboarding_runbook_craft_2026-04-24.md."
+        examples:
+          - "Glama onboarding runbook"
+          - "v0.5.24 contract upgrade"
       - name: "kind"
         type: "str"
         default: "design"
         help: "Free-form kind tag describing the craft's nature: 'design' (default, default architectural proposals), 'audit' (retrospective of an existing system), 'migration' (contract/data schema shift), 'operational' (runbook), etc. Recorded in frontmatter as kind:<value>; used for docs/primordia/ categorization by readers."
+        examples:
+          - "design"
+          - "audit"
+          - "migration"
+          - "operational"
       - name: "date"
         type: "str"
         default: null
         help: "Override the date stamp in the filename + frontmatter (YYYY-MM-DD format). When null, uses today (UTC). Pass an explicit date to bump out of a filename collision with an existing primordium or to back-date for historical reconstruction."
+        examples:
+          - "2026-04-24"
+          - "2026-05-01"
 
   - name: "molt"
     subsystem: "cycle"
@@ -593,12 +738,14 @@ commands:
       canon_preview_head }.
     mcp_tool: "myco_molt"
     aliases: ["bump"]
-    mcp_tool_aliases: ["myco_bump"]
     args:
       - name: "contract"
         type: "str"
         required: true
         help: "New contract version string, in the form 'v<semver>' (e.g. 'v0.5.23'). Must be strictly greater than the current canon's contract_version per semver comparison. Down-bumps are refused unless --allow-downgrade is passed at the bump_version.py layer (molt itself has no such flag)."
+        examples:
+          - "v0.5.24"
+          - "v0.6.0"
       - name: "dry-run"
         type: "bool"
         default: false
@@ -607,6 +754,9 @@ commands:
         type: "str"
         default: null
         help: "Override the date stamp in the contract_changelog.md section header (YYYY-MM-DD format). When null, uses today (UTC). Useful for back-dating a release whose molt was delayed, or for reproducing historical molts exactly."
+        examples:
+          - "2026-04-24"
+          - "2026-05-01"
 
   - name: "winnow"
     subsystem: "cycle"
@@ -636,12 +786,14 @@ commands:
       declaring a craft 'LANDED'.
     mcp_tool: "myco_winnow"
     aliases: ["evolve"]
-    mcp_tool_aliases: ["myco_evolve"]
     args:
       - name: "proposal"
         type: "path"
         required: true
         help: "Path to the craft proposal markdown under docs/primordia/ (relative to substrate root or absolute). Must exist and be a valid markdown file with a craft-shaped YAML frontmatter block. Winnow reads but does not modify the file; post-winnow, the agent edits to address violations and re-runs winnow."
+        examples:
+          - "docs/primordia/glama_onboarding_runbook_craft_2026-04-24.md"
+          - "docs/primordia/v0524_excretion_craft_2026-04-24.md"
 
   - name: "ramify"
     subsystem: "cycle"
@@ -673,32 +825,54 @@ commands:
       path, written, overwritten, substrate_local }.
     mcp_tool: "myco_ramify"
     aliases: ["scaffold"]
-    mcp_tool_aliases: ["myco_scaffold"]
     args:
       - name: "verb"
         type: "str"
         default: null
         help: "New manifest verb name to scaffold (kebab-case, e.g. 'my-verb'). Writes a handler stub + manifest_overlay.yaml entry. Mutually exclusive with dimension and adapter. Kernel scaffolds go under src/myco/cycle/; substrate-local under .myco/plugins/verbs/."
+        examples:
+          - "annotate"
+          - "rewilding"
       - name: "dimension"
         type: "str"
         default: null
         help: "New lint dimension ID to scaffold (case-sensitive, e.g. 'LOCAL1'). Requires --category and --severity. Mutually exclusive with verb and adapter. Kernel scaffolds go under src/myco/homeostasis/dimensions/; substrate-local under .myco/plugins/dimensions/."
+        examples:
+          - "LOCAL1"
+          - "SE4"
       - name: "category"
         type: "str"
         default: null
         help: "Dimension category. One of: 'mechanical' (canon invariants), 'shipped' (version parity), 'metabolic' (raw-note / stale-integrated signals), 'semantic' (graph connectedness). Used only with --dimension."
+        examples:
+          - "mechanical"
+          - "shipped"
+          - "metabolic"
+          - "semantic"
       - name: "severity"
         type: "str"
         default: null
         help: "Default severity for findings the scaffolded dimension emits. One of: 'low', 'medium', 'high', 'critical'. Critical findings cause myco_immune to exit non-zero. Used only with --dimension."
+        examples:
+          - "low"
+          - "medium"
+          - "high"
+          - "critical"
       - name: "adapter"
         type: "str"
         default: null
         help: "New ingestion adapter name to scaffold (e.g. 'jira', 'slack-export'). Requires --extensions. Mutually exclusive with verb and dimension. Kernel scaffolds go under src/myco/ingestion/adapters/; substrate-local under .myco/plugins/adapters/."
+        examples:
+          - "jira"
+          - "slack-export"
       - name: "extensions"
         type: "list[str]"
         default: []
         help: "File extensions (with leading dot) the adapter handles, e.g. ['.jira', '.json']. Used with --adapter. Extensions register in the adapter registry for myco_eat --path dispatch; more-specific adapters (via registration order) win over generic ones."
+        examples:
+          - ".jira"
+          - ".json"
+          - ".xml"
       - name: "substrate-local"
         type: "bool"
         default: false
@@ -753,6 +927,10 @@ commands:
         type: "str"
         default: null
         help: "When set, return the source path + docstring + kind for the named plugin. Pass the plugin's registered name (e.g. 'M1' for a dimension, 'UrlFetcher' for an adapter). Unknown names raise UsageError. Mutually exclusive with list / validate / list-substrates."
+        examples:
+          - "M1"
+          - "UrlFetcher"
+          - "LOCAL1"
       - name: "list-substrates"
         type: "bool"
         default: false

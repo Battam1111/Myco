@@ -73,6 +73,12 @@ class ArgSpec:
     required: bool = False
     default: Any = None
     help: str = ""
+    #: v0.5.24: canonical example values for this arg, emitted into the
+    #: JSON schema as ``examples: [...]``. Glama's TDQS rubric credits
+    #: params that advertise realistic example values (parameterSemantics
+    #: dimension, weight 15%). Not every arg warrants an example — the
+    #: list is empty for self-explanatory booleans like ``--dry-run``.
+    examples: tuple[str, ...] = ()
 
     @property
     def snake(self) -> str:
@@ -248,6 +254,12 @@ def _parse_command(raw: Mapping[str, Any]) -> CommandSpec:
                 f"manifest command {raw['name']!r}: "
                 f"arg {a['name']!r} has unknown type {a['type']!r}"
             )
+        ex_raw = a.get("examples") or ()
+        if not isinstance(ex_raw, (list, tuple)):
+            raise ContractError(
+                f"manifest command {raw['name']!r}: "
+                f"arg {a['name']!r} examples must be a list"
+            )
         args.append(
             ArgSpec(
                 name=str(a["name"]),
@@ -255,6 +267,7 @@ def _parse_command(raw: Mapping[str, Any]) -> CommandSpec:
                 required=bool(a.get("required", False)),
                 default=a.get("default"),
                 help=str(a.get("help", "")),
+                examples=tuple(str(x) for x in ex_raw),
             )
         )
     aliases_raw = raw.get("aliases") or ()
