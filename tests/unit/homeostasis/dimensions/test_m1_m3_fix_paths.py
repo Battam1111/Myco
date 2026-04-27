@@ -14,7 +14,6 @@ from myco.homeostasis.dimensions.mechanical.m3_write_surface_declared import (
 )
 from myco.homeostasis.finding import Category, Finding
 
-
 # ---------- M1 ----------
 
 
@@ -31,11 +30,12 @@ def test_slugify_falls_back_to_unnamed():
 
 
 def _seed_canon(tmp_path: Path, *, identity: str, system: str = "") -> Path:
+    sys_block = system or "  hard_contract:\n    rule_count: 7\n"
     body = (
         'schema_version: "2"\n'
         'contract_version: "v0.6.0"\n'
         f"identity:\n{identity}"
-        f"system:\n{system or '  hard_contract:\n    rule_count: 7\n'}"
+        f"system:\n{sys_block}"
         "  write_surface:\n    allowed: ['_canon.yaml']\n"
         "subsystems:\n  ingestion:\n    package: 'src/'\n"
     )

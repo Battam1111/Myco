@@ -2,16 +2,13 @@
 
 from __future__ import annotations
 
-import io
 from pathlib import Path
 from unittest.mock import patch
 
 from myco.ingestion.adapters.html_reader import (
-    DEFAULT_MAX_INGEST_BYTES,
     HtmlReader,
 )
 from myco.ingestion.adapters.pdf_reader import PdfReader
-
 
 # ---------- HtmlReader ----------
 
@@ -154,11 +151,10 @@ def test_pdf_ingest_extracts_text():
         def __init__(self, *a, **kw) -> None:
             self.pages = [FakePage("hello"), FakePage("")]
 
-    with patch(
-        "myco.ingestion.adapters.pdf_reader._PR", FakeReader
-    ):
+    with patch("myco.ingestion.adapters.pdf_reader._PR", FakeReader):
         # Need a real file so stat() works.
-        import tempfile, os
+        import os
+        import tempfile
 
         with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as f:
             f.write(b"%PDF-fake")
@@ -183,10 +179,9 @@ def test_pdf_ingest_no_text_returns_placeholder():
         def __init__(self, *a, **kw) -> None:
             self.pages = [FakePage(), FakePage()]
 
-    with patch(
-        "myco.ingestion.adapters.pdf_reader._PR", FakeReader
-    ):
-        import tempfile, os
+    with patch("myco.ingestion.adapters.pdf_reader._PR", FakeReader):
+        import os
+        import tempfile
 
         with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as f:
             f.write(b"%PDF-fake")

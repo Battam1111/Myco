@@ -8,7 +8,12 @@ import pytest
 
 from myco.core.context import MycoContext
 from myco.core.errors import ContractError, UsageError
-from myco.digestion.sporulate import _integrated_notes, _summary_line, distill_proposal, run
+from myco.digestion.sporulate import (
+    _integrated_notes,
+    _summary_line,
+    distill_proposal,
+    run,
+)
 
 
 def _seed(root: Path) -> MycoContext:
@@ -42,7 +47,7 @@ def _seed_integrated_notes(ctx: MycoContext, n: int = 2) -> list[Path]:
         p = integrated / f"n_2026042{i}T000000Z_test{i}.md"
         p.write_text(
             f'---\nstage: integrated\ntags: ["theme1"]\n'
-            f'created_at: "2026-04-2{i+5}T00:00:00Z"\n---\n# Title {i}\nFinding {i} body.\n',
+            f'created_at: "2026-04-2{i + 5}T00:00:00Z"\n---\n# Title {i}\nFinding {i} body.\n',
             encoding="utf-8",
         )
         paths.append(p)

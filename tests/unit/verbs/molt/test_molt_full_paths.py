@@ -120,7 +120,7 @@ def test_patch_canon_field_writes_value():
 
 
 def test_patch_canon_field_field_missing_raises():
-    text = 'foo: bar\n'
+    text = "foo: bar\n"
     with pytest.raises(ContractError, match="could not locate"):
         _patch_canon_field(text, "contract_version", "v0.6.0")
 

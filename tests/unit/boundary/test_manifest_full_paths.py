@@ -9,7 +9,6 @@ import pytest
 from myco.boundary.surface.manifest import (
     ArgSpec,
     CommandSpec,
-    Manifest,
     _parse_command,
     build_context,
     build_handler_args,
@@ -20,7 +19,6 @@ from myco.boundary.surface.manifest import (
 )
 from myco.core.context import MycoContext
 from myco.core.errors import ContractError, SubstrateNotFound, UsageError
-
 
 # ---------- helpers ----------
 

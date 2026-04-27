@@ -13,7 +13,6 @@ from myco.circulation.graph_src import (
     walk_src_graph,
 )
 
-
 # ---------- _module_to_path ----------
 
 
@@ -56,9 +55,7 @@ def test_module_to_path_no_match_returns_none(tmp_path: Path):
 
 
 def test_resolve_relative_level_zero_returns_none(tmp_path: Path):
-    out = _resolve_relative_import(
-        tmp_path / "myco" / "x.py", tmp_path, "y", level=0
-    )
+    out = _resolve_relative_import(tmp_path / "myco" / "x.py", tmp_path, "y", level=0)
     assert out is None
 
 
@@ -166,7 +163,7 @@ def test_walk_src_graph_minimal_substrate(tmp_path: Path):
     (pkg / "__init__.py").write_text("", encoding="utf-8")
     (pkg / "x.py").write_text("# x", encoding="utf-8")
     out = walk_src_graph(tmp_path)
-    rels = {n for n in out.nodes}
+    rels = set(out.nodes)
     assert "src/myco/x.py" in rels
 
 
@@ -218,9 +215,7 @@ def test_walk_src_graph_extracts_doc_ref_from_docstring(tmp_path: Path):
         encoding="utf-8",
     )
     out = walk_src_graph(tmp_path)
-    assert any(
-        "protocol.md" in d for s, d in out.doc_edges
-    )
+    assert any("protocol.md" in d for s, d in out.doc_edges)
 
 
 def test_walk_src_graph_skips_pycache(tmp_path: Path):

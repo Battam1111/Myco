@@ -14,7 +14,6 @@ from myco.ingestion.adapters.url_fetcher import (
     _validate_url,
 )
 
-
 # ---------- _is_routable_host ----------
 
 

@@ -133,7 +133,9 @@ def test_intake_run_with_string_max(tmp_path: Path, genesis_substrate: Path):
     assert result.exit_code == 0
 
 
-def test_intake_run_with_invalid_str_max_falls_through(tmp_path: Path, genesis_substrate: Path):
+def test_intake_run_with_invalid_str_max_falls_through(
+    tmp_path: Path, genesis_substrate: Path
+):
     """Invalid max str → max=None → no cap."""
     ctx = MycoContext.for_testing(root=genesis_substrate)
     inp = tmp_path / "inp"

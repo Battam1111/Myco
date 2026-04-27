@@ -10,8 +10,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from myco.core.context import MycoContext
 from myco.homeostasis.dimensions.mechanical.ad1_adapter_silent_skip import (
     AD1AdapterSilentSkip,
@@ -82,9 +80,7 @@ def test_pa3_surface_imports_subsystem_emits(tmp_path: Path):
     sub = tmp_path / "sub"
     surf = sub / "src" / "myco" / "surface"
     surf.mkdir(parents=True)
-    (surf / "bad.py").write_text(
-        "from myco.ingestion import eat\n", encoding="utf-8"
-    )
+    (surf / "bad.py").write_text("from myco.ingestion import eat\n", encoding="utf-8")
     (sub / "_canon.yaml").write_text(
         'schema_version: "2"\ncontract_version: "v0.6.0"\n'
         'identity:\n  substrate_id: "x"\n  entry_point: "M.md"\n'
@@ -104,9 +100,7 @@ def test_pa4_core_imports_subsystem_emits(tmp_path: Path):
     sub = tmp_path / "sub"
     core = sub / "src" / "myco" / "core"
     core.mkdir(parents=True)
-    (core / "bad.py").write_text(
-        "from myco.ingestion import eat\n", encoding="utf-8"
-    )
+    (core / "bad.py").write_text("from myco.ingestion import eat\n", encoding="utf-8")
     (sub / "_canon.yaml").write_text(
         'schema_version: "2"\ncontract_version: "v0.6.0"\n'
         'identity:\n  substrate_id: "x"\n  entry_point: "M.md"\n'

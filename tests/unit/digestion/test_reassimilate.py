@@ -59,9 +59,7 @@ def test_reassimilate_dry_run(genesis_substrate: Path):
     integrated_dir.mkdir(parents=True, exist_ok=True)
     note_id = "20260101T120000Z_dry"
     integrated_path = integrated_dir / f"n_{note_id}.md"
-    integrated_path.write_text(
-        "---\nstage: integrated\n---\nbody\n", encoding="utf-8"
-    )
+    integrated_path.write_text("---\nstage: integrated\n---\nbody\n", encoding="utf-8")
     out = reassimilate_integrated(ctx, note_id, "dry test", dry_run=True)
     assert out["status"] == "reassimilated"
     assert out["dry_run"] is True
@@ -75,8 +73,6 @@ def test_reassimilate_idempotent_on_re_raw(genesis_substrate: Path):
     integrated_dir.mkdir(parents=True, exist_ok=True)
     note_id = "20260101T120000Z_already_re_raw"
     integrated_path = integrated_dir / f"n_{note_id}.md"
-    integrated_path.write_text(
-        "---\nstage: re_raw\n---\nbody\n", encoding="utf-8"
-    )
+    integrated_path.write_text("---\nstage: re_raw\n---\nbody\n", encoding="utf-8")
     out = reassimilate_integrated(ctx, note_id, "test")
     assert out["status"] == "already_re_raw"

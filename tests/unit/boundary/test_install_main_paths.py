@@ -6,11 +6,12 @@ from pathlib import Path
 
 import pytest
 
-from myco.boundary.install import CLIENTS, main
 from myco.boundary.install import (
+    CLIENTS,
     _legacy_sniff,
     _run_all_hosts,
     _run_cowork_plugin,
+    main,
 )
 
 
@@ -123,11 +124,9 @@ def test_run_all_hosts_with_no_detected_returns_0(capsys, monkeypatch):
     """When detection finds nothing, _run_all_hosts still returns 0."""
 
     def fake_detect():
-        return {client: False for client in CLIENTS}
+        return dict.fromkeys(CLIENTS, False)
 
-    monkeypatch.setattr(
-        "myco.boundary.install.detect_installed_hosts", fake_detect
-    )
+    monkeypatch.setattr("myco.boundary.install.detect_installed_hosts", fake_detect)
     rc = _run_all_hosts(dry_run=True, global_=True, uninstall=False)
     assert rc == 0
 
@@ -136,11 +135,9 @@ def test_run_all_hosts_dry_run_implies_global(monkeypatch):
     """``--all-hosts`` implies ``--global`` even when not explicit."""
 
     def fake_detect():
-        return {client: False for client in CLIENTS}
+        return dict.fromkeys(CLIENTS, False)
 
-    monkeypatch.setattr(
-        "myco.boundary.install.detect_installed_hosts", fake_detect
-    )
+    monkeypatch.setattr("myco.boundary.install.detect_installed_hosts", fake_detect)
     # Pass global_=False and verify no error (function flips it inside).
     rc = _run_all_hosts(dry_run=True, global_=False, uninstall=False)
     assert rc == 0
