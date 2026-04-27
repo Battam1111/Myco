@@ -47,11 +47,11 @@ from typing import Mapping
 
 import yaml
 
+from myco.boundary.surface.manifest import load_manifest
 from myco.core.context import MycoContext, Result
 from myco.core.errors import ContractError, UsageError
 from myco.core.io_atomic import atomic_utf8_write, bounded_read_text
 from myco.core.write_surface import check_write_allowed
-from myco.surface.manifest import load_manifest
 
 __all__ = ["run"]
 

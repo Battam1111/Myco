@@ -34,7 +34,7 @@ def _pyproject() -> dict:
 
 def test_myco_cli_script_declared() -> None:
     scripts = _pyproject()["project"]["scripts"]
-    assert scripts.get("myco") == "myco.surface.cli:main"
+    assert scripts.get("myco") == "myco.boundary.surface.cli:main"
 
 
 def test_mcp_server_console_script_declared() -> None:
@@ -42,7 +42,7 @@ def test_mcp_server_console_script_declared() -> None:
     `command: "mcp-server-myco"`. That requires this entry point.
     """
     scripts = _pyproject()["project"]["scripts"]
-    assert scripts.get("mcp-server-myco") == "myco.mcp:main", scripts
+    assert scripts.get("mcp-server-myco") == "myco.boundary.mcp:main", scripts
 
 
 # ---------------------------------------------------------------------------

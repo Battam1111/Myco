@@ -6,7 +6,7 @@ from pathlib import Path
 
 from myco.core.context import MycoContext
 from myco.core.severity import Severity
-from myco.homeostasis.dimensions.pa1_write_surface_coverage import (
+from myco.homeostasis.dimensions.mechanical.pa1_write_surface_coverage import (
     PA1WriteSurfaceCoverage,
 )
 

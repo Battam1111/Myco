@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from myco.core.context import MycoContext
-from myco.homeostasis.dimensions.rl1_rules_referenced import RL1RulesReferenced
+from myco.homeostasis.dimensions.semantic.rl1_rules_referenced import RL1RulesReferenced
 
 
 def _seed_protocol(substrate: Path, body: str) -> None:

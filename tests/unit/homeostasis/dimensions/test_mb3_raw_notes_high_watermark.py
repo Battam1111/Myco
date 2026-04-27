@@ -6,7 +6,7 @@ from pathlib import Path
 
 from myco.core.context import MycoContext
 from myco.core.severity import Severity
-from myco.homeostasis.dimensions.mb3_raw_notes_high_watermark import (
+from myco.homeostasis.dimensions.metabolic.mb3_raw_notes_high_watermark import (
     MB3RawNotesHighWatermark,
 )
 

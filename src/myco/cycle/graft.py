@@ -28,10 +28,10 @@ import inspect
 from collections.abc import Mapping
 from typing import Any
 
+from myco.boundary.surface.manifest import load_manifest_with_overlay
 from myco.core.context import MycoContext, Result
 from myco.core.errors import UsageError
 from myco.core.substrate import load_local_plugins
-from myco.surface.manifest import load_manifest_with_overlay
 
 __all__ = ["run"]
 

@@ -2,23 +2,66 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.Battam1111/myco",
   "title": "Myco: Agent-First Cognitive Substrate",
-  "description": "Cognitive substrate for LLM agents. 19 verbs + 25 lint dims over a self-validating graph.",
+  "description": "Cognitive substrate for LLM agents. 20 verbs + 46 lint dims + 7 subsystems over a self-validating graph (v0.6.0).",
   "repository": {
     "url": "https://github.com/Battam1111/Myco",
     "source": "github"
   },
-  "version": "0.5.24",
+  "version": "0.6.0",
   "websiteUrl": "https://github.com/Battam1111/Myco",
+  "icon": "https://raw.githubusercontent.com/Battam1111/Myco/main/assets/logo_light_512.png",
+  "_meta": {
+    "io.modelcontextprotocol.registry/publisher-provided": {
+      "categories": ["agent-orchestration", "developer-tools"],
+      "stance": "anti-vector",
+      "stance_text": "Myco is NOT a memory tool, NOT a RAG framework, NOT vector retrieval. It is a self-validating cognitive substrate for long-running LLM agents, governed by R1-R7 hard contract and 46 mechanical lint dimensions across 7 subsystems. All knowledge lives as plain markdown + YAML on disk; the agent reads files directly via MCP resources.",
+      "showcases": [
+        {"title": "20 verbs MCP surface (v0.6.0)", "url": "https://github.com/Battam1111/Myco#the-twenty-verbs"},
+        {"title": "46 lint dimensions self-validating", "url": "https://github.com/Battam1111/Myco/blob/main/docs/architecture/L2_DOCTRINE/homeostasis.md"},
+        {"title": "7 subsystems (germination/ingestion/digestion/circulation/homeostasis/cycle/boundary)", "url": "https://github.com/Battam1111/Myco/blob/main/docs/architecture/L2_DOCTRINE/boundary.md"}
+      ],
+      "competitive_alternatives": ["mem0", "zep", "letta", "cognee"],
+      "differentiators_against_alternatives": [
+        "no embedding model required",
+        "no vector store",
+        "all knowledge as plain markdown",
+        "self-validating via 46 lint dimensions",
+        "R1-R7 contract enforced by mechanical anchors"
+      ]
+    }
+  },
   "packages": [
     {
       "registryType": "pypi",
       "registryBaseUrl": "https://pypi.org",
       "identifier": "myco",
-      "version": "0.5.24",
+      "version": "0.6.0",
       "runtimeHint": "python",
       "transport": {
         "type": "stdio"
+      },
+      "runtimeArguments": [
+        {"type": "named", "name": "--transport", "value": "stdio", "description": "Transport mode (stdio | sse | streamable-http)."}
+      ],
+      "packageArguments": [
+        {"type": "named", "name": "-m", "value": "myco.boundary.mcp"}
+      ],
+      "environmentVariables": [
+        {"name": "MYCO_PROJECT_DIR", "description": "Override substrate root path."},
+        {"name": "CLAUDE_PROJECT_DIR", "description": "Compatibility env from Claude Code/Cowork."},
+        {"name": "MYCO_PORT", "description": "Streamable-http transport port (default 0 = kernel-allocated)."},
+        {"name": "MYCO_HOST", "description": "Streamable-http transport bind host (default 127.0.0.1)."}
+      ]
+    },
+    {
+      "registryType": "oci",
+      "registryBaseUrl": "https://ghcr.io",
+      "identifier": "Battam1111/myco",
+      "version": "0.6.0",
+      "transport": {
+        "type": "streamable-http"
       }
     }
-  ]
+  ],
+  "remotes": []
 }

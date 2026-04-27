@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from myco.core.context import MycoContext
-from myco.homeostasis.dimensions.cg1_doctrine_has_src_reference import (
+from myco.homeostasis.dimensions.mechanical.cg1_doctrine_has_src_reference import (
     CG1DoctrineHasSrcReference,
 )
 

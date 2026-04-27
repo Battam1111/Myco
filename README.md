@@ -27,7 +27,7 @@
 </p>
 
 <p align="center">
-  <a href="#what-it-is">What it is</a> · <a href="#how-it-lives">How it lives</a> · <a href="#quick-start">Quick start</a> · <a href="#the-nineteen-verbs">Verbs</a> · <a href="#self-validation">Self-validation</a>
+  <a href="#what-it-is">What it is</a> · <a href="#how-it-lives">How it lives</a> · <a href="#quick-start">Quick start</a> · <a href="#the-twenty-verbs">Verbs</a> · <a href="#self-validation">Self-validation</a>
 </p>
 
 <p align="center">
@@ -62,13 +62,13 @@ The idea is older than the implementation. What changed is the agent. Today's mo
 
 You speak. The agent listens. Between your turns, Myco runs a metabolism.
 
-- **Ingestion.** `hunger` asks what is missing. `eat` absorbs whatever you point at, whether a path, a URL, or a paragraph. `sense` and `forage` scan what is already here. `excrete` safely removes a raw note captured by mistake, moving it to an audit tombstone instead of silently deleting.
+- **Ingestion.** `hunger` asks what is missing. `eat` absorbs whatever you point at, whether a path, a URL, or a paragraph. `sense` and `forage` scan what is already here. `excrete` safely removes a raw note captured by mistake, moving it to an audit tombstone instead of silently deleting. `intake` (v0.6.0) bulk-ingests a whole directory, composing forage + eat with strict-mode failure visibility.
 - **Digestion.** `assimilate` cooks raw notes into integrated knowledge. `digest` promotes a single note. `sporulate` concentrates integrated notes into a dispersible proposal.
 - **Circulation.** `traverse` walks the graph and reports on its connectedness. `propagate` publishes learning to a downstream substrate.
 - **Homeostasis.** `immune` runs a 25-dimension lint against the seven hard rules. `senesce` winds down each session cleanly.
 - **Evolution.** When the substrate's shape no longer fits the work, whether a canon field is missing, a new lint dimension is needed, or a verb must change, `fruit` drafts a three-round craft proposal, `winnow` gates its shape, and `molt` ships the contract bump.
 
-Nineteen verbs, one manifest, two faces: a CLI for you to observe, an MCP server for the agent to drive. You memorize nothing. The agent drives.
+Twenty verbs, one manifest, two faces: a CLI for you to observe, an MCP server for the agent to drive. You memorize nothing. The agent drives.
 
 ## Five principles
 
@@ -108,12 +108,12 @@ Hook Myco into your agent host in one command:
 
 Per-host snippets for the nine hosts with divergent schemas, Python-framework adapters (LangChain, CrewAI, DSPy, Smolagents, Agno, PraisonAI, MS Agent Framework, Claude Agent SDK), and library-embedding examples all live in [`INSTALL.md`](docs/INSTALL.md).
 
-## The nineteen verbs
+## The twenty verbs
 
 Six subsystems. Every name is a fungal-biology term whose meaning tracks its action.
 
 - **Germination.** `germinate` starts a fresh substrate.
-- **Ingestion.** `hunger` (what is missing?), `eat` (absorb raw material), `sense` (keyword search), `forage` (scan ingestible paths), `excrete` (safely delete a raw note with an audit tombstone).
+- **Ingestion.** `hunger` (what is missing?), `eat` (absorb raw material), `sense` (keyword search), `forage` (scan ingestible paths), `excrete` (safely delete a raw note with an audit tombstone), `intake` (bulk-ingest a directory; v0.6.0).
 - **Digestion.** `assimilate` (raw to integrated, in bulk), `digest` (promote a single note), `sporulate` (integrated to dispersible proposal).
 - **Circulation.** `traverse` (walk the graph), `propagate` (publish to a downstream substrate).
 - **Homeostasis.** `immune` (25-dimension lint; `--fix` repairs mechanically where it can).
@@ -138,7 +138,7 @@ Zero host-side configuration. R1 through R7 ride inside the MCP server itself, s
 - **Cowork (Claude Desktop local-agent-mode).** Two steps: (1) `myco-install host cowork` writes the MCP server entry; (2) drag the `.plugin` bundle from [GitHub releases](https://github.com/Battam1111/Myco/releases/latest) into Claude Desktop's plugin upload. Claude Desktop uploads it to your private Cowork marketplace, and every session auto-installs the `myco-substrate` onboarding skill so the agent follows R1 through R7 the moment it sees `_canon.yaml`. Cowork does not expose hooks and does not read local plugin dirs, so drag-and-drop is the only persistent path. See [`INSTALL.md`](docs/INSTALL.md) for the full rationale.
 - **Any MCP host.** Ten are automated via `myco-install`. Another nine have per-host snippets in [`INSTALL.md`](docs/INSTALL.md). Any other client can still run `mcp-server-myco` over stdio directly.
 - **Python agent frameworks.** LangChain, CrewAI, DSPy, Smolagents, Agno, PraisonAI, MS Agent Framework, and Claude Agent SDK all consume Myco via `StdioServerParameters(command="mcp-server-myco")`.
-- **Downstream substrates.** `myco propagate` publishes. Adapters live in `myco.symbionts`.
+- **Downstream substrates.** `myco propagate` publishes. Adapters live in `myco.boundary.host_integration` (v0.6.0; was `myco.symbionts` pre-v0.6.0).
 
 ## Learn more
 

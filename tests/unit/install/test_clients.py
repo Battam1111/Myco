@@ -14,7 +14,7 @@ from unittest.mock import patch
 
 import pytest
 
-from myco.install.clients import (
+from myco.boundary.install.clients import (
     MCP_ARGS,
     MCP_COMMAND,
     MycoInstallError,
@@ -71,7 +71,7 @@ def test_install_creates_or_updates_file_for_json_clients(
     client: str, tmp_path: Path
 ) -> None:
     """Every JSON-schema client should produce a JSON file that uses
-    the absolute-python-path form (sys.executable + -m myco.mcp)
+    the absolute-python-path form (sys.executable + -m myco.boundary.mcp)
     so GUI apps that don't inherit PATH can find the server.
     """
     _install(client, tmp_path)
@@ -79,8 +79,8 @@ def test_install_creates_or_updates_file_for_json_clients(
     assert produced, f"{client} did not create any JSON file under {tmp_path}"
     text = produced[0].read_text(encoding="utf-8")
     # The command should contain "python" (the absolute interpreter path)
-    # and the args should contain "-m" and "myco.mcp"
-    assert "myco.mcp" in text, (client, produced[0], text)
+    # and the args should contain "-m" and "myco.boundary.mcp"
+    assert "myco.boundary.mcp" in text, (client, produced[0], text)
     assert "-m" in text, (client, produced[0], text)
 
 
@@ -186,14 +186,16 @@ def test_vscode_uses_servers_key_not_mcp_servers(tmp_path: Path) -> None:
 
 
 def test_openclaw_errors_cleanly_when_cli_absent(tmp_path: Path) -> None:
-    with patch("myco.install.clients.shutil.which", return_value=None):
+    with patch("myco.boundary.install.clients.shutil.which", return_value=None):
         with pytest.raises(MycoInstallError) as exc_info:
             _install("openclaw", tmp_path)
     assert "openclaw CLI not found" in str(exc_info.value)
 
 
 def test_openclaw_dry_run_shows_command_without_running(tmp_path: Path) -> None:
-    with patch("myco.install.clients.shutil.which", return_value="/fake/openclaw"):
+    with patch(
+        "myco.boundary.install.clients.shutil.which", return_value="/fake/openclaw"
+    ):
         output = _install("openclaw", tmp_path, dry_run=True)
     assert "[dry-run]" in output
     assert "openclaw mcp set myco" in output
@@ -207,9 +209,11 @@ def test_openclaw_invokes_cli_on_real_install(tmp_path: Path) -> None:
         stderr="",
     )
     with (
-        patch("myco.install.clients.shutil.which", return_value="/fake/openclaw"),
         patch(
-            "myco.install.clients.subprocess.run", return_value=fake_result
+            "myco.boundary.install.clients.shutil.which", return_value="/fake/openclaw"
+        ),
+        patch(
+            "myco.boundary.install.clients.subprocess.run", return_value=fake_result
         ) as runner,
     ):
         _install("openclaw", tmp_path)
@@ -341,7 +345,7 @@ def test_codex_cli_rejects_malformed_existing_toml(tmp_path: Path) -> None:
     """If the user's existing config.toml is broken, we refuse rather
     than silently clobber it (only when tomllib is available).
     """
-    import myco.install.clients as _clients
+    import myco.boundary.install.clients as _clients
 
     if not _clients._HAVE_TOMLLIB:
         pytest.skip("tomllib not available; validation path inactive")
@@ -439,7 +443,7 @@ def test_cowork_alias_writes_claude_desktop_config(tmp_path: Path) -> None:
     ``~/AppData/Roaming``, macOS to ``~/Library/Application Support``,
     Linux to ``$XDG_CONFIG_HOME`` or ``~/.config``.
     """
-    from myco.install.clients import _appdata
+    from myco.boundary.install.clients import _appdata
 
     dispatch("cowork", dry_run=False, global_=False, uninstall=False, home=tmp_path)
     cfg = _appdata(tmp_path) / "Claude" / "claude_desktop_config.json"
@@ -450,7 +454,7 @@ def test_cowork_alias_writes_claude_desktop_config(tmp_path: Path) -> None:
 
 def test_detect_installed_hosts_all_missing_returns_all_none(tmp_path: Path) -> None:
     """On a fresh home with no host ever run, every signal is ``None``."""
-    from myco.install.clients import CLIENTS, detect_installed_hosts
+    from myco.boundary.install.clients import CLIENTS, detect_installed_hosts
 
     signals = detect_installed_hosts(home=tmp_path)
     assert set(signals) == set(CLIENTS)
@@ -459,7 +463,7 @@ def test_detect_installed_hosts_all_missing_returns_all_none(tmp_path: Path) -> 
 
 def test_detect_installed_hosts_finds_claude_code(tmp_path: Path) -> None:
     """Creating ``~/.claude/`` makes the probe return a Path."""
-    from myco.install.clients import detect_installed_hosts
+    from myco.boundary.install.clients import detect_installed_hosts
 
     (tmp_path / ".claude").mkdir()
     signals = detect_installed_hosts(home=tmp_path)
@@ -471,7 +475,7 @@ def test_detect_installed_hosts_finds_claude_code(tmp_path: Path) -> None:
 
 def test_detect_installed_hosts_finds_multiple(tmp_path: Path) -> None:
     """Probes are independent — multiple dirs detected in parallel."""
-    from myco.install.clients import detect_installed_hosts
+    from myco.boundary.install.clients import detect_installed_hosts
 
     (tmp_path / ".claude").mkdir()
     (tmp_path / ".cursor").mkdir()
@@ -486,7 +490,7 @@ def test_detect_installed_hosts_finds_multiple(tmp_path: Path) -> None:
 def test_detect_installed_hosts_cowork_matches_claude_desktop(tmp_path: Path) -> None:
     """Cowork and claude-desktop share a signal (both point at
     ``%APPDATA%/Claude/``). Either detected ⇒ both detected."""
-    from myco.install.clients import _appdata, detect_installed_hosts
+    from myco.boundary.install.clients import _appdata, detect_installed_hosts
 
     (_appdata(tmp_path) / "Claude").mkdir(parents=True)
     signals = detect_installed_hosts(home=tmp_path)

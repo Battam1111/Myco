@@ -16,8 +16,8 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 
+from myco.boundary.surface.manifest import load_manifest_with_overlay
 from myco.core.context import MycoContext, Result
-from myco.surface.manifest import load_manifest_with_overlay
 
 from .boot_brief import patch_entry_point
 

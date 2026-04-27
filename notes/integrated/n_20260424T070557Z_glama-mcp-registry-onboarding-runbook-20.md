@@ -44,7 +44,7 @@ Layers:
 mcp-proxy is punkpeye's own npm package (v6.4.3). It wraps stdio-based MCP servers and proxies to SSE so Glama's scanner can probe via HTTP. Our mcp-server-myco console script (registered in pyproject.toml::project.scripts) is what mcp-proxy spawns.
 
 ## Key contract knobs for Glama-scannable MCP servers
-- pyproject.toml must have a [project.scripts] entry that becomes an on-PATH executable after pip install. Ours: mcp-server-myco = "myco.mcp:main".
+- pyproject.toml must have a [project.scripts] entry that becomes an on-PATH executable after pip install. Ours: mcp-server-myco = "myco.boundary.mcp:main".
 - optional-dependencies group for MCP SDK: `myco[mcp]` pulls in `mcp>=1.2` (FastMCP).
 - Dockerfile in repo is orthogonal to Glama's build (they generate their own). Ours exists for namespace verification via LABEL `io.modelcontextprotocol.server.name="io.github.Battam1111/myco"` — different purpose.
 

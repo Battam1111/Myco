@@ -77,14 +77,36 @@ jobs:
         # extensive stubbing for; revisit if we ever want strict CI.
         run: python -m mypy src/myco
 
-      - name: Pytest
-        run: python -m pytest -q --maxfail=5
+      - name: Pytest (with coverage + xdist)
+        # v0.6.0 §K.3 / §K.4: --cov enables 85% global floor;
+        # ``-n auto --dist loadfile`` runs tests in parallel.
+        run: python -m pytest -q --maxfail=5 -n auto --dist loadfile --cov --cov-report=xml --cov-fail-under=85
+
+      - name: Coverage per-package floors
+        # v0.6.0 §K.3: enforce per-package floors (core/=95, homeostasis/=92, ...).
+        run: python scripts/coverage_floors.py
 
       - name: Myco self-immune
         # Self-dogfood: the release candidate must lint clean against
         # its own substrate before it can ship. Exits 0 when every
         # finding is below CRITICAL.
         run: python -m myco immune
+
+      - name: Verify MCP boot
+        # v0.6.0 §K.5 — MCP stdio handshake smoke test (6 stages).
+        run: python scripts/verify_mcp_boot.py
+
+      - name: Verify MCP capabilities
+        # v0.6.0 §K.5 — capability matrix smoke (tools/resources/prompts).
+        run: python scripts/verify_mcp_capabilities.py
+
+      - name: Verify install examples
+        # v0.6.0 §K.5 — 8 framework demos --dry exit 0 each.
+        run: python scripts/verify_install_examples.py
+
+      - name: Verify server.json
+        # v0.6.0 §H — JSON Schema + 4KB _meta budget assertion.
+        run: python scripts/verify_server_json.py
 
   build:
     name: sdist + wheel + twine check

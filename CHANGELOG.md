@@ -644,7 +644,7 @@ a concrete text correction:
   banner declaring v0.4.0 greenfield-plan status; `senesce`
   canonical name with `session-end` alias annotation.
 - **`L3_IMPLEMENTATION/symbiont_protocol.md`** — 10-host
-  automation inventory added; `myco.install.clients` adapter
+  automation inventory added; `myco.boundary.install.clients` adapter
   layer cross-link.
 - **`docs/architecture/README.md`** — full rewrite to v0.5.6
   status; L0-L3 table refreshed with current file list.
@@ -1101,7 +1101,7 @@ Governing craft:
   documented as backward-compatible but no longer primary.
 - **`src/myco/install/__init__.py` restructured** to use
   argparse subparsers (`fresh`, `host`). Entry point still
-  `myco.install:main`; `python -m myco.install` also still
+  `myco.boundary.install:main`; `python -m myco.boundary.install` also still
   works. No breaking change to downstream callers thanks to the
   legacy-sniff on the first positional arg.
 - **`__version__`, `.claude-plugin/plugin.json::version`,
@@ -1283,7 +1283,7 @@ Hotfix for the most common MCP install failure: `spawn ENOENT`.
 ### Fixed
 
 - **`myco-install` now writes the absolute Python interpreter path**
-  (`sys.executable` plus `-m myco.mcp`) instead of the bare
+  (`sys.executable` plus `-m myco.boundary.mcp`) instead of the bare
   `mcp-server-myco` console script. GUI MCP hosts (Claude Desktop,
   Cursor, Windsurf) do not inherit the user's shell PATH, so the
   console script is invisible to them. The absolute-path form works
@@ -1359,7 +1359,7 @@ the prose.
 ## [0.4.1] — 2026-04-15
 
 First maintenance release after the v0.4.0 greenfield rewrite.
-Ships the four public promises (`[mcp]` extras, `python -m myco.mcp`
+Ships the four public promises (`[mcp]` extras, `python -m myco.boundary.mcp`
 launcher, official plugin bundle, `CONTRIBUTING.md`) plus two
 cross-platform passes that turn "works in Claude Code" into "works
 across every active MCP host on the 2026-04 landscape," plus a
@@ -1373,9 +1373,9 @@ gets replaced.
   now declares `mcp = ["mcp>=1.2"]` so `pip install "myco[mcp]"` pulls
   the Model Context Protocol SDK alongside the package. Lower bound of
   1.2 covers `FastMCP.run()`, the synchronous stdio entry point that
-  `python -m myco.mcp` relies on; the rest of the 1.x line is accepted
+  `python -m myco.boundary.mcp` relies on; the rest of the 1.x line is accepted
   because the low-level API has been stable across all 1.x releases.
-- **`python -m myco.mcp` standalone launcher** (Stage D.2). New
+- **`python -m myco.boundary.mcp` standalone launcher** (Stage D.2). New
   `src/myco/mcp/` subpackage with an `__init__.py` that re-exports
   `build_server` and a `main()` entry, plus a thin `__main__.py` that
   wires argparse to `FastMCP.run`. Three transports are selectable
@@ -1388,7 +1388,7 @@ gets replaced.
 - **Official Claude-Code / Cowork plugin bundle** (Stage D.3). The
   repo root now ships a full plugin manifest tree alongside the
   Python source: `.claude-plugin/plugin.json`, a one-plugin
-  `marketplace.json`, a `.mcp.json` pointing at `python -m myco.mcp`,
+  `marketplace.json`, a `.mcp.json` pointing at `python -m myco.boundary.mcp`,
   a `hooks/hooks.json` wrapping SessionStart → `hunger` and
   PreCompact → `session-end`, and two slash skills under `skills/`
   (`/myco:hunger`, `/myco:session-end`). Users install with:
@@ -1436,7 +1436,7 @@ gets replaced.
   the exact line to paste. Aider is flagged as awaiting upstream MCP
   support (aider-ai/aider #4506).
 - **`substrate_pulse` sidecar + initialization instructions**
-  (Stage D.5). `myco.surface.mcp.build_server` now attaches a
+  (Stage D.5). `myco.boundary.surface.mcp.build_server` now attaches a
   `substrate_pulse` field to every MCP tool response (current
   `substrate_id`, `contract_version`, and a rule hint that escalates
   from R1 → R3 once `myco_hunger` has fired), and populates the

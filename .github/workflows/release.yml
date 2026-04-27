@@ -107,7 +107,7 @@ jobs:
         # below to pick up.
         #
         # We install pyyaml explicitly because scripts/build_plugin.py
-        # imports ``myco.install.plugin_bundle``, which goes through
+        # imports ``myco.boundary.install.plugin_bundle``, which goes through
         # ``myco/install/__init__.py`` → ``myco/core/__init__.py`` →
         # ``yaml``. The ``python -m build`` step above only populates
         # the wheel, not the CI Python's site-packages, so ``yaml``

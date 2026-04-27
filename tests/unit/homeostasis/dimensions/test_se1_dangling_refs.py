@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from myco.core.context import MycoContext
-from myco.homeostasis.dimensions.se1_dangling_refs import SE1DanglingRefs
+from myco.homeostasis.dimensions.semantic.se1_dangling_refs import SE1DanglingRefs
 
 
 def test_clean_substrate_no_findings(seeded_substrate: Path) -> None:

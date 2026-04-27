@@ -1,4 +1,4 @@
-"""Smoke tests for the ``myco.mcp`` launcher subpackage.
+"""Smoke tests for the ``myco.boundary.mcp`` launcher subpackage.
 
 The launcher's substantive action — booting a stdio MCP transport —
 blocks waiting for a client and cannot be unit-tested directly. These
@@ -6,7 +6,7 @@ tests instead cover the surface contract:
 
   * the subpackage imports without the MCP SDK installed
   * ``build_server`` is re-exported (not wrapped) from
-    ``myco.surface.mcp`` so library users get the canonical object
+    ``myco.boundary.surface.mcp`` so library users get the canonical object
   * ``main`` parses ``--help`` and ``--transport`` cleanly
   * an invalid ``--transport`` choice is rejected with exit code 2
 """
@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import pytest
 
-import myco.mcp as pkg
+import myco.boundary.mcp as pkg
 
 
 def test_subpackage_exposes_build_server() -> None:
@@ -28,13 +28,13 @@ def test_subpackage_exposes_main() -> None:
 
 def test_build_server_is_shared_with_surface_layer() -> None:
     """Re-export must be the same object, not a wrapper."""
-    from myco.surface.mcp import build_server as surface_builder
+    from myco.boundary.surface.mcp import build_server as surface_builder
 
     assert pkg.build_server is surface_builder
 
 
 def test_help_exits_cleanly() -> None:
-    """``python -m myco.mcp --help`` should argparse-exit with code 0."""
+    """``python -m myco.boundary.mcp --help`` should argparse-exit with code 0."""
     with pytest.raises(SystemExit) as exc_info:
         pkg.main(["--help"])
     assert exc_info.value.code == 0

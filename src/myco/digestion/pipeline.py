@@ -33,7 +33,22 @@ __all__ = [
 ]
 
 #: Known ``stage`` values in a note's frontmatter.
-NOTE_STAGES: frozenset[str] = frozenset({"raw", "digesting", "integrated", "distilled"})
+#:
+#: v0.6.0 closed-loop extension: ``sporulated`` (distilled note that
+#: has been consumed by a fruit-authored craft and reabsorbed into
+#: doctrine; per craft v0.6.0 §F6) and ``re_raw`` (integrated note
+#: that has been demoted back to raw by ``digestion.reassimilate``;
+#: per craft v0.6.0 §F6 closed-loop state machine completion).
+NOTE_STAGES: frozenset[str] = frozenset(
+    {
+        "raw",
+        "digesting",
+        "integrated",
+        "distilled",
+        "sporulated",  # v0.6.0
+        "re_raw",  # v0.6.0
+    }
+)
 
 
 @dataclass(frozen=True)

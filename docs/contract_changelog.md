@@ -11,6 +11,191 @@ Format: one section per `contract_version`, newest first.
 
 ---
 
+## v0.6.0 — 2026-04-28 — Unified evolution + thorough refactor (MAJOR-class per L0:223)
+
+**Full R-surface preserved; canon schema bump v1 → v2; subsystem count 5 → 7 (cycle + boundary promoted).**
+First MAJOR-class release per `L0_VISION.md:223-228` cadence rule —
+fires Living Bets re-audit (sibling craft `v0_6_0_living_bets_audit_craft_2026-04-28.md`).
+SemVer label "0.6.0" reads MINOR by external naming convention; Myco
+contract semantics treat it as MAJOR-class for review-cadence and
+breaking-change-permission per craft v0.6.0 §F1.
+
+### Governing crafts
+
+- `docs/primordia/v0_6_0_unified_evolution_and_thorough_refactor_craft_2026-04-28.md` (LANDED, owner-approved)
+- `docs/primordia/v0_6_0_living_bets_audit_craft_2026-04-28.md` (LANDED; verb-surface wager survives un-falsified at 2026-Q2 model capability; v0.7 falsification experiment pre-registered)
+
+### What changed (major)
+
+1. **Cycle promoted to canonical 6th subsystem** (`canon.subsystems` 5 → 6).
+   Aligns L4 with `L0_VISION.md:183` which named Cycle as 6th since v0.5.3.
+   New L2 doctrine `docs/architecture/L2_DOCTRINE/cycle.md`.
+   Withdrawn proposals: cycle→governance rename (violated L0:185-186 "No
+   alternate vocabulary") and boundary subsystem creation (same).
+2. **Canon schema v1 → v2** via `_v1_to_v2` upgrader composed of two
+   named partials (per craft §F6/T30 narrowness):
+   - `_v1_to_v2_llm_policy_enum`: `system.no_llm_in_substrate: bool`
+     → `system.llm_policy: "forbidden" | "opt-in" | "providers-declared"`
+     enum (default forbidden — preserves v0.5.6 P1 strict invariant).
+   - `_v1_to_v2_federation_peers_field`: adds `identity.federation_peers: []`
+     forward-compat infrastructure for L0 P5 federation planning.
+   `KNOWN_SCHEMA_VERSIONS = frozenset({"1", "2"})`. v0.5.x substrates
+   parse cleanly without warning; lint.dimensions sub-file extraction
+   deferred to v2.1.
+3. **Lint dimension inventory 25 → 44** (+21 new dims). All ship at
+   default-severity LOW with `lint.severity_promotion` ledger ramping
+   to declared severity over 30 sessions of green observation:
+   - **Mechanical structural** (9): PA2 (megafile LoC cap), PA3
+     (surface pure-adapter), PA4 (core no-subsystem-deps), PA5
+     (meta-subsystem layering), SC1 (canon JSON-Schema parity),
+     DC5 (abstract-parent-allowlist canon-driven), MF3 (symbiont
+     host-side artifact integrity), DI2 (hooks content R1+R2),
+     AD1 (adapter silent-skip detection).
+   - **Semantic + metabolic** (5): SE4 (reciprocal back-link), RL2
+     (R3 sense-discipline signal), RL3 (R4 eat-discipline signal),
+     MB4 (sporulated-reabsorbed integrity), MB6 (stale DRAFT/distilled).
+   - **Shipping + capability + plugin** (3): SH2 (kernel-ahead-of-canon),
+     CL1 (sampling capability gated on llm_policy), MP3 (plugin
+     bytecode LLM-SDK audit).
+   - **R-revision additions** (4): MB7 (resource_watch quota pressure),
+     CL2 (OAuth token-residency policy), CL3 (sampling token clear),
+     MF4 (overlay_verb subsystem validity).
+4. **Verb count 19 → 20**: new `intake` verb (replaces unimplemented
+   `forage --digest-on-read`); single-responsibility composer of
+   `forage` + `eat` with strict-mode and adapter-failure-visibility.
+5. **Sporulate→reassimilate closed loop** lands per L0 P4
+   ("永恒迭代; integrated is not endpoint"). New
+   `digestion.reassimilate.reassimilate_integrated` demotes integrated
+   notes to `stage: re_raw` with audit trail; new
+   `digestion.promote_sporulated.promote_consumed_distilled` lifts
+   distilled notes consumed by crafts to `stage: sporulated` with
+   `propagated_doctrine: <docpath>` reference. `pipeline.NOTE_STAGES`
+   extends to include `sporulated` and `re_raw`.
+6. **MCP capability surface extended**: new `surface.mcp_resources`
+   (resources/list + resources/read with URI scheme `myco://canon`,
+   `myco://contract`, `myco://notes/integrated/{id}`,
+   `myco://docs/primordia/{slug}`, `myco://reflex/queue`) + new
+   `surface.mcp_prompts` (20 verb-guides + 2 workflow prompts).
+   Resources honor `system.resource_redaction` default protected
+   scope (federation_peers, identity.tags, system.governance hidden
+   from non-OAuth-canon:full hosts). Resource-read injects R3-discipline
+   ledger entry per craft §F8.
+7. **Symbionts populated** at `src/myco/symbionts/<host>.py` (path
+   preserved per `extensibility.md:24-27` doctrine; boundary/host_integration/
+   refactor withdrawn). v0.6.0 ships 5 of 11 host adapters with full
+   `discover/install_basic/install_deep/uninstall` four-function
+   protocol: claude-code, cursor, cowork, vscode, continue-dev. The
+   remaining 6 (cline, jetbrains, zed, goose, windsurf, codex-cli /
+   gemini-cli / openclaw / claude-desktop) ship as v0.6.x ecosystem-thawed
+   patches per craft §F23 dual-layer versioning.
+8. **Activity cleanup**: 9-day-stalled DRAFT craft `dogfood_v0_5_3_smoke_craft_2026-04-18.md`
+   moved to `docs/primordia/_excreted/`; 2 distilled notes
+   (`d_legacy_alias_test.md`, `d_v0_5_3_dogfood_notes.md`) moved to
+   `notes/distilled/_excreted/` (no doctrine payload, event-records
+   only). MB6 dim guards future stale-DRAFT/distilled at 14d MEDIUM
+   / 30d HIGH thresholds (canon-driven via `lint.thresholds`).
+
+### Aliases (deferred per `digestion.md:120-122`)
+
+v0.5.2 CLI aliases (`genesis`, `reflect`, `distill`, `perfuse`,
+`session-end`, `craft`, `bump`, `evolve`, `scaffold`) **continue to
+resolve** at v0.6.0 with one-shot `DeprecationWarning`. Removal
+remains scheduled at v1.0.0. v0.6.0 only upgrades the deprecation
+banner severity; full removal awaits v1.0.0 per LANDED L2 doctrine
+schedule (rejected craft §D9 acceleration was a P0 violation per
+ChatGPT-as-critic [1.5-F]).
+
+### Governance tiering (NEW)
+
+- High-risk craft (L0 five principles, R1-R7 number/semantics, llm_policy
+  default flip, subsystem deletion): owner approval required.
+- Medium-risk craft (new dim, new verb alias, fixable-set extension):
+  agent-self-winnow + 7-session-7-day public window (max of both floors).
+- Low-risk craft (typo, JSON-Schema description, test fixtures):
+  agent-self-winnow only.
+- Owner-veto via `canon.governance.last_winnowed_proposals[].vetoed_at`
+  always-on. Public window measured in `senesce_count >= 7` AND
+  `wall_clock_days >= 7` (whichever later).
+
+### Schema additions (canon)
+
+- `system.llm_policy` (enum replaces v0.5.6 bool).
+- `identity.federation_peers` (list, default empty).
+- `system.resource_redaction` (paths/scopes for MCP resources).
+- `system.resource_watch` (quota + LRU eviction + ETag fallback).
+- `system.governance` (public window thresholds + token-residency policy).
+- `lint.severity_promotion` (per-dim ramp ledger).
+- `lint.thresholds` (stale-draft + stale-distilled cutoffs).
+- `lint.abstract_parent_allowlist` (replaces DC2:158 hardcode; DC5 dim).
+- `system.write_surface.allowed` adds `examples/**` (8 framework demos
+  scope) and `dist/**` (CHANGELOG hatch hook).
+
+### Doctrine alignments
+
+- `L1_CONTRACT/protocol.md`: editorial clarification — "writes" =
+  substrate writes; symbiont host-side writes are extensions of the
+  host's own config discipline (not a R6 rule amendment, not adding
+  R8 — see craft §F25).
+- `L1_CONTRACT/versioning.md`: dual-layer versioning (contract-frozen
+  vs ecosystem-thawed) introduced per craft §F23.
+- `L1_CONTRACT/canon_schema.md`: v2 schema described.
+- `L2_DOCTRINE/cycle.md`: NEW (6th subsystem doctrine).
+- `L2_DOCTRINE/extensibility.md`: per-host axis enforcement dim
+  promoted from "reserved" to MF3.
+- `L3_IMPLEMENTATION/package_map.md`: 5 → 6 subsystems; cycle
+  canonicalized; boundary withdrawn; `examples/**` + `dist/**` added
+  to write_surface; severity-promotion ledger pattern documented.
+- `L3_IMPLEMENTATION/symbiont_protocol.md`: 5/11 host adapters
+  shipped; uninstall path implemented; remaining 6 → v0.6.x.
+
+### Lessons learned (NEW pattern: dual-LLM critique)
+
+The v0.6.0 craft was authored with **parallel ChatGPT-as-critic +
+Gemini-as-critic agents** injecting Round 1.5 and Round 2.5 tensions
+that single-perspective review would have missed. Specifically:
+
+- **ChatGPT [1.5-D]** caught that L0:183 already named Cycle as 6th
+  subsystem; the proposed rename to `governance` would have violated
+  L0 directly. Corrected to "promote, don't rename."
+- **ChatGPT [1.5-F]** caught that `digestion.md:120-122` doctrine
+  scheduled alias removal at v1.0.0; v0.6.0 acceleration was a doctrine
+  violation. Corrected to "warn at v0.6.0, remove at v1.0.0."
+- **Gemini [G1.5-3]** caught that 11 host × 3 OS × 2 arch matrix was
+  being tested as 1 cell; planned matrix CI for symbiont suite.
+- **Gemini [G1.5-6]** caught that resources/list of `myco://canon`
+  would leak federation_peers (potentially internal substrate URLs)
+  to any MCP host. Corrected to default-redacted scope + OAuth-gated
+  raw view.
+- **ChatGPT [2.5-α]** caught that v0.6 MAJOR mandates Living Bets
+  re-audit; sibling craft authored.
+
+This dual-critique pattern is itself doctrine-worthy. v0.6.x or v0.7
+may codify it as a `craft_protocol_version: 2` enhancement.
+
+### Migration
+
+A `docs/migration/v0_5_24_to_v0_6_0.md` (deferred to v0.6.x ecosystem-thawed
+patch) details operator-visible deltas. Headline:
+
+- Substrates auto-upgrade canon schema v1→v2 on first hunger; no
+  operator action.
+- All v0.5.x verb invocations continue working; deprecation banners
+  louder.
+- New `myco intake` verb available.
+- New `myco://` MCP resources visible in host UIs.
+
+### Acceptance
+
+- `myco hunger` reports contract_version v0.6.0; substrate_pulse confirms.
+- `myco immune` runs 25 dim baseline (kernel cache); on entry-points
+  refresh expands to 44 dims, each at LOW per severity_promotion.
+- `myco brief` shows 6 subsystems including cycle.
+- DRAFT craft excretion verified by `myco traverse` orphan count
+  reduction.
+- Living Bets audit craft passes `myco winnow`.
+
+---
+
 ## v0.5.24 — 2026-04-24 — Excretion + MCP-alias purge + param examples (TDQS A→A+ push)
 
 **Partial R-surface delta.** New verb `excrete` in the ingestion
@@ -362,7 +547,7 @@ don't care if the kwargs dict is empty.
 
 ### Root cause
 
-`build_server` in `myco.surface.mcp` registered every verb as:
+`build_server` in `myco.boundary.surface.mcp` registered every verb as:
 
 ```python
 async def _handler(ctx: Context, **kwargs: Any) -> dict: ...
@@ -452,7 +637,7 @@ pip install -U myco            # or pip install --upgrade myco[mcp]
 Then restart any open Cowork / Claude Desktop session so the MCP
 server boots with the fixed code. No re-upload of the `.plugin`
 bundle needed — the bundle only declares which Python module to
-spawn (`python -m myco.mcp`); the module code comes from the
+spawn (`python -m myco.boundary.mcp`); the module code comes from the
 user's PyPI install.
 
 ### Lesson
@@ -969,7 +1154,7 @@ machine knows where Myco is, regardless of which folder I'm in", so
 writing project-level configs to whatever cwd happens to be active
 would be the wrong level of scope.
 
-Public API: `myco.install.clients.detect_installed_hosts(home=None)`
+Public API: `myco.boundary.install.clients.detect_installed_hosts(home=None)`
 returns `{client: signal-or-None}` for every entry in `CLIENTS`.
 Callers use it to drive custom provisioning flows.
 
@@ -1022,7 +1207,7 @@ Continue, OpenHands, OpenClaw — supports it. v0.5.13 and earlier
 never used this channel; v0.5.14 does, and it fixes the
 substrate-discovery problem universally.
 
-New flow inside ``myco.surface.mcp._invoke``:
+New flow inside ``myco.boundary.surface.mcp._invoke``:
 
   1. Pull ``kwargs.project_dir`` if explicitly given.
   2. Otherwise, query ``session.list_roots()`` and walk each
@@ -1100,7 +1285,7 @@ class as v0.5.9 through v0.5.12. Ships one feature + one tooling fix.
 
 ### Added — `MYCO_PROJECT_DIR` env-var fallback
 
-`myco.surface.manifest.build_context` now reads a three-level
+`myco.boundary.surface.manifest.build_context` now reads a three-level
 substrate-resolution chain:
 
   1. Explicit `project_dir` argument (CLI `--project-dir`, MCP
@@ -1121,7 +1306,7 @@ every host honours it. Operators pin a substrate via:
 
     "myco": {
       "command": "...",
-      "args": ["-m", "myco.mcp"],
+      "args": ["-m", "myco.boundary.mcp"],
       "env": { "MYCO_PROJECT_DIR": "/path/to/substrate" }
     }
 

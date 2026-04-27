@@ -98,28 +98,21 @@ def test_dunder_main_help_lists_verbs() -> None:
         check=False,
     )
     assert result.returncode == 0, result.stderr
-    # v0.5.3 renamed nine verbs to fungal-bionic canonical names;
-    # the old names are retained as aliases through v1.0.0. Assert
-    # BOTH sets appear in --help output so:
-    #   (a) alias-resolution stays wired (test_scaffold doubles as
-    #       the alias-survival smoke),
-    #   (b) canonical names are surfaced in the help text.
-    # v0.5.3 legacy aliases (still resolve).
-    for verb in (
-        "genesis",
-        "reflect",
-        "session-end",
-        "craft",
-        "bump",
-        "evolve",
-        "scaffold",
-    ):
-        assert verb in result.stdout, result.stdout
-    # v0.5.3+ canonical names.
+    # v0.6.0 §A2 owner amendment: all v0.5.2 aliases REMOVED.
+    # Only the 20 canonical verbs appear in --help.
     for verb in (
         "germinate",
+        "hunger",
         "eat",
+        "sense",
+        "forage",
+        "excrete",
+        "intake",  # NEW v0.6.0
         "assimilate",
+        "digest",
+        "sporulate",
+        "traverse",
+        "propagate",
         "immune",
         "senesce",
         "fruit",
@@ -129,4 +122,9 @@ def test_dunder_main_help_lists_verbs() -> None:
         "graft",
         "brief",
     ):
-        assert verb in result.stdout, result.stdout
+        assert verb in result.stdout, f"{verb!r} missing from --help"
+    # Note: forbidden aliases (genesis/reflect/etc.) may appear in
+    # description prose ("renamed from genesis at v0.5.3") but must NOT
+    # be top-level subcommand entries. Precise alias-removal verification
+    # lives in tests/unit/surface/test_manifest.py::test_genesis_alias_no_longer_resolves
+    # and tests/unit/verbs/senesce/test_senesce.py::test_alias_session_end_no_longer_resolves.

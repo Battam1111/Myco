@@ -98,7 +98,7 @@ still works — it's auto-routed to `host <client>` for backward
 compatibility with v0.4/v0.5 scripts.
 
 `myco-install` writes the **absolute Python interpreter path** plus
-`-m myco.mcp` into the host's config. This sidesteps the most
+`-m myco.boundary.mcp` into the host's config. This sidesteps the most
 common MCP failure: GUI apps (Claude Desktop, Cursor, Windsurf) do
 NOT inherit the shell PATH, so the bare `mcp-server-myco` console
 script is invisible to them. The absolute-path form works regardless
@@ -557,7 +557,7 @@ by hand, use this form instead of the bare console-script name:
   "mcpServers": {
     "myco": {
       "command": "/absolute/path/to/python3",
-      "args": ["-m", "myco.mcp"]
+      "args": ["-m", "myco.boundary.mcp"]
     }
   }
 }
@@ -582,7 +582,7 @@ pip install 'myco[mcp]'
 Check the server can start manually:
 
 ```bash
-python -m myco.mcp --help
+python -m myco.boundary.mcp --help
 ```
 
 If that fails, look at the error. Common causes: wrong Python

@@ -6,7 +6,7 @@ from pathlib import Path
 
 from myco.core.context import MycoContext
 from myco.core.severity import Severity
-from myco.homeostasis.dimensions.fr1_fresh_substrate_invariants import (
+from myco.homeostasis.dimensions.mechanical.fr1_fresh_substrate_invariants import (
     FR1FreshSubstrateInvariants,
 )
 

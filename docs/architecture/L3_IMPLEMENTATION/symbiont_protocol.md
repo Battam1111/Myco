@@ -173,7 +173,7 @@ At v0.5.7 the automated-host inventory (exposed via
 - Codex CLI (TOML config surface)
 - Goose (YAML config surface)
 
-The adapter layer for MCP itself is `myco.install.clients` — one
+The adapter layer for MCP itself is `myco.boundary.install.clients` — one
 module per host. When symbiont modules ship (v0.6+ or earlier if
 demand surfaces), each symbiont will partner with one of these
 hosts by name and extend the install flow with host-native

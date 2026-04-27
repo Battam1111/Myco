@@ -1,4 +1,4 @@
-"""Tests for ``myco.install.fresh`` (v0.5.2 MAJOR 11).
+"""Tests for ``myco.boundary.install.fresh`` (v0.5.2 MAJOR 11).
 
 These tests do NOT actually ``git clone`` or ``pip install`` — they
 drive ``run_fresh`` with ``--dry-run`` (which skips every subprocess)
@@ -15,9 +15,9 @@ from unittest.mock import patch
 
 import pytest
 
-from myco.install import main as install_main
-from myco.install.clients import MycoInstallError
-from myco.install.fresh import DEFAULT_REPO, run_fresh
+from myco.boundary.install import main as install_main
+from myco.boundary.install.clients import MycoInstallError
+from myco.boundary.install.fresh import DEFAULT_REPO, run_fresh
 
 
 def test_fresh_dry_run_prints_plan_without_side_effects(
@@ -193,7 +193,7 @@ def test_fresh_branch_and_depth_flags_render_correctly(
 def test_fresh_without_git_on_path_raises_clean_error(tmp_path: Path) -> None:
     target = tmp_path / "no-git-clone"
     # Force git lookup to fail.
-    with patch("myco.install.fresh.shutil.which", return_value=None):
+    with patch("myco.boundary.install.fresh.shutil.which", return_value=None):
         with pytest.raises(MycoInstallError, match="git is not on PATH"):
             run_fresh(
                 target=target,
@@ -217,7 +217,9 @@ def test_cli_fresh_subcommand_dry_run(
 ) -> None:
     """`myco-install fresh --dry-run <target>` works from the CLI."""
     # Stub git so the dry-run check passes without needing git.
-    monkeypatch.setattr("myco.install.fresh.shutil.which", lambda cmd: "/fake/git")
+    monkeypatch.setattr(
+        "myco.boundary.install.fresh.shutil.which", lambda cmd: "/fake/git"
+    )
     target = tmp_path / "cli-clone"
     rc = install_main(["fresh", "--dry-run", str(target)])
     assert rc == 0
@@ -257,6 +259,6 @@ def test_cli_no_subcommand_prints_help_and_exits_nonzero(
 
 def test_default_target_is_home_myco() -> None:
     """The documented default target is ~/myco (stable contract)."""
-    from myco.install.fresh import _default_target
+    from myco.boundary.install.fresh import _default_target
 
     assert _default_target() == Path.home() / "myco"

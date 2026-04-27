@@ -1,4 +1,4 @@
-"""Tests for ``myco.surface.cli``."""
+"""Tests for ``myco.boundary.surface.cli``."""
 
 from __future__ import annotations
 
@@ -8,35 +8,36 @@ from pathlib import Path
 
 import pytest
 
-from myco.surface.cli import build_parser, main
+from myco.boundary.surface.cli import build_parser, main
 
 
 def test_build_parser_lists_all_verbs() -> None:
     parser = build_parser()
     help_text = parser.format_help()
-    # v0.5: the verb set grew from 12 to 16. This test asserts the
-    # baseline set is still surfaced; additions after v0.5 do not
-    # require an edit here.
+    # v0.6.0: 20 canonical verbs, all v0.5.2 aliases REMOVED per Round 4 §A2.
     for verb in (
-        "genesis",
+        "germinate",
         "hunger",
         "eat",
         "sense",
         "forage",
-        "reflect",
+        "excrete",
+        "intake",  # NEW v0.6.0
+        "assimilate",
         "digest",
-        "distill",
-        "perfuse",
+        "sporulate",
+        "traverse",
         "propagate",
         "immune",
-        "session-end",
-        # v0.5 governance + scaffold
-        "craft",
-        "bump",
-        "evolve",
-        "scaffold",
+        "senesce",
+        "fruit",
+        "molt",
+        "winnow",
+        "ramify",
+        "graft",
+        "brief",
     ):
-        assert verb in help_text
+        assert verb in help_text, f"verb {verb!r} missing from help"
 
 
 def test_cli_help_exits_zero(capsys: pytest.CaptureFixture[str]) -> None:
@@ -98,20 +99,16 @@ def test_cli_senesce_quick_mode(
     assert "reflect" in data["payload"]
 
 
-def test_cli_session_end_alias_routes_to_senesce(
+def test_cli_session_end_alias_no_longer_resolves(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, genesis_substrate: Path
 ) -> None:
-    """The v0.5.2 ``session-end`` alias must still invoke the senesce
-    handler — checked at CLI level (not just manifest level).
+    """v0.6.0 §A2 owner amendment: v0.5.2 alias `session-end` REMOVED.
+    Invoking it must fail (argparse rejects unknown command via SystemExit(2)).
     """
     monkeypatch.chdir(genesis_substrate)
-    rc, stdout, _stderr = _run(["--json", "session-end"])
-    assert rc == 0
-    import json
-
-    data = json.loads(stdout)
-    # Alias resolution lands on the senesce handler, so mode is still set.
-    assert data["payload"]["mode"] == "full"
+    with pytest.raises(SystemExit) as excinfo:
+        _run(["--json", "session-end"])
+    assert excinfo.value.code != 0
 
 
 def _run(argv: list[str]) -> tuple[int, str, str]:
@@ -122,12 +119,13 @@ def _run(argv: list[str]) -> tuple[int, str, str]:
     return rc, out.getvalue(), err.getvalue()
 
 
-def test_cli_genesis_creates_substrate(tmp_path: Path) -> None:
+def test_cli_germinate_creates_substrate(tmp_path: Path) -> None:
+    """v0.6.0: alias `genesis` removed; canonical name is `germinate`."""
     target = tmp_path / "newsub"
     target.mkdir()
     rc, _stdout, stderr = _run(
         [
-            "genesis",
+            "germinate",
             "--project-dir",
             str(target),
             "--substrate-id",

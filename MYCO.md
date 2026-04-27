@@ -41,7 +41,7 @@ it.
 All verbs are defined by a single manifest:
 [`src/myco/surface/manifest.yaml`](src/myco/surface/manifest.yaml).
 Both the CLI (`python -m myco <verb>`) and the MCP tool server
-(`myco.surface.mcp.build_server`) are generated from it. If you need
+(`myco.boundary.surface.mcp.build_server`) are generated from it. If you need
 to know what verbs exist, read that file, not this page.
 
 Nineteen verbs (18 agent + 1 human-facing `brief`), grouped by

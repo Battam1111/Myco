@@ -50,7 +50,7 @@ if sys.platform == "win32":
     except Exception:  # pragma: no cover - older Python / non-TTY
         pass
 
-from myco.install.plugin_bundle import (  # noqa: E402
+from myco.boundary.install.plugin_bundle import (  # noqa: E402
     BUNDLE_EXTENSION,
     PLUGIN_NAME,
     PluginBundleError,

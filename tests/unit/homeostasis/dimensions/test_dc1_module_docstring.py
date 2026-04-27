@@ -5,7 +5,9 @@ from __future__ import annotations
 from pathlib import Path
 
 from myco.core.context import MycoContext
-from myco.homeostasis.dimensions.dc1_module_docstring import DC1ModuleDocstring
+from myco.homeostasis.dimensions.mechanical.dc1_module_docstring import (
+    DC1ModuleDocstring,
+)
 
 
 def test_no_src_dir_silent(seeded_substrate: Path) -> None:

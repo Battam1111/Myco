@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "myco"
 dynamic = ["version"]
-description = "Agent-First symbiotic cognitive substrate. 19 fungal-named verbs (18 agent + 1 human `brief`), 25-dimension immune, substrate-local plugins, editable-by-default install, universal MCP stdio server."
+description = "Agent-First symbiotic cognitive substrate. 20 fungal-named verbs (19 agent + 1 human `brief`), 46-dimension immune across 7 subsystems, substrate-local plugins, editable-by-default install, universal MCP stdio + streamable-http server."
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.10"
@@ -49,7 +49,7 @@ Changelog = "https://github.com/Battam1111/Myco/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 # ``pip install 'myco[mcp]'`` — pulls in the Model Context Protocol SDK
-# so ``python -m myco.mcp`` (and any other MCP adapter) has what it needs.
+# so ``python -m myco.boundary.mcp`` (and any other MCP adapter) has what it needs.
 # Floor of 1.2 covers the FastMCP.run() entry point used by the launcher;
 # the low-level Server API has been stable across the entire 1.x line.
 mcp = [
@@ -67,6 +67,9 @@ adapters = [
 dev = [
   "pytest>=8.0",
   "pytest-cov>=5.0",
+  # v0.6.0 §K.4: parallel test execution. ``--dist loadfile`` keeps
+  # conftest fixture state intact across worker boundaries.
+  "pytest-xdist>=3.5",
   # v0.5.7: pin the type-stub floor so `mypy src/myco` runs clean on a
   # fresh `pip install -e ".[dev]"` without an extra "missing stubs"
   # round. types-PyYAML provides the stubs mypy asks for when it sees
@@ -80,14 +83,26 @@ dev = [
   # 1.x release works; we pin the floor so CI's mypy is predictable.
   "mypy>=1.8",
 ]
+# v0.6.0 §B.2 / §A6: OAuth 2.1 + PKCE + RFC 8707 streamable-http stack.
+# python-jose retained per owner amendment §A6.
+mcp-auth = [
+  "python-jose>=3.5",
+  "authlib>=1.3",
+  "cryptography>=42",
+]
+# v0.6.0 §A.1: MCP resources subscription file-watching. watchfiles
+# is the lightest-weight cross-platform inotify wrapper.
+mcp-resources = [
+  "watchfiles>=0.21",
+]
 
 [project.scripts]
 # Three stable PATH-level entry points so `.mcp.json` and hook configs
 # never have to reason about the user's venv or whether `python` vs
 # `python3` is the right alias.
 #
-#   myco              the manifest-driven CLI (19 verbs at v0.5.24:
-#                     18 agent + 1 human-facing `brief`).
+#   myco              the manifest-driven CLI (20 verbs at v0.6.0:
+#                     19 agent + 1 human-facing `brief`).
 #   mcp-server-myco   the MCP stdio/sse launcher; follows the
 #                     community `mcp-server-<name>` convention so
 #                     tools like uvx, pipx, and the MCP Registry
@@ -97,9 +112,9 @@ dev = [
 #                       Windsurf, Zed, VS Code, OpenClaw, Gemini CLI,
 #                       Codex CLI, Goose). Writes the correct schema
 #                       per host (JSON / TOML / YAML); idempotent.
-myco = "myco.surface.cli:main"
-mcp-server-myco = "myco.mcp:main"
-myco-install = "myco.install:main"
+myco = "myco.boundary.surface.cli:main"
+mcp-server-myco = "myco.boundary.mcp:main"
+myco-install = "myco.boundary.install:main"
 
 # v0.5 (MAJOR 6) — dimension registration via entry-points.
 #
@@ -118,32 +133,54 @@ myco-install = "myco.install:main"
 #   [project.entry-points."myco.dimensions"]
 #   my_id = "mypkg.lint:MyDimensionClass"
 [project.entry-points."myco.dimensions"]
-M1 = "myco.homeostasis.dimensions.m1_canon_identity_fields:M1CanonIdentityFields"
-M2 = "myco.homeostasis.dimensions.m2_entry_point_exists:M2EntryPointExists"
-M3 = "myco.homeostasis.dimensions.m3_write_surface_declared:M3WriteSurfaceDeclared"
-MF1 = "myco.homeostasis.dimensions.mf1_declared_subsystems_exist:MF1DeclaredSubsystemsExist"
-MF2 = "myco.homeostasis.dimensions.mf2_substrate_local_plugin_health:MF2SubstrateLocalPluginHealth"
-MP1 = "myco.homeostasis.dimensions.mp1_no_provider_imports:MP1NoProviderImports"
-SH1 = "myco.homeostasis.dimensions.sh1_package_version_ref:SH1PackageVersionRef"
-MB1 = "myco.homeostasis.dimensions.mb1_raw_notes_backlog:MB1RawNotesBacklog"
-MB2 = "myco.homeostasis.dimensions.mb2_no_integrated_yet:MB2NoIntegratedYet"
-SE1 = "myco.homeostasis.dimensions.se1_dangling_refs:SE1DanglingRefs"
-SE2 = "myco.homeostasis.dimensions.se2_orphan_integrated:SE2OrphanIntegrated"
+M1 = "myco.homeostasis.dimensions.mechanical.m1_canon_identity_fields:M1CanonIdentityFields"
+M2 = "myco.homeostasis.dimensions.mechanical.m2_entry_point_exists:M2EntryPointExists"
+M3 = "myco.homeostasis.dimensions.mechanical.m3_write_surface_declared:M3WriteSurfaceDeclared"
+MF1 = "myco.homeostasis.dimensions.mechanical.mf1_declared_subsystems_exist:MF1DeclaredSubsystemsExist"
+MF2 = "myco.homeostasis.dimensions.mechanical.mf2_substrate_local_plugin_health:MF2SubstrateLocalPluginHealth"
+MP1 = "myco.homeostasis.dimensions.mechanical.mp1_no_provider_imports:MP1NoProviderImports"
+SH1 = "myco.homeostasis.dimensions.shipped.sh1_package_version_ref:SH1PackageVersionRef"
+MB1 = "myco.homeostasis.dimensions.metabolic.mb1_raw_notes_backlog:MB1RawNotesBacklog"
+MB2 = "myco.homeostasis.dimensions.metabolic.mb2_no_integrated_yet:MB2NoIntegratedYet"
+SE1 = "myco.homeostasis.dimensions.semantic.se1_dangling_refs:SE1DanglingRefs"
+SE2 = "myco.homeostasis.dimensions.semantic.se2_orphan_integrated:SE2OrphanIntegrated"
 # v0.5.8 additions (Phase 14 of the v0.5.8 cleanup):
-MP2 = "myco.homeostasis.dimensions.mp2_plugin_provider_imports:MP2PluginProviderImports"
-DC1 = "myco.homeostasis.dimensions.dc1_module_docstring:DC1ModuleDocstring"
-DC2 = "myco.homeostasis.dimensions.dc2_public_function_docstring:DC2PublicFunctionDocstring"
-DC3 = "myco.homeostasis.dimensions.dc3_public_class_docstring:DC3PublicClassDocstring"
-DC4 = "myco.homeostasis.dimensions.dc4_module_doc_ref:DC4ModuleDocRef"
-CS1 = "myco.homeostasis.dimensions.cs1_contract_version_sync:CS1ContractVersionSync"
-RL1 = "myco.homeostasis.dimensions.rl1_rules_referenced:RL1RulesReferenced"
-FR1 = "myco.homeostasis.dimensions.fr1_fresh_substrate_invariants:FR1FreshSubstrateInvariants"
-PA1 = "myco.homeostasis.dimensions.pa1_write_surface_coverage:PA1WriteSurfaceCoverage"
-SE3 = "myco.homeostasis.dimensions.se3_link_self_cycle:SE3LinkSelfCycle"
-MB3 = "myco.homeostasis.dimensions.mb3_raw_notes_high_watermark:MB3RawNotesHighWatermark"
-CG1 = "myco.homeostasis.dimensions.cg1_doctrine_has_src_reference:CG1DoctrineHasSrcReference"
-CG2 = "myco.homeostasis.dimensions.cg2_subpackage_has_doctrine_link:CG2SubpackageHasDoctrineLink"
-DI1 = "myco.homeostasis.dimensions.di1_discipline_hooks_present:DI1DisciplineHooksPresent"
+MP2 = "myco.homeostasis.dimensions.mechanical.mp2_plugin_provider_imports:MP2PluginProviderImports"
+DC1 = "myco.homeostasis.dimensions.mechanical.dc1_module_docstring:DC1ModuleDocstring"
+DC2 = "myco.homeostasis.dimensions.mechanical.dc2_public_function_docstring:DC2PublicFunctionDocstring"
+DC3 = "myco.homeostasis.dimensions.mechanical.dc3_public_class_docstring:DC3PublicClassDocstring"
+DC4 = "myco.homeostasis.dimensions.mechanical.dc4_module_doc_ref:DC4ModuleDocRef"
+CS1 = "myco.homeostasis.dimensions.mechanical.cs1_contract_version_sync:CS1ContractVersionSync"
+RL1 = "myco.homeostasis.dimensions.semantic.rl1_rules_referenced:RL1RulesReferenced"
+FR1 = "myco.homeostasis.dimensions.mechanical.fr1_fresh_substrate_invariants:FR1FreshSubstrateInvariants"
+PA1 = "myco.homeostasis.dimensions.mechanical.pa1_write_surface_coverage:PA1WriteSurfaceCoverage"
+SE3 = "myco.homeostasis.dimensions.semantic.se3_link_self_cycle:SE3LinkSelfCycle"
+MB3 = "myco.homeostasis.dimensions.metabolic.mb3_raw_notes_high_watermark:MB3RawNotesHighWatermark"
+CG1 = "myco.homeostasis.dimensions.mechanical.cg1_doctrine_has_src_reference:CG1DoctrineHasSrcReference"
+CG2 = "myco.homeostasis.dimensions.mechanical.cg2_subpackage_has_doctrine_link:CG2SubpackageHasDoctrineLink"
+DI1 = "myco.homeostasis.dimensions.mechanical.di1_discipline_hooks_present:DI1DisciplineHooksPresent"
+# v0.6.0 additions (21 new dims; severity-promotion ledger applies via _canon.yaml::lint.severity_promotion):
+PA2 = "myco.homeostasis.dimensions.mechanical.pa2_megafile_loc_cap:PA2MegafileLocCap"
+PA3 = "myco.homeostasis.dimensions.mechanical.pa3_surface_pure_adapter:PA3SurfacePureAdapter"
+PA4 = "myco.homeostasis.dimensions.mechanical.pa4_core_no_subsystem_deps:PA4CoreNoSubsystemDeps"
+PA5 = "myco.homeostasis.dimensions.mechanical.pa5_meta_subsystem_layering:PA5MetaSubsystemLayering"
+SC1 = "myco.homeostasis.dimensions.mechanical.sc1_schema_parity:SC1SchemaParity"
+DC5 = "myco.homeostasis.dimensions.mechanical.dc5_abstract_parent_allowlist:DC5AbstractParentAllowlist"
+MF3 = "myco.homeostasis.dimensions.mechanical.mf3_symbiont_artifact_integrity:MF3SymbiontArtifactIntegrity"
+DI2 = "myco.homeostasis.dimensions.mechanical.di2_discipline_hooks_content:DI2DisciplineHooksContent"
+AD1 = "myco.homeostasis.dimensions.mechanical.ad1_adapter_silent_skip:AD1AdapterSilentSkip"
+SE4 = "myco.homeostasis.dimensions.semantic.se4_reciprocal_backlink:SE4ReciprocalBacklink"
+RL2 = "myco.homeostasis.dimensions.semantic.rl2_sense_discipline_signal:RL2SenseDisciplineSignal"
+RL3 = "myco.homeostasis.dimensions.semantic.rl3_eat_discipline_signal:RL3EatDisciplineSignal"
+MB4 = "myco.homeostasis.dimensions.metabolic.mb4_sporulated_reabsorbed:MB4SporulatedReabsorbed"
+MB6 = "myco.homeostasis.dimensions.metabolic.mb6_stale_draft_or_distilled:MB6StaleDraftOrDistilled"
+SH2 = "myco.homeostasis.dimensions.shipped.sh2_kernel_ahead_of_canon:SH2KernelAheadOfCanon"
+CL1 = "myco.homeostasis.dimensions.mechanical.cl1_sampling_policy_gate:CL1SamplingPolicyGate"
+MP3 = "myco.homeostasis.dimensions.mechanical.mp3_plugin_bytecode_audit:MP3PluginBytecodeAudit"
+MB7 = "myco.homeostasis.dimensions.metabolic.mb7_resource_watch_quota:MB7ResourceWatchQuota"
+CL2 = "myco.homeostasis.dimensions.mechanical.cl2_oauth_token_residency:CL2OAuthTokenResidency"
+CL3 = "myco.homeostasis.dimensions.mechanical.cl3_sampling_token_clear:CL3SamplingTokenClear"
+MF4 = "myco.homeostasis.dimensions.mechanical.mf4_overlay_subsystem_validity:MF4OverlaySubsystemValidity"
 
 [tool.hatch.version]
 # Single source of truth for the package version — per L1 versioning.md.
@@ -194,8 +231,30 @@ exclude = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# v0.6.0 §K.3 / §K.4: enable coverage gate + xdist parallel by default.
+# CI runs --cov-report=xml + per-package floors via scripts/coverage_floors.py.
 addopts = "-ra --strict-markers --strict-config"
 pythonpath = ["src"]
+
+[tool.coverage.run]
+# v0.6.0 §K.3 — coverage configuration introduced.
+source = ["src/myco"]
+branch = true
+omit = [
+  "*/legacy_v0_3/*",
+  # boundary symbionts have OS-conditional code paths covered only on
+  # the matching CI matrix cell; per-package floor (60%) compensates.
+  "*/symbionts/*",
+]
+
+[tool.coverage.report]
+fail_under = 85
+show_missing = true
+exclude_lines = [
+  "pragma: no cover",
+  "raise NotImplementedError",
+  "if TYPE_CHECKING:",
+]
 
 # -----------------------------------------------------------------------------
 # v0.5.7 — Tool baselines (locked for CI consumption)
@@ -215,8 +274,14 @@ warn_unreachable = false
 show_error_codes = true
 # Modules without third-party stubs: don't crash, just log.
 ignore_missing_imports = true
-# Per-module overrides can live under [[tool.mypy.overrides]] below as
-# tightening lands. For v0.5.7 we ship the baseline only.
+# v0.6.0 §K.4: extend mypy to tests/ with disallow_untyped_defs=false
+# (test fixtures may stay untyped); ratchets toward stricter typing
+# over v0.6.x via mypy_tests_baseline.txt.
+
+[[tool.mypy.overrides]]
+module = ["tests.*"]
+disallow_untyped_defs = false
+ignore_errors = true  # initial baseline; tighten over v0.6.x
 
 [tool.ruff]
 target-version = "py310"
