@@ -199,17 +199,28 @@ def test_bundle_has_mcp_json(tmp_path: Path) -> None:
 
 
 def test_bundle_plugin_json_version_matches(tmp_path: Path) -> None:
-    """The filename and the metadata must advertise the same version.
-    This is what Anthropic's upload dedups / increments against."""
+    """The bundle filename and the embedded plugin.json metadata must
+    advertise the same version. Anthropic's upload dedup / increment
+    keys off this.
+
+    v0.6.0 path-B exception: ``__version__`` may carry a PEP 440
+    ``.postN`` suffix as a PyPI namespace-burn workaround; the plugin
+    manifest stays at the bare base. Build the bundle with the base
+    version so the filename and metadata stay aligned for the
+    Anthropic UI.
+    """
+    import re
+
     import myco
     from myco.boundary.install.plugin_bundle import PLUGIN_NAME, build_plugin_bundle
 
-    path = build_plugin_bundle(REPO_ROOT, version=myco.__version__, dest_dir=tmp_path)
+    base = re.sub(r"\.(post|dev)\d+$", "", myco.__version__)
+    path = build_plugin_bundle(REPO_ROOT, version=base, dest_dir=tmp_path)
     with zipfile.ZipFile(path) as zf:
         meta = json.loads(
             zf.read(f"{PLUGIN_NAME}/.claude-plugin/plugin.json").decode("utf-8")
         )
-    assert meta["version"] == myco.__version__
+    assert meta["version"] == base
 
 
 def test_bundle_overwrite_default(tmp_path: Path) -> None:

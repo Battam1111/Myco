@@ -69,15 +69,23 @@ def test_plugin_manifest_references_existing_paths() -> None:
 
 
 def test_plugin_version_tracks_package_version() -> None:
-    """Plugin version should match ``myco.__version__`` so marketplace
-    update detection and PyPI release stay aligned.
+    """Plugin version should match the ``myco.__version__`` base (PyPI
+    ``.postN`` suffix per v0.6.0 path-B is stripped first).
+
+    Marketplace update detection compares plugin.json::version against
+    the user-facing release tag; the bare base version is the right
+    surface here. ``__version__`` may carry a ``.postN`` suffix as a
+    PyPI namespace-burn workaround per PEP 440 §post-releases.
     """
+    import re
+
     import myco
 
     data = _load(PLUGIN_MANIFEST)
-    assert data["version"] == myco.__version__, (
-        f"plugin.json version {data['version']!r} does not match "
-        f"myco.__version__ {myco.__version__!r}"
+    base = re.sub(r"\.(post|dev)\d+$", "", myco.__version__)
+    assert data["version"] in (myco.__version__, base), (
+        f"plugin.json version {data['version']!r} matches neither "
+        f"myco.__version__ {myco.__version__!r} nor its base {base!r}"
     )
 
 

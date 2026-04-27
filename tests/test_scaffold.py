@@ -76,11 +76,13 @@ def test_every_subsystem_has_a_matching_package() -> None:
 
 
 def test_version_is_well_formed() -> None:
-    """Package version matches the L1 versioning grammar: ``N.N.N`` or
-    ``N.N.N.devN?``. Kept version-agnostic so release bumps do not
-    force a test edit.
+    """Package version matches PEP 440 + L1 versioning grammar: ``N.N.N``,
+    ``N.N.N.devN?``, or ``N.N.N.postN`` (PyPI artifact-naming workaround
+    per v0.6.0 path B).
     """
-    assert re.match(r"^\d+\.\d+\.\d+(\.dev\d*)?$", myco.__version__), myco.__version__
+    assert re.match(r"^\d+\.\d+\.\d+(\.dev\d*|\.post\d+)?$", myco.__version__), (
+        myco.__version__
+    )
 
 
 def test_dunder_main_help_lists_verbs() -> None:

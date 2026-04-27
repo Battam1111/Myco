@@ -154,13 +154,24 @@ def build_plugin_bundle(
     # advertising — otherwise the filename and the on-disk metadata
     # drift. scripts/bump_version.py keeps them in lockstep, so this
     # is a belt-and-braces check.
+    #
+    # v0.6.0 path-B exception: ``__version__`` may carry a PEP 440
+    # ``.postN`` suffix to dodge a PyPI namespace burn while every
+    # user-facing surface (including plugin.json) stays at the bare
+    # base version. Accept the match if plugin.json equals the base
+    # of ``version`` (i.e. ``version`` minus ``.postN``).
+    import re as _re
+
     plugin_json_path = template / ".claude-plugin" / "plugin.json"
     plugin_meta = json.loads(plugin_json_path.read_text(encoding="utf-8"))
-    if plugin_meta.get("version") != version:
+    plugin_version = plugin_meta.get("version")
+    base_version = _re.sub(r"\.(post|dev)\d+$", "", str(version))
+    if plugin_version not in (version, base_version):
         raise PluginBundleError(
             f"version mismatch: {TEMPLATE_DIRNAME}/.claude-plugin/plugin.json "
-            f"says {plugin_meta.get('version')!r} but builder was asked for "
-            f"{version!r}. Run scripts/bump_version.py to resync."
+            f"says {plugin_version!r} but builder was asked for "
+            f"{version!r} (base {base_version!r}). "
+            f"Run scripts/bump_version.py to resync."
         )
 
     dest_dir = dest_dir if dest_dir is not None else (repo_root / "dist")

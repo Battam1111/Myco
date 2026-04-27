@@ -237,7 +237,17 @@ def test_script_knows_real_files_current_version(bump) -> None:
 
     Catches the case where someone reformats __init__.py or the JSON
     shape and the bumper silently stops matching.
+
+    v0.6.0 path-B exception: ``__version__`` may carry a PEP 440
+    ``.postN`` suffix as a PyPI namespace-burn workaround. The bumper's
+    SEMVER_RE only accepts the bare ``N.N.N`` shape, so we strip the
+    suffix before checking — the bumper should still recognize the base
+    version when invoked directly with ``--to N.N.N``.
     """
+    import re
+
     v = bump._read_current_version()
-    # Must be semver-shaped (stripped of any 'v' prefix already).
-    assert bump.SEMVER_RE.match(v), f"__version__ {v!r} doesn't parse as semver"
+    base = re.sub(r"\.(post|dev)\d+$", "", v)
+    assert bump.SEMVER_RE.match(base), (
+        f"__version__ base {base!r} (full {v!r}) doesn't parse as semver"
+    )
