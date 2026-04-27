@@ -7,7 +7,7 @@
     "url": "https://github.com/Battam1111/Myco",
     "source": "github"
   },
-  "version": "0.6.2",
+  "version": "0.6.0",
   "websiteUrl": "https://github.com/Battam1111/Myco",
   "icon": "https://raw.githubusercontent.com/Battam1111/Myco/main/assets/logo_light_512.png",
   "_meta": {
@@ -52,7 +52,7 @@
       "registryType": "pypi",
       "registryBaseUrl": "https://pypi.org",
       "identifier": "myco",
-      "version": "0.6.2",
+      "version": "0.6.0",
       "runtimeHint": "python",
       "transport": {
         "type": "stdio"
@@ -95,7 +95,7 @@
       "registryType": "oci",
       "registryBaseUrl": "https://ghcr.io",
       "identifier": "Battam1111/myco",
-      "version": "0.6.2",
+      "version": "0.6.0",
       "transport": {
         "type": "streamable-http"
       }
