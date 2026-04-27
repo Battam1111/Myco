@@ -34,7 +34,9 @@ def test_main_missing_subcommand_runs_legacy_path():
     assert rc is None or isinstance(rc, int)
 
 
-def test_detect_installed_hosts_returns_iterable(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+def test_detect_installed_hosts_returns_iterable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
     """Detection returns an iterable (list/dict/set)."""
     detected = detect_installed_hosts()
     # Detection is best-effort against current $HOME; just verify type.

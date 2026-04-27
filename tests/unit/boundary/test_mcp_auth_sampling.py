@@ -21,7 +21,6 @@ from myco.boundary.surface.mcp_sampling import (
     should_advertise_sampling,
 )
 
-
 # ---------- mcp_auth ----------
 
 

@@ -10,8 +10,6 @@ import logging
 from pathlib import Path
 from types import SimpleNamespace
 
-import pytest
-
 from myco.boundary.surface import (
     capability,
     mcp_auth,
@@ -19,7 +17,6 @@ from myco.boundary.surface import (
     mcp_resources,
     mcp_sampling,
 )
-
 
 # ---------------------------------------------------------------------------
 # mcp_resources
@@ -354,7 +351,9 @@ def test_prompt_capability_register_noop():
 def test_sampling_capability_skips_when_forbidden():
     cap = capability.SamplingCapability()
     ctx = SimpleNamespace(
-        substrate=SimpleNamespace(canon=SimpleNamespace(system={"llm_policy": "forbidden"}))
+        substrate=SimpleNamespace(
+            canon=SimpleNamespace(system={"llm_policy": "forbidden"})
+        )
     )
     # Should not raise when forbidden.
     cap.register(server=None, ctx=ctx)
@@ -363,7 +362,9 @@ def test_sampling_capability_skips_when_forbidden():
 def test_sampling_capability_with_opt_in():
     cap = capability.SamplingCapability()
     ctx = SimpleNamespace(
-        substrate=SimpleNamespace(canon=SimpleNamespace(system={"llm_policy": "opt-in"}))
+        substrate=SimpleNamespace(
+            canon=SimpleNamespace(system={"llm_policy": "opt-in"})
+        )
     )
     cap.register(server=None, ctx=ctx)
 
@@ -371,7 +372,9 @@ def test_sampling_capability_with_opt_in():
 def test_sampling_capability_with_allow_when_forbidden():
     cap = capability.SamplingCapability(allow_when_forbidden=True)
     ctx = SimpleNamespace(
-        substrate=SimpleNamespace(canon=SimpleNamespace(system={"llm_policy": "forbidden"}))
+        substrate=SimpleNamespace(
+            canon=SimpleNamespace(system={"llm_policy": "forbidden"})
+        )
     )
     cap.register(server=None, ctx=ctx)
 

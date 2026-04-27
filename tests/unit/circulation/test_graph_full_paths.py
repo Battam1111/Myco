@@ -6,8 +6,8 @@ import json
 from pathlib import Path
 
 from myco.circulation.graph import (
-    Edge,
     GRAPH_CACHE_SCHEMA,
+    Edge,
     Graph,
     _is_external,
     _iter_canon_refs,
@@ -19,7 +19,6 @@ from myco.circulation.graph import (
     persist_graph,
 )
 from myco.core.context import MycoContext
-
 
 # ---------- helpers ----------
 
@@ -87,9 +86,7 @@ def test_iter_canon_refs_no_ref_keys():
 
 def test_iter_canon_refs_list_of_dicts():
     out = list(
-        _iter_canon_refs(
-            {"items": [{"path_ref": "a.md"}, {"path_ref": "b.md"}]}
-        )
+        _iter_canon_refs({"items": [{"path_ref": "a.md"}, {"path_ref": "b.md"}]})
     )
     assert "a.md" in out
     assert "b.md" in out
@@ -192,7 +189,9 @@ def test_load_returns_none_when_root_not_mapping(tmp_path: Path):
 
 def test_load_returns_none_on_schema_mismatch(tmp_path: Path):
     p = tmp_path / "g.json"
-    p.write_text(json.dumps({"schema": "999", "nodes": [], "edges": []}), encoding="utf-8")
+    p.write_text(
+        json.dumps({"schema": "999", "nodes": [], "edges": []}), encoding="utf-8"
+    )
     assert load_persisted_graph(p) is None
 
 
@@ -273,7 +272,9 @@ def test_build_graph_with_canon_refs_resolves(genesis_substrate: Path):
     """If canon has a *_ref to an existing file, it shows as canon_ref edge."""
     canon = genesis_substrate / "_canon.yaml"
     text = canon.read_text(encoding="utf-8")
-    text = text + '\nversioning:\n  contract_changelog_ref: "docs/contract_changelog.md"\n'
+    text = (
+        text + '\nversioning:\n  contract_changelog_ref: "docs/contract_changelog.md"\n'
+    )
     canon.write_text(text, encoding="utf-8")
     docs = genesis_substrate / "docs"
     docs.mkdir(exist_ok=True)

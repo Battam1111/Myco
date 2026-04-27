@@ -324,10 +324,7 @@ def walk_src_graph(
                     # treating ``__init__.py`` as both source and target,
                     # not a real referential cycle. SE3 would otherwise
                     # flag every ``from . import sibling`` as a self-cycle.
-                    if (
-                        base_target is not None
-                        and _rel(root, base_target) != rel
-                    ):
+                    if base_target is not None and _rel(root, base_target) != rel:
                         result.import_edges.append((rel, _rel(root, base_target)))
                     elif base_target is not None and _rel(root, base_target) == rel:
                         # Treat as None for downstream sub-target dedup.

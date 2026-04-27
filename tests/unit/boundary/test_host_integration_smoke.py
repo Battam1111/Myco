@@ -210,13 +210,11 @@ def test_cline_install_deep_writes(home: Path, tmp_path: Path):
     (home / ".vscode" / "extensions").mkdir(parents=True)
     sub_root = tmp_path / "substrate"
     sub_root.mkdir()
-    sub = SimpleNamespace(
-        root=sub_root, canon=SimpleNamespace(substrate_id="test-sub")
-    )
+    sub = SimpleNamespace(root=sub_root, canon=SimpleNamespace(substrate_id="test-sub"))
     probe = cline.discover(home)
     rep = cline.install_deep(probe, sub)
     assert rep.host_id == "cline"
-    rep2 = cline.install_deep(probe, sub)
+    cline.install_deep(probe, sub)  # idempotent re-install
     rep3 = cline.install_basic(probe, sub, dry_run=True)
     assert rep3.host_id == "cline"
     cline.uninstall(probe, dry_run=True)

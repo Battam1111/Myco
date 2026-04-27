@@ -20,7 +20,6 @@ from myco.circulation.traverse import (
 from myco.core.context import MycoContext
 from myco.core.errors import UsageError
 
-
 # ---------- _in_scope ----------
 
 

@@ -154,9 +154,7 @@ def test_dimension_mode_no_severity_raises(tmp_path: Path):
 def test_dimension_mode_unknown_category_raises(tmp_path: Path):
     ctx = _seed_with_canon(tmp_path, sid="myco-self")
     with pytest.raises(UsageError, match="unknown category"):
-        run(
-            {"dimension": "TEST1", "category": "wat", "severity": "high"}, ctx=ctx
-        )
+        run({"dimension": "TEST1", "category": "wat", "severity": "high"}, ctx=ctx)
 
 
 def test_dimension_mode_unknown_severity_raises(tmp_path: Path):
@@ -188,13 +186,9 @@ def test_dimension_mode_substrate_local_writes_stub(tmp_path: Path):
 
 def test_dimension_mode_already_exists_no_force(tmp_path: Path):
     ctx = _seed_with_canon(tmp_path, sid="downstream")
-    res1 = run(
-        {"dimension": "T2", "category": "semantic", "severity": "low"}, ctx=ctx
-    )
+    res1 = run({"dimension": "T2", "category": "semantic", "severity": "low"}, ctx=ctx)
     assert res1.payload["written"] is True
-    res2 = run(
-        {"dimension": "T2", "category": "semantic", "severity": "low"}, ctx=ctx
-    )
+    res2 = run({"dimension": "T2", "category": "semantic", "severity": "low"}, ctx=ctx)
     assert res2.payload["written"] is False
 
 
@@ -272,7 +266,7 @@ def test_adapter_mode_normalizes_dot_prefix(tmp_path: Path):
 
 def test_adapter_mode_kernel_path(tmp_path: Path):
     ctx = _seed_with_canon(tmp_path, sid="myco-self")
-    res = run(
+    run(
         {
             "adapter": "kernad",
             "extensions": [".log"],
