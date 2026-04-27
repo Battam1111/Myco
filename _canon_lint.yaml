@@ -1,0 +1,72 @@
+# _canon_lint.yaml — sibling SSoT for lint.dimensions inventory.
+#
+# Extracted from _canon.yaml at v0.6.0 owner amendment §A4 (third
+# partial of the v1→v2 schema_upgrader). The main canon retains a
+# `lint.dimensions_ref: "_canon_lint.yaml"` pointer; load_canon
+# merges this payload into ``Canon.lint.dimensions`` transparently.
+#
+# Schema (forward-compat):
+#   dimensions:
+#     <DIM_ID>: <category>          # bare; severity tracked in code
+#     # or expanded form:
+#     <DIM_ID>:
+#       category: <category>
+#       declared_severity: <LOW|MEDIUM|HIGH|CRITICAL>
+#       fixable: <bool>
+#
+# Categories: mechanical | shipped | metabolic | semantic.
+
+dimensions:
+  # v0.5.0–v0.5.7 roster (11 dims):
+  M1: mechanical
+  M2: mechanical
+  M3: mechanical
+  MB1: metabolic
+  MB2: metabolic
+  MF1: mechanical
+  MF2: mechanical
+  MP1: mechanical
+  SE1: semantic
+  SE2: semantic
+  SH1: shipped
+  # v0.5.8 additions (14 dims):
+  MP2: mechanical
+  DC1: mechanical
+  DC2: mechanical
+  DC3: mechanical
+  DC4: mechanical
+  CS1: mechanical
+  FR1: mechanical
+  PA1: mechanical
+  CG1: mechanical
+  CG2: mechanical
+  DI1: mechanical
+  MB3: metabolic
+  SE3: semantic
+  RL1: semantic
+  # v0.6.0 additions (21 new dims; declared severity per craft §A5).
+  # Mechanical structural (9):
+  PA2: mechanical
+  PA3: mechanical
+  PA4: mechanical
+  PA5: mechanical
+  SC1: mechanical
+  DC5: mechanical
+  MF3: mechanical
+  DI2: mechanical
+  AD1: mechanical
+  # Semantic + metabolic (5):
+  SE4: semantic
+  RL2: semantic
+  RL3: semantic
+  MB4: metabolic
+  MB6: metabolic
+  # Shipping + capability + plugin (3):
+  SH2: shipped
+  CL1: mechanical
+  MP3: mechanical
+  # R-revision additions (4):
+  MB7: metabolic
+  CL2: mechanical
+  CL3: mechanical
+  MF4: mechanical

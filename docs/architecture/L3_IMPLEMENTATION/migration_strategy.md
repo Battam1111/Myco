@@ -56,7 +56,7 @@ Single commit establishes the build surface:
   Stage A it raises a deliberate `NotImplementedError` until
   `surface/cli.py` lands in Stage B.7.
 - `pyproject.toml` — Hatchling dynamic version, `myco` console script
-  pointing at `myco.surface.cli:main`, pytest config, minimal
+  pointing at `myco.boundary.surface.cli:main`, pytest config, minimal
   runtime deps.
 - `.gitignore` — fresh Python ignores; the root `.gitignore` carried
   over from v0.3 is preserved but augmented.

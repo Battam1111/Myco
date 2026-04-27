@@ -5,7 +5,9 @@ from __future__ import annotations
 from pathlib import Path
 
 from myco.core.context import MycoContext
-from myco.homeostasis.dimensions.mb2_no_integrated_yet import MB2NoIntegratedYet
+from myco.homeostasis.dimensions.metabolic.mb2_no_integrated_yet import (
+    MB2NoIntegratedYet,
+)
 
 
 def test_silent_when_no_raws(seeded_substrate: Path) -> None:

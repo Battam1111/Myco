@@ -75,7 +75,7 @@ def test_cowork_plugin_version_tracks_package_version() -> None:
 
 
 def test_cowork_mcp_config_points_at_myco_mcp_launcher() -> None:
-    """The Cowork bundle uses ``python -m myco.mcp`` (stdio launcher)
+    """The Cowork bundle uses ``python -m myco.boundary.mcp`` (stdio launcher)
     rather than the bare ``mcp-server-myco`` console script: Claude
     Desktop / Cowork spawns MCP servers from a GUI context where a
     user-site Scripts dir may not be on PATH.
@@ -85,7 +85,7 @@ def test_cowork_mcp_config_points_at_myco_mcp_launcher() -> None:
     assert "myco" in servers, servers
     entry = servers["myco"]
     assert entry["command"] == "python", entry
-    assert entry["args"] == ["-m", "myco.mcp"], entry
+    assert entry["args"] == ["-m", "myco.boundary.mcp"], entry
 
 
 # ---------------------------------------------------------------------------

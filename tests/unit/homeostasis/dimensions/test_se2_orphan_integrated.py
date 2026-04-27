@@ -5,7 +5,9 @@ from __future__ import annotations
 from pathlib import Path
 
 from myco.core.context import MycoContext
-from myco.homeostasis.dimensions.se2_orphan_integrated import SE2OrphanIntegrated
+from myco.homeostasis.dimensions.semantic.se2_orphan_integrated import (
+    SE2OrphanIntegrated,
+)
 
 
 def test_silent_when_no_integrated(genesis_substrate: Path) -> None:

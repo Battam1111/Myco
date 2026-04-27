@@ -1,4 +1,4 @@
-"""Tests for ``myco.surface.mcp``."""
+"""Tests for ``myco.boundary.surface.mcp``."""
 
 from __future__ import annotations
 
@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from myco.surface.manifest import load_manifest
-from myco.surface.mcp import build_tool_spec
+from myco.boundary.surface.manifest import load_manifest
+from myco.boundary.surface.mcp import build_tool_spec
 
 
 def test_every_verb_has_tool_spec() -> None:
@@ -57,7 +57,7 @@ def test_every_param_has_schema_description() -> None:
     """
     import asyncio
 
-    from myco.surface.mcp import build_server
+    from myco.boundary.surface.mcp import build_server
 
     m = load_manifest()
     server = build_server(m)
@@ -97,9 +97,10 @@ def test_eat_has_content_path_and_url_properties() -> None:
 
 
 def test_bool_and_path_types_map_correctly() -> None:
+    """v0.6.0: alias `genesis` removed; canonical name is `germinate`."""
     m = load_manifest()
-    genesis = m.by_name("genesis")
-    tool = build_tool_spec(genesis)
+    germinate = m.by_name("germinate")
+    tool = build_tool_spec(germinate)
     props = tool["inputSchema"]["properties"]
     assert props["project_dir"]["type"] == "string"  # path → string
     assert props["dry_run"]["type"] == "boolean"
@@ -108,7 +109,7 @@ def test_bool_and_path_types_map_correctly() -> None:
 def test_build_server_imports() -> None:
     # Just verify the function is callable; actual server transport
     # isn't exercised here.
-    from myco.surface import mcp as mcp_mod
+    from myco.boundary.surface import mcp as mcp_mod
 
     assert callable(mcp_mod.build_server)
 
@@ -143,7 +144,7 @@ class _FakeContext:
 
 
 def test_uri_to_path_posix() -> None:
-    from myco.surface.mcp import _uri_to_path
+    from myco.boundary.surface.mcp import _uri_to_path
 
     p = _uri_to_path("file:///home/user/project")
     assert p is not None
@@ -151,7 +152,7 @@ def test_uri_to_path_posix() -> None:
 
 
 def test_uri_to_path_windows() -> None:
-    from myco.surface.mcp import _uri_to_path
+    from myco.boundary.surface.mcp import _uri_to_path
 
     p = _uri_to_path("file:///C:/Users/10350/Desktop/C3")
     assert p is not None
@@ -160,7 +161,7 @@ def test_uri_to_path_windows() -> None:
 
 def test_uri_to_path_with_percent_encoding() -> None:
     """Spaces in paths arrive percent-encoded; must round-trip."""
-    from myco.surface.mcp import _uri_to_path
+    from myco.boundary.surface.mcp import _uri_to_path
 
     p = _uri_to_path("file:///tmp/has%20space/x")
     assert p is not None
@@ -168,7 +169,7 @@ def test_uri_to_path_with_percent_encoding() -> None:
 
 
 def test_uri_to_path_rejects_non_file_scheme() -> None:
-    from myco.surface.mcp import _uri_to_path
+    from myco.boundary.surface.mcp import _uri_to_path
 
     assert _uri_to_path("https://example.com/repo") is None
     assert _uri_to_path("git+ssh://github.com/x/y") is None
@@ -176,7 +177,7 @@ def test_uri_to_path_rejects_non_file_scheme() -> None:
 
 
 def test_has_substrate_at_or_above_finds_canon(tmp_path: Path) -> None:
-    from myco.surface.mcp import _has_substrate_at_or_above
+    from myco.boundary.surface.mcp import _has_substrate_at_or_above
 
     (tmp_path / "_canon.yaml").write_text("schema_version: '1'\n")
     assert _has_substrate_at_or_above(tmp_path) is True
@@ -187,7 +188,7 @@ def test_has_substrate_at_or_above_finds_canon(tmp_path: Path) -> None:
 
 
 def test_has_substrate_at_or_above_negative(tmp_path: Path) -> None:
-    from myco.surface.mcp import _has_substrate_at_or_above
+    from myco.boundary.surface.mcp import _has_substrate_at_or_above
 
     assert _has_substrate_at_or_above(tmp_path) is False
 
@@ -202,7 +203,7 @@ def _run(coro):  # type: ignore[no-untyped-def]
 
 
 def test_resolve_project_via_roots_happy_path(tmp_path: Path) -> None:
-    from myco.surface.mcp import _resolve_project_via_roots
+    from myco.boundary.surface.mcp import _resolve_project_via_roots
 
     (tmp_path / "_canon.yaml").write_text("schema_version: '1'\n")
     uri = tmp_path.resolve().as_uri()
@@ -215,7 +216,7 @@ def test_resolve_project_via_roots_happy_path(tmp_path: Path) -> None:
 def test_resolve_project_via_roots_skips_non_substrate_roots(
     tmp_path: Path,
 ) -> None:
-    from myco.surface.mcp import _resolve_project_via_roots
+    from myco.boundary.surface.mcp import _resolve_project_via_roots
 
     r1 = tmp_path / "no_subst"
     r2 = tmp_path / "yes_subst"
@@ -231,7 +232,7 @@ def test_resolve_project_via_roots_skips_non_substrate_roots(
 
 def test_resolve_project_via_roots_client_doesnt_support() -> None:
     """Client that doesn't implement roots/list → graceful None."""
-    from myco.surface.mcp import _resolve_project_via_roots
+    from myco.boundary.surface.mcp import _resolve_project_via_roots
 
     ctx = _FakeContext(_FakeSession(RuntimeError("not supported")))
     got = _run(_resolve_project_via_roots(ctx))
@@ -240,7 +241,7 @@ def test_resolve_project_via_roots_client_doesnt_support() -> None:
 
 def test_resolve_project_via_roots_empty_roots() -> None:
     """Client responds but has no workspace open → None."""
-    from myco.surface.mcp import _resolve_project_via_roots
+    from myco.boundary.surface.mcp import _resolve_project_via_roots
 
     ctx = _FakeContext(_FakeSession(_FakeRootsResult([])))
     got = _run(_resolve_project_via_roots(ctx))
@@ -249,7 +250,7 @@ def test_resolve_project_via_roots_empty_roots() -> None:
 
 def test_resolve_project_via_roots_no_session() -> None:
     """Missing session attribute → graceful None (no AttributeError)."""
-    from myco.surface.mcp import _resolve_project_via_roots
+    from myco.boundary.surface.mcp import _resolve_project_via_roots
 
     ctx = _FakeContext(None)
     got = _run(_resolve_project_via_roots(ctx))
@@ -260,7 +261,7 @@ def test_resolve_project_via_roots_skips_non_file_uri(
     tmp_path: Path,
 ) -> None:
     """A root with https:// URI is ignored; next file:// root tried."""
-    from myco.surface.mcp import _resolve_project_via_roots
+    from myco.boundary.surface.mcp import _resolve_project_via_roots
 
     (tmp_path / "_canon.yaml").write_text("schema_version: '1'\n")
     roots = [
@@ -282,7 +283,7 @@ def test_detect_workspace_root_returns_first_file_uri_regardless_of_substrate(
     """Unlike _resolve_project_via_roots, _detect_workspace_root
     returns the first file:// root even when it has no substrate —
     so v0.5.16 can suggest where to germinate."""
-    from myco.surface.mcp import _detect_workspace_root
+    from myco.boundary.surface.mcp import _detect_workspace_root
 
     # No _canon.yaml anywhere under tmp_path.
     uri = tmp_path.resolve().as_uri()
@@ -293,7 +294,7 @@ def test_detect_workspace_root_returns_first_file_uri_regardless_of_substrate(
 
 
 def test_detect_workspace_root_returns_none_when_client_silent() -> None:
-    from myco.surface.mcp import _detect_workspace_root
+    from myco.boundary.surface.mcp import _detect_workspace_root
 
     ctx = _FakeContext(None)
     got = _run(_detect_workspace_root(ctx))
@@ -304,8 +305,8 @@ def test_auto_germ_advice_response_shape(tmp_path: Path) -> None:
     """The soft-fail response exposes exit_code 4, a germinate hint
     in the pulse, the workspace path in the payload, and the v0.5.18
     transparency fields ``project_dir_source`` + ``resolved_project_dir``."""
+    from myco.boundary.surface.mcp import _auto_germ_advice_response
     from myco.core.errors import SubstrateNotFound
-    from myco.surface.mcp import _auto_germ_advice_response
 
     resp = _auto_germ_advice_response(
         verb="hunger",
@@ -330,7 +331,7 @@ def test_pulse_includes_resolution_source_when_provided(tmp_path: Path) -> None:
     """v0.5.17: pulse surfaces ``project_dir_source`` + ``resolved_project_dir``
     when the caller tells it the source — the transparency aid for
     multi-project debugging."""
-    from myco.surface.mcp import _compute_substrate_pulse
+    from myco.boundary.surface.mcp import _compute_substrate_pulse
 
     (tmp_path / "_canon.yaml").write_text(
         "schema_version: '1'\n"
@@ -349,7 +350,7 @@ def test_pulse_includes_resolution_source_when_provided(tmp_path: Path) -> None:
 
 def test_pulse_omits_resolution_source_when_not_provided() -> None:
     """CLI path leaves the source None; fields stay absent (no lies)."""
-    from myco.surface.mcp import _compute_substrate_pulse
+    from myco.boundary.surface.mcp import _compute_substrate_pulse
 
     pulse = _compute_substrate_pulse("hunger")
     assert "project_dir_source" not in pulse
@@ -362,8 +363,8 @@ def test_invoke_reports_env_source_when_myco_env_set(
 ) -> None:
     """End-to-end: with MYCO_PROJECT_DIR set and no roots/list, the
     pulse says the env var was the source."""
-    from myco.surface.manifest import load_manifest
-    from myco.surface.mcp import _invoke, _ServerState
+    from myco.boundary.surface.manifest import load_manifest
+    from myco.boundary.surface.mcp import _invoke, _ServerState
 
     (tmp_path / "_canon.yaml").write_text(
         "schema_version: '1'\n"
@@ -389,8 +390,8 @@ def test_invoke_reports_kwargs_source_when_project_dir_explicit(
     tmp_path: Path,
 ) -> None:
     """Explicit kwargs.project_dir wins the source attribution too."""
-    from myco.surface.manifest import load_manifest
-    from myco.surface.mcp import _invoke, _ServerState
+    from myco.boundary.surface.manifest import load_manifest
+    from myco.boundary.surface.mcp import _invoke, _ServerState
 
     (tmp_path / "_canon.yaml").write_text(
         "schema_version: '1'\n"
@@ -421,8 +422,8 @@ def test_invoke_returns_auto_germ_advice_when_roots_lack_substrate(
     no _canon.yaml at or above, dispatch would raise SubstrateNotFound
     → we return a soft advice response instead.
     """
-    from myco.surface.manifest import load_manifest
-    from myco.surface.mcp import _invoke, _ServerState
+    from myco.boundary.surface.manifest import load_manifest
+    from myco.boundary.surface.mcp import _invoke, _ServerState
 
     # Empty workspace (no substrate).
     empty = tmp_path / "fresh-project"
@@ -476,7 +477,7 @@ def test_handler_signature_has_manifest_args_not_varkw() -> None:
     """
     import inspect
 
-    from myco.surface.mcp import _build_handler_signature
+    from myco.boundary.surface.mcp import _build_handler_signature
 
     m = load_manifest()
     for spec in m.commands:
@@ -502,7 +503,7 @@ def test_handler_signature_marks_required_args_without_default() -> None:
     ``required`` in the JSON Schema it emits to the client)."""
     import inspect
 
-    from myco.surface.mcp import _build_handler_signature
+    from myco.boundary.surface.mcp import _build_handler_signature
 
     m = load_manifest()
     sense = m.by_name("sense")  # query is required
@@ -521,7 +522,7 @@ def test_handler_signature_exposes_project_dir_override() -> None:
     manifest arg, e.g. germinate) must surface ``project_dir`` as an
     optional parameter so the agent can pin a substrate explicitly.
     The sidecar contract relies on this for multi-project routing."""
-    from myco.surface.mcp import _build_handler_signature
+    from myco.boundary.surface.mcp import _build_handler_signature
 
     m = load_manifest()
     # hunger, eat, sense, etc. don't declare project-dir in the manifest
@@ -547,7 +548,7 @@ def test_fastmcp_tool_schema_exposes_individual_properties() -> None:
     actually determines whether the bug is present."""
     import asyncio
 
-    from myco.surface.mcp import build_server
+    from myco.boundary.surface.mcp import build_server
 
     m = load_manifest()
     server = build_server(m)
@@ -576,7 +577,7 @@ def test_fastmcp_call_eat_with_flat_args_succeeds() -> None:
     """
     import asyncio
 
-    from myco.surface.mcp import build_server
+    from myco.boundary.surface.mcp import build_server
 
     # Need a real substrate root for eat to write to. Use the repo
     # itself — it has _canon.yaml + the write_surface includes notes/**.
@@ -619,7 +620,7 @@ def test_fastmcp_call_sense_with_flat_query_arg_succeeds() -> None:
     code path than optional-arg verbs, so we lock it separately."""
     import asyncio
 
-    from myco.surface.mcp import build_server
+    from myco.boundary.surface.mcp import build_server
 
     repo_root = Path(__file__).resolve().parents[3]
     m = load_manifest()
@@ -652,7 +653,7 @@ def test_fastmcp_none_values_dont_shadow_manifest_defaults() -> None:
     default is a non-None sentinel."""
     import asyncio
 
-    from myco.surface.mcp import build_server
+    from myco.boundary.surface.mcp import build_server
 
     repo_root = Path(__file__).resolve().parents[3]
     m = load_manifest()

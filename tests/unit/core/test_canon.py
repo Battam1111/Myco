@@ -77,19 +77,25 @@ def test_unknown_schema_version_warns(tmp_path: Path, minimal_canon_text: str) -
 def test_schema_upgrader_runs_and_silences_warning(
     tmp_path: Path, minimal_canon_text: str
 ) -> None:
-    """A registered upgrader transforms the raw mapping to a known version."""
+    """A registered upgrader transforms the raw mapping to a known version.
+
+    v0.6.0 update: schema "1" and "2" are now both KNOWN_SCHEMA_VERSIONS;
+    we use a hypothetical "999" → "2" upgrader chain to demonstrate the
+    silencing behavior. The actual production upgrader (`_v1_to_v2`)
+    is exercised by `test_canon_schema_v1_to_v2.py` (separate file).
+    """
     from myco.core import canon as _canon
 
-    def _v2_to_v1(raw):
+    def _v999_to_v2(raw):
         raw = dict(raw)
-        raw["schema_version"] = "1"
+        raw["schema_version"] = "2"
         return raw
 
-    _canon.schema_upgraders["2"] = _v2_to_v1
+    _canon.schema_upgraders["999"] = _v999_to_v2
     try:
         p = tmp_path / "_canon.yaml"
         p.write_text(
-            minimal_canon_text.replace('schema_version: "1"', 'schema_version: "2"'),
+            minimal_canon_text.replace('schema_version: "1"', 'schema_version: "999"'),
             encoding="utf-8",
         )
         import warnings as _w
@@ -97,9 +103,9 @@ def test_schema_upgrader_runs_and_silences_warning(
         with _w.catch_warnings():
             _w.simplefilter("error")  # any UserWarning would raise
             c = load_canon(p)
-        assert c.schema_version == "1"
+        assert c.schema_version == "2"
     finally:
-        _canon.schema_upgraders.pop("2", None)
+        _canon.schema_upgraders.pop("999", None)
 
 
 def test_schema_upgrader_cycle_raises(tmp_path: Path, minimal_canon_text: str) -> None:

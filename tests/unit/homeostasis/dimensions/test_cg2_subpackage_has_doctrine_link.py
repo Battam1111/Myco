@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from myco.core.context import MycoContext
-from myco.homeostasis.dimensions.cg2_subpackage_has_doctrine_link import (
+from myco.homeostasis.dimensions.mechanical.cg2_subpackage_has_doctrine_link import (
     CG2SubpackageHasDoctrineLink,
 )
 

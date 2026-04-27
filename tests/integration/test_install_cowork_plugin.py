@@ -92,7 +92,7 @@ def test_prepare_plugin_for_upload_writes_bundle(tmp_path: Path) -> None:
     import io
 
     import myco
-    from myco.install.cowork_plugin import prepare_plugin_for_upload
+    from myco.boundary.install.cowork_plugin import prepare_plugin_for_upload
 
     stdout = io.StringIO()
     path = prepare_plugin_for_upload(
@@ -117,8 +117,8 @@ def test_prepare_plugin_for_upload_writes_bundle(tmp_path: Path) -> None:
 def test_prepare_plugin_for_upload_raises_on_missing_template(tmp_path: Path) -> None:
     """If called against a directory with no ``.cowork-plugin/``,
     we must raise loudly rather than produce a bogus empty ZIP."""
-    from myco.install.cowork_plugin import prepare_plugin_for_upload
-    from myco.install.plugin_bundle import PluginBundleError
+    from myco.boundary.install.cowork_plugin import prepare_plugin_for_upload
+    from myco.boundary.install.plugin_bundle import PluginBundleError
 
     with pytest.raises(PluginBundleError):
         prepare_plugin_for_upload(tmp_path, version="0.0.0", dest_dir=tmp_path)
@@ -127,8 +127,8 @@ def test_prepare_plugin_for_upload_raises_on_missing_template(tmp_path: Path) ->
 def test_prepare_plugin_for_upload_raises_on_version_mismatch(tmp_path: Path) -> None:
     """The caller-supplied version must match plugin.json::version.
     Otherwise the filename and the on-disk metadata would drift."""
-    from myco.install.cowork_plugin import prepare_plugin_for_upload
-    from myco.install.plugin_bundle import PluginBundleError
+    from myco.boundary.install.cowork_plugin import prepare_plugin_for_upload
+    from myco.boundary.install.plugin_bundle import PluginBundleError
 
     with pytest.raises(PluginBundleError):
         prepare_plugin_for_upload(REPO_ROOT, version="99.99.99", dest_dir=tmp_path)
@@ -149,7 +149,7 @@ def test_bundle_zip_extension_is_accepted_by_drag_drop_validator(
     write with the ``.plugin`` extension so drag-drop accepts it
     without the user having to rename."""
     import myco
-    from myco.install.plugin_bundle import build_plugin_bundle
+    from myco.boundary.install.plugin_bundle import build_plugin_bundle
 
     path = build_plugin_bundle(REPO_ROOT, version=myco.__version__, dest_dir=tmp_path)
     assert path.name.endswith(".plugin")
@@ -160,7 +160,7 @@ def test_bundle_has_single_top_level_dir_with_plugin_json(tmp_path: Path) -> Non
     top-level dir containing ``.claude-plugin/plugin.json``. Verify we
     preserve that exact layout."""
     import myco
-    from myco.install.plugin_bundle import PLUGIN_NAME, build_plugin_bundle
+    from myco.boundary.install.plugin_bundle import PLUGIN_NAME, build_plugin_bundle
 
     path = build_plugin_bundle(REPO_ROOT, version=myco.__version__, dest_dir=tmp_path)
     with zipfile.ZipFile(path) as zf:
@@ -177,7 +177,7 @@ def test_bundle_carries_myco_substrate_skill(tmp_path: Path) -> None:
     skill to Cowork. If we ever drop it by accident, Cowork uploads
     succeed but nothing changes for the user."""
     import myco
-    from myco.install.plugin_bundle import PLUGIN_NAME, build_plugin_bundle
+    from myco.boundary.install.plugin_bundle import PLUGIN_NAME, build_plugin_bundle
 
     path = build_plugin_bundle(REPO_ROOT, version=myco.__version__, dest_dir=tmp_path)
     with zipfile.ZipFile(path) as zf:
@@ -190,7 +190,7 @@ def test_bundle_has_mcp_json(tmp_path: Path) -> None:
     set up the stdio server the agent talks to — without it, the
     plugin ships a skill that references MCP tools that don't exist."""
     import myco
-    from myco.install.plugin_bundle import PLUGIN_NAME, build_plugin_bundle
+    from myco.boundary.install.plugin_bundle import PLUGIN_NAME, build_plugin_bundle
 
     path = build_plugin_bundle(REPO_ROOT, version=myco.__version__, dest_dir=tmp_path)
     with zipfile.ZipFile(path) as zf:
@@ -202,7 +202,7 @@ def test_bundle_plugin_json_version_matches(tmp_path: Path) -> None:
     """The filename and the metadata must advertise the same version.
     This is what Anthropic's upload dedups / increments against."""
     import myco
-    from myco.install.plugin_bundle import PLUGIN_NAME, build_plugin_bundle
+    from myco.boundary.install.plugin_bundle import PLUGIN_NAME, build_plugin_bundle
 
     path = build_plugin_bundle(REPO_ROOT, version=myco.__version__, dest_dir=tmp_path)
     with zipfile.ZipFile(path) as zf:
@@ -216,7 +216,7 @@ def test_bundle_overwrite_default(tmp_path: Path) -> None:
     """Re-building with overwrite=True (default) must replace an
     existing output. False must raise FileExistsError."""
     import myco
-    from myco.install.plugin_bundle import build_plugin_bundle
+    from myco.boundary.install.plugin_bundle import build_plugin_bundle
 
     p1 = build_plugin_bundle(REPO_ROOT, version=myco.__version__, dest_dir=tmp_path)
     mtime1 = p1.stat().st_mtime_ns
@@ -240,7 +240,7 @@ def test_bundle_overwrite_default(tmp_path: Path) -> None:
 
 
 def test_cleanup_legacy_removes_plugin_myco_row_and_dir(fake_cowork: Path) -> None:
-    from myco.install.cowork_plugin import (
+    from myco.boundary.install.cowork_plugin import (
         cleanup_legacy_rpm_install,
         discover_rpm_dirs,
     )
@@ -259,7 +259,7 @@ def test_cleanup_legacy_removes_plugin_myco_row_and_dir(fake_cowork: Path) -> No
 
 
 def test_cleanup_legacy_dry_run_is_noop(fake_cowork: Path) -> None:
-    from myco.install.cowork_plugin import (
+    from myco.boundary.install.cowork_plugin import (
         cleanup_legacy_rpm_install,
         discover_rpm_dirs,
     )
@@ -273,7 +273,7 @@ def test_cleanup_legacy_dry_run_is_noop(fake_cowork: Path) -> None:
 
 def test_cleanup_legacy_is_idempotent(fake_cowork: Path) -> None:
     """After the first cleanup, a second call reports 0 changes."""
-    from myco.install.cowork_plugin import (
+    from myco.boundary.install.cowork_plugin import (
         cleanup_legacy_rpm_install,
         discover_rpm_dirs,
     )
@@ -284,7 +284,7 @@ def test_cleanup_legacy_is_idempotent(fake_cowork: Path) -> None:
 
 
 def test_cleanup_legacy_noop_when_no_sessions(tmp_path: Path) -> None:
-    from myco.install.cowork_plugin import (
+    from myco.boundary.install.cowork_plugin import (
         cleanup_legacy_rpm_install,
         discover_rpm_dirs,
     )
@@ -308,7 +308,7 @@ def test_v05_19_install_function_raises_loudly() -> None:
     """A silent no-op here would reproduce the v0.5.19 failure mode
     (user thinks install worked, plugin never appears). The function
     must raise with migration instructions."""
-    from myco.install.cowork_plugin import install_cowork_plugin
+    from myco.boundary.install.cowork_plugin import install_cowork_plugin
 
     with pytest.raises(RuntimeError) as exc_info:
         install_cowork_plugin()  # type: ignore[call-arg]
@@ -323,7 +323,7 @@ def test_v05_19_install_function_raises_loudly() -> None:
 
 
 def test_discover_rpm_dirs_finds_all_workspaces(fake_cowork: Path) -> None:
-    from myco.install.cowork_plugin import discover_rpm_dirs
+    from myco.boundary.install.cowork_plugin import discover_rpm_dirs
 
     targets = discover_rpm_dirs(fake_cowork)
     assert {f"{t.owner_uuid}/{t.workspace_uuid}" for t in targets} == {
@@ -333,7 +333,7 @@ def test_discover_rpm_dirs_finds_all_workspaces(fake_cowork: Path) -> None:
 
 
 def test_discover_rpm_dirs_tolerates_missing_sessions_dir(tmp_path: Path) -> None:
-    from myco.install.cowork_plugin import discover_rpm_dirs
+    from myco.boundary.install.cowork_plugin import discover_rpm_dirs
 
     assert discover_rpm_dirs(tmp_path / "Claude") == []
 
@@ -342,7 +342,7 @@ def test_claude_appdata_root_respects_windows_APPDATA(tmp_path: Path) -> None:
     """On Windows the resolver uses ``%APPDATA%``, not ``$HOME``."""
     import sys
 
-    from myco.install.cowork_plugin import claude_appdata_root
+    from myco.boundary.install.cowork_plugin import claude_appdata_root
 
     if sys.platform != "win32":
         pytest.skip("windows-specific resolution")
@@ -354,7 +354,7 @@ def test_claude_appdata_root_respects_xdg_config_home(tmp_path: Path) -> None:
     """On Linux, ``$XDG_CONFIG_HOME`` (if set) beats ``~/.config``."""
     import sys
 
-    from myco.install.cowork_plugin import claude_appdata_root
+    from myco.boundary.install.cowork_plugin import claude_appdata_root
 
     if sys.platform in ("win32", "darwin"):
         pytest.skip("posix-specific resolution")
@@ -372,7 +372,7 @@ def test_cli_cowork_plugin_builds_bundle(tmp_path: Path, capsys) -> None:
     """The CLI subcommand, with ``--output`` pointed at tmp, must
     produce exactly the same artifact as the library call."""
     import myco
-    from myco.install import main as install_main
+    from myco.boundary.install import main as install_main
 
     rc = install_main(["cowork-plugin", "--output", str(tmp_path)])
     assert rc == 0
@@ -384,7 +384,7 @@ def test_cli_cowork_plugin_builds_bundle(tmp_path: Path, capsys) -> None:
 
 
 def test_cli_cowork_plugin_dry_run_writes_nothing(tmp_path: Path, capsys) -> None:
-    from myco.install import main as install_main
+    from myco.boundary.install import main as install_main
 
     rc = install_main(["cowork-plugin", "--dry-run", "--output", str(tmp_path)])
     assert rc == 0
@@ -396,7 +396,7 @@ def test_cli_cowork_plugin_dry_run_writes_nothing(tmp_path: Path, capsys) -> Non
 
 def test_cli_cowork_plugin_cleanup_legacy(fake_cowork: Path, tmp_path: Path) -> None:
     """``--cleanup-legacy`` scrubs v0.5.19's rpm/ writes."""
-    from myco.install import main as install_main
+    from myco.boundary.install import main as install_main
 
     out_dir = tmp_path / "out"
     rc = install_main(

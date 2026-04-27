@@ -72,7 +72,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--repo-root", type=Path, default=None, help=argparse.SUPPRESS)
     args = p.parse_args(argv)
 
-    from myco.install.cowork_plugin import (
+    from myco.boundary.install.cowork_plugin import (
         claude_appdata_root,
         cleanup_legacy_rpm_install,
         discover_rpm_dirs,

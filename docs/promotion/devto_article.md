@@ -66,7 +66,7 @@ homeostasis   immune
 cycle         senesce · fruit · molt · winnow · ramify · graft · brief
 ```
 
-All 19 are declared in [one YAML file](https://github.com/Battam1111/Myco/blob/main/src/myco/surface/manifest.yaml). The CLI (`python -m myco <verb>`) and the MCP tool server (via `myco.surface.mcp.build_server`) both derive from this file; there's no second registry to keep in sync.
+All 19 are declared in [one YAML file](https://github.com/Battam1111/Myco/blob/main/src/myco/surface/manifest.yaml). The CLI (`python -m myco <verb>`) and the MCP tool server (via `myco.boundary.surface.mcp.build_server`) both derive from this file; there's no second registry to keep in sync.
 
 A typical session looks like:
 

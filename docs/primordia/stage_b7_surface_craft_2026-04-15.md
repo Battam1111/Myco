@@ -133,7 +133,7 @@ CLI parser uses `--dash-case` flags; MCP schema exposes
 
 R6 (T7). `surface/meta.py::session_end_run(args, *, ctx)` orchestrates
 reflect + immune+fix. Registered as a manifest entry whose handler is
-`myco.surface.meta:session_end_run`.
+`myco.boundary.surface.meta:session_end_run`.
 
 R7 (T10). Argparse uses `nargs="*"` for list args; MCP accepts JSON
 arrays. Consistent behavior: empty list if absent.

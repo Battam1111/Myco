@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from myco.core.context import MycoContext
-from myco.homeostasis.dimensions.se3_link_self_cycle import SE3LinkSelfCycle
+from myco.homeostasis.dimensions.semantic.se3_link_self_cycle import SE3LinkSelfCycle
 
 
 def test_clean_substrate_no_finding(seeded_substrate: Path) -> None:

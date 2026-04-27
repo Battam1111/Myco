@@ -6,7 +6,9 @@ from pathlib import Path
 
 from myco.core.context import MycoContext
 from myco.core.severity import Severity
-from myco.homeostasis.dimensions.mb1_raw_notes_backlog import MB1RawNotesBacklog
+from myco.homeostasis.dimensions.metabolic.mb1_raw_notes_backlog import (
+    MB1RawNotesBacklog,
+)
 
 
 def _seed_raws(root: Path, n: int) -> None:

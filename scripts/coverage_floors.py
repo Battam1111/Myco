@@ -1,0 +1,89 @@
+#!/usr/bin/env python3
+"""coverage_floors.py — per-package coverage floor enforcement (v0.6.0).
+
+Reads ``coverage.xml`` (produced by ``pytest --cov-report=xml``) and
+checks that each package's line coverage meets the per-package floor
+declared below.
+
+Floors derive from craft v0.6.0 §K.3:
+
+- core/ = 95
+- homeostasis/ = 92
+- ingestion/ = 88
+- circulation/ = 85
+- cycle/ = 85
+- digestion/ = 85
+- surface/ = 85
+- boundary/ = 70 (OS-conditional code; lower floor accepted)
+- symbionts/ = 60 (per-host paths only fully covered on each host's CI)
+
+Exit code 0 if all floors met, 2 if any package falls short.
+"""
+
+from __future__ import annotations
+
+import sys
+import xml.etree.ElementTree as ET
+from pathlib import Path
+
+FLOORS = {
+    "myco/core/": 95,
+    "myco/homeostasis/": 92,
+    "myco/ingestion/": 88,
+    "myco/circulation/": 85,
+    "myco/cycle/": 85,
+    "myco/digestion/": 85,
+    "myco/surface/": 85,
+    "myco/boundary/": 70,
+    "myco/symbionts/": 60,
+}
+
+
+def main() -> int:
+    cov_path = Path(__file__).resolve().parent.parent / "coverage.xml"
+    if not cov_path.is_file():
+        print(
+            f"[coverage_floors] coverage.xml not found at {cov_path}", file=sys.stderr
+        )
+        return 1
+    try:
+        tree = ET.parse(cov_path)
+    except ET.ParseError as exc:
+        print(f"[coverage_floors] coverage.xml parse error: {exc}", file=sys.stderr)
+        return 1
+    root = tree.getroot()
+    failures: list[str] = []
+    by_pkg: dict[str, tuple[int, int]] = {}  # prefix -> (covered_lines, total_lines)
+    for cls in root.iter("class"):
+        filename = cls.get("filename") or ""
+        for prefix in FLOORS:
+            if filename.startswith(prefix) or f"/{prefix}" in filename:
+                covered = sum(
+                    1
+                    for ln in cls.iter("line")
+                    if ln.get("hits") and int(ln.get("hits") or 0) > 0
+                )
+                total = sum(1 for _ in cls.iter("line"))
+                cov, tot = by_pkg.get(prefix, (0, 0))
+                by_pkg[prefix] = (cov + covered, tot + total)
+                break
+    for prefix, floor in FLOORS.items():
+        cov, tot = by_pkg.get(prefix, (0, 0))
+        if tot == 0:
+            print(f"[coverage_floors] {prefix} no covered files; SKIP")
+            continue
+        pct = 100.0 * cov / tot
+        if pct < floor:
+            failures.append(f"{prefix}: {pct:.1f}% < {floor}%")
+        else:
+            print(f"[coverage_floors] OK: {prefix} {pct:.1f}% >= {floor}%")
+    if failures:
+        for f in failures:
+            print(f"[coverage_floors] FAIL: {f}", file=sys.stderr)
+        return 2
+    print(f"[coverage_floors] OK: all {len(FLOORS)} per-package floors met")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

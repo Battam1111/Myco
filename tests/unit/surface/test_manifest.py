@@ -1,4 +1,4 @@
-"""Tests for ``myco.surface.manifest``."""
+"""Tests for ``myco.boundary.surface.manifest``."""
 
 from __future__ import annotations
 
@@ -6,9 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from myco.core.context import MycoContext, Result
-from myco.core.errors import UsageError
-from myco.surface.manifest import (
+from myco.boundary.surface.manifest import (
     ArgSpec,
     CommandSpec,
     build_context,
@@ -17,6 +15,8 @@ from myco.surface.manifest import (
     dispatch,
     load_manifest,
 )
+from myco.core.context import MycoContext, Result
+from myco.core.errors import UsageError
 
 
 def test_dash_to_snake() -> None:
@@ -24,42 +24,56 @@ def test_dash_to_snake() -> None:
     assert dash_to_snake("abc") == "abc"
 
 
-def test_load_manifest_has_every_v0_5_verb() -> None:
-    """v0.5 expanded from 12 verbs (v0.4) to 16 — added governance
-    verbs (craft/bump/evolve) plus scaffold. v0.5.3 renamed 9 verbs
-    to fungal-bionic canonical names but kept every old name as an
-    alias so this still resolves. Kept as an at-least-these set so a
-    future minor release adding a new verb does not force a test
-    edit (the inverse direction, "every handler resolves", is covered
-    by :func:`test_every_handler_resolves` below)."""
+def test_load_manifest_has_every_v0_6_verb() -> None:
+    """v0.6.0 manifest: 20 canonical verbs, schema_version="2", v0.5.2
+    aliases all REMOVED per Round 4 §A2 owner amendment.
+
+    Renamed from `test_load_manifest_has_every_v0_5_verb` for clarity.
+    Kept as an at-least-these set so a future minor release adding a
+    new verb does not force a test edit.
+    """
     m = load_manifest()
-    assert m.schema_version == "1"
-    # Every v0.5 invokable name (canonical + alias) — v0.5.3 aliases
-    # the pre-rename names; ``all_names_including_aliases`` surfaces
-    # both axes of the compatibility surface.
+    assert m.schema_version == "2"
     all_names = set(m.all_names_including_aliases())
     must_have = {
-        # v0.4 set (now aliases post-v0.5.3 rename).
-        "genesis",
+        # v0.6.0 canonical 20 (no aliases survive).
+        "germinate",
         "hunger",
         "eat",
         "sense",
         "forage",
-        "reflect",
+        "excrete",
+        "intake",  # NEW v0.6.0
+        "assimilate",
         "digest",
-        "distill",
-        "perfuse",
+        "sporulate",
+        "traverse",
         "propagate",
         "immune",
+        "senesce",
+        "fruit",
+        "molt",
+        "winnow",
+        "ramify",
+        "graft",
+        "brief",
+    }
+    missing = must_have - all_names
+    assert not missing, f"manifest missing verbs: {sorted(missing)}"
+    # v0.5.2 aliases must be GONE per §A2.
+    forbidden_aliases = {
+        "genesis",
+        "reflect",
+        "distill",
+        "perfuse",
         "session-end",
-        # v0.5 governance + scaffold (aliases post-v0.5.3 rename).
         "craft",
         "bump",
         "evolve",
         "scaffold",
     }
-    missing = must_have - all_names
-    assert not missing, f"manifest missing verbs: {sorted(missing)}"
+    leaked = forbidden_aliases & all_names
+    assert not leaked, f"v0.5.2 aliases leaked into v0.6.0 manifest: {sorted(leaked)}"
 
 
 def test_every_handler_resolves() -> None:
@@ -69,10 +83,22 @@ def test_every_handler_resolves() -> None:
         assert callable(handler)
 
 
-def test_genesis_is_pre_substrate() -> None:
+def test_germinate_is_pre_substrate() -> None:
+    """v0.6.0: alias `genesis` removed; canonical name is `germinate`."""
     m = load_manifest()
-    g = m.by_name("genesis")
+    g = m.by_name("germinate")
     assert g.pre_substrate is True
+
+
+def test_genesis_alias_no_longer_resolves() -> None:
+    """Per Round 4 §A2 owner amendment, all v0.5.2 aliases removed."""
+    import pytest as _pytest
+
+    from myco.core.errors import UsageError
+
+    m = load_manifest()
+    with _pytest.raises(UsageError):
+        m.by_name("genesis")
 
 
 def test_by_name_unknown_raises() -> None:
@@ -293,11 +319,12 @@ def test_dispatch_runs_handler(genesis_substrate: Path) -> None:
     assert result.exit_code == 0
 
 
-def test_dispatch_pre_substrate_genesis(tmp_path: Path) -> None:
+def test_dispatch_pre_substrate_germinate(tmp_path: Path) -> None:
+    """v0.6.0: alias `genesis` removed; canonical name is `germinate`."""
     target = tmp_path / "fresh"
     target.mkdir()
     result = dispatch(
-        "genesis",
+        "germinate",
         {"project-dir": str(target), "substrate-id": "brandnew"},
     )
     assert result.exit_code == 0
@@ -402,7 +429,7 @@ def test_v0_5_24_mcp_schema_embeds_examples() -> None:
 
     from pydantic import TypeAdapter
 
-    from myco.surface.mcp import _build_handler_signature
+    from myco.boundary.surface.mcp import _build_handler_signature
 
     m = load_manifest()
     excrete = m.by_name("excrete")

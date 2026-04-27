@@ -111,7 +111,7 @@ Myco/
 
 These four are **on the public record** in the README and the GitHub release notes. They must ship in v0.4.1:
 
-1. **`python -m myco.mcp` standalone launcher.** A `__main__.py` under `src/myco/mcp/` (or wherever cleanest) that calls `build_server().run()` so users don't have to write Python to launch the MCP server.
+1. **`python -m myco.boundary.mcp` standalone launcher.** A `__main__.py` under `src/myco/mcp/` (or wherever cleanest) that calls `build_server().run()` so users don't have to write Python to launch the MCP server.
 
 2. **`[mcp]` extras target.** In `pyproject.toml`, an `[project.optional-dependencies] mcp = ["mcp>=..."]` entry so `pip install myco[mcp]` brings the MCP stdio server with it. Pin the lower bound after researching the current stable `mcp` package.
 

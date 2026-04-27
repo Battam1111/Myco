@@ -1,9 +1,9 @@
 # L1 — `_canon.yaml` Schema
 
-> **Status**: APPROVED (2026-04-15, greenfield rewrite §9).
+> **Status**: APPROVED (2026-04-15, greenfield rewrite §9; v0.6.0 schema v2 amendment LANDED 2026-04-28 per `docs/primordia/v0_6_0_unified_evolution_and_thorough_refactor_craft_2026-04-28.md`).
 > **Layer**: L1. Subordinate to `L0_VISION.md`, `protocol.md`.
 > **Enforces**: write-surface discipline (R6), contract versioning, lint-category map.
-> **Budget**: the v0.4.0 canon instance at L4 MUST be **≤ 300 non-comment lines**. If it isn't, something that belongs elsewhere has leaked in.
+> **Budget**: the v0.4.0 canon instance at L4 MUST be **≤ 300 non-comment lines**. If it isn't, something that belongs elsewhere has leaked in. v0.6.0 raises the budget to **≤ 400 non-comment lines** to accommodate schema v2 additions (resource_redaction, resource_watch, governance, severity_promotion, thresholds, abstract_parent_allowlist, federation_peers, expanded lint.dimensions). Future v2.1 will extract `lint.dimensions` to sibling `_canon_lint.yaml`, returning the main canon to ≤ 300 LoC.
 
 ---
 

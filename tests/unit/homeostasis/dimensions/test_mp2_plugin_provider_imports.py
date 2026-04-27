@@ -6,7 +6,7 @@ from pathlib import Path
 
 from myco.core.context import MycoContext
 from myco.core.severity import Severity
-from myco.homeostasis.dimensions.mp2_plugin_provider_imports import (
+from myco.homeostasis.dimensions.mechanical.mp2_plugin_provider_imports import (
     MP2PluginProviderImports,
 )
 

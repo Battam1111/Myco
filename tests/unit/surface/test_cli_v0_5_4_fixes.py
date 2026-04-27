@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from myco.surface.cli import build_parser, main
+from myco.boundary.surface.cli import build_parser, main
 
 
 def _run(argv: list[str]) -> tuple[int, str, str]:

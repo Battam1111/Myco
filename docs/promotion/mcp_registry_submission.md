@@ -14,7 +14,7 @@ copy-paste.
 | Short description (≤ 120 chars) | "Cognitive substrate for LLM agents. 19 verbs expose ingest, digest, traverse, immune, molt, excrete: cross-session memory." |
 | Long description (300-500 chars) | "Myco is a long-lived, self-validating filesystem shape + manifest-driven verb surface for LLM agents. Every one of its 19 verbs (germinate / hunger / eat / sense / forage / excrete / assimilate / digest / sporulate / traverse / propagate / immune / senesce / fruit / molt / winnow / ramify / graft / brief) is exposed as an MCP tool. Tool responses carry a pulse sidecar echoing the L1 R1 through R7 rules on every call. 25 lint dimensions enforce contract invariants mechanically. Provider-agnostic (MP1/MP2 mechanically forbid LLM-provider SDK imports in the kernel + plugins). Editable-default install. A-tier on Glama's Tool Definition Quality rubric. MIT." |
 | Install command | `pip install 'myco[mcp]'` |
-| Run command | `python -m myco.mcp --transport stdio` (or `sse` / `streamable-http`) |
+| Run command | `python -m myco.boundary.mcp --transport stdio` (or `sse` / `streamable-http`) |
 | License | MIT |
 | Language | Python |
 | Min Python | 3.10 |
@@ -46,7 +46,7 @@ copy-paste.
   },
   "run": {
     "command": "python",
-    "args": ["-m", "myco.mcp", "--transport", "stdio"]
+    "args": ["-m", "myco.boundary.mcp", "--transport", "stdio"]
   },
   "transports": ["stdio", "sse", "streamable-http"],
   "tools": 19,
@@ -79,7 +79,7 @@ install:
   pip: "pip install 'myco[mcp]'"
 run:
   command: python
-  args: ["-m", "myco.mcp", "--transport", "stdio"]
+  args: ["-m", "myco.boundary.mcp", "--transport", "stdio"]
 transports: [stdio, sse, streamable-http]
 tools: 19
 categories:

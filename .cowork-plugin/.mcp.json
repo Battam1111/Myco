@@ -5,7 +5,7 @@
       "command": "python",
       "args": [
         "-m",
-        "myco.mcp"
+        "myco.boundary.mcp"
       ]
     }
   }

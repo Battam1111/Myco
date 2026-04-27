@@ -411,7 +411,7 @@ def run_cli(args: Mapping[str, object]) -> Result:
     """Manifest-shaped handler for ``myco genesis``.
 
     Genesis predates the substrate, so this handler deliberately does
-    not accept a ``ctx``; the :mod:`myco.surface.manifest` dispatcher
+    not accept a ``ctx``; the :mod:`myco.boundary.surface.manifest` dispatcher
     short-circuits context construction for ``pre_substrate`` verbs.
     """
     project_dir_raw = args.get("project_dir")

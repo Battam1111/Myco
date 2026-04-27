@@ -47,7 +47,7 @@ repos:
     hooks:
       - id: myco-immune
         name: myco immune (substrate self-lint)
-        entry: python -m myco.surface.cli immune --exit-on=mechanical:high,shipped:high,metabolic:never,semantic:never
+        entry: python -m myco.boundary.surface.cli immune --exit-on=mechanical:high,shipped:high,metabolic:never,semantic:never
         language: system
         pass_filenames: false
         stages: [pre-commit]

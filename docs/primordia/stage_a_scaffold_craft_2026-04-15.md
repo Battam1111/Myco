@@ -32,7 +32,7 @@ not on scaffolding. Stage A is mechanical. It succeeds when:
 
 ### Build config
 - `pyproject.toml` — Hatchling dynamic version; console script
-  `myco = myco.surface.cli:main`; pytest ini options; minimal deps
+  `myco = myco.boundary.surface.cli:main`; pytest ini options; minimal deps
   (pyyaml for canon parsing in B.1/B.2; nothing else until needed).
 - `.gitignore` — augmented with Python / pytest / packaging
   defaults. (Root `.gitignore` inherited from pre-quarantine era is
@@ -93,7 +93,7 @@ tests/
 - **`0.4.0.dev` suffix during Stage A–B.** Drops to `0.4.0` only at
   Stage C. L1 versioning.md "Starting points" calls this out.
 - **Console script points at a not-yet-existing target.**
-  `myco = myco.surface.cli:main` is installed now; invoking it
+  `myco = myco.boundary.surface.cli:main` is installed now; invoking it
   before B.7 will `ImportError`. That is acceptable — it documents
   the target shape and forces B.7 to land before v0.4.0 can ship.
 - **`src/myco/__main__.py` raises deliberate `NotImplementedError`.**

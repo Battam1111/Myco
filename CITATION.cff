@@ -32,8 +32,8 @@ keywords:
   - biomimetics
   - autonomous-agents
   - knowledge-management
-version: "0.5.24"
-date-released: "2026-04-22"
+version: "0.6.0"
+date-released: "2026-04-28"
 preferred-citation:
   type: software
   title: "Myco — Agent-First Symbiotic Cognitive Substrate"

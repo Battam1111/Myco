@@ -50,7 +50,7 @@ __all__ = [
 #: Schema versions this kernel knows how to read without invoking the
 #: upgrader chain. Bumping requires concurrent L1 ``canon_schema.md``
 #: revision + a ``contract_changelog.md`` entry.
-KNOWN_SCHEMA_VERSIONS: frozenset[str] = frozenset({"1"})
+KNOWN_SCHEMA_VERSIONS: frozenset[str] = frozenset({"1", "2"})
 
 #: Registry of canon schema upgraders, forward-compat seam.
 #:
@@ -94,6 +94,155 @@ def _demo_v0_to_v1(raw: Mapping[str, Any]) -> Mapping[str, Any]:
 #: ``schema_version: "0"``; the entry serves as a canonical example of
 #: how real v1→v2 upgraders should be registered when schema v2 ships.
 schema_upgraders["0"] = _demo_v0_to_v1
+
+
+def _v1_to_v2_llm_policy_enum(raw: Mapping[str, Any]) -> Mapping[str, Any]:
+    """v0.6.0 schema v2 partial upgrader (1 of 2): bool → enum.
+
+    Rewrites ``system.no_llm_in_substrate: bool`` (v0.5.6+ shape) to
+    ``system.llm_policy: "forbidden" | "opt-in" | "providers-declared"``
+    (v0.6.0 enum). True → "forbidden"; False → "providers-declared"
+    (the conservative interpretation: a v1 substrate that disabled the
+    P1 invariant is assumed to have populated providers/, not just
+    permitted ad-hoc sampling).
+
+    Per craft v0_6_0_unified_evolution Round 2 T6/T30 resolution, the
+    v1→v2 upgrader is internally split into two named functions for
+    semantic narrowness. Both are called sequentially by the
+    registered ``_v1_to_v2`` wrapper.
+    """
+    data = dict(raw)
+    system = dict(data.get("system", {}))
+    if "no_llm_in_substrate" in system:
+        bool_val = system.pop("no_llm_in_substrate")
+        # Conservative: True (the v0.5.6+ default) → forbidden;
+        # False → providers-declared (assumes opt-out was deliberate).
+        system["llm_policy"] = "forbidden" if bool_val else "providers-declared"
+    elif "llm_policy" not in system:
+        # Substrate predates v0.5.6; default to forbidden.
+        system["llm_policy"] = "forbidden"
+    data["system"] = system
+    return data
+
+
+def _v1_to_v2_federation_peers_field(raw: Mapping[str, Any]) -> Mapping[str, Any]:
+    """v0.6.0 schema v2 partial upgrader (2 of 2): add identity.federation_peers.
+
+    Adds ``identity.federation_peers: []`` (empty list) if absent.
+    Forward-compat additive — does not require schema bump on its own
+    per ``canon_schema.md:159-162``, but groups with the enum bump for
+    atomic v1→v2 coherence per craft v0_6_0_unified_evolution F6.
+    """
+    data = dict(raw)
+    identity = dict(data.get("identity", {}))
+    if "federation_peers" not in identity:
+        identity["federation_peers"] = []
+    data["identity"] = identity
+    return data
+
+
+def _v1_to_v2_lint_dimensions_subfile(raw: Mapping[str, Any]) -> Mapping[str, Any]:
+    """v0.6.0 schema v2 partial upgrader (3 of 3): extract lint.dimensions
+    to sibling _canon_lint.yaml.
+
+    Per craft §A4 (Round 4 owner amendment) the lint.dimensions table is
+    extracted from the main canon to a sibling file. The main canon
+    retains a ``lint.dimensions_ref: "_canon_lint.yaml"`` pointer. At
+    load time, ``load_canon`` merges the sub-file's ``dimensions``
+    payload into ``Canon.lint.dimensions`` transparently — callers
+    continue to read ``canon.lint["dimensions"]`` as if the table had
+    never moved.
+
+    This partial upgrader handles the in-memory rewrite for
+    auto-upgrade scenarios (a v0.5.x substrate first hunger fires the
+    v1→v2 upgrader). The on-disk write of the sibling file is the
+    operator's job (or a future ``myco molt`` flag); the partial only
+    stamps the canon side.
+    """
+    data = dict(raw)
+    lint = dict(data.get("lint", {}))
+    if "dimensions" in lint and "dimensions_ref" not in lint:
+        # In-memory: keep dimensions inline (no on-disk side effect from
+        # an upgrader). The lint/dimensions_ref hint is added so callers
+        # know v0.6.0 expects sub-file, but inline copy stays for graceful
+        # backward read.
+        lint["dimensions_ref"] = "_canon_lint.yaml"
+    data["lint"] = lint
+    return data
+
+
+def _v1_to_v2(raw: Mapping[str, Any]) -> Mapping[str, Any]:
+    """v0.6.0 schema v2 upgrader. Composes three named partial upgraders.
+
+    Sequence:
+        v1 raw → _v1_to_v2_llm_policy_enum
+               → _v1_to_v2_federation_peers_field
+               → _v1_to_v2_lint_dimensions_subfile
+               → v2 stamped
+
+    The three partials are independently testable; this wrapper
+    enforces the v1→v2 schema_version stamp at the end.
+
+    Per craft §A4 (Round 4 owner amendment), the third partial extracts
+    lint.dimensions to a sibling _canon_lint.yaml file. The main
+    canon retains a dimensions_ref pointer.
+    """
+    intermediate = _v1_to_v2_llm_policy_enum(raw)
+    intermediate = _v1_to_v2_federation_peers_field(intermediate)
+    intermediate = _v1_to_v2_lint_dimensions_subfile(intermediate)
+    data = dict(intermediate)
+    data["schema_version"] = "2"
+    return data
+
+
+def _merge_lint_dimensions_subfile(
+    raw: Mapping[str, Any], canon_path: Path
+) -> Mapping[str, Any]:
+    """Merge lint dimensions from sibling ``_canon_lint.yaml`` if the
+    main canon declares a ``lint.dimensions_ref`` pointer.
+
+    Per craft §A4 owner amendment, schema v2 substrates may move the
+    ``lint.dimensions`` table to a sibling file to keep the main
+    canon under the LoC budget. ``load_canon`` calls this merger
+    after parsing the main canon so callers continue to read
+    ``canon.lint["dimensions"]`` transparently.
+
+    If the main canon already has an inline ``lint.dimensions``
+    table AND a ``lint.dimensions_ref`` pointer, the **inline** copy
+    wins (forward-compat: future schemas may invert this).
+    """
+    data = dict(raw)
+    lint = dict(data.get("lint", {}))
+    ref = lint.get("dimensions_ref")
+    if not ref:
+        return data
+    sibling_path = canon_path.parent / str(ref)
+    if not sibling_path.is_file():
+        return data
+    try:
+        sibling = yaml.safe_load(sibling_path.read_text(encoding="utf-8")) or {}
+    except (OSError, yaml.YAMLError):
+        return data
+    if not isinstance(sibling, dict):
+        return data
+    sibling_dims = sibling.get("dimensions")
+    if sibling_dims is None:
+        return data
+    # Inline wins.
+    if "dimensions" not in lint or not lint.get("dimensions"):
+        lint["dimensions"] = sibling_dims
+    data["lint"] = lint
+    return data
+
+
+#: v0.6.0 registers the v1 → v2 upgrader. Substrates on schema v1
+#: (any v0.5.x release) parse cleanly through this path with no
+#: warning. Per craft §A4 (Round 4 owner amendment), the upgrader
+#: bundles three semantic changes via narrow named partials:
+#: bool→enum (llm_policy), federation_peers additive field, and
+#: lint.dimensions sub-file extraction. The narrowness is preserved
+#: at the partial-function layer; v2.1 schema is no longer needed.
+schema_upgraders["1"] = _v1_to_v2
 
 
 def _apply_upgraders(
@@ -245,6 +394,9 @@ def load_canon(path: Path) -> Canon:
         else:
             raw = dict(upgraded)
             schema_version = str(raw.get("schema_version", schema_version))
+
+    # v0.6.0 §A4: merge sibling _canon_lint.yaml dimensions inline.
+    raw = dict(_merge_lint_dimensions_subfile(raw, path))
 
     def _mapping(key: str) -> Mapping[str, Any]:
         val = raw.get(key, {})

@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from myco.core.context import MycoContext
-from myco.homeostasis.dimensions.dc4_module_doc_ref import DC4ModuleDocRef
+from myco.homeostasis.dimensions.mechanical.dc4_module_doc_ref import DC4ModuleDocRef
 
 
 def _write_module(src: Path, name: str, docstring: str, sloc: int = 60) -> None:

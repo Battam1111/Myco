@@ -7,7 +7,9 @@ from pathlib import Path
 
 from myco.core.context import MycoContext
 from myco.core.severity import Severity
-from myco.homeostasis.dimensions.m2_entry_point_exists import M2EntryPointExists
+from myco.homeostasis.dimensions.mechanical.m2_entry_point_exists import (
+    M2EntryPointExists,
+)
 from myco.homeostasis.finding import Category, Finding
 
 

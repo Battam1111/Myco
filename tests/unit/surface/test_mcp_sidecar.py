@@ -12,8 +12,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from myco.surface.manifest import load_manifest
-from myco.surface.mcp import (
+from myco.boundary.surface.manifest import load_manifest
+from myco.boundary.surface.mcp import (
     _compute_substrate_pulse,
     _invoke,
     _ServerState,

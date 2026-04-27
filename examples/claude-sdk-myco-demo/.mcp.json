@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "myco": {
+      "command": "mcp-server-myco",
+      "args": []
+    }
+  }
+}

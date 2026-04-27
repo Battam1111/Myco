@@ -24,7 +24,7 @@ one of these seams or bump this doctrine.
 | Axis | Seam | Scope | Lifecycle | Authoring verb | Audit verb | Enforcement dimension |
 |---|---|---|---|---|---|---|
 | **Per-substrate** | `.myco/plugins/` | One substrate only | Tied to the substrate (delete the folder → gone) | `myco ramify --substrate-local` | `myco graft --list` | `MF2` (substrate-local plugin health) |
-| **Per-host** | `src/myco/symbionts/` | All substrates on one host | Tied to the Myco install (ships in the kernel) | `myco-install host <client> --with-symbionts` *(future)* | `myco graft --hosts` *(future)* | *(future per-host dimension — reserved)* |
+| **Per-host** | `src/myco/symbionts/` | All substrates on one host | Tied to the Myco install (ships in the kernel) | `myco-install host <client> --with-symbionts` (v0.6.0) | `myco graft --hosts` *(future)* | **MF3** (host-side artifact integrity, mechanical/MEDIUM, fixable=False; promoted from "reserved" at v0.6.0) |
 
 ### Why two axes, not one
 

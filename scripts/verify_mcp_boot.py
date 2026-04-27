@@ -4,12 +4,12 @@ This is the first-line diagnostic when a registry (Glama, MCP Registry,
 Claude Desktop, …) reports that ``mcp-server-myco`` failed to start.
 It simulates the exact wire-level handshake an MCP host performs:
 
-1. Spawn ``python -m myco.mcp`` as a subprocess with stdio pipes.
+1. Spawn ``python -m myco.boundary.mcp`` as a subprocess with stdio pipes.
 2. Send ``initialize`` → expect a ``result`` with
    ``protocolVersion: "2024-11-05"``.
 3. Send the ``notifications/initialized`` notification.
-4. Send ``tools/list`` → expect exactly the canonical 19 verbs
-   (no deprecated aliases; that's a v0.5.24 invariant).
+4. Send ``tools/list`` → expect exactly the canonical 20 verbs
+   (no deprecated aliases; that's a v0.6.0 invariant).
 5. For every tool, inspect ``inputSchema`` and assert that each
    parameter carries a non-empty ``description``; assert that
    high-value params (``note-id``, ``reason``, paths, slugs)
@@ -53,6 +53,7 @@ _EXPECTED_TOOLS = {
     "myco_graft",
     "myco_hunger",
     "myco_immune",
+    "myco_intake",  # v0.6.0
     "myco_molt",
     "myco_propagate",
     "myco_ramify",
@@ -81,7 +82,7 @@ class _Proc:
 
     def __init__(self) -> None:
         self.p = subprocess.Popen(
-            [sys.executable, "-m", "myco.mcp"],
+            [sys.executable, "-m", "myco.boundary.mcp"],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -194,13 +195,15 @@ def main() -> int:
             # Minimal but valid _canon.yaml for the hunger call.
             os.makedirs(os.path.join(td, "notes"))
             (Path(td) / "_canon.yaml").write_text(
-                'schema_version: "1"\n'
-                'contract_version: "v0.5.24"\n'
+                'schema_version: "2"\n'
+                'contract_version: "v0.6.0"\n'
                 "identity:\n"
                 '  substrate_id: "verify-mcp-boot"\n'
                 "  tags: []\n"
                 '  entry_point: "MYCO.md"\n'
+                "  federation_peers: []\n"
                 "system:\n"
+                "  llm_policy: forbidden\n"
                 "  write_surface:\n"
                 "    allowed:\n"
                 '      - "_canon.yaml"\n'

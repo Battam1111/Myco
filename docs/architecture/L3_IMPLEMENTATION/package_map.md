@@ -1,13 +1,50 @@
 # L3 — Package Map
 
-> **Status**: APPROVED (2026-04-15, greenfield rewrite §9).
+> **Status**: APPROVED (2026-04-15, greenfield rewrite §9; v0.6.0 amendment LANDED 2026-04-28 per `docs/primordia/v0_6_0_unified_evolution_and_thorough_refactor_craft_2026-04-28.md` §F2).
 > **Layer**: L3. Subordinate to L0/L1/L2. Code MUST conform to this map;
 > a divergence between code and map is resolved in favor of the map (per
 > R7 + §9 execution constraints).
 
 ---
 
-## The `src/myco/` layout (v0.5.7)
+## v0.6.0 amendments
+
+- `cycle/` is the canonical **6th subsystem** (since v0.6.0); doctrine
+  page lands at `docs/architecture/L2_DOCTRINE/cycle.md`. Matches
+  `L0_VISION.md:172-186` which already named Cycle as the 6th subsystem
+  since v0.5.3.
+- `boundary/` is the canonical **7th subsystem** (since v0.6.0 Round 4
+  owner amendment §A1). It physically unifies the four legacy
+  cross-cutting adapter packages: `boundary.surface` (CLI/MCP/manifest),
+  `boundary.install` (host writers), `boundary.mcp` (MCP launcher),
+  `boundary.host_integration` (14 per-host adapters, formerly
+  `symbionts/`). L0 vocabulary clause narrowly extended in §A1 to
+  admit `boundary` as a doctrine-level term.
+- **Physical merger LANDED at Round 5** per owner directive
+  ("不许有任何一丝一毫偷懒"): the legacy top-level packages
+  `myco.surface` / `myco.install` / `myco.mcp` / `myco.symbionts` are
+  **REMOVED**. 201 import-path rewrites across 60 files (src + tests +
+  docs + configs) bring the codebase onto the canonical
+  `myco.boundary.<sub>` form. pyproject entry-points updated:
+    - `myco = "myco.boundary.surface.cli:main"`
+    - `mcp-server-myco = "myco.boundary.mcp:main"`
+    - `myco-install = "myco.boundary.install:main"`
+- The 14 host_integration adapters all live under
+  `boundary/host_integration/` (claude-code / cursor / cowork /
+  vscode / continue-dev / cline / jetbrains / zed / goose / windsurf /
+  codex-cli / gemini-cli / openclaw / claude-desktop).
+- `homeostasis/dimensions/` reorganized into 4 category subdirectories:
+  `mechanical/` (31), `shipped/` (2), `metabolic/` (6), `semantic/` (7).
+  pyproject entry-points updated for all 46 dim paths.
+- `tests/unit/verbs/<verb>/` reorganization landed: 13 verb-shape test
+  files moved from subsystem-organized layout into 20 verb directories.
+- Core invariants preserved: PA4 (mechanical, HIGH) guards `core/`
+  against any subsystem import (including boundary); PA5 (mechanical,
+  MEDIUM) guards subsystem→boundary import discipline.
+
+---
+
+## The `src/myco/` layout (v0.6.0)
 
 ```
 src/myco/
@@ -95,7 +132,7 @@ src/myco/
 │   ├── clients/             # one module per automated host: claude_code, claude_desktop, cursor, windsurf, zed, vscode, openclaw, gemini_cli, codex_cli (TOML), goose (YAML)
 │   └── fresh.py             # `myco-install fresh` — germinate + wire hooks in one step
 │
-├── mcp/                     # v0.5.5 — `python -m myco.mcp` MCP launcher
+├── mcp/                     # v0.5.5 — `python -m myco.boundary.mcp` MCP launcher
 │   └── __init__.py          # thin delegator to surface.mcp so the MCP server has a stable module path
 │
 ├── providers/               # v0.5.6 NEW — reserved opt-in for LLM-provider coupling
@@ -159,7 +196,7 @@ errors as mechanical/HIGH findings.
 | `src/myco/cycle/` (v0.5.3) | (life-cycle composer verbs: `germinate`, `senesce`, `fruit`, `molt`, `winnow`, `ramify`, `graft`, `brief`) | `command_manifest.md` governance-verbs section |
 | `src/myco/meta/` (v0.5.3 shim) | (backward-compat re-export of `cycle`; preserves `from myco.meta import session_end_run`) | — |
 | `src/myco/install/` (v0.5.5) | (MCP host writers + fresh-substrate bootstrap; 10 automated hosts at v0.5.7) | `docs/INSTALL.md` |
-| `src/myco/mcp/` (v0.5.5) | (MCP launcher surface: `python -m myco.mcp`) | `L1_CONTRACT/protocol.md` + `command_manifest.md` |
+| `src/myco/mcp/` (v0.5.5) | (MCP launcher surface: `python -m myco.boundary.mcp`) | `L1_CONTRACT/protocol.md` + `command_manifest.md` |
 | `src/myco/providers/` (v0.5.6 NEW) | (reserved opt-in for LLM provider coupling; empty at v0.5.7; requires `canon.system.no_llm_in_substrate: false` + contract bump to populate) | `L2_DOCTRINE/digestion.md` §"sporulate does NOT call an LLM" + `providers/README.md` |
 | `src/myco/symbionts/` | per-host Agent-sugar adapters (Claude Code skill-generators, Cursor rule writers, VS Code task configurators, etc.) | `L3_IMPLEMENTATION/symbiont_protocol.md`; package defined-but-empty at v0.5.7 |
 
@@ -189,7 +226,7 @@ tests/unit/
 │   └── dimensions/      # one test file per dimension
 ├── cycle/               # v0.5.3+ (was `meta/` at v0.5.1–v0.5.2)
 ├── install/             # v0.5.5+ — MCP host writers + `fresh` bootstrap
-├── mcp/                 # v0.5.5+ — `python -m myco.mcp` entry
+├── mcp/                 # v0.5.5+ — `python -m myco.boundary.mcp` entry
 └── surface/
 ```
 
