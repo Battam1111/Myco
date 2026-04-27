@@ -13,7 +13,10 @@ from myco.core.errors import CanonSchemaError
 def test_minimal_valid_parses(seeded_substrate: Path) -> None:
     c = load_canon(seeded_substrate / "_canon.yaml")
     assert isinstance(c, Canon)
-    assert c.schema_version == "1"
+    # v0.6.0: v1 substrates are silently auto-upgraded to v2 by the
+    # registered _v1_to_v2 chain. The fixture writes schema_version "1";
+    # load_canon returns "2" without warning.
+    assert c.schema_version == "2"
     assert c.contract_version == "v0.4.0-alpha.1"
     assert c.substrate_id == "test-substrate"
     assert c.tags == ("test",)

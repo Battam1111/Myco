@@ -51,7 +51,7 @@ def test_canon_without_no_llm_field_defaults_to_true(tmp_path: Path) -> None:
 
 
 def test_canon_with_no_llm_true_parses(tmp_path: Path) -> None:
-    """Explicit ``true`` round-trips."""
+    """v0.6.0: ``no_llm_in_substrate: true`` upgrades to ``llm_policy: "forbidden"``."""
     body = textwrap.dedent(
         """\
         schema_version: "1"
@@ -69,12 +69,13 @@ def test_canon_with_no_llm_true_parses(tmp_path: Path) -> None:
         """
     )
     c = load_canon(_write_canon(tmp_path, body))
-    assert c.system["no_llm_in_substrate"] is True
-    assert c.system.get("no_llm_in_substrate", True) is True
+    # v0.6.0 _v1_to_v2 upgrader rewrites the bool field to enum.
+    assert c.system["llm_policy"] == "forbidden"
+    assert "no_llm_in_substrate" not in c.system
 
 
 def test_canon_with_no_llm_false_parses(tmp_path: Path) -> None:
-    """Explicit ``false`` round-trips — the MP1 opt-out shape."""
+    """v0.6.0: ``no_llm_in_substrate: false`` upgrades to ``llm_policy: "providers-declared"``."""
     body = textwrap.dedent(
         """\
         schema_version: "1"
@@ -92,8 +93,10 @@ def test_canon_with_no_llm_false_parses(tmp_path: Path) -> None:
         """
     )
     c = load_canon(_write_canon(tmp_path, body))
-    assert c.system["no_llm_in_substrate"] is False
-    assert c.system.get("no_llm_in_substrate", True) is False
+    # v0.6.0 _v1_to_v2 upgrader: false → providers-declared (the conservative
+    # interpretation: opt-out is assumed to mean providers/ is populated).
+    assert c.system["llm_policy"] == "providers-declared"
+    assert "no_llm_in_substrate" not in c.system
 
 
 def test_canon_without_system_block_still_parses(tmp_path: Path) -> None:

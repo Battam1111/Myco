@@ -112,7 +112,12 @@ def _v1_to_v2_llm_policy_enum(raw: Mapping[str, Any]) -> Mapping[str, Any]:
     registered ``_v1_to_v2`` wrapper.
     """
     data = dict(raw)
-    system = dict(data.get("system", {}))
+    system_raw = data.get("system", {})
+    if not isinstance(system_raw, dict):
+        # Malformed canon — pass through untouched; load_canon will surface
+        # the type error as CanonSchemaError shortly.
+        return data
+    system = dict(system_raw)
     if "no_llm_in_substrate" in system:
         bool_val = system.pop("no_llm_in_substrate")
         # Conservative: True (the v0.5.6+ default) → forbidden;
@@ -134,7 +139,16 @@ def _v1_to_v2_federation_peers_field(raw: Mapping[str, Any]) -> Mapping[str, Any
     atomic v1→v2 coherence per craft v0_6_0_unified_evolution F6.
     """
     data = dict(raw)
-    identity = dict(data.get("identity", {}))
+    identity_raw = data.get("identity", {})
+    if not isinstance(identity_raw, dict):
+        # Malformed canon — pass through untouched; load_canon will raise.
+        return data
+    if not identity_raw:
+        # Empty identity — leave empty so the empty-identity gate fires
+        # before we touch shape. Stamping ``federation_peers: []`` here
+        # would mask a substrate authoring error.
+        return data
+    identity = dict(identity_raw)
     if "federation_peers" not in identity:
         identity["federation_peers"] = []
     data["identity"] = identity
@@ -160,7 +174,11 @@ def _v1_to_v2_lint_dimensions_subfile(raw: Mapping[str, Any]) -> Mapping[str, An
     stamps the canon side.
     """
     data = dict(raw)
-    lint = dict(data.get("lint", {}))
+    lint_raw = data.get("lint", {})
+    if not isinstance(lint_raw, dict):
+        # Malformed canon — pass through untouched; load_canon will raise.
+        return data
+    lint = dict(lint_raw)
     if "dimensions" in lint and "dimensions_ref" not in lint:
         # In-memory: keep dimensions inline (no on-disk side effect from
         # an upgrader). The lint/dimensions_ref hint is added so callers
@@ -375,25 +393,30 @@ def load_canon(path: Path) -> Canon:
         )
 
     schema_version = str(raw["schema_version"])
-    if schema_version not in KNOWN_SCHEMA_VERSIONS:
+    # v0.6.0: apply registered upgraders even for "known" versions. This lets
+    # a v1 substrate silently lift to v2 (the current latest) on first hunger
+    # without warning, satisfying the "you never migrate again" promise. The
+    # KNOWN_SCHEMA_VERSIONS set retains "1" so cold-reads of un-upgraded v1
+    # substrates still parse without warning if the upgrader chain ever drops.
+    if schema_version in schema_upgraders:
         upgraded = _apply_upgraders(schema_version, raw)
-        if upgraded is raw:
-            # No upgrader registered. Warn and proceed best-effort —
-            # v0.5 forward-compat contract. The ``.get(...)``-tolerant
-            # downstream readers handle any shape drift.
-            warnings.warn(
-                f"_canon.yaml schema_version {schema_version!r} is not "
-                f"recognized by this Myco kernel "
-                f"(known: {sorted(KNOWN_SCHEMA_VERSIONS)}). "
-                f"Proceeding best-effort. Register a "
-                f"myco.core.canon.schema_upgraders entry to silence "
-                f"and transform.",
-                UserWarning,
-                stacklevel=2,
-            )
-        else:
+        if upgraded is not raw:
             raw = dict(upgraded)
             schema_version = str(raw.get("schema_version", schema_version))
+    if schema_version not in KNOWN_SCHEMA_VERSIONS:
+        # No upgrader registered (or chain ended at unknown). Warn and proceed
+        # best-effort — v0.5 forward-compat contract. The ``.get(...)``-tolerant
+        # downstream readers handle any shape drift.
+        warnings.warn(
+            f"_canon.yaml schema_version {schema_version!r} is not "
+            f"recognized by this Myco kernel "
+            f"(known: {sorted(KNOWN_SCHEMA_VERSIONS)}). "
+            f"Proceeding best-effort. Register a "
+            f"myco.core.canon.schema_upgraders entry to silence "
+            f"and transform.",
+            UserWarning,
+            stacklevel=2,
+        )
 
     # v0.6.0 §A4: merge sibling _canon_lint.yaml dimensions inline.
     raw = dict(_merge_lint_dimensions_subfile(raw, path))

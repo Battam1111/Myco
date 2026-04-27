@@ -231,7 +231,7 @@ subsystems:
     package: "src/myco/ingestion/"
 
 commands:
-  manifest_ref: "src/myco/surface/manifest.yaml"
+  manifest_ref: "src/myco/boundary/surface/manifest.yaml"
 
 metrics:
   test_count: 852

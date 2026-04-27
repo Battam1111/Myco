@@ -32,6 +32,20 @@ _FORBIDDEN_META: tuple[str, ...] = (
     "myco.boundary",
 )
 
+#: Per-subsystem allowlist of cross-layer imports legitimized by doctrine.
+#: ``manifest`` is the canonical contract surface (SSoT for verb declarations
+#: and overlay merging) — subsystems read it as data, not as a meta-adapter,
+#: so the import does not violate the layering invariant per L2 doctrine
+#: ``boundary.md`` § "Manifest as contract surface" (v0.6.0 craft §F19).
+#: Without this allowlist, PA5 would flag legitimate manifest reads in
+#: ``ingestion/hunger`` (local plugins summary) and ``homeostasis/MF2``
+#: (overlay-verb subsystem validity check).
+_ALLOWED_META_IMPORTS: frozenset[str] = frozenset(
+    {
+        "myco.boundary.surface.manifest",
+    }
+)
+
 _SUBSYSTEM_ROOTS: tuple[str, ...] = (
     "germination",
     "ingestion",
@@ -70,6 +84,10 @@ class PA5MetaSubsystemLayering(Dimension):
                             module = alias.name
                             break
                     if not module:
+                        continue
+                    # v0.6.0: doctrine-allowlisted meta imports (manifest as
+                    # contract surface) are exempt — see _ALLOWED_META_IMPORTS.
+                    if module in _ALLOWED_META_IMPORTS:
                         continue
                     if any(module.startswith(p) for p in _FORBIDDEN_META):
                         yield Finding(
