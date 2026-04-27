@@ -17,4 +17,4 @@ release (re-audits Living Bets), even though the SemVer label reads
 "MINOR" — Myco's contract semantics override the naming convention.
 """
 
-__version__ = "0.6.0"
+__version__ = "0.6.1"
