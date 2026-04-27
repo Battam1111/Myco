@@ -68,7 +68,11 @@ jobs:
           TAG="${GITHUB_REF#refs/tags/v}"
           PKG=$(python -c "import re; print(re.search(r'__version__ = \"([^\"]+)\"', open('src/myco/__init__.py').read()).group(1))")
           SRV=$(python -c "import json; print(json.load(open('server.json'))['version'])")
-          SRV_PKG=$(python -c "import json; d=json.load(open('server.json')); print(d['packages'][0]['version'])")
+          # v0.6.0: server.json::packages[] may be empty when distribution
+          # is routed through GitHub Release / OCI rather than declared
+          # registry slots. The check is conditional on packages being
+          # populated.
+          SRV_PKG=$(python -c "import json; d=json.load(open('server.json')); print(d['packages'][0]['version'] if d['packages'] else d['version'])")
           PLUGIN=$(python -c "import json; print(json.load(open('.claude-plugin/plugin.json'))['version'])")
           COWORK=$(python -c "import json; print(json.load(open('.cowork-plugin/.claude-plugin/plugin.json'))['version'])")
           echo "tag:                                       v$TAG"

@@ -47,59 +47,6 @@
       ]
     }
   },
-  "packages": [
-    {
-      "registryType": "pypi",
-      "registryBaseUrl": "https://pypi.org",
-      "identifier": "myco",
-      "version": "0.6.0",
-      "runtimeHint": "python",
-      "transport": {
-        "type": "stdio"
-      },
-      "runtimeArguments": [
-        {
-          "type": "named",
-          "name": "--transport",
-          "value": "stdio",
-          "description": "Transport mode (stdio | sse | streamable-http)."
-        }
-      ],
-      "packageArguments": [
-        {
-          "type": "named",
-          "name": "-m",
-          "value": "myco.boundary.mcp"
-        }
-      ],
-      "environmentVariables": [
-        {
-          "name": "MYCO_PROJECT_DIR",
-          "description": "Override substrate root path."
-        },
-        {
-          "name": "CLAUDE_PROJECT_DIR",
-          "description": "Compatibility env from Claude Code/Cowork."
-        },
-        {
-          "name": "MYCO_PORT",
-          "description": "Streamable-http transport port (default 0 = kernel-allocated)."
-        },
-        {
-          "name": "MYCO_HOST",
-          "description": "Streamable-http transport bind host (default 127.0.0.1)."
-        }
-      ]
-    },
-    {
-      "registryType": "oci",
-      "registryBaseUrl": "https://ghcr.io",
-      "identifier": "Battam1111/myco",
-      "version": "0.6.0",
-      "transport": {
-        "type": "stdio"
-      }
-    }
-  ],
+  "packages": [],
   "remotes": []
 }
