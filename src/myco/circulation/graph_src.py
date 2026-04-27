@@ -317,8 +317,21 @@ def walk_src_graph(
                         node.level,
                         internal_prefix=internal_prefix,
                     )
-                    if base_target is not None:
+                    # ``from . import X`` (node.module=None, level=1) resolves
+                    # to the importing file's own package ``__init__.py`` —
+                    # which IS the importing file when ``py`` is the package
+                    # init. Suppress the self-edge: it's an artifact of
+                    # treating ``__init__.py`` as both source and target,
+                    # not a real referential cycle. SE3 would otherwise
+                    # flag every ``from . import sibling`` as a self-cycle.
+                    if (
+                        base_target is not None
+                        and _rel(root, base_target) != rel
+                    ):
                         result.import_edges.append((rel, _rel(root, base_target)))
+                    elif base_target is not None and _rel(root, base_target) == rel:
+                        # Treat as None for downstream sub-target dedup.
+                        base_target = None
                     # ``from . import sibling`` / ``from .pkg import mod``
                     # — each alias may itself be a submodule. Try each
                     # as a relative import one level deeper (append the

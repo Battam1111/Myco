@@ -82,7 +82,7 @@ files cross-reference these docs for provenance.
 | File | Kind | Role |
 |---|---|---|
 | [`v0_5_3_fungal_vocabulary_craft_2026-04-17.md`](v0_5_3_fungal_vocabulary_craft_2026-04-17.md) | design | Verb rename (9 verbs, 2 packages) to fungal vocabulary |
-| [`dogfood_v0_5_3_smoke_craft_2026-04-18.md`](dogfood_v0_5_3_smoke_craft_2026-04-18.md) | audit | v0.5.3 post-release smoke test |
+| [`_excreted/dogfood_v0_5_3_smoke_craft_2026-04-18.md`](_excreted/dogfood_v0_5_3_smoke_craft_2026-04-18.md) | audit (EXCRETED at v0.6.0) | v0.5.3 post-release smoke test — empty 9-day-stale DRAFT, excreted per craft v0_6_0 §M1 |
 
 ### v0.5.5 — 2026-04-17
 

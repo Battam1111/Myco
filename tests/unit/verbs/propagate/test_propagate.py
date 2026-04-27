@@ -9,9 +9,9 @@ import pytest
 from myco.circulation.propagate import propagate, run
 from myco.core.context import MycoContext
 from myco.core.errors import ContractError, UsageError
-from myco.digestion.distill import distill_proposal
+from myco.digestion.assimilate import reflect
 from myco.digestion.pipeline import parse_note
-from myco.digestion.reflect import reflect
+from myco.digestion.sporulate import distill_proposal
 from myco.germination import bootstrap
 from myco.ingestion.eat import append_note
 

@@ -175,7 +175,15 @@ class MP1NoProviderImports(Dimension):
             return
 
         system = ctx.substrate.canon.system or {}
-        declared_no_llm = bool(system.get("no_llm_in_substrate", True))
+        # v0.6.0: schema v2 replaces ``no_llm_in_substrate: bool`` with
+        # ``llm_policy: "forbidden" | "opt-in" | "providers-declared"``.
+        # Read the v2 enum first; fall back to v1 bool for substrates that
+        # somehow bypass the upgrader chain.
+        llm_policy = system.get("llm_policy")
+        if llm_policy is not None:
+            declared_no_llm = str(llm_policy) == "forbidden"
+        else:
+            declared_no_llm = bool(system.get("no_llm_in_substrate", True))
 
         providers_dir = kernel_dir / "providers"
 
