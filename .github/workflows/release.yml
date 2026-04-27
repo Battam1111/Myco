@@ -90,12 +90,22 @@ jobs:
           python -m twine check dist/*
 
       - name: Publish to PyPI (trusted publisher)
+        # v0.6.0: PyPI namespace for myco-0.6.0 + myco-0.6.1 was burned
+        # by an earlier experimental release-pipeline run. PyPI's
+        # filename-reuse policy is permanent across deletions, so the
+        # 0.6.0 wheel name is unrecoverable. Per owner directive
+        # "维持在v0.6.0!! 不要递增版本号了!!", we hold v0.6.0 as the
+        # canonical version and route distribution through the other
+        # three channels (MCP Registry / GitHub Release / Cowork plugin).
+        # Users who want the wheel can fetch it from the GitHub Release
+        # asset attached below, or `pip install` from the source repo.
+        # ``continue-on-error: true`` lets the namespace-burn 400 fall
+        # through without failing the release; future versions (v0.7.x+)
+        # will land cleanly on PyPI.
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           skip-existing: true
-          # Fallback path: uncomment + set PYPI_API_TOKEN secret on the
-          # repo if trusted publisher isn't configured.
-          # password: ${{ secrets.PYPI_API_TOKEN }}
+        continue-on-error: true
 
       - name: Build Cowork .plugin bundle
         # v0.5.20: produce the drag-drop bundle Cowork users upload
