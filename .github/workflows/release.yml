@@ -66,26 +66,37 @@ jobs:
         run: |
           set -eo pipefail
           TAG="${GITHUB_REF#refs/tags/v}"
+          # v0.6.0: PEP 440 post-release strategy. PyPI burned the
+          # myco-0.6.0 wheel filename, so __version__ wears a ``.postN``
+          # suffix to dodge the burn while the canonical release tag,
+          # server card, plugin manifests, and citation file remain at
+          # the bare ``0.6.0``. Compute BASE = TAG with any .postN tail
+          # stripped so the cross-file parity check still works.
+          BASE=$(echo "$TAG" | sed -E 's/\.post[0-9]+$//')
           PKG=$(python -c "import re; print(re.search(r'__version__ = \"([^\"]+)\"', open('src/myco/__init__.py').read()).group(1))")
           SRV=$(python -c "import json; print(json.load(open('server.json'))['version'])")
-          # v0.6.0: server.json::packages[] may be empty when distribution
-          # is routed through GitHub Release / OCI rather than declared
-          # registry slots. The check is conditional on packages being
-          # populated.
+          # server.json::packages[] may be empty when distribution is
+          # routed through GitHub Release / OCI rather than declared
+          # registry slots. Fall back to server.json::version in that case.
           SRV_PKG=$(python -c "import json; d=json.load(open('server.json')); print(d['packages'][0]['version'] if d['packages'] else d['version'])")
           PLUGIN=$(python -c "import json; print(json.load(open('.claude-plugin/plugin.json'))['version'])")
           COWORK=$(python -c "import json; print(json.load(open('.cowork-plugin/.claude-plugin/plugin.json'))['version'])")
           echo "tag:                                       v$TAG"
+          echo "tag base (post-release suffix stripped):   v$BASE"
           echo "src/myco/__init__.py:                      $PKG"
           echo "server.json::version:                      $SRV"
           echo "server.json::packages[0]:                  $SRV_PKG"
           echo ".claude-plugin/plugin.json:                $PLUGIN"
           echo ".cowork-plugin/.claude-plugin/plugin.json: $COWORK"
-          [ "$TAG" = "$PKG"     ] || { echo "::error::tag v$TAG ≠ __version__ $PKG"; exit 1; }
-          [ "$TAG" = "$SRV"     ] || { echo "::error::tag v$TAG ≠ server.json version $SRV"; exit 1; }
-          [ "$TAG" = "$SRV_PKG" ] || { echo "::error::tag v$TAG ≠ server.json packages[0].version $SRV_PKG"; exit 1; }
-          [ "$TAG" = "$PLUGIN"  ] || { echo "::error::tag v$TAG ≠ plugin.json version $PLUGIN"; exit 1; }
-          [ "$TAG" = "$COWORK"  ] || { echo "::error::tag v$TAG ≠ cowork-plugin version $COWORK"; exit 1; }
+          # __version__ MUST match the full tag (including any .postN).
+          [ "$TAG" = "$PKG" ] || { echo "::error::tag v$TAG ≠ __version__ $PKG"; exit 1; }
+          # All other SSoT slots match the BASE version (post-release
+          # suffix stripped), since post-release is a PyPI-only artifact-
+          # naming workaround, not a user-facing version bump.
+          [ "$BASE" = "$SRV"     ] || { echo "::error::tag base v$BASE ≠ server.json version $SRV"; exit 1; }
+          [ "$BASE" = "$SRV_PKG" ] || { echo "::error::tag base v$BASE ≠ server.json packages[0].version $SRV_PKG"; exit 1; }
+          [ "$BASE" = "$PLUGIN"  ] || { echo "::error::tag base v$BASE ≠ plugin.json version $PLUGIN"; exit 1; }
+          [ "$BASE" = "$COWORK"  ] || { echo "::error::tag base v$BASE ≠ cowork-plugin version $COWORK"; exit 1; }
 
       - name: Build sdist + wheel
         run: |
@@ -94,22 +105,22 @@ jobs:
           python -m twine check dist/*
 
       - name: Publish to PyPI (trusted publisher)
-        # v0.6.0: PyPI namespace for myco-0.6.0 + myco-0.6.1 was burned
-        # by an earlier experimental release-pipeline run. PyPI's
-        # filename-reuse policy is permanent across deletions, so the
-        # 0.6.0 wheel name is unrecoverable. Per owner directive
-        # "维持在v0.6.0!! 不要递增版本号了!!", we hold v0.6.0 as the
-        # canonical version and route distribution through the other
-        # three channels (MCP Registry / GitHub Release / Cowork plugin).
-        # Users who want the wheel can fetch it from the GitHub Release
-        # asset attached below, or `pip install` from the source repo.
-        # ``continue-on-error: true`` lets the namespace-burn 400 fall
-        # through without failing the release; future versions (v0.7.x+)
-        # will land cleanly on PyPI.
+        # v0.6.0 PyPI strategy (PEP 440 post-release): the bare
+        # myco-0.6.0 wheel name was burned by an earlier experimental
+        # release-pipeline run; PyPI permanently forbids re-uploading
+        # deleted filenames. Owner-approved fix (path B): publish the
+        # PyPI artifact under ``__version__ = "0.6.0.post1"`` so the
+        # wheel filename ``myco-0.6.0.post1-py3-none-any.whl`` is fresh
+        # and the burn is dodged. The canonical release stays at
+        # v0.6.0 in every user-facing surface (server.json, plugin.json,
+        # CITATION.cff, git tag base). Per PEP 440 §post-releases,
+        # "0.6.0.post1" is not a version increment — it is "the same
+        # 0.6.0 release re-issued under a fresh artifact name".
+        # ``skip-existing: true`` covers the idempotent re-tag case
+        # (re-running this same release on the same post-release name).
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           skip-existing: true
-        continue-on-error: true
 
       - name: Build Cowork .plugin bundle
         # v0.5.20: produce the drag-drop bundle Cowork users upload

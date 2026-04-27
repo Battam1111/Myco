@@ -87,10 +87,21 @@ def _resolve_default_contract_version() -> str:
     ``contract_version: vX.Y.Z`` instead of the previous hard-coded
     ``v0.4.0-alpha.1`` stamp. Previously every new substrate was born
     6+ versions stale and never triggered drift detection.
+
+    v0.6.0 fix: strip any PEP 440 ``.postN`` / ``.devN`` suffix from
+    ``__version__`` before stamping the contract version. The contract
+    version is a user-facing semantic-version string (parsed by
+    :class:`ContractVersion`); PyPI artifact-naming workarounds like
+    ``0.6.0.post1`` are not part of the contract surface and would
+    fail :func:`ContractVersion.parse`. Strip them so the substrate
+    sees the bare ``v0.6.0`` it expects.
     """
+    import re
+
     from myco import __version__ as _myco_version
 
-    return f"v{_myco_version}"
+    base = re.sub(r"\.(post|dev)\d+$", "", _myco_version)
+    return f"v{base}"
 
 
 def _is_windows_reserved(name: str) -> bool:

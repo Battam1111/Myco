@@ -56,16 +56,24 @@ def test_cowork_plugin_manifest_has_required_fields() -> None:
 
 
 def test_cowork_plugin_version_tracks_package_version() -> None:
-    """Cowork plugin version must match ``myco.__version__`` so the
-    Cowork UI shows the same release number as PyPI and the Claude
-    Code plugin bundle at the repo root.
+    """Cowork plugin version must match the ``myco.__version__`` base
+    (PyPI ``.postN`` suffix per v0.6.0 path-B is stripped first).
+
+    The Cowork UI renders the plugin manifest's bare base version, while
+    the PyPI artifact may wear a ``.postN`` suffix as a namespace-burn
+    workaround. Per PEP 440, post-releases are not version increments —
+    they are "the same release re-issued under a fresh artifact name".
     """
+    import re
+
     import myco
 
     data = _load(COWORK_PLUGIN_MANIFEST)
-    assert data["version"] == myco.__version__, (
+    base = re.sub(r"\.(post|dev)\d+$", "", myco.__version__)
+    assert data["version"] in (myco.__version__, base), (
         f".cowork-plugin/.claude-plugin/plugin.json version {data['version']!r} "
-        f"does not match myco.__version__ {myco.__version__!r}"
+        f"matches neither myco.__version__ {myco.__version__!r} nor "
+        f"its base {base!r}"
     )
 
 
