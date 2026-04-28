@@ -9,8 +9,8 @@
 # See docs/primordia/v0_6_0_unified_evolution_and_thorough_refactor_craft_2026-04-28.md.
 
 schema_version: "2"
-contract_version: "v0.6.12"
-synced_contract_version: "v0.6.12"
+contract_version: "v0.6.13"
+synced_contract_version: "v0.6.13"
 identity:
   substrate_id: "myco-self"
   tags:
@@ -197,8 +197,8 @@ commands:
   manifest_ref: "src/myco/boundary/surface/manifest.yaml"
 
 metrics:
-  test_count: 1470
+  test_count: 1477
 
 waves:
-  current: 24
+  current: 25
   log_ref: "docs/contract_changelog.md"
