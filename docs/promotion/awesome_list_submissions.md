@@ -33,7 +33,7 @@ across the 10 lists below; some are strict about
 **File**: `README.md` → "Third-party servers" section, alphabetical
 
 ```markdown
-- **[Myco](https://github.com/Battam1111/Myco)**: A long-lived cognitive substrate for LLM agents. 19 verbs (ingest / digest / traverse / immune / molt / excrete / and more), 25 lint dimensions, self-validating graph, editable-default install. Exposes all verbs as MCP tools with an R1 through R7 pulse sidecar on every tool response. A-tier on Glama's Tool Definition Quality rubric.
+- **[Myco](https://github.com/Battam1111/Myco)**: A long-lived cognitive substrate for LLM agents. 20 verbs (ingest / digest / traverse / immune / molt / excrete / intake / and more), 46 lint dimensions, self-validating graph, editable-default install. Exposes all verbs as MCP tools with an R1 through R7 pulse sidecar on every tool response. A-tier on Glama's Tool Definition Quality rubric.
 ```
 
 **PR title**: `Add Myco: cognitive substrate for LLM agents`
@@ -47,7 +47,7 @@ across the 10 lists below; some are strict about
 **File**: `README.md`
 
 ```markdown
-- [Myco](https://github.com/Battam1111/Myco) - Agent-first cognitive substrate. 19 verbs exposed as MCP tools, 25 lint dims, editable kernel. Cross-session / cross-project memory via an on-disk markdown+YAML tree. Provider-agnostic (MP1/MP2 enforce no LLM-SDK imports in kernel + plugins). A-tier on Glama's TDQS rubric.
+- [Myco](https://github.com/Battam1111/Myco) - Agent-first cognitive substrate. 20 verbs exposed as MCP tools, 46 lint dims, editable kernel. Cross-session / cross-project memory via an on-disk markdown+YAML tree. Provider-agnostic (MP1/MP2 enforce no LLM-SDK imports in kernel + plugins). A-tier on Glama's TDQS rubric.
 ```
 
 ### 3. [wong2/awesome-mcp-servers](https://github.com/wong2/awesome-mcp-servers)
@@ -69,7 +69,7 @@ Another community MCP list. Same entry shape as #2.
 "LLM Agents"
 
 ```markdown
-- [Myco](https://github.com/Battam1111/Myco) - Self-validating cognitive substrate for LLM agents. 19-verb CLI+MCP surface, 25 lint dimensions, contract-governed evolution via a 3-round craft loop. Python 3.10+. MIT.
+- [Myco](https://github.com/Battam1111/Myco) - Self-validating cognitive substrate for LLM agents. 20-verb CLI+MCP surface, 46 lint dimensions, contract-governed evolution via a 3-round craft loop. Python 3.10+. MIT.
 ```
 
 ### 6. [e2b-dev/awesome-ai-agents](https://github.com/e2b-dev/awesome-ai-agents)
@@ -78,7 +78,7 @@ Another community MCP list. Same entry shape as #2.
 structure.
 
 ```markdown
-- **Myco**: Long-term memory substrate (19 verbs, 25 lint dims). Not a framework; designed to layer below LangChain / CrewAI / DSPy. [repo](https://github.com/Battam1111/Myco) · [PyPI](https://pypi.org/project/myco/)
+- **Myco**: Long-term memory substrate (20 verbs, 46 lint dims). Not a framework; designed to layer below LangChain / CrewAI / DSPy. [repo](https://github.com/Battam1111/Myco) · [PyPI](https://pypi.org/project/myco/)
 ```
 
 ### 7. [steven2358/awesome-generative-ai](https://github.com/steven2358/awesome-generative-ai)
@@ -96,7 +96,7 @@ Gatekept; many projects rejected. Worth trying with a short,
 specific entry in "Machine Learning" or "Command-line Tools".
 
 ```markdown
-* [Myco](https://github.com/Battam1111/Myco) - Agent-first cognitive substrate (19 CLI verbs + MCP server) for long-running LLM agents. Self-validating graph, editable-default install.
+* [Myco](https://github.com/Battam1111/Myco) - Agent-first cognitive substrate (20 CLI verbs + MCP server) for long-running LLM agents. Self-validating graph, editable-default install.
 ```
 
 ### 9. [ml-tooling/best-of-ml-python](https://github.com/ml-tooling/best-of-ml-python)

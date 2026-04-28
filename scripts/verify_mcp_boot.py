@@ -196,7 +196,7 @@ def main() -> int:
             os.makedirs(os.path.join(td, "notes"))
             (Path(td) / "_canon.yaml").write_text(
                 'schema_version: "2"\n'
-                'contract_version: "v0.6.0"\n'
+                'contract_version: "v0.6.10"\n'
                 "identity:\n"
                 '  substrate_id: "verify-mcp-boot"\n'
                 "  tags: []\n"

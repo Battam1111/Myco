@@ -16,7 +16,7 @@ Myco (https://github.com/Battam1111/Myco) is a persistent filesystem shape + a C
 Where the two overlap
 
 - LangChain's `ConversationBufferMemory` + `VectorStoreMemory` = retrieve-on-each-call memory. Myco has no equivalent: it's a filesystem, not a retriever. If the agent needs to find something, it calls `myco sense` (keyword grep) or `myco traverse` (graph walk).
-- LangChain's `Agent` abstraction + tool-calling = how you wire an LLM to external capabilities. Myco's 19 verbs are such external capabilities; a LangChain agent can call them via the MCP adapter or subprocess.
+- LangChain's `Agent` abstraction + tool-calling = how you wire an LLM to external capabilities. Myco's 20 verbs are such external capabilities; a LangChain agent can call them via the MCP adapter or subprocess.
 
 Where they diverge
 

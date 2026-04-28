@@ -13,11 +13,11 @@ Spent the last month building Myco, a long-term memory layer for LLM agents.
 
 The problem: AI agents in Cursor, Claude Code, and similar tools have amnesia. Each session starts from zero. Across projects they re-derive the same conventions every morning. Six months of notes become an unsearchable text file.
 
-The approach: treat agent memory as a **contract problem**, not a retrieval problem. A persistent filesystem + a 25-dimension lint system that catches when the substrate contradicts itself + a governance loop (fruit, winnow, molt) that lets the agent propose changes to its own contract instead of silently drifting.
+The approach: treat agent memory as a **contract problem**, not a retrieval problem. A persistent filesystem + a 46-dimension lint system that catches when the substrate contradicts itself + a governance loop (fruit, winnow, molt) that lets the agent propose changes to its own contract instead of silently drifting.
 
 What's shipped:
-→ 19 manifest-driven verbs (CLI + MCP from one YAML)
-→ 25 lint dimensions enforcing contract invariants mechanically
+→ 20 manifest-driven verbs (CLI + MCP from one YAML)
+→ 46 lint dimensions enforcing contract invariants mechanically
 → 10 MCP host integrations via one install command
 → 875 tests passing, 0 immune findings on the self-substrate
 → A-tier on Glama's Tool Definition Quality rubric
@@ -25,7 +25,7 @@ What's shipped:
 
 What it's not: a framework (doesn't compete with LangChain), a vector DB (graph is AST + markdown-link derived, not embedding-similarity), or a managed service (all on-disk, yours to own).
 
-Most interesting technical bet: the kernel itself is a substrate. Myco eats its own dogfood, with _canon.yaml at the repo root, doctrine in markdown the agent reads, the 25 lint dims running against the kernel on every commit. The agent that maintains Myco is the same agent a user would use to drive their own substrate.
+Most interesting technical bet: the kernel itself is a substrate. Myco eats its own dogfood, with _canon.yaml at the repo root, doctrine in markdown the agent reads, the 46 lint dims running against the kernel on every commit. The agent that maintains Myco is the same agent a user would use to drive their own substrate.
 
 Curious to hear from anyone running AI agents in production across long time horizons. What memory pattern has worked for you?
 

@@ -11,8 +11,8 @@ copy-paste.
 |---|---|
 | Name | Myco |
 | Server type | stdio (with optional sse + streamable-http) |
-| Short description (≤ 120 chars) | "Cognitive substrate for LLM agents. 19 verbs expose ingest, digest, traverse, immune, molt, excrete: cross-session memory." |
-| Long description (300-500 chars) | "Myco is a long-lived, self-validating filesystem shape + manifest-driven verb surface for LLM agents. Every one of its 19 verbs (germinate / hunger / eat / sense / forage / excrete / assimilate / digest / sporulate / traverse / propagate / immune / senesce / fruit / molt / winnow / ramify / graft / brief) is exposed as an MCP tool. Tool responses carry a pulse sidecar echoing the L1 R1 through R7 rules on every call. 25 lint dimensions enforce contract invariants mechanically. Provider-agnostic (MP1/MP2 mechanically forbid LLM-provider SDK imports in the kernel + plugins). Editable-default install. A-tier on Glama's Tool Definition Quality rubric. MIT." |
+| Short description (≤ 120 chars) | "Cognitive substrate for LLM agents. 20 verbs expose ingest, digest, traverse, immune, molt, excrete, intake: cross-session memory." |
+| Long description (300-500 chars) | "Myco is a long-lived, self-validating filesystem shape + manifest-driven verb surface for LLM agents. Every one of its 20 verbs (germinate / hunger / eat / sense / forage / excrete / intake / assimilate / digest / sporulate / traverse / propagate / immune / senesce / fruit / molt / winnow / ramify / graft / brief) is exposed as an MCP tool. Tool responses carry a pulse sidecar echoing the L1 R1 through R7 rules on every call. 46 lint dimensions enforce contract invariants mechanically. Provider-agnostic (MP1/MP2 mechanically forbid LLM-provider SDK imports in the kernel + plugins). Editable-default install. A-tier on Glama's Tool Definition Quality rubric. MIT." |
 | Install command | `pip install 'myco[mcp]'` |
 | Run command | `python -m myco.boundary.mcp --transport stdio` (or `sse` / `streamable-http`) |
 | License | MIT |
@@ -25,7 +25,7 @@ copy-paste.
 | Homepage | https://github.com/Battam1111/Myco |
 | Issue tracker | https://github.com/Battam1111/Myco/issues |
 | Maintainer | Battam1111 |
-| Tool count | 19 |
+| Tool count | 20 |
 | Prompts | 0 (uses pulse sidecar on every tool response instead of static prompts) |
 | Resources | 0 (all state is filesystem; each substrate is its own resource dir) |
 
@@ -35,7 +35,7 @@ copy-paste.
 {
   "name": "myco",
   "displayName": "Myco",
-  "description": "Cognitive substrate for LLM agents. 19 verbs expose ingest, digest, traverse, immune, molt, excrete: cross-session memory.",
+  "description": "Cognitive substrate for LLM agents. 20 verbs expose ingest, digest, traverse, immune, molt, excrete, intake: cross-session memory.",
   "homepage": "https://github.com/Battam1111/Myco",
   "repository": "https://github.com/Battam1111/Myco",
   "license": "MIT",
@@ -49,7 +49,7 @@ copy-paste.
     "args": ["-m", "myco.boundary.mcp", "--transport", "stdio"]
   },
   "transports": ["stdio", "sse", "streamable-http"],
-  "tools": 19,
+  "tools": 20,
   "categories": ["memory", "knowledge-management", "agents"],
   "keywords": [
     "agent-memory",
@@ -69,7 +69,7 @@ copy-paste.
 ```yaml
 name: myco
 displayName: Myco
-description: "Cognitive substrate for LLM agents. 19 verbs expose ingest, digest, traverse, immune, molt, excrete: cross-session memory."
+description: "Cognitive substrate for LLM agents. 20 verbs expose ingest, digest, traverse, immune, molt, excrete, intake: cross-session memory."
 homepage: https://github.com/Battam1111/Myco
 repository: https://github.com/Battam1111/Myco
 license: MIT
@@ -81,7 +81,7 @@ run:
   command: python
   args: ["-m", "myco.boundary.mcp", "--transport", "stdio"]
 transports: [stdio, sse, streamable-http]
-tools: 19
+tools: 20
 categories:
   - memory
   - knowledge-management

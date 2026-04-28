@@ -106,7 +106,7 @@
     },
     "lint": {
       "type": "object",
-      "description": "Lint-surface declaration. `dimensions` mirrors the Python-side registry; `exit_policy.default` seeds the default `--exit-on` spec.",
+      "description": "Lint-surface declaration. `dimensions_ref` points at the sibling file (`_canon_lint.yaml`) holding the per-dim definitions; `exit_policy.default` seeds the default `--exit-on` spec.",
       "properties": {
         "categories": {
           "type": "array",
@@ -116,12 +116,9 @@
           "minItems": 4,
           "maxItems": 4
         },
-        "dimensions": {
-          "type": "object",
-          "description": "dimension_id \u2192 category. Declarative SSoT paired with the class attr `Dimension.category`.",
-          "additionalProperties": {
-            "enum": ["mechanical", "shipped", "metabolic", "semantic"]
-          }
+        "dimensions_ref": {
+          "type": "string",
+          "description": "Relative path to the sibling lint-dimension file (e.g. `_canon_lint.yaml`). Loaded transparently by `core.canon._merge_lint_dimensions_subfile`. Single SSoT for the dim roster from v0.6.10."
         },
         "exit_policy": {
           "type": "object",

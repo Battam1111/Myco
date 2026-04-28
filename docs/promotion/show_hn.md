@@ -8,7 +8,7 @@ Show HN: Myco – a cognitive substrate for AI agents that the agent itself main
 
 Alternative titles (A/B test if you want):
 
-- `Show HN: Myco - 19 verbs + 25 lint dims, an AI agent's long-term memory substrate`
+- `Show HN: Myco - 20 verbs + 46 lint dims, an AI agent's long-term memory substrate`
 - `Show HN: An AI memory layer whose kernel is editable by the agent that uses it`
 - `Show HN: Myco - a mycelium-shaped knowledge base for agents, self-validating`
 
@@ -30,8 +30,8 @@ The load-bearing assumptions are:
 
 Concretely:
 
-- 19 verbs grouped by biological subsystem (germinate / eat / assimilate / sporulate / traverse / immune / molt / excrete / ...). All manifest-declared; CLI + MCP both derive from the same YAML.
-- 25 lint dimensions enforcing contract invariants R1 through R7 mechanically. Atomic-write R6, LLM-provider import bans (MP1/MP2), graph connectedness (SE1/SE3), docstring hygiene (DC1-4), and more.
+- 20 verbs grouped by biological subsystem (germinate / eat / assimilate / sporulate / traverse / immune / molt / excrete / ...). All manifest-declared; CLI + MCP both derive from the same YAML.
+- 46 lint dimensions enforcing contract invariants R1 through R7 mechanically. Atomic-write R6, LLM-provider import bans (MP1/MP2), graph connectedness (SE1/SE3), docstring hygiene (DC1-4), and more.
 - A three-round governance loop (`fruit` writes a craft doc, `winnow` gates its shape, `molt` bumps the contract version) that lets the agent propose changes to its own contract without the operator approving every keystroke.
 - 10 MCP host integrations (Claude Code, Claude Desktop, Cursor, Windsurf, Zed, VS Code, OpenClaw, Codex CLI, Gemini CLI, Goose) via one `myco-install` command.
 

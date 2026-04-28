@@ -8,7 +8,7 @@
 ## Title
 
 ```
-[P] Myco: a self-validating cognitive substrate for long-running LLM agents (25 lint dims, AST-derived mycelium graph, no vector DB)
+[P] Myco: a self-validating cognitive substrate for long-running LLM agents (46 lint dims, AST-derived mycelium graph, no vector DB)
 ```
 
 ## Body
@@ -18,7 +18,7 @@ I've been building Myco (https://github.com/Battam1111/Myco), a long-lived files
 
 Design thesis
 
-Most agent-memory systems optimise a retrieval metric (precision@k, latency, relevant-chunks-returned). Myco optimises a different variable: drift resistance under continuous edit. After six months of unstructured-text-file memory the failure mode isn't "the agent couldn't find the right chunk". It's "the substrate contradicts itself and nobody noticed". Myco's primary mechanism for this is a 25-dimension lint system enforced mechanically:
+Most agent-memory systems optimise a retrieval metric (precision@k, latency, relevant-chunks-returned). Myco optimises a different variable: drift resistance under continuous edit. After six months of unstructured-text-file memory the failure mode isn't "the agent couldn't find the right chunk". It's "the substrate contradicts itself and nobody noticed". Myco's primary mechanism for this is a 46-dimension lint system enforced mechanically:
 
 - 18 mechanical dims (canon shape, write-surface, subsystem presence, docstring hygiene, and more)
 - 1 shipped dim (package-version sync)
@@ -67,7 +67,7 @@ Repo + PyPI + doctrine:
 - https://pypi.org/project/myco/
 - https://github.com/Battam1111/Myco/tree/main/docs/architecture
 
-Questions / critiques welcome, especially on where the 25-dim surface is over-engineered or under-engineered for the drift-resistance target.
+Questions / critiques welcome, especially on where the 46-dim surface is over-engineered or under-engineered for the drift-resistance target.
 ```
 
 ---

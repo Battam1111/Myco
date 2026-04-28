@@ -12,7 +12,7 @@ I built a long-term memory layer for LLM agents that survives across sessions, p
 
 Not a framework. Not a vector DB. Not an API.
 
-A filesystem shape + 19 verbs + a lint system that enforces the contract mechanically.
+A filesystem shape + 20 verbs + a lint system that enforces the contract mechanically.
 
 Here's the shape ↓
 ```
@@ -40,7 +40,7 @@ Myco's source tree uses Myco itself: _canon.yaml at the repo root, notes/ and do
 **4/**
 
 ```
-19 verbs, grouped by biological subsystem:
+20 verbs, grouped by biological subsystem:
 
 germinate
 eat / hunger / sense / forage / excrete
@@ -69,7 +69,7 @@ R7: Top-down subordination
 **6/**
 
 ```
-25 lint dimensions enforce the contract mechanically.
+46 lint dimensions enforce the contract mechanically.
 
 R6 (write surface) in v0.5.8 went from "checked at lint time" to "every verb refuses writes outside the surface, raises WriteSurfaceViolation exit 3".
 
@@ -137,7 +137,7 @@ Repo: https://github.com/Battam1111/Myco
 PyPI: pip install myco (or pipx run --spec 'myco[mcp]' myco-install fresh ~/myco)
 Docs: https://github.com/Battam1111/Myco/tree/main/docs
 
-19 verbs. 25 lint dims. Kernel is a substrate.
+20 verbs. 46 lint dims. Kernel is a substrate.
 
 Would love to hear from anyone else thinking about agent persistence as a contract problem, not a retrieval problem.
 ```

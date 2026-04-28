@@ -59,7 +59,7 @@ Every draft in this folder obeys three rules:
 2. **Name the real competitors by name** (LangChain memory,
    Mem0, Letta, MemGPT, Cognee) and state where Myco differs
    without bashing them. Each tool has its niche.
-3. **Concrete numbers only.** "19 verbs", "25 dimensions",
+3. **Concrete numbers only.** "20 verbs", "46 dimensions",
    "2400× SE1 speedup", not "fast" or "comprehensive".
 
 ## Attribution
