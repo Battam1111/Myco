@@ -1,6 +1,6 @@
 {
   "name": "myco",
-  "version": "0.6.11",
+  "version": "0.6.12",
   "description": "Myco: agent-first cognitive substrate. 20 manifest-driven verbs (germinate / hunger / eat / sense / forage / excrete / intake / assimilate / digest / sporulate / traverse / propagate / immune / senesce / fruit / molt / winnow / ramify / graft / brief) over a self-validating markdown+YAML filesystem. 46 lint dimensions across 7 subsystems enforce contract invariants mechanically. Schema v2 canon, MCP capabilities (tools, resources, prompts, sampling), stdio + streamable-http + OAuth 2.1 transports. Adds a myco-substrate skill that onboards the agent when the user's workspace contains `_canon.yaml` or the user mentions Myco-flavoured operations.",
   "author": {
     "name": "Battam1111",

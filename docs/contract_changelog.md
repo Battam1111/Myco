@@ -11,6 +11,63 @@ Format: one section per `contract_version`, newest first.
 
 ---
 
+## v0.6.12 — 2026-04-28 — Supply-chain hardening + Glama maintenance signal lift
+
+**Zero R1-R7 surface deltas; zero new manifest verbs; zero new lint dims; zero subsystem changes; schema v2 unchanged.** Pure ops + supply-chain release that closes Glama maintenance score's four factors (issue responsiveness 40%, commit cadence 25%, release recency 20%, security health 15%) into the A/A+ band, plus two doctrine-vs-impl drift fixes inherited from the v0.6.11 audit.
+
+### Why this release
+
+External Glama maintenance scoring (`https://glama.ai/mcp/servers/Battam1111/Myco`) graded the substrate **B** with the breakdown documented at the registry: 4-of-5 supply-chain checkboxes (Dependabot security updates / CodeQL / OpenSSF Scorecard / CODEOWNERS / branch protection) were either disabled or unconfigured. Issue responsiveness was vacuously 100% (zero open issues, zero open PRs since launch); commit cadence was strong (>30 commits in the prior 12-week window); release recency was perfect (v0.6.11 same-day). Security health was the only depressed factor — and it was the easiest one to lift cleanly without changing any agent-visible R-surface.
+
+### What landed (4 supply-chain infrastructure additions)
+
+| File | Role |
+|------|------|
+| `.github/dependabot.yml` | Two ecosystems (`pip` + `github-actions`), weekly Monday 06:00 UTC schedule, ≤5 open PRs per ecosystem, grouped runtime / tooling / auth bundles to keep maintainer review-noise floor low |
+| `.github/workflows/codeql.yml` | Python static analysis on every push to `main`, every PR targeting `main`, plus weekly Monday 04:23 UTC cron. Query pack: `security-and-quality` (broader-net than the default `security-extended`). SARIF uploads to GitHub Code scanning → Glama "security health" factor reads the alert count via the `/repos/{o}/{r}/code-scanning/alerts` endpoint |
+| `.github/workflows/scorecard.yml` | OpenSSF Scorecard weekly Monday 05:37 UTC + `branch_protection_rule` event + main-push triggers. `publish_results: true` posts to the public Scorecard registry → Glama can read the supply-chain health score directly |
+| `.github/CODEOWNERS` | Catch-all `* @Battam1111` plus explicit ownership entries for canon / doctrine / contract / primordia / CI / release / plugin-bundle scopes |
+
+`SECURITY.md` is refreshed: supported-versions table now reads `0.6.x latest / 0.5.x advisory / ≤0.4.x frozen / ≤0.3.x pre-rewrite frozen`. The "What Myco defends mechanically" section gains four new bullets covering the v0.6.0 LLM-policy 3-state enum (`forbidden / opt-in / providers-declared` + MP1/MP2/MP3 enforcement), the v0.6.0 CL1/CL2/CL3 MCP-credential discipline, the OAuth 2.1 streamable-http transport (PKCE-S256 + RFC 8707 resource indicators + JWKS rotation + 30s refresh-token grace + `python-jose` choice over PyJWT), and the v0.6.12 supply-chain hardening.
+
+### v0.6.11 doctrine-vs-impl drift fixes
+
+The v0.6.11 architecture audit surfaced two small drift items that ride along here:
+
+1. **`MYCO.md` `★` markers for DC4 and PA1 removed.** The 12-dim ★ list at `MYCO.md` claimed both DC4 (`module_doc_ref`) and PA1 (`write_surface_coverage`) were `immune --fix`-able; the implementations declare `fixable: ClassVar[bool] = False` (`dc4_module_doc_ref.py:70`, `pa1_write_surface_coverage.py:80`) per the v0.6.0 §F18 fix-narrowness craft principle (markdown surgery + write-surface expansion are too delicate for safe-fix's idempotent / narrow / non-destructive / bounded discipline). MYCO.md is now consistent with code: 10 actually-fixable dimensions (M1, M2, M3, DC1, CS1, DI1, MB1, MB3, MB6, SE1).
+2. **`MYCO.md` immune-baseline paragraph refreshed.** Pre-this-release said "exit 0, 0 findings since v0.5.9". Reality at v0.6.12: exit 0 (CRITICAL-gate via `lint.exit_policy.default = "mechanical:critical,shipped:critical,metabolic:never,semantic:never"`), 76 non-critical findings (9 HIGH AD1 adapter silent-skips inherited from pre-v0.6.0 adapters + assorted LOW DC2/DC3/DC4/SE2 hygiene). Drift originated when v0.6.0 expanded the lint roster from 25 → 46 dimensions. New paragraph names the actual count and frames HIGH-band drift as a candidate for the next severity-promotion craft.
+3. **`_canon.yaml::metrics.test_count` 1427 → 1470.** v0.6.11 added 43 boundary-surface regression tests but the canon metric wasn't bumped; now matches actual collected count (`pytest -q` reports 1469 passed + 1 skipped = 1470 collected).
+
+### Schema additions (canon)
+
+- `system.write_surface.allowed` extended with `".github/**"` and `"SECURITY.md"`. The `.github/` tree now owns CodeQL + Scorecard + Dependabot config + CODEOWNERS + ISSUE_TEMPLATE/ + workflows/ + pull_request_template; declaring it canonical aligns PA1 (`pa1_write_surface_coverage.py`) with the paths the maintainer actually edits.
+
+### Break from v0.6.11
+
+**None.** R1-R7 unchanged. 20-verb manifest unchanged. 46-dim lint roster unchanged. 7-subsystem inventory unchanged. Schema v2 unchanged. The kernel is bit-for-bit identical to v0.6.11 except `__version__ = "0.6.12"`. Existing user scripts, plugin installs, MCP host configs, and downstream substrates continue working unchanged. The four new GitHub-side workflows fire on the next push to main; they do not change the runtime contract surface.
+
+### Files touched
+
+- `.github/dependabot.yml` (new)
+- `.github/workflows/codeql.yml` (new)
+- `.github/workflows/scorecard.yml` (new)
+- `.github/CODEOWNERS` (new)
+- `SECURITY.md` (supported-versions refresh + supply-chain hardening section)
+- `MYCO.md` (DC4/PA1 ★ removal, immune-baseline paragraph refresh)
+- `_canon.yaml` (write_surface adds `.github/**` + `SECURITY.md`; `metrics.test_count` 1427 → 1470; contract bump 0.6.11 → 0.6.12; waves 23 → 24)
+- `docs/contract_changelog.md` (this entry)
+- `src/myco/__init__.py`, `CITATION.cff`, `server.json`, `.claude-plugin/plugin.json`, `.cowork-plugin/.claude-plugin/plugin.json` (atomic version bump via `scripts/bump_version.py --to 0.6.12`)
+
+### Test count
+
+Pytest: **1469 passed + 1 skipped** (1470 collected). Unchanged from v0.6.11. The new GitHub workflows do not have associated pytest assertions (their correctness is verified by GitHub Actions itself running them).
+
+### Glama re-scan trigger
+
+After tag push the maintainer manually triggers a Glama dashboard rescan (`https://glama.ai/mcp/servers/Battam1111/Myco`). Maintenance score recovery window is 1-7 days; SARIF + Scorecard registry results take 1-2 cron firings (≤2 weeks) to populate fully. v0.6.12 is the substrate-side close of the Glama-maintenance loop; the dashboard refresh is the operator-side close.
+
+---
+
 ## v0.6.11 — 2026-04-28 — Fungal subagents + slash commands (boundary surface extension)
 
 **Zero R1-R7 surface deltas; zero new manifest verbs; zero new lint dims.** Boundary subsystem extension that formalizes 5 specialist agent roles + 5 user-trigger workflows previously done as ad-hoc agent sessions. Pure add: existing surfaces are unchanged.
