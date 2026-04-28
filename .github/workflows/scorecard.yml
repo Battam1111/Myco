@@ -54,14 +54,14 @@ jobs:
       actions: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4.3.1
         with:
           # Scorecard's analysis runs against committed config; we do
           # not need credentials persisted in the working tree.
           persist-credentials: false
 
       - name: Run Scorecard analysis
-        uses: ossf/scorecard-action@v2.4.0
+        uses: ossf/scorecard-action@ff5dd8929f96a8a4dc67d13f32b8c75057829621  # v2.4.0
         with:
           results_file: results.sarif
           results_format: sarif
@@ -70,7 +70,7 @@ jobs:
           publish_results: true
 
       - name: Upload SARIF artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
         with:
           name: scorecard-sarif
           path: results.sarif
@@ -78,7 +78,7 @@ jobs:
           if-no-files-found: error
 
       - name: Upload SARIF to code-scanning
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@b2f9ef845756500b97acbdaf5c1dd4e9c1d15734  # v3.35.2
         with:
           sarif_file: results.sarif
           category: scorecard
