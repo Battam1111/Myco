@@ -183,3 +183,82 @@ canonical form. pyproject.toml entry-points updated:
 - **Does not** propagate to downstream substrates (circulation does).
 - **Does not** write LLM-imports to substrate (P1 forbidden; MP1/MP2/
   MP3 dims guard).
+
+## Subagents and slash commands (v0.6.11+)
+
+Boundary's outward interface gained a fifth seam at v0.6.11: **fungal-named
+Claude Code subagents and slash commands** that formalize specialist roles
+and user-trigger workflows that were previously done as ad-hoc agent
+sessions. Two parallel paths host them:
+
+- **Project-level** (auto-discovered by Claude Code when a developer opens
+  the Myco-self repository): `.claude/agents/<name>.md` and
+  `.claude/commands/<name>.md`.
+- **Plugin-bundle scope** (declared in `.claude-plugin/plugin.json` so that
+  `/plugin install myco@myco` delivers them to user installations):
+  `<repo>/agents/<name>.md` and `<repo>/commands/<name>.md`.
+
+Both paths follow Myco's existing plugin convention (cf. `<repo>/skills/`
+declared in `plugin.json::skills`). The two copies are bytewise identical
+per the regression test in
+`tests/unit/boundary/test_subagent_and_command_surface.py`.
+
+### Subagent roster (5 fungal-named specialists)
+
+| Name | Fungal idiom | Role |
+|------|--------------|------|
+| `primordium` | The first compact, undifferentiated mass that emerges when a fruiting body begins to form | Drafts a 3-round craft proposal under `docs/primordia/`. Composes claim → 1.5 self-rebuttal → 2 refinement → 3 decision. Runs `myco winnow` to gate before returning. |
+| `hypha` | The exploratory thread of fungus that extends through substrate | Investigates a single `myco_immune` finding by tracing root cause through the codebase. Read-only; produces a minimal-fix description, classifies the cause among 5 categories. |
+| `autolysis` | Fungal self-digestion of old tissue | Sweeps stale narrative references (version drift, deleted module paths, deprecated identifiers). Produces a deterministic file:line:replacement patch table; does not apply. |
+| `stipe` | The mushroom stem that holds the cap aloft so spores can disperse | Orchestrates the full release pipeline: pre-flight gate quintet, atomic bump, commit, push, ci.yml watch, tag, release.yml watch (PyPI + MCP Registry + GitHub Release + Cowork .plugin), post-release verification. |
+| `anamorph` | The asexual transformative life-cycle form | Drafts canon schema migrations (named partial upgraders + tests + schema delta + migration guide). Stops before flipping `_canon.yaml::schema_version`. |
+
+### Slash command roster (5 `myco-` triggers)
+
+| Slash | Subagent | Argument |
+|-------|----------|----------|
+| `/myco-primordium <topic>` | primordium | topic phrase |
+| `/myco-hypha [pattern]` | hypha | optional dim ID or path pattern |
+| `/myco-autolyze [category]` | autolysis | optional category filter |
+| `/myco-disperse <version>` | stipe | clean PEP 440 version string |
+| `/myco-anamorph <new-schema-version> <governing-craft-path>` | anamorph | schema-version int + craft path |
+
+### Surface invariants
+
+1. **Subagents are atoms; verbs are the composition primitive.** Subagents
+   cannot recurse (Claude Code spec) — they invoke each other via Bash
+   calls to Myco's verb manifest, never via the Agent tool. The 20-verb
+   manifest is the single composition primitive across both substrate
+   subsystems and boundary subagents.
+
+2. **R-rule awareness baked into each subagent body.** State-mutating
+   subagents (`primordium`, `stipe`, `anamorph`) call `myco hunger`
+   first per R1. Read-mostly subagents (`hypha`, `autolysis`) skip
+   the boot ritual but still honor R3 (sense before assert) and R6
+   (write surface).
+
+3. **Plugin-mirror discipline.** The 10 markdown files (5 agents +
+   5 commands) live at both `.claude/<dir>/<name>.md` (project-level)
+   and `<repo>/<dir>/<name>.md` (plugin-bundle scope). v0.6.11 accepts
+   the duplication as known maintenance debt; v0.6.12 may add a
+   build-hook copy in `scripts/build_plugin.py`. A regression test
+   verifies the two paths are bytewise identical.
+
+4. **Naming complies with L0:185-186.** All five subagent names come
+   from fungal taxonomy. The boundary subsystem amendment from v0.6.0
+   §A1 (which permits "boundary" as a non-fungal English-coined name)
+   is NOT invoked here; subagent names stay strictly fungal.
+
+5. **Downstream substrates extend at project level.** A downstream
+   substrate may add or override subagents via its own
+   `.claude/agents/<name>.md`. Per Claude Code precedence, project-level
+   agents override plugin agents. Myco-self ships these 5 as defaults;
+   downstream may keep, override, or supplement.
+
+### Future axis
+
+`myco ramify --agent <name>` and `myco ramify --command <name>` flag
+extensions are deferred to a subsequent release. v0.6.11 only ships the
+surface; downstream substrates that want to scaffold subagents currently
+copy from `.claude/agents/` manually or write from scratch following the
+boundary doctrine pattern documented above.

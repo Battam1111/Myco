@@ -165,6 +165,51 @@ next boot. A clean senesce (either mode) is the acceptable end state;
 a dirty one is the starting point of the next session. The legacy
 `session-end` alias still resolves if you find it in an older script.
 
+## Subagents and slash commands (v0.6.11+)
+
+If you (the agent reading this page) are running inside Claude Code, you
+have access to 5 fungal-named subagents and 5 `myco-` slash commands that
+formalize specialist roles for governance, investigation, and release work.
+
+Each subagent's full role definition lives at `.claude/agents/<name>.md`
+(project-level, auto-discovered when developing Myco-self) with a
+byte-identical mirror at `<repo>/agents/<name>.md` (plugin-bundle scope,
+declared in `.claude-plugin/plugin.json::agents` so plugin marketplace
+installs deliver them to user installations). Slash commands follow the
+same pattern at `.claude/commands/<name>.md` and `<repo>/commands/<name>.md`.
+
+**Subagent roster** (invoke via Agent tool or `@agent-<name>`):
+
+- **`primordium`**: drafts a 3-round craft proposal under `docs/primordia/`. Use when the user asks for an RFC / craft / contract-bump justification.
+- **`hypha`**: investigates one `myco_immune` finding (root-cause trace + minimal-fix proposal). Read-only.
+- **`autolysis`**: sweeps the substrate for stale narrative refs and produces a deterministic patch table. Read-only output.
+- **`stipe`**: orchestrates the full release pipeline (gate → bump → commit → push → tag → ci.yml + release.yml watch → verify). Mutates state.
+- **`anamorph`**: drafts a canon schema migration (named partials + tests + schema delta + migration guide). Stops before flipping `_canon.yaml::schema_version`.
+
+**Slash command roster** (user invokes via `/<name>`):
+
+- `/myco-primordium <topic>`: invokes `primordium`.
+- `/myco-hypha [pattern]`: invokes `hypha` per finding.
+- `/myco-autolyze [category]`: invokes `autolysis`.
+- `/myco-disperse <version>`: invokes `stipe`.
+- `/myco-anamorph <new-schema-version> <governing-craft-path>`: invokes `anamorph`.
+
+**Surface invariants you must respect** (per L2 boundary doctrine):
+
+1. Subagents cannot recurse (Claude Code spec). Compose them through Bash
+   calls to Myco verbs, not through the Agent tool.
+2. State-mutating subagents (`primordium`, `stipe`, `anamorph`) start with
+   `myco hunger` per R1. Read-mostly ones (`hypha`, `autolysis`) skip
+   the boot ritual but still honor R3 + R6.
+3. Naming stays strictly fungal-bionic per L0:185-186. The boundary
+   subsystem's English-name amendment (v0.6.0 §A1) does NOT extend to
+   subagent names.
+
+The full design rationale is in the v0.6.11 craft doc at
+`docs/primordia/v0_6_11_subagents_and_commands_craft_2026-04-28.md`.
+The boundary doctrine page (`docs/architecture/L2_DOCTRINE/boundary.md`,
+section "Subagents and slash commands") is the authoritative L2 reference.
+
 ## When you are stuck
 
 Re-read L0. Then re-read the relevant L2 page. Then re-read this file.
