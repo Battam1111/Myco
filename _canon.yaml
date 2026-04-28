@@ -122,60 +122,10 @@ lint:
     - shipped
     - metabolic
     - semantic
-  dimensions:
-    # v0.5.0–v0.5.7 roster (11 dims):
-    M1: mechanical
-    M2: mechanical
-    M3: mechanical
-    MB1: metabolic
-    MB2: metabolic
-    MF1: mechanical
-    MF2: mechanical
-    MP1: mechanical
-    SE1: semantic
-    SE2: semantic
-    SH1: shipped
-    # v0.5.8 additions (14 new dims, Phase 14 of the v0.5.8 cleanup):
-    MP2: mechanical
-    DC1: mechanical
-    DC2: mechanical
-    DC3: mechanical
-    DC4: mechanical
-    CS1: mechanical
-    FR1: mechanical
-    PA1: mechanical
-    CG1: mechanical
-    CG2: mechanical
-    DI1: mechanical
-    MB3: metabolic
-    SE3: semantic
-    RL1: semantic
-    # v0.6.0 additions (17 new dims; severity-promotion ledger applies).
-    # Mechanical structural (9 dims, batch A):
-    PA2: mechanical    # megafile LoC cap (>800)
-    PA3: mechanical    # surface/ pure-adapter import discipline
-    PA4: mechanical    # core/ no-cross-subsystem import (allow-listed metaprogramming)
-    PA5: mechanical    # meta-subsystem layering (cycle/surface/install/symbionts/mcp not imported by subsystems)
-    SC1: mechanical    # canon JSON-Schema vs load_canon parity
-    DC5: mechanical    # abstract-parent-allowlist sourced from canon (replaces dc2:158 hardcode)
-    MF3: mechanical    # symbiont host-side artifact integrity (sig verification)
-    DI2: mechanical    # discipline-hooks content (R1+R2 hook lines present)
-    AD1: mechanical    # adapter silent-skip detection (return [] pattern)
-    # Semantic + metabolic (5 dims, batch B):
-    SE4: semantic      # reciprocal back-link detection (R5 partial mechanical anchor)
-    RL2: semantic      # R3 sense-discipline signal (sliding-window risky verb without sense)
-    RL3: semantic      # R4 eat-discipline signal (decision keyword hits without eat)
-    MB4: metabolic     # sporulated-reabsorbed integrity (distilled→sporulated must reference doctrine)
-    MB6: metabolic     # stale DRAFT craft / stale distilled (14d MEDIUM, 30d HIGH auto-winnow-or-excrete)
-    # Shipping + capability + plugin (3 dims, batch C):
-    SH2: shipped       # contract_version <= __version__ (defense against ahead-of-kernel canon)
-    CL1: mechanical    # sampling enabled only when llm_policy != forbidden
-    MP3: mechanical    # plugin bytecode-pattern audit (v0.5.6 MP2-bytecode promise)
-    # v0.6.0 R-revision additions (from Round 2 craft):
-    MB7: metabolic     # resource_watch quota pressure (≥80% consumed)
-    CL2: mechanical    # OAuth token-residency policy (mcp_auth.py imports _redact_in_logs when token_redaction_required)
-    CL3: mechanical    # mcp_sampling.py calls _clear_token_after_call() when llm_policy=opt-in
-    MF4: mechanical    # overlay_verb subsystem validity (declared subsystem must be in canon.subsystems)
+  # v0.6.10 (option A): inline `dimensions:` table removed. The 46-dim
+  # roster lives in sibling `_canon_lint.yaml` (referenced via
+  # `dimensions_ref` above). `core.canon._merge_lint_dimensions_subfile`
+  # transparently merges the sibling at load time. Single SSoT.
   # v0.6.0 owner amendment §A5 — 21 new dims land at declared severity
   # immediately (NO severity-promotion ladder). Per-dim severity is the
   # value declared in each Python class's ``default_severity``.
@@ -234,7 +184,7 @@ commands:
   manifest_ref: "src/myco/boundary/surface/manifest.yaml"
 
 metrics:
-  test_count: 852
+  test_count: 1427
 
 waves:
   current: 21

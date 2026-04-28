@@ -3,7 +3,7 @@
 ## Title
 
 ```
-Built a substrate-style memory layer for agents: 19 verbs, self-validating, works with any local or hosted LLM via MCP
+Built a substrate-style memory layer for agents: 20 verbs, self-validating, works with any local or hosted LLM via MCP
 ```
 
 ## Body
@@ -11,7 +11,7 @@ Built a substrate-style memory layer for agents: 19 verbs, self-validating, work
 ```
 Posting because r/LocalLLaMA has seen a lot of "agent memory" solutions come through and I think this one differs from the others in ways that might interest you.
 
-Myco (https://github.com/Battam1111/Myco) is a long-lived filesystem shape that an LLM agent maintains on your behalf. It's not a framework, not a vector DB, not a managed API. It's a directory of markdown notes + a YAML canon + a 25-dim lint system + a 19-verb CLI/MCP surface, designed so one agent can ingest, digest, cross-reference, and reshape the substrate across months without you babysitting it.
+Myco (https://github.com/Battam1111/Myco) is a long-lived filesystem shape that an LLM agent maintains on your behalf. It's not a framework, not a vector DB, not a managed API. It's a directory of markdown notes + a YAML canon + a 46-dim lint system + a 20-verb CLI/MCP surface, designed so one agent can ingest, digest, cross-reference, and reshape the substrate across months without you babysitting it.
 
 What distinguishes it from what's already been discussed here:
 
@@ -45,7 +45,7 @@ MIT-licensed, Python 3.10+.
 ## Why this shape
 
 - **Title names the differentiators up front.** "substrate-style",
-  "19 verbs", "self-validating", "any local or hosted LLM".
+  "20 verbs", "self-validating", "any local or hosted LLM".
   Each is a keyword r/LocalLLaMA cares about. "Memory" alone is
   too generic; a visitor needs the title to tell them why this
   post is different from the last 12 memory posts.

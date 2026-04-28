@@ -916,7 +916,7 @@ commands:
   subsystem: homeostasis
   handler: myco.homeostasis.kernel:run_cli
   summary: Run immune lint over the substrate.
-  description: 'Run the substrate''s 25 lint dimensions and report findings
+  description: 'Run the substrate''s 46 lint dimensions and report findings
 
     (severity + category + location + message per finding).
 
@@ -970,7 +970,7 @@ commands:
     type: list[str]
     default: []
     help: Optional subset of dimension IDs to run (e.g. ['M1','SE1','MB2']). When
-      empty, runs all 25. Use to re-check specific dimensions after fixing their findings
+      empty, runs all 46. Use to re-check specific dimensions after fixing their findings
       without the full suite's cost. IDs are case-sensitive; see myco_immune --list
       for the full enumeration.
     examples:

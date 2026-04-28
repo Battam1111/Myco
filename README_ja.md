@@ -116,16 +116,16 @@ Myco をエージェントホストに 1 コマンドで組み込みます。
 - **Ingestion。** `hunger`（何が足りない？）、`eat`（raw を取り込む）、`sense`（キーワード検索）、`forage`（取り込み可能パスを走査）、`excrete`（監査用墓石付きで raw ノートを安全に削除）。
 - **Digestion。** `assimilate`（raw から integrated へ、一括）、`digest`（単一ノートの昇格）、`sporulate`（integrated から散布可能な提案へ）。
 - **Circulation。** `traverse`（グラフを辿る）、`propagate`（下流 substrate へ発行）。
-- **Homeostasis。** `immune`（25 次元 lint、`--fix` で機械的に直せるものは直す）。
+- **Homeostasis。** `immune`（46 次元 lint、`--fix` で機械的に直せるものは直す）。
 - **Cycle。** `senesce`（セッション休眠）、`fruit`（3 ラウンドの craft）、`winnow`（craft の形を篩う）、`molt`（contract バンプの出荷）、`ramify`（新しい次元、verb、adapter を scaffold）、`graft`（substrate ローカルプラグイン管理）、`brief`（人間向け状態ロールアップ）。
 
-すべての verb は [`src/myco/surface/manifest.yaml`](src/myco/surface/manifest.yaml) に住みます。CLI（`myco VERB`）も MCP tool 表面も、この manifest から機械的に派生します。2 つの面にとって、1 つの真理の源。下流 substrate は、Myco を fork することなく、自前の dimensions や verb を `.myco/plugins/` に `ramify` できます。
+すべての verb は [`src/myco/boundary/surface/manifest.yaml`](src/myco/boundary/surface/manifest.yaml) に住みます。CLI（`myco VERB`）も MCP tool 表面も、この manifest から機械的に派生します。2 つの面にとって、1 つの真理の源。下流 substrate は、Myco を fork することなく、自前の dimensions や verb を `.myco/plugins/` に `ramify` できます。
 
 ## 自己検証
 
 Myco はエージェントが契約を覚えていると信用しません。強制します。
 
-- **25 次元の lint**、4 カテゴリに分かれます。*mechanical*（canon 不変式、write-surface、LLM 境界）、*shipped*（package と canon のバージョン整合）、*metabolic*（raw の堆積、古い integrated ノート）、*semantic*（グラフ連結性、孤児検出）。`myco immune --fix` が機械的に直せるものは直します。
+- **46 次元の lint**、4 カテゴリに分かれます。*mechanical*（canon 不変式、write-surface、LLM 境界、OAuth token 駐留、sampling ゲート、capability 階層）、*shipped*（package と canon のバージョン整合、kernel が canon を超えない）、*metabolic*（raw の堆積、古い integrated ノート、sporulated 再吸収整合性、resource-watch クォータ、stale-DRAFT 整理）、*semantic*（グラフ連結性、孤児検出、相互リンク検出、R3 sense / R4 eat 規律シグナル）。`myco immune --fix` が機械的に直せるものは直します。
 - **7 条のハードルール（R1 から R7）** がすべてのセッションを支配します。boot ritual、session-end、sense-before-assert、eat-on-friction、cross-reference-on-creation、write-surface discipline、top-down layering。完全契約は [`L1_CONTRACT/protocol.md`](docs/architecture/L1_CONTRACT/protocol.md) に。
 - **Pulse サイドカー。** MCP tool 応答のすべてに `substrate_pulse` が乗ります。現在の contract バージョンと、セッションの進行に合わせて昇格していくルールヒント（R1、続いて R3、そして先へ）を運びます。サーバ側からの push。エージェントは忘れようがありません。
 - **Write-surface 強制。** `_canon.yaml::system.write_surface.allowed` の外への書き込みは、すべて `WriteSurfaceViolation` で拒否されます。規律はメカニズムであって、お願いではありません。
@@ -138,7 +138,7 @@ host 側の設定はゼロ。R1 から R7 は MCP サーバー自身に組み込
 - **Cowork（Claude Desktop local-agent-mode）。** 2 ステップ。(1) `myco-install host cowork` で MCP を書き込み、(2) [GitHub releases](https://github.com/Battam1111/Myco/releases/latest) から `.plugin` をダウンロードして、Claude Desktop のプラグインアップロードへドラッグ。Claude Desktop はそれをアカウント専用の Cowork marketplace にアップロードし、以降のセッションで `myco-substrate` スキルが自動装着され、エージェントが `_canon.yaml` を見た瞬間に R1 から R7 へ従います。Cowork は hooks もローカル plugin dir も参照しないため、ドラッグ＆ドロップが唯一の永続パスです。詳細は [`INSTALL.md`](docs/INSTALL.md) を参照。
 - **任意の MCP ホスト。** 10 つは `myco-install` で自動化済み。残り 9 つは [`INSTALL.md`](docs/INSTALL.md) に per-host スニペットあり。その他のクライアントは `mcp-server-myco` stdio で直接起動できます。
 - **Python エージェントフレームワーク。** LangChain、CrewAI、DSPy、Smolagents、Agno、PraisonAI、MS Agent Framework、Claude Agent SDK。すべて `StdioServerParameters(command="mcp-server-myco")` で Myco を消費します。
-- **下流 substrate。** `myco propagate` が発行します。adapter は `myco.symbionts` に住みます。
+- **下流 substrate。** `myco propagate` が発行します。adapter は `myco.boundary.host_integration` に住みます（v0.6.0 から; それ以前は `myco.symbionts`）。
 
 ## もっと知る
 

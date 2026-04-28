@@ -11,13 +11,13 @@ Myco: long-term memory for your Cursor/Claude-Code agent that survives across se
 ```
 If you've used Cursor or Claude Code across multiple projects over months, you've probably hit the memory wall. The agent has amnesia between projects, re-derives the same conventions every morning, and can't remember why you chose one approach over another three weeks ago.
 
-I built Myco (https://github.com/Battam1111/Myco) to fix this. It's a filesystem shape + a CLI + an MCP server that gives your agent a persistent substrate across every project you touch. One MCP server install, every MCP-speaking host sees the same 19 verbs.
+I built Myco (https://github.com/Battam1111/Myco) to fix this. It's a filesystem shape + a CLI + an MCP server that gives your agent a persistent substrate across every project you touch. One MCP server install, every MCP-speaking host sees the same 20 verbs.
 
 Why this matters for Cursor/Claude-Code specifically
 
 1. **Cross-project propagation.** When you make a decision in project A (e.g. "use Bun instead of Node for scripts"), Myco captures it in A's substrate. Later, starting project B, `myco propagate --dst ~/project-b` can push that decision as raw material into B's substrate. The agent doesn't re-derive conventions from scratch.
 
-2. **Per-substrate plugins.** Each project can declare its own lint rules via `.myco/plugins/dimensions/`. Example: "every note tagged `decision` must have an `authors:` frontmatter field". The kernel's 25 dims stay universal; project-specific discipline lives in the project.
+2. **Per-substrate plugins.** Each project can declare its own lint rules via `.myco/plugins/dimensions/`. Example: "every note tagged `decision` must have an `authors:` frontmatter field". The kernel's 46 dims stay universal; project-specific discipline lives in the project.
 
 3. **MCP-first.** One `myco-install fresh ~/myco` clones and installs the whole thing. Cursor, Claude Desktop, Claude Code, Windsurf, Zed, VS Code (GitHub Copilot), Goose, Codex CLI, Gemini CLI, OpenClaw: all auto-configured with one command (or pick one with `myco-install host claude-code`).
 
@@ -37,7 +37,7 @@ python -m myco hunger
 
 Comparison with what's already in this sub
 
-- **vs "just use a CLAUDE.md"**: CLAUDE.md is the entry page (Myco uses MYCO.md for the same role). The substrate *underneath* the entry page is what makes long-term memory work: 19 verbs + 25 dims + the governance loop.
+- **vs "just use a CLAUDE.md"**: CLAUDE.md is the entry page (Myco uses MYCO.md for the same role). The substrate *underneath* the entry page is what makes long-term memory work: 20 verbs + 46 dims + the governance loop.
 - **vs Aider's git-aware history**: Aider remembers what it changed in the code; Myco remembers why. Orthogonal; many people use both.
 - **vs Cursor's built-in memory**: Cursor's memory is great for single-project continuity. Myco is the cross-project + cross-host layer.
 

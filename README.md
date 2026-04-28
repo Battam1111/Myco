@@ -65,7 +65,7 @@ You speak. The agent listens. Between your turns, Myco runs a metabolism.
 - **Ingestion.** `hunger` asks what is missing. `eat` absorbs whatever you point at, whether a path, a URL, or a paragraph. `sense` and `forage` scan what is already here. `excrete` safely removes a raw note captured by mistake, moving it to an audit tombstone instead of silently deleting. `intake` (v0.6.0) bulk-ingests a whole directory, composing forage + eat with strict-mode failure visibility.
 - **Digestion.** `assimilate` cooks raw notes into integrated knowledge. `digest` promotes a single note. `sporulate` concentrates integrated notes into a dispersible proposal.
 - **Circulation.** `traverse` walks the graph and reports on its connectedness. `propagate` publishes learning to a downstream substrate.
-- **Homeostasis.** `immune` runs a 25-dimension lint against the seven hard rules. `senesce` winds down each session cleanly.
+- **Homeostasis.** `immune` runs a 46-dimension lint against the seven hard rules. `senesce` winds down each session cleanly.
 - **Evolution.** When the substrate's shape no longer fits the work, whether a canon field is missing, a new lint dimension is needed, or a verb must change, `fruit` drafts a three-round craft proposal, `winnow` gates its shape, and `molt` ships the contract bump.
 
 Twenty verbs, one manifest, two faces: a CLI for you to observe, an MCP server for the agent to drive. You memorize nothing. The agent drives.
@@ -116,16 +116,16 @@ Six subsystems. Every name is a fungal-biology term whose meaning tracks its act
 - **Ingestion.** `hunger` (what is missing?), `eat` (absorb raw material), `sense` (keyword search), `forage` (scan ingestible paths), `excrete` (safely delete a raw note with an audit tombstone), `intake` (bulk-ingest a directory; v0.6.0).
 - **Digestion.** `assimilate` (raw to integrated, in bulk), `digest` (promote a single note), `sporulate` (integrated to dispersible proposal).
 - **Circulation.** `traverse` (walk the graph), `propagate` (publish to a downstream substrate).
-- **Homeostasis.** `immune` (25-dimension lint; `--fix` repairs mechanically where it can).
+- **Homeostasis.** `immune` (46-dimension lint; `--fix` repairs mechanically where it can).
 - **Cycle.** `senesce` (session dormancy), `fruit` (three-round craft), `winnow` (gate the craft's shape), `molt` (ship the contract bump), `ramify` (scaffold a new dimension, verb, or adapter), `graft` (manage substrate-local plugins), `brief` (human-facing state rollup).
 
-Every verb lives in [`src/myco/surface/manifest.yaml`](src/myco/surface/manifest.yaml). The CLI (`myco VERB`) and the MCP tool surface both derive from that manifest mechanically. One source of truth for both faces. A downstream substrate can `ramify` its own dimensions or verbs into `.myco/plugins/` without ever forking Myco.
+Every verb lives in [`src/myco/boundary/surface/manifest.yaml`](src/myco/boundary/surface/manifest.yaml). The CLI (`myco VERB`) and the MCP tool surface both derive from that manifest mechanically. One source of truth for both faces. A downstream substrate can `ramify` its own dimensions or verbs into `.myco/plugins/` without ever forking Myco.
 
 ## Self-validation
 
 Myco does not trust its agent to remember the contract. It enforces it.
 
-- **25 lint dimensions** across four categories: *mechanical* (canon invariants, write-surface, LLM-boundary), *shipped* (package and canon version parity), *metabolic* (raw backlog, stale integrated notes), *semantic* (graph connectedness, orphan detection). `myco immune --fix` repairs mechanically where it can.
+- **46 lint dimensions** across four categories: *mechanical* (canon invariants, write-surface, LLM-boundary, OAuth token residency, sampling gates, capability layering), *shipped* (package and canon version parity, kernel-ahead-of-canon), *metabolic* (raw backlog, stale integrated notes, sporulated-reabsorbed integrity, resource-watch quota, stale-DRAFT cleanup), *semantic* (graph connectedness, orphan detection, reciprocal back-link, R3 sense and R4 eat discipline signals). `myco immune --fix` repairs mechanically where it can.
 - **Seven hard rules (R1 through R7)** govern every session: boot ritual, session-end, sense-before-assert, eat-on-friction, cross-reference-on-creation, write-surface discipline, top-down layering. Full contract at [`L1_CONTRACT/protocol.md`](docs/architecture/L1_CONTRACT/protocol.md).
 - **Pulse sidecar.** Every MCP tool response carries a `substrate_pulse` echoing the current contract version and a rule hint that escalates (R1, then R3, then on through the session) as the session progresses. A server-side push. The agent cannot accidentally forget.
 - **Write-surface enforcement.** Any write outside `_canon.yaml::system.write_surface.allowed` is refused with `WriteSurfaceViolation`. Discipline as a mechanism, not as a request.

@@ -44,31 +44,30 @@ Both the CLI (`python -m myco <verb>`) and the MCP tool server
 (`myco.boundary.surface.mcp.build_server`) are generated from it. If you need
 to know what verbs exist, read that file, not this page.
 
-Nineteen verbs (18 agent + 1 human-facing `brief`), grouped by
-subsystem. Every v0.5.2 alias still resolves through v1.0.0 with
-a one-shot `DeprecationWarning`; the canonical form is what you
-should emit in new calls:
+Twenty verbs (19 agent + 1 human-facing `brief`), grouped by
+subsystem. v0.5.2 aliases were removed at v0.6.0 (per Round 4
+§A2 owner amendment); the canonical names are the only forms
+that resolve:
 
-- **germination**: `germinate` (was `genesis`)
-- **ingestion**: `hunger`, `eat`, `sense`, `forage`, `excrete` (new at v0.5.24, safely delete a raw note with an audit tombstone)
-- **digestion**: `assimilate` (was `reflect`), `digest`, `sporulate` (was `distill`)
-- **circulation**: `traverse` (was `perfuse`), `propagate`
+- **germination**: `germinate`
+- **ingestion**: `hunger`, `eat`, `sense`, `forage`, `excrete` (new at v0.5.24, safely delete a raw note with an audit tombstone), `intake` (new at v0.6.0, bulk forage + eat with strict-mode failure visibility)
+- **digestion**: `assimilate`, `digest`, `sporulate`
+- **circulation**: `traverse`, `propagate`
 - **homeostasis**: `immune`
-- **cycle**: `senesce` (was `session-end`; `--quick` flag at v0.5.7 for SessionEnd hook), `fruit` (was `craft`), `molt` (was `bump`), `winnow` (was `evolve`), `ramify` (was `scaffold`), `graft` (new at v0.5.3), `brief` (new at v0.5.5, the one human-facing exception to L0 principle 1)
+- **cycle**: `senesce` (`--quick` flag at v0.5.7 for SessionEnd hook), `fruit`, `molt`, `winnow`, `ramify`, `graft` (new at v0.5.3), `brief` (new at v0.5.5, the one human-facing exception to L0 principle 1)
 
 Every verb accepts `--project-dir`, `--exit-on`, and `--json`.
 
 ## The immune surface
 
 `myco immune` runs every registered dimension against the substrate
-and reports findings. At v0.5.10 the roster is **25 dimensions**
+and reports findings. At v0.6.10 the roster is **46 dimensions**
 across four categories:
 
-- **Mechanical (18)**: `M1`, `M2★`, `M3`, `MF1`, `MF2`, `MP1`, `MP2`,
-  `DC1` through `DC4`, `CS1★`, `FR1`, `PA1`, `CG1`, `CG2`, `DI1`
-- **Shipped (1)**: `SH1`
-- **Metabolic (3)**: `MB1★`, `MB2`, `MB3★`
-- **Semantic (3)**: `SE1`, `SE2`, `SE3`, `RL1`
+- **Mechanical (31)**: `M1★`, `M2★`, `M3★`, `MF1`, `MF2`, `MF3`, `MF4`, `MP1`, `MP2`, `MP3`, `DC1★`, `DC2`, `DC3`, `DC4★`, `DC5`, `CS1★`, `FR1`, `PA1★`, `PA2`, `PA3`, `PA4`, `PA5`, `CG1`, `CG2`, `DI1★`, `DI2`, `AD1`, `SC1`, `CL1`, `CL2`, `CL3`
+- **Shipped (2)**: `SH1`, `SH2`
+- **Metabolic (6)**: `MB1★`, `MB2`, `MB3★`, `MB4`, `MB6★`, `MB7`
+- **Semantic (7)**: `SE1★`, `SE2`, `SE3`, `SE4`, `RL1`, `RL2`, `RL3`
 
 ★ = fixable via `immune --fix`. The full enumeration + severities +
 fixability are in

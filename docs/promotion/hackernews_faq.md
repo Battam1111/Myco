@@ -18,7 +18,7 @@ replying to; keep each response < 200 words.
 > relevant chunks back to a chain on each call. They're a retrieval
 > layer.
 >
-> Myco is a long-lived, self-validating filesystem shape + a 25-dim
+> Myco is a long-lived, self-validating filesystem shape + a 46-dim
 > lint surface + a governance loop the agent uses to mutate its own
 > contract. No chain, no retrieval-on-each-call. The agent reads
 > the substrate by traversal, not by embedding similarity.
@@ -36,7 +36,7 @@ replying to; keep each response < 200 words.
 >
 > Where Myco diverges: (1) the governance surface. MemGPT has
 > memories; Myco has memories + a contract that explicitly
-> describes how memories may evolve, enforced by 25 lint dims.
+> describes how memories may evolve, enforced by 46 lint dims.
 > (2) The kernel itself is a substrate. Myco is editable by the
 > agent that maintains it, not a library the agent imports. (3)
 > No vector DB hard-coupling. Myco's graph is AST + markdown-link
@@ -102,7 +102,7 @@ replying to; keep each response < 200 words.
 > it end-to-end, you don't need Myco. If either of those
 > breaks, you might.
 
-### "Why 19 verbs? Isn't that too many?"
+### "Why 20 verbs? Isn't that too many?"
 
 > 18 agent-facing + 1 human-facing (`brief`). Grouped into six
 > biological subsystems, each exposing 2 to 7 verbs. The count

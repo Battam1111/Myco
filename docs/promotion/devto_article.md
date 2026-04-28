@@ -51,9 +51,9 @@ Three concrete examples of what "validates itself" looks like:
 
 **3. Graph connectedness.** The substrate is a graph: every node (canon field, note, doctrine page, code module) is reachable from every other by traversal. Edges come from four explicit sources (canon _ref fields, note frontmatter `references:` lists, markdown `[text](path)` links, AST import edges in Python modules). A dimension (SE1) fires per dangling edge; another (SE2) per orphan integrated note; another (SE3) per self-cycle.
 
-25 dimensions total at v0.5.24. The full roster + fixability is in [L2 homeostasis.md](https://github.com/Battam1111/Myco/blob/main/docs/architecture/L2_DOCTRINE/homeostasis.md).
+46 dimensions total at v0.6.10. The full roster + fixability is in [L2 homeostasis.md](https://github.com/Battam1111/Myco/blob/main/docs/architecture/L2_DOCTRINE/homeostasis.md).
 
-## The 19-verb surface
+## The 20-verb surface
 
 Every agent interaction with Myco goes through a verb. There are 19 total, grouped by biological subsystem:
 
@@ -66,7 +66,7 @@ homeostasis   immune
 cycle         senesce · fruit · molt · winnow · ramify · graft · brief
 ```
 
-All 19 are declared in [one YAML file](https://github.com/Battam1111/Myco/blob/main/src/myco/surface/manifest.yaml). The CLI (`python -m myco <verb>`) and the MCP tool server (via `myco.boundary.surface.mcp.build_server`) both derive from this file; there's no second registry to keep in sync.
+All 19 are declared in [one YAML file](https://github.com/Battam1111/Myco/blob/main/src/myco/boundary/surface/manifest.yaml). The CLI (`python -m myco <verb>`) and the MCP tool server (via `myco.boundary.surface.mcp.build_server`) both derive from this file; there's no second registry to keep in sync.
 
 A typical session looks like:
 
@@ -179,9 +179,9 @@ If the shape interests you, the ten-minute read is:
 
 1. [L0_VISION.md](https://github.com/Battam1111/Myco/blob/main/docs/architecture/L0_VISION.md): five root principles
 2. [L1_CONTRACT/protocol.md](https://github.com/Battam1111/Myco/blob/main/docs/architecture/L1_CONTRACT/protocol.md): R1 through R7 rules
-3. The [verb manifest](https://github.com/Battam1111/Myco/blob/main/src/myco/surface/manifest.yaml) for the 19-verb surface
+3. The [verb manifest](https://github.com/Battam1111/Myco/blob/main/src/myco/boundary/surface/manifest.yaml) for the 20-verb surface
 
-Feedback on the architecture, especially on where the 25-dim lint surface is over-engineered or under-engineered for the drift-resistance target, is most welcome.
+Feedback on the architecture, especially on where the 46-dim lint surface is over-engineered or under-engineered for the drift-resistance target, is most welcome.
 
 Repo: https://github.com/Battam1111/Myco
 PyPI: https://pypi.org/project/myco/
@@ -197,12 +197,12 @@ MIT-licensed. Python 3.10+. 875 tests passing, 0 immune findings on the self-sub
   longer than a blog post, shorter than a whitepaper.
 - **Opens with a concrete problem** (6 months, 80 MB, contradicting itself). Reader
   pattern-matches immediately.
-- **"Design thesis" to "19-verb surface" to "The kernel IS a
+- **"Design thesis" to "20-verb surface" to "The kernel IS a
   substrate" to "The governance loop" to "What's inside a lint
   dimension" to "What it is not" to "Try it"** structure lets
   readers drop out at any section with something useful.
 - **Concrete code block** (CS1 dimension) turns an abstract
-  "25 lint dims" claim into something the reader can point
+  "46 lint dims" claim into something the reader can point
   at.
 - **"Try it"** section at the end with five working commands
   converts readers to users without friction.

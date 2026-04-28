@@ -4,9 +4,10 @@ description: >
   Work with a Myco cognitive substrate, which is any project directory with
   `_canon.yaml` and `MYCO.md` at its root. Trigger when the workspace contains
   `_canon.yaml` (it IS a Myco substrate); the user mentions "substrate",
-  "Myco", or any of the 19 fungal verbs (germinate / hunger / eat / sense /
-  forage / excrete / assimilate / digest / sporulate / traverse / propagate /
-  immune / senesce / fruit / molt / winnow / ramify / graft / brief); a prior
+  "Myco", or any of the 20 fungal verbs (germinate / hunger / eat / sense /
+  forage / excrete / intake / assimilate / digest / sporulate / traverse /
+  propagate / immune / senesce / fruit / molt / winnow / ramify / graft /
+  brief); a prior
   tool response's `substrate_pulse` referenced Myco; the user asks about
   agent memory, long-term context, cross-session state, or agent-first
   cognitive architecture in the context of a project that has `_canon.yaml`.
@@ -34,7 +35,7 @@ the work outgrows the old form.
 
 The substrate is the agent's **home**, not a tool the agent calls.
 
-## The 19 verbs, grouped by subsystem
+## The 20 verbs, grouped by subsystem
 
 - **Germination.** `myco_germinate` starts a fresh substrate in a target
   directory.
@@ -42,14 +43,16 @@ The substrate is the agent's **home**, not a tool the agent calls.
   `myco_eat` (absorb raw material: text, path, URL), `myco_sense`
   (keyword search across the substrate), `myco_forage` (list ingestible
   files under a path), `myco_excrete` (safely delete a raw note by
-  moving it to `.myco_state/excreted/` with an audit tombstone).
+  moving it to `.myco_state/excreted/` with an audit tombstone),
+  `myco_intake` (bulk-ingest a directory; composes forage + eat with
+  strict-mode failure visibility; new at v0.6.0).
 - **Digestion.** `myco_assimilate` (promote raw notes to integrated),
   `myco_digest` (promote one specific raw note), `myco_sporulate`
   (concentrate integrated notes into a dispersible proposal).
 - **Circulation.** `myco_traverse` (walk the graph and report
   connectedness), `myco_propagate` (publish integrated/distilled
   content to a downstream substrate).
-- **Homeostasis.** `myco_immune` (run the 25-dimension lint with
+- **Homeostasis.** `myco_immune` (run the 46-dimension lint with
   optional `fix=True`).
 - **Cycle.** `myco_senesce` (session dormancy; `quick=True` at abrupt
   exits), `myco_fruit` (scaffold a 3-round primordia proposal doc),
@@ -165,6 +168,6 @@ mitigation paths:
 - `L0_VISION.md`: five root principles, verbatim.
 - `L1_CONTRACT/protocol.md`: R1 through R7 full text.
 - `L2_DOCTRINE/`: one doctrine page per subsystem.
-- `src/myco/surface/manifest.yaml`: the single source of truth for
-  the 19 verbs' arg shapes. Both CLI and MCP tool surface derive from
+- `src/myco/boundary/surface/manifest.yaml`: the single source of truth for
+  the 20 verbs' arg shapes. Both CLI and MCP tool surface derive from
   it.

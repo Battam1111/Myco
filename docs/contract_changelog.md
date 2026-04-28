@@ -11,12 +11,15 @@ Format: one section per `contract_version`, newest first.
 
 ---
 
-## v0.6.0 — 2026-04-28 — Unified evolution + thorough refactor (MAJOR-class per L0:223)
+## v0.6.10 — 2026-04-28 — Unified evolution + thorough refactor (MAJOR-class per L0:223)
 
 **Full R-surface preserved; canon schema bump v1 → v2; subsystem count 5 → 7 (cycle + boundary promoted).**
+
+**Note on the v0.6.0 / 0.6.1 / 0.6.2 PyPI namespace burns.** This release ships under tag `v0.6.10`. The semantically-prior label `v0.6.0` released to PyPI as `myco-0.6.0.post1` (PEP 440 path B, commit `a665c0b`) on 2026-04-28; that artifact carries the same R-surface as this release minus the cleanups documented under "v0.6.10 cleanups" below. Tags `v0.6.0` and `v0.6.0.post1` exist on the repo for historical fidelity. PyPI filenames `myco-0.6.0`, `myco-0.6.1`, `myco-0.6.2` are burned (PyPI filename uniqueness rule; commits `f0e12fd`, `32e4c6b`, `2e996a8` document the bumps that hit each burn). `0.6.10` is the chosen clean SemVer label well past the burn region; `pip install --upgrade myco` resolves transparently.
+
 First MAJOR-class release per `L0_VISION.md:223-228` cadence rule —
 fires Living Bets re-audit (sibling craft `v0_6_0_living_bets_audit_craft_2026-04-28.md`).
-SemVer label "0.6.0" reads MINOR by external naming convention; Myco
+SemVer label "0.6.10" reads as a routine patch by external naming convention; Myco
 contract semantics treat it as MAJOR-class for review-cadence and
 breaking-change-permission per craft v0.6.0 §F1.
 
@@ -42,7 +45,7 @@ breaking-change-permission per craft v0.6.0 §F1.
    `KNOWN_SCHEMA_VERSIONS = frozenset({"1", "2"})`. v0.5.x substrates
    parse cleanly without warning; lint.dimensions sub-file extraction
    deferred to v2.1.
-3. **Lint dimension inventory 25 → 44** (+21 new dims). All ship at
+3. **Lint dimension inventory 25 → 46** (+21 new dims). All ship at
    default-severity LOW with `lint.severity_promotion` ledger ramping
    to declared severity over 30 sessions of green observation:
    - **Mechanical structural** (9): PA2 (megafile LoC cap), PA3
@@ -94,6 +97,15 @@ breaking-change-permission per craft v0.6.0 §F1.
    `notes/distilled/_excreted/` (no doctrine payload, event-records
    only). MB6 dim guards future stale-DRAFT/distilled at 14d MEDIUM
    / 30d HIGH thresholds (canon-driven via `lint.thresholds`).
+
+### v0.6.10 cleanups (Δ from v0.6.0.post1)
+
+These are the additional changes that distinguish this release from the v0.6.0.post1 PyPI artifact:
+
+- **Lint dual-table consolidation (Option A)**: deleted the inline `_canon.yaml::lint.dimensions` block (was redundant with the sibling `_canon_lint.yaml::dimensions` table; both held the same 46-ID roster). Removed the now-redundant `dimensions` property from `docs/schema/canon.schema.json`; replaced with a `dimensions_ref` description that mirrors canon's `dimensions_ref` pointer. Single SSoT is `_canon_lint.yaml::dimensions` referenced via `_canon.yaml::lint.dimensions_ref`. No runtime change — `Dimension.category` class attr was already authoritative; `core.canon._merge_lint_dimensions_subfile` (lines 216-253) transparently merges the sibling when the inline table is absent. SC1 (canon JSON-Schema parity) continues to pass since the deleted property is OPTIONAL in the schema's `required` array.
+- **Stale-narrative sweep**: ~50 inherited-from-pre-v0.6.0 references to "19 verbs" / "25 lint dimensions" / `myco.symbionts` / `src/myco/surface/manifest.yaml` updated to "20 verbs" / "46 lint dimensions" / `myco.boundary.host_integration` / `src/myco/boundary/surface/manifest.yaml` across READMEs (EN/ZH/JA), MYCO.md, both plugin manifest descriptions, the immune-tool description in `src/myco/boundary/surface/manifest.yaml`, both skills bodies (`hunger`, `myco-substrate`), the comparisons doc, and 12 `docs/promotion/*.md` files.
+- **Test-count metric**: `_canon.yaml::metrics.test_count` 852 → 1427 (matches `pytest --collect-only` output post-v0.6.0).
+- **Glama maintenance recency**: v0.6.0 ship landed on PyPI as `0.6.0.post1`; the maintenance-score window decayed because the `v0.6.0.post1` tag did not register as a fresh recency signal. `v0.6.10` re-arms the wall-clock signal Glama uses; maintainer triggers manual rescan post-tag, score recovers within 1-7 days.
 
 ### Aliases (deferred per `digestion.md:120-122`)
 
