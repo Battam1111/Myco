@@ -61,23 +61,34 @@ Every verb accepts `--project-dir`, `--exit-on`, and `--json`.
 ## The immune surface
 
 `myco immune` runs every registered dimension against the substrate
-and reports findings. At v0.6.10 the roster is **46 dimensions**
+and reports findings. At v0.6.12 the roster is **46 dimensions**
 across four categories:
 
-- **Mechanical (31)**: `M1★`, `M2★`, `M3★`, `MF1`, `MF2`, `MF3`, `MF4`, `MP1`, `MP2`, `MP3`, `DC1★`, `DC2`, `DC3`, `DC4★`, `DC5`, `CS1★`, `FR1`, `PA1★`, `PA2`, `PA3`, `PA4`, `PA5`, `CG1`, `CG2`, `DI1★`, `DI2`, `AD1`, `SC1`, `CL1`, `CL2`, `CL3`
+- **Mechanical (31)**: `M1★`, `M2★`, `M3★`, `MF1`, `MF2`, `MF3`, `MF4`, `MP1`, `MP2`, `MP3`, `DC1★`, `DC2`, `DC3`, `DC4`, `DC5`, `CS1★`, `FR1`, `PA1`, `PA2`, `PA3`, `PA4`, `PA5`, `CG1`, `CG2`, `DI1★`, `DI2`, `AD1`, `SC1`, `CL1`, `CL2`, `CL3`
 - **Shipped (2)**: `SH1`, `SH2`
 - **Metabolic (6)**: `MB1★`, `MB2`, `MB3★`, `MB4`, `MB6★`, `MB7`
 - **Semantic (7)**: `SE1★`, `SE2`, `SE3`, `SE4`, `RL1`, `RL2`, `RL3`
 
-★ = fixable via `immune --fix`. The full enumeration + severities +
-fixability are in
+★ = fixable via `immune --fix` (10 dimensions: M1, M2, M3, DC1, CS1,
+DI1, MB1, MB3, MB6, SE1). DC4 + PA1 stay advisory at v0.6.12 per the
+v0.6.0 §F18 fix-narrowness craft (markdown surgery + write-surface
+expansion are too delicate for safe-fix's idempotent / narrow /
+non-destructive / bounded discipline). The full enumeration +
+severities + fixability are in
 [`docs/architecture/L2_DOCTRINE/homeostasis.md`](docs/architecture/L2_DOCTRINE/homeostasis.md)
 § "Dimension enumeration". `immune --list` prints the live list;
 `immune --explain <ID>` prints the prose description.
 
-Baseline: `myco-self` runs immune-clean (exit 0, 0 findings) since
-v0.5.9; every new finding on the self-substrate is therefore real
-signal.
+Baseline: `myco-self` exits 0 (CRITICAL-gate via canon
+`lint.exit_policy.default = "mechanical:critical,shipped:critical,
+metabolic:never,semantic:never"`) since v0.5.9. Non-critical findings
+ride up each time the lint roster expands (25→46 at v0.6.0); the
+v0.6.12 self-substrate carries 76 non-critical findings (9 HIGH AD1
+adapter silent-skips inherited from pre-v0.6.0 adapters + assorted
+LOW DC2/DC3/DC4/SE2 hygiene). These are tracked, not gated. **Every
+new CRITICAL finding on the self-substrate is real signal**, and
+HIGH-band drift is a candidate for the next severity-promotion
+craft (`myco fruit`).
 
 ## Canon validation (v0.5.9+)
 

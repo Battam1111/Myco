@@ -1,0 +1,84 @@
+name: OpenSSF Scorecard
+
+# OpenSSF Scorecard — Myco v0.6.12+
+#
+# Industry-standard supply-chain-security health check. Scores 19
+# checks (binary artifacts, branch protection, code review, CII best
+# practices, dangerous workflows, dependency update tooling, fuzzing,
+# license, maintained, packaging, pinned dependencies, SAST, security
+# policy, signed releases, token permissions, vulnerabilities, and
+# webhooks) against the repo's settings + workflows + recent commits.
+#
+# Results upload to:
+#   1. The repo's Security tab → Code scanning alerts (SARIF).
+#   2. The public OpenSSF Scorecard registry (publish_results: true)
+#      → https://api.securityscorecards.dev/projects/github.com/Battam1111/Myco
+#      → consumable by Glama, Snyk, Sonatype, etc.
+#
+# This feeds the Glama maintenance "security health" 15% factor
+# directly via the public Scorecard API.
+#
+# Reference: docs/architecture/L2_DOCTRINE/boundary.md
+# (boundary subsystem owns supply-chain-trust signaling).
+
+on:
+  # Default-branch push triggers a fresh scan on every land.
+  push:
+    branches: [main]
+  # Weekly cron Monday 05:37 UTC — recovers from missed-push scans.
+  schedule:
+    - cron: "37 5 * * 1"
+  # Branch-protection-rule changes invalidate the prior score.
+  branch_protection_rule:
+
+# Default permissions: deny-by-default; the analysis job widens.
+permissions: read-all
+
+# Cancel in-flight scans on rapid-fire pushes.
+concurrency:
+  group: scorecard-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analysis:
+    name: Scorecard analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      # Upload SARIF to code-scanning.
+      security-events: write
+      # Mint OIDC token for publishing to the Scorecard registry.
+      id-token: write
+      # Read workflow + commit history.
+      contents: read
+      actions: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Scorecard's analysis runs against committed config; we do
+          # not need credentials persisted in the working tree.
+          persist-credentials: false
+
+      - name: Run Scorecard analysis
+        uses: ossf/scorecard-action@v2.4.0
+        with:
+          results_file: results.sarif
+          results_format: sarif
+          # Publish to the public Scorecard registry so downstream
+          # tooling (Glama, Sonatype, etc.) can read the score.
+          publish_results: true
+
+      - name: Upload SARIF artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: scorecard-sarif
+          path: results.sarif
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Upload SARIF to code-scanning
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: results.sarif
+          category: scorecard

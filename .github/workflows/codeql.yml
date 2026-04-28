@@ -1,0 +1,99 @@
+name: CodeQL
+
+# CodeQL static analysis — Myco v0.6.12+
+#
+# Runs GitHub's native code-scanning engine against the substrate's
+# Python sources (src/ + scripts/ + tests/) on every push to main,
+# every PR targeting main, and on a weekly cron in case the CodeQL
+# ruleset expands between Myco releases.
+#
+# Queries pack: ``security-and-quality`` (the broader of the two
+# stock packs — covers OWASP-style data-flow + style-quality issues).
+# Findings surface in the repo's Security tab → Code scanning alerts.
+#
+# Output also feeds the Glama maintenance score's "security health"
+# 15% slot via GitHub's code-scanning API endpoint.
+#
+# Reference: docs/architecture/L2_DOCTRINE/boundary.md
+# (boundary subsystem owns the external-facing security analysis surface).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Weekly Monday 04:23 UTC — staggered off other workflows.
+    - cron: "23 4 * * 1"
+
+# Default permissions: deny-by-default; jobs widen explicitly.
+permissions:
+  contents: read
+
+# Cancel in-flight CodeQL runs on the same ref to avoid redundant
+# work when force-pushes land mid-analysis.
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      # Required for CodeQL to write SARIF results back to the
+      # repo's Security tab.
+      security-events: write
+      # Required for actions/checkout @ v4.
+      contents: read
+      # Required for CodeQL to read workflow runs (provenance).
+      actions: read
+    strategy:
+      fail-fast: false
+      matrix:
+        language: ["python"]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          # ``security-and-quality`` = security-extended + code-quality.
+          # Broader-net than the default ``security-extended``; we
+          # accept the slightly higher false-positive rate for the
+          # stronger signal.
+          queries: security-and-quality
+          # Track config changes alongside source changes — CodeQL
+          # version updates land via dependabot github-actions PRs.
+          config: |
+            paths:
+              - src
+              - scripts
+              - tests
+
+      - name: Install Myco (so autobuild can resolve imports)
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev,mcp,adapters]"
+
+      - name: Autobuild
+        # Python is interpreted; autobuild is a no-op extract step,
+        # but kept here for symmetry with compiled-language jobs and
+        # future-proofing against language matrix expansion.
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{ matrix.language }}"
+          # Upload the SARIF results to the Security tab.
+          upload: always
