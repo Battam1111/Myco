@@ -68,6 +68,13 @@ system:
       # § "Subagents and slash commands (v0.6.11+)" for the surface contract.
       - "agents/**"
       - "commands/**"
+      # v0.6.12 GitHub-side surface (CodeQL + Scorecard + Dependabot +
+      # CODEOWNERS + ISSUE_TEMPLATE + workflows + SECURITY policy).
+      # Glama maintenance "security health" 15% factor reads SARIF +
+      # public Scorecard registry; PA1 dim now counts these as
+      # canonical agent-write paths.
+      - ".github/**"
+      - "SECURITY.md"
   hard_contract:
     rules_ref: "docs/architecture/L1_CONTRACT/protocol.md"
     rule_count: 7
@@ -190,7 +197,7 @@ commands:
   manifest_ref: "src/myco/boundary/surface/manifest.yaml"
 
 metrics:
-  test_count: 1427
+  test_count: 1470
 
 waves:
   current: 23

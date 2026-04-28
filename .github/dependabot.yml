@@ -1,0 +1,78 @@
+# Dependabot configuration — Myco v0.6.12+
+#
+# Two ecosystems track this substrate's dependency surface:
+#
+#   1. pip            — runtime + dev + mcp + adapters extras declared in
+#                       pyproject.toml. Catches CVE drops in pyyaml, mcp,
+#                       httpx, pypdf, bs4, pytest, ruff, mypy,
+#                       python-jose, authlib, cryptography, watchfiles.
+#   2. github-actions — every uses: <action>@<ver> declaration in
+#                       .github/workflows/*.yml. Catches stale action
+#                       versions that lose security patches (e.g.
+#                       actions/checkout@v3 -> v4 transition).
+#
+# Schedule: weekly Monday-morning batch keeps PR noise low while
+# guaranteeing CVEs land within at most 7 days of upstream publication.
+# Review burden cap: ≤5 open PRs per ecosystem at any time.
+#
+# Glama maintenance signal (security health 15%) reads dependabot
+# enablement and PR responsiveness; this file is the precondition.
+#
+# Reference: docs/architecture/L2_DOCTRINE/boundary.md (boundary
+# subsystem owns external dependency surface).
+
+version: 2
+updates:
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "python"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+    groups:
+      python-runtime:
+        patterns:
+          - "pyyaml"
+          - "mcp"
+          - "httpx"
+          - "pypdf"
+          - "beautifulsoup4"
+          - "watchfiles"
+      python-tooling:
+        patterns:
+          - "pytest*"
+          - "ruff"
+          - "mypy"
+          - "types-*"
+      python-auth:
+        patterns:
+          - "python-jose"
+          - "authlib"
+          - "cryptography"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "github-actions"
+    commit-message:
+      prefix: "deps(actions)"
+      include: "scope"
+    groups:
+      actions-all:
+        patterns:
+          - "*"

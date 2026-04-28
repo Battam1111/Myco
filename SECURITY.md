@@ -20,14 +20,15 @@ regressions.
 
 ## Supported versions
 
-Myco is on rapid 0.5.x cadence. Only the latest minor receives
+Myco is on rapid 0.6.x cadence. Only the latest minor receives
 security fixes. Older minors get advisory notes in the changelog.
 
 | Version | Supported |
 |---------|-----------|
-| 0.5.x (latest) | ✅ |
-| 0.4.x | ⚠️ advisory only |
-| ≤ 0.3.x | ❌ (pre-rewrite, frozen) |
+| 0.6.x (latest) | ✅ |
+| 0.5.x | ⚠️ advisory only |
+| ≤ 0.4.x | ❌ (frozen) |
+| ≤ 0.3.x | ❌ (pre-rewrite, frozen — `legacy_v0_3/` quarantine) |
 
 ## What Myco defends against mechanically
 
@@ -78,10 +79,34 @@ human-in-loop in the happy path:
   device names (`CON` / `PRN` / `AUX` / `NUL` / `COM1-9` /
   `LPT1-9`). Writing to these paths silently black-holes content
   on Windows; pre-v0.5.8 this was a silent loss path.
-- **MP1 + MP2 LLM-boundary enforcement**: mechanical lint refuses
-  kernel (MP1) and plugin (MP2) imports of 31 known LLM provider
-  SDKs. Opt-out requires `canon.system.no_llm_in_substrate: false`
-  + a contract-bumping `molt` (governance visible).
+- **MP1 + MP2 + MP3 LLM-boundary enforcement** (mechanical lint
+  refuses kernel (MP1), per-substrate plugin (MP2), and plugin
+  bytecode (MP3) imports of 31 known LLM provider SDKs). At v0.6.0
+  this generalised to a 3-state enum: `canon.system.llm_policy ∈
+  {"forbidden", "opt-in", "providers-declared"}`. Default
+  `forbidden` keeps L0 P1 strict; opt-in requires a contract-bumping
+  `molt` (governance visible).
+- **CL1 + CL2 + CL3 MCP-credential discipline** (v0.6.0+). CL1
+  refuses to advertise MCP `sampling` capability when
+  `llm_policy == "forbidden"`; CL2 refuses to start the streamable-
+  http server unless `mcp_auth.py` imports `_redact_in_logs`
+  (regex-redacts `Bearer / access_token / refresh_token` from log
+  output); CL3 verifies `_clear_token_after_call()` zero-out runs
+  after every sampling round-trip.
+- **OAuth 2.1 streamable-http transport** (v0.6.0+, optional). PKCE-
+  S256 enforced, RFC 8707 resource indicators required, JWKS
+  rotation supported, `aud` claim validated, refresh-token rotation
+  with 30s grace window. Uses `python-jose` (avoids the PyJWT
+  algorithm-confusion attack class). Default transport remains
+  stdio; OAuth only kicks in when the operator opts into network
+  exposure.
+- **Supply-chain hardening** (v0.6.12+). CodeQL static analysis on
+  every push + PR + weekly cron (`security-and-quality` query
+  pack). OpenSSF Scorecard weekly + on default-branch push. SARIF
+  results upload to GitHub Code scanning + the public Scorecard
+  registry. Dependabot tracks both `pip` and `github-actions`
+  ecosystems with weekly batch updates. CODEOWNERS routes every
+  PR to the maintainer.
 
 ## What Myco does NOT defend against
 

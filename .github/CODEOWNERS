@@ -1,0 +1,45 @@
+# CODEOWNERS — Myco v0.6.12+
+#
+# GitHub uses this file to auto-request review from the listed owner
+# whenever a PR touches the matched paths. For Myco-self the owner
+# is a single human (the substrate creator); the file is intentionally
+# minimal — every PR notifies @Battam1111.
+#
+# Order matters: later patterns override earlier ones. The trailing
+# catch-all guarantees no path is unowned.
+#
+# Reference: docs/architecture/L2_DOCTRINE/boundary.md
+# (boundary subsystem owns review-routing surface).
+
+# Catch-all: every PR notifies the maintainer.
+*                                           @Battam1111
+
+# Architecture / contract / governance — explicit ownership trail
+# for high-leverage layers, even though @Battam1111 already matches
+# via the catch-all.
+/_canon.yaml                                @Battam1111
+/_canon_lint.yaml                           @Battam1111
+/MYCO.md                                    @Battam1111
+/SECURITY.md                                @Battam1111
+/docs/architecture/L0_VISION.md             @Battam1111
+/docs/architecture/L1_CONTRACT/             @Battam1111
+/docs/architecture/L2_DOCTRINE/             @Battam1111
+/docs/architecture/L3_IMPLEMENTATION/       @Battam1111
+/docs/contract_changelog.md                 @Battam1111
+/docs/primordia/                            @Battam1111
+/docs/schema/                               @Battam1111
+
+# CI / release pipeline — touching these gates the entire ship surface.
+/.github/                                   @Battam1111
+/.github/workflows/                         @Battam1111
+/scripts/bump_version.py                    @Battam1111
+/scripts/build_plugin.py                    @Battam1111
+/scripts/verify_mcp_boot.py                 @Battam1111
+
+# Plugin bundles — each has its own surface contract with the host.
+/.claude-plugin/                            @Battam1111
+/.cowork-plugin/                            @Battam1111
+/.claude/agents/                            @Battam1111
+/.claude/commands/                          @Battam1111
+/agents/                                    @Battam1111
+/commands/                                  @Battam1111
