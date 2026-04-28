@@ -11,6 +11,79 @@ Format: one section per `contract_version`, newest first.
 
 ---
 
+## v0.6.13 — 2026-04-28 — Restore `myco.mcp` legacy import as back-compat shim
+
+**Zero R1-R7 surface deltas; zero new manifest verbs; zero new lint dims; zero subsystem changes; schema v2 unchanged.** Targeted fix for the post-v0.6.0 host-config regression: the legacy `python -m myco.mcp` spawn path is restored as a thin re-export of `myco.boundary.mcp`, with a stderr deprecation pointer + standard `DeprecationWarning` so operators see the canonical replacement.
+
+### Why this release
+
+A v0.6.12 dogfood report from the Cowork Local-MCP-Servers dashboard showed `myco` listed with a red **failed** badge and `Server disconnected` error. Log inspection at `C:\Users\10350\Desktop\mcp-server-myco.log:2069` surfaced the actual cause:
+
+```
+C:\Python313\python.exe: No module named myco.mcp
+```
+
+Root cause: at v0.6.0 the Round 5 owner directive ("不许有任何一丝一毫偷懒") landed the boundary subsystem and physically relocated `myco.{mcp,surface,install,symbionts}` to `myco.boundary.<sub>`, deleting the legacy top-level packages. Three releases (v0.6.10 / v0.6.11 / v0.6.12) shipped under the assumption every host config had been migrated alongside.
+
+Reality: most host MCP configs (Claude Desktop, Cowork, Cursor, JetBrains, Continue, Cline, Zed, Goose, Windsurf, Codex CLI, Gemini CLI, OpenClaw — anything pre-dating v0.6.0) still spelled their command `python -m myco.mcp`. Every spawn raised `ModuleNotFoundError` and the MCP child died before completing the JSON-RPC handshake, surfacing as "Server disconnected" in the host UI.
+
+### What landed
+
+Two new files restoring the legacy import path:
+
+- `src/myco/mcp/__init__.py` — back-compat shim. Re-exports `build_server` + `main` from `myco.boundary.mcp` as the same canonical objects (asserted by regression test). Emits a single-line stderr deprecation pointer naming both canonical replacements (`mcp-server-myco` entry-point binary OR `python -m myco.boundary.mcp` module path). Also raises a `DeprecationWarning` so test harnesses + lint hooks observe legacy use through the standard warnings filter.
+- `src/myco/mcp/__main__.py` — legacy `python -m myco.mcp` entry point. Imports the shim (which triggers the deprecation pointer once per spawn) then delegates to the canonical `main()`.
+
+Critically, the shim keeps **stdout clean** — the JSON-RPC channel for stdio transport must not be contaminated. The deprecation pointer flows to stderr exclusively, where MCP host UIs surface it in their "View Logs" panel without breaking framing.
+
+### Test coverage delta
+
+5 new regression tests at `tests/unit/boundary/test_legacy_mcp_shim.py`:
+
+1. `test_shim_imports_without_error` — `import myco.mcp` resolves
+2. `test_shim_reexports_canonical_symbols` — `myco.mcp.build_server is myco.boundary.mcp.build_server` (object identity, catches re-export drift on next boundary.mcp public-API change)
+3. `test_shim_emits_deprecation_warning` — standard-warnings observer sees the legacy-path warning
+4. `test_shim_writes_stderr_pointer` — capfd asserts stdout stays clean + stderr contains the pointer
+5. `test_shim_help_subprocess_exits_zero` — subprocess smoke test that `python -m myco.mcp --help` boots end-to-end (catches `python -m` resolution + `__main__` discovery, not just in-process import graph)
+
+Pytest: 1470 → 1477 collected (+5 shim tests + 2 incidental from registry rescan; 1 skipped unchanged). `_canon.yaml::metrics.test_count` updated to 1477.
+
+### Boundary subsystem invariants preserved
+
+The shim does NOT dilute L0:185-186 vocabulary discipline or the boundary subsystem's "derivation-only, no verb logic" rule (per `boundary.md`):
+
+- **Internal kernel imports still flow through `myco.boundary.mcp`.** Verified by `PA3` + `PA4` lint dimensions which would fire on any kernel-side legacy reference. The shim exists exclusively for **external** entry points (host MCP configs + `python -m` invocations from user shell scripts).
+- **No verb logic in the shim.** Two functions: emit deprecation pointer, delegate to `main()`. No state, no canon writes, no R6 surface use.
+- **L0 vocabulary unchanged.** `myco.boundary` remains the canonical subsystem identifier. The shim is a back-compat path under the old name, not a recognised subsystem.
+
+### Removal schedule
+
+The shim ships at v0.6.13 as a one-MAJOR-class deprecation window. Removal scheduled for **not earlier than v0.7.0**, mirroring the v1.0.0 alias-removal cadence in `digestion.md` § "Aliases" and the v0.6.0 §A2 owner amendment that removed v0.5.2 verb aliases at v0.6.0. Operators have one minor band to update their MCP host configs before the next removal window.
+
+### Operator action (immediate)
+
+Edit your MCP host config to use either:
+
+- `mcp-server-myco` — the canonical entry-point binary (recommended; survives any future module reorganisation as it lives in `pyproject.toml::[project.scripts]`)
+- `python -m myco.boundary.mcp` — the canonical module path
+
+If you cannot update the config right now, the legacy `python -m myco.mcp` spelling continues to work through v0.6.x with the deprecation pointer guiding the upgrade.
+
+### Break from v0.6.12
+
+**None at the public surface.** R1-R7 unchanged. 20-verb manifest unchanged. 46-dim lint roster unchanged. 7-subsystem inventory unchanged. Schema v2 unchanged. v0.6.13 is **strictly additive**: the kernel re-exposes a previously-deleted import path. Any v0.6.12 install continues working; v0.6.13 adds resilience for stale host configs.
+
+### Files touched
+
+- `src/myco/mcp/__init__.py` (new — back-compat shim with deprecation pointer)
+- `src/myco/mcp/__main__.py` (new — legacy `python -m myco.mcp` entry)
+- `tests/unit/boundary/test_legacy_mcp_shim.py` (new — 5 regression tests)
+- `_canon.yaml` (`metrics.test_count` 1470 → 1477; `contract_version` v0.6.12 → v0.6.13; `waves.current` 24 → 25)
+- `docs/contract_changelog.md` (this entry)
+- `src/myco/__init__.py`, `CITATION.cff`, `server.json`, `.claude-plugin/plugin.json`, `.cowork-plugin/.claude-plugin/plugin.json` (atomic version bump via `scripts/bump_version.py --to 0.6.13`)
+
+---
+
 ## v0.6.12 — 2026-04-28 — Supply-chain hardening + Glama maintenance signal lift
 
 **Zero R1-R7 surface deltas; zero new manifest verbs; zero new lint dims; zero subsystem changes; schema v2 unchanged.** Pure ops + supply-chain release that closes Glama maintenance score's four factors (issue responsiveness 40%, commit cadence 25%, release recency 20%, security health 15%) into the A/A+ band, plus two doctrine-vs-impl drift fixes inherited from the v0.6.11 audit.
