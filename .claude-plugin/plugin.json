@@ -19,5 +19,7 @@
   ],
   "mcpServers": "./.mcp.json",
   "hooks": "./hooks/hooks.json",
-  "skills": "./skills/"
+  "skills": "./skills/",
+  "agents": "./agents/",
+  "commands": "./commands/"
 }

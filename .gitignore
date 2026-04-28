@@ -66,11 +66,18 @@ upload*.log
 # Claude Code / Cowork session-local settings.
 # Stage C.2 (re-)introduced the tracked `.claude/hooks/` and
 # `.claude/settings.local.json` subtree — those wire the SessionStart
-# + PreCompact hooks to the v0.4.0 CLI. Everything else under .claude/
-# remains session-local and untracked.
+# + PreCompact hooks to the v0.4.0 CLI.
+# v0.6.11 added `.claude/agents/` and `.claude/commands/` for the
+# 5 fungal-named subagents + 5 myco-* slash commands (project-level
+# mirror of the plugin-bundle scope at <repo>/agents/ + <repo>/commands/).
+# See docs/architecture/L2_DOCTRINE/boundary.md
+# § "Subagents and slash commands (v0.6.11+)" for the surface contract.
+# Everything else under .claude/ remains session-local and untracked.
 /.claude/*
 !/.claude/hooks/
 !/.claude/settings.local.json
+!/.claude/agents/
+!/.claude/commands/
 # Pre-rewrite tree. C.4 deleted it from git, but belt-and-suspenders:
 # a top-level ignore rule means that even if a stray copy of the
 # directory reappears in the working tree (restored backup, mount-point

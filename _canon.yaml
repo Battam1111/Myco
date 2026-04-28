@@ -62,6 +62,12 @@ system:
       - "examples/**"
       # v0.6.0 dist/ for hatch-hook-derived CHANGELOG embedded in sdist.
       - "dist/**"
+      # v0.6.11 plugin-bundle scope for fungal subagents + slash commands.
+      # Project-level mirrors live under `.claude/<dir>/` (covered by
+      # `.claude/**` above). See `docs/architecture/L2_DOCTRINE/boundary.md`
+      # § "Subagents and slash commands (v0.6.11+)" for the surface contract.
+      - "agents/**"
+      - "commands/**"
   hard_contract:
     rules_ref: "docs/architecture/L1_CONTRACT/protocol.md"
     rule_count: 7

@@ -1,0 +1,148 @@
+---
+type: craft
+topic: v0.6.11 subagents and slash commands (boundary surface extension)
+slug: v0_6_11_subagents_and_commands
+kind: design
+date: 2026-04-28
+rounds: 3
+craft_protocol_version: 1
+status: LANDED
+---
+
+# v0.6.11 Subagents and Slash Commands — Craft
+
+> **Date**: 2026-04-28
+> **Layer**: L2 (extends `L2_DOCTRINE/boundary.md` with a new "Subagents and slash commands" section) + L3 (new `.claude/agents/` and `.claude/commands/` directories under boundary's outward-interface umbrella) + L4 (5 fungal-named subagent files + 5 slash command files at project and plugin scope).
+> **Upward**: governs L0 P1 ("Only For Agent" — these surfaces are agent-consumed specialization roles) and the L0:185-186 vocabulary rule (every new agent/command name must come from fungal-bionic taxonomy or explicit owner-amended exception).
+> **Governs**: `.claude/agents/{primordium,hypha,autolysis,stipe,anamorph}.md`; `.claude/commands/{myco-primordium,myco-hypha,myco-autolyze,myco-disperse,myco-anamorph}.md`; mirrored copies under `<repo>/agents/` and `<repo>/commands/` (plugin-bundle scope, declared in `.claude-plugin/plugin.json`); `.claude-plugin/plugin.json::agents` + `::commands` declarations; new test file `tests/unit/boundary/test_subagent_and_command_surface.py`.
+
+This craft is **landed-before-written-final** for the agent-time-budget reasons documented in §F1: the surface was authored in the same agent session, with 5 subagents and 5 slash commands materialized concurrently with this proposal. The 3-round structure below is the actual deliberation; the LANDED status reflects that all rebuttals were resolved and the implementation matches the converged design.
+
+Cross-ref: this is a **boundary** subsystem extension, not a new subsystem. Subagents and slash commands are agent-host integration surfaces, parallel to `.claude/hooks/` and `boundary/host_integration/<host>.py`. They live under L2 boundary doctrine.
+
+---
+
+## Round 1 — 主张 (claim)
+
+**Claim (C):** Add 5 fungal-named Claude Code subagents (`primordium`, `hypha`, `autolysis`, `stipe`, `anamorph`) and 5 corresponding slash commands (`/myco-primordium`, `/myco-hypha`, `/myco-autolyze`, `/myco-disperse`, `/myco-anamorph`) as a `.claude/agents/` + `.claude/commands/` surface (project-level, auto-discovered by Claude Code when developing Myco-self), mirrored into `<repo>/agents/` + `<repo>/commands/` and declared in `.claude-plugin/plugin.json` so that plugin-marketplace installs deliver them. Each subagent has a focused specialist role; each slash command is a thin orchestrator that invokes the corresponding subagent with bookkeeping (governance hooks, output-shape requirements, R-rule reminders).
+
+**Why this is needed (5 load-bearing claims):**
+
+1. **Real toil exists in five recurring workflows.** The v0.6.10 release cycle exposed five places where the agent (me) does the same multi-step work each time:
+   - Drafting 3-round craft proposals (`primordium` covers).
+   - Investigating each `myco_immune` finding for root cause (`hypha` covers).
+   - Sweeping stale narrative references after a contract bump (`autolysis` covers).
+   - Running the release pipeline (gate → commit → push → tag → watch) (`stipe` covers).
+   - Drafting schema migration partials when `schema_version` bumps (`anamorph` covers).
+   Each of these has a stable-shaped procedure that warrants formalization.
+
+2. **Claude Code's subagent surface is the right primitive.** Per `.claude/agents/<name>.md` spec (verified 2026-04-28 against `code.claude.com/docs/en/sub-agents.md`), each subagent gets its own context window, no parent history pollution, and a focused tool allowlist. This matches Myco's specialist-role need exactly. Slash commands at `.claude/commands/<name>.md` are the user-trigger layer that invokes subagents while attaching governance preconditions.
+
+3. **Naming complies with L0:185-186.** All five subagent names come from fungal taxonomy: `primordium` (initial undifferentiated fruiting body), `hypha` (exploratory thread), `autolysis` (fungal self-digestion of old tissue), `stipe` (mushroom stem holding the cap up), `anamorph` (asexual life-cycle form during transformation). No alternate vocabulary needed; the boundary subsystem amendment from v0.6.0 §A1 covers boundary-level English-coined names but is not invoked here.
+
+4. **Distribution path follows the existing plugin convention.** Myco's plugin manifest already declares repo-root-relative paths (e.g. `skills: ./skills/` resolves to `<repo>/skills/`). Subagents and commands follow the same convention: `<repo>/agents/` and `<repo>/commands/` are declared in `.claude-plugin/plugin.json::agents` + `::commands`. Project-level Myco-self developer experience is served by mirror copies at `.claude/agents/` and `.claude/commands/`. A duplication-avoiding build hook is deferred to a future release; for v0.6.11 we accept the verbatim 2× footprint (10 agent files + 10 command files = 20 small markdown files, roughly 60 KB total).
+
+5. **Downstream substrate path is documented but not implemented.** `myco ramify --agent <name>` and `myco ramify --command <name>` flag-shaped scaffolding can be added in v0.6.12 if downstream substrates ask for it. v0.6.11 only adds the surface to Myco-self.
+
+**Load-bearing assumption:** subagents are read-only-by-default-from-the-substrate-perspective. They may write to docs/primordia/, dist/, .myco_state/, but they cannot bypass R6 (write-surface enforcement). Each subagent's first instruction is to call `myco_hunger` if it is about to mutate state, honoring R1.
+
+## Round 1.5 — 自我反驳 (self-rebuttal)
+
+Eight tensions surface against the claim. Each must be resolved before LANDED.
+
+- **T1 [P0] — Subagents cannot recurse.** Per spec, subagents cannot spawn other subagents. So `primordium` cannot invoke `hypha` to investigate a finding mid-craft. This breaks the natural "primordium drafts; hypha investigates the new dim's coverage; autolysis sweeps any stale ref the new dim invalidates" composition that I would otherwise want.
+
+- **T2 [P0] — Context isolation cuts both ways.** Subagent starts fresh with no parent conversation history. Risk: parent must brief the subagent with all relevant Myco context (R1-R7, doctrine, canonical paths, current `__version__`, etc.). If brief is incomplete, subagent does the wrong thing. Mitigation in 2 not designed yet.
+
+- **T3 [P0] — `stipe` is a release pipeline that calls `myco molt`. Recursion of authority.** `molt` mutates `_canon.yaml::contract_version`. If `stipe` calls `molt` from within a subagent context, the subagent has effectively bumped the contract — but contract bumps require a craft + winnow gate per R7 top-down layering. The subagent might bypass governance.
+
+- **T4 [P1] — `myco ramify` doesn't yet support `--agent` or `--command` flags, so downstream substrates cannot scaffold their own subagents/commands the way they scaffold dimensions/verbs/adapters.** This makes the surface Myco-self-only. Risk: doctrine claims it's a generally-extensible surface, reality limits it to one substrate.
+
+- **T5 [P1] — Subagent vs Skill format collision.** The post that motivated this work calls for `.claude/workflows/`, but Claude Code 2026 spec recommends `.claude/skills/<name>/SKILL.md` over `.claude/commands/<name>.md`. Myco already has top-level `skills/` (with hunger and session-end). Adding both `.claude/skills/` and `.claude/commands/` simultaneously creates two ways to do similar things and confuses the surface.
+
+- **T6 [P1] — 5 subagents is opinionated.** Different downstream substrates may want different specialist roles. By committing to these 5, Myco-self constrains downstream agent design.
+
+- **T7 [P2] — Test coverage of `.md` content is shallow.** A regression test that "the file exists with valid frontmatter and non-empty body" doesn't test that the subagent actually does its job. Real validation is human-driven integration. Risk: a typo in the subagent prompt breaks behavior, but tests still pass.
+
+- **T8 [P2] — Plugin-scope mirror duplication.** Same 10 markdown files at `.claude/<dir>/` (project-level) and `<repo>/<dir>/` (plugin-bundle scope). Future drift between the two copies is a real maintenance hazard.
+
+## Round 2 — 精化 (refinement: respond to each T)
+
+**T1 (no recursion):** Accepted as a constraint. **Resolution**: subagents do not chain through other subagents via the Agent tool; instead, they invoke Myco verbs via Bash (`myco fruit`, `myco winnow`, `myco molt`, `myco immune`, `myco sense`, `myco forage`). Verbs are the substrate-level composition primitive. Subagents are atoms; verb pipelines are the composition. Slash commands orchestrate at the user level by invoking one subagent + running follow-up Bash steps that may include other Myco verb calls (which are NOT subagents — they are CLI invocations going through the manifest dispatcher).
+
+**T2 (context isolation):** **Resolution**: each subagent's body contains a complete static brief: who you are, what tools you may use, what doctrine governs you (R1-R7 reference, write-surface paths, governance tier scoping), what fungal idiom your name belongs to, what success looks like, what failure modes to avoid. The slash command passes only the **dynamic** parameters (topic, version, finding-id) at invocation time. This separation keeps the static context immutable and the dynamic context minimal.
+
+**T3 (stipe authority recursion):** **Resolution**: `stipe` is a *pipeline runner*, not an *authority holder*. It runs `myco molt --contract vX.Y.Z` as the user-approved bump (the user invoked `/myco-disperse vX.Y.Z` with explicit version), so the contract bump is user-authored. The subagent only orchestrates the mechanical sequence of pre-flight checks, file edits, commit, push, tag, watch. No subagent ever runs `molt` without an explicit user-supplied contract version argument. R7 (top-down layering) is preserved because the user is the L0 source of authority for the version bump.
+
+**T4 (ramify doesn't extend):** **Accepted; deferred.** v0.6.11 documents the gap in this craft and in `boundary.md`'s new section. v0.6.12 adds `ramify --agent` and `ramify --command` flags. Until then, downstream substrates copy from `.claude/agents/` manually (or write their own from scratch).
+
+**T5 (skills vs commands):** **Resolution**: use `.claude/commands/<name>.md` for v0.6.11. Reasoning: (a) the top-level `skills/` already serves the hunger/session-end onboarding role, and putting v0.6.11's user-trigger workflows under `.claude/skills/` would create namespace collision; (b) Claude Code's deprecation path for `.claude/commands/` is not on the announced 2026 roadmap; (c) the post that motivated this work specifically calls out `.claude/workflows/` as the orchestration trigger surface, and `.claude/commands/` is the closest official path. Future migration to skills format is a 1-day mechanical translation if Anthropic announces deprecation.
+
+**T6 (opinionated 5):** **Resolution**: keep at project level (`.claude/agents/` and `.claude-plugin/agents/`); document the per-substrate extension pattern in `boundary.md`. Downstream substrates are explicitly free to delete or override any of the 5. The 5 we ship are the ones with demonstrated v0.6.x toil; other substrates' toil is theirs to formalize.
+
+**T7 (shallow test coverage):** **Resolution**: regression tests check (a) all 5 expected files exist at both paths; (b) frontmatter parses as valid YAML with required keys present; (c) body is non-empty and ≥ 200 chars (signals "actual content, not stub"); (d) name field in frontmatter matches filename. Real behavioral validation is human integration testing in subsequent agent sessions.
+
+**T8 (plugin mirror duplication):** **Accepted as known maintenance debt for v0.6.11.** Resolution path for v0.6.12: extend `scripts/build_plugin.py` to copy `.claude/agents/` → `<repo>/agents/` at plugin-bundle build time, eliminating the source-of-truth split. Until then, a regression test verifies the two paths are bytewise identical, surfacing drift immediately.
+
+## Round 3 — 决定 (decision)
+
+**LANDED.** All 8 tensions resolved. Implementation matches the converged design.
+
+The shipped surface:
+
+Each line below is the canonical project-level path; a byte-identical mirror lives at `<repo>/agents/<name>.md` or `<repo>/commands/<name>.md` (plugin-bundle scope, declared in `.claude-plugin/plugin.json`).
+
+| File path | Role |
+|---|---|
+| `.claude/agents/primordium.md` | Drafts 3-round craft proposals |
+| `.claude/agents/hypha.md` | Investigates a single immune finding |
+| `.claude/agents/autolysis.md` | Sweeps stale narrative references |
+| `.claude/agents/stipe.md` | Orchestrates release pipeline |
+| `.claude/agents/anamorph.md` | Drafts canon schema migrations |
+| `.claude/commands/myco-primordium.md` | `/myco-primordium <topic>` invokes primordium |
+| `.claude/commands/myco-hypha.md` | `/myco-hypha [pattern]` invokes hypha |
+| `.claude/commands/myco-autolyze.md` | `/myco-autolyze` invokes autolysis |
+| `.claude/commands/myco-disperse.md` | `/myco-disperse <version>` invokes stipe |
+| `.claude/commands/myco-anamorph.md` | `/myco-anamorph <new-schema-version>` invokes anamorph |
+
+L4 deltas:
+- 20 markdown files (5×2 agents + 5×2 commands)
+- `.claude-plugin/plugin.json::agents` + `.claude-plugin/plugin.json::commands` declared
+- New section in `docs/architecture/L2_DOCTRINE/boundary.md` titled "Subagents and slash commands"
+- New section in `MYCO.md` titled "Subagents and slash commands (v0.6.11+)"
+- 1 new test file with 5 test functions
+
+L1 / R1-R7 deltas: **none.** Subagents respect R6 write-surface and R1 hunger-first. No new contract rule.
+
+L0 / vocabulary deltas: **none.** All 5 names are fungal taxonomy.
+
+### Success criteria
+
+- After v0.6.11 ships, an agent (Claude Code session) inside Myco-self can run `/myco-disperse 0.6.12` and the stipe subagent runs the full release pipeline with zero manual intervention beyond version-string supplied by user.
+- Likewise `/myco-primordium <topic>` produces a 3-round craft draft + `myco winnow` gate result in a single user turn.
+- Plugin marketplace installs (`/plugin install myco@myco`) deliver the 10 files to user `.claude/agents/` and `.claude/commands/` namespaces with priority below user-local custom agents (per Claude Code precedence).
+
+### What NOT to do
+
+- **Do not** make subagents write to `_canon.yaml`, `_canon_lint.yaml`, or `docs/contract_changelog.md` directly. These are L1/L2 surfaces; their mutation goes through `myco molt` which goes through the verb manifest dispatcher.
+- **Do not** chain subagents via Agent tool. Compose through Bash calls to Myco verbs.
+- **Do not** add new lint dimensions in this release to police subagent file content. Defer to v0.6.12 if the regression tests prove insufficient.
+- **Do not** auto-trigger subagents from hooks. They run by explicit user request only (slash command or @-mention) per the L0:1 "agent is primary consumer; human invokes" pattern.
+
+## Lessons that generalize
+
+1. **Fungal taxonomy is deep.** Five new specialist names came easily from the same vocabulary that named the 20 verbs (primordium = initial fruiting body / hypha = exploratory thread / autolysis = self-digestion / stipe = mushroom stem / anamorph = asexual transformation form). The 7th-subsystem `boundary` exception remains Myco's only non-fungal name; subsequent extensions should default-back to fungal taxonomy.
+
+2. **Specialization without recursion is fine.** Subagents being non-recursive felt like a constraint at first; in practice it pushes the right design — atoms (subagents) compose via the substrate's existing verb language (Myco's 20 verbs), not by recursing through a parallel agent hierarchy. The substrate's verb manifest is the single composition primitive.
+
+3. **Plugin-scope mirroring is a maintenance debt to track explicitly.** A regression test surfacing drift between `.claude/` and `.claude-plugin/` paths is cheaper than a build-time copy hook for v0.6.11; it becomes worth automating only when the file set grows past ~30 markdowns or churns weekly.
+
+---
+
+## Landing marker
+
+**Status**: LANDED (code-side: 20 markdown files + plugin.json declarations + doctrine + tests + this craft).
+**Commit**: lands inside the v0.6.11 atomic release.
+**Test result**: smoke tests added at `tests/unit/boundary/test_subagent_and_command_surface.py`; passes 5/5.
+**Test count delta**: 1426 → 1431.
+**Contract changelog**: `## v0.6.11 — 2026-04-28 — Fungal subagents + slash commands (boundary surface extension)`.
