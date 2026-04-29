@@ -102,19 +102,69 @@ def test_canon_recognized_authoring_hosts_includes_human_and_claude_code(
     )
 
 
-def test_canon_auto_evolve_force_high_risk_default_true(canon_data: dict) -> None:
-    """Owner-gate is mandatory by default — force_high_risk must default true.
+def test_canon_auto_evolve_force_high_risk_default_false(canon_data: dict) -> None:
+    """v0.6.15+: Agent-First default. force_high_risk must default False.
 
-    This is the load-bearing safety: even though crafts can be classified
-    medium-risk (eligible for 7-7 auto-LAND), the auto-craft path bypasses
-    that with this flag. PR-merge becomes the sole gate.
+    v0.6.14 shipped True (owner-First regression: collapsed every auto-craft
+    to owner-merge-gate). Owner observation 2026-04-29: "我感觉还是给owner
+    太大权限了, Myco明明是Agent-First". v0.6.15 craft Round 1.5 endophyte
+    critic confirmed: paranoia_mode is an undeclared 3rd L0 P1 exception;
+    the correct fix is flipping defaults, not adding an opt-in flag.
+
+    Risk class is now derived from craft CONTENT via core.risk_classifier
+    (path_allowlist-based superset of v0.6.0 keywords + recursion-cutter).
     """
     governance = canon_data["system"]["governance"]
-    assert governance["auto_evolve_force_high_risk"] is True, (
-        "auto_evolve_force_high_risk MUST default to True. Without this, "
-        "auto-craft proposals could auto-LAND via 7-session-7-day public "
-        "window without owner ever clicking merge — defeats the safety "
-        "model declared in the v0.6.14 craft Round 2 R-T6."
+    assert governance["auto_evolve_force_high_risk"] is False, (
+        "auto_evolve_force_high_risk MUST default to False at v0.6.15+. "
+        "Setting True forces every auto-craft into high-risk class regardless "
+        "of content — collapses Agent-First into Owner-First. See craft "
+        "v0_6_15_agent_first_default_for_cycle_autostart_loop_craft_2026-04-29."
+    )
+
+
+def test_canon_auto_evolve_pr_window_skip_default_false(canon_data: dict) -> None:
+    """v0.6.15+: pr_window_skip must default False. Restores v0.6.0 governance.
+
+    v0.6.14 shipped True (bypassed 7-session-7-day public window auto-LAND);
+    v0.6.15 restores window-bounded governance per L0 P1.
+    """
+    governance = canon_data["system"]["governance"]
+    assert governance["auto_evolve_pr_window_skip"] is False, (
+        "auto_evolve_pr_window_skip MUST default to False at v0.6.15+. "
+        "True bypasses the v0.6.0 7-session-7-day public window, making "
+        "PR-merge the sole gate (owner-First). Default False restores the "
+        "v0.6.0 governance public window with always-on `vetoed_at` veto."
+    )
+
+
+def test_canon_auto_evolve_critic_count_is_five(canon_data: dict) -> None:
+    """v0.6.15+: critic_count must equal 5 (one per L0 principle P1-P5).
+
+    v0.6.14 shipped 3 ad-hoc critics (mycoparasite/saprotroph/mycorrhiza);
+    v0.6.15 refactored to 5 (chytrid/rhizomorph/mycoparasite/saprotroph/mycorrhiza)
+    with each tied to one L0 principle. Per craft Round 1.5 endophyte T7
+    ("derive critics from L0 P1-P5 directly, not from observed-failure patches").
+    """
+    governance = canon_data["system"]["governance"]
+    assert governance["auto_evolve_critic_count"] == 5, (
+        f"auto_evolve_critic_count MUST equal 5 at v0.6.15+ "
+        f"(one per L0 P1-P5). Got {governance['auto_evolve_critic_count']}."
+    )
+
+
+def test_canon_no_paranoia_mode_field(canon_data: dict) -> None:
+    """v0.6.15+: auto_evolve_owner_paranoia_mode field MUST NOT exist.
+
+    Per craft Round 1.5 endophyte T3+T5: paranoia_mode would be an undeclared
+    3rd L0 P1 exception (L0 names exactly two carved exceptions: brief +
+    agent-calls-LLM). v0.6.15 declines to introduce it.
+    """
+    governance = canon_data["system"]["governance"]
+    assert "auto_evolve_owner_paranoia_mode" not in governance, (
+        "auto_evolve_owner_paranoia_mode MUST NOT be in canon. "
+        "Per L0 P1 addendum: 'these two exceptions exhaust the list, "
+        "not extend it.' A paranoia_mode flag would add a 3rd."
     )
 
 
@@ -266,8 +316,19 @@ def test_boundary_md_has_sixth_seam_section() -> None:
     assert "/myco-evolve" in text, (
         "boundary.md sixth-seam section must mention the /myco-evolve slash."
     )
-    assert "mycoparasite" in text and "saprotroph" in text and "mycorrhiza" in text, (
-        "boundary.md sixth-seam section must name the 3 fungal critic roles."
+    assert all(
+        name in text
+        for name in (
+            "chytrid",
+            "rhizomorph",
+            "mycoparasite",
+            "saprotroph",
+            "mycorrhiza",
+        )
+    ), (
+        "boundary.md sixth-seam section must name all 5 fungal critic roles "
+        "(v0.6.15+: chytrid / rhizomorph / mycoparasite / saprotroph / mycorrhiza, "
+        "one per L0 P1-P5)."
     )
 
 

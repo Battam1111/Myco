@@ -1,7 +1,8 @@
-"""``core.risk_classifier`` — agent-self-winnow tier classifier (v0.6.0).
+"""``core.risk_classifier`` — agent-self-winnow tier classifier (v0.6.0+).
 
 Governing doctrine: ``docs/architecture/L1_CONTRACT/protocol.md``
-governance section + craft v0.6.0 §F25 / §A5.
+governance section + craft v0.6.0 §F25 / §A5
++ craft v0.6.15 (Agent-First default for Cycle 自起 闭环).
 
 Classifies a craft proposal (or a candidate diff) into one of three
 risk tiers:
@@ -26,6 +27,32 @@ returns the tier. Owner-veto via
 ``canon.governance.last_winnowed_proposals[].vetoed_at`` is always-on
 regardless of classification.
 
+**v0.6.15 — content-based craft risk classification + recursion-cutter:**
+
+``classify_craft_via_path_allowlist(craft_path)`` reads the craft's
+frontmatter ``path_allowlist:`` field (introduced by winnow gate G7
+at v0.6.15+) and applies path-based classification. This is the
+canonical craft-classifier path going forward; ``classify_proposal``
+remains as v0.6.0 body-keyword fallback for pre-v0.6.15 grandfather'd
+crafts.
+
+The **recursion-cutter** (v0.6.15+) forces HIGH-risk classification
+regardless of any other content when ``path_allowlist`` includes:
+
+- ``src/myco/core/risk_classifier.py`` itself (any change requires
+  owner review; otherwise the substrate could quietly auto-merge a
+  craft that disables its own risk gates)
+- ``_canon.yaml`` ``governance.auto_evolve_*`` keys (the gating
+  policy itself; same recursion concern)
+- ``.github/workflows/auto_*.yml`` (auto_revert, future auto_merge,
+  any other governance workflow)
+
+This closes the perpetual-motion attack the v0.6.15 craft Round 1.5
+mycoparasite T1 surfaced: without the recursion-cutter, an auto-craft
+could legitimately classify itself as MEDIUM-risk while modifying the
+classifier or governance keys, then auto-merge after window expiry,
+hollowing out the L0 P1 gates.
+
 Default fail-closed: when uncertain, classify as **High** to force
 owner review.
 """
@@ -37,7 +64,12 @@ from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 
-__all__ = ["RiskTier", "classify_paths", "classify_proposal"]
+__all__ = [
+    "RiskTier",
+    "classify_paths",
+    "classify_proposal",
+    "classify_craft_via_path_allowlist",
+]
 
 
 class RiskTier(Enum):
@@ -60,6 +92,45 @@ _HIGH_RISK_PATH_PATTERNS = (
     re.compile(r"docs/architecture/L1_CONTRACT/canon_schema\.md$"),
     re.compile(r"docs/architecture/L1_CONTRACT/versioning\.md$"),
     re.compile(r"_canon\.yaml$"),  # (any change here is at least medium)
+    # v0.6.15 — explicit superset additions for craft path_allowlist scan.
+    # Subsystem deletion (any subsystem doctrine page disappearing) is
+    # detected at the diff level via _HIGH_RISK_DIFF_KEYWORDS, but a
+    # path_allowlist that touches the manifest (verb count) or lint
+    # config (dim count) or schema_version is also high-risk.
+    re.compile(r"src/myco/boundary/surface/manifest\.yaml$"),
+    re.compile(r"_canon_lint\.yaml$"),
+)
+
+
+# v0.6.15 — recursion-cutter path patterns. Forces HIGH-risk regardless
+# of any other classification. See craft v0.6.15 Round 1.5 mycoparasite T1.
+_RECURSION_CUTTER_PATH_PATTERNS = (
+    # The risk classifier itself.
+    re.compile(r"src/myco/core/risk_classifier\.py$"),
+    # The classifier's tests (could be subverted to NOT enforce cutter).
+    re.compile(r"tests/unit/core/test_risk_classifier.*\.py$"),
+    # Governance workflow files (auto_revert, future auto_merge, etc.).
+    re.compile(r"\.github/workflows/auto_.*\.ya?ml$"),
+    # The winnow gate that requires path_allowlist (G7).
+    re.compile(r"src/myco/cycle/winnow\.py$"),
+)
+
+
+# v0.6.15 — within _canon.yaml, modifications to these governance keys
+# trigger the recursion-cutter. Detected via diff-keyword scan when
+# _canon.yaml is in path_allowlist.
+_RECURSION_CUTTER_CANON_KEYS = (
+    "auto_propose_enabled",
+    "auto_evolve_min_wall_clock_seconds_between",
+    "auto_evolve_critic_count",
+    "auto_evolve_branch_prefix",
+    "auto_evolve_distilled_hash_cooldown_senesce",
+    "auto_evolve_force_high_risk",
+    "auto_evolve_pr_window_skip",
+    "auto_evolve_min_distilled_severity",
+    "auto_evolve_daily_budget_usd",
+    "auto_evolve_tracking_issue_id",
+    "recognized_authoring_hosts",
 )
 
 # Medium-risk patterns.
@@ -182,3 +253,161 @@ def classify_proposal(proposal_path: Path) -> ClassificationResult:
         rationale="craft body has no high-risk signals; default medium",
         matched_rules=(),
     )
+
+
+def _path_matches_recursion_cutter(path: str) -> bool:
+    """True iff ``path`` is in the recursion-cutter set (v0.6.15+).
+
+    See module docstring "v0.6.15 — content-based craft risk classification
+    + recursion-cutter" for rationale.
+    """
+    return any(pat.search(path) for pat in _RECURSION_CUTTER_PATH_PATTERNS)
+
+
+def _craft_touches_recursion_cutter_canon_keys(craft_text: str) -> bool:
+    """True iff the craft body or path_allowlist includes a `_canon.yaml`
+    write that mentions a recursion-cutter governance key.
+
+    We check craft body for the literal key name (e.g. ``auto_evolve_force_high_risk``)
+    appearing on a line that looks like a YAML mutation. This is heuristic
+    but reliable — crafts that propose flipping a governance default
+    invariably mention the key by name.
+    """
+    for key in _RECURSION_CUTTER_CANON_KEYS:
+        # Match patterns like:
+        #   auto_evolve_force_high_risk: true
+        #   `auto_evolve_force_high_risk` (in markdown body)
+        #   - auto_evolve_force_high_risk: ...
+        if re.search(rf"\b{re.escape(key)}\b\s*[:=]", craft_text):
+            return True
+    return False
+
+
+def classify_craft_via_path_allowlist(
+    craft_path: Path,
+) -> ClassificationResult:
+    """Classify a craft via its frontmatter ``path_allowlist:`` field (v0.6.15+).
+
+    This is the canonical craft-classifier path going forward. It reads
+    the YAML frontmatter from the craft markdown file, extracts the
+    ``path_allowlist`` list, and:
+
+    1. Returns HIGH **forced** if any path in the allowlist matches the
+       recursion-cutter set (the risk classifier itself, governance
+       workflow files, or — when ``_canon.yaml`` is touched — the canon
+       body mentions a governance key in the recursion-cutter set).
+    2. Otherwise applies path-based classification via ``classify_paths``.
+    3. Returns HIGH fallback if ``path_allowlist`` is missing (winnow
+       G7 should have caught this, but defense-in-depth).
+
+    Pre-v0.6.15 crafts that lack path_allowlist fall through to the
+    HIGH-fallback branch; the caller should typically use
+    ``classify_proposal`` (body-keyword fallback) for those.
+    """
+    if not craft_path.is_file():
+        return ClassificationResult(
+            tier=RiskTier.HIGH,
+            rationale="craft file missing — fail-closed",
+            matched_rules=(),
+        )
+    try:
+        text = craft_path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return ClassificationResult(
+            tier=RiskTier.HIGH,
+            rationale="read failure — fail-closed",
+            matched_rules=(),
+        )
+
+    # Parse YAML frontmatter (lightweight — no pyyaml import; we only
+    # need the path_allowlist list).
+    if not text.startswith("---\n") and not text.startswith("---\r\n"):
+        return ClassificationResult(
+            tier=RiskTier.HIGH,
+            rationale="no frontmatter — fail-closed",
+            matched_rules=(),
+        )
+    fm_end = re.search(r"^---\s*$", text[4:], re.MULTILINE)
+    if fm_end is None:
+        return ClassificationResult(
+            tier=RiskTier.HIGH,
+            rationale="unclosed frontmatter — fail-closed",
+            matched_rules=(),
+        )
+    fm_text = text[4 : 4 + fm_end.start()]
+    body_text = text[4 + fm_end.end() :]
+
+    # Extract path_allowlist list. Pyyaml-free regex parse — looks for
+    # ``path_allowlist:`` followed by indented ``- <path>`` lines.
+    allowlist_match = re.search(
+        r"^path_allowlist\s*:\s*\n((?:\s+-\s*.+\n?)*)",
+        fm_text,
+        re.MULTILINE,
+    )
+    if allowlist_match is None:
+        # Inline-list form: `path_allowlist: [a, b, c]`.
+        inline_match = re.search(
+            r"^path_allowlist\s*:\s*\[([^\]]*)\]",
+            fm_text,
+            re.MULTILINE,
+        )
+        if inline_match is None:
+            return ClassificationResult(
+                tier=RiskTier.HIGH,
+                rationale=(
+                    "frontmatter missing `path_allowlist:` — winnow G7 "
+                    "violation; fail-closed to HIGH"
+                ),
+                matched_rules=(),
+            )
+        # Inline form: split on commas, strip quotes/whitespace.
+        items_raw = inline_match.group(1)
+        paths = [p.strip().strip("\"'") for p in items_raw.split(",") if p.strip()]
+    else:
+        # Block form: each `- <path>` line.
+        block = allowlist_match.group(1)
+        paths = [
+            line.strip().lstrip("-").strip().strip("\"'")
+            for line in block.splitlines()
+            if line.strip().startswith("-")
+        ]
+
+    # Empty allowlist is permitted (signals pure doctrine craft, no code
+    # changes). Treat as MEDIUM (no path triggers HIGH).
+    if not paths:
+        return ClassificationResult(
+            tier=RiskTier.MEDIUM,
+            rationale="empty path_allowlist (pure doctrine craft)",
+            matched_rules=(),
+        )
+
+    # Recursion-cutter: any path matching forces HIGH regardless of
+    # other content.
+    cutter_matches = [p for p in paths if _path_matches_recursion_cutter(p)]
+    if cutter_matches:
+        return ClassificationResult(
+            tier=RiskTier.HIGH,
+            rationale=(
+                f"recursion-cutter triggered: path_allowlist touches "
+                f"{cutter_matches!r} (risk classifier / governance "
+                f"workflow / winnow gate). Forced HIGH regardless of "
+                f"content classification."
+            ),
+            matched_rules=tuple(f"recursion-cutter: {p}" for p in cutter_matches),
+        )
+
+    # _canon.yaml + recursion-cutter governance keys.
+    canon_paths = [p for p in paths if "_canon.yaml" in p]
+    if canon_paths and _craft_touches_recursion_cutter_canon_keys(body_text):
+        return ClassificationResult(
+            tier=RiskTier.HIGH,
+            rationale=(
+                "recursion-cutter triggered: path_allowlist includes "
+                "_canon.yaml AND craft body mentions governance.auto_evolve_* "
+                "keys. Forced HIGH (cannot auto-merge changes to gating policy)."
+            ),
+            matched_rules=("recursion-cutter: _canon.yaml + auto_evolve_* keys",),
+        )
+
+    # Otherwise: standard path-based classification.
+    return classify_paths(paths)

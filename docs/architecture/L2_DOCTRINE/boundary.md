@@ -300,20 +300,23 @@ mechanical guard — but **substrate kernel binary stays L0 P1 strict**
 | MP1 dim role | scans `src/myco/**` for provider SDK imports | additionally requires `authored_by:` frontmatter on every `docs/primordia/*.md` craft |
 | Tracking issue | (none) | one substrate-wide GitHub issue tagged `auto-evolve-tracker` for `vetoed_intent` comment thread |
 
-### Three fungal critic roles (sub-agent fanout protocol)
+### Five fungal critic roles (sub-agent fanout protocol, v0.6.15+, derived from L0 P1-P5)
 
-primordium's autonomous mode spawns 3 parallel `general-purpose` sub-agents
-via Agent tool, each with a fungal role-prompt and **disjoint visibility scope**:
+primordium's autonomous mode spawns **5 parallel** `general-purpose` sub-agents via the Task tool, each with a fungal role-prompt mapped to one L0 principle and a **disjoint visibility scope**. The 5-critic / one-per-principle shape was derived from the v0.6.15 craft Round 1.5 endophyte critic's T7 finding: "critic shape must be derived from L0 P1-P5 directly, not from observed-failure patches." Future critic additions require naming an L0 principle (or revising L0).
 
-| Role | Fungal idiom | Visibility scope | Bias |
-|------|--------------|------------------|------|
-| **mycoparasite** (寄生) | A fungus that infects + kills another organism | draft only | break paths, prompt-injection, feedback loops |
-| **saprotroph** (腐生) | A fungus that decomposes dead organic matter | L0/L1/L2 + canon + crafts | doctrine drift, vocabulary, dead code |
-| **mycorrhiza** (菌根) | Symbiotic root-fungus association | src/ + tests/ + .github/ + .claude/ | impl traction, API boundaries, mock infra |
+| Role | L0 Principle | Fungal idiom | Visibility scope | Bias |
+|------|--------------|--------------|------------------|------|
+| **chytrid** (壶菌) | P1 — Only For Agent | The most ancient fungal lineage; lives independently in water/soil without plant or animal host | L0_VISION.md only | does the proposal pull humans into the substrate's loop? introduce routine consumption? add owner role outside L0's "L0/L1/L2 craft-doc approver" definition? |
+| **rhizomorph** (根状菌索) | P2 — Eternal Ingestion | Cord-like aggregations of hyphae that actively reach distant nutrient sources | ingestion subsystem code + adapters + L0 P2 doctrine | does the proposal restrict raw absorption? add intake-time filtering? violate "no out-of-scope rejection at ingest"? |
+| **mycoparasite** (寄生菌) | P3 — Eternal Evolution | A fungus that infects + kills another organism; transformative replacement | draft only (no doctrine, no src/) | break paths, invalid premises, prompt-injection, feedback loops, single-point-of-failure |
+| **saprotroph** (腐生菌) | P4 — Eternal Iteration | A fungus that decomposes dead organic matter into substrate; iteratively recycles | L0/L1/L2 + canon + previous crafts (no draft, no src/) | doctrine drift, vocabulary violations, governance contradictions, dead code, retrospective integration |
+| **mycorrhiza** (菌根) | P5 — Universal Interconnection | Symbiotic root-fungus association; builds the largest underground graphs in nature | src/ + tests/ + .github/ + .claude/ + scripts/ (no draft, no doctrine) | impl traction, API boundaries, mock infra, byte-identity tests, graph connectedness |
 
-All three names come from established fungal taxonomy (mycoparasitism, saprotrophic nutrition, mycorrhizal symbiosis); L0:185-186 vocabulary discipline preserved.
+All five names are established fungal-ecology terms (Chytridiomycota / rhizomorph aggregations / mycoparasitism / saprotrophic nutrition / mycorrhizal symbiosis); L0:185-186 vocabulary discipline strict.
 
 Critic outputs are **veto votes**: any HIGH-severity tension from any critic forces primordium to abort to DRAFT status. primordium does NOT adjudicate; it surfaces all HIGHs and stops.
+
+> **Migration note**: v0.6.14 shipped 3 ad-hoc critics (mycoparasite/saprotroph/mycorrhiza). v0.6.15 transitionally used 4 critics (added `endophyte` for L0 P1 conformance). The 5-critic L0-mapped shape going forward is the doctrinal answer; endophyte's role is now performed by **chytrid** (P1) — better fungal taxonomy match for "primal fungal-ness, no host dependency."
 
 ### Auto-revert workflow design
 

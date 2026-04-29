@@ -304,6 +304,46 @@ def run(args: Mapping[str, object], *, ctx: MycoContext) -> Result:
                 }
             )
 
+    # Gate G7 — `type: craft` files in docs/primordia/ require a
+    # `path_allowlist:` frontmatter field (v0.6.15+). The risk classifier
+    # uses path_allowlist for content-based risk classification (avoids
+    # brittle body keyword grep). Pre-v0.6.15 crafts (date < 2026-04-29)
+    # are grandfathered.
+    #
+    # Empty list is permitted — signals "pure doctrine craft, no code
+    # changes." Missing field on a v0.6.15+ craft is a winnow violation.
+    if (
+        fm is not None
+        and fm.get("type") == "craft"
+        and "primordia" in str(target.parent)
+    ):
+        craft_date = str(fm.get("date", ""))
+        # Grandfather pre-v0.6.15 crafts. v0.6.15 lands 2026-04-29.
+        is_pre_v0_6_15 = craft_date < "2026-04-29"
+        if not is_pre_v0_6_15 and "path_allowlist" not in fm:
+            violations.append(
+                {
+                    "gate": "G7_path_allowlist",
+                    "message": (
+                        "type: craft files in docs/primordia/ require a "
+                        "`path_allowlist: list[str]` frontmatter field "
+                        "(v0.6.15+). Empty list permitted (signals pure "
+                        "doctrine craft, no code changes). See "
+                        "L2_DOCTRINE/cycle.md § 'Winnow gate G7'."
+                    ),
+                }
+            )
+        elif not is_pre_v0_6_15 and not isinstance(fm.get("path_allowlist"), list):
+            violations.append(
+                {
+                    "gate": "G7_path_allowlist",
+                    "message": (
+                        "frontmatter `path_allowlist:` must be a YAML list "
+                        "(possibly empty), not a scalar or mapping."
+                    ),
+                }
+            )
+
     verdict = "pass" if not violations else "fail"
     exit_code = 0 if not violations else 1
     return Result(
