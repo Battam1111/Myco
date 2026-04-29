@@ -271,7 +271,7 @@ commands:
   manifest_ref: "src/myco/boundary/surface/manifest.yaml"
 
 metrics:
-  test_count: 1545
+  test_count: 1554
   # v0.7.2 永恒删减 ratchet (PA6 dim — repo bloat detector):
   # MEDIUM finding emitted at ≥80% of threshold; HIGH at ≥100%. The
   # threshold is intentionally generous — the ratchet exists to catch

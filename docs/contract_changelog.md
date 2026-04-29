@@ -11,22 +11,90 @@ Format: one section per `contract_version`, newest first.
 
 ---
 
-## v0.7.2 - 2026-04-30 - Contract molt via `myco molt`
+## v0.7.2 — 2026-04-30 — 永恒删减 ratchet dims (mechanize the eternal-pruning discipline)
 
-Replaces `v0.7.1` at `_canon.yaml::contract_version`. Issued via the `myco molt --contract v0.7.2` agent-
-callable verb. `synced_contract_version` is updated in
-lockstep.
+**Zero R1-R7 surface deltas; 4 NEW lint dimensions (46 → 50, additive); zero subsystem changes; schema v2 unchanged (additive canon fields).** This molt converts the v0.7.1-named **public-API-deletion discipline** from doctrine prose to mechanically-enforceable lint. Future drift is **continuous**-detected by the substrate's own immune system instead of **episodically** discovered via manual neat-freak audits.
+
+### Why this release
+
+L0 P3 (永恒进化 — eternal evolution) is two-sided: growth + shedding. Through v0.6.x the substrate was strong on growth (additive verbs, new lint dims, expanded subsystems) but weak on shedding. The v0.7.0 incident exposed accumulated bloat that hid 4 fail-silent dims for 16 minor versions; the v0.7.0 reactive deletion broke the owner's MCP host within 2 hours (v0.7.1 hotfix). Without ratchets, every accumulation cycle requires a manual audit pass to surface (v0.6.16-style).
+
+### 5-critic L0-P1-P5 fanout (second substantive use)
+
+Per the v0.6.15 doctrine, 5 parallel Opus critics (one per L0 principle, narrow visibility scope each). 22 findings (1 P0 BLOCK + 13 P1 + 4 P2) reshaped the proposal materially:
+
+- **Round 1 SH3 (shipped) → Round 2 MB8 (metabolic)** per saprotroph T1: runtime telemetry on substrate state ≠ publication-surface invariant.
+- **Round 1 MB8 (metabolic) → Round 2 PA6 (mechanical)** per saprotroph T2: filesystem invariant ≠ agent-throughput pressure.
+- **Round 1 PA6 (mechanical) → Round 2 MF5 (mechanical/MF)** per saprotroph T3: manifest/file-shape ≠ package-architecture purity.
+- **Round 1 SE5 → kept** (saprotroph T4 misread; SE2 is orphan-detection, not canon-cited-paths — doctrine drift in homeostasis.md confirmed and corrected).
+- **SH3 import-time write → first-MCP-request hook** per mycorrhiza T1 P0 BLOCK: read-only substrate compatibility (v0.7.0 incident lesson).
+- **L2 boundary.md amendment WITHDRAWN** per saprotroph T5: would require R7 contract-bump path. Discipline kept as L3 dim docstrings + 1-paragraph `homeostasis.md` cross-reference.
+- **Recursion-cutter HARDENED** per mycoparasite T1/T2/T3/T6: 4 new path patterns + 4 new canon keys + NEW multi-cluster compound trigger.
 
 ### What changed
 
-(Fill in: which R1-R7 rules, subsystem definitions, exit-code
-grammar, lint-dimension semantics, or command manifest shapes
-changed. `myco molt` only records the version; the authoring
-agent is responsible for this narrative.)
+#### Group A — 4 new lint dimensions (~640 LoC source + ~320 LoC tests)
+
+- **MB8** (metabolic, MEDIUM) — shim-hit counter. Reads append-only `.myco_state/shim_hits.json` (written by shim's `__main__.py` CLI hook). Reports per-module hit counts + last-hit ages + sunset-gate thresholds (`governance.shim_sunset_min_zero_cycles` + `_days`). Enables the v0.7.1 telemetry-verified safe-deletion gate.
+- **PA6** (mechanical, MEDIUM) — repo-bloat detector. Walks tree using `core.skip_dirs.should_skip_path` (canonical exclusion list) + `metrics.repo_size_excluded` (substrate-level globs). Compares to `metrics.repo_size_max_bytes` (default 50 MB). MEDIUM at ≥80%, HIGH at ≥100%. Resolution path is **agent-autonomous** via `myco excrete` or `fruit→winnow→molt`; **never owner-merge-gated** (chytrid T3 / L0 P1 preservation).
+- **MF5** (mechanical, LOW) — generated-mirror integrity. SHA-256 bucket O(n) hash detection of byte-identical pairs across `.claude/{agents,commands}/` ↔ `<repo>/{agents,commands}/`. Reports v0.6.11-documented mirrors as PENDING_BUILD_ARTIFACT_CONVERSION (LOW; v0.7.3 IOU). UNINTENDED_DRIFT pairs at MEDIUM.
+- **SE5** (semantic, LOW) — version-anchor freshness. Greps live agent-facing docs (`docs/architecture/**`, `MYCO.md`, `README*.md`, `_canon.yaml`, `pyproject.toml`) for `v0.X.Y` anchors > 3 minor versions stale. Excludes `_archive/`, `_landed/`, `contract_changelog/`. False-positive heuristic: historical-context tokens (`shipped at` / `landed in` / `as of` / `since` / `pre-` / `post-`) suppress.
+
+#### Group B — risk_classifier recursion-cutter hardening
+
+- `_RECURSION_CUTTER_PATH_PATTERNS` extended (mycoparasite T1, T2):
+  - `.myco_state/shim_hits.json` + `.myco_state/*.json` (telemetry files closed against zeroing attack)
+  - `src/myco/mcp/**` (the shim itself; deletion now HIGH-tier)
+  - `src/myco/boundary/mcp/**` (the canonical launcher)
+- `_RECURSION_CUTTER_CANON_KEYS` extended (mycoparasite T3): `repo_size_max_bytes` + `repo_size_excluded` + `shim_sunset_min_zero_cycles` + `shim_sunset_min_zero_days` (closes the threshold-bumping bypass).
+- **NEW** `_RECURSION_CUTTER_COMPOUND_CLUSTERS` (mycoparasite T6): a craft whose `path_allowlist` simultaneously touches ≥ 2 of `{state, shim, canon, classifier}` clusters forces HIGH regardless of individual path classification. Defeats the compound 4-step attack: `[_canon.yaml + .myco_state/shim_hits.json + src/myco/mcp/__init__.py]` in one craft.
+
+#### Group C — canon schema additions (additive within v2)
+
+- `metrics.repo_size_max_bytes`: 52428800 (50 MB default)
+- `metrics.repo_size_excluded`: `["notes/**", "docs/primordia/_landed/**", "docs/_archive/**", "docs/contract_changelog/_archive/**"]` (rhizomorph T1 fix — protects substrate's own ingestion from being its own bloat-cause)
+- `governance.shim_sunset_min_zero_cycles`: 7
+- `governance.shim_sunset_min_zero_days`: 7
+
+#### Group D — shim `__main__.py` telemetry hook (mycorrhiza T1)
+
+Counter-write happens at the CLI entry (`python -m myco.mcp`), NOT at module import. Try-except wrapped: read-only substrate / missing canon / locked file → silent no-op. **The substrate MUST always boot the MCP server** (v0.7.0 incident lesson preserved).
+
+#### Group E — L2 doctrine update
+
+- `homeostasis.md` SE2 description corrected from "canon-cited numbers and paths" (stale v0.5.8 doctrine; current SE2 is orphan-integrated detection) to actual implementation. The "canon-cited paths drift" intent is now covered by SE5.
+- New § "永恒删减 (eternal pruning) — the v0.7.2 ratchet quartet" cross-references the 4 dims under their cleaned-up categories.
+
+#### Group F — gitignore hygiene
+
+`.myco_state/sessions.db / boot_brief.md / autoseeded.txt / decay_baseline.yaml / search_misses.yaml / excretion_counter.json / graph.json` per-file list collapsed to `.myco_state/**` wildcard. Future state files (like `shim_hits.json` from MB8 telemetry) are excluded by default.
 
 ### Break from v0.7.1
 
-(Fill in: backward-compatibility note. If none, say so explicitly.)
+**No backward-compat break.** Schema v2 is unchanged (new fields are additive; old canons read fine — dim default to threshold defaults). 50-dim roster supersedes 46 (4 net new); existing dim IDs untouched. The new dims emit informational findings (`exit_policy: metabolic:never, semantic:never` keeps non-critical findings from gating). Shim ABI unchanged (telemetry hook is best-effort + invisible to consumers).
+
+### What did NOT change
+
+- All 7 R-rules: identical text.
+- All 7 subsystems: identical doctrine.
+- 46 existing lint dimensions: identical roster, severities, fixability (the 4 new dims add to the roster).
+- 20 verbs: identical manifest, CLI, MCP shape.
+- `system.llm_policy: forbidden`: unchanged.
+- `system.governance.auto_evolve_*` settings: unchanged.
+
+### Pre-flight gate verification
+
+- `ruff check src tests scripts` — clean
+- `ruff format --check src tests scripts` — 0 reformats
+- `mypy src/myco` — 152 source files, no issues
+- `pytest -q` — **1554 passed, 1 skipped** (+22 from v0.7.1 baseline)
+- `myco immune` — exit 0; new findings: 1 MB8 (telemetry working) + 11 MF5 PENDING_BUILD_ARTIFACT_CONVERSION (v0.6.11 IOU surfaced) + 6 SE5 LOW (next-sweep candidates)
+- `python -m myco.mcp --help` — boots
+- `python -m myco.boundary.mcp --help` — boots
+
+Governing craft: [`docs/primordia/v0_7_2_eternal_pruning_ratchets_craft_2026-04-30.md`](primordia/v0_7_2_eternal_pruning_ratchets_craft_2026-04-30.md).
+Predecessor: v0.7.1 (myco.mcp shim revival hotfix), shipped 2026-04-29.
+Successor (planned): v0.7.3 (`<repo>/{agents,commands}/` build-artifact conversion via `scripts/build_plugin.py` extension; resolves the 11 MF5 PENDING findings).
 
 ---
 
