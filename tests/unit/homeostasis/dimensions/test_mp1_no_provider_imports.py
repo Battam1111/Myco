@@ -284,3 +284,242 @@ def test_mp1_scope_is_kernel_only(tmp_path: Path) -> None:
     (plugins / "bad.py").write_text("import openai\n", encoding="utf-8")
     findings = list(MP1NoProviderImports().run(ctx))
     assert findings == []
+
+
+# ---------------------------------------------------------------------------
+# v0.6.14 — craft host-signature scan
+# ---------------------------------------------------------------------------
+
+
+_CANON_V0_6_14 = textwrap.dedent(
+    """\
+    schema_version: "2"
+    contract_version: "v0.6.14"
+    identity:
+      substrate_id: "mp1-craft-test"
+      entry_point: "MYCO.md"
+    system:
+      hard_contract:
+        rule_count: 7
+      llm_policy: "forbidden"
+      governance:
+        recognized_authoring_hosts:
+          - "claude-code-agent"
+          - "human"
+    subsystems:
+      homeostasis:
+        doc: "docs/architecture/L2_DOCTRINE/homeostasis.md"
+    """
+)
+
+
+def _seed_v0_6_14(tmp_path: Path) -> MycoContext:
+    """Substrate with v0.6.14 governance block + empty docs/primordia/."""
+    (tmp_path / "_canon.yaml").write_text(_CANON_V0_6_14, encoding="utf-8")
+    (tmp_path / "src" / "myco").mkdir(parents=True)
+    (tmp_path / "src" / "myco" / "__init__.py").write_text("", encoding="utf-8")
+    (tmp_path / "docs" / "primordia").mkdir(parents=True)
+    return MycoContext.for_testing(root=tmp_path)
+
+
+def _write_craft(
+    tmp_path: Path,
+    name: str,
+    *,
+    type_: str = "craft",
+    authored_by: str | None = "human",
+    extra_frontmatter: str = "",
+) -> Path:
+    """Helper: write a craft markdown with optional `authored_by:`."""
+    fm_lines = [f"type: {type_}"] if type_ else []
+    if authored_by is not None:
+        fm_lines.append(f"authored_by: {authored_by}")
+    if extra_frontmatter:
+        fm_lines.append(extra_frontmatter)
+    fm = "\n".join(fm_lines)
+    body = f"---\n{fm}\n---\n\n# {name}\n\nbody.\n"
+    path = tmp_path / "docs" / "primordia" / f"{name}.md"
+    path.write_text(body, encoding="utf-8")
+    return path
+
+
+def test_mp1_craft_with_recognized_host_passes(tmp_path: Path) -> None:
+    """type: craft + authored_by: human → no finding."""
+    ctx = _seed_v0_6_14(tmp_path)
+    _write_craft(tmp_path, "ok_craft", authored_by="human")
+    findings = list(MP1NoProviderImports().run(ctx))
+    craft_findings = [f for f in findings if "ok_craft" in (f.path or "")]
+    assert craft_findings == []
+
+
+def test_mp1_craft_missing_authored_by_emits_high(tmp_path: Path) -> None:
+    """type: craft + no authored_by → HIGH finding."""
+    ctx = _seed_v0_6_14(tmp_path)
+    _write_craft(tmp_path, "no_signature", authored_by=None)
+    findings = list(MP1NoProviderImports().run(ctx))
+    matches = [f for f in findings if "no_signature" in (f.path or "")]
+    assert len(matches) == 1
+    assert matches[0].severity is Severity.HIGH
+    assert "authored_by" in matches[0].message
+
+
+def test_mp1_craft_with_unrecognized_host_emits_high(tmp_path: Path) -> None:
+    """type: craft + authored_by: <unrecognized> → HIGH finding."""
+    ctx = _seed_v0_6_14(tmp_path)
+    _write_craft(tmp_path, "bad_host", authored_by="rogue-bot-9000")
+    findings = list(MP1NoProviderImports().run(ctx))
+    matches = [f for f in findings if "bad_host" in (f.path or "")]
+    assert len(matches) == 1
+    assert matches[0].severity is Severity.HIGH
+    assert "rogue-bot-9000" in matches[0].message
+
+
+def test_mp1_non_craft_primordia_exempt(tmp_path: Path) -> None:
+    """type: handoff (not craft) without authored_by → no finding (exempt)."""
+    ctx = _seed_v0_6_14(tmp_path)
+    _write_craft(tmp_path, "handoff_doc", type_="handoff", authored_by=None)
+    findings = list(MP1NoProviderImports().run(ctx))
+    matches = [f for f in findings if "handoff_doc" in (f.path or "")]
+    assert matches == []
+
+
+def test_mp1_excreted_directory_exempt(tmp_path: Path) -> None:
+    """Crafts under docs/primordia/_excreted/ are exempt."""
+    ctx = _seed_v0_6_14(tmp_path)
+    excreted = tmp_path / "docs" / "primordia" / "_excreted"
+    excreted.mkdir()
+    (excreted / "stale_craft.md").write_text(
+        "---\ntype: craft\n---\n\n# old draft, no signature\n",
+        encoding="utf-8",
+    )
+    findings = list(MP1NoProviderImports().run(ctx))
+    matches = [f for f in findings if "stale_craft" in (f.path or "")]
+    assert matches == []
+
+
+def test_mp1_no_frontmatter_exempt(tmp_path: Path) -> None:
+    """Markdown file with no frontmatter is exempt (non-craft)."""
+    ctx = _seed_v0_6_14(tmp_path)
+    raw_path = tmp_path / "docs" / "primordia" / "narrative.md"
+    raw_path.write_text("# free-form narrative, no frontmatter\n", encoding="utf-8")
+    findings = list(MP1NoProviderImports().run(ctx))
+    matches = [f for f in findings if "narrative" in (f.path or "")]
+    assert matches == []
+
+
+def test_mp1_malformed_frontmatter_exempt(tmp_path: Path) -> None:
+    """Markdown file with unclosed frontmatter is exempt (treated as non-craft)."""
+    ctx = _seed_v0_6_14(tmp_path)
+    bad_path = tmp_path / "docs" / "primordia" / "bad_fm.md"
+    bad_path.write_text("---\ntype: craft\n# no closing ---\n", encoding="utf-8")
+    findings = list(MP1NoProviderImports().run(ctx))
+    matches = [f for f in findings if "bad_fm" in (f.path or "")]
+    assert matches == []
+
+
+def test_mp1_quoted_authored_by_value_recognized(tmp_path: Path) -> None:
+    """authored_by: 'human' (single-quoted) is parsed correctly."""
+    ctx = _seed_v0_6_14(tmp_path)
+    p = tmp_path / "docs" / "primordia" / "quoted.md"
+    p.write_text(
+        "---\ntype: craft\nauthored_by: 'human'\n---\n\n# quoted\n",
+        encoding="utf-8",
+    )
+    findings = list(MP1NoProviderImports().run(ctx))
+    matches = [f for f in findings if "quoted" in (f.path or "")]
+    assert matches == []
+
+
+def test_mp1_no_primordia_dir_no_crash(tmp_path: Path) -> None:
+    """Substrate without docs/primordia/ → no crash, no findings on craft scan."""
+    (tmp_path / "_canon.yaml").write_text(_CANON_V0_6_14, encoding="utf-8")
+    (tmp_path / "src" / "myco").mkdir(parents=True)
+    (tmp_path / "src" / "myco" / "__init__.py").write_text("", encoding="utf-8")
+    # Intentionally do NOT create docs/primordia/.
+    ctx = MycoContext.for_testing(root=tmp_path)
+    findings = list(MP1NoProviderImports().run(ctx))
+    # No craft-related findings.
+    craft_findings = [f for f in findings if "primordia" in (f.path or "")]
+    assert craft_findings == []
+
+
+def test_mp1_no_kernel_dir_silent_exit(tmp_path: Path) -> None:
+    """Substrate without src/myco/ — documentation-only substrate.
+
+    Per MP1 docstring: "Substrate does not ship a kernel tree under the
+    canonical path (e.g. a documentation-only substrate). Nothing to
+    check; silent exit." Covers the early-return branch at line ~218.
+    """
+    (tmp_path / "_canon.yaml").write_text(_CANON_V0_6_14, encoding="utf-8")
+    # Intentionally NO src/myco/ directory.
+    (tmp_path / "docs" / "primordia").mkdir(parents=True)
+    ctx = MycoContext.for_testing(root=tmp_path)
+    findings = list(MP1NoProviderImports().run(ctx))
+    # Only the craft-scan part runs (which is also empty); kernel-import
+    # scan silently returns. No exceptions.
+    provider_findings = [
+        f for f in findings if "kernel file imports" in (f.message or "")
+    ]
+    assert provider_findings == []
+
+
+def test_mp1_kernel_import_stmt_non_provider_no_finding(tmp_path: Path) -> None:
+    """`import json` (Import node, non-provider) → no MP1 finding.
+
+    Covers the branch where ``ast.Import`` is hit but the imported
+    top-level dotted path doesn't match the provider blacklist
+    (line 426 False branch in mp1_no_provider_imports.py).
+    """
+    ctx = _seed_substrate(tmp_path)
+    (tmp_path / "src" / "myco" / "foo.py").write_text(
+        textwrap.dedent(
+            """\
+            import json
+            import os.path
+
+            def use_json():
+                return json.dumps({})
+            """
+        ),
+        encoding="utf-8",
+    )
+    findings = list(MP1NoProviderImports().run(ctx))
+    assert findings == []
+
+
+def test_mp1_uses_canon_recognized_hosts(tmp_path: Path) -> None:
+    """The host whitelist is read from canon, not hardcoded.
+
+    Custom canon with only "human" recognized → claude-code-agent must
+    fail. Confirms MP1 reads the dynamic list, not a hardcoded constant.
+    """
+    custom_canon = textwrap.dedent(
+        """\
+        schema_version: "2"
+        contract_version: "v0.6.14"
+        identity:
+          substrate_id: "mp1-strict-test"
+          entry_point: "MYCO.md"
+        system:
+          hard_contract:
+            rule_count: 7
+          llm_policy: "forbidden"
+          governance:
+            recognized_authoring_hosts:
+              - "human"
+        subsystems:
+          homeostasis:
+            doc: "docs/architecture/L2_DOCTRINE/homeostasis.md"
+        """
+    )
+    (tmp_path / "_canon.yaml").write_text(custom_canon, encoding="utf-8")
+    (tmp_path / "src" / "myco").mkdir(parents=True)
+    (tmp_path / "src" / "myco" / "__init__.py").write_text("", encoding="utf-8")
+    (tmp_path / "docs" / "primordia").mkdir(parents=True)
+    ctx = MycoContext.for_testing(root=tmp_path)
+    _write_craft(tmp_path, "claude_authored", authored_by="claude-code-agent")
+    findings = list(MP1NoProviderImports().run(ctx))
+    # claude-code-agent NOT in this canon's recognized list → fires.
+    matches = [f for f in findings if "claude_authored" in (f.path or "")]
+    assert len(matches) == 1
+    assert matches[0].severity is Severity.HIGH
