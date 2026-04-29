@@ -356,9 +356,7 @@ def test_recursion_cutter_shim_sunset_canon_key(tmp_path: Path) -> None:
 # ===== Shim __main__.py counter-write hook =====
 
 
-def test_shim_main_records_hit_to_substrate(
-    tmp_path: Path, monkeypatch
-) -> None:
+def test_shim_main_records_hit_to_substrate(tmp_path: Path, monkeypatch) -> None:
     """When the shim's __main__._record_shim_hit() runs against a
     substrate root, it appends a JSONL line to .myco_state/shim_hits.json.
     Best-effort: read-only / missing canon → silent no-op."""
@@ -383,9 +381,7 @@ def test_shim_main_records_hit_to_substrate(
     assert "ts" in rec and "session_id" in rec
 
 
-def test_shim_main_silent_on_missing_canon(
-    tmp_path: Path, monkeypatch
-) -> None:
+def test_shim_main_silent_on_missing_canon(tmp_path: Path, monkeypatch) -> None:
     """No _canon.yaml → silent no-op (read-only / non-substrate cwd protection).
 
     v0.7.0 incident lesson: the shim must NEVER fail to boot the MCP
