@@ -104,6 +104,10 @@ _HIGH_RISK_PATH_PATTERNS = (
 
 # v0.6.15 — recursion-cutter path patterns. Forces HIGH-risk regardless
 # of any other classification. See craft v0.6.15 Round 1.5 mycoparasite T1.
+# v0.7.2 — extended per craft v0_7_2 Round 1.5 mycoparasite T1/T2/T6:
+# the new MB8 ratchet's shim-hit counter file + the shim packages
+# themselves are recursion-cutter-protected so an adversary craft
+# cannot zero counts + delete shim in a single MEDIUM-tier molt.
 _RECURSION_CUTTER_PATH_PATTERNS = (
     # The risk classifier itself.
     re.compile(r"src/myco/core/risk_classifier\.py$"),
@@ -113,12 +117,27 @@ _RECURSION_CUTTER_PATH_PATTERNS = (
     re.compile(r"\.github/workflows/auto_.*\.ya?ml$"),
     # The winnow gate that requires path_allowlist (G7).
     re.compile(r"src/myco/cycle/winnow\.py$"),
+    # v0.7.2: the MB8 shim-hit counter state file. Zeroing this file
+    # would unlock the shim-deletion gate falsely.
+    re.compile(r"\.myco_state/shim_hits\.json$"),
+    # v0.7.2: any other state-file the substrate writes for telemetry-
+    # gated decisions. Broad pattern; better safe than sorry.
+    re.compile(r"\.myco_state/.*\.json$"),
+    # v0.7.2: the back-compat shim package itself (deleting it
+    # bypasses MB8's telemetry; must be HIGH-tier owner-gated).
+    re.compile(r"src/myco/mcp/.*\.py$"),
+    # v0.7.2: the canonical MCP launcher (any change here affects
+    # downstream consumers of `python -m myco.boundary.mcp`).
+    re.compile(r"src/myco/boundary/mcp/.*\.py$"),
 )
 
 
 # v0.6.15 — within _canon.yaml, modifications to these governance keys
 # trigger the recursion-cutter. Detected via diff-keyword scan when
 # _canon.yaml is in path_allowlist.
+# v0.7.2 — extended per mycoparasite T3: any modification to the new
+# `metrics.repo_size_*` thresholds OR the `governance.shim_sunset_*`
+# thresholds bypasses the v0.7.2 ratchets if not recursion-cutter'd.
 _RECURSION_CUTTER_CANON_KEYS = (
     "auto_propose_enabled",
     "auto_evolve_min_wall_clock_seconds_between",
@@ -131,7 +150,63 @@ _RECURSION_CUTTER_CANON_KEYS = (
     "auto_evolve_daily_budget_usd",
     "auto_evolve_tracking_issue_id",
     "recognized_authoring_hosts",
+    # v0.7.2 永恒删减 ratchet thresholds.
+    "repo_size_max_bytes",
+    "repo_size_excluded",
+    "shim_sunset_min_zero_cycles",
+    "shim_sunset_min_zero_days",
 )
+
+
+# v0.7.2 — multi-cluster compound trigger (mycoparasite T6). A craft
+# whose path_allowlist simultaneously touches paths from ≥ 2 of these
+# disjoint sensitivity clusters escalates to HIGH risk regardless of
+# any individual path's classification. This defeats the compound
+# attack: a single craft with `path_allowlist: [_canon.yaml,
+# .myco_state/shim_hits.json, src/myco/mcp/__init__.py]` would
+# otherwise see 3 separate MEDIUM-tier paths and auto-LAND despite
+# the combined effect being a perpetual-motion shim-deletion exploit.
+_RECURSION_CUTTER_COMPOUND_CLUSTERS: tuple[
+    tuple[str, tuple[re.Pattern[str], ...]], ...
+] = (
+    ("state", (re.compile(r"\.myco_state/"),)),
+    (
+        "shim",
+        (
+            re.compile(r"src/myco/mcp/"),
+            re.compile(r"src/myco/boundary/mcp/"),
+        ),
+    ),
+    # _canon.yaml is one path but represents two clusters because
+    # different content-edits touch metrics.* vs governance.*
+    # (the dim-content scanner distinguishes; this clustering is
+    # path-level coarseness).
+    ("canon", (re.compile(r"^_canon\.yaml$"),)),
+    (
+        "classifier",
+        (
+            re.compile(r"src/myco/core/risk_classifier\.py$"),
+            re.compile(r"src/myco/cycle/winnow\.py$"),
+        ),
+    ),
+)
+
+
+def _hits_compound_clusters(paths: list[str]) -> tuple[bool, list[str]]:
+    """Return (compound-triggered, list-of-cluster-names-hit).
+
+    A path_allowlist that simultaneously touches ≥ 2 disjoint clusters
+    forces HIGH-risk classification per the v0.7.2 multi-cluster
+    compound trigger.
+    """
+    hit_clusters: list[str] = []
+    for cluster_name, patterns in _RECURSION_CUTTER_COMPOUND_CLUSTERS:
+        for path in paths:
+            if any(p.search(path) for p in patterns):
+                hit_clusters.append(cluster_name)
+                break
+    return (len(set(hit_clusters)) >= 2, hit_clusters)
+
 
 # Medium-risk patterns.
 # v0.6.16: dead-pattern cleanup — removed pre-v0.6.0 paths
@@ -392,8 +467,9 @@ def classify_craft_via_path_allowlist(
             rationale=(
                 f"recursion-cutter triggered: path_allowlist touches "
                 f"{cutter_matches!r} (risk classifier / governance "
-                f"workflow / winnow gate). Forced HIGH regardless of "
-                f"content classification."
+                f"workflow / winnow gate / shim package / state "
+                f"telemetry file). Forced HIGH regardless of content "
+                f"classification."
             ),
             matched_rules=tuple(f"recursion-cutter: {p}" for p in cutter_matches),
         )
@@ -405,10 +481,37 @@ def classify_craft_via_path_allowlist(
             tier=RiskTier.HIGH,
             rationale=(
                 "recursion-cutter triggered: path_allowlist includes "
-                "_canon.yaml AND craft body mentions governance.auto_evolve_* "
-                "keys. Forced HIGH (cannot auto-merge changes to gating policy)."
+                "_canon.yaml AND craft body mentions governance / "
+                "metrics ratchet keys (auto_evolve_* / repo_size_* / "
+                "shim_sunset_*). Forced HIGH (cannot auto-merge changes "
+                "to gating policy or threshold knobs)."
             ),
-            matched_rules=("recursion-cutter: _canon.yaml + auto_evolve_* keys",),
+            matched_rules=("recursion-cutter: _canon.yaml + governance/metrics keys",),
+        )
+
+    # v0.7.2 multi-cluster compound trigger (mycoparasite T6). A craft
+    # whose path_allowlist simultaneously touches ≥ 2 disjoint
+    # sensitivity clusters forces HIGH risk regardless of any
+    # individual path's classification. Defeats the compound attack:
+    # `path_allowlist: [_canon.yaml, .myco_state/shim_hits.json,
+    # src/myco/mcp/__init__.py]` → 3 separate MEDIUM paths in v0.6.15
+    # would auto-LAND despite the combined effect being a perpetual-
+    # motion shim-deletion exploit.
+    compound_hit, hit_clusters = _hits_compound_clusters(paths)
+    if compound_hit:
+        return ClassificationResult(
+            tier=RiskTier.HIGH,
+            rationale=(
+                f"recursion-cutter compound-cluster triggered: "
+                f"path_allowlist simultaneously touches clusters "
+                f"{sorted(set(hit_clusters))!r}. The combined effect of "
+                f"editing multiple sensitivity clusters in a single "
+                f"craft is HIGH-risk regardless of individual path "
+                f"classifications (v0.7.2 mycoparasite T6)."
+            ),
+            matched_rules=tuple(
+                f"recursion-cutter compound: {c}" for c in sorted(set(hit_clusters))
+            ),
         )
 
     # Otherwise: standard path-based classification.

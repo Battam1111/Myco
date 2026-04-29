@@ -184,6 +184,16 @@ system:
       - "claude-desktop-agent"
       - "cowork-agent"
       - "human"
+    # v0.7.2 永恒删减 ratchet (MB8 dim — shim sunset gate):
+    # A back-compat shim is safe to delete only if its hit-counter
+    # reports zero hits across BOTH the senesce-cycle window AND the
+    # wall-clock window below (whichever is later). Defaults derived
+    # from the v0.7.1 incident: 4 versions of stderr DeprecationWarning
+    # was insufficient signal; we want at least 7 senesce cycles +
+    # 7 days of confirmed silence before the agent can propose
+    # removal autonomously.
+    shim_sunset_min_zero_cycles: 7
+    shim_sunset_min_zero_days: 7
 
 versioning:
   package_version_ref: "src/myco/__init__.py"
@@ -262,6 +272,23 @@ commands:
 
 metrics:
   test_count: 1545
+  # v0.7.2 永恒删减 ratchet (PA6 dim — repo bloat detector):
+  # MEDIUM finding emitted at ≥80% of threshold; HIGH at ≥100%. The
+  # threshold is intentionally generous — the ratchet exists to catch
+  # the v0.7.0-style "11 MB legacy_v0_3 hidden 4 fail-silent dims"
+  # accumulation, not to police normal substrate growth. Resolution
+  # is agent-autonomous via myco excrete (raw notes) or fruit→molt
+  # (doctrine archival); never owner-merge-gated (chytrid T3 / L0 P1).
+  repo_size_max_bytes: 52428800  # 50 MB
+  # Substrate-level paths NOT counted against repo_size_max_bytes.
+  # Protects L0 P2 (永恒吞噬): the substrate's own ingestion targets
+  # (notes/) and immutable history (_landed/, _archive/) are never
+  # the substrate's own bloat-cause.
+  repo_size_excluded:
+    - "notes/**"
+    - "docs/primordia/_landed/**"
+    - "docs/_archive/**"
+    - "docs/contract_changelog/_archive/**"
 
 waves:
   current: 30

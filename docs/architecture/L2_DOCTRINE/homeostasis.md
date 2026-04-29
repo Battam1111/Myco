@@ -140,7 +140,7 @@ MEDIUM/HIGH tiers.
 | `MB2` | metabolic | MEDIUM |  | Nothing integrated yet; fresh substrate advisory |
 | `MB3` | metabolic | HIGH | ✓ | Raw-note backlog ≥50 (v0.5.8 NEW; fix: bulk-assimilate in place) |
 | `SE1` | semantic | MEDIUM |  | Cross-references resolve (no orphans, no dangling refs) |
-| `SE2` | semantic | LOW |  | Canon-cited numbers and paths match observed reality |
+| `SE2` | semantic | LOW |  | Integrated notes with no inbound graph edges (orphan detection); v0.7.2 corrects the prior "canon-cited numbers" description which was stale doctrine from the v0.5.8 25-dim era. The "canon-cited numbers / paths drift" intent is now covered by SE5 (version-anchor freshness, v0.7.2+) and the v0.6.16 dim-fix sweep (CL1/CL3/MF3/DC4 silent-path corrections). |
 | `SE3` | semantic | LOW |  | Substrate graph contains no self-cycles (v0.5.8 NEW) |
 | `RL1` | semantic | LOW |  | Every R1-R7 rule has at least one substrate reference (v0.5.8 NEW) |
 
@@ -150,6 +150,60 @@ v0.5.8 raises the fixable count from 2 (M2, MB1) to **4**: `M2`,
 `MB1`, `CS1`, `MB3`. Every other dimension is report-only; `myco
 immune --fix` calls `fix()` only on fixables and leaves the rest
 to Agent discretion.
+
+### 永恒删减 (eternal pruning) — the v0.7.2 ratchet quartet
+
+L0 P3 (永恒进化 — eternal evolution) is two-sided: growth + shedding.
+Through v0.6.x the substrate was strong on growth (additive verbs,
+new lint dims, expanded subsystems) but weak on shedding — the
+v0.7.0 incident exposed accumulated bloat that hid 4 fail-silent
+dims for 16 minor versions, and v0.7.0's reactive deletion broke
+the owner's MCP host within 2 hours (v0.7.1 hotfix).
+
+v0.7.2 mechanizes the shedding side via four ratchet dims, each
+catching a distinct accumulation mode:
+
+- **MB8** (metabolic) — shim-hit counter. Telemetry-verified shim
+  retirement gate per the v0.7.1 public-API-deletion discipline.
+  Reads ``.myco_state/shim_hits.json`` (append-only JSONL written by
+  the shim's CLI entry point) and surfaces hit counts + last-hit
+  ages. Sunset gate: zero hits across ``governance.shim_sunset_min_zero_cycles``
+  senesce cycles AND ``governance.shim_sunset_min_zero_days`` wall-clock
+  days (default 7+7).
+- **PA6** (mechanical) — repo-bloat detector. Walks the working
+  tree (excluding ``.git/``, ``dist/``, ``__pycache__/``, plus
+  substrate-declared ``metrics.repo_size_excluded``) and compares
+  to ``metrics.repo_size_max_bytes`` (default 50 MB). MEDIUM at
+  ≥ 80%, HIGH at ≥ 100%. Resolution is agent-autonomous via
+  ``myco excrete`` (raw notes) or ``fruit→winnow→molt`` (doctrine
+  archival); never owner-merge-gated (L0 P1 preserved).
+- **MF5** (mechanical) — generated-mirror integrity. Hashes files
+  under ``.claude/{agents,commands}/`` and ``<repo>/{agents,commands}/``
+  and reports byte-identical pairs as PENDING_BUILD_ARTIFACT_CONVERSION
+  (LOW; v0.7.3 IOU is to extend ``scripts/build_plugin.py`` to
+  generate the bundle-side mirror at build time and gitignore it).
+  Also surfaces UNINTENDED_DRIFT pairs at MEDIUM.
+- **SE5** (semantic) — version-anchor freshness. Greps live
+  agent-facing docs (``docs/architecture/**``, ``MYCO.md``,
+  ``README*.md``, ``_canon.yaml``, ``pyproject.toml``) for
+  hardcoded ``v0.X.Y`` anchors > 3 minor versions stale, with
+  historical-context tokens (``shipped at`` / ``landed in`` /
+  ``as of`` / ``since`` / ``pre-`` / ``post-``) suppressing
+  legitimate references. LOW; surfaces the next neat-freak
+  sweep's candidate set automatically.
+
+Together the four dims encode the v0.7.1 deletion discipline as
+mechanical lint: a future autolysis sweep is **continuous** (every
+``myco immune`` run reports drift) instead of **episodic** (manual
+4-agent audit pass like v0.6.16). Bloat-hides-bugs becomes a class
+of failure the substrate catches before a human notices.
+
+Cross-references: governing craft
+``docs/primordia/v0_7_2_eternal_pruning_ratchets_craft_2026-04-30.md``;
+v0.7.1 incident record
+``docs/primordia/v0_7_1_shim_revival_craft_2026-04-30.md``; v0.7.0
+audit-substituted fanout pattern
+``docs/primordia/v0_7_0_major_autolysis_craft_2026-04-30.md``.
 
 ## Boundary
 

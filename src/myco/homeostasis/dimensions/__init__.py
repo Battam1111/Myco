@@ -61,6 +61,7 @@ from .mechanical.mf1_declared_subsystems_exist import MF1DeclaredSubsystemsExist
 from .mechanical.mf2_substrate_local_plugin_health import MF2SubstrateLocalPluginHealth
 from .mechanical.mf3_symbiont_artifact_integrity import MF3SymbiontArtifactIntegrity
 from .mechanical.mf4_overlay_subsystem_validity import MF4OverlaySubsystemValidity
+from .mechanical.mf5_generated_mirror_integrity import MF5GeneratedMirrorIntegrity
 from .mechanical.mp1_no_provider_imports import MP1NoProviderImports
 from .mechanical.mp2_plugin_provider_imports import MP2PluginProviderImports
 from .mechanical.mp3_plugin_bytecode_audit import MP3PluginBytecodeAudit
@@ -69,6 +70,7 @@ from .mechanical.pa2_megafile_loc_cap import PA2MegafileLocCap
 from .mechanical.pa3_surface_pure_adapter import PA3SurfacePureAdapter
 from .mechanical.pa4_core_no_subsystem_deps import PA4CoreNoSubsystemDeps
 from .mechanical.pa5_meta_subsystem_layering import PA5MetaSubsystemLayering
+from .mechanical.pa6_repo_bloat import PA6RepoBloat
 from .mechanical.sc1_schema_parity import SC1SchemaParity
 
 # ---- Metabolic (6) --------------------------------------------------
@@ -78,6 +80,7 @@ from .metabolic.mb3_raw_notes_high_watermark import MB3RawNotesHighWatermark
 from .metabolic.mb4_sporulated_reabsorbed import MB4SporulatedReabsorbed
 from .metabolic.mb6_stale_draft_or_distilled import MB6StaleDraftOrDistilled
 from .metabolic.mb7_resource_watch_quota import MB7ResourceWatchQuota
+from .metabolic.mb8_shim_hit_counter import MB8ShimHitCounter
 
 # ---- Semantic (7) ---------------------------------------------------
 from .semantic.rl1_rules_referenced import RL1RulesReferenced
@@ -87,6 +90,7 @@ from .semantic.se1_dangling_refs import SE1DanglingRefs
 from .semantic.se2_orphan_integrated import SE2OrphanIntegrated
 from .semantic.se3_link_self_cycle import SE3LinkSelfCycle
 from .semantic.se4_reciprocal_backlink import SE4ReciprocalBacklink
+from .semantic.se5_version_anchor_freshness import SE5VersionAnchorFreshness
 
 # ---- Shipped (2) ----------------------------------------------------
 from .shipped.sh1_package_version_ref import SH1PackageVersionRef
@@ -103,6 +107,7 @@ __all__ = [
     "MF2SubstrateLocalPluginHealth",
     "MF3SymbiontArtifactIntegrity",
     "MF4OverlaySubsystemValidity",
+    "MF5GeneratedMirrorIntegrity",
     "MP1NoProviderImports",
     "MP2PluginProviderImports",
     "MP3PluginBytecodeAudit",
@@ -118,6 +123,7 @@ __all__ = [
     "PA3SurfacePureAdapter",
     "PA4CoreNoSubsystemDeps",
     "PA5MetaSubsystemLayering",
+    "PA6RepoBloat",
     "CG1DoctrineHasSrcReference",
     "CG2SubpackageHasDoctrineLink",
     "DI1DisciplineHooksPresent",
@@ -137,11 +143,13 @@ __all__ = [
     "MB4SporulatedReabsorbed",
     "MB6StaleDraftOrDistilled",
     "MB7ResourceWatchQuota",
+    "MB8ShimHitCounter",
     # Semantic
     "SE1DanglingRefs",
     "SE2OrphanIntegrated",
     "SE3LinkSelfCycle",
     "SE4ReciprocalBacklink",
+    "SE5VersionAnchorFreshness",
     "RL1RulesReferenced",
     "RL2SenseDisciplineSignal",
     "RL3EatDisciplineSignal",
@@ -157,6 +165,7 @@ _BUILT_IN: tuple[type[Dimension], ...] = (
     MF2SubstrateLocalPluginHealth,
     MF3SymbiontArtifactIntegrity,
     MF4OverlaySubsystemValidity,
+    MF5GeneratedMirrorIntegrity,
     MP1NoProviderImports,
     MP2PluginProviderImports,
     MP3PluginBytecodeAudit,
@@ -172,6 +181,7 @@ _BUILT_IN: tuple[type[Dimension], ...] = (
     PA3SurfacePureAdapter,
     PA4CoreNoSubsystemDeps,
     PA5MetaSubsystemLayering,
+    PA6RepoBloat,
     CG1DoctrineHasSrcReference,
     CG2SubpackageHasDoctrineLink,
     DI1DisciplineHooksPresent,
@@ -191,11 +201,13 @@ _BUILT_IN: tuple[type[Dimension], ...] = (
     MB4SporulatedReabsorbed,
     MB6StaleDraftOrDistilled,
     MB7ResourceWatchQuota,
+    MB8ShimHitCounter,
     # Semantic
     SE1DanglingRefs,
     SE2OrphanIntegrated,
     SE3LinkSelfCycle,
     SE4ReciprocalBacklink,
+    SE5VersionAnchorFreshness,
     RL1RulesReferenced,
     RL2SenseDisciplineSignal,
     RL3EatDisciplineSignal,

@@ -181,6 +181,11 @@ MB7 = "myco.homeostasis.dimensions.metabolic.mb7_resource_watch_quota:MB7Resourc
 CL2 = "myco.homeostasis.dimensions.mechanical.cl2_oauth_token_residency:CL2OAuthTokenResidency"
 CL3 = "myco.homeostasis.dimensions.mechanical.cl3_sampling_token_clear:CL3SamplingTokenClear"
 MF4 = "myco.homeostasis.dimensions.mechanical.mf4_overlay_subsystem_validity:MF4OverlaySubsystemValidity"
+# v0.7.2 additions (4 new dims for 永恒删减 / eternal-pruning ratchet):
+MB8 = "myco.homeostasis.dimensions.metabolic.mb8_shim_hit_counter:MB8ShimHitCounter"
+PA6 = "myco.homeostasis.dimensions.mechanical.pa6_repo_bloat:PA6RepoBloat"
+MF5 = "myco.homeostasis.dimensions.mechanical.mf5_generated_mirror_integrity:MF5GeneratedMirrorIntegrity"
+SE5 = "myco.homeostasis.dimensions.semantic.se5_version_anchor_freshness:SE5VersionAnchorFreshness"
 
 [tool.hatch.version]
 # Single source of truth for the package version — per L1 versioning.md.
