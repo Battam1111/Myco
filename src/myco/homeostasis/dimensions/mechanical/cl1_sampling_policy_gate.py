@@ -39,7 +39,12 @@ class CL1SamplingPolicyGate(Dimension):
 
     def run(self, ctx: MycoContext) -> Iterable[Finding]:
         sampling_path = (
-            ctx.substrate.root / "src" / "myco" / "surface" / "mcp_sampling.py"
+            ctx.substrate.root
+            / "src"
+            / "myco"
+            / "boundary"
+            / "surface"
+            / "mcp_sampling.py"
         )
         if not sampling_path.is_file():
             # Module not yet shipped (v0.6.0 lands it; downstream
@@ -58,5 +63,5 @@ class CL1SamplingPolicyGate(Dimension):
                     "mcp_sampling.py does not check canon.system.llm_policy "
                     "before enabling sampling capability (L0 P1 example #2)"
                 ),
-                path="src/myco/surface/mcp_sampling.py",
+                path="src/myco/boundary/surface/mcp_sampling.py",
             )

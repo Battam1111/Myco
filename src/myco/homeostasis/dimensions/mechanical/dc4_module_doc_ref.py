@@ -47,10 +47,6 @@ _DC4_DOCTRINE_HINTS = {
     "germination": "L2_DOCTRINE/genesis.md",
     "cycle": "L2_DOCTRINE/cycle.md",
     "boundary": "L2_DOCTRINE/boundary.md",
-    "surface": "L2_DOCTRINE/boundary.md",
-    "install": "L2_DOCTRINE/boundary.md",
-    "mcp": "L2_DOCTRINE/boundary.md",
-    "symbionts": "L2_DOCTRINE/extensibility.md",
     "core": "L2_DOCTRINE/homeostasis.md",
 }
 

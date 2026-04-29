@@ -206,7 +206,7 @@ def test_dc5_with_canon_allowlist_no_emit(genesis_substrate: Path):
 def test_cl1_with_mcp_sampling_no_gate_emits(tmp_path: Path):
     """An mcp_sampling.py without llm_policy gate → CL1 emit."""
     sub = tmp_path / "sub"
-    surf = sub / "src" / "myco" / "surface"
+    surf = sub / "src" / "myco" / "boundary" / "surface"
     surf.mkdir(parents=True)
     (surf / "mcp_sampling.py").write_text(
         "# Just a stub, no llm_policy check\n", encoding="utf-8"
@@ -251,7 +251,7 @@ def test_cl2_token_redaction_required_no_helper_emits(tmp_path: Path):
 def test_cl3_opt_in_no_clear_helper_emits(tmp_path: Path):
     """llm_policy=opt-in + no _clear_token_after_call → CL3 emit."""
     sub = tmp_path / "sub"
-    surf = sub / "src" / "myco" / "surface"
+    surf = sub / "src" / "myco" / "boundary" / "surface"
     surf.mkdir(parents=True)
     (surf / "mcp_sampling.py").write_text(
         "# stub without clear helper\n", encoding="utf-8"

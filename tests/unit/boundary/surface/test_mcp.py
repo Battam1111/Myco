@@ -581,7 +581,7 @@ def test_fastmcp_call_eat_with_flat_args_succeeds() -> None:
 
     # Need a real substrate root for eat to write to. Use the repo
     # itself — it has _canon.yaml + the write_surface includes notes/**.
-    repo_root = Path(__file__).resolve().parents[3]
+    repo_root = Path(__file__).resolve().parents[4]
     assert (repo_root / "_canon.yaml").is_file()
 
     m = load_manifest()
@@ -622,7 +622,7 @@ def test_fastmcp_call_sense_with_flat_query_arg_succeeds() -> None:
 
     from myco.boundary.surface.mcp import build_server
 
-    repo_root = Path(__file__).resolve().parents[3]
+    repo_root = Path(__file__).resolve().parents[4]
     m = load_manifest()
     server = build_server(m)
 
@@ -655,7 +655,7 @@ def test_fastmcp_none_values_dont_shadow_manifest_defaults() -> None:
 
     from myco.boundary.surface.mcp import build_server
 
-    repo_root = Path(__file__).resolve().parents[3]
+    repo_root = Path(__file__).resolve().parents[4]
     m = load_manifest()
     server = build_server(m)
 

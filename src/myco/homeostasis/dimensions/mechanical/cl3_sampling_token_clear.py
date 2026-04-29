@@ -36,7 +36,12 @@ class CL3SamplingTokenClear(Dimension):
         if system.get("llm_policy") != "opt-in":
             return
         sampling_path = (
-            ctx.substrate.root / "src" / "myco" / "surface" / "mcp_sampling.py"
+            ctx.substrate.root
+            / "src"
+            / "myco"
+            / "boundary"
+            / "surface"
+            / "mcp_sampling.py"
         )
         if not sampling_path.is_file():
             return
@@ -54,5 +59,5 @@ class CL3SamplingTokenClear(Dimension):
                     "_clear_token_after_call(); MCP token may stay "
                     "resident in substrate memory between calls"
                 ),
-                path="src/myco/surface/mcp_sampling.py",
+                path="src/myco/boundary/surface/mcp_sampling.py",
             )

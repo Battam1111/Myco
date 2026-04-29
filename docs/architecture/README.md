@@ -29,7 +29,7 @@ subordinate to the layer above it. In any conflict, the upper layer wins.
 | **L0 Vision** | `L0_VISION.md` | What Myco is — five root principles + three derived invariants + bitter-lesson appendix |
 | **L1 Contract** | `L1_CONTRACT/` | Seven hard rules (`protocol.md`) + `versioning.md` + `exit_codes.md` + `canon_schema.md` |
 | **L2 Doctrine** | `L2_DOCTRINE/` | Seven biological subsystems: `genesis.md` (Germination) / `ingestion.md` / `digestion.md` / `circulation.md` / `homeostasis.md` / `cycle.md` (6th, v0.6.0+) / `boundary.md` (7th, v0.6.0+); plus `extensibility.md` (the two orthogonal extension axes) |
-| **L3 Implementation** | `L3_IMPLEMENTATION/` | `package_map.md` + `command_manifest.md` + `migration_strategy.md` (historical) |
+| **L3 Implementation** | `L3_IMPLEMENTATION/` | `package_map.md` + `command_manifest.md` (the v0.4.0 `migration_strategy.md` is archived under `_archive/`) |
 | **L4 Substrate** | `_canon.yaml`, `notes/`, `docs/*` | The live instance |
 
 Note on filenames: `L2_DOCTRINE/genesis.md` keeps its v0.4.0 filename
