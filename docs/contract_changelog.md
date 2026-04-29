@@ -11,6 +11,25 @@ Format: one section per `contract_version`, newest first.
 
 ---
 
+## v0.7.2 - 2026-04-30 - Contract molt via `myco molt`
+
+Replaces `v0.7.1` at `_canon.yaml::contract_version`. Issued via the `myco molt --contract v0.7.2` agent-
+callable verb. `synced_contract_version` is updated in
+lockstep.
+
+### What changed
+
+(Fill in: which R1-R7 rules, subsystem definitions, exit-code
+grammar, lint-dimension semantics, or command manifest shapes
+changed. `myco molt` only records the version; the authoring
+agent is responsible for this narrative.)
+
+### Break from v0.7.1
+
+(Fill in: backward-compatibility note. If none, say so explicitly.)
+
+---
+
 ## v0.7.1 — 2026-04-30 — myco.mcp shim revival (v0.7.0 hotfix)
 
 **Zero R1-R7 surface deltas; zero new manifest verbs; zero new lint dims; zero subsystem changes; schema v2 unchanged.** This is a hotfix that **reverts** v0.7.0's `src/myco/mcp/` shim deletion after the deletion broke the substrate's own owner-Claude-Desktop config within 2 hours of release.
