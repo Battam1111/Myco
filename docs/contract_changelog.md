@@ -11,22 +11,105 @@ Format: one section per `contract_version`, newest first.
 
 ---
 
-## v0.6.15 - 2026-04-29 - Contract molt via `myco molt`
+## v0.6.15 — 2026-04-29 — Agent-First default for Cycle 自起 闭环 (correct v0.6.14 owner-First regression + 5-critic L0-P1-P5 refactor)
 
-Replaces `v0.6.14` at `_canon.yaml::contract_version`. Issued via the `myco molt --contract v0.6.15` agent-
-callable verb. `synced_contract_version` is updated in
-lockstep.
+**Zero R1-R7 surface deltas; zero new manifest verbs; zero new lint dims; zero subsystem changes; schema v2 unchanged.** Corrects v0.6.14's owner-First regression. The autopoietic loop's safety model returns to Agent-First as L0 P1 specifies. The sub-agent fanout pattern's structural blind spot — that 3 same-host critics share unconscious priors — is closed by deriving 5 critics from L0 P1-P5 directly (one per principle).
 
-### What changed
+### Why this release (owner observation)
 
-(Fill in: which R1-R7 rules, subsystem definitions, exit-code
-grammar, lint-dimension semantics, or command manifest shapes
-changed. `myco molt` only records the version; the authoring
-agent is responsible for this narrative.)
+> 我感觉还是给owner太大权限了, Myco 明明是 Agent-First.
+
+v0.6.14 (shipped same day, hours earlier) introduced two coupled canon defaults that collapsed every auto-craft path to owner-merge-gate, **inverting L0 P1's "Myco is a cognitive substrate for an LLM agent. The agent is the sole consumer."** The owner observation is structurally correct.
+
+Diagnosis: v0.6.14's sub-agent fanout used 3 critics (mycoparasite/saprotroph/mycorrhiza). All 3 shared an unstated "add more gates = safer" prior. None asked the inverse: "does this design pull humans into the substrate's loop, violating L0 P1?" Same-host critic correlation broke L0 P1 conformance.
+
+Governing craft: [`docs/primordia/v0_6_15_agent_first_default_for_cycle_autostart_loop_craft_2026-04-29.md`](primordia/v0_6_15_agent_first_default_for_cycle_autostart_loop_craft_2026-04-29.md). Round 1.5 fanout used 4 critics (3 from v0.6.14 + new endophyte 4th critic with L0_VISION.md-only visibility). 22 dedup'd tensions; 10 P0 blockers all resolved. Endophyte's T7 ("derive critics from L0 P1-P5 directly, not from observed-failure patches") drove the 5-critic outcome.
+
+### What landed
+
+#### Group A — doctrine boundaries
+
+- **`L2_DOCTRINE/cycle.md`** § "Cycle 自起 闭环": stripped "owner-merge-gate is the only synapse" + "two-step owner sign for L0/L1/L2 + R-surface PRs" wording (both endophyte-detected L0 P1 violations); added "Agent-First default (v0.6.15+)" + "Winnow gate G7" sub-sections; updated auto-loop chain diagram for 5 critics.
+- **`L2_DOCTRINE/boundary.md`** § "Sixth seam": "Three fungal critic roles" → "Five fungal critic roles (v0.6.15+, derived from L0 P1-P5)". Each critic anchored to one principle.
+
+#### Group B — canon governance defaults flipped
+
+```yaml
+auto_evolve_force_high_risk: true → false   # match v0.6.0 governance tiering
+auto_evolve_pr_window_skip:   true → false   # restore 7-session/7-day window
+auto_evolve_critic_count:        3 → 5      # one per L0 P1-P5
+```
+
+**No `auto_evolve_owner_paranoia_mode` field** (per Round 1.5 endophyte T3+T5: undeclared 3rd L0 P1 exception).
+
+#### Group C — risk_classifier extension + winnow G7 (~190 lines substrate-side guard logic, zero LLM dispatch)
+
+- `src/myco/core/risk_classifier.py`: new `classify_craft_via_path_allowlist(craft_path)` reads frontmatter `path_allowlist:`; recursion-cutter forces HIGH for any craft touching risk_classifier.py / governance.auto_evolve_* keys / .github/workflows/auto_*.yml / cycle/winnow.py / classifier tests. Closes mycoparasite T1's perpetual-motion attack.
+- `src/myco/cycle/winnow.py`: G7 gate requires `path_allowlist: list[str]` in `type: craft` frontmatter (post-2026-04-29; pre-v0.6.15 grandfathered).
+
+#### Group D — primordium 5-critic L0-P1-P5 refactor (Agent-layer)
+
+`.claude/agents/primordium.md` + `<repo>/agents/primordium.md` mirror — Autonomous mode section refactored from 3 ad-hoc role-prompts → 5 L0-P1-P5-mapped role-prompts:
+
+| Role | L0 Principle | Visibility |
+|------|-------------|------------|
+| **chytrid** (壶菌) | **P1 — Only For Agent** | L0_VISION.md only |
+| **rhizomorph** (根状菌索) | **P2 — Eternal Ingestion** | ingestion subsystem code + adapters + L0 P2 |
+| **mycoparasite** (寄生) | **P3 — Eternal Evolution** | draft only |
+| **saprotroph** (腐生) | **P4 — Eternal Iteration** | L0/L1/L2 + canon + previous crafts |
+| **mycorrhiza** (菌根) | **P5 — Universal Interconnection** | src/, tests/, .github/, .claude/, scripts/ |
+
+All 5 names are validated fungal-ecology terms. The L0 P1-P5 mapping is the load-bearing diversity guarantee — future critic additions must name an L0 principle (or revise L0).
+
+#### Group E — tests (~250 lines)
+
+- `tests/contract/test_autopoietic_loop_structural.py`: flipped force_high_risk assertion + 3 new tests (pr_window_skip default false, critic_count == 5, no paranoia_mode field). boundary.md sixth-seam check now requires all 5 fungal role names.
+- `tests/unit/core/test_risk_classifier_recursion_cutter.py` (NEW, 12 tests).
+
+### What v0.6.15 explicitly does NOT introduce
+
+- **`auto_evolve_owner_paranoia_mode`** (endophyte T3+T5): undeclared 3rd L0 P1 exception
+- **"owner = observer" role redefinition** (T2): L0 hasn't authorized it
+- **Sub-agent fanout meta-lesson in cycle.md** (T4): meta-teaching is reverse L0 P1 information flow; lives in this changelog only
+- **`.github/workflows/auto_merge.yml`** (T5, saprotroph T1): R7/R6 concern + scope; deferred to v0.6.16+ alongside canon round-trip helper
+
+### Sub-agent fanout meta-lesson (lives only here, not in doctrine)
+
+> 3 same-host critics spawned by the same parent agent under the same conditions share an "add more gates = safer" prior. They will not catch L0 P1 inversions because L0 P1 is a **reverse** constraint (reduce human-loop), and the fanout's natural inertia is the **forward** direction (add guards).
+
+The v0.6.15 mitigation is structural, not retrospective: critic shape is now derived from L0 P1-P5 directly. Each critic is anchored to one principle and cannot be conceived without naming a principle.
+
+The v0.6.14 → v0.6.15 sequence is the substrate's own demonstration: dogfood the autopoietic loop on its own owner-First regression; the 4th endophyte critic (added explicitly to scan for L0 P1 inversion) caught what the 3-critic fanout missed; endophyte's own meta-critique drove the final 5-critic L0-mapped shape.
+
+### Mechanical L0 P1 evidence
+
+- Substrate kernel (`src/myco/`) LoC delta: +~190 (risk_classifier extension + winnow G7), all guard logic. **Zero new LLM dispatch.**
+- Agent layer (`.claude/`) LoC delta: +~600 (primordium 5-critic refactor; mostly text).
+- `grep -r 'owner.*observer\|paranoia\|paranoia_mode\|owner-merge-gate is the' src/myco/ docs/architecture/L2_DOCTRINE/ .claude/agents/` post-v0.6.15: zero hits.
+
+### Test count
+
+Pytest: **1544 passed, 1 skipped** (was 1529; +15 from new tests). Coverage: **85.06%** (≥85% gate sustained).
+
+### Pre-flight evidence
+
+- ruff check: All checks passed
+- ruff format --check: 315 files clean
+- mypy src/myco: 150 source files, 0 issues
+- pytest: 1544 passed + 1 skipped, coverage 85.06%
+- myco immune: exit 0, findings 76 (= baseline; +0 incremental)
+- myco winnow on v0.6.15 craft: pass (G1-G7 all green)
 
 ### Break from v0.6.14
 
-(Fill in: backward-compatibility note. If none, say so explicitly.)
+**Two flipped canon defaults** (auto_evolve_force_high_risk + auto_evolve_pr_window_skip): substrates that explicitly opted into v0.6.14 strict behavior must set these to `true` in their substrate's `_canon.yaml` to opt back in. For substrates not opted into the autopoietic loop (`auto_propose_enabled: false` master switch — the default), nothing changes operationally.
+
+### Follow-ups deferred to v0.6.16+
+
+- Canon round-trip helper for `last_winnowed_proposals[].vetoed_at` / `.status` writes (deferred from v0.6.14).
+- `.github/workflows/auto_merge.yml` + canon-LANDED-status-driven auto-merge (operational completion of Agent-First).
+- First true-dogfood `/myco-evolve` invocation against an existing distilled note.
+- Critic role-prompt review cycle (every MAJOR release re-audits 5 critics against current L0 wording).
 
 ---
 
