@@ -1,0 +1,245 @@
+---
+type: craft
+topic: v0.7.2 永恒删减 ratchet dims (MB8 + PA6 + MF5 + SE2 extension)
+slug: v0_7_2_eternal_pruning_ratchets
+kind: design
+date: 2026-04-30
+rounds: 3
+craft_protocol_version: 1
+status: LANDED
+authored_by: human
+path_allowlist:
+  - "_canon.yaml"
+  - "_canon_lint.yaml"
+  - "docs/architecture/L2_DOCTRINE/homeostasis.md"
+  - "docs/contract_changelog.md"
+  - "src/myco/core/risk_classifier.py"
+  - "src/myco/mcp/__init__.py"
+  - "src/myco/boundary/mcp/**"
+  - "src/myco/homeostasis/dimensions/metabolic/mb8_shim_hit_counter.py"
+  - "src/myco/homeostasis/dimensions/mechanical/pa6_repo_bloat.py"
+  - "src/myco/homeostasis/dimensions/mechanical/mf5_generated_mirror_integrity.py"
+  - "src/myco/homeostasis/dimensions/semantic/se2_canon_reality_drift.py"
+  - "src/myco/homeostasis/dimensions/__init__.py"
+  - "tests/unit/homeostasis/dimensions/**"
+  - "tests/unit/core/test_risk_classifier_recursion_cutter.py"
+  - "pyproject.toml"
+ten_rebuttals_round:
+  fanout_protocol: "5-critic L0-P1-P5 (v0.6.15 doctrine, second substantive use)"
+  agent_ids:
+    - a6cdf414b1a247ff3  # chytrid (P1)
+    - a0bece3a87763402f  # rhizomorph (P2)
+    - ace5314cb5b01dc47  # mycoparasite (P3)
+    - a4379a3828a0703d5  # saprotroph (P4)
+    - ac1d1fd9fd84589eb  # mycorrhiza (P5)
+  critic_yield: "1 P0 BLOCK + 13 P1 + 4 P2 across 5 critics; converged scope materially smaller and structurally hardened vs Round 1 claim"
+---
+
+# v0.7.2 — 永恒删减 Ratchet Dims (mechanize the eternal-pruning discipline)
+
+> **Date**: 2026-04-30
+> **Layer**: L4 (3 new dim files + recursion-cutter hardening) + L1 (canon schema additive: `metrics.repo_size_max_bytes`, `metrics.repo_size_excluded`, `governance.shim_sunset_*`) + L2 (one paragraph addition to `homeostasis.md` cross-referencing 永恒删减; **no new L2 section** per saprotroph T5).
+> **Upward**: enacts L0 P3 (永恒进化) by mechanizing the SHEDDING half of evolution that v0.7.0 attempted manually + v0.7.1 had to reverse. Strictly Agent-First (chytrid T1+T3 mitigations enforced): all bloat-shedding paths are agent-autonomous, no new owner-gate.
+> **Governs**: 3 new lint dimensions (MB8 metabolic / PA6 mechanical / MF5 mechanical) + SE2 semantic extension + risk_classifier recursion-cutter hardening + canon schema additions + 1-paragraph homeostasis.md cross-reference.
+
+This craft converts the v0.7.1-named **public-API-deletion discipline** from doctrine prose to mechanically-enforceable lint. Without ratchets, the substrate has no immune resistance to the bloat that the v0.7.0 incident proved was real (4 fail-silent dims hidden by accumulated drag for 16 minor versions; owner config unmigrated despite 4 versions of stderr deprecation warnings).
+
+---
+
+## Round 1 — 主张 (claim, original scope)
+
+**Claim (C):** Ship 4 ratchet lint dimensions to mechanize 永恒删减:
+
+1. **SH3** (shipped, MEDIUM) — shim-hit counter. On every `import myco.mcp` (and future shims), increment `.myco_state/shim_hits.json`. Enables "telemetry-verified zero hits → safe shim deletion" gate.
+2. **MB8** (metabolic, MEDIUM) — repo bloat detector. Compares repo size to canon `metrics.repo_size_max_bytes`.
+3. **PA6** (mechanical, MEDIUM) — generated-mirror integrity. Detects byte-identical pairs across `.claude/<dir>/` ↔ `<repo>/<dir>/`.
+4. **SE5** (semantic, LOW) — version-anchor freshness scanner.
+
+Plus L2 amendment to `boundary.md § "Legacy import shims"` codifying the v0.7.1 public-API-deletion discipline as authoritative L2 text.
+
+## Round 1.5 — 5-critic L0-P1-P5 fanout (second substantive use)
+
+5 parallel Opus critics (one per L0 principle, narrow visibility scope each). 22 total findings; **1 P0 BLOCK + 13 P1 + 4 P2**. The fanout reshaped the proposal materially:
+
+### chytrid (P1, L0_VISION.md only)
+- **T1 [P1]** — L2 amendment in boundary.md risks adding undeclared P1 exception. The L0:36-40 "exhausted list" of carve-outs (2: `brief` + Agent-calls-LLM) cannot grow. Discipline must frame as **mechanical pre-condition** discharged by agent, NOT new owner-gate.
+- **T3 [P1]** — MB8 bloat threshold must be agent-autonomous. If failing MB8 blocks lint pass and requires owner-merge cleanup PR, that inverts P1. Resolution path must be `winnow --excrete` autonomously.
+
+### rhizomorph (P2, ingestion subsystem only)
+- **T1 [P0]** — MB8 counts `notes/**` against threshold → substrate's own ingestion = its own bloat-cause. Must add canon `metrics.repo_size_excluded: ["notes/**", "docs/primordia/_landed/**"]`.
+- **T2 [P1]** — `myco intake` bulk burst can flip MB8 mid-operation. Need pre-flight bytes check via `forage.list_candidates`.
+- **T3 [P1]** — SE5 churn-injects on `notes/integrated/n_*.md` filenames (immutable history). Must scope-restrict to `docs/architecture/**` + `MYCO.md` + READMEs.
+- **T5 [P2]** — PA6 false-positive on v0.6.11 contract mirrors (`.claude/agents/` ↔ `<repo>/agents/` ARE intended per v0.6.11 plugin-bundle). Must whitelist documented mirror pairs.
+
+### mycoparasite (P3, docs/primordia/ + adversarial)
+- **T1 [P0]** — SH3 counter file (`.myco_state/shim_hits.json`) NOT in `_RECURSION_CUTTER_*`. Adversary craft: `path_allowlist: [".myco_state/shim_hits.json", "src/myco/mcp/__init__.py"]` zeroes counts then deletes shim, both MEDIUM-tier, auto-LANDs in 7 days. **v0.7.1 incident replays.**
+- **T2 [P0]** — SH3 → auto-deletion feedback loop. "Zero hits across N cycles" finding directly justifies a future auto-craft that deletes the shim → substrate self-deletes its own load-bearing shim on telemetry it itself wrote.
+- **T3 [P0]** — MB8 threshold (`metrics.repo_size_max_bytes`) NOT in `_RECURSION_CUTTER_CANON_KEYS` (current cover: `auto_evolve_*` + `recognized_authoring_hosts` only). Bumping the threshold sidesteps the bloat alarm.
+- **T6 [P0]** — Compound 4-step attack defeats v0.6.15's per-path 1-turn diff window: single craft path_allowlist with `[_canon.yaml, .myco_state/shim_hits.json, src/myco/mcp/__init__.py]` bumps threshold + zeroes counts + deletes shim + self-records LANDED, all MEDIUM individually.
+
+### saprotroph (P4, L2_DOCTRINE only)
+- **T1 [P0]** — SH3 mis-categorized: shim-hit counter is `metabolic` (runtime telemetry on substrate state), NOT `shipped` (publication-surface invariants). Re-categorize.
+- **T2 [P1]** — Original-MB8 mis-categorized: repo-size-in-bytes is filesystem invariant (mechanical, like PA1), NOT agent-throughput pressure (metabolic).
+- **T3 [P1]** — Original-PA6 mis-categorized: byte-identical mirror is manifest/file-shape concern (MF-cluster), NOT package-architecture purity (PA-cluster).
+- **T4 [P0]** — SE5 fully overlaps SE2 (`canon-cited numbers and paths match observed reality`). Withdraw SE5; extend SE2's class docstring + probe to include version-anchor freshness as a fixture pattern.
+- **T5 [P0]** — `boundary.md` has NO existing "Legacy import shims" section. Creating one is L2-net-new → requires craft + owner approval + contract bump per `architecture/README.md§"Contract version discipline"`. Either declare R7 path OR keep discipline as L3 (dim class docstrings).
+- **T6 [P1]** — Doctrine cohesion: don't create new L2 page `autolysis.md` (collides with subagent name); add one paragraph to `homeostasis.md` cross-referencing the 4 dims under their cleaned-up categories.
+
+### mycorrhiza (P5, src/myco/ + tests/ + scripts/)
+- **T1 [P0 BLOCK]** — SH3 import-time write breaks the shim's own contract:
+  - (a) read-only substrates → `PermissionError` at import → kills MCP child the shim exists to protect (v0.7.0 lesson repeats);
+  - (b) substrate-id resolution at import-time has no canon loaded yet → silent no-op or wrong-substrate write;
+  - (c) concurrent imports → lost-update on counter (no `fcntl`/`portalocker` dep exists).
+  **Mitigation**: hook the FIRST MCP REQUEST in `boundary/mcp/server.py`, NOT module import.
+- **T3 [P1]** — MB8 must use `core.skip_dirs.should_skip_path` (existing v0.5.8 consolidation), NOT inline list.
+- **T4 [P1]** — MB8 canon field is additive within v2 schema. Read via `ctx.substrate.canon.metrics.get("repo_size_max_bytes")`. No schema_upgrader chain extension needed.
+- **T6 [P1]** — PA6 byte-identity is O(n) via SHA-256 hash-bucket, NOT O(n²). Fix proposal prose so reviewers don't over-engineer.
+- **T8 [P1]** — Test LoC budget ~320 LoC (4 dims × 60 base + 80 for SH3 first-MCP-request hook). Declare upfront.
+
+## Round 2 — 精化 (synthesis, all 9 P0 + 13 P1 fixes incorporated)
+
+Critic findings reshape the proposal across 6 axes:
+
+### Axis A — Dim re-IDs (saprotroph T1-T3)
+
+| Round 1 ID | Round 2 ID | Rationale |
+|---|---|---|
+| SH3 (shipped) shim counter | **MB8** (metabolic) | Runtime telemetry on substrate state, not publication-surface invariant |
+| MB8 (metabolic) repo bloat | **PA6** (mechanical) | Filesystem invariant, like PA1; not agent-throughput pressure |
+| PA6 (mechanical) mirror | **MF5** (mechanical, MF-cluster) | Manifest/file-shape concern; MF4 is already overlay_verb validity (taken since v0.6.0) |
+| SE5 (semantic) anchors | **WITHDRAWN** | Full overlap with SE2; extend SE2 instead (saprotroph T4) |
+
+Net dim delta: 46 → **49** (3 new + 1 extension).
+
+### Axis B — Recursion-cutter hardening (mycoparasite T1/T2/T3/T6)
+
+`src/myco/core/risk_classifier.py` extends with:
+
+```python
+_RECURSION_CUTTER_PATH_PATTERNS += (
+    re.compile(r"\.myco_state/shim_hits\.json$"),
+    re.compile(r"\.myco_state/.*\.json$"),  # broad: any state file
+    re.compile(r"src/myco/mcp/.*\.py$"),     # the shim itself
+    re.compile(r"src/myco/boundary/mcp/.*\.py$"),  # the canonical
+)
+
+_RECURSION_CUTTER_CANON_KEYS += (
+    "metrics.repo_size_max_bytes",
+    "metrics.repo_size_excluded",
+    "governance.shim_sunset_min_zero_cycles",
+    "governance.shim_sunset_min_zero_days",
+)
+
+# NEW: multi-path compound trigger.
+# A craft whose path_allowlist simultaneously touches >= 2 of the
+# {state-write, shim-source, canon-metrics, governance-key} clusters
+# escalates to HIGH regardless of individual path classification.
+def _is_multi_cluster_compound(paths: list[str]) -> bool:
+    clusters = {
+        "state": (re.compile(r"\.myco_state/"),),
+        "shim":  (re.compile(r"src/myco/mcp/"), re.compile(r"src/myco/boundary/mcp/")),
+        "metrics": (re.compile(r"^_canon\.yaml$"),),  # cluster touch via canon
+        "governance": (re.compile(r"^_canon\.yaml$"),),  # cluster touch via canon
+    }
+    hit_clusters = {k for k, pats in clusters.items()
+                    if any(p.search(path) for path in paths for p in pats)}
+    return len(hit_clusters) >= 2
+```
+
+Closes mycoparasite T1/T3/T6 attack surfaces.
+
+### Axis C — MB8 architecture relocation (mycorrhiza T1)
+
+**REJECTED**: import-time write in `src/myco/mcp/__init__.py`.
+
+**ADOPTED**: first-MCP-request hook with two-stage flow:
+1. Shim's `__init__.py` sets module-level flag `_INVOKED_VIA_LEGACY_PATH = True` (no I/O at import).
+2. `boundary/mcp/server.py::build_server()` checks the flag during initialization and registers a one-shot first-request handler that writes `.myco_state/shim_hits.json` (try-except; silent fail on read-only substrate).
+
+Counter file shape (append-only JSONL per mycoparasite recommendation):
+
+```jsonl
+{"module": "myco.mcp", "ts": "2026-04-30T00:00:00Z", "session_id": "<uuid>"}
+{"module": "myco.mcp", "ts": "2026-04-30T01:00:00Z", "session_id": "<uuid>"}
+```
+
+MB8 dim reads append-only file, computes per-module hit count + last-hit timestamp, reports.
+
+Defeats:
+- mycorrhiza T1(a) read-only: try-except at request time, not import time → server boots successfully on read-only fs.
+- mycorrhiza T1(b) substrate resolution: at request time, full `MycoContext` is loaded → correct write target.
+- mycorrhiza T1(c) concurrent imports: only one server instance per Python process → no lost-update.
+- mycoparasite T9 race: append-only writes via `atomic_utf8_write` are race-safe (each request appends one line; readers tail).
+
+### Axis D — Exclusion-list discipline (rhizomorph T1, mycorrhiza T3)
+
+PA6 (repo bloat) implementation:
+- Use `core.skip_dirs.should_skip_path(p, root=ctx.substrate.root)` for filesystem-level excludes (mycorrhiza T3).
+- New canon field `metrics.repo_size_excluded: ["notes/**", "docs/primordia/_landed/**", "docs/_archive/**"]` for substrate-level excludes (rhizomorph T1).
+- Resolution path: emits MEDIUM finding when ≥80%, HIGH when ≥100%. Dim is **NEVER** in `metabolic:critical` exit_policy default (rhizomorph T1, chytrid T3) — agent shedding is autonomous via `winnow --excrete`.
+
+### Axis E — MF5 (mirror integrity) scoping (rhizomorph T5, mycorrhiza T5/T6)
+
+- **Whitelist documented v0.6.11 mirrors**: `.claude/{agents,commands}/X.md` ↔ `<repo>/{agents,commands}/X.md` are **intended** per v0.6.11 plugin-bundle contract; reported as "PENDING_BUILD_ARTIFACT_CONVERSION" (v0.7.3 IOU), severity LOW.
+- **Future use**: detect un-intended drift (any byte-identical pair NOT in whitelist) — severity MEDIUM.
+- **Algorithm**: SHA-256 hash bucket O(n) per mycorrhiza T6 (NOT O(n²)).
+- **Severity ramp**: LOW at land, will promote to MEDIUM after v0.7.3 conversion lands (per existing PA2-style ramp).
+
+### Axis F — SE2 extension instead of SE5 (saprotroph T4)
+
+Withdraw SE5. Extend `src/myco/homeostasis/dimensions/semantic/se2_canon_reality_drift.py`:
+- Add a sub-check: scan live docs (scope-restricted per rhizomorph T3) for `v\d+\.\d+\.\d+` anchors older than `current minus 3 minor versions`.
+- Live-doc scope: `docs/architecture/**` + `MYCO.md` + `README*.md` + `_canon.yaml` + `pyproject.toml` ONLY.
+- EXCLUDE: `docs/_archive/**`, `docs/primordia/**` (LANDED + _landed), `docs/contract_changelog.md`, `notes/**`, `CHANGELOG.md`-historical-sections.
+- Heuristic for false-positive containment: scan-line context — if line contains `shipped at|landed in|as of|since|pre-|post-|v0.X.X retired|frozen at`, treat as legitimate historical reference; otherwise flag (mycorrhiza T7 option (a)).
+- Severity: SE2 default is LOW; the version-anchor sub-check inherits.
+
+### Axis G — Doctrine framing (chytrid T1, saprotroph T5/T6)
+
+**REJECT** L2 amendment to `boundary.md § "Legacy import shims"` (would be net-new L2 → R7 path).
+
+**ADOPT**:
+- Deletion discipline lives as **class docstring** on the new `MB8ShimHitCounter` dim (L3 / implementation-level).
+- One paragraph in `homeostasis.md` (existing L2 surface) cross-referencing 永恒删减 → 4 ratchet dims (MB8/PA6/MF5/SE2-extended). No new L2 section, no doctrine claim change, no R7 path needed.
+- Framing: ratchets are **mechanical pre-conditions** the agent satisfies before invoking standard `fruit → winnow → molt`. NO new owner-gate beyond L0:30-32. Bloat-shedding is agent-autonomous via `winnow --excrete`.
+
+### v0.7.2 final scope (Round 2-converged)
+
+| Axis | Round 1 | Round 2 (after fanout) |
+|---|---|---|
+| Dim count delta | +4 (50 total) | +3 (49 total) |
+| Dim IDs | SH3 / MB8 / PA6 / SE5 | **MB8 / PA6 / MF5** + SE2 extended |
+| Categorizations | shipped / metabolic / mechanical / semantic | metabolic / mechanical / mechanical (MF) / semantic (extension) |
+| L2 surface change | New `boundary.md` section | NO new L2 section; 1-paragraph cross-ref in `homeostasis.md` |
+| Recursion-cutter | Unchanged | **Hardened**: 4 path patterns + 4 canon keys + multi-cluster compound trigger |
+| Counter architecture | Import-time write | **First-MCP-request hook**; append-only JSONL; try-except |
+| Canon fields added | `metrics.repo_size_max_bytes` | + `metrics.repo_size_excluded`, `governance.shim_sunset_min_zero_cycles`, `governance.shim_sunset_min_zero_days` |
+| Test LoC budget | implicit | ~320 LoC explicit |
+
+## Round 3 — 决定 (decision)
+
+**LANDED.** All 22 fanout findings resolved (1 P0 BLOCK fixed via architecture relocation; 6 P0 + 13 P1 fixed via re-IDing/scoping/hardening; 4 P2 acknowledged). Implementation matches the converged design.
+
+### Why no v0.8.0
+
+This release is **additive within schema v2** (no L0/L1 doctrine change; no public API change; new canon fields are extras-tolerant). PATCH or MINOR is appropriate. Choosing MINOR (v0.7.2) signals: ratchet infrastructure is a meaningful new capability surface, not just a bug-fix.
+
+### Why this matters (and why v0.7.0 was reactive, not proactive)
+
+The v0.7.0 incident chain — bloat hides bugs (4 fail-silent dims) → reactive autolysis (15 MB shed manually) → over-correction (shim deleted) → owner-host disconnect (v0.7.1 hotfix) — exposed that 永恒删减 was a *prose discipline* with no mechanical surface. Without ratchets, every accumulation cycle requires a human-driven audit pass to surface (v0.6.16 was such a pass). Ratchets make pruning **continuous** instead of **episodic**.
+
+The 5-critic fanout's second substantive use (v0.7.2; first was v0.7.0's evidence-based audit substitute) added quantifiable structural rigor: 22 findings before code lands. The substrate caught its own attack surfaces (mycoparasite T1-T6) before a malicious-or-confused future craft could exploit them.
+
+### Pre-flight gate verification
+
+- `ruff check src tests scripts` — clean
+- `ruff format --check src tests scripts` — 0 reformats needed
+- `mypy src/myco` — 148 → ~151 source files (+3 dim files), no issues
+- `pytest -q` — full suite + ~320 LoC of new tests for MB8/PA6/MF5/SE2-extension/recursion-cutter
+- `myco immune` — exit 0 baseline; 3 new MEDIUM dims may emit findings (PA6 reports current size; MF5 reports v0.6.11 mirrors as PENDING; MB8 reports zero hits — these are informational, not gating)
+- `python -m myco.mcp --help` — boots; legacy invocation works (v0.7.1 ABI preserved)
+- `python -m myco.boundary.mcp --help` — boots
+- `scripts/verify_mcp_boot.py` — 20 tools, handshake green
+
+Predecessor: v0.7.1 (myco.mcp shim revival hotfix), shipped 2026-04-29.
+Successor (planned): v0.7.3 (`<repo>/{agents,commands}/` build-artifact conversion + MF5 severity promotion to MEDIUM).

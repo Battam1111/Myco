@@ -70,3 +70,9 @@ dimensions:
   CL2: mechanical
   CL3: mechanical
   MF4: mechanical
+  # v0.7.2 additions (4 new dims; 永恒删减 / eternal-pruning ratchet
+  # per craft v0_7_2_eternal_pruning_ratchets_craft_2026-04-30.md).
+  MB8: metabolic
+  PA6: mechanical
+  MF5: mechanical
+  SE5: semantic
