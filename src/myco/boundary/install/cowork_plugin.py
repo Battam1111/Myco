@@ -1,7 +1,7 @@
 """Cowork-plugin install support — v0.5.20 rewrite.
 
 Governing doctrine:
-``docs/architecture/L3_IMPLEMENTATION/symbiont_protocol.md`` — per-host
+``docs/architecture/L2_DOCTRINE/boundary.md`` — per-host
 axis of the extensibility model.
 
 **v0.5.19 was wrong.** That release shipped an installer that wrote

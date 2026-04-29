@@ -1,6 +1,6 @@
 """Claude Code symbiont (v0.6.0).
 
-Governing doctrine: ``docs/architecture/L3_IMPLEMENTATION/symbiont_protocol.md``.
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/boundary.md``.
 
 Claude Code already has the deepest Myco integration: the
 ``.claude-plugin/`` bundle ships hooks (SessionStart→hunger /

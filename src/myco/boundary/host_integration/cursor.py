@@ -1,6 +1,6 @@
 """Cursor symbiont (v0.6.0).
 
-Governing doctrine: ``docs/architecture/L3_IMPLEMENTATION/symbiont_protocol.md``.
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/boundary.md``.
 
 Cursor 2.0 (2026-Q1) added background-agent + git-worktree support
 and persistent rules at ``~/.cursor/rules/<name>.mdc``. This adapter

@@ -1,6 +1,6 @@
 """VS Code symbiont (v0.6.0).
 
-Governing doctrine: ``docs/architecture/L3_IMPLEMENTATION/symbiont_protocol.md``.
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/boundary.md``.
 
 VS Code's MCP support is project-scoped via ``.vscode/mcp.json``
 (written by ``myco-install host vscode``). v0.6.0 deep-install adds

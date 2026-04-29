@@ -1,6 +1,6 @@
 """Per-client MCP config writers.
 
-Governing doctrine: ``docs/architecture/L3_IMPLEMENTATION/symbiont_protocol.md``
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/boundary.md``
 (per-host axis of the extensibility model described in
 ``docs/architecture/L2_DOCTRINE/extensibility.md``).
 

@@ -1,6 +1,6 @@
 """Cline symbiont (v0.6.0).
 
-Governing doctrine: ``docs/architecture/L3_IMPLEMENTATION/symbiont_protocol.md``.
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/boundary.md``.
 
 Cline (cline.bot) supports MCP servers via its v3.4 MCP Marketplace.
 Detection looks for the VS Code extension storage path. Deep-install
