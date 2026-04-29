@@ -11,6 +11,80 @@ Format: one section per `contract_version`, newest first.
 
 ---
 
+## v0.7.1 — 2026-04-30 — myco.mcp shim revival (v0.7.0 hotfix)
+
+**Zero R1-R7 surface deltas; zero new manifest verbs; zero new lint dims; zero subsystem changes; schema v2 unchanged.** This is a hotfix that **reverts** v0.7.0's `src/myco/mcp/` shim deletion after the deletion broke the substrate's own owner-Claude-Desktop config within 2 hours of release.
+
+### Incident
+
+v0.7.0 shipped at 2026-04-29T16:45Z with the `myco.mcp` back-compat shim deleted under the assumption that 4 versions of `DeprecationWarning` (v0.6.13 → v0.6.16) had migrated all downstream consumers. Within ~2 hours the substrate's own owner-Claude-Desktop MCP host raised:
+
+```
+C:\Python313\python.exe: No module named myco.mcp
+[error] Server disconnected
+```
+
+Owner's `claude_desktop_config.json` had `"args": ["-m", "myco.mcp"]` — the legacy path. The deprecation warnings emitted to stderr were never read by the host UI or the owner across 4 versions of notice. The shim deletion cascaded into immediate substrate inoperability for the owner's Claude Desktop instance.
+
+### Root cause
+
+The v0.7.0 craft's "load-bearing assumption" stated: "Internal codebase has zero `from myco.mcp` consumers (verified pre-execution); only external downstream substrates importing the legacy path are affected, and they were already being warned via DeprecationWarning since v0.6.13."
+
+The hidden flaw: **the substrate has no telemetry surface to verify "external" consumer count**. The deletion was executed against a claim ("no downstream consumer") that was unverifiable. It should have been classified P0 BLOCK rather than load-bearing assumption.
+
+### What changed
+
+#### Group A — Shim restoration
+
+- **`src/myco/mcp/__init__.py`** (75 LoC, recovered via `git show 7c4e7d5~1:src/myco/mcp/__init__.py`). Updated docstring §"Scheduled removal" from "no earlier than v0.7.0" to **"indefinite, gated on SH3 telemetry or v1.0.0 stable freeze"** with the v0.7.0 incident named in the body.
+- **`src/myco/mcp/__main__.py`** (22 LoC, same recovery path).
+- **`tests/unit/boundary/test_legacy_mcp_shim.py`** (133 LoC, 5 tests verifying import resolution + re-export integrity + boot + warning emission).
+- **Stderr deprecation copy** updated to name the v0.7.0 incident.
+
+#### Group B — Owner-config migration (out-of-band, not committed)
+
+- `%APPDATA%/Claude/claude_desktop_config.json` updated: `args=["-m", "myco.mcp"]` → `args=["-m", "myco.boundary.mcp"]`. The owner's substrate now boots via the canonical path; the shim continues to serve any other downstream consumer with a still-stale legacy config.
+
+### New substrate doctrine (deferred for L2 amendment)
+
+A **public-API deletion discipline** is now load-bearing. From v0.7.1+, a shim deletion candidate must satisfy ONE of:
+
+- **(a) Internal-only verification** — `grep` returns zero hits across `src/`, `tests/`, `scripts/`, `examples/` AND the path is NOT exposed via any CLI or MCP host entry point AND no plugin manifest declares the path.
+- **(b) Telemetry verification** — substrate has run for N senesce cycles with a shim-hit counter (introduced by SH3 dim, future) showing zero hits.
+
+v0.7.0 satisfied (a) only for internal imports. It missed "exposed via plugin host config." That gap produced the regression. This discipline lands in `docs/architecture/L2_DOCTRINE/boundary.md` § "Legacy import shims" as a craft-driven amendment in a follow-up doc-only molt; the v0.7.1 hotfix does not amend L2 to keep the hotfix path tight.
+
+### Break from v0.7.0
+
+**REVERSAL of v0.7.0's sole public API break.** `from myco.mcp import build_server, main` works again at v0.7.1 — same shape it had at v0.6.16. Downstream substrates whose host configs still spell `python -m myco.mcp` continue to operate (with a louder stderr deprecation pointer). The "removed at v0.7.0" claim in the v0.7.0 contract_changelog is **superseded** by this entry's "removal indefinite, gated on telemetry."
+
+**No other backward-compat impact.** v0.7.0's other deletions (legacy_v0_3, dist stale wheels, unused assets, dead digestion modules, test consolidation, doc archives) are ALL preserved. v0.7.1 reverses ONLY the `src/myco/mcp/` shim deletion + restores its test.
+
+### What did NOT change
+
+- All 7 R-rules: identical text.
+- All 7 subsystems: identical doctrine.
+- All 46 lint dimensions: identical roster, severities, fixability.
+- All 20 verbs: identical manifest, CLI, MCP shape.
+- v0.7.0's structural compaction (15 MB / 388 files deleted, 11.5K LoC archived, 4 fail-silent dim fixes): all preserved.
+- Schema v2 shape: unchanged.
+
+### Pre-flight gate verification
+
+- `ruff check src tests scripts` — clean
+- `ruff format --check src tests scripts` — 297 files formatted
+- `mypy src/myco` — 148 source files, no issues
+- `pytest -q` — **1532 passed, 1 skipped** (up from v0.7.0 baseline of 1525, +7 from restored shim test suite)
+- `myco immune` — exit 0 baseline preserved
+- `python -m myco.mcp --help` — boots successfully (legacy invocation works)
+- `python -m myco.boundary.mcp --help` — boots successfully (canonical invocation works)
+- `scripts/verify_mcp_boot.py` — 20 tools, handshake green
+
+Governing craft: [`docs/primordia/v0_7_1_shim_revival_craft_2026-04-30.md`](primordia/v0_7_1_shim_revival_craft_2026-04-30.md).
+Predecessor: v0.7.0 (Major Autolysis), shipped 2026-04-29.
+
+---
+
 ## v0.7.0 — 2026-04-30 — Major Autolysis (structural compaction + de-redundantization)
 
 **Zero R1-R7 surface deltas; zero new manifest verbs; 4 lint-dim correctness fixes (no inventory change); zero subsystem changes; schema v2 unchanged. ONE public API break**: `from myco.mcp import *` (v0.6.13 back-compat shim) deleted; downstream consumers must use `from myco.boundary.mcp import *`. DeprecationWarning has surfaced this since v0.6.13.
