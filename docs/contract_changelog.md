@@ -11,6 +11,157 @@ Format: one section per `contract_version`, newest first.
 
 ---
 
+## v0.6.14 — 2026-04-29 — Cycle 自起 fruit—winnow—molt 闭环 + sub-agent fanout craft critique pattern
+
+**Zero R1-R7 surface deltas; zero new manifest verbs; zero new lint dims; zero subsystem changes; schema v2 unchanged.** Mechanizes the bridge from sporulate (distilled note) to a candidate kernel mutation, with owner-merge-gate as the only remaining synapse. Substrate kernel adds **0 lines of LLM dispatch**; the autopoietic loop runs entirely in the Claude Code Agent layer (Agent tool sub-agent fanout — analogous host-mediated mechanism to v0.6.0's existing exception #2 for `myco fruit` content authoring via MCP `sampling`).
+
+### Why this release (owner observation 2026-04-29)
+
+After the neat-freak ingestion exercise earlier the same day, the owner observed:
+
+> 通过这次实践，我是明白了一件事情，就是 Myco 吃完之后似乎并不会直接进化自己的内核啊？
+
+The metabolic flow (`eat → assimilate → sporulate`) and the morphogenetic flow (`fruit → winnow → molt`) were doctrinally separated and procedurally bridged by 5 manual agent-prose handoffs. Most insights captured in distilled notes never reached the kernel because the bridge was too long. v0.6.14 mechanizes 4 of 5 handoffs.
+
+Governing craft: [`docs/primordia/v0_6_14_cycle_autostart_fruit_winnow_molt_loop_craft_2026-04-29.md`](primordia/v0_6_14_cycle_autostart_fruit_winnow_molt_loop_craft_2026-04-29.md). Round 1.5 was authored via 3 real parallel Agent tool calls (mycoparasite / saprotroph / mycorrhiza fungal critics with disjoint visibility scopes). 28 raw tensions → 17 dedupe + 1 derived → 8 P0 blockers all resolved before any code was written. agentIds preserved in craft frontmatter for audit.
+
+### The auto-loop chain
+
+```
+eat → assimilate → sporulate (distilled note)
+                       │
+                       │  /myco-evolve <slug>  (manual trigger; owner runs)
+                       ▼
+                  primordium (autonomous mode)
+                  Spawns 3 parallel sub-agents via Task tool, each with
+                  disjoint visibility: mycoparasite (draft only) / saprotroph
+                  (doctrine only) / mycorrhiza (src only). Synthesizes
+                  Round 1.5 T-tensions; HIGH veto from any critic forces
+                  abort to DRAFT. Round 2 + Round 3.
+                       │ if LANDED
+                       ▼
+                  winnow (shape gate)
+                       │
+                       ▼
+                  hypha (read-only feasibility trace)
+                       │
+                       ▼
+                  anamorph (only if schema delta needed)
+                       │
+                       ▼
+                  stipe --branch-only
+                  Branch: fruiting/<slug>-<YYYY-MM-DD> (fungal taxonomy;
+                  NOT "auto-craft/"). Implements scope per craft path_allowlist
+                  (anti-prompt-injection guard); runs gate quintet; commits;
+                  pushes branch (NOT main); opens PR via gh pr create with
+                  ≤300-char summary + repo-relative path link (NOT full text;
+                  prevents internal-path leakage).
+                       │
+                       ▼
+                  Owner: merge to ship, OR close-without-merge.
+                  - merge → kernel evolves
+                  - close-without-merge → auto_revert.yml deletes branch +
+                    posts vetoed_intent JSON to substrate-wide tracking issue
+                  - next senesce reaps tracking-issue comments → queues
+                    .myco_state/auto_evolve_vetoed_pending.json
+```
+
+### What landed (Group A: doctrine boundaries)
+
+- **`L2_DOCTRINE/cycle.md`** gains §"Cycle 自起 fruit—winnow—molt 闭环 (v0.6.14+)" describing the auto-loop chain, sub-agent fanout protocol, governance.auto_evolve_force_high_risk owner-gate, vetoed_intent reaping path, convergence + budget guards, and the mechanical L0 P1 evidence claim.
+- **`L2_DOCTRINE/boundary.md`** gains §"Sixth seam: GitHub-side critic-fanout + auto-revert (v0.6.14+)" describing /myco-evolve as 6th slash, fungal critic taxonomy, auto_revert.yml, MP1 host-signature extension, plugin-mirror discipline, and 6th surface invariant ("auto-craft branches use `fruiting/<slug>-<date>` prefix").
+- **`src/myco/providers/`** excreted (`__init__.py` + `README.md` deleted). Reserved at v0.5.6 as named, path-scoped, canon-gated escape hatch from MP1; through 7 minor releases (v0.5.6 → v0.6.13) it remained empty by design. v0.6.14's auto-loop runs entirely in the Agent layer; the kernel-side escape hatch is unused infrastructure. Future provider coupling, if ever needed, requires its own L0 P1 amendment craft and a fresh contract-bumping `molt` — NOT a pre-baked escape hatch sitting empty for years. Historical note migrated to boundary.md "Future axis".
+- **`_canon.yaml::system.llm_policy`** enum reduced 3 → 2 values (`forbidden`, `opt-in`). Drops `providers-declared` per the providers/ excretion above.
+
+### What landed (Group B: 11 new canon governance fields, all opt-in defaults)
+
+```yaml
+# v0.6.14 Cycle 自起 fruit—winnow—molt 闭环
+governance:
+  # ... (existing fields preserved) ...
+  auto_propose_enabled: false                          # Master switch
+  auto_evolve_min_wall_clock_seconds_between: 600      # Rate limit (10 min)
+  auto_evolve_critic_count: 3                          # mycoparasite + saprotroph + mycorrhiza
+  auto_evolve_branch_prefix: "fruiting/"               # Fungal taxonomy
+  auto_evolve_distilled_hash_cooldown_senesce: 7       # Anti-feedback loop
+  auto_evolve_force_high_risk: true                    # Forces owner-gate
+  auto_evolve_pr_window_skip: true                     # PR-merge is sole gate
+  auto_evolve_min_distilled_severity: medium           # LOW distilled doesn't trigger
+  auto_evolve_daily_budget_usd: null                   # Owner-set cap
+  auto_evolve_tracking_issue_id: null                  # Seed via seed script
+  recognized_authoring_hosts:                          # MP1 host-signature whitelist
+    - "claude-code-agent"
+    - "cursor-agent"
+    - "claude-desktop-agent"
+    - "cowork-agent"
+    - "human"
+```
+
+### What landed (Group C: 5 boundary surfaces, all in Agent layer with plugin-mirror discipline)
+
+- **`.claude/agents/primordium.md`** + `<repo>/agents/` mirror: gains §"Autonomous mode (v0.6.14+ — Round 1.5 critic fanout)" with quarantine pre-step, 3 fungal critic role-prompt templates (mycoparasite / saprotroph / mycorrhiza, real fungal-ecology terms), severity rubric, veto-vote semantics. Frontmatter `tools:` adds `Task`. Recursion-forbidden line explicitly excepts primordium-only autonomous mode; the other 4 subagents (hypha / autolysis / stipe / anamorph) preserve their forbiddance.
+- **`.claude/commands/myco-evolve.md`** + mirror (new): orchestrator slash command. 7 pre-flight gates (master switch, tracking issue seeded, rate limit, daily budget, distilled-hash cooldown, severity threshold, distilled exists). 8-step orchestration chain. Refusal vs halt semantics documented.
+- **`.claude/agents/stipe.md`** + mirror: gains §"--branch-only mode (v0.6.14+ — for the auto-evolve loop)" with phase delta vs default 9-phase pipeline, branch-only invocation contract (--target-craft + --path-allowlist + --branch-only flags), PR body construction (privacy-conscious: ≤300-char summary + repo-relative path, never full craft text), refusal modes specific to --branch-only mode (canon master switch off, rate limit hit, budget exceeded, distilled hash cooldown, no tracking issue, path_allowlist touches L0/L1/protocol).
+- **`.github/workflows/auto_revert.yml`** (new): triggers on `pull_request.closed && !merged && head_ref starts-with fruiting/`. Deletes branch via `gh api DELETE`; posts `vetoed_intent` JSON comment to substrate-wide tracking issue. Idempotent + deny-by-default permissions (contents: read at top-level, contents: write only at job level for branch deletion).
+- **`scripts/seed_auto_evolve_tracking_issue.py`** (new): one-shot script that creates the substrate-wide tracking issue via `gh issue create` and writes the issue number to `_canon.yaml::system.governance.auto_evolve_tracking_issue_id`. Idempotent (subsequent runs no-op).
+
+### What landed (Group D: 2 substrate-side mechanical guards — substrate's only changes)
+
+Both are guards, not LLM dispatch. The substrate kernel's L0 P1 stance is unchanged.
+
+- **`src/myco/homeostasis/dimensions/mechanical/mp1_no_provider_imports.py`** extended:
+  - **Part 1** (existing v0.5.6 behavior): scan `src/myco/**` for LLM provider SDK imports. **Provider/ path-skip removed** (directory excreted; nonexistence is stronger guard).
+  - **Part 2** (new v0.6.14): scan `docs/primordia/*.md` files with `type: craft` frontmatter for required `authored_by:` field naming a recognized host from `canon.governance.recognized_authoring_hosts`. Crafts without recognized signature → HIGH finding → winnow refuses. Non-craft primordia (handoff notes, audits, design-notes, release-notes) are exempt — host-signature is craft-specific.
+- **`src/myco/cycle/senesce.py`** full mode gains `_reap_vetoed_intents` step that reads new `vetoed_intent` comments via `gh issue view` (shell-out; no LLM call), parses JSON blobs from comment bodies, and queues them to `.myco_state/auto_evolve_vetoed_pending.json`. Cursor-tracked + idempotent. Canon round-trip (writing `vetoed_at:` into `last_winnowed_proposals[]`) is **deferred to v0.6.15+** with a dedicated atomic-canon-write helper that preserves comments + ordering. The pending-queue file IS the source of truth for vetoed_at until then.
+
+### What landed (Group E: tests + bookkeeping)
+
+- **`tests/contract/test_autopoietic_loop_structural.py`** (new, ~360 lines, 18 test functions): structural contract tests covering canon governance fields (11 new with type checks), L0 vocabulary discipline (branch prefix is `fruiting/`, NOT `auto-craft/`), MP1 host-signature scope (every `type: craft` craft has `authored_by:`), providers/ excretion, llm_policy enum reduction, sixth-seam doctrine sections, myco-evolve plugin-mirror byte-identity, stipe `--branch-only` declaration, auto_revert.yml shape, seed script existence + AST validity. **Does NOT mock the Task tool** — behavioral validation is human integration testing post-merge.
+- **`tests/unit/boundary/test_subagent_and_command_surface.py`** extended: `_EXPECTED_COMMANDS` 5 → 6 (adds `myco-evolve`); docstring `v0.6.11+ → v0.6.14+`; new tests `test_only_primordium_has_task_in_tools` + `test_only_primordium_mentions_autonomous_mode` prevent the autonomous-mode exception from accidentally proliferating to other subagents.
+- **`tests/unit/verbs/senesce/test_senesce.py`**: payload-shape test gains `vetoed_intent_reap` key.
+- **`tests/unit/homeostasis/dimensions/test_mp1_no_provider_imports.py`**: `test_mp1_ignores_providers_directory` replaced with `test_mp1_no_longer_ignores_providers_directory` asserting the v0.6.14 path-skip removal.
+- **20 craft files in `docs/primordia/`** gain `authored_by: human` frontmatter (5 from earlier session in scope; 15 legacy crafts bulk-added via one-shot Python script). The v0.6.14 craft itself carries `authored_by: claude-code-agent`.
+
+### Mechanical L0 P1 evidence (the load-bearing claim of v0.6.14)
+
+| Layer | LoC delta | Nature |
+|-------|-----------|--------|
+| **Substrate kernel** (src/myco/) | +~70 / -135 | Guards (MP1 ext + senesce reaper) + providers excretion. **Zero new LLM dispatch.** |
+| **Agent layer** (.claude/, .github/, scripts/) | +~2400 / -0 | Subagent specs, slash command, workflow, seed script — all prose instructions to LLMs running in Claude Code, not in substrate process. |
+
+`grep -r 'Task\|sampling\|provider' src/myco/cycle/` returns zero v0.6.14-added hits. The autopoietic loop's intelligence lives entirely in the Agent layer (Claude Code's Task tool sub-agent fanout, analogous to MCP sampling — both are host-mediated mechanisms that do not require substrate-side provider SDK imports).
+
+### Test count
+
+Pytest: **1504 passed + 1 skipped** (was 1475; +29 from new contract test + extended boundary surface tests + the senesce reaper payload key).
+
+### Pre-flight evidence
+
+- ruff check src tests scripts: **All checks passed**
+- ruff format --check src tests scripts: **313 files clean**
+- mypy src/myco: **150 source files, 0 issues** (was 151; -1 from providers/ excretion)
+- pytest -q -n auto --dist loadfile: **1504 passed, 1 skipped** (~40s)
+- myco immune: **exit 0, findings 76** (= baseline pre-v0.6.14; +0 incremental — MP1 host-signature check passes on all 20 authored_by:-tagged crafts)
+
+### Break from v0.6.13
+
+**None for kernel users.** The autopoietic loop is opt-in via `canon.governance.auto_propose_enabled: false` (default). Existing substrates that don't enable the loop see no behavioral change. The MP1 host-signature requirement applies to crafts going forward; v0.6.13 substrates with no `authored_by:` field on their existing crafts will see HIGH findings on next `myco immune` run **only on `type: craft` files**, and the fix is a single-line frontmatter addition (`authored_by: human`).
+
+For substrate authors enabling the autopoietic loop on their own substrate:
+1. Set `canon.governance.auto_propose_enabled: true`.
+2. Run `python scripts/seed_auto_evolve_tracking_issue.py` to seed the tracking issue.
+3. Set `canon.governance.auto_evolve_daily_budget_usd: <number>` if desired.
+4. Mark distilled notes for auto-evolve consideration with `auto_propose: true` in their frontmatter (per craft Round 2 R-T2; the cooldown + severity gates still apply).
+
+### Follow-ups deferred to v0.6.15+
+
+- Canon round-trip helper for `last_winnowed_proposals[].vetoed_at` (currently queued in `.myco_state/auto_evolve_vetoed_pending.json`).
+- Two-step owner sign for L0/L1/L2 + R-surface PRs (`/sign auto-craft` comment requirement).
+- `myco ramify --agent <name>` + `--command <name>` flag extensions (deferred since v0.6.11; not load-bearing for v0.6.14 either).
+- First true-dogfood run of `/myco-evolve` against the existing neat-freak distilled note (`notes/distilled/d_khazix-neat-freak-isomorphism-with-myco-senesce.md`) to validate the chain end-to-end.
+
+---
+
 ## v0.6.13 — 2026-04-28 — Restore `myco.mcp` legacy import as back-compat shim
 
 **Zero R1-R7 surface deltas; zero new manifest verbs; zero new lint dims; zero subsystem changes; schema v2 unchanged.** Targeted fix for the post-v0.6.0 host-config regression: the legacy `python -m myco.mcp` spawn path is restored as a thin re-export of `myco.boundary.mcp`, with a stderr deprecation pointer + standard `DeprecationWarning` so operators see the canonical replacement.
