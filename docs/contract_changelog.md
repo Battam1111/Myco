@@ -11,6 +11,25 @@ Format: one section per `contract_version`, newest first.
 
 ---
 
+## v0.6.15 - 2026-04-29 - Contract molt via `myco molt`
+
+Replaces `v0.6.14` at `_canon.yaml::contract_version`. Issued via the `myco molt --contract v0.6.15` agent-
+callable verb. `synced_contract_version` is updated in
+lockstep.
+
+### What changed
+
+(Fill in: which R1-R7 rules, subsystem definitions, exit-code
+grammar, lint-dimension semantics, or command manifest shapes
+changed. `myco molt` only records the version; the authoring
+agent is responsible for this narrative.)
+
+### Break from v0.6.14
+
+(Fill in: backward-compatibility note. If none, say so explicitly.)
+
+---
+
 ## v0.6.14 — 2026-04-29 — Cycle 自起 fruit—winnow—molt 闭环 + sub-agent fanout craft critique pattern
 
 **Zero R1-R7 surface deltas; zero new manifest verbs; zero new lint dims; zero subsystem changes; schema v2 unchanged.** Mechanizes the bridge from sporulate (distilled note) to a candidate kernel mutation, with owner-merge-gate as the only remaining synapse. Substrate kernel adds **0 lines of LLM dispatch**; the autopoietic loop runs entirely in the Claude Code Agent layer (Agent tool sub-agent fanout — analogous host-mediated mechanism to v0.6.0's existing exception #2 for `myco fruit` content authoring via MCP `sampling`).
