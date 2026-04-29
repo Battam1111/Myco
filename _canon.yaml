@@ -133,22 +133,34 @@ system:
     # Rate limit: minimum wall-clock between two auto-evolve invocations.
     # Persisted in .myco_state/last_auto_evolve.txt; cross-process visible.
     auto_evolve_min_wall_clock_seconds_between: 600
-    # Number of fungal-named critics primordium spawns in autonomous mode
-    # (mycoparasite + saprotroph + mycorrhiza by default = 3).
-    auto_evolve_critic_count: 3
+    # Number of fungal-named critics primordium spawns in autonomous mode.
+    # v0.6.14: 3 (mycoparasite + saprotroph + mycorrhiza, ad-hoc roles).
+    # v0.6.15+: 5, derived from L0 P1-P5 (one critic per principle):
+    #   chytrid (P1) + rhizomorph (P2) + mycoparasite (P3) +
+    #   saprotroph (P4) + mycorrhiza (P5). See craft
+    #   v0_6_15_agent_first_default_for_cycle_autostart_loop_craft_2026-04-29.md
+    #   Round 1.5 endophyte T7 for the rationale; future critic additions
+    #   require naming an L0 principle.
+    auto_evolve_critic_count: 5
     # Branch prefix for auto-craft PRs (fungal taxonomy per L0:185-186).
     # "fruiting/" = fruiting body in mycology. NOT "auto-craft/".
     auto_evolve_branch_prefix: "fruiting/"
     # Same-distilled-hash cooldown: prevents feedback loops where
     # auto-craft modifies doctrine then re-triggers from same distilled.
     auto_evolve_distilled_hash_cooldown_senesce: 7
-    # Force all auto-craft proposals into high-risk classification,
-    # which makes owner-gate mandatory regardless of content surface.
-    # Bypasses 7-session-7-day public-window auto-LAND path.
-    auto_evolve_force_high_risk: true
-    # Auto-craft PRs skip governance.public_window auto-LAND;
-    # PR-merge becomes the sole gate.
-    auto_evolve_pr_window_skip: true
+    # v0.6.14: shipped as `true` (forced every auto-craft to high-risk +
+    # owner-gate); inverted L0 P1 ("Only For Agent") into Owner-First.
+    # v0.6.15: flipped to `false`. Risk class is now derived from craft
+    # CONTENT via core.risk_classifier (path_allowlist-based superset of
+    # v0.6.0 keywords + recursion-cutter for any craft modifying the
+    # classifier itself or governance.auto_evolve_* keys).
+    # See craft v0_6_15_agent_first_default_for_cycle_autostart_loop.
+    auto_evolve_force_high_risk: false
+    # v0.6.14: shipped as `true` (bypassed 7-session/7-day public window,
+    # making PR-merge the sole gate); same L0 P1 inversion as above.
+    # v0.6.15: flipped to `false`. Medium-risk auto-crafts now use
+    # the v0.6.0 governance public window like any other craft.
+    auto_evolve_pr_window_skip: false
     # Distilled-note severity threshold; LOW distilled does not trigger.
     # Values: low / medium / high / critical (matches Severity enum).
     auto_evolve_min_distilled_severity: medium

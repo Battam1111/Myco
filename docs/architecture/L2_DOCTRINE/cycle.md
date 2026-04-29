@@ -143,7 +143,7 @@ recorded at any time.
 > **Governing craft**: `docs/primordia/v0_6_14_cycle_autostart_fruit_winnow_molt_loop_craft_2026-04-29.md`.
 > **Triggering observation** (2026-04-29 owner remark, post neat-freak ingestion): "Myco 吃完之后似乎并不会直接进化自己的内核啊？"
 
-Through v0.6.13 the metabolic flow (`eat → assimilate → sporulate`) and the morphogenetic flow (`fruit → winnow → molt`) were **doctrinally separated and procedurally bridged by 5 manual handoffs** of agent prose. Most insights captured in distilled never reached the kernel because the bridge was too long. v0.6.14 mechanizes 4 of those 5 handoffs while keeping owner-merge-gate as the single remaining synapse. **L0 P1 stays strict**: substrate kernel adds 0 lines of LLM dispatch; orchestration lives entirely in the Claude Code Agent layer (Agent tool sub-agent fanout — analogous host-mediated mechanism to the existing MCP `sampling` exception #2 for `myco fruit`).
+Through v0.6.13 the metabolic flow (`eat → assimilate → sporulate`) and the morphogenetic flow (`fruit → winnow → molt`) were **doctrinally separated and procedurally bridged by 5 manual handoffs** of agent prose. Most insights captured in distilled never reached the kernel because the bridge was too long. v0.6.14 mechanized 4 of those 5 handoffs. **L0 P1 stays strict**: substrate kernel adds 0 lines of LLM dispatch; orchestration lives entirely in the Claude Code Agent layer (Agent tool sub-agent fanout — analogous host-mediated mechanism to the existing MCP `sampling` exception #2 for `myco fruit`).
 
 ### The auto-loop chain
 
@@ -152,11 +152,12 @@ Through v0.6.13 the metabolic flow (`eat → assimilate → sporulate`) and the 
 ```
 quarantine_distilled        # strip ASCII control + cap 32KB + UNTRUSTED-INPUT marker
         ↓
-primordium (autonomous mode) # spawn 3 fungal-named critic sub-agents (mycoparasite /
+primordium (autonomous mode) # spawn 5 fungal-named critic sub-agents derived from
+        ↓                    #  L0 P1-P5 (chytrid / rhizomorph / mycoparasite /
         ↓                    #  saprotroph / mycorrhiza) via Agent tool with disjoint
         ↓                    #  visibility scopes; synthesize Round 1.5 T-tensions;
         ↓                    #  optional Round 2.5 second fanout
-winnow                       # gate craft shape (G1-G6)
+winnow                       # gate craft shape (G1-G6 + G7 path_allowlist)
         ↓ if LANDED
 hypha                        # feasibility trace against current src/
         ↓
@@ -165,33 +166,44 @@ anamorph                     # if schema delta needed
 stipe --branch-only          # branch fruiting/<slug>-<date>; implement; gate quintet;
         ↓                    #  commit; push branch (NOT main); gh pr create with
         ↓                    #  summary + repo-relative path link (NOT full craft text)
-gh pr create                 # owner clicks merge or closes-without-merge
+gh pr create                 # awaits PR-merge per existing governance tiering
 ```
 
-If owner closes-without-merge: `.github/workflows/auto_revert.yml` deletes the branch and posts a `vetoed_intent` comment on the substrate's auto-evolve tracking issue. The next `senesce` (in any session) reaps these comments and writes `vetoed_at: <timestamp>` into matching entries of `canon.governance.last_winnowed_proposals[]`.
+If a PR is closed-without-merge: `.github/workflows/auto_revert.yml` deletes the branch and posts a `vetoed_intent` comment on the substrate's auto-evolve tracking issue. The next `senesce` (in any session) reaps these comments and queues vetoed_intent records to `.myco_state/auto_evolve_vetoed_pending.json` (canon round-trip helper deferred to v0.6.16+).
 
 ### Sub-agent fanout as the canonical Round 1.5/2.5 critique protocol
 
-The three fungal critic roles use **disjoint visibility scopes** as the diversity mechanism (single-host clones with shared visibility correlate ≈1; disjoint visibility decorrelates):
+**v0.6.15+ — 5 critic roles derived from L0 P1-P5** (one per principle; future critic additions require naming an L0 principle, not retrospective bias-patching):
 
-| Role | Reads | Looks for |
-|------|-------|-----------|
-| **mycoparasite** (寄生) | draft only (no doctrine, no src/) | break paths: invalid premises, prompt-injection, feedback loops, alert fatigue, single-point-of-failure |
-| **saprotroph** (腐生) | L0/L1/L2 doctrine + canon + previous crafts (no draft, no src/) | doctrine drift, vocabulary violations, governance contradictions, schema parity, deprecated paths, dead code |
-| **mycorrhiza** (菌根) | src/ + tests/ + .claude/ + .github/ + scripts/ (no draft, no doctrine) | impl traction, API boundaries, hook interfaces, mock infra, byte-identity tests, CI cell coverage |
+| Role | L0 Principle | Visibility | Looks for |
+|------|--------------|------------|-----------|
+| **chytrid** (P1 — Only For Agent) | L0_VISION.md only | does this proposal pull humans into the substrate's loop? introduce routine consumption? add new owner role outside L0's "L0/L1/L2 craft-doc approver" definition? |
+| **rhizomorph** (P2 — Eternal Ingestion) | ingestion subsystem code + adapters + L0 P2 doctrine | does this restrict raw absorption? add intake-time filtering? violate "no out-of-scope rejection at ingest"? |
+| **mycoparasite** (P3 — Eternal Evolution) | draft only (no doctrine, no src/) | break paths: invalid premises, prompt-injection, feedback loops, alert fatigue, single-point-of-failure |
+| **saprotroph** (P4 — Eternal Iteration) | L0/L1/L2 doctrine + canon + previous crafts (no draft, no src/) | doctrine drift, vocabulary violations, governance contradictions, schema parity, deprecated paths, dead code |
+| **mycorrhiza** (P5 — Universal Interconnection) | src/ + tests/ + .claude/ + .github/ + scripts/ (no draft, no doctrine) | impl traction, API boundaries, hook interfaces, mock infra, byte-identity tests, CI cell coverage |
 
-Critic outputs are **veto votes**, not advisory: any HIGH-severity tension from any critic forces primordium to abort to DRAFT status; only owner override resumes. primordium does NOT adjudicate between conflicting HIGH critics.
+Critic outputs are **veto votes**, not advisory: any HIGH-severity tension from any critic forces primordium to abort to DRAFT status. primordium does NOT adjudicate between conflicting HIGH critics.
 
-### Governance path for auto-craft proposals
+### Agent-First default (v0.6.15+)
 
-Auto-craft proposals are **forcibly classified high-risk** via `canon.governance.auto_evolve_force_high_risk: true`, which makes owner-gate mandatory regardless of content. The 7-session-7-day public-window auto-LAND path from v0.6.0 governance tiering is **explicitly bypassed** for auto-craft (`canon.governance.auto_evolve_pr_window_skip: true`). PR-merge becomes the **sole** gate.
+**Risk class is derived from craft CONTENT** via `core.risk_classifier`. Per L0 P1, owner involvement is reserved for crafts that mutate L0/L1/L2 — rare, explicit, gate-level. Medium-risk crafts (new dim, new alias, fixable extension, etc.) follow v0.6.0 governance tiering: agent self-winnow + 7-session-7-day public window with always-on `vetoed_at` veto inside the window.
 
-**Two-step owner sign** is required for auto-craft PRs touching:
-- L0 / L1 / L2 doctrine paths
-- Full R-surface (verb count, dim count, schema_version)
-- Multi-file diffs above an owner-set threshold
+The risk classifier reads craft frontmatter `path_allowlist:` (NOT body grep — see G7 below) and applies:
+- HIGH if any path matches L0/L1/canon_schema/subsystem-deletion/verb-count/dim-count/schema_version triggers
+- HIGH **forced** (recursion-cutter) if path_allowlist includes `src/myco/core/risk_classifier.py`, `_canon.yaml::governance.auto_evolve_*`, or `.github/workflows/auto_*.yml` — regardless of other content. This prevents the substrate from quietly auto-merging a craft that disables its own gating.
+- MEDIUM otherwise (most auto-crafts)
 
-For these, owner must comment `/sign auto-craft` before clicking merge. Other auto-craft PRs allow normal merge.
+**v0.6.15 corrected v0.6.14 owner-First regression**: v0.6.14 shipped `auto_evolve_force_high_risk: true` and `auto_evolve_pr_window_skip: true` as defaults; this collapsed every auto-craft to owner-merge-gate, inverting L0 P1. v0.6.15 flips both to `false` (matching v0.6.0 tiering). No `auto_evolve_owner_paranoia_mode` field is introduced — L0 P1 names exactly two carved exceptions (`brief` + agent-calls-LLM); a third would erode the "exhausted list."
+
+### Winnow gate G7 (v0.6.15+) — path_allowlist required for crafts
+
+`myco winnow` adds a 7th shape gate: `type: craft` files in `docs/primordia/` must declare `path_allowlist: list[str]` in frontmatter (the explicit list of paths the craft will modify). This:
+- Provides reliable input for risk classifier (replaces brittle body keyword grep)
+- Makes scope explicit; stipe `--branch-only` enforces the allowlist when implementing
+- Empty list permitted (signals "pure doctrine craft, no code changes")
+- Crafts in `docs/primordia/_excreted/` are exempt
+- Pre-v0.6.15 crafts (date < 2026-04-29) are grandfathered without path_allowlist
 
 ### Convergence + budget guards
 
