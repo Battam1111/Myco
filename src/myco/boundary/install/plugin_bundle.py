@@ -1,7 +1,7 @@
 """Cowork / Claude Desktop plugin bundle builder.
 
 Governing doctrine:
-``docs/architecture/L3_IMPLEMENTATION/symbiont_protocol.md`` — per-host
+``docs/architecture/L2_DOCTRINE/boundary.md`` — per-host
 axis of the extensibility model. This module is the v0.5.20 successor
 to ``myco.boundary.install.cowork_plugin``'s now-retracted ``rpm/`` writer.
 

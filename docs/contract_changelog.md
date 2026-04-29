@@ -11,6 +11,111 @@ Format: one section per `contract_version`, newest first.
 
 ---
 
+## v0.6.16 — 2026-04-29 — Neat-freak sweep + autopoietic-loop IOU split
+
+**Zero R1-R7 surface deltas; zero new manifest verbs; zero new lint dims; zero subsystem changes; schema v2 unchanged.** This is a hygiene molt: 27-patch deterministic sweep of stale narrative refs accumulated through the v0.6.0 → v0.6.15 minor sequence (5 versions in 2 days), plus one structural decision — **SPLITTING** the originally-scoped v0.6.16 (which bundled autopoietic-loop completion: helper + senesce reaper + auto_merge.yml).
+
+### Why this release (owner observation)
+
+> go. 同时结合之前吃的洁癖 skill, 将整个 Myco 的项目目录结构、所有文件进行重构优化, 尽最大可能去冗余化, 使得 Myco 再一次蜕变.
+
+Translation: ship v0.6.16 with maximum de-redundantization across the entire project, completing the substrate's "molting once again" from v0.6.15.
+
+### The 5-critic L0-P1-P5 fanout's first dogfood
+
+The v0.6.15-shipped 5-critic L0-P1-P5 fanout pattern got its first substantive load test on the originally-scoped v0.6.16 (helper + senesce reaper + auto_merge.yml + 27-patch sweep). It surfaced 3 P0 BLOCK + 4 HIGH structural tensions in 8 minutes of parallel scrutiny:
+
+- **mycorrhiza T1 (P0)** — `governance.public_window_min_senesce_count: 7` requires senesce_count persistence across sessions; source-grep returns zero matches for `senesce_count`/`session_count`/`sessions.db` in `src/myco/`. Auto-LAND has no data source.
+- **mycorrhiza T2 (P0)** — `pyyaml.safe_dump` cannot reproduce `_canon.yaml`'s 6-space block indent. Block-level rebuild via pyyaml mutates visual style → ruff/format/diff noise.
+- **mycorrhiza T3 (P0)** — `gh pr merge --auto` requires repo Settings → "Allow auto-merge" + Branch Protection rule with required status checks. Repo audit returns zero ruleset files.
+- **chytrid T3** — bundling helper + senesce + auto_merge + 27-patch sweep + 4 doctrine rewrites violates L0 P4 cadence. The v0.6.15 endophyte T9 explicitly warned: "more gates = safer is the wrong instinct; iterate small."
+- **mycoparasite T1, T2** — auto_merge race conditions (immediate merge after senesce LANDED; cron */6 vs vetoed_at write race).
+- **saprotroph T1** — canon_schema.md has zero documentation of `governance.*` shape; helper writing rich entries without schema docs makes L1↔L4 drift permanent.
+- **saprotroph T3, T4** — proposed helper in `core/` violates PA4 (mechanical, HIGH); v0.6.16 sweeping L1 canon_schema.md auto-classifies as HIGH-risk.
+
+### The split decision
+
+The 5-critic fanout's converging recommendation: SPLIT. The autopoietic-loop completion has infrastructure-level prerequisites that don't exist yet (senesce_count persistence backend, ruamel.yaml round-trip choice, Branch Protection ruleset). Bundling them into v0.6.16 forces a "design-and-ship within one molt" that violates L0 P4 (永恒迭代 — small batches, high cadence) and risks shipping a structurally-broken auto-LAND.
+
+| version | scope | risk profile | infrastructure prerequisites |
+|---|---|---|---|
+| **v0.6.16 (this)** | Neat-freak sweep alone (~−210 LoC across 17 files) + risk_classifier dead-pattern fix | LOW for source patches; HIGH-but-owner-gated for L1 canon_schema.md sweep | None — pure SE2 corrections |
+| **v0.6.17 (planned)** | Canon round-trip helper (`cycle/governance.py`, NOT `core/`) + senesce_count persistence backend + senesce reaper canon-direct-write | LOW (helper, infra) | Helper API design lands in this release's craft |
+| **v0.6.18 (planned)** | `.github/workflows/auto_merge.yml` + 24h grace window + Branch Protection ruleset | MEDIUM | Operator step (Branch Protection settings) must precede merge |
+
+This sequence honors **L0 P4 cadence** (3 small batches, not 1 big one), **L0 P1 Agent-First** (each batch has a clear LOW/MEDIUM risk tier; no silent owner-gate inversions), and **L0 P3 perpetual evolution** (each step measurable; later steps refine based on data from earlier).
+
+### What changed
+
+#### Group A — Source code dead-pattern fixes (contract-grade)
+
+- **`src/myco/core/risk_classifier.py:141-143`** — DEAD PATTERNS in the just-shipped v0.6.15 medium-risk classifier removed. The v0.6.15 craft added recursion-cutter + HIGH-risk patterns at the new boundary paths (`src/myco/boundary/surface/manifest.yaml`, `_canon_lint.yaml`) but never updated the legacy MEDIUM-tier patterns at the pre-v0.6.0 paths (`src/myco/surface/manifest.yaml`, `src/myco/symbionts/.*\.py`). Lines 141, 142 were redundant with HIGH at lines 100, 101 (unreachable code). Line 143's `symbionts/` path was excreted at v0.6.0. Cleanup: removed lines 141-142 entirely (redundancy), updated line 143 to `boundary/host_integration/`. **This was a quietly-broken v0.6.15 ship — the recursion-cutter craft itself shipped with a stale sibling pattern set.**
+- **`src/myco/cycle/ramify.py:5`** — docstring path corrected.
+
+#### Group B — `_canon.yaml` SSoT alignment
+
+- **`metrics.test_count`** — `1477 → 1545` (68-test drift accumulated since v0.6.0).
+- **`waves.current`** — `27 → 28` (auto-incremented by `myco molt`).
+
+#### Group C — Doctrine path-corrections (L0/L1/L2)
+
+All references to deleted `src/myco/symbionts/` package replaced with `src/myco/boundary/host_integration/` (the v0.6.0 unification target). All references to deleted `docs/architecture/L3_IMPLEMENTATION/symbiont_protocol.md` replaced with `docs/architecture/L2_DOCTRINE/boundary.md` (the canonical home for boundary subsystem doctrine).
+
+- **`docs/architecture/L0_VISION.md:131-136`** — per-host extension axis path corrected.
+- **`docs/architecture/L1_CONTRACT/protocol.md:131-136`** — same.
+- **`docs/architecture/L2_DOCTRINE/extensibility.md`** — bulk path correction across §"The two axes" + §"Per-host" + §"What neither axis is" + cross-reference matrix; v0.5.6 "defined-but-empty" claim updated to "10 of 14 hosts populated at v0.6.15"; providers/ excretion documented (excreted at v0.6.14 after seven minor releases without population).
+- **`docs/architecture/L2_DOCTRINE/homeostasis.md:65-67`** — path + doc reference corrected; v0.5.8 25-dim narrative gets a v0.6.0 46-dim refresh pointer.
+- **13 `src/myco/boundary/host_integration/*.py` + 3 `src/myco/boundary/install/*.py`** — docstring `code_doc_ref` paths corrected (cleared 13 SE1 medium findings introduced by the symbiont_protocol.md excretion).
+
+#### Group D — L1 schema documentation (saprotroph T1 fold-in)
+
+- **`docs/architecture/L1_CONTRACT/canon_schema.md`** — comprehensive refresh:
+  - Top example block: `contract_version`/`synced_contract_version` v0.5.7 → v0.6.15; schema_version "1" → "2".
+  - `lint.dimensions` block replaced with `lint.dimensions_ref: _canon_lint.yaml` (matches actual v0.6.0 SSoT) + 46-dim representative slice as comment.
+  - `subsystems` block adds `cycle:` (6th, v0.6.0+) + `boundary:` (7th, v0.6.0+) entries.
+  - `commands.manifest_ref` path corrected to `src/myco/boundary/surface/manifest.yaml`.
+  - **NEW section**: "v0.6.0+ schema v2 additions" — documents `system.llm_policy` (v0.6.14 enum-narrowed), `system.resource_redaction`, `system.resource_watch`, and `system.governance.*` shapes including the `last_winnowed_proposals[]` object schema. Closes the saprotroph T1 finding ("zero documentation of governance.* shape would make L1↔L4 drift permanent once helper writes rich entries").
+
+#### Group E — L3 implementation doctrine
+
+- **`docs/architecture/L3_IMPLEMENTATION/symbiont_protocol.md`** — EXCRETED (186 lines). The page was anchored to the deleted `src/myco/symbionts/` package; superseded by `L2_DOCTRINE/boundary.md` "Sixth seam" + "Subagents and slash commands" sections.
+- **`docs/architecture/L3_IMPLEMENTATION/package_map.md`** — §"The src/myco/ layout" body rewritten for v0.6.0+ unified boundary (drops separate `surface/`, `install/`, `mcp/`, `symbionts/`, `genesis/`, `meta/`, `providers/` blocks; adds unified `boundary/` block with 4 sub-packages). Mapping matrix refreshed; "Excreted packages (historical)" section added documenting the 6-package consolidation.
+- **`docs/architecture/L3_IMPLEMENTATION/command_manifest.md:23,29`** — manifest path corrected.
+
+#### Group F — Surface anchor refresh
+
+- **`docs/architecture/README.md`** — front-page rewrite: v0.5.7 anchor → v0.6.15; layer table updated to 7 subsystems; reading order extended; governing-craft list refreshed.
+- **`MYCO.md:64,73,86`** — three `v0.6.12` anchors refreshed to `v0.6.15`; "76 non-critical findings" preserved (count is still 76 = 9 HIGH AD1 + 67 LOW DC2/DC3/DC4/SE2).
+- **`CONTRIBUTING.md:106`** — manifest path corrected.
+- **`docs/architecture/L1_CONTRACT/exit_codes.md:101`** — `v0.5.7` anchor → `v0.6.15`.
+
+#### Group G — Scripts hygiene
+
+- **`scripts/coverage_floors.py`** — `myco/surface/` floor renamed to `myco/boundary/surface/`; `myco/symbionts/` floor (60%) DELETED (path doesn't exist post-v0.6.0; floor never matched → dead rule).
+- **`scripts/migrate_ascc_substrate.py:211`** — manifest path corrected.
+
+### Break from v0.6.15
+
+**No backward-compat break.** This is purely a hygiene molt — every change is either a path correction (where the old path was already broken) or a doctrine-doc refresh (where the old anchor was simply stale). The risk_classifier dead-pattern fix is a behavior correction (the dead patterns never fired), not an API change.
+
+The autopoietic-loop IOU items (helper / senesce reaper persistence / auto_merge.yml) deferred from v0.6.15 craft Round 2 R-T5 / R-T6 / R-T18 are **NOT closed in v0.6.16** — they are formally re-scoped into v0.6.17 (helper) and v0.6.18 (auto_merge.yml after Branch Protection setup). The split is documented in the v0.6.16 craft Round 2 + Round 3 decision.
+
+### What did NOT change
+
+- All 7 R-rules (R1-R7): identical text.
+- All 7 subsystems (Germination, Ingestion, Digestion, Circulation, Homeostasis, Cycle, Boundary): identical doctrine.
+- All 46 lint dimensions: identical roster, identical severities, identical fixability.
+- All 20 verbs: identical manifest, identical CLI, identical MCP shape.
+- `system.llm_policy: forbidden` default: unchanged.
+- `system.governance.auto_evolve_force_high_risk: false` (v0.6.15 setting): unchanged.
+- `system.governance.auto_evolve_pr_window_skip: false` (v0.6.15 setting): unchanged.
+- Schema v2 shape: unchanged.
+
+Governing craft: [`docs/primordia/v0_6_16_neat_freak_sweep_craft_2026-04-29.md`](primordia/v0_6_16_neat_freak_sweep_craft_2026-04-29.md).
+Predecessor:     v0.6.15 (Agent-First default for Cycle 自起 闭环), shipped 2026-04-29.
+
+---
+
 ## v0.6.15 — 2026-04-29 — Agent-First default for Cycle 自起 闭环 (correct v0.6.14 owner-First regression + 5-critic L0-P1-P5 refactor)
 
 **Zero R1-R7 surface deltas; zero new manifest verbs; zero new lint dims; zero subsystem changes; schema v2 unchanged.** Corrects v0.6.14's owner-First regression. The autopoietic loop's safety model returns to Agent-First as L0 P1 specifies. The sub-agent fanout pattern's structural blind spot — that 3 same-host critics share unconscious priors — is closed by deriving 5 critics from L0 P1-P5 directly (one per principle).

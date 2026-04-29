@@ -1,6 +1,6 @@
 """JetBrains AI Assistant + Junie symbiont (v0.6.0).
 
-Governing doctrine: ``docs/architecture/L3_IMPLEMENTATION/symbiont_protocol.md``.
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/boundary.md``.
 
 JetBrains AI Assistant 2025.2+ has native MCP support via
 ``~/.config/JetBrains/<ide><year>.<minor>/options/mcpServers.xml``.

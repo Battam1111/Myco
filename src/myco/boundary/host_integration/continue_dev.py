@@ -1,6 +1,6 @@
 """Continue (continue.dev) symbiont (v0.6.0).
 
-Governing doctrine: ``docs/architecture/L3_IMPLEMENTATION/symbiont_protocol.md``.
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/boundary.md``.
 
 Continue (continue.dev) supports MCP servers via ``~/.continue/config.yaml``
 (``mcpServers`` block) and a Rule/Block system via ``~/.continue/rules/<name>.md``.

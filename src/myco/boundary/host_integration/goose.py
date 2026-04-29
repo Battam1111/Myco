@@ -1,6 +1,6 @@
 """Goose symbiont (v0.6.0).
 
-Governing doctrine: ``docs/architecture/L3_IMPLEMENTATION/symbiont_protocol.md``.
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/boundary.md``.
 
 Goose (block.github.io/goose) supports MCP via
 ``~/.config/goose/config.yaml`` ``extensions`` block and recipes via

@@ -1,6 +1,6 @@
 """Zed symbiont (v0.6.0).
 
-Governing doctrine: ``docs/architecture/L3_IMPLEMENTATION/symbiont_protocol.md``.
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/boundary.md``.
 
 Zed has native ``context_servers`` (MCP) support via
 ``~/.config/zed/settings.json`` and slash-command extensibility via

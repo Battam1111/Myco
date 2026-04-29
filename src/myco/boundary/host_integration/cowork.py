@@ -1,6 +1,6 @@
 """Cowork symbiont (v0.6.0).
 
-Governing doctrine: ``docs/architecture/L3_IMPLEMENTATION/symbiont_protocol.md``.
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/boundary.md``.
 
 Cowork (Anthropic Claude Desktop local-agent-mode) does not implement
 Claude Code's session hooks. v0.6.0 fills the gap via the Cowork

@@ -1,6 +1,6 @@
 """``symbionts._protocol`` — per-host adapter protocol (v0.6.0).
 
-Governing doctrine: ``docs/architecture/L3_IMPLEMENTATION/symbiont_protocol.md``.
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/boundary.md``.
 v0.6.0 craft §F4 lands the protocol with full discover/install_basic/
 install_deep/uninstall four-function interface.
 
