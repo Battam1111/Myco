@@ -13,9 +13,13 @@ Floors derive from craft v0.6.0 §K.3:
 - circulation/ = 85
 - cycle/ = 85
 - digestion/ = 85
-- surface/ = 85
+- boundary/surface/ = 85 (CLI/MCP adapter, no business logic)
 - boundary/ = 70 (OS-conditional code; lower floor accepted)
-- symbionts/ = 60 (per-host paths only fully covered on each host's CI)
+
+v0.6.16: ``symbionts/`` floor removed (package excreted at v0.6.0;
+``boundary/host_integration/`` is the renamed home and inherits the
+boundary/ 70% floor). ``surface/`` floor renamed to
+``boundary/surface/`` post-v0.6.0 unification.
 
 Exit code 0 if all floors met, 2 if any package falls short.
 """
@@ -33,9 +37,8 @@ FLOORS = {
     "myco/circulation/": 85,
     "myco/cycle/": 85,
     "myco/digestion/": 85,
-    "myco/surface/": 85,
+    "myco/boundary/surface/": 85,
     "myco/boundary/": 70,
-    "myco/symbionts/": 60,
 }
 
 

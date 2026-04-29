@@ -103,7 +103,7 @@ These files are load-bearing for the entire project and changes are
 gated by a craft doc + explicit owner approval:
 
 - `_canon.yaml` — identity, write-surface, contract version.
-- `src/myco/surface/manifest.yaml` — the single source of truth for
+- `src/myco/boundary/surface/manifest.yaml` — the single source of truth for
   CLI and MCP verbs. One manifest edit reshapes both surfaces; drifts
   are easy to introduce and hard to detect.
 - Any file under `docs/architecture/L0_VISION.md`,

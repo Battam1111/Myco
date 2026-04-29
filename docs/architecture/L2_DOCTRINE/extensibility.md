@@ -24,7 +24,7 @@ one of these seams or bump this doctrine.
 | Axis | Seam | Scope | Lifecycle | Authoring verb | Audit verb | Enforcement dimension |
 |---|---|---|---|---|---|---|
 | **Per-substrate** | `.myco/plugins/` | One substrate only | Tied to the substrate (delete the folder → gone) | `myco ramify --substrate-local` | `myco graft --list` | `MF2` (substrate-local plugin health) |
-| **Per-host** | `src/myco/symbionts/` | All substrates on one host | Tied to the Myco install (ships in the kernel) | `myco-install host <client> --with-symbionts` (v0.6.0) | `myco graft --hosts` *(future)* | **MF3** (host-side artifact integrity, mechanical/MEDIUM, fixable=False; promoted from "reserved" at v0.6.0) |
+| **Per-host** | `src/myco/boundary/host_integration/` | All substrates on one host | Tied to the Myco install (ships in the kernel) | `myco-install host <client>` (10 of 14 hosts automated at v0.6.15) | `myco graft --hosts` *(future)* | **MF3** (host-side artifact integrity, mechanical/MEDIUM, fixable=False; promoted from "reserved" at v0.6.0) |
 
 ### Why two axes, not one
 
@@ -39,14 +39,14 @@ substrate I work with in Claude Code should register a
 `/myco:hunger` slash-command automatically") belongs to the user's
 Myco install and should persist across every substrate they ever
 create on that host. That's per-host extension — implemented as a
-symbiont module under `src/myco/symbionts/<host>.py`.
+symbiont module under `src/myco/boundary/host_integration/<host>.py`.
 
 The two axes compose freely. A user writing code in Claude Code on
 three projects can have:
 
 - Three separate `.myco/plugins/` trees (one per project, each with
   the project-specific rules)
-- **One** `symbionts/claude_code.py` module shipping with Myco that
+- **One** `boundary/host_integration/claude_code.py` module shipping with Myco that
   registers `/myco:hunger` across all three
 
 Neither axis interferes with the other. Neither axis can do the
@@ -133,25 +133,30 @@ Specifically:
 - `MF1` (declared subsystems exist) scans canon subsystems, not
   local plugins. `MF2` is the plugin-axis analogue.
 
-## Per-host (`src/myco/symbionts/`)
+## Per-host (`src/myco/boundary/host_integration/`)
 
 ### Shape
 
 One module per supported host, packaged with Myco itself at
-`src/myco/symbionts/<host>.py`. At v0.5.6 the package is
-**defined-but-empty** — the protocol is specified, the slot is
-claimed, but no concrete symbiont module has shipped yet.
+`src/myco/boundary/host_integration/<host>.py`. At v0.6.15 the package
+ships **14 host adapters** (claude_code, cursor, cowork, claude_desktop,
+vscode, continue_dev, cline, jetbrains, zed, goose, windsurf, codex_cli,
+gemini_cli, openclaw); the v0.6.0 boundary unification merged the
+pre-v0.6.0 `src/myco/symbionts/` package into `boundary/host_integration/`
+as a subpackage of the canonical 7th subsystem.
 
-See `L3_IMPLEMENTATION/symbiont_protocol.md` for the full protocol
-definition (discover + install function signatures, SymbiontProbe
-dataclass, automated-host inventory).
+See `L2_DOCTRINE/boundary.md` for the full protocol definition (discover
++ install function signatures, SymbiontProbe dataclass, automated-host
+inventory).
 
-### Authoring (future)
+### Authoring
 
-`myco-install host <client> --with-symbionts` runs the symbiont's
-`discover()` + `install()` pair in one step. Until concrete
-symbionts ship the mode is inert; v0.5.6 reserves the CLI flag for
-the first concrete symbiont release (v0.6+).
+`myco-install host <client>` runs the host adapter's `discover()` +
+`install()` pair in one step. As of v0.6.15, **10 of the 14 adapters**
+are fully automated (Claude Code, Claude Desktop, Cursor, Windsurf,
+Zed, VS Code, OpenClaw, Gemini CLI, Codex CLI, Goose); the remaining
+4 (Continue.dev, Cline, JetBrains, Cowork) ship probe metadata but
+require manual MCP-config integration on the user's side.
 
 ### Scope boundary
 
@@ -169,18 +174,22 @@ To prevent creep, this section is deliberately explicit about what
 falls outside both seams:
 
 - **Forks of Myco itself** — if a change needs to modify
-  `src/myco/` beyond the `symbionts/` or `providers/` packages, it
+  `src/myco/` beyond the `boundary/host_integration/` subpackage, it
   is a kernel change, not an extension. Kernel changes go through
   craft + molt.
 - **Runtime-discovered plugins outside `.myco/plugins/`** — the
   kernel only auto-imports from `.myco/plugins/`. A module dropped
   into `notes/` or `docs/` will not be loaded as a plugin; it will
   be treated as a note or doc.
-- **LLM provider coupling** — opt-in LLM provider use lives in
-  `src/myco/providers/` (v0.5.6 reserved; empty at release) and
-  requires setting `canon.system.no_llm_in_substrate: false` +
-  a contract-bumping molt. Not a form of substrate extension; a
-  form of kernel opt-out. `MP1` is the mechanical guard.
+- **LLM provider coupling** — `system.llm_policy` (v0.6.14: 2-value
+  enum `forbidden`|`opt-in`) governs whether the substrate process
+  may speak directly to a provider. The pre-v0.6.14 `src/myco/providers/`
+  package was reserved as the opt-in landing pad, but excreted at
+  v0.6.14 after seven minor releases without population. Future
+  provider coupling, if ever needed, requires its own L0 P1 amendment
+  craft + fresh contract-bumping molt rather than a pre-baked escape
+  hatch sitting empty for years. `MP1`/`MP2`/`MP3` + `CL1`/`CL2`/`CL3`
+  are the mechanical guards.
 - **Site-packages overrides** — monkey-patching Myco by installing
   a sibling package that shadows internal modules is unsupported
   and immune-flag-eligible when detected.
@@ -190,8 +199,8 @@ falls outside both seams:
 | Concern | Home |
 |---|---|
 | Per-substrate plugin protocol (loader, registration hooks) | This doc, `L2_DOCTRINE/homeostasis.md` (MF2), `src/myco/core/substrate.py` |
-| Per-host symbiont protocol (discover, install, SymbiontProbe) | `L3_IMPLEMENTATION/symbiont_protocol.md` |
-| LLM-provider opt-out seam | `L0_VISION.md` principle 1 addendum, `L1_CONTRACT/canon_schema.md` (system.no_llm_in_substrate), `L2_DOCTRINE/homeostasis.md` (MP1), `src/myco/providers/README.md` |
+| Per-host adapter protocol (discover, install, SymbiontProbe) | `L2_DOCTRINE/boundary.md` |
+| LLM-provider opt-in seam | `L0_VISION.md` principle 1 addendum, `L1_CONTRACT/canon_schema.md` (`system.llm_policy`), `L2_DOCTRINE/homeostasis.md` (MP1/MP2/MP3) |
 | Authoring verbs | `L3_IMPLEMENTATION/command_manifest.md` §governance verbs (`ramify`, `graft`) |
 | Write-surface discipline | `L1_CONTRACT/protocol.md` R6, `L1_CONTRACT/canon_schema.md` (system.write_surface.allowed) |
 

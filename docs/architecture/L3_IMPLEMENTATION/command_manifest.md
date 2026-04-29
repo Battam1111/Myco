@@ -20,13 +20,13 @@ The manifest is one YAML file read by both `surface/cli.py` and
 
 ## Location
 
-`src/myco/surface/manifest.yaml` (packaged with the wheel; referenced by
+`src/myco/boundary/surface/manifest.yaml` (packaged with the wheel; referenced by
 canon as `commands.manifest_ref`).
 
 ## Schema
 
 ```yaml
-# src/myco/surface/manifest.yaml
+# src/myco/boundary/surface/manifest.yaml
 schema_version: "1"
 
 commands:

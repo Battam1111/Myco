@@ -44,37 +44,38 @@
 
 ---
 
-## The `src/myco/` layout (v0.6.0)
+## The `src/myco/` layout (v0.6.15 — current)
 
 ```
 src/myco/
 ├── __init__.py              # __version__ ONLY (SSoT per L1 versioning)
-├── __main__.py              # `python -m myco` entry → surface.cli:main
+├── __main__.py              # `python -m myco` entry → boundary.surface.cli:main
+├── py.typed                 # PEP 561 marker
 │
 ├── core/                    # shared primitives, nothing subsystem-specific
 │   ├── __init__.py
 │   ├── errors.py            # single MycoError hierarchy (one model)
 │   ├── project.py           # project-root discovery (one path only)
 │   ├── paths.py             # write-surface validation + SubstratePaths.local_plugins / manifest_overlay (v0.5.3)
-│   ├── canon.py             # canon load/validate against L1 schema
+│   ├── canon.py             # canon load/validate against L1 schema (merges _canon_lint.yaml)
 │   ├── severity.py          # CRITICAL/HIGH/MEDIUM/LOW enum + ordering
 │   ├── substrate.py         # Substrate.load() — auto-imports .myco/plugins/ (v0.5.3)
+│   ├── risk_classifier.py   # v0.6.0+ — agent-self-winnow tier classifier; v0.6.15 path_allowlist + recursion-cutter
 │   └── version.py           # __version__ accessor, SemVer parsing
 │
-├── germination/             # L2 Germination (renamed from genesis/ at v0.5.3)
+├── germination/             # L2 Germination (renamed from genesis/ at v0.5.3; shim removed at v0.6.0)
 │   ├── __init__.py
 │   ├── templates/           # canon + entry-point skeleton files
 │   └── germinate.py         # `myco germinate` implementation
 │
-├── genesis/                 # shim package (v0.5.3) — re-exports myco.germination.*
-│   └── __init__.py          # DeprecationWarning on import; preserves `from myco.genesis import ...`
-│
 ├── ingestion/               # L2 Ingestion
 │   ├── __init__.py
 │   ├── eat.py
-│   ├── hunger.py            # payload includes local_plugins: {loaded, count_by_kind: {dimension, adapter, schema_upgrader, overlay_verb}, errors, module} (v0.5.4+)
+│   ├── hunger.py            # payload includes local_plugins shape (v0.5.4+)
 │   ├── sense.py
 │   ├── forage.py
+│   ├── excrete.py           # v0.5.24 — safely delete a raw note + tombstone
+│   ├── intake.py            # v0.6.0 — bulk forage + eat with strict-mode failure visibility
 │   ├── adapters/            # ingestion adapter protocol (registry; v0.4.2)
 │   └── boot_brief.py        # entry-point signals block injector
 │
@@ -89,7 +90,7 @@ src/myco/
 │   ├── __init__.py
 │   ├── graph.py             # cross-reference index
 │   ├── traverse.py          # was perfuse.py at v0.5.2
-│   └── propagate.py         # redefined per §9 E4 + L2 circulation.md
+│   └── propagate.py         # per §9 E4 + L2 circulation.md
 │
 ├── homeostasis/             # L2 Homeostasis
 │   ├── __init__.py
@@ -97,53 +98,53 @@ src/myco/
 │   ├── exit_policy.py       # parse_exit_on, _compute_exit_code
 │   ├── skeleton.py          # skeleton-mode downgrade
 │   ├── registry.py          # register_external_dimension(cls) public API (v0.5.3)
-│   └── dimensions/          # one file per lint dimension
-│       ├── __init__.py      # dimension registry
-│       ├── l0_*.py
-│       ├── l1_*.py
-│       ├── mf1_*.py
-│       ├── mf2_substrate_local_plugin_health.py  # v0.5.3
-│       └── …
+│   └── dimensions/          # 46 dim files (v0.6.0 expanded from 25); 4 category subdirs
+│       ├── mechanical/      # 31 dims (M1, M2, M3, MF1-MF4, MP1-MP3, DC1-DC5, CS1, FR1, PA1-PA5, CG1-CG2, DI1-DI2, AD1, SC1, CL1-CL3)
+│       ├── shipped/         # 2 dims (SH1, SH2)
+│       ├── metabolic/       # 6 dims (MB1-MB7 minus MB5)
+│       └── semantic/        # 7 dims (SE1-SE4, RL1-RL3)
 │
-├── surface/                 # how the outside world talks to Myco
+├── cycle/                   # L2 Cycle (canonical 6th subsystem since v0.6.0; meta/ shim removed)
 │   ├── __init__.py
-│   ├── manifest.py          # command manifest loader (SSoT for surfaces); supports aliases + overlay
-│   ├── manifest.yaml        # the 17-verb table (v0.5.3; 16 + graft)
-│   ├── cli.py               # argparse wrapper; generated from manifest
-│   └── mcp.py               # MCP server; generated from manifest
-│
-├── cycle/                   # life-cycle composer verbs (v0.5.3, was meta/ at v0.5.1–v0.5.2)
-│   ├── __init__.py
-│   ├── senesce.py           # was meta/session_end.py — assimilate + immune --fix
-│   ├── fruit.py             # was meta/craft.py — three-round primordia author
-│   ├── molt.py              # was meta/bump.py — contract-version shed
-│   ├── winnow.py            # was meta/evolve.py — proposal shape validator
-│   ├── ramify.py            # was meta/scaffold.py — extended with --dimension/--adapter/--substrate-local
-│   ├── graft.py             # v0.5.3 new — substrate-local plugin introspection
-│   ├── brief.py             # v0.5.5 new — human-facing markdown rollup (L0 p.1 carved exception)
+│   ├── senesce.py           # assimilate + immune --fix; bimodal (full / quick at v0.5.7+)
+│   ├── fruit.py             # three-round primordia author
+│   ├── molt.py              # contract-version shed (atomic 5-file bumper companion)
+│   ├── winnow.py            # craft-shape validator + G7 path_allowlist gate (v0.6.15+)
+│   ├── ramify.py            # scaffold new verb / dimension / adapter
+│   ├── graft.py             # substrate-local plugin introspection
+│   ├── brief.py             # v0.5.5 — human-facing markdown rollup (single L0 P1 carved exception)
 │   └── templates/
-│       └── fruit.md.tmpl    # three-round primordia skeleton (was craft.md.tmpl)
+│       └── fruit.md.tmpl    # three-round primordia skeleton
 │
-├── meta/                    # shim package (v0.5.3) — re-exports myco.cycle.*
-│   └── __init__.py          # preserves `from myco.meta import session_end_run`; DeprecationWarning
+├── boundary/                # L2 Boundary (canonical 7th subsystem since v0.6.0)
+│   ├── __init__.py          # unified outward-interface umbrella
+│   ├── surface/             # CLI/MCP/manifest (was top-level src/myco/surface/ pre-v0.6.0)
+│   │   ├── manifest.yaml    # the 20-verb table (SSoT for both CLI and MCP)
+│   │   ├── manifest.py      # manifest loader; supports aliases + overlay
+│   │   ├── cli.py           # argparse wrapper; generated from manifest
+│   │   └── mcp.py           # MCP server; generated from manifest
+│   ├── install/             # MCP host writers + fresh-substrate bootstrap (was top-level install/)
+│   │   ├── clients/         # one module per automated host (10 hosts at v0.6.15)
+│   │   └── fresh.py         # `myco-install fresh`
+│   ├── mcp/                 # `python -m myco.boundary.mcp` launcher (was top-level mcp/)
+│   │   └── __init__.py      # thin delegator to surface.mcp
+│   └── host_integration/    # 14 per-host Agent-sugar adapters (was top-level symbionts/ pre-v0.6.0)
+│       ├── claude_code.py
+│       ├── cursor.py
+│       ├── cowork.py
+│       ├── claude_desktop.py
+│       └── … (10 more)
 │
-├── install/                 # v0.5.5 — host MCP writers + fresh-substrate bootstrap
-│   ├── __init__.py
-│   ├── clients/             # one module per automated host: claude_code, claude_desktop, cursor, windsurf, zed, vscode, openclaw, gemini_cli, codex_cli (TOML), goose (YAML)
-│   └── fresh.py             # `myco-install fresh` — germinate + wire hooks in one step
-│
-├── mcp/                     # v0.5.5 — `python -m myco.boundary.mcp` MCP launcher
-│   └── __init__.py          # thin delegator to surface.mcp so the MCP server has a stable module path
-│
-├── providers/               # v0.5.6 NEW — reserved opt-in for LLM-provider coupling
-│   └── __init__.py          # empty; populating this package requires
-│                            # `canon.system.no_llm_in_substrate: false` + a
-│                            # contract-bumping molt. MP1 guards the rest of
-│                            # `src/myco/**` against provider-SDK imports.
-│
-└── symbionts/               # v0.5.5 — per-host Agent-sugar seam (defined-but-empty at v0.5.7)
-    └── __init__.py          # points at `symbiont_protocol.md`; no concrete symbionts yet
+└── mcp/                     # v0.6.13 back-compat shim — re-exports myco.boundary.mcp
+    └── __init__.py          # DeprecationWarning on `from myco.mcp import ...`; scheduled for removal at v1.0.0
 ```
+
+Excreted at v0.6.0 (physical merger): top-level `surface/`, `install/`,
+`mcp/`, `symbionts/` packages. The `genesis/` and `meta/` shim packages
+(v0.5.3) were also removed; downstream substrates use the canonical
+`germination/` and `cycle/` paths now. The `providers/` package
+(reserved at v0.5.6 for opt-in LLM coupling) was excreted at v0.6.14
+after seven minor releases without population.
 
 ### Substrate-local extension paths (v0.5.3)
 
@@ -186,30 +187,33 @@ errors as mechanical/HIGH findings.
 | L3 package | L2 subsystem | Upward doc |
 |------------|--------------|------------|
 | `src/myco/core/` | (cross-cutting primitives, not a subsystem) | L1 |
-| `src/myco/germination/` (v0.5.3) | Germination | `docs/architecture/L2_DOCTRINE/genesis.md` (filename preserved) |
-| `src/myco/genesis/` (v0.5.3 shim) | (backward-compat re-export of `germination`) | — |
+| `src/myco/germination/` | Germination | `docs/architecture/L2_DOCTRINE/genesis.md` (filename preserved across the v0.5.3 rename) |
 | `src/myco/ingestion/` | Ingestion | `docs/architecture/L2_DOCTRINE/ingestion.md` |
 | `src/myco/digestion/` | Digestion | `docs/architecture/L2_DOCTRINE/digestion.md` |
 | `src/myco/circulation/` | Circulation | `docs/architecture/L2_DOCTRINE/circulation.md` |
 | `src/myco/homeostasis/` | Homeostasis | `docs/architecture/L2_DOCTRINE/homeostasis.md` |
-| `src/myco/surface/` | (cross-cutting — adapters for CLI and MCP) | L1 protocol + command manifest |
-| `src/myco/cycle/` (v0.5.3) | (life-cycle composer verbs: `germinate`, `senesce`, `fruit`, `molt`, `winnow`, `ramify`, `graft`, `brief`) | `command_manifest.md` governance-verbs section |
-| `src/myco/meta/` (v0.5.3 shim) | (backward-compat re-export of `cycle`; preserves `from myco.meta import session_end_run`) | — |
-| `src/myco/install/` (v0.5.5) | (MCP host writers + fresh-substrate bootstrap; 10 automated hosts at v0.5.7) | `docs/INSTALL.md` |
-| `src/myco/mcp/` (v0.5.5) | (MCP launcher surface: `python -m myco.boundary.mcp`) | `L1_CONTRACT/protocol.md` + `command_manifest.md` |
-| `src/myco/providers/` (v0.5.6 NEW) | (reserved opt-in for LLM provider coupling; empty at v0.5.7; requires `canon.system.no_llm_in_substrate: false` + contract bump to populate) | `L2_DOCTRINE/digestion.md` §"sporulate does NOT call an LLM" + `providers/README.md` |
-| `src/myco/symbionts/` | per-host Agent-sugar adapters (Claude Code skill-generators, Cursor rule writers, VS Code task configurators, etc.) | `L3_IMPLEMENTATION/symbiont_protocol.md`; package defined-but-empty at v0.5.7 |
+| `src/myco/cycle/` (6th, v0.6.0) | Cycle | `docs/architecture/L2_DOCTRINE/cycle.md` |
+| `src/myco/boundary/` (7th, v0.6.0) | Boundary | `docs/architecture/L2_DOCTRINE/boundary.md` |
+| `src/myco/boundary/surface/` | (boundary subpackage — CLI/MCP/manifest) | `L1_CONTRACT/protocol.md` + `L3_IMPLEMENTATION/command_manifest.md` |
+| `src/myco/boundary/install/` | (boundary subpackage — MCP host writers + fresh-substrate bootstrap; 10 automated hosts at v0.6.15) | `docs/INSTALL.md` |
+| `src/myco/boundary/mcp/` | (boundary subpackage — MCP launcher: `python -m myco.boundary.mcp`) | `L1_CONTRACT/protocol.md` + `command_manifest.md` |
+| `src/myco/boundary/host_integration/` | (boundary subpackage — 14 per-host Agent-sugar adapters; renamed from pre-v0.6.0 `symbionts/`) | `L2_DOCTRINE/boundary.md` "Sixth seam" + `L2_DOCTRINE/extensibility.md` |
+| `src/myco/mcp/` (v0.6.13 shim) | (back-compat re-export of `boundary.mcp`; DeprecationWarning) | — |
 
-### Shim packages (v0.5.3)
+### Excreted packages (historical)
 
-The `genesis/` → `germination/` and `meta/` → `cycle/` renames are
-non-breaking: the old paths still exist as shim packages whose
-`__init__.py` re-exports every name from the new location and
-emits a `DeprecationWarning` on import. Examples:
+Six top-level packages were excreted as part of the v0.6.0+ refactor sequence:
 
-- `from myco.meta import session_end_run` still works.
-- `from myco.genesis import run_cli` still works.
-- Both paths are scheduled for removal at v1.0.0.
+- **`src/myco/genesis/`** (v0.5.3 shim → v0.6.0 removed): replaced by `src/myco/germination/`. Downstream substrates updated their imports.
+- **`src/myco/meta/`** (v0.5.3 shim → v0.6.0 removed): replaced by `src/myco/cycle/`.
+- **`src/myco/surface/`** (pre-v0.6.0 → v0.6.0 unified): now `src/myco/boundary/surface/`.
+- **`src/myco/install/`** (v0.5.5 → v0.6.0 unified): now `src/myco/boundary/install/`.
+- **`src/myco/symbionts/`** (v0.5.5 reserved → v0.6.0 unified): now `src/myco/boundary/host_integration/`.
+- **`src/myco/providers/`** (v0.5.6 reserved → v0.6.14 excreted): never populated through 7 minor releases; future LLM-provider coupling, if ever needed, requires its own L0 P1 amendment craft + fresh contract-bumping molt rather than a pre-baked escape hatch.
+
+The `src/myco/mcp/` shim (v0.6.13) is the only legacy import path still
+honored; it re-exports `myco.boundary.mcp` with a DeprecationWarning and
+is scheduled for removal at v1.0.0.
 
 ## Test layout mirror
 

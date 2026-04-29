@@ -208,7 +208,7 @@ def build_v0_4_0_canon(
             },
         },
         "commands": {
-            "manifest_ref": "src/myco/surface/manifest.yaml",
+            "manifest_ref": "src/myco/boundary/surface/manifest.yaml",
         },
         "metrics": {"test_count": 0},
         "waves": {"current": 1, "log_ref": "docs/contract_changelog.md"},

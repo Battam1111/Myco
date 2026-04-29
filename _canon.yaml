@@ -261,7 +261,7 @@ commands:
   manifest_ref: "src/myco/boundary/surface/manifest.yaml"
 
 metrics:
-  test_count: 1477
+  test_count: 1545
 
 waves:
   current: 27

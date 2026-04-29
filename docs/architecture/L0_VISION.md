@@ -130,10 +130,11 @@ Consequences:
 - Substrates extend along **two orthogonal axes**: per-substrate via
   `.myco/plugins/` (one substrate's project-specific rules, adapters,
   schema upgraders, overlay verbs) and per-host via
-  `src/myco/symbionts/` (Agent-sugar shared across every substrate on
-  one host — skill-generators, rule writers, task configurators).
-  The two axes compose freely. See `L3_IMPLEMENTATION/symbiont_protocol.md`
-  and the in-progress `L2_DOCTRINE/extensibility.md`.
+  `src/myco/boundary/host_integration/` (Agent-sugar shared across every
+  substrate on one host — skill-generators, rule writers, task
+  configurators; renamed from pre-v0.6.0 `src/myco/symbionts/` at the
+  v0.6.0 boundary unification). The two axes compose freely. See
+  `L2_DOCTRINE/boundary.md` and `L2_DOCTRINE/extensibility.md`.
 
 ---
 
