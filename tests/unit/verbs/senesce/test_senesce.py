@@ -62,9 +62,20 @@ def test_explicit_full_mode_matches_default(genesis_substrate: Path) -> None:
     # Second substrate, same content — compare payload shape only.
     other_root = genesis_substrate.parent / "other"
     other_root.mkdir(exist_ok=True)
-    # Reuse existing fixture behavior — just verify full-mode shape.
-    assert set(result_default.payload.keys()) == {"reflect", "immune", "mode"}
+    # v0.6.14: full mode payload now also carries `vetoed_intent_reap`
+    # (auto-evolve tracking-issue reaper). Per craft Round 2 R-T18, the
+    # reaper is best-effort and always reports — even when skipped because
+    # tracking issue isn't seeded — so it's always in the payload.
+    assert set(result_default.payload.keys()) == {
+        "reflect",
+        "immune",
+        "vetoed_intent_reap",
+        "mode",
+    }
     assert result_default.payload["mode"] == "full"
+    # Reaper should report skip when no tracking issue seeded (default canon).
+    reap = result_default.payload["vetoed_intent_reap"]
+    assert reap["reaped_count"] == 0
 
 
 # ---------------------------------------------------------------------------

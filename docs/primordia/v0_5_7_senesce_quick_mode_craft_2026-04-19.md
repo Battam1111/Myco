@@ -7,6 +7,7 @@ date: 2026-04-19
 rounds: 3
 craft_protocol_version: 1
 status: COMPILED
+authored_by: human
 ---
 
 # v0.5.7-buffer — `senesce --quick` for the SessionEnd Timeout Gap

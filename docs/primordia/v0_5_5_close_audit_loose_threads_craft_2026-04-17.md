@@ -7,6 +7,7 @@ date: 2026-04-17
 rounds: 3
 craft_protocol_version: 1
 status: COMPILED
+authored_by: human
 ---
 
 # v0.5.5 — Close Every Loose Thread from v0.4.1 Audit + v0.5.1 Craft

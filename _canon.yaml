@@ -79,9 +79,14 @@ system:
     rules_ref: "docs/architecture/L1_CONTRACT/protocol.md"
     rule_count: 7
   # v0.5.6 → v0.6.0 schema v2: bool → 3-state enum.
+  # v0.6.14 (option C of T17): enum reduced to 2 values; "providers-declared"
+  # dropped because src/myco/providers/ was excreted (never populated through
+  # 7 minor releases, v0.5.6 → v0.6.13). Future provider coupling, if ever
+  # needed, requires its own L0 P1 amendment craft + fresh contract-bumping
+  # molt — NOT a pre-baked escape hatch sitting empty for years. See
+  # docs/architecture/L2_DOCTRINE/boundary.md § "Future axis" (historical note).
   # "forbidden" (default; Myco strict P1 — no LLM in substrate process)
   # "opt-in"   (per-call sampling allowed; tokens cleared after each call)
-  # "providers-declared" (substrate also opted into providers/ populated)
   # MP1/MP2/MP3 + CL1/CL2/CL3 dims cooperate to enforce.
   llm_policy: "forbidden"
   # v0.6.0 resource redaction policy: governs what `myco://canon` and
@@ -120,6 +125,53 @@ system:
     # When true, mcp_auth.py must import _redact_in_logs helper.
     # CL2 dim refuses streamable-http server boot otherwise.
     token_redaction_required: true
+    # v0.6.14 Cycle 自起 fruit—winnow—molt 闭环 (governance fields).
+    # See L2_DOCTRINE/cycle.md § "Cycle 自起 闭环 (v0.6.14+)" + governing
+    # craft v0_6_14_cycle_autostart_fruit_winnow_molt_loop_craft_2026-04-29.
+    # Master switch (default false; opt-in per substrate).
+    auto_propose_enabled: false
+    # Rate limit: minimum wall-clock between two auto-evolve invocations.
+    # Persisted in .myco_state/last_auto_evolve.txt; cross-process visible.
+    auto_evolve_min_wall_clock_seconds_between: 600
+    # Number of fungal-named critics primordium spawns in autonomous mode
+    # (mycoparasite + saprotroph + mycorrhiza by default = 3).
+    auto_evolve_critic_count: 3
+    # Branch prefix for auto-craft PRs (fungal taxonomy per L0:185-186).
+    # "fruiting/" = fruiting body in mycology. NOT "auto-craft/".
+    auto_evolve_branch_prefix: "fruiting/"
+    # Same-distilled-hash cooldown: prevents feedback loops where
+    # auto-craft modifies doctrine then re-triggers from same distilled.
+    auto_evolve_distilled_hash_cooldown_senesce: 7
+    # Force all auto-craft proposals into high-risk classification,
+    # which makes owner-gate mandatory regardless of content surface.
+    # Bypasses 7-session-7-day public-window auto-LAND path.
+    auto_evolve_force_high_risk: true
+    # Auto-craft PRs skip governance.public_window auto-LAND;
+    # PR-merge becomes the sole gate.
+    auto_evolve_pr_window_skip: true
+    # Distilled-note severity threshold; LOW distilled does not trigger.
+    # Values: low / medium / high / critical (matches Severity enum).
+    auto_evolve_min_distilled_severity: medium
+    # Daily budget cap for auto-evolve runs (USD-equivalent of agent
+    # cost). null = unbounded; owner sets a cap. Spend tracked in
+    # .myco_state/auto_evolve_spend.json.
+    auto_evolve_daily_budget_usd: null
+    # GitHub issue number where vetoed_intent comments are posted by
+    # auto_revert.yml. Seeded once via scripts/seed_auto_evolve_tracking_issue.py
+    # null until seeded; then int.
+    auto_evolve_tracking_issue_id: null
+    # Hosts permitted to author crafts (MP1 dim host-signature check).
+    # Crafts in docs/primordia/*.md MUST carry `authored_by:` frontmatter
+    # naming one of these hosts; otherwise MP1 emits HIGH finding.
+    # `human` covers hand-authored crafts; `claude-code-agent` covers
+    # primordium-driven autonomous crafts; the others reserve namespace
+    # for future host integrations (cursor / claude-desktop / cowork).
+    recognized_authoring_hosts:
+      - "claude-code-agent"
+      - "cursor-agent"
+      - "claude-desktop-agent"
+      - "cowork-agent"
+      - "human"
 
 versioning:
   package_version_ref: "src/myco/__init__.py"

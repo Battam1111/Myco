@@ -7,6 +7,7 @@ date: 2026-04-17
 rounds: 3
 craft_protocol_version: 1
 status: COMPILED
+authored_by: human
 ---
 
 # v0.5.2 — Editable-by-Default Install Model Craft

@@ -9,6 +9,7 @@ craft_protocol_version: 1
 status: COMPILED
 children:
   - v0_5_6_mp1_mycelium_purity_craft_2026-04-18.md
+authored_by: human
 ---
 
 > **Child crafts**: the MP1 dimension justification lives in its

@@ -191,15 +191,40 @@ def test_mp1_ignores_relative_imports(tmp_path: Path) -> None:
     assert findings == []
 
 
-def test_mp1_ignores_providers_directory(tmp_path: Path) -> None:
-    """A file under ``src/myco/providers/`` is MP1-exempt by path."""
-    ctx = _seed_substrate(tmp_path)
+def test_mp1_no_longer_ignores_providers_directory(tmp_path: Path) -> None:
+    """v0.6.14: ``src/myco/providers/`` path-skip removed.
+
+    Per v0.6.14 craft Round 2 R-T17: the directory was reserved at v0.5.6
+    as a named escape hatch but never populated through 7 minor releases.
+    v0.6.14 excretes the directory from Myco-self and removes the MP1
+    path-skip. If a synthetic substrate (e.g. a downstream test fixture
+    or a contrarian fork) recreates the directory, MP1 now scans it
+    like any other kernel path. The declared opt-in via
+    ``llm_policy: opt-in`` flips findings to LOW severity; default
+    ``forbidden`` keeps them HIGH (CI gates).
+
+    This test asserts the new behavior: providers/ contents ARE scanned
+    when llm_policy is forbidden. The previous test (path-skip behavior)
+    is preserved as a comment for archaeology.
+    """
+    ctx = _seed_substrate(tmp_path)  # default canon: llm_policy = forbidden
     providers_dir = tmp_path / "src" / "myco" / "providers"
     providers_dir.mkdir()
     (providers_dir / "__init__.py").write_text("", encoding="utf-8")
     (providers_dir / "openai_bridge.py").write_text("import openai\n", encoding="utf-8")
     findings = list(MP1NoProviderImports().run(ctx))
-    assert findings == []
+    # v0.6.14: providers/ is no longer path-skipped; the import IS detected.
+    provider_findings = [f for f in findings if "openai" in (f.message or "")]
+    assert len(provider_findings) >= 1, (
+        "v0.6.14: MP1 must NOT skip src/myco/providers/. The path-skip was "
+        "removed when the directory was excreted from Myco-self. A synthetic "
+        "substrate that recreates providers/ should still trigger MP1."
+    )
+    # Severity must be HIGH because llm_policy is the default `forbidden`.
+    assert provider_findings[0].severity.value >= 3, (
+        f"Expected HIGH severity for forbidden-policy + provider import; "
+        f"got {provider_findings[0].severity}"
+    )
 
 
 def test_mp1_ignores_pycache(tmp_path: Path) -> None:
