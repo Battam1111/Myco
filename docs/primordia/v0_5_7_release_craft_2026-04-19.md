@@ -12,6 +12,7 @@ children:
   - v0_5_6_mp1_mycelium_purity_craft_2026-04-18.md
 references:
   - notes/integrated/n_20260419T064028Z_v0-5-7-comprehensive-audit-release-kicko.md
+authored_by: human
 ---
 
 # v0.5.7 — Release Closure + v0.5.6 Postponement Cleanup

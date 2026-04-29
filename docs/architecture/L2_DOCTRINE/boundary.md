@@ -262,3 +262,80 @@ extensions are deferred to a subsequent release. v0.6.11 only ships the
 surface; downstream substrates that want to scaffold subagents currently
 copy from `.claude/agents/` manually or write from scratch following the
 boundary doctrine pattern documented above.
+
+> **Historical note (v0.6.14)**: `src/myco/providers/` was reserved at
+> v0.5.6 as a named, path-scoped escape hatch from MP1's
+> no-provider-SDK enforcement. Through 7 minor releases (v0.5.6 →
+> v0.6.13) it remained empty by design. v0.6.14 excretes the directory:
+> with `llm_policy: forbidden` as the default and v0.6.14 mechanizing
+> the autopoietic loop entirely in the Agent layer (Sixth seam below),
+> the kernel-side escape hatch is unused infrastructure. Future provider
+> coupling, if ever needed, requires its own L0 P1 amendment craft and
+> a fresh contract-bumping `molt`, **not** a pre-baked escape hatch
+> sitting empty for years. The `llm_policy` enum drops
+> `providers-declared` accordingly; remaining values are `forbidden`
+> (default) and `opt-in` (per-call MCP sampling, tokens cleared per CL3).
+
+## Sixth seam: GitHub-side critic-fanout + auto-revert (v0.6.14+)
+
+Boundary's outward interface gained a **sixth seam** at v0.6.14:
+**autopoietic kernel-evolution loop** that mechanizes the bridge from
+metabolic flow (`eat → assimilate → sporulate`) to morphogenetic flow
+(`fruit → winnow → molt`). The seam adds a new slash command, extends
+two existing subagents, adds a GitHub Actions workflow, and lifts MP1's
+mechanical guard — but **substrate kernel binary stays L0 P1 strict**
+(zero new lines of LLM dispatch).
+
+> **Governing craft**: `docs/primordia/v0_6_14_cycle_autostart_fruit_winnow_molt_loop_craft_2026-04-29.md`.
+> **Cross-ref**: `L2_DOCTRINE/cycle.md` § "Cycle 自起 fruit—winnow—molt 闭环 (v0.6.14+)" carries the full chain semantics; this section documents the boundary-side surfaces only.
+
+### Surface delta vs the 5th seam
+
+| Element | 5th seam (v0.6.11) | 6th seam (v0.6.14) |
+|---------|---------------------|---------------------|
+| Subagent count | 5 (primordium / hypha / autolysis / stipe / anamorph) | 5 (unchanged) |
+| Slash command count | 5 | **6** (new: `/myco-evolve <distilled-slug>`) |
+| Subagent extension | (none) | primordium gains autonomous mode + Task tool; stipe gains `--branch-only` mode |
+| GitHub-side surface | (none beyond plugin-bundle declaration) | `.github/workflows/auto_revert.yml` (new) |
+| MP1 dim role | scans `src/myco/**` for provider SDK imports | additionally requires `authored_by:` frontmatter on every `docs/primordia/*.md` craft |
+| Tracking issue | (none) | one substrate-wide GitHub issue tagged `auto-evolve-tracker` for `vetoed_intent` comment thread |
+
+### Three fungal critic roles (sub-agent fanout protocol)
+
+primordium's autonomous mode spawns 3 parallel `general-purpose` sub-agents
+via Agent tool, each with a fungal role-prompt and **disjoint visibility scope**:
+
+| Role | Fungal idiom | Visibility scope | Bias |
+|------|--------------|------------------|------|
+| **mycoparasite** (寄生) | A fungus that infects + kills another organism | draft only | break paths, prompt-injection, feedback loops |
+| **saprotroph** (腐生) | A fungus that decomposes dead organic matter | L0/L1/L2 + canon + crafts | doctrine drift, vocabulary, dead code |
+| **mycorrhiza** (菌根) | Symbiotic root-fungus association | src/ + tests/ + .github/ + .claude/ | impl traction, API boundaries, mock infra |
+
+All three names come from established fungal taxonomy (mycoparasitism, saprotrophic nutrition, mycorrhizal symbiosis); L0:185-186 vocabulary discipline preserved.
+
+Critic outputs are **veto votes**: any HIGH-severity tension from any critic forces primordium to abort to DRAFT status. primordium does NOT adjudicate; it surfaces all HIGHs and stops.
+
+### Auto-revert workflow design
+
+`.github/workflows/auto_revert.yml` triggers on `pull_request.closed && !merged && head_ref starts-with fruiting/`. Actions:
+
+1. `git push --delete origin ${{ github.head_ref }}` — removes the auto-craft branch.
+2. `gh issue comment <auto-evolve-tracker-id> --body "<vetoed_intent JSON blob>"` — records the veto for later canon write.
+
+The next `myco senesce` invocation (in any session) parses new comments since `.myco_state/last_intent_reap.txt` and writes `vetoed_at: <ISO timestamp>` into matching entries of `canon.governance.last_winnowed_proposals[]`. Idempotent. The indirection (issue comment + senesce reaper) avoids the GitHub Actions concurrency hazard of writing `_canon.yaml` directly while a parallel push to main is in flight.
+
+### Plugin-mirror discipline (extends 5th seam invariant 3)
+
+The 6th seam's new files follow the same byte-identical mirror rule:
+
+- `.claude/commands/myco-evolve.md` ↔ `<repo>/commands/myco-evolve.md`
+- `.claude/agents/primordium.md` ↔ `<repo>/agents/primordium.md` (autonomous mode added in both)
+- `.claude/agents/stipe.md` ↔ `<repo>/agents/stipe.md` (--branch-only mode added in both)
+
+`tests/unit/boundary/test_subagent_and_command_surface.py` extends `_EXPECTED_COMMANDS` from 5 to 6 entries; new tests assert (a) only primordium has `Task` in its tools allowlist, (b) only primordium body mentions "Autonomous mode" — these prevent the autonomous-mode exception from accidentally proliferating to other subagents (the original mycorrhiza T1 critique).
+
+### Six surface invariants (extending the 5th seam's 5)
+
+1-5 from v0.6.11 unchanged. New at v0.6.14:
+
+6. **Auto-craft branches use `fruiting/<slug>-<date>` prefix** (real fungal taxonomy; `fruiting body` is the standard mycological term). Branch names must NEVER use English compounds like "auto-craft/" — that violates L0:185-186 vocabulary discipline. Enforced by `canon.governance.auto_evolve_branch_prefix: "fruiting/"` and stipe `--branch-only` validation.

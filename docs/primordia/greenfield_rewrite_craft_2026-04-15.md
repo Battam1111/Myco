@@ -16,6 +16,7 @@ out_of_scope:
   - specific lint dimension retention list  # deferred to L3 implementation craft
   - error-model migration mechanics         # deferred to implementation sub-craft
   - README translation pipeline decision    # explicit escalation to user
+authored_by: human
 ---
 
 # Myco v0.4.0 Greenfield Rewrite — Top-Down Architecture

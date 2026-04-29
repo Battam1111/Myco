@@ -7,6 +7,7 @@ date: 2026-04-21
 rounds: 3
 craft_protocol_version: 1
 status: APPROVED
+authored_by: human
 ---
 
 # V0.5.9 Immune Zero — Craft

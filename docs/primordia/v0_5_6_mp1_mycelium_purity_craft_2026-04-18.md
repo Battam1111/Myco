@@ -8,6 +8,7 @@ rounds: 3
 craft_protocol_version: 1
 status: COMPILED
 parent: v0_5_6_doctrine_realignment_craft_2026-04-17.md
+authored_by: human
 ---
 
 # v0.5.6 — MP1 Mycelium Purity (LLM-Boundary Mechanical Guard)

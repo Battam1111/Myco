@@ -7,6 +7,7 @@ date: 2026-04-24
 rounds: 3
 craft_protocol_version: 1
 status: LANDED
+authored_by: human
 ---
 
 # Glama Usage & Discoverability Drive — Craft

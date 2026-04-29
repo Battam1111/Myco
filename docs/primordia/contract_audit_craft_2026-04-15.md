@@ -10,6 +10,7 @@ craft_protocol_version: 1
 decision_class: kernel_contract
 trigger: "CI 连炸三次 + immune 本地 75 issues — 用户问：'CI 疯狂失败，会不会是设计上的问题？整个项目中很多设计是不是都是有问题的？'"
 resolution: "v0.3.4 ships D1-D7 in one batch per user mandate 2026-04-15. Lint stratification merged forward from v0.3.5."
+authored_by: human
 ---
 
 # Contract Audit — 七处未写死的子系统交界 (Wave 63)

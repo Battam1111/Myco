@@ -1,4 +1,4 @@
-"""MP1 — kernel imports no LLM provider SDK (L0 principle 1 enforcement).
+"""MP1 — kernel imports no LLM provider SDK + craft host signature (L0 P1 enforcement).
 
 v0.5.6 promotes Myco's **first-class mycelium-purity invariant** from
 doctrine-by-convention to mechanical enforcement. L0 principle 1 states:
@@ -19,17 +19,30 @@ blacklist of LLM provider SDKs. Finding any blacklisted top-level
 module means the kernel has started reaching for an LLM directly; that
 is a contract violation of the L0 trust boundary.
 
+**v0.6.14 extension — craft host signature:** MP1 also walks every
+``docs/primordia/*.md`` craft proposal and verifies frontmatter carries
+``authored_by:`` naming a host from
+``canon.governance.recognized_authoring_hosts`` (default list:
+``claude-code-agent``, ``cursor-agent``, ``claude-desktop-agent``,
+``cowork-agent``, ``human``). A craft missing the field — or naming an
+unrecognized host — emits a HIGH finding. This is the **mechanical
+guard** that "no craft was authored inside the substrate process": even
+if a future bug let substrate-side code generate a craft markdown file,
+MP1 would refuse it without a recognized host signature, and ``myco
+winnow`` (which now requires immune-clean for high-risk crafts) would
+gate it.
+
 Governing doctrine:
-``docs/architecture/L2_DOCTRINE/digestion.md`` (agent-first boundary).
-Governing craft:
-``docs/primordia/v0_5_6_mp1_mycelium_purity_craft_2026-04-18.md``.
+``docs/architecture/L2_DOCTRINE/digestion.md`` (agent-first boundary)
++ ``docs/architecture/L2_DOCTRINE/cycle.md`` § "Cycle 自起 fruit—winnow—
+molt 闭环 (v0.6.14+)".
+Governing crafts:
+``docs/primordia/v0_5_6_mp1_mycelium_purity_craft_2026-04-18.md`` (origin)
++ ``docs/primordia/v0_6_14_cycle_autostart_fruit_winnow_molt_loop_craft_2026-04-29.md``
+(host-signature extension).
 
 Scope (what MP1 does NOT scan):
 
-- ``src/myco/providers/`` — the declared opt-in escape hatch. Empty at
-  v0.5.6 by design; adding a real provider bridge there requires (a)
-  flipping ``canon.system.no_llm_in_substrate`` to ``false``, (b) a
-  contract-bumping ``molt``, and (c) craft approval.
 - ``.myco/plugins/`` — substrate-local extensions. MF2 governs this
   axis; reusing MP1 for plugins would cross subsystem boundaries.
 - ``tests/`` — test fixtures import provider SDKs legitimately (e.g.
@@ -38,20 +51,42 @@ Scope (what MP1 does NOT scan):
 - Anything under a directory whose name starts with ``.`` (e.g.
   ``.venv``, ``.git``) or ``__pycache__``.
 
-Severity logic:
+**Removed at v0.6.14**: the ``src/myco/providers/`` path-skip. v0.6.14
+excretes the directory entirely (per the v0.6.14 craft Round 2 §T17 —
+"providers/ was reserved at v0.5.6 as escape hatch; v0.6.14 excretes
+as never-populated through 7 minor releases"). The directory's
+nonexistence is the stronger guard than a path-skip; if a synthetic
+substrate (e.g. a downstream test fixture) recreates the directory,
+MP1 now scans it like any other kernel path.
 
-- ``canon.system.no_llm_in_substrate: true`` (the default) + scan
+Severity logic (provider import scan):
+
+- ``canon.system.llm_policy: "forbidden"`` (the default) + scan
   finds a violation → :attr:`Severity.HIGH` finding per import,
   message names each imported module. CI gates this by default.
-- ``canon.system.no_llm_in_substrate: false`` + scan finds a violation
+- ``canon.system.llm_policy: "opt-in"`` + scan finds a violation
   → :attr:`Severity.LOW` finding per import, message surfaces that
   the substrate has opted out. The agent still sees the import so it
   knows the LLM boundary is not enforced here.
 - Either canon value + scan clean → no finding.
 
+Severity logic (craft host signature, v0.6.14+):
+
+- Craft missing ``authored_by:`` frontmatter key → HIGH finding.
+- Craft with ``authored_by: <not-in-recognized-list>`` → HIGH finding.
+- Craft with ``authored_by: <recognized-host>`` → no finding.
+
+The recognized-hosts list is read fresh from
+``canon.governance.recognized_authoring_hosts`` on each run. Crafts in
+the special directory ``docs/primordia/_excreted/`` are skipped (MB6's
+auto-excretion path produces these from stale DRAFTs; they're not live
+governance artifacts).
+
 Fixable: **False**. Removing an import is too destructive to automate
-— it changes the meaning of the surrounding code. MP1 detects only;
-repairing is human/agent work.
+— it changes the meaning of the surrounding code. Adding a missing
+``authored_by:`` field is also not auto-fixable — the substrate cannot
+know whether a craft was authored by a human or by claude-code-agent;
+that's the human's call. MP1 detects only; repairing is human/agent work.
 """
 
 from __future__ import annotations
@@ -168,87 +203,102 @@ class MP1NoProviderImports(Dimension):
     def run(self, ctx: MycoContext) -> Iterable[Finding]:
         root = ctx.substrate.root
         kernel_dir = root / "src" / "myco"
-        if not kernel_dir.is_dir():
-            # Substrate does not ship a kernel tree under the canonical
-            # path (e.g. a documentation-only substrate). Nothing to
-            # check; silent exit.
-            return
 
         system = ctx.substrate.canon.system or {}
         # v0.6.0: schema v2 replaces ``no_llm_in_substrate: bool`` with
-        # ``llm_policy: "forbidden" | "opt-in" | "providers-declared"``.
-        # Read the v2 enum first; fall back to v1 bool for substrates that
-        # somehow bypass the upgrader chain.
+        # ``llm_policy: "forbidden" | "opt-in"``.
+        # v0.6.14: ``providers-declared`` enum option dropped (providers/
+        # excreted; never-populated through 7 minor releases). Read the v2
+        # enum first; fall back to v1 bool for substrates that somehow
+        # bypass the upgrader chain.
         llm_policy = system.get("llm_policy")
         if llm_policy is not None:
             declared_no_llm = str(llm_policy) == "forbidden"
         else:
             declared_no_llm = bool(system.get("no_llm_in_substrate", True))
 
-        providers_dir = kernel_dir / "providers"
+        # ----- Part 1: provider-import scan (v0.5.6+) -----
+        if kernel_dir.is_dir():
+            for py_file in sorted(kernel_dir.rglob("*.py")):
+                if self._should_skip(py_file):
+                    continue
+                for violation in self._scan_file(py_file):
+                    rel_path, line, imported = violation
+                    if declared_no_llm:
+                        yield Finding(
+                            dimension_id=self.id,
+                            category=self.category,
+                            severity=Severity.HIGH,
+                            message=(
+                                f"kernel file imports LLM provider SDK "
+                                f"{imported!r} (L0 principle 1 violation: "
+                                f"agents call LLMs; the substrate does not). "
+                                f"Route through the agent surface (host-mediated "
+                                f"MCP sampling or Claude Code Agent tool sub-agent "
+                                f"per cycle.md L0 P1 exception #2)."
+                            ),
+                            path=rel_path,
+                            line=line,
+                        )
+                    else:
+                        yield Finding(
+                            dimension_id=self.id,
+                            category=self.category,
+                            severity=Severity.LOW,
+                            message=(
+                                f"kernel file imports LLM provider SDK "
+                                f"{imported!r}; substrate opted out "
+                                f"(canon.system.llm_policy: opt-in), "
+                                f"so the LLM boundary is not enforced here."
+                            ),
+                            path=rel_path,
+                            line=line,
+                        )
 
-        for py_file in sorted(kernel_dir.rglob("*.py")):
-            if self._should_skip(py_file, providers_dir):
-                continue
-            for violation in self._scan_file(py_file):
-                rel_path, line, imported = violation
-                if declared_no_llm:
-                    yield Finding(
-                        dimension_id=self.id,
-                        category=self.category,
-                        severity=Severity.HIGH,
-                        message=(
-                            f"kernel file imports LLM provider SDK "
-                            f"{imported!r} (L0 principle 1 violation: "
-                            f"agents call LLMs; the substrate does not). "
-                            f"Either route through the agent surface or "
-                            f"move the bridge under src/myco/providers/ "
-                            f"and set canon.system.no_llm_in_substrate: "
-                            f"false."
-                        ),
-                        path=rel_path,
-                        line=line,
-                    )
-                else:
-                    yield Finding(
-                        dimension_id=self.id,
-                        category=self.category,
-                        severity=Severity.LOW,
-                        message=(
-                            f"kernel file imports LLM provider SDK "
-                            f"{imported!r}; substrate opted out "
-                            f"(canon.system.no_llm_in_substrate: false), "
-                            f"so the LLM boundary is not enforced here."
-                        ),
-                        path=rel_path,
-                        line=line,
-                    )
+        # ----- Part 2: craft host-signature scan (v0.6.14+) -----
+        primordia_dir = root / "docs" / "primordia"
+        if primordia_dir.is_dir():
+            governance = system.get("governance", {}) or {}
+            recognized_hosts = frozenset(
+                governance.get(
+                    "recognized_authoring_hosts",
+                    # Fallback default for substrates without v0.6.14 governance
+                    # block. Mirrors the canon default exactly.
+                    [
+                        "claude-code-agent",
+                        "cursor-agent",
+                        "claude-desktop-agent",
+                        "cowork-agent",
+                        "human",
+                    ],
+                )
+            )
+            for craft_path in sorted(primordia_dir.glob("*.md")):
+                yield from self._scan_craft_authorship(
+                    craft_path, root, recognized_hosts
+                )
 
     # ------------------------------------------------------------------
     # Internals
     # ------------------------------------------------------------------
 
-    def _should_skip(self, py_file: Path, providers_dir: Path) -> bool:
+    def _should_skip(self, py_file: Path) -> bool:
         """True iff ``py_file`` is outside MP1's scan scope.
 
         Skips:
 
-        - anything under ``src/myco/providers/`` (the declared opt-in
-          escape hatch; ``canon.system.no_llm_in_substrate: false``
-          governs this axis);
         - any ``__pycache__`` directory;
         - any directory whose name begins with ``.`` (``.venv``,
           ``.git``, …) — a source checkout may contain these even
           though git-ignored; rglob still descends into them.
-        """
-        try:
-            rel = py_file.relative_to(providers_dir)
-            # If we reach here, py_file is inside providers_dir.
-            _ = rel
-            return True
-        except ValueError:
-            pass
 
+        v0.6.14: removed the ``src/myco/providers/`` path-skip — the
+        directory was excreted (never populated through 7 minor releases).
+        Its nonexistence is the stronger guard. If a synthetic substrate
+        recreates the directory, MP1 now scans it like any other kernel
+        path; declared opt-in via ``llm_policy: opt-in`` flips findings
+        to LOW severity.
+        """
         for part in py_file.parts:
             if part == "__pycache__":
                 return True
@@ -258,6 +308,98 @@ class MP1NoProviderImports(Dimension):
             if part.startswith(".") and part not in {".", ".."}:
                 return True
         return False
+
+    def _scan_craft_authorship(
+        self, craft_path: Path, root: Path, recognized_hosts: frozenset[str]
+    ) -> Iterable[Finding]:
+        """Yield host-signature findings for a single craft markdown file.
+
+        v0.6.14+ scan path. Scope: files under ``docs/primordia/*.md`` whose
+        frontmatter declares ``type: craft``. Other primordia files
+        (historical agent-handoff notes, old release-notes, audit reports)
+        are exempt — the host-signature requirement is craft-specific
+        because crafts are governance proposals that mutate doctrine, while
+        non-craft primordia are records of decisions already made.
+
+        Skips files under ``docs/primordia/_excreted/`` (auto-excreted stale
+        DRAFTs from MB6 are no longer live governance artifacts).
+        """
+        import re
+
+        try:
+            rel = craft_path.relative_to(root).as_posix()
+        except ValueError:
+            return
+        if "_excreted/" in rel or "/_excreted/" in rel:
+            return
+
+        try:
+            text = bounded_read_text(craft_path)
+        except (OSError, UnicodeDecodeError, MycoError):
+            return
+
+        # Files without frontmatter are non-craft primordia (e.g. handoff
+        # notes, raw transcripts). Exempt — not governance proposals.
+        if not text.startswith("---\n") and not text.startswith("---\r\n"):
+            return
+
+        # Find the closing `---` delimiter.
+        match = re.search(r"^---\s*$", text[4:], re.MULTILINE)
+        if match is None:
+            return  # malformed frontmatter — exempt (non-craft)
+        fm_text = text[4 : 4 + match.start()]
+
+        # Scope-restrict to type: craft. Other types (audit, design-note,
+        # handoff, etc.) are exempt from host-signature requirement.
+        type_match = re.search(
+            r"^\s*type\s*:\s*['\"]?([^'\"\n#]+?)['\"]?\s*(?:#.*)?$",
+            fm_text,
+            re.MULTILINE,
+        )
+        if type_match is None or type_match.group(1).strip() != "craft":
+            return  # not a craft — exempt
+
+        # This is a craft. authored_by: is required.
+        host_match = re.search(
+            r"^\s*authored_by\s*:\s*['\"]?([^'\"\n#]+?)['\"]?\s*(?:#.*)?$",
+            fm_text,
+            re.MULTILINE,
+        )
+        if host_match is None:
+            yield Finding(
+                dimension_id=self.id,
+                category=self.category,
+                severity=Severity.HIGH,
+                message=(
+                    f"craft {rel} (type: craft) frontmatter is missing required "
+                    f"authored_by: field (v0.6.14+). Add "
+                    f"`authored_by: <recognized-host>` where host is one of "
+                    f"{sorted(recognized_hosts)}. This is the mechanical "
+                    f"guard that no craft was authored inside the substrate "
+                    f'process; see L2_DOCTRINE/cycle.md § "Cycle 自起 闭环".'
+                ),
+                path=rel,
+                line=1,
+            )
+            return
+
+        host = host_match.group(1).strip()
+        if host not in recognized_hosts:
+            yield Finding(
+                dimension_id=self.id,
+                category=self.category,
+                severity=Severity.HIGH,
+                message=(
+                    f"craft {rel} declares unrecognized authored_by: {host!r}. "
+                    f"Recognized hosts (from canon.governance.recognized_authoring_hosts): "
+                    f"{sorted(recognized_hosts)}. To add a host, edit "
+                    f"_canon.yaml::system.governance.recognized_authoring_hosts."
+                ),
+                path=rel,
+                line=1,
+            )
+            return
+        # host is recognized: no finding.
 
     def _scan_file(self, py_file: Path) -> Iterable[tuple[str, int, str]]:
         """Yield ``(rel_path_posix, line, imported_name)`` for each violation.

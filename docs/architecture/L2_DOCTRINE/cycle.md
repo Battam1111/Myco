@@ -138,12 +138,82 @@ Owner-veto via `vetoed_at` field on any pending proposal is
 always-on — a missed window is impossible because veto can be
 recorded at any time.
 
+## Cycle 自起 fruit—winnow—molt 闭环 (v0.6.14+)
+
+> **Governing craft**: `docs/primordia/v0_6_14_cycle_autostart_fruit_winnow_molt_loop_craft_2026-04-29.md`.
+> **Triggering observation** (2026-04-29 owner remark, post neat-freak ingestion): "Myco 吃完之后似乎并不会直接进化自己的内核啊？"
+
+Through v0.6.13 the metabolic flow (`eat → assimilate → sporulate`) and the morphogenetic flow (`fruit → winnow → molt`) were **doctrinally separated and procedurally bridged by 5 manual handoffs** of agent prose. Most insights captured in distilled never reached the kernel because the bridge was too long. v0.6.14 mechanizes 4 of those 5 handoffs while keeping owner-merge-gate as the single remaining synapse. **L0 P1 stays strict**: substrate kernel adds 0 lines of LLM dispatch; orchestration lives entirely in the Claude Code Agent layer (Agent tool sub-agent fanout — analogous host-mediated mechanism to the existing MCP `sampling` exception #2 for `myco fruit`).
+
+### The auto-loop chain
+
+`/myco-evolve <distilled-slug>` (a Claude Code slash command, not a substrate verb) orchestrates:
+
+```
+quarantine_distilled        # strip ASCII control + cap 32KB + UNTRUSTED-INPUT marker
+        ↓
+primordium (autonomous mode) # spawn 3 fungal-named critic sub-agents (mycoparasite /
+        ↓                    #  saprotroph / mycorrhiza) via Agent tool with disjoint
+        ↓                    #  visibility scopes; synthesize Round 1.5 T-tensions;
+        ↓                    #  optional Round 2.5 second fanout
+winnow                       # gate craft shape (G1-G6)
+        ↓ if LANDED
+hypha                        # feasibility trace against current src/
+        ↓
+anamorph                     # if schema delta needed
+        ↓
+stipe --branch-only          # branch fruiting/<slug>-<date>; implement; gate quintet;
+        ↓                    #  commit; push branch (NOT main); gh pr create with
+        ↓                    #  summary + repo-relative path link (NOT full craft text)
+gh pr create                 # owner clicks merge or closes-without-merge
+```
+
+If owner closes-without-merge: `.github/workflows/auto_revert.yml` deletes the branch and posts a `vetoed_intent` comment on the substrate's auto-evolve tracking issue. The next `senesce` (in any session) reaps these comments and writes `vetoed_at: <timestamp>` into matching entries of `canon.governance.last_winnowed_proposals[]`.
+
+### Sub-agent fanout as the canonical Round 1.5/2.5 critique protocol
+
+The three fungal critic roles use **disjoint visibility scopes** as the diversity mechanism (single-host clones with shared visibility correlate ≈1; disjoint visibility decorrelates):
+
+| Role | Reads | Looks for |
+|------|-------|-----------|
+| **mycoparasite** (寄生) | draft only (no doctrine, no src/) | break paths: invalid premises, prompt-injection, feedback loops, alert fatigue, single-point-of-failure |
+| **saprotroph** (腐生) | L0/L1/L2 doctrine + canon + previous crafts (no draft, no src/) | doctrine drift, vocabulary violations, governance contradictions, schema parity, deprecated paths, dead code |
+| **mycorrhiza** (菌根) | src/ + tests/ + .claude/ + .github/ + scripts/ (no draft, no doctrine) | impl traction, API boundaries, hook interfaces, mock infra, byte-identity tests, CI cell coverage |
+
+Critic outputs are **veto votes**, not advisory: any HIGH-severity tension from any critic forces primordium to abort to DRAFT status; only owner override resumes. primordium does NOT adjudicate between conflicting HIGH critics.
+
+### Governance path for auto-craft proposals
+
+Auto-craft proposals are **forcibly classified high-risk** via `canon.governance.auto_evolve_force_high_risk: true`, which makes owner-gate mandatory regardless of content. The 7-session-7-day public-window auto-LAND path from v0.6.0 governance tiering is **explicitly bypassed** for auto-craft (`canon.governance.auto_evolve_pr_window_skip: true`). PR-merge becomes the **sole** gate.
+
+**Two-step owner sign** is required for auto-craft PRs touching:
+- L0 / L1 / L2 doctrine paths
+- Full R-surface (verb count, dim count, schema_version)
+- Multi-file diffs above an owner-set threshold
+
+For these, owner must comment `/sign auto-craft` before clicking merge. Other auto-craft PRs allow normal merge.
+
+### Convergence + budget guards
+
+- `auto_evolve_min_wall_clock_seconds_between: 600` — rate limit, persisted in `.myco_state/last_auto_evolve.txt`, cross-process visible.
+- `auto_evolve_distilled_hash_cooldown_senesce: 7` — same distilled-hash cannot trigger again within 7 senesce calls.
+- stipe pre-flight refuses any PR diff modifying doctrine paths the originating distilled note references (anti-self-mutation guard).
+- `auto_evolve_min_distilled_severity: medium` — LOW distilled does not trigger.
+- `auto_evolve_daily_budget_usd: null` — owner sets cap; spend tracked in `.myco_state/auto_evolve_spend.json`.
+
+### Mechanical L0 P1 evidence
+
+MP1 dim extends in v0.6.14: every craft in `docs/primordia/*.md` must carry `authored_by:` frontmatter naming a recognized host (`claude-code-agent`, `cursor-agent`, `claude-desktop-agent`, `cowork-agent`, or `human`). Crafts without host signature → MP1 HIGH finding → winnow refuses entry. This is the mechanical guard that "no craft was authored inside the substrate process".
+
+`grep -r 'Task\|sampling\|provider' src/myco/cycle/` returns **zero** v0.6.14-added hits post-implementation. The auto-loop's intelligence lives in `.claude/` markdown prose (Agent layer); substrate kernel binary unchanged in its provider-coupling stance.
+
 ## What Cycle does NOT do
 
 - **Does not** call any LLM (per L0 P1; Cycle's L0 P1 exception #2
-  for `myco fruit` content authoring is via MCP `sampling` capability,
-  which is host-mediated — substrate process never imports a provider
-  SDK).
+  for `myco fruit` content authoring is via MCP `sampling` capability
+  OR — since v0.6.14 — via Claude Code's Agent tool sub-agent fanout
+  in the auto-loop. Both are host-mediated mechanisms; substrate
+  process never imports a provider SDK).
 - **Does not** ingest external content (that's Ingestion).
 - **Does not** lint individual notes or files (that's Homeostasis).
 - **Does not** propagate to downstream substrates (that's Circulation,
