@@ -2,7 +2,8 @@
 
 Governing doctrine: ``docs/architecture/L2_DOCTRINE/extensibility.md``
 (the two-axis extension model — ``.myco/plugins/`` for per-substrate,
-``src/myco/symbionts/`` for per-host). ramify is the authoring
+``src/myco/boundary/host_integration/`` for per-host; renamed from
+the pre-v0.6.0 ``src/myco/symbionts/`` path). ramify is the authoring
 half; :mod:`myco.cycle.graft` is the audit half.
 
 Governing manifest: ``docs/architecture/L3_IMPLEMENTATION/command_manifest.md``

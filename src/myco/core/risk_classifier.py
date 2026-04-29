@@ -134,13 +134,15 @@ _RECURSION_CUTTER_CANON_KEYS = (
 )
 
 # Medium-risk patterns.
+# v0.6.16: dead-pattern cleanup — removed pre-v0.6.0 paths
+# (``src/myco/surface/manifest.yaml`` and ``_canon_lint.yaml`` are
+# already covered HIGH at lines 100-101; ``src/myco/symbionts/`` was
+# excreted at v0.6.0 in favor of ``src/myco/boundary/host_integration/``).
 _MEDIUM_RISK_PATH_PATTERNS = (
     re.compile(r"docs/architecture/L2_DOCTRINE/.*\.md$"),
     re.compile(r"docs/architecture/L3_IMPLEMENTATION/.*\.md$"),
     re.compile(r"src/myco/homeostasis/dimensions/.*\.py$"),
-    re.compile(r"src/myco/surface/manifest\.yaml$"),
-    re.compile(r"_canon_lint\.yaml$"),
-    re.compile(r"src/myco/symbionts/.*\.py$"),
+    re.compile(r"src/myco/boundary/host_integration/.*\.py$"),
 )
 
 # Low-risk patterns (the default if no higher pattern matches).
