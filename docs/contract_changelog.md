@@ -11,6 +11,93 @@ Format: one section per `contract_version`, newest first.
 
 ---
 
+## v0.7.0 — 2026-04-30 — Major Autolysis (structural compaction + de-redundantization)
+
+**Zero R1-R7 surface deltas; zero new manifest verbs; 4 lint-dim correctness fixes (no inventory change); zero subsystem changes; schema v2 unchanged. ONE public API break**: `from myco.mcp import *` (v0.6.13 back-compat shim) deleted; downstream consumers must use `from myco.boundary.mcp import *`. DeprecationWarning has surfaced this since v0.6.13.
+
+This is the substrate's **first subtractive batch** after 16 minor versions of additive-only operations across v0.6.x. Owner directive (verbatim):
+
+> 我要的不单单是补丁，更是要彻底删除一些项目目录下的路径、文件等等，做到彻底的去冗余化、保留核心、压缩化整个 Myco，不然目前的 Myco 的扩展情况来看，迟早要被自己内部的垃圾压垮.
+
+Translation: "I want more than patches; I want actual deletion of paths and files; thorough de-redundantization, preserve the core, compress all of Myco — otherwise the current expansion trajectory will crush it under accumulated garbage."
+
+### Why this release
+
+L0 P3 (永恒进化 — eternal evolution) names evolution as a load-bearing principle. v0.7.0 demonstrates that evolution **requires shedding**: through 16 minor versions of v0.6.x the substrate accumulated 11 MB of `legacy_v0_3/` quarantine, 2.6 MB of stale wheels, 1.4 MB of unused logos, a v0.6.13 `myco.mcp` shim with zero internal callers, two `digestion/` modules never wired into a verb path, 4 lint dimensions silently fail-passing because their probe paths anchor pre-v0.6.0 modules, and ~11,500 LoC of pre-v0.6 doctrine on the main reading surface. The 4 audit-agents (Opus, parallel, narrow visibility scopes mapped to L0 P3/P4/P5) converged on the same diagnosis: substrate had no missing-feature, but a missing-operation — a subtractive one. v0.7.0 is that operation.
+
+### Audit-agent fanout (substituting for the v0.6.15 5-critic L0-P1-P5 pattern)
+
+The v0.6.15 5-critic pattern is the canonical Round 1.5 mechanism for **proposed-but-unimplemented** crafts. For an **existing-substrate audit**, the evidence-based mode is strictly stronger because critique is grounded in actual file paths, not hypothesized failure modes. The v0.7.0 craft (`docs/primordia/v0_7_0_major_autolysis_craft_2026-04-30.md`) records the 4 audit-agent IDs and their L0-mapped scopes for substrate provenance. P1 + P2 sanity-checked inline; no P0 BLOCK surfaced; 2 HIGH-class hatch-hook + pyproject compat issues resolved pre-execution.
+
+### What changed
+
+#### Group A — Pure deletions (~15 MB / ~388 files)
+
+- `legacy_v0_3/` (11 MB / 376 files) — preserved at git tag `v0.3.4-final`.
+- `dist/myco-0.6.10*` (2.6 MB) — untracked working-tree leakage.
+- `assets/{logo_dark_*,logo_light_64,logo_light_280,logo_light_1024,_gen_logo}` (1.4 MB / 9 files).
+- `src/myco/mcp/` shim package (96 src LoC + 140 test LoC). **SOLE PUBLIC API BREAK.**
+- `src/myco/digestion/{promote_sporulated,reassimilate}.py` (~270 src + 160 test LoC).
+- `src/myco/cycle/templates/substrate_plugins_init.py.tmpl` (zero refs).
+- `notes/raw/` empty directory (recreated lazily by `myco eat`).
+
+#### Group B — Test consolidation (v0.6.0 missed cleanup)
+
+11 test files MOVED to canonical `tests/unit/boundary/<sub>/` paths (8 surface, 2 install, 1 mcp; 3 misfiled R-rule tests landed in `homeostasis/`). 5 stale top-level dirs deleted (`genesis/`, `meta/`, `install/`, `mcp/`, `surface/`). 3 orphan tests deleted. `test_mcp.py` `parents[3]→[4]` depth fix.
+
+#### Group C — Docs archival (~11,500 LoC off main reading surface)
+
+NOT deleted — moved to `_archive/` / `_landed/` / `_pre_v0_6/` subdirectories so the main reading surface presents only current-era doctrine:
+
+- `docs/promotion/` 12 launch templates → `docs/_archive/promotion_v0_6/`
+- `docs/migration/{v0_5_7→v0_5_8, v0_5_8→v0_5_9}.md` → `_pre_v0_6/`
+- `docs/primordia/` 27 pre-v0.6 LANDED crafts → `_landed/v0_4_x/` (15) + `_landed/v0_5_x/` (12)
+- `docs/contract_changelog.md` SPLIT: v0.5.x sections (1931 LoC) → `_archive/v0_5.md`; v0.4.0 (39 LoC) → `_archive/v0_4.md`. Hatch-hook `derive_changelog.py` regex still matches the current `__version__`'s section.
+- `CHANGELOG.md` (1632 LoC; frozen since v0.5.9) → `docs/_archive/CHANGELOG_pre_v0_6.md`.
+- `docs/architecture/L3_IMPLEMENTATION/migration_strategy.md` → `_archive/`.
+
+#### Group D — Correctness fixes (4 fail-silent lint dim bugs since v0.6.0)
+
+- **`CL1`** + **`CL3`** — sampling-related dim probe paths corrected from `src/myco/surface/mcp_sampling.py` to `src/myco/boundary/surface/mcp_sampling.py`. Both now actually fire.
+- **`MF3`** — symbiont artifact integrity marker corrected from `.myco_state/symbionts/installed.txt` to `host_integration/installed.txt`; legacy v0.5.x path also probed for backward-compat.
+- **`DC4`** — module doc-ref dead `"symbionts"` row removed; redundant `surface`/`install`/`mcp` rows collapsed to single `"boundary"` hint.
+
+These dims have been silently broken since v0.6.0. The fact that they sat undetected for 16 minor versions IS the substrate's evidence for needing aggressive compaction — bloat hides bugs.
+
+#### Group E — Defensive cleanup
+
+- `src/myco/core/skip_dirs.py` retains `legacy_v0_3` filter defensively; docstring updated.
+- `src/myco/cycle/{fruit,winnow}.py` docstring `legacy_v0_3` path refs replaced with v0.7.0-excretion notes.
+- `MYCO.md` "Do not carry forward" → "Do not resurrect" wording.
+- `docs/architecture/README.md` migration_strategy.md → archive pointer.
+
+### Break from v0.6.16
+
+**ONE public API break**: `from myco.mcp import build_server, main` (v0.6.13 back-compat shim) deleted. Downstream substrates must use `from myco.boundary.mcp import build_server, main`. DeprecationWarning has been emitted since v0.6.13 (4 versions of warning).
+
+**No other backward-compat break.** All other deletions are quarantined / unused / shim / dead-loop / fail-silent. Archives preserve content under `_archive/` / `_landed/` / `_pre_v0_6/` subdirectories.
+
+### Deferred to v0.7.1 (4 ratchet dims to mechanize 永恒删减)
+
+- **`MB8`** (metabolic, MEDIUM) — repo-bloat detector.
+- **`SH3`** (shipped, HIGH) — shim-package sunset.
+- **`PA6`** (mechanical, MEDIUM) — generated-mirror integrity.
+- **`SE5`** (semantic, LOW) — version-anchor freshness.
+
+Plus the v0.6.11 IOU: `<repo>/{agents,commands}/` build-artifact conversion.
+
+### What did NOT change
+
+- All 7 R-rules (R1-R7): identical text.
+- All 7 subsystems: identical doctrine.
+- All 46 lint dimensions: identical roster + severities + fixability (4 dims now actually fire).
+- All 20 verbs: identical manifest, CLI, MCP shape.
+- `system.llm_policy: forbidden` default: unchanged.
+- `system.governance.*` v0.6.15 settings: preserved.
+- Schema v2 shape: unchanged.
+
+---
+
 ## v0.6.16 — 2026-04-29 — Neat-freak sweep + autopoietic-loop IOU split
 
 **Zero R1-R7 surface deltas; zero new manifest verbs; zero new lint dims; zero subsystem changes; schema v2 unchanged.** This is a hygiene molt: 27-patch deterministic sweep of stale narrative refs accumulated through the v0.6.0 → v0.6.15 minor sequence (5 versions in 2 days), plus one structural decision — **SPLITTING** the originally-scoped v0.6.16 (which bundled autopoietic-loop completion: helper + senesce reaper + auto_merge.yml).
