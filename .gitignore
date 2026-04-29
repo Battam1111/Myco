@@ -85,12 +85,11 @@ upload*.log
 legacy_v0_3/
 
 # Myco runtime substrate state (generated at runtime, not source of truth).
-# The `.myco_state/` directory itself does not exist until Stage C; this
-# rule is pre-positioned so that ephemeral runtime files never get staged.
-.myco_state/sessions.db
-.myco_state/boot_brief.md
-.myco_state/autoseeded.txt
-.myco_state/decay_baseline.yaml
-.myco_state/search_misses.yaml
-.myco_state/excretion_counter.json
-.myco_state/graph.json
+# v0.7.2: switched from per-file list to wildcard so future state files
+# (like shim_hits.json from MB8 telemetry) don't accidentally land in
+# git. Explicit prior list preserved as comment for archaeology.
+#   .myco_state/sessions.db .myco_state/boot_brief.md
+#   .myco_state/autoseeded.txt .myco_state/decay_baseline.yaml
+#   .myco_state/search_misses.yaml .myco_state/excretion_counter.json
+#   .myco_state/graph.json (pre-v0.7.2 explicit entries)
+.myco_state/**
