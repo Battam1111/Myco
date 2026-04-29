@@ -53,12 +53,21 @@ class MF3SymbiontArtifactIntegrity(Dimension):
     fixable: ClassVar[bool] = False
 
     def run(self, ctx: MycoContext) -> Iterable[Finding]:
-        # MF3 only fires when the substrate has explicitly declared
-        # symbiont integration is active (via canon governance or
-        # ``.myco_state/symbionts/`` install marker). Default: don't
-        # probe user home for arbitrary substrates.
-        marker = ctx.substrate.root / ".myco_state" / "symbionts" / "installed.txt"
-        if not marker.is_file():
+        # MF3 fires when the substrate has explicitly declared host
+        # integration is active via the install marker.
+        # v0.6.0 unification renamed ``src/myco/symbionts/`` to
+        # ``src/myco/boundary/host_integration/``; the runtime marker
+        # follows: ``.myco_state/host_integration/installed.txt``
+        # (legacy v0.5.x-substrate path is also probed for backward
+        # compatibility with old downstream substrates that haven't
+        # re-run install yet).
+        marker = (
+            ctx.substrate.root / ".myco_state" / "host_integration" / "installed.txt"
+        )
+        legacy_marker = (
+            ctx.substrate.root / ".myco_state" / "symbionts" / "installed.txt"
+        )
+        if not marker.is_file() and not legacy_marker.is_file():
             return
         try:
             home = Path(os.path.expanduser("~"))

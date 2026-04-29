@@ -157,9 +157,10 @@ OFF so new kernel verbs / dimensions land inside `src/myco/`. Pass
   work.** If implementation reveals a gap in doctrine, stop, fruit a
   craft doc under `docs/primordia/` (via `myco fruit`), get owner
   approval, then resume.
-- **Do not carry forward `legacy_v0_3/`.** The pre-rewrite code is
-  quarantined. It is not imported, tested, or referenced by any live
-  file. Git history preserves it; `v0.3.4-final` is the anchor tag.
+- **Do not resurrect `legacy_v0_3/`.** The pre-rewrite code was
+  excreted in v0.7.0. Git history preserves it; `v0.3.4-final` is
+  the anchor tag. `core/skip_dirs.py` retains a defensive filter for
+  the dirname in case it ever reappears.
 - **Do not treat `integrated` as final.** Per L0 principle 4, every
   note is a work in progress until it is sporulated out of existence.
 

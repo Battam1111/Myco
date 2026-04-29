@@ -22,9 +22,10 @@ The list covers:
   a reasonable include).
 * **Myco's own runtime state**: ``.myco_state`` (derivable; must not
   be ingested or graphed).
-* **Legacy quarantine**: ``legacy_v0_3`` (v0.4 greenfield rewrite
-  preserved the pre-rewrite source under this dir; it is not part of
-  the live substrate).
+* **Legacy quarantine (defensive — directory excreted at v0.7.0)**:
+  ``legacy_v0_3`` is no longer in the working tree. The filter
+  remains so that if a downstream substrate clones an old branch and
+  re-introduces the directory, walks still skip it.
 
 Callers can opt in to test trees (``tests`` is NOT in the default
 skip set so graph-walkers cover test-doc refs correctly; pass

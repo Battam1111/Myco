@@ -6,10 +6,10 @@ against its frontmatter and body, returns a pass/fail verdict.
 
 Scope discipline: v0.5 ships only the *shape* gates (body-non-empty,
 size-bounds, round-marker presence). The redact-based "no secret
-leak" gate and the full skill-mutation engine from
-``legacy_v0_3/src/myco/evolve.py`` are deferred to v0.6+ — they
-require a concurrent port of ``myco.redact`` plus a proposal-versus-
-current-state diff harness.
+leak" gate and the full skill-mutation engine from the v0.4
+pre-rewrite ``evolve.py`` (excreted at v0.7.0) are deferred to v0.6+
+— they require a concurrent port of ``myco.redact`` plus a
+proposal-versus-current-state diff harness.
 
 Exit codes:
 
@@ -21,8 +21,8 @@ Exit codes:
 Governing manifest: ``docs/architecture/L3_IMPLEMENTATION/command_manifest.md``
 (governance-verbs section, v0.5 — per v0.5.0 craft §R13, no new L2
 surface.md was created; governance-verbs content lives at L3).
-Legacy reference: the pre-rewrite ``craft_protocol.md`` under
-``legacy_v0_3/`` (body-schema lint, Round 3).
+Historical: the v0.4 pre-rewrite ``craft_protocol.md``
+(body-schema lint, Round 3) was excreted at v0.7.0.
 """
 
 from __future__ import annotations

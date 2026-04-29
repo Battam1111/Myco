@@ -17,8 +17,9 @@ Result payload so the caller can open it.
 Governing manifest: ``docs/architecture/L3_IMPLEMENTATION/command_manifest.md``
 (governance-verbs section, v0.5 — per v0.5.0 craft §R13, no new L2
 surface.md was created; the governance-verbs content lives at L3
-alongside the rest of the verb surface). Legacy reference: the
-pre-rewrite ``craft_protocol.md`` under ``legacy_v0_3/``.
+alongside the rest of the verb surface). Historical: the v0.4
+pre-rewrite ``craft_protocol.md`` was excreted at v0.7.0; the
+``v0.3.4-final`` git tag preserves it.
 """
 
 from __future__ import annotations
