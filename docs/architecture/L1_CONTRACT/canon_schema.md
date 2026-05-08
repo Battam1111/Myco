@@ -299,7 +299,8 @@ else lives in its natural home and is cross-referenced.
 
 ## Migration note
 
-The v0.3.4 canon (745 lines) is not edited. The v0.3.4 canon is preserved
-at tag `v0.3.4-final`; v0.4.0+ substrates are authored fresh from this
-schema, carrying over only the values that still apply. See
+The pre-rewrite v0.3.4 canon (745 lines) is not edited. The legacy v0.3.4
+canon is preserved at tag `v0.3.4-final`; v0.4.0+ substrates are
+authored fresh from this schema, carrying over only the values that
+still apply. See
 `docs/contract_changelog.md` for the version-bump history.

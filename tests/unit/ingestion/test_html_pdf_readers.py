@@ -82,20 +82,26 @@ def test_html_ingest_uses_filename_when_no_title(tmp_path: Path):
     assert results[0].title == "myfile"
 
 
-def test_html_ingest_oversized_returns_empty(tmp_path: Path, monkeypatch):
+def test_html_ingest_oversized_returns_failed_stub(tmp_path: Path, monkeypatch):
+    """v0.7.3 AD1 closure: oversized HTML returns a failed-stub IngestResult,
+    not silent ``[]``."""
     p = tmp_path / "big.html"
     p.write_text("<html><body>x</body></html>", encoding="utf-8")
     monkeypatch.setattr(
         "myco.ingestion.adapters.html_reader.DEFAULT_MAX_INGEST_BYTES", 2
     )
     results = HtmlReader().ingest(str(p))
-    assert results == []
+    assert len(results) == 1
+    assert results[0].status == "failed"
+    assert "size cap exceeded" in results[0].failure_reason
 
 
-def test_html_ingest_missing_file_returns_empty(tmp_path: Path):
-    """ingest on a non-existent file → empty list (not exception)."""
+def test_html_ingest_missing_file_returns_failed_stub(tmp_path: Path):
+    """ingest on a non-existent file → failed-stub IngestResult (L0 P2)."""
     results = HtmlReader().ingest(str(tmp_path / "missing.html"))
-    assert results == []
+    assert len(results) == 1
+    assert results[0].status == "failed"
+    assert "stat() failed" in results[0].failure_reason
 
 
 # ---------- PdfReader ----------
@@ -127,14 +133,17 @@ def test_pdf_can_handle_oversized_returns_false(tmp_path: Path, monkeypatch):
     assert PdfReader().can_handle(str(p)) is False
 
 
-def test_pdf_ingest_oversized_returns_empty(tmp_path: Path, monkeypatch):
+def test_pdf_ingest_oversized_returns_failed_stub(tmp_path: Path, monkeypatch):
+    """v0.7.3 AD1 closure: oversized PDF returns a failed-stub IngestResult."""
     p = tmp_path / "big.pdf"
     p.write_text("not a real pdf", encoding="utf-8")
     monkeypatch.setattr(
         "myco.ingestion.adapters.pdf_reader.DEFAULT_MAX_INGEST_BYTES", 2
     )
     results = PdfReader().ingest(str(p))
-    assert results == []
+    assert len(results) == 1
+    assert results[0].status == "failed"
+    assert "size cap exceeded" in results[0].failure_reason
 
 
 def test_pdf_ingest_extracts_text():
@@ -193,6 +202,9 @@ def test_pdf_ingest_no_text_returns_placeholder():
             os.unlink(tmp)
 
 
-def test_pdf_ingest_missing_file_returns_empty(tmp_path: Path):
+def test_pdf_ingest_missing_file_returns_failed_stub(tmp_path: Path):
+    """v0.7.3 AD1 closure: missing PDF returns a failed-stub, not silent []."""
     results = PdfReader().ingest(str(tmp_path / "missing.pdf"))
-    assert results == []
+    assert len(results) == 1
+    assert results[0].status == "failed"
+    assert "stat() failed" in results[0].failure_reason

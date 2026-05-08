@@ -1,6 +1,7 @@
 """CL2 — OAuth token-residency policy enforcement (v0.6.0 R12 mitigation).
 
-Governing doctrine: per craft v0.6.0 §F12, when canon governance
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/homeostasis.md``
+(craft v0.6.0 §F12). When canon governance
 ``token_redaction_required: true``, mcp_auth.py MUST import the
 ``_redact_in_logs`` helper. CL2 refuses to start the streamable-http
 OAuth-enabled server otherwise.

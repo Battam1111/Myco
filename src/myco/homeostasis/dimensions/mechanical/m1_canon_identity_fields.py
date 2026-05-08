@@ -1,5 +1,7 @@
 """M1 — canon identity fields present and non-empty.
 
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/homeostasis.md``.
+
 Checks that ``_canon.yaml::identity`` carries a non-empty
 ``substrate_id`` and ``entry_point``. The canon parser (Stage B.1)
 requires ``identity`` to be present and non-empty as a mapping, but

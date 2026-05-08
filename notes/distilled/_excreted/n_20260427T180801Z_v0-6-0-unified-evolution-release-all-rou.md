@@ -9,6 +9,9 @@ tags:
 - ChatGPT-Gemini-ready
 - implementation-complete
 integrated_at: '2026-04-27T18:08:01Z'
+excreted_at: '2026-05-08T18:16:53Z'
+excreted_reason: 'v0.7.3 SE2 orphan-integrated cleanup; transient v0.5.x/v0.6.0 release-engineering breadcrumb superseded by contract_changelog'
+excreted_stage_origin: integrated
 ---
 v0.6.0 unified-evolution release — ALL Round 4 owner amendments LANDED in single shot. ChatGPT/Gemini-ready.
 

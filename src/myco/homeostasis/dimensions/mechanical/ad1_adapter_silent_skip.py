@@ -1,7 +1,8 @@
 """AD1 — adapter silent-skip pattern detection.
 
-Governing doctrine: L0 P2 (永恒吞噬 = "missing a signal costs more
-than eating one too many"). Per craft v0.6.0 §F22 / Round 2 T17.
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/homeostasis.md``
+(L0 P2 永恒吞噬 = "missing a signal costs more than eating one too
+many"; craft v0.6.0 §F22 / Round 2 T17).
 
 Adapters in ``src/myco/ingestion/adapters/`` historically returned
 ``[]`` on failure (PDF size cap, HTML parse error, OSError). This

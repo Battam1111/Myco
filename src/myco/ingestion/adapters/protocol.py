@@ -28,6 +28,18 @@ class IngestResult:
     ``eat`` maps each IngestResult to one ``notes/raw/*.md`` file:
     title becomes the note slug, body becomes the note body, tags and
     source flow into frontmatter fields.
+
+    v0.7.3 (AD1 closure): adapters that previously silent-skipped on
+    failure (size cap exceeded, stat error, decode failure, etc.) now
+    return a single :class:`IngestResult` with ``status="failed"`` and
+    a populated ``failure_reason``. ``eat`` consumers detect the
+    failed-stub and log to stderr without writing a raw note. This
+    realises L0 P2 (永恒吞噬) — missing a signal is louder than eating
+    one too many — and is the protocol AD1 watches for.
+
+    Both new fields default so pre-v0.7.3 callers (third-party
+    adapters, fixtures) keep constructing valid ``status="ok"``
+    results without changes.
     """
 
     title: str
@@ -35,6 +47,8 @@ class IngestResult:
     tags: list[str] = field(default_factory=list)
     source: str = ""
     metadata: dict = field(default_factory=dict)
+    status: str = "ok"
+    failure_reason: str = ""
 
 
 class Adapter(ABC):

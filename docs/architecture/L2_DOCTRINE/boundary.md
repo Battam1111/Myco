@@ -342,3 +342,54 @@ The 6th seam's new files follow the same byte-identical mirror rule:
 1-5 from v0.6.11 unchanged. New at v0.6.14:
 
 6. **Auto-craft branches use `fruiting/<slug>-<date>` prefix** (real fungal taxonomy; `fruiting body` is the standard mycological term). Branch names must NEVER use English compounds like "auto-craft/" — that violates L0:185-186 vocabulary discipline. Enforced by `canon.governance.auto_evolve_branch_prefix: "fruiting/"` and stipe `--branch-only` validation.
+
+## Legacy import shims (v0.7.3+)
+
+Boundary's outward interface is exposed to **two consumer populations whose upgrade cadence the substrate cannot observe**:
+
+1. **Local MCP host configs** (Claude Desktop / Cursor / Cowork / etc.) — each host's config file (`%APPDATA%/Claude/claude_desktop_config.json`, `~/.cursor/mcp.json`, etc.) hardcodes the launcher command. Once written, the config persists indefinitely until the user manually edits it.
+2. **Downstream substrates' import statements** — any project that does `from myco.mcp import build_server` (or similar legacy path) is locked into that import path until a human contributor edits the file.
+
+The substrate **cannot** detect these consumers from inside its own process. A `DeprecationWarning` emitted to stderr at module-import time is read by neither population in practice — host UIs surface stderr in a "View Logs" panel that operators rarely open, and downstream substrates' Python imports typically suppress DeprecationWarnings entirely.
+
+The v0.7.0 incident validated this empirically: deletion of the v0.6.13 `myco.mcp` shim (4 versions of stderr deprecation warnings preceding it) broke the substrate's own owner-Claude-Desktop within 2 hours of release. v0.7.1 restored the shim and named the new discipline below; v0.7.3 codifies it as authoritative L2 doctrine.
+
+### Public-API deletion discipline (v0.7.1-named, v0.7.3-canonized)
+
+A back-compat shim package is **safe to delete** only if it satisfies ONE of the following gates. Both gates must be **mechanically verified**, not prose-asserted:
+
+#### Gate (a) — Internal-only verification
+
+ALL of the following must hold:
+
+- `grep -r "from <legacy_path> import" src/ tests/ scripts/ examples/` returns zero hits.
+- No CLI or MCP host entry point (`pyproject.toml::[project.entry-points]`, `.claude-plugin/plugin.json`, `.cowork-plugin/`, `.mcp.json`) declares the path.
+- No plugin manifest registers handlers / hooks / skills under the path.
+- The path is NOT imported via `python -m <legacy_path>` from any documented runbook or migration guide.
+
+If all four conditions hold, the path is internal-only; deletion is the v0.6.16 sweep style mechanical SE2 fix and ships in any release.
+
+#### Gate (b) — Telemetry verification
+
+For paths that expose an external surface (CLI invocation, plugin manifest, MCP host config), gate (a) cannot rule out external usage. Gate (b) instead requires:
+
+- An MB8-style hit counter writes one JSONL line per actual usage (e.g., `.myco_state/shim_hits.json` for `myco.mcp`).
+- The substrate has run for ≥ `governance.shim_sunset_min_zero_cycles` senesce cycles (default 7) AND ≥ `governance.shim_sunset_min_zero_days` wall-clock days (default 7) with **zero hits** on the path.
+- The senesce-cycle window straddles at least one realistic usage scenario (e.g., a typical week of MCP host invocations).
+
+When gate (b) is satisfied, the deletion may proceed via standard `fruit → winnow → molt`. The MB8 dim continues to monitor for post-deletion regressions during the next 30-day decay window.
+
+### Relation to ratchet dims (v0.7.2+)
+
+The discipline is mechanically enforced by:
+
+- **MB8** (metabolic, MEDIUM) — counts shim-path hits and reports sunset eligibility.
+- **MF5** (mechanical, MEDIUM, v0.7.3 reclassified) — flags MIRROR_DRIFT between project-scope and bundle-scope copies of v0.6.11 plugin files (the discipline applies symmetrically to plugin mirrors: byte-identical pairs are the desired state, divergence is real lint).
+- **`scripts/sync_plugin_mirrors.py`** (v0.7.3+) — idempotent sync helper invoked by `bump_version.py` post-bump and `build_plugin.py` pre-build. Project-scope `.claude/<dir>/X.md` is the SSoT.
+- **risk_classifier recursion-cutter** (v0.7.2+) — `src/myco/mcp/**` + `.myco_state/shim_hits.json` are HIGH-tier paths; any craft touching them auto-classifies as HIGH-risk owner-gated. Compound multi-cluster `path_allowlist` (touching state + shim + canon simultaneously) is also HIGH per mycoparasite T6.
+
+### What this discipline does NOT cover
+
+- **Doctrinal renames** (e.g., `genesis/` → `germination/` at v0.5.3) use Python re-export shims with their own removal cadence; these are governed by craft + the standard fruit→winnow→molt path.
+- **Internal API changes** (functions / classes inside `src/myco/` consumed only by other `src/myco/` modules) — gate (a) handles these mechanically.
+- **First-time external API additions** — adding a new public entry point is a v0.6.0-style craft decision, not a deletion.

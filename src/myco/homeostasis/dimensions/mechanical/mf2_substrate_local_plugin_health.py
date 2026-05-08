@@ -9,7 +9,7 @@ and loadable.
 Governing doctrine:
 ``docs/architecture/L2_DOCTRINE/homeostasis.md`` (substrate-local
 plugin health). Governing craft:
-``docs/primordia/v0_5_3_fungal_vocabulary_craft_2026-04-17.md``.
+``docs/primordia/_landed/v0_5_x/v0_5_3_fungal_vocabulary_craft_2026-04-17.md``.
 
 Fires MECHANICAL:HIGH findings for:
 

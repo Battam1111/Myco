@@ -36,6 +36,7 @@ def _rule_path(home: Path) -> Path:
 
 
 def discover(home: Path) -> SymbiontProbe | None:
+    """Probe ``home`` for an existing Continue install; return SymbiontProbe or None."""
     cdir = _continue_dir(home)
     installed = cdir.is_dir()
     caps: set[str] = set()
@@ -92,6 +93,7 @@ def install_deep(
 
 
 def uninstall(probe: SymbiontProbe, *, dry_run: bool = False) -> UninstallReport:
+    """Remove ~/.continue/rules/myco.md installed by install_deep; honor dry_run."""
     target = _rule_path(probe.home)
     if not target.is_file():
         return UninstallReport(

@@ -152,6 +152,7 @@ def configure_logging_redaction(logger: logging.Logger) -> None:
 
     class _RedactFilter(logging.Filter):
         def filter(self, record: logging.LogRecord) -> bool:
+            """Run ``_redact_in_logs`` over the record's string message in-place."""
             try:
                 if isinstance(record.msg, str):
                     record.msg = _redact_in_logs(record.msg)

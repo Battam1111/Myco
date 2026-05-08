@@ -10,6 +10,9 @@ tags:
 - 201-imports-rewritten
 - no-defer
 integrated_at: '2026-04-27T18:22:45Z'
+excreted_at: '2026-05-08T18:16:53Z'
+excreted_reason: 'v0.7.3 SE2 orphan-integrated cleanup; transient v0.5.x/v0.6.0 release-engineering breadcrumb superseded by contract_changelog'
+excreted_stage_origin: integrated
 ---
 v0.6.0 Round 5 — 真物理重构全部 LANDED（owner 直令"不许有任何一丝一毫偷懒"后）
 

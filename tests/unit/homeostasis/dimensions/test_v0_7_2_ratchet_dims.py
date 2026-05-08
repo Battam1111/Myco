@@ -155,9 +155,10 @@ def test_pa6_excluded_globs_protect_ingestion(tmp_path: Path) -> None:
 # ===== MF5 — generated-mirror integrity =====
 
 
-def test_mf5_intended_v0_6_11_mirror_pending(tmp_path: Path) -> None:
-    """Byte-identical .claude/agents/X.md ↔ <repo>/agents/X.md →
-    PENDING_BUILD_ARTIFACT_CONVERSION (LOW)."""
+def test_mf5_intended_v0_6_11_mirror_silent_when_synced(tmp_path: Path) -> None:
+    """v0.7.3 reclassified: byte-identical .claude/agents/X.md ↔
+    <repo>/agents/X.md is the desired state per v0.6.11 plugin spec
+    (both project + bundle scopes mandated). NO finding emitted."""
     sub = tmp_path / "sub"
     project_dir = sub / ".claude" / "agents"
     bundle_dir = sub / "agents"
@@ -168,14 +169,12 @@ def test_mf5_intended_v0_6_11_mirror_pending(tmp_path: Path) -> None:
     (bundle_dir / "foo.md").write_text(same_bytes, encoding="utf-8")
     _write_minimal_canon(sub)
     ctx = MycoContext.for_testing(root=sub)
-    findings = list(MF5GeneratedMirrorIntegrity().run(ctx))
-    assert len(findings) == 1
-    assert findings[0].dimension_id == "MF5"
-    assert "PENDING_BUILD_ARTIFACT_CONVERSION" in findings[0].message
+    assert list(MF5GeneratedMirrorIntegrity().run(ctx)) == []
 
 
-def test_mf5_distinct_files_no_finding(tmp_path: Path) -> None:
-    """Different content in mirror dirs → no finding."""
+def test_mf5_drift_emits_medium(tmp_path: Path) -> None:
+    """v0.7.3: same filename in project + bundle dirs but byte-divergent →
+    MIRROR_DRIFT MEDIUM finding."""
     sub = tmp_path / "sub"
     project_dir = sub / ".claude" / "agents"
     bundle_dir = sub / "agents"
@@ -183,6 +182,24 @@ def test_mf5_distinct_files_no_finding(tmp_path: Path) -> None:
     bundle_dir.mkdir(parents=True)
     (project_dir / "foo.md").write_text("project version\n", encoding="utf-8")
     (bundle_dir / "foo.md").write_text("bundle version\n", encoding="utf-8")
+    _write_minimal_canon(sub)
+    ctx = MycoContext.for_testing(root=sub)
+    findings = list(MF5GeneratedMirrorIntegrity().run(ctx))
+    assert len(findings) == 1
+    assert findings[0].dimension_id == "MF5"
+    assert "MIRROR_DRIFT" in findings[0].message
+    assert findings[0].severity.name == "MEDIUM"
+
+
+def test_mf5_unbalanced_pair_silent(tmp_path: Path) -> None:
+    """v0.7.3: file in only one of the two mirror dirs → silent (might
+    be in-flight addition)."""
+    sub = tmp_path / "sub"
+    project_dir = sub / ".claude" / "agents"
+    bundle_dir = sub / "agents"
+    project_dir.mkdir(parents=True)
+    bundle_dir.mkdir(parents=True)
+    (project_dir / "foo.md").write_text("only-in-project\n", encoding="utf-8")
     _write_minimal_canon(sub)
     ctx = MycoContext.for_testing(root=sub)
     assert list(MF5GeneratedMirrorIntegrity().run(ctx)) == []

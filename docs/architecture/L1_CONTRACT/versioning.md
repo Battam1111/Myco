@@ -24,8 +24,8 @@ as `myco.__version__`.
 - **SemVer**: MAJOR.MINOR.PATCH. Breaking kernel-contract change ⇒ MAJOR
   bump. New feature, no breakage ⇒ MINOR bump. Internal fix ⇒ PATCH bump.
 - **Monotonicity**: tags must be strictly increasing. `v0.6.1` after
-  `v0.3.3` is forbidden. The v0.4.0 rewrite starts a clean, monotone
-  sequence from `v0.4.0` onward.
+  the legacy `v0.3.3` predecessor is forbidden. The v0.4.0 rewrite
+  starts a clean, monotone sequence from `v0.4.0` onward.
 
 ### Contract version
 

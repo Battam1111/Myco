@@ -9,6 +9,9 @@ tags:
 - frictions
 - v0.5.24
 integrated_at: '2026-04-27T17:07:50Z'
+excreted_at: '2026-05-08T18:16:53Z'
+excreted_reason: 'v0.7.3 SE2 orphan-integrated cleanup; transient v0.5.x/v0.6.0 release-engineering breadcrumb superseded by contract_changelog'
+excreted_stage_origin: integrated
 ---
 Session insight (2026-04-27 onboarding-grade comprehension pass on myco-self @ v0.5.24):
 

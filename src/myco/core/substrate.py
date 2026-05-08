@@ -9,7 +9,7 @@ v0.5.3 adds substrate-local plugin autoload: when a substrate has a
 isolated module namespace so third-party substrates can register
 dimensions, adapters, or overlay handlers without editing the Myco
 kernel. Governing craft:
-``docs/primordia/v0_5_3_fungal_vocabulary_craft_2026-04-17.md``.
+``docs/primordia/_landed/v0_5_x/v0_5_3_fungal_vocabulary_craft_2026-04-17.md``.
 L2 doctrine: homeostasis + surface (substrate-local extension seam).
 """
 

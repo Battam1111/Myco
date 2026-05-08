@@ -1,5 +1,7 @@
 """``python -m myco.mcp`` legacy entry point (v0.6.13+).
 
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/boundary.md``.
+
 Back-compat redirect to :func:`myco.boundary.mcp.main`. Importing
 this module triggers the stderr deprecation pointer in
 ``myco/mcp/__init__.py``; we then delegate the actual server boot

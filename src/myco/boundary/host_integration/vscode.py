@@ -45,6 +45,7 @@ def discover(home: Path) -> SymbiontProbe | None:
 def install_basic(
     probe: SymbiontProbe, substrate: Any, *, dry_run: bool = False
 ) -> InstallReport:
+    """Write the minimal Myco MCP entry to VS Code's .vscode/mcp.json; honor dry_run."""
     return InstallReport(host_id=HOST_ID, dry_run=dry_run)
 
 
@@ -121,6 +122,7 @@ def install_deep(
 
 
 def uninstall(probe: SymbiontProbe, *, dry_run: bool = False) -> UninstallReport:
+    """No-op uninstall: VS Code tasks.json edits are left for the user to revert manually."""
     # VS Code tasks live in substrate root; uninstall left to user
     # (avoid clobbering user's own tasks.json edits).
     return UninstallReport(host_id=HOST_ID, dry_run=dry_run)

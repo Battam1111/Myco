@@ -1,6 +1,7 @@
 """DC5 — abstract-parent-allowlist sourced from canon.
 
-Governing doctrine: replaces hardcoded ``_ABSTRACT_PARENT_NAMES`` in
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/homeostasis.md``.
+Replaces hardcoded ``_ABSTRACT_PARENT_NAMES`` in
 ``dc2_public_function_docstring.py:158`` with a canon-driven allowlist.
 Per craft ``v0_5_9_immune_zero_craft_2026-04-21.md:100-102`` and v0.6.0
 craft §F18.

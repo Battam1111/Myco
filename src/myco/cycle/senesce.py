@@ -33,8 +33,8 @@ and writes ``vetoed_at: <ISO timestamp>`` into matching entries of
 shell-out only (uses ``gh`` CLI; no LLM call; substrate-side L0 P1
 stays strict).
 Governing crafts:
-``docs/primordia/v0_5_7_senesce_quick_mode_craft_2026-04-19.md``,
-``docs/primordia/v0_5_7_release_craft_2026-04-19.md``,
+``docs/primordia/_landed/v0_5_x/v0_5_7_senesce_quick_mode_craft_2026-04-19.md``,
+``docs/primordia/_landed/v0_5_x/v0_5_7_release_craft_2026-04-19.md``,
 ``docs/primordia/v0_6_14_cycle_autostart_fruit_winnow_molt_loop_craft_2026-04-29.md``
 (reaper extension).
 

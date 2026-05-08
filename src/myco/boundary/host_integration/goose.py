@@ -36,6 +36,7 @@ def _recipe_path(home: Path) -> Path:
 
 
 def discover(home: Path) -> SymbiontProbe | None:
+    """Probe ``home`` for an existing Goose install; return SymbiontProbe or None."""
     gd = _goose_dir(home)
     installed = gd.is_dir() or (home / ".goose").is_dir()
     caps: set[str] = set()
@@ -52,12 +53,14 @@ def discover(home: Path) -> SymbiontProbe | None:
 def install_basic(
     probe: SymbiontProbe, substrate: Any, *, dry_run: bool = False
 ) -> InstallReport:
+    """Write the minimal Myco MCP entry to Goose's config; honor dry_run."""
     return InstallReport(host_id=HOST_ID, dry_run=dry_run)
 
 
 def install_deep(
     probe: SymbiontProbe, substrate: Any, *, dry_run: bool = False
 ) -> InstallReport:
+    """Write ~/.config/goose/recipes/myco-bootstrap.yaml priming Goose with R1/R3/R4."""
     if not probe.installed:
         return InstallReport(host_id=HOST_ID, dry_run=dry_run)
     target = _recipe_path(probe.home)
@@ -85,6 +88,7 @@ def install_deep(
 
 
 def uninstall(probe: SymbiontProbe, *, dry_run: bool = False) -> UninstallReport:
+    """Remove the myco-bootstrap recipe installed by install_deep; honor dry_run."""
     target = _recipe_path(probe.home)
     if not target.is_file():
         return UninstallReport(

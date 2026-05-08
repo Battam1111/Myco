@@ -239,16 +239,53 @@ class TextFileAdapter(Adapter):
         # may have been bypassed by a direct-call path).
         try:
             size = p.stat().st_size
-        except OSError:
-            return []
+        except OSError as exc:
+            return [
+                IngestResult(
+                    title=p.stem,
+                    body="",
+                    source=str(p),
+                    status="failed",
+                    failure_reason=f"stat() failed: {exc}",
+                )
+            ]
         if size > DEFAULT_MAX_INGEST_BYTES:
-            return []
+            return [
+                IngestResult(
+                    title=p.stem,
+                    body="",
+                    source=str(p),
+                    status="failed",
+                    failure_reason=(
+                        f"text-file size cap exceeded: {size} > "
+                        f"{DEFAULT_MAX_INGEST_BYTES} bytes"
+                    ),
+                )
+            ]
         if _is_credential_file(p.name):
-            return []
+            return [
+                IngestResult(
+                    title=p.stem,
+                    body="",
+                    source=str(p),
+                    status="failed",
+                    failure_reason=(
+                        f"refused credential-bearing file by name: {p.name!r}"
+                    ),
+                )
+            ]
         try:
             body = p.read_text(encoding="utf-8", errors="strict")
-        except UnicodeDecodeError:
-            return []
+        except UnicodeDecodeError as exc:
+            return [
+                IngestResult(
+                    title=p.stem,
+                    body="",
+                    source=str(p),
+                    status="failed",
+                    failure_reason=f"utf-8 decode failed: {exc}",
+                )
+            ]
         lang = p.suffix.lstrip(".") or "text"
         # v0.5.8: normalise source path to POSIX separators (even on
         # Windows, where `str(p.resolve())` yields backslashes). The

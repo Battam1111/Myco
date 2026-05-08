@@ -87,6 +87,8 @@ _VERSION_ANCHOR_RE = re.compile(r"\bv(\d+)\.(\d+)\.(\d+)\b")
 
 # Historical-context tokens preceding a version anchor: presence
 # within a small left-context window suppresses the finding.
+# v0.7.3 expansion: added more "tag/preserved/example" patterns after
+# the v0.7.2 SE5 false-positives at canon_schema/versioning/MYCO.
 _HISTORICAL_TOKENS = (
     "shipped at ",
     "shipped in ",
@@ -115,6 +117,27 @@ _HISTORICAL_TOKENS = (
     "per craft v",
     "predecessor: v",
     "schema v",  # "schema v2"
+    # v0.7.3 additions — tag / preservation / example references.
+    "preserved at ",
+    "preserved as ",
+    "preserves it",
+    "preserves",
+    "anchor tag",
+    "tag `",  # "tag `v0.3.4-final`"
+    "tag '",
+    "at tag ",
+    "git tag",
+    "after `v",  # versioning example: "v0.6.1 after `v0.3.3` is forbidden"
+    "after v",
+    "before `v",
+    "before v",
+    "is forbidden",
+    "rewrite from v",
+    "rewrite (v",
+    "the v",  # "The v0.3.4 canon" — historical descriptor
+    "the pre-rewrite v",
+    "(v0.",  # parenthesized historical references
+    "v0.3.4-final",  # the tag itself, used as a literal identifier
 )
 
 # Window of characters before the match to scan for historical tokens.
@@ -194,6 +217,13 @@ class SE5VersionAnchorFreshness(Dimension):
                     continue
                 rel_posix = path.relative_to(root).as_posix()
                 if rel_posix in seen_paths:
+                    continue
+                # v0.7.3 — exclude any archive path. The pattern
+                # `docs/architecture/**/*.md` correctly matches
+                # `docs/architecture/L3_IMPLEMENTATION/_archive/...`,
+                # but archived files are immutable history and their
+                # version anchors are correct for the era they describe.
+                if "/_archive/" in rel_posix or "/_landed/" in rel_posix:
                     continue
                 seen_paths.add(rel_posix)
 

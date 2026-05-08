@@ -1,8 +1,9 @@
 """CL3 — sampling token clear-after-call (v0.6.0 R19 mitigation).
 
-Governing doctrine: per craft v0.6.0 §F19, when llm_policy is "opt-in",
-mcp_sampling.py MUST call _clear_token_after_call() so MCP token does
-not remain in substrate process memory beyond the sampling round-trip.
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/homeostasis.md``
+(craft v0.6.0 §F19). When llm_policy is "opt-in", mcp_sampling.py
+MUST call _clear_token_after_call() so MCP token does not remain in
+substrate process memory beyond the sampling round-trip.
 
 Severity: LOW at land, ramps to MEDIUM after 30 sessions.
 """

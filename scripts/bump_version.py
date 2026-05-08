@@ -174,6 +174,21 @@ def main() -> int:
             )
             return 4
 
+    # v0.7.3 — sync plugin mirrors. Idempotent; ensures
+    # `.claude/{agents,commands}/X.md` ↔ `<repo>/{agents,commands}/X.md`
+    # are byte-identical before the molt commit. Runs always (even
+    # with --skip-molt) because the molt commit captures the synced
+    # state regardless of whether contract bumps.
+    sync_cmd = [sys.executable, "scripts/sync_plugin_mirrors.py"]
+    print(f"\n→ [sync_plugin_mirrors] {' '.join(sync_cmd)}")
+    rc = subprocess.call(sync_cmd, cwd=REPO)
+    if rc != 0:
+        _err(
+            f"sync_plugin_mirrors failed (exit {rc}). "
+            "Investigate before retrying the bump."
+        )
+        return 4
+
     if not args.no_test:
         # Mirror ci.yml's "test" job exactly so the bump pre-flight
         # catches everything CI would catch. Historical gap: v0.5.13

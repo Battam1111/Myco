@@ -55,6 +55,7 @@ def _jb_root(home: Path) -> Path:
 
 
 def discover(home: Path) -> SymbiontProbe | None:
+    """Probe ``home`` for an existing JetBrains AI Assistant install; return SymbiontProbe or None."""
     root = _jb_root(home)
     installed = root.is_dir()
     caps: set[str] = set()
@@ -89,8 +90,10 @@ def install_basic(
 def install_deep(
     probe: SymbiontProbe, substrate: Any, *, dry_run: bool = False
 ) -> InstallReport:
+    """Like install_basic plus JetBrains-specific extras (none beyond MCP at v0.6.0)."""
     return InstallReport(host_id=HOST_ID, dry_run=dry_run)
 
 
 def uninstall(probe: SymbiontProbe, *, dry_run: bool = False) -> UninstallReport:
+    """Remove the Myco MCP entry from JetBrains' config; honor dry_run."""
     return UninstallReport(host_id=HOST_ID, dry_run=dry_run)
