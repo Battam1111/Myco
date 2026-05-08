@@ -11,6 +11,74 @@ Format: one section per `contract_version`, newest first.
 
 ---
 
+## v0.7.4 - 2026-05-09 - Cowork plugin extension `.plugin` -> `.zip` hotfix
+
+Replaces `v0.7.3` at `_canon.yaml::contract_version`. Issued via the
+`myco molt --contract v0.7.4` agent-callable verb.
+`synced_contract_version` is updated in lockstep.
+
+### What changed
+
+**Cowork plugin artifact extension switched from `.plugin` to `.zip`.**
+Driven by Anthropic GitHub issue
+[#40414](https://github.com/anthropics/claude-code/issues/40414): Claude
+Desktop's plugin upload handler rejects every extension except `.zip`
+with the error `"Only .zip files are accepted."` despite the file picker
+advertising both. The UI swallows that specific error and surfaces only
+`"Upload failed"` or `"validation failed"` — which was the symptom the
+owner hit dragging `myco-0.7.3.plugin` into Cowork. v0.7.4 corrects the
+v0.5.20-era misreading of Claude Desktop's contract.
+
+Files touched:
+
+- `src/myco/boundary/install/plugin_bundle.py` — `BUNDLE_EXTENSION = ".zip"` + docstring with #40414 reference.
+- `src/myco/boundary/install/cowork_plugin.py` — `UPLOAD_INSTRUCTIONS` rewording + module docstring extension note.
+- `src/myco/boundary/install/__init__.py` — CLI help strings + dry-run filename.
+- `src/myco/boundary/host_integration/cowork.py` — install_deep + module docstring.
+- `scripts/build_plugin.py` + `scripts/install_cowork_plugin.py` — user-facing messages.
+- `.github/workflows/release.yml` — step name + glob `dist/myco-*.zip` + comment block.
+- `tests/integration/test_install_cowork_plugin.py` — 5 assertions changed `.plugin` → `.zip` + 1 new regression test (`test_bundle_extension_constant_is_zip`) locking the constant in place.
+- `README.md` + `README_zh.md` + `README_ja.md` — install paragraph + integration paragraph.
+- `.claude/agents/stipe.md` (mirrored to `agents/stipe.md` via `sync_plugin_mirrors.py`) — frontmatter + body narrative.
+- `docs/architecture/L2_DOCTRINE/boundary.md` — new section "Cowork plugin artifact extension (v0.7.4+)" (~50 lines codifying the constraint, the failure-mode signature, the rule against flipping back, and the discovery trail).
+- `docs/primordia/v0_7_4_zip_extension_hotfix_2026-05-09.md` — 3-round craft proposal documenting the 5 self-rebuttals (P1-P5) and the deliberate decision to scope-down the audit-agent fanout for mechanical hotfixes against external constraints.
+
+Test count delta: 1566 → 1567 (the new `test_bundle_extension_constant_is_zip`).
+
+Lint delta: zero (no dimension semantics touched).
+
+Cloud-side delta:
+
+- **PyPI**: fresh `myco-0.7.4-py3-none-any.whl` + `myco-0.7.4.tar.gz` via trusted-publisher OIDC.
+- **MCP Registry**: fresh `io.github.Battam1111/myco@0.7.4` server card via github-oidc, `isLatest=true`.
+- **GitHub Release**: `v0.7.4` with `myco-0.7.4.zip` (NEW filename — note the extension change!) attached as the drag-drop bundle. Existing `myco-<ver>.plugin` assets on prior releases are kept as historical artifacts.
+
+### Break from v0.7.3
+
+**User-facing migration.** Cowork users who downloaded
+`myco-0.7.3.plugin` and got `"validation failed"` should download
+`myco-0.7.4.zip` (or rename their existing `myco-0.7.3.plugin` to
+`.zip` — byte-identical contents) and drag it in. Existing successful
+v0.5.20-v0.7.2 installs are unaffected; Cowork keys plugins by `name`
+not filename, so the v0.7.4 upload overwrites the prior marketplace
+entry.
+
+**Tooling migration.** Anyone with a script that hardcodes
+`dist/myco-*.plugin` should switch to `dist/myco-*.zip`. The CI
+workflow's GitHub-Release-asset glob is now `dist/myco-*.zip`.
+
+**Backward-compat behavior.** `BUNDLE_EXTENSION` is a public-API
+constant (re-exported from `myco.boundary.install.plugin_bundle`).
+Per the v0.7.3 § "Public-API deletion discipline" L2 doctrine, this
+is a value change to a public constant, not a deletion — gate (a)
+internal-verification PASSES (no external consumer was found via the
+4-condition grep against the pre-bump tag), so the change is
+permitted without a `.postN` re-issue. The v0.7.4 hotfix landed in a
+single feat commit + atomic bump commit, mirroring the v0.7.1 hotfix
+cadence.
+
+---
+
 ## v0.7.3 - 2026-05-09 - Contract molt via `myco molt`
 
 Replaces `v0.7.2` at `_canon.yaml::contract_version`. Issued via the `myco molt --contract v0.7.3` agent-
