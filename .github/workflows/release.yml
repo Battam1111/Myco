@@ -129,7 +129,7 @@ jobs:
         with:
           skip-existing: true
 
-      - name: Build Cowork .plugin bundle
+      - name: Build Cowork .zip plugin bundle
         # v0.5.20: produce the drag-drop bundle Cowork users upload
         # via Claude Desktop → Settings → Plugins → Upload. Only the
         # GitHub release asset needs it — PyPI and MCP Registry would
@@ -137,6 +137,12 @@ jobs:
         # build it AFTER the PyPI publish step and write it alongside
         # the sdist+wheel (dist/) for the `gh release upload` step
         # below to pick up.
+        #
+        # v0.7.4 hotfix: artifact extension switched from .plugin to
+        # .zip. Claude Desktop's upload handler rejects everything
+        # except .zip with "Only .zip files are accepted." even
+        # though the file picker advertises both. See Anthropic
+        # GitHub issue #40414 (open as of 2026-05).
         #
         # We install pyyaml explicitly because scripts/build_plugin.py
         # imports ``myco.boundary.install.plugin_bundle``, which goes through
@@ -150,7 +156,12 @@ jobs:
           set -eo pipefail
           python -m pip install pyyaml
           python scripts/build_plugin.py
-          ls -lh dist/*.plugin
+          # Match only the plugin bundle (myco-<ver>.zip), not sdist
+          # (myco-<ver>.tar.gz). The plugin bundle's filename has the
+          # exact form `myco-<semver>.zip` — `python -m build` produces
+          # `myco-<ver>.tar.gz` + `myco-<ver>-py3-none-any.whl`, so
+          # `dist/myco-*.zip` matches only what build_plugin.py wrote.
+          ls -lh dist/myco-*.zip
 
       - name: Install mcp-publisher
         run: |
@@ -205,22 +216,28 @@ jobs:
             gh release create "$TAG" --title "$TAG" --generate-notes
           fi
 
-      - name: Attach .plugin bundle to GitHub release
+      - name: Attach .zip plugin bundle to GitHub release
         # v0.5.20: the Cowork plugin drag-drop artifact. Upload as a
         # release asset so users can
-        # ``curl -L -o myco.plugin \
-        #     https://github.com/Battam1111/Myco/releases/latest/download/myco-<ver>.plugin``
+        # ``curl -L -o myco.zip \
+        #     https://github.com/Battam1111/Myco/releases/latest/download/myco-<ver>.zip``
         # and drag it into Claude Desktop's plugin upload UI. This is
         # the only persistent install path for Cowork — filesystem
         # writes to rpm/ get clobbered by Anthropic's cloud sync.
+        #
+        # v0.7.4 hotfix: extension switched .plugin → .zip after
+        # Anthropic GitHub issue #40414 confirmed the upload validator
+        # only accepts .zip. The glob below filters to ``myco-*.zip``
+        # so it matches only the plugin bundle, not the source-distribution
+        # tarball that ``python -m build`` writes to the same dir.
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -eo pipefail
           TAG="${GITHUB_REF#refs/tags/}"
-          BUNDLE=$(ls dist/*.plugin | head -1)
+          BUNDLE=$(ls dist/myco-*.zip | head -1)
           if [ -z "$BUNDLE" ] || [ ! -f "$BUNDLE" ]; then
-            echo "::error::no .plugin file found in dist/ — did 'Build Cowork .plugin bundle' run?"
+            echo "::error::no myco-*.zip plugin bundle found in dist/ — did 'Build Cowork .zip plugin bundle' run?"
             exit 1
           fi
           # Idempotent: --clobber replaces an existing asset with the

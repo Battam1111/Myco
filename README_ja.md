@@ -102,7 +102,7 @@ myco germinate . --substrate-id your-project
 Myco をエージェントホストに 1 コマンドで組み込みます。
 
 - **Claude Code。** `/plugin marketplace add Battam1111/Myco` を実行し、続いて `/plugin install myco@myco`。
-- **Claude Desktop / Cowork。** 2 ステップ。(1) `myco-install host cowork` で MCP エントリを書き込み、(2) [GitHub releases](https://github.com/Battam1111/Myco/releases/latest) から `myco-<ver>.plugin` をダウンロードして、Claude Desktop の Settings → Plugins → Upload へドラッグ。Claude Desktop はそれをアカウント専用の Cowork marketplace にアップロードし、以降のすべてのセッションで `myco-substrate` スキルが自動インストールされます。
+- **Claude Desktop / Cowork。** 2 ステップ。(1) `myco-install host cowork` で MCP エントリを書き込み、(2) [GitHub releases](https://github.com/Battam1111/Myco/releases/latest) から `myco-<ver>.zip` をダウンロードして、Claude Desktop の Settings → Plugins → Upload へドラッグ。Claude Desktop はそれをアカウント専用の Cowork marketplace にアップロードし、以降のすべてのセッションで `myco-substrate` スキルが自動インストールされます。（v0.7.4 hotfix: 拡張子は `.plugin` ではなく `.zip` です — Anthropic GitHub issue #40414。）
 - **その他の MCP host。** `myco-install host <cursor | windsurf | zed | vscode | openclaw | claude-desktop | gemini-cli | codex-cli | goose>`、もしくは `--all-hosts` を渡すと本機の全ホストを自動検出します。
 - **公式 MCP Registry 経由。** 名前空間を自動解決するクライアント向けに、名前空間 [`io.github.Battam1111/myco`](https://registry.modelcontextprotocol.io/v0/servers?search=Battam1111) が登録済みです。
 
@@ -135,7 +135,7 @@ host 側の設定はゼロ。R1 から R7 は MCP サーバー自身に組み込
 ## 統合
 
 - **Claude Code。** 公式プラグインで MCP、hooks、slash skills を一括導入。あるいは手動で `.claude/` をコピー。
-- **Cowork（Claude Desktop local-agent-mode）。** 2 ステップ。(1) `myco-install host cowork` で MCP を書き込み、(2) [GitHub releases](https://github.com/Battam1111/Myco/releases/latest) から `.plugin` をダウンロードして、Claude Desktop のプラグインアップロードへドラッグ。Claude Desktop はそれをアカウント専用の Cowork marketplace にアップロードし、以降のセッションで `myco-substrate` スキルが自動装着され、エージェントが `_canon.yaml` を見た瞬間に R1 から R7 へ従います。Cowork は hooks もローカル plugin dir も参照しないため、ドラッグ＆ドロップが唯一の永続パスです。詳細は [`INSTALL.md`](docs/INSTALL.md) を参照。
+- **Cowork（Claude Desktop local-agent-mode）。** 2 ステップ。(1) `myco-install host cowork` で MCP を書き込み、(2) [GitHub releases](https://github.com/Battam1111/Myco/releases/latest) から `.zip` をダウンロードして、Claude Desktop のプラグインアップロードへドラッグ。Claude Desktop はそれをアカウント専用の Cowork marketplace にアップロードし、以降のセッションで `myco-substrate` スキルが自動装着され、エージェントが `_canon.yaml` を見た瞬間に R1 から R7 へ従います。Cowork は hooks もローカル plugin dir も参照しないため、ドラッグ＆ドロップが唯一の永続パスです。詳細は [`INSTALL.md`](docs/INSTALL.md) を参照。
 - **任意の MCP ホスト。** 10 つは `myco-install` で自動化済み。残り 9 つは [`INSTALL.md`](docs/INSTALL.md) に per-host スニペットあり。その他のクライアントは `mcp-server-myco` stdio で直接起動できます。
 - **Python エージェントフレームワーク。** LangChain、CrewAI、DSPy、Smolagents、Agno、PraisonAI、MS Agent Framework、Claude Agent SDK。すべて `StdioServerParameters(command="mcp-server-myco")` で Myco を消費します。
 - **下流 substrate。** `myco propagate` が発行します。adapter は `myco.boundary.host_integration` に住みます（v0.6.0 から; それ以前は `myco.symbionts`）。

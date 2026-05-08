@@ -198,17 +198,20 @@ def _build_parser() -> argparse.ArgumentParser:
     p_cw = sub.add_parser(
         "cowork-plugin",
         help=(
-            "Build a .plugin bundle for drag-drop upload into Claude "
+            "Build a .zip bundle for drag-drop upload into Claude "
             "Desktop. v0.5.20: replaces v0.5.19's rpm/ writer (which "
             "didn't persist — Cowork regenerates rpm/ from its cloud "
-            "marketplace on every session start)."
+            "marketplace on every session start). v0.7.4: switched "
+            "the artifact extension from .plugin to .zip after "
+            "Anthropic-tracked bug #40414 confirmed the upload "
+            "validator only accepts .zip."
         ),
         description=(
             "Cowork (Claude Desktop's local-agent-mode) persists "
             "third-party plugins only via its Anthropic cloud "
             "marketplace. The only way to upload a plugin there is "
             "Claude Desktop's drag-drop UI. This subcommand produces "
-            "the .plugin bundle you drag in. Heavy lifting lives in "
+            "the .zip bundle you drag in. Heavy lifting lives in "
             "myco.boundary.install.plugin_bundle; the bundle copy of this "
             "command matches what the GitHub Release workflow attaches "
             "to every tag. After drag-drop, restart any open Cowork "
@@ -223,7 +226,7 @@ def _build_parser() -> argparse.ArgumentParser:
         dest="output",
         type=Path,
         default=None,
-        help=("Directory to write the .plugin file into (default: <repo-root>/dist)."),
+        help=("Directory to write the .zip file into (default: <repo-root>/dist)."),
     )
     p_cw.add_argument(
         "--cleanup-legacy",
@@ -272,10 +275,13 @@ def _run_cowork_plugin(
     output: Path | None = None,
     cowork_root: Path | None = None,
 ) -> int:
-    """Build the Cowork .plugin bundle + show upload instructions.
+    """Build the Cowork .zip bundle + show upload instructions.
 
     This is the v0.5.20 replacement for v0.5.19's ``rpm/`` writer.
-    The library does the work (:func:`myco.boundary.install.cowork_plugin.prepare_plugin_for_upload`);
+    v0.7.4 switched the artifact extension from ``.plugin`` to ``.zip``
+    after Anthropic GitHub issue #40414 confirmed the upload handler
+    rejects every non-``.zip`` extension. The library does the work
+    (:func:`myco.boundary.install.cowork_plugin.prepare_plugin_for_upload`);
     this function glues it to the CLI flags and optionally runs the
     ``--cleanup-legacy`` migration path.
 
@@ -284,7 +290,7 @@ def _run_cowork_plugin(
     version = _read_package_version()
     repo_root = repo_template_root().parent
     if dry_run:
-        bundle = repo_root / "dist" / f"myco-{version}.plugin"
+        bundle = repo_root / "dist" / f"myco-{version}.zip"
         print(f"[dry-run] would build {bundle}")
         print()
         print(UPLOAD_INSTRUCTIONS)
@@ -393,7 +399,7 @@ def _run_all_hosts(
     )
 
     # v0.5.20: when Claude Desktop was touched we ALSO build the Cowork
-    # .plugin bundle + print the drag-drop upload instructions, so the
+    # .zip bundle + print the drag-drop upload instructions, so the
     # user sees exactly what to do next. The plugin install itself is a
     # manual UI step in Claude Desktop — v0.5.19's attempt to automate
     # via rpm/ writes was wrong (cloud sync clobbers them). See
@@ -480,7 +486,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             if output:
                 print(output)
             # v0.5.20: `myco-install host cowork` also builds the
-            # .plugin bundle + prints drag-drop instructions, since
+            # .zip bundle + prints drag-drop instructions, since
             # Cowork only onboards correctly when both the MCP entry
             # (written by `dispatch` above) AND the `myco-substrate`
             # skill (shipped via the uploaded plugin) are in place.

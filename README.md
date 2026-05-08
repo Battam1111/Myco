@@ -102,7 +102,7 @@ myco germinate . --substrate-id your-project
 Hook Myco into your agent host in one command:
 
 - **Claude Code.** Run `/plugin marketplace add Battam1111/Myco`, then `/plugin install myco@myco`.
-- **Claude Desktop / Cowork.** Run `myco-install host cowork` to write the MCP entry, then download [`myco-<ver>.plugin`](https://github.com/Battam1111/Myco/releases/latest) and drag it into Claude Desktop → Settings → Plugins → Upload. Claude Desktop uploads it to your private Cowork marketplace and every subsequent session auto-installs the `myco-substrate` onboarding skill.
+- **Claude Desktop / Cowork.** Run `myco-install host cowork` to write the MCP entry, then download [`myco-<ver>.zip`](https://github.com/Battam1111/Myco/releases/latest) and drag it into Claude Desktop → Settings → Plugins → Upload. Claude Desktop uploads it to your private Cowork marketplace and every subsequent session auto-installs the `myco-substrate` onboarding skill. (v0.7.4 hotfix: artifact extension is `.zip`, not `.plugin` — Anthropic GitHub issue #40414.)
 - **Any other MCP host.** Run `myco-install host <cursor | windsurf | zed | vscode | openclaw | claude-desktop | gemini-cli | codex-cli | goose>`, or pass `--all-hosts` to auto-detect every host on this machine.
 - **Via the official MCP Registry.** Use the namespace [`io.github.Battam1111/myco`](https://registry.modelcontextprotocol.io/v0/servers?search=Battam1111) for clients that auto-resolve it.
 
@@ -135,7 +135,7 @@ Zero host-side configuration. R1 through R7 ride inside the MCP server itself, s
 ## Integrations
 
 - **Claude Code.** Official plugin wires MCP, hooks, and slash skills in one command. Or drop `.claude/` in by hand.
-- **Cowork (Claude Desktop local-agent-mode).** Two steps: (1) `myco-install host cowork` writes the MCP server entry; (2) drag the `.plugin` bundle from [GitHub releases](https://github.com/Battam1111/Myco/releases/latest) into Claude Desktop's plugin upload. Claude Desktop uploads it to your private Cowork marketplace, and every session auto-installs the `myco-substrate` onboarding skill so the agent follows R1 through R7 the moment it sees `_canon.yaml`. Cowork does not expose hooks and does not read local plugin dirs, so drag-and-drop is the only persistent path. See [`INSTALL.md`](docs/INSTALL.md) for the full rationale.
+- **Cowork (Claude Desktop local-agent-mode).** Two steps: (1) `myco-install host cowork` writes the MCP server entry; (2) drag the `.zip` bundle from [GitHub releases](https://github.com/Battam1111/Myco/releases/latest) into Claude Desktop's plugin upload. Claude Desktop uploads it to your private Cowork marketplace, and every session auto-installs the `myco-substrate` onboarding skill so the agent follows R1 through R7 the moment it sees `_canon.yaml`. Cowork does not expose hooks and does not read local plugin dirs, so drag-and-drop is the only persistent path. See [`INSTALL.md`](docs/INSTALL.md) for the full rationale.
 - **Any MCP host.** Ten are automated via `myco-install`. Another nine have per-host snippets in [`INSTALL.md`](docs/INSTALL.md). Any other client can still run `mcp-server-myco` over stdio directly.
 - **Python agent frameworks.** LangChain, CrewAI, DSPy, Smolagents, Agno, PraisonAI, MS Agent Framework, and Claude Agent SDK all consume Myco via `StdioServerParameters(command="mcp-server-myco")`.
 - **Downstream substrates.** `myco propagate` publishes. Adapters live in `myco.boundary.host_integration` (v0.6.0; was `myco.symbionts` pre-v0.6.0).

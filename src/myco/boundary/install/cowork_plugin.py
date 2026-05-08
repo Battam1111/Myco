@@ -15,15 +15,23 @@ the installer and replaces it with the real mechanism.
 **What actually persists a third-party plugin in Cowork.** The
 Anthropic cloud exposes a per-account marketplace (one per user,
 named "My Uploads"). A plugin lands there when Claude Desktop's
-drag-drop UI uploads a ``.plugin`` ZIP via
+drag-drop UI uploads a ``.zip`` bundle via
 ``POST https://api.anthropic.com/api/organizations/{orgId}/``
 ``marketplaces/{marketplaceId}/plugins/account-upload``. Once uploaded,
 every Cowork session syncs it down automatically — the skill is then
 visible to the agent on next boot. There is no other persistent path
 short of Anthropic publishing Myco in a first-party marketplace.
 
+**Extension note (v0.7.4 hotfix).** Earlier releases (v0.5.20-v0.7.3)
+emitted ``.plugin`` because the file picker advertises both
+``.zip`` and ``.plugin``. The upload handler does not — it rejects
+``.plugin`` with ``"Only .zip files are accepted."`` (Anthropic-tracked
+issue #40414). v0.7.4 switched the artifact extension to ``.zip`` so
+drag-drop succeeds against the production validator without forcing
+users to rename.
+
 **What this module does now.** It helps the user get the right
-``.plugin`` bundle onto disk and gives them the exact drag-drop
+``.zip`` bundle onto disk and gives them the exact drag-drop
 instructions. Heavy lifting (building the ZIP) lives in
 ``myco.boundary.install.plugin_bundle``. This module glues:
 
@@ -35,9 +43,11 @@ instructions. Heavy lifting (building the ZIP) lives in
   v0.5.19 installer — removes stale directories so Cowork's next
   cloud-sync doesn't race against stale files.
 
-There is intentionally no "install the plugin via filesystem" function
-any more. The `UPLOAD_INSTRUCTIONS` constant is the only outbound
+The ``UPLOAD_INSTRUCTIONS`` constant below is the only outbound
 surface for new installs.
+
+There is intentionally no "install the plugin via filesystem" function
+any more.
 """
 
 from __future__ import annotations
@@ -76,13 +86,13 @@ __all__ = [
 PLUGIN_ID = "plugin_myco"
 
 #: Human-facing upload instructions shown by every command that
-#: prepares a ``.plugin`` file. Keeping the exact wording in one place
+#: prepares a ``.zip`` file. Keeping the exact wording in one place
 #: means the CLI, tests, and docs all display the same steps.
 UPLOAD_INSTRUCTIONS = """\
 To install Myco into Cowork permanently:
 
   1. Open Claude Desktop → Settings → Plugins (or Extensions) → Upload.
-  2. Select the .plugin file shown above.
+  2. Select the .zip file shown above.
   3. Claude Desktop uploads it to your account's Cowork marketplace
      (private to you). A notification confirms the upload succeeded.
   4. Close any open Cowork session and start a new one. The plugin
@@ -94,6 +104,12 @@ persist only in Anthropic's cloud marketplace. Writing to the local
 ``rpm/`` directory is futile — the cloud sync overwrites it on every
 session start. v0.5.19 learned this the hard way; see the v0.5.20
 changelog for the full story.
+
+Why ``.zip`` (not ``.plugin``)? Claude Desktop's upload handler
+rejects every extension except ``.zip`` with the error
+``"Only .zip files are accepted."``, even though the file picker
+shows both. v0.7.4 switched the artifact extension after the bug
+was confirmed against Anthropic GitHub issue #40414.
 """
 
 
@@ -191,7 +207,7 @@ def repo_template_root() -> Path:
 
 
 # ---------------------------------------------------------------------------
-# New behavior: produce the .plugin bundle + tell the user what to do.
+# New behavior: produce the .zip bundle + tell the user what to do.
 # ---------------------------------------------------------------------------
 
 
@@ -202,7 +218,7 @@ def prepare_plugin_for_upload(
     dest_dir: Path | None = None,
     stdout: TextIO | None = None,
 ) -> Path:
-    """Build the ``.plugin`` bundle and print drag-drop instructions.
+    """Build the ``.zip`` bundle and print drag-drop instructions.
 
     This is the v0.5.20 replacement for the old
     ``install_cowork_plugin`` function. Returns the absolute path of
@@ -355,7 +371,7 @@ def install_cowork_plugin(*args: object, **kwargs: object) -> int:
         "rpm/ is futile because Cowork regenerates it from the "
         "Anthropic cloud marketplace on every session start. Use "
         "prepare_plugin_for_upload (or `myco-install cowork-plugin`) "
-        "to build a .plugin file and drag it into Claude Desktop."
+        "to build a .zip file and drag it into Claude Desktop."
     )
 
 

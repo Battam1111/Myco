@@ -12,8 +12,10 @@ The actual plugin manifest lives at
 ``.cowork-plugin/.claude-plugin/plugin.json`` in the kernel
 substrate; this module's ``install_deep`` validates that the
 manifest contains the v0.6.0 fields and emits a finding hint if
-absent. (Plugin upload is user-driven — Cowork uploads the .plugin
-ZIP via Claude Desktop's Settings → Plugins panel.)
+absent. (Plugin upload is user-driven — Cowork accepts the .zip
+bundle via Claude Desktop's Settings → Plugins panel. v0.7.4
+hotfix: extension switched from .plugin to .zip after Anthropic
+GitHub issue #40414 confirmed the upload validator rejects .plugin.)
 """
 
 from __future__ import annotations
@@ -82,7 +84,7 @@ def install_deep(
     """v0.6.0: validate that .cowork-plugin/.claude-plugin/plugin.json
     advertises monitors/agents/commands/connectors fields.
 
-    Cowork plugin upload is user-driven (drag `.plugin` ZIP into
+    Cowork plugin upload is user-driven (drag `.zip` bundle into
     Settings → Plugins). This adapter is verification-only.
     """
     if not probe.installed:

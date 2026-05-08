@@ -9,9 +9,9 @@ every session start, so the writes were immediately undone.
 
 The real permanent-install path is:
 
-    python scripts/build_plugin.py          # build myco-<ver>.plugin
+    python scripts/build_plugin.py          # build myco-<ver>.zip
     # then drag the produced file into Claude Desktop:
-    #   Settings → Plugins → Upload → select myco-<ver>.plugin
+    #   Settings → Plugins → Upload → select myco-<ver>.zip
 
 This script redirects to ``build_plugin.py`` when called without
 ``--uninstall``, and runs the v0.5.19 cleanup path when called with
@@ -81,10 +81,12 @@ def main(argv: list[str] | None = None) -> int:
     print(
         "[install_cowork_plugin] This script is deprecated in v0.5.20.\n"
         "The Cowork plugin install path is now:\n"
-        "    1. python scripts/build_plugin.py           (builds myco-<ver>.plugin)\n"
+        "    1. python scripts/build_plugin.py           (builds myco-<ver>.zip)\n"
         "    2. Drag the produced file into Claude Desktop Plugin upload.\n"
         "    3. Restart any open Cowork session.\n"
-        "See docs/INSTALL.md § Cowork for details.\n"
+        "See docs/INSTALL.md § Cowork for details. v0.7.4 hotfix:\n"
+        "extension is .zip (not .plugin) per Anthropic GitHub issue\n"
+        "#40414 — the upload validator only accepts .zip.\n"
     )
 
     if args.uninstall:
