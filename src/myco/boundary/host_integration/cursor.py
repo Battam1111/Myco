@@ -39,6 +39,7 @@ def _rule_path(home: Path) -> Path:
 
 
 def discover(home: Path) -> SymbiontProbe | None:
+    """Probe ``home`` for an existing Cursor install; return SymbiontProbe or None."""
     cursor_dir = _cursor_dir(home)
     installed = cursor_dir.is_dir() or (home / "AppData" / "Local" / "Cursor").is_dir()
     caps: set[str] = set()
@@ -58,6 +59,7 @@ def discover(home: Path) -> SymbiontProbe | None:
 def install_basic(
     probe: SymbiontProbe, substrate: Any, *, dry_run: bool = False
 ) -> InstallReport:
+    """Write the minimal Myco MCP entry to Cursor's config; honor dry_run."""
     return InstallReport(host_id=HOST_ID, dry_run=dry_run)
 
 
@@ -97,6 +99,7 @@ def install_deep(
 
 
 def uninstall(probe: SymbiontProbe, *, dry_run: bool = False) -> UninstallReport:
+    """Remove ~/.cursor/rules/myco.mdc installed by install_deep; honor dry_run."""
     target = _rule_path(probe.home)
     if not target.is_file():
         return UninstallReport(

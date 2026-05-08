@@ -1,7 +1,7 @@
 """``myco.digestion`` — 永恒进化 / 永恒迭代.
 
 Governing doctrine: ``docs/architecture/L2_DOCTRINE/digestion.md``.
-Craft: ``docs/primordia/stage_b5_digestion_craft_2026-04-15.md``.
+Craft: ``docs/primordia/_landed/v0_4_x/stage_b5_digestion_craft_2026-04-15.md``.
 
 Pipeline: ``raw → digesting → integrated → distilled``. Verbs (v0.5.3+
 canonical names, with aliases for the v0.5.x names):

@@ -42,6 +42,7 @@ def _commands_path(home: Path) -> Path:
 
 
 def discover(home: Path) -> SymbiontProbe | None:
+    """Probe ``home`` for an existing Zed install; return SymbiontProbe or None."""
     zd = _zed_dir(home)
     installed = zd.is_dir()
     caps: set[str] = set()
@@ -61,12 +62,14 @@ def discover(home: Path) -> SymbiontProbe | None:
 def install_basic(
     probe: SymbiontProbe, substrate: Any, *, dry_run: bool = False
 ) -> InstallReport:
+    """Write the minimal Myco MCP entry to Zed's settings.json; honor dry_run."""
     return InstallReport(host_id=HOST_ID, dry_run=dry_run)
 
 
 def install_deep(
     probe: SymbiontProbe, substrate: Any, *, dry_run: bool = False
 ) -> InstallReport:
+    """Write ~/.config/zed/commands/myco.toml exposing /myco-hunger, /myco-senesce, /myco-brief."""
     if not probe.installed:
         return InstallReport(host_id=HOST_ID, dry_run=dry_run)
     target = _commands_path(probe.home)
@@ -94,6 +97,7 @@ def install_deep(
 
 
 def uninstall(probe: SymbiontProbe, *, dry_run: bool = False) -> UninstallReport:
+    """Remove ~/.config/zed/commands/myco.toml installed by install_deep; honor dry_run."""
     target = _commands_path(probe.home)
     if not target.is_file():
         return UninstallReport(

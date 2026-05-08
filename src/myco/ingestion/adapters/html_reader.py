@@ -57,10 +57,29 @@ class HtmlReader(Adapter):
         p = Path(target)
         try:
             size = p.stat().st_size
-        except OSError:
-            return []
+        except OSError as exc:
+            return [
+                IngestResult(
+                    title=p.stem,
+                    body="",
+                    source=str(p),
+                    status="failed",
+                    failure_reason=f"stat() failed: {exc}",
+                )
+            ]
         if size > DEFAULT_MAX_INGEST_BYTES:
-            return []
+            return [
+                IngestResult(
+                    title=p.stem,
+                    body="",
+                    source=str(p),
+                    status="failed",
+                    failure_reason=(
+                        f"html size cap exceeded: {size} > "
+                        f"{DEFAULT_MAX_INGEST_BYTES} bytes"
+                    ),
+                )
+            ]
         raw = p.read_text(encoding="utf-8", errors="replace")
         soup = BeautifulSoup(raw, "html.parser")
         for tag in soup(["script", "style", "nav", "footer", "header"]):

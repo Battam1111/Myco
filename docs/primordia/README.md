@@ -35,88 +35,156 @@ files cross-reference these docs for provenance.
 
 ## Index (by era)
 
+### v0.6.0 — 2026-04-28
+
+| File | Kind | Role |
+|---|---|---|
+| [`v0_6_0_unified_evolution_and_thorough_refactor_craft_2026-04-28.md`](v0_6_0_unified_evolution_and_thorough_refactor_craft_2026-04-28.md) | design | Round 4 owner-amended unified evolution + thorough refactor |
+| [`v0_6_0_living_bets_audit_craft_2026-04-28.md`](v0_6_0_living_bets_audit_craft_2026-04-28.md) | audit | Living-bets audit closing v0.6.0 |
+
+### v0.6.11 — 2026-04-28
+
+| File | Kind | Role |
+|---|---|---|
+| [`v0_6_11_subagents_and_commands_craft_2026-04-28.md`](v0_6_11_subagents_and_commands_craft_2026-04-28.md) | design | Subagents + slash commands (hypha / primordium / anamorph / stipe) |
+
+### v0.6.14 — 2026-04-29
+
+| File | Kind | Role |
+|---|---|---|
+| [`v0_6_14_cycle_autostart_fruit_winnow_molt_loop_craft_2026-04-29.md`](v0_6_14_cycle_autostart_fruit_winnow_molt_loop_craft_2026-04-29.md) | design | Cycle-自起 fruit—winnow—molt 闭环 orchestrator |
+
+### v0.6.15 — 2026-04-29
+
+| File | Kind | Role |
+|---|---|---|
+| [`v0_6_15_agent_first_default_for_cycle_autostart_loop_craft_2026-04-29.md`](v0_6_15_agent_first_default_for_cycle_autostart_loop_craft_2026-04-29.md) | design | Agent-First default for the cycle-autostart loop |
+
+### v0.6.16 — 2026-04-29
+
+| File | Kind | Role |
+|---|---|---|
+| [`v0_6_16_neat_freak_sweep_craft_2026-04-29.md`](v0_6_16_neat_freak_sweep_craft_2026-04-29.md) | design | Neat-freak sweep — surface tidiness pass |
+
+### v0.7.0 — 2026-04-30
+
+| File | Kind | Role |
+|---|---|---|
+| [`v0_7_0_major_autolysis_craft_2026-04-30.md`](v0_7_0_major_autolysis_craft_2026-04-30.md) | design | Major autolysis — archival moves + autolyze subagent |
+
+### v0.7.1 — 2026-04-30
+
+| File | Kind | Role |
+|---|---|---|
+| [`v0_7_1_shim_revival_craft_2026-04-30.md`](v0_7_1_shim_revival_craft_2026-04-30.md) | design | `myco.mcp` shim revival hotfix |
+
+### v0.7.2 — 2026-04-30
+
+| File | Kind | Role |
+|---|---|---|
+| [`v0_7_2_eternal_pruning_ratchets_craft_2026-04-30.md`](v0_7_2_eternal_pruning_ratchets_craft_2026-04-30.md) | design | 永恒删减 ratchet dims + recursion-cutter hardening |
+
+### Glama drives — 2026-04-24 / 2026-04-28
+
+| File | Kind | Role |
+|---|---|---|
+| [`glama_onboarding_runbook_craft_2026-04-24.md`](glama_onboarding_runbook_craft_2026-04-24.md) | design | Glama onboarding runbook |
+| [`glama_usage_drive_craft_2026-04-24.md`](glama_usage_drive_craft_2026-04-24.md) | design | Glama usage drive |
+| [`glama_categories_drive_craft_2026-04-28.md`](glama_categories_drive_craft_2026-04-28.md) | design | Glama categories drive |
+
+---
+
+## Archived (v0.4 + v0.5 — under `_landed/`)
+
+The crafts below moved to `_landed/v0_4_x/` and `_landed/v0_5_x/` in
+v0.7.0's archival pass. Provenance preserved; paths are relative
+to this README.
+
 ### Greenfield rewrite — 2026-04-15
 
 | File | Kind | Role |
 |---|---|---|
-| [`greenfield_rewrite_craft_2026-04-15.md`](greenfield_rewrite_craft_2026-04-15.md) | design | Umbrella argument for the v0.3 → v0.4 rewrite |
-| [`l0_identity_revision_craft_2026-04-15.md`](l0_identity_revision_craft_2026-04-15.md) | design | L0 vision's five root principles |
-| [`contract_audit_craft_2026-04-15.md`](contract_audit_craft_2026-04-15.md) | audit | Pre-rewrite contract drift audit |
+| [`_landed/v0_4_x/greenfield_rewrite_craft_2026-04-15.md`](_landed/v0_4_x/greenfield_rewrite_craft_2026-04-15.md) | design | Umbrella argument for the v0.3 → v0.4 rewrite |
+| [`_landed/v0_4_x/l0_identity_revision_craft_2026-04-15.md`](_landed/v0_4_x/l0_identity_revision_craft_2026-04-15.md) | design | L0 vision's five root principles |
+| [`_landed/v0_4_x/contract_audit_craft_2026-04-15.md`](_landed/v0_4_x/contract_audit_craft_2026-04-15.md) | audit | Pre-rewrite contract drift audit |
 
 ### Stage A–C build-out — 2026-04-15
 
 | File | Kind | Role |
 |---|---|---|
-| [`stage_a_scaffold_craft_2026-04-15.md`](stage_a_scaffold_craft_2026-04-15.md) | design | Repo scaffold + tool baseline |
-| [`stage_b1_core_craft_2026-04-15.md`](stage_b1_core_craft_2026-04-15.md) | design | `core/` primitives (canon, context, errors) |
-| [`stage_b2_homeostasis_kernel_craft_2026-04-15.md`](stage_b2_homeostasis_kernel_craft_2026-04-15.md) | design | Immune kernel + exit-policy ladder |
-| [`stage_b3_genesis_craft_2026-04-15.md`](stage_b3_genesis_craft_2026-04-15.md) | design | `myco germinate` (one-shot bootstrap) |
-| [`stage_b4_ingestion_craft_2026-04-15.md`](stage_b4_ingestion_craft_2026-04-15.md) | design | `eat` / `hunger` / `sense` / `forage` |
-| [`stage_b5_digestion_craft_2026-04-15.md`](stage_b5_digestion_craft_2026-04-15.md) | design | `assimilate` / `digest` / `sporulate` pipeline |
-| [`stage_b6_circulation_craft_2026-04-15.md`](stage_b6_circulation_craft_2026-04-15.md) | design | Mycelium graph + `traverse` / `propagate` |
-| [`stage_b7_surface_craft_2026-04-15.md`](stage_b7_surface_craft_2026-04-15.md) | design | Manifest-driven CLI + MCP |
-| [`stage_b8_dimensions_craft_2026-04-15.md`](stage_b8_dimensions_craft_2026-04-15.md) | design | First v0.4 dimension roster |
-| [`stage_c_materialization_craft_2026-04-15.md`](stage_c_materialization_craft_2026-04-15.md) | design | Deliverable + release plumbing |
+| [`_landed/v0_4_x/stage_a_scaffold_craft_2026-04-15.md`](_landed/v0_4_x/stage_a_scaffold_craft_2026-04-15.md) | design | Repo scaffold + tool baseline |
+| [`_landed/v0_4_x/stage_b1_core_craft_2026-04-15.md`](_landed/v0_4_x/stage_b1_core_craft_2026-04-15.md) | design | `core/` primitives (canon, context, errors) |
+| [`_landed/v0_4_x/stage_b2_homeostasis_kernel_craft_2026-04-15.md`](_landed/v0_4_x/stage_b2_homeostasis_kernel_craft_2026-04-15.md) | design | Immune kernel + exit-policy ladder |
+| [`_landed/v0_4_x/stage_b3_genesis_craft_2026-04-15.md`](_landed/v0_4_x/stage_b3_genesis_craft_2026-04-15.md) | design | `myco germinate` (one-shot bootstrap) |
+| [`_landed/v0_4_x/stage_b4_ingestion_craft_2026-04-15.md`](_landed/v0_4_x/stage_b4_ingestion_craft_2026-04-15.md) | design | `eat` / `hunger` / `sense` / `forage` |
+| [`_landed/v0_4_x/stage_b5_digestion_craft_2026-04-15.md`](_landed/v0_4_x/stage_b5_digestion_craft_2026-04-15.md) | design | `assimilate` / `digest` / `sporulate` pipeline |
+| [`_landed/v0_4_x/stage_b6_circulation_craft_2026-04-15.md`](_landed/v0_4_x/stage_b6_circulation_craft_2026-04-15.md) | design | Mycelium graph + `traverse` / `propagate` |
+| [`_landed/v0_4_x/stage_b7_surface_craft_2026-04-15.md`](_landed/v0_4_x/stage_b7_surface_craft_2026-04-15.md) | design | Manifest-driven CLI + MCP |
+| [`_landed/v0_4_x/stage_b8_dimensions_craft_2026-04-15.md`](_landed/v0_4_x/stage_b8_dimensions_craft_2026-04-15.md) | design | First v0.4 dimension roster |
+| [`_landed/v0_4_x/stage_c_materialization_craft_2026-04-15.md`](_landed/v0_4_x/stage_c_materialization_craft_2026-04-15.md) | design | Deliverable + release plumbing |
 
 ### v0.4 audit + handoff — 2026-04-15
 
 | File | Kind | Role |
 |---|---|---|
-| [`v0_4_1_audit_craft_2026-04-15.md`](v0_4_1_audit_craft_2026-04-15.md) | audit | First full post-v0.4 immune sweep |
-| [`agent_handoff_v0_4_1_2026-04-15.md`](agent_handoff_v0_4_1_2026-04-15.md) | design | Release playbook for agent maintainers |
+| [`_landed/v0_4_x/v0_4_1_audit_craft_2026-04-15.md`](_landed/v0_4_x/v0_4_1_audit_craft_2026-04-15.md) | audit | First full post-v0.4 immune sweep |
+| [`_landed/v0_4_x/agent_handoff_v0_4_1_2026-04-15.md`](_landed/v0_4_x/agent_handoff_v0_4_1_2026-04-15.md) | design | Release playbook for agent maintainers |
 
 ### v0.5.0 — 2026-04-17
 
 | File | Kind | Role |
 |---|---|---|
-| [`v0_5_0_major_6_10_craft_2026-04-17.md`](v0_5_0_major_6_10_craft_2026-04-17.md) | design | MAJOR 6–10 multi-thread release (entry-points discovery, symbiont protocol, etc.) |
+| [`_landed/v0_5_x/v0_5_0_major_6_10_craft_2026-04-17.md`](_landed/v0_5_x/v0_5_0_major_6_10_craft_2026-04-17.md) | design | MAJOR 6–10 multi-thread release (entry-points discovery, symbiont protocol, etc.) |
 
 ### v0.5.2 — 2026-04-17
 
 | File | Kind | Role |
 |---|---|---|
-| [`v0_5_2_editable_default_craft_2026-04-17.md`](v0_5_2_editable_default_craft_2026-04-17.md) | design | Editable-by-default install path |
+| [`_landed/v0_5_x/v0_5_2_editable_default_craft_2026-04-17.md`](_landed/v0_5_x/v0_5_2_editable_default_craft_2026-04-17.md) | design | Editable-by-default install path |
 
-### v0.5.3 — 2026-04-17 / 2026-04-18
+### v0.5.3 — 2026-04-17
 
 | File | Kind | Role |
 |---|---|---|
-| [`v0_5_3_fungal_vocabulary_craft_2026-04-17.md`](v0_5_3_fungal_vocabulary_craft_2026-04-17.md) | design | Verb rename (9 verbs, 2 packages) to fungal vocabulary |
-| [`_excreted/dogfood_v0_5_3_smoke_craft_2026-04-18.md`](_excreted/dogfood_v0_5_3_smoke_craft_2026-04-18.md) | audit (EXCRETED at v0.6.0) | v0.5.3 post-release smoke test — empty 9-day-stale DRAFT, excreted per craft v0_6_0 §M1 |
+| [`_landed/v0_5_x/v0_5_3_fungal_vocabulary_craft_2026-04-17.md`](_landed/v0_5_x/v0_5_3_fungal_vocabulary_craft_2026-04-17.md) | design | Verb rename (9 verbs, 2 packages) to fungal vocabulary |
 
 ### v0.5.5 — 2026-04-17
 
 | File | Kind | Role |
 |---|---|---|
-| [`v0_5_5_close_audit_loose_threads_craft_2026-04-17.md`](v0_5_5_close_audit_loose_threads_craft_2026-04-17.md) | audit | MAJOR-A–J cleanup pass |
+| [`_landed/v0_5_x/v0_5_5_close_audit_loose_threads_craft_2026-04-17.md`](_landed/v0_5_x/v0_5_5_close_audit_loose_threads_craft_2026-04-17.md) | audit | MAJOR-A–J cleanup pass |
 
 ### v0.5.6 — 2026-04-17 / 2026-04-18
 
 | File | Kind | Role |
 |---|---|---|
-| [`v0_5_6_doctrine_realignment_craft_2026-04-17.md`](v0_5_6_doctrine_realignment_craft_2026-04-17.md) | design | Panoramic doctrine sweep |
-| [`v0_5_6_mp1_mycelium_purity_craft_2026-04-18.md`](v0_5_6_mp1_mycelium_purity_craft_2026-04-18.md) | design | MP1 dim — mechanical "Agent calls LLM; substrate does not" |
+| [`_landed/v0_5_x/v0_5_6_doctrine_realignment_craft_2026-04-17.md`](_landed/v0_5_x/v0_5_6_doctrine_realignment_craft_2026-04-17.md) | design | Panoramic doctrine sweep |
+| [`_landed/v0_5_x/v0_5_6_mp1_mycelium_purity_craft_2026-04-18.md`](_landed/v0_5_x/v0_5_6_mp1_mycelium_purity_craft_2026-04-18.md) | design | MP1 dim — mechanical "Agent calls LLM; substrate does not" |
 
 ### v0.5.7 — 2026-04-19
 
 | File | Kind | Role |
 |---|---|---|
-| [`v0_5_7_senesce_quick_mode_craft_2026-04-19.md`](v0_5_7_senesce_quick_mode_craft_2026-04-19.md) | design | Bimodal senesce (PreCompact full / SessionEnd --quick) |
-| [`v0_5_7_release_craft_2026-04-19.md`](v0_5_7_release_craft_2026-04-19.md) | audit | v0.5.7 release closure |
+| [`_landed/v0_5_x/v0_5_7_senesce_quick_mode_craft_2026-04-19.md`](_landed/v0_5_x/v0_5_7_senesce_quick_mode_craft_2026-04-19.md) | design | Bimodal senesce (PreCompact full / SessionEnd --quick) |
+| [`_landed/v0_5_x/v0_5_7_release_craft_2026-04-19.md`](_landed/v0_5_x/v0_5_7_release_craft_2026-04-19.md) | audit | v0.5.7 release closure |
 
 ### v0.5.8 — 2026-04-21
 
 | File | Kind | Role |
 |---|---|---|
-| [`v0_5_8_discipline_enforcement_craft_2026-04-21.md`](v0_5_8_discipline_enforcement_craft_2026-04-21.md) | design | 14 new dims + 4 foundation helpers + R6 mechanical enforcement |
-| [`v0_5_8_release_craft_2026-04-21.md`](v0_5_8_release_craft_2026-04-21.md) | audit | v0.5.8 release closure |
+| [`_landed/v0_5_x/v0_5_8_discipline_enforcement_craft_2026-04-21.md`](_landed/v0_5_x/v0_5_8_discipline_enforcement_craft_2026-04-21.md) | design | 14 new dims + 4 foundation helpers + R6 mechanical enforcement |
+| [`_landed/v0_5_x/v0_5_8_release_craft_2026-04-21.md`](_landed/v0_5_x/v0_5_8_release_craft_2026-04-21.md) | audit | v0.5.8 release closure |
 
 ### v0.5.9 — 2026-04-21
 
 | File | Kind | Role |
 |---|---|---|
-| [`v0_5_9_immune_zero_craft_2026-04-21.md`](v0_5_9_immune_zero_craft_2026-04-21.md) | design | Immune 121 → 0 findings baseline + JSON-Schema + migration guides |
-| [`v0_5_9_release_craft_2026-04-21.md`](v0_5_9_release_craft_2026-04-21.md) | audit | v0.5.9 release closure |
+| [`_landed/v0_5_x/v0_5_9_immune_zero_craft_2026-04-21.md`](_landed/v0_5_x/v0_5_9_immune_zero_craft_2026-04-21.md) | design | Immune 121 → 0 findings baseline + JSON-Schema + migration guides |
+| [`_landed/v0_5_x/v0_5_9_release_craft_2026-04-21.md`](_landed/v0_5_x/v0_5_9_release_craft_2026-04-21.md) | audit | v0.5.9 release closure |
+
+> The v0.5.3 dogfood smoke craft (`_excreted/dogfood_v0_5_3_smoke_craft_2026-04-18.md`)
+> was excreted in v0.6.0 §M1 (empty 9-day-stale DRAFT) and deleted
+> outright in v0.7.0's archival pass.
 
 ---
 
@@ -160,5 +228,5 @@ crafts typically carry `status: APPROVED` in their frontmatter.
 The v0.5.10 release is a hotfix for four bugs surfaced by a
 post-v0.5.9 seven-round audit. Hotfixes don't get their own craft;
 the v0.5.9 crafts plus the audit record in the CHANGELOG are the
-governance trail. See [`../../CHANGELOG.md`](../../CHANGELOG.md)
+governance trail. See [`../_archive/CHANGELOG_pre_v0_6.md`](../_archive/CHANGELOG_pre_v0_6.md)
 § `[0.5.10]` for the full audit narrative.

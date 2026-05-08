@@ -7,7 +7,7 @@ calls :func:`default_registry` to get a fresh populated one.
 v0.5.3 adds :func:`register_external_dimension`, the public entry point
 substrate-local plugins call at import time to contribute a
 :class:`Dimension` subclass without going through entry-points. See
-``docs/primordia/v0_5_3_fungal_vocabulary_craft_2026-04-17.md``.
+``docs/primordia/_landed/v0_5_x/v0_5_3_fungal_vocabulary_craft_2026-04-17.md``.
 """
 
 from __future__ import annotations

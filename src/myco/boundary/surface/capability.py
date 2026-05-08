@@ -75,6 +75,7 @@ class ToolCapability:
         self.manifest = manifest
 
     def register(self, server: Any, ctx: Any) -> None:
+        """Placeholder for tools/* wiring; actual registration lives in ``surface.mcp.build_server``."""
         # The actual tool registration happens in
         # ``surface.mcp.build_server``; this class is the placeholder
         # that gives it a ``capability_id`` for capability-matrix
@@ -90,6 +91,7 @@ class ResourceCapability:
     capability_id: ClassVar[str] = "resources"
 
     def register(self, server: Any, ctx: Any) -> None:
+        """Placeholder for resources/* wiring; FastMCP binding lands in a v0.6.x patch."""
         # Real wiring lives in ``mcp_resources.py``; FastMCP API
         # binding for ``resources/list`` + ``resources/read`` is
         # planned for v0.6.x patch when the FastMCP signature for
@@ -103,6 +105,7 @@ class PromptCapability:
     capability_id: ClassVar[str] = "prompts"
 
     def register(self, server: Any, ctx: Any) -> None:
+        """Placeholder for prompts/* wiring; FastMCP binding lands in a v0.6.x patch."""
         return None
 
 
@@ -118,6 +121,7 @@ class SamplingCapability:
         self.allow_when_forbidden = allow_when_forbidden
 
     def register(self, server: Any, ctx: Any) -> None:
+        """Register sampling/* only when ``canon.system.llm_policy != "forbidden"``."""
         try:
             policy = ctx.substrate.canon.system.get("llm_policy", "forbidden")
         except Exception:

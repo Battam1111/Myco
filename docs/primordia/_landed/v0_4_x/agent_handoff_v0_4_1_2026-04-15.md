@@ -9,7 +9,7 @@
 
 ## 0. Read this first
 
-You are inheriting the **Myco** project from a session that just shipped v0.4.0. Before you do *anything* — no greps, no edits, no PowerShell calls — read sections 1, 2, and 3 of this document end-to-end. Then read [`L0_VISION.md`](../architecture/L0_VISION.md) and [`L1_CONTRACT/protocol.md`](../architecture/L1_CONTRACT/protocol.md). Only after that should you start the user's task.
+You are inheriting the **Myco** project from a session that just shipped v0.4.0. Before you do *anything* — no greps, no edits, no PowerShell calls — read sections 1, 2, and 3 of this document end-to-end. Then read [`L0_VISION.md`](../../../architecture/L0_VISION.md) and [`L1_CONTRACT/protocol.md`](../../../architecture/L1_CONTRACT/protocol.md). Only after that should you start the user's task.
 
 The user's name is **Yanjun**. They speak Mandarin and English fluently and switch freely. They value: tight prose, three-round craft debate, research-first work, and one-shot completion of plans (no patch-after-discover loops).
 

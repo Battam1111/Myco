@@ -73,6 +73,13 @@ __all__ = [
 
 
 class RiskTier(Enum):
+    """Three-tier craft risk classification (low | medium | high).
+
+    Invariant: each craft proposal maps to exactly one tier; HIGH
+    requires owner approval before LANDED, MEDIUM requires the
+    7-session/7-day winnow window, LOW is agent-self-winnow only.
+    """
+
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
@@ -80,6 +87,14 @@ class RiskTier(Enum):
 
 @dataclass(frozen=True)
 class ClassificationResult:
+    """Frozen verdict from the risk classifier.
+
+    Carries the assigned ``tier``, a human-readable ``rationale``, and
+    the ordered tuple of ``matched_rules`` (path patterns or diff
+    keywords) that drove the decision. Immutable so callers can stash
+    it in audit logs without defensive copying.
+    """
+
     tier: RiskTier
     rationale: str
     matched_rules: tuple[str, ...]

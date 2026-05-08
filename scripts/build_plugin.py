@@ -30,6 +30,7 @@ https://github.com/Battam1111/Myco/releases/latest/download/myco.plugin``.
 from __future__ import annotations
 
 import argparse
+import subprocess
 import sys
 from pathlib import Path
 
@@ -111,6 +112,26 @@ def main(argv: list[str] | None = None) -> int:
 
     repo_root = args.repo_root or _REPO_ROOT
     version = args.version or _read_package_version(repo_root)
+
+    # v0.7.3 — defense-in-depth: ensure plugin mirror dirs are
+    # byte-identical before bundling. Idempotent; no-op if already
+    # synced. Honors the v0.6.11 plugin spec invariant that
+    # `.claude/<dir>/X.md` (project) and `<repo>/<dir>/X.md` (bundle)
+    # MUST contain identical bytes. See scripts/sync_plugin_mirrors.py
+    # docstring + ``L2_DOCTRINE/boundary.md`` § "Legacy import shims".
+    sync_script = repo_root / "scripts" / "sync_plugin_mirrors.py"
+    if sync_script.is_file():
+        rc = subprocess.call(
+            [sys.executable, str(sync_script)],
+            cwd=repo_root,
+        )
+        if rc != 0:
+            print(
+                f"warning: sync_plugin_mirrors exited {rc}; bundle may "
+                "carry stale mirror copies. Investigate before publish.",
+                file=sys.stderr,
+            )
+
     try:
         out_path = build_plugin_bundle(
             repo_root,

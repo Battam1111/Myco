@@ -8,7 +8,7 @@ re-exports this module.
 Governing doc: ``docs/architecture/L2_DOCTRINE/genesis.md`` (the
 file keeps its v0.4 filename until the next doctrine-file pass;
 the content refers to the new verb name).
-Craft: ``docs/primordia/stage_b3_genesis_craft_2026-04-15.md``.
+Craft: ``docs/primordia/_landed/v0_4_x/stage_b3_genesis_craft_2026-04-15.md``.
 
 Germinate creates a minimal, lint-clean substrate skeleton from
 scratch. It is invoked exactly once per project lifetime. Re-

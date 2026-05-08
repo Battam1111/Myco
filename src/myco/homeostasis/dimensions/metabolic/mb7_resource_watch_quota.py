@@ -1,9 +1,10 @@
 """MB7 — MCP resource_watch quota pressure (v0.6.0 R11 mitigation).
 
-Governing doctrine: per craft v0.6.0 §F11, multi-tenant streamable-http
-deployments can exhaust inotify/fd watch handles. ``canon.system.
-resource_watch.max_per_substrate`` caps watches; MB7 emits when ≥80%
-of quota is consumed for a sustained period.
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/homeostasis.md``
+(craft v0.6.0 §F11). Multi-tenant streamable-http deployments can
+exhaust inotify/fd watch handles. ``canon.system.resource_watch.
+max_per_substrate`` caps watches; MB7 emits when ≥80% of quota is
+consumed for a sustained period.
 
 Severity: LOW at land, ramps to MEDIUM after 30 sessions.
 """

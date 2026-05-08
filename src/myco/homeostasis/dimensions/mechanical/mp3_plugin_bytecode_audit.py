@@ -1,7 +1,8 @@
 """MP3 — plugin bytecode/string-pattern LLM-SDK audit.
 
-Governing doctrine: per craft ``v0_5_6_doctrine_realignment_craft_2026-04-17.md``
-§MP1 / MP2-bytecode promise; v0.6.0 finally lands the deeper scan.
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/homeostasis.md``
+(craft ``v0_5_6_doctrine_realignment_craft_2026-04-17.md`` §MP1 /
+MP2-bytecode promise; v0.6.0 finally lands the deeper scan).
 
 MP1 is import-name based (catches direct `import openai`); MP2 scans
 plugin trees for the same. MP3 scans bytecode/string-literal patterns

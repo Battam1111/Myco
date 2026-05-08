@@ -1,8 +1,9 @@
 """MF4 — overlay_verb subsystem validity (v0.6.0 R21 mitigation).
 
-Governing doctrine: per craft v0.6.0 §F21, substrate-local plugin
-manifest_overlay.yaml may declare overlay_verb entries; each must
-reference a subsystem that exists in canon.subsystems.
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/homeostasis.md``
+(craft v0.6.0 §F21). Substrate-local plugin manifest_overlay.yaml
+may declare overlay_verb entries; each must reference a subsystem
+that exists in canon.subsystems.
 
 Severity: LOW at land, ramps to MEDIUM after 30 sessions.
 """

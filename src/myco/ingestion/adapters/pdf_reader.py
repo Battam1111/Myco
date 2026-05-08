@@ -68,10 +68,29 @@ class PdfReader(Adapter):
         # bypassed by a direct-invocation path.
         try:
             size = p.stat().st_size
-        except OSError:
-            return []
+        except OSError as exc:
+            return [
+                IngestResult(
+                    title=p.stem,
+                    body="",
+                    source=str(p),
+                    status="failed",
+                    failure_reason=f"stat() failed: {exc}",
+                )
+            ]
         if size > DEFAULT_MAX_INGEST_BYTES:
-            return []
+            return [
+                IngestResult(
+                    title=p.stem,
+                    body="",
+                    source=str(p),
+                    status="failed",
+                    failure_reason=(
+                        f"pdf size cap exceeded: {size} > "
+                        f"{DEFAULT_MAX_INGEST_BYTES} bytes"
+                    ),
+                )
+            ]
         reader = _PR(str(p))
         pages = [page.extract_text() or "" for page in reader.pages]
         body = "\n\n---\n\n".join(

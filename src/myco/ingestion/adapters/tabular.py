@@ -74,7 +74,18 @@ class TabularReader(Adapter):
             return self._ingest_jsonl(p)
         if suffix == ".json":
             return self._ingest_json(p)
-        return []
+        return [
+            IngestResult(
+                title=p.stem,
+                body="",
+                source=_posix(p),
+                status="failed",
+                failure_reason=(
+                    f"tabular adapter received unsupported suffix {suffix!r}; "
+                    "expected .csv, .tsv, .json, or .jsonl"
+                ),
+            )
+        ]
 
     def _ingest_csv(self, p: Path, suffix: str) -> list[IngestResult]:
         delimiter = "\t" if suffix == ".tsv" else ","

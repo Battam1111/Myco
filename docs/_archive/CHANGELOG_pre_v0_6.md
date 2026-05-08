@@ -28,9 +28,9 @@ breaks at R1–R7. The release's value is a clean baseline for the
 next feature release (v0.6.0) to be judged for drift against.
 
 Governing crafts:
-[`docs/primordia/v0_5_9_immune_zero_craft_2026-04-21.md`](docs/primordia/v0_5_9_immune_zero_craft_2026-04-21.md)
+[`docs/primordia/v0_5_9_immune_zero_craft_2026-04-21.md`](../primordia/_landed/v0_5_x/v0_5_9_immune_zero_craft_2026-04-21.md)
 (the 5-move cleanup design) and
-[`docs/primordia/v0_5_9_release_craft_2026-04-21.md`](docs/primordia/v0_5_9_release_craft_2026-04-21.md)
+[`docs/primordia/v0_5_9_release_craft_2026-04-21.md`](../primordia/_landed/v0_5_x/v0_5_9_release_craft_2026-04-21.md)
 (release closure craft).
 
 ### Changed
@@ -64,15 +64,15 @@ Governing crafts:
 ### Added
 
 - **Canon JSON-Schema** at
-  [`docs/schema/canon.schema.json`](docs/schema/canon.schema.json)
+  [`docs/schema/canon.schema.json`](../schema/canon.schema.json)
   (JSON-Schema 2020-12). Second mechanical check paired with
   `myco.core.canon.load_canon`; runs in IDEs at edit time. See
-  [`docs/schema/README.md`](docs/schema/README.md) for VS Code /
+  [`docs/schema/README.md`](../schema/README.md) for VS Code /
   JetBrains / Neovim wiring snippets.
 - **Migration guides** under
-  [`docs/migration/`](docs/migration/README.md):
-  [`v0_5_7_to_v0_5_8.md`](docs/migration/v0_5_7_to_v0_5_8.md) +
-  [`v0_5_8_to_v0_5_9.md`](docs/migration/v0_5_8_to_v0_5_9.md).
+  [`docs/migration/`](../migration/README.md):
+  [`v0_5_7_to_v0_5_8.md`](../migration/_pre_v0_6/v0_5_7_to_v0_5_8.md) +
+  [`v0_5_8_to_v0_5_9.md`](../migration/_pre_v0_6/v0_5_8_to_v0_5_9.md).
 - **Public `check_write_allowed` + `unsafe_bypass_enabled`** in
   `myco.core.write_surface` (promoted from private in v0.5.8;
   tested in v0.5.8; documented as API in v0.5.9).
@@ -1473,7 +1473,7 @@ gets replaced.
   `--dry-run`, `--global`, `--uninstall`. Covers Claude Code,
   Claude Desktop, Cursor, Windsurf, Zed, VS Code, OpenClaw. Remaining
   hosts documented with per-platform snippets in
-  [`docs/INSTALL.md`](docs/INSTALL.md).
+  [`docs/INSTALL.md`](../INSTALL.md).
 - **OpenClaw support** (Stage D.6). OpenClaw uses a nested
   `mcp.servers.<name>` schema mutated via its own `openclaw mcp set`
   CLI, not the standard `mcpServers` key at repo root. The

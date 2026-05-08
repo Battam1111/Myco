@@ -8,7 +8,7 @@ time. This handler lets an agent enumerate, validate, or explain
 those fused plugins without leaving the CLI.
 
 Governing craft:
-``docs/primordia/v0_5_3_fungal_vocabulary_craft_2026-04-17.md``.
+``docs/primordia/_landed/v0_5_x/v0_5_3_fungal_vocabulary_craft_2026-04-17.md``.
 
 Three mutually-exclusive modes:
 

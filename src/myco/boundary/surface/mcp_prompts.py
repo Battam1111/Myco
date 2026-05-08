@@ -1,8 +1,8 @@
 """``surface.mcp_prompts`` — MCP prompts/list + prompts/get (v0.6.0).
 
-Governing doctrine: craft v0.6.0 §A.2. Exposes the 20 manifest verb
-descriptions as MCP prompts under name ``verb-guide:<name>``, plus
-2 workflow prompts:
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/boundary.md``
+(craft v0.6.0 §A.2). Exposes the 20 manifest verb descriptions as
+MCP prompts under name ``verb-guide:<name>``, plus 2 workflow prompts:
 
 - ``myco-bootstrap`` — 5-step substrate-bootstrap walkthrough.
 - ``myco-contract-r1-r7`` — full R1-R7 contract text.

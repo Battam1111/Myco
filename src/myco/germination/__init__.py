@@ -5,7 +5,7 @@ v0.5.3: was ``myco.genesis`` pre-rename. The shim at
 working across the 0.x line.
 
 Governing doctrine: ``docs/architecture/L2_DOCTRINE/genesis.md``.
-Craft: ``docs/primordia/stage_b3_genesis_craft_2026-04-15.md``.
+Craft: ``docs/primordia/_landed/v0_4_x/stage_b3_genesis_craft_2026-04-15.md``.
 
 Responsibility: create the initial substrate from scratch — write a
 fresh ``_canon.yaml`` from template, seed ``notes/`` and ``docs/``,

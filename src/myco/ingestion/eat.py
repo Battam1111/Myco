@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import os
 import re
+import sys
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -251,7 +252,23 @@ def run(args: Mapping[str, object], *, ctx: MycoContext) -> Result:
             )
         results = adapter.ingest(target)
         outcomes = []
+        skipped: list[dict[str, str]] = []
         for r in results:
+            # v0.7.3 (AD1 closure): adapters that previously returned
+            # ``[]`` on failure now return a single failed-stub
+            # IngestResult. Honour the new protocol: log to stderr so
+            # the user sees *which* file was skipped and *why*, and
+            # don't pollute notes/raw/ with an empty failure stub.
+            # L0 P2 (永恒吞噬): missing a signal must be loud.
+            if getattr(r, "status", "ok") == "failed":
+                reason = getattr(r, "failure_reason", "") or "unknown"
+                src = r.source or target
+                print(
+                    f"[adapter-skip] {src}: {reason}",
+                    file=sys.stderr,
+                )
+                skipped.append({"source": src, "failure_reason": reason})
+                continue
             # v0.5.8 FIX: sort merged tags so output is deterministic
             # across processes (Python hash randomization would
             # otherwise shuffle set iteration order per-process).
@@ -276,6 +293,7 @@ def run(args: Mapping[str, object], *, ctx: MycoContext) -> Result:
                 "adapter": adapter.name,
                 "notes_created": len(outcomes),
                 "notes": outcomes,
+                "skipped": skipped,
             },
         )
 

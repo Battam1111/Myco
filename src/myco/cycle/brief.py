@@ -1,7 +1,7 @@
 """``myco brief`` — the one explicit human-facing verb.
 
 v0.5.5 MAJOR-G. Governing craft:
-``docs/primordia/v0_5_5_close_audit_loose_threads_craft_2026-04-17.md``.
+``docs/primordia/_landed/v0_5_x/v0_5_5_close_audit_loose_threads_craft_2026-04-17.md``.
 
 L0 principle 1 says humans do not browse Myco: humans speak natural
 language, Agents invoke verbs. ``brief`` is the one carved exception

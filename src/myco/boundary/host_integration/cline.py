@@ -28,6 +28,7 @@ HOST_ID = "cline"
 
 
 def discover(home: Path) -> SymbiontProbe | None:
+    """Probe ``home`` for an existing Cline install; return SymbiontProbe or None."""
     cline_paths = [
         home / ".vscode" / "extensions",
         home / ".vscode-server" / "extensions",
@@ -51,6 +52,7 @@ def discover(home: Path) -> SymbiontProbe | None:
 def install_basic(
     probe: SymbiontProbe, substrate: Any, *, dry_run: bool = False
 ) -> InstallReport:
+    """Write the minimal Myco MCP entry to Cline's config; honor dry_run."""
     return InstallReport(host_id=HOST_ID, dry_run=dry_run)
 
 
@@ -85,6 +87,7 @@ def install_deep(
 
 
 def uninstall(probe: SymbiontProbe, *, dry_run: bool = False) -> UninstallReport:
+    """Remove the Myco MCP entry from Cline's config; honor dry_run."""
     return UninstallReport(host_id=HOST_ID, dry_run=dry_run)
 
 

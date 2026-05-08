@@ -50,6 +50,7 @@ def _claude_desktop_config(home: Path) -> Path:
 
 
 def discover(home: Path) -> SymbiontProbe | None:
+    """Probe ``home`` for an existing Cowork (Claude Desktop) install; return SymbiontProbe or None."""
     cfg = _claude_desktop_config(home)
     installed = cfg.is_file()
     caps: set[str] = set()
@@ -90,4 +91,5 @@ def install_deep(
 
 
 def uninstall(probe: SymbiontProbe, *, dry_run: bool = False) -> UninstallReport:
+    """Remove the Myco MCP entry from Cowork's config; honor dry_run."""
     return UninstallReport(host_id=HOST_ID, dry_run=dry_run)

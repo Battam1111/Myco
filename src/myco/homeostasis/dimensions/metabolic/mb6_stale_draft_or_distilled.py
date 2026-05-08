@@ -1,7 +1,8 @@
 """MB6 — stale DRAFT craft / stale distilled note auto-handler.
 
-Governing doctrine: L0 P3 永恒进化 + P4 永恒迭代. Per craft v0.6.0
-§F5 (combined stale-DRAFT-craft + stale-distilled MB6).
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/homeostasis.md``
+(L0 P3 永恒进化 + P4 永恒迭代; craft v0.6.0 §F5 combined
+stale-DRAFT-craft + stale-distilled MB6).
 
 Thresholds (canon-driven, ``lint.thresholds`` field):
 - 14+ days stale → MEDIUM finding.

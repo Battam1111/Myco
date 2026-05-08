@@ -21,7 +21,7 @@ the first positional is a known client name) auto-routes to
 ``host <client>`` without breaking existing scripts / docs.
 
 See ``docs/INSTALL.md`` for the full host matrix and
-``docs/primordia/v0_5_2_editable_default_craft_2026-04-17.md``
+``docs/primordia/_landed/v0_5_x/v0_5_2_editable_default_craft_2026-04-17.md``
 for the design record.
 """
 
