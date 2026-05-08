@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
-"""Build a Claude Desktop / Cowork ``.plugin`` bundle from ``.cowork-plugin/``.
+"""Build a Claude Desktop / Cowork ``.zip`` plugin bundle from ``.cowork-plugin/``.
 
 Why this exists: Cowork persists third-party plugins only through the
 Anthropic cloud marketplace, and the only user-facing way to upload
-a third-party plugin there is Claude Desktop's drag-drop UI (which
-accepts a ``.zip`` or ``.plugin`` file). v0.5.19's attempt to write
-directly into ``rpm/`` was defeated by the cloud sync — see
-``src/myco/install/plugin_bundle.py`` for the full mechanics.
+a third-party plugin there is Claude Desktop's drag-drop UI. The
+upload handler accepts only the ``.zip`` extension (Anthropic GitHub
+issue #40414 — open as of 2026-05; v0.5.19's attempt to write
+directly into ``rpm/`` was defeated by the cloud sync; v0.7.4
+switched the artifact extension after the validator-vs-picker
+mismatch was confirmed). See
+``src/myco/boundary/install/plugin_bundle.py`` for the full mechanics.
 
 Usage
 -----
@@ -22,9 +25,10 @@ Usage
     python scripts/build_plugin.py --version 0.5.19
 
 The CI workflow (``.github/workflows/release.yml``) runs this after
-the bump-parity check, then uploads ``dist/myco-<version>.plugin`` as
-a GitHub Release asset so users can ``curl -L -o myco.plugin
-https://github.com/Battam1111/Myco/releases/latest/download/myco.plugin``.
+the bump-parity check, then uploads ``dist/myco-<version>.zip`` as
+a GitHub Release asset so users can ``curl -L -o myco.zip
+https://github.com/Battam1111/Myco/releases/latest/download/myco-<ver>.zip``
+and drag it into Claude Desktop's plugin upload UI.
 """
 
 from __future__ import annotations
@@ -77,9 +81,12 @@ def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(
         prog="build_plugin",
         description=(
-            "Build a .plugin bundle from .cowork-plugin/. Drop the "
-            "output file into Claude Desktop's Plugins → Upload UI to "
-            "install it into your account's Cowork marketplace."
+            "Build a .zip plugin bundle from .cowork-plugin/. Drop "
+            "the output file into Claude Desktop's Plugins → Upload "
+            "UI to install it into your account's Cowork marketplace. "
+            "v0.7.4: extension switched from .plugin to .zip after "
+            "Anthropic-tracked bug #40414 confirmed the upload "
+            "validator only accepts .zip."
         ),
     )
     p.add_argument(

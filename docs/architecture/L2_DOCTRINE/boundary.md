@@ -210,7 +210,7 @@ per the regression test in
 | `primordium` | The first compact, undifferentiated mass that emerges when a fruiting body begins to form | Drafts a 3-round craft proposal under `docs/primordia/`. Composes claim → 1.5 self-rebuttal → 2 refinement → 3 decision. Runs `myco winnow` to gate before returning. |
 | `hypha` | The exploratory thread of fungus that extends through substrate | Investigates a single `myco_immune` finding by tracing root cause through the codebase. Read-only; produces a minimal-fix description, classifies the cause among 5 categories. |
 | `autolysis` | Fungal self-digestion of old tissue | Sweeps stale narrative references (version drift, deleted module paths, deprecated identifiers). Produces a deterministic file:line:replacement patch table; does not apply. |
-| `stipe` | The mushroom stem that holds the cap aloft so spores can disperse | Orchestrates the full release pipeline: pre-flight gate quintet, atomic bump, commit, push, ci.yml watch, tag, release.yml watch (PyPI + MCP Registry + GitHub Release + Cowork .plugin), post-release verification. |
+| `stipe` | The mushroom stem that holds the cap aloft so spores can disperse | Orchestrates the full release pipeline: pre-flight gate quintet, atomic bump, commit, push, ci.yml watch, tag, release.yml watch (PyPI + MCP Registry + GitHub Release + Cowork .zip bundle), post-release verification. |
 | `anamorph` | The asexual transformative life-cycle form | Drafts canon schema migrations (named partial upgraders + tests + schema delta + migration guide). Stops before flipping `_canon.yaml::schema_version`. |
 
 ### Slash command roster (5 `myco-` triggers)
@@ -393,3 +393,42 @@ The discipline is mechanically enforced by:
 - **Doctrinal renames** (e.g., `genesis/` → `germination/` at v0.5.3) use Python re-export shims with their own removal cadence; these are governed by craft + the standard fruit→winnow→molt path.
 - **Internal API changes** (functions / classes inside `src/myco/` consumed only by other `src/myco/` modules) — gate (a) handles these mechanically.
 - **First-time external API additions** — adding a new public entry point is a v0.6.0-style craft decision, not a deletion.
+
+## Cowork plugin artifact extension (v0.7.4+)
+
+> **Status**: APPROVED (2026-05-09, v0.7.4 hotfix landed).
+> **Constraint origin**: external — Anthropic Claude Desktop upload validator.
+
+The Cowork plugin bundle (built by `scripts/build_plugin.py` from `.cowork-plugin/`) MUST be emitted with the **`.zip` extension**, not `.plugin`. This is a v0.7.4 hotfix correcting a v0.5.20–v0.7.3 misreading of Claude Desktop's plugin upload contract.
+
+### What changed
+
+- `BUNDLE_EXTENSION` (in `src/myco/boundary/install/plugin_bundle.py`) is now `".zip"`.
+- `dist/myco-<ver>.zip` replaces `dist/myco-<ver>.plugin` as the GitHub Release asset.
+- `release.yml` glob is `dist/myco-*.zip` (filters out `myco-<ver>.tar.gz` from `python -m build`; `.whl` filenames don't match).
+- `tests/integration/test_install_cowork_plugin.py` carries a regression test asserting `BUNDLE_EXTENSION == ".zip"`.
+
+### Why
+
+Claude Desktop's plugin file picker advertises both `.zip` and `.plugin` (the picker filter regex in `app.asar` is `/\.(zip|plugin)$/i`), so v0.5.20 chose `.plugin` for the semantic clarity of "this is a plugin archive, not arbitrary ZIP." That choice was wrong:
+
+- The **upload handler** (a different code path inside Claude Desktop than the file picker) rejects every extension except `.zip` with the error message `"Only .zip files are accepted."`.
+- The UI swallows that specific error and surfaces only the generic `"Upload failed. You can try again."` or, in newer builds, `"validation failed"`.
+- Anthropic GitHub issue **#40414** (open as of 2026-05-09, area:cowork, platform:windows, label:bug, label:stale) tracks this picker-vs-validator mismatch. Anthropic has not signaled a fix date.
+- A user on macOS hit the same path with the same error in issue **#42651** (closed as duplicate).
+
+`.zip` works against today's validator, will continue to work after #40414 is fixed (the file picker accepts both), and is universally understood by every archive tool. There is no upside to switching back even when #40414 lands.
+
+### Boundary subsystem rule (binding)
+
+> Any future change that flips `BUNDLE_EXTENSION` away from `".zip"` MUST cite the resolved-and-verified state of Anthropic GitHub issue #40414 (i.e., the Anthropic engineer commit that lifted the validator restriction, plus a fresh dogfood run against a current Claude Desktop build). The regression test `tests/integration/test_install_cowork_plugin.py::test_bundle_extension_constant_is_zip` enforces this at gate time.
+
+### Discovery trail (for future archaeology)
+
+The bug was discovered post-v0.7.3-release when the owner's drag-drop install of `myco-0.7.3.plugin` into Cowork failed with `"validation failed"`. Investigation:
+
+1. Inspected the bundle (4 files under `myco/`, byte-identical sha256 to a renamed-`.zip` copy → contents not the issue).
+2. Verified plugin.json schema against [Claude Code plugins reference](https://code.claude.com/docs/en/plugins-reference): `name` is the only required field; `mcpServers` and `skills` are auto-discovered from default locations → manifest contents not the issue.
+3. Web-searched the exact symptom; landed on issue #40414 and #42651, which name the validator-vs-picker mismatch as the root cause.
+4. Renamed the existing build to `.zip` extension, byte-identical contents → drag-drop succeeded.
+5. v0.7.4 hotfix systematized the rename across the build script, CI workflow, tests, and user-facing docs.

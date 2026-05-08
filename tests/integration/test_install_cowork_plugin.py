@@ -1,9 +1,10 @@
 """Tests for the v0.5.20 Cowork-plugin install pathway.
 
 Scope: verify that ``myco-install cowork-plugin`` / the underlying
-library produce a valid ``.plugin`` bundle and emit the right user
-instructions. We also verify the legacy-cleanup helper correctly
-scrubs v0.5.19's rpm/ writes.
+library produce a valid ``.zip`` bundle (renamed from ``.plugin`` in
+the v0.7.4 hotfix per Anthropic GitHub issue #40414) and emit the
+right user instructions. We also verify the legacy-cleanup helper
+correctly scrubs v0.5.19's rpm/ writes.
 
 What we do NOT test here: the actual drag-drop flow in Claude
 Desktop. That is an external UI action; the closest we can do is
@@ -85,8 +86,8 @@ def fake_cowork(tmp_path: Path) -> Path:
 
 
 def test_prepare_plugin_for_upload_writes_bundle(tmp_path: Path) -> None:
-    """Happy path: prepare_plugin_for_upload builds a valid .plugin
-    file and prints the upload instructions. No filesystem writes
+    """Happy path: prepare_plugin_for_upload builds a valid .zip
+    bundle and prints the upload instructions. No filesystem writes
     to the user's Claude Desktop appdata — that's the whole point of
     the v0.5.20 redesign."""
     import io
@@ -102,8 +103,8 @@ def test_prepare_plugin_for_upload_writes_bundle(tmp_path: Path) -> None:
         stdout=stdout,
     )
     assert path.exists()
-    assert path.suffix == ".plugin"
-    assert path.name == f"myco-{myco.__version__}.plugin"
+    assert path.suffix == ".zip"
+    assert path.name == f"myco-{myco.__version__}.zip"
 
     out = stdout.getvalue()
     assert "built" in out
@@ -138,21 +139,48 @@ def test_prepare_plugin_for_upload_raises_on_version_mismatch(tmp_path: Path) ->
 # Bundle structural invariants — the Claude Desktop upload validator
 # enforces these at the ``/plugins/account-upload`` endpoint. Breaking
 # any of them returns `plugin_validation` error (HTTP 400) and the UI
-# shows "Only .zip or .plugin files are accepted" or similar.
+# shows "Only .zip files are accepted." (despite the file picker
+# advertising both .zip and .plugin — see Anthropic GitHub issue
+# #40414, which the v0.7.4 hotfix routes around by switching the
+# artifact extension to .zip).
 # ---------------------------------------------------------------------------
 
 
 def test_bundle_zip_extension_is_accepted_by_drag_drop_validator(
     tmp_path: Path,
 ) -> None:
-    """Claude Desktop regex: ``/\\.(zip|plugin)$/i``. Our builder must
-    write with the ``.plugin`` extension so drag-drop accepts it
-    without the user having to rename."""
+    """Claude Desktop's upload handler accepts only ``.zip`` despite
+    its file picker advertising both ``.zip`` and ``.plugin``
+    (Anthropic GitHub issue #40414). v0.7.4 switched our builder to
+    emit ``.zip`` so drag-drop succeeds without forcing the user to
+    rename the file."""
     import myco
     from myco.boundary.install.plugin_bundle import build_plugin_bundle
 
     path = build_plugin_bundle(REPO_ROOT, version=myco.__version__, dest_dir=tmp_path)
-    assert path.name.endswith(".plugin")
+    assert path.name.endswith(".zip"), (
+        f"v0.7.4 regression: bundle must use .zip extension to pass "
+        f"Cowork's upload validator (issue #40414). Got: {path.name!r}"
+    )
+
+
+def test_bundle_extension_constant_is_zip() -> None:
+    """v0.7.4: the ``BUNDLE_EXTENSION`` constant must be ``.zip``.
+
+    Locking this in a unit test so a well-meaning future refactor that
+    flips it back to ``.plugin`` (e.g. "this is more semantically
+    accurate") gets caught at test time instead of breaking every
+    user's drag-drop install. Anthropic GitHub issue #40414 (open as
+    of 2026-05-09) is the canonical reference; remove this lock-in
+    only when the issue is closed AND verified against a current
+    Claude Desktop build.
+    """
+    from myco.boundary.install.plugin_bundle import BUNDLE_EXTENSION
+
+    assert BUNDLE_EXTENSION == ".zip", (
+        f"BUNDLE_EXTENSION regressed to {BUNDLE_EXTENSION!r}. "
+        f"Cowork rejects every non-.zip extension; see issue #40414."
+    )
 
 
 def test_bundle_has_single_top_level_dir_with_plugin_json(tmp_path: Path) -> None:
@@ -388,7 +416,7 @@ def test_cli_cowork_plugin_builds_bundle(tmp_path: Path, capsys) -> None:
     rc = install_main(["cowork-plugin", "--output", str(tmp_path)])
     assert rc == 0
     out = capsys.readouterr().out
-    bundle = tmp_path / f"myco-{myco.__version__}.plugin"
+    bundle = tmp_path / f"myco-{myco.__version__}.zip"
     assert bundle.exists()
     assert "built" in out
     assert "Claude Desktop" in out
@@ -421,8 +449,9 @@ def test_cli_cowork_plugin_cleanup_legacy(fake_cowork: Path, tmp_path: Path) -> 
         ]
     )
     assert rc == 0
-    # Bundle was built.
-    assert any(out_dir.glob("*.plugin"))
+    # Bundle was built. v0.7.4 hotfix: extension is now .zip
+    # (not .plugin) per Anthropic issue #40414.
+    assert any(out_dir.glob("*.zip"))
     # Legacy rpm/plugin_myco/ is gone.
     for owner, ws in (("owner-a", "ws-1"), ("owner-b", "ws-2")):
         assert not (

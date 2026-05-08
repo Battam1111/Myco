@@ -16,14 +16,16 @@ Any local edits to that directory are clobbered on the next restart.
 
 The only path that **persists** a third-party plugin into Cowork is:
 
-1. Build a ``.plugin`` bundle (ZIP archive with a single top-level
+1. Build a ``.zip`` bundle (ZIP archive with a single top-level
    directory containing ``.claude-plugin/plugin.json``, ``.mcp.json``,
    ``skills/*/SKILL.md``).
-2. User drags the ``.plugin`` file into Claude Desktop's plugin upload
-   UI. Claude Desktop's upload handler (seen in app.asar at
-   ``index.js:433299-433315``) accepts ``.zip`` OR ``.plugin``
-   extensions, then — in Cowork mode with the ``720735283`` feature
-   flag on — calls ``uploadPluginViaRemote`` which POSTs the ZIP to
+2. User drags the ``.zip`` file into Claude Desktop's plugin upload
+   UI. The ``uploadPlugin`` handler in ``app.asar`` rejects every
+   extension except ``.zip`` with the error
+   ``"Only .zip files are accepted."`` (see Anthropic GitHub issue
+   #40414 — open as of 2026-05). In Cowork mode with the
+   ``720735283`` feature flag on, Claude Desktop calls
+   ``uploadPluginViaRemote`` which POSTs the ZIP to
    ``https://api.anthropic.com/api/organizations/{orgId}/marketplaces/
    {marketplaceId}/plugins/account-upload``.
 3. Anthropic's cloud stores the plugin in the user's per-account
@@ -38,11 +40,17 @@ those are MCPB extensions (bare MCP servers, no skills, no plugin
 semantics) and go into Claude Desktop's ``Claude Extensions`` dir,
 not the Cowork plugin registry.
 
+History note: v0.5.20-v0.7.3 emitted ``.plugin`` because the file
+picker regex accepts both ``.zip`` and ``.plugin``. The v0.7.4 hotfix
+discovered that the upload handler does NOT — only ``.zip`` survives
+validation. Switching to ``.zip`` makes drag-drop work without forcing
+users to rename. See the v0.7.4 craft for the full discovery trail.
+
 What this module does
 ---------------------
 
 Given a Myco repo root with ``.cowork-plugin/`` populated, produce
-``dist/myco-<version>.plugin`` — a ZIP with a single top-level dir
+``dist/myco-<version>.zip`` — a ZIP with a single top-level dir
 (``myco/``) holding:
 
     myco/.claude-plugin/plugin.json
@@ -78,10 +86,24 @@ PLUGIN_NAME = "myco"
 TEMPLATE_DIRNAME = ".cowork-plugin"
 
 #: Extension Claude Desktop recognises for drag-drop plugin uploads.
-#: The handler regex in app.asar is ``/\.(zip|plugin)$/i``. We prefer
-#: ``.plugin`` because it signals intent: this is a plugin archive,
-#: not an arbitrary ZIP.
-BUNDLE_EXTENSION = ".plugin"
+#: The Claude Desktop file picker advertises both ``.zip`` and ``.plugin``
+#: (regex in ``app.asar`` index.js: ``/\.(zip|plugin)$/i``), but the
+#: ``uploadPlugin`` handler that processes the dropped file rejects
+#: anything other than ``.zip`` with the error
+#: ``"Only .zip files are accepted."``. The UI swallows that message
+#: and surfaces the generic "Upload failed. You can try again." or
+#: "validation failed" — see the open Anthropic-tracked bug:
+#:
+#:     https://github.com/anthropics/claude-code/issues/40414
+#:     [Bug] Claude Desktop plugin upload rejects `.plugin` files despite
+#:           file picker allowing them
+#:
+#: We pick ``.zip`` so drag-drop works today against the production
+#: validator. When #40414 lands, ``.plugin`` would also work — but
+#: ``.zip`` is universally accepted (file picker + validator + every
+#: archive tool that opens a ZIP), so there's no upside to switching
+#: back. v0.7.4 hotfix.
+BUNDLE_EXTENSION = ".zip"
 
 
 class PluginBundleError(Exception):
@@ -99,7 +121,7 @@ def build_plugin_bundle(
     dest_dir: Path | None = None,
     overwrite: bool = True,
 ) -> Path:
-    """Build a ``.plugin`` ZIP from the repo's ``.cowork-plugin/``.
+    """Build a ``.zip`` bundle from the repo's ``.cowork-plugin/``.
 
     Parameters
     ----------
@@ -113,7 +135,7 @@ def build_plugin_bundle(
         ``scripts/bump_version.py`` — this parameter only names the
         artifact.
     dest_dir:
-        Where to write the ``.plugin`` file. Defaults to
+        Where to write the ``.zip`` file. Defaults to
         ``repo_root/dist`` (created if missing).
     overwrite:
         If ``True`` (default), an existing output file is replaced.
@@ -121,7 +143,7 @@ def build_plugin_bundle(
         CI when you want an explicit failure rather than silent
         replacement.
 
-    Returns the absolute path of the produced ``.plugin`` file.
+    Returns the absolute path of the produced ``.zip`` file.
 
     Raises ``PluginBundleError`` when the template is missing or
     malformed (no ``plugin.json``, no skill, etc.).
@@ -194,7 +216,8 @@ def build_plugin_bundle(
             rel = src.relative_to(template).as_posix()
             # Single top-level dir under the ZIP root — Claude Desktop's
             # plugin extractor expects <name>/.claude-plugin/plugin.json
-            # at this depth (confirmed in myco-v0.3.3.plugin).
+            # at this depth (confirmed in myco-v0.3.3.plugin, the last
+            # ``.plugin``-extension build before v0.7.4 switched to ``.zip``).
             arcname = f"{PLUGIN_NAME}/{rel}"
             zf.write(src, arcname)
 
