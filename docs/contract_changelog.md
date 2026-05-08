@@ -11,6 +11,25 @@ Format: one section per `contract_version`, newest first.
 
 ---
 
+## v0.7.3 - 2026-05-09 - Contract molt via `myco molt`
+
+Replaces `v0.7.2` at `_canon.yaml::contract_version`. Issued via the `myco molt --contract v0.7.3` agent-
+callable verb. `synced_contract_version` is updated in
+lockstep.
+
+### What changed
+
+(Fill in: which R1-R7 rules, subsystem definitions, exit-code
+grammar, lint-dimension semantics, or command manifest shapes
+changed. `myco molt` only records the version; the authoring
+agent is responsible for this narrative.)
+
+### Break from v0.7.2
+
+(Fill in: backward-compatibility note. If none, say so explicitly.)
+
+---
+
 ## v0.7.2 — 2026-04-30 — 永恒删减 ratchet dims (mechanize the eternal-pruning discipline)
 
 **Zero R1-R7 surface deltas; 4 NEW lint dimensions (46 → 50, additive); zero subsystem changes; schema v2 unchanged (additive canon fields).** This molt converts the v0.7.1-named **public-API-deletion discipline** from doctrine prose to mechanically-enforceable lint. Future drift is **continuous**-detected by the substrate's own immune system instead of **episodically** discovered via manual neat-freak audits.
