@@ -8,6 +8,7 @@ matters at upgrade time.
 | Boundary | Guide | Headline |
 |---|---|---|
 | v0.5.24 → v0.6.0 | [`v0_5_24_to_v0_6_0.md`](v0_5_24_to_v0_6_0.md) | Round 4 owner-amended single-shot release; thorough refactor + unified evolution |
+| v0.7.4 → v0.7.5 | [`v0_7_4_to_v0_7_5.md`](v0_7_4_to_v0_7_5.md) | P0-P6 omnibus; canon schema v2→v3 (`metrics.lint_dim_count` field); upgrader chain walks to latest |
 
 ### Archived (pre-v0.6 — under `_pre_v0_6/`)
 

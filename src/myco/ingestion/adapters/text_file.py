@@ -66,6 +66,7 @@ _CREDENTIAL_DENY_GLOBS: frozenset[str] = frozenset(
         "credentials",
         "credentials.*",
         ".aws_credentials",
+        ".aws_credentials.*",
         "secrets",
         "secrets.*",
         ".secrets",

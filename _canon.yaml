@@ -1,4 +1,4 @@
-# _canon.yaml — Myco self-substrate, v0.6.0 (schema v2).
+# _canon.yaml — Myco self-substrate, v0.7.5 (schema v3).
 # Schema: docs/architecture/L1_CONTRACT/canon_schema.md
 # Comments in this file are reserved for schema annotations only
 # (per canon_schema.md rule 1). Narrative cross-references live under
@@ -6,9 +6,12 @@
 #
 # v0.6.0 (2026-04-28) lands schema v2 (minimal: bool→enum +
 # federation_peers field) per the v0.6.0 unified evolution craft.
-# See docs/primordia/v0_6_0_unified_evolution_and_thorough_refactor_craft_2026-04-28.md.
+# v0.7.5 (2026-05-10) lands schema v3 (additive: metrics.lint_dim_count
+# field) per the v0.7.5 omnibus craft. See
+# docs/primordia/v0_7_5_p0_to_p6_omnibus_craft_2026-05-10.md and
+# docs/migration/v0_7_4_to_v0_7_5.md.
 
-schema_version: "2"
+schema_version: "3"
 contract_version: "v0.7.4"
 synced_contract_version: "v0.7.4"
 identity:

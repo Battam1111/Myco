@@ -79,22 +79,33 @@ cadence.
 
 ---
 
-## v0.7.3 - 2026-05-09 - Contract molt via `myco molt`
+## v0.7.3 - 2026-05-09 - Lint-zero pass + IngestResult extension + L2 legacy-shim doctrine
 
-Replaces `v0.7.2` at `_canon.yaml::contract_version`. Issued via the `myco molt --contract v0.7.3` agent-
-callable verb. `synced_contract_version` is updated in
-lockstep.
+Replaces `v0.7.2` at `_canon.yaml::contract_version`. Issued via the
+`myco molt --contract v0.7.3` agent-callable verb.
+`synced_contract_version` is updated in lockstep.
 
 ### What changed
 
-(Fill in: which R1-R7 rules, subsystem definitions, exit-code
-grammar, lint-dimension semantics, or command manifest shapes
-changed. `myco molt` only records the version; the authoring
-agent is responsible for this narrative.)
+Substantive content lives in the v0.7.3 craft proposal:
+[`docs/primordia/v0_7_3_lint_zero_before_cowork_craft_2026-04-30.md`](primordia/v0_7_3_lint_zero_before_cowork_craft_2026-04-30.md).
+
+Headline: 171 lint findings → 1 (informational MB8 only). Eight
+groups of fixes (A-H) covering the IngestResult protocol extension
+(adapters return failed-stub records instead of silently skipping),
+DC2/DC3/DC4 docstring sweep, SE1/SE2/SE5 semantic dim closures, MF5
+reclassification from PENDING_BUILD_ARTIFACT_CONVERSION to
+MIRROR_DRIFT MEDIUM, scripts/sync_plugin_mirrors.py introduction,
+and the L2 boundary doctrine § "Legacy import shims (v0.7.3+)"
+codifying the v0.7.1-named public-API-deletion discipline. v0.7.5
+backfilled this changelog entry retroactively.
 
 ### Break from v0.7.2
 
-(Fill in: backward-compatibility note. If none, say so explicitly.)
+Backward-compatible. `IngestResult` extension (`status: str = "ok"`,
+`failure_reason: str = ""`) is additive with defaults. Adapters
+that returned `[]` to silent-skip continue to work; the new failed-
+stub return shape is opt-in.
 
 ---
 

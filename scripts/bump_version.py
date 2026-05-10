@@ -189,6 +189,18 @@ def main() -> int:
         )
         return 4
 
+    # v0.7.5 — auto-refresh canon.metrics so test_count + lint_dim_count
+    # never go stale. Replaces the manual "remember to update canon.metrics"
+    # step that drifted between v0.7.0 and v0.7.4 (test_count fell out of
+    # sync with reality by 2; lint_dim_count was missing entirely while
+    # all 3 READMEs advertised an outdated 46 instead of the real 50).
+    # Reads live measurements (pytest --collect-only + _canon_lint.yaml
+    # dimension count) and surgically rewrites just those two lines.
+    refresh_changes = _refresh_canon_metrics(REPO, dry_run=False)
+    print()
+    for line in refresh_changes:
+        print("  " + line)
+
     if not args.no_test:
         # Mirror ci.yml's "test" job exactly so the bump pre-flight
         # catches everything CI would catch. Historical gap: v0.5.13
@@ -336,6 +348,143 @@ def _bump_citation_cff(path: Path, target: str, dry_run: bool) -> list[str]:
         f"[bump]  {_rel(path)} version {sorted(distinct_before)} → {target} "
         f"({len(before_matches)} line(s))"
     ]
+
+
+def _measure_test_count(repo: Path) -> int | None:
+    """Count tests via ``pytest --collect-only -q``; parse "N tests collected"."""
+    try:
+        r = subprocess.run(
+            [sys.executable, "-m", "pytest", "--collect-only", "-q", "tests"],
+            cwd=repo,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=120,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return None
+    if r.returncode != 0:
+        return None
+    # "N tests collected in T s" — last line of stdout in -q mode.
+    m = re.search(r"^(\d+) tests collected", r.stdout, re.MULTILINE)
+    return int(m.group(1)) if m else None
+
+
+def _measure_lint_dim_count(repo: Path) -> int | None:
+    """Count lint dims by reading ``_canon_lint.yaml::dimensions`` keys."""
+    path = repo / "_canon_lint.yaml"
+    if not path.is_file():
+        return None
+    try:
+        import yaml as _yaml  # type: ignore[import-not-found]
+    except ImportError:
+        return None
+    try:
+        data = _yaml.safe_load(path.read_text(encoding="utf-8"))
+    except (_yaml.YAMLError, OSError):
+        return None
+    dims = data.get("dimensions") if isinstance(data, dict) else None
+    if isinstance(dims, dict):
+        return len(dims)
+    if isinstance(dims, list):
+        return len(dims)
+    return None
+
+
+def _refresh_canon_metrics(repo: Path, *, dry_run: bool) -> list[str]:
+    """Surgically refresh ``_canon.yaml::metrics.{test_count,lint_dim_count}``.
+
+    Reads live measurements (pytest --collect-only count + canon_lint dim
+    count) and rewrites just the two target lines via regex. Same surgical
+    approach as :func:`_bump_pyversion` so YAML comments + structure are
+    preserved. If a measurement fails (e.g. pytest can't be invoked), that
+    metric is left untouched — better stale than wrong.
+
+    Inserts ``lint_dim_count: <N>`` if the line is absent and the new
+    schema_version "3" is targeted (v0.7.5+). Insertion point: right after
+    the ``test_count:`` line within the ``metrics:`` block.
+    """
+    canon_path = repo / "_canon.yaml"
+    if not canon_path.is_file():
+        return [f"[skip]  {_rel(canon_path)} (file missing)"]
+
+    text = canon_path.read_text(encoding="utf-8")
+    changes: list[str] = []
+
+    # Refresh test_count.
+    measured_tests = _measure_test_count(repo)
+    if measured_tests is not None:
+        pattern = r"(?m)^(\s*test_count:\s*)(\d+)([ \t\r]*)$"
+        m = re.search(pattern, text)
+        if m and int(m.group(2)) != measured_tests:
+            text = re.sub(pattern, rf"\g<1>{measured_tests}\g<3>", text, count=1)
+            changes.append(
+                f"[refresh] {_rel(canon_path)} metrics.test_count {m.group(2)} → "
+                f"{measured_tests}"
+            )
+        elif m:
+            changes.append(
+                f"[skip]    {_rel(canon_path)} metrics.test_count already at "
+                f"{measured_tests}"
+            )
+    else:
+        changes.append(
+            "[skip]    metrics.test_count refresh (pytest --collect-only failed; "
+            "left as-is)"
+        )
+
+    # Refresh or insert lint_dim_count.
+    measured_dims = _measure_lint_dim_count(repo)
+    if measured_dims is not None:
+        pattern = r"(?m)^(\s*lint_dim_count:\s*)(\d+|null)([ \t\r]*)$"
+        m = re.search(pattern, text)
+        if m:
+            current = m.group(2)
+            if current != str(measured_dims):
+                text = re.sub(pattern, rf"\g<1>{measured_dims}\g<3>", text, count=1)
+                changes.append(
+                    f"[refresh] {_rel(canon_path)} metrics.lint_dim_count "
+                    f"{current} → {measured_dims}"
+                )
+            else:
+                changes.append(
+                    f"[skip]    {_rel(canon_path)} metrics.lint_dim_count "
+                    f"already at {measured_dims}"
+                )
+        else:
+            # Insert new line right after test_count: <N>. Required for
+            # v3 schema (lint_dim_count is a v0.7.5 v2 → v3 addition).
+            insert_pattern = r"(?m)^(\s*)(test_count:\s*\d+[ \t\r]*)$"
+            m_insert = re.search(insert_pattern, text)
+            if m_insert:
+                indent = m_insert.group(1)
+                replacement = (
+                    f"{indent}{m_insert.group(2)}\n"
+                    f"{indent}lint_dim_count: {measured_dims}"
+                )
+                text = re.sub(insert_pattern, replacement, text, count=1)
+                changes.append(
+                    f"[insert]  {_rel(canon_path)} metrics.lint_dim_count: "
+                    f"{measured_dims} (new field)"
+                )
+            else:
+                changes.append(
+                    "[skip]    metrics.lint_dim_count insert (no test_count: "
+                    "anchor found in canon)"
+                )
+    else:
+        changes.append(
+            "[skip]    metrics.lint_dim_count refresh (canon_lint.yaml unreadable)"
+        )
+
+    if (
+        not dry_run
+        and changes
+        and any(c.startswith("[refresh]") or c.startswith("[insert]") for c in changes)
+    ):
+        canon_path.write_text(text, encoding="utf-8")
+
+    return changes
 
 
 def _bump_server_json(path: Path, target: str, dry_run: bool) -> list[str]:

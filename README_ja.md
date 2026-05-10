@@ -125,7 +125,7 @@ Myco をエージェントホストに 1 コマンドで組み込みます。
 
 Myco はエージェントが契約を覚えていると信用しません。強制します。
 
-- **46 次元の lint**、4 カテゴリに分かれます。*mechanical*（canon 不変式、write-surface、LLM 境界、OAuth token 駐留、sampling ゲート、capability 階層）、*shipped*（package と canon のバージョン整合、kernel が canon を超えない）、*metabolic*（raw の堆積、古い integrated ノート、sporulated 再吸収整合性、resource-watch クォータ、stale-DRAFT 整理）、*semantic*（グラフ連結性、孤児検出、相互リンク検出、R3 sense / R4 eat 規律シグナル）。`myco immune --fix` が機械的に直せるものは直します。
+- **50 次元の lint**、4 カテゴリに分かれます。*mechanical*（canon 不変式、write-surface、LLM 境界、OAuth token 駐留、sampling ゲート、capability 階層）、*shipped*（package と canon のバージョン整合、kernel が canon を超えない）、*metabolic*（raw の堆積、古い integrated ノート、sporulated 再吸収整合性、resource-watch クォータ、stale-DRAFT 整理）、*semantic*（グラフ連結性、孤児検出、相互リンク検出、R3 sense / R4 eat 規律シグナル）。`myco immune --fix` が機械的に直せるものは直します。
 - **7 条のハードルール（R1 から R7）** がすべてのセッションを支配します。boot ritual、session-end、sense-before-assert、eat-on-friction、cross-reference-on-creation、write-surface discipline、top-down layering。完全契約は [`L1_CONTRACT/protocol.md`](docs/architecture/L1_CONTRACT/protocol.md) に。
 - **Pulse サイドカー。** MCP tool 応答のすべてに `substrate_pulse` が乗ります。現在の contract バージョンと、セッションの進行に合わせて昇格していくルールヒント（R1、続いて R3、そして先へ）を運びます。サーバ側からの push。エージェントは忘れようがありません。
 - **Write-surface 強制。** `_canon.yaml::system.write_surface.allowed` の外への書き込みは、すべて `WriteSurfaceViolation` で拒否されます。規律はメカニズムであって、お願いではありません。

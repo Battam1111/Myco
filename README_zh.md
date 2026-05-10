@@ -125,7 +125,7 @@ myco germinate . --substrate-id your-project
 
 Myco 不信任 Agent 会记住契约。它去强制。
 
-- **46 维 lint**，分四类：*mechanical*（canon 不变式、写面、LLM 边界、OAuth token 驻留、sampling 闸门、capability 分层）、*shipped*（package 与 canon 版本对齐、kernel 不能领先 canon）、*metabolic*（raw 积压、陈旧 integrated、sporulated 重吸收完整性、resource-watch 配额、stale-DRAFT 清理）、*semantic*（图连通、孤儿检测、互链检查、R3 sense / R4 eat 纪律信号）。`myco immune --fix` 尽可能机械自修。
+- **50 维 lint**，分四类：*mechanical*（canon 不变式、写面、LLM 边界、OAuth token 驻留、sampling 闸门、capability 分层）、*shipped*（package 与 canon 版本对齐、kernel 不能领先 canon）、*metabolic*（raw 积压、陈旧 integrated、sporulated 重吸收完整性、resource-watch 配额、stale-DRAFT 清理）、*semantic*（图连通、孤儿检测、互链检查、R3 sense / R4 eat 纪律信号）。`myco immune --fix` 尽可能机械自修。
 - **7 条硬规则（R1 到 R7）** 治理每一次会话：boot ritual、session-end、sense-before-assert、eat-on-friction、cross-reference-on-creation、write-surface discipline、top-down layering。完整契约在 [`L1_CONTRACT/protocol.md`](docs/architecture/L1_CONTRACT/protocol.md)。
 - **Pulse 边车。** 每个 MCP tool 响应都带一个 `substrate_pulse`，携带当前 contract version 和一条会随会话逐步升格的规则提示（R1，然后 R3，再往下走）。服务端主动推。Agent 想忘都忘不了。
 - **写面强制。** 任何写到 `_canon.yaml::system.write_surface.allowed` 之外的操作，都会被 `WriteSurfaceViolation` 拒掉。纪律是机制，不是请求。

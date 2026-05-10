@@ -29,7 +29,13 @@ def test_v0_canon_parses_silently(tmp_path: Path) -> None:
     upgrader and parses without a UserWarning. This exercises the
     full chain: load_canon → _apply_upgraders → upgrader returns
     mapping with known version → no warning → Canon dataclass
-    populated."""
+    populated.
+
+    v0.7.5 update: the chain no longer early-exits at the first
+    KNOWN_SCHEMA_VERSIONS hit. A v0 canon now lifts v0→v1→v2→v3 in
+    a single load_canon call. The silencing-warning property is what
+    this test pins; the exact landing version drifts forward whenever
+    a new schema version ships."""
     canon_text = textwrap.dedent(
         """\
         schema_version: "0"
@@ -51,8 +57,9 @@ def test_v0_canon_parses_silently(tmp_path: Path) -> None:
         warnings.simplefilter("error")  # any UserWarning would raise
         canon = load_canon(p)
 
-    # After the upgrader runs, the canon carries the known version.
-    assert canon.schema_version == "1"
+    # After the upgrader chain runs, the canon carries the latest
+    # registered version (v0.7.5: "3").
+    assert canon.schema_version == "3"
     assert canon.substrate_id == "upgrader-demo"
 
 
