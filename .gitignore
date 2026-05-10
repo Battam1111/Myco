@@ -93,3 +93,9 @@ legacy_v0_3/
 #   .myco_state/search_misses.yaml .myco_state/excretion_counter.json
 #   .myco_state/graph.json (pre-v0.7.2 explicit entries)
 .myco_state/**
+
+# Graph-builder benchmark cache. Generating a 10 K-file synthetic
+# substrate is expensive (~minutes wall-time, ~150 MB on disk) so
+# tests/benchmark/test_graph_scale.py caches it locally and reuses
+# across runs. The cache is per-developer-machine; never commit it.
+tests/benchmark/.cache/

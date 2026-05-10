@@ -76,3 +76,9 @@ dimensions:
   PA6: mechanical
   MF5: mechanical
   SE5: semantic
+  # v0.7.5 additions (1 new dim; L0 Living Bets cadence enforcement
+  # per craft v0_7_5_living_bets_audit_2026-05-10.md + v0_7_5_p0_to_p6_omnibus
+  # § P1. Closes the honor-system loophole that let v0.7.0 ship without
+  # an audit; LB1 mechanically demands a fresh
+  # docs/primordia/v*_living_bets_audit_*.md craft at every MAJOR ratchet).
+  LB1: semantic

@@ -95,6 +95,30 @@ mcp-auth = [
 mcp-resources = [
   "watchfiles>=0.21",
 ]
+# v0.7.10: ``pip install 'myco[examples]'`` — pulls in every framework
+# the 8-demo subtree under ``examples/`` exercises. Used by
+# ``tests/integration/examples/test_examples_smoke.py`` to flip the
+# import-cleanly skips into real coverage. Each entry corresponds 1:1
+# to a demo directory; see each demo's README.md for the canonical
+# install command (kept in lockstep with this list). PraisonAI lives
+# under the ``praisonaiagents`` distribution, not ``praisonai``;
+# Microsoft's framework is published as ``agent-framework``. None of
+# these names are PyPI placeholders — every one is a live package as
+# of v0.7.10. We intentionally don't pin floors here: framework
+# releases move fast and the demos exercise only stable surfaces
+# (MCP adapters), so floor-bumping every cycle is churn for no
+# correctness gain.
+examples = [
+  "agno",
+  "claude-agent-sdk",
+  "crewai[tools]",
+  "dspy",
+  "langgraph",
+  "langchain-mcp-adapters",
+  "agent-framework",
+  "praisonaiagents",
+  "smolagents",
+]
 
 [project.scripts]
 # Three stable PATH-level entry points so `.mcp.json` and hook configs
@@ -186,6 +210,8 @@ MB8 = "myco.homeostasis.dimensions.metabolic.mb8_shim_hit_counter:MB8ShimHitCoun
 PA6 = "myco.homeostasis.dimensions.mechanical.pa6_repo_bloat:PA6RepoBloat"
 MF5 = "myco.homeostasis.dimensions.mechanical.mf5_generated_mirror_integrity:MF5GeneratedMirrorIntegrity"
 SE5 = "myco.homeostasis.dimensions.semantic.se5_version_anchor_freshness:SE5VersionAnchorFreshness"
+# v0.7.5 additions (1 new dim — L0 Living Bets cadence enforcement):
+LB1 = "myco.homeostasis.dimensions.semantic.lb1_living_bets_overdue:LB1LivingBetsOverdue"
 
 [tool.hatch.version]
 # Single source of truth for the package version — per L1 versioning.md.
@@ -240,6 +266,16 @@ testpaths = ["tests"]
 # CI runs --cov-report=xml + per-package floors via scripts/coverage_floors.py.
 addopts = "-ra --strict-markers --strict-config"
 pythonpath = ["src"]
+# v0.7.6 (graph-builder benchmark suite): the ``benchmark`` marker
+# tags the slow scale tests under ``tests/benchmark/`` so a normal
+# ``pytest`` run can exclude them via ``-m "not benchmark"`` and a
+# scheduled run can target them via ``-m benchmark``. The tests also
+# self-skip unless ``MYCO_RUN_BENCHMARKS=1`` is set, so omitting the
+# ``-m`` flag is safe — the env-var gate is the primary defence;
+# the marker is a registered alias for the same set.
+markers = [
+    "benchmark: slow opt-in scale benchmarks (env: MYCO_RUN_BENCHMARKS=1)",
+]
 
 [tool.coverage.run]
 # v0.6.0 §K.3 — coverage configuration introduced.

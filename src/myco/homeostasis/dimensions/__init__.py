@@ -7,7 +7,7 @@ craft v0.6.0 §R2 (Round 4 owner amendment):
   FR1, PA1-5, CG1-2, DI1-2, SC1, AD1, CL1-3).
 - ``shipped/`` — 2 dims (SH1, SH2).
 - ``metabolic/`` — 6 dims (MB1-4, MB6, MB7).
-- ``semantic/`` — 7 dims (SE1-4, RL1-3).
+- ``semantic/`` — 9 dims (SE1-5, RL1-3, LB1).
 
 Discovery is driven by
 ``importlib.metadata.entry_points(group="myco.dimensions")`` at v0.5+
@@ -82,7 +82,8 @@ from .metabolic.mb6_stale_draft_or_distilled import MB6StaleDraftOrDistilled
 from .metabolic.mb7_resource_watch_quota import MB7ResourceWatchQuota
 from .metabolic.mb8_shim_hit_counter import MB8ShimHitCounter
 
-# ---- Semantic (7) ---------------------------------------------------
+# ---- Semantic (8) ---------------------------------------------------
+from .semantic.lb1_living_bets_overdue import LB1LivingBetsOverdue
 from .semantic.rl1_rules_referenced import RL1RulesReferenced
 from .semantic.rl2_sense_discipline_signal import RL2SenseDisciplineSignal
 from .semantic.rl3_eat_discipline_signal import RL3EatDisciplineSignal
@@ -145,6 +146,7 @@ __all__ = [
     "MB7ResourceWatchQuota",
     "MB8ShimHitCounter",
     # Semantic
+    "LB1LivingBetsOverdue",
     "SE1DanglingRefs",
     "SE2OrphanIntegrated",
     "SE3LinkSelfCycle",
@@ -203,6 +205,7 @@ _BUILT_IN: tuple[type[Dimension], ...] = (
     MB7ResourceWatchQuota,
     MB8ShimHitCounter,
     # Semantic
+    LB1LivingBetsOverdue,
     SE1DanglingRefs,
     SE2OrphanIntegrated,
     SE3LinkSelfCycle,

@@ -9,12 +9,14 @@ Plus tests for the v0.7.2 risk_classifier extensions:
 - metrics.* + governance.shim_sunset_* in CANON_KEYS
 - multi-cluster compound trigger.
 
-Plus a test for the shim's __main__.py counter-write hook.
+The shim ``__main__`` counter-write hook tests previously co-located
+here moved to ``tests/unit/boundary/test_legacy_mcp_shim_warning.py``
+in v0.7.5 (centralized for the MB8 sunset gate). See trailing comment
+block for the migration rationale.
 """
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 from myco.core.context import MycoContext
@@ -371,44 +373,18 @@ def test_recursion_cutter_shim_sunset_canon_key(tmp_path: Path) -> None:
 
 
 # ===== Shim __main__.py counter-write hook =====
-
-
-def test_shim_main_records_hit_to_substrate(tmp_path: Path, monkeypatch) -> None:
-    """When the shim's __main__._record_shim_hit() runs against a
-    substrate root, it appends a JSONL line to .myco_state/shim_hits.json.
-    Best-effort: read-only / missing canon → silent no-op."""
-    sub = tmp_path / "sub"
-    sub.mkdir()
-    (sub / "_canon.yaml").write_text(
-        'schema_version: "2"\ncontract_version: "v0.7.2"\n', encoding="utf-8"
-    )
-    monkeypatch.setenv("MYCO_PROJECT_DIR", str(sub))
-    # Import the function under the env override.
-    from myco.mcp.__main__ import _record_shim_hit
-
-    _record_shim_hit()
-    hits_path = sub / ".myco_state" / "shim_hits.json"
-    assert hits_path.is_file()
-    lines = [
-        line for line in hits_path.read_text(encoding="utf-8").splitlines() if line
-    ]
-    assert len(lines) == 1
-    rec = json.loads(lines[0])
-    assert rec["module"] == "myco.mcp"
-    assert "ts" in rec and "session_id" in rec
-
-
-def test_shim_main_silent_on_missing_canon(tmp_path: Path, monkeypatch) -> None:
-    """No _canon.yaml → silent no-op (read-only / non-substrate cwd protection).
-
-    v0.7.0 incident lesson: the shim must NEVER fail to boot the MCP
-    server because of telemetry.
-    """
-    bare = tmp_path / "not_a_substrate"
-    bare.mkdir()
-    monkeypatch.setenv("MYCO_PROJECT_DIR", str(bare))
-    from myco.mcp.__main__ import _record_shim_hit
-
-    # Must not raise.
-    _record_shim_hit()
-    assert not (bare / ".myco_state").exists()
+#
+# These two tests previously lived here (testing _record_shim_hit
+# directly). v0.7.5 relocated them to
+# ``tests/unit/boundary/test_legacy_mcp_shim_warning.py`` so the
+# entire ``myco.mcp`` shim contract — DeprecationWarning, stderr
+# pointer, public-symbol re-export, and telemetry append — sits in
+# one controlled file. That centralization lets the MB8 sunset gate
+# (≥7 senesce cycles + ≥7 zero-hit days) close naturally: the
+# substrate's own test suite no longer imports ``myco.mcp`` from
+# multiple places, so a fresh ``pytest tests/`` adds zero records to
+# the real ``.myco_state/shim_hits.json``.
+#
+# Doctrine ref: ``docs/architecture/L2_DOCTRINE/boundary.md`` §
+# "Public-API deletion discipline (v0.7.1-named, v0.7.3-canonized)"
+# gate (b) telemetry verification.

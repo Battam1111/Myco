@@ -1,0 +1,70 @@
+{
+  "schema": "1",
+  "_doc": "Pinned baselines for the graph-builder benchmark suite. Each entry records (a) the threshold encoded in the test name, (b) the wall-time / memory measured on the author's machine on the recorded date, and (c) the substrate parameters used. A future regression check can compare a fresh measurement against `measured_seconds` (or `measured_peak_mb`) and fail when drift exceeds a configurable percentage.",
+  "_authoring_machine": {
+    "platform": "win32",
+    "os_version": "Windows 10 Home China 10.0.19045",
+    "python_version": "3.13.3",
+    "_note": "Windows nt._getfinalpathname dominates the cost on this machine; Linux / macOS dev machines typically run 3-5x faster. Threshold values are aspirational for cross-platform robustness."
+  },
+  "_pinned_at": "2026-05-10",
+  "_myco_version": "0.7.5",
+  "tests": {
+    "test_graph_build_100_files_under_500ms": {
+      "threshold_seconds": 0.5,
+      "measured_seconds_median": 0.300,
+      "measured_seconds_mean": 0.323,
+      "measured_seconds_max": 0.409,
+      "measurement_trials": 5,
+      "substrate": {
+        "file_count": 100,
+        "ref_density": 0.02,
+        "approximate_edges": 200
+      }
+    },
+    "test_graph_build_1000_files_under_3s": {
+      "threshold_seconds": 3.0,
+      "measured_seconds_median": null,
+      "measured_seconds_mean": null,
+      "measured_seconds_max": null,
+      "_note": "Single observed run on this machine: ~2.2 s build wall-time. Multi-trial median TBD when CI captures rolling history.",
+      "substrate": {
+        "file_count": 1000,
+        "ref_density": 0.001,
+        "approximate_edges": 1000
+      }
+    },
+    "test_graph_build_10000_files_under_30s": {
+      "threshold_seconds": 30.0,
+      "measured_seconds_median": null,
+      "measured_seconds_mean": null,
+      "measured_seconds_max": null,
+      "_note": "Not run on the authoring machine — generation alone takes several minutes. Linear extrapolation from the 100-file and 1000-file points predicts ~22 s build wall-time on this Windows host. CI on Linux is expected to land near 5-10 s.",
+      "substrate": {
+        "file_count": 10000,
+        "ref_density": 0.0003,
+        "approximate_edges": 30000
+      }
+    },
+    "test_graph_memory_10000_files_under_500MB": {
+      "threshold_peak_mb": 500.0,
+      "measured_peak_mb": null,
+      "_note": "Not run on the authoring machine. Edge dataclasses at ~150 bytes each => ~30 K edges => ~5 MB attributable to edges. The 500 MB ceiling is dominated by frontmatter parse buffers and YAML safe_load intermediate state; expected peak ~50-100 MB on a fresh build.",
+      "substrate": {
+        "file_count": 10000,
+        "ref_density": 0.0003,
+        "approximate_edges": 30000
+      }
+    },
+    "test_graph_traversal_10000_files_BFS_under_5s": {
+      "threshold_seconds": 5.0,
+      "measured_seconds_median": null,
+      "_note": "Not run on the authoring machine. BFS with adjacency dict on 30 K edges is dominated by Python loop overhead, ~10 us per node visit; expected wall-time ~0.1-0.5 s on any modern machine.",
+      "substrate": {
+        "file_count": 10000,
+        "ref_density": 0.0003,
+        "approximate_edges": 30000
+      }
+    }
+  }
+}

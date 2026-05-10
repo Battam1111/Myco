@@ -1,0 +1,40 @@
+# _canon.yaml — minimal fixture peer substrate (B) for federation tests.
+# Used by tests/integration/test_propagate_3peer_network.py to exercise
+# myco propagate's N-peer fan-out (v0.7.10 generalisation of v0.5.x's
+# single-peer contract).
+#
+# Schema: docs/architecture/L1_CONTRACT/canon_schema.md.
+# Mirrors peer_substrate/_canon.yaml exactly; only substrate_id differs
+# so the three peers (a, b, c) are distinguishable in tests.
+#
+# Contract version is pinned to v0.7.5 to match peer_substrate/'s
+# style — the fixtures don't track every kernel bump; what matters is
+# that src and dst share a MAJOR. The integration tests run against
+# whatever the live src kernel produces, and the (compatible) v0.7.x
+# minor delta becomes a compat warning rather than an error.
+
+schema_version: "2"
+contract_version: "v0.7.5"
+synced_contract_version: "v0.7.5"
+
+identity:
+  substrate_id: "peer-fixture-b"
+  tags:
+    - "test-fixture"
+  entry_point: "MYCO.md"
+  # v0.6.0 schema v2 additive field. Empty for the fixture — nothing
+  # downstream of this peer.
+  federation_peers: []
+
+system:
+  write_surface:
+    allowed:
+      - "notes/**"
+  hard_contract:
+    rule_count: 7
+  # v0.6.0 schema v2: bool → enum. "forbidden" is the conservative
+  # default for fixture substrates.
+  llm_policy: "forbidden"
+
+subsystems:
+  circulation: {}

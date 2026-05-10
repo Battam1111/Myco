@@ -88,5 +88,28 @@ _try_register("myco.ingestion.adapters.tabular.TabularReader")
 # ingested as a single opaque blob, losing turn structure (L0 P2
 # "conversation fragment" intent).
 _try_register("myco.ingestion.adapters.chat_log.ChatLogAdapter")
+# Sqlite must register before text-file: a ``.db`` is binary and
+# would be rejected by text-file's NUL-byte heuristic anyway, but
+# being explicit avoids relying on that. ``.sqlite`` / ``.sqlite3``
+# fall outside text-file's extension claim, so order is mostly a
+# documentation aid for future maintainers — kept ahead so the
+# specificity ladder reads top-down.
+_try_register("myco.ingestion.adapters.sqlite.SqliteAdapter")
+# Email/mbox must register before text-file: ``.eml`` and ``.mbox``
+# are RFC 2822 / Unix-mailbox formats that the UTF-8 sniff in
+# text-file would happily claim as one opaque blob, losing per-
+# message granularity (L0 P2 "personal correspondence fragment"
+# intent). Each ``.mbox`` message becomes one IngestResult, capped
+# at MAX_MBOX_MESSAGES (500) per file. Stdlib-only (``email`` +
+# ``mailbox`` + ``html.parser``) — no optional dep gate.
+_try_register("myco.ingestion.adapters.email_mbox.EmailMboxAdapter")
+# git-history must register before code_repo: when the user opts in
+# via a working-tree marker file (``.git-history``), the path passed
+# to ``find_adapter`` is the working tree itself — which code_repo
+# would otherwise claim via its broad ``Path(target).is_dir()`` check.
+# When the user passes ``.../.git`` directly, code_repo would also
+# claim it (it's a directory) and emit hundreds of useless raw notes
+# from the object store. Registering git-history first wins both.
+_try_register("myco.ingestion.adapters.git_history.GitHistoryAdapter")
 _try_register("myco.ingestion.adapters.code_repo.CodeRepoAdapter")
 _try_register("myco.ingestion.adapters.text_file.TextFileAdapter")
