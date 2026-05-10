@@ -36,6 +36,20 @@ from myco.ingestion.adapters.image_ocr import (
     ImageOcrAdapter,
 )
 
+# v0.8.2 hotfix: CI machines don't ship Pillow; skip the whole test
+# module when PIL is unavailable so the multimedia opt-in extras
+# pattern (default install lean) is honored. Local dev machines that
+# have ``pip install 'myco[multimedia]'`` still run all tests.
+PIL = pytest.importorskip(
+    "PIL",
+    reason=(
+        "test_image_ocr.py uses real PIL to construct fixture images; "
+        "skip on CI environments without 'myco[multimedia]' extras "
+        "installed. The adapter's failed-stub-when-dep-missing path "
+        "is verified separately at runtime via mock-import tests."
+    ),
+)
+
 pytestmark = pytest.mark.multimedia
 
 
