@@ -11,6 +11,36 @@ Format: one section per `contract_version`, newest first.
 
 ---
 
+## v0.8.2 - 2026-05-11 - test_image_ocr CI skip hotfix
+
+Replaces `v0.8.1` at `_canon.yaml::contract_version`. Issued via the
+`myco molt --contract v0.8.2` agent-callable verb.
+`synced_contract_version` updated in lockstep.
+
+### What changed
+
+**Pure-test hotfix.** v0.8.1 CI (run 25634279290) failed because
+`tests/unit/ingestion/adapters/test_image_ocr.py` imports `PIL` at
+module scope to construct fixture images, and CI environments don't
+ship Pillow (multimedia extras are opt-in per the v0.8.0 design).
+
+Fix: added `pytest.importorskip("PIL")` at module top so the entire
+test module is cleanly skipped on CI. Local dev machines with
+`pip install 'myco[multimedia]'` continue to run all 20 tests.
+
+This is purely a test-side fix; the `image_ocr` adapter itself works
+in production regardless because its lazy imports + failed-stub
+returns ensure runtime correctness whether PIL is installed or not.
+
+### Break from v0.8.1
+
+**None.** Pure test-side change; no symbol added, removed, or
+modified in the production package. CI on machines without Pillow
+now skips the 20 image_ocr tests; CI runs that DO have Pillow
+(e.g. via `pip install -e .[multimedia,dev]`) run all of them.
+
+---
+
 ## v0.8.1 - 2026-05-11 - Format-drift hotfix (CI-only)
 
 Replaces `v0.8.0` at `_canon.yaml::contract_version`. Issued via the
