@@ -70,6 +70,7 @@ __all__ = [
     "load_oauth_provider_from_env_or_canon",
     "load_canon_governance",
     "build_fastmcp_auth_kwargs",
+    "prepare_fastmcp_oauth_prelude",
     "validate_aud_claim",
     "ensure_pkce_method",
 ]
@@ -477,3 +478,27 @@ def install_redaction_filter_on_loggers(
         if not getattr(logger, "_myco_redaction_installed", False):
             configure_logging_redaction(logger)
             logger._myco_redaction_installed = True  # type: ignore[attr-defined]
+
+
+def prepare_fastmcp_oauth_prelude() -> tuple[
+    dict[str, Any], MycoOAuthProvider | None
+]:
+    """One-call OAuth + redaction prelude for ``build_server``.
+
+    Reads canon governance + env vars, constructs the OAuth provider
+    (if any), builds the FastMCP auth kwargs, and installs the log
+    redaction filter when the canon flag is on. Returns the kwargs
+    dict (to splat into ``FastMCP(...)``) and the provider (so the
+    caller can stash it on the server for introspection tests).
+
+    Bundling these four steps here collapses what would otherwise be
+    ~20 lines of ``build_server`` prelude into one call site, keeping
+    ``surface/mcp.py`` under the PA2 megafile cap while preserving
+    full v0.8.0 gap §2/§3/§4 behavior.
+    """
+    canon_governance = load_canon_governance()
+    oauth_provider = load_oauth_provider_from_env_or_canon(canon_governance)
+    auth_kwargs = build_fastmcp_auth_kwargs(oauth_provider)
+    if canon_governance.get("token_redaction_required"):
+        install_redaction_filter_on_loggers()
+    return auth_kwargs, oauth_provider

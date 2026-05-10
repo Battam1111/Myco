@@ -11,6 +11,101 @@ Format: one section per `contract_version`, newest first.
 
 ---
 
+## v0.8.0 - 2026-05-11 - MAJOR omnibus (the wager-refined release)
+
+Replaces `v0.7.10` at `_canon.yaml::contract_version`. Issued via the
+`myco molt --contract v0.8.0` agent-callable verb.
+`synced_contract_version` is updated in lockstep. Crosses MINOR
+boundary v0.7.x → v0.8.0; this is Myco's **first MAJOR release in
+the modern sense** — an L0-amending release that exercises the just-
+amended wager (persistence-budget refinement) by shipping production
+federation alongside the engineering closures.
+
+### What changed
+
+**L0 amendment (commit `783da78`)**: `docs/architecture/L0_VISION.md`
+§ "Appendix — Living bets" wager wording refined per
+[`docs/primordia/v0_8_0_living_bets_amendment_2026-05-10.md`](primordia/v0_8_0_living_bets_amendment_2026-05-10.md).
+Two regimes (bet-winning / bet-losing) named explicitly. Owner
+ratification recorded inline ("选择 B，那么拜托了！").
+
+**Schema**: v3 → **v4** (additive). New optional fields
+`system.governance.last_living_bets_audit_at` (ISO 8601) and
+`system.governance.persistence_metrics: {session_count, host_count, peer_count}`.
+anamorph subagent's second production exercise. Migration guide:
+[`docs/migration/v0_7_x_to_v0_8_0.md`](migration/v0_7_x_to_v0_8_0.md).
+
+**Lint**: 51 → 52 dims. **LB2** Living-Bets-regime classifier
+(semantic/LOW). Fires on ephemeral substrates (peer_count == 0 AND
+session_count < 5); silent on bet-winning regime (peer_count ≥ 1 OR
+session_count ≥ 50).
+
+**Adapters**: 10 → 13. New `myco[multimedia]` extras: `audio.py`
+(whisper transcription), `image_ocr.py` (pytesseract), `video_frames.py`
+(opencv + tesseract). Lazy import + failed-stub returns when extras
+absent. Default install unchanged in size; opt-in via
+`pip install 'myco[multimedia]'`.
+
+**Federation production peer**: `_canon.yaml::identity.federation_peers`
+now `["C:/Users/10350/Desktop/CC"]` — first real downstream peer
+substrate (cc-debug; germinated 2026-05-11). Verified by E2E propagate
+run that wrote 5 distilled retrospectives from myco-self → CC's
+notes/raw/ inbox with proper source + propagated_at frontmatter.
+
+**OAuth 2.1 production hardening**: 4 v0.7.10 IOU gaps closed. Launcher
+CLI host/port/mount-path no longer dead code; `MycoOAuthProvider`
+wired into `build_server` with env var + canon governance config sources;
+`configure_logging_redaction` now invoked on uvicorn/mcp/starlette loggers
+when redaction required. `docs/iou/v0_7_10_streamable_http_gaps.md`
+moved to `_archive/`.
+
+**Operational debt** (4 DC2 docstrings + 4 SE1 dead-links + 1 CG1
+cold-start) closed per the v0.7.10 omnibus's residual sweep.
+
+### Test count delta
+
+1710 → **1799** (+89 from new adapters, LB2, schema v4 upgrader,
+federation E2E, OAuth production tests, multimedia mock-tests).
+
+### Lint state
+
+immune exit_code 0. Findings: LOW only (DC2 + SE2 informational).
+Zero HIGH. Zero MEDIUM.
+
+### Cloud delta
+
+- **PyPI**: `myco-0.8.0-py3-none-any.whl` + `myco-0.8.0.tar.gz` via
+  trusted-publisher OIDC.
+- **MCP Registry**: `io.github.Battam1111/myco@0.8.0` server card via
+  github-oidc, `isLatest=true`.
+- **GitHub Release**: `v0.8.0` with `myco-0.8.0.zip` (Cowork drag-drop bundle).
+
+### Break from v0.7.10
+
+**L0**: wager wording refined (additive — old analogy preserved as
+supporting evidence; new persistence-budget framing added).
+
+**Schema**: v3 → v4 additive only. No deletions. v3 substrates
+auto-upgrade in-memory on next `load_canon` call.
+
+**Internal**: `myco.boundary.surface.mcp_auth` adds
+`load_oauth_provider_from_env_or_canon`, `load_canon_governance`,
+`build_fastmcp_auth_kwargs`, `MycoIntrospectionTokenVerifier`,
+`install_redaction_filter_on_loggers` as new public API. Existing
+public API preserved.
+
+**Surface contract**: no breaks. All 20 verbs, all CLI flags, all
+MCP tool shapes preserved. Default install (`pip install myco[mcp]`)
+unchanged in size or capability. Opt-in extras new
+(`pip install 'myco[multimedia]'`).
+
+**Operator-facing migration**: zero action required. v3 canons
+auto-upgrade transparently to v4 on next load_canon. v0.7.x kernels
+read v4 canons with a single `UserWarning` per the v0.5 forward-
+compat contract.
+
+---
+
 ## v0.7.10 - 2026-05-10 - Roadmap-to-v1.0 Omnibus (longest-march release)
 
 Replaces `v0.7.5` at `_canon.yaml::contract_version`. Issued via the
