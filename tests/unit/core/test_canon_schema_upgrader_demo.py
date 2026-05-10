@@ -33,9 +33,12 @@ def test_v0_canon_parses_silently(tmp_path: Path) -> None:
 
     v0.7.5 update: the chain no longer early-exits at the first
     KNOWN_SCHEMA_VERSIONS hit. A v0 canon now lifts v0→v1→v2→v3 in
-    a single load_canon call. The silencing-warning property is what
-    this test pins; the exact landing version drifts forward whenever
-    a new schema version ships."""
+    a single load_canon call. v0.8.0 update: the chain extends one
+    more hop to "4" via the production v3→v4 upgrader, so a v0 canon
+    now lifts v0→v1→v2→v3→v4 in a single load_canon call. The
+    silencing-warning property is what this test pins; the exact
+    landing version drifts forward whenever a new schema version
+    ships."""
     canon_text = textwrap.dedent(
         """\
         schema_version: "0"
@@ -58,8 +61,8 @@ def test_v0_canon_parses_silently(tmp_path: Path) -> None:
         canon = load_canon(p)
 
     # After the upgrader chain runs, the canon carries the latest
-    # registered version (v0.7.5: "3").
-    assert canon.schema_version == "3"
+    # registered version (v0.8.0: "4").
+    assert canon.schema_version == "4"
     assert canon.substrate_id == "upgrader-demo"
 
 

@@ -135,6 +135,16 @@ subsystems:
     # v0.6.0: auto-upgrade lifted v1→v2; llm_policy enum present.
     # v0.7.5: chain extends to v3, so end-state is "3" with
     # metrics.lint_dim_count seeded to None.
-    assert canon.schema_version == "3"
+    # v0.8.0: chain extends to v4, so end-state is "4" with
+    # system.governance.last_living_bets_audit_at and
+    # system.governance.persistence_metrics also seeded to None.
+    assert canon.schema_version == "4"
     assert (canon.system or {}).get("llm_policy") == "forbidden"
     assert (canon.metrics or {}).get("lint_dim_count") is None
+    governance = (canon.system or {}).get("governance") or {}
+    assert governance.get("last_living_bets_audit_at") is None
+    assert governance.get("persistence_metrics") == {
+        "session_count": None,
+        "host_count": None,
+        "peer_count": None,
+    }

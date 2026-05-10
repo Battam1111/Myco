@@ -54,10 +54,15 @@ __all__ = [
 #: v0.7.5 adds ``"3"`` for the ``metrics.lint_dim_count`` field
 #: introduced by craft
 #: ``docs/primordia/v0_7_5_p0_to_p6_omnibus_craft_2026-05-10.md`` (P2).
-#: The frozenset retains ``"1"`` and ``"2"`` so cold-reads of
+#: v0.8.0 adds ``"4"`` for the additive ``governance.last_living_bets_audit_at``
+#: marker + ``governance.persistence_metrics`` cache block, introduced by
+#: ``docs/primordia/v0_8_0_living_bets_amendment_2026-05-10.md`` (the L0
+#: amendment opening v0.8.0 MAJOR) and authorised as schema-bump item E
+#: by the v0.8.0 omnibus craft.
+#: The frozenset retains ``"1"``, ``"2"`` and ``"3"`` so cold-reads of
 #: un-upgraded older substrates remain warning-free even if the
 #: upgrader chain is ever unregistered for testing.
-KNOWN_SCHEMA_VERSIONS: frozenset[str] = frozenset({"1", "2", "3"})
+KNOWN_SCHEMA_VERSIONS: frozenset[str] = frozenset({"1", "2", "3", "4"})
 
 #: Registry of canon schema upgraders, forward-compat seam.
 #:
@@ -298,6 +303,220 @@ def _v2_to_v3(raw: Mapping[str, Any]) -> Mapping[str, Any]:
 #: lifts to v2 via ``schema_upgraders["1"]`` and then to v3 via
 #: ``schema_upgraders["2"]`` in a single ``load_canon`` call.
 schema_upgraders["2"] = _v2_to_v3
+
+
+def _v3_to_v4_living_bets_audit_marker_field(
+    raw: Mapping[str, Any],
+) -> Mapping[str, Any]:
+    """v0.8.0 schema v4 partial upgrader (1 of 2): add
+    ``system.governance.last_living_bets_audit_at``.
+
+    Adds ``system.governance.last_living_bets_audit_at: str | null``
+    (ISO 8601 UTC timestamp) to canons that pre-date schema v4. The
+    field is the canon-cited marker for the most-recent Living Bets
+    re-audit doc landing under ``docs/primordia/`` — populated by
+    ``myco molt`` at each contract bump (v0.8.x and later anamorph
+    extension; out of scope for the v0.8.0 partial itself).
+
+    Purpose: the LB1 dim (shipped v0.7.5) currently filesystem-walks
+    ``docs/primordia/**/*living_bets_audit*.md`` at every immune run,
+    which is filesystem-O(N). With this field populated, LB1 (and the
+    sibling LB2 regime classifier) reads the timestamp from canon
+    directly. Backward compat: LB1 falls back to the filesystem scan
+    when the field is ``null`` or missing — no behavioural break for
+    v3 substrates.
+
+    Field placement: under ``system.governance`` (the canonical home
+    of the governance block per L1 ``canon_schema.md`` § "v0.6.0+
+    schema v2 additions" → ``system.governance``). The user-facing
+    shorthand "governance.last_living_bets_audit_at" in the v0.8.0
+    omnibus craft refers to this nested path.
+
+    Behaviour:
+
+    - If ``system`` is absent or non-dict, the partial returns the raw
+      mapping untouched — ``load_canon``'s downstream
+      ``_mapping("system")`` check would have raised on a non-dict
+      anyway, and seeding a fresh ``system`` block here would mask a
+      substrate authoring error. (Matches the
+      ``_v1_to_v2_federation_peers_field`` empty-identity precedent.)
+    - If ``system.governance`` is absent or non-dict, an empty ``{}``
+      mapping is seeded so the field has a place to live; the field is
+      additive and tolerated by all v0.6.0+ consumers via
+      ``.get(...)`` defaults.
+    - If ``system.governance.last_living_bets_audit_at`` is already
+      present (the operator hand-edited the canon, or a fresh
+      ``myco molt`` stamped it), the existing value is preserved
+      untouched — idempotent.
+    - Per the v0.6.0 narrowness principle (one partial = one semantic),
+      this partial does NOT touch ``system.governance.persistence_metrics``;
+      that lives in its sibling partial.
+    - The ``schema_version`` stamp is the registered ``_v3_to_v4``
+      wrapper's job; this partial only mutates ``system.governance``.
+
+    Cross-references:
+
+    - L1 doctrine: ``docs/architecture/L1_CONTRACT/canon_schema.md``
+      § "v0.6.0+ schema v2 additions" → ``system.governance`` block
+      (extended at v0.8.0 to cover ``last_living_bets_audit_at``).
+    - Governing craft: ``docs/primordia/v0_8_0_living_bets_amendment_
+      2026-05-10.md`` (L0 amendment opening v0.8.0 MAJOR) and the
+      v0.8.0 omnibus craft authorising the schema bump as item E.
+    - Consumer: ``src/myco/homeostasis/dimensions/semantic/
+      lb1_living_bets_overdue.py`` (v0.8.x extension reads canon-side
+      marker before falling back to filesystem walk).
+    """
+    data = dict(raw)
+    system_raw = data.get("system")
+    if not isinstance(system_raw, dict):
+        # Malformed canon — pass through untouched; load_canon will
+        # surface the type error as CanonSchemaError shortly.
+        return data
+    system = dict(system_raw)
+    governance_raw = system.get("governance")
+    if not isinstance(governance_raw, dict):
+        # Absent OR malformed — seed a fresh dict so the new field
+        # has a home. Downstream consumers tolerate the empty block.
+        governance_raw = {}
+    governance = dict(governance_raw)
+    if "last_living_bets_audit_at" not in governance:
+        governance["last_living_bets_audit_at"] = None
+    system["governance"] = governance
+    data["system"] = system
+    return data
+
+
+def _v3_to_v4_persistence_metrics_field(
+    raw: Mapping[str, Any],
+) -> Mapping[str, Any]:
+    """v0.8.0 schema v4 partial upgrader (2 of 2): add
+    ``system.governance.persistence_metrics``.
+
+    Adds ``system.governance.persistence_metrics: dict`` with sub-shape
+    ``{ session_count: int | null, host_count: int | null,
+    peer_count: int | null }`` (all default ``null``) to canons that
+    pre-date schema v4. The field caches the substrate's last-known
+    persistence-budget signals so the LB2 regime classifier (sibling
+    dim shipping in the same v0.8.0 wave) does not have to recompute
+    them on every immune run.
+
+    Purpose: feeds the LB2 dim (regime classifier;
+    ``src/myco/homeostasis/dimensions/semantic/lb2_living_bets_
+    regime.py``). Instead of LB2 re-walking ``.myco_state/*.jsonl`` for
+    distinct ``session_id`` values + recounting host adapters + peer
+    list every immune call, the cached counts are read here. LB2 may
+    either trust the cache (fast path) or recompute when the cache
+    age exceeds a TTL (slow path) — that policy lives in LB2, not in
+    this upgrader.
+
+    Field placement: under ``system.governance`` (matches the sibling
+    partial's placement and the L1 doctrine).
+
+    Behaviour:
+
+    - If ``system`` is absent or non-dict, the partial returns the raw
+      mapping untouched (matches the sibling partial's defensive
+      precedent).
+    - If ``system.governance`` is absent or non-dict, an empty ``{}``
+      mapping is seeded.
+    - If ``system.governance.persistence_metrics`` is already a dict,
+      the partial **preserves any existing values** and only fills in
+      missing sub-keys with ``None``. This is the explicit
+      "partial-existing-metrics" semantic: a substrate that has
+      observed ``session_count`` but not yet ``host_count`` keeps the
+      observed ``session_count`` value (idempotency-friendly under
+      partial cache writes).
+    - If ``system.governance.persistence_metrics`` is present but
+      non-dict (string, list, etc.), it is replaced with a fresh dict
+      carrying all three ``None`` sub-keys; no silent data loss
+      because the malformed shape would have failed downstream
+      consumer reads anyway.
+    - Per the v0.6.0 narrowness principle, this partial is independent
+      of its sibling and is safe to run alone (e.g. for unit testing).
+
+    Cross-references:
+
+    - L1 doctrine: ``docs/architecture/L1_CONTRACT/canon_schema.md``
+      § ``system.governance`` block (extended at v0.8.0 to cover
+      ``persistence_metrics``).
+    - Governing craft: ``docs/primordia/v0_8_0_living_bets_amendment_
+      2026-05-10.md`` (L0 amendment opening v0.8.0 MAJOR; T2
+      rhizomorph resolution explicitly mentions a future LB2 dim
+      that "measures session-count + host-count + peer-count and
+      reports the regime") and the v0.8.0 omnibus craft authorising
+      the schema bump as item E.
+    - Consumer: ``src/myco/homeostasis/dimensions/semantic/
+      lb2_living_bets_regime.py`` (reads the three cached counts to
+      avoid filesystem-O(N) recomputation).
+    """
+    _PM_KEYS: tuple[str, ...] = ("session_count", "host_count", "peer_count")
+
+    data = dict(raw)
+    system_raw = data.get("system")
+    if not isinstance(system_raw, dict):
+        return data
+    system = dict(system_raw)
+    governance_raw = system.get("governance")
+    if not isinstance(governance_raw, dict):
+        governance_raw = {}
+    governance = dict(governance_raw)
+    pm_raw = governance.get("persistence_metrics")
+    if not isinstance(pm_raw, dict):
+        # Absent OR malformed — seed a fresh shape with all None
+        # sub-keys.
+        pm: dict[str, Any] = dict.fromkeys(_PM_KEYS)
+    else:
+        # Preserve any existing sub-key values; only fill missing keys
+        # with None. Canonical "partial-existing-metrics" semantic.
+        pm = dict(pm_raw)
+        for k in _PM_KEYS:
+            if k not in pm:
+                pm[k] = None
+    governance["persistence_metrics"] = pm
+    system["governance"] = governance
+    data["system"] = system
+    return data
+
+
+def _v3_to_v4(raw: Mapping[str, Any]) -> Mapping[str, Any]:
+    """v0.8.0 schema v4 upgrader. Composes two named partial upgraders.
+
+    Sequence:
+        v3 raw → _v3_to_v4_living_bets_audit_marker_field
+               → _v3_to_v4_persistence_metrics_field
+               → v4 stamped
+
+    The two partials are independently testable and touch disjoint keys
+    (``governance.last_living_bets_audit_at`` vs
+    ``governance.persistence_metrics``); the order is therefore
+    irrelevant to correctness, but is fixed here for deterministic
+    diff reading. Per the v0.6.0 narrowness principle, additional
+    v4.x semantic additions MUST each occupy their own
+    ``_v3_to_v4_<purpose>`` function.
+
+    Cross-references:
+
+    - L1 doctrine: ``docs/architecture/L1_CONTRACT/canon_schema.md``
+      § ``system.governance`` block (extended at v0.8.0).
+    - Governing craft: ``docs/primordia/v0_8_0_living_bets_amendment_
+      2026-05-10.md`` and the v0.8.0 omnibus craft (item E).
+    """
+    intermediate = _v3_to_v4_living_bets_audit_marker_field(raw)
+    intermediate = _v3_to_v4_persistence_metrics_field(intermediate)
+    data = dict(intermediate)
+    data["schema_version"] = "4"
+    return data
+
+
+#: v0.8.0 registers the v3 → v4 upgrader. Substrates on schema v3
+#: (any v0.7.5 - v0.7.10 release) parse cleanly through this path
+#: with no warning. The chain is ``v1 → v2 → v3 → v4`` —
+#: ``_apply_upgraders`` walks recursively, so a v1 substrate first
+#: lifts to v2 via ``schema_upgraders["1"]``, then to v3 via
+#: ``schema_upgraders["2"]``, then to v4 via ``schema_upgraders["3"]``
+#: in a single ``load_canon`` call. The "you never migrate again"
+#: promise from L0 P3 holds across N=4 chained versions.
+schema_upgraders["3"] = _v3_to_v4
 
 
 def _merge_lint_dimensions_subfile(

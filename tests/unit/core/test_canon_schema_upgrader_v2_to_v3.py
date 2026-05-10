@@ -175,13 +175,18 @@ def test_upgrader_is_idempotent() -> None:
 
 
 def test_v3_smoke_through_full_chain() -> None:
-    """A schema_version: "1" canon lifts all the way through to "3"
-    via the full upgrader chain in a single ``_apply_upgraders``
-    call. This is the v0.7.5 P2 promise: the chain machinery walks
-    to the latest registered version naturally, not just one hop.
+    """A schema_version: "1" canon lifts through the full upgrader
+    chain in a single ``_apply_upgraders`` call. This is the v0.7.5
+    P2 promise: the chain machinery walks to the latest registered
+    version naturally, not just one hop.
+
+    v0.8.0 update: the chain extends one more hop to "4" via the
+    production v3→v4 upgrader, so end-state is now "4". The v2→v3
+    partial's contribution (``metrics.lint_dim_count`` seeded to
+    None) is still verified here as a chain-traversal property.
 
     Verifies:
-    - ``schema_version`` lands at "3".
+    - ``schema_version`` lands at "4".
     - ``system.llm_policy`` was rewritten by the v1→v2 partial.
     - ``identity.federation_peers`` was added by the v1→v2 partial.
     - ``lint.dimensions_ref`` pointer was added by the v1→v2 partial.
@@ -203,7 +208,7 @@ def test_v3_smoke_through_full_chain() -> None:
     }
 
     out = _apply_upgraders("1", v1_raw)
-    assert out["schema_version"] == "3"
+    assert out["schema_version"] == "4"
     # v1 → v2 partials' work survives.
     assert out["system"]["llm_policy"] == "forbidden"
     assert "no_llm_in_substrate" not in out["system"]
@@ -215,9 +220,14 @@ def test_v3_smoke_through_full_chain() -> None:
 
 def test_v3_smoke_through_load_canon(tmp_path: Path) -> None:
     """End-to-end: a v1 canon on disk parses through ``load_canon``
-    without warning and surfaces as a v3 ``Canon`` dataclass with
-    ``metrics.lint_dim_count`` populated to ``None``. This pins the
-    "you never migrate again" promise across the v0.7.5 boundary."""
+    without warning. The v2→v3 partial's contribution
+    (``metrics.lint_dim_count`` populated to ``None``) is verified
+    as part of the chain traversal. This pins the "you never migrate
+    again" promise across the v0.7.5 boundary.
+
+    v0.8.0 update: chain end-state shifts from "3" to "4" because the
+    v3→v4 upgrader is now registered. The v2→v3 contribution is still
+    checked here."""
     canon_text = textwrap.dedent(
         """\
         schema_version: "1"
@@ -243,7 +253,7 @@ def test_v3_smoke_through_load_canon(tmp_path: Path) -> None:
         warnings.simplefilter("error")  # any UserWarning would raise
         canon = load_canon(p)
 
-    assert canon.schema_version == "3"
+    assert canon.schema_version == "4"
     assert canon.substrate_id == "v3-smoke"
     assert canon.system["llm_policy"] == "forbidden"
     assert canon.identity["federation_peers"] == []
@@ -251,11 +261,16 @@ def test_v3_smoke_through_load_canon(tmp_path: Path) -> None:
 
 
 def test_v3_canon_on_disk_parses_without_chain(tmp_path: Path) -> None:
-    """A canon authored fresh at ``schema_version: "3"`` (post-flip
-    state) parses without warning and without going through any
-    upgrader. The v3 partial's idempotence guarantees that even if
-    a v3 canon is somehow piped through the upgrader, the
-    ``lint_dim_count`` value (e.g. 50) is preserved."""
+    """A canon authored at ``schema_version: "3"`` parses without
+    warning. The v2→v3 partial's idempotence guarantees that the
+    populated ``lint_dim_count`` value (50) is preserved.
+
+    v0.8.0 update: the v3 canon now lifts to v4 in-memory via the
+    registered v3→v4 upgrader. ``lint_dim_count`` is still preserved
+    (the v3→v4 partials touch ``system.governance``, not
+    ``metrics``); the chain end-state shifts to "4". A canon flipped
+    on disk to "4" is exercised separately in
+    ``test_canon_schema_upgrader_v3_to_v4.py``."""
     canon_text = textwrap.dedent(
         """\
         schema_version: "3"
@@ -283,7 +298,7 @@ def test_v3_canon_on_disk_parses_without_chain(tmp_path: Path) -> None:
         warnings.simplefilter("error")
         canon = load_canon(p)
 
-    assert canon.schema_version == "3"
+    assert canon.schema_version == "4"
     assert canon.metrics["lint_dim_count"] == 50
     assert canon.metrics["test_count"] == 1568
 
@@ -295,10 +310,13 @@ def test_v3_canon_on_disk_parses_without_chain(tmp_path: Path) -> None:
 
 def test_v2_canon_on_disk_lifts_to_v3_silently(tmp_path: Path) -> None:
     """A v2 canon (the on-disk shape pre-v0.7.5 molt) still parses
-    silently and surfaces as v3 in-memory with ``lint_dim_count``
-    seeded to None. The disk shape is unchanged — ``_canon.yaml``
-    on the operator's filesystem stays at "2" until they run the
-    v0.7.5 molt."""
+    silently and the v2→v3 partial's contribution
+    (``lint_dim_count`` seeded to None) is verified. The disk shape
+    is unchanged — ``_canon.yaml`` on the operator's filesystem stays
+    at "2" until they run a contract-bumping molt.
+
+    v0.8.0 update: chain end-state shifts from "3" to "4"; the v2→v3
+    partial's contribution still lands as a chain-traversal property."""
     canon_text = textwrap.dedent(
         """\
         schema_version: "2"
@@ -326,6 +344,6 @@ def test_v2_canon_on_disk_lifts_to_v3_silently(tmp_path: Path) -> None:
         warnings.simplefilter("error")
         canon = load_canon(p)
 
-    assert canon.schema_version == "3"
+    assert canon.schema_version == "4"
     assert canon.metrics["lint_dim_count"] is None
     assert canon.metrics["test_count"] == 1566

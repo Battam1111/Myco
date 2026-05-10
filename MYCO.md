@@ -58,6 +58,23 @@ that resolve:
 
 Every verb accepts `--project-dir`, `--exit-on`, and `--json`.
 
+## Ingestion adapters (v0.8.0)
+
+`myco eat --path <target>` and `myco forage --path <root>` route the
+target through the registered adapter list. v0.8.0 ships **13
+built-in adapters** (was 10 at v0.7.10): `url`, `pdf`, `html`,
+`tabular`, `chat-log`, `sqlite`, `email-mbox`, `git-history`,
+`audio` (new), `image-ocr` (new), `video-frames` (new), `code-repo`,
+`text-file`. The three multimedia adapters are gated behind the
+opt-in `pip install 'myco[multimedia]'` extras (~500 MB transitive
+closure of PyTorch + Whisper + OpenCV + Pillow + pytesseract). The
+default install stays lean: when the extras are absent, the three
+adapters emit install-extras failed-stubs (per the v0.7.3 AD1
+closure protocol) so the agent gets clear `pip install` guidance
+instead of silently dropping audio / image / video files. Image and
+video OCR additionally require the system `tesseract` binary on
+PATH; install via your platform's package manager.
+
 ## The immune surface
 
 `myco immune` runs every registered dimension against the substrate

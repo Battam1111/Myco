@@ -15,11 +15,21 @@ def test_minimal_valid_parses(seeded_substrate: Path) -> None:
     assert isinstance(c, Canon)
     # v0.6.0: v1 substrates are silently auto-upgraded by the
     # registered _v1_to_v2 chain. v0.7.5: the chain extends to v3
-    # via _v2_to_v3, so the fixture (schema_version "1") now lands
-    # at "3" without warning. ``metrics.lint_dim_count`` is seeded
-    # to ``None`` by the v2→v3 partial.
-    assert c.schema_version == "3"
+    # via _v2_to_v3. v0.8.0: the chain extends to v4 via _v3_to_v4,
+    # so the fixture (schema_version "1") now lands at "4" without
+    # warning. ``metrics.lint_dim_count`` is seeded to ``None`` by
+    # the v2→v3 partial; ``system.governance.last_living_bets_audit_at``
+    # and ``system.governance.persistence_metrics`` are seeded by the
+    # two v3→v4 partials.
+    assert c.schema_version == "4"
     assert c.metrics.get("lint_dim_count") is None
+    g = c.system.get("governance") or {}
+    assert g.get("last_living_bets_audit_at") is None
+    assert g.get("persistence_metrics") == {
+        "session_count": None,
+        "host_count": None,
+        "peer_count": None,
+    }
     assert c.contract_version == "v0.4.0-alpha.1"
     assert c.substrate_id == "test-substrate"
     assert c.tags == ("test",)
@@ -94,10 +104,12 @@ def test_schema_upgrader_runs_and_silences_warning(
     next version happens to be in ``KNOWN_SCHEMA_VERSIONS`` — it walks
     the chain to the latest registered version (no upgrader). So a
     "999" → "2" hop now continues "2" → "3" via the production v2→v3
-    upgrader. The end-state observed by ``load_canon`` is therefore
-    "3" (the latest), not "2". The silencing-warning property is what
-    this test pins; the exact landing version drifts forward whenever
-    a new schema version ships, which is the point of the chain.
+    upgrader. v0.8.0 update: the chain extends one more hop to "4"
+    via the production v3→v4 upgrader. The end-state observed by
+    ``load_canon`` is therefore "4" (the latest), not "2" or "3". The
+    silencing-warning property is what this test pins; the exact
+    landing version drifts forward whenever a new schema version
+    ships, which is the point of the chain.
     """
     from myco.core import canon as _canon
 
@@ -118,8 +130,8 @@ def test_schema_upgrader_runs_and_silences_warning(
         with _w.catch_warnings():
             _w.simplefilter("error")  # any UserWarning would raise
             c = load_canon(p)
-        # v0.7.5: chain runs to latest. "999" → "2" → "3".
-        assert c.schema_version == "3"
+        # v0.8.0: chain runs to latest. "999" → "2" → "3" → "4".
+        assert c.schema_version == "4"
     finally:
         _canon.schema_upgraders.pop("999", None)
 

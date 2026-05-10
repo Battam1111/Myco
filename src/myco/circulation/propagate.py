@@ -2,7 +2,11 @@
 
 Governing doctrine: ``docs/architecture/L2_DOCTRINE/circulation.md``
 § "Propagation" — the cross-substrate edge that federates basins
-of knowledge without merging them.
+of knowledge without merging them. The federation discipline that
+governs cross-substrate publication (peer-list, transactional
+fan-out, contract-version compat) is codified at
+``docs/architecture/L2_DOCTRINE/release_discipline.md`` § "Rule 5"
+(v0.7.10 omnibus).
 
 Redefined per §9 E4: propagate publishes notes from ``src_ctx`` into
 each ``dst_root``'s ``notes/raw/`` inbox, stamping source-trace

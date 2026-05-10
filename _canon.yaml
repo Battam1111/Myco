@@ -25,7 +25,17 @@ identity:
   # this substrate has agreed to propagate to. Empty list at v0.6.0 — the
   # field is forward-compat infrastructure for L0 P5 mycelium federation
   # planning. See L0_VISION.md:111-129.
-  federation_peers: []
+  #
+  # v0.8.0 (2026-05-11) wires the FIRST production federation peer:
+  # `cc-debug` substrate at C:/Users/10350/Desktop/CC, owner-germinated as
+  # the v0.8.0 omnibus item A. The path is owner-machine-specific
+  # (Windows absolute path); downstream operators who clone myco-self for
+  # their own substrate use should clear this list and write their own
+  # peers — propagate verb does not require federation_peers to match
+  # production-runtime peer paths; the field is declarative metadata,
+  # not the propagate call's argument source.
+  federation_peers:
+    - "C:/Users/10350/Desktop/CC"
 
 system:
   write_surface:
@@ -127,7 +137,25 @@ system:
     last_winnowed_proposals: []
     # When true, mcp_auth.py must import _redact_in_logs helper.
     # CL2 dim refuses streamable-http server boot otherwise.
+    # v0.8.0 gap §4 closure: build_server now also calls
+    # configure_logging_redaction(...) on the uvicorn / mcp / starlette
+    # loggers when this flag is true, so the redaction filter is
+    # actually attached to the running server (not just imported).
     token_redaction_required: true
+    # v0.8.0 gap §2/§3 closure: OAuth 2.1 + RFC 8707 streamable-HTTP
+    # discovery surface. When ``oauth.issuer_url`` is non-empty,
+    # build_server constructs a MycoOAuthProvider, instantiates a
+    # TokenVerifier, and passes auth=AuthSettings(...) into FastMCP —
+    # the streamable-HTTP transport then auto-mounts the Bearer auth
+    # middleware. Empty / unset issuer_url = OAuth disabled (default;
+    # backward compat with v0.7.x: no auth, every request accepted).
+    # Env vars MYCO_OAUTH_ISSUER_URL / MYCO_OAUTH_AUDIENCE override
+    # canon (env wins). See src/myco/boundary/surface/mcp_auth.py for
+    # the full provider docstring.
+    oauth:
+      issuer_url: ""
+      audience: "myco"
+      jwks_url: ""
     # v0.6.14 Cycle 自起 fruit—winnow—molt 闭环 (governance fields).
     # See L2_DOCTRINE/cycle.md § "Cycle 自起 闭环 (v0.6.14+)" + governing
     # craft v0_6_14_cycle_autostart_fruit_winnow_molt_loop_craft_2026-04-29.

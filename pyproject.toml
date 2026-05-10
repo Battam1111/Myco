@@ -119,6 +119,35 @@ examples = [
   "praisonaiagents",
   "smolagents",
 ]
+# v0.8.0: ``pip install 'myco[multimedia]'`` — pulls in the audio /
+# image-OCR / video-frame transitive closure so the three v0.8.0
+# multimedia adapters (audio.py, image_ocr.py, video_frames.py) can
+# transcribe / OCR. Heavy footprint (~500 MB once PyTorch + Whisper
+# weights land), so it's strictly opt-in: the default install stays
+# lean and the adapters register-but-emit-failed-stubs when the
+# extras are absent (lazy-import architecture; module import stays
+# stdlib-only). Floors:
+#   * openai-whisper >= 20240930 — last release before the ``base``-
+#     model checksum changes; older floors download stale weights.
+#   * pytesseract >= 0.3.10 — first release with the
+#     TesseractNotFoundError public alias the image-OCR adapter
+#     catches.
+#   * opencv-python-headless >= 4.10.0.84 — headless variant avoids
+#     the GUI-toolkit dep (Qt/GTK) so ``pip install`` stays clean
+#     on CI containers; 4.10.x is the LTS line as of v0.8.0.
+#   * Pillow >= 10.0.0 — the security-fix line; older 9.x has CVE-
+#     2023-44271 (DoS) and the operator should never land on it.
+# The extra also pulls PyTorch transitively via openai-whisper —
+# that's the ~500 MB piece. Note for users on resource-constrained
+# CI: skip ``[multimedia]`` and the three adapters cleanly emit
+# install-extras failed-stubs for any audio/image/video file forage
+# encounters, so default-install paths are never silently broken.
+multimedia = [
+  "openai-whisper >= 20240930",
+  "pytesseract >= 0.3.10",
+  "opencv-python-headless >= 4.10.0.84",
+  "Pillow >= 10.0.0",
+]
 
 [project.scripts]
 # Three stable PATH-level entry points so `.mcp.json` and hook configs
@@ -275,6 +304,7 @@ pythonpath = ["src"]
 # the marker is a registered alias for the same set.
 markers = [
     "benchmark: slow opt-in scale benchmarks (env: MYCO_RUN_BENCHMARKS=1)",
+    "multimedia: tests for the v0.8.0 [multimedia] adapter trio (audio / image-OCR / video-frame). Happy paths use mocks; tests run unconditionally (no real whisper/tesseract/cv2 dep needed).",
 ]
 
 [tool.coverage.run]

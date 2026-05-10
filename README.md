@@ -108,6 +108,12 @@ Hook Myco into your agent host in one command:
 
 Per-host snippets for the nine hosts with divergent schemas, Python-framework adapters (LangChain, CrewAI, DSPy, Smolagents, Agno, PraisonAI, MS Agent Framework, Claude Agent SDK), and library-embedding examples all live in [`INSTALL.md`](docs/INSTALL.md).
 
+### Optional extras
+
+- `pip install 'myco[mcp]'` — MCP server stack (recommended baseline).
+- `pip install 'myco[adapters]'` — PDF / HTML / URL ingestion adapters (~10 MB).
+- `pip install 'myco[multimedia]'` — **v0.8.0**: audio / image-OCR / video-frame ingestion adapters. Heavy footprint (~500 MB once PyTorch + Whisper weights download); strictly opt-in. Default install stays lean — without this extras the three multimedia adapters cleanly emit install-extras failed-stubs when forage encounters a `.mp3` / `.png` / `.mp4`, so `eat` never silently drops a media file. Image and video OCR additionally require the system `tesseract` binary on PATH (install via `apt-get install tesseract-ocr` / `brew install tesseract` / Windows installer).
+
 ## The twenty verbs
 
 Six subsystems. Every name is a fungal-biology term whose meaning tracks its action.

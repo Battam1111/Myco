@@ -6,57 +6,47 @@ adapter); ``docs/primordia/v0_7_10_to_v1_0_omnibus_craft_2026-05-10.md`` § Roun
 item G ("Streamable-HTTP + OAuth 2.1 verification suite").
 
 Backs the README claim "OAuth 2.1 + PKCE + RFC 8707 streamable-http stack" with
-end-to-end smoke tests. The suite is intentionally honest: tests that the impl
-genuinely supports run as plain `pass`; tests that hit a known gap in the impl
-are marked `pytest.mark.xfail(strict=False, reason=...)` with a concrete pointer
-to the gap.
+end-to-end smoke tests. v0.8.0 closes all four gaps that previously kept this
+suite honestly half-green:
 
-Investigation summary (full write-up at
-``docs/iou/v0_7_10_streamable_http_gaps.md``):
+1. **Launcher CLI**: ``--host`` / ``--port`` / ``--mount-path`` are now
+   threaded into ``server.settings.{host,port,streamable_http_path}`` BEFORE
+   ``server.run('streamable-http')`` so ``run_streamable_http_async``
+   reads them when constructing the uvicorn server. The inline-launcher
+   workaround in ``_INLINE_LAUNCHER_TEMPLATE`` follows the same recipe; the
+   public CLI ``python -m myco.boundary.mcp --port N`` now works too.
+2. **MycoOAuthProvider integration**: ``build_server`` reads canon /
+   env-var OAuth config and passes ``auth=AuthSettings(...)`` plus a
+   ``MycoIntrospectionTokenVerifier`` to FastMCP. The Bearer auth
+   middleware is auto-mounted by FastMCP when both kwargs are present.
+3. **Issuer-URL discovery**: ``MYCO_OAUTH_ISSUER_URL`` (env, highest
+   precedence) and ``system.governance.oauth.issuer_url`` (canon,
+   fallback) are both read by
+   ``load_oauth_provider_from_env_or_canon``.
+4. **Log redaction**: ``configure_logging_redaction`` is invoked from
+   ``build_server`` on the uvicorn / mcp / starlette loggers when
+   ``canon.governance.token_redaction_required: true`` (which is the
+   shipped default).
 
-1. The launcher (``src/myco/boundary/mcp/__init__.py``) passes ``host=``/``port=``/
-   ``mount_path=`` to ``server.run(...)``, but ``FastMCP.run`` (mcp 1.27) accepts
-   only ``transport`` and ``mount_path``. The kwargs always raise ``TypeError``
-   and fall through to ``server.run(transport)`` with the construction-time
-   defaults (host=127.0.0.1, port=8000, path=/mcp). ``FASTMCP_*`` env vars are
-   also ignored because ``FastMCP.__init__`` calls ``Settings(host=host, ...)``
-   with the kwarg defaults — explicit args win over pydantic-settings.
+Mock provider scope: the OAuth-2.1 mock is a stdlib
+``http.server.HTTPServer`` running in a thread that accepts
+``grant_type=client_credentials``, mints opaque bearer tokens, and
+honors ``POST /introspect`` (RFC 7662) for verifier round-trips.
+JWS / JWKS / RFC 8707 fidelity is deferred to ``authlib.oauth2``
+(already declared in the ``myco[mcp-auth]`` extra) and is tracked
+under the now-archived gap log
+``docs/iou/_archive/v0_7_10_streamable_http_gaps.md`` §5 (mock-vs-real
+provider gap).
 
-2. ``MycoOAuthProvider`` (``src/myco/boundary/surface/mcp_auth.py``) is a
-   ``@dataclass(frozen=True)`` holding issuer_url / audience / jwks_url, but
-   ``build_server`` never instantiates it nor passes ``auth=`` /
-   ``auth_server_provider=`` / ``token_verifier=`` to FastMCP. The streamable-
-   HTTP server therefore boots **without authentication**. There is no ``/token``
-   endpoint, no Bearer middleware, no 401 path.
-
-3. There is no ``MYCO_OAUTH_TOKEN_URL`` (or equivalent) env var — nothing on the
-   server side reads issuer config, so pointing Myco at a mock issuer cannot be
-   verified end-to-end.
-
-4. ``configure_logging_redaction`` exists and is unit-tested, but ``build_server``
-   never invokes it on the live server's loggers, even though
-   ``_canon.yaml::system.governance.token_redaction_required: true``.
-
-To work around §1 the suite uses a private inline launcher that imports
-``build_server``, mutates ``server.settings.host``/``port``, then runs the
-streamable-HTTP transport. This proves the underlying transport boots cleanly
-(items 1-3 of the test plan); the OAuth tests below xfail honestly.
-
-Mock provider scope: the OAuth-2.1 mock is a stdlib ``http.server.HTTPServer``
-running in a thread that accepts ``grant_type=client_credentials`` and emits
-opaque bearer tokens. It does NOT verify JWS signatures, does NOT rotate JWKS,
-and does NOT validate RFC 8707 resource indicators. Higher-fidelity coverage is
-deferred to ``authlib.oauth2.rfc6749.grants`` (already declared in the
-``myco[mcp-auth]`` extra) once gaps §2-§4 are closed.
-
-Subprocess discipline: every spawned server is cleaned up in a ``finally``
-clause with ``terminate()`` + ``wait(timeout=2)``; lingering bindings on
-v0.7.10's CI Windows runners are unacceptable.
+Subprocess discipline: every spawned server is cleaned up in a
+``finally`` clause with ``terminate()`` + ``wait(timeout=2)``;
+lingering bindings on Windows CI runners are unacceptable.
 """
 
 from __future__ import annotations
 
 import json
+import os
 import socket
 import subprocess
 import sys
@@ -89,13 +79,14 @@ uvicorn = pytest.importorskip(
 
 
 # ---------------------------------------------------------------------------
-# Subprocess launcher (works around gap §1 — see module docstring)
+# Subprocess launcher
 # ---------------------------------------------------------------------------
 
-# Inline Python source we hand to `python -c`. It imports build_server,
-# mutates the FastMCP settings to the requested host/port, then runs. We avoid
-# `python -m myco.boundary.mcp` because that launcher's --port flag is dead
-# code in mcp>=1.2 (gap §1).
+# Inline Python source we hand to `python -c`. It imports build_server, sets
+# the FastMCP settings to the requested host/port (the same recipe the public
+# launcher CLI uses internally — see ``src/myco/boundary/mcp/__init__.py``,
+# v0.8.0 gap §1 closure), then runs. The OAuth-aware path picks up
+# ``MYCO_OAUTH_ISSUER_URL`` from the inherited env in subprocess.Popen.
 _INLINE_LAUNCHER_TEMPLATE = textwrap.dedent(
     """\
     import sys
@@ -104,7 +95,6 @@ _INLINE_LAUNCHER_TEMPLATE = textwrap.dedent(
     server.settings.host = {host!r}
     server.settings.port = {port}
     server.settings.streamable_http_path = {path!r}
-    # streamable-HTTP path is mounted under /mcp by default; ensure no trailing slash
     server.run(transport="streamable-http")
     """
 )
@@ -141,21 +131,31 @@ def _wait_for_port_ready(host: str, port: int, *, timeout: float = 8.0) -> bool:
 
 @contextmanager
 def _spawn_streamable_server(
-    *, host: str = "127.0.0.1", port: int | None = None, path: str = "/mcp"
+    *,
+    host: str = "127.0.0.1",
+    port: int | None = None,
+    path: str = "/mcp",
+    extra_env: dict[str, str] | None = None,
 ) -> Iterator[tuple[subprocess.Popen[bytes], str, int, str]]:
     """Spawn a streamable-HTTP MCP server in a child Python interpreter.
 
     Yields ``(proc, host, port, path)``. The caller is responsible for using
-    the host/port to talk to the server; cleanup is handled here. The child
-    process is given a generous 2-second termination window — uvicorn's
-    graceful shutdown is fast on Windows but not instantaneous.
+    the host/port to talk to the server; cleanup is handled here.
+
+    ``extra_env`` is layered onto the parent's env before spawn. v0.8.0
+    OAuth tests use it to inject ``MYCO_OAUTH_ISSUER_URL`` (and friends)
+    so ``build_server`` wires the Bearer auth middleware.
     """
     actual_port = port if port is not None else _free_port()
     src = _INLINE_LAUNCHER_TEMPLATE.format(host=host, port=actual_port, path=path)
+    env = os.environ.copy()
+    if extra_env:
+        env.update(extra_env)
     proc = subprocess.Popen(
         [sys.executable, "-c", src],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
+        env=env,
     )
     try:
         if not _wait_for_port_ready(host, actual_port, timeout=8.0):
@@ -267,8 +267,7 @@ def test_streamable_http_returns_initialize_response() -> None:
     """POST a JSON-RPC ``initialize`` and verify the basic response shape.
 
     Per MCP spec: the response carries ``protocolVersion`` and ``serverInfo``.
-    Myco's server name is ``"myco"`` (set in ``surface/mcp.py::build_server``
-    line 747).
+    Myco's server name is ``"myco"`` (set in ``surface/mcp.py::build_server``).
     """
     with _spawn_streamable_server() as (_proc, host, port, path):
         url = f"http://{host}:{port}{path}"
@@ -398,7 +397,7 @@ def test_streamable_http_returns_tools_list() -> None:
 
 
 # ---------------------------------------------------------------------------
-# OAuth tests — every test below xfails on a concrete missing capability
+# OAuth tests — v0.8.0: all 4 gaps closed, every test runs as plain pass.
 # ---------------------------------------------------------------------------
 
 
@@ -406,13 +405,18 @@ def test_streamable_http_returns_tools_list() -> None:
 
 
 class _MockOAuthHandler(BaseHTTPRequestHandler):
-    """Minimal RFC 6749 §4.4 (client_credentials) issuer.
+    """Minimal RFC 6749 §4.4 (client_credentials) + RFC 7662 (introspection).
 
-    Accepts ``POST /token`` with ``application/x-www-form-urlencoded`` body
-    containing ``grant_type=client_credentials&client_id=...&client_secret=...``.
-    Emits an opaque bearer token. NOT a JWT — sufficient for transport-shape
-    verification but does not exercise JWS / JWKS / RFC 8707 (see module
-    docstring for the mock-vs-real gap).
+    Endpoints:
+
+    - ``POST /token``: accepts ``grant_type=client_credentials`` and emits
+      an opaque bearer token. NOT a JWT — this exercises the introspection
+      verifier path, not the JWS path. JWS coverage is left to authlib-
+      backed unit tests.
+    - ``POST /introspect``: RFC 7662 — returns ``{"active": true, ...}``
+      for tokens this issuer minted, ``{"active": false}`` otherwise.
+      The Myco server's ``MycoIntrospectionTokenVerifier`` calls this
+      endpoint on every protected request.
     """
 
     issued_tokens: ClassVar[set[str]] = set()
@@ -422,13 +426,22 @@ class _MockOAuthHandler(BaseHTTPRequestHandler):
         return
 
     def do_POST(self) -> None:  # http.server convention
-        if self.path != "/token":
-            self.send_response(404)
-            self.end_headers()
+        if self.path == "/token":
+            self._handle_token()
             return
+        if self.path == "/introspect":
+            self._handle_introspect()
+            return
+        self.send_response(404)
+        self.end_headers()
+
+    def _read_form(self) -> dict[str, list[str]]:
         length = int(self.headers.get("Content-Length") or "0")
         body = self.rfile.read(length).decode("utf-8")
-        params = parse_qs(body)
+        return parse_qs(body)
+
+    def _handle_token(self) -> None:
+        params = self._read_form()
         grant = (params.get("grant_type") or [""])[0]
         if grant != "client_credentials":
             self.send_response(400)
@@ -444,6 +457,26 @@ class _MockOAuthHandler(BaseHTTPRequestHandler):
             "expires_in": 3600,
             "scope": "myco:tools",
         }
+        body_bytes = json.dumps(payload).encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body_bytes)))
+        self.end_headers()
+        self.wfile.write(body_bytes)
+
+    def _handle_introspect(self) -> None:
+        params = self._read_form()
+        token = (params.get("token") or [""])[0]
+        active = token in self.issued_tokens
+        if active:
+            payload: dict[str, Any] = {
+                "active": True,
+                "scope": "myco:tools",
+                "client_id": "test-client",
+                "token_type": "Bearer",
+            }
+        else:
+            payload = {"active": False}
         body_bytes = json.dumps(payload).encode("utf-8")
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
@@ -475,22 +508,18 @@ def _spawn_mock_oauth_issuer() -> Iterator[tuple[HTTPServer, str]]:
 # ---- D — client_credentials handshake ----
 
 
-@pytest.mark.xfail(
-    strict=False,
-    reason=(
-        "Gap §2 (docs/iou/v0_7_10_streamable_http_gaps.md): MycoOAuthProvider "
-        "is a config dataclass with no integration into build_server(). The "
-        "streamable-HTTP server runs without auth=, so there is no /token "
-        "endpoint and no Bearer middleware. Mock issuer can mint a token but "
-        "Myco accepts every request without one."
-    ),
-)
 def test_oauth_2_1_client_credentials_grant() -> None:
-    """Mock OAuth issuer mints a token; Myco must accept it on a tool call.
+    """Mock OAuth issuer mints a token; Myco accepts it on a tool call.
 
-    This test will pass once gap §2 is closed: build_server is taught to read
-    issuer config (gap §3) and pass auth=AuthSettings(...) +
-    token_verifier=ProviderTokenVerifier(...) into FastMCP.
+    v0.8.0 (gap §2/§3 closure): ``build_server`` reads
+    ``MYCO_OAUTH_ISSUER_URL`` from env, constructs a
+    ``MycoIntrospectionTokenVerifier`` that calls
+    ``{issuer}/introspect``, and passes ``auth=AuthSettings(...)`` plus
+    ``token_verifier=...`` into FastMCP. The streamable-HTTP transport
+    then auto-mounts the Bearer auth middleware. With a valid token,
+    the request reaches the dispatcher and returns 200; the negative
+    case (no/bogus token → 401) is covered by
+    ``test_oauth_invalid_token_returns_401`` below.
     """
     with _spawn_mock_oauth_issuer() as (_issuer, issuer_url):
         # 1. Mint a bearer token via the mock /token endpoint.
@@ -505,11 +534,12 @@ def test_oauth_2_1_client_credentials_grant() -> None:
         assert "access_token" in token_payload, token_payload
         bearer = token_payload["access_token"]
 
-        # 2. Boot Myco pointed at the mock issuer and present the bearer token.
-        # This currently has no effect — the env var doesn't exist (gap §3).
-        with _spawn_streamable_server() as (_proc, host, port, path):
+        # 2. Boot Myco pointed at the mock issuer and present the bearer.
+        with _spawn_streamable_server(
+            extra_env={"MYCO_OAUTH_ISSUER_URL": issuer_url}
+        ) as (_proc, host, port, path):
             url = f"http://{host}:{port}{path}"
-            status, _headers, _body = _post_jsonrpc(
+            status, _headers, body = _post_jsonrpc(
                 url,
                 {
                     "jsonrpc": "2.0",
@@ -523,55 +553,39 @@ def test_oauth_2_1_client_credentials_grant() -> None:
                 },
                 extra_headers={"Authorization": f"Bearer {bearer}"},
             )
-            # When OAuth is wired, status==200 confirms the bearer was accepted.
-            # Right now this happens because there's no auth check at all;
-            # the test will paradoxically *pass* the surface check but is
-            # marked xfail because the underlying contract is unmet.
-            # Strict invariant: when OAuth is wired we must also see a Bearer
-            # negotiation echo. Until then, fail loudly.
-            assert status == 200
-            # The real assertion that proves OAuth is wired: removing the
-            # token must change behavior. See test_oauth_invalid_token_returns_401.
-            raise AssertionError(
-                "Surface check passed but OAuth gate is unverified — see "
-                "test_oauth_invalid_token_returns_401 below for the negative "
-                "case that proves the gate exists."
+            # The introspection round-trip succeeded; the request reached
+            # the JSON-RPC dispatcher; status 200 confirms the bearer was
+            # accepted by the auth middleware.
+            assert status == 200, (
+                f"valid bearer token rejected: status={status}, body={body!r}"
             )
 
 
 # ---- E — token redaction in logs ----
 
 
-@pytest.mark.xfail(
-    strict=False,
-    reason=(
-        "Gap §4 (docs/iou/v0_7_10_streamable_http_gaps.md): "
-        "configure_logging_redaction() is defined and unit-tested but never "
-        "called from build_server(), even when canon.governance."
-        "token_redaction_required=true. The CL2 lint dim verifies the import "
-        "but not the invocation — so the redaction filter is not actually "
-        "attached to the live server's loggers."
-    ),
-)
 def test_oauth_token_redaction_in_logs() -> None:
     """Bearer token must be redacted from server stdout/stderr.
 
-    The contract: when canon governance has ``token_redaction_required: true``
-    (which is the case in the shipped ``_canon.yaml``), any token-shaped string
-    appearing in a log record must be replaced with ``[REDACTED-TOKEN]``.
+    v0.8.0 (gap §4 closure): ``build_server`` invokes
+    ``configure_logging_redaction`` on the uvicorn / mcp / starlette
+    loggers when ``canon.governance.token_redaction_required: true``.
+    The redaction filter pattern-matches token-shaped strings in
+    ``LogRecord.msg`` (and ``args``) and substitutes
+    ``[REDACTED-TOKEN]`` BEFORE the record is emitted.
 
-    Note on xfail-but-passing: in the current impl this test typically xpasses
-    NOT because the redaction filter is installed (gap §4), but because uvicorn's
-    default access log does not echo Authorization headers. The user-facing
-    surface (no token in logs) holds in practice, but the *defense in depth*
-    that ``token_redaction_required`` is meant to provide is absent — anything
-    that *does* construct a log line containing the token (an exception trace,
-    a debug-level dump, a future feature) would leak. The xfail mark with
-    ``strict=False`` lets the suite pass while keeping the gap visible.
+    This test sends both a header-only token and a body-embedded token
+    so it stays sensitive to regressions where:
 
-    The test deliberately sends both a header-only token (covered by uvicorn's
-    silence) and a body-embedded token (uvicorn DOES echo malformed JSON
-    bodies in some configurations) so it stays sensitive to regressions.
+    - uvicorn's access log starts echoing the Authorization header.
+    - A JSON-parse exception trace dumps the request body.
+    - A future debug-level handler logs the headers verbatim.
+
+    Previously (v0.7.10) this test would xpass for the wrong reason —
+    uvicorn happens not to log Authorization headers — but the
+    defense-in-depth filter wasn't actually installed. v0.8.0 the
+    filter IS installed; the contract holds even when something else
+    constructs a token-bearing log line.
     """
     sentinel_token = "sentinel-bearer-abcdef0123456789ZZZZ"
     with _spawn_streamable_server() as (proc, host, port, path):
@@ -607,41 +621,95 @@ def test_oauth_token_redaction_in_logs() -> None:
 # ---- F — invalid bearer token returns 401 ----
 
 
-@pytest.mark.xfail(
-    strict=False,
-    reason=(
-        "Gap §2 (docs/iou/v0_7_10_streamable_http_gaps.md): no Bearer auth "
-        "middleware is installed because build_server does not pass auth= or "
-        "token_verifier= to FastMCP. Every request is accepted regardless of "
-        "the Authorization header, so a bogus token returns 200, not 401."
-    ),
-)
 def test_oauth_invalid_token_returns_401() -> None:
     """A bogus Bearer token must yield 401, not 200.
 
-    Negative-case proof that the OAuth gate exists at all. Without this test,
-    a green ``client_credentials_grant`` test would be meaningless — the
-    server might be returning 200 to literally everyone.
+    v0.8.0 (gap §2 closure): the Bearer auth middleware is installed
+    when canon / env supplies an OAuth issuer URL. The
+    ``MycoIntrospectionTokenVerifier`` calls the issuer's
+    ``/introspect`` endpoint; a bogus token triggers ``active: false``
+    → ``verify_token`` returns ``None`` → FastMCP's
+    ``RequireAuthMiddleware`` emits 401.
+
+    Negative-case proof that the OAuth gate exists at all. Without
+    this test, a green ``client_credentials_grant`` test would be
+    meaningless — the server might be returning 200 to literally
+    everyone.
     """
-    with _spawn_streamable_server() as (_proc, host, port, path):
-        url = f"http://{host}:{port}{path}"
-        status, _headers, body = _post_jsonrpc(
-            url,
-            {
-                "jsonrpc": "2.0",
-                "id": 1,
-                "method": "initialize",
-                "params": {
-                    "protocolVersion": "2024-11-05",
-                    "capabilities": {},
-                    "clientInfo": {"name": "verification-suite", "version": "0"},
+    with _spawn_mock_oauth_issuer() as (_issuer, issuer_url):
+        with _spawn_streamable_server(
+            extra_env={"MYCO_OAUTH_ISSUER_URL": issuer_url}
+        ) as (_proc, host, port, path):
+            url = f"http://{host}:{port}{path}"
+            status, _headers, body = _post_jsonrpc(
+                url,
+                {
+                    "jsonrpc": "2.0",
+                    "id": 1,
+                    "method": "initialize",
+                    "params": {
+                        "protocolVersion": "2024-11-05",
+                        "capabilities": {},
+                        "clientInfo": {"name": "verification-suite", "version": "0"},
+                    },
                 },
-            },
-            extra_headers={"Authorization": "Bearer this-token-is-bogus"},
+                extra_headers={"Authorization": "Bearer this-token-is-bogus"},
+            )
+            assert status == 401, (
+                f"expected 401 from bogus token, got {status}; body={body!r}"
+            )
+
+
+# ---- G — positive coverage: build_server wires the OAuth provider ----
+
+
+def test_oauth_provider_loaded_from_canon() -> None:
+    """When canon's ``oauth.issuer_url`` is set, ``build_server`` attaches
+    the provider. Verifies the loader reaches into the canon block and
+    that the resulting server carries a ``MycoOAuthProvider`` instance.
+
+    Runs in-process (no subprocess): the loader reads env vars + canon
+    governance synchronously. We exercise the env-vars-win-over-canon
+    branch with ``MYCO_OAUTH_ISSUER_URL`` since modifying the
+    self-substrate's ``_canon.yaml`` mid-test would race with the boot
+    smoke test running concurrently.
+    """
+    from myco.boundary.surface.mcp import build_server
+    from myco.boundary.surface.mcp_auth import (
+        MycoOAuthProvider,
+        load_oauth_provider_from_env_or_canon,
+    )
+
+    issuer = "http://127.0.0.1:65535"
+    saved = os.environ.get("MYCO_OAUTH_ISSUER_URL")
+    os.environ["MYCO_OAUTH_ISSUER_URL"] = issuer
+    try:
+        # 1. Loader returns a populated provider.
+        provider = load_oauth_provider_from_env_or_canon({"oauth": {}})
+        assert isinstance(provider, MycoOAuthProvider)
+        assert provider.issuer_url == issuer
+        assert provider.audience == "myco"  # canon default
+
+        # 2. build_server attaches the provider to the FastMCP instance.
+        server = build_server()
+        attached = getattr(server, "_myco_oauth_provider", None)
+        assert isinstance(attached, MycoOAuthProvider), (
+            f"build_server did not attach the OAuth provider: {attached!r}"
         )
-        assert status == 401, (
-            f"expected 401 from bogus token, got {status}; body={body!r}"
+        assert attached.issuer_url == issuer
+        # FastMCP wires settings.auth + token_verifier when an OAuth
+        # provider is present; assert both ends of the contract.
+        assert server.settings.auth is not None, (
+            "build_server did not pass auth=AuthSettings(...) to FastMCP"
         )
+        assert server._token_verifier is not None, (
+            "build_server did not pass token_verifier=... to FastMCP"
+        )
+    finally:
+        if saved is None:
+            os.environ.pop("MYCO_OAUTH_ISSUER_URL", None)
+        else:
+            os.environ["MYCO_OAUTH_ISSUER_URL"] = saved
 
 
 # ---------------------------------------------------------------------------
@@ -652,10 +720,12 @@ def test_oauth_invalid_token_returns_401() -> None:
 def test_mock_oauth_issuer_is_well_formed() -> None:
     """The mock issuer mints a usable bearer token via client_credentials.
 
-    Sanity check: if this test fails, the four OAuth xfails above could not be
-    distinguished from "the mock is broken". This test must pass on its own.
+    Sanity check: if this test fails, the four OAuth tests above could not
+    be distinguished from "the mock is broken". This test must pass on its
+    own.
     """
     with _spawn_mock_oauth_issuer() as (_issuer, base_url):
+        # Token mint
         req = urllib.request.Request(
             f"{base_url}/token",
             data=b"grant_type=client_credentials&client_id=t&client_secret=s",
@@ -664,31 +734,66 @@ def test_mock_oauth_issuer_is_well_formed() -> None:
         )
         with urllib.request.urlopen(req, timeout=5.0) as resp:
             payload = json.loads(resp.read())
-    assert payload["token_type"] == "Bearer"
-    assert payload["access_token"].startswith("mock-bearer-")
-    assert len(payload["access_token"]) >= 16
+        assert payload["token_type"] == "Bearer"
+        assert payload["access_token"].startswith("mock-bearer-")
+        assert len(payload["access_token"]) >= 16
+
+        # Introspection round-trip: minted token is active, bogus is not.
+        for token, expected_active in [
+            (payload["access_token"], True),
+            ("bogus-token-not-minted", False),
+        ]:
+            ireq = urllib.request.Request(
+                f"{base_url}/introspect",
+                data=f"token={urllib.request.quote(token)}".encode(),
+                method="POST",
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+            )
+            with urllib.request.urlopen(ireq, timeout=5.0) as iresp:
+                ipayload = json.loads(iresp.read())
+            assert ipayload.get("active") is expected_active, (token, ipayload)
 
 
 def test_iou_documents_every_xfail_reason() -> None:
-    """Every ``xfail`` reason in this file points to an open IOU section.
+    """v0.8.0: all 4 streamable-http + OAuth gaps closed; IOU archived.
 
-    Honest failure tracking: if a developer adds an ``xfail`` without updating
-    the IOU log, this test catches the drift.
+    The test name is preserved for git-blame continuity but its assertion
+    has been inverted: the open IOU log no longer exists at the live
+    path, and the archived copy must carry the closure preamble. Every
+    xfail in this file has been removed because the underlying contract
+    holds.
     """
-    iou = (
-        Path(__file__).resolve().parents[2]
-        / "docs"
-        / "iou"
-        / "v0_7_10_streamable_http_gaps.md"
+    repo_root = Path(__file__).resolve().parents[2]
+    open_path = repo_root / "docs" / "iou" / "v0_7_10_streamable_http_gaps.md"
+    archived_path = (
+        repo_root / "docs" / "iou" / "_archive" / "v0_7_10_streamable_http_gaps.md"
     )
-    assert iou.is_file(), f"IOU log not found at {iou}"
-    text = iou.read_text(encoding="utf-8")
-    # Each xfail in this file references "Gap §<n>" — verify each referenced
-    # section has a matching "## <n> —" heading in the IOU.
-    referenced_sections = {"§2", "§4"}  # current xfails
-    for marker in referenced_sections:
-        # "§2" → "## 2"
-        n = marker.lstrip("§")
-        assert f"## {n} —" in text, (
-            f"xfail reason references {marker} but IOU has no section {n}"
-        )
+
+    assert not open_path.exists(), (
+        f"IOU log still at the open path {open_path}; v0.8.0 should have "
+        "moved it to docs/iou/_archive/."
+    )
+    assert archived_path.is_file(), (
+        f"archived IOU log not found at {archived_path}; gap closure incomplete."
+    )
+    text = archived_path.read_text(encoding="utf-8")
+    assert text.startswith("ARCHIVED"), (
+        "archived IOU must start with the closure preamble "
+        "('ARCHIVED — all 4 gaps closed in v0.8.0...')"
+    )
+
+    # Belt-and-braces drift-guard: the test file itself must contain
+    # ZERO regression-tracker decorators. If a future regression sneaks
+    # one in without updating the IOU, this guard catches the drift.
+    # The forbidden token is constructed at runtime from substrings so
+    # the source file does not literally contain it (which would cause
+    # the check to flag itself). The canonical decorator form is
+    # ``@<test-framework>.mark.<failmark>(...)``; we synthesize the
+    # full string and refuse to find it in our own source.
+    own_text = Path(__file__).read_text(encoding="utf-8")
+    forbidden = "pytest" + ".mark." + "xf" + "ail"
+    assert forbidden not in own_text, (
+        "this file must contain zero regression-tracker decorators; "
+        "v0.8.0 closed all 4 gaps documented in "
+        "docs/iou/_archive/v0_7_10_streamable_http_gaps.md"
+    )

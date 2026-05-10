@@ -85,6 +85,40 @@
           "type": "boolean",
           "description": "L0 principle 1 addendum — `true` (default) means the substrate kernel does not import any LLM provider SDK. MP1/MP2 dims enforce mechanically. Opting out (`false`) requires a contract-bumping molt.",
           "default": true
+        },
+        "governance": {
+          "type": "object",
+          "description": "Risk-tier governance + Living Bets audit state. Originated at v0.6.0 (`public_window_*` + `last_winnowed_proposals` + token rotation); extended at v0.6.14 / v0.6.15 (cycle 自起 fruit—winnow—molt 闭环 fields); extended at v0.8.0 (schema v4) with the two Living Bets cache fields (`last_living_bets_audit_at` + `persistence_metrics`). All fields are additive; downstream consumers tolerate absence via `.get(...)` defaults. Authorising craft for v0.8.0 additions: `docs/primordia/v0_8_0_living_bets_amendment_2026-05-10.md` (and the v0.8.0 omnibus craft authorising the schema bump as item E).",
+          "additionalProperties": true,
+          "properties": {
+            "last_living_bets_audit_at": {
+              "type": ["string", "null"],
+              "description": "Canon-cited marker for the most-recent Living Bets re-audit doc landing under `docs/primordia/`. ISO 8601 UTC timestamp (e.g. `2026-05-10T14:52:12Z`). Added at v0.8.0 (schema v4). `null` on canons that pre-date schema v4 or were observed cold by the upgrader chain; populated by `myco molt` at each contract bump (v0.8.x and later anamorph extension; out of scope for the v0.8.0 partial itself). LB1 dim reads canon-side marker before falling back to filesystem walk under `docs/primordia/**/*living_bets_audit*.md`. Authorising craft: `docs/primordia/v0_8_0_living_bets_amendment_2026-05-10.md`.",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})$"
+            },
+            "persistence_metrics": {
+              "type": "object",
+              "description": "Cached persistence-budget signals consumed by the LB2 regime classifier (`src/myco/homeostasis/dimensions/semantic/lb2_living_bets_regime.py`). Three nullable integer counts — see `last_living_bets_audit_at` for the migration history. LB2 may either trust the cache (fast path) or recompute when the cache age exceeds a TTL (slow path); cache-policy lives in LB2, not in the schema. Added at v0.8.0 (schema v4). Authorising craft: `docs/primordia/v0_8_0_living_bets_amendment_2026-05-10.md`.",
+              "additionalProperties": true,
+              "properties": {
+                "session_count": {
+                  "type": ["integer", "null"],
+                  "description": "Total distinct `session_id` values ever recorded in `.myco_state/` JSONL files. Proxy: 'how many distinct sessions has this substrate served?'.",
+                  "minimum": 0
+                },
+                "host_count": {
+                  "type": ["integer", "null"],
+                  "description": "Number of host adapters that have evidence of write/install activity for this substrate. v0.8.0 MVP heuristic: `1` (this substrate at least has its own host running it).",
+                  "minimum": 0
+                },
+                "peer_count": {
+                  "type": ["integer", "null"],
+                  "description": "Number of `identity.federation_peers` declared on this substrate. Mirrors the federation-peer cardinality at the time of last LB2 observation.",
+                  "minimum": 0
+                }
+              }
+            }
+          }
         }
       }
     },
