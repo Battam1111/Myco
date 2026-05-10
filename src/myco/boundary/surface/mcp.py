@@ -737,49 +737,24 @@ def _jsonable(obj: Any) -> Any:
 def build_server(manifest: Manifest | None = None):  # pragma: no cover - integration
     """Construct a FastMCP server with one tool per manifest verb.
 
-    Import of :mod:`mcp.server.fastmcp` is deferred to call-time so the
-    rest of the package remains importable without the MCP SDK.
-
-    v0.8.0 (gap §2/§3/§4 closure): when canon
-    ``system.governance.oauth.issuer_url`` is non-empty (or the env
-    override ``MYCO_OAUTH_ISSUER_URL`` is set), an OAuth 2.1 token
-    verifier is wired into the FastMCP construction so the
-    streamable-HTTP transport requires a valid bearer token. When
-    ``system.governance.token_redaction_required`` is true, the
-    log-redaction filter is also attached to the uvicorn / mcp /
-    starlette loggers. Both helpers live in
-    :mod:`myco.boundary.surface.mcp_auth` (PA2 megafile discipline).
+    v0.8.0 OAuth + log-redaction prelude runs via
+    :func:`mcp_auth.prepare_fastmcp_oauth_prelude` (gaps §2/§3/§4
+    closure); FastMCP import is deferred so the rest of the package
+    remains importable without the MCP SDK.
     """
     from mcp.server.fastmcp import FastMCP
 
-    from .mcp_auth import (
-        build_fastmcp_auth_kwargs,
-        install_redaction_filter_on_loggers,
-        load_canon_governance,
-        load_oauth_provider_from_env_or_canon,
-    )
+    from .mcp_auth import prepare_fastmcp_oauth_prelude
 
     m = manifest or load_manifest()
-    instructions = build_initialization_instructions(m)
-
-    # Load OAuth config (env wins over canon); None = OAuth disabled.
-    canon_governance = load_canon_governance()
-    oauth_provider = load_oauth_provider_from_env_or_canon(canon_governance)
-
-    fastmcp_kwargs: dict[str, Any] = {
-        "instructions": instructions,
-        **build_fastmcp_auth_kwargs(oauth_provider),
-    }
-    server = FastMCP("myco", **fastmcp_kwargs)
-    # Stash the provider on the server object so callers (and the
-    # positive-coverage test ``test_oauth_provider_loaded_from_canon``)
-    # can introspect what was wired without poking FastMCP internals.
+    auth_kwargs, oauth_provider = prepare_fastmcp_oauth_prelude()
+    server = FastMCP(
+        "myco", instructions=build_initialization_instructions(m), **auth_kwargs
+    )
+    # Stash the provider so the positive-coverage test
+    # ``test_oauth_provider_loaded_from_canon`` can introspect what
+    # was wired without poking FastMCP internals.
     server._myco_oauth_provider = oauth_provider  # type: ignore[attr-defined]
-
-    # Install the redaction filter on uvicorn / mcp / starlette loggers
-    # when canon governance asks for it. Idempotent.
-    if canon_governance.get("token_redaction_required"):
-        install_redaction_filter_on_loggers()
 
     state = _ServerState()
     for spec in m.commands:

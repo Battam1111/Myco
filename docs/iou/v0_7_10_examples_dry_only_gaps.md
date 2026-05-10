@@ -143,3 +143,20 @@ v0.7.3 AD1 closure). This IOU's *examples-dry-only* concern is
 orthogonal — it remains OPEN for the `[examples]` extras row, with
 the v0.8.0 multimedia work providing a fresh template for the
 "opt-in heavy-dep modality" pattern future bumps may follow.
+
+---
+
+## v0.8.0 update — adjacent multimedia gap closed
+
+v0.8.0 closes the multimedia gap via `myco[multimedia]` extras (3
+adapters, opt-in): `audio.py` (Whisper segment transcription),
+`image_ocr.py` (pytesseract single-image OCR), `video_frames.py`
+(OpenCV frame sampling + per-frame OCR). Total adapter count moves
+from 10 (v0.7.10) → **13** (v0.8.0). The same `[examples]` opt-in
+discipline applies: heavy deps live behind a single extras flag,
+the default install stays lean, and the adapters cleanly emit
+install-extras failed-stubs when the extras are absent (per the
+v0.7.3 AD1 closure). This IOU's *examples-dry-only* concern is
+orthogonal — it remains OPEN for the `[examples]` extras row, with
+the v0.8.0 multimedia work providing a fresh template for the
+"opt-in heavy-dep modality" pattern future bumps may follow.

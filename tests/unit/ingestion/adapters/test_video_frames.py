@@ -436,7 +436,7 @@ def test_compute_sample_interval_long_video_caps_at_max() -> None:
     """A 1-hour video at 30 fps (108k frames) → stride stretched
     so sampled count lands at MAX_FRAMES_PER_VIDEO.
     """
-    total = 30 * 60 * 60  # 30 fps × 60 s × 60 min = 108k frames
+    total = 30 * 60 * 60  # 30 fps x 60 s x 60 min = 108k frames
     stride = _compute_sample_interval(total_frames=total, fps=30.0)
     sampled = total // stride
     assert sampled <= MAX_FRAMES_PER_VIDEO

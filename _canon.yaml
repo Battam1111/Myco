@@ -12,8 +12,8 @@
 # docs/migration/v0_7_4_to_v0_7_5.md.
 
 schema_version: "3"
-contract_version: "v0.7.10"
-synced_contract_version: "v0.7.10"
+contract_version: "v0.8.0"
+synced_contract_version: "v0.8.0"
 identity:
   substrate_id: "myco-self"
   tags:
@@ -302,7 +302,7 @@ commands:
   manifest_ref: "src/myco/boundary/surface/manifest.yaml"
 
 metrics:
-  test_count: 1710
+  test_count: 1799
   lint_dim_count: 51
   # v0.7.2 永恒删减 ratchet (PA6 dim — repo bloat detector):
   # MEDIUM finding emitted at ≥80% of threshold; HIGH at ≥100%. The
@@ -323,5 +323,5 @@ metrics:
     - "docs/contract_changelog/_archive/**"
 
 waves:
-  current: 35
+  current: 36
   log_ref: "docs/contract_changelog.md"
