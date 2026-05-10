@@ -213,13 +213,36 @@ wins, Myco's verb surface is scaffolding that a smarter Agent
 simply discards.
 
 **Myco's wager.** We bet coordination vocabulary survives model
-growth the way `cp`/`mv`/`grep` survive IDEs. The verbs are not a
-user interface for the human — they are a coordination grammar for
-the Agent, and grammars persist as abstractions even when the
-underlying actor gets smarter. A smarter `grep` user still runs
-`grep`; a smarter Agent still runs `myco hunger` because the
-substrate is a shared object the Agent coordinates *with*, not
-just a memory it holds. But this bet is undetermined, not proven.
+growth **in proportion to the substrate's persistence budget**. A
+short-lived, single-session task can be solved by raw context-
+holding; a multi-session, multi-host, federated substrate cannot,
+because no single Agent's context covers the full graph at once.
+The verbs survive because the substrate exceeds any single Agent's
+read window. This is the same reason `cp`/`mv`/`grep` survive
+IDEs — IDE memory is per-session, the file system is persistent —
+but the analogy is supporting evidence, not the wager itself.
+
+The verbs are not a user interface for the human — they are a
+coordination grammar for the Agent, and grammars persist as
+abstractions even when the underlying actor gets smarter. A smarter
+`grep` user still runs `grep`; a smarter Agent still runs `myco
+hunger` because the substrate is a shared object the Agent
+coordinates *with*, not just a memory it holds. But this bet is
+undetermined, not proven.
+
+**The two regimes the bet names explicitly** (v0.8.0 amendment per
+`docs/primordia/v0_8_0_living_bets_amendment_2026-05-10.md`):
+
+- **Bet wins in**: multi-session / multi-host / federated work
+  where the substrate's persistence budget exceeds any single
+  Agent's read window. Verbs are the only common-knowledge
+  protocol across the boundary.
+- **Bet loses in**: ephemeral single-session work where one Agent
+  can hold the entire problem in context. Raw context-holding wins;
+  verb surface is overhead.
+
+A future audit's job is to classify observed work along this regime
+axis and check whether verb usage tracked the bet's prediction.
 
 **Review cadence.** Every MAJOR release (v0.6, v0.7, v1.0) re-audits
 this appendix. The concrete trigger for rewrite: if a future Agent
