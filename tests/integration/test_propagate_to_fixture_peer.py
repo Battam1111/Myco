@@ -269,24 +269,40 @@ def test_propagate_major_mismatch_raises(
 def test_propagate_collision_raises(tmp_path: Path) -> None:
     """If a target name already exists in the peer's inbox, propagate
     must raise ``ContractError`` BEFORE writing anything (the verb is
-    transactional: collect → verify → write-all-or-raise)."""
+    transactional: collect → verify → write-all-or-raise).
+
+    v0.8.3 hotfix: use a per-test tmp peer (cloned from the fixture
+    template) instead of the shared `PEER_ROOT` to avoid xdist
+    parallelism races where a sibling test's autouse cleanup wipes
+    the shared inbox between this test's pre-write and propagate
+    call. The sibling test's own _clean_peer_inbox autouse fixture
+    runs against PEER_INBOX, NOT this test's tmp clone.
+    """
     src_ctx = _mk_src_ctx(tmp_path / "src", n_notes=2)
 
-    # Pre-write a colliding file. The src has integrated notes whose
-    # stems are derived from "integration finding 0/1" — we don't
-    # need to know the exact stem; we drop two pre-existing files
-    # using whatever stems the src actually produced.
+    # Clone the fixture peer to a tmp dir so xdist parallel test
+    # cleanup can't wipe our pre-written collision file mid-test.
+    import shutil
+
+    tmp_peer = tmp_path / "peer_substrate"
+    shutil.copytree(PEER_ROOT, tmp_peer)
+    tmp_peer_inbox = tmp_peer / "notes" / "raw"
+    # Ensure the inbox is clean before this test's pre-write.
+    for f in tmp_peer_inbox.glob("*.md"):
+        f.unlink()
+
+    # Pre-write a colliding file in our isolated tmp peer's inbox.
     integrated_dir = src_ctx.substrate.paths.notes / "integrated"
     src_files = sorted(integrated_dir.glob("n_*.md"))
     assert len(src_files) == 2, "src setup should have 2 integrated notes"
     # The propagator strips the n_ prefix; that's the dst filename.
     collide_name = src_files[0].name[len("n_") :]
-    pre_existing = PEER_INBOX / collide_name
+    pre_existing = tmp_peer_inbox / collide_name
     pre_existing.write_text("pre-existing inbox content\n", encoding="utf-8")
     pre_existing_mtime = pre_existing.stat().st_mtime
 
     with pytest.raises(ContractError, match="collision"):
-        propagate(src_ctx=src_ctx, dst_root=PEER_ROOT, commit="deadbeef")
+        propagate(src_ctx=src_ctx, dst_root=tmp_peer, commit="deadbeef")
 
     # Pre-existing content is unchanged.
     assert pre_existing.read_text(encoding="utf-8") == "pre-existing inbox content\n"
@@ -294,4 +310,4 @@ def test_propagate_collision_raises(tmp_path: Path) -> None:
     # The non-colliding sibling was NOT written either — the verb is
     # transactional, so a single collision aborts the whole batch.
     other_name = src_files[1].name[len("n_") :]
-    assert not (PEER_INBOX / other_name).exists()
+    assert not (tmp_peer_inbox / other_name).exists()
