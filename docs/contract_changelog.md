@@ -11,6 +11,32 @@ Format: one section per `contract_version`, newest first.
 
 ---
 
+## v0.8.3 - 2026-05-11 - test_propagate_collision_raises xdist-race hotfix
+
+Replaces `v0.8.2` at `_canon.yaml::contract_version`. Issued via the
+`myco molt --contract v0.8.3` agent-callable verb.
+`synced_contract_version` updated in lockstep.
+
+### What changed
+
+**Pure-test hotfix.** v0.8.2 CI passed Python 3.10/3.12/3.13 but
+flaked on Python 3.11 with
+`test_propagate_collision_raises - DID NOT RAISE ContractError`.
+Locally the test passed 3/3 in serial. The flake is xdist
+parallelism: under `pytest-xdist`'s parallel worker model, the
+collision test pre-wrote its trigger file to the **shared** `PEER_INBOX`,
+and a sibling test's autouse `_clean_peer_inbox` fixture wiped the
+inbox mid-test, leaving propagate to find no collision.
+
+Fix: clone the fixture peer to a per-test `tmp_path / "peer_substrate"`.
+The test now owns an isolated inbox no sibling cleanup can touch.
+
+### Break from v0.8.2
+
+**None.** Pure test-side change; no production behavior change.
+
+---
+
 ## v0.8.2 - 2026-05-11 - test_image_ocr CI skip hotfix
 
 Replaces `v0.8.1` at `_canon.yaml::contract_version`. Issued via the
