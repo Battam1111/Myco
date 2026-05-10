@@ -11,6 +11,44 @@ Format: one section per `contract_version`, newest first.
 
 ---
 
+## v0.8.1 - 2026-05-11 - Format-drift hotfix (CI-only)
+
+Replaces `v0.8.0` at `_canon.yaml::contract_version`. Issued via the
+`myco molt --contract v0.8.1` agent-callable verb.
+`synced_contract_version` updated in lockstep.
+
+### What changed
+
+**Pure-format hotfix.** v0.8.0 CI (run 25633978102) failed
+`ruff format --check` on three files that were edited AFTER the
+local `ruff format` pass during v0.8.0 prep:
+
+- `src/myco/boundary/surface/mcp_auth.py` (urllib.parse fix)
+- `tests/unit/ingestion/adapters/test_audio.py` (D subagent's file)
+- `tests/unit/ingestion/adapters/test_video_frames.py` (× → x RUF003 fix)
+
+Each had a small format drift (line continuation / trailing whitespace
+/ similar). `ruff format` re-applied; net diff ~6 insertions / 10
+deletions. Zero behavior change; zero test changes; zero new finding;
+no API drift.
+
+Per `docs/architecture/L2_DOCTRINE/release_discipline.md` § Rule 1
+(Two-Hour Blast-Radius), hotfixes within the MAJOR window are
+unrestricted; hotfix release type is HONEST and self-identifies as
+"hotfix" in commit + changelog + craft naming. v0.8.1 honors this
+discipline.
+
+### Break from v0.8.0
+
+**None.** Pure formatting; no symbol added, removed, or changed.
+v0.8.0 → v0.8.1 is a CI-badge-green hotfix; downstream substrate
+operators consuming v0.8.0 do NOT need to upgrade. PyPI / MCP
+Registry / GitHub Release will re-publish v0.8.1 because the release
+pipeline is tag-driven; the new artifacts are byte-identical to
+v0.8.0 except for the 3 reformatted files + version bump.
+
+---
+
 ## v0.8.0 - 2026-05-11 - MAJOR omnibus (the wager-refined release)
 
 Replaces `v0.7.10` at `_canon.yaml::contract_version`. Issued via the
