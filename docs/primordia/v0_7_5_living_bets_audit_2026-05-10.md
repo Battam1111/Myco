@@ -1,6 +1,6 @@
 # v0.7-MAJOR Living Bets Re-Audit
 
-> **Status**: DRAFT — AWAITING_OWNER_RATIFICATION (2026-05-10).
+> **Status**: **RATIFIED via Option B at v0.8.0** (2026-05-10). Owner directive: "选择 B，那么拜托了！". L0 amendment landed via `docs/primordia/v0_8_0_living_bets_amendment_2026-05-10.md`. The persistence-budget refinement (T3) is now part of L0 § "Appendix — Living bets" wording. Original draft text below preserved unchanged for audit-trail integrity.
 > **L0 cadence trigger**: `docs/architecture/L0_VISION.md` § "Appendix — Living bets" mandates re-audit at every MAJOR release (v0.6, v0.7, v1.0). v0.6.0 was audited inside the v0.6.0 unified-evolution craft. v0.7.0 (Major Autolysis, 2026-04-30) shipped without a Living-Bets audit. v0.7.5 retroactively performs the v0.7-MAJOR audit so the L0 cadence contract is honored.
 > **Authority**: this document does NOT amend `L0_VISION.md`. It records a re-audit. Owner ratifies (no change required) or escalates to L0 amendment via a separate craft.
 > **Predecessor audit**: implicit inside `docs/primordia/_landed/v0_6_0_unified_evolution_and_thorough_refactor_craft_2026-04-28.md` (v0.6.0).
