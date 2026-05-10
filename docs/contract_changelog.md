@@ -11,6 +11,54 @@ Format: one section per `contract_version`, newest first.
 
 ---
 
+## v0.7.10 - 2026-05-10 - Roadmap-to-v1.0 Omnibus (longest-march release)
+
+Replaces `v0.7.5` at `_canon.yaml::contract_version`. Issued via the
+`myco molt --contract v0.7.10` agent-callable verb.
+`synced_contract_version` updated in lockstep. Version label jumps
+v0.7.5 -> v0.7.10 (5-patch jump; v0.7.6/.7/.8/.9 burned without
+ever existing on PyPI / MCP Registry / git tags).
+
+### What changed
+
+13 substantive items shipped per the omnibus craft at
+`docs/primordia/v0_7_10_to_v1_0_omnibus_craft_2026-05-10.md`.
+Headlines:
+
+- **Lint**: +1 dim. **LB1** Living-Bets-overdue (semantic/LOW;
+  ramps to MEDIUM after 5 minor versions and HIGH after 10 since
+  the most recent Living Bets audit doc) closes the v0.7.5 P1 IOU
+  to mechanize the L0 every-MAJOR re-audit cadence. 51 dims total.
+- **Adapters**: +3. SQLite + email/mbox + git-history. Stdlib-only
+  implementations bring the ingestion roster to 10 modalities.
+- **Federation**: `propagate()` API generalized from `dst_root: Path`
+  to `dst_roots: list[Path] | Path` with cross-peer transactional
+  semantics. Backward-compat preserved for legacy single-peer callers.
+- **L2 doctrine**: new `docs/architecture/L2_DOCTRINE/release_discipline.md`
+  promotes 5 rules from the v0.7.x cycle distillation.
+- **Living Bets**: v0.7-MAJOR re-audit RATIFIED (Option A).
+- **Pytest shim migration**: `myco.mcp` -> `myco.boundary.mcp` test sweep.
+- **HTTP/OAuth verification**: 5 passed + 2 xfail + 1 xpass with
+  4 concrete gaps documented at `docs/iou/v0_7_10_streamable_http_gaps.md`.
+- **Examples smoke tests**: 8 demos x 17 passes + 8 honest importorskip.
+- **.myco/plugins/ reference**: first production exercise of the
+  per-substrate plugin loader. 8 tests pass.
+- **Self-eat backlog**: 33 historical crafts ingested. Notes:
+  integrated 7->40, distilled 2->5. Three cluster retrospectives
+  with synthesis content.
+- **Graph benchmark suite**: 5 scale tests (skip-by-default).
+
+Test count: 1601 -> 1710 (+109; auto-refreshed by bump_version.py).
+
+### Break from v0.7.5
+
+Internal only. `propagate()` adds `dst_roots: list[Path] | Path`
+parameter alongside the existing `dst_root: Path` (exactly one
+required). Legacy single-peer callers using `dst_root=` keyword
+continue to work without modification. Surface contract: no breaks.
+
+---
+
 ## v0.7.5 - 2026-05-10 - P0-P6 omnibus close-every-gap
 
 Replaces `v0.7.4` at `_canon.yaml::contract_version`. Issued via the
