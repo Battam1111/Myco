@@ -179,6 +179,11 @@
           "type": "integer",
           "description": "Substrate-cited pytest count.",
           "minimum": 0
+        },
+        "lint_dim_count": {
+          "type": ["integer", "null"],
+          "description": "Substrate-cited count of registered immune lint dimensions. Added at v0.7.5 (schema v3). `null` on canons that pre-date schema v3 or were observed cold by the upgrader chain; populated to the live registry count on fresh `myco germinate` and refreshed by `scripts/bump_version.py` on every contract bump (closes the README/canon drift loop). Authorising craft: `docs/primordia/v0_7_5_p0_to_p6_omnibus_craft_2026-05-10.md` (P2).",
+          "minimum": 0
         }
       }
     },

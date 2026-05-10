@@ -50,7 +50,14 @@ __all__ = [
 #: Schema versions this kernel knows how to read without invoking the
 #: upgrader chain. Bumping requires concurrent L1 ``canon_schema.md``
 #: revision + a ``contract_changelog.md`` entry.
-KNOWN_SCHEMA_VERSIONS: frozenset[str] = frozenset({"1", "2"})
+#:
+#: v0.7.5 adds ``"3"`` for the ``metrics.lint_dim_count`` field
+#: introduced by craft
+#: ``docs/primordia/v0_7_5_p0_to_p6_omnibus_craft_2026-05-10.md`` (P2).
+#: The frozenset retains ``"1"`` and ``"2"`` so cold-reads of
+#: un-upgraded older substrates remain warning-free even if the
+#: upgrader chain is ever unregistered for testing.
+KNOWN_SCHEMA_VERSIONS: frozenset[str] = frozenset({"1", "2", "3"})
 
 #: Registry of canon schema upgraders, forward-compat seam.
 #:
@@ -213,6 +220,86 @@ def _v1_to_v2(raw: Mapping[str, Any]) -> Mapping[str, Any]:
     return data
 
 
+def _v2_to_v3_lint_dim_count_field(raw: Mapping[str, Any]) -> Mapping[str, Any]:
+    """v0.7.5 schema v3 partial upgrader (1 of 1): add metrics.lint_dim_count.
+
+    Adds ``metrics.lint_dim_count: int | null`` to canons that pre-date
+    schema v3. The field is the canon-cited count of registered lint
+    dimensions, kept in sync by ``scripts/bump_version.py`` on every
+    contract bump (per craft P2 wiring). On a v2 substrate observed
+    cold (no recent ``myco molt`` run), the field defaults to ``None``;
+    a fresh ``myco germinate`` populates it directly from the live
+    immune registry.
+
+    Behaviour:
+
+    - If ``metrics`` is absent or non-dict, an empty ``{}`` mapping is
+      seeded so the field has a place to live; this matches the
+      forward-compat additive style used by
+      ``_v1_to_v2_federation_peers_field``.
+    - If ``metrics.lint_dim_count`` is already present (the operator
+      hand-edited the canon, or a fresh germinate stamped it), the
+      existing value is preserved untouched — idempotent.
+    - The ``schema_version`` stamp is the registered ``_v2_to_v3``
+      wrapper's job; this partial only mutates ``metrics``.
+
+    Per craft v0.7.5 omnibus (item P2) this is a single-semantic
+    upgrader; the v0.6.0 narrowness principle (one partial = one
+    semantic) is preserved trivially because v3 introduces only one
+    field. Future v3.x partials in the same upgrader generation MUST
+    each occupy their own ``_v2_to_v3_<purpose>`` function.
+
+    Cross-references:
+
+    - L1 doctrine: ``docs/architecture/L1_CONTRACT/canon_schema.md``
+      § "v0.6.0+ schema v2 additions" (extended at v0.7.5 to cover
+      ``metrics.lint_dim_count``).
+    - Governing craft: ``docs/primordia/v0_7_5_p0_to_p6_omnibus_craft_
+      2026-05-10.md`` § "P2 — First real schema migration since v0.6.0".
+    """
+    data = dict(raw)
+    metrics_raw = data.get("metrics")
+    if not isinstance(metrics_raw, dict):
+        # Absent OR malformed (string/list/etc.). Seed a fresh dict so
+        # the field has a home; load_canon's ``_mapping("metrics")``
+        # check would have raised on a non-dict anyway, but the
+        # upgrader runs *before* that check, so we guard defensively.
+        metrics_raw = {}
+    metrics = dict(metrics_raw)
+    if "lint_dim_count" not in metrics:
+        metrics["lint_dim_count"] = None
+    data["metrics"] = metrics
+    return data
+
+
+def _v2_to_v3(raw: Mapping[str, Any]) -> Mapping[str, Any]:
+    """v0.7.5 schema v3 upgrader. Composes one named partial upgrader.
+
+    Sequence:
+        v2 raw → _v2_to_v3_lint_dim_count_field
+               → v3 stamped
+
+    A single-partial upgrader looks like overkill compared to v1→v2's
+    three-partial chain, but the wrapper structure is preserved so
+    future v3.x semantic additions (should they arrive before v4)
+    have an obvious place to insert. Per craft v0.7.5 omnibus (P2)
+    the narrowness principle holds: one partial = one semantic.
+    """
+    intermediate = _v2_to_v3_lint_dim_count_field(raw)
+    data = dict(intermediate)
+    data["schema_version"] = "3"
+    return data
+
+
+#: v0.7.5 registers the v2 → v3 upgrader. Substrates on schema v2
+#: (any v0.6.x or v0.7.0-v0.7.4 release) parse cleanly through this
+#: path with no warning. The chain is ``v1 → v2 → v3`` —
+#: ``_apply_upgraders`` walks recursively, so a v1 substrate first
+#: lifts to v2 via ``schema_upgraders["1"]`` and then to v3 via
+#: ``schema_upgraders["2"]`` in a single ``load_canon`` call.
+schema_upgraders["2"] = _v2_to_v3
+
+
 def _merge_lint_dimensions_subfile(
     raw: Mapping[str, Any], canon_path: Path
 ) -> Mapping[str, Any]:
@@ -269,11 +356,26 @@ def _apply_upgraders(
     *,
     _seen: frozenset[str] | None = None,
 ) -> Mapping[str, Any]:
-    """Chain-apply :data:`schema_upgraders` until version is known.
+    """Chain-apply :data:`schema_upgraders` to the latest registered version.
+
+    Walks the upgrader chain until no further upgrader applies,
+    naturally terminating at the latest schema version this kernel
+    knows how to mint. Raises ``CanonSchemaError`` on cycles.
+
+    v0.7.5 amendment: the previous implementation early-exited when
+    ``next_version in KNOWN_SCHEMA_VERSIONS``. That was sound at v0.6.0
+    (when v2 was simultaneously the latest AND the only chained-into
+    version), but became wrong at v0.7.5 — a v1 substrate would have
+    lifted to v2 and stopped, missing the v3 ``metrics.lint_dim_count``
+    field. The natural-termination rule (``upgrader is None``) preserves
+    the "you never migrate again" promise across N≥3 chained versions
+    without needing to track which version is "latest" separately. Old
+    versions stay in ``KNOWN_SCHEMA_VERSIONS`` for cold-read backward
+    compatibility (their absence-of-upgrader is what stops the chain).
 
     Returns ``raw`` unchanged (same identity) if no upgrader matches
-    the observed version, signalling the caller to emit a warning and
-    proceed best-effort. Raises ``CanonSchemaError`` on cycles.
+    the observed version at the very first call; later steps may have
+    applied transformations and we return the most-upgraded shape.
     """
     seen = _seen or frozenset()
     if version in seen:
@@ -283,8 +385,11 @@ def _apply_upgraders(
         return raw
     upgraded = upgrader(dict(raw))
     next_version = str(upgraded.get("schema_version", version))
-    if next_version in KNOWN_SCHEMA_VERSIONS:
-        return upgraded
+    # A self-pointing upgrader (next_version == version) IS a cycle and
+    # must surface as CanonSchemaError, not silently terminate. The
+    # `seen` set at the recursive entry catches it on the next visit.
+    # v0.7.5 retraction of an over-defensive early-exit that masked
+    # ``test_schema_upgrader_cycle_raises``.
     return _apply_upgraders(next_version, upgraded, _seen=seen | {version})
 
 

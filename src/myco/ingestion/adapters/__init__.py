@@ -83,5 +83,10 @@ _try_register("myco.ingestion.adapters.url_fetcher.UrlFetcher")
 _try_register("myco.ingestion.adapters.pdf_reader.PdfReader")
 _try_register("myco.ingestion.adapters.html_reader.HtmlReader")
 _try_register("myco.ingestion.adapters.tabular.TabularReader")
+# Chat-log must register before text-file: a ``.chat.md`` would
+# otherwise match TextFileAdapter's broad ``.md`` claim and be
+# ingested as a single opaque blob, losing turn structure (L0 P2
+# "conversation fragment" intent).
+_try_register("myco.ingestion.adapters.chat_log.ChatLogAdapter")
 _try_register("myco.ingestion.adapters.code_repo.CodeRepoAdapter")
 _try_register("myco.ingestion.adapters.text_file.TextFileAdapter")

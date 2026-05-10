@@ -132,6 +132,9 @@ subsystems:
 """
     (tmp_path / "_canon.yaml").write_text(canon_text, encoding="utf-8")
     canon = load_canon(tmp_path / "_canon.yaml")
-    # Auto-upgrade: schema_version now 2; llm_policy enum present
-    assert canon.schema_version == "2"
+    # v0.6.0: auto-upgrade lifted v1→v2; llm_policy enum present.
+    # v0.7.5: chain extends to v3, so end-state is "3" with
+    # metrics.lint_dim_count seeded to None.
+    assert canon.schema_version == "3"
     assert (canon.system or {}).get("llm_policy") == "forbidden"
+    assert (canon.metrics or {}).get("lint_dim_count") is None

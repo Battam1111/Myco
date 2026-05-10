@@ -13,10 +13,13 @@ from myco.core.errors import CanonSchemaError
 def test_minimal_valid_parses(seeded_substrate: Path) -> None:
     c = load_canon(seeded_substrate / "_canon.yaml")
     assert isinstance(c, Canon)
-    # v0.6.0: v1 substrates are silently auto-upgraded to v2 by the
-    # registered _v1_to_v2 chain. The fixture writes schema_version "1";
-    # load_canon returns "2" without warning.
-    assert c.schema_version == "2"
+    # v0.6.0: v1 substrates are silently auto-upgraded by the
+    # registered _v1_to_v2 chain. v0.7.5: the chain extends to v3
+    # via _v2_to_v3, so the fixture (schema_version "1") now lands
+    # at "3" without warning. ``metrics.lint_dim_count`` is seeded
+    # to ``None`` by the v2→v3 partial.
+    assert c.schema_version == "3"
+    assert c.metrics.get("lint_dim_count") is None
     assert c.contract_version == "v0.4.0-alpha.1"
     assert c.substrate_id == "test-substrate"
     assert c.tags == ("test",)
@@ -86,6 +89,15 @@ def test_schema_upgrader_runs_and_silences_warning(
     we use a hypothetical "999" → "2" upgrader chain to demonstrate the
     silencing behavior. The actual production upgrader (`_v1_to_v2`)
     is exercised by `test_canon_schema_v1_to_v2.py` (separate file).
+
+    v0.7.5 update: ``_apply_upgraders`` no longer early-exits when the
+    next version happens to be in ``KNOWN_SCHEMA_VERSIONS`` — it walks
+    the chain to the latest registered version (no upgrader). So a
+    "999" → "2" hop now continues "2" → "3" via the production v2→v3
+    upgrader. The end-state observed by ``load_canon`` is therefore
+    "3" (the latest), not "2". The silencing-warning property is what
+    this test pins; the exact landing version drifts forward whenever
+    a new schema version ships, which is the point of the chain.
     """
     from myco.core import canon as _canon
 
@@ -106,7 +118,8 @@ def test_schema_upgrader_runs_and_silences_warning(
         with _w.catch_warnings():
             _w.simplefilter("error")  # any UserWarning would raise
             c = load_canon(p)
-        assert c.schema_version == "2"
+        # v0.7.5: chain runs to latest. "999" → "2" → "3".
+        assert c.schema_version == "3"
     finally:
         _canon.schema_upgraders.pop("999", None)
 
