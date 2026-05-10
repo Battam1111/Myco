@@ -1,0 +1,11 @@
+{
+  "name": "example_overlay",
+  "version": "0.1.0",
+  "kind": "substrate-local",
+  "entry_point": "example_overlay",
+  "contributions": {
+    "dimensions": ["XYZ1"],
+    "overlay_verbs": ["example-echo"]
+  },
+  "description": "Reference Myco substrate-local plugin: ships one LOW semantic dimension (XYZ1, fires when raw_backlog > 100) and one trivial overlay verb (example-echo, echoes its --message argument). The first production plugin against the L0 P5 per-substrate axis."
+}

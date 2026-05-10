@@ -1,0 +1,35 @@
+# manifest_overlay.yaml — substrate-local verb declarations.
+#
+# Read by myco.boundary.surface.manifest.load_manifest_with_overlay
+# at dispatch time. Every entry under ``commands:`` becomes an
+# invokable verb on substrates that ship this overlay; the handler:
+# field points at a callable in the substrate's ``.myco/plugins/``
+# tree (via the import path ``plugins.<subpackage>:<function>``,
+# which the loader makes resolvable by injecting ``<root>/.myco/``
+# onto sys.path at Substrate.load() time).
+#
+# This fixture's overlay declares one verb (example-echo) whose
+# handler is a function in tests/integration/fixtures/.myco/plugins/
+# example_overlay/__init__.py. Schema is documented in
+# src/myco/boundary/surface/manifest.py::load_manifest_with_overlay.
+schema_version: "1"
+commands:
+  - name: example-echo
+    subsystem: ext
+    handler: plugins.example_overlay:example_echo_handler
+    summary: Echo a string back through the overlay-verb dispatch path.
+    description: >
+      Reference overlay verb shipped by the example_overlay
+      substrate-local plugin. Takes one required string argument
+      ``message`` and returns it verbatim in the result payload.
+      Trivial by design — exercises the L0 P5 per-substrate
+      extensibility axis without coupling to substrate semantics.
+    mcp_tool: myco_example_echo
+    args:
+      - name: message
+        type: str
+        required: true
+        help: The string to echo back. Returned unchanged in payload.message.
+        examples:
+          - hello world
+          - decision recorded at 2026-05-10T12:00:00Z
