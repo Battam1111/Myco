@@ -480,9 +480,7 @@ def install_redaction_filter_on_loggers(
             logger._myco_redaction_installed = True  # type: ignore[attr-defined]
 
 
-def prepare_fastmcp_oauth_prelude() -> tuple[
-    dict[str, Any], MycoOAuthProvider | None
-]:
+def prepare_fastmcp_oauth_prelude() -> tuple[dict[str, Any], MycoOAuthProvider | None]:
     """One-call OAuth + redaction prelude for ``build_server``.
 
     Reads canon governance + env vars, constructs the OAuth provider

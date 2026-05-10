@@ -125,9 +125,7 @@ def test_can_handle_rejects_oversize(tmp_path: Path, monkeypatch) -> None:
     actually creating a 100 MB file — the cap mechanic itself is
     independent of the constant value.
     """
-    monkeypatch.setattr(
-        "myco.ingestion.adapters.audio.DEFAULT_MAX_AUDIO_BYTES", 100
-    )
+    monkeypatch.setattr("myco.ingestion.adapters.audio.DEFAULT_MAX_AUDIO_BYTES", 100)
     p = _make_audio_stub(tmp_path, "big.wav", size=200)
     assert AudioAdapter().can_handle(str(p)) is False
 
@@ -168,9 +166,7 @@ def test_ingest_oversize_returns_failed_stub(
     Even with whisper available, the size-cap branch fires before
     the lazy import so we don't need to mock whisper here.
     """
-    monkeypatch.setattr(
-        "myco.ingestion.adapters.audio.DEFAULT_MAX_AUDIO_BYTES", 100
-    )
+    monkeypatch.setattr("myco.ingestion.adapters.audio.DEFAULT_MAX_AUDIO_BYTES", 100)
     p = _make_audio_stub(tmp_path, "big.mp3", size=500)
     adapter = AudioAdapter()
     # can_handle rejects BEFORE any import attempt.

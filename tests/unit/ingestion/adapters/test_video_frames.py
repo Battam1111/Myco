@@ -392,7 +392,9 @@ def test_ingest_all_frames_empty_returns_failed_stub_chain(
     # 3 per-frame failed-stubs + 1 overall = 4 total.
     assert len(results) == 4
     assert all(r.status == "failed" for r in results)
-    per_frame = [r for r in results if r.metadata.get("kind") == "video-frame-ocr-empty"]
+    per_frame = [
+        r for r in results if r.metadata.get("kind") == "video-frame-ocr-empty"
+    ]
     assert len(per_frame) == 3
     overall = [r for r in results if "all sampled frames" in r.failure_reason]
     assert len(overall) == 1
