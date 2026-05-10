@@ -100,18 +100,23 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         return 2
 
-    # v0.6.0: streamable-http transport receives extra config.
+    # v0.8.0 gap §1 closure: ``FastMCP.run`` (mcp>=1.27) accepts only
+    # ``(transport, mount_path)``. The host / port / streamable_http_path
+    # the user requests on the CLI must be applied to ``server.settings``
+    # BEFORE ``.run()`` so ``run_streamable_http_async`` reads them when
+    # it constructs the uvicorn server. Previously the launcher passed
+    # ``host=`` / ``port=`` directly to ``.run()`` which always raised
+    # ``TypeError`` and silently fell through to the construction-time
+    # defaults — making the CLI flags dead code.
     if args.transport == "streamable-http":
-        try:
-            server.run(
-                transport=args.transport,
-                host=args.host,
-                port=args.port,
-                mount_path=args.mount_path,
-            )
-        except TypeError:
-            # FastMCP older signature fallback.
-            server.run(transport=args.transport)
+        # ``mount_path`` semantics: in mcp>=1.27, ``--mount-path`` controls
+        # the path the streamable-HTTP endpoint is exposed on (default
+        # ``/mcp``). Setting it on ``settings.streamable_http_path`` is
+        # what the underlying ASGI route uses.
+        server.settings.host = args.host
+        server.settings.port = args.port
+        server.settings.streamable_http_path = args.mount_path
+        server.run(transport=args.transport)
     else:
         server.run(transport=args.transport)
     return 0

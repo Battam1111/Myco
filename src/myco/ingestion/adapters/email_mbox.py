@@ -147,6 +147,8 @@ class _HtmlToText(HTMLParser):
         self._skip_depth = 0
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        """Open a tag: bump the skip counter for ``script``/``style``/``head``
+        and emit a newline for block-level openers so block flow survives."""
         if tag.lower() in self._SKIP_TAGS:
             self._skip_depth += 1
         # Translate <br> and block-level openers to newlines so the
@@ -156,16 +158,22 @@ class _HtmlToText(HTMLParser):
             self._chunks.append("\n")
 
     def handle_endtag(self, tag: str) -> None:
+        """Close a tag: decrement the skip counter for ``script``/``style``/
+        ``head`` and emit a newline for block closers (``p``/``div``/``li``/``tr``)."""
         if tag.lower() in self._SKIP_TAGS and self._skip_depth > 0:
             self._skip_depth -= 1
         if tag.lower() in {"p", "div", "li", "tr"}:
             self._chunks.append("\n")
 
     def handle_data(self, data: str) -> None:
+        """Accumulate text content unless we are inside a skipped subtree
+        (``script``/``style``/``head``), whose data is dropped wholesale."""
         if self._skip_depth == 0:
             self._chunks.append(data)
 
     def get_text(self) -> str:
+        """Return the accumulated text with per-line whitespace trimmed and
+        runs of blank lines collapsed to single paragraph breaks."""
         # Collapse repeated blank lines and trim per-line whitespace
         # so an HTML body doesn't render as one indented soup.
         raw = "".join(self._chunks)

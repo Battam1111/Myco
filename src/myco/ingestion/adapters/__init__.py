@@ -111,5 +111,20 @@ _try_register("myco.ingestion.adapters.email_mbox.EmailMboxAdapter")
 # claim it (it's a directory) and emit hundreds of useless raw notes
 # from the object store. Registering git-history first wins both.
 _try_register("myco.ingestion.adapters.git_history.GitHistoryAdapter")
+# v0.8.0 multimedia adapters (audio / image-OCR / video-frame). Each
+# is gated behind the ``[multimedia]`` extras: module import stays
+# stdlib-only (heavy deps lazy-imported inside ``ingest()``), so these
+# always register successfully even when the extras aren't installed.
+# Order ahead of code_repo + text_file: their extension claims
+# (``.mp3``, ``.png``, ``.mp4``, etc.) are more specific than the
+# generic text-file fallback, and code_repo is directory-scope so
+# wouldn't claim individual media files anyway. Among themselves:
+# audio → image_ocr → video_frames per the v0.8.0 craft, matching the
+# size-cap ladder (100 MB → 50 MB → 500 MB) and the modality-
+# decisiveness ladder (audio is mono-segment-rich, OCR is single-
+# block, video is frame-sampled).
+_try_register("myco.ingestion.adapters.audio.AudioAdapter")
+_try_register("myco.ingestion.adapters.image_ocr.ImageOcrAdapter")
+_try_register("myco.ingestion.adapters.video_frames.VideoFramesAdapter")
 _try_register("myco.ingestion.adapters.code_repo.CodeRepoAdapter")
 _try_register("myco.ingestion.adapters.text_file.TextFileAdapter")

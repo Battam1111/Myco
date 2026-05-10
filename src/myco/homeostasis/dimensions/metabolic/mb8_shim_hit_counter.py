@@ -2,7 +2,9 @@
 
 Governing doctrine: ``docs/architecture/L2_DOCTRINE/homeostasis.md``
 § "永恒删减 (eternal pruning)" — the v0.7.2 ratchet that mechanizes the
-v0.7.1-named **public-API-deletion discipline**.
+v0.7.1-named **public-API-deletion discipline**. The deletion gates this
+dim implements are codified at ``docs/architecture/L2_DOCTRINE/release_discipline.md``
+§ "Rule 1 — The Two-Hour Blast-Radius Rule" (v0.7.10).
 
 A back-compat shim package (e.g. ``src/myco/mcp/`` re-exporting
 ``myco.boundary.mcp``) cannot be safely deleted while downstream
