@@ -11,6 +11,89 @@ Format: one section per `contract_version`, newest first.
 
 ---
 
+## v0.7.5 - 2026-05-10 - P0-P6 omnibus close-every-gap
+
+Replaces `v0.7.4` at `_canon.yaml::contract_version`. Issued via the
+`myco molt --contract v0.7.5` agent-callable verb.
+`synced_contract_version` updated in lockstep.
+
+### What changed
+
+**Schema v2 → v3** (additive). New optional field
+`metrics.lint_dim_count: int | null`. Substrates at v2 transparently
+upgrade on next `load_canon` call. See
+[`docs/migration/v0_7_4_to_v0_7_5.md`](migration/v0_7_4_to_v0_7_5.md)
+for operator notes (no operator action required).
+
+**Seven items shipped together** (per
+[`docs/primordia/v0_7_5_p0_to_p6_omnibus_craft_2026-05-10.md`](primordia/v0_7_5_p0_to_p6_omnibus_craft_2026-05-10.md)):
+
+- **P0** Owner's `claude_desktop_config.json` migrated `myco.mcp` →
+  `myco.boundary.mcp`. MB8 shim sunset gate begins counting (≥7 cycles
+  + ≥7 days zero-hit; earliest `src/myco/mcp/` deletion = 2026-05-15).
+- **P1** Living Bets v0.7-MAJOR re-audit
+  ([`docs/primordia/v0_7_5_living_bets_audit_2026-05-10.md`](primordia/v0_7_5_living_bets_audit_2026-05-10.md))
+  honors L0 cadence ("every MAJOR re-audits"; v0.7.0 missed; v0.7.5
+  backfills). Bet stands; 3 ratification options (A/B/C) for owner.
+  Status: DRAFT — AWAITING_OWNER_RATIFICATION.
+- **P2** First real schema migration since v0.6.0. anamorph subagent
+  authored partial + composer + 11 tests + schema delta + 1100-word
+  migration guide. `_apply_upgraders` now walks to the latest
+  registered version. `scripts/bump_version.py` auto-refreshes
+  `metrics.test_count` + `metrics.lint_dim_count` from live
+  measurements every molt — closes the README/canon drift loop
+  structurally. Cycle-detection regression caught and fixed.
+- **P3** First real federation E2E test in propagate's 7-minor history.
+  `tests/integration/fixtures/peer_substrate/` ships as a real second
+  substrate; 5 tests exercise `propagate()` filesystem-to-filesystem.
+- **P4** Self-eat: ingested 5 v0.7.x crafts via the actual
+  `eat → assimilate → sporulate` verb chain. Distilled synthesis at
+  [`notes/distilled/d_v0-7-x-release-cycle-retrospective.md`](../notes/distilled/d_v0-7-x-release-cycle-retrospective.md)
+  crystallizes 5 doctrinal observations (Two-hour blast-radius rule;
+  Ratchet dims as eternal pruning; External-bug workaround discipline;
+  Hotfix cadence honesty; L2 codification as the seal). Notes counts
+  on Myco-self: integrated 2 → 7, distilled 1 → 2.
+- **P5** Chat-log ingestion adapter (7th adapter). Markdown
+  (`## user:` / `## assistant:` / `## system:` headers, bold variants)
+  + JSONL (`{role, content}` per line). Extension fast-path +
+  content-sniff fallback. 16 tests. Credential deny-list extended
+  (`.aws_credentials.*`).
+- **P6** Operational debt: README × 3 (en/zh/ja) "46 lint dimensions"
+  → "50 lint dimensions". `docs/contract_changelog.md` v0.7.3 stub
+  backfilled with retrospective entry. `metrics.test_count` /
+  `metrics.lint_dim_count` now self-refreshing forever.
+
+### Test count delta
+
+1568 → 1601 (+33: 11 schema upgrader + 5 federation + 16 chat-log + 1
+parametrize-expansion).
+
+### Lint state
+
+immune exit_code 0. Findings: 1 MEDIUM MB8 (shim hits 28 — sunset gate
+counting from this release). Zero HIGH. Zero LOW (the 5 transient SE2
+LOW findings on freshly-eaten notes cleared once their distilled-doc
+back-references registered in the graph).
+
+### Cloud delta
+
+- **PyPI**: `myco-0.7.5-py3-none-any.whl` + `myco-0.7.5.tar.gz` via
+  trusted-publisher OIDC.
+- **MCP Registry**: `io.github.Battam1111/myco@0.7.5` server card via
+  github-oidc, `isLatest=true`.
+- **GitHub Release**: `v0.7.5` with `myco-0.7.5.zip` attached.
+
+### Break from v0.7.4
+
+**Internal contract drift only**: `myco.core.canon._apply_upgraders`'s
+recursion shape changed — it now walks to the latest registered
+schema version instead of early-exiting at the first
+`KNOWN_SCHEMA_VERSIONS` hit. Downstream code that asserted
+intermediate v2 shape after `load_canon` must update assertions
+(canon now lifts v1 → v2 → v3 in one call). Surface API: no breaks.
+
+---
+
 ## v0.7.4 - 2026-05-09 - Cowork plugin extension `.plugin` -> `.zip` hotfix
 
 Replaces `v0.7.3` at `_canon.yaml::contract_version`. Issued via the

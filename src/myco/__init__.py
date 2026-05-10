@@ -28,4 +28,4 @@ not a version increment; it is "the same 0.6.0 release with a fresh
 artifact name".
 """
 
-__version__ = "0.7.4"
+__version__ = "0.7.5"
