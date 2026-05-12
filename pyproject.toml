@@ -270,14 +270,16 @@ include = [
   "/_canon.yaml",
   "/MYCO.md",
   "/README.md",
-  "/README_zh.md",
-  "/README_ja.md",
   "/CHANGELOG.md",
-  "/CONTRIBUTING.md",
   "/LICENSE",
   "/pyproject.toml",
   "/docs/INSTALL.md",
 ]
+# v0.8.4 root-cleanup (2026-05-12): README_zh.md + README_ja.md moved
+# under docs/i18n/ (covered by /docs glob above); CONTRIBUTING.md +
+# CODE_OF_CONDUCT.md + SECURITY.md + CITATION.cff moved under .github/
+# (covered by /.github glob above). Explicit per-file include entries
+# for these moved files were removed; the glob coverage is unchanged.
 exclude = [
   "/.release_notes_*.md",
   "/upload*.log",

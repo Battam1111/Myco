@@ -154,7 +154,12 @@ def main() -> int:
         target,
         args.dry_run,
     )
-    changes += _bump_citation_cff(REPO / "CITATION.cff", target, args.dry_run)
+    # v0.8.4 root-cleanup (2026-05-12): CITATION.cff moved from repo
+    # root to .github/ (GitHub's citation feature auto-discovers
+    # either location). Path updated; bumping logic unchanged.
+    changes += _bump_citation_cff(
+        REPO / ".github" / "CITATION.cff", target, args.dry_run
+    )
     changes += _bump_server_json(REPO / "server.json", target, args.dry_run)
     for line in changes:
         print("  " + line)

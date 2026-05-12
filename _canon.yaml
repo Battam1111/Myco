@@ -61,7 +61,6 @@ system:
       - ".cowork-plugin/**"
       # v0.5.11 MCP Registry onboarding.
       - "server.json"
-      - "CITATION.cff"
       # v0.5.13 Dockerfile for OCI introspection.
       - "Dockerfile"
       - ".dockerignore"
@@ -85,9 +84,12 @@ system:
       # CODEOWNERS + ISSUE_TEMPLATE + workflows + SECURITY policy).
       # Glama maintenance "security health" 15% factor reads SARIF +
       # public Scorecard registry; PA1 dim now counts these as
-      # canonical agent-write paths.
+      # canonical agent-write paths. v0.8.4 root-cleanup (2026-05-12):
+      # SECURITY.md, CODE_OF_CONDUCT.md, CONTRIBUTING.md, CITATION.cff
+      # moved here from repo root; the .github/** glob covers all
+      # four. README_zh.md + README_ja.md moved under docs/i18n/
+      # (covered by docs/**).
       - ".github/**"
-      - "SECURITY.md"
   hard_contract:
     rules_ref: "docs/architecture/L1_CONTRACT/protocol.md"
     rule_count: 7
