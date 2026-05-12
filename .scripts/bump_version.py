@@ -175,11 +175,16 @@ def main() -> int:
             return 4
 
     # v0.7.3 — sync plugin mirrors. Idempotent; ensures
-    # `.claude/{agents,commands}/X.md` ↔ `<repo>/{agents,commands}/X.md`
+    # `.claude/{agents,commands}/X.md` ↔ `.plugin/{agents,commands}/X.md`
     # are byte-identical before the molt commit. Runs always (even
     # with --skip-molt) because the molt commit captures the synced
     # state regardless of whether contract bumps.
-    sync_cmd = [sys.executable, "scripts/sync_plugin_mirrors.py"]
+    #
+    # v0.8.6 path-correction: `scripts/` → `.scripts/` per the v0.8.4
+    # root-cleanup hidden-prefix layout. The bumper was missed by the
+    # v0.8.4 sweep; running it on Myco-self failed at this line with
+    # `[Errno 2] No such file or directory`.
+    sync_cmd = [sys.executable, ".scripts/sync_plugin_mirrors.py"]
     print(f"\n→ [sync_plugin_mirrors] {' '.join(sync_cmd)}")
     rc = subprocess.call(sync_cmd, cwd=REPO)
     if rc != 0:
