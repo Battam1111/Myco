@@ -65,7 +65,7 @@ Myco はあなたの AI エージェントの生きた認知基層です。
 - **摂取（Ingestion）。** `hunger` が何が足りないかを尋ねます。`eat` はあなたが指したものを何でも取り込みます。パス、URL、一段落、何でも。`sense` と `forage` はすでに手元にある素材を走査します。`excrete` は、誤って捕獲した raw ノート（タイプミス、取り違え、重複）を、サイレント削除ではなく監査用の墓石へ安全に移します。`intake`（v0.6.0）はディレクトリを一括摂取し、forage + eat を strict-mode 失敗可視性付きで合成します。
 - **消化（Digestion）。** `assimilate` は raw ノートを統合知識へ一括で煮込みます。`digest` は単一ノートを昇格させます。`sporulate` は統合知識を散布可能な提案へ濃縮します。
 - **循環（Circulation）。** `traverse` はグラフを辿り、その連結性を報告します。`propagate` は学びを下流 substrate へ発行します。
-- **恒常性（Homeostasis）。** `immune` は 7 条のハードルールに対して 46 次元の lint を走らせます。`senesce` は各セッションを綺麗に閉じます。
+- **恒常性（Homeostasis）。** `immune` は 7 条のハードルールに対して 50 次元の lint を走らせます。`senesce` は各セッションを綺麗に閉じます。
 - **進化（Evolution）。** 基層の形が仕事の形に合わなくなったとき（canon フィールドが足りない、新しい lint 次元が必要、verb を変えたい）、`fruit` が 3 ラウンドの craft 提案を書き、`winnow` が形を篩い、`molt` が contract バンプを出荷します。
 
 20 の verb、1 つの manifest、2 つの面。あなたが観察するための CLI、エージェントが駆動するための MCP サーバー。あなたは何も覚える必要がありません。駆動するのはエージェントです。
@@ -116,7 +116,7 @@ Myco をエージェントホストに 1 コマンドで組み込みます。
 - **Ingestion。** `hunger`（何が足りない？）、`eat`（raw を取り込む）、`sense`（キーワード検索）、`forage`（取り込み可能パスを走査）、`excrete`（監査用墓石付きで raw ノートを安全に削除）。
 - **Digestion。** `assimilate`（raw から integrated へ、一括）、`digest`（単一ノートの昇格）、`sporulate`（integrated から散布可能な提案へ）。
 - **Circulation。** `traverse`（グラフを辿る）、`propagate`（下流 substrate へ発行）。
-- **Homeostasis。** `immune`（46 次元 lint、`--fix` で機械的に直せるものは直す）。
+- **Homeostasis。** `immune`（50 次元 lint、`--fix` で機械的に直せるものは直す）。
 - **Cycle。** `senesce`（セッション休眠）、`fruit`（3 ラウンドの craft）、`winnow`（craft の形を篩う）、`molt`（contract バンプの出荷）、`ramify`（新しい次元、verb、adapter を scaffold）、`graft`（substrate ローカルプラグイン管理）、`brief`（人間向け状態ロールアップ）。
 
 すべての verb は [`src/myco/boundary/surface/manifest.yaml`](../../src/myco/boundary/surface/manifest.yaml) に住みます。CLI（`myco VERB`）も MCP tool 表面も、この manifest から機械的に派生します。2 つの面にとって、1 つの真理の源。下流 substrate は、Myco を fork することなく、自前の dimensions や verb を `.myco/plugins/` に `ramify` できます。

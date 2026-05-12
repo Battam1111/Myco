@@ -49,7 +49,7 @@ quality over substrate integrity.
 |---|---|---|
 | Lifetime | Tied to chain object | Tied to filesystem (survives every process lifetime) |
 | Retrieval | Embedding similarity | Explicit cross-reference + keyword (`myco sense`) |
-| Drift detection | None built-in | 46 lint dimensions |
+| Drift detection | None built-in | 50 lint dimensions |
 | Governance | None | `fruit` → `winnow` → `molt` 3-round loop |
 | Multi-host | One-chain-one-memory | One filesystem, many hosts |
 | Churn | Fast (LangChain minor bumps frequently) | Slow (R1-R7 contract stable across 10+ molts) |
@@ -112,7 +112,7 @@ no egress cost + MIT-licensed transparency.
 | Primary target | Document knowledge graphs (RAG++) | Agent substrate |
 | Graph source | LLM-extracted entities + vector similarity | Explicit cross-refs (canon `_ref` fields, markdown links, AST imports) |
 | Determinism | Embedding-based (probabilistic) | Reference-based (deterministic) |
-| Lint | None | 46 dimensions |
+| Lint | None | 50 dimensions |
 | Use case fit | Doc-heavy RAG | Long-session agent memory |
 
 Cognee is excellent for document-heavy RAG. Myco's graph is

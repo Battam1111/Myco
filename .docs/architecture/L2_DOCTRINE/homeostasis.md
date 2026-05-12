@@ -82,14 +82,18 @@ and MF2, the immune system now has **eleven dimensions** at v0.5.6.
 taking the immune system from 11 to 25 dims. The additions fall
 into four thematic clusters:
 
-> **Roster status (v0.6.0+)**: the v0.5.8 25-dim table below documents
+> **Roster status (v0.8.5)**: the v0.5.8 25-dim table below documents
 > the pre-v0.6.0 baseline. v0.6.0 expanded the roster to **46 dims**
 > via doctrine §F12 (mechanical clusters MF/MP/PA/CG/DI/SC/CL,
-> shipped SH2, metabolic MB4-MB7, semantic SE3/SE4/RL2/RL3). The
-> live current roster is in `_canon_lint.yaml`; `myco immune --list`
-> prints the live IDs and `myco immune --explain <ID>` prints the
-> prose description. The historical v0.5.8 narrative is preserved
-> below to document how the roster grew.
+> shipped SH2, metabolic MB4-MB7, semantic SE3/SE4/RL2/RL3). v0.7.2
+> 永恒删减 added SE5 + MB8 + PA6 → 49. v0.7.5 added LB1 + LB2 + CG1 +
+> CG2 → 51 (with two of those replacing the original v0.6.0 CG entries).
+> v0.8.5 excreted MF3 (symbiont-artifact integrity, premise gone after
+> `boundary/host_integration/` excretion) → **50 dims**. The
+> authoritative current roster is `.myco/canon_lint.yaml`;
+> `myco immune --list` prints the live IDs and `myco immune --explain
+> <ID>` prints the prose description. The historical v0.5.8 narrative
+> is preserved below to document how the roster grew.
 
 - **Plugin-boundary purity**: `MP2` mirrors MP1 on the
   `.myco/plugins/` tree (LLM-SDK imports banned there too).
