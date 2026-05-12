@@ -12,8 +12,8 @@
 # docs/migration/v0_7_4_to_v0_7_5.md.
 
 schema_version: "3"
-contract_version: "v0.8.4"
-synced_contract_version: "v0.8.4"
+contract_version: "v0.8.5"
+synced_contract_version: "v0.8.5"
 identity:
   substrate_id: "myco-self"
   tags:
@@ -322,5 +322,5 @@ metrics:
     - ".docs/contract_changelog/_archive/**"
 
 waves:
-  current: 40
+  current: 41
   log_ref: ".docs/contract_changelog.md"
