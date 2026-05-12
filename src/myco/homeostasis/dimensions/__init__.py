@@ -56,7 +56,6 @@ from importlib.metadata import entry_points
 from ..dimension import Dimension
 
 # ---- Mechanical (31) ------------------------------------------------
-from .mechanical.ad1_adapter_silent_skip import AD1AdapterSilentSkip
 from .mechanical.cg_cluster import (
     CG1DoctrineHasSrcReference,
     CG2SubpackageHasDoctrineLink,
@@ -66,7 +65,6 @@ from .mechanical.cl_cluster import (
     CL2OAuthTokenResidency,
     CL3SamplingTokenClear,
 )
-from .mechanical.cs1_contract_version_sync import CS1ContractVersionSync
 from .mechanical.dc_cluster import (
     DC1ModuleDocstring,
     DC2PublicFunctionDocstring,
@@ -75,7 +73,6 @@ from .mechanical.dc_cluster import (
     DC5AbstractParentAllowlist,
 )
 from .mechanical.di_cluster import DI1DisciplineHooksPresent, DI2DisciplineHooksContent
-from .mechanical.fr1_fresh_substrate_invariants import FR1FreshSubstrateInvariants
 from .mechanical.m_cluster import (
     M1CanonIdentityFields,
     M2EntryPointExists,
@@ -100,7 +97,15 @@ from .mechanical.pa_cluster import (
     PA5MetaSubsystemLayering,
     PA6RepoBloat,
 )
-from .mechanical.sc1_schema_parity import SC1SchemaParity
+
+# v0.8.8 pass-2: 4 mechanical singletons (AD1/CS1/FR1/SC1) consolidated
+# into ``singletons_cluster.py`` for file-count parity with other clusters.
+from .mechanical.singletons_cluster import (
+    AD1AdapterSilentSkip,
+    CS1ContractVersionSync,
+    FR1FreshSubstrateInvariants,
+    SC1SchemaParity,
+)
 
 # ---- Metabolic (6) --------------------------------------------------
 from .metabolic.mb_cluster import (

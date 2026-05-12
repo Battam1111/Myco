@@ -15,9 +15,6 @@ from pathlib import Path
 import pytest
 
 from myco.core.context import MycoContext
-from myco.homeostasis.dimensions.mechanical.ad1_adapter_silent_skip import (
-    AD1AdapterSilentSkip,
-)
 from myco.homeostasis.dimensions.mechanical.cl_cluster import (
     CL1SamplingPolicyGate,
     CL2OAuthTokenResidency,
@@ -41,7 +38,10 @@ from myco.homeostasis.dimensions.mechanical.pa_cluster import (
     PA4CoreNoSubsystemDeps,
     PA5MetaSubsystemLayering,
 )
-from myco.homeostasis.dimensions.mechanical.sc1_schema_parity import SC1SchemaParity
+from myco.homeostasis.dimensions.mechanical.singletons_cluster import (
+    AD1AdapterSilentSkip,
+    SC1SchemaParity,
+)
 from myco.homeostasis.dimensions.metabolic.mb_cluster import (
     MB4SporulatedReabsorbed,
     MB6StaleDraftOrDistilled,

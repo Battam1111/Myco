@@ -115,19 +115,20 @@ jobs:
 
       - name: Verify MCP boot
         # v0.6.0 §K.5 — MCP stdio handshake smoke test (6 stages).
-        run: python .scripts/verify_mcp_boot.py
+        # v0.8.8: subcommand of the consolidated verify.py CLI.
+        run: python .scripts/verify.py mcp-boot
 
       - name: Verify MCP capabilities
         # v0.6.0 §K.5 — capability matrix smoke (tools/resources/prompts).
-        run: python .scripts/verify_mcp_capabilities.py
+        run: python .scripts/verify.py mcp-capabilities
 
       - name: Verify install examples
         # v0.6.0 §K.5 — 8 framework demos --dry exit 0 each.
-        run: python .scripts/verify_install_examples.py
+        run: python .scripts/verify.py install-examples
 
       - name: Verify server.json
         # v0.6.0 §H — JSON Schema + 4KB _meta budget assertion.
-        run: python .scripts/verify_server_json.py
+        run: python .scripts/verify.py server-json
 
   build:
     name: sdist + wheel + twine check
