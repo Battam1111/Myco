@@ -375,7 +375,7 @@ demands of every other proposal.
   - `CHANGELOG.md` — v0.5.7 package-level entry.
   - `docs/contract_changelog.md` — v0.5.7 contract-level entry.
 - **Kickoff record**:
-  - [v0.5.7 kickoff note](../../../../notes/distilled/_excreted/n_20260419T064028Z_v0-5-7-comprehensive-audit-release-kicko.md)
+  - [v0.5.7 kickoff note](../../../../.myco/notes/distilled/_excreted/n_20260419T064028Z_v0-5-7-comprehensive-audit-release-kicko.md)
     — the `myco eat` that opened this release, recording the user
     mandate and the four-audit parallel dispatch. The markdown
     link above gives the note an inbound edge so SE2 stops

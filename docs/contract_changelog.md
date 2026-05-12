@@ -312,7 +312,7 @@ for operator notes (no operator action required).
   substrate; 5 tests exercise `propagate()` filesystem-to-filesystem.
 - **P4** Self-eat: ingested 5 v0.7.x crafts via the actual
   `eat → assimilate → sporulate` verb chain. Distilled synthesis at
-  [`notes/distilled/d_v0-7-x-release-cycle-retrospective.md`](../notes/distilled/d_v0-7-x-release-cycle-retrospective.md)
+  [`notes/distilled/d_v0-7-x-release-cycle-retrospective.md`](../.myco/notes/distilled/d_v0-7-x-release-cycle-retrospective.md)
   crystallizes 5 doctrinal observations (Two-hour blast-radius rule;
   Ratchet dims as eternal pruning; External-bug workaround discipline;
   Hotfix cadence honesty; L2 codification as the seal). Notes counts

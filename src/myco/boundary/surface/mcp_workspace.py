@@ -205,12 +205,20 @@ def _uri_to_path(uri: str) -> Path | None:
 
 
 def _has_substrate_at_or_above(path: Path) -> bool:
-    """True when ``path`` or any ancestor contains a ``_canon.yaml``."""
+    """True when ``path`` or any ancestor contains a canon file.
+
+    v0.8.4 root-cleanup (2026-05-12): walks up checking both
+    ``.myco/canon.yaml`` (new layout) and ``_canon.yaml`` (legacy),
+    via ``core.paths.has_substrate`` — the single SSoT for the
+    dual-location canon resolution rule.
+    """
+    from myco.core.paths import has_substrate
+
     try:
         p = path.resolve()
     except OSError:
         return False
     for candidate in [p, *p.parents]:
-        if (candidate / "_canon.yaml").is_file():
+        if has_substrate(candidate):
             return True
     return False

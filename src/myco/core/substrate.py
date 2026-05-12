@@ -36,14 +36,17 @@ __all__ = [
 def find_substrate_root(start: Path) -> Path:
     """Walk from ``start`` upward, returning the innermost substrate root.
 
-    A directory counts as a substrate root only if ``_canon.yaml`` is
-    present **and** parses under a known schema version. Unparseable
-    canon files propagate as ``CanonSchemaError`` — the user gets a
-    clear message rather than silent fall-through.
+    A directory counts as a substrate root only if a canon file is
+    present (either v0.8.4+ ``.myco/canon.yaml`` or legacy
+    ``_canon.yaml``) **and** the canon parses under a known schema
+    version. Unparseable canon files propagate as ``CanonSchemaError`` —
+    the user gets a clear message rather than silent fall-through.
 
     Raises ``SubstrateNotFound`` if no substrate is found before the
     filesystem root.
     """
+    from .paths import find_substrate_canon, has_substrate
+
     start = start.resolve()
     candidates: list[Path] = []
     current = start if start.is_dir() else start.parent
@@ -55,15 +58,17 @@ def find_substrate_root(start: Path) -> Path:
         current = parent
 
     for candidate in candidates:
-        canon_path = candidate / "_canon.yaml"
-        if not canon_path.is_file():
+        if not has_substrate(candidate):
             continue
+        canon_path = find_substrate_canon(candidate)
         # parse — propagate schema errors; a corrupt canon is a
         # substrate we found but can't use, not a miss.
         load_canon(canon_path)
         return candidate
 
-    raise SubstrateNotFound(f"no _canon.yaml found walking up from {start}")
+    raise SubstrateNotFound(
+        f"no canon file (.myco/canon.yaml or _canon.yaml) found walking up from {start}"
+    )
 
 
 @dataclass(frozen=True)
@@ -142,7 +147,9 @@ def load_local_plugins(
     # Defer canon load to the caller when the Substrate already has
     # one — re-parsing here would be wasteful and couple us to I/O.
     if canon is None:
-        canon = load_canon(root / "_canon.yaml")
+        from .paths import find_substrate_canon
+
+        canon = load_canon(find_substrate_canon(root))
 
     module_name = _substrate_plugin_module_name(root, canon)
 
@@ -229,21 +236,37 @@ class Substrate:
     def load(cls, root: Path) -> Substrate:
         """Load a substrate given its root (no walk-up).
 
-        Raises ``CanonSchemaError`` if ``root/_canon.yaml`` is missing
-        or invalid. Auto-imports ``<root>/.myco/plugins/__init__.py``
-        when present; import failures are captured on
-        ``local_plugin_errors`` rather than raised (MF2 reports them).
+        Raises ``CanonSchemaError`` if the canon (either ``.myco/canon.yaml``
+        for v0.8.4+ or legacy ``_canon.yaml``) is missing or invalid.
+        Auto-imports ``<root>/.myco/plugins/__init__.py`` when present;
+        import failures are captured on ``local_plugin_errors`` rather
+        than raised (MF2 reports them).
         """
+        from .paths import find_substrate_canon, has_substrate
+
         root = root.resolve()
-        canon_path = root / "_canon.yaml"
-        if not canon_path.is_file():
-            raise CanonSchemaError(f"_canon.yaml not found at substrate root: {root}")
+        if not has_substrate(root):
+            raise CanonSchemaError(
+                f"no canon file (.myco/canon.yaml or _canon.yaml) found at "
+                f"substrate root: {root}"
+            )
+        canon_path = find_substrate_canon(root)
         canon = load_canon(canon_path)
         plugin_result = load_local_plugins(root, canon=canon)
+        # v0.8.4 root-cleanup (2026-05-12): pass the discovered
+        # canon filename (relative to root) + the canon-declared
+        # notes_dir (defaulting to "notes") to SubstratePaths so
+        # `paths.canon` and `paths.notes` return the correct paths
+        # for both new (.myco/) and legacy layouts.
+        canon_filename = canon_path.relative_to(root).as_posix()
+        system_block = canon.system if isinstance(canon.system, dict) else {}
+        notes_dir = str(system_block.get("notes_dir") or "notes")
         return cls(
             root=root,
             canon=canon,
-            paths=SubstratePaths(root=root),
+            paths=SubstratePaths(
+                root=root, canon_filename=canon_filename, notes_dir=notes_dir
+            ),
             local_plugins_loaded=plugin_result.loaded,
             local_plugin_errors=plugin_result.errors,
             local_plugins_module=plugin_result.module_name,

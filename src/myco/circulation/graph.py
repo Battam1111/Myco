@@ -413,8 +413,12 @@ def _build_graph_uncached(ctx: MycoContext) -> Graph:
     nodes: set[str] = set()
 
     # --- 1) canon refs ------------------------------------------------------
-    canon_rel = "_canon.yaml"
+    # v0.8.4 root-cleanup (2026-05-12): canon may be at .myco/canon.yaml
+    # (Myco-self / v0.8.4+) or _canon.yaml (legacy); use the resolved
+    # path's substrate-relative form as the graph node identifier so
+    # SE1 walks match the actual file location.
     canon_path = ctx.substrate.paths.canon
+    canon_rel = canon_path.relative_to(root).as_posix()
     if canon_path.is_file():
         nodes.add(canon_rel)
         try:

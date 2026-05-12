@@ -46,7 +46,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 @pytest.fixture(scope="module")
 def canon_data() -> dict:
     """Parsed _canon.yaml as a dict."""
-    text = (_REPO_ROOT / "_canon.yaml").read_text(encoding="utf-8")
+    text = (_REPO_ROOT / ".myco" / "canon.yaml").read_text(encoding="utf-8")
     return yaml.safe_load(text)
 
 
@@ -277,7 +277,7 @@ def test_llm_policy_value_in_v0_6_14_enum() -> None:
     The 'providers-declared' enum value was dropped at v0.6.14 alongside
     the providers/ excretion (craft Round 2 R-T17).
     """
-    canon_text = (_REPO_ROOT / "_canon.yaml").read_text(encoding="utf-8")
+    canon_text = (_REPO_ROOT / ".myco" / "canon.yaml").read_text(encoding="utf-8")
     canon_data = yaml.safe_load(canon_text)
     policy = canon_data["system"]["llm_policy"]
     assert policy in ("forbidden", "opt-in"), (

@@ -24,9 +24,17 @@ from myco.boundary.surface import (
 
 
 def _ctx_with_root(root: Path):
-    """Minimal MycoContext-shaped object."""
+    """Minimal MycoContext-shaped object.
+
+    v0.8.4 root-cleanup (2026-05-12): mcp_resources now accesses
+    ``ctx.substrate.paths.notes`` (the canon-configurable notes dir).
+    The fake ctx needs a SubstratePaths instance with default
+    ``notes_dir="notes"`` so fixture-substrate tests behave as before.
+    """
+    from myco.core.paths import SubstratePaths
+
     return SimpleNamespace(
-        substrate=SimpleNamespace(root=root),
+        substrate=SimpleNamespace(root=root, paths=SubstratePaths(root=root)),
     )
 
 

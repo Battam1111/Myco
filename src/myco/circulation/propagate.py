@@ -216,10 +216,18 @@ def propagate(
     # This honours the N-peer transactional contract — a single bad
     # peer aborts before we even read the source notes.
     compat_warnings: list[str] = []
+    from myco.core.paths import find_substrate_canon, has_substrate
+
     for peer in peers:
-        peer_canon_path = peer / "_canon.yaml"
-        if not peer_canon_path.is_file():
-            raise ContractError(f"dst is not a Myco substrate (no _canon.yaml): {peer}")
+        # v0.8.4 root-cleanup (2026-05-12): peers may live on either
+        # canon layout (.myco/canon.yaml or _canon.yaml); resolve via
+        # the dual-location helper.
+        if not has_substrate(peer):
+            raise ContractError(
+                f"dst is not a Myco substrate "
+                f"(no .myco/canon.yaml or _canon.yaml): {peer}"
+            )
+        peer_canon_path = find_substrate_canon(peer)
         peer_canon = load_canon(peer_canon_path)
         try:
             peer_ver = ContractVersion.parse(peer_canon.contract_version)

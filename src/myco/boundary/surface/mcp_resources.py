@@ -42,6 +42,10 @@ import yaml
 
 from myco.core.context import MycoContext
 
+# v0.8.4 root-cleanup (2026-05-12): canon may live at .myco/canon.yaml
+# (new layout) or _canon.yaml (legacy) — resolve via the central helper.
+from myco.core.paths import find_substrate_canon
+
 __all__ = [
     "URI_SCHEMES",
     "list_resources",
@@ -90,7 +94,10 @@ def list_resources(
     """
     root = ctx.substrate.root
     out: list[dict[str, Any]] = []
-    canon_path = root / "_canon.yaml"
+    # v0.8.4 root-cleanup (2026-05-12): canon may live at
+    # .myco/canon.yaml (new) or _canon.yaml (legacy); module-top import
+    # of find_substrate_canon resolves both.
+    canon_path = find_substrate_canon(root)
     if canon_path.is_file():
         out.append(
             {
@@ -124,7 +131,10 @@ def list_resources(
                 "scope": "public",
             }
         )
-    integrated_root = root / "notes" / "integrated"
+    # v0.8.4 root-cleanup (2026-05-12): notes/ may live at root (legacy)
+    # or .myco/notes/ (Myco-self / v0.8.4+); resolve via paths.notes.
+    # The MCP URI scheme keeps "notes" as a stable namespace regardless.
+    integrated_root = ctx.substrate.paths.notes / "integrated"
     if integrated_root.is_dir():
         for path in sorted(integrated_root.glob("n_*.md")):
             stem = path.stem.removeprefix("n_")
@@ -166,7 +176,7 @@ def read_resource(
     """
     root = ctx.substrate.root
     if uri == "myco://canon":
-        canon_path = root / "_canon.yaml"
+        canon_path = find_substrate_canon(root)
         try:
             data = yaml.safe_load(canon_path.read_text(encoding="utf-8")) or {}
         except (OSError, yaml.YAMLError):
@@ -194,7 +204,7 @@ def read_resource(
                 "mimeType": "text/plain",
                 "scope": scope,
             }
-        canon_path = root / "_canon.yaml"
+        canon_path = find_substrate_canon(root)
         return {
             "uri": uri,
             "content": canon_path.read_text(encoding="utf-8")
@@ -215,7 +225,9 @@ def read_resource(
         }
     if uri.startswith("myco://notes/integrated/"):
         stem = uri.removeprefix("myco://notes/integrated/")
-        path = root / "notes" / "integrated" / f"n_{stem}.md"
+        # v0.8.4 root-cleanup (2026-05-12): use paths.notes for the
+        # filesystem lookup; URI namespace "notes" stays stable.
+        path = ctx.substrate.paths.notes / "integrated" / f"n_{stem}.md"
         return {
             "uri": uri,
             "content": path.read_text(encoding="utf-8") if path.is_file() else "",
