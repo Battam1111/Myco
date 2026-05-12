@@ -94,8 +94,11 @@ def run(args: Mapping[str, object], *, ctx: MycoContext) -> Result:
     kind = str(args.get("kind") or "design").strip() or "design"
     today = str(args.get("date") or _date.today().isoformat())
 
-    primordia_dir = ctx.substrate.root / "docs" / "primordia"
-    primordia_dir.mkdir(parents=True, exist_ok=True)
+    # v0.8.5 — use canon-configured docs_dir (Myco-self uses .docs/;
+    # downstream substrates default to docs/). Also: defer mkdir
+    # until AFTER check_write_allowed so a failing write-surface
+    # check doesn't leave a ghost ``<docs>/primordia/`` directory.
+    primordia_dir = ctx.substrate.paths.docs / "primordia"
 
     filename = f"{slug}_craft_{today}.md"
     target = primordia_dir / filename
@@ -116,6 +119,7 @@ def run(args: Mapping[str, object], *, ctx: MycoContext) -> Result:
     # v0.5.8 guarded rollout: fruit writes craft docs under
     # ``docs/primordia/``; verify the target is in-surface before emit.
     check_write_allowed(ctx, target, verb="fruit")
+    primordia_dir.mkdir(parents=True, exist_ok=True)
     atomic_utf8_write(target, body)
 
     return Result(

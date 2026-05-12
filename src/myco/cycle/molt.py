@@ -194,6 +194,13 @@ def run(args: Mapping[str, object], *, ctx: MycoContext) -> Result:
 
     # Append changelog entry. If the changelog file doesn't exist,
     # create it with a minimal header so the entry is readable.
+    # v0.8.5 — check write surface BEFORE any filesystem mutation.
+    # The previous order ran ``changelog_path.parent.mkdir(...)``
+    # BEFORE ``check_write_allowed(...)``, so a failing write-surface
+    # check (e.g. a substrate that doesn't list ``docs/**`` in
+    # ``write_surface.allowed``) left an empty ghost ``docs/``
+    # directory behind. Check first, mutate second.
+    check_write_allowed(ctx, changelog_path, verb="molt:changelog")
     if changelog_path.exists():
         original_changelog = bounded_read_text(changelog_path)
     else:
@@ -209,7 +216,6 @@ def run(args: Mapping[str, object], *, ctx: MycoContext) -> Result:
         new_version=new_version, old_version=old_version, today=today
     )
     patched_changelog = _insert_changelog_entry(original_changelog, new_section)
-    check_write_allowed(ctx, changelog_path, verb="molt:changelog")
     atomic_utf8_write(changelog_path, patched_changelog)
 
     # v0.5.8 P0 FIX (Lens 2 P0-9): increment waves.current. The field

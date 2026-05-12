@@ -256,7 +256,8 @@ class MP1NoProviderImports(Dimension):
                         )
 
         # ----- Part 2: craft host-signature scan (v0.6.14+) -----
-        primordia_dir = root / "docs" / "primordia"
+        # v0.8.5 — canon-configurable docs_dir (Myco-self uses .docs/).
+        primordia_dir = ctx.substrate.paths.docs / "primordia"
         if primordia_dir.is_dir():
             governance = system.get("governance", {}) or {}
             recognized_hosts = frozenset(

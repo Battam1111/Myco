@@ -66,7 +66,10 @@ class RL1RulesReferenced(Dimension):
         # the substrate doesn't ship protocol.md at all, the check
         # doesn't apply.
         root = ctx.substrate.root
-        protocol_path = root / "docs" / "architecture" / "L1_CONTRACT" / "protocol.md"
+        # v0.8.5 — canon-configurable docs_dir (Myco-self uses .docs/).
+        protocol_path = (
+            ctx.substrate.paths.docs / "architecture" / "L1_CONTRACT" / "protocol.md"
+        )
         if not protocol_path.is_file():
             return
 
