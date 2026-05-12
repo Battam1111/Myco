@@ -52,7 +52,6 @@ dimensions:
   PA5: mechanical
   SC1: mechanical
   DC5: mechanical
-  MF3: mechanical
   DI2: mechanical
   AD1: mechanical
   # Semantic + metabolic (5):
