@@ -1,6 +1,6 @@
 <p align="center">
   <a href="https://github.com/Battam1111/Myco">
-    <img src="https://raw.githubusercontent.com/Battam1111/Myco/main/docs/assets/logo_light_512.png" width="160" alt="Myco">
+    <img src="https://raw.githubusercontent.com/Battam1111/Myco/main/.docs/assets/logo_light_512.png" width="160" alt="Myco">
   </a>
 </p>
 
@@ -31,7 +31,7 @@
 </p>
 
 <p align="center">
-  <b>Languages:</b> English · <a href="docs/i18n/README_zh.md">中文</a> · <a href="docs/i18n/README_ja.md">日本語</a>
+  <b>Languages:</b> English · <a href=".docs/i18n/README_zh.md">中文</a> · <a href=".docs/i18n/README_ja.md">日本語</a>
 </p>
 
 ---
@@ -80,7 +80,7 @@ Twenty verbs, one manifest, two faces: a CLI for you to observe, an MCP server f
 
 ## The kernel IS a substrate
 
-Myco's own source tree is a substrate. `_canon.yaml` at the root. `MYCO.md` as the agent entry page. `docs/primordia/` holding the three-round craft document that justifies every contract bump. The Python code under `src/myco/` is the innermost ring of its own ecosystem. Not a read-only artifact someone else wrote.
+Myco's own source tree is a substrate. `.myco/canon.yaml` at `.myco/`. `.myco/MYCO.md` as the agent entry page. `.docs/primordia/` holding the three-round craft document that justifies every contract bump. The Python code under `src/myco/` is the innermost ring of its own ecosystem. Not a read-only artifact someone else wrote.
 
 So the normal install clones the source and runs `pip install -e` on it. The agent that uses Myco is the same agent that maintains Myco. When it needs a new lint dimension, it scaffolds one with `myco ramify`, writes the case with `myco fruit`, gates the shape with `myco winnow`, and ships the bump with `myco molt`. No fork. No waiting PR. No long-lived feature branch. **永恒进化.**
 
@@ -150,7 +150,7 @@ Zero host-side configuration. R1 through R7 ride inside the MCP server itself, s
 
 [`L0_VISION.md`](.docs/architecture/L0_VISION.md) · [`L1_CONTRACT/`](.docs/architecture/L1_CONTRACT/) · [`L2_DOCTRINE/`](.docs/architecture/L2_DOCTRINE/) · [`INSTALL.md`](.docs/INSTALL.md) · [`CONTRIBUTING.md`](.github/CONTRIBUTING.md) · [Issues](https://github.com/Battam1111/Myco/issues)
 
-Architectural changes land as dated craft documents under [`docs/primordia/`](.docs/primordia/). Every release is governed by a three-round debate, then a `molt`, then an auto-published fan-out to PyPI, the MCP Registry, and the GitHub release.
+Architectural changes land as dated craft documents under [`.docs/primordia/`](.docs/primordia/). Every release is governed by a three-round debate, then a `molt`, then an auto-published fan-out to PyPI, the MCP Registry, and the GitHub release.
 
 MIT · [`LICENSE`](LICENSE) · [PyPI](https://pypi.org/project/myco/) · [Releases](https://github.com/Battam1111/Myco/releases)
 

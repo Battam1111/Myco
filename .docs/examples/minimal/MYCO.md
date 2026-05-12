@@ -42,6 +42,6 @@ consolidated state.
 
 ## Further reading
 
-- Five root principles: [L0_VISION.md](https://github.com/Battam1111/Myco/blob/main/docs/architecture/L0_VISION.md)
-- R1-R7 rules: [protocol.md](https://github.com/Battam1111/Myco/blob/main/docs/architecture/L1_CONTRACT/protocol.md)
+- Five root principles: [L0_VISION.md](https://github.com/Battam1111/Myco/blob/main/.docs/architecture/L0_VISION.md)
+- R1-R7 rules: [protocol.md](https://github.com/Battam1111/Myco/blob/main/.docs/architecture/L1_CONTRACT/protocol.md)
 - Full verb list: [manifest.yaml](https://github.com/Battam1111/Myco/blob/main/src/myco/boundary/surface/manifest.yaml)
