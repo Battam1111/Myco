@@ -1,22 +1,30 @@
-"""Built-in lint dimensions + entry-points discovery (v0.6.0 reorganized).
+"""Built-in lint dimensions + entry-points discovery.
 
-One module per dimension, organized into category subdirectories per
-craft v0.6.0 §R2 (Round 4 owner amendment):
+47 dimensions across 4 category subdirectories. v0.8.8 reverted the
+v0.6.0 craft §R2 owner amendment "one module per dim" — letter-cluster
+families (M/MF/MP/DC/PA/CG/DI/CL/MB/LB/SE/SH) consolidated into single
+``<letter>_cluster.py`` files; singleton dims (AD1/CS1/FR1/SC1/RL1)
+stay in individual files. Per L1 protocol.md, §R2 is an L3
+organization choice; cluster-merge lands without a molt. Section
+markers ``# === <DIM_ID> — ...`` inside each cluster preserve
+doctrine-by-doctrine review (the original §R2 rationale).
 
-- ``mechanical/`` — 32 dims (M1-3, MF1+MF2+MF4+MF5, MP1-3, DC1-5,
-  CS1, FR1, PA1-6, CG1-2, DI1-2, SC1, AD1, CL1-3).
-- ``shipped/`` — 2 dims (SH1, SH2).
-- ``metabolic/`` — 6 dims (MB1-4, MB6, MB8).
-- ``semantic/`` — 7 dims (SE1-3, SE5, LB1, LB2, RL1).
+- ``mechanical/`` — 32 dims across 8 clusters + 4 singletons:
+  m_cluster (M1-3), mf_cluster (MF1+2+4+5), mp_cluster (MP1-3),
+  dc_cluster (DC1-5), cg_cluster (CG1-2), di_cluster (DI1-2),
+  pa_cluster (PA1-6), cl_cluster (CL1-3) + ad1 + cs1 + fr1 + sc1.
+- ``shipped/`` — 2 dims (sh_cluster: SH1+SH2).
+- ``metabolic/`` — 6 dims (mb_cluster: MB1-MB4 + MB6 + MB8).
+- ``semantic/`` — 7 dims: se_cluster (SE1-3+SE5) + lb_cluster (LB1-2)
+  + rl1 (singleton).
 
 v0.8.5 retired MF3 (with `boundary.host_integration/` excretion) and
 MB7 (with `boundary.surface.mcp_resources` excretion — the dim read
 a metric file that the never-wired-in-build_server stub never wrote).
 v0.8.6 retired SE4 (white-list shipped permanently empty since v0.6.0),
 RL2 + RL3 (read `.myco/state/session_calls.jsonl` that no production
-code has ever written — dead-letter checkers since landing). All
-three emitted zero findings for the full v0.6.0…v0.8.5 window.
-Live roster: **47 dims**.
+code has ever written — dead-letter checkers since landing). Live
+roster: **47 dims**.
 
 Discovery is driven by
 ``importlib.metadata.entry_points(group="myco.dimensions")`` at v0.5+

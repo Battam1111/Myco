@@ -294,8 +294,6 @@ def _is_property(func_node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
     return False
 
 
-
-
 # =========================================================================
 # DC3 — see module docstring + original git history at parent commits
 # =========================================================================
@@ -346,8 +344,6 @@ class DC3PublicClassDocstring(Dimension):
                     path=rel,
                     line=node.lineno,
                 )
-
-
 
 
 # =========================================================================
@@ -435,8 +431,6 @@ def _effective_lines(source: str) -> int:
             continue
         n += 1
     return n
-
-
 
 
 # =========================================================================

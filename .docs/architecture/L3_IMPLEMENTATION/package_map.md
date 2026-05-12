@@ -42,10 +42,14 @@
   parallel module registry. The `MF3SymbiontArtifactIntegrity` dim
   (premise: signature header in installed adapter artifacts) was
   retired in the same commit.
-- `homeostasis/dimensions/` reorganized into 4 category subdirectories:
-  `mechanical/` (32), `shipped/` (2), `metabolic/` (6, was 7 pre-v0.8.5
-  MB7 excretion), `semantic/` (7, was 10 pre-v0.8.6 SE4+RL2+RL3
-  excretion). pyproject entry-points updated for all live dim paths.
+- `homeostasis/dimensions/` organized into 4 category subdirectories:
+  `mechanical/` (32 dims across 8 cluster files + 4 singletons),
+  `shipped/` (2 dims in 1 cluster), `metabolic/` (6 dims in 1 cluster),
+  `semantic/` (7 dims across 2 clusters + 1 singleton). v0.8.8
+  consolidated 42 per-dim files into 12 ``<letter>_cluster.py``
+  files (reverting v0.6.0 §R2 "one module per dim" L3 organization
+  choice); 47 dims, 17 files total. pyproject entry-points updated
+  for all live dim paths.
 - `tests/unit/verbs/<verb>/` reorganization landed: 13 verb-shape test
   files moved from subsystem-organized layout into 20 verb directories.
 - Core invariants preserved: PA4 (mechanical, HIGH) guards `core/`
@@ -111,11 +115,15 @@ src/myco/
 │   ├── exit_policy.py       # parse_exit_on, _compute_exit_code
 │   ├── skeleton.py          # skeleton-mode downgrade
 │   ├── registry.py          # register_external_dimension(cls) public API (v0.5.3)
-│   └── dimensions/          # 47 dim files at v0.8.6 (v0.6.0 expanded from 25 to 46; v0.7.2 +SE5+MB8+PA6; v0.7.5 +LB1+CG1+CG2; v0.8.0 +LB2; v0.8.5 −MB7 −MF3; v0.8.6 −SE4 −RL2 −RL3); 4 category subdirs
-│       ├── mechanical/      # 32 dims (M1-M3, MF1+MF2+MF4+MF5, MP1-MP3, DC1-DC5, CS1, FR1, PA1-PA6, CG1-CG2, DI1-DI2, AD1, SC1, CL1-CL3)
-│       ├── shipped/         # 2 dims (SH1, SH2)
-│       ├── metabolic/       # 6 dims (MB1-MB4, MB6, MB8)
-│       └── semantic/        # 7 dims (SE1-SE3, SE5, RL1, LB1, LB2)
+│   └── dimensions/          # 47 dims across 17 files at v0.8.8 (clustered;
+│                            # history: v0.6.0 25→46 / v0.7.2 +SE5+MB8+PA6 /
+│                            # v0.7.5 +LB1+CG1+CG2 / v0.8.0 +LB2 /
+│                            # v0.8.5 −MB7 −MF3 / v0.8.6 −SE4 −RL2 −RL3 /
+│                            # v0.8.8 cluster-merge reversing v0.6.0 §R2 L3)
+│       ├── mechanical/      # 32 dims in 12 files: 8 clusters (m/mf/mp/dc/cg/di/pa/cl) + 4 singletons (ad1/cs1/fr1/sc1)
+│       ├── shipped/         # 2 dims in 1 file (sh_cluster: SH1+SH2)
+│       ├── metabolic/       # 6 dims in 1 file (mb_cluster: MB1-MB4+MB6+MB8)
+│       └── semantic/        # 7 dims in 3 files (se_cluster: SE1-3+SE5; lb_cluster: LB1+LB2; rl1: singleton)
 │
 ├── cycle/                   # L2 Cycle (canonical 6th subsystem since v0.6.0; meta/ shim removed)
 │   ├── __init__.py
