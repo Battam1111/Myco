@@ -18,14 +18,14 @@ from __future__ import annotations
 from pathlib import Path
 
 from myco.core.context import MycoContext
-from myco.homeostasis.dimensions.mechanical.mf5_generated_mirror_integrity import (
+from myco.homeostasis.dimensions.mechanical.mf_cluster import (
     MF5GeneratedMirrorIntegrity,
 )
-from myco.homeostasis.dimensions.mechanical.pa6_repo_bloat import PA6RepoBloat
-from myco.homeostasis.dimensions.metabolic.mb8_shim_hit_counter import (
+from myco.homeostasis.dimensions.mechanical.pa_cluster import PA6RepoBloat
+from myco.homeostasis.dimensions.metabolic.mb_cluster import (
     MB8ShimHitCounter,
 )
-from myco.homeostasis.dimensions.semantic.se5_version_anchor_freshness import (
+from myco.homeostasis.dimensions.semantic.se_cluster import (
     SE5VersionAnchorFreshness,
 )
 

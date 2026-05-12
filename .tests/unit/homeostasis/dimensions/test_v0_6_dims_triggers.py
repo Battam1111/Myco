@@ -14,38 +14,28 @@ from myco.core.context import MycoContext
 from myco.homeostasis.dimensions.mechanical.ad1_adapter_silent_skip import (
     AD1AdapterSilentSkip,
 )
-from myco.homeostasis.dimensions.mechanical.cl1_sampling_policy_gate import (
+from myco.homeostasis.dimensions.mechanical.cl_cluster import (
     CL1SamplingPolicyGate,
-)
-from myco.homeostasis.dimensions.mechanical.cl2_oauth_token_residency import (
     CL2OAuthTokenResidency,
-)
-from myco.homeostasis.dimensions.mechanical.cl3_sampling_token_clear import (
     CL3SamplingTokenClear,
 )
-from myco.homeostasis.dimensions.mechanical.dc5_abstract_parent_allowlist import (
+from myco.homeostasis.dimensions.mechanical.dc_cluster import (
     DC5AbstractParentAllowlist,
 )
-from myco.homeostasis.dimensions.mechanical.mf4_overlay_subsystem_validity import (
+from myco.homeostasis.dimensions.mechanical.mf_cluster import (
     MF4OverlaySubsystemValidity,
 )
-from myco.homeostasis.dimensions.mechanical.mp3_plugin_bytecode_audit import (
+from myco.homeostasis.dimensions.mechanical.mp_cluster import (
     MP3PluginBytecodeAudit,
 )
-from myco.homeostasis.dimensions.mechanical.pa2_megafile_loc_cap import (
+from myco.homeostasis.dimensions.mechanical.pa_cluster import (
     PA2MegafileLocCap,
-)
-from myco.homeostasis.dimensions.mechanical.pa3_surface_pure_adapter import (
     PA3SurfacePureAdapter,
-)
-from myco.homeostasis.dimensions.mechanical.pa4_core_no_subsystem_deps import (
     PA4CoreNoSubsystemDeps,
-)
-from myco.homeostasis.dimensions.mechanical.pa5_meta_subsystem_layering import (
     PA5MetaSubsystemLayering,
 )
 from myco.homeostasis.dimensions.mechanical.sc1_schema_parity import SC1SchemaParity
-from myco.homeostasis.dimensions.shipped.sh2_kernel_ahead_of_canon import (
+from myco.homeostasis.dimensions.shipped.sh_cluster import (
     SH2KernelAheadOfCanon,
 )
 

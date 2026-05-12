@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from myco.core.context import MycoContext
-from myco.homeostasis.dimensions.mechanical.dc3_public_class_docstring import (
+from myco.homeostasis.dimensions.mechanical.dc_cluster import (
     DC3PublicClassDocstring,
 )
 

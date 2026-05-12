@@ -5,12 +5,10 @@ from __future__ import annotations
 from pathlib import Path
 
 from myco.core.context import MycoContext
-from myco.homeostasis.dimensions.mechanical.m1_canon_identity_fields import (
+from myco.homeostasis.dimensions.mechanical.m_cluster import (
     M1CanonIdentityFields,
-    _slugify,
-)
-from myco.homeostasis.dimensions.mechanical.m3_write_surface_declared import (
     M3WriteSurfaceDeclared,
+    _slugify,
 )
 from myco.homeostasis.finding import Category, Finding
 

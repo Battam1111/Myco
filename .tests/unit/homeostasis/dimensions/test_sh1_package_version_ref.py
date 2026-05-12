@@ -6,7 +6,7 @@ import textwrap
 from pathlib import Path
 
 from myco.core.context import MycoContext
-from myco.homeostasis.dimensions.shipped.sh1_package_version_ref import (
+from myco.homeostasis.dimensions.shipped.sh_cluster import (
     SH1PackageVersionRef,
 )
 

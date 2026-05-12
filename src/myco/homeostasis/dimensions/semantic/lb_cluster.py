@@ -1,80 +1,19 @@
-"""LB1 — Living Bets re-audit overdue at every MAJOR release.
+"""LB-cluster — merged dimensions (LB1, LB2).
 
-Governing doctrine: ``docs/architecture/L0_VISION.md`` § "Appendix —
-Living bets" (review cadence: "Every MAJOR release (v0.6, v0.7, v1.0)
-re-audits this appendix"). The cadence has been honor-system since
-v0.5.6 and was missed at v0.7.0 (Major Autolysis, 2026-04-30); v0.7.5
-backfilled the audit retroactively per
-``docs/primordia/_landed/v0_7_x/v0_7_5_living_bets_audit_2026-05-10.md`` and
-``docs/primordia/_landed/v0_7_x/v0_7_5_p0_to_p6_omnibus_craft_2026-05-10.md`` § P1.
+v0.8.8 merged: this file consolidates the per-dim files that previously
+lived as one file per dimension under ``homeostasis/dimensions/semantic/``.
+Class names and behaviour are byte-equivalent — only file locations
+changed. Per L1 protocol.md: L3 organization choices are ordinary
+code changes; no contract bump required. Original per-dim files are
+preserved in git history at parent commits.
 
-LB1 closes the loop mechanically. It compares the substrate's
-``_canon.yaml::contract_version`` MAJOR (in **Myco-MAJOR** semantics:
-the ``(major, minor)`` pair, so ``v0.7`` for any ``v0.7.x`` and
-``v1.0`` for any ``v1.0.x``) against the MAJOR named in the
-most-recent Living Bets audit document under ``docs/primordia/`` (or
-its ``_landed/`` archive). If the substrate's MAJOR has advanced past
-the last-audited MAJOR and ≥ 2 patch versions have shipped beyond
-that boundary without a fresh audit doc, LB1 emits a finding.
-
-**Myco-MAJOR vs semver-MAJOR**: until ``v1.0``, Myco's MAJOR ratchet
-is the second digit (``v0.6`` → ``v0.7`` is a MAJOR bump per L0). At
-``v1.0`` the first digit takes over. LB1 normalizes to a
-``(major, minor)`` pair which is the natural "MAJOR-line" key in both
-regimes.
-
-**Audit-doc detection heuristic** (mirrors the v0.7.5 P1 craft naming):
-
-- Filename pattern: ``v*_living_bets_audit_*.md`` matched against
-  ``docs/primordia/**`` (so ``_landed/v0_X_x/...`` archived audits
-  still count). Examples that match:
-
-  - ``docs/primordia/_landed/v0_6_x/v0_6_0_living_bets_audit_craft_2026-04-28.md``
-  - ``docs/primordia/_landed/v0_7_x/v0_7_5_living_bets_audit_2026-05-10.md``
-  - ``docs/primordia/_landed/v0_6_x/v0_6_0_living_bets_audit_craft_*.md``
-
-- The audited MAJOR is parsed from the leading ``vN_M_P`` token in
-  the filename (e.g. ``v0_7_5_*`` → MAJOR ``(0, 7)``).
-- "Most recent" = lexicographic max by basename (which, given the
-  ``vN_M_P`` prefix, sorts as semantic-version order for any single
-  MAJOR-line and as MAJOR-then-MINOR-then-PATCH overall).
-
-**Edge cases**:
-
-- Fresh substrate (no ``docs/primordia/`` dir or no
-  ``*living_bets_audit*`` file) AND ``contract_version`` MAJOR is
-  ``< (0, 7)`` → silent (the substrate predates the Living Bets
-  concept; no IOU is owed).
-- Fresh substrate (no audit) AND MAJOR is ``≥ (0, 7)`` → fires LOW
-  (audit is expected at every MAJOR ratchet).
-- Audit doc exists for the current MAJOR (e.g.
-  ``v0_7_5_living_bets_audit_*.md`` with substrate at ``v0.7.x``)
-  → silent.
-- Audit doc exists only for a prior MAJOR (e.g.
-  ``v0_6_*_living_bets_audit_*.md`` while substrate is at
-  ``v0.7.5+``) → fires LOW (or higher per the ramp).
-
-**Severity ramp** (mirrors PA6's within-dim escalation, not the
-``severity_promotion`` cross-roster mechanism):
-
-- ≥ 2 patch versions past a MAJOR-line bump without audit → LOW.
-- ≥ 5 patch versions past a MAJOR-line bump without audit → MEDIUM.
-- ≥ 10 patch versions past a MAJOR-line bump without audit → HIGH.
-
-The "patch versions past" count is the substrate's own PATCH for the
-fresh-substrate case (no audit at all on the current MAJOR-line), or
-the substrate's PATCH plus a per-MAJOR-line escalator when an older
-audit exists. The MAJOR-line-only-overdue case (e.g. v0.8.0 with v0.7
-audit) emits LOW because at that boundary 0 patch has accrued past
-the MAJOR bump.
-
-Severity: LOW default; ramps in-dim. Not auto-fixable — closing the
-finding requires authoring a new ``vX_Y_Z_living_bets_audit_*.md``
-craft and shipping a MAJOR-or-MINOR molt that lands it.
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/homeostasis.md``
+§ "Dimension enumeration".
 """
 
 from __future__ import annotations
 
+import json
 import re
 from collections.abc import Iterable
 from pathlib import Path
@@ -85,8 +24,15 @@ from myco.core.severity import Severity
 from myco.homeostasis.dimension import Dimension
 from myco.homeostasis.finding import Category, Finding
 
-__all__ = ["LB1LivingBetsOverdue"]
+__all__ = [
+    "LB1LivingBetsOverdue",
+    "LB2LivingBetsRegime",
+]
 
+
+# =========================================================================
+# LB1 — see module docstring + original git history at parent commits
+# =========================================================================
 
 # Substrate canon contract_version: ``v0.7.5`` → (0, 7, 5).
 _CANON_VERSION_RE: re.Pattern[str] = re.compile(r"^v?(\d+)\.(\d+)\.(\d+)")
@@ -330,3 +276,147 @@ class LB1LivingBetsOverdue(Dimension):
             ),
             path="docs/primordia/",
         )
+
+
+# =========================================================================
+# LB2 — see module docstring + original git history at parent commits
+# =========================================================================
+
+# Threshold gates for the regime classification. Numbers come from
+# the v0.8.0 amendment's Round 1.5 calibration (T4 / saprotroph):
+# substrate growth + verb usage + cross-reference rates are the
+# evidence ladder. We approximate "growth" with session_count, since
+# every distinct session is one independent piece of evidence the
+# substrate is being persisted across read-windows.
+_BET_WINNING_SESSION_THRESHOLD: int = 50
+_BET_LOSING_SESSION_THRESHOLD: int = 5
+
+
+def _iter_session_ids(state_dir: Path) -> Iterable[str]:
+    """Yield every ``session_id`` value from JSONL files under ``state_dir``.
+
+    Walks files matching ``*.json`` (which by Myco convention are
+    JSONL — one record per line under ``.myco/state/``) and yields
+    each record's ``session_id`` field when it parses as a non-empty
+    string. Malformed lines, files that fail to open, and files
+    whose records lack ``session_id`` are skipped silently — this is
+    a best-effort signal collector, not a validator.
+
+    Bounded by line-by-line streaming so a multi-GB telemetry file
+    does not balloon memory. Callers de-dup the yielded ids
+    themselves (which lets them stop early if needed).
+    """
+    if not state_dir.is_dir():
+        return
+    for path in sorted(state_dir.glob("*.json")):
+        if not path.is_file():
+            continue
+        try:
+            handle = path.open("r", encoding="utf-8")
+        except OSError:
+            continue
+        with handle as f:
+            for raw in f:
+                line = raw.strip()
+                if not line:
+                    continue
+                try:
+                    rec = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if not isinstance(rec, dict):
+                    continue
+                sid = rec.get("session_id")
+                if isinstance(sid, str) and sid:
+                    yield sid
+
+
+def _compute_session_count(state_dir: Path) -> int:
+    """Count distinct ``session_id`` values across ``.myco/state/`` JSONL.
+
+    Returns ``0`` on any failure (missing dir, unreadable files,
+    empty corpus). Never raises.
+    """
+    try:
+        return len(set(_iter_session_ids(state_dir)))
+    except Exception:
+        # Belt-and-suspenders: ``_iter_session_ids`` already swallows
+        # individual OS/parse failures, but a pathological path
+        # (e.g. permissions error on glob itself) should still leave
+        # LB2 silent rather than crashing the immune kernel.
+        return 0
+
+
+def _compute_peer_count(canon_identity: object) -> int:
+    """Read ``identity.federation_peers`` length defensively.
+
+    Returns ``0`` if the field is absent, not a list, or otherwise
+    unreadable. Never raises.
+    """
+    if not isinstance(canon_identity, dict):
+        return 0
+    peers = canon_identity.get("federation_peers")
+    if not isinstance(peers, list):
+        return 0
+    return len(peers)
+
+
+def _compute_host_count(_state_dir: Path) -> int:
+    """v0.8.0 MVP: at least one host (the one running this immune pass).
+
+    The prompt-stated default for v0.8.0: ``1`` because the substrate
+    at least has its own host running it. A richer signal would
+    probe ``.myco/state/host_install.json`` if it exists; we leave
+    the seam (the ``_state_dir`` argument is reserved for that
+    future plumbing) but do not depend on its presence today.
+    """
+    return 1
+
+
+class LB2LivingBetsRegime(Dimension):
+    """L0 Living Bets observed-regime classifier (v0.8.0 amendment)."""
+
+    id = "LB2"
+    category = Category.SEMANTIC
+    default_severity = Severity.LOW
+    fixable: ClassVar[bool] = False
+
+    def run(self, ctx: MycoContext) -> Iterable[Finding]:
+        # All three signals are computed defensively; any failure
+        # collapses the substrate into the transitional regime
+        # (silent), per the dim's "never punish missing evidence"
+        # contract.
+        state_dir = ctx.substrate.root / ".myco/state"
+        session_count = _compute_session_count(state_dir)
+        host_count = _compute_host_count(state_dir)  # noqa: F841 — reserved for future plumbing
+        peer_count = _compute_peer_count(ctx.substrate.canon.identity)
+
+        # Bet-winning regime: federated OR enough sessions accrued.
+        if peer_count >= 1 or session_count >= _BET_WINNING_SESSION_THRESHOLD:
+            return
+
+        # Bet-losing regime: ephemeral single-session pattern with no
+        # federation evidence. Emit LOW finding asking the agent to
+        # re-decide.
+        if session_count < _BET_LOSING_SESSION_THRESHOLD and peer_count == 0:
+            yield Finding(
+                dimension_id=self.id,
+                category=self.category,
+                severity=self.default_severity,
+                message=(
+                    f"substrate appears ephemeral "
+                    f"(session_count={session_count} < "
+                    f"{_BET_LOSING_SESSION_THRESHOLD}, peer_count=0); "
+                    f"L0 Living Bets wager is in its losing regime per "
+                    f"v0.8.0 amendment. Decide explicitly: is this a "
+                    f"substrate that should persist (raise persistence "
+                    f"budget — federate, accrue sessions) or be deleted "
+                    f"(release the resources)?"
+                ),
+                path="_canon.yaml",
+            )
+            return
+
+        # Transitional regime: between the two thresholds. Silent —
+        # no hard signal either way.
+        return

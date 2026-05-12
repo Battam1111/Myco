@@ -24,7 +24,7 @@ from pathlib import Path
 
 from myco.core.context import MycoContext
 from myco.core.severity import Severity
-from myco.homeostasis.dimensions.semantic.lb2_living_bets_regime import (
+from myco.homeostasis.dimensions.semantic.lb_cluster import (
     LB2LivingBetsRegime,
     _compute_peer_count,
     _compute_session_count,

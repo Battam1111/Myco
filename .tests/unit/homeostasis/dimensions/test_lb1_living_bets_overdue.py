@@ -20,7 +20,7 @@ from pathlib import Path
 
 from myco.core.context import MycoContext
 from myco.core.severity import Severity
-from myco.homeostasis.dimensions.semantic.lb1_living_bets_overdue import (
+from myco.homeostasis.dimensions.semantic.lb_cluster import (
     LB1LivingBetsOverdue,
 )
 

@@ -1,97 +1,20 @@
-"""MP1 — kernel imports no LLM provider SDK + craft host signature (L0 P1 enforcement).
+"""MP-cluster — merged dimensions (MP1, MP2, MP3).
 
-v0.5.6 promotes Myco's **first-class mycelium-purity invariant** from
-doctrine-by-convention to mechanical enforcement. L0 principle 1 states:
+v0.8.8 merged: this file consolidates the per-dim files that previously
+lived as one file per dimension under ``homeostasis/dimensions/mechanical/``.
+Class names and behaviour are byte-equivalent — only file locations
+changed. Per L1 protocol.md: L3 organization choices are ordinary
+code changes; no contract bump required. Original per-dim files are
+preserved in git history at parent commits.
 
-    *Agents call LLMs; the substrate does not embed provider calls in
-     its own logic.*
-
-Before v0.5.6, this was a sentence in ``docs/architecture/L2_DOCTRINE/
-digestion.md`` and a habit the maintainers honored by convention.
-Nothing mechanical stopped a future refactor from sneaking an
-``import openai`` into, say, the ingestion pipeline — which would break
-the agent-first boundary that makes Myco a substrate rather than a
-product wrapper.
-
-MP1 walks every ``.py`` file under ``<substrate_root>/src/myco/`` —
-the kernel surface — and cross-checks its imports against a curated
-blacklist of LLM provider SDKs. Finding any blacklisted top-level
-module means the kernel has started reaching for an LLM directly; that
-is a contract violation of the L0 trust boundary.
-
-**v0.6.14 extension — craft host signature:** MP1 also walks every
-``docs/primordia/*.md`` craft proposal and verifies frontmatter carries
-``authored_by:`` naming a host from
-``canon.governance.recognized_authoring_hosts`` (default list:
-``claude-code-agent``, ``cursor-agent``, ``claude-desktop-agent``,
-``cowork-agent``, ``human``). A craft missing the field — or naming an
-unrecognized host — emits a HIGH finding. This is the **mechanical
-guard** that "no craft was authored inside the substrate process": even
-if a future bug let substrate-side code generate a craft markdown file,
-MP1 would refuse it without a recognized host signature, and ``myco
-winnow`` (which now requires immune-clean for high-risk crafts) would
-gate it.
-
-Governing doctrine:
-``docs/architecture/L2_DOCTRINE/digestion.md`` (agent-first boundary)
-+ ``docs/architecture/L2_DOCTRINE/cycle.md`` § "Cycle 自起 fruit—winnow—
-molt 闭环 (v0.6.14+)".
-Governing crafts:
-``docs/contract_changelog.md`` § v0.5.6 (origin)
-+ ``docs/primordia/_landed/v0_6_x/v0_6_14_cycle_autostart_fruit_winnow_molt_loop_craft_2026-04-29.md``
-(host-signature extension).
-
-Scope (what MP1 does NOT scan):
-
-- ``.myco/plugins/`` — substrate-local extensions. MF2 governs this
-  axis; reusing MP1 for plugins would cross subsystem boundaries.
-- ``tests/`` — test fixtures import provider SDKs legitimately (e.g.
-  to *prove* the boundary holds). MP1 is a kernel check, not a test
-  check.
-- Anything under a directory whose name starts with ``.`` (e.g.
-  ``.venv``, ``.git``) or ``__pycache__``.
-
-**Removed at v0.6.14**: the ``src/myco/providers/`` path-skip. v0.6.14
-excretes the directory entirely (per the v0.6.14 craft Round 2 §T17 —
-"providers/ was reserved at v0.5.6 as escape hatch; v0.6.14 excretes
-as never-populated through 7 minor releases"). The directory's
-nonexistence is the stronger guard than a path-skip; if a synthetic
-substrate (e.g. a downstream test fixture) recreates the directory,
-MP1 now scans it like any other kernel path.
-
-Severity logic (provider import scan):
-
-- ``canon.system.llm_policy: "forbidden"`` (the default) + scan
-  finds a violation → :attr:`Severity.HIGH` finding per import,
-  message names each imported module. CI gates this by default.
-- ``canon.system.llm_policy: "opt-in"`` + scan finds a violation
-  → :attr:`Severity.LOW` finding per import, message surfaces that
-  the substrate has opted out. The agent still sees the import so it
-  knows the LLM boundary is not enforced here.
-- Either canon value + scan clean → no finding.
-
-Severity logic (craft host signature, v0.6.14+):
-
-- Craft missing ``authored_by:`` frontmatter key → HIGH finding.
-- Craft with ``authored_by: <not-in-recognized-list>`` → HIGH finding.
-- Craft with ``authored_by: <recognized-host>`` → no finding.
-
-The recognized-hosts list is read fresh from
-``canon.governance.recognized_authoring_hosts`` on each run. Crafts in
-the special directory ``docs/primordia/_excreted/`` are skipped (MB6's
-auto-excretion path produces these from stale DRAFTs; they're not live
-governance artifacts).
-
-Fixable: **False**. Removing an import is too destructive to automate
-— it changes the meaning of the surrounding code. Adding a missing
-``authored_by:`` field is also not auto-fixable — the substrate cannot
-know whether a craft was authored by a human or by claude-code-agent;
-that's the human's call. MP1 detects only; repairing is human/agent work.
+Governing doctrine: ``docs/architecture/L2_DOCTRINE/homeostasis.md``
+§ "Dimension enumeration".
 """
 
 from __future__ import annotations
 
 import ast
+import re
 from collections.abc import Iterable
 from pathlib import Path
 from typing import ClassVar
@@ -100,10 +23,20 @@ from myco.core.context import MycoContext
 from myco.core.errors import MycoError
 from myco.core.io_atomic import bounded_read_text
 from myco.core.severity import Severity
+from myco.core.skip_dirs import should_skip_dir
 from myco.homeostasis.dimension import Dimension
 from myco.homeostasis.finding import Category, Finding
 
-__all__ = ["MP1NoProviderImports"]
+__all__ = [
+    "MP1NoProviderImports",
+    "MP2PluginProviderImports",
+    "MP3PluginBytecodeAudit",
+]
+
+
+# =========================================================================
+# MP1 — see module docstring + original git history at parent commits
+# =========================================================================
 
 
 class MP1NoProviderImports(Dimension):
@@ -453,3 +386,136 @@ class MP1NoProviderImports(Dimension):
             if dotted.startswith(entry + "."):
                 return True
         return False
+
+
+# =========================================================================
+# MP2 — see module docstring + original git history at parent commits
+# =========================================================================
+
+
+class MP2PluginProviderImports(Dimension):
+    """Substrate-local plugins under ``.myco/plugins/`` import no LLM SDK."""
+
+    id = "MP2"
+    category = Category.MECHANICAL
+    default_severity = Severity.MEDIUM
+    fixable: ClassVar[bool] = False
+
+    #: Reuse the MP1 blacklist verbatim — whatever the kernel isn't
+    #: allowed to import, a plugin isn't allowed to import either.
+    BLACKLIST: ClassVar[frozenset[str]] = MP1NoProviderImports.BLACKLIST
+
+    def run(self, ctx: MycoContext) -> Iterable[Finding]:
+        plugins_dir = ctx.substrate.root / ".myco" / "plugins"
+        if not plugins_dir.is_dir():
+            return
+        system = ctx.substrate.canon.system or {}
+        declared_no_llm = bool(system.get("no_llm_in_substrate", True))
+        severity = Severity.MEDIUM if declared_no_llm else Severity.LOW
+        for py_file in sorted(plugins_dir.rglob("*.py")):
+            if self._should_skip(py_file):
+                continue
+            for rel_path, line, imported in self._scan_file(py_file, ctx):
+                yield Finding(
+                    dimension_id=self.id,
+                    category=self.category,
+                    severity=severity,
+                    message=(
+                        f"plugin file imports LLM provider SDK "
+                        f"{imported!r} (L0 principle 1: agents call "
+                        f"LLMs; the substrate — including its plugins "
+                        f"— does not)."
+                    ),
+                    path=rel_path,
+                    line=line,
+                )
+
+    @staticmethod
+    def _should_skip(py_file: Path) -> bool:
+        for part in py_file.parts:
+            if part == "__pycache__":
+                return True
+            # Allow ``.myco`` itself; only reject other hidden dirs.
+            if part.startswith(".") and part not in {".", "..", ".myco"}:
+                return True
+        return False
+
+    def _scan_file(
+        self, py_file: Path, ctx: MycoContext
+    ) -> Iterable[tuple[str, int, str]]:
+        try:
+            source = bounded_read_text(py_file)
+        except (OSError, UnicodeDecodeError, MycoError):
+            return
+        try:
+            tree = ast.parse(source, filename=str(py_file))
+        except SyntaxError:
+            return
+        try:
+            rel_path = py_file.relative_to(ctx.substrate.root).as_posix()
+        except ValueError:
+            rel_path = py_file.as_posix()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    if MP1NoProviderImports._matches_blacklist(alias.name):
+                        yield (rel_path, node.lineno, alias.name)
+            elif isinstance(node, ast.ImportFrom):
+                if node.level and node.level > 0:
+                    continue
+                mod = node.module
+                if mod is None:
+                    continue
+                if MP1NoProviderImports._matches_blacklist(mod):
+                    yield (rel_path, node.lineno, mod)
+
+
+# =========================================================================
+# MP3 — see module docstring + original git history at parent commits
+# =========================================================================
+
+_SUSPICIOUS_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(
+        r"importlib\.import_module\(\s*['\"](openai|anthropic|google\.generativeai|cohere|mistralai)"
+    ),
+    re.compile(
+        r"__import__\(\s*['\"](openai|anthropic|google\.generativeai|cohere|mistralai)"
+    ),
+)
+
+
+class MP3PluginBytecodeAudit(Dimension):
+    """Plugin trees must not dynamically import LLM provider SDKs."""
+
+    id = "MP3"
+    category = Category.MECHANICAL
+    default_severity = Severity.HIGH
+    fixable: ClassVar[bool] = False
+
+    def run(self, ctx: MycoContext) -> Iterable[Finding]:
+        plugin_root = ctx.substrate.root / ".myco" / "plugins"
+        if not plugin_root.is_dir():
+            return
+        for path in plugin_root.rglob("*.py"):
+            if any(should_skip_dir(p.name) for p in path.parents):
+                continue
+            try:
+                text = path.read_text(encoding="utf-8")
+            except (OSError, UnicodeDecodeError):
+                continue
+            for pat in _SUSPICIOUS_PATTERNS:
+                m = pat.search(text)
+                if m:
+                    rel = path.relative_to(ctx.substrate.root).as_posix()
+                    yield Finding(
+                        dimension_id=self.id,
+                        category=self.category,
+                        severity=self.default_severity,
+                        message=(
+                            f"plugin uses dynamic LLM-SDK import "
+                            f"({m.group(0)[:60]}...); plugins must not "
+                            f"call provider SDKs (L0 P1)"
+                        ),
+                        path=rel,
+                    )
+                    break

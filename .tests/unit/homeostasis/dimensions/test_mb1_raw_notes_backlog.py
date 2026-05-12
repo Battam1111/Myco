@@ -6,7 +6,7 @@ from pathlib import Path
 
 from myco.core.context import MycoContext
 from myco.core.severity import Severity
-from myco.homeostasis.dimensions.metabolic.mb1_raw_notes_backlog import (
+from myco.homeostasis.dimensions.metabolic.mb_cluster import (
     MB1RawNotesBacklog,
 )
 

@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 
 from myco.core.context import MycoContext
-from myco.homeostasis.dimensions.mechanical.di1_discipline_hooks_present import (
+from myco.homeostasis.dimensions.mechanical.di_cluster import (
     DI1DisciplineHooksPresent,
 )
 
