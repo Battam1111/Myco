@@ -59,7 +59,6 @@ from .mechanical.m2_entry_point_exists import M2EntryPointExists
 from .mechanical.m3_write_surface_declared import M3WriteSurfaceDeclared
 from .mechanical.mf1_declared_subsystems_exist import MF1DeclaredSubsystemsExist
 from .mechanical.mf2_substrate_local_plugin_health import MF2SubstrateLocalPluginHealth
-from .mechanical.mf3_symbiont_artifact_integrity import MF3SymbiontArtifactIntegrity
 from .mechanical.mf4_overlay_subsystem_validity import MF4OverlaySubsystemValidity
 from .mechanical.mf5_generated_mirror_integrity import MF5GeneratedMirrorIntegrity
 from .mechanical.mp1_no_provider_imports import MP1NoProviderImports
@@ -107,7 +106,6 @@ __all__ = [
     "M3WriteSurfaceDeclared",
     "MF1DeclaredSubsystemsExist",
     "MF2SubstrateLocalPluginHealth",
-    "MF3SymbiontArtifactIntegrity",
     "MF4OverlaySubsystemValidity",
     "MF5GeneratedMirrorIntegrity",
     "MP1NoProviderImports",
@@ -167,7 +165,6 @@ _BUILT_IN: tuple[type[Dimension], ...] = (
     M3WriteSurfaceDeclared,
     MF1DeclaredSubsystemsExist,
     MF2SubstrateLocalPluginHealth,
-    MF3SymbiontArtifactIntegrity,
     MF4OverlaySubsystemValidity,
     MF5GeneratedMirrorIntegrity,
     MP1NoProviderImports,

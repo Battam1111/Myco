@@ -33,9 +33,6 @@ from myco.homeostasis.dimensions.mechanical.dc5_abstract_parent_allowlist import
 from myco.homeostasis.dimensions.mechanical.di2_discipline_hooks_content import (
     DI2DisciplineHooksContent,
 )
-from myco.homeostasis.dimensions.mechanical.mf3_symbiont_artifact_integrity import (
-    MF3SymbiontArtifactIntegrity,
-)
 from myco.homeostasis.dimensions.mechanical.mf4_overlay_subsystem_validity import (
     MF4OverlaySubsystemValidity,
 )
@@ -108,10 +105,6 @@ def test_sc1_runs(ctx: MycoContext):
 
 def test_dc5_runs(ctx: MycoContext):
     list(DC5AbstractParentAllowlist().run(ctx))
-
-
-def test_mf3_runs(ctx: MycoContext):
-    list(MF3SymbiontArtifactIntegrity().run(ctx))
 
 
 def test_di2_runs(ctx: MycoContext):

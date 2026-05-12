@@ -219,7 +219,6 @@ PA4 = "myco.homeostasis.dimensions.mechanical.pa4_core_no_subsystem_deps:PA4Core
 PA5 = "myco.homeostasis.dimensions.mechanical.pa5_meta_subsystem_layering:PA5MetaSubsystemLayering"
 SC1 = "myco.homeostasis.dimensions.mechanical.sc1_schema_parity:SC1SchemaParity"
 DC5 = "myco.homeostasis.dimensions.mechanical.dc5_abstract_parent_allowlist:DC5AbstractParentAllowlist"
-MF3 = "myco.homeostasis.dimensions.mechanical.mf3_symbiont_artifact_integrity:MF3SymbiontArtifactIntegrity"
 DI2 = "myco.homeostasis.dimensions.mechanical.di2_discipline_hooks_content:DI2DisciplineHooksContent"
 AD1 = "myco.homeostasis.dimensions.mechanical.ad1_adapter_silent_skip:AD1AdapterSilentSkip"
 SE4 = "myco.homeostasis.dimensions.semantic.se4_reciprocal_backlink:SE4ReciprocalBacklink"

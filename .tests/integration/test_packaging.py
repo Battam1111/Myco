@@ -76,12 +76,14 @@ def test_sdist_excludes_release_ephemerals() -> None:
     """
     sdist_cfg = _pyproject()["tool"]["hatch"]["build"]["targets"]["sdist"]
     excludes = sdist_cfg["exclude"]
+    # v0.8.5 — dropped `/legacy_v0_3` from the expected set. The
+    # pre-v0.4 quarantine directory was excreted at v0.7.0 Major
+    # Autolysis; the exclude rule was phantom for 5 minor releases.
     expected = {
         "/.release_notes_*.md",
         "/upload*.log",
         "/dist",
         "/build",
-        "/legacy_v0_3",
     }
     assert expected.issubset(set(excludes)), expected - set(excludes)
 
@@ -90,4 +92,3 @@ def test_gitignore_covers_release_ephemerals() -> None:
     text = GITIGNORE.read_text(encoding="utf-8")
     assert ".release_notes_*.md" in text
     assert "upload*.log" in text
-    assert "legacy_v0_3/" in text

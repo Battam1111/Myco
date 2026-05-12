@@ -26,9 +26,6 @@ from myco.homeostasis.dimensions.mechanical.cl3_sampling_token_clear import (
 from myco.homeostasis.dimensions.mechanical.dc5_abstract_parent_allowlist import (
     DC5AbstractParentAllowlist,
 )
-from myco.homeostasis.dimensions.mechanical.mf3_symbiont_artifact_integrity import (
-    MF3SymbiontArtifactIntegrity,
-)
 from myco.homeostasis.dimensions.mechanical.mf4_overlay_subsystem_validity import (
     MF4OverlaySubsystemValidity,
 )
@@ -170,16 +167,6 @@ def test_mp3_dynamic_llm_import_emits(genesis_substrate: Path):
     ctx = MycoContext.for_testing(root=genesis_substrate)
     findings = list(MP3PluginBytecodeAudit().run(ctx))
     assert any("LLM-SDK" in f.message for f in findings)
-
-
-def test_mf3_symbiont_with_marker_no_finding(genesis_substrate: Path):
-    """MF3 only fires when symbionts/installed.txt marker present."""
-    state = genesis_substrate / ".myco/state" / "symbionts"
-    state.mkdir(parents=True, exist_ok=True)
-    (state / "installed.txt").write_text("yes", encoding="utf-8")
-    ctx = MycoContext.for_testing(root=genesis_substrate)
-    # Walk runs but no signed-out artifacts in test home; no error path.
-    list(MF3SymbiontArtifactIntegrity().run(ctx))
 
 
 def test_mf4_overlay_unknown_subsystem_emits(genesis_substrate: Path):
