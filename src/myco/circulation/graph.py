@@ -255,11 +255,25 @@ def _resolve(
 
 
 def _iter_files(base: Path, suffixes: Iterable[str]) -> Iterator[Path]:
+    """Walk ``base`` yielding files with the given suffixes.
+
+    v0.8.7 — paths containing ``_archive/`` or ``_landed/`` segments
+    are skipped. These are immutable historical snapshots (per L0
+    P3 永恒删减 doctrine); their internal markdown links describe
+    the layout that existed when the file was authored, not the
+    current substrate state. Surfacing them as SE1 dangling-edge
+    findings is noise — the archive is doing its job by being
+    a faithful snapshot.
+    """
     if not base.is_dir():
         return
+    skip_parts = {"_archive", "_landed"}
     for p in base.rglob("*"):
-        if p.is_file() and p.suffix in set(suffixes):
-            yield p
+        if not p.is_file() or p.suffix not in set(suffixes):
+            continue
+        if skip_parts.intersection(p.parts):
+            continue
+        yield p
 
 
 # --- fingerprint + persistence --------------------------------------------

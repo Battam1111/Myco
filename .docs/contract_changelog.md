@@ -11,6 +11,117 @@ Format: one section per `contract_version`, newest first.
 
 ---
 
+## v0.8.7 - 2026-05-13 - URL-drift fix + 5-batch slimdown sweep
+
+Six-commit cleanup sweep responding to the post-v0.8.6 audit. The
+substantive user-visible fix is the `docs/` → `.docs/` URL drift
+(PyPI logo + Documentation link were 404 across v0.8.4–v0.8.6); the
+rest is structural slimdown that doesn't change runtime semantics
+but makes the substrate's working surface dramatically scannier.
+
+### What changed
+
+**P0 — URL drift (user-visible PyPI 404s)**
+
+The v0.8.4 root-cleanup renamed `docs/` → `.docs/` but left 24
+hardcoded GitHub-raw / blob / tree URLs pointing at the pre-rename
+path. PyPI's project page was the most visible casualty:
+
+- `pypi.org/project/myco/` logo was a broken `<img>` for 3 releases.
+- The "Documentation" sidebar link returned 404.
+
+curl verification of the fix:
+```
+GET .../main/.docs/assets/logo_light_512.png → 200 ✓
+GET .../main/docs/assets/...                 → 404 (pre-fix state)
+```
+
+24 sites updated across 9 files (README + pyproject + i18n READMEs +
+example MYCO.md / `_canon.yaml` × 2 + schema README).
+
+**P1 — Craft archival (17 LANDED crafts → `_landed/<era>/`)**
+
+`.docs/primordia/` had grown to 21 LANDED crafts flat at root,
+matching the same accretion pattern that motivated the v0.5.x-era
+archival to `_landed/v0_5_x/`. Restored discipline:
+
+- `_landed/v0_6_x/` — 6 crafts (2026-04-28 → 2026-04-29).
+- `_landed/v0_7_x/` — 8 crafts (2026-04-30 → 2026-05-10).
+- `_landed/glama/` — 3 crafts (2026-04-24 → 2026-04-28).
+
+21 cross-reference updates across 11 doctrine files repoint at
+`_landed/<era>/`. `.docs/primordia/README.md` rewritten to surface
+the active v0.8.x working set first.
+
+**P1 — `contract_changelog.md` archive split**
+
+Main changelog was 1739 lines (1241 of which described v0.7.10 →
+v0.6.10). Split at v0.7.10:
+
+- Main file (513 lines): v0.8.7 → v0.8.0 active window.
+- Archive at `.docs/contract_changelog/_archive/pre_v0_8_0.md`
+  (1257 lines): full immutable history of v0.7.10 ← v0.6.10.
+
+Format preserved (newest-first, one section per version); content
+fully preserved (no deletion); git history retains the unified state.
+
+**P2 — Config-layer slimdown**
+
+- **`myco.mcp` shim**: docstring compressed from 53 lines of
+  historical narrative to 16 lines of essential migration pointer.
+  Full file 93 → 47 lines (−50%). Behaviour byte-identical:
+  re-exports `build_server` + `main`, emits stderr deprecation +
+  `DeprecationWarning`. Verified import: 1 warning emitted, exports
+  intact.
+
+- **`.docs/comparisons/` → `.docs/comparisons.md`**: a 1-file
+  directory is navigation friction. `git mv` to single file.
+
+- **v0.8.x coverage IOU resolved + archived**. The IOU's trigger
+  condition ("Y commits") was satisfied at commit `2e538d8` (v0.8.4
+  prep); the gate flip was just pending. Now done:
+  - `.github/workflows/ci.yml::--cov-fail-under=82 → 85`.
+  - Verified with the exact CI command: total **86.26%** (1.26 pts
+    of headroom above the gate).
+  - IOU moved to `.docs/iou/_archive/v0_8_x_coverage_uplift.md`
+    with RESOLVED header.
+
+- **`coverage_floors.py` prefix bug**: FLOORS dict was keyed by
+  `myco/<pkg>/` but `coverage.xml` class filenames are rooted at
+  `<pkg>/__init__.py` (no `myco/` prefix; pytest-cov strips
+  `src/myco/`). Every per-package check silently exit-0'd since
+  v0.6.0. The "Coverage per-package floors" CI step was a no-op
+  for ~9 minor versions. Fixed:
+  - Keys rewritten to match the actual prefix shape.
+  - Floors temporarily calibrated to currently-achieved values
+    (`core=94`, `homeostasis=86`, `circulation=82`) with explicit
+    `target N at v0.9` comments so the v0.9 mock-test pass owns
+    the uplift work.
+  - Verified: 8/8 floors actually pass now (was 8/8 silent SKIP).
+
+**Bumper bug** (caught during this release):
+
+- `.scripts/bump_version.py::sync_cmd` had a literal
+  `scripts/sync_plugin_mirrors.py` (pre-v0.8.4 path); the v0.8.4
+  hidden-prefix sweep had missed this script. Any Myco-self bump
+  would have failed at the sync step. Fixed in the v0.8.6 release
+  commit; verified working at v0.8.7 bump (used the corrected
+  `.scripts/` path).
+
+### Break from v0.8.6
+
+None. The CI gate flip back to 85% is a re-tightening of an
+intentionally-loose v0.8.4 hotfix; the IOU documented the trigger
+condition and the v0.8.7 measurement confirms it. The
+`coverage_floors.py` revival starts enforcing per-package floors
+at currently-met baselines — no run-time behavior changes; only
+the silent-no-op CI step becomes a real check. Downstream
+substrates that consume `myco-install`, `mcp-server-myco`, or
+`python -m myco` see byte-identical behavior; the `myco.mcp` shim
+slimdown preserves the public API + deprecation surface exactly.
+
+---
+
 ## v0.8.6 - 2026-05-12 - Dead-dim revival sweep + 永恒删减 retirement wave
 
 10-way parallel-agent audit (Round 7 of the v0.8.x cleanup sequence)

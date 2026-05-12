@@ -53,7 +53,7 @@ __all__ = [
 #:
 #: v0.7.5 adds ``"3"`` for the ``metrics.lint_dim_count`` field
 #: introduced by craft
-#: ``docs/primordia/v0_7_5_p0_to_p6_omnibus_craft_2026-05-10.md`` (P2).
+#: ``docs/primordia/_landed/v0_7_x/v0_7_5_p0_to_p6_omnibus_craft_2026-05-10.md`` (P2).
 #: v0.8.0 adds ``"4"`` for the additive ``governance.last_living_bets_audit_at``
 #: marker + ``governance.persistence_metrics`` cache block, introduced by
 #: ``docs/primordia/v0_8_0_living_bets_amendment_2026-05-10.md`` (the L0
@@ -259,8 +259,8 @@ def _v2_to_v3_lint_dim_count_field(raw: Mapping[str, Any]) -> Mapping[str, Any]:
     - L1 doctrine: ``docs/architecture/L1_CONTRACT/canon_schema.md``
       § "v0.6.0+ schema v2 additions" (extended at v0.7.5 to cover
       ``metrics.lint_dim_count``).
-    - Governing craft: ``docs/primordia/v0_7_5_p0_to_p6_omnibus_craft_
-      2026-05-10.md`` § "P2 — First real schema migration since v0.6.0".
+    - Governing craft: ``docs/primordia/_landed/v0_7_x/v0_7_5_p0_to_p6_omnibus_craft_2026-05-10.md``
+      § "P2 — First real schema migration since v0.6.0".
     """
     data = dict(raw)
     metrics_raw = data.get("metrics")

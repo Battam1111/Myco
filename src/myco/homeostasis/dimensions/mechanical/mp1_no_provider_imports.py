@@ -38,7 +38,7 @@ Governing doctrine:
 molt 闭环 (v0.6.14+)".
 Governing crafts:
 ``docs/contract_changelog.md`` § v0.5.6 (origin)
-+ ``docs/primordia/v0_6_14_cycle_autostart_fruit_winnow_molt_loop_craft_2026-04-29.md``
++ ``docs/primordia/_landed/v0_6_x/v0_6_14_cycle_autostart_fruit_winnow_molt_loop_craft_2026-04-29.md``
 (host-signature extension).
 
 Scope (what MP1 does NOT scan):

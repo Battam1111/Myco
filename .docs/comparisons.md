@@ -183,7 +183,7 @@ it doesn't try. Pick on your axis.
 
 ## If you're still deciding
 
-Read the [L0_VISION.md](../architecture/L0_VISION.md)'s five
+Read the [L0_VISION.md](architecture/L0_VISION.md)'s five
 root principles. If those five sentences describe what you
 want from your agent's memory layer, Myco is a fit. If any
 one of them strikes you as unnecessary structure, use one of
