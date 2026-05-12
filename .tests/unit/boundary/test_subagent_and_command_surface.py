@@ -1,38 +1,43 @@
 """Regression tests for the v0.6.11+ subagents + slash commands surface.
 
 These tests guard the structural integrity of the markdown files (5
-agents + 6 commands at v0.6.14) on the boundary subsystem's 5th + 6th seams.
+agents + 6 commands at v0.6.14+) on the boundary subsystem's 5th + 6th seams.
 They do NOT test subagent behavior — behavioral validation is human
 integration testing in subsequent agent sessions.
 
-v0.6.11 baseline (5 + 5):
-1. All 5 expected subagent files exist at both `.claude/agents/<name>.md`
-   (project-level) and `<repo>/agents/<name>.md` (plugin-bundle scope,
-   declared in `.claude-plugin/plugin.json::agents`).
-2. All 5 expected slash command files exist at both `.claude/commands/`
-   and `<repo>/commands/`.
-3. Each subagent file's frontmatter parses as valid YAML and has the
-   required `name` + `description` keys.
-4. Each subagent's `name` frontmatter value matches its filename stem.
-5. Each subagent body (after frontmatter) is non-empty and >= 200 chars
-   (the "real content vs stub" floor).
-6. Each slash command's frontmatter parses with the recommended
-   `description` key.
-7. The `.claude/<dir>/<name>.md` and `<repo>/<dir>/<name>.md` pairs are
-   bytewise identical (the plugin-mirror discipline; see craft Round 2 §T8).
+v0.6.11 baseline (5 + 5) → v0.6.14 extension (sixth-seam command: 5 + 6).
 
-v0.6.14 extension (sixth seam):
-8. `myco-evolve` slash command added (commands count: 5 → 6).
-9. **Only** primordium has `Task` in its tools allowlist (autonomous mode
-   exception; the other 4 subagents continue to forbid sub-agent recursion).
-10. **Only** primordium body mentions "Autonomous mode" — prevents the
-    autonomous-mode exception from accidentally proliferating.
+v0.8.8 simplification — `.claude/{agents,commands}/` is now the **single
+source of truth**. The pre-v0.8.8 design carried byte-identical mirror
+copies at `.plugin/{agents,commands}/` to satisfy what the v0.7.3 craft
+believed was a Claude Code spec requirement; re-reading the official
+docs (https://code.claude.com/docs/en/plugins § "Convert existing
+configurations to plugins") showed the docs explicitly recommend
+single-source-of-truth: "After migrating, you can remove the original
+files from `.claude/` to avoid duplicates. The plugin version will
+take precedence when loaded." v0.8.8 inverted that recommendation —
+keep `.claude/`, drop the mirror — and redirected
+`plugin.json::"agents"|"commands"` straight at `./.claude/<dir>/`.
+
+Tests now check:
+
+1. All 5 subagents exist at `.claude/agents/<name>.md`.
+2. All 6 slash commands exist at `.claude/commands/<name>.md`.
+3. Each subagent's frontmatter parses as YAML and has required keys.
+4. Each subagent's `name` frontmatter value matches its filename stem.
+5. Each body is ≥ 200 chars (the "real content vs stub" floor).
+6. Each slash command's frontmatter parses with `description`.
+7. `plugin.json::"agents"|"commands"` references the `.claude/`
+   single source of truth (no `.plugin/` mirror is permitted).
+
+v0.6.14 invariants preserved:
+
+8. **Only** primordium has `Task` in its tools allowlist.
+9. **Only** primordium body mentions "Autonomous mode".
 
 Doctrine: docs/architecture/L2_DOCTRINE/boundary.md
    § "Subagents and slash commands (v0.6.11+)" (5th seam)
    + § "Sixth seam: GitHub-side critic-fanout + auto-revert (v0.6.14+)"
-Crafts: docs/primordia/v0_6_11_subagents_and_commands_craft_2026-04-28.md (5th)
-   + docs/primordia/v0_6_14_cycle_autostart_fruit_winnow_molt_loop_craft_2026-04-29.md (6th)
 """
 
 from __future__ import annotations
@@ -63,19 +68,11 @@ _EXPECTED_COMMANDS = (
     "myco-evolve",
 )
 
-# Both paths must contain identical files.
-# v0.8.4 root-cleanup (2026-05-12): plugin-bundle scope relocated from
-# <repo>/{agents,commands}/ to <repo>/plugin/{agents,commands}/ to
-# declutter the repo root. Project scope (.claude/*) stays put per
-# Claude Code spec.
-_AGENT_DIRS = (
-    _REPO_ROOT / ".claude" / "agents",
-    _REPO_ROOT / ".plugin" / "agents",
-)
-_COMMAND_DIRS = (
-    _REPO_ROOT / ".claude" / "commands",
-    _REPO_ROOT / ".plugin" / "commands",
-)
+# v0.8.8 — single source of truth at .claude/. The .plugin/{agents,
+# commands}/ mirror directories were retired; plugin.json references
+# .claude/ directly.
+_AGENT_DIR = _REPO_ROOT / ".claude" / "agents"
+_COMMAND_DIR = _REPO_ROOT / ".claude" / "commands"
 
 
 def _split_frontmatter(text: str) -> tuple[dict[str, object], str]:
@@ -96,35 +93,31 @@ def _split_frontmatter(text: str) -> tuple[dict[str, object], str]:
 
 
 @pytest.mark.parametrize("name", _EXPECTED_SUBAGENTS)
-@pytest.mark.parametrize("agent_dir", _AGENT_DIRS, ids=["claude", "plugin"])
-def test_subagent_file_exists(name: str, agent_dir: Path) -> None:
-    """Each of the 5 subagents must exist at both paths."""
-    path = agent_dir / f"{name}.md"
+def test_subagent_file_exists(name: str) -> None:
+    """Each of the 5 subagents must exist at .claude/agents/."""
+    path = _AGENT_DIR / f"{name}.md"
     assert path.is_file(), (
-        f"v0.6.11 subagent file missing: {path}. "
-        f"Per craft v0_6_11_subagents_and_commands_craft, the 5 fungal-named "
-        f"subagents must exist at both .claude/agents/ (project-level) and "
-        f"<repo>/agents/ (plugin-bundle scope)."
+        f"v0.6.11 subagent file missing: {path}. The 5 fungal-named "
+        f"subagents live at .claude/agents/ (single source of truth at "
+        f"v0.8.8+; plugin.json references this path directly)."
     )
 
 
 @pytest.mark.parametrize("cmd", _EXPECTED_COMMANDS)
-@pytest.mark.parametrize("cmd_dir", _COMMAND_DIRS, ids=["claude", "plugin"])
-def test_command_file_exists(cmd: str, cmd_dir: Path) -> None:
-    """Each of the 5 slash commands must exist at both paths."""
-    path = cmd_dir / f"{cmd}.md"
+def test_command_file_exists(cmd: str) -> None:
+    """Each of the 6 slash commands must exist at .claude/commands/."""
+    path = _COMMAND_DIR / f"{cmd}.md"
     assert path.is_file(), (
-        f"v0.6.11 slash command file missing: {path}. "
-        f"Per craft v0_6_11_subagents_and_commands_craft, the 5 myco-* slash "
-        f"commands must exist at both .claude/commands/ (project-level) and "
-        f"<repo>/commands/ (plugin-bundle scope)."
+        f"v0.6.11+ slash command file missing: {path}. The 6 myco-* "
+        f"slash commands live at .claude/commands/ (single source of "
+        f"truth at v0.8.8+)."
     )
 
 
 @pytest.mark.parametrize("name", _EXPECTED_SUBAGENTS)
 def test_subagent_frontmatter_valid(name: str) -> None:
     """Each subagent's frontmatter parses as YAML with required keys."""
-    path = _REPO_ROOT / ".claude" / "agents" / f"{name}.md"
+    path = _AGENT_DIR / f"{name}.md"
     text = path.read_text(encoding="utf-8")
     meta, body = _split_frontmatter(text)
     assert isinstance(meta, dict) and meta, (
@@ -150,7 +143,7 @@ def test_subagent_frontmatter_valid(name: str) -> None:
 @pytest.mark.parametrize("cmd", _EXPECTED_COMMANDS)
 def test_command_frontmatter_valid(cmd: str) -> None:
     """Each slash command's frontmatter parses with `description` key."""
-    path = _REPO_ROOT / ".claude" / "commands" / f"{cmd}.md"
+    path = _COMMAND_DIR / f"{cmd}.md"
     text = path.read_text(encoding="utf-8")
     meta, body = _split_frontmatter(text)
     assert isinstance(meta, dict) and meta, (
@@ -167,42 +160,9 @@ def test_command_frontmatter_valid(cmd: str) -> None:
     )
 
 
-@pytest.mark.parametrize("name", _EXPECTED_SUBAGENTS)
-def test_subagent_plugin_mirror_byte_identical(name: str) -> None:
-    """The .claude/agents/ (project-level) and <repo>/agents/ (plugin-bundle)
-    copies must be byte-identical.
-
-    Per craft Round 2 §T8, the duplication is accepted maintenance debt for
-    v0.6.11 (build-hook copy deferred to v0.6.12). This test surfaces drift
-    immediately when one copy is edited and the other forgotten.
-    """
-    a = (_REPO_ROOT / ".claude" / "agents" / f"{name}.md").read_bytes()
-    b = (_REPO_ROOT / ".plugin" / "agents" / f"{name}.md").read_bytes()
-    assert a == b, (
-        f"Subagent {name}: .claude/agents/ (project-level) and "
-        f"<repo>/agents/ (plugin-bundle scope) copies have drifted. "
-        f"v0.6.11 requires bytewise-identical mirrors. If you edited one "
-        f"path, copy to the other (or wait for v0.6.12's build-hook copy)."
-    )
-
-
-@pytest.mark.parametrize("cmd", _EXPECTED_COMMANDS)
-def test_command_plugin_mirror_byte_identical(cmd: str) -> None:
-    """The .claude/commands/ (project-level) and <repo>/commands/ (plugin-bundle)
-    copies must be byte-identical.
-    """
-    a = (_REPO_ROOT / ".claude" / "commands" / f"{cmd}.md").read_bytes()
-    b = (_REPO_ROOT / ".plugin" / "commands" / f"{cmd}.md").read_bytes()
-    assert a == b, (
-        f"Slash command {cmd}: .claude/commands/ (project-level) and "
-        f"<repo>/commands/ (plugin-bundle scope) copies have drifted. "
-        f"v0.6.11 requires bytewise-identical mirrors."
-    )
-
-
 def test_subagent_count_matches_craft() -> None:
     """The shipped subagent count matches the craft doc's claim of 5."""
-    files = list((_REPO_ROOT / ".claude" / "agents").glob("*.md"))
+    files = list(_AGENT_DIR.glob("*.md"))
     assert len(files) == len(_EXPECTED_SUBAGENTS), (
         f"Expected {len(_EXPECTED_SUBAGENTS)} subagent files in .claude/agents/, "
         f"found {len(files)}: {sorted(f.name for f in files)}. "
@@ -212,8 +172,8 @@ def test_subagent_count_matches_craft() -> None:
 
 
 def test_command_count_matches_craft() -> None:
-    """The shipped slash command count matches the craft doc's claim of 5."""
-    files = list((_REPO_ROOT / ".claude" / "commands").glob("*.md"))
+    """The shipped slash command count matches the craft doc's claim of 6."""
+    files = list(_COMMAND_DIR.glob("*.md"))
     assert len(files) == len(_EXPECTED_COMMANDS), (
         f"Expected {len(_EXPECTED_COMMANDS)} command files in .claude/commands/, "
         f"found {len(files)}: {sorted(f.name for f in files)}. "
@@ -222,21 +182,52 @@ def test_command_count_matches_craft() -> None:
     )
 
 
-def test_plugin_manifest_declares_agents_and_commands() -> None:
-    """`.claude-plugin/plugin.json` must declare both surfaces."""
+def test_plugin_manifest_points_at_claude_single_source() -> None:
+    """v0.8.8 — `plugin.json::"agents"|"commands"` MUST point at `.claude/`.
+
+    The pre-v0.8.8 design referenced `./.plugin/agents/` etc., a
+    byte-identical mirror of `.claude/`. v0.8.8 retired that mirror
+    after the Claude Code docs Quickstart guidance ("remove the
+    original files from `.claude/` to avoid duplicates") refuted the
+    v0.7.3 craft's "dual sources required" inference. This test pins
+    the new single-source-of-truth shape so a future regression
+    cannot silently reintroduce the mirror.
+    """
     import json
 
     manifest = json.loads(
         (_REPO_ROOT / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8")
     )
-    assert "agents" in manifest, (
-        ".claude-plugin/plugin.json must declare an `agents` key pointing at "
-        "`./.plugin/agents/` so plugin marketplace installs deliver the subagents."
+    assert manifest.get("agents") == "./.claude/agents/", (
+        'plugin.json::"agents" MUST point at `./.claude/agents/` '
+        "(v0.8.8 single source of truth, replacing the retired "
+        "`./.plugin/agents/` mirror)."
     )
-    assert "commands" in manifest, (
-        ".claude-plugin/plugin.json must declare a `commands` key pointing at "
-        "`./.plugin/commands/` so plugin marketplace installs deliver the slash commands."
+    assert manifest.get("commands") == "./.claude/commands/", (
+        'plugin.json::"commands" MUST point at `./.claude/commands/` '
+        "(v0.8.8 single source of truth, replacing the retired "
+        "`./.plugin/commands/` mirror)."
     )
+
+
+def test_no_plugin_mirror_directories() -> None:
+    """v0.8.8 — `.plugin/{agents,commands}/` MUST NOT exist.
+
+    These were byte-identical mirrors of `.claude/{agents,commands}/`
+    in the pre-v0.8.8 design. MF5 dim catches accidental
+    resurrection (single file under the retired path), but this
+    test catches the directory-level resurrection up front.
+    """
+    forbidden = (
+        _REPO_ROOT / ".plugin" / "agents",
+        _REPO_ROOT / ".plugin" / "commands",
+    )
+    for d in forbidden:
+        assert not d.exists(), (
+            f"Retired mirror path resurrected: {d}. The v0.8.8 single-"
+            f"source-of-truth doctrine forbids `.plugin/{{agents,commands}}/`. "
+            f"Move content to `.claude/{{agents,commands}}/` and remove."
+        )
 
 
 # ----- v0.6.14 sixth-seam invariants -----
@@ -255,7 +246,7 @@ def test_only_primordium_has_task_in_tools() -> None:
     re-creating the recursion explosion the v0.6.11 craft Round 2 §T1 closed.
     """
     for name in _EXPECTED_SUBAGENTS:
-        path = _REPO_ROOT / ".claude" / "agents" / f"{name}.md"
+        path = _AGENT_DIR / f"{name}.md"
         text = path.read_text(encoding="utf-8")
         meta, _body = _split_frontmatter(text)
         tools_field = meta.get("tools", "")
@@ -287,7 +278,7 @@ def test_only_primordium_mentions_autonomous_mode() -> None:
     clearly bounded.
     """
     for name in _EXPECTED_SUBAGENTS:
-        path = _REPO_ROOT / ".claude" / "agents" / f"{name}.md"
+        path = _AGENT_DIR / f"{name}.md"
         text = path.read_text(encoding="utf-8")
         _meta, body = _split_frontmatter(text)
         has_autonomous = "Autonomous mode" in body or "autonomous mode" in body

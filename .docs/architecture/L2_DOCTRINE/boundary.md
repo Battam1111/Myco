@@ -246,13 +246,25 @@ are bytewise identical per the regression test in
    the boot ritual but still honor R3 (sense before assert) and R6
    (write surface).
 
-3. **Plugin-mirror discipline.** The 10 markdown files (5 agents +
-   5 commands) live at both `.claude/<dir>/<name>.md` (project-level)
-   and `<repo>/plugin/<dir>/<name>.md` (plugin-bundle scope, v0.8.4+;
-   was `<repo>/<dir>/<name>.md` v0.6.11-v0.8.3). v0.6.11 accepts the
-   duplication as known maintenance debt; `scripts/sync_plugin_mirrors.py`
-   keeps them in sync as a pre-bump step. A regression test verifies
-   the two paths are bytewise identical.
+3. **Single source of truth at `.claude/` (v0.8.8+; superseded the
+   v0.6.11 dual-mirror discipline).** The 11 markdown files (5 agents
+   + 6 commands at v0.6.14+) live at exactly **one** path:
+   `.claude/<dir>/<name>.md`. `.claude-plugin/plugin.json::"agents"`
+   and `"commands"` reference this path directly. The v0.6.11 craft
+   originally mandated byte-identical dual sources
+   (`.claude/<dir>/` for project scope, `<repo>/<dir>/` for plugin-
+   bundle scope) on the inference that "Claude Code spec requires
+   both". Re-reading the official docs at v0.8.7
+   (https://code.claude.com/docs/en/plugins § "Convert existing
+   configurations to plugins") refuted that inference — the docs
+   explicitly recommend single source of truth: "After migrating, you
+   can remove the original files from `.claude/` to avoid duplicates.
+   The plugin version will take precedence when loaded." v0.8.8
+   inverted the recommendation (keep `.claude/`, drop the mirror)
+   and retired `.plugin/{agents,commands}/` + the
+   `sync_plugin_mirrors.py` helper accordingly. MF5 dim continues
+   to fire (MEDIUM) if any file resurfaces at the retired mirror
+   path.
 
 4. **Naming complies with L0:185-186.** All five subagent names come
    from fungal taxonomy. The boundary subsystem amendment from v0.6.0
@@ -337,15 +349,18 @@ Critic outputs are **veto votes**: any HIGH-severity tension from any critic for
 
 The next `myco senesce` invocation (in any session) parses new comments since `.myco_state/last_intent_reap.txt` and writes `vetoed_at: <ISO timestamp>` into matching entries of `canon.governance.last_winnowed_proposals[]`. Idempotent. The indirection (issue comment + senesce reaper) avoids the GitHub Actions concurrency hazard of writing `_canon.yaml` directly while a parallel push to main is in flight.
 
-### Plugin-mirror discipline (extends 5th seam invariant 3)
+### Plugin-mirror discipline → single source of truth (v0.8.8)
 
-The 6th seam's new files follow the same byte-identical mirror rule:
+The 6th seam's new files **previously** required byte-identical
+mirroring between `.claude/<dir>/` and `<repo>/plugin/<dir>/`. The
+v0.8.8 simplification retired the mirror entirely — files live only
+at `.claude/<dir>/`; `.claude-plugin/plugin.json::"agents"|"commands"`
+reference that path directly. Rationale documented at invariant 3
+of the 5th-seam section above. The retired mirror paths
+(`.plugin/{agents,commands}/`) MUST stay empty; MF5 dim catches
+any resurrection at MEDIUM severity.
 
-- `.claude/commands/myco-evolve.md` ↔ `<repo>/plugin/commands/myco-evolve.md`
-- `.claude/agents/primordium.md` ↔ `<repo>/plugin/agents/primordium.md` (autonomous mode added in both)
-- `.claude/agents/stipe.md` ↔ `<repo>/plugin/agents/stipe.md` (--branch-only mode added in both)
-
-`tests/unit/boundary/test_subagent_and_command_surface.py` extends `_EXPECTED_COMMANDS` from 5 to 6 entries; new tests assert (a) only primordium has `Task` in its tools allowlist, (b) only primordium body mentions "Autonomous mode" — these prevent the autonomous-mode exception from accidentally proliferating to other subagents (the original mycorrhiza T1 critique).
+`tests/unit/boundary/test_subagent_and_command_surface.py` still asserts (a) only primordium has `Task` in its tools allowlist, (b) only primordium body mentions "Autonomous mode" — these prevent the autonomous-mode exception from accidentally proliferating to other subagents (the original mycorrhiza T1 critique).
 
 ### Six surface invariants (extending the 5th seam's 5)
 
@@ -394,8 +409,8 @@ When gate (b) is satisfied, the deletion may proceed via standard `fruit → win
 The discipline is mechanically enforced by:
 
 - **MB8** (metabolic, MEDIUM) — counts shim-path hits and reports sunset eligibility.
-- **MF5** (mechanical, MEDIUM, v0.7.3 reclassified) — flags MIRROR_DRIFT between project-scope and bundle-scope copies of v0.6.11 plugin files (the discipline applies symmetrically to plugin mirrors: byte-identical pairs are the desired state, divergence is real lint).
-- **`.scripts/sync_plugin_mirrors.py`** (v0.7.3+) — idempotent sync helper invoked by `bump_version.py` post-bump and `build_plugin.py` pre-build. Project-scope `.claude/<dir>/X.md` is the SSoT.
+- **MF5** (mechanical, MEDIUM, v0.7.3 reclassified → v0.8.8 simplified) — now flags accidental resurrection of the retired `.plugin/{agents,commands}/` mirror paths. The v0.7.3 byte-identical dual-source invariant was retired at v0.8.8 in favor of single-source-of-truth at `.claude/<dir>/` per the Claude Code docs' Quickstart guidance; MF5 emits MEDIUM if any file reappears under the retired path.
+- **`.scripts/sync_plugin_mirrors.py`** — **excreted at v0.8.8**. No mirror = nothing to sync. `bump_version.py` and `build_plugin.py` no longer invoke it.
 - **Recursion-cutter discipline** (v0.7.2-named, narrative-only at v0.8.5+) — `src/myco/mcp/**` + `.myco/state/shim_hits.json` SHOULD be HIGH-tier paths in any winnow risk-classifier; compound multi-cluster `path_allowlist` (touching state + shim + canon simultaneously) SHOULD be HIGH per mycoparasite T6. v0.6.0-v0.8.4 the rule was mechanically enforced by `core/risk_classifier.py`; v0.8.5 excreted that helper as never-wired-into-winnow.G7-production-path, so the discipline is currently doctrine-only awaiting re-mechanisation in a v0.9+ craft.
 
 ### What this discipline does NOT cover

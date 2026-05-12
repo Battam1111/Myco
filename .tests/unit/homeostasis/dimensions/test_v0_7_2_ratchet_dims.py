@@ -148,42 +148,52 @@ def test_pa6_excluded_globs_protect_ingestion(tmp_path: Path) -> None:
     assert list(PA6RepoBloat().run(ctx)) == []
 
 
-# ===== MF5 — generated-mirror integrity =====
+# ===== MF5 — drift detector for retired mirror paths (v0.8.8) =====
 
 
-def test_mf5_intended_v0_6_11_mirror_silent_when_synced(tmp_path: Path) -> None:
-    """v0.7.3 reclassified: byte-identical .claude/agents/X.md ↔
-    .plugin/agents/X.md is the desired state per v0.6.11 plugin spec
-    (both project + bundle scopes mandated). NO finding emitted.
-
-    v0.8.6 — bundle path now `.plugin/agents/` (was `agents/` until
-    the v0.8.4 root cleanup moved Cowork bundle dirs under hidden
-    prefix). MF5 silently no-op'd on v0.8.4…v0.8.5 because the bundle
-    dir at root no longer existed.
-    """
+def test_mf5_silent_when_no_forbidden_mirror_exists(tmp_path: Path) -> None:
+    """v0.8.8: only `.claude/agents/` exists, `.plugin/agents/` absent →
+    silent (the desired single-source-of-truth state)."""
     sub = tmp_path / "sub"
-    project_dir = sub / ".claude" / "agents"
-    bundle_dir = sub / ".plugin" / "agents"
-    project_dir.mkdir(parents=True)
-    bundle_dir.mkdir(parents=True)
-    same_bytes = "---\nname: foo\n---\n\n# Foo agent\n" + ("body line\n" * 30)
-    (project_dir / "foo.md").write_text(same_bytes, encoding="utf-8")
-    (bundle_dir / "foo.md").write_text(same_bytes, encoding="utf-8")
+    canon_dir = sub / ".claude" / "agents"
+    canon_dir.mkdir(parents=True)
+    body = "---\nname: foo\n---\n\n# Foo agent\n" + ("body line\n" * 30)
+    (canon_dir / "foo.md").write_text(body, encoding="utf-8")
     _write_minimal_canon(sub)
     ctx = MycoContext.for_testing(root=sub)
     assert list(MF5GeneratedMirrorIntegrity().run(ctx)) == []
 
 
-def test_mf5_drift_emits_medium(tmp_path: Path) -> None:
-    """v0.7.3: same filename in project + bundle dirs but byte-divergent →
-    MIRROR_DRIFT MEDIUM finding."""
+def test_mf5_unintended_duplicate_emits_medium(tmp_path: Path) -> None:
+    """v0.8.8: file appears at both `.claude/agents/` AND `.plugin/agents/`
+    (the retired mirror path), byte-identical → UNINTENDED_DUPLICATE MEDIUM."""
     sub = tmp_path / "sub"
-    project_dir = sub / ".claude" / "agents"
-    bundle_dir = sub / ".plugin" / "agents"
-    project_dir.mkdir(parents=True)
-    bundle_dir.mkdir(parents=True)
-    (project_dir / "foo.md").write_text("project version\n", encoding="utf-8")
-    (bundle_dir / "foo.md").write_text("bundle version\n", encoding="utf-8")
+    canon_dir = sub / ".claude" / "agents"
+    forbidden_dir = sub / ".plugin" / "agents"
+    canon_dir.mkdir(parents=True)
+    forbidden_dir.mkdir(parents=True)
+    same_bytes = "---\nname: foo\n---\n\n# Foo agent\n" + ("body line\n" * 30)
+    (canon_dir / "foo.md").write_text(same_bytes, encoding="utf-8")
+    (forbidden_dir / "foo.md").write_text(same_bytes, encoding="utf-8")
+    _write_minimal_canon(sub)
+    ctx = MycoContext.for_testing(root=sub)
+    findings = list(MF5GeneratedMirrorIntegrity().run(ctx))
+    assert len(findings) == 1
+    assert findings[0].dimension_id == "MF5"
+    assert "UNINTENDED_DUPLICATE" in findings[0].message
+    assert findings[0].severity.name == "MEDIUM"
+
+
+def test_mf5_mirror_drift_emits_medium(tmp_path: Path) -> None:
+    """v0.8.8: file at both paths with divergent bytes → MIRROR_DRIFT
+    MEDIUM (the retired-mirror copy is stale doctrine; delete it)."""
+    sub = tmp_path / "sub"
+    canon_dir = sub / ".claude" / "agents"
+    forbidden_dir = sub / ".plugin" / "agents"
+    canon_dir.mkdir(parents=True)
+    forbidden_dir.mkdir(parents=True)
+    (canon_dir / "foo.md").write_text("canon version\n", encoding="utf-8")
+    (forbidden_dir / "foo.md").write_text("stale mirror version\n", encoding="utf-8")
     _write_minimal_canon(sub)
     ctx = MycoContext.for_testing(root=sub)
     findings = list(MF5GeneratedMirrorIntegrity().run(ctx))
@@ -193,18 +203,22 @@ def test_mf5_drift_emits_medium(tmp_path: Path) -> None:
     assert findings[0].severity.name == "MEDIUM"
 
 
-def test_mf5_unbalanced_pair_silent(tmp_path: Path) -> None:
-    """v0.7.3: file in only one of the two mirror dirs → silent (might
-    be in-flight addition)."""
+def test_mf5_mirror_resurrected_emits_medium(tmp_path: Path) -> None:
+    """v0.8.8: file appears ONLY at the retired `.plugin/agents/` path
+    (with canonical `.claude/agents/` empty) → MIRROR_RESURRECTED MEDIUM."""
     sub = tmp_path / "sub"
-    project_dir = sub / ".claude" / "agents"
-    bundle_dir = sub / ".plugin" / "agents"
-    project_dir.mkdir(parents=True)
-    bundle_dir.mkdir(parents=True)
-    (project_dir / "foo.md").write_text("only-in-project\n", encoding="utf-8")
+    canon_dir = sub / ".claude" / "agents"
+    forbidden_dir = sub / ".plugin" / "agents"
+    canon_dir.mkdir(parents=True)
+    forbidden_dir.mkdir(parents=True)
+    (forbidden_dir / "stray.md").write_text("only-in-forbidden\n", encoding="utf-8")
     _write_minimal_canon(sub)
     ctx = MycoContext.for_testing(root=sub)
-    assert list(MF5GeneratedMirrorIntegrity().run(ctx)) == []
+    findings = list(MF5GeneratedMirrorIntegrity().run(ctx))
+    assert len(findings) == 1
+    assert findings[0].dimension_id == "MF5"
+    assert "MIRROR_RESURRECTED" in findings[0].message
+    assert findings[0].severity.name == "MEDIUM"
 
 
 # ===== SE5 — version-anchor freshness =====
