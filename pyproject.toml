@@ -229,7 +229,6 @@ MB6 = "myco.homeostasis.dimensions.metabolic.mb6_stale_draft_or_distilled:MB6Sta
 SH2 = "myco.homeostasis.dimensions.shipped.sh2_kernel_ahead_of_canon:SH2KernelAheadOfCanon"
 CL1 = "myco.homeostasis.dimensions.mechanical.cl1_sampling_policy_gate:CL1SamplingPolicyGate"
 MP3 = "myco.homeostasis.dimensions.mechanical.mp3_plugin_bytecode_audit:MP3PluginBytecodeAudit"
-MB7 = "myco.homeostasis.dimensions.metabolic.mb7_resource_watch_quota:MB7ResourceWatchQuota"
 CL2 = "myco.homeostasis.dimensions.mechanical.cl2_oauth_token_residency:CL2OAuthTokenResidency"
 CL3 = "myco.homeostasis.dimensions.mechanical.cl3_sampling_token_clear:CL3SamplingTokenClear"
 MF4 = "myco.homeostasis.dimensions.mechanical.mf4_overlay_subsystem_validity:MF4OverlaySubsystemValidity"

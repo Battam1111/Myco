@@ -58,9 +58,6 @@ from myco.homeostasis.dimensions.metabolic.mb4_sporulated_reabsorbed import (
 from myco.homeostasis.dimensions.metabolic.mb6_stale_draft_or_distilled import (
     MB6StaleDraftOrDistilled,
 )
-from myco.homeostasis.dimensions.metabolic.mb7_resource_watch_quota import (
-    MB7ResourceWatchQuota,
-)
 from myco.homeostasis.dimensions.semantic.rl2_sense_discipline_signal import (
     RL2SenseDisciplineSignal,
 )
@@ -288,22 +285,6 @@ def test_mb6_fix_returns_advisory(ctx: MycoContext):
         ),
     )
     assert out["applied"] is False
-
-
-def test_mb7_runs(ctx: MycoContext):
-    list(MB7ResourceWatchQuota().run(ctx))
-
-
-def test_mb7_quota_pressure_emits(genesis_substrate: Path):
-    state_dir = genesis_substrate / ".myco/state"
-    state_dir.mkdir(parents=True, exist_ok=True)
-    (state_dir / "resource_watch_count.json").write_text(
-        '{"active": 95}', encoding="utf-8"
-    )
-    ctx = MycoContext.for_testing(root=genesis_substrate)
-    findings = list(MB7ResourceWatchQuota().run(ctx))
-    # Default max_per_substrate from canon is 100; 95/100 = 95% > 80%
-    assert findings
 
 
 # Shipped (1 new) -------------------------------------------------------------

@@ -111,8 +111,12 @@ def test_canon_auto_evolve_force_high_risk_default_false(canon_data: dict) -> No
     critic confirmed: paranoia_mode is an undeclared 3rd L0 P1 exception;
     the correct fix is flipping defaults, not adding an opt-in flag.
 
-    Risk class is now derived from craft CONTENT via core.risk_classifier
-    (path_allowlist-based superset of v0.6.0 keywords + recursion-cutter).
+    Risk class WAS derived from craft CONTENT via core.risk_classifier
+    (path_allowlist-based superset of v0.6.0 keywords + recursion-cutter)
+    at v0.6.15-v0.8.4. The module was excreted at v0.8.5 — production
+    code had zero imports of it across 4 minor releases since v0.6.0.
+    The Agent-First default behavior still holds (verified below);
+    only the unused content-derivation helper went away.
     """
     governance = canon_data["system"]["governance"]
     assert governance["auto_evolve_force_high_risk"] is False, (
