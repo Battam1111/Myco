@@ -6,7 +6,7 @@ fully excreted at v0.6.0); the L2 doctrine page keeps the
 ``genesis.md`` filename for governance archeology purposes only.
 
 Governing doctrine: ``docs/architecture/L2_DOCTRINE/genesis.md``.
-Craft: ``docs/primordia/_landed/v0_4_x/stage_b3_genesis_craft_2026-04-15.md``.
+History: see ``docs/contract_changelog.md`` § v0.4.0 + § v0.5.3.
 
 Responsibility: create the initial substrate from scratch — write a
 fresh canon (default ``_canon.yaml`` at root; v0.8.4+ substrates may

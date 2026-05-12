@@ -9,9 +9,8 @@ half; :mod:`myco.cycle.graft` is the audit half.
 Governing manifest: ``docs/architecture/L3_IMPLEMENTATION/command_manifest.md``
 (governance-verbs section — per v0.5.0 craft §R13, no new L2
 surface.md was created; governance-verbs content lives at L3).
-Governing craft:
-``docs/primordia/_landed/v0_5_x/v0_5_3_fungal_vocabulary_craft_2026-04-17.md``
-(MAJOR 10 — the substrate-local extension seam).
+History: ``docs/contract_changelog.md`` § v0.5.3 (MAJOR 10 —
+substrate-local extension seam).
 
 ramify is the kernel's equivalent of hyphal branching: it extrudes a
 new leaf module from the existing tree. Three modes:

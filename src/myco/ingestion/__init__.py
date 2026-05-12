@@ -1,7 +1,7 @@
 """``myco.ingestion`` — 永恒吞噬 (eternal ingestion).
 
 Governing doctrine: ``docs/architecture/L2_DOCTRINE/ingestion.md``.
-Craft: ``docs/primordia/_landed/v0_4_x/stage_b4_ingestion_craft_2026-04-15.md``.
+History: see ``docs/contract_changelog.md`` § v0.4.0 + § v0.5.x.
 
 Four commands, one entry-point patcher:
 

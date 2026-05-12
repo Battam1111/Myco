@@ -20,9 +20,9 @@ Backward compatibility: legacy ``myco-install <client>`` (where
 the first positional is a known client name) auto-routes to
 ``host <client>`` without breaking existing scripts / docs.
 
-See ``docs/INSTALL.md`` for the full host matrix and
-``docs/primordia/_landed/v0_5_x/v0_5_2_editable_default_craft_2026-04-17.md``
-for the design record.
+See ``docs/INSTALL.md`` for the full host matrix; the v0.5.2
+editable-default design record lives at
+``docs/contract_changelog.md`` § v0.5.2.
 """
 
 from __future__ import annotations

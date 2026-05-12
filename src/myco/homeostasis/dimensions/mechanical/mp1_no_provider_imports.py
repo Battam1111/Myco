@@ -37,7 +37,7 @@ Governing doctrine:
 + ``docs/architecture/L2_DOCTRINE/cycle.md`` § "Cycle 自起 fruit—winnow—
 molt 闭环 (v0.6.14+)".
 Governing crafts:
-``docs/primordia/_landed/v0_5_x/v0_5_6_mp1_mycelium_purity_craft_2026-04-18.md`` (origin)
+``docs/contract_changelog.md`` § v0.5.6 (origin)
 + ``docs/primordia/v0_6_14_cycle_autostart_fruit_winnow_molt_loop_craft_2026-04-29.md``
 (host-signature extension).
 

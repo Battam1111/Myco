@@ -7,8 +7,8 @@ the entry-point signals block via ``boot_brief``.
 
 v0.5.3 adds a ``local_plugins`` block — a terse summary of what
 substrate-local plugins are loaded so the agent sees extensibility
-state on every boot. Governing craft:
-``docs/primordia/_landed/v0_5_x/v0_5_3_fungal_vocabulary_craft_2026-04-17.md``.
+state on every boot. History: ``docs/contract_changelog.md``
+§ v0.5.3.
 """
 
 from __future__ import annotations

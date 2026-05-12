@@ -32,11 +32,10 @@ and writes ``vetoed_at: <ISO timestamp>`` into matching entries of
 ``canon.system.governance.last_winnowed_proposals[]``. Idempotent +
 shell-out only (uses ``gh`` CLI; no LLM call; substrate-side L0 P1
 stays strict).
-Governing crafts:
-``docs/primordia/_landed/v0_5_x/v0_5_7_senesce_quick_mode_craft_2026-04-19.md``,
-``docs/primordia/_landed/v0_5_x/v0_5_7_release_craft_2026-04-19.md``,
-``docs/primordia/v0_6_14_cycle_autostart_fruit_winnow_molt_loop_craft_2026-04-29.md``
-(reaper extension).
+History: ``docs/contract_changelog.md`` § v0.5.7 (bimodal senesce
+quick-mode landing) + § v0.6.14 (cycle-autostart reaper extension);
+the v0.6.14 craft remains at
+``docs/primordia/v0_6_14_cycle_autostart_fruit_winnow_molt_loop_craft_2026-04-29.md``.
 
 In fungal biology, senescence is the aging-into-dormancy phase
 where the mycelium consolidates what it has absorbed and wards off
