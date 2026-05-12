@@ -78,6 +78,10 @@ class SubstratePaths:
     # declares `system.notes_dir: ".myco/notes"` in canon, which
     # Substrate.load propagates here.
     notes_dir: str = "notes"
+    # v0.8.4 root-cleanup (2026-05-12): docs_dir is canon-configurable.
+    # Defaults to "docs" (downstream unchanged); Myco-self declares
+    # `system.docs_dir: ".docs"` in canon.
+    docs_dir: str = "docs"
 
     @property
     def canon(self) -> Path:
@@ -100,8 +104,12 @@ class SubstratePaths:
 
     @property
     def docs(self) -> Path:
-        """``docs/`` — the doctrine and primordia tree."""
-        return self.root / "docs"
+        """Substrate documentation tree (architecture, primordia, ...).
+
+        Default ``docs/`` at root; Myco-self overrides to ``.docs/``
+        via canon ``system.docs_dir``.
+        """
+        return self.root / self.docs_dir
 
     @property
     def state(self) -> Path:

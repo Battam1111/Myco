@@ -261,11 +261,15 @@ class Substrate:
         canon_filename = canon_path.relative_to(root).as_posix()
         system_block = canon.system if isinstance(canon.system, dict) else {}
         notes_dir = str(system_block.get("notes_dir") or "notes")
+        docs_dir = str(system_block.get("docs_dir") or "docs")
         return cls(
             root=root,
             canon=canon,
             paths=SubstratePaths(
-                root=root, canon_filename=canon_filename, notes_dir=notes_dir
+                root=root,
+                canon_filename=canon_filename,
+                notes_dir=notes_dir,
+                docs_dir=docs_dir,
             ),
             local_plugins_loaded=plugin_result.loaded,
             local_plugin_errors=plugin_result.errors,

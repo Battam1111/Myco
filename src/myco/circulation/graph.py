@@ -43,6 +43,7 @@ import yaml
 from myco.core.context import MycoContext
 from myco.core.errors import MycoError
 from myco.core.io_atomic import atomic_utf8_write, bounded_read_text
+from myco.core.paths import SubstratePaths
 from myco.core.substrate import Substrate
 from myco.digestion.pipeline import parse_note
 
@@ -191,6 +192,7 @@ def _resolve(
     ref: str,
     *,
     anchor: str = "file",
+    paths: SubstratePaths | None = None,
 ) -> str | None | _SkipType:
     """Resolve ``ref`` to a substrate-relative path.
 
@@ -200,17 +202,56 @@ def _resolve(
         - ``None`` if it's a substrate-relative ref that doesn't resolve
           (escapes substrate, or just points to something missing —
           caller emits a dangling edge).
+
+    v0.8.4 root-cleanup (2026-05-12): when a ref starts with the
+    well-known semantic prefixes ``docs/`` or ``notes/`` and that
+    literal path doesn't resolve, fall back to the substrate's
+    canon-declared ``paths.docs`` / ``paths.notes`` directory (for
+    Myco-self these are ``.docs/`` / ``.myco/notes/``). This lets
+    historical docstrings + markdown links that say ``docs/X`` keep
+    resolving to the actual file under the substrate's chosen layout.
+    Pass ``paths=ctx.substrate.paths`` from callers to enable the
+    fallback; ``paths=None`` (default) preserves legacy behaviour.
     """
     ref = _strip_fragment(ref)
     if _is_external(ref):
         return _SKIP
     base = root if anchor == "root" else (root / owner_rel).parent
+    root_resolved = root.resolve()
     try:
         target = (base / ref).resolve()
-        target.relative_to(root.resolve())
+        target.relative_to(root_resolved)
     except (ValueError, OSError):
         return None
-    return str(target.relative_to(root.resolve())).replace("\\", "/")
+    rel = str(target.relative_to(root_resolved)).replace("\\", "/")
+    # v0.8.4 semantic-prefix fallback: if the literal target doesn't
+    # exist on disk and the ref starts with a remappable prefix,
+    # try the canon-configured location.
+    if paths is not None and not target.exists():
+        remaps = (
+            ("docs/", paths.docs_dir + "/"),
+            ("notes/", paths.notes_dir + "/"),
+        )
+        for legacy_prefix, new_prefix in remaps:
+            if legacy_prefix == new_prefix:
+                continue
+            if ref.startswith(legacy_prefix) or rel.startswith(legacy_prefix):
+                # Strip the legacy prefix from the ref and join under
+                # the new prefix. Re-resolve relative to root for
+                # anchor-independent stable answer.
+                stripped = (
+                    ref[len(legacy_prefix) :]
+                    if ref.startswith(legacy_prefix)
+                    else rel[len(legacy_prefix) :]
+                )
+                alt = (root / new_prefix / stripped).resolve()
+                try:
+                    alt.relative_to(root_resolved)
+                except (ValueError, OSError):
+                    continue
+                if alt.exists():
+                    return str(alt.relative_to(root_resolved)).replace("\\", "/")
+    return rel
 
 
 def _iter_files(base: Path, suffixes: Iterable[str]) -> Iterator[Path]:
@@ -426,7 +467,9 @@ def _build_graph_uncached(ctx: MycoContext) -> Graph:
         except (yaml.YAMLError, MycoError):
             raw = {}
         for ref in _iter_canon_refs(raw):
-            resolved = _resolve(root, canon_rel, ref, anchor="root")
+            resolved = _resolve(
+                root, canon_rel, ref, anchor="root", paths=ctx.substrate.paths
+            )
             if isinstance(resolved, _SkipType):
                 continue
             if resolved is None:
@@ -456,7 +499,9 @@ def _build_graph_uncached(ctx: MycoContext) -> Graph:
         except Exception:
             refs = ()
         for ref in refs:
-            resolved = _resolve(root, rel, ref, anchor="root")
+            resolved = _resolve(
+                root, rel, ref, anchor="root", paths=ctx.substrate.paths
+            )
             if isinstance(resolved, _SkipType):
                 continue
             if resolved is None:
@@ -471,7 +516,7 @@ def _build_graph_uncached(ctx: MycoContext) -> Graph:
         except Exception:
             body = text
         for link in _iter_markdown_links(body):
-            resolved = _resolve(root, rel, link)
+            resolved = _resolve(root, rel, link, paths=ctx.substrate.paths)
             if isinstance(resolved, _SkipType):
                 continue
             if resolved is None:
@@ -496,7 +541,7 @@ def _build_graph_uncached(ctx: MycoContext) -> Graph:
         except (OSError, MycoError):
             continue
         for link in _iter_markdown_links(text):
-            resolved = _resolve(root, rel, link)
+            resolved = _resolve(root, rel, link, paths=ctx.substrate.paths)
             if isinstance(resolved, _SkipType):
                 continue
             if resolved is None:
@@ -509,7 +554,14 @@ def _build_graph_uncached(ctx: MycoContext) -> Graph:
     # --- 4) src/**/*.py — imports + docstring doc refs --------------------
     # Governed by ``graph_src.walk_src_graph``. No-op for substrates
     # that have no ``src/`` directory.
-    src_walk = walk_src_graph(ctx.substrate.root)
+    # v0.8.4 root-cleanup (2026-05-12): forward canon-configured dirs
+    # so the src-side docstring resolver can fall back from "docs/X"
+    # to "<paths.docs>/X" when Myco-self has relocated the doc tree.
+    src_walk = walk_src_graph(
+        ctx.substrate.root,
+        docs_dir=ctx.substrate.paths.docs_dir,
+        notes_dir=ctx.substrate.paths.notes_dir,
+    )
     for node in src_walk.nodes:
         nodes.add(node)
     for src_rel, dst_rel in src_walk.import_edges:

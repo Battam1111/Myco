@@ -764,9 +764,9 @@ def test_iou_documents_every_xfail_reason() -> None:
     holds.
     """
     repo_root = Path(__file__).resolve().parents[2]
-    open_path = repo_root / "docs" / "iou" / "v0_7_10_streamable_http_gaps.md"
+    open_path = repo_root / ".docs" / "iou" / "v0_7_10_streamable_http_gaps.md"
     archived_path = (
-        repo_root / "docs" / "iou" / "_archive" / "v0_7_10_streamable_http_gaps.md"
+        repo_root / ".docs" / "iou" / "_archive" / "v0_7_10_streamable_http_gaps.md"
     )
 
     assert not open_path.exists(), (

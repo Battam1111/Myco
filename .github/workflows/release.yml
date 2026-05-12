@@ -212,7 +212,7 @@ jobs:
             exit 0
           fi
           # Extract "## $TAG —" ... up to (but not including) the next "---"
-          SECTION=$(awk "/^## $TAG /{flag=1} flag; /^---$/{if(flag){flag=0; exit}}" docs/contract_changelog.md \
+          SECTION=$(awk "/^## $TAG /{flag=1} flag; /^---$/{if(flag){flag=0; exit}}" .docs/contract_changelog.md \
                     | sed '$d' || true)
           if [ -n "$SECTION" ]; then
             echo "Using contract_changelog.md $TAG section as release body."
