@@ -44,7 +44,7 @@ dependencies = [
 Homepage = "https://github.com/Battam1111/Myco"
 Repository = "https://github.com/Battam1111/Myco"
 Documentation = "https://github.com/Battam1111/Myco/tree/main/docs"
-Changelog = "https://github.com/Battam1111/Myco/blob/main/CHANGELOG.md"
+Changelog = "https://github.com/Battam1111/Myco/blob/main/.docs/contract_changelog.md"
 "Bug Tracker" = "https://github.com/Battam1111/Myco/issues"
 
 [project.optional-dependencies]
@@ -289,7 +289,6 @@ exclude = [
   "/upload*.log",
   "/dist",
   "/build",
-  "/legacy_v0_3",
   "/.pytest_cache",
   "/.venv",
   "**/__pycache__",
@@ -326,7 +325,6 @@ markers = [
 source = ["src/myco"]
 branch = true
 omit = [
-  "*/legacy_v0_3/*",
   # boundary symbionts have OS-conditional code paths covered only on
   # the matching CI matrix cell; per-package floor (60%) compensates.
   "*/symbionts/*",
@@ -379,12 +377,10 @@ src = ["src", ".tests"]
 # v0.8.4 root-cleanup (2026-05-12): redirect ruff cache from default
 # `.ruff_cache/` to consolidated `.cache/ruff/`.
 cache-dir = ".cache/ruff"
-# Exclude the legacy quarantine and runtime caches so ruff doesn't
-# report on files we intentionally do not maintain.
+# Exclude runtime caches so ruff doesn't report on files we
+# intentionally do not maintain.
 exclude = [
-  "legacy_v0_3",
   ".myco/state",
-  ".myco_state",
   ".venv",
   "dist",
   "build",

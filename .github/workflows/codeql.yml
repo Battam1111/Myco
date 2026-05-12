@@ -74,11 +74,15 @@ jobs:
           queries: security-and-quality
           # Track config changes alongside source changes — CodeQL
           # version updates land via dependabot github-actions PRs.
+          # v0.8.5 — paths align with the v0.8.4 root-cleanup. The
+          # previous config (scripts, tests, src) was silently scanning
+          # only src/ because the other two directories had moved to
+          # .scripts/ and .tests/ — halving CodeQL's effective surface.
           config: |
             paths:
               - src
-              - scripts
-              - tests
+              - .scripts
+              - .tests
 
       - name: Install Myco (so autobuild can resolve imports)
         run: |
