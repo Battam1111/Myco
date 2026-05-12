@@ -32,9 +32,9 @@
 # CI / release pipeline — touching these gates the entire ship surface.
 /.github/                                   @Battam1111
 /.github/workflows/                         @Battam1111
-/scripts/bump_version.py                    @Battam1111
-/scripts/build_plugin.py                    @Battam1111
-/scripts/verify_mcp_boot.py                 @Battam1111
+/.scripts/bump_version.py                    @Battam1111
+/.scripts/build_plugin.py                    @Battam1111
+/.scripts/verify_mcp_boot.py                 @Battam1111
 
 # Plugin bundles — each has its own surface contract with the host.
 /.claude-plugin/                            @Battam1111

@@ -7,7 +7,7 @@ name: CI
 # Parity with contributor-local commands (per CONTRIBUTING.md):
 #   pytest                              — 593+ tests
 #   python -m myco immune               — all 11 lint dimensions green
-#   python -m ruff check src tests      — ruff lint baseline
+#   python -m ruff check src .tests      — ruff lint baseline
 #   python -m ruff format --check ...   — formatter drift detector
 #   python -m mypy src/myco             — type-check baseline
 #   python -m build && twine check …    — release-hygiene check
@@ -72,10 +72,10 @@ jobs:
           python -m pip install -e ".[dev,mcp,adapters]"
 
       - name: Ruff lint
-        run: python -m ruff check src tests
+        run: python -m ruff check src .tests
 
       - name: Ruff format (check only)
-        run: python -m ruff format --check src tests
+        run: python -m ruff format --check src .tests
 
       - name: Mypy
         # Non-strict baseline (see [tool.mypy] in pyproject.toml).
@@ -90,7 +90,7 @@ jobs:
         # multimedia adapters (audio/image_ocr/video_frames; CI skips
         # them because Pillow + whisper + opencv aren't installed) +
         # OAuth helper module additions. Per-package floors at
-        # ``scripts/coverage_floors.py`` enforce stricter thresholds
+        # ``.scripts/coverage_floors.py`` enforce stricter thresholds
         # on the load-bearing packages (core 95% / homeostasis 92% / ...).
         # v0.9 IOU: re-tighten to 85 once multimedia mock-tests cover
         # the audio_segments / video_frame_ocr / image_ocr happy paths.
@@ -98,7 +98,7 @@ jobs:
 
       - name: Coverage per-package floors
         # v0.6.0 §K.3: enforce per-package floors (core/=95, homeostasis/=92, ...).
-        run: python scripts/coverage_floors.py
+        run: python .scripts/coverage_floors.py
 
       - name: Myco self-immune
         # Self-dogfood: the release candidate must lint clean against
@@ -108,19 +108,19 @@ jobs:
 
       - name: Verify MCP boot
         # v0.6.0 §K.5 — MCP stdio handshake smoke test (6 stages).
-        run: python scripts/verify_mcp_boot.py
+        run: python .scripts/verify_mcp_boot.py
 
       - name: Verify MCP capabilities
         # v0.6.0 §K.5 — capability matrix smoke (tools/resources/prompts).
-        run: python scripts/verify_mcp_capabilities.py
+        run: python .scripts/verify_mcp_capabilities.py
 
       - name: Verify install examples
         # v0.6.0 §K.5 — 8 framework demos --dry exit 0 each.
-        run: python scripts/verify_install_examples.py
+        run: python .scripts/verify_install_examples.py
 
       - name: Verify server.json
         # v0.6.0 §H — JSON Schema + 4KB _meta budget assertion.
-        run: python scripts/verify_server_json.py
+        run: python .scripts/verify_server_json.py
 
   build:
     name: sdist + wheel + twine check

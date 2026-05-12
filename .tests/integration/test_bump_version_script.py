@@ -21,7 +21,7 @@ from textwrap import dedent
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-SCRIPT = REPO_ROOT / "scripts" / "bump_version.py"
+SCRIPT = REPO_ROOT / ".scripts" / "bump_version.py"
 
 
 @pytest.fixture(scope="module")

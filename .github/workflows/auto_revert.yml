@@ -64,7 +64,7 @@ jobs:
           CANON_URL="https://raw.githubusercontent.com/${{ github.repository }}/main/_canon.yaml"
           ISSUE_ID=$(curl -fsSL "$CANON_URL" | grep -E "^\s*auto_evolve_tracking_issue_id:" | sed -E 's/.*:\s*//' | tr -d '"' | tr -d "'" | tr -d ' ')
           if [ -z "$ISSUE_ID" ] || [ "$ISSUE_ID" = "null" ] || [ "$ISSUE_ID" = "~" ]; then
-            echo "::warning::auto_evolve_tracking_issue_id is null in canon; cannot post vetoed_intent. Run scripts/seed_auto_evolve_tracking_issue.py to seed."
+            echo "::warning::auto_evolve_tracking_issue_id is null in canon; cannot post vetoed_intent. Run .scripts/seed_auto_evolve_tracking_issue.py to seed."
             echo "issue_id=" >> "$GITHUB_OUTPUT"
             exit 0
           fi

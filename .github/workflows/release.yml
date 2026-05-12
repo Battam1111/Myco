@@ -147,7 +147,7 @@ jobs:
         # though the file picker advertises both. See Anthropic
         # GitHub issue #40414 (open as of 2026-05).
         #
-        # We install pyyaml explicitly because scripts/build_plugin.py
+        # We install pyyaml explicitly because .scripts/build_plugin.py
         # imports ``myco.boundary.install.plugin_bundle``, which goes through
         # ``myco/install/__init__.py`` → ``myco/core/__init__.py`` →
         # ``yaml``. The ``python -m build`` step above only populates
@@ -160,7 +160,7 @@ jobs:
           python -m pip install pyyaml
           # v0.8.4 root-cleanup (2026-05-12): build output dir hidden
           # to .dist/. build_plugin.py defaults to .dist/ at v0.8.4+.
-          python scripts/build_plugin.py
+          python .scripts/build_plugin.py
           ls -lh .dist/myco-*.zip
 
       - name: Install mcp-publisher

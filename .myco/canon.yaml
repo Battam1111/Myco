@@ -67,8 +67,8 @@ system:
       - "notes/**"
       - "docs/**"
       - "src/**"
-      - "tests/**"
-      - "scripts/**"
+      - ".tests/**"
+      - ".scripts/**"
       - ".claude/**"
       # v0.4.1 plugin bundle (Stage D.3).
       - ".claude-plugin/**"
