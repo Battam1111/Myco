@@ -8,9 +8,11 @@ L0 principle 5 says substrates extend along two orthogonal axes:
 - **Per-substrate** (``<root>/.myco/plugins/``) — project-specific
   dimensions, adapters, schema_upgraders, and overlay verbs that
   belong to *this* substrate.
-- **Per-host** (``boundary/host_integration/``) — host-process
-  integrations (CLAUDE.md, Cowork plugin, etc.) shared across
-  every substrate the host opens.
+- **Per-host** (``boundary/install/clients.py::JsonClientSpec``
+  table) — host-process integrations (CLAUDE.md writers, Cowork
+  plugin bundler, etc.) shared across every substrate the host
+  opens. (The v0.6.0 ``boundary/host_integration/`` adapter package
+  was excreted at v0.8.5 as never-wired-into-production.)
 
 The per-substrate axis has been wired since v0.5.3 (the AD1 dim
 recognises ``.myco/plugins/``; ``Substrate.load`` auto-imports the

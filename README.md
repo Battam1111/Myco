@@ -65,7 +65,7 @@ You speak. The agent listens. Between your turns, Myco runs a metabolism.
 - **Ingestion.** `hunger` asks what is missing. `eat` absorbs whatever you point at, whether a path, a URL, or a paragraph. `sense` and `forage` scan what is already here. `excrete` safely removes a raw note captured by mistake, moving it to an audit tombstone instead of silently deleting. `intake` (v0.6.0) bulk-ingests a whole directory, composing forage + eat with strict-mode failure visibility.
 - **Digestion.** `assimilate` cooks raw notes into integrated knowledge. `digest` promotes a single note. `sporulate` concentrates integrated notes into a dispersible proposal.
 - **Circulation.** `traverse` walks the graph and reports on its connectedness. `propagate` publishes learning to a downstream substrate.
-- **Homeostasis.** `immune` runs a 46-dimension lint against the seven hard rules. `senesce` winds down each session cleanly.
+- **Homeostasis.** `immune` runs a 50-dimension lint against the seven hard rules. `senesce` winds down each session cleanly.
 - **Evolution.** When the substrate's shape no longer fits the work, whether a canon field is missing, a new lint dimension is needed, or a verb must change, `fruit` drafts a three-round craft proposal, `winnow` gates its shape, and `molt` ships the contract bump.
 
 Twenty verbs, one manifest, two faces: a CLI for you to observe, an MCP server for the agent to drive. You memorize nothing. The agent drives.

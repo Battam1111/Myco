@@ -16,10 +16,10 @@ Floors derive from craft v0.6.0 §K.3:
 - boundary/surface/ = 85 (CLI/MCP adapter, no business logic)
 - boundary/ = 70 (OS-conditional code; lower floor accepted)
 
-v0.6.16: ``symbionts/`` floor removed (package excreted at v0.6.0;
-``boundary/host_integration/`` is the renamed home and inherits the
-boundary/ 70% floor). ``surface/`` floor renamed to
-``boundary/surface/`` post-v0.6.0 unification.
+v0.6.16: ``symbionts/`` floor removed (package excreted at v0.6.0).
+v0.8.5: ``boundary/host_integration/`` floor removed (package excreted
+in the same release as never-wired-into-production). ``surface/`` floor
+renamed to ``boundary/surface/`` at the v0.6.0 unification.
 
 Exit code 0 if all floors met, 2 if any package falls short.
 """

@@ -36,8 +36,8 @@ should be released (delete).
    write/install activity for this substrate. v0.8.0 MVP heuristic:
    ``1`` (this substrate at least has its own host running it). A
    future extension can plumb richer evidence from
-   ``boundary/host_integration/<host>.py::install_basic`` telemetry,
-   if/when ``.myco/state/host_install.json`` is introduced.
+   ``boundary/install/clients.py::JsonClientSpec`` telemetry if/when
+   a ``.myco/state/host_install.json`` artifact is introduced.
 3. ``peer_count`` — ``len(canon.identity.federation_peers)``. Direct
    reading of the L0 P5 federation field.
 

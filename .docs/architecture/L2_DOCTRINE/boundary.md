@@ -1,8 +1,8 @@
 # L2 — Boundary Doctrine
 
-> **Status**: APPROVED (2026-04-28, v0.6.0 craft Round 4 owner amendment §A1; Round 5 physical merger LANDED).
+> **Status**: APPROVED (2026-04-28, v0.6.0 craft Round 4 owner amendment §A1; Round 5 physical merger LANDED). v0.8.5 — host_integration subpackage excreted.
 > **Layer**: L2. Subordinate to `L0_VISION.md` and `L1_CONTRACT/protocol.md`.
-> **Maps to**: `src/myco/boundary/` (v0.6.0 7th canonical subsystem; **full physical layout** with surface/install/mcp/host_integration as proper subpackages).
+> **Maps to**: `src/myco/boundary/` (v0.6.0 7th canonical subsystem; surface/install/mcp as proper subpackages at v0.8.5+).
 
 ---
 
@@ -14,27 +14,35 @@ digest, circulate, regulate, transition), boundary handles
 externalization — every surface where the agent or a host or an
 installer touches the substrate from outside.
 
-Boundary unifies four cross-cutting adapter packages that v0.5.x
-treated as ad-hoc layers (v0.6.0 Round 5 — full physical merger):
+Boundary unifies three cross-cutting adapter packages at v0.8.5
+(v0.6.0 originally shipped four; the fourth — `host_integration` —
+was excreted at v0.8.5):
 
 - `boundary.surface` (`src/myco/boundary/surface/`): CLI + MCP server +
   manifest dispatcher. Translates verbs into CLI subcommands and MCP
   tool registrations.
 - `boundary.install` (`src/myco/boundary/install/`): host config writers
-  (myco-install host claude-code / cursor / cowork / etc). Writes
-  basic mcpServers JSON to user-home config files.
+  via the data-driven `JsonClientSpec` table in `clients.py`. 10
+  automated MCP-host writers (Claude Code, Claude Desktop, Cursor,
+  Windsurf, Zed, VS Code, OpenClaw, Gemini CLI, Codex CLI, Goose).
 - `boundary.mcp` (`src/myco/boundary/mcp/`): MCP server launcher, entry
   point for `mcp-server-myco` console script.
-- `boundary.host_integration` (`src/myco/boundary/host_integration/`):
-  per-host deep adapters writing native rule files / skills / commands /
-  recipes. v0.6.0 ships 14 host adapters covering Claude Code, Cursor,
-  Cowork, VS Code, Continue, Cline, JetBrains, Zed, Goose, Windsurf,
-  Codex CLI, Gemini CLI, OpenClaw, Claude Desktop.
+
+v0.8.5 excretion: `boundary.host_integration` (14 per-host adapter
+modules at v0.6.0 — claude_code / claude_desktop / cline / codex_cli /
+continue_dev / cowork / cursor / gemini_cli / goose / jetbrains /
+openclaw / vscode / windsurf / zed) was deleted as never-wired-into-
+production. The 8 pure-stub adapters returned empty `InstallReport`s;
+the 6 functional rule-template writers were not invoked by the
+production `myco-install host <client>` path (which uses the
+`clients.py::JsonClientSpec` data table). Re-introducing deep-install
+rule writers, if wanted in v0.9, should land as a new `RuleClientSpec`
+row inside `clients.py` rather than as a parallel module registry.
 
 The legacy top-level packages `myco.surface` / `myco.install` /
-`myco.mcp` / `myco.symbionts` are **REMOVED at v0.6.0**. All 80+
-project-internal imports rewritten to canonical `myco.boundary.<sub>`
-form via `scripts/myco_migrate.py`.
+`myco.mcp` / `myco.symbionts` were **REMOVED at v0.6.0**. The 80+
+project-internal imports were rewritten to canonical
+`myco.boundary.<sub>` form in that release.
 
 ## Why this is a subsystem (not a meta-package)
 
@@ -43,7 +51,7 @@ packages, not subsystems". v0.6.0 owner amendment promotes them to a
 single canonical subsystem `boundary` because:
 
 1. **R7 enforceability**: cross-cutting status placed surface/install/
-   mcp/symbionts outside `canon.subsystems`, hence outside MF1 (declared
+   mcp outside `canon.subsystems`, hence outside MF1 (declared
    subsystems exist) / CG1 (doctrine has src reference) / CG2 (src
    subpackage links to doctrine) coverage. Promoting to subsystem brings
    them under the same machine-readable contract as the other 6.
@@ -84,9 +92,9 @@ vocabulary.
 - **Reads from**: every subsystem (the surface adapter loads manifest
   from cycle, dispatches to ingestion/digestion/circulation/homeostasis;
   install reads canon to write per-host configs).
-- **Writes to**: paths outside substrate root for install/host_integration
-  (governed by host config discipline, not R6); paths inside substrate
-  root only via verb dispatch (surface) or MCP tool invocation (mcp).
+- **Writes to**: paths outside substrate root for install (governed
+  by host config discipline, not R6); paths inside substrate root
+  only via verb dispatch (surface) or MCP tool invocation (mcp).
 - **Emits**: nothing directly — boundary is a translation layer, not
   a content producer.
 
@@ -104,15 +112,17 @@ vocabulary.
    (mechanical, surface pure-adapter) guards.
 
 3. **Boundary subpackage independence.** `boundary.surface`,
-   `boundary.install`, `boundary.mcp`, `boundary.host_integration`
-   may import from each other and from core/, but not from any
-   subsystem's internal modules beyond their public ``run`` /
-   ``run_cli`` entry points.
+   `boundary.install`, `boundary.mcp` may import from each other
+   and from core/, but not from any subsystem's internal modules
+   beyond their public ``run`` / ``run_cli`` entry points.
 
-4. **Host-side write transparency.** Every artifact written by
-   `boundary.host_integration.<host>.install_deep` carries a
-   `# myco-symbiont-sig: <substrate_id>:<myco_version>` header. MF3
-   dim verifies presence on every immune pass.
+4. **Host-side write transparency.** (Retired at v0.8.5 — was an
+   invariant for the v0.6.0 host_integration adapter package that
+   wrote `# myco-symbiont-sig:` headers into per-host rule files
+   and was verified by the MF3 dim. Both the writer surface and the
+   verifier were excreted at v0.8.5 as never-wired-into-production.
+   If v0.9 re-introduces deep-install rule writers, the signature-
+   header invariant should re-land alongside.)
 
 ## v0.6.0 physical layout
 
@@ -137,30 +147,18 @@ src/myco/boundary/
 │   ├── cowork_plugin.py
 │   ├── plugin_bundle.py
 │   └── fresh.py
-├── mcp/                     # MCP launcher (`python -m myco.boundary.mcp`)
-│   └── __init__.py
-└── host_integration/        # 14 host adapters (formerly `myco.symbionts`)
-    ├── _protocol.py
-    ├── claude_code.py
-    ├── cursor.py
-    ├── cowork.py
-    ├── vscode.py
-    ├── continue_dev.py
-    ├── cline.py
-    ├── jetbrains.py
-    ├── zed.py
-    ├── goose.py
-    ├── windsurf.py
-    ├── codex_cli.py
-    ├── gemini_cli.py
-    ├── openclaw.py
-    └── claude_desktop.py
+└── mcp/                     # MCP launcher (`python -m myco.boundary.mcp`)
+    └── __init__.py
+
+# v0.8.5 — `host_integration/` (14 per-host adapter modules at v0.6.0)
+# was excreted. The data-driven `install/clients.py::JsonClientSpec`
+# table is the sole host-writer surface now.
 ```
 
-201 import-path rewrites across 60 files (src + tests + docs +
-configs) converted every `myco.surface.X` / `myco.install.X` /
-`myco.mcp.X` / `myco.symbionts.X` reference to its `myco.boundary.X`
-canonical form. pyproject.toml entry-points updated:
+The v0.6.0 unification rewrote 201 import paths across 60 files
+(src + tests + docs + configs), converting every `myco.surface.X` /
+`myco.install.X` / `myco.mcp.X` / `myco.symbionts.X` reference to
+its `myco.boundary.X` canonical form. pyproject.toml entry-points:
 
 - `myco = "myco.boundary.surface.cli:main"`
 - `mcp-server-myco = "myco.boundary.mcp:main"`
@@ -168,13 +166,14 @@ canonical form. pyproject.toml entry-points updated:
 
 ## Migration notes
 
-- v0.5.x → v0.6.0: legacy top-level imports (`from myco.surface import X`,
-  `from myco.symbionts import X`, etc.) **break** — run
-  `scripts/myco_migrate.py <path>` to rewrite user scripts to the
-  canonical `myco.boundary.<sub>` form.
-- v0.6.0 → v0.6.x: ecosystem-thawed patches may add new
-  `boundary.host_integration/<host>.py` modules but the four
-  subpackage layout is contract-frozen.
+- v0.5.x → v0.6.0: legacy top-level imports (`from myco.surface
+  import X`, `from myco.symbionts import X`, etc.) broke; the v0.6.0
+  release shipped a one-shot AST-rewrite script (deleted at v0.8.5
+  as one-shot-done). Recover via git history if any downstream
+  substrate still needs the rewrite logic.
+- v0.6.0 → v0.8.x: subpackage layout has been stable. v0.8.5 retired
+  `host_integration/`; the three remaining subpackages
+  (surface / install / mcp) are contract-frozen.
 
 ## What boundary does NOT do
 
