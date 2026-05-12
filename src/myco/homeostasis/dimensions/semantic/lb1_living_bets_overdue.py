@@ -5,8 +5,8 @@ Living bets" (review cadence: "Every MAJOR release (v0.6, v0.7, v1.0)
 re-audits this appendix"). The cadence has been honor-system since
 v0.5.6 and was missed at v0.7.0 (Major Autolysis, 2026-04-30); v0.7.5
 backfilled the audit retroactively per
-``docs/primordia/v0_7_5_living_bets_audit_2026-05-10.md`` and
-``docs/primordia/v0_7_5_p0_to_p6_omnibus_craft_2026-05-10.md`` § P1.
+``docs/primordia/_landed/v0_7_x/v0_7_5_living_bets_audit_2026-05-10.md`` and
+``docs/primordia/_landed/v0_7_x/v0_7_5_p0_to_p6_omnibus_craft_2026-05-10.md`` § P1.
 
 LB1 closes the loop mechanically. It compares the substrate's
 ``_canon.yaml::contract_version`` MAJOR (in **Myco-MAJOR** semantics:
@@ -29,8 +29,8 @@ regimes.
   ``docs/primordia/**`` (so ``_landed/v0_X_x/...`` archived audits
   still count). Examples that match:
 
-  - ``docs/primordia/v0_6_0_living_bets_audit_craft_2026-04-28.md``
-  - ``docs/primordia/v0_7_5_living_bets_audit_2026-05-10.md``
+  - ``docs/primordia/_landed/v0_6_x/v0_6_0_living_bets_audit_craft_2026-04-28.md``
+  - ``docs/primordia/_landed/v0_7_x/v0_7_5_living_bets_audit_2026-05-10.md``
   - ``docs/primordia/_landed/v0_6_x/v0_6_0_living_bets_audit_craft_*.md``
 
 - The audited MAJOR is parsed from the leading ``vN_M_P`` token in
