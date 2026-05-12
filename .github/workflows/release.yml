@@ -131,6 +131,10 @@ jobs:
         uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b  # release/v1
         with:
           skip-existing: true
+          # v0.8.5 — build now writes to .dist/ (per the v0.8.4 root-
+          # cleanup). The PyPA publish action defaults to dist/, so we
+          # point it at the hidden directory explicitly.
+          packages-dir: .dist/
 
       - name: Build Cowork .zip plugin bundle
         # v0.5.20: produce the drag-drop bundle Cowork users upload
