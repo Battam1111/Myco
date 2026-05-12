@@ -174,25 +174,11 @@ def main() -> int:
             )
             return 4
 
-    # v0.7.3 — sync plugin mirrors. Idempotent; ensures
-    # `.claude/{agents,commands}/X.md` ↔ `.plugin/{agents,commands}/X.md`
-    # are byte-identical before the molt commit. Runs always (even
-    # with --skip-molt) because the molt commit captures the synced
-    # state regardless of whether contract bumps.
-    #
-    # v0.8.6 path-correction: `scripts/` → `.scripts/` per the v0.8.4
-    # root-cleanup hidden-prefix layout. The bumper was missed by the
-    # v0.8.4 sweep; running it on Myco-self failed at this line with
-    # `[Errno 2] No such file or directory`.
-    sync_cmd = [sys.executable, ".scripts/sync_plugin_mirrors.py"]
-    print(f"\n→ [sync_plugin_mirrors] {' '.join(sync_cmd)}")
-    rc = subprocess.call(sync_cmd, cwd=REPO)
-    if rc != 0:
-        _err(
-            f"sync_plugin_mirrors failed (exit {rc}). "
-            "Investigate before retrying the bump."
-        )
-        return 4
+    # v0.8.8 — sync_plugin_mirrors.py was excreted. The pre-v0.8.8
+    # design maintained byte-identical .claude/{agents,commands}/
+    # mirrors at .plugin/{agents,commands}/; v0.8.8 redirected
+    # plugin.json straight at .claude/ and deleted the mirror entirely.
+    # No more sync step needed.
 
     # v0.7.5 — auto-refresh canon.metrics so test_count + lint_dim_count
     # never go stale. Replaces the manual "remember to update canon.metrics"
@@ -419,8 +405,8 @@ def _refresh_canon_metrics(repo: Path, *, dry_run: bool) -> list[str]:
     the ``test_count:`` line within the ``metrics:`` block.
 
     v0.8.5 — canon may live at ``.myco/canon.yaml`` (Myco-self / v0.8.4+)
-    or ``_canon.yaml`` (legacy / downstream). Probe both, same pattern as
-    sync_plugin_mirrors.py.
+    or ``_canon.yaml`` (legacy / downstream). Probe both, same canon-
+    location-fallback pattern as the rest of the bumper.
     """
     canon_path = repo / ".myco" / "canon.yaml"
     if not canon_path.is_file():

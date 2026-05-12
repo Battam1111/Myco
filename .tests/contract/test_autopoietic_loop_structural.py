@@ -339,18 +339,27 @@ def test_boundary_md_has_sixth_seam_section() -> None:
 # ===== G. myco-evolve mirror byte-identical =====
 
 
-def test_myco_evolve_mirror_byte_identical() -> None:
-    """`.claude/commands/myco-evolve.md` and `<repo>/.plugin/commands/myco-evolve.md` byte-identical.
+def test_myco_evolve_lives_at_claude_single_source() -> None:
+    """`.claude/commands/myco-evolve.md` is the single source of truth.
 
-    v0.8.4 root-cleanup (2026-05-12): plugin-bundle scope relocated
-    from `<repo>/commands/` to `<repo>/.plugin/commands/` to declutter
-    the repo root. Project scope (`.claude/commands/`) is unchanged.
+    v0.8.8 simplification: the pre-v0.8.8 design carried a byte-
+    identical mirror at `.plugin/commands/myco-evolve.md`; the
+    mirror was retired (plugin.json now references `.claude/commands/`
+    directly per the Claude Code docs Quickstart guidance). This
+    test verifies the single source of truth file is present + non-
+    trivial, and the retired mirror path is absent.
     """
-    a = (_REPO_ROOT / ".claude" / "commands" / "myco-evolve.md").read_bytes()
-    b = (_REPO_ROOT / ".plugin" / "commands" / "myco-evolve.md").read_bytes()
-    assert a == b, (
-        "myco-evolve.md must be byte-identical between project-level and "
-        "plugin-bundle scope (per v0.6.11 5th-seam invariant 3 extended to 6th seam)."
+    src = _REPO_ROOT / ".claude" / "commands" / "myco-evolve.md"
+    assert src.is_file(), (
+        f"v0.6.14 sixth-seam command file missing: {src} "
+        f"(single source of truth at v0.8.8+)."
+    )
+    assert len(src.read_bytes()) >= 200, f"{src} must be non-trivial (≥ 200 bytes)."
+    forbidden = _REPO_ROOT / ".plugin" / "commands" / "myco-evolve.md"
+    assert not forbidden.exists(), (
+        f"Retired mirror path resurrected: {forbidden}. "
+        f"v0.8.8 retired `.plugin/commands/`; plugin.json references "
+        f"`.claude/commands/` directly."
     )
 
 

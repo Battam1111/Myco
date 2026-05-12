@@ -20,6 +20,6 @@
   "mcpServers": "./.mcp.json",
   "hooks": "./.plugin/hooks/hooks.json",
   "skills": "./.plugin/skills/",
-  "agents": "./.plugin/agents/",
-  "commands": "./.plugin/commands/"
+  "agents": "./.claude/agents/",
+  "commands": "./.claude/commands/"
 }
