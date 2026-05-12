@@ -90,11 +90,11 @@ mcp-auth = [
   "authlib>=1.3",
   "cryptography>=42",
 ]
-# v0.6.0 §A.1: MCP resources subscription file-watching. watchfiles
-# is the lightest-weight cross-platform inotify wrapper.
-mcp-resources = [
-  "watchfiles>=0.21",
-]
+# v0.8.6 — the `mcp-resources` extra was excreted alongside the
+# v0.8.5 `boundary/surface/mcp_resources` excretion (a stub
+# subscription surface that production code never wired up).
+# `watchfiles` is no longer a Myco dependency; downstream substrates
+# that need filesystem watching install it directly.
 # v0.7.10: ``pip install 'myco[examples]'`` — pulls in every framework
 # the 8-demo subtree under ``examples/`` exercises. Used by
 # ``tests/integration/examples/test_examples_smoke.py`` to flip the
@@ -267,6 +267,13 @@ include = [
   "/.github",
   "/.docker",
   "/.meta",
+  # v0.8.6 fix: include the canon-tree skeleton (.myco/canon.yaml +
+  # .myco/canon_lint.yaml + .myco/MYCO.md) in the sdist so downstream
+  # users installing from sdist receive the canon templates. Previously
+  # the canon-tree was silently absent from sdist builds; only `pip
+  # install -e .` clones via git picked it up. The `state/` runtime
+  # tree is excluded below.
+  "/.myco",
   "/.mcp.json",
   "/README.md",
   "/LICENSE",
@@ -290,6 +297,10 @@ exclude = [
   "/.pytest_cache",
   "/.venv",
   "**/__pycache__",
+  # v0.8.6 — exclude the runtime-state tree from sdist; only the
+  # canon SoT (canon.yaml + canon_lint.yaml + MYCO.md + notes/) needs
+  # to ship. .myco/state/ is per-installation derivative.
+  "/.myco/state/**",
 ]
 
 [tool.pytest.ini_options]

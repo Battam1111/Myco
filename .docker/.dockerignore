@@ -29,6 +29,8 @@ Thumbs.db
 # Myco substrate state + source tree (unused in this image — see
 # Dockerfile for why we install from PyPI rather than COPY).
 # v0.8.5 — paths aligned with v0.8.4 root-cleanup (hidden-prefixed dirs).
+# v0.8.6 — `.cowork-plugin` removed (consolidated into the unified
+# `.plugin/` SoT at v0.8.5; refer to `scripts/build_plugin.py`).
 src
 .tests
 .docs
@@ -36,7 +38,6 @@ src
 .myco
 .claude
 .claude-plugin
-.cowork-plugin
 .plugin
 .meta
 .mcp.json

@@ -1,6 +1,6 @@
 {
   "name": "myco",
-  "version": "0.8.6",
+  "version": "0.8.5",
   "description": "Agent-First symbiotic cognitive substrate. 20 fungal-named verbs (germinate / hunger / eat / sense / forage / excrete / intake / assimilate / digest / sporulate / traverse / propagate / immune / senesce / fruit / molt / winnow / ramify / graft / brief). 47-dimension immune across 7 subsystems (germination / ingestion / digestion / circulation / homeostasis / cycle / boundary). Schema v3 canon, MCP capability surface (tools, prompts, sampling, progress, logging) with stdio + streamable-http + OAuth 2.1 transports. Editable-by-default install, substrate-local plugin loading via .myco/plugins/, 10 automated MCP host writers via data-driven JsonClientSpec table.",
   "author": {
     "name": "Yanjun",
