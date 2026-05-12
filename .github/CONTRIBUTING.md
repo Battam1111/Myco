@@ -152,7 +152,7 @@ Release ceremony for maintainers (one helper + four git verbs):
 #    Does __init__.py / plugin.json / CITATION.cff / server.json (x2),
 #    then runs `myco molt --contract vX.Y.Z`, then runs pytest.
 #    Refuses dirty worktree + downgrades by default.
-python scripts/bump_version.py --to X.Y.Z
+python .scripts/bump_version.py --to X.Y.Z
 
 # 2. Replace the `(Fill in: ...)` auto-stub in
 #    docs/contract_changelog.md with the real narrative — the
@@ -168,7 +168,7 @@ git push origin main vX.Y.Z
 ```
 
 For edge cases (pre-releases, rollback), see
-``scripts/bump_version.py --help``.
+``.scripts/bump_version.py --help``.
 
 One-time setup (done once per repo, never again):
 

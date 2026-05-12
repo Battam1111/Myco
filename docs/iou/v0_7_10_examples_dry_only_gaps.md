@@ -120,7 +120,7 @@ adapter integration.
 
 ## Cross-references
 
-- **Test file**: [`tests/integration/examples/test_examples_smoke.py`](../../tests/integration/examples/test_examples_smoke.py)
+- **Test file**: [`tests/integration/examples/test_examples_smoke.py`](../../.tests/integration/examples/test_examples_smoke.py)
 - **Demo subtree**: [`examples/`](../../examples/)
 - **Extras target**: `pyproject.toml::[project.optional-dependencies].examples`
 - **Sibling IOU**: [`docs/iou/v0_7_10_streamable_http_gaps.md`](v0_7_10_streamable_http_gaps.md)

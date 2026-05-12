@@ -250,16 +250,19 @@ path = "src/myco/__init__.py"
 packages = ["src/myco"]
 
 [tool.hatch.build.targets.sdist]
-# Ephemeral / dev-only files that should never ship to PyPI even if
-# they happen to sit at the repo root mid-release. The .gitignore
-# mostly covers these already; this block is belt-and-suspenders so
-# a stray `python -m build` while a release-notes scratch file is
-# present does not leak it into the tarball.
+# v0.8.4 root-cleanup (2026-05-12): 3 content directories (tests/,
+# docs/, scripts/) moved to dot-prefixed hidden form (.tests/, .docs/,
+# .scripts/) so the repo root carries: LICENSE / README.md /
+# pyproject.toml + src/ + 14 hidden entries. src/ stays visible
+# because an editable install can't be reinstalled while
+# `mcp-server-myco.exe` is in use; the user's Claude Desktop session
+# locks the binary. src/ relocation is a separate craft if the user
+# wants the absolute minimum (3 files, 0 visible folders).
 include = [
   "/src",
-  "/tests",
-  "/docs",
-  "/scripts",
+  "/.tests",
+  "/.docs",
+  "/.scripts",
   "/.plugin",
   "/.claude-plugin",
   "/.claude",
@@ -267,10 +270,7 @@ include = [
   "/.docker",
   "/.meta",
   "/.mcp.json",
-  "/_canon.yaml",
-  "/MYCO.md",
   "/README.md",
-  "/CHANGELOG.md",
   "/LICENSE",
   "/pyproject.toml",
 ]
@@ -296,9 +296,11 @@ exclude = [
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+# v0.8.4 root-cleanup (2026-05-12): tests/ and src/ relocated to
+# hidden .tests/ and src/ for root minimalism.
+testpaths = [".tests"]
 # v0.6.0 §K.3 / §K.4: enable coverage gate + xdist parallel by default.
-# CI runs --cov-report=xml + per-package floors via scripts/coverage_floors.py.
+# CI runs --cov-report=xml + per-package floors via .scripts/coverage_floors.py.
 addopts = "-ra --strict-markers --strict-config"
 pythonpath = ["src"]
 # v0.8.4 root-cleanup (2026-05-12): redirect pytest cache from
@@ -320,6 +322,7 @@ markers = [
 
 [tool.coverage.run]
 # v0.6.0 §K.3 — coverage configuration introduced.
+# v0.8.4 root-cleanup (2026-05-12): src/ moved to src/.
 source = ["src/myco"]
 branch = true
 omit = [
@@ -371,7 +374,8 @@ ignore_errors = true  # initial baseline; tighten over v0.6.x
 [tool.ruff]
 target-version = "py310"
 line-length = 88
-src = ["src", "tests"]
+# v0.8.4 root-cleanup (2026-05-12): src/ + tests/ moved to src/ + .tests/.
+src = ["src", ".tests"]
 # v0.8.4 root-cleanup (2026-05-12): redirect ruff cache from default
 # `.ruff_cache/` to consolidated `.cache/ruff/`.
 cache-dir = ".cache/ruff"
@@ -422,7 +426,7 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 # Test files are allowed to use asserts and may skip some stylistic
 # rules that make sense only in production code.
-"tests/**" = ["B017"]
+".tests/**" = ["B017"]
 # Generated / template strings in the ramify scaffolder include
 # example code that intentionally uses old-style typing etc.
 "src/myco/cycle/ramify.py" = ["UP035"]

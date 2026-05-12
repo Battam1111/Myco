@@ -188,9 +188,15 @@ def main(argv: list[str] | None = None) -> int:
     args = p.parse_args(argv)
 
     repo_root: Path = args.repo_root
-    if not (repo_root / "_canon.yaml").is_file():
+    # v0.8.4 root-cleanup (2026-05-12): canon may be at .myco/canon.yaml
+    # (Myco-self / v0.8.4+) or _canon.yaml (legacy / downstream).
+    if not (
+        (repo_root / ".myco" / "canon.yaml").is_file()
+        or (repo_root / "_canon.yaml").is_file()
+    ):
         print(
-            f"error: not a Myco substrate root: {repo_root}",
+            f"error: not a Myco substrate root "
+            f"(no .myco/canon.yaml or _canon.yaml): {repo_root}",
             file=sys.stderr,
         )
         return 2

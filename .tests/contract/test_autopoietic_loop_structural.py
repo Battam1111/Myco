@@ -402,7 +402,7 @@ def test_auto_revert_workflow_exists_and_triggers_correctly() -> None:
 
 def test_seed_script_exists_and_imports() -> None:
     """`scripts/seed_auto_evolve_tracking_issue.py` must exist and be valid Python."""
-    path = _REPO_ROOT / "scripts" / "seed_auto_evolve_tracking_issue.py"
+    path = _REPO_ROOT / ".scripts" / "seed_auto_evolve_tracking_issue.py"
     assert path.is_file(), "seed_auto_evolve_tracking_issue.py must exist"
     # AST-parse to confirm syntactic validity (don't run it; it would
     # try to call gh CLI and write canon).
