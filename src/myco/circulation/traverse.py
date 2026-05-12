@@ -35,14 +35,19 @@ Scope = Literal["canon", "notes", "docs", "all"]
 _VALID_SCOPES: frozenset[str] = frozenset({"canon", "notes", "docs", "all"})
 
 
-def _in_scope(path: str, scope: Scope, entry_point: str = "MYCO.md") -> bool:
-    # v0.8.4 root-cleanup (2026-05-12): entry_point is the agent entry
-    # page path read from canon (defaults to "MYCO.md"; Myco-self moved
-    # to ".myco/MYCO.md"). Passing it through avoids hardcoding.
+def _in_scope(
+    path: str,
+    scope: Scope,
+    entry_point: str = "MYCO.md",
+    canon_rel: str = "_canon.yaml",
+) -> bool:
+    # v0.8.4 root-cleanup (2026-05-12): entry_point + canon_rel are
+    # the agent entry page + canon path read from substrate (defaults
+    # = legacy; Myco-self uses ".myco/MYCO.md" + ".myco/canon.yaml").
     if scope == "all":
         return True
     if scope == "canon":
-        return path == "_canon.yaml"
+        return path == canon_rel
     if scope == "notes":
         return path.startswith("notes/")
     if scope == "docs":
@@ -50,17 +55,26 @@ def _in_scope(path: str, scope: Scope, entry_point: str = "MYCO.md") -> bool:
     return False
 
 
-def _edge_in_scope(edge: Edge, scope: Scope, entry_point: str = "MYCO.md") -> bool:
-    return _in_scope(edge.src, scope, entry_point)
+def _edge_in_scope(
+    edge: Edge,
+    scope: Scope,
+    entry_point: str = "MYCO.md",
+    canon_rel: str = "_canon.yaml",
+) -> bool:
+    return _in_scope(edge.src, scope, entry_point, canon_rel)
 
 
 def _dangling(
-    graph: Graph, root: Path, scope: Scope, entry_point: str = "MYCO.md"
+    graph: Graph,
+    root: Path,
+    scope: Scope,
+    entry_point: str = "MYCO.md",
+    canon_rel: str = "_canon.yaml",
 ) -> list[tuple[str, str]]:
     out: list[tuple[str, str]] = []
     root_r = root.resolve()
     for e in graph.edges:
-        if not _edge_in_scope(e, scope, entry_point):
+        if not _edge_in_scope(e, scope, entry_point, canon_rel):
             continue
         # External-ish dst (e.g. URLs) left as raw; check existence only
         # if it resolves to something under root.
@@ -70,15 +84,20 @@ def _dangling(
     return out
 
 
-def _orphans(graph: Graph, scope: Scope, entry_point: str = "MYCO.md") -> list[str]:
+def _orphans(
+    graph: Graph,
+    scope: Scope,
+    entry_point: str = "MYCO.md",
+    canon_rel: str = "_canon.yaml",
+) -> list[str]:
     # A node is an orphan if it is a note/doc with no *incoming* edges.
     # Canon and entry-point are never orphans by definition.
     referenced: set[str] = {e.dst for e in graph.edges}
     orphans: list[str] = []
     for n in graph.nodes:
-        if n == "_canon.yaml" or n == entry_point:
+        if n in (canon_rel, entry_point):
             continue
-        if not _in_scope(n, scope, entry_point):
+        if not _in_scope(n, scope, entry_point, canon_rel):
             continue
         # Only treat notes/ and docs/ as orphan candidates.
         if not (n.startswith("notes/") or n.startswith("docs/")):
@@ -160,13 +179,17 @@ def perfuse(
         )
 
     graph, cached = _build_graph_with_cache_info(ctx)
-    # v0.8.4 root-cleanup (2026-05-12): pass canon.entry_point so the
-    # scope filter + orphan exclusion follow the substrate's declared
-    # entry page (Myco-self moved it to .myco/MYCO.md; downstream
-    # substrates that retain "MYCO.md" continue working).
+    # v0.8.4 root-cleanup (2026-05-12): pass canon.entry_point + the
+    # resolved canon-relative path so the scope filter + orphan
+    # exclusion follow the substrate's declared layout (Myco-self uses
+    # .myco/MYCO.md + .myco/canon.yaml; downstream defaults to MYCO.md
+    # + _canon.yaml unchanged).
     entry_point = ctx.substrate.canon.entry_point
-    dangling = _dangling(graph, ctx.substrate.root, scope, entry_point)
-    orphans = _orphans(graph, scope, entry_point)
+    canon_rel = ctx.substrate.paths.canon.relative_to(
+        ctx.substrate.root.resolve()
+    ).as_posix()
+    dangling = _dangling(graph, ctx.substrate.root, scope, entry_point, canon_rel)
+    orphans = _orphans(graph, scope, entry_point, canon_rel)
     proposals = _proposals(orphans, dangling)
 
     return Result(

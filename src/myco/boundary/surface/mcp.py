@@ -187,12 +187,21 @@ def _load_canon(project_dir: Path | None = None) -> dict[str, Any]:
 
     v0.5.8: mtime-keyed cache. Repeated calls with an unchanged
     canon return the cached parse in O(1) after the first call.
+
+    v0.8.4 root-cleanup (2026-05-12): probes both ``.myco/canon.yaml``
+    (new layout) and ``_canon.yaml`` (legacy) per ancestor candidate
+    so MCP boot finds the substrate regardless of which layout the
+    user's project carries.
     """
     if yaml is None:
         return {}
+    from myco.core.paths import find_substrate_canon, has_substrate
+
     root = project_dir or Path.cwd()
     for candidate in (root, *root.parents):
-        canon_path = candidate / "_canon.yaml"
+        if not has_substrate(candidate):
+            continue
+        canon_path = find_substrate_canon(candidate)
         if not canon_path.exists():
             continue
         try:

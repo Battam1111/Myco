@@ -78,9 +78,15 @@ class FR1FreshSubstrateInvariants(Dimension):
             )
 
         # 3) notes/raw, notes/integrated, docs — MEDIUM each
-        for rel in ("notes/raw", "notes/integrated", "docs"):
-            p = root / rel
+        # v0.8.4 root-cleanup (2026-05-12): notes_dir is canon-configurable
+        # via SubstratePaths.notes (defaults to "notes/", Myco-self uses
+        # ".myco/notes/"). Resolve through paths.notes so the FR1 check
+        # follows the substrate's declared layout.
+        notes_dir = ctx.substrate.paths.notes
+        for sub in ("raw", "integrated"):
+            p = notes_dir / sub
             if not p.is_dir():
+                rel = p.relative_to(root).as_posix()
                 yield Finding(
                     dimension_id=self.id,
                     category=self.category,
@@ -93,3 +99,18 @@ class FR1FreshSubstrateInvariants(Dimension):
                     ),
                     path=rel,
                 )
+        # docs/ stays at root regardless of notes_dir config.
+        docs_path = root / "docs"
+        if not docs_path.is_dir():
+            yield Finding(
+                dimension_id=self.id,
+                category=self.category,
+                severity=Severity.MEDIUM,
+                message=(
+                    "docs/ directory missing — fresh substrates "
+                    "carry this directory; a missing one means "
+                    "either pre-v0.5 substrate layout or a user "
+                    "wipe. Restore (``git restore``) or mkdir."
+                ),
+                path="docs",
+            )

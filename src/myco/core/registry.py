@@ -108,7 +108,12 @@ class SubstrateEntry:
         a separate explicit action so users don't lose pointers to
         moved-but-recoverable substrates.
         """
-        return (self.path / "_canon.yaml").is_file()
+        # v0.8.4 root-cleanup (2026-05-12): canon may be at either
+        # .myco/canon.yaml (new) or _canon.yaml (legacy); both shapes
+        # count as a live substrate for registry purposes.
+        from myco.core.paths import has_substrate
+
+        return has_substrate(self.path)
 
 
 # ----------------------------------------------------------------- paths

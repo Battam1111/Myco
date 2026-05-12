@@ -62,7 +62,12 @@ def test_every_subsystem_has_a_matching_package() -> None:
 
     import yaml
 
-    canon_path = Path(__file__).resolve().parent.parent / "_canon.yaml"
+    # v0.8.4 root-cleanup (2026-05-12): Myco-self canon moved to
+    # .myco/canon.yaml; resolve via the central helper for compat.
+    from myco.core.paths import find_substrate_canon
+
+    repo_root = Path(__file__).resolve().parent.parent
+    canon_path = find_substrate_canon(repo_root)
     data = yaml.safe_load(canon_path.read_text(encoding="utf-8"))
     subsystems = data.get("subsystems") or {}
     for name, spec in subsystems.items():
@@ -71,7 +76,10 @@ def test_every_subsystem_has_a_matching_package() -> None:
         pkg = spec.get("package")
         if pkg is None:
             continue
-        pkg_path = canon_path.parent / pkg
+        # Resolve package path relative to repo_root (substrate root),
+        # not canon_path.parent — canon now lives at .myco/canon.yaml
+        # so canon_path.parent is .myco/, which would mis-resolve.
+        pkg_path = repo_root / pkg
         assert pkg_path.is_dir(), f"canon.subsystems.{name}.package missing: {pkg}"
 
 

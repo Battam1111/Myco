@@ -582,7 +582,7 @@ def test_fastmcp_call_eat_with_flat_args_succeeds() -> None:
     # Need a real substrate root for eat to write to. Use the repo
     # itself — it has _canon.yaml + the write_surface includes notes/**.
     repo_root = Path(__file__).resolve().parents[4]
-    assert (repo_root / "_canon.yaml").is_file()
+    assert (repo_root / ".myco" / "canon.yaml").is_file()
 
     m = load_manifest()
     server = build_server(m)

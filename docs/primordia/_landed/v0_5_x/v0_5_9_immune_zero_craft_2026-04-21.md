@@ -181,5 +181,5 @@ wiring snippets for VS Code, JetBrains, Neovim.
 
 ## Source notes
 
-- [v0.5.8 release self-audit findings](../../../../notes/distilled/_excreted/n_20260420T192123Z_v0-5-8-iter-4-consolidated-4-lenses-lens.md)
+- [v0.5.8 release self-audit findings](../../../../.myco/notes/distilled/_excreted/n_20260420T192123Z_v0-5-8-iter-4-consolidated-4-lenses-lens.md)
 - [v0.5.8 discipline-enforcement craft](v0_5_8_discipline_enforcement_craft_2026-04-21.md)

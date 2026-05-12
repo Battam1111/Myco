@@ -46,6 +46,12 @@ identity:
     - "C:/Users/10350/Desktop/CC"
 
 system:
+  # v0.8.4 root-cleanup (2026-05-12): Myco-self relocates the substrate
+  # notes tree from root-level `notes/` to `.myco/notes/` so the repo
+  # root no longer carries Myco-internal "data" as a visible folder.
+  # SubstratePaths.notes reads this field; default ("notes") is unchanged
+  # for downstream substrates that haven't opted into the new layout.
+  notes_dir: ".myco/notes"
   write_surface:
     allowed:
       - "_canon.yaml"

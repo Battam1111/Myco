@@ -24,7 +24,7 @@ onboarding happened on 2026-04-23/24; this document reconstructs the
 three-round debate that *would* have saved six iterations if the
 maintainer had read it first.
 
-Cross-ref substrate note: [notes/integrated/n_20260424T070557Z_glama-mcp-registry-onboarding-runbook-20.md](../../notes/integrated/n_20260424T070557Z_glama-mcp-registry-onboarding-runbook-20.md)
+Cross-ref substrate note: [notes/integrated/n_20260424T070557Z_glama-mcp-registry-onboarding-runbook-20.md](../../.myco/notes/integrated/n_20260424T070557Z_glama-mcp-registry-onboarding-runbook-20.md)
 
 ---
 

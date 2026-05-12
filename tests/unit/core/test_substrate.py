@@ -54,7 +54,10 @@ def test_substrate_load(seeded_substrate: Path) -> None:
 
 
 def test_substrate_load_missing_canon(tmp_path: Path) -> None:
-    with pytest.raises(CanonSchemaError, match="not found"):
+    # v0.8.4 root-cleanup (2026-05-12): error message changed from
+    # "_canon.yaml not found" to "no canon file (.myco/canon.yaml or
+    # _canon.yaml) found" since the canon may live at either path.
+    with pytest.raises(CanonSchemaError, match="no canon file"):
         Substrate.load(tmp_path)
 
 
