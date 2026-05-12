@@ -15,8 +15,7 @@ __pycache__/
 *.egg-info/
 *.egg
 
-# Build artifacts
-dist/
+# Build artifacts (`python -m build --outdir .dist` per v0.8.4).
 .dist/
 build/
 *.whl
@@ -85,20 +84,9 @@ upload*.log
 # ghost, etc.), `git add` will refuse to re-stage it.
 legacy_v0_3/
 
-# Myco runtime substrate state (generated at runtime, not source of truth).
-# v0.7.2: switched from per-file list to wildcard so future state files
-# (like shim_hits.json from MB8 telemetry) don't accidentally land in
-# git. Explicit prior list preserved as comment for archaeology.
-#   .myco_state/sessions.db .myco_state/boot_brief.md
-#   .myco_state/autoseeded.txt .myco_state/decay_baseline.yaml
-#   .myco_state/search_misses.yaml .myco_state/excretion_counter.json
-#   .myco_state/graph.json (pre-v0.7.2 explicit entries)
-# v0.8.4 root-cleanup (2026-05-12): runtime state moved from
-# `.myco_state/` (visible dotdir at repo root) to `.myco/state/`
-# (subdirectory under a consolidated .myco/ parent). Keeps the
-# legacy gitignore line for any downstream substrate still on the
-# pre-v0.8.4 path.
-.myco_state/**
+# Myco runtime substrate state — generated at runtime, not SSoT.
+# (graph.json cache, shim_hits.json MB8 telemetry, autoseeded.txt
+# skeleton marker, etc — every state file ends up here.)
 .myco/state/**
 
 # Graph-builder benchmark cache. Generating a 10 K-file synthetic
