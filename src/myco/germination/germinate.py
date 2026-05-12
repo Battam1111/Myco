@@ -155,7 +155,7 @@ def bootstrap(
     On success (``dry_run=False``), the following are written:
 
     - ``_canon.yaml`` at the root (from ``templates/canon.yaml.tmpl``).
-    - ``.myco_state/autoseeded.txt`` marker (enables skeleton-mode
+    - ``.myco/state/autoseeded.txt`` marker (enables skeleton-mode
       severity downgrade in homeostasis).
     - ``notes/`` and ``docs/`` directories (created only if missing;
       pre-existing non-empty directories are left untouched).
@@ -226,7 +226,7 @@ def bootstrap(
         raise UsageError(f"project_dir is not a directory: {project_dir}")
 
     canon_path = project_dir / "_canon.yaml"
-    state_dir = project_dir / ".myco_state"
+    state_dir = project_dir / ".myco/state"
     marker_path = state_dir / "autoseeded.txt"
     entry_path = project_dir / entry_point
 
@@ -239,7 +239,7 @@ def bootstrap(
     if marker_path.exists():
         raise ContractError(
             f"partial genesis state at {project_dir}: "
-            f".myco_state/autoseeded.txt exists without _canon.yaml; "
+            f".myco/state/autoseeded.txt exists without _canon.yaml; "
             f"resolve manually before rerunning genesis"
         )
     if entry_path.exists():
@@ -275,7 +275,7 @@ def bootstrap(
     preview_full: dict[str, str] = {
         "_canon.yaml": canon_text,
         entry_point: entry_text,
-        ".myco_state/autoseeded.txt": marker_text,
+        ".myco/state/autoseeded.txt": marker_text,
     }
 
     # v0.5.8 (Lens 5 P1-09-germinate-preview): the ``preview`` payload
@@ -293,7 +293,10 @@ def bootstrap(
     files_created: tuple[str, ...] = ()
     if not dry_run:
         # Directories first.
-        state_dir.mkdir(exist_ok=True)
+        # v0.8.4 root-cleanup (2026-05-12): state_dir nested under
+        # .myco/state/ (was .myco_state/ flat); parents=True creates
+        # the .myco/ parent on a fresh germinate.
+        state_dir.mkdir(parents=True, exist_ok=True)
         (project_dir / "notes").mkdir(exist_ok=True)
         # v0.5.8 (Lens 13 FR1-pre): fresh substrates now provision
         # ``notes/raw/`` and ``notes/integrated/`` up front. Previously
@@ -319,7 +322,7 @@ def bootstrap(
         files_created = (
             "_canon.yaml",
             entry_point,
-            ".myco_state/autoseeded.txt",
+            ".myco/state/autoseeded.txt",
         )
 
     payload: dict[str, object] = {

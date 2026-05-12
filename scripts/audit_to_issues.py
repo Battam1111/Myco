@@ -17,7 +17,7 @@ Resume / dedup / rate-limit budget:
 - ``--rate-limit-budget <int>``: hard cap on issues created in one
   invocation (default 80, the GitHub content-generation rate limit
   per minute).
-- Dedup: each issue's title is hashed; ``.myco_state/audit_issues_seen.json``
+- Dedup: each issue's title is hashed; ``.myco/state/audit_issues_seen.json``
   records hashes already submitted across runs.
 """
 
@@ -119,7 +119,7 @@ def main() -> int:
         chosen = (p0 + p1)[: args.rate_limit_budget]
 
     # Resume handling.
-    seen_path = root / ".myco_state" / "audit_issues_seen.json"
+    seen_path = root / ".myco/state" / "audit_issues_seen.json"
     seen_hashes: set[str] = set()
     if seen_path.is_file():
         try:

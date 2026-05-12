@@ -17,14 +17,14 @@ discipline (v0.7.1-named, v0.7.3-canonized)", the shim is gated for
 sunset on **gate (b) telemetry verification**: ≥
 ``governance.shim_sunset_min_zero_cycles`` (7) senesce cycles AND
 ≥ ``governance.shim_sunset_min_zero_days`` (7) wall-clock days with
-**zero hits** to ``.myco_state/shim_hits.json``. Every accidental
+**zero hits** to ``.myco/state/shim_hits.json``. Every accidental
 ``import myco.mcp`` from a test resets that gate.
 
 The pre-v0.7.5 layout had **five** tests in
 ``tests/unit/boundary/test_legacy_mcp_shim.py``, one of which spawned
 ``python -m myco.mcp --help`` as a subprocess; that subprocess hit
 the substrate's ``__main__._record_shim_hit()`` against the real
-``.myco_state/shim_hits.json`` once **per pytest run**, accumulating
+``.myco/state/shim_hits.json`` once **per pytest run**, accumulating
 28 spurious hits over the v0.7.2 → v0.7.4 release window. The
 sunset gate could not naturally close because the substrate's own
 test suite was the loudest non-operator consumer of the shim.
@@ -34,7 +34,7 @@ pins the shim's full external contract — DeprecationWarning text,
 stderr pointer, public-symbol re-export identity, and the
 ``_record_shim_hit()`` JSONL append shape — while routing **every**
 side effect (the ``shim_hits.json`` write) to a ``tmp_path``
-substrate. The real ``.myco_state/shim_hits.json`` is never touched.
+substrate. The real ``.myco/state/shim_hits.json`` is never touched.
 
 Doctrine refs:
 - ``docs/architecture/L2_DOCTRINE/boundary.md`` § Legacy import shims
@@ -85,9 +85,9 @@ def test_shim_contract_warning_stderr_reexport_and_telemetry(
        MCP host).
     5. ``_record_shim_hit()`` against a substrate whose
        ``MYCO_PROJECT_DIR`` points at ``tmp_path`` appends exactly
-       one JSONL record to ``<tmp_path>/.myco_state/shim_hits.json``,
+       one JSONL record to ``<tmp_path>/.myco/state/shim_hits.json``,
        with ``module == "myco.mcp"`` and a populated ``ts`` /
-       ``session_id``. The real ``.myco_state/shim_hits.json`` is
+       ``session_id``. The real ``.myco/state/shim_hits.json`` is
        never written to.
     """
     # --- (a) Stage a tmp substrate so _record_shim_hit() finds canon.
@@ -142,7 +142,7 @@ def test_shim_contract_warning_stderr_reexport_and_telemetry(
     from myco.mcp.__main__ import _record_shim_hit
 
     _record_shim_hit()
-    hits_path = tmp_path / ".myco_state" / "shim_hits.json"
+    hits_path = tmp_path / ".myco/state" / "shim_hits.json"
     assert hits_path.is_file(), "shim hit telemetry file not created"
     lines = [
         line for line in hits_path.read_text(encoding="utf-8").splitlines() if line
@@ -177,7 +177,7 @@ def test_shim_telemetry_silent_when_substrate_missing(
     ``MYCO_PROJECT_DIR`` first, then falls through to ``Path.cwd()``.
     Without ``monkeypatch.chdir`` the cwd would be the real Myco
     substrate root and the silent-no-op assertion would actually
-    *append* to the real ``.myco_state/shim_hits.json``, which is
+    *append* to the real ``.myco/state/shim_hits.json``, which is
     exactly the leak this entire migration is closing. Both env and
     cwd must point at non-substrates for the assertion to be sound.
     """
@@ -189,7 +189,7 @@ def test_shim_telemetry_silent_when_substrate_missing(
     from myco.mcp.__main__ import _record_shim_hit
 
     _record_shim_hit()  # must not raise
-    assert not (bare / ".myco_state").exists(), (
+    assert not (bare / ".myco/state").exists(), (
         "telemetry path must silent-fail when canon is absent — "
-        "creating .myco_state on a non-substrate dir would be a leak"
+        "creating .myco/state on a non-substrate dir would be a leak"
     )

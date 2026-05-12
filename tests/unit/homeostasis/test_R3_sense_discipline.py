@@ -36,8 +36,8 @@ def test_rl2_no_session_log_no_finding(tmp_path):
 
 def test_rl2_risky_verb_without_sense_emits(tmp_path):
     """When session log shows molt called without sense in window, RL2 emits finding."""
-    log_dir = tmp_path / ".myco_state"
-    log_dir.mkdir()
+    log_dir = tmp_path / ".myco/state"
+    log_dir.mkdir(parents=True, exist_ok=True)
     log_path = log_dir / "session_calls.jsonl"
     events = [
         {"verb": "hunger"},

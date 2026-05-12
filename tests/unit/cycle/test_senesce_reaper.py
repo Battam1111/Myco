@@ -3,7 +3,7 @@
 The reaper is best-effort + shell-out only (no LLM call; substrate-side
 L0 P1 stays strict). It reads new comments from the auto-evolve tracking
 issue via ``gh issue view`` and queues ``vetoed_intent`` JSON blobs to
-``.myco_state/auto_evolve_vetoed_pending.json``.
+``.myco/state/auto_evolve_vetoed_pending.json``.
 
 Coverage strategy: monkeypatch ``subprocess.run`` to feed canned ``gh``
 output without spawning real processes. Substrate is a minimal genesis
@@ -77,7 +77,7 @@ def _seed_v0_6_14_substrate(
     (tmp_path / "notes" / "raw").mkdir()
     (tmp_path / "notes" / "integrated").mkdir()
     (tmp_path / "notes" / "distilled").mkdir()
-    (tmp_path / ".myco_state").mkdir()
+    (tmp_path / ".myco/state").mkdir(parents=True, exist_ok=True)
     return MycoContext.for_testing(root=tmp_path)
 
 
@@ -173,7 +173,7 @@ def test_reaper_extracts_vetoed_intent_blob(
     assert result["tracking_issue_id"] == 42
 
     # Pending queue file written.
-    pending_file = tmp_path / ".myco_state" / "auto_evolve_vetoed_pending.json"
+    pending_file = tmp_path / ".myco/state" / "auto_evolve_vetoed_pending.json"
     assert pending_file.is_file()
     pending = json.loads(pending_file.read_text(encoding="utf-8"))
     assert len(pending) == 1
@@ -189,7 +189,7 @@ def test_reaper_cursor_skips_already_reaped_comments(
     """Comments at or before cursor timestamp are not re-reaped (idempotency)."""
     ctx = _seed_v0_6_14_substrate(tmp_path)
     # Pre-seed cursor to a future-relative timestamp.
-    cursor_file = tmp_path / ".myco_state" / "last_intent_reap.txt"
+    cursor_file = tmp_path / ".myco/state" / "last_intent_reap.txt"
     cursor_file.write_text("2026-04-29T20:00:00Z\n", encoding="utf-8")
 
     fake_comment = {
@@ -243,7 +243,7 @@ def test_reaper_advances_cursor_to_latest_seen_comment(
     monkeypatch.setattr(subprocess, "run", _fake_run)
     result = _reap_vetoed_intents(ctx)
     assert result["reaped_count"] == 0
-    cursor_file = tmp_path / ".myco_state" / "last_intent_reap.txt"
+    cursor_file = tmp_path / ".myco/state" / "last_intent_reap.txt"
     assert cursor_file.is_file()
     assert cursor_file.read_text(encoding="utf-8").strip() == "2026-04-29T17:00:00Z"
 
@@ -253,7 +253,7 @@ def test_reaper_dedup_when_pending_already_has_slug(
 ) -> None:
     """Pending queue dedups by slug — same slug not re-added."""
     ctx = _seed_v0_6_14_substrate(tmp_path)
-    pending_file = tmp_path / ".myco_state" / "auto_evolve_vetoed_pending.json"
+    pending_file = tmp_path / ".myco/state" / "auto_evolve_vetoed_pending.json"
     pending_file.write_text(
         json.dumps(
             [
@@ -292,9 +292,9 @@ def test_reaper_dedup_when_pending_already_has_slug(
 def test_reaper_corrupt_pending_file_recovers(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Corrupt .myco_state/auto_evolve_vetoed_pending.json → reaper resets to empty list."""
+    """Corrupt .myco/state/auto_evolve_vetoed_pending.json → reaper resets to empty list."""
     ctx = _seed_v0_6_14_substrate(tmp_path)
-    pending_file = tmp_path / ".myco_state" / "auto_evolve_vetoed_pending.json"
+    pending_file = tmp_path / ".myco/state" / "auto_evolve_vetoed_pending.json"
     pending_file.write_text("garbage{{ not json", encoding="utf-8")
 
     fake_comment = {

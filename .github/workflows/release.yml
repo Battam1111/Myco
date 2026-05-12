@@ -81,11 +81,12 @@ jobs:
           # stripped so the cross-file parity check still works.
           BASE=$(echo "$TAG" | sed -E 's/\.post[0-9]+$//')
           PKG=$(python -c "import re; print(re.search(r'__version__ = \"([^\"]+)\"', open('src/myco/__init__.py').read()).group(1))")
-          SRV=$(python -c "import json; print(json.load(open('server.json'))['version'])")
+          # v0.8.4 root-cleanup (2026-05-12): server.json moved to .meta/.
+          SRV=$(python -c "import json; print(json.load(open('.meta/server.json'))['version'])")
           # server.json::packages[] may be empty when distribution is
           # routed through GitHub Release / OCI rather than declared
           # registry slots. Fall back to server.json::version in that case.
-          SRV_PKG=$(python -c "import json; d=json.load(open('server.json')); print(d['packages'][0]['version'] if d['packages'] else d['version'])")
+          SRV_PKG=$(python -c "import json; d=json.load(open('.meta/server.json')); print(d['packages'][0]['version'] if d['packages'] else d['version'])")
           PLUGIN=$(python -c "import json; print(json.load(open('.claude-plugin/plugin.json'))['version'])")
           COWORK=$(python -c "import json; print(json.load(open('.cowork-plugin/.claude-plugin/plugin.json'))['version'])")
           echo "tag:                                       v$TAG"
@@ -181,11 +182,18 @@ jobs:
         # tracks v0.6.0; the post-release tag exists solely for PyPI
         # filename hygiene. Tolerate the duplicate-version error and let
         # downstream steps (GitHub Release / Cowork plugin upload) run.
+        #
+        # v0.8.4 root-cleanup (2026-05-12): server.json now lives at
+        # .meta/server.json (consolidated external registry metadata).
+        # mcp-publisher reads server.json from its CWD, so we cd into
+        # .meta/ before invoking it.
         run: |
           set +e
+          cd .meta
           mcp-publisher login github-oidc
           mcp-publisher publish
           rc=$?
+          cd ..
           if [ $rc -ne 0 ]; then
             echo "::warning::MCP Registry publish exited $rc — likely a duplicate-version idempotent path; continuing."
           fi

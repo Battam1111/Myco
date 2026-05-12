@@ -41,7 +41,11 @@ system:
   write_surface:
     allowed:
       - "_canon.yaml"
-      - "_canon_lint.yaml"
+      # v0.8.4 root-cleanup (2026-05-12): _canon_lint.yaml moved to
+      # .myco/canon_lint.yaml (covered by .myco/** below). The legacy
+      # root-level entry is retained for any downstream substrate still
+      # carrying the v0.6.0–v0.8.3 sibling layout.
+      - ".myco/**"
       - "MYCO.md"
       - "CHANGELOG.md"
       - "README.md"
@@ -66,15 +70,21 @@ system:
       # v0.5.19 Cowork plugin bundle (separate plugin; stays at root
       # because Cowork's drag-drop bundle keys to .cowork-plugin/).
       - ".cowork-plugin/**"
-      # v0.5.11 MCP Registry onboarding.
-      - "server.json"
-      # v0.5.13 Dockerfile for OCI introspection.
-      - "Dockerfile"
-      - ".dockerignore"
-      # v0.5.22 Glama registry ownership marker.
-      - "glama.json"
+      # v0.8.4 root-cleanup (2026-05-12): external registry metadata
+      # consolidated under .meta/ (was server.json + glama.json at root)
+      # so the repo root no longer has stray registry-specific files.
+      # The .meta/** glob covers both. release.yml's tag-verify and
+      # mcp-publisher steps were updated to read from .meta/server.json
+      # (mcp-publisher cd's into .meta/ before invoking publish).
+      - ".meta/**"
+      # v0.8.4 root-cleanup (2026-05-12): Docker build context files
+      # consolidated under .docker/ (was Dockerfile + .dockerignore at
+      # root). `docker build -f .docker/Dockerfile .` is the new entry.
+      # Glama OCI introspection unaffected (it consumes built images,
+      # not the source Dockerfile).
+      - ".docker/**"
       # v0.5.24 runtime state directory.
-      - ".myco_state/**"
+      - ".myco/state/**"
       # v0.6.0 dist/ for hatch-hook-derived CHANGELOG embedded in sdist.
       - "dist/**"
       # v0.6.12 GitHub-side surface (CodeQL + Scorecard + Dependabot +
@@ -161,7 +171,7 @@ system:
     # Master switch (default false; opt-in per substrate).
     auto_propose_enabled: false
     # Rate limit: minimum wall-clock between two auto-evolve invocations.
-    # Persisted in .myco_state/last_auto_evolve.txt; cross-process visible.
+    # Persisted in .myco/state/last_auto_evolve.txt; cross-process visible.
     auto_evolve_min_wall_clock_seconds_between: 600
     # Number of fungal-named critics primordium spawns in autonomous mode.
     # v0.6.14: 3 (mycoparasite + saprotroph + mycorrhiza, ad-hoc roles).
@@ -196,7 +206,7 @@ system:
     auto_evolve_min_distilled_severity: medium
     # Daily budget cap for auto-evolve runs (USD-equivalent of agent
     # cost). null = unbounded; owner sets a cap. Spend tracked in
-    # .myco_state/auto_evolve_spend.json.
+    # .myco/state/auto_evolve_spend.json.
     auto_evolve_daily_budget_usd: null
     # GitHub issue number where vetoed_intent comments are posted by
     # auto_revert.yml. Seeded once via scripts/seed_auto_evolve_tracking_issue.py
@@ -233,7 +243,12 @@ lint:
   # v0.6.0 owner amendment §A4: lint.dimensions table extracted to
   # sibling _canon_lint.yaml. core.canon.load_canon merges the
   # dimensions_ref payload into the canon's lint section transparently.
-  dimensions_ref: "_canon_lint.yaml"
+  # v0.8.4 root-cleanup (2026-05-12): the dim table moved from repo-root
+  # `_canon_lint.yaml` into `.myco/canon_lint.yaml` so the repo root no
+  # longer carries Myco-internal lint config as a visible file. The
+  # dimensions_ref pointer below is the canonical SSoT; load_canon
+  # resolves it relative to the canon file's parent directory.
+  dimensions_ref: ".myco/canon_lint.yaml"
   categories:
     - mechanical
     - shipped
@@ -264,7 +279,7 @@ lint:
   exit_policy:
     default: "mechanical:critical,shipped:critical,metabolic:never,semantic:never"
   skeleton_downgrade:
-    marker: ".myco_state/autoseeded.txt"
+    marker: ".myco/state/autoseeded.txt"
     affected_dimensions: []
 
 subsystems:

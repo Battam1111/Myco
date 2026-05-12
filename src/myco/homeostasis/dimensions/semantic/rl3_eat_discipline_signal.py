@@ -52,7 +52,7 @@ class RL3EatDisciplineSignal(Dimension):
     fixable: ClassVar[bool] = False
 
     def run(self, ctx: MycoContext) -> Iterable[Finding]:
-        log_path = ctx.substrate.root / ".myco_state" / "session_calls.jsonl"
+        log_path = ctx.substrate.root / ".myco/state" / "session_calls.jsonl"
         if not log_path.is_file():
             return
         try:
@@ -96,5 +96,5 @@ class RL3EatDisciplineSignal(Dimension):
                     f"eats={eat_count}) suggests R4 eat-on-decision discipline "
                     f"is being deferred"
                 ),
-                path=".myco_state/session_calls.jsonl",
+                path=".myco/state/session_calls.jsonl",
             )

@@ -8,7 +8,7 @@ Thresholds (canon-driven, ``lint.thresholds`` field):
 - 14+ days stale → MEDIUM finding.
 - 30+ days stale → HIGH finding + auto-action via fix:
   - winnow_g6 PASS → status: LANDED.
-  - winnow_g6 FAIL → move to ``.myco_state/excreted_crafts/`` /
+  - winnow_g6 FAIL → move to ``.myco/state/excreted_crafts/`` /
     ``notes/distilled/_excreted/`` with tombstone reason.
 
 Severity: LOW at land, ramps to MEDIUM after 30 sessions.

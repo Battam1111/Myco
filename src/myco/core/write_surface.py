@@ -35,7 +35,7 @@ The helper:
 The bypass is intentional — certain workflows (test tmp dirs, scripted
 ingest) need write access outside the declared surface. The env var
 makes it explicit; v0.5.10+ appends each bypassed write to
-``.myco_state/unsafe_writes.log`` so a future SE-class dimension can
+``.myco/state/unsafe_writes.log`` so a future SE-class dimension can
 surface bypass frequency to immune without any per-call overhead.
 
 The helper imports ``ctx`` lazily (by type-name) to avoid a
@@ -235,7 +235,7 @@ def guarded_write(
     if not allowed:
         if _unsafe_bypass_enabled():
             # v0.5.10: caller has explicitly opted in. Log the bypass
-            # to ``.myco_state/unsafe_writes.log`` (best-effort
+            # to ``.myco/state/unsafe_writes.log`` (best-effort
             # append; silent on failure so logging never blocks the
             # actual write) so a future SE-class dimension can count
             # bypass frequency without per-call overhead.
@@ -268,7 +268,7 @@ def guarded_write(
 
 
 def _log_unsafe_bypass(ctx: MycoContext, target_rel_or_abs: str) -> None:
-    """Append a one-line record to ``.myco_state/unsafe_writes.log``.
+    """Append a one-line record to ``.myco/state/unsafe_writes.log``.
 
     v0.5.10: the log is a best-effort audit trail. Any failure
     (missing state dir, permission denied, full disk) is swallowed
@@ -281,7 +281,7 @@ def _log_unsafe_bypass(ctx: MycoContext, target_rel_or_abs: str) -> None:
     try:
         from datetime import datetime, timezone
 
-        log_path = ctx.substrate.root / ".myco_state" / "unsafe_writes.log"
+        log_path = ctx.substrate.root / ".myco/state" / "unsafe_writes.log"
         log_path.parent.mkdir(parents=True, exist_ok=True)
         stamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         line = f"{stamp} {target_rel_or_abs}\n"

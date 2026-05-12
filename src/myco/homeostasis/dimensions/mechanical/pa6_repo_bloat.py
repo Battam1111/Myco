@@ -15,7 +15,7 @@ queue depth), not byte-size of the substrate's own git working tree.
 
 - Filesystem-level skips use ``myco.core.skip_dirs.should_skip_path``
   (the v0.5.8-consolidated canonical skip list — covers .git/, dist/,
-  __pycache__/, .myco_state/, etc.). Walkers that re-implement an
+  __pycache__/, .myco/state/, etc.). Walkers that re-implement an
   inline list diverge over time.
 - Substrate-level skips read ``canon.metrics.repo_size_excluded``
   (new at v0.7.2; defaults to ``["notes/**", "docs/primordia/_landed/**",
@@ -118,7 +118,7 @@ class PA6RepoBloat(Dimension):
             if not path.is_file():
                 continue
             # Filesystem-level skip via canonical helper (covers .git/,
-            # dist/, __pycache__/, .myco_state/, .ruff_cache/, etc.).
+            # dist/, __pycache__/, .myco/state/, .ruff_cache/, etc.).
             if should_skip_path(path, root=root):
                 continue
             # Substrate-level skip via canon-declared globs.

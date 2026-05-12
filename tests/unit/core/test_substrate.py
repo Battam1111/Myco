@@ -71,8 +71,8 @@ def test_is_skeleton_false_by_default(seeded_substrate: Path) -> None:
 
 
 def test_is_skeleton_true_when_marker_present(seeded_substrate: Path) -> None:
-    (seeded_substrate / ".myco_state").mkdir()
-    (seeded_substrate / ".myco_state" / "autoseeded.txt").write_text(
+    (seeded_substrate / ".myco/state").mkdir(parents=True, exist_ok=True)
+    (seeded_substrate / ".myco/state" / "autoseeded.txt").write_text(
         "", encoding="utf-8"
     )
     s = Substrate.load(seeded_substrate)

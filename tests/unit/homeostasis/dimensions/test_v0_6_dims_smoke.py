@@ -198,8 +198,8 @@ def test_rl2_runs(ctx: MycoContext):
 
 
 def test_rl2_risky_verb_without_sense_emits(genesis_substrate: Path):
-    log_dir = genesis_substrate / ".myco_state"
-    log_dir.mkdir(exist_ok=True)
+    log_dir = genesis_substrate / ".myco/state"
+    log_dir.mkdir(parents=True, exist_ok=True)
     log = log_dir / "session_calls.jsonl"
     log.write_text(
         "\n".join(
@@ -222,8 +222,8 @@ def test_rl3_runs(ctx: MycoContext):
 
 
 def test_rl3_high_decision_ratio_emits(genesis_substrate: Path):
-    log_dir = genesis_substrate / ".myco_state"
-    log_dir.mkdir(exist_ok=True)
+    log_dir = genesis_substrate / ".myco/state"
+    log_dir.mkdir(parents=True, exist_ok=True)
     log = log_dir / "session_calls.jsonl"
     log.write_text(
         "\n".join(
@@ -302,8 +302,8 @@ def test_mb7_runs(ctx: MycoContext):
 
 
 def test_mb7_quota_pressure_emits(genesis_substrate: Path):
-    state_dir = genesis_substrate / ".myco_state"
-    state_dir.mkdir(exist_ok=True)
+    state_dir = genesis_substrate / ".myco/state"
+    state_dir.mkdir(parents=True, exist_ok=True)
     (state_dir / "resource_watch_count.json").write_text(
         '{"active": 95}', encoding="utf-8"
     )

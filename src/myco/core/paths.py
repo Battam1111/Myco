@@ -42,8 +42,8 @@ class SubstratePaths:
 
     @property
     def state(self) -> Path:
-        """``.myco_state/`` — runtime state (not source of truth)."""
-        return self.root / ".myco_state"
+        """``.myco/state/`` — runtime state (not source of truth)."""
+        return self.root / ".myco/state"
 
     @property
     def autoseeded_marker(self) -> Path:
@@ -57,12 +57,12 @@ class SubstratePaths:
 
     @property
     def graph_cache(self) -> Path:
-        """``.myco_state/graph.json`` — persisted circulation graph.
+        """``.myco/state/graph.json`` — persisted circulation graph.
 
         The graph cache is written by :func:`myco.circulation.graph.build_graph`
         when ``use_cache=True`` (the default) and read on the next call as
         long as the canon + src fingerprint matches. Lives under
-        ``.myco_state/`` because it's runtime state, not source of truth —
+        ``.myco/state/`` because it's runtime state, not source of truth —
         safe to delete at any time (next ``build_graph`` rebuilds).
         """
         return self.state / "graph.json"

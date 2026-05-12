@@ -264,6 +264,8 @@ include = [
   "/.claude-plugin",
   "/.claude",
   "/.github",
+  "/.docker",
+  "/.meta",
   "/.mcp.json",
   "/_canon.yaml",
   "/MYCO.md",
@@ -299,6 +301,11 @@ testpaths = ["tests"]
 # CI runs --cov-report=xml + per-package floors via scripts/coverage_floors.py.
 addopts = "-ra --strict-markers --strict-config"
 pythonpath = ["src"]
+# v0.8.4 root-cleanup (2026-05-12): redirect pytest cache from
+# default `.pytest_cache/` (visible root dotdir) to `.cache/pytest/`
+# under a single consolidated cache parent. .mypy_cache + .ruff_cache
+# are similarly redirected via their own tool sections below.
+cache_dir = ".cache/pytest"
 # v0.7.6 (graph-builder benchmark suite): the ``benchmark`` marker
 # tags the slow scale tests under ``tests/benchmark/`` so a normal
 # ``pytest`` run can exclude them via ``-m "not benchmark"`` and a
@@ -349,6 +356,9 @@ warn_unreachable = false
 show_error_codes = true
 # Modules without third-party stubs: don't crash, just log.
 ignore_missing_imports = true
+# v0.8.4 root-cleanup (2026-05-12): redirect mypy cache from default
+# `.mypy_cache/` to consolidated `.cache/mypy/`.
+cache_dir = ".cache/mypy"
 # v0.6.0 §K.4: extend mypy to tests/ with disallow_untyped_defs=false
 # (test fixtures may stay untyped); ratchets toward stricter typing
 # over v0.6.x via mypy_tests_baseline.txt.
@@ -362,10 +372,14 @@ ignore_errors = true  # initial baseline; tighten over v0.6.x
 target-version = "py310"
 line-length = 88
 src = ["src", "tests"]
+# v0.8.4 root-cleanup (2026-05-12): redirect ruff cache from default
+# `.ruff_cache/` to consolidated `.cache/ruff/`.
+cache-dir = ".cache/ruff"
 # Exclude the legacy quarantine and runtime caches so ruff doesn't
 # report on files we intentionally do not maintain.
 exclude = [
   "legacy_v0_3",
+  ".myco/state",
   ".myco_state",
   ".venv",
   "dist",

@@ -30,7 +30,7 @@ def apply_skeleton_downgrade(
     """Cap CRITICAL→HIGH for canon-declared dimensions when skeleton mode is active.
 
     No-op when the substrate is not in skeleton mode (no
-    ``.myco_state/autoseeded.txt`` marker) or when the canon's
+    ``.myco/state/autoseeded.txt`` marker) or when the canon's
     ``lint.skeleton_downgrade.affected_dimensions`` list is empty.
     """
     findings_t = tuple(findings)

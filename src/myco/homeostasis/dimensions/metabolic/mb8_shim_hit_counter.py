@@ -22,7 +22,7 @@ and named the discipline:
       reporting zero hits across that window.
 
 MB8 implements path (b). The shim's ``__main__.py`` writes one JSONL
-line to ``.myco_state/shim_hits.json`` per CLI invocation; this dim
+line to ``.myco/state/shim_hits.json`` per CLI invocation; this dim
 reads the append-only file, computes per-module hit counts + last-hit
 ages, and reports.
 
@@ -46,7 +46,7 @@ Import-time writes were rejected because:
   (c) concurrent imports from multiple MCP host instances race on
       counter increment with no fcntl/portalocker dependency available.
 
-**Adversarial scoping (mycoparasite T1/T2/T6)**: ``.myco_state/shim_hits.json``
+**Adversarial scoping (mycoparasite T1/T2/T6)**: ``.myco/state/shim_hits.json``
 and ``src/myco/mcp/**`` are in ``core.risk_classifier._RECURSION_CUTTER_PATH_PATTERNS``.
 A craft cannot simultaneously zero the counter and delete the shim
 without forcing HIGH-risk classification.
@@ -86,7 +86,7 @@ def _parse_iso(ts: str) -> datetime | None:
 
 
 class MB8ShimHitCounter(Dimension):
-    """Report shim-hit telemetry from ``.myco_state/shim_hits.json``."""
+    """Report shim-hit telemetry from ``.myco/state/shim_hits.json``."""
 
     id = "MB8"
     category = Category.METABOLIC
@@ -96,7 +96,7 @@ class MB8ShimHitCounter(Dimension):
     def run(self, ctx: MycoContext) -> Iterable[Finding]:
         # Append-only JSONL; one line per shim invocation. Missing file
         # = fresh substrate, zero hits observed → silent no-op (mycorrhiza T2).
-        hits_path = ctx.substrate.root / ".myco_state" / "shim_hits.json"
+        hits_path = ctx.substrate.root / ".myco/state" / "shim_hits.json"
         if not hits_path.is_file():
             return
 
@@ -161,5 +161,5 @@ class MB8ShimHitCounter(Dimension):
                     f"≥ {min_days} days with zero hits before deletion is "
                     f"safe per v0.7.1 discipline."
                 ),
-                path=".myco_state/shim_hits.json",
+                path=".myco/state/shim_hits.json",
             )

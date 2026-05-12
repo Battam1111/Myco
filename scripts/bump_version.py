@@ -160,7 +160,8 @@ def main() -> int:
     changes += _bump_citation_cff(
         REPO / ".github" / "CITATION.cff", target, args.dry_run
     )
-    changes += _bump_server_json(REPO / "server.json", target, args.dry_run)
+    # v0.8.4 root-cleanup (2026-05-12): server.json moved to .meta/.
+    changes += _bump_server_json(REPO / ".meta" / "server.json", target, args.dry_run)
     for line in changes:
         print("  " + line)
 
@@ -376,8 +377,17 @@ def _measure_test_count(repo: Path) -> int | None:
 
 
 def _measure_lint_dim_count(repo: Path) -> int | None:
-    """Count lint dims by reading ``_canon_lint.yaml::dimensions`` keys."""
-    path = repo / "_canon_lint.yaml"
+    """Count lint dims by reading ``.myco/canon_lint.yaml::dimensions`` keys.
+
+    v0.8.4 root-cleanup (2026-05-12): the lint-dimension SSoT moved from
+    repo-root ``_canon_lint.yaml`` to ``.myco/canon_lint.yaml`` (referenced
+    from canon via ``lint.dimensions_ref``). Falls back to the legacy
+    location for any downstream substrate still on the pre-v0.8.4 layout.
+    """
+    path = repo / ".myco" / "canon_lint.yaml"
+    if not path.is_file():
+        # Legacy fallback for downstream substrates on pre-v0.8.4 layout.
+        path = repo / "_canon_lint.yaml"
     if not path.is_file():
         return None
     try:

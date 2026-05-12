@@ -57,15 +57,15 @@ class MF3SymbiontArtifactIntegrity(Dimension):
         # integration is active via the install marker.
         # v0.6.0 unification renamed ``src/myco/symbionts/`` to
         # ``src/myco/boundary/host_integration/``; the runtime marker
-        # follows: ``.myco_state/host_integration/installed.txt``
+        # follows: ``.myco/state/host_integration/installed.txt``
         # (legacy v0.5.x-substrate path is also probed for backward
         # compatibility with old downstream substrates that haven't
         # re-run install yet).
         marker = (
-            ctx.substrate.root / ".myco_state" / "host_integration" / "installed.txt"
+            ctx.substrate.root / ".myco/state" / "host_integration" / "installed.txt"
         )
         legacy_marker = (
-            ctx.substrate.root / ".myco_state" / "symbionts" / "installed.txt"
+            ctx.substrate.root / ".myco/state" / "symbionts" / "installed.txt"
         )
         if not marker.is_file() and not legacy_marker.is_file():
             return

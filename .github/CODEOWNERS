@@ -18,7 +18,7 @@
 # for high-leverage layers, even though @Battam1111 already matches
 # via the catch-all.
 /_canon.yaml                                @Battam1111
-/_canon_lint.yaml                           @Battam1111
+/.myco/canon_lint.yaml                      @Battam1111
 /MYCO.md                                    @Battam1111
 /.github/SECURITY.md                        @Battam1111
 /docs/architecture/L0_VISION.md             @Battam1111

@@ -12,7 +12,7 @@ See ``myco.mcp.__init__`` docstring for the full migration
 rationale and removal schedule.
 
 v0.7.2 telemetry hook (MB8 dim): record one JSONL line per CLI
-invocation in ``.myco_state/shim_hits.json`` so the substrate has a
+invocation in ``.myco/state/shim_hits.json`` so the substrate has a
 mechanically-verifiable signal for safe shim retirement (the
 v0.7.1-named telemetry path of the public-API-deletion discipline).
 The write is best-effort and try-except wrapped: read-only
@@ -35,7 +35,7 @@ from myco.mcp import main
 
 
 def _record_shim_hit() -> None:
-    """Append one telemetry line to ``.myco_state/shim_hits.json``.
+    """Append one telemetry line to ``.myco/state/shim_hits.json``.
 
     Substrate root resolution (best-effort, in priority order):
 
@@ -63,7 +63,7 @@ def _record_shim_hit() -> None:
                 continue
         if substrate_root is None:
             return
-        state_dir = substrate_root / ".myco_state"
+        state_dir = substrate_root / ".myco/state"
         state_dir.mkdir(parents=True, exist_ok=True)
         hits_path = state_dir / "shim_hits.json"
         record = {

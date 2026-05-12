@@ -104,13 +104,13 @@ def test_skeleton_downgrade_applied_before_policy(tmp_path: Path) -> None:
           genesis: {package: "src/myco/genesis/"}
         lint:
           skeleton_downgrade:
-            marker: ".myco_state/autoseeded.txt"
+            marker: ".myco/state/autoseeded.txt"
             affected_dimensions: ["F1"]
         """
     )
     (tmp_path / "_canon.yaml").write_text(canon, encoding="utf-8")
-    (tmp_path / ".myco_state").mkdir()
-    (tmp_path / ".myco_state" / "autoseeded.txt").write_text("", encoding="utf-8")
+    (tmp_path / ".myco/state").mkdir(parents=True, exist_ok=True)
+    (tmp_path / ".myco/state" / "autoseeded.txt").write_text("", encoding="utf-8")
 
     reg = DimensionRegistry()
     reg.register(_Fires())

@@ -38,7 +38,7 @@ class MB7ResourceWatchQuota(Dimension):
         max_watches = int(rwatch.get("max_per_substrate", 100))
         # Read current watch count from metric file written by
         # mcp_resources subscription manager (v0.6.0+).
-        metric_path = ctx.substrate.root / ".myco_state" / "resource_watch_count.json"
+        metric_path = ctx.substrate.root / ".myco/state" / "resource_watch_count.json"
         if not metric_path.is_file():
             return
         try:

@@ -36,7 +36,7 @@ class TestDefaultSkipDirs:
         assert "node_modules" in DEFAULT_SKIP_DIRS
 
     def test_contains_myco_state(self) -> None:
-        assert ".myco_state" in DEFAULT_SKIP_DIRS
+        assert ".myco/state" in DEFAULT_SKIP_DIRS
 
     def test_does_not_contain_tests_by_default(self) -> None:
         # Graph walkers include tests by default.
