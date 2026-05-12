@@ -129,14 +129,14 @@ class TestGuardedWrite:
         self, seeded_substrate: Path, monkeypatch
     ) -> None:
         """v0.5.10: every bypassed write appends one line to
-        ``.myco_state/unsafe_writes.log`` so a future SE-class dim
+        ``.myco/state/unsafe_writes.log`` so a future SE-class dim
         can count bypass frequency without per-call overhead."""
         ctx = MycoContext.for_testing(root=seeded_substrate)
         _set_surface(ctx, ["notes/**"])
         target = seeded_substrate / "bypass" / "x.txt"
         monkeypatch.setenv(UNSAFE_WRITE_ENV, "1")
         guarded_write(ctx, target, "payload")
-        log_path = seeded_substrate / ".myco_state" / "unsafe_writes.log"
+        log_path = seeded_substrate / ".myco/state" / "unsafe_writes.log"
         assert log_path.is_file()
         log_lines = log_path.read_text(encoding="utf-8").splitlines()
         assert len(log_lines) == 1

@@ -134,10 +134,10 @@ _RECURSION_CUTTER_PATH_PATTERNS = (
     re.compile(r"src/myco/cycle/winnow\.py$"),
     # v0.7.2: the MB8 shim-hit counter state file. Zeroing this file
     # would unlock the shim-deletion gate falsely.
-    re.compile(r"\.myco_state/shim_hits\.json$"),
+    re.compile(r"\.myco/state/shim_hits\.json$"),
     # v0.7.2: any other state-file the substrate writes for telemetry-
     # gated decisions. Broad pattern; better safe than sorry.
-    re.compile(r"\.myco_state/.*\.json$"),
+    re.compile(r"\.myco/state/.*\.json$"),
     # v0.7.2: the back-compat shim package itself (deleting it
     # bypasses MB8's telemetry; must be HIGH-tier owner-gated).
     re.compile(r"src/myco/mcp/.*\.py$"),
@@ -178,13 +178,13 @@ _RECURSION_CUTTER_CANON_KEYS = (
 # disjoint sensitivity clusters escalates to HIGH risk regardless of
 # any individual path's classification. This defeats the compound
 # attack: a single craft with `path_allowlist: [_canon.yaml,
-# .myco_state/shim_hits.json, src/myco/mcp/__init__.py]` would
+# .myco/state/shim_hits.json, src/myco/mcp/__init__.py]` would
 # otherwise see 3 separate MEDIUM-tier paths and auto-LAND despite
 # the combined effect being a perpetual-motion shim-deletion exploit.
 _RECURSION_CUTTER_COMPOUND_CLUSTERS: tuple[
     tuple[str, tuple[re.Pattern[str], ...]], ...
 ] = (
-    ("state", (re.compile(r"\.myco_state/"),)),
+    ("state", (re.compile(r"\.myco/state/"),)),
     (
         "shim",
         (
@@ -509,7 +509,7 @@ def classify_craft_via_path_allowlist(
     # whose path_allowlist simultaneously touches ≥ 2 disjoint
     # sensitivity clusters forces HIGH risk regardless of any
     # individual path's classification. Defeats the compound attack:
-    # `path_allowlist: [_canon.yaml, .myco_state/shim_hits.json,
+    # `path_allowlist: [_canon.yaml, .myco/state/shim_hits.json,
     # src/myco/mcp/__init__.py]` → 3 separate MEDIUM paths in v0.6.15
     # would auto-LAND despite the combined effect being a perpetual-
     # motion shim-deletion exploit.

@@ -38,7 +38,9 @@ PUBLISHER_META_BUDGET_BYTES = 4096
 
 
 def main() -> int:
-    server_json_path = Path(__file__).resolve().parent.parent / "server.json"
+    # v0.8.4 root-cleanup (2026-05-12): server.json moved to .meta/ to
+    # consolidate external registry metadata under a single hidden dir.
+    server_json_path = Path(__file__).resolve().parent.parent / ".meta" / "server.json"
     if not server_json_path.is_file():
         print(
             f"[verify_server_json] server.json missing at {server_json_path}",

@@ -8,7 +8,7 @@ commands:
 
     identity + subsystems), MYCO.md (or the named entry-point), and
 
-    .myco_state/autoseeded.txt at the target project directory.
+    .myco/state/autoseeded.txt at the target project directory.
 
     Call this once per project — for every subsequent action, other
 
@@ -309,7 +309,7 @@ commands:
     keyword synonyms rather than expanding the query.
 
 
-    Side effects: none. Pure read. Does not touch .myco_state/ or
+    Side effects: none. Pure read. Does not touch .myco/state/ or
 
     any cache.
 
@@ -406,7 +406,7 @@ commands:
 
     duplicate ingest, test data. The note is NOT unlinked —
 
-    excrete moves it to .myco_state/excreted/<stem>.md and
+    excrete moves it to .myco/state/excreted/<stem>.md and
 
     annotates its frontmatter with excreted_at, excreted_reason,
 
@@ -434,13 +434,13 @@ commands:
 
     Side effects: moves one file from notes/raw/ to
 
-    .myco_state/excreted/. Writes the moved file with augmented
+    .myco/state/excreted/. Writes the moved file with augmented
 
-    frontmatter. .myco_state/ must be in R6 write_surface (added
+    frontmatter. .myco/state/ must be in R6 write_surface (added
 
     to template write_surfaces in v0.5.24; existing substrates may
 
-    need to add .myco_state/** manually to _canon.yaml). Excreted
+    need to add .myco/state/** manually to _canon.yaml). Excreted
 
     tombstones are gitignored by default.
 
@@ -797,7 +797,7 @@ commands:
 
     Side effects: none. Writes a cached graph JSON to
 
-    .myco_state/graph.json for subsequent traverse calls (bypass
+    .myco/state/graph.json for subsequent traverse calls (bypass
 
     with internal use_cache=false). The cache is invalidated by
 

@@ -24,11 +24,11 @@ deletion or direct editing of raw notes"), scored 3/5 at v0.5.23.
   a contract bump). Attempts to target ``notes/integrated/`` or
   ``notes/distilled/`` are refused with ``UsageError``.
 
-- **Atomic move to ``.myco_state/excreted/``** (tombstone), not
+- **Atomic move to ``.myco/state/excreted/``** (tombstone), not
   ``os.unlink``. The note is preserved there with frontmatter
   annotated with ``excreted_at`` + ``excreted_reason`` + original
   path, so an operator can audit what was thrown away. The
-  tombstone dir is gitignored (``.myco_state/`` isn't written to
+  tombstone dir is gitignored (``.myco/state/`` isn't written to
   the write_surface).
 
 - **Reason field is required.** ``myco_excrete --note-id X`` with
@@ -47,7 +47,7 @@ Return shape
       "exit_code": 0,
       "note_id": "<stem>",
       "from_path": "notes/raw/<stem>.md",
-      "to_path": ".myco_state/excreted/<stem>.md",
+      "to_path": ".myco/state/excreted/<stem>.md",
       "reason": "<supplied>",
       "excreted_at": "2026-04-24T08:15:00Z",
       "dry_run": false,
@@ -80,7 +80,7 @@ def run(args: Mapping[str, Any], *, ctx: MycoContext) -> Result:
     """Handler for ``myco excrete`` / ``myco_excrete``.
 
     Moves a single raw note out of ``notes/raw/`` into
-    ``.myco_state/excreted/``, with frontmatter annotated for audit.
+    ``.myco/state/excreted/``, with frontmatter annotated for audit.
     Refuses targets outside ``notes/raw/`` (integrated / distilled
     are protected by the ingestion doctrine's append-only rule).
 
@@ -102,7 +102,7 @@ def run(args: Mapping[str, Any], *, ctx: MycoContext) -> Result:
         raise UsageError(
             "excrete: --reason is required. Describe why this note is "
             "being removed (typo, accidental-ingest, duplicate, etc.) — "
-            "the audit trail in .myco_state/excreted/ records this text."
+            "the audit trail in .myco/state/excreted/ records this text."
         )
 
     stem = str(note_id).strip()
@@ -132,7 +132,7 @@ def run(args: Mapping[str, Any], *, ctx: MycoContext) -> Result:
         ) from exc
 
     # Compute tombstone destination.
-    tombstone_dir = ctx.substrate.root / ".myco_state" / "excreted"
+    tombstone_dir = ctx.substrate.root / ".myco/state" / "excreted"
     destination = tombstone_dir / source.name
     excreted_at = datetime.now(tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -152,15 +152,15 @@ def run(args: Mapping[str, Any], *, ctx: MycoContext) -> Result:
             },
         )
 
-    # Write-surface check: we're writing to .myco_state/excreted/.
+    # Write-surface check: we're writing to .myco/state/excreted/.
     # Allow when the substrate's write_surface includes
-    # ``.myco_state/**`` or a covering pattern; otherwise refuse.
+    # ``.myco/state/**`` or a covering pattern; otherwise refuse.
     try:
         check_write_allowed(ctx, destination, verb="excrete")
     except Exception as exc:
         raise UsageError(
             f"excrete: write_surface does not allow writing to "
-            f"{to_rel}. Add '.myco_state/**' to "
+            f"{to_rel}. Add '.myco/state/**' to "
             f"_canon.yaml::system.write_surface.allowed and retry. "
             f"Original: {exc}"
         ) from exc
@@ -170,7 +170,7 @@ def run(args: Mapping[str, Any], *, ctx: MycoContext) -> Result:
     # Read the note, prepend excretion metadata to frontmatter, write
     # to tombstone. Then unlink original. We use shutil.copy + unlink
     # rather than Path.rename so the operation survives cross-device
-    # layouts (.myco_state/ could be on a different volume in some
+    # layouts (.myco/state/ could be on a different volume in some
     # Dockerfile / tmpfs combinations).
     original_text = source.read_text(encoding="utf-8")
     annotated = _annotate_frontmatter(

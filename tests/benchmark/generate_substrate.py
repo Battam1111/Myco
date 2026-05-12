@@ -10,7 +10,7 @@ Layout produced by :func:`generate_substrate`::
     <root>/
         _canon.yaml                       (schema v3, contract v0.7.10)
         MYCO.md                           (entry point)
-        .myco_state/autoseeded.txt        (skeleton marker)
+        .myco/state/autoseeded.txt        (skeleton marker)
         notes/
             raw/                          (empty dir for FR1 invariants)
             integrated/
@@ -104,7 +104,7 @@ def _canon_text(*, substrate_id: str, contract_version: str) -> str:
     ``metrics.lint_dim_count`` field that v3 introduced. Write-surface
     is permissive enough for the graph builder, which never writes
     through this canon — ``build_graph`` is read-only — but keeping
-    ``notes/**`` + ``.myco_state/**`` allowed lets ``MycoContext``
+    ``notes/**`` + ``.myco/state/**`` allowed lets ``MycoContext``
     construct cleanly for future test extensions.
     """
     return (
@@ -126,7 +126,7 @@ def _canon_text(*, substrate_id: str, contract_version: str) -> str:
         '      - "docs/**"\n'
         '      - "src/**"\n'
         '      - ".myco/**"\n'
-        '      - ".myco_state/**"\n'
+        '      - ".myco/state/**"\n'
         "  hard_contract:\n"
         "    rule_count: 7\n"
         '  llm_policy: "forbidden"\n'
@@ -145,7 +145,7 @@ def _canon_text(*, substrate_id: str, contract_version: str) -> str:
         "  exit_policy:\n"
         '    default: "mechanical:critical,shipped:critical,metabolic:never,semantic:never"\n'
         "  skeleton_downgrade:\n"
-        '    marker: ".myco_state/autoseeded.txt"\n'
+        '    marker: ".myco/state/autoseeded.txt"\n'
         "    affected_dimensions: []\n"
         "metrics:\n"
         "  lint_dim_count: null\n"
@@ -285,10 +285,10 @@ def generate_substrate(
 
     Side effects
     ------------
-    Writes ``_canon.yaml``, ``MYCO.md``, ``.myco_state/autoseeded.txt``,
+    Writes ``_canon.yaml``, ``MYCO.md``, ``.myco/state/autoseeded.txt``,
     and ``notes/integrated/note_*.md``. Creates ``notes/raw/`` and
     ``docs/`` empty directories so FR1 fresh-substrate invariants
-    hold. Does NOT write ``.myco_state/graph.json`` — that's the
+    hold. Does NOT write ``.myco/state/graph.json`` — that's the
     graph builder's job under test.
 
     Notes
@@ -319,8 +319,8 @@ def generate_substrate(
         encoding="utf-8",
     )
     (root / "MYCO.md").write_text(_entry_point_text(substrate_id), encoding="utf-8")
-    state_dir = root / ".myco_state"
-    state_dir.mkdir(exist_ok=True)
+    state_dir = root / ".myco/state"
+    state_dir.mkdir(parents=True, exist_ok=True)
     (state_dir / "autoseeded.txt").write_text(
         _autoseeded_text(substrate_id), encoding="utf-8"
     )

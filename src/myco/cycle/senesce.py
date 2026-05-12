@@ -19,7 +19,7 @@ is read-only — the optional ``--fix`` pass that runs in full mode
 is a nicety, not a correctness requirement: any finding it would
 have surfaced is re-surfaced by the next ``myco hunger`` /
 ``myco immune`` call. ``_reap_vetoed_intents`` is also restartable —
-the reaper records its progress in ``.myco_state/last_intent_reap.txt``
+the reaper records its progress in ``.myco/state/last_intent_reap.txt``
 and re-runs are no-ops if no new comments since the last reap.
 
 v0.5.3: renamed from ``session_end``. The manifest alias
@@ -97,7 +97,7 @@ def _reap_vetoed_intents(ctx: MycoContext) -> dict[str, object]:
     All shell-out; no LLM call; substrate-side L0 P1 stays strict.
 
     Idempotent: re-runs are no-ops because the per-comment
-    ``createdAt`` cursor in ``.myco_state/last_intent_reap.txt`` filters
+    ``createdAt`` cursor in ``.myco/state/last_intent_reap.txt`` filters
     out previously-reaped comments. If canon is mutated during the reap
     (i.e. one or more matching entries had ``vetoed_at: null`` and got
     a real timestamp), the reaper writes the canon back in place.
@@ -200,7 +200,7 @@ def _reap_vetoed_intents(ctx: MycoContext) -> dict[str, object]:
 
     state_dir.mkdir(parents=True, exist_ok=True)
     if reaped > 0:
-        # Pending vetoed_intents are queued to .myco_state/auto_evolve_vetoed_pending.json
+        # Pending vetoed_intents are queued to .myco/state/auto_evolve_vetoed_pending.json
         # rather than written directly to canon. v0.6.14 limitation: canon
         # round-trip with comment preservation requires a YAML round-trip
         # mechanism not in current deps (pyyaml.safe_dump strips comments

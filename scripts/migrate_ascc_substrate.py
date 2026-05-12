@@ -181,7 +181,7 @@ def build_v0_4_0_canon(
                 ),
             },
             "skeleton_downgrade": {
-                "marker": ".myco_state/autoseeded.txt",
+                "marker": ".myco/state/autoseeded.txt",
                 "affected_dimensions": [],
             },
         },

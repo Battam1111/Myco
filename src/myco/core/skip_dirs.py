@@ -20,7 +20,7 @@ The list covers:
 * **Build output**: ``build``, ``dist``.
 * **Editor local caches**: ``.vscode``, ``.idea``, ``.DS_Store`` (file, but
   a reasonable include).
-* **Myco's own runtime state**: ``.myco_state`` (derivable; must not
+* **Myco's own runtime state**: ``.myco/state`` (derivable; must not
   be ingested or graphed).
 * **Legacy quarantine (defensive — directory excreted at v0.7.0)**:
   ``legacy_v0_3`` is no longer in the working tree. The filter
@@ -75,7 +75,7 @@ DEFAULT_SKIP_DIRS: Final[frozenset[str]] = frozenset(
         ".vscode",
         ".idea",
         # Myco runtime state
-        ".myco_state",
+        ".myco/state",
         # Legacy quarantine
         "legacy_v0_3",
     }

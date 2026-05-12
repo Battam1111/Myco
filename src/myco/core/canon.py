@@ -402,7 +402,7 @@ def _v3_to_v4_persistence_metrics_field(
 
     Purpose: feeds the LB2 dim (regime classifier;
     ``src/myco/homeostasis/dimensions/semantic/lb2_living_bets_
-    regime.py``). Instead of LB2 re-walking ``.myco_state/*.jsonl`` for
+    regime.py``). Instead of LB2 re-walking ``.myco/state/*.jsonl`` for
     distinct ``session_id`` values + recounting host adapters + peer
     list every immune call, the cached counts are read here. LB2 may
     either trust the cache (fast path) or recompute when the cache

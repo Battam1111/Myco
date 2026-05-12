@@ -22,8 +22,8 @@ def test_rl3_dim_id():
 
 def test_rl3_decision_keyword_without_eat_emits(tmp_path):
     """When session log shows 4 decisions but 0 eat calls, RL3 emits."""
-    log_dir = tmp_path / ".myco_state"
-    log_dir.mkdir()
+    log_dir = tmp_path / ".myco/state"
+    log_dir.mkdir(parents=True, exist_ok=True)
     log_path = log_dir / "session_calls.jsonl"
     events = [
         {"verb": "hunger"},

@@ -68,7 +68,7 @@ def minimal_canon_text() -> str:
               - "docs/**"
               - "src/**"
               - ".myco/**"
-              - ".myco_state/**"
+              - ".myco/state/**"
           hard_contract:
             rule_count: 7
         subsystems:
@@ -94,7 +94,7 @@ def genesis_substrate(tmp_path: Path) -> Path:
     """A substrate produced by ``myco.germination.bootstrap``.
 
     Useful when tests need a realistic substrate, including the entry-
-    point file and ``.myco_state/autoseeded.txt`` marker.
+    point file and ``.myco/state/autoseeded.txt`` marker.
 
     v0.5.7: canonical import path is ``myco.germination`` (the v0.5.3
     rename); the ``myco.genesis`` shim still resolves through v1.0.0

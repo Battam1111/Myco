@@ -8,7 +8,7 @@ wrong substrate, duplicate). Key invariants exercised here:
 - Targets outside ``notes/raw/`` are refused (integrated / distilled
   notes are protected by the ingestion doctrine's append-only rule).
 - Dry-run returns the exact move plan but never touches disk.
-- Real run moves the note to ``.myco_state/excreted/<stem>.md`` and
+- Real run moves the note to ``.myco/state/excreted/<stem>.md`` and
   prepends ``excreted_at`` / ``excreted_reason`` / ``excreted_from``
   to the frontmatter.
 - Write-surface rejection is surfaced as ``UsageError`` with a hint.
@@ -56,10 +56,10 @@ def test_excrete_dry_run_returns_plan_without_touching_disk(
     assert r.payload["dry_run"] is True
     assert r.payload["note_id"] == stem
     assert r.payload["from_path"] == f"notes/raw/{stem}.md"
-    assert r.payload["to_path"] == f".myco_state/excreted/{stem}.md"
+    assert r.payload["to_path"] == f".myco/state/excreted/{stem}.md"
     # Disk must be untouched.
     assert note.exists()
-    assert not (genesis_substrate / ".myco_state" / "excreted").exists()
+    assert not (genesis_substrate / ".myco/state" / "excreted").exists()
 
 
 def test_excrete_real_run_moves_note_and_annotates_frontmatter(
@@ -76,7 +76,7 @@ def test_excrete_real_run_moves_note_and_annotates_frontmatter(
     # Original gone.
     assert not note.exists()
     # Tombstone present.
-    tombstone = genesis_substrate / ".myco_state" / "excreted" / f"{stem}.md"
+    tombstone = genesis_substrate / ".myco/state" / "excreted" / f"{stem}.md"
     assert tombstone.is_file()
     text = tombstone.read_text(encoding="utf-8")
     assert "excreted_at: '" in text
@@ -138,12 +138,12 @@ def test_excrete_tolerates_stem_with_trailing_md(
 def test_excrete_writesurface_violation_surfaces_usageerror(
     tmp_path: Path,
 ) -> None:
-    """If write_surface doesn't cover ``.myco_state/**`` the operation
+    """If write_surface doesn't cover ``.myco/state/**`` the operation
     fails with a UsageError that tells the operator how to fix it (add
     the pattern to _canon.yaml). Fresh v0.5.24 substrates include the
     pattern by default — this path only fires on pre-v0.5.24 canons."""
     # Build a substrate whose write_surface deliberately OMITS
-    # .myco_state/** to force the guard.
+    # .myco/state/** to force the guard.
     (tmp_path / "notes" / "raw").mkdir(parents=True)
     (tmp_path / "_canon.yaml").write_text(
         """\

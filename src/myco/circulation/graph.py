@@ -19,7 +19,7 @@ Nodes are substrate-relative path strings (POSIX-style). Edges carry a
 ``kind`` tag — one of :data:`EdgeKind`.
 
 v0.5.5 MAJOR-J added graph persistence: :func:`build_graph` caches its
-result to ``.myco_state/graph.json`` and reloads on the next call as
+result to ``.myco/state/graph.json`` and reloads on the next call as
 long as the canon + ``src/`` fingerprint matches. Pass
 ``use_cache=False`` to force a rebuild without touching the cache, or
 call :func:`invalidate_graph_cache` to evict. The on-disk shape is
@@ -227,7 +227,7 @@ def _iter_files(base: Path, suffixes: Iterable[str]) -> Iterator[Path]:
 def _canon_fingerprint(substrate: Substrate) -> str:
     """Hash of canon contents + ``src/`` ``(path, mtime)`` pairs.
 
-    Used as the cache-invalidation key for ``.myco_state/graph.json``:
+    Used as the cache-invalidation key for ``.myco/state/graph.json``:
     two builds on the same substrate with the same canon text and the
     same set of Python sources at the same mtimes share a fingerprint,
     and the second build can short-circuit to a cache read.
@@ -304,7 +304,7 @@ def _canon_fingerprint(substrate: Substrate) -> str:
 def persist_graph(graph: Graph, path: Path, *, fingerprint: str) -> None:
     """Write ``graph`` to ``path`` as JSON under the v1 schema.
 
-    The enclosing directory is created if missing (``.myco_state/`` is
+    The enclosing directory is created if missing (``.myco/state/`` is
     allowed not to exist yet on fresh substrates). UTF-8 output with
     ``indent=2`` — small enough to diff comfortably, large enough to
     matter if we forgot to sort.
@@ -312,7 +312,7 @@ def persist_graph(graph: Graph, path: Path, *, fingerprint: str) -> None:
     Edges are flattened to ``[src, dst, kind]`` triples. Nodes are
     sorted so two runs on the same inputs produce byte-identical
     files (useful for git-scratching the cache even though it lives
-    under ``.myco_state/``).
+    under ``.myco/state/``).
     """
     path.parent.mkdir(parents=True, exist_ok=True)
     payload: dict[str, Any] = {
@@ -540,7 +540,7 @@ def build_graph(ctx: MycoContext, *, use_cache: bool = True) -> Graph:
     """Scan the substrate and return a :class:`Graph` snapshot.
 
     When ``use_cache`` is True (the default) this consults
-    ``.myco_state/graph.json`` first and reuses it when the canon +
+    ``.myco/state/graph.json`` first and reuses it when the canon +
     ``src/`` fingerprint still matches. On cache miss (missing file,
     stale fingerprint, corrupt JSON) it falls through to a fresh scan
     and writes the cache back.

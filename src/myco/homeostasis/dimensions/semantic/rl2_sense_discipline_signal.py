@@ -10,7 +10,7 @@ RL2 emits a discipline-signal finding.
 Severity: LOW at land, ramps to MEDIUM after 30 sessions per
 ``severity_promotion``.
 
-The session log is at ``.myco_state/session_calls.jsonl``. RL2 reads
+The session log is at ``.myco/state/session_calls.jsonl``. RL2 reads
 the last 50 entries (sliding window) and looks for risky-verb
 invocations without a sense() within ±5 calls.
 """
@@ -48,7 +48,7 @@ class RL2SenseDisciplineSignal(Dimension):
     fixable: ClassVar[bool] = False
 
     def run(self, ctx: MycoContext) -> Iterable[Finding]:
-        log_path = ctx.substrate.root / ".myco_state" / "session_calls.jsonl"
+        log_path = ctx.substrate.root / ".myco/state" / "session_calls.jsonl"
         if not log_path.is_file():
             return
         try:
@@ -80,7 +80,7 @@ class RL2SenseDisciplineSignal(Dimension):
                         f"risky verb {verb!r} called without sense() in "
                         f"±5 surrounding calls (R3 discipline signal)"
                     ),
-                    path=".myco_state/session_calls.jsonl",
+                    path=".myco/state/session_calls.jsonl",
                 )
                 # One finding per session is enough.
                 return

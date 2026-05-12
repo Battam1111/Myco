@@ -7,7 +7,7 @@ Covers the regime-classification matrix declared in
 - High session count (>= 50) → silent (bet-winning).
 - Ephemeral (session_count < 5, peer_count == 0) → LOW (bet-losing).
 - Transitional (5 <= session_count < 50, peer_count == 0) → silent.
-- Missing ``.myco_state/`` dir → silent (graceful fallback).
+- Missing ``.myco/state/`` dir → silent (graceful fallback).
 - Corrupt JSONL lines → silent (graceful fallback).
 - Signal-computation tests for session_count + peer_count helpers.
 
@@ -71,13 +71,13 @@ def _write_canon(
 
 
 def _write_shim_hits(sub: Path, *, distinct_sessions: int) -> Path:
-    """Write a synthetic ``.myco_state/shim_hits.json`` JSONL file with
+    """Write a synthetic ``.myco/state/shim_hits.json`` JSONL file with
     ``distinct_sessions`` distinct ``session_id`` values.
 
     Each line carries one synthetic record matching the real shim
     counter's shape (``module``, ``ts``, ``session_id``).
     """
-    state = sub / ".myco_state"
+    state = sub / ".myco/state"
     state.mkdir(parents=True, exist_ok=True)
     path = state / "shim_hits.json"
     lines: list[str] = []
@@ -135,19 +135,19 @@ def test_lb2_silent_on_transitional(tmp_path: Path) -> None:
 
 
 def test_lb2_silent_on_missing_state_dir(tmp_path: Path) -> None:
-    """No ``.myco_state/`` at all → graceful fallback (silent).
+    """No ``.myco/state/`` at all → graceful fallback (silent).
 
     A fresh substrate with no telemetry corpus has session_count=0,
     which IS in the ephemeral threshold range — but the test below
     (``test_lb2_fires_low_on_ephemeral_substrate``) covers the
     "fires when ephemeral" case explicitly. The "missing state dir"
     test instead asserts that the dim does not raise on an absent
-    ``.myco_state/`` and degrades to the same ephemeral verdict
+    ``.myco/state/`` and degrades to the same ephemeral verdict
     (i.e. fires LOW, since session_count=0 < 5 and peer_count=0).
     """
     sub = tmp_path / "sub"
     sub.mkdir()
-    _write_canon(sub)  # no .myco_state/ written
+    _write_canon(sub)  # no .myco/state/ written
     ctx = MycoContext.for_testing(root=sub)
     findings = list(LB2LivingBetsRegime().run(ctx))
     # Missing state dir → session_count=0, peer_count=0 → ephemeral
@@ -169,8 +169,8 @@ def test_lb2_silent_on_corrupt_jsonl(tmp_path: Path) -> None:
     sub = tmp_path / "sub"
     sub.mkdir()
     _write_canon(sub)
-    state = sub / ".myco_state"
-    state.mkdir()
+    state = sub / ".myco/state"
+    state.mkdir(parents=True, exist_ok=True)
     (state / "shim_hits.json").write_text(
         "this is not json\n"
         '{"module": "myco.mcp", "ts": "2026-05-10T00:00:00Z", '
@@ -228,8 +228,8 @@ def test_lb2_signal_computation_session_count_from_shim_hits(
     tmp_path: Path,
 ) -> None:
     """``_compute_session_count`` de-dups session_ids across JSONL lines."""
-    state = tmp_path / ".myco_state"
-    state.mkdir()
+    state = tmp_path / ".myco/state"
+    state.mkdir(parents=True, exist_ok=True)
     (state / "shim_hits.json").write_text(
         '{"module": "myco.mcp", "ts": "t", "session_id": "a"}\n'
         '{"module": "myco.mcp", "ts": "t", "session_id": "b"}\n'

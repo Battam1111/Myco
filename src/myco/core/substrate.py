@@ -261,6 +261,6 @@ class Substrate:
 
         The immune kernel (B.2) consumes this via the canon-declared
         marker path; here we honor the default location (per
-        ``canon_schema.md``: ``.myco_state/autoseeded.txt``).
+        ``canon_schema.md``: ``.myco/state/autoseeded.txt``).
         """
         return self.paths.autoseeded_marker.exists()

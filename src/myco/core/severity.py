@@ -45,7 +45,7 @@ def downgrade(sev: Severity, *, ceiling: Severity) -> Severity:
     """Cap ``sev`` at ``ceiling``.
 
     Used by the skeleton-mode downgrade (``L0``/``L1`` CRITICAL → HIGH
-    when ``.myco_state/autoseeded.txt`` is present). A no-op when
+    when ``.myco/state/autoseeded.txt`` is present). A no-op when
     ``sev <= ceiling``.
     """
     return sev if sev <= ceiling else ceiling

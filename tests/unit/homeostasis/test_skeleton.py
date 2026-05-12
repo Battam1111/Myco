@@ -31,7 +31,7 @@ def canon_with_downgrade() -> str:
             package: "src/myco/genesis/"
         lint:
           skeleton_downgrade:
-            marker: ".myco_state/autoseeded.txt"
+            marker: ".myco/state/autoseeded.txt"
             affected_dimensions: ["L0", "L1"]
         """
     )
@@ -61,8 +61,8 @@ def test_downgrades_affected_when_skeleton(
     tmp_path: Path, canon_with_downgrade: str
 ) -> None:
     (tmp_path / "_canon.yaml").write_text(canon_with_downgrade, encoding="utf-8")
-    (tmp_path / ".myco_state").mkdir()
-    (tmp_path / ".myco_state" / "autoseeded.txt").write_text("", encoding="utf-8")
+    (tmp_path / ".myco/state").mkdir(parents=True, exist_ok=True)
+    (tmp_path / ".myco/state" / "autoseeded.txt").write_text("", encoding="utf-8")
     ctx = _mk_ctx(tmp_path)
     fs = [
         _mk_finding("L0", Severity.CRITICAL),
@@ -77,8 +77,8 @@ def test_downgrades_affected_when_skeleton(
 
 def test_missing_affected_list_is_noop(seeded_substrate: Path) -> None:
     # seeded_substrate canon has no lint.skeleton_downgrade section.
-    (seeded_substrate / ".myco_state").mkdir()
-    (seeded_substrate / ".myco_state" / "autoseeded.txt").write_text(
+    (seeded_substrate / ".myco/state").mkdir(parents=True, exist_ok=True)
+    (seeded_substrate / ".myco/state" / "autoseeded.txt").write_text(
         "", encoding="utf-8"
     )
     ctx = _mk_ctx(seeded_substrate)

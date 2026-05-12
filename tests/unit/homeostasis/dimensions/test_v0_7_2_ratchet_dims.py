@@ -56,7 +56,7 @@ def _write_minimal_canon(sub: Path, **extra_yaml: str) -> None:
 
 
 def test_mb8_no_state_file_silent(tmp_path: Path) -> None:
-    """Fresh substrate (no .myco_state/shim_hits.json) → no findings."""
+    """Fresh substrate (no .myco/state/shim_hits.json) → no findings."""
     sub = tmp_path / "sub"
     sub.mkdir()
     _write_minimal_canon(sub)
@@ -67,8 +67,8 @@ def test_mb8_no_state_file_silent(tmp_path: Path) -> None:
 def test_mb8_emits_on_recorded_hits(tmp_path: Path) -> None:
     """Substrate with shim_hits.json entries → MB8 emits one finding per module."""
     sub = tmp_path / "sub"
-    state_dir = sub / ".myco_state"
-    state_dir.mkdir(parents=True)
+    state_dir = sub / ".myco/state"
+    state_dir.mkdir(parents=True, exist_ok=True)
     hits = state_dir / "shim_hits.json"
     hits.write_text(
         '{"module": "myco.mcp", "ts": "2026-04-30T00:00:00Z", "session_id": "s1"}\n'
@@ -88,8 +88,8 @@ def test_mb8_emits_on_recorded_hits(tmp_path: Path) -> None:
 def test_mb8_skips_malformed_jsonl_lines(tmp_path: Path) -> None:
     """Malformed JSONL lines are silently skipped (best-effort telemetry)."""
     sub = tmp_path / "sub"
-    state_dir = sub / ".myco_state"
-    state_dir.mkdir(parents=True)
+    state_dir = sub / ".myco/state"
+    state_dir.mkdir(parents=True, exist_ok=True)
     (state_dir / "shim_hits.json").write_text(
         '{"module": "myco.mcp", "ts": "2026-04-30T00:00:00Z"}\n'
         "not json at all\n"
@@ -282,11 +282,11 @@ def _write_craft(tmp_path: Path, name: str, *, path_allowlist: list[str]) -> Pat
 
 
 def test_recursion_cutter_shim_hits_json_path(tmp_path: Path) -> None:
-    """Touching .myco_state/shim_hits.json forces HIGH (mycoparasite T1)."""
+    """Touching .myco/state/shim_hits.json forces HIGH (mycoparasite T1)."""
     craft = _write_craft(
         tmp_path,
         "zero_shim_counter",
-        path_allowlist=[".myco_state/shim_hits.json"],
+        path_allowlist=[".myco/state/shim_hits.json"],
     )
     result = classify_craft_via_path_allowlist(craft)
     assert result.tier is RiskTier.HIGH
@@ -312,7 +312,7 @@ def test_recursion_cutter_compound_two_clusters(tmp_path: Path) -> None:
         tmp_path,
         "compound_shim_state",
         path_allowlist=[
-            ".myco_state/shim_hits.json",
+            ".myco/state/shim_hits.json",
             "src/myco/mcp/__init__.py",
         ],
     )
@@ -383,7 +383,7 @@ def test_recursion_cutter_shim_sunset_canon_key(tmp_path: Path) -> None:
 # (≥7 senesce cycles + ≥7 zero-hit days) close naturally: the
 # substrate's own test suite no longer imports ``myco.mcp`` from
 # multiple places, so a fresh ``pytest tests/`` adds zero records to
-# the real ``.myco_state/shim_hits.json``.
+# the real ``.myco/state/shim_hits.json``.
 #
 # Doctrine ref: ``docs/architecture/L2_DOCTRINE/boundary.md`` §
 # "Public-API deletion discipline (v0.7.1-named, v0.7.3-canonized)"

@@ -25,7 +25,7 @@ should be released (delete).
 **Three observable signals**:
 
 1. ``session_count`` — total distinct ``session_id`` values ever
-   recorded in ``.myco_state/`` JSONL files (currently
+   recorded in ``.myco/state/`` JSONL files (currently
    ``shim_hits.json``; future state files that carry a
    ``session_id`` field on each line are picked up automatically by
    the ``_iter_session_ids`` walker). Proxy: "how many distinct
@@ -37,7 +37,7 @@ should be released (delete).
    ``1`` (this substrate at least has its own host running it). A
    future extension can plumb richer evidence from
    ``boundary/host_integration/<host>.py::install_basic`` telemetry,
-   if/when ``.myco_state/host_install.json`` is introduced.
+   if/when ``.myco/state/host_install.json`` is introduced.
 3. ``peer_count`` — ``len(canon.identity.federation_peers)``. Direct
    reading of the L0 P5 federation field.
 
@@ -93,7 +93,7 @@ def _iter_session_ids(state_dir: Path) -> Iterable[str]:
     """Yield every ``session_id`` value from JSONL files under ``state_dir``.
 
     Walks files matching ``*.json`` (which by Myco convention are
-    JSONL — one record per line under ``.myco_state/``) and yields
+    JSONL — one record per line under ``.myco/state/``) and yields
     each record's ``session_id`` field when it parses as a non-empty
     string. Malformed lines, files that fail to open, and files
     whose records lack ``session_id`` are skipped silently — this is
@@ -129,7 +129,7 @@ def _iter_session_ids(state_dir: Path) -> Iterable[str]:
 
 
 def _compute_session_count(state_dir: Path) -> int:
-    """Count distinct ``session_id`` values across ``.myco_state/`` JSONL.
+    """Count distinct ``session_id`` values across ``.myco/state/`` JSONL.
 
     Returns ``0`` on any failure (missing dir, unreadable files,
     empty corpus). Never raises.
@@ -163,7 +163,7 @@ def _compute_host_count(_state_dir: Path) -> int:
 
     The prompt-stated default for v0.8.0: ``1`` because the substrate
     at least has its own host running it. A richer signal would
-    probe ``.myco_state/host_install.json`` if it exists; we leave
+    probe ``.myco/state/host_install.json`` if it exists; we leave
     the seam (the ``_state_dir`` argument is reserved for that
     future plumbing) but do not depend on its presence today.
     """
@@ -183,7 +183,7 @@ class LB2LivingBetsRegime(Dimension):
         # collapses the substrate into the transitional regime
         # (silent), per the dim's "never punish missing evidence"
         # contract.
-        state_dir = ctx.substrate.root / ".myco_state"
+        state_dir = ctx.substrate.root / ".myco/state"
         session_count = _compute_session_count(state_dir)
         host_count = _compute_host_count(state_dir)  # noqa: F841 — reserved for future plumbing
         peer_count = _compute_peer_count(ctx.substrate.canon.identity)

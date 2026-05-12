@@ -1,4 +1,4 @@
-"""Tests for graph persistence under ``.myco_state/graph.json``.
+"""Tests for graph persistence under ``.myco/state/graph.json``.
 
 Covers the v0.5.5 MAJOR-J cache contract:
 
@@ -31,7 +31,7 @@ def test_persist_and_load_roundtrip(seeded_substrate: Path) -> None:
         nodes=frozenset({"_canon.yaml", "notes/r.md"}),
         edges=(Edge(src="notes/r.md", dst="_canon.yaml", kind="note_ref"),),
     )
-    cache = seeded_substrate / ".myco_state" / "graph.json"
+    cache = seeded_substrate / ".myco/state" / "graph.json"
     persist_graph(graph, cache, fingerprint="deadbeef")
 
     assert cache.is_file()
@@ -55,7 +55,7 @@ def test_persist_and_load_roundtrip(seeded_substrate: Path) -> None:
 
 def test_build_graph_writes_cache_on_first_call(seeded_substrate: Path) -> None:
     ctx = MycoContext.for_testing(root=seeded_substrate)
-    cache = seeded_substrate / ".myco_state" / "graph.json"
+    cache = seeded_substrate / ".myco/state" / "graph.json"
     assert not cache.exists()
     build_graph(ctx)
     assert cache.is_file()
@@ -75,7 +75,7 @@ def test_second_call_reuses_cache(seeded_substrate: Path) -> None:
     )
     persist_graph(
         sentinel_graph,
-        seeded_substrate / ".myco_state" / "graph.json",
+        seeded_substrate / ".myco/state" / "graph.json",
         fingerprint=fp,
     )
 
@@ -96,7 +96,7 @@ def test_fingerprint_change_invalidates_cache(
     # Overwrite the cache with a sentinel that only the cache could
     # produce, keyed to the CURRENT fingerprint.
     fp_before = _canon_fingerprint(ctx.substrate)
-    cache = seeded_substrate / ".myco_state" / "graph.json"
+    cache = seeded_substrate / ".myco/state" / "graph.json"
     persist_graph(
         Graph(
             nodes=frozenset({"synthetic/only.md"}),
@@ -126,7 +126,7 @@ def test_fingerprint_change_invalidates_cache(
 
 
 def test_corrupt_json_triggers_rebuild(seeded_substrate: Path) -> None:
-    cache = seeded_substrate / ".myco_state" / "graph.json"
+    cache = seeded_substrate / ".myco/state" / "graph.json"
     cache.parent.mkdir(parents=True, exist_ok=True)
     cache.write_text("not-json{{{", encoding="utf-8")
     ctx = MycoContext.for_testing(root=seeded_substrate)
@@ -140,7 +140,7 @@ def test_corrupt_json_triggers_rebuild(seeded_substrate: Path) -> None:
 
 
 def test_wrong_schema_triggers_rebuild(seeded_substrate: Path) -> None:
-    cache = seeded_substrate / ".myco_state" / "graph.json"
+    cache = seeded_substrate / ".myco/state" / "graph.json"
     cache.parent.mkdir(parents=True, exist_ok=True)
     cache.write_text(
         json.dumps(
@@ -161,7 +161,7 @@ def test_wrong_schema_triggers_rebuild(seeded_substrate: Path) -> None:
 
 def test_use_cache_false_always_rebuilds(seeded_substrate: Path) -> None:
     ctx = MycoContext.for_testing(root=seeded_substrate)
-    cache = seeded_substrate / ".myco_state" / "graph.json"
+    cache = seeded_substrate / ".myco/state" / "graph.json"
 
     # Pre-populate a stale cache with a sentinel node matching the
     # current fingerprint.
@@ -189,7 +189,7 @@ def test_use_cache_false_always_rebuilds(seeded_substrate: Path) -> None:
 def test_invalidate_graph_cache_removes_file(seeded_substrate: Path) -> None:
     ctx = MycoContext.for_testing(root=seeded_substrate)
     build_graph(ctx)
-    cache = seeded_substrate / ".myco_state" / "graph.json"
+    cache = seeded_substrate / ".myco/state" / "graph.json"
     assert cache.is_file()
 
     removed = invalidate_graph_cache(ctx.substrate)
@@ -208,9 +208,9 @@ def test_load_persisted_graph_returns_none_for_missing(
 
 
 def test_persist_graph_creates_state_dir(tmp_path: Path) -> None:
-    # ``.myco_state`` dir may not exist yet on fresh substrates —
+    # ``.myco/state`` dir may not exist yet on fresh substrates —
     # ``persist_graph`` must create it.
-    cache = tmp_path / ".myco_state" / "graph.json"
+    cache = tmp_path / ".myco/state" / "graph.json"
     assert not cache.parent.exists()
     persist_graph(
         Graph(nodes=frozenset({"_canon.yaml"}), edges=()),
@@ -224,7 +224,7 @@ def test_persisted_graph_includes_generated_at(seeded_substrate: Path) -> None:
     ctx = MycoContext.for_testing(root=seeded_substrate)
     build_graph(ctx)
     payload = json.loads(
-        (seeded_substrate / ".myco_state" / "graph.json").read_text(encoding="utf-8")
+        (seeded_substrate / ".myco/state" / "graph.json").read_text(encoding="utf-8")
     )
     assert "generated_at" in payload
     assert payload["generated_at"].endswith("Z")
