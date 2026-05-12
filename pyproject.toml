@@ -260,9 +260,7 @@ include = [
   "/tests",
   "/docs",
   "/scripts",
-  "/assets",
-  "/skills",
-  "/hooks",
+  "/plugin",
   "/.claude-plugin",
   "/.claude",
   "/.github",
@@ -273,13 +271,17 @@ include = [
   "/CHANGELOG.md",
   "/LICENSE",
   "/pyproject.toml",
-  "/docs/INSTALL.md",
 ]
-# v0.8.4 root-cleanup (2026-05-12): README_zh.md + README_ja.md moved
-# under docs/i18n/ (covered by /docs glob above); CONTRIBUTING.md +
-# CODE_OF_CONDUCT.md + SECURITY.md + CITATION.cff moved under .github/
-# (covered by /.github glob above). Explicit per-file include entries
-# for these moved files were removed; the glob coverage is unchanged.
+# v0.8.4 root-cleanup (2026-05-12): collapsed several explicit root
+# entries into broader globs after structural moves:
+#   - README_zh.md + README_ja.md → docs/i18n/   (covered by /docs)
+#   - CONTRIBUTING.md + CODE_OF_CONDUCT.md + SECURITY.md +
+#     CITATION.cff → .github/                   (covered by /.github)
+#   - assets/ → docs/assets/                     (covered by /docs)
+#   - examples/ → docs/examples/                 (covered by /docs)
+#   - agents/ + commands/ + hooks/ + skills/    → plugin/{...}/
+# `/docs/INSTALL.md` removed (redundant: /docs already covers it).
+# `/plugin` added so the v0.8.4 plugin-bundle parent ships in sdist.
 exclude = [
   "/.release_notes_*.md",
   "/upload*.log",

@@ -15,8 +15,8 @@ and named the discipline:
 
   A shim deletion candidate must satisfy ONE of:
   (a) Internal-only verification: zero hits across src/ + tests/ +
-      scripts/ + examples/ AND no plugin manifest declares the path
-      AND no MCP host entry point exposes it.
+      scripts/ + docs/examples/ AND no plugin manifest declares the
+      path AND no MCP host entry point exposes it.
   (b) Telemetry verification: the substrate has run for ≥ N senesce
       cycles spanning ≥ D wall-clock days with this dim's counter
       reporting zero hits across that window.
