@@ -1,58 +1,14 @@
-"""SE5 — version-anchor freshness in live agent-facing docs (v0.7.2+).
+"""SE-cluster — merged dimensions (SE1, SE2, SE3, SE5).
+
+v0.8.8 merged: this file consolidates the per-dim files that previously
+lived as one file per dimension under ``homeostasis/dimensions/semantic/``.
+Class names and behaviour are byte-equivalent — only file locations
+changed. Per L1 protocol.md: L3 organization choices are ordinary
+code changes; no contract bump required. Original per-dim files are
+preserved in git history at parent commits.
 
 Governing doctrine: ``docs/architecture/L2_DOCTRINE/homeostasis.md``
-§ "永恒删减 (eternal pruning)" — the v0.7.2 ratchet that catches
-hardcoded version anchors before they accumulate to the v0.6.16 sweep
-threshold (2747-line contract_changelog.md, 1632-line CHANGELOG.md,
-27 pre-v0.6 LANDED crafts on the main reading surface).
-
-The v0.6.16 sweep manually fixed dozens of stale ``v0.5.7`` /
-``v0.6.12`` anchors. SE5 mechanizes detection so the next sweep's
-candidate set is auto-surfaced rather than discovered via a 4-agent
-parallel audit.
-
-**Why a new dim, not SE2 extension** (correcting saprotroph T4):
-saprotroph claimed SE2 already covers "canon-cited numbers and paths
-match observed reality". Inspection shows ``SE2OrphanIntegrated``
-actually checks orphan integrated notes — a different semantic. The
-``homeostasis.md:143`` description is **stale doctrine** (likely from
-the v0.5.8 25-dim era, where SE2 was a different check; the v0.6.0
-expansion redefined SE2 without updating the table). v0.7.2 ships
-SE5 as a genuinely-new check AND fixes the SE2 description in the
-same molt.
-
-**Live-doc scope (rhizomorph T3)**: SE5 scans ONLY:
-
-- ``docs/architecture/**`` (L0/L1/L2/L3)
-- ``MYCO.md``
-- ``README*.md`` (3-language trilogy)
-- ``_canon.yaml``
-- ``pyproject.toml``
-
-It explicitly EXCLUDES:
-
-- ``docs/_archive/**`` and ``docs/contract_changelog/_archive/**``
-  (frozen historical entries by design)
-- ``docs/primordia/**`` (LANDED crafts and ``_landed/v0_X_x/`` are
-  immutable history; their version anchors are correct for the era)
-- ``docs/contract_changelog.md`` (current major's changelog; entries
-  are time-stamped historical claims, not "live state")
-- ``CHANGELOG.md`` (frozen since v0.5.9)
-- ``notes/**`` (filenames embed timestamps + slugs that are legitimately
-  immutable per L2 digestion.md no-delete rule)
-
-**False-positive heuristic (mycorrhiza T7)**: a hardcoded
-``v0.X.Y`` anchor preceded by historical-context tokens
-(``shipped at``, ``landed in``, ``as of``, ``since``, ``pre-``,
-``post-``, ``frozen at``, ``retired``, ``legacy``, ``v0.X.Y craft``)
-is treated as a legitimate historical reference and NOT flagged.
-Otherwise the anchor must be ≥ current version (forward-looking,
-e.g. roadmap docs) or ≥ current minus 3 minor versions (recent-
-enough to still describe live state).
-
-Severity: LOW. Stale anchors are doctrine-hygiene, not a correctness
-failure. The substrate continues to operate; the dim surfaces the
-candidate set for the next neat-freak sweep.
+§ "Dimension enumeration".
 """
 
 from __future__ import annotations
@@ -66,8 +22,146 @@ from myco.core.severity import Severity
 from myco.homeostasis.dimension import Dimension
 from myco.homeostasis.finding import Category, Finding
 
-__all__ = ["SE5VersionAnchorFreshness"]
+__all__ = [
+    "SE1DanglingRefs",
+    "SE2OrphanIntegrated",
+    "SE3LinkSelfCycle",
+    "SE5VersionAnchorFreshness",
+]
 
+
+# =========================================================================
+# SE1 — see module docstring + original git history at parent commits
+# =========================================================================
+
+
+class SE1DanglingRefs(Dimension):
+    """One finding per dangling edge in the substrate graph."""
+
+    id = "SE1"
+    category = Category.SEMANTIC
+    default_severity = Severity.MEDIUM
+    fixable: ClassVar[bool] = True
+
+    def fix(self, ctx: MycoContext, finding: Finding) -> dict[str, object]:
+        """v0.6.0 §F18: narrow advisory fix.
+
+        SE1 fix is intentionally narrow because rewriting a markdown
+        link in source code is a delicate operation (could break
+        formatting, table cells, frontmatter). v0.6.0 reports the fix
+        as advisory; agent or operator removes the dangling reference
+        manually. Future v0.6.x patch may add proper AST-aware
+        markdown surgery.
+        """
+        return {
+            "applied": False,
+            "detail": (
+                "SE1 fixable=True at v0.6.0 is advisory: dangling-link "
+                "removal is delicate (could disturb formatting). "
+                "Manual edit recommended. Path: " + str(finding.path)
+            ),
+        }
+
+    def run(self, ctx: MycoContext) -> Iterable[Finding]:
+        # Lazy import: keeps dimensions/__init__ cheap and breaks any
+        # potential cycle if circulation reaches back into homeostasis.
+        from myco.circulation.graph import build_graph
+
+        graph = build_graph(ctx)
+        # v0.5.8 perf: Graph.nodes is already the canonical "resolved,
+        # inside the substrate" set. Any edge whose dst is not in that
+        # set is, by the graph builder's construction, dangling —
+        # either the destination string never pointed anywhere that
+        # resolved, or it escaped the substrate. Either way SE1 should
+        # flag it. Filesystem stat(2) is avoided entirely.
+        nodes = graph.nodes
+        for edge in graph.edges:
+            if edge.dst in nodes:
+                continue
+            yield Finding(
+                dimension_id=self.id,
+                category=self.category,
+                severity=self.default_severity,
+                message=(f"{edge.src} references missing {edge.dst} ({edge.kind})"),
+                path=edge.src,
+            )
+
+
+# =========================================================================
+# SE2 — see module docstring + original git history at parent commits
+# =========================================================================
+
+
+class SE2OrphanIntegrated(Dimension):
+    """Integrated notes with no inbound edges in the graph."""
+
+    id = "SE2"
+    category = Category.SEMANTIC
+    default_severity = Severity.LOW
+
+    def run(self, ctx: MycoContext) -> Iterable[Finding]:
+        from myco.circulation.graph import build_graph
+
+        integrated_dir = ctx.substrate.paths.notes / "integrated"
+        if not integrated_dir.is_dir():
+            return
+        integrated = [p for p in integrated_dir.glob("*.md") if p.is_file()]
+        if not integrated:
+            return
+
+        graph = build_graph(ctx)
+        referenced = {edge.dst for edge in graph.edges}
+        root = ctx.substrate.root
+
+        for note_path in integrated:
+            rel = note_path.relative_to(root).as_posix()
+            if rel in referenced:
+                continue
+            yield Finding(
+                dimension_id=self.id,
+                category=self.category,
+                severity=self.default_severity,
+                message=f"integrated note {rel} has no inbound references",
+                path=rel,
+            )
+
+
+# =========================================================================
+# SE3 — see module docstring + original git history at parent commits
+# =========================================================================
+
+
+class SE3LinkSelfCycle(Dimension):
+    """No substrate file references itself as a graph edge."""
+
+    id = "SE3"
+    category = Category.SEMANTIC
+    default_severity = Severity.LOW
+    fixable: ClassVar[bool] = False
+
+    def run(self, ctx: MycoContext) -> Iterable[Finding]:
+        # Lazy import to avoid pulling circulation into the dimension
+        # package import graph.
+        from myco.circulation.graph import build_graph
+
+        graph = build_graph(ctx)
+        for edge in graph.edges:
+            if edge.src == edge.dst:
+                yield Finding(
+                    dimension_id=self.id,
+                    category=self.category,
+                    severity=self.default_severity,
+                    message=(
+                        f"{edge.src} references itself "
+                        f"({edge.kind} edge) — drop the self-reference."
+                    ),
+                    path=edge.src,
+                )
+
+
+# =========================================================================
+# SE5 — see module docstring + original git history at parent commits
+# =========================================================================
 
 # Live-doc scope (anchored relative paths from substrate root).
 # Each entry: glob pattern. Order is irrelevant; the union is scanned.

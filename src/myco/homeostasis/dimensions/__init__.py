@@ -49,59 +49,74 @@ from ..dimension import Dimension
 
 # ---- Mechanical (31) ------------------------------------------------
 from .mechanical.ad1_adapter_silent_skip import AD1AdapterSilentSkip
-from .mechanical.cg1_doctrine_has_src_reference import CG1DoctrineHasSrcReference
-from .mechanical.cg2_subpackage_has_doctrine_link import CG2SubpackageHasDoctrineLink
-from .mechanical.cl1_sampling_policy_gate import CL1SamplingPolicyGate
-from .mechanical.cl2_oauth_token_residency import CL2OAuthTokenResidency
-from .mechanical.cl3_sampling_token_clear import CL3SamplingTokenClear
+from .mechanical.cg_cluster import (
+    CG1DoctrineHasSrcReference,
+    CG2SubpackageHasDoctrineLink,
+)
+from .mechanical.cl_cluster import (
+    CL1SamplingPolicyGate,
+    CL2OAuthTokenResidency,
+    CL3SamplingTokenClear,
+)
 from .mechanical.cs1_contract_version_sync import CS1ContractVersionSync
-from .mechanical.dc1_module_docstring import DC1ModuleDocstring
-from .mechanical.dc2_public_function_docstring import DC2PublicFunctionDocstring
-from .mechanical.dc3_public_class_docstring import DC3PublicClassDocstring
-from .mechanical.dc4_module_doc_ref import DC4ModuleDocRef
-from .mechanical.dc5_abstract_parent_allowlist import DC5AbstractParentAllowlist
-from .mechanical.di1_discipline_hooks_present import DI1DisciplineHooksPresent
-from .mechanical.di2_discipline_hooks_content import DI2DisciplineHooksContent
+from .mechanical.dc_cluster import (
+    DC1ModuleDocstring,
+    DC2PublicFunctionDocstring,
+    DC3PublicClassDocstring,
+    DC4ModuleDocRef,
+    DC5AbstractParentAllowlist,
+)
+from .mechanical.di_cluster import DI1DisciplineHooksPresent, DI2DisciplineHooksContent
 from .mechanical.fr1_fresh_substrate_invariants import FR1FreshSubstrateInvariants
-from .mechanical.m1_canon_identity_fields import M1CanonIdentityFields
-from .mechanical.m2_entry_point_exists import M2EntryPointExists
-from .mechanical.m3_write_surface_declared import M3WriteSurfaceDeclared
-from .mechanical.mf1_declared_subsystems_exist import MF1DeclaredSubsystemsExist
-from .mechanical.mf2_substrate_local_plugin_health import MF2SubstrateLocalPluginHealth
-from .mechanical.mf4_overlay_subsystem_validity import MF4OverlaySubsystemValidity
-from .mechanical.mf5_generated_mirror_integrity import MF5GeneratedMirrorIntegrity
-from .mechanical.mp1_no_provider_imports import MP1NoProviderImports
-from .mechanical.mp2_plugin_provider_imports import MP2PluginProviderImports
-from .mechanical.mp3_plugin_bytecode_audit import MP3PluginBytecodeAudit
-from .mechanical.pa1_write_surface_coverage import PA1WriteSurfaceCoverage
-from .mechanical.pa2_megafile_loc_cap import PA2MegafileLocCap
-from .mechanical.pa3_surface_pure_adapter import PA3SurfacePureAdapter
-from .mechanical.pa4_core_no_subsystem_deps import PA4CoreNoSubsystemDeps
-from .mechanical.pa5_meta_subsystem_layering import PA5MetaSubsystemLayering
-from .mechanical.pa6_repo_bloat import PA6RepoBloat
+from .mechanical.m_cluster import (
+    M1CanonIdentityFields,
+    M2EntryPointExists,
+    M3WriteSurfaceDeclared,
+)
+from .mechanical.mf_cluster import (
+    MF1DeclaredSubsystemsExist,
+    MF2SubstrateLocalPluginHealth,
+    MF4OverlaySubsystemValidity,
+    MF5GeneratedMirrorIntegrity,
+)
+from .mechanical.mp_cluster import (
+    MP1NoProviderImports,
+    MP2PluginProviderImports,
+    MP3PluginBytecodeAudit,
+)
+from .mechanical.pa_cluster import (
+    PA1WriteSurfaceCoverage,
+    PA2MegafileLocCap,
+    PA3SurfacePureAdapter,
+    PA4CoreNoSubsystemDeps,
+    PA5MetaSubsystemLayering,
+    PA6RepoBloat,
+)
 from .mechanical.sc1_schema_parity import SC1SchemaParity
 
 # ---- Metabolic (6) --------------------------------------------------
-from .metabolic.mb1_raw_notes_backlog import MB1RawNotesBacklog
-from .metabolic.mb2_no_integrated_yet import MB2NoIntegratedYet
-from .metabolic.mb3_raw_notes_high_watermark import MB3RawNotesHighWatermark
-from .metabolic.mb4_sporulated_reabsorbed import MB4SporulatedReabsorbed
-from .metabolic.mb6_stale_draft_or_distilled import MB6StaleDraftOrDistilled
-from .metabolic.mb8_shim_hit_counter import MB8ShimHitCounter
+from .metabolic.mb_cluster import (
+    MB1RawNotesBacklog,
+    MB2NoIntegratedYet,
+    MB3RawNotesHighWatermark,
+    MB4SporulatedReabsorbed,
+    MB6StaleDraftOrDistilled,
+    MB8ShimHitCounter,
+)
 
 # ---- Semantic (7) ---------------------------------------------------
 # v0.8.6 — SE4/RL2/RL3 excreted (永恒删减; see module docstring above).
-from .semantic.lb1_living_bets_overdue import LB1LivingBetsOverdue
-from .semantic.lb2_living_bets_regime import LB2LivingBetsRegime
+from .semantic.lb_cluster import LB1LivingBetsOverdue, LB2LivingBetsRegime
 from .semantic.rl1_rules_referenced import RL1RulesReferenced
-from .semantic.se1_dangling_refs import SE1DanglingRefs
-from .semantic.se2_orphan_integrated import SE2OrphanIntegrated
-from .semantic.se3_link_self_cycle import SE3LinkSelfCycle
-from .semantic.se5_version_anchor_freshness import SE5VersionAnchorFreshness
+from .semantic.se_cluster import (
+    SE1DanglingRefs,
+    SE2OrphanIntegrated,
+    SE3LinkSelfCycle,
+    SE5VersionAnchorFreshness,
+)
 
 # ---- Shipped (2) ----------------------------------------------------
-from .shipped.sh1_package_version_ref import SH1PackageVersionRef
-from .shipped.sh2_kernel_ahead_of_canon import SH2KernelAheadOfCanon
+from .shipped.sh_cluster import SH1PackageVersionRef, SH2KernelAheadOfCanon
 
 __all__ = [
     "ALL",

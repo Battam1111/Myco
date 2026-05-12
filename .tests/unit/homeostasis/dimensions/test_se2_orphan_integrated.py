@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from myco.core.context import MycoContext
-from myco.homeostasis.dimensions.semantic.se2_orphan_integrated import (
+from myco.homeostasis.dimensions.semantic.se_cluster import (
     SE2OrphanIntegrated,
 )
 

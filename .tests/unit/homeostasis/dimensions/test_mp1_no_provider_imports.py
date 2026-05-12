@@ -30,7 +30,7 @@ from pathlib import Path
 from myco.core.context import MycoContext
 from myco.core.severity import Severity
 from myco.homeostasis.dimensions import _BUILT_IN
-from myco.homeostasis.dimensions.mechanical.mp1_no_provider_imports import (
+from myco.homeostasis.dimensions.mechanical.mp_cluster import (
     MP1NoProviderImports,
 )
 from myco.homeostasis.finding import Category

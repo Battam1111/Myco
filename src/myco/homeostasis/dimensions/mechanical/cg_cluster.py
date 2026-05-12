@@ -1,22 +1,14 @@
-"""CG2 — every ``src/myco/`` subpackage links out to doctrine.
+"""CG-cluster — merged dimensions (CG1, CG2).
+
+v0.8.8 merged: this file consolidates the per-dim files that previously
+lived as one file per dimension under ``homeostasis/dimensions/mechanical/``.
+Class names and behaviour are byte-equivalent — only file locations
+changed. Per L1 protocol.md: L3 organization choices are ordinary
+code changes; no contract bump required. Original per-dim files are
+preserved in git history at parent commits.
 
 Governing doctrine: ``docs/architecture/L2_DOCTRINE/homeostasis.md``
-§ "Dimension enumeration" (v0.5.8 addition).
-
-
-Inverse of :class:`CG1DoctrineHasSrcReference`: CG1 asks "does
-every L2 doctrine page have a code anchor?"; CG2 asks "does every
-src subpackage have at least one outgoing doctrine reference?"
-Together they fence off the 万物互联 principle at both ends.
-
-A subpackage (a directory under ``src/myco/`` containing
-``__init__.py``) is flagged if **none** of its ``*.py`` files
-have a module docstring that mentions a ``docs/`` or ``notes/``
-path. This is weaker than DC4 (which asks the same of individual
-files): one link per subpackage suffices.
-
-Severity: LOW. Same reasoning as DC4 / CG1 — missing doctrine
-anchors erode navigability, don't corrupt runtime.
+§ "Dimension enumeration".
 """
 
 from __future__ import annotations
@@ -32,8 +24,72 @@ from myco.core.skip_dirs import should_skip_dir
 from myco.homeostasis.dimension import Dimension
 from myco.homeostasis.finding import Category, Finding
 
-__all__ = ["CG2SubpackageHasDoctrineLink"]
+__all__ = [
+    "CG1DoctrineHasSrcReference",
+    "CG2SubpackageHasDoctrineLink",
+]
 
+
+# =========================================================================
+# CG1 — see module docstring + original git history at parent commits
+# =========================================================================
+
+# v0.8.6 — canon-driven docs path. Substrates may relocate their
+# docs tree to `.docs/` (Myco-self) or keep the legacy `docs/`
+# default (downstream). Hardcoded `"docs/"` silently returned an
+# empty L2 page set on Myco-self for every release v0.8.4…v0.8.5
+# (the directory does not exist at that name).
+_L2_DOCTRINE_SUBPATH = "architecture/L2_DOCTRINE"
+
+
+class CG1DoctrineHasSrcReference(Dimension):
+    """Every L2 doctrine page has at least one ``code_doc_ref`` edge."""
+
+    id = "CG1"
+    category = Category.MECHANICAL
+    default_severity = Severity.LOW
+    fixable: ClassVar[bool] = False
+
+    def run(self, ctx: MycoContext) -> Iterable[Finding]:
+        l2_dir = ctx.substrate.paths.docs / _L2_DOCTRINE_SUBPATH
+        if not l2_dir.is_dir():
+            return
+        # Collect the L2 pages present on disk.
+        pages: set[str] = set()
+        for md in l2_dir.rglob("*.md"):
+            try:
+                rel = md.relative_to(ctx.substrate.root).as_posix()
+            except ValueError:
+                continue
+            pages.add(rel)
+        if not pages:
+            return
+        # Build the graph once; extract destinations of ``code_doc_ref``
+        # edges. Lazy import so the dimension registry stays cheap.
+        from myco.circulation.graph import build_graph
+
+        graph = build_graph(ctx)
+        referenced = {e.dst for e in graph.edges if e.kind == "code_doc_ref"}
+        for page in sorted(pages):
+            if page in referenced:
+                continue
+            yield Finding(
+                dimension_id=self.id,
+                category=self.category,
+                severity=self.default_severity,
+                message=(
+                    f"L2 doctrine page {page} has no incoming "
+                    f"`code_doc_ref` edge — either the subsystem is "
+                    f"aspirational (state this) or the reference was "
+                    f"lost in a refactor (restore from src docstrings)."
+                ),
+                path=page,
+            )
+
+
+# =========================================================================
+# CG2 — see module docstring + original git history at parent commits
+# =========================================================================
 
 # v0.8.6 — accept hidden-prefix doctrine paths. Substrates may
 # relocate doctrine to `.docs/` and notes to `.myco/notes/` (Myco-

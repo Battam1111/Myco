@@ -6,7 +6,7 @@ import textwrap
 from pathlib import Path
 
 from myco.core.context import MycoContext
-from myco.homeostasis.dimensions.mechanical.mf1_declared_subsystems_exist import (
+from myco.homeostasis.dimensions.mechanical.mf_cluster import (
     MF1DeclaredSubsystemsExist,
 )
 

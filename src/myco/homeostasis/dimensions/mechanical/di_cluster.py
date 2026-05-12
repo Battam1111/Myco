@@ -1,31 +1,14 @@
-"""DI1 — discipline-enforcement hooks are declared.
+"""DI-cluster — merged dimensions (DI1, DI2).
+
+v0.8.8 merged: this file consolidates the per-dim files that previously
+lived as one file per dimension under ``homeostasis/dimensions/mechanical/``.
+Class names and behaviour are byte-equivalent — only file locations
+changed. Per L1 protocol.md: L3 organization choices are ordinary
+code changes; no contract bump required. Original per-dim files are
+preserved in git history at parent commits.
 
 Governing doctrine: ``docs/architecture/L2_DOCTRINE/homeostasis.md``
-§ "Dimension enumeration" (v0.5.8 addition).
-
-
-R1-R7 are enforced in Claude Code / Cowork via the ``.claude/
-hooks.json`` mechanism. Other MCP hosts carry the discipline via
-the MCP ``initialization`` block that :mod:`myco.boundary.surface.mcp`
-emits. DI1 confirms that — for substrates that ship with a
-Claude-family host declaration — the hooks file is present and
-points at a real handler.
-
-Scope: the dimension fires only when the substrate root contains
-a ``.claude/`` directory (indicating the operator has adopted the
-Claude-family flow). On substrates without ``.claude/``, DI1 is a
-silent no-op — the host is presumably relying on MCP
-initialization alone, which is a supported configuration.
-
-Severity: MEDIUM. A missing hooks file on a ``.claude/``-present
-substrate is a real discipline-regression risk: R1 won't auto-
-trigger, and the session must rely on the agent's vigilance. But
-it isn't a kernel-level contract break, so we stop at MEDIUM.
-
-Fixable: v0.6.0 §F18. NARROW: only when ``.claude/hooks.json`` is
-COMPLETELY ABSENT — fix writes a minimal R1+R2 hooks template.
-Existing files are never overwritten (preserves operator
-customization per pre-v0.6.0 reasoning).
+§ "Dimension enumeration".
 """
 
 from __future__ import annotations
@@ -40,8 +23,15 @@ from myco.core.severity import Severity
 from myco.homeostasis.dimension import Dimension
 from myco.homeostasis.finding import Category, Finding
 
-__all__ = ["DI1DisciplineHooksPresent"]
+__all__ = [
+    "DI1DisciplineHooksPresent",
+    "DI2DisciplineHooksContent",
+]
 
+
+# =========================================================================
+# DI1 — see module docstring + original git history at parent commits
+# =========================================================================
 
 _MINIMAL_HOOKS = {
     "hooks": {
@@ -132,3 +122,64 @@ class DI1DisciplineHooksPresent(Dimension):
             "applied": True,
             "detail": f"created {hooks_path.name} ({len(body)} bytes)",
         }
+
+
+# =========================================================================
+# DI2 — see module docstring + original git history at parent commits
+# =========================================================================
+
+
+class DI2DisciplineHooksContent(Dimension):
+    """hooks.json must include SessionStart→hunger and PreCompact→senesce lines."""
+
+    id = "DI2"
+    category = Category.MECHANICAL
+    default_severity = Severity.MEDIUM
+    fixable: ClassVar[bool] = False
+
+    def run(self, ctx: MycoContext) -> Iterable[Finding]:
+        root = ctx.substrate.root
+        # v0.8.6 path-correction: the Cowork bundle moved under .plugin/
+        # at v0.8.4 (root cleanup). The original `hooks/hooks.json` at
+        # substrate root has not existed since v0.8.4; DI2 silently
+        # no-op'd for v0.8.4…v0.8.5. Real binding is declared in
+        # `.claude-plugin/plugin.json::hooks` → `./.plugin/hooks/hooks.json`.
+        hooks_path = root / ".plugin" / "hooks" / "hooks.json"
+        if not hooks_path.is_file():
+            return
+        try:
+            data = json.loads(hooks_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            yield Finding(
+                dimension_id=self.id,
+                category=self.category,
+                severity=self.default_severity,
+                message=f"hooks.json failed to parse: {exc}",
+                path=".plugin/hooks/hooks.json",
+            )
+            return
+        text = json.dumps(data) if isinstance(data, dict | list) else str(data)
+        # R1: SessionStart fires hunger.
+        if "SessionStart" not in text or "hunger" not in text:
+            yield Finding(
+                dimension_id=self.id,
+                category=self.category,
+                severity=self.default_severity,
+                message=(
+                    "hooks.json does not bind SessionStart → myco hunger "
+                    "(R1 boot ritual)"
+                ),
+                path=".plugin/hooks/hooks.json",
+            )
+        # R2: PreCompact fires senesce.
+        if "PreCompact" not in text or "senesce" not in text:
+            yield Finding(
+                dimension_id=self.id,
+                category=self.category,
+                severity=self.default_severity,
+                message=(
+                    "hooks.json does not bind PreCompact → myco senesce "
+                    "(R2 session-end ritual)"
+                ),
+                path=".plugin/hooks/hooks.json",
+            )
