@@ -407,7 +407,7 @@ def _measure_lint_dim_count(repo: Path) -> int | None:
 
 
 def _refresh_canon_metrics(repo: Path, *, dry_run: bool) -> list[str]:
-    """Surgically refresh ``_canon.yaml::metrics.{test_count,lint_dim_count}``.
+    """Surgically refresh ``canon::metrics.{test_count,lint_dim_count}``.
 
     Reads live measurements (pytest --collect-only count + canon_lint dim
     count) and rewrites just the two target lines via regex. Same surgical
@@ -418,8 +418,14 @@ def _refresh_canon_metrics(repo: Path, *, dry_run: bool) -> list[str]:
     Inserts ``lint_dim_count: <N>`` if the line is absent and the new
     schema_version "3" is targeted (v0.7.5+). Insertion point: right after
     the ``test_count:`` line within the ``metrics:`` block.
+
+    v0.8.5 — canon may live at ``.myco/canon.yaml`` (Myco-self / v0.8.4+)
+    or ``_canon.yaml`` (legacy / downstream). Probe both, same pattern as
+    sync_plugin_mirrors.py.
     """
-    canon_path = repo / "_canon.yaml"
+    canon_path = repo / ".myco" / "canon.yaml"
+    if not canon_path.is_file():
+        canon_path = repo / "_canon.yaml"
     if not canon_path.is_file():
         return [f"[skip]  {_rel(canon_path)} (file missing)"]
 

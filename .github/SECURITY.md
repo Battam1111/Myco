@@ -20,15 +20,15 @@ regressions.
 
 ## Supported versions
 
-Myco is on rapid 0.6.x cadence. Only the latest minor receives
+Myco is on rapid 0.8.x cadence. Only the latest minor receives
 security fixes. Older minors get advisory notes in the changelog.
 
 | Version | Supported |
 |---------|-----------|
-| 0.6.x (latest) | ✅ |
-| 0.5.x | ⚠️ advisory only |
-| ≤ 0.4.x | ❌ (frozen) |
-| ≤ 0.3.x | ❌ (pre-rewrite, frozen — `legacy_v0_3/` quarantine) |
+| 0.8.x (latest) | ✅ |
+| 0.7.x | ⚠️ advisory only |
+| 0.6.x | ❌ (frozen) |
+| ≤ 0.5.x | ❌ (pre-rewrite, frozen) |
 
 ## What Myco defends against mechanically
 

@@ -1,11 +1,9 @@
 # -----------------------------------------------------------------------------
-# Myco v0.4.0 .gitignore
+# Myco .gitignore
 #
-# This file is fresh-authored for the greenfield rewrite. The pre-rewrite
-# .gitignore referenced v0.3 concepts (Wave 8 cleanup notes, notes/n_*.md,
-# docs/primordia/archive/, etc.) that now live under legacy_v0_3/ and no
-# longer need root-level rules. That content is preserved inside
-# legacy_v0_3/.gitignore_v0_3 for historical reference if needed.
+# Originally authored for the v0.4.0 greenfield rewrite. The pre-rewrite
+# legacy_v0_3/ quarantine was excreted by the v0.7.0 Major Autolysis pass;
+# the literal directory no longer exists on disk.
 # -----------------------------------------------------------------------------
 
 # Python
@@ -78,12 +76,6 @@ upload*.log
 !/.claude/settings.local.json
 !/.claude/agents/
 !/.claude/commands/
-# Pre-rewrite tree. C.4 deleted it from git, but belt-and-suspenders:
-# a top-level ignore rule means that even if a stray copy of the
-# directory reappears in the working tree (restored backup, mount-point
-# ghost, etc.), `git add` will refuse to re-stage it.
-legacy_v0_3/
-
 # Myco runtime substrate state — generated at runtime, not SSoT.
 # (graph.json cache, shim_hits.json MB8 telemetry, autoseeded.txt
 # skeleton marker, etc — every state file ends up here.)

@@ -59,10 +59,16 @@ jobs:
         id: tracking
         run: |
           set -euo pipefail
-          # Read _canon.yaml::system.governance.auto_evolve_tracking_issue_id
+          # Read canon::system.governance.auto_evolve_tracking_issue_id
           # via raw curl + grep. Avoids needing python in this lightweight job.
-          CANON_URL="https://raw.githubusercontent.com/${{ github.repository }}/main/_canon.yaml"
-          ISSUE_ID=$(curl -fsSL "$CANON_URL" | grep -E "^\s*auto_evolve_tracking_issue_id:" | sed -E 's/.*:\s*//' | tr -d '"' | tr -d "'" | tr -d ' ')
+          # v0.8.5 — try .myco/canon.yaml first (v0.8.4+ layout), fall
+          # back to _canon.yaml for downstream substrates. The previous
+          # hardcoded /main/_canon.yaml URL returned HTTP 404 silently
+          # on Myco-self since v0.8.4.
+          CANON_URL_NEW="https://raw.githubusercontent.com/${{ github.repository }}/main/.myco/canon.yaml"
+          CANON_URL_LEGACY="https://raw.githubusercontent.com/${{ github.repository }}/main/_canon.yaml"
+          CANON_BODY=$(curl -fsSL "$CANON_URL_NEW" 2>/dev/null || curl -fsSL "$CANON_URL_LEGACY" 2>/dev/null || true)
+          ISSUE_ID=$(echo "$CANON_BODY" | grep -E "^\s*auto_evolve_tracking_issue_id:" | sed -E 's/.*:\s*//' | tr -d '"' | tr -d "'" | tr -d ' ')
           if [ -z "$ISSUE_ID" ] || [ "$ISSUE_ID" = "null" ] || [ "$ISSUE_ID" = "~" ]; then
             echo "::warning::auto_evolve_tracking_issue_id is null in canon; cannot post vetoed_intent. Run .scripts/seed_auto_evolve_tracking_issue.py to seed."
             echo "issue_id=" >> "$GITHUB_OUTPUT"
