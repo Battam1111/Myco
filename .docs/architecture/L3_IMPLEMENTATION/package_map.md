@@ -14,28 +14,37 @@
   `L0_VISION.md:172-186` which already named Cycle as the 6th subsystem
   since v0.5.3.
 - `boundary/` is the canonical **7th subsystem** (since v0.6.0 Round 4
-  owner amendment §A1). It physically unifies the four legacy
+  owner amendment §A1). At v0.8.5 it physically unifies three
   cross-cutting adapter packages: `boundary.surface` (CLI/MCP/manifest),
-  `boundary.install` (host writers), `boundary.mcp` (MCP launcher),
-  `boundary.host_integration` (14 per-host adapters, formerly
-  `symbionts/`). L0 vocabulary clause narrowly extended in §A1 to
-  admit `boundary` as a doctrine-level term.
+  `boundary.install` (host writers — the data-driven JsonClientSpec
+  table covers 10 MCP hosts), and `boundary.mcp` (MCP launcher).
+  L0 vocabulary clause narrowly extended in §A1 to admit `boundary`
+  as a doctrine-level term.
 - **Physical merger LANDED at Round 5** per owner directive
   ("不许有任何一丝一毫偷懒"): the legacy top-level packages
   `myco.surface` / `myco.install` / `myco.mcp` / `myco.symbionts` are
-  **REMOVED**. 201 import-path rewrites across 60 files (src + tests +
-  docs + configs) bring the codebase onto the canonical
-  `myco.boundary.<sub>` form. pyproject entry-points updated:
+  **REMOVED**. 201 import-path rewrites across 60 files bring the
+  codebase onto the canonical `myco.boundary.<sub>` form. pyproject
+  entry-points:
     - `myco = "myco.boundary.surface.cli:main"`
     - `mcp-server-myco = "myco.boundary.mcp:main"`
     - `myco-install = "myco.boundary.install:main"`
-- The 14 host_integration adapters all live under
-  `boundary/host_integration/` (claude-code / cursor / cowork /
-  vscode / continue-dev / cline / jetbrains / zed / goose / windsurf /
-  codex-cli / gemini-cli / openclaw / claude-desktop).
+- **v0.8.5**: the `boundary/host_integration/` subpackage (14 per-host
+  adapter modules at v0.6.0 — claude-code / claude-desktop / cline /
+  codex-cli / continue-dev / cowork / cursor / gemini-cli / goose /
+  jetbrains / openclaw / vscode / windsurf / zed) was **excreted**.
+  The 8 pure-stub adapters returned empty `InstallReport`\\s; the 6
+  functional rule-template writers were never invoked by the
+  production `myco-install host <client>` path (which delegates to
+  the data-driven `boundary/install/clients.py::JsonClientSpec`
+  table). Re-introducing rule writers, if wanted in v0.9, should land
+  as a new `RuleClientSpec` row inside `clients.py` rather than as a
+  parallel module registry. The `MF3SymbiontArtifactIntegrity` dim
+  (premise: signature header in installed adapter artifacts) was
+  retired in the same commit.
 - `homeostasis/dimensions/` reorganized into 4 category subdirectories:
-  `mechanical/` (31), `shipped/` (2), `metabolic/` (6), `semantic/` (7).
-  pyproject entry-points updated for all 46 dim paths.
+  `mechanical/` (32), `shipped/` (2), `metabolic/` (7), `semantic/` (10).
+  pyproject entry-points updated for all live dim paths.
 - `tests/unit/verbs/<verb>/` reorganization landed: 13 verb-shape test
   files moved from subsystem-organized layout into 20 verb directories.
 - Core invariants preserved: PA4 (mechanical, HIGH) guards `core/`
@@ -44,7 +53,7 @@
 
 ---
 
-## The `src/myco/` layout (v0.6.15 — current)
+## The `src/myco/` layout (v0.8.5 — current)
 
 ```
 src/myco/
@@ -98,10 +107,10 @@ src/myco/
 │   ├── exit_policy.py       # parse_exit_on, _compute_exit_code
 │   ├── skeleton.py          # skeleton-mode downgrade
 │   ├── registry.py          # register_external_dimension(cls) public API (v0.5.3)
-│   └── dimensions/          # 46 dim files (v0.6.0 expanded from 25); 4 category subdirs
-│       ├── mechanical/      # 31 dims (M1, M2, M3, MF1-MF4, MP1-MP3, DC1-DC5, CS1, FR1, PA1-PA5, CG1-CG2, DI1-DI2, AD1, SC1, CL1-CL3)
+│   └── dimensions/          # 50 dim files at v0.8.5 (v0.6.0 expanded from 25 to 46; v0.7.2 +SE5+MB8+PA6; v0.7.5 +LB1+LB2+CG1+CG2; v0.8.5 −MF3 with host_integration excretion); 4 category subdirs
+│       ├── mechanical/      # 32 dims (M1-M3, MF1+MF2+MF4+MF5, MP1-MP3, DC1-DC5, CS1, FR1, PA1-PA6, CG1-CG2, DI1-DI2, AD1, SC1, CL1-CL3)
 │       ├── shipped/         # 2 dims (SH1, SH2)
-│       ├── metabolic/       # 6 dims (MB1-MB7 minus MB5)
+│       ├── metabolic/       # 7 dims (MB1-MB4, MB6-MB8; no MB5)
 │       └── semantic/        # 7 dims (SE1-SE4, RL1-RL3)
 │
 ├── cycle/                   # L2 Cycle (canonical 6th subsystem since v0.6.0; meta/ shim removed)
@@ -124,16 +133,14 @@ src/myco/
 │   │   ├── cli.py           # argparse wrapper; generated from manifest
 │   │   └── mcp.py           # MCP server; generated from manifest
 │   ├── install/             # MCP host writers + fresh-substrate bootstrap (was top-level install/)
-│   │   ├── clients/         # one module per automated host (10 hosts at v0.6.15)
+│   │   ├── clients.py       # data-driven JsonClientSpec table — 10 automated MCP hosts at v0.8.5
 │   │   └── fresh.py         # `myco-install fresh`
-│   ├── mcp/                 # `python -m myco.boundary.mcp` launcher (was top-level mcp/)
-│   │   └── __init__.py      # thin delegator to surface.mcp
-│   └── host_integration/    # 14 per-host Agent-sugar adapters (was top-level symbionts/ pre-v0.6.0)
-│       ├── claude_code.py
-│       ├── cursor.py
-│       ├── cowork.py
-│       ├── claude_desktop.py
-│       └── … (10 more)
+│   └── mcp/                 # `python -m myco.boundary.mcp` launcher (was top-level mcp/)
+│       └── __init__.py      # thin delegator to surface.mcp
+│   # NOTE (v0.8.5): the boundary.host_integration subpackage was
+│   # excreted. 8 pure-stub adapters + 6 functional rule-template
+│   # writers that production code never invoked. The data-driven
+│   # clients.py table is the sole installer surface now.
 │
 └── mcp/                     # v0.6.13 back-compat shim — re-exports myco.boundary.mcp
     └── __init__.py          # DeprecationWarning on `from myco.mcp import ...`; scheduled for removal at v1.0.0

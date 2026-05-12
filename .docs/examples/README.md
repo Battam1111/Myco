@@ -12,10 +12,30 @@ fences needed to support it.
 
 ## Index
 
+### Sample substrates
+
 | Dir | Use case | Verbs exercised | Size |
 |---|---|---|---|
 | [`minimal/`](minimal/README.md) | Smallest possible working substrate | `germinate` / `eat` / `hunger` / `assimilate` / `immune` | ~5 files |
-| [`research-assistant/`](research-assistant/README.md) | Solo-researcher knowledge base (papers + decisions + frictions) | full 19-verb surface; propagate out to a derived substrate | ~15 files after use |
+| [`research-assistant/`](research-assistant/README.md) | Solo-researcher knowledge base (papers + decisions + frictions) | full 20-verb surface; propagate out to a derived substrate | ~15 files after use |
+
+### Framework integration demos (v0.7.10+; install via `pip install 'myco[examples]'`)
+
+Each demo runs Myco's 20 verbs as MCP tools driven by a different
+agent framework. All 8 ship a `main.py` with a `main(dry: bool=False)
+-> int` entry point + a minimal README. Smoke-tested in CI via
+`.tests/integration/examples/test_examples_smoke.py`.
+
+| Dir | Framework | Probe import |
+|---|---|---|
+| [`agno-myco-demo/`](agno-myco-demo/README.md) | Agno | `agno` |
+| [`claude-sdk-myco-demo/`](claude-sdk-myco-demo/README.md) | Claude Agent SDK | `claude_agent_sdk` |
+| [`crewai-myco-demo/`](crewai-myco-demo/README.md) | CrewAI | `crewai` |
+| [`dspy-myco-demo/`](dspy-myco-demo/README.md) | DSPy | `dspy` |
+| [`langgraph-myco-demo/`](langgraph-myco-demo/README.md) | LangGraph | `langchain_mcp_adapters` |
+| [`microsoft-agent-framework-myco-demo/`](microsoft-agent-framework-myco-demo/README.md) | Microsoft Agent Framework | `agent_framework` |
+| [`praisonai-myco-demo/`](praisonai-myco-demo/README.md) | PraisonAI | `praisonaiagents` |
+| [`smolagents-myco-demo/`](smolagents-myco-demo/README.md) | smolagents | `smolagents` |
 
 ## Running an example
 

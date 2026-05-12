@@ -1,7 +1,7 @@
 # Research-assistant Myco substrate
 
 A realistic starter substrate for a solo researcher, the use case
-Myco was shaped around. This shows how the 19-verb surface + 25
+Myco was shaped around. This shows how the 20-verb surface + 50
 dims support a long-running knowledge base of papers, decisions,
 frictions, and synthesis.
 
@@ -69,7 +69,7 @@ python -m myco assimilate
 python -m myco sporulate --slug agent-memory-evaluation
 
 # Lint: the substrate-local dimension DEC1 will run alongside the
-# kernel's 25, checking that every `decision`-tagged note has an
+# kernel's 50, checking that every `decision`-tagged note has an
 # `authors` field.
 python -m myco immune
 
