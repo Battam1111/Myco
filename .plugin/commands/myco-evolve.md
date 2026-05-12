@@ -8,7 +8,7 @@ The user wants you to run the autopoietic kernel-evolution loop against the dist
 This is the v0.6.14+ **Cycle 自起 fruit—winnow—molt 闭环** orchestrator. It mechanizes the bridge from `sporulate` (distilled note) to a candidate kernel mutation (auto-craft PR), with **owner-merge-gate as the only remaining synapse**. The substrate kernel adds zero LLM dispatch; intelligence lives in the Claude Code Agent layer (you, plus the 3 fungal critics that primordium spawns).
 
 Governing doctrine: `docs/architecture/L2_DOCTRINE/cycle.md` § "Cycle 自起 fruit—winnow—molt 闭环 (v0.6.14+)" + `docs/architecture/L2_DOCTRINE/boundary.md` § "Sixth seam (v0.6.14+)".
-Governing craft: `docs/primordia/v0_6_14_cycle_autostart_fruit_winnow_molt_loop_craft_2026-04-29.md`.
+Governing craft: `docs/primordia/_landed/v0_6_x/v0_6_14_cycle_autostart_fruit_winnow_molt_loop_craft_2026-04-29.md`.
 
 ## Pre-flight gates (refuse if any fails)
 

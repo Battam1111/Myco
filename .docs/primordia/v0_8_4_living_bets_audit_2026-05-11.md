@@ -2,7 +2,7 @@
 
 > **Status**: DRAFT — AWAITING_OWNER_RATIFICATION (2026-05-11).
 > **L0 cadence trigger**: `docs/architecture/L0_VISION.md` § "Appendix — Living bets" mandates re-audit at every MAJOR release. v0.8.0 MAJOR shipped 2026-05-11 with the persistence-budget refinement (commit `783da78`). The v0.8 audit is now due per the LB1 dim's LOW finding ("Living Bets audit overdue: substrate at v0.8.4 but most-recent audit covers v0.7.5").
-> **Predecessor audit**: `docs/primordia/v0_7_5_living_bets_audit_2026-05-10.md` (RATIFIED via Option B at v0.8.0).
+> **Predecessor audit**: `docs/primordia/_landed/v0_7_x/v0_7_5_living_bets_audit_2026-05-10.md` (RATIFIED via Option B at v0.8.0).
 > **Distinct from v0.7 audit**: the v0.7 audit was retroactive (covered v0.7.0-v0.7.5 cycle). This v0.8 audit is **on-time** (substrate is at v0.8.4; LB1 fired at MAJOR-bump moment; audit lands within 4 patch versions of the trigger).
 
 ---

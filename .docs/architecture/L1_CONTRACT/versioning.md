@@ -68,7 +68,7 @@ is currently aligned with. Lives in `_canon.yaml::contract_version`.
 Per `L0_VISION.md:223-228`, **v0.6.0 is a MAJOR-class release** in
 Myco's contract semantics — it triggers the Living Bets re-audit
 cadence (sibling craft
-`docs/primordia/v0_6_0_living_bets_audit_craft_2026-04-28.md`). The
+`docs/primordia/_landed/v0_6_x/v0_6_0_living_bets_audit_craft_2026-04-28.md`). The
 SemVer label "0.6.0" reads as MINOR by external naming convention but
 Myco contract treats it as MAJOR-class for review-cadence and
 breaking-change-permission purposes. This dual interpretation is

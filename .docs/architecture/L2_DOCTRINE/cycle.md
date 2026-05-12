@@ -2,7 +2,7 @@
 
 > **Status**: APPROVED (2026-04-28, v0.6.0 craft).
 > **Layer**: L2. Subordinate to `L0_VISION.md` and `L1_CONTRACT/protocol.md`.
-> **Governing craft**: `docs/primordia/v0_6_0_unified_evolution_and_thorough_refactor_craft_2026-04-28.md` §F2.
+> **Governing craft**: `docs/primordia/_landed/v0_6_x/v0_6_0_unified_evolution_and_thorough_refactor_craft_2026-04-28.md` §F2.
 > **Maps to**: `src/myco/cycle/` (canonical 6th subsystem since v0.6.0; named by L0 since v0.5.3).
 
 ---
@@ -147,7 +147,7 @@ recorded at any time.
 
 ## Cycle 自起 fruit—winnow—molt 闭环 (v0.6.14+)
 
-> **Governing craft**: `docs/primordia/v0_6_14_cycle_autostart_fruit_winnow_molt_loop_craft_2026-04-29.md`.
+> **Governing craft**: `docs/primordia/_landed/v0_6_x/v0_6_14_cycle_autostart_fruit_winnow_molt_loop_craft_2026-04-29.md`.
 > **Triggering observation** (2026-04-29 owner remark, post neat-freak ingestion): "Myco 吃完之后似乎并不会直接进化自己的内核啊？"
 
 Through v0.6.13 the metabolic flow (`eat → assimilate → sporulate`) and the morphogenetic flow (`fruit → winnow → molt`) were **doctrinally separated and procedurally bridged by 5 manual handoffs** of agent prose. Most insights captured in distilled never reached the kernel because the bridge was too long. v0.6.14 mechanized 4 of those 5 handoffs. **L0 P1 stays strict**: substrate kernel adds 0 lines of LLM dispatch; orchestration lives entirely in the Claude Code Agent layer (Agent tool sub-agent fanout — analogous host-mediated mechanism to the existing MCP `sampling` exception #2 for `myco fruit`).
