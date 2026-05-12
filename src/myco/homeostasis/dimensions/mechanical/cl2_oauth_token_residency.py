@@ -37,7 +37,14 @@ class CL2OAuthTokenResidency(Dimension):
             return
         if not gov.get("token_redaction_required"):
             return
-        auth_path = ctx.substrate.root / "src" / "myco" / "surface" / "mcp_auth.py"
+        # v0.8.6 — corrected path: mcp_auth.py moved under boundary/
+        # at v0.6.0. Prior path "src/myco/surface/mcp_auth.py" was
+        # never updated, so CL2 silently returned (file-not-found)
+        # for every release v0.6.0…v0.8.5 — token-redaction
+        # enforcement was a permanent no-op until this fix.
+        auth_path = (
+            ctx.substrate.root / "src" / "myco" / "boundary" / "surface" / "mcp_auth.py"
+        )
         if not auth_path.is_file():
             # OAuth not yet shipped; CL2 only fires when
             # mcp_auth.py is present (v0.6.0+).
@@ -56,5 +63,5 @@ class CL2OAuthTokenResidency(Dimension):
                     "mcp_auth.py does not import _redact_in_logs; OAuth "
                     "tokens may leak to logs"
                 ),
-                path="src/myco/surface/mcp_auth.py",
+                path="src/myco/boundary/surface/mcp_auth.py",
             )

@@ -153,11 +153,17 @@ def test_pa6_excluded_globs_protect_ingestion(tmp_path: Path) -> None:
 
 def test_mf5_intended_v0_6_11_mirror_silent_when_synced(tmp_path: Path) -> None:
     """v0.7.3 reclassified: byte-identical .claude/agents/X.md ↔
-    <repo>/agents/X.md is the desired state per v0.6.11 plugin spec
-    (both project + bundle scopes mandated). NO finding emitted."""
+    .plugin/agents/X.md is the desired state per v0.6.11 plugin spec
+    (both project + bundle scopes mandated). NO finding emitted.
+
+    v0.8.6 — bundle path now `.plugin/agents/` (was `agents/` until
+    the v0.8.4 root cleanup moved Cowork bundle dirs under hidden
+    prefix). MF5 silently no-op'd on v0.8.4…v0.8.5 because the bundle
+    dir at root no longer existed.
+    """
     sub = tmp_path / "sub"
     project_dir = sub / ".claude" / "agents"
-    bundle_dir = sub / "agents"
+    bundle_dir = sub / ".plugin" / "agents"
     project_dir.mkdir(parents=True)
     bundle_dir.mkdir(parents=True)
     same_bytes = "---\nname: foo\n---\n\n# Foo agent\n" + ("body line\n" * 30)
@@ -173,7 +179,7 @@ def test_mf5_drift_emits_medium(tmp_path: Path) -> None:
     MIRROR_DRIFT MEDIUM finding."""
     sub = tmp_path / "sub"
     project_dir = sub / ".claude" / "agents"
-    bundle_dir = sub / "agents"
+    bundle_dir = sub / ".plugin" / "agents"
     project_dir.mkdir(parents=True)
     bundle_dir.mkdir(parents=True)
     (project_dir / "foo.md").write_text("project version\n", encoding="utf-8")
@@ -192,7 +198,7 @@ def test_mf5_unbalanced_pair_silent(tmp_path: Path) -> None:
     be in-flight addition)."""
     sub = tmp_path / "sub"
     project_dir = sub / ".claude" / "agents"
-    bundle_dir = sub / "agents"
+    bundle_dir = sub / ".plugin" / "agents"
     project_dir.mkdir(parents=True)
     bundle_dir.mkdir(parents=True)
     (project_dir / "foo.md").write_text("only-in-project\n", encoding="utf-8")

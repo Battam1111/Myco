@@ -180,6 +180,13 @@ def promote_to_integrated(
     if dry_run:
         return target
 
+    # v0.8.6 ordering fix: check_write_allowed MUST run before any
+    # filesystem mutation (including mkdir). Previously the integrated
+    # directory got created even when the write_surface gate would
+    # reject the operation, which side-effected substrates whose
+    # canon explicitly excluded `notes/integrated/`. Same class of bug
+    # as the v0.8.5 molt fix (canon-then-write reorder).
+    check_write_allowed(ctx, target, verb="digest")
     integrated_dir.mkdir(parents=True, exist_ok=True)
     if target.exists():
         raise ContractError(
@@ -191,7 +198,6 @@ def promote_to_integrated(
     # because removing content the substrate already owns is a
     # different semantic axis (it's under notes/raw/ by construction
     # and assimilate's contract says the raw copy moves, not duplicates).
-    check_write_allowed(ctx, target, verb="digest")
     atomic_utf8_write(target, rendered)
     raw_path.unlink()
     return target

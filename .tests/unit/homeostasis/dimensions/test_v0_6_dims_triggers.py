@@ -215,7 +215,10 @@ def test_cl1_with_mcp_sampling_no_gate_emits(tmp_path: Path):
 def test_cl2_token_redaction_required_no_helper_emits(tmp_path: Path):
     """token_redaction_required=true + no _redact_in_logs in mcp_auth → CL2 emit."""
     sub = tmp_path / "sub"
-    surf = sub / "src" / "myco" / "surface"
+    # v0.8.6 — mcp_auth.py lives under boundary/surface/ (moved at
+    # v0.6.0); CL2 reads it from that path. Test mirrors the
+    # actual layout so the dim fires.
+    surf = sub / "src" / "myco" / "boundary" / "surface"
     surf.mkdir(parents=True)
     (surf / "mcp_auth.py").write_text(
         "# stub without redact helper\n", encoding="utf-8"

@@ -259,11 +259,25 @@ class SE5VersionAnchorFreshness(Dimension):
         # .docs/ (Myco-self) or stay at root (downstream). Remap any
         # glob that starts with "docs/" through paths.docs.
         docs_dir = ctx.substrate.paths.docs_dir
+        # v0.8.6 — also remap the entry-page glob (`MYCO.md`) + canon
+        # glob (`_canon.yaml`) through canon-configured locations.
+        # Previously these were hardcoded literals, so Myco-self's
+        # `.myco/MYCO.md` + `.myco/canon.yaml` were silently excluded
+        # from the SE5 freshness sweep — critical reading-surface
+        # version anchors went unchecked.
+        entry_point = ctx.substrate.canon.entry_point
+        canon_rel = ctx.substrate.paths.canon.relative_to(
+            ctx.substrate.root.resolve()
+        ).as_posix()
         effective_globs: tuple[str, ...] = tuple(
             (
                 f"{docs_dir}/" + p[len("docs/") :]
                 if p.startswith("docs/") and docs_dir != "docs"
-                else p
+                else (
+                    entry_point
+                    if p == "MYCO.md"
+                    else (canon_rel if p == "_canon.yaml" else p)
+                )
             )
             for p in _LIVE_DOC_GLOBS
         )
