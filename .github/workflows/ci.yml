@@ -163,3 +163,8 @@ jobs:
           path: .dist/
           retention-days: 7
           if-no-files-found: error
+          # v0.8.5 — .dist/ is hidden (leading dot) per the v0.8.4 root-
+          # cleanup. The default for include-hidden-files is false, which
+          # causes upload-artifact to refuse the path entirely with
+          # "No files were found". Explicitly opt in.
+          include-hidden-files: true
