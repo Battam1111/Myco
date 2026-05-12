@@ -1,9 +1,14 @@
-# Minimal-example Myco substrate — generated 2026-04-22.
-# Schema: docs/architecture/L1_CONTRACT/canon_schema.md
+# Minimal-example Myco substrate — v0.8.6 schema-v3 shape.
+#
+# This is the simplest viable downstream substrate: bare write-surface,
+# no special-cased subsystems, default skeleton-downgrade marker, default
+# hard-contract reference. Adapt `substrate_id` + tags when you fork.
+#
+# Schema reference: .docs/architecture/L1_CONTRACT/canon_schema.md
 
-schema_version: "1"
-contract_version: "v0.5.10"
-synced_contract_version: "v0.5.10"
+schema_version: "3"
+contract_version: "v0.8.6"
+synced_contract_version: "v0.8.6"
 
 identity:
   substrate_id: "minimal-example"
@@ -13,6 +18,10 @@ identity:
   entry_point: "MYCO.md"
 
 system:
+  # v0.6.14 enum reduction: 2-value (forbidden | opt-in). Most
+  # substrates want "forbidden" — keeps the no-LLM-in-substrate
+  # invariant active.
+  llm_policy: "forbidden"
   write_surface:
     allowed:
       - "_canon.yaml"
@@ -22,7 +31,6 @@ system:
   hard_contract:
     rules_ref: "https://github.com/Battam1111/Myco/blob/main/docs/architecture/L1_CONTRACT/protocol.md"
     rule_count: 7
-  no_llm_in_substrate: true
 
 versioning:
   package_version_ref: "pyproject.toml"
@@ -37,8 +45,12 @@ lint:
   exit_policy:
     default: "mechanical:critical,shipped:critical,metabolic:never,semantic:never"
   skeleton_downgrade:
-    marker: ".myco_state/autoseeded.txt"
+    marker: ".myco/state/autoseeded.txt"
     affected_dimensions: []
+  # Downstream substrates pick up the live 47-dim roster from the
+  # installed Myco kernel via importlib.metadata.entry_points; no
+  # need to maintain a sibling _canon_lint.yaml unless you're
+  # registering substrate-local Dimension subclasses.
 
 subsystems:
   germination:
@@ -51,12 +63,25 @@ subsystems:
     doc: "https://github.com/Battam1111/Myco/blob/main/docs/architecture/L2_DOCTRINE/circulation.md"
   homeostasis:
     doc: "https://github.com/Battam1111/Myco/blob/main/docs/architecture/L2_DOCTRINE/homeostasis.md"
+  cycle:
+    doc: "https://github.com/Battam1111/Myco/blob/main/docs/architecture/L2_DOCTRINE/cycle.md"
+  boundary:
+    doc: "https://github.com/Battam1111/Myco/blob/main/docs/architecture/L2_DOCTRINE/boundary.md"
 
 commands:
-  manifest_ref: "https://github.com/Battam1111/Myco/blob/main/src/myco/surface/manifest.yaml"
+  manifest_ref: "https://github.com/Battam1111/Myco/blob/main/src/myco/boundary/surface/manifest.yaml"
+
+governance:
+  # v0.8.0 schema-v3 field — populated by `myco fruit` when a Living
+  # Bets audit lands. LB1 mechanically demands a fresh
+  # docs/primordia/v*_living_bets_audit_*.md craft at every MAJOR
+  # ratchet; fresh substrates start with `null` (LB1 silent until
+  # the first MAJOR molt).
+  last_living_bets_audit_at: null
 
 metrics:
   test_count: 0
+  lint_dim_count: 47
 
 waves:
   current: 1

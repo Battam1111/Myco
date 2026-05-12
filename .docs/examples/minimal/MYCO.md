@@ -15,7 +15,9 @@ day one; as you `myco eat` material in, it grows.
 1. Call `python -m myco hunger`. This is R1 of the hard contract.
    On a fresh substrate it reports "substrate quiet; no action
    required" and writes a boot brief to
-   `.myco_state/boot_brief.md`.
+   `.myco/state/boot_brief.md` (post-v0.7 the runtime-state tree
+   was relocated under `.myco/state/` to match the canon-configured
+   hidden-prefix layout).
 2. Read [the full Myco README](https://github.com/Battam1111/Myco/blob/main/README.md)
    if you haven't yet. It explains the 20-verb surface + the
    five L0 principles + R1 through R7 of the hard contract.
@@ -42,4 +44,4 @@ consolidated state.
 
 - Five root principles: [L0_VISION.md](https://github.com/Battam1111/Myco/blob/main/docs/architecture/L0_VISION.md)
 - R1-R7 rules: [protocol.md](https://github.com/Battam1111/Myco/blob/main/docs/architecture/L1_CONTRACT/protocol.md)
-- Full verb list: [manifest.yaml](https://github.com/Battam1111/Myco/blob/main/src/myco/surface/manifest.yaml)
+- Full verb list: [manifest.yaml](https://github.com/Battam1111/Myco/blob/main/src/myco/boundary/surface/manifest.yaml)

@@ -46,10 +46,10 @@ related integrated notes to synthesise.
 ## Canon shape
 
 ```yaml
-# _canon.yaml
-schema_version: "1"
-contract_version: "v0.5.10"
-synced_contract_version: "v0.5.10"
+# _canon.yaml (full schema-v3 shape; see _canon.yaml in this dir)
+schema_version: "3"
+contract_version: "v0.8.6"
+synced_contract_version: "v0.8.6"
 
 identity:
   substrate_id: "minimal-example"
@@ -57,6 +57,7 @@ identity:
   entry_point: "MYCO.md"
 
 system:
+  llm_policy: "forbidden"             # v0.6.14 — replaces v1's no_llm_in_substrate
   write_surface:
     allowed:
       - "_canon.yaml"
@@ -65,14 +66,15 @@ system:
       - "docs/**"
   hard_contract:
     rule_count: 7
-  no_llm_in_substrate: true
 
 subsystems:
-  ingestion: {doc: "docs/architecture/L2_DOCTRINE/ingestion.md"}
-  digestion: {doc: "docs/architecture/L2_DOCTRINE/digestion.md"}
-  circulation: {doc: "docs/architecture/L2_DOCTRINE/circulation.md"}
-  homeostasis: {doc: "docs/architecture/L2_DOCTRINE/homeostasis.md"}
-  germination: {doc: "docs/architecture/L2_DOCTRINE/genesis.md"}
+  germination: {doc: ".docs/architecture/L2_DOCTRINE/genesis.md"}
+  ingestion:   {doc: ".docs/architecture/L2_DOCTRINE/ingestion.md"}
+  digestion:   {doc: ".docs/architecture/L2_DOCTRINE/digestion.md"}
+  circulation: {doc: ".docs/architecture/L2_DOCTRINE/circulation.md"}
+  homeostasis: {doc: ".docs/architecture/L2_DOCTRINE/homeostasis.md"}
+  cycle:       {doc: ".docs/architecture/L2_DOCTRINE/cycle.md"}       # v0.6.0 — 6th subsystem
+  boundary:    {doc: ".docs/architecture/L2_DOCTRINE/boundary.md"}    # v0.6.0 — 7th subsystem
 ```
 
 ## Compare to `myco germinate`
