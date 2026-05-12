@@ -11,6 +11,141 @@ Format: one section per `contract_version`, newest first.
 
 ---
 
+## v0.8.6 - 2026-05-12 - Dead-dim revival sweep + 永恒删减 retirement wave
+
+10-way parallel-agent audit (Round 7 of the v0.8.x cleanup sequence)
+uncovered eight lint dimensions that had been emitting zero findings
+for entire release windows because of hardcoded paths that no longer
+matched the live substrate layout. This molt simultaneously revives
+those gates AND retires three permanently-silent dimensions whose
+infrastructure premise was never built.
+
+### What changed
+
+**Dim count**: 50 → 47 (net −3 from the SE4/RL2/RL3 retirement). The
+new totals — Mechanical 32 + Shipped 2 + Metabolic 6 + Semantic 7 —
+match the live `dimensions_run` output of `myco immune`.
+
+**Real bugs fixed (8 dims newly emitting again)**:
+
+- **CL2** (oauth token residency): path `src/myco/surface/mcp_auth.py`
+  → `src/myco/boundary/surface/mcp_auth.py`. CL2 had silently
+  returned for every release v0.6.0…v0.8.5 — token-redaction
+  enforcement was a permanent no-op for five minor versions.
+- **MF5** (generated mirror integrity): bundle dirs `agents/`,
+  `commands/` → `.plugin/agents/`, `.plugin/commands/`. The bundle
+  paths moved at v0.8.4 (root cleanup); MF5 silently no-op'd until
+  this fix.
+- **DI2** (discipline hooks content): `hooks/hooks.json` →
+  `.plugin/hooks/hooks.json` (the actual Cowork-bundle binding).
+- **M1** (canon identity fields) `fix()`: `root / "_canon.yaml"` →
+  `ctx.substrate.paths.canon` (canon-configurable layout support).
+- **CG1** (doctrine ← src reference): hardcoded
+  `"docs/architecture/L2_DOCTRINE"` → `ctx.substrate.paths.docs`
+  with the subpath joined locally.
+- **CG2** (subpackage → doctrine link): regex extended to accept
+  `.docs/` + `.myco/notes/` prefixes (hidden-prefix layout support).
+- **SE5** (version anchor freshness): literal `MYCO.md` + `_canon.yaml`
+  globs replaced by `ctx.substrate.canon.entry_point` and
+  `ctx.substrate.paths.canon` lookups.
+- **`digestion/pipeline.py`** ordering: `check_write_allowed` now
+  runs BEFORE `integrated_dir.mkdir(...)` (same class of bug as
+  the v0.8.5 molt-then-write reorder).
+
+**Coverage gap fixed**:
+
+- **LB2** (Living Bets two-regime axis) was registered in `_BUILT_IN`
+  but missing from `pyproject.toml::[project.entry-points."myco.dimensions"]`
+  and `.myco/canon_lint.yaml::dimensions`. The dim was loading only
+  through the gap-fill fallback; now declared explicitly in both
+  inventories. `metrics.lint_dim_count` corrected 51 → 47.
+
+**Cross-platform consistency**:
+
+- `ingestion/adapters/code_repo.py::IngestResult.source` now POSIX-
+  normalizes via `.as_posix()` so Windows ingestion sources don't
+  embed backslashes that break cross-platform search/dedup.
+
+**Excretions** (per L0 P3 永恒删减):
+
+- **SE4** (reciprocal backlink): white-list shipped permanently
+  empty at v0.6.0; never populated through five releases.
+- **RL2 + RL3** (R3 sense + R4 eat discipline signals): read
+  `.myco/state/session_calls.jsonl` that no production code has
+  ever written — dead-letter checkers from landing.
+- **`session_end_run` re-export** in `myco/cycle/__init__.py`:
+  v0.5.x → v0.6.0 rename horizon shim; satisfies the doctrine note
+  that scheduled deletion "via a v0.9+ craft once the rename horizon
+  is doctrinally past".
+- **`_SKIP_DIRS` clone + `_iter_py_files`** in `circulation/graph_src.py`:
+  divergent skip-dir set + duplicate walker. Now delegates to the
+  canonical `core/skip_dirs.should_skip_dir`.
+- **`mcp-resources` pyproject extra**: orphan since the v0.8.5
+  `boundary/surface/mcp_resources` excretion. Removed.
+- **`.scripts/__pycache__/install_cowork_plugin.cpython-313.pyc`**:
+  orphan bytecode. Removed.
+
+**Doctrine drift fixed**:
+
+- `.docs/INSTALL.md`: 6 `.plugin` bundle extension references →
+  `.zip` (Anthropic GitHub issue #40414 / v0.7.4 hotfix).
+- `.docs/architecture/L2_DOCTRINE/extensibility.md`: "Per-host"
+  section rewritten to reference the data-driven
+  `boundary/install/clients.py::JsonClientSpec` table; the
+  excreted `boundary/host_integration/` package + retired `MF3`
+  dim acknowledged as v0.8.5 永恒删减 entries.
+- `.docs/architecture/L3_IMPLEMENTATION/package_map.md`: dim totals
+  + subcategory membership refreshed to match the v0.8.6 roster;
+  excretion log gains `host_integration` v0.8.5 retirement +
+  `risk_classifier.py` v0.8.5 retirement.
+- `.docs/architecture/README.md`: title v0.8.5 → v0.8.6; dim count
+  51 → 47; subcategory breakdown corrected.
+- `.docs/README.md`: extensibility-axis ref points at
+  `boundary/install/clients.py` (not the excreted `symbionts/`);
+  verb-surface SSoT path bumped to `boundary/surface/manifest.yaml`.
+
+**Example substrate canons** (v0.5.10 schema-v1 → v0.8.6 schema-v3):
+
+- `.docs/examples/minimal/_canon.yaml` and
+  `.docs/examples/research-assistant/_canon.yaml` rewritten to the
+  current shape: `llm_policy` enum (replacing `no_llm_in_substrate`),
+  `cycle` + `boundary` subsystem rows, `governance.last_living_bets_audit_at`,
+  `metrics.lint_dim_count: 47`. A downstream user copying either as
+  a template now passes SC1 schema-parity on first `myco immune`.
+
+**Config cleanup**:
+
+- `.claude/settings.local.json`: stripped deprecated verb aliases
+  (`session-end`, `reflect`, `distill`, `perfuse`, `genesis`) and
+  cross-project permission entries. Rewritten to list only the
+  current 20-verb surface.
+- `.gitignore`: `tests/benchmark/.cache/` → `.tests/benchmark/.cache/`;
+  added `.claude/worktrees/` to keep abrupt-termination cruft from
+  being committed.
+- `.docker/.dockerignore`: `.cowork-plugin` exclude removed (directory
+  consolidated into `.plugin/` at v0.8.5).
+- `pyproject.toml`: sdist `include` gains `/.myco` (canon-tree
+  skeleton ships in sdist now); matching `exclude` gains
+  `/.myco/state/**` (runtime state doesn't pollute the distribution).
+- `.scripts/bump_version.py`: `scripts/sync_plugin_mirrors.py` →
+  `.scripts/sync_plugin_mirrors.py` (path missed by the v0.8.4
+  hidden-prefix root cleanup; would have failed for any
+  Myco-self bump until this fix landed).
+
+### Break from v0.8.5
+
+No backward-incompatible contract change. Three dims (SE4, RL2, RL3)
+disappear from `myco immune --list` output — substrates that pinned
+those IDs in their `lint.skeleton_downgrade.affected_dimensions`
+allowlist will see an unknown-ID warning at load (existing kernel
+behavior; not a hard failure). Eight dims (CL2, MF5, DI2, M1 fix,
+CG1, CG2, SE5, plus LB2 via entry-points registration) now produce
+findings on substrates where they previously emitted none — this is
+the intended behavior; new findings on substrates that were silently
+missing checks are signal, not regression.
+
+---
+
 ## v0.8.5 - 2026-05-12 - root-cleanup convergence + canon-configurable layout
 
 Replaces `v0.8.4` at `.myco/canon.yaml::contract_version`. Issued via
