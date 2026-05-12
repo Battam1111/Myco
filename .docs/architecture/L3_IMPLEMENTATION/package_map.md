@@ -43,8 +43,9 @@
   (premise: signature header in installed adapter artifacts) was
   retired in the same commit.
 - `homeostasis/dimensions/` reorganized into 4 category subdirectories:
-  `mechanical/` (32), `shipped/` (2), `metabolic/` (7), `semantic/` (10).
-  pyproject entry-points updated for all live dim paths.
+  `mechanical/` (32), `shipped/` (2), `metabolic/` (6, was 7 pre-v0.8.5
+  MB7 excretion), `semantic/` (7, was 10 pre-v0.8.6 SE4+RL2+RL3
+  excretion). pyproject entry-points updated for all live dim paths.
 - `tests/unit/verbs/<verb>/` reorganization landed: 13 verb-shape test
   files moved from subsystem-organized layout into 20 verb directories.
 - Core invariants preserved: PA4 (mechanical, HIGH) guards `core/`
@@ -69,8 +70,11 @@ src/myco/
 │   ├── canon.py             # canon load/validate against L1 schema (merges _canon_lint.yaml)
 │   ├── severity.py          # CRITICAL/HIGH/MEDIUM/LOW enum + ordering
 │   ├── substrate.py         # Substrate.load() — auto-imports .myco/plugins/ (v0.5.3)
-│   ├── risk_classifier.py   # v0.6.0+ — agent-self-winnow tier classifier; v0.6.15 path_allowlist + recursion-cutter
 │   └── version.py           # __version__ accessor, SemVer parsing
+│   # NOTE: `risk_classifier.py` (v0.6.0+ agent-self-winnow tier
+│   # classifier) was excreted at v0.8.5 — the agent-side classifier
+│   # never got plumbed into ramify/molt/winnow runtime, and the
+│   # ratchet doctrine moved to the natural choke points instead.
 │
 ├── germination/             # L2 Germination (renamed from genesis/ at v0.5.3; shim removed at v0.6.0)
 │   ├── __init__.py
@@ -107,11 +111,11 @@ src/myco/
 │   ├── exit_policy.py       # parse_exit_on, _compute_exit_code
 │   ├── skeleton.py          # skeleton-mode downgrade
 │   ├── registry.py          # register_external_dimension(cls) public API (v0.5.3)
-│   └── dimensions/          # 50 dim files at v0.8.5 (v0.6.0 expanded from 25 to 46; v0.7.2 +SE5+MB8+PA6; v0.7.5 +LB1+LB2+CG1+CG2; v0.8.5 −MF3 with host_integration excretion); 4 category subdirs
+│   └── dimensions/          # 47 dim files at v0.8.6 (v0.6.0 expanded from 25 to 46; v0.7.2 +SE5+MB8+PA6; v0.7.5 +LB1+CG1+CG2; v0.8.0 +LB2; v0.8.5 −MB7 −MF3; v0.8.6 −SE4 −RL2 −RL3); 4 category subdirs
 │       ├── mechanical/      # 32 dims (M1-M3, MF1+MF2+MF4+MF5, MP1-MP3, DC1-DC5, CS1, FR1, PA1-PA6, CG1-CG2, DI1-DI2, AD1, SC1, CL1-CL3)
 │       ├── shipped/         # 2 dims (SH1, SH2)
-│       ├── metabolic/       # 7 dims (MB1-MB4, MB6-MB8; no MB5)
-│       └── semantic/        # 7 dims (SE1-SE4, RL1-RL3)
+│       ├── metabolic/       # 6 dims (MB1-MB4, MB6, MB8)
+│       └── semantic/        # 7 dims (SE1-SE3, SE5, RL1, LB1, LB2)
 │
 ├── cycle/                   # L2 Cycle (canonical 6th subsystem since v0.6.0; meta/ shim removed)
 │   ├── __init__.py
@@ -204,19 +208,19 @@ errors as mechanical/HIGH findings.
 | `src/myco/boundary/surface/` | (boundary subpackage — CLI/MCP/manifest) | `L1_CONTRACT/protocol.md` + `L3_IMPLEMENTATION/command_manifest.md` |
 | `src/myco/boundary/install/` | (boundary subpackage — MCP host writers + fresh-substrate bootstrap; 10 automated hosts at v0.6.15) | `docs/INSTALL.md` |
 | `src/myco/boundary/mcp/` | (boundary subpackage — MCP launcher: `python -m myco.boundary.mcp`) | `L1_CONTRACT/protocol.md` + `command_manifest.md` |
-| `src/myco/boundary/host_integration/` | (boundary subpackage — 14 per-host Agent-sugar adapters; renamed from pre-v0.6.0 `symbionts/`) | `L2_DOCTRINE/boundary.md` "Sixth seam" + `L2_DOCTRINE/extensibility.md` |
 | `src/myco/mcp/` (v0.6.13 shim) | (back-compat re-export of `boundary.mcp`; DeprecationWarning) | — |
 
 ### Excreted packages (historical)
 
-Six top-level packages were excreted as part of the v0.6.0+ refactor sequence:
+Seven top-level / boundary packages were excreted across the v0.6.0+ refactor sequence:
 
 - **`src/myco/genesis/`** (v0.5.3 shim → v0.6.0 removed): replaced by `src/myco/germination/`. Downstream substrates updated their imports.
 - **`src/myco/meta/`** (v0.5.3 shim → v0.6.0 removed): replaced by `src/myco/cycle/`.
 - **`src/myco/surface/`** (pre-v0.6.0 → v0.6.0 unified): now `src/myco/boundary/surface/`.
 - **`src/myco/install/`** (v0.5.5 → v0.6.0 unified): now `src/myco/boundary/install/`.
-- **`src/myco/symbionts/`** (v0.5.5 reserved → v0.6.0 unified): now `src/myco/boundary/host_integration/`.
+- **`src/myco/symbionts/`** (v0.5.5 reserved → v0.6.0 unified → v0.8.5 excreted): briefly lived as `src/myco/boundary/host_integration/`; the entire subpackage was excreted at v0.8.5 along with `MF3` (8 pure-stub adapters returned empty `InstallReport`s; 6 functional rule-template writers were never invoked by production code). The data-driven `boundary/install/clients.py::JsonClientSpec` table is the sole installer surface now.
 - **`src/myco/providers/`** (v0.5.6 reserved → v0.6.14 excreted): never populated through 7 minor releases; future LLM-provider coupling, if ever needed, requires its own L0 P1 amendment craft + fresh contract-bumping molt rather than a pre-baked escape hatch.
+- **`src/myco/core/risk_classifier.py`** (v0.6.0 → v0.8.5 excreted): agent-self-winnow tier classifier with `path_allowlist`+recursion-cutter. Never wired into the verb runtime; the ratchet doctrine moved to the natural choke points (immune gating + craft winnow) instead of a separate classifier module.
 
 The `src/myco/mcp/` shim (v0.6.13) is the only legacy import path still
 honored; it re-exports `myco.boundary.mcp` with a DeprecationWarning and

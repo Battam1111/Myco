@@ -24,7 +24,7 @@ one of these seams or bump this doctrine.
 | Axis | Seam | Scope | Lifecycle | Authoring verb | Audit verb | Enforcement dimension |
 |---|---|---|---|---|---|---|
 | **Per-substrate** | `.myco/plugins/` | One substrate only | Tied to the substrate (delete the folder → gone) | `myco ramify --substrate-local` | `myco graft --list` | `MF2` (substrate-local plugin health) |
-| **Per-host** | `src/myco/boundary/host_integration/` | All substrates on one host | Tied to the Myco install (ships in the kernel) | `myco-install host <client>` (10 of 14 hosts automated at v0.6.15) | `myco graft --hosts` *(future)* | **MF3** (host-side artifact integrity, mechanical/MEDIUM, fixable=False; promoted from "reserved" at v0.6.0) |
+| **Per-host** | `src/myco/boundary/install/` (MCP-config writers, 14 hosts) | All substrates on one host | Tied to the Myco install (ships in the kernel) | `myco-install host <client>` (10 of 14 hosts automated) | host probe via `myco-install host <client> --dry-run` | (no dim — see § "v0.8.5 retirement" below) |
 
 ### Why two axes, not one
 
@@ -133,40 +133,53 @@ Specifically:
 - `MF1` (declared subsystems exist) scans canon subsystems, not
   local plugins. `MF2` is the plugin-axis analogue.
 
-## Per-host (`src/myco/boundary/host_integration/`)
+## Per-host (`src/myco/boundary/install/`)
 
-### Shape
+### v0.8.5 retirement of the host_integration adapter package
 
-One module per supported host, packaged with Myco itself at
-`src/myco/boundary/host_integration/<host>.py`. At v0.6.15 the package
-ships **14 host adapters** (claude_code, cursor, cowork, claude_desktop,
-vscode, continue_dev, cline, jetbrains, zed, goose, windsurf, codex_cli,
-gemini_cli, openclaw); the v0.6.0 boundary unification merged the
-pre-v0.6.0 `src/myco/symbionts/` package into `boundary/host_integration/`
-as a subpackage of the canonical 7th subsystem.
+Through v0.8.4, per-host extension lived as one
+`src/myco/boundary/host_integration/<host>.py` module per supported
+host, paired with the `MF3` (host-side artifact integrity) lint
+dimension. At v0.8.5 the entire `host_integration/` subpackage and
+its enforcing dim were excreted: the install-time surface that
+actually shipped per host was a single `write_mcp_config()` writer,
+which was already implemented inside `boundary/install/` with
+per-host schema knowledge. The split into two packages duplicated
+intent without adding behavior. `MF3` had no findings to emit once
+the inert symbiont probes were retired.
 
-See `L2_DOCTRINE/boundary.md` for the full protocol definition (discover
-+ install function signatures, SymbiontProbe dataclass, automated-host
-inventory).
+### Shape (v0.8.5+)
+
+Per-host integration is now a thin surface inside `boundary/install/`:
+
+- `src/myco/boundary/install/__init__.py` — the `myco-install host
+  <client>` CLI dispatcher.
+- Per-host config writers (one function per host) — schema-aware,
+  idempotent, dry-run capable, uninstall-capable.
+
+At v0.8.6 the writers cover 14 host targets (claude-code, claude-
+desktop, cowork, cursor, windsurf, zed, vscode, openclaw, gemini-cli,
+codex-cli, goose — automated; Continue.dev, Cline, JetBrains — manual
+config snippets shipped in `.docs/INSTALL.md`).
 
 ### Authoring
 
-`myco-install host <client>` runs the host adapter's `discover()` +
-`install()` pair in one step. As of v0.6.15, **10 of the 14 adapters**
-are fully automated (Claude Code, Claude Desktop, Cursor, Windsurf,
-Zed, VS Code, OpenClaw, Gemini CLI, Codex CLI, Goose); the remaining
-4 (Continue.dev, Cline, JetBrains, Cowork) ship probe metadata but
-require manual MCP-config integration on the user's side.
+`myco-install host <client>` resolves the absolute Python
+interpreter path and writes the host's expected MCP-config schema.
+The list of supported hosts lives in `boundary/install/` and is
+extended by adding a new writer function alongside the existing
+ones; no separate symbiont module is required.
 
 ### Scope boundary
 
-Symbionts can write to host-specific paths outside the substrate
-root (e.g. `~/.claude/skills/`, `~/.cursor/rules/`). Those paths
-are **not** governed by `_canon.yaml::system.write_surface.allowed`
+Install-time writers can write to host-specific paths outside the
+substrate root (e.g. `~/.claude.json`, `~/.cursor/mcp.json`). Those
+paths are **not** governed by `_canon.yaml::system.write_surface.allowed`
 — which covers writes inside the substrate. Host-side writes are
 governed by the host's own config discipline. This is a deliberate
 boundary: the substrate cannot enforce writes to paths it doesn't
-own.
+own. The Cowork plugin upload step (§ INSTALL.md 1.1) is the only
+flow where the user, not Myco, performs the actual write.
 
 ## What neither axis is
 
@@ -174,7 +187,7 @@ To prevent creep, this section is deliberately explicit about what
 falls outside both seams:
 
 - **Forks of Myco itself** — if a change needs to modify
-  `src/myco/` beyond the `boundary/host_integration/` subpackage, it
+  `src/myco/` beyond the `boundary/install/` per-host writers, it
   is a kernel change, not an extension. Kernel changes go through
   craft + molt.
 - **Runtime-discovered plugins outside `.myco/plugins/`** — the

@@ -111,7 +111,7 @@ servers, idempotent, supports `--dry-run` and `--uninstall`):
 |---|---|---|
 | Claude Code | `myco-install host claude-code` | Writes project `.mcp.json`; `--global` writes `~/.claude.json` |
 | Claude Desktop | `myco-install host claude-desktop` | OS-correct path (macOS / Windows / Linux) |
-| Cowork (Claude Desktop's local-agent-mode) | `myco-install host cowork` | Writes MCP config, then see the Cowork-specific drag-drop step in § 1.1 below — `.plugin` bundle from GitHub releases → Claude Desktop UI |
+| Cowork (Claude Desktop's local-agent-mode) | `myco-install host cowork` | Writes MCP config, then see the Cowork-specific drag-drop step in § 1.1 below — `.zip` bundle from GitHub releases → Claude Desktop UI |
 | Cursor | `myco-install host cursor` | Project `.cursor/mcp.json`; `--global` writes `~/.cursor/mcp.json` |
 | Windsurf | `myco-install host windsurf` | `~/.codeium/windsurf/mcp_config.json` |
 | Zed | `myco-install host zed` | Uses the `context_servers` key, not `mcpServers` |
@@ -153,16 +153,18 @@ Steps:
 # 1. Write the MCP server entry (fast; no cloud call).
 myco-install host cowork
 
-# 2. Build the .plugin bundle. In a repo checkout:
+# 2. Build the .zip bundle. In a repo checkout:
 myco-install cowork-plugin
 # or directly:
 python scripts/build_plugin.py
-# (Outputs dist/myco-<version>.plugin.)
+# (Outputs dist/myco-<version>.zip — Anthropic's drag-drop validator
+# rejects any other extension; see GitHub issue #40414 for the
+# v0.7.4 hotfix that locked us to .zip.)
 
 # 2b. If you don't have a repo checkout, download the same artifact
 # from the latest GitHub release:
-curl -L -o myco.plugin \
-  https://github.com/Battam1111/Myco/releases/latest/download/myco.plugin
+curl -L -o myco.zip \
+  https://github.com/Battam1111/Myco/releases/latest/download/myco.zip
 ```
 
 **3. Drag the file into Claude Desktop.** Settings → Plugins (or
@@ -193,7 +195,7 @@ Why can't we automate the upload? The endpoint
 (`POST /api/organizations/{orgId}/marketplaces/{marketplaceId}/plugins/account-upload`)
 requires the user's OAuth token, which we cannot responsibly harvest
 from `config.json`. Claude Desktop's drag-drop UI is the sanctioned
-user-consent surface for that call. The `.plugin` artifact we build
+user-consent surface for that call. The `.zip` artifact we build
 is identical to what Claude Desktop would build from the same files —
 we just save the user one ZIP step.
 
