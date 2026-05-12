@@ -212,12 +212,19 @@ def test_mf5_unbalanced_pair_silent(tmp_path: Path) -> None:
 
 def test_se5_stale_anchor_in_doctrine_emits(tmp_path: Path) -> None:
     """A stale `v0.3.0` anchor in docs/architecture/L2_DOCTRINE/foo.md
-    with current=v0.7.2 (delta = 4 minor, > 3 default window) → finding."""
+    with current=v0.7.2 (delta = 4 minor, > 3 default window) → finding.
+
+    v0.8.5 — the fixture text avoids natural-English historical tokens
+    (``the v``, ``at v``, ``before v``, etc.) so the anchor fires
+    cleanly. SE5's permissive prose suppression treats most contextual
+    English as historical; a genuine stale claim like "Use vX.Y.Z" with
+    no surrounding context is the canonical stale shape.
+    """
     sub = tmp_path / "sub"
     doctrine = sub / "docs" / "architecture" / "L2_DOCTRINE"
     doctrine.mkdir(parents=True)
     (doctrine / "foo.md").write_text(
-        "Current state at v0.3.0 — this is stale.\n",
+        "Use v0.3.0 in production code paths today.\n",
         encoding="utf-8",
     )
     _write_minimal_canon(sub)

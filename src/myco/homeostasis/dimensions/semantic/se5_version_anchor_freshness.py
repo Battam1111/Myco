@@ -141,18 +141,60 @@ _HISTORICAL_TOKENS = (
     "the pre-rewrite v",
     "(v0.",  # parenthesized historical references
     "v0.3.4-final",  # the tag itself, used as a literal identifier
+    # v0.8.5 — doctrine-prose patterns surfaced by the SE5 sweep:
+    # "the v0.4.0 schema" / "Under v0.4.0" / "from `v0.4.0`" / "at v0.4.0".
+    # Safe because SE5 only fires on anchors < current - 3 minor; a
+    # forward-looking "at v" would describe a NON-stale anchor that
+    # SE5 doesn't flag anyway. All tokens are natural-prose patterns
+    # (no version-anchor self-silencers).
+    "at v",
+    "at `v",
+    "under v",
+    "from v",
+    "from `v",
+    "for v",
+    # Doctrine-specific phrases that signal historical context:
+    "next release",  # "v0.4.0 is the authoritative next release"
+    "starts a clean",  # "starts a clean, monotone sequence from v0.4.0"
+    "filename",  # "keeps its v0.4.0 filename" → historical
+    "schema (",  # "_canon.yaml — v0.4.0 schema (example shape; ..."
+    "instance at",  # "the v0.4.0 canon instance at L4"
+    "twelve verbs",  # "v0.4.0 shipped twelve verbs"
+    "during development",  # "v0.4.0-alpha.1 during development"
+    "at release",  # "v0.4.0 at release"
+    "ssot-only",  # "The v0.4.0 canon is SSoT-only"
+    "audit gap",  # "closing the v0.4.1 audit gap"
+    "dimension set",  # "The v0.4.0 dimension set"
+    "homeostasis at",  # "budget for Homeostasis at v0.4.0"
+    "registry; v",  # "(registry; v0.4.2)"
+    "(was `genesis",  # "(was `genesis/` at v0.4.0-v0.5.2)"
 )
 
 # Window of characters before the match to scan for historical tokens.
 _HIST_WINDOW = 40
 
+# v0.8.5 — symmetric right-context window so tokens like "the v" /
+# "before v" / "from `v" naturally self-silence single-anchor lines.
+# Previously these tokens only worked on multi-anchor lines (e.g.
+# "rewrite from v0.3.4 to v0.4.0") because the v of the matched
+# anchor was outside left_context. With the right window, the match
+# itself contributes to the search space and "the v0.4.0" suppresses
+# correctly.
+_HIST_RIGHT_WINDOW = 50
 
-def _is_historical_context(line: str, match_start: int) -> bool:
-    """Return True if the version anchor at match_start is preceded
-    (within _HIST_WINDOW chars) by a historical-context token."""
+
+def _is_historical_context(
+    line: str,
+    match_start: int,
+    match_end: int,
+) -> bool:
+    """Return True if a historical-context token appears within
+    [_HIST_WINDOW chars before, match span, _HIST_RIGHT_WINDOW chars
+    after] the version anchor."""
     window_start = max(0, match_start - _HIST_WINDOW)
-    left_context = line[window_start:match_start].lower()
-    return any(tok in left_context for tok in _HISTORICAL_TOKENS)
+    window_end = min(len(line), match_end + _HIST_RIGHT_WINDOW)
+    context = line[window_start:window_end].lower()
+    return any(tok in context for tok in _HISTORICAL_TOKENS)
 
 
 def _parse_current_version(
@@ -257,7 +299,7 @@ class SE5VersionAnchorFreshness(Dimension):
                         )
                         if not _is_stale(anchor, current):
                             continue
-                        if _is_historical_context(line, m.start()):
+                        if _is_historical_context(line, m.start(), m.end()):
                             continue
                         yield Finding(
                             dimension_id=self.id,

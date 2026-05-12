@@ -120,29 +120,12 @@ adapter integration.
 
 ## Cross-references
 
-- **Test file**: [`tests/integration/examples/test_examples_smoke.py`](../../.tests/integration/examples/test_examples_smoke.py)
-- **Demo subtree**: [`examples/`](../../examples/)
+- **Test file**: [`.tests/integration/examples/test_examples_smoke.py`](../../.tests/integration/examples/test_examples_smoke.py)
+- **Demo subtree**: [`.docs/examples/README.md`](../examples/README.md)
 - **Extras target**: `pyproject.toml::[project.optional-dependencies].examples`
-- **Sibling IOU**: [`docs/iou/v0_7_10_streamable_http_gaps.md`](v0_7_10_streamable_http_gaps.md)
-- **L0 reference**: `docs/architecture/L0_VISION.md` § 8-framework
-  subtree (the original commitment v0.7.10 partially redeems).
-
----
-
-## v0.8.0 update — adjacent multimedia gap closed
-
-v0.8.0 closes the multimedia gap via `myco[multimedia]` extras (3
-adapters, opt-in): `audio.py` (Whisper segment transcription),
-`image_ocr.py` (pytesseract single-image OCR), `video_frames.py`
-(OpenCV frame sampling + per-frame OCR). Total adapter count moves
-from 10 (v0.7.10) → **13** (v0.8.0). The same `[examples]` opt-in
-discipline applies: heavy deps live behind a single extras flag,
-the default install stays lean, and the adapters cleanly emit
-install-extras failed-stubs when the extras are absent (per the
-v0.7.3 AD1 closure). This IOU's *examples-dry-only* concern is
-orthogonal — it remains OPEN for the `[examples]` extras row, with
-the v0.8.0 multimedia work providing a fresh template for the
-"opt-in heavy-dep modality" pattern future bumps may follow.
+- **Sibling IOU**: [`.docs/iou/_archive/v0_7_10_streamable_http_gaps.md`](_archive/v0_7_10_streamable_http_gaps.md)
+- **L0 reference**: [`.docs/architecture/L0_VISION.md`](../architecture/L0_VISION.md)
+  § 8-framework subtree (the original commitment v0.7.10 partially redeems).
 
 ---
 
