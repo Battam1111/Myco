@@ -52,7 +52,7 @@ docs/
 
 1. [`migration/README.md`](migration/README.md) — upgrade-path for your canon
 2. [`architecture/L2_DOCTRINE/extensibility.md`](architecture/L2_DOCTRINE/extensibility.md)
-   — the two-axis plugin model (`.myco/plugins/` + `src/myco/symbionts/`)
+   — the two-axis plugin model (`.myco/plugins/` + `boundary/install/clients.py`)
 3. [`schema/README.md`](schema/README.md) — wire `_canon.yaml`
    validation into your editor
 
@@ -65,17 +65,20 @@ files reference, never duplicate:
 - **L1 rules** → `architecture/L1_CONTRACT/protocol.md`
 - **Canon shape** → `architecture/L1_CONTRACT/canon_schema.md` +
   `schema/canon.schema.json`
-- **Verb surface** → `../src/myco/surface/manifest.yaml` (manifest-
-  driven; CLI + MCP both derive from it)
+- **Verb surface** → `../src/myco/boundary/surface/manifest.yaml`
+  (manifest-driven; CLI + MCP both derive from it)
 
 ## What does NOT live here
 
 - Code (`src/myco/`)
-- Tests (`tests/`)
-- Live substrate state (`_canon.yaml` at repo root; `.myco_state/`
-  for derivable runtime state)
-- Raw agent notes (`notes/`) — those are ingestion artifacts, not
-  doctrine
+- Tests (`.tests/`)
+- Live substrate state (`.myco/canon.yaml` — the substrate's SSoT;
+  `.myco/state/` for derivable runtime state). Downstream substrates
+  may keep the legacy `_canon.yaml` + `.myco_state/` flat layout —
+  both shapes are canon-configurable per
+  `system.{canon_filename, notes_dir, docs_dir}` (v0.8.4+).
+- Raw agent notes (`.myco/notes/`) — those are ingestion artifacts,
+  not doctrine
 
 ## Editing discipline
 

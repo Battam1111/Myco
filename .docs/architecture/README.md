@@ -1,7 +1,7 @@
-# Myco Architecture — v0.8.5
+# Myco Architecture — v0.8.6
 
-> **Status**: updated through v0.8.5 (2026-05-12). Top-down-refinement
-> active; doctrine pages track the canonical v0.8.5 state. See
+> **Status**: updated through v0.8.6 (2026-05-12). Top-down-refinement
+> active; doctrine pages track the canonical v0.8.6 state. See
 > `.docs/contract_changelog.md` for contract-level history.
 > **Audience**: the **agent**. Per L0 principle 1 (Only For Agent —
 > 人类无感知), these pages are authored for agent consumption. Humans
@@ -77,13 +77,14 @@ L3 changes within an existing L2 doctrine are ordinary code changes and
 do not require a contract bump (but must still land with tests and
 changelog lines).
 
-## What v0.8.5 means
+## What v0.8.6 means
 
-- **Version**: `__version__ = "0.8.5"`, `contract_version = "v0.8.5"`,
+- **Version**: `__version__ = "0.8.6"`, `contract_version = "v0.8.6"`,
   `schema_version = "3"` (v0.7.5+).
 - **20 verbs**: 19 agent + 1 human-facing `brief` (single L0 P1 exception).
-- **51 lint dimensions**: 32 mechanical + 2 shipped + 7 metabolic + 10 semantic
+- **47 lint dimensions**: 32 mechanical + 2 shipped + 6 metabolic + 7 semantic
   (full roster in `.myco/canon_lint.yaml`; `myco immune --list` prints the live IDs).
+  v0.8.6 retired SE4 / RL2 / RL3 (永恒删减; never-fire dead-letter dims).
 - **7 subsystems**: Germination, Ingestion, Digestion, Circulation,
   Homeostasis, Cycle (6th, v0.6.0+), Boundary (7th, v0.6.0+).
 - **Canon-configurable substrate layout** (v0.8.4+): three `canon.system.*`
