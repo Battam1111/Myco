@@ -5,7 +5,7 @@ Myco was shaped around. This shows how the 19-verb surface + 25
 dims support a long-running knowledge base of papers, decisions,
 frictions, and synthesis.
 
-Compared to [`../minimal/`](../minimal/), this example includes:
+Compared to [`../minimal/`](../minimal/README.md), this example includes:
 
 - **Pre-seeded** `notes/integrated/` with three example entries
   (a decision, a paper digest, a friction note) so `myco sense`

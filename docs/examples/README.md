@@ -14,8 +14,8 @@ fences needed to support it.
 
 | Dir | Use case | Verbs exercised | Size |
 |---|---|---|---|
-| [`minimal/`](minimal/) | Smallest possible working substrate | `germinate` / `eat` / `hunger` / `assimilate` / `immune` | ~5 files |
-| [`research-assistant/`](research-assistant/) | Solo-researcher knowledge base (papers + decisions + frictions) | full 19-verb surface; propagate out to a derived substrate | ~15 files after use |
+| [`minimal/`](minimal/README.md) | Smallest possible working substrate | `germinate` / `eat` / `hunger` / `assimilate` / `immune` | ~5 files |
+| [`research-assistant/`](research-assistant/README.md) | Solo-researcher knowledge base (papers + decisions + frictions) | full 19-verb surface; propagate out to a derived substrate | ~15 files after use |
 
 ## Running an example
 

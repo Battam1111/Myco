@@ -1,6 +1,6 @@
 <p align="center">
   <a href="https://github.com/Battam1111/Myco">
-    <img src="https://raw.githubusercontent.com/Battam1111/Myco/main/assets/logo_light_512.png" width="160" alt="Myco">
+    <img src="https://raw.githubusercontent.com/Battam1111/Myco/main/docs/assets/logo_light_512.png" width="160" alt="Myco">
   </a>
 </p>
 

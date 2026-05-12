@@ -242,7 +242,8 @@ _LOW_RISK_PATH_PATTERNS = (
     re.compile(r"README_ja\.md$"),
     re.compile(r"\.github/.*\.yml$"),
     re.compile(r"tests/.*\.py$"),
-    re.compile(r"examples/.*"),
+    # v0.8.4 root-cleanup (2026-05-12): examples/ moved to docs/examples/.
+    re.compile(r"docs/examples/.*"),
     re.compile(r"docs/migration/.*"),
     re.compile(r"docs/contract_changelog\.md$"),
     re.compile(r"docs/primordia/.*\.md$"),

@@ -50,9 +50,13 @@ from pathlib import Path
 
 #: Documented mirror pairs per v0.6.11 plugin contract.
 #: Each entry: (project-scope source dir, bundle-scope target dir).
+#: v0.8.4 root-cleanup (2026-05-12): bundle-scope targets relocated
+#: from <repo>/{agents,commands}/ to <repo>/plugin/{agents,commands}/
+#: per the plugin/ consolidation. Project-scope source (.claude/*) is
+#: unchanged — Claude Code project config lives at .claude/ by spec.
 _MIRROR_PAIRS: tuple[tuple[str, str], ...] = (
-    (".claude/agents", "agents"),
-    (".claude/commands", "commands"),
+    (".claude/agents", "plugin/agents"),
+    (".claude/commands", "plugin/commands"),
 )
 
 

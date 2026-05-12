@@ -196,12 +196,23 @@ sessions. Two parallel paths host them:
   `.claude/commands/<name>.md`.
 - **Plugin-bundle scope** (declared in `.claude-plugin/plugin.json` so that
   `/plugin install myco@myco` delivers them to user installations):
-  `<repo>/agents/<name>.md` and `<repo>/commands/<name>.md`.
+  `<repo>/plugin/agents/<name>.md` and `<repo>/plugin/commands/<name>.md`.
 
-Both paths follow Myco's existing plugin convention (cf. `<repo>/skills/`
-declared in `plugin.json::skills`). The two copies are bytewise identical
-per the regression test in
+Both paths follow Myco's existing plugin convention (cf.
+`<repo>/plugin/skills/` declared in `plugin.json::skills`). The two copies
+are bytewise identical per the regression test in
 `tests/unit/boundary/test_subagent_and_command_surface.py`.
+
+> **v0.8.4 root-cleanup (2026-05-12)**: plugin-bundle scope was moved
+> from repo-root `<repo>/{agents,commands,hooks,skills}/` to
+> `<repo>/plugin/{agents,commands,hooks,skills}/` to declutter the
+> root directory. `.claude-plugin/` itself stays at repo root so
+> `/plugin marketplace add Battam1111/Myco` discovery + `marketplace.json`
+> resolution continue unchanged. `plugin.json`'s relative paths were
+> updated from `./agents/` etc to `./plugin/agents/` etc; the path
+> resolution rule (relative to plugin root = parent of `.claude-plugin/`
+> = `<repo>/`) means Claude Code's loader finds them at the new location
+> without changes to the spec.
 
 ### Subagent roster (5 fungal-named specialists)
 
@@ -239,10 +250,11 @@ per the regression test in
 
 3. **Plugin-mirror discipline.** The 10 markdown files (5 agents +
    5 commands) live at both `.claude/<dir>/<name>.md` (project-level)
-   and `<repo>/<dir>/<name>.md` (plugin-bundle scope). v0.6.11 accepts
-   the duplication as known maintenance debt; v0.6.12 may add a
-   build-hook copy in `scripts/build_plugin.py`. A regression test
-   verifies the two paths are bytewise identical.
+   and `<repo>/plugin/<dir>/<name>.md` (plugin-bundle scope, v0.8.4+;
+   was `<repo>/<dir>/<name>.md` v0.6.11-v0.8.3). v0.6.11 accepts the
+   duplication as known maintenance debt; `scripts/sync_plugin_mirrors.py`
+   keeps them in sync as a pre-bump step. A regression test verifies
+   the two paths are bytewise identical.
 
 4. **Naming complies with L0:185-186.** All five subagent names come
    from fungal taxonomy. The boundary subsystem amendment from v0.6.0
@@ -331,9 +343,9 @@ The next `myco senesce` invocation (in any session) parses new comments since `.
 
 The 6th seam's new files follow the same byte-identical mirror rule:
 
-- `.claude/commands/myco-evolve.md` ↔ `<repo>/commands/myco-evolve.md`
-- `.claude/agents/primordium.md` ↔ `<repo>/agents/primordium.md` (autonomous mode added in both)
-- `.claude/agents/stipe.md` ↔ `<repo>/agents/stipe.md` (--branch-only mode added in both)
+- `.claude/commands/myco-evolve.md` ↔ `<repo>/plugin/commands/myco-evolve.md`
+- `.claude/agents/primordium.md` ↔ `<repo>/plugin/agents/primordium.md` (autonomous mode added in both)
+- `.claude/agents/stipe.md` ↔ `<repo>/plugin/agents/stipe.md` (--branch-only mode added in both)
 
 `tests/unit/boundary/test_subagent_and_command_surface.py` extends `_EXPECTED_COMMANDS` from 5 to 6 entries; new tests assert (a) only primordium has `Task` in its tools allowlist, (b) only primordium body mentions "Autonomous mode" — these prevent the autonomous-mode exception from accidentally proliferating to other subagents (the original mycorrhiza T1 critique).
 

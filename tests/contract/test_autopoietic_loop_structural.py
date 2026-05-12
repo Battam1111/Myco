@@ -336,9 +336,14 @@ def test_boundary_md_has_sixth_seam_section() -> None:
 
 
 def test_myco_evolve_mirror_byte_identical() -> None:
-    """`.claude/commands/myco-evolve.md` and `<repo>/commands/myco-evolve.md` byte-identical."""
+    """`.claude/commands/myco-evolve.md` and `<repo>/plugin/commands/myco-evolve.md` byte-identical.
+
+    v0.8.4 root-cleanup (2026-05-12): plugin-bundle scope relocated
+    from `<repo>/commands/` to `<repo>/plugin/commands/` to declutter
+    the repo root. Project scope (`.claude/commands/`) is unchanged.
+    """
     a = (_REPO_ROOT / ".claude" / "commands" / "myco-evolve.md").read_bytes()
-    b = (_REPO_ROOT / "commands" / "myco-evolve.md").read_bytes()
+    b = (_REPO_ROOT / "plugin" / "commands" / "myco-evolve.md").read_bytes()
     assert a == b, (
         "myco-evolve.md must be byte-identical between project-level and "
         "plugin-bundle scope (per v0.6.11 5th-seam invariant 3 extended to 6th seam)."

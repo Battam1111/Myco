@@ -49,7 +49,9 @@ import pytest
 from myco.germination import bootstrap
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-EXAMPLES_DIR = REPO_ROOT / "examples"
+# v0.8.4 root-cleanup (2026-05-12): examples/ moved to docs/examples/
+# so the framework demo subtree no longer clutters the repo root.
+EXAMPLES_DIR = REPO_ROOT / "docs" / "examples"
 
 
 # ---------------------------------------------------------------------------

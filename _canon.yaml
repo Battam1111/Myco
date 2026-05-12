@@ -55,9 +55,16 @@ system:
       # v0.4.1 plugin bundle (Stage D.3).
       - ".claude-plugin/**"
       - ".mcp.json"
-      - "hooks/**"
-      - "skills/**"
-      # v0.5.19 Cowork plugin bundle.
+      # v0.8.4 root-cleanup (2026-05-12): plugin-bundle siblings of
+      # .claude-plugin/ (hooks/, skills/, agents/, commands/) collapsed
+      # under a single plugin/ parent dir to declutter the repo root.
+      # plugin.json's relative paths updated to `./plugin/hooks/...`
+      # etc accordingly. .claude-plugin/ itself stays at root so
+      # marketplace.json discovery + `/plugin marketplace add` continue
+      # to work. See L2_DOCTRINE/boundary.md § "Plugin-bundle layout".
+      - "plugin/**"
+      # v0.5.19 Cowork plugin bundle (separate plugin; stays at root
+      # because Cowork's drag-drop bundle keys to .cowork-plugin/).
       - ".cowork-plugin/**"
       # v0.5.11 MCP Registry onboarding.
       - "server.json"
@@ -68,18 +75,8 @@ system:
       - "glama.json"
       # v0.5.24 runtime state directory.
       - ".myco_state/**"
-      # v0.6.0 examples/ for 8 framework demo subtree (LangChain /
-      # LangGraph / CrewAI / DSPy / Smolagents / Agno / PraisonAI /
-      # MS Agent Framework / Claude Agent SDK).
-      - "examples/**"
       # v0.6.0 dist/ for hatch-hook-derived CHANGELOG embedded in sdist.
       - "dist/**"
-      # v0.6.11 plugin-bundle scope for fungal subagents + slash commands.
-      # Project-level mirrors live under `.claude/<dir>/` (covered by
-      # `.claude/**` above). See `docs/architecture/L2_DOCTRINE/boundary.md`
-      # § "Subagents and slash commands (v0.6.11+)" for the surface contract.
-      - "agents/**"
-      - "commands/**"
       # v0.6.12 GitHub-side surface (CodeQL + Scorecard + Dependabot +
       # CODEOWNERS + ISSUE_TEMPLATE + workflows + SECURITY policy).
       # Glama maintenance "security health" 15% factor reads SARIF +
