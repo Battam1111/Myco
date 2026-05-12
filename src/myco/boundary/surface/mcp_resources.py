@@ -119,7 +119,9 @@ def list_resources(
                 "scope": "private",
             }
         )
-    contract_path = root / "docs" / "architecture" / "L1_CONTRACT" / "protocol.md"
+    contract_path = (
+        ctx.substrate.paths.docs / "architecture" / "L1_CONTRACT" / "protocol.md"
+    )
     if contract_path.is_file():
         out.append(
             {
@@ -148,7 +150,7 @@ def list_resources(
                     "scope": "protected",
                 }
             )
-    primordia_root = root / "docs" / "primordia"
+    primordia_root = ctx.substrate.paths.docs / "primordia"
     if primordia_root.is_dir():
         for path in sorted(primordia_root.glob("*_craft_*.md")):
             if "_excreted" in path.parts:
@@ -214,7 +216,9 @@ def read_resource(
             "scope": scope,
         }
     if uri == "myco://contract":
-        contract_path = root / "docs" / "architecture" / "L1_CONTRACT" / "protocol.md"
+        contract_path = (
+            ctx.substrate.paths.docs / "architecture" / "L1_CONTRACT" / "protocol.md"
+        )
         return {
             "uri": uri,
             "content": contract_path.read_text(encoding="utf-8")
@@ -236,7 +240,7 @@ def read_resource(
         }
     if uri.startswith("myco://docs/primordia/"):
         slug = uri.removeprefix("myco://docs/primordia/")
-        path = root / "docs" / "primordia" / f"{slug}.md"
+        path = ctx.substrate.paths.docs / "primordia" / f"{slug}.md"
         return {
             "uri": uri,
             "content": path.read_text(encoding="utf-8") if path.is_file() else "",

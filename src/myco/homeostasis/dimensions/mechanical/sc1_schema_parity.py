@@ -36,9 +36,11 @@ class SC1SchemaParity(Dimension):
     fixable: ClassVar[bool] = False
 
     def run(self, ctx: MycoContext) -> Iterable[Finding]:
-        root = ctx.substrate.root
-        canon_path = root / "_canon.yaml"
-        schema_path = root / "docs" / "schema" / "canon.schema.json"
+        # v0.8.5 — canon-configurable layout (Myco-self uses
+        # .myco/canon.yaml + .docs/). paths.canon / paths.docs resolve
+        # both legacy and relocated shapes.
+        canon_path = ctx.substrate.paths.canon
+        schema_path = ctx.substrate.paths.docs / "schema" / "canon.schema.json"
         if not canon_path.is_file() or not schema_path.is_file():
             # Substrate may not ship the JSON-Schema (downstream substrates).
             return

@@ -48,7 +48,8 @@ class MB6StaleDraftOrDistilled(Dimension):
     def run(self, ctx: MycoContext) -> Iterable[Finding]:
         thresholds = (ctx.substrate.canon.lint or {}).get("thresholds") or {}
         warn_days = int(thresholds.get("stale_draft_warn_days", 14))
-        primordia_root = ctx.substrate.root / "docs" / "primordia"
+        # v0.8.5 — canon-configurable docs_dir (Myco-self uses .docs/).
+        primordia_root = ctx.substrate.paths.docs / "primordia"
         today = ctx.now.date() if hasattr(ctx.now, "date") else dt.date.today()
         if primordia_root.is_dir():
             for path in primordia_root.glob("*_craft_*.md"):

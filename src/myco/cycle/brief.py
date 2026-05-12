@@ -113,7 +113,8 @@ def _notes_section(ctx: MycoContext) -> dict[str, Any]:
 
 
 def _primordia_section(ctx: MycoContext, *, limit: int = 5) -> list[dict[str, Any]]:
-    primordia_dir = ctx.substrate.root / "docs" / "primordia"
+    # v0.8.5 — canon-configurable docs_dir (Myco-self uses .docs/).
+    primordia_dir = ctx.substrate.paths.docs / "primordia"
     if not primordia_dir.is_dir():
         return []
     entries: list[tuple[str, Path]] = []

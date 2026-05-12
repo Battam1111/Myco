@@ -40,7 +40,8 @@ class MB4SporulatedReabsorbed(Dimension):
     fixable: ClassVar[bool] = False
 
     def run(self, ctx: MycoContext) -> Iterable[Finding]:
-        distilled_root = ctx.substrate.root / "notes" / "distilled"
+        # v0.8.5 — canon-configurable notes_dir (Myco-self uses .myco/notes/).
+        distilled_root = ctx.substrate.paths.notes / "distilled"
         if not distilled_root.is_dir():
             return
         for path in distilled_root.glob("*.md"):
