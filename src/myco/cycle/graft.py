@@ -7,8 +7,8 @@ downstream substrate's own code fuses with the Myco kernel at import
 time. This handler lets an agent enumerate, validate, or explain
 those fused plugins without leaving the CLI.
 
-Governing craft:
-``docs/primordia/_landed/v0_5_x/v0_5_3_fungal_vocabulary_craft_2026-04-17.md``.
+History: ``docs/contract_changelog.md`` § v0.5.3 (fungal-vocabulary
+rename + substrate-local extension seam).
 
 Three mutually-exclusive modes:
 

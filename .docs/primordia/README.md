@@ -94,97 +94,26 @@ files cross-reference these docs for provenance.
 
 ---
 
-## Archived (v0.4 + v0.5 — under `_landed/`)
+## v0.4 + v0.5 history (excreted at v0.8.5)
 
-The crafts below moved to `_landed/v0_4_x/` and `_landed/v0_5_x/` in
-v0.7.0's archival pass. Provenance preserved; paths are relative
-to this README.
+The pre-v0.6 craft archive (25 files under `_landed/v0_4_x/` and
+`_landed/v0_5_x/`, plus a v0.5.3 dogfood draft that was already
+excreted at v0.6.0) was **deleted at v0.8.5** as part of the
+"foundation-for-reform" cleanup pass. The crafts documented the
+greenfield-rewrite + v0.5 multi-MAJOR sequence; their content is:
 
-### Greenfield rewrite — 2026-04-15
+- **Summarised** in `.docs/contract_changelog.md` (per-version entries
+  describe what each contract bump shipped — the authoritative trail).
+- **Recoverable** via git history (`git log --all --diff-filter=D
+  --name-only -- '.docs/primordia/_landed/**'` lists them; full
+  body lives at the parent commits before deletion).
 
-| File | Kind | Role |
-|---|---|---|
-| [`_landed/v0_4_x/greenfield_rewrite_craft_2026-04-15.md`](_landed/v0_4_x/greenfield_rewrite_craft_2026-04-15.md) | design | Umbrella argument for the v0.3 → v0.4 rewrite |
-| [`_landed/v0_4_x/l0_identity_revision_craft_2026-04-15.md`](_landed/v0_4_x/l0_identity_revision_craft_2026-04-15.md) | design | L0 vision's five root principles |
-| [`_landed/v0_4_x/contract_audit_craft_2026-04-15.md`](_landed/v0_4_x/contract_audit_craft_2026-04-15.md) | audit | Pre-rewrite contract drift audit |
-
-### Stage A–C build-out — 2026-04-15
-
-| File | Kind | Role |
-|---|---|---|
-| [`_landed/v0_4_x/stage_a_scaffold_craft_2026-04-15.md`](_landed/v0_4_x/stage_a_scaffold_craft_2026-04-15.md) | design | Repo scaffold + tool baseline |
-| [`_landed/v0_4_x/stage_b1_core_craft_2026-04-15.md`](_landed/v0_4_x/stage_b1_core_craft_2026-04-15.md) | design | `core/` primitives (canon, context, errors) |
-| [`_landed/v0_4_x/stage_b2_homeostasis_kernel_craft_2026-04-15.md`](_landed/v0_4_x/stage_b2_homeostasis_kernel_craft_2026-04-15.md) | design | Immune kernel + exit-policy ladder |
-| [`_landed/v0_4_x/stage_b3_genesis_craft_2026-04-15.md`](_landed/v0_4_x/stage_b3_genesis_craft_2026-04-15.md) | design | `myco germinate` (one-shot bootstrap) |
-| [`_landed/v0_4_x/stage_b4_ingestion_craft_2026-04-15.md`](_landed/v0_4_x/stage_b4_ingestion_craft_2026-04-15.md) | design | `eat` / `hunger` / `sense` / `forage` |
-| [`_landed/v0_4_x/stage_b5_digestion_craft_2026-04-15.md`](_landed/v0_4_x/stage_b5_digestion_craft_2026-04-15.md) | design | `assimilate` / `digest` / `sporulate` pipeline |
-| [`_landed/v0_4_x/stage_b6_circulation_craft_2026-04-15.md`](_landed/v0_4_x/stage_b6_circulation_craft_2026-04-15.md) | design | Mycelium graph + `traverse` / `propagate` |
-| [`_landed/v0_4_x/stage_b7_surface_craft_2026-04-15.md`](_landed/v0_4_x/stage_b7_surface_craft_2026-04-15.md) | design | Manifest-driven CLI + MCP |
-| [`_landed/v0_4_x/stage_b8_dimensions_craft_2026-04-15.md`](_landed/v0_4_x/stage_b8_dimensions_craft_2026-04-15.md) | design | First v0.4 dimension roster |
-| [`_landed/v0_4_x/stage_c_materialization_craft_2026-04-15.md`](_landed/v0_4_x/stage_c_materialization_craft_2026-04-15.md) | design | Deliverable + release plumbing |
-
-### v0.4 audit + handoff — 2026-04-15
-
-| File | Kind | Role |
-|---|---|---|
-| [`_landed/v0_4_x/v0_4_1_audit_craft_2026-04-15.md`](_landed/v0_4_x/v0_4_1_audit_craft_2026-04-15.md) | audit | First full post-v0.4 immune sweep |
-| [`_landed/v0_4_x/agent_handoff_v0_4_1_2026-04-15.md`](_landed/v0_4_x/agent_handoff_v0_4_1_2026-04-15.md) | design | Release playbook for agent maintainers |
-
-### v0.5.0 — 2026-04-17
-
-| File | Kind | Role |
-|---|---|---|
-| [`_landed/v0_5_x/v0_5_0_major_6_10_craft_2026-04-17.md`](_landed/v0_5_x/v0_5_0_major_6_10_craft_2026-04-17.md) | design | MAJOR 6–10 multi-thread release (entry-points discovery, symbiont protocol, etc.) |
-
-### v0.5.2 — 2026-04-17
-
-| File | Kind | Role |
-|---|---|---|
-| [`_landed/v0_5_x/v0_5_2_editable_default_craft_2026-04-17.md`](_landed/v0_5_x/v0_5_2_editable_default_craft_2026-04-17.md) | design | Editable-by-default install path |
-
-### v0.5.3 — 2026-04-17
-
-| File | Kind | Role |
-|---|---|---|
-| [`_landed/v0_5_x/v0_5_3_fungal_vocabulary_craft_2026-04-17.md`](_landed/v0_5_x/v0_5_3_fungal_vocabulary_craft_2026-04-17.md) | design | Verb rename (9 verbs, 2 packages) to fungal vocabulary |
-
-### v0.5.5 — 2026-04-17
-
-| File | Kind | Role |
-|---|---|---|
-| [`_landed/v0_5_x/v0_5_5_close_audit_loose_threads_craft_2026-04-17.md`](_landed/v0_5_x/v0_5_5_close_audit_loose_threads_craft_2026-04-17.md) | audit | MAJOR-A–J cleanup pass |
-
-### v0.5.6 — 2026-04-17 / 2026-04-18
-
-| File | Kind | Role |
-|---|---|---|
-| [`_landed/v0_5_x/v0_5_6_doctrine_realignment_craft_2026-04-17.md`](_landed/v0_5_x/v0_5_6_doctrine_realignment_craft_2026-04-17.md) | design | Panoramic doctrine sweep |
-| [`_landed/v0_5_x/v0_5_6_mp1_mycelium_purity_craft_2026-04-18.md`](_landed/v0_5_x/v0_5_6_mp1_mycelium_purity_craft_2026-04-18.md) | design | MP1 dim — mechanical "Agent calls LLM; substrate does not" |
-
-### v0.5.7 — 2026-04-19
-
-| File | Kind | Role |
-|---|---|---|
-| [`_landed/v0_5_x/v0_5_7_senesce_quick_mode_craft_2026-04-19.md`](_landed/v0_5_x/v0_5_7_senesce_quick_mode_craft_2026-04-19.md) | design | Bimodal senesce (PreCompact full / SessionEnd --quick) |
-| [`_landed/v0_5_x/v0_5_7_release_craft_2026-04-19.md`](_landed/v0_5_x/v0_5_7_release_craft_2026-04-19.md) | audit | v0.5.7 release closure |
-
-### v0.5.8 — 2026-04-21
-
-| File | Kind | Role |
-|---|---|---|
-| [`_landed/v0_5_x/v0_5_8_discipline_enforcement_craft_2026-04-21.md`](_landed/v0_5_x/v0_5_8_discipline_enforcement_craft_2026-04-21.md) | design | 14 new dims + 4 foundation helpers + R6 mechanical enforcement |
-| [`_landed/v0_5_x/v0_5_8_release_craft_2026-04-21.md`](_landed/v0_5_x/v0_5_8_release_craft_2026-04-21.md) | audit | v0.5.8 release closure |
-
-### v0.5.9 — 2026-04-21
-
-| File | Kind | Role |
-|---|---|---|
-| [`_landed/v0_5_x/v0_5_9_immune_zero_craft_2026-04-21.md`](_landed/v0_5_x/v0_5_9_immune_zero_craft_2026-04-21.md) | design | Immune 121 → 0 findings baseline + JSON-Schema + migration guides |
-| [`_landed/v0_5_x/v0_5_9_release_craft_2026-04-21.md`](_landed/v0_5_x/v0_5_9_release_craft_2026-04-21.md) | audit | v0.5.9 release closure |
-
-> The v0.5.3 dogfood smoke craft (`_excreted/dogfood_v0_5_3_smoke_craft_2026-04-18.md`)
-> was excreted in v0.6.0 §M1 (empty 9-day-stale DRAFT) and deleted
-> outright in v0.7.0's archival pass.
+The substrate is at v0.8.5; the v0.4 / v0.5 crafts had no remaining
+operational consumer beyond source-code docstring pointers (which
+this pass updates to point at `.docs/contract_changelog.md` sections
+instead). Per L0 P3 "永恒进化", contract crafts are immutable HISTORY
+but history is preserved by git — file-tree presence is not the
+mechanism.
 
 ---
 
@@ -227,6 +156,8 @@ crafts typically carry `status: APPROVED` in their frontmatter.
 
 The v0.5.10 release is a hotfix for four bugs surfaced by a
 post-v0.5.9 seven-round audit. Hotfixes don't get their own craft;
-the v0.5.9 crafts plus the audit record in the CHANGELOG are the
-governance trail. See [`../_archive/CHANGELOG_pre_v0_6.md`](../_archive/CHANGELOG_pre_v0_6.md)
-§ `[0.5.10]` for the full audit narrative.
+the contract_changelog § v0.5.9 + § v0.5.10 entries carry the
+governance trail. See `.docs/contract_changelog.md` for the full
+audit narrative. (The pre-v0.6 `_archive/CHANGELOG_pre_v0_6.md`
+that previously held the [0.5.10] section was excreted at v0.8.5;
+content recoverable via git history.)

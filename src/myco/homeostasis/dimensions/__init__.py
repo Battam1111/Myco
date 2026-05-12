@@ -11,7 +11,7 @@ craft v0.6.0 §R2 (Round 4 owner amendment):
 
 Discovery is driven by
 ``importlib.metadata.entry_points(group="myco.dimensions")`` at v0.5+
-(per ``docs/primordia/_landed/v0_5_x/v0_5_0_major_6_10_craft_2026-04-17.md`` MAJOR 6).
+(per ``docs/contract_changelog.md`` § v0.5.0 MAJOR 6).
 Third-party substrates (symbionts) register their own dimensions by
 declaring ``[project.entry-points."myco.dimensions"]`` in their
 ``pyproject.toml`` — no code edit to Myco required.
