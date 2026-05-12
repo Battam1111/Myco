@@ -64,6 +64,12 @@ from urllib.parse import parse_qs
 
 import pytest
 
+# v0.8.5 — these tests spawn real HTTP server processes; under xdist
+# they would race on port allocation and OAuth mock-issuer state.
+# Pin to a single worker via the xdist_group marker so the
+# `--dist loadgroup` CI invocation keeps them serial.
+pytestmark = pytest.mark.xdist_group(name="streamable_http_oauth")
+
 # ---------------------------------------------------------------------------
 # Module-level guards — skip the whole suite if MCP SDK is absent
 # ---------------------------------------------------------------------------
@@ -158,7 +164,12 @@ def _spawn_streamable_server(
         env=env,
     )
     try:
-        if not _wait_for_port_ready(host, actual_port, timeout=8.0):
+        # v0.8.5 — under heavy xdist parallelism (8 workers each running
+        # their own streamable-http subprocess at the same time), Python
+        # startup + uvicorn boot can take longer than 8s on Windows CI
+        # runners. Bumped to 30s; if the server is genuinely broken the
+        # test still fails reliably within ≤ 30s.
+        if not _wait_for_port_ready(host, actual_port, timeout=30.0):
             # Capture diagnostic output before raising.
             try:
                 _stdout, _stderr = proc.communicate(timeout=1.0)
@@ -166,7 +177,7 @@ def _spawn_streamable_server(
                 _stdout, _stderr = b"", b""
             pytest.fail(
                 f"streamable-HTTP server failed to bind {host}:{actual_port} "
-                f"within 8s. stdout={_stdout!r} stderr={_stderr!r}"
+                f"within 30s. stdout={_stdout!r} stderr={_stderr!r}"
             )
         yield proc, host, actual_port, path
     finally:
