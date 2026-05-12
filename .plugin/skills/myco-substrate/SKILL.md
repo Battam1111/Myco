@@ -52,7 +52,7 @@ The substrate is the agent's **home**, not a tool the agent calls.
 - **Circulation.** `myco_traverse` (walk the graph and report
   connectedness), `myco_propagate` (publish integrated/distilled
   content to a downstream substrate).
-- **Homeostasis.** `myco_immune` (run the 50-dimension lint with
+- **Homeostasis.** `myco_immune` (run the 47-dimension lint with
   optional `fix=True`).
 - **Cycle.** `myco_senesce` (session dormancy; `quick=True` at abrupt
   exits), `myco_fruit` (scaffold a 3-round primordia proposal doc),
