@@ -75,8 +75,11 @@ _LIVE_DOC_GLOBS: tuple[str, ...] = (
     "docs/architecture/**/*.md",
     "MYCO.md",
     "README.md",
-    "README_zh.md",
-    "README_ja.md",
+    # v0.8.4 root-cleanup (2026-05-12): non-English READMEs moved
+    # under docs/i18n/ to declutter the repo root. SE5 scans them
+    # the same way — only the path changed.
+    "docs/i18n/README_zh.md",
+    "docs/i18n/README_ja.md",
     "_canon.yaml",
     "pyproject.toml",
 )

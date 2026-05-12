@@ -365,3 +365,116 @@ def test_default_max_audio_bytes_is_100mb() -> None:
     up as a single test to update with explicit intent.
     """
     assert DEFAULT_MAX_AUDIO_BYTES == 100 * 1024 * 1024
+
+
+# ---------------------------------------------------------------------------
+# Additional defensive paths for v0.9 cov-floor revert (≥85%).
+# These cover branches the v0.8 happy-path tests didn't reach.
+# ---------------------------------------------------------------------------
+
+
+def test_ingest_unexpected_transcription_shape_returns_failed_stub(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Whisper returning a non-dict (e.g. list) → single failed-stub naming
+    the unexpected-shape cause. Defensive against future Whisper API
+    changes or wrapper bugs.
+    """
+    p = _make_audio_stub(tmp_path, "shape-error.wav")
+
+    class _FakeModel:
+        def transcribe(self, _path):
+            return ["not", "a", "dict"]  # shape contract violation
+
+    fake_whisper = types.ModuleType("whisper")
+    fake_whisper.load_model = lambda _name: _FakeModel()  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "whisper", fake_whisper)
+
+    results = list(AudioAdapter().ingest(str(p)))
+    assert len(results) == 1
+    assert results[0].status == "failed"
+    assert "unexpected shape" in results[0].failure_reason
+    assert "list" in results[0].failure_reason
+
+
+def test_ingest_segments_not_a_list_returns_failed_stub(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``segments`` field present but not a list → no-segments failed-stub.
+
+    Defensive: a malformed Whisper response with ``segments=None`` /
+    ``segments={}`` must not crash the iteration loop.
+    """
+    p = _make_audio_stub(tmp_path, "bad-segments.wav")
+
+    class _FakeModel:
+        def transcribe(self, _path):
+            return {"segments": "not a list", "text": ""}
+
+    fake_whisper = types.ModuleType("whisper")
+    fake_whisper.load_model = lambda _name: _FakeModel()  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "whisper", fake_whisper)
+
+    results = list(AudioAdapter().ingest(str(p)))
+    assert len(results) == 1
+    assert results[0].status == "failed"
+    assert "no segments" in results[0].failure_reason
+
+
+def test_ingest_malformed_segment_emits_per_segment_failed_stub(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A non-dict segment in the segments list → per-segment failed-stub
+    naming the malformed shape. AD1 loud-skip per segment.
+    """
+    p = _make_audio_stub(tmp_path, "mixed-malformed.wav")
+
+    fake_segments = [
+        {"start": 0.0, "end": 3.0, "text": "Real content here."},
+        "not a dict — broken",  # malformed
+        {"start": 5.0, "end": 9.0, "text": "After the malformed entry."},
+    ]
+
+    class _FakeModel:
+        def transcribe(self, _path):
+            return {"segments": fake_segments}
+
+    fake_whisper = types.ModuleType("whisper")
+    fake_whisper.load_model = lambda _name: _FakeModel()  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "whisper", fake_whisper)
+
+    results = list(AudioAdapter().ingest(str(p)))
+    assert len(results) == 3
+    statuses = [r.status for r in results]
+    assert statuses == ["ok", "failed", "ok"]
+    assert "malformed" in results[1].failure_reason
+    assert "str" in results[1].failure_reason
+
+
+def test_ingest_segment_with_invalid_start_end_falls_back_to_zero(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A segment whose start/end aren't numeric (TypeError/ValueError on
+    ``float()``) → segment is still emitted as ok with start=end=0.0
+    (defensive zero rather than per-segment failed-stub).
+    """
+    p = _make_audio_stub(tmp_path, "bad-times.wav")
+
+    fake_segments = [
+        {"start": "not a number", "end": [1, 2], "text": "Has text but bad times."},
+    ]
+
+    class _FakeModel:
+        def transcribe(self, _path):
+            return {"segments": fake_segments}
+
+    fake_whisper = types.ModuleType("whisper")
+    fake_whisper.load_model = lambda _name: _FakeModel()  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "whisper", fake_whisper)
+
+    results = list(AudioAdapter().ingest(str(p)))
+    assert len(results) == 1
+    assert results[0].status == "ok"
+    assert results[0].metadata["start_sec"] == 0.0
+    assert results[0].metadata["end_sec"] == 0.0
+    assert "Has text" in results[0].body

@@ -31,7 +31,7 @@
 </p>
 
 <p align="center">
-  <b>Languages:</b> English · <a href="README_zh.md">中文</a> · <a href="README_ja.md">日本語</a>
+  <b>Languages:</b> English · <a href="docs/i18n/README_zh.md">中文</a> · <a href="docs/i18n/README_ja.md">日本語</a>
 </p>
 
 ---
@@ -148,7 +148,7 @@ Zero host-side configuration. R1 through R7 ride inside the MCP server itself, s
 
 ## Learn more
 
-[`L0_VISION.md`](docs/architecture/L0_VISION.md) · [`L1_CONTRACT/`](docs/architecture/L1_CONTRACT/) · [`L2_DOCTRINE/`](docs/architecture/L2_DOCTRINE/) · [`INSTALL.md`](docs/INSTALL.md) · [`CONTRIBUTING.md`](CONTRIBUTING.md) · [Issues](https://github.com/Battam1111/Myco/issues)
+[`L0_VISION.md`](docs/architecture/L0_VISION.md) · [`L1_CONTRACT/`](docs/architecture/L1_CONTRACT/) · [`L2_DOCTRINE/`](docs/architecture/L2_DOCTRINE/) · [`INSTALL.md`](docs/INSTALL.md) · [`CONTRIBUTING.md`](.github/CONTRIBUTING.md) · [Issues](https://github.com/Battam1111/Myco/issues)
 
 Architectural changes land as dated craft documents under [`docs/primordia/`](docs/primordia/). Every release is governed by a three-round debate, then a `molt`, then an auto-published fan-out to PyPI, the MCP Registry, and the GitHub release.
 

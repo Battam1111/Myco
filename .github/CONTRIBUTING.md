@@ -7,16 +7,16 @@ Agent-First substrate, and its own maintenance is mostly done by
 agents driving a human reviewer.
 
 Before anything else, read
-[`docs/architecture/L0_VISION.md`](docs/architecture/L0_VISION.md)
+[`docs/architecture/L0_VISION.md`](../docs/architecture/L0_VISION.md)
 (five root principles) and
-[`docs/architecture/L1_CONTRACT/protocol.md`](docs/architecture/L1_CONTRACT/protocol.md)
+[`docs/architecture/L1_CONTRACT/protocol.md`](../docs/architecture/L1_CONTRACT/protocol.md)
 (seven hard rules). The rest of this file assumes you have.
 
 ## Before you start
 
 For anything beyond a typo or a one-line bug fix, **open an issue or a
 draft PR first**. Architectural proposals land as dated markdown under
-[`docs/primordia/`](docs/primordia/) *before* any code moves —
+[`docs/primordia/`](../docs/primordia/) *before* any code moves —
 approved crafts then become the spec the implementation conforms to.
 This is not optional; the immune system blocks merges that skip it.
 

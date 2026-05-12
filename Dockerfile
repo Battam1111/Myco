@@ -3,7 +3,7 @@
 # Minimal OCI image for Myco's MCP server over stdio OR streamable-http.
 #
 # Myco's primary install path is editable (`pip install -e`);
-# see CONTRIBUTING.md "Dev environment". This image is the
+# see .github/CONTRIBUTING.md "Dev environment". This image is the
 # "install from PyPI + start over stdio/streamable-http" path, used by:
 #
 #   - Glama's introspection check
