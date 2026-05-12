@@ -130,8 +130,8 @@ Rules that are not mechanically enforceable (R3, R4, partial R5) are
 elevated in the session-start context so the agent sees them on every boot.
 
 Two orthogonal extension axes (per-substrate `.myco/plugins/` and
-per-host `src/myco/boundary/host_integration/`, renamed from pre-v0.6.0
-`src/myco/symbionts/`) let substrates and hosts carry their own
+per-host `boundary/install/clients.py::JsonClientSpec` data-driven
+host-writer registry) let substrates and hosts carry their own
 dimensions, adapters, schema upgraders, and verbs without forking
 Myco. Both axes compose with R6 (write-surface) and are documented in
 L2 `extensibility.md` and `L2_DOCTRINE/boundary.md`.

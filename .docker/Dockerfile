@@ -22,14 +22,14 @@ FROM python:3.12-slim
 
 LABEL io.modelcontextprotocol.server.name="io.github.Battam1111/myco"
 LABEL org.opencontainers.image.title="Myco"
-LABEL org.opencontainers.image.description="Agent-first cognitive substrate for LLM agents. 20 verbs + 46 lint dims + 7 subsystems over a self-validating graph (v0.6.0)."
+LABEL org.opencontainers.image.description="Agent-first cognitive substrate for LLM agents. 20 verbs + 50 lint dims + 7 subsystems over a self-validating graph (v0.8.5)."
 LABEL org.opencontainers.image.source="https://github.com/Battam1111/Myco"
-LABEL org.opencontainers.image.documentation="https://github.com/Battam1111/Myco/tree/main/docs"
+LABEL org.opencontainers.image.documentation="https://github.com/Battam1111/Myco/tree/main/.docs"
 LABEL org.opencontainers.image.licenses="MIT"
 LABEL org.opencontainers.image.authors="Battam1111"
-LABEL org.opencontainers.image.version="0.6.0"
+LABEL org.opencontainers.image.version="0.8.5"
 
-# v0.6.0: install with mcp + adapters + auth extras for full
+# v0.8.5: install with mcp + adapters + auth extras for full
 # streamable-http + OAuth deployment.
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir 'myco[mcp,adapters,mcp-auth]'

@@ -130,11 +130,14 @@ Consequences:
 - Substrates extend along **two orthogonal axes**: per-substrate via
   `.myco/plugins/` (one substrate's project-specific rules, adapters,
   schema upgraders, overlay verbs) and per-host via
-  `src/myco/boundary/host_integration/` (Agent-sugar shared across every
-  substrate on one host — skill-generators, rule writers, task
-  configurators; renamed from pre-v0.6.0 `src/myco/symbionts/` at the
-  v0.6.0 boundary unification). The two axes compose freely. See
-  `L2_DOCTRINE/boundary.md` and `L2_DOCTRINE/extensibility.md`.
+  `boundary/install/clients.py::JsonClientSpec` (data-driven host
+  writer registry — JSON-config writers + per-host install reports,
+  shared across every substrate one host opens). The two axes compose
+  freely. See `L2_DOCTRINE/boundary.md` and `L2_DOCTRINE/extensibility.md`.
+  (The v0.6.0 `boundary/host_integration/` per-host adapter MODULE
+  package — Agent-sugar skill-generators + rule writers — was
+  excreted at v0.8.5 as never-wired-into-production-code; the
+  data-driven JsonClientSpec table is the live registry.)
 
 ---
 

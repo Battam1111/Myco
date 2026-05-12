@@ -2,9 +2,11 @@
 
 Governing doctrine: ``docs/architecture/L2_DOCTRINE/extensibility.md``
 (the two-axis extension model — ``.myco/plugins/`` for per-substrate,
-``src/myco/boundary/host_integration/`` for per-host; renamed from
-the pre-v0.6.0 ``src/myco/symbionts/`` path). ramify is the authoring
-half; :mod:`myco.cycle.graft` is the audit half.
+``boundary/install/clients.py::JsonClientSpec`` data-driven table for
+per-host writer registry; the v0.6.0 ``boundary/host_integration/``
+per-host adapter package was excreted at v0.8.5 as never-wired-into-
+production). ramify is the authoring half; :mod:`myco.cycle.graft`
+is the audit half.
 
 Governing manifest: ``docs/architecture/L3_IMPLEMENTATION/command_manifest.md``
 (governance-verbs section — per v0.5.0 craft §R13, no new L2

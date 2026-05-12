@@ -916,7 +916,7 @@ commands:
   subsystem: homeostasis
   handler: myco.homeostasis.kernel:run_cli
   summary: Run immune lint over the substrate.
-  description: 'Run the substrate''s 46 lint dimensions and report findings
+  description: 'Run the substrate''s 50 lint dimensions and report findings
 
     (severity + category + location + message per finding).
 
