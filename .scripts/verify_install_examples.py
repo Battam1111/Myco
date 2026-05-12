@@ -19,9 +19,8 @@ import subprocess
 import sys
 from pathlib import Path
 
-# v0.8.4 root-cleanup (2026-05-12): examples/ moved under docs/ to
-# declutter the repo root.
-EXAMPLES_DIR = Path(__file__).resolve().parent.parent / "docs" / "examples"
+# v0.8.4 root-cleanup (2026-05-12): examples/ moved under .docs/.
+EXAMPLES_DIR = Path(__file__).resolve().parent.parent / ".docs" / "examples"
 
 EXPECTED_DEMOS = (
     "claude-sdk-myco-demo",

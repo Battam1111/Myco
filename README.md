@@ -106,7 +106,7 @@ Hook Myco into your agent host in one command:
 - **Any other MCP host.** Run `myco-install host <cursor | windsurf | zed | vscode | openclaw | claude-desktop | gemini-cli | codex-cli | goose>`, or pass `--all-hosts` to auto-detect every host on this machine.
 - **Via the official MCP Registry.** Use the namespace [`io.github.Battam1111/myco`](https://registry.modelcontextprotocol.io/v0/servers?search=Battam1111) for clients that auto-resolve it.
 
-Per-host snippets for the nine hosts with divergent schemas, Python-framework adapters (LangChain, CrewAI, DSPy, Smolagents, Agno, PraisonAI, MS Agent Framework, Claude Agent SDK), and library-embedding examples all live in [`INSTALL.md`](docs/INSTALL.md).
+Per-host snippets for the nine hosts with divergent schemas, Python-framework adapters (LangChain, CrewAI, DSPy, Smolagents, Agno, PraisonAI, MS Agent Framework, Claude Agent SDK), and library-embedding examples all live in [`INSTALL.md`](.docs/INSTALL.md).
 
 ### Optional extras
 
@@ -132,7 +132,7 @@ Every verb lives in [`src/myco/boundary/surface/manifest.yaml`](src/myco/boundar
 Myco does not trust its agent to remember the contract. It enforces it.
 
 - **50 lint dimensions** across four categories: *mechanical* (canon invariants, write-surface, LLM-boundary, OAuth token residency, sampling gates, capability layering), *shipped* (package and canon version parity, kernel-ahead-of-canon), *metabolic* (raw backlog, stale integrated notes, sporulated-reabsorbed integrity, resource-watch quota, stale-DRAFT cleanup), *semantic* (graph connectedness, orphan detection, reciprocal back-link, R3 sense and R4 eat discipline signals). `myco immune --fix` repairs mechanically where it can.
-- **Seven hard rules (R1 through R7)** govern every session: boot ritual, session-end, sense-before-assert, eat-on-friction, cross-reference-on-creation, write-surface discipline, top-down layering. Full contract at [`L1_CONTRACT/protocol.md`](docs/architecture/L1_CONTRACT/protocol.md).
+- **Seven hard rules (R1 through R7)** govern every session: boot ritual, session-end, sense-before-assert, eat-on-friction, cross-reference-on-creation, write-surface discipline, top-down layering. Full contract at [`L1_CONTRACT/protocol.md`](.docs/architecture/L1_CONTRACT/protocol.md).
 - **Pulse sidecar.** Every MCP tool response carries a `substrate_pulse` echoing the current contract version and a rule hint that escalates (R1, then R3, then on through the session) as the session progresses. A server-side push. The agent cannot accidentally forget.
 - **Write-surface enforcement.** Any write outside `_canon.yaml::system.write_surface.allowed` is refused with `WriteSurfaceViolation`. Discipline as a mechanism, not as a request.
 
@@ -141,16 +141,16 @@ Zero host-side configuration. R1 through R7 ride inside the MCP server itself, s
 ## Integrations
 
 - **Claude Code.** Official plugin wires MCP, hooks, and slash skills in one command. Or drop `.claude/` in by hand.
-- **Cowork (Claude Desktop local-agent-mode).** Two steps: (1) `myco-install host cowork` writes the MCP server entry; (2) drag the `.zip` bundle from [GitHub releases](https://github.com/Battam1111/Myco/releases/latest) into Claude Desktop's plugin upload. Claude Desktop uploads it to your private Cowork marketplace, and every session auto-installs the `myco-substrate` onboarding skill so the agent follows R1 through R7 the moment it sees `_canon.yaml`. Cowork does not expose hooks and does not read local plugin dirs, so drag-and-drop is the only persistent path. See [`INSTALL.md`](docs/INSTALL.md) for the full rationale.
-- **Any MCP host.** Ten are automated via `myco-install`. Another nine have per-host snippets in [`INSTALL.md`](docs/INSTALL.md). Any other client can still run `mcp-server-myco` over stdio directly.
+- **Cowork (Claude Desktop local-agent-mode).** Two steps: (1) `myco-install host cowork` writes the MCP server entry; (2) drag the `.zip` bundle from [GitHub releases](https://github.com/Battam1111/Myco/releases/latest) into Claude Desktop's plugin upload. Claude Desktop uploads it to your private Cowork marketplace, and every session auto-installs the `myco-substrate` onboarding skill so the agent follows R1 through R7 the moment it sees `_canon.yaml`. Cowork does not expose hooks and does not read local plugin dirs, so drag-and-drop is the only persistent path. See [`INSTALL.md`](.docs/INSTALL.md) for the full rationale.
+- **Any MCP host.** Ten are automated via `myco-install`. Another nine have per-host snippets in [`INSTALL.md`](.docs/INSTALL.md). Any other client can still run `mcp-server-myco` over stdio directly.
 - **Python agent frameworks.** LangChain, CrewAI, DSPy, Smolagents, Agno, PraisonAI, MS Agent Framework, and Claude Agent SDK all consume Myco via `StdioServerParameters(command="mcp-server-myco")`.
 - **Downstream substrates.** `myco propagate` publishes. Adapters live in `myco.boundary.host_integration` (v0.6.0; was `myco.symbionts` pre-v0.6.0).
 
 ## Learn more
 
-[`L0_VISION.md`](docs/architecture/L0_VISION.md) · [`L1_CONTRACT/`](docs/architecture/L1_CONTRACT/) · [`L2_DOCTRINE/`](docs/architecture/L2_DOCTRINE/) · [`INSTALL.md`](docs/INSTALL.md) · [`CONTRIBUTING.md`](.github/CONTRIBUTING.md) · [Issues](https://github.com/Battam1111/Myco/issues)
+[`L0_VISION.md`](.docs/architecture/L0_VISION.md) · [`L1_CONTRACT/`](.docs/architecture/L1_CONTRACT/) · [`L2_DOCTRINE/`](.docs/architecture/L2_DOCTRINE/) · [`INSTALL.md`](.docs/INSTALL.md) · [`CONTRIBUTING.md`](.github/CONTRIBUTING.md) · [Issues](https://github.com/Battam1111/Myco/issues)
 
-Architectural changes land as dated craft documents under [`docs/primordia/`](docs/primordia/). Every release is governed by a three-round debate, then a `molt`, then an auto-published fan-out to PyPI, the MCP Registry, and the GitHub release.
+Architectural changes land as dated craft documents under [`docs/primordia/`](.docs/primordia/). Every release is governed by a three-round debate, then a `molt`, then an auto-published fan-out to PyPI, the MCP Registry, and the GitHub release.
 
 MIT · [`LICENSE`](LICENSE) · [PyPI](https://pypi.org/project/myco/) · [Releases](https://github.com/Battam1111/Myco/releases)
 

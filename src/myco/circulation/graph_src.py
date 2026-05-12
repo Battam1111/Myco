@@ -250,6 +250,8 @@ def walk_src_graph(
     *,
     include_tests: bool = False,
     internal_prefix: str = "myco",
+    docs_dir: str = "docs",
+    notes_dir: str = "notes",
 ) -> SrcGraphResult:
     """Walk ``<substrate_root>/src/`` and return nodes + edges.
 
@@ -375,7 +377,12 @@ def walk_src_graph(
         # --- docstring doc refs ----------------------------------------
         docstring = ast.get_docstring(tree)
         for raw in _extract_docstring_doc_refs(docstring):
-            resolved = _resolve_doc_ref(raw, root)
+            # v0.8.4 root-cleanup: pass canon-configured dirs so the
+            # resolver can fall back from "docs/X" to ".docs/X" when
+            # Myco-self has relocated the tree.
+            resolved = _resolve_doc_ref(
+                raw, root, docs_dir=docs_dir, notes_dir=notes_dir
+            )
             if resolved is None:
                 # Escapes substrate → drop. We don't emit dangling edges
                 # from ``..`` that would land outside the tree; keeping
@@ -425,13 +432,26 @@ def _walk_py(src_dir: Path, effective_skip: frozenset[str]) -> Iterator[Path]:
                 yield entry
 
 
-def _resolve_doc_ref(raw: str, substrate_root: Path) -> str | None:
+def _resolve_doc_ref(
+    raw: str,
+    substrate_root: Path,
+    *,
+    docs_dir: str = "docs",
+    notes_dir: str = "notes",
+) -> str | None:
     """Resolve a ``docs/*.md``-style string to a substrate-relative path.
 
     Returns a POSIX path relative to ``substrate_root`` — or ``None``
     if the path escapes the substrate (e.g. ``../../other/thing.md``).
-    Doesn't check for file existence here: unresolved edges flow
-    through the same dangling-ref channel as markdown links do.
+
+    v0.8.4 root-cleanup (2026-05-12): when ``raw`` starts with the
+    well-known semantic prefixes ``docs/`` / ``notes/`` and that
+    literal path doesn't resolve under the substrate root, retry
+    against the canon-declared ``docs_dir`` / ``notes_dir`` (Myco-self
+    uses ``.docs`` / ``.myco/notes``; downstream substrates keep
+    "docs" / "notes"). Existence is verified on the retried path —
+    if neither location has the file, return the literal resolution
+    so SE1 / dangling-edge bookkeeping continues to fire.
     """
     root_r = substrate_root.resolve()
     try:
@@ -439,4 +459,25 @@ def _resolve_doc_ref(raw: str, substrate_root: Path) -> str | None:
         target.relative_to(root_r)
     except (ValueError, OSError):
         return None
-    return str(target.relative_to(root_r)).replace("\\", "/")
+    rel = str(target.relative_to(root_r)).replace("\\", "/")
+    if not target.exists():
+        for legacy_prefix, override in (
+            ("docs/", docs_dir),
+            ("notes/", notes_dir),
+        ):
+            if legacy_prefix == override + "/":
+                continue
+            if raw.startswith(legacy_prefix) or rel.startswith(legacy_prefix):
+                stripped = (
+                    raw[len(legacy_prefix) :]
+                    if raw.startswith(legacy_prefix)
+                    else rel[len(legacy_prefix) :]
+                )
+                alt = (root_r / override / stripped).resolve()
+                try:
+                    alt.relative_to(root_r)
+                except (ValueError, OSError):
+                    continue
+                if alt.exists():
+                    return str(alt.relative_to(root_r)).replace("\\", "/")
+    return rel

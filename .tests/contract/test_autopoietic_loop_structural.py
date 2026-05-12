@@ -215,7 +215,7 @@ def test_every_craft_has_authored_by_frontmatter() -> None:
 
     Skips files under docs/primordia/_excreted/ (auto-excreted stale DRAFTs).
     """
-    primordia_dir = _REPO_ROOT / "docs" / "primordia"
+    primordia_dir = _REPO_ROOT / ".docs" / "primordia"
     crafts_missing = []
     for craft_path in primordia_dir.glob("*.md"):
         rel = craft_path.relative_to(_REPO_ROOT).as_posix()
@@ -293,7 +293,7 @@ def test_llm_policy_value_in_v0_6_14_enum() -> None:
 def test_cycle_md_has_autostart_section() -> None:
     """L2_DOCTRINE/cycle.md must declare the v0.6.14 autostart loop section."""
     text = (
-        _REPO_ROOT / "docs" / "architecture" / "L2_DOCTRINE" / "cycle.md"
+        _REPO_ROOT / ".docs" / "architecture" / "L2_DOCTRINE" / "cycle.md"
     ).read_text(encoding="utf-8")
     assert "Cycle 自起 fruit—winnow—molt 闭环" in text, (
         "cycle.md must declare the v0.6.14 autostart-loop section per craft "
@@ -308,7 +308,7 @@ def test_cycle_md_has_autostart_section() -> None:
 def test_boundary_md_has_sixth_seam_section() -> None:
     """L2_DOCTRINE/boundary.md must declare the v0.6.14 sixth seam."""
     text = (
-        _REPO_ROOT / "docs" / "architecture" / "L2_DOCTRINE" / "boundary.md"
+        _REPO_ROOT / ".docs" / "architecture" / "L2_DOCTRINE" / "boundary.md"
     ).read_text(encoding="utf-8")
     assert "Sixth seam" in text or "sixth seam" in text, (
         "boundary.md must declare the v0.6.14 sixth seam section."

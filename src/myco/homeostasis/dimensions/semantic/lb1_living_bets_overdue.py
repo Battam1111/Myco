@@ -247,7 +247,9 @@ class LB1LivingBetsOverdue(Dimension):
         s_maj, s_min, s_patch = substrate
         substrate_line = (s_maj, s_min)
 
-        primordia_root = ctx.substrate.root / "docs" / "primordia"
+        # v0.8.4 root-cleanup (2026-05-12): docs/ may be at root (legacy)
+        # or .docs/ (Myco-self / v0.8.4+); resolve via paths.docs.
+        primordia_root = ctx.substrate.paths.docs / "primordia"
         most_recent = _find_most_recent_audit(primordia_root)
 
         if most_recent is None:

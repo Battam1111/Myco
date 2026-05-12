@@ -52,6 +52,10 @@ system:
   # SubstratePaths.notes reads this field; default ("notes") is unchanged
   # for downstream substrates that haven't opted into the new layout.
   notes_dir: ".myco/notes"
+  # v0.8.4 root-cleanup (2026-05-12): docs tree relocated from root-level
+  # `docs/` to `.docs/`. SubstratePaths.docs reads this field; default
+  # ("docs") is unchanged for downstream substrates.
+  docs_dir: ".docs"
   write_surface:
     allowed:
       - "_canon.yaml"
@@ -66,6 +70,7 @@ system:
       - "pyproject.toml"
       - "notes/**"
       - "docs/**"
+      - ".docs/**"
       - "src/**"
       - ".tests/**"
       - ".scripts/**"
@@ -117,7 +122,7 @@ system:
       # (covered by docs/**).
       - ".github/**"
   hard_contract:
-    rules_ref: "docs/architecture/L1_CONTRACT/protocol.md"
+    rules_ref: ".docs/architecture/L1_CONTRACT/protocol.md"
     rule_count: 7
   # v0.5.6 → v0.6.0 schema v2: bool → 3-state enum.
   # v0.6.14 (option C of T17): enum reduced to 2 values; "providers-declared"
@@ -307,28 +312,28 @@ subsystems:
   # interface layer. L0:185-186 vocabulary amendment recorded in
   # boundary.md doctrine. New L2 doctrine at L2_DOCTRINE/boundary.md.
   boundary:
-    doc: "docs/architecture/L2_DOCTRINE/boundary.md"
+    doc: ".docs/architecture/L2_DOCTRINE/boundary.md"
     package: "src/myco/boundary/"
   circulation:
-    doc: "docs/architecture/L2_DOCTRINE/circulation.md"
+    doc: ".docs/architecture/L2_DOCTRINE/circulation.md"
     package: "src/myco/circulation/"
   # v0.6.0: cycle promoted from cross-cutting to canonical 6th subsystem,
   # aligning canon.subsystems with L0_VISION.md:183 which already named
   # Cycle as the 6th subsystem. New L2 doctrine at L2_DOCTRINE/cycle.md.
   cycle:
-    doc: "docs/architecture/L2_DOCTRINE/cycle.md"
+    doc: ".docs/architecture/L2_DOCTRINE/cycle.md"
     package: "src/myco/cycle/"
   digestion:
-    doc: "docs/architecture/L2_DOCTRINE/digestion.md"
+    doc: ".docs/architecture/L2_DOCTRINE/digestion.md"
     package: "src/myco/digestion/"
   germination:
-    doc: "docs/architecture/L2_DOCTRINE/genesis.md"
+    doc: ".docs/architecture/L2_DOCTRINE/genesis.md"
     package: "src/myco/germination/"
   homeostasis:
-    doc: "docs/architecture/L2_DOCTRINE/homeostasis.md"
+    doc: ".docs/architecture/L2_DOCTRINE/homeostasis.md"
     package: "src/myco/homeostasis/"
   ingestion:
-    doc: "docs/architecture/L2_DOCTRINE/ingestion.md"
+    doc: ".docs/architecture/L2_DOCTRINE/ingestion.md"
     package: "src/myco/ingestion/"
 
 commands:
@@ -351,10 +356,10 @@ metrics:
   # the substrate's own bloat-cause.
   repo_size_excluded:
     - "notes/**"
-    - "docs/primordia/_landed/**"
-    - "docs/_archive/**"
-    - "docs/contract_changelog/_archive/**"
+    - ".docs/primordia/_landed/**"
+    - ".docs/_archive/**"
+    - ".docs/contract_changelog/_archive/**"
 
 waves:
   current: 40
-  log_ref: "docs/contract_changelog.md"
+  log_ref: ".docs/contract_changelog.md"

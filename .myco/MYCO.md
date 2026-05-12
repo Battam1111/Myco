@@ -14,7 +14,7 @@ surface you encounter here as agent-readable primary material, not as
 documentation for a human reader.
 
 The substrate is governed by the five root principles in
-[`docs/architecture/L0_VISION.md`](../docs/architecture/L0_VISION.md).
+[`docs/architecture/L0_VISION.md`](../.docs/architecture/L0_VISION.md).
 Read that page before you begin real work in this substrate. You do
 not have to re-read it every session; but any action that feels
 governance-shaped (canon edit, doctrine revision, new subsystem) is
@@ -92,7 +92,7 @@ v0.6.0 §F18 fix-narrowness craft (markdown surgery + write-surface
 expansion are too delicate for safe-fix's idempotent / narrow /
 non-destructive / bounded discipline). The full enumeration +
 severities + fixability are in
-[`docs/architecture/L2_DOCTRINE/homeostasis.md`](../docs/architecture/L2_DOCTRINE/homeostasis.md)
+[`docs/architecture/L2_DOCTRINE/homeostasis.md`](../.docs/architecture/L2_DOCTRINE/homeostasis.md)
 § "Dimension enumeration". `immune --list` prints the live list;
 `immune --explain <ID>` prints the prose description.
 
@@ -115,14 +115,14 @@ craft (`myco fruit`).
    `CanonSchemaError` (exit 5) on shape violations.
 2. **At edit time** (optional). IDEs that understand JSON-Schema
    validate against
-   [`docs/schema/canon.schema.json`](../docs/schema/canon.schema.json).
+   [`docs/schema/canon.schema.json`](../.docs/schema/canon.schema.json).
    Wiring snippets for VS Code / JetBrains / Neovim are in the
-   schema folder's [README](../docs/schema/README.md).
+   schema folder's [README](../.docs/schema/README.md).
 
 ## Upgrading between versions
 
 Boundary-specific migration notes live under
-[`docs/migration/`](../docs/migration/README.md). Start there when
+[`docs/migration/`](../.docs/migration/README.md). Start there when
 upgrading a downstream substrate across a MINOR bump; each file
 translates contract-layer deltas into operator-visible steps.
 

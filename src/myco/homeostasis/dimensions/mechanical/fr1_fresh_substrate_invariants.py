@@ -99,18 +99,22 @@ class FR1FreshSubstrateInvariants(Dimension):
                     ),
                     path=rel,
                 )
-        # docs/ stays at root regardless of notes_dir config.
-        docs_path = root / "docs"
+        # v0.8.4 root-cleanup (2026-05-12): docs_dir is canon-configurable
+        # via SubstratePaths.docs (defaults to "docs/", Myco-self uses
+        # ".docs/"). Resolve through paths.docs so the FR1 check follows
+        # the substrate's declared layout.
+        docs_path = ctx.substrate.paths.docs
         if not docs_path.is_dir():
+            rel = docs_path.relative_to(root).as_posix()
             yield Finding(
                 dimension_id=self.id,
                 category=self.category,
                 severity=Severity.MEDIUM,
                 message=(
-                    "docs/ directory missing — fresh substrates "
-                    "carry this directory; a missing one means "
-                    "either pre-v0.5 substrate layout or a user "
-                    "wipe. Restore (``git restore``) or mkdir."
+                    f"{rel}/ directory missing — fresh substrates "
+                    f"carry this directory; a missing one means "
+                    f"either pre-v0.5 substrate layout or a user "
+                    f"wipe. Restore (``git restore``) or mkdir."
                 ),
-                path="docs",
+                path=rel,
             )

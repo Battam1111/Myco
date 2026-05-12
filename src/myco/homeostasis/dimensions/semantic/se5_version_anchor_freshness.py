@@ -213,8 +213,21 @@ class SE5VersionAnchorFreshness(Dimension):
         if current is None:
             return  # fresh substrate or missing canon — silent no-op
 
+        # v0.8.4 root-cleanup (2026-05-12): docs/ may be relocated to
+        # .docs/ (Myco-self) or stay at root (downstream). Remap any
+        # glob that starts with "docs/" through paths.docs.
+        docs_dir = ctx.substrate.paths.docs_dir
+        effective_globs: tuple[str, ...] = tuple(
+            (
+                f"{docs_dir}/" + p[len("docs/") :]
+                if p.startswith("docs/") and docs_dir != "docs"
+                else p
+            )
+            for p in _LIVE_DOC_GLOBS
+        )
+
         seen_paths: set[str] = set()
-        for pattern in _LIVE_DOC_GLOBS:
+        for pattern in effective_globs:
             for path in root.glob(pattern):
                 if not path.is_file():
                     continue
