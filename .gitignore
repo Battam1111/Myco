@@ -83,6 +83,13 @@ upload*.log
 
 # Graph-builder benchmark cache. Generating a 10 K-file synthetic
 # substrate is expensive (~minutes wall-time, ~150 MB on disk) so
-# tests/benchmark/test_graph_scale.py caches it locally and reuses
+# .tests/benchmark/test_graph_scale.py caches it locally and reuses
 # across runs. The cache is per-developer-machine; never commit it.
-tests/benchmark/.cache/
+# Path corrected at v0.8.6 — `tests/` → `.tests/` per the v0.8.4
+# root-cleanup hidden-prefix layout.
+.tests/benchmark/.cache/
+
+# Local worktrees (Claude Code spawns these for parallel-agent runs).
+# Cleanup is automatic when the agent exits cleanly, but stale empty
+# dirs accumulate after abrupt terminations; never commit them.
+.claude/worktrees/
