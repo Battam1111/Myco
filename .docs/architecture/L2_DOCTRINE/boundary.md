@@ -296,7 +296,7 @@ two existing subagents, adds a GitHub Actions workflow, and lifts MP1's
 mechanical guard — but **substrate kernel binary stays L0 P1 strict**
 (zero new lines of LLM dispatch).
 
-> **Governing craft**: `docs/primordia/v0_6_14_cycle_autostart_fruit_winnow_molt_loop_craft_2026-04-29.md`.
+> **Governing craft**: `docs/primordia/_landed/v0_6_x/v0_6_14_cycle_autostart_fruit_winnow_molt_loop_craft_2026-04-29.md`.
 > **Cross-ref**: `L2_DOCTRINE/cycle.md` § "Cycle 自起 fruit—winnow—molt 闭环 (v0.6.14+)" carries the full chain semantics; this section documents the boundary-side surfaces only.
 
 ### Surface delta vs the 5th seam

@@ -1,6 +1,6 @@
 # L3 — Package Map
 
-> **Status**: APPROVED (2026-04-15, greenfield rewrite §9; v0.6.0 amendment LANDED 2026-04-28 per `docs/primordia/v0_6_0_unified_evolution_and_thorough_refactor_craft_2026-04-28.md` §F2).
+> **Status**: APPROVED (2026-04-15, greenfield rewrite §9; v0.6.0 amendment LANDED 2026-04-28 per `docs/primordia/_landed/v0_6_x/v0_6_0_unified_evolution_and_thorough_refactor_craft_2026-04-28.md` §F2).
 > **Layer**: L3. Subordinate to L0/L1/L2. Code MUST conform to this map;
 > a divergence between code and map is resolved in favor of the map (per
 > R7 + §9 execution constraints).

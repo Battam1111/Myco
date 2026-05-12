@@ -33,64 +33,62 @@ files cross-reference these docs for provenance.
 
 ---
 
-## Index (by era)
+## Active working set
 
-### v0.6.0 — 2026-04-28
+Crafts authored under the v0.8.x cycle that are either still in
+play (e.g. roadmap omnibus) or were authored recently enough that
+they remain doctrinally "live" for the current development window.
+LANDED crafts that have aged past the current minor cycle move to
+`_landed/<era>/` to keep the working surface scannable.
 
-| File | Kind | Role |
-|---|---|---|
-| [`v0_6_0_unified_evolution_and_thorough_refactor_craft_2026-04-28.md`](v0_6_0_unified_evolution_and_thorough_refactor_craft_2026-04-28.md) | design | Round 4 owner-amended unified evolution + thorough refactor |
-| [`v0_6_0_living_bets_audit_craft_2026-04-28.md`](v0_6_0_living_bets_audit_craft_2026-04-28.md) | audit | Living-bets audit closing v0.6.0 |
-
-### v0.6.11 — 2026-04-28
-
-| File | Kind | Role |
-|---|---|---|
-| [`v0_6_11_subagents_and_commands_craft_2026-04-28.md`](v0_6_11_subagents_and_commands_craft_2026-04-28.md) | design | Subagents + slash commands (hypha / primordium / anamorph / stipe) |
-
-### v0.6.14 — 2026-04-29
+### v0.8.x
 
 | File | Kind | Role |
 |---|---|---|
-| [`v0_6_14_cycle_autostart_fruit_winnow_molt_loop_craft_2026-04-29.md`](v0_6_14_cycle_autostart_fruit_winnow_molt_loop_craft_2026-04-29.md) | design | Cycle-自起 fruit—winnow—molt 闭环 orchestrator |
+| [`v0_8_0_to_v1_0_omnibus_craft_2026-05-11.md`](v0_8_0_to_v1_0_omnibus_craft_2026-05-11.md) | design | v0.8.x → v1.0 roadmap omnibus |
+| [`v0_8_0_living_bets_amendment_2026-05-10.md`](v0_8_0_living_bets_amendment_2026-05-10.md) | audit | Living-bets amendment closing v0.8.0 |
+| [`v0_8_4_living_bets_audit_2026-05-11.md`](v0_8_4_living_bets_audit_2026-05-11.md) | audit | Living-bets audit closing v0.8.4 |
 
-### v0.6.15 — 2026-04-29
+---
 
-| File | Kind | Role |
-|---|---|---|
-| [`v0_6_15_agent_first_default_for_cycle_autostart_loop_craft_2026-04-29.md`](v0_6_15_agent_first_default_for_cycle_autostart_loop_craft_2026-04-29.md) | design | Agent-First default for the cycle-autostart loop |
+## LANDED archive (`_landed/`)
 
-### v0.6.16 — 2026-04-29
+LANDED crafts older than the current minor cycle live under
+`_landed/<era>/` so the working surface above stays small. Content
+is immutable but **fully readable** — these are not deletions, just
+relocations.
 
-| File | Kind | Role |
-|---|---|---|
-| [`v0_6_16_neat_freak_sweep_craft_2026-04-29.md`](v0_6_16_neat_freak_sweep_craft_2026-04-29.md) | design | Neat-freak sweep — surface tidiness pass |
+### `_landed/v0_6_x/` (6 crafts, 2026-04-28 → 2026-04-29)
 
-### v0.7.0 — 2026-04-30
+| Slug | Role |
+|---|---|
+| `v0_6_0_unified_evolution_and_thorough_refactor_craft_2026-04-28.md` | Round 4 owner-amended unified evolution + thorough refactor |
+| `v0_6_0_living_bets_audit_craft_2026-04-28.md` | Living-bets audit closing v0.6.0 |
+| `v0_6_11_subagents_and_commands_craft_2026-04-28.md` | Subagents + slash commands (hypha / primordium / anamorph / stipe) |
+| `v0_6_14_cycle_autostart_fruit_winnow_molt_loop_craft_2026-04-29.md` | Cycle-自起 fruit—winnow—molt 闭环 orchestrator |
+| `v0_6_15_agent_first_default_for_cycle_autostart_loop_craft_2026-04-29.md` | Agent-First default for the cycle-autostart loop |
+| `v0_6_16_neat_freak_sweep_craft_2026-04-29.md` | Neat-freak sweep — surface tidiness pass |
 
-| File | Kind | Role |
-|---|---|---|
-| [`v0_7_0_major_autolysis_craft_2026-04-30.md`](v0_7_0_major_autolysis_craft_2026-04-30.md) | design | Major autolysis — archival moves + autolyze subagent |
+### `_landed/v0_7_x/` (8 crafts, 2026-04-30 → 2026-05-10)
 
-### v0.7.1 — 2026-04-30
+| Slug | Role |
+|---|---|
+| `v0_7_0_major_autolysis_craft_2026-04-30.md` | Major autolysis — archival moves + autolyze subagent |
+| `v0_7_1_shim_revival_craft_2026-04-30.md` | `myco.mcp` shim revival hotfix |
+| `v0_7_2_eternal_pruning_ratchets_craft_2026-04-30.md` | 永恒删减 ratchet dims + recursion-cutter hardening |
+| `v0_7_3_lint_zero_before_cowork_craft_2026-04-30.md` | Lint-zero gate before Cowork ship |
+| `v0_7_4_zip_extension_hotfix_2026-05-09.md` | Cowork bundle `.plugin` → `.zip` extension hotfix |
+| `v0_7_5_living_bets_audit_2026-05-10.md` | Living-bets audit closing v0.7.5 |
+| `v0_7_5_p0_to_p6_omnibus_craft_2026-05-10.md` | P0-P6 omnibus close-every-gate ratchet |
+| `v0_7_10_to_v1_0_omnibus_craft_2026-05-10.md` | v0.7.10 → v1.0 roadmap omnibus |
 
-| File | Kind | Role |
-|---|---|---|
-| [`v0_7_1_shim_revival_craft_2026-04-30.md`](v0_7_1_shim_revival_craft_2026-04-30.md) | design | `myco.mcp` shim revival hotfix |
+### `_landed/glama/` (3 crafts, 2026-04-24 → 2026-04-28)
 
-### v0.7.2 — 2026-04-30
-
-| File | Kind | Role |
-|---|---|---|
-| [`v0_7_2_eternal_pruning_ratchets_craft_2026-04-30.md`](v0_7_2_eternal_pruning_ratchets_craft_2026-04-30.md) | design | 永恒删减 ratchet dims + recursion-cutter hardening |
-
-### Glama drives — 2026-04-24 / 2026-04-28
-
-| File | Kind | Role |
-|---|---|---|
-| [`glama_onboarding_runbook_craft_2026-04-24.md`](glama_onboarding_runbook_craft_2026-04-24.md) | design | Glama onboarding runbook |
-| [`glama_usage_drive_craft_2026-04-24.md`](glama_usage_drive_craft_2026-04-24.md) | design | Glama usage drive |
-| [`glama_categories_drive_craft_2026-04-28.md`](glama_categories_drive_craft_2026-04-28.md) | design | Glama categories drive |
+| Slug | Role |
+|---|---|
+| `glama_onboarding_runbook_craft_2026-04-24.md` | Glama onboarding runbook |
+| `glama_usage_drive_craft_2026-04-24.md` | Glama usage drive |
+| `glama_categories_drive_craft_2026-04-28.md` | Glama categories drive |
 
 ---
 
@@ -108,49 +106,49 @@ greenfield-rewrite + v0.5 multi-MAJOR sequence; their content is:
   --name-only -- '.docs/primordia/_landed/**'` lists them; full
   body lives at the parent commits before deletion).
 
-The substrate is at v0.8.5; the v0.4 / v0.5 crafts had no remaining
-operational consumer beyond source-code docstring pointers (which
-this pass updates to point at `.docs/contract_changelog.md` sections
-instead). Per L0 P3 "永恒进化", contract crafts are immutable HISTORY
-but history is preserved by git — file-tree presence is not the
+Per L0 P3 "永恒进化", contract crafts are immutable HISTORY but
+history is preserved by git — file-tree presence is not the
 mechanism.
 
 ---
 
 ## Crafts by kind
 
-- **design (20)** — propose the shape of a change
-- **audit (8)** — post-hoc review of a shipped change
+- **design** — propose the shape of a change
+- **audit** — post-hoc review of a shipped change
 
 Filter via:
 
 ```bash
-grep -l 'kind: design' docs/primordia/*.md
-grep -l 'kind: audit' docs/primordia/*.md
+grep -l 'kind: design' .docs/primordia/*.md .docs/primordia/_landed/**/*.md
+grep -l 'kind: audit' .docs/primordia/*.md .docs/primordia/_landed/**/*.md
 ```
 
 ## Finding the right craft
 
-- By version: see the "Index (by era)" table above.
-- By topic: `myco sense --query <topic>` scans notes + docs + canon.
-- By governing L2/L3 doc: read the doctrine page's frontmatter
+- **By version**: read the "Active working set" table for v0.8.x;
+  use the `_landed/<era>/` directory for older eras.
+- **By topic**: `myco sense --query <topic>` scans notes + docs + canon.
+- **By governing L2/L3 doc**: read the doctrine page's frontmatter
   `Governing craft:` line; it cites the primordium by filename.
 
 ## Adding a new craft
 
 ```bash
-myco fruit --topic "<slug>" --kind design --date 2026-04-22
+myco fruit --topic "<slug>" --kind design --date <YYYY-MM-DD>
 ```
 
 Fills the three-round skeleton. Fill in each section, then:
 
 ```bash
-myco winnow --proposal docs/primordia/<slug>_craft_<date>.md
+myco winnow --proposal .docs/primordia/<slug>_craft_<date>.md
 ```
 
 `winnow` gates on craft-protocol shape (all five rounds present,
 not still template boilerplate, frontmatter fields valid). Landed
-crafts typically carry `status: APPROVED` in their frontmatter.
+crafts typically carry `status: APPROVED` or `status: LANDED` in
+their frontmatter, and migrate from `.docs/primordia/` to
+`.docs/primordia/_landed/<era>/` once their minor cycle closes.
 
 ## v0.5.10 note — hotfix, no craft
 

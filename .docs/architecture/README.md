@@ -12,9 +12,9 @@
 > lives in `.docs/contract_changelog.md`):
 > - `.docs/primordia/_landed/v0_5_x/v0_5_8_discipline_enforcement_craft_2026-04-21.md` (14-dim expansion → 25-dim roster)
 > - `.docs/primordia/_landed/v0_5_x/v0_5_9_immune_zero_craft_2026-04-21.md` (CRITICAL-gate baseline at exit-zero)
-> - `.docs/primordia/v0_6_0_unified_evolution_and_thorough_refactor_craft_2026-04-28.md` (schema v2 + 7th boundary subsystem + 25→46 dim expansion)
-> - `.docs/primordia/v0_6_15_agent_first_default_for_cycle_autostart_loop_craft_2026-04-29.md` (Agent-First default + 5-critic L0-P1-P5 refactor + Winnow G7 path_allowlist)
-> - `.docs/primordia/v0_7_5_p0_to_p6_omnibus_craft_2026-05-10.md` (51-dim ratchet + persistence-graph audit + autolysis sweep)
+> - `.docs/primordia/_landed/v0_6_x/v0_6_0_unified_evolution_and_thorough_refactor_craft_2026-04-28.md` (schema v2 + 7th boundary subsystem + 25→46 dim expansion)
+> - `.docs/primordia/_landed/v0_6_x/v0_6_15_agent_first_default_for_cycle_autostart_loop_craft_2026-04-29.md` (Agent-First default + 5-critic L0-P1-P5 refactor + Winnow G7 path_allowlist)
+> - `.docs/primordia/_landed/v0_7_x/v0_7_5_p0_to_p6_omnibus_craft_2026-05-10.md` (51-dim ratchet + persistence-graph audit + autolysis sweep)
 > - `.docs/primordia/v0_8_0_to_v1_0_omnibus_craft_2026-05-11.md` (v0.8.x roadmap: multimedia adapters + streamable-HTTP/OAuth + persistence v3 + canon schema v3)
 
 This directory is the **authoritative architecture**. Every layer is

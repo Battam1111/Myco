@@ -2,7 +2,7 @@
 
 > **Status**: LANDED (2026-05-10, v0.8.0 MAJOR opening act).
 > **Layer**: L0-amending. Modifies `docs/architecture/L0_VISION.md` § "Appendix — Living bets". Per L0 § "Changes to this page" governance, requires (1) a craft doc, (2) explicit owner approval, (3) contract bump, (4) cascade review of every lower-layer doc. This document is (1); owner approval is recorded inline below; (3) and (4) are absorbed into the v0.8.0 MAJOR contract bump that this craft opens.
-> **Source**: ratifies Option B from `docs/primordia/v0_7_5_living_bets_audit_2026-05-10.md` (v0.7-MAJOR re-audit; Round 2 § "Decision shape").
+> **Source**: ratifies Option B from `docs/primordia/_landed/v0_7_x/v0_7_5_living_bets_audit_2026-05-10.md` (v0.7-MAJOR re-audit; Round 2 § "Decision shape").
 > **Supersedes**: the deleted `v0_7_10_living_bets_ratification_2026-05-10.md` (which had pre-emptively chosen Option A while owner ratification was pending).
 > **Owner approval**: explicit, 2026-05-10, "选择 B，那么拜托了！" — recorded as Round 2 conclusion below.
 
@@ -139,7 +139,7 @@ Files touched in this commit:
 
 - `docs/architecture/L0_VISION.md` — wager wording (Round 3 diff above)
 - `docs/primordia/v0_8_0_living_bets_amendment_2026-05-10.md` — this craft (NEW)
-- `docs/primordia/v0_7_5_living_bets_audit_2026-05-10.md` — status changed from DRAFT → "**RATIFIED via Option B at v0.8.0**"
+- `docs/primordia/_landed/v0_7_x/v0_7_5_living_bets_audit_2026-05-10.md` — status changed from DRAFT → "**RATIFIED via Option B at v0.8.0**"
 
 Files NOT touched in this commit (deferred to v0.8.0 MAJOR main commit):
 

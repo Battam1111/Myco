@@ -210,11 +210,11 @@ mechanical lint: a future autolysis sweep is **continuous** (every
 of failure the substrate catches before a human notices.
 
 Cross-references: governing craft
-``docs/primordia/v0_7_2_eternal_pruning_ratchets_craft_2026-04-30.md``;
+``docs/primordia/_landed/v0_7_x/v0_7_2_eternal_pruning_ratchets_craft_2026-04-30.md``;
 v0.7.1 incident record
-``docs/primordia/v0_7_1_shim_revival_craft_2026-04-30.md``; v0.7.0
+``docs/primordia/_landed/v0_7_x/v0_7_1_shim_revival_craft_2026-04-30.md``; v0.7.0
 audit-substituted fanout pattern
-``docs/primordia/v0_7_0_major_autolysis_craft_2026-04-30.md``.
+``docs/primordia/_landed/v0_7_x/v0_7_0_major_autolysis_craft_2026-04-30.md``.
 
 ## Boundary
 
