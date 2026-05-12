@@ -99,7 +99,7 @@ def main(argv: list[str] | None = None) -> int:
         "--out",
         type=Path,
         default=None,
-        help="Destination directory (default: <repo-root>/dist).",
+        help="Destination directory (default: <repo-root>/.dist/).",
     )
     p.add_argument(
         "--version",
@@ -126,7 +126,8 @@ def main(argv: list[str] | None = None) -> int:
     # `.claude/<dir>/X.md` (project) and `<repo>/<dir>/X.md` (bundle)
     # MUST contain identical bytes. See scripts/sync_plugin_mirrors.py
     # docstring + ``L2_DOCTRINE/boundary.md`` § "Legacy import shims".
-    sync_script = repo_root / "scripts" / "sync_plugin_mirrors.py"
+    # v0.8.4 root-cleanup (2026-05-12): scripts/ relocated to .scripts/.
+    sync_script = repo_root / ".scripts" / "sync_plugin_mirrors.py"
     if sync_script.is_file():
         rc = subprocess.call(
             [sys.executable, str(sync_script)],
