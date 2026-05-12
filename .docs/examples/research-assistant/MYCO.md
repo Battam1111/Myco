@@ -49,7 +49,7 @@ python -m myco senesce
 `.myco/plugins/dimensions/dec1_decision_authors.py` is an
 example of how per-substrate lint rules work. DEC1 flags any
 `decision`-tagged integrated note that lacks an `authors`
-frontmatter field. See [the L2 extensibility doc](https://github.com/Battam1111/Myco/blob/main/docs/architecture/L2_DOCTRINE/extensibility.md)
+frontmatter field. See [the L2 extensibility doc](https://github.com/Battam1111/Myco/blob/main/.docs/architecture/L2_DOCTRINE/extensibility.md)
 for the full plugin model.
 
 List loaded local plugins with `python -m myco graft --list`.

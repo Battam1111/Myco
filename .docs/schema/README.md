@@ -17,7 +17,7 @@ Most IDEs that understand JSON-Schema can validate YAML against it.
 ```json
 {
   "yaml.schemas": {
-    "https://raw.githubusercontent.com/Battam1111/Myco/main/docs/schema/canon.schema.json": [
+    "https://raw.githubusercontent.com/Battam1111/Myco/main/.docs/schema/canon.schema.json": [
       "_canon.yaml"
     ]
   }
@@ -27,7 +27,7 @@ Most IDEs that understand JSON-Schema can validate YAML against it.
 **JetBrains** (Settings → Languages & Frameworks → Schemas and DSLs → JSON Schema Mappings):
 
 - File or glob: `_canon.yaml`
-- Schema URL: `https://raw.githubusercontent.com/Battam1111/Myco/main/docs/schema/canon.schema.json`
+- Schema URL: `https://raw.githubusercontent.com/Battam1111/Myco/main/.docs/schema/canon.schema.json`
 
 **Neovim** (via `yaml-language-server` / `nvim-lspconfig`):
 
@@ -36,7 +36,7 @@ require('lspconfig').yamlls.setup {
   settings = {
     yaml = {
       schemas = {
-        ['https://raw.githubusercontent.com/Battam1111/Myco/main/docs/schema/canon.schema.json'] = '_canon.yaml',
+        ['https://raw.githubusercontent.com/Battam1111/Myco/main/.docs/schema/canon.schema.json'] = '_canon.yaml',
       },
     },
   },

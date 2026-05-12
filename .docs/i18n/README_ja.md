@@ -1,6 +1,6 @@
 <p align="center">
   <a href="https://github.com/Battam1111/Myco">
-    <img src="https://raw.githubusercontent.com/Battam1111/Myco/main/docs/assets/logo_light_512.png" width="160" alt="Myco">
+    <img src="https://raw.githubusercontent.com/Battam1111/Myco/main/.docs/assets/logo_light_512.png" width="160" alt="Myco">
   </a>
 </p>
 
@@ -80,7 +80,7 @@ Myco はあなたの AI エージェントの生きた認知基層です。
 
 ## kernel 自体が substrate
 
-Myco のソースツリーそのものが substrate です。ルートに `_canon.yaml`。エージェント入口ページとしての `MYCO.md`。`docs/primordia/` には、すべての contract バンプの根拠となる 3 ラウンド craft 文書。`src/myco/` の Python コードは、その生態系の最も内側の環です。誰かが書いた読み取り専用の成果物ではありません。
+Myco のソースツリーそのものが substrate です。canon は `.myco/canon.yaml` に。エージェント入口ページとしての `.myco/MYCO.md`。`.docs/primordia/` には、すべての contract バンプの根拠となる 3 ラウンド craft 文書。`src/myco/` の Python コードは、その生態系の最も内側の環です。誰かが書いた読み取り専用の成果物ではありません。
 
 だから通常のインストールはソースを clone して `pip install -e` を走らせます。Myco を使うエージェントは、Myco を保守するエージェントと同じ存在です。新しい lint 次元が必要なら、自分で `myco ramify` で骨組みを作り、`myco fruit` で提案を書き、`myco winnow` で形を篩い、`myco molt` で出荷します。fork は不要。PR を待つ必要もありません。長命の feature branch も不要です。**永恒進化。**
 
@@ -144,6 +144,6 @@ host 側の設定はゼロ。R1 から R7 は MCP サーバー自身に組み込
 
 [`L0_VISION.md`](../architecture/L0_VISION.md) · [`L1_CONTRACT/protocol.md`](../architecture/L1_CONTRACT/protocol.md) · [`L2_DOCTRINE/boundary.md`](../architecture/L2_DOCTRINE/boundary.md) · [`INSTALL.md`](../INSTALL.md) · [`CONTRIBUTING.md`](../../.github/CONTRIBUTING.md) · [Issues](https://github.com/Battam1111/Myco/issues)
 
-アーキテクチャに関わる変更は、[`docs/primordia/`](../primordia/README.md) 配下に日付入りの craft 文書として落ちます。リリースは毎回、3 ラウンドの討論を経て `molt`、そして自動化ワークフローが PyPI、MCP Registry、GitHub release へ扇状展開します。
+アーキテクチャに関わる変更は、[`.docs/primordia/`](../primordia/README.md) 配下に日付入りの craft 文書として落ちます。リリースは毎回、3 ラウンドの討論を経て `molt`、そして自動化ワークフローが PyPI、MCP Registry、GitHub release へ扇状展開します。
 
 MIT · [`LICENSE`](../../LICENSE) · [PyPI](https://pypi.org/project/myco/) · [Releases](https://github.com/Battam1111/Myco/releases)

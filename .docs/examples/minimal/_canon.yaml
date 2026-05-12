@@ -29,7 +29,7 @@ system:
       - "notes/**"
       - "docs/**"
   hard_contract:
-    rules_ref: "https://github.com/Battam1111/Myco/blob/main/docs/architecture/L1_CONTRACT/protocol.md"
+    rules_ref: "https://github.com/Battam1111/Myco/blob/main/.docs/architecture/L1_CONTRACT/protocol.md"
     rule_count: 7
 
 versioning:
@@ -54,19 +54,19 @@ lint:
 
 subsystems:
   germination:
-    doc: "https://github.com/Battam1111/Myco/blob/main/docs/architecture/L2_DOCTRINE/genesis.md"
+    doc: "https://github.com/Battam1111/Myco/blob/main/.docs/architecture/L2_DOCTRINE/genesis.md"
   ingestion:
-    doc: "https://github.com/Battam1111/Myco/blob/main/docs/architecture/L2_DOCTRINE/ingestion.md"
+    doc: "https://github.com/Battam1111/Myco/blob/main/.docs/architecture/L2_DOCTRINE/ingestion.md"
   digestion:
-    doc: "https://github.com/Battam1111/Myco/blob/main/docs/architecture/L2_DOCTRINE/digestion.md"
+    doc: "https://github.com/Battam1111/Myco/blob/main/.docs/architecture/L2_DOCTRINE/digestion.md"
   circulation:
-    doc: "https://github.com/Battam1111/Myco/blob/main/docs/architecture/L2_DOCTRINE/circulation.md"
+    doc: "https://github.com/Battam1111/Myco/blob/main/.docs/architecture/L2_DOCTRINE/circulation.md"
   homeostasis:
-    doc: "https://github.com/Battam1111/Myco/blob/main/docs/architecture/L2_DOCTRINE/homeostasis.md"
+    doc: "https://github.com/Battam1111/Myco/blob/main/.docs/architecture/L2_DOCTRINE/homeostasis.md"
   cycle:
-    doc: "https://github.com/Battam1111/Myco/blob/main/docs/architecture/L2_DOCTRINE/cycle.md"
+    doc: "https://github.com/Battam1111/Myco/blob/main/.docs/architecture/L2_DOCTRINE/cycle.md"
   boundary:
-    doc: "https://github.com/Battam1111/Myco/blob/main/docs/architecture/L2_DOCTRINE/boundary.md"
+    doc: "https://github.com/Battam1111/Myco/blob/main/.docs/architecture/L2_DOCTRINE/boundary.md"
 
 commands:
   manifest_ref: "https://github.com/Battam1111/Myco/blob/main/src/myco/boundary/surface/manifest.yaml"

@@ -43,7 +43,7 @@ dependencies = [
 [project.urls]
 Homepage = "https://github.com/Battam1111/Myco"
 Repository = "https://github.com/Battam1111/Myco"
-Documentation = "https://github.com/Battam1111/Myco/tree/main/docs"
+Documentation = "https://github.com/Battam1111/Myco/tree/main/.docs"
 Changelog = "https://github.com/Battam1111/Myco/blob/main/.docs/contract_changelog.md"
 "Bug Tracker" = "https://github.com/Battam1111/Myco/issues"
 
