@@ -6,14 +6,12 @@ from pathlib import Path
 
 import pytest
 
-from myco.circulation.propagate import propagate, run
-from myco.core.context import MycoContext
-from myco.core.errors import ContractError, UsageError
-from myco.digestion.assimilate import reflect
-from myco.digestion.pipeline import parse_note
-from myco.digestion.sporulate import distill_proposal
+from myco.circulation.traverse_propagate_cluster import propagate
+from myco.circulation.traverse_propagate_cluster import propagate_run as run
+from myco.core.identity_cluster import ContractError, MycoContext, UsageError
+from myco.digestion.cluster import distill_proposal, parse_note, reflect
 from myco.germination import bootstrap
-from myco.ingestion.eat import append_note
+from myco.ingestion.capture_cluster import append_note
 
 
 def _mk_ctx(root: Path) -> MycoContext:

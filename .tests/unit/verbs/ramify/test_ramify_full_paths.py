@@ -6,8 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from myco.core.context import MycoContext
-from myco.core.errors import UsageError
+from myco.core.identity_cluster import MycoContext, UsageError
 from myco.cycle.ramify import _slug, run
 
 

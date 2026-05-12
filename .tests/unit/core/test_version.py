@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from myco.core.version import ContractVersion, PackageVersion
+from myco.core.identity_cluster import ContractVersion, PackageVersion
 
 
 def test_package_parse_final() -> None:

@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from myco.circulation.graph import Edge, Graph
-from myco.circulation.traverse import (
+from myco.circulation.traverse_propagate_cluster import (
     _count_src_nodes,
     _dangling,
     _edge_in_scope,
@@ -15,10 +15,11 @@ from myco.circulation.traverse import (
     _orphans,
     _proposals,
     perfuse,
-    run,
 )
-from myco.core.context import MycoContext
-from myco.core.errors import UsageError
+from myco.circulation.traverse_propagate_cluster import (
+    traverse_run as run,
+)
+from myco.core.identity_cluster import MycoContext, UsageError
 
 # ---------- _in_scope ----------
 

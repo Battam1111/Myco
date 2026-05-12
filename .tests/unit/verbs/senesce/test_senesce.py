@@ -26,10 +26,9 @@ from pathlib import Path
 
 from myco.boundary.surface.manifest import dispatch, load_manifest
 from myco.boundary.surface.mcp import build_tool_spec
-from myco.core.context import MycoContext
-from myco.cycle.senesce import _QUICK_SKIP_REASON
-from myco.cycle.senesce import run as senesce_run
-from myco.ingestion.eat import append_note
+from myco.core.identity_cluster import MycoContext
+from myco.cycle.signal_cluster import _QUICK_SKIP_REASON, senesce_run
+from myco.ingestion.capture_cluster import append_note
 
 
 def _mk_ctx(root: Path) -> MycoContext:
@@ -177,7 +176,7 @@ def test_alias_session_end_no_longer_resolves() -> None:
     """
     import pytest as _pytest
 
-    from myco.core.errors import UsageError
+    from myco.core.identity_cluster import UsageError
 
     m = load_manifest()
     with _pytest.raises(UsageError):
@@ -209,7 +208,7 @@ def test_dispatch_via_session_end_alias_now_raises(genesis_substrate: Path) -> N
     """v0.6.0 §A2: session-end alias removed — dispatch raises UsageError."""
     import pytest as _pytest
 
-    from myco.core.errors import UsageError
+    from myco.core.identity_cluster import UsageError
 
     ctx = _mk_ctx(genesis_substrate)
     with _pytest.raises(UsageError):

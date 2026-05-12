@@ -46,8 +46,7 @@ import json
 from collections.abc import Sequence
 from pathlib import Path
 
-from myco.core.io_atomic import DEFAULT_MAX_READ_BYTES
-from myco.core.skip_dirs import should_skip_dir
+from myco.core.io_cluster import DEFAULT_MAX_READ_BYTES, should_skip_dir
 
 from .protocol import Adapter, IngestResult
 
@@ -420,7 +419,7 @@ class CodeRepoAdapter(Adapter):
         try:
             import pathspec
 
-            from myco.core.io_atomic import bounded_read_text
+            from myco.core.io_cluster import bounded_read_text
 
             return pathspec.PathSpec.from_lines(
                 "gitwildmatch", bounded_read_text(gi).splitlines()

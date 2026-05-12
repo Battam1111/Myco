@@ -186,8 +186,8 @@ def test_find_adapter_returns_none_for_binary(tmp_path: Path) -> None:
 
 
 def test_eat_path_produces_notes(genesis_substrate: Path) -> None:
-    from myco.core.context import MycoContext
-    from myco.ingestion.eat import run
+    from myco.core.identity_cluster import MycoContext
+    from myco.ingestion.capture_cluster import eat_run as run
 
     ctx = MycoContext.for_testing(root=genesis_substrate)
     fixture = genesis_substrate / "ext"
@@ -208,8 +208,8 @@ def test_eat_path_produces_notes(genesis_substrate: Path) -> None:
 
 def test_eat_content_still_works(genesis_substrate: Path) -> None:
     """Backward compat: --content without --path/--url still writes one note."""
-    from myco.core.context import MycoContext
-    from myco.ingestion.eat import run
+    from myco.core.identity_cluster import MycoContext
+    from myco.ingestion.capture_cluster import eat_run as run
 
     ctx = MycoContext.for_testing(root=genesis_substrate)
     result = run({"content": "hello world"}, ctx=ctx)

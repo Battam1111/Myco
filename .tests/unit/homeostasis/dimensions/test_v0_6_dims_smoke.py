@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from myco.core.context import MycoContext
+from myco.core.identity_cluster import MycoContext
 from myco.homeostasis.dimensions.mechanical.cl_cluster import (
     CL1SamplingPolicyGate,
     CL2OAuthTokenResidency,
@@ -208,7 +208,7 @@ def test_mb6_old_draft_emits(genesis_substrate: Path):
 def test_mb6_fix_returns_advisory(ctx: MycoContext):
     """Fix at v0.6.0 is informational only."""
     dim = MB6StaleDraftOrDistilled()
-    from myco.homeostasis.finding import Finding
+    from myco.homeostasis.primitives_cluster import Finding
 
     out = dim.fix(
         ctx,

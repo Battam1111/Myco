@@ -6,15 +6,14 @@ from pathlib import Path
 
 import pytest
 
-from myco.core.context import MycoContext
-from myco.core.errors import ContractError, UsageError
-from myco.digestion.pipeline import (
+from myco.core.identity_cluster import ContractError, MycoContext, UsageError
+from myco.digestion.cluster import (
     Note,
     parse_note,
     promote_to_integrated,
     render_note,
 )
-from myco.ingestion.eat import append_note
+from myco.ingestion.capture_cluster import append_note
 
 
 def _mk_ctx(root: Path) -> MycoContext:

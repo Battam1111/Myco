@@ -19,9 +19,8 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
-from myco.core.context import Result
-from myco.core.errors import MycoError
-from myco.core.io import ensure_utf8_stdio
+from myco.core.identity_cluster import MycoError, Result
+from myco.core.io_cluster import ensure_utf8_stdio
 
 from .manifest import (
     ArgSpec,

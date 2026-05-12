@@ -10,15 +10,14 @@ from __future__ import annotations
 import textwrap
 from pathlib import Path
 
-from myco.core.context import MycoContext
-from myco.core.severity import Severity
+from myco.core.identity_cluster import MycoContext, Severity
 from myco.homeostasis.dimensions.mechanical.m_cluster import (
     M1CanonIdentityFields,
     M2EntryPointExists,
     M3WriteSurfaceDeclared,
     _slugify,
 )
-from myco.homeostasis.finding import Category, Finding
+from myco.homeostasis.primitives_cluster import Category, Finding
 
 # =========================================================================
 # test_m1_canon_identity_fields — see git history for original per-dim file
@@ -332,7 +331,7 @@ def test_m2_fix_refuses_outside_write_surface(tmp_path: Path) -> None:
     ``fix()``.
     """
     from myco.homeostasis.kernel import run_immune
-    from myco.homeostasis.registry import DimensionRegistry
+    from myco.homeostasis.primitives_cluster import DimensionRegistry
 
     canon = textwrap.dedent(
         """\

@@ -32,7 +32,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Annotated, Any
 
-from myco.core.errors import SubstrateNotFound
+from myco.core.identity_cluster import SubstrateNotFound
 
 from .manifest import CommandSpec, Manifest, dispatch, load_manifest
 
@@ -44,7 +44,7 @@ from .manifest import CommandSpec, Manifest, dispatch, load_manifest
 # re-exported here purely for backward compatibility — the unit suite
 # imports them from ``surface.mcp`` directly. Tagged ``F401`` so ruff
 # doesn't strip what tests rely on.
-from .mcp_workspace import (
+from .mcp_helpers_cluster import (
     _auto_germ_advice_response,
     _detect_workspace_root,
     _has_substrate_at_or_above,  # noqa: F401 — re-export for tests
@@ -195,7 +195,7 @@ def _load_canon(project_dir: Path | None = None) -> dict[str, Any]:
     """
     if yaml is None:
         return {}
-    from myco.core.paths import find_substrate_canon, has_substrate
+    from myco.core.io_cluster import find_substrate_canon, has_substrate
 
     root = project_dir or Path.cwd()
     for candidate in (root, *root.parents):
@@ -246,7 +246,7 @@ def _compute_substrate_pulse(
     Myco got its answer. Harmless when ``project_dir_source`` is
     ``None`` — the fields stay absent rather than lying.
     """
-    from myco.core.trust import safe_frontmatter_field
+    from myco.core.trust_cluster import safe_frontmatter_field
 
     canon = _load_canon(project_dir)
     identity = canon.get("identity", {}) if isinstance(canon, dict) else {}

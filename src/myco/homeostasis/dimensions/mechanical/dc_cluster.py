@@ -19,12 +19,9 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import Any, ClassVar
 
-from myco.core.context import MycoContext
-from myco.core.io_atomic import atomic_utf8_write
-from myco.core.severity import Severity
-from myco.core.skip_dirs import should_skip_dir
-from myco.homeostasis.dimension import Dimension
-from myco.homeostasis.finding import Category, Finding
+from myco.core.identity_cluster import MycoContext, Severity
+from myco.core.io_cluster import atomic_utf8_write, should_skip_dir
+from myco.homeostasis.primitives_cluster import Category, Dimension, Finding
 
 __all__ = [
     "DC1ModuleDocstring",

@@ -32,7 +32,7 @@ import sys
 from collections.abc import Sequence
 from pathlib import Path
 
-from myco.core.io import ensure_utf8_stdio
+from myco.core.io_cluster import ensure_utf8_stdio
 
 from .clients import CLIENTS, MycoInstallError, detect_installed_hosts, dispatch
 from .cowork_plugin import (
@@ -42,8 +42,7 @@ from .cowork_plugin import (
     discover_rpm_dirs,
     prepare_plugin_for_upload,
 )
-from .fresh import DEFAULT_REPO, run_fresh
-from .plugin_bundle import PluginBundleError
+from .install_helpers_cluster import DEFAULT_REPO, PluginBundleError, run_fresh
 
 __all__ = ["main", "CLIENTS", "MycoInstallError", "dispatch"]
 

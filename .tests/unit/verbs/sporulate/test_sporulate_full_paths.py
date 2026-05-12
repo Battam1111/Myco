@@ -6,13 +6,14 @@ from pathlib import Path
 
 import pytest
 
-from myco.core.context import MycoContext
-from myco.core.errors import ContractError, UsageError
-from myco.digestion.sporulate import (
+from myco.core.identity_cluster import ContractError, MycoContext, UsageError
+from myco.digestion.cluster import (
     _integrated_notes,
     _summary_line,
     distill_proposal,
-    run,
+)
+from myco.digestion.cluster import (
+    sporulate_run as run,
 )
 
 

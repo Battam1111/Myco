@@ -10,8 +10,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from myco.core.context import MycoContext
-from myco.cycle.brief import run as brief_run
+from myco.core.identity_cluster import MycoContext
+from myco.cycle.signal_cluster import brief_run
 
 
 def _ctx(root: Path) -> MycoContext:

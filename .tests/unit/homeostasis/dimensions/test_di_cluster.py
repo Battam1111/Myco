@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from myco.core.context import MycoContext
+from myco.core.identity_cluster import MycoContext
 from myco.homeostasis.dimensions.mechanical.di_cluster import (
     DI1DisciplineHooksPresent,
 )

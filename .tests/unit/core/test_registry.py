@@ -26,7 +26,7 @@ def _enable_registry_writes(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_register_and_list_round_trip(tmp_path: Path) -> None:
-    from myco.core.registry import list_substrates, register_substrate
+    from myco.core.substrate_cluster import list_substrates, register_substrate
 
     sub = tmp_path / "alpha-substrate"
     sub.mkdir()
@@ -42,14 +42,14 @@ def test_register_and_list_round_trip(tmp_path: Path) -> None:
 
 
 def test_list_substrates_empty_when_file_missing(tmp_path: Path) -> None:
-    from myco.core.registry import list_substrates
+    from myco.core.substrate_cluster import list_substrates
 
     assert list_substrates(home=tmp_path) == []
 
 
 def test_register_multiple_then_list_sorted_desc(tmp_path: Path) -> None:
     """Most-recently-seen entries come first."""
-    from myco.core.registry import list_substrates, register_substrate
+    from myco.core.substrate_cluster import list_substrates, register_substrate
 
     sub_a = tmp_path / "a"
     sub_b = tmp_path / "b"
@@ -76,7 +76,7 @@ def test_register_multiple_then_list_sorted_desc(tmp_path: Path) -> None:
 
 
 def test_reregister_updates_last_seen_but_keeps_registered_at(tmp_path: Path) -> None:
-    from myco.core.registry import list_substrates, register_substrate
+    from myco.core.substrate_cluster import list_substrates, register_substrate
 
     sub = tmp_path / "sub"
     sub.mkdir()
@@ -92,7 +92,7 @@ def test_reregister_updates_last_seen_but_keeps_registered_at(tmp_path: Path) ->
 def test_stale_entry_still_returned_but_exists_false(tmp_path: Path) -> None:
     """An entry whose path has been deleted survives in the registry
     but ``exists`` is False so callers can filter."""
-    from myco.core.registry import list_substrates, register_substrate
+    from myco.core.substrate_cluster import list_substrates, register_substrate
 
     sub = tmp_path / "sub"
     sub.mkdir()
@@ -109,7 +109,7 @@ def test_stale_entry_still_returned_but_exists_false(tmp_path: Path) -> None:
 
 def test_malformed_registry_yields_empty_list(tmp_path: Path) -> None:
     """Corrupted YAML must not break callers — return empty list."""
-    from myco.core.registry import list_substrates, registry_path
+    from myco.core.substrate_cluster import list_substrates, registry_path
 
     (tmp_path / ".myco").mkdir()
     registry_path(home=tmp_path).write_text(
@@ -119,7 +119,7 @@ def test_malformed_registry_yields_empty_list(tmp_path: Path) -> None:
 
 
 def test_touch_substrate_is_same_as_register_for_new_entries(tmp_path: Path) -> None:
-    from myco.core.registry import list_substrates, touch_substrate
+    from myco.core.substrate_cluster import list_substrates, touch_substrate
 
     sub = tmp_path / "sub"
     sub.mkdir()
@@ -132,7 +132,7 @@ def test_touch_substrate_swallows_errors(tmp_path: Path) -> None:
     """touch_substrate is best-effort — a registry-write failure must
     never propagate to the surrounding operation.
     """
-    from myco.core.registry import touch_substrate
+    from myco.core.substrate_cluster import touch_substrate
 
     # Pass a path whose parent can't be created (a file).
     blocker = tmp_path / "blocker"

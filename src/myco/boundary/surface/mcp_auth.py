@@ -407,8 +407,8 @@ def load_canon_governance() -> dict[str, Any]:
 
     try:
         from myco.core.canon import load_canon
-        from myco.core.errors import SubstrateNotFound
-        from myco.core.substrate import find_substrate_root
+        from myco.core.identity_cluster import SubstrateNotFound
+        from myco.core.substrate_cluster import find_substrate_root
     except Exception:
         return {}
 
@@ -426,7 +426,7 @@ def load_canon_governance() -> dict[str, Any]:
         try:
             # v0.8.4 root-cleanup (2026-05-12): canon may live at
             # .myco/canon.yaml or _canon.yaml — resolve via helper.
-            from myco.core.paths import find_substrate_canon
+            from myco.core.io_cluster import find_substrate_canon
 
             canon = load_canon(find_substrate_canon(root))
         except Exception:

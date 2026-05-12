@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from myco.core.errors import CanonSchemaError, SubstrateNotFound
-from myco.core.substrate import Substrate, find_substrate_root
+from myco.core.identity_cluster import CanonSchemaError, SubstrateNotFound
+from myco.core.substrate_cluster import Substrate, find_substrate_root
 
 
 def test_find_walks_up_to_hit(seeded_substrate: Path) -> None:

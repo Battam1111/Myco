@@ -4,8 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from myco.core.context import MycoContext
-from myco.core.severity import Severity
+from myco.core.identity_cluster import MycoContext, Severity
 from myco.homeostasis.dimensions.mechanical.singletons_cluster import (
     CS1ContractVersionSync,
 )
@@ -31,7 +30,7 @@ def test_drift_fires_high(genesis_substrate: Path) -> None:
 
 def test_fix_already_synced_idempotent_noop(genesis_substrate: Path) -> None:
     """fix() on already-synced canon → applied=False (idempotent re-run)."""
-    from myco.homeostasis.finding import Category, Finding
+    from myco.homeostasis.primitives_cluster import Category, Finding
 
     ctx = MycoContext.for_testing(root=genesis_substrate)
     fake_finding = Finding(
@@ -48,7 +47,7 @@ def test_fix_already_synced_idempotent_noop(genesis_substrate: Path) -> None:
 
 def test_fix_drift_writes_canon(genesis_substrate: Path) -> None:
     """fix() on drifted canon → applied=True with version in detail."""
-    from myco.homeostasis.finding import Category, Finding
+    from myco.homeostasis.primitives_cluster import Category, Finding
 
     ctx = MycoContext.for_testing(root=genesis_substrate)
     object.__setattr__(ctx.substrate.canon, "contract_version", "v0.9.9")

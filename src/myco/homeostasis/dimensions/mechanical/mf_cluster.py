@@ -21,10 +21,8 @@ from typing import ClassVar
 import yaml
 
 from myco.boundary.surface.manifest import load_manifest
-from myco.core.context import MycoContext
-from myco.core.severity import Severity
-from myco.homeostasis.dimension import Dimension
-from myco.homeostasis.finding import Category, Finding
+from myco.core.identity_cluster import MycoContext, Severity
+from myco.homeostasis.primitives_cluster import Category, Dimension, Finding
 
 __all__ = [
     "MF1DeclaredSubsystemsExist",
@@ -127,7 +125,7 @@ class MF2SubstrateLocalPluginHealth(Dimension):
         overlay_path = paths.manifest_overlay
         if overlay_path.is_file():
             try:
-                from myco.core.io_atomic import bounded_read_text
+                from myco.core.io_cluster import bounded_read_text
 
                 raw = yaml.safe_load(bounded_read_text(overlay_path)) or {}
             except yaml.YAMLError as exc:

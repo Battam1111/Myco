@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from myco.core.context import MycoContext
-from myco.cycle.fruit import run as fruit_run
+from myco.core.identity_cluster import MycoContext
+from myco.cycle.signal_cluster import fruit_run
 from myco.cycle.winnow import run as winnow_run
 
 

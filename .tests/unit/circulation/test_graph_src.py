@@ -21,7 +21,7 @@ from pathlib import Path
 
 from myco.circulation.graph import build_graph
 from myco.circulation.graph_src import walk_src_graph
-from myco.core.context import MycoContext
+from myco.core.identity_cluster import MycoContext
 
 
 def _seed_src(root: Path, relpath: str, body: str) -> Path:

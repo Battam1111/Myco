@@ -56,7 +56,7 @@ import warnings
 from collections.abc import Iterator
 from importlib.metadata import entry_points
 
-from ..dimension import Dimension
+from ..primitives_cluster import Dimension
 
 # ---- Mechanical (31) ------------------------------------------------
 from .mechanical.cg_cluster import (

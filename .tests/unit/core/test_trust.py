@@ -8,7 +8,7 @@ controlled string passes through before entering agent context:
 
 from __future__ import annotations
 
-from myco.core.trust import (
+from myco.core.trust_cluster import (
     flatten_newlines,
     markdown_inline_safe,
     safe_frontmatter_field,

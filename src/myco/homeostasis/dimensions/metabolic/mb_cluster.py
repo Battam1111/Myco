@@ -20,10 +20,8 @@ from collections.abc import Iterable
 from datetime import datetime, timezone
 from typing import Any, ClassVar
 
-from myco.core.context import MycoContext
-from myco.core.severity import Severity
-from myco.homeostasis.dimension import Dimension
-from myco.homeostasis.finding import Category, Finding
+from myco.core.identity_cluster import MycoContext, Severity
+from myco.homeostasis.primitives_cluster import Category, Dimension, Finding
 
 __all__ = [
     "MB1RawNotesBacklog",
@@ -99,7 +97,7 @@ class MB1RawNotesBacklog(Dimension):
         # ``myco.homeostasis.dimensions`` importable before the
         # digestion subsystem has loaded (and to keep the dimension
         # module cheap for ``myco immune --list``).
-        from myco.digestion.assimilate import reflect
+        from myco.digestion.cluster import reflect
 
         summary = reflect(ctx=ctx)
         # reflect() returns a ``dict[str, object]`` shape; narrow the
@@ -225,7 +223,7 @@ class MB3RawNotesHighWatermark(Dimension):
     def fix(self, ctx: MycoContext, finding: Finding) -> dict[str, Any]:
         """Bulk-promote raw notes via the shared ``reflect`` helper."""
         _ = finding
-        from myco.digestion.assimilate import reflect
+        from myco.digestion.cluster import reflect
 
         summary = reflect(ctx=ctx)
         _promoted = summary.get("promoted", 0)

@@ -30,7 +30,7 @@ from pathlib import Path
 import pytest
 
 from myco.circulation.graph import Graph, build_graph
-from myco.core.context import MycoContext
+from myco.core.identity_cluster import MycoContext
 
 from .generate_substrate import (
     DEFAULT_SEED,

@@ -38,7 +38,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from myco.core.io_atomic import atomic_utf8_write
+from myco.core.io_cluster import atomic_utf8_write
 
 # tomllib is stdlib on Python 3.11+. Myco's pyproject floor is 3.10,
 # so on 3.10 we fall back to tomli (if installed) and finally to a

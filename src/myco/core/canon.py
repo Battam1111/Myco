@@ -37,7 +37,7 @@ from typing import Any
 
 import yaml
 
-from .errors import CanonSchemaError
+from .identity_cluster import CanonSchemaError
 
 __all__ = [
     "Canon",
@@ -696,7 +696,7 @@ def load_canon(path: Path) -> Canon:
     # multi-GB canon can no longer OOM the kernel — the cap raises
     # ``MycoError`` with a clear message instead of Python materialising
     # the whole file.
-    from myco.core.io_atomic import bounded_read_text
+    from myco.core.io_cluster import bounded_read_text
 
     try:
         raw = yaml.safe_load(bounded_read_text(path))

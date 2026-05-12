@@ -12,8 +12,8 @@ from pathlib import Path
 
 import pytest
 
-from myco.core.context import MycoContext
-from myco.core.write_surface import (
+from myco.core.identity_cluster import MycoContext
+from myco.core.trust_cluster import (
     UNSAFE_WRITE_ENV,
     WriteSurfaceViolation,
     check_write_allowed,
@@ -174,7 +174,7 @@ class TestGuardedWrite:
 
 class TestWriteSurfaceViolationIsMycoError:
     def test_is_myco_error(self) -> None:
-        from myco.core.errors import MycoError
+        from myco.core.identity_cluster import MycoError
 
         assert issubclass(WriteSurfaceViolation, MycoError)
 

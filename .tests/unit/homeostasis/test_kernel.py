@@ -8,18 +8,20 @@ from pathlib import Path
 
 import pytest
 
-from myco.core.context import MycoContext
-from myco.core.errors import UsageError
-from myco.core.severity import Severity
-from myco.homeostasis.dimension import Dimension
-from myco.homeostasis.finding import Category, Finding
+from myco.core.identity_cluster import MycoContext, Severity, UsageError
 from myco.homeostasis.kernel import (
     run_cli,
     run_explain,
     run_immune,
     run_list,
 )
-from myco.homeostasis.registry import DimensionRegistry, default_registry
+from myco.homeostasis.primitives_cluster import (
+    Category,
+    Dimension,
+    DimensionRegistry,
+    Finding,
+    default_registry,
+)
 
 
 class _Fires(Dimension):

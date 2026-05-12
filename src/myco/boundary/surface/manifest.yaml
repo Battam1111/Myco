@@ -100,7 +100,7 @@ commands:
       (writes immediately).
 - name: hunger
   subsystem: ingestion
-  handler: myco.ingestion.hunger:run
+  handler: myco.ingestion.capture_cluster:hunger_run
   summary: Report substrate hunger and optionally patch entry-point.
   description: 'Compose the substrate''s hunger report: contract drift (canon
 
@@ -165,7 +165,7 @@ commands:
       still applies to the patched entry-point path.
 - name: eat
   subsystem: ingestion
-  handler: myco.ingestion.eat:run
+  handler: myco.ingestion.capture_cluster:eat_run
   summary: Capture a raw note from text, a file path, a directory, or a URL.
   description: 'Ingest raw material into the substrate: one of literal text
 
@@ -279,7 +279,7 @@ commands:
     - propagation
 - name: sense
   subsystem: ingestion
-  handler: myco.ingestion.sense:run
+  handler: myco.ingestion.curate_cluster:sense_run
   summary: Search the substrate by keyword.
   description: 'Perform a keyword substring search across the substrate''s
 
@@ -340,7 +340,7 @@ commands:
     - assimilate
 - name: forage
   subsystem: ingestion
-  handler: myco.ingestion.forage:run
+  handler: myco.ingestion.curate_cluster:forage_run
   summary: List ingestible files under a path.
   description: 'Enumerate every file under the given path that a Myco adapter
 
@@ -397,7 +397,7 @@ commands:
     - /tmp/inbox
 - name: excrete
   subsystem: ingestion
-  handler: myco.ingestion.excrete:run
+  handler: myco.ingestion.curate_cluster:excrete_run
   summary: Delete a raw note (typo / accidental ingest / duplicate), with an audit
     tombstone.
   description: 'Remove a single raw note from notes/raw/ when it should never
@@ -486,7 +486,7 @@ commands:
       confirm the right note is selected. Default false (moves immediately).
 - name: intake
   subsystem: ingestion
-  handler: myco.ingestion.intake:run_cli
+  handler: myco.ingestion.curate_cluster:intake_run_cli
   summary: 'Bulk-ingest a directory: forage candidates and eat each (v0.6.0).'
   description: 'Walk a directory, list every adapter-ingestible file via
 
@@ -576,7 +576,7 @@ commands:
       produce stub notes and continue.'
 - name: assimilate
   subsystem: digestion
-  handler: myco.digestion.assimilate:run
+  handler: myco.digestion.cluster:assimilate_run
   summary: Assimilate raw notes into integrated (bulk-promote).
   description: 'Promote notes from notes/raw/ to notes/integrated/ — in bulk
 
@@ -640,7 +640,7 @@ commands:
     - 20260424T091230Z_decision-pin-py312
 - name: digest
   subsystem: digestion
-  handler: myco.digestion.digest:run
+  handler: myco.digestion.cluster:digest_run
   summary: Promote a single raw note to integrated.
   description: 'Promote exactly one raw note to integrated — the single-note
 
@@ -698,7 +698,7 @@ commands:
       promotion. Default false (moves immediately).
 - name: sporulate
   subsystem: digestion
-  handler: myco.digestion.sporulate:run
+  handler: myco.digestion.cluster:sporulate_run
   summary: Bundle integrated notes into a proposal skeleton (Agent writes the synthesis
     prose separately).
   description: 'Produce a dispersible proposal scaffold by bundling integrated
@@ -767,7 +767,7 @@ commands:
     - notes/integrated/20260421T090000Z_glama-rescan.md
 - name: traverse
   subsystem: circulation
-  handler: myco.circulation.traverse:run
+  handler: myco.circulation.traverse_propagate_cluster:traverse_run
   summary: Walk the mycelial graph to report anastomotic health.
   description: 'Walk the substrate''s cross-reference graph and report health:
 
@@ -827,7 +827,7 @@ commands:
     - docs
 - name: propagate
   subsystem: circulation
-  handler: myco.circulation.propagate:run
+  handler: myco.circulation.traverse_propagate_cluster:propagate_run
   summary: Propagate integrated/distilled notes to a downstream substrate.
   description: 'Copy integrated and/or distilled notes from this substrate to
 
@@ -1004,7 +1004,7 @@ commands:
     - CG2
 - name: senesce
   subsystem: cycle
-  handler: myco.cycle.senesce:run
+  handler: myco.cycle.signal_cluster:senesce_run
   summary: 'Senesce the session: reflect (+ immune --fix in full mode) before compaction
     or exit.'
   description: 'Put the session into dormancy: run a reflect pass (which may
@@ -1060,7 +1060,7 @@ commands:
       work. Default false = full reflect + immune --fix pass (slower, typically 2-5s).
 - name: fruit
   subsystem: cycle
-  handler: myco.cycle.fruit:run
+  handler: myco.cycle.signal_cluster:fruit_run
   summary: Fruit a new three-round primordia doc under docs/primordia/.
   description: 'Scaffold a new 3-round craft proposal doc under
 
@@ -1146,7 +1146,7 @@ commands:
     - '2026-05-01'
 - name: molt
   subsystem: cycle
-  handler: myco.cycle.molt:run
+  handler: myco.cycle.canon_cluster:molt_run
   summary: 'Molt the contract version: bump _canon.yaml + append contract_changelog
     entry.'
   description: 'Ship a contract-version bump: update _canon.yaml''s
@@ -1403,7 +1403,7 @@ commands:
       schema changes. Does NOT implicitly revert git history.
 - name: graft
   subsystem: cycle
-  handler: myco.cycle.graft:run
+  handler: myco.cycle.canon_cluster:graft_run
   summary: Enumerate / validate / explain substrate-local plugins (hyphal anastomosis
     observer).
   description: 'Introspect the substrate''s plugin surface: list every loaded
@@ -1491,7 +1491,7 @@ commands:
       / validate / explain.'
 - name: brief
   subsystem: cycle
-  handler: myco.cycle.brief:run
+  handler: myco.cycle.signal_cluster:brief_run
   summary: Markdown rollup of substrate state for the one human reading moment (L0
     principle 1's single carved exception).
   description: 'Produce a human-facing markdown rollup of substrate state:

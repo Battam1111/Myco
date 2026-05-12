@@ -9,8 +9,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from myco.core.context import MycoContext
-from myco.core.severity import Severity
+from myco.core.identity_cluster import MycoContext, Severity
 from myco.homeostasis.dimensions.mechanical.pa_cluster import (
     PA1WriteSurfaceCoverage,
 )

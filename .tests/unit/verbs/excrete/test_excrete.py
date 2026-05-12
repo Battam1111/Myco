@@ -20,10 +20,10 @@ from pathlib import Path
 
 import pytest
 
-from myco.core.context import MycoContext
-from myco.core.errors import UsageError
-from myco.ingestion.eat import append_note
-from myco.ingestion.excrete import _annotate_frontmatter, run
+from myco.core.identity_cluster import MycoContext, UsageError
+from myco.ingestion.capture_cluster import append_note
+from myco.ingestion.curate_cluster import _annotate_frontmatter
+from myco.ingestion.curate_cluster import excrete_run as run
 
 
 def _ctx(root: Path) -> MycoContext:

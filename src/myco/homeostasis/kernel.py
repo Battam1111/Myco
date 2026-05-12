@@ -30,14 +30,16 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from myco.core.context import MycoContext, Result
-from myco.core.errors import UsageError
+from myco.core.identity_cluster import MycoContext, Result, UsageError
 
-from .dimension import Dimension
-from .exit_policy import parse_exit_policy
-from .finding import Finding
-from .registry import DimensionRegistry, default_registry
-from .skeleton import apply_skeleton_downgrade
+from .primitives_cluster import (
+    Dimension,
+    DimensionRegistry,
+    Finding,
+    apply_skeleton_downgrade,
+    default_registry,
+    parse_exit_policy,
+)
 
 __all__ = ["run_immune", "run_cli", "run_list", "run_explain"]
 

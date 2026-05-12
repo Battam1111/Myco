@@ -19,10 +19,8 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import ClassVar
 
-from myco.core.context import MycoContext
-from myco.core.severity import Severity
-from myco.homeostasis.dimension import Dimension
-from myco.homeostasis.finding import Category, Finding
+from myco.core.identity_cluster import MycoContext, Severity
+from myco.homeostasis.primitives_cluster import Category, Dimension, Finding
 
 __all__ = [
     "LB1LivingBetsOverdue",

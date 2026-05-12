@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from myco.core.skip_dirs import (
+from myco.core.io_cluster import (
     DEFAULT_SKIP_DIRS,
     TEST_DIRS,
     should_skip_dir,

@@ -40,12 +40,10 @@ from typing import Any, Literal
 
 import yaml
 
-from myco.core.context import MycoContext
-from myco.core.errors import MycoError
-from myco.core.io_atomic import atomic_utf8_write, bounded_read_text
-from myco.core.paths import SubstratePaths
-from myco.core.substrate import Substrate
-from myco.digestion.pipeline import parse_note
+from myco.core.identity_cluster import MycoContext, MycoError
+from myco.core.io_cluster import SubstratePaths, atomic_utf8_write, bounded_read_text
+from myco.core.substrate_cluster import Substrate
+from myco.digestion.cluster import parse_note
 
 from .graph_src import walk_src_graph
 
@@ -311,7 +309,7 @@ def _canon_fingerprint(substrate: Substrate) -> str:
         # Myco walker; previously this section imported a private
         # ``_SKIP_DIRS`` from ``graph_src`` (now removed). The local
         # import is deferred to avoid a top-level cycle.
-        from myco.core.skip_dirs import should_skip_dir
+        from myco.core.io_cluster import should_skip_dir
 
         stack: list[Path] = [src_dir]
         # v0.5.8 (Lens 13 P1-13-9): inode-visited guard + symlink skip

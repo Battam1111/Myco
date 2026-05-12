@@ -23,7 +23,7 @@ from myco.circulation.graph import (
     load_persisted_graph,
     persist_graph,
 )
-from myco.core.context import MycoContext
+from myco.core.identity_cluster import MycoContext
 
 
 def test_persist_and_load_roundtrip(seeded_substrate: Path) -> None:

@@ -46,14 +46,12 @@ from pathlib import Path
 
 import pytest
 
-from myco.circulation.propagate import propagate
+from myco.circulation.traverse_propagate_cluster import propagate
 from myco.core.canon import Canon, load_canon
-from myco.core.context import MycoContext
-from myco.core.errors import ContractError
-from myco.digestion.assimilate import reflect
-from myco.digestion.pipeline import parse_note
+from myco.core.identity_cluster import ContractError, MycoContext
+from myco.digestion.cluster import parse_note, reflect
 from myco.germination import bootstrap
-from myco.ingestion.eat import append_note
+from myco.ingestion.capture_cluster import append_note
 
 # v0.8.5 — under pytest-xdist with `--dist=loadgroup`, this file
 # and `test_propagate_to_fixture_peer.py` both write to the shared
@@ -309,7 +307,7 @@ def test_propagate_rejects_mixed_major_versions(
     # ``propagate`` (the function), which shadows the submodule for
     # attribute access. Patching ``load_canon`` on the submodule
     # swings the binding ``propagate()`` actually uses for canon reads.
-    submodule = sys.modules["myco.circulation.propagate"]
+    submodule = sys.modules["myco.circulation.traverse_propagate_cluster"]
     monkeypatch.setattr(submodule, "load_canon", fake_load_canon)
 
     with pytest.raises(ContractError, match="major mismatch"):

@@ -19,8 +19,8 @@ from pathlib import Path
 import pytest
 import yaml
 
-from myco.core.context import MycoContext
-from myco.cycle.senesce import _reap_vetoed_intents
+from myco.core.identity_cluster import MycoContext
+from myco.cycle.signal_cluster import _reap_vetoed_intents
 
 
 def _seed_v0_6_14_substrate(

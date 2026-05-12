@@ -6,9 +6,9 @@ from pathlib import Path
 
 import pytest
 
-from myco.core.context import MycoContext
-from myco.core.errors import UsageError
-from myco.cycle.graft import _collect_plugins, _explain, run
+from myco.core.identity_cluster import MycoContext, UsageError
+from myco.cycle.canon_cluster import _collect_plugins, _explain
+from myco.cycle.canon_cluster import graft_run as run
 
 
 def _ctx(root: Path) -> MycoContext:

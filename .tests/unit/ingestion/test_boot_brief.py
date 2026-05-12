@@ -6,9 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from myco.core.context import MycoContext
-from myco.core.errors import ContractError
-from myco.ingestion.boot_brief import (
+from myco.core.identity_cluster import ContractError, MycoContext
+from myco.ingestion.capture_cluster import (
     BEGIN_MARKER,
     END_MARKER,
     patch_entry_point,
