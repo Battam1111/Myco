@@ -128,7 +128,7 @@ Per L0 § "Changes to this page" requirement, every layer must be re-scanned for
 |---|---|---|
 | **L0** | `docs/architecture/L0_VISION.md` | Done in commit `783da78` — wager wording refined, two regimes added |
 | **L1** | `docs/architecture/L1_CONTRACT/protocol.md` (R1-R7) | None — R1-R7 don't cite the wager |
-| **L1** | `docs/architecture/L1_CONTRACT/canon_schema.md` | None directly; v3→v4 schema delta is documented in `docs/migration/v0_7_x_to_v0_8_0.md` (anamorph's deliverable) |
+| **L1** | `docs/architecture/L1_CONTRACT/canon_schema.md` | None directly; v3→v4 schema delta is documented in `docs/migration/HISTORY.md#migration-v07x-to-v080` (anamorph's deliverable) |
 | **L1** | `docs/architecture/L1_CONTRACT/versioning.md` | None |
 | **L2** | `docs/architecture/L2_DOCTRINE/*.md` × 8 | None of the 8 cite the wager directly |
 | **L2** | `docs/architecture/L2_DOCTRINE/release_discipline.md` (v0.7.10) | None (the new doctrine doesn't depend on wager wording) |

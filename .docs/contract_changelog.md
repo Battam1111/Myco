@@ -534,7 +534,7 @@ ratification recorded inline ("选择 B，那么拜托了！").
 `system.governance.last_living_bets_audit_at` (ISO 8601) and
 `system.governance.persistence_metrics: {session_count, host_count, peer_count}`.
 anamorph subagent's second production exercise. Migration guide:
-[`docs/migration/v0_7_x_to_v0_8_0.md`](migration/v0_7_x_to_v0_8_0.md).
+[`docs/migration/HISTORY.md#migration-v07x-to-v080`](migration/v0_7_x_to_v0_8_0.md).
 
 **Lint**: 51 → 52 dims. **LB2** Living-Bets-regime classifier
 (semantic/LOW). Fires on ephemeral substrates (peer_count == 0 AND

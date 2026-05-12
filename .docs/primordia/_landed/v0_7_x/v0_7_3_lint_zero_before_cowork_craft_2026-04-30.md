@@ -34,7 +34,7 @@ path_allowlist:
   # Doc archival follow-ups (SE1 README + peer-link cleanup)
   - "docs/primordia/README.md"
   - "docs/primordia/_landed/**"
-  - "docs/migration/README.md"
+  - "docs/migration/HISTORY.md"
   - "docs/_archive/**"
   - "docs/architecture/L1_CONTRACT/canon_schema.md"
   - "docs/architecture/L1_CONTRACT/versioning.md"
@@ -152,7 +152,7 @@ In addition, the author-direct work closed:
 - **Lint dims**: MF5 semantic correction (PENDING → MIRROR_DRIFT); SE5 heuristic strengthened (broader historical tokens + archive exclusion).
 - **Build pipeline**: `scripts/sync_plugin_mirrors.py` added; wired into `scripts/bump_version.py` (post-bump) + `scripts/build_plugin.py` (pre-build).
 - **Note hygiene**: 14 orphan integrated notes excreted with tombstones; `notes/integrated/` is now sparse.
-- **Doc surface**: `docs/primordia/README.md` + `docs/migration/README.md` link tables refreshed; some `_landed/` peer-craft links updated.
+- **Doc surface**: `docs/primordia/README.md` + `docs/migration/HISTORY.md` link tables refreshed; some `_landed/` peer-craft links updated.
 
 ## Round 3 — 决定 (decision)
 

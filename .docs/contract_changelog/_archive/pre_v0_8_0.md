@@ -74,7 +74,7 @@ Replaces `v0.7.4` at `_canon.yaml::contract_version`. Issued via the
 **Schema v2 → v3** (additive). New optional field
 `metrics.lint_dim_count: int | null`. Substrates at v2 transparently
 upgrade on next `load_canon` call. See
-[`docs/migration/v0_7_4_to_v0_7_5.md`](migration/v0_7_4_to_v0_7_5.md)
+[`docs/migration/HISTORY.md#migration-v074-to-v075`](migration/v0_7_4_to_v0_7_5.md)
 for operator notes (no operator action required).
 
 **Seven items shipped together** (per
@@ -1234,7 +1234,7 @@ may codify it as a `craft_protocol_version: 2` enhancement.
 
 ### Migration
 
-A `docs/migration/v0_5_24_to_v0_6_0.md` (deferred to v0.6.x ecosystem-thawed
+A `docs/migration/HISTORY.md#migration-v0524-to-v060` (deferred to v0.6.x ecosystem-thawed
 patch) details operator-visible deltas. Headline:
 
 - Substrates auto-upgrade canon schema v1→v2 on first hunger; no
