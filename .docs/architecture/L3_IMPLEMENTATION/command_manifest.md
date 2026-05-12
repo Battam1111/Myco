@@ -183,11 +183,13 @@ Full mode (no `--quick`) is unchanged and remains bound to
 | Cycle | `graft` |  | `myco.cycle.graft:run` |
 | Cycle | `brief` |  | `myco.cycle.brief:run` |
 
-The `cycle/` package (renamed from `meta/` at v0.5.3; shim package
-preserves `from myco.meta import session_end_run`) houses every
+The `cycle/` package (renamed from `meta/` at v0.5.3) houses every
 life-cycle composer: the germinate / fruit / molt / winnow / ramify
 / senesce / graft / brief group. Each governance verb is its own
-submodule.
+submodule. The legacy `from myco.meta import session_end_run`
+re-export was excreted at v0.8.6 along with the dangling alias in
+`cycle/__init__.py`; callers now import `myco.cycle.senesce.run`
+directly.
 
 ### Alias mechanism
 

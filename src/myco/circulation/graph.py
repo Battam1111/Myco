@@ -293,10 +293,11 @@ def _canon_fingerprint(substrate: Substrate) -> str:
     src_dir = substrate.root / "src"
     if src_dir.is_dir():
         entries: list[tuple[str, int]] = []
-        # Reuse the same skip-dir logic as the src walker so mtime
-        # snapshots of ``.venv/`` or ``__pycache__/`` can't whipsaw the
-        # fingerprint. Import locally to avoid a top-level cycle.
-        from .graph_src import _SKIP_DIRS
+        # v0.8.6 — share canonical skip-dir predicate with every other
+        # Myco walker; previously this section imported a private
+        # ``_SKIP_DIRS`` from ``graph_src`` (now removed). The local
+        # import is deferred to avoid a top-level cycle.
+        from myco.core.skip_dirs import should_skip_dir
 
         stack: list[Path] = [src_dir]
         # v0.5.8 (Lens 13 P1-13-9): inode-visited guard + symlink skip
@@ -313,7 +314,7 @@ def _canon_fingerprint(substrate: Substrate) -> str:
                 if child.is_symlink():
                     continue
                 if child.is_dir():
-                    if child.name in _SKIP_DIRS:
+                    if should_skip_dir(child.name, include_tests=False):
                         continue
                     try:
                         st = child.stat()

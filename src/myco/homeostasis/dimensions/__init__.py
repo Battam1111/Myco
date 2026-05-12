@@ -7,12 +7,16 @@ craft v0.6.0 §R2 (Round 4 owner amendment):
   CS1, FR1, PA1-6, CG1-2, DI1-2, SC1, AD1, CL1-3).
 - ``shipped/`` — 2 dims (SH1, SH2).
 - ``metabolic/`` — 6 dims (MB1-4, MB6, MB8).
-- ``semantic/`` — 10 dims (SE1-5, RL1-3, LB1, LB2).
+- ``semantic/`` — 7 dims (SE1-3, SE5, LB1, LB2, RL1).
 
 v0.8.5 retired MF3 (with `boundary.host_integration/` excretion) and
 MB7 (with `boundary.surface.mcp_resources` excretion — the dim read
 a metric file that the never-wired-in-build_server stub never wrote).
-Live roster: **50 dims**.
+v0.8.6 retired SE4 (white-list shipped permanently empty since v0.6.0),
+RL2 + RL3 (read `.myco/state/session_calls.jsonl` that no production
+code has ever written — dead-letter checkers since landing). All
+three emitted zero findings for the full v0.6.0…v0.8.5 window.
+Live roster: **47 dims**.
 
 Discovery is driven by
 ``importlib.metadata.entry_points(group="myco.dimensions")`` at v0.5+
@@ -85,16 +89,14 @@ from .metabolic.mb4_sporulated_reabsorbed import MB4SporulatedReabsorbed
 from .metabolic.mb6_stale_draft_or_distilled import MB6StaleDraftOrDistilled
 from .metabolic.mb8_shim_hit_counter import MB8ShimHitCounter
 
-# ---- Semantic (9) ---------------------------------------------------
+# ---- Semantic (7) ---------------------------------------------------
+# v0.8.6 — SE4/RL2/RL3 excreted (永恒删减; see module docstring above).
 from .semantic.lb1_living_bets_overdue import LB1LivingBetsOverdue
 from .semantic.lb2_living_bets_regime import LB2LivingBetsRegime
 from .semantic.rl1_rules_referenced import RL1RulesReferenced
-from .semantic.rl2_sense_discipline_signal import RL2SenseDisciplineSignal
-from .semantic.rl3_eat_discipline_signal import RL3EatDisciplineSignal
 from .semantic.se1_dangling_refs import SE1DanglingRefs
 from .semantic.se2_orphan_integrated import SE2OrphanIntegrated
 from .semantic.se3_link_self_cycle import SE3LinkSelfCycle
-from .semantic.se4_reciprocal_backlink import SE4ReciprocalBacklink
 from .semantic.se5_version_anchor_freshness import SE5VersionAnchorFreshness
 
 # ---- Shipped (2) ----------------------------------------------------
@@ -153,11 +155,8 @@ __all__ = [
     "SE1DanglingRefs",
     "SE2OrphanIntegrated",
     "SE3LinkSelfCycle",
-    "SE4ReciprocalBacklink",
     "SE5VersionAnchorFreshness",
     "RL1RulesReferenced",
-    "RL2SenseDisciplineSignal",
-    "RL3EatDisciplineSignal",
 ]
 
 
@@ -211,11 +210,8 @@ _BUILT_IN: tuple[type[Dimension], ...] = (
     SE1DanglingRefs,
     SE2OrphanIntegrated,
     SE3LinkSelfCycle,
-    SE4ReciprocalBacklink,
     SE5VersionAnchorFreshness,
     RL1RulesReferenced,
-    RL2SenseDisciplineSignal,
-    RL3EatDisciplineSignal,
 )
 
 

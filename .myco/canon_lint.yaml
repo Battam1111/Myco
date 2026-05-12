@@ -54,10 +54,7 @@ dimensions:
   DC5: mechanical
   DI2: mechanical
   AD1: mechanical
-  # Semantic + metabolic (5):
-  SE4: semantic
-  RL2: semantic
-  RL3: semantic
+  # Semantic + metabolic (5; v0.8.6: SE4/RL2/RL3 excreted, 2 remain):
   MB4: metabolic
   MB6: metabolic
   # Shipping + capability + plugin (3):
