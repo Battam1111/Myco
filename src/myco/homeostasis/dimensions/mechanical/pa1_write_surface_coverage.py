@@ -59,15 +59,15 @@ __all__ = ["PA1WriteSurfaceCoverage"]
 #: (via ``fnmatch.fnmatchcase``) is deemed to cover that verb.
 #: ``label`` is surfaced in the finding message so operators know
 #: which verb is affected.
-_CORE_SAMPLES: tuple[tuple[str, str], ...] = (
-    ("notes/raw/**/*.md (eat)", "notes/raw/sample.md"),
-    (
-        "notes/integrated/**/*.md (assimilate/digest)",
-        "notes/integrated/sample.md",
-    ),
-    ("notes/distilled/**/*.md (sporulate)", "notes/distilled/sample.md"),
-    ("_canon.yaml (molt/germinate)", "_canon.yaml"),
-    ("docs/contract_changelog.md (molt)", "docs/contract_changelog.md"),
+#: Static samples for verbs whose paths follow the same substrate
+#: subdir convention regardless of layout. The dynamic samples
+#: (canon, contract_changelog) are resolved from substrate.paths at
+#: run() time below, so PA1 correctly checks the substrate's actual
+#: declared layout (legacy ``_canon.yaml`` vs v0.8.4+ ``.myco/canon.yaml``).
+_STATIC_SAMPLES: tuple[tuple[str, str, str], ...] = (
+    ("notes/raw/**/*.md (eat)", "notes_dir", "raw/sample.md"),
+    ("notes/integrated/**/*.md (assimilate/digest)", "notes_dir", "integrated/sample.md"),
+    ("notes/distilled/**/*.md (sporulate)", "notes_dir", "distilled/sample.md"),
 )
 
 
@@ -80,6 +80,19 @@ class PA1WriteSurfaceCoverage(Dimension):
     fixable: ClassVar[bool] = False
 
     def run(self, ctx: MycoContext) -> Iterable[Finding]:
+        # Resolve dynamic sample paths from the substrate's declared
+        # layout so PA1 works identically across legacy + v0.8.4+ shapes.
+        paths = ctx.substrate.paths
+        root = ctx.substrate.root
+        canon_rel = paths.canon.relative_to(root).as_posix()
+        notes_rel = paths.notes.relative_to(root).as_posix()
+        docs_rel = paths.docs.relative_to(root).as_posix()
+        samples = list(_STATIC_SAMPLES) + [
+            ("canon (molt/germinate)", "_canon_path", canon_rel),
+            ("contract_changelog.md (molt)", "_doc_path",
+             f"{docs_rel}/contract_changelog.md"),
+        ]
+
         system = ctx.substrate.canon.system or {}
         ws = system.get("write_surface") or {}
         allowed = ws.get("allowed") or []
@@ -92,11 +105,20 @@ class PA1WriteSurfaceCoverage(Dimension):
                     "canon.system.write_surface.allowed is not a list; "
                     "write_surface enforcement will reject every path."
                 ),
-                path="_canon.yaml",
+                path=canon_rel,
             )
             return
         patterns = [str(x) for x in allowed]
-        for label, sample in _CORE_SAMPLES:
+        for entry in samples:
+            label = entry[0]
+            kind = entry[1]
+            tail = entry[2]
+            if kind == "notes_dir":
+                sample = f"{notes_rel}/{tail}"
+            elif kind in ("_canon_path", "_doc_path"):
+                sample = tail
+            else:
+                sample = tail
             if any(fnmatch.fnmatchcase(sample, p) for p in patterns):
                 continue
             yield Finding(
@@ -111,5 +133,5 @@ class PA1WriteSurfaceCoverage(Dimension):
                     f"substrate is intentionally read-only for that "
                     f"verb."
                 ),
-                path="_canon.yaml",
+                path=canon_rel,
             )

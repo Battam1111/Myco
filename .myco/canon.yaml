@@ -57,70 +57,31 @@ system:
   # ("docs") is unchanged for downstream substrates.
   docs_dir: ".docs"
   write_surface:
+    # v0.8.4 root-cleanup (2026-05-12): write surface collapsed to the
+    # minimal coverage globs. Every Myco-internal/build/registry path
+    # lives under a single hidden parent dir, so the allowlist is short
+    # and overlap-free. README.md / LICENSE / pyproject.toml are the
+    # only un-namespaced root files. CHANGELOG.md is a hatch-derived
+    # build artifact under .dist/; the literal entry is retained for
+    # the molt verb which may stage a top-level CHANGELOG during
+    # release ceremony.
     allowed:
-      - "_canon.yaml"
-      # v0.8.4 root-cleanup (2026-05-12): _canon_lint.yaml moved to
-      # .myco/canon_lint.yaml (covered by .myco/** below). The legacy
-      # root-level entry is retained for any downstream substrate still
-      # carrying the v0.6.0–v0.8.3 sibling layout.
-      - ".myco/**"
-      - "MYCO.md"
-      - "CHANGELOG.md"
       - "README.md"
       - "pyproject.toml"
-      - "notes/**"
-      - "docs/**"
-      - ".docs/**"
+      - "CHANGELOG.md"
       - "src/**"
       - ".tests/**"
       - ".scripts/**"
+      - ".docs/**"
+      - ".myco/**"          # canon + canon_lint + MYCO + notes + state
+      - ".plugin/**"        # plugin-bundle siblings of .claude-plugin/
       - ".claude/**"
-      # v0.4.1 plugin bundle (Stage D.3).
       - ".claude-plugin/**"
-      - ".mcp.json"
-      # v0.8.4 root-cleanup (2026-05-12): plugin-bundle siblings of
-      # .claude-plugin/ (hooks/, skills/, agents/, commands/) collapsed
-      # under a hidden .plugin/ parent dir to declutter the repo root.
-      # plugin.json's relative paths updated to `./.plugin/hooks/...`
-      # etc accordingly. .claude-plugin/ itself stays at root so
-      # marketplace.json discovery + `/plugin marketplace add` continue
-      # to work. See L2_DOCTRINE/boundary.md § "Plugin-bundle layout".
-      - ".plugin/**"
-      # v0.5.19 Cowork plugin bundle (separate plugin; stays at root
-      # because Cowork's drag-drop bundle keys to .cowork-plugin/).
       - ".cowork-plugin/**"
-      # v0.8.4 root-cleanup (2026-05-12): external registry metadata
-      # consolidated under .meta/ (was server.json + glama.json at root)
-      # so the repo root no longer has stray registry-specific files.
-      # The .meta/** glob covers both. release.yml's tag-verify and
-      # mcp-publisher steps were updated to read from .meta/server.json
-      # (mcp-publisher cd's into .meta/ before invoking publish).
-      - ".meta/**"
-      # v0.8.4 root-cleanup (2026-05-12): Docker build context files
-      # consolidated under .docker/ (was Dockerfile + .dockerignore at
-      # root). `docker build -f .docker/Dockerfile .` is the new entry.
-      # Glama OCI introspection unaffected (it consumes built images,
-      # not the source Dockerfile).
-      - ".docker/**"
-      # v0.5.24 runtime state directory.
-      - ".myco/state/**"
-      # v0.6.0 dist/ for hatch-hook-derived CHANGELOG embedded in sdist.
-      # v0.8.4 root-cleanup (2026-05-12): build output dir relocated to
-      # hidden .dist/ via `python -m build --outdir .dist` in CI + the
-      # build_plugin.py default; the legacy `dist/**` glob is retained
-      # for any downstream substrate still on the pre-v0.8.4 layout.
-      - "dist/**"
-      - ".dist/**"
-      # v0.6.12 GitHub-side surface (CodeQL + Scorecard + Dependabot +
-      # CODEOWNERS + ISSUE_TEMPLATE + workflows + SECURITY policy).
-      # Glama maintenance "security health" 15% factor reads SARIF +
-      # public Scorecard registry; PA1 dim now counts these as
-      # canonical agent-write paths. v0.8.4 root-cleanup (2026-05-12):
-      # SECURITY.md, CODE_OF_CONDUCT.md, CONTRIBUTING.md, CITATION.cff
-      # moved here from repo root; the .github/** glob covers all
-      # four. README_zh.md + README_ja.md moved under docs/i18n/
-      # (covered by docs/**).
       - ".github/**"
+      - ".docker/**"        # Dockerfile + .dockerignore
+      - ".meta/**"          # server.json + glama.json
+      - ".dist/**"          # build output
   hard_contract:
     rules_ref: ".docs/architecture/L1_CONTRACT/protocol.md"
     rule_count: 7
