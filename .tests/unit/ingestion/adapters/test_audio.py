@@ -36,7 +36,7 @@ from pathlib import Path
 
 import pytest
 
-from myco.ingestion.adapters.audio import (
+from myco.ingestion.adapters.multimedia_cluster import (
     DEFAULT_MAX_AUDIO_BYTES,
     AudioAdapter,
 )
@@ -125,7 +125,9 @@ def test_can_handle_rejects_oversize(tmp_path: Path, monkeypatch) -> None:
     actually creating a 100 MB file — the cap mechanic itself is
     independent of the constant value.
     """
-    monkeypatch.setattr("myco.ingestion.adapters.audio.DEFAULT_MAX_AUDIO_BYTES", 100)
+    monkeypatch.setattr(
+        "myco.ingestion.adapters.multimedia_cluster.DEFAULT_MAX_AUDIO_BYTES", 100
+    )
     p = _make_audio_stub(tmp_path, "big.wav", size=200)
     assert AudioAdapter().can_handle(str(p)) is False
 
@@ -166,7 +168,9 @@ def test_ingest_oversize_returns_failed_stub(
     Even with whisper available, the size-cap branch fires before
     the lazy import so we don't need to mock whisper here.
     """
-    monkeypatch.setattr("myco.ingestion.adapters.audio.DEFAULT_MAX_AUDIO_BYTES", 100)
+    monkeypatch.setattr(
+        "myco.ingestion.adapters.multimedia_cluster.DEFAULT_MAX_AUDIO_BYTES", 100
+    )
     p = _make_audio_stub(tmp_path, "big.mp3", size=500)
     adapter = AudioAdapter()
     # can_handle rejects BEFORE any import attempt.
@@ -343,8 +347,8 @@ def test_audio_adapter_registered_before_text_file() -> None:
     a missing-dep direct call is louder than a silent skip.)
     """
     from myco.ingestion.adapters import all_adapters
-    from myco.ingestion.adapters.audio import AudioAdapter as AA
-    from myco.ingestion.adapters.text_file import TextFileAdapter as TF
+    from myco.ingestion.adapters.multimedia_cluster import AudioAdapter as AA
+    from myco.ingestion.adapters.stdlib_simple_cluster import TextFileAdapter as TF
 
     adapters = list(all_adapters())
     aa_idx = next((i for i, a in enumerate(adapters) if isinstance(a, AA)), -1)

@@ -31,7 +31,7 @@ from pathlib import Path
 
 import pytest
 
-from myco.ingestion.adapters.image_ocr import (
+from myco.ingestion.adapters.multimedia_cluster import (
     DEFAULT_MAX_IMAGE_BYTES,
     ImageOcrAdapter,
 )
@@ -241,7 +241,7 @@ def test_ingest_oversize_returns_failed_stub(
     need to mock the deps.
     """
     monkeypatch.setattr(
-        "myco.ingestion.adapters.image_ocr.DEFAULT_MAX_IMAGE_BYTES", 100
+        "myco.ingestion.adapters.multimedia_cluster.DEFAULT_MAX_IMAGE_BYTES", 100
     )
     p = _make_image_stub(tmp_path, "big.png", size=500)
     adapter = ImageOcrAdapter()
@@ -368,8 +368,8 @@ def test_ingest_ocr_runtime_error_returns_failed_stub(
 def test_image_ocr_adapter_registered_before_text_file() -> None:
     """The image-OCR adapter must register BEFORE text-file."""
     from myco.ingestion.adapters import all_adapters
-    from myco.ingestion.adapters.image_ocr import ImageOcrAdapter as IO
-    from myco.ingestion.adapters.text_file import TextFileAdapter as TF
+    from myco.ingestion.adapters.multimedia_cluster import ImageOcrAdapter as IO
+    from myco.ingestion.adapters.stdlib_simple_cluster import TextFileAdapter as TF
 
     adapters = list(all_adapters())
     io_idx = next((i for i, a in enumerate(adapters) if isinstance(a, IO)), -1)
@@ -387,8 +387,12 @@ def test_image_ocr_adapter_registered_after_audio() -> None:
     multimedia ladder. Documented in the registry.
     """
     from myco.ingestion.adapters import all_adapters
-    from myco.ingestion.adapters.audio import AudioAdapter as AA
-    from myco.ingestion.adapters.image_ocr import ImageOcrAdapter as IO
+    from myco.ingestion.adapters.multimedia_cluster import (
+        AudioAdapter as AA,
+    )
+    from myco.ingestion.adapters.multimedia_cluster import (
+        ImageOcrAdapter as IO,
+    )
 
     adapters = list(all_adapters())
     aa_idx = next((i for i, a in enumerate(adapters) if isinstance(a, AA)), -1)

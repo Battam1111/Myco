@@ -1,4 +1,9 @@
-"""Tests for ``PA1WriteSurfaceCoverage``."""
+"""Tests for ``pa_cluster`` — merged per-dim test files (v0.8.8).
+
+Per-dim test files consolidated to mirror the src/ cluster
+merge. Each `# === <stem>` section corresponds to one original
+per-dim test file; git history preserves the per-dim state.
+"""
 
 from __future__ import annotations
 
@@ -9,6 +14,10 @@ from myco.core.severity import Severity
 from myco.homeostasis.dimensions.mechanical.pa_cluster import (
     PA1WriteSurfaceCoverage,
 )
+
+# =========================================================================
+# test_pa1_write_surface_coverage — see git history for original per-dim file
+# =========================================================================
 
 
 def test_complete_coverage_no_finding(genesis_substrate: Path) -> None:

@@ -465,7 +465,7 @@ def test_compute_sample_interval_zero_inputs_returns_floor() -> None:
 def test_video_frames_adapter_registered_before_text_file() -> None:
     """The video-frames adapter must register BEFORE text-file."""
     from myco.ingestion.adapters import all_adapters
-    from myco.ingestion.adapters.text_file import TextFileAdapter as TF
+    from myco.ingestion.adapters.stdlib_simple_cluster import TextFileAdapter as TF
     from myco.ingestion.adapters.video_frames import VideoFramesAdapter as VF
 
     adapters = list(all_adapters())
@@ -484,7 +484,7 @@ def test_video_frames_adapter_registered_after_image_ocr() -> None:
     v0.8.0 multimedia ladder.
     """
     from myco.ingestion.adapters import all_adapters
-    from myco.ingestion.adapters.image_ocr import ImageOcrAdapter as IO
+    from myco.ingestion.adapters.multimedia_cluster import ImageOcrAdapter as IO
     from myco.ingestion.adapters.video_frames import VideoFramesAdapter as VF
 
     adapters = list(all_adapters())

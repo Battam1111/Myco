@@ -23,10 +23,9 @@ from __future__ import annotations
 from pathlib import Path
 
 from myco.core.context import MycoContext
-from myco.ingestion.adapters.html_reader import HtmlReader
-from myco.ingestion.adapters.pdf_reader import PdfReader
 from myco.ingestion.adapters.protocol import IngestResult
-from myco.ingestion.adapters.text_file import TextFileAdapter
+from myco.ingestion.adapters.stdlib_simple_cluster import TextFileAdapter
+from myco.ingestion.adapters.web_cluster import HtmlReader, PdfReader
 from myco.ingestion.eat import run
 
 # ---------------------------------------------------------------------------
@@ -67,7 +66,7 @@ def test_html_oversized_returns_failed_stub(
     p = tmp_path / "big.html"
     p.write_text("<html><body>x</body></html>", encoding="utf-8")
     monkeypatch.setattr(
-        "myco.ingestion.adapters.html_reader.DEFAULT_MAX_INGEST_BYTES", 2
+        "myco.ingestion.adapters.web_cluster.DEFAULT_MAX_INGEST_BYTES", 2
     )
     results = HtmlReader().ingest(str(p))
     assert len(results) == 1
@@ -90,7 +89,7 @@ def test_pdf_oversized_returns_failed_stub(
     p = tmp_path / "big.pdf"
     p.write_text("not a real pdf", encoding="utf-8")
     monkeypatch.setattr(
-        "myco.ingestion.adapters.pdf_reader.DEFAULT_MAX_INGEST_BYTES", 2
+        "myco.ingestion.adapters.web_cluster.DEFAULT_MAX_INGEST_BYTES", 2
     )
     results = PdfReader().ingest(str(p))
     assert len(results) == 1
@@ -111,7 +110,9 @@ def test_text_file_oversized_returns_failed_stub(
 ) -> None:
     p = tmp_path / "big.py"
     p.write_text("x = 1\n", encoding="utf-8")
-    monkeypatch.setattr("myco.ingestion.adapters.text_file.DEFAULT_MAX_INGEST_BYTES", 1)
+    monkeypatch.setattr(
+        "myco.ingestion.adapters.stdlib_simple_cluster.DEFAULT_MAX_INGEST_BYTES", 1
+    )
     results = TextFileAdapter().ingest(str(p))
     assert len(results) == 1
     assert results[0].status == "failed"

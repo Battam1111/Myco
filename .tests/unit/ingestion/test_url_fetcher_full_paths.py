@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from myco.ingestion.adapters.url_fetcher import (
+from myco.ingestion.adapters.web_cluster import (
     DEFAULT_MAX_INGEST_BYTES,
     UrlFetcher,
     UrlFetchError,
@@ -120,8 +120,8 @@ def test_fetcher_extensions_empty():
 def test_ingest_text_response():
     """Mocked httpx.Client returns text — body decoded as text."""
     fetcher = UrlFetcher()
-    with patch("myco.ingestion.adapters.url_fetcher._validate_url"):
-        with patch("myco.ingestion.adapters.url_fetcher.httpx") as mock_httpx:
+    with patch("myco.ingestion.adapters.web_cluster._validate_url"):
+        with patch("myco.ingestion.adapters.web_cluster.httpx") as mock_httpx:
             # Mock the streaming context manager
             mock_resp = MagicMock()
             mock_resp.iter_bytes.return_value = [b"hello world"]
@@ -145,8 +145,8 @@ def test_ingest_text_response():
 def test_ingest_html_response_strips_tags():
     """Mocked HTML response → tags stripped (or fallback regex)."""
     fetcher = UrlFetcher()
-    with patch("myco.ingestion.adapters.url_fetcher._validate_url"):
-        with patch("myco.ingestion.adapters.url_fetcher.httpx") as mock_httpx:
+    with patch("myco.ingestion.adapters.web_cluster._validate_url"):
+        with patch("myco.ingestion.adapters.web_cluster.httpx") as mock_httpx:
             mock_resp = MagicMock()
             mock_resp.iter_bytes.return_value = [
                 b"<html><body><p>Hello</p><script>x</script></body></html>"
@@ -172,8 +172,8 @@ def test_ingest_html_response_strips_tags():
 def test_ingest_json_response():
     """JSON response is treated as plaintext, tagged 'json'."""
     fetcher = UrlFetcher()
-    with patch("myco.ingestion.adapters.url_fetcher._validate_url"):
-        with patch("myco.ingestion.adapters.url_fetcher.httpx") as mock_httpx:
+    with patch("myco.ingestion.adapters.web_cluster._validate_url"):
+        with patch("myco.ingestion.adapters.web_cluster.httpx") as mock_httpx:
             mock_resp = MagicMock()
             mock_resp.iter_bytes.return_value = [b'{"a": 1}']
             mock_resp.headers = {"content-type": "application/json"}
@@ -195,8 +195,8 @@ def test_ingest_json_response():
 def test_ingest_size_cap_aborts():
     """Body exceeding cap → UrlFetchError."""
     fetcher = UrlFetcher()
-    with patch("myco.ingestion.adapters.url_fetcher._validate_url"):
-        with patch("myco.ingestion.adapters.url_fetcher.httpx") as mock_httpx:
+    with patch("myco.ingestion.adapters.web_cluster._validate_url"):
+        with patch("myco.ingestion.adapters.web_cluster.httpx") as mock_httpx:
             # Generate too many bytes
             big = b"x" * (DEFAULT_MAX_INGEST_BYTES + 1)
             mock_resp = MagicMock()

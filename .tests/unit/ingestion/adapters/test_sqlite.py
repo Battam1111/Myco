@@ -328,7 +328,7 @@ def test_sqlite_adapter_registered_before_text_file() -> None:
     that v0.7.3 closed AD1 against.)"""
     from myco.ingestion.adapters import all_adapters
     from myco.ingestion.adapters.sqlite import SqliteAdapter as SA
-    from myco.ingestion.adapters.text_file import TextFileAdapter as TF
+    from myco.ingestion.adapters.stdlib_simple_cluster import TextFileAdapter as TF
 
     adapters = list(all_adapters())
     sa_idx = next((i for i, a in enumerate(adapters) if isinstance(a, SA)), -1)

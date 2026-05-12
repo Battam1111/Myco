@@ -1,4 +1,9 @@
-"""Tests for ``MF1DeclaredSubsystemsExist``."""
+"""Tests for ``mf_cluster`` — merged per-dim test files (v0.8.8).
+
+Per-dim test files consolidated to mirror the src/ cluster
+merge. Each `# === <stem>` section corresponds to one original
+per-dim test file; git history preserves the per-dim state.
+"""
 
 from __future__ import annotations
 
@@ -9,6 +14,10 @@ from myco.core.context import MycoContext
 from myco.homeostasis.dimensions.mechanical.mf_cluster import (
     MF1DeclaredSubsystemsExist,
 )
+
+# =========================================================================
+# test_mf1_declared_subsystems_exist — see git history for original per-dim file
+# =========================================================================
 
 
 def _ctx_with_canon(tmp_path: Path, canon: str) -> MycoContext:

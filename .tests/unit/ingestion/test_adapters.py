@@ -14,9 +14,11 @@ from myco.ingestion.adapters import (
     find_adapter,
     handled_extensions,
 )
-from myco.ingestion.adapters.code_repo import CodeRepoAdapter
-from myco.ingestion.adapters.tabular import TabularReader
-from myco.ingestion.adapters.text_file import TextFileAdapter
+from myco.ingestion.adapters.stdlib_simple_cluster import (
+    CodeRepoAdapter,
+    TabularReader,
+    TextFileAdapter,
+)
 
 # ---------------------------------------------------------------------------
 # Registry smoke tests

@@ -290,7 +290,7 @@ def test_chat_log_adapter_registered_before_text_file() -> None:
     ``.md`` extension and ingested as a single opaque blob."""
     from myco.ingestion.adapters import all_adapters
     from myco.ingestion.adapters.chat_log import ChatLogAdapter as CL
-    from myco.ingestion.adapters.text_file import TextFileAdapter as TF
+    from myco.ingestion.adapters.stdlib_simple_cluster import TextFileAdapter as TF
 
     adapters = list(all_adapters())
     cl_idx = next((i for i, a in enumerate(adapters) if isinstance(a, CL)), -1)
