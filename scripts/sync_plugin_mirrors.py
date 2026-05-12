@@ -55,8 +55,8 @@ from pathlib import Path
 #: per the plugin/ consolidation. Project-scope source (.claude/*) is
 #: unchanged — Claude Code project config lives at .claude/ by spec.
 _MIRROR_PAIRS: tuple[tuple[str, str], ...] = (
-    (".claude/agents", "plugin/agents"),
-    (".claude/commands", "plugin/commands"),
+    (".claude/agents", ".plugin/agents"),
+    (".claude/commands", ".plugin/commands"),
 )
 
 

@@ -6,6 +6,10 @@ substrate material (L0 principle 1). Paths are stable — substrate
 canon and every craft cross-references files by their relative
 path.
 
+> **v0.8.4 root-cleanup note**: the agent entry page MYCO.md was
+> moved from repo root to `.myco/MYCO.md`. Canon's
+> `identity.entry_point` field is the SSoT for the path.
+
 ## Navigation
 
 ```
@@ -34,7 +38,7 @@ docs/
    and the sibling `ingestion.md` / `digestion.md` / `circulation.md`
    / `genesis.md` / `extensibility.md` — read the subsystem's L2
    page before touching its code under `src/myco/`.
-4. [`../MYCO.md`](../MYCO.md) — substrate entry point (this is the
+4. [`../.myco/MYCO.md`](../.myco/MYCO.md) — substrate entry point (this is the
    file the SessionStart hook + `myco hunger` reference).
 
 ## Read order for a release engineer

@@ -20,7 +20,15 @@ identity:
     - "myco"
     - "agent-substrate"
     - "python-package"
-  entry_point: "MYCO.md"
+  # v0.8.4 root-cleanup (2026-05-12): MYCO.md moved to .myco/MYCO.md
+  # so the repo root no longer carries the Myco-specific agent entry
+  # page as a visible top-level file. canon.entry_point is the SSoT
+  # for the path; every code path that needs the entry page reads
+  # this field (no hardcoded "MYCO.md" in src/myco/ — verified). For
+  # downstream substrates that retain MYCO.md at root, the template
+  # default (germination/templates/canon.yaml.tmpl) still emits
+  # "MYCO.md" so their canon overrides this path on germinate.
+  entry_point: ".myco/MYCO.md"
   # v0.6.0 schema v2 addition. Federation peers are downstream substrates
   # this substrate has agreed to propagate to. Empty list at v0.6.0 — the
   # field is forward-compat infrastructure for L0 P5 mycelium federation
@@ -61,12 +69,12 @@ system:
       - ".mcp.json"
       # v0.8.4 root-cleanup (2026-05-12): plugin-bundle siblings of
       # .claude-plugin/ (hooks/, skills/, agents/, commands/) collapsed
-      # under a single plugin/ parent dir to declutter the repo root.
-      # plugin.json's relative paths updated to `./plugin/hooks/...`
+      # under a hidden .plugin/ parent dir to declutter the repo root.
+      # plugin.json's relative paths updated to `./.plugin/hooks/...`
       # etc accordingly. .claude-plugin/ itself stays at root so
       # marketplace.json discovery + `/plugin marketplace add` continue
       # to work. See L2_DOCTRINE/boundary.md § "Plugin-bundle layout".
-      - "plugin/**"
+      - ".plugin/**"
       # v0.5.19 Cowork plugin bundle (separate plugin; stays at root
       # because Cowork's drag-drop bundle keys to .cowork-plugin/).
       - ".cowork-plugin/**"
@@ -86,7 +94,12 @@ system:
       # v0.5.24 runtime state directory.
       - ".myco/state/**"
       # v0.6.0 dist/ for hatch-hook-derived CHANGELOG embedded in sdist.
+      # v0.8.4 root-cleanup (2026-05-12): build output dir relocated to
+      # hidden .dist/ via `python -m build --outdir .dist` in CI + the
+      # build_plugin.py default; the legacy `dist/**` glob is retained
+      # for any downstream substrate still on the pre-v0.8.4 layout.
       - "dist/**"
+      - ".dist/**"
       # v0.6.12 GitHub-side surface (CodeQL + Scorecard + Dependabot +
       # CODEOWNERS + ISSUE_TEMPLATE + workflows + SECURITY policy).
       # Glama maintenance "security health" 15% factor reads SARIF +
