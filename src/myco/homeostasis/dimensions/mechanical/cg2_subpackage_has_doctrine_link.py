@@ -35,7 +35,17 @@ from myco.homeostasis.finding import Category, Finding
 __all__ = ["CG2SubpackageHasDoctrineLink"]
 
 
-_DOC_PATH_RE = re.compile(r"(?:\.{1,2}/)?(?:docs|notes)/[A-Za-z0-9_./\-]+\.md")
+# v0.8.6 — accept hidden-prefix doctrine paths. Substrates may
+# relocate doctrine to `.docs/` and notes to `.myco/notes/` (Myco-
+# self post-v0.8.4) or keep legacy `docs/`+`notes/` (downstream).
+# The old regex only matched the un-prefixed default, so every
+# Myco-self subpackage falsely flagged "no doctrine link" even
+# when the module docstring named `.docs/architecture/L2_DOCTRINE/X.md`.
+_DOC_PATH_RE = re.compile(
+    r"(?:\.{1,2}/)?"
+    r"(?:\.docs|docs|\.myco/notes|notes)/"
+    r"[A-Za-z0-9_./\-]+\.md"
+)
 
 
 class CG2SubpackageHasDoctrineLink(Dimension):
@@ -111,8 +121,15 @@ def _has_any_doc_link(pkg_dir: Path) -> bool:
         except (OSError, UnicodeDecodeError):
             continue
         # Cheap pre-check: avoid full AST parse if the file has no
-        # doc/notes token at all.
-        if "docs/" not in source and "notes/" not in source:
+        # doc/notes token at all. v0.8.6 — also accept hidden-prefix
+        # `.docs/` and `.myco/notes/` patterns so Myco-self substrates
+        # don't false-flag every subpackage.
+        if (
+            "docs/" not in source
+            and "notes/" not in source
+            and ".docs/" not in source
+            and ".myco/notes/" not in source
+        ):
             continue
         import ast
 

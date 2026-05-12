@@ -48,6 +48,13 @@ class M1CanonIdentityFields(Dimension):
 
     def run(self, ctx: MycoContext) -> Iterable[Finding]:
         identity = ctx.substrate.canon.identity
+        # v0.8.6 — canon may live at `.myco/canon.yaml` (Myco-self
+        # post-v0.8.4) or default `_canon.yaml` (downstream). The
+        # finding's `path` field tracks the live location so agents
+        # can navigate to the actual source of truth.
+        canon_rel = ctx.substrate.paths.canon.relative_to(
+            ctx.substrate.root.resolve()
+        ).as_posix()
         for key in ("substrate_id", "entry_point"):
             val = identity.get(key)
             if val is None or str(val).strip() == "":
@@ -56,7 +63,7 @@ class M1CanonIdentityFields(Dimension):
                     category=self.category,
                     severity=self.default_severity,
                     message=f"canon.identity.{key} is missing or empty",
-                    path="_canon.yaml",
+                    path=canon_rel,
                 )
 
     def fix(self, ctx: MycoContext, finding: Finding) -> dict[str, Any]:
@@ -67,8 +74,14 @@ class M1CanonIdentityFields(Dimension):
         - entry_point: 'MYCO.md'.
 
         Idempotent: if both keys are already non-empty, no-op.
+
+        v0.8.6 — writes to the canon-configured path (Myco-self
+        `.myco/canon.yaml`, downstream `_canon.yaml`) via
+        `ctx.substrate.paths.canon`, not the legacy hardcoded
+        `root / "_canon.yaml"` (which would silently miss on any
+        substrate that relocates its canon under a hidden prefix).
         """
-        canon_path = ctx.substrate.root / "_canon.yaml"
+        canon_path = ctx.substrate.paths.canon
         if not canon_path.is_file():
             return {"applied": False, "detail": "canon file missing"}
         text = canon_path.read_text(encoding="utf-8")

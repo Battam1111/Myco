@@ -35,7 +35,12 @@ from myco.homeostasis.finding import Category, Finding
 __all__ = ["CG1DoctrineHasSrcReference"]
 
 
-_L2_DIR = "docs/architecture/L2_DOCTRINE"
+# v0.8.6 — canon-driven docs path. Substrates may relocate their
+# docs tree to `.docs/` (Myco-self) or keep the legacy `docs/`
+# default (downstream). Hardcoded `"docs/"` silently returned an
+# empty L2 page set on Myco-self for every release v0.8.4…v0.8.5
+# (the directory does not exist at that name).
+_L2_DOCTRINE_SUBPATH = "architecture/L2_DOCTRINE"
 
 
 class CG1DoctrineHasSrcReference(Dimension):
@@ -47,7 +52,7 @@ class CG1DoctrineHasSrcReference(Dimension):
     fixable: ClassVar[bool] = False
 
     def run(self, ctx: MycoContext) -> Iterable[Finding]:
-        l2_dir = ctx.substrate.root / _L2_DIR
+        l2_dir = ctx.substrate.paths.docs / _L2_DOCTRINE_SUBPATH
         if not l2_dir.is_dir():
             return
         # Collect the L2 pages present on disk.

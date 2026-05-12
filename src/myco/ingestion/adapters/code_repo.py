@@ -73,7 +73,10 @@ class CodeRepoAdapter(Adapter):
                 continue
             for r in self._text.ingest(str(path)):
                 r.tags.append("repo")
-                r.source = f"{root.name}/{path.relative_to(root)}"
+                # v0.8.6 — POSIX-normalize the relative path so
+                # ingested sources read identically on Windows (where
+                # `Path.relative_to(...)` renders backslashes by default).
+                r.source = f"{root.name}/{path.relative_to(root).as_posix()}"
                 results.append(r)
         return results
 

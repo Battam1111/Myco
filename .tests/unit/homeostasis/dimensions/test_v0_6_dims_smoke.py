@@ -110,8 +110,12 @@ def test_di2_runs(ctx: MycoContext):
 
 def test_di2_with_hooks_file(genesis_substrate: Path):
     """Exercise the hooks.json content-check path."""
-    hooks_dir = genesis_substrate / "hooks"
-    hooks_dir.mkdir(exist_ok=True)
+    # v0.8.6 — DI2 reads from `.plugin/hooks/hooks.json` (the
+    # Cowork-bundle binding declared by `.claude-plugin/plugin.json`),
+    # not the legacy `hooks/hooks.json` at substrate root. Tests
+    # mirror the live layout.
+    hooks_dir = genesis_substrate / ".plugin" / "hooks"
+    hooks_dir.mkdir(parents=True, exist_ok=True)
     hooks_path = hooks_dir / "hooks.json"
     hooks_path.write_text(
         json.dumps(
@@ -131,8 +135,8 @@ def test_di2_with_hooks_file(genesis_substrate: Path):
 
 
 def test_di2_missing_hunger_emits(genesis_substrate: Path):
-    hooks_dir = genesis_substrate / "hooks"
-    hooks_dir.mkdir(exist_ok=True)
+    hooks_dir = genesis_substrate / ".plugin" / "hooks"
+    hooks_dir.mkdir(parents=True, exist_ok=True)
     (hooks_dir / "hooks.json").write_text(
         '{"hooks": {"PreCompact": [{"command": "x"}]}}', encoding="utf-8"
     )
@@ -142,8 +146,8 @@ def test_di2_missing_hunger_emits(genesis_substrate: Path):
 
 
 def test_di2_invalid_json_emits(genesis_substrate: Path):
-    hooks_dir = genesis_substrate / "hooks"
-    hooks_dir.mkdir(exist_ok=True)
+    hooks_dir = genesis_substrate / ".plugin" / "hooks"
+    hooks_dir.mkdir(parents=True, exist_ok=True)
     (hooks_dir / "hooks.json").write_text("{ NOT JSON", encoding="utf-8")
     ctx = MycoContext.for_testing(root=genesis_substrate)
     findings = list(DI2DisciplineHooksContent().run(ctx))

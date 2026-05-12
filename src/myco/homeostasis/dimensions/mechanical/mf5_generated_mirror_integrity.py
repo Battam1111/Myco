@@ -65,12 +65,18 @@ from myco.homeostasis.finding import Category, Finding
 __all__ = ["MF5GeneratedMirrorIntegrity"]
 
 
-# v0.6.11-documented intended mirror directories. Files under these
-# pairs are PENDING_BUILD_ARTIFACT_CONVERSION (LOW), not redundancy.
-# Each entry: (project-level path under repo root, plugin-bundle path).
+# v0.6.11-documented intended mirror directories.
+#
+# v0.8.6 path-correction (2026-05-12): bundle dirs moved under
+# .plugin/ in the great root-cleanup of v0.8.4. The original
+# `("agents", "commands")` root paths no longer exist; MF5 silently
+# returned for every release v0.8.4…v0.8.5 (both halves failed the
+# `is_dir()` check). The byte-identity gate is now reconnected.
+#
+# Each entry: (project-level path, plugin-bundle path).
 _INTENDED_MIRROR_DIRS: tuple[tuple[str, str], ...] = (
-    (".claude/agents", "agents"),
-    (".claude/commands", "commands"),
+    (".claude/agents", ".plugin/agents"),
+    (".claude/commands", ".plugin/commands"),
 )
 
 

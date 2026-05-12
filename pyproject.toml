@@ -239,6 +239,8 @@ MF5 = "myco.homeostasis.dimensions.mechanical.mf5_generated_mirror_integrity:MF5
 SE5 = "myco.homeostasis.dimensions.semantic.se5_version_anchor_freshness:SE5VersionAnchorFreshness"
 # v0.7.5 additions (1 new dim — L0 Living Bets cadence enforcement):
 LB1 = "myco.homeostasis.dimensions.semantic.lb1_living_bets_overdue:LB1LivingBetsOverdue"
+# v0.8.0 addition (1 new dim — L0 Living Bets two-regime axis check):
+LB2 = "myco.homeostasis.dimensions.semantic.lb2_living_bets_regime:LB2LivingBetsRegime"
 
 [tool.hatch.version]
 # Single source of truth for the package version — per L1 versioning.md.

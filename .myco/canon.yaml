@@ -302,7 +302,7 @@ commands:
 
 metrics:
   test_count: 1799
-  lint_dim_count: 51
+  lint_dim_count: 50
   # v0.7.2 永恒删减 ratchet (PA6 dim — repo bloat detector):
   # MEDIUM finding emitted at ≥80% of threshold; HIGH at ≥100%. The
   # threshold is intentionally generous — the ratchet exists to catch

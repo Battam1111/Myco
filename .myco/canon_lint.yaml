@@ -80,3 +80,11 @@ dimensions:
   # an audit; LB1 mechanically demands a fresh
   # docs/primordia/v*_living_bets_audit_*.md craft at every MAJOR ratchet).
   LB1: semantic
+  # v0.8.0 addition (1 new dim; two-regime axis check). Closes
+  # the gap LB1 left open — LB1 mechanizes cadence, LB2 mechanizes
+  # that every audit explicitly declares both regimes' positions.
+  # Was silently absent from the entry-points + canon_lint inventory
+  # for the full v0.8.0…v0.8.5 window — the class was only loaded
+  # through the `_BUILT_IN` gap-fill fallback in
+  # `homeostasis/dimensions/__init__.py::discover_dimension_classes`.
+  LB2: semantic

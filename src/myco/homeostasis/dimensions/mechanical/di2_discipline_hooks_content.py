@@ -32,7 +32,12 @@ class DI2DisciplineHooksContent(Dimension):
 
     def run(self, ctx: MycoContext) -> Iterable[Finding]:
         root = ctx.substrate.root
-        hooks_path = root / "hooks" / "hooks.json"
+        # v0.8.6 path-correction: the Cowork bundle moved under .plugin/
+        # at v0.8.4 (root cleanup). The original `hooks/hooks.json` at
+        # substrate root has not existed since v0.8.4; DI2 silently
+        # no-op'd for v0.8.4…v0.8.5. Real binding is declared in
+        # `.claude-plugin/plugin.json::hooks` → `./.plugin/hooks/hooks.json`.
+        hooks_path = root / ".plugin" / "hooks" / "hooks.json"
         if not hooks_path.is_file():
             return
         try:
@@ -43,7 +48,7 @@ class DI2DisciplineHooksContent(Dimension):
                 category=self.category,
                 severity=self.default_severity,
                 message=f"hooks.json failed to parse: {exc}",
-                path="hooks/hooks.json",
+                path=".plugin/hooks/hooks.json",
             )
             return
         text = json.dumps(data) if isinstance(data, dict | list) else str(data)
@@ -57,7 +62,7 @@ class DI2DisciplineHooksContent(Dimension):
                     "hooks.json does not bind SessionStart → myco hunger "
                     "(R1 boot ritual)"
                 ),
-                path="hooks/hooks.json",
+                path=".plugin/hooks/hooks.json",
             )
         # R2: PreCompact fires senesce.
         if "PreCompact" not in text or "senesce" not in text:
@@ -69,5 +74,5 @@ class DI2DisciplineHooksContent(Dimension):
                     "hooks.json does not bind PreCompact → myco senesce "
                     "(R2 session-end ritual)"
                 ),
-                path="hooks/hooks.json",
+                path=".plugin/hooks/hooks.json",
             )
