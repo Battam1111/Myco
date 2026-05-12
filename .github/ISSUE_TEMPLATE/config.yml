@@ -10,5 +10,5 @@ contact_links:
     url: https://github.com/Battam1111/Myco/blob/main/docs/architecture/L0_VISION.md
     about: "Myco is doctrine-heavy by design. Reading L0 (5 principles) + L1 R1–R7 takes 10 minutes and answers many first-time questions."
   - name: "🔄 Upgrading from v0.5.x to v0.5.y?"
-    url: https://github.com/Battam1111/Myco/blob/main/docs/migration/README.md
+    url: https://github.com/Battam1111/Myco/blob/main/docs/migration/HISTORY.md
     about: "Version-boundary migration guides live under docs/migration/. Start there before opening an upgrade-related issue."

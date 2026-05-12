@@ -78,7 +78,7 @@ The bundle is justified BECAUSE every item closes an agent-experience gap, not i
 - `tests/integration/fixtures/peer_substrate/notes/raw/.gitkeep` (P3)
 - `tests/integration/test_propagate_to_fixture_peer.py` (P3)
 - `tests/unit/core/test_canon_schema_upgrader_v2_to_v3.py` (P2, anamorph-authored)
-- `docs/migration/v0_7_4_to_v0_7_5.md` (P2 anamorph migration guide)
+- `docs/migration/HISTORY.md#migration-v074-to-v075` (P2 anamorph migration guide)
 - 5+ files under `notes/raw/` / `notes/integrated/` / `notes/distilled/` from P4 self-eat
 
 **Files modified**:
