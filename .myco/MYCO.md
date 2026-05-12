@@ -78,13 +78,13 @@ PATH; install via your platform's package manager.
 ## The immune surface
 
 `myco immune` runs every registered dimension against the substrate
-and reports findings. At v0.6.15 the roster is **46 dimensions**
+and reports findings. At v0.8.6 the roster is **47 dimensions**
 across four categories:
 
-- **Mechanical (31)**: `M1★`, `M2★`, `M3★`, `MF1`, `MF2`, `MF3`, `MF4`, `MP1`, `MP2`, `MP3`, `DC1★`, `DC2`, `DC3`, `DC4`, `DC5`, `CS1★`, `FR1`, `PA1`, `PA2`, `PA3`, `PA4`, `PA5`, `CG1`, `CG2`, `DI1★`, `DI2`, `AD1`, `SC1`, `CL1`, `CL2`, `CL3`
+- **Mechanical (32)**: `M1★`, `M2★`, `M3★`, `MF1`, `MF2`, `MF4`, `MF5`, `MP1`, `MP2`, `MP3`, `DC1★`, `DC2`, `DC3`, `DC4`, `DC5`, `CS1★`, `FR1`, `PA1`, `PA2`, `PA3`, `PA4`, `PA5`, `PA6`, `CG1`, `CG2`, `DI1★`, `DI2`, `AD1`, `SC1`, `CL1`, `CL2`, `CL3`
 - **Shipped (2)**: `SH1`, `SH2`
-- **Metabolic (6)**: `MB1★`, `MB2`, `MB3★`, `MB4`, `MB6★`, `MB7`
-- **Semantic (7)**: `SE1★`, `SE2`, `SE3`, `SE4`, `RL1`, `RL2`, `RL3`
+- **Metabolic (6)**: `MB1★`, `MB2`, `MB3★`, `MB4`, `MB6★`, `MB8`
+- **Semantic (7)**: `SE1★`, `SE2`, `SE3`, `SE5`, `RL1`, `LB1`, `LB2`
 
 ★ = fixable via `immune --fix` (10 dimensions: M1, M2, M3, DC1, CS1,
 DI1, MB1, MB3, MB6, SE1). DC4 + PA1 stay advisory at v0.6.15 per the
@@ -99,13 +99,16 @@ severities + fixability are in
 Baseline: `myco-self` exits 0 (CRITICAL-gate via canon
 `lint.exit_policy.default = "mechanical:critical,shipped:critical,
 metabolic:never,semantic:never"`) since v0.5.9. Non-critical findings
-ride up each time the lint roster expands (25→46 at v0.6.0); the
-v0.6.15 self-substrate carries 76 non-critical findings (9 HIGH AD1
-adapter silent-skips inherited from pre-v0.6.0 adapters + 67 LOW
-DC2/DC3/DC4/SE2 hygiene). These are tracked, not gated. **Every
-new CRITICAL finding on the self-substrate is real signal**, and
-HIGH-band drift is a candidate for the next severity-promotion
-craft (`myco fruit`).
+ride up each time the lint roster expands (25→46 at v0.6.0, 46→49
+at v0.7.2, 49→52 at v0.7.5, 52→53 at v0.8.0, 53→51 at v0.8.5 with
+MF3 + MB7 excretion, 51→47 at v0.8.6 with SE4 + RL2 + RL3 excretion).
+The v0.8.6 self-substrate carries a single MEDIUM MB8 shim-hit
+finding (`myco.mcp` v0.6.13 back-compat alias still in active use —
+on schedule for v1.0.0 deletion per the v0.7.1-named, v0.7.3-canonized
+public-API discipline). These are tracked, not gated. **Every new
+CRITICAL finding on the self-substrate is real signal**, and HIGH-band
+drift is a candidate for the next severity-promotion craft
+(`myco fruit`).
 
 ## Canon validation (v0.5.9+)
 

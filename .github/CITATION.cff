@@ -4,14 +4,15 @@ type: software
 title: "Myco — Agent-First Symbiotic Cognitive Substrate"
 abstract: >-
   Myco is a long-lived, self-validating cognitive substrate designed exclusively
-  for LLM agents. Eighteen manifest-driven verbs (germinate / hunger / eat /
+  for LLM agents. Twenty manifest-driven verbs (germinate / hunger / eat /
   sense / forage / assimilate / digest / sporulate / traverse / propagate /
-  immune / senesce / fruit / molt / winnow / ramify / graft / brief) compose the
-  ingest → digest → circulate → self-check → evolve life cycle. Twenty-five
-  lint dimensions enforce contract invariants (R1–R7) mechanically, including
-  atomic-write R6 enforcement, LLM-provider boundary (MP1/MP2), and graph
-  connectedness (SE1/SE3). The kernel itself is a substrate — editable by
-  default — so the agent that maintains Myco is the same agent that uses it.
+  immune / senesce / fruit / molt / winnow / ramify / graft / intake / excrete
+  / brief) compose the ingest → digest → circulate → self-check → evolve life
+  cycle. Forty-seven lint dimensions enforce contract invariants (R1–R7)
+  mechanically, including atomic-write R6 enforcement, LLM-provider boundary
+  (MP1/MP2/MP3), and graph connectedness (SE1/SE3/CG1/CG2). The kernel
+  itself is a substrate — editable by default — so the agent that maintains
+  Myco is the same agent that uses it.
 authors:
   - family-names: Battam
     given-names: "1111"
@@ -32,8 +33,8 @@ keywords:
   - biomimetics
   - autonomous-agents
   - knowledge-management
-version: "0.8.5"
-date-released: "2026-04-28"
+version: "0.8.6"
+date-released: "2026-05-12"
 preferred-citation:
   type: software
   title: "Myco — Agent-First Symbiotic Cognitive Substrate"
@@ -42,5 +43,5 @@ preferred-citation:
       given-names: "1111"
       alias: Battam1111
   url: "https://github.com/Battam1111/Myco"
-  version: "0.8.5"
+  version: "0.8.6"
   year: 2026

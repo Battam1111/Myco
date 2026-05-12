@@ -18,11 +18,11 @@ The categories of staleness you detect:
 
 1. **Stale version numbers**: refs to versions older than current `__version__` in user-facing copy (READMEs, MYCO.md, docs/promotion/, examples/, plugin manifests). EXCLUDE: changelog past entries, notes/integrated/n_*.md (immutable history), legacy_v0_3/, anything under `_excreted/`, contract_changelog past sections.
 
-2. **Stale module paths**: references to module paths that have moved (e.g., `src/myco/surface/manifest.yaml` → `src/myco/boundary/surface/manifest.yaml`; `myco.symbionts` → `myco.boundary.host_integration`). Use `git log --diff-filter=D --summary` to identify deleted paths and grep their old locations.
+2. **Stale module paths**: references to module paths that have moved (e.g., `src/myco/surface/manifest.yaml` → `src/myco/boundary/surface/manifest.yaml`; `myco.symbionts` → `myco.boundary.install.clients` via the v0.8.5 host_integration excretion). Use `git log --diff-filter=D --summary` to identify deleted paths and grep their old locations.
 
 3. **Stale identifiers**: references to renamed verbs (the v0.5.2 fungal rename moved 9 names; v0.6.0 removed those aliases). The v0.6.0 era removed `genesis`, `reflect`, `distill`, `perfuse`, `session-end`, `craft`, `bump`, `evolve`, `scaffold` from the manifest entirely.
 
-4. **Numeric drift**: e.g. "20 verbs", "46 lint dimensions", "7 subsystems" — verify each against `_canon.yaml` + `_canon_lint.yaml` + manifest live counts. If a doc says "19 verbs" and live count is 20, that's drift.
+4. **Numeric drift**: e.g. "20 verbs", "47 lint dimensions", "7 subsystems" — verify each against `.myco/canon.yaml` + `.myco/canon_lint.yaml` + manifest live counts. If a doc says "19 verbs" and live count is 20, that's drift.
 
 5. **Test count drift**: `_canon.yaml::metrics.test_count` should match `pytest --collect-only -q` output.
 

@@ -71,17 +71,19 @@ lint:
   # canon_lint.yaml. core.canon.load_canon merges the dimensions_ref
   # payload into the canon's lint section transparently. Single SSoT.
   # The v0.6.0 release expanded the roster to 46 dims; v0.7.2 added
-  # SE5+MB8+PA6 (49); v0.7.5 added LB1+LB2+CG1+CG2 (51 nominal); v0.8.5
-  # retired MF3 (host_integration excretion) and MB7 (mcp_resources
-  # excretion) — live roster: **50 dims** at v0.8.5.
+  # SE5+MB8+PA6 (49); v0.7.5 added LB1+CG1+CG2 (52); v0.8.0 added LB2 (53);
+  # v0.8.5 retired MF3 (host_integration excretion) and MB7 (mcp_resources
+  # excretion); v0.8.6 retired SE4 + RL2 + RL3 (never-fire dead-letter
+  # dims) — live roster: **47 dims** at v0.8.6.
   dimensions_ref: "_canon_lint.yaml"
-  # Representative slice of the v0.8.5 roster (full table at
+  # Representative slice of the v0.8.6 roster (full table at
   # canon_lint.yaml; `myco immune --list` prints the live IDs):
   #   M1/M2/M3/MF1+MF2+MF4+MF5/MP1-MP3 (mechanical kernel/plugin/purity)
   #   DC1-DC5/CS1/FR1/PA1-PA6/CG1-CG2/DI1-DI2/AD1/SC1/CL1-CL3 (mechanical hygiene)
   #   SH1/SH2 (shipped: package + provenance)
   #   MB1-MB4/MB6/MB8 (metabolic: backlog pressure + shim-hit telemetry)
-  #   SE1-SE4/RL1-RL3 (semantic: cross-ref + R-rule coverage)
+  #   SE1-SE3/SE5/RL1/LB1-LB2 (semantic: cross-ref, version-anchor freshness,
+  #     Living Bets cadence + two-regime axis)
   categories:                      # the four fixed categories
     - mechanical
     - shipped
