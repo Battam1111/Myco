@@ -309,7 +309,17 @@ exclude = [
 testpaths = [".tests"]
 # v0.6.0 §K.3 / §K.4: enable coverage gate + xdist parallel by default.
 # CI runs --cov-report=xml + per-package floors via .scripts/coverage_floors.py.
-addopts = "-ra --strict-markers --strict-config"
+# v0.8.8 — added ``--import-mode=importlib`` (PEP 420 namespace
+# packages). Removed 38 empty / docstring-only ``__init__.py`` files
+# from ``.tests/`` since Python 3.3+ does not require them, and the
+# pytest-recommended ``importlib`` mode handles namespace packages
+# correctly — including the common "same test-file basename across
+# different test directories" case (e.g. ``test_registry.py`` exists
+# under both ``.tests/unit/core/`` and ``.tests/unit/homeostasis/``;
+# the old ``prepend`` mode collapsed those by basename, blowing up
+# collection). See:
+# https://docs.pytest.org/en/stable/explanation/pythonpath.html#import-modes
+addopts = "-ra --strict-markers --strict-config --import-mode=importlib"
 pythonpath = ["src"]
 # v0.8.4 root-cleanup (2026-05-12): redirect pytest cache from
 # default `.pytest_cache/` (visible root dotdir) to `.cache/pytest/`
