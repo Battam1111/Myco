@@ -21,13 +21,20 @@ Verbs housed here:
 - ``brief`` (the lone human-facing exception per L0 P1) renders a
   human-readable rollup of substrate state.
 
-The shim at :mod:`myco.meta` re-exports ``session_end_run`` for
-every pre-v0.5.3 caller. Both import paths work across the 0.x line.
-v1.0.0 will remove the shim per ``digestion.md:120-122`` alias-removal
-schedule (the same schedule applies to all v0.5.2 aliases).
+Kept outside ``boundary.surface/`` so that package stays pure
+adaptation per L3 package_map invariant 4.
 
-Kept outside ``surface/`` so that package stays pure adaptation per
-L3 package_map invariant 4.
+Historical note: a ``myco.meta`` shim package re-exporting
+``session_end_run`` was scheduled for v1.0.0 removal in the v0.5.x
+doctrine. That shim never shipped to disk — the planned package
+was excreted at v0.6.0 along with the other pre-rename top-level
+aliases (``myco.surface`` / ``myco.install`` / ``myco.mcp`` /
+``myco.symbionts``), and the v0.8.5 audit confirmed no in-tree
+caller imports ``session_end_run`` from anywhere outside this
+file. The re-export below is therefore a no-op import-target the
+Cycle package maintains for the L0 P3 "永恒进化" preservation
+clause; future deletion can land via a v0.9+ craft once the
+v0.6.0 rename horizon is doctrinally past.
 """
 
 from __future__ import annotations
