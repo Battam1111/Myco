@@ -4,15 +4,13 @@ Covers MB8 (shim-hit counter), PA6 (repo bloat), MF5 (mirror integrity),
 SE5 (version-anchor freshness). Mirrors the test_v0_6_dims_triggers.py
 shape: each test sets up the trigger condition + asserts emission.
 
-Plus tests for the v0.7.2 risk_classifier extensions:
-- shim-hits.json + src/myco/mcp/** in recursion-cutter PATH_PATTERNS
-- metrics.* + governance.shim_sunset_* in CANON_KEYS
-- multi-cluster compound trigger.
-
-The shim ``__main__`` counter-write hook tests previously co-located
-here moved to ``tests/unit/boundary/test_legacy_mcp_shim_warning.py``
-in v0.7.5 (centralized for the MB8 sunset gate). See trailing comment
-block for the migration rationale.
+v0.8.5 — the v0.7.2 risk_classifier recursion-cutter test cluster
+that previously lived in this file (5 tests + helper) was excreted
+together with ``src/myco/core/risk_classifier.py`` — the module had
+zero production-code imports across the 4 minor releases since
+v0.6.0. The shim ``__main__`` counter-write hook tests already
+moved to ``tests/unit/boundary/test_legacy_mcp_shim_warning.py``
+in v0.7.5.
 """
 
 from __future__ import annotations
@@ -20,10 +18,6 @@ from __future__ import annotations
 from pathlib import Path
 
 from myco.core.context import MycoContext
-from myco.core.risk_classifier import (
-    RiskTier,
-    classify_craft_via_path_allowlist,
-)
 from myco.homeostasis.dimensions.mechanical.mf5_generated_mirror_integrity import (
     MF5GeneratedMirrorIntegrity,
 )
@@ -264,134 +258,7 @@ def test_se5_recent_anchor_silent(tmp_path: Path) -> None:
     assert all("v0.7.0" not in f.message for f in findings)
 
 
-# ===== Risk classifier — v0.7.2 recursion-cutter extensions =====
-
-
-def _write_craft(tmp_path: Path, name: str, *, path_allowlist: list[str]) -> Path:
-    """Helper: write a v0.6.15-shaped craft markdown."""
-    fm_lines = [
-        "type: craft",
-        f"slug: {name}",
-        "kind: design",
-        "date: 2026-04-30",
-        "rounds: 3",
-        "status: DRAFT",
-        "authored_by: claude-code-agent",
-        "path_allowlist:",
-    ]
-    for p in path_allowlist:
-        fm_lines.append(f"  - {p}")
-    fm = "\n".join(fm_lines)
-    text = f"---\n{fm}\n---\n\n# {name}\n\nbody\n"
-    p = tmp_path / f"{name}.md"
-    p.write_text(text, encoding="utf-8")
-    return p
-
-
-def test_recursion_cutter_shim_hits_json_path(tmp_path: Path) -> None:
-    """Touching .myco/state/shim_hits.json forces HIGH (mycoparasite T1)."""
-    craft = _write_craft(
-        tmp_path,
-        "zero_shim_counter",
-        path_allowlist=[".myco/state/shim_hits.json"],
-    )
-    result = classify_craft_via_path_allowlist(craft)
-    assert result.tier is RiskTier.HIGH
-
-
-def test_recursion_cutter_shim_package_path(tmp_path: Path) -> None:
-    """Touching src/myco/mcp/__init__.py forces HIGH (mycoparasite T1)."""
-    craft = _write_craft(
-        tmp_path,
-        "delete_shim",
-        path_allowlist=["src/myco/mcp/__init__.py"],
-    )
-    result = classify_craft_via_path_allowlist(craft)
-    assert result.tier is RiskTier.HIGH
-
-
-def test_recursion_cutter_compound_two_clusters(tmp_path: Path) -> None:
-    """v0.7.2 multi-cluster trigger: state + shim simultaneously → HIGH (mycoparasite T6)."""
-    # Note: each path here individually triggers HIGH via _RECURSION_CUTTER_PATH_PATTERNS,
-    # so the compound check is also redundant here. The compound trigger's value is
-    # for path combinations where individual paths are MEDIUM/LOW. Test that case below.
-    craft = _write_craft(
-        tmp_path,
-        "compound_shim_state",
-        path_allowlist=[
-            ".myco/state/shim_hits.json",
-            "src/myco/mcp/__init__.py",
-        ],
-    )
-    result = classify_craft_via_path_allowlist(craft)
-    assert result.tier is RiskTier.HIGH
-    # Either single-path cutter OR compound triggers — both are HIGH.
-    assert "recursion-cutter" in result.rationale.lower()
-
-
-def test_recursion_cutter_metrics_canon_key(tmp_path: Path) -> None:
-    """A craft touching _canon.yaml + body mentioning `repo_size_max_bytes:`
-    in YAML form → HIGH (mycoparasite T3 — metrics threshold protection).
-
-    The body-key check looks for the key followed by `:` or `=` (yaml/python
-    mutation form), so the test body stages the actual proposed mutation.
-    """
-    fm = (
-        "---\n"
-        "type: craft\nslug: bump_threshold\nkind: design\n"
-        "date: 2026-04-30\nrounds: 3\nstatus: DRAFT\n"
-        "authored_by: claude-code-agent\n"
-        "path_allowlist:\n  - _canon.yaml\n"
-        "---\n\n"
-        "# Bump threshold\n\n"
-        "Change `metrics.repo_size_max_bytes` from 50 MB to 5 GB:\n\n"
-        "```yaml\n"
-        "metrics:\n"
-        "  repo_size_max_bytes: 5000000000\n"
-        "```\n"
-    )
-    p = tmp_path / "bump.md"
-    p.write_text(fm, encoding="utf-8")
-    result = classify_craft_via_path_allowlist(p)
-    assert result.tier is RiskTier.HIGH
-    assert "recursion-cutter" in result.rationale.lower()
-
-
-def test_recursion_cutter_shim_sunset_canon_key(tmp_path: Path) -> None:
-    """A craft touching _canon.yaml + body mentioning shim_sunset_min_zero_cycles → HIGH."""
-    fm = (
-        "---\n"
-        "type: craft\nslug: weaken_sunset\nkind: design\n"
-        "date: 2026-04-30\nrounds: 3\nstatus: DRAFT\n"
-        "authored_by: claude-code-agent\n"
-        "path_allowlist:\n  - _canon.yaml\n"
-        "---\n\n"
-        "# Weaken sunset\n\n"
-        "Reduce `governance.shim_sunset_min_zero_cycles`:\n\n"
-        "```yaml\n"
-        "governance:\n"
-        "  shim_sunset_min_zero_cycles: 0\n"
-        "```\n"
-    )
-    p = tmp_path / "weaken.md"
-    p.write_text(fm, encoding="utf-8")
-    result = classify_craft_via_path_allowlist(p)
-    assert result.tier is RiskTier.HIGH
-
-
-# ===== Shim __main__.py counter-write hook =====
-#
-# These two tests previously lived here (testing _record_shim_hit
-# directly). v0.7.5 relocated them to
-# ``tests/unit/boundary/test_legacy_mcp_shim_warning.py`` so the
-# entire ``myco.mcp`` shim contract — DeprecationWarning, stderr
-# pointer, public-symbol re-export, and telemetry append — sits in
-# one controlled file. That centralization lets the MB8 sunset gate
-# (≥7 senesce cycles + ≥7 zero-hit days) close naturally: the
-# substrate's own test suite no longer imports ``myco.mcp`` from
-# multiple places, so a fresh ``pytest tests/`` adds zero records to
-# the real ``.myco/state/shim_hits.json``.
-#
-# Doctrine ref: ``docs/architecture/L2_DOCTRINE/boundary.md`` §
-# "Public-API deletion discipline (v0.7.1-named, v0.7.3-canonized)"
-# gate (b) telemetry verification.
+# v0.8.5 — the v0.7.2 risk_classifier recursion-cutter test cluster
+# (5 tests + _write_craft helper) was excreted with the module.
+# The shim __main__.py counter-write hook tests live at
+# ``tests/unit/boundary/test_legacy_mcp_shim_warning.py``.

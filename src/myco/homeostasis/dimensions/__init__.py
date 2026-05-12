@@ -3,11 +3,16 @@
 One module per dimension, organized into category subdirectories per
 craft v0.6.0 §R2 (Round 4 owner amendment):
 
-- ``mechanical/`` — 31 dims (M1, M2, M3, MF1-4, MP1-3, DC1-5, CS1,
-  FR1, PA1-5, CG1-2, DI1-2, SC1, AD1, CL1-3).
+- ``mechanical/`` — 32 dims (M1-3, MF1+MF2+MF4+MF5, MP1-3, DC1-5,
+  CS1, FR1, PA1-6, CG1-2, DI1-2, SC1, AD1, CL1-3).
 - ``shipped/`` — 2 dims (SH1, SH2).
-- ``metabolic/`` — 6 dims (MB1-4, MB6, MB7).
+- ``metabolic/`` — 6 dims (MB1-4, MB6, MB8).
 - ``semantic/`` — 10 dims (SE1-5, RL1-3, LB1, LB2).
+
+v0.8.5 retired MF3 (with `boundary.host_integration/` excretion) and
+MB7 (with `boundary.surface.mcp_resources` excretion — the dim read
+a metric file that the never-wired-in-build_server stub never wrote).
+Live roster: **50 dims**.
 
 Discovery is driven by
 ``importlib.metadata.entry_points(group="myco.dimensions")`` at v0.5+
@@ -78,7 +83,6 @@ from .metabolic.mb2_no_integrated_yet import MB2NoIntegratedYet
 from .metabolic.mb3_raw_notes_high_watermark import MB3RawNotesHighWatermark
 from .metabolic.mb4_sporulated_reabsorbed import MB4SporulatedReabsorbed
 from .metabolic.mb6_stale_draft_or_distilled import MB6StaleDraftOrDistilled
-from .metabolic.mb7_resource_watch_quota import MB7ResourceWatchQuota
 from .metabolic.mb8_shim_hit_counter import MB8ShimHitCounter
 
 # ---- Semantic (9) ---------------------------------------------------
@@ -142,7 +146,6 @@ __all__ = [
     "MB3RawNotesHighWatermark",
     "MB4SporulatedReabsorbed",
     "MB6StaleDraftOrDistilled",
-    "MB7ResourceWatchQuota",
     "MB8ShimHitCounter",
     # Semantic
     "LB1LivingBetsOverdue",
@@ -201,7 +204,6 @@ _BUILT_IN: tuple[type[Dimension], ...] = (
     MB3RawNotesHighWatermark,
     MB4SporulatedReabsorbed,
     MB6StaleDraftOrDistilled,
-    MB7ResourceWatchQuota,
     MB8ShimHitCounter,
     # Semantic
     LB1LivingBetsOverdue,
