@@ -3,16 +3,19 @@
 47 dimensions across 4 category subdirectories. v0.8.8 reverted the
 v0.6.0 craft §R2 owner amendment "one module per dim" — letter-cluster
 families (M/MF/MP/DC/PA/CG/DI/CL/MB/LB/SE/SH) consolidated into single
-``<letter>_cluster.py`` files; singleton dims (AD1/CS1/FR1/SC1/RL1)
-stay in individual files. Per L1 protocol.md, §R2 is an L3
-organization choice; cluster-merge lands without a molt. Section
-markers ``# === <DIM_ID> — ...`` inside each cluster preserve
-doctrine-by-doctrine review (the original §R2 rationale).
+``<letter>_cluster.py`` files; the mechanical singletons
+(AD1/CS1/FR1/SC1) also collapsed into ``singletons_cluster.py`` at
+v0.8.8 pass-3; RL1 remains a true semantic singleton. Per L1
+protocol.md, §R2 is an L3 organization choice; cluster-merge lands
+without a molt. Section markers ``# === <DIM_ID> — ...`` inside each
+cluster preserve doctrine-by-doctrine review (the original §R2
+rationale).
 
-- ``mechanical/`` — 32 dims across 8 clusters + 4 singletons:
+- ``mechanical/`` — 32 dims across 9 files:
   m_cluster (M1-3), mf_cluster (MF1+2+4+5), mp_cluster (MP1-3),
   dc_cluster (DC1-5), cg_cluster (CG1-2), di_cluster (DI1-2),
-  pa_cluster (PA1-6), cl_cluster (CL1-3) + ad1 + cs1 + fr1 + sc1.
+  pa_cluster (PA1-6), cl_cluster (CL1-3),
+  singletons_cluster (AD1+CS1+FR1+SC1).
 - ``shipped/`` — 2 dims (sh_cluster: SH1+SH2).
 - ``metabolic/`` — 6 dims (mb_cluster: MB1-MB4 + MB6 + MB8).
 - ``semantic/`` — 7 dims: se_cluster (SE1-3+SE5) + lb_cluster (LB1-2)
