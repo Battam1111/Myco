@@ -143,17 +143,11 @@ def main() -> int:
     changes += _bump_plugin_json(
         REPO / ".claude-plugin" / "plugin.json", target, args.dry_run
     )
-    # Cowork plugin bundle carries a parallel plugin.json — its version
-    # must stay in lockstep so the Cowork UI, PyPI release, and Claude
-    # Code plugin all report the same number. The file format is
-    # identical to .claude-plugin/plugin.json, so _bump_plugin_json
-    # reuses cleanly. See .cowork-plugin/README.md for why this ships
-    # as a separate tree from the Claude Code bundle at repo root.
-    changes += _bump_plugin_json(
-        REPO / ".cowork-plugin" / ".claude-plugin" / "plugin.json",
-        target,
-        args.dry_run,
-    )
+    # v0.8.5: The standalone `.cowork-plugin/.claude-plugin/plugin.json`
+    # mirror was excreted. The Cowork .zip bundle is now derived from
+    # `.claude-plugin/plugin.json` (the single source of truth) at
+    # build time, so version stays in lockstep automatically — no
+    # separate bump needed.
     # v0.8.4 root-cleanup (2026-05-12): CITATION.cff moved from repo
     # root to .github/ (GitHub's citation feature auto-discovers
     # either location). Path updated; bumping logic unchanged.

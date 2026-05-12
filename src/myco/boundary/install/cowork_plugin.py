@@ -35,7 +35,10 @@ users to rename.
 instructions. Heavy lifting (building the ZIP) lives in
 ``myco.boundary.install.plugin_bundle``. This module glues:
 
-- Template location (``.cowork-plugin/`` in the repo checkout).
+- Bundle source: ``.claude-plugin/plugin.json`` (Cowork-stripped
+  form written to the .zip) + root ``.mcp.json`` + ``.plugin/skills/
+  myco-substrate/SKILL.md``. The pre-v0.8.5 parallel template
+  directory ``.cowork-plugin/`` was excreted at v0.8.5.
 - Bundle builder (:func:`myco.boundary.install.plugin_bundle.build_plugin_bundle`).
 - Diagnostic helpers (:func:`claude_appdata_root`, :func:`discover_rpm_dirs`)
   that let users sanity-check Cowork's install state after upload.
@@ -63,7 +66,6 @@ from typing import TextIO
 
 from .plugin_bundle import (
     PLUGIN_NAME,
-    TEMPLATE_DIRNAME,
     build_plugin_bundle,
 )
 
@@ -71,13 +73,11 @@ __all__ = [
     "RpmTarget",
     "claude_appdata_root",
     "discover_rpm_dirs",
-    "repo_template_root",
     "prepare_plugin_for_upload",
     "cleanup_legacy_rpm_install",
     "UPLOAD_INSTRUCTIONS",
     "PLUGIN_ID",
     "PLUGIN_NAME",
-    "TEMPLATE_DIRNAME",
 ]
 
 #: Stable plugin id v0.5.19's broken installer used in manifest rows.
@@ -196,16 +196,6 @@ def discover_rpm_dirs(claude_root: Path) -> list[RpmTarget]:
     return out
 
 
-def repo_template_root() -> Path:
-    """Locate the ``.cowork-plugin/`` directory shipped with the Myco repo."""
-    here = Path(__file__).resolve()
-    for parent in (here.parents[3], here.parents[2], here.parents[4]):
-        candidate = parent / TEMPLATE_DIRNAME
-        if candidate.is_dir():
-            return candidate
-    return here.parents[3] / TEMPLATE_DIRNAME
-
-
 # ---------------------------------------------------------------------------
 # New behavior: produce the .zip bundle + tell the user what to do.
 # ---------------------------------------------------------------------------
@@ -229,7 +219,10 @@ def prepare_plugin_for_upload(
     Parameters
     ----------
     repo_root:
-        Repo root containing ``.cowork-plugin/``.
+        Repo root containing ``.claude-plugin/plugin.json`` +
+        ``.mcp.json`` + ``.plugin/skills/myco-substrate/SKILL.md``
+        (v0.8.5+; the parallel ``.cowork-plugin/`` template was
+        deleted in that release as redundant).
     version:
         Advertised in the output filename. Must match the template's
         ``plugin.json::version``; :func:`build_plugin_bundle` enforces

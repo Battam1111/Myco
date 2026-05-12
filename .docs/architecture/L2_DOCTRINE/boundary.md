@@ -374,7 +374,7 @@ A back-compat shim package is **safe to delete** only if it satisfies ONE of the
 ALL of the following must hold:
 
 - `grep -r "from <legacy_path> import" src/ tests/ scripts/ examples/` returns zero hits.
-- No CLI or MCP host entry point (`pyproject.toml::[project.entry-points]`, `.claude-plugin/plugin.json`, `.cowork-plugin/`, `.mcp.json`) declares the path.
+- No CLI or MCP host entry point (`pyproject.toml::[project.entry-points]`, `.claude-plugin/plugin.json`, `.mcp.json`) declares the path.
 - No plugin manifest registers handlers / hooks / skills under the path.
 - The path is NOT imported via `python -m <legacy_path>` from any documented runbook or migration guide.
 
@@ -410,7 +410,7 @@ The discipline is mechanically enforced by:
 > **Status**: APPROVED (2026-05-09, v0.7.4 hotfix landed).
 > **Constraint origin**: external — Anthropic Claude Desktop upload validator.
 
-The Cowork plugin bundle (built by `scripts/build_plugin.py` from `.cowork-plugin/`) MUST be emitted with the **`.zip` extension**, not `.plugin`. This is a v0.7.4 hotfix correcting a v0.5.20–v0.7.3 misreading of Claude Desktop's plugin upload contract.
+The Cowork plugin bundle (built by `.scripts/build_plugin.py` from `.claude-plugin/plugin.json` + `.mcp.json` + `.plugin/skills/myco-substrate/SKILL.md` at v0.8.5+; previously from a standalone `.cowork-plugin/` template that has been excreted as redundant) MUST be emitted with the **`.zip` extension**, not `.plugin`. This is a v0.7.4 hotfix correcting a v0.5.20–v0.7.3 misreading of Claude Desktop's plugin upload contract.
 
 ### What changed
 

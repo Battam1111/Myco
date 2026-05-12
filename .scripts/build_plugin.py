@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
-"""Build a Claude Desktop / Cowork ``.zip`` plugin bundle from ``.cowork-plugin/``.
+"""Build a Claude Desktop / Cowork ``.zip`` plugin bundle.
+
+v0.8.5+ sources: ``.claude-plugin/plugin.json`` (stripped of Cowork-
+unsupported pointer keys) + root ``.mcp.json`` + ``.plugin/skills/
+myco-substrate/SKILL.md``. The pre-v0.8.5 parallel template at
+``.cowork-plugin/`` was excreted as redundant — same Cowork-onboarding
+content can be derived from the single-SoT Claude Code marketplace
+inputs at build time.
 
 Why this exists: Cowork persists third-party plugins only through the
 Anthropic cloud marketplace, and the only user-facing way to upload
@@ -81,12 +88,15 @@ def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(
         prog="build_plugin",
         description=(
-            "Build a .zip plugin bundle from .cowork-plugin/. Drop "
+            "Build a .zip plugin bundle from `.claude-plugin/` + "
+            "`.mcp.json` + `.plugin/skills/myco-substrate/`. Drop "
             "the output file into Claude Desktop's Plugins → Upload "
             "UI to install it into your account's Cowork marketplace. "
             "v0.7.4: extension switched from .plugin to .zip after "
             "Anthropic-tracked bug #40414 confirmed the upload "
-            "validator only accepts .zip."
+            "validator only accepts .zip. v0.8.5: bundle sources "
+            "unified with Claude Code marketplace; the standalone "
+            "`.cowork-plugin/` template excreted."
         ),
     )
     p.add_argument(
@@ -107,7 +117,7 @@ def main(argv: list[str] | None = None) -> int:
         help=(
             "Version string for the output filename (default: "
             "myco.__version__ from src/myco/__init__.py). Must match "
-            ".cowork-plugin/.claude-plugin/plugin.json::version."
+            ".claude-plugin/plugin.json::version."
         ),
     )
     p.add_argument(

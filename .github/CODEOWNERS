@@ -41,7 +41,6 @@
 
 # Plugin bundles — each has its own surface contract with the host.
 /.claude-plugin/                            @Battam1111
-/.cowork-plugin/                            @Battam1111
 /.claude/agents/                            @Battam1111
 /.claude/commands/                          @Battam1111
 /.plugin/agents/                            @Battam1111

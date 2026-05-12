@@ -1,100 +1,123 @@
-"""Structural tests for the Cowork plugin template shipped at repo root.
+"""Structural tests for the Cowork plugin .zip bundle Myco ships.
 
-The `.cowork-plugin/` tree is the source-of-truth template that
-`myco.boundary.install.cowork_plugin.install_cowork_plugin()` (the
-library entry point) copies into every
-`<appdata>/Claude/local-agent-mode-sessions/<owner>/<workspace>/rpm/`
-directory. A malformed template silently installs a broken plugin that
-Cowork would fail to load — these tests catch that before release.
+Pre-v0.8.5 these tests examined the standalone `.cowork-plugin/` source
+template directory. v0.8.5 excreted that directory and unified the
+Cowork-bundle sources with the Claude Code marketplace plugin
+(`.claude-plugin/plugin.json` + root `.mcp.json` + `.plugin/skills/
+myco-substrate/SKILL.md`). These tests now build the bundle in a
+tmp_path and assert structural invariants on the produced .zip itself
+— the thing Claude Desktop's upload validator actually parses.
 
-Scope: contract invariants on files shipped with the repo. Does NOT
-exercise the installer (see `test_install_cowork_plugin.py` for that).
-
-v0.8.5 — the legacy CLI wrapper `.scripts/install_cowork_plugin.py`
-was excreted in this release (deprecated since v0.5.20 as a redirector
-to ``.scripts/build_plugin.py``). Callers should use the library
-entry point above.
+Scope: contract invariants on the .zip artifact Myco ships. Does NOT
+exercise the install (see `test_install_cowork_plugin.py` for the
+prepare-for-upload flow + AppData rpm cleanup).
 """
 
 from __future__ import annotations
 
 import json
+import zipfile
 from pathlib import Path
 
+import pytest
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
-COWORK_ROOT = REPO_ROOT / ".cowork-plugin"
-COWORK_PLUGIN_MANIFEST = COWORK_ROOT / ".claude-plugin" / "plugin.json"
-COWORK_MCP_CONFIG = COWORK_ROOT / ".mcp.json"
-COWORK_SKILLS_DIR = COWORK_ROOT / "skills"
-COWORK_SKILL_MD = COWORK_SKILLS_DIR / "myco-substrate" / "SKILL.md"
+
+# Cowork bundle sources (v0.8.5+): derived from the Claude Code
+# marketplace files at build time.
+ROOT_PLUGIN_MANIFEST = REPO_ROOT / ".claude-plugin" / "plugin.json"
+ROOT_MCP_CONFIG = REPO_ROOT / ".mcp.json"
+ROOT_SKILL_MD = REPO_ROOT / ".plugin" / "skills" / "myco-substrate" / "SKILL.md"
 
 
-def _load(path: Path) -> dict:
-    with open(path, encoding="utf-8") as fh:
-        return json.load(fh)
+def _load_zip_member(zf: zipfile.ZipFile, member: str) -> bytes:
+    return zf.read(member)
 
 
-# ---------------------------------------------------------------------------
-# Template presence.
-# ---------------------------------------------------------------------------
+def _build_bundle(tmp_path: Path) -> Path:
+    import myco
+    from myco.boundary.install.plugin_bundle import build_plugin_bundle
+
+    return build_plugin_bundle(
+        REPO_ROOT,
+        version=myco.__version__,
+        dest_dir=tmp_path,
+    )
 
 
-def test_cowork_plugin_directory_exists() -> None:
-    assert COWORK_ROOT.is_dir(), COWORK_ROOT
-    assert (COWORK_ROOT / "README.md").is_file()
+def test_bundle_sources_present() -> None:
+    """The three v0.8.5+ bundle sources exist at known paths."""
+    assert ROOT_PLUGIN_MANIFEST.is_file(), ROOT_PLUGIN_MANIFEST
+    assert ROOT_MCP_CONFIG.is_file(), ROOT_MCP_CONFIG
+    assert ROOT_SKILL_MD.is_file(), ROOT_SKILL_MD
 
 
-# ---------------------------------------------------------------------------
-# plugin.json
-# ---------------------------------------------------------------------------
+def test_bundle_zip_top_level_layout(tmp_path: Path) -> None:
+    """The .zip must hold a single top-level `myco/` directory with the
+    three required entries inside."""
+    out = _build_bundle(tmp_path)
+    with zipfile.ZipFile(out) as zf:
+        names = set(zf.namelist())
+
+    assert "myco/.claude-plugin/plugin.json" in names
+    assert "myco/.mcp.json" in names
+    assert "myco/skills/myco-substrate/SKILL.md" in names
+
+    top_levels = {n.split("/", 1)[0] for n in names}
+    assert top_levels == {"myco"}, top_levels
 
 
-def test_cowork_plugin_manifest_parses() -> None:
-    assert COWORK_PLUGIN_MANIFEST.is_file(), COWORK_PLUGIN_MANIFEST
-    _load(COWORK_PLUGIN_MANIFEST)
+def test_bundle_plugin_json_has_required_fields(tmp_path: Path) -> None:
+    out = _build_bundle(tmp_path)
+    with zipfile.ZipFile(out) as zf:
+        data = json.loads(_load_zip_member(zf, "myco/.claude-plugin/plugin.json"))
 
-
-def test_cowork_plugin_manifest_has_required_fields() -> None:
-    data = _load(COWORK_PLUGIN_MANIFEST)
     assert data["name"] == "myco"
     for field in ("version", "description", "author", "homepage", "repository"):
         assert field in data, field
 
 
-def test_cowork_plugin_version_tracks_package_version() -> None:
-    """Cowork plugin version must match the ``myco.__version__`` base
-    (PyPI ``.postN`` suffix per v0.6.0 path-B is stripped first).
+def test_bundle_plugin_json_strips_claude_code_pointer_keys(tmp_path: Path) -> None:
+    """The Cowork .zip inlines its skill content (under `myco/skills/`)
+    rather than dereferencing pointers — so the .zip's plugin.json must
+    NOT carry the Claude Code marketplace pointer keys."""
+    out = _build_bundle(tmp_path)
+    with zipfile.ZipFile(out) as zf:
+        data = json.loads(_load_zip_member(zf, "myco/.claude-plugin/plugin.json"))
 
-    The Cowork UI renders the plugin manifest's bare base version, while
-    the PyPI artifact may wear a ``.postN`` suffix as a namespace-burn
-    workaround. Per PEP 440, post-releases are not version increments —
-    they are "the same release re-issued under a fresh artifact name".
-    """
+    forbidden = {"mcpServers", "hooks", "skills", "agents", "commands"}
+    leaked = forbidden & set(data.keys())
+    assert not leaked, (
+        f"Cowork-flavored plugin.json must strip pointer keys "
+        f"{sorted(forbidden)}; found {sorted(leaked)} still present."
+    )
+
+
+def test_bundle_plugin_json_version_matches_package(tmp_path: Path) -> None:
+    """Bundle plugin.json version must match the ``myco.__version__`` base
+    (PyPI ``.postN`` suffix per v0.6.0 path-B is stripped first)."""
     import re
 
     import myco
 
-    data = _load(COWORK_PLUGIN_MANIFEST)
+    out = _build_bundle(tmp_path)
+    with zipfile.ZipFile(out) as zf:
+        data = json.loads(_load_zip_member(zf, "myco/.claude-plugin/plugin.json"))
+
     base = re.sub(r"\.(post|dev)\d+$", "", myco.__version__)
     assert data["version"] in (myco.__version__, base), (
-        f".cowork-plugin/.claude-plugin/plugin.json version {data['version']!r} "
-        f"matches neither myco.__version__ {myco.__version__!r} nor "
-        f"its base {base!r}"
+        f"bundle plugin.json version {data['version']!r} matches "
+        f"neither myco.__version__ {myco.__version__!r} nor base {base!r}"
     )
 
 
-# ---------------------------------------------------------------------------
-# .mcp.json
-# ---------------------------------------------------------------------------
-
-
-def test_cowork_mcp_config_points_at_myco_mcp_launcher() -> None:
+def test_bundle_mcp_config_points_at_myco_mcp_launcher(tmp_path: Path) -> None:
     """The Cowork bundle uses ``python -m myco.boundary.mcp`` (stdio launcher)
-    rather than the bare ``mcp-server-myco`` console script: Claude
-    Desktop / Cowork spawns MCP servers from a GUI context where a
-    user-site Scripts dir may not be on PATH.
-    """
-    data = _load(COWORK_MCP_CONFIG)
+    rather than the bare ``mcp-server-myco`` console script."""
+    out = _build_bundle(tmp_path)
+    with zipfile.ZipFile(out) as zf:
+        data = json.loads(_load_zip_member(zf, "myco/.mcp.json"))
+
     servers = data["mcpServers"]
     assert "myco" in servers, servers
     entry = servers["myco"]
@@ -102,17 +125,13 @@ def test_cowork_mcp_config_points_at_myco_mcp_launcher() -> None:
     assert entry["args"] == ["-m", "myco.boundary.mcp"], entry
 
 
-# ---------------------------------------------------------------------------
-# skills/myco-substrate/SKILL.md
-# ---------------------------------------------------------------------------
+def test_bundle_skill_frontmatter_shape(tmp_path: Path) -> None:
+    out = _build_bundle(tmp_path)
+    with zipfile.ZipFile(out) as zf:
+        text = _load_zip_member(zf, "myco/skills/myco-substrate/SKILL.md").decode(
+            "utf-8"
+        )
 
-
-def test_cowork_skill_file_exists() -> None:
-    assert COWORK_SKILL_MD.is_file(), COWORK_SKILL_MD
-
-
-def test_cowork_skill_frontmatter_shape() -> None:
-    text = COWORK_SKILL_MD.read_text(encoding="utf-8")
     assert text.startswith("---\n"), "frontmatter must open with `---`"
     closing = text.find("\n---\n", 4)
     assert closing > 0, "frontmatter must close with `---`"
@@ -121,20 +140,18 @@ def test_cowork_skill_frontmatter_shape() -> None:
     assert "description:" in frontmatter
 
 
-def test_cowork_skill_body_asserts_correct_framing() -> None:
-    """The skill body is the agent's first contact with Myco. It must
-    teach the correct category (cognitive substrate, not memory tool)
-    and list the R1-R7 contract rules — any regression here would ship
-    a mis-framed onboarding to every Cowork user.
-    """
-    text = COWORK_SKILL_MD.read_text(encoding="utf-8")
-    # Core framing
+def test_bundle_skill_body_asserts_correct_framing(tmp_path: Path) -> None:
+    """The skill body must teach the correct category and list R1-R7."""
+    out = _build_bundle(tmp_path)
+    with zipfile.ZipFile(out) as zf:
+        text = _load_zip_member(zf, "myco/skills/myco-substrate/SKILL.md").decode(
+            "utf-8"
+        )
+
     assert "cognitive substrate" in text.lower()
     assert "not" in text and "memory" in text.lower()
-    # Contract rules
     for rule in ("R1", "R2", "R3", "R4", "R5", "R6", "R7"):
         assert rule in text, f"skill body missing contract rule {rule}"
-    # Verbs — sample the five subsystems
     for verb in (
         "myco_hunger",
         "myco_sense",
@@ -143,6 +160,27 @@ def test_cowork_skill_body_asserts_correct_framing() -> None:
         "myco_immune",
     ):
         assert verb in text, f"skill body missing verb {verb}"
-    # The pulse-reading contract that makes multi-project routing work.
     assert "substrate_pulse" in text
     assert "project_dir_source" in text
+
+
+def test_build_raises_on_missing_source(tmp_path: Path) -> None:
+    """Calling build_plugin_bundle on an empty directory must raise."""
+    from myco.boundary.install.plugin_bundle import (
+        PluginBundleError,
+        build_plugin_bundle,
+    )
+
+    with pytest.raises(PluginBundleError):
+        build_plugin_bundle(tmp_path, version="0.0.0", dest_dir=tmp_path)
+
+
+def test_build_raises_on_version_mismatch(tmp_path: Path) -> None:
+    """Caller-supplied version must match plugin.json::version."""
+    from myco.boundary.install.plugin_bundle import (
+        PluginBundleError,
+        build_plugin_bundle,
+    )
+
+    with pytest.raises(PluginBundleError):
+        build_plugin_bundle(REPO_ROOT, version="99.99.99", dest_dir=tmp_path)

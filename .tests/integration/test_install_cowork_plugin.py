@@ -116,7 +116,9 @@ def test_prepare_plugin_for_upload_writes_bundle(tmp_path: Path) -> None:
 
 
 def test_prepare_plugin_for_upload_raises_on_missing_template(tmp_path: Path) -> None:
-    """If called against a directory with no ``.cowork-plugin/``,
+    """If called against a directory with no bundle sources
+    (.claude-plugin/plugin.json + .mcp.json + .plugin/skills/
+    myco-substrate/SKILL.md per the v0.8.5 source-unification),
     we must raise loudly rather than produce a bogus empty ZIP."""
     from myco.boundary.install.cowork_plugin import prepare_plugin_for_upload
     from myco.boundary.install.plugin_bundle import PluginBundleError
