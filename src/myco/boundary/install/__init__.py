@@ -41,7 +41,6 @@ from .cowork_plugin import (
     cleanup_legacy_rpm_install,
     discover_rpm_dirs,
     prepare_plugin_for_upload,
-    repo_template_root,
 )
 from .fresh import DEFAULT_REPO, run_fresh
 from .plugin_bundle import PluginBundleError
@@ -288,7 +287,11 @@ def _run_cowork_plugin(
     Returns 0 on success, 1 when the template is missing or malformed.
     """
     version = _read_package_version()
-    repo_root = repo_template_root().parent
+    # v0.8.5 — `.cowork-plugin/` was excreted. The bundle is now derived
+    # from `.claude-plugin/plugin.json` + `.mcp.json` + `.plugin/skills/
+    # myco-substrate/SKILL.md` at the repo root. Resolve repo_root from
+    # this module's filesystem location.
+    repo_root = Path(__file__).resolve().parents[4]
     if dry_run:
         bundle = repo_root / "dist" / f"myco-{version}.zip"
         print(f"[dry-run] would build {bundle}")

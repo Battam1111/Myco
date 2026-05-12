@@ -88,23 +88,24 @@ jobs:
           # registry slots. Fall back to server.json::version in that case.
           SRV_PKG=$(python -c "import json; d=json.load(open('.meta/server.json')); print(d['packages'][0]['version'] if d['packages'] else d['version'])")
           PLUGIN=$(python -c "import json; print(json.load(open('.claude-plugin/plugin.json'))['version'])")
-          COWORK=$(python -c "import json; print(json.load(open('.cowork-plugin/.claude-plugin/plugin.json'))['version'])")
           echo "tag:                                       v$TAG"
           echo "tag base (post-release suffix stripped):   v$BASE"
           echo "src/myco/__init__.py:                      $PKG"
           echo "server.json::version:                      $SRV"
           echo "server.json::packages[0]:                  $SRV_PKG"
           echo ".claude-plugin/plugin.json:                $PLUGIN"
-          echo ".cowork-plugin/.claude-plugin/plugin.json: $COWORK"
           # __version__ MUST match the full tag (including any .postN).
           [ "$TAG" = "$PKG" ] || { echo "::error::tag v$TAG ≠ __version__ $PKG"; exit 1; }
           # All other SSoT slots match the BASE version (post-release
           # suffix stripped), since post-release is a PyPI-only artifact-
           # naming workaround, not a user-facing version bump.
+          # v0.8.5 — the .cowork-plugin/.claude-plugin/plugin.json
+          # mirror was excreted; the Cowork .zip is derived from
+          # .claude-plugin/plugin.json at build time, so no separate
+          # version check is needed.
           [ "$BASE" = "$SRV"     ] || { echo "::error::tag base v$BASE ≠ server.json version $SRV"; exit 1; }
           [ "$BASE" = "$SRV_PKG" ] || { echo "::error::tag base v$BASE ≠ server.json packages[0].version $SRV_PKG"; exit 1; }
           [ "$BASE" = "$PLUGIN"  ] || { echo "::error::tag base v$BASE ≠ plugin.json version $PLUGIN"; exit 1; }
-          [ "$BASE" = "$COWORK"  ] || { echo "::error::tag base v$BASE ≠ cowork-plugin version $COWORK"; exit 1; }
 
       - name: Build sdist + wheel
         # v0.8.4 root-cleanup (2026-05-12): build output redirected from
