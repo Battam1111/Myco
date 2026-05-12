@@ -7,12 +7,18 @@ in Stage B.8.
 
 from __future__ import annotations
 
-from .dimension import Dimension
-from .exit_policy import ExitPolicy, Threshold, parse_exit_policy
-from .finding import Category, Finding
 from .kernel import run_immune
-from .registry import DimensionRegistry, default_registry
-from .skeleton import apply_skeleton_downgrade
+from .primitives_cluster import (
+    Category,
+    Dimension,
+    DimensionRegistry,
+    ExitPolicy,
+    Finding,
+    Threshold,
+    apply_skeleton_downgrade,
+    default_registry,
+    parse_exit_policy,
+)
 
 __all__ = [
     "Category",

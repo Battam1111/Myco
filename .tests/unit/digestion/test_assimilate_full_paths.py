@@ -4,9 +4,16 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from myco.core.context import MycoContext
-from myco.digestion.assimilate import _list_raw, _sync_contract_version, reflect, run
-from myco.ingestion.eat import append_note
+from myco.core.identity_cluster import MycoContext
+from myco.digestion.cluster import (
+    _list_raw,
+    _sync_contract_version,
+    reflect,
+)
+from myco.digestion.cluster import (
+    assimilate_run as run,
+)
+from myco.ingestion.capture_cluster import append_note
 
 
 def _seed(root: Path) -> MycoContext:

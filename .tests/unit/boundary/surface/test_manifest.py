@@ -15,8 +15,7 @@ from myco.boundary.surface.manifest import (
     dispatch,
     load_manifest,
 )
-from myco.core.context import MycoContext, Result
-from myco.core.errors import UsageError
+from myco.core.identity_cluster import MycoContext, Result, UsageError
 
 
 def test_dash_to_snake() -> None:
@@ -94,7 +93,7 @@ def test_genesis_alias_no_longer_resolves() -> None:
     """Per Round 4 §A2 owner amendment, all v0.5.2 aliases removed."""
     import pytest as _pytest
 
-    from myco.core.errors import UsageError
+    from myco.core.identity_cluster import UsageError
 
     m = load_manifest()
     with _pytest.raises(UsageError):
@@ -187,7 +186,7 @@ def test_build_context_raises_when_no_substrate(tmp_path: Path) -> None:
     # v0.5.10: ``SubstrateNotFound`` (exit 4) not ``UsageError`` (exit 3),
     # preserving the v0.5.8 exit-code differentiation that the earlier
     # UsageError-wrap silently broke.
-    from myco.core.errors import SubstrateNotFound
+    from myco.core.identity_cluster import SubstrateNotFound
 
     with pytest.raises(SubstrateNotFound, match="no Myco substrate") as exc_info:
         build_context(project_dir=tmp_path)
@@ -295,7 +294,7 @@ def test_substrate_not_found_message_lists_every_tried_path(
 ) -> None:
     """Error message enumerates every detection path that was tried, so
     operators can tell WHICH level of the chain failed (v0.5.14)."""
-    from myco.core.errors import SubstrateNotFound
+    from myco.core.identity_cluster import SubstrateNotFound
 
     monkeypatch.chdir(tmp_path)
     monkeypatch.delenv("MYCO_PROJECT_DIR", raising=False)

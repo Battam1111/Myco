@@ -5,10 +5,13 @@ from __future__ import annotations
 import textwrap
 from pathlib import Path
 
-from myco.core.context import MycoContext
-from myco.ingestion.boot_brief import BEGIN_MARKER
-from myco.ingestion.eat import append_note
-from myco.ingestion.hunger import compose_hunger_report, run
+from myco.core.identity_cluster import MycoContext
+from myco.ingestion.capture_cluster import (
+    BEGIN_MARKER,
+    append_note,
+    compose_hunger_report,
+)
+from myco.ingestion.capture_cluster import hunger_run as run
 
 
 def _mk_ctx(root: Path) -> MycoContext:

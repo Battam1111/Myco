@@ -64,7 +64,7 @@ def test_every_subsystem_has_a_matching_package() -> None:
 
     # v0.8.4 root-cleanup (2026-05-12): Myco-self canon moved to
     # .myco/canon.yaml; resolve via the central helper for compat.
-    from myco.core.paths import find_substrate_canon
+    from myco.core.io_cluster import find_substrate_canon
 
     repo_root = Path(__file__).resolve().parent.parent
     canon_path = find_substrate_canon(repo_root)

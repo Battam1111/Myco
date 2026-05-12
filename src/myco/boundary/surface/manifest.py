@@ -36,13 +36,14 @@ from typing import Any
 
 import yaml
 
-from myco.core.context import MycoContext, Result
-from myco.core.errors import (
+from myco.core.identity_cluster import (
     ContractError,
+    MycoContext,
+    Result,
     SubstrateNotFound,
     UsageError,
 )
-from myco.core.substrate import Substrate, find_substrate_root
+from myco.core.substrate_cluster import Substrate, find_substrate_root
 
 __all__ = [
     "ArgSpec",

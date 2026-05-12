@@ -11,8 +11,7 @@ import textwrap
 import uuid
 from pathlib import Path
 
-from myco.core.context import MycoContext
-from myco.core.severity import Severity
+from myco.core.identity_cluster import MycoContext, Severity
 from myco.homeostasis.dimensions.semantic.lb_cluster import (
     LB1LivingBetsOverdue,
     LB2LivingBetsRegime,

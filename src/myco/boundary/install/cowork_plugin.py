@@ -64,7 +64,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TextIO
 
-from .plugin_bundle import (
+from .install_helpers_cluster import (
     PLUGIN_NAME,
     build_plugin_bundle,
 )

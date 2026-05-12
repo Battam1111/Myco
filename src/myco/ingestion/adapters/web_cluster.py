@@ -43,7 +43,7 @@ from collections.abc import Sequence
 from pathlib import Path
 from urllib.parse import urlparse
 
-from myco.core.io_atomic import DEFAULT_MAX_READ_BYTES
+from myco.core.io_cluster import DEFAULT_MAX_READ_BYTES
 
 from .protocol import Adapter, IngestResult
 

@@ -22,11 +22,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from myco.core.context import MycoContext
+from myco.core.identity_cluster import MycoContext
 from myco.ingestion.adapters.protocol import IngestResult
 from myco.ingestion.adapters.stdlib_simple_cluster import TextFileAdapter
 from myco.ingestion.adapters.web_cluster import HtmlReader, PdfReader
-from myco.ingestion.eat import run
+from myco.ingestion.capture_cluster import eat_run as run
 
 # ---------------------------------------------------------------------------
 # Protocol: IngestResult is constructable with status + failure_reason

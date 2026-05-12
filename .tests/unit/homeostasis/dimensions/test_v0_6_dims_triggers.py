@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from myco.core.context import MycoContext
+from myco.core.identity_cluster import MycoContext
 from myco.homeostasis.dimensions.mechanical.cl_cluster import (
     CL1SamplingPolicyGate,
     CL2OAuthTokenResidency,

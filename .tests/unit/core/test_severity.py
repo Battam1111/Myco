@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from myco.core.severity import Severity, downgrade
+from myco.core.identity_cluster import Severity, downgrade
 
 
 def test_values_are_1_to_4() -> None:

@@ -13,8 +13,8 @@ from pathlib import Path
 
 import pytest
 
-from myco.core.errors import MycoError
-from myco.core.io_atomic import (
+from myco.core.identity_cluster import MycoError
+from myco.core.io_cluster import (
     DEFAULT_MAX_READ_BYTES,
     atomic_utf8_write,
     bounded_read_bytes,

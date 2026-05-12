@@ -21,7 +21,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from myco.core.context import MycoContext
+from myco.core.identity_cluster import MycoContext
 from myco.cycle.ramify import run as ramify_run
 
 
@@ -97,8 +97,8 @@ def test_substrate_load_auto_imports_dimension(
 
     # Then reload the substrate (simulating a fresh CLI process).
     # Clear any previous plugin-module residue to force a real import.
-    from myco.core.substrate import Substrate, _substrate_plugin_module_name
-    from myco.homeostasis.registry import _EXTERNAL_DIMENSION_CLASSES
+    from myco.core.substrate_cluster import Substrate, _substrate_plugin_module_name
+    from myco.homeostasis.primitives_cluster import _EXTERNAL_DIMENSION_CLASSES
 
     # Reset external-registration state so this test is independent
     # of ordering.
@@ -110,7 +110,7 @@ def test_substrate_load_auto_imports_dimension(
     assert fresh.local_plugins_loaded is True
     assert not fresh.local_plugin_errors, fresh.local_plugin_errors
 
-    from myco.homeostasis.registry import default_registry
+    from myco.homeostasis.primitives_cluster import default_registry
 
     reg = default_registry()
     assert reg.has("DT2"), (

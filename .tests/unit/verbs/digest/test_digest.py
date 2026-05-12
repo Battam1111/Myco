@@ -6,10 +6,10 @@ from pathlib import Path
 
 import pytest
 
-from myco.core.context import MycoContext
-from myco.core.errors import UsageError
-from myco.digestion.digest import digest_one, run
-from myco.ingestion.eat import append_note
+from myco.core.identity_cluster import MycoContext, UsageError
+from myco.digestion.cluster import digest_one
+from myco.digestion.cluster import digest_run as run
+from myco.ingestion.capture_cluster import append_note
 
 
 def _mk_ctx(root: Path) -> MycoContext:

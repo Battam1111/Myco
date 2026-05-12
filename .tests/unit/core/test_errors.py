@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from myco.core.errors import (
+from myco.core.identity_cluster import (
     CanonSchemaError,
     ContractError,
     MycoError,

@@ -7,15 +7,18 @@ from collections.abc import Iterable
 
 import pytest
 
-from myco.core.errors import ContractError
-from myco.core.severity import Severity
-from myco.homeostasis.dimension import Dimension
+from myco.core.identity_cluster import ContractError, Severity
 from myco.homeostasis.dimensions import (
     _BUILT_IN,
     discover_dimension_classes,
 )
-from myco.homeostasis.finding import Category, Finding
-from myco.homeostasis.registry import DimensionRegistry, default_registry
+from myco.homeostasis.primitives_cluster import (
+    Category,
+    Dimension,
+    DimensionRegistry,
+    Finding,
+    default_registry,
+)
 
 
 class _Dim(Dimension):

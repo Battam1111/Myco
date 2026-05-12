@@ -76,7 +76,7 @@ from email.utils import parsedate_to_datetime
 from html.parser import HTMLParser
 from pathlib import Path
 
-from myco.core.io_atomic import DEFAULT_MAX_READ_BYTES
+from myco.core.io_cluster import DEFAULT_MAX_READ_BYTES
 
 from .protocol import Adapter, IngestResult
 from .stdlib_simple_cluster import _is_credential_file

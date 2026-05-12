@@ -8,8 +8,8 @@ from pathlib import Path
 
 import pytest
 
-from myco.core.context import MycoContext, Result
-from myco.core.substrate import Substrate
+from myco.core.identity_cluster import MycoContext, Result
+from myco.core.substrate_cluster import Substrate
 
 
 def test_for_testing_from_root(seeded_substrate: Path) -> None:

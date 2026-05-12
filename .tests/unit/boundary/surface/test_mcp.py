@@ -306,7 +306,7 @@ def test_auto_germ_advice_response_shape(tmp_path: Path) -> None:
     in the pulse, the workspace path in the payload, and the v0.5.18
     transparency fields ``project_dir_source`` + ``resolved_project_dir``."""
     from myco.boundary.surface.mcp import _auto_germ_advice_response
-    from myco.core.errors import SubstrateNotFound
+    from myco.core.identity_cluster import SubstrateNotFound
 
     resp = _auto_germ_advice_response(
         verb="hunger",

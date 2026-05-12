@@ -6,13 +6,14 @@ from pathlib import Path
 
 import pytest
 
-from myco.core.context import MycoContext
-from myco.core.errors import ContractError, UsageError
-from myco.cycle.molt import (
+from myco.core.identity_cluster import ContractError, MycoContext, UsageError
+from myco.cycle.canon_cluster import (
     _insert_changelog_entry,
     _patch_canon_field,
     _render_changelog_section,
-    run,
+)
+from myco.cycle.canon_cluster import (
+    molt_run as run,
 )
 
 

@@ -13,16 +13,17 @@ Four commands, one entry-point patcher:
   entry-point file (internal — used by ``hunger --execute``).
 """
 
-from .boot_brief import (
+from .capture_cluster import (
     BEGIN_MARKER,
     END_MARKER,
+    EatOutcome,
+    HungerReport,
+    append_note,
+    compose_hunger_report,
     patch_entry_point,
     render_signals_block,
 )
-from .eat import EatOutcome, append_note
-from .forage import ForageItem, list_candidates
-from .hunger import HungerReport, compose_hunger_report
-from .sense import SenseHit, search_substrate
+from .curate_cluster import ForageItem, SenseHit, list_candidates, search_substrate
 
 __all__ = [
     # eat

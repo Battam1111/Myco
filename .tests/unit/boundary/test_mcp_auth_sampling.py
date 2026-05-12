@@ -16,7 +16,7 @@ from myco.boundary.surface.mcp_auth import (
     ensure_pkce_method,
     validate_aud_claim,
 )
-from myco.boundary.surface.mcp_sampling import (
+from myco.boundary.surface.mcp_helpers_cluster import (
     request_sampling_completion,
     should_advertise_sampling,
 )

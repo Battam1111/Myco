@@ -62,17 +62,20 @@ from myco.boundary.surface.manifest import (
     dispatch,
     load_manifest_with_overlay,
 )
-from myco.core.context import MycoContext
-from myco.core.substrate import (
+from myco.core.identity_cluster import MycoContext
+from myco.core.substrate_cluster import (
     Substrate,
     _substrate_plugin_module_name,
     load_local_plugins,
 )
-from myco.cycle.graft import run as graft_run
+from myco.cycle.canon_cluster import graft_run
 from myco.germination import bootstrap
 from myco.homeostasis.kernel import run_immune
-from myco.homeostasis.registry import _EXTERNAL_DIMENSION_CLASSES, default_registry
-from myco.ingestion.hunger import compose_hunger_report
+from myco.homeostasis.primitives_cluster import (
+    _EXTERNAL_DIMENSION_CLASSES,
+    default_registry,
+)
+from myco.ingestion.capture_cluster import compose_hunger_report
 
 # ---------------------------------------------------------------------------
 # Fixture paths — the reference plugin tree lives next to this test module.

@@ -5,8 +5,9 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from pathlib import Path
 
-from myco.core.context import MycoContext
-from myco.ingestion.eat import append_note, run
+from myco.core.identity_cluster import MycoContext
+from myco.ingestion.capture_cluster import append_note
+from myco.ingestion.capture_cluster import eat_run as run
 
 
 def _mk_ctx(root: Path, *, now: datetime | None = None) -> MycoContext:
@@ -36,7 +37,7 @@ def test_append_note_writes_frontmatter(genesis_substrate: Path) -> None:
     matches so the assertion is stable across YAML-library output
     variants.
     """
-    from myco.digestion.pipeline import parse_note
+    from myco.digestion.cluster import parse_note
 
     ctx = _mk_ctx(genesis_substrate)
     now = datetime(2026, 4, 15, 12, 0, 0, tzinfo=timezone.utc)
@@ -59,7 +60,7 @@ def test_append_note_writes_frontmatter(genesis_substrate: Path) -> None:
 
 def test_append_note_empty_tags_render_empty_list(genesis_substrate: Path) -> None:
     """Empty tags list — shape-stable across safe_dump vs hand-rolled."""
-    from myco.digestion.pipeline import parse_note
+    from myco.digestion.cluster import parse_note
 
     ctx = _mk_ctx(genesis_substrate)
     outcome = append_note(ctx=ctx, content="body")
@@ -118,7 +119,7 @@ def test_url_rejection_reason_helper_returns_ssrf_message() -> None:
     message when the SSRF guard would reject the host. ``127.0.0.1``
     is loopback — universally non-routable — so this test is
     network-independent."""
-    from myco.ingestion.eat import _url_adapter_rejection_reason
+    from myco.ingestion.capture_cluster import _url_adapter_rejection_reason
 
     reason = _url_adapter_rejection_reason("http://127.0.0.1/x")
     assert reason is not None
@@ -129,7 +130,7 @@ def test_url_rejection_reason_helper_returns_ssrf_message() -> None:
 def test_url_rejection_reason_helper_returns_none_for_non_url() -> None:
     """Non-URL targets return ``None`` — the helper only fires when the
     target looks like something ``UrlFetcher`` would have handled."""
-    from myco.ingestion.eat import _url_adapter_rejection_reason
+    from myco.ingestion.capture_cluster import _url_adapter_rejection_reason
 
     assert _url_adapter_rejection_reason("local_file.txt") is None
     assert _url_adapter_rejection_reason("/abs/path.md") is None

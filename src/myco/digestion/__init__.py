@@ -16,16 +16,16 @@ to avoid per-call-site churn. Only module names and CLI verb names
 moved.
 """
 
-from .assimilate import reflect
-from .digest import digest_one
-from .pipeline import (
+from .cluster import (
     NOTE_STAGES,
     Note,
+    digest_one,
+    distill_proposal,
     parse_note,
     promote_to_integrated,
+    reflect,
     render_note,
 )
-from .sporulate import distill_proposal
 
 __all__ = [
     "NOTE_STAGES",

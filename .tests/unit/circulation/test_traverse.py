@@ -8,7 +8,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from myco.boundary.surface.manifest import dispatch
-from myco.core.context import MycoContext
+from myco.core.identity_cluster import MycoContext
 
 
 def test_traverse_runs_on_genesis_substrate(genesis_substrate: Path):

@@ -50,10 +50,9 @@ from typing import Mapping
 import yaml
 
 from myco.boundary.surface.manifest import load_manifest
-from myco.core.context import MycoContext, Result
-from myco.core.errors import ContractError, UsageError
-from myco.core.io_atomic import atomic_utf8_write, bounded_read_text
-from myco.core.write_surface import check_write_allowed
+from myco.core.identity_cluster import ContractError, MycoContext, Result, UsageError
+from myco.core.io_cluster import atomic_utf8_write, bounded_read_text
+from myco.core.trust_cluster import check_write_allowed
 
 __all__ = ["run"]
 
@@ -78,7 +77,7 @@ from __future__ import annotations
 import warnings
 from typing import Mapping
 
-from myco.core.context import MycoContext, Result
+from myco.core.identity_cluster import MycoContext, Result
 
 __all__ = ["run"]
 
@@ -121,11 +120,11 @@ from __future__ import annotations
 
 from typing import Iterable
 
-from myco.core.context import MycoContext
-from myco.core.severity import Severity
+from myco.core.identity_cluster import MycoContext
+from myco.core.identity_cluster import Severity
 
-from myco.homeostasis.dimension import Dimension
-from myco.homeostasis.finding import Category, Finding
+from myco.homeostasis.primitives_cluster import Dimension
+from myco.homeostasis.primitives_cluster import Category, Finding
 
 __all__ = ["{class_name}"]
 
@@ -236,8 +235,8 @@ from __future__ import annotations
 import importlib
 import pkgutil
 
-from myco.homeostasis.dimension import Dimension
-from myco.homeostasis.registry import register_external_dimension
+from myco.homeostasis.primitives_cluster import Dimension
+from myco.homeostasis.primitives_cluster import register_external_dimension
 
 __all__ = ["register_all"]
 

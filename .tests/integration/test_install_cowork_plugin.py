@@ -121,7 +121,7 @@ def test_prepare_plugin_for_upload_raises_on_missing_template(tmp_path: Path) ->
     myco-substrate/SKILL.md per the v0.8.5 source-unification),
     we must raise loudly rather than produce a bogus empty ZIP."""
     from myco.boundary.install.cowork_plugin import prepare_plugin_for_upload
-    from myco.boundary.install.plugin_bundle import PluginBundleError
+    from myco.boundary.install.install_helpers_cluster import PluginBundleError
 
     with pytest.raises(PluginBundleError):
         prepare_plugin_for_upload(tmp_path, version="0.0.0", dest_dir=tmp_path)
@@ -131,7 +131,7 @@ def test_prepare_plugin_for_upload_raises_on_version_mismatch(tmp_path: Path) ->
     """The caller-supplied version must match plugin.json::version.
     Otherwise the filename and the on-disk metadata would drift."""
     from myco.boundary.install.cowork_plugin import prepare_plugin_for_upload
-    from myco.boundary.install.plugin_bundle import PluginBundleError
+    from myco.boundary.install.install_helpers_cluster import PluginBundleError
 
     with pytest.raises(PluginBundleError):
         prepare_plugin_for_upload(REPO_ROOT, version="99.99.99", dest_dir=tmp_path)
@@ -157,7 +157,7 @@ def test_bundle_zip_extension_is_accepted_by_drag_drop_validator(
     emit ``.zip`` so drag-drop succeeds without forcing the user to
     rename the file."""
     import myco
-    from myco.boundary.install.plugin_bundle import build_plugin_bundle
+    from myco.boundary.install.install_helpers_cluster import build_plugin_bundle
 
     path = build_plugin_bundle(REPO_ROOT, version=myco.__version__, dest_dir=tmp_path)
     assert path.name.endswith(".zip"), (
@@ -177,7 +177,7 @@ def test_bundle_extension_constant_is_zip() -> None:
     only when the issue is closed AND verified against a current
     Claude Desktop build.
     """
-    from myco.boundary.install.plugin_bundle import BUNDLE_EXTENSION
+    from myco.boundary.install.install_helpers_cluster import BUNDLE_EXTENSION
 
     assert BUNDLE_EXTENSION == ".zip", (
         f"BUNDLE_EXTENSION regressed to {BUNDLE_EXTENSION!r}. "
@@ -190,7 +190,10 @@ def test_bundle_has_single_top_level_dir_with_plugin_json(tmp_path: Path) -> Non
     top-level dir containing ``.claude-plugin/plugin.json``. Verify we
     preserve that exact layout."""
     import myco
-    from myco.boundary.install.plugin_bundle import PLUGIN_NAME, build_plugin_bundle
+    from myco.boundary.install.install_helpers_cluster import (
+        PLUGIN_NAME,
+        build_plugin_bundle,
+    )
 
     path = build_plugin_bundle(REPO_ROOT, version=myco.__version__, dest_dir=tmp_path)
     with zipfile.ZipFile(path) as zf:
@@ -207,7 +210,10 @@ def test_bundle_carries_myco_substrate_skill(tmp_path: Path) -> None:
     skill to Cowork. If we ever drop it by accident, Cowork uploads
     succeed but nothing changes for the user."""
     import myco
-    from myco.boundary.install.plugin_bundle import PLUGIN_NAME, build_plugin_bundle
+    from myco.boundary.install.install_helpers_cluster import (
+        PLUGIN_NAME,
+        build_plugin_bundle,
+    )
 
     path = build_plugin_bundle(REPO_ROOT, version=myco.__version__, dest_dir=tmp_path)
     with zipfile.ZipFile(path) as zf:
@@ -220,7 +226,10 @@ def test_bundle_has_mcp_json(tmp_path: Path) -> None:
     set up the stdio server the agent talks to — without it, the
     plugin ships a skill that references MCP tools that don't exist."""
     import myco
-    from myco.boundary.install.plugin_bundle import PLUGIN_NAME, build_plugin_bundle
+    from myco.boundary.install.install_helpers_cluster import (
+        PLUGIN_NAME,
+        build_plugin_bundle,
+    )
 
     path = build_plugin_bundle(REPO_ROOT, version=myco.__version__, dest_dir=tmp_path)
     with zipfile.ZipFile(path) as zf:
@@ -242,7 +251,10 @@ def test_bundle_plugin_json_version_matches(tmp_path: Path) -> None:
     import re
 
     import myco
-    from myco.boundary.install.plugin_bundle import PLUGIN_NAME, build_plugin_bundle
+    from myco.boundary.install.install_helpers_cluster import (
+        PLUGIN_NAME,
+        build_plugin_bundle,
+    )
 
     base = re.sub(r"\.(post|dev)\d+$", "", myco.__version__)
     path = build_plugin_bundle(REPO_ROOT, version=base, dest_dir=tmp_path)
@@ -257,7 +269,7 @@ def test_bundle_overwrite_default(tmp_path: Path) -> None:
     """Re-building with overwrite=True (default) must replace an
     existing output. False must raise FileExistsError."""
     import myco
-    from myco.boundary.install.plugin_bundle import build_plugin_bundle
+    from myco.boundary.install.install_helpers_cluster import build_plugin_bundle
 
     p1 = build_plugin_bundle(REPO_ROOT, version=myco.__version__, dest_dir=tmp_path)
     mtime1 = p1.stat().st_mtime_ns

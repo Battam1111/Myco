@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from myco.core.canon import Canon, load_canon
-from myco.core.errors import CanonSchemaError
+from myco.core.identity_cluster import CanonSchemaError
 
 
 def test_minimal_valid_parses(seeded_substrate: Path) -> None:

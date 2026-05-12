@@ -19,9 +19,8 @@ from pathlib import Path
 
 import pytest
 
-from myco.core.context import MycoContext
-from myco.core.errors import UsageError
-from myco.cycle.graft import run as graft_run
+from myco.core.identity_cluster import MycoContext, UsageError
+from myco.cycle.canon_cluster import graft_run
 
 
 def _mk_ctx(root: Path) -> MycoContext:
@@ -246,7 +245,7 @@ def test_list_substrates_returns_registered_entries(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Pre-register two substrates; --list-substrates enumerates them."""
-    from myco.core.registry import register_substrate
+    from myco.core.substrate_cluster import register_substrate
 
     # Session fixture disables registry writes; re-enable for this test.
     monkeypatch.delenv("MYCO_REGISTRY_DISABLED", raising=False)

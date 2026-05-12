@@ -14,18 +14,21 @@ from .canon import (
     load_canon,
     schema_upgraders,
 )
-from .context import MycoContext, Result
-from .errors import (
+from .identity_cluster import (
     CanonSchemaError,
     ContractError,
+    ContractVersion,
+    MycoContext,
     MycoError,
+    PackageVersion,
+    Result,
+    Severity,
     SubstrateNotFound,
     UsageError,
+    downgrade,
 )
-from .paths import SubstratePaths
-from .severity import Severity, downgrade
-from .substrate import Substrate, find_substrate_root
-from .version import ContractVersion, PackageVersion
+from .io_cluster import SubstratePaths
+from .substrate_cluster import Substrate, find_substrate_root
 
 __all__ = [
     # canon

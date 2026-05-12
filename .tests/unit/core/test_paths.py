@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from myco.core.paths import SubstratePaths
+from myco.core.io_cluster import SubstratePaths
 
 
 def test_all_paths_derive_from_root(tmp_path: Path) -> None:

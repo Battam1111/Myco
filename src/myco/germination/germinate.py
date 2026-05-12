@@ -24,9 +24,8 @@ from importlib.resources import files as _pkg_files
 from pathlib import Path
 from string import Template
 
-from myco.core.context import Result
-from myco.core.errors import ContractError, UsageError
-from myco.core.io_atomic import atomic_utf8_write
+from myco.core.identity_cluster import ContractError, Result, UsageError
+from myco.core.io_cluster import atomic_utf8_write
 
 __all__ = [
     "bootstrap",
@@ -345,7 +344,7 @@ def bootstrap(
     # problem (disk full, permissions, etc.). Skipped on dry-run.
     if not dry_run:
         try:
-            from myco.core.registry import register_substrate
+            from myco.core.substrate_cluster import register_substrate
 
             register_substrate(
                 substrate_id=substrate_id,

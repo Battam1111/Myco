@@ -19,13 +19,9 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import ClassVar
 
-from myco.core.context import MycoContext
-from myco.core.errors import MycoError
-from myco.core.io_atomic import bounded_read_text
-from myco.core.severity import Severity
-from myco.core.skip_dirs import should_skip_dir
-from myco.homeostasis.dimension import Dimension
-from myco.homeostasis.finding import Category, Finding
+from myco.core.identity_cluster import MycoContext, MycoError, Severity
+from myco.core.io_cluster import bounded_read_text, should_skip_dir
+from myco.homeostasis.primitives_cluster import Category, Dimension, Finding
 
 __all__ = [
     "MP1NoProviderImports",

@@ -12,9 +12,9 @@ from pathlib import Path
 
 import pytest
 
-from myco.core.context import MycoContext
-from myco.core.errors import UsageError
-from myco.ingestion.forage import list_candidates, run
+from myco.core.identity_cluster import MycoContext, UsageError
+from myco.ingestion.curate_cluster import forage_run as run
+from myco.ingestion.curate_cluster import list_candidates
 
 
 def _mk_ctx(root: Path) -> MycoContext:

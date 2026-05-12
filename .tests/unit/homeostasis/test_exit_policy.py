@@ -4,10 +4,13 @@ from __future__ import annotations
 
 import pytest
 
-from myco.core.errors import ContractError
-from myco.core.severity import Severity
-from myco.homeostasis.exit_policy import Threshold, parse_exit_policy
-from myco.homeostasis.finding import Category, Finding
+from myco.core.identity_cluster import ContractError, Severity
+from myco.homeostasis.primitives_cluster import (
+    Category,
+    Finding,
+    Threshold,
+    parse_exit_policy,
+)
 
 # --- parsing ---------------------------------------------------------------
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from myco.circulation.graph import build_graph
-from myco.core.context import MycoContext
+from myco.core.identity_cluster import MycoContext
 
 
 def test_build_graph_minimal(genesis_substrate: Path):

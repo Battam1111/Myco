@@ -36,7 +36,7 @@ def _load_zip_member(zf: zipfile.ZipFile, member: str) -> bytes:
 
 def _build_bundle(tmp_path: Path) -> Path:
     import myco
-    from myco.boundary.install.plugin_bundle import build_plugin_bundle
+    from myco.boundary.install.install_helpers_cluster import build_plugin_bundle
 
     return build_plugin_bundle(
         REPO_ROOT,
@@ -166,7 +166,7 @@ def test_bundle_skill_body_asserts_correct_framing(tmp_path: Path) -> None:
 
 def test_build_raises_on_missing_source(tmp_path: Path) -> None:
     """Calling build_plugin_bundle on an empty directory must raise."""
-    from myco.boundary.install.plugin_bundle import (
+    from myco.boundary.install.install_helpers_cluster import (
         PluginBundleError,
         build_plugin_bundle,
     )
@@ -177,7 +177,7 @@ def test_build_raises_on_missing_source(tmp_path: Path) -> None:
 
 def test_build_raises_on_version_mismatch(tmp_path: Path) -> None:
     """Caller-supplied version must match plugin.json::version."""
-    from myco.boundary.install.plugin_bundle import (
+    from myco.boundary.install.install_helpers_cluster import (
         PluginBundleError,
         build_plugin_bundle,
     )

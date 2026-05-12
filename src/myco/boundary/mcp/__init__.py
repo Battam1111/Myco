@@ -32,7 +32,7 @@ import sys
 from collections.abc import Sequence
 
 from myco.boundary.surface.mcp import build_server
-from myco.core.io import ensure_utf8_stdio
+from myco.core.io_cluster import ensure_utf8_stdio
 
 __all__ = ["build_server", "main"]
 

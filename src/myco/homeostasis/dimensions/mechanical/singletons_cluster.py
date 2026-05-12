@@ -30,10 +30,8 @@ from typing import Any, ClassVar
 
 import yaml
 
-from myco.core.context import MycoContext
-from myco.core.severity import Severity
-from myco.homeostasis.dimension import Dimension
-from myco.homeostasis.finding import Category, Finding
+from myco.core.identity_cluster import MycoContext, Severity
+from myco.homeostasis.primitives_cluster import Category, Dimension, Finding
 
 __all__ = [
     "AD1AdapterSilentSkip",
@@ -155,7 +153,7 @@ class CS1ContractVersionSync(Dimension):
         canon was already synced (idempotent re-run).
         """
         _ = finding
-        from myco.digestion.assimilate import _sync_contract_version
+        from myco.digestion.cluster import _sync_contract_version
 
         try:
             changed = _sync_contract_version(ctx)

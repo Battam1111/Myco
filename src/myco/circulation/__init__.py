@@ -22,8 +22,7 @@ from .graph import (
     load_persisted_graph,
     persist_graph,
 )
-from .propagate import propagate
-from .traverse import perfuse
+from .traverse_propagate_cluster import perfuse, propagate
 
 __all__ = [
     "Edge",

@@ -17,8 +17,12 @@ from myco.boundary.surface.manifest import (
     load_manifest,
     load_manifest_with_overlay,
 )
-from myco.core.context import MycoContext
-from myco.core.errors import ContractError, SubstrateNotFound, UsageError
+from myco.core.identity_cluster import (
+    ContractError,
+    MycoContext,
+    SubstrateNotFound,
+    UsageError,
+)
 
 # ---------- helpers ----------
 

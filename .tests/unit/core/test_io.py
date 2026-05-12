@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import sys
 
-from myco.core.io import ensure_utf8_stdio
+from myco.core.io_cluster import ensure_utf8_stdio
 
 
 def test_reconfigures_stdout_and_stderr_to_utf8(monkeypatch) -> None:

@@ -10,14 +10,13 @@ from __future__ import annotations
 import textwrap
 from pathlib import Path
 
-from myco.core.context import MycoContext
-from myco.core.severity import Severity
+from myco.core.identity_cluster import MycoContext, Severity
 from myco.homeostasis.dimensions import _BUILT_IN
 from myco.homeostasis.dimensions.mechanical.mp_cluster import (
     MP1NoProviderImports,
     MP2PluginProviderImports,
 )
-from myco.homeostasis.finding import Category
+from myco.homeostasis.primitives_cluster import Category
 
 # =========================================================================
 # test_mp1_no_provider_imports — see git history for original per-dim file

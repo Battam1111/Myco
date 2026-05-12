@@ -5,8 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 
 from myco.circulation.graph import build_graph
-from myco.core.context import MycoContext
-from myco.ingestion.eat import append_note
+from myco.core.identity_cluster import MycoContext
+from myco.ingestion.capture_cluster import append_note
 
 
 def _mk_ctx(root: Path) -> MycoContext:

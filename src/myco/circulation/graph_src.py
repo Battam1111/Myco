@@ -30,9 +30,8 @@ import re
 from collections.abc import Iterator
 from pathlib import Path
 
-from myco.core.errors import MycoError
-from myco.core.io_atomic import bounded_read_text
-from myco.core.skip_dirs import should_skip_dir
+from myco.core.identity_cluster import MycoError
+from myco.core.io_cluster import bounded_read_text, should_skip_dir
 
 __all__ = [
     "walk_src_graph",

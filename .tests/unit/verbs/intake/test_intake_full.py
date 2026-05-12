@@ -6,12 +6,15 @@ from pathlib import Path
 
 import pytest
 
-from myco.core.context import MycoContext
-from myco.core.errors import MycoError
-from myco.ingestion.intake import (
+from myco.core.identity_cluster import MycoContext, MycoError
+from myco.ingestion.curate_cluster import (
     intake_directory,
-    run,
-    run_cli,
+)
+from myco.ingestion.curate_cluster import (
+    intake_run as run,
+)
+from myco.ingestion.curate_cluster import (
+    intake_run_cli as run_cli,
 )
 
 

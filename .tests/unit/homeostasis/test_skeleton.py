@@ -7,10 +7,12 @@ from pathlib import Path
 
 import pytest
 
-from myco.core.context import MycoContext
-from myco.core.severity import Severity
-from myco.homeostasis.finding import Category, Finding
-from myco.homeostasis.skeleton import apply_skeleton_downgrade
+from myco.core.identity_cluster import MycoContext, Severity
+from myco.homeostasis.primitives_cluster import (
+    Category,
+    Finding,
+    apply_skeleton_downgrade,
+)
 
 
 @pytest.fixture

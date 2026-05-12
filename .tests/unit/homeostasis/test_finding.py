@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from myco.core.severity import Severity
-from myco.homeostasis.finding import Category, Finding
+from myco.core.identity_cluster import Severity
+from myco.homeostasis.primitives_cluster import Category, Finding
 
 
 def test_category_values() -> None:

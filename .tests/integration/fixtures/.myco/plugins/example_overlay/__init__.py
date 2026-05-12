@@ -39,9 +39,8 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-from myco.core.context import MycoContext, Result
-from myco.core.errors import ContractError
-from myco.homeostasis.registry import register_external_dimension
+from myco.core.identity_cluster import ContractError, MycoContext, Result
+from myco.homeostasis.primitives_cluster import register_external_dimension
 
 from .xyz1_raw_note_threshold import XYZ1RawNoteThreshold
 
