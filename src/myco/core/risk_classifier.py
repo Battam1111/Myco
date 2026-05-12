@@ -243,10 +243,12 @@ _LOW_RISK_PATH_PATTERNS = (
     re.compile(r"\.github/.*\.yml$"),
     re.compile(r"tests/.*\.py$"),
     # v0.8.4 root-cleanup (2026-05-12): examples/ moved to docs/examples/.
-    re.compile(r"docs/examples/.*"),
-    re.compile(r"docs/migration/.*"),
-    re.compile(r"docs/contract_changelog\.md$"),
-    re.compile(r"docs/primordia/.*\.md$"),
+    # v0.8.5: also match .docs/ for substrates with .docs/ canon-configured
+    # docs_dir (Myco-self uses .docs/; downstream substrates may keep docs/).
+    re.compile(r"\.?docs/examples/.*"),
+    re.compile(r"\.?docs/migration/.*"),
+    re.compile(r"\.?docs/contract_changelog\.md$"),
+    re.compile(r"\.?docs/primordia/.*\.md$"),
 )
 
 # Substrings within diff text that always escalate to high.

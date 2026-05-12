@@ -65,6 +65,14 @@ _DEFAULT_EXCLUDED_GLOBS = (
     "docs/primordia/_landed/**",
     "docs/_archive/**",
     "docs/contract_changelog/_archive/**",
+    # v0.8.5 — also cover .docs/ + .myco/notes/ for substrates that have
+    # adopted the v0.8.4+ relocated layout. Substrates can still override
+    # via canon.metrics.repo_size_excluded; these defaults cover both
+    # legacy and relocated shapes out-of-the-box.
+    ".myco/notes/**",
+    ".docs/primordia/_landed/**",
+    ".docs/_archive/**",
+    ".docs/contract_changelog/_archive/**",
 )
 
 

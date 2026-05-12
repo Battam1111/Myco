@@ -132,7 +132,9 @@ def run(args: Mapping[str, object], *, ctx: MycoContext) -> Result:
     today = str(args.get("date") or _date.today().isoformat())
 
     canon_path = ctx.substrate.paths.canon
-    changelog_path = ctx.substrate.root / "docs" / "contract_changelog.md"
+    # v0.8.5 — respect canon-configurable docs_dir (Myco-self uses .docs/;
+    # downstream substrates may keep docs/). Previously hardcoded.
+    changelog_path = ctx.substrate.paths.docs / "contract_changelog.md"
 
     if not canon_path.is_file():
         raise ContractError(f"bump: canon not found at {canon_path}")
