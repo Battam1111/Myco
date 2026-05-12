@@ -55,6 +55,13 @@ from myco.digestion.pipeline import parse_note
 from myco.germination import bootstrap
 from myco.ingestion.eat import append_note
 
+# v0.8.5 — under pytest-xdist with `--dist=loadgroup`, this file
+# and `test_propagate_to_fixture_peer.py` both write to the shared
+# `peer_substrate/` on-disk fixture; they MUST run on the same
+# worker to avoid the v0.8.3-class autouse-wipe race that previously
+# tripped CI intermittently. The group name is shared by both files.
+pytestmark = pytest.mark.xdist_group(name="peer_substrate_shared")
+
 # ---------------------------------------------------------------------------
 # Three peer fixtures + cleanup
 # ---------------------------------------------------------------------------

@@ -94,7 +94,14 @@ jobs:
         # on the load-bearing packages (core 95% / homeostasis 92% / ...).
         # v0.9 IOU: re-tighten to 85 once multimedia mock-tests cover
         # the audio_segments / video_frame_ocr / image_ocr happy paths.
-        run: python -m pytest -q --maxfail=5 -n auto --dist loadfile --cov --cov-report=xml --cov-fail-under=82
+        # v0.8.5 — switch from --dist loadfile to --dist loadgroup so
+        # test_propagate_to_fixture_peer.py and test_propagate_3peer_network.py
+        # (both pytest.mark.xdist_group("peer_substrate_shared")) run
+        # on the same worker. Closes the v0.8.3-class flaky race where
+        # both files' autouse PEER_A_INBOX wipe fixtures interleaved
+        # across workers and one test caught the other's mid-write
+        # artifacts in a glob.
+        run: python -m pytest -q --maxfail=5 -n auto --dist loadgroup --cov --cov-report=xml --cov-fail-under=82
 
       - name: Coverage per-package floors
         # v0.6.0 §K.3: enforce per-package floors (core/=95, homeostasis/=92, ...).
