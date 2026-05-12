@@ -66,7 +66,11 @@ __all__ = ["PA1WriteSurfaceCoverage"]
 #: declared layout (legacy ``_canon.yaml`` vs v0.8.4+ ``.myco/canon.yaml``).
 _STATIC_SAMPLES: tuple[tuple[str, str, str], ...] = (
     ("notes/raw/**/*.md (eat)", "notes_dir", "raw/sample.md"),
-    ("notes/integrated/**/*.md (assimilate/digest)", "notes_dir", "integrated/sample.md"),
+    (
+        "notes/integrated/**/*.md (assimilate/digest)",
+        "notes_dir",
+        "integrated/sample.md",
+    ),
     ("notes/distilled/**/*.md (sporulate)", "notes_dir", "distilled/sample.md"),
 )
 
@@ -87,10 +91,14 @@ class PA1WriteSurfaceCoverage(Dimension):
         canon_rel = paths.canon.relative_to(root).as_posix()
         notes_rel = paths.notes.relative_to(root).as_posix()
         docs_rel = paths.docs.relative_to(root).as_posix()
-        samples = list(_STATIC_SAMPLES) + [
+        samples = [
+            *_STATIC_SAMPLES,
             ("canon (molt/germinate)", "_canon_path", canon_rel),
-            ("contract_changelog.md (molt)", "_doc_path",
-             f"{docs_rel}/contract_changelog.md"),
+            (
+                "contract_changelog.md (molt)",
+                "_doc_path",
+                f"{docs_rel}/contract_changelog.md",
+            ),
         ]
 
         system = ctx.substrate.canon.system or {}

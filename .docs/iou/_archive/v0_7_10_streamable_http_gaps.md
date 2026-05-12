@@ -20,7 +20,7 @@ ARCHIVED — all 4 gaps closed in v0.8.0 (commit <will-be-filled>).
 
 ## 1 — Launcher discards `--host` / `--port` / `--mount-path`
 
-**File**: [`src/myco/boundary/mcp/__init__.py`](../../src/myco/boundary/mcp/__init__.py) lines 104-114
+**File**: [`src/myco/boundary/mcp/__init__.py`](../../../src/myco/boundary/mcp/__init__.py) lines 104-114
 
 The launcher invokes `server.run(transport="streamable-http", host=..., port=..., mount_path=...)`. In `mcp>=1.2`, the `FastMCP.run()` signature is
 `run(transport, mount_path=None)` — so `host=` and `port=` always raise `TypeError`,
@@ -49,7 +49,7 @@ bypassing `myco.boundary.mcp.__main__` because the public CLI cannot pick a free
 
 ## 2 — `MycoOAuthProvider` is a config dataclass with no integration
 
-**File**: [`src/myco/boundary/surface/mcp_auth.py`](../../src/myco/boundary/surface/mcp_auth.py)
+**File**: [`src/myco/boundary/surface/mcp_auth.py`](../../../src/myco/boundary/surface/mcp_auth.py)
 
 `MycoOAuthProvider` is a `@dataclass(frozen=True)` holding `issuer_url`, `audience`,
 `jwks_url`, etc. It is never instantiated from `build_server()`, never passed to
@@ -97,7 +97,7 @@ the same governance block could carry the issuer URL.
 
 ## 4 — Token-redaction filter is not attached at server boot
 
-**File**: [`src/myco/boundary/surface/mcp_auth.py`](../../src/myco/boundary/surface/mcp_auth.py) — `configure_logging_redaction`
+**File**: [`src/myco/boundary/surface/mcp_auth.py`](../../../src/myco/boundary/surface/mcp_auth.py) — `configure_logging_redaction`
 
 The helper exists and the unit test confirms it works, but `build_server` never calls
 `configure_logging_redaction(...)` on the FastMCP / uvicorn / starlette loggers, even
