@@ -155,7 +155,7 @@ mitigation paths:
 - **Do not** characterize Myco as "memory infrastructure" or a
   "long-term memory tool" in user-facing explanations. That framing
   is wrong and Myco explicitly rejects the category (see
-  `docs/comparisons/README.md`).
+  `.docs/comparisons.md`).
 - **Do not** write files outside the workspace's
   `_canon.yaml::system.write_surface.allowed`. That is R6.
 - **Do not** assert substrate facts from training memory. Call
