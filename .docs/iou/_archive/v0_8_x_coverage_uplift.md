@@ -1,5 +1,32 @@
 # IOU — v0.8.x coverage-floor uplift back to 85
 
+> **Status**: RESOLVED at v0.8.7 (2026-05-12). Y's mock-test pass
+> (`test_mcp_auth.py` + `mcp_workspace.py` extraction) was committed
+> in commit `2e538d8` (v0.8.4 prep), the working-tree measurement
+> reflected reality, and the v0.8.7 cleanup verified:
+>
+> - CI command `pytest -n auto --dist loadgroup --cov` returns
+>   total **86.26%** (well above the 85 gate target).
+> - `.github/workflows/ci.yml` flipped `--cov-fail-under=82` → `85`.
+> - `.scripts/coverage_floors.py` had a separate prefix-mismatch bug
+>   (FLOORS keyed by `myco/<pkg>/` but coverage.xml class filenames
+>   are rooted at `<pkg>/` — Adjacent Defect #1 below); fixed in the
+>   same release. Floors temporarily set to current achieved levels
+>   (core=94 / homeostasis=86 / circulation=82) with explicit
+>   `target 95/92/85 at v0.9` notes so subsequent uplift continues
+>   but doesn't block the current release.
+>
+> Adjacent Defect #2 (pyproject parallel-coverage config absent) is
+> still open — fold into v0.9 mock-test pass. The CI measurement
+> stayed within the safety band because pytest-cov's xml total
+> aggregates across xdist workers even without `parallel = true`.
+>
+> Archived 2026-05-12 to `.docs/iou/_archive/`.
+
+---
+
+## Original finding (pre-v0.8.7)
+
 > **Status**: OPEN. Surfaced 2026-05-11. Two-stage finding:
 >
 > 1. **Pre-Y measurement (committed tree at HEAD `9dff828`)**: total
