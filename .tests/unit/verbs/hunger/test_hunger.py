@@ -90,3 +90,43 @@ def test_report_as_dict_serializable(genesis_substrate: Path) -> None:
     )
     assert "local_plugins" in d
     assert isinstance(d["advice"], list)
+
+
+# v0.8.5 — lifted from .tests/unit/ingestion/test_hunger_count_by_kind.py
+# (deleted as part of the dedup pass) to keep all hunger-related
+# coverage in one file per the 1-test-file-per-verb convention.
+def test_hunger_payload_includes_count_by_kind(
+    genesis_substrate: Path,
+) -> None:
+    """v0.5.4 bug #2 + v0.5.22 bug #4 regression.
+
+    The hunger payload's ``local_plugins`` block exposes ``count_by_kind``
+    with entries for every plugin category. Before v0.5.4 only a flat
+    ``count`` shipped, contradicting the v0.5.3 CHANGELOG promise.
+
+    v0.5.22 additionally asserts that a **fresh substrate** with no
+    ``.myco/plugins/`` tree reports zeros for every kind — pre-v0.5.22
+    this reported 32+ because every kernel built-in was misclassified
+    as "local".
+    """
+    ctx = MycoContext.for_testing(root=genesis_substrate)
+    report = compose_hunger_report(ctx)
+    payload = report.as_dict()
+
+    assert "local_plugins" in payload
+    lp = payload["local_plugins"]
+    assert "count" in lp
+    assert "count_by_kind" in lp
+    by_kind = lp["count_by_kind"]
+    for key in ("dimension", "adapter", "schema_upgrader", "overlay_verb"):
+        assert key in by_kind, f"missing {key!r} in count_by_kind"
+        assert isinstance(by_kind[key], int)
+    # Total should equal the sum.
+    assert lp["count"] == sum(by_kind.values())
+    # v0.5.22 semantics: a fresh substrate has no substrate-local
+    # plugins — kernel built-ins don't count. Pre-fix this was 32+.
+    assert by_kind["dimension"] == 0
+    assert by_kind["adapter"] == 0
+    assert by_kind["schema_upgrader"] == 0
+    assert by_kind["overlay_verb"] == 0
+    assert lp["count"] == 0

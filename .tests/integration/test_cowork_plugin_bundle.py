@@ -1,13 +1,19 @@
 """Structural tests for the Cowork plugin template shipped at repo root.
 
 The `.cowork-plugin/` tree is the source-of-truth template that
-`scripts/install_cowork_plugin.py` copies into every
+`myco.boundary.install.cowork_plugin.install_cowork_plugin()` (the
+library entry point) copies into every
 `<appdata>/Claude/local-agent-mode-sessions/<owner>/<workspace>/rpm/`
 directory. A malformed template silently installs a broken plugin that
 Cowork would fail to load — these tests catch that before release.
 
 Scope: contract invariants on files shipped with the repo. Does NOT
 exercise the installer (see `test_install_cowork_plugin.py` for that).
+
+v0.8.5 — the legacy CLI wrapper `.scripts/install_cowork_plugin.py`
+was excreted in this release (deprecated since v0.5.20 as a redirector
+to ``.scripts/build_plugin.py``). Callers should use the library
+entry point above.
 """
 
 from __future__ import annotations
