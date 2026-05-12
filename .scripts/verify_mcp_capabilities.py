@@ -96,8 +96,10 @@ def main() -> int:
             )
             return 2
 
-        # resources/list (graceful: server may not yet wire this in v0.6.0
-        # if mcp_resources stubs are not registered to FastMCP).
+        # resources/list (graceful: the mcp_resources subscription
+        # manager stub was excreted at v0.8.5 as never-wired-into-
+        # production; the server may emit an empty list, in which
+        # case we skip the count check rather than fail).
         res_resp = _send(proc, {"jsonrpc": "2.0", "id": 3, "method": "resources/list"})
         resources = (
             res_resp.get("result", {}).get("resources", [])

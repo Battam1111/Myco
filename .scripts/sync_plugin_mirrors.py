@@ -26,13 +26,13 @@ without mutating.
 
 Wired into:
 
-- ``scripts/bump_version.py`` post-bump (every release ensures synced
+- ``.scripts/bump_version.py`` post-bump (every release ensures synced
   mirrors before the molt commit).
-- ``scripts/build_plugin.py`` pre-build (defense-in-depth).
+- ``.scripts/build_plugin.py`` pre-build (defense-in-depth).
 
 Usage:
-    python scripts/sync_plugin_mirrors.py            # apply (idempotent)
-    python scripts/sync_plugin_mirrors.py --check    # detect drift; exit 1 if drift
+    python .scripts/sync_plugin_mirrors.py            # apply (idempotent)
+    python .scripts/sync_plugin_mirrors.py --check    # detect drift; exit 1 if drift
 
 Exit codes:
     0 — already in sync (or successfully synced when not --check)

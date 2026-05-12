@@ -93,7 +93,7 @@ def _demo_v0_to_v1(raw: Mapping[str, Any]) -> Mapping[str, Any]:
     A substrate with ``schema_version: "0"`` parses cleanly through
     this path with no warning; without the upgrader the caller would
     see a ``UserWarning`` about the unknown version. Tests in
-    ``tests/unit/core/test_canon_schema_upgrader_demo.py`` pin
+    ``.tests/unit/core/test_canon_schema_upgrader_demo.py`` pin
     both modes.
     """
     data = dict(raw)
@@ -230,7 +230,7 @@ def _v2_to_v3_lint_dim_count_field(raw: Mapping[str, Any]) -> Mapping[str, Any]:
 
     Adds ``metrics.lint_dim_count: int | null`` to canons that pre-date
     schema v3. The field is the canon-cited count of registered lint
-    dimensions, kept in sync by ``scripts/bump_version.py`` on every
+    dimensions, kept in sync by ``.scripts/bump_version.py`` on every
     contract bump (per craft P2 wiring). On a v2 substrate observed
     cold (no recent ``myco molt`` run), the field defaults to ``None``;
     a fresh ``myco germinate`` populates it directly from the live

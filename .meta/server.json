@@ -2,14 +2,14 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.Battam1111/myco",
   "title": "Myco: Agent-First Cognitive Substrate",
-  "description": "Agent-first cognitive substrate: 20 verbs + 46 lint dims over a self-validating graph.",
+  "description": "Agent-first cognitive substrate: 20 verbs + 50 lint dims over a self-validating graph.",
   "repository": {
     "url": "https://github.com/Battam1111/Myco",
     "source": "github"
   },
   "version": "0.8.5",
   "websiteUrl": "https://github.com/Battam1111/Myco",
-  "icon": "https://raw.githubusercontent.com/Battam1111/Myco/main/docs/assets/logo_light_512.png",
+  "icon": "https://raw.githubusercontent.com/Battam1111/Myco/main/.docs/assets/logo_light_512.png",
   "_meta": {
     "io.modelcontextprotocol.registry/publisher-provided": {
       "categories": [
@@ -17,19 +17,19 @@
         "developer-tools"
       ],
       "stance": "anti-vector",
-      "stance_text": "Myco is NOT a memory tool, NOT a RAG framework, NOT vector retrieval. It is a self-validating cognitive substrate for long-running LLM agents, governed by R1-R7 hard contract and 46 mechanical lint dimensions across 7 subsystems. All knowledge lives as plain markdown + YAML on disk; the agent reads files directly via MCP resources.",
+      "stance_text": "Myco is NOT a memory tool, NOT a RAG framework, NOT vector retrieval. It is a self-validating cognitive substrate for long-running LLM agents, governed by R1-R7 hard contract and 50 mechanical lint dimensions across 7 subsystems. All knowledge lives as plain markdown + YAML on disk; the agent reads files directly via MCP resources.",
       "showcases": [
         {
-          "title": "20 verbs MCP surface (v0.6.0)",
+          "title": "20 verbs MCP surface (v0.6.0+)",
           "url": "https://github.com/Battam1111/Myco#the-twenty-verbs"
         },
         {
-          "title": "46 lint dimensions self-validating",
-          "url": "https://github.com/Battam1111/Myco/blob/main/docs/architecture/L2_DOCTRINE/homeostasis.md"
+          "title": "50 lint dimensions self-validating",
+          "url": "https://github.com/Battam1111/Myco/blob/main/.docs/architecture/L2_DOCTRINE/homeostasis.md"
         },
         {
           "title": "7 subsystems (germination/ingestion/digestion/circulation/homeostasis/cycle/boundary)",
-          "url": "https://github.com/Battam1111/Myco/blob/main/docs/architecture/L2_DOCTRINE/boundary.md"
+          "url": "https://github.com/Battam1111/Myco/blob/main/.docs/architecture/L2_DOCTRINE/boundary.md"
         }
       ],
       "competitive_alternatives": [
@@ -42,7 +42,7 @@
         "no embedding model required",
         "no vector store",
         "all knowledge as plain markdown",
-        "self-validating via 46 lint dimensions",
+        "self-validating via 50 lint dimensions",
         "R1-R7 contract enforced by mechanical anchors"
       ]
     }

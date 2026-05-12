@@ -239,9 +239,9 @@ lint:
     - shipped
     - metabolic
     - semantic
-  # v0.6.10 (option A): inline `dimensions:` table removed. The 46-dim
-  # roster lives in sibling `_canon_lint.yaml` (referenced via
-  # `dimensions_ref` above). `core.canon._merge_lint_dimensions_subfile`
+  # v0.6.10 (option A): inline `dimensions:` table removed. The live
+  # 50-dim roster (v0.8.5) lives in sibling `canon_lint.yaml` (referenced
+  # via `dimensions_ref` above). `core.canon._merge_lint_dimensions_subfile`
   # transparently merges the sibling at load time. Single SSoT.
   # v0.6.0 owner amendment §A5 — 21 new dims land at declared severity
   # immediately (NO severity-promotion ladder). Per-dim severity is the

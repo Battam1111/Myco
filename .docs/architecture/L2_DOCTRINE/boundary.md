@@ -131,19 +131,18 @@ v0.6.0 Round 5 per owner directive ("不许有任何一丝一毫偷懒"):
 
 ```
 src/myco/boundary/
-├── __init__.py              # imports the four subpackages locally
+├── __init__.py              # imports the three subpackages locally
 ├── surface/                 # CLI + MCP server + manifest dispatcher
 │   ├── cli.py
 │   ├── manifest.yaml
 │   ├── manifest.py
 │   ├── mcp.py
-│   ├── mcp_resources.py
-│   ├── mcp_prompts.py
 │   ├── mcp_sampling.py
-│   ├── mcp_auth.py
-│   └── capability.py
+│   └── mcp_auth.py
+│   # (v0.8.5: mcp_resources.py + mcp_prompts.py + capability.py
+│   # were excreted as never-wired-into-build_server() stubs.)
 ├── install/                 # myco-install host writers
-│   ├── clients.py
+│   ├── clients.py           # data-driven JsonClientSpec table (10 MCP hosts)
 │   ├── cowork_plugin.py
 │   ├── plugin_bundle.py
 │   └── fresh.py
@@ -396,8 +395,8 @@ The discipline is mechanically enforced by:
 
 - **MB8** (metabolic, MEDIUM) — counts shim-path hits and reports sunset eligibility.
 - **MF5** (mechanical, MEDIUM, v0.7.3 reclassified) — flags MIRROR_DRIFT between project-scope and bundle-scope copies of v0.6.11 plugin files (the discipline applies symmetrically to plugin mirrors: byte-identical pairs are the desired state, divergence is real lint).
-- **`scripts/sync_plugin_mirrors.py`** (v0.7.3+) — idempotent sync helper invoked by `bump_version.py` post-bump and `build_plugin.py` pre-build. Project-scope `.claude/<dir>/X.md` is the SSoT.
-- **risk_classifier recursion-cutter** (v0.7.2+) — `src/myco/mcp/**` + `.myco_state/shim_hits.json` are HIGH-tier paths; any craft touching them auto-classifies as HIGH-risk owner-gated. Compound multi-cluster `path_allowlist` (touching state + shim + canon simultaneously) is also HIGH per mycoparasite T6.
+- **`.scripts/sync_plugin_mirrors.py`** (v0.7.3+) — idempotent sync helper invoked by `bump_version.py` post-bump and `build_plugin.py` pre-build. Project-scope `.claude/<dir>/X.md` is the SSoT.
+- **Recursion-cutter discipline** (v0.7.2-named, narrative-only at v0.8.5+) — `src/myco/mcp/**` + `.myco/state/shim_hits.json` SHOULD be HIGH-tier paths in any winnow risk-classifier; compound multi-cluster `path_allowlist` (touching state + shim + canon simultaneously) SHOULD be HIGH per mycoparasite T6. v0.6.0-v0.8.4 the rule was mechanically enforced by `core/risk_classifier.py`; v0.8.5 excreted that helper as never-wired-into-winnow.G7-production-path, so the discipline is currently doctrine-only awaiting re-mechanisation in a v0.9+ craft.
 
 ### What this discipline does NOT cover
 

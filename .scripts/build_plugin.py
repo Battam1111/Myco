@@ -22,17 +22,17 @@ Usage
 -----
 
     # from repo root
-    python scripts/build_plugin.py
+    python .scripts/build_plugin.py
 
     # write to a specific directory
-    python scripts/build_plugin.py --out /tmp/builds
+    python .scripts/build_plugin.py --out /tmp/builds
 
     # advertise a different version (won't match plugin.json — use
-    # scripts/bump_version.py instead to move both in lockstep)
-    python scripts/build_plugin.py --version 0.5.19
+    # .scripts/bump_version.py instead to move both in lockstep)
+    python .scripts/build_plugin.py --version 0.5.19
 
 The CI workflow (``.github/workflows/release.yml``) runs this after
-the bump-parity check, then uploads ``dist/myco-<version>.zip`` as
+the bump-parity check, then uploads ``.dist/myco-<version>.zip`` as
 a GitHub Release asset so users can ``curl -L -o myco.zip
 https://github.com/Battam1111/Myco/releases/latest/download/myco-<ver>.zip``
 and drag it into Claude Desktop's plugin upload UI.
@@ -47,7 +47,7 @@ from pathlib import Path
 
 # Put src/ on sys.path so this script runs from a repo checkout
 # without requiring `pip install -e .` first. Mirrors what
-# scripts/bump_version.py does.
+# .scripts/bump_version.py does.
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 _SRC = _REPO_ROOT / "src"
 if _SRC.is_dir() and str(_SRC) not in sys.path:

@@ -40,18 +40,26 @@ def _in_scope(
     scope: Scope,
     entry_point: str = "MYCO.md",
     canon_rel: str = "_canon.yaml",
+    notes_dir: str = "notes",
+    docs_dir: str = "docs",
 ) -> bool:
     # v0.8.4 root-cleanup (2026-05-12): entry_point + canon_rel are
     # the agent entry page + canon path read from substrate (defaults
     # = legacy; Myco-self uses ".myco/MYCO.md" + ".myco/canon.yaml").
+    # v0.8.5: notes_dir / docs_dir parameters added so scope filtering
+    # follows canon-configured paths.notes / paths.docs (Myco-self
+    # uses ".myco/notes" + ".docs"; downstream defaults to "notes" +
+    # "docs"). Before this fix the hardcoded `path.startswith("docs/")`
+    # check returned False for every Myco-self node (which begin with
+    # `.docs/`), silently dropping the entire docs-scope filter.
     if scope == "all":
         return True
     if scope == "canon":
         return path == canon_rel
     if scope == "notes":
-        return path.startswith("notes/")
+        return path.startswith(notes_dir + "/")
     if scope == "docs":
-        return path.startswith("docs/") or path == entry_point
+        return path.startswith(docs_dir + "/") or path == entry_point
     return False
 
 
@@ -60,8 +68,10 @@ def _edge_in_scope(
     scope: Scope,
     entry_point: str = "MYCO.md",
     canon_rel: str = "_canon.yaml",
+    notes_dir: str = "notes",
+    docs_dir: str = "docs",
 ) -> bool:
-    return _in_scope(edge.src, scope, entry_point, canon_rel)
+    return _in_scope(edge.src, scope, entry_point, canon_rel, notes_dir, docs_dir)
 
 
 def _dangling(
@@ -70,11 +80,13 @@ def _dangling(
     scope: Scope,
     entry_point: str = "MYCO.md",
     canon_rel: str = "_canon.yaml",
+    notes_dir: str = "notes",
+    docs_dir: str = "docs",
 ) -> list[tuple[str, str]]:
     out: list[tuple[str, str]] = []
     root_r = root.resolve()
     for e in graph.edges:
-        if not _edge_in_scope(e, scope, entry_point, canon_rel):
+        if not _edge_in_scope(e, scope, entry_point, canon_rel, notes_dir, docs_dir):
             continue
         # External-ish dst (e.g. URLs) left as raw; check existence only
         # if it resolves to something under root.
@@ -89,6 +101,8 @@ def _orphans(
     scope: Scope,
     entry_point: str = "MYCO.md",
     canon_rel: str = "_canon.yaml",
+    notes_dir: str = "notes",
+    docs_dir: str = "docs",
 ) -> list[str]:
     # A node is an orphan if it is a note/doc with no *incoming* edges.
     # Canon and entry-point are never orphans by definition.
@@ -97,10 +111,11 @@ def _orphans(
     for n in graph.nodes:
         if n in (canon_rel, entry_point):
             continue
-        if not _in_scope(n, scope, entry_point, canon_rel):
+        if not _in_scope(n, scope, entry_point, canon_rel, notes_dir, docs_dir):
             continue
-        # Only treat notes/ and docs/ as orphan candidates.
-        if not (n.startswith("notes/") or n.startswith("docs/")):
+        # Only treat notes/ and docs/ as orphan candidates (resolved via
+        # canon-configured prefixes — see _in_scope for v0.8.5 rationale).
+        if not (n.startswith(notes_dir + "/") or n.startswith(docs_dir + "/")):
             continue
         if n not in referenced:
             orphans.append(n)
@@ -188,8 +203,28 @@ def perfuse(
     canon_rel = ctx.substrate.paths.canon.relative_to(
         ctx.substrate.root.resolve()
     ).as_posix()
-    dangling = _dangling(graph, ctx.substrate.root, scope, entry_point, canon_rel)
-    orphans = _orphans(graph, scope, entry_point, canon_rel)
+    # v0.8.5 — pass canon-configured docs_dir / notes_dir so the scope
+    # filters in _in_scope() / _dangling() / _orphans() work on
+    # substrates whose docs/notes live under hidden prefixes.
+    notes_dir = ctx.substrate.paths.notes_dir
+    docs_dir = ctx.substrate.paths.docs_dir
+    dangling = _dangling(
+        graph,
+        ctx.substrate.root,
+        scope,
+        entry_point,
+        canon_rel,
+        notes_dir,
+        docs_dir,
+    )
+    orphans = _orphans(
+        graph,
+        scope,
+        entry_point,
+        canon_rel,
+        notes_dir,
+        docs_dir,
+    )
     proposals = _proposals(orphans, dangling)
 
     return Result(

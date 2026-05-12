@@ -144,7 +144,9 @@ v0.5.24 added `excrete`, a new ingestion verb that safely deletes
 a raw note by moving it to `.myco_state/excreted/` with an audit
 tombstone (scope-locked to `notes/raw/`; integrated and distilled
 notes are protected by the append-only ingestion doctrine).
-Current total: **nineteen verbs** (18 agent + 1 human).
+v0.6.0 added `intake` (bulk ingestion combining forage + eat with
+strict-mode failure visibility) reaching the **twenty verb** total
+(19 agent + 1 human-facing `brief`) carried through v0.8.5.
 
 At v0.5.6 the dimension roster that polices the manifest gained
 **MP1** (mechanical/HIGH — "no LLM-provider import from inside

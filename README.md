@@ -122,7 +122,7 @@ Six subsystems. Every name is a fungal-biology term whose meaning tracks its act
 - **Ingestion.** `hunger` (what is missing?), `eat` (absorb raw material), `sense` (keyword search), `forage` (scan ingestible paths), `excrete` (safely delete a raw note with an audit tombstone), `intake` (bulk-ingest a directory; v0.6.0).
 - **Digestion.** `assimilate` (raw to integrated, in bulk), `digest` (promote a single note), `sporulate` (integrated to dispersible proposal).
 - **Circulation.** `traverse` (walk the graph), `propagate` (publish to a downstream substrate).
-- **Homeostasis.** `immune` (46-dimension lint; `--fix` repairs mechanically where it can).
+- **Homeostasis.** `immune` (50-dimension lint; `--fix` repairs mechanically where it can).
 - **Cycle.** `senesce` (session dormancy), `fruit` (three-round craft), `winnow` (gate the craft's shape), `molt` (ship the contract bump), `ramify` (scaffold a new dimension, verb, or adapter), `graft` (manage substrate-local plugins), `brief` (human-facing state rollup).
 
 Every verb lives in [`src/myco/boundary/surface/manifest.yaml`](src/myco/boundary/surface/manifest.yaml). The CLI (`myco VERB`) and the MCP tool surface both derive from that manifest mechanically. One source of truth for both faces. A downstream substrate can `ramify` its own dimensions or verbs into `.myco/plugins/` without ever forking Myco.

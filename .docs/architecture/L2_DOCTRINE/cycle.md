@@ -64,9 +64,13 @@ live in `src/myco/cycle/`.
 
 4. **`fruit → winnow → molt`** is the canonical doctrine evolution
    loop. No L0/L1/L2 doctrine change lands without all three steps.
-   v0.6.0 adds governance tiering (`risk_classifier.py`) which permits
-   agent-self-winnow on low/medium-risk crafts after a session-counted
-   public window.
+   v0.6.0 added governance tiering with a content-based risk-classifier
+   helper (`core/risk_classifier.py`); v0.8.5 excreted that module as
+   never-wired-into-winnow.G7-production-path. Today the path_allowlist
+   risk tiering lives directly in `cycle/winnow.py::_compute_risk_tier`
+   (regex over craft frontmatter + canon-key body scan). The
+   doctrine-level tiering policy is unchanged — only the implementation
+   collapsed into the consumer.
 
 ## Cross-subsystem contract
 
@@ -120,8 +124,11 @@ This boundary is enforced by:
 
 ## v0.6.0 governance tiering
 
-Per craft v0.6.0 §F25, `winnow` gains `--auto-approve-low-risk` mode
-backed by `core/risk_classifier.py`. Risk classification:
+Per craft v0.6.0 §F25, `winnow` gains `--auto-approve-low-risk` mode.
+At v0.6.0-v0.8.4 the tier derivation lived in a `core/risk_classifier.py`
+helper; v0.8.5 excreted that module as never-wired-into-winnow.G7
+across 4 minor releases. The tier rules below are now applied directly
+by `cycle/winnow.py`. Risk classification:
 
 - **High-risk** (owner gate required): L0 five principles wording,
   R1-R7 number/semantics, `canon.system.llm_policy` default flip,
@@ -187,11 +194,19 @@ Critic outputs are **veto votes**, not advisory: any HIGH-severity tension from 
 
 ### Agent-First default (v0.6.15+)
 
-**Risk class is derived from craft CONTENT** via `core.risk_classifier`. Per L0 P1, owner involvement is reserved for crafts that mutate L0/L1/L2 — rare, explicit, gate-level. Medium-risk crafts (new dim, new alias, fixable extension, etc.) follow v0.6.0 governance tiering: agent self-winnow + 7-session-7-day public window with always-on `vetoed_at` veto inside the window.
+**Risk class is derived from craft CONTENT** via the path_allowlist
++ canon-key tier rules implemented in `cycle/winnow.py` (v0.6.0-v0.8.4
+this logic lived in a separate `core/risk_classifier.py` helper which
+v0.8.5 excreted as never-wired-into-production). Per L0 P1, owner
+involvement is reserved for crafts that mutate L0/L1/L2 — rare,
+explicit, gate-level. Medium-risk crafts (new dim, new alias,
+fixable extension, etc.) follow v0.6.0 governance tiering: agent
+self-winnow + 7-session-7-day public window with always-on
+`vetoed_at` veto inside the window.
 
-The risk classifier reads craft frontmatter `path_allowlist:` (NOT body grep — see G7 below) and applies:
+The tier derivation reads craft frontmatter `path_allowlist:` (NOT body grep — see G7 below) and applies:
 - HIGH if any path matches L0/L1/canon_schema/subsystem-deletion/verb-count/dim-count/schema_version triggers
-- HIGH **forced** (recursion-cutter) if path_allowlist includes `src/myco/core/risk_classifier.py`, `_canon.yaml::governance.auto_evolve_*`, or `.github/workflows/auto_*.yml` — regardless of other content. This prevents the substrate from quietly auto-merging a craft that disables its own gating.
+- HIGH **forced** (recursion-cutter) if path_allowlist includes `_canon.yaml::governance.auto_evolve_*` or `.github/workflows/auto_*.yml` — regardless of other content. This prevents the substrate from quietly auto-merging a craft that disables its own gating.
 - MEDIUM otherwise (most auto-crafts)
 
 **v0.6.15 corrected v0.6.14 owner-First regression**: v0.6.14 shipped `auto_evolve_force_high_risk: true` and `auto_evolve_pr_window_skip: true` as defaults; this collapsed every auto-craft to owner-merge-gate, inverting L0 P1. v0.6.15 flips both to `false` (matching v0.6.0 tiering). No `auto_evolve_owner_paranoia_mode` field is introduced — L0 P1 names exactly two carved exceptions (`brief` + agent-calls-LLM); a third would erode the "exhausted list."
