@@ -62,7 +62,7 @@ def _url_adapter_rejection_reason(target: str) -> str | None:
     if not (target.startswith("http://") or target.startswith("https://")):
         return None
     try:
-        from myco.ingestion.adapters.url_fetcher import UrlFetchError, _validate_url
+        from myco.ingestion.adapters.web_cluster import UrlFetchError, _validate_url
     except ImportError:
         # Adapters extra not installed — existing "Install myco[adapters]"
         # hint in the caller is already right for this case.

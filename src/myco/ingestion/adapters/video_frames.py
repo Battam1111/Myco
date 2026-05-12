@@ -48,7 +48,7 @@ Both → install-extras failed-stub.
 Security posture mirrors :mod:`audio` and :mod:`image_ocr`:
 
 * **Credential-glob denial.** Reuses
-  :func:`text_file._is_credential_file`.
+  :func:`stdlib_simple_cluster._is_credential_file`.
 * **Size cap.** Files over :data:`DEFAULT_MAX_VIDEO_BYTES` (500 MB)
   are rejected by ``can_handle``. Larger than audio/image because
   video is naturally larger; OpenCV streams frames so peak RAM
@@ -66,7 +66,7 @@ from pathlib import Path
 from typing import Any
 
 from .protocol import Adapter, IngestResult
-from .text_file import _is_credential_file
+from .stdlib_simple_cluster import _is_credential_file
 
 #: Size ceiling for a single video file (500 MB). Larger than audio
 #: (100 MB) and image (50 MB) caps because video is naturally larger
@@ -188,7 +188,7 @@ class VideoFramesAdapter(Adapter):
     * ``ocr_lang`` — string; default :data:`_DEFAULT_OCR_LANG`
 
     Refuses files matched by
-    :data:`text_file._CREDENTIAL_DENY_GLOBS` and files over
+    :data:`stdlib_simple_cluster._CREDENTIAL_DENY_GLOBS` and files over
     :data:`DEFAULT_MAX_VIDEO_BYTES` (500 MB). Returns a single
     failed-stub on every former silent-skip path (cv2 not installed,
     pytesseract not installed, video can't be opened, all frames

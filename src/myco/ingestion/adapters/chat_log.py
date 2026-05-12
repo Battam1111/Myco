@@ -36,7 +36,7 @@ Detection is two-tier:
 Security posture mirrors :mod:`text_file`:
 
 * Reuses :data:`_CREDENTIAL_DENY_GLOBS` from
-  :mod:`myco.ingestion.adapters.text_file` (an attacker who dumps
+  :mod:`myco.ingestion.adapters.stdlib_simple_cluster` (an attacker who dumps
   ``.aws_credentials`` into a chat could otherwise exfiltrate via
   ``myco eat --path``).
 * Refuses files over :data:`DEFAULT_MAX_INGEST_BYTES` (10 MB) at
@@ -57,7 +57,7 @@ from pathlib import Path
 from myco.core.io_atomic import DEFAULT_MAX_READ_BYTES
 
 from .protocol import Adapter, IngestResult
-from .text_file import _is_credential_file
+from .stdlib_simple_cluster import _is_credential_file
 
 #: Size ceiling for a single chat-log file (10 MB). Mirrors
 #: :data:`myco.core.io_atomic.DEFAULT_MAX_READ_BYTES` and the cap on
@@ -226,7 +226,7 @@ class ChatLogAdapter(Adapter):
     * ``turn_index`` — 0-based index of the turn within the file
     * ``source_file`` — POSIX-normalised absolute path to the source
 
-    Refuses files matched by :data:`text_file._CREDENTIAL_DENY_GLOBS`
+    Refuses files matched by :data:`stdlib_simple_cluster._CREDENTIAL_DENY_GLOBS`
     (e.g. ``.aws_credentials.chat.md``) and files over
     :data:`DEFAULT_MAX_INGEST_BYTES`. Returns a single failed-stub
     on every former silent-skip path per the v0.7.3 AD1-closure

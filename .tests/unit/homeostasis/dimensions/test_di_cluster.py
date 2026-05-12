@@ -1,4 +1,9 @@
-"""Tests for ``DI1DisciplineHooksPresent``."""
+"""Tests for ``di_cluster`` — merged per-dim test files (v0.8.8).
+
+Per-dim test files consolidated to mirror the src/ cluster
+merge. Each `# === <stem>` section corresponds to one original
+per-dim test file; git history preserves the per-dim state.
+"""
 
 from __future__ import annotations
 
@@ -9,6 +14,10 @@ from myco.core.context import MycoContext
 from myco.homeostasis.dimensions.mechanical.di_cluster import (
     DI1DisciplineHooksPresent,
 )
+
+# =========================================================================
+# test_di1_discipline_hooks_present — see git history for original per-dim file
+# =========================================================================
 
 
 def test_no_claude_dir_silent(seeded_substrate: Path) -> None:

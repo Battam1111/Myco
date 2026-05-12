@@ -376,7 +376,7 @@ def test_ingest_credential_file_blocked(tmp_path: Path) -> None:
 
     The brief specifies ``.email_credentials.eml`` as the canonical
     test name — it matches the ``credentials.*`` glob in
-    :data:`text_file._CREDENTIAL_DENY_GLOBS`."""
+    :data:`stdlib_simple_cluster._CREDENTIAL_DENY_GLOBS`."""
     p = tmp_path / ".email_credentials.eml"
     _write_eml(p, body="EMAIL_PASSWORD=hunter2\nIMAP_TOKEN=abc123")
     adapter = EmailMboxAdapter()
@@ -403,7 +403,7 @@ def test_email_mbox_adapter_registered_before_text_file() -> None:
     from myco.ingestion.adapters.email_mbox import (
         EmailMboxAdapter as EM,
     )
-    from myco.ingestion.adapters.text_file import TextFileAdapter as TF
+    from myco.ingestion.adapters.stdlib_simple_cluster import TextFileAdapter as TF
 
     adapters = list(all_adapters())
     em_idx = next((i for i, a in enumerate(adapters) if isinstance(a, EM)), -1)

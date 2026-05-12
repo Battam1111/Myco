@@ -1,25 +1,8 @@
-"""Tests for ``MP1NoProviderImports`` (v0.5.6 mycelium-purity seam).
+"""Tests for ``mp_cluster`` — merged per-dim test files (v0.8.8).
 
-Pins the behavior described in
-``docs/primordia/v0_5_6_mp1_mycelium_purity_craft_2026-04-18.md`` and
-the class docstring on
-``myco.homeostasis.dimensions.mp1_no_provider_imports.MP1NoProviderImports``.
-
-Covers:
-
-- class-attribute contract (id, category, default_severity, fixable);
-- registration in the built-in tuple;
-- clean substrate → zero findings;
-- ``import openai`` and ``from anthropic import …`` → HIGH findings;
-- nested ``from langchain_openai.chat_models import ChatOpenAI``
-  → HIGH finding on the blacklist root;
-- relative imports (``from .pipeline import x``) → no finding;
-- ``src/myco/providers/`` subtree is scan-exempt;
-- ``__pycache__`` / hidden directories are skipped;
-- syntax errors in a scanned file → no crash, no finding;
-- ``canon.system.no_llm_in_substrate: false`` → same imports fire at
-  LOW severity with an opt-out message;
-- ``.myco/plugins/`` is **out of scope** (MF2 governs that axis).
+Per-dim test files consolidated to mirror the src/ cluster
+merge. Each `# === <stem>` section corresponds to one original
+per-dim test file; git history preserves the per-dim state.
 """
 
 from __future__ import annotations
@@ -32,8 +15,13 @@ from myco.core.severity import Severity
 from myco.homeostasis.dimensions import _BUILT_IN
 from myco.homeostasis.dimensions.mechanical.mp_cluster import (
     MP1NoProviderImports,
+    MP2PluginProviderImports,
 )
 from myco.homeostasis.finding import Category
+
+# =========================================================================
+# test_mp1_no_provider_imports — see git history for original per-dim file
+# =========================================================================
 
 _MINIMAL_CANON = textwrap.dedent(
     """\
@@ -51,8 +39,6 @@ _MINIMAL_CANON = textwrap.dedent(
         doc: "docs/architecture/L2_DOCTRINE/homeostasis.md"
     """
 )
-
-
 _CANON_OPTED_OUT = textwrap.dedent(
     """\
     schema_version: "1"
@@ -81,11 +67,6 @@ def _seed_substrate(root: Path, canon: str = _MINIMAL_CANON) -> MycoContext:
     return MycoContext.for_testing(root=root)
 
 
-# ---------------------------------------------------------------------------
-# Static / registration contract
-# ---------------------------------------------------------------------------
-
-
 def test_mp1_is_registered_in_built_in() -> None:
     """``_BUILT_IN`` includes ``MP1NoProviderImports`` for dev checkouts."""
     assert MP1NoProviderImports in _BUILT_IN
@@ -97,11 +78,6 @@ def test_mp1_dimension_attributes() -> None:
     assert MP1NoProviderImports.category is Category.MECHANICAL
     assert MP1NoProviderImports.default_severity is Severity.HIGH
     assert MP1NoProviderImports.fixable is False
-
-
-# ---------------------------------------------------------------------------
-# Scan: clean kernel
-# ---------------------------------------------------------------------------
 
 
 def test_mp1_clean_kernel_no_findings(tmp_path: Path) -> None:
@@ -121,11 +97,6 @@ def test_mp1_clean_kernel_no_findings(tmp_path: Path) -> None:
     )
     findings = list(MP1NoProviderImports().run(ctx))
     assert findings == []
-
-
-# ---------------------------------------------------------------------------
-# Scan: violations
-# ---------------------------------------------------------------------------
 
 
 def test_mp1_detects_openai_import(tmp_path: Path) -> None:
@@ -172,11 +143,6 @@ def test_mp1_detects_nested_langchain(tmp_path: Path) -> None:
     # The blacklist root is reported — ``langchain_openai.chat_models``
     # matches because the top-level ``langchain_openai`` is blacklisted.
     assert "langchain_openai.chat_models" in findings[0].message
-
-
-# ---------------------------------------------------------------------------
-# Scan: false-positive guards
-# ---------------------------------------------------------------------------
 
 
 def test_mp1_ignores_relative_imports(tmp_path: Path) -> None:
@@ -252,11 +218,6 @@ def test_mp1_syntax_error_does_not_crash(tmp_path: Path) -> None:
     assert findings == []
 
 
-# ---------------------------------------------------------------------------
-# Canon cross-check: opt-out downgrades severity
-# ---------------------------------------------------------------------------
-
-
 def test_mp1_severity_is_low_when_canon_opts_out(tmp_path: Path) -> None:
     """``no_llm_in_substrate: false`` → LOW severity + opt-out message."""
     ctx = _seed_substrate(tmp_path, canon=_CANON_OPTED_OUT)
@@ -271,11 +232,6 @@ def test_mp1_severity_is_low_when_canon_opts_out(tmp_path: Path) -> None:
     assert "openai" in f.message
 
 
-# ---------------------------------------------------------------------------
-# Scope: plugins live under a different axis
-# ---------------------------------------------------------------------------
-
-
 def test_mp1_scope_is_kernel_only(tmp_path: Path) -> None:
     """``.myco/plugins/`` files are not MP1's concern (MF2 territory)."""
     ctx = _seed_substrate(tmp_path)
@@ -284,11 +240,6 @@ def test_mp1_scope_is_kernel_only(tmp_path: Path) -> None:
     (plugins / "bad.py").write_text("import openai\n", encoding="utf-8")
     findings = list(MP1NoProviderImports().run(ctx))
     assert findings == []
-
-
-# ---------------------------------------------------------------------------
-# v0.6.14 — craft host-signature scan
-# ---------------------------------------------------------------------------
 
 
 _CANON_V0_6_14 = textwrap.dedent(
@@ -523,3 +474,49 @@ def test_mp1_uses_canon_recognized_hosts(tmp_path: Path) -> None:
     matches = [f for f in findings if "claude_authored" in (f.path or "")]
     assert len(matches) == 1
     assert matches[0].severity is Severity.HIGH
+
+
+# =========================================================================
+# test_mp2_plugin_provider_imports — see git history for original per-dim file
+# =========================================================================
+
+
+def test_no_plugins_dir_silent(seeded_substrate: Path) -> None:
+    ctx = MycoContext.for_testing(root=seeded_substrate)
+    assert list(MP2PluginProviderImports().run(ctx)) == []
+
+
+def test_clean_plugins_no_findings(seeded_substrate: Path) -> None:
+    plugins = seeded_substrate / ".myco" / "plugins"
+    plugins.mkdir(parents=True)
+    (plugins / "__init__.py").write_text("", encoding="utf-8")
+    (plugins / "clean.py").write_text(
+        "from pathlib import Path\n# local, fine\n", encoding="utf-8"
+    )
+    ctx = MycoContext.for_testing(root=seeded_substrate)
+    assert list(MP2PluginProviderImports().run(ctx)) == []
+
+
+def test_flags_plugin_importing_openai(seeded_substrate: Path) -> None:
+    plugins = seeded_substrate / ".myco" / "plugins"
+    plugins.mkdir(parents=True)
+    (plugins / "bad.py").write_text("import openai\n", encoding="utf-8")
+    ctx = MycoContext.for_testing(root=seeded_substrate)
+    findings = list(MP2PluginProviderImports().run(ctx))
+    assert len(findings) == 1
+    assert findings[0].severity is Severity.MEDIUM
+    assert "openai" in findings[0].message
+
+
+def test_downgrades_when_substrate_opts_out(seeded_substrate: Path) -> None:
+    plugins = seeded_substrate / ".myco" / "plugins"
+    plugins.mkdir(parents=True)
+    (plugins / "bad.py").write_text("import anthropic\n", encoding="utf-8")
+    ctx = MycoContext.for_testing(root=seeded_substrate)
+    # ``Canon`` is a frozen dataclass; bypass the frozen check via
+    # ``object.__setattr__`` to simulate the opt-out without editing
+    # the YAML on disk.
+    object.__setattr__(ctx.substrate.canon, "system", {"no_llm_in_substrate": False})
+    findings = list(MP2PluginProviderImports().run(ctx))
+    assert len(findings) == 1
+    assert findings[0].severity is Severity.LOW

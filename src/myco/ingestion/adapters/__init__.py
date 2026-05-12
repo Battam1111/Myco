@@ -79,10 +79,10 @@ def _try_register(cls_path: str) -> None:
         pass  # optional dep missing; adapter not available
 
 
-_try_register("myco.ingestion.adapters.url_fetcher.UrlFetcher")
-_try_register("myco.ingestion.adapters.pdf_reader.PdfReader")
-_try_register("myco.ingestion.adapters.html_reader.HtmlReader")
-_try_register("myco.ingestion.adapters.tabular.TabularReader")
+_try_register("myco.ingestion.adapters.web_cluster.UrlFetcher")
+_try_register("myco.ingestion.adapters.web_cluster.PdfReader")
+_try_register("myco.ingestion.adapters.web_cluster.HtmlReader")
+_try_register("myco.ingestion.adapters.stdlib_simple_cluster.TabularReader")
 # Chat-log must register before text-file: a ``.chat.md`` would
 # otherwise match TextFileAdapter's broad ``.md`` claim and be
 # ingested as a single opaque blob, losing turn structure (L0 P2
@@ -123,8 +123,8 @@ _try_register("myco.ingestion.adapters.git_history.GitHistoryAdapter")
 # size-cap ladder (100 MB → 50 MB → 500 MB) and the modality-
 # decisiveness ladder (audio is mono-segment-rich, OCR is single-
 # block, video is frame-sampled).
-_try_register("myco.ingestion.adapters.audio.AudioAdapter")
-_try_register("myco.ingestion.adapters.image_ocr.ImageOcrAdapter")
+_try_register("myco.ingestion.adapters.multimedia_cluster.AudioAdapter")
+_try_register("myco.ingestion.adapters.multimedia_cluster.ImageOcrAdapter")
 _try_register("myco.ingestion.adapters.video_frames.VideoFramesAdapter")
-_try_register("myco.ingestion.adapters.code_repo.CodeRepoAdapter")
-_try_register("myco.ingestion.adapters.text_file.TextFileAdapter")
+_try_register("myco.ingestion.adapters.stdlib_simple_cluster.CodeRepoAdapter")
+_try_register("myco.ingestion.adapters.stdlib_simple_cluster.TextFileAdapter")

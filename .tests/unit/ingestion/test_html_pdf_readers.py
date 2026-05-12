@@ -5,10 +5,10 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import patch
 
-from myco.ingestion.adapters.html_reader import (
+from myco.ingestion.adapters.web_cluster import (
     HtmlReader,
+    PdfReader,
 )
-from myco.ingestion.adapters.pdf_reader import PdfReader
 
 # ---------- HtmlReader ----------
 
@@ -47,7 +47,7 @@ def test_html_can_handle_oversized_returns_false(tmp_path: Path, monkeypatch):
     p.write_text("<html></html>", encoding="utf-8")
     # Patch DEFAULT_MAX_INGEST_BYTES below the actual size to trigger reject.
     monkeypatch.setattr(
-        "myco.ingestion.adapters.html_reader.DEFAULT_MAX_INGEST_BYTES", 2
+        "myco.ingestion.adapters.web_cluster.DEFAULT_MAX_INGEST_BYTES", 2
     )
     assert HtmlReader().can_handle(str(p)) is False
 
@@ -88,7 +88,7 @@ def test_html_ingest_oversized_returns_failed_stub(tmp_path: Path, monkeypatch):
     p = tmp_path / "big.html"
     p.write_text("<html><body>x</body></html>", encoding="utf-8")
     monkeypatch.setattr(
-        "myco.ingestion.adapters.html_reader.DEFAULT_MAX_INGEST_BYTES", 2
+        "myco.ingestion.adapters.web_cluster.DEFAULT_MAX_INGEST_BYTES", 2
     )
     results = HtmlReader().ingest(str(p))
     assert len(results) == 1
@@ -128,7 +128,7 @@ def test_pdf_can_handle_oversized_returns_false(tmp_path: Path, monkeypatch):
     # Mock signature so it parses as PDF (we don't actually parse; we patch can_handle path)
     p.write_text("not a real pdf", encoding="utf-8")
     monkeypatch.setattr(
-        "myco.ingestion.adapters.pdf_reader.DEFAULT_MAX_INGEST_BYTES", 2
+        "myco.ingestion.adapters.web_cluster.DEFAULT_MAX_INGEST_BYTES", 2
     )
     assert PdfReader().can_handle(str(p)) is False
 
@@ -138,7 +138,7 @@ def test_pdf_ingest_oversized_returns_failed_stub(tmp_path: Path, monkeypatch):
     p = tmp_path / "big.pdf"
     p.write_text("not a real pdf", encoding="utf-8")
     monkeypatch.setattr(
-        "myco.ingestion.adapters.pdf_reader.DEFAULT_MAX_INGEST_BYTES", 2
+        "myco.ingestion.adapters.web_cluster.DEFAULT_MAX_INGEST_BYTES", 2
     )
     results = PdfReader().ingest(str(p))
     assert len(results) == 1
@@ -160,7 +160,7 @@ def test_pdf_ingest_extracts_text():
         def __init__(self, *a, **kw) -> None:
             self.pages = [FakePage("hello"), FakePage("")]
 
-    with patch("myco.ingestion.adapters.pdf_reader._PR", FakeReader):
+    with patch("myco.ingestion.adapters.web_cluster._PR", FakeReader):
         # Need a real file so stat() works.
         import os
         import tempfile
@@ -188,7 +188,7 @@ def test_pdf_ingest_no_text_returns_placeholder():
         def __init__(self, *a, **kw) -> None:
             self.pages = [FakePage(), FakePage()]
 
-    with patch("myco.ingestion.adapters.pdf_reader._PR", FakeReader):
+    with patch("myco.ingestion.adapters.web_cluster._PR", FakeReader):
         import os
         import tempfile
 

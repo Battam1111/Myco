@@ -20,7 +20,7 @@ Detection is extension-only:
 
 Security posture mirrors :mod:`text_file` and :mod:`chat_log`:
 
-* Reuses :data:`text_file._CREDENTIAL_DENY_GLOBS` (e.g. an attacker
+* Reuses :data:`stdlib_simple_cluster._CREDENTIAL_DENY_GLOBS` (e.g. an attacker
   who renamed their AWS credentials to ``.aws_credentials.sqlite``
   cannot exfiltrate via ``myco eat --path``).
 * Refuses files over :data:`DEFAULT_MAX_INGEST_BYTES` (10 MB) at
@@ -53,7 +53,7 @@ from pathlib import Path
 from myco.core.io_atomic import DEFAULT_MAX_READ_BYTES
 
 from .protocol import Adapter, IngestResult
-from .text_file import _is_credential_file
+from .stdlib_simple_cluster import _is_credential_file
 
 #: Size ceiling for a single SQLite file (10 MB). Mirrors
 #: :data:`myco.core.io_atomic.DEFAULT_MAX_READ_BYTES` and the cap on
@@ -212,7 +212,7 @@ class SqliteAdapter(Adapter):
     * ``source_file`` — POSIX-normalised absolute path to the DB
 
     Refuses files matched by
-    :data:`text_file._CREDENTIAL_DENY_GLOBS` (e.g.
+    :data:`stdlib_simple_cluster._CREDENTIAL_DENY_GLOBS` (e.g.
     ``.aws_credentials.sqlite``) and files over
     :data:`DEFAULT_MAX_INGEST_BYTES`. Caps emitted rows per DB at
     :data:`_MAX_ROWS_PER_DB`; on overflow emits the first 1000 plus a

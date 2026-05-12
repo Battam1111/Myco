@@ -471,8 +471,8 @@ def test_git_history_adapter_registered() -> None:
     registers BEFORE ``CodeRepoAdapter`` so a marker-file working tree
     routes to git-history rather than being slurped as a code repo."""
     from myco.ingestion.adapters import all_adapters
-    from myco.ingestion.adapters.code_repo import CodeRepoAdapter as CR
     from myco.ingestion.adapters.git_history import GitHistoryAdapter as GH
+    from myco.ingestion.adapters.stdlib_simple_cluster import CodeRepoAdapter as CR
 
     adapters = list(all_adapters())
     gh_idx = next((i for i, a in enumerate(adapters) if isinstance(a, GH)), -1)

@@ -54,7 +54,7 @@ Security posture:
   ``brief``) is an accidental privacy disclosure waiting to happen.
 * **Credential-glob denial.** A user who saves a credential dump as
   ``.email_credentials.eml`` triggers
-  :data:`text_file._is_credential_file` and gets refused.
+  :data:`stdlib_simple_cluster._is_credential_file` and gets refused.
 * **Size cap.** Files over :data:`DEFAULT_MAX_INGEST_BYTES` (10 MB)
   are rejected by ``can_handle``; a 5 GB archive cannot OOM us.
 
@@ -79,14 +79,14 @@ from pathlib import Path
 from myco.core.io_atomic import DEFAULT_MAX_READ_BYTES
 
 from .protocol import Adapter, IngestResult
-from .text_file import _is_credential_file
+from .stdlib_simple_cluster import _is_credential_file
 
 #: Size ceiling for a single email / mbox file (10 MB). Mirrors the
 #: cross-adapter cap; oversized archives get a failed-stub.
 DEFAULT_MAX_INGEST_BYTES: int = DEFAULT_MAX_READ_BYTES
 
 #: Substrings that mark an email-shaped file as credential-bearing
-#: in a way the cross-adapter ``text_file._CREDENTIAL_DENY_GLOBS``
+#: in a way the cross-adapter ``stdlib_simple_cluster._CREDENTIAL_DENY_GLOBS``
 #: list doesn't cover. Email exports often pick up names like
 #: ``.email_credentials.eml`` (Apple Mail "save as" of an IMAP
 #: login dump) or ``smtp_credentials.eml`` — the leading ``.`` and
@@ -105,7 +105,7 @@ def _is_email_credential_file(name: str) -> bool:
     """Return True if *name* looks credential-bearing for an email
     archive (substring sweep on top of the shared glob denylist).
 
-    Reuses :func:`text_file._is_credential_file` first; only widens
+    Reuses :func:`stdlib_simple_cluster._is_credential_file` first; only widens
     when the shared list is silent.
     """
     if _is_credential_file(name):
