@@ -17,6 +17,7 @@ __pycache__/
 
 # Build artifacts
 dist/
+.dist/
 build/
 *.whl
 

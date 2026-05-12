@@ -196,7 +196,11 @@ def build_plugin_bundle(
             f"Run scripts/bump_version.py to resync."
         )
 
-    dest_dir = dest_dir if dest_dir is not None else (repo_root / "dist")
+    # v0.8.4 root-cleanup (2026-05-12): default dest dir hidden under
+    # .dist/ to declutter the repo root. Callers may override via the
+    # ``dest_dir`` argument; the default mirrors the build pipeline's
+    # `python -m build --outdir .dist` redirection.
+    dest_dir = dest_dir if dest_dir is not None else (repo_root / ".dist")
     dest_dir.mkdir(parents=True, exist_ok=True)
     out_path = dest_dir / f"{PLUGIN_NAME}-{version}{BUNDLE_EXTENSION}"
 

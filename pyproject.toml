@@ -260,7 +260,7 @@ include = [
   "/tests",
   "/docs",
   "/scripts",
-  "/plugin",
+  "/.plugin",
   "/.claude-plugin",
   "/.claude",
   "/.github",

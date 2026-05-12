@@ -26,9 +26,9 @@ MCP_CONFIG = REPO_ROOT / ".mcp.json"
 # v0.8.4 root-cleanup (2026-05-12): plugin-bundle siblings of
 # .claude-plugin/ (hooks/, skills/, agents/, commands/) moved into
 # plugin/ to declutter the repo root. plugin.json paths updated to
-# `./plugin/hooks/hooks.json` etc.
-HOOKS_CONFIG = REPO_ROOT / "plugin" / "hooks" / "hooks.json"
-SKILLS_DIR = REPO_ROOT / "plugin" / "skills"
+# `./.plugin/hooks/hooks.json` etc.
+HOOKS_CONFIG = REPO_ROOT / ".plugin" / "hooks" / "hooks.json"
+SKILLS_DIR = REPO_ROOT / ".plugin" / "skills"
 
 
 def _load(path: Path) -> dict:

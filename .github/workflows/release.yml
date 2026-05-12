@@ -107,10 +107,12 @@ jobs:
           [ "$BASE" = "$COWORK"  ] || { echo "::error::tag base v$BASE ≠ cowork-plugin version $COWORK"; exit 1; }
 
       - name: Build sdist + wheel
+        # v0.8.4 root-cleanup (2026-05-12): build output redirected from
+        # repo-root `dist/` to hidden `.dist/`.
         run: |
           python -m pip install --upgrade pip build twine
-          python -m build
-          python -m twine check dist/*
+          python -m build --outdir .dist
+          python -m twine check .dist/*
 
       - name: Publish to PyPI (trusted publisher)
         # v0.6.0 PyPI strategy (PEP 440 post-release): the bare
@@ -156,13 +158,10 @@ jobs:
         run: |
           set -eo pipefail
           python -m pip install pyyaml
+          # v0.8.4 root-cleanup (2026-05-12): build output dir hidden
+          # to .dist/. build_plugin.py defaults to .dist/ at v0.8.4+.
           python scripts/build_plugin.py
-          # Match only the plugin bundle (myco-<ver>.zip), not sdist
-          # (myco-<ver>.tar.gz). The plugin bundle's filename has the
-          # exact form `myco-<semver>.zip` — `python -m build` produces
-          # `myco-<ver>.tar.gz` + `myco-<ver>-py3-none-any.whl`, so
-          # `dist/myco-*.zip` matches only what build_plugin.py wrote.
-          ls -lh dist/myco-*.zip
+          ls -lh .dist/myco-*.zip
 
       - name: Install mcp-publisher
         run: |
@@ -243,9 +242,9 @@ jobs:
         run: |
           set -eo pipefail
           TAG="${GITHUB_REF#refs/tags/}"
-          BUNDLE=$(ls dist/myco-*.zip | head -1)
+          BUNDLE=$(ls .dist/myco-*.zip | head -1)
           if [ -z "$BUNDLE" ] || [ ! -f "$BUNDLE" ]; then
-            echo "::error::no myco-*.zip plugin bundle found in dist/ — did 'Build Cowork .zip plugin bundle' run?"
+            echo "::error::no myco-*.zip plugin bundle found in .dist/ — did 'Build Cowork .zip plugin bundle' run?"
             exit 1
           fi
           # Idempotent: --clobber replaces an existing asset with the

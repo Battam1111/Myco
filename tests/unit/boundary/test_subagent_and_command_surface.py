@@ -70,11 +70,11 @@ _EXPECTED_COMMANDS = (
 # Claude Code spec.
 _AGENT_DIRS = (
     _REPO_ROOT / ".claude" / "agents",
-    _REPO_ROOT / "plugin" / "agents",
+    _REPO_ROOT / ".plugin" / "agents",
 )
 _COMMAND_DIRS = (
     _REPO_ROOT / ".claude" / "commands",
-    _REPO_ROOT / "plugin" / "commands",
+    _REPO_ROOT / ".plugin" / "commands",
 )
 
 
@@ -177,7 +177,7 @@ def test_subagent_plugin_mirror_byte_identical(name: str) -> None:
     immediately when one copy is edited and the other forgotten.
     """
     a = (_REPO_ROOT / ".claude" / "agents" / f"{name}.md").read_bytes()
-    b = (_REPO_ROOT / "plugin" / "agents" / f"{name}.md").read_bytes()
+    b = (_REPO_ROOT / ".plugin" / "agents" / f"{name}.md").read_bytes()
     assert a == b, (
         f"Subagent {name}: .claude/agents/ (project-level) and "
         f"<repo>/agents/ (plugin-bundle scope) copies have drifted. "
@@ -192,7 +192,7 @@ def test_command_plugin_mirror_byte_identical(cmd: str) -> None:
     copies must be byte-identical.
     """
     a = (_REPO_ROOT / ".claude" / "commands" / f"{cmd}.md").read_bytes()
-    b = (_REPO_ROOT / "plugin" / "commands" / f"{cmd}.md").read_bytes()
+    b = (_REPO_ROOT / ".plugin" / "commands" / f"{cmd}.md").read_bytes()
     assert a == b, (
         f"Slash command {cmd}: .claude/commands/ (project-level) and "
         f"<repo>/commands/ (plugin-bundle scope) copies have drifted. "
@@ -231,11 +231,11 @@ def test_plugin_manifest_declares_agents_and_commands() -> None:
     )
     assert "agents" in manifest, (
         ".claude-plugin/plugin.json must declare an `agents` key pointing at "
-        "`./plugin/agents/` so plugin marketplace installs deliver the subagents."
+        "`./.plugin/agents/` so plugin marketplace installs deliver the subagents."
     )
     assert "commands" in manifest, (
         ".claude-plugin/plugin.json must declare a `commands` key pointing at "
-        "`./plugin/commands/` so plugin marketplace installs deliver the slash commands."
+        "`./.plugin/commands/` so plugin marketplace installs deliver the slash commands."
     )
 
 
