@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "myco"
 dynamic = ["version"]
-description = "Agent-First symbiotic cognitive substrate. 20 fungal-named verbs (19 agent + 1 human `brief`), 46-dimension immune across 7 subsystems, substrate-local plugins, editable-by-default install, universal MCP stdio + streamable-http server."
+description = "Agent-First symbiotic cognitive substrate. 20 fungal-named verbs (19 agent + 1 human-facing `brief`), 50-dimension immune across 7 subsystems, substrate-local plugins via .myco/plugins/, editable-by-default install, universal MCP stdio + streamable-http server with OAuth 2.1, schema v3 canon."
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.10"
@@ -154,7 +154,7 @@ multimedia = [
 # never have to reason about the user's venv or whether `python` vs
 # `python3` is the right alias.
 #
-#   myco              the manifest-driven CLI (20 verbs at v0.6.0:
+#   myco              the manifest-driven CLI (20 verbs since v0.6.0:
 #                     19 agent + 1 human-facing `brief`).
 #   mcp-server-myco   the MCP stdio/sse launcher; follows the
 #                     community `mcp-server-<name>` convention so

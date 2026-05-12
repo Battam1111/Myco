@@ -67,16 +67,20 @@ versioning:
   pyproject_dynamic: true
 
 lint:
-  # v0.6.0+ owner amendment §A4: full 46-dim roster lives in sibling
-  # _canon_lint.yaml. core.canon.load_canon merges the dimensions_ref
+  # v0.6.0+ owner amendment §A4: full lint dim roster lives in sibling
+  # canon_lint.yaml. core.canon.load_canon merges the dimensions_ref
   # payload into the canon's lint section transparently. Single SSoT.
+  # The v0.6.0 release expanded the roster to 46 dims; v0.7.2 added
+  # SE5+MB8+PA6 (49); v0.7.5 added LB1+LB2+CG1+CG2 (51 nominal); v0.8.5
+  # retired MF3 (host_integration excretion) and MB7 (mcp_resources
+  # excretion) — live roster: **50 dims** at v0.8.5.
   dimensions_ref: "_canon_lint.yaml"
-  # Representative slice of the 46-dim v0.6.0 roster (full table at
-  # _canon_lint.yaml; `myco immune --list` prints the live IDs):
-  #   M1/M2/M3/MF1-MF4/MP1-MP3 (mechanical kernel/plugin/purity)
-  #   DC1-DC5/CS1/FR1/PA1-PA5/CG1-CG2/DI1-DI2/AD1/SC1/CL1-CL3 (mechanical hygiene)
+  # Representative slice of the v0.8.5 roster (full table at
+  # canon_lint.yaml; `myco immune --list` prints the live IDs):
+  #   M1/M2/M3/MF1+MF2+MF4+MF5/MP1-MP3 (mechanical kernel/plugin/purity)
+  #   DC1-DC5/CS1/FR1/PA1-PA6/CG1-CG2/DI1-DI2/AD1/SC1/CL1-CL3 (mechanical hygiene)
   #   SH1/SH2 (shipped: package + provenance)
-  #   MB1-MB4/MB6-MB7 (metabolic: backlog pressure + budget)
+  #   MB1-MB4/MB6/MB8 (metabolic: backlog pressure + shim-hit telemetry)
   #   SE1-SE4/RL1-RL3 (semantic: cross-ref + R-rule coverage)
   categories:                      # the four fixed categories
     - mechanical
@@ -174,8 +178,13 @@ system:
   resource_watch:
     max_per_substrate: 100         # inotify max_user_watches budget per substrate
     eviction: "lru"
-    fallback_to_etag_polling: true # ETag-based long-poll when quota saturates
-                                   # MB7 dim emits when ≥80% consumed.
+    fallback_to_etag_polling: true # ETag-based long-poll when quota saturates.
+                                   # (The v0.6.0 MB7 dim that previously
+                                   # emitted at ≥80% consumption was excreted
+                                   # at v0.8.5 with the mcp_resources stub
+                                   # that was never wired into build_server.
+                                   # Re-mechanise in v0.9 if the resource-
+                                   # watch subscription manager actually ships.)
 ```
 
 ### `system.governance` (v0.6.0 + v0.6.14 + v0.6.15)
@@ -219,8 +228,10 @@ system:
     # v0.6.15 Agent-First default flips (corrected v0.6.14 owner-First regression)
     auto_evolve_force_high_risk: false        # bool — false at v0.6.15 (was true at v0.6.14).
                                               # When false, risk class is derived from craft
-                                              # CONTENT via core.risk_classifier (path_allowlist
-                                              # + recursion-cutter + L0 keywords).
+                                              # CONTENT (winnow G7 path_allowlist + keyword
+                                              # heuristics; the v0.6.0 core.risk_classifier
+                                              # helper that did this work was excreted at v0.8.5
+                                              # as never-wired-into-winnow.G7-production-path).
     auto_evolve_pr_window_skip: false         # bool — false at v0.6.15 (was true at v0.6.14).
                                               # When false, medium-risk auto-crafts honor the
                                               # v0.6.0 governance public window.

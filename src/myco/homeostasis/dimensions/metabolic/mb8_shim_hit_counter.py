@@ -46,10 +46,16 @@ Import-time writes were rejected because:
   (c) concurrent imports from multiple MCP host instances race on
       counter increment with no fcntl/portalocker dependency available.
 
-**Adversarial scoping (mycoparasite T1/T2/T6)**: ``.myco/state/shim_hits.json``
-and ``src/myco/mcp/**`` are in ``core.risk_classifier._RECURSION_CUTTER_PATH_PATTERNS``.
-A craft cannot simultaneously zero the counter and delete the shim
-without forcing HIGH-risk classification.
+**Adversarial scoping (mycoparasite T1/T2/T6)**: at v0.7.2 ship,
+``.myco/state/shim_hits.json`` and ``src/myco/mcp/**`` were in
+``core.risk_classifier._RECURSION_CUTTER_PATH_PATTERNS`` —
+a craft could not simultaneously zero the counter and delete the
+shim without forcing HIGH-risk classification. v0.8.5 excreted the
+``risk_classifier`` module (never wired into the production winnow
+G7 path across 4 minor releases); the recursion-cutter discipline
+is now narrative-only at this dim's docstring level and should be
+re-mechanised in v0.9 if/when winnow gets a content-aware tier
+classifier.
 
 Severity: MEDIUM. The dim emits one informational finding per shim
 showing hit-count and last-hit age; never CRITICAL because:

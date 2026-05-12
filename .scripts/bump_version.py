@@ -16,12 +16,12 @@ downgrade without ``--allow-downgrade``.
 
 Usage::
 
-    python scripts/bump_version.py --to 0.5.13
-    python scripts/bump_version.py --to 0.5.13 --dry-run
+    python .scripts/bump_version.py --to 0.8.6
+    python .scripts/bump_version.py --to 0.8.6 --dry-run
 
 After a successful run, the only remaining ceremony is:
 
-  1. Open ``docs/contract_changelog.md`` and replace the auto-stubbed
+  1. Open ``.docs/contract_changelog.md`` and replace the auto-stubbed
      ``(Fill in: ...)`` paragraphs with the real narrative for this
      release — the Release workflow uses that section as the
      GitHub-release body via the ``contract_changelog.md`` fallback.

@@ -309,8 +309,11 @@ def load_manifest() -> Manifest:
     schema_version = str(raw.get("schema_version", ""))
     # v0.6.0: schema_version "2" = "v0.5.2 aliases removed". Same shape
     # as v1, just no `aliases:` field on each command. Loader accepts
-    # both for backward compat across the v0.5.x → v0.6.0 boundary.
-    if schema_version not in ("1", "2"):
+    # all known schemas for backward compat across version boundaries.
+    # (Note: manifest.yaml's schema_version is a manifest-shape marker,
+    # independent of the canon's schema_version which tracks
+    # canon.yaml shape.)
+    if schema_version not in ("1", "2", "3"):
         raise ContractError(f"unknown manifest schema_version: {schema_version!r}")
     commands_raw = raw.get("commands") or ()
     if not isinstance(commands_raw, (list, tuple)):

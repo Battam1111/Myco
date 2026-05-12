@@ -1164,7 +1164,7 @@ commands:
 
     Use this AT RELEASE TIME, not during development. Pair with
 
-    scripts/bump_version.py which orchestrates molt alongside the
+    .scripts/bump_version.py which orchestrates molt alongside the
 
     package-version bump in __init__.py, plugin.json, and
 

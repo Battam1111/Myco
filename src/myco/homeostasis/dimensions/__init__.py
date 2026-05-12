@@ -32,7 +32,7 @@ category subdirectory, import the class here, append to ``_BUILT_IN``
 and ``__all__``, add a row to
 ``pyproject.toml::[project.entry-points."myco.dimensions"]`` with the
 new dotted-path, and write a test under
-``tests/unit/homeostasis/dimensions/``.
+``.tests/unit/homeostasis/dimensions/``.
 """
 
 from __future__ import annotations
