@@ -32,6 +32,7 @@ from pathlib import Path
 
 from myco.core.errors import MycoError
 from myco.core.io_atomic import bounded_read_text
+from myco.core.skip_dirs import should_skip_dir
 
 __all__ = [
     "walk_src_graph",
@@ -39,28 +40,15 @@ __all__ = [
 ]
 
 
-#: Directory names we always skip when walking ``src/``. Build artifacts,
-#: virtualenvs, and caches are never part of the logical graph. ``tests``
-#: is skipped by default because unit-test imports dominate the edge
-#: budget without adding signal; toggle via ``include_tests=True`` if a
-#: caller ever needs them.
-_SKIP_DIRS: frozenset[str] = frozenset(
-    {
-        "__pycache__",
-        ".venv",
-        "venv",
-        "env",
-        "build",
-        "dist",
-        ".mypy_cache",
-        ".ruff_cache",
-        ".pytest_cache",
-        ".tox",
-        "node_modules",
-        ".git",
-        "tests",
-    }
-)
+# v0.8.6 — the previously-private ``_SKIP_DIRS`` clone here has been
+# replaced by a delegate to :func:`myco.core.skip_dirs.should_skip_dir`.
+# The clone diverged from the canonical set across releases (the
+# graph walker was missing `.hg`, `.svn`, `.vscode`, `.idea`,
+# `legacy_v0_3`) and the consolidation work originally promised at
+# v0.5.8 had never been finished for ``circulation/graph_src.py``.
+# By default this module skips test trees, mirroring the historical
+# ``"tests"`` ban in the old frozenset — opt back in by passing
+# ``include_tests=True`` to :func:`walk_src_graph`.
 
 
 #: Regex for "looks like a substrate-relative doc path" inside a docstring.
@@ -102,49 +90,10 @@ def _rel(root: Path, p: Path) -> str:
     return str(p.resolve().relative_to(root.resolve())).replace("\\", "/")
 
 
-def _iter_py_files(src_dir: Path) -> Iterator[Path]:
-    """Walk ``src_dir`` yielding ``*.py`` files, pruning skip-dirs.
-
-    ``Path.rglob`` does not let us prune mid-walk, so we roll a manual
-    DFS that honors :data:`_SKIP_DIRS`. This matters because a ``.venv/``
-    left inside a contributor's substrate can add tens of thousands of
-    files and blow up graph-build time.
-
-    v0.5.8 (Lens 13 P1-13-9): symlinks are skipped. Following a
-    symlink into a parent directory would create an infinite walk;
-    following one into a separate source tree would blow the node
-    budget with files that don't belong to the substrate. Matching
-    the forage-walker semantics keeps every graph walker consistent.
-    """
-    if not src_dir.is_dir():
-        return
-    stack: list[Path] = [src_dir]
-    visited: set[tuple[int, int]] = set()
-    while stack:
-        here = stack.pop()
-        try:
-            entries = list(here.iterdir())
-        except OSError:
-            # Unreadable directory — skip silently rather than crash
-            # graph-build on a permissions issue.
-            continue
-        for entry in entries:
-            if entry.is_symlink():
-                continue
-            if entry.is_dir():
-                if entry.name in _SKIP_DIRS:
-                    continue
-                try:
-                    st = entry.stat()
-                    key = (st.st_dev, st.st_ino)
-                except OSError:
-                    continue
-                if key in visited:
-                    continue
-                visited.add(key)
-                stack.append(entry)
-            elif entry.is_file() and entry.suffix == ".py":
-                yield entry
+# v0.8.6 — the previously-public ``_iter_py_files`` walker has been
+# excreted. It was a duplicate of ``_walk_py`` (split out at v0.5.8 to
+# carry a different skip set) and had no in-tree callers. The
+# active ``_walk_py`` walker below is the single source of truth.
 
 
 def _module_to_path(
@@ -279,12 +228,12 @@ def walk_src_graph(
         return result
     root = substrate_root.resolve()
 
-    # Honor ``include_tests`` by optionally removing the ``tests`` ban
-    # from the skip set for this walk. We build the effective set
-    # locally so ``_SKIP_DIRS`` stays frozen at module level.
-    effective_skip = _SKIP_DIRS - {"tests"} if include_tests else _SKIP_DIRS
-
-    for py in _walk_py(src_dir, effective_skip):
+    # v0.8.6 — delegate to the canonical skip-dir predicate. The walk
+    # honors ``include_tests`` (False ⇒ ``tests/`` is pruned via the
+    # ``TEST_DIRS`` augmentation in ``core/skip_dirs``). The previous
+    # local ``_SKIP_DIRS`` set is gone (drifted from the canonical
+    # source and re-introduced quietly-different skip behavior).
+    for py in _walk_py(src_dir, include_tests=include_tests):
         rel = _rel(root, py)
         result.nodes.add(rel)
         try:
@@ -393,15 +342,17 @@ def walk_src_graph(
     return result
 
 
-def _walk_py(src_dir: Path, effective_skip: frozenset[str]) -> Iterator[Path]:
-    """DFS ``src_dir`` yielding ``*.py`` files, honoring ``effective_skip``.
+def _walk_py(src_dir: Path, *, include_tests: bool = False) -> Iterator[Path]:
+    """DFS ``src_dir`` yielding ``*.py`` files, honoring canonical skip-dirs.
 
-    Split out from :func:`_iter_py_files` so ``walk_src_graph`` can
-    toggle the ``tests`` exclusion at call time without mutating the
-    module-level frozenset.
+    v0.8.6 — uses :func:`myco.core.skip_dirs.should_skip_dir` so the
+    set of pruned directories matches every other walker in Myco. The
+    previous local skip set drifted from the canonical one (missed
+    `.hg`, `.svn`, `.vscode`, `.idea`, `legacy_v0_3`, `.myco/state`).
 
     v0.5.8 (Lens 13 P1-13-9): symlinks skipped and inode-visited set
-    guards cycles. See :func:`_iter_py_files` for the rationale.
+    guards cycles. Walks dominated by ``.venv/`` or ``__pycache__/``
+    would otherwise blow the node budget on contributor checkouts.
     """
     if not src_dir.is_dir():
         return
@@ -417,7 +368,7 @@ def _walk_py(src_dir: Path, effective_skip: frozenset[str]) -> Iterator[Path]:
             if entry.is_symlink():
                 continue
             if entry.is_dir():
-                if entry.name in effective_skip:
+                if should_skip_dir(entry.name, include_tests=include_tests):
                     continue
                 try:
                     st = entry.stat()

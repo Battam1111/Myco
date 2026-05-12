@@ -240,7 +240,7 @@ lint:
     - metabolic
     - semantic
   # v0.6.10 (option A): inline `dimensions:` table removed. The live
-  # 50-dim roster (v0.8.5) lives in sibling `canon_lint.yaml` (referenced
+  # 47-dim roster (v0.8.6) lives in sibling `canon_lint.yaml` (referenced
   # via `dimensions_ref` above). `core.canon._merge_lint_dimensions_subfile`
   # transparently merges the sibling at load time. Single SSoT.
   # v0.6.0 owner amendment §A5 — 21 new dims land at declared severity
@@ -302,7 +302,7 @@ commands:
 
 metrics:
   test_count: 1799
-  lint_dim_count: 50
+  lint_dim_count: 47
   # v0.7.2 永恒删减 ratchet (PA6 dim — repo bloat detector):
   # MEDIUM finding emitted at ≥80% of threshold; HIGH at ≥100%. The
   # threshold is intentionally generous — the ratchet exists to catch

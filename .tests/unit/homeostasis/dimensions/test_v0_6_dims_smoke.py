@@ -58,15 +58,12 @@ from myco.homeostasis.dimensions.metabolic.mb4_sporulated_reabsorbed import (
 from myco.homeostasis.dimensions.metabolic.mb6_stale_draft_or_distilled import (
     MB6StaleDraftOrDistilled,
 )
-from myco.homeostasis.dimensions.semantic.rl2_sense_discipline_signal import (
-    RL2SenseDisciplineSignal,
-)
-from myco.homeostasis.dimensions.semantic.rl3_eat_discipline_signal import (
-    RL3EatDisciplineSignal,
-)
-from myco.homeostasis.dimensions.semantic.se4_reciprocal_backlink import (
-    SE4ReciprocalBacklink,
-)
+
+# v0.8.6 — SE4/RL2/RL3 excreted (永恒删减 pattern). SE4 shipped with
+# a permanently-empty white-list since v0.6.0; RL2/RL3 read a session-
+# events JSONL that no production code has ever written. All three
+# emitted zero findings for the full v0.6.0…v0.8.5 window. Operator
+# can rebuild them when the underlying infrastructure exists.
 from myco.homeostasis.dimensions.shipped.sh2_kernel_ahead_of_canon import (
     SH2KernelAheadOfCanon,
 )
@@ -178,63 +175,10 @@ def test_mf4_runs(ctx: MycoContext):
     list(MF4OverlaySubsystemValidity().run(ctx))
 
 
-# Semantic (3 new) ------------------------------------------------------------
-
-
-def test_se4_runs(ctx: MycoContext):
-    findings = list(SE4ReciprocalBacklink().run(ctx))
-    # SE4 v0.6.0 emits zero findings (whitelist empty by design)
-    assert findings == []
-
-
-def test_rl2_runs(ctx: MycoContext):
-    list(RL2SenseDisciplineSignal().run(ctx))
-
-
-def test_rl2_risky_verb_without_sense_emits(genesis_substrate: Path):
-    log_dir = genesis_substrate / ".myco/state"
-    log_dir.mkdir(parents=True, exist_ok=True)
-    log = log_dir / "session_calls.jsonl"
-    log.write_text(
-        "\n".join(
-            json.dumps(e)
-            for e in [
-                {"verb": "hunger"},
-                {"verb": "molt"},
-                {"verb": "brief"},
-            ]
-        ),
-        encoding="utf-8",
-    )
-    ctx = MycoContext.for_testing(root=genesis_substrate)
-    findings = list(RL2SenseDisciplineSignal().run(ctx))
-    assert any("R3" in f.message for f in findings)
-
-
-def test_rl3_runs(ctx: MycoContext):
-    list(RL3EatDisciplineSignal().run(ctx))
-
-
-def test_rl3_high_decision_ratio_emits(genesis_substrate: Path):
-    log_dir = genesis_substrate / ".myco/state"
-    log_dir.mkdir(parents=True, exist_ok=True)
-    log = log_dir / "session_calls.jsonl"
-    log.write_text(
-        "\n".join(
-            json.dumps(e)
-            for e in [
-                {"verb": "sense", "msg": "decided to use python 3.13"},
-                {"verb": "molt", "msg": "decided to bump"},
-                {"verb": "brief", "msg": "decided again"},
-                {"verb": "winnow", "msg": "decided once more"},
-            ]
-        ),
-        encoding="utf-8",
-    )
-    ctx = MycoContext.for_testing(root=genesis_substrate)
-    findings = list(RL3EatDisciplineSignal().run(ctx))
-    # 4 decisions / 0 eats = inf ratio; should emit
-    assert findings  # non-empty
+# Semantic — SE4/RL2/RL3 excreted at v0.8.6 (永恒删减). SE4 had a
+# permanently-empty white-list; RL2/RL3 read a session-events JSONL
+# that no production code wrote. All three emitted zero findings for
+# v0.6.0…v0.8.5.
 
 
 # Metabolic (3 new) -----------------------------------------------------------

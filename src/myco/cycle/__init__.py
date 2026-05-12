@@ -24,21 +24,18 @@ Verbs housed here:
 Kept outside ``boundary.surface/`` so that package stays pure
 adaptation per L3 package_map invariant 4.
 
-Historical note: a ``myco.meta`` shim package re-exporting
-``session_end_run`` was scheduled for v1.0.0 removal in the v0.5.x
-doctrine. That shim never shipped to disk — the planned package
-was excreted at v0.6.0 along with the other pre-rename top-level
-aliases (``myco.surface`` / ``myco.install`` / ``myco.mcp`` /
-``myco.symbionts``), and the v0.8.5 audit confirmed no in-tree
-caller imports ``session_end_run`` from anywhere outside this
-file. The re-export below is therefore a no-op import-target the
-Cycle package maintains for the L0 P3 "永恒进化" preservation
-clause; future deletion can land via a v0.9+ craft once the
-v0.6.0 rename horizon is doctrinally past.
+v0.8.6 excretion: the dangling ``session_end_run`` re-export of
+``senesce.run`` is removed. The shim was a leftover from the
+v0.5.x → v0.6.0 rename horizon (when ``myco.meta`` was the pre-
+rename home for the verb); the v0.6.0 audit confirmed no caller
+imports ``session_end_run`` anywhere in-tree, and the v0.8.x
+codebase calls ``cycle.senesce.run`` directly. The doctrine note
+that scheduled the deletion via "a v0.9+ craft once the rename
+horizon is doctrinally past" is now satisfied — we are five minor
+versions past v0.6.0, well outside the rename window. Callers
+import :func:`myco.cycle.senesce.run` directly.
 """
 
 from __future__ import annotations
 
-from .senesce import run as session_end_run
-
-__all__ = ["session_end_run"]
+__all__: tuple[str, ...] = ()
