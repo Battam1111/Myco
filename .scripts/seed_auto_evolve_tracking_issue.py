@@ -36,7 +36,11 @@ import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-CANON_PATH = REPO_ROOT / "_canon.yaml"
+# v0.8.5 — canon moved to .myco/canon.yaml at v0.8.4; fall back to the
+# legacy root path for downstream substrates that haven't migrated.
+_CANON_NEW = REPO_ROOT / ".myco" / "canon.yaml"
+_CANON_LEGACY = REPO_ROOT / "_canon.yaml"
+CANON_PATH = _CANON_NEW if _CANON_NEW.is_file() else _CANON_LEGACY
 
 ISSUE_TITLE = "Auto-evolve tracking issue (v0.6.14+ Cycle 自起 fruit—winnow—molt 闭环)"
 ISSUE_BODY = """\
