@@ -91,6 +91,7 @@ from typing import ClassVar
 # === context — formerly context.py
 # =========================================================================
 
+
 @dataclass(frozen=True)
 class MycoContext:
     """What a handler sees when it runs.
@@ -158,6 +159,7 @@ class Result:
 # === errors — formerly errors.py
 # =========================================================================
 
+
 class MycoError(Exception):
     """Root of the Myco exception hierarchy.
 
@@ -221,6 +223,7 @@ class UsageError(MycoError):
 # =========================================================================
 # === severity — formerly severity.py
 # =========================================================================
+
 
 class Severity(IntEnum):
     """Four-level severity, ordered LOW < MEDIUM < HIGH < CRITICAL."""

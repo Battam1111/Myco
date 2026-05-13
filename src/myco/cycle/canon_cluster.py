@@ -231,6 +231,7 @@ def molt_run(args: Mapping[str, object], *, ctx: MycoContext) -> Result:
 # === graft — formerly graft.py
 # =========================================================================
 
+
 def _collect_plugins(ctx: MycoContext) -> list[dict[str, Any]]:
     """Introspect kernel registries + overlay for every loaded plugin.
 

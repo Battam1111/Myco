@@ -147,6 +147,7 @@ def _apply_block(text: str, block: str) -> str:
 # === hunger — formerly hunger.py
 # =========================================================================
 
+
 @dataclass(frozen=True)
 class LocalPluginsSummary:
     """Terse view of the substrate-local plugin surface.
@@ -333,16 +334,10 @@ def _url_adapter_rejection_reason(target: str) -> str | None:
     corporate networks / VPNs where a public hostname can legitimately
     resolve to a CGNAT / benchmark / private IP.
     """
-    if not (target.startswith("http://") or target.startswith("https://")):
-        return None
-    try:
-        from myco.ingestion.adapters.web_cluster import UrlFetchError, _validate_url
-    except ImportError:
-        return None
-    try:
-        _validate_url(target)
-    except UrlFetchError as exc:
-        return str(exc)
+    # v0.8.8 max-aggressive: web_cluster excreted; URL ingestion is no
+    # longer a core surface. URL-shaped targets fall through to the
+    # generic "no adapter" branch upstream.
+    del target
     return None
 
 

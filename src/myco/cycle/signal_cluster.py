@@ -398,6 +398,7 @@ def senesce_run(args: Mapping[str, object], *, ctx: MycoContext) -> Result:
 # === brief — formerly brief.py
 # =========================================================================
 
+
 def _identity_section(ctx: MycoContext) -> dict[str, Any]:
     c = ctx.substrate.canon
     return {

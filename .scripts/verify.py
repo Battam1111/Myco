@@ -372,63 +372,8 @@ def verify_mcp_capabilities() -> int:
             proc.kill()
 
 
-# =========================================================================
-# === install-examples — formerly verify_install_examples.py (78 LOC)
-# =========================================================================
-
-EXAMPLES_DIR = Path(__file__).resolve().parent.parent / ".docs" / "examples"
-
-EXPECTED_DEMOS = (
-    "claude-sdk-myco-demo",
-    "langgraph-myco-demo",
-    "crewai-myco-demo",
-    "dspy-myco-demo",
-    "smolagents-myco-demo",
-    "agno-myco-demo",
-    "praisonai-myco-demo",
-    "microsoft-agent-framework-myco-demo",
-)
-
-
-def verify_install_examples() -> int:
-    if not EXAMPLES_DIR.is_dir():
-        print(
-            f"[verify_install_examples] examples/ not found at {EXAMPLES_DIR}",
-            file=sys.stderr,
-        )
-        return 1
-    failures = 0
-    for demo in EXPECTED_DEMOS:
-        demo_dir = EXAMPLES_DIR / demo
-        main_py = demo_dir / "main.py"
-        if not main_py.is_file():
-            print(f"[verify_install_examples] MISSING demo: {demo}", file=sys.stderr)
-            failures += 1
-            continue
-        result = subprocess.run(
-            [sys.executable, str(main_py), "--dry"],
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-        if result.returncode != 0:
-            print(
-                f"[verify_install_examples] {demo} --dry exit {result.returncode}: "
-                f"{result.stdout.strip()} | {result.stderr.strip()}",
-                file=sys.stderr,
-            )
-            failures += 1
-        else:
-            print(f"[verify_install_examples] OK: {demo}")
-    if failures:
-        print(
-            f"[verify_install_examples] FAIL: {failures}/{len(EXPECTED_DEMOS)}",
-            file=sys.stderr,
-        )
-        return 2
-    print(f"[verify_install_examples] OK: all {len(EXPECTED_DEMOS)} demos --dry exit 0")
-    return 0
-
+# v0.8.8 max-aggressive: install-examples subcommand removed alongside
+# the .docs/examples/ framework-demo subtree.
 
 # =========================================================================
 # === server-json — formerly verify_server_json.py (92 LOC)
@@ -504,7 +449,6 @@ def verify_server_json() -> int:
 _VERBS: dict[str, Callable[[], int]] = {
     "mcp-boot": verify_mcp_boot,
     "mcp-capabilities": verify_mcp_capabilities,
-    "install-examples": verify_install_examples,
     "server-json": verify_server_json,
 }
 

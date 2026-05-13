@@ -23,8 +23,9 @@ Adapters in this cluster:
 Shared module-level helpers (``_is_credential_file``,
 ``_CREDENTIAL_DENY_GLOBS``, ``_CODE_EXTS``, ``DEFAULT_MAX_INGEST_BYTES``,
 ``_posix``) are re-exported here because six sibling adapters
-(``chat_log``, ``audio``, ``email_mbox``, ``image_ocr``,
-``video_frames``, ``sqlite``) import ``_is_credential_file`` from this
+(v0.8.8: the dependent adapters were excreted; the helper is kept for
+substrate-local plugin code that wants the same credential-glob defense)
+import ``_is_credential_file`` from this
 module's surface.
 
 v0.5.8 security floor (Lens 6 P0-SEC-4) is preserved verbatim:
