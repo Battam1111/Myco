@@ -60,7 +60,7 @@ use std::collections::BTreeMap;
 use thiserror::Error;
 
 /// Canonical-bytes serialization errors.
-#[derive(Debug, Error)]
+#[derive(Debug, Error, PartialEq, Eq)]
 pub enum CanonicalBytesError {
     /// Invalid input: e.g., string that is not valid UTF-8.
     #[error("invalid input: {0}")]

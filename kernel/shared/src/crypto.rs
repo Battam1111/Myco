@@ -18,7 +18,7 @@ use sha2::Sha256;
 use thiserror::Error;
 
 /// Cryptographic primitive errors.
-#[derive(Debug, Error)]
+#[derive(Debug, Error, PartialEq, Eq)]
 pub enum CryptoError {
     /// HMAC keyed by an empty key (forbidden).
     #[error("HMAC key cannot be empty")]

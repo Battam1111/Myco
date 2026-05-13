@@ -1,0 +1,19 @@
+[package]
+name = "myco-kernel-skin"
+description = "Myco v0.9 — kernel/skin: envelope + handshake + single-operator + egress enforcement (L1_SKIN §1-§6)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+name = "myco_kernel_skin"
+path = "src/lib.rs"
+
+[dependencies]
+myco-kernel-shared = { path = "../shared" }
+thiserror.workspace = true
+
+[dev-dependencies]
+# (hex reserved for future hex-formatting test vectors; remove if still unused at M2)

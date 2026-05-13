@@ -38,7 +38,7 @@
 use thiserror::Error;
 
 /// Sealed-derive errors.
-#[derive(Debug, Error)]
+#[derive(Debug, Error, PartialEq, Eq)]
 pub enum SealedDeriveError {
     /// The backend is not available on this platform / not compiled in.
     #[error("sealing backend unavailable: {0}")]
