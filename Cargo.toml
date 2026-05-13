@@ -20,6 +20,7 @@ members = [
     "kernel/shared",
     "kernel/skin",
     "kernel/schema",
+    "m1_milestone",
     # Future Rust crates land here as M1-M4 progresses:
     # "kernel/continuity",
 ]

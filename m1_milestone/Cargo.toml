@@ -1,0 +1,19 @@
+[package]
+name = "myco-m1-milestone"
+description = "Myco v0.9 — M1 milestone end-to-end test (handshake + envelope + DAG node)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+name = "myco_m1_milestone"
+path = "src/lib.rs"
+
+[dependencies]
+
+[dev-dependencies]
+myco-kernel-shared = { path = "../kernel/shared" }
+myco-kernel-skin = { path = "../kernel/skin" }
+myco-kernel-schema = { path = "../kernel/schema" }
