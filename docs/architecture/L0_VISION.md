@@ -1,10 +1,10 @@
 # L0 — Vision
 
 > **Status**: DRAFT 8 — post pass-3 100%-confidence-loop (2026-05-13). Pending owner approval before sealing.
-> **Naming**: Myco substrate version is **v0.9**; this document is L0_VISION.md **DRAFT 7**. Drafts are integers, not semver. Sealed L0 carries no draft number — only git commit identity.
+> **Naming**: Myco substrate version is **v0.9**; this document is L0_VISION.md **DRAFT 8**. Drafts are integers, not semver. Sealed L0 carries no draft number — only git commit identity.
 > **Layer**: L0. Immutable unless explicitly revised by the project owner.
 > **Authority**: governs all of L1, L2, L3, L4. In any conflict, L0 wins.
-> **Provenance**: each DRAFT's critic-pass diff is in git history; see commit log. Pass 1 surfaced 88 findings (26 CRITICAL); DRAFT 6 addressed them and spawned 4 new L1 docs. Pass 2 surfaced 66 findings (21 CRITICAL) — DRAFT 7 addresses these. Convergence: 88→66 findings, 26→21 CRITICAL.
+> **Provenance**: each DRAFT's critic-pass diff is in git history; see commit log. Convergence trace across the 100%-confidence loop: Pass 1 (88 findings / 26 CRITICAL) → DRAFT 6; Pass 2 (66 / 21) → DRAFT 7; Pass 3 (35 / 10, 9 unique roots) → DRAFT 8; Pass 4 (5 / 0) → CONVERGED. Six adversarial fungal-named critics declared convergence in all 6 lenses.
 > **Scope discipline**: L0 commits to **identity, negative space, and constraints**. Mechanism specifications live in L1 documents. The single exception: cryptographic anchor surface (§9) is at L0 because the entire trust model depends on out-of-band integrity that cannot be deferred without circularity.
 
 ---

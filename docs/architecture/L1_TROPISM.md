@@ -44,7 +44,7 @@ Tropism has two layers:
 
 ## §4. Birth period vs steady state
 
-**Birth period**: substrate's first window where seed thresholds + seed update-rules apply (no emergence yet). End criterion per L1_GOVERNANCE birth-period termination (maturity-attested per pass-1 saprotroph-5: requires ALL of (1) ≥N sporocarps fruited, (2) ≥M active-operation time, (3) `threshold_emergence_rule` reports convergence per-axis below epsilon).
+**Birth period**: substrate's first window where seed thresholds + seed update-rules apply (no emergence yet). End criterion per L1_GOVERNANCE birth-period termination (maturity-attested per pass-1 saprotroph-5: requires ALL of (1) ≥N sporocarps fruited, (2) ≥M active-operation time, (3) `threshold_emergence_rule` reports convergence per-axis below epsilon). Independently, **L1_GOVERNANCE §1.3 carries a maximum-duration ceiling** beyond which the substrate is forced to graduate or self-euthanasia — the two termination paths (convergence-attested vs ceiling-forced) are coherent and meet at the same `birth_period → steady_state` transition.
 
 **Steady state**: emergent thresholds activate; gradient update rules may evolve per P3 (CI-gated).
 
@@ -72,7 +72,7 @@ Each appetite carries:
 - `threshold_emergence_rule` (migration to steady-state emergent; threshold-emergence governance classification per L1_GOVERNANCE §1.2 dimension table — non-mortality axes daily; mortality-signal axis CI).
 - `causal_proof_template` + `template_version` — when this appetite fruits, the sporocarp's `causal_in_edges` includes proof tuple `(delta_set, gradient-state-snapshot-hash, threshold-value, template_version)`. I3 self-validation re-derives the fruiting condition under the template-version recorded.
 
-**Template versioning** (per pass-2 saprotroph-20): the `causal_proof_template` may evolve per P3 (CI-level event). Each evolution increments `template_version`. Sporocarps record the version under which their proof was computed; I3 validates against that version, not against the current template. Old templates remain referenced from cold-tier sporocarps. Substrate maintains `template_version_registry` (CI-level field) listing all historical templates with their valid-from cycle.
+**Template versioning** (per pass-2 saprotroph-20): the `causal_proof_template` may evolve per P3 (CI-level event). Each evolution increments `template_version`. Sporocarps record the version under which their proof was computed; I3 validates against that version, not against the current template. Old templates remain referenced from cold-tier sporocarps. Substrate maintains `template_version_registry` (CI-level field; **active-prefix + archived-tail discipline per L1_GOVERNANCE §3.1** — same monotone-tier-1 pattern as owner_key_history) listing all historical templates with their valid-from cycle.
 
 **Clusterer location** (cross-ref L1_TRAJECTORY + L1_CONTINUITY): when L1_TRAJECTORY clustering is invoked (trajectory derivation, echo-chamber detection), execution runs within the substrate process (no network egress required). Trajectory derivation fires on-demand at digest-emission time and at echo-chamber detection cadence (L4-tunable) within step 2 (gradient advance) of the metabolic cycle.
 
