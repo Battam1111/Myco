@@ -251,10 +251,7 @@ impl Dag {
     /// - `prev_tip == Some(tip)`: returns nodes inserted AFTER `tip`.
     /// - `prev_tip == Some(current_tip)`: returns empty vec.
     /// - `prev_tip == Some(unknown)`: returns `DagError::UnknownPrevTip`.
-    pub fn enumerate_since(
-        &self,
-        prev_tip: Option<&NodeHash>,
-    ) -> Result<Vec<NodeHash>, DagError> {
+    pub fn enumerate_since(&self, prev_tip: Option<&NodeHash>) -> Result<Vec<NodeHash>, DagError> {
         let start_index = match prev_tip {
             None => 0,
             Some(tip) => {
@@ -285,10 +282,7 @@ impl Dag {
     /// - Property-based tests verifying the invariant.
     /// - Defense-in-depth against future unsafe-code introductions.
     pub fn verify_node_hash(&self, hash: &NodeHash) -> Result<(), DagError> {
-        let node = self
-            .nodes
-            .get(hash)
-            .ok_or(DagError::NodeNotFound(*hash))?;
+        let node = self.nodes.get(hash).ok_or(DagError::NodeNotFound(*hash))?;
         let recomputed = merkle_hash(&node.parent_hashes, node.content_canonical_bytes.as_ref());
         if recomputed != node.hash {
             return Err(DagError::RetroEditDetected {
@@ -395,12 +389,7 @@ mod tests {
     fn test_parent_not_found_rejected() {
         let mut dag = Dag::new();
         let phantom = NodeHash([0xab; 32]);
-        let result = dag.insert_node(
-            vec![phantom],
-            "orphan".to_string(),
-            0,
-            make_cbytes("x"),
-        );
+        let result = dag.insert_node(vec![phantom], "orphan".to_string(), 0, make_cbytes("x"));
         assert_eq!(result, Err(DagError::ParentNotFound(phantom)));
     }
 
@@ -544,10 +533,7 @@ mod tests {
         dag.tamper_content_for_test(&h, make_cbytes("tampered"))
             .unwrap();
         let result = dag.verify_node_hash(&h);
-        assert!(matches!(
-            result,
-            Err(DagError::RetroEditDetected { .. })
-        ));
+        assert!(matches!(result, Err(DagError::RetroEditDetected { .. })));
     }
 
     #[test]
@@ -576,10 +562,7 @@ mod tests {
         dag.tamper_content_for_test(&h2, make_cbytes("b_tampered"))
             .unwrap();
         let result = dag.verify_all();
-        assert!(matches!(
-            result,
-            Err(DagError::RetroEditDetected { .. })
-        ));
+        assert!(matches!(result, Err(DagError::RetroEditDetected { .. })));
     }
 
     #[test]
@@ -594,7 +577,11 @@ mod tests {
         let mut dag = Dag::new();
         for i in 0..5 {
             let cbytes = make_cbytes(&format!("c{}", i));
-            let parents = if i == 0 { vec![] } else { vec![dag.tip().unwrap()] };
+            let parents = if i == 0 {
+                vec![]
+            } else {
+                vec![dag.tip().unwrap()]
+            };
             dag.insert_node(parents, format!("n{}", i), i as u64, cbytes)
                 .unwrap();
         }

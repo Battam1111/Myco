@@ -211,25 +211,22 @@ mod tests {
             ]),
             classifier_dimension_table: Value::Map({
                 let mut m = BTreeMap::new();
-                m.insert("appetite_axis".to_string(), Value::String("daily".to_string()));
+                m.insert(
+                    "appetite_axis".to_string(),
+                    Value::String("daily".to_string()),
+                );
                 m
             }),
             initial_appetite_axis_schema: Value::Array(vec![Value::String("axis_a".to_string())]),
             anchor_surface_config: Value::Map({
                 let mut m = BTreeMap::new();
-                m.insert(
-                    "endpoint_pubkey".to_string(),
-                    Value::Bytes(vec![0xab; 32]),
-                );
+                m.insert("endpoint_pubkey".to_string(), Value::Bytes(vec![0xab; 32]));
                 m
             }),
             parent_immune_signal_summary: Value::Map({
                 let mut m = BTreeMap::new();
                 m.insert("unresolved_count".to_string(), Value::Uint(0));
-                m.insert(
-                    "most_recent_tip_hash".to_string(),
-                    Value::Hash([0xcd; 32]),
-                );
+                m.insert("most_recent_tip_hash".to_string(), Value::Hash([0xcd; 32]));
                 m
             }),
         }

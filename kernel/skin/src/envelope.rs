@@ -495,7 +495,10 @@ mod tests {
         let result = validate_envelope(&env, &token, 10, &config);
         assert!(matches!(
             result,
-            Err(EnvelopeError::SizeTooLarge { got: 999_999_999_999, max: 1024 })
+            Err(EnvelopeError::SizeTooLarge {
+                got: 999_999_999_999,
+                max: 1024
+            })
         ));
     }
 
@@ -509,7 +512,10 @@ mod tests {
         let result = validate_envelope(&env, &token, 10, &config);
         assert!(matches!(
             result,
-            Err(EnvelopeError::SizeMismatch { claimed: 999, actual: 5 })
+            Err(EnvelopeError::SizeMismatch {
+                claimed: 999,
+                actual: 5
+            })
         ));
     }
 
@@ -522,7 +528,10 @@ mod tests {
         let result = validate_envelope(&env, &token, 50, &config);
         assert!(matches!(
             result,
-            Err(EnvelopeError::StaleSubmittedCycle { submitted: 100, current: 50 })
+            Err(EnvelopeError::StaleSubmittedCycle {
+                submitted: 100,
+                current: 50
+            })
         ));
     }
 
@@ -538,7 +547,10 @@ mod tests {
         let result = validate_envelope(&env, &token, 200, &config);
         assert!(matches!(
             result,
-            Err(EnvelopeError::StaleSubmittedCycle { submitted: 10, current: 200 })
+            Err(EnvelopeError::StaleSubmittedCycle {
+                submitted: 10,
+                current: 200
+            })
         ));
     }
 

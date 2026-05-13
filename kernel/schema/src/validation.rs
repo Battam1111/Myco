@@ -94,8 +94,11 @@ impl<'a> CompositeValidator<'a> {
         }
     }
 
-    /// Add a validator to the chain.
-    pub fn add(mut self, v: &'a dyn FieldValidator) -> Self {
+    /// Append a validator to the chain (builder pattern).
+    ///
+    /// Renamed from `add` to `with_validator` to avoid confusion with
+    /// `std::ops::Add::add` (per `clippy::should_implement_trait`).
+    pub fn with_validator(mut self, v: &'a dyn FieldValidator) -> Self {
         self.validators.push(v);
         self
     }
@@ -298,7 +301,9 @@ mod tests {
         let mut ssot = Ssot::new();
         ssot.set("a".into(), Tier::Tier1, Value::Null).unwrap();
 
-        let composite = CompositeValidator::new().add(&pass).add(&fail_a);
+        let composite = CompositeValidator::new()
+            .with_validator(&pass)
+            .with_validator(&fail_a);
         let result = validate_ssot(&ssot, ValidationScope::Tier1, &composite);
         assert!(matches!(result, Err(ValidationError::FieldInvalid { .. })));
     }

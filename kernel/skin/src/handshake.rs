@@ -328,8 +328,7 @@ pub fn process_initiate<S: SealedDerive>(
     // §4.2 step 2: generate operator_token via OS-mediated sealed_derive.
     // handshake_nonce binds the token to this specific handshake's operator-side
     // contribution (their fresh pubkey) and their wall-clock submission moment.
-    let mut handshake_nonce =
-        Vec::with_capacity(initiate.operator_signing_key_public.0.len() + 8);
+    let mut handshake_nonce = Vec::with_capacity(initiate.operator_signing_key_public.0.len() + 8);
     handshake_nonce.extend_from_slice(&initiate.operator_signing_key_public.0);
     handshake_nonce.extend_from_slice(&initiate.submitted_at.to_be_bytes());
     let operator_token = sealed.derive(&handshake_nonce, current_cycle, kernel_random)?;
@@ -503,7 +502,10 @@ mod tests {
         let mut state = SkinState::Idle;
 
         let result = process_initiate(&mut state, initiate, &sealed, &identity, 100, b"rng");
-        assert!(matches!(result, Err(HandshakeError::SubstrateIdMismatch { .. })));
+        assert!(matches!(
+            result,
+            Err(HandshakeError::SubstrateIdMismatch { .. })
+        ));
         // State should remain Idle on failure.
         assert!(matches!(state, SkinState::Idle));
     }
@@ -677,7 +679,11 @@ mod tests {
         let config = HandshakeConfig::default();
 
         // Just before window: still quarantined.
-        advance_quarantine_window(&mut state, 100 + config.post_handshake_quarantine_cycles - 1, &config);
+        advance_quarantine_window(
+            &mut state,
+            100 + config.post_handshake_quarantine_cycles - 1,
+            &config,
+        );
         if let SkinState::Active(s) = &state {
             assert!(s.in_post_handshake_quarantine);
         } else {
@@ -685,7 +691,11 @@ mod tests {
         }
 
         // At/after window: cleared.
-        advance_quarantine_window(&mut state, 100 + config.post_handshake_quarantine_cycles, &config);
+        advance_quarantine_window(
+            &mut state,
+            100 + config.post_handshake_quarantine_cycles,
+            &config,
+        );
         if let SkinState::Active(s) = &state {
             assert!(!s.in_post_handshake_quarantine);
         } else {
@@ -708,7 +718,11 @@ mod tests {
         // quarantine_with_continuity default = 10 cycles.
 
         // At cycle 100 + 9 (just before short window): still in quarantine.
-        advance_quarantine_window(&mut state, 100 + config.quarantine_with_continuity - 1, &config);
+        advance_quarantine_window(
+            &mut state,
+            100 + config.quarantine_with_continuity - 1,
+            &config,
+        );
         if let SkinState::Active(s) = &state {
             assert!(s.in_post_handshake_quarantine);
         } else {
@@ -730,7 +744,11 @@ mod tests {
         let sealed = SoftwareStub::new_for_test();
         let mut state2 = SkinState::Idle;
         process_initiate(&mut state2, initiate, &sealed, &identity, 100, b"rng").unwrap();
-        advance_quarantine_window(&mut state2, 100 + config.quarantine_with_continuity, &config);
+        advance_quarantine_window(
+            &mut state2,
+            100 + config.quarantine_with_continuity,
+            &config,
+        );
         if let SkinState::Active(s) = &state2 {
             // Fresh quarantine uses full window (100); still in quarantine at cycle 110.
             assert!(s.in_post_handshake_quarantine);

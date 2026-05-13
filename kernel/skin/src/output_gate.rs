@@ -69,7 +69,9 @@ pub enum OutputError {
     /// canonical at the type level (the payload is [`CanonicalBytes`]) so this
     /// variant is unreachable in M1 but defined for L1_HARD_RULES C18 future
     /// hook.
-    #[error("canonical-bytes discipline violation: anchor-surface output must carry canonical bytes")]
+    #[error(
+        "canonical-bytes discipline violation: anchor-surface output must carry canonical bytes"
+    )]
     NonCanonicalAnchorOutput,
 }
 

@@ -68,8 +68,8 @@
 #![forbid(unsafe_code)]
 
 pub mod dag;
-pub mod ssot;
 pub mod spore;
+pub mod ssot;
 pub mod validation;
 
 /// Crate-level error type aggregating sub-module errors.

@@ -122,14 +122,8 @@ impl Ssot {
         if name.is_empty() {
             return Err(SsotError::EmptyFieldName);
         }
-        self.fields.insert(
-            name.clone(),
-            SsotField {
-                name,
-                tier,
-                value,
-            },
-        );
+        self.fields
+            .insert(name.clone(), SsotField { name, tier, value });
         Ok(())
     }
 
@@ -315,10 +309,8 @@ mod tests {
         assert_eq!(ssot.tier1_count(), 3);
         assert_eq!(ssot.tier2_count(), 2);
 
-        let tier1_names: std::collections::HashSet<&str> = ssot
-            .tier1_fields()
-            .map(|f| f.name.as_str())
-            .collect();
+        let tier1_names: std::collections::HashSet<&str> =
+            ssot.tier1_fields().map(|f| f.name.as_str()).collect();
         assert!(tier1_names.contains("a"));
         assert!(tier1_names.contains("c"));
         assert!(tier1_names.contains("e"));

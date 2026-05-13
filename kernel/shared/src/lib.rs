@@ -39,12 +39,20 @@
 
 #![warn(missing_docs)]
 #![warn(clippy::all)]
+// clippy 1.95+ has a contradictory pair of lints
+// (doc_lazy_continuation vs doc_overindented_list_items) that disagree about
+// indentation of continuation lines under `- **Bold** — ...` bullets. The
+// doctrine docs uniformly use 3-space continuation indent (matching pre-1.95
+// rustfmt convention), which is the established doctrine-doc style. Allowing
+// these lints here is a doc-style choice, not a real correctness issue.
+#![allow(clippy::doc_lazy_continuation)]
+#![allow(clippy::doc_overindented_list_items)]
 #![forbid(unsafe_code)]
 
+pub mod active_prefix;
 pub mod canonical_bytes;
 pub mod crypto;
 pub mod sealed_derive;
-pub mod active_prefix;
 
 /// Crate-level error type. Specific errors per submodule are defined in
 /// each submodule and converted to [`Error`] via [`thiserror`].
