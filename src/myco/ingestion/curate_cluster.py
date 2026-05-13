@@ -360,6 +360,7 @@ def forage_run(args: Mapping[str, object], *, ctx: MycoContext) -> Result:
 # === intake — formerly intake.py
 # =========================================================================
 
+
 def intake_run(args: Mapping[str, object], *, ctx: MycoContext) -> Result:
     """Manifest-dispatched entry point.
 
@@ -521,6 +522,7 @@ def intake_directory(
 # =========================================================================
 # === excrete — formerly excrete.py
 # =========================================================================
+
 
 def excrete_run(args: Mapping[str, Any], *, ctx: MycoContext) -> Result:
     """Handler for ``myco excrete`` / ``myco_excrete``.

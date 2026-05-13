@@ -77,6 +77,7 @@ from .mcp_auth import _clear_token_after_call
 # === mcp_sampling — formerly mcp_sampling.py
 # =========================================================================
 
+
 def should_advertise_sampling(canon_system: dict[str, Any]) -> bool:
     """Return True if MCP server should advertise sampling capability.
 
@@ -141,6 +142,7 @@ async def request_sampling_completion(
 # =========================================================================
 # === mcp_workspace — formerly mcp_workspace.py
 # =========================================================================
+
 
 async def _resolve_project_via_roots(ctx: Any) -> Path | None:
     """Ask the MCP client for its workspace roots via ``roots/list``.

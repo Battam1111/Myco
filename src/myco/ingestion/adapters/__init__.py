@@ -1,16 +1,19 @@
 """Ingestion adapter registry.
 
 Governing doctrine: ``docs/architecture/L2_DOCTRINE/ingestion.md``
-§ "Adapters" — the extension seam that lets ``myco eat --path`` /
-``myco eat --url`` dispatch to format-specific readers without
-baking their list into the core.
+§ "Adapters" — the extension seam that lets ``myco eat --path``
+dispatch to format-specific readers without baking their list into
+the core.
+
+v0.8.8 max-aggressive: per owner directive "只保留最核心最逻辑部分",
+the specialized adapters (chat_log, email_mbox, git_history, sqlite,
+video_frames, pdf, html, url, audio, image_ocr) were excreted. Only
+the stdlib-simple cluster (text-file + code-repo + tabular) ships in
+core. Downstream substrates re-add specialty adapters by calling
+``register()`` from a ``.myco/plugins/adapters/`` module.
 
 Built-in adapters are registered at import time. External adapters
 can call :func:`register` to add themselves.
-
-Import ordering matters: more specific adapters (PDF, HTML, URL)
-are registered before the generic text-file adapter so
-``find_adapter`` resolves the most specific handler first.
 """
 
 from __future__ import annotations
@@ -18,6 +21,11 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 from .protocol import Adapter, IngestResult
+from .stdlib_simple_cluster import (
+    CodeRepoAdapter,
+    TabularReader,
+    TextFileAdapter,
+)
 
 __all__ = [
     "Adapter",
@@ -61,70 +69,9 @@ def handled_extensions() -> frozenset[str]:
     return frozenset(exts)
 
 
-# --- Auto-register built-in adapters (most-specific first) --------
-
-
-def _try_register(cls_path: str) -> None:
-    """Import *cls_path* (dot-separated), instantiate, register.
-    Silently skip if optional deps are missing.
-    """
-    module_path, cls_name = cls_path.rsplit(".", 1)
-    try:
-        import importlib
-
-        mod = importlib.import_module(module_path)
-        cls = getattr(mod, cls_name)
-        register(cls())
-    except (ImportError, AttributeError):
-        pass  # optional dep missing; adapter not available
-
-
-_try_register("myco.ingestion.adapters.web_cluster.UrlFetcher")
-_try_register("myco.ingestion.adapters.web_cluster.PdfReader")
-_try_register("myco.ingestion.adapters.web_cluster.HtmlReader")
-_try_register("myco.ingestion.adapters.stdlib_simple_cluster.TabularReader")
-# Chat-log must register before text-file: a ``.chat.md`` would
-# otherwise match TextFileAdapter's broad ``.md`` claim and be
-# ingested as a single opaque blob, losing turn structure (L0 P2
-# "conversation fragment" intent).
-_try_register("myco.ingestion.adapters.chat_log.ChatLogAdapter")
-# Sqlite must register before text-file: a ``.db`` is binary and
-# would be rejected by text-file's NUL-byte heuristic anyway, but
-# being explicit avoids relying on that. ``.sqlite`` / ``.sqlite3``
-# fall outside text-file's extension claim, so order is mostly a
-# documentation aid for future maintainers — kept ahead so the
-# specificity ladder reads top-down.
-_try_register("myco.ingestion.adapters.sqlite.SqliteAdapter")
-# Email/mbox must register before text-file: ``.eml`` and ``.mbox``
-# are RFC 2822 / Unix-mailbox formats that the UTF-8 sniff in
-# text-file would happily claim as one opaque blob, losing per-
-# message granularity (L0 P2 "personal correspondence fragment"
-# intent). Each ``.mbox`` message becomes one IngestResult, capped
-# at MAX_MBOX_MESSAGES (500) per file. Stdlib-only (``email`` +
-# ``mailbox`` + ``html.parser``) — no optional dep gate.
-_try_register("myco.ingestion.adapters.email_mbox.EmailMboxAdapter")
-# git-history must register before code_repo: when the user opts in
-# via a working-tree marker file (``.git-history``), the path passed
-# to ``find_adapter`` is the working tree itself — which code_repo
-# would otherwise claim via its broad ``Path(target).is_dir()`` check.
-# When the user passes ``.../.git`` directly, code_repo would also
-# claim it (it's a directory) and emit hundreds of useless raw notes
-# from the object store. Registering git-history first wins both.
-_try_register("myco.ingestion.adapters.git_history.GitHistoryAdapter")
-# v0.8.0 multimedia adapters (audio / image-OCR / video-frame). Each
-# is gated behind the ``[multimedia]`` extras: module import stays
-# stdlib-only (heavy deps lazy-imported inside ``ingest()``), so these
-# always register successfully even when the extras aren't installed.
-# Order ahead of code_repo + text_file: their extension claims
-# (``.mp3``, ``.png``, ``.mp4``, etc.) are more specific than the
-# generic text-file fallback, and code_repo is directory-scope so
-# wouldn't claim individual media files anyway. Among themselves:
-# audio → image_ocr → video_frames per the v0.8.0 craft, matching the
-# size-cap ladder (100 MB → 50 MB → 500 MB) and the modality-
-# decisiveness ladder (audio is mono-segment-rich, OCR is single-
-# block, video is frame-sampled).
-_try_register("myco.ingestion.adapters.multimedia_cluster.AudioAdapter")
-_try_register("myco.ingestion.adapters.multimedia_cluster.ImageOcrAdapter")
-_try_register("myco.ingestion.adapters.video_frames.VideoFramesAdapter")
-_try_register("myco.ingestion.adapters.stdlib_simple_cluster.CodeRepoAdapter")
-_try_register("myco.ingestion.adapters.stdlib_simple_cluster.TextFileAdapter")
+# --- Auto-register built-in stdlib-simple adapters ----------------
+# Specificity order: tabular (.csv/.json/.jsonl) before code_repo
+# (directory) before text_file (UTF-8 fallback).
+register(TabularReader())
+register(CodeRepoAdapter())
+register(TextFileAdapter())

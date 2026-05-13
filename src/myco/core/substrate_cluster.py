@@ -107,6 +107,7 @@ from .io_cluster import SubstratePaths, atomic_utf8_write, bounded_read_text
 # === substrate — formerly substrate.py
 # =========================================================================
 
+
 def find_substrate_root(start: Path) -> Path:
     """Walk from ``start`` upward, returning the innermost substrate root.
 
@@ -332,6 +333,7 @@ class Substrate:
 # =========================================================================
 # === core_registry — formerly registry.py
 # =========================================================================
+
 
 @dataclass(frozen=True)
 class SubstrateEntry:

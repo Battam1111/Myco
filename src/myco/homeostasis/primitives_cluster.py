@@ -91,6 +91,7 @@ from myco.core.identity_cluster import ContractError, MycoContext, Severity
 # === finding — formerly finding.py
 # =========================================================================
 
+
 class Category(str, Enum):
     """The four lint-dimension categories from L1 exit_codes.md."""
 
@@ -156,6 +157,7 @@ class Finding:
 # =========================================================================
 # === dimension — formerly dimension.py
 # =========================================================================
+
 
 class Dimension(ABC):
     """Base class for lint dimensions.
@@ -227,6 +229,7 @@ class Dimension(ABC):
 # === skeleton — formerly skeleton.py
 # =========================================================================
 
+
 def apply_skeleton_downgrade(
     findings: Iterable[Finding], *, ctx: MycoContext
 ) -> tuple[Finding, ...]:
@@ -256,6 +259,7 @@ def apply_skeleton_downgrade(
 # =========================================================================
 # === exit_policy — formerly exit_policy.py
 # =========================================================================
+
 
 class Threshold(str, Enum):
     """Per-category exit threshold."""
@@ -338,6 +342,7 @@ def parse_exit_policy(spec: str) -> ExitPolicy:
 # =========================================================================
 # === registry — formerly registry.py
 # =========================================================================
+
 
 class DimensionRegistry:
     """Holds :class:`Dimension` instances keyed by ``id``."""
