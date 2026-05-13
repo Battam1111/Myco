@@ -102,7 +102,9 @@ Each delta and sporocarp MAY carry an optional opaque `thread_id` field — a li
 
 **Defense**: trajectory derivation includes **delta-novelty weighting** — deltas whose `causal_in_edges` (per L1_TROPISM §B6 causal-proof) trace overwhelmingly to recent same-operator deltas (high self-citation, low external-anchor) are **down-weighted** in clustering.
 
-**Detection of pathological self-citation**: trajectory dominated by self-citation chains beyond an L1-tunable threshold (default: ≥80% of recent-window node citations are self-loops within an operator-session) emits an `echo_chamber` immune sporocarp.
+**Detection of pathological self-citation**: trajectory dominated by self-citation chains beyond an L1-tunable threshold (default: ≥80% of recent-window node citations are within an L1-tunable causal-distance of recent self-citations **regardless of which operator-session emitted them**) emits an `echo_chamber` immune sporocarp.
+
+(Per pass-2 mycoparasite-33: the detection is **substrate-keyed** — a property of the DAG structure, not of operator-sessions. Operator-keyed detection would conflict with L0 I1 prohibition on persisting operator-discriminating attributes, AND would be trivially bypassable by logout-reconnect-replay.)
 
 **Implementation**: down-weighting algorithm + threshold tuning are L4. The structure of the defense (novelty score per delta + echo-chamber detection) is L1-committed.
 

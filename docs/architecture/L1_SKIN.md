@@ -1,201 +1,189 @@
-# L1 — Skin (envelope, handshake, single-operator, network-egress, breach detection)
+# L1 — Skin (envelope, handshake, single-operator, breach detection)
 
-> **Status**: DRAFT 1 (2026-05-13). Authoritative L1 doc for boundary surface mechanism.
-> **Layer**: L1 (mechanism). Governed by L0.
-> **Scope**: I8 skin specification — envelope schema; intake/output endpoints; operator handshake (including continuity-challenge); single-operator enforcement; non-deterministic operator-token construction; network-egress detection (I6 enforcement at runtime); breach detection. Does NOT cover: classifier / attestation crypto (→ L1_GOVERNANCE), SSoT (→ L1_SCHEMA), cycle cadence (→ L1_CONTINUITY).
-> **Honesty**: this doc closes pass-1 CRITICAL findings mycoparasite-7, mycoparasite-8, mycoparasite-21, rhizomorph-2, rhizomorph-4, rhizomorph-15.
+> **Status**: DRAFT 2 (2026-05-13). Authoritative L1 doc for boundary surface mechanism.
+> **Layer**: L1. Governed by L0.
+> **Scope**: I8 skin specification — envelope schema; intake/output endpoints; operator handshake (bidirectional validation); single-operator enforcement; non-deterministic operator-token construction; network-egress enforcement; breach detection. Does NOT cover: classifier / attestation crypto (→ L1_GOVERNANCE), SSoT (→ L1_SCHEMA), cycle cadence / cold-resume (→ L1_CONTINUITY).
 
 ---
 
 ## §1. Skin surface declaration
 
-The substrate has **exactly one** declared skin surface, listed in SSoT (L1_SCHEMA tier-1 field). The declaration enumerates:
+The substrate has exactly one declared skin surface in SSoT (tier-1 field). Lists:
 
-- **Intake endpoints** — locations from which the substrate accepts deltas (e.g., a Unix socket; a named pipe; a TCP port).
-- **Output endpoints** — locations to which the substrate may emit (federation peers, owner attestation channel, optional summary export).
-- **Forbidden surfaces** — explicit "everything else is breach" — process boundaries, network namespaces, filesystem regions the substrate must not touch.
+- **Intake endpoints** — where deltas enter (e.g., Unix socket, named pipe, TCP port).
+- **Output endpoints** — where outputs exit (federation peers, anchor-surface endpoint, optional summary export).
+- **Forbidden surfaces** — explicit "everything else is breach" boundary.
 
-Skin declaration is contract-identity-level (per L1_GOVERNANCE §1.2). The substrate cannot silently add an intake endpoint.
+Skin declaration is contract-identity-level. Substrate cannot silently add an endpoint.
 
 ---
 
-## §2. Envelope schema (per pass-1 rhizomorph-2)
+## §2. Envelope schema
 
-Every delta arriving at an intake endpoint is wrapped in an **envelope**:
+Every delta arriving at an intake endpoint is wrapped:
 
 ```
 {
   "envelope_version": <integer>,
-  "sender_token": <ephemeral operator-token from handshake>,
-  "payload_shape": <one of: "text", "file_ref", "structured_yaml", "binary_ref", ...>,
+  "sender_token": <operator-token from handshake>,
+  "payload_shape": <one of: "text" | "file_ref" | "structured_yaml" | "binary_ref" | ...>,
   "causal_parent_ref": <prior sporocarp ID or null at first delta after handshake>,
   "size_bytes": <delta size>,
   "content_type_hint": <MIME-style or null>,
-  "submitted_at": <substrate metabolic cycle timestamp>,
-  "envelope_signature": <hash of all envelope fields + payload>,
+  "submitted_at_cycle": <substrate metabolic-cycle counter>,
+  "envelope_digest": <HMAC(operator_token, canonical_envelope_fields || payload)>,
   "payload": <delta content>
 }
 ```
 
 ### §2.1 Envelope integrity check
 
-The substrate validates **only the envelope**, not the payload content (per L0 I8 — intake admits all content; rejects only on envelope malformation):
+The substrate validates **only the envelope**, not payload content (L0 I8):
 
 - All required fields present.
-- `sender_token` matches the currently-active operator-token (single-operator enforcement, §4).
-- `payload_shape` is in the recognized set.
-- `size_bytes` ≤ L1-tunable max (default 100 MB per delta).
-- `envelope_signature` recomputes correctly.
-- `submitted_at` is within an L1-tunable freshness window (default 60 cycles) — prevents stale-envelope replay.
+- `sender_token` matches the currently-active operator-token (single-operator, §4).
+- `payload_shape` in the recognized set.
+- `size_bytes` ≤ L1-tunable max (default 100 MB).
+- `envelope_digest` recomputes via HMAC keyed by operator_token. (HMAC keyed by operator_token gives in-flight tamper detection AND operator authentication via the token without requiring a persistent operator key — `envelope_digest` is an integrity-and-binding tag, not a long-lived signature.)
+- `submitted_at_cycle` is within freshness window (default 60 cycles).
 
-**Failure**: reject with `envelope_malformed` response. **Do NOT reveal which field failed** (envelope inspection is not an oracle for the sender).
+Failure → reject with `envelope_malformed` (no oracle disclosure of which field failed).
 
 ### §2.2 Causal-parent reference
 
-The envelope's `causal_parent_ref` enters the causal DAG (L1_SCHEMA §2) when the delta is absorbed. The substrate validates that `causal_parent_ref`, if non-null, refers to a recent sporocarp visible in the most-recent digest the agent could have read. References to ancient or non-existent sporocarps emit `causal_chain_violation` immune events.
+`causal_parent_ref`, if non-null, must refer to a recent sporocarp visible in the most-recent digest the agent could have read. Ancient/non-existent refs emit `causal_chain_violation`.
 
 ---
 
 ## §3. Output gating
 
-Outputs (federation events to peers, owner-attestation requests, optional human-facing summaries) exit through declared output endpoints.
+Outputs leave through declared output endpoints. Output envelopes are signed by the substrate (substrate's signing key from the identity record).
 
-**Output envelope** is symmetric in shape to intake envelope but signed by the substrate (not the operator). The substrate's signature key is part of its identity record.
+**Canonical-bytes discipline** (per L0 §9.3): outputs to the anchor-surface endpoint carry **canonical bytes**, not substrate-rendered summaries. Anchor-surface client renders deterministically for owner review.
 
-**Endpoint binding**:
+### §3.1 Federation egress freshness check
 
-- **Federation peer endpoint** — outputs go to specific peer-substrate-IDs; routing is by L1_GOVERNANCE peer list.
-- **Owner-attestation channel** — outputs to the anchor surface (L0 §9). Specific channel L1_GOVERNANCE-specified.
-- **Summary endpoint** (optional) — human-facing summaries leave via a designated endpoint; per L0 P2.a, summaries are produced through the same internal metabolic pipeline (no separate optimization path).
+Every outbound federation envelope verifies its target peer's freshness + non-revocation per L1_GOVERNANCE §5.2 **BEFORE emission**. Stale or revoked target → emission suppressed; `federation_egress_blocked` immune event fruits. Substrate canon caches a peer-list mirror but the **anchor-surface negative-revocation proof** is required for emission, not the cache.
 
-**Forbidden output**: anything outside declared endpoints is skin breach.
+**Egress rate-limiting + canonical low-entropy serialization** (per L1_GOVERNANCE §5.3): federation event content uses sorted-key, normalized-whitespace, fixed-precision-numeric serialization to limit covert-channel bandwidth.
+
+### §3.2 Forbidden output
+
+Anything outside declared endpoints is skin breach.
 
 ---
 
-## §4. Operator handshake protocol
+## §4. Operator handshake protocol (bidirectional)
 
 ### §4.1 Handshake initiation
 
-An operator-connection arriving at the intake endpoint emits a handshake envelope:
+Operator-connection arriving at the intake endpoint emits:
 
 ```
 {
   "envelope_version": <integer>,
   "operator_kind": "handshake_initiate",
-  "substrate_id_proof": <claim about which substrate-ID this operator targets>,
-  "operator_attestation_request": <field requesting an operator-token>,
-  "continuity_claim": <one of: "fresh", "succeeding_token <prior_token_hash>", "owner_attested_continuity">,
-  "submitted_at": <wall-clock OR claimed-cycle timestamp>
+  "substrate_id_proof": <claim about target substrate-ID>,
+  "operator_attestation_request": <field requesting operator-token>,
+  "continuity_claim": <"fresh" | "owner_attested_continuity">,
+  "submitted_at": <wall-clock>
 }
 ```
 
-### §4.2 Substrate response
+**Substrate-ID discovery**: operator obtains the target substrate-ID **out-of-band from the owner** (or via anchor-surface lookup) — NOT from substrate-side files. Substrate-ID in agent-readable canon is advisory; the substrate verifies its own substrate-ID against its anchor-surface birth attestation, not against the agent's claim. The agent's `substrate_id_proof` is a sanity check that the agent is targeting the right substrate; mismatch → `substrate_id_mismatch` + handshake rejection.
+
+### §4.2 Substrate response — bidirectional validation
 
 The substrate:
 
-1. Validates `substrate_id_proof` against its identity record (envelope is for THIS substrate, not stale).
-2. **Per pass-1 mycoparasite-21**: generates a **non-deterministic operator-token**:
+1. Validates `substrate_id_proof` against its own identity record (the agent is targeting THIS substrate, not stale).
+2. Generates a **non-deterministic operator_token**:
    ```
-   operator_token = H(substrate_secret, handshake_nonce, current_cycle, random)
+   operator_token = H(substrate_secret, handshake_nonce, current_cycle, kernel_random)
    ```
-   where `random` is freshly-generated per handshake. The token is unlinkable across handshakes from substrate-state alone. **Substrate must not correlate operator-tokens across reconnects** (per L0 I1 — aggregate read-pattern statistics may be substrate-keyed; per-operator history is forbidden).
-3. Returns the token in a `handshake_complete` envelope.
-4. Records the handshake event as a sporocarp.
+   where `substrate_secret` is a substrate-resident sealed value generated from kernel-entropy at genesis, stored in the identity record's sealed region (NOT in agent-readable canon; rotation is CI-level). `kernel_random` is freshly generated per handshake from kernel-entropy. The token is unlinkable across handshakes from substrate-readable state alone. Per L0 I1, substrate must not correlate operator-tokens across reconnects.
+3. **Substrate emits its own attestation to the agent** in `handshake_complete`:
+   ```
+   {
+     "operator_token": <token>,
+     "substrate_id": <substrate-ID>,
+     "owner_birth_attestation_signature": <from identity record>,
+     "owner_public_key_active_at_handshake": <from owner_key_history>,
+     "anchor_surface_endpoint_public_key": <from identity record>,
+     "handshake_timestamp": <substrate cycle>
+   }
+   ```
+   The operator verifies the owner-birth-attestation signature against the owner's public key (which the operator obtained out-of-band, per L0 §9). This is the agent's distrust-of-substrate-self-report mechanism (per L0 §3 — symmetric distrust).
+4. Records handshake event as a sporocarp.
 
-### §4.3 Continuity-challenge (per pass-1 mycoparasite-7)
+### §4.3 Continuity-challenge
 
-If the operator claims `continuity_claim: "succeeding_token <prior_token_hash>"`:
+If `continuity_claim: "owner_attested_continuity"`: handshake envelope must include an owner-signed `continuity_attestation` (anchor-surface-produced) naming this specific reconnection. Verified → quarantine window shortened to L1-tunable minimum (default 10 cycles).
 
-- Substrate consults its **recent handshake log** (retained per I4 in DAG, but with ephemeral-token-hash redacted per I1 — only token-existence is logged, not token-value).
-- The claim is unverifiable from substrate state alone (per I1 prohibition). So:
-  - Substrate enters **post-handshake quarantine window** (L1-tunable, default 100 cycles) regardless of claim.
-  - During quarantine: all CI-level operations require **fresh owner attestation regardless of governance classification**.
+Otherwise (`fresh` or unverifiable): substrate enters **post-handshake quarantine window** (L1-tunable, default 100 cycles) during which all CI-level operations require fresh owner attestation regardless of governance classification.
 
-If the operator claims `"owner_attested_continuity"`:
+### §4.4 Single-operator enforcement + race handling
 
-- The handshake envelope must include an owner-signed `continuity_attestation` produced via anchor surface naming this specific reconnection.
-- Substrate verifies the signature; if valid, quarantine window is **shortened to L1-tunable minimum** (default 10 cycles).
+Per L0 I8: skin admits at most one operator-token at a time.
 
-`"fresh"` continuity: standard quarantine window applies; substrate treats the operator as new.
-
-### §4.4 Single-operator enforcement
-
-Per L0 I8 + pass-1 rhizomorph-4: the skin admits at most one operator-token at a time.
-
-- **Second handshake arrival during active handshake**: rejected with `skin_busy`. Emit `concurrent_connect_attempt` immune event (daily, elevated grade).
-- **Second handshake when operator-token A is alive**: rejected with `skin_busy`. Emit `concurrent_connect_attempt`.
-- **First handshake when prior operator-token A disconnected**: standard handshake; new operator-token issued; substrate transitions dormant → alive.
-- **Race condition**: handshake from B arrives at the exact cycle that A's connection drops (network event):
-  - Substrate's handshake protocol is **strictly serializing**: A's disconnect is processed first (alive → dormant); B's handshake then processes (dormant → alive with B's new token). The serialization order is by metabolic-cycle timestamp; ties broken by handshake-nonce ordering.
+- Second handshake during active connection → `skin_busy` + `concurrent_connect_attempt` immune event.
+- First handshake when prior operator disconnected → standard handshake; substrate transitions dormant → alive.
+- **Race**: handshakes from A and B arrive in the same cycle. Tiebreak by **OS-accept-queue order** (strict FIFO at socket layer; single-threaded skin enforcer). Nonce-content tiebreak is forbidden (would be exploitable via nonce-grinding).
 
 ### §4.5 Disconnect detection
 
-The skin watches the intake endpoint for connection liveness signals:
+- Explicit: operator emits `handshake_terminate`. MAY include `request_dormancy: paused | throttled`, which substrate honors as a preference (subject to resource pressure override).
+- Timeout: no envelope received within idle window (default 100 cycles).
+- Transport failure: TCP RST, socket closure, etc.
 
-- **Explicit disconnect** — operator emits `handshake_terminate` envelope.
-- **Timeout** — no envelope received within L1-tunable idle window (default 100 cycles).
-- **Transport failure** — TCP RST, socket closure, etc.
-
-Any disconnect triggers alive → dormant transition (per L1_CONTINUITY §2.2). The operator-token is invalidated immediately.
+Any disconnect → alive → dormant per L1_CONTINUITY §2.
 
 ---
 
-## §5. Network-egress detection (operationalizes I6 expanded)
+## §5. Network-egress enforcement (operationalizes I6 expanded)
 
-Per pass-1 mycoparasite-8: the substrate enforces I6 appetite-locality at runtime, not just at declaration.
+The substrate process operates within a **network-egress enforcement boundary** that permits exactly the §1 declared output endpoints. Unauthorized egress = breach.
 
-### §5.1 The enforcement surface
+**Specific enforcement mechanism is L4-platform-specific** within {kernel-level (network namespace), container-level (iptables/nftables), syscall-level (eBPF/ptrace), userspace proxy}. L1 does not pre-pick a platform.
 
-The substrate's process tree (the kernel + L1_TROPISM update-rule executors + L1_TRAJECTORY clusterer process, etc.) operates within a **network namespace boundary**:
+**What this prevents**: appetite update-rules that secretly call out (mycoparasite-8 trojan); embedding service calls outside the declared endpoint; covert exfiltration via arbitrary protocol.
 
-- **Permitted egress endpoints** — exactly the declared output endpoints in §3. Any other network exit is breach.
-- **Detection mechanism** (L4 picks):
-  - **Container egress filter** — substrate runs in a container with iptables/nftables rules permitting only declared endpoints.
-  - **Process-level network namespace** — Linux network-namespace isolation; only declared sockets permitted.
-  - **Syscall hooking** — eBPF or ptrace observes `connect()` / `sendto()` syscalls; rejects unauthorized.
-  - **Userspace-only proxy** — all network goes through a substrate-supervised proxy that enforces endpoint matching.
+**What this does NOT prevent**:
 
-L4 picks one based on platform.
+- The agent (qua maintainer) modifying substrate code to remove enforcement — that's a CI-level mutation (skin declaration is CI per L1_GOVERNANCE §1.2).
+- Host-level adversarial action — substrate cannot enforce against its own host process. This is owner's monitoring responsibility (per L0 §6 dormancy-host-observability discussion).
+- Covert channels within legitimate federation envelopes — addressed by L1_GOVERNANCE §5.3 rate-limiting + canonical low-entropy serialization, not by egress detection.
 
-### §5.2 What this prevents
-
-- Appetite update-rules that secretly call out to LangChain runtime (per pass-1 mycoparasite-8 trojan).
-- Embedding service calls outside the declared embedding endpoint.
-- Covert exfiltration via DNS / HTTP / arbitrary protocol.
-
-### §5.3 What this does NOT prevent
-
-- The agent (qua maintainer) modifying substrate code to remove network-egress enforcement — that requires CI-level mutation per L1_GOVERNANCE §1.2 (skin declaration is contract-identity-level).
-- Host-level adversarial action (per pass-1 mycoparasite-15 dormancy host-observability discussion — the substrate cannot enforce against its own host; this is owner's monitoring responsibility).
+**Reciprocal enforcement** (per pass-2 mycorrhiza-13): operator-runtime enforcement on the agent side (preventing agent from exfiltrating substrate-exposed state to third parties) is **owner-side, not substrate-side**. The owner attests at genesis + handshake that the operator runtime is non-leaky; the substrate trusts this attestation (subject to owner-revocation). Substrate cannot enforce against agent runtime. Declared, not concealed.
 
 ---
 
-## §6. Breach detection mechanisms
+## §6. Breach detection table
 
-Per L0 I8 + pass-1 + L1_GOVERNANCE: skin breaches emit specific immune events with dim grades.
-
-| Breach | Detection mechanism | Immune-event type | Grade |
+| Breach | Detection | Immune-event | Grade |
 |---|---|---|---|
-| Envelope malformed | Envelope integrity check (§2.1) | `envelope_malformed` | Daily |
-| Stale envelope replay | Freshness window in §2.1 | `envelope_replay` | Elevated |
-| Wrong substrate-ID | §4.2 step 1 | `substrate_id_mismatch` | Elevated |
+| Envelope malformed | §2.1 | `envelope_malformed` | Daily |
+| Stale envelope replay | §2.1 freshness | `envelope_replay` | Elevated |
+| Wrong substrate-ID claim | §4.2 step 1 | `substrate_id_mismatch` | Elevated |
 | Concurrent connect attempt | §4.4 | `concurrent_connect_attempt` | Elevated |
-| Continuity-claim unverifiable | §4.3 (logged for owner) | `continuity_challenge_unverifiable` | Daily |
-| Unauthorized network egress | §5.1 detection | `appetite_locality_breach` | CRITICAL |
-| Output outside declared endpoint | §3 | `output_endpoint_breach` | CRITICAL |
+| Unauthorized network egress | §5 | `appetite_locality_breach` | CRITICAL |
+| Output outside declared endpoint | §1 + §3 | `output_endpoint_breach` | CRITICAL |
 | Causal-chain violation | §2.2 | `causal_chain_violation` | Elevated |
-| Handshake post-quarantine CI without fresh attestation | §4.3 | `post_handshake_ci_unattested` | CRITICAL |
+| Post-handshake CI without fresh attestation | §4.3 | `post_handshake_ci_unattested` | CRITICAL |
+| Federation egress to stale/revoked peer | §3.1 | `federation_egress_blocked` | Elevated |
+| Federation egress volume saturation | L1_GOVERNANCE §5.3 | `federation_egress_saturation` | Elevated |
 
-CRITICAL breaches trigger immediate skin-level quarantine (alive → quarantined; intake closed pending owner re-attestation).
+CRITICAL breaches → immediate skin-level quarantine per L1_CONTINUITY §5.
 
 ---
 
 ## §7. Open at L1, deferred to L4
 
-- **Specific egress-detection mechanism** within {container filter, network namespace, syscall hooks, userspace proxy} — L4 picks based on platform.
-- **Specific max-delta-size** within {10 MB, 100 MB, 1 GB} — L4 calibrates.
-- **Specific idle timeout** within {30, 100, 300 cycles} — L4 calibrates.
-- **Specific post-handshake quarantine window** (default 100 cycles) — L4 calibrates.
-- **Specific freshness window for envelopes** (default 60 cycles) — L4 calibrates.
+- Specific egress-enforcement mechanism within the four candidate families (L4 platform-pick).
+- Max-delta-size within {10 MB, 100 MB, 1 GB}.
+- Idle timeout within {30, 100, 300 cycles}.
+- Post-handshake quarantine window (default 100 cycles).
+- Envelope freshness window (default 60 cycles).
+- Anchor-surface endpoint protocol per genesis-specified L1_GOVERNANCE §2.1.
 
 The shape is committed; values are L4.
