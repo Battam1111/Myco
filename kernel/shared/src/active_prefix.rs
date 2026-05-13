@@ -163,7 +163,10 @@ mod tests {
     fn test_active_prefix_fills_to_k() {
         let mut p = ActivePrefix::<TestEntry>::new(3);
         for i in 0..3 {
-            p.insert(TestEntry { ts: i, valid: false });
+            p.insert(TestEntry {
+                ts: i,
+                valid: false,
+            });
         }
         assert_eq!(p.active_count(), 3);
         assert_eq!(p.iter_archived().count(), 0);
@@ -174,7 +177,10 @@ mod tests {
     fn test_active_prefix_evicts_oldest() {
         let mut p = ActivePrefix::<TestEntry>::new(3);
         for i in 0..5 {
-            p.insert(TestEntry { ts: i, valid: false });
+            p.insert(TestEntry {
+                ts: i,
+                valid: false,
+            });
         }
         // K=3 active; 2 archived (oldest two).
         assert_eq!(p.active_count(), 3);
@@ -193,9 +199,18 @@ mod tests {
         let mut p = ActivePrefix::<TestEntry>::new(2);
         // Insert one currently-valid entry then fill past K with invalid.
         p.insert(TestEntry { ts: 0, valid: true });
-        p.insert(TestEntry { ts: 1, valid: false });
-        p.insert(TestEntry { ts: 2, valid: false });
-        p.insert(TestEntry { ts: 3, valid: false });
+        p.insert(TestEntry {
+            ts: 1,
+            valid: false,
+        });
+        p.insert(TestEntry {
+            ts: 2,
+            valid: false,
+        });
+        p.insert(TestEntry {
+            ts: 3,
+            valid: false,
+        });
 
         // ts=0 evicted from chronological deque BUT still active (valid).
         // ts=1 evicted from chronological deque AND archived (not valid).
@@ -225,7 +240,10 @@ mod tests {
         // the caller would track this via a separate index. For the test, just
         // re-construct the container.
         let mut p = ActivePrefix::<TestEntry>::new(1);
-        p.insert(TestEntry { ts: 0, valid: false }); // expired
+        p.insert(TestEntry {
+            ts: 0,
+            valid: false,
+        }); // expired
         p.insert(TestEntry { ts: 1, valid: true });
 
         // ts=0 evicted from chronological deque and archived (no longer valid).
@@ -236,7 +254,13 @@ mod tests {
     #[should_panic(expected = "chronological order")]
     fn test_out_of_order_insert_panics() {
         let mut p = ActivePrefix::<TestEntry>::new(3);
-        p.insert(TestEntry { ts: 10, valid: false });
-        p.insert(TestEntry { ts: 5, valid: false }); // older than previous → panic
+        p.insert(TestEntry {
+            ts: 10,
+            valid: false,
+        });
+        p.insert(TestEntry {
+            ts: 5,
+            valid: false,
+        }); // older than previous → panic
     }
 }

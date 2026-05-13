@@ -35,8 +35,8 @@ use myco_kernel_schema::dag::Dag;
 use myco_kernel_shared::canonical_bytes::{encode, Value};
 use myco_kernel_shared::sealed_derive::SoftwareStub;
 use myco_kernel_skin::envelope::{
-    compute_envelope_digest, validate_envelope, Envelope, EnvelopeError,
-    EnvelopeValidationConfig, PayloadShape,
+    compute_envelope_digest, validate_envelope, Envelope, EnvelopeError, EnvelopeValidationConfig,
+    PayloadShape,
 };
 use myco_kernel_skin::handshake::{
     process_initiate, process_terminate, AnchorSurfaceEndpointPublicKey, ContinuityClaim,
@@ -217,7 +217,8 @@ fn m1_e2e_envelope_tamper_rejected() {
         envelope_digest: myco_kernel_shared::crypto::HmacTag([0; 32]),
         payload: b"original".to_vec(),
     };
-    envelope.envelope_digest = compute_envelope_digest(&envelope, &complete.operator_token).unwrap();
+    envelope.envelope_digest =
+        compute_envelope_digest(&envelope, &complete.operator_token).unwrap();
 
     // Tamper the payload (same length so size_bytes stays consistent).
     envelope.payload = b"tampered".to_vec();
@@ -391,4 +392,3 @@ fn m1_e2e_canonical_bytes_determinism_across_layers() {
     let cb3 = encode(&v2).unwrap();
     assert_ne!(cb1, cb3);
 }
-

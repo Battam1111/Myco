@@ -246,7 +246,10 @@ mod tests {
     fn test_int_negative_one() {
         let bytes = encode(&Value::Int(-1)).unwrap();
         // two's complement of -1 = all 0xff
-        assert_eq!(bytes.as_ref(), &[0x10, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff]);
+        assert_eq!(
+            bytes.as_ref(),
+            &[0x10, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff]
+        );
     }
 
     #[test]
@@ -258,10 +261,7 @@ mod tests {
     #[test]
     fn test_string_hello() {
         let bytes = encode(&Value::String("hello".to_string())).unwrap();
-        assert_eq!(
-            bytes.as_ref(),
-            &[0x20, 0x05, b'h', b'e', b'l', b'l', b'o']
-        );
+        assert_eq!(bytes.as_ref(), &[0x20, 0x05, b'h', b'e', b'l', b'l', b'o']);
     }
 
     #[test]
@@ -315,9 +315,9 @@ mod tests {
         // bytes is determined by the string content byte after the length prefix.
         let expected = vec![
             0x31, 0x03, // map tag + count=3
-            0x20, 0x01, b'a', 0x10, 0, 0, 0, 0, 0, 0, 0, 2,  // "a" → int(2)
-            0x20, 0x01, b'm', 0x10, 0, 0, 0, 0, 0, 0, 0, 3,  // "m" → int(3)
-            0x20, 0x01, b'z', 0x10, 0, 0, 0, 0, 0, 0, 0, 1,  // "z" → int(1)
+            0x20, 0x01, b'a', 0x10, 0, 0, 0, 0, 0, 0, 0, 2, // "a" → int(2)
+            0x20, 0x01, b'm', 0x10, 0, 0, 0, 0, 0, 0, 0, 3, // "m" → int(3)
+            0x20, 0x01, b'z', 0x10, 0, 0, 0, 0, 0, 0, 0, 1, // "z" → int(1)
         ];
         assert_eq!(bytes.as_ref(), &expected[..]);
     }
@@ -329,7 +329,10 @@ mod tests {
             let mut m = BTreeMap::new();
             m.insert("a".to_string(), Value::Bool(true));
             m.insert("b".to_string(), Value::Int(42));
-            m.insert("c".to_string(), Value::Array(vec![Value::Null, Value::String("x".to_string())]));
+            m.insert(
+                "c".to_string(),
+                Value::Array(vec![Value::Null, Value::String("x".to_string())]),
+            );
             m
         });
         let bytes1 = encode(&v).unwrap();

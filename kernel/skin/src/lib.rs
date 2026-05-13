@@ -66,11 +66,11 @@
 #![warn(clippy::all)]
 #![forbid(unsafe_code)]
 
-pub mod surface;
+pub mod egress_enforce;
 pub mod envelope;
 pub mod handshake;
 pub mod output_gate;
-pub mod egress_enforce;
+pub mod surface;
 
 /// Crate-level error type, aggregating errors from each sub-module.
 ///
