@@ -38,17 +38,7 @@ A substrate may be in multiple alive sub-states simultaneously (e.g., legacy AND
 
 Genesis is the only routine human-initiated event in the lifecycle. Detailed in L1_GOVERNANCE §4.1; the trust-model implications are in L2_TRUST_MODEL §2.
 
-**The genesis bundle** (owner's responsibilities):
-
-1. Owner generates owner-keypair.
-2. Owner selects anchor-surface endpoint mechanism (hardware token / separate machine / cloud HSM / signed-prompt review).
-3. Owner verifies anchor-surface-client provenance (independent of substrate distribution).
-4. Owner selects substrate_secret OS-sealing mechanism (TPM / kernel keyring / HSM / hardware-secure-element).
-5. Owner provides `(initial-spore-schema, initial-dispatch-config, initial-classifier-dimension-table, anchor_surface_endpoint_public_key, owner_public_key, signature_suite, anchor_client_provenance_attestation, substrate_secret_sealing_mechanism_attestation)`.
-
-**The substrate emits** canonical-bytes spore-schema (per L1_SCHEMA §3.1). Owner renders deterministically; reviews; signs birth attestation.
-
-**Transition to birth-period**: genesis sporocarp lands in DAG; substrate enters `alive (birth-period)` sub-state.
+Detailed protocol in L1_GOVERNANCE §4.1 + trust derivation in L2_TRUST_MODEL §2. **The lifecycle-cross-cut content**: genesis sporocarp lands in DAG; substrate enters `alive (birth-period)` sub-state. This is the only transition where a human is operationally load-bearing — every subsequent transition is substrate-initiated or owner-attested-but-substrate-emitted.
 
 ---
 
@@ -128,6 +118,8 @@ Transition fruits `dormancy_enter` sporocarp; operator-token invalidated.
 **Paused mode** (operator-requestable; opt-in via canon):
 - All metabolism halted
 - Only handshake + attestation-channel listening continues
+
+**Wall-clock-vs-cycle-clock asymmetry during paused** (cross-cut to L2_TRUST_MODEL): attestation-request `expiry_cycles` does NOT advance during paused dormancy, but anchor-surface trusted wall-clock CONTINUES. On wake, substrate re-validates attestation freshness against anchor-surface wall-clock; stale-on-wake → `attestation_expired` immune event. Substrate cannot extend wall-clock budgets by entering paused dormancy. This is the dual-clock defense (per L1_CONTINUITY §2.4 + L1_GOVERNANCE §2.3) propagating to lifecycle.
 
 ### §5.3 Triggers (dormant → alive)
 
