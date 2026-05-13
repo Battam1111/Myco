@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "myco-kernel-hard-rules"
+version = "0.9.0a1"
+description = "Myco v0.9 — kernel/hard_rules: 20 CRITICAL breach detectors + 17 F-row watchdogs (L1_HARD_RULES)"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Proprietary" }
+authors = [{ name = "Yanjun" }]
+dependencies = ["myco-kernel-governance", "myco-kernel-tropism"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "pytest-cov>=4.0", "mypy>=1.10", "ruff>=0.5"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-q --strict-markers"
