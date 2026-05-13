@@ -1,0 +1,20 @@
+[package]
+name = "myco-kernel-continuity"
+description = "Myco v0.9 — kernel/continuity: metabolic cycle + dormancy + cold-resume + WAL (L1_CONTINUITY §1-§5)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+name = "myco_kernel_continuity"
+path = "src/lib.rs"
+
+[dependencies]
+myco-kernel-shared = { path = "../shared" }
+myco-kernel-skin = { path = "../skin" }
+myco-kernel-schema = { path = "../schema" }
+thiserror.workspace = true
+
+[dev-dependencies]

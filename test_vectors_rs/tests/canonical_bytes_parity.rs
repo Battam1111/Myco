@@ -175,14 +175,11 @@ fn spec_to_value(spec: InputSpec) -> Value {
             };
             Value::Bytes(bytes)
         }
-        InputSpec::Array { value } => {
-            Value::Array(value.into_iter().map(spec_to_value).collect())
-        }
+        InputSpec::Array { value } => Value::Array(value.into_iter().map(spec_to_value).collect()),
         InputSpec::Map { value } => {
             let mut m = BTreeMap::new();
             for (k, v) in value {
-                let sub_spec: InputSpec =
-                    serde_json::from_value(v).expect("map value spec");
+                let sub_spec: InputSpec = serde_json::from_value(v).expect("map value spec");
                 m.insert(k, spec_to_value(sub_spec));
             }
             Value::Map(m)

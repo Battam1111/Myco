@@ -20,10 +20,9 @@ members = [
     "kernel/shared",
     "kernel/skin",
     "kernel/schema",
+    "kernel/continuity",
     "m1_milestone",
     "test_vectors_rs",
-    # Future Rust crates land here as M1-M4 progresses:
-    # "kernel/continuity",
 ]
 
 [workspace.package]
