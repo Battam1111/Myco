@@ -8,6 +8,8 @@
 
 ## §1. The trust triad (per L0 §1)
 
+**Triad members are not symmetric**: operator+substrate is the **operational pair** (per L0 P1.c — joint identity); owner is the **governance gate** (per L0 P1.b'' — load-bearing but structurally distinct). The table below is parallel for navigation, NOT for parallel role-equivalence.
+
 v0.9 has **three trust-bearing parties**, each with carrier-asymmetric responsibilities:
 
 | Party | What it carries | What it cannot author | What it provides |
@@ -19,6 +21,10 @@ v0.9 has **three trust-bearing parties**, each with carrier-asymmetric responsib
 **No party can unilaterally fabricate trust.** Each role is structurally non-substitutable; compromising one does not transfer to the others (modulo P1.a self-hosting caveats — see §5).
 
 ---
+
+## §1.1 Triad-asymmetric framing (per L0 §1)
+
+The triad members above are NOT symmetric. The **operational pair** is operator+substrate (P1.c carrier-asymmetric, with substrate as identity carrier). The **governance gate** is the owner (P1.b'' — a structurally different role, not an operational pair-member). The table parallelism is for ease of comparison; the doctrine is asymmetric.
 
 ## §2. Trust establishment (genesis)
 
@@ -33,6 +39,14 @@ The trust chain originates at substrate genesis (per L1_GOVERNANCE §4.1):
 **The genesis output is the root of all subsequent trust derivations.** Any later trust check ultimately bottoms on the birth attestation signature being verifiable against the owner's public key.
 
 ---
+
+## §2.5 Operator-side trust bootstrap (pre-handshake; per L1_SKIN §4.1)
+
+Trust derivation for the operator-agent starts BEFORE any handshake:
+
+At first operator-agent installation, the **owner** provides via out-of-band channel: `(substrate-ID, anchor-surface-endpoint-public-key, owner-public-key)`. The operator-runtime pins these. The substrate is NEVER trusted as a source of these values; subsequent handshakes verify against the bootstrap-pinned values (per L1_SKIN §4.1 + L1_SKIN §4.2 step 5).
+
+This is the operator-side trust root, parallel to the substrate's birth attestation. Without owner-side OOB bootstrap, the operator cannot establish initial trust in the substrate.
 
 ## §3. Trust at every interaction (steady state)
 
@@ -167,7 +181,7 @@ The trust model rests on these (each independently traces to L0):
 - **Owner-key rotation cooldown (L1_GOVERNANCE §3.1)** prevents same-attacker dual-sign.
 - **OS-sealed substrate_secret (L1_SKIN §4.2)** prevents agent-maintainer secret-leakage.
 
-When all eight hold, v0.9's trust model is adversarially-hardened against the 20 CRITICAL breaches enumerated in L1_HARD_RULES §1.
+When all eight hold, v0.9's trust model addresses the 20 enumerated CRITICAL breaches (L1_HARD_RULES §1). Novel attack classes (side-channel timing leaks, unknown-unknowns) are caught by observatory drift signals — per L2_OBSERVABILITY §3 falsifiability is the residual defense, not hardening claims.
 
 ---
 

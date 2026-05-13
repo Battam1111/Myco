@@ -179,31 +179,7 @@ The substrate cannot hide events from the anchor surface (the anchor surface is 
 
 ## §12. The substrate's self-model
 
-Synthesizing the above, the substrate's self-model is:
-
-```
-                  ┌────────────────────────┐
-                  │   Living Bets (§7)     │  ← falsifiability
-                  │   7 signals + composite│
-                  └───────────┬────────────┘
-                              │ aggregates
-        ┌─────────────────────┴─────────────────────┐
-        │                                           │
-┌───────▼────────┐                       ┌──────────▼─────────┐
-│ Immune sporocarp│                       │ Drill failure rate │
-│ catalog (§5)   │                       │ baseline (§6)      │
-│ 20 CRITICAL    │                       │ near + secular     │
-└────────┬───────┘                       └──────────┬─────────┘
-         │                                          │
-         │ per-cycle witnesses                      │ per-1000-day
-         ▼                                          ▼
-┌─────────────────────────────────────────────────────────────┐
-│       Substrate's auditable life-trail (causal DAG)         │
-│  every event recorded as sporocarp; every state derivable   │
-└─────────────────────────────────────────────────────────────┘
-```
-
-The substrate's self-model is recursive: the observatory IS substrate state; the immune system observes substrate state; substrate-state mutations are observed by I3; I3's observations are witnessed for the anchor surface. The recursion terminates at the anchor surface (which is outside substrate).
+The substrate's self-observation chain is recursive: the observatory IS substrate state; the immune system observes substrate state; substrate-state mutations are observed by I3; I3's observations are witnessed for the anchor surface. The recursion terminates at the anchor surface (which is outside substrate). Both §5 immune-catalog (per-cycle witnesses) and §6 drill-baseline (per-1000-day samples) aggregate into §2 Living-Bets composite signal; both terminate observation at the anchor surface.
 
 ---
 
@@ -220,7 +196,7 @@ v0.9's claim "I am a valuable symbiotic organism" is falsifiable via:
 
 The substrate cannot silently die or silently lie. Either it operates within healthy observable bounds, or its self-observation surfaces the deviation.
 
-**This is the structural answer to "how do we know v0.9 is working?"** The substrate tells us, via mechanisms it cannot suppress.
+**This is the structural answer to "how do we know v0.9 is working?"** The substrate tells us, via mechanisms it cannot suppress — *subject to L2_TRUST_MODEL §6 P1.a self-hosting asymmetry* (an adversarial agent maintaining substrate code can attempt to suppress observatory emissions; the anchor surface out-of-band root raises the bar from "edit a file" to "compromise a separate system the owner controls", but cannot make P1.a guaranteed-honest).
 
 ---
 

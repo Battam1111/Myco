@@ -8,7 +8,7 @@
 
 ## §0. L2 shape — owner-chosen: cross-cut themes
 
-Owner chose **shape (c): 5 cross-cut doctrine themes**. Drafted in dependency order:
+Owner chose **shape (c): cross-cut doctrine themes**. DRAFT 2 (post L2 pass-1 rhizomorph-1) adds `L2_TRAJECTORY.md` as the 6th theme. Drafted in dependency order:
 
 | # | File | Theme |
 |---|---|---|
@@ -17,6 +17,7 @@ Owner chose **shape (c): 5 cross-cut doctrine themes**. Drafted in dependency or
 | 3 | `L2_EVOLUTION.md` | Self-evolution discipline: doctrine + schema + lexicon + threshold + versioning |
 | 4 | `L2_FEDERATION.md` | Inter-substrate: P8 modes + spore-schema + peer-trust + network shape |
 | 5 | `L2_OBSERVABILITY.md` | Self-model: Living Bets + immune catalog + drills + falsifiability |
+| 6 | `L2_TRAJECTORY.md` | Intent doctrine: fossil-record vs teleology + cold-start + cluster_C + thread_id + injection defense (added DRAFT 2) |
 
 Shapes (a) per-subsystem-family + (b) per-L1-deep-dive were rejected — see §1 below for rationale (retained for archaeology).
 
