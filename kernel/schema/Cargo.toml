@@ -1,0 +1,18 @@
+[package]
+name = "myco-kernel-schema"
+description = "Myco v0.9 — kernel/schema: SSoT + Merkle DAG + spore-schema + validation tier dispatch (L1_SCHEMA §1-§4)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+name = "myco_kernel_schema"
+path = "src/lib.rs"
+
+[dependencies]
+myco-kernel-shared = { path = "../shared" }
+thiserror.workspace = true
+
+[dev-dependencies]
