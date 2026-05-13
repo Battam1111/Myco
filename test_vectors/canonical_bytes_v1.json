@@ -1,0 +1,208 @@
+{
+  "version": 1,
+  "spec": "Myco v0.9 canonical-bytes serializer (L1_SCHEMA §3.1 + L0 §9.3 + L1_HARD_RULES F16)",
+  "description": "Cross-language test vectors for the canonical-bytes serializer. Every implementation (Rust kernel/shared, Python kernel/governance, TypeScript anchor_client) MUST produce byte-identical output for every input below. Drift = L1_HARD_RULES C18 canonical_bytes_render_drift (CRITICAL).",
+  "encoding": {
+    "tag_0x00": "Null — no payload",
+    "tag_0x01": "Bool — 1 byte (0x00 false / 0x01 true)",
+    "tag_0x10": "Int64 — 8 bytes big-endian two's-complement",
+    "tag_0x11": "Uint64 — 8 bytes big-endian",
+    "tag_0x20": "String — varint length + UTF-8 bytes",
+    "tag_0x21": "Bytes — varint length + raw bytes",
+    "tag_0x30": "Array — varint count + N items in declared order",
+    "tag_0x31": "Map — varint count + N (key, value) pairs sorted by canonical-bytes of key",
+    "tag_0x40": "Timestamp — 8 bytes big-endian i64 (unix nanoseconds)",
+    "tag_0x41": "Hash — 32 bytes raw",
+    "varint": "7 bits per byte; MSB=1 if more bytes follow; MSB=0 on last byte; little-endian byte order"
+  },
+  "vectors": [
+    {
+      "name": "null",
+      "input": { "type": "null" },
+      "output_hex": "00"
+    },
+    {
+      "name": "bool_true",
+      "input": { "type": "bool", "value": true },
+      "output_hex": "0101"
+    },
+    {
+      "name": "bool_false",
+      "input": { "type": "bool", "value": false },
+      "output_hex": "0100"
+    },
+    {
+      "name": "int_zero",
+      "input": { "type": "int", "value": 0 },
+      "output_hex": "100000000000000000"
+    },
+    {
+      "name": "int_one",
+      "input": { "type": "int", "value": 1 },
+      "output_hex": "100000000000000001"
+    },
+    {
+      "name": "int_negative_one",
+      "input": { "type": "int", "value": -1 },
+      "output_hex": "10ffffffffffffffff"
+    },
+    {
+      "name": "int_max_positive",
+      "input": { "type": "int", "value_decimal_str": "9223372036854775807" },
+      "output_hex": "107fffffffffffffff"
+    },
+    {
+      "name": "int_min_negative",
+      "input": { "type": "int", "value_decimal_str": "-9223372036854775808" },
+      "output_hex": "108000000000000000"
+    },
+    {
+      "name": "uint_zero",
+      "input": { "type": "uint", "value": 0 },
+      "output_hex": "110000000000000000"
+    },
+    {
+      "name": "uint_one",
+      "input": { "type": "uint", "value": 1 },
+      "output_hex": "110000000000000001"
+    },
+    {
+      "name": "uint_max",
+      "input": { "type": "uint", "value_decimal_str": "18446744073709551615" },
+      "output_hex": "11ffffffffffffffff"
+    },
+    {
+      "name": "string_empty",
+      "input": { "type": "string", "value": "" },
+      "output_hex": "2000"
+    },
+    {
+      "name": "string_hello",
+      "input": { "type": "string", "value": "hello" },
+      "output_hex": "200568656c6c6f"
+    },
+    {
+      "name": "string_unicode_chinese_nihao",
+      "_description": "String containing U+4F60 U+597D ('你好'). UTF-8 bytes: e4 bd a0 e5 a5 bd (6 bytes). Varint(6) = 0x06.",
+      "input": { "type": "string", "value_utf8_hex": "e4bda0e5a5bd" },
+      "output_hex": "2006e4bda0e5a5bd"
+    },
+    {
+      "name": "string_unicode_emoji_mushroom",
+      "_description": "String containing U+1F344 ('🍄' — fungal emoji, fitting Myco's taxonomy). UTF-8 bytes: f0 9f 8d 84 (4 bytes). Varint(4) = 0x04.",
+      "input": { "type": "string", "value_utf8_hex": "f09f8d84" },
+      "output_hex": "2004f09f8d84"
+    },
+    {
+      "name": "bytes_empty",
+      "input": { "type": "bytes", "value_hex": "" },
+      "output_hex": "2100"
+    },
+    {
+      "name": "bytes_three",
+      "input": { "type": "bytes", "value_hex": "abcdef" },
+      "output_hex": "2103abcdef"
+    },
+    {
+      "name": "bytes_128_zeros",
+      "_description": "Tests varint-2-byte boundary at length=128. 128 = 0b10000000 → varint = 0x80 0x01.",
+      "input": { "type": "bytes", "value_hex_repeat": { "byte": "00", "count": 128 } },
+      "output_hex": "2180010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "name": "array_empty",
+      "input": { "type": "array", "value": [] },
+      "output_hex": "3000"
+    },
+    {
+      "name": "array_two_ints",
+      "input": {
+        "type": "array",
+        "value": [
+          { "type": "int", "value": 1 },
+          { "type": "int", "value": 2 }
+        ]
+      },
+      "output_hex": "3002100000000000000001100000000000000002"
+    },
+    {
+      "name": "array_mixed",
+      "_description": "[null, true, 'x'] = 0x30 0x03 + null(0x00) + bool(0x01 0x01) + string(0x20 0x01 0x78)",
+      "input": {
+        "type": "array",
+        "value": [
+          { "type": "null" },
+          { "type": "bool", "value": true },
+          { "type": "string", "value": "x" }
+        ]
+      },
+      "output_hex": "3003000101200178"
+    },
+    {
+      "name": "map_empty",
+      "input": { "type": "map", "value": {} },
+      "output_hex": "3100"
+    },
+    {
+      "name": "map_sorted_keys",
+      "_description": "Insert keys in non-sorted order ('z', 'a', 'm'); output sorted by canonical-bytes of key. All keys are 1-char strings, so ordering follows the content byte after the length prefix.",
+      "input": {
+        "type": "map",
+        "value": {
+          "z": { "type": "int", "value": 1 },
+          "a": { "type": "int", "value": 2 },
+          "m": { "type": "int", "value": 3 }
+        }
+      },
+      "output_hex": "310320016110000000000000000220016d10000000000000000320017a100000000000000001"
+    },
+    {
+      "name": "map_nested",
+      "_description": "{'outer': {'inner': uint(42)}}. Verifies recursive canonical encoding through nested maps.",
+      "input": {
+        "type": "map",
+        "value": {
+          "outer": {
+            "type": "map",
+            "value": {
+              "inner": { "type": "uint", "value": 42 }
+            }
+          }
+        }
+      },
+      "output_hex": "310120056f7574657231012005696e6e657211000000000000002a"
+    },
+    {
+      "name": "timestamp_2025_unix_nanos",
+      "_description": "1.7e18 nanoseconds = approx 2023-11-15 22:13:20 UTC. Encoded as i64 big-endian.",
+      "input": { "type": "timestamp", "value_decimal_str": "1700000000000000000" },
+      "output_hex": "4017979cfe362a0000"
+    },
+    {
+      "name": "timestamp_zero",
+      "input": { "type": "timestamp", "value": 0 },
+      "output_hex": "400000000000000000"
+    },
+    {
+      "name": "hash_all_ab",
+      "input": { "type": "hash", "value_hex": "abababababababababababababababababababababababababababababababab" },
+      "output_hex": "41abababababababababababababababababababababababababababababababab"
+    },
+    {
+      "name": "hash_all_zero",
+      "input": { "type": "hash", "value_hex": "0000000000000000000000000000000000000000000000000000000000000000" },
+      "output_hex": "410000000000000000000000000000000000000000000000000000000000000000"
+    }
+  ],
+  "varint_vectors": [
+    { "input": 0, "output_hex": "00" },
+    { "input": 1, "output_hex": "01" },
+    { "input": 127, "output_hex": "7f" },
+    { "input": 128, "output_hex": "8001" },
+    { "input": 255, "output_hex": "ff01" },
+    { "input": 16383, "output_hex": "ff7f" },
+    { "input": 16384, "output_hex": "808001" },
+    { "input": 2097151, "output_hex": "ffff7f" },
+    { "input": 2097152, "output_hex": "80808001" }
+  ]
+}

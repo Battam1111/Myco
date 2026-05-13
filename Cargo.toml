@@ -21,6 +21,7 @@ members = [
     "kernel/skin",
     "kernel/schema",
     "m1_milestone",
+    "test_vectors_rs",
     # Future Rust crates land here as M1-M4 progresses:
     # "kernel/continuity",
 ]

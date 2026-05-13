@@ -1,0 +1,19 @@
+{
+  "name": "@myco/anchor-client",
+  "version": "0.9.0-alpha.1",
+  "description": "Myco v0.9 — anchor_client: owner-side rendering + signing + nonce + heartbeat (L0 §9 + L1_GOVERNANCE §2)",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "node --experimental-strip-types --no-warnings --test --test-reporter=spec tests/",
+    "test:all": "npm run typecheck && npm test"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "@types/node": "^22.10.0"
+  }
+}
