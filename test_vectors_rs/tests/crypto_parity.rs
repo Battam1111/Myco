@@ -230,9 +230,8 @@ fn all_ed25519_verify_vectors() {
     for v in vectors.ed25519.sign_vectors {
         let msg = parse_hex(&v.msg_hex);
         let sig = parse_hex(&v.signature_hex);
-        verify_signature(&pubkey, &sig, &msg).unwrap_or_else(|e| {
-            panic!("vector \"{}\" failed to verify: {e:?}", v.name)
-        });
+        verify_signature(&pubkey, &sig, &msg)
+            .unwrap_or_else(|e| panic!("vector \"{}\" failed to verify: {e:?}", v.name));
     }
 }
 

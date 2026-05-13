@@ -381,10 +381,7 @@ mod tests {
     fn test_verify_signature_wrong_pubkey_length() {
         // 6-byte "pubkey" is rejected at length-check before crypto verify.
         let result = verify_signature(b"pubkey", b"sig", b"content");
-        assert!(matches!(
-            result,
-            Err(CryptoError::PublicKeyMalformed(_))
-        ));
+        assert!(matches!(result, Err(CryptoError::PublicKeyMalformed(_))));
     }
 
     #[test]
