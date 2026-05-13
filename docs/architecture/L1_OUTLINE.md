@@ -1,122 +1,122 @@
-# L1 — Outline / Charter (post-structural-rework)
+# L1 — Outline / Charter
 
-> **Status**: OUTLINE — naming-cleaned, post-DRAFT-5-of-L0 split (2026-05-13).
-> **Layer**: L1 (mechanism). Governed by L0.
-> **Authority**: this outline has **no** binding authority. It is a charter — a navigation aid. The L1 documents listed below (some written, some pending) are the authoritative L1 layer.
-> **Naming hygiene**: throughout this document and the L1 layer, *"v0.9"* refers to the Myco substrate version. *"DRAFT N"* (no `v` prefix) refers to a document revision counter. There is no "L1 v0.X" — documents either exist (and carry a DRAFT N status) or they don't.
+> **Status**: OUTLINE (revised post DRAFT 6 of L0 + 4 new L1 doc spawns, 2026-05-13).
+> **Layer**: L1. Governed by L0.
+> **Authority**: this outline is navigation only — no binding authority. The L1 documents listed below ARE the authoritative L1 layer.
+> **Naming**: *"v0.9"* = Myco substrate version. *"DRAFT N"* (no `v` prefix) = document revision counter.
 
 ---
 
 ## §0. What L1 is
 
-L1 is the **mechanism enforcement layer** for L0's principles + invariants. Where L0 says "Myco's dispatch must be symmetric, not request/response, support continuous operation" (negative + constraint statements), L1 says "the positive form is tropism + sporocarp punctuation; here is its schema; here is how it operationalizes I2 governance" (positive + mechanism specifications).
+L1 is the **mechanism enforcement layer** for L0's principles + invariants. L0 commits to identity, negative space, and constraints; L1 commits to the positive forms satisfying those constraints. A statement belongs in L1 if it answers "*how does the substrate actually do X?*".
 
-### §0.1 What L1 is NOT (and what L0 is NOT)
+The 100%-confidence-loop applied between DRAFT 5 and DRAFT 6 of L0 surfaced that 5 of 8 invariants pointed to unwritten L1 docs — making the doctrine layer claim completeness it could not demonstrate. DRAFT 6 spawning includes **4 new L1 documents** (SCHEMA / GOVERNANCE / SKIN / CONTINUITY) addressing the foundational mechanisms.
 
-This layer split was clarified during L0 DRAFT 5 structural rework. The boundary:
+### What L1 does NOT inherit from v0.8
 
-- **L0 commits to**: identity (what Myco IS), negative space (what Myco IS NOT), constraints (what L1+ must satisfy).
-- **L1 commits to**: positive forms (the specific mechanism satisfying L0's constraints), specifications (schemas, protocols, classifier functions), operational details (lifecycle protocols, validation procedures).
+v0.8 L1 was 7 hard rules (R1-R7) + canon schema + exit codes. Per L0 C7.3, v0.9 L1 is rebuilt from L0's eight invariants and nine principles:
 
-A statement belongs in L1 if it answers "*how does the substrate actually do X?*" rather than "*what is X-ness?*". L0 was bloated with L1 content in DRAFTs 3-4 (~700+ lines of mechanism detail); DRAFT 5 corrected this by extracting `L1_TROPISM.md` and `L1_TRAJECTORY.md` and condensing L0 to identity commitments only.
-
-### §0.2 What L1 does NOT inherit from v0.8
-
-v0.8 L1 was 7 hard rules (R1-R7) + canon schema + exit codes. Per L0's C7.3 maximal v0.8-origin discrimination, v0.9 L1 is rebuilt from L0's eight invariants and nine principles. Specifically:
-
-- **No boot/session-end ritual** (§6 — continuous online agent dissolves R1/R2).
-- **Sense-before-assert** is subsumed into the dispatch's field-read primitive (the agent inhabits the gradient configuration; sensing IS dispatch).
-- **Capture-now** survives as the `hunger` appetite axis in tropism.
-- **Cross-reference** survives as I5 (universal reachability across full state space) + orphans as immune signals.
-- **Write-surface** survives as I8 (single-skin integrity) + the appetite-locality rule from I6.
+- **No boot/session-end ritual** (§6 — continuous online substrate dissolves R1/R2).
+- **Sense-before-assert** subsumed into gradient-read primitive.
+- **Capture-now** survives as the `hunger` appetite axis.
+- **Cross-reference** survives as I5 + orphans as immune signals.
+- **Write-surface** survives as I8 + appetite-locality from I6.
 - **Top-down** survives as the L0-L1-L2-L3-L4 layering itself.
 
-L1 v0.9 is **not** "R1-R7 rephrased". L1 is whatever specifications emerge from operationalizing the 8 invariants + the chosen positive dispatch form + the chosen positive intent-derivation form + remaining mechanism choices.
+L1 v0.9 is **not** "R1-R7 rephrased". L1 is whatever specifications emerge from operationalizing the 8 invariants + the chosen positive forms (tropism + trajectory) + remaining mechanism choices.
 
 ---
 
 ## §1. L1 document set — current state
 
-L1 is delivered as a set of focused documents (recommended partitioning, per §J below; subject to revision as L1 drafting progresses).
-
 | File | Topic | Status |
 |---|---|---|
-| **`L1_OUTLINE.md`** (this file) | L1 charter + table of contents | OUTLINE (revised post-DRAFT-5) |
-| **`L1_TROPISM.md`** | Positive dispatch form — tropism + sporocarp punctuation | **DRAFT 1 (2026-05-13)** ✓ |
-| **`L1_TRAJECTORY.md`** | Positive intent-derivation mechanism — trajectory query over causal DAG | **DRAFT 1 (2026-05-13)** ✓ |
-| `L1_SCHEMA.md` | SSoT format (I3) + DAG storage (I4) + reachability tiers (I5) + spore-schema (I7) | NOT YET WRITTEN |
-| `L1_GOVERNANCE.md` | I2 classifier + lifecycle operations (genesis, dormancy, reproduction closure, mortality) | NOT YET WRITTEN |
-| `L1_SKIN.md` | I8 skin specification (intake envelope, output gating, single-operator enforcement, breach detection) | NOT YET WRITTEN |
-| `L1_CONTINUITY.md` | Host-disconnect recovery, metabolic cycle cadence, dormancy throttle | NOT YET WRITTEN |
-| `L1_HARD_RULES.md` | The G-rules catalog (v0.9 replacement for v0.8 R1-R7) | NOT YET WRITTEN |
+| **`L1_OUTLINE.md`** (this file) | L1 charter + index | OUTLINE |
+| **`L1_TROPISM.md`** | Positive dispatch form | **DRAFT 2 (2026-05-13)** ✓ |
+| **`L1_TRAJECTORY.md`** | Positive intent-derivation | **DRAFT 2 (2026-05-13)** ✓ |
+| **`L1_SCHEMA.md`** | SSoT, Merkle DAG, recoverability, spore-schema, validation tiers | **DRAFT 1 (2026-05-13)** ✓ NEW |
+| **`L1_GOVERNANCE.md`** | I2 classifier, lifecycle, owner attestation, succession, federation discovery | **DRAFT 1 (2026-05-13)** ✓ NEW |
+| **`L1_SKIN.md`** | I8 envelope, handshake, single-operator, network-egress, breach detection | **DRAFT 1 (2026-05-13)** ✓ NEW |
+| **`L1_CONTINUITY.md`** | Metabolic cycle, dormancy, recovery, delta atomicity | **DRAFT 1 (2026-05-13)** ✓ NEW |
+| `L1_HARD_RULES.md` | G-rules catalog (v0.9 replacement for v0.8 R1-R7) | NOT YET WRITTEN |
+
+**6 of 7 L1 docs exist as DRAFTs.** Only L1_HARD_RULES remains unwritten; it operationalizes the others (cites specific schema sections, classifier rules, skin specs) so it sensibly drafts last.
 
 ---
 
 ## §2. Coverage of L0 design hooks across L1 docs
 
-This table maps L0-DRAFT-5's "L1-specified" mentions to the L1 doc that owns the answer:
-
 | L0 reference | L1 doc owning it |
 |---|---|
 | §5.2 positive dispatch form | `L1_TROPISM.md` ✓ |
-| §5.3 positive intent-derivation mechanism | `L1_TRAJECTORY.md` ✓ |
-| §6 metabolic cycle cadence | `L1_CONTINUITY.md` |
-| §6 dormancy compute budget | `L1_CONTINUITY.md` |
-| P3 failed-evolution rollback mechanism | `L1_GOVERNANCE.md` |
-| P8 federation discovery | `L1_GOVERNANCE.md` |
-| I1 operator-token format | `L1_SKIN.md` (token is a skin-handshake artifact) |
-| I2 classifier function | `L1_GOVERNANCE.md` |
-| I3 SSoT format + claim coverage | `L1_SCHEMA.md` |
-| I4 DAG storage + retention policy | `L1_SCHEMA.md` |
-| I5 storage tiers covered | `L1_SCHEMA.md` |
-| I6 embedding-model carve-out details | `L1_TROPISM.md` ✓ (appetite-locality + B-section hooks) |
-| I7 reproduction closure verification | `L1_GOVERNANCE.md` |
-| I8 skin specification | `L1_SKIN.md` |
-| §7 Living Bets observatory signal-#6 attestation cross-check | `L1_GOVERNANCE.md` (observatory is governance-adjacent) |
-| Owner attestation cryptographic protocol | `L1_GOVERNANCE.md` |
-| Recoverability budget definition | `L1_SCHEMA.md` (backup policy lives with SSoT/DAG retention) |
+| §5.3 positive intent-derivation | `L1_TRAJECTORY.md` ✓ |
+| §6 metabolic cycle cadence | `L1_CONTINUITY.md` ✓ |
+| §6 dormancy compute budget | `L1_CONTINUITY.md` ✓ |
+| §6 delta atomicity | `L1_CONTINUITY.md` ✓ |
+| P3 failed-evolution rollback | `L1_GOVERNANCE.md` ✓ |
+| P3.b joint-context evolution epoch markers | `L1_TRAJECTORY.md` (epoch boundaries) + `L1_SCHEMA.md` (DAG nodes) ✓ |
+| P5.1 lexicon evolution discipline | `L1_GOVERNANCE.md` ✓ |
+| P7 endogenous mortality | `L1_GOVERNANCE.md` (lifecycle) ✓ |
+| P8 federation discovery | `L1_GOVERNANCE.md` ✓ |
+| P8 spore-schema contents | `L1_SCHEMA.md` ✓ |
+| I1 operator-token construction | `L1_SKIN.md` ✓ |
+| I1 legacy sub-state | `L1_GOVERNANCE.md` (owner succession) + `L1_CONTINUITY.md` (sub-state) ✓ |
+| I2 classifier function | `L1_GOVERNANCE.md` ✓ |
+| I3 SSoT format + claim coverage | `L1_SCHEMA.md` ✓ |
+| I3 migration two-phase commit | `L1_SCHEMA.md` ✓ |
+| I3 validation tiering | `L1_SCHEMA.md` ✓ |
+| I4 DAG storage + Merkle integrity | `L1_SCHEMA.md` ✓ |
+| I4 retention + materialized-views | `L1_SCHEMA.md` ✓ |
+| I4 sporocarp causal-proof | `L1_TROPISM.md` ✓ |
+| I5 storage tiers + enumerability | `L1_SCHEMA.md` ✓ |
+| I6 internal implementation | `L1_TROPISM.md` (appetite-locality) ✓ |
+| I6 network-egress detection | `L1_SKIN.md` ✓ |
+| I6 embedding-service carve-out | `L1_TROPISM.md` + `L1_SKIN.md` ✓ |
+| I7 closure verification | `L1_SCHEMA.md` (spore-schema validation) + `L1_GOVERNANCE.md` (reproduction) ✓ |
+| I7 peer-trust freshness | `L1_GOVERNANCE.md` ✓ |
+| I8 envelope schema | `L1_SKIN.md` ✓ |
+| I8 single-operator handshake | `L1_SKIN.md` ✓ |
+| I8 handshake continuity-challenge | `L1_SKIN.md` ✓ |
+| I8 cold-resume invariant checks | `L1_CONTINUITY.md` ✓ |
+| §7 Living Bets signal #6 attestation cross-check | `L1_SKIN.md` ✓ |
+| §7 Living Bets signal #6 model-class epoch buckets | `L1_GOVERNANCE.md` (epoch boundaries) ✓ |
+| §7 falsifiability trigger predicate | `L1_GOVERNANCE.md` (observatory) + L0 (predicate) ✓ |
+| §9 anchor surface specific form | `L1_GOVERNANCE.md` ✓ |
+| §9.4 L0-revision burst detection | `L1_GOVERNANCE.md` ✓ |
+| §11 birth-period N | `L1_TROPISM.md` (steady-state activation) + `L1_GOVERNANCE.md` (owner vigilance) ✓ |
+
+**Every L0 design hook has an L1 owner. None pending.**
 
 ---
 
-## §3. Outstanding L1 work — what's pending
+## §3. Outstanding L1 work
 
-The five not-yet-written L1 docs each cover a coherent slice. The recommended drafting order (chosen for dependency-minimization):
+**L1_HARD_RULES.md** is the remaining unwritten L1 doc. Drafting it requires the other 6 L1 docs (G-rules cite specific schema sections, classifier rules, skin specs). Drafting order: write last.
 
-1. **`L1_SCHEMA.md`** — SSoT format + DAG storage. Many other docs depend on this (governance reads SSoT, skin enforces intake/output against schema, continuity reads from DAG). Drafting first reduces forward-references.
-2. **`L1_GOVERNANCE.md`** — classifier function + lifecycle. Depends on schema (knows what fields are governance-classified). Mostly stand-alone otherwise.
-3. **`L1_SKIN.md`** — intake/output specification. Depends on schema (knows valid envelopes).
-4. **`L1_CONTINUITY.md`** — recovery + cadence. Depends on all three above (cycle invariant checks reference schema; recovery reads sealed sporocarps; dormancy interacts with governance).
-5. **`L1_HARD_RULES.md`** — the G-rules catalog. Should be last because it operationalizes the others (G-rules cite specific schema sections, classifier rules, skin specs, etc.).
-
-Each L1 doc target: ~300-500 lines, focused. NOT the bloated multi-topic L0 DRAFTs 3-4 anti-pattern.
+Per pass-1 architectural-astronaut: L1 docs should explicitly demote over-commitment to L4 deferred zones rather than over-specifying. L1_TROPISM and L1_TRAJECTORY have been revised in DRAFT 2 to demote ~40% of their prior specific mechanism commitments.
 
 ---
 
-## §4. L1 design questions (cross-document)
+## §4. Cross-document discipline
 
-These cut across the L1 docs; resolution may live in one doc but affect others:
-
-1. **Should there be one canonical L1 entry point, or is the OUTLINE the entry point?** Recommended: this OUTLINE is the entry. Each L1 doc has its own §1 "what this doc commits to". No master "L1.md" needed.
-2. **Cross-doc invariant traceability** — each L1 doc must enumerate which L0 invariants and principles it projects (already established in L1_TROPISM and L1_TRAJECTORY).
-3. **L1 mutation discipline** — a change to an L1 doc is contract-identity-level (per L0 I2). Owner-gated. Process: same craft-style proposal + owner approval that L0 uses, but for L1 these may be more frequent (L1 evolves as L2/L3 implementation surfaces refinement needs).
-4. **Cross-L1 consistency check** — when one L1 doc says "X is governance-classified" and another says "X is daily-autonomous", the conflict must be detected automatically. Recommended: a small classifier-table dimension in `L1_GOVERNANCE.md` is the source of truth; other L1 docs cite it, not duplicate it.
-5. **L0 revision back-pressure** — when L1 work reveals an L0 constraint is unworkable, the L1 doc records the finding and L0 revision is proposed (per L0 §9.2). The L1 doc is NOT silently weakened.
+1. **Each L1 doc carries a small §1 "what this doc commits to"** — already established in all current L1 docs.
+2. **Cross-doc consistency** — when one L1 doc says "X is governance-classified", L1_GOVERNANCE classifier dimension table (§1.2) is the source of truth. Other L1 docs cite, not duplicate.
+3. **L1 mutation discipline** — a change to an L1 doc is contract-identity-level (per L0 I2). Same proposal-and-approval process as L0 modifications, with one specific difference: L1 revisions may be more frequent than L0 revisions (L1 evolves as L2/L3 implementation surfaces refinement needs); L0 §9.4 burst-detection threshold for L1 is L1-tunable but recommended higher tolerance than L0 (since L1 is closer to implementation).
+4. **L0 revision back-pressure** — per L0 §10.2: when L1 work reveals an L0 constraint is unworkable, the L1 doc records the finding and L0 revision is proposed through L0 §10.2 protocol. The L1 doc is NOT silently weakened to "fit" a wrong L0.
 
 ---
 
-## §J. Document-set rationale (kept from earlier outline)
+## §5. Confidence discipline (per pass-1 architectural-astronaut)
 
-The 7-doc set was chosen because:
+The 100%-confidence-loop applies to **L0 identity claims**. For L1 mechanism specifications, the appropriate bar is **"best current sketch + clearly-marked deferred zones"** — over-commitment at L1 in absence of implementation creates speculative complexity that L4 will reject.
 
-- 7 topics are coherent slices: dispatch / intent / schema / governance / skin / continuity / rules.
-- Each doc is short enough to read in one sitting (~300-500 lines, vs L0 DRAFT 4's 1117 — which was the source of the structural-rework decision).
-- Cross-doc dependencies are mostly one-directional (schema is foundational; rules is downstream-of-everything).
-- Owner can review and approve incrementally — no need for a single massive L1 review.
+Each L1 doc maintains a §C "Open at L1, deferred to L4" (or equivalent) section explicitly listing decisions punted to implementation observation. L1_TROPISM DRAFT 2 expanded this deferred-section from DRAFT 1's 5 items to 11.
 
-Alternative considered + rejected:
+L1 is "load-bearing where load is unavoidable, deferred everywhere else". Substantial deferral is a feature.
 
-- **One monolithic `L1.md` doc**: rejected because L1 is large enough to warrant partitioning (the v0.8 monolithic L1_CONTRACT/protocol.md was a maintenance pain point).
-- **Per-invariant docs (8 docs, one per I1-I8)**: rejected because some invariants tightly couple (I3 + I4 + I5 all touch schema) and would force cross-references.
-- **Per-principle docs (9 docs, one per P1-P9)**: rejected because principles are L0; L1 is mechanism, which doesn't cleanly partition by principle.
+---
 
-The topic-split (7 docs) is the chosen partition.
+## §6. Document-set partition rationale
+
+The 7-doc topic split (tropism / trajectory / schema / governance / skin / continuity / hard-rules) was chosen over a monolithic L1.md or per-invariant / per-principle partitions because L1 is large enough to warrant partitioning but invariants couple too tightly to align with a 1-doc-per-invariant cut. The chosen partition assigns each foundational mechanism cluster to one owner doc, with cross-references where coupling exists (catalogued in §2 above).

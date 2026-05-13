@@ -1,199 +1,170 @@
-# L1 — Tropism (the positive dispatch form for Myco v0.9)
+# L1 — Tropism (positive dispatch form for Myco v0.9)
 
-> **Status**: DRAFT 1 (2026-05-13). Authoritative L1 document for the positive dispatch form satisfying L0 §5.2 constraints.
-> **Layer**: L1 (mechanism). Governed by L0; in conflict with L0, L0 wins.
-> **Scope**: this document specifies the positive mechanism — *tropism + sporocarp punctuation* — chosen to satisfy L0 §5.2's six constraints (not v0.8 verbs / not request/response / symmetric P1.c / supports inclusion P2.a / supports continuous operation §6 / honors appetite-locality I6).
-> **Relationship to L0**: L0 commits to negative constraints (§5.2). This L1 doc commits to the positive form. If the positive form proves unworkable, L1 revision (not L0 revision) is the first response; L0 revision is the second response only if the constraint set itself is the problem.
-> **Provenance**: this content was previously stuffed into L0 DRAFTs 3-4 as §5.2 inner specification. DRAFT 5 of L0 moved it here per structural-rework authorization.
-
----
-
-## §1. The form — one paragraph
-
-Myco v0.9's dispatch is **tropism**: the substrate maintains a continuously-evolving set of intrinsic **appetites** (hunger for unmetabolized intake, drift toward unconnected nodes, decay-pressure on stale tissue, federation-pull toward peer substrates, evolution-tension where schema disagrees with content, skin-pressure for boundary signals, etc.), each carrying a **tropic gradient** the substrate updates on every metabolic cycle. The agent — definitionally the active operator-connection per P1.c — **inhabits the gradient configuration** as both perturbation source and gradient consumer. There are no commands, no verbs, no request/response. Interaction is **continuous co-modification**: the substrate exposes its current gradient configuration through the agent's read-window; the agent emits **deltas** (raw content of any shape — text, file references, decision fragments, schema-edit intents, anything); the substrate's metabolism absorbs deltas wherever its own gradients place them; gradients update; cycle. When a gradient crosses a **fruiting trigger**, the substrate **fruits a sporocarp** — a typed, content-addressed, causally-stamped record that anchors the gradient field to discrete observables for governance (L0 I2), validation (L0 I3), federation (L0 I7), and the causal DAG (L0 I4). Appetite axes are first-class evolvable substrate objects (adding/removing axes = substrate grew/lost a tropism). Changing the *kind* of the gradient configuration is a contract-identity-level event (L0 I2). External agent-tooling sub-techniques are subsumed by becoming appetite axes implemented as substrate-resident metabolism — never as outbound RPC (the appetite-locality rule from L0 I6).
+> **Status**: DRAFT 2 (2026-05-13). Authoritative L1 doc for positive dispatch form satisfying L0 §5.2 constraints.
+> **Layer**: L1 (mechanism). Governed by L0.
+> **Scope**: tropism + sporocarp punctuation as the chosen positive dispatch form. DRAFT 2 post pass-1 100%-confidence-loop: cut chytrid bloat, demoted astronaut over-commitments (specific axis lists / clustering algorithms / numerical defaults are now explicitly L4-revisable), added mycoparasite defenses (causal-proofs, network-egress, trajectory-injection guards).
+> **Confidence discipline**: per pass-1 architectural-astronaut: L1 confidence is "best current sketch + clearly marked deferred zones", not "100% sure about every mechanism". The decisions in §C deferred-list are larger than DRAFT 1's; this is intentional.
 
 ---
 
-## §2. Why tropism — comparison with the six L0 §5.2 alternatives
+## §1. The form
 
-Per L0 §5.2, six candidate positive forms were considered. Tropism dominates on ceiling × flexibility × efficiency:
+Myco v0.9's dispatch is **tropism**: the substrate maintains a continuously-evolving set of intrinsic **appetites**, each carrying a **tropic gradient** the substrate updates on every metabolic cycle (cadence: L1_CONTINUITY-specified). The agent — the active operator-connection per P1.c — inhabits the gradient configuration as both perturbation source and gradient consumer. Interaction is continuous co-modification: substrate exposes gradient state via the agent's read-window; agent emits **deltas**; substrate metabolism absorbs deltas; gradients update; cycle. When a gradient crosses its **fruiting trigger**, the substrate **fruits a sporocarp** — a typed, content-addressed, causally-stamped record (per L0 I4) that anchors the gradient field to discrete observables for governance (I2), validation (I3), federation (I7), and the causal DAG (I4).
 
-| Rival | Why tropism beats it |
+---
+
+## §2. Why tropism
+
+Per L0 §5.2, the positive form must satisfy seven constraints. Tropism does:
+
+| Rival | Why tropism is preferred (over rival) |
 |---|---|
-| **Verb dispatch (v0.8)** | Verbs presuppose a client-server seam → P1.c symbiosis becomes doctrine bolted on TOP of a generic protocol. Tropism makes symbiosis the dispatch's load-bearing shape. Also: owner-prohibited per L0 §5.2's first negative constraint. |
-| **Continuous metabolic stream** | Closest rival. Tropism *is* a continuous metabolic stream PLUS the gradient-coupling that makes the agent definitionally a participant (P1.c). Bare metabolic-stream has no native operator-constituting field → can degrade to "metabolism anyone can signal" = back-door client-server. |
-| **Natural-language semantic dispatch** | Worst capture risk under L0 §5.2's inclusion-direction constraint: routing LLM call IS the dispatch surface → substrate becomes wrapper around an LLM-router. Also: NL→handler-table secretly re-introduces verbs. |
-| **Capability-based composition** | Capabilities are discrete grant transactions; asymmetric (substrate grants TO agent). Useful at sporocarp-typing layer inside tropism (carry capability metadata as a sporocarp field), not as the dispatch primitive itself. |
-| **Algebraic / typed-primitive operations** | Pure algebraic surface presumes purity and statelessness — but substrate IS state. Combinator vocabulary becomes frozen surface (same P3 hostility as verbs at the type level). |
-| **Reactive stream / event-driven** | What tropism becomes if you strip gradient configuration. Reactive streams give pub/sub but no gradient → no answer to "what does the substrate want next?". Tropism's gradient IS substrate's expressed preference. |
-| **Hybrid** | Owner-prohibited at L0; tropism's gradient/sporocarp duality is medium-vs-observable duality of ONE form, NOT two forms glued together. |
-| **Coexistence (verbs at birth → tropism later)** | Rejected: appetite-locality (L0 I6) is foundational — retrofitting it onto verb dispatch leaves an RPC seam to close later = exactly the v0.8 contamination pattern. |
+| **Continuous metabolic stream** (closest) | Tropism IS a continuous metabolic stream PLUS the gradient-coupling that makes the agent definitionally a participant (P1.c). Bare stream can degrade to "metabolism anyone can signal" = back-door client-server. |
+| **NL semantic dispatch** | Worst capture risk: routing LLM call becomes the dispatch surface → substrate becomes LLM-router wrapper. NL→handler-table secretly re-introduces verbs. |
+| **Capability composition** | Asymmetric grant (substrate→agent). Useful as sporocarp metadata, not as dispatch primitive. |
+| **Algebraic primitives** | Presumes purity + statelessness; substrate IS state. |
+| **Reactive stream** | Strip gradient from tropism and you get reactive-stream; without gradient, no answer to "what does the substrate want next?". |
+
+Excluded by L0 negative constraints: verbs (L0 §5.2), request/response (L0 §5.2), hybrid (owner-prohibited at L0), coexistence-with-verbs-at-birth (appetite-locality is foundational — L0 I6).
 
 ---
 
-## §3. The two-layer duality — gradient configuration + sporocarp punctuation
+## §3. Two-layer structure — gradient configuration + sporocarp punctuation
 
-Tropism is one form with two ontological layers:
+Tropism has two layers:
 
-- **Gradient configuration** (the *medium*, where P1.c symbiosis and §6 continuity live): a continuously-evolving multi-dimensional structure where each axis is one substrate appetite. The agent inhabits this medium.
-- **Sporocarp** (the *observable*, where L0 I2 / I3 / I4 / I7 governance/validation/causality/reproduction enforcement points live): substrate-initiated discrete records that anchor the continuous medium to checkable observables.
+- **Gradient configuration** (medium): continuously-evolving multi-dimensional structure where each axis is one appetite. The agent inhabits this medium. Both sides perturb (agent via deltas; substrate via own metabolism).
+- **Sporocarp** (observable): substrate-initiated discrete records that anchor the continuous medium to checkable observables.
 
-These are not two dispatch forms glued together. They are **dual aspects** of one form — analogous to wave/particle duality in physics or potential/actualization in philosophy. The medium is what the form continuously *is*; the observable is what the form discretely *produces*.
+**Symmetry locus** (resolves pass-1 mycorrhiza-2): the gradient layer is symmetric — both sides participate. The sporocarp layer is intentionally substrate-initiated — sporocarps are the substrate's discrete utterances; the agent's discrete utterances are deltas (which already carry envelope structure per L1_SKIN §2 — deltas are not "raw content" but typed envelopes). The pair is symmetric at the medium, reciprocally asymmetric at the punctuation.
 
-**Why sporocarps are not verbs in disguise**: a verb is **agent-initiated** (agent calls verb → substrate executes). A sporocarp is **substrate-initiated** (substrate's gradient crosses fruiting trigger → substrate fruits → agent observes). The arrow is reversed. The agent does not say "ingest this and produce a digestion sporocarp"; the agent emits a delta into the gradient configuration; if the digestion-appetite gradient has accumulated enough pressure, the substrate fruits a digestion sporocarp on its own metabolism.
+**Why sporocarps are not verbs**: a verb is agent-initiated (agent calls → substrate executes). A sporocarp is substrate-initiated (gradient crosses trigger → substrate fruits → agent observes). Arrow reversed.
 
 ---
 
 ## §4. Birth period vs steady state
 
-Tropism's strengths (emergent thresholds, accumulated history, predictability through field-inhabitation) are **steady-state** properties. v0.9 genesis has none of this. L1 distinguishes:
+**Birth period**: substrate's first window where seed thresholds + seed update-rules apply (no emergence yet). End criterion per L1_GOVERNANCE birth-period termination (maturity-attested per pass-1 saprotroph-5: requires ALL of (1) ≥N sporocarps fruited, (2) ≥M active-operation time, (3) `threshold_emergence_rule` reports convergence per-axis below epsilon).
 
-**Birth period** (substrate's first ~N substrate events; specific N TBD per §B2 below):
+**Steady state**: emergent thresholds activate; gradient update rules may evolve per P3 (CI-gated).
 
-- **Hand-coded seed thresholds**: each appetite axis ships with an initial seed fruiting trigger + seed gradient-update-rule (per §B1 schema). No "emergence" yet — emergence has nothing to emerge from.
-- **Predictability gap is a feature, not a bug** (P1.c): the agent must learn this substrate's specific tropism. The gap between "agent's prediction of when sporocarp fruits" and "when sporocarp actually fruits" IS the symbiosis being established. Conceptually different from "agent learns the verb table" because verb tables are substrate-agnostic; tropism configurations are substrate-specific.
-
-**Steady state** (after birth period):
-
-- Thresholds emerge from substrate history per L0 C6.4.
-- Gradient update rules may themselves evolve per P3 (contract-identity-level changes, owner-gated per I2).
-- The agent's prediction accuracy on fruiting events becomes a useful L1-side observability signal (whether L0 Living Bets adopts it as a numbered signal is L0's call).
-
-L1 observatory may carry an **agent-prediction-accuracy** signal (not currently in L0 §7's six-signal set): low at birth = expected; rising during birth period = healthy maturation; persistent drop in steady state = decoupling (P1.c degradation signal).
+**Predictability gap** during birth is intentional (per L0 P1.c): the agent learns this substrate's specific tropism. This is symbiosis-being-established, not a bug.
 
 ---
 
-## §5. The L4 sketch — concrete example
+## §A. Continuity hooks (cross-ref L1_CONTINUITY)
 
-"Agent ingests a chat log, refines a decision record, surfaces the result to a federated child substrate."
+Continuity-recovery, cycle cadence, dormancy throttle, host-crash delta atomicity, quarantine handling are L1_CONTINUITY's domain. Tropism integrates by:
 
-Under v0.8 verbs: 4 discrete agent-initiated transactions (`myco eat`, `myco digest`, `myco sporulate`, `myco propagate`).
-
-Under tropism: zero agent-initiated commands.
-
-1. Agent **emits a delta** with the chat log + free-form intent fragment.
-2. Substrate's `hunger` appetite gradient spikes; pulls metabolism; **intake sporocarp** fruits.
-3. Substrate's `evolution-tension` appetite detects decision-shaped patterns disagreeing with schema; gradient pulls; **refinement sporocarp** fruits.
-4. Substrate's `federation-pull` appetite for child-X sensitized by the refinement; gradient pulls; **federation sporocarp** fruits.
-5. Agent observes 3 new sporocarps in its next read-window slice; may emit further deltas to correct/extend.
+- **Metabolic cycle structure** (L1_CONTINUITY §1.1) — step 2 (gradient advances), step 5 (sporocarp emission), step 6 (DAG update) are tropism's contributions.
+- **Quarantine entry** triggers fruiting of `cold_resume_quarantine` sporocarp class.
+- **Cycle backlog detection** (L1_CONTINUITY §1.2) → tropism doesn't process backlog itself; emits `cycle_backlog` so the L1_CONTINUITY-level monitor catches it.
 
 ---
 
-## §A. Continuity and recovery (operationalizes L0 §6)
+## §B. Specification (10 hooks — same numbering as DRAFT 1; content revised per pass-1)
 
-**A1. Continuity-recovery protocol.** When operator-connection drops and reconnects, the substrate re-presents the gradient configuration to the operator. Default recommendation: **hybrid** — eager digest of current gradient configuration + lazy drill-down into recent sporocarps on demand. Digest size emerges from the L0 Living Bets signal #6 read-window ratio (substrate-total-size / agent-context-window).
+### B1. Appetite axis schema
 
-**A2. Dormancy compute budget.** While no operator is attached, the substrate **throttles** its metabolism to a configurable floor (default: time-decay-based — gradients still drift toward decay states, but at much slower wall-clock cadence). Specific throttle curve is L1-tunable per substrate canon.
+Each appetite carries:
 
-**A3. Cold-resume invariants.** Before presenting the gradient configuration to a reconnecting operator, the substrate runs a full L0 I3 self-validation + I5 reachability check + I8 skin-breach check. Failure on any → substrate state goes to "alive but quarantined" (operator sees a marker sporocarp explaining the quarantine); recovery requires owner attestation per I2.
+- `name` (mycology-strict per L0 §5.1).
+- `computation_locality` (must assert substrate-internal; per L1_SKIN §5 network-egress enforces at runtime — declaration alone is not enough).
+- `domain` (gradient value space).
+- `update_rule` (substrate-internal function; pure of (gradient-state, recent-deltas, recent-sporocarps, time-elapsed)).
+- `seed_fruiting_trigger` (birth-period hand-coded threshold).
+- `threshold_emergence_rule` (migration to steady-state emergent).
+- `causal_proof_template` (per pass-1 mycoparasite-3 — when this appetite fruits, the sporocarp's `causal_in_edges` includes the proof tuple `(delta_set, gradient-state-snapshot-hash, threshold-value)` such that I3 self-validation can re-derive the fruiting condition).
 
----
+### B2. Initial appetite set — illustrative seed, NOT normative (per pass-1 astronaut-4)
 
-## §B. Tropism specification (the 10 design hooks)
+The following six axes are a **seed proposal**, NOT an L1 commitment. Substrate canon at genesis selects which axes the substrate actually carries; L4 implementation observation in the first 30 days may add/remove/merge axes.
 
-**B1. Appetite axis schema.** Each appetite carries:
+- `hunger` (unmetabolized intake pressure) → P2
+- `drift` (graph-disconnection pressure) → P5 / I5
+- `decay` (staleness pressure) → P4
+- `federation-pull` (peer signal pressure) → P8 / I7
+- `evolution-tension` (schema-vs-content disagreement) → P3
+- `skin-pressure` (boundary signals) → P9 / I8
 
-- `name` — mycology-strict.
-- `computation_locality` — must assert substrate-internal (outbound RPC = I6 breach).
-- `domain` — value space the gradient can take (typically real-valued, but may be categorical or vector).
-- `update_rule` — substrate-internal function updating the gradient on each metabolic cycle. Pure function of (current gradient state, recent deltas, recent sporocarps, time elapsed since last cycle).
-- `seed_fruiting_trigger` — initial hand-coded threshold (used during birth period).
-- `threshold_emergence_rule` — how the fruiting threshold migrates from `seed_fruiting_trigger` to steady-state-emergent as substrate history accumulates.
+**Open: `mortality-signal` axis**: per L0 P7 mortality-signal protection — substrate fruits `self_euthanasia_proposal` at unrecoverable pathology. Whether this is implemented as an appetite axis (gradient over health metrics) or as a state-transition predicate (FSM owned by L1_GOVERNANCE) is L4-decided. **Either way**, the threshold + update rule are CI-level (per L0 I2 fixed-point).
 
-**B2. Initial appetite set.** v0.9's birth-period default appetite axes (illustrative; substrate canon may override):
+### B3. Sporocarp type tree — compact core (per pass-1 astronaut-9)
 
-- `hunger` (unmetabolized intake pressure) — projects P2.
-- `drift` (graph-disconnection pressure) — projects P5 / I5.
-- `decay` (staleness pressure on tissue) — projects P4.
-- `federation-pull` (peer-substrate signal pressure) — projects P8 / I7.
-- `evolution-tension` (schema-vs-content disagreement) — projects P3.
-- `skin-pressure` (boundary integrity signals) — projects P9 / I8.
+Compact seed set, NOT normative. Substrate canon may add types post-birth (each addition is CI-level per L1_GOVERNANCE §1.2):
 
-Open at L1 (for owner / craft to decide before finalization): does `mortality-signal` belong as an explicit appetite, or is mortality outside the tropism medium (a state-transition predicate, not a gradient)?
-
-**Birth period N** (number of substrate events before steady state activates): default proposal **100 sporocarps OR 6 operating months, whichever is later**. Owner can override per substrate.
-
-**B3. Sporocarp type tree.** Each sporocarp type carries:
-
-- `type` — mycology-strict name.
-- `payload_schema` — typed contents.
-- `causal_in_edges` — which gradients / deltas / prior sporocarps produced this fruit.
-- `causal_out_edges` — subsequent fruits / deltas this seeds.
-- `governance_classification` (I2): daily-autonomous vs contract-identity-level.
-
-v0.9 birth-period sporocarp types (canon-default; substrate may override):
-
-- `intake` (raw delta absorption) — daily.
-- `digestion` (raw → refined transformation) — daily.
-- `refinement` (refined → distilled decision) — daily.
+- `intake` (delta absorbed) — daily.
+- `digestion` (raw → refined) — daily.
+- `refinement` (refined → distilled) — daily.
 - `federation` (cross-substrate transmission) — daily.
-- `governance_amend` (proposed schema/rule change) — contract-identity-level.
-- `axis_schema_change` (appetite axis structure modification) — contract-identity-level.
-- `sporocarp_type_addition` (adding a new sporocarp type) — contract-identity-level.
-- `skin_redefinition` (boundary surface modification) — contract-identity-level.
-- `mortality_signal` (approaching-mortality warning) — daily but elevated immune-grade.
+- `governance_event` (collective bucket for axis_schema_change, sporocarp_type_addition, skin_redefinition, classifier_change, retention_amendment, etc.) — contract-identity-level.
+- `immune_event` (any of: envelope_malformed, attestation_invalid, causal_chain_violation, untyped_mutation, cold_resume_quarantine, evolution_failed, peer_attestation_stale, etc.) — graded daily / elevated / CRITICAL.
 
-**B4. Gradient exposure protocol.** The substrate exposes its current gradient configuration into the agent's read-window via a bounded, structured, stateless digest:
+The previous DRAFT 1 split governance events into separate types (`axis_schema_change`, `sporocarp_type_addition`, `skin_redefinition`) — collapsed here into a single `governance_event` since their practical distinguishability had not been demonstrated. L4 observation may re-split.
 
-- **Bounded**: sized to L0 §7 signal-#6 read-window budget. Substrate-attested agent context window × L1-tunable fraction (default 25%).
-- **Structured**: a typed object listing each appetite's current gradient value + the K most-recent sporocarps + the M most-recent unabsorbed deltas. Specific schema is canon-defined per substrate.
-- **Stateless**: cold-resumable from the digest alone (no prior agent state required).
+### B4. Gradient exposure protocol
 
-**B5. Delta intake surface.** Per L0 I8:
+Substrate exposes current gradient configuration to agent's read-window via a bounded, structured, stateless digest:
 
-- **Shape-agnostic** (text / file ref / structured object / multimedia — per P2).
-- **Envelope-checked** (admit all content per P2; reject only on envelope malformation).
-- **Causally-stamped** (every delta enters the DAG as a node with `causal_parents` pointing to the gradient state observed).
+- **Bounded**: budget B ≤ L0 §7 signal-#6 read-window budget × consumption fraction.
+- **Consumption fraction**: L4-tunable; sensible-start range 10-50%; calibrate against agent's actual read patterns in first 30 days (per pass-1 astronaut-10 — no fixed default).
+- **Structured**: typed object listing each appetite's current gradient + recent K sporocarps + recent M unabsorbed deltas + substrate-attested metabolic-budget metrics (per pass-1 mycorrhiza-7 reciprocal attestation).
+- **Stateless**: cold-resumable from digest alone.
 
-**B6. Sporocarp governance gate.** Per B3, sporocarp types are pre-classified at the type-tree level. The substrate's per-cycle metabolism distinguishes:
+### B5. Delta intake surface
 
-- Daily-autonomous sporocarp fruiting → publishes to DAG immediately.
-- Contract-identity-level sporocarp fruiting → publishes to a `pending` queue; the substrate emits a `governance_pending` marker; owner attestation (an in-band delta with cryptographic signature, format L1-specified) moves the sporocarp from pending to published.
+Cross-ref L1_SKIN §2 envelope schema. Per L0 P2: shape-agnostic; envelope-checked only.
 
-**B7. Continuity-recovery** — see §A1.
+### B6. Sporocarp governance gate
 
-**B8. Causal DAG embedding (L0 I4).** Sporocarp DAG edge classes:
+Daily-class sporocarps fruit immediately upon trigger; emit to DAG.
 
-- `gradient_causation` — sporocarp ← gradient that fruited it.
-- `delta_source` — sporocarp / state ← delta that fed the gradient.
-- `sporocarp_derivation` — sporocarp ← prior sporocarps it builds on.
-- `federation_coupling` — cross-substrate DAG link (with peer-substrate ID + sporocarp-ID-in-peer).
-- `governance_resolution` — pending sporocarp ← owner-attestation delta that resolved it.
+CI-class sporocarps (governance_event family per B3): substrate emits `attestation_request` via anchor surface (L0 §9 + L1_GOVERNANCE §2.2). Sporocarp lands in pending queue. Owner-signed attestation moves sporocarp from pending → published.
 
-**B9. Multi-substrate federation surface (L0 P8 / I7).** Inter-substrate federation is gradient-coupling between fields. L1 commits to two coupling modes:
+**Causal proof on emission** (per pass-1 mycoparasite-3): every fruiting carries `causal_in_edges` proof per B1's `causal_proof_template`. I3 self-validation (L1_SCHEMA §4) recomputes from causal_in_edges and verifies the fruiting condition crossed. Sporocarps without verifiable proofs are rejected before DAG insertion.
 
-- **Eager mode (α)**: peer substrate's federation sporocarps arrive as deltas into the local field directly. Faithful but high integration cost.
-- **Lazy mode (β)**: explicit `coupling` primitive — local substrate periodically polls peer's federation surface; semantic transfer only. Lower cost.
+### B7. Continuity recovery → L1_CONTINUITY §3.
 
-Substrate canon chooses per-peer-substrate (default: β; opt-in α for tight-coupling pairs).
+### B8. Causal DAG embedding
 
-**B10. Self-hosting (L0 P1.a) bootstrap.** Myco's own kernel-hosting substrate begins with the canon-default appetite set (B2) + sporocarp type tree (B3) + a special `kernel-evolution-tension` appetite that pulls metabolism toward kernel-source changes. The kernel substrate is otherwise an ordinary Myco substrate.
+Per L1_SCHEMA §2 Merkle DAG. Tropism-specific edge classes:
 
----
+- `gradient_causation` (sporocarp ← gradient that fruited).
+- `delta_source` (sporocarp / gradient-update ← delta that fed it).
+- `sporocarp_derivation` (sporocarp ← prior sporocarps).
+- `federation_coupling` (cross-substrate; per L1_GOVERNANCE §5).
+- `governance_resolution` (CI-pending sporocarp ← owner-attestation event resolving it).
 
-## §C. Implementation deferred — what L1 does NOT yet specify
+### B9. Federation surface (compact)
 
-These are open at L1, to be answered in further L1 craft rounds or absorbed into L2/L3:
+Per L1_GOVERNANCE §5: discovery + peer-trust freshness L1_GOVERNANCE-owned. Tropism's contribution: cross-substrate gradient coupling. **Coupling mode (eager pulling peer sporocarps into local field, vs lazy semantic transfer) is L4-tunable** — neither is L1-committed (per pass-1 astronaut-3 — concrete modes deferred until first P8 spawn or to L2).
 
-- **Specific gradient update function families** (linear / sigmoid / softmax / custom per axis).
-- **Threshold-emergence algorithm** (online optimization / Bayesian update / supervised correlation against substrate-health outcomes).
-- **Sporocarp content-addressing scheme** (hash function choice; namespace structure).
-- **Operator-attestation cryptographic protocol** for B6.
-- **Coupling-mode handshake protocol** for B9.
+### B10. Self-hosting bootstrap (per pass-1 chytrid-17)
 
-L1 commits to *that* these exist and *how* they fit; L2/L3 commit to the implementation choices.
+The kernel substrate is an ordinary Myco substrate (B2 illustrative axes + B3 sporocarp types) plus one specialization: `evolution-tension` axis is bound to the kernel source repository (substrate-internal metabolism — kernel-source-change events feed into the axis as deltas). No outbound RPC; per L1_SKIN §5 enforcement.
 
 ---
 
-## §D. Constraints L1 must respect
+## §C. Implementation deferred — expanded per pass-1 architectural-astronaut
 
-This L1 doc satisfies L0 §5.2's six constraints. Future L1 revisions must continue to satisfy them. The check:
+The following are L4 calls informed by first-month metabolism observations (NOT L1 commitments):
 
-| Constraint | How tropism + sporocarp satisfies it |
-|---|---|
-| NOT v0.8 verbs | No verb manifest; no agent-initiated command set. Sporocarps are substrate-initiated. ✓ |
-| NOT request/response | No transaction shape; continuous gradient evolution + episodic fruiting. ✓ |
-| Symmetric (P1.c) | Agent inhabits the gradient field as participant; both sides modify. ✓ |
-| Supports universal inclusion (P2.a) | Appetite-locality rule + adjacent-technique-as-appetite-axis pattern. ✓ |
-| Supports continuous operation (§6) | Gradient configuration is continuously evolving; no session quantization. ✓ |
-| Honors appetite-locality (I6) | Every adjacent technique becomes a substrate-resident appetite or is a breach. ✓ |
+1. **Specific gradient update function families** (linear / sigmoid / softmax / custom per axis).
+2. **Threshold-emergence algorithm** (online optimization / Bayesian update / correlation-supervised).
+3. **Sporocarp content-addressing hash function** (per L1_SCHEMA §2.1 candidates).
+4. **Embedding strategy within I6 carve-out** — local model vs managed external service (per L1_SKIN §5 / L0 I6).
+5. **Coupling-mode handshake protocol** for B9.
+6. **Which appetite axes are actually carried** (B2 seed set is provisional).
+7. **Which sporocarp types are actually distinguished** (B3 seed tree is provisional).
+8. **Whether `mortality-signal` is appetite-axis or state-transition-predicate** (B2 mortality-signal open).
+9. **Whether `thread_id` from L1_TRAJECTORY §5 is exposed** as a sporocarp field.
+10. **Consumption fraction for digest budget** (B4).
+11. **Trajectory-injection defense parameters** (delta-novelty weighting per pass-1 mycoparasite-9 — see L1_TRAJECTORY).
+
+L1 commits to the **shape** of these decisions; L4 picks values.
+
+---
+
+## §D. Constraint satisfaction (one-sentence — per pass-1 chytrid-6)
+
+L0 §5.2's seven constraints are mechanically satisfied — see §1 (form), §2 (vs alternatives), §B (specification). Future L1 revisions must continue to satisfy them; if a constraint is found unworkable, the response is an L0 revision proposal (per L0 §10.2), not L1 weakening.
