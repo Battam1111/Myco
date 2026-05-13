@@ -19,8 +19,8 @@ resolver = "2"
 members = [
     "kernel/shared",
     "kernel/skin",
+    "kernel/schema",
     # Future Rust crates land here as M1-M4 progresses:
-    # "kernel/schema",
     # "kernel/continuity",
 ]
 
