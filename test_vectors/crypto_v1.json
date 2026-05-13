@@ -1,0 +1,100 @@
+{
+  "version": 1,
+  "spec": "Myco v0.9 crypto primitives (L1_SCHEMA §2.1 Merkle DAG + L1_SKIN §2 HMAC envelope_digest)",
+  "description": "Cross-language test vectors for the cryptographic primitives used by the substrate kernel + anchor_client + operator_bindings. Drift between implementations = L1_HARD_RULES C18 canonical_bytes_render_drift extended to crypto layer (CRITICAL).",
+  "merkle_hash": {
+    "spec": "merkle_hash(parents: list[NodeHash], content: bytes) = BLAKE3(parent_count_be_u64 || concat(parents) || content). Per L1_SCHEMA §2.1 + pass-3 mycoparasite-2: the parent_count prefix prevents ambiguity attacks between '1 parent + 32-byte content' and '2 parents + 0-byte content' encodings.",
+    "vectors": [
+      {
+        "name": "merkle_no_parents_empty_content",
+        "parents_hex": [],
+        "content_hex": "",
+        "output_hex": "71e0a99173564931c0b8acc52d2685a8e39c64dc52e3d02390fdac2a12b155cb"
+      },
+      {
+        "name": "merkle_no_parents_hello",
+        "_description": "Genesis-like: no parents, content = 'hello' UTF-8.",
+        "parents_hex": [],
+        "content_hex": "68656c6c6f",
+        "output_hex": "b45e18b6fe7f542542bbe93840402b6f9286b0a8e147980499c3111ccdbe13dc"
+      },
+      {
+        "name": "merkle_one_parent_all_ab",
+        "_description": "Single parent (all 0xab bytes), empty content. Verifies parent_count=1 + parent_bytes flow without content interference.",
+        "parents_hex": [
+          "abababababababababababababababababababababababababababababababab"
+        ],
+        "content_hex": "",
+        "output_hex": "edffc6f2e1b849704266a47e97e1edd0581fb517709bea65142060a7d8b52464"
+      },
+      {
+        "name": "merkle_one_parent_with_content",
+        "parents_hex": [
+          "abababababababababababababababababababababababababababababababab"
+        ],
+        "content_hex": "68656c6c6f",
+        "output_hex": "02ae1dcd2ee1a80ad5ecfa23ea3295d6887c4836bd8fffa21768bd4c08729d0d"
+      },
+      {
+        "name": "merkle_two_parents",
+        "_description": "Two parents + content. Order of parents matters: 0xab... before 0xcd... (declared order).",
+        "parents_hex": [
+          "abababababababababababababababababababababababababababababababab",
+          "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd"
+        ],
+        "content_hex": "64617461",
+        "output_hex": "1a4aa0a0496d7252ab6091b3d298e523a76585b5d4817de0b1e3cb2a3d4024a7"
+      },
+      {
+        "name": "merkle_three_parents_canonical_bytes",
+        "_description": "Three parents + 4-byte content. Exercises both parent_count varint-boundary-adjacent value (3) and a non-trivial parent count.",
+        "parents_hex": [
+          "1111111111111111111111111111111111111111111111111111111111111111",
+          "2222222222222222222222222222222222222222222222222222222222222222",
+          "3333333333333333333333333333333333333333333333333333333333333333"
+        ],
+        "content_hex": "01020304",
+        "output_hex": "16f17a049364d304a30c14203eea2404090348f124e2b5b20d18b23b143ae67e"
+      }
+    ]
+  },
+  "hmac_sha256": {
+    "spec": "hmac_sign(key: bytes, msg: bytes) = HMAC-SHA256(key, msg). Per L1_SKIN §2: envelope_digest = HMAC(operator_token, canonical_envelope_fields || payload). Empty key forbidden — caller must use the operator_token.",
+    "vectors": [
+      {
+        "name": "hmac_simple_key_empty_msg",
+        "_description": "3-byte key 'key', empty msg. Verifies behavior on minimal inputs.",
+        "key_hex": "6b6579",
+        "msg_hex": "",
+        "output_hex": "5d5d139563c95b5967b9bd9a8c9b233a9dedb45072794cd232dc1b74832607d0"
+      },
+      {
+        "name": "hmac_simple_key_hello",
+        "key_hex": "6b6579",
+        "msg_hex": "68656c6c6f",
+        "output_hex": "9307b3b915efb5171ff14d8cb55fbcc798c6c0ef1456d66ded1a6aa723a58b7b"
+      },
+      {
+        "name": "hmac_32byte_key_msg",
+        "_description": "32-byte key (operator_token-sized), 5-byte msg. Matches the L1_SKIN envelope_digest use case where key = OperatorToken (32 bytes).",
+        "key_hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "msg_hex": "68656c6c6f",
+        "output_hex": "b6e8136a040e71266e360e23c7d48eac29362d4cff102207565d5b3072f1453b"
+      },
+      {
+        "name": "hmac_long_key",
+        "_description": "100-byte key (longer than SHA-256 block size of 64 bytes; HMAC must internally hash + pad). Tests the long-key code path.",
+        "key_hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "msg_hex": "01020304",
+        "output_hex": "8d071581b5d75b4071446c14a7e77923cd8996f634396d317db8a7f6792e72ed"
+      }
+    ]
+  },
+  "empty_key_must_error": {
+    "_description": "All implementations MUST reject empty HMAC keys (CryptoError::HmacEmptyKey in Rust; equivalent in Python/TS).",
+    "test_cases": [
+      { "key_hex": "", "msg_hex": "" },
+      { "key_hex": "", "msg_hex": "68656c6c6f" }
+    ]
+  }
+}
