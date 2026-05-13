@@ -39,9 +39,9 @@ L1 v0.9 is **not** "R1-R7 rephrased". L1 is whatever specifications emerge from 
 | **`L1_GOVERNANCE.md`** | I2 classifier, lifecycle, owner attestation, succession, federation discovery | **DRAFT 1 (2026-05-13)** ✓ NEW |
 | **`L1_SKIN.md`** | I8 envelope, handshake, single-operator, network-egress, breach detection | **DRAFT 1 (2026-05-13)** ✓ NEW |
 | **`L1_CONTINUITY.md`** | Metabolic cycle, dormancy, recovery, delta atomicity | **DRAFT 1 (2026-05-13)** ✓ NEW |
-| `L1_HARD_RULES.md` | G-rules catalog (v0.9 replacement for v0.8 R1-R7) | NOT YET WRITTEN |
+| `L1_HARD_RULES.md` | Cross-cuts index of CRITICAL breaches + CI fixed-points + anchor-surface-resident state | **DRAFT 1 (2026-05-13)** ✓ NEW |
 
-**6 of 7 L1 docs exist as DRAFTs.** Only L1_HARD_RULES remains unwritten; it operationalizes the others (cites specific schema sections, classifier rules, skin specs) so it sensibly drafts last.
+**All 7 L1 docs exist as DRAFTs.** L1 layer is structurally complete. L1_HARD_RULES is the cross-cuts index — NOT a v0.8 R1-R7 grammatical inheritance per C7.3 max-discrimination; it independently traces every row to ≥1 P + ≥1 I (see L1_HARD_RULES §6 "What this doc is NOT").
 
 ---
 
