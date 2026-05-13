@@ -184,8 +184,11 @@ first true birth.**
 
 - v0.8.7 substrate (this repo) stays alive as a "reference embryo"
   for archaeological inspection during v0.9 design.
-- No more cleanup commits to v0.8.7's β/γ (the 11 commits to date
-  already established the post-mortem cleanup baseline).
+- No more cleanup commits to v0.8.7's β/γ (the 14 commits +
+  1 post-archive CI calibration commit established the post-mortem
+  cleanup baseline; CI floors adjusted to the post-cleanup actual
+  coverage ratios so the dead embryo's CI status stays green for
+  archaeological access).
 - All forward work targets v0.9 ground-up rewrite, beginning with
   v0.9 L0 drafting (which absorbs L0.5).
 
