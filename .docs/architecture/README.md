@@ -48,6 +48,15 @@ the legacy `surface/` (CLI/MCP/manifest) + `install/` (host writers) +
 its "Sixth seam" and "Subagents and slash commands" sections for the
 v0.6.11+ + v0.6.14+ cross-cutting extensions.
 
+## Reflections and roadmap
+
+- [`ESSENCE_BRAINSTORM_2026-05-13.md`](./ESSENCE_BRAINSTORM_2026-05-13.md)
+  — strategic frame authored after the v0.8.8 max-aggressive cleanup
+  (8 commits, ~53% file-count reduction). Defines the Tier-0 kernel,
+  the in/out boundary, the tension map, and 9 proposed v0.9+ work
+  streams (S1-S9). Read this for a top-down view of "what survived,
+  why, and what comes next".
+
 ## Reading order (new agent)
 
 1. `L0_VISION.md` — five root principles (Only For Agent / 永恒吞噬 /
