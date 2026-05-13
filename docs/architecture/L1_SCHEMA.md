@@ -130,11 +130,12 @@ Substrate-initiated "I'm out of space" responses:
 When parent substrate spawns child, the spore-schema MUST include:
 
 - **Schema definitions** (SSoT structure, validated against parent's current SSoT designation).
+- **Canonical-bytes serializer specification** — the function that maps SSoT-typed values to canonical bytes. Spore-inherited; tier-1 SSoT field (closes pass-3 mycorrhiza-18 + mycorrhiza-20: operator + owner + child substrate all need this for independent canonical-bytes derivation). Specification format must be pure declarative (no runtime-dependent primitives; runnable by any party that has the spec).
 - **Dispatch-form atomic-record type tree** (under L1_TROPISM dispatch: sporocarp type tree; under other forms: equivalent atomic-record schema).
 - **Classifier dimension table** (from L1_GOVERNANCE — the I2 classifier function as data).
 - **Initial appetite axis schema** OR equivalent under chosen dispatch (gradient-update-rule signatures, threshold seeds).
-- **Anchor surface configuration** (where the owner's signing key lives; what the child's birth attestation looks like).
-- **Parent immune-signal summary** (per pass-1 mycoparasite-13): counts of unresolved immune sporocarps by type + most recent tip-hash. Spawning while parent has unresolved immune sporocarps puts child in `quarantined` birth period until owner re-attests intent.
+- **Anchor surface configuration** (where the owner's signing key lives; what the child's birth attestation looks like; sealing mechanism for substrate_secret per L1_SKIN §4.2).
+- **Parent immune-signal summary** (counts of unresolved immune sporocarps by type + most recent tip-hash). Spawning while parent has unresolved immune sporocarps puts child in `quarantined` birth period until owner re-attests intent.
 
 ### §3.2 Contents NOT included
 
@@ -162,7 +163,7 @@ Success emits `genesis_attested` sporocarp in parent's DAG (federation_coupling 
 
 ### §4.1 Two-tier policy (default)
 
-- **Tier 1 (identity-critical)**: substrate-ID, owner_key_history, anchor_surface_endpoint, DAG-tip-hash, classifier dimension table, classifier-fixed-point fields, mortality-signal threshold + update-rule, skin surface declaration. Validated **every metabolic cycle**.
+- **Tier 1 (identity-critical)**: substrate-ID, owner_key_history (active-prefix only — see L1_GOVERNANCE §3.1 active-prefix + archived-tail discipline), anchor_surface_endpoint, DAG-tip-hash, classifier dimension table, classifier-fixed-point fields, mortality-signal threshold + update-rule, skin surface declaration, **canonical-bytes serializer specification** (per §3.1 spore-schema). Validated **every metabolic cycle**.
 - **Tier 2 (everything else)**: owner-triggered or per-deep-cycle (deep-cycle cadence L1_CONTINUITY-specified).
 
 ### §4.2 Tiering discipline

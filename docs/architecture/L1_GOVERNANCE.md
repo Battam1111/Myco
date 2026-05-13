@@ -59,7 +59,11 @@ Owner's signing key MUST live outside the substrate's process boundary AND outsi
 
 ### §2.2 Attestation envelope schema
 
-The substrate produces attestation requests for any CI-level mutation:
+CI-level mutation flow:
+
+1. **Substrate requests anchor-surface nonce**: substrate sends `nonce_request {substrate_id, proposed_mutation_hash, dag_tip_hash, request_timestamp_substrate_cycles}` to anchor surface. Anchor surface issues a **single-use nonce bound at issuance to the declared mutation_hash + dag_tip_hash** (closes pass-3 mycoparasite-5: nonces cannot be hoarded for later mutations; each is tied to its declared content). Nonce TTL is L1-tunable (default 5 anchor-surface-trusted-timestamp minutes). Anchor surface rate-limits nonce issuance per substrate; spike triggers `attestation_request_saturation` owner-side observable.
+
+2. **Substrate emits attestation request envelope** with the issued nonce:
 
 ```
 {
@@ -69,22 +73,24 @@ The substrate produces attestation requests for any CI-level mutation:
   "enumerated_dag_nodes_since_last_co_sign": [<hash>, <hash>, ...],
   "proposed_mutation_canonical_bytes": <canonical serialization of mutation>,
   "proposed_mutation_hash": <hash over canonical_bytes>,
-  "operator_witness_hash": <hash of proposed_mutation_canonical_bytes signed with operator_token>,
-  "operator_acknowledgment": <hash signed with operator_token attesting operator has seen the request>,
+  "operator_witness": <signature over proposed_mutation_canonical_bytes using operator_signing_key_private from L1_SKIN §4.1>,
+  "operator_signing_key_public": <from current handshake>,
   "request_timestamp_substrate_cycles": <substrate metabolic-cycle counter>,
-  "anchor_surface_nonce_request": <flag requesting anchor surface to issue nonce>,
+  "anchor_surface_nonce": <bound by anchor surface at step 1>,
   "expiry_constraints": {"cycles_max": <L1-tunable>, "wall_clock_seconds_max": <L1-tunable>}
 }
 ```
 
-Owner verifies independently at the anchor surface (NOT trusting substrate-supplied fields blindly):
-1. Re-render `proposed_mutation_canonical_bytes` via the anchor-surface client (substrate did not supply a render).
-2. Re-compute `proposed_mutation_hash` from canonical bytes.
-3. Verify `operator_witness_hash` matches — agent confirmed the canonical bytes match what its deltas expressed.
-4. Verify `operator_acknowledgment` — agent has seen the request.
-5. Reconstruct Merkle chain from prior co-signed tip via `enumerated_dag_nodes_since_last_co_sign`; confirm `dag_tip_hash`.
-6. Anchor surface generates nonce + trusted wall-clock timestamp; appends to signed tuple.
-7. Owner signs the tuple `(substrate_id, dag_tip_hash, proposed_mutation_hash, operator_witness_hash, operator_acknowledgment, anchor_surface_nonce, anchor_surface_timestamp)`.
+Note: DRAFT 7's `operator_witness_hash` + `operator_acknowledgment` fields are **collapsed to a single `operator_witness` signature** (per pass-3 astronaut-1 — the seen-vs-signed distinction is speculative); the new field uses the operator-side per-handshake signing key (per pass-3 mycorrhiza-17 + rhizomorph-1 — operator_token was substrate-known and could not provide carrier-distinctness).
+
+3. **Owner verifies independently at the anchor surface**:
+   1. Render `proposed_mutation_canonical_bytes` via the anchor-surface client (provenance-independent per L0 §9.3).
+   2. Re-compute `proposed_mutation_hash` from canonical bytes.
+   3. Verify `operator_witness` signature against `operator_signing_key_public` (from substrate's handshake_complete envelope, but cross-checked via anchor-surface record of that handshake's logged event).
+   4. **DAG enumeration closure check**: reconstruct Merkle chain from prior co-signed tip via `enumerated_dag_nodes_since_last_co_sign`; confirm `dag_tip_hash` is reachable AND every parent-hash referenced by any enumerated node resolves to either an ancestor of the prior co-signed tip OR another enumerated node (closes pass-3 mycoparasite-2 hidden-parallel-branch attack).
+   5. Verify the anchor-surface nonce matches the issuance-bound mutation_hash + dag_tip_hash + within TTL.
+   6. Anchor surface attaches trusted wall-clock timestamp; appends to signed tuple.
+   7. Owner signs the tuple `(substrate_id, dag_tip_hash, proposed_mutation_hash, operator_witness_signature, operator_signing_key_public, anchor_surface_nonce, anchor_surface_timestamp)`.
 
 ### §2.3 Verification on receipt
 
@@ -112,9 +118,17 @@ Substrate emits canonical bytes; substrate does not narrate.
 
 ### §3.1 Owner key rotation (in-life rotation, same owner)
 
-The substrate's identity record carries `owner_key_history` — a chronological list `[(public_key_n, valid_from_anchor_timestamp, valid_until_anchor_timestamp, rotation_attestation_signed_by_prior_and_new_keys)]`. Rotation is a CI event signed by **both** the current key AND the new key, anchored at the anchor surface. The substrate-ID is unchanged across rotations.
+The substrate's identity record carries `owner_key_history` — a chronological list `[(public_key_n, valid_from_anchor_timestamp, valid_until_anchor_timestamp, rotation_attestation_signed_by_prior_and_new_keys, cooldown_expired_at)]`.
+
+**Rotation requires a cooldown window** (closes pass-3 mycoparasite-7: dual-sign alone is insufficient when both keys come from the same attacker). Rotation protocol:
+
+1. Current owner publishes new candidate pubkey at the anchor surface, signed by current key.
+2. **Cooldown window** (L1-tunable, default 30 anchor-surface-trusted-timestamp days) begins. During the cooldown, ANY pre-registered owner key (current, prior, or registered backup-key) may issue a `rotation_veto` at the anchor surface. Veto cancels the rotation.
+3. After cooldown without veto, the new key is co-signed by both current and new keys; substrate accepts and updates owner_key_history.
 
 Verification of any historical co-sign uses the key valid at the co-sign's anchor-surface timestamp. Cryptographic suite rotation follows the same pattern (history carries `(suite, public_key)` tuples).
+
+**Active-prefix + archived-tail discipline** (closes pass-3 saprotroph-1: monotone tier-1 fields grow unbounded → per-cycle cost grows): `owner_key_history` is stored as `active_prefix` (most-recent K entries, K L4-tunable default 8) + `archived_tail` (older entries). Active prefix participates in per-cycle I3 tier-1 validation; archived tail validated at deep-cycle scope via Merkle-anchor over the full chain. Same discipline applies to `template_version_registry` (L1_TROPISM §B1) and to the federation peer-set aggregate-reattestation chain (§5.2).
 
 ### §3.2 Owner succession (different owner, same substrate)
 
@@ -164,7 +178,7 @@ Per L0 §6 + L1_CONTINUITY §2. This doc adds:
 
 Three destruction modes per L0 P7:
 
-**Intentional-owner**: owner emits CI-level `destruction_attestation` sporocarp signed by owner. Substrate transitions alive → destroyed.
+**Intentional-owner**: owner emits CI-level `destruction_attestation` sporocarp signed by owner. Substrate transitions alive → destroyed. **Final action before terminating**: substrate emits `anchor_surface_final_seal` co-signed by owner at the anchor surface — an explicit terminal record stating "this substrate-ID is destroyed at anchor-surface-timestamp T" (closes pass-3 rhizomorph-2). Post-seal owner activity at the anchor surface remains valid for OTHER substrates / federated peers but cannot wake or revive this substrate-ID; any handshake attempt against a sealed substrate-ID returns `substrate_destroyed` at the anchor surface (substrate process is gone; anchor surface holds the terminal record).
 
 **Catastrophic-environment**: substrate medium failure beyond L1_SCHEMA recoverability budget. Detected post-hoc via recovery drill failure.
 
