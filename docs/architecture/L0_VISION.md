@@ -433,8 +433,10 @@ L0-revision velocity is a substrate observable; tracking method, burst threshold
 ### §10.1 Reading sequence for a new agent
 
 1. This file (L0) — nine principles, eight invariants, dispatch constraints, bet, readiness, anchor surface.
-2. L1 documents — positive mechanisms. Set: `L1_OUTLINE.md` (charter) → `L1_TROPISM.md` (dispatch) + `L1_TRAJECTORY.md` (intent) + **`L1_SCHEMA.md`** + **`L1_GOVERNANCE.md`** + **`L1_SKIN.md`** + **`L1_CONTINUITY.md`** + L1_HARD_RULES (pending). All but L1_HARD_RULES are DRAFT 1 as of this commit.
-3. (Future) L2 doctrine, L3 implementation, L4 substrate.
+2. L1 documents — positive mechanisms (7 docs): `L1_OUTLINE.md` (charter) + `L1_TROPISM.md` (dispatch) + `L1_TRAJECTORY.md` (intent) + `L1_SCHEMA.md` + `L1_GOVERNANCE.md` + `L1_SKIN.md` + `L1_CONTINUITY.md` + `L1_HARD_RULES.md` (cross-cuts index).
+3. L2 doctrine — cross-cut themes (5 docs, per owner-chosen shape (c)): `L2_OUTLINE.md` + `L2_TRUST_MODEL.md` + `L2_LIFECYCLE.md` + `L2_EVOLUTION.md` + `L2_FEDERATION.md` + `L2_OBSERVABILITY.md`.
+4. (Future) L3 implementation map — code organization.
+5. (Future) L4 substrate — the live instance.
 
 ### §10.2 Changes to this page
 

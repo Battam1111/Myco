@@ -1,18 +1,38 @@
-# L2 — Outline / Shape Decision (charter, pending owner)
+# L2 — Outline / Charter
 
-> **Status**: OUTLINE DRAFT 1 (2026-05-13). Charter for L2 doctrine — pending owner decision on **L2 shape** before substantive content drafting begins.
-> **Layer**: L2 (doctrine, above L3 implementation, below L1 mechanism).
-> **Authority**: NO binding authority. This is a navigation document surfacing the L2 shape question.
+> **Status**: OUTLINE DRAFT 2 (2026-05-13). Owner-decided shape (c): cross-cut doctrine themes. 5 L2 docs drafted.
+> **Layer**: L2.
+> **Authority**: navigation only. The 5 L2 docs below are authoritative.
 
 ---
 
-## §0. The L2 shape question
+## §0. L2 shape — owner-chosen: cross-cut themes
 
-L0 §10.1 reads: "L2 doctrine — per-subsystem-family doctrine." But L0 §5.1 says: "v0.9 may choose any subsystem partition (or none — a non-partitioned monolithic substrate would also satisfy L0)."
+Owner chose **shape (c): 5 cross-cut doctrine themes**. Drafted in dependency order:
 
-These two are in tension: L2 is described as per-subsystem-family, but the subsystem family was never selected at L1. v0.9 currently has 7 mechanism-cluster L1 docs organized by topic (dispatch / intent / schema / governance / skin / continuity / hard-rules), NOT by subsystem family.
+| # | File | Theme |
+|---|---|---|
+| 1 | `L2_TRUST_MODEL.md` | Trust derivation: triad + genesis + per-interaction + maintenance + recovery + limits |
+| 2 | `L2_LIFECYCLE.md` | Operating regimes: genesis → birth → steady → dormancy → quarantine → legacy → mortality |
+| 3 | `L2_EVOLUTION.md` | Self-evolution discipline: doctrine + schema + lexicon + threshold + versioning |
+| 4 | `L2_FEDERATION.md` | Inter-substrate: P8 modes + spore-schema + peer-trust + network shape |
+| 5 | `L2_OBSERVABILITY.md` | Self-model: Living Bets + immune catalog + drills + falsifiability |
 
-**The shape question**: what does L2 doctrine actually look like in v0.9, given L1's topic-based organization?
+Shapes (a) per-subsystem-family + (b) per-L1-deep-dive were rejected — see §1 below for rationale (retained for archaeology).
+
+---
+
+## §0.1 What this set covers vs L1 mechanism docs
+
+| Question | L1 doc | L2 cross-cut |
+|---|---|---|
+| HOW does the substrate accept deltas? | L1_SKIN §2 | (trust model citation in L2_TRUST_MODEL §3.2) |
+| WHEN does the substrate enter dormancy? | L1_CONTINUITY §2.2 | L2_LIFECYCLE §5.1 (unified picture of all transitions) |
+| WHAT is the classifier function signature? | L1_GOVERNANCE §1.1 | L2_TRUST_MODEL §3.4 (CI mutation flow + L2_EVOLUTION §3.2 schema-evolution path) |
+| HOW does federation egress check freshness? | L1_SKIN §3.1 | L2_FEDERATION §7 (full egress flow with rate-limiting + low-entropy + DAG edge recording) |
+| WHEN does the bet-falsifiability trigger fire? | L0 §7 | L2_OBSERVABILITY §3 (falsifiability summary across all signals) |
+
+L2 = high-altitude perspective on cross-doc behavior. L1 = mechanism specifications. L2 cites L1; L1 stands without L2.
 
 ---
 
@@ -69,17 +89,13 @@ This set is 5 docs (vs 7 L1 docs vs hypothetical 7 subsystem docs). Each is targ
 
 ---
 
-## §2. Recommended path forward
+## §2. Status — 5 L2 docs drafted
 
-**Recommendation**: Shape (c) — 5 cross-cut theme docs. Drafting order:
+All 5 cross-cut theme docs are DRAFT 1 (2026-05-13). After this L2 set lands, next steps:
 
-1. `L2_TRUST_MODEL.md` — most cross-cutting; defines the anchor-surface ⇆ substrate ⇆ operator triangle in one place
-2. `L2_LIFECYCLE.md` — second most cross-cutting; unifies birth / steady / dormant / quarantined / legacy / destroyed
-3. `L2_EVOLUTION.md` — schema + lexicon + template + epoch
-4. `L2_FEDERATION.md` — inter-substrate population shape
-5. `L2_OBSERVABILITY.md` — self-model
-
-After L2 set drafted, L3 implementation map can begin (code organization that operationalizes L1 mechanisms with L2 doctrine guidance).
+1. Pass-1 critic cycle on L2 layer (same 6-lens 100%-confidence loop methodology used for L0/L1; expected to find polish, not CRITICAL, given L2 cites L1 and adds doctrine layer only)
+2. L3 implementation map (code organization that operationalizes L1 mechanisms with L2 doctrine guidance)
+3. L4 substrate (actual v0.9 code)
 
 ## §3. What L2 is NOT (per scope discipline)
 
