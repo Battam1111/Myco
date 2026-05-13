@@ -48,7 +48,7 @@ immune system reads to know what to enforce.
   (§9 — L0 revision protocol).
 
 So L1 v0.9 is **not** "R1-R7 rephrased". L1 is whatever specification
-emerges from operationalizing the 9 invariants + the tropism
+emerges from operationalizing the 8 invariants (v0.4; merged 9→8) + the tropism
 dispatch + the trajectory intent model.
 
 ---
@@ -272,7 +272,7 @@ F2. **Dormancy semantics.** What metabolism continues when no
 
 F3. **Reproduction closure (I8).** When `spawn-child` fires:
     - Child runs first metabolic cycle as part of spawn (not after).
-    - All I1-I9 checks must pass in the child before spawn returns success.
+    - All I1-I8 checks must pass in the child before spawn returns success (v0.4 numbering; I7 was merged into I1 as Lifecycle).
     - Parent-child link enters parent's DAG as a federation_coupling edge.
 
 F4. **Mortality detection.** When is "destroyed" actually true?
@@ -286,7 +286,7 @@ F4. **Mortality detection.** When is "destroyed" actually true?
 
 ## §G. Hard rules (the v0.9 replacement for v0.8 R1-R7)
 
-The 9 invariants in L0 §4 are the load-bearing rules. L1 may name
+The 8 invariants in L0 §4 (v0.4; merged from v0.3's 9) are the load-bearing rules. L1 may name
 additional rules that operationalize them. Likely:
 
 - **G1**: Every delta enters via skin (I9). Direct write to internal
