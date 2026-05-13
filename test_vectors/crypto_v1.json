@@ -96,5 +96,52 @@
       { "key_hex": "", "msg_hex": "" },
       { "key_hex": "", "msg_hex": "68656c6c6f" }
     ]
+  },
+  "ed25519": {
+    "spec": "Ed25519 signature scheme (RFC 8032). Selected for M2 per L1_GOVERNANCE §7 candidate set {Ed25519, ECDSA-P256, post-quantum candidates}. Deterministic: identical (private_key, message) → identical signature across all implementations.",
+    "_warning": "These keys are TEST FIXTURES ONLY — derived from a known seed (bytes 0x01..0x20). NEVER use in production. Production owner keys must be generated from secure randomness in OS-sealed storage (per L1_GOVERNANCE §2.1).",
+    "test_keypair": {
+      "private_key_seed_hex": "0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20",
+      "public_key_hex": "79b5562e8fe654f94078b112e8a98ba7901f853ae695bed7e0e3910bad049664"
+    },
+    "sign_vectors": [
+      {
+        "name": "ed25519_sign_empty_msg",
+        "msg_hex": "",
+        "signature_hex": "d9452bd4cc80bcecf4a18895094646e91a5a9bbf1b2707e05396b2cf67c9c2b7d9b847a0d562425ccbb71038c7649fdcbfd76ee0e8247c8ec9326999b6256a0b"
+      },
+      {
+        "name": "ed25519_sign_hello",
+        "msg_hex": "68656c6c6f",
+        "signature_hex": "6970dad564d940df9017a22431bc2d52fae0b56ce07b860fbe3819fe7128653ccb4ce6c05aef0141e84b1428cc6289fd6e1d5a0941e2005f4dfe534cdbb1990e"
+      },
+      {
+        "name": "ed25519_sign_32_zero_bytes",
+        "msg_hex": "0000000000000000000000000000000000000000000000000000000000000000",
+        "signature_hex": "3764f3fbfb9bc069dd89881b104bdfaafcfea817deb654b0fcac1337f571ce7654300dfcaf08c497383578060be222bf16ab530aa378f0d13627ac0bee60c70c"
+      },
+      {
+        "name": "ed25519_sign_owner_attestation_string",
+        "_description": "Simulates an owner attestation message (UTF-8 of 'L0 owner attestation signature test').",
+        "msg_hex": "4c30206f776e6572206174746573746174696f6e207369676e61747572652074657374",
+        "signature_hex": "2e420d4fb9d74ea243affc2609c6d1800ee7f18e1768a95454110439f3f4463766772882a5892a19ac905ec29403722b3d7032ac5d123a522118be8c5463b601"
+      }
+    ],
+    "verify_negative_vectors": [
+      {
+        "name": "ed25519_verify_tampered_signature",
+        "_description": "Tamper a valid signature by flipping the last byte. Verification MUST fail.",
+        "msg_hex": "68656c6c6f",
+        "signature_hex": "6970dad564d940df9017a22431bc2d52fae0b56ce07b860fbe3819fe7128653ccb4ce6c05aef0141e84b1428cc6289fd6e1d5a0941e2005f4dfe534cdbb1990f",
+        "expected_result": "invalid"
+      },
+      {
+        "name": "ed25519_verify_wrong_message",
+        "_description": "Signature was made over 'hello'; verifier checks against 'world' (same length).",
+        "msg_hex": "776f726c64",
+        "signature_hex": "6970dad564d940df9017a22431bc2d52fae0b56ce07b860fbe3819fe7128653ccb4ce6c05aef0141e84b1428cc6289fd6e1d5a0941e2005f4dfe534cdbb1990e",
+        "expected_result": "invalid"
+      }
+    ]
   }
 }

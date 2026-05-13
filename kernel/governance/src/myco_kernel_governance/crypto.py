@@ -27,6 +27,17 @@ import struct
 from dataclasses import dataclass
 
 from blake3 import blake3
+from cryptography.exceptions import InvalidSignature
+from cryptography.hazmat.primitives.asymmetric.ed25519 import (
+    Ed25519PrivateKey as _RawEd25519PrivateKey,
+    Ed25519PublicKey as _RawEd25519PublicKey,
+)
+from cryptography.hazmat.primitives.serialization import (
+    Encoding,
+    NoEncryption,
+    PrivateFormat,
+    PublicFormat,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -47,7 +58,19 @@ class HmacInvalid(CryptoError):
 
 
 class SignatureInvalid(CryptoError):
-    """Signature verification failed (M2 stub)."""
+    """Signature verification failed."""
+
+
+class PublicKeyMalformed(CryptoError):
+    """Public key bytes are malformed for Ed25519."""
+
+
+class SignatureMalformed(CryptoError):
+    """Signature bytes are malformed for Ed25519."""
+
+
+class PrivateKeyMalformed(CryptoError):
+    """Private key seed bytes are malformed for Ed25519."""
 
 
 # ---------------------------------------------------------------------------
@@ -164,15 +187,149 @@ def hmac_verify(key: bytes, canonical_bytes: bytes, tag: HmacTag) -> None:
         raise HmacInvalid("HMAC verification failed")
 
 
-def verify_signature(
-    _public_key: bytes,
-    _signature: bytes,
-    _canonical_bytes: bytes,
-) -> None:
-    """Verify a signature (M2 stub — actual algorithm M2-decided).
+# ---------------------------------------------------------------------------
+# Ed25519 signature scheme (RFC 8032).
+#
+# Selected for M2 per L1_GOVERNANCE §7 candidate set. L4-owner-changeable at
+# genesis time; M2 hard-codes Ed25519.
+# ---------------------------------------------------------------------------
 
-    L1_GOVERNANCE §7 lists Ed25519, ECDSA-P256, post-quantum candidates as
-    L4 options. M2 stub returns SignatureInvalid for any non-empty signature;
-    M3+ lands the production path with the chosen algorithm.
+
+PUBLIC_KEY_LENGTH = 32
+SECRET_KEY_LENGTH = 32
+SIGNATURE_LENGTH = 64
+
+
+@dataclass(frozen=True, slots=True)
+class Ed25519PublicKey:
+    """Ed25519 public key (32 bytes; RFC 8032 compressed form)."""
+
+    bytes_: bytes
+
+    def __post_init__(self) -> None:
+        if len(self.bytes_) != PUBLIC_KEY_LENGTH:
+            raise PublicKeyMalformed(
+                f"expected {PUBLIC_KEY_LENGTH} bytes, got {len(self.bytes_)}"
+            )
+        # Validate by attempting to construct the underlying pubkey object.
+        try:
+            _RawEd25519PublicKey.from_public_bytes(self.bytes_)
+        except Exception as e:
+            raise PublicKeyMalformed(str(e)) from e
+
+    def to_hex(self) -> str:
+        return self.bytes_.hex()
+
+    @classmethod
+    def from_hex(cls, hex_str: str) -> Ed25519PublicKey:
+        return cls(bytes.fromhex(hex_str))
+
+
+@dataclass(frozen=True, slots=True)
+class Ed25519Signature:
+    """Ed25519 signature (64 bytes; RFC 8032)."""
+
+    bytes_: bytes
+
+    def __post_init__(self) -> None:
+        if len(self.bytes_) != SIGNATURE_LENGTH:
+            raise SignatureMalformed(
+                f"expected {SIGNATURE_LENGTH} bytes, got {len(self.bytes_)}"
+            )
+
+    def to_hex(self) -> str:
+        return self.bytes_.hex()
+
+    @classmethod
+    def from_hex(cls, hex_str: str) -> Ed25519Signature:
+        return cls(bytes.fromhex(hex_str))
+
+
+class Ed25519PrivateKey:
+    """Ed25519 private key (32-byte seed).
+
+    Substrate-side code should NEVER hold this — owner private keys live
+    outside the substrate process per L1_GOVERNANCE §2.1. This class exists
+    for operator_bindings + anchor_client tests + cross-language parity.
     """
-    raise SignatureInvalid("verify_signature M2 stub — algorithm choice pending")
+
+    __slots__ = ("_inner",)
+
+    def __init__(self, seed: bytes) -> None:
+        if len(seed) != SECRET_KEY_LENGTH:
+            raise PrivateKeyMalformed(
+                f"expected {SECRET_KEY_LENGTH} bytes, got {len(seed)}"
+            )
+        self._inner = _RawEd25519PrivateKey.from_private_bytes(seed)
+
+    @classmethod
+    def from_seed(cls, seed: bytes) -> Ed25519PrivateKey:
+        return cls(seed)
+
+    @classmethod
+    def from_hex(cls, hex_str: str) -> Ed25519PrivateKey:
+        return cls(bytes.fromhex(hex_str))
+
+    def public_key(self) -> Ed25519PublicKey:
+        raw = self._inner.public_key().public_bytes(
+            encoding=Encoding.Raw, format=PublicFormat.Raw
+        )
+        return Ed25519PublicKey(raw)
+
+    def sign(self, message: bytes) -> Ed25519Signature:
+        """Sign a message. Per RFC 8032 Ed25519 is deterministic."""
+        sig = self._inner.sign(message)
+        return Ed25519Signature(sig)
+
+    def seed_bytes(self) -> bytes:
+        """Return the private key seed bytes.
+
+        NEVER call this in substrate-side code; only operator-side / anchor-
+        client code may need this for sealed storage operations.
+        """
+        return self._inner.private_bytes(
+            encoding=Encoding.Raw,
+            format=PrivateFormat.Raw,
+            encryption_algorithm=NoEncryption(),
+        )
+
+    def __repr__(self) -> str:
+        # Never leak the seed in repr/debug output.
+        return "Ed25519PrivateKey(seed=<redacted>)"
+
+
+def verify_signature(
+    public_key: bytes,
+    signature: bytes,
+    message: bytes,
+) -> None:
+    """Verify an Ed25519 signature against a public key and message.
+
+    Per L1_GOVERNANCE §2.3: substrate verifies the owner signature against
+    the active owner public key from owner_key_history.
+
+    Raises:
+        PublicKeyMalformed: if ``public_key`` is not 32 bytes or not a valid
+            Ed25519 point.
+        SignatureMalformed: if ``signature`` is not 64 bytes.
+        SignatureInvalid: if the signature does not verify against
+            ``(public_key, message)``.
+    """
+    if len(public_key) != PUBLIC_KEY_LENGTH:
+        raise PublicKeyMalformed(
+            f"expected {PUBLIC_KEY_LENGTH} bytes, got {len(public_key)}"
+        )
+    if len(signature) != SIGNATURE_LENGTH:
+        raise SignatureMalformed(
+            f"expected {SIGNATURE_LENGTH} bytes, got {len(signature)}"
+        )
+
+    try:
+        pk = _RawEd25519PublicKey.from_public_bytes(public_key)
+    except Exception as e:
+        raise PublicKeyMalformed(str(e)) from e
+
+    try:
+        pk.verify(signature, message)
+    except InvalidSignature as e:
+        raise SignatureInvalid("signature does not verify") from e

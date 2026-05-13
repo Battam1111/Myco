@@ -11,6 +11,7 @@
 import { blake3 } from "@noble/hashes/blake3.js";
 import { hmac } from "@noble/hashes/hmac.js";
 import { sha256 } from "@noble/hashes/sha2.js";
+import { ed25519 } from "@noble/curves/ed25519.js";
 
 // ---------------------------------------------------------------------------
 // Error types.
@@ -40,11 +41,35 @@ export class HmacInvalid extends CryptoError {
   }
 }
 
-/** Signature verification failed (M2 stub). */
+/** Signature verification failed. */
 export class SignatureInvalid extends CryptoError {
   constructor() {
-    super("signature invalid (M2 stub — algorithm choice pending)");
+    super("signature invalid");
     this.name = "SignatureInvalid";
+  }
+}
+
+/** Public key bytes are malformed for Ed25519. */
+export class PublicKeyMalformed extends CryptoError {
+  constructor(message: string) {
+    super(`public key malformed: ${message}`);
+    this.name = "PublicKeyMalformed";
+  }
+}
+
+/** Signature bytes are malformed for Ed25519. */
+export class SignatureMalformed extends CryptoError {
+  constructor(message: string) {
+    super(`signature malformed: ${message}`);
+    this.name = "SignatureMalformed";
+  }
+}
+
+/** Private key seed bytes are malformed for Ed25519. */
+export class PrivateKeyMalformed extends CryptoError {
+  constructor(message: string) {
+    super(`private key seed malformed: ${message}`);
+    this.name = "PrivateKeyMalformed";
   }
 }
 
@@ -188,18 +213,155 @@ export function hmacVerify(
   }
 }
 
+// ---------------------------------------------------------------------------
+// Ed25519 signature scheme (RFC 8032).
+//
+// Selected for M2 per L1_GOVERNANCE §7 candidate set {Ed25519, ECDSA-P256,
+// post-quantum candidates}. L4-owner-changeable at genesis time; M2 hard-
+// codes Ed25519.
+// ---------------------------------------------------------------------------
+
+/** Ed25519 length constants. */
+export const PUBLIC_KEY_LENGTH = 32;
+export const SECRET_KEY_LENGTH = 32;
+export const SIGNATURE_LENGTH = 64;
+
+/** Ed25519 public key (32 bytes; RFC 8032 compressed form). */
+export class Ed25519PublicKey {
+  readonly bytes: Uint8Array;
+
+  constructor(bytes: Uint8Array) {
+    if (bytes.length !== PUBLIC_KEY_LENGTH) {
+      throw new PublicKeyMalformed(
+        `expected ${PUBLIC_KEY_LENGTH} bytes, got ${bytes.length}`,
+      );
+    }
+    this.bytes = bytes;
+  }
+
+  toHex(): string {
+    return bytesToHex(this.bytes);
+  }
+
+  static fromHex(hex: string): Ed25519PublicKey {
+    return new Ed25519PublicKey(hexToBytes(hex));
+  }
+}
+
+/** Ed25519 signature (64 bytes; RFC 8032). */
+export class Ed25519Signature {
+  readonly bytes: Uint8Array;
+
+  constructor(bytes: Uint8Array) {
+    if (bytes.length !== SIGNATURE_LENGTH) {
+      throw new SignatureMalformed(
+        `expected ${SIGNATURE_LENGTH} bytes, got ${bytes.length}`,
+      );
+    }
+    this.bytes = bytes;
+  }
+
+  toHex(): string {
+    return bytesToHex(this.bytes);
+  }
+
+  static fromHex(hex: string): Ed25519Signature {
+    return new Ed25519Signature(hexToBytes(hex));
+  }
+}
+
 /**
- * Verify a signature (M2 stub — actual algorithm M2-decided).
+ * Ed25519 private key (32-byte seed).
  *
- * L1_GOVERNANCE §7 lists Ed25519, ECDSA-P256, post-quantum candidates as L4
- * options. M2 stub throws; M3+ lands production path.
+ * Substrate-side code should NEVER hold this — owner private keys live
+ * outside the substrate process per L1_GOVERNANCE §2.1. This class is for
+ * operator_bindings + anchor_client signing flows.
+ *
+ * Debug output is redacted (never leak the seed via `toString` / `JSON.stringify`).
+ */
+export class Ed25519PrivateKey {
+  private readonly seed: Uint8Array;
+
+  constructor(seed: Uint8Array) {
+    if (seed.length !== SECRET_KEY_LENGTH) {
+      throw new PrivateKeyMalformed(
+        `expected ${SECRET_KEY_LENGTH} bytes, got ${seed.length}`,
+      );
+    }
+    // Defensive copy to prevent caller-side mutation.
+    this.seed = new Uint8Array(seed);
+  }
+
+  static fromSeed(seed: Uint8Array): Ed25519PrivateKey {
+    return new Ed25519PrivateKey(seed);
+  }
+
+  static fromHex(hex: string): Ed25519PrivateKey {
+    return new Ed25519PrivateKey(hexToBytes(hex));
+  }
+
+  /** Derive the corresponding public key. */
+  publicKey(): Ed25519PublicKey {
+    const pub = ed25519.getPublicKey(this.seed);
+    return new Ed25519PublicKey(pub);
+  }
+
+  /** Sign a message. Per RFC 8032 Ed25519 is deterministic. */
+  sign(message: Uint8Array): Ed25519Signature {
+    const sig = ed25519.sign(message, this.seed);
+    return new Ed25519Signature(sig);
+  }
+
+  /**
+   * Return the seed bytes. NEVER call in substrate-side code; only
+   * operator-side / anchor-client code may need this for sealed storage.
+   */
+  seedBytes(): Uint8Array {
+    return new Uint8Array(this.seed);
+  }
+
+  /** Redacted toString — never leaks seed. */
+  toString(): string {
+    return "Ed25519PrivateKey(seed=<redacted>)";
+  }
+
+  /** Redacted toJSON — never leaks seed. */
+  toJSON(): string {
+    return this.toString();
+  }
+}
+
+/**
+ * Verify an Ed25519 signature against a public key and message.
+ *
+ * Per L1_GOVERNANCE §2.3: substrate verifies the owner signature against
+ * the active owner public key from owner_key_history.
+ *
+ * @throws {PublicKeyMalformed} if `publicKey` is not 32 bytes.
+ * @throws {SignatureMalformed} if `signature` is not 64 bytes.
+ * @throws {SignatureInvalid} if the signature does not verify.
  */
 export function verifySignature(
-  _publicKey: Uint8Array,
-  _signature: Uint8Array,
-  _canonicalBytes: Uint8Array,
+  publicKey: Uint8Array,
+  signature: Uint8Array,
+  message: Uint8Array,
 ): void {
-  throw new SignatureInvalid();
+  if (publicKey.length !== PUBLIC_KEY_LENGTH) {
+    throw new PublicKeyMalformed(
+      `expected ${PUBLIC_KEY_LENGTH} bytes, got ${publicKey.length}`,
+    );
+  }
+  if (signature.length !== SIGNATURE_LENGTH) {
+    throw new SignatureMalformed(
+      `expected ${SIGNATURE_LENGTH} bytes, got ${signature.length}`,
+    );
+  }
+  // Use strict RFC 8032 (zip215=false) for cross-language parity with
+  // Python's cryptography library and Rust's ed25519-dalek.
+  const ok = ed25519.verify(signature, message, publicKey, { zip215: false });
+  if (!ok) {
+    throw new SignatureInvalid();
+  }
 }
 
 // ---------------------------------------------------------------------------

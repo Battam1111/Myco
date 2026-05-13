@@ -15,11 +15,17 @@ from typing import Any
 import pytest
 
 from myco_kernel_governance.crypto import (
+    Ed25519PrivateKey,
+    Ed25519PublicKey,
+    Ed25519Signature,
     HmacEmptyKey,
     HmacInvalid,
     HmacTag,
     NodeHash,
+    PrivateKeyMalformed,
+    PublicKeyMalformed,
     SignatureInvalid,
+    SignatureMalformed,
     hmac_sign,
     hmac_verify,
     merkle_hash,
@@ -160,7 +166,108 @@ def test_hmac_tag_wrong_length_rejected() -> None:
         HmacTag(b"\x00" * 16)
 
 
-def test_verify_signature_is_stub() -> None:
-    """M2 stub MUST raise SignatureInvalid pending algorithm choice."""
+
+
+# ---------------------------------------------------------------------------
+# Ed25519 cross-language parity tests.
+# ---------------------------------------------------------------------------
+
+
+_ED = _VECTORS["ed25519"]
+
+
+def test_ed25519_pubkey_derivation() -> None:
+    seed = bytes.fromhex(_ED["test_keypair"]["private_key_seed_hex"])
+    private = Ed25519PrivateKey.from_seed(seed)
+    public = private.public_key()
+    assert public.to_hex() == _ED["test_keypair"]["public_key_hex"]
+
+
+@pytest.mark.parametrize(
+    "vector",
+    _ED["sign_vectors"],
+    ids=lambda v: v["name"],
+)
+def test_ed25519_sign_vector(vector: dict[str, Any]) -> None:
+    """Deterministic sign: same key + message → same signature."""
+    seed = bytes.fromhex(_ED["test_keypair"]["private_key_seed_hex"])
+    private = Ed25519PrivateKey.from_seed(seed)
+    msg = bytes.fromhex(vector["msg_hex"])
+    sig = private.sign(msg)
+    assert sig.to_hex() == vector["signature_hex"]
+
+
+@pytest.mark.parametrize(
+    "vector",
+    _ED["sign_vectors"],
+    ids=lambda v: f"verify_{v['name']}",
+)
+def test_ed25519_verify_positive(vector: dict[str, Any]) -> None:
+    pubkey = bytes.fromhex(_ED["test_keypair"]["public_key_hex"])
+    msg = bytes.fromhex(vector["msg_hex"])
+    sig = bytes.fromhex(vector["signature_hex"])
+    verify_signature(pubkey, sig, msg)  # should not raise
+
+
+@pytest.mark.parametrize(
+    "vector",
+    _ED["verify_negative_vectors"],
+    ids=lambda v: v["name"],
+)
+def test_ed25519_verify_negative(vector: dict[str, Any]) -> None:
+    pubkey = bytes.fromhex(_ED["test_keypair"]["public_key_hex"])
+    msg = bytes.fromhex(vector["msg_hex"])
+    sig = bytes.fromhex(vector["signature_hex"])
     with pytest.raises(SignatureInvalid):
-        verify_signature(b"pubkey", b"sig", b"content")
+        verify_signature(pubkey, sig, msg)
+
+
+def test_ed25519_round_trip() -> None:
+    seed = b"\x42" * 32
+    private = Ed25519PrivateKey.from_seed(seed)
+    public = private.public_key()
+    msg = b"hello"
+    sig = private.sign(msg)
+    verify_signature(public.bytes_, sig.bytes_, msg)
+
+
+def test_ed25519_determinism() -> None:
+    seed = b"\xab" * 32
+    private = Ed25519PrivateKey.from_seed(seed)
+    msg = b"determinism test"
+    sig1 = private.sign(msg)
+    sig2 = private.sign(msg)
+    assert sig1.bytes_ == sig2.bytes_
+
+
+def test_ed25519_private_key_repr_redacted() -> None:
+    private = Ed25519PrivateKey.from_seed(b"\xff" * 32)
+    repr_str = repr(private)
+    assert "<redacted>" in repr_str
+    assert "ff" not in repr_str  # seed bytes never leaked
+
+
+def test_ed25519_pubkey_wrong_length() -> None:
+    with pytest.raises(PublicKeyMalformed):
+        Ed25519PublicKey(b"\x00" * 16)
+
+
+def test_ed25519_signature_wrong_length() -> None:
+    with pytest.raises(SignatureMalformed):
+        Ed25519Signature(b"\x00" * 32)
+
+
+def test_ed25519_private_key_wrong_length() -> None:
+    with pytest.raises(PrivateKeyMalformed):
+        Ed25519PrivateKey.from_seed(b"\x00" * 16)
+
+
+def test_verify_signature_short_pubkey() -> None:
+    with pytest.raises(PublicKeyMalformed):
+        verify_signature(b"short", b"\x00" * 64, b"msg")
+
+
+def test_verify_signature_short_signature() -> None:
+    pubkey = b"\x00" * 32
+    with pytest.raises(SignatureMalformed):
+        verify_signature(pubkey, b"short", b"msg")
