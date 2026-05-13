@@ -11,6 +11,9 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 import {
+  Ed25519PrivateKey,
+  Ed25519PublicKey,
+  Ed25519Signature,
   hmacSign,
   hmacVerify,
   HmacEmptyKey,
@@ -18,7 +21,10 @@ import {
   HmacTag,
   merkleHash,
   NodeHash,
+  PrivateKeyMalformed,
+  PublicKeyMalformed,
   SignatureInvalid,
+  SignatureMalformed,
   CryptoError,
   verifySignature,
 } from "../src/crypto.ts";
@@ -171,15 +177,119 @@ test("HmacTag wrong length rejected", () => {
   assert.throws(() => new HmacTag(new Uint8Array(16)), CryptoError);
 });
 
-test("verify_signature is M2 stub", () => {
+test("verify_signature short pubkey rejected", () => {
   assert.throws(
     () =>
       verifySignature(
         new TextEncoder().encode("pubkey"),
+        new Uint8Array(64),
+        new TextEncoder().encode("content"),
+      ),
+    PublicKeyMalformed,
+  );
+});
+
+test("verify_signature short signature rejected", () => {
+  assert.throws(
+    () =>
+      verifySignature(
+        new Uint8Array(32),
         new TextEncoder().encode("sig"),
         new TextEncoder().encode("content"),
       ),
-    SignatureInvalid,
+    SignatureMalformed,
+  );
+});
+
+// ---------- Ed25519 cross-language parity ----------
+
+interface Ed25519Section {
+  test_keypair: { private_key_seed_hex: string; public_key_hex: string };
+  sign_vectors: { name: string; msg_hex: string; signature_hex: string }[];
+  verify_negative_vectors: {
+    name: string;
+    msg_hex: string;
+    signature_hex: string;
+  }[];
+}
+
+const ed = (vectors as unknown as { ed25519: Ed25519Section }).ed25519;
+
+test("ed25519 pubkey derivation matches JSON", () => {
+  const seed = hexToBytes(ed.test_keypair.private_key_seed_hex);
+  const priv = Ed25519PrivateKey.fromSeed(seed);
+  const pub = priv.publicKey();
+  assert.equal(pub.toHex(), ed.test_keypair.public_key_hex);
+});
+
+for (const v of ed.sign_vectors) {
+  test(`ed25519 sign: ${v.name}`, () => {
+    const seed = hexToBytes(ed.test_keypair.private_key_seed_hex);
+    const priv = Ed25519PrivateKey.fromSeed(seed);
+    const msg = hexToBytes(v.msg_hex);
+    const sig = priv.sign(msg);
+    assert.equal(sig.toHex(), v.signature_hex);
+  });
+
+  test(`ed25519 verify positive: ${v.name}`, () => {
+    const pubkey = hexToBytes(ed.test_keypair.public_key_hex);
+    const msg = hexToBytes(v.msg_hex);
+    const sig = hexToBytes(v.signature_hex);
+    verifySignature(pubkey, sig, msg); // should not throw
+  });
+}
+
+for (const v of ed.verify_negative_vectors) {
+  test(`ed25519 verify negative: ${v.name}`, () => {
+    const pubkey = hexToBytes(ed.test_keypair.public_key_hex);
+    const msg = hexToBytes(v.msg_hex);
+    const sig = hexToBytes(v.signature_hex);
+    assert.throws(() => verifySignature(pubkey, sig, msg), SignatureInvalid);
+  });
+}
+
+test("ed25519 round-trip", () => {
+  const seed = new Uint8Array(32).fill(0x42);
+  const priv = Ed25519PrivateKey.fromSeed(seed);
+  const pub = priv.publicKey();
+  const msg = new TextEncoder().encode("hello");
+  const sig = priv.sign(msg);
+  verifySignature(pub.bytes, sig.bytes, msg);
+});
+
+test("ed25519 determinism", () => {
+  const seed = new Uint8Array(32).fill(0xab);
+  const priv = Ed25519PrivateKey.fromSeed(seed);
+  const msg = new TextEncoder().encode("determinism test");
+  assert.equal(priv.sign(msg).toHex(), priv.sign(msg).toHex());
+});
+
+test("ed25519 private key toString redacted", () => {
+  const priv = Ed25519PrivateKey.fromSeed(new Uint8Array(32).fill(0xff));
+  const s = priv.toString();
+  assert.ok(s.includes("<redacted>"));
+  assert.ok(!s.includes("ff"));
+});
+
+test("ed25519 private key JSON stringify redacted", () => {
+  const priv = Ed25519PrivateKey.fromSeed(new Uint8Array(32).fill(0xff));
+  const s = JSON.stringify(priv);
+  assert.ok(s.includes("<redacted>"));
+  assert.ok(!s.includes("ff"));
+});
+
+test("ed25519 pubkey wrong length rejected", () => {
+  assert.throws(() => new Ed25519PublicKey(new Uint8Array(16)), PublicKeyMalformed);
+});
+
+test("ed25519 signature wrong length rejected", () => {
+  assert.throws(() => new Ed25519Signature(new Uint8Array(32)), SignatureMalformed);
+});
+
+test("ed25519 private key wrong length rejected", () => {
+  assert.throws(
+    () => Ed25519PrivateKey.fromSeed(new Uint8Array(16)),
+    PrivateKeyMalformed,
   );
 });
 

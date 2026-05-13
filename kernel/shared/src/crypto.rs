@@ -1,18 +1,26 @@
-//! Cryptographic primitives — Merkle hash, HMAC, signature verification.
+//! Cryptographic primitives — Merkle hash, HMAC, Ed25519 signatures.
 //!
 //! ## Doctrine traceability
 //!
 //! - L1_SCHEMA §2.1: Merkle DAG content-addressing (BLAKE3 default).
 //! - L1_SKIN §2: HMAC envelope_digest keyed by `operator_token`.
-//! - L0 §9.2: Owner signature verification at attestation receipt.
+//! - L0 §9.2 + L1_GOVERNANCE §2.3: Owner signature verification at
+//!   attestation receipt.
 //!
-//! ## M1 status
+//! ## M2 signature suite: Ed25519
 //!
-//! Merkle hash + HMAC implemented. Signature verification is stubbed for M1;
-//! actual signature algorithm choice (Ed25519, ECDSA-P256, etc.) is L4 per
-//! L1_GOVERNANCE §7 deferred items. M2 lands the production signature path.
+//! Per L1_GOVERNANCE §7 candidate set {Ed25519, ECDSA-P256, post-quantum
+//! candidates}, Ed25519 is chosen for M2 (RFC 8032; deterministic; well-
+//! audited; ed25519-dalek crate). The choice is L4-owner-changeable at
+//! genesis time per L1_GOVERNANCE §2.1; for M2 the suite is hard-coded to
+//! Ed25519. M3+ can add a suite-tag to allow rotation via L1_GOVERNANCE §3.1
+//! cryptographic suite rotation.
 
 use blake3::Hasher;
+use ed25519_dalek::{
+    Signature, SignatureError, SigningKey, Verifier, VerifyingKey, PUBLIC_KEY_LENGTH,
+    SECRET_KEY_LENGTH, SIGNATURE_LENGTH,
+};
 use hmac::{Hmac, Mac};
 use sha2::Sha256;
 use thiserror::Error;
@@ -28,9 +36,21 @@ pub enum CryptoError {
     #[error("HMAC verification failed")]
     HmacInvalid,
 
-    /// Signature verification failed (stubbed M1).
+    /// Signature verification failed.
     #[error("signature invalid")]
     SignatureInvalid,
+
+    /// Public key bytes are malformed for the chosen signature suite.
+    #[error("public key malformed: {0}")]
+    PublicKeyMalformed(String),
+
+    /// Signature bytes are malformed for the chosen signature suite.
+    #[error("signature malformed: {0}")]
+    SignatureMalformed(String),
+
+    /// Private key seed bytes are malformed (must be exactly 32 bytes for Ed25519).
+    #[error("private key seed malformed: {0}")]
+    PrivateKeyMalformed(String),
 }
 
 /// A content-addressed hash. 32 bytes; BLAKE3-default.
@@ -120,18 +140,169 @@ pub fn hmac_verify(key: &[u8], canonical_bytes: &[u8], tag: &HmacTag) -> Result<
         .map_err(|_| CryptoError::HmacInvalid)
 }
 
-/// Verify a signature (M1 stub — actual algorithm M2-decided).
+/// Ed25519 public key (32 bytes; RFC 8032 compressed form).
 ///
-/// L1_GOVERNANCE §7 lists Ed25519, ECDSA-P256, post-quantum candidates as L4
-/// options. M1 ships this stub returning SignatureInvalid for any non-empty
-/// signature; M2 lands the production path with the chosen algorithm.
+/// Per L1_GOVERNANCE §7 M2 suite choice. Substrate stores owner public keys
+/// as `Ed25519PublicKey` in `owner_key_history` (L1_GOVERNANCE §3.1).
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Ed25519PublicKey(pub [u8; PUBLIC_KEY_LENGTH]);
+
+impl AsRef<[u8]> for Ed25519PublicKey {
+    fn as_ref(&self) -> &[u8] {
+        &self.0
+    }
+}
+
+impl Ed25519PublicKey {
+    /// Construct from raw 32-byte representation.
+    pub fn from_bytes(bytes: [u8; PUBLIC_KEY_LENGTH]) -> Self {
+        Ed25519PublicKey(bytes)
+    }
+
+    /// Construct from a slice; errors if wrong length OR if the bytes are
+    /// not a valid Ed25519 point compression (a malformed pubkey would fail
+    /// verification anyway, but we surface it at construction time).
+    pub fn from_slice(bytes: &[u8]) -> Result<Self, CryptoError> {
+        if bytes.len() != PUBLIC_KEY_LENGTH {
+            return Err(CryptoError::PublicKeyMalformed(format!(
+                "expected {PUBLIC_KEY_LENGTH} bytes, got {}",
+                bytes.len()
+            )));
+        }
+        let mut arr = [0u8; PUBLIC_KEY_LENGTH];
+        arr.copy_from_slice(bytes);
+        // Validate compression by attempting to build a VerifyingKey.
+        VerifyingKey::from_bytes(&arr)
+            .map_err(|e| CryptoError::PublicKeyMalformed(e.to_string()))?;
+        Ok(Ed25519PublicKey(arr))
+    }
+}
+
+/// Ed25519 signature (64 bytes; RFC 8032).
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Ed25519Signature(pub [u8; SIGNATURE_LENGTH]);
+
+impl AsRef<[u8]> for Ed25519Signature {
+    fn as_ref(&self) -> &[u8] {
+        &self.0
+    }
+}
+
+impl Ed25519Signature {
+    /// Construct from raw 64-byte representation.
+    pub fn from_bytes(bytes: [u8; SIGNATURE_LENGTH]) -> Self {
+        Ed25519Signature(bytes)
+    }
+
+    /// Construct from a slice; errors if wrong length.
+    pub fn from_slice(bytes: &[u8]) -> Result<Self, CryptoError> {
+        if bytes.len() != SIGNATURE_LENGTH {
+            return Err(CryptoError::SignatureMalformed(format!(
+                "expected {SIGNATURE_LENGTH} bytes, got {}",
+                bytes.len()
+            )));
+        }
+        let mut arr = [0u8; SIGNATURE_LENGTH];
+        arr.copy_from_slice(bytes);
+        Ok(Ed25519Signature(arr))
+    }
+}
+
+/// Ed25519 private key seed (32 bytes). Substrate-side code should NEVER
+/// have access to this — owner private keys live outside the substrate
+/// process per L1_GOVERNANCE §2.1. This type exists for:
+///
+/// - operator_bindings (each operator generates a per-handshake keypair
+///   that the operator-runtime holds).
+/// - anchor_client tests + parity vectors.
+///
+/// **Substrate-side appearance of an `Ed25519PrivateKey` is a doctrine
+/// breach.** L1_HARD_RULES has no direct row for this yet; treat as
+/// C4-adjacent (substrate_secret_unsealed analogue).
+#[derive(Clone)]
+pub struct Ed25519PrivateKey(SigningKey);
+
+impl Ed25519PrivateKey {
+    /// Construct from a 32-byte seed.
+    pub fn from_seed(seed: &[u8; SECRET_KEY_LENGTH]) -> Self {
+        Ed25519PrivateKey(SigningKey::from_bytes(seed))
+    }
+
+    /// Construct from an arbitrary-length slice; errors if wrong length.
+    pub fn from_slice(bytes: &[u8]) -> Result<Self, CryptoError> {
+        if bytes.len() != SECRET_KEY_LENGTH {
+            return Err(CryptoError::PrivateKeyMalformed(format!(
+                "expected {SECRET_KEY_LENGTH} bytes, got {}",
+                bytes.len()
+            )));
+        }
+        let mut arr = [0u8; SECRET_KEY_LENGTH];
+        arr.copy_from_slice(bytes);
+        Ok(Self::from_seed(&arr))
+    }
+
+    /// Derive the corresponding public key.
+    pub fn public_key(&self) -> Ed25519PublicKey {
+        Ed25519PublicKey(self.0.verifying_key().to_bytes())
+    }
+
+    /// Sign a message. Per RFC 8032 Ed25519 is deterministic; identical
+    /// inputs always produce identical signatures.
+    pub fn sign(&self, message: &[u8]) -> Ed25519Signature {
+        use ed25519_dalek::Signer;
+        let sig: Signature = self.0.sign(message);
+        Ed25519Signature(sig.to_bytes())
+    }
+}
+
+impl std::fmt::Debug for Ed25519PrivateKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // Never leak the seed in debug output — render as a redacted placeholder.
+        f.debug_struct("Ed25519PrivateKey")
+            .field("seed", &"<redacted>")
+            .finish()
+    }
+}
+
+/// Verify an Ed25519 signature against a public key and message.
+///
+/// Per L1_GOVERNANCE §2.3: substrate receives signed attestation envelopes
+/// and verifies the owner signature against the active owner public key
+/// (from `owner_key_history`).
+///
+/// Returns `Ok(())` on valid signature; [`CryptoError::SignatureInvalid`] on
+/// invalid signature or any internal verification error.
 pub fn verify_signature(
-    _public_key: &[u8],
-    _signature: &[u8],
-    _canonical_bytes: &[u8],
+    public_key: &[u8],
+    signature: &[u8],
+    message: &[u8],
 ) -> Result<(), CryptoError> {
-    // M1 stub: not yet implemented.
-    Err(CryptoError::SignatureInvalid)
+    // Reject obviously-wrong sizes early.
+    if public_key.len() != PUBLIC_KEY_LENGTH {
+        return Err(CryptoError::PublicKeyMalformed(format!(
+            "expected {PUBLIC_KEY_LENGTH} bytes, got {}",
+            public_key.len()
+        )));
+    }
+    if signature.len() != SIGNATURE_LENGTH {
+        return Err(CryptoError::SignatureMalformed(format!(
+            "expected {SIGNATURE_LENGTH} bytes, got {}",
+            signature.len()
+        )));
+    }
+
+    let mut pk_arr = [0u8; PUBLIC_KEY_LENGTH];
+    pk_arr.copy_from_slice(public_key);
+    let verifying_key = VerifyingKey::from_bytes(&pk_arr)
+        .map_err(|e| CryptoError::PublicKeyMalformed(e.to_string()))?;
+
+    let mut sig_arr = [0u8; SIGNATURE_LENGTH];
+    sig_arr.copy_from_slice(signature);
+    let sig = Signature::from_bytes(&sig_arr);
+
+    verifying_key
+        .verify(message, &sig)
+        .map_err(|_: SignatureError| CryptoError::SignatureInvalid)
 }
 
 #[cfg(test)]
@@ -207,9 +378,88 @@ mod tests {
     }
 
     #[test]
-    fn test_signature_stub_returns_invalid() {
+    fn test_verify_signature_wrong_pubkey_length() {
+        // 6-byte "pubkey" is rejected at length-check before crypto verify.
         let result = verify_signature(b"pubkey", b"sig", b"content");
-        assert!(matches!(result, Err(CryptoError::SignatureInvalid)));
+        assert!(matches!(
+            result,
+            Err(CryptoError::PublicKeyMalformed(_))
+        ));
+    }
+
+    #[test]
+    fn test_ed25519_sign_and_verify_round_trip() {
+        let seed = [0x42u8; 32];
+        let private = Ed25519PrivateKey::from_seed(&seed);
+        let public = private.public_key();
+        let msg = b"hello";
+        let sig = private.sign(msg);
+        verify_signature(public.as_ref(), sig.as_ref(), msg).unwrap();
+    }
+
+    #[test]
+    fn test_ed25519_verify_tampered_signature_fails() {
+        let seed = [0x42u8; 32];
+        let private = Ed25519PrivateKey::from_seed(&seed);
+        let public = private.public_key();
+        let msg = b"hello";
+        let sig = private.sign(msg);
+
+        // Flip a bit in the signature.
+        let mut tampered = sig.0;
+        tampered[0] ^= 0x01;
+        let result = verify_signature(public.as_ref(), &tampered, msg);
+        assert_eq!(result, Err(CryptoError::SignatureInvalid));
+    }
+
+    #[test]
+    fn test_ed25519_verify_wrong_message_fails() {
+        let seed = [0x42u8; 32];
+        let private = Ed25519PrivateKey::from_seed(&seed);
+        let public = private.public_key();
+        let sig = private.sign(b"original");
+        let result = verify_signature(public.as_ref(), sig.as_ref(), b"tampered");
+        assert_eq!(result, Err(CryptoError::SignatureInvalid));
+    }
+
+    #[test]
+    fn test_ed25519_determinism() {
+        // RFC 8032 Ed25519 is deterministic: same key + same message → same signature.
+        let seed = [0xabu8; 32];
+        let private = Ed25519PrivateKey::from_seed(&seed);
+        let msg = b"determinism test";
+        let sig1 = private.sign(msg);
+        let sig2 = private.sign(msg);
+        assert_eq!(sig1.0, sig2.0);
+    }
+
+    #[test]
+    fn test_ed25519_private_key_debug_redacted() {
+        // Per L1_GOVERNANCE §2.1 + L1_HARD_RULES C4-adjacent: never leak the
+        // private key in debug output.
+        let seed = [0xffu8; 32];
+        let private = Ed25519PrivateKey::from_seed(&seed);
+        let dbg = format!("{:?}", private);
+        assert!(dbg.contains("<redacted>"));
+        assert!(!dbg.contains("ff"));
+    }
+
+    #[test]
+    fn test_ed25519_pubkey_wrong_length_from_slice() {
+        let result = Ed25519PublicKey::from_slice(&[0u8; 16]);
+        assert!(matches!(result, Err(CryptoError::PublicKeyMalformed(_))));
+    }
+
+    #[test]
+    fn test_ed25519_signature_wrong_length_from_slice() {
+        let result = Ed25519Signature::from_slice(&[0u8; 32]);
+        assert!(matches!(result, Err(CryptoError::SignatureMalformed(_))));
+    }
+
+    #[test]
+    fn test_ed25519_private_key_wrong_length_from_slice() {
+        let result = Ed25519PrivateKey::from_slice(&[0u8; 16]);
+        assert!(matches!(result, Err(CryptoError::PrivateKeyMalformed(_))));
     }
 
     #[test]

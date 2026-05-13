@@ -10,7 +10,9 @@
 use std::fs;
 use std::path::PathBuf;
 
-use myco_kernel_shared::crypto::{hmac_sign, merkle_hash, CryptoError, NodeHash};
+use myco_kernel_shared::crypto::{
+    hmac_sign, merkle_hash, verify_signature, CryptoError, Ed25519PrivateKey, NodeHash,
+};
 
 use serde::Deserialize;
 
@@ -19,6 +21,34 @@ struct CryptoVectors {
     merkle_hash: MerkleSection,
     hmac_sha256: HmacSection,
     empty_key_must_error: EmptyKeySection,
+    ed25519: Ed25519Section,
+}
+
+#[derive(Debug, Deserialize)]
+struct Ed25519Section {
+    test_keypair: Ed25519Keypair,
+    sign_vectors: Vec<Ed25519SignCase>,
+    verify_negative_vectors: Vec<Ed25519VerifyNegCase>,
+}
+
+#[derive(Debug, Deserialize)]
+struct Ed25519Keypair {
+    private_key_seed_hex: String,
+    public_key_hex: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct Ed25519SignCase {
+    name: String,
+    msg_hex: String,
+    signature_hex: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct Ed25519VerifyNegCase {
+    name: String,
+    msg_hex: String,
+    signature_hex: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -147,6 +177,80 @@ fn all_hmac_sha256_vectors() {
         failures.len(),
         failures.join("\n\n")
     );
+}
+
+#[test]
+fn ed25519_pubkey_derivation() {
+    let vectors = load_vectors();
+    let seed = parse_hex(&vectors.ed25519.test_keypair.private_key_seed_hex);
+    let mut seed_arr = [0u8; 32];
+    seed_arr.copy_from_slice(&seed);
+    let private = Ed25519PrivateKey::from_seed(&seed_arr);
+    let public = private.public_key();
+    assert_eq!(
+        to_hex(public.as_ref()),
+        vectors.ed25519.test_keypair.public_key_hex,
+        "public key derived from seed does not match expected"
+    );
+}
+
+#[test]
+fn all_ed25519_sign_vectors() {
+    let vectors = load_vectors();
+    let seed = parse_hex(&vectors.ed25519.test_keypair.private_key_seed_hex);
+    let mut seed_arr = [0u8; 32];
+    seed_arr.copy_from_slice(&seed);
+    let private = Ed25519PrivateKey::from_seed(&seed_arr);
+
+    let mut failures: Vec<String> = Vec::new();
+    for v in vectors.ed25519.sign_vectors {
+        let msg = parse_hex(&v.msg_hex);
+        let sig = private.sign(&msg);
+        let got_hex = to_hex(sig.as_ref());
+        if got_hex != v.signature_hex {
+            failures.push(format!(
+                "ed25519 sign \"{}\" mismatch:\n  expected: {}\n  got:      {}",
+                v.name, v.signature_hex, got_hex
+            ));
+        }
+    }
+    assert!(
+        failures.is_empty(),
+        "{} ed25519 sign failure(s):\n{}",
+        failures.len(),
+        failures.join("\n\n")
+    );
+}
+
+#[test]
+fn all_ed25519_verify_vectors() {
+    // Positive: every sign_vector must verify against the test pubkey.
+    let vectors = load_vectors();
+    let pubkey = parse_hex(&vectors.ed25519.test_keypair.public_key_hex);
+    for v in vectors.ed25519.sign_vectors {
+        let msg = parse_hex(&v.msg_hex);
+        let sig = parse_hex(&v.signature_hex);
+        verify_signature(&pubkey, &sig, &msg).unwrap_or_else(|e| {
+            panic!("vector \"{}\" failed to verify: {e:?}", v.name)
+        });
+    }
+}
+
+#[test]
+fn all_ed25519_negative_vectors() {
+    let vectors = load_vectors();
+    let pubkey = parse_hex(&vectors.ed25519.test_keypair.public_key_hex);
+    for v in vectors.ed25519.verify_negative_vectors {
+        let msg = parse_hex(&v.msg_hex);
+        let sig = parse_hex(&v.signature_hex);
+        let result = verify_signature(&pubkey, &sig, &msg);
+        assert!(
+            matches!(result, Err(CryptoError::SignatureInvalid)),
+            "negative vector \"{}\" should have failed verification but got: {:?}",
+            v.name,
+            result
+        );
+    }
 }
 
 #[test]
