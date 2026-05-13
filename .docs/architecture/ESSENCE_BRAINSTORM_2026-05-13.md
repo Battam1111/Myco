@@ -1,5 +1,39 @@
 # Myco essence brainstorm — v0.8.8 strategic frame
 
+> ⚠ **2026-05-13 owner-driven correction #2 (later same day)**: an
+> earlier revision of this document still leaked β-layer specifics
+> ("20 verbs", "47 dims") into the "Concrete" and "Function"
+> sections, and framed the near-term roadmap as "tighten β to
+> minimal α-satisfaction". Both are wrong. Per the owner's
+> corrections (recorded inline via AskUserQuestion answers on
+> 2026-05-13):
+>
+> 1. **Concrete definition** must NOT name specific verb / dim
+>    counts. Myco has *metabolic pathways*, *an immune system*,
+>    *circulation* — the cardinality of each is ε-snapshot, not
+>    essence. The v0.8.7 numbers are a snapshot, not a definition.
+> 2. **Function definition** must talk about capability classes
+>    (mechanical integrity guarantees / self-continuity / form-
+>    evolution capacity), not the specific 47-dim implementation.
+> 3. **Near-term vision** is *ground-up rewrite*, not "tighten the
+>    recipe". v0.9 is "Myco's second boot", drafting a new β from
+>    scratch that satisfies α. The current v0.8.x is an ε snapshot
+>    full of historical accretion / misguided directions that
+>    would mislead a clean re-derivation.
+> 4. **The "doesn't do" list** (no RAG / chatbot memory / LLM call
+>    / human docs / file sync) was wrong. Myco is INCLUSIVE not
+>    EXCLUSIVE: it should *subsume* all of those sub-techniques
+>    within its own framework. Vector retrieval is one form of
+>    `sense`; conversation history is one type of raw note; LLM
+>    calls happen agent-side but within Myco-prepared scaffolding;
+>    file sync is subsumed under semantic federation. Myco's force
+>    is *unification*, not exclusion.
+>
+> Sections §0, §5, §10 below were rewritten in correction #1 (α/β/γ
+> decomposition); they are kept. Sections §1, §3 are rewritten
+> below as correction #2. The §9 strategic next-steps roadmap is
+> superseded by the new §11 "Ground-up rewrite mandate".
+
 > **Date**: 2026-05-13.
 > **Status**: strategic note authored after v0.8.8 max-aggressive cleanup
 > (commits `6e8bfa0` → `640949f`, 8 pass total). Captures the substrate's
@@ -86,28 +120,37 @@ not "how do we minimally tweak the v0.8.7 β?".
 
 ---
 
-## 1. The essence — one sentence
+## 1. The essence — one sentence (correction #2)
 
-> **Myco is a verb-grammar contract for agent ↔ persistent-substrate
-> coordination, where both the substrate's shape (`canon`) and the
-> agent's behaviors (`R1-R7`) are first-class mutable objects under
-> continuous, lint-gated evolution.**
+> **Myco is a new kind of agent-only autopoietic digital symbiotic
+> organism: it ingests anything (experiences, knowledge, techniques,
+> external APIs, vector retrievals, LLM outputs, conversation
+> fragments, decisions, frictions); metabolises everything inside
+> its own framework; hosts its own kernel inside itself; and is
+> wholly operated and maintained by the LLM agent rather than by a
+> human.**
 
-## 2. The essence — one paragraph
+## 2. The essence — one paragraph (correction #2)
 
-Myco bets that LLM agents operating across sessions, hosts, and federated
-substrates need a **shared coordination grammar** with the substrate they
-work on — the way `cp`/`mv`/`grep` outlive any single editor's UX because
-the filesystem outlives any editor's process. The bet is bounded by L0's
-Living Bets appendix: it **wins** when the substrate's persistence budget
-exceeds any single agent's read window; it **loses** on ephemeral single-
-session work where raw context-holding suffices. The grammar is 20
-fungal-named verbs. The substrate's identity is `_canon.yaml` (single
-source of truth). The agent's discipline is 7 hard rules (R1-R7). The
-substrate's self-validation is 47 immune dimensions across 4 categories.
-The whole thing is for the agent; humans enter only through one carved
-exception (`myco brief`) and as governance approvers for `fruit`/`molt`
-craft cycles.
+Myco's bet is that every previous self-maintaining knowledge system
+died at the same place — when the human-in-the-loop could no longer
+keep up. Myco's answer is to take humans out of the loop entirely:
+humans speak natural language, the agent operates and maintains Myco,
+and Myco's own kernel lives inside a Myco substrate so the agent
+maintains its own tooling without a fork or a PR or a feature
+branch. Within this self-sustained loop, Myco ingests every
+discipline subordinated to it — vector retrieval becomes one form of
+`sense`; conversation history becomes one type of raw note; agent-
+side LLM calls happen within Myco-prepared scaffolding; downstream-
+substrate semantic federation replaces ad-hoc file sync. Myco's
+force is *unification* of all these sub-techniques under one
+autopoietic framework, not exclusion of any of them. The grammar
+shape, the immune dimension count, the subsystem partition, the
+serialization format, the protocol surface — all of these are ε-
+snapshot choices that can be replaced in any future redesign as
+long as the six α predicates (autopoietic metabolism, self-hosting,
+agent-only maintenance, mutable form, persistence > agent read
+window, mechanical integrity) are preserved.
 
 ## 3. What Myco is NOT (the negative space)
 
@@ -466,7 +509,38 @@ write new code directly with `eat`/`write`/`molt`? If the v0.9 audit
 shows ramify is rarely used in multi-session federated work, excrete
 it (saves ~700 LOC + simplifies the verb count to 19).
 
-## 10. The wager restated for v0.9+
+## 11. Ground-up rewrite mandate (correction #2)
+
+The v0.9 work is **not** a tightening of v0.8.x. It is a **ground-up
+rewrite**. Owner direction (2026-05-13):
+
+> 「近期要做的事情是彻底重构重写 Myco，避免被大量错误误导
+> 走向了完全错误的理解和道路。」
+
+Implications:
+
+- **Everything in the β layer is up for replacement**: verb set,
+  subsystem partition, dim set, schema format, protocol surface
+  (CLI / MCP / something else), biological vocabulary, hook
+  discipline, plugin axes, governance loop shape, even the file
+  layout. None of v0.8.7's β-layer choices is inherited by
+  obligation.
+- **The α layer is the only constraint**: any v0.9 design must
+  satisfy the six α predicates. Everything else is open.
+- **The current v0.8.x substrate is git history**: not the starting
+  point for v0.9 changes. v0.9 is a new substrate that the previous
+  Myco's source code happens to be available to reference, but
+  reference is the right relationship — not "edit in place".
+- **The earlier §9 incremental roadmap (S1-S9)** is superseded:
+  S1-S9 assumed β-layer tweaks. A ground-up rewrite makes most of
+  them moot (S2 dim-tiering, S3 cycle-subsystem-schism, S4 manifest
+  importability lint, S5 canon.py split, S7 doctrine merge, S8 MB8
+  excretion, S9 ramify re-audit are all β-internal). Only S1 (re-
+  audit Living Bets) and S6 (1M-file stress test) survive as
+  α-level work-streams. S2-S5 / S7-S9 are subsumed into "draft new
+  β from scratch".
+
+## 12. The wager restated for v0.9+ (was §10)
 
 Two wagers, separated by layer:
 
