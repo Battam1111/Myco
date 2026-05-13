@@ -59,16 +59,21 @@ Hash function: TBD-L4 within {SHA-256, BLAKE3, SHA-3-256}. Default proposal: BLA
 
 L4 picks based on observed node-count distribution and read patterns.
 
-### §2.2 Owner co-signing at CI boundaries
+### §2.2 Owner co-signing at CI boundaries (enumerated DAG nodes)
 
-Per L0 §9.2: at every contract-identity-level boundary crossing, the owner co-signs the current DAG-tip hash via the anchor surface. Co-signs accumulate; the chain of co-signs is the immune-detectable integrity history.
+Per L0 §9.2: at every contract-identity-level boundary crossing, the owner co-signs the current DAG-tip hash via the anchor surface. **Co-sign envelope MUST include the enumerated list of all DAG node hashes added since the prior co-sign** — NOT just a summary diff. The owner (or owner's anchor-surface client) recomputes the Merkle chain from the prior signed tip via these enumerated nodes; the substrate cannot present a summary that hides parallel-branch forgery between CI events.
 
-**What the substrate emits to owner at CI events**:
+**Substrate emits to anchor surface**:
 - Current DAG-tip hash.
-- Diff hash since last co-sign.
-- The proposed CI mutation (sporocarp content).
+- Enumerated list of DAG node hashes added since last co-sign (the chain links).
+- Each node's metadata: type, causal-parent-hashes (substrate cannot omit any).
+- The proposed CI mutation as **canonical bytes** (substrate does not render).
 
-**What the owner signs**: a tuple `(DAG-tip-hash, diff-hash, proposed-mutation-hash, timestamp)`. The signature lands on the anchor surface; the substrate stores a reference (not the signing key itself).
+**Owner verifies** independently at the anchor-surface client:
+1. Reconstructs Merkle chain from prior co-signed tip via enumerated nodes; confirms current `dag_tip_hash` is reachable.
+2. Renders canonical-bytes proposed mutation; reviews; signs the canonical-bytes hash + anchor-surface trusted timestamp + anchor-surface nonce.
+
+Co-signs accumulate; the chain of co-signs is the immune-detectable integrity history.
 
 ### §2.3 Retention — the materialized-views carve-out (operationalizes I4 expanded)
 
@@ -84,18 +89,28 @@ Per L0 §9.2: at every contract-identity-level boundary crossing, the owner co-s
 - **Warm tier** — older operations in slower storage; re-materialization still mechanical but cost is non-trivial.
 - **Cold tier** — operations beyond an L1-tunable horizon; archived per I4 retention. Re-materialization is owner-attested.
 
-**Retention horizon** is contract-identity-level. Default proposal: horizon = `recoverability_budget × 2` (the substrate keeps twice the destruction-recoverability budget worth of cold-tier operations).
+**Retention horizon** is contract-identity-level. Default proposal: horizon = `recoverability_budget × 2`.
 
-### §2.4 Recoverability budget
+**Cold-tier inaccessibility marker** (per pass-2 rhizomorph-7): cold-tier fetch is owner-attested. During legacy / quarantined sub-states, cold-tier-spanning queries (trajectory; cross-epoch sporocarp reads) return explicit `cold_tier_inaccessible` markers — substrate distinguishes "no data" from "data exists but inaccessible".
 
-Per L0 §10.4 / §11 (proto archaeology), recoverability budget is the L1-specified backup/redundancy policy that defines when "destroyed" actually means destroyed.
+### §2.4 Recoverability budget + drill discipline
+
+Recoverability budget is the L1-specified backup/redundancy policy defining when "destroyed" actually means destroyed.
 
 **Components**:
-- **Backup frequency**: TBD-L4. Default proposal: continuous WAL + periodic full snapshot (frequency: every metabolic cycle for WAL; full snapshot every 1000 cycles).
-- **Backup locations**: TBD-L4. Constraints: ≥1 backup location is off-host-process (cannot be destroyed by a single host failure).
-- **Recovery test cadence**: TBD-L4. Default: every 100 substrate days, a recovery drill is performed (restore from backup into a sandbox substrate; verify I1-I8); failure to pass drill is an immune-grade signal.
+- **Backup frequency**: TBD-L4. Default: continuous WAL + periodic full snapshot (WAL per cycle; snapshot every 1000 cycles).
+- **Backup locations**: TBD-L4. Constraint: ≥1 off-host-process location.
+- **Recovery test cadence**: tiered to manage scaling cost.
 
-**Beyond the budget = destruction**: when backups are exhausted AND the substrate medium fails, P7 catastrophic destruction. Otherwise: recovery is possible.
+**Tiered recovery drill** (per pass-2 saprotroph-14, addresses cold-tier cost over decades):
+
+- **Hot+warm drill** every 100 substrate days: full restore from backup of hot+warm tier; verify I1-I8.
+- **Cold-tier sampled drill** every 1000 substrate days: pick N random cold-tier nodes per drill (`N = ceil(log₂(cold_tier_count))`); prove each recoverable; fruit `cold_tier_sample_recovery_pass`.
+- **Drill failure-rate baseline** (per saprotroph-18): each drill outcome is fruited as `recovery_drill_result` with `(drill_id, scope, outcome, failure_classification)`. Over a rolling 30-drill window, emergent `drill_failure_rate` is computed. ≥2σ departures from baseline are immune events; secular trending up is an approaching-mortality `drill_aging_grade` signal.
+
+**Witnesses, not verdicts** (per L0 §9.3): drill results emit cryptographic-proof tuples — sampled hashes, Merkle paths, reproducible inputs — sufficient for the anchor-surface verifier to re-derive. The substrate does not emit "pass/fail"; it emits evidence.
+
+**Beyond the budget = destruction**: when backups are exhausted AND substrate medium fails, P7 catastrophic destruction. Two consecutive failed drills auto-emit anchor-surface-side `mortality_drill_failure` event (the dual channel for endogenous mortality per L1_GOVERNANCE §4.4).
 
 ### §2.5 DAG-pruning prohibition
 
@@ -141,23 +156,25 @@ Success emits `genesis_attested` sporocarp in parent's DAG (federation_coupling 
 
 ---
 
-## §4. Validation tiers (operationalizes L0 I3)
+## §4. Validation tiers (TENTATIVE; operationalizes L0 I3)
 
-Per pass-1 saprotroph-12, full I3 validation grows linearly with SSoT size. Validation tiering keeps cycle cadence (§6 continuity) sustainable.
+**Tentative at L1**: pass-2 architectural-astronaut flagged 3-tier validation as premature optimization (SSoT is trivially small at v0.9 birth; full per-cycle validation has no measurable cost yet). DRAFT 2 collapses to 2 tiers as default; L4 may re-introduce tier-3 if I3 validation begins overrunning cycle budget.
 
-### §4.1 Three-tier policy
+### §4.1 Two-tier policy (default)
 
-- **Tier 1 (identity-critical)** — substrate-ID integrity, owner-signature integrity, DAG-tip-hash, classifier-fixed-point fields. Validated **every metabolic cycle**.
-- **Tier 2 (governance-relevant)** — SSoT designation, contract-identity-level field set, federation peer attestations. **Sampled per cycle with rolling 100% coverage over an L1-tunable window**. Default window: 100 cycles.
-- **Tier 3 (deep state)** — full SSoT consistency, full DAG reachability checks. **Owner-triggered or on-demand** (e.g., as part of governance event resolution; as part of recovery drill).
+- **Tier 1 (identity-critical)**: substrate-ID, owner_key_history, anchor_surface_endpoint, DAG-tip-hash, classifier dimension table, classifier-fixed-point fields, mortality-signal threshold + update-rule, skin surface declaration. Validated **every metabolic cycle**.
+- **Tier 2 (everything else)**: owner-triggered or per-deep-cycle (deep-cycle cadence L1_CONTINUITY-specified).
 
-### §4.2 Tiering as contract-identity-level
+### §4.2 Tiering discipline
 
-The tier assignment of any field is contract-identity-level. Field cannot be silently demoted from tier 1 → tier 2 to skip cycle validation. Tier promotion (tier 2 → tier 1) is daily-autonomous (more aggressive validation is always safe); tier demotion is CI-gated.
+- **New fields default to tier 1** (per pass-2 mycoparasite-26 — adversarial default forbidden). To create a new field at tier 2 requires explicit CI-attestation downgrade.
+- Tier promotion (tier 2 → tier 1) is daily-autonomous (more aggressive validation is always safe).
+- Tier demotion (tier 1 → tier 2) is CI-gated.
+- Tier assignment is a SSoT tier-1 field itself.
 
-### §4.3 Sampled validation strategy
+### §4.3 L4 escalation to 3-tier (if needed)
 
-Tier 2 rolling sampling: each cycle picks `ceil(tier2_field_count / window_size)` fields to validate this cycle. Over `window_size` cycles, every tier-2 field is validated at least once. Failures emit `tier2_sample_failure` immune events.
+If L4 observes tier-1 per-cycle validation overrunning cycle budget, L4 may propose introducing tier 3 (sampled rolling-window-coverage) as a CI-level evolution. The shape would be: `tier 2` becomes deep-cycle-only; new `tier 2.5 sampled` covers high-volume governance-relevant fields with rolling-window-100%-coverage discipline. L1 does not pre-commit this; L4 picks if needed.
 
 ---
 

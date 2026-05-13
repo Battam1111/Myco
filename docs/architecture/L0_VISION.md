@@ -1,10 +1,10 @@
 # L0 — Vision
 
-> **Status**: DRAFT 6 — post pass-1 100%-confidence-loop (2026-05-13). Pending owner approval before sealing.
-> **Naming**: Myco substrate version is **v0.9**; this document is L0_VISION.md **DRAFT 6**. Drafts are integers, not semver. Sealed L0 carries no draft number — only git commit identity.
+> **Status**: DRAFT 7 — post pass-2 100%-confidence-loop (2026-05-13). Pending owner approval before sealing.
+> **Naming**: Myco substrate version is **v0.9**; this document is L0_VISION.md **DRAFT 7**. Drafts are integers, not semver. Sealed L0 carries no draft number — only git commit identity.
 > **Layer**: L0. Immutable unless explicitly revised by the project owner.
 > **Authority**: governs all of L1, L2, L3, L4. In any conflict, L0 wins.
-> **Provenance**: DRAFT 6 absorbs (a) 25 owner decisions from prior arbitration, (b) DRAFT 5's structural-rework split (L1-mechanism content moved to L1 docs), (c) pass-1 100%-confidence-loop critic output — 88 findings across 6 fungal-named adversarial critics (chytrid / rhizomorph / mycoparasite / saprotroph / mycorrhiza / architectural-astronaut). 26 CRITICAL findings forced L0 changes; the remainder either applied locally or migrated to L1 docs (4 of which were spawned in this same revision).
+> **Provenance**: each DRAFT's critic-pass diff is in git history; see commit log. Pass 1 surfaced 88 findings (26 CRITICAL); DRAFT 6 addressed them and spawned 4 new L1 docs. Pass 2 surfaced 66 findings (21 CRITICAL) — DRAFT 7 addresses these. Convergence: 88→66 findings, 26→21 CRITICAL.
 > **Scope discipline**: L0 commits to **identity, negative space, and constraints**. Mechanism specifications live in L1 documents. The single exception: cryptographic anchor surface (§9) is at L0 because the entire trust model depends on out-of-band integrity that cannot be deferred without circularity.
 
 ---
@@ -156,11 +156,13 @@ The substrate carries a **substrate-ID** established at genesis. The substrate-I
 **Lifecycle states**: alive ↔ dormant ↔ destroyed (forward only after destroyed). Transitions:
 
 - alive → dormant on operator-disconnect or idle-timeout (L1_CONTINUITY-specified).
-- dormant → alive on valid operator handshake.
+- dormant → alive on valid operator handshake OR on owner-attestation arrival at the anchor-surface inbound channel.
 - alive → destroyed on owner-attested destruction or recoverability-budget exhaustion.
 - destroyed → anything FORBIDDEN.
 
-**Legacy sub-state of alive** (per pass-1 saprotroph-3, owner succession): when no valid owner-successor is attested within L1-defined grace after owner unavailability, substrate transitions to `legacy` (alive but L0/L1 mutations frozen until successor attestation resolves). Owner-successor protocol is L1_GOVERNANCE-specified.
+Sub-states of alive (quarantined under invariant breach; legacy under owner unavailability) are L1_CONTINUITY / L1_GOVERNANCE-defined and do not extend the substrate's three top-level states.
+
+**Owner key rotation**: the substrate's identity record maintains an `owner_key_history` (chronological list of owner public keys with valid-from/valid-until timestamps, each rotation event co-signed by both old and new keys at the anchor surface). Verification of any historical co-sign uses the key valid at that timestamp. Cryptographic suite rotation follows the same pattern. Owner-key rotation is owner-attested at the anchor surface; substrate-ID is unchanged across rotations.
 
 **P-coverage**: P1.a, P1.c, P7.
 
@@ -391,28 +393,35 @@ Mechanical requirements:
 
 ## §9. Out-of-band anchor surface (cryptographic root)
 
-**(This is the single L0 mechanism specification, present because the entire trust model depends on it and L1-deferral is circular.)** Resolves the mycoparasite root pattern from pass-1: substrate-self-claims are recoverable as agent-self-claims (P1.a self-hosting), so any substrate-asserted property gating governance/identity/causality must have an out-of-band anchor.
+**(This is the single L0 mechanism specification, present because the entire trust model depends on it and L1-deferral is circular.)** Without an out-of-band anchor, substrate-self-claims = agent-self-claims under P1.a self-hosting, and the entire trust model collapses.
 
 ### §9.1 What the anchor surface is
 
-A surface where owner signatures, DAG-tip hashes, and substrate-ID lineage are externally visible and **untouchable by the agent process**. Specific form is L1_GOVERNANCE-specified; candidates: hardware security token, separate machine, signed prompt-bundle the owner reviews, append-only public ledger.
+A surface where owner signatures, DAG-tip hashes, substrate-ID lineage, and trusted timestamps are externally visible and **untouchable by the agent process**. Specific form is L1_GOVERNANCE-specified; candidates: hardware security token, separate machine, signed prompt-bundle the owner reviews, append-only public ledger.
 
 ### §9.2 What anchors at this surface
 
-- **Substrate-ID birth attestation** — owner signature over `(substrate-ID, genesis-timestamp, initial-spore-schema-hash)`. The signature IS the substrate-ID's authority (I1).
-- **DAG-tip hash co-signing** — owner co-signs the current DAG-tip hash at every contract-identity-level boundary crossing. Retro-edits without co-sign are immune-detectable (I4).
-- **Owner attestations** — every contract-identity-level mutation requires an attestation produced **out-of-band**: owner-signing key must live outside the substrate's process boundary AND outside any process the agent can spawn or read memory of. Attestation events produced inside the agent's process space are skin-breach (I6 / I8).
-- **Owner-successor pre-attestation** — the current owner names ≥1 successor during their lifetime; successor pre-attestation is anchor-surface-recorded. Activates per I1 `legacy` sub-state if owner becomes unavailable.
-- **L0 revision diff** (per pass-1 mycoparasite-20): L0 revision proposals include a verbatim diff against the prior L0 commit hash; owner reviews against the prior L0, not against the agent-shaped proposal. Diffs not pre-committed before owner review are rejected.
+- **Substrate-ID birth attestation** — owner signature over `(substrate-ID, genesis-timestamp, initial-spore-schema-canonical-bytes-hash, owner-public-key, anchor-surface-endpoint-public-key)`. The signature IS the substrate-ID's authority (I1).
+- **DAG-tip hash co-signing** — owner co-signs the current DAG-tip hash at every contract-identity-level boundary crossing. Co-sign envelope MUST include **enumerated list of all DAG node hashes added since prior co-sign** — owner's verification recomputes the Merkle chain from these enumerated nodes, NOT from a substrate-supplied summary diff. Retro-edits and parallel-branch forgeries are mechanically impossible without substrate's enumeration matching owner's reconstruction.
+- **Owner attestations** — every contract-identity-level mutation requires an attestation produced **out-of-band**: owner-signing key must live outside substrate's process boundary AND outside any process the agent can spawn or read memory of. Attestation events produced inside the agent's process space are skin-breach.
+- **L0 revision diff**: L0 revision proposals include a verbatim diff against the prior L0 commit hash; owner reviews against the prior L0, not against the agent-shaped proposal.
+- **Anchor-surface-generated nonces** — replay-prevention nonces are generated by the anchor surface (NOT by the substrate); consumed-nonce log lives at the anchor surface; substrate-side nonce mints are not authoritative.
+- **Anchor-surface-stamped wall-clock** — every owner attestation carries an anchor-surface trusted timestamp. Time-bound defenses (expiry windows, freshness windows, grace periods, idle timeouts) use the trusted timestamp; substrate-cycle counters are not authoritative for time-bounds (substrate can throttle cycles).
+- **Owner liveness heartbeat** — owner periodically signs a `liveness_heartbeat` at the anchor surface (L1-tunable cadence). Succession trigger requires the heartbeat to be stale at the anchor surface, NOT the substrate's absence-of-CI-emission. The substrate cannot manufacture owner-unavailability by suppressing CI emission.
 
-### §9.3 What the anchor surface does NOT do
+### §9.3 Canonical-bytes doctrine
 
-- It does NOT replace the substrate's internal trust mechanisms (I3, I4, I8). It complements them: internal mechanisms detect drift; the anchor surface establishes the immutable root against which drift is measured.
-- It does NOT solve P1.a fully (the agent maintains the substrate code; an adversarial agent could in principle attack the anchor mechanism itself — but the anchor's out-of-band nature raises the bar from "edit a file" to "compromise a separate system the owner controls").
+**The anchor surface receives canonical bytes + witnesses, never substrate-rendered summaries or substrate-emitted verdicts.**
 
-### §9.4 Burst-detection of L0 revisions
+- **Canonical-bytes serialization**: every substrate-emitted artifact bound for the anchor surface uses a deterministic canonical serialization (specific format L1_GOVERNANCE-specified — sorted keys, normalized whitespace, fixed-precision numerics, single canonical encoding per field type). Substrate cannot ship "rendered for review" + "canonical for hashing"; only canonical bytes leave the skin's anchor-surface endpoint.
+- **Owner-side rendering**: human-readable rendering happens at the owner's anchor-surface client, deterministically computed from canonical bytes. The substrate is not in the rendering path; it cannot drift canonical-bytes-hashed-form from rendered-form.
+- **Witnesses, not verdicts**: when the substrate reports a check result (I3/I4/I5/I8 outcomes; recoverability drill results), it emits the witness — sampled leaf hashes + Merkle paths + parent hashes + check inputs — sufficient for the anchor-surface verifier to independently re-derive the result. The substrate does not emit "pass/fail"; it emits the evidence.
 
-Per pass-1 saprotroph-11: ≥2 L0 revisions within a 30-day window triggers a `doctrine_instability` immune signal. Owner reviews whether revisions are doctrine-driven (continue) or implementation-driven (rollback per P3 failed-evolution protocol). Rolling rate >L1-threshold over 12 months marks the substrate `doctrine_drift_grade`.
+### §9.4 What the anchor surface does NOT do
+
+The anchor surface complements (does not replace) the substrate's internal trust mechanisms (I3, I4, I8). It does NOT solve P1.a fully: an adversarial agent could attempt to compromise the anchor mechanism itself, but the anchor's out-of-band nature raises the attack bar from "edit a file" to "compromise a separate system the owner controls".
+
+L0-revision velocity is a substrate observable; tracking method, burst threshold, and rolling rate are L1_GOVERNANCE-specified. Post-seal, L0 revisions should be rare.
 
 ---
 

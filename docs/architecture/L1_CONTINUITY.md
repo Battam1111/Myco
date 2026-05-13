@@ -1,186 +1,186 @@
-# L1 — Continuity (metabolic cycle, dormancy, recovery, delta atomicity)
+# L1 — Continuity (metabolic cycle, dormancy, recovery)
 
-> **Status**: DRAFT 1 (2026-05-13). Authoritative L1 doc for substrate operational continuity.
-> **Layer**: L1 (mechanism). Governed by L0.
-> **Scope**: metabolic cycle cadence; dormancy state transitions + compute budget; cold-resume recovery; host-crash recovery; delta atomicity; quarantine sub-state.
-> **Honesty**: pass-1 finding clusters addressed here include rhizomorph-3 (host-crash delta atomicity), rhizomorph-16 (dormancy triggers), saprotroph-3 portions, mycoparasite-15 (dormancy host-observability), mycoparasite-17 (quarantine-marker spoofing).
+> **Status**: DRAFT 2 (2026-05-13). Authoritative L1 doc for substrate operational continuity. Canonical owner of dormancy mechanism specification.
+> **Layer**: L1. Governed by L0.
+> **Scope**: metabolic cycle structure + cadence; dormancy transitions + compute budget; cold-resume recovery (with witnesses, not verdicts); host-crash recovery + delta atomicity; quarantine sub-state.
 
 ---
 
 ## §1. Metabolic cycle
 
-### §1.1 What a cycle is
+### §1.1 Cycle structure (5 steps)
 
-The substrate's smallest discrete metabolism event. Each cycle:
+Each cycle:
 
-1. **Tier-1 invariant checks** run (per L1_SCHEMA §4.1) — I1 identity, I4 DAG-tip integrity.
+1. **Tier-1 invariant checks** (per L1_SCHEMA §4.1).
 2. **Gradient configuration advances** (per L1_TROPISM, or equivalent under chosen dispatch).
-3. **Tier-2 sample validation** runs (one sample per cycle from rolling window).
-4. **Deltas absorbed** (any envelope-accepted intake from the previous wall-clock interval).
-5. **Sporocarps emitted** (any gradient that crossed its fruiting trigger).
-6. **DAG updated** atomically with the cycle's events.
-7. **I5 reachability check** runs.
-8. **I8 skin breach check** runs.
+3. **Deltas absorbed** atomically (per §4 delta atomicity); sporocarps emitted; DAG atomically commits with new tip-hash.
+4. **Skin breach check** (I8) over events absorbed this cycle.
+5. **Skin handshake / attestation arrival** processed (any new handshake or owner-attestation event).
 
-A cycle is atomic — either all 8 steps complete and the DAG-tip advances, or the cycle is aborted and substrate state rolls back to the previous cycle's DAG-tip.
+**Deep cycle** runs at lower cadence (L4-tunable, default 1/100 of metabolic-cycle rate) and additionally executes:
+
+- I5 reachability check.
+- Tier-2 sampled validation (if §4.3 tier-3 escalation activates in L4).
+- Recovery-drill scheduling.
+
+A cycle is atomic — either all 5 steps complete and DAG-tip advances, or the cycle aborts and substrate state rolls back to the previous cycle's DAG-tip.
 
 ### §1.2 Cycle cadence
 
-**Cadence is L4-tunable**, within constraints:
+**Cadence is L4-tunable** within:
 
-- **Minimum cycle interval** (rate ceiling): L1-tunable, default 100 ms wall-clock. Faster cycles risk operator-perceived load amplification.
-- **Maximum cycle interval** (rate floor): L1-tunable, default 10 seconds wall-clock during alive state; 100 seconds during dormant-throttled state. Slower cycles risk I3/I5/I8 detection latency.
-- **Adaptive cadence**: in alive state, cycles fire on whichever-first basis — every minimum-interval OR on delta arrival OR on gradient threshold approach. In dormant state, cycles fire on time-only basis at the dormant rate.
+- Minimum cycle interval: default 100 ms wall-clock.
+- Maximum cycle interval: default 10 s alive; 100 s dormant-throttled.
+- **Adaptive cadence** (alive): fire on minimum-interval OR delta arrival OR gradient threshold approach.
+- **Dormant cadence**: time-only at the dormant rate.
 
-**Cadence under load**: if a single cycle takes longer than the minimum interval to complete, subsequent cycles backlog. Backlog of ≥L1-tunable (default 10) emits a `cycle_backlog` immune event. Persistent backlog → quarantine.
+**Backlog detection**: if a cycle takes longer than the minimum interval, subsequent cycles backlog. Backlog ≥10 emits `cycle_backlog` immune event. Persistent backlog → quarantine.
 
 ---
 
-## §2. Dormancy
+## §2. Dormancy (canonical specification)
 
-### §2.1 State definition (per L0 I1)
+### §2.1 State definition
 
-Three states: alive, dormant, destroyed. Dormant is a sub-state distinct from "alive but idle" — operator is not currently attached.
+Three top-level states per L0 I1: alive, dormant, destroyed. Sub-states of alive (quarantined, legacy) are defined here (§5) and L1_GOVERNANCE (§3.2 succession).
 
-### §2.2 alive → dormant transition triggers
+### §2.2 alive → dormant triggers
 
-- **Operator disconnect** (L1_SKIN §4.5).
-- **Idle timeout**: ≥L1-tunable cycles without delta absorption (default 100 cycles). This guards against half-open connections that L1_SKIN failed to detect.
-- **Owner-commanded dormancy** via CI event (rare; for substrate hibernation).
+- Operator-connection drop (detected at L1_SKIN §4.5).
+- Idle timeout: ≥L1-tunable cycles without delta absorption (default 100 cycles).
+- Owner-commanded dormancy via CI event (rare; substrate hibernation).
+- Operator-requested dormancy: per L1_SKIN §4.5 `handshake_terminate` with `request_dormancy` field; substrate honors the operator's mode preference (paused vs throttled), subject to resource-pressure override.
 
-Transition emits `dormancy_enter` sporocarp; operator-token (if any) is invalidated.
+Transition emits `dormancy_enter` sporocarp; operator-token invalidated.
 
-### §2.3 dormant → alive transition
+### §2.3 dormant → alive triggers
 
-- **Valid operator handshake** at the intake endpoint (per L1_SKIN §4).
+- Valid operator handshake (L1_SKIN §4).
+- **Owner-attestation arrival** at the anchor-surface inbound channel: substrate wakes to verify + commit pending CI sporocarp. Wakes into `alive-administrative` micro-state — only attestation-resolution events fire until idle-timeout returns substrate to dormant.
 
-Emits `dormancy_exit` sporocarp.
+Transition emits `dormancy_exit` sporocarp.
 
-### §2.4 Dormant compute budget (per pass-1 mycoparasite-15)
+### §2.4 Dormant compute budget
 
-Two operating modes:
+Two modes (operator-selectable per L1_SKIN §4.5; substrate default = throttled):
 
-**Throttled mode** (default):
-- Cycle rate at the maximum-cycle-interval floor (100 sec / cycle default).
+**Throttled mode**:
+- Cycle rate at maximum-cycle-interval floor.
 - Tier-1 invariant checks every cycle (cheap).
-- Tier-2 sampling continues but at the same throttled rate.
-- Gradient configuration continues to evolve (decay-class appetites mostly).
-- No fruiting (sporocarps gated until alive).
-- Intake closed at skin; handshake listening continues.
+- Gradient configuration continues to evolve (decay-class appetites primarily).
+- No fruiting; intake closed; handshake + attestation-channel listening continues.
 
-**Paused mode** (opt-in via canon):
+**Paused mode**:
 - All metabolism halted.
-- Only handshake listening continues.
+- Only handshake + attestation-channel listening continues.
 
-**Dormancy host-observability**: the substrate's external observables (network egress, CPU, disk write rate) MUST remain below L1-tunable ceilings during dormancy. Default proposal: <1% of alive-state averages. **The substrate cannot enforce this against its own host** (per pass-1 mycoparasite-15) — the owner must independently monitor host-process behavior. This is an explicit asymmetry; declared, not concealed.
+**Dormancy host-observability**: external observables (network, CPU, disk) must remain below L1-tunable ceilings (default <1% of alive averages). **The substrate cannot enforce this against its own host**; the owner must independently monitor. This is an explicit declared asymmetry, not concealed.
+
+**Wall-clock vs cycle-clock during paused** (per pass-2 mycoparasite-23 + rhizomorph-11): attestation-request `expiry_cycles` does NOT advance during paused dormancy. On wake, substrate re-validates attestation freshness against the anchor-surface trusted-timestamp (which IS wall-clock); stale-on-wake → `attestation_expired` immune event. Substrate cannot extend wall-clock budgets by entering paused dormancy.
 
 ---
 
-## §3. Cold-resume recovery (operationalizes L1_TROPISM §A3 + L0 I8 quarantine)
+## §3. Cold-resume recovery (canonical owner)
 
-### §3.1 Pre-handshake checks
+### §3.1 Pre-handshake checks with witnesses
 
-Before accepting an operator handshake on a substrate in dormant or freshly-loaded state:
+Before accepting an operator handshake on a substrate in dormant or freshly-loaded state, the substrate runs:
 
-1. **I1 check**: substrate-ID valid; owner-signature valid; identity record intact.
-2. **I3 check**: SSoT consistency at tier-1 fields.
-3. **I4 check**: DAG-tip hash valid; Merkle chain self-consistent.
-4. **I5 check**: reachability over current SSoT-listed tiers.
-5. **I8 check**: skin declaration matches expected canon.
+1. I1 check: substrate-ID + owner-signature integrity.
+2. I3 check: SSoT consistency at tier-1 fields.
+3. I4 check: DAG-tip hash + Merkle chain self-consistency.
+4. I5 check: reachability over current SSoT-listed tiers (deep-cycle scope).
+5. I8 check: skin declaration matches expected canon.
 
-**Each check's result is recorded in the handshake response envelope** (per pass-1 mycoparasite-17 — prevents quarantine-marker spoofing; the owner sees the cold-resume invariant results directly on handshake, not just via internal sporocarps).
+**Witnesses, not verdicts** (per L0 §9.3 + pass-2 mycoparasite-32): check results are emitted as **cryptographic-proof tuples** the owner / anchor-surface verifier can independently re-derive — sampled hashes, Merkle paths, parent hashes, check inputs. The substrate emits the evidence, not the verdict. Cold-resume that emits only verdicts is skin breach.
+
+These witness tuples land in the handshake-response envelope (per L1_SKIN §4.2 step 3 substrate→agent attestation) AND in the anchor-surface inbound channel for owner-side audit.
 
 ### §3.2 Quarantine on cold-resume failure
 
-If ANY pre-handshake check fails:
+If any check fails:
 
-1. Substrate transitions to **`alive but quarantined`** sub-state (I1 state-space addendum).
-2. Handshake completes but with a `quarantined` marker in the response envelope.
-3. Intake is closed; only owner-attested administration deltas are accepted (limited to: clearing quarantine after fix; emitting `endogenous_mortality_proposal`; reading state for diagnosis).
-4. The substrate fruits a `cold_resume_quarantine` sporocarp recording which check(s) failed.
+1. Substrate transitions to `alive but quarantined` (alive sub-state).
+2. Handshake completes with `quarantined` marker in response envelope.
+3. Intake closed except for owner-attested administration deltas.
+4. Substrate fruits `cold_resume_quarantine` sporocarp recording which check(s) failed.
 
 ### §3.3 Quarantine clearance
 
-Quarantine is cleared by an owner-attested `quarantine_clearance` CI event after the owner has examined the substrate state and either:
-
-- Confirmed the failure is benign (e.g., a known schema-migration in progress).
-- Issued targeted CI mutations that fix the failure.
-
-The quarantine never auto-clears.
+Owner-attested `quarantine_clearance` CI event after owner has examined state. Never auto-clears.
 
 ---
 
-## §4. Host-crash recovery (operationalizes pass-1 rhizomorph-3)
+## §4. Host-crash recovery + delta atomicity
 
 ### §4.1 Delta atomicity
 
-Per L0 §6 + pass-1 rhizomorph-3: a delta is either fully absorbed (event committed with all causal edges) or not absorbed at all.
+A delta is either fully absorbed (event committed with all causal edges) or not absorbed.
 
 **Atomicity mechanism**:
-
-- Delta absorption writes to a WAL (write-ahead log) first.
-- DAG node creation + edge insertion + index update happen as a single transaction.
-- Cycle completion bumps DAG-tip hash atomically.
-- On crash: WAL is replayed on restart; incomplete cycles are detected (WAL entries without corresponding DAG-tip update) and rolled back.
+- Delta absorption writes to WAL first.
+- DAG node creation + edge insertion + index update = single transaction.
+- Cycle completion bumps DAG-tip atomically.
+- On crash: WAL replayed on restart; incomplete cycles detected (WAL entries past DAG-tip) and rolled back.
 
 ### §4.2 Crash detection on restart
 
-On substrate process restart:
-
 1. Read WAL.
 2. Compare to last persisted DAG-tip.
-3. If WAL has uncommitted entries past DAG-tip: enter cold-resume with `crashed_unrecoverable` marker if WAL replay fails OR `crashed_recovered` marker if replay succeeds.
-4. Each crashed delta's recovery status fruits a `delta_recovery` sporocarp recording outcome (committed / rolled-back / dead-letter).
+3. WAL has uncommitted entries past DAG-tip:
+   - Replay succeeds → enter cold-resume with `crashed_recovered` marker.
+   - Replay fails → enter cold-resume with `crashed_unrecoverable` marker.
+4. Each crashed delta's recovery status fruits a `delta_recovery` sporocarp (committed / rolled-back / dead-letter).
 
 ### §4.3 Partial-delta handling
 
-If a delta absorption was interrupted mid-write:
-
-- **WAL has the envelope + payload but no DAG-tip update** → roll back; delta is dead-lettered; emit `interrupted_intake` immune event. The operator's prior emission is lost; the operator may re-emit when reconnected.
-- **WAL has nothing** → delta was never persisted; nothing to recover.
+- WAL has envelope + payload but no DAG-tip update → roll back; delta dead-lettered; `interrupted_intake` immune event. Operator may re-emit on reconnect.
+- WAL has nothing → delta never persisted; nothing to recover.
 
 The substrate does NOT silently complete a partial delta on restart. Recovery is observable.
 
 ---
 
-## §5. Quarantine sub-state of alive (operationalizes L0 I1)
-
-Per pass-1 + L0 I1: legacy and quarantined are sub-states of alive. This section formalizes quarantined.
+## §5. Quarantine sub-state of alive
 
 ### §5.1 Entry triggers
 
 - Cold-resume invariant failure (§3.2).
-- CRITICAL-grade skin breach (per L1_SKIN §6).
-- Repeated I3 evolution failures past quarantine threshold (per L1_GOVERNANCE §6.3).
+- CRITICAL skin breach (per L1_SKIN §6).
+- Sustained I3 failure (≥L1-tunable consecutive cycles without rollback resolution).
 - Owner-commanded quarantine via CI event.
+
+(Note: standalone `evolution_quarantine` sub-state from DRAFT 1 was cut per pass-2 astronaut-7 — repeated P3 evolution failures route through standard quarantine entry above, not a separate state. Repeated-failure observability lives in L1_GOVERNANCE §6 + the observatory rate signals.)
 
 ### §5.2 Quarantine-state metabolism
 
-- Cycle rate continues at alive cadence (substrate is observing itself; cycles run).
+- Cycle continues at alive cadence (substrate observes itself).
 - Tier-1 invariants run.
-- Intake at skin is **closed except for owner-attested administration deltas**.
-- Fruiting continues for diagnostic / immune sporocarps.
-- Federation outputs are suspended (cannot exit while quarantined).
+- Intake closed except owner-attested administration.
+- Sporocarp fruiting continues for diagnostic / immune.
+- Federation outputs suspended.
 
 ### §5.3 Quarantine exit
 
-- Owner-attested `quarantine_clearance` (per §3.3).
+Owner-attested `quarantine_clearance` (§3.3).
 
-### §5.4 Distinction from legacy
+### §5.4 Distinction from legacy (L1_GOVERNANCE §3.2 succession)
 
-- **Legacy** (per L1_GOVERNANCE §3.4): owner unavailable; substrate runs normally except L0/L1 mutations frozen.
+- **Legacy**: owner unavailable; substrate runs normally except L0/L1 mutations frozen.
 - **Quarantined**: substrate is observing an internal pathology; intake closed; federation suspended; L0/L1 mutations also gated.
 
-A substrate may be both legacy AND quarantined (owner unavailable AND substrate pathological). Recovery requires owner-equivalent attestation (successor activation per L1_GOVERNANCE §3.3 plus quarantine clearance).
+A substrate may be both legacy AND quarantined; recovery requires owner-equivalent attestation per L1_GOVERNANCE §3.2 + quarantine clearance.
 
 ---
 
 ## §6. Open at L1, deferred to L4
 
-- **Specific cycle minimum/maximum intervals** — defaults proposed; L4 calibrates.
-- **Specific idle timeout for dormancy** — default 100 cycles; L4 calibrates.
-- **Specific backlog threshold** for `cycle_backlog` — default 10 cycles; L4 calibrates.
-- **Specific dormant compute ceilings** (CPU / network / disk fractions of alive average) — default <1%; L4 calibrates.
-- **WAL implementation** within {filesystem-level, embedded library, custom append log} — L4 picks.
+- Specific cycle minimum/maximum intervals.
+- Idle timeout (default 100 cycles).
+- Backlog threshold (default 10).
+- Dormant compute ceilings (default <1% of alive averages).
+- WAL implementation within {filesystem-level, embedded library, custom append log}.
+- Deep-cycle cadence (default 1/100 of metabolic-cycle rate).
 
 Shape is committed; values are L4.

@@ -1,9 +1,8 @@
-# L1 — Governance (classifier, lifecycle, owner attestation, succession, federation discovery)
+# L1 — Governance (classifier, lifecycle, attestation protocol, federation)
 
-> **Status**: DRAFT 1 (2026-05-13). Authoritative L1 doc for governance mechanism.
-> **Layer**: L1 (mechanism). Governed by L0.
-> **Scope**: I2 classifier function + dimension table; lifecycle operations (genesis, dormancy transitions, reproduction-closure, mortality); owner attestation cryptographic protocol; owner-key custody; owner succession; federation discovery + peer-trust-freshness; rollback handling for failed P3 evolution.
-> **Honesty**: this doc closes the largest cluster of pass-1 CRITICAL findings (9 of 26). Several decisions are owner-arbitration territory; defaults are proposed and marked.
+> **Status**: DRAFT 2 (2026-05-13). Authoritative L1 doc for governance mechanism.
+> **Layer**: L1. Governed by L0.
+> **Scope**: I2 classifier function + dimension table; lifecycle (genesis, dormancy, reproduction, mortality); attestation protocol with canonical-bytes + operator-witnesses + dual-clock + anchor-side nonces; owner-key rotation; owner-liveness-heartbeat-based succession; federation discovery + peer-trust-freshness with aggregate re-attestation; rollback for failed P3 evolution.
 
 ---
 
@@ -15,129 +14,117 @@
 classify(mutation_envelope) → {daily, contract_identity_level, untyped}
 ```
 
-Where `mutation_envelope` carries: `(touched_files, touched_fields, touched_meta_structures, mutation_type, source_event_id)`.
+Where `mutation_envelope` carries `(touched_files, touched_fields, touched_meta_structures, mutation_type, source_event_id)`.
 
-**`untyped` return value**: mutation envelope does not match any classifier rule. **Untyped mutations are immune-detected and rejected at the skin (I8).** A mutation that cannot be classified is treated as a skin-breach attempt.
+**`untyped`** = no classifier rule matches. Untyped mutations are rejected at the skin (I8) as breach attempts.
 
-### §1.2 Dimension table (the source of truth)
+### §1.2 Dimension table (seed)
 
-Classifier behavior is data-driven from a single dimension table. Below is the seed table for v0.9 birth; lives in L1_SCHEMA SSoT as a tier-1 field. **The classifier function itself, and any mutation of this table, is unconditionally contract-identity-level** (per L0 I2 classifier-fixed-point — cannot be reclassified to daily by any L1 mutation).
+Classifier behavior is data-driven from a single dimension table — a tier-1 SSoT field. **The classifier function itself, and any mutation to this table, is unconditionally contract-identity-level** (L0 I2 classifier-fixed-point).
 
 | Touched scope | Classification |
 |---|---|
 | L0 file | contract_identity_level |
 | L1 file (any) | contract_identity_level |
-| `substrate-ID` field | contract_identity_level (and immutable post-genesis except via owner-attested re-genesis = destruction + new substrate) |
-| Owner-signature artifacts | contract_identity_level |
+| `substrate-ID` field | contract_identity_level (immutable post-genesis except via destruction) |
+| Owner public-key history field | contract_identity_level |
+| Anchor-surface endpoint declaration | contract_identity_level |
 | Classifier dimension table itself | contract_identity_level (fixed-point) |
-| Mortality-signal threshold / update-rule | contract_identity_level (per L0 P7) |
-| Appetite-axis schema (if L1_TROPISM dispatch chosen) | contract_identity_level |
+| Mortality-signal threshold + update-rule | contract_identity_level |
+| Threshold_emergence_rule (any axis) | contract_identity_level |
+| Threshold emergence in steady-state via update_rule: NON-mortality axes | daily |
+| Threshold emergence in steady-state via update_rule: mortality-signal axis | contract_identity_level |
+| Appetite-axis schema | contract_identity_level |
 | Sporocarp-type tree | contract_identity_level |
 | Skin surface declaration | contract_identity_level |
 | SSoT designation | contract_identity_level |
 | DAG retention policy | contract_identity_level |
-| Storage tier exemption from I5 | contract_identity_level |
 | Federation peer attestation list | contract_identity_level |
-| Daily content (deltas absorbed; gradient state updates; ordinary sporocarp fruiting; federation coupling activity) | daily |
-| All else | **untyped** (rejected at skin) |
+| Daily content (deltas absorbed; gradient state updates non-mortality; ordinary sporocarp fruiting; federation coupling) | daily |
+| All else | **untyped** (rejected) |
 
 ### §1.3 Birth-period CI elevation
 
-Per L0 I2 + pass-1 mycoparasite-18: **during birth period, ALL parameter-tuning events are CI-level regardless of steady-state classification**.
+During birth period (defined in §4.1), ALL parameter-tuning events are contract-identity-level regardless of steady-state classification. Reclassification to daily-autonomous happens at the birth-period → steady-state transition, which is itself owner-attested.
 
-Birth period reclassification to daily happens at the birth-period → steady-state transition (an owner-attested boundary; per L1_TROPISM B2 maturity-attested termination).
+**Birth period has a CI-attested MAXIMUM duration** committed at genesis (L4-tunable, default 180 active-operation days). Reaching maximum forces forced-graduation-or-self-euthanasia decision (substrate fruits `birth_period_max_reached` and either auto-graduates if convergence achieved, or `self_euthanasia_proposal` if not).
 
 ---
 
 ## §2. Owner attestation protocol
 
-### §2.1 Owner key custody (L0 §9 anchor surface)
+### §2.1 Owner key custody
 
-Per pass-1 mycoparasite-12 + L0 §9: owner's signing key MUST live outside the substrate's process boundary AND outside any process the agent can spawn or read memory of.
-
-**Candidate mechanisms** (L4-picked):
-
-- **Hardware security token** (YubiKey-class). The owner physically possesses; signing happens on-device; substrate sees only the signature. **Strongest isolation.**
-- **Separate machine + air gap**. Owner reviews attestation requests on a separate device that does not run the agent. Signing happens there.
-- **Signed prompt-bundle review**. The substrate produces a prompt bundle (mutation request + DAG-tip hash + diff hash); owner reviews on a separate channel; owner returns a signature.
-- **Cloud HSM** (AWS KMS / GCP KMS / Azure Key Vault). Owner-authenticated; substrate calls signing API; the key never enters substrate-process memory.
-
-**L4 must pick one or compose**. The constraint: **the owner's private key never enters the substrate process's address space**. If this constraint is violated, all CI-gated mutations are unauthenticated regardless of "signatures" present in substrate state.
+Owner's signing key MUST live outside the substrate's process boundary AND outside any process the agent can spawn or read memory of. **Specific mechanism is L4-picked** within {hardware security token, separate machine, cloud HSM, signed-prompt review on isolated channel}. The L1 constraint: the owner's private key never enters the substrate process's address space; substrate sees only signatures.
 
 ### §2.2 Attestation envelope schema
 
-The substrate produces an **attestation request** for any CI-level mutation:
+The substrate produces attestation requests for any CI-level mutation:
 
 ```
 {
   "type": "contract_identity_attestation_request",
   "substrate_id": <owner-signed at genesis>,
   "dag_tip_hash": <current Merkle DAG tip>,
-  "diff_hash": <hash of substrate state changes since last CI co-sign>,
-  "proposed_mutation": <full mutation content>,
-  "proposed_mutation_hash": <hash of proposed mutation>,
-  "request_timestamp": <substrate metabolic-cycle timestamp>,
-  "request_nonce": <random>,
-  "expiry_cycles": <L1-tunable, default 1000 cycles>
+  "enumerated_dag_nodes_since_last_co_sign": [<hash>, <hash>, ...],
+  "proposed_mutation_canonical_bytes": <canonical serialization of mutation>,
+  "proposed_mutation_hash": <hash over canonical_bytes>,
+  "operator_witness_hash": <hash of proposed_mutation_canonical_bytes signed with operator_token>,
+  "operator_acknowledgment": <hash signed with operator_token attesting operator has seen the request>,
+  "request_timestamp_substrate_cycles": <substrate metabolic-cycle counter>,
+  "anchor_surface_nonce_request": <flag requesting anchor surface to issue nonce>,
+  "expiry_constraints": {"cycles_max": <L1-tunable>, "wall_clock_seconds_max": <L1-tunable>}
 }
 ```
 
-Owner reviews; if approved, signs the tuple `(substrate_id, dag_tip_hash, diff_hash, proposed_mutation_hash, request_timestamp, request_nonce)`. Signature delivered back via anchor surface (§2.1).
+Owner verifies independently at the anchor surface (NOT trusting substrate-supplied fields blindly):
+1. Re-render `proposed_mutation_canonical_bytes` via the anchor-surface client (substrate did not supply a render).
+2. Re-compute `proposed_mutation_hash` from canonical bytes.
+3. Verify `operator_witness_hash` matches — agent confirmed the canonical bytes match what its deltas expressed.
+4. Verify `operator_acknowledgment` — agent has seen the request.
+5. Reconstruct Merkle chain from prior co-signed tip via `enumerated_dag_nodes_since_last_co_sign`; confirm `dag_tip_hash`.
+6. Anchor surface generates nonce + trusted wall-clock timestamp; appends to signed tuple.
+7. Owner signs the tuple `(substrate_id, dag_tip_hash, proposed_mutation_hash, operator_witness_hash, operator_acknowledgment, anchor_surface_nonce, anchor_surface_timestamp)`.
 
-### §2.3 Signature verification
+### §2.3 Verification on receipt
 
 The substrate, on receipt of an owner signature:
 
-1. Recomputes the signed tuple from current substrate state + the proposed mutation.
-2. Verifies signature against the owner's public key (which lives in the substrate's identity record from genesis owner-signing).
-3. If valid AND within `expiry_cycles` of request: mutation commits.
-4. If invalid OR expired: emit `attestation_invalid` immune event (elevated grade); reject mutation.
+1. Recomputes the signed tuple from current substrate state + the proposed mutation + the anchor-surface fields.
+2. Verifies signature against the owner's public key (active at the anchor-surface timestamp per §3 owner-key-history).
+3. Verifies **both** time-bound constraints: substrate-cycle expiry AND anchor-surface wall-clock expiry — whichever expires first invalidates the attestation. The substrate cannot extend wall-clock budget by throttling cycles.
+4. Verifies the anchor-surface nonce has not been previously consumed (anchor-surface maintains the consumed-nonce log; substrate-side replay protection is non-authoritative).
+5. If all valid: mutation commits.
+6. If any fail: emit `attestation_invalid` immune event (elevated grade); reject mutation.
 
-### §2.4 Replay prevention
+### §2.4 What the substrate does NOT control
 
-The `request_nonce` is consumed on first valid use; subsequent presentations of the same `(substrate_id, request_nonce)` tuple are rejected (`attestation_replay_attempt`).
+- Nonce generation (anchor-surface owns).
+- Trusted timestamp (anchor-surface owns).
+- Consumed-nonce log (anchor-surface owns).
+- Canonical-bytes ↔ rendered-form mapping (anchor-surface client owns rendering).
+
+Substrate emits canonical bytes; substrate does not narrate.
 
 ---
 
-## §3. Owner succession (operationalizes L0 §9.2 + I1 legacy state)
+## §3. Owner key rotation, suite migration, and succession
 
-### §3.1 Successor pre-attestation
+### §3.1 Owner key rotation (in-life rotation, same owner)
 
-The current owner attests **≥1 successor** during their lifetime. Successor pre-attestation lands on the anchor surface as:
+The substrate's identity record carries `owner_key_history` — a chronological list `[(public_key_n, valid_from_anchor_timestamp, valid_until_anchor_timestamp, rotation_attestation_signed_by_prior_and_new_keys)]`. Rotation is a CI event signed by **both** the current key AND the new key, anchored at the anchor surface. The substrate-ID is unchanged across rotations.
 
-```
-{
-  "type": "successor_attestation",
-  "substrate_id": <substrate-ID>,
-  "succeeding_owner_public_key": <new public key>,
-  "succession_trigger": <one of: "owner_death", "owner_incapacitation", "owner_transfer">,
-  "signed_by_current_owner": <signature>
-}
-```
+Verification of any historical co-sign uses the key valid at the co-sign's anchor-surface timestamp. Cryptographic suite rotation follows the same pattern (history carries `(suite, public_key)` tuples).
 
-Successor pre-attestations may be **revoked** by the current owner (`successor_revocation` signed by current owner) until the moment of succession.
+### §3.2 Owner succession (different owner, same substrate)
 
-### §3.2 Succession trigger
+Owner-succession protocol is **deferred to L4** as a concrete operational protocol, after first real-world need. The L1 minimum:
 
-**Owner unavailability** is detected by the substrate when:
+- The owner MAY record `(successor_public_key, succession_trigger_condition)` tuples at the anchor surface during their lifetime.
+- Succession activation requires the successor signing a `successor_activation` envelope; the substrate validates against the anchor-surface successor record (NOT against a substrate-side cache).
+- Succession trigger uses **positive owner-liveness-heartbeat staleness** at the anchor surface — not substrate-side absence-of-CI-emission. Owner periodically signs `liveness_heartbeat` events at the anchor surface; succession trigger fires only when the heartbeat has been stale at the anchor surface for ≥ L1-tunable window. Substrate cannot manufacture trigger.
 
-- ≥L1-tunable cycles (default 90 active-operation days) have passed since the last owner-co-signed CI event, AND
-- The substrate has at least one pending CI-event awaiting attestation.
-
-Trigger fires: substrate emits `succession_required` immune event AND enters a `succession_grace_period` (default L1-tunable: 90 days from trigger).
-
-### §3.3 Succession resolution
-
-**During grace period**:
-
-- Pre-attested successors may activate by signing a `successor_activation` event with their successor-private-key. First valid activation wins. Substrate updates its identity record's owner-public-key to the successor's.
-- If no successor activates within grace period: substrate transitions to **`legacy` sub-state** (alive but L0/L1 mutations frozen until ANY valid successor activation arrives, however late).
-
-In legacy state: substrate continues daily metabolism; CI-events queue as pending; no new CI-events succeed. The substrate is "alive without governance" — usable, not evolvable.
-
-### §3.4 Legacy state exit
-
-Legacy state exits when a successor activation arrives (potentially years later). Pending CI-events from the legacy period are evaluated by the new owner; rejection rate is itself an immune-relevant statistic.
+The full FSM (grace periods, legacy sub-state details, trust-chain re-anchoring) is L4-codified after the FIRST real-world owner-succession surfaces concrete requirements. Pre-empting it here would be speculation.
 
 ---
 
@@ -145,115 +132,107 @@ Legacy state exits when a successor activation arrives (potentially years later)
 
 ### §4.1 Genesis
 
-Genesis is the only routine human-initiated event in the substrate's lifecycle.
+The only routine human-initiated event in the substrate's lifecycle.
 
-**Genesis protocol**:
+**Protocol**:
 
-1. Owner generates a substrate keypair (the owner's signing keypair for this specific substrate — may share root with other substrates per owner's choice).
-2. Owner runs a `genesis` invocation on the substrate's host with: `(initial-spore-schema, initial-appetite-axes-or-equivalent, initial-classifier-dimension-table, anchor-surface-config, owner-public-key)`.
-3. The substrate computes `substrate-ID = hash(initial-spore-schema, owner-public-key, genesis-timestamp)`.
-4. Owner signs `(substrate-ID, genesis-timestamp, initial-spore-schema-hash)` — the **birth attestation**.
-5. Substrate persists the identity record + DAG root sporocarp (`genesis_event`) and enters alive state.
+1. Owner generates owner-keypair + selects an anchor-surface endpoint mechanism.
+2. Owner runs `genesis` invocation with explicit parameters: `(initial-spore-schema, initial-dispatch-config, initial-classifier-dimension-table, anchor_surface_endpoint_public_key, owner_public_key, signature_suite)`. The `anchor_surface_endpoint_public_key` is owner-controlled; the substrate cannot self-discover it.
+3. The substrate emits **canonical bytes** of the spore-schema; owner client renders deterministically; owner reviews the render.
+4. The substrate computes `substrate-ID = hash(initial-spore-schema-canonical-bytes, owner-public-key, anchor-surface-endpoint-public-key, genesis-timestamp)`.
+5. Owner signs **the canonical bytes hash + the substrate-ID tuple** at the anchor surface — the birth attestation.
+6. Substrate persists identity record (substrate-ID, owner-key-history with first entry, anchor-surface-endpoint-public-key, signature-suite, birth-attestation-reference) + DAG root sporocarp.
 
-**Multi-owner co-genesis** (advanced; L1_GOVERNANCE-allowed):  if multiple owners co-sign genesis, all owners' public keys land in the identity record; CI events require any-1-of-N or all-N-of-N attestation (specified at genesis).
+Multi-owner co-genesis is deferred to L4.
 
 ### §4.2 Dormancy
 
-Per L0 §6: alive ↔ dormant.
+Per L0 §6 + L1_CONTINUITY §2. This doc adds:
 
-**Triggers** for alive → dormant:
-
-- Operator-connection drop detected at skin.
-- Idle timeout: ≥L1-tunable cycles without delta absorption (default 100 cycles).
 - Owner-commanded dormancy via CI event (rare; for substrate hibernation).
-
-**Dormant-state metabolism budget**:
-
-- **Throttled mode** (default): substrate gradient updates continue at L1-tunable reduced cadence (default 1/100th of alive cadence). No fruiting; intake is closed at skin.
-- **Paused mode** (opt-in via canon): substrate metabolism halts entirely; only operator-handshake listening continues.
-
-Triggers for dormant → alive: valid operator handshake (per L1_SKIN handshake protocol).
+- `operator_dormancy_request` — operator's `handshake_terminate` envelope may include `request_dormancy: paused | throttled` field; substrate honors the operator's preference unless overridden by resource pressure.
 
 ### §4.3 Reproduction closure (operationalizes I7)
 
-See L1_SCHEMA §3.3 for closure verification protocol. This section adds the governance dimensions:
+**Child substrate-ID minting**: parent proposes spore-schema canonical bytes; the **owner** (or owner's anchor-surface tooling) computes `child-substrate-ID = hash(parent-substrate-ID, spore-schema-canonical-bytes-hash, child-genesis-timestamp)`. Parent cannot mint. Owner signs the child's birth attestation at the anchor surface.
 
-- **Reproduction trigger**: emitted as a CI-level sporocarp (`reproduction_request`) — gating spawn on owner attestation.
-- **Parent's immune-signal summary** in spore-schema (per L0 P8 + pass-1 mycoparasite-13): parent attests its own immune state to child's spore-schema; child enters birth in `quarantined` if parent had unresolved CI-grade immune signals at spawn time.
-- **Federation_coupling edge**: post-spawn, parent's DAG records a `federation_coupling` edge to child-substrate-ID.
+**Closure verification protocol** (operationalizes I7): see L1_SCHEMA §3.3 for spore-schema validation steps. Owner co-signs the spawn at the anchor surface — `(parent-substrate-ID, child-substrate-ID, spore-schema-canonical-bytes-hash, anchor-surface-timestamp)`.
 
-### §4.4 Mortality
+**Parent's outstanding immune-signal summary** is included in the spore-schema (per L0 P8). Child whose parent had unresolved CI-grade immune signals enters birth in `quarantined` until owner re-attests intent.
+
+### §4.4 Mortality (dual-channel)
 
 Three destruction modes per L0 P7:
 
-**Intentional-owner**: owner emits a CI-level `destruction_attestation` sporocarp signed by owner. Substrate state transitions alive → destroyed. Backups remain per recoverability-budget policy; the substrate's *bestowed agent identity* ceases at the transition.
+**Intentional-owner**: owner emits CI-level `destruction_attestation` sporocarp signed by owner. Substrate transitions alive → destroyed.
 
-**Catastrophic-environment**: substrate medium failure beyond L1_SCHEMA recoverability budget. Detected post-hoc (next recovery drill fails; backup chain broken). Substrate is destroyed at the moment the catastrophe became unrecoverable; the bestowed identity continuum ceases retroactively to that moment.
+**Catastrophic-environment**: substrate medium failure beyond L1_SCHEMA recoverability budget. Detected post-hoc via recovery drill failure.
 
-**Endogenous-pair** (per L0 P7 + pass-1 mycorrhiza-4): substrate fruits a `self_euthanasia_proposal` CI-level event when its own metabolism crosses an unrecoverable-pathology threshold (sustained I3 / I5 / I8 invariant breaches beyond repair). The proposal requires owner co-attestation to execute. Owner retains veto; substrate retains agency.
+**Endogenous-pair** (with operator witness, dual channel):
+- **Substrate channel**: substrate fruits `self_euthanasia_proposal` when its own metabolism crosses unrecoverable-pathology threshold. **The active operator-connection at proposal time must produce an `operator_witness_hash`** before the proposal transmits to anchor surface. If no operator is connected, substrate enters `pre-mortal-pending` and waits for operator handshake before transmitting.
+- **Anchor-surface channel**: two consecutive failed recovery drills at the anchor surface auto-emit an owner-side `mortality_drill_failure` event. The substrate cannot suppress this — it lives at anchor surface.
 
-**Mortality-signal protection**: the threshold and update-rule for endogenous-mortality detection are CI-level (per L0 P7 mortality-signal protection clause); cannot be silently tuned to suppress warnings.
+Either channel can trigger the destruction proposal; owner co-attestation is required to execute (substrate cannot self-destroy without owner sign-off; anchor-surface-side trigger cannot bypass owner co-sign).
 
----
-
-## §5. Federation discovery and peer-trust freshness (operationalizes L0 P8 + I7)
-
-### §5.1 Discovery modes (L4 picks)
-
-- **Peer-to-peer broadcast**: substrates announce on a shared discovery channel; potential peers attest interest; owner attests adoption per peer.
-- **Owner-attested peer list**: owner maintains a curated list of approved peer substrate-IDs; substrate only federates with listed peers.
-- **Hub-and-spoke registry**: a designated registry substrate aggregates peers; subordinate substrates discover through the hub.
-- **Hybrid**: combinations.
-
-**Default proposal**: owner-attested peer list. Strongest isolation; lowest discovery automation. Other modes opt-in.
-
-### §5.2 Peer-trust freshness (per pass-1 mycoparasite-10)
-
-Once two substrates federate, each peer's attestation has an **L1-bounded freshness window** (default: 90 days of active operation).
-
-**Within freshness**: federation coupling operates normally. Federation events are accepted per the chosen L1_TROPISM B9 coupling mode (eager α / lazy β).
-
-**Past freshness**: substrate emits `peer_attestation_stale` immune event. Federation events are queued (not rejected) pending owner re-attestation. If stale for ≥L1-tunable additional grace (default 30 days): events are rejected with `untrusted_federation` immune event.
-
-**Revocation list**: anchor surface maintains a peer-revocation list. Revoked peer's events are immediately rejected (no grace).
-
-### §5.3 Cross-substrate trust transitivity
-
-Federation is **not transitive**. If substrate A federates with B and B federates with C, A does not automatically trust C. Each pair-wise trust requires owner attestation.
+**Mortality-signal protection**: per §1.2, mortality-signal threshold + update-rule + emergence-rule for mortality axis are all CI-level.
 
 ---
 
-## §6. Failed P3 evolution rollback (operationalizes L0 P3)
+## §5. Federation discovery and peer-trust freshness
+
+### §5.1 Discovery modes
+
+L4 picks from: peer-to-peer broadcast / owner-attested peer list / hub-and-spoke registry / hybrid. Default: owner-attested peer list (strongest isolation).
+
+### §5.2 Peer-trust freshness with aggregate re-attestation
+
+Each peer's attestation has an L1-bounded freshness window (default 90 active-operation days). Past freshness → `peer_attestation_stale` immune event; events queued pending re-attestation. Past additional grace (default 30 days) → `untrusted_federation`; events rejected.
+
+**Aggregate re-attestation**: to avoid O(N) owner workload per period, owner MAY issue a single `federation_peer_set_reattestation` event signing the current peer-set Merkle-root hash + diff against last commitment. The anchor surface displays the diff (peers added/removed since last aggregate-reattestation); owner reviews the diff, not the full set. Aggregate re-attestation is structurally equivalent to N pairwise re-attestations; owner cost is O(1) per period.
+
+**Revocation list**: anchor surface maintains a peer-revocation list. Successor activations and federation events must include an anchor-surface negative-revocation proof (fresh attestation that target has not been revoked).
+
+### §5.3 Federation egress runtime check
+
+Per L1_SKIN §3.1: every outbound federation envelope verifies the target peer's freshness + non-revocation BEFORE emission. Stale/revoked → suppression + `federation_egress_blocked` immune event.
+
+**Egress rate-limiting**: anchor surface tracks federation egress volume per peer per day. Spike beyond L1-tunable triggers `federation_egress_saturation` immune event. Federation event content uses canonical low-entropy serialization (sorted keys, normalized whitespace, fixed-precision numerics) to limit covert-channel bandwidth.
+
+### §5.4 Cross-substrate trust transitivity
+
+Federation is NOT transitive. Each pairwise trust requires owner attestation.
+
+---
+
+## §6. Failed P3 evolution rollback
 
 ### §6.1 Failure detection
 
-P3 evolution fires; substrate runs I3 self-validation in the next metabolic cycle. If I3 fails (state inconsistent with new SSoT designation):
-
-1. Substrate emits `evolution_failed` sporocarp (CI-elevated, ungated — failure is automatic, not owner-attested).
-2. Substrate enters rollback procedure.
+P3 evolution fires; substrate runs I3 self-validation in next cycle. If I3 fails → emit `evolution_failed` sporocarp (CI-elevated, ungated — failure is automatic). Substrate enters rollback procedure.
 
 ### §6.2 Rollback procedure
 
-1. Identify the pre-evolution DAG-tip hash (from DAG predecessor of the evolution event).
-2. Restore SSoT designation + classifier dimension table + affected canon fields to pre-evolution snapshot (snapshot must be retained per I4 — failed evolution doesn't get to delete its predecessor).
-3. Pending sporocarps fruited WITHIN the rolled-back window are dropped (recorded as `evolution_failed_pending_dropped` per pass-1 rhizomorph-17). Pending sporocarps from BEFORE the rolled-back window survive.
-4. Emit `rollback_complete` sporocarp.
+1. Identify pre-evolution DAG-tip from predecessor of evolution event.
+2. Restore SSoT designation + classifier table + affected canon to pre-evolution snapshot (retained per I4).
+3. Pending sporocarps fruited within rolled-back window are dropped, recorded as `evolution_failed_pending_dropped`. Pre-window pending sporocarps survive.
+4. Emit `rollback_complete`.
 
-### §6.3 Repeated failures
-
-If ≥L1-tunable consecutive evolutions fail (default 3): substrate enters `evolution_quarantine` sub-state of alive. No new evolution attempts until owner-attested cleared.
-
-This addresses pass-1 saprotroph-11 burst-detection at the metabolic level (the L0 §9.4 burst detection is at the doc-revision level; this is at the substrate-internal-evolution level).
+Repeated failures across a 30-day window appear in observatory as `evolution_failure_rate_elevated`; owner reviews. No separate `evolution_quarantine` sub-state (handled via standard quarantine entry under L1_CONTINUITY §5).
 
 ---
 
 ## §7. Open at L1, deferred to L4
 
-Per architectural-astronaut discipline:
+- Owner key custody specific mechanism.
+- Idle timeout for alive → dormant (default 100 cycles).
+- Federation discovery mode (default owner-attested peer list).
+- Federation peer-trust freshness window (default 90 days active op).
+- Federation egress rate-limit ceilings.
+- Anchor-surface endpoint specific protocol (hardware token / separate machine / cloud HSM / signed prompt review).
+- Canonical-bytes serialization format (sorted-keys YAML / canonical-JSON / custom).
+- Liveness heartbeat cadence (default monthly).
+- Birth period maximum duration (default 180 days).
+- Full owner-succession FSM (deferred until first real-world need).
+- Cryptographic suite candidates within {SHA-256, BLAKE3, SHA-3-256, Ed25519, post-quantum candidates}.
 
-- **Owner key custody specific mechanism** — owner picks (hardware token / separate machine / cloud HSM / etc.).
-- **Idle timeout for alive → dormant** — default 100 cycles; L4 calibrates.
-- **Discovery mode** — owner picks based on threat model.
-- **Federation peer-trust freshness window** — default 90 days; L4 calibrates against observed peer activity.
-- **Repeated-failure quarantine threshold** — default 3; L4 calibrates.
-- **Multi-owner attestation policy** — single-owner default; multi-owner opt-in at genesis.
+Shape is committed; values are L4.

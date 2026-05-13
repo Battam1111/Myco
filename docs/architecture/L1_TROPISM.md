@@ -36,7 +36,7 @@ Tropism has two layers:
 - **Gradient configuration** (medium): continuously-evolving multi-dimensional structure where each axis is one appetite. The agent inhabits this medium. Both sides perturb (agent via deltas; substrate via own metabolism).
 - **Sporocarp** (observable): substrate-initiated discrete records that anchor the continuous medium to checkable observables.
 
-**Symmetry locus** (resolves pass-1 mycorrhiza-2): the gradient layer is symmetric — both sides participate. The sporocarp layer is intentionally substrate-initiated — sporocarps are the substrate's discrete utterances; the agent's discrete utterances are deltas (which already carry envelope structure per L1_SKIN §2 — deltas are not "raw content" but typed envelopes). The pair is symmetric at the medium, reciprocally asymmetric at the punctuation.
+**Symmetry locus** (refined per pass-2 mycorrhiza-15): the gradient layer is **jointly perturbed** — substrate via internal update-rules; operator-connection via skin-validated deltas. The perturbation surfaces are **reciprocally asymmetric** (substrate has direct gradient access; agent has skin-mediated access), licensed by P1.c carrier-asymmetry. The sporocarp layer is asymmetric in initiation: substrate fruits sporocarps; agent emits deltas. Both are typed; both pass through skin envelope validation; the agent's deltas are validated at intake; substrate's sporocarps carry causal-proofs per §B6. The two layers are reciprocally asymmetric, both licensed by carrier-asymmetry. Neither layer is "fully symmetric" — calling them symmetric was the DRAFT 1 cosmetic claim that pass-2 corrected.
 
 **Why sporocarps are not verbs**: a verb is agent-initiated (agent calls → substrate executes). A sporocarp is substrate-initiated (gradient crosses trigger → substrate fruits → agent observes). Arrow reversed.
 
@@ -52,13 +52,9 @@ Tropism has two layers:
 
 ---
 
-## §A. Continuity hooks (cross-ref L1_CONTINUITY)
+## §A. Continuity hooks (one line)
 
-Continuity-recovery, cycle cadence, dormancy throttle, host-crash delta atomicity, quarantine handling are L1_CONTINUITY's domain. Tropism integrates by:
-
-- **Metabolic cycle structure** (L1_CONTINUITY §1.1) — step 2 (gradient advances), step 5 (sporocarp emission), step 6 (DAG update) are tropism's contributions.
-- **Quarantine entry** triggers fruiting of `cold_resume_quarantine` sporocarp class.
-- **Cycle backlog detection** (L1_CONTINUITY §1.2) → tropism doesn't process backlog itself; emits `cycle_backlog` so the L1_CONTINUITY-level monitor catches it.
+Continuity hooks (cycle cadence, dormancy, recovery, quarantine, delta atomicity, cold-resume): L1_CONTINUITY owns. Tropism's gradient-advance + sporocarp-emit + DAG-update are step 2 + step 3 of the L1_CONTINUITY §1.1 metabolic cycle.
 
 ---
 
@@ -73,8 +69,12 @@ Each appetite carries:
 - `domain` (gradient value space).
 - `update_rule` (substrate-internal function; pure of (gradient-state, recent-deltas, recent-sporocarps, time-elapsed)).
 - `seed_fruiting_trigger` (birth-period hand-coded threshold).
-- `threshold_emergence_rule` (migration to steady-state emergent).
-- `causal_proof_template` (per pass-1 mycoparasite-3 — when this appetite fruits, the sporocarp's `causal_in_edges` includes the proof tuple `(delta_set, gradient-state-snapshot-hash, threshold-value)` such that I3 self-validation can re-derive the fruiting condition).
+- `threshold_emergence_rule` (migration to steady-state emergent; threshold-emergence governance classification per L1_GOVERNANCE §1.2 dimension table — non-mortality axes daily; mortality-signal axis CI).
+- `causal_proof_template` + `template_version` — when this appetite fruits, the sporocarp's `causal_in_edges` includes proof tuple `(delta_set, gradient-state-snapshot-hash, threshold-value, template_version)`. I3 self-validation re-derives the fruiting condition under the template-version recorded.
+
+**Template versioning** (per pass-2 saprotroph-20): the `causal_proof_template` may evolve per P3 (CI-level event). Each evolution increments `template_version`. Sporocarps record the version under which their proof was computed; I3 validates against that version, not against the current template. Old templates remain referenced from cold-tier sporocarps. Substrate maintains `template_version_registry` (CI-level field) listing all historical templates with their valid-from cycle.
+
+**Clusterer location** (cross-ref L1_TRAJECTORY + L1_CONTINUITY): when L1_TRAJECTORY clustering is invoked (trajectory derivation, echo-chamber detection), execution runs within the substrate process (no network egress required). Trajectory derivation fires on-demand at digest-emission time and at echo-chamber detection cadence (L4-tunable) within step 2 (gradient advance) of the metabolic cycle.
 
 ### B2. Initial appetite set — illustrative seed, NOT normative (per pass-1 astronaut-4)
 

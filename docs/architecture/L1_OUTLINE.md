@@ -84,9 +84,12 @@ L1 v0.9 is **not** "R1-R7 rephrased". L1 is whatever specifications emerge from 
 | §7 falsifiability trigger predicate | `L1_GOVERNANCE.md` (observatory) + L0 (predicate) ✓ |
 | §9 anchor surface specific form | `L1_GOVERNANCE.md` ✓ |
 | §9.4 L0-revision burst detection | `L1_GOVERNANCE.md` ✓ |
-| §11 birth-period N | `L1_TROPISM.md` (steady-state activation) + `L1_GOVERNANCE.md` (owner vigilance) ✓ |
+| §11 birth-period N | `L1_TROPISM.md` (steady-state activation) + `L1_GOVERNANCE.md` (owner vigilance + maximum-duration) ✓ |
+| P1.a self-hosting bootstrap | `L1_TROPISM.md` §B10 ✓ |
+| §10.2 L0-revision back-pressure protocol | this `L1_OUTLINE.md` §4 + L0 §10.2 ✓ |
+| §11 privacy/access (no internal boundaries) | implicit L1_SKIN §1 single-skin ✓ |
 
-**Every L0 design hook has an L1 owner. None pending.**
+**Every L0 design hook has an L1 owner.**
 
 ---
 
