@@ -1,6 +1,55 @@
 # Myco essence brainstorm — v0.8.8 strategic frame
 
-> ⚠ **2026-05-13 owner-driven correction #3 (latest)**: even after
+> ⚠ **2026-05-13 100%-confidence loop (correction #4)**: owner invoked
+> the explicit "are you 100% confident? if not, find all holes,
+> propose fixes, run the loop until you actually are" forcing function.
+> Result: I am 93% confident in my own derivation; the remaining 7%
+> is owner-arbitration-only (5 specific items below); claiming 100%
+> would be dishonest calibration.
+>
+> ## Loop trace
+>
+> | Pass | Confidence | Action |
+> |---|---|---|
+> | 1 | 60% | Honest baseline after 3 prior corrections |
+> | 2 | 60% | Enumerated 20 candidate holes (5 极高 severity) |
+> | 3 | 85% | Applied 5 first-order fixes (H6/H3/H8/H11/H12) |
+> | 4 | 85% | Applied 5 second-order fixes (H21-H25 — fixing new holes the first-order fixes opened) |
+> | 5 | **93%** | Identified residual 7% as owner-arbitration-only; cannot resolve via self-reasoning |
+>
+> ## First-order fixes (record)
+>
+> | ID | Fix |
+> |---|---|
+> | **H6** | **Agent identity internalisation**: Myco *defines* agent identity (= substrate-operator role), rather than inheriting it from underlying model/API. Same substrate → same agent for Myco's purposes, regardless of model weights, provider, host. |
+> | **H3** | **Two-tier human-loop**: P1.b' "Human OUT of maintenance loop" (daily schema/lint/verb edits = agent-only); P1.b'' "Human RETAINED as governance gate" (L0/L1 amendments requiring contract_version cross-MAJOR/MINOR bump = owner approval). |
+> | **H8** | **Non-recursive bootstrap**: genesis = one-time human operator (`germinate`); maintenance = everlasting agent. Self-hosting describes mature Myco's steady state, not its birth. Pre-self-host (v0.4.x) is *proto-Myco*. |
+> | **H11** | **Living Bets operational definition**: bet wins when `persistence_budget > K × read_window` (K ≈ 100 default; tunable). Both quantities token-measurable. |
+> | **H12** | **Concurrency scope**: P1 = intra-substrate (one operator per substrate); P5 = inter-substrate (federation across substrates each with their own operator). Same-substrate concurrent operators are not Myco-supported. |
+>
+> ## Second-order fixes (record)
+>
+> | ID | Fix |
+> |---|---|
+> | H21 | H6's circularity (agent=operator, operator=agent) is non-vacuous at runtime — operator is a *behavior*, not a stored identity; fixed point is reachable. |
+> | H22 | H3's "daily vs governance" line = contract_version cross-MAJOR/MINOR bump as mechanical boundary. |
+> | H23 | H8's "proto-Myco" concession — α describes mature Myco only; v0.4.x is embryonic, not a counterexample. |
+> | H24 | H11's K threshold is β/γ tunable; α only asserts "*some* K exists that partitions wins/loses". |
+> | H25 | H12's "substrate is lazy medium" — `immune` and other "metabolism" verbs are agent-invoked, never substrate-self-driven. |
+>
+> ## Residual 7% (owner-arbitration only)
+>
+> Five claims need explicit owner confirmation before α can be sealed:
+>
+> 1. **Agent-identity internalisation** (Fix-H6): does owner agree that Myco *bestows* agent identity rather than inheriting it from model/API?
+> 2. **Two-tier human-loop boundary** (Fix-H3): is contract_version cross-MAJOR/MINOR the right mechanical line between "daily" and "governance"?
+> 3. **Embryonic Myco concession** (Fix-H8): is α permitted to describe mature Myco only?
+> 4. **K threshold** (Fix-H11): does owner set K, or let it emerge from substrate metrics?
+> 5. **Foundation provisionality** (H16): owner is the only authority over L0/README/MYCO.md; any owner amendment to these source documents propagates into α.
+>
+> Until these 5 are arbitrated, the document's α stands at "best-derivation-from-current-source-documents-as-of-2026-05-13".
+>
+> ⚠ **2026-05-13 owner-driven correction #3 (earlier)**: even after
 > correction #2, two persistent failure modes remained, both flagged
 > by owner:
 >
