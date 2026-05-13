@@ -150,8 +150,8 @@ The only routine human-initiated event in the substrate's lifecycle.
 
 **Protocol**:
 
-1. Owner generates owner-keypair + selects an anchor-surface endpoint mechanism.
-2. Owner runs `genesis` invocation with explicit parameters: `(initial-spore-schema, initial-dispatch-config, initial-classifier-dimension-table, anchor_surface_endpoint_public_key, owner_public_key, signature_suite)`. The `anchor_surface_endpoint_public_key` is owner-controlled; the substrate cannot self-discover it.
+1. Owner generates owner-keypair + selects an anchor-surface endpoint mechanism + verifies anchor-surface-client provenance per L0 §9.3 (client installed from a channel structurally independent of the substrate).
+2. Owner runs `genesis` invocation with explicit parameters: `(initial-spore-schema, initial-dispatch-config, initial-classifier-dimension-table, anchor_surface_endpoint_public_key, owner_public_key, signature_suite, anchor_client_provenance_attestation, substrate_secret_sealing_mechanism_attestation)`. The `anchor_surface_endpoint_public_key` is owner-controlled; the substrate cannot self-discover it. The provenance + sealing attestations are owner-signed records of the installed anchor-surface client's distribution path and the substrate_secret OS-sealing mechanism (per L1_SKIN §4.2).
 3. The substrate emits **canonical bytes** of the spore-schema; owner client renders deterministically; owner reviews the render.
 4. The substrate computes `substrate-ID = hash(initial-spore-schema-canonical-bytes, owner-public-key, anchor-surface-endpoint-public-key, genesis-timestamp)`.
 5. Owner signs **the canonical bytes hash + the substrate-ID tuple** at the anchor surface — the birth attestation.
