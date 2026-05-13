@@ -9,6 +9,80 @@
 > **Scope**: NOT a contract change — this is a reflection document.
 > Any L0/L1 amendment derived from this brainstorm must go through the
 > standard `fruit → winnow → molt` cycle.
+>
+> **2026-05-13 owner correction recorded inline**: §5 originally listed
+> "5 root principles + 3 invariants + 7 rules + 20 verbs + 7 subsystems
+> + 47 dims + biological vocabulary + plugin axes + dual hook" as
+> "non-negotiable identity". That was a category error — those are the
+> **v0.8.7 current recipe (Beta)**, not the **essence (Alpha)**. Every
+> item in that list has been mutated at least once between v0.4 and
+> v0.8.7 (rule count, verb count, subsystem count, dim count, schema
+> version, hook count all moved). The corrected three-layer
+> decomposition lives at §0 (added below) and §5 (rewritten). The
+> previous "IN list" frame would have made fundamental reconstruction
+> ("彻底重构") impossible because it locked the recipe instead of the
+> essence.
+
+---
+
+## 0. The three-layer decomposition (2026-05-13 correction)
+
+Earlier drafts of this document conflated three distinct strata. To
+make fundamental reconstruction tractable, separate them explicitly:
+
+| Layer | Content | Reconstruction latitude |
+|---|---|---|
+| **α (Essence)** | The 6 atomic predicates below. The irreducible "what Myco is". | **Zero**. Removing any one turns Myco into a different kind of artifact (wiki / chatbot memory / RAG / notebook / fixed-schema database). |
+| **β (Current recipe)** | 5 principles, 3 invariants, 7 rules, 20 verbs, 7 subsystems, 47 dims, biological vocabulary, canon-as-YAML, MCP+CLI surfaces, dual-hook discipline, plugin axes. | **Complete**. Any β item can be replaced with a different design that still satisfies α. None is "non-negotiable identity"; all have mutated at least once between v0.4 and v0.8.7. |
+| **γ (Current implementation)** | 64 .py source files, the specific dependency graph, the specific test suite, the specific manifest.yaml, the cluster-merge file layout. | **Always**. γ moves whenever the recipe moves, and even when it doesn't (e.g. v0.8.8 cluster merges kept β stable but rewrote γ). |
+
+### The α layer (6 atomic predicates — non-negotiable)
+
+| # | Predicate | Why it's irreducible (the negative counterexample) |
+|---|---|---|
+| α1 | **Persistent** — the substrate survives the agent's read window. | If you drop persistence you have chatbot memory, not Myco. |
+| α2 | **Mechanically self-validating** — the substrate enforces its own integrity invariants; the agent CANNOT silently corrupt it. | If you drop self-validation you have a wiki / shared notebook. |
+| α3 | **Co-authored** — both the agent and the substrate's own machinery shape the substrate; the substrate's shape (schema) is itself first-class data. | If you drop co-authorship you have a fixed-schema database. |
+| α4 | **Agent-readable** — the substrate is accessible to LLM agents through some protocol. | If you drop agent-readability you have an artifact for humans (documentation system). |
+| α5 | **Protocol-coordinated** — there exists a shared grammar (whatever form) between the agent and the substrate. | If you drop the shared grammar you have a bag of files with no API. |
+| α6 | **Continuity-of-self** — across sessions / hosts / agent instances, the substrate restores a "self" to the agent. | If you drop continuity you have per-session RAG, not a substrate. |
+
+These 6 are the **only** things Myco cannot lose without becoming a
+different kind of thing. The 5 root principles in L0 are a particular
+projection of α onto a particular vocabulary; α is what survives if L0
+itself were rewritten.
+
+### The β layer (current recipe — completely re-architectable)
+
+Every item below is a β-layer design choice. **None of them are
+non-negotiable.** Each could be replaced with a different design that
+still satisfies α:
+
+| β choice | Why it's β, not α | Reconstruction-space example |
+|---|---|---|
+| 5 root principles (L0) | Particular projection of α onto a vocabulary; L0 itself is owner-mutable. | Could be 3 principles, 8 principles, or zero principles + direct α statement. |
+| 3 derived invariants | Derived from the 5 principles. | Falls out of whatever principle set replaces L0. |
+| 7 hard rules R1-R7 (L1) | L1 itself says "Adding an eighth rule requires a craft + bump + approval". Rule count has been disputed historically (MYCO.md=7 vs CLAUDE.md=6 before alignment). | Could be 3 rules, 12 rules, or a totally different rule grammar (e.g. capability-based). |
+| 20 verbs | History: 6 → 11 → 17 → 19 → 20. | Could be 5 verbs (CRUD-shaped), 50 verbs (fine-grained), or even 0 verbs (raw graph operations exposed). |
+| 7 subsystems | History: 5 (v0.4) → 6 (cycle, v0.5.3) → 7 (boundary, v0.6.0). | Could be 3 mega-subsystems, 15 micro-subsystems, or no subsystem partition at all. |
+| 47 immune dimensions | History: 11 → 25 → 30+ → 51 → 47. | Could be replaced entirely by a type system, property-based tests, or a runtime contract DSL. |
+| canon schema | History: v1 → v2 → v3 → v4 (every anamorph bump). | Could be JSON Schema, protobuf, SQLite metadata table, or in-memory dataclass. |
+| biological vocabulary | L0 locks it but L0 itself is owner-mutable. | Could be military terms, mathematical terms, geological terms, or arbitrary symbols. The metaphor is the *agent's prior*, not the substrate's identity. |
+| canon-as-YAML | One serialization choice. | Could be TOML, JSON, sqlite, in-memory dataclass with file mirror. |
+| MCP + CLI surfaces | Two protocol implementations. | Could be REST, GraphQL, gRPC, direct function calls, or shared-memory IPC. |
+| dual-hook discipline | History: single hook (pre-v0.5.7) → dual hook → potentially tri-hook. | Could be polling-based, signal-driven, daemon-based, or hook-less with explicit verb calls. |
+| `.myco/plugins/` + JsonClientSpec axes | Two extension axes (per-substrate + per-host). | Could be one axis (per-tenant), three axes (per-substrate + per-host + per-team), or a single capability registry. |
+
+### Why this matters for "彻底重构"
+
+A reconstruction that preserves α and rewrites β is still Myco — just a
+different recipe. A reconstruction that preserves β but breaks α is no
+longer Myco — same recipe, different essence. The earlier "IN list"
+locked β as identity, which would have made true reconstruction
+impossible (every β change would have read as a Myco-killing breach).
+By relocating identity to α, the design space for v0.9+ opens up: the
+question becomes "what β satisfies α best given today's constraints?"
+not "how do we minimally tweak the v0.8.7 β?".
 
 ---
 
@@ -113,20 +187,57 @@ direct hard-contract weight):
 Five verbs carry hard-contract weight; the other 15 implement principles
 2-5 mechanically.
 
-## 5. The boundary — what's IN vs OUT
+## 5. The boundary — α (non-negotiable) vs β (currently shipped recipe) vs γ (current implementation) vs OUT (already cut)
 
-### IN (non-negotiable identity)
+**Earlier framing**: this section originally listed β items as
+"non-negotiable identity". That was the category error owner flagged
+on 2026-05-13. Corrected below: only α is non-negotiable; β is
+re-architectable; γ is implementation; OUT is the v0.8.8 excretion
+roster.
 
-- 5 root principles + 3 derived invariants (L0).
-- 7 hard rules R1-R7 (L1).
-- 20 verbs + 7 subsystems (L2/L3).
-- 47 immune dimensions.
-- `canon` schema as single source of truth.
-- biological vocabulary (mandatory; L0 says "no alternate vocabulary").
-- substrate-local `.myco/plugins/` extension axis (per-substrate).
-- per-host `boundary/install/clients.py::JsonClientSpec` registry (10 MCP hosts).
-- dual-hook discipline (`SessionStart` → hunger; `PreCompact` → senesce-full;
-  `SessionEnd` → senesce-quick).
+### α — non-negotiable (rewriting any of these makes the artifact
+no-longer-Myco)
+
+The 6 atomic predicates from §0:
+α1 persistent, α2 mechanically self-validating, α3 co-authored,
+α4 agent-readable, α5 protocol-coordinated, α6 continuity-of-self.
+
+### β — currently shipped recipe (re-architectable in v0.9+)
+
+These satisfy α today but are not the only β that could satisfy α.
+A v1.0 reconstruction may replace any subset:
+
+- L0: 5 root principles + 3 derived invariants + biological metaphor +
+  Living Bets appendix.
+- L1: 7 hard rules R1-R7 + canon schema + exit codes.
+- L2: 7 subsystems (germination, ingestion, digestion, circulation,
+  homeostasis, cycle, boundary).
+- L3: 20 verbs + 47 immune dimensions.
+- canon-as-YAML at `_canon.yaml` (or `.myco/canon.yaml`).
+- MCP stdio + streamable-HTTP transports + CLI argparse surface.
+- Dual hook discipline (SessionStart=hunger, PreCompact=senesce-full,
+  SessionEnd=senesce-quick).
+- Two extension axes: `.myco/plugins/` + `JsonClientSpec`.
+
+### γ — current implementation (always negotiable)
+
+- 64 .py source files at v0.8.8 (down from 137 at v0.8.7 ship).
+- The specific cluster-merge file layout.
+- The specific dependency graph (PA4 core-no-subsystem-deps, etc.).
+- 1268 tests + 47 dim entry-points + manifest.yaml dispatch table.
+
+### OUT — v0.8.8 excretions (will not return)
+
+- Specialized adapters (PDF / HTML / URL / audio / image_ocr / video /
+  sqlite / git_history / email / chat_log). Re-addable via
+  `.myco/plugins/adapters/`.
+- Framework demos (agno / crewai / dspy / langgraph / smolagents /
+  microsoft-agent / praisonai / claude-sdk).
+- v0.6.13 `src/myco/mcp/` back-compat shim.
+- `.docs/primordia/` archive.
+- Per-boundary migration guides (collapsed to `HISTORY.md`).
+- Benchmark gates.
+- `[adapters]` / `[examples]` / `[multimedia]` optional extras.
 
 ### OUT (v0.8.8 excretions — will not return)
 
@@ -357,17 +468,56 @@ it (saves ~700 LOC + simplifies the verb count to 19).
 
 ## 10. The wager restated for v0.9+
 
-Myco is betting that:
+Two wagers, separated by layer:
 
-1. **Agent intelligence grows** ⟶ coordination grammar **stays useful**.
-2. **Substrate persistence** ⟶ exceeds any single agent's read window
-   ⟶ verb surface earns its keep.
-3. **Specialized adapters** ⟶ live in substrate-local plugins
-   (`.myco/plugins/adapters/`), not in the kernel.
+### α-layer wager (load-bearing — if this loses, Myco self-terminates)
 
-If those bets hold, **v0.9 is smaller than v0.8** (further cuts to the
-perimeter while the kernel stays stable). If those bets break, Myco
-re-justifies via the v1.0 audit per the Living Bets cadence.
+Across the next 3-5 years of LLM evolution, agent intelligence grows
+**but** the agent's read window remains finite, **and** substrates
+exceeding that window remain valuable. Within that window:
+
+- α1 (persistent), α2 (self-validating), α3 (co-authored), α4
+  (agent-readable), α5 (protocol-coordinated), α6 (continuity-of-self)
+  remain meaningful predicates.
+
+If a future Agent can hold a 1M-file substrate entirely in context
+without protocol mediation, α5 collapses (the agent IS the protocol)
+and α2/α3 weaken (the agent can self-validate without external
+machinery). At that point Myco's α justification needs re-derivation
+or the project retires per L0 Living Bets cadence.
+
+### β-layer wager (re-architectable — failing this triggers a v1.0 redesign, not a project end)
+
+The **current** β (5 principles, 7 rules, 20 verbs, 7 subsystems, 47
+dims, biological vocabulary, MCP+CLI surfaces) is the right recipe
+**for today's agent capability**. Specifically:
+
+- 20 verbs are a sweet spot at current Agent reading speed:
+  small enough to fit in a single boot-brief glance, large enough
+  to express the full state-machine of substrate ops.
+- 47 dims at current accretion is over-tuned; v0.9 likely cuts.
+- Biological vocabulary gives a useful prior; an alternative
+  prior (mathematical / military / spatial) might give a better
+  prior for some Agent classes.
+- canon-as-YAML is the lowest-friction serialization given that
+  every Agent today treats YAML as legible structured text.
+
+If usage data from v0.9 audit (S1 — Living Bets re-audit) suggests
+β over- or under-fits, β is fully replaceable without breaking α.
+v1.0 may ship a completely different β.
+
+### What this license to redesign enables
+
+The "彻底重构" the owner is preparing for is NOT a contract amendment
+inside the v0.8.7 β. It is a license to **draft a new β from scratch**
+that:
+
+- preserves all of α
+- chooses its own verb count, vocabulary, dim count, schema format,
+  protocol surface, hook discipline, extension axes
+- inherits no β-layer item from v0.8.7 by obligation
+
+The brainstorm at §0 §5 §10 sets up that latitude.
 
 ## 11. Cross-references (R5 satisfied)
 
