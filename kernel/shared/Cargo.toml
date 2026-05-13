@@ -1,0 +1,31 @@
+[package]
+name = "myco-kernel-shared"
+description = "Myco v0.9 — kernel/shared: canonical-bytes serializer, crypto primitives, sealed-derive wrapper, active-prefix data structure"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+name = "myco_kernel_shared"
+path = "src/lib.rs"
+
+[dependencies]
+thiserror.workspace = true
+blake3.workspace = true
+hmac.workspace = true
+sha2.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
+hex.workspace = true
+
+[features]
+default = []
+# Optional: real OS-sealing backends. M1 ships with a software-only stub
+# for sealed-derive; production substrates pick one of these:
+sealing-tpm = []          # TPM-sealed key (Linux + Windows TPM 2.0)
+sealing-keyring = []      # Linux kernel keyring
+sealing-hsm = []          # PKCS#11 HSM
+sealing-secure-enclave = []  # macOS / iOS Secure Enclave

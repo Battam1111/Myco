@@ -1,0 +1,49 @@
+# Myco v0.9 substrate — Cargo workspace root
+#
+# This workspace contains the Rust-implemented modules of the v0.9 substrate-kernel
+# (per L3_PACKAGE_MAP §2-§6). Python modules (governance, tropism, trajectory,
+# hard_rules) live under kernel/<name>/ but use their own Python build tooling
+# (pyproject.toml). TypeScript modules (anchor_client, operator_bindings) live
+# in their own directories with their own package.json files.
+#
+# Per L3_OUTLINE §5 owner-chosen multi-language split:
+# - Rust (this workspace): kernel/shared + kernel/skin + kernel/schema + kernel/continuity
+# - Python: kernel/governance + kernel/tropism + kernel/trajectory + kernel/hard_rules
+# - TypeScript: anchor_client + operator_bindings/<host>
+#
+# Cross-language canonical-bytes parity is enforced via a shared test vector suite
+# (each language's serializer round-trips identical bytes on identical inputs).
+
+[workspace]
+resolver = "2"
+members = [
+    "kernel/shared",
+    # Future Rust crates land here as M1-M4 progresses:
+    # "kernel/skin",
+    # "kernel/schema",
+    # "kernel/continuity",
+]
+
+[workspace.package]
+# Per L0 §10.1 + L3_OUTLINE: v0.9 substrate version is shared across all kernel crates.
+# This is NOT a SemVer of any individual crate; it's the substrate version.
+version = "0.9.0-alpha.1"
+edition = "2021"
+rust-version = "1.75"
+license = "Proprietary"  # L4 owner decision; placeholder until owner picks
+repository = "https://github.com/Battam1111/Myco"
+
+[workspace.dependencies]
+# Pinned versions for cross-crate consistency. Bump together.
+thiserror = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+blake3 = "1.5"
+hmac = "0.12"
+sha2 = "0.10"
+proptest = "1.4"
+hex = "0.4"
+
+# Per L3_PACKAGE_MAP §2.3 critical: canonical-bytes serializer must round-trip
+# identically across substrate-kernel (Rust), operator-bindings (per host),
+# and anchor_client (TypeScript). Cross-language test vector suite lives in
+# tests/canonical_bytes_vectors/ (see kernel/shared/tests/).
