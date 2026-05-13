@@ -1,0 +1,50 @@
+# Myco v0.9 substrate — .gitignore
+
+# Rust build artifacts
+target/
+**/*.rs.bk
+Cargo.lock          # workspace-level; each crate's lock checked in only for binaries
+
+# Python build artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+build/
+dist/
+
+# Node / TypeScript (for anchor_client + operator_bindings/<ts host>)
+node_modules/
+*.tsbuildinfo
+.next/
+.nuxt/
+
+# IDE / editor
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Stale main-branch artifacts (these are from `main` checkout leaking onto v0.9-genesis worktree)
+# Once main branch retires v0.8.x they can be deleted; for now we ignore so they don't appear in `git status`.
+# IMPORTANT: anchored to repo root with leading `/`. This excludes ONLY the top-level main-branch stale dirs;
+# nested src/ directories (e.g., kernel/shared/src/) are NOT ignored.
+/.claude/
+/.coverage
+/.docs/
+/.myco/
+/.scripts/
+/.tests/
+/coverage.xml
+/src/
+
+# Substrate runtime state (when v0.9 substrates run, these dirs hold their state — never commit substrate state)
+# Each substrate has its own state directory under a configurable path; this catches the conventional one.
+.substrate/
+substrate_state/
