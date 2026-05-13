@@ -48,14 +48,21 @@ the legacy `surface/` (CLI/MCP/manifest) + `install/` (host writers) +
 its "Sixth seam" and "Subagents and slash commands" sections for the
 v0.6.11+ + v0.6.14+ cross-cutting extensions.
 
-## Reflections and roadmap
+## L0.5 essence layer (v0.8 → v0.9 transitional doctrine, 2026-05-13)
 
+> **Authority**: above L1, below L0; binding for the v0.8 → v0.9
+> transition window. Self-archives at v0.9 ground-up rewrite kickoff.
+
+- [`L0_5_ESSENCE.md`](./L0_5_ESSENCE.md) — owner-arbitrated essence
+  doctrine carrying five decisions (1A agent-substrate symbiosis;
+  2A governance gate at MAJOR/MINOR contract bump; 3D v0.8.x = dead
+  embryo, v0.9 = first true birth; 4B Living Bets observatory; 5E
+  L0.5 layer lifecycle). L0.5 absorbs into the new L0 at v0.9
+  kickoff.
 - [`ESSENCE_BRAINSTORM_2026-05-13.md`](./ESSENCE_BRAINSTORM_2026-05-13.md)
-  — strategic frame authored after the v0.8.8 max-aggressive cleanup
-  (8 commits, ~53% file-count reduction). Defines the Tier-0 kernel,
-  the in/out boundary, the tension map, and 9 proposed v0.9+ work
-  streams (S1-S9). Read this for a top-down view of "what survived,
-  why, and what comes next".
+  — deliberation log (4 self-corrections + 100%-confidence loop +
+  20 candidate holes + 10 first-/second-order fixes). Records HOW
+  the 5 decisions were reached.
 
 ## Reading order (new agent)
 
