@@ -1,0 +1,19 @@
+[package]
+name = "myco-test-vectors-rs"
+description = "Myco v0.9 — Rust-side canonical-bytes parity test against shared JSON contract"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+name = "myco_test_vectors_rs"
+path = "src/lib.rs"
+
+[dependencies]
+
+[dev-dependencies]
+myco-kernel-shared = { path = "../kernel/shared" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
