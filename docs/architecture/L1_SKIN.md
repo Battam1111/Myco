@@ -75,33 +75,36 @@ Anything outside declared endpoints is skin breach.
 
 ## §4. Operator handshake protocol (bidirectional)
 
-### §4.1 Handshake initiation
+### §4.1 Handshake initiation + operator key bootstrap
 
-Operator-connection arriving at the intake endpoint emits:
+**Operator carries a per-handshake signing keypair**: the operator's runtime generates a fresh keypair (`operator_signing_key_public`, `operator_signing_key_private`) at handshake initiation. Private key lives in operator-runtime memory only (never on disk; never transmitted to substrate); public key is published in the handshake_initiate envelope. This gives the operator a real signing surface distinct from the substrate-generated operator_token (closes pass-3 mycorrhiza-17 + rhizomorph-1 cryptographic-hollow finding: operator_witness fields signed with operator_signing_key_private are forge-resistant by the substrate).
 
 ```
 {
   "envelope_version": <integer>,
   "operator_kind": "handshake_initiate",
   "substrate_id_proof": <claim about target substrate-ID>,
+  "operator_signing_key_public": <freshly-generated operator-side public key>,
   "operator_attestation_request": <field requesting operator-token>,
   "continuity_claim": <"fresh" | "owner_attested_continuity">,
   "submitted_at": <wall-clock>
 }
 ```
 
-**Substrate-ID discovery**: operator obtains the target substrate-ID **out-of-band from the owner** (or via anchor-surface lookup) — NOT from substrate-side files. Substrate-ID in agent-readable canon is advisory; the substrate verifies its own substrate-ID against its anchor-surface birth attestation, not against the agent's claim. The agent's `substrate_id_proof` is a sanity check that the agent is targeting the right substrate; mismatch → `substrate_id_mismatch` + handshake rejection.
+**Operator pubkey-pinning at agent-bootstrap** (closes pass-3 mycoparasite-6): at first operator-agent installation, the owner provides `(substrate-ID, anchor-surface-endpoint-public-key, owner-public-key)` to the operator runtime via an owner-controlled out-of-band channel. The operator pins these. The operator NEVER trusts an owner-pubkey emitted by the substrate's own handshake response — it only verifies the substrate's emitted signature against the anchor-surface-fetched (or bootstrap-pinned) owner pubkey.
+
+**Substrate-ID discovery**: operator obtains the target substrate-ID at agent-bootstrap from the owner (per the bootstrap-pinning above). Substrate-ID in agent-readable canon is advisory; mismatch with the bootstrap-pinned substrate-ID → `substrate_id_mismatch` + handshake rejection.
 
 ### §4.2 Substrate response — bidirectional validation
 
 The substrate:
 
 1. Validates `substrate_id_proof` against its own identity record (the agent is targeting THIS substrate, not stale).
-2. Generates a **non-deterministic operator_token**:
+2. Generates a **non-deterministic operator_token** via an **OS-mediated sealed-key derivation** (closes pass-3 mycoparasite-1: substrate_secret cannot live in agent-readable substrate-process memory if P1.a self-hosting is honest about the agent maintaining substrate code):
    ```
-   operator_token = H(substrate_secret, handshake_nonce, current_cycle, kernel_random)
+   operator_token = sealed_derive(handshake_nonce, current_cycle, kernel_random)
    ```
-   where `substrate_secret` is a substrate-resident sealed value generated from kernel-entropy at genesis, stored in the identity record's sealed region (NOT in agent-readable canon; rotation is CI-level). `kernel_random` is freshly generated per handshake from kernel-entropy. The token is unlinkable across handshakes from substrate-readable state alone. Per L0 I1, substrate must not correlate operator-tokens across reconnects.
+   where `sealed_derive` is a kernel-mediated call into one of {TPM-sealed key, OS keyring, HSM, hardware-secure-element} — the substrate_secret never enters substrate process address space in plaintext; the substrate invokes the OS-level sealed-API and receives `operator_token` without ever holding the underlying secret. **Specific sealing mechanism is L4-platform-pick**; plaintext-on-disk substrate_secret is a CRITICAL skin breach (`substrate_secret_unsealed`). Sealing-mechanism attestation is owner-attested at genesis (per L1_GOVERNANCE §4.1 step 2 — added to the genesis parameter set).
 3. **Substrate emits its own attestation to the agent** in `handshake_complete`:
    ```
    {
@@ -113,7 +116,7 @@ The substrate:
      "handshake_timestamp": <substrate cycle>
    }
    ```
-   The operator verifies the owner-birth-attestation signature against the owner's public key (which the operator obtained out-of-band, per L0 §9). This is the agent's distrust-of-substrate-self-report mechanism (per L0 §3 — symmetric distrust).
+   The operator **independently fetches the canonical owner public key from the anchor surface** (using the bootstrap-pinned `anchor-surface-endpoint-public-key` from §4.1) — this is the freshness check that prevents the substrate from lying about which owner key is active (closes pass-3 rhizomorph-7). The operator then verifies `owner_birth_attestation_signature` against the anchor-surface-fetched owner pubkey; if the substrate's `owner_public_key_active_at_handshake` differs from anchor-surface authoritative record, operator rejects substrate as compromised and does NOT transmit deltas.
 4. Records handshake event as a sporocarp.
 
 ### §4.3 Continuity-challenge

@@ -1,6 +1,6 @@
 # L0 — Vision
 
-> **Status**: DRAFT 7 — post pass-2 100%-confidence-loop (2026-05-13). Pending owner approval before sealing.
+> **Status**: DRAFT 8 — post pass-3 100%-confidence-loop (2026-05-13). Pending owner approval before sealing.
 > **Naming**: Myco substrate version is **v0.9**; this document is L0_VISION.md **DRAFT 7**. Drafts are integers, not semver. Sealed L0 carries no draft number — only git commit identity.
 > **Layer**: L0. Immutable unless explicitly revised by the project owner.
 > **Authority**: governs all of L1, L2, L3, L4. In any conflict, L0 wins.
@@ -413,9 +413,12 @@ A surface where owner signatures, DAG-tip hashes, substrate-ID lineage, and trus
 
 **The anchor surface receives canonical bytes + witnesses, never substrate-rendered summaries or substrate-emitted verdicts.**
 
-- **Canonical-bytes serialization**: every substrate-emitted artifact bound for the anchor surface uses a deterministic canonical serialization (specific format L1_GOVERNANCE-specified — sorted keys, normalized whitespace, fixed-precision numerics, single canonical encoding per field type). Substrate cannot ship "rendered for review" + "canonical for hashing"; only canonical bytes leave the skin's anchor-surface endpoint.
+- **Canonical-bytes serialization**: every substrate-emitted artifact bound for the anchor surface uses a deterministic canonical serialization. The serializer spec is **part of the spore-schema and a tier-1 SSoT field** (L1_SCHEMA), allowing every party — substrate, anchor-surface client, operator — to independently compute canonical bytes from the same inputs.
 - **Owner-side rendering**: human-readable rendering happens at the owner's anchor-surface client, deterministically computed from canonical bytes. The substrate is not in the rendering path; it cannot drift canonical-bytes-hashed-form from rendered-form.
+- **Anchor-surface client provenance independence**: the anchor-surface client (the owner's local rendering + signing tool) MUST be installed and updated through a channel structurally independent of the substrate's distribution channel. Owner attests at genesis that the installed client is from an independent channel (candidate channels: reproducible-build from upstream open-source repo with owner-verified maintainer signature; hardware-token vendor's signed firmware; air-gapped offline distribution). Client distribution that flows through any path the substrate or its maintaining-agent can write to is unsafe.
 - **Witnesses, not verdicts**: when the substrate reports a check result (I3/I4/I5/I8 outcomes; recoverability drill results), it emits the witness — sampled leaf hashes + Merkle paths + parent hashes + check inputs — sufficient for the anchor-surface verifier to independently re-derive the result. The substrate does not emit "pass/fail"; it emits the evidence.
+- **Anchor-nonce-derived sampling**: sampling indices for witness emission are deterministically derived from the anchor-surface nonce (`H(anchor_surface_nonce, leaf_count)`) — the substrate cannot pre-compute and cannot bias sampling toward honest portions. The anchor-surface verifier re-computes the indices and confirms the substrate emitted witnesses for exactly those indices.
+- **DAG-enumeration closure**: when the substrate emits enumerated DAG nodes added since the prior co-sign, the owner verifies (a) the new tip is reachable from the prior signed tip via enumerated nodes, AND (b) **every parent-hash referenced by any enumerated node resolves to either an ancestor of the prior co-signed tip OR another enumerated node** — parent-edge closure. Any parent-hash that does not resolve into the enumerated/ancestral set indicates a hidden parallel branch and aborts co-sign.
 
 ### §9.4 What the anchor surface does NOT do
 
