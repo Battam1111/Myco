@@ -1,6 +1,34 @@
 # Myco essence brainstorm — v0.8.8 strategic frame
 
-> ⚠ **2026-05-13 owner-driven correction #2 (later same day)**: an
+> ⚠ **2026-05-13 owner-driven correction #3 (latest)**: even after
+> correction #2, two persistent failure modes remained, both flagged
+> by owner:
+>
+> A. **Anatomy-as-essence leak**. Words like "metabolic pathway",
+>    "immune system", "circulation system" sound biological but are
+>    still β-layer structural commitments. They presuppose "Myco
+>    is decomposed into separable organs". That's an implementation
+>    decision, not essence. Correction: at the essence layer,
+>    describe *observable behaviors*, not anatomy.
+>
+> B. **L0-canonical-vocabulary substitution**. I had been replacing
+>    L0's 五条根本原则 (只为 Agent / 永恒吞噬 / 永恒进化 / 永恒迭代 /
+>    万物互联) with my own English derivatives ("autopoietic",
+>    "self-hosting", "mutable form", "persistence > read window",
+>    "mechanical integrity"). L0 §"Biological metaphor (authoritative)"
+>    says "No alternate vocabulary" — that rule applies to me. The
+>    L0 canonical names ARE the essence's preferred expression form;
+>    deriving substitutes is downgrading, not clarification.
+>    Correction: quote L0's canonical 五条原则 verbatim. Layer the
+>    README/MYCO.md derived reinforcements (self-hosting + agent-only
+>    maintenance + inclusion) on top, do not substitute for them.
+>
+> Deeper failure mode being corrected here: I was **operating on L0**
+> (translating, abstracting, re-shaping it) instead of **quoting L0**
+> (preserving it as the authoritative source). Only the owner can
+> revise L0. The brainstorm derives FROM L0; it does not replace L0.
+>
+> ⚠ **2026-05-13 owner-driven correction #2 (earlier same day)**: an
 > earlier revision of this document still leaked β-layer specifics
 > ("20 verbs", "47 dims") into the "Concrete" and "Function"
 > sections, and framed the near-term roadmap as "tighten β to
@@ -70,21 +98,40 @@ make fundamental reconstruction tractable, separate them explicitly:
 | **β (Current recipe)** | 5 principles, 3 invariants, 7 rules, 20 verbs, 7 subsystems, 47 dims, biological vocabulary, canon-as-YAML, MCP+CLI surfaces, dual-hook discipline, plugin axes. | **Complete**. Any β item can be replaced with a different design that still satisfies α. None is "non-negotiable identity"; all have mutated at least once between v0.4 and v0.8.7. |
 | **γ (Current implementation)** | 64 .py source files, the specific dependency graph, the specific test suite, the specific manifest.yaml, the cluster-merge file layout. | **Always**. γ moves whenever the recipe moves, and even when it doesn't (e.g. v0.8.8 cluster merges kept β stable but rewrote γ). |
 
-### The α layer (6 atomic predicates — non-negotiable)
+### The α layer — L0's 五条根本原则 (canonical; correction #3)
 
-| # | Predicate | Why it's irreducible (the negative counterexample) |
-|---|---|---|
-| α1 | **Persistent** — the substrate survives the agent's read window. | If you drop persistence you have chatbot memory, not Myco. |
-| α2 | **Mechanically self-validating** — the substrate enforces its own integrity invariants; the agent CANNOT silently corrupt it. | If you drop self-validation you have a wiki / shared notebook. |
-| α3 | **Co-authored** — both the agent and the substrate's own machinery shape the substrate; the substrate's shape (schema) is itself first-class data. | If you drop co-authorship you have a fixed-schema database. |
-| α4 | **Agent-readable** — the substrate is accessible to LLM agents through some protocol. | If you drop agent-readability you have an artifact for humans (documentation system). |
-| α5 | **Protocol-coordinated** — there exists a shared grammar (whatever form) between the agent and the substrate. | If you drop the shared grammar you have a bag of files with no API. |
-| α6 | **Continuity-of-self** — across sessions / hosts / agent instances, the substrate restores a "self" to the agent. | If you drop continuity you have per-session RAG, not a substrate. |
+Correction #3 (2026-05-13, owner): the previous draft listed 6
+English-derived predicates ("persistent", "mechanically self-
+validating", "co-authored", "agent-readable", "protocol-coordinated",
+"continuity-of-self") as the α layer. This was a violation of L0
+§"Biological metaphor (authoritative)" which mandates "No alternate
+vocabulary". The α layer is L0's five 永恒X principles verbatim, plus
+the README/MYCO.md derived reinforcements of P1:
 
-These 6 are the **only** things Myco cannot lose without becoming a
-different kind of thing. The 5 root principles in L0 are a particular
-projection of α onto a particular vocabulary; α is what survives if L0
-itself were rewritten.
+**L0's 五条根本原则 (verbatim, the α core):**
+
+| 编号 | L0 名 | L0 原文（节选） |
+|------|------|------|
+| P1 | **只为 Agent （人类无感知）** | "The agent is the sole consumer. Humans do not read, browse, or operate Myco's interior surfaces as a routine activity." |
+| P2 | **永恒吞噬 （吞噬万物）** | "Myco consumes without bound. **There is no filter on what enters.**" |
+| P3 | **永恒进化** | "Myco's **own shape evolves**... **An unchanging substrate is a dead substrate.**" |
+| P4 | **永恒迭代** | "`assimilate → digest → sporulate` is a continuous cycle, not a terminal workflow. **「Final」 is not a status.**" |
+| P5 | **万物互联 （菌丝网络）** | "The substrate is a **connected graph**, not a collection. **Orphans are dead tissue.**" |
+
+**Derived reinforcements of P1 (from README + MYCO.md, strengthen
+"agent is the sole consumer" → "agent is the sole consumer AND
+maintainer AND host"):**
+
+| 编号 | 名 | 来源原文 |
+|------|------|------|
+| P1.a | **Self-hosting** | "The kernel IS a substrate, editable by default, **maintained by the same agent that uses it**." (README §"The kernel IS a substrate") |
+| P1.b | **Agent-only maintenance** | "Every earlier attempt at a self-maintaining knowledge system died in the same place, where the human in the loop could no longer keep up. Myco puts the loop inside the agent... **the human in the loop is no longer load-bearing.**" (README §"What it is") |
+| P2.a | **Inclusion** (P2 strong form) | Owner 2026-05-13: 「并非不做，Myco 应该是广纳所有经验、知识、技巧、技术、思考等等的，只是需要在 Myco 的框架下做，而不是割裂开来做」. RAG / conversation / LLM calls / external APIs / file federation should be subsumed *into* Myco's framework, not exist in parallel. |
+
+These 5 + 3 are the **only** things Myco cannot lose without becoming
+a different kind of thing. They are NOT my paraphrase of essence —
+they ARE the essence as L0 / README / MYCO.md author it, and any
+reformulation in this document is downgrading.
 
 ### The β layer (current recipe — completely re-architectable)
 
@@ -120,37 +167,63 @@ not "how do we minimally tweak the v0.8.7 β?".
 
 ---
 
-## 1. The essence — one sentence (correction #2)
+## 1. The essence — L0 canonical vocabulary (correction #3)
 
-> **Myco is a new kind of agent-only autopoietic digital symbiotic
-> organism: it ingests anything (experiences, knowledge, techniques,
-> external APIs, vector retrievals, LLM outputs, conversation
-> fragments, decisions, frictions); metabolises everything inside
-> its own framework; hosts its own kernel inside itself; and is
-> wholly operated and maintained by the LLM agent rather than by a
-> human.**
+Myco's essence is **exhausted** by L0's 五条根本原则. Quoting L0
+verbatim (do not substitute):
 
-## 2. The essence — one paragraph (correction #2)
+| 编号 | L0 名 | L0 原文（节选） |
+|------|------|------|
+| P1 | **只为 Agent （人类无感知）** | "Myco is a cognitive substrate **for an LLM agent**. The agent is the sole consumer. Humans do not read, browse, or operate Myco's interior surfaces as a routine activity." |
+| P2 | **永恒吞噬 — Eternal Ingestion （吞噬万物）** | "Myco consumes without bound. Any input the agent can point at — a decision, a debate, a friction note, a log file, an external document, a conversation fragment, a failed approach — is ingestible raw material. **There is no filter on what enters.**" |
+| P3 | **永恒进化 — Eternal Evolution** | "Myco's **own shape evolves**. The schema of canon, the roster of subsystems, the lint dimensions, the contract itself — all of these are first-class mutable objects. **An unchanging substrate is a dead substrate.**" |
+| P4 | **永恒迭代 — Eternal Iteration** | "Every session refines what prior sessions produced. `assimilate → digest → sporulate` is a continuous cycle, not a terminal workflow. **「Final」 is not a status.**" |
+| P5 | **万物互联 — Universal Interconnection （菌丝网络）** | "The substrate is a **connected graph**, not a collection. Every node is reachable from every other by traversal. **Orphans are dead tissue.**" |
 
-Myco's bet is that every previous self-maintaining knowledge system
-died at the same place — when the human-in-the-loop could no longer
-keep up. Myco's answer is to take humans out of the loop entirely:
-humans speak natural language, the agent operates and maintains Myco,
-and Myco's own kernel lives inside a Myco substrate so the agent
-maintains its own tooling without a fork or a PR or a feature
-branch. Within this self-sustained loop, Myco ingests every
-discipline subordinated to it — vector retrieval becomes one form of
-`sense`; conversation history becomes one type of raw note; agent-
-side LLM calls happen within Myco-prepared scaffolding; downstream-
-substrate semantic federation replaces ad-hoc file sync. Myco's
-force is *unification* of all these sub-techniques under one
-autopoietic framework, not exclusion of any of them. The grammar
-shape, the immune dimension count, the subsystem partition, the
-serialization format, the protocol surface — all of these are ε-
-snapshot choices that can be replaced in any future redesign as
-long as the six α predicates (autopoietic metabolism, self-hosting,
-agent-only maintenance, mutable form, persistence > agent read
-window, mechanical integrity) are preserved.
+**These five are the essence.** No paraphrase replaces them.
+Earlier revisions of this document tried to substitute them with my
+own English derivatives ("autopoietic metabolism", "self-hosting",
+"mutable form" etc.) — that was a violation of L0's "No alternate
+vocabulary" rule. Correction #3 removes those substitutions.
+
+## 1.5 衍生强化 (README + MYCO.md, reinforcing P1)
+
+L0 declares P1 as "agent is the sole *consumer*". README + MYCO.md
+strengthen this to "agent is the sole consumer **and the sole
+maintainer**":
+
+- **Self-hosting (P1 strong form)**: "The kernel IS a substrate,
+  editable by default, **maintained by the same agent that uses it**"
+  (README §"The kernel IS a substrate").
+- **Agent-only maintenance (P1 strongest form)**: "Every earlier
+  attempt at a self-maintaining knowledge system died in the same
+  place, where the human in the loop could no longer keep up. Myco
+  puts the loop inside the agent... **the human in the loop is no
+  longer load-bearing.**" (README §"What it is").
+- **Inclusion / unification (logical extension of P2)**: Myco is the
+  framework into which every adjacent sub-technique (vector
+  retrieval / conversation history / agent-side LLM calls / external
+  APIs / semantic file federation / human-facing brief …) **should
+  be subsumed**, rather than existing in parallel. Per owner
+  correction 2026-05-13: 「并非不做，Myco 应该是广纳所有经验、
+  知识、技巧、技术、思考等等的，只是需要在 Myco 的框架下做，
+  而不是割裂开来做」.
+
+## 2. The essence — one paragraph (correction #3)
+
+> Myco is a **cognitive substrate** whose identity is exhausted by
+> L0's 五条根本原则 (只为 Agent / 永恒吞噬 / 永恒进化 / 永恒迭代 /
+> 万物互联), strengthened by three derivations from README + MYCO.md:
+> self-hosting (Myco's own kernel lives inside a Myco substrate),
+> agent-only maintenance (the human in the loop is no longer
+> load-bearing; the same agent that uses Myco maintains Myco), and
+> inclusion (every adjacent sub-technique — RAG, conversation
+> history, LLM calls, external APIs, semantic federation — should
+> live *within* Myco's framework rather than in parallel). The
+> grammar shape, immune dimension count, subsystem partition,
+> serialization format, protocol surface are all ε-snapshot choices.
+> Any v0.9+ redesign is constrained only by the five 永恒X
+> principles plus the three reinforcements.
 
 ## 3. What Myco is NOT (the negative space)
 
