@@ -456,3 +456,186 @@ def test_build_error_response() -> None:
     payload = dict(err.payload.value)
     assert expect_string(payload["code"]) == "test_code"
     assert expect_string(payload["message"]) == "test message"
+
+
+# ---------------------------------------------------------------------------
+# Save / load state (M7).
+# ---------------------------------------------------------------------------
+
+
+def test_save_state_persists_to_disk(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    state = DispatcherState()
+    _do_handshake(state)
+    # Register an axis + perturb it.
+    dispatch(
+        state,
+        Message(
+            type=MessageType.REGISTER_AXIS,
+            request_id=10,
+            payload=register_axis_payload(
+                name="curiosity",
+                axis_class="appetite",
+                fruiting_threshold=5.0,
+                initial_value=0.0,
+                decay_rate_per_cycle=1.0,
+                is_mortality_signal=False,
+                update_rule_kind="noop",
+            ),
+        ),
+    )
+    dispatch(
+        state,
+        Message(
+            type=MessageType.PERTURB,
+            request_id=11,
+            payload=perturb_payload("curiosity", 2.5),
+        ),
+    )
+    # Save.
+    response = dispatch(
+        state,
+        Message(
+            type=MessageType.SAVE_STATE,
+            request_id=12,
+            payload=CbMap.from_dict({"state_dir": CbString(str(tmp_path))}),
+        ),
+    )
+    assert response is not None
+    assert response.type is MessageType.SAVE_STATE_ACK
+    # File should exist on disk.
+    assert (tmp_path / "gradient.cb").exists()
+
+
+def test_load_state_hydrates_from_disk(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    # First, build state A and save it.
+    state_a = DispatcherState()
+    _do_handshake(state_a)
+    dispatch(
+        state_a,
+        Message(
+            type=MessageType.REGISTER_AXIS,
+            request_id=20,
+            payload=register_axis_payload(
+                name="a_axis",
+                axis_class="appetite",
+                fruiting_threshold=10.0,
+                initial_value=0.0,
+                decay_rate_per_cycle=1.0,
+                is_mortality_signal=False,
+                update_rule_kind="noop",
+            ),
+        ),
+    )
+    dispatch(
+        state_a,
+        Message(
+            type=MessageType.PERTURB,
+            request_id=21,
+            payload=perturb_payload("a_axis", 3.5),
+        ),
+    )
+    dispatch(
+        state_a,
+        Message(
+            type=MessageType.SAVE_STATE,
+            request_id=22,
+            payload=CbMap.from_dict({"state_dir": CbString(str(tmp_path))}),
+        ),
+    )
+
+    # Now: fresh state B, load from the same directory.
+    state_b = DispatcherState()
+    _do_handshake(state_b, request_id=100)
+    response = dispatch(
+        state_b,
+        Message(
+            type=MessageType.LOAD_STATE,
+            request_id=101,
+            payload=CbMap.from_dict({"state_dir": CbString(str(tmp_path))}),
+        ),
+    )
+    assert response is not None
+    assert response.type is MessageType.LOAD_STATE_ACK
+    payload = dict(response.payload.value)
+    from myco_kernel_governance.canonical_bytes import expect_bool, expect_uint  # noqa: PLC0415
+
+    assert expect_uint(payload["axis_count"]) == 1
+    assert expect_bool(payload["hydrated"]) is True
+
+    # State B should now have a_axis = 3.5.
+    assert state_b.gradient.axis_count() == 1
+    assert state_b.gradient.get_axis("a_axis").value == 3.5
+
+
+def test_load_state_missing_returns_not_hydrated(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    state = DispatcherState()
+    _do_handshake(state)
+    response = dispatch(
+        state,
+        Message(
+            type=MessageType.LOAD_STATE,
+            request_id=30,
+            payload=CbMap.from_dict({"state_dir": CbString(str(tmp_path))}),
+        ),
+    )
+    assert response is not None
+    assert response.type is MessageType.LOAD_STATE_ACK
+    payload = dict(response.payload.value)
+    from myco_kernel_governance.canonical_bytes import expect_bool, expect_uint  # noqa: PLC0415
+
+    assert expect_uint(payload["axis_count"]) == 0
+    assert expect_bool(payload["hydrated"]) is False
+
+
+def test_save_load_full_cycle_roundtrip(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    """Save state A, advance cycles, save again, load → preserves cycle progress."""
+    state_a = DispatcherState()
+    _do_handshake(state_a)
+    dispatch(
+        state_a,
+        Message(
+            type=MessageType.REGISTER_AXIS,
+            request_id=40,
+            payload=register_axis_payload(
+                name="mortality",
+                axis_class="decay",
+                fruiting_threshold=0.01,
+                initial_value=1.0,
+                decay_rate_per_cycle=0.9,
+                is_mortality_signal=True,
+                update_rule_kind="decay",
+            ),
+        ),
+    )
+    # 5 decay cycles.
+    for cycle in range(1, 6):
+        dispatch(
+            state_a,
+            Message(
+                type=MessageType.ADVANCE,
+                request_id=40 + cycle,
+                payload=advance_payload(cycle),
+            ),
+        )
+    value_after_5 = state_a.gradient.get_axis("mortality").value
+    dispatch(
+        state_a,
+        Message(
+            type=MessageType.SAVE_STATE,
+            request_id=50,
+            payload=CbMap.from_dict({"state_dir": CbString(str(tmp_path))}),
+        ),
+    )
+
+    # Hydrate state B and continue.
+    state_b = DispatcherState()
+    _do_handshake(state_b, request_id=200)
+    dispatch(
+        state_b,
+        Message(
+            type=MessageType.LOAD_STATE,
+            request_id=201,
+            payload=CbMap.from_dict({"state_dir": CbString(str(tmp_path))}),
+        ),
+    )
+    assert state_b.gradient.get_axis("mortality").value == value_after_5

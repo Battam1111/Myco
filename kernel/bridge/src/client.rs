@@ -25,7 +25,8 @@ use crate::framing::{read_frame, write_frame};
 use crate::protocol::{
     advance_payload, bootstrap_key, decode_frame_body, empty_payload, encode_frame_body,
     hello_payload, msg_type, parse_advance_response, parse_hello_ack, parse_snapshot_response,
-    perturb_payload, register_axis_payload, AdvanceReport, HelloAck, Message, PROTOCOL_VERSION,
+    perturb_payload, register_axis_payload, state_dir_payload, AdvanceReport, HelloAck, Message,
+    PROTOCOL_VERSION,
 };
 use crate::BridgeError;
 
@@ -37,6 +38,9 @@ pub struct BridgeClientConfig {
     pub python_executable: String,
     /// The 32-byte session secret. If `None`, a random one is generated.
     pub session_secret: Option<[u8; 32]>,
+    /// Extra environment variables to set on the child process. Used by M7
+    /// to isolate per-test state directories via `MYCO_STATE_DIR`.
+    pub extra_env: Vec<(String, String)>,
 }
 
 impl Default for BridgeClientConfig {
@@ -44,6 +48,7 @@ impl Default for BridgeClientConfig {
         BridgeClientConfig {
             python_executable: "python".to_string(),
             session_secret: None,
+            extra_env: Vec::new(),
         }
     }
 }
@@ -73,19 +78,21 @@ impl BridgeClient {
             .session_secret
             .unwrap_or_else(generate_session_secret);
 
-        let mut child = Command::new(&config.python_executable)
-            .arg("-m")
+        let mut cmd = Command::new(&config.python_executable);
+        cmd.arg("-m")
             .arg("myco_kernel_bridge")
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::inherit())
-            .spawn()
-            .map_err(|e| {
-                BridgeError::Subprocess(format!(
-                    "failed to spawn `{} -m myco_kernel_bridge`: {e}",
-                    config.python_executable
-                ))
-            })?;
+            .stderr(Stdio::inherit());
+        for (k, v) in &config.extra_env {
+            cmd.env(k, v);
+        }
+        let mut child = cmd.spawn().map_err(|e| {
+            BridgeError::Subprocess(format!(
+                "failed to spawn `{} -m myco_kernel_bridge`: {e}",
+                config.python_executable
+            ))
+        })?;
 
         let stdin = child
             .stdin
@@ -247,6 +254,37 @@ impl BridgeClient {
     pub fn snapshot(&mut self) -> Result<std::collections::BTreeMap<String, f64>, BridgeError> {
         let response = self.send_request(msg_type::SNAPSHOT, empty_payload())?;
         parse_snapshot_response(&response)
+    }
+
+    /// Tell the Python worker to persist its gradient state to `state_dir`.
+    pub fn save_state(&mut self, state_dir: &str) -> Result<(), BridgeError> {
+        let response = self.send_request(msg_type::SAVE_STATE, state_dir_payload(state_dir))?;
+        if response.message_type != msg_type::SAVE_STATE_ACK {
+            return Err(BridgeError::Protocol(format!(
+                "expected save_state_ack; got {}",
+                response.message_type
+            )));
+        }
+        Ok(())
+    }
+
+    /// Tell the Python worker to load gradient state from `state_dir`.
+    /// Returns `(axis_count, hydrated)` where `hydrated=false` indicates the
+    /// caller should treat this as a genesis condition.
+    pub fn load_state(&mut self, state_dir: &str) -> Result<(u64, bool), BridgeError> {
+        use myco_kernel_shared::canonical_bytes::{map_get_bool, map_get_uint};
+        let response = self.send_request(msg_type::LOAD_STATE, state_dir_payload(state_dir))?;
+        if response.message_type != msg_type::LOAD_STATE_ACK {
+            return Err(BridgeError::Protocol(format!(
+                "expected load_state_ack; got {}",
+                response.message_type
+            )));
+        }
+        let axis_count = map_get_uint(&response.payload, "axis_count")
+            .map_err(|e| BridgeError::Protocol(e.to_string()))?;
+        let hydrated = map_get_bool(&response.payload, "hydrated")
+            .map_err(|e| BridgeError::Protocol(e.to_string()))?;
+        Ok((axis_count, hydrated))
     }
 
     /// Send a graceful shutdown and wait for the child to exit.

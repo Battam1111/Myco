@@ -70,6 +70,12 @@ from myco_kernel_bridge.protocol import (
     empty_payload,
     error_payload,
     hello_ack_payload,
+    load_state_ack_payload,
+)
+from myco_kernel_tropism.persistence import (
+    PersistenceError,
+    load_gradient,
+    save_gradient,
 )
 
 
@@ -142,6 +148,10 @@ def dispatch(state: DispatcherState, request: Message) -> Message | None:
         return _handle_snapshot(state, request)
     if request.type is MessageType.SHUTDOWN:
         return _handle_shutdown(state, request)
+    if request.type is MessageType.SAVE_STATE:
+        return _handle_save_state(state, request)
+    if request.type is MessageType.LOAD_STATE:
+        return _handle_load_state(state, request)
     raise BridgeProtocolError(
         f"dispatcher cannot handle {request.type.value!r} (not a request type)"
     )
@@ -337,6 +347,56 @@ def _handle_shutdown(state: DispatcherState, request: Message) -> Message:
         type=MessageType.SHUTDOWN_ACK,
         request_id=request.request_id,
         payload=empty_payload(),
+    )
+
+
+def _handle_save_state(state: DispatcherState, request: Message) -> Message:
+    """Persist the current gradient state to a directory on disk."""
+    keys = dict(request.payload.value)
+    try:
+        state_dir = expect_string(keys["state_dir"])
+    except KeyError as e:
+        raise BridgeProtocolError(f"save_state missing state_dir: {e}") from e
+    try:
+        save_gradient(state.gradient, state_dir)
+    except (PersistenceError, OSError) as e:
+        raise BridgeProtocolError(f"save_state failed: {e}") from e
+    return Message(
+        type=MessageType.SAVE_STATE_ACK,
+        request_id=request.request_id,
+        payload=empty_payload(),
+    )
+
+
+def _handle_load_state(state: DispatcherState, request: Message) -> Message:
+    """Hydrate gradient state from a directory on disk (or fall back to genesis)."""
+    keys = dict(request.payload.value)
+    try:
+        state_dir = expect_string(keys["state_dir"])
+    except KeyError as e:
+        raise BridgeProtocolError(f"load_state missing state_dir: {e}") from e
+    try:
+        loaded = load_gradient(state_dir)
+    except PersistenceError as e:
+        raise BridgeProtocolError(f"load_state failed: {e}") from e
+    except OSError as e:
+        raise BridgeProtocolError(f"load_state I/O: {e}") from e
+    if loaded is None:
+        # No state file → genesis condition (caller hydrates from owner-provided schemas).
+        return Message(
+            type=MessageType.LOAD_STATE_ACK,
+            request_id=request.request_id,
+            payload=load_state_ack_payload(axis_count=0, hydrated=False),
+        )
+    # Replace the dispatcher's gradient atomically.
+    state.gradient = loaded
+    return Message(
+        type=MessageType.LOAD_STATE_ACK,
+        request_id=request.request_id,
+        payload=load_state_ack_payload(
+            axis_count=loaded.axis_count(),
+            hydrated=True,
+        ),
     )
 
 

@@ -82,6 +82,14 @@ pub mod msg_type {
     pub const SHUTDOWN_ACK: &str = "shutdown_ack";
     /// `error` — either direction: error envelope.
     pub const ERROR: &str = "error";
+    /// `save_state` — Rust→Python: persist gradient state to `state_dir` (M7).
+    pub const SAVE_STATE: &str = "save_state";
+    /// `save_state_ack` — Python→Rust: gradient state persisted.
+    pub const SAVE_STATE_ACK: &str = "save_state_ack";
+    /// `load_state` — Rust→Python: hydrate gradient state from `state_dir` (M7).
+    pub const LOAD_STATE: &str = "load_state";
+    /// `load_state_ack` — Python→Rust: gradient state hydrated; carries axis count.
+    pub const LOAD_STATE_ACK: &str = "load_state_ack";
 }
 
 /// A decoded bridge message.
@@ -303,6 +311,29 @@ pub fn advance_payload(current_cycle: u64) -> BTreeMap<String, Value> {
 /// Empty payload (snapshot, *_ack, shutdown).
 pub fn empty_payload() -> BTreeMap<String, Value> {
     BTreeMap::new()
+}
+
+/// Build the payload for a `save_state` or `load_state` request.
+///
+/// Both messages share the same payload shape: a single `state_dir` string
+/// pointing at the directory the Python worker should read/write its
+/// gradient.cb file in.
+pub fn state_dir_payload(state_dir: &str) -> BTreeMap<String, Value> {
+    let mut m = BTreeMap::new();
+    m.insert(
+        "state_dir".to_string(),
+        Value::String(state_dir.to_string()),
+    );
+    m
+}
+
+/// Build the payload for a `load_state_ack` response carrying the count of
+/// hydrated axes and whether a state file actually existed.
+pub fn load_state_ack_payload(axis_count: u64, hydrated: bool) -> BTreeMap<String, Value> {
+    let mut m = BTreeMap::new();
+    m.insert("axis_count".to_string(), Value::Uint(axis_count));
+    m.insert("hydrated".to_string(), Value::Bool(hydrated));
+    m
 }
 
 /// Render a float as a Python-compatible repr string.

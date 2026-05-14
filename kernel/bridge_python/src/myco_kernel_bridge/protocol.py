@@ -145,6 +145,18 @@ class MessageType(str, Enum):
     ERROR = "error"
     """Either direction: error envelope echoing a request_id."""
 
+    SAVE_STATE = "save_state"
+    """Rust → Python: persist gradient state to a state_dir on disk (M7)."""
+
+    SAVE_STATE_ACK = "save_state_ack"
+    """Python → Rust: gradient state persisted to disk."""
+
+    LOAD_STATE = "load_state"
+    """Rust → Python: load gradient state from a state_dir on disk (M7)."""
+
+    LOAD_STATE_ACK = "load_state_ack"
+    """Python → Rust: gradient state hydrated (or genesis-on-missing)."""
+
 
 # ---------------------------------------------------------------------------
 # Error types.
@@ -404,3 +416,18 @@ def advance_payload(current_cycle: int) -> CbMap:
 def empty_payload() -> CbMap:
     """Empty payload (snapshot request, *_ack messages, shutdown, etc.)."""
     return CbMap(tuple())
+
+
+def state_dir_payload(state_dir: str) -> CbMap:
+    """Build the payload for a ``save_state`` or ``load_state`` request."""
+    return CbMap.from_dict({"state_dir": CbString(state_dir)})
+
+
+def load_state_ack_payload(axis_count: int, hydrated: bool) -> CbMap:
+    """Build the payload for a ``load_state_ack`` response."""
+    return CbMap.from_dict(
+        {
+            "axis_count": CbUint(axis_count),
+            "hydrated": Bool(hydrated),
+        }
+    )
