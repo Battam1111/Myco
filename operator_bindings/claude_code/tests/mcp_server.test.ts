@@ -156,29 +156,32 @@ describe("McpServer tool dispatch", () => {
   });
 
   // M8 NEW tools.
-  it("myco_current_intent on empty DAG returns cold_start", async () => {
+  it("myco_current_intent on near-fresh substrate has small/empty intent", async () => {
     const server = newServer();
     try {
       const result = await server._testDispatch("myco_current_intent", {
         radius_cycles: 5,
       });
       assert.equal(result.isError, undefined);
-      assert.match(result.content[0]!.text, /cold_start=true/);
-      assert.match(result.content[0]!.text, /clusters=0/);
+      // M21.1: even a "fresh" substrate has init events (genesis_event,
+      // operator_pinned), so cold_start is no longer guaranteed true. But the
+      // cluster count should still be small (no sporocarps/mutations).
+      assert.match(result.content[0]!.text, /clusters=[01]/);
     } finally {
       await server.dispose();
     }
   });
 
-  it("myco_query_recent_nodes on empty DAG returns empty list", async () => {
+  it("myco_query_recent_nodes on near-fresh substrate lists init events", async () => {
     const server = newServer();
     try {
       const result = await server._testDispatch("myco_query_recent_nodes", {
         count: 10,
       });
       assert.equal(result.isError, undefined);
-      assert.match(result.content[0]!.text, /total_dag_size=0/);
-      assert.match(result.content[0]!.text, /returned=0/);
+      // M21.1: fresh substrate has genesis_event (and operator_pinned if
+      // operator identity was loaded). total_dag_size >= 1.
+      assert.match(result.content[0]!.text, /total_dag_size=[1-9]/);
     } finally {
       await server.dispose();
     }
@@ -202,10 +205,11 @@ describe("McpServer tool dispatch", () => {
       });
       await server._testDispatch("myco_advance_cycle", { current_cycle: 1 });
       const result = await server._testDispatch("myco_query_recent_nodes", {
-        count: 10,
+        count: 50,
       });
       assert.equal(result.isError, undefined);
-      assert.match(result.content[0]!.text, /total_dag_size=1/);
+      // M21.1: DAG contains init + axis_registered + axis_perturbed +
+      // cycle_advanced + sporocarp events. Check sporocarp node_type appears.
       assert.match(result.content[0]!.text, /sporocarp:appetite_fruiting/);
     } finally {
       await server.dispose();

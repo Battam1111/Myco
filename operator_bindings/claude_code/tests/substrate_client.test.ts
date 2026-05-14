@@ -855,10 +855,11 @@ describe("SubstrateClient e2e", () => {
       assert.equal(result.rejectionReason, "");
       assert.ok(result.dagNodeHash, "accepted mutation must carry dag_node_hash");
       assert.equal(result.dagNodeHash!.length, 32);
-      // Verify DAG actually grew.
-      const recent = await client.queryRecentNodes(10n);
-      assert.equal(recent.totalDagSize, 1n);
-      assert.equal(recent.nodes[0]!.nodeType, "mutation:delta_absorb");
+      // Verify mutation:* DAG node was inserted (M21.1: DAG also contains
+      // genesis_event + operator_pinned init events — filter by prefix).
+      const muts = await client.queryRecentNodes(10n, "mutation:");
+      assert.equal(muts.filteredTotal, 1n);
+      assert.equal(muts.nodes[0]!.nodeType, "mutation:delta_absorb");
     } finally {
       await client.shutdown();
     }
@@ -875,16 +876,14 @@ describe("SubstrateClient e2e", () => {
       assert.equal(result.accepted, false);
       assert.match(result.rejectionReason, /untyped/);
       // Per M11+: rejection emits a C14 immune sporocarp into the DAG.
-      // No mutation:* node should exist; the only DAG node should be immune:C14.
-      const recent = await client.queryRecentNodes(10n);
-      const nonImmuneNodes = recent.nodes.filter(
-        (n) => !n.nodeType.startsWith("immune:"),
-      );
+      // No mutation:* node should exist (only init events + immune:C14).
+      const muts = await client.queryRecentNodes(20n, "mutation:");
       assert.equal(
-        nonImmuneNodes.length,
-        0,
+        muts.filteredTotal,
+        0n,
         "UNTYPED rejection must not produce a mutation node in the DAG",
       );
+      const recent = await client.queryRecentNodes(20n);
       const c14 = recent.nodes.find((n) =>
         n.nodeType.includes("C14_untyped_mutation_blocked"),
       );
@@ -995,16 +994,17 @@ describe("SubstrateClient e2e", () => {
         contentCanonicalBytes: new TextEncoder().encode("session1 mutation"),
       });
       assert.equal(r1.accepted, true);
-      const dagSizeBefore = (await c1.queryRecentNodes(10n)).totalDagSize;
-      assert.equal(dagSizeBefore, 1n);
+      // M21.1: DAG contains init events too; filter for mutation:* to count.
+      const mutsBefore = await c1.queryRecentNodes(10n, "mutation:");
+      assert.equal(mutsBefore.filteredTotal, 1n);
       await c1.shutdown();
 
       // Session 2: DAG should be hydrated.
       const c2 = await spawn(dir);
       try {
-        const recent = await c2.queryRecentNodes(10n);
-        assert.equal(recent.totalDagSize, 1n);
-        assert.equal(recent.nodes[0]!.nodeType, "mutation:delta_absorb");
+        const muts = await c2.queryRecentNodes(10n, "mutation:");
+        assert.equal(muts.filteredTotal, 1n);
+        assert.equal(muts.nodes[0]!.nodeType, "mutation:delta_absorb");
       } finally {
         await c2.shutdown();
       }
@@ -1152,35 +1152,35 @@ describe("SubstrateClient e2e", () => {
         const r = await client.advance(cycle);
         assert.equal(r.sporocarps.length, 1);
       }
-      const report = await client.queryRecentNodes(10n);
-      assert.equal(report.totalDagSize, 3n);
-      assert.equal(report.returnedCount, 3n);
-      assert.equal(report.nodes.length, 3);
-      assert.ok(report.dagTip !== null);
-      // Each node should have node_type starting with "sporocarp:".
-      for (const n of report.nodes) {
+      // M21.1: filter for sporocarp:* to isolate the 3 fruiting events from
+      // the (many) init / cycle_advanced / axis_perturbed events also in DAG.
+      const sporocarps = await client.queryRecentNodes(10n, "sporocarp:");
+      assert.equal(sporocarps.filteredTotal, 3n);
+      assert.equal(sporocarps.returnedCount, 3n);
+      assert.equal(sporocarps.nodes.length, 3);
+      for (const n of sporocarps.nodes) {
         assert.match(n.nodeType, /^sporocarp:/);
         assert.equal(n.hash.length, 32);
       }
-      // The first node (genesis) has 0 parents; subsequent have 1.
-      assert.equal(report.nodes[0]!.parentHashes.length, 0);
-      assert.equal(report.nodes[1]!.parentHashes.length, 1);
-      assert.equal(report.nodes[2]!.parentHashes.length, 1);
-      // Chain integrity: node[1].parent[0] === node[0].hash.
-      assert.deepEqual(report.nodes[1]!.parentHashes[0], report.nodes[0]!.hash);
-      assert.deepEqual(report.nodes[2]!.parentHashes[0], report.nodes[1]!.hash);
     } finally {
       await client.shutdown();
     }
   });
 
-  it("M8: currentIntent on empty DAG returns cold_start", async () => {
+  it("M8: currentIntent on substrate with no operational events returns small/empty intent", async () => {
     const client = await spawn();
     try {
+      // M21.1 dual-write: even a "fresh" substrate has genesis_event +
+      // operator_pinned events in the DAG. coldStart is therefore false, but
+      // there are no SPOROCARP or MUTATION events to cluster around — the
+      // intent neighborhood is just init events (typically 1-2 nodes, no
+      // meaningful clusters).
       const report = await client.currentIntent({ radiusCycles: 10n });
-      assert.equal(report.coldStart, true);
-      assert.equal(report.clusterCount, 0n);
-      assert.equal(report.clusters.length, 0);
+      // The intent is trivially "fresh substrate" — at most 1 cluster of init events.
+      assert.ok(
+        report.clusterCount <= 1n,
+        `expected ≤1 cluster on near-empty substrate; got ${report.clusterCount}`,
+      );
     } finally {
       await client.shutdown();
     }
@@ -1241,22 +1241,31 @@ describe("SubstrateClient e2e", () => {
         await client1.perturb("persistent_dag", 2.0);
         await client1.advance(c);
       }
-      const r1 = await client1.queryRecentNodes(10n);
-      assert.equal(r1.totalDagSize, 3n);
-      const tip1 = r1.dagTip!;
+      // M21.1: count sporocarp:* events specifically; init events also in DAG.
+      const sp1 = await client1.queryRecentNodes(10n, "sporocarp:");
+      assert.equal(sp1.filteredTotal, 3n);
+      const fullPre = await client1.queryRecentNodes(50n);
+      const totalDagPre = fullPre.totalDagSize;
+      const tip1 = fullPre.dagTip!;
       await client1.shutdown();
 
       // Session 2: DAG should be hydrated. Advance one more.
       const client2 = await spawn(dir);
       try {
-        const r2 = await client2.queryRecentNodes(10n);
+        const sp2 = await client2.queryRecentNodes(10n, "sporocarp:");
         assert.equal(
-          r2.totalDagSize,
+          sp2.filteredTotal,
           3n,
-          "DAG should have 3 nodes hydrated from disk",
+          "3 sporocarp events should survive restart",
+        );
+        const fullPost = await client2.queryRecentNodes(50n);
+        assert.equal(
+          fullPost.totalDagSize,
+          totalDagPre,
+          "full DAG size (incl. init events) should survive restart",
         );
         assert.deepEqual(
-          r2.dagTip,
+          fullPost.dagTip,
           tip1,
           "DAG tip should match pre-restart tip",
         );
@@ -1327,15 +1336,25 @@ describe("SubstrateClient e2e", () => {
         await client.perturb("enum_axis", 2.0);
         await client.advance(c);
       }
+      // M21.1: full enumeration includes init events (genesis_event,
+      // operator_pinned) + axis_registered + 3 axis_perturbed + 3 sporocarp +
+      // 3 cycle_advanced. Count must be ≥3 (3 sporocarps minimum).
       const report = await client.enumerateDagSince();
-      assert.equal(report.totalDagSize, 3n);
-      assert.equal(report.enumeratedCount, 3n);
-      assert.equal(report.nodes.length, 3);
+      assert.ok(
+        report.totalDagSize >= 3n,
+        `expected at least 3 nodes; got ${report.totalDagSize}`,
+      );
+      assert.equal(report.enumeratedCount, report.totalDagSize);
       assert.equal(report.prevTip, null, "from-genesis enumeration should echo null prev_tip");
       assert.ok(report.currentTip !== null, "current_tip should be set");
-      // Verify BLAKE3 chain.
+      // The BLAKE3 chain verification must pass on the full enumeration.
       const errors = await SubstrateClient.verifyEnumeration(report);
       assert.deepEqual(errors, [], `expected hash chain verification to pass; got: ${errors.join(" | ")}`);
+      // Sanity: 3 sporocarp nodes should be among them.
+      const sporocarpCount = report.nodes.filter((n) =>
+        n.nodeType.startsWith("sporocarp:"),
+      ).length;
+      assert.equal(sporocarpCount, 3);
     } finally {
       await client.shutdown();
     }
@@ -1353,23 +1372,31 @@ describe("SubstrateClient e2e", () => {
         isMortalitySignal: false,
         updateRuleKind: "noop",
       });
-      // Insert 2 nodes; snapshot tip; insert 2 more.
+      // Insert 2 sporocarps; snapshot tip; insert 2 more.
       for (let c = 1n; c <= 2n; c++) {
         await client.perturb("enum_axis2", 2.0);
         await client.advance(c);
       }
-      const tipAtTwoNodes = (await client.queryRecentNodes(1n)).dagTip!;
+      const tipAtTwoCycles = (await client.queryRecentNodes(1n)).dagTip!;
+      const totalAtTwoCycles = (await client.queryRecentNodes(1n)).totalDagSize;
       for (let c = 3n; c <= 4n; c++) {
         await client.perturb("enum_axis2", 2.0);
         await client.advance(c);
       }
-      const report = await client.enumerateDagSince(tipAtTwoNodes);
-      assert.equal(report.totalDagSize, 4n);
-      assert.equal(report.enumeratedCount, 2n, "should enumerate only nodes 3 and 4");
-      // The 2 enumerated nodes' parent chain reaches back to tipAtTwoNodes.
-      // Verify the first enumerated node has tipAtTwoNodes as a parent.
-      assert.equal(report.nodes[0]!.parentHashes.length, 1);
-      assert.deepEqual(report.nodes[0]!.parentHashes[0], tipAtTwoNodes);
+      const finalTotal = (await client.queryRecentNodes(1n)).totalDagSize;
+      const report = await client.enumerateDagSince(tipAtTwoCycles);
+      assert.equal(report.totalDagSize, finalTotal);
+      // enumeratedCount = nodes added since tipAtTwoCycles
+      const expectedEnum = finalTotal - totalAtTwoCycles;
+      assert.equal(
+        report.enumeratedCount,
+        expectedEnum,
+        `should enumerate ${expectedEnum} nodes added after the snapshot tip`,
+      );
+      // The first enumerated node has tipAtTwoCycles as a parent.
+      if (report.nodes.length > 0) {
+        assert.deepEqual(report.nodes[0]!.parentHashes[0], tipAtTwoCycles);
+      }
     } finally {
       await client.shutdown();
     }
@@ -1651,7 +1678,8 @@ describe("SubstrateClient e2e", () => {
         sourceUri: "poem.txt",
       });
       assert.equal(result.dagNodeHash.length, 32);
-      assert.equal(result.totalDagSize, 1n);
+      // M21.1: total DAG size includes init events; raw_material count is what we check.
+      assert.ok(result.totalDagSize >= 1n);
 
       // The node is queryable via raw_material: prefix filter.
       const report = await client.queryRecentNodes(10n, "raw_material:");
@@ -1756,19 +1784,14 @@ describe("SubstrateClient e2e", () => {
       });
       assert.equal(link.causalLinkHash.length, 32);
       assert.deepEqual(link.rawMaterialHash, ingest.dagNodeHash);
-      // The DAG now has: raw_material node + perturb_from_raw node.
-      const all = await client.queryRecentNodes(20n);
-      assert.equal(all.totalDagSize, 2n);
-      const linkNode = all.nodes.find((n) =>
-        n.nodeType.startsWith("perturb_from_raw:"),
-      );
-      assert.ok(linkNode, "expected a perturb_from_raw:curiosity DAG node");
-      // The link node has 2 parents — prior tip + raw_material hash.
-      // (When raw_material was the prior tip, there's only 1 parent — but
-      // since axis registration doesn't insert a DAG node, the only prior
-      // tip IS the raw_material; so 1 parent is expected here.)
+      // M21.1: filter by perturb_from_raw: to find the causal link node.
+      const links = await client.queryRecentNodes(20n, "perturb_from_raw:");
+      assert.equal(links.filteredTotal, 1n);
+      const linkNode = links.nodes[0]!;
+      assert.match(linkNode.nodeType, /^perturb_from_raw:curiosity$/);
+      // The link node has parents including the raw_material hash.
       assert.ok(
-        linkNode!.parentHashes.length >= 1,
+        linkNode.parentHashes.length >= 1,
         "perturb_from_raw should have at least 1 parent",
       );
       // Verify the perturbation actually applied — snapshot the gradient.
@@ -2071,13 +2094,14 @@ describe("SubstrateClient e2e", () => {
         contentKind: "text",
         contentBytes: new TextEncoder().encode("b"),
       });
-      // Total DAG: 1 sporocarp + 2 raw_material = 3
-      const unfiltered = await client.queryRecentNodes(10n);
-      assert.equal(unfiltered.totalDagSize, 3n);
-      assert.equal(unfiltered.filteredTotal, 3n);
+      // M21.1: DAG also contains init events + axis_registered + axis_perturbed
+      // + cycle_advanced. filteredTotal for raw_material: is still 2.
+      const unfiltered = await client.queryRecentNodes(20n);
+      assert.ok(unfiltered.totalDagSize >= 3n);
+      assert.equal(unfiltered.filteredTotal, unfiltered.totalDagSize);
 
-      const filtered = await client.queryRecentNodes(10n, "raw_material:");
-      assert.equal(filtered.totalDagSize, 3n);
+      const filtered = await client.queryRecentNodes(20n, "raw_material:");
+      assert.equal(filtered.totalDagSize, unfiltered.totalDagSize);
       assert.equal(filtered.filteredTotal, 2n);
       assert.equal(filtered.returnedCount, 2n);
     } finally {
@@ -2567,6 +2591,233 @@ describe("SubstrateClient e2e", () => {
       }
     } finally {
       cleanupDir(dir);
+    }
+  });
+
+  // -------------------------------------------------------------------------
+  // M21.1 P5 万物互联 dual-write: every state mutation emits a DAG event.
+  // -------------------------------------------------------------------------
+
+  it("M21.1: fresh substrate emits genesis_event as first DAG node", async () => {
+    const client = await spawn();
+    try {
+      const all = await client.queryRecentNodes(50n);
+      const genesis = all.nodes.find((n) =>
+        n.nodeType.startsWith("genesis_event:"),
+      );
+      assert.ok(genesis, "expected genesis_event:* DAG node");
+      assert.equal(
+        genesis!.parentHashes.length,
+        0,
+        "genesis_event has no parents",
+      );
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("M21.1: hello with operator_identity emits operator_pinned event", async () => {
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m21-op-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identity = OperatorIdentity.loadOrCreate(opDir);
+      const stateDir = freshStateDir();
+      const client = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identity,
+      });
+      try {
+        const pinned = await client.queryRecentNodes(20n, "operator_pinned:");
+        assert.equal(pinned.filteredTotal, 1n);
+      } finally {
+        await client.shutdown();
+      }
+    } finally {
+      cleanupDir(opDir);
+    }
+  });
+
+  it("M21.1: register_axis emits axis_registered event", async () => {
+    const client = await spawn();
+    try {
+      await client.registerAxis({
+        name: "test_emit",
+        axisClass: "appetite",
+        fruitingThreshold: 5.0,
+        initialValue: 0.0,
+        decayRatePerCycle: 1.0,
+        isMortalitySignal: false,
+        updateRuleKind: "noop",
+      });
+      const events = await client.queryRecentNodes(20n, "axis_registered:");
+      assert.equal(events.filteredTotal, 1n);
+      assert.equal(events.nodes[0]!.nodeType, "axis_registered:test_emit");
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("M21.1: perturb_axis emits axis_perturbed event", async () => {
+    const client = await spawn();
+    try {
+      await client.registerAxis({
+        name: "p_emit",
+        axisClass: "appetite",
+        fruitingThreshold: 100.0,
+        initialValue: 0.0,
+        decayRatePerCycle: 1.0,
+        isMortalitySignal: false,
+        updateRuleKind: "noop",
+      });
+      await client.perturb("p_emit", 3.5);
+      await client.perturb("p_emit", 1.5);
+      const events = await client.queryRecentNodes(20n, "axis_perturbed:");
+      assert.equal(events.filteredTotal, 2n);
+      // All matching node_types should be "axis_perturbed:p_emit"
+      for (const n of events.nodes) {
+        assert.equal(n.nodeType, "axis_perturbed:p_emit");
+      }
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("M21.1: advance emits cycle_advanced event", async () => {
+    const client = await spawn();
+    try {
+      await client.advance(1n);
+      await client.advance(2n);
+      const events = await client.queryRecentNodes(20n, "cycle_advanced");
+      // cycle_advanced has no per-axis suffix; check at least 2.
+      assert.ok(
+        events.filteredTotal >= 2n,
+        `expected ≥2 cycle_advanced events; got ${events.filteredTotal}`,
+      );
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("M21.1: request_attestation_nonce emits nonce_issued event", async () => {
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m21-op-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identity = OperatorIdentity.loadOrCreate(opDir);
+      const stateDir = freshStateDir();
+      const client = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identity,
+      });
+      try {
+        const content = new TextEncoder().encode("m21 nonce test");
+        await client.requestAttestationNonce(content);
+        const events = await client.queryRecentNodes(20n, "nonce_issued:");
+        assert.equal(events.filteredTotal, 1n);
+      } finally {
+        await client.shutdown();
+      }
+    } finally {
+      cleanupDir(opDir);
+    }
+  });
+
+  it("M21.1: submit_mutation with nonce emits nonce_consumed event", async () => {
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m21-op-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identity = OperatorIdentity.loadOrCreate(opDir);
+      const stateDir = freshStateDir();
+      const client = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identity,
+      });
+      try {
+        const content = new TextEncoder().encode("m21 consume test");
+        const nonceResult = await client.requestAttestationNonce(content);
+        const sig = identity.sign(content);
+        const r = await client.submitMutation({
+          mutationType: "schema_change",
+          touchedMetaStructures: ["appetite_axis_schema"],
+          contentCanonicalBytes: content,
+          attestationSignature: sig,
+          nonce: nonceResult.nonce,
+          expiryUnixNs: nonceResult.expiryUnixNs,
+        });
+        assert.equal(r.accepted, true);
+        const consumed = await client.queryRecentNodes(20n, "nonce_consumed:");
+        assert.equal(consumed.filteredTotal, 1n);
+      } finally {
+        await client.shutdown();
+      }
+    } finally {
+      cleanupDir(opDir);
+    }
+  });
+
+  it("M21.1: C19 detector passes on healthy substrate", async () => {
+    const client = await spawn();
+    try {
+      // Drive the substrate through several operations to populate state.
+      await client.registerAxis({
+        name: "c19_test",
+        axisClass: "appetite",
+        fruitingThreshold: 5.0,
+        initialValue: 0.0,
+        decayRatePerCycle: 1.0,
+        isMortalitySignal: false,
+        updateRuleKind: "noop",
+      });
+      await client.perturb("c19_test", 2.5);
+      await client.advance(1n);
+      // Run integrity check.
+      const report = await client.runImmuneCheck();
+      const orphanCheck = report.checks.find(
+        (c) => c.checkId === "substrate_state_orphan_detected",
+      );
+      assert.ok(orphanCheck, "expected C19 check to be present");
+      assert.equal(
+        orphanCheck!.passed,
+        true,
+        `C19 should pass on healthy substrate; evidence: ${orphanCheck!.evidence}`,
+      );
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("M21.1: DerivedState reconstructs state correctly across operations", async () => {
+    const client = await spawn();
+    try {
+      // Build up state, then check C19 passes throughout.
+      await client.registerAxis({
+        name: "derived_test",
+        axisClass: "appetite",
+        fruitingThreshold: 100.0,
+        initialValue: 0.0,
+        decayRatePerCycle: 1.0,
+        isMortalitySignal: false,
+        updateRuleKind: "noop",
+      });
+      const check1 = await client.runImmuneCheck();
+      assert.equal(check1.failedChecks, 0n);
+
+      await client.perturb("derived_test", 5.0);
+      await client.advance(1n);
+      const check2 = await client.runImmuneCheck();
+      assert.equal(check2.failedChecks, 0n);
+
+      await client.advance(2n);
+      const check3 = await client.runImmuneCheck();
+      assert.equal(
+        check3.failedChecks,
+        0n,
+        "C19 should remain green throughout operations",
+      );
+    } finally {
+      await client.shutdown();
     }
   });
 });

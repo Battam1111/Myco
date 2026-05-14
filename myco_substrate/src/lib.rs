@@ -49,6 +49,8 @@
 #![allow(clippy::doc_overindented_list_items)]
 #![forbid(unsafe_code)]
 
+pub mod derived_state;
+pub mod events;
 pub mod persistence;
 pub mod server;
 
