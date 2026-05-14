@@ -2807,6 +2807,92 @@ describe("SubstrateClient e2e", () => {
   // files except dag.cb, the substrate must boot correctly with full state.
   // -------------------------------------------------------------------------
 
+  it("M21.5: snapshot.cb created after K=10 cycles + survives restart", async () => {
+    const stateDir = freshStateDir();
+    try {
+      const c1 = await spawn(stateDir);
+      await c1.registerAxis({
+        name: "snap_test",
+        axisClass: "appetite",
+        fruitingThreshold: 100.0,
+        initialValue: 0.0,
+        decayRatePerCycle: 1.0,
+        isMortalitySignal: false,
+        updateRuleKind: "noop",
+      });
+      // Advance 10 cycles to trigger snapshot.
+      for (let c = 1n; c <= 10n; c++) {
+        await c1.advance(c);
+      }
+      await c1.shutdown();
+
+      // M21.5: snapshot.cb should exist alongside dag.cb.
+      const fs = await import("node:fs");
+      const path = await import("node:path");
+      const files = fs.readdirSync(stateDir).filter((f) => !f.endsWith(".tmp")).sort();
+      assert.deepEqual(
+        files,
+        ["dag.cb", "snapshot.cb"],
+        `M21.5: expected only dag.cb + snapshot.cb; got: ${files.join(", ")}`,
+      );
+
+      // Boot should succeed (uses snapshot for fast Rust-side init).
+      const c2 = await spawn(stateDir);
+      try {
+        const integrity = await c2.runImmuneCheck();
+        assert.equal(integrity.failedChecks, 0n);
+        // cycle_counter should be 10 (preserved across boot via snapshot).
+        const adv = await c2.advance(11n);
+        assert.equal(adv.cycleNumber, 11n);
+      } finally {
+        await c2.shutdown();
+      }
+
+      // After more operations, snapshot.cb should still be a regular file.
+      assert.ok(fs.statSync(path.join(stateDir, "snapshot.cb")).isFile());
+    } finally {
+      cleanupDir(stateDir);
+    }
+  });
+
+  it("M21.5: corrupted snapshot.cb gracefully falls back to full DAG replay", async () => {
+    const stateDir = freshStateDir();
+    try {
+      const c1 = await spawn(stateDir);
+      await c1.registerAxis({
+        name: "snap_corrupt",
+        axisClass: "appetite",
+        fruitingThreshold: 100.0,
+        initialValue: 0.0,
+        decayRatePerCycle: 1.0,
+        isMortalitySignal: false,
+        updateRuleKind: "noop",
+      });
+      for (let c = 1n; c <= 10n; c++) {
+        await c1.advance(c);
+      }
+      await c1.shutdown();
+
+      // Corrupt snapshot.cb.
+      const fs = await import("node:fs");
+      const path = await import("node:path");
+      fs.writeFileSync(path.join(stateDir, "snapshot.cb"), Buffer.from("corrupted junk"));
+
+      // Boot should succeed — falls back to full DAG replay.
+      const c2 = await spawn(stateDir);
+      try {
+        const adv = await c2.advance(11n);
+        assert.equal(adv.cycleNumber, 11n);
+        const integrity = await c2.runImmuneCheck();
+        assert.equal(integrity.failedChecks, 0n);
+      } finally {
+        await c2.shutdown();
+      }
+    } finally {
+      cleanupDir(stateDir);
+    }
+  });
+
   it("M21.4 acid test: substrate state_dir contains ONLY dag.cb after operations", async () => {
     // M21.4 commits no-compromise: legacy state files (manifest.cb / gradient.cb /
     // owner_keys.cb / operator_identity_pubkey.cb / nonces.cb) are no longer
@@ -2850,14 +2936,23 @@ describe("SubstrateClient e2e", () => {
         await client.shutdown();
       }
 
-      // After shutdown, the state_dir must contain ONLY dag.cb (no legacy files).
+      // After shutdown, the state_dir must contain ONLY:
+      // - dag.cb (authoritative substrate state, M21.4)
+      // - snapshot.cb (optional cache, M21.5 — present if any K=10 cycle happened)
+      // No legacy state files allowed (M21.4 commitment).
       const fs = await import("node:fs");
-      const files = fs.readdirSync(stateDir).filter((f) => !f.endsWith(".tmp"));
-      assert.deepEqual(
-        files,
-        ["dag.cb"],
-        `M21.4: state_dir must contain only dag.cb; got: ${files.join(", ")}`,
-      );
+      const files = fs
+        .readdirSync(stateDir)
+        .filter((f) => !f.endsWith(".tmp"))
+        .sort();
+      const allowed = new Set(["dag.cb", "snapshot.cb"]);
+      for (const f of files) {
+        assert.ok(
+          allowed.has(f),
+          `M21.4: legacy state file present: ${f}. Only dag.cb + (optional) snapshot.cb allowed.`,
+        );
+      }
+      assert.ok(files.includes("dag.cb"), "dag.cb must exist");
     } finally {
       cleanupDir(opDir);
     }
@@ -2988,9 +3083,8 @@ describe("SubstrateClient e2e", () => {
       const preAxisValue = preSnap.get("m21_dag_only");
       await c1.shutdown();
 
-      // Delete EVERYTHING in state dir EXCEPT dag.cb.
-      // The substrate must reconstruct its identity + cycle + nonce log + pinned
-      // operator identity from DAG events alone.
+      // Delete EVERYTHING in state dir EXCEPT dag.cb (also delete snapshot.cb
+      // if present from M21.5; we want to test full DAG replay).
       const fs = await import("node:fs");
       const path = await import("node:path");
       const entries = fs.readdirSync(stateDir);

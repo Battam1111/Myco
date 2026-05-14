@@ -304,9 +304,47 @@ pub fn run_loop<R: Read, W: Write>(stdin: &mut R, stdout: &mut W) -> Result<u8, 
         }
     };
 
-    // Derive state from DAG. On unrecoverable replay error, treat as empty
-    // (fresh substrate path).
-    let derived = DerivedState::from_dag(&dag).unwrap_or_else(|_| DerivedState::empty());
+    // M21.5 P5 万物互联: try to load snapshot.cb first. If present + the
+    // snapshot's recorded tip is in the DAG → use it as the starting state +
+    // replay only events newer than that tip. This avoids full DAG replay on
+    // large substrates.
+    //
+    // Fallback (snapshot missing / corrupted / stale): full DAG replay
+    // (correctness preserved; snapshot is purely an optimization).
+    let derived = {
+        let snapshot_bytes = crate::persistence::load_snapshot(&state_dir).ok().flatten();
+        let from_snapshot = match snapshot_bytes {
+            Some(bytes) => match DerivedState::from_canonical_bytes(&bytes) {
+                Ok(Some((mut state_from_snap, snap_tip))) => {
+                    // Validate: snapshot tip must be in DAG (else snapshot is
+                    // stale and DAG was rebuilt/quarantined).
+                    let snap_tip_in_dag = match snap_tip {
+                        None => dag.node_count() == 0,
+                        Some(tip_arr) => {
+                            let nh = myco_kernel_shared::crypto::NodeHash::from_bytes(tip_arr);
+                            dag.get(&nh).is_some()
+                        }
+                    };
+                    if snap_tip_in_dag {
+                        // Replay only events AFTER snapshot_at_dag_tip.
+                        let replay_result =
+                            replay_events_after_tip(&mut state_from_snap, &dag, snap_tip.as_ref());
+                        match replay_result {
+                            Ok(()) => Some(state_from_snap),
+                            Err(_) => None, // fall back to full replay
+                        }
+                    } else {
+                        None
+                    }
+                }
+                _ => None,
+            },
+            None => None,
+        };
+        from_snapshot.unwrap_or_else(|| {
+            DerivedState::from_dag(&dag).unwrap_or_else(|_| DerivedState::empty())
+        })
+    };
 
     // Determine boot mode:
     //  - "dag-first" (M21.2+): derived.is_post_m21_substrate() == true
@@ -645,6 +683,14 @@ fn dispatch(state: &mut ServerState, request: &Message) -> Result<Option<Message
             save_python_state(state)?;
             // M8: persist the DAG (sporocarps inserted during handle_advance).
             save_dag_state(state)?;
+            // M21.5 P5 万物互联: opportunistic snapshot. Every K cycles, save
+            // a snapshot.cb to accelerate next boot. K=10 for fast feedback in
+            // tests; production may tune. If snapshot save fails, log + continue
+            // (snapshot is a CACHE — substrate works without it).
+            const SNAPSHOT_EVERY_K_CYCLES: u64 = 10;
+            if new_cycle % SNAPSHOT_EVERY_K_CYCLES == 0 {
+                let _ = save_snapshot_for_state(state);
+            }
             Ok(response)
         }
         msg_type::SHUTDOWN => {
@@ -2574,6 +2620,84 @@ fn save_dag_state(state: &ServerState) -> Result<(), SubstrateError> {
 fn save_nonce_state(_state: &ServerState) -> Result<(), SubstrateError> {
     // M21.4: no-op. Nonce state is event-sourced via DAG.
     Ok(())
+}
+
+/// M21.5 P5 万物互联: apply DAG events that occur AFTER a snapshot's recorded
+/// tip to a DerivedState already initialized from that snapshot.
+///
+/// Used at boot when snapshot.cb is found + valid: instead of replaying every
+/// event from genesis, replay only the tail of the DAG.
+fn replay_events_after_tip(
+    state: &mut crate::derived_state::DerivedState,
+    dag: &myco_kernel_schema::dag::Dag,
+    after_tip: Option<&[u8; 32]>,
+) -> Result<(), crate::derived_state::DerivedStateError> {
+    let mut skipping = after_tip.is_some();
+    for node in dag.iter_in_insertion_order() {
+        if skipping {
+            if let Some(tip) = after_tip {
+                if node.hash.as_ref() == tip.as_slice() {
+                    skipping = false;
+                }
+            }
+            continue;
+        }
+        state.apply_event(node)?;
+    }
+    Ok(())
+}
+
+/// M21.5 P5 万物互联: save a snapshot of the current Rust-side derived state.
+/// Used opportunistically every K cycles to accelerate boot — boot can use
+/// the snapshot instead of full DAG replay (replays only events after the
+/// snapshot's recorded tip).
+fn save_snapshot_for_state(state: &ServerState) -> Result<(), SubstrateError> {
+    use crate::derived_state::{DerivedNonce, DerivedState};
+    use crate::persistence::save_snapshot;
+
+    // Build a DerivedState from the current in-memory ServerState fields.
+    let derived = DerivedState {
+        substrate_id: if state.manifest.substrate_id == [0u8; 32] {
+            None
+        } else {
+            Some(state.manifest.substrate_id)
+        },
+        genesis_time_unix_ns: if state.manifest.substrate_id == [0u8; 32] {
+            None
+        } else {
+            Some(state.manifest.genesis_time_unix_ns)
+        },
+        cycle_counter: state.manifest.cycle_counter,
+        last_absorbed_cycle: state.manifest.last_absorbed_cycle,
+        pinned_operator_identity: state.pinned_operator_identity.clone(),
+        nonce_log: state
+            .nonce_log
+            .iter()
+            .map(|(k, v)| {
+                (
+                    *k,
+                    DerivedNonce {
+                        nonce: v.nonce,
+                        bound_content_hash: v.bound_content_hash,
+                        bound_dag_tip: v.bound_dag_tip,
+                        substrate_issued_at_unix_ns: v.substrate_issued_at_unix_ns,
+                        expiry_unix_ns: v.expiry_unix_ns,
+                        anchor_clock_issued_at_unix_ns: v.anchor_clock_issued_at_unix_ns,
+                        anchor_clock_expiry_unix_ns: v.anchor_clock_expiry_unix_ns,
+                        consumed: v.consumed,
+                    },
+                )
+            })
+            .collect(),
+    };
+    // Record the DAG tip at snapshot time so boot knows where to resume replay.
+    let snapshot_at_tip: Option<[u8; 32]> = state.dag.tip().map(|t| {
+        let mut arr = [0u8; 32];
+        arr.copy_from_slice(t.as_ref());
+        arr
+    });
+    let bytes = derived.to_canonical_bytes(snapshot_at_tip.as_ref());
+    save_snapshot(&bytes, &state.state_dir)
 }
 
 /// M12: Result of one integrity check (C9 cold_resume_invariant_failure sub-check).
