@@ -33,9 +33,13 @@ use myco_kernel_continuity::cycle::{
     SkinBreachChecker, Tier1Validator,
 };
 use myco_kernel_schema::dag::Dag;
-use myco_kernel_shared::canonical_bytes::{CanonicalBytes, Value};
+use myco_kernel_shared::canonical_bytes::{encode as cb_encode, CanonicalBytes, Value};
+use myco_kernel_shared::crypto::verify_signature;
 
-use crate::persistence::{default_state_dir, ensure_state_dir, load_dag, save_dag, Manifest};
+use crate::persistence::{
+    default_state_dir, ensure_state_dir, load_dag, load_pinned_operator_identity, save_dag,
+    save_pinned_operator_identity, Manifest, PinnedOperatorIdentity,
+};
 use crate::SubstrateError;
 
 // ---------------------------------------------------------------------------
@@ -112,15 +116,24 @@ struct ServerState {
     state_dir: PathBuf,
     /// Persistent causal DAG of substrate events (sporocarps etc.) (M8).
     dag: Dag,
+    /// Pinned operator identity public key (M9). `None` until TOFU on first hello.
+    pinned_operator_identity: Option<PinnedOperatorIdentity>,
 }
 
 impl ServerState {
-    fn new(state_dir: PathBuf, manifest: Manifest, dag: Dag) -> Self {
+    fn new(
+        state_dir: PathBuf,
+        manifest: Manifest,
+        dag: Dag,
+        pinned_operator_identity: Option<PinnedOperatorIdentity>,
+    ) -> Self {
         // M7: the manifest's cycle_counter is the authoritative persisted
         // counter; the in-process CycleEngine maintains its own counter that
         // counts cycles within THIS process only. handle_advance() uses the
         // manifest counter as the cross-process source-of-truth.
         // M8: dag carries the substrate's causal history (sporocarps + future event types).
+        // M9: pinned_operator_identity is the TOFU-pinned operator pubkey;
+        //     None pre-first-hello.
         ServerState {
             session_secret: [0u8; 32],
             handshake_complete: false,
@@ -129,6 +142,7 @@ impl ServerState {
             manifest,
             state_dir,
             dag,
+            pinned_operator_identity,
         }
     }
 
@@ -164,7 +178,8 @@ pub fn run_loop<R: Read, W: Write>(stdin: &mut R, stdout: &mut W) -> Result<u8, 
         None => Manifest::genesis(),
     };
     let dag = load_dag(&state_dir)?.unwrap_or_default();
-    let mut state = ServerState::new(state_dir, manifest, dag);
+    let pinned_operator_identity = load_pinned_operator_identity(&state_dir)?;
+    let mut state = ServerState::new(state_dir, manifest, dag, pinned_operator_identity);
 
     loop {
         let expected_key = if state.handshake_complete {
@@ -231,6 +246,31 @@ pub fn run_loop<R: Read, W: Write>(stdin: &mut R, stdout: &mut W) -> Result<u8, 
                 // Handshake-only path: state was mutated but no response queued (currently unused).
             }
             Err(e) => {
+                // M9: when a HELLO request fails (e.g., pubkey mismatch),
+                // key the error envelope with the operator-provided
+                // session_secret from the hello payload so the TS operator
+                // can decode our rejection. Then EXIT — a rejected hello
+                // means the session is poisoned; no point continuing.
+                if request.message_type == msg_type::HELLO {
+                    let response_key = match request.payload.get("session_secret") {
+                        Some(Value::Bytes(b)) if b.len() == 32 => {
+                            let mut arr = [0u8; 32];
+                            arr.copy_from_slice(b);
+                            arr
+                        }
+                        _ => bootstrap_key(),
+                    };
+                    // Best-effort write of the error envelope (operator can decode).
+                    let _ = write_error_response(
+                        stdout,
+                        &response_key,
+                        request.request_id,
+                        "hello_rejected",
+                        &e.to_string(),
+                    );
+                    graceful_shutdown_python(&mut state);
+                    return Ok(2);
+                }
                 let response_key = if state.handshake_complete {
                     state.session_secret
                 } else {
@@ -476,6 +516,27 @@ fn handle_hello(
             ))
         }
     };
+
+    // M9: extract + verify operator identity. If the hello payload includes
+    // operator_pubkey + hello_signature, verify the signature; then either
+    // pin (first sight, TOFU) or match (subsequent sessions).
+    //
+    // For M5-M8 backward compatibility: if these fields are absent AND no
+    // pubkey has been pinned, accept (legacy mode). If pinned but absent in
+    // hello, REJECT (someone is trying to downgrade).
+    let pubkey_present = request.payload.contains_key("operator_pubkey");
+    let sig_present = request.payload.contains_key("hello_signature");
+    let pinned_pre = state.pinned_operator_identity.clone();
+
+    if pubkey_present && sig_present {
+        verify_hello_signature_and_pin(state, &secret, request)?;
+    } else if pinned_pre.is_some() {
+        return Err(SubstrateError::Handshake(
+            "hello missing operator_pubkey + hello_signature; substrate has a pinned operator identity (downgrade rejected; M9 L1_HARD_RULES C2)".to_string(),
+        ));
+    }
+    // else: legacy mode (no pubkey pinned, no signature provided) — accept.
+
     state.session_secret = secret;
 
     // Spawn the Python worker. Use the same secret to keep the chain
@@ -530,6 +591,93 @@ fn handle_hello(
         request.request_id,
         payload,
     )))
+}
+
+/// M9: Verify the hello message's Ed25519 signature and TOFU-pin or match
+/// the operator's public key.
+///
+/// The signing input is the canonical-bytes encoding of a Map containing
+/// {session_secret, operator_pubkey} (the hello_signature field is excluded
+/// to avoid self-reference). Must match TS-side [`helloSigningBody`].
+fn verify_hello_signature_and_pin(
+    state: &mut ServerState,
+    secret: &[u8; 32],
+    request: &Message,
+) -> Result<(), SubstrateError> {
+    // Extract operator_pubkey.
+    let pubkey_bytes = match request.payload.get("operator_pubkey") {
+        Some(Value::Bytes(b)) if b.len() == 32 => {
+            let mut arr = [0u8; 32];
+            arr.copy_from_slice(b);
+            arr
+        }
+        _ => {
+            return Err(SubstrateError::Handshake(
+                "hello operator_pubkey must be 32 bytes".to_string(),
+            ))
+        }
+    };
+
+    // Extract hello_signature.
+    let signature_bytes = match request.payload.get("hello_signature") {
+        Some(Value::Bytes(b)) if b.len() == 64 => {
+            let mut arr = [0u8; 64];
+            arr.copy_from_slice(b);
+            arr
+        }
+        _ => {
+            return Err(SubstrateError::Handshake(
+                "hello_signature must be 64 bytes".to_string(),
+            ))
+        }
+    };
+
+    // Reconstruct the signing body: canonical-bytes of {session_secret, operator_pubkey}.
+    let mut signing_map = BTreeMap::new();
+    signing_map.insert("session_secret".to_string(), Value::Bytes(secret.to_vec()));
+    signing_map.insert(
+        "operator_pubkey".to_string(),
+        Value::Bytes(pubkey_bytes.to_vec()),
+    );
+    let signing_input = cb_encode(&Value::Map(signing_map))
+        .map_err(|e| SubstrateError::Handshake(format!("hello signing-body encode: {e}")))?;
+
+    // Verify the Ed25519 signature.
+    verify_signature(&pubkey_bytes, &signature_bytes, signing_input.as_ref()).map_err(|e| {
+        SubstrateError::Handshake(format!(
+            "hello_signature verification failed (L1_HARD_RULES C2): {e}"
+        ))
+    })?;
+
+    // TOFU or match.
+    match &state.pinned_operator_identity {
+        None => {
+            // First sight — pin.
+            let pinned = PinnedOperatorIdentity::pin_now(pubkey_bytes);
+            save_pinned_operator_identity(&pinned, &state.state_dir)?;
+            state.pinned_operator_identity = Some(pinned);
+            Ok(())
+        }
+        Some(pinned) => {
+            if pinned.pubkey == pubkey_bytes {
+                Ok(())
+            } else {
+                Err(SubstrateError::Handshake(format!(
+                    "operator pubkey mismatch: pinned {} vs presented {} (L1_HARD_RULES C2 handshake_pubkey_mismatch)",
+                    hex_encode(&pinned.pubkey),
+                    hex_encode(&pubkey_bytes)
+                )))
+            }
+        }
+    }
+}
+
+fn hex_encode(bytes: &[u8]) -> String {
+    let mut s = String::with_capacity(bytes.len() * 2);
+    for b in bytes {
+        s.push_str(&format!("{b:02x}"));
+    }
+    s
 }
 
 /// Trigger a save of the Python-side gradient state. Called after every
