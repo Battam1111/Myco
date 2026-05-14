@@ -53,6 +53,47 @@ pub const MANIFEST_FILENAME: &str = "manifest.cb";
 /// Filename for the Python-managed gradient state within a state directory.
 pub const GRADIENT_FILENAME: &str = "gradient.cb";
 
+/// Filename for the Rust-managed DAG state within a state directory (M8).
+pub const DAG_FILENAME: &str = "dag.cb";
+
+/// Save a DAG to `<state_dir>/dag.cb` atomically (M8).
+///
+/// Same pattern as [`Manifest::save`]: write to `.tmp`, fsync, atomic rename.
+pub fn save_dag(
+    dag: &myco_kernel_schema::dag::Dag,
+    state_dir: &Path,
+) -> Result<(), SubstrateError> {
+    ensure_state_dir(state_dir)?;
+    let final_path = state_dir.join(DAG_FILENAME);
+    let tmp_path = state_dir.join(format!("{DAG_FILENAME}.tmp"));
+    let bytes = dag.to_canonical_bytes();
+    {
+        let mut f = fs::File::create(&tmp_path)?;
+        f.write_all(bytes.as_ref())?;
+        f.sync_all()?;
+    }
+    fs::rename(&tmp_path, &final_path)?;
+    Ok(())
+}
+
+/// Load a DAG from `<state_dir>/dag.cb` (M8).
+///
+/// Returns `Ok(None)` if the file does not exist (genesis condition) or if
+/// the on-disk format version is incompatible.
+pub fn load_dag(state_dir: &Path) -> Result<Option<myco_kernel_schema::dag::Dag>, SubstrateError> {
+    let path = state_dir.join(DAG_FILENAME);
+    match fs::File::open(&path) {
+        Ok(mut f) => {
+            let mut bytes = Vec::new();
+            f.read_to_end(&mut bytes)?;
+            myco_kernel_schema::dag::Dag::from_canonical_bytes(&bytes)
+                .map_err(|e| SubstrateError::Protocol(format!("dag load: {e}")))
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(e) => Err(SubstrateError::Io(e)),
+    }
+}
+
 /// Substrate identity + metabolic-cycle position. Persisted to `manifest.cb`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Manifest {

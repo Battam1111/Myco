@@ -154,4 +154,91 @@ describe("McpServer tool dispatch", () => {
       await server.dispose();
     }
   });
+
+  // M8 NEW tools.
+  it("myco_current_intent on empty DAG returns cold_start", async () => {
+    const server = newServer();
+    try {
+      const result = await server._testDispatch("myco_current_intent", {
+        radius_cycles: 5,
+      });
+      assert.equal(result.isError, undefined);
+      assert.match(result.content[0]!.text, /cold_start=true/);
+      assert.match(result.content[0]!.text, /clusters=0/);
+    } finally {
+      await server.dispose();
+    }
+  });
+
+  it("myco_query_recent_nodes on empty DAG returns empty list", async () => {
+    const server = newServer();
+    try {
+      const result = await server._testDispatch("myco_query_recent_nodes", {
+        count: 10,
+      });
+      assert.equal(result.isError, undefined);
+      assert.match(result.content[0]!.text, /total_dag_size=0/);
+      assert.match(result.content[0]!.text, /returned=0/);
+    } finally {
+      await server.dispose();
+    }
+  });
+
+  it("myco_query_recent_nodes after sporocarp emission lists them", async () => {
+    const server = newServer();
+    try {
+      await server._testDispatch("myco_register_axis", {
+        name: "mcp_dag",
+        axis_class: "appetite",
+        fruiting_threshold: 1.0,
+        initial_value: 0.0,
+        decay_rate_per_cycle: 1.0,
+        is_mortality_signal: false,
+        update_rule_kind: "noop",
+      });
+      await server._testDispatch("myco_perturb_axis", {
+        axis_name: "mcp_dag",
+        delta: 2.0,
+      });
+      await server._testDispatch("myco_advance_cycle", { current_cycle: 1 });
+      const result = await server._testDispatch("myco_query_recent_nodes", {
+        count: 10,
+      });
+      assert.equal(result.isError, undefined);
+      assert.match(result.content[0]!.text, /total_dag_size=1/);
+      assert.match(result.content[0]!.text, /sporocarp:appetite_fruiting/);
+    } finally {
+      await server.dispose();
+    }
+  });
+
+  it("myco_current_intent after sporocarps returns clusters", async () => {
+    const server = newServer();
+    try {
+      await server._testDispatch("myco_register_axis", {
+        name: "intent_mcp",
+        axis_class: "appetite",
+        fruiting_threshold: 1.0,
+        initial_value: 0.0,
+        decay_rate_per_cycle: 1.0,
+        is_mortality_signal: false,
+        update_rule_kind: "noop",
+      });
+      for (let c = 1; c <= 3; c++) {
+        await server._testDispatch("myco_perturb_axis", {
+          axis_name: "intent_mcp",
+          delta: 2.0,
+        });
+        await server._testDispatch("myco_advance_cycle", { current_cycle: c });
+      }
+      const result = await server._testDispatch("myco_current_intent", {
+        radius_cycles: 10,
+      });
+      assert.equal(result.isError, undefined);
+      // Result should contain non-cold-start intent text.
+      assert.match(result.content[0]!.text, /cold_start=false/);
+    } finally {
+      await server.dispose();
+    }
+  });
 });

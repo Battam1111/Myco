@@ -157,6 +157,12 @@ class MessageType(str, Enum):
     LOAD_STATE_ACK = "load_state_ack"
     """Python → Rust: gradient state hydrated (or genesis-on-missing)."""
 
+    COMPUTE_INTENT = "compute_intent"
+    """Operator/Rust → Python: derive intent from a DAG subset via kernel/trajectory (M8)."""
+
+    COMPUTE_INTENT_RESPONSE = "compute_intent_response"
+    """Python → Rust: clusters resulting from cluster_C over the DAG subset."""
+
 
 # ---------------------------------------------------------------------------
 # Error types.

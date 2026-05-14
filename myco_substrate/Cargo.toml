@@ -24,6 +24,7 @@ doc_overindented_list_items = "allow"
 myco-kernel-shared = { path = "../kernel/shared" }
 myco-kernel-bridge = { path = "../kernel/bridge" }
 myco-kernel-continuity = { path = "../kernel/continuity" }
+myco-kernel-schema = { path = "../kernel/schema" }
 thiserror.workspace = true
 sha2.workspace = true
 

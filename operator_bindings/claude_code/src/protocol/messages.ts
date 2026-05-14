@@ -62,6 +62,10 @@ export const MSG_TYPE = {
   SHUTDOWN: "shutdown",
   SHUTDOWN_ACK: "shutdown_ack",
   ERROR: "error",
+  COMPUTE_INTENT: "compute_intent",
+  COMPUTE_INTENT_RESPONSE: "compute_intent_response",
+  QUERY_RECENT_NODES: "query_recent_nodes",
+  QUERY_RECENT_NODES_RESPONSE: "query_recent_nodes_response",
 } as const;
 
 export type MessageType = (typeof MSG_TYPE)[keyof typeof MSG_TYPE];
@@ -291,6 +295,31 @@ export function emptyPayload(): Map<string, Value> {
   return new Map<string, Value>();
 }
 
+/** Build the payload for a `query_recent_nodes` request (M8). */
+export function queryRecentNodesPayload(count: bigint): Map<string, Value> {
+  const m = new Map<string, Value>();
+  m.set("count", { type: "uint", value: count });
+  return m;
+}
+
+/** Build the payload for a `compute_intent` request (M8).
+ *
+ *  Operator-side typically omits pivot_hash (lets substrate default to DAG tip)
+ *  and omits dag_nodes (substrate auto-fills with its own DAG).
+ *  The operator can override these for diagnostic queries.
+ */
+export function computeIntentPayload(args: {
+  radiusCycles: bigint;
+  pivotHash?: Uint8Array;
+}): Map<string, Value> {
+  const m = new Map<string, Value>();
+  m.set("radius_cycles", { type: "uint", value: args.radiusCycles });
+  if (args.pivotHash) {
+    m.set("pivot_hash", { type: "bytes", value: args.pivotHash });
+  }
+  return m;
+}
+
 /**
  * Format a number as a Python-compatible repr string.
  *
@@ -436,6 +465,166 @@ export interface HelloAck {
   pythonVersion: string;
   /** Set when responding from myco-substrate (3-tier). Empty for direct Python. */
   substrateVersion: string;
+}
+
+/** One cluster from an `compute_intent_response` (M8). */
+export interface IntentCluster {
+  clusterId: bigint;
+  nodeCount: bigint;
+  /** Cluster member DAG node hashes (32-byte each). */
+  nodeHashes: Uint8Array[];
+}
+
+/** Parsed `compute_intent_response` (M8). */
+export interface IntentReport {
+  coldStart: boolean;
+  neighborhoodNodeCount: bigint;
+  fullSetNodeCount: bigint;
+  clusterCount: bigint;
+  clusters: IntentCluster[];
+}
+
+export function parseComputeIntentResponse(response: Message): IntentReport {
+  if (response.messageType !== MSG_TYPE.COMPUTE_INTENT_RESPONSE) {
+    throw new BridgeProtocolError(
+      `expected compute_intent_response; got ${response.messageType}`,
+    );
+  }
+  const coldStartV = response.payload.get("cold_start");
+  if (!coldStartV || coldStartV.type !== "bool") {
+    throw new BridgeProtocolError("compute_intent_response missing cold_start");
+  }
+  const neighborhoodV = response.payload.get("neighborhood_node_count");
+  const fullSetV = response.payload.get("full_set_node_count");
+  const clusterCountV = response.payload.get("cluster_count");
+  const clustersV = response.payload.get("clusters");
+  if (
+    !neighborhoodV || neighborhoodV.type !== "uint" ||
+    !fullSetV || fullSetV.type !== "uint" ||
+    !clusterCountV || clusterCountV.type !== "uint" ||
+    !clustersV || clustersV.type !== "array"
+  ) {
+    throw new BridgeProtocolError(
+      "compute_intent_response missing required typed fields",
+    );
+  }
+  const clusters: IntentCluster[] = clustersV.value.map((v) => {
+    if (v.type !== "map") {
+      throw new BridgeProtocolError(`cluster is not a Map: ${v.type}`);
+    }
+    const m = v.value;
+    const idV = m.get("cluster_id");
+    const ncV = m.get("node_count");
+    const hashesV = m.get("node_hashes");
+    if (
+      !idV || idV.type !== "uint" ||
+      !ncV || ncV.type !== "uint" ||
+      !hashesV || hashesV.type !== "array"
+    ) {
+      throw new BridgeProtocolError("cluster Map missing required fields");
+    }
+    const nodeHashes: Uint8Array[] = hashesV.value.map((h) => {
+      if (h.type !== "bytes") {
+        throw new BridgeProtocolError(
+          `node_hashes contains non-Bytes: ${h.type}`,
+        );
+      }
+      return h.value;
+    });
+    return {
+      clusterId: idV.value,
+      nodeCount: ncV.value,
+      nodeHashes,
+    };
+  });
+  return {
+    coldStart: coldStartV.value,
+    neighborhoodNodeCount: neighborhoodV.value,
+    fullSetNodeCount: fullSetV.value,
+    clusterCount: clusterCountV.value,
+    clusters,
+  };
+}
+
+/** One DAG node from a `query_recent_nodes_response` (M8). */
+export interface RecentDagNode {
+  hash: Uint8Array;
+  parentHashes: Uint8Array[];
+  nodeType: string;
+  atCycle: bigint;
+  contentCanonicalBytes: Uint8Array;
+}
+
+/** Parsed `query_recent_nodes_response` (M8). */
+export interface RecentNodesReport {
+  totalDagSize: bigint;
+  returnedCount: bigint;
+  dagTip: Uint8Array | null;
+  nodes: RecentDagNode[];
+}
+
+export function parseQueryRecentNodesResponse(response: Message): RecentNodesReport {
+  if (response.messageType !== MSG_TYPE.QUERY_RECENT_NODES_RESPONSE) {
+    throw new BridgeProtocolError(
+      `expected query_recent_nodes_response; got ${response.messageType}`,
+    );
+  }
+  const totalV = response.payload.get("total_dag_size");
+  const returnedV = response.payload.get("returned_count");
+  const nodesV = response.payload.get("nodes");
+  if (
+    !totalV || totalV.type !== "uint" ||
+    !returnedV || returnedV.type !== "uint" ||
+    !nodesV || nodesV.type !== "array"
+  ) {
+    throw new BridgeProtocolError(
+      "query_recent_nodes_response missing required typed fields",
+    );
+  }
+  const tipV = response.payload.get("dag_tip");
+  const dagTip = tipV && tipV.type === "bytes" ? tipV.value : null;
+
+  const nodes: RecentDagNode[] = nodesV.value.map((v) => {
+    if (v.type !== "map") {
+      throw new BridgeProtocolError(`recent_node is not a Map: ${v.type}`);
+    }
+    const m = v.value;
+    const hashV = m.get("hash");
+    const parentsV = m.get("parent_hashes");
+    const typeV = m.get("node_type");
+    const cycleV = m.get("at_cycle");
+    const contentV = m.get("content_canonical_bytes");
+    if (
+      !hashV || hashV.type !== "bytes" ||
+      !parentsV || parentsV.type !== "array" ||
+      !typeV || typeV.type !== "string" ||
+      !cycleV || cycleV.type !== "uint" ||
+      !contentV || contentV.type !== "bytes"
+    ) {
+      throw new BridgeProtocolError("recent_node Map missing required fields");
+    }
+    const parentHashes: Uint8Array[] = parentsV.value.map((p) => {
+      if (p.type !== "bytes") {
+        throw new BridgeProtocolError(
+          `parent_hashes contains non-Bytes: ${p.type}`,
+        );
+      }
+      return p.value;
+    });
+    return {
+      hash: hashV.value,
+      parentHashes,
+      nodeType: typeV.value,
+      atCycle: cycleV.value,
+      contentCanonicalBytes: contentV.value,
+    };
+  });
+  return {
+    totalDagSize: totalV.value,
+    returnedCount: returnedV.value,
+    dagTip,
+    nodes,
+  };
 }
 
 /** Parse a `hello_ack` response. */
