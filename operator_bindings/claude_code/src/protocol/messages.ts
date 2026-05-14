@@ -66,6 +66,8 @@ export const MSG_TYPE = {
   COMPUTE_INTENT_RESPONSE: "compute_intent_response",
   QUERY_RECENT_NODES: "query_recent_nodes",
   QUERY_RECENT_NODES_RESPONSE: "query_recent_nodes_response",
+  SUBMIT_MUTATION: "submit_mutation",
+  SUBMIT_MUTATION_RESPONSE: "submit_mutation_response",
 } as const;
 
 export type MessageType = (typeof MSG_TYPE)[keyof typeof MSG_TYPE];
@@ -367,6 +369,57 @@ export function computeIntentPayload(args: {
   return m;
 }
 
+/** Build the payload for a `submit_mutation` request (M10).
+ *
+ *  CI mutations require `attestationSignature` — a 64-byte Ed25519 signature
+ *  over `contentCanonicalBytes` by the active owner key. Daily mutations omit it.
+ */
+export function submitMutationPayload(args: {
+  mutationType: string;
+  touchedFields?: string[];
+  touchedFiles?: string[];
+  touchedMetaStructures?: string[];
+  contentCanonicalBytes: Uint8Array;
+  attestationSignature?: Uint8Array;
+}): Map<string, Value> {
+  const m = new Map<string, Value>();
+  m.set("mutation_type", { type: "string", value: args.mutationType });
+  m.set("touched_fields", {
+    type: "array",
+    value: (args.touchedFields ?? []).map(
+      (s) => ({ type: "string", value: s }) as Value,
+    ),
+  });
+  m.set("touched_files", {
+    type: "array",
+    value: (args.touchedFiles ?? []).map(
+      (s) => ({ type: "string", value: s }) as Value,
+    ),
+  });
+  m.set("touched_meta_structures", {
+    type: "array",
+    value: (args.touchedMetaStructures ?? []).map(
+      (s) => ({ type: "string", value: s }) as Value,
+    ),
+  });
+  m.set("content_canonical_bytes", {
+    type: "bytes",
+    value: args.contentCanonicalBytes,
+  });
+  if (args.attestationSignature) {
+    if (args.attestationSignature.length !== 64) {
+      throw new BridgeProtocolError(
+        `attestation_signature must be 64 bytes; got ${args.attestationSignature.length}`,
+      );
+    }
+    m.set("attestation_signature", {
+      type: "bytes",
+      value: args.attestationSignature,
+    });
+  }
+  return m;
+}
+
 /**
  * Format a number as a Python-compatible repr string.
  *
@@ -590,6 +643,47 @@ export function parseComputeIntentResponse(response: Message): IntentReport {
     fullSetNodeCount: fullSetV.value,
     clusterCount: clusterCountV.value,
     clusters,
+  };
+}
+
+/** Parsed `submit_mutation_response` (M10). */
+export interface MutationResult {
+  /** "daily" | "contract_identity_level" | "untyped" */
+  classification: string;
+  accepted: boolean;
+  rejectionReason: string;
+  mutationType: string;
+  /** Set iff accepted: the DAG node hash where this mutation was recorded. */
+  dagNodeHash: Uint8Array | null;
+}
+
+export function parseSubmitMutationResponse(response: Message): MutationResult {
+  if (response.messageType !== MSG_TYPE.SUBMIT_MUTATION_RESPONSE) {
+    throw new BridgeProtocolError(
+      `expected submit_mutation_response; got ${response.messageType}`,
+    );
+  }
+  const classV = response.payload.get("classification");
+  const acceptedV = response.payload.get("accepted");
+  const reasonV = response.payload.get("rejection_reason");
+  const typeV = response.payload.get("mutation_type");
+  const hashV = response.payload.get("dag_node_hash");
+  if (
+    !classV || classV.type !== "string" ||
+    !acceptedV || acceptedV.type !== "bool" ||
+    !reasonV || reasonV.type !== "string" ||
+    !typeV || typeV.type !== "string"
+  ) {
+    throw new BridgeProtocolError(
+      "submit_mutation_response missing required typed fields",
+    );
+  }
+  return {
+    classification: classV.value,
+    accepted: acceptedV.value,
+    rejectionReason: reasonV.value,
+    mutationType: typeV.value,
+    dagNodeHash: hashV && hashV.type === "bytes" ? hashV.value : null,
   };
 }
 

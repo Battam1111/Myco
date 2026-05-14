@@ -99,6 +99,10 @@ pub mod msg_type {
     pub const QUERY_RECENT_NODES: &str = "query_recent_nodes";
     /// `query_recent_nodes_response` — Rust→Operator: enumerated recent DAG nodes.
     pub const QUERY_RECENT_NODES_RESPONSE: &str = "query_recent_nodes_response";
+    /// `submit_mutation` — Operator→Rust→Python: submit a mutation for classification + (CI) attestation (M10).
+    pub const SUBMIT_MUTATION: &str = "submit_mutation";
+    /// `submit_mutation_response` — Python→Rust→Operator: classification + accepted + content.
+    pub const SUBMIT_MUTATION_RESPONSE: &str = "submit_mutation_response";
 }
 
 /// A decoded bridge message.
@@ -368,6 +372,54 @@ pub fn compute_intent_payload(
 pub fn query_recent_nodes_payload(count: u64) -> BTreeMap<String, Value> {
     let mut m = BTreeMap::new();
     m.insert("count".to_string(), Value::Uint(count));
+    m
+}
+
+/// Build the payload for a `submit_mutation` request (M10).
+///
+/// `attestation_signature` is `None` for daily mutations and `Some(64 bytes)`
+/// for CI mutations (Ed25519 signature over `content_canonical_bytes` by
+/// the active owner key).
+pub fn submit_mutation_payload(
+    mutation_type: &str,
+    touched_fields: Vec<String>,
+    touched_files: Vec<String>,
+    touched_meta_structures: Vec<String>,
+    content_canonical_bytes: Vec<u8>,
+    attestation_signature: Option<[u8; 64]>,
+) -> BTreeMap<String, Value> {
+    let mut m = BTreeMap::new();
+    m.insert(
+        "mutation_type".to_string(),
+        Value::String(mutation_type.to_string()),
+    );
+    m.insert(
+        "touched_fields".to_string(),
+        Value::Array(touched_fields.into_iter().map(Value::String).collect()),
+    );
+    m.insert(
+        "touched_files".to_string(),
+        Value::Array(touched_files.into_iter().map(Value::String).collect()),
+    );
+    m.insert(
+        "touched_meta_structures".to_string(),
+        Value::Array(
+            touched_meta_structures
+                .into_iter()
+                .map(Value::String)
+                .collect(),
+        ),
+    );
+    m.insert(
+        "content_canonical_bytes".to_string(),
+        Value::Bytes(content_canonical_bytes),
+    );
+    if let Some(sig) = attestation_signature {
+        m.insert(
+            "attestation_signature".to_string(),
+            Value::Bytes(sig.to_vec()),
+        );
+    }
     m
 }
 

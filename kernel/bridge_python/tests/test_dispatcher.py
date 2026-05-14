@@ -624,6 +624,144 @@ def test_compute_intent_empty_dag_returns_cold_start() -> None:
     assert expect_uint(fields["cluster_count"]) == 0
 
 
+# ---------------------------------------------------------------------------
+# Submit mutation (M10).
+# ---------------------------------------------------------------------------
+
+
+def _do_handshake_with_owner_keys(state: DispatcherState, tmp_path) -> bytes:  # type: ignore[no-untyped-def]
+    """Complete hello + initialize owner_keys via load_state with genesis_owner_pubkey.
+
+    Returns the pubkey bytes (so tests can re-use them for signing)."""
+    from myco_kernel_governance.canonical_bytes import (  # noqa: PLC0415
+        Bytes as CbBytes,
+    )
+
+    _do_handshake(state)
+    # Simulate Rust calling load_state with a genesis_owner_pubkey.
+    pubkey = bytes([0xAA] * 32)  # placeholder; will be overridden by test-specific keys
+    response = dispatch(
+        state,
+        Message(
+            type=MessageType.LOAD_STATE,
+            request_id=80,
+            payload=CbMap.from_dict(
+                {
+                    "state_dir": CbString(str(tmp_path)),
+                    "genesis_owner_pubkey": CbBytes(pubkey),
+                }
+            ),
+        ),
+    )
+    assert response is not None
+    return pubkey
+
+
+def test_submit_daily_mutation_accepted() -> None:
+    state = DispatcherState()
+    _do_handshake(state)
+    response = dispatch(
+        state,
+        Message(
+            type=MessageType.SUBMIT_MUTATION,
+            request_id=80,
+            payload=CbMap.from_dict(
+                {
+                    "mutation_type": CbString("delta_absorb"),
+                    "touched_fields": Array(()),
+                    "touched_files": Array(()),
+                    "touched_meta_structures": Array(()),
+                    "content_canonical_bytes": CbBytes(b"daily content"),
+                }
+            ),
+        ),
+    )
+    assert response is not None
+    assert response.type is MessageType.SUBMIT_MUTATION_RESPONSE
+    fields = dict(response.payload.value)
+    from myco_kernel_governance.canonical_bytes import expect_bool  # noqa: PLC0415
+
+    assert expect_string(fields["classification"]) == "daily"
+    assert expect_bool(fields["accepted"]) is True
+
+
+def test_submit_untyped_mutation_rejected() -> None:
+    state = DispatcherState()
+    _do_handshake(state)
+    response = dispatch(
+        state,
+        Message(
+            type=MessageType.SUBMIT_MUTATION,
+            request_id=81,
+            payload=CbMap.from_dict(
+                {
+                    "mutation_type": CbString("completely_unknown_xyz"),
+                    "touched_fields": Array(()),
+                    "touched_files": Array(()),
+                    "touched_meta_structures": Array(()),
+                    "content_canonical_bytes": CbBytes(b"should fail"),
+                }
+            ),
+        ),
+    )
+    assert response is not None
+    fields = dict(response.payload.value)
+    from myco_kernel_governance.canonical_bytes import expect_bool  # noqa: PLC0415
+
+    assert expect_string(fields["classification"]) == "untyped"
+    assert expect_bool(fields["accepted"]) is False
+
+
+def test_submit_ci_mutation_without_attestation_rejected(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    from myco_kernel_governance.canonical_bytes import (  # noqa: PLC0415
+        Bytes as CbBytes,
+        expect_bool,
+    )
+
+    state = DispatcherState()
+    _do_handshake(state)
+    # Initialize owner_keys (needed to enable CI verification path).
+    pubkey = bytes([0xAA] * 32)
+    dispatch(
+        state,
+        Message(
+            type=MessageType.LOAD_STATE,
+            request_id=85,
+            payload=CbMap.from_dict(
+                {
+                    "state_dir": CbString(str(tmp_path)),
+                    "genesis_owner_pubkey": CbBytes(pubkey),
+                }
+            ),
+        ),
+    )
+
+    response = dispatch(
+        state,
+        Message(
+            type=MessageType.SUBMIT_MUTATION,
+            request_id=86,
+            payload=CbMap.from_dict(
+                {
+                    "mutation_type": CbString("schema_change"),
+                    "touched_fields": Array(()),
+                    "touched_files": Array(()),
+                    "touched_meta_structures": Array(
+                        (CbString("appetite_axis_schema"),)
+                    ),
+                    "content_canonical_bytes": CbBytes(b"ci attempt"),
+                    # No attestation_signature → reject
+                }
+            ),
+        ),
+    )
+    assert response is not None
+    fields = dict(response.payload.value)
+    assert expect_string(fields["classification"]) == "contract_identity_level"
+    assert expect_bool(fields["accepted"]) is False
+    assert "attestation" in expect_string(fields["rejection_reason"]).lower()
+
+
 def test_compute_intent_populated_dag_returns_clusters() -> None:
     """A 3-node linear-chain DAG with pivot=middle node returns clusters."""
     import hashlib  # noqa: PLC0415

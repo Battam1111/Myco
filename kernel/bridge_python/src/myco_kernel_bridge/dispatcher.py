@@ -81,6 +81,22 @@ from myco_kernel_tropism.persistence import (
     load_gradient,
     save_gradient,
 )
+from myco_kernel_governance.classifier import (
+    Classification,
+    MutationEnvelope,
+    classify,
+)
+from myco_kernel_governance.crypto import (
+    CryptoError,
+    Ed25519PublicKey,
+    verify_signature,
+)
+from myco_kernel_governance.owner_keys import OwnerKeyHistory, init_with_genesis_key
+from myco_kernel_governance.owner_keys_persistence import (
+    OwnerKeysPersistenceError,
+    load_owner_key_history,
+    save_owner_key_history,
+)
 
 
 KERNEL_TROPISM_VERSION: Final[str] = "0.9.0-alpha.1"
@@ -107,11 +123,16 @@ class DispatcherState:
     session_secret:
         The session secret transported by ``hello``. Used by the daemon
         loop to verify subsequent message HMACs.
+    owner_keys:
+        Owner-key history (M10). Initialized either by load_state from disk
+        or by the load_state's ``genesis_owner_pubkey`` field on first sight.
+        Consulted by ``submit_mutation`` for CI-attestation verification.
     """
 
     gradient: GradientConfiguration = field(default_factory=GradientConfiguration)
     handshake_complete: bool = False
     session_secret: bytes | None = None
+    owner_keys: OwnerKeyHistory | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -158,6 +179,8 @@ def dispatch(state: DispatcherState, request: Message) -> Message | None:
         return _handle_load_state(state, request)
     if request.type is MessageType.COMPUTE_INTENT:
         return _handle_compute_intent(state, request)
+    if request.type is MessageType.SUBMIT_MUTATION:
+        return _handle_submit_mutation(state, request)
     raise BridgeProtocolError(
         f"dispatcher cannot handle {request.type.value!r} (not a request type)"
     )
@@ -357,7 +380,7 @@ def _handle_shutdown(state: DispatcherState, request: Message) -> Message:
 
 
 def _handle_save_state(state: DispatcherState, request: Message) -> Message:
-    """Persist the current gradient state to a directory on disk."""
+    """Persist the current gradient state + owner_keys to a directory on disk."""
     keys = dict(request.payload.value)
     try:
         state_dir = expect_string(keys["state_dir"])
@@ -365,7 +388,10 @@ def _handle_save_state(state: DispatcherState, request: Message) -> Message:
         raise BridgeProtocolError(f"save_state missing state_dir: {e}") from e
     try:
         save_gradient(state.gradient, state_dir)
-    except (PersistenceError, OSError) as e:
+        # M10: also persist owner_keys if initialized.
+        if state.owner_keys is not None:
+            save_owner_key_history(state.owner_keys, state_dir)
+    except (PersistenceError, OSError, OwnerKeysPersistenceError) as e:
         raise BridgeProtocolError(f"save_state failed: {e}") from e
     return Message(
         type=MessageType.SAVE_STATE_ACK,
@@ -460,34 +486,169 @@ def _handle_compute_intent(state: DispatcherState, request: Message) -> Message:
 
 
 def _handle_load_state(state: DispatcherState, request: Message) -> Message:
-    """Hydrate gradient state from a directory on disk (or fall back to genesis)."""
+    """Hydrate gradient state + owner_keys from a directory on disk.
+
+    M10: also accepts an optional ``genesis_owner_pubkey`` field; if no
+    owner_keys.cb exists on disk and this field is provided, initialize
+    a fresh owner-key history with the given pubkey as the genesis key.
+    """
     keys = dict(request.payload.value)
     try:
         state_dir = expect_string(keys["state_dir"])
     except KeyError as e:
         raise BridgeProtocolError(f"load_state missing state_dir: {e}") from e
+
+    # Load gradient (M7).
     try:
-        loaded = load_gradient(state_dir)
+        loaded_gradient = load_gradient(state_dir)
     except PersistenceError as e:
-        raise BridgeProtocolError(f"load_state failed: {e}") from e
+        raise BridgeProtocolError(f"load_state gradient failed: {e}") from e
     except OSError as e:
         raise BridgeProtocolError(f"load_state I/O: {e}") from e
-    if loaded is None:
-        # No state file → genesis condition (caller hydrates from owner-provided schemas).
-        return Message(
-            type=MessageType.LOAD_STATE_ACK,
-            request_id=request.request_id,
-            payload=load_state_ack_payload(axis_count=0, hydrated=False),
+    if loaded_gradient is not None:
+        state.gradient = loaded_gradient
+
+    # M10: load owner_keys from disk, or initialize from genesis_owner_pubkey if absent.
+    try:
+        loaded_owner_keys = load_owner_key_history(state_dir)
+    except OwnerKeysPersistenceError as e:
+        raise BridgeProtocolError(f"load_state owner_keys failed: {e}") from e
+
+    if loaded_owner_keys is not None:
+        state.owner_keys = loaded_owner_keys
+    elif "genesis_owner_pubkey" in keys:
+        # First-time init: substrate is supplying the genesis owner pubkey.
+        pubkey_bytes = expect_bytes(keys["genesis_owner_pubkey"])
+        if len(pubkey_bytes) != 32:
+            raise BridgeProtocolError(
+                f"genesis_owner_pubkey must be 32 bytes; got {len(pubkey_bytes)}"
+            )
+        import time  # noqa: PLC0415
+
+        genesis_ts = int(time.time())
+        state.owner_keys = init_with_genesis_key(
+            genesis_key=Ed25519PublicKey(pubkey_bytes),
+            genesis_anchor_timestamp_unix_seconds=genesis_ts,
         )
-    # Replace the dispatcher's gradient atomically.
-    state.gradient = loaded
+        save_owner_key_history(state.owner_keys, state_dir)
+    # else: legacy mode (no owner_keys; CI mutations will be rejected).
+
+    axis_count = state.gradient.axis_count()
+    hydrated = loaded_gradient is not None or loaded_owner_keys is not None
     return Message(
         type=MessageType.LOAD_STATE_ACK,
         request_id=request.request_id,
         payload=load_state_ack_payload(
-            axis_count=loaded.axis_count(),
-            hydrated=True,
+            axis_count=axis_count,
+            hydrated=hydrated,
         ),
+    )
+
+
+# ---------------------------------------------------------------------------
+# M10: submit_mutation handler.
+# ---------------------------------------------------------------------------
+
+
+def _handle_submit_mutation(
+    state: DispatcherState, request: Message
+) -> Message:
+    """Classify an operator-submitted mutation + (for CI) verify owner attestation.
+
+    Returns a submit_mutation_response carrying:
+    - ``classification``: String ("daily" / "contract_identity_level" / "untyped")
+    - ``accepted``: Bool — True if the substrate accepts the mutation.
+    - ``rejection_reason``: String — empty if accepted.
+    - ``content_canonical_bytes``: Bytes — echoes the request content so the
+      Rust substrate can wrap it as a DAG node (Rust auto-computes the
+      DAG-node hash from parent + content).
+    """
+    keys = dict(request.payload.value)
+    try:
+        mutation_type = expect_string(keys["mutation_type"])
+        content_bytes = expect_bytes(keys["content_canonical_bytes"])
+        touched_fields_arr = expect_array(keys["touched_fields"])
+        touched_files_arr = expect_array(keys["touched_files"])
+        touched_meta_arr = expect_array(keys["touched_meta_structures"])
+    except (KeyError, Exception) as e:
+        raise BridgeProtocolError(
+            f"submit_mutation payload error: {e}"
+        ) from e
+
+    touched_fields = frozenset(expect_string(v) for v in touched_fields_arr)
+    touched_files = frozenset(expect_string(v) for v in touched_files_arr)
+    touched_meta = frozenset(expect_string(v) for v in touched_meta_arr)
+
+    envelope = MutationEnvelope(
+        mutation_type=mutation_type,
+        touched_fields=touched_fields,
+        touched_files=touched_files,
+        touched_meta_structures=touched_meta,
+    )
+    classification = classify(envelope)
+
+    accepted = False
+    rejection_reason = ""
+
+    if classification is Classification.DAILY:
+        # Daily mutations: auto-accept. M11+ may add per-rule policies.
+        accepted = True
+
+    elif classification is Classification.CONTRACT_IDENTITY_LEVEL:
+        # CI: require attestation_signature; verify against active owner key.
+        if state.owner_keys is None:
+            accepted = False
+            rejection_reason = (
+                "CI mutation requires owner_keys (M10 init missing; "
+                "operator must complete TOFU handshake first)"
+            )
+        elif "attestation_signature" not in keys:
+            accepted = False
+            rejection_reason = (
+                "CI mutation requires attestation_signature; none provided"
+            )
+        else:
+            try:
+                sig_bytes = expect_bytes(keys["attestation_signature"])
+                if len(sig_bytes) != 64:
+                    raise BridgeProtocolError(
+                        f"attestation_signature must be 64 bytes; got {len(sig_bytes)}"
+                    )
+                # M10 simplified verification: signature over content_canonical_bytes
+                # by the currently-active owner key. M11+ adds full envelope
+                # (nonce, dual-clock, DAG enumeration closure).
+                active_key = state.owner_keys.current_active()
+                verify_signature(
+                    active_key.bytes_,
+                    sig_bytes,
+                    content_bytes,
+                )
+                accepted = True
+            except (CryptoError, BridgeProtocolError) as e:
+                accepted = False
+                rejection_reason = f"attestation verification failed: {e}"
+
+    else:
+        # UNTYPED: per L1_HARD_RULES C14 untyped_mutation_blocked.
+        accepted = False
+        rejection_reason = (
+            "untyped mutation (no classifier rule matched); "
+            "L1_HARD_RULES C14 untyped_mutation_blocked"
+        )
+
+    response_payload = CbMap.from_dict(
+        {
+            "classification": CbString(classification.value),
+            "accepted": Bool(accepted),
+            "rejection_reason": CbString(rejection_reason),
+            "content_canonical_bytes": CbBytes(content_bytes),
+            "mutation_type": CbString(mutation_type),
+        }
+    )
+    return Message(
+        type=MessageType.SUBMIT_MUTATION_RESPONSE,
+        request_id=request.request_id,
+        payload=response_payload,
     )
 
 
