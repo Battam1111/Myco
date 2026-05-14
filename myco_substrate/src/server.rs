@@ -346,12 +346,21 @@ pub fn run_loop<R: Read, W: Write>(stdin: &mut R, stdout: &mut W) -> Result<u8, 
                 "boot-time integrity check failed: {} — {}",
                 result.check_id, result.evidence
             );
-            let _ = emit_immune_sporocarp(
-                &mut state,
-                "C9_cold_resume_invariant_failure",
-                &format!("cold_resume_invariant_failure ({})", result.check_id),
-                &evidence,
-            );
+            // M19 P9 皮肤: route check_id "canonical_bytes_render_drift" to
+            // its dedicated C18 detector; all others go to C9.
+            let (detector_id, detector_name) = if result.check_id == "canonical_bytes_render_drift"
+            {
+                (
+                    "C18_canonical_bytes_render_drift",
+                    "canonical_bytes_render_drift".to_string(),
+                )
+            } else {
+                (
+                    "C9_cold_resume_invariant_failure",
+                    format!("cold_resume_invariant_failure ({})", result.check_id),
+                )
+            };
+            let _ = emit_immune_sporocarp(&mut state, detector_id, &detector_name, &evidence);
         }
     }
     if any_failed {
@@ -1065,7 +1074,8 @@ fn handle_run_immune_check(
 ) -> Result<Option<Message>, SubstrateError> {
     let results = run_integrity_checks(state);
 
-    // Emit immune sporocarps for each failure (consistent with boot-time C9).
+    // Emit immune sporocarps for each failure (consistent with boot-time C9
+    // routing; M19: canonical_bytes_render_drift gets its dedicated C18 ID).
     let mut emitted_count: u64 = 0;
     for result in &results {
         if !result.passed {
@@ -1073,14 +1083,19 @@ fn handle_run_immune_check(
                 "ad-hoc integrity check failed: {} — {}",
                 result.check_id, result.evidence
             );
-            if emit_immune_sporocarp(
-                state,
-                "C9_cold_resume_invariant_failure",
-                &format!("cold_resume_invariant_failure ({})", result.check_id),
-                &evidence,
-            )
-            .is_ok()
+            let (detector_id, detector_name) = if result.check_id == "canonical_bytes_render_drift"
             {
+                (
+                    "C18_canonical_bytes_render_drift",
+                    "canonical_bytes_render_drift".to_string(),
+                )
+            } else {
+                (
+                    "C9_cold_resume_invariant_failure",
+                    format!("cold_resume_invariant_failure ({})", result.check_id),
+                )
+            };
+            if emit_immune_sporocarp(state, detector_id, &detector_name, &evidence).is_ok() {
                 emitted_count += 1;
             }
         }
@@ -2217,6 +2232,93 @@ fn run_integrity_checks(state: &ServerState) -> Vec<IntegrityCheckResult> {
             .to_string(),
     });
 
+    // 6. M19 P9 皮肤 / L1_HARD_RULES C18 canonical_bytes_render_drift:
+    //    decode each DAG node's content_canonical_bytes, re-encode, and compare.
+    //    Any divergence indicates canonical-bytes rendering is non-deterministic
+    //    (e.g., map keys not sorted, repr drift, integer encoding inconsistency)
+    //    — a CRITICAL skin breach that would let an attacker present the same
+    //    semantic content with different byte sequences.
+    //
+    //    M19-MV scope: scan substrate-self-generated DAG nodes. Operator-
+    //    supplied content (mutation:*) is opaque to the substrate — the
+    //    operator chooses the encoding — so we skip those nodes. Substrate-
+    //    generated nodes (sporocarp:*, immune:*, absorption_event:*,
+    //    evolution_*:*, self_euthanasia_proposal:*, perturb_from_raw:*,
+    //    raw_material:*) MUST round-trip cleanly because the substrate itself
+    //    chose their canonical-bytes shape.
+    let is_substrate_generated = |node_type: &str| -> bool { !node_type.starts_with("mutation:") };
+    let (cb_drift_count, cb_drift_example): (usize, Option<String>) = {
+        use myco_kernel_shared::canonical_bytes::{decode, encode};
+        let mut drift_count = 0usize;
+        let mut first_example: Option<String> = None;
+        for node in state
+            .dag
+            .iter_in_insertion_order()
+            .filter(|n| is_substrate_generated(&n.node_type))
+        {
+            let original = node.content_canonical_bytes.as_ref();
+            // Decode then re-encode. If the bytes differ, drift detected.
+            match decode(original) {
+                Ok(value) => match encode(&value) {
+                    Ok(reencoded) => {
+                        if reencoded.as_ref() != original {
+                            drift_count += 1;
+                            if first_example.is_none() {
+                                first_example = Some(format!(
+                                    "node {} (type {:?}) round-trips to different bytes \
+                                     (original {} bytes, re-encoded {} bytes)",
+                                    hex_encode(node.hash.as_ref()),
+                                    node.node_type,
+                                    original.len(),
+                                    reencoded.as_ref().len()
+                                ));
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        drift_count += 1;
+                        if first_example.is_none() {
+                            first_example = Some(format!(
+                                "node {} re-encode failed: {e}",
+                                hex_encode(node.hash.as_ref())
+                            ));
+                        }
+                    }
+                },
+                Err(e) => {
+                    // Decode failure on supposedly canonical bytes is itself a drift signal.
+                    drift_count += 1;
+                    if first_example.is_none() {
+                        first_example = Some(format!(
+                            "node {} decode failed: {e}",
+                            hex_encode(node.hash.as_ref())
+                        ));
+                    }
+                }
+            }
+        }
+        (drift_count, first_example)
+    };
+    // Count substrate-generated nodes for the OK-evidence message.
+    let substrate_generated_count = state
+        .dag
+        .iter_in_insertion_order()
+        .filter(|n| is_substrate_generated(&n.node_type))
+        .count();
+    results.push(IntegrityCheckResult {
+        check_id: "canonical_bytes_render_drift".to_string(),
+        passed: cb_drift_count == 0,
+        evidence: if cb_drift_count == 0 {
+            format!(
+                "ok (all {substrate_generated_count} substrate-generated DAG nodes round-trip cleanly; mutation:* content is operator-opaque and skipped)"
+            )
+        } else {
+            cb_drift_example.unwrap_or_else(|| {
+                format!("{cb_drift_count} nodes drift; no specific example captured")
+            })
+        },
+    });
+
     results
 }
 
@@ -2492,6 +2594,7 @@ fn handle_advance(
     // sporocarp's own content-hash is stored inside the canonical_bytes payload
     // as an informational field.
     let mut dag_node_hashes: Vec<myco_kernel_shared::crypto::NodeHash> = Vec::new();
+    let mut euthanasia_proposal_hashes: Vec<myco_kernel_shared::crypto::NodeHash> = Vec::new();
     for sp in &advance_report.sporocarps {
         let parents: Vec<myco_kernel_shared::crypto::NodeHash> = match state.dag.tip() {
             Some(t) => vec![t],
@@ -2508,6 +2611,52 @@ fn handle_advance(
             )
             .map_err(|e| SubstrateError::Protocol(format!("dag insert: {e}")))?;
         dag_node_hashes.push(dag_hash);
+
+        // M19 P7 必朽 (Endogenous-pair mortality): when a mortality_signal axis
+        // fruits, the substrate's metabolism has crossed an unrecoverable-
+        // pathology threshold per L0 §2.2 P7. Auto-emit a
+        // `self_euthanasia_proposal:{axis_name}` DAG node parented by the
+        // sporocarp. The proposal awaits owner co-attestation per L0 P7
+        // (M19-MV: informational only; M20+ adds owner co-attestation
+        // execution).
+        if sp.sporocarp_type == "mortality_signal_threshold_crossed" {
+            let mut proposal_content = BTreeMap::new();
+            proposal_content.insert("axis_name".to_string(), Value::String(sp.axis_name.clone()));
+            proposal_content.insert(
+                "fruiting_value_repr".to_string(),
+                Value::String(float_repr(sp.fruiting_value)),
+            );
+            proposal_content.insert("at_cycle".to_string(), Value::Uint(sp.at_cycle));
+            proposal_content.insert(
+                "triggering_sporocarp_hash".to_string(),
+                Value::Bytes(dag_hash.as_ref().to_vec()),
+            );
+            proposal_content.insert(
+                "reason".to_string(),
+                Value::String(format!(
+                    "mortality_signal axis '{}' crossed threshold (decay → fruiting_value={})",
+                    sp.axis_name,
+                    float_repr(sp.fruiting_value)
+                )),
+            );
+            let proposal_canonical = cb_encode(&Value::Map(proposal_content)).map_err(|e| {
+                SubstrateError::Protocol(format!("self_euthanasia_proposal encode: {e}"))
+            })?;
+            let proposal_parents = vec![dag_hash];
+            let proposal_node_type = format!("self_euthanasia_proposal:{}", sp.axis_name);
+            let proposal_hash = state
+                .dag
+                .insert_node(
+                    proposal_parents,
+                    proposal_node_type,
+                    sp.at_cycle,
+                    proposal_canonical,
+                )
+                .map_err(|e| {
+                    SubstrateError::Protocol(format!("self_euthanasia_proposal DAG insert: {e}"))
+                })?;
+            euthanasia_proposal_hashes.push(proposal_hash);
+        }
     }
 
     // M18 P4 永恒迭代: emit absorption_event:cycle_{N} DAG node if there were
@@ -2643,6 +2792,18 @@ fn handle_advance(
         payload.insert(
             "absorption_event_hash".to_string(),
             Value::Bytes(h.as_ref().to_vec()),
+        );
+    }
+
+    // M19 P7 必朽 — surface the self-euthanasia proposals emitted this cycle.
+    if !euthanasia_proposal_hashes.is_empty() {
+        let proposals_array: Vec<Value> = euthanasia_proposal_hashes
+            .iter()
+            .map(|h| Value::Bytes(h.as_ref().to_vec()))
+            .collect();
+        payload.insert(
+            "self_euthanasia_proposal_hashes".to_string(),
+            Value::Array(proposals_array),
         );
     }
 

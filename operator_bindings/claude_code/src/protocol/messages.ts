@@ -950,6 +950,10 @@ export interface AdvanceReport {
   skinBreaches: string[];
   /** DAG node hash of the absorption_event:cycle_{N} node, if any was emitted. */
   absorptionEventHash: Uint8Array | null;
+  // M19 P7 必朽 endogenous mortality:
+  /** DAG node hashes of any self_euthanasia_proposal:{axis_name} nodes
+   *  emitted this cycle (one per mortality_signal fruiting). */
+  selfEuthanasiaProposalHashes: Uint8Array[];
 }
 
 /** Parse an `advance_response` message into an AdvanceReport. */
@@ -1031,6 +1035,14 @@ export function parseAdvanceResponse(response: Message): AdvanceReport {
       : [];
   const absorptionEventHash =
     absorbHashV && absorbHashV.type === "bytes" ? absorbHashV.value : null;
+  // M19 P7 必朽 — self_euthanasia_proposal_hashes (back-compat optional).
+  const propsV = response.payload.get("self_euthanasia_proposal_hashes");
+  const selfEuthanasiaProposalHashes: Uint8Array[] =
+    propsV && propsV.type === "array"
+      ? propsV.value
+          .map((v) => (v.type === "bytes" ? v.value : null))
+          .filter((b): b is Uint8Array => b !== null)
+      : [];
   return {
     cycleNumber,
     fruitedAxes,
@@ -1039,6 +1051,7 @@ export function parseAdvanceResponse(response: Message): AdvanceReport {
     handshakeEventsProcessed,
     skinBreaches,
     absorptionEventHash,
+    selfEuthanasiaProposalHashes,
   };
 }
 

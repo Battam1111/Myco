@@ -358,6 +358,23 @@ const TOOL_DEFINITIONS = [
     },
   },
   {
+    name: "myco_query_self_euthanasia_proposals",
+    description:
+      "P7 必朽 (Endogenous-pair Mortality): List the substrate's pending `self_euthanasia_proposal:*` DAG nodes. These are emitted automatically when a mortality_signal axis fruits (crosses its decay threshold) — the substrate proposing its own end. Per L0 P7, executing the proposal requires owner co-attestation (the pair has agency over its ending; owner retains veto). M19-MV: proposals are informational; M20+ will add owner co-attestation execution. Each entry includes the axis_name, fruiting_value, at_cycle, and triggering_sporocarp_hash.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        count: {
+          type: "integer",
+          description: "Number of most-recent proposals to return (default 50).",
+          minimum: 1,
+          maximum: 1000,
+        },
+      },
+      required: [],
+    },
+  },
+  {
     name: "myco_evolve_schema",
     description:
       "P3 永恒进化 (Eternal Evolution): Submit an owner-attested schema mutation that actually CHANGES the substrate's gradient schema. Unlike prior CI mutations (M10–M15) which were recorded but not applied, this triggers real schema modification with snapshot-rollback semantics. On success: substrate emits evolution_succeeded:{op} DAG event. On failure (invariant violation, missing axis, etc.): rollback + evolution_failed:{op} event. Supported ops: modify_axis_threshold (change an axis's fruiting threshold), add_axis_to_gradient (register a new axis through the CI attestation gate).",
@@ -754,6 +771,30 @@ export class McpServer {
           content: [
             { type: "text" as const, text: formatImmuneEvents(report) },
           ],
+        };
+      }
+      case "myco_query_self_euthanasia_proposals": {
+        const sub = await this._ensureSubstrate();
+        const count = args.count !== undefined ? BigInt(Number(args.count)) : 50n;
+        const report = await sub.queryRecentNodes(count, "self_euthanasia_proposal:");
+        const lines: string[] = [];
+        lines.push(
+          `total_dag_size=${report.totalDagSize}  pending_proposals=${report.filteredTotal}`,
+        );
+        if (report.filteredTotal === 0n) {
+          lines.push("  (no self-euthanasia proposals; substrate's mortality_signal axes are stable)");
+        } else {
+          lines.push(`  M19-MV: proposals are informational; owner co-attestation execution is M20+`);
+        }
+        for (const node of report.nodes) {
+          const axisName = node.nodeType.replace(/^self_euthanasia_proposal:/, "");
+          lines.push(
+            `  [cycle ${node.atCycle}] axis="${axisName}"  hash=${toHex(node.hash).substring(0, 24)}…`,
+          );
+        }
+        return {
+          content: [{ type: "text" as const, text: lines.join("\n") }],
+          isError: report.filteredTotal > 0n,
         };
       }
       case "myco_evolve_schema": {
