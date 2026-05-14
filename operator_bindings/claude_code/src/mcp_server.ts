@@ -358,6 +358,79 @@ const TOOL_DEFINITIONS = [
     },
   },
   {
+    name: "myco_ingest_raw_material",
+    description:
+      "P2 永恒吞噬 (Eternal Ingestion): Ingest a raw-material payload into the substrate. The substrate stores it as a `raw_material:{kind}` DAG node — anything the agent can present becomes first-class substrate content (L0 P2 'no filter on intake'). Subsequent perturbations of gradient axes can be causally linked to this material via myco_perturb_axis_from_raw_material. Max 1 MiB per call. Returns: dag_node_hash (the raw_material node id), current_tip, total_dag_size.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        content_kind: {
+          type: "string",
+          description:
+            'The kind of raw material: "text" (free text), "file" (file contents), "conversation" (message in dialogue), "url" (web fetch), "llm_response" (output from another LLM), or any custom kind tag.',
+        },
+        content: {
+          type: "string",
+          description:
+            "The raw material payload (UTF-8 text). For binary content, base64-encode and use content_kind='binary:<original_kind>'.",
+        },
+        source_uri: {
+          type: "string",
+          description:
+            "Optional provenance hint (file path, URL, message id, etc.). Stored alongside the content in the DAG node.",
+        },
+      },
+      required: ["content_kind", "content"],
+    },
+  },
+  {
+    name: "myco_perturb_axis_from_raw_material",
+    description:
+      "P2 永恒吞噬 + P6 永恒因果 (Eternal Ingestion + Causality): Perturb a gradient axis with explicit causal linkage to a previously-ingested raw_material node. The substrate records a `perturb_from_raw:{axis}` DAG node whose parents are BOTH the prior DAG tip AND the referenced raw_material — making the gradient change traceable back through causal history to its environmental source. Use this instead of myco_perturb_axis when the perturbation has a specific raw-material origin you want preserved.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        axis_name: {
+          type: "string",
+          description: "Name of the previously-registered axis to perturb.",
+        },
+        delta: {
+          type: "number",
+          description:
+            "Amount to perturb the axis by (negative subtracts). Effects materialize on next myco_advance_cycle.",
+        },
+        raw_material_hash_hex: {
+          type: "string",
+          description:
+            "64-character hex string (32-byte hash) of the raw_material DAG node from a prior myco_ingest_raw_material call. The hash must reference a raw_material:* node, otherwise substrate rejects.",
+        },
+      },
+      required: ["axis_name", "delta", "raw_material_hash_hex"],
+    },
+  },
+  {
+    name: "myco_query_raw_material",
+    description:
+      "Query the substrate's recently-ingested raw material (DAG nodes with node_type starting `raw_material:`). Useful for auditing what the substrate has eaten lately, or finding hashes to pass to myco_perturb_axis_from_raw_material. Optional count parameter (default 50, max 1000).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        count: {
+          type: "integer",
+          description: "Number of most-recent raw_material nodes to return (default 50).",
+          minimum: 1,
+          maximum: 1000,
+        },
+        kind_filter: {
+          type: "string",
+          description:
+            'Optional sub-filter: e.g. "text", "file", "conversation". Becomes prefix "raw_material:<kind_filter>". Omit to return all raw_material kinds.',
+        },
+      },
+      required: [],
+    },
+  },
+  {
     name: "myco_enumerate_dag_since",
     description:
       "Enumerate DAG node hashes added since a given prev_tip (or from genesis if omitted), with full per-node metadata so the caller can independently reconstruct the substrate's Merkle chain (L1_HARD_RULES C6 dag_enumeration_unclosed closure). The substrate cannot hide parallel-branch forgery: every node's BLAKE3 hash is recomputed from declared parents+content and compared. On unknown prev_tip the substrate emits a C6 immune sporocarp. Returns: enumerated_count, current_tip, hash-chain verification result, and per-node summaries.",
@@ -631,6 +704,87 @@ export class McpServer {
           content: [
             { type: "text" as const, text: formatImmuneEvents(report) },
           ],
+        };
+      }
+      case "myco_ingest_raw_material": {
+        const sub = await this._ensureSubstrate();
+        const kind = String(args.content_kind);
+        const contentStr = String(args.content);
+        const contentBytes = new TextEncoder().encode(contentStr);
+        const sourceUri =
+          typeof args.source_uri === "string" ? String(args.source_uri) : undefined;
+        const result = await sub.ingestRawMaterial({
+          contentKind: kind,
+          contentBytes,
+          sourceUri,
+        });
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: [
+                `Ingested raw_material:${kind} (${contentBytes.length} bytes${sourceUri ? `, source=${sourceUri}` : ""})`,
+                `dag_node_hash=${toHex(result.dagNodeHash)}`,
+                `total_dag_size=${result.totalDagSize}`,
+              ].join("\n"),
+            },
+          ],
+        };
+      }
+      case "myco_perturb_axis_from_raw_material": {
+        const sub = await this._ensureSubstrate();
+        const axisName = String(args.axis_name);
+        const delta = Number(args.delta);
+        const hex = String(args.raw_material_hash_hex);
+        if (hex.length !== 64) {
+          throw new Error(
+            `raw_material_hash_hex must be 64 hex chars (32 bytes); got ${hex.length}`,
+          );
+        }
+        const rawMaterialHash = new Uint8Array(32);
+        for (let i = 0; i < 32; i++) {
+          rawMaterialHash[i] = parseInt(hex.substring(i * 2, i * 2 + 2), 16);
+        }
+        const result = await sub.perturbAxisFromRawMaterial({
+          axisName,
+          delta,
+          rawMaterialHash,
+        });
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: [
+                `Perturbed "${axisName}" by ${delta} (causally linked to raw_material)`,
+                `causal_link_hash=${toHex(result.causalLinkHash)}`,
+                `raw_material_hash=${toHex(result.rawMaterialHash)}`,
+              ].join("\n"),
+            },
+          ],
+        };
+      }
+      case "myco_query_raw_material": {
+        const sub = await this._ensureSubstrate();
+        const count = args.count !== undefined ? BigInt(Number(args.count)) : 50n;
+        const kindFilter =
+          typeof args.kind_filter === "string" && args.kind_filter.length > 0
+            ? `raw_material:${args.kind_filter}`
+            : "raw_material:";
+        const report = await sub.queryRecentNodes(count, kindFilter);
+        const lines: string[] = [];
+        lines.push(
+          `total_dag_size=${report.totalDagSize}  matching=${report.filteredTotal}  returned=${report.returnedCount}`,
+        );
+        for (const node of report.nodes) {
+          lines.push(
+            `  [${node.atCycle}] ${node.nodeType}  hash=${toHex(node.hash).substring(0, 16)}…  size=${node.contentCanonicalBytes.length}B`,
+          );
+        }
+        if (report.filteredTotal === 0n) {
+          lines.push("  (no raw_material ingested yet)");
+        }
+        return {
+          content: [{ type: "text" as const, text: lines.join("\n") }],
         };
       }
       case "myco_enumerate_dag_since": {

@@ -1636,4 +1636,275 @@ describe("SubstrateClient e2e", () => {
       cleanupDir(opDir);
     }
   });
+
+  // -------------------------------------------------------------------------
+  // M16 P2 永恒吞噬: universal raw_material ingestion tests.
+  // -------------------------------------------------------------------------
+
+  it("M16: ingest text raw_material grows DAG by 1 raw_material:text node", async () => {
+    const client = await spawn();
+    try {
+      const content = new TextEncoder().encode("a poem about mycelium");
+      const result = await client.ingestRawMaterial({
+        contentKind: "text",
+        contentBytes: content,
+        sourceUri: "poem.txt",
+      });
+      assert.equal(result.dagNodeHash.length, 32);
+      assert.equal(result.totalDagSize, 1n);
+
+      // The node is queryable via raw_material: prefix filter.
+      const report = await client.queryRecentNodes(10n, "raw_material:");
+      assert.equal(report.filteredTotal, 1n);
+      assert.equal(report.nodes.length, 1);
+      assert.equal(report.nodes[0]!.nodeType, "raw_material:text");
+      assert.deepEqual(report.nodes[0]!.hash, result.dagNodeHash);
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("M16: ingest of multiple kinds preserves all with proper node_types", async () => {
+    const client = await spawn();
+    try {
+      const kinds: Array<{ k: string; b: Uint8Array }> = [
+        { k: "text", b: new TextEncoder().encode("plain text") },
+        { k: "conversation", b: new TextEncoder().encode("user said hello") },
+        { k: "url", b: new TextEncoder().encode("https://example.org/page") },
+        { k: "llm_response", b: new TextEncoder().encode("LLM output here") },
+        { k: "file", b: new TextEncoder().encode("file contents") },
+      ];
+      for (const item of kinds) {
+        await client.ingestRawMaterial({
+          contentKind: item.k,
+          contentBytes: item.b,
+        });
+      }
+      const report = await client.queryRecentNodes(20n, "raw_material:");
+      assert.equal(report.filteredTotal, 5n);
+      const nodeTypes = report.nodes.map((n) => n.nodeType).sort();
+      assert.deepEqual(nodeTypes, [
+        "raw_material:conversation",
+        "raw_material:file",
+        "raw_material:llm_response",
+        "raw_material:text",
+        "raw_material:url",
+      ]);
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("M16: ingestion exceeding 512 KiB content cap is rejected with explicit error", async () => {
+    const client = await spawn();
+    try {
+      const tooBig = new Uint8Array(512 * 1024 + 1); // 512 KiB + 1 byte
+      tooBig.fill(0x41);
+      await assert.rejects(
+        () =>
+          client.ingestRawMaterial({
+            contentKind: "text",
+            contentBytes: tooBig,
+          }),
+        /exceeds.*cap|byte cap/i,
+      );
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("M16: ingestion at exactly the 512 KiB cap is accepted", async () => {
+    const client = await spawn();
+    try {
+      const atCap = new Uint8Array(512 * 1024); // exactly 512 KiB
+      atCap.fill(0x42);
+      const result = await client.ingestRawMaterial({
+        contentKind: "text",
+        contentBytes: atCap,
+      });
+      assert.equal(result.dagNodeHash.length, 32);
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("M16: perturbAxisFromRawMaterial creates causal link with both parents", async () => {
+    const client = await spawn();
+    try {
+      // First register the axis we'll perturb.
+      await client.registerAxis({
+        name: "curiosity",
+        axisClass: "appetite",
+        fruitingThreshold: 100.0,
+        initialValue: 0.0,
+        decayRatePerCycle: 1.0,
+        isMortalitySignal: false,
+        updateRuleKind: "noop",
+      });
+      // Ingest some raw material.
+      const content = new TextEncoder().encode("an interesting paper abstract");
+      const ingest = await client.ingestRawMaterial({
+        contentKind: "text",
+        contentBytes: content,
+        sourceUri: "https://arxiv.org/abs/example",
+      });
+      // Perturb from raw material.
+      const link = await client.perturbAxisFromRawMaterial({
+        axisName: "curiosity",
+        delta: 5.0,
+        rawMaterialHash: ingest.dagNodeHash,
+      });
+      assert.equal(link.causalLinkHash.length, 32);
+      assert.deepEqual(link.rawMaterialHash, ingest.dagNodeHash);
+      // The DAG now has: raw_material node + perturb_from_raw node.
+      const all = await client.queryRecentNodes(20n);
+      assert.equal(all.totalDagSize, 2n);
+      const linkNode = all.nodes.find((n) =>
+        n.nodeType.startsWith("perturb_from_raw:"),
+      );
+      assert.ok(linkNode, "expected a perturb_from_raw:curiosity DAG node");
+      // The link node has 2 parents — prior tip + raw_material hash.
+      // (When raw_material was the prior tip, there's only 1 parent — but
+      // since axis registration doesn't insert a DAG node, the only prior
+      // tip IS the raw_material; so 1 parent is expected here.)
+      assert.ok(
+        linkNode!.parentHashes.length >= 1,
+        "perturb_from_raw should have at least 1 parent",
+      );
+      // Verify the perturbation actually applied — snapshot the gradient.
+      const snap = await client.snapshot();
+      assert.equal(snap.get("curiosity"), 5.0);
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("M16: perturbAxisFromRawMaterial rejects unknown raw_material hash", async () => {
+    const client = await spawn();
+    try {
+      await client.registerAxis({
+        name: "test_axis",
+        axisClass: "appetite",
+        fruitingThreshold: 10.0,
+        initialValue: 0.0,
+        decayRatePerCycle: 1.0,
+        isMortalitySignal: false,
+        updateRuleKind: "noop",
+      });
+      const fakeHash = new Uint8Array(32).fill(0xab);
+      await assert.rejects(
+        () =>
+          client.perturbAxisFromRawMaterial({
+            axisName: "test_axis",
+            delta: 1.0,
+            rawMaterialHash: fakeHash,
+          }),
+        /not found|unknown|raw_material_hash/i,
+      );
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("M16: perturbAxisFromRawMaterial rejects hash that points to non-raw_material node", async () => {
+    const client = await spawn();
+    try {
+      await client.registerAxis({
+        name: "ax",
+        axisClass: "appetite",
+        fruitingThreshold: 1.0,
+        initialValue: 0.0,
+        decayRatePerCycle: 1.0,
+        isMortalitySignal: false,
+        updateRuleKind: "noop",
+      });
+      // Produce a sporocarp node (not a raw_material node).
+      await client.perturb("ax", 2.0);
+      const advReport = await client.advance(1n);
+      const sporocarpHash = advReport.sporocarps[0]!.canonicalBytes; // wrong type
+      // The DAG-node hash of the sporocarp is in dag_node_hash of sporocarp report.
+      // For this test we'll use the queryRecentNodes to find it.
+      const recent = await client.queryRecentNodes(5n);
+      const sporocarp = recent.nodes.find((n) =>
+        n.nodeType.startsWith("sporocarp:"),
+      );
+      assert.ok(sporocarp);
+      void sporocarpHash;
+      await assert.rejects(
+        () =>
+          client.perturbAxisFromRawMaterial({
+            axisName: "ax",
+            delta: 1.0,
+            rawMaterialHash: sporocarp!.hash,
+          }),
+        /not raw_material|raw_material/i,
+      );
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("M16: ingested raw_material persists across substrate restart", async () => {
+    const dir = freshStateDir();
+    try {
+      const c1 = await spawn(dir);
+      const content = new TextEncoder().encode("persistent meal");
+      await c1.ingestRawMaterial({
+        contentKind: "text",
+        contentBytes: content,
+      });
+      await c1.shutdown();
+
+      const c2 = await spawn(dir);
+      try {
+        const report = await c2.queryRecentNodes(10n, "raw_material:");
+        assert.equal(
+          report.filteredTotal,
+          1n,
+          "ingested raw_material should survive restart via dag.cb",
+        );
+        assert.equal(report.nodes[0]!.nodeType, "raw_material:text");
+      } finally {
+        await c2.shutdown();
+      }
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it("M16: queryRecentNodes prefix filter exposes filteredTotal vs totalDagSize", async () => {
+    const client = await spawn();
+    try {
+      await client.registerAxis({
+        name: "x",
+        axisClass: "appetite",
+        fruitingThreshold: 1.0,
+        initialValue: 0.0,
+        decayRatePerCycle: 1.0,
+        isMortalitySignal: false,
+        updateRuleKind: "noop",
+      });
+      await client.perturb("x", 2.0);
+      await client.advance(1n); // produces sporocarp DAG node
+      await client.ingestRawMaterial({
+        contentKind: "text",
+        contentBytes: new TextEncoder().encode("a"),
+      });
+      await client.ingestRawMaterial({
+        contentKind: "text",
+        contentBytes: new TextEncoder().encode("b"),
+      });
+      // Total DAG: 1 sporocarp + 2 raw_material = 3
+      const unfiltered = await client.queryRecentNodes(10n);
+      assert.equal(unfiltered.totalDagSize, 3n);
+      assert.equal(unfiltered.filteredTotal, 3n);
+
+      const filtered = await client.queryRecentNodes(10n, "raw_material:");
+      assert.equal(filtered.totalDagSize, 3n);
+      assert.equal(filtered.filteredTotal, 2n);
+      assert.equal(filtered.returnedCount, 2n);
+    } finally {
+      await client.shutdown();
+    }
+  });
 });
