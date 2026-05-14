@@ -1,0 +1,22 @@
+[package]
+name = "myco-kernel-bridge"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Myco v0.9 cross-process bridge: Rust controller side. Spawns a Python kernel/tropism worker subprocess and drives the gradient through a length-prefixed canonical-bytes stdio protocol (L4 M5)."
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+doc_lazy_continuation = "allow"
+doc_overindented_list_items = "allow"
+
+[dependencies]
+myco-kernel-shared = { path = "../shared" }
+myco-kernel-continuity = { path = "../continuity" }
+thiserror.workspace = true
+sha2.workspace = true
+hmac.workspace = true
+
+[dev-dependencies]

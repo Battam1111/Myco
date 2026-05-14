@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "myco-kernel-bridge"
+version = "0.9.0-alpha.1"
+description = "Myco v0.9 cross-process bridge: Python worker daemon driving kernel/tropism on behalf of Rust kernel/continuity over stdio (M5)."
+requires-python = ">=3.11"
+license = { text = "Proprietary" }
+authors = [{ name = "Battam1111" }]
+dependencies = [
+    "myco-kernel-governance",
+    "myco-kernel-tropism",
+    "blake3>=1.0",
+    "cryptography>=42.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "pytest-cov", "mypy", "ruff"]
+
+[project.scripts]
+myco-kernel-bridge-daemon = "myco_kernel_bridge.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+myco_kernel_bridge = ["py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra -q"
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.mypy]
+strict = true
+python_version = "3.11"

@@ -12,7 +12,7 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::PathBuf;
 
-use myco_kernel_shared::canonical_bytes::{encode, Value};
+use myco_kernel_shared::canonical_bytes::{decode, encode, Value};
 
 use serde::Deserialize;
 
@@ -216,6 +216,41 @@ fn all_canonical_bytes_vectors() {
             failures.push(format!(
                 "vector \"{}\" mismatch:\n  expected: {}\n  got:      {}",
                 name, v.output_hex, got_hex
+            ));
+        }
+    }
+    assert!(
+        failures.is_empty(),
+        "{} failure(s):\n{}",
+        failures.len(),
+        failures.join("\n\n")
+    );
+}
+
+#[test]
+fn all_canonical_bytes_vectors_decode_roundtrip() {
+    // For every shared vector: decode(output_hex) then re-encode and verify
+    // byte-identical output. Pins the Rust decoder against the same JSON
+    // contract that Python and TypeScript decoders use (closes L1_HARD_RULES
+    // C18 canonical_bytes_render_drift on the decode side).
+    let vectors = load_vectors();
+    let mut failures: Vec<String> = Vec::new();
+    for v in vectors.vectors {
+        let name = v.name.clone();
+        let original = parse_hex(&v.output_hex);
+        let decoded = match decode(&original) {
+            Ok(value) => value,
+            Err(e) => {
+                failures.push(format!("vector \"{name}\" decode failed: {e}"));
+                continue;
+            }
+        };
+        let reencoded = encode(&decoded).expect("re-encode succeeds");
+        let reencoded_hex = to_hex(reencoded.as_ref());
+        if reencoded_hex != v.output_hex {
+            failures.push(format!(
+                "vector \"{name}\" decode-roundtrip mismatch:\n  original:   {}\n  reencoded:  {}",
+                v.output_hex, reencoded_hex
             ));
         }
     }

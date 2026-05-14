@@ -211,6 +211,283 @@ fn write_varint(mut n: u64, buf: &mut Vec<u8>) {
     buf.push(n as u8);
 }
 
+// ---------------------------------------------------------------------------
+// Decoder — reverse of encode. Added at M5 to support the cross-process
+// bridge (kernel/bridge) which needs to decode canonical-bytes frames
+// arriving from the Python worker over stdio.
+// ---------------------------------------------------------------------------
+
+/// Read a varint from `buf` starting at `offset`. Returns `(value, new_offset)`.
+fn read_varint(buf: &[u8], offset: usize) -> Result<(u64, usize), CanonicalBytesError> {
+    let mut result: u64 = 0;
+    let mut shift: u32 = 0;
+    let mut cur = offset;
+    for _ in 0..10 {
+        if cur >= buf.len() {
+            return Err(CanonicalBytesError::InvalidInput(
+                "varint truncated".to_string(),
+            ));
+        }
+        let byte = buf[cur];
+        cur += 1;
+        result |= ((byte & 0x7f) as u64) << shift;
+        if byte & 0x80 == 0 {
+            return Ok((result, cur));
+        }
+        shift += 7;
+    }
+    Err(CanonicalBytesError::InvalidInput(
+        "varint too long (>10 bytes)".to_string(),
+    ))
+}
+
+/// Decode canonical bytes into a [`Value`] tree.
+///
+/// Inverse of [`encode`]: `encode(&decode(b)?).unwrap() == b` for any
+/// canonical bytes produced by `encode`. Drift between any implementation's
+/// `decode` and any other's `encode` = L1_HARD_RULES C18.
+pub fn decode(buf: &[u8]) -> Result<Value, CanonicalBytesError> {
+    let (value, cursor) = decode_into(buf, 0)?;
+    if cursor != buf.len() {
+        return Err(CanonicalBytesError::InvalidInput(format!(
+            "trailing bytes after decode: consumed {}/{}",
+            cursor,
+            buf.len()
+        )));
+    }
+    Ok(value)
+}
+
+fn decode_into(buf: &[u8], offset: usize) -> Result<(Value, usize), CanonicalBytesError> {
+    if offset >= buf.len() {
+        return Err(CanonicalBytesError::InvalidInput(
+            "decode: input truncated".to_string(),
+        ));
+    }
+    let tag = buf[offset];
+    let mut cursor = offset + 1;
+
+    match tag {
+        TAG_NULL => Ok((Value::Null, cursor)),
+        TAG_BOOL => {
+            if cursor >= buf.len() {
+                return Err(CanonicalBytesError::InvalidInput(
+                    "decode: bool payload truncated".to_string(),
+                ));
+            }
+            let b = buf[cursor];
+            if b != 0x00 && b != 0x01 {
+                return Err(CanonicalBytesError::InvalidInput(format!(
+                    "decode: invalid bool byte {b:#x}"
+                )));
+            }
+            Ok((Value::Bool(b == 0x01), cursor + 1))
+        }
+        TAG_INT => {
+            if cursor + 8 > buf.len() {
+                return Err(CanonicalBytesError::InvalidInput(
+                    "decode: int payload truncated".to_string(),
+                ));
+            }
+            let arr: [u8; 8] = buf[cursor..cursor + 8].try_into().expect("size 8");
+            Ok((Value::Int(i64::from_be_bytes(arr)), cursor + 8))
+        }
+        TAG_UINT => {
+            if cursor + 8 > buf.len() {
+                return Err(CanonicalBytesError::InvalidInput(
+                    "decode: uint payload truncated".to_string(),
+                ));
+            }
+            let arr: [u8; 8] = buf[cursor..cursor + 8].try_into().expect("size 8");
+            Ok((Value::Uint(u64::from_be_bytes(arr)), cursor + 8))
+        }
+        TAG_STRING => {
+            let (length, c2) = read_varint(buf, cursor)?;
+            cursor = c2;
+            let length = length as usize;
+            if cursor + length > buf.len() {
+                return Err(CanonicalBytesError::InvalidInput(
+                    "decode: string payload truncated".to_string(),
+                ));
+            }
+            let raw = &buf[cursor..cursor + length];
+            let text = std::str::from_utf8(raw)
+                .map_err(|e| {
+                    CanonicalBytesError::InvalidInput(format!("decode: invalid utf-8: {e}"))
+                })?
+                .to_string();
+            Ok((Value::String(text), cursor + length))
+        }
+        TAG_BYTES => {
+            let (length, c2) = read_varint(buf, cursor)?;
+            cursor = c2;
+            let length = length as usize;
+            if cursor + length > buf.len() {
+                return Err(CanonicalBytesError::InvalidInput(
+                    "decode: bytes payload truncated".to_string(),
+                ));
+            }
+            Ok((
+                Value::Bytes(buf[cursor..cursor + length].to_vec()),
+                cursor + length,
+            ))
+        }
+        TAG_ARRAY => {
+            let (count, c2) = read_varint(buf, cursor)?;
+            cursor = c2;
+            let mut items: Vec<Value> = Vec::with_capacity(count as usize);
+            for _ in 0..count {
+                let (item, c3) = decode_into(buf, cursor)?;
+                items.push(item);
+                cursor = c3;
+            }
+            Ok((Value::Array(items), cursor))
+        }
+        TAG_MAP => {
+            let (count, c2) = read_varint(buf, cursor)?;
+            cursor = c2;
+            let mut entries: BTreeMap<String, Value> = BTreeMap::new();
+            let mut prev_key_bytes: Option<Vec<u8>> = None;
+            for _ in 0..count {
+                let key_start = cursor;
+                let (key_value, key_end) = decode_into(buf, cursor)?;
+                let key_string = match key_value {
+                    Value::String(s) => s,
+                    other => {
+                        return Err(CanonicalBytesError::InvalidInput(format!(
+                            "decode: map key is not String: {other:?}"
+                        )))
+                    }
+                };
+                let key_canonical = buf[key_start..key_end].to_vec();
+                if let Some(prev) = &prev_key_bytes {
+                    if &key_canonical <= prev {
+                        return Err(CanonicalBytesError::InvalidInput(
+                            "decode: map keys not in strict canonical order".to_string(),
+                        ));
+                    }
+                }
+                prev_key_bytes = Some(key_canonical);
+                let (val, c3) = decode_into(buf, key_end)?;
+                entries.insert(key_string, val);
+                cursor = c3;
+            }
+            Ok((Value::Map(entries), cursor))
+        }
+        TAG_TIMESTAMP => {
+            if cursor + 8 > buf.len() {
+                return Err(CanonicalBytesError::InvalidInput(
+                    "decode: timestamp payload truncated".to_string(),
+                ));
+            }
+            let arr: [u8; 8] = buf[cursor..cursor + 8].try_into().expect("size 8");
+            Ok((Value::Timestamp(i64::from_be_bytes(arr)), cursor + 8))
+        }
+        TAG_HASH => {
+            if cursor + 32 > buf.len() {
+                return Err(CanonicalBytesError::InvalidInput(
+                    "decode: hash payload truncated".to_string(),
+                ));
+            }
+            let arr: [u8; 32] = buf[cursor..cursor + 32].try_into().expect("size 32");
+            Ok((Value::Hash(arr), cursor + 32))
+        }
+        _ => Err(CanonicalBytesError::InvalidInput(format!(
+            "decode: unknown tag {tag:#x}"
+        ))),
+    }
+}
+
+/// Helper: extract a String value from a Map by key.
+pub fn map_get_string<'a>(
+    map: &'a BTreeMap<String, Value>,
+    key: &str,
+) -> Result<&'a str, CanonicalBytesError> {
+    match map.get(key) {
+        Some(Value::String(s)) => Ok(s.as_str()),
+        Some(other) => Err(CanonicalBytesError::InvalidInput(format!(
+            "map_get_string({key}): not a String: {other:?}"
+        ))),
+        None => Err(CanonicalBytesError::InvalidInput(format!(
+            "map_get_string({key}): missing key"
+        ))),
+    }
+}
+
+/// Helper: extract a Uint value from a Map by key.
+pub fn map_get_uint(map: &BTreeMap<String, Value>, key: &str) -> Result<u64, CanonicalBytesError> {
+    match map.get(key) {
+        Some(Value::Uint(n)) => Ok(*n),
+        Some(other) => Err(CanonicalBytesError::InvalidInput(format!(
+            "map_get_uint({key}): not a Uint: {other:?}"
+        ))),
+        None => Err(CanonicalBytesError::InvalidInput(format!(
+            "map_get_uint({key}): missing key"
+        ))),
+    }
+}
+
+/// Helper: extract a Bytes value from a Map by key.
+pub fn map_get_bytes<'a>(
+    map: &'a BTreeMap<String, Value>,
+    key: &str,
+) -> Result<&'a [u8], CanonicalBytesError> {
+    match map.get(key) {
+        Some(Value::Bytes(b)) => Ok(b.as_slice()),
+        Some(other) => Err(CanonicalBytesError::InvalidInput(format!(
+            "map_get_bytes({key}): not a Bytes: {other:?}"
+        ))),
+        None => Err(CanonicalBytesError::InvalidInput(format!(
+            "map_get_bytes({key}): missing key"
+        ))),
+    }
+}
+
+/// Helper: extract a Map value from a Map by key.
+pub fn map_get_map<'a>(
+    map: &'a BTreeMap<String, Value>,
+    key: &str,
+) -> Result<&'a BTreeMap<String, Value>, CanonicalBytesError> {
+    match map.get(key) {
+        Some(Value::Map(m)) => Ok(m),
+        Some(other) => Err(CanonicalBytesError::InvalidInput(format!(
+            "map_get_map({key}): not a Map: {other:?}"
+        ))),
+        None => Err(CanonicalBytesError::InvalidInput(format!(
+            "map_get_map({key}): missing key"
+        ))),
+    }
+}
+
+/// Helper: extract an Array value from a Map by key.
+pub fn map_get_array<'a>(
+    map: &'a BTreeMap<String, Value>,
+    key: &str,
+) -> Result<&'a [Value], CanonicalBytesError> {
+    match map.get(key) {
+        Some(Value::Array(a)) => Ok(a.as_slice()),
+        Some(other) => Err(CanonicalBytesError::InvalidInput(format!(
+            "map_get_array({key}): not an Array: {other:?}"
+        ))),
+        None => Err(CanonicalBytesError::InvalidInput(format!(
+            "map_get_array({key}): missing key"
+        ))),
+    }
+}
+
+/// Helper: extract a Bool value from a Map by key.
+pub fn map_get_bool(map: &BTreeMap<String, Value>, key: &str) -> Result<bool, CanonicalBytesError> {
+    match map.get(key) {
+        Some(Value::Bool(b)) => Ok(*b),
+        Some(other) => Err(CanonicalBytesError::InvalidInput(format!(
+            "map_get_bool({key}): not a Bool: {other:?}"
+        ))),
+        None => Err(CanonicalBytesError::InvalidInput(format!(
+            "map_get_bool({key}): missing key"
+        ))),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
