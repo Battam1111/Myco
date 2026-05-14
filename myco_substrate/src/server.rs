@@ -44,35 +44,68 @@ use crate::persistence::{
 use crate::SubstrateError;
 
 // ---------------------------------------------------------------------------
-// Stubs for the 4 cycle traits that are Rust-native at M6. The fifth
-// (GradientAdvancer) is delegated to the Python bridge via a closure.
+// M18 P4 永恒迭代: 4 cycle traits activated with real DAG-aware behavior.
+// The fifth (GradientAdvancer) was already real (delegates to Python bridge).
+//
+// Borrow-checker shape: each trait stores precomputed work (collected from
+// state before the cycle started) + accumulates outputs into self. After the
+// cycle inner scope ends, the dispatcher reads outputs and applies DAG/
+// manifest mutations that need exclusive state access.
 // ---------------------------------------------------------------------------
 
-struct OkTier1;
-impl Tier1Validator for OkTier1 {
+/// M18 Tier1: runs `Dag::verify_all` from precomputed result. The actual
+/// DAG verification happens before cycle start (in the dispatcher) — this
+/// trait impl just returns the precomputed outcome to satisfy the cycle
+/// engine's protocol.
+struct DagVerifyTier1 {
+    precomputed_ok: bool,
+    failure_reason: String,
+}
+impl Tier1Validator for DagVerifyTier1 {
     fn validate_tier1(&mut self) -> Result<(), String> {
-        Ok(())
+        if self.precomputed_ok {
+            Ok(())
+        } else {
+            Err(self.failure_reason.clone())
+        }
     }
 }
 
-struct NoOpAbsorber;
-impl DeltaAbsorber for NoOpAbsorber {
+/// M18 DeltaAbsorber: counts raw_material:* DAG nodes added since
+/// `last_absorbed_cycle`. The list of node hashes to be "absorbed" is
+/// passed in at construction; after the cycle, the dispatcher inserts an
+/// `absorption_event:cycle_{N}` DAG node + bumps manifest.last_absorbed_cycle.
+struct CycleAbsorber {
+    pending_absorption_hashes: Vec<myco_kernel_shared::crypto::NodeHash>,
+}
+impl DeltaAbsorber for CycleAbsorber {
     fn absorb_deltas(&mut self) -> Result<usize, String> {
-        Ok(0)
+        Ok(self.pending_absorption_hashes.len())
     }
 }
 
-struct NoBreaches;
-impl SkinBreachChecker for NoBreaches {
+/// M18 SkinBreachChecker: enumerates immune:* DAG nodes added DURING this
+/// cycle (created_at_cycle == cycle_at_start). The list of breach names is
+/// precomputed at cycle start; this trait impl returns it.
+struct DagBreachWatcher {
+    breach_names: Vec<String>,
+}
+impl SkinBreachChecker for DagBreachWatcher {
     fn check_skin_breaches(&mut self) -> Result<Vec<String>, String> {
-        Ok(Vec::new())
+        Ok(self.breach_names.clone())
     }
 }
 
-struct NoHandshakes;
-impl HandshakeProcessor for NoHandshakes {
+/// M18 HandshakeProcessor: reports whether the substrate has a pinned
+/// operator identity. In M18-MV, this is binary (1 if pinned, 0 otherwise).
+/// M19+ adds an anchor-surface inbound channel for new handshakes during a
+/// cycle, which will bump this count.
+struct PinnedHandshakeReader {
+    pinned_count: usize,
+}
+impl HandshakeProcessor for PinnedHandshakeReader {
     fn process_handshake_attestation(&mut self) -> Result<usize, String> {
-        Ok(0)
+        Ok(self.pinned_count)
     }
 }
 
@@ -2332,6 +2365,56 @@ fn handle_advance(
         _ => None,
     });
 
+    // M18 P4 永恒迭代: precompute cycle trait inputs BEFORE the cycle inner
+    // scope (which mutably borrows state.python_client via gradient). All
+    // DAG-reading work happens here; DAG mutations happen AFTER the inner scope.
+    let starting_cycle = state.manifest.cycle_counter;
+    let last_absorbed_cycle = state.manifest.last_absorbed_cycle;
+
+    // Tier1 precompute: run DAG verify_all.
+    let dag_verify_outcome = state.dag.verify_all();
+    let (tier1_ok, tier1_reason) = match dag_verify_outcome {
+        Ok(()) => (true, String::new()),
+        Err(e) => (false, format!("DAG verify_all failed: {e}")),
+    };
+
+    // DeltaAbsorber precompute: list raw_material:* hashes added since
+    // last_absorbed_cycle. These will be absorbed (= recorded as observed by
+    // an absorption_event DAG node) in this cycle.
+    // Filter semantics: None (never absorbed) → take all raw_material;
+    // Some(c) → take only those created_at_cycle > c.
+    let pending_absorption_hashes: Vec<myco_kernel_shared::crypto::NodeHash> = state
+        .dag
+        .iter_in_insertion_order()
+        .filter(|n| n.node_type.starts_with("raw_material:"))
+        .filter(|n| match last_absorbed_cycle {
+            None => true,
+            Some(c) => n.created_at_cycle > c,
+        })
+        .map(|n| n.hash)
+        .collect();
+
+    // SkinBreachChecker precompute: list immune:* node_types added during the
+    // PRIOR cycle (created_at_cycle == starting_cycle - 1 OR ==starting_cycle
+    // for boot-time immune events with cycle 0). M18-MV is observational —
+    // we just propagate breach observations into the cycle report.
+    let breach_names: Vec<String> = state
+        .dag
+        .iter_in_insertion_order()
+        .filter(|n| {
+            n.created_at_cycle >= starting_cycle.saturating_sub(1)
+                && n.node_type.starts_with("immune:")
+        })
+        .map(|n| n.node_type.clone())
+        .collect();
+
+    // HandshakeProcessor precompute: report pinned-identity count.
+    let pinned_count = if state.pinned_operator_identity.is_some() {
+        1
+    } else {
+        0
+    };
+
     let client = state
         .python_client
         .as_mut()
@@ -2339,11 +2422,17 @@ fn handle_advance(
 
     // M7: use the persisted manifest counter as the cycle source-of-truth so
     // cycle numbers monotonically advance across process restarts.
-    let starting_cycle = state.manifest.cycle_counter;
-    let mut tier1 = OkTier1;
-    let mut absorber = NoOpAbsorber;
-    let mut breach = NoBreaches;
-    let mut handshake = NoHandshakes;
+    let mut tier1 = DagVerifyTier1 {
+        precomputed_ok: tier1_ok,
+        failure_reason: tier1_reason,
+    };
+    let mut absorber = CycleAbsorber {
+        pending_absorption_hashes: pending_absorption_hashes.clone(),
+    };
+    let mut breach = DagBreachWatcher {
+        breach_names: breach_names.clone(),
+    };
+    let mut handshake = PinnedHandshakeReader { pinned_count };
     let mut gradient = PythonGradientAdvancer {
         client,
         cycle_number: starting_cycle,
@@ -2421,6 +2510,61 @@ fn handle_advance(
         dag_node_hashes.push(dag_hash);
     }
 
+    // M18 P4 永恒迭代: emit absorption_event:cycle_{N} DAG node if there were
+    // raw_material nodes to absorb. The event records what THIS cycle observed
+    // and marks them as absorbed (so subsequent cycles don't re-process them).
+    let absorption_event_hash: Option<myco_kernel_shared::crypto::NodeHash> =
+        if !pending_absorption_hashes.is_empty() {
+            // Track highest created_at_cycle among the absorbed batch so we
+            // can advance last_absorbed_cycle to it (sentinel-free; allows
+            // multiple raw_material nodes added in the same cycle to all be
+            // absorbed together, then skipped on subsequent cycles).
+            let max_absorbed_created_at: u64 = pending_absorption_hashes
+                .iter()
+                .filter_map(|h| state.dag.get(h))
+                .map(|n| n.created_at_cycle)
+                .max()
+                .unwrap_or(0);
+
+            let mut content_map = BTreeMap::new();
+            content_map.insert("cycle".to_string(), Value::Uint(post_cycle));
+            content_map.insert(
+                "absorbed_count".to_string(),
+                Value::Uint(pending_absorption_hashes.len() as u64),
+            );
+            let hashes_array: Vec<Value> = pending_absorption_hashes
+                .iter()
+                .map(|h| Value::Bytes(h.as_ref().to_vec()))
+                .collect();
+            content_map.insert("absorbed_hashes".to_string(), Value::Array(hashes_array));
+            let content_canonical = cb_encode(&Value::Map(content_map))
+                .map_err(|e| SubstrateError::Protocol(format!("absorption_event encode: {e}")))?;
+            // Multi-parent: prior tip + all absorbed raw_material nodes (so the
+            // causal chain links the absorption back to its sources).
+            let mut parents: Vec<myco_kernel_shared::crypto::NodeHash> = match state.dag.tip() {
+                Some(t) => vec![t],
+                None => Vec::new(),
+            };
+            for h in &pending_absorption_hashes {
+                if !parents.contains(h) {
+                    parents.push(*h);
+                }
+            }
+            let node_type = format!("absorption_event:cycle_{post_cycle}");
+            let h = state
+                .dag
+                .insert_node(parents, node_type, post_cycle, content_canonical)
+                .map_err(|e| {
+                    SubstrateError::Protocol(format!("absorption_event DAG insert: {e}"))
+                })?;
+            // Bump last_absorbed_cycle to the highest absorbed created_at —
+            // future cycles use strict-greater comparison so this won't re-absorb.
+            state.manifest.last_absorbed_cycle = Some(max_absorbed_created_at);
+            Some(h)
+        } else {
+            None
+        };
+
     let mut payload = BTreeMap::new();
     // Echo the substrate's authoritative cycle counter (post-increment).
     payload.insert("cycle_number".to_string(), Value::Uint(post_cycle));
@@ -2475,6 +2619,32 @@ fn handle_advance(
         })
         .collect();
     payload.insert("sporocarps".to_string(), Value::Array(sporocarps_array));
+
+    // M18 P4 永恒迭代 cycle-pipeline output fields:
+    payload.insert(
+        "deltas_absorbed".to_string(),
+        Value::Uint(cycle_report.deltas_absorbed as u64),
+    );
+    payload.insert(
+        "handshake_events_processed".to_string(),
+        Value::Uint(cycle_report.handshake_events_processed as u64),
+    );
+    payload.insert(
+        "skin_breaches".to_string(),
+        Value::Array(
+            cycle_report
+                .skin_breaches
+                .iter()
+                .map(|s| Value::String(s.clone()))
+                .collect(),
+        ),
+    );
+    if let Some(h) = absorption_event_hash {
+        payload.insert(
+            "absorption_event_hash".to_string(),
+            Value::Bytes(h.as_ref().to_vec()),
+        );
+    }
 
     Ok(Some(Message::new(
         msg_type::ADVANCE_RESPONSE,

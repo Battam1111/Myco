@@ -2084,4 +2084,197 @@ describe("SubstrateClient e2e", () => {
       await client.shutdown();
     }
   });
+
+  // -------------------------------------------------------------------------
+  // M18 P4 永恒迭代: cycle pipeline activation tests.
+  // -------------------------------------------------------------------------
+
+  it("M18: advance with no raw_material absorbs zero deltas (no absorption_event)", async () => {
+    const client = await spawn();
+    try {
+      const adv = await client.advance(1n);
+      assert.equal(adv.deltasAbsorbed, 0n);
+      assert.equal(adv.absorptionEventHash, null);
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("M18: advance after ingesting raw_material emits absorption_event:cycle_{N}", async () => {
+    const client = await spawn();
+    try {
+      await client.registerAxis({
+        name: "ax",
+        axisClass: "appetite",
+        fruitingThreshold: 100.0,
+        initialValue: 0.0,
+        decayRatePerCycle: 1.0,
+        isMortalitySignal: false,
+        updateRuleKind: "noop",
+      });
+      // Ingest two raw_material nodes.
+      await client.ingestRawMaterial({
+        contentKind: "text",
+        contentBytes: new TextEncoder().encode("first meal"),
+      });
+      await client.ingestRawMaterial({
+        contentKind: "text",
+        contentBytes: new TextEncoder().encode("second meal"),
+      });
+
+      // Advance — should absorb both.
+      const adv = await client.advance(1n);
+      assert.equal(adv.deltasAbsorbed, 2n, "expected 2 raw_material absorbed");
+      assert.ok(adv.absorptionEventHash, "absorption_event_hash should be set");
+
+      // Verify the DAG has an absorption_event:* node.
+      const recent = await client.queryRecentNodes(20n, "absorption_event:");
+      assert.equal(recent.filteredTotal, 1n);
+      assert.match(recent.nodes[0]!.nodeType, /^absorption_event:cycle_/);
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("M18: subsequent advances skip already-absorbed raw_material", async () => {
+    const client = await spawn();
+    try {
+      await client.registerAxis({
+        name: "ax2",
+        axisClass: "appetite",
+        fruitingThreshold: 100.0,
+        initialValue: 0.0,
+        decayRatePerCycle: 1.0,
+        isMortalitySignal: false,
+        updateRuleKind: "noop",
+      });
+      await client.ingestRawMaterial({
+        contentKind: "text",
+        contentBytes: new TextEncoder().encode("one"),
+      });
+      const adv1 = await client.advance(1n);
+      assert.equal(adv1.deltasAbsorbed, 1n);
+
+      // Second advance with no new ingestion — absorption count should be 0.
+      const adv2 = await client.advance(2n);
+      assert.equal(adv2.deltasAbsorbed, 0n);
+      assert.equal(adv2.absorptionEventHash, null);
+
+      // Third advance after a new ingestion — count should be 1 again.
+      await client.ingestRawMaterial({
+        contentKind: "text",
+        contentBytes: new TextEncoder().encode("two"),
+      });
+      const adv3 = await client.advance(3n);
+      assert.equal(adv3.deltasAbsorbed, 1n);
+      assert.ok(adv3.absorptionEventHash);
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("M18: handshake_events_processed reports 1 when operator identity is pinned", async () => {
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m18-op-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identity = OperatorIdentity.loadOrCreate(opDir);
+      const stateDir = freshStateDir();
+      const client = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identity,
+      });
+      try {
+        const adv = await client.advance(1n);
+        assert.equal(adv.handshakeEventsProcessed, 1n);
+      } finally {
+        await client.shutdown();
+      }
+    } finally {
+      cleanupDir(opDir);
+    }
+  });
+
+  it("M18: advance with no axes registered still completes (Tier1 DAG verify passes)", async () => {
+    const client = await spawn();
+    try {
+      // No axes, no ingestion — just bare advance. DAG is empty → Tier1 passes.
+      const adv = await client.advance(1n);
+      assert.equal(adv.fruitedAxes.length, 0);
+      assert.equal(adv.deltasAbsorbed, 0n);
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("M18: absorption_event has multi-parent linkage (prior_tip + raw_material hashes)", async () => {
+    const client = await spawn();
+    try {
+      await client.registerAxis({
+        name: "ax3",
+        axisClass: "appetite",
+        fruitingThreshold: 100.0,
+        initialValue: 0.0,
+        decayRatePerCycle: 1.0,
+        isMortalitySignal: false,
+        updateRuleKind: "noop",
+      });
+      const ingest = await client.ingestRawMaterial({
+        contentKind: "text",
+        contentBytes: new TextEncoder().encode("multiparent test"),
+      });
+      const adv = await client.advance(1n);
+      assert.ok(adv.absorptionEventHash);
+
+      // Look up the absorption_event node in the DAG; verify parent_hashes includes
+      // the raw_material hash.
+      const recent = await client.queryRecentNodes(20n);
+      const absorbNode = recent.nodes.find((n) =>
+        n.nodeType.startsWith("absorption_event:"),
+      );
+      assert.ok(absorbNode);
+      // Multi-parent: at least 1 parent (could be prior tip + raw_material; or
+      // raw_material was tip itself, so 1 parent).
+      assert.ok(absorbNode!.parentHashes.length >= 1);
+      const parentHashesHex = absorbNode!.parentHashes.map((p) =>
+        Buffer.from(p).toString("hex"),
+      );
+      const rawHex = Buffer.from(ingest.dagNodeHash).toString("hex");
+      assert.ok(
+        parentHashesHex.includes(rawHex),
+        "absorption_event should link back to the raw_material hash",
+      );
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("M18: last_absorbed_cycle persists across substrate restart", async () => {
+    const dir = freshStateDir();
+    try {
+      const c1 = await spawn(dir);
+      await c1.ingestRawMaterial({
+        contentKind: "text",
+        contentBytes: new TextEncoder().encode("persistent"),
+      });
+      const adv1 = await c1.advance(1n);
+      assert.equal(adv1.deltasAbsorbed, 1n);
+      await c1.shutdown();
+
+      // Session 2: advance again — should NOT re-absorb the same raw_material.
+      const c2 = await spawn(dir);
+      try {
+        const adv2 = await c2.advance(2n);
+        assert.equal(
+          adv2.deltasAbsorbed,
+          0n,
+          "previously-absorbed raw_material should not be re-absorbed after restart",
+        );
+      } finally {
+        await c2.shutdown();
+      }
+    } finally {
+      cleanupDir(dir);
+    }
+  });
 });

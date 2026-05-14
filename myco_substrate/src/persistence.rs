@@ -464,6 +464,12 @@ pub struct Manifest {
     pub cycle_counter: u64,
     /// Most recent save wall-clock time (informational; bumped on every save).
     pub last_save_time_unix_ns: i64,
+    /// M18 (P4 永恒迭代): highest cycle whose raw_material has been absorbed.
+    /// `None` = no absorption yet (every raw_material is pending). After each
+    /// absorption_event the substrate sets this to the highest created_at_cycle
+    /// of the absorbed batch — preserving the "each moment refines what prior
+    /// moments produced" semantics without overloading any valid cycle value.
+    pub last_absorbed_cycle: Option<u64>,
 }
 
 impl Manifest {
@@ -475,6 +481,7 @@ impl Manifest {
             genesis_time_unix_ns: current_unix_ns(),
             cycle_counter: 0,
             last_save_time_unix_ns: current_unix_ns(),
+            last_absorbed_cycle: None,
         }
     }
 
@@ -498,6 +505,11 @@ impl Manifest {
             "last_save_time_unix_ns".to_string(),
             Value::Timestamp(self.last_save_time_unix_ns),
         );
+        // M18: optional field — absent in v1 manifests AND when no absorption
+        // has occurred yet. Only emitted when Some(cycle).
+        if let Some(c) = self.last_absorbed_cycle {
+            map.insert("last_absorbed_cycle".to_string(), Value::Uint(c));
+        }
         cb_encode(&Value::Map(map))
             .expect("manifest canonical-bytes encode is infallible")
             .0
@@ -550,11 +562,18 @@ impl Manifest {
                 ))
             }
         };
+        // M18: optional field — None for pre-M18 manifests or for substrates
+        // that haven't absorbed any raw_material yet.
+        let last_absorbed_cycle = match map.get("last_absorbed_cycle") {
+            Some(Value::Uint(n)) => Some(*n),
+            _ => None,
+        };
         Ok(Some(Manifest {
             substrate_id,
             genesis_time_unix_ns: genesis_time,
             cycle_counter,
             last_save_time_unix_ns: last_save_time,
+            last_absorbed_cycle,
         }))
     }
 
