@@ -377,6 +377,61 @@ export function queryRecentNodesPayload(
 }
 
 // ---------------------------------------------------------------------------
+// M17 P3 永恒进化: schema_diff builders. Mirror Python's
+// `kernel/governance::schema_evolution.schema_diff_*_bytes` byte-for-byte.
+// ---------------------------------------------------------------------------
+
+/** Build canonical-bytes for a modify_axis_threshold schema_diff (M17).
+ *
+ *  This is the content_canonical_bytes for a submit_mutation with
+ *  mutation_type="schema_evolution". Operator signs THIS as the attestation.
+ */
+export function schemaDiffModifyAxisThresholdBytes(
+  axisName: string,
+  newThreshold: number,
+): Uint8Array {
+  const m = new Map<string, Value>();
+  m.set("op", { type: "string", value: "modify_axis_threshold" });
+  m.set("axis_name", { type: "string", value: axisName });
+  m.set("new_threshold_repr", { type: "string", value: floatRepr(newThreshold) });
+  return encode({ type: "map", value: m }).bytes;
+}
+
+/** Build canonical-bytes for an add_axis_to_gradient schema_diff (M17). */
+export function schemaDiffAddAxisBytes(args: {
+  axisName: string;
+  axisClass: "appetite" | "decay";
+  fruitingThreshold: number;
+  initialValue: number;
+  decayRatePerCycle: number;
+  isMortalitySignal: boolean;
+  updateRuleKind: "noop" | "decay";
+}): Uint8Array {
+  const m = new Map<string, Value>();
+  m.set("op", { type: "string", value: "add_axis_to_gradient" });
+  m.set("axis_name", { type: "string", value: args.axisName });
+  m.set("axis_class", { type: "string", value: args.axisClass });
+  m.set("fruiting_threshold_repr", {
+    type: "string",
+    value: floatRepr(args.fruitingThreshold),
+  });
+  m.set("initial_value_repr", {
+    type: "string",
+    value: floatRepr(args.initialValue),
+  });
+  m.set("decay_rate_per_cycle_repr", {
+    type: "string",
+    value: floatRepr(args.decayRatePerCycle),
+  });
+  m.set("is_mortality_signal", {
+    type: "bool",
+    value: args.isMortalitySignal,
+  });
+  m.set("update_rule_kind", { type: "string", value: args.updateRuleKind });
+  return encode({ type: "map", value: m }).bytes;
+}
+
+// ---------------------------------------------------------------------------
 // M16 P2 永恒吞噬: ingest_raw_material + perturb_axis_from_raw_material
 // ---------------------------------------------------------------------------
 
@@ -1216,7 +1271,7 @@ export function parseQueryImmuneEventsResponse(
   };
 }
 
-/** Parsed `submit_mutation_response` (M10). */
+/** Parsed `submit_mutation_response` (M10; extended M17 with evolution fields). */
 export interface MutationResult {
   /** "daily" | "contract_identity_level" | "untyped" */
   classification: string;
@@ -1225,6 +1280,20 @@ export interface MutationResult {
   mutationType: string;
   /** Set iff accepted: the DAG node hash where this mutation was recorded. */
   dagNodeHash: Uint8Array | null;
+  // M17 P3 永恒进化 fields:
+  /** True iff this was a schema_evolution mutation that triggered an apply. */
+  schemaApplyAttempted: boolean;
+  /** True iff schema apply ran successfully (without rollback). */
+  schemaApplySucceeded: boolean;
+  /** Empty if succeeded; failure reason (e.g., "AxisNotFound: x") otherwise. */
+  schemaApplyFailureReason: string;
+  /** The schema_diff op that was applied (e.g., "modify_axis_threshold"). */
+  schemaApplyOp: string;
+  /** Compact human-readable summary of the applied diff. */
+  schemaApplySummary: string;
+  /** DAG node hash of the evolution_succeeded:{op} or evolution_failed:{op}
+   *  event (separate from the mutation:schema_evolution DAG node). */
+  evolutionEventHash: Uint8Array | null;
 }
 
 export function parseSubmitMutationResponse(response: Message): MutationResult {
@@ -1248,12 +1317,29 @@ export function parseSubmitMutationResponse(response: Message): MutationResult {
       "submit_mutation_response missing required typed fields",
     );
   }
+  // M17 P3 永恒进化 fields (back-compat: optional; defaults if absent).
+  const applyAttemptedV = response.payload.get("schema_apply_attempted");
+  const applySucceededV = response.payload.get("schema_apply_succeeded");
+  const applyReasonV = response.payload.get("schema_apply_failure_reason");
+  const applyOpV = response.payload.get("schema_apply_op");
+  const applySummaryV = response.payload.get("schema_apply_summary");
+  const evoHashV = response.payload.get("evolution_event_hash");
   return {
     classification: classV.value,
     accepted: acceptedV.value,
     rejectionReason: reasonV.value,
     mutationType: typeV.value,
     dagNodeHash: hashV && hashV.type === "bytes" ? hashV.value : null,
+    schemaApplyAttempted:
+      applyAttemptedV && applyAttemptedV.type === "bool" ? applyAttemptedV.value : false,
+    schemaApplySucceeded:
+      applySucceededV && applySucceededV.type === "bool" ? applySucceededV.value : false,
+    schemaApplyFailureReason:
+      applyReasonV && applyReasonV.type === "string" ? applyReasonV.value : "",
+    schemaApplyOp: applyOpV && applyOpV.type === "string" ? applyOpV.value : "",
+    schemaApplySummary:
+      applySummaryV && applySummaryV.type === "string" ? applySummaryV.value : "",
+    evolutionEventHash: evoHashV && evoHashV.type === "bytes" ? evoHashV.value : null,
   };
 }
 

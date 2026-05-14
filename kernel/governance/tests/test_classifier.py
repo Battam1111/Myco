@@ -272,7 +272,7 @@ def test_seed_table_size() -> None:
     intentional (any add/remove of a seed rule will require updating this
     test, which serves as a tripwire).
     """
-    assert len(SEED_DIMENSION_TABLE) == 21  # 2 file-prefix + 4 identity-fields + 10 meta-structures + 4 daily + 1 mortality-detail
+    assert len(SEED_DIMENSION_TABLE) == 22  # 2 file-prefix + 4 identity-fields + 10 meta-structures + 4 daily + 1 mortality-detail + 1 schema_evolution (M17)
 
 
 def test_classifier_rule_predicate_or_logic() -> None:

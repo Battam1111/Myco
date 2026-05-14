@@ -358,6 +358,56 @@ const TOOL_DEFINITIONS = [
     },
   },
   {
+    name: "myco_evolve_schema",
+    description:
+      "P3 永恒进化 (Eternal Evolution): Submit an owner-attested schema mutation that actually CHANGES the substrate's gradient schema. Unlike prior CI mutations (M10–M15) which were recorded but not applied, this triggers real schema modification with snapshot-rollback semantics. On success: substrate emits evolution_succeeded:{op} DAG event. On failure (invariant violation, missing axis, etc.): rollback + evolution_failed:{op} event. Supported ops: modify_axis_threshold (change an axis's fruiting threshold), add_axis_to_gradient (register a new axis through the CI attestation gate).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        op: {
+          type: "string",
+          enum: ["modify_axis_threshold", "add_axis_to_gradient"],
+          description: "The schema-diff operation to apply.",
+        },
+        axis_name: {
+          type: "string",
+          description: "Target axis name.",
+        },
+        new_threshold: {
+          type: "number",
+          description: "(modify_axis_threshold) The new fruiting threshold.",
+        },
+        axis_class: {
+          type: "string",
+          enum: ["appetite", "decay"],
+          description: "(add_axis_to_gradient) APPETITE or DECAY.",
+        },
+        fruiting_threshold: {
+          type: "number",
+          description: "(add_axis_to_gradient) Fruiting threshold.",
+        },
+        initial_value: {
+          type: "number",
+          description: "(add_axis_to_gradient) Initial gradient value.",
+        },
+        decay_rate_per_cycle: {
+          type: "number",
+          description: "(add_axis_to_gradient) Per-cycle decay rate.",
+        },
+        is_mortality_signal: {
+          type: "boolean",
+          description: "(add_axis_to_gradient) Whether this is the mortality signal axis.",
+        },
+        update_rule_kind: {
+          type: "string",
+          enum: ["noop", "decay"],
+          description: "(add_axis_to_gradient) Update rule.",
+        },
+      },
+      required: ["op", "axis_name"],
+    },
+  },
+  {
     name: "myco_ingest_raw_material",
     description:
       "P2 永恒吞噬 (Eternal Ingestion): Ingest a raw-material payload into the substrate. The substrate stores it as a `raw_material:{kind}` DAG node — anything the agent can present becomes first-class substrate content (L0 P2 'no filter on intake'). Subsequent perturbations of gradient axes can be causally linked to this material via myco_perturb_axis_from_raw_material. Max 1 MiB per call. Returns: dag_node_hash (the raw_material node id), current_tip, total_dag_size.",
@@ -704,6 +754,81 @@ export class McpServer {
           content: [
             { type: "text" as const, text: formatImmuneEvents(report) },
           ],
+        };
+      }
+      case "myco_evolve_schema": {
+        const sub = await this._ensureSubstrate();
+        const op = String(args.op);
+        const axisName = String(args.axis_name);
+        // Build the schema_diff canonical bytes per op.
+        const { schemaDiffModifyAxisThresholdBytes, schemaDiffAddAxisBytes } =
+          await import("./protocol/messages.ts");
+        let diffBytes: Uint8Array;
+        if (op === "modify_axis_threshold") {
+          if (args.new_threshold === undefined) {
+            throw new Error("modify_axis_threshold requires new_threshold");
+          }
+          diffBytes = schemaDiffModifyAxisThresholdBytes(
+            axisName,
+            Number(args.new_threshold),
+          );
+        } else if (op === "add_axis_to_gradient") {
+          if (
+            args.axis_class === undefined ||
+            args.fruiting_threshold === undefined ||
+            args.initial_value === undefined ||
+            args.decay_rate_per_cycle === undefined ||
+            args.is_mortality_signal === undefined ||
+            args.update_rule_kind === undefined
+          ) {
+            throw new Error(
+              "add_axis_to_gradient requires axis_class, fruiting_threshold, initial_value, decay_rate_per_cycle, is_mortality_signal, update_rule_kind",
+            );
+          }
+          diffBytes = schemaDiffAddAxisBytes({
+            axisName,
+            axisClass: String(args.axis_class) as "appetite" | "decay",
+            fruitingThreshold: Number(args.fruiting_threshold),
+            initialValue: Number(args.initial_value),
+            decayRatePerCycle: Number(args.decay_rate_per_cycle),
+            isMortalitySignal: Boolean(args.is_mortality_signal),
+            updateRuleKind: String(args.update_rule_kind) as "noop" | "decay",
+          });
+        } else {
+          throw new Error(`unknown evolve_schema op: ${op}`);
+        }
+        // Operator IDENTITY signs the schema_diff bytes (M10 path; M17-MV
+        // accepts both REVEAL and IDENTITY signatures via classifier rule).
+        const identity = OperatorIdentity.loadOrCreate();
+        const sig = identity.sign(diffBytes);
+        const result = await sub.submitMutation({
+          mutationType: "schema_evolution",
+          contentCanonicalBytes: diffBytes,
+          attestationSignature: sig,
+          touchedMetaStructures: ["appetite_axis_schema"],
+        });
+        const lines: string[] = [];
+        lines.push(
+          `mutation accepted=${result.accepted}  classification=${result.classification}`,
+        );
+        if (!result.accepted) {
+          lines.push(`rejection: ${result.rejectionReason}`);
+        }
+        if (result.schemaApplyAttempted) {
+          if (result.schemaApplySucceeded) {
+            lines.push(`✓ schema evolution APPLIED: ${result.schemaApplySummary}`);
+            if (result.evolutionEventHash) {
+              lines.push(
+                `evolution_event_hash=${toHex(result.evolutionEventHash).substring(0, 32)}…`,
+              );
+            }
+          } else {
+            lines.push(`✗ schema evolution FAILED (rolled back): ${result.schemaApplyFailureReason}`);
+          }
+        }
+        return {
+          content: [{ type: "text" as const, text: lines.join("\n") }],
+          isError: !result.accepted || (result.schemaApplyAttempted && !result.schemaApplySucceeded),
         };
       }
       case "myco_ingest_raw_material": {

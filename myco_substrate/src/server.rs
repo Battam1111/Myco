@@ -1685,6 +1685,48 @@ fn handle_submit_mutation(
         })
         .unwrap_or_default();
 
+    // M17 P3 永恒进化: read evolution outcome fields from Python's response.
+    let schema_apply_attempted = python_response
+        .payload
+        .get("schema_apply_attempted")
+        .and_then(|v| match v {
+            Value::Bool(b) => Some(*b),
+            _ => None,
+        })
+        .unwrap_or(false);
+    let schema_apply_succeeded = python_response
+        .payload
+        .get("schema_apply_succeeded")
+        .and_then(|v| match v {
+            Value::Bool(b) => Some(*b),
+            _ => None,
+        })
+        .unwrap_or(false);
+    let schema_apply_failure_reason = python_response
+        .payload
+        .get("schema_apply_failure_reason")
+        .and_then(|v| match v {
+            Value::String(s) => Some(s.clone()),
+            _ => None,
+        })
+        .unwrap_or_default();
+    let schema_apply_op = python_response
+        .payload
+        .get("schema_apply_op")
+        .and_then(|v| match v {
+            Value::String(s) => Some(s.clone()),
+            _ => None,
+        })
+        .unwrap_or_default();
+    let schema_apply_summary = python_response
+        .payload
+        .get("schema_apply_summary")
+        .and_then(|v| match v {
+            Value::String(s) => Some(s.clone()),
+            _ => None,
+        })
+        .unwrap_or_default();
+
     // If accepted: wrap as DAG node with parent=tip.
     // If rejected: emit an immune sporocarp (M11 C14 for UNTYPED; C5 for invalid CI attestation).
     let dag_node_hash = if accepted {
@@ -1719,6 +1761,45 @@ fn handle_submit_mutation(
         None
     };
 
+    // M17 P3 永恒进化: after mutation acceptance, emit the evolution event DAG node.
+    // - schema_apply_attempted + schema_apply_succeeded → evolution_succeeded:{op}
+    // - schema_apply_attempted + !schema_apply_succeeded → evolution_failed:{op}
+    //   (mutation:schema_evolution still in DAG as audit trail of the attempt.)
+    let evolution_event_hash = if schema_apply_attempted {
+        let event_node_type = if schema_apply_succeeded {
+            format!("evolution_succeeded:{schema_apply_op}")
+        } else {
+            format!("evolution_failed:{schema_apply_op}")
+        };
+        let mut event_map = BTreeMap::new();
+        event_map.insert("op".to_string(), Value::String(schema_apply_op.clone()));
+        event_map.insert("succeeded".to_string(), Value::Bool(schema_apply_succeeded));
+        event_map.insert(
+            "summary".to_string(),
+            Value::String(schema_apply_summary.clone()),
+        );
+        if !schema_apply_succeeded {
+            event_map.insert(
+                "failure_reason".to_string(),
+                Value::String(schema_apply_failure_reason.clone()),
+            );
+        }
+        let event_canonical = cb_encode(&Value::Map(event_map))
+            .map_err(|e| SubstrateError::Protocol(format!("evolution event encode: {e}")))?;
+        let parents: Vec<myco_kernel_shared::crypto::NodeHash> = match state.dag.tip() {
+            Some(t) => vec![t],
+            None => Vec::new(),
+        };
+        let cycle = state.manifest.cycle_counter;
+        let h = state
+            .dag
+            .insert_node(parents, event_node_type, cycle, event_canonical)
+            .map_err(|e| SubstrateError::Protocol(format!("evolution event DAG insert: {e}")))?;
+        Some(h)
+    } else {
+        None
+    };
+
     // Build response to operator.
     let mut payload = BTreeMap::new();
     payload.insert("classification".to_string(), Value::String(classification));
@@ -1731,6 +1812,33 @@ fn handle_submit_mutation(
     if let Some(h) = dag_node_hash {
         payload.insert(
             "dag_node_hash".to_string(),
+            Value::Bytes(h.as_ref().to_vec()),
+        );
+    }
+    // M17 evolution fields surfaced to operator.
+    payload.insert(
+        "schema_apply_attempted".to_string(),
+        Value::Bool(schema_apply_attempted),
+    );
+    payload.insert(
+        "schema_apply_succeeded".to_string(),
+        Value::Bool(schema_apply_succeeded),
+    );
+    payload.insert(
+        "schema_apply_failure_reason".to_string(),
+        Value::String(schema_apply_failure_reason),
+    );
+    payload.insert(
+        "schema_apply_op".to_string(),
+        Value::String(schema_apply_op),
+    );
+    payload.insert(
+        "schema_apply_summary".to_string(),
+        Value::String(schema_apply_summary),
+    );
+    if let Some(h) = evolution_event_hash {
+        payload.insert(
+            "evolution_event_hash".to_string(),
             Value::Bytes(h.as_ref().to_vec()),
         );
     }

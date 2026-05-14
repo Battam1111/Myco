@@ -1872,6 +1872,183 @@ describe("SubstrateClient e2e", () => {
     }
   });
 
+  // -------------------------------------------------------------------------
+  // M17 P3 永恒进化: schema_evolution actually-applied tests.
+  // -------------------------------------------------------------------------
+
+  it("M17: modify_axis_threshold actually changes the threshold + emits evolution_succeeded", async () => {
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m17-op-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const { schemaDiffModifyAxisThresholdBytes } = await import("../src/protocol/messages.ts");
+      const identity = OperatorIdentity.loadOrCreate(opDir);
+      const stateDir = freshStateDir();
+      const client = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identity,
+      });
+      try {
+        // Register an axis at threshold 10.0.
+        await client.registerAxis({
+          name: "curiosity",
+          axisClass: "appetite",
+          fruitingThreshold: 10.0,
+          initialValue: 0.0,
+          decayRatePerCycle: 1.0,
+          isMortalitySignal: false,
+          updateRuleKind: "noop",
+        });
+
+        // Evolve: change threshold to 50.0.
+        const diff = schemaDiffModifyAxisThresholdBytes("curiosity", 50.0);
+        const sig = identity.sign(diff);
+        const result = await client.submitMutation({
+          mutationType: "schema_evolution",
+          contentCanonicalBytes: diff,
+          attestationSignature: sig,
+          touchedMetaStructures: ["appetite_axis_schema"],
+        });
+        assert.equal(result.accepted, true, `accepted; got: ${result.rejectionReason}`);
+        assert.equal(result.schemaApplyAttempted, true);
+        assert.equal(result.schemaApplySucceeded, true, result.schemaApplyFailureReason);
+        assert.equal(result.schemaApplyOp, "modify_axis_threshold");
+        assert.ok(result.evolutionEventHash, "evolution_event_hash should be set");
+
+        // DAG should contain mutation:schema_evolution + evolution_succeeded:modify_axis_threshold.
+        const recent = await client.queryRecentNodes(10n);
+        const evoSucceeded = recent.nodes.find((n) =>
+          n.nodeType.startsWith("evolution_succeeded:"),
+        );
+        assert.ok(evoSucceeded, "expected evolution_succeeded:* DAG node");
+        const mutationNode = recent.nodes.find((n) =>
+          n.nodeType === "mutation:schema_evolution",
+        );
+        assert.ok(mutationNode, "expected mutation:schema_evolution DAG node");
+
+        // Threshold actually changed: perturb just past old threshold, advance.
+        // If old threshold (10.0) were still active, this would fruit; if new
+        // threshold (50.0) is now active, this should NOT fruit.
+        await client.perturb("curiosity", 15.0);
+        const adv = await client.advance(1n);
+        assert.deepEqual(
+          adv.fruitedAxes,
+          [],
+          "axis should NOT fruit at value=15 if new threshold is 50",
+        );
+      } finally {
+        await client.shutdown();
+      }
+    } finally {
+      cleanupDir(opDir);
+    }
+  });
+
+  it("M17: modify_axis_threshold on unknown axis emits evolution_failed + rolls back", async () => {
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m17-op-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const { schemaDiffModifyAxisThresholdBytes } = await import("../src/protocol/messages.ts");
+      const identity = OperatorIdentity.loadOrCreate(opDir);
+      const stateDir = freshStateDir();
+      const client = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identity,
+      });
+      try {
+        const diff = schemaDiffModifyAxisThresholdBytes("nonexistent_axis", 99.0);
+        const sig = identity.sign(diff);
+        const result = await client.submitMutation({
+          mutationType: "schema_evolution",
+          contentCanonicalBytes: diff,
+          attestationSignature: sig,
+          touchedMetaStructures: ["appetite_axis_schema"],
+        });
+        // Mutation is still "accepted" (the proposal was valid + signed).
+        assert.equal(result.accepted, true);
+        // But the schema apply FAILED → rollback path.
+        assert.equal(result.schemaApplyAttempted, true);
+        assert.equal(result.schemaApplySucceeded, false);
+        assert.match(result.schemaApplyFailureReason, /AxisNotFound|nonexistent/i);
+
+        // DAG should contain mutation:schema_evolution + evolution_failed:*.
+        const recent = await client.queryRecentNodes(10n);
+        const evoFailed = recent.nodes.find((n) =>
+          n.nodeType.startsWith("evolution_failed:"),
+        );
+        assert.ok(evoFailed, "expected evolution_failed:* DAG node");
+      } finally {
+        await client.shutdown();
+      }
+    } finally {
+      cleanupDir(opDir);
+    }
+  });
+
+  it("M17: add_axis_to_gradient registers axis via CI gate + emits evolution_succeeded", async () => {
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m17-op-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const { schemaDiffAddAxisBytes } = await import("../src/protocol/messages.ts");
+      const identity = OperatorIdentity.loadOrCreate(opDir);
+      const stateDir = freshStateDir();
+      const client = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identity,
+      });
+      try {
+        const diff = schemaDiffAddAxisBytes({
+          axisName: "trust_in_owner",
+          axisClass: "decay",
+          fruitingThreshold: 0.1,
+          initialValue: 1.0,
+          decayRatePerCycle: 0.95,
+          isMortalitySignal: true,
+          updateRuleKind: "decay",
+        });
+        const sig = identity.sign(diff);
+        const result = await client.submitMutation({
+          mutationType: "schema_evolution",
+          contentCanonicalBytes: diff,
+          attestationSignature: sig,
+          touchedMetaStructures: ["appetite_axis_schema"],
+        });
+        assert.equal(result.accepted, true);
+        assert.equal(result.schemaApplySucceeded, true, result.schemaApplyFailureReason);
+        assert.equal(result.schemaApplyOp, "add_axis_to_gradient");
+
+        // The axis should now be active — snapshot exposes it at initial_value=1.0.
+        const snap = await client.snapshot();
+        assert.equal(snap.get("trust_in_owner"), 1.0);
+      } finally {
+        await client.shutdown();
+      }
+    } finally {
+      cleanupDir(opDir);
+    }
+  });
+
+  it("M17: schema_evolution WITHOUT attestation is rejected (CI gate enforced)", async () => {
+    const client = await spawn();
+    try {
+      const { schemaDiffModifyAxisThresholdBytes } = await import("../src/protocol/messages.ts");
+      const diff = schemaDiffModifyAxisThresholdBytes("any_axis", 1.0);
+      const result = await client.submitMutation({
+        mutationType: "schema_evolution",
+        contentCanonicalBytes: diff,
+        // NO attestation_signature.
+      });
+      assert.equal(result.accepted, false);
+      assert.match(result.rejectionReason, /attestation/i);
+      // Schema apply must NOT have been attempted (gated by attestation).
+      assert.equal(result.schemaApplyAttempted, false);
+    } finally {
+      await client.shutdown();
+    }
+  });
+
   it("M16: queryRecentNodes prefix filter exposes filteredTotal vs totalDagSize", async () => {
     const client = await spawn();
     try {
