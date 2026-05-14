@@ -177,9 +177,47 @@ pub fn run_loop<R: Read, W: Write>(stdin: &mut R, stdout: &mut W) -> Result<u8, 
         Some(m) => m,
         None => Manifest::genesis(),
     };
-    let dag = load_dag(&state_dir)?.unwrap_or_default();
+    // M11: C7 dag_retro_edit_detected — if dag.cb is present but fails to load
+    // (tampered, corrupted, version-mismatched), quarantine the corrupted file
+    // with a timestamped suffix, start with an empty DAG, and emit an immune
+    // sporocarp recording the tamper attempt. Caller sees the immune event in
+    // their first myco_query_recent_nodes call after this boot.
+    let (dag, dag_load_failure_evidence): (Dag, Option<String>) = match load_dag(&state_dir) {
+        Ok(Some(d)) => (d, None),
+        Ok(None) => (Dag::default(), None),
+        Err(e) => {
+            // Quarantine the corrupted file.
+            let dag_path = state_dir.join("dag.cb");
+            let quarantine_path = state_dir.join(format!(
+                "dag.cb.quarantined_{}",
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map(|d| d.as_secs())
+                    .unwrap_or(0)
+            ));
+            let _ = std::fs::rename(&dag_path, &quarantine_path);
+            (
+                Dag::default(),
+                Some(format!(
+                    "dag.cb load failed ({e}); quarantined to {}",
+                    quarantine_path.display()
+                )),
+            )
+        }
+    };
     let pinned_operator_identity = load_pinned_operator_identity(&state_dir)?;
     let mut state = ServerState::new(state_dir, manifest, dag, pinned_operator_identity);
+
+    // If DAG load failed: emit C7 immune sporocarp into the fresh DAG.
+    if let Some(evidence) = dag_load_failure_evidence {
+        let _ = emit_immune_sporocarp(
+            &mut state,
+            "C7_dag_retro_edit_detected",
+            "dag_retro_edit_detected",
+            &evidence,
+        );
+        let _ = save_dag_state(&state);
+    }
 
     loop {
         let expected_key = if state.handshake_complete {
@@ -252,6 +290,19 @@ pub fn run_loop<R: Read, W: Write>(stdin: &mut R, stdout: &mut W) -> Result<u8, 
                 // can decode our rejection. Then EXIT — a rejected hello
                 // means the session is poisoned; no point continuing.
                 if request.message_type == msg_type::HELLO {
+                    // M11: emit immune sporocarp for the rejected hello (C2 family).
+                    // The DAG is loaded at boot time and will accept this insertion
+                    // even pre-handshake. Save DAG before exit so the next session
+                    // can see the immune event.
+                    let evidence = format!("hello rejected: {e}");
+                    let _ = emit_immune_sporocarp(
+                        &mut state,
+                        "C2_handshake_pubkey_mismatch",
+                        "handshake_pubkey_mismatch",
+                        &evidence,
+                    );
+                    let _ = save_dag_state(&state);
+
                     let response_key = match request.payload.get("session_secret") {
                         Some(Value::Bytes(b)) if b.len() == 32 => {
                             let mut arr = [0u8; 32];
@@ -347,6 +398,8 @@ fn dispatch(state: &mut ServerState, request: &Message) -> Result<Option<Message
             save_dag_state(state)?;
             Ok(response)
         }
+        // M11: immune event query (filters DAG by "immune:" prefix).
+        msg_type::QUERY_IMMUNE_EVENTS => handle_query_immune_events(state, request),
         other => Err(SubstrateError::Protocol(format!(
             "substrate cannot handle message type {other:?}"
         ))),
@@ -489,6 +542,58 @@ fn handle_compute_intent(
     )))
 }
 
+/// M11: List recent immune sporocarps (DAG nodes with `node_type` prefix
+/// `"immune:"`). Rust-handled; no Python involvement.
+fn handle_query_immune_events(
+    state: &mut ServerState,
+    request: &Message,
+) -> Result<Option<Message>, SubstrateError> {
+    let count = request
+        .payload
+        .get("count")
+        .and_then(|v| match v {
+            Value::Uint(n) => Some(*n),
+            _ => None,
+        })
+        .unwrap_or(50);
+
+    let all_nodes: Vec<_> = state.dag.iter_in_insertion_order().collect();
+    let immune_nodes: Vec<_> = all_nodes
+        .iter()
+        .filter(|n| n.node_type.starts_with("immune:"))
+        .copied()
+        .collect();
+    let total = immune_nodes.len();
+    let start = total.saturating_sub(count as usize);
+    let recent: Vec<Value> = immune_nodes[start..]
+        .iter()
+        .map(|n| {
+            let mut m = BTreeMap::new();
+            m.insert("hash".to_string(), Value::Bytes(n.hash.as_ref().to_vec()));
+            m.insert("node_type".to_string(), Value::String(n.node_type.clone()));
+            m.insert("at_cycle".to_string(), Value::Uint(n.created_at_cycle));
+            m.insert(
+                "content_canonical_bytes".to_string(),
+                Value::Bytes(n.content_canonical_bytes.as_ref().to_vec()),
+            );
+            Value::Map(m)
+        })
+        .collect();
+
+    let mut payload = BTreeMap::new();
+    payload.insert("total_immune_count".to_string(), Value::Uint(total as u64));
+    payload.insert(
+        "returned_count".to_string(),
+        Value::Uint(recent.len() as u64),
+    );
+    payload.insert("events".to_string(), Value::Array(recent));
+    Ok(Some(Message::new(
+        msg_type::QUERY_IMMUNE_EVENTS_RESPONSE,
+        request.request_id,
+        payload,
+    )))
+}
+
 /// M10: Forward submit_mutation to Python for classification + (CI) verification,
 /// and on accept insert the mutation as a DAG node.
 fn handle_submit_mutation(
@@ -554,6 +659,7 @@ fn handle_submit_mutation(
         .unwrap_or_default();
 
     // If accepted: wrap as DAG node with parent=tip.
+    // If rejected: emit an immune sporocarp (M11 C14 for UNTYPED; C5 for invalid CI attestation).
     let dag_node_hash = if accepted {
         let parents: Vec<myco_kernel_shared::crypto::NodeHash> = match state.dag.tip() {
             Some(t) => vec![t],
@@ -572,6 +678,17 @@ fn handle_submit_mutation(
             .map_err(|e| SubstrateError::Protocol(format!("mutation DAG insert: {e}")))?;
         Some(hash)
     } else {
+        // M11: emit immune sporocarp for the rejection.
+        let (detector_id, detector_name) = match classification.as_str() {
+            "untyped" => ("C14_untyped_mutation_blocked", "untyped_mutation_blocked"),
+            "contract_identity_level" => ("C5_attestation_invalid", "attestation_invalid"),
+            _ => ("C_unknown", "unknown_breach"),
+        };
+        let evidence_str = format!(
+            "mutation_type={mutation_type}; classification={classification}; reason={rejection_reason}"
+        );
+        // Best-effort emit; ignore errors (we don't want to mask the original rejection).
+        let _ = emit_immune_sporocarp(state, detector_id, detector_name, &evidence_str);
         None
     };
 
@@ -811,6 +928,57 @@ fn save_python_state(state: &mut ServerState) -> Result<(), SubstrateError> {
 /// M8: Persist the substrate's DAG to `<state_dir>/dag.cb`.
 fn save_dag_state(state: &ServerState) -> Result<(), SubstrateError> {
     save_dag(&state.dag, &state.state_dir)
+}
+
+/// M11: Emit an immune sporocarp as a DAG node.
+///
+/// Wraps a detected breach event as a DAG node with `node_type = "immune:{detector_id}"`.
+/// The node's content is canonical-bytes of a Map carrying the detector ID,
+/// evidence, and a wall-clock timestamp.
+///
+/// Returns the DAG node hash (32 bytes). On failure to encode or insert,
+/// returns Err — but callers typically log + continue rather than escalating,
+/// because immune emission failures should not mask the original breach.
+fn emit_immune_sporocarp(
+    state: &mut ServerState,
+    detector_id: &str,
+    detector_name: &str,
+    evidence: &str,
+) -> Result<myco_kernel_shared::crypto::NodeHash, SubstrateError> {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let timestamp_unix_ns = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .ok()
+        .and_then(|d| i64::try_from(d.as_nanos()).ok())
+        .unwrap_or(0);
+
+    let mut content_map = BTreeMap::new();
+    content_map.insert(
+        "detector_id".to_string(),
+        Value::String(detector_id.to_string()),
+    );
+    content_map.insert(
+        "detector_name".to_string(),
+        Value::String(detector_name.to_string()),
+    );
+    content_map.insert("evidence".to_string(), Value::String(evidence.to_string()));
+    content_map.insert(
+        "timestamp_unix_ns".to_string(),
+        Value::Timestamp(timestamp_unix_ns),
+    );
+    let content_canonical = cb_encode(&Value::Map(content_map))
+        .map_err(|e| SubstrateError::Protocol(format!("immune encode: {e}")))?;
+
+    let parents = match state.dag.tip() {
+        Some(t) => vec![t],
+        None => Vec::new(),
+    };
+    let node_type = format!("immune:{detector_id}");
+    let cycle = state.manifest.cycle_counter;
+    state
+        .dag
+        .insert_node(parents, node_type, cycle, content_canonical)
+        .map_err(|e| SubstrateError::Protocol(format!("immune DAG insert: {e}")))
 }
 
 /// Forward a request to the Python worker verbatim and surface its response.

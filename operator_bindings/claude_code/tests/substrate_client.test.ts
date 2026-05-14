@@ -194,6 +194,186 @@ describe("SubstrateClient e2e", () => {
   });
 
   // -------------------------------------------------------------------------
+  // M11 active immune system tests.
+  // -------------------------------------------------------------------------
+  it("M11: empty substrate has no immune events", async () => {
+    const client = await spawn();
+    try {
+      const report = await client.queryImmuneEvents();
+      assert.equal(report.totalImmuneCount, 0n);
+      assert.equal(report.returnedCount, 0n);
+      assert.equal(report.events.length, 0);
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("M11: UNTYPED mutation emits C14 immune sporocarp", async () => {
+    const client = await spawn();
+    try {
+      const result = await client.submitMutation({
+        mutationType: "completely_unknown_xyz",
+        contentCanonicalBytes: new TextEncoder().encode("attack"),
+      });
+      assert.equal(result.accepted, false);
+      assert.equal(result.classification, "untyped");
+      // Check immune event was emitted.
+      const report = await client.queryImmuneEvents();
+      assert.equal(report.totalImmuneCount, 1n);
+      assert.equal(report.events.length, 1);
+      assert.equal(
+        report.events[0]!.nodeType,
+        "immune:C14_untyped_mutation_blocked",
+      );
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("M11: CI without attestation emits C5 immune sporocarp", async () => {
+    const client = await spawn();
+    try {
+      const result = await client.submitMutation({
+        mutationType: "schema_change_attempt",
+        touchedMetaStructures: ["appetite_axis_schema"],
+        contentCanonicalBytes: new TextEncoder().encode("ci without sig"),
+      });
+      assert.equal(result.accepted, false);
+      assert.equal(result.classification, "contract_identity_level");
+      const report = await client.queryImmuneEvents();
+      assert.equal(report.totalImmuneCount, 1n);
+      assert.equal(
+        report.events[0]!.nodeType,
+        "immune:C5_attestation_invalid",
+      );
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("M11: CI with wrong-key signature emits C5 immune sporocarp", async () => {
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m11-op-"));
+    const wrongDir = mkdtempSync(resolvePath(tmpdir(), "myco-m11-wrong-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identity = OperatorIdentity.loadOrCreate(opDir);
+      const wrongIdentity = OperatorIdentity.loadOrCreate(wrongDir);
+      const stateDir = freshStateDir();
+      const client = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identity,
+      });
+      try {
+        const content = new TextEncoder().encode("forged attempt");
+        const wrongSig = wrongIdentity.sign(content);
+        const result = await client.submitMutation({
+          mutationType: "schema_change",
+          touchedMetaStructures: ["appetite_axis_schema"],
+          contentCanonicalBytes: content,
+          attestationSignature: wrongSig,
+        });
+        assert.equal(result.accepted, false);
+        const report = await client.queryImmuneEvents();
+        assert.equal(report.totalImmuneCount, 1n);
+        assert.equal(
+          report.events[0]!.nodeType,
+          "immune:C5_attestation_invalid",
+        );
+      } finally {
+        await client.shutdown();
+      }
+    } finally {
+      cleanupDir(opDir);
+      cleanupDir(wrongDir);
+    }
+  });
+
+  it("M11: pubkey mismatch emits C2 immune sporocarp persisted to disk", async () => {
+    const stateDir = freshStateDir();
+    const opDirA = mkdtempSync(resolvePath(tmpdir(), "myco-m11-pin-a-"));
+    const opDirB = mkdtempSync(resolvePath(tmpdir(), "myco-m11-pin-b-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identityA = OperatorIdentity.loadOrCreate(opDirA);
+      const identityB = OperatorIdentity.loadOrCreate(opDirB);
+
+      // Session 1: pin identity A.
+      const c1 = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identityA,
+      });
+      await c1.shutdown();
+
+      // Session 2: try identity B → rejected (M9 + M11 emits immune sporocarp).
+      try {
+        await SubstrateClient.spawn({
+          substrateBinary: SUBSTRATE_BIN,
+          env: { MYCO_STATE_DIR: stateDir },
+          operatorIdentity: identityB,
+        });
+      } catch {
+        // Expected rejection.
+      }
+
+      // Session 3: back to identity A → can query the immune event from session 2.
+      const c3 = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identityA,
+      });
+      try {
+        const report = await c3.queryImmuneEvents();
+        assert.ok(
+          report.totalImmuneCount >= 1n,
+          `expected ≥1 immune event after rejected handshake; got ${report.totalImmuneCount}`,
+        );
+        const c2Event = report.events.find((e) =>
+          e.nodeType.includes("C2_handshake_pubkey_mismatch"),
+        );
+        assert.ok(c2Event, "C2 handshake_pubkey_mismatch should be in immune events");
+      } finally {
+        await c3.shutdown();
+      }
+    } finally {
+      cleanupDir(stateDir);
+      cleanupDir(opDirA);
+      cleanupDir(opDirB);
+    }
+  });
+
+  it("M11: immune events persist across restart", async () => {
+    const dir = freshStateDir();
+    try {
+      // Session 1: produce an immune event.
+      const c1 = await spawn(dir);
+      await c1.submitMutation({
+        mutationType: "completely_unknown_xyz",
+        contentCanonicalBytes: new TextEncoder().encode("test"),
+      });
+      const r1 = await c1.queryImmuneEvents();
+      assert.equal(r1.totalImmuneCount, 1n);
+      await c1.shutdown();
+
+      // Session 2: immune event should persist.
+      const c2 = await spawn(dir);
+      try {
+        const r2 = await c2.queryImmuneEvents();
+        assert.equal(r2.totalImmuneCount, 1n);
+        assert.equal(
+          r2.events[0]!.nodeType,
+          "immune:C14_untyped_mutation_blocked",
+        );
+      } finally {
+        await c2.shutdown();
+      }
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  // -------------------------------------------------------------------------
   // M10 classified-mutation flow tests.
   // -------------------------------------------------------------------------
   it("M10: DAILY mutation is accepted and recorded as DAG node", async () => {

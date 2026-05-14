@@ -31,6 +31,7 @@ import {
 } from "./substrate_client.ts";
 import type {
   AdvanceReport,
+  ImmuneEventsReport,
   IntentReport,
   MutationResult,
   RecentNodesReport,
@@ -82,6 +83,23 @@ function formatIntent(report: IntentReport): string {
     lines.push(
       `  cluster #${cluster.clusterId}: ${cluster.nodeCount} nodes [${hashPreviews}${more}]`,
     );
+  }
+  return lines.join("\n");
+}
+
+function formatImmuneEvents(report: ImmuneEventsReport): string {
+  const lines: string[] = [];
+  lines.push(
+    `total_immune_count=${report.totalImmuneCount}  returned=${report.returnedCount}`,
+  );
+  for (const ev of report.events) {
+    // Truncate hash for readability.
+    lines.push(
+      `  [${ev.atCycle}] ${ev.nodeType}  hash=${toHex(ev.hash).substring(0, 16)}…`,
+    );
+  }
+  if (report.totalImmuneCount === 0n) {
+    lines.push("  (no immune events recorded)");
   }
   return lines.join("\n");
 }
@@ -247,9 +265,26 @@ const TOOL_DEFINITIONS = [
     },
   },
   {
+    name: "myco_query_immune_events",
+    description:
+      "List recent immune events recorded by the substrate's defensive system: rejected untyped mutations (C14), invalid CI attestations (C5), pubkey mismatches at handshake (C2), and detected DAG tampering (C7). Each event is a DAG node with node_type starting with 'immune:'. Useful for auditing the substrate's defensive history.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        count: {
+          type: "integer",
+          description: "Number of most-recent immune events to return (default 50)",
+          minimum: 1,
+          maximum: 1000,
+        },
+      },
+      required: [],
+    },
+  },
+  {
     name: "myco_submit_mutation",
     description:
-      "Submit a mutation for the substrate to classify and (for contract-identity-level mutations) verify owner attestation. The substrate classifies via L1_GOVERNANCE rules: daily mutations are auto-accepted; CI mutations require owner attestation; untyped mutations are rejected. Accepted mutations are recorded as DAG nodes (causal history preserved).",
+      "Submit a mutation for the substrate to classify and (for contract-identity-level mutations) verify owner attestation. The substrate classifies via L1_GOVERNANCE rules: daily mutations are auto-accepted; CI mutations require owner attestation; untyped mutations are rejected. Accepted mutations are recorded as DAG nodes (causal history preserved). Rejected mutations trigger immune sporocarp emission (visible via myco_query_immune_events).",
     inputSchema: {
       type: "object",
       properties: {
@@ -463,6 +498,16 @@ export class McpServer {
         return {
           content: [
             { type: "text" as const, text: formatRecentNodes(report) },
+          ],
+        };
+      }
+      case "myco_query_immune_events": {
+        const sub = await this._ensureSubstrate();
+        const count = args.count !== undefined ? BigInt(Number(args.count)) : 50n;
+        const report = await sub.queryImmuneEvents(count);
+        return {
+          content: [
+            { type: "text" as const, text: formatImmuneEvents(report) },
           ],
         };
       }

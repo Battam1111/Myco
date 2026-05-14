@@ -103,6 +103,11 @@ pub mod msg_type {
     pub const SUBMIT_MUTATION: &str = "submit_mutation";
     /// `submit_mutation_response` — Python→Rust→Operator: classification + accepted + content.
     pub const SUBMIT_MUTATION_RESPONSE: &str = "submit_mutation_response";
+    /// `query_immune_events` — Operator→Rust: list recent immune sporocarps (M11).
+    /// Filters DAG by node_type prefix "immune:".
+    pub const QUERY_IMMUNE_EVENTS: &str = "query_immune_events";
+    /// `query_immune_events_response` — Rust→Operator: enumerated immune sporocarps.
+    pub const QUERY_IMMUNE_EVENTS_RESPONSE: &str = "query_immune_events_response";
 }
 
 /// A decoded bridge message.
