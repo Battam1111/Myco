@@ -255,25 +255,29 @@ impl ServerState {
 ///
 /// Returns the exit code (0 = clean shutdown, 2 = handshake failure).
 pub fn run_loop<R: Read, W: Write>(stdin: &mut R, stdout: &mut W) -> Result<u8, SubstrateError> {
+    use crate::derived_state::DerivedState;
+
     let state_dir = default_state_dir();
     ensure_state_dir(&state_dir)?;
-    // M21.1 P5 万物互联: track whether this is a fresh genesis (no prior
-    // manifest.cb on disk) so we can emit the one-time genesis_event DAG
-    // node after the DAG is loaded/created.
-    let (manifest, is_fresh_genesis) = match Manifest::load(&state_dir)? {
-        Some(m) => (m, false),
-        None => (Manifest::genesis(), true),
-    };
-    // M11: C7 dag_retro_edit_detected — if dag.cb is present but fails to load
-    // (tampered, corrupted, version-mismatched), quarantine the corrupted file
-    // with a timestamped suffix, start with an empty DAG, and emit an immune
-    // sporocarp recording the tamper attempt. Caller sees the immune event in
-    // their first myco_query_recent_nodes call after this boot.
+
+    // M21.2 P5 万物互联: DAG-first boot.
+    //
+    // 1. Load DAG (authoritative substrate event log).
+    // 2. Derive substrate state via DerivedState::from_dag.
+    // 3. If derived has substrate_id (genesis_event present), USE DERIVED
+    //    STATE for ServerState fields. State files become regenerable caches.
+    // 4. If DAG is empty or pre-M21 (no genesis_event), fall back to state
+    //    file loading (legacy compat). Auto-emit genesis_event for legacy
+    //    substrate to migrate forward.
+    //
+    // This is the moment the DAG becomes Rust-side authoritative. State files
+    // are still written (M21.4 will remove them); they're no longer read.
+
+    // M11: C7 dag_retro_edit_detected — quarantine corrupted dag.cb.
     let (dag, dag_load_failure_evidence): (Dag, Option<String>) = match load_dag(&state_dir) {
         Ok(Some(d)) => (d, None),
         Ok(None) => (Dag::default(), None),
         Err(e) => {
-            // Quarantine the corrupted file.
             let dag_path = state_dir.join("dag.cb");
             let quarantine_path = state_dir.join(format!(
                 "dag.cb.quarantined_{}",
@@ -292,24 +296,65 @@ pub fn run_loop<R: Read, W: Write>(stdin: &mut R, stdout: &mut W) -> Result<u8, 
             )
         }
     };
-    let pinned_operator_identity = load_pinned_operator_identity(&state_dir)?;
 
-    // M14: hydrate nonce log from disk; prune past-expiry consumed nonces.
-    let now_for_prune = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .ok()
-        .and_then(|d| i64::try_from(d.as_nanos()).ok())
-        .unwrap_or(0);
-    let nonce_entries = match load_nonce_log(&state_dir) {
-        Ok(Some(entries)) => entries
-            .into_iter()
-            .filter(|e| !(e.consumed && now_for_prune > e.expiry_unix_ns))
-            .collect::<Vec<_>>(),
-        _ => Vec::new(),
+    // Derive state from DAG. On unrecoverable replay error, treat as empty
+    // (fresh substrate path).
+    let derived = DerivedState::from_dag(&dag).unwrap_or_else(|_| DerivedState::empty());
+
+    // Determine boot mode:
+    //  - "dag-first" (M21.2+): derived.is_post_m21_substrate() == true
+    //  - "legacy" (pre-M21.1): fall back to state file loading
+    //  - "fresh genesis" (no prior state at all): create new
+    let boot_from_dag = derived.is_post_m21_substrate();
+    let (manifest, pinned_operator_identity, nonce_log_entries, is_fresh_genesis): (
+        Manifest,
+        Option<crate::persistence::PinnedOperatorIdentity>,
+        Vec<crate::persistence::PersistedNonceEntry>,
+        bool,
+    ) = if boot_from_dag {
+        // M21.2 derived-first path: state comes from DAG events.
+        let mfst = derived.to_legacy_manifest();
+        let pinned = derived.pinned_operator_identity.clone();
+        // Convert DerivedNonce → PersistedNonceEntry for ServerState population.
+        let nonces: Vec<crate::persistence::PersistedNonceEntry> = derived
+            .nonce_log
+            .values()
+            .map(|n| crate::persistence::PersistedNonceEntry {
+                nonce: n.nonce,
+                bound_content_hash: n.bound_content_hash,
+                bound_dag_tip: n.bound_dag_tip,
+                substrate_issued_at_unix_ns: n.substrate_issued_at_unix_ns,
+                expiry_unix_ns: n.expiry_unix_ns,
+                anchor_clock_issued_at_unix_ns: n.anchor_clock_issued_at_unix_ns,
+                anchor_clock_expiry_unix_ns: n.anchor_clock_expiry_unix_ns,
+                consumed: n.consumed,
+            })
+            .collect();
+        (mfst, pinned, nonces, false)
+    } else {
+        // Legacy path: load from state files.
+        let (m, fresh) = match Manifest::load(&state_dir)? {
+            Some(m) => (m, false),
+            None => (Manifest::genesis(), true),
+        };
+        let pinned = load_pinned_operator_identity(&state_dir)?;
+        let now_for_prune = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .ok()
+            .and_then(|d| i64::try_from(d.as_nanos()).ok())
+            .unwrap_or(0);
+        let entries = match load_nonce_log(&state_dir) {
+            Ok(Some(entries)) => entries
+                .into_iter()
+                .filter(|e| !(e.consumed && now_for_prune > e.expiry_unix_ns))
+                .collect::<Vec<_>>(),
+            _ => Vec::new(),
+        };
+        (m, pinned, entries, fresh)
     };
 
     let mut state = ServerState::new(state_dir, manifest, dag, pinned_operator_identity);
-    for entry in nonce_entries {
+    for entry in nonce_log_entries {
         state.nonce_log.insert(
             entry.nonce,
             AttestationNonce {
@@ -336,11 +381,29 @@ pub fn run_loop<R: Read, W: Write>(stdin: &mut R, stdout: &mut W) -> Result<u8, 
         let _ = save_dag_state(&state);
     }
 
-    // M21.1 P5 万物互联: if this is a fresh substrate genesis (no prior
-    // manifest.cb), emit the one-time genesis_event DAG node so the substrate's
-    // identity is recorded in the causal graph (not just in manifest.cb).
-    // This is THE foundational event — the substrate's first DAG node when
-    // its DAG is otherwise empty.
+    // M21.2: legacy-substrate auto-migration. If we booted via legacy path
+    // (state files present but no genesis_event in DAG), emit genesis_event
+    // now so the next boot can use the DAG-first path. This makes the M21.2
+    // upgrade seamless for existing substrates.
+    let needs_legacy_migration = !boot_from_dag
+        && !is_fresh_genesis
+        && state.dag.node_count() == 0
+        && state.manifest.substrate_id != [0u8; 32];
+    if needs_legacy_migration {
+        let event_node_type = crate::events::genesis_event_node_type(&state.manifest.substrate_id);
+        let event_content = crate::events::encode_genesis_event(
+            &state.manifest.substrate_id,
+            state.manifest.genesis_time_unix_ns,
+        );
+        let _ = emit_substrate_event(&mut state, event_node_type, event_content);
+        let _ = save_dag_state(&state);
+    }
+
+    // M21.1 P5 万物互联: fresh substrate (no manifest.cb on disk) emits
+    // genesis_event as the first DAG node. M21.2 generalizes this: any
+    // substrate without a genesis_event in DAG gets one auto-emitted (the
+    // legacy_migration branch above handles existing manifest.cb; this branch
+    // handles truly fresh).
     if is_fresh_genesis && state.dag.node_count() == 0 {
         let event_node_type = crate::events::genesis_event_node_type(&state.manifest.substrate_id);
         let event_content = crate::events::encode_genesis_event(

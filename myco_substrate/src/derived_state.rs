@@ -140,6 +140,37 @@ impl DerivedState {
         }
     }
 
+    /// M21.2: True iff this DerivedState contains a `genesis_event` (i.e., the
+    /// DAG event log was constructed on a post-M21.1 substrate that emitted
+    /// the genesis_event). This is the signal that DAG is the authoritative
+    /// source — boot path uses derived state instead of legacy state files.
+    pub fn is_post_m21_substrate(&self) -> bool {
+        self.substrate_id.is_some()
+    }
+
+    /// M21.2: Produce a Manifest compatible with M5-M20 boot expectations.
+    /// Used in the DAG-first boot path to populate ServerState.manifest from
+    /// the DAG event log.
+    ///
+    /// `last_save_time_unix_ns` defaults to `now` (informational only; not
+    /// derivable from DAG and not security-critical).
+    pub fn to_legacy_manifest(&self) -> crate::persistence::Manifest {
+        use crate::persistence::Manifest;
+        use std::time::{SystemTime, UNIX_EPOCH};
+        let now_ns = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .ok()
+            .and_then(|d| i64::try_from(d.as_nanos()).ok())
+            .unwrap_or(0);
+        Manifest {
+            substrate_id: self.substrate_id.unwrap_or([0u8; 32]),
+            genesis_time_unix_ns: self.genesis_time_unix_ns.unwrap_or(0),
+            cycle_counter: self.cycle_counter,
+            last_save_time_unix_ns: now_ns,
+            last_absorbed_cycle: self.last_absorbed_cycle,
+        }
+    }
+
     /// Rebuild full state by replaying every DAG node in insertion order.
     ///
     /// On any malformed event, returns `Err`. Successful replay produces a

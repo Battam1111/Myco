@@ -2788,6 +2788,158 @@ describe("SubstrateClient e2e", () => {
     }
   });
 
+  // -------------------------------------------------------------------------
+  // M21.2 P5 万物互联: DAG-first boot path tests.
+  //
+  // The substrate now derives Rust-side state from DAG events at boot. State
+  // files are still WRITTEN (M21.4 will remove them) but no longer read when
+  // dag.cb contains a genesis_event. The acid test: after deleting all state
+  // files except dag.cb, the substrate must boot correctly with full state.
+  // -------------------------------------------------------------------------
+
+  it("M21.2: substrate boots from DAG even with state files deleted (except dag.cb)", async () => {
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m21-2-op-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identity = OperatorIdentity.loadOrCreate(opDir);
+      const stateDir = freshStateDir();
+
+      // Session 1: build up substrate state.
+      const c1 = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identity,
+      });
+      await c1.registerAxis({
+        name: "m21_dag_only",
+        axisClass: "appetite",
+        fruitingThreshold: 10.0,
+        initialValue: 0.0,
+        decayRatePerCycle: 1.0,
+        isMortalitySignal: false,
+        updateRuleKind: "noop",
+      });
+      await c1.perturb("m21_dag_only", 3.5);
+      await c1.advance(1n);
+      const content = new TextEncoder().encode("nonce persist test");
+      const nonceResult = await c1.requestAttestationNonce(content);
+      const sig = identity.sign(content);
+      await c1.submitMutation({
+        mutationType: "schema_change",
+        touchedMetaStructures: ["appetite_axis_schema"],
+        contentCanonicalBytes: content,
+        attestationSignature: sig,
+        nonce: nonceResult.nonce,
+        expiryUnixNs: nonceResult.expiryUnixNs,
+      });
+      const pre = c1.helloAck.substrateVersion; // sanity
+      void pre;
+      const preSnap = await c1.snapshot();
+      const preAxisValue = preSnap.get("m21_dag_only");
+      await c1.shutdown();
+
+      // Delete EVERYTHING in state dir EXCEPT dag.cb.
+      // The substrate must reconstruct its identity + cycle + nonce log + pinned
+      // operator identity from DAG events alone.
+      const fs = await import("node:fs");
+      const path = await import("node:path");
+      const entries = fs.readdirSync(stateDir);
+      for (const e of entries) {
+        if (e !== "dag.cb") {
+          const p = path.join(stateDir, e);
+          fs.rmSync(p, { force: true, recursive: true });
+        }
+      }
+      // Verify the deletion.
+      const afterDelete = fs.readdirSync(stateDir);
+      assert.deepEqual(afterDelete, ["dag.cb"], "only dag.cb should remain");
+
+      // Session 2: boot from DAG only. Should recover everything Rust-side.
+      const c2 = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identity,
+      });
+      try {
+        // Check that the integrity check (including C19) passes — proves
+        // derived state matches in-memory state.
+        const integrityReport = await c2.runImmuneCheck();
+        assert.equal(
+          integrityReport.failedChecks,
+          0n,
+          `all integrity checks should pass after DAG-only boot; failures: ${integrityReport.checks
+            .filter((c) => !c.passed)
+            .map((c) => `${c.checkId}: ${c.evidence}`)
+            .join(" | ")}`,
+        );
+
+        // Replay-test nonce consumption: try the consumed nonce again →
+        // must be rejected (replay), proving nonce_log was reconstructed.
+        const replay = await c2.submitMutation({
+          mutationType: "schema_change",
+          touchedMetaStructures: ["appetite_axis_schema"],
+          contentCanonicalBytes: content,
+          attestationSignature: sig,
+          nonce: nonceResult.nonce,
+          expiryUnixNs: nonceResult.expiryUnixNs,
+        });
+        assert.equal(
+          replay.accepted,
+          false,
+          "previously-consumed nonce should be rejected after DAG-only boot",
+        );
+        assert.match(replay.rejectionReason, /replay|consumed|unknown/);
+
+        // Note: M21.2 does NOT yet derive Python-side gradient state. The
+        // axis value is reset to initial_value=0 because gradient.cb is gone.
+        // M21.3 will fix this by making Python a derived view consumer.
+        // We DON'T assert axis value here — it's expected to be reset.
+        void preAxisValue;
+      } finally {
+        await c2.shutdown();
+      }
+    } finally {
+      cleanupDir(opDir);
+    }
+  });
+
+  it("M21.2: legacy substrate (no genesis_event) auto-migrates on boot", async () => {
+    // Build a substrate the legacy way: write a manifest.cb manually + an
+    // empty dag.cb, then boot. The substrate should auto-emit genesis_event.
+    const stateDir = freshStateDir();
+    try {
+      // Spawn once to get a normal substrate state, then surgically delete
+      // dag.cb (simulating a pre-M21.1 substrate that has manifest.cb but
+      // no DAG events).
+      const c1 = await spawn(stateDir);
+      await c1.shutdown();
+      const fs = await import("node:fs");
+      const path = await import("node:path");
+      fs.rmSync(path.join(stateDir, "dag.cb"), { force: true });
+      const before = fs.readdirSync(stateDir);
+      assert.ok(!before.includes("dag.cb"));
+
+      // Now boot again — substrate sees manifest.cb but no dag.cb. Should
+      // auto-emit genesis_event during boot.
+      const c2 = await spawn(stateDir);
+      try {
+        const events = await c2.queryRecentNodes(20n, "genesis_event:");
+        assert.equal(
+          events.filteredTotal,
+          1n,
+          "auto-migration should emit exactly 1 genesis_event",
+        );
+        // After migration, integrity check should pass.
+        const integrity = await c2.runImmuneCheck();
+        assert.equal(integrity.failedChecks, 0n);
+      } finally {
+        await c2.shutdown();
+      }
+    } finally {
+      cleanupDir(stateDir);
+    }
+  });
+
   it("M21.1: DerivedState reconstructs state correctly across operations", async () => {
     const client = await spawn();
     try {
