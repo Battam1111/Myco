@@ -353,19 +353,27 @@ fn m7_decay_axis_continues_decay_across_restart() {
 
 #[test]
 fn m7_state_dir_files_exist_after_first_save() {
+    // M21.4 P5 万物互联: legacy state files (manifest.cb / gradient.cb /
+    // operator_identity_pubkey.cb / nonces.cb / owner_keys.cb) are NO LONGER
+    // written. dag.cb is the substrate's sole persistent artifact.
     let dir = fresh_state_dir();
     let mut client = spawn_substrate_with_state_dir(&dir);
     client
         .register_axis("x", "appetite", 5.0, 0.0, 1.0, false, "noop")
         .expect("register");
-    // After register_axis, both manifest.cb and gradient.cb should exist.
-    let manifest_path = dir.join("manifest.cb");
-    let gradient_path = dir.join("gradient.cb");
-    assert!(manifest_path.exists(), "manifest.cb should exist");
-    assert!(gradient_path.exists(), "gradient.cb should exist");
+    // After register_axis, only dag.cb should exist.
+    assert!(dir.join("dag.cb").exists(), "dag.cb should exist");
+    // Legacy files must NOT be written (M21.4 acid test at the Rust level).
+    assert!(
+        !dir.join("manifest.cb").exists(),
+        "post-M21.4: manifest.cb must not exist"
+    );
+    assert!(
+        !dir.join("gradient.cb").exists(),
+        "post-M21.4: gradient.cb must not exist"
+    );
     // No leftover .tmp files.
-    assert!(!dir.join("manifest.cb.tmp").exists());
-    assert!(!dir.join("gradient.cb.tmp").exists());
+    assert!(!dir.join("dag.cb.tmp").exists());
     client.shutdown().expect("shutdown");
 }
 

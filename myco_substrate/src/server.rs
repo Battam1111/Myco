@@ -38,8 +38,7 @@ use myco_kernel_shared::crypto::verify_signature;
 
 use crate::persistence::{
     default_state_dir, ensure_state_dir, load_dag, load_nonce_log, load_pinned_operator_identity,
-    save_dag, save_nonce_log, save_pinned_operator_identity, Manifest, PersistedNonceEntry,
-    PinnedOperatorIdentity,
+    save_dag, Manifest, PinnedOperatorIdentity,
 };
 use crate::SubstrateError;
 
@@ -230,13 +229,21 @@ impl ServerState {
         }
     }
 
-    /// Persist the manifest to disk. Bumps last_save_time as a side effect.
+    /// M21.4 P5 万物互联: manifest persistence is now NO-OP.
+    /// Manifest fields (substrate_id / genesis_time / cycle_counter /
+    /// last_absorbed_cycle) are derived from DAG events on boot. The
+    /// legacy `manifest.cb` file is no longer written.
+    ///
+    /// Kept as a function for call-site stability.
+    #[allow(clippy::unnecessary_wraps)]
     fn save_manifest(&mut self) -> Result<(), SubstrateError> {
-        self.manifest.save(&self.state_dir)?;
+        // M21.4: no-op. Manifest fields are event-sourced via DAG.
         Ok(())
     }
 
     /// State directory as a string (for forwarding to the Python worker).
+    /// M21.4: retained for sprout_child Python-side gradient snapshot path.
+    #[allow(dead_code)]
     fn state_dir_str(&self) -> String {
         self.state_dir.to_string_lossy().into_owned()
     }
@@ -1704,9 +1711,7 @@ fn handle_sprout_child(
     state: &mut ServerState,
     request: &Message,
 ) -> Result<Option<Message>, SubstrateError> {
-    use crate::persistence::{
-        save_pinned_operator_identity, Manifest, OPERATOR_IDENTITY_PUBKEY_FILENAME,
-    };
+    use crate::persistence::Manifest;
 
     let child_state_dir = match request.payload.get("child_state_dir") {
         Some(Value::String(s)) if !s.is_empty() => s.clone(),
@@ -1720,8 +1725,15 @@ fn handle_sprout_child(
 
     let child_path = std::path::PathBuf::from(&child_state_dir);
 
-    // Guard: child_state_dir must not contain an existing manifest.cb (don't
-    // overwrite an existing substrate's identity).
+    // Guard: child_state_dir must not contain an existing dag.cb (don't
+    // overwrite an existing substrate's identity). Post-M21.4, dag.cb is
+    // the sole persistent artifact; its presence indicates a live child.
+    if child_path.join("dag.cb").exists() {
+        return Err(SubstrateError::Protocol(format!(
+            "sprout_child: refusing to overwrite existing dag.cb at {child_state_dir}"
+        )));
+    }
+    // Also reject if legacy manifest.cb is present (pre-M21.4 child).
     if child_path.join("manifest.cb").exists() {
         return Err(SubstrateError::Protocol(format!(
             "sprout_child: refusing to overwrite existing manifest.cb at {child_state_dir}"
@@ -1731,44 +1743,82 @@ fn handle_sprout_child(
     // Create the child state_dir.
     std::fs::create_dir_all(&child_path).map_err(SubstrateError::Io)?;
 
-    // Build the child's fresh manifest (NEW substrate_id; cycle_counter=0).
-    let mut child_manifest = Manifest::genesis();
-    child_manifest.save(&child_path)?;
+    // M21.4 P5 万物互联: build the child's DAG directly — no legacy state
+    // files. The child's first DAG node is its genesis_event; operator_pinned
+    // event records parent's identity for operator continuity; axis_registered
+    // + axis_perturbed events seed the child's gradient.
+    let child_manifest = Manifest::genesis();
 
-    // Copy parent's operator_identity_pubkey to child (operator continuity —
-    // the same operator pubkey is pinned in the child, so the operator can
-    // immediately attach to the child substrate after spawn).
-    if let Some(parent_pinned) = &state.pinned_operator_identity {
-        save_pinned_operator_identity(parent_pinned, &child_path)?;
-    }
-
-    // Snapshot the parent's gradient state into the child's state_dir.
+    // Query parent's axis schemas to seed the child's gradient as events.
     let client = state
         .python_client
         .as_mut()
         .ok_or_else(|| SubstrateError::Handshake("python worker not connected".to_string()))?;
-    let mut snap_payload = BTreeMap::new();
-    snap_payload.insert(
-        "target_dir".to_string(),
-        Value::String(child_state_dir.clone()),
-    );
-    let snap_response = client
-        .call(msg_type::SNAPSHOT_GRADIENT_TO_DIR, snap_payload)
+    let parent_schemas = client
+        .query_gradient_schemas()
         .map_err(SubstrateError::Bridge)?;
-    if snap_response.message_type != msg_type::SNAPSHOT_GRADIENT_TO_DIR_ACK {
-        return Err(SubstrateError::Protocol(format!(
-            "expected snapshot_gradient_to_dir_ack; got {}",
-            snap_response.message_type
-        )));
+    let child_axis_count = parent_schemas.len() as u64;
+
+    // Build child's DAG: genesis_event → operator_pinned (if parent had one)
+    // → per-axis (axis_registered + optional axis_perturbed for non-initial value).
+    let mut child_dag = myco_kernel_schema::dag::Dag::new();
+
+    // 1. genesis_event
+    let child_genesis_nt = crate::events::genesis_event_node_type(&child_manifest.substrate_id);
+    let child_genesis_content = crate::events::encode_genesis_event(
+        &child_manifest.substrate_id,
+        child_manifest.genesis_time_unix_ns,
+    );
+    let child_cycle = child_manifest.cycle_counter;
+    child_dag
+        .insert_node(vec![], child_genesis_nt, child_cycle, child_genesis_content)
+        .map_err(|e| SubstrateError::Protocol(format!("child genesis_event insert: {e}")))?;
+
+    // 2. operator_pinned (inherited from parent for operator continuity)
+    if let Some(parent_pinned) = &state.pinned_operator_identity {
+        let nt = crate::events::operator_pinned_node_type(&parent_pinned.pubkey);
+        let content = crate::events::encode_operator_pinned(
+            &parent_pinned.pubkey,
+            parent_pinned.first_pinned_unix_ns,
+        );
+        let parents = vec![child_dag.tip().unwrap()];
+        child_dag
+            .insert_node(parents, nt, child_cycle, content)
+            .map_err(|e| SubstrateError::Protocol(format!("child operator_pinned insert: {e}")))?;
     }
-    let child_axis_count = snap_response
-        .payload
-        .get("axis_count")
-        .and_then(|v| match v {
-            Value::Uint(n) => Some(*n),
-            _ => None,
-        })
-        .unwrap_or(0);
+
+    // 3. Per-axis events: axis_registered, then axis_perturbed for any delta.
+    for schema in &parent_schemas {
+        let reg_nt = crate::events::axis_registered_node_type(&schema.name);
+        let reg_event = crate::events::AxisRegisteredEvent {
+            name: schema.name.clone(),
+            axis_class: schema.axis_class.clone(),
+            fruiting_threshold: schema.fruiting_threshold,
+            initial_value: schema.initial_value,
+            decay_rate_per_cycle: schema.decay_rate_per_cycle,
+            is_mortality_signal: schema.is_mortality_signal,
+            update_rule_kind: schema.update_rule_kind.clone(),
+        };
+        let reg_content = crate::events::encode_axis_registered(&reg_event);
+        let parents = vec![child_dag.tip().unwrap()];
+        child_dag
+            .insert_node(parents, reg_nt, child_cycle, reg_content)
+            .map_err(|e| SubstrateError::Protocol(format!("child axis_registered insert: {e}")))?;
+        let delta = schema.current_value - schema.initial_value;
+        if delta != 0.0 {
+            let pert_nt = crate::events::axis_perturbed_node_type(&schema.name);
+            let pert_content = crate::events::encode_axis_perturbed(&schema.name, delta);
+            let parents = vec![child_dag.tip().unwrap()];
+            child_dag
+                .insert_node(parents, pert_nt, child_cycle, pert_content)
+                .map_err(|e| {
+                    SubstrateError::Protocol(format!("child axis_perturbed insert: {e}"))
+                })?;
+        }
+    }
+
+    // Persist child's DAG (the SOLE child state file post-M21.4).
+    save_dag(&child_dag, &child_path)?;
 
     // Emit spore_emission:{child_id_prefix} DAG node in PARENT's DAG.
     let child_id_hex_prefix: String = child_manifest
@@ -1831,9 +1881,6 @@ fn handle_sprout_child(
         "spore_emission_hash".to_string(),
         Value::Bytes(spore_hash.as_ref().to_vec()),
     );
-    // Quiet the unused-import warning for OPERATOR_IDENTITY_PUBKEY_FILENAME
-    // since it's not directly referenced here (used via save_pinned_operator_identity).
-    let _ = OPERATOR_IDENTITY_PUBKEY_FILENAME;
 
     Ok(Some(Message::new(
         msg_type::SPROUT_CHILD_RESPONSE,
@@ -2465,10 +2512,12 @@ fn verify_hello_signature_and_pin(
     match &state.pinned_operator_identity {
         None => {
             // First sight — pin.
+            // M21.4: do NOT write `operator_identity_pubkey.cb`. The pinned
+            // identity is derived from the operator_pinned DAG event below.
             let pinned = PinnedOperatorIdentity::pin_now(pubkey_bytes);
-            save_pinned_operator_identity(&pinned, &state.state_dir)?;
             // M21.1 P5 万物互联: emit operator_pinned DAG event so the TOFU
-            // pinning is recorded in the causal graph (was an orphan prior).
+            // pinning is recorded in the causal graph (now the authoritative
+            // record, post-M21.4).
             let event_node_type = crate::events::operator_pinned_node_type(&pinned.pubkey);
             let event_content =
                 crate::events::encode_operator_pinned(&pinned.pubkey, pinned.first_pinned_unix_ns);
@@ -2499,39 +2548,32 @@ fn hex_encode(bytes: &[u8]) -> String {
     s
 }
 
-/// Trigger a save of the Python-side gradient state. Called after every
-/// operation that mutates the gradient (register_axis / perturb / advance).
-fn save_python_state(state: &mut ServerState) -> Result<(), SubstrateError> {
-    let state_dir_str = state.state_dir_str();
-    if let Some(client) = state.python_client.as_mut() {
-        client.save_state(&state_dir_str)?;
-    }
+/// M21.4 P5 万物互联: Python-side state persistence is now NO-OP.
+/// Python's gradient + owner_keys are derived from DAG events at boot
+/// (M21.3 replay). The legacy `gradient.cb` and `owner_keys.cb` files are
+/// no longer maintained; dag.cb is the substrate's sole persistent artifact.
+///
+/// Kept as a function for call-site stability; future versions may remove
+/// the call sites entirely.
+#[allow(clippy::unnecessary_wraps)]
+fn save_python_state(_state: &mut ServerState) -> Result<(), SubstrateError> {
+    // M21.4: no-op. State is event-sourced via DAG.
     Ok(())
 }
 
-/// M8: Persist the substrate's DAG to `<state_dir>/dag.cb`.
+/// M8/M21.4: Persist the substrate's DAG to `<state_dir>/dag.cb`.
+/// This remains the sole persistent operation in M21.4 — dag.cb is the
+/// authoritative substrate state.
 fn save_dag_state(state: &ServerState) -> Result<(), SubstrateError> {
     save_dag(&state.dag, &state.state_dir)
 }
 
-/// M14: Snapshot the substrate's in-process nonce log to `<state_dir>/nonces.cb`.
-/// M15: also persists dual-clock fields when present.
-fn save_nonce_state(state: &ServerState) -> Result<(), SubstrateError> {
-    let entries: Vec<PersistedNonceEntry> = state
-        .nonce_log
-        .values()
-        .map(|n| PersistedNonceEntry {
-            nonce: n.nonce,
-            bound_content_hash: n.bound_content_hash,
-            bound_dag_tip: n.bound_dag_tip,
-            substrate_issued_at_unix_ns: n.substrate_issued_at_unix_ns,
-            expiry_unix_ns: n.expiry_unix_ns,
-            anchor_clock_issued_at_unix_ns: n.anchor_clock_issued_at_unix_ns,
-            anchor_clock_expiry_unix_ns: n.anchor_clock_expiry_unix_ns,
-            consumed: n.consumed,
-        })
-        .collect();
-    save_nonce_log(&entries, &state.state_dir)
+/// M21.4 P5 万物互联: nonce log persistence is now NO-OP. The nonce_log is
+/// derived from `nonce_issued` / `nonce_consumed` DAG events at boot.
+#[allow(clippy::unnecessary_wraps)]
+fn save_nonce_state(_state: &ServerState) -> Result<(), SubstrateError> {
+    // M21.4: no-op. Nonce state is event-sourced via DAG.
+    Ok(())
 }
 
 /// M12: Result of one integrity check (C9 cold_resume_invariant_failure sub-check).
