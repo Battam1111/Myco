@@ -294,6 +294,12 @@ pub fn load_nonce_log(
     Ok(Some(entries?))
 }
 
+/// Filename for the Rust-managed snapshot cache (M21.5).
+pub const SNAPSHOT_FILENAME: &str = "snapshot.cb";
+
+/// Current snapshot file format version (M21.5).
+pub const SNAPSHOT_FORMAT_VERSION: u64 = 1;
+
 /// Current operator-identity-pubkey file format version (M9).
 pub const OPERATOR_IDENTITY_PUBKEY_FORMAT_VERSION: u64 = 1;
 
@@ -614,6 +620,46 @@ impl Manifest {
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
             Err(e) => Err(SubstrateError::Io(e)),
         }
+    }
+}
+
+/// M21.5 P5 万物互联: atomically save `snapshot.cb` to `<state_dir>/snapshot.cb`.
+///
+/// The snapshot is a CACHE — substrate boot works without it via full DAG replay.
+/// When present + valid, it accelerates boot by restoring Rust-side derived state
+/// from a known DAG tip; only events newer than the snapshot's recorded tip need
+/// to be replayed.
+pub fn save_snapshot(
+    snapshot_bytes: &myco_kernel_shared::canonical_bytes::CanonicalBytes,
+    state_dir: &Path,
+) -> Result<(), SubstrateError> {
+    ensure_state_dir(state_dir)?;
+    let final_path = state_dir.join(SNAPSHOT_FILENAME);
+    let tmp_path = state_dir.join(format!("{SNAPSHOT_FILENAME}.tmp"));
+    {
+        let mut f = fs::File::create(&tmp_path)?;
+        f.write_all(snapshot_bytes.as_ref())?;
+        f.sync_all()?;
+    }
+    fs::rename(&tmp_path, &final_path)?;
+    Ok(())
+}
+
+/// M21.5: load `snapshot.cb` raw bytes from `<state_dir>/snapshot.cb`.
+///
+/// Returns `Ok(Some(bytes))` if present, `Ok(None)` if missing,
+/// `Err` on I/O. The caller passes bytes to `DerivedState::from_canonical_bytes`
+/// for decoding (failures there → caller falls back to full DAG replay).
+pub fn load_snapshot(state_dir: &Path) -> Result<Option<Vec<u8>>, SubstrateError> {
+    let path = state_dir.join(SNAPSHOT_FILENAME);
+    match fs::File::open(&path) {
+        Ok(mut f) => {
+            let mut bytes = Vec::new();
+            f.read_to_end(&mut bytes)?;
+            Ok(Some(bytes))
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(e) => Err(SubstrateError::Io(e)),
     }
 }
 

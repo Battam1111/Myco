@@ -148,6 +148,274 @@ impl DerivedState {
         self.substrate_id.is_some()
     }
 
+    /// M21.5 P5 万物互联: encode the snapshot as canonical bytes.
+    /// Stored alongside `dag.cb` as `snapshot.cb` to accelerate boot —
+    /// avoids full DAG replay every restart on large substrates.
+    ///
+    /// Schema (canonical-bytes Map):
+    /// ```text
+    /// Map({
+    ///   "format_version": Uint(1),
+    ///   "snapshot_at_dag_tip": Bytes(32),  // optional; absent for empty DAG
+    ///   "substrate_id": Bytes(32),         // optional; absent until genesis_event
+    ///   "genesis_time_unix_ns": Timestamp, // optional
+    ///   "cycle_counter": Uint,
+    ///   "last_absorbed_cycle": Uint,       // optional
+    ///   "pinned_operator_identity": Map,   // optional
+    ///   "nonce_log": Array<Map>,
+    /// })
+    /// ```
+    pub fn to_canonical_bytes(
+        &self,
+        snapshot_at_dag_tip: Option<&[u8; 32]>,
+    ) -> myco_kernel_shared::canonical_bytes::CanonicalBytes {
+        use myco_kernel_shared::canonical_bytes::{encode, Value};
+        use std::collections::BTreeMap;
+
+        let mut root = BTreeMap::new();
+        root.insert("format_version".to_string(), Value::Uint(1));
+        if let Some(tip) = snapshot_at_dag_tip {
+            root.insert(
+                "snapshot_at_dag_tip".to_string(),
+                Value::Bytes(tip.to_vec()),
+            );
+        }
+        if let Some(id) = &self.substrate_id {
+            root.insert("substrate_id".to_string(), Value::Bytes(id.to_vec()));
+        }
+        if let Some(t) = self.genesis_time_unix_ns {
+            root.insert("genesis_time_unix_ns".to_string(), Value::Timestamp(t));
+        }
+        root.insert("cycle_counter".to_string(), Value::Uint(self.cycle_counter));
+        if let Some(c) = self.last_absorbed_cycle {
+            root.insert("last_absorbed_cycle".to_string(), Value::Uint(c));
+        }
+        if let Some(pinned) = &self.pinned_operator_identity {
+            let mut pm = BTreeMap::new();
+            pm.insert("pubkey".to_string(), Value::Bytes(pinned.pubkey.to_vec()));
+            pm.insert(
+                "first_pinned_unix_ns".to_string(),
+                Value::Timestamp(pinned.first_pinned_unix_ns),
+            );
+            root.insert("pinned_operator_identity".to_string(), Value::Map(pm));
+        }
+        let nonces: Vec<Value> = self
+            .nonce_log
+            .values()
+            .map(|n| {
+                let mut nm = BTreeMap::new();
+                nm.insert("nonce".to_string(), Value::Bytes(n.nonce.to_vec()));
+                nm.insert(
+                    "bound_content_hash".to_string(),
+                    Value::Bytes(n.bound_content_hash.to_vec()),
+                );
+                nm.insert(
+                    "bound_dag_tip".to_string(),
+                    Value::Bytes(n.bound_dag_tip.to_vec()),
+                );
+                nm.insert(
+                    "substrate_issued_at_unix_ns".to_string(),
+                    Value::Timestamp(n.substrate_issued_at_unix_ns),
+                );
+                nm.insert(
+                    "expiry_unix_ns".to_string(),
+                    Value::Timestamp(n.expiry_unix_ns),
+                );
+                if let Some(t) = n.anchor_clock_issued_at_unix_ns {
+                    nm.insert(
+                        "anchor_clock_issued_at_unix_ns".to_string(),
+                        Value::Timestamp(t),
+                    );
+                }
+                if let Some(t) = n.anchor_clock_expiry_unix_ns {
+                    nm.insert(
+                        "anchor_clock_expiry_unix_ns".to_string(),
+                        Value::Timestamp(t),
+                    );
+                }
+                nm.insert("consumed".to_string(), Value::Bool(n.consumed));
+                Value::Map(nm)
+            })
+            .collect();
+        root.insert("nonce_log".to_string(), Value::Array(nonces));
+
+        encode(&Value::Map(root)).expect("snapshot encode infallible")
+    }
+
+    /// M21.5: decode a snapshot from canonical bytes, returning (state, snapshot_at_dag_tip).
+    /// Returns `None` on format version mismatch (caller falls back to full DAG replay).
+    #[allow(clippy::type_complexity)]
+    pub fn from_canonical_bytes(
+        bytes: &[u8],
+    ) -> Result<Option<(Self, Option<[u8; 32]>)>, DerivedStateError> {
+        use myco_kernel_shared::canonical_bytes::{
+            decode, map_get_array, map_get_bytes, map_get_uint, Value,
+        };
+        let decoded = decode(bytes).map_err(|e| DerivedStateError::EventDecode {
+            node_type: "snapshot.cb".to_string(),
+            reason: format!("decode: {e}"),
+        })?;
+        let map = match decoded {
+            Value::Map(m) => m,
+            other => {
+                return Err(DerivedStateError::EventDecode {
+                    node_type: "snapshot.cb".to_string(),
+                    reason: format!("root not Map: {other:?}"),
+                })
+            }
+        };
+        let version =
+            map_get_uint(&map, "format_version").map_err(|e| DerivedStateError::EventField {
+                node_type: "snapshot.cb".to_string(),
+                field: "format_version".to_string(),
+                reason: e.to_string(),
+            })?;
+        if version != 1 {
+            return Ok(None); // unknown version → caller falls back
+        }
+        let snapshot_at_dag_tip = match map.get("snapshot_at_dag_tip") {
+            Some(Value::Bytes(b)) if b.len() == 32 => {
+                let mut arr = [0u8; 32];
+                arr.copy_from_slice(b);
+                Some(arr)
+            }
+            _ => None,
+        };
+        let substrate_id = match map.get("substrate_id") {
+            Some(Value::Bytes(b)) if b.len() == 32 => {
+                let mut arr = [0u8; 32];
+                arr.copy_from_slice(b);
+                Some(arr)
+            }
+            _ => None,
+        };
+        let genesis_time_unix_ns = match map.get("genesis_time_unix_ns") {
+            Some(Value::Timestamp(t)) => Some(*t),
+            _ => None,
+        };
+        let cycle_counter =
+            map_get_uint(&map, "cycle_counter").map_err(|e| DerivedStateError::EventField {
+                node_type: "snapshot.cb".to_string(),
+                field: "cycle_counter".to_string(),
+                reason: e.to_string(),
+            })?;
+        let last_absorbed_cycle = match map.get("last_absorbed_cycle") {
+            Some(Value::Uint(u)) => Some(*u),
+            _ => None,
+        };
+        let pinned_operator_identity = match map.get("pinned_operator_identity") {
+            Some(Value::Map(pm)) => {
+                let pk =
+                    map_get_bytes(pm, "pubkey").map_err(|e| DerivedStateError::EventField {
+                        node_type: "snapshot.cb".to_string(),
+                        field: "pinned_operator_identity.pubkey".to_string(),
+                        reason: e.to_string(),
+                    })?;
+                if pk.len() != 32 {
+                    return Err(DerivedStateError::EventField {
+                        node_type: "snapshot.cb".to_string(),
+                        field: "pubkey".to_string(),
+                        reason: format!("expected 32 bytes; got {}", pk.len()),
+                    });
+                }
+                let mut pubkey = [0u8; 32];
+                pubkey.copy_from_slice(pk);
+                let first_pinned_unix_ns = match pm.get("first_pinned_unix_ns") {
+                    Some(Value::Timestamp(t)) => *t,
+                    _ => 0,
+                };
+                Some(crate::persistence::PinnedOperatorIdentity {
+                    pubkey,
+                    first_pinned_unix_ns,
+                })
+            }
+            _ => None,
+        };
+        let nonce_log_array =
+            map_get_array(&map, "nonce_log").map_err(|e| DerivedStateError::EventField {
+                node_type: "snapshot.cb".to_string(),
+                field: "nonce_log".to_string(),
+                reason: e.to_string(),
+            })?;
+        let mut nonce_log = HashMap::new();
+        for v in nonce_log_array {
+            let nm = match v {
+                Value::Map(m) => m,
+                other => {
+                    return Err(DerivedStateError::EventField {
+                        node_type: "snapshot.cb".to_string(),
+                        field: "nonce_log_entry".to_string(),
+                        reason: format!("not a Map: {other:?}"),
+                    })
+                }
+            };
+            let read_32 = |field: &str| -> Result<[u8; 32], DerivedStateError> {
+                let b = map_get_bytes(nm, field).map_err(|e| DerivedStateError::EventField {
+                    node_type: "snapshot.cb".to_string(),
+                    field: field.to_string(),
+                    reason: e.to_string(),
+                })?;
+                if b.len() != 32 {
+                    return Err(DerivedStateError::EventField {
+                        node_type: "snapshot.cb".to_string(),
+                        field: field.to_string(),
+                        reason: format!("not 32 bytes: {}", b.len()),
+                    });
+                }
+                let mut arr = [0u8; 32];
+                arr.copy_from_slice(b);
+                Ok(arr)
+            };
+            let nonce = read_32("nonce")?;
+            let bound_content_hash = read_32("bound_content_hash")?;
+            let bound_dag_tip = read_32("bound_dag_tip")?;
+            let substrate_issued_at_unix_ns = match nm.get("substrate_issued_at_unix_ns") {
+                Some(Value::Timestamp(t)) => *t,
+                _ => 0,
+            };
+            let expiry_unix_ns = match nm.get("expiry_unix_ns") {
+                Some(Value::Timestamp(t)) => *t,
+                _ => 0,
+            };
+            let anchor_clock_issued_at_unix_ns = match nm.get("anchor_clock_issued_at_unix_ns") {
+                Some(Value::Timestamp(t)) => Some(*t),
+                _ => None,
+            };
+            let anchor_clock_expiry_unix_ns = match nm.get("anchor_clock_expiry_unix_ns") {
+                Some(Value::Timestamp(t)) => Some(*t),
+                _ => None,
+            };
+            let consumed = match nm.get("consumed") {
+                Some(Value::Bool(b)) => *b,
+                _ => false,
+            };
+            nonce_log.insert(
+                nonce,
+                DerivedNonce {
+                    nonce,
+                    bound_content_hash,
+                    bound_dag_tip,
+                    substrate_issued_at_unix_ns,
+                    expiry_unix_ns,
+                    anchor_clock_issued_at_unix_ns,
+                    anchor_clock_expiry_unix_ns,
+                    consumed,
+                },
+            );
+        }
+        Ok(Some((
+            DerivedState {
+                substrate_id,
+                genesis_time_unix_ns,
+                cycle_counter,
+                last_absorbed_cycle,
+                pinned_operator_identity,
+                nonce_log,
+            },
+            snapshot_at_dag_tip,
+        )))
+    }
+
     /// M21.2: Produce a Manifest compatible with M5-M20 boot expectations.
     /// Used in the DAG-first boot path to populate ServerState.manifest from
     /// the DAG event log.
