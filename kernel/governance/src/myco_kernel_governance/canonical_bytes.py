@@ -281,3 +281,197 @@ def _encode_into(value: Value, buf: bytearray) -> None:
         return
 
     raise CanonicalBytesError(f"unknown value type: {type(value).__name__}")
+
+
+# ---------------------------------------------------------------------------
+# Decoder — reverse of encode. Added at M5 to support the cross-process
+# bridge (kernel/bridge_python) which needs to decode canonical-bytes frames
+# arriving from the Rust controller over stdio.
+# ---------------------------------------------------------------------------
+
+
+def read_varint(buf: bytes, offset: int) -> tuple[int, int]:
+    """Read a varint from ``buf`` starting at ``offset``.
+
+    Returns ``(value, new_offset)``. Mirrors the Rust ``read_varint``.
+
+    Raises:
+        CanonicalBytesError: on truncation or overflow (more than 10 bytes).
+    """
+    result = 0
+    shift = 0
+    cur = offset
+    for _ in range(10):
+        if cur >= len(buf):
+            raise CanonicalBytesError("varint truncated")
+        byte = buf[cur]
+        cur += 1
+        result |= (byte & 0x7F) << shift
+        if (byte & 0x80) == 0:
+            return result, cur
+        shift += 7
+    raise CanonicalBytesError("varint too long (>10 bytes)")
+
+
+def decode(buf: bytes) -> Value:
+    """Decode canonical bytes into a :class:`Value` tree.
+
+    Inverse of :func:`encode`: ``encode(decode(b)) == b`` for any canonical
+    bytes produced by :func:`encode`. Drift between any implementation's
+    decode and any other's encode = L1_HARD_RULES C18.
+
+    Raises:
+        CanonicalBytesError: on malformed input (unknown tag, truncated
+            payload, trailing bytes, oversized varint, invalid UTF-8, etc.).
+    """
+    value, cursor = _decode_into(buf, 0)
+    if cursor != len(buf):
+        raise CanonicalBytesError(
+            f"trailing bytes after decode: consumed {cursor}/{len(buf)}"
+        )
+    return value
+
+
+def _decode_into(buf: bytes, offset: int) -> tuple[Value, int]:
+    if offset >= len(buf):
+        raise CanonicalBytesError("decode: input truncated")
+    tag = buf[offset]
+    cursor = offset + 1
+
+    if tag == TAG_NULL:
+        return Null(), cursor
+
+    if tag == TAG_BOOL:
+        if cursor >= len(buf):
+            raise CanonicalBytesError("decode: bool payload truncated")
+        b = buf[cursor]
+        if b not in (0x00, 0x01):
+            raise CanonicalBytesError(f"decode: invalid bool byte {b:#x}")
+        return Bool(b == 0x01), cursor + 1
+
+    if tag == TAG_INT:
+        if cursor + 8 > len(buf):
+            raise CanonicalBytesError("decode: int payload truncated")
+        (value,) = struct.unpack(">q", buf[cursor : cursor + 8])
+        return Int(value), cursor + 8
+
+    if tag == TAG_UINT:
+        if cursor + 8 > len(buf):
+            raise CanonicalBytesError("decode: uint payload truncated")
+        (value,) = struct.unpack(">Q", buf[cursor : cursor + 8])
+        return Uint(value), cursor + 8
+
+    if tag == TAG_STRING:
+        length, cursor = read_varint(buf, cursor)
+        if cursor + length > len(buf):
+            raise CanonicalBytesError("decode: string payload truncated")
+        raw = bytes(buf[cursor : cursor + length])
+        try:
+            text = raw.decode("utf-8")
+        except UnicodeDecodeError as e:
+            raise CanonicalBytesError(f"decode: invalid utf-8: {e}") from e
+        return String(text), cursor + length
+
+    if tag == TAG_BYTES:
+        length, cursor = read_varint(buf, cursor)
+        if cursor + length > len(buf):
+            raise CanonicalBytesError("decode: bytes payload truncated")
+        raw = bytes(buf[cursor : cursor + length])
+        return Bytes(raw), cursor + length
+
+    if tag == TAG_ARRAY:
+        count, cursor = read_varint(buf, cursor)
+        items: list[Value] = []
+        for _ in range(count):
+            item, cursor = _decode_into(buf, cursor)
+            items.append(item)
+        return Array(tuple(items)), cursor
+
+    if tag == TAG_MAP:
+        count, cursor = read_varint(buf, cursor)
+        entries: list[tuple[str, Value]] = []
+        prev_key_bytes: bytes | None = None
+        for _ in range(count):
+            # Each entry: canonical-bytes-of-key followed by canonical-bytes-of-value.
+            key_value, key_end = _decode_into(buf, cursor)
+            if not isinstance(key_value, String):
+                raise CanonicalBytesError(
+                    f"decode: map key is not String: {type(key_value).__name__}"
+                )
+            key_canonical = bytes(buf[cursor:key_end])
+            # Enforce strict canonical ordering during decode (defense in depth
+            # against malformed input that bypassed the encoder's sort step).
+            if prev_key_bytes is not None and key_canonical <= prev_key_bytes:
+                raise CanonicalBytesError(
+                    "decode: map keys not in strict canonical order"
+                )
+            prev_key_bytes = key_canonical
+            val, cursor = _decode_into(buf, key_end)
+            entries.append((key_value.value, val))
+        return Map(tuple(entries)), cursor
+
+    if tag == TAG_TIMESTAMP:
+        if cursor + 8 > len(buf):
+            raise CanonicalBytesError("decode: timestamp payload truncated")
+        (value,) = struct.unpack(">q", buf[cursor : cursor + 8])
+        return Timestamp(value), cursor + 8
+
+    if tag == TAG_HASH:
+        if cursor + 32 > len(buf):
+            raise CanonicalBytesError("decode: hash payload truncated")
+        raw = bytes(buf[cursor : cursor + 32])
+        return Hash(raw), cursor + 32
+
+    raise CanonicalBytesError(f"decode: unknown tag {tag:#x}")
+
+
+def map_get(value: Value, key: str) -> Value:
+    """Helper: extract a key from a :class:`Map` value. Raises on type or key error."""
+    if not isinstance(value, Map):
+        raise CanonicalBytesError(f"map_get: not a Map: {type(value).__name__}")
+    for k, v in value.value:
+        if k == key:
+            return v
+    raise CanonicalBytesError(f"map_get: missing key {key!r}")
+
+
+def expect_string(value: Value) -> str:
+    """Helper: assert ``value`` is a :class:`String` and return its content."""
+    if not isinstance(value, String):
+        raise CanonicalBytesError(f"expect_string: not a String: {type(value).__name__}")
+    return value.value
+
+
+def expect_uint(value: Value) -> int:
+    """Helper: assert ``value`` is a :class:`Uint` and return its content."""
+    if not isinstance(value, Uint):
+        raise CanonicalBytesError(f"expect_uint: not a Uint: {type(value).__name__}")
+    return value.value
+
+
+def expect_bytes(value: Value) -> bytes:
+    """Helper: assert ``value`` is a :class:`Bytes` and return its content."""
+    if not isinstance(value, Bytes):
+        raise CanonicalBytesError(f"expect_bytes: not a Bytes: {type(value).__name__}")
+    return value.value
+
+
+def expect_map(value: Value) -> Map:
+    """Helper: assert ``value`` is a :class:`Map` and return it."""
+    if not isinstance(value, Map):
+        raise CanonicalBytesError(f"expect_map: not a Map: {type(value).__name__}")
+    return value
+
+
+def expect_array(value: Value) -> tuple[Value, ...]:
+    """Helper: assert ``value`` is an :class:`Array` and return its content."""
+    if not isinstance(value, Array):
+        raise CanonicalBytesError(f"expect_array: not an Array: {type(value).__name__}")
+    return value.value
+
+
+def expect_bool(value: Value) -> bool:
+    """Helper: assert ``value`` is a :class:`Bool` and return its content."""
+    if not isinstance(value, Bool):
+        raise CanonicalBytesError(f"expect_bool: not a Bool: {type(value).__name__}")
+    return value.value

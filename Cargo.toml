@@ -21,6 +21,7 @@ members = [
     "kernel/skin",
     "kernel/schema",
     "kernel/continuity",
+    "kernel/bridge",
     "m1_milestone",
     "test_vectors_rs",
 ]
