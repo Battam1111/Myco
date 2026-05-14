@@ -28,6 +28,7 @@ import {
   encodeFrameBody,
   type HelloAck,
   helloPayload,
+  helloSigningBody,
   type IntentReport,
   type Message,
   MSG_TYPE,
@@ -41,6 +42,7 @@ import {
   type RecentNodesReport,
   registerAxisPayload,
 } from "./protocol/messages.ts";
+import { OperatorIdentity } from "./operator_identity.ts";
 
 /** Configuration for spawning a SubstrateClient. */
 export interface SubstrateClientConfig {
@@ -52,6 +54,10 @@ export interface SubstrateClientConfig {
   env?: Record<string, string>;
   /** Pre-seeded 32-byte session secret. Random by default. */
   sessionSecret?: Uint8Array;
+  /** Operator identity for M9 hello signing. If omitted, loads-or-creates
+   *  from ~/.myco/operator_keys/ (or $MYCO_OPERATOR_KEY_DIR). Pass an explicit
+   *  OperatorIdentity for tests (isolated keypairs). */
+  operatorIdentity?: OperatorIdentity;
 }
 
 /** Error thrown by SubstrateClient operations. */
@@ -117,6 +123,14 @@ export class SubstrateClient {
       );
     }
 
+    // M9: load (or create) the operator identity for signing the hello message.
+    const identity = config.operatorIdentity ?? OperatorIdentity.loadOrCreate();
+    const operatorPubkey = identity.publicKeyBytes();
+
+    // Compute the hello signature over the canonical-bytes of {session_secret, operator_pubkey}.
+    const signingInput = helloSigningBody(sessionSecret, operatorPubkey);
+    const helloSignature = identity.sign(signingInput);
+
     const child = spawn(binary, [], {
       stdio: ["pipe", "pipe", "inherit"],
       env: { ...process.env, ...config.env },
@@ -131,7 +145,7 @@ export class SubstrateClient {
       version: 1n,
       messageType: MSG_TYPE.HELLO,
       requestId,
-      payload: helloPayload(sessionSecret),
+      payload: helloPayload(sessionSecret, operatorPubkey, helloSignature),
     };
     const helloFrame = encodeFrameBody(helloMsg, BOOTSTRAP_KEY);
     const waitForAck = client._registerWaiter(requestId);

@@ -3,7 +3,7 @@
 // THE M6 milestone proof: TypeScript ↔ Rust ↔ Python with all three
 // processes alive, exchanging canonical-bytes frames over stdio.
 
-import { describe, it, after } from "node:test";
+import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { resolve as resolvePath } from "node:path";
 import { existsSync, mkdtempSync, rmSync } from "node:fs";
@@ -190,6 +190,124 @@ describe("SubstrateClient e2e", () => {
       assert.equal(snap.size, 0);
     } finally {
       await client.shutdown();
+    }
+  });
+
+  // -------------------------------------------------------------------------
+  // M9 operator identity + TOFU tests.
+  // -------------------------------------------------------------------------
+  it("M9: TOFU pins operator pubkey on first hello", async () => {
+    const stateDir = freshStateDir();
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m9-op-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identity = OperatorIdentity.loadOrCreate(opDir);
+
+      const client = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identity,
+      });
+      try {
+        // Substrate should have pinned the pubkey to <state_dir>/operator_identity_pubkey.cb
+        const pinnedPath = resolvePath(stateDir, "operator_identity_pubkey.cb");
+        assert.ok(
+          existsSync(pinnedPath),
+          "substrate should have pinned operator pubkey on first hello",
+        );
+      } finally {
+        await client.shutdown();
+      }
+    } finally {
+      cleanupDir(stateDir);
+      cleanupDir(opDir);
+    }
+  });
+
+  it("M9: same operator identity reconnects successfully", async () => {
+    const stateDir = freshStateDir();
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m9-op-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identity = OperatorIdentity.loadOrCreate(opDir);
+
+      // Session 1: pin.
+      const c1 = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identity,
+      });
+      await c1.shutdown();
+
+      // Session 2: same identity → should succeed.
+      const c2 = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identity,
+      });
+      assert.ok(c2.helloAck.substrateVersion.length > 0);
+      await c2.shutdown();
+    } finally {
+      cleanupDir(stateDir);
+      cleanupDir(opDir);
+    }
+  });
+
+  it("M9: different operator identity is rejected after pin", async () => {
+    const stateDir = freshStateDir();
+    const opDirA = mkdtempSync(resolvePath(tmpdir(), "myco-m9-op-a-"));
+    const opDirB = mkdtempSync(resolvePath(tmpdir(), "myco-m9-op-b-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identityA = OperatorIdentity.loadOrCreate(opDirA);
+      const identityB = OperatorIdentity.loadOrCreate(opDirB);
+      assert.notDeepEqual(
+        identityA.publicKeyBytes(),
+        identityB.publicKeyBytes(),
+        "test setup: two identities must differ",
+      );
+
+      // Session 1: pin identity A.
+      const c1 = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identityA,
+      });
+      await c1.shutdown();
+
+      // Session 2: present identity B → substrate should reject.
+      // The rejection may manifest as either:
+      //  (a) an explicit "worker error: code=dispatcher_error message=...mismatch..."
+      //      envelope (when the substrate keys its error response with our
+      //      session_secret), or
+      //  (b) "child stdout closed unexpectedly" when the substrate exits.
+      // Either is acceptable proof that identity B was not accepted.
+      let rejected = false;
+      try {
+        const c2 = await SubstrateClient.spawn({
+          substrateBinary: SUBSTRATE_BIN,
+          env: { MYCO_STATE_DIR: stateDir },
+          operatorIdentity: identityB,
+        });
+        await c2.shutdown();
+      } catch (e) {
+        rejected = true;
+        const msg = e instanceof Error ? e.message : String(e);
+        assert.ok(
+          msg.includes("mismatch") ||
+            msg.includes("rejected") ||
+            msg.includes("closed") ||
+            msg.includes("EOF") ||
+            msg.includes("ECONNRESET") ||
+            msg.includes("child"),
+          `expected mismatch/rejection error; got: ${msg}`,
+        );
+      }
+      assert.equal(rejected, true, "identity B should have been rejected");
+    } finally {
+      cleanupDir(stateDir);
+      cleanupDir(opDirA);
+      cleanupDir(opDirB);
     }
   });
 
