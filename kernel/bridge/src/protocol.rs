@@ -113,6 +113,11 @@ pub mod msg_type {
     pub const RUN_IMMUNE_CHECK: &str = "run_immune_check";
     /// `run_immune_check_response` — Rust→Operator: scan results (per-check pass/fail).
     pub const RUN_IMMUNE_CHECK_RESPONSE: &str = "run_immune_check_response";
+    /// `request_attestation_nonce` — Operator→Rust: request a fresh nonce bound to
+    /// a proposed mutation hash + current DAG tip (M13).
+    pub const REQUEST_ATTESTATION_NONCE: &str = "request_attestation_nonce";
+    /// `request_attestation_nonce_response` — Rust→Operator: nonce + expiry + dag_tip.
+    pub const REQUEST_ATTESTATION_NONCE_RESPONSE: &str = "request_attestation_nonce_response";
 }
 
 /// A decoded bridge message.

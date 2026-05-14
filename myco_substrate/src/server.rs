@@ -100,6 +100,29 @@ impl<'a> GradientAdvancer for PythonGradientAdvancer<'a> {
 // Server state.
 // ---------------------------------------------------------------------------
 
+/// M13: An attestation nonce issued by the substrate, bound to a specific
+/// proposed mutation + DAG tip state. Operators include this nonce in their
+/// attestation envelope; the substrate verifies binding + marks consumed
+/// (replay protection).
+#[derive(Debug, Clone)]
+#[allow(dead_code)]
+struct AttestationNonce {
+    /// 32-byte random nonce (substrate-issued; redundant with HashMap key but
+    /// useful for debug output / forensic logging).
+    nonce: [u8; 32],
+    /// Hash of `content_canonical_bytes` the operator intends to submit.
+    bound_content_hash: [u8; 32],
+    /// DAG tip at issuance time (32 bytes; all-zero if DAG was empty).
+    bound_dag_tip: [u8; 32],
+    /// Wall-clock expiry (unix nanoseconds). Default: now + 5 minutes.
+    expiry_unix_ns: i64,
+    /// Whether this nonce has been consumed (one-time use).
+    consumed: bool,
+}
+
+/// M13: Default nonce TTL in seconds (5 minutes).
+const NONCE_TTL_SECONDS: i64 = 300;
+
 /// Session state for one operator connection.
 struct ServerState {
     /// The session_secret transported by the `hello` from the operator.
@@ -118,6 +141,9 @@ struct ServerState {
     dag: Dag,
     /// Pinned operator identity public key (M9). `None` until TOFU on first hello.
     pinned_operator_identity: Option<PinnedOperatorIdentity>,
+    /// M13: Attestation nonce log (in-process; not persisted at M13 minimum).
+    /// Keyed by nonce bytes for O(1) lookup on submit.
+    nonce_log: std::collections::HashMap<[u8; 32], AttestationNonce>,
 }
 
 impl ServerState {
@@ -143,6 +169,7 @@ impl ServerState {
             state_dir,
             dag,
             pinned_operator_identity,
+            nonce_log: std::collections::HashMap::new(),
         }
     }
 
@@ -427,6 +454,8 @@ fn dispatch(state: &mut ServerState, request: &Message) -> Result<Option<Message
         msg_type::QUERY_IMMUNE_EVENTS => handle_query_immune_events(state, request),
         // M12: ad-hoc immune check (operator can verify integrity any time).
         msg_type::RUN_IMMUNE_CHECK => handle_run_immune_check(state, request),
+        // M13: anchor-surface attestation nonce (operator pre-submit step).
+        msg_type::REQUEST_ATTESTATION_NONCE => handle_request_attestation_nonce(state, request),
         other => Err(SubstrateError::Protocol(format!(
             "substrate cannot handle message type {other:?}"
         ))),
@@ -569,6 +598,191 @@ fn handle_compute_intent(
     )))
 }
 
+/// M13: Issue a fresh attestation nonce bound to (content_hash, dag_tip).
+///
+/// The operator computes the hash of their proposed mutation content and
+/// includes it in this request. The substrate generates 32 random bytes,
+/// records the binding (content_hash + current DAG tip + expiry), and returns
+/// the nonce. Operator includes this nonce in submit_mutation; substrate
+/// verifies binding + marks consumed.
+fn handle_request_attestation_nonce(
+    state: &mut ServerState,
+    request: &Message,
+) -> Result<Option<Message>, SubstrateError> {
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    // Extract content_hash from payload (required).
+    let content_hash = match request.payload.get("content_hash") {
+        Some(Value::Bytes(b)) if b.len() == 32 => {
+            let mut arr = [0u8; 32];
+            arr.copy_from_slice(b);
+            arr
+        }
+        _ => {
+            return Err(SubstrateError::Protocol(
+                "request_attestation_nonce: content_hash must be 32 bytes".to_string(),
+            ));
+        }
+    };
+
+    // Generate 32-byte nonce (time + counter + stack-address SHA-256 mix).
+    let nonce = {
+        use sha2::{Digest, Sha256};
+        let mut h = Sha256::new();
+        h.update(b"myco-attestation-nonce-v1");
+        h.update(
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .map(|d| d.as_nanos())
+                .unwrap_or(0)
+                .to_le_bytes(),
+        );
+        h.update(std::process::id().to_le_bytes());
+        h.update((state.nonce_log.len() as u64).to_le_bytes());
+        let stack_var = 0u8;
+        h.update((&stack_var as *const u8 as usize).to_le_bytes());
+        h.update(content_hash);
+        let result = h.finalize();
+        let mut out = [0u8; 32];
+        out.copy_from_slice(&result);
+        out
+    };
+
+    let bound_dag_tip = state
+        .dag
+        .tip()
+        .map(|t| {
+            let mut arr = [0u8; 32];
+            arr.copy_from_slice(t.as_ref());
+            arr
+        })
+        .unwrap_or([0u8; 32]);
+
+    let now_ns = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .ok()
+        .and_then(|d| i64::try_from(d.as_nanos()).ok())
+        .unwrap_or(0);
+    let expiry_unix_ns = now_ns.saturating_add(NONCE_TTL_SECONDS * 1_000_000_000);
+
+    state.nonce_log.insert(
+        nonce,
+        AttestationNonce {
+            nonce,
+            bound_content_hash: content_hash,
+            bound_dag_tip,
+            expiry_unix_ns,
+            consumed: false,
+        },
+    );
+
+    let mut payload = BTreeMap::new();
+    payload.insert("nonce".to_string(), Value::Bytes(nonce.to_vec()));
+    payload.insert(
+        "bound_dag_tip".to_string(),
+        Value::Bytes(bound_dag_tip.to_vec()),
+    );
+    payload.insert(
+        "expiry_unix_ns".to_string(),
+        Value::Timestamp(expiry_unix_ns),
+    );
+    payload.insert(
+        "ttl_seconds".to_string(),
+        Value::Uint(NONCE_TTL_SECONDS as u64),
+    );
+
+    Ok(Some(Message::new(
+        msg_type::REQUEST_ATTESTATION_NONCE_RESPONSE,
+        request.request_id,
+        payload,
+    )))
+}
+
+/// M13: Verify an attestation nonce on a submit_mutation.
+///
+/// Returns Ok(()) if all checks pass; Err(reason) if any fail. The caller
+/// (handle_submit_mutation) translates Err into a C5 rejection + immune sporocarp
+/// with refined evidence.
+fn verify_attestation_nonce(
+    state: &mut ServerState,
+    nonce_bytes: &[u8],
+    content_hash: &[u8; 32],
+    submitted_expiry_ns: Option<i64>,
+) -> Result<(), String> {
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    if nonce_bytes.len() != 32 {
+        return Err(format!("nonce must be 32 bytes; got {}", nonce_bytes.len()));
+    }
+    let mut nonce_arr = [0u8; 32];
+    nonce_arr.copy_from_slice(nonce_bytes);
+
+    let stored = state
+        .nonce_log
+        .get(&nonce_arr)
+        .ok_or_else(|| "unknown nonce (never issued by this substrate)".to_string())?
+        .clone();
+
+    if stored.consumed {
+        return Err("replay rejected: nonce already consumed".to_string());
+    }
+
+    if stored.bound_content_hash != *content_hash {
+        return Err(
+            "wrong-binding rejected: content_hash differs from nonce-bound hash".to_string(),
+        );
+    }
+
+    let current_tip = state
+        .dag
+        .tip()
+        .map(|t| {
+            let mut a = [0u8; 32];
+            a.copy_from_slice(t.as_ref());
+            a
+        })
+        .unwrap_or([0u8; 32]);
+    if stored.bound_dag_tip != current_tip {
+        return Err(
+            "wrong-binding rejected: DAG tip differs from issuance time".to_string(),
+        );
+    }
+
+    let now_ns = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .ok()
+        .and_then(|d| i64::try_from(d.as_nanos()).ok())
+        .unwrap_or(0);
+    if now_ns > stored.expiry_unix_ns {
+        return Err("expired rejected: nonce TTL passed".to_string());
+    }
+    if let Some(submitted) = submitted_expiry_ns {
+        if submitted != stored.expiry_unix_ns {
+            return Err(
+                "wrong-binding rejected: submitted expiry differs from issued expiry".to_string(),
+            );
+        }
+    }
+
+    // Mark consumed.
+    if let Some(n) = state.nonce_log.get_mut(&nonce_arr) {
+        n.consumed = true;
+    }
+
+    Ok(())
+}
+
+/// M13: Compute SHA-256 hash of canonical bytes (used as content_hash in nonce binding).
+fn compute_content_hash(content: &[u8]) -> [u8; 32] {
+    use sha2::{Digest, Sha256};
+    let mut h = Sha256::new();
+    h.update(content);
+    let result = h.finalize();
+    let mut out = [0u8; 32];
+    out.copy_from_slice(&result);
+    out
+}
+
 /// M12: Run the substrate's comprehensive integrity checks ad-hoc.
 ///
 /// Runs the same checks as boot-time C9 (substrate_id_well_formed,
@@ -694,6 +908,62 @@ fn handle_submit_mutation(
     state: &mut ServerState,
     request: &Message,
 ) -> Result<Option<Message>, SubstrateError> {
+    // M13: Pre-Python nonce verification (anchor-surface envelope check).
+    // If the operator included a nonce, verify it BEFORE forwarding. Failed
+    // nonce checks short-circuit with a C5 rejection + immune sporocarp.
+    let nonce_present = request.payload.contains_key("nonce");
+    if nonce_present {
+        let nonce_bytes = match request.payload.get("nonce") {
+            Some(Value::Bytes(b)) => b.clone(),
+            _ => Vec::new(),
+        };
+        let content_bytes_for_hash = match request.payload.get("content_canonical_bytes") {
+            Some(Value::Bytes(b)) => b.clone(),
+            _ => Vec::new(),
+        };
+        let content_hash = compute_content_hash(&content_bytes_for_hash);
+        let submitted_expiry = request.payload.get("expiry_unix_ns").and_then(|v| match v {
+            Value::Timestamp(t) => Some(*t),
+            _ => None,
+        });
+        if let Err(reason) =
+            verify_attestation_nonce(state, &nonce_bytes, &content_hash, submitted_expiry)
+        {
+            // Build a rejection response directly; emit C5 immune sporocarp.
+            let evidence = format!("anchor-surface envelope verification failed: {reason}");
+            let _ = emit_immune_sporocarp(
+                state,
+                "C5_attestation_invalid",
+                "attestation_invalid_anchor_surface",
+                &evidence,
+            );
+            let _ = save_dag_state(state);
+
+            let mut payload = BTreeMap::new();
+            payload.insert(
+                "classification".to_string(),
+                Value::String("contract_identity_level".to_string()),
+            );
+            payload.insert("accepted".to_string(), Value::Bool(false));
+            payload.insert("rejection_reason".to_string(), Value::String(reason));
+            let mtype = request
+                .payload
+                .get("mutation_type")
+                .and_then(|v| match v {
+                    Value::String(s) => Some(s.clone()),
+                    _ => None,
+                })
+                .unwrap_or_default();
+            payload.insert("mutation_type".to_string(), Value::String(mtype));
+            return Ok(Some(Message::new(
+                msg_type::SUBMIT_MUTATION_RESPONSE,
+                request.request_id,
+                payload,
+            )));
+        }
+        // Nonce verified; proceed to forward.
+    }
+
     let client = state
         .python_client
         .as_mut()
