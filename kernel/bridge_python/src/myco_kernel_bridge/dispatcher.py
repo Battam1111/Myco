@@ -188,8 +188,55 @@ def dispatch(state: DispatcherState, request: Message) -> Message | None:
         return _handle_submit_mutation(state, request)
     if request.type is MessageType.SNAPSHOT_GRADIENT_TO_DIR:
         return _handle_snapshot_gradient_to_dir(state, request)
+    if request.type is MessageType.QUERY_GRADIENT_SCHEMAS:
+        return _handle_query_gradient_schemas(state, request)
     raise BridgeProtocolError(
         f"dispatcher cannot handle {request.type.value!r} (not a request type)"
+    )
+
+
+def _handle_query_gradient_schemas(
+    state: DispatcherState, request: Message
+) -> Message:
+    """M21.3 P5 万物互联: return full schemas + current values + update rules
+    for every registered axis. Used by Rust for legacy-substrate back-fill —
+    emitting axis_registered + axis_perturbed DAG events for axes that exist
+    in Python's loaded state but not yet in the DAG.
+    """
+    from myco_kernel_tropism.appetite_axis import DecayRule, NoOpRule  # noqa: PLC0415
+
+    axes_array: list[Value] = []
+    for name in sorted(state.gradient.axes.keys()):
+        axis = state.gradient.axes[name]
+        rule = state.gradient.update_rules.get(name)
+        if isinstance(rule, DecayRule):
+            update_rule_kind = "decay"
+        elif isinstance(rule, NoOpRule):
+            update_rule_kind = "noop"
+        else:
+            update_rule_kind = "unknown"
+        axes_array.append(
+            CbMap.from_dict(
+                {
+                    "name": CbString(name),
+                    "axis_class": CbString(axis.schema.axis_class.value),
+                    "fruiting_threshold_repr": CbString(
+                        repr(axis.schema.fruiting_threshold)
+                    ),
+                    "initial_value_repr": CbString(repr(axis.schema.initial_value)),
+                    "current_value_repr": CbString(repr(axis.value)),
+                    "decay_rate_per_cycle_repr": CbString(
+                        repr(axis.schema.decay_rate_per_cycle)
+                    ),
+                    "is_mortality_signal": Bool(axis.schema.is_mortality_signal),
+                    "update_rule_kind": CbString(update_rule_kind),
+                }
+            )
+        )
+    return Message(
+        type=MessageType.QUERY_GRADIENT_SCHEMAS_RESPONSE,
+        request_id=request.request_id,
+        payload=CbMap.from_dict({"axes": Array(tuple(axes_array))}),
     )
 
 
@@ -534,6 +581,12 @@ def _handle_load_state(state: DispatcherState, request: Message) -> Message:
     M10: also accepts an optional ``genesis_owner_pubkey`` field; if no
     owner_keys.cb exists on disk and this field is provided, initialize
     a fresh owner-key history with the given pubkey as the genesis key.
+
+    M21.3 P5 万物互联: accepts an optional ``skip_disk_load`` Bool field.
+    When True, Python does NOT read gradient.cb or owner_keys.cb from disk;
+    Rust will subsequently REPLAY DAG events (axis_registered / axis_perturbed
+    / etc.) to reconstruct state in-memory. This is the path used when the
+    DAG is the authoritative source of truth (post-M21 substrate).
     """
     keys = dict(request.payload.value)
     try:
@@ -541,21 +594,39 @@ def _handle_load_state(state: DispatcherState, request: Message) -> Message:
     except KeyError as e:
         raise BridgeProtocolError(f"load_state missing state_dir: {e}") from e
 
-    # Load gradient (M7).
-    try:
-        loaded_gradient = load_gradient(state_dir)
-    except PersistenceError as e:
-        raise BridgeProtocolError(f"load_state gradient failed: {e}") from e
-    except OSError as e:
-        raise BridgeProtocolError(f"load_state I/O: {e}") from e
+    # M21.3: skip_disk_load flag — Python won't read state files; Rust
+    # will reconstruct state via DAG event replay.
+    skip_disk_load = False
+    if "skip_disk_load" in keys:
+        skip_disk_value = keys["skip_disk_load"]
+        if not isinstance(skip_disk_value, Bool):
+            raise BridgeProtocolError(
+                f"skip_disk_load must be Bool; got {type(skip_disk_value).__name__}"
+            )
+        skip_disk_load = bool(skip_disk_value.value)
+
+    # Load gradient (M7) — skipped under M21.3 skip_disk_load.
+    if skip_disk_load:
+        loaded_gradient = None
+    else:
+        try:
+            loaded_gradient = load_gradient(state_dir)
+        except PersistenceError as e:
+            raise BridgeProtocolError(f"load_state gradient failed: {e}") from e
+        except OSError as e:
+            raise BridgeProtocolError(f"load_state I/O: {e}") from e
     if loaded_gradient is not None:
         state.gradient = loaded_gradient
 
     # M10: load owner_keys from disk, or initialize from genesis_owner_pubkey if absent.
-    try:
-        loaded_owner_keys = load_owner_key_history(state_dir)
-    except OwnerKeysPersistenceError as e:
-        raise BridgeProtocolError(f"load_state owner_keys failed: {e}") from e
+    # M21.3: when skip_disk_load=true, don't read owner_keys.cb from disk.
+    if skip_disk_load:
+        loaded_owner_keys = None
+    else:
+        try:
+            loaded_owner_keys = load_owner_key_history(state_dir)
+        except OwnerKeysPersistenceError as e:
+            raise BridgeProtocolError(f"load_state owner_keys failed: {e}") from e
 
     if loaded_owner_keys is not None:
         state.owner_keys = loaded_owner_keys

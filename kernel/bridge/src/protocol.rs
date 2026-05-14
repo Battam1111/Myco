@@ -159,6 +159,15 @@ pub mod msg_type {
     /// `sprout_child_response` — Rust→Operator: the child substrate_id +
     /// spore_emission DAG node hash + child state_dir path.
     pub const SPROUT_CHILD_RESPONSE: &str = "sprout_child_response";
+    /// `query_gradient_schemas` — Rust→Python: query all current axis
+    /// schemas (full schema + current value + update rule kind). Used by
+    /// M21.3 P5 legacy-substrate back-fill: after Python loads gradient.cb,
+    /// Rust queries the schemas and emits axis_registered + axis_perturbed
+    /// DAG events for any axes not yet recorded in the DAG.
+    pub const QUERY_GRADIENT_SCHEMAS: &str = "query_gradient_schemas";
+    /// `query_gradient_schemas_response` — Python→Rust: full per-axis schema
+    /// + current_value + update_rule_kind for every registered axis.
+    pub const QUERY_GRADIENT_SCHEMAS_RESPONSE: &str = "query_gradient_schemas_response";
 }
 
 /// A decoded bridge message.

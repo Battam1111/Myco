@@ -2797,6 +2797,90 @@ describe("SubstrateClient e2e", () => {
   // files except dag.cb, the substrate must boot correctly with full state.
   // -------------------------------------------------------------------------
 
+  it("M21.3 acid test: Python gradient state recovers from DAG-only restart", async () => {
+    // The deepest M21.3 test: delete EVERY state file except dag.cb. The
+    // substrate must boot, replay DAG events, reconstruct Python's gradient
+    // state in-memory, and snapshot the same axis values as before.
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m21-3-op-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identity = OperatorIdentity.loadOrCreate(opDir);
+      const stateDir = freshStateDir();
+
+      // Session 1: build up gradient state.
+      const c1 = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identity,
+      });
+      await c1.registerAxis({
+        name: "m21_3_axis_a",
+        axisClass: "appetite",
+        fruitingThreshold: 10.0,
+        initialValue: 0.0,
+        decayRatePerCycle: 1.0,
+        isMortalitySignal: false,
+        updateRuleKind: "noop",
+      });
+      await c1.registerAxis({
+        name: "m21_3_axis_b",
+        axisClass: "decay",
+        fruitingThreshold: 0.1,
+        initialValue: 1.0,
+        decayRatePerCycle: 0.9,
+        isMortalitySignal: false,
+        updateRuleKind: "decay",
+      });
+      await c1.perturb("m21_3_axis_a", 2.5);
+      await c1.perturb("m21_3_axis_a", 1.5);
+      const preSnap = await c1.snapshot();
+      const preA = preSnap.get("m21_3_axis_a");
+      const preB = preSnap.get("m21_3_axis_b");
+      await c1.shutdown();
+
+      // Delete EVERYTHING in state dir except dag.cb.
+      const fs = await import("node:fs");
+      const path = await import("node:path");
+      const before = fs.readdirSync(stateDir);
+      for (const e of before) {
+        if (e !== "dag.cb") {
+          fs.rmSync(path.join(stateDir, e), { force: true, recursive: true });
+        }
+      }
+      const after = fs.readdirSync(stateDir);
+      assert.deepEqual(after, ["dag.cb"]);
+
+      // Session 2: boot purely from DAG. Python state should be reconstructed
+      // via DAG event replay. Snapshot must match pre-shutdown values.
+      const c2 = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identity,
+      });
+      try {
+        const postSnap = await c2.snapshot();
+        assert.equal(postSnap.size, 2, "both axes should be reconstructed");
+        assert.equal(
+          postSnap.get("m21_3_axis_a"),
+          preA,
+          "axis_a value should be replayed (initial + 2 perturbations)",
+        );
+        assert.equal(
+          postSnap.get("m21_3_axis_b"),
+          preB,
+          "axis_b value should be replayed (initial_value=1.0 since no perturbations)",
+        );
+        // Integrity should be intact.
+        const integrity = await c2.runImmuneCheck();
+        assert.equal(integrity.failedChecks, 0n);
+      } finally {
+        await c2.shutdown();
+      }
+    } finally {
+      cleanupDir(opDir);
+    }
+  });
+
   it("M21.2: substrate boots from DAG even with state files deleted (except dag.cb)", async () => {
     const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m21-2-op-"));
     try {
