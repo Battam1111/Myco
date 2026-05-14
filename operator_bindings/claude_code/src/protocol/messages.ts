@@ -935,12 +935,21 @@ export interface SporocarpReport {
   hash: Uint8Array;
 }
 
-/** Parsed `advance_response` payload. */
+/** Parsed `advance_response` payload (extended M18). */
 export interface AdvanceReport {
   /** Echo of the substrate's authoritative cycle counter (when from myco-substrate). */
   cycleNumber: bigint | null;
   fruitedAxes: string[];
   sporocarps: SporocarpReport[];
+  // M18 P4 永恒迭代 cycle-pipeline outputs:
+  /** Count of raw_material:* nodes absorbed during this cycle. */
+  deltasAbsorbed: bigint;
+  /** Count of handshake events processed during this cycle. */
+  handshakeEventsProcessed: bigint;
+  /** Node types of immune:* events observed during this cycle's skin-breach check. */
+  skinBreaches: string[];
+  /** DAG node hash of the absorption_event:cycle_{N} node, if any was emitted. */
+  absorptionEventHash: Uint8Array | null;
 }
 
 /** Parse an `advance_response` message into an AdvanceReport. */
@@ -1006,7 +1015,31 @@ export function parseAdvanceResponse(response: Message): AdvanceReport {
     };
   });
 
-  return { cycleNumber, fruitedAxes, sporocarps };
+  // M18 P4 永恒迭代 fields (back-compat optional).
+  const deltasV = response.payload.get("deltas_absorbed");
+  const handshakeV = response.payload.get("handshake_events_processed");
+  const breachesV = response.payload.get("skin_breaches");
+  const absorbHashV = response.payload.get("absorption_event_hash");
+  const deltasAbsorbed = deltasV && deltasV.type === "uint" ? deltasV.value : 0n;
+  const handshakeEventsProcessed =
+    handshakeV && handshakeV.type === "uint" ? handshakeV.value : 0n;
+  const skinBreaches: string[] =
+    breachesV && breachesV.type === "array"
+      ? breachesV.value
+          .map((v) => (v.type === "string" ? v.value : ""))
+          .filter((s) => s.length > 0)
+      : [];
+  const absorptionEventHash =
+    absorbHashV && absorbHashV.type === "bytes" ? absorbHashV.value : null;
+  return {
+    cycleNumber,
+    fruitedAxes,
+    sporocarps,
+    deltasAbsorbed,
+    handshakeEventsProcessed,
+    skinBreaches,
+    absorptionEventHash,
+  };
 }
 
 /** Parsed `snapshot_response` — axis name → current value. */
