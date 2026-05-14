@@ -257,9 +257,12 @@ impl ServerState {
 pub fn run_loop<R: Read, W: Write>(stdin: &mut R, stdout: &mut W) -> Result<u8, SubstrateError> {
     let state_dir = default_state_dir();
     ensure_state_dir(&state_dir)?;
-    let manifest = match Manifest::load(&state_dir)? {
-        Some(m) => m,
-        None => Manifest::genesis(),
+    // M21.1 P5 万物互联: track whether this is a fresh genesis (no prior
+    // manifest.cb on disk) so we can emit the one-time genesis_event DAG
+    // node after the DAG is loaded/created.
+    let (manifest, is_fresh_genesis) = match Manifest::load(&state_dir)? {
+        Some(m) => (m, false),
+        None => (Manifest::genesis(), true),
     };
     // M11: C7 dag_retro_edit_detected — if dag.cb is present but fails to load
     // (tampered, corrupted, version-mismatched), quarantine the corrupted file
@@ -333,6 +336,21 @@ pub fn run_loop<R: Read, W: Write>(stdin: &mut R, stdout: &mut W) -> Result<u8, 
         let _ = save_dag_state(&state);
     }
 
+    // M21.1 P5 万物互联: if this is a fresh substrate genesis (no prior
+    // manifest.cb), emit the one-time genesis_event DAG node so the substrate's
+    // identity is recorded in the causal graph (not just in manifest.cb).
+    // This is THE foundational event — the substrate's first DAG node when
+    // its DAG is otherwise empty.
+    if is_fresh_genesis && state.dag.node_count() == 0 {
+        let event_node_type = crate::events::genesis_event_node_type(&state.manifest.substrate_id);
+        let event_content = crate::events::encode_genesis_event(
+            &state.manifest.substrate_id,
+            state.manifest.genesis_time_unix_ns,
+        );
+        let _ = emit_substrate_event(&mut state, event_node_type, event_content);
+        let _ = save_dag_state(&state);
+    }
+
     // M12: C9 cold_resume_invariant_failure — run comprehensive integrity
     // checks at boot. For each failing check, emit a C9 immune sporocarp.
     // The substrate continues running regardless; the immune events are an
@@ -353,6 +371,11 @@ pub fn run_loop<R: Read, W: Write>(stdin: &mut R, stdout: &mut W) -> Result<u8, 
                 (
                     "C18_canonical_bytes_render_drift",
                     "canonical_bytes_render_drift".to_string(),
+                )
+            } else if result.check_id == "substrate_state_orphan_detected" {
+                (
+                    "C19_substrate_state_orphan_detected",
+                    "substrate_state_orphan_detected".to_string(),
                 )
             } else {
                 (
@@ -504,12 +527,41 @@ fn dispatch(state: &mut ServerState, request: &Message) -> Result<Option<Message
         msg_type::HELLO => handle_hello(state, request),
         msg_type::REGISTER_AXIS => {
             let response = forward_to_python(state, request, msg_type::REGISTER_AXIS_ACK)?;
+            // M21.1 P5 万物互联: emit axis_registered DAG event so the schema
+            // addition is recorded in the causal graph (was an orphan prior).
+            // The wire payload fields for register_axis are documented in
+            // kernel/bridge::protocol::register_axis_payload — we extract them
+            // here for the event content.
+            if let Some(event) = build_axis_registered_event(request) {
+                let nt = crate::events::axis_registered_node_type(&event.name);
+                let content = crate::events::encode_axis_registered(&event);
+                let _ = emit_substrate_event(state, nt, content);
+                let _ = save_dag_state(state);
+            }
             // M7: persist gradient state after a mutation.
             save_python_state(state)?;
             Ok(response)
         }
         msg_type::PERTURB => {
             let response = forward_to_python(state, request, msg_type::PERTURB_ACK)?;
+            // M21.1 P5 万物互联: emit axis_perturbed DAG event so the
+            // perturbation is recorded in the causal graph. Plain perturb
+            // (no raw_material binding) was an orphan prior to M21.1.
+            if let (Some(axis_name), Some(delta)) = (
+                request.payload.get("axis_name").and_then(|v| match v {
+                    Value::String(s) => Some(s.clone()),
+                    _ => None,
+                }),
+                request.payload.get("delta_repr").and_then(|v| match v {
+                    Value::String(s) => s.parse::<f64>().ok(),
+                    _ => None,
+                }),
+            ) {
+                let nt = crate::events::axis_perturbed_node_type(&axis_name);
+                let content = crate::events::encode_axis_perturbed(&axis_name, delta);
+                let _ = emit_substrate_event(state, nt, content);
+                let _ = save_dag_state(state);
+            }
             save_python_state(state)?;
             Ok(response)
         }
@@ -519,7 +571,17 @@ fn dispatch(state: &mut ServerState, request: &Message) -> Result<Option<Message
             // M7: bump the persisted cycle counter (matches the value echoed in
             // the advance_response payload). save_manifest() also bumps
             // last_save_time for observability.
-            state.manifest.cycle_counter = state.manifest.cycle_counter.saturating_add(1);
+            let prior_cycle = state.manifest.cycle_counter;
+            let new_cycle = prior_cycle.saturating_add(1);
+            state.manifest.cycle_counter = new_cycle;
+            // M21.1 P5 万物互联: emit cycle_advanced DAG event so cycle counter
+            // progression is recorded in the causal graph.
+            let event_content = crate::events::encode_cycle_advanced(prior_cycle, new_cycle);
+            let _ = emit_substrate_event(
+                state,
+                crate::events::NODE_TYPE_CYCLE_ADVANCED.to_string(),
+                event_content,
+            );
             state.save_manifest()?;
             save_python_state(state)?;
             // M8: persist the DAG (sporocarps inserted during handle_advance).
@@ -811,7 +873,11 @@ fn handle_request_attestation_nonce(
         out
     };
 
-    let bound_dag_tip = state
+    // M13 bound_dag_tip semantic: the operator's command was relative to
+    // THIS DAG state. We capture the tip BEFORE emitting the nonce_issued
+    // event, so the event content records what the operator "saw" at request
+    // time. (Used for forensic audit.)
+    let operator_visible_tip_at_request = state
         .dag
         .tip()
         .map(|t| {
@@ -832,6 +898,30 @@ fn handle_request_attestation_nonce(
     let anchor_clock_expiry_unix_ns: Option<i64> =
         anchor_clock_issued_at.map(|a| a.saturating_add(ttl_ns));
 
+    // M21.1 P5 万物互联: emit nonce_issued DAG event FIRST, BEFORE binding
+    // bound_dag_tip on the nonce. The event records the pre-emit tip
+    // (operator-visible-at-request); the nonce's bound_dag_tip is set to the
+    // POST-emit tip (which equals the nonce_issued event's own hash). At
+    // verify time, substrate's current_tip must equal this — i.e., no DAG
+    // events have happened between issuance and submission. This preserves
+    // M13's "fresh-context" guarantee with dual-write.
+    let event_nt = crate::events::nonce_issued_node_type(&nonce);
+    let event_content = crate::events::encode_nonce_issued(
+        &nonce,
+        &content_hash,
+        &operator_visible_tip_at_request,
+        substrate_issued_at,
+        expiry_unix_ns,
+        anchor_clock_issued_at,
+        anchor_clock_expiry_unix_ns,
+    );
+    let nonce_issued_event_hash = emit_substrate_event(state, event_nt, event_content)?;
+    let _ = save_dag_state(state);
+
+    // bound_dag_tip = the nonce_issued event's hash (= post-event DAG tip).
+    let mut bound_dag_tip = [0u8; 32];
+    bound_dag_tip.copy_from_slice(nonce_issued_event_hash.as_ref());
+
     state.nonce_log.insert(
         nonce,
         AttestationNonce {
@@ -847,6 +937,7 @@ fn handle_request_attestation_nonce(
     );
     // M14: persist nonce log to disk so issued nonces survive restart.
     save_nonce_state(state)?;
+    let _ = save_dag_state(state);
 
     let mut payload = BTreeMap::new();
     payload.insert("nonce".to_string(), Value::Bytes(nonce.to_vec()));
@@ -1000,6 +1091,16 @@ fn verify_attestation_nonce(
     // M14: persist nonce log so the consumed flag survives restart (replay
     // protection extends across substrate restarts).
     save_nonce_state(state).map_err(|e| format!("nonce log save failed: {e}"))?;
+    // M21.1 P5 万物互联: emit nonce_consumed DAG event.
+    let consumed_at_unix_ns = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .ok()
+        .and_then(|d| i64::try_from(d.as_nanos()).ok())
+        .unwrap_or(0);
+    let event_nt = crate::events::nonce_consumed_node_type(&nonce_arr);
+    let event_content = crate::events::encode_nonce_consumed(&nonce_arr, consumed_at_unix_ns);
+    let _ = emit_substrate_event(state, event_nt, event_content);
+    let _ = save_dag_state(state);
 
     Ok(())
 }
@@ -1094,6 +1195,11 @@ fn handle_run_immune_check(
                 (
                     "C18_canonical_bytes_render_drift",
                     "canonical_bytes_render_drift".to_string(),
+                )
+            } else if result.check_id == "substrate_state_orphan_detected" {
+                (
+                    "C19_substrate_state_orphan_detected",
+                    "substrate_state_orphan_detected".to_string(),
                 )
             } else {
                 (
@@ -2252,6 +2358,13 @@ fn verify_hello_signature_and_pin(
             // First sight — pin.
             let pinned = PinnedOperatorIdentity::pin_now(pubkey_bytes);
             save_pinned_operator_identity(&pinned, &state.state_dir)?;
+            // M21.1 P5 万物互联: emit operator_pinned DAG event so the TOFU
+            // pinning is recorded in the causal graph (was an orphan prior).
+            let event_node_type = crate::events::operator_pinned_node_type(&pinned.pubkey);
+            let event_content =
+                crate::events::encode_operator_pinned(&pinned.pubkey, pinned.first_pinned_unix_ns);
+            let _ = emit_substrate_event(state, event_node_type, event_content);
+            let _ = save_dag_state(state);
             state.pinned_operator_identity = Some(pinned);
             Ok(())
         }
@@ -2498,7 +2611,199 @@ fn run_integrity_checks(state: &ServerState) -> Vec<IntegrityCheckResult> {
         },
     });
 
+    // 7. M21.1 P5 万物互联 / L1_HARD_RULES C19 substrate_state_orphan_detected:
+    //    rebuild Rust-side state from DAG events and compare to in-memory state.
+    //    Divergence → some state mutation happened without emitting a DAG event
+    //    (orphan), violating P5 "the substrate is a connected graph; orphans
+    //    are dead tissue."
+    //
+    //    M21.1 dual-write phase scope: this check verifies that all Rust-side
+    //    fields (substrate_id, genesis_time, cycle_counter, last_absorbed_cycle,
+    //    pinned_operator_identity, nonce_log) can be derived from DAG events.
+    //    Python-owned state (gradient, owner_keys) is deferred to M21.3 when
+    //    Python becomes a derived-view consumer.
+    let (orphan_passed, orphan_evidence) = check_substrate_state_orphans(state);
+    results.push(IntegrityCheckResult {
+        check_id: "substrate_state_orphan_detected".to_string(),
+        passed: orphan_passed,
+        evidence: orphan_evidence,
+    });
+
     results
+}
+
+/// M21.1: C19 detector. Reconciles in-memory ServerState (Rust-side fields)
+/// against DerivedState::from_dag. Returns (passed, evidence).
+///
+/// What this checks:
+/// - substrate_id: live manifest.substrate_id == derived.substrate_id
+/// - genesis_time_unix_ns: live manifest.genesis_time_unix_ns == derived.genesis_time_unix_ns
+/// - cycle_counter: live manifest.cycle_counter == derived.cycle_counter
+/// - last_absorbed_cycle: live manifest.last_absorbed_cycle == derived.last_absorbed_cycle
+/// - pinned_operator_identity: live state.pinned_operator_identity == derived.pinned_operator_identity
+/// - nonce_log: live state.nonce_log size + per-entry consumed flags == derived.nonce_log
+fn check_substrate_state_orphans(state: &ServerState) -> (bool, String) {
+    use crate::derived_state::DerivedState;
+
+    let derived = match DerivedState::from_dag(&state.dag) {
+        Ok(d) => d,
+        Err(e) => {
+            return (
+                false,
+                format!("DerivedState::from_dag failed: {e} (likely event encoding bug)"),
+            );
+        }
+    };
+
+    let mut divergences: Vec<String> = Vec::new();
+
+    // substrate_id: derived is Some iff a genesis_event has been emitted.
+    // If derived.substrate_id is None but live manifest has one, that means
+    // the substrate is running on a manifest.cb without a corresponding
+    // genesis_event in DAG — this is exactly the M21.1 migration condition
+    // (existing substrates pre-M21 have no genesis_event). To avoid false
+    // positives during migration, we ONLY report divergence when derived
+    // HAS substrate_id and it differs from live.
+    if let Some(d_id) = derived.substrate_id {
+        if d_id != state.manifest.substrate_id {
+            divergences.push(format!(
+                "substrate_id mismatch: live={}, derived={}",
+                hex_encode(&state.manifest.substrate_id),
+                hex_encode(&d_id)
+            ));
+        }
+    }
+
+    // genesis_time: same migration-friendly check.
+    if let Some(d_time) = derived.genesis_time_unix_ns {
+        if d_time != state.manifest.genesis_time_unix_ns {
+            divergences.push(format!(
+                "genesis_time_unix_ns mismatch: live={}, derived={}",
+                state.manifest.genesis_time_unix_ns, d_time
+            ));
+        }
+    }
+
+    // cycle_counter: this is INCREMENTED in the dispatch arm AFTER handle_advance
+    // returns, but the cycle_advanced event is emitted from inside the dispatch
+    // arm too. So derived.cycle_counter should EQUAL live.cycle_counter after
+    // an advance. For pre-M21 manifests that never emitted cycle_advanced, the
+    // derived value will be 0 while live can be > 0 — only report divergence
+    // when derived.cycle_counter > 0 OR (derived.substrate_id is Some, i.e. we
+    // have a genesis event and thus the substrate is post-M21).
+    if (derived.cycle_counter > 0 || derived.substrate_id.is_some())
+        && derived.cycle_counter != state.manifest.cycle_counter
+    {
+        divergences.push(format!(
+            "cycle_counter mismatch: live={}, derived={}",
+            state.manifest.cycle_counter, derived.cycle_counter
+        ));
+    }
+
+    // last_absorbed_cycle: derived from absorption_event events (already in DAG
+    // since M18). Should always match.
+    if derived.last_absorbed_cycle != state.manifest.last_absorbed_cycle {
+        // BUT: absorption_event was added in M18; pre-M21 last_absorbed_cycle
+        // tracking is via manifest only. Migration tolerance:
+        // - derived is Some → strict match required
+        // - derived is None → tolerate live Some (legacy)
+        if derived.last_absorbed_cycle.is_some() {
+            divergences.push(format!(
+                "last_absorbed_cycle mismatch: live={:?}, derived={:?}",
+                state.manifest.last_absorbed_cycle, derived.last_absorbed_cycle
+            ));
+        }
+    }
+
+    // pinned_operator_identity: derived from operator_pinned event.
+    if let Some(derived_id) = &derived.pinned_operator_identity {
+        match &state.pinned_operator_identity {
+            Some(live_id) => {
+                if live_id.pubkey != derived_id.pubkey
+                    || live_id.first_pinned_unix_ns != derived_id.first_pinned_unix_ns
+                {
+                    divergences.push(format!(
+                        "pinned_operator_identity mismatch: live.pubkey={}, derived.pubkey={}",
+                        hex_encode(&live_id.pubkey),
+                        hex_encode(&derived_id.pubkey)
+                    ));
+                }
+            }
+            None => {
+                divergences.push(
+                    "pinned_operator_identity present in DAG but absent in live state".to_string(),
+                );
+            }
+        }
+    }
+
+    // nonce_log: derived from nonce_issued/consumed/expired events.
+    // Compare entry-by-entry. Migration tolerance: if derived.nonce_log is
+    // empty AND live.nonce_log is non-empty AND no genesis_event in DAG, this
+    // is pre-M21 legacy nonce data — tolerate. Otherwise enforce match.
+    let derived_is_post_m21 = derived.substrate_id.is_some();
+    if derived_is_post_m21 {
+        for (nonce, live_entry) in &state.nonce_log {
+            match derived.nonce_log.get(nonce) {
+                Some(d_entry) => {
+                    if live_entry.consumed != d_entry.consumed {
+                        divergences.push(format!(
+                            "nonce {} consumed-flag mismatch: live={}, derived={}",
+                            hex_first_8_bytes(nonce),
+                            live_entry.consumed,
+                            d_entry.consumed
+                        ));
+                    }
+                    if live_entry.expiry_unix_ns != d_entry.expiry_unix_ns {
+                        divergences.push(format!(
+                            "nonce {} expiry mismatch",
+                            hex_first_8_bytes(nonce)
+                        ));
+                    }
+                }
+                None => {
+                    divergences.push(format!(
+                        "nonce {} in live log but no nonce_issued event in DAG",
+                        hex_first_8_bytes(nonce)
+                    ));
+                }
+            }
+        }
+        // Check derived has no extras absent from live.
+        for nonce in derived.nonce_log.keys() {
+            if !state.nonce_log.contains_key(nonce) {
+                divergences.push(format!(
+                    "nonce {} has nonce_issued event in DAG but absent in live log (premature prune?)",
+                    hex_first_8_bytes(nonce)
+                ));
+            }
+        }
+    }
+
+    if divergences.is_empty() {
+        (
+            true,
+            format!(
+                "ok (Rust-side state fully derivable from DAG; nonce_log={} entries)",
+                state.nonce_log.len()
+            ),
+        )
+    } else {
+        let summary = if divergences.len() == 1 {
+            divergences.into_iter().next().unwrap()
+        } else {
+            format!(
+                "{} orphan(s) detected. First: {}",
+                divergences.len(),
+                divergences.into_iter().next().unwrap()
+            )
+        };
+        (false, summary)
+    }
+}
+
+fn hex_first_8_bytes(bytes: &[u8; 32]) -> String {
+    bytes[..8].iter().map(|b| format!("{b:02x}")).collect()
 }
 
 /// M11: Emit an immune sporocarp as a DAG node.
@@ -2550,6 +2855,74 @@ fn emit_immune_sporocarp(
         .dag
         .insert_node(parents, node_type, cycle, content_canonical)
         .map_err(|e| SubstrateError::Protocol(format!("immune DAG insert: {e}")))
+}
+
+/// M21.1: Build an AxisRegisteredEvent from a REGISTER_AXIS request payload.
+/// Returns None if the payload is malformed (which should be caught upstream
+/// but we guard defensively to avoid affecting the legacy path).
+fn build_axis_registered_event(request: &Message) -> Option<crate::events::AxisRegisteredEvent> {
+    let payload = &request.payload;
+    let name = match payload.get("name") {
+        Some(Value::String(s)) => s.clone(),
+        _ => return None,
+    };
+    let axis_class = match payload.get("axis_class") {
+        Some(Value::String(s)) => s.clone(),
+        _ => return None,
+    };
+    let fruiting_threshold: f64 = match payload.get("fruiting_threshold_repr") {
+        Some(Value::String(s)) => s.parse().ok()?,
+        _ => return None,
+    };
+    let initial_value: f64 = match payload.get("initial_value_repr") {
+        Some(Value::String(s)) => s.parse().ok()?,
+        _ => return None,
+    };
+    let decay_rate_per_cycle: f64 = match payload.get("decay_rate_per_cycle_repr") {
+        Some(Value::String(s)) => s.parse().ok()?,
+        _ => return None,
+    };
+    let is_mortality_signal = match payload.get("is_mortality_signal") {
+        Some(Value::Bool(b)) => *b,
+        _ => return None,
+    };
+    let update_rule_kind = match payload.get("update_rule_kind") {
+        Some(Value::String(s)) => s.clone(),
+        _ => return None,
+    };
+    Some(crate::events::AxisRegisteredEvent {
+        name,
+        axis_class,
+        fruiting_threshold,
+        initial_value,
+        decay_rate_per_cycle,
+        is_mortality_signal,
+        update_rule_kind,
+    })
+}
+
+/// M21.1 P5 万物互联: emit a generic substrate event as a DAG node. This is
+/// the unified helper used by all state-mutation handlers to record their
+/// state changes in the DAG event log, closing P5 by ensuring no state
+/// mutation is an orphan from the causal graph.
+///
+/// The node is parented by the current DAG tip (linear chain at M21.1; M21.2+
+/// may add multi-parent for events with logical predecessors). Returns the
+/// inserted node hash for callers who need it.
+fn emit_substrate_event(
+    state: &mut ServerState,
+    node_type: String,
+    content: myco_kernel_shared::canonical_bytes::CanonicalBytes,
+) -> Result<myco_kernel_shared::crypto::NodeHash, SubstrateError> {
+    let parents = match state.dag.tip() {
+        Some(t) => vec![t],
+        None => Vec::new(),
+    };
+    let cycle = state.manifest.cycle_counter;
+    state
+        .dag
+        .insert_node(parents, node_type, cycle, content)
+        .map_err(|e| SubstrateError::Protocol(format!("substrate event DAG insert: {e}")))
 }
 
 /// Forward a request to the Python worker verbatim and surface its response.
