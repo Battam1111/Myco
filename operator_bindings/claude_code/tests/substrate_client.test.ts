@@ -2253,6 +2253,143 @@ describe("SubstrateClient e2e", () => {
   // M19 P7 必朽 (endogenous mortality) + P9 皮肤 (C18 detector) tests.
   // -------------------------------------------------------------------------
 
+  // -------------------------------------------------------------------------
+  // M20 P8 永恒繁衍: substrate reproduction tests.
+  // -------------------------------------------------------------------------
+
+  it("M20 P8: sproutChild creates child state_dir with manifest + gradient + spore_emission", async () => {
+    const parentDir = freshStateDir();
+    const childDir = mkdtempSync(resolvePath(tmpdir(), "myco-m20-child-"));
+    // Pre-remove so substrate creates fresh.
+    rmSync(childDir, { recursive: true, force: true });
+    try {
+      const client = await spawn(parentDir);
+      try {
+        // Register an axis on the parent.
+        await client.registerAxis({
+          name: "curiosity",
+          axisClass: "appetite",
+          fruitingThreshold: 10.0,
+          initialValue: 3.0,
+          decayRatePerCycle: 1.0,
+          isMortalitySignal: false,
+          updateRuleKind: "noop",
+        });
+
+        const result = await client.sproutChild({ childStateDir: childDir });
+        assert.equal(result.childSubstrateId.length, 32);
+        assert.equal(result.childStateDir, childDir);
+        assert.equal(result.childAxisCount, 1n);
+        assert.equal(result.sporeEmissionHash.length, 32);
+
+        // Verify child's state files exist.
+        assert.ok(existsSync(`${childDir}/manifest.cb`), "child manifest.cb exists");
+        assert.ok(existsSync(`${childDir}/gradient.cb`), "child gradient.cb exists");
+        // Operator identity should also be inherited.
+        assert.ok(
+          existsSync(`${childDir}/operator_identity_pubkey.cb`),
+          "child operator_identity_pubkey.cb exists",
+        );
+
+        // Verify parent's DAG has the spore_emission node.
+        const recent = await client.queryRecentNodes(10n, "spore_emission:");
+        assert.equal(recent.filteredTotal, 1n);
+      } finally {
+        await client.shutdown();
+      }
+    } finally {
+      cleanupDir(parentDir);
+      cleanupDir(childDir);
+    }
+  });
+
+  it("M20: sproutChild refuses to overwrite existing manifest.cb", async () => {
+    const parentDir = freshStateDir();
+    const childDir = freshStateDir(); // already contains a manifest after spawn
+    // Pre-populate childDir with a manifest by spawning a substrate there first.
+    const preSpawn = await spawn(childDir);
+    await preSpawn.shutdown();
+    try {
+      const client = await spawn(parentDir);
+      try {
+        await assert.rejects(
+          () => client.sproutChild({ childStateDir: childDir }),
+          /refusing to overwrite|exists/,
+        );
+      } finally {
+        await client.shutdown();
+      }
+    } finally {
+      cleanupDir(parentDir);
+      cleanupDir(childDir);
+    }
+  });
+
+  it("M20: child substrate boots independently with inherited axes", async () => {
+    const parentDir = freshStateDir();
+    const childDir = mkdtempSync(resolvePath(tmpdir(), "myco-m20-child-"));
+    rmSync(childDir, { recursive: true, force: true });
+    try {
+      // Parent: register two axes, perturb one.
+      const parent = await spawn(parentDir);
+      await parent.registerAxis({
+        name: "hunger",
+        axisClass: "appetite",
+        fruitingThreshold: 5.0,
+        initialValue: 0.0,
+        decayRatePerCycle: 1.0,
+        isMortalitySignal: false,
+        updateRuleKind: "noop",
+      });
+      await parent.registerAxis({
+        name: "vitality",
+        axisClass: "decay",
+        fruitingThreshold: 0.1,
+        initialValue: 1.0,
+        decayRatePerCycle: 0.5,
+        isMortalitySignal: true,
+        updateRuleKind: "decay",
+      });
+      await parent.perturb("hunger", 2.5);
+      await parent.sproutChild({ childStateDir: childDir });
+      // Get parent's substrate_id for differentiation check.
+      const parentInfo = parent.helloAck;
+      void parentInfo;
+      await parent.shutdown();
+
+      // Spawn child substrate at childDir — it should boot with inherited axes.
+      const child = await spawn(childDir);
+      try {
+        const snap = await child.snapshot();
+        // Both axes inherited with their values.
+        assert.equal(snap.size, 2);
+        assert.equal(snap.get("hunger"), 2.5, "hunger value inherited");
+        assert.equal(snap.get("vitality"), 1.0, "vitality value inherited");
+
+        // Child has its OWN substrate_id (not the parent's).
+        // We can verify indirectly: the child's DAG should be EMPTY (no parent
+        // DAG transfer per L1 decision) — only events from the child's own
+        // lifetime.
+        const recent = await child.queryRecentNodes(10n);
+        // Child may have boot-time integrity check immune nodes; that's fine.
+        // But it should NOT have any spore_emission from the parent.
+        const sporeNodes = recent.nodes.filter((n) =>
+          n.nodeType.startsWith("spore_emission:"),
+        );
+        assert.equal(
+          sporeNodes.length,
+          0,
+          "child should not inherit parent's spore_emission DAG nodes",
+        );
+      } finally {
+        await child.shutdown();
+      }
+    } finally {
+      cleanupDir(parentDir);
+      cleanupDir(childDir);
+    }
+  });
+
   it("M19 P7: mortality_signal fruiting auto-emits self_euthanasia_proposal", async () => {
     const client = await spawn();
     try {

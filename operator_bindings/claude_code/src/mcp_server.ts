@@ -358,6 +358,22 @@ const TOOL_DEFINITIONS = [
     },
   },
   {
+    name: "myco_sprout_child",
+    description:
+      "P8 永恒繁衍 (Eternal Reproduction): Sprout a child substrate from the parent's spore-schema (L0 §2.2 P8). The substrate creates a fresh state_dir at the given path containing: a NEW manifest with fresh substrate_id, a snapshot of the parent's gradient (axes + current values), the parent's operator_identity_pubkey (operator continuity). Parent emits a spore_emission:{child_id_prefix} DAG node recording the reproduction. The parent's causal DAG is NOT transferred (child starts its own causal history per L1 design). After sprout, you can spawn a separate substrate process pointing at the child_state_dir via MYCO_STATE_DIR. Rejects if the target already contains a manifest.cb.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        child_state_dir: {
+          type: "string",
+          description:
+            "Absolute path for the child substrate's state_dir. Must not contain an existing manifest.cb. The substrate will create the directory if needed.",
+        },
+      },
+      required: ["child_state_dir"],
+    },
+  },
+  {
     name: "myco_query_self_euthanasia_proposals",
     description:
       "P7 必朽 (Endogenous-pair Mortality): List the substrate's pending `self_euthanasia_proposal:*` DAG nodes. These are emitted automatically when a mortality_signal axis fruits (crosses its decay threshold) — the substrate proposing its own end. Per L0 P7, executing the proposal requires owner co-attestation (the pair has agency over its ending; owner retains veto). M19-MV: proposals are informational; M20+ will add owner co-attestation execution. Each entry includes the axis_name, fruiting_value, at_cycle, and triggering_sporocarp_hash.",
@@ -770,6 +786,25 @@ export class McpServer {
         return {
           content: [
             { type: "text" as const, text: formatImmuneEvents(report) },
+          ],
+        };
+      }
+      case "myco_sprout_child": {
+        const sub = await this._ensureSubstrate();
+        const childStateDir = String(args.child_state_dir);
+        const result = await sub.sproutChild({ childStateDir });
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: [
+                `🍄 Child substrate sprouted at ${result.childStateDir}`,
+                `child_substrate_id = ${toHex(result.childSubstrateId)}`,
+                `inherited_axis_count = ${result.childAxisCount}`,
+                `spore_emission_hash = ${toHex(result.sporeEmissionHash).substring(0, 24)}…`,
+                `(spawn a separate substrate at this path via MYCO_STATE_DIR to bring the child to life)`,
+              ].join("\n"),
+            },
           ],
         };
       }

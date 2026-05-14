@@ -566,6 +566,12 @@ fn dispatch(state: &mut ServerState, request: &Message) -> Result<Option<Message
             save_dag_state(state)?;
             Ok(response)
         }
+        // M20 P8 永恒繁衍 — sprout a child substrate from parent's spore-schema.
+        msg_type::SPROUT_CHILD => {
+            let response = handle_sprout_child(state, request)?;
+            save_dag_state(state)?;
+            Ok(response)
+        }
         other => Err(SubstrateError::Protocol(format!(
             "substrate cannot handle message type {other:?}"
         ))),
@@ -1500,6 +1506,179 @@ fn handle_perturb_axis_from_raw_material(
     );
     Ok(Some(Message::new(
         msg_type::PERTURB_AXIS_FROM_RAW_MATERIAL_RESPONSE,
+        request.request_id,
+        payload,
+    )))
+}
+
+/// M20 P8 永恒繁衍 — Sprout a child substrate from the parent's spore-schema.
+///
+/// Per L0 §2.2 P8: "The substrate can spawn child substrates. Reproduction is
+/// a first-class operation. The new substrate inherits the parent's
+/// spore-schema (minimum structural form for the child to begin its own
+/// symbiosis)."
+///
+/// M20-MV spore-schema = (gradient axes + schemas + current values) +
+/// (operator identity pubkey for continuity) + (fresh substrate_id +
+/// fresh genesis_time + cycle_counter=0 + last_absorbed_cycle=None).
+///
+/// The parent's causal DAG is NOT transferred — the child starts its own
+/// causal history (L1 decision per L0 P8). The parent emits a
+/// `spore_emission:{child_id_hex_prefix}` DAG node recording the reproduction.
+///
+/// Payload schema:
+/// ```text
+/// Map({
+///   "child_state_dir": String,  // target directory (must not exist or must be empty)
+///   "spore_metadata": Map       // optional; arbitrary K-V hints recorded in the spore_emission node
+/// })
+/// ```
+///
+/// Returns:
+/// ```text
+/// Map({
+///   "child_substrate_id": Bytes(32),
+///   "child_state_dir": String,
+///   "spore_emission_hash": Bytes(32),   // in parent's DAG
+/// })
+/// ```
+fn handle_sprout_child(
+    state: &mut ServerState,
+    request: &Message,
+) -> Result<Option<Message>, SubstrateError> {
+    use crate::persistence::{
+        save_pinned_operator_identity, Manifest, OPERATOR_IDENTITY_PUBKEY_FILENAME,
+    };
+
+    let child_state_dir = match request.payload.get("child_state_dir") {
+        Some(Value::String(s)) if !s.is_empty() => s.clone(),
+        _ => {
+            return Err(SubstrateError::Protocol(
+                "sprout_child: child_state_dir must be a non-empty String".to_string(),
+            ));
+        }
+    };
+    let spore_metadata = request.payload.get("spore_metadata").cloned();
+
+    let child_path = std::path::PathBuf::from(&child_state_dir);
+
+    // Guard: child_state_dir must not contain an existing manifest.cb (don't
+    // overwrite an existing substrate's identity).
+    if child_path.join("manifest.cb").exists() {
+        return Err(SubstrateError::Protocol(format!(
+            "sprout_child: refusing to overwrite existing manifest.cb at {child_state_dir}"
+        )));
+    }
+
+    // Create the child state_dir.
+    std::fs::create_dir_all(&child_path).map_err(SubstrateError::Io)?;
+
+    // Build the child's fresh manifest (NEW substrate_id; cycle_counter=0).
+    let mut child_manifest = Manifest::genesis();
+    child_manifest.save(&child_path)?;
+
+    // Copy parent's operator_identity_pubkey to child (operator continuity —
+    // the same operator pubkey is pinned in the child, so the operator can
+    // immediately attach to the child substrate after spawn).
+    if let Some(parent_pinned) = &state.pinned_operator_identity {
+        save_pinned_operator_identity(parent_pinned, &child_path)?;
+    }
+
+    // Snapshot the parent's gradient state into the child's state_dir.
+    let client = state
+        .python_client
+        .as_mut()
+        .ok_or_else(|| SubstrateError::Handshake("python worker not connected".to_string()))?;
+    let mut snap_payload = BTreeMap::new();
+    snap_payload.insert(
+        "target_dir".to_string(),
+        Value::String(child_state_dir.clone()),
+    );
+    let snap_response = client
+        .call(msg_type::SNAPSHOT_GRADIENT_TO_DIR, snap_payload)
+        .map_err(SubstrateError::Bridge)?;
+    if snap_response.message_type != msg_type::SNAPSHOT_GRADIENT_TO_DIR_ACK {
+        return Err(SubstrateError::Protocol(format!(
+            "expected snapshot_gradient_to_dir_ack; got {}",
+            snap_response.message_type
+        )));
+    }
+    let child_axis_count = snap_response
+        .payload
+        .get("axis_count")
+        .and_then(|v| match v {
+            Value::Uint(n) => Some(*n),
+            _ => None,
+        })
+        .unwrap_or(0);
+
+    // Emit spore_emission:{child_id_prefix} DAG node in PARENT's DAG.
+    let child_id_hex_prefix: String = child_manifest
+        .substrate_id
+        .iter()
+        .take(8)
+        .map(|b| format!("{b:02x}"))
+        .collect();
+    let mut spore_content = BTreeMap::new();
+    spore_content.insert(
+        "child_substrate_id".to_string(),
+        Value::Bytes(child_manifest.substrate_id.to_vec()),
+    );
+    spore_content.insert(
+        "child_state_dir".to_string(),
+        Value::String(child_state_dir.clone()),
+    );
+    spore_content.insert(
+        "child_axis_count".to_string(),
+        Value::Uint(child_axis_count),
+    );
+    spore_content.insert(
+        "parent_substrate_id".to_string(),
+        Value::Bytes(state.manifest.substrate_id.to_vec()),
+    );
+    spore_content.insert(
+        "parent_cycle_at_emission".to_string(),
+        Value::Uint(state.manifest.cycle_counter),
+    );
+    if let Some(m) = spore_metadata {
+        spore_content.insert("spore_metadata".to_string(), m);
+    }
+    let spore_canonical = cb_encode(&Value::Map(spore_content))
+        .map_err(|e| SubstrateError::Protocol(format!("spore_emission encode: {e}")))?;
+    let parents: Vec<myco_kernel_shared::crypto::NodeHash> = match state.dag.tip() {
+        Some(t) => vec![t],
+        None => Vec::new(),
+    };
+    let spore_node_type = format!("spore_emission:{child_id_hex_prefix}");
+    let cycle = state.manifest.cycle_counter;
+    let spore_hash = state
+        .dag
+        .insert_node(parents, spore_node_type, cycle, spore_canonical)
+        .map_err(|e| SubstrateError::Protocol(format!("spore_emission DAG insert: {e}")))?;
+
+    let mut payload = BTreeMap::new();
+    payload.insert(
+        "child_substrate_id".to_string(),
+        Value::Bytes(child_manifest.substrate_id.to_vec()),
+    );
+    payload.insert(
+        "child_state_dir".to_string(),
+        Value::String(child_state_dir),
+    );
+    payload.insert(
+        "child_axis_count".to_string(),
+        Value::Uint(child_axis_count),
+    );
+    payload.insert(
+        "spore_emission_hash".to_string(),
+        Value::Bytes(spore_hash.as_ref().to_vec()),
+    );
+    // Quiet the unused-import warning for OPERATOR_IDENTITY_PUBKEY_FILENAME
+    // since it's not directly referenced here (used via save_pinned_operator_identity).
+    let _ = OPERATOR_IDENTITY_PUBKEY_FILENAME;
+
+    Ok(Some(Message::new(
+        msg_type::SPROUT_CHILD_RESPONSE,
         request.request_id,
         payload,
     )))
