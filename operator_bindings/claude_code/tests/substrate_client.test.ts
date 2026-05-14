@@ -2249,6 +2249,161 @@ describe("SubstrateClient e2e", () => {
     }
   });
 
+  // -------------------------------------------------------------------------
+  // M19 P7 必朽 (endogenous mortality) + P9 皮肤 (C18 detector) tests.
+  // -------------------------------------------------------------------------
+
+  it("M19 P7: mortality_signal fruiting auto-emits self_euthanasia_proposal", async () => {
+    const client = await spawn();
+    try {
+      // Register a DECAY axis as mortality signal.
+      await client.registerAxis({
+        name: "vitality",
+        axisClass: "decay",
+        fruitingThreshold: 0.1,
+        initialValue: 1.0,
+        decayRatePerCycle: 0.5,
+        isMortalitySignal: true,
+        updateRuleKind: "decay",
+      });
+      // Advance until the mortality signal fires.
+      let firedCycle: bigint | null = null;
+      let euthanasiaHashes: Uint8Array[] = [];
+      for (let c = 1n; c <= 10n; c++) {
+        const adv = await client.advance(c);
+        if (adv.fruitedAxes.length > 0) {
+          firedCycle = c;
+          euthanasiaHashes = adv.selfEuthanasiaProposalHashes;
+          break;
+        }
+      }
+      assert.ok(firedCycle !== null, "mortality_signal should fire within 10 cycles");
+      assert.equal(
+        euthanasiaHashes.length,
+        1,
+        "exactly one self_euthanasia_proposal should be emitted per mortality fruiting",
+      );
+
+      // Query DAG: verify the proposal node exists with correct node_type.
+      const report = await client.queryRecentNodes(20n, "self_euthanasia_proposal:");
+      assert.equal(report.filteredTotal, 1n);
+      assert.equal(report.nodes[0]!.nodeType, "self_euthanasia_proposal:vitality");
+      // Hash matches what advance reported.
+      assert.deepEqual(report.nodes[0]!.hash, euthanasiaHashes[0]);
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("M19 P7: non-mortality_signal fruiting does NOT emit self_euthanasia_proposal", async () => {
+    const client = await spawn();
+    try {
+      // Regular appetite axis — not a mortality signal.
+      await client.registerAxis({
+        name: "hunger",
+        axisClass: "appetite",
+        fruitingThreshold: 1.0,
+        initialValue: 0.0,
+        decayRatePerCycle: 1.0,
+        isMortalitySignal: false,
+        updateRuleKind: "noop",
+      });
+      await client.perturb("hunger", 2.0);
+      const adv = await client.advance(1n);
+      assert.equal(adv.fruitedAxes.length, 1);
+      // Appetite fruiting should NOT spawn a self_euthanasia_proposal.
+      assert.equal(adv.selfEuthanasiaProposalHashes.length, 0);
+
+      const report = await client.queryRecentNodes(20n, "self_euthanasia_proposal:");
+      assert.equal(report.filteredTotal, 0n);
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("M19 P9: run_immune_check exercises C18 canonical_bytes_render_drift on real DAG", async () => {
+    const client = await spawn();
+    try {
+      // Populate the DAG with several legitimate node types.
+      await client.registerAxis({
+        name: "ax",
+        axisClass: "appetite",
+        fruitingThreshold: 1.0,
+        initialValue: 0.0,
+        decayRatePerCycle: 1.0,
+        isMortalitySignal: false,
+        updateRuleKind: "noop",
+      });
+      await client.perturb("ax", 2.0);
+      await client.advance(1n);
+      await client.ingestRawMaterial({
+        contentKind: "text",
+        contentBytes: new TextEncoder().encode("test"),
+      });
+      // Run the integrity check.
+      const report = await client.runImmuneCheck();
+      // canonical_bytes_render_drift check should be present and PASSING
+      // for our well-formed DAG.
+      const cbCheck = report.checks.find(
+        (c) => c.checkId === "canonical_bytes_render_drift",
+      );
+      assert.ok(cbCheck, "expected canonical_bytes_render_drift check to be present");
+      assert.equal(
+        cbCheck!.passed,
+        true,
+        `expected canonical_bytes round-trip to pass; got: ${cbCheck!.evidence}`,
+      );
+      // total_checks should include the new C18 check.
+      assert.ok(
+        report.totalChecks >= 6n,
+        `expected at least 6 integrity checks (5 prior + 1 C18); got ${report.totalChecks}`,
+      );
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("M19: self_euthanasia_proposal persists across substrate restart", async () => {
+    const dir = freshStateDir();
+    try {
+      const c1 = await spawn(dir);
+      await c1.registerAxis({
+        name: "tired_axis",
+        axisClass: "decay",
+        fruitingThreshold: 0.1,
+        initialValue: 1.0,
+        decayRatePerCycle: 0.3,
+        isMortalitySignal: true,
+        updateRuleKind: "decay",
+      });
+      // Force the fruit.
+      let fired = false;
+      for (let c = 1n; c <= 10n; c++) {
+        const adv = await c1.advance(c);
+        if (adv.selfEuthanasiaProposalHashes.length > 0) {
+          fired = true;
+          break;
+        }
+      }
+      assert.ok(fired, "mortality_signal should fire");
+      await c1.shutdown();
+
+      // Session 2: euthanasia proposal still in DAG.
+      const c2 = await spawn(dir);
+      try {
+        const report = await c2.queryRecentNodes(20n, "self_euthanasia_proposal:");
+        assert.ok(
+          report.filteredTotal >= 1n,
+          "self_euthanasia_proposal should survive restart",
+        );
+      } finally {
+        await c2.shutdown();
+      }
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
   it("M18: last_absorbed_cycle persists across substrate restart", async () => {
     const dir = freshStateDir();
     try {
