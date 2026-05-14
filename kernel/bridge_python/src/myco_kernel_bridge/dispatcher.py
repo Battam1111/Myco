@@ -632,6 +632,9 @@ def _handle_load_state(state: DispatcherState, request: Message) -> Message:
         state.owner_keys = loaded_owner_keys
     elif "genesis_owner_pubkey" in keys:
         # First-time init: substrate is supplying the genesis owner pubkey.
+        # M21.4 P5 万物互联: do NOT save owner_keys.cb. The owner key history
+        # is event-sourced via the owner_key_initialized DAG event emitted
+        # by Rust at the same hello.
         pubkey_bytes = expect_bytes(keys["genesis_owner_pubkey"])
         if len(pubkey_bytes) != 32:
             raise BridgeProtocolError(
@@ -644,7 +647,6 @@ def _handle_load_state(state: DispatcherState, request: Message) -> Message:
             genesis_key=Ed25519PublicKey(pubkey_bytes),
             genesis_anchor_timestamp_unix_seconds=genesis_ts,
         )
-        save_owner_key_history(state.owner_keys, state_dir)
     # else: legacy mode (no owner_keys; CI mutations will be rejected).
 
     axis_count = state.gradient.axis_count()

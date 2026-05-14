@@ -1016,7 +1016,7 @@ describe("SubstrateClient e2e", () => {
   // -------------------------------------------------------------------------
   // M9 operator identity + TOFU tests.
   // -------------------------------------------------------------------------
-  it("M9: TOFU pins operator pubkey on first hello", async () => {
+  it("M9: TOFU pins operator pubkey on first hello (via DAG operator_pinned event)", async () => {
     const stateDir = freshStateDir();
     const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m9-op-"));
     try {
@@ -1029,11 +1029,13 @@ describe("SubstrateClient e2e", () => {
         operatorIdentity: identity,
       });
       try {
-        // Substrate should have pinned the pubkey to <state_dir>/operator_identity_pubkey.cb
-        const pinnedPath = resolvePath(stateDir, "operator_identity_pubkey.cb");
-        assert.ok(
-          existsSync(pinnedPath),
-          "substrate should have pinned operator pubkey on first hello",
+        // M21.4: operator_identity_pubkey.cb is gone — pinning is now recorded
+        // ONLY via the operator_pinned:* DAG event. Verify that event exists.
+        const pinned = await client.queryRecentNodes(20n, "operator_pinned:");
+        assert.equal(
+          pinned.filteredTotal,
+          1n,
+          "substrate should have emitted exactly 1 operator_pinned event on first hello",
         );
       } finally {
         await client.shutdown();
@@ -2306,13 +2308,21 @@ describe("SubstrateClient e2e", () => {
         assert.equal(result.childAxisCount, 1n);
         assert.equal(result.sporeEmissionHash.length, 32);
 
-        // Verify child's state files exist.
-        assert.ok(existsSync(`${childDir}/manifest.cb`), "child manifest.cb exists");
-        assert.ok(existsSync(`${childDir}/gradient.cb`), "child gradient.cb exists");
-        // Operator identity should also be inherited.
+        // M21.4: child's state_dir contains ONLY dag.cb. Identity, gradient,
+        // operator-pinning are all encoded as events in the child's DAG.
+        assert.ok(existsSync(`${childDir}/dag.cb`), "child dag.cb exists");
+        // Legacy state files MUST NOT be created.
         assert.ok(
-          existsSync(`${childDir}/operator_identity_pubkey.cb`),
-          "child operator_identity_pubkey.cb exists",
+          !existsSync(`${childDir}/manifest.cb`),
+          "post-M21.4: child must NOT have legacy manifest.cb",
+        );
+        assert.ok(
+          !existsSync(`${childDir}/gradient.cb`),
+          "post-M21.4: child must NOT have legacy gradient.cb",
+        );
+        assert.ok(
+          !existsSync(`${childDir}/operator_identity_pubkey.cb`),
+          "post-M21.4: child must NOT have legacy operator_identity_pubkey.cb",
         );
 
         // Verify parent's DAG has the spore_emission node.
@@ -2796,6 +2806,62 @@ describe("SubstrateClient e2e", () => {
   // dag.cb contains a genesis_event. The acid test: after deleting all state
   // files except dag.cb, the substrate must boot correctly with full state.
   // -------------------------------------------------------------------------
+
+  it("M21.4 acid test: substrate state_dir contains ONLY dag.cb after operations", async () => {
+    // M21.4 commits no-compromise: legacy state files (manifest.cb / gradient.cb /
+    // owner_keys.cb / operator_identity_pubkey.cb / nonces.cb) are no longer
+    // written. dag.cb is the substrate's sole persistent artifact.
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m21-4-op-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identity = OperatorIdentity.loadOrCreate(opDir);
+      const stateDir = freshStateDir();
+
+      const client = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identity,
+      });
+      try {
+        // Drive a variety of operations.
+        await client.registerAxis({
+          name: "m21_4",
+          axisClass: "appetite",
+          fruitingThreshold: 10.0,
+          initialValue: 0.0,
+          decayRatePerCycle: 1.0,
+          isMortalitySignal: false,
+          updateRuleKind: "noop",
+        });
+        await client.perturb("m21_4", 3.0);
+        await client.advance(1n);
+        const content = new TextEncoder().encode("m21.4 single-file test");
+        const nonceResult = await client.requestAttestationNonce(content);
+        const sig = identity.sign(content);
+        await client.submitMutation({
+          mutationType: "schema_change",
+          touchedMetaStructures: ["appetite_axis_schema"],
+          contentCanonicalBytes: content,
+          attestationSignature: sig,
+          nonce: nonceResult.nonce,
+          expiryUnixNs: nonceResult.expiryUnixNs,
+        });
+      } finally {
+        await client.shutdown();
+      }
+
+      // After shutdown, the state_dir must contain ONLY dag.cb (no legacy files).
+      const fs = await import("node:fs");
+      const files = fs.readdirSync(stateDir).filter((f) => !f.endsWith(".tmp"));
+      assert.deepEqual(
+        files,
+        ["dag.cb"],
+        `M21.4: state_dir must contain only dag.cb; got: ${files.join(", ")}`,
+      );
+    } finally {
+      cleanupDir(opDir);
+    }
+  });
 
   it("M21.3 acid test: Python gradient state recovers from DAG-only restart", async () => {
     // The deepest M21.3 test: delete EVERY state file except dag.cb. The
