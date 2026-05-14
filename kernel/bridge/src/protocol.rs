@@ -108,6 +108,11 @@ pub mod msg_type {
     pub const QUERY_IMMUNE_EVENTS: &str = "query_immune_events";
     /// `query_immune_events_response` — Rust→Operator: enumerated immune sporocarps.
     pub const QUERY_IMMUNE_EVENTS_RESPONSE: &str = "query_immune_events_response";
+    /// `run_immune_check` — Operator→Rust: trigger ad-hoc integrity scan (M12).
+    /// Runs the substrate's C9-family checks and emits immune sporocarps for failures.
+    pub const RUN_IMMUNE_CHECK: &str = "run_immune_check";
+    /// `run_immune_check_response` — Rust→Operator: scan results (per-check pass/fail).
+    pub const RUN_IMMUNE_CHECK_RESPONSE: &str = "run_immune_check_response";
 }
 
 /// A decoded bridge message.

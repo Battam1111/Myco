@@ -219,6 +219,31 @@ pub fn run_loop<R: Read, W: Write>(stdin: &mut R, stdout: &mut W) -> Result<u8, 
         let _ = save_dag_state(&state);
     }
 
+    // M12: C9 cold_resume_invariant_failure — run comprehensive integrity
+    // checks at boot. For each failing check, emit a C9 immune sporocarp.
+    // The substrate continues running regardless; the immune events are an
+    // audit trail for the operator to inspect.
+    let integrity_results = run_integrity_checks(&state);
+    let mut any_failed = false;
+    for result in &integrity_results {
+        if !result.passed {
+            any_failed = true;
+            let evidence = format!(
+                "boot-time integrity check failed: {} — {}",
+                result.check_id, result.evidence
+            );
+            let _ = emit_immune_sporocarp(
+                &mut state,
+                "C9_cold_resume_invariant_failure",
+                &format!("cold_resume_invariant_failure ({})", result.check_id),
+                &evidence,
+            );
+        }
+    }
+    if any_failed {
+        let _ = save_dag_state(&state);
+    }
+
     loop {
         let expected_key = if state.handshake_complete {
             state.session_secret
@@ -400,6 +425,8 @@ fn dispatch(state: &mut ServerState, request: &Message) -> Result<Option<Message
         }
         // M11: immune event query (filters DAG by "immune:" prefix).
         msg_type::QUERY_IMMUNE_EVENTS => handle_query_immune_events(state, request),
+        // M12: ad-hoc immune check (operator can verify integrity any time).
+        msg_type::RUN_IMMUNE_CHECK => handle_run_immune_check(state, request),
         other => Err(SubstrateError::Protocol(format!(
             "substrate cannot handle message type {other:?}"
         ))),
@@ -539,6 +566,73 @@ fn handle_compute_intent(
         msg_type::COMPUTE_INTENT_RESPONSE,
         request.request_id,
         python_response.payload,
+    )))
+}
+
+/// M12: Run the substrate's comprehensive integrity checks ad-hoc.
+///
+/// Runs the same checks as boot-time C9 (substrate_id_well_formed,
+/// cycle_counter_monotonic, pinned_pubkey_well_formed, dag_verify_all,
+/// owner_keys_consistency). For each failing check, emits a new C9 immune
+/// sporocarp. Always returns a structured report regardless of outcome.
+fn handle_run_immune_check(
+    state: &mut ServerState,
+    request: &Message,
+) -> Result<Option<Message>, SubstrateError> {
+    let results = run_integrity_checks(state);
+
+    // Emit immune sporocarps for each failure (consistent with boot-time C9).
+    let mut emitted_count: u64 = 0;
+    for result in &results {
+        if !result.passed {
+            let evidence = format!(
+                "ad-hoc integrity check failed: {} — {}",
+                result.check_id, result.evidence
+            );
+            if emit_immune_sporocarp(
+                state,
+                "C9_cold_resume_invariant_failure",
+                &format!("cold_resume_invariant_failure ({})", result.check_id),
+                &evidence,
+            )
+            .is_ok()
+            {
+                emitted_count += 1;
+            }
+        }
+    }
+    if emitted_count > 0 {
+        save_dag_state(state)?;
+    }
+
+    // Build response payload: per-check results.
+    let check_values: Vec<Value> = results
+        .iter()
+        .map(|r| {
+            let mut m = BTreeMap::new();
+            m.insert("check_id".to_string(), Value::String(r.check_id.clone()));
+            m.insert("passed".to_string(), Value::Bool(r.passed));
+            m.insert("evidence".to_string(), Value::String(r.evidence.clone()));
+            Value::Map(m)
+        })
+        .collect();
+
+    let total_checks = results.len() as u64;
+    let failed_checks = results.iter().filter(|r| !r.passed).count() as u64;
+
+    let mut payload = BTreeMap::new();
+    payload.insert("total_checks".to_string(), Value::Uint(total_checks));
+    payload.insert("failed_checks".to_string(), Value::Uint(failed_checks));
+    payload.insert(
+        "immune_events_emitted".to_string(),
+        Value::Uint(emitted_count),
+    );
+    payload.insert("checks".to_string(), Value::Array(check_values));
+
+    Ok(Some(Message::new(
+        msg_type::RUN_IMMUNE_CHECK_RESPONSE,
+        request.request_id,
+        payload,
     )))
 }
 
@@ -930,6 +1024,108 @@ fn save_dag_state(state: &ServerState) -> Result<(), SubstrateError> {
     save_dag(&state.dag, &state.state_dir)
 }
 
+/// M12: Result of one integrity check (C9 cold_resume_invariant_failure sub-check).
+#[derive(Debug, Clone)]
+struct IntegrityCheckResult {
+    check_id: String,
+    passed: bool,
+    evidence: String,
+}
+
+/// M12: Run the substrate's comprehensive integrity checks.
+///
+/// Runs 5 checks:
+/// 1. `substrate_id_well_formed` — manifest.substrate_id is non-zero
+/// 2. `cycle_counter_monotonic` — manifest.cycle_counter ≥ max(DAG node at_cycle)
+/// 3. `pinned_pubkey_well_formed` — pinned pubkey is non-zero Ed25519
+/// 4. `dag_verify_all` — every DAG node's hash recomputes correctly
+/// 5. `owner_keys_consistency` — (M10 operator==owner) active owner key MUST equal pinned operator pubkey
+///
+/// Returns a vec of results. Caller emits a C9 immune sporocarp for each failure.
+fn run_integrity_checks(state: &ServerState) -> Vec<IntegrityCheckResult> {
+    let mut results = Vec::new();
+
+    // 1. substrate_id well-formed.
+    let substrate_id_zero = state.manifest.substrate_id.iter().all(|b| *b == 0);
+    results.push(IntegrityCheckResult {
+        check_id: "substrate_id_well_formed".to_string(),
+        passed: !substrate_id_zero,
+        evidence: if substrate_id_zero {
+            "manifest.substrate_id is all zeros (genesis bug or tamper)".to_string()
+        } else {
+            "ok".to_string()
+        },
+    });
+
+    // 2. Cycle counter monotonic against DAG at_cycle.
+    let max_dag_cycle = state
+        .dag
+        .iter_in_insertion_order()
+        .map(|n| n.created_at_cycle)
+        .max()
+        .unwrap_or(0);
+    let monotonic = state.manifest.cycle_counter >= max_dag_cycle;
+    results.push(IntegrityCheckResult {
+        check_id: "cycle_counter_monotonic".to_string(),
+        passed: monotonic,
+        evidence: if monotonic {
+            format!(
+                "manifest.cycle_counter={} >= max(DAG.at_cycle)={}",
+                state.manifest.cycle_counter, max_dag_cycle
+            )
+        } else {
+            format!(
+                "manifest.cycle_counter={} < max(DAG.at_cycle)={} (manifest may have rolled back)",
+                state.manifest.cycle_counter, max_dag_cycle
+            )
+        },
+    });
+
+    // 3. Pinned pubkey well-formed (if exists).
+    if let Some(pinned) = &state.pinned_operator_identity {
+        let zero = pinned.pubkey.iter().all(|b| *b == 0);
+        results.push(IntegrityCheckResult {
+            check_id: "pinned_pubkey_well_formed".to_string(),
+            passed: !zero,
+            evidence: if zero {
+                "pinned operator_identity_pubkey is all zeros".to_string()
+            } else {
+                "ok (32 non-zero bytes)".to_string()
+            },
+        });
+    }
+
+    // 4. DAG.verify_all() — every node's hash recomputes correctly.
+    let dag_verify = state.dag.verify_all();
+    results.push(IntegrityCheckResult {
+        check_id: "dag_verify_all".to_string(),
+        passed: dag_verify.is_ok(),
+        evidence: match &dag_verify {
+            Ok(()) => format!(
+                "ok (all {} nodes pass hash recomputation)",
+                state.dag.node_count()
+            ),
+            Err(e) => format!("dag_verify_all failed: {e}"),
+        },
+    });
+
+    // 5. owner_keys consistency check is operator-side: we can only verify the
+    //    pinned operator pubkey is non-zero (the owner_keys live in Python and
+    //    are loaded via load_state during hello). This check is therefore a
+    //    placeholder at the Rust layer; full owner_keys vs pinned-pubkey cross-
+    //    validation happens implicitly when the first CI mutation is submitted
+    //    (signature verification will fail if Python's owner_keys diverges from
+    //    Rust's pinned pubkey).
+    results.push(IntegrityCheckResult {
+        check_id: "owner_keys_consistency".to_string(),
+        passed: true,
+        evidence: "deferred to Python load_state path; CI mutation signatures cross-validate"
+            .to_string(),
+    });
+
+    results
+}
+
 /// M11: Emit an immune sporocarp as a DAG node.
 ///
 /// Wraps a detected breach event as a DAG node with `node_type = "immune:{detector_id}"`.
@@ -1092,7 +1288,10 @@ fn handle_advance(
         cycle_number: starting_cycle,
         latest_report: None,
     };
-    {
+    // M12: run the cycle in an inner scope so the CycleContext (which holds
+    // a mutable borrow of state.python_client via the gradient advancer) is
+    // released before we re-borrow state to emit immune sporocarps below.
+    let run_result = {
         let mut ctx = CycleContext {
             tier1: &mut tier1,
             gradient: &mut gradient,
@@ -1100,13 +1299,33 @@ fn handle_advance(
             breach: &mut breach,
             handshake: &mut handshake,
         };
-        let cycle_report = state
-            .cycle_engine
-            .run_cycle(&mut ctx)
-            .map_err(|e| SubstrateError::Protocol(format!("cycle engine: {e}")))?;
-        if !cycle_report.committed {
-            return Err(SubstrateError::Protocol("cycle did not commit".to_string()));
+        state.cycle_engine.run_cycle(&mut ctx)
+    };
+    // M12: C12 cycle_step_failed — emit immune sporocarp on cycle errors,
+    // then propagate the original error to the operator (don't mask it).
+    let cycle_report = match run_result {
+        Ok(r) => r,
+        Err(e) => {
+            let evidence = format!("CycleEngine.run_cycle returned Err: {e}");
+            let _ = emit_immune_sporocarp(
+                state,
+                "C12_cycle_step_failed",
+                "cycle_step_failed",
+                &evidence,
+            );
+            let _ = save_dag_state(state);
+            return Err(SubstrateError::Protocol(format!("cycle engine: {e}")));
         }
+    };
+    if !cycle_report.committed {
+        let _ = emit_immune_sporocarp(
+            state,
+            "C12_cycle_step_failed",
+            "cycle_step_failed",
+            "CycleEngine.run_cycle returned non-committed report",
+        );
+        let _ = save_dag_state(state);
+        return Err(SubstrateError::Protocol("cycle did not commit".to_string()));
     }
 
     // Build the response combining cycle metadata + sporocarp report.

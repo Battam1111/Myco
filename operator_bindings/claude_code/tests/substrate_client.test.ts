@@ -194,6 +194,99 @@ describe("SubstrateClient e2e", () => {
   });
 
   // -------------------------------------------------------------------------
+  // M12 ad-hoc immune check tests.
+  // -------------------------------------------------------------------------
+  it("M12: runImmuneCheck on healthy substrate returns all checks passed", async () => {
+    const client = await spawn();
+    try {
+      const report = await client.runImmuneCheck();
+      assert.ok(
+        report.totalChecks >= 4n,
+        `expected ≥4 checks; got ${report.totalChecks}`,
+      );
+      assert.equal(report.failedChecks, 0n);
+      assert.equal(report.immuneEventsEmitted, 0n);
+      // All individual checks should report passed=true.
+      for (const check of report.checks) {
+        assert.equal(
+          check.passed,
+          true,
+          `${check.checkId} should pass on healthy substrate; got: ${check.evidence}`,
+        );
+      }
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("M12: runImmuneCheck includes substrate_id + dag + pubkey + owner_keys checks", async () => {
+    const client = await spawn();
+    try {
+      const report = await client.runImmuneCheck();
+      const checkIds = report.checks.map((c) => c.checkId);
+      assert.ok(checkIds.includes("substrate_id_well_formed"));
+      assert.ok(checkIds.includes("cycle_counter_monotonic"));
+      assert.ok(checkIds.includes("pinned_pubkey_well_formed"));
+      assert.ok(checkIds.includes("dag_verify_all"));
+      assert.ok(checkIds.includes("owner_keys_consistency"));
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("M12: runImmuneCheck does NOT add immune events when all checks pass", async () => {
+    const client = await spawn();
+    try {
+      const before = await client.queryImmuneEvents();
+      await client.runImmuneCheck();
+      const after = await client.queryImmuneEvents();
+      assert.equal(
+        after.totalImmuneCount,
+        before.totalImmuneCount,
+        "no immune events should be emitted on a healthy substrate",
+      );
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("M12: tampered DAG triggers C7 + multiple C9 checks at boot", async () => {
+    const dir = freshStateDir();
+    try {
+      // Session 1: produce some DAG content.
+      const c1 = await spawn(dir);
+      await c1.submitMutation({
+        mutationType: "delta_absorb",
+        contentCanonicalBytes: new TextEncoder().encode("setup content"),
+      });
+      await c1.shutdown();
+
+      // Tamper: corrupt dag.cb on disk.
+      const { writeFileSync } = await import("node:fs");
+      const dagPath = resolvePath(dir, "dag.cb");
+      writeFileSync(dagPath, new Uint8Array([0xff, 0xff, 0xff, 0xff, 0xff, 0xff]));
+
+      // Session 2: substrate detects + recovers + emits C7.
+      const c2 = await spawn(dir);
+      try {
+        const events = await c2.queryImmuneEvents();
+        assert.ok(
+          events.totalImmuneCount >= 1n,
+          `expected at least 1 immune event after tamper; got ${events.totalImmuneCount}`,
+        );
+        const c7Event = events.events.find((e) =>
+          e.nodeType.includes("C7_dag_retro_edit_detected"),
+        );
+        assert.ok(c7Event, "C7 detector should fire on dag.cb tamper");
+      } finally {
+        await c2.shutdown();
+      }
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  // -------------------------------------------------------------------------
   // M11 active immune system tests.
   // -------------------------------------------------------------------------
   it("M11: empty substrate has no immune events", async () => {

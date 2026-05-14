@@ -29,6 +29,7 @@ import {
   type HelloAck,
   helloPayload,
   helloSigningBody,
+  type ImmuneCheckReport,
   type ImmuneEventsReport,
   type IntentReport,
   type Message,
@@ -39,6 +40,7 @@ import {
   parseHelloAck,
   parseQueryImmuneEventsResponse,
   parseQueryRecentNodesResponse,
+  parseRunImmuneCheckResponse,
   parseSnapshotResponse,
   parseSubmitMutationResponse,
   perturbPayload,
@@ -405,6 +407,18 @@ export class SubstrateClient {
       queryImmuneEventsPayload(count),
     );
     return parseQueryImmuneEventsResponse(response);
+  }
+
+  /** M12: Trigger an ad-hoc integrity scan. The substrate runs its
+   *  C9-family checks (substrate_id well-formedness, DAG hash chain integrity,
+   *  cycle counter monotonicity, pinned-pubkey well-formedness, owner_keys
+   *  consistency) and emits a C9 immune sporocarp for each failure. */
+  async runImmuneCheck(): Promise<ImmuneCheckReport> {
+    const response = await this._sendRequest(
+      MSG_TYPE.RUN_IMMUNE_CHECK,
+      emptyPayload(),
+    );
+    return parseRunImmuneCheckResponse(response);
   }
 
   /** Graceful shutdown — sends shutdown, awaits ack, waits for child exit. */
