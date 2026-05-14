@@ -97,6 +97,11 @@ from myco_kernel_governance.owner_keys_persistence import (
     load_owner_key_history,
     save_owner_key_history,
 )
+from myco_kernel_governance.schema_evolution import (
+    SchemaEvolutionError,
+    apply_schema_diff,
+    parse_schema_diff,
+)
 
 
 KERNEL_TROPISM_VERSION: Final[str] = "0.9.0-alpha.1"
@@ -652,15 +657,46 @@ def _handle_submit_mutation(
             "L1_HARD_RULES C14 untyped_mutation_blocked"
         )
 
-    response_payload = CbMap.from_dict(
-        {
-            "classification": CbString(classification.value),
-            "accepted": Bool(accepted),
-            "rejection_reason": CbString(rejection_reason),
-            "content_canonical_bytes": CbBytes(content_bytes),
-            "mutation_type": CbString(mutation_type),
-        }
-    )
+    # M17 P3 永恒进化: if the accepted mutation is a schema_evolution,
+    # interpret content_canonical_bytes as a schema_diff and APPLY it to the
+    # gradient configuration (with rollback on failure). Records evolution
+    # outcome in the response so Rust can emit appropriate DAG nodes.
+    schema_apply_attempted = False
+    schema_apply_succeeded = False
+    schema_apply_failure_reason = ""
+    schema_apply_op = ""
+    schema_apply_summary = ""
+    if accepted and mutation_type == "schema_evolution":
+        schema_apply_attempted = True
+        try:
+            diff = parse_schema_diff(content_bytes)
+            schema_apply_op = diff.op.value
+            schema_apply_summary = diff.summary()
+            result = apply_schema_diff(diff, state.gradient)
+            if result.succeeded:
+                schema_apply_succeeded = True
+            else:
+                schema_apply_succeeded = False
+                schema_apply_failure_reason = result.failure_reason
+        except SchemaEvolutionError as e:
+            schema_apply_succeeded = False
+            schema_apply_failure_reason = f"schema_diff parse: {e}"
+
+    response_dict: dict[str, object] = {
+        "classification": CbString(classification.value),
+        "accepted": Bool(accepted),
+        "rejection_reason": CbString(rejection_reason),
+        "content_canonical_bytes": CbBytes(content_bytes),
+        "mutation_type": CbString(mutation_type),
+        # M17 P3 永恒进化 evolution result fields. Rust uses these to emit
+        # evolution_succeeded:{op} or evolution_failed:{op} DAG nodes.
+        "schema_apply_attempted": Bool(schema_apply_attempted),
+        "schema_apply_succeeded": Bool(schema_apply_succeeded),
+        "schema_apply_failure_reason": CbString(schema_apply_failure_reason),
+        "schema_apply_op": CbString(schema_apply_op),
+        "schema_apply_summary": CbString(schema_apply_summary),
+    }
+    response_payload = CbMap.from_dict(response_dict)
     return Message(
         type=MessageType.SUBMIT_MUTATION_RESPONSE,
         request_id=request.request_id,

@@ -202,6 +202,15 @@ SEED_DIMENSION_TABLE: tuple[ClassifierRule, ...] = (
         classification=Classification.CONTRACT_IDENTITY_LEVEL,
         meta_structure_name="federation_peer_attestation_list",
     ),
+    # M17 P3 永恒进化: schema_evolution mutation type is unconditionally CI.
+    # The content is a schema_diff (canonical-bytes Map) that the dispatcher
+    # applies AFTER owner-signature verification. Apply success → DAG node
+    # evolution_succeeded:{op}; apply failure → rollback + evolution_failed:{op}.
+    ClassifierRule(
+        name="schema_evolution_mutation",
+        classification=Classification.CONTRACT_IDENTITY_LEVEL,
+        mutation_type="schema_evolution",
+    ),
     # Daily-content mutation types.
     ClassifierRule(
         name="daily_delta_absorb",
