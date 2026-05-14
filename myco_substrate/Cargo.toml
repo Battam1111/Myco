@@ -1,0 +1,30 @@
+[package]
+name = "myco-substrate"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Myco v0.9 substrate daemon binary (L4 M6). Listens on stdio for operator requests (e.g. from operator_bindings/claude_code), drives the metabolic cycle, and orchestrates the Python kernel/tropism worker via the kernel/bridge M5 protocol."
+
+[[bin]]
+name = "myco-substrate"
+path = "src/main.rs"
+
+[lib]
+name = "myco_substrate"
+path = "src/lib.rs"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+doc_lazy_continuation = "allow"
+doc_overindented_list_items = "allow"
+
+[dependencies]
+myco-kernel-shared = { path = "../kernel/shared" }
+myco-kernel-bridge = { path = "../kernel/bridge" }
+myco-kernel-continuity = { path = "../kernel/continuity" }
+thiserror.workspace = true
+sha2.workspace = true
+
+[dev-dependencies]

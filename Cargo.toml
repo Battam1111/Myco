@@ -22,6 +22,7 @@ members = [
     "kernel/schema",
     "kernel/continuity",
     "kernel/bridge",
+    "myco_substrate",
     "m1_milestone",
     "test_vectors_rs",
 ]

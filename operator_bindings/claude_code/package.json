@@ -1,0 +1,30 @@
+{
+  "name": "@myco/operator-bindings-claude-code",
+  "version": "0.9.0-alpha.1",
+  "description": "Myco v0.9 — operator_bindings/claude_code: MCP server exposing substrate operations to Claude Code (L4 M6 + L3_PACKAGE_MAP §11)",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "main": "src/index.ts",
+  "bin": {
+    "myco-mcp-claude-code": "src/cli.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "node --experimental-strip-types --no-warnings --test --test-reporter=spec tests/protocol.test.ts tests/framing.test.ts tests/canonical_bytes_parity.test.ts tests/substrate_client.test.ts tests/mcp_server.test.ts",
+    "test:all": "npm run typecheck && npm test",
+    "start": "node --experimental-strip-types src/cli.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.19",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "@myco/anchor-client": "file:../../anchor_client",
+    "@noble/curves": "^2.2.0",
+    "@noble/hashes": "^2.2.0"
+  }
+}
