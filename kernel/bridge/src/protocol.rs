@@ -90,6 +90,15 @@ pub mod msg_type {
     pub const LOAD_STATE: &str = "load_state";
     /// `load_state_ack` — Python→Rust: gradient state hydrated; carries axis count.
     pub const LOAD_STATE_ACK: &str = "load_state_ack";
+    /// `compute_intent` — Operator/Rust→Python: derive intent from a DAG subset (M8).
+    pub const COMPUTE_INTENT: &str = "compute_intent";
+    /// `compute_intent_response` — Python→Rust: cluster_C result over the subset.
+    pub const COMPUTE_INTENT_RESPONSE: &str = "compute_intent_response";
+    /// `query_recent_nodes` — Operator→Rust: list last N DAG nodes for diagnostics (M8).
+    /// Handled by Rust substrate; not forwarded to Python.
+    pub const QUERY_RECENT_NODES: &str = "query_recent_nodes";
+    /// `query_recent_nodes_response` — Rust→Operator: enumerated recent DAG nodes.
+    pub const QUERY_RECENT_NODES_RESPONSE: &str = "query_recent_nodes_response";
 }
 
 /// A decoded bridge message.
@@ -333,6 +342,32 @@ pub fn load_state_ack_payload(axis_count: u64, hydrated: bool) -> BTreeMap<Strin
     let mut m = BTreeMap::new();
     m.insert("axis_count".to_string(), Value::Uint(axis_count));
     m.insert("hydrated".to_string(), Value::Bool(hydrated));
+    m
+}
+
+/// Build the payload for a `compute_intent` request (M8).
+///
+/// `dag_nodes` is an Array<Map> with these per-node fields:
+/// - `hash`: Bytes(32)
+/// - `parent_hashes`: Array<Bytes(32)>
+/// - `at_cycle`: Uint
+/// - `node_type`: String
+pub fn compute_intent_payload(
+    pivot_hash: &[u8; 32],
+    radius_cycles: u64,
+    dag_nodes: Vec<Value>,
+) -> BTreeMap<String, Value> {
+    let mut m = BTreeMap::new();
+    m.insert("pivot_hash".to_string(), Value::Bytes(pivot_hash.to_vec()));
+    m.insert("radius_cycles".to_string(), Value::Uint(radius_cycles));
+    m.insert("dag_nodes".to_string(), Value::Array(dag_nodes));
+    m
+}
+
+/// Build the payload for a `query_recent_nodes` request (M8).
+pub fn query_recent_nodes_payload(count: u64) -> BTreeMap<String, Value> {
+    let mut m = BTreeMap::new();
+    m.insert("count".to_string(), Value::Uint(count));
     m
 }
 

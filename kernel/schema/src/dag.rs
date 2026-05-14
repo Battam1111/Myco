@@ -91,6 +91,10 @@ pub enum DagError {
     /// Node-type string is empty.
     #[error("node_type cannot be empty")]
     EmptyNodeType,
+
+    /// On-disk DAG bytes failed to decode (M8 persistence).
+    #[error("dag persistence malformed: {0}")]
+    PersistenceMalformed(String),
 }
 
 /// A DAG node — Merkle-addressed substrate-state event.
@@ -324,7 +328,143 @@ impl Dag {
         }
         Ok(())
     }
+
+    /// Iterate over all nodes in insertion order (M8 — enables persistence).
+    pub fn iter_in_insertion_order(&self) -> impl Iterator<Item = &DagNode> {
+        self.insertion_order
+            .iter()
+            .filter_map(|h| self.nodes.get(h))
+    }
+
+    /// Serialize the entire DAG to canonical bytes for on-disk persistence (M8).
+    ///
+    /// Schema (canonical-bytes Map):
+    /// ```text
+    ///   Map({
+    ///     "format_version": Uint(1),
+    ///     "nodes": Array<Map({
+    ///       "parent_hashes": Array<Bytes(32)>,
+    ///       "node_type": String,
+    ///       "created_at_cycle": Uint,
+    ///       "content_canonical_bytes": Bytes
+    ///     })>  // in insertion order
+    ///   })
+    /// ```
+    ///
+    /// Node hashes themselves are NOT serialized — they are recomputed from
+    /// `merkle_hash(parents, content)` on load. This acts as built-in
+    /// integrity validation (any tampered byte breaks the hash chain).
+    pub fn to_canonical_bytes(&self) -> CanonicalBytes {
+        use myco_kernel_shared::canonical_bytes::{encode, Value};
+        use std::collections::BTreeMap;
+        let mut nodes_array: Vec<Value> = Vec::with_capacity(self.insertion_order.len());
+        for hash in &self.insertion_order {
+            let node = self
+                .nodes
+                .get(hash)
+                .expect("insertion_order references missing node");
+            let parent_bytes: Vec<Value> = node
+                .parent_hashes
+                .iter()
+                .map(|h| Value::Bytes(h.as_ref().to_vec()))
+                .collect();
+            let mut node_map = BTreeMap::new();
+            node_map.insert("parent_hashes".to_string(), Value::Array(parent_bytes));
+            node_map.insert(
+                "node_type".to_string(),
+                Value::String(node.node_type.clone()),
+            );
+            node_map.insert(
+                "created_at_cycle".to_string(),
+                Value::Uint(node.created_at_cycle),
+            );
+            node_map.insert(
+                "content_canonical_bytes".to_string(),
+                Value::Bytes(node.content_canonical_bytes.as_ref().to_vec()),
+            );
+            nodes_array.push(Value::Map(node_map));
+        }
+        let mut root = BTreeMap::new();
+        root.insert(
+            "format_version".to_string(),
+            Value::Uint(DAG_FORMAT_VERSION),
+        );
+        root.insert("nodes".to_string(), Value::Array(nodes_array));
+        encode(&Value::Map(root)).expect("DAG canonical-bytes encode is infallible")
+    }
+
+    /// Decode a DAG from canonical bytes.
+    ///
+    /// Returns:
+    /// - `Ok(Some(dag))` — successful hydration.
+    /// - `Ok(None)` — format_version mismatch (caller falls back to genesis).
+    /// - `Err(DagError)` — malformed content OR any node's recomputed hash
+    ///   diverges from its parent chain (retro-edit detection).
+    pub fn from_canonical_bytes(bytes: &[u8]) -> Result<Option<Self>, DagError> {
+        use myco_kernel_shared::canonical_bytes::{
+            decode, map_get_array, map_get_bytes, map_get_string, map_get_uint, Value,
+        };
+        let decoded =
+            decode(bytes).map_err(|e| DagError::PersistenceMalformed(format!("decode: {e}")))?;
+        let map = match decoded {
+            Value::Map(m) => m,
+            other => {
+                return Err(DagError::PersistenceMalformed(format!(
+                    "DAG root is not a Map: {other:?}"
+                )))
+            }
+        };
+        let version = map_get_uint(&map, "format_version")
+            .map_err(|e| DagError::PersistenceMalformed(e.to_string()))?;
+        if version != DAG_FORMAT_VERSION {
+            return Ok(None);
+        }
+        let nodes_array = map_get_array(&map, "nodes")
+            .map_err(|e| DagError::PersistenceMalformed(e.to_string()))?;
+        let mut dag = Dag::new();
+        for node_value in nodes_array {
+            let node_map = match node_value {
+                Value::Map(m) => m,
+                other => {
+                    return Err(DagError::PersistenceMalformed(format!(
+                        "DAG node is not a Map: {other:?}"
+                    )))
+                }
+            };
+            let parents_array = map_get_array(node_map, "parent_hashes")
+                .map_err(|e| DagError::PersistenceMalformed(e.to_string()))?;
+            let mut parent_hashes: Vec<NodeHash> = Vec::with_capacity(parents_array.len());
+            for p in parents_array {
+                match p {
+                    Value::Bytes(b) if b.len() == 32 => {
+                        let mut arr = [0u8; 32];
+                        arr.copy_from_slice(b);
+                        parent_hashes.push(NodeHash::from_bytes(arr));
+                    }
+                    _ => {
+                        return Err(DagError::PersistenceMalformed(
+                            "parent_hashes contains non-32-byte entry".to_string(),
+                        ))
+                    }
+                }
+            }
+            let node_type = map_get_string(node_map, "node_type")
+                .map_err(|e| DagError::PersistenceMalformed(e.to_string()))?
+                .to_string();
+            let created_at_cycle = map_get_uint(node_map, "created_at_cycle")
+                .map_err(|e| DagError::PersistenceMalformed(e.to_string()))?;
+            let content_slice = map_get_bytes(node_map, "content_canonical_bytes")
+                .map_err(|e| DagError::PersistenceMalformed(e.to_string()))?;
+            let content = CanonicalBytes(content_slice.to_vec());
+            dag.insert_node(parent_hashes, node_type, created_at_cycle, content)?;
+        }
+        Ok(Some(dag))
+    }
 }
+
+/// Current DAG persistence format version. Bumped on any breaking change to
+/// the on-disk schema.
+pub const DAG_FORMAT_VERSION: u64 = 1;
 
 #[cfg(test)]
 mod tests {
@@ -333,6 +473,111 @@ mod tests {
 
     fn make_cbytes(s: &str) -> CanonicalBytes {
         encode(&Value::String(s.to_string())).unwrap()
+    }
+
+    // ---------------------------------------------------------------------
+    // M8 persistence tests.
+    // ---------------------------------------------------------------------
+
+    #[test]
+    fn m8_empty_dag_roundtrips_canonical_bytes() {
+        let dag = Dag::new();
+        let bytes = dag.to_canonical_bytes();
+        let dag2 = Dag::from_canonical_bytes(bytes.as_ref()).unwrap().unwrap();
+        assert_eq!(dag2.node_count(), 0);
+        assert_eq!(dag2.tip(), None);
+    }
+
+    #[test]
+    fn m8_single_node_dag_roundtrips() {
+        let mut dag = Dag::new();
+        let hash = dag
+            .insert_node(vec![], "genesis".to_string(), 0, make_cbytes("init"))
+            .unwrap();
+        let bytes = dag.to_canonical_bytes();
+        let dag2 = Dag::from_canonical_bytes(bytes.as_ref()).unwrap().unwrap();
+        assert_eq!(dag2.node_count(), 1);
+        assert_eq!(dag2.tip(), Some(hash));
+        let node = dag2.get(&hash).unwrap();
+        assert_eq!(node.node_type, "genesis");
+        assert_eq!(node.created_at_cycle, 0);
+    }
+
+    #[test]
+    fn m8_chained_dag_preserves_insertion_order_and_hashes() {
+        let mut dag = Dag::new();
+        let h1 = dag
+            .insert_node(vec![], "genesis".to_string(), 0, make_cbytes("n1"))
+            .unwrap();
+        let h2 = dag
+            .insert_node(vec![h1], "sporocarp".to_string(), 1, make_cbytes("n2"))
+            .unwrap();
+        let h3 = dag
+            .insert_node(vec![h2], "sporocarp".to_string(), 2, make_cbytes("n3"))
+            .unwrap();
+
+        let bytes = dag.to_canonical_bytes();
+        let dag2 = Dag::from_canonical_bytes(bytes.as_ref()).unwrap().unwrap();
+        assert_eq!(dag2.node_count(), 3);
+        assert_eq!(dag2.tip(), Some(h3));
+        // All three nodes have the same hashes recomputed on load.
+        assert!(dag2.get(&h1).is_some());
+        assert!(dag2.get(&h2).is_some());
+        assert!(dag2.get(&h3).is_some());
+        // Insertion order matches.
+        let nodes_in_order: Vec<_> = dag2.iter_in_insertion_order().map(|n| n.hash).collect();
+        assert_eq!(nodes_in_order, vec![h1, h2, h3]);
+    }
+
+    #[test]
+    fn m8_branching_dag_roundtrips() {
+        let mut dag = Dag::new();
+        let root = dag
+            .insert_node(vec![], "genesis".to_string(), 0, make_cbytes("r"))
+            .unwrap();
+        let _a = dag
+            .insert_node(vec![root], "branch_a".to_string(), 1, make_cbytes("a"))
+            .unwrap();
+        let _b = dag
+            .insert_node(vec![root], "branch_b".to_string(), 1, make_cbytes("b"))
+            .unwrap();
+        // Multi-parent merge node.
+        let _merge = dag
+            .insert_node(vec![_a, _b], "merge".to_string(), 2, make_cbytes("merge"))
+            .unwrap();
+
+        let bytes = dag.to_canonical_bytes();
+        let dag2 = Dag::from_canonical_bytes(bytes.as_ref()).unwrap().unwrap();
+        assert_eq!(dag2.node_count(), 4);
+        assert_eq!(dag2.verify_all(), Ok(()));
+    }
+
+    #[test]
+    fn m8_version_mismatch_returns_none() {
+        use std::collections::BTreeMap;
+        let mut bad_root = BTreeMap::new();
+        bad_root.insert("format_version".to_string(), Value::Uint(9999));
+        bad_root.insert("nodes".to_string(), Value::Array(vec![]));
+        let bad_bytes = encode(&Value::Map(bad_root)).unwrap();
+        let result = Dag::from_canonical_bytes(bad_bytes.as_ref()).unwrap();
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn m8_malformed_bytes_return_error() {
+        let result = Dag::from_canonical_bytes(b"not-canonical-bytes");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn m8_persistence_byte_determinism() {
+        let mut dag1 = Dag::new();
+        let _ = dag1
+            .insert_node(vec![], "a".to_string(), 0, make_cbytes("x"))
+            .unwrap();
+        let bytes1 = dag1.to_canonical_bytes();
+        let bytes2 = dag1.to_canonical_bytes();
+        assert_eq!(bytes1, bytes2);
     }
 
     #[test]

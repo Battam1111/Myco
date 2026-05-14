@@ -32,9 +32,10 @@ use myco_kernel_continuity::cycle::{
     CycleConfig, CycleContext, CycleEngine, DeltaAbsorber, GradientAdvancer, HandshakeProcessor,
     SkinBreachChecker, Tier1Validator,
 };
-use myco_kernel_shared::canonical_bytes::Value;
+use myco_kernel_schema::dag::Dag;
+use myco_kernel_shared::canonical_bytes::{CanonicalBytes, Value};
 
-use crate::persistence::{default_state_dir, ensure_state_dir, Manifest};
+use crate::persistence::{default_state_dir, ensure_state_dir, load_dag, save_dag, Manifest};
 use crate::SubstrateError;
 
 // ---------------------------------------------------------------------------
@@ -109,14 +110,17 @@ struct ServerState {
     manifest: Manifest,
     /// Directory in which the substrate's state files live (M7).
     state_dir: PathBuf,
+    /// Persistent causal DAG of substrate events (sporocarps etc.) (M8).
+    dag: Dag,
 }
 
 impl ServerState {
-    fn new(state_dir: PathBuf, manifest: Manifest) -> Self {
+    fn new(state_dir: PathBuf, manifest: Manifest, dag: Dag) -> Self {
         // M7: the manifest's cycle_counter is the authoritative persisted
         // counter; the in-process CycleEngine maintains its own counter that
         // counts cycles within THIS process only. handle_advance() uses the
         // manifest counter as the cross-process source-of-truth.
+        // M8: dag carries the substrate's causal history (sporocarps + future event types).
         ServerState {
             session_secret: [0u8; 32],
             handshake_complete: false,
@@ -124,6 +128,7 @@ impl ServerState {
             cycle_engine: CycleEngine::new(CycleConfig::default()),
             manifest,
             state_dir,
+            dag,
         }
     }
 
@@ -158,7 +163,8 @@ pub fn run_loop<R: Read, W: Write>(stdin: &mut R, stdout: &mut W) -> Result<u8, 
         Some(m) => m,
         None => Manifest::genesis(),
     };
-    let mut state = ServerState::new(state_dir, manifest);
+    let dag = load_dag(&state_dir)?.unwrap_or_default();
+    let mut state = ServerState::new(state_dir, manifest, dag);
 
     loop {
         let expected_key = if state.handshake_complete {
@@ -277,22 +283,175 @@ fn dispatch(state: &mut ServerState, request: &Message) -> Result<Option<Message
             state.manifest.cycle_counter = state.manifest.cycle_counter.saturating_add(1);
             state.save_manifest()?;
             save_python_state(state)?;
+            // M8: persist the DAG (sporocarps inserted during handle_advance).
+            save_dag_state(state)?;
             Ok(response)
         }
         msg_type::SHUTDOWN => {
-            // M7: final state save before exit (best-effort; ignore errors here).
+            // M7+M8: final state save before exit (best-effort; ignore errors here).
             let _ = save_python_state(state);
             let _ = state.save_manifest();
+            let _ = save_dag_state(state);
             Ok(Some(Message::new(
                 msg_type::SHUTDOWN_ACK,
                 request.request_id,
                 empty_payload(),
             )))
         }
+        // M8: DAG-related operator requests handled substrate-side.
+        msg_type::QUERY_RECENT_NODES => handle_query_recent_nodes(state, request),
+        msg_type::COMPUTE_INTENT => handle_compute_intent(state, request),
         other => Err(SubstrateError::Protocol(format!(
             "substrate cannot handle message type {other:?}"
         ))),
     }
+}
+
+/// M8: Return the last N DAG nodes (Rust-handled; no Python involvement).
+fn handle_query_recent_nodes(
+    state: &mut ServerState,
+    request: &Message,
+) -> Result<Option<Message>, SubstrateError> {
+    let count = request
+        .payload
+        .get("count")
+        .and_then(|v| match v {
+            Value::Uint(n) => Some(*n),
+            _ => None,
+        })
+        .unwrap_or(50);
+
+    let all_nodes: Vec<_> = state.dag.iter_in_insertion_order().collect();
+    let total = all_nodes.len();
+    let start = total.saturating_sub(count as usize);
+    let recent: Vec<Value> = all_nodes[start..]
+        .iter()
+        .map(|n| {
+            let mut m = BTreeMap::new();
+            m.insert("hash".to_string(), Value::Bytes(n.hash.as_ref().to_vec()));
+            m.insert(
+                "parent_hashes".to_string(),
+                Value::Array(
+                    n.parent_hashes
+                        .iter()
+                        .map(|h| Value::Bytes(h.as_ref().to_vec()))
+                        .collect(),
+                ),
+            );
+            m.insert("node_type".to_string(), Value::String(n.node_type.clone()));
+            m.insert("at_cycle".to_string(), Value::Uint(n.created_at_cycle));
+            m.insert(
+                "content_canonical_bytes".to_string(),
+                Value::Bytes(n.content_canonical_bytes.as_ref().to_vec()),
+            );
+            Value::Map(m)
+        })
+        .collect();
+
+    let mut payload = BTreeMap::new();
+    payload.insert("total_dag_size".to_string(), Value::Uint(total as u64));
+    payload.insert(
+        "returned_count".to_string(),
+        Value::Uint(recent.len() as u64),
+    );
+    payload.insert("nodes".to_string(), Value::Array(recent));
+    if let Some(tip) = state.dag.tip() {
+        payload.insert("dag_tip".to_string(), Value::Bytes(tip.as_ref().to_vec()));
+    }
+    Ok(Some(Message::new(
+        msg_type::QUERY_RECENT_NODES_RESPONSE,
+        request.request_id,
+        payload,
+    )))
+}
+
+/// M8: Forward intent computation to the Python worker.
+///
+/// The substrate serializes ITS OWN DAG (full set at M8; M9+ adds windowing)
+/// and sends it to Python along with the pivot and radius. Python builds an
+/// in-memory DagSource and runs trajectory's neighborhood + ancestors_and_descendants
+/// + cluster_C, returning the clusters.
+fn handle_compute_intent(
+    state: &mut ServerState,
+    request: &Message,
+) -> Result<Option<Message>, SubstrateError> {
+    let client = state
+        .python_client
+        .as_mut()
+        .ok_or_else(|| SubstrateError::Handshake("python worker not connected".to_string()))?;
+
+    // Default radius: 10 cycles. Operator can override via payload.
+    let radius_cycles = request
+        .payload
+        .get("radius_cycles")
+        .and_then(|v| match v {
+            Value::Uint(n) => Some(*n),
+            _ => None,
+        })
+        .unwrap_or(10);
+
+    // Default pivot: DAG tip. Operator can override via payload (must be a hash present in DAG).
+    let pivot_bytes: Vec<u8> = match request.payload.get("pivot_hash") {
+        Some(Value::Bytes(b)) if b.len() == 32 => b.clone(),
+        _ => match state.dag.tip() {
+            Some(t) => t.as_ref().to_vec(),
+            None => {
+                // Empty DAG → cold-start intent.
+                return Ok(Some(empty_intent_response(request.request_id)));
+            }
+        },
+    };
+    let mut pivot_arr = [0u8; 32];
+    pivot_arr.copy_from_slice(&pivot_bytes);
+
+    // Serialize the substrate's full DAG as Array<Map> for Python.
+    let dag_nodes: Vec<Value> = state
+        .dag
+        .iter_in_insertion_order()
+        .map(|n| {
+            let mut m = BTreeMap::new();
+            m.insert("hash".to_string(), Value::Bytes(n.hash.as_ref().to_vec()));
+            m.insert(
+                "parent_hashes".to_string(),
+                Value::Array(
+                    n.parent_hashes
+                        .iter()
+                        .map(|h| Value::Bytes(h.as_ref().to_vec()))
+                        .collect(),
+                ),
+            );
+            m.insert("at_cycle".to_string(), Value::Uint(n.created_at_cycle));
+            m.insert("node_type".to_string(), Value::String(n.node_type.clone()));
+            Value::Map(m)
+        })
+        .collect();
+
+    let payload =
+        myco_kernel_bridge::protocol::compute_intent_payload(&pivot_arr, radius_cycles, dag_nodes);
+    let python_response = client.call(msg_type::COMPUTE_INTENT, payload)?;
+    if python_response.message_type != msg_type::COMPUTE_INTENT_RESPONSE {
+        return Err(SubstrateError::Protocol(format!(
+            "expected compute_intent_response from python; got {}",
+            python_response.message_type
+        )));
+    }
+    // Re-stamp the response with the operator's request_id.
+    Ok(Some(Message::new(
+        msg_type::COMPUTE_INTENT_RESPONSE,
+        request.request_id,
+        python_response.payload,
+    )))
+}
+
+/// Build an "empty DAG → cold-start" intent response (no clusters, cold_start=true).
+fn empty_intent_response(request_id: u64) -> Message {
+    let mut payload = BTreeMap::new();
+    payload.insert("cold_start".to_string(), Value::Bool(true));
+    payload.insert("neighborhood_node_count".to_string(), Value::Uint(0));
+    payload.insert("full_set_node_count".to_string(), Value::Uint(0));
+    payload.insert("cluster_count".to_string(), Value::Uint(0));
+    payload.insert("clusters".to_string(), Value::Array(Vec::new()));
+    Message::new(msg_type::COMPUTE_INTENT_RESPONSE, request_id, payload)
 }
 
 fn handle_hello(
@@ -381,6 +540,11 @@ fn save_python_state(state: &mut ServerState) -> Result<(), SubstrateError> {
         client.save_state(&state_dir_str)?;
     }
     Ok(())
+}
+
+/// M8: Persist the substrate's DAG to `<state_dir>/dag.cb`.
+fn save_dag_state(state: &ServerState) -> Result<(), SubstrateError> {
+    save_dag(&state.dag, &state.state_dir)
 }
 
 /// Forward a request to the Python worker verbatim and surface its response.
@@ -517,9 +681,43 @@ fn handle_advance(
     // its internal counter by 1; we mirror that into the manifest below in the
     // dispatch arm).
     let post_cycle = gradient.cycle_number;
+
+    // M8: insert each sporocarp into the substrate's persistent DAG. Each
+    // sporocarp becomes a DAG node whose parent is the previous DAG tip (linear
+    // chain at M8 minimum; M9+ may add multi-parent for causally-related events).
+    // The DAG node's hash is computed by Rust from parent + content; the
+    // sporocarp's own content-hash is stored inside the canonical_bytes payload
+    // as an informational field.
+    let mut dag_node_hashes: Vec<myco_kernel_shared::crypto::NodeHash> = Vec::new();
+    for sp in &advance_report.sporocarps {
+        let parents: Vec<myco_kernel_shared::crypto::NodeHash> = match state.dag.tip() {
+            Some(t) => vec![t],
+            None => Vec::new(),
+        };
+        let node_type = format!("sporocarp:{}", sp.sporocarp_type);
+        let dag_hash = state
+            .dag
+            .insert_node(
+                parents,
+                node_type,
+                sp.at_cycle,
+                CanonicalBytes(sp.canonical_bytes.clone()),
+            )
+            .map_err(|e| SubstrateError::Protocol(format!("dag insert: {e}")))?;
+        dag_node_hashes.push(dag_hash);
+    }
+
     let mut payload = BTreeMap::new();
     // Echo the substrate's authoritative cycle counter (post-increment).
     payload.insert("cycle_number".to_string(), Value::Uint(post_cycle));
+    // M8: echo the current DAG tip + node count for observability.
+    if let Some(tip) = state.dag.tip() {
+        payload.insert("dag_tip".to_string(), Value::Bytes(tip.as_ref().to_vec()));
+    }
+    payload.insert(
+        "dag_node_count".to_string(),
+        Value::Uint(state.dag.node_count() as u64),
+    );
     // Fruited axis names.
     payload.insert(
         "fruited_axes".to_string(),
@@ -531,11 +729,12 @@ fn handle_advance(
                 .collect(),
         ),
     );
-    // Sporocarps (full canonical-bytes + hash for DAG insertion downstream).
+    // Sporocarps + their DAG node hashes (operator can reconstruct causal chain).
     let sporocarps_array: Vec<Value> = advance_report
         .sporocarps
         .iter()
-        .map(|sp| {
+        .zip(dag_node_hashes.iter())
+        .map(|(sp, dag_hash)| {
             let mut m = BTreeMap::new();
             m.insert(
                 "sporocarp_type".to_string(),
@@ -552,6 +751,12 @@ fn handle_advance(
                 Value::Bytes(sp.canonical_bytes.clone()),
             );
             m.insert("hash".to_string(), Value::Bytes(sp.hash.to_vec()));
+            // M8: the DAG node hash (different from sporocarp content-hash; carries
+            // parent-chain identity within the substrate's DAG).
+            m.insert(
+                "dag_node_hash".to_string(),
+                Value::Bytes(dag_hash.as_ref().to_vec()),
+            );
             Value::Map(m)
         })
         .collect();

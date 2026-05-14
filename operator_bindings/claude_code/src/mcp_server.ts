@@ -29,7 +29,11 @@ import {
   SubstrateClient,
   type SubstrateClientConfig,
 } from "./substrate_client.ts";
-import type { AdvanceReport } from "./protocol/messages.ts";
+import type {
+  AdvanceReport,
+  IntentReport,
+  RecentNodesReport,
+} from "./protocol/messages.ts";
 
 /** Configuration for the MCP server. */
 export interface McpServerConfig {
@@ -57,6 +61,41 @@ function formatAdvance(report: AdvanceReport): string {
     );
   }
   return parts.join("\n");
+}
+
+function formatIntent(report: IntentReport): string {
+  const lines: string[] = [];
+  lines.push(
+    `cold_start=${report.coldStart}  neighborhood=${report.neighborhoodNodeCount} nodes  full_set=${report.fullSetNodeCount} nodes  clusters=${report.clusterCount}`,
+  );
+  for (const cluster of report.clusters) {
+    const hashPreviews = cluster.nodeHashes
+      .slice(0, 3)
+      .map((h) => toHex(h).substring(0, 12) + "…")
+      .join(", ");
+    const more =
+      cluster.nodeHashes.length > 3
+        ? ` … (+${cluster.nodeHashes.length - 3} more)`
+        : "";
+    lines.push(
+      `  cluster #${cluster.clusterId}: ${cluster.nodeCount} nodes [${hashPreviews}${more}]`,
+    );
+  }
+  return lines.join("\n");
+}
+
+function formatRecentNodes(report: RecentNodesReport): string {
+  const lines: string[] = [];
+  const tip = report.dagTip ? toHex(report.dagTip).substring(0, 16) : "(empty)";
+  lines.push(
+    `total_dag_size=${report.totalDagSize}  returned=${report.returnedCount}  tip=${tip}…`,
+  );
+  for (const node of report.nodes) {
+    lines.push(
+      `  [${node.atCycle}] ${node.nodeType}  hash=${toHex(node.hash).substring(0, 16)}…  parents=${node.parentHashes.length}`,
+    );
+  }
+  return lines.join("\n");
 }
 
 const TOOL_DEFINITIONS = [
@@ -158,6 +197,40 @@ const TOOL_DEFINITIONS = [
     description:
       "Gracefully shut down the substrate. After this call, no more substrate operations will work in this session.",
     inputSchema: { type: "object", properties: {}, required: [] },
+  },
+  {
+    name: "myco_current_intent",
+    description:
+      "Compute the substrate's current 'intent' — its self-knowledge derived from the causal DAG of sporocarps. Runs cluster_C over the neighborhood + ancestors+descendants of the DAG tip. Returns clusters grouping causally-related events. Captures what the substrate has been 'thinking about' lately.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        radius_cycles: {
+          type: "integer",
+          description:
+            "Neighborhood radius in metabolic cycles (default 10). Wider radius = more historical context",
+          minimum: 0,
+        },
+      },
+      required: [],
+    },
+  },
+  {
+    name: "myco_query_recent_nodes",
+    description:
+      "List the last N DAG nodes (sporocarps) in the substrate's causal history. Useful for inspecting what the substrate has DONE — its observable behavior over recent cycles.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        count: {
+          type: "integer",
+          description: "Number of most-recent DAG nodes to return (default 50)",
+          minimum: 1,
+          maximum: 1000,
+        },
+      },
+      required: [],
+    },
   },
 ];
 
@@ -318,6 +391,28 @@ export class McpServer {
         return {
           content: [
             { type: "text" as const, text: "Substrate shut down gracefully." },
+          ],
+        };
+      }
+      case "myco_current_intent": {
+        const sub = await this._ensureSubstrate();
+        const radius =
+          args.radius_cycles !== undefined
+            ? BigInt(Number(args.radius_cycles))
+            : 10n;
+        const report = await sub.currentIntent({ radiusCycles: radius });
+        return {
+          content: [{ type: "text" as const, text: formatIntent(report) }],
+        };
+      }
+      case "myco_query_recent_nodes": {
+        const sub = await this._ensureSubstrate();
+        const count =
+          args.count !== undefined ? BigInt(Number(args.count)) : 50n;
+        const report = await sub.queryRecentNodes(count);
+        return {
+          content: [
+            { type: "text" as const, text: formatRecentNodes(report) },
           ],
         };
       }

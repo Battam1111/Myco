@@ -12,6 +12,7 @@ authors = [{ name = "Battam1111" }]
 dependencies = [
     "myco-kernel-governance",
     "myco-kernel-tropism",
+    "myco-kernel-trajectory",
     "blake3>=1.0",
     "cryptography>=42.0",
 ]

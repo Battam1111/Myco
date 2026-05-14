@@ -587,6 +587,110 @@ def test_load_state_missing_returns_not_hydrated(tmp_path) -> None:  # type: ign
     assert expect_bool(payload["hydrated"]) is False
 
 
+# ---------------------------------------------------------------------------
+# Compute intent (M8).
+# ---------------------------------------------------------------------------
+
+
+def test_compute_intent_empty_dag_returns_cold_start() -> None:
+    """An empty dag_nodes Array + unknown pivot → cold_start=True."""
+    from myco_kernel_governance.canonical_bytes import (  # noqa: PLC0415
+        Array as CbArray,
+        Bytes as CbBytes,
+    )
+
+    state = DispatcherState()
+    _do_handshake(state)
+    response = dispatch(
+        state,
+        Message(
+            type=MessageType.COMPUTE_INTENT,
+            request_id=70,
+            payload=CbMap.from_dict(
+                {
+                    "pivot_hash": CbBytes(b"\x00" * 32),
+                    "radius_cycles": CbUint(10),
+                    "dag_nodes": CbArray(()),
+                }
+            ),
+        ),
+    )
+    assert response is not None
+    assert response.type is MessageType.COMPUTE_INTENT_RESPONSE
+    fields = dict(response.payload.value)
+    from myco_kernel_governance.canonical_bytes import expect_bool, expect_uint  # noqa: PLC0415
+
+    assert expect_bool(fields["cold_start"]) is True
+    assert expect_uint(fields["cluster_count"]) == 0
+
+
+def test_compute_intent_populated_dag_returns_clusters() -> None:
+    """A 3-node linear-chain DAG with pivot=middle node returns clusters."""
+    import hashlib  # noqa: PLC0415
+
+    from myco_kernel_governance.canonical_bytes import (  # noqa: PLC0415
+        Array as CbArray,
+        Bytes as CbBytes,
+    )
+
+    # Build 3 fake node hashes (not real merkle hashes; just unique 32-byte IDs).
+    h1 = hashlib.sha256(b"node1").digest()
+    h2 = hashlib.sha256(b"node2").digest()
+    h3 = hashlib.sha256(b"node3").digest()
+
+    state = DispatcherState()
+    _do_handshake(state)
+    response = dispatch(
+        state,
+        Message(
+            type=MessageType.COMPUTE_INTENT,
+            request_id=71,
+            payload=CbMap.from_dict(
+                {
+                    "pivot_hash": CbBytes(h2),
+                    "radius_cycles": CbUint(100),
+                    "dag_nodes": CbArray(
+                        (
+                            CbMap.from_dict(
+                                {
+                                    "hash": CbBytes(h1),
+                                    "parent_hashes": CbArray(()),
+                                    "at_cycle": CbUint(1),
+                                    "node_type": CbString("sporocarp:test"),
+                                }
+                            ),
+                            CbMap.from_dict(
+                                {
+                                    "hash": CbBytes(h2),
+                                    "parent_hashes": CbArray((CbBytes(h1),)),
+                                    "at_cycle": CbUint(2),
+                                    "node_type": CbString("sporocarp:test"),
+                                }
+                            ),
+                            CbMap.from_dict(
+                                {
+                                    "hash": CbBytes(h3),
+                                    "parent_hashes": CbArray((CbBytes(h2),)),
+                                    "at_cycle": CbUint(3),
+                                    "node_type": CbString("sporocarp:test"),
+                                }
+                            ),
+                        )
+                    ),
+                }
+            ),
+        ),
+    )
+    assert response is not None
+    assert response.type is MessageType.COMPUTE_INTENT_RESPONSE
+    fields = dict(response.payload.value)
+    from myco_kernel_governance.canonical_bytes import expect_bool, expect_uint  # noqa: PLC0415
+
+    assert expect_bool(fields["cold_start"]) is False
+    # The 3-node chain forms 1 connected component when neighborhood covers all of them.
+    assert expect_uint(fields["cluster_count"]) >= 1
+
+
 def test_save_load_full_cycle_roundtrip(tmp_path) -> None:  # type: ignore[no-untyped-def]
     """Save state A, advance cycles, save again, load → preserves cycle progress."""
     state_a = DispatcherState()

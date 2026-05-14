@@ -256,6 +256,20 @@ impl BridgeClient {
         parse_snapshot_response(&response)
     }
 
+    /// Send a raw typed request and read its correlated response. Used by
+    /// downstream crates (myco_substrate) to forward operator messages to
+    /// the Python worker while preserving operator-side request_id ownership.
+    ///
+    /// Returns the response Message (caller is responsible for re-stamping
+    /// the operator-side request_id).
+    pub fn call(
+        &mut self,
+        message_type: &str,
+        payload: std::collections::BTreeMap<String, myco_kernel_shared::canonical_bytes::Value>,
+    ) -> Result<Message, BridgeError> {
+        self.send_request(message_type, payload)
+    }
+
     /// Tell the Python worker to persist its gradient state to `state_dir`.
     pub fn save_state(&mut self, state_dir: &str) -> Result<(), BridgeError> {
         let response = self.send_request(msg_type::SAVE_STATE, state_dir_payload(state_dir))?;

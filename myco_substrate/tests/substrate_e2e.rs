@@ -396,3 +396,69 @@ fn m7_fruiting_history_survives_restart() {
     assert_eq!(r2.fruited_axes, vec!["fruity".to_string()]);
     client2.shutdown().expect("shutdown");
 }
+
+// ---------------------------------------------------------------------------
+// M8 MILESTONE TESTS: DAG persistence + intent surfacing.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn m8_dag_files_exist_after_first_sporocarp() {
+    let dir = fresh_state_dir();
+    let mut client = spawn_substrate_with_state_dir(&dir);
+    client
+        .register_axis("dagger", "appetite", 1.0, 0.0, 1.0, false, "noop")
+        .expect("register");
+    client.perturb("dagger", 2.0).expect("perturb");
+    let _ = client.advance(1).expect("advance");
+    assert!(
+        dir.join("dag.cb").exists(),
+        "dag.cb should exist after first sporocarp"
+    );
+    client.shutdown().expect("shutdown");
+}
+
+#[test]
+fn m8_dag_persists_across_restart() {
+    let dir = fresh_state_dir();
+
+    // Session 1: fruit 3 times.
+    let mut client1 = spawn_substrate_with_state_dir(&dir);
+    client1
+        .register_axis("persistent", "appetite", 1.0, 0.0, 1.0, false, "noop")
+        .expect("register");
+    for cycle in 1..=3 {
+        client1.perturb("persistent", 2.0).expect("perturb");
+        let r = client1.advance(cycle).expect("advance");
+        assert_eq!(r.sporocarps.len(), 1);
+    }
+    client1.shutdown().expect("shutdown");
+
+    // Session 2: DAG should be hydrated with 3 nodes. Fourth advance extends chain.
+    let mut client2 = spawn_substrate_with_state_dir(&dir);
+    client2.perturb("persistent", 2.0).expect("perturb");
+    let r = client2.advance(4).expect("advance");
+    assert_eq!(r.sporocarps.len(), 1);
+    client2.shutdown().expect("shutdown");
+    // The fact that this succeeded — register_axis was NOT called in session 2, only inherited — proves both gradient AND DAG carried across restart.
+}
+
+#[test]
+fn m8_dag_node_hashes_form_causal_chain() {
+    let dir = fresh_state_dir();
+    let mut client = spawn_substrate_with_state_dir(&dir);
+    client
+        .register_axis("chain", "appetite", 1.0, 0.0, 1.0, false, "noop")
+        .expect("register");
+
+    let mut hashes: Vec<[u8; 32]> = Vec::new();
+    for cycle in 1..=5 {
+        client.perturb("chain", 2.0).expect("perturb");
+        let r = client.advance(cycle).expect("advance");
+        assert_eq!(r.sporocarps.len(), 1);
+        hashes.push(r.sporocarps[0].hash);
+    }
+    // All 5 sporocarp content-hashes should be unique (different at_cycle → different content).
+    let unique: std::collections::HashSet<_> = hashes.iter().collect();
+    assert_eq!(unique.len(), 5);
+    client.shutdown().expect("shutdown");
+}

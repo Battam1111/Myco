@@ -194,6 +194,143 @@ describe("SubstrateClient e2e", () => {
   });
 
   // -------------------------------------------------------------------------
+  // M8 DAG + intent tests (TS-side proof).
+  // -------------------------------------------------------------------------
+  it("M8: queryRecentNodes returns sporocarp DAG nodes after advance", async () => {
+    const client = await spawn();
+    try {
+      await client.registerAxis({
+        name: "dag_test",
+        axisClass: "appetite",
+        fruitingThreshold: 1.0,
+        initialValue: 0.0,
+        decayRatePerCycle: 1.0,
+        isMortalitySignal: false,
+        updateRuleKind: "noop",
+      });
+      // Advance 3 cycles, each producing a sporocarp.
+      for (let cycle = 1n; cycle <= 3n; cycle++) {
+        await client.perturb("dag_test", 2.0);
+        const r = await client.advance(cycle);
+        assert.equal(r.sporocarps.length, 1);
+      }
+      const report = await client.queryRecentNodes(10n);
+      assert.equal(report.totalDagSize, 3n);
+      assert.equal(report.returnedCount, 3n);
+      assert.equal(report.nodes.length, 3);
+      assert.ok(report.dagTip !== null);
+      // Each node should have node_type starting with "sporocarp:".
+      for (const n of report.nodes) {
+        assert.match(n.nodeType, /^sporocarp:/);
+        assert.equal(n.hash.length, 32);
+      }
+      // The first node (genesis) has 0 parents; subsequent have 1.
+      assert.equal(report.nodes[0]!.parentHashes.length, 0);
+      assert.equal(report.nodes[1]!.parentHashes.length, 1);
+      assert.equal(report.nodes[2]!.parentHashes.length, 1);
+      // Chain integrity: node[1].parent[0] === node[0].hash.
+      assert.deepEqual(report.nodes[1]!.parentHashes[0], report.nodes[0]!.hash);
+      assert.deepEqual(report.nodes[2]!.parentHashes[0], report.nodes[1]!.hash);
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("M8: currentIntent on empty DAG returns cold_start", async () => {
+    const client = await spawn();
+    try {
+      const report = await client.currentIntent({ radiusCycles: 10n });
+      assert.equal(report.coldStart, true);
+      assert.equal(report.clusterCount, 0n);
+      assert.equal(report.clusters.length, 0);
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("M8: currentIntent on populated DAG returns clusters", async () => {
+    const client = await spawn();
+    try {
+      await client.registerAxis({
+        name: "intent_test",
+        axisClass: "appetite",
+        fruitingThreshold: 1.0,
+        initialValue: 0.0,
+        decayRatePerCycle: 1.0,
+        isMortalitySignal: false,
+        updateRuleKind: "noop",
+      });
+      // Produce 5 sporocarps in a chain.
+      for (let cycle = 1n; cycle <= 5n; cycle++) {
+        await client.perturb("intent_test", 2.0);
+        await client.advance(cycle);
+      }
+      const report = await client.currentIntent({ radiusCycles: 10n });
+      assert.equal(report.coldStart, false);
+      // 5 chained sporocarps → 1 connected component (single cluster) when radius is wide enough.
+      assert.ok(
+        report.clusterCount >= 1n,
+        `expected ≥1 cluster on populated DAG; got ${report.clusterCount}`,
+      );
+      // Total nodes in clusters should account for the DAG.
+      const totalInClusters = report.clusters
+        .map((c) => c.nodeCount)
+        .reduce((a, b) => a + b, 0n);
+      assert.ok(
+        totalInClusters > 0n,
+        `clusters should contain nodes; got ${totalInClusters}`,
+      );
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("M8: DAG persists across TS-side respawn", async () => {
+    const dir = freshStateDir();
+    try {
+      // Session 1: produce sporocarps.
+      const client1 = await spawn(dir);
+      await client1.registerAxis({
+        name: "persistent_dag",
+        axisClass: "appetite",
+        fruitingThreshold: 1.0,
+        initialValue: 0.0,
+        decayRatePerCycle: 1.0,
+        isMortalitySignal: false,
+        updateRuleKind: "noop",
+      });
+      for (let c = 1n; c <= 3n; c++) {
+        await client1.perturb("persistent_dag", 2.0);
+        await client1.advance(c);
+      }
+      const r1 = await client1.queryRecentNodes(10n);
+      assert.equal(r1.totalDagSize, 3n);
+      const tip1 = r1.dagTip!;
+      await client1.shutdown();
+
+      // Session 2: DAG should be hydrated. Advance one more.
+      const client2 = await spawn(dir);
+      try {
+        const r2 = await client2.queryRecentNodes(10n);
+        assert.equal(
+          r2.totalDagSize,
+          3n,
+          "DAG should have 3 nodes hydrated from disk",
+        );
+        assert.deepEqual(
+          r2.dagTip,
+          tip1,
+          "DAG tip should match pre-restart tip",
+        );
+      } finally {
+        await client2.shutdown();
+      }
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  // -------------------------------------------------------------------------
   // M7 cross-restart test: TS-side proof that substrate state persists across
   // process kill + respawn when the same state_dir is used.
   // -------------------------------------------------------------------------

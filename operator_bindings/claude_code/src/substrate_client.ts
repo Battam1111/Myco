@@ -22,17 +22,23 @@ import {
   advancePayload,
   type AdvanceReport,
   BOOTSTRAP_KEY,
+  computeIntentPayload,
   decodeFrameBody,
   emptyPayload,
   encodeFrameBody,
   type HelloAck,
   helloPayload,
+  type IntentReport,
   type Message,
   MSG_TYPE,
   parseAdvanceResponse,
+  parseComputeIntentResponse,
   parseHelloAck,
+  parseQueryRecentNodesResponse,
   parseSnapshotResponse,
   perturbPayload,
+  queryRecentNodesPayload,
+  type RecentNodesReport,
   registerAxisPayload,
 } from "./protocol/messages.ts";
 
@@ -327,6 +333,30 @@ export class SubstrateClient {
       emptyPayload(),
     );
     return parseSnapshotResponse(response);
+  }
+
+  /** M8: Query the substrate's recent DAG nodes (causal history diagnostic). */
+  async queryRecentNodes(count: bigint = 50n): Promise<RecentNodesReport> {
+    const response = await this._sendRequest(
+      MSG_TYPE.QUERY_RECENT_NODES,
+      queryRecentNodesPayload(count),
+    );
+    return parseQueryRecentNodesResponse(response);
+  }
+
+  /** M8: Compute the substrate's current intent (cluster_C over neighborhood). */
+  async currentIntent(args: {
+    radiusCycles?: bigint;
+    pivotHash?: Uint8Array;
+  } = {}): Promise<IntentReport> {
+    const response = await this._sendRequest(
+      MSG_TYPE.COMPUTE_INTENT,
+      computeIntentPayload({
+        radiusCycles: args.radiusCycles ?? 10n,
+        pivotHash: args.pivotHash,
+      }),
+    );
+    return parseComputeIntentResponse(response);
   }
 
   /** Graceful shutdown — sends shutdown, awaits ack, waits for child exit. */
