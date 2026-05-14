@@ -31,6 +31,7 @@ import {
 } from "./substrate_client.ts";
 import type {
   AdvanceReport,
+  ImmuneCheckReport,
   ImmuneEventsReport,
   IntentReport,
   MutationResult,
@@ -83,6 +84,18 @@ function formatIntent(report: IntentReport): string {
     lines.push(
       `  cluster #${cluster.clusterId}: ${cluster.nodeCount} nodes [${hashPreviews}${more}]`,
     );
+  }
+  return lines.join("\n");
+}
+
+function formatImmuneCheck(report: ImmuneCheckReport): string {
+  const lines: string[] = [];
+  lines.push(
+    `total_checks=${report.totalChecks}  failed_checks=${report.failedChecks}  immune_events_emitted=${report.immuneEventsEmitted}`,
+  );
+  for (const check of report.checks) {
+    const marker = check.passed ? "✓" : "✗";
+    lines.push(`  ${marker} ${check.checkId}: ${check.evidence}`);
   }
   return lines.join("\n");
 }
@@ -261,6 +274,16 @@ const TOOL_DEFINITIONS = [
           maximum: 1000,
         },
       },
+      required: [],
+    },
+  },
+  {
+    name: "myco_run_immune_check",
+    description:
+      "Trigger an ad-hoc immune verification scan. The substrate runs comprehensive integrity checks (substrate_id well-formedness, DAG hash chain integrity, cycle counter monotonicity, pinned operator pubkey well-formedness, owner_keys consistency). For each failed check, the substrate emits a C9 cold_resume_invariant_failure immune sporocarp (visible via myco_query_immune_events). Returns a per-check report.",
+    inputSchema: {
+      type: "object",
+      properties: {},
       required: [],
     },
   },
@@ -499,6 +522,16 @@ export class McpServer {
           content: [
             { type: "text" as const, text: formatRecentNodes(report) },
           ],
+        };
+      }
+      case "myco_run_immune_check": {
+        const sub = await this._ensureSubstrate();
+        const report = await sub.runImmuneCheck();
+        return {
+          content: [
+            { type: "text" as const, text: formatImmuneCheck(report) },
+          ],
+          isError: report.failedChecks > 0n,
         };
       }
       case "myco_query_immune_events": {

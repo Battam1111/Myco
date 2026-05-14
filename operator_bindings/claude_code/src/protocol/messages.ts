@@ -70,6 +70,8 @@ export const MSG_TYPE = {
   SUBMIT_MUTATION_RESPONSE: "submit_mutation_response",
   QUERY_IMMUNE_EVENTS: "query_immune_events",
   QUERY_IMMUNE_EVENTS_RESPONSE: "query_immune_events_response",
+  RUN_IMMUNE_CHECK: "run_immune_check",
+  RUN_IMMUNE_CHECK_RESPONSE: "run_immune_check_response",
 } as const;
 
 export type MessageType = (typeof MSG_TYPE)[keyof typeof MSG_TYPE];
@@ -671,6 +673,72 @@ export function queryImmuneEventsPayload(count: bigint): Map<string, Value> {
   const m = new Map<string, Value>();
   m.set("count", { type: "uint", value: count });
   return m;
+}
+
+/** One C9 integrity check result (M12). */
+export interface IntegrityCheck {
+  checkId: string;
+  passed: boolean;
+  evidence: string;
+}
+
+/** Parsed `run_immune_check_response` (M12). */
+export interface ImmuneCheckReport {
+  totalChecks: bigint;
+  failedChecks: bigint;
+  immuneEventsEmitted: bigint;
+  checks: IntegrityCheck[];
+}
+
+export function parseRunImmuneCheckResponse(
+  response: Message,
+): ImmuneCheckReport {
+  if (response.messageType !== MSG_TYPE.RUN_IMMUNE_CHECK_RESPONSE) {
+    throw new BridgeProtocolError(
+      `expected run_immune_check_response; got ${response.messageType}`,
+    );
+  }
+  const totalV = response.payload.get("total_checks");
+  const failedV = response.payload.get("failed_checks");
+  const emittedV = response.payload.get("immune_events_emitted");
+  const checksV = response.payload.get("checks");
+  if (
+    !totalV || totalV.type !== "uint" ||
+    !failedV || failedV.type !== "uint" ||
+    !emittedV || emittedV.type !== "uint" ||
+    !checksV || checksV.type !== "array"
+  ) {
+    throw new BridgeProtocolError(
+      "run_immune_check_response missing required typed fields",
+    );
+  }
+  const checks: IntegrityCheck[] = checksV.value.map((v) => {
+    if (v.type !== "map") {
+      throw new BridgeProtocolError(`check entry not a Map: ${v.type}`);
+    }
+    const m = v.value;
+    const idV = m.get("check_id");
+    const passedV = m.get("passed");
+    const evidenceV = m.get("evidence");
+    if (
+      !idV || idV.type !== "string" ||
+      !passedV || passedV.type !== "bool" ||
+      !evidenceV || evidenceV.type !== "string"
+    ) {
+      throw new BridgeProtocolError("check entry missing required typed fields");
+    }
+    return {
+      checkId: idV.value,
+      passed: passedV.value,
+      evidence: evidenceV.value,
+    };
+  });
+  return {
+    totalChecks: totalV.value,
+    failedChecks: failedV.value,
+    immuneEventsEmitted: emittedV.value,
+    checks,
+  };
 }
 
 export function parseQueryImmuneEventsResponse(
