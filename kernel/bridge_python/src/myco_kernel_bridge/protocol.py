@@ -183,6 +183,20 @@ class MessageType(str, Enum):
     """Rust → Operator: enumerated nodes with full metadata for owner-side
     Merkle chain reconstruction (M15)."""
 
+    INGEST_RAW_MATERIAL = "ingest_raw_material"
+    """Operator → Rust: ingest a raw material payload as a raw_material:{kind}
+    DAG node (M16; activates L0 P2 永恒吞噬). Rust-handled; no Python involvement."""
+
+    INGEST_RAW_MATERIAL_RESPONSE = "ingest_raw_material_response"
+    """Rust → Operator: DAG node hash of the new raw_material node (M16)."""
+
+    PERTURB_AXIS_FROM_RAW_MATERIAL = "perturb_axis_from_raw_material"
+    """Operator → Rust → Python: perturb an axis with a causal link to a
+    previously-ingested raw_material node (M16)."""
+
+    PERTURB_AXIS_FROM_RAW_MATERIAL_RESPONSE = "perturb_axis_from_raw_material_response"
+    """Rust → Operator: causal-link DAG node hash + perturbation acknowledgment (M16)."""
+
 
 # ---------------------------------------------------------------------------
 # Error types.

@@ -127,6 +127,23 @@ pub mod msg_type {
     /// (hashes + parent_hashes + node_type + content_canonical_bytes), the
     /// current tip, and total DAG size for cross-validation.
     pub const ENUMERATE_DAG_SINCE_RESPONSE: &str = "enumerate_dag_since_response";
+    /// `ingest_raw_material` — Operator→Rust: ingest a raw material payload
+    /// (text / file content / conversation message / url fetch / llm response)
+    /// as a `raw_material:{kind}` DAG node (M16; activates L0 P2 永恒吞噬).
+    pub const INGEST_RAW_MATERIAL: &str = "ingest_raw_material";
+    /// `ingest_raw_material_response` — Rust→Operator: the DAG node hash
+    /// of the newly inserted raw_material node, plus current DAG tip + size.
+    pub const INGEST_RAW_MATERIAL_RESPONSE: &str = "ingest_raw_material_response";
+    /// `perturb_axis_from_raw_material` — Operator→Rust→Python: perturb an
+    /// axis with causal linkage to a previously-ingested raw_material node.
+    /// The substrate records the causal link as a DAG node parented by BOTH
+    /// the prior tip AND the referenced raw_material node, so the gradient
+    /// change is traceable back to its environmental source.
+    pub const PERTURB_AXIS_FROM_RAW_MATERIAL: &str = "perturb_axis_from_raw_material";
+    /// `perturb_axis_from_raw_material_response` — Rust→Operator: the DAG
+    /// node hash of the causal-link node + the perturbation result.
+    pub const PERTURB_AXIS_FROM_RAW_MATERIAL_RESPONSE: &str =
+        "perturb_axis_from_raw_material_response";
 }
 
 /// A decoded bridge message.

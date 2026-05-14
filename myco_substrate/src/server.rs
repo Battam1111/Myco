@@ -512,6 +512,18 @@ fn dispatch(state: &mut ServerState, request: &Message) -> Result<Option<Message
         msg_type::REQUEST_ATTESTATION_NONCE => handle_request_attestation_nonce(state, request),
         // M15: DAG enumeration closure for owner-side Merkle chain reconstruction.
         msg_type::ENUMERATE_DAG_SINCE => handle_enumerate_dag_since(state, request),
+        // M16: P2 永恒吞噬 — universal raw_material ingestion + causal perturbation.
+        msg_type::INGEST_RAW_MATERIAL => {
+            let response = handle_ingest_raw_material(state, request)?;
+            save_dag_state(state)?;
+            Ok(response)
+        }
+        msg_type::PERTURB_AXIS_FROM_RAW_MATERIAL => {
+            let response = handle_perturb_axis_from_raw_material(state, request)?;
+            save_python_state(state)?;
+            save_dag_state(state)?;
+            Ok(response)
+        }
         other => Err(SubstrateError::Protocol(format!(
             "substrate cannot handle message type {other:?}"
         ))),
@@ -519,6 +531,9 @@ fn dispatch(state: &mut ServerState, request: &Message) -> Result<Option<Message
 }
 
 /// M8: Return the last N DAG nodes (Rust-handled; no Python involvement).
+/// M16: optional `node_type_prefix` filter — return only nodes whose
+/// node_type starts with the given prefix (e.g. "raw_material:" to filter
+/// for ingested raw material; "mutation:" for accepted mutations).
 fn handle_query_recent_nodes(
     state: &mut ServerState,
     request: &Message,
@@ -532,9 +547,30 @@ fn handle_query_recent_nodes(
         })
         .unwrap_or(50);
 
-    let all_nodes: Vec<_> = state.dag.iter_in_insertion_order().collect();
-    let total = all_nodes.len();
-    let start = total.saturating_sub(count as usize);
+    // M16: optional node_type_prefix filter.
+    let prefix_filter: Option<String> =
+        request
+            .payload
+            .get("node_type_prefix")
+            .and_then(|v| match v {
+                Value::String(s) => Some(s.clone()),
+                _ => None,
+            });
+
+    // Total DAG size is always reported unfiltered (caller-visible context).
+    let unfiltered_total = state.dag.node_count();
+    let all_nodes: Vec<_> = state
+        .dag
+        .iter_in_insertion_order()
+        .filter(|n| {
+            prefix_filter
+                .as_ref()
+                .map(|p| n.node_type.starts_with(p))
+                .unwrap_or(true)
+        })
+        .collect();
+    let filtered_total = all_nodes.len();
+    let start = filtered_total.saturating_sub(count as usize);
     let recent: Vec<Value> = all_nodes[start..]
         .iter()
         .map(|n| {
@@ -560,7 +596,17 @@ fn handle_query_recent_nodes(
         .collect();
 
     let mut payload = BTreeMap::new();
-    payload.insert("total_dag_size".to_string(), Value::Uint(total as u64));
+    payload.insert(
+        "total_dag_size".to_string(),
+        Value::Uint(unfiltered_total as u64),
+    );
+    // M16: when a prefix filter was applied, expose the filtered-total count
+    // separately so the caller can distinguish "DAG has 100 nodes; 5 match my
+    // filter" from "DAG has 5 nodes total".
+    payload.insert(
+        "filtered_total".to_string(),
+        Value::Uint(filtered_total as u64),
+    );
     payload.insert(
         "returned_count".to_string(),
         Value::Uint(recent.len() as u64),
@@ -1187,6 +1233,225 @@ fn handle_enumerate_dag_since(
 
     Ok(Some(Message::new(
         msg_type::ENUMERATE_DAG_SINCE_RESPONSE,
+        request.request_id,
+        payload,
+    )))
+}
+
+/// M16: P2 永恒吞噬 — Ingest a raw material payload as a `raw_material:{kind}`
+/// DAG node. Activates the L0 P2 "no filter on intake" principle: any bytes the
+/// operator can present (text / file / conversation / url-fetch / llm-response)
+/// become canonical-bytes content of a new DAG node.
+///
+/// Payload schema:
+/// ```text
+/// Map({
+///   "content_kind": String,    // "text" | "file" | "conversation" | "url" | "llm_response" | custom
+///   "content_bytes": Bytes,    // raw material payload (max 1 MiB)
+///   "source_uri": String       // optional; provenance hint (file path, url, message id)
+///   "meta": Map                // optional; arbitrary K-V hints
+/// })
+/// ```
+///
+/// The substrate composes the DAG node's content as canonical_bytes(Map({
+///   "kind": ..., "bytes": ..., "source_uri": ..., "meta": ...
+/// })) — full intake context is hashed.
+///
+/// Returns the inserted node hash + tip + total DAG size.
+fn handle_ingest_raw_material(
+    state: &mut ServerState,
+    request: &Message,
+) -> Result<Option<Message>, SubstrateError> {
+    // Required: content_kind + content_bytes.
+    let content_kind = match request.payload.get("content_kind") {
+        Some(Value::String(s)) if !s.is_empty() => s.clone(),
+        _ => {
+            return Err(SubstrateError::Protocol(
+                "ingest_raw_material: content_kind must be a non-empty String".to_string(),
+            ));
+        }
+    };
+    let content_bytes = match request.payload.get("content_bytes") {
+        Some(Value::Bytes(b)) => b.clone(),
+        _ => {
+            return Err(SubstrateError::Protocol(
+                "ingest_raw_material: content_bytes must be Bytes".to_string(),
+            ));
+        }
+    };
+
+    // M16: 512 KiB cap per ingestion event. The bridge frame layer caps at
+    // 1 MiB (MAX_FRAME_BODY_SIZE); leaving 512 KiB headroom for the
+    // canonical-bytes envelope + meta/source_uri overhead so content-cap
+    // rejections produce explicit error messages instead of frame-layer
+    // connection drops. Operators ingesting larger files should chunk.
+    const MAX_INGESTION_BYTES: usize = 512 * 1024;
+    if content_bytes.len() > MAX_INGESTION_BYTES {
+        return Err(SubstrateError::Protocol(format!(
+            "ingest_raw_material: content_bytes size {} exceeds {MAX_INGESTION_BYTES}-byte cap",
+            content_bytes.len()
+        )));
+    }
+
+    // Optional: source_uri + meta.
+    let source_uri = request.payload.get("source_uri").and_then(|v| match v {
+        Value::String(s) => Some(s.clone()),
+        _ => None,
+    });
+    let meta_value = request.payload.get("meta").cloned();
+
+    // Compose the content canonical bytes (full intake context is hashed).
+    let mut content_map = BTreeMap::new();
+    content_map.insert("kind".to_string(), Value::String(content_kind.clone()));
+    content_map.insert("bytes".to_string(), Value::Bytes(content_bytes));
+    if let Some(uri) = source_uri {
+        content_map.insert("source_uri".to_string(), Value::String(uri));
+    }
+    if let Some(m) = meta_value {
+        content_map.insert("meta".to_string(), m);
+    }
+    let canonical = cb_encode(&Value::Map(content_map))
+        .map_err(|e| SubstrateError::Protocol(format!("ingest content encode: {e}")))?;
+
+    let parents: Vec<myco_kernel_shared::crypto::NodeHash> = match state.dag.tip() {
+        Some(t) => vec![t],
+        None => Vec::new(),
+    };
+    let node_type = format!("raw_material:{content_kind}");
+    let cycle = state.manifest.cycle_counter;
+    let node_hash = state
+        .dag
+        .insert_node(parents, node_type, cycle, canonical)
+        .map_err(|e| SubstrateError::Protocol(format!("raw_material DAG insert: {e}")))?;
+
+    let mut payload = BTreeMap::new();
+    payload.insert(
+        "dag_node_hash".to_string(),
+        Value::Bytes(node_hash.as_ref().to_vec()),
+    );
+    if let Some(tip) = state.dag.tip() {
+        payload.insert(
+            "current_tip".to_string(),
+            Value::Bytes(tip.as_ref().to_vec()),
+        );
+    }
+    payload.insert(
+        "total_dag_size".to_string(),
+        Value::Uint(state.dag.node_count() as u64),
+    );
+    Ok(Some(Message::new(
+        msg_type::INGEST_RAW_MATERIAL_RESPONSE,
+        request.request_id,
+        payload,
+    )))
+}
+
+/// M16: P2 永恒吞噬 + P6 永恒因果 — Perturb an axis with causal linkage to a
+/// previously-ingested raw_material node. The substrate first forwards the
+/// numeric perturbation to the Python gradient (same as `perturb`), then
+/// inserts a causal-link DAG node parented by BOTH the prior tip AND the
+/// referenced raw_material node — so the gradient change is traceable back
+/// to its environmental source via the DAG.
+fn handle_perturb_axis_from_raw_material(
+    state: &mut ServerState,
+    request: &Message,
+) -> Result<Option<Message>, SubstrateError> {
+    // Extract axis_name + delta_repr (mirrors perturb_payload format).
+    let axis_name = match request.payload.get("axis_name") {
+        Some(Value::String(s)) => s.clone(),
+        _ => {
+            return Err(SubstrateError::Protocol(
+                "perturb_axis_from_raw_material: axis_name must be String".to_string(),
+            ));
+        }
+    };
+    let delta_repr = match request.payload.get("delta_repr") {
+        Some(Value::String(s)) => s.clone(),
+        _ => {
+            return Err(SubstrateError::Protocol(
+                "perturb_axis_from_raw_material: delta_repr must be String".to_string(),
+            ));
+        }
+    };
+    let raw_material_hash = match request.payload.get("raw_material_hash") {
+        Some(Value::Bytes(b)) if b.len() == 32 => {
+            let mut arr = [0u8; 32];
+            arr.copy_from_slice(b);
+            myco_kernel_shared::crypto::NodeHash::from_bytes(arr)
+        }
+        _ => {
+            return Err(SubstrateError::Protocol(
+                "perturb_axis_from_raw_material: raw_material_hash must be 32 bytes".to_string(),
+            ));
+        }
+    };
+
+    // Verify the raw_material_hash exists in the DAG AND is a raw_material node.
+    {
+        let node = state.dag.get(&raw_material_hash).ok_or_else(|| {
+            SubstrateError::Protocol(format!(
+                "perturb_axis_from_raw_material: raw_material_hash {} not found in DAG",
+                hex_encode(raw_material_hash.as_ref())
+            ))
+        })?;
+        if !node.node_type.starts_with("raw_material:") {
+            return Err(SubstrateError::Protocol(format!(
+                "perturb_axis_from_raw_material: hash {} references a {:?} node, not raw_material",
+                hex_encode(raw_material_hash.as_ref()),
+                node.node_type
+            )));
+        }
+    }
+
+    // Parse delta + forward to Python.
+    let delta: f64 = delta_repr
+        .parse()
+        .map_err(|e| SubstrateError::Protocol(format!("delta_repr parse: {e}")))?;
+    {
+        let client = state
+            .python_client
+            .as_mut()
+            .ok_or_else(|| SubstrateError::Handshake("python worker not connected".to_string()))?;
+        client
+            .perturb(&axis_name, delta)
+            .map_err(SubstrateError::Bridge)?;
+    }
+
+    // Insert causal-link DAG node — node_type = "perturb_from_raw:{axis_name}",
+    // parents = [prior tip, raw_material_hash].
+    let prior_tip = state.dag.tip();
+    let parents: Vec<myco_kernel_shared::crypto::NodeHash> = match prior_tip {
+        Some(t) if t != raw_material_hash => vec![t, raw_material_hash],
+        _ => vec![raw_material_hash],
+    };
+    let mut content_map = BTreeMap::new();
+    content_map.insert("axis_name".to_string(), Value::String(axis_name.clone()));
+    content_map.insert("delta_repr".to_string(), Value::String(delta_repr));
+    content_map.insert(
+        "raw_material_hash".to_string(),
+        Value::Bytes(raw_material_hash.as_ref().to_vec()),
+    );
+    let canonical = cb_encode(&Value::Map(content_map))
+        .map_err(|e| SubstrateError::Protocol(format!("perturb_from_raw content encode: {e}")))?;
+
+    let node_type = format!("perturb_from_raw:{axis_name}");
+    let cycle = state.manifest.cycle_counter;
+    let link_hash = state
+        .dag
+        .insert_node(parents, node_type, cycle, canonical)
+        .map_err(|e| SubstrateError::Protocol(format!("perturb_from_raw DAG insert: {e}")))?;
+
+    let mut payload = BTreeMap::new();
+    payload.insert(
+        "causal_link_hash".to_string(),
+        Value::Bytes(link_hash.as_ref().to_vec()),
+    );
+    payload.insert(
+        "raw_material_hash".to_string(),
+        Value::Bytes(raw_material_hash.as_ref().to_vec()),
+    );
+    Ok(Some(Message::new(
+        msg_type::PERTURB_AXIS_FROM_RAW_MATERIAL_RESPONSE,
         request.request_id,
         payload,
     )))

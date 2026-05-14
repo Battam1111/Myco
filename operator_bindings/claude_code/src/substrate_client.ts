@@ -34,6 +34,8 @@ import {
   helloSigningBody,
   type ImmuneCheckReport,
   type ImmuneEventsReport,
+  type IngestResult,
+  ingestRawMaterialPayload,
   type IntentReport,
   type Message,
   MSG_TYPE,
@@ -42,15 +44,20 @@ import {
   parseComputeIntentResponse,
   parseEnumerateDagSinceResponse,
   parseHelloAck,
+  parseIngestRawMaterialResponse,
+  parsePerturbAxisFromRawMaterialResponse,
   parseQueryImmuneEventsResponse,
   parseQueryRecentNodesResponse,
   parseRequestAttestationNonceResponse,
   parseRunImmuneCheckResponse,
   parseSnapshotResponse,
   parseSubmitMutationResponse,
+  perturbAxisFromRawMaterialPayload,
   perturbPayload,
+  type PerturbFromRawResult,
   queryImmuneEventsPayload,
   queryRecentNodesPayload,
+  type RawMaterialKind,
   type RecentNodesReport,
   registerAxisPayload,
   requestAttestationNoncePayload,
@@ -364,13 +371,68 @@ export class SubstrateClient {
     return parseSnapshotResponse(response);
   }
 
-  /** M8: Query the substrate's recent DAG nodes (causal history diagnostic). */
-  async queryRecentNodes(count: bigint = 50n): Promise<RecentNodesReport> {
+  /** M8: Query the substrate's recent DAG nodes (causal history diagnostic).
+   *
+   *  M16: optional `nodeTypePrefix` filter — return only nodes whose node_type
+   *  starts with the prefix. Useful filters:
+   *  - `"raw_material:"` — ingested raw material (M16)
+   *  - `"mutation:"` — accepted classified mutations (M10)
+   *  - `"immune:"` — immune sporocarps (M11+)
+   *  - `"sporocarp:"` — gradient-axis sporocarps (M8)
+   *  - `"perturb_from_raw:"` — causal-link nodes (M16)
+   */
+  async queryRecentNodes(
+    count: bigint = 50n,
+    nodeTypePrefix?: string,
+  ): Promise<RecentNodesReport> {
     const response = await this._sendRequest(
       MSG_TYPE.QUERY_RECENT_NODES,
-      queryRecentNodesPayload(count),
+      queryRecentNodesPayload(count, nodeTypePrefix),
     );
     return parseQueryRecentNodesResponse(response);
+  }
+
+  /** M16: P2 永恒吞噬 — Ingest a raw material payload. The substrate stores
+   *  it as a `raw_material:{kind}` DAG node, hashing the full (kind, bytes,
+   *  source_uri, meta) tuple as canonical bytes. Max 1 MiB per call.
+   *
+   *  This activates the L0 P2 "no filter on intake" principle: any bytes the
+   *  operator can present become first-class substrate content. Downstream
+   *  use: call `perturbAxisFromRawMaterial` to causally link gradient changes
+   *  to the ingested material.
+   */
+  async ingestRawMaterial(args: {
+    contentKind: RawMaterialKind;
+    contentBytes: Uint8Array;
+    sourceUri?: string;
+    meta?: Map<string, import("@myco/anchor-client/src/canonical_bytes.ts").Value>;
+  }): Promise<IngestResult> {
+    const response = await this._sendRequest(
+      MSG_TYPE.INGEST_RAW_MATERIAL,
+      ingestRawMaterialPayload(args),
+    );
+    return parseIngestRawMaterialResponse(response);
+  }
+
+  /** M16: P2 永恒吞噬 + P6 永恒因果 — Perturb an axis with causal linkage to
+   *  a previously-ingested raw_material node. The substrate inserts a
+   *  `perturb_from_raw:{axis}` DAG node parented by BOTH prior tip AND the
+   *  referenced raw_material — making the gradient change traceable to its
+   *  environmental source.
+   *
+   *  Rejects if `rawMaterialHash` is unknown OR doesn't reference a
+   *  `raw_material:*` node.
+   */
+  async perturbAxisFromRawMaterial(args: {
+    axisName: string;
+    delta: number;
+    rawMaterialHash: Uint8Array;
+  }): Promise<PerturbFromRawResult> {
+    const response = await this._sendRequest(
+      MSG_TYPE.PERTURB_AXIS_FROM_RAW_MATERIAL,
+      perturbAxisFromRawMaterialPayload(args),
+    );
+    return parsePerturbAxisFromRawMaterialResponse(response);
   }
 
   /** M8: Compute the substrate's current intent (cluster_C over neighborhood). */
