@@ -59,6 +59,175 @@ pub const DAG_FILENAME: &str = "dag.cb";
 /// Filename for the pinned operator identity public key (M9).
 pub const OPERATOR_IDENTITY_PUBKEY_FILENAME: &str = "operator_identity_pubkey.cb";
 
+/// Filename for the Rust-managed nonce log (M14).
+pub const NONCE_LOG_FILENAME: &str = "nonces.cb";
+
+/// Current nonce log file format version (M14).
+pub const NONCE_LOG_FORMAT_VERSION: u64 = 1;
+
+/// One persisted nonce entry (M14).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PersistedNonceEntry {
+    /// 32-byte nonce.
+    pub nonce: [u8; 32],
+    /// Content hash this nonce was bound to.
+    pub bound_content_hash: [u8; 32],
+    /// DAG tip at issuance.
+    pub bound_dag_tip: [u8; 32],
+    /// Wall-clock expiry (unix nanoseconds).
+    pub expiry_unix_ns: i64,
+    /// Whether this nonce has been consumed.
+    pub consumed: bool,
+}
+
+impl PersistedNonceEntry {
+    /// Serialize this entry as a canonical-bytes Map.
+    fn to_value(&self) -> myco_kernel_shared::canonical_bytes::Value {
+        use myco_kernel_shared::canonical_bytes::Value;
+        let mut m = BTreeMap::new();
+        m.insert("nonce".to_string(), Value::Bytes(self.nonce.to_vec()));
+        m.insert(
+            "bound_content_hash".to_string(),
+            Value::Bytes(self.bound_content_hash.to_vec()),
+        );
+        m.insert(
+            "bound_dag_tip".to_string(),
+            Value::Bytes(self.bound_dag_tip.to_vec()),
+        );
+        m.insert(
+            "expiry_unix_ns".to_string(),
+            Value::Timestamp(self.expiry_unix_ns),
+        );
+        m.insert("consumed".to_string(), Value::Bool(self.consumed));
+        Value::Map(m)
+    }
+
+    fn from_value(v: &myco_kernel_shared::canonical_bytes::Value) -> Result<Self, SubstrateError> {
+        use myco_kernel_shared::canonical_bytes::Value;
+        let m = match v {
+            Value::Map(m) => m,
+            other => {
+                return Err(SubstrateError::Protocol(format!(
+                    "nonce entry is not a Map: {other:?}"
+                )))
+            }
+        };
+        let bytes_field = |key: &str, expected_len: usize| -> Result<[u8; 32], SubstrateError> {
+            match m.get(key) {
+                Some(Value::Bytes(b)) if b.len() == expected_len => {
+                    let mut arr = [0u8; 32];
+                    arr.copy_from_slice(b);
+                    Ok(arr)
+                }
+                _ => Err(SubstrateError::Protocol(format!(
+                    "nonce entry missing/malformed field {key}"
+                ))),
+            }
+        };
+        let nonce = bytes_field("nonce", 32)?;
+        let bound_content_hash = bytes_field("bound_content_hash", 32)?;
+        let bound_dag_tip = bytes_field("bound_dag_tip", 32)?;
+        let expiry_unix_ns = match m.get("expiry_unix_ns") {
+            Some(Value::Timestamp(ts)) => *ts,
+            _ => {
+                return Err(SubstrateError::Protocol(
+                    "nonce entry missing expiry_unix_ns".to_string(),
+                ))
+            }
+        };
+        let consumed = match m.get("consumed") {
+            Some(Value::Bool(b)) => *b,
+            _ => {
+                return Err(SubstrateError::Protocol(
+                    "nonce entry missing consumed flag".to_string(),
+                ))
+            }
+        };
+        Ok(PersistedNonceEntry {
+            nonce,
+            bound_content_hash,
+            bound_dag_tip,
+            expiry_unix_ns,
+            consumed,
+        })
+    }
+}
+
+/// Atomically save the nonce log to `<state_dir>/nonces.cb` (M14).
+///
+/// The nonce log is a snapshot of every nonce ever issued (active + consumed +
+/// expired). Callers SHOULD prune past-expiry consumed nonces periodically to
+/// bound disk growth.
+pub fn save_nonce_log(
+    entries: &[PersistedNonceEntry],
+    state_dir: &Path,
+) -> Result<(), SubstrateError> {
+    use myco_kernel_shared::canonical_bytes::{encode, Value};
+    ensure_state_dir(state_dir)?;
+    let final_path = state_dir.join(NONCE_LOG_FILENAME);
+    let tmp_path = state_dir.join(format!("{NONCE_LOG_FILENAME}.tmp"));
+
+    let entry_values: Vec<Value> = entries.iter().map(|e| e.to_value()).collect();
+    let mut root = BTreeMap::new();
+    root.insert(
+        "format_version".to_string(),
+        Value::Uint(NONCE_LOG_FORMAT_VERSION),
+    );
+    root.insert("entries".to_string(), Value::Array(entry_values));
+    let bytes = encode(&Value::Map(root))
+        .map_err(|e| SubstrateError::Protocol(format!("nonce log encode: {e}")))?;
+
+    {
+        let mut f = fs::File::create(&tmp_path)?;
+        f.write_all(bytes.as_ref())?;
+        f.sync_all()?;
+    }
+    fs::rename(&tmp_path, &final_path)?;
+    Ok(())
+}
+
+/// Load the nonce log from `<state_dir>/nonces.cb` (M14).
+///
+/// Returns:
+/// - `Ok(Some(entries))` on success.
+/// - `Ok(None)` if file missing OR version mismatch.
+/// - `Err(...)` on I/O or malformed-bytes error.
+pub fn load_nonce_log(
+    state_dir: &Path,
+) -> Result<Option<Vec<PersistedNonceEntry>>, SubstrateError> {
+    use myco_kernel_shared::canonical_bytes::{decode, map_get_array, map_get_uint, Value};
+    let path = state_dir.join(NONCE_LOG_FILENAME);
+    let mut f = match fs::File::open(&path) {
+        Ok(f) => f,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(e) => return Err(SubstrateError::Io(e)),
+    };
+    let mut bytes = Vec::new();
+    f.read_to_end(&mut bytes)?;
+    let decoded =
+        decode(&bytes).map_err(|e| SubstrateError::Protocol(format!("nonce log decode: {e}")))?;
+    let map = match decoded {
+        Value::Map(m) => m,
+        other => {
+            return Err(SubstrateError::Protocol(format!(
+                "nonce log is not a Map: {other:?}"
+            )))
+        }
+    };
+    let version = map_get_uint(&map, "format_version")
+        .map_err(|e| SubstrateError::Protocol(e.to_string()))?;
+    if version != NONCE_LOG_FORMAT_VERSION {
+        return Ok(None);
+    }
+    let entries_array =
+        map_get_array(&map, "entries").map_err(|e| SubstrateError::Protocol(e.to_string()))?;
+    let entries: Result<Vec<_>, _> = entries_array
+        .iter()
+        .map(PersistedNonceEntry::from_value)
+        .collect();
+    Ok(Some(entries?))
+}
+
 /// Current operator-identity-pubkey file format version (M9).
 pub const OPERATOR_IDENTITY_PUBKEY_FORMAT_VERSION: u64 = 1;
 
@@ -594,6 +763,91 @@ mod tests {
         assert!(!tmp.exists());
         let final_path = dir.join(OPERATOR_IDENTITY_PUBKEY_FILENAME);
         assert!(final_path.exists());
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    // -----------------------------------------------------------------------
+    // M14 nonce log persistence tests.
+    // -----------------------------------------------------------------------
+
+    fn make_nonce(byte: u8, consumed: bool, expiry_ns: i64) -> PersistedNonceEntry {
+        PersistedNonceEntry {
+            nonce: [byte; 32],
+            bound_content_hash: [byte.wrapping_add(1); 32],
+            bound_dag_tip: [byte.wrapping_add(2); 32],
+            expiry_unix_ns: expiry_ns,
+            consumed,
+        }
+    }
+
+    #[test]
+    fn nonce_log_empty_roundtrips() {
+        let dir = temp_state_dir();
+        save_nonce_log(&[], &dir).unwrap();
+        let loaded = load_nonce_log(&dir).unwrap().unwrap();
+        assert_eq!(loaded.len(), 0);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn nonce_log_single_entry_roundtrips() {
+        let dir = temp_state_dir();
+        let entries = vec![make_nonce(0x11, false, 1_000_000)];
+        save_nonce_log(&entries, &dir).unwrap();
+        let loaded = load_nonce_log(&dir).unwrap().unwrap();
+        assert_eq!(loaded.len(), 1);
+        assert_eq!(loaded[0], entries[0]);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn nonce_log_multi_entry_with_consumed_state() {
+        let dir = temp_state_dir();
+        let entries = vec![
+            make_nonce(0x01, true, 1_000),
+            make_nonce(0x02, false, 2_000),
+            make_nonce(0x03, true, 3_000),
+        ];
+        save_nonce_log(&entries, &dir).unwrap();
+        let loaded = load_nonce_log(&dir).unwrap().unwrap();
+        assert_eq!(loaded.len(), 3);
+        // Verify consumed flags survive.
+        assert!(loaded[0].consumed);
+        assert!(!loaded[1].consumed);
+        assert!(loaded[2].consumed);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn nonce_log_missing_returns_none() {
+        let dir = temp_state_dir();
+        let loaded = load_nonce_log(&dir).unwrap();
+        assert!(loaded.is_none());
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn nonce_log_atomic_save_no_tmp_leftover() {
+        let dir = temp_state_dir();
+        save_nonce_log(&[make_nonce(0xff, false, 9_999)], &dir).unwrap();
+        let tmp = dir.join(format!("{NONCE_LOG_FILENAME}.tmp"));
+        assert!(!tmp.exists());
+        let target = dir.join(NONCE_LOG_FILENAME);
+        assert!(target.exists());
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn nonce_log_version_mismatch_returns_none() {
+        use myco_kernel_shared::canonical_bytes::{encode, Value};
+        let dir = temp_state_dir();
+        let mut bad = BTreeMap::new();
+        bad.insert("format_version".to_string(), Value::Uint(999));
+        bad.insert("entries".to_string(), Value::Array(vec![]));
+        let bad_bytes = encode(&Value::Map(bad)).unwrap();
+        fs::write(dir.join(NONCE_LOG_FILENAME), bad_bytes.as_ref()).unwrap();
+        let loaded = load_nonce_log(&dir).unwrap();
+        assert!(loaded.is_none());
         let _ = fs::remove_dir_all(&dir);
     }
 

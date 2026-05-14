@@ -51,6 +51,7 @@ import {
   type RecentNodesReport,
   registerAxisPayload,
   requestAttestationNoncePayload,
+  revealKeyBindingSigningInput,
   submitMutationPayload,
 } from "./protocol/messages.ts";
 import { OperatorIdentity } from "./operator_identity.ts";
@@ -384,11 +385,17 @@ export class SubstrateClient {
     return parseComputeIntentResponse(response);
   }
 
-  /** M10: Submit a classified mutation. Daily mutations omit the signature;
-   *  CI mutations include an Ed25519 signature over `contentCanonicalBytes`
-   *  by the active owner key (for M10 minimum: the operator identity key).
-   *  M13: optionally include `nonce` + `expiryUnixNs` for anchor-surface envelope
-   *  verification (replay protection + dual-clock expiry). */
+  /** M10/M13/M14: Submit a classified mutation.
+   *
+   *  Layers:
+   *  - M10: Daily mutations omit signature; CI mutations include an Ed25519
+   *    signature over `contentCanonicalBytes`.
+   *  - M13: optional `nonce` + `expiryUnixNs` for anchor-surface envelope.
+   *  - M14: optional `revealPubkey` + `identitySignatureOverRevealPubkey` for
+   *    per-handshake REVEAL keypair (limits credential exposure per mutation).
+   *    When REVEAL is present, `attestationSignature` is REVEAL-signed-content
+   *    (not IDENTITY-signed); IDENTITY signs the REVEAL pubkey separately.
+   */
   async submitMutation(args: {
     mutationType: string;
     touchedFields?: string[];
@@ -398,12 +405,68 @@ export class SubstrateClient {
     attestationSignature?: Uint8Array;
     nonce?: Uint8Array;
     expiryUnixNs?: bigint;
+    revealPubkey?: Uint8Array;
+    identitySignatureOverRevealPubkey?: Uint8Array;
   }): Promise<MutationResult> {
     const response = await this._sendRequest(
       MSG_TYPE.SUBMIT_MUTATION,
       submitMutationPayload(args),
     );
     return parseSubmitMutationResponse(response);
+  }
+
+  /** M14: Submit a CI mutation with full per-handshake REVEAL envelope.
+   *
+   *  This helper:
+   *  1. Generates a fresh ephemeral Ed25519 keypair (the REVEAL key).
+   *  2. Has the operator IDENTITY key (M9) sign the REVEAL pubkey via
+   *     `revealKeyBindingSigningInput` (closes C17 operator_witness_forgery).
+   *  3. Has the REVEAL private key sign `contentCanonicalBytes` (the attestation).
+   *  4. Requests an attestation nonce for the content (M13).
+   *  5. Submits the full envelope: content + REVEAL pubkey + IDENTITY-signed-REVEAL
+   *     + REVEAL-signed-content + nonce + expiry.
+   *
+   *  If the operator's IDENTITY private key leaks but the REVEAL key did not,
+   *  only THIS mutation's attestation can be forged — not future ones.
+   *  Per-mutation credential isolation. */
+  async submitMutationWithReveal(args: {
+    mutationType: string;
+    touchedFields?: string[];
+    touchedFiles?: string[];
+    touchedMetaStructures?: string[];
+    contentCanonicalBytes: Uint8Array;
+    operatorIdentity: import("./operator_identity.ts").OperatorIdentity;
+  }): Promise<MutationResult> {
+    const { ed25519 } = await import("@noble/curves/ed25519.js");
+    const { randomBytes: rb } = await import("node:crypto");
+
+    // 1. Fresh REVEAL keypair.
+    const revealSeed = new Uint8Array(rb(32));
+    const revealPubkey = ed25519.getPublicKey(revealSeed);
+
+    // 2. IDENTITY signs the REVEAL pubkey (with domain separation).
+    const identitySigningInput = revealKeyBindingSigningInput(revealPubkey);
+    const identitySigOverReveal = args.operatorIdentity.sign(identitySigningInput);
+
+    // 3. REVEAL signs the content (the "attestation" signature).
+    const revealSig = ed25519.sign(args.contentCanonicalBytes, revealSeed);
+
+    // 4. Request a nonce bound to content + current DAG tip.
+    const nonceResult = await this.requestAttestationNonce(args.contentCanonicalBytes);
+
+    // 5. Submit the full envelope.
+    return this.submitMutation({
+      mutationType: args.mutationType,
+      touchedFields: args.touchedFields,
+      touchedFiles: args.touchedFiles,
+      touchedMetaStructures: args.touchedMetaStructures,
+      contentCanonicalBytes: args.contentCanonicalBytes,
+      attestationSignature: revealSig,
+      nonce: nonceResult.nonce,
+      expiryUnixNs: nonceResult.expiryUnixNs,
+      revealPubkey,
+      identitySignatureOverRevealPubkey: identitySigOverReveal,
+    });
   }
 
   /** M13: Request an attestation nonce bound to a proposed mutation's content

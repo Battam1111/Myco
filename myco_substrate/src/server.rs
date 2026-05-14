@@ -37,8 +37,9 @@ use myco_kernel_shared::canonical_bytes::{encode as cb_encode, CanonicalBytes, V
 use myco_kernel_shared::crypto::verify_signature;
 
 use crate::persistence::{
-    default_state_dir, ensure_state_dir, load_dag, load_pinned_operator_identity, save_dag,
-    save_pinned_operator_identity, Manifest, PinnedOperatorIdentity,
+    default_state_dir, ensure_state_dir, load_dag, load_nonce_log, load_pinned_operator_identity,
+    save_dag, save_nonce_log, save_pinned_operator_identity, Manifest, PersistedNonceEntry,
+    PinnedOperatorIdentity,
 };
 use crate::SubstrateError;
 
@@ -233,7 +234,34 @@ pub fn run_loop<R: Read, W: Write>(stdin: &mut R, stdout: &mut W) -> Result<u8, 
         }
     };
     let pinned_operator_identity = load_pinned_operator_identity(&state_dir)?;
+
+    // M14: hydrate nonce log from disk; prune past-expiry consumed nonces.
+    let now_for_prune = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .ok()
+        .and_then(|d| i64::try_from(d.as_nanos()).ok())
+        .unwrap_or(0);
+    let nonce_entries = match load_nonce_log(&state_dir) {
+        Ok(Some(entries)) => entries
+            .into_iter()
+            .filter(|e| !(e.consumed && now_for_prune > e.expiry_unix_ns))
+            .collect::<Vec<_>>(),
+        _ => Vec::new(),
+    };
+
     let mut state = ServerState::new(state_dir, manifest, dag, pinned_operator_identity);
+    for entry in nonce_entries {
+        state.nonce_log.insert(
+            entry.nonce,
+            AttestationNonce {
+                nonce: entry.nonce,
+                bound_content_hash: entry.bound_content_hash,
+                bound_dag_tip: entry.bound_dag_tip,
+                expiry_unix_ns: entry.expiry_unix_ns,
+                consumed: entry.consumed,
+            },
+        );
+    }
 
     // If DAG load failed: emit C7 immune sporocarp into the fresh DAG.
     if let Some(evidence) = dag_load_failure_evidence {
@@ -675,6 +703,8 @@ fn handle_request_attestation_nonce(
             consumed: false,
         },
     );
+    // M14: persist nonce log to disk so issued nonces survive restart.
+    save_nonce_state(state)?;
 
     let mut payload = BTreeMap::new();
     payload.insert("nonce".to_string(), Value::Bytes(nonce.to_vec()));
@@ -743,9 +773,7 @@ fn verify_attestation_nonce(
         })
         .unwrap_or([0u8; 32]);
     if stored.bound_dag_tip != current_tip {
-        return Err(
-            "wrong-binding rejected: DAG tip differs from issuance time".to_string(),
-        );
+        return Err("wrong-binding rejected: DAG tip differs from issuance time".to_string());
     }
 
     let now_ns = SystemTime::now()
@@ -768,6 +796,62 @@ fn verify_attestation_nonce(
     if let Some(n) = state.nonce_log.get_mut(&nonce_arr) {
         n.consumed = true;
     }
+    // M14: persist nonce log so the consumed flag survives restart (replay
+    // protection extends across substrate restarts).
+    save_nonce_state(state).map_err(|e| format!("nonce log save failed: {e}"))?;
+
+    Ok(())
+}
+
+/// M14: Verify the per-handshake REVEAL keypair envelope.
+///
+/// Checks that:
+/// 1. `identity_signature_over_reveal_pubkey` is a valid Ed25519 signature over
+///    `canonical_bytes(Map({"context": "myco-reveal-key-binding-v1", "reveal_pubkey": ...}))`
+///    by the pinned operator IDENTITY pubkey.
+/// 2. The substrate has a pinned operator identity (i.e. M9 TOFU completed).
+///
+/// Does NOT check the REVEAL→content signature; that happens in Python's
+/// dispatcher (which already verifies attestation_signature against whatever
+/// pubkey we pass in — for M14 we update Python to use reveal_pubkey instead
+/// of pinned operator pubkey when reveal_pubkey is present in the payload).
+///
+/// For M14 minimum-viable: Python is updated externally to look for reveal_pubkey
+/// first. If the substrate Rust layer accepts the REVEAL bundle, Python verifies
+/// `attestation_signature` against `reveal_pubkey` (passed through in payload).
+fn verify_reveal_keypair_envelope(state: &ServerState, request: &Message) -> Result<(), String> {
+    // Need pinned operator identity to verify identity-signature-over-REVEAL.
+    let pinned = state
+        .pinned_operator_identity
+        .as_ref()
+        .ok_or_else(|| "no pinned operator identity (M9 TOFU not completed)".to_string())?;
+
+    let reveal_pubkey_bytes = match request.payload.get("reveal_pubkey") {
+        Some(Value::Bytes(b)) if b.len() == 32 => b.clone(),
+        _ => return Err("reveal_pubkey must be 32 bytes".to_string()),
+    };
+
+    let identity_sig_bytes = match request.payload.get("identity_signature_over_reveal_pubkey") {
+        Some(Value::Bytes(b)) if b.len() == 64 => b.clone(),
+        _ => return Err("identity_signature_over_reveal_pubkey must be 64 bytes".to_string()),
+    };
+
+    // Reconstruct the signing input: canonical_bytes(Map({"context", "reveal_pubkey"})).
+    let mut signing_map = BTreeMap::new();
+    signing_map.insert(
+        "context".to_string(),
+        Value::String("myco-reveal-key-binding-v1".to_string()),
+    );
+    signing_map.insert(
+        "reveal_pubkey".to_string(),
+        Value::Bytes(reveal_pubkey_bytes.clone()),
+    );
+    let signing_input = cb_encode(&Value::Map(signing_map))
+        .map_err(|e| format!("signing input encode failed: {e}"))?;
+
+    // Verify IDENTITY-signature-over-REVEAL.
+    verify_signature(&pinned.pubkey, &identity_sig_bytes, signing_input.as_ref())
+        .map_err(|e| format!("identity signature over reveal_pubkey invalid: {e}"))?;
 
     Ok(())
 }
@@ -908,6 +992,50 @@ fn handle_submit_mutation(
     state: &mut ServerState,
     request: &Message,
 ) -> Result<Option<Message>, SubstrateError> {
+    // M14: Pre-Python REVEAL keypair verification.
+    // If the operator included `reveal_pubkey` + `identity_signature_over_reveal_pubkey`,
+    // verify the IDENTITY signature against the pinned operator pubkey BEFORE
+    // doing anything else. Failures emit C17 operator_witness_forgery.
+    //
+    // The REVEAL pubkey then becomes the signer for the attestation signature
+    // (the operator's `attestation_signature` field is treated as a REVEAL
+    // signature when reveal_pubkey is present, rather than an IDENTITY signature).
+    let reveal_pubkey_present = request.payload.contains_key("reveal_pubkey");
+    if reveal_pubkey_present {
+        if let Err(reason) = verify_reveal_keypair_envelope(state, request) {
+            let evidence = format!("REVEAL keypair envelope verification failed: {reason}");
+            let _ = emit_immune_sporocarp(
+                state,
+                "C17_operator_witness_forgery",
+                "operator_witness_forgery",
+                &evidence,
+            );
+            let _ = save_dag_state(state);
+
+            let mut payload = BTreeMap::new();
+            payload.insert(
+                "classification".to_string(),
+                Value::String("contract_identity_level".to_string()),
+            );
+            payload.insert("accepted".to_string(), Value::Bool(false));
+            payload.insert("rejection_reason".to_string(), Value::String(reason));
+            let mtype = request
+                .payload
+                .get("mutation_type")
+                .and_then(|v| match v {
+                    Value::String(s) => Some(s.clone()),
+                    _ => None,
+                })
+                .unwrap_or_default();
+            payload.insert("mutation_type".to_string(), Value::String(mtype));
+            return Ok(Some(Message::new(
+                msg_type::SUBMIT_MUTATION_RESPONSE,
+                request.request_id,
+                payload,
+            )));
+        }
+    }
+
     // M13: Pre-Python nonce verification (anchor-surface envelope check).
     // If the operator included a nonce, verify it BEFORE forwarding. Failed
     // nonce checks short-circuit with a C5 rejection + immune sporocarp.
@@ -1292,6 +1420,22 @@ fn save_python_state(state: &mut ServerState) -> Result<(), SubstrateError> {
 /// M8: Persist the substrate's DAG to `<state_dir>/dag.cb`.
 fn save_dag_state(state: &ServerState) -> Result<(), SubstrateError> {
     save_dag(&state.dag, &state.state_dir)
+}
+
+/// M14: Snapshot the substrate's in-process nonce log to `<state_dir>/nonces.cb`.
+fn save_nonce_state(state: &ServerState) -> Result<(), SubstrateError> {
+    let entries: Vec<PersistedNonceEntry> = state
+        .nonce_log
+        .values()
+        .map(|n| PersistedNonceEntry {
+            nonce: n.nonce,
+            bound_content_hash: n.bound_content_hash,
+            bound_dag_tip: n.bound_dag_tip,
+            expiry_unix_ns: n.expiry_unix_ns,
+            consumed: n.consumed,
+        })
+        .collect();
+    save_nonce_log(&entries, &state.state_dir)
 }
 
 /// M12: Result of one integrity check (C9 cold_resume_invariant_failure sub-check).
