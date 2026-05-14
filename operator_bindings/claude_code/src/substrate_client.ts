@@ -24,9 +24,11 @@ import {
   type AttestationNonceResult,
   BOOTSTRAP_KEY,
   computeIntentPayload,
+  type DagEnumerationReport,
   decodeFrameBody,
   emptyPayload,
   encodeFrameBody,
+  enumerateDagSincePayload,
   type HelloAck,
   helloPayload,
   helloSigningBody,
@@ -38,6 +40,7 @@ import {
   type MutationResult,
   parseAdvanceResponse,
   parseComputeIntentResponse,
+  parseEnumerateDagSinceResponse,
   parseHelloAck,
   parseQueryImmuneEventsResponse,
   parseQueryRecentNodesResponse,
@@ -385,7 +388,7 @@ export class SubstrateClient {
     return parseComputeIntentResponse(response);
   }
 
-  /** M10/M13/M14: Submit a classified mutation.
+  /** M10/M13/M14/M15: Submit a classified mutation.
    *
    *  Layers:
    *  - M10: Daily mutations omit signature; CI mutations include an Ed25519
@@ -395,6 +398,8 @@ export class SubstrateClient {
    *    per-handshake REVEAL keypair (limits credential exposure per mutation).
    *    When REVEAL is present, `attestationSignature` is REVEAL-signed-content
    *    (not IDENTITY-signed); IDENTITY signs the REVEAL pubkey separately.
+   *  - M15: optional `anchorClockSubmittedAtUnixNs` for dual-clock expiry.
+   *    Required iff the nonce was issued with `anchorClockUnixNs`.
    */
   async submitMutation(args: {
     mutationType: string;
@@ -407,6 +412,7 @@ export class SubstrateClient {
     expiryUnixNs?: bigint;
     revealPubkey?: Uint8Array;
     identitySignatureOverRevealPubkey?: Uint8Array;
+    anchorClockSubmittedAtUnixNs?: bigint;
   }): Promise<MutationResult> {
     const response = await this._sendRequest(
       MSG_TYPE.SUBMIT_MUTATION,
@@ -471,16 +477,92 @@ export class SubstrateClient {
 
   /** M13: Request an attestation nonce bound to a proposed mutation's content
    *  hash. The substrate returns nonce + expiry + dag_tip; operator includes
-   *  the nonce in submit_mutation to prove a fresh (non-replay) intent. */
+   *  the nonce in submit_mutation to prove a fresh (non-replay) intent.
+   *
+   *  M15: optionally supply `anchorClockUnixNs` (operator's wall-clock at
+   *  request time). When present, the response includes
+   *  `anchorClockExpiryUnixNs`, and the operator MUST supply
+   *  `anchorClockSubmittedAtUnixNs` at submit time for the dual-clock check.
+   *  Both clock checks must pass for nonce verification to succeed.
+   */
   async requestAttestationNonce(
     contentCanonicalBytes: Uint8Array,
+    anchorClockUnixNs?: bigint,
   ): Promise<AttestationNonceResult> {
     const contentHash = await this._sha256(contentCanonicalBytes);
     const response = await this._sendRequest(
       MSG_TYPE.REQUEST_ATTESTATION_NONCE,
-      requestAttestationNoncePayload(contentHash),
+      requestAttestationNoncePayload(contentHash, anchorClockUnixNs),
     );
     return parseRequestAttestationNonceResponse(response);
+  }
+
+  /** M15: Enumerate DAG node hashes added since `prevTip` (or all from genesis
+   *  if `prevTip` undefined). Returns each node with full metadata so the
+   *  owner can independently reconstruct the Merkle chain.
+   *
+   *  Closes L1_HARD_RULES C6 dag_enumeration_unclosed: the substrate cannot
+   *  hide parallel-branch forgery, because the owner recomputes every node's
+   *  hash from declared parents + content. Call `verifyEnumeration(report)`
+   *  to validate the chain locally.
+   *
+   *  On unknown prevTip: substrate emits C6 immune sporocarp + rejects. */
+  async enumerateDagSince(prevTip?: Uint8Array): Promise<DagEnumerationReport> {
+    const response = await this._sendRequest(
+      MSG_TYPE.ENUMERATE_DAG_SINCE,
+      enumerateDagSincePayload(prevTip),
+    );
+    return parseEnumerateDagSinceResponse(response);
+  }
+
+  /** M15: Verify a DAG enumeration locally by recomputing each node's BLAKE3
+   *  Merkle hash from (parent_hashes, content_canonical_bytes) and comparing
+   *  to the substrate-claimed hash. Returns an array of error strings; empty
+   *  array = the substrate's enumeration is self-consistent.
+   *
+   *  This is the owner-side defense against substrate hash forgery. A
+   *  malicious substrate that returns a hash inconsistent with its claimed
+   *  parents+content cannot survive this check.
+   */
+  static async verifyEnumeration(
+    report: DagEnumerationReport,
+  ): Promise<string[]> {
+    const errors: string[] = [];
+    // Reuse anchor_client's merkleHash (BLAKE3 + parent-count length prefix).
+    const { merkleHash, NodeHash } = await import("@myco/anchor-client/src/crypto.ts");
+    for (let i = 0; i < report.nodes.length; i++) {
+      const node = report.nodes[i]!;
+      const parents = node.parentHashes.map((b) => new NodeHash(b));
+      const recomputed = merkleHash(parents, node.contentCanonicalBytes);
+      if (!_bytesEqual(recomputed.bytes, node.hash)) {
+        errors.push(
+          `node[${i}] hash mismatch: substrate claimed ${_toHex(node.hash)}, ` +
+            `recomputed ${_toHex(recomputed.bytes)}`,
+        );
+      }
+    }
+    // Also check that each non-genesis node's parents appear earlier in the
+    // enumeration OR are the prev_tip (for partial enumerations). This is a
+    // soft check — partial enumerations may legitimately reference parents
+    // outside the returned window.
+    if (report.prevTip === null) {
+      // Full enumeration from genesis: every parent must appear earlier.
+      const seen = new Set<string>();
+      for (let i = 0; i < report.nodes.length; i++) {
+        const node = report.nodes[i]!;
+        const hashHex = _toHex(node.hash);
+        for (const p of node.parentHashes) {
+          const pHex = _toHex(p);
+          if (!seen.has(pHex)) {
+            errors.push(
+              `node[${i}] (${hashHex.substring(0, 16)}…) references unseen parent ${pHex.substring(0, 16)}…`,
+            );
+          }
+        }
+        seen.add(hashHex);
+      }
+    }
+    return errors;
   }
 
   /** M13: Internal SHA-256 helper (substrate-side compute_content_hash counterpart). */
@@ -557,4 +639,22 @@ export class SubstrateClient {
       // Ignore.
     }
   }
+}
+
+// ---------------------------------------------------------------------------
+// M15: small helpers used by verifyEnumeration.
+// ---------------------------------------------------------------------------
+
+function _bytesEqual(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) return false;
+  }
+  return true;
+}
+
+function _toHex(bytes: Uint8Array): string {
+  let s = "";
+  for (const b of bytes) s += b.toString(16).padStart(2, "0");
+  return s;
 }

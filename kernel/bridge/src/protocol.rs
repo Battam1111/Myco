@@ -118,6 +118,15 @@ pub mod msg_type {
     pub const REQUEST_ATTESTATION_NONCE: &str = "request_attestation_nonce";
     /// `request_attestation_nonce_response` — Rust→Operator: nonce + expiry + dag_tip.
     pub const REQUEST_ATTESTATION_NONCE_RESPONSE: &str = "request_attestation_nonce_response";
+    /// `enumerate_dag_since` — Operator→Rust: enumerate DAG node hashes added
+    /// since the given prev_tip (M15). Closes L1_HARD_RULES C6 dag_enumeration_unclosed
+    /// by giving the owner a deterministic enumeration with full per-node
+    /// metadata so the Merkle chain can be reconstructed independently.
+    pub const ENUMERATE_DAG_SINCE: &str = "enumerate_dag_since";
+    /// `enumerate_dag_since_response` — Rust→Operator: enumerated DAG nodes
+    /// (hashes + parent_hashes + node_type + content_canonical_bytes), the
+    /// current tip, and total DAG size for cross-validation.
+    pub const ENUMERATE_DAG_SINCE_RESPONSE: &str = "enumerate_dag_since_response";
 }
 
 /// A decoded bridge message.

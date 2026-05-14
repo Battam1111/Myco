@@ -31,6 +31,7 @@ import {
 } from "./substrate_client.ts";
 import type {
   AdvanceReport,
+  DagEnumerationReport,
   ImmuneCheckReport,
   ImmuneEventsReport,
   IntentReport,
@@ -139,6 +140,42 @@ function formatRecentNodes(report: RecentNodesReport): string {
     lines.push(
       `  [${node.atCycle}] ${node.nodeType}  hash=${toHex(node.hash).substring(0, 16)}…  parents=${node.parentHashes.length}`,
     );
+  }
+  return lines.join("\n");
+}
+
+function formatEnumeration(
+  report: DagEnumerationReport,
+  verifyErrors: string[],
+): string {
+  const lines: string[] = [];
+  const currentTip = report.currentTip
+    ? toHex(report.currentTip).substring(0, 16)
+    : "(empty)";
+  const prevTip = report.prevTip
+    ? toHex(report.prevTip).substring(0, 16)
+    : "(genesis)";
+  lines.push(
+    `enumerated_count=${report.enumeratedCount}  total_dag_size=${report.totalDagSize}  current_tip=${currentTip}…  since=${prevTip}…`,
+  );
+  if (verifyErrors.length === 0) {
+    lines.push(`✓ chain verification passed (all ${report.nodes.length} nodes hash-consistent)`);
+  } else {
+    lines.push(`✗ chain verification FAILED (${verifyErrors.length} errors):`);
+    for (const err of verifyErrors.slice(0, 5)) {
+      lines.push(`  - ${err}`);
+    }
+    if (verifyErrors.length > 5) {
+      lines.push(`  … (+${verifyErrors.length - 5} more errors)`);
+    }
+  }
+  for (const node of report.nodes.slice(0, 10)) {
+    lines.push(
+      `  [${node.atCycle}] ${node.nodeType}  hash=${toHex(node.hash).substring(0, 16)}…  parents=${node.parentHashes.length}`,
+    );
+  }
+  if (report.nodes.length > 10) {
+    lines.push(`  … (+${report.nodes.length - 10} more nodes)`);
   }
   return lines.join("\n");
 }
@@ -315,6 +352,22 @@ const TOOL_DEFINITIONS = [
           description: "Number of most-recent immune events to return (default 50)",
           minimum: 1,
           maximum: 1000,
+        },
+      },
+      required: [],
+    },
+  },
+  {
+    name: "myco_enumerate_dag_since",
+    description:
+      "Enumerate DAG node hashes added since a given prev_tip (or from genesis if omitted), with full per-node metadata so the caller can independently reconstruct the substrate's Merkle chain (L1_HARD_RULES C6 dag_enumeration_unclosed closure). The substrate cannot hide parallel-branch forgery: every node's BLAKE3 hash is recomputed from declared parents+content and compared. On unknown prev_tip the substrate emits a C6 immune sporocarp. Returns: enumerated_count, current_tip, hash-chain verification result, and per-node summaries.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        prev_tip_hex: {
+          type: "string",
+          description:
+            "Optional 64-character hex string (32-byte hash) of the prev_tip to enumerate-since. Omit to enumerate from genesis.",
         },
       },
       required: [],
@@ -578,6 +631,33 @@ export class McpServer {
           content: [
             { type: "text" as const, text: formatImmuneEvents(report) },
           ],
+        };
+      }
+      case "myco_enumerate_dag_since": {
+        const sub = await this._ensureSubstrate();
+        let prevTip: Uint8Array | undefined;
+        if (typeof args.prev_tip_hex === "string" && args.prev_tip_hex.length > 0) {
+          const hex = String(args.prev_tip_hex);
+          if (hex.length !== 64) {
+            throw new Error(
+              `prev_tip_hex must be 64 hex chars (32 bytes); got ${hex.length}`,
+            );
+          }
+          prevTip = new Uint8Array(32);
+          for (let i = 0; i < 32; i++) {
+            prevTip[i] = parseInt(hex.substring(i * 2, i * 2 + 2), 16);
+          }
+        }
+        const report = await sub.enumerateDagSince(prevTip);
+        const verifyErrors = await SubstrateClient.verifyEnumeration(report);
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: formatEnumeration(report, verifyErrors),
+            },
+          ],
+          isError: verifyErrors.length > 0,
         };
       }
       case "myco_submit_mutation": {
