@@ -470,3 +470,1076 @@ fn m8_dag_node_hashes_form_causal_chain() {
     assert_eq!(unique.len(), 5);
     client.shutdown().expect("shutdown");
 }
+
+// ---------------------------------------------------------------------------
+// M22.1 P5 万物互联 — federation listener lifecycle e2e tests.
+// ---------------------------------------------------------------------------
+
+use myco_kernel_bridge::protocol::msg_type as proto;
+use myco_kernel_shared::canonical_bytes::Value as CbValue;
+
+/// Helper: build a payload Map from (key, value) pairs.
+fn build_payload(
+    fields: Vec<(&str, CbValue)>,
+) -> std::collections::BTreeMap<String, CbValue> {
+    fields
+        .into_iter()
+        .map(|(k, v)| (k.to_string(), v))
+        .collect()
+}
+
+#[test]
+fn m22_1_federation_status_initially_idle() {
+    let (mut client, _dir) = spawn_substrate();
+    let response = client
+        .call(proto::FEDERATION_STATUS, build_payload(vec![]))
+        .expect("federation_status call");
+    assert_eq!(response.message_type, proto::FEDERATION_STATUS_RESPONSE);
+    let is_listening = match response.payload.get("is_listening") {
+        Some(CbValue::Bool(b)) => *b,
+        _ => panic!("is_listening missing/not Bool"),
+    };
+    assert!(!is_listening, "fresh substrate should not be listening yet");
+    let bind_addr = match response.payload.get("bind_addr") {
+        Some(CbValue::String(s)) => s.clone(),
+        _ => panic!("bind_addr missing/not String"),
+    };
+    assert_eq!(bind_addr, "");
+    let peer_count = match response.payload.get("peer_count") {
+        Some(CbValue::Uint(n)) => *n,
+        _ => panic!("peer_count missing/not Uint"),
+    };
+    assert_eq!(peer_count, 0);
+    client.shutdown().expect("shutdown");
+}
+
+#[test]
+fn m22_1_federation_open_listener_resolves_port_zero() {
+    let (mut client, _dir) = spawn_substrate();
+    let response = client
+        .call(
+            proto::FEDERATION_OPEN_LISTENER,
+            build_payload(vec![(
+                "bind_addr",
+                CbValue::String("127.0.0.1:0".to_string()),
+            )]),
+        )
+        .expect("federation_open_listener call");
+    assert_eq!(
+        response.message_type,
+        proto::FEDERATION_OPEN_LISTENER_RESPONSE
+    );
+    let resolved = match response.payload.get("bind_addr") {
+        Some(CbValue::String(s)) => s.clone(),
+        _ => panic!("bind_addr missing/not String"),
+    };
+    assert!(
+        resolved.starts_with("127.0.0.1:"),
+        "expected 127.0.0.1:<port>; got {resolved:?}"
+    );
+    let port_part = resolved.split(':').nth(1).expect("split port");
+    let port: u16 = port_part.parse().expect("port parse");
+    assert!(port > 0, "OS should pick a non-zero port; got {port}");
+
+    // The response must include the DAG event hash for the
+    // federation_listener_opened event.
+    let event_hash_bytes = match response.payload.get("listener_opened_event_hash") {
+        Some(CbValue::Bytes(b)) => b.clone(),
+        _ => panic!("listener_opened_event_hash missing/not Bytes"),
+    };
+    assert_eq!(event_hash_bytes.len(), 32);
+
+    client.shutdown().expect("shutdown");
+}
+
+#[test]
+fn m22_1_federation_status_after_open_reports_addr() {
+    let (mut client, _dir) = spawn_substrate();
+    let open_resp = client
+        .call(
+            proto::FEDERATION_OPEN_LISTENER,
+            build_payload(vec![(
+                "bind_addr",
+                CbValue::String("127.0.0.1:0".to_string()),
+            )]),
+        )
+        .expect("open");
+    let opened_addr = match open_resp.payload.get("bind_addr") {
+        Some(CbValue::String(s)) => s.clone(),
+        _ => panic!("open: bind_addr missing"),
+    };
+
+    let status = client
+        .call(proto::FEDERATION_STATUS, build_payload(vec![]))
+        .expect("status");
+    let is_listening = match status.payload.get("is_listening") {
+        Some(CbValue::Bool(b)) => *b,
+        _ => panic!("is_listening missing"),
+    };
+    assert!(is_listening);
+    let reported_addr = match status.payload.get("bind_addr") {
+        Some(CbValue::String(s)) => s.clone(),
+        _ => panic!("status bind_addr missing"),
+    };
+    assert_eq!(reported_addr, opened_addr);
+
+    client.shutdown().expect("shutdown");
+}
+
+#[test]
+fn m22_1_federation_close_listener_idempotent() {
+    let (mut client, _dir) = spawn_substrate();
+
+    // Close when not listening — should report was_listening=false.
+    let close1 = client
+        .call(proto::FEDERATION_CLOSE_LISTENER, build_payload(vec![]))
+        .expect("close (no listener)");
+    let was1 = match close1.payload.get("was_listening") {
+        Some(CbValue::Bool(b)) => *b,
+        _ => panic!("was_listening missing"),
+    };
+    assert!(!was1);
+
+    // Open, then close.
+    let _ = client
+        .call(
+            proto::FEDERATION_OPEN_LISTENER,
+            build_payload(vec![(
+                "bind_addr",
+                CbValue::String("127.0.0.1:0".to_string()),
+            )]),
+        )
+        .expect("open");
+
+    let close2 = client
+        .call(proto::FEDERATION_CLOSE_LISTENER, build_payload(vec![]))
+        .expect("close (listener active)");
+    let was2 = match close2.payload.get("was_listening") {
+        Some(CbValue::Bool(b)) => *b,
+        _ => panic!("was_listening missing in close2"),
+    };
+    assert!(was2);
+    let prior_addr = match close2.payload.get("prior_bind_addr") {
+        Some(CbValue::String(s)) => s.clone(),
+        _ => panic!("prior_bind_addr missing"),
+    };
+    assert!(prior_addr.starts_with("127.0.0.1:"));
+    // The close response must carry the closed-event hash.
+    let event_hash = match close2.payload.get("listener_closed_event_hash") {
+        Some(CbValue::Bytes(b)) => b.clone(),
+        _ => panic!("listener_closed_event_hash missing"),
+    };
+    assert_eq!(event_hash.len(), 32);
+
+    // Status must now report not listening.
+    let status = client
+        .call(proto::FEDERATION_STATUS, build_payload(vec![]))
+        .expect("status after close");
+    let is_listening = match status.payload.get("is_listening") {
+        Some(CbValue::Bool(b)) => *b,
+        _ => panic!("is_listening missing"),
+    };
+    assert!(!is_listening);
+
+    // Closing again is idempotent.
+    let close3 = client
+        .call(proto::FEDERATION_CLOSE_LISTENER, build_payload(vec![]))
+        .expect("close (idempotent)");
+    let was3 = match close3.payload.get("was_listening") {
+        Some(CbValue::Bool(b)) => *b,
+        _ => panic!("was_listening missing"),
+    };
+    assert!(!was3);
+
+    client.shutdown().expect("shutdown");
+}
+
+#[test]
+fn m22_1_federation_listener_events_appear_in_dag() {
+    let (mut client, _dir) = spawn_substrate();
+    let _ = client
+        .call(
+            proto::FEDERATION_OPEN_LISTENER,
+            build_payload(vec![(
+                "bind_addr",
+                CbValue::String("127.0.0.1:0".to_string()),
+            )]),
+        )
+        .expect("open");
+    let _ = client
+        .call(proto::FEDERATION_CLOSE_LISTENER, build_payload(vec![]))
+        .expect("close");
+
+    // Query the DAG and confirm BOTH federation_listener_opened AND
+    // federation_listener_closed events landed.
+    let nodes_resp = client
+        .call(
+            proto::QUERY_RECENT_NODES,
+            build_payload(vec![("count", CbValue::Uint(20))]),
+        )
+        .expect("query_recent_nodes");
+    let nodes_array = match nodes_resp.payload.get("nodes") {
+        Some(CbValue::Array(a)) => a.clone(),
+        _ => panic!("nodes missing in query response"),
+    };
+    let mut saw_opened = false;
+    let mut saw_closed = false;
+    for n in &nodes_array {
+        if let CbValue::Map(m) = n {
+            if let Some(CbValue::String(nt)) = m.get("node_type") {
+                if nt == "federation_listener_opened" {
+                    saw_opened = true;
+                }
+                if nt == "federation_listener_closed" {
+                    saw_closed = true;
+                }
+            }
+        }
+    }
+    assert!(
+        saw_opened,
+        "federation_listener_opened event should appear in DAG"
+    );
+    assert!(
+        saw_closed,
+        "federation_listener_closed event should appear in DAG"
+    );
+
+    client.shutdown().expect("shutdown");
+}
+
+#[test]
+fn m22_1_federation_open_listener_rejects_empty_addr() {
+    let (mut client, _dir) = spawn_substrate();
+    let result = client.call(
+        proto::FEDERATION_OPEN_LISTENER,
+        build_payload(vec![("bind_addr", CbValue::String(String::new()))]),
+    );
+    assert!(
+        result.is_err(),
+        "empty bind_addr should be rejected by handler"
+    );
+    client.shutdown().expect("shutdown");
+}
+
+/// M22.2 helper: spawn a background polling thread that repeatedly calls
+/// `federation_poll` on the given client for up to `max_iters * 50ms`.
+/// Returns the client back when the thread joins.
+fn poll_in_background_for(
+    mut client: myco_kernel_bridge::client::BridgeClient,
+    max_iters: u32,
+) -> std::thread::JoinHandle<myco_kernel_bridge::client::BridgeClient> {
+    std::thread::spawn(move || {
+        for _ in 0..max_iters {
+            let _ = client.call(proto::FEDERATION_POLL, build_payload(vec![]));
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        }
+        client
+    })
+}
+
+#[test]
+fn m22_2_two_substrates_pin_each_other_via_hello() {
+    // Spawn A. Open listener.
+    let (mut client_a, _dir_a) = spawn_substrate();
+    let open_resp = client_a
+        .call(
+            proto::FEDERATION_OPEN_LISTENER,
+            build_payload(vec![(
+                "bind_addr",
+                CbValue::String("127.0.0.1:0".to_string()),
+            )]),
+        )
+        .expect("open listener on A");
+    let addr_a = match open_resp.payload.get("bind_addr") {
+        Some(CbValue::String(s)) => s.clone(),
+        _ => panic!("open_resp bind_addr missing"),
+    };
+
+    // Drive A's federation_poll in a background thread so it can accept B.
+    let poll_handle = poll_in_background_for(client_a, 60);
+
+    // B dials A.
+    let (mut client_b, _dir_b) = spawn_substrate();
+    let connect_resp = client_b
+        .call(
+            proto::FEDERATION_CONNECT_PEER,
+            build_payload(vec![("remote_addr", CbValue::String(addr_a.clone()))]),
+        )
+        .expect("B connect to A");
+    let outcome = match connect_resp.payload.get("outcome") {
+        Some(CbValue::String(s)) => s.clone(),
+        _ => panic!("connect_peer outcome missing"),
+    };
+    assert_eq!(outcome, "pinned", "B should successfully pin A");
+
+    // B should now know A's substrate_id.
+    let b_pinned_a_id = match connect_resp.payload.get("peer_substrate_id") {
+        Some(CbValue::Bytes(b)) if b.len() == 32 => b.clone(),
+        _ => panic!("connect_peer peer_substrate_id missing"),
+    };
+    assert_eq!(b_pinned_a_id.len(), 32);
+
+    // B's status should report peer_count = 1.
+    let b_status = client_b
+        .call(proto::FEDERATION_STATUS, build_payload(vec![]))
+        .expect("status B");
+    let b_peers = match b_status.payload.get("peer_count") {
+        Some(CbValue::Uint(n)) => *n,
+        _ => panic!("status peer_count missing"),
+    };
+    assert_eq!(b_peers, 1, "B should have 1 peer (A)");
+
+    // Join the polling thread.
+    let mut client_a = poll_handle.join().expect("poll thread join");
+
+    // A should have pinned B by now (via accept + HELLO from B).
+    let a_status = client_a
+        .call(proto::FEDERATION_STATUS, build_payload(vec![]))
+        .expect("status A");
+    let a_peers = match a_status.payload.get("peer_count") {
+        Some(CbValue::Uint(n)) => *n,
+        _ => panic!("status A peer_count missing"),
+    };
+    assert_eq!(a_peers, 1, "A should have 1 peer (B) after polling");
+
+    // Cleanup.
+    client_a.shutdown().expect("shutdown A");
+    client_b.shutdown().expect("shutdown B");
+}
+
+#[test]
+fn m22_2_federation_peer_pinned_event_in_dag() {
+    let (mut client_a, _dir_a) = spawn_substrate();
+    let open_resp = client_a
+        .call(
+            proto::FEDERATION_OPEN_LISTENER,
+            build_payload(vec![(
+                "bind_addr",
+                CbValue::String("127.0.0.1:0".to_string()),
+            )]),
+        )
+        .expect("open A");
+    let addr_a = match open_resp.payload.get("bind_addr") {
+        Some(CbValue::String(s)) => s.clone(),
+        _ => panic!("addr missing"),
+    };
+    let poll_handle = poll_in_background_for(client_a, 60);
+
+    let (mut client_b, _dir_b) = spawn_substrate();
+    let _ = client_b
+        .call(
+            proto::FEDERATION_CONNECT_PEER,
+            build_payload(vec![("remote_addr", CbValue::String(addr_a))]),
+        )
+        .expect("B connect A");
+
+    // B's DAG should contain a federation_peer_pinned event.
+    let nodes_resp = client_b
+        .call(
+            proto::QUERY_RECENT_NODES,
+            build_payload(vec![(
+                "count",
+                CbValue::Uint(50),
+            ), (
+                "node_type_prefix",
+                CbValue::String("federation_peer_pinned:".to_string()),
+            )]),
+        )
+        .expect("query B recent");
+    let nodes_array = match nodes_resp.payload.get("nodes") {
+        Some(CbValue::Array(a)) => a.clone(),
+        _ => panic!("nodes missing"),
+    };
+    assert!(
+        !nodes_array.is_empty(),
+        "B should have at least one federation_peer_pinned event in DAG"
+    );
+
+    let client_a = poll_handle.join().expect("poll join");
+    client_a.shutdown().expect("shutdown A");
+    client_b.shutdown().expect("shutdown B");
+}
+
+#[test]
+fn m22_2_double_connect_returns_already_pinned() {
+    // Spawn A. Open listener.
+    let (mut client_a, _dir_a) = spawn_substrate();
+    let open_resp = client_a
+        .call(
+            proto::FEDERATION_OPEN_LISTENER,
+            build_payload(vec![(
+                "bind_addr",
+                CbValue::String("127.0.0.1:0".to_string()),
+            )]),
+        )
+        .expect("open A");
+    let addr_a = match open_resp.payload.get("bind_addr") {
+        Some(CbValue::String(s)) => s.clone(),
+        _ => panic!("addr missing"),
+    };
+    let poll_handle = poll_in_background_for(client_a, 80);
+
+    // B connects to A — first time pins.
+    let (mut client_b, _dir_b) = spawn_substrate();
+    let resp1 = client_b
+        .call(
+            proto::FEDERATION_CONNECT_PEER,
+            build_payload(vec![("remote_addr", CbValue::String(addr_a.clone()))]),
+        )
+        .expect("B connect 1");
+    let outcome1 = match resp1.payload.get("outcome") {
+        Some(CbValue::String(s)) => s.clone(),
+        _ => panic!("outcome 1 missing"),
+    };
+    assert_eq!(outcome1, "pinned");
+
+    // B connects to A — second time should return already_pinned (same id +
+    // same addr).
+    let resp2 = client_b
+        .call(
+            proto::FEDERATION_CONNECT_PEER,
+            build_payload(vec![("remote_addr", CbValue::String(addr_a))]),
+        )
+        .expect("B connect 2");
+    let outcome2 = match resp2.payload.get("outcome") {
+        Some(CbValue::String(s)) => s.clone(),
+        _ => panic!("outcome 2 missing"),
+    };
+    assert_eq!(outcome2, "already_pinned");
+
+    let client_a = poll_handle.join().expect("poll join");
+    client_a.shutdown().expect("shutdown A");
+    client_b.shutdown().expect("shutdown B");
+}
+
+#[test]
+fn m22_3_pull_events_from_peer_ingests_into_local_dag() {
+    // Spawn A. Open listener. Register an axis (which emits axis_registered).
+    let (mut client_a, _dir_a) = spawn_substrate();
+    let open_resp = client_a
+        .call(
+            proto::FEDERATION_OPEN_LISTENER,
+            build_payload(vec![(
+                "bind_addr",
+                CbValue::String("127.0.0.1:0".to_string()),
+            )]),
+        )
+        .expect("open A");
+    let addr_a = match open_resp.payload.get("bind_addr") {
+        Some(CbValue::String(s)) => s.clone(),
+        _ => panic!("addr missing"),
+    };
+    // Register some events on A's DAG so there's something to pull.
+    client_a
+        .register_axis("fed_x", "appetite", 5.0, 0.0, 1.0, false, "noop")
+        .expect("A register");
+    client_a.perturb("fed_x", 2.0).expect("A perturb");
+
+    // Start A's polling thread so it can serve B's requests.
+    let poll_handle = poll_in_background_for(client_a, 80);
+
+    // B connects to A.
+    let (mut client_b, _dir_b) = spawn_substrate();
+    let connect_resp = client_b
+        .call(
+            proto::FEDERATION_CONNECT_PEER,
+            build_payload(vec![("remote_addr", CbValue::String(addr_a))]),
+        )
+        .expect("B connect A");
+    let a_id = match connect_resp.payload.get("peer_substrate_id") {
+        Some(CbValue::Bytes(b)) if b.len() == 32 => b.clone(),
+        _ => panic!("a id missing"),
+    };
+
+    // B pulls events from A (since=None means from A's genesis).
+    let pull_resp = client_b
+        .call(
+            proto::FEDERATION_PULL_EVENTS_FROM_PEER,
+            build_payload(vec![
+                ("peer_substrate_id", CbValue::Bytes(a_id)),
+                ("max_events", CbValue::Uint(50)),
+            ]),
+        )
+        .expect("B pull");
+
+    let events_ingested = match pull_resp.payload.get("events_ingested_count") {
+        Some(CbValue::Uint(n)) => *n,
+        _ => panic!("events_ingested_count missing"),
+    };
+    assert!(
+        events_ingested >= 3,
+        "B should ingest at least 3 events from A (genesis + axis_registered + axis_perturbed); got {events_ingested}"
+    );
+    let is_last = match pull_resp.payload.get("is_last_batch") {
+        Some(CbValue::Bool(b)) => *b,
+        _ => panic!("is_last_batch missing"),
+    };
+    assert!(is_last, "single small pull should be the last batch");
+
+    // B's DAG should now contain a federation_events_received event.
+    let nodes_resp = client_b
+        .call(
+            proto::QUERY_RECENT_NODES,
+            build_payload(vec![
+                ("count", CbValue::Uint(50)),
+                (
+                    "node_type_prefix",
+                    CbValue::String("federation_events_received".to_string()),
+                ),
+            ]),
+        )
+        .expect("B query");
+    let nodes_arr = match nodes_resp.payload.get("nodes") {
+        Some(CbValue::Array(a)) => a.clone(),
+        _ => panic!("nodes missing"),
+    };
+    assert!(
+        !nodes_arr.is_empty(),
+        "B should have at least one federation_events_received event"
+    );
+
+    let client_a = poll_handle.join().expect("poll join");
+    client_a.shutdown().expect("shutdown A");
+    client_b.shutdown().expect("shutdown B");
+}
+
+#[test]
+fn m22_3_pull_events_idempotent_on_duplicate_pull() {
+    // Pulling the same range twice should not duplicate events in the local DAG
+    // (Dag::insert_node is idempotent on content hash + parents).
+    let (mut client_a, _dir_a) = spawn_substrate();
+    let open_resp = client_a
+        .call(
+            proto::FEDERATION_OPEN_LISTENER,
+            build_payload(vec![(
+                "bind_addr",
+                CbValue::String("127.0.0.1:0".to_string()),
+            )]),
+        )
+        .expect("open A");
+    let addr_a = match open_resp.payload.get("bind_addr") {
+        Some(CbValue::String(s)) => s.clone(),
+        _ => panic!("addr missing"),
+    };
+    client_a
+        .register_axis("dup", "appetite", 10.0, 0.0, 1.0, false, "noop")
+        .expect("A register");
+    let poll_handle = poll_in_background_for(client_a, 80);
+
+    let (mut client_b, _dir_b) = spawn_substrate();
+    let connect_resp = client_b
+        .call(
+            proto::FEDERATION_CONNECT_PEER,
+            build_payload(vec![("remote_addr", CbValue::String(addr_a))]),
+        )
+        .expect("B connect");
+    let a_id = match connect_resp.payload.get("peer_substrate_id") {
+        Some(CbValue::Bytes(b)) => b.clone(),
+        _ => panic!("a_id missing"),
+    };
+
+    // First pull.
+    let pull1 = client_b
+        .call(
+            proto::FEDERATION_PULL_EVENTS_FROM_PEER,
+            build_payload(vec![
+                ("peer_substrate_id", CbValue::Bytes(a_id.clone())),
+                ("max_events", CbValue::Uint(50)),
+            ]),
+        )
+        .expect("pull 1");
+    let ingested1 = match pull1.payload.get("events_ingested_count") {
+        Some(CbValue::Uint(n)) => *n,
+        _ => panic!(),
+    };
+    assert!(ingested1 >= 2);
+
+    // Second pull (same range) — should still complete cleanly. Note that
+    // A's DAG grew between the two pulls (each FED_EVENT_BATCH A sends emits
+    // a federation_events_sent event in A's DAG), so the second pull can
+    // actually return MORE events than the first. The critical invariant is
+    // that `Dag::insert_node` is content-hash idempotent — re-inserting an
+    // existing event is a silent no-op, never a duplicate or an error.
+    let pull2 = client_b
+        .call(
+            proto::FEDERATION_PULL_EVENTS_FROM_PEER,
+            build_payload(vec![
+                ("peer_substrate_id", CbValue::Bytes(a_id)),
+                ("max_events", CbValue::Uint(50)),
+            ]),
+        )
+        .expect("pull 2");
+    let ingested2 = match pull2.payload.get("events_ingested_count") {
+        Some(CbValue::Uint(n)) => *n,
+        _ => panic!(),
+    };
+    assert!(
+        ingested2 >= ingested1,
+        "second pull should re-receive (idempotent) >= first; pull1={ingested1} pull2={ingested2}"
+    );
+
+    let client_a = poll_handle.join().expect("poll join");
+    client_a.shutdown().expect("shutdown A");
+    client_b.shutdown().expect("shutdown B");
+}
+
+#[test]
+fn m22_4_sprout_child_writes_parent_federation_hint() {
+    // Parent A opens listener, then sprouts child B.
+    // B's DAG should contain a parent_federation_hint event.
+    let (mut client_a, _dir_a) = spawn_substrate();
+    let open_resp = client_a
+        .call(
+            proto::FEDERATION_OPEN_LISTENER,
+            build_payload(vec![(
+                "bind_addr",
+                CbValue::String("127.0.0.1:0".to_string()),
+            )]),
+        )
+        .expect("A open listener");
+    let addr_a = match open_resp.payload.get("bind_addr") {
+        Some(CbValue::String(s)) => s.clone(),
+        _ => panic!("addr missing"),
+    };
+
+    // A needs at least one axis registered so sprout has something to clone.
+    client_a
+        .register_axis("clone_me", "appetite", 5.0, 0.0, 1.0, false, "noop")
+        .expect("A register");
+
+    // Sprout child B at a fresh dir.
+    let child_dir = fresh_state_dir();
+    let child_dir_str = child_dir.to_string_lossy().into_owned();
+    let _ = client_a
+        .call(
+            proto::SPROUT_CHILD,
+            build_payload(vec![(
+                "child_state_dir",
+                CbValue::String(child_dir_str.clone()),
+            )]),
+        )
+        .expect("A sprout child");
+    client_a.shutdown().expect("shutdown A pre-spawn-B");
+
+    // Spawn child B pointing at child_state_dir.
+    let mut client_b = spawn_substrate_with_state_dir(&child_dir);
+
+    // Query B's DAG for parent_federation_hint event.
+    let nodes_resp = client_b
+        .call(
+            proto::QUERY_RECENT_NODES,
+            build_payload(vec![
+                ("count", CbValue::Uint(50)),
+                (
+                    "node_type_prefix",
+                    CbValue::String("parent_federation_hint".to_string()),
+                ),
+            ]),
+        )
+        .expect("B query");
+    let nodes_arr = match nodes_resp.payload.get("nodes") {
+        Some(CbValue::Array(a)) => a.clone(),
+        _ => panic!("nodes missing"),
+    };
+    assert_eq!(
+        nodes_arr.len(),
+        1,
+        "B should have exactly one parent_federation_hint event"
+    );
+
+    // Verify the hint contains A's listener address.
+    if let CbValue::Map(m) = &nodes_arr[0] {
+        if let Some(CbValue::Bytes(content)) = m.get("content_canonical_bytes") {
+            use myco_kernel_shared::canonical_bytes::decode as cb_decode;
+            let decoded = cb_decode(content).expect("decode hint content");
+            if let CbValue::Map(hint_map) = decoded {
+                let hint_addr = match hint_map.get("parent_federation_addr") {
+                    Some(CbValue::String(s)) => s.clone(),
+                    _ => panic!("parent_federation_addr missing"),
+                };
+                assert_eq!(hint_addr, addr_a, "hint addr should match A's listener");
+            }
+        }
+    }
+    client_b.shutdown().expect("shutdown B");
+}
+
+#[test]
+fn m22_4_child_link_to_parent_via_hint_emits_parent_linked() {
+    // End-to-end: parent listening → sprout child → child links to parent.
+    let (mut client_a, _dir_a) = spawn_substrate();
+    let open_resp = client_a
+        .call(
+            proto::FEDERATION_OPEN_LISTENER,
+            build_payload(vec![(
+                "bind_addr",
+                CbValue::String("127.0.0.1:0".to_string()),
+            )]),
+        )
+        .expect("A open");
+    let _addr_a = match open_resp.payload.get("bind_addr") {
+        Some(CbValue::String(s)) => s.clone(),
+        _ => panic!(),
+    };
+    client_a
+        .register_axis("clonable", "appetite", 5.0, 0.0, 1.0, false, "noop")
+        .expect("A register");
+    let child_dir = fresh_state_dir();
+    let child_dir_str = child_dir.to_string_lossy().into_owned();
+    let _ = client_a
+        .call(
+            proto::SPROUT_CHILD,
+            build_payload(vec![(
+                "child_state_dir",
+                CbValue::String(child_dir_str),
+            )]),
+        )
+        .expect("A sprout");
+
+    // Critical: we cannot shut down A here, because B needs A's listener
+    // alive to connect. Move A to a polling thread (which keeps A's process
+    // alive AND processes the inbound HELLO from B).
+    // But A already has its listener opened from earlier — listener persists
+    // across the shutdown-prep. Actually no — when A shuts down, its TCP
+    // listener is closed by the OS.
+    //
+    // So we need A to STAY ALIVE while B connects. Move A to polling thread.
+    let poll_handle_a = poll_in_background_for(client_a, 80);
+
+    // Now spawn B and trigger link.
+    let mut client_b = spawn_substrate_with_state_dir(&child_dir);
+    let link_resp = client_b
+        .call(
+            proto::FEDERATION_LINK_TO_PARENT_FROM_HINT,
+            build_payload(vec![]),
+        )
+        .expect("B link to parent");
+    let hint_found = match link_resp.payload.get("hint_found") {
+        Some(CbValue::Bool(b)) => *b,
+        _ => panic!("hint_found missing"),
+    };
+    assert!(hint_found, "B should have found the parent hint in its DAG");
+    let already_linked = match link_resp.payload.get("already_linked") {
+        Some(CbValue::Bool(b)) => *b,
+        _ => panic!("already_linked missing"),
+    };
+    assert!(!already_linked, "first link call should NOT be already_linked");
+    let parent_linked_event_hash = link_resp.payload.get("parent_linked_event_hash");
+    assert!(
+        matches!(parent_linked_event_hash, Some(CbValue::Bytes(b)) if b.len() == 32),
+        "successful link must return parent_linked_event_hash"
+    );
+
+    // Verify B's DAG has federation_parent_linked.
+    let nodes_resp = client_b
+        .call(
+            proto::QUERY_RECENT_NODES,
+            build_payload(vec![
+                ("count", CbValue::Uint(20)),
+                (
+                    "node_type_prefix",
+                    CbValue::String("federation_parent_linked".to_string()),
+                ),
+            ]),
+        )
+        .expect("query B");
+    let nodes_arr = match nodes_resp.payload.get("nodes") {
+        Some(CbValue::Array(a)) => a.clone(),
+        _ => panic!(),
+    };
+    assert!(!nodes_arr.is_empty(), "B should have federation_parent_linked event");
+
+    // Second call should be idempotent (already_linked = true).
+    let link2 = client_b
+        .call(
+            proto::FEDERATION_LINK_TO_PARENT_FROM_HINT,
+            build_payload(vec![]),
+        )
+        .expect("B link 2");
+    let al2 = match link2.payload.get("already_linked") {
+        Some(CbValue::Bool(b)) => *b,
+        _ => panic!(),
+    };
+    assert!(al2, "second link call should report already_linked=true");
+
+    let client_a = poll_handle_a.join().expect("poll join");
+    client_a.shutdown().expect("shutdown A");
+    client_b.shutdown().expect("shutdown B");
+}
+
+#[test]
+fn m22_5_sprout_without_parent_immune_writes_no_quarantine_event() {
+    // Parent has no immune sporocarps → child should NOT have a quarantine event.
+    let (mut client_a, _dir_a) = spawn_substrate();
+    client_a
+        .register_axis("clean", "appetite", 5.0, 0.0, 1.0, false, "noop")
+        .expect("A register");
+
+    let child_dir = fresh_state_dir();
+    let _ = client_a
+        .call(
+            proto::SPROUT_CHILD,
+            build_payload(vec![(
+                "child_state_dir",
+                CbValue::String(child_dir.to_string_lossy().into_owned()),
+            )]),
+        )
+        .expect("sprout");
+    client_a.shutdown().expect("shutdown A");
+
+    let mut client_b = spawn_substrate_with_state_dir(&child_dir);
+    let nodes_resp = client_b
+        .call(
+            proto::QUERY_RECENT_NODES,
+            build_payload(vec![
+                ("count", CbValue::Uint(50)),
+                (
+                    "node_type_prefix",
+                    CbValue::String("birth_period_quarantine_entered".to_string()),
+                ),
+            ]),
+        )
+        .expect("B query");
+    let nodes_arr = match nodes_resp.payload.get("nodes") {
+        Some(CbValue::Array(a)) => a.clone(),
+        _ => panic!(),
+    };
+    assert!(
+        nodes_arr.is_empty(),
+        "clean parent should NOT seed birth-period quarantine"
+    );
+    client_b.shutdown().expect("shutdown B");
+}
+
+#[test]
+fn m22_5_child_quarantined_when_parent_has_immune_event() {
+    // Setup: spawn parent A, shut down, corrupt its dag.cb → respawn A → A boots
+    // with C7_dag_retro_edit_detected immune sporocarp in fresh DAG. Then sprout
+    // child from this parent → child should have birth_period_quarantine_entered.
+    let parent_dir = fresh_state_dir();
+    let client1 = spawn_substrate_with_state_dir(&parent_dir);
+    client1.shutdown().expect("shutdown 1");
+
+    // Corrupt parent's dag.cb.
+    let dag_path = parent_dir.join("dag.cb");
+    std::fs::write(&dag_path, b"this-is-not-canonical-bytes")
+        .expect("corrupt dag.cb");
+
+    // Respawn parent — should emit C7 immune sporocarp + quarantine corrupted file.
+    let mut client2 = spawn_substrate_with_state_dir(&parent_dir);
+
+    // Verify the parent now has at least one immune:* event in its DAG.
+    let immune_resp = client2
+        .call(
+            proto::QUERY_RECENT_NODES,
+            build_payload(vec![
+                ("count", CbValue::Uint(50)),
+                ("node_type_prefix", CbValue::String("immune:".to_string())),
+            ]),
+        )
+        .expect("query immune");
+    let immune_arr = match immune_resp.payload.get("nodes") {
+        Some(CbValue::Array(a)) => a.clone(),
+        _ => panic!(),
+    };
+    assert!(
+        !immune_arr.is_empty(),
+        "respawned parent should have at least one immune event after dag.cb corruption"
+    );
+
+    // Register an axis so sprout has something to clone.
+    client2
+        .register_axis("infected", "appetite", 5.0, 0.0, 1.0, false, "noop")
+        .expect("register");
+
+    // Sprout child.
+    let child_dir = fresh_state_dir();
+    let _ = client2
+        .call(
+            proto::SPROUT_CHILD,
+            build_payload(vec![(
+                "child_state_dir",
+                CbValue::String(child_dir.to_string_lossy().into_owned()),
+            )]),
+        )
+        .expect("sprout");
+    client2.shutdown().expect("shutdown 2");
+
+    // Spawn child + verify it has quarantine_entered event.
+    let mut client_b = spawn_substrate_with_state_dir(&child_dir);
+    let q_resp = client_b
+        .call(
+            proto::QUERY_RECENT_NODES,
+            build_payload(vec![
+                ("count", CbValue::Uint(50)),
+                (
+                    "node_type_prefix",
+                    CbValue::String("birth_period_quarantine_entered".to_string()),
+                ),
+            ]),
+        )
+        .expect("query quarantine");
+    let q_arr = match q_resp.payload.get("nodes") {
+        Some(CbValue::Array(a)) => a.clone(),
+        _ => panic!(),
+    };
+    assert!(
+        !q_arr.is_empty(),
+        "child of immune-bearing parent should have birth_period_quarantine_entered event"
+    );
+    client_b.shutdown().expect("shutdown B");
+}
+
+#[test]
+fn m22_5_quarantined_child_blocks_register_axis() {
+    // Reuse setup from previous test: create a parent with immune, sprout child,
+    // verify child blocks register_axis.
+    let parent_dir = fresh_state_dir();
+    let client1 = spawn_substrate_with_state_dir(&parent_dir);
+    client1.shutdown().expect("shutdown 1");
+    std::fs::write(parent_dir.join("dag.cb"), b"corrupt").expect("corrupt");
+
+    let mut client2 = spawn_substrate_with_state_dir(&parent_dir);
+    client2
+        .register_axis("seeded", "appetite", 5.0, 0.0, 1.0, false, "noop")
+        .expect("seed axis");
+    let child_dir = fresh_state_dir();
+    let _ = client2
+        .call(
+            proto::SPROUT_CHILD,
+            build_payload(vec![(
+                "child_state_dir",
+                CbValue::String(child_dir.to_string_lossy().into_owned()),
+            )]),
+        )
+        .expect("sprout");
+    client2.shutdown().expect("shutdown 2");
+
+    // Spawn child + try register_axis → should fail.
+    let mut client_b = spawn_substrate_with_state_dir(&child_dir);
+    let block_result = client_b.register_axis("blocked", "appetite", 5.0, 0.0, 1.0, false, "noop");
+    assert!(
+        block_result.is_err(),
+        "register_axis should be blocked while in birth-period quarantine"
+    );
+    client_b.shutdown().expect("shutdown B");
+}
+
+#[test]
+fn m22_5_lift_quarantine_unblocks_operations() {
+    let parent_dir = fresh_state_dir();
+    let client1 = spawn_substrate_with_state_dir(&parent_dir);
+    client1.shutdown().expect("shutdown 1");
+    std::fs::write(parent_dir.join("dag.cb"), b"corrupt").expect("corrupt");
+
+    let mut client2 = spawn_substrate_with_state_dir(&parent_dir);
+    client2
+        .register_axis("seeded", "appetite", 5.0, 0.0, 1.0, false, "noop")
+        .expect("seed");
+    let child_dir = fresh_state_dir();
+    let _ = client2
+        .call(
+            proto::SPROUT_CHILD,
+            build_payload(vec![(
+                "child_state_dir",
+                CbValue::String(child_dir.to_string_lossy().into_owned()),
+            )]),
+        )
+        .expect("sprout");
+    client2.shutdown().expect("shutdown 2");
+
+    let mut client_b = spawn_substrate_with_state_dir(&child_dir);
+
+    // Confirm quarantine blocks first.
+    assert!(client_b
+        .register_axis("blocked1", "appetite", 5.0, 0.0, 1.0, false, "noop")
+        .is_err());
+
+    // Lift quarantine.
+    let lift_resp = client_b
+        .call(proto::LIFT_BIRTH_PERIOD_QUARANTINE, build_payload(vec![]))
+        .expect("lift");
+    let was_in_q = match lift_resp.payload.get("was_in_quarantine") {
+        Some(CbValue::Bool(b)) => *b,
+        _ => panic!(),
+    };
+    assert!(was_in_q, "should report was_in_quarantine=true");
+
+    // Now register_axis should succeed.
+    let after_lift = client_b.register_axis("after_lift", "appetite", 5.0, 0.0, 1.0, false, "noop");
+    assert!(
+        after_lift.is_ok(),
+        "register_axis should succeed after lift; got {after_lift:?}"
+    );
+
+    client_b.shutdown().expect("shutdown B");
+}
+
+#[test]
+fn m22_5_lift_quarantine_idempotent_when_not_quarantined() {
+    // Clean substrate (no quarantine ever) → lift returns was_in_quarantine=false.
+    let (mut client, _dir) = spawn_substrate();
+    let resp = client
+        .call(proto::LIFT_BIRTH_PERIOD_QUARANTINE, build_payload(vec![]))
+        .expect("lift");
+    let was = match resp.payload.get("was_in_quarantine") {
+        Some(CbValue::Bool(b)) => *b,
+        _ => panic!(),
+    };
+    assert!(!was, "fresh substrate is not in quarantine");
+    client.shutdown().expect("shutdown");
+}
+
+#[test]
+fn m22_2_connect_peer_with_no_listener_fails() {
+    // Connect to a port no one is listening on — should error out cleanly.
+    let (mut client_b, _dir_b) = spawn_substrate();
+    let result = client_b.call(
+        proto::FEDERATION_CONNECT_PEER,
+        build_payload(vec![(
+            "remote_addr",
+            CbValue::String("127.0.0.1:1".to_string()), // port 1 = privileged, unlikely listening
+        )]),
+    );
+    assert!(
+        result.is_err(),
+        "connect to non-listening address must fail"
+    );
+    client_b.shutdown().expect("shutdown B");
+}
+
+#[test]
+fn m22_1_federation_listener_can_accept_tcp_connection() {
+    // Open listener, then verify it accepts TCP connections (the connection
+    // doesn't go anywhere yet — M22.2 wires the handshake — but the listener
+    // socket is bound + listening.)
+    let (mut client, _dir) = spawn_substrate();
+    let open_resp = client
+        .call(
+            proto::FEDERATION_OPEN_LISTENER,
+            build_payload(vec![(
+                "bind_addr",
+                CbValue::String("127.0.0.1:0".to_string()),
+            )]),
+        )
+        .expect("open");
+    let addr_str = match open_resp.payload.get("bind_addr") {
+        Some(CbValue::String(s)) => s.clone(),
+        _ => panic!("bind_addr missing"),
+    };
+
+    use std::net::TcpStream;
+    use std::time::Duration;
+    let stream = TcpStream::connect_timeout(
+        &addr_str.parse().expect("addr parse"),
+        Duration::from_secs(2),
+    );
+    assert!(
+        stream.is_ok(),
+        "should be able to TCP-connect to federation listener at {addr_str}"
+    );
+    drop(stream);
+
+    client.shutdown().expect("shutdown");
+}

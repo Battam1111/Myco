@@ -168,6 +168,82 @@ pub mod msg_type {
     /// `query_gradient_schemas_response` — Python→Rust: full per-axis schema
     /// + current_value + update_rule_kind for every registered axis.
     pub const QUERY_GRADIENT_SCHEMAS_RESPONSE: &str = "query_gradient_schemas_response";
+
+    // ---------------------------------------------------------------------
+    // M22 federation message types (P5 inter-substrate).
+    //
+    // These messages flow operator → substrate to drive federation:
+    // open/close listener, connect to peer, poll for events, query status.
+    // The substrate then opens TCP sockets, exchanges federation frames with
+    // peer substrates, and surfaces results to the operator.
+    // ---------------------------------------------------------------------
+
+    /// `federation_open_listener` — Operator→Substrate: open a TCP listener
+    /// on the given address (M22.1). Bind address may be `127.0.0.1:0` to let
+    /// the OS pick a port; the response carries the resolved bind address.
+    pub const FEDERATION_OPEN_LISTENER: &str = "federation_open_listener";
+    /// `federation_open_listener_response` — Substrate→Operator: resolved
+    /// bind address + a DAG event hash for the `federation_listener_opened`
+    /// event written into the substrate's causal graph.
+    pub const FEDERATION_OPEN_LISTENER_RESPONSE: &str = "federation_open_listener_response";
+
+    /// `federation_close_listener` — Operator→Substrate: close the active
+    /// federation listener (idempotent — no-op if no listener) (M22.1).
+    pub const FEDERATION_CLOSE_LISTENER: &str = "federation_close_listener";
+    /// `federation_close_listener_response` — Substrate→Operator: confirms
+    /// listener closed; carries the previously-bound address if any.
+    pub const FEDERATION_CLOSE_LISTENER_RESPONSE: &str = "federation_close_listener_response";
+
+    /// `federation_status` — Operator→Substrate: report federation state
+    /// (bound listener addr if any + per-peer summary + totals) (M22.1).
+    pub const FEDERATION_STATUS: &str = "federation_status";
+    /// `federation_status_response` — Substrate→Operator: federation state report.
+    pub const FEDERATION_STATUS_RESPONSE: &str = "federation_status_response";
+
+    /// `federation_connect_peer` — Operator→Substrate: establish a federation
+    /// connection to a remote peer at the given TCP address (M22.2). The
+    /// substrate dials the peer, performs the FED_HELLO handshake, and pins
+    /// the peer's substrate_id via TOFU.
+    pub const FEDERATION_CONNECT_PEER: &str = "federation_connect_peer";
+    /// `federation_connect_peer_response` — Substrate→Operator: pinned peer
+    /// substrate_id + handshake result.
+    pub const FEDERATION_CONNECT_PEER_RESPONSE: &str = "federation_connect_peer_response";
+
+    /// `federation_poll` — Operator→Substrate: drive one round of nonblocking
+    /// federation I/O (accept pending connections, drain pending frames per
+    /// peer, advance handshakes, process incoming events) (M22.2+). Returns
+    /// counts of accepted connections + processed frames + ingested events.
+    pub const FEDERATION_POLL: &str = "federation_poll";
+    /// `federation_poll_response` — Substrate→Operator: per-poll work summary.
+    pub const FEDERATION_POLL_RESPONSE: &str = "federation_poll_response";
+
+    /// `federation_pull_events_from_peer` — Operator→Substrate: request DAG
+    /// events newer than the given node hash from a specific peer (M22.3).
+    pub const FEDERATION_PULL_EVENTS_FROM_PEER: &str = "federation_pull_events_from_peer";
+    /// `federation_pull_events_from_peer_response` — Substrate→Operator:
+    /// count of events received + ingested.
+    pub const FEDERATION_PULL_EVENTS_FROM_PEER_RESPONSE: &str =
+        "federation_pull_events_from_peer_response";
+
+    /// `lift_birth_period_quarantine` — Operator→Substrate: operator
+    /// signs an envelope to lift this child substrate's birth-period
+    /// quarantine ahead of cycle elapse (M22.5).
+    pub const LIFT_BIRTH_PERIOD_QUARANTINE: &str = "lift_birth_period_quarantine";
+    /// `lift_birth_period_quarantine_response` — Substrate→Operator: confirms
+    /// quarantine lifted (or rejected with reason).
+    pub const LIFT_BIRTH_PERIOD_QUARANTINE_RESPONSE: &str =
+        "lift_birth_period_quarantine_response";
+
+    /// `federation_link_to_parent_from_hint` — Operator→Substrate: scan local
+    /// DAG for a `parent_federation_hint` event written by the parent at
+    /// sprout_child time; if found, dial the parent + pin + emit
+    /// `federation_parent_linked` (M22.4).
+    pub const FEDERATION_LINK_TO_PARENT_FROM_HINT: &str =
+        "federation_link_to_parent_from_hint";
+    /// `federation_link_to_parent_from_hint_response` — Substrate→Operator:
+    /// hint discovered + connect outcome + parent_linked event hash.
+    pub const FEDERATION_LINK_TO_PARENT_FROM_HINT_RESPONSE: &str =
+        "federation_link_to_parent_from_hint_response";
 }
 
 /// A decoded bridge message.

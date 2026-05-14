@@ -200,6 +200,10 @@ struct ServerState {
     /// M13: Attestation nonce log (in-process; not persisted at M13 minimum).
     /// Keyed by nonce bytes for O(1) lookup on submit.
     nonce_log: std::collections::HashMap<[u8; 32], AttestationNonce>,
+    /// M22 P5 万物互联: inter-substrate federation state (listener + peers).
+    /// Always present; the listener field stays `None` until the operator
+    /// invokes `federation_open_listener`.
+    federation: crate::federation::FederationState,
 }
 
 impl ServerState {
@@ -226,6 +230,7 @@ impl ServerState {
             dag,
             pinned_operator_identity,
             nonce_log: std::collections::HashMap::new(),
+            federation: crate::federation::FederationState::default(),
         }
     }
 
@@ -623,6 +628,11 @@ fn dispatch(state: &mut ServerState, request: &Message) -> Result<Option<Message
     match request.message_type.as_str() {
         msg_type::HELLO => handle_hello(state, request),
         msg_type::REGISTER_AXIS => {
+            // M22.5: block register_axis during birth-period quarantine.
+            // Inherited disease + structural mutation == bad combination.
+            if is_in_birth_period_quarantine(state) {
+                return quarantine_block(state, "register_axis");
+            }
             let response = forward_to_python(state, request, msg_type::REGISTER_AXIS_ACK)?;
             // M21.1 P5 万物互联: emit axis_registered DAG event so the schema
             // addition is recorded in the causal graph (was an orphan prior).
@@ -640,6 +650,10 @@ fn dispatch(state: &mut ServerState, request: &Message) -> Result<Option<Message
             Ok(response)
         }
         msg_type::PERTURB => {
+            // M22.5: block perturb during birth-period quarantine.
+            if is_in_birth_period_quarantine(state) {
+                return quarantine_block(state, "perturb");
+            }
             let response = forward_to_python(state, request, msg_type::PERTURB_ACK)?;
             // M21.1 P5 万物互联: emit axis_perturbed DAG event so the
             // perturbation is recorded in the causal graph. Plain perturb
@@ -739,10 +753,956 @@ fn dispatch(state: &mut ServerState, request: &Message) -> Result<Option<Message
             save_dag_state(state)?;
             Ok(response)
         }
+        // M22 P5 万物互联 — inter-substrate federation. Operator-driven; all
+        // federation handlers mutate state.federation + emit DAG events through
+        // emit_substrate_event. Listener/peer sockets are nonblocking; the
+        // substrate's main loop does no I/O multiplexing of its own.
+        msg_type::FEDERATION_OPEN_LISTENER => {
+            let response = handle_federation_open_listener(state, request)?;
+            save_dag_state(state)?;
+            Ok(response)
+        }
+        msg_type::FEDERATION_CLOSE_LISTENER => {
+            let response = handle_federation_close_listener(state, request)?;
+            save_dag_state(state)?;
+            Ok(response)
+        }
+        msg_type::FEDERATION_STATUS => handle_federation_status(state, request),
+        msg_type::FEDERATION_CONNECT_PEER => {
+            let response = handle_federation_connect_peer(state, request)?;
+            save_dag_state(state)?;
+            Ok(response)
+        }
+        msg_type::FEDERATION_POLL => {
+            let response = handle_federation_poll(state, request)?;
+            save_dag_state(state)?;
+            Ok(response)
+        }
+        msg_type::FEDERATION_PULL_EVENTS_FROM_PEER => {
+            let response = handle_federation_pull_events_from_peer(state, request)?;
+            save_dag_state(state)?;
+            Ok(response)
+        }
+        msg_type::FEDERATION_LINK_TO_PARENT_FROM_HINT => {
+            let response = handle_federation_link_to_parent_from_hint(state, request)?;
+            save_dag_state(state)?;
+            Ok(response)
+        }
+        msg_type::LIFT_BIRTH_PERIOD_QUARANTINE => {
+            let response = handle_lift_birth_period_quarantine(state, request)?;
+            save_dag_state(state)?;
+            Ok(response)
+        }
         other => Err(SubstrateError::Protocol(format!(
             "substrate cannot handle message type {other:?}"
         ))),
     }
+}
+
+// ---------------------------------------------------------------------------
+// M22.1 P5 万物互联 — federation handlers (listener lifecycle + status).
+//
+// `handle_federation_open_listener` and `handle_federation_close_listener`
+// mutate `state.federation.listener` and emit a corresponding
+// `federation_listener_opened` / `federation_listener_closed` DAG event.
+// `handle_federation_status` is a read-only reporter.
+// ---------------------------------------------------------------------------
+
+/// M22.1: open a TCP federation listener on the operator-supplied address.
+///
+/// Payload:
+/// ```text
+/// Map({ "bind_addr": String })
+/// ```
+///
+/// Response payload:
+/// ```text
+/// Map({
+///   "bind_addr": String,             // resolved (port-zero → real port)
+///   "listener_opened_event_hash": Bytes(32),
+/// })
+/// ```
+fn handle_federation_open_listener(
+    state: &mut ServerState,
+    request: &Message,
+) -> Result<Option<Message>, SubstrateError> {
+    let bind_addr_requested = match request.payload.get("bind_addr") {
+        Some(Value::String(s)) if !s.is_empty() => s.clone(),
+        _ => {
+            return Err(SubstrateError::Protocol(
+                "federation_open_listener: bind_addr must be non-empty String".to_string(),
+            ));
+        }
+    };
+
+    let resolved = state.federation.open_listener(&bind_addr_requested)?;
+    let resolved_str = resolved.to_string();
+
+    // Emit the federation_listener_opened DAG event so the listener state
+    // is recorded in the substrate's causal graph (P5 + P6).
+    let opened_at_unix_ns = state
+        .federation
+        .listener
+        .as_ref()
+        .map(|l| l.opened_at_unix_ns)
+        .unwrap_or(0);
+    let event_content = crate::events::encode_federation_listener_opened(
+        &resolved_str,
+        opened_at_unix_ns,
+    );
+    let event_hash = emit_substrate_event(
+        state,
+        crate::events::NODE_TYPE_FEDERATION_LISTENER_OPENED.to_string(),
+        event_content,
+    )?;
+
+    let mut payload = BTreeMap::new();
+    payload.insert("bind_addr".to_string(), Value::String(resolved_str));
+    payload.insert(
+        "listener_opened_event_hash".to_string(),
+        Value::Bytes(event_hash.0.to_vec()),
+    );
+    Ok(Some(Message::new(
+        msg_type::FEDERATION_OPEN_LISTENER_RESPONSE,
+        request.request_id,
+        payload,
+    )))
+}
+
+/// M22.1: close the active federation listener (idempotent).
+///
+/// Payload: empty.
+///
+/// Response payload:
+/// ```text
+/// Map({
+///   "was_listening": Bool,
+///   "prior_bind_addr": String,             // empty if was_listening=false
+///   "listener_closed_event_hash": Bytes(32) [optional; only if was_listening],
+/// })
+/// ```
+fn handle_federation_close_listener(
+    state: &mut ServerState,
+    request: &Message,
+) -> Result<Option<Message>, SubstrateError> {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let prior_addr_opt = state.federation.close_listener();
+    let mut payload = BTreeMap::new();
+    match prior_addr_opt {
+        Some(prior_addr) => {
+            let prior_addr_str = prior_addr.to_string();
+            let closed_at_unix_ns = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .ok()
+                .and_then(|d| i64::try_from(d.as_nanos()).ok())
+                .unwrap_or(0);
+            let event_content = crate::events::encode_federation_listener_closed(
+                &prior_addr_str,
+                closed_at_unix_ns,
+            );
+            let event_hash = emit_substrate_event(
+                state,
+                crate::events::NODE_TYPE_FEDERATION_LISTENER_CLOSED.to_string(),
+                event_content,
+            )?;
+            payload.insert("was_listening".to_string(), Value::Bool(true));
+            payload.insert(
+                "prior_bind_addr".to_string(),
+                Value::String(prior_addr_str),
+            );
+            payload.insert(
+                "listener_closed_event_hash".to_string(),
+                Value::Bytes(event_hash.0.to_vec()),
+            );
+        }
+        None => {
+            payload.insert("was_listening".to_string(), Value::Bool(false));
+            payload.insert("prior_bind_addr".to_string(), Value::String(String::new()));
+        }
+    }
+    Ok(Some(Message::new(
+        msg_type::FEDERATION_CLOSE_LISTENER_RESPONSE,
+        request.request_id,
+        payload,
+    )))
+}
+
+/// M22.2: emit a `federation_peer_pinned` DAG event for a newly-pinned peer.
+///
+/// Returns the inserted node hash so the caller can surface it in the
+/// connect-peer / poll response.
+fn emit_federation_peer_pinned(
+    state: &mut ServerState,
+    peer_substrate_id: &[u8; 32],
+    remote_addr: &str,
+    first_pinned_unix_ns: i64,
+) -> Result<myco_kernel_shared::crypto::NodeHash, SubstrateError> {
+    let nt = crate::events::federation_peer_pinned_node_type(peer_substrate_id);
+    let content = crate::events::encode_federation_peer_pinned(
+        peer_substrate_id,
+        remote_addr,
+        first_pinned_unix_ns,
+    );
+    emit_substrate_event(state, nt, content)
+}
+
+/// M22.2: emit a `federation_peer_rejected` DAG event + a C20 immune sporocarp
+/// when an inbound or outbound peer fails TOFU pinning.
+fn emit_federation_peer_rejected(
+    state: &mut ServerState,
+    offered_substrate_id: &[u8; 32],
+    previously_pinned_substrate_id: &[u8; 32],
+    remote_addr: &str,
+    reason: &str,
+) -> Result<(), SubstrateError> {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let rejected_at_unix_ns = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .ok()
+        .and_then(|d| i64::try_from(d.as_nanos()).ok())
+        .unwrap_or(0);
+    let nt = crate::events::federation_peer_rejected_node_type(offered_substrate_id);
+    let content = crate::events::encode_federation_peer_rejected(
+        offered_substrate_id,
+        previously_pinned_substrate_id,
+        remote_addr,
+        rejected_at_unix_ns,
+        reason,
+    );
+    let _ = emit_substrate_event(state, nt, content);
+    // C20: peer identity mismatch as an immune sporocarp for operator-level
+    // visibility (filter via query_immune_events).
+    let evidence = format!(
+        "federation_peer_rejected: offered_id_prefix={} reason={}",
+        hex_first_8_bytes(offered_substrate_id),
+        reason
+    );
+    let _ = emit_immune_sporocarp(
+        state,
+        "C20_federation_identity_mismatch_detected",
+        "federation_identity_mismatch_detected",
+        &evidence,
+    );
+    Ok(())
+}
+
+/// M22.2: handle a `federation_connect_peer` request.
+///
+/// Payload:
+/// ```text
+/// Map({ "remote_addr": String })
+/// ```
+///
+/// Response payload:
+/// ```text
+/// Map({
+///   "outcome": String,                                    // "pinned" / "self_connection" / "identity_drift" / "already_pinned"
+///   "peer_substrate_id": Bytes(32) [optional],
+///   "peer_dag_tip": Bytes(32) [optional],
+///   "remote_addr": String,
+///   "peer_pinned_event_hash": Bytes(32) [optional; only for "pinned"],
+/// })
+/// ```
+fn handle_federation_connect_peer(
+    state: &mut ServerState,
+    request: &Message,
+) -> Result<Option<Message>, SubstrateError> {
+    let remote_addr = match request.payload.get("remote_addr") {
+        Some(Value::String(s)) if !s.is_empty() => s.clone(),
+        _ => {
+            return Err(SubstrateError::Protocol(
+                "federation_connect_peer: remote_addr must be non-empty String".to_string(),
+            ));
+        }
+    };
+    let our_substrate_id = state.manifest.substrate_id;
+    let our_dag_tip = state.dag.tip().map(|t| t.0);
+
+    let outcome =
+        state
+            .federation
+            .connect_peer(&remote_addr, &our_substrate_id, our_dag_tip.as_ref())?;
+
+    let mut payload = BTreeMap::new();
+    payload.insert("remote_addr".to_string(), Value::String(remote_addr.clone()));
+    match outcome {
+        crate::federation::ConnectPeerOutcome::Pinned {
+            peer_substrate_id,
+            remote_addr_str,
+            peer_dag_tip,
+        } => {
+            let now = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .ok()
+                .and_then(|d| i64::try_from(d.as_nanos()).ok())
+                .unwrap_or(0);
+            let event_hash = emit_federation_peer_pinned(
+                state,
+                &peer_substrate_id,
+                &remote_addr_str,
+                now,
+            )?;
+            payload.insert("outcome".to_string(), Value::String("pinned".to_string()));
+            payload.insert(
+                "peer_substrate_id".to_string(),
+                Value::Bytes(peer_substrate_id.to_vec()),
+            );
+            if let Some(tip) = peer_dag_tip {
+                payload.insert("peer_dag_tip".to_string(), Value::Bytes(tip.to_vec()));
+            }
+            payload.insert(
+                "peer_pinned_event_hash".to_string(),
+                Value::Bytes(event_hash.0.to_vec()),
+            );
+        }
+        crate::federation::ConnectPeerOutcome::RejectedSelfConnection {
+            remote_addr_str,
+        } => {
+            payload.insert(
+                "outcome".to_string(),
+                Value::String("self_connection".to_string()),
+            );
+            payload.insert(
+                "remote_addr".to_string(),
+                Value::String(remote_addr_str),
+            );
+        }
+        crate::federation::ConnectPeerOutcome::RejectedIdentityDrift {
+            peer_substrate_id,
+            new_remote_addr_str,
+            previously_pinned_remote_addr_str,
+        } => {
+            let reason = format!(
+                "identity drift: id previously pinned at {previously_pinned_remote_addr_str}; \
+                 new connection at {new_remote_addr_str}"
+            );
+            let _ = emit_federation_peer_rejected(
+                state,
+                &peer_substrate_id,
+                &peer_substrate_id,
+                &new_remote_addr_str,
+                &reason,
+            );
+            payload.insert(
+                "outcome".to_string(),
+                Value::String("identity_drift".to_string()),
+            );
+            payload.insert(
+                "peer_substrate_id".to_string(),
+                Value::Bytes(peer_substrate_id.to_vec()),
+            );
+            payload.insert(
+                "remote_addr".to_string(),
+                Value::String(new_remote_addr_str),
+            );
+        }
+        crate::federation::ConnectPeerOutcome::AlreadyPinned {
+            peer_substrate_id,
+            remote_addr_str,
+        } => {
+            payload.insert(
+                "outcome".to_string(),
+                Value::String("already_pinned".to_string()),
+            );
+            payload.insert(
+                "peer_substrate_id".to_string(),
+                Value::Bytes(peer_substrate_id.to_vec()),
+            );
+            payload.insert(
+                "remote_addr".to_string(),
+                Value::String(remote_addr_str),
+            );
+        }
+    }
+    Ok(Some(Message::new(
+        msg_type::FEDERATION_CONNECT_PEER_RESPONSE,
+        request.request_id,
+        payload,
+    )))
+}
+
+/// M22.2: handle a `federation_poll` request — drive one round of nonblocking
+/// federation I/O.
+///
+/// Steps performed (in order):
+/// 1. Accept queued inbound connections; add as `AwaitingHello` peers.
+/// 2. For each `AwaitingHello` peer, try to read the inbound FED_HELLO;
+///    on success, send FED_HELLO_ACK + pin (or reject + emit C20).
+/// 3. M22.3+: drain established peers' inbound frames (event batches, etc.).
+///
+/// Response payload:
+/// ```text
+/// Map({
+///   "accepted_connections": Uint,
+///   "pinned_peers": Uint,
+///   "rejected_peers": Uint,
+/// })
+/// ```
+fn handle_federation_poll(
+    state: &mut ServerState,
+    request: &Message,
+) -> Result<Option<Message>, SubstrateError> {
+    let accepted = state.federation.accept_pending()?;
+    let our_substrate_id = state.manifest.substrate_id;
+    let our_dag_tip = state.dag.tip().map(|t| t.0);
+    // M22.3: pass &dag so progress_peers can enumerate events for inbound
+    // FED_REQUEST_EVENTS_SINCE responses.
+    let events = state
+        .federation
+        .progress_peers(&our_substrate_id, our_dag_tip.as_ref(), &state.dag);
+
+    let mut pinned_count = 0u64;
+    let mut rejected_count = 0u64;
+    let mut event_batches_sent = 0u64;
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .ok()
+        .and_then(|d| i64::try_from(d.as_nanos()).ok())
+        .unwrap_or(0);
+
+    for ev in events {
+        match ev {
+            crate::federation::PollPeerEvent::Pinned {
+                peer_substrate_id,
+                remote_addr_str,
+                peer_dag_tip: _,
+            } => {
+                let _ = emit_federation_peer_pinned(
+                    state,
+                    &peer_substrate_id,
+                    &remote_addr_str,
+                    now,
+                );
+                pinned_count += 1;
+            }
+            crate::federation::PollPeerEvent::RejectedSelfConnection { remote_addr_str } => {
+                let _ = emit_federation_peer_rejected(
+                    state,
+                    &our_substrate_id,
+                    &our_substrate_id,
+                    &remote_addr_str,
+                    "inbound peer claimed our own substrate_id (self-connection)",
+                );
+                rejected_count += 1;
+            }
+            crate::federation::PollPeerEvent::FailedFrameRead {
+                remote_addr_str,
+                reason,
+            } => {
+                let _ = emit_federation_peer_rejected(
+                    state,
+                    &[0u8; 32],
+                    &our_substrate_id,
+                    &remote_addr_str,
+                    &format!("frame read failure: {reason}"),
+                );
+                rejected_count += 1;
+            }
+            crate::federation::PollPeerEvent::EventsSent {
+                peer_substrate_id,
+                sent_event_hashes,
+            } => {
+                let content = crate::events::encode_federation_events_sent(
+                    &peer_substrate_id,
+                    &sent_event_hashes,
+                    now,
+                );
+                let _ = emit_substrate_event(
+                    state,
+                    crate::events::NODE_TYPE_FEDERATION_EVENTS_SENT.to_string(),
+                    content,
+                );
+                event_batches_sent += 1;
+            }
+        }
+    }
+
+    let mut payload = BTreeMap::new();
+    payload.insert(
+        "accepted_connections".to_string(),
+        Value::Uint(accepted as u64),
+    );
+    payload.insert("pinned_peers".to_string(), Value::Uint(pinned_count));
+    payload.insert("rejected_peers".to_string(), Value::Uint(rejected_count));
+    payload.insert(
+        "event_batches_sent".to_string(),
+        Value::Uint(event_batches_sent),
+    );
+    Ok(Some(Message::new(
+        msg_type::FEDERATION_POLL_RESPONSE,
+        request.request_id,
+        payload,
+    )))
+}
+
+/// M22.5: information about the substrate's current quarantine state, derived
+/// from DAG events. `None` if no quarantine has ever been entered.
+#[derive(Debug, Clone)]
+struct QuarantineState {
+    /// Cycle when the most recent quarantine_entered event landed. Retained
+    /// for diagnostic surfacing (M22.5 minimal flow only inspects `expires_at_cycle`).
+    #[allow(dead_code)]
+    entered_at_cycle: u64,
+    /// Cycle by which the quarantine should auto-lift.
+    expires_at_cycle: u64,
+    /// Whether a subsequent quarantine_lifted event has been emitted.
+    lifted: bool,
+}
+
+/// M22.5: scan DAG for the most recent birth_period_quarantine_entered event +
+/// any subsequent lifted event. Returns the current quarantine status.
+fn current_quarantine_state(state: &ServerState) -> Option<QuarantineState> {
+    use myco_kernel_shared::canonical_bytes::{decode as cb_decode, Value as CbValue};
+    let mut entered_at: Option<(u64, u64)> = None; // (entered_at_cycle, expires_at_cycle)
+    let mut lifted_after_entered = false;
+    for n in state.dag.iter_in_insertion_order() {
+        if n.node_type == crate::events::NODE_TYPE_BIRTH_PERIOD_QUARANTINE_ENTERED {
+            // Reset (a new quarantine cycle takes over from any previous one).
+            lifted_after_entered = false;
+            // Read quarantine_duration_cycles from content.
+            let duration = match cb_decode(n.content_canonical_bytes.as_ref()) {
+                Ok(CbValue::Map(m)) => match m.get("quarantine_duration_cycles") {
+                    Some(CbValue::Uint(d)) => *d,
+                    _ => 10, // default fallback
+                },
+                _ => 10,
+            };
+            let entered_cycle = n.created_at_cycle;
+            entered_at = Some((entered_cycle, entered_cycle.saturating_add(duration)));
+        } else if n.node_type == crate::events::NODE_TYPE_BIRTH_PERIOD_QUARANTINE_LIFTED
+            && entered_at.is_some()
+        {
+            lifted_after_entered = true;
+        }
+    }
+    entered_at.map(|(entered, expires)| QuarantineState {
+        entered_at_cycle: entered,
+        expires_at_cycle: expires,
+        lifted: lifted_after_entered,
+    })
+}
+
+/// M22.5: check whether the substrate is currently in active birth-period
+/// quarantine. Active = quarantine_entered event exists AND no subsequent
+/// lifted event AND current cycle has NOT passed the expiry.
+fn is_in_birth_period_quarantine(state: &ServerState) -> bool {
+    match current_quarantine_state(state) {
+        Some(q) if !q.lifted => state.manifest.cycle_counter < q.expires_at_cycle,
+        _ => false,
+    }
+}
+
+/// M22.5: emit a C21 immune sporocarp + return a Protocol error indicating
+/// the operation was blocked due to active birth-period quarantine.
+fn quarantine_block(
+    state: &mut ServerState,
+    op_name: &str,
+) -> Result<Option<Message>, SubstrateError> {
+    let evidence = format!(
+        "operation {op_name} blocked: substrate is in birth-period quarantine \
+         (inherited from parent's immune signals). Operator may call \
+         lift_birth_period_quarantine after verifying signals."
+    );
+    let _ = emit_immune_sporocarp(
+        state,
+        "C21_birth_period_violation_detected",
+        "birth_period_violation_detected",
+        &evidence,
+    );
+    Err(SubstrateError::Protocol(evidence))
+}
+
+/// M22.5: handle `lift_birth_period_quarantine`. Emits a
+/// `birth_period_quarantine_lifted` event so the substrate exits quarantine.
+///
+/// Idempotent — calling when not in quarantine returns `was_in_quarantine=false`.
+fn handle_lift_birth_period_quarantine(
+    state: &mut ServerState,
+    request: &Message,
+) -> Result<Option<Message>, SubstrateError> {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let q = current_quarantine_state(state);
+    let mut payload = BTreeMap::new();
+    let was_in_q = q.as_ref().map(|s| !s.lifted).unwrap_or(false);
+    payload.insert("was_in_quarantine".to_string(), Value::Bool(was_in_q));
+    if was_in_q {
+        let lifted_at_unix_ns = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .ok()
+            .and_then(|d| i64::try_from(d.as_nanos()).ok())
+            .unwrap_or(0);
+        let content = crate::events::encode_birth_period_quarantine_lifted(
+            "operator_signed_lift",
+            state.manifest.cycle_counter,
+            lifted_at_unix_ns,
+        );
+        let event_hash = emit_substrate_event(
+            state,
+            crate::events::NODE_TYPE_BIRTH_PERIOD_QUARANTINE_LIFTED.to_string(),
+            content,
+        )?;
+        payload.insert(
+            "quarantine_lifted_event_hash".to_string(),
+            Value::Bytes(event_hash.0.to_vec()),
+        );
+    }
+    Ok(Some(Message::new(
+        msg_type::LIFT_BIRTH_PERIOD_QUARANTINE_RESPONSE,
+        request.request_id,
+        payload,
+    )))
+}
+
+/// M22.4: handle `federation_link_to_parent_from_hint`.
+///
+/// Scans the local DAG for a `parent_federation_hint` event. If found:
+/// 1. Extract `parent_federation_addr` + `parent_substrate_id` from event content.
+/// 2. Skip if a `federation_parent_linked` event already exists (idempotent).
+/// 3. Call `state.federation.connect_peer(...)` with parent's address.
+/// 4. On successful pin: emit `federation_peer_pinned` + `federation_parent_linked`.
+/// 5. Return outcome to operator.
+///
+/// Payload: empty.
+///
+/// Response payload:
+/// ```text
+/// Map({
+///   "hint_found": Bool,
+///   "already_linked": Bool,
+///   "parent_substrate_id": Bytes(32) [optional; only if hint_found],
+///   "parent_federation_addr": String [optional],
+///   "parent_linked_event_hash": Bytes(32) [optional; only on success],
+/// })
+/// ```
+fn handle_federation_link_to_parent_from_hint(
+    state: &mut ServerState,
+    request: &Message,
+) -> Result<Option<Message>, SubstrateError> {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    use myco_kernel_shared::canonical_bytes::{decode as cb_decode, map_get_bytes, map_get_string};
+
+    // Scan for the most recent parent_federation_hint event. The DAG's
+    // iter_in_insertion_order is not DoubleEndedIterator, so we scan forward
+    // and remember the latest match.
+    let hint_node = state
+        .dag
+        .iter_in_insertion_order()
+        .filter(|n| n.node_type == crate::events::NODE_TYPE_PARENT_FEDERATION_HINT)
+        .last();
+
+    let mut payload = BTreeMap::new();
+    let Some(hint) = hint_node else {
+        payload.insert("hint_found".to_string(), Value::Bool(false));
+        payload.insert("already_linked".to_string(), Value::Bool(false));
+        return Ok(Some(Message::new(
+            msg_type::FEDERATION_LINK_TO_PARENT_FROM_HINT_RESPONSE,
+            request.request_id,
+            payload,
+        )));
+    };
+
+    let hint_decoded = cb_decode(hint.content_canonical_bytes.as_ref())
+        .map_err(|e| SubstrateError::Protocol(format!("decode parent_federation_hint: {e}")))?;
+    let hint_map = match hint_decoded {
+        Value::Map(m) => m,
+        _ => {
+            return Err(SubstrateError::Protocol(
+                "parent_federation_hint is not a Map".to_string(),
+            ));
+        }
+    };
+    let parent_id_bytes = map_get_bytes(&hint_map, "parent_substrate_id")
+        .map_err(|e| SubstrateError::Protocol(e.to_string()))?;
+    if parent_id_bytes.len() != 32 {
+        return Err(SubstrateError::Protocol(
+            "parent_substrate_id in hint is not 32 bytes".to_string(),
+        ));
+    }
+    let mut parent_substrate_id = [0u8; 32];
+    parent_substrate_id.copy_from_slice(parent_id_bytes);
+    let parent_federation_addr = map_get_string(&hint_map, "parent_federation_addr")
+        .map_err(|e| SubstrateError::Protocol(e.to_string()))?
+        .to_string();
+
+    // Idempotency: if a federation_parent_linked event already exists for this
+    // parent, return early — the link is already established.
+    let already_linked = state
+        .dag
+        .iter_in_insertion_order()
+        .any(|n| n.node_type == crate::events::NODE_TYPE_FEDERATION_PARENT_LINKED);
+
+    payload.insert("hint_found".to_string(), Value::Bool(true));
+    payload.insert(
+        "parent_substrate_id".to_string(),
+        Value::Bytes(parent_substrate_id.to_vec()),
+    );
+    payload.insert(
+        "parent_federation_addr".to_string(),
+        Value::String(parent_federation_addr.clone()),
+    );
+
+    if already_linked {
+        payload.insert("already_linked".to_string(), Value::Bool(true));
+        return Ok(Some(Message::new(
+            msg_type::FEDERATION_LINK_TO_PARENT_FROM_HINT_RESPONSE,
+            request.request_id,
+            payload,
+        )));
+    }
+
+    payload.insert("already_linked".to_string(), Value::Bool(false));
+
+    // Connect to parent.
+    let our_substrate_id = state.manifest.substrate_id;
+    let our_dag_tip = state.dag.tip().map(|t| t.0);
+    let outcome = state.federation.connect_peer(
+        &parent_federation_addr,
+        &our_substrate_id,
+        our_dag_tip.as_ref(),
+    )?;
+
+    if let crate::federation::ConnectPeerOutcome::Pinned {
+        peer_substrate_id,
+        remote_addr_str,
+        peer_dag_tip: _,
+    } = outcome
+    {
+        // Verify the pinned peer matches the hint's parent_substrate_id.
+        if peer_substrate_id != parent_substrate_id {
+            return Err(SubstrateError::Protocol(format!(
+                "federation parent link: parent at {remote_addr_str} has substrate_id {} but \
+                 hint says parent is {}",
+                hex_first_8_bytes(&peer_substrate_id),
+                hex_first_8_bytes(&parent_substrate_id),
+            )));
+        }
+        let now_ns = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .ok()
+            .and_then(|d| i64::try_from(d.as_nanos()).ok())
+            .unwrap_or(0);
+        // Emit federation_peer_pinned (general) + federation_parent_linked (M22.4 specific).
+        let _ = emit_federation_peer_pinned(state, &peer_substrate_id, &remote_addr_str, now_ns);
+        let nt = crate::events::NODE_TYPE_FEDERATION_PARENT_LINKED.to_string();
+        let content = crate::events::encode_federation_parent_linked(
+            &peer_substrate_id,
+            &remote_addr_str,
+            now_ns,
+        );
+        let event_hash = emit_substrate_event(state, nt, content)?;
+        payload.insert(
+            "parent_linked_event_hash".to_string(),
+            Value::Bytes(event_hash.0.to_vec()),
+        );
+    } else {
+        // Connect failed in some other way (self-connect, drift, already pinned);
+        // surface the outcome label.
+        let outcome_label = match outcome {
+            crate::federation::ConnectPeerOutcome::RejectedSelfConnection { .. } => {
+                "self_connection"
+            }
+            crate::federation::ConnectPeerOutcome::RejectedIdentityDrift { .. } => "identity_drift",
+            crate::federation::ConnectPeerOutcome::AlreadyPinned { .. } => "already_pinned",
+            _ => "unknown",
+        };
+        payload.insert(
+            "connect_outcome".to_string(),
+            Value::String(outcome_label.to_string()),
+        );
+    }
+
+    Ok(Some(Message::new(
+        msg_type::FEDERATION_LINK_TO_PARENT_FROM_HINT_RESPONSE,
+        request.request_id,
+        payload,
+    )))
+}
+
+/// M22.3: handle a `federation_pull_events_from_peer` request.
+///
+/// Payload:
+/// ```text
+/// Map({
+///   "peer_substrate_id": Bytes(32),
+///   "since_node_hash": Bytes(32) [optional; absent = pull from genesis],
+///   "max_events": Uint [optional; defaults to FED_EVENT_BATCH_MAX_EVENTS],
+/// })
+/// ```
+///
+/// Response payload:
+/// ```text
+/// Map({
+///   "events_received_count": Uint,
+///   "events_ingested_count": Uint,
+///   "is_last_batch": Bool,
+///   "events_received_event_hash": Bytes(32) [optional; absent if no events ingested],
+/// })
+/// ```
+fn handle_federation_pull_events_from_peer(
+    state: &mut ServerState,
+    request: &Message,
+) -> Result<Option<Message>, SubstrateError> {
+    let peer_id_bytes = match request.payload.get("peer_substrate_id") {
+        Some(Value::Bytes(b)) if b.len() == 32 => b.clone(),
+        _ => {
+            return Err(SubstrateError::Protocol(
+                "federation_pull_events_from_peer: peer_substrate_id must be 32 Bytes".to_string(),
+            ));
+        }
+    };
+    let mut peer_substrate_id = [0u8; 32];
+    peer_substrate_id.copy_from_slice(&peer_id_bytes);
+
+    let since_node_hash: Option<[u8; 32]> = match request.payload.get("since_node_hash") {
+        Some(Value::Bytes(b)) if b.len() == 32 => {
+            let mut h = [0u8; 32];
+            h.copy_from_slice(b);
+            Some(h)
+        }
+        _ => None,
+    };
+    let max_events = match request.payload.get("max_events") {
+        Some(Value::Uint(n)) => *n,
+        _ => crate::federation::protocol::FED_EVENT_BATCH_MAX_EVENTS,
+    };
+
+    let our_substrate_id = state.manifest.substrate_id;
+    let parsed_batch = state.federation.pull_events_from_peer(
+        &peer_substrate_id,
+        since_node_hash.as_ref(),
+        &our_substrate_id,
+        max_events,
+    )?;
+    let events_received = parsed_batch.events.len();
+
+    // Ingest each event into the local DAG. Idempotent on duplicate content
+    // hashes; parent-not-found errors are surfaced (sender should enumerate
+    // in causal order).
+    let mut ingested_hashes: Vec<[u8; 32]> = Vec::new();
+    for ev in &parsed_batch.events {
+        let parents: Vec<myco_kernel_shared::crypto::NodeHash> = ev
+            .parent_hashes
+            .iter()
+            .map(|h| myco_kernel_shared::crypto::NodeHash::from_bytes(*h))
+            .collect();
+        let content_cb = myco_kernel_shared::canonical_bytes::CanonicalBytes(
+            ev.content_canonical_bytes.clone(),
+        );
+        match state.dag.insert_node(
+            parents,
+            ev.node_type.clone(),
+            ev.created_at_cycle,
+            content_cb,
+        ) {
+            Ok(h) => ingested_hashes.push(h.0),
+            Err(e) => {
+                return Err(SubstrateError::Protocol(format!(
+                    "ingest federation event ({}): {e}",
+                    ev.node_type
+                )));
+            }
+        }
+    }
+    state.federation.events_received_total = state
+        .federation
+        .events_received_total
+        .saturating_add(events_received as u64);
+
+    // Emit federation_events_received marker event (with the list of ingested
+    // event hashes as content). This is the substrate's record of the
+    // federation pull in its own causal chain.
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .ok()
+        .and_then(|d| i64::try_from(d.as_nanos()).ok())
+        .unwrap_or(0);
+    let events_received_event_hash = if !ingested_hashes.is_empty() {
+        let content = crate::events::encode_federation_events_received(
+            &peer_substrate_id,
+            &ingested_hashes,
+            now,
+        );
+        let h = emit_substrate_event(
+            state,
+            crate::events::NODE_TYPE_FEDERATION_EVENTS_RECEIVED.to_string(),
+            content,
+        )?;
+        Some(h.0)
+    } else {
+        None
+    };
+
+    let mut payload = BTreeMap::new();
+    payload.insert(
+        "events_received_count".to_string(),
+        Value::Uint(events_received as u64),
+    );
+    payload.insert(
+        "events_ingested_count".to_string(),
+        Value::Uint(ingested_hashes.len() as u64),
+    );
+    payload.insert(
+        "is_last_batch".to_string(),
+        Value::Bool(parsed_batch.is_last_batch),
+    );
+    if let Some(h) = events_received_event_hash {
+        payload.insert(
+            "events_received_event_hash".to_string(),
+            Value::Bytes(h.to_vec()),
+        );
+    }
+    Ok(Some(Message::new(
+        msg_type::FEDERATION_PULL_EVENTS_FROM_PEER_RESPONSE,
+        request.request_id,
+        payload,
+    )))
+}
+
+/// M22.1: report federation state.
+///
+/// Payload: empty.
+///
+/// Response payload:
+/// ```text
+/// Map({
+///   "is_listening": Bool,
+///   "bind_addr": String,                          // empty if not listening
+///   "peer_count": Uint,
+///   "events_received_total": Uint,
+///   "events_sent_total": Uint,
+/// })
+/// ```
+fn handle_federation_status(
+    state: &mut ServerState,
+    request: &Message,
+) -> Result<Option<Message>, SubstrateError> {
+    let listener_addr = state.federation.listener_addr();
+    let mut payload = BTreeMap::new();
+    payload.insert(
+        "is_listening".to_string(),
+        Value::Bool(listener_addr.is_some()),
+    );
+    payload.insert(
+        "bind_addr".to_string(),
+        Value::String(listener_addr.map(|a| a.to_string()).unwrap_or_default()),
+    );
+    payload.insert(
+        "peer_count".to_string(),
+        Value::Uint(state.federation.peer_count() as u64),
+    );
+    payload.insert(
+        "events_received_total".to_string(),
+        Value::Uint(state.federation.events_received_total),
+    );
+    payload.insert(
+        "events_sent_total".to_string(),
+        Value::Uint(state.federation.events_sent_total),
+    );
+    Ok(Some(Message::new(
+        msg_type::FEDERATION_STATUS_RESPONSE,
+        request.request_id,
+        payload,
+    )))
 }
 
 /// M8: Return the last N DAG nodes (Rust-handled; no Python involvement).
@@ -1831,6 +2791,63 @@ fn handle_sprout_child(
         child_dag
             .insert_node(parents, nt, child_cycle, content)
             .map_err(|e| SubstrateError::Protocol(format!("child operator_pinned insert: {e}")))?;
+    }
+
+    // 2b. M22.4 P5 万物互联: if the parent has an open federation listener,
+    // record its address in the child's DAG so the child can dial back. The
+    // child substrate, after boot, can call `federation_link_to_parent_from_hint`
+    // to consume this hint, connect to the parent, and emit
+    // `federation_parent_linked`.
+    if let Some(parent_listener_addr) = state.federation.listener_addr() {
+        use std::time::{SystemTime, UNIX_EPOCH};
+        let hinted_at_unix_ns = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .ok()
+            .and_then(|d| i64::try_from(d.as_nanos()).ok())
+            .unwrap_or(0);
+        let nt = crate::events::NODE_TYPE_PARENT_FEDERATION_HINT.to_string();
+        let content = crate::events::encode_parent_federation_hint(
+            &state.manifest.substrate_id,
+            &parent_listener_addr.to_string(),
+            hinted_at_unix_ns,
+        );
+        let parents = vec![child_dag.tip().unwrap()];
+        child_dag
+            .insert_node(parents, nt, child_cycle, content)
+            .map_err(|e| SubstrateError::Protocol(format!("parent_federation_hint insert: {e}")))?;
+    }
+
+    // 2c. M22.5 P8 永恒繁衍: compute parent's immune-summary (list of
+    // immune sporocarp hashes) and, if non-empty, write a
+    // birth_period_quarantine_entered event into child's DAG. The child
+    // enters quarantine on boot. This implements L0 §2.2 P8 + pass-1
+    // mycoparasite-13: "child enters birth-period quarantine if parent had
+    // unresolved immune signals".
+    let immune_summary: Vec<[u8; 32]> = state
+        .dag
+        .iter_in_insertion_order()
+        .filter(|n| n.node_type.starts_with("immune:"))
+        .map(|n| n.hash.0)
+        .collect();
+    let quarantine_duration_cycles: u64 = 10; // M22.5 default; future: configurable
+    if !immune_summary.is_empty() {
+        use std::time::{SystemTime, UNIX_EPOCH};
+        let entered_at_unix_ns = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .ok()
+            .and_then(|d| i64::try_from(d.as_nanos()).ok())
+            .unwrap_or(0);
+        let nt = crate::events::NODE_TYPE_BIRTH_PERIOD_QUARANTINE_ENTERED.to_string();
+        let content = crate::events::encode_birth_period_quarantine_entered(
+            &state.manifest.substrate_id,
+            &immune_summary,
+            quarantine_duration_cycles,
+            entered_at_unix_ns,
+        );
+        let parents = vec![child_dag.tip().unwrap()];
+        child_dag.insert_node(parents, nt, child_cycle, content).map_err(|e| {
+            SubstrateError::Protocol(format!("birth_period_quarantine_entered insert: {e}"))
+        })?;
     }
 
     // 3. Per-axis events: axis_registered, then axis_perturbed for any delta.

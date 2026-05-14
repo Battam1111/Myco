@@ -51,6 +51,7 @@
 
 pub mod derived_state;
 pub mod events;
+pub mod federation;
 pub mod persistence;
 pub mod server;
 
