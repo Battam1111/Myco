@@ -210,6 +210,12 @@ class MessageType(str, Enum):
     SPROUT_CHILD_RESPONSE = "sprout_child_response"
     """Rust → Operator: child substrate_id + spore_emission DAG hash + path (M20)."""
 
+    QUERY_GRADIENT_SCHEMAS = "query_gradient_schemas"
+    """Rust → Python: query all current axis schemas (M21.3)."""
+
+    QUERY_GRADIENT_SCHEMAS_RESPONSE = "query_gradient_schemas_response"
+    """Python → Rust: per-axis full schema + current_value + update_rule_kind (M21.3)."""
+
 
 # ---------------------------------------------------------------------------
 # Error types.

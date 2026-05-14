@@ -60,6 +60,28 @@ impl Default for BridgeClientConfig {
 ///
 /// The constructor [`Self::spawn_and_handshake`] performs the initial `hello`
 /// exchange and returns a ready-to-use client.
+/// M21.3 P5 万物互联: full axis schema info returned by `query_gradient_schemas`.
+#[derive(Debug, Clone)]
+pub struct AxisSchemaInfo {
+    /// Axis name (also used as identity in the gradient).
+    pub name: String,
+    /// "appetite" or "decay".
+    pub axis_class: String,
+    /// Threshold at which the axis fruits a sporocarp.
+    pub fruiting_threshold: f64,
+    /// Initial gradient value at genesis (original).
+    pub initial_value: f64,
+    /// Current gradient value (may differ from initial due to perturbations).
+    pub current_value: f64,
+    /// Per-cycle decay multiplier (used for DECAY axes).
+    pub decay_rate_per_cycle: f64,
+    /// Whether this axis is the substrate's mortality signal.
+    pub is_mortality_signal: bool,
+    /// Update rule kind: "noop" or "decay".
+    pub update_rule_kind: String,
+}
+
+/// In-process client for talking to a Python kernel/tropism worker over stdio.
 pub struct BridgeClient {
     child: Option<Child>,
     stdin: BufWriter<ChildStdin>,
@@ -297,6 +319,23 @@ impl BridgeClient {
         state_dir: &str,
         genesis_owner_pubkey: Option<&[u8; 32]>,
     ) -> Result<(u64, bool), BridgeError> {
+        self.load_state_full(state_dir, genesis_owner_pubkey, false)
+    }
+
+    /// M21.3 P5 万物互联: full load_state with `skip_disk_load` flag.
+    ///
+    /// When `skip_disk_load = true`, Python does NOT read `gradient.cb` or
+    /// `owner_keys.cb` from disk. The caller (Rust substrate) must then
+    /// replay DAG events to reconstruct Python's state in-memory.
+    ///
+    /// Used in the M21.2+ DAG-first boot path: state files become regenerable
+    /// caches; Python derives state from Rust's event stream.
+    pub fn load_state_full(
+        &mut self,
+        state_dir: &str,
+        genesis_owner_pubkey: Option<&[u8; 32]>,
+        skip_disk_load: bool,
+    ) -> Result<(u64, bool), BridgeError> {
         use myco_kernel_shared::canonical_bytes::{map_get_bool, map_get_uint, Value};
         let mut payload = state_dir_payload(state_dir);
         if let Some(pk) = genesis_owner_pubkey {
@@ -304,6 +343,9 @@ impl BridgeClient {
                 "genesis_owner_pubkey".to_string(),
                 Value::Bytes(pk.to_vec()),
             );
+        }
+        if skip_disk_load {
+            payload.insert("skip_disk_load".to_string(), Value::Bool(true));
         }
         let response = self.send_request(msg_type::LOAD_STATE, payload)?;
         if response.message_type != msg_type::LOAD_STATE_ACK {
@@ -317,6 +359,60 @@ impl BridgeClient {
         let hydrated = map_get_bool(&response.payload, "hydrated")
             .map_err(|e| BridgeError::Protocol(e.to_string()))?;
         Ok((axis_count, hydrated))
+    }
+
+    /// M21.3: Query all current axis schemas from Python.
+    ///
+    /// Returns a vec of (name, axis_class, fruiting_threshold, initial_value,
+    /// current_value, decay_rate_per_cycle, is_mortality_signal, update_rule_kind)
+    /// for each registered axis.
+    ///
+    /// Used by Rust to back-fill axis_registered + axis_perturbed DAG events
+    /// for substrates that loaded gradient state from gradient.cb (legacy path).
+    pub fn query_gradient_schemas(&mut self) -> Result<Vec<AxisSchemaInfo>, BridgeError> {
+        use myco_kernel_shared::canonical_bytes::{
+            map_get_array, map_get_bool, map_get_string, Value,
+        };
+        let response = self.send_request(msg_type::QUERY_GRADIENT_SCHEMAS, empty_payload())?;
+        if response.message_type != msg_type::QUERY_GRADIENT_SCHEMAS_RESPONSE {
+            return Err(BridgeError::Protocol(format!(
+                "expected query_gradient_schemas_response; got {}",
+                response.message_type
+            )));
+        }
+        let axes_array = map_get_array(&response.payload, "axes")
+            .map_err(|e| BridgeError::Protocol(e.to_string()))?;
+        let mut out = Vec::with_capacity(axes_array.len());
+        for v in axes_array {
+            let m = match v {
+                Value::Map(m) => m,
+                other => {
+                    return Err(BridgeError::Protocol(format!(
+                        "axis entry not a Map: {other:?}"
+                    )))
+                }
+            };
+            let getf = |k: &str| -> Result<&str, BridgeError> {
+                map_get_string(m, k).map_err(|e| BridgeError::Protocol(e.to_string()))
+            };
+            let parse_f = |k: &str| -> Result<f64, BridgeError> {
+                getf(k)?
+                    .parse()
+                    .map_err(|e| BridgeError::Protocol(format!("{k} parse: {e}")))
+            };
+            out.push(AxisSchemaInfo {
+                name: getf("name")?.to_string(),
+                axis_class: getf("axis_class")?.to_string(),
+                fruiting_threshold: parse_f("fruiting_threshold_repr")?,
+                initial_value: parse_f("initial_value_repr")?,
+                current_value: parse_f("current_value_repr")?,
+                decay_rate_per_cycle: parse_f("decay_rate_per_cycle_repr")?,
+                is_mortality_signal: map_get_bool(m, "is_mortality_signal")
+                    .map_err(|e| BridgeError::Protocol(e.to_string()))?,
+                update_rule_kind: getf("update_rule_kind")?.to_string(),
+            });
+        }
+        Ok(out)
     }
 
     /// Send a graceful shutdown and wait for the child to exit.
