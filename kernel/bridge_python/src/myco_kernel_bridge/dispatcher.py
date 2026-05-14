@@ -614,15 +614,31 @@ def _handle_submit_mutation(
                     raise BridgeProtocolError(
                         f"attestation_signature must be 64 bytes; got {len(sig_bytes)}"
                     )
-                # M10 simplified verification: signature over content_canonical_bytes
-                # by the currently-active owner key. M11+ adds full envelope
-                # (nonce, dual-clock, DAG enumeration closure).
-                active_key = state.owner_keys.current_active()
-                verify_signature(
-                    active_key.bytes_,
-                    sig_bytes,
-                    content_bytes,
-                )
+                # M14: when reveal_pubkey is present, the attestation signature
+                # was made by the REVEAL key (fresh per-handshake), not the
+                # IDENTITY key. The Rust substrate already verified the IDENTITY-
+                # signature-over-REVEAL bundle; here we verify REVEAL-signed-content.
+                # When reveal_pubkey is absent, fall back to M10 path (verify
+                # against the active owner key, which == operator identity).
+                if "reveal_pubkey" in keys:
+                    reveal_pubkey_bytes = expect_bytes(keys["reveal_pubkey"])
+                    if len(reveal_pubkey_bytes) != 32:
+                        raise BridgeProtocolError(
+                            f"reveal_pubkey must be 32 bytes; got {len(reveal_pubkey_bytes)}"
+                        )
+                    verify_signature(
+                        reveal_pubkey_bytes,
+                        sig_bytes,
+                        content_bytes,
+                    )
+                else:
+                    # M10 simplified verification: signature by current owner key.
+                    active_key = state.owner_keys.current_active()
+                    verify_signature(
+                        active_key.bytes_,
+                        sig_bytes,
+                        content_bytes,
+                    )
                 accepted = True
             except (CryptoError, BridgeProtocolError) as e:
                 accepted = False

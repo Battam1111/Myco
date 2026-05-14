@@ -194,6 +194,204 @@ describe("SubstrateClient e2e", () => {
   });
 
   // -------------------------------------------------------------------------
+  // M14 per-handshake REVEAL keypair + nonce persistence tests.
+  // -------------------------------------------------------------------------
+  it("M14: submitMutationWithReveal accepts full envelope", async () => {
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m14-op-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identity = OperatorIdentity.loadOrCreate(opDir);
+      const stateDir = freshStateDir();
+      const client = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identity,
+      });
+      try {
+        const content = new TextEncoder().encode("M14 REVEAL envelope test");
+        const result = await client.submitMutationWithReveal({
+          mutationType: "schema_change",
+          touchedMetaStructures: ["appetite_axis_schema"],
+          contentCanonicalBytes: content,
+          operatorIdentity: identity,
+        });
+        assert.equal(
+          result.accepted,
+          true,
+          `full REVEAL envelope should accept; got: ${result.rejectionReason}`,
+        );
+        assert.equal(result.classification, "contract_identity_level");
+      } finally {
+        await client.shutdown();
+      }
+    } finally {
+      cleanupDir(opDir);
+    }
+  });
+
+  it("M14: forged identity-signature-over-REVEAL is rejected with C17", async () => {
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m14-op-"));
+    const wrongDir = mkdtempSync(resolvePath(tmpdir(), "myco-m14-wrong-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identity = OperatorIdentity.loadOrCreate(opDir);
+      const wrongIdentity = OperatorIdentity.loadOrCreate(wrongDir);
+      const stateDir = freshStateDir();
+      const client = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identity, // Substrate pins identity's pubkey
+      });
+      try {
+        // Generate a fresh REVEAL keypair.
+        const { ed25519 } = await import("@noble/curves/ed25519.js");
+        const { randomBytes: rb } = await import("node:crypto");
+        const revealSeed = new Uint8Array(rb(32));
+        const revealPubkey = ed25519.getPublicKey(revealSeed);
+
+        // Sign the REVEAL pubkey with the WRONG identity (not the pinned one).
+        const { revealKeyBindingSigningInput } = await import("../src/protocol/messages.ts");
+        const signingInput = revealKeyBindingSigningInput(revealPubkey);
+        const forgedSig = wrongIdentity.sign(signingInput);
+
+        // Sign content with REVEAL.
+        const content = new TextEncoder().encode("forged REVEAL attempt");
+        const revealSig = ed25519.sign(content, revealSeed);
+
+        const nonceResult = await client.requestAttestationNonce(content);
+        const result = await client.submitMutation({
+          mutationType: "schema_change",
+          touchedMetaStructures: ["appetite_axis_schema"],
+          contentCanonicalBytes: content,
+          attestationSignature: revealSig,
+          nonce: nonceResult.nonce,
+          expiryUnixNs: nonceResult.expiryUnixNs,
+          revealPubkey,
+          identitySignatureOverRevealPubkey: forgedSig, // FORGED
+        });
+        assert.equal(result.accepted, false);
+        assert.match(result.rejectionReason, /identity signature|invalid/);
+
+        // Verify C17 immune sporocarp was emitted.
+        const events = await client.queryImmuneEvents();
+        const c17 = events.events.find((e) =>
+          e.nodeType.includes("C17_operator_witness_forgery"),
+        );
+        assert.ok(c17, "expected C17 immune sporocarp on forged identity-over-REVEAL");
+      } finally {
+        await client.shutdown();
+      }
+    } finally {
+      cleanupDir(opDir);
+      cleanupDir(wrongDir);
+    }
+  });
+
+  it("M14: nonce log persists across restart (replay blocked cross-session)", async () => {
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m14-op-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identity = OperatorIdentity.loadOrCreate(opDir);
+      const stateDir = freshStateDir();
+
+      // Session 1: request a nonce, use it once.
+      const c1 = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identity,
+      });
+      const content = new TextEncoder().encode("nonce persistence test");
+      const nonceResult = await c1.requestAttestationNonce(content);
+      const sig = identity.sign(content);
+      const r1 = await c1.submitMutation({
+        mutationType: "schema_change",
+        touchedMetaStructures: ["appetite_axis_schema"],
+        contentCanonicalBytes: content,
+        attestationSignature: sig,
+        nonce: nonceResult.nonce,
+        expiryUnixNs: nonceResult.expiryUnixNs,
+      });
+      assert.equal(r1.accepted, true);
+      await c1.shutdown();
+
+      // Session 2: try to replay the same nonce. M14 nonce persistence means
+      // the substrate REMEMBERS the consumed flag across restart.
+      const c2 = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identity,
+      });
+      try {
+        const r2 = await c2.submitMutation({
+          mutationType: "schema_change",
+          touchedMetaStructures: ["appetite_axis_schema"],
+          contentCanonicalBytes: content,
+          attestationSignature: sig,
+          nonce: nonceResult.nonce,
+          expiryUnixNs: nonceResult.expiryUnixNs,
+        });
+        assert.equal(
+          r2.accepted,
+          false,
+          "M14: replay should be rejected even across restart",
+        );
+        assert.match(r2.rejectionReason, /replay|consumed/);
+      } finally {
+        await c2.shutdown();
+      }
+    } finally {
+      cleanupDir(opDir);
+    }
+  });
+
+  it("M14: REVEAL with valid identity sig but malformed REVEAL sig is rejected", async () => {
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m14-op-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identity = OperatorIdentity.loadOrCreate(opDir);
+      const stateDir = freshStateDir();
+      const client = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identity,
+      });
+      try {
+        const { ed25519 } = await import("@noble/curves/ed25519.js");
+        const { randomBytes: rb } = await import("node:crypto");
+        const revealSeed = new Uint8Array(rb(32));
+        const revealPubkey = ed25519.getPublicKey(revealSeed);
+
+        const { revealKeyBindingSigningInput } = await import("../src/protocol/messages.ts");
+        const signingInput = revealKeyBindingSigningInput(revealPubkey);
+        const validIdentitySig = identity.sign(signingInput);
+
+        const content = new TextEncoder().encode("malformed reveal sig");
+        // Use a garbage REVEAL signature (won't verify against revealPubkey).
+        const badRevealSig = new Uint8Array(64).fill(0xab);
+
+        const nonceResult = await client.requestAttestationNonce(content);
+        const result = await client.submitMutation({
+          mutationType: "schema_change",
+          touchedMetaStructures: ["appetite_axis_schema"],
+          contentCanonicalBytes: content,
+          attestationSignature: badRevealSig,
+          nonce: nonceResult.nonce,
+          expiryUnixNs: nonceResult.expiryUnixNs,
+          revealPubkey,
+          identitySignatureOverRevealPubkey: validIdentitySig,
+        });
+        assert.equal(result.accepted, false);
+        // Python catches the REVEAL signature failure via attestation verification.
+        assert.match(result.rejectionReason, /attestation/i);
+      } finally {
+        await client.shutdown();
+      }
+    } finally {
+      cleanupDir(opDir);
+    }
+  });
+
+  // -------------------------------------------------------------------------
   // M13 anchor-surface nonce + dual-clock expiry tests.
   // -------------------------------------------------------------------------
   it("M13: requestAttestationNonce returns nonce + expiry + dag_tip", async () => {

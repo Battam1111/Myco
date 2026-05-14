@@ -429,13 +429,41 @@ export function parseRequestAttestationNonceResponse(
   };
 }
 
-/** Build the payload for a `submit_mutation` request (M10; extended M13).
+/** Compute the canonical-bytes signing input for an identity-over-REVEAL
+ *  signature (M14). Mirrors Rust's reconstruction in verify_reveal_keypair_envelope.
+ *
+ *  Signing input = canonical_bytes(Map({
+ *    "context": "myco-reveal-key-binding-v1",
+ *    "reveal_pubkey": Bytes(reveal_pubkey)
+ *  }))
+ *
+ *  The IDENTITY key signs this to prove that the operator authorized this
+ *  REVEAL keypair. M14+ activates C17 operator_witness_forgery on failure.
+ */
+export function revealKeyBindingSigningInput(revealPubkey: Uint8Array): Uint8Array {
+  if (revealPubkey.length !== 32) {
+    throw new BridgeProtocolError(
+      `revealPubkey must be exactly 32 bytes; got ${revealPubkey.length}`,
+    );
+  }
+  const m = new Map<string, Value>();
+  m.set("context", { type: "string", value: "myco-reveal-key-binding-v1" });
+  m.set("reveal_pubkey", { type: "bytes", value: revealPubkey });
+  return encode({ type: "map", value: m }).bytes;
+}
+
+/** Build the payload for a `submit_mutation` request (M10; extended M13; M14).
  *
  *  CI mutations require `attestationSignature` — a 64-byte Ed25519 signature
- *  over `contentCanonicalBytes` by the active owner key. Daily mutations omit it.
+ *  over `contentCanonicalBytes`. Daily mutations omit it.
  *
- *  M13: optional `nonce` + `expiryUnixNs` fields for anchor-surface envelope
- *  verification (replay protection + dual-clock expiry).
+ *  M13: optional `nonce` + `expiryUnixNs` for anchor-surface envelope.
+ *
+ *  M14: optional `revealPubkey` + `identitySignatureOverRevealPubkey` for
+ *  per-handshake REVEAL keypair. When REVEAL is present, the attestation
+ *  signature is interpreted as REVEAL-signed-over-content (not IDENTITY-signed).
+ *  The substrate verifies BOTH layers: IDENTITY-over-REVEAL (closes C17) and
+ *  REVEAL-over-content (closes C5 attestation path).
  */
 export function submitMutationPayload(args: {
   mutationType: string;
@@ -446,6 +474,8 @@ export function submitMutationPayload(args: {
   attestationSignature?: Uint8Array;
   nonce?: Uint8Array;
   expiryUnixNs?: bigint;
+  revealPubkey?: Uint8Array;
+  identitySignatureOverRevealPubkey?: Uint8Array;
 }): Map<string, Value> {
   const m = new Map<string, Value>();
   m.set("mutation_type", { type: "string", value: args.mutationType });
@@ -492,6 +522,25 @@ export function submitMutationPayload(args: {
   }
   if (args.expiryUnixNs !== undefined) {
     m.set("expiry_unix_ns", { type: "timestamp", value: args.expiryUnixNs });
+  }
+  if (args.revealPubkey) {
+    if (args.revealPubkey.length !== 32) {
+      throw new BridgeProtocolError(
+        `revealPubkey must be 32 bytes; got ${args.revealPubkey.length}`,
+      );
+    }
+    m.set("reveal_pubkey", { type: "bytes", value: args.revealPubkey });
+  }
+  if (args.identitySignatureOverRevealPubkey) {
+    if (args.identitySignatureOverRevealPubkey.length !== 64) {
+      throw new BridgeProtocolError(
+        `identitySignatureOverRevealPubkey must be 64 bytes; got ${args.identitySignatureOverRevealPubkey.length}`,
+      );
+    }
+    m.set("identity_signature_over_reveal_pubkey", {
+      type: "bytes",
+      value: args.identitySignatureOverRevealPubkey,
+    });
   }
   return m;
 }
