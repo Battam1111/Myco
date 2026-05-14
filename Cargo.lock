@@ -411,6 +411,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "myco-substrate"
+version = "0.9.0-alpha.1"
+dependencies = [
+ "myco-kernel-bridge",
+ "myco-kernel-continuity",
+ "myco-kernel-shared",
+ "sha2",
+ "thiserror",
+]
+
+[[package]]
 name = "myco-test-vectors-rs"
 version = "0.9.0-alpha.1"
 dependencies = [
