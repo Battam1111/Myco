@@ -874,9 +874,21 @@ describe("SubstrateClient e2e", () => {
       assert.equal(result.classification, "untyped");
       assert.equal(result.accepted, false);
       assert.match(result.rejectionReason, /untyped/);
-      // Verify DAG did NOT grow.
+      // Per M11+: rejection emits a C14 immune sporocarp into the DAG.
+      // No mutation:* node should exist; the only DAG node should be immune:C14.
       const recent = await client.queryRecentNodes(10n);
-      assert.equal(recent.totalDagSize, 0n);
+      const nonImmuneNodes = recent.nodes.filter(
+        (n) => !n.nodeType.startsWith("immune:"),
+      );
+      assert.equal(
+        nonImmuneNodes.length,
+        0,
+        "UNTYPED rejection must not produce a mutation node in the DAG",
+      );
+      const c14 = recent.nodes.find((n) =>
+        n.nodeType.includes("C14_untyped_mutation_blocked"),
+      );
+      assert.ok(c14, "expected C14 immune sporocarp on UNTYPED rejection");
     } finally {
       await client.shutdown();
     }
@@ -1291,6 +1303,337 @@ describe("SubstrateClient e2e", () => {
       }
     } finally {
       cleanupDir(dir);
+    }
+  });
+
+  // -------------------------------------------------------------------------
+  // M15 DAG enumeration closure + dual-clock expiry tests.
+  // -------------------------------------------------------------------------
+
+  it("M15: enumerateDagSince(undefined) returns all nodes from genesis", async () => {
+    const client = await spawn();
+    try {
+      await client.registerAxis({
+        name: "enum_axis",
+        axisClass: "appetite",
+        fruitingThreshold: 1.0,
+        initialValue: 0.0,
+        decayRatePerCycle: 1.0,
+        isMortalitySignal: false,
+        updateRuleKind: "noop",
+      });
+      // Produce 3 sporocarp nodes.
+      for (let c = 1n; c <= 3n; c++) {
+        await client.perturb("enum_axis", 2.0);
+        await client.advance(c);
+      }
+      const report = await client.enumerateDagSince();
+      assert.equal(report.totalDagSize, 3n);
+      assert.equal(report.enumeratedCount, 3n);
+      assert.equal(report.nodes.length, 3);
+      assert.equal(report.prevTip, null, "from-genesis enumeration should echo null prev_tip");
+      assert.ok(report.currentTip !== null, "current_tip should be set");
+      // Verify BLAKE3 chain.
+      const errors = await SubstrateClient.verifyEnumeration(report);
+      assert.deepEqual(errors, [], `expected hash chain verification to pass; got: ${errors.join(" | ")}`);
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("M15: enumerateDagSince(intermediate_tip) returns only nodes after", async () => {
+    const client = await spawn();
+    try {
+      await client.registerAxis({
+        name: "enum_axis2",
+        axisClass: "appetite",
+        fruitingThreshold: 1.0,
+        initialValue: 0.0,
+        decayRatePerCycle: 1.0,
+        isMortalitySignal: false,
+        updateRuleKind: "noop",
+      });
+      // Insert 2 nodes; snapshot tip; insert 2 more.
+      for (let c = 1n; c <= 2n; c++) {
+        await client.perturb("enum_axis2", 2.0);
+        await client.advance(c);
+      }
+      const tipAtTwoNodes = (await client.queryRecentNodes(1n)).dagTip!;
+      for (let c = 3n; c <= 4n; c++) {
+        await client.perturb("enum_axis2", 2.0);
+        await client.advance(c);
+      }
+      const report = await client.enumerateDagSince(tipAtTwoNodes);
+      assert.equal(report.totalDagSize, 4n);
+      assert.equal(report.enumeratedCount, 2n, "should enumerate only nodes 3 and 4");
+      // The 2 enumerated nodes' parent chain reaches back to tipAtTwoNodes.
+      // Verify the first enumerated node has tipAtTwoNodes as a parent.
+      assert.equal(report.nodes[0]!.parentHashes.length, 1);
+      assert.deepEqual(report.nodes[0]!.parentHashes[0], tipAtTwoNodes);
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("M15: enumerateDagSince(unknown_tip) is rejected + emits C6 immune", async () => {
+    const client = await spawn();
+    try {
+      // Produce some nodes so the DAG is non-empty.
+      await client.registerAxis({
+        name: "enum_axis3",
+        axisClass: "appetite",
+        fruitingThreshold: 1.0,
+        initialValue: 0.0,
+        decayRatePerCycle: 1.0,
+        isMortalitySignal: false,
+        updateRuleKind: "noop",
+      });
+      await client.perturb("enum_axis3", 2.0);
+      await client.advance(1n);
+
+      const fakeTip = new Uint8Array(32).fill(0xfe);
+      await assert.rejects(
+        () => client.enumerateDagSince(fakeTip),
+        /enumerate_dag_since|unknown|dispatcher_error/,
+      );
+      // C6 immune sporocarp should be emitted.
+      const events = await client.queryImmuneEvents();
+      const c6 = events.events.find((e) =>
+        e.nodeType.includes("C6_dag_enumeration_unclosed"),
+      );
+      assert.ok(c6, "expected C6 immune sporocarp on unknown prev_tip");
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("M15: BLAKE3 chain reconstruction detects substrate hash forgery (synthetic)", async () => {
+    // Build a synthetic enumeration with one node whose claimed hash does
+    // NOT match its parents+content. verifyEnumeration must catch this.
+    const goodNode = {
+      hash: new Uint8Array(32).fill(0x11),
+      parentHashes: [],
+      nodeType: "genesis",
+      atCycle: 0n,
+      contentCanonicalBytes: new Uint8Array([0x01, 0x02, 0x03]),
+    };
+    const forgedReport = {
+      currentTip: goodNode.hash,
+      prevTip: null,
+      totalDagSize: 1n,
+      enumeratedCount: 1n,
+      nodes: [goodNode],
+    };
+    const errors = await SubstrateClient.verifyEnumeration(forgedReport);
+    assert.ok(errors.length > 0, "synthetic hash-mismatch should be caught");
+    assert.match(errors[0]!, /hash mismatch/);
+  });
+
+  it("M15: dual-clock nonce accepts when both clocks in-window", async () => {
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m15-op-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identity = OperatorIdentity.loadOrCreate(opDir);
+      const stateDir = freshStateDir();
+      const client = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identity,
+      });
+      try {
+        const content = new TextEncoder().encode("M15 dual-clock happy path");
+        const anchorClockAtRequest = BigInt(Date.now()) * 1_000_000n; // ms → ns
+        const nonceResult = await client.requestAttestationNonce(
+          content,
+          anchorClockAtRequest,
+        );
+        assert.ok(
+          nonceResult.anchorClockExpiryUnixNs !== null,
+          "anchor_clock_expiry should be present when nonce request includes anchor_clock",
+        );
+        const sig = identity.sign(content);
+        // Submit with anchor_clock close to request time (in-window).
+        const result = await client.submitMutation({
+          mutationType: "schema_change",
+          touchedMetaStructures: ["appetite_axis_schema"],
+          contentCanonicalBytes: content,
+          attestationSignature: sig,
+          nonce: nonceResult.nonce,
+          expiryUnixNs: nonceResult.expiryUnixNs,
+          anchorClockSubmittedAtUnixNs: anchorClockAtRequest + 1_000_000n, // +1ms
+        });
+        assert.equal(
+          result.accepted,
+          true,
+          `dual-clock in-window should accept; got: ${result.rejectionReason}`,
+        );
+      } finally {
+        await client.shutdown();
+      }
+    } finally {
+      cleanupDir(opDir);
+    }
+  });
+
+  it("M15: dual-clock rejects anchor-clock skewed forward past expiry", async () => {
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m15-op-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identity = OperatorIdentity.loadOrCreate(opDir);
+      const stateDir = freshStateDir();
+      const client = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identity,
+      });
+      try {
+        const content = new TextEncoder().encode("M15 dual-clock forward skew");
+        const anchorClockAtRequest = BigInt(Date.now()) * 1_000_000n;
+        const nonceResult = await client.requestAttestationNonce(
+          content,
+          anchorClockAtRequest,
+        );
+        const sig = identity.sign(content);
+        // Submit anchor_clock_submitted_at WAY past anchor-clock expiry.
+        const TTL_NS = 300n * 1_000_000_000n;
+        const farFuture = anchorClockAtRequest + TTL_NS + 1_000_000_000n;
+        const result = await client.submitMutation({
+          mutationType: "schema_change",
+          touchedMetaStructures: ["appetite_axis_schema"],
+          contentCanonicalBytes: content,
+          attestationSignature: sig,
+          nonce: nonceResult.nonce,
+          expiryUnixNs: nonceResult.expiryUnixNs,
+          anchorClockSubmittedAtUnixNs: farFuture,
+        });
+        assert.equal(result.accepted, false);
+        assert.match(result.rejectionReason, /anchor-clock|dual-clock/);
+      } finally {
+        await client.shutdown();
+      }
+    } finally {
+      cleanupDir(opDir);
+    }
+  });
+
+  it("M15: dual-clock rejects anchor-clock skewed backward before issuance", async () => {
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m15-op-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identity = OperatorIdentity.loadOrCreate(opDir);
+      const stateDir = freshStateDir();
+      const client = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identity,
+      });
+      try {
+        const content = new TextEncoder().encode("M15 dual-clock backward skew");
+        const anchorClockAtRequest = BigInt(Date.now()) * 1_000_000n;
+        const nonceResult = await client.requestAttestationNonce(
+          content,
+          anchorClockAtRequest,
+        );
+        const sig = identity.sign(content);
+        // Claim "submit happened BEFORE issuance" (impossible — backward skew).
+        const before = anchorClockAtRequest - 1_000_000_000n;
+        const result = await client.submitMutation({
+          mutationType: "schema_change",
+          touchedMetaStructures: ["appetite_axis_schema"],
+          contentCanonicalBytes: content,
+          attestationSignature: sig,
+          nonce: nonceResult.nonce,
+          expiryUnixNs: nonceResult.expiryUnixNs,
+          anchorClockSubmittedAtUnixNs: before,
+        });
+        assert.equal(result.accepted, false);
+        assert.match(result.rejectionReason, /backward|dual-clock/);
+      } finally {
+        await client.shutdown();
+      }
+    } finally {
+      cleanupDir(opDir);
+    }
+  });
+
+  it("M15: nonce issued WITH anchor-clock but submit omits it is rejected", async () => {
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m15-op-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identity = OperatorIdentity.loadOrCreate(opDir);
+      const stateDir = freshStateDir();
+      const client = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identity,
+      });
+      try {
+        const content = new TextEncoder().encode("M15 dual-clock contract enforcement");
+        const anchorClockAtRequest = BigInt(Date.now()) * 1_000_000n;
+        const nonceResult = await client.requestAttestationNonce(
+          content,
+          anchorClockAtRequest,
+        );
+        const sig = identity.sign(content);
+        // OMIT anchor_clock_submitted_at_unix_ns even though nonce is dual-clock.
+        const result = await client.submitMutation({
+          mutationType: "schema_change",
+          touchedMetaStructures: ["appetite_axis_schema"],
+          contentCanonicalBytes: content,
+          attestationSignature: sig,
+          nonce: nonceResult.nonce,
+          expiryUnixNs: nonceResult.expiryUnixNs,
+        });
+        assert.equal(result.accepted, false);
+        assert.match(result.rejectionReason, /dual-clock binding|anchor_clock_submitted/);
+      } finally {
+        await client.shutdown();
+      }
+    } finally {
+      cleanupDir(opDir);
+    }
+  });
+
+  it("M15: nonce issued WITHOUT anchor-clock works in M13-compat mode", async () => {
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m15-op-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identity = OperatorIdentity.loadOrCreate(opDir);
+      const stateDir = freshStateDir();
+      const client = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identity,
+      });
+      try {
+        const content = new TextEncoder().encode("M15 single-clock backward-compat");
+        // Request nonce WITHOUT anchor_clock.
+        const nonceResult = await client.requestAttestationNonce(content);
+        assert.equal(
+          nonceResult.anchorClockExpiryUnixNs,
+          null,
+          "single-clock nonce should NOT echo anchor_clock_expiry",
+        );
+        const sig = identity.sign(content);
+        // Submit also without anchor_clock; this should work (M13 path).
+        const result = await client.submitMutation({
+          mutationType: "schema_change",
+          touchedMetaStructures: ["appetite_axis_schema"],
+          contentCanonicalBytes: content,
+          attestationSignature: sig,
+          nonce: nonceResult.nonce,
+          expiryUnixNs: nonceResult.expiryUnixNs,
+        });
+        assert.equal(
+          result.accepted,
+          true,
+          `single-clock M13-style should accept; got: ${result.rejectionReason}`,
+        );
+      } finally {
+        await client.shutdown();
+      }
+    } finally {
+      cleanupDir(opDir);
     }
   });
 });

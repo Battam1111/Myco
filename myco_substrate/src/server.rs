@@ -105,6 +105,9 @@ impl<'a> GradientAdvancer for PythonGradientAdvancer<'a> {
 /// proposed mutation + DAG tip state. Operators include this nonce in their
 /// attestation envelope; the substrate verifies binding + marks consumed
 /// (replay protection).
+///
+/// M15: extended with optional anchor-clock fields for dual-clock expiry
+/// defense against clock skew (L0 §9 anchor-surface envelope hardening).
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 struct AttestationNonce {
@@ -115,14 +118,34 @@ struct AttestationNonce {
     bound_content_hash: [u8; 32],
     /// DAG tip at issuance time (32 bytes; all-zero if DAG was empty).
     bound_dag_tip: [u8; 32],
-    /// Wall-clock expiry (unix nanoseconds). Default: now + 5 minutes.
+    /// Substrate-clock issuance time (M15) — used by the dual-clock elapsed-
+    /// time check to detect substrate clock jumping backward.
+    substrate_issued_at_unix_ns: i64,
+    /// Substrate-clock expiry (unix nanoseconds). Default: substrate_issued + TTL.
     expiry_unix_ns: i64,
+    /// Operator-supplied anchor-clock issuance time (M15). `None` when the
+    /// operator did not supply a `client_clock_unix_ns` in the nonce request
+    /// (M13/M14 callers; preserves single-clock semantics).
+    anchor_clock_issued_at_unix_ns: Option<i64>,
+    /// Anchor-clock expiry = anchor_issued + TTL (M15). `None` iff
+    /// anchor_clock_issued_at is None.
+    anchor_clock_expiry_unix_ns: Option<i64>,
     /// Whether this nonce has been consumed (one-time use).
     consumed: bool,
 }
 
 /// M13: Default nonce TTL in seconds (5 minutes).
 const NONCE_TTL_SECONDS: i64 = 300;
+
+/// M15: Maximum allowed clock-skew between the substrate's own clock and the
+/// operator-supplied anchor clock at issuance time. Operators whose clock
+/// deviates from the substrate's by more than this are still accepted (we
+/// don't reject — clock-skew is a separate concern from forgery), but the
+/// elapsed-time check at verification will catch any inconsistency.
+///
+/// Reserved for M16+ proactive clock-skew rejection.
+#[allow(dead_code)]
+const MAX_ANCHOR_CLOCK_SKEW_NS: i64 = 3_600 * 1_000_000_000; // 1 hour
 
 /// Session state for one operator connection.
 struct ServerState {
@@ -257,7 +280,10 @@ pub fn run_loop<R: Read, W: Write>(stdin: &mut R, stdout: &mut W) -> Result<u8, 
                 nonce: entry.nonce,
                 bound_content_hash: entry.bound_content_hash,
                 bound_dag_tip: entry.bound_dag_tip,
+                substrate_issued_at_unix_ns: entry.substrate_issued_at_unix_ns,
                 expiry_unix_ns: entry.expiry_unix_ns,
+                anchor_clock_issued_at_unix_ns: entry.anchor_clock_issued_at_unix_ns,
+                anchor_clock_expiry_unix_ns: entry.anchor_clock_expiry_unix_ns,
                 consumed: entry.consumed,
             },
         );
@@ -484,6 +510,8 @@ fn dispatch(state: &mut ServerState, request: &Message) -> Result<Option<Message
         msg_type::RUN_IMMUNE_CHECK => handle_run_immune_check(state, request),
         // M13: anchor-surface attestation nonce (operator pre-submit step).
         msg_type::REQUEST_ATTESTATION_NONCE => handle_request_attestation_nonce(state, request),
+        // M15: DAG enumeration closure for owner-side Merkle chain reconstruction.
+        msg_type::ENUMERATE_DAG_SINCE => handle_enumerate_dag_since(state, request),
         other => Err(SubstrateError::Protocol(format!(
             "substrate cannot handle message type {other:?}"
         ))),
@@ -633,6 +661,13 @@ fn handle_compute_intent(
 /// records the binding (content_hash + current DAG tip + expiry), and returns
 /// the nonce. Operator includes this nonce in submit_mutation; substrate
 /// verifies binding + marks consumed.
+///
+/// M15: optionally accepts `anchor_clock_unix_ns` (operator's view of "now"
+/// from the operator's wall clock). When present, the substrate records BOTH
+/// the substrate-clock issuance time AND the anchor-clock issuance time,
+/// and the response echoes an `anchor_clock_expiry_unix_ns` so the operator
+/// can later supply `anchor_clock_submitted_at_unix_ns` for the dual-clock
+/// check at verification time.
 fn handle_request_attestation_nonce(
     state: &mut ServerState,
     request: &Message,
@@ -651,6 +686,12 @@ fn handle_request_attestation_nonce(
                 "request_attestation_nonce: content_hash must be 32 bytes".to_string(),
             ));
         }
+    };
+
+    // M15: optional operator-supplied anchor-clock time.
+    let anchor_clock_issued_at: Option<i64> = match request.payload.get("anchor_clock_unix_ns") {
+        Some(Value::Timestamp(ts)) => Some(*ts),
+        _ => None,
     };
 
     // Generate 32-byte nonce (time + counter + stack-address SHA-256 mix).
@@ -686,12 +727,16 @@ fn handle_request_attestation_nonce(
         })
         .unwrap_or([0u8; 32]);
 
-    let now_ns = SystemTime::now()
+    let substrate_issued_at = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .ok()
         .and_then(|d| i64::try_from(d.as_nanos()).ok())
         .unwrap_or(0);
-    let expiry_unix_ns = now_ns.saturating_add(NONCE_TTL_SECONDS * 1_000_000_000);
+    let ttl_ns = NONCE_TTL_SECONDS * 1_000_000_000;
+    let expiry_unix_ns = substrate_issued_at.saturating_add(ttl_ns);
+    // M15: anchor-clock expiry = operator's anchor-clock at issuance + same TTL.
+    let anchor_clock_expiry_unix_ns: Option<i64> =
+        anchor_clock_issued_at.map(|a| a.saturating_add(ttl_ns));
 
     state.nonce_log.insert(
         nonce,
@@ -699,7 +744,10 @@ fn handle_request_attestation_nonce(
             nonce,
             bound_content_hash: content_hash,
             bound_dag_tip,
+            substrate_issued_at_unix_ns: substrate_issued_at,
             expiry_unix_ns,
+            anchor_clock_issued_at_unix_ns: anchor_clock_issued_at,
+            anchor_clock_expiry_unix_ns,
             consumed: false,
         },
     );
@@ -720,6 +768,13 @@ fn handle_request_attestation_nonce(
         "ttl_seconds".to_string(),
         Value::Uint(NONCE_TTL_SECONDS as u64),
     );
+    // M15: echo anchor-clock expiry only when operator supplied anchor_clock.
+    if let Some(anchor_expiry) = anchor_clock_expiry_unix_ns {
+        payload.insert(
+            "anchor_clock_expiry_unix_ns".to_string(),
+            Value::Timestamp(anchor_expiry),
+        );
+    }
 
     Ok(Some(Message::new(
         msg_type::REQUEST_ATTESTATION_NONCE_RESPONSE,
@@ -733,11 +788,19 @@ fn handle_request_attestation_nonce(
 /// Returns Ok(()) if all checks pass; Err(reason) if any fail. The caller
 /// (handle_submit_mutation) translates Err into a C5 rejection + immune sporocarp
 /// with refined evidence.
+///
+/// M15: dual-clock expiry check. When the stored nonce has anchor-clock fields
+/// (operator supplied `anchor_clock_unix_ns` on the nonce request) AND the
+/// submit envelope supplies `anchor_clock_submitted_at_unix_ns`, the substrate
+/// enforces BOTH clocks (substrate-clock elapsed-time AND anchor-clock
+/// elapsed-time) must be in the [0, TTL] window. Clock-skew attacks that try
+/// to extend nonce lifetime by manipulating one clock will fail the other.
 fn verify_attestation_nonce(
     state: &mut ServerState,
     nonce_bytes: &[u8],
     content_hash: &[u8; 32],
     submitted_expiry_ns: Option<i64>,
+    submitted_anchor_clock_ns: Option<i64>,
 ) -> Result<(), String> {
     use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -781,8 +844,15 @@ fn verify_attestation_nonce(
         .ok()
         .and_then(|d| i64::try_from(d.as_nanos()).ok())
         .unwrap_or(0);
+    // Substrate-clock elapsed-time check (M15 — supersedes the simple
+    // `now > expiry` check by also detecting backward clock jumps).
     if now_ns > stored.expiry_unix_ns {
-        return Err("expired rejected: nonce TTL passed".to_string());
+        return Err("expired rejected: substrate-clock nonce TTL passed".to_string());
+    }
+    if now_ns < stored.substrate_issued_at_unix_ns {
+        return Err(
+            "expired rejected: substrate clock has jumped backward since issuance".to_string(),
+        );
     }
     if let Some(submitted) = submitted_expiry_ns {
         if submitted != stored.expiry_unix_ns {
@@ -790,6 +860,43 @@ fn verify_attestation_nonce(
                 "wrong-binding rejected: submitted expiry differs from issued expiry".to_string(),
             );
         }
+    }
+
+    // M15: Dual-clock expiry check. Apply only when the nonce was issued WITH
+    // anchor-clock binding (operator supplied `anchor_clock_unix_ns` on
+    // request_attestation_nonce). If the submit envelope omits
+    // `anchor_clock_submitted_at_unix_ns` despite the nonce being dual-clock,
+    // reject (operator must use the dual-clock contract consistently).
+    if let (Some(anchor_issued), Some(anchor_expiry)) = (
+        stored.anchor_clock_issued_at_unix_ns,
+        stored.anchor_clock_expiry_unix_ns,
+    ) {
+        match submitted_anchor_clock_ns {
+            None => {
+                return Err(
+                    "dual-clock binding rejected: nonce was issued with anchor-clock, but \
+                     submit envelope omits anchor_clock_submitted_at_unix_ns"
+                        .to_string(),
+                );
+            }
+            Some(submitted_anchor) => {
+                if submitted_anchor < anchor_issued {
+                    return Err(
+                        "dual-clock rejected: anchor clock jumped backward since issuance"
+                            .to_string(),
+                    );
+                }
+                if submitted_anchor > anchor_expiry {
+                    return Err("dual-clock rejected: anchor-clock nonce TTL passed".to_string());
+                }
+            }
+        }
+    } else if submitted_anchor_clock_ns.is_some() {
+        // Operator supplied anchor_clock at submit time but the nonce was
+        // issued without anchor-clock binding. This is a protocol misuse —
+        // either upgrade nonce issuance to dual-clock or drop the submit
+        // field. We accept (M13 fallback path) but the inconsistency is
+        // surfaced upstream when the operator re-runs the flow.
     }
 
     // Mark consumed.
@@ -934,6 +1041,157 @@ fn handle_run_immune_check(
     )))
 }
 
+/// M15: Enumerate DAG node hashes added since `prev_tip` (or all from genesis
+/// if `prev_tip` absent), returning full per-node metadata so the owner can
+/// reconstruct the Merkle chain independently. Closes L1_HARD_RULES C6
+/// dag_enumeration_unclosed by giving owners a deterministic, validated view
+/// of substrate state evolution since the last co-sign.
+///
+/// On unknown `prev_tip`: substrate emits C6 immune sporocarp + returns error.
+/// (Owner is referencing a tip the substrate doesn't have — either operator
+/// is confused, or attacker has presented a fabricated prev_tip; both cases
+/// warrant a defensive log entry.)
+fn handle_enumerate_dag_since(
+    state: &mut ServerState,
+    request: &Message,
+) -> Result<Option<Message>, SubstrateError> {
+    // Optional prev_tip: 32-byte hash if present, None means "from genesis".
+    let prev_tip_arg: Option<myco_kernel_shared::crypto::NodeHash> =
+        match request.payload.get("prev_tip") {
+            Some(Value::Bytes(b)) if b.len() == 32 => {
+                let mut arr = [0u8; 32];
+                arr.copy_from_slice(b);
+                Some(myco_kernel_shared::crypto::NodeHash::from_bytes(arr))
+            }
+            Some(Value::Bytes(b)) => {
+                return Err(SubstrateError::Protocol(format!(
+                    "enumerate_dag_since: prev_tip must be 32 bytes; got {}",
+                    b.len()
+                )));
+            }
+            // Absent → None.
+            _ => None,
+        };
+
+    // Run enumeration.
+    let enumeration_result = state.dag.enumerate_since(prev_tip_arg.as_ref());
+    let hashes = match enumeration_result {
+        Ok(h) => h,
+        Err(myco_kernel_schema::dag::DagError::UnknownPrevTip(t)) => {
+            // C6 dag_enumeration_unclosed: operator referenced a prev_tip not
+            // in the substrate's DAG. Emit immune sporocarp and reject the
+            // request (operator's view is desynchronized OR forge attempt).
+            let evidence = format!(
+                "enumerate_dag_since called with unknown prev_tip {} \
+                 (substrate has no record of this tip; possible desync or forge attempt)",
+                hex_encode(t.as_ref())
+            );
+            let _ = emit_immune_sporocarp(
+                state,
+                "C6_dag_enumeration_unclosed",
+                "dag_enumeration_unclosed",
+                &evidence,
+            );
+            let _ = save_dag_state(state);
+            return Err(SubstrateError::Protocol(format!(
+                "enumerate_dag_since: {evidence}"
+            )));
+        }
+        Err(e) => {
+            return Err(SubstrateError::Protocol(format!(
+                "enumerate_dag_since failed: {e}"
+            )));
+        }
+    };
+
+    // Build the per-node enumeration array. Each entry carries everything the
+    // owner needs to recompute the Merkle hash + chain it to the prev_tip:
+    //   - hash (substrate-claimed; owner recomputes from parents + content)
+    //   - parent_hashes (declared parents in hash-order)
+    //   - node_type (for L1_SCHEMA §2.2 audit)
+    //   - at_cycle (informational; the cycle when emitted)
+    //   - content_canonical_bytes (the actual node payload)
+    //
+    // Borrow-checker shape: build nodes_array in an inner scope holding only
+    // an immutable borrow of state.dag. If a node is missing from the DAG
+    // (impossible barring internal corruption), record the issue in
+    // `missing_hash` and emit C6 after the borrow drops.
+    let mut nodes_array: Vec<Value> = Vec::with_capacity(hashes.len());
+    let mut missing_hash: Option<myco_kernel_shared::crypto::NodeHash> = None;
+    {
+        let dag = &state.dag;
+        for h in &hashes {
+            let Some(node) = dag.get(h) else {
+                missing_hash = Some(*h);
+                break;
+            };
+            let mut node_map = BTreeMap::new();
+            node_map.insert(
+                "hash".to_string(),
+                Value::Bytes(node.hash.as_ref().to_vec()),
+            );
+            node_map.insert(
+                "parent_hashes".to_string(),
+                Value::Array(
+                    node.parent_hashes
+                        .iter()
+                        .map(|p| Value::Bytes(p.as_ref().to_vec()))
+                        .collect(),
+                ),
+            );
+            node_map.insert(
+                "node_type".to_string(),
+                Value::String(node.node_type.clone()),
+            );
+            node_map.insert("at_cycle".to_string(), Value::Uint(node.created_at_cycle));
+            node_map.insert(
+                "content_canonical_bytes".to_string(),
+                Value::Bytes(node.content_canonical_bytes.as_ref().to_vec()),
+            );
+            nodes_array.push(Value::Map(node_map));
+        }
+    }
+    if let Some(h) = missing_hash {
+        let evidence = format!(
+            "enumerate_dag_since: enumeration listed hash {} but state.dag.get returned None \
+             (DAG internal inconsistency)",
+            hex_encode(h.as_ref())
+        );
+        let _ = emit_immune_sporocarp(
+            state,
+            "C6_dag_enumeration_unclosed",
+            "dag_enumeration_unclosed",
+            &evidence,
+        );
+        let _ = save_dag_state(state);
+        return Err(SubstrateError::Protocol(evidence));
+    }
+
+    let total_dag_size = state.dag.node_count() as u64;
+    let mut payload = BTreeMap::new();
+    if let Some(tip) = state.dag.tip() {
+        payload.insert(
+            "current_tip".to_string(),
+            Value::Bytes(tip.as_ref().to_vec()),
+        );
+    }
+    payload.insert("total_dag_size".to_string(), Value::Uint(total_dag_size));
+    payload.insert(
+        "enumerated_count".to_string(),
+        Value::Uint(nodes_array.len() as u64),
+    );
+    if let Some(prev) = prev_tip_arg {
+        payload.insert("prev_tip".to_string(), Value::Bytes(prev.as_ref().to_vec()));
+    }
+    payload.insert("nodes".to_string(), Value::Array(nodes_array));
+
+    Ok(Some(Message::new(
+        msg_type::ENUMERATE_DAG_SINCE_RESPONSE,
+        request.request_id,
+        payload,
+    )))
+}
+
 /// M11: List recent immune sporocarps (DAG nodes with `node_type` prefix
 /// `"immune:"`). Rust-handled; no Python involvement.
 fn handle_query_immune_events(
@@ -1054,9 +1312,21 @@ fn handle_submit_mutation(
             Value::Timestamp(t) => Some(*t),
             _ => None,
         });
-        if let Err(reason) =
-            verify_attestation_nonce(state, &nonce_bytes, &content_hash, submitted_expiry)
-        {
+        // M15: dual-clock — operator-supplied "now on anchor clock at submit time".
+        let submitted_anchor_clock = request
+            .payload
+            .get("anchor_clock_submitted_at_unix_ns")
+            .and_then(|v| match v {
+                Value::Timestamp(t) => Some(*t),
+                _ => None,
+            });
+        if let Err(reason) = verify_attestation_nonce(
+            state,
+            &nonce_bytes,
+            &content_hash,
+            submitted_expiry,
+            submitted_anchor_clock,
+        ) {
             // Build a rejection response directly; emit C5 immune sporocarp.
             let evidence = format!("anchor-surface envelope verification failed: {reason}");
             let _ = emit_immune_sporocarp(
@@ -1423,6 +1693,7 @@ fn save_dag_state(state: &ServerState) -> Result<(), SubstrateError> {
 }
 
 /// M14: Snapshot the substrate's in-process nonce log to `<state_dir>/nonces.cb`.
+/// M15: also persists dual-clock fields when present.
 fn save_nonce_state(state: &ServerState) -> Result<(), SubstrateError> {
     let entries: Vec<PersistedNonceEntry> = state
         .nonce_log
@@ -1431,7 +1702,10 @@ fn save_nonce_state(state: &ServerState) -> Result<(), SubstrateError> {
             nonce: n.nonce,
             bound_content_hash: n.bound_content_hash,
             bound_dag_tip: n.bound_dag_tip,
+            substrate_issued_at_unix_ns: n.substrate_issued_at_unix_ns,
             expiry_unix_ns: n.expiry_unix_ns,
+            anchor_clock_issued_at_unix_ns: n.anchor_clock_issued_at_unix_ns,
+            anchor_clock_expiry_unix_ns: n.anchor_clock_expiry_unix_ns,
             consumed: n.consumed,
         })
         .collect();

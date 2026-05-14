@@ -169,6 +169,20 @@ class MessageType(str, Enum):
     SUBMIT_MUTATION_RESPONSE = "submit_mutation_response"
     """Python → Rust: classification + accepted/rejected + content for DAG commit."""
 
+    REQUEST_ATTESTATION_NONCE = "request_attestation_nonce"
+    """Operator → Rust: request a fresh nonce (M13). Rust-handled; Python not involved."""
+
+    REQUEST_ATTESTATION_NONCE_RESPONSE = "request_attestation_nonce_response"
+    """Rust → Operator: nonce + expiry + dag_tip (M13)."""
+
+    ENUMERATE_DAG_SINCE = "enumerate_dag_since"
+    """Operator → Rust: enumerate DAG node hashes added since prev_tip (M15).
+    Closes L1_HARD_RULES C6 dag_enumeration_unclosed."""
+
+    ENUMERATE_DAG_SINCE_RESPONSE = "enumerate_dag_since_response"
+    """Rust → Operator: enumerated nodes with full metadata for owner-side
+    Merkle chain reconstruction (M15)."""
+
 
 # ---------------------------------------------------------------------------
 # Error types.

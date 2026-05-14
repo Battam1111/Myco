@@ -62,10 +62,17 @@ pub const OPERATOR_IDENTITY_PUBKEY_FILENAME: &str = "operator_identity_pubkey.cb
 /// Filename for the Rust-managed nonce log (M14).
 pub const NONCE_LOG_FILENAME: &str = "nonces.cb";
 
-/// Current nonce log file format version (M14).
-pub const NONCE_LOG_FORMAT_VERSION: u64 = 1;
+/// Current nonce log file format version (bumped M15: v2 adds optional
+/// anchor-clock fields for dual-clock expiry defense against clock skew).
+///
+/// The loader accepts BOTH v1 (no anchor-clock fields) AND v2 (with anchor-clock
+/// fields). Writers always emit v2; v1 → v2 migration on first re-save.
+pub const NONCE_LOG_FORMAT_VERSION: u64 = 2;
+/// Legacy v1 format version (still accepted by load_nonce_log for backward
+/// compat — no anchor-clock fields present).
+pub const NONCE_LOG_FORMAT_VERSION_V1: u64 = 1;
 
-/// One persisted nonce entry (M14).
+/// One persisted nonce entry (M14; extended M15 with dual-clock).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PersistedNonceEntry {
     /// 32-byte nonce.
@@ -74,14 +81,26 @@ pub struct PersistedNonceEntry {
     pub bound_content_hash: [u8; 32],
     /// DAG tip at issuance.
     pub bound_dag_tip: [u8; 32],
-    /// Wall-clock expiry (unix nanoseconds).
+    /// Substrate-clock issuance time (unix nanoseconds). M15 — was implicit
+    /// in M14 (substrate computed `expiry = now + TTL`); now stored explicitly
+    /// so the dual-clock elapsed-time check can verify substrate's own clock
+    /// has neither jumped backward nor advanced past TTL.
+    pub substrate_issued_at_unix_ns: i64,
+    /// Substrate-clock expiry (unix nanoseconds). M14's `expiry_unix_ns`.
     pub expiry_unix_ns: i64,
+    /// Operator-supplied anchor-clock issuance time (M15). `None` for v1
+    /// nonces or nonces issued without a `client_clock_unix_ns` field.
+    pub anchor_clock_issued_at_unix_ns: Option<i64>,
+    /// Anchor-clock expiry = anchor_issued + TTL (M15). `None` when
+    /// anchor_clock_issued_at is None.
+    pub anchor_clock_expiry_unix_ns: Option<i64>,
     /// Whether this nonce has been consumed.
     pub consumed: bool,
 }
 
 impl PersistedNonceEntry {
-    /// Serialize this entry as a canonical-bytes Map.
+    /// Serialize this entry as a canonical-bytes Map (v2 schema — emits
+    /// anchor-clock fields when present).
     fn to_value(&self) -> myco_kernel_shared::canonical_bytes::Value {
         use myco_kernel_shared::canonical_bytes::Value;
         let mut m = BTreeMap::new();
@@ -95,13 +114,33 @@ impl PersistedNonceEntry {
             Value::Bytes(self.bound_dag_tip.to_vec()),
         );
         m.insert(
+            "substrate_issued_at_unix_ns".to_string(),
+            Value::Timestamp(self.substrate_issued_at_unix_ns),
+        );
+        m.insert(
             "expiry_unix_ns".to_string(),
             Value::Timestamp(self.expiry_unix_ns),
         );
+        // M15: optional anchor-clock fields — absent for v1-style nonces.
+        if let Some(ts) = self.anchor_clock_issued_at_unix_ns {
+            m.insert(
+                "anchor_clock_issued_at_unix_ns".to_string(),
+                Value::Timestamp(ts),
+            );
+        }
+        if let Some(ts) = self.anchor_clock_expiry_unix_ns {
+            m.insert(
+                "anchor_clock_expiry_unix_ns".to_string(),
+                Value::Timestamp(ts),
+            );
+        }
         m.insert("consumed".to_string(), Value::Bool(self.consumed));
         Value::Map(m)
     }
 
+    /// Decode a nonce entry from canonical bytes. Tolerates v1 entries
+    /// (missing `substrate_issued_at_unix_ns` + anchor-clock fields) by
+    /// defaulting to backward-compatible behavior.
     fn from_value(v: &myco_kernel_shared::canonical_bytes::Value) -> Result<Self, SubstrateError> {
         use myco_kernel_shared::canonical_bytes::Value;
         let m = match v {
@@ -135,6 +174,23 @@ impl PersistedNonceEntry {
                 ))
             }
         };
+        // M15: substrate_issued_at_unix_ns is v2 — absent in v1 entries; for
+        // back-compat, default to `expiry_unix_ns - 5min` (which makes the
+        // dual-clock elapsed-time check pass trivially).
+        let substrate_issued_at_unix_ns = match m.get("substrate_issued_at_unix_ns") {
+            Some(Value::Timestamp(ts)) => *ts,
+            _ => expiry_unix_ns.saturating_sub(NONCE_TTL_DEFAULT_SECONDS * 1_000_000_000),
+        };
+        // M15: anchor-clock fields are optional. Absence → single-clock mode
+        // (M13 semantics preserved).
+        let anchor_clock_issued_at_unix_ns = match m.get("anchor_clock_issued_at_unix_ns") {
+            Some(Value::Timestamp(ts)) => Some(*ts),
+            _ => None,
+        };
+        let anchor_clock_expiry_unix_ns = match m.get("anchor_clock_expiry_unix_ns") {
+            Some(Value::Timestamp(ts)) => Some(*ts),
+            _ => None,
+        };
         let consumed = match m.get("consumed") {
             Some(Value::Bool(b)) => *b,
             _ => {
@@ -147,11 +203,19 @@ impl PersistedNonceEntry {
             nonce,
             bound_content_hash,
             bound_dag_tip,
+            substrate_issued_at_unix_ns,
             expiry_unix_ns,
+            anchor_clock_issued_at_unix_ns,
+            anchor_clock_expiry_unix_ns,
             consumed,
         })
     }
 }
+
+/// Nonce TTL in seconds — the substrate-clock window between issuance and
+/// expiry. Used both at issuance (server.rs:handle_request_attestation_nonce)
+/// and as a back-compat default when migrating v1 → v2 persistence.
+pub const NONCE_TTL_DEFAULT_SECONDS: i64 = 300;
 
 /// Atomically save the nonce log to `<state_dir>/nonces.cb` (M14).
 ///
@@ -216,7 +280,9 @@ pub fn load_nonce_log(
     };
     let version = map_get_uint(&map, "format_version")
         .map_err(|e| SubstrateError::Protocol(e.to_string()))?;
-    if version != NONCE_LOG_FORMAT_VERSION {
+    // M15: accept both v1 (M14 schema, no anchor-clock fields) and v2 (M15 schema).
+    // Higher versions are treated as unknown future — caller falls back to genesis.
+    if version != NONCE_LOG_FORMAT_VERSION && version != NONCE_LOG_FORMAT_VERSION_V1 {
         return Ok(None);
     }
     let entries_array =
@@ -775,7 +841,32 @@ mod tests {
             nonce: [byte; 32],
             bound_content_hash: [byte.wrapping_add(1); 32],
             bound_dag_tip: [byte.wrapping_add(2); 32],
+            substrate_issued_at_unix_ns: expiry_ns
+                .saturating_sub(NONCE_TTL_DEFAULT_SECONDS * 1_000_000_000),
             expiry_unix_ns: expiry_ns,
+            anchor_clock_issued_at_unix_ns: None,
+            anchor_clock_expiry_unix_ns: None,
+            consumed,
+        }
+    }
+
+    /// M15: make a nonce with dual-clock fields populated.
+    fn make_nonce_dual_clock(
+        byte: u8,
+        consumed: bool,
+        expiry_ns: i64,
+        anchor_issued: i64,
+        anchor_expiry: i64,
+    ) -> PersistedNonceEntry {
+        PersistedNonceEntry {
+            nonce: [byte; 32],
+            bound_content_hash: [byte.wrapping_add(1); 32],
+            bound_dag_tip: [byte.wrapping_add(2); 32],
+            substrate_issued_at_unix_ns: expiry_ns
+                .saturating_sub(NONCE_TTL_DEFAULT_SECONDS * 1_000_000_000),
+            expiry_unix_ns: expiry_ns,
+            anchor_clock_issued_at_unix_ns: Some(anchor_issued),
+            anchor_clock_expiry_unix_ns: Some(anchor_expiry),
             consumed,
         }
     }
@@ -849,6 +940,105 @@ mod tests {
         let loaded = load_nonce_log(&dir).unwrap();
         assert!(loaded.is_none());
         let _ = fs::remove_dir_all(&dir);
+    }
+
+    // -----------------------------------------------------------------------
+    // M15 dual-clock + v1↔v2 backward-compat persistence tests.
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn m15_nonce_log_v2_with_dual_clock_roundtrips() {
+        let dir = temp_state_dir();
+        let entries = vec![make_nonce_dual_clock(
+            0x42,
+            false,
+            5_000_000_000,
+            1_000_000_000,
+            4_000_000_000,
+        )];
+        save_nonce_log(&entries, &dir).unwrap();
+        let loaded = load_nonce_log(&dir).unwrap().unwrap();
+        assert_eq!(loaded.len(), 1);
+        assert_eq!(
+            loaded[0].anchor_clock_issued_at_unix_ns,
+            Some(1_000_000_000)
+        );
+        assert_eq!(loaded[0].anchor_clock_expiry_unix_ns, Some(4_000_000_000));
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn m15_nonce_log_v1_file_loads_with_anchor_clock_none() {
+        // Hand-write a v1 nonce log (no anchor-clock fields, no substrate_issued_at).
+        use myco_kernel_shared::canonical_bytes::{encode, Value};
+        let dir = temp_state_dir();
+        let mut entry_map = BTreeMap::new();
+        entry_map.insert("nonce".to_string(), Value::Bytes(vec![0xab; 32]));
+        entry_map.insert(
+            "bound_content_hash".to_string(),
+            Value::Bytes(vec![0xcd; 32]),
+        );
+        entry_map.insert("bound_dag_tip".to_string(), Value::Bytes(vec![0xef; 32]));
+        entry_map.insert(
+            "expiry_unix_ns".to_string(),
+            Value::Timestamp(10_000_000_000),
+        );
+        entry_map.insert("consumed".to_string(), Value::Bool(false));
+        let mut root = BTreeMap::new();
+        root.insert(
+            "format_version".to_string(),
+            Value::Uint(NONCE_LOG_FORMAT_VERSION_V1),
+        );
+        root.insert(
+            "entries".to_string(),
+            Value::Array(vec![Value::Map(entry_map)]),
+        );
+        let bytes = encode(&Value::Map(root)).unwrap();
+        fs::write(dir.join(NONCE_LOG_FILENAME), bytes.as_ref()).unwrap();
+
+        let loaded = load_nonce_log(&dir).unwrap().unwrap();
+        assert_eq!(loaded.len(), 1);
+        assert_eq!(loaded[0].nonce, [0xab; 32]);
+        // M15: missing anchor-clock fields → None (single-clock mode preserved).
+        assert!(loaded[0].anchor_clock_issued_at_unix_ns.is_none());
+        assert!(loaded[0].anchor_clock_expiry_unix_ns.is_none());
+        // M15: missing substrate_issued_at → defaulted to expiry - TTL.
+        let expected_default =
+            10_000_000_000_i64.saturating_sub(NONCE_TTL_DEFAULT_SECONDS * 1_000_000_000);
+        assert_eq!(loaded[0].substrate_issued_at_unix_ns, expected_default);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn m15_nonce_log_v2_writes_format_version_2() {
+        use myco_kernel_shared::canonical_bytes::{decode, map_get_uint, Value};
+        let dir = temp_state_dir();
+        save_nonce_log(&[make_nonce(0x10, false, 9_999)], &dir).unwrap();
+        let bytes = fs::read(dir.join(NONCE_LOG_FILENAME)).unwrap();
+        let decoded = decode(&bytes).unwrap();
+        if let Value::Map(m) = decoded {
+            let version = map_get_uint(&m, "format_version").unwrap();
+            assert_eq!(version, NONCE_LOG_FORMAT_VERSION);
+            assert_eq!(version, 2); // pinned: M15 writes v2.
+        } else {
+            panic!("expected Map");
+        }
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn m15_nonce_entry_without_anchor_clock_omits_those_fields() {
+        // Re-encoding a nonce with anchor_clock = None should NOT emit those keys.
+        use myco_kernel_shared::canonical_bytes::Value;
+        let entry = make_nonce(0x77, false, 1_000_000);
+        let value = entry.to_value();
+        if let Value::Map(m) = value {
+            assert!(!m.contains_key("anchor_clock_issued_at_unix_ns"));
+            assert!(!m.contains_key("anchor_clock_expiry_unix_ns"));
+            assert!(m.contains_key("substrate_issued_at_unix_ns")); // always present in v2
+        } else {
+            panic!("expected Map");
+        }
     }
 
     #[test]

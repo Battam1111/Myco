@@ -74,6 +74,8 @@ export const MSG_TYPE = {
   RUN_IMMUNE_CHECK_RESPONSE: "run_immune_check_response",
   REQUEST_ATTESTATION_NONCE: "request_attestation_nonce",
   REQUEST_ATTESTATION_NONCE_RESPONSE: "request_attestation_nonce_response",
+  ENUMERATE_DAG_SINCE: "enumerate_dag_since",
+  ENUMERATE_DAG_SINCE_RESPONSE: "enumerate_dag_since_response",
 } as const;
 
 export type MessageType = (typeof MSG_TYPE)[keyof typeof MSG_TYPE];
@@ -375,12 +377,24 @@ export function computeIntentPayload(args: {
   return m;
 }
 
-/** Build the payload for a `request_attestation_nonce` request (M13).
+/** Build the payload for a `request_attestation_nonce` request (M13;
+ *  extended M15 with optional anchor-clock binding).
  *
  *  Bound to the SHA-256 hash of the mutation's content_canonical_bytes.
  *  Substrate issues a 32-byte nonce + returns expiry + bound dag_tip.
+ *
+ *  M15: optionally supply `anchorClockUnixNs` — the operator's view of "now"
+ *  on the operator's wall clock. When present, the substrate records BOTH
+ *  the substrate-clock issuance time AND the anchor-clock issuance time;
+ *  the response echoes an `anchor_clock_expiry_unix_ns` so the operator can
+ *  later supply `anchor_clock_submitted_at_unix_ns` at submit time. The
+ *  dual-clock check at verification rejects clock-skew attacks that try to
+ *  extend nonce lifetime by manipulating one clock.
  */
-export function requestAttestationNoncePayload(contentHash: Uint8Array): Map<string, Value> {
+export function requestAttestationNoncePayload(
+  contentHash: Uint8Array,
+  anchorClockUnixNs?: bigint,
+): Map<string, Value> {
   if (contentHash.length !== 32) {
     throw new BridgeProtocolError(
       `content_hash must be exactly 32 bytes; got ${contentHash.length}`,
@@ -388,15 +402,22 @@ export function requestAttestationNoncePayload(contentHash: Uint8Array): Map<str
   }
   const m = new Map<string, Value>();
   m.set("content_hash", { type: "bytes", value: contentHash });
+  if (anchorClockUnixNs !== undefined) {
+    m.set("anchor_clock_unix_ns", { type: "timestamp", value: anchorClockUnixNs });
+  }
   return m;
 }
 
-/** Parsed `request_attestation_nonce_response` (M13). */
+/** Parsed `request_attestation_nonce_response` (M13; extended M15). */
 export interface AttestationNonceResult {
   nonce: Uint8Array;
   boundDagTip: Uint8Array;
   expiryUnixNs: bigint;
   ttlSeconds: bigint;
+  /** Anchor-clock expiry echo (M15). Present iff caller supplied
+   *  `anchorClockUnixNs` in the request. Operator passes this back as
+   *  reference at submit time for the dual-clock check. */
+  anchorClockExpiryUnixNs: bigint | null;
 }
 
 export function parseRequestAttestationNonceResponse(
@@ -421,11 +442,15 @@ export function parseRequestAttestationNonceResponse(
       "request_attestation_nonce_response missing required typed fields",
     );
   }
+  const anchorExpiryV = response.payload.get("anchor_clock_expiry_unix_ns");
+  const anchorClockExpiryUnixNs =
+    anchorExpiryV && anchorExpiryV.type === "timestamp" ? anchorExpiryV.value : null;
   return {
     nonce: nonceV.value,
     boundDagTip: tipV.value,
     expiryUnixNs: expiryV.value,
     ttlSeconds: ttlV.value,
+    anchorClockExpiryUnixNs,
   };
 }
 
@@ -476,6 +501,10 @@ export function submitMutationPayload(args: {
   expiryUnixNs?: bigint;
   revealPubkey?: Uint8Array;
   identitySignatureOverRevealPubkey?: Uint8Array;
+  /** M15: operator's anchor-clock "now" at submit time (unix nanoseconds).
+   *  Required iff the nonce was issued WITH `anchorClockUnixNs` (dual-clock
+   *  mode). Substrate verifies `anchor_issued ≤ this ≤ anchor_expiry`. */
+  anchorClockSubmittedAtUnixNs?: bigint;
 }): Map<string, Value> {
   const m = new Map<string, Value>();
   m.set("mutation_type", { type: "string", value: args.mutationType });
@@ -542,7 +571,132 @@ export function submitMutationPayload(args: {
       value: args.identitySignatureOverRevealPubkey,
     });
   }
+  if (args.anchorClockSubmittedAtUnixNs !== undefined) {
+    m.set("anchor_clock_submitted_at_unix_ns", {
+      type: "timestamp",
+      value: args.anchorClockSubmittedAtUnixNs,
+    });
+  }
   return m;
+}
+
+// ---------------------------------------------------------------------------
+// M15: enumerate_dag_since (DAG enumeration closure).
+// ---------------------------------------------------------------------------
+
+/** Build the payload for an `enumerate_dag_since` request (M15).
+ *
+ *  When `prevTip` is undefined, the substrate enumerates from genesis.
+ *  When supplied, the substrate enumerates nodes inserted AFTER prevTip.
+ *  On unknown prevTip, the substrate emits C6 dag_enumeration_unclosed
+ *  and returns an error envelope.
+ */
+export function enumerateDagSincePayload(prevTip?: Uint8Array): Map<string, Value> {
+  const m = new Map<string, Value>();
+  if (prevTip) {
+    if (prevTip.length !== 32) {
+      throw new BridgeProtocolError(
+        `prev_tip must be exactly 32 bytes; got ${prevTip.length}`,
+      );
+    }
+    m.set("prev_tip", { type: "bytes", value: prevTip });
+  }
+  return m;
+}
+
+/** One DAG node from an enumeration response (M15). Carries all metadata
+ *  needed for owner-side Merkle chain reconstruction. */
+export interface EnumeratedDagNode {
+  /** Substrate-claimed Merkle hash. Owner recomputes from parent_hashes +
+   *  content_canonical_bytes via `merkleHash` and compares. */
+  hash: Uint8Array;
+  parentHashes: Uint8Array[];
+  nodeType: string;
+  atCycle: bigint;
+  contentCanonicalBytes: Uint8Array;
+}
+
+/** Parsed `enumerate_dag_since_response` (M15). */
+export interface DagEnumerationReport {
+  /** Current DAG tip at substrate (null if DAG is empty). */
+  currentTip: Uint8Array | null;
+  /** Echo of the prev_tip the caller passed (null if absent). */
+  prevTip: Uint8Array | null;
+  totalDagSize: bigint;
+  enumeratedCount: bigint;
+  nodes: EnumeratedDagNode[];
+}
+
+export function parseEnumerateDagSinceResponse(response: Message): DagEnumerationReport {
+  if (response.messageType !== MSG_TYPE.ENUMERATE_DAG_SINCE_RESPONSE) {
+    throw new BridgeProtocolError(
+      `expected enumerate_dag_since_response; got ${response.messageType}`,
+    );
+  }
+  const totalV = response.payload.get("total_dag_size");
+  const enumCountV = response.payload.get("enumerated_count");
+  const nodesV = response.payload.get("nodes");
+  if (
+    !totalV || totalV.type !== "uint" ||
+    !enumCountV || enumCountV.type !== "uint" ||
+    !nodesV || nodesV.type !== "array"
+  ) {
+    throw new BridgeProtocolError(
+      "enumerate_dag_since_response missing required typed fields",
+    );
+  }
+  const currentTipV = response.payload.get("current_tip");
+  const currentTip =
+    currentTipV && currentTipV.type === "bytes" ? currentTipV.value : null;
+  const prevTipV = response.payload.get("prev_tip");
+  const prevTip = prevTipV && prevTipV.type === "bytes" ? prevTipV.value : null;
+
+  const nodes: EnumeratedDagNode[] = nodesV.value.map((v) => {
+    if (v.type !== "map") {
+      throw new BridgeProtocolError(
+        `enumerated node is not a Map: ${v.type}`,
+      );
+    }
+    const m = v.value;
+    const hashV = m.get("hash");
+    const parentsV = m.get("parent_hashes");
+    const typeV = m.get("node_type");
+    const cycleV = m.get("at_cycle");
+    const contentV = m.get("content_canonical_bytes");
+    if (
+      !hashV || hashV.type !== "bytes" ||
+      !parentsV || parentsV.type !== "array" ||
+      !typeV || typeV.type !== "string" ||
+      !cycleV || cycleV.type !== "uint" ||
+      !contentV || contentV.type !== "bytes"
+    ) {
+      throw new BridgeProtocolError(
+        "enumerated node Map missing required typed fields",
+      );
+    }
+    const parentHashes: Uint8Array[] = parentsV.value.map((p) => {
+      if (p.type !== "bytes") {
+        throw new BridgeProtocolError(
+          `parent_hashes contains non-Bytes: ${p.type}`,
+        );
+      }
+      return p.value;
+    });
+    return {
+      hash: hashV.value,
+      parentHashes,
+      nodeType: typeV.value,
+      atCycle: cycleV.value,
+      contentCanonicalBytes: contentV.value,
+    };
+  });
+  return {
+    currentTip,
+    prevTip,
+    totalDagSize: totalV.value,
+    enumeratedCount: enumCountV.value,
+    nodes,
+  };
 }
 
 /**
