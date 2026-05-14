@@ -29,6 +29,7 @@ import {
   type HelloAck,
   helloPayload,
   helloSigningBody,
+  type ImmuneEventsReport,
   type IntentReport,
   type Message,
   MSG_TYPE,
@@ -36,10 +37,12 @@ import {
   parseAdvanceResponse,
   parseComputeIntentResponse,
   parseHelloAck,
+  parseQueryImmuneEventsResponse,
   parseQueryRecentNodesResponse,
   parseSnapshotResponse,
   parseSubmitMutationResponse,
   perturbPayload,
+  queryImmuneEventsPayload,
   queryRecentNodesPayload,
   type RecentNodesReport,
   registerAxisPayload,
@@ -392,6 +395,16 @@ export class SubstrateClient {
       submitMutationPayload(args),
     );
     return parseSubmitMutationResponse(response);
+  }
+
+  /** M11: Query recent immune events (rejected mutations, pubkey mismatches,
+   *  DAG tamper detections). Filters the DAG by node_type prefix "immune:". */
+  async queryImmuneEvents(count: bigint = 50n): Promise<ImmuneEventsReport> {
+    const response = await this._sendRequest(
+      MSG_TYPE.QUERY_IMMUNE_EVENTS,
+      queryImmuneEventsPayload(count),
+    );
+    return parseQueryImmuneEventsResponse(response);
   }
 
   /** Graceful shutdown — sends shutdown, awaits ack, waits for child exit. */

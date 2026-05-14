@@ -68,6 +68,8 @@ export const MSG_TYPE = {
   QUERY_RECENT_NODES_RESPONSE: "query_recent_nodes_response",
   SUBMIT_MUTATION: "submit_mutation",
   SUBMIT_MUTATION_RESPONSE: "submit_mutation_response",
+  QUERY_IMMUNE_EVENTS: "query_immune_events",
+  QUERY_IMMUNE_EVENTS_RESPONSE: "query_immune_events_response",
 } as const;
 
 export type MessageType = (typeof MSG_TYPE)[keyof typeof MSG_TYPE];
@@ -643,6 +645,86 @@ export function parseComputeIntentResponse(response: Message): IntentReport {
     fullSetNodeCount: fullSetV.value,
     clusterCount: clusterCountV.value,
     clusters,
+  };
+}
+
+/** One immune event from a `query_immune_events_response` (M11). */
+export interface ImmuneEvent {
+  hash: Uint8Array;
+  /** Full node_type, e.g. "immune:C14_untyped_mutation_blocked". */
+  nodeType: string;
+  atCycle: bigint;
+  /** Raw canonical-bytes of the immune event payload (Map with detector_id +
+   *  evidence + timestamp). Operators can decode via anchor_client renderer. */
+  contentCanonicalBytes: Uint8Array;
+}
+
+/** Parsed `query_immune_events_response` (M11). */
+export interface ImmuneEventsReport {
+  totalImmuneCount: bigint;
+  returnedCount: bigint;
+  events: ImmuneEvent[];
+}
+
+/** Build the payload for a `query_immune_events` request (M11). */
+export function queryImmuneEventsPayload(count: bigint): Map<string, Value> {
+  const m = new Map<string, Value>();
+  m.set("count", { type: "uint", value: count });
+  return m;
+}
+
+export function parseQueryImmuneEventsResponse(
+  response: Message,
+): ImmuneEventsReport {
+  if (response.messageType !== MSG_TYPE.QUERY_IMMUNE_EVENTS_RESPONSE) {
+    throw new BridgeProtocolError(
+      `expected query_immune_events_response; got ${response.messageType}`,
+    );
+  }
+  const totalV = response.payload.get("total_immune_count");
+  const returnedV = response.payload.get("returned_count");
+  const eventsV = response.payload.get("events");
+  if (
+    !totalV || totalV.type !== "uint" ||
+    !returnedV || returnedV.type !== "uint" ||
+    !eventsV || eventsV.type !== "array"
+  ) {
+    throw new BridgeProtocolError(
+      "query_immune_events_response missing required typed fields",
+    );
+  }
+  const events: ImmuneEvent[] = eventsV.value.map((v) => {
+    if (v.type !== "map") {
+      throw new BridgeProtocolError(
+        `immune_event is not a Map: ${v.type}`,
+      );
+    }
+    const m = v.value;
+    const hashV = m.get("hash");
+    const typeV = m.get("node_type");
+    const cycleV = m.get("at_cycle");
+    const contentV = m.get("content_canonical_bytes");
+    if (
+      !hashV || hashV.type !== "bytes" ||
+      !typeV || typeV.type !== "string" ||
+      !cycleV || cycleV.type !== "uint" ||
+      !contentV || contentV.type !== "bytes"
+    ) {
+      throw new BridgeProtocolError(
+        "immune_event Map missing required typed fields",
+      );
+    }
+    return {
+      hash: hashV.value,
+      nodeType: typeV.value,
+      atCycle: cycleV.value,
+      contentCanonicalBytes: contentV.value,
+    };
+  });
+  return {
+    totalImmuneCount: totalV.value,
+    returnedCount: returnedV.value,
+    events,
   };
 }
 
