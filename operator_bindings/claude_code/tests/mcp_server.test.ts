@@ -6,7 +6,8 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { resolve as resolvePath } from "node:path";
-import { existsSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 
 import { McpServer } from "../src/mcp_server.ts";
 
@@ -26,10 +27,26 @@ function locateSubstrateBinary(): string {
 
 const SUBSTRATE_BIN = locateSubstrateBinary();
 
-function newServer(): McpServer {
+function freshStateDir(): string {
+  return mkdtempSync(resolvePath(tmpdir(), "myco-mcp-test-"));
+}
+
+function newServer(stateDir?: string): McpServer {
+  const dir = stateDir ?? freshStateDir();
   return new McpServer({
-    substrate: { substrateBinary: SUBSTRATE_BIN },
+    substrate: {
+      substrateBinary: SUBSTRATE_BIN,
+      env: { MYCO_STATE_DIR: dir },
+    },
   });
+}
+
+function cleanupDir(dir: string): void {
+  try {
+    rmSync(dir, { recursive: true, force: true });
+  } catch {
+    // Ignore.
+  }
 }
 
 describe("McpServer tool dispatch", () => {

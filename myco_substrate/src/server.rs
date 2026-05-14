@@ -19,6 +19,7 @@
 
 use std::collections::BTreeMap;
 use std::io::{Read, Write};
+use std::path::PathBuf;
 
 use myco_kernel_bridge::client::{BridgeClient, BridgeClientConfig};
 use myco_kernel_bridge::framing::{read_frame, write_frame};
@@ -33,6 +34,7 @@ use myco_kernel_continuity::cycle::{
 };
 use myco_kernel_shared::canonical_bytes::Value;
 
+use crate::persistence::{default_state_dir, ensure_state_dir, Manifest};
 use crate::SubstrateError;
 
 // ---------------------------------------------------------------------------
@@ -103,16 +105,37 @@ struct ServerState {
     python_client: Option<BridgeClient>,
     /// CycleEngine for substrate-side metabolic-cycle execution.
     cycle_engine: CycleEngine,
+    /// Persistent substrate identity + metabolic position (M7).
+    manifest: Manifest,
+    /// Directory in which the substrate's state files live (M7).
+    state_dir: PathBuf,
 }
 
 impl ServerState {
-    fn new() -> Self {
+    fn new(state_dir: PathBuf, manifest: Manifest) -> Self {
+        // M7: the manifest's cycle_counter is the authoritative persisted
+        // counter; the in-process CycleEngine maintains its own counter that
+        // counts cycles within THIS process only. handle_advance() uses the
+        // manifest counter as the cross-process source-of-truth.
         ServerState {
             session_secret: [0u8; 32],
             handshake_complete: false,
             python_client: None,
             cycle_engine: CycleEngine::new(CycleConfig::default()),
+            manifest,
+            state_dir,
         }
+    }
+
+    /// Persist the manifest to disk. Bumps last_save_time as a side effect.
+    fn save_manifest(&mut self) -> Result<(), SubstrateError> {
+        self.manifest.save(&self.state_dir)?;
+        Ok(())
+    }
+
+    /// State directory as a string (for forwarding to the Python worker).
+    fn state_dir_str(&self) -> String {
+        self.state_dir.to_string_lossy().into_owned()
     }
 }
 
@@ -122,9 +145,20 @@ impl ServerState {
 
 /// Run the substrate server loop against the given stdin/stdout.
 ///
+/// Resolves the state directory (per `MYCO_STATE_DIR` env var or default),
+/// loads the manifest if one exists (cold-resume), or generates a fresh
+/// genesis manifest. The Python worker is hydrated from `gradient.cb` (if
+/// present) during the hello-handshake forwarding.
+///
 /// Returns the exit code (0 = clean shutdown, 2 = handshake failure).
 pub fn run_loop<R: Read, W: Write>(stdin: &mut R, stdout: &mut W) -> Result<u8, SubstrateError> {
-    let mut state = ServerState::new();
+    let state_dir = default_state_dir();
+    ensure_state_dir(&state_dir)?;
+    let manifest = match Manifest::load(&state_dir)? {
+        Some(m) => m,
+        None => Manifest::genesis(),
+    };
+    let mut state = ServerState::new(state_dir, manifest);
 
     loop {
         let expected_key = if state.handshake_complete {
@@ -223,15 +257,38 @@ fn dispatch(state: &mut ServerState, request: &Message) -> Result<Option<Message
 
     match request.message_type.as_str() {
         msg_type::HELLO => handle_hello(state, request),
-        msg_type::REGISTER_AXIS => forward_to_python(state, request, msg_type::REGISTER_AXIS_ACK),
-        msg_type::PERTURB => forward_to_python(state, request, msg_type::PERTURB_ACK),
+        msg_type::REGISTER_AXIS => {
+            let response = forward_to_python(state, request, msg_type::REGISTER_AXIS_ACK)?;
+            // M7: persist gradient state after a mutation.
+            save_python_state(state)?;
+            Ok(response)
+        }
+        msg_type::PERTURB => {
+            let response = forward_to_python(state, request, msg_type::PERTURB_ACK)?;
+            save_python_state(state)?;
+            Ok(response)
+        }
         msg_type::SNAPSHOT => forward_to_python(state, request, msg_type::SNAPSHOT_RESPONSE),
-        msg_type::ADVANCE => handle_advance(state, request),
-        msg_type::SHUTDOWN => Ok(Some(Message::new(
-            msg_type::SHUTDOWN_ACK,
-            request.request_id,
-            empty_payload(),
-        ))),
+        msg_type::ADVANCE => {
+            let response = handle_advance(state, request)?;
+            // M7: bump the persisted cycle counter (matches the value echoed in
+            // the advance_response payload). save_manifest() also bumps
+            // last_save_time for observability.
+            state.manifest.cycle_counter = state.manifest.cycle_counter.saturating_add(1);
+            state.save_manifest()?;
+            save_python_state(state)?;
+            Ok(response)
+        }
+        msg_type::SHUTDOWN => {
+            // M7: final state save before exit (best-effort; ignore errors here).
+            let _ = save_python_state(state);
+            let _ = state.save_manifest();
+            Ok(Some(Message::new(
+                msg_type::SHUTDOWN_ACK,
+                request.request_id,
+                empty_payload(),
+            )))
+        }
         other => Err(SubstrateError::Protocol(format!(
             "substrate cannot handle message type {other:?}"
         ))),
@@ -268,12 +325,24 @@ fn handle_hello(
         python_executable: std::env::var("MYCO_PYTHON_EXECUTABLE")
             .unwrap_or_else(|_| "python".to_string()),
         session_secret: Some(secret),
+        extra_env: Vec::new(),
     };
-    let python_client = BridgeClient::spawn_and_handshake(python_config)?;
+    let mut python_client = BridgeClient::spawn_and_handshake(python_config)?;
     let python_version = python_client.hello_ack.python_version.clone();
     let kernel_tropism_version = python_client.hello_ack.kernel_tropism_version.clone();
+
+    // M7 cold-resume: ask the Python worker to hydrate from disk, if a
+    // gradient.cb exists in our state directory. Genesis condition →
+    // hydrated=false; the worker starts with an empty gradient.
+    let state_dir_str = state.state_dir.to_string_lossy().into_owned();
+    let (_hydrated_axis_count, _hydrated) = python_client.load_state(&state_dir_str)?;
+
     state.python_client = Some(python_client);
     state.handshake_complete = true;
+
+    // Persist the manifest now (creates manifest.cb on first boot; bumps
+    // last_save_time on subsequent boots).
+    state.save_manifest()?;
 
     // Build hello_ack with version info forwarded from the Python side
     // (so the operator runtime sees a unified view of the whole stack).
@@ -287,11 +356,31 @@ fn handle_hello(
         "substrate_version".to_string(),
         Value::String(env!("CARGO_PKG_VERSION").to_string()),
     );
+    // M7: surface persistent substrate_id + cycle_counter to the operator runtime
+    // so the LLM host can verify substrate identity continuity across sessions.
+    payload.insert(
+        "substrate_id".to_string(),
+        Value::Bytes(state.manifest.substrate_id.to_vec()),
+    );
+    payload.insert(
+        "persistent_cycle_counter".to_string(),
+        Value::Uint(state.manifest.cycle_counter),
+    );
     Ok(Some(Message::new(
         msg_type::HELLO_ACK,
         request.request_id,
         payload,
     )))
+}
+
+/// Trigger a save of the Python-side gradient state. Called after every
+/// operation that mutates the gradient (register_axis / perturb / advance).
+fn save_python_state(state: &mut ServerState) -> Result<(), SubstrateError> {
+    let state_dir_str = state.state_dir_str();
+    if let Some(client) = state.python_client.as_mut() {
+        client.save_state(&state_dir_str)?;
+    }
+    Ok(())
 }
 
 /// Forward a request to the Python worker verbatim and surface its response.
@@ -393,7 +482,9 @@ fn handle_advance(
         .as_mut()
         .ok_or_else(|| SubstrateError::Handshake("python worker not connected".to_string()))?;
 
-    let starting_cycle = state.cycle_engine.current_cycle();
+    // M7: use the persisted manifest counter as the cycle source-of-truth so
+    // cycle numbers monotonically advance across process restarts.
+    let starting_cycle = state.manifest.cycle_counter;
     let mut tier1 = OkTier1;
     let mut absorber = NoOpAbsorber;
     let mut breach = NoBreaches;
@@ -422,12 +513,13 @@ fn handle_advance(
 
     // Build the response combining cycle metadata + sporocarp report.
     let advance_report = gradient.latest_report.unwrap_or_default();
+    // M7: capture the post-advance cycle counter (the gradient advancer bumps
+    // its internal counter by 1; we mirror that into the manifest below in the
+    // dispatch arm).
+    let post_cycle = gradient.cycle_number;
     let mut payload = BTreeMap::new();
     // Echo the substrate's authoritative cycle counter (post-increment).
-    payload.insert(
-        "cycle_number".to_string(),
-        Value::Uint(state.cycle_engine.current_cycle()),
-    );
+    payload.insert("cycle_number".to_string(), Value::Uint(post_cycle));
     // Fruited axis names.
     payload.insert(
         "fruited_axes".to_string(),

@@ -6,7 +6,8 @@
 import { describe, it, after } from "node:test";
 import assert from "node:assert/strict";
 import { resolve as resolvePath } from "node:path";
-import { existsSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 
 import { SubstrateClient } from "../src/substrate_client.ts";
 
@@ -25,8 +26,27 @@ function locateSubstrateBinary(): string {
 
 const SUBSTRATE_BIN = locateSubstrateBinary();
 
-async function spawn(): Promise<SubstrateClient> {
-  return SubstrateClient.spawn({ substrateBinary: SUBSTRATE_BIN });
+/** Allocate a fresh isolated state directory for one test. M7: prevents
+ *  tests from leaking substrate state into each other or into the user's
+ *  default ~/.myco/substrate/default/. */
+function freshStateDir(): string {
+  return mkdtempSync(resolvePath(tmpdir(), "myco-ts-e2e-"));
+}
+
+async function spawn(stateDir?: string): Promise<SubstrateClient> {
+  const dir = stateDir ?? freshStateDir();
+  return SubstrateClient.spawn({
+    substrateBinary: SUBSTRATE_BIN,
+    env: { MYCO_STATE_DIR: dir },
+  });
+}
+
+function cleanupDir(dir: string): void {
+  try {
+    rmSync(dir, { recursive: true, force: true });
+  } catch {
+    // Ignore.
+  }
 }
 
 describe("SubstrateClient e2e", () => {
@@ -170,6 +190,44 @@ describe("SubstrateClient e2e", () => {
       assert.equal(snap.size, 0);
     } finally {
       await client.shutdown();
+    }
+  });
+
+  // -------------------------------------------------------------------------
+  // M7 cross-restart test: TS-side proof that substrate state persists across
+  // process kill + respawn when the same state_dir is used.
+  // -------------------------------------------------------------------------
+  it("M7: substrate state survives across TS-side respawn", async () => {
+    const dir = freshStateDir();
+    try {
+      // Session 1: register an axis + perturb, then shutdown.
+      const client1 = await spawn(dir);
+      await client1.registerAxis({
+        name: "ts_survivor",
+        axisClass: "appetite",
+        fruitingThreshold: 100.0,
+        initialValue: 0.0,
+        decayRatePerCycle: 1.0,
+        isMortalitySignal: false,
+        updateRuleKind: "noop",
+      });
+      await client1.perturb("ts_survivor", 3.14);
+      await client1.shutdown();
+
+      // Session 2: same dir; verify state was hydrated.
+      const client2 = await spawn(dir);
+      try {
+        const snap = await client2.snapshot();
+        assert.equal(
+          snap.get("ts_survivor"),
+          3.14,
+          `ts_survivor=3.14 should survive restart; got snapshot=${JSON.stringify(Array.from(snap))}`,
+        );
+      } finally {
+        await client2.shutdown();
+      }
+    } finally {
+      cleanupDir(dir);
     }
   });
 });
