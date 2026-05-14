@@ -80,6 +80,8 @@ export const MSG_TYPE = {
   INGEST_RAW_MATERIAL_RESPONSE: "ingest_raw_material_response",
   PERTURB_AXIS_FROM_RAW_MATERIAL: "perturb_axis_from_raw_material",
   PERTURB_AXIS_FROM_RAW_MATERIAL_RESPONSE: "perturb_axis_from_raw_material_response",
+  SPROUT_CHILD: "sprout_child",
+  SPROUT_CHILD_RESPONSE: "sprout_child_response",
 } as const;
 
 export type MessageType = (typeof MSG_TYPE)[keyof typeof MSG_TYPE];
@@ -374,6 +376,73 @@ export function queryRecentNodesPayload(
     m.set("node_type_prefix", { type: "string", value: nodeTypePrefix });
   }
   return m;
+}
+
+// ---------------------------------------------------------------------------
+// M20 P8 永恒繁衍: substrate reproduction (sprout_child).
+// ---------------------------------------------------------------------------
+
+/** Build the payload for a `sprout_child` request (M20).
+ *
+ *  The substrate creates a child state_dir containing the parent's
+ *  spore-schema (gradient axes + values + operator identity + fresh
+ *  substrate_id). Operator can then spawn a new substrate process at
+ *  `childStateDir` via the MYCO_STATE_DIR env var.
+ *
+ *  The parent emits a `spore_emission:{child_id_prefix}` DAG node recording
+ *  the reproduction. The parent's causal DAG is NOT transferred to the child
+ *  (L1 decision per L0 P8 — child starts its own causal history).
+ */
+export function sproutChildPayload(args: {
+  childStateDir: string;
+  spore_metadata?: Map<string, Value>;
+}): Map<string, Value> {
+  if (!args.childStateDir || args.childStateDir.length === 0) {
+    throw new BridgeProtocolError("sprout_child: childStateDir is required");
+  }
+  const m = new Map<string, Value>();
+  m.set("child_state_dir", { type: "string", value: args.childStateDir });
+  if (args.spore_metadata) {
+    m.set("spore_metadata", { type: "map", value: args.spore_metadata });
+  }
+  return m;
+}
+
+/** Parsed `sprout_child_response` (M20). */
+export interface SproutChildResult {
+  childSubstrateId: Uint8Array;
+  childStateDir: string;
+  childAxisCount: bigint;
+  /** DAG node hash of the spore_emission:{prefix} node in the parent's DAG. */
+  sporeEmissionHash: Uint8Array;
+}
+
+export function parseSproutChildResponse(response: Message): SproutChildResult {
+  if (response.messageType !== MSG_TYPE.SPROUT_CHILD_RESPONSE) {
+    throw new BridgeProtocolError(
+      `expected sprout_child_response; got ${response.messageType}`,
+    );
+  }
+  const idV = response.payload.get("child_substrate_id");
+  const dirV = response.payload.get("child_state_dir");
+  const axisV = response.payload.get("child_axis_count");
+  const hashV = response.payload.get("spore_emission_hash");
+  if (
+    !idV || idV.type !== "bytes" ||
+    !dirV || dirV.type !== "string" ||
+    !axisV || axisV.type !== "uint" ||
+    !hashV || hashV.type !== "bytes"
+  ) {
+    throw new BridgeProtocolError(
+      "sprout_child_response missing required typed fields",
+    );
+  }
+  return {
+    childSubstrateId: idV.value,
+    childStateDir: dirV.value,
+    childAxisCount: axisV.value,
+    sporeEmissionHash: hashV.value,
+  };
 }
 
 // ---------------------------------------------------------------------------

@@ -144,6 +144,21 @@ pub mod msg_type {
     /// node hash of the causal-link node + the perturbation result.
     pub const PERTURB_AXIS_FROM_RAW_MATERIAL_RESPONSE: &str =
         "perturb_axis_from_raw_material_response";
+    /// `snapshot_gradient_to_dir` — Rust→Python: snapshot the gradient
+    /// configuration (axes + schemas + current values) to a target directory.
+    /// Used by M20 P8 永恒繁衍 to seed a child substrate's gradient.cb.
+    pub const SNAPSHOT_GRADIENT_TO_DIR: &str = "snapshot_gradient_to_dir";
+    /// `snapshot_gradient_to_dir_ack` — Python→Rust: snapshot wrote N axes.
+    pub const SNAPSHOT_GRADIENT_TO_DIR_ACK: &str = "snapshot_gradient_to_dir_ack";
+    /// `sprout_child` — Operator→Rust: produce a child substrate's state_dir
+    /// containing the parent's spore-schema (M20 P8 永恒繁衍). The parent
+    /// emits a `spore_emission:{child_id_prefix}` DAG node recording the
+    /// reproduction event. The operator can then spawn a new substrate
+    /// process pointing at the child state_dir via MYCO_STATE_DIR.
+    pub const SPROUT_CHILD: &str = "sprout_child";
+    /// `sprout_child_response` — Rust→Operator: the child substrate_id +
+    /// spore_emission DAG node hash + child state_dir path.
+    pub const SPROUT_CHILD_RESPONSE: &str = "sprout_child_response";
 }
 
 /// A decoded bridge message.

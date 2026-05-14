@@ -197,6 +197,19 @@ class MessageType(str, Enum):
     PERTURB_AXIS_FROM_RAW_MATERIAL_RESPONSE = "perturb_axis_from_raw_material_response"
     """Rust → Operator: causal-link DAG node hash + perturbation acknowledgment (M16)."""
 
+    SNAPSHOT_GRADIENT_TO_DIR = "snapshot_gradient_to_dir"
+    """Rust → Python: snapshot the gradient configuration to a target directory (M20)."""
+
+    SNAPSHOT_GRADIENT_TO_DIR_ACK = "snapshot_gradient_to_dir_ack"
+    """Python → Rust: snapshot complete; reports axis_count written (M20)."""
+
+    SPROUT_CHILD = "sprout_child"
+    """Operator → Rust: produce a child substrate's state_dir from parent's
+    spore-schema (M20 P8 永恒繁衍). Rust-handled with Python-side gradient snapshot."""
+
+    SPROUT_CHILD_RESPONSE = "sprout_child_response"
+    """Rust → Operator: child substrate_id + spore_emission DAG hash + path (M20)."""
+
 
 # ---------------------------------------------------------------------------
 # Error types.

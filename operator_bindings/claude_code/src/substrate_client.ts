@@ -52,6 +52,7 @@ import {
   parseRunImmuneCheckResponse,
   parseSnapshotResponse,
   parseSubmitMutationResponse,
+  parseSproutChildResponse,
   perturbAxisFromRawMaterialPayload,
   perturbPayload,
   type PerturbFromRawResult,
@@ -62,6 +63,8 @@ import {
   registerAxisPayload,
   requestAttestationNoncePayload,
   revealKeyBindingSigningInput,
+  sproutChildPayload,
+  type SproutChildResult,
   submitMutationPayload,
 } from "./protocol/messages.ts";
 import { OperatorIdentity } from "./operator_identity.ts";
@@ -412,6 +415,31 @@ export class SubstrateClient {
       ingestRawMaterialPayload(args),
     );
     return parseIngestRawMaterialResponse(response);
+  }
+
+  /** M20: P8 永恒繁衍 — Sprout a child substrate from the parent's spore-schema.
+   *
+   *  The substrate creates a child state_dir at `childStateDir` containing:
+   *  - Fresh manifest.cb (new substrate_id, cycle_counter=0)
+   *  - Snapshot of parent's gradient.cb (axes + values inherited)
+   *  - Parent's operator_identity_pubkey.cb (operator continuity)
+   *
+   *  The parent emits a `spore_emission:{child_id_prefix}` DAG node recording
+   *  the reproduction event. Operator can subsequently spawn a new substrate
+   *  process pointing at `childStateDir` via the MYCO_STATE_DIR env var.
+   *
+   *  Rejects if `childStateDir` already contains a manifest.cb (won't
+   *  overwrite an existing substrate's identity).
+   */
+  async sproutChild(args: {
+    childStateDir: string;
+    spore_metadata?: Map<string, import("@myco/anchor-client/src/canonical_bytes.ts").Value>;
+  }): Promise<SproutChildResult> {
+    const response = await this._sendRequest(
+      MSG_TYPE.SPROUT_CHILD,
+      sproutChildPayload(args),
+    );
+    return parseSproutChildResponse(response);
   }
 
   /** M16: P2 永恒吞噬 + P6 永恒因果 — Perturb an axis with causal linkage to

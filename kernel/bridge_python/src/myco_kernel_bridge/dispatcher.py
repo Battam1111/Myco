@@ -186,8 +186,46 @@ def dispatch(state: DispatcherState, request: Message) -> Message | None:
         return _handle_compute_intent(state, request)
     if request.type is MessageType.SUBMIT_MUTATION:
         return _handle_submit_mutation(state, request)
+    if request.type is MessageType.SNAPSHOT_GRADIENT_TO_DIR:
+        return _handle_snapshot_gradient_to_dir(state, request)
     raise BridgeProtocolError(
         f"dispatcher cannot handle {request.type.value!r} (not a request type)"
+    )
+
+
+def _handle_snapshot_gradient_to_dir(
+    state: DispatcherState, request: Message
+) -> Message:
+    """M20 P8 永恒繁衍: snapshot the gradient state to a target directory.
+
+    This is the Python-side primitive used by sprout_child: writes a fresh
+    `gradient.cb` containing the parent's axes + schemas + current values
+    into the child substrate's state_dir.
+
+    The child receives a CLONE of the parent's gradient (axes registered;
+    initial axis values = parent's current values). The L1 decision: M20-MV
+    transfers gradient state but NOT the parent's causal DAG (child starts
+    its own causal history per L1 design).
+    """
+    keys = dict(request.payload.value)
+    try:
+        target_dir = expect_string(keys["target_dir"])
+    except KeyError as e:
+        raise BridgeProtocolError(
+            f"snapshot_gradient_to_dir missing target_dir: {e}"
+        ) from e
+    try:
+        save_gradient(state.gradient, target_dir)
+    except (PersistenceError, OSError) as e:
+        raise BridgeProtocolError(
+            f"snapshot_gradient_to_dir save failed: {e}"
+        ) from e
+    return Message(
+        type=MessageType.SNAPSHOT_GRADIENT_TO_DIR_ACK,
+        request_id=request.request_id,
+        payload=CbMap.from_dict(
+            {"axis_count": CbUint(state.gradient.axis_count())}
+        ),
     )
 
 
