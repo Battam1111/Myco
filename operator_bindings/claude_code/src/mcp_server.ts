@@ -278,6 +278,22 @@ const TOOL_DEFINITIONS = [
     },
   },
   {
+    name: "myco_request_attestation_nonce",
+    description:
+      "Request an anchor-surface attestation nonce (M13). The substrate issues a 32-byte nonce bound to the SHA-256 of your proposed mutation content + the current DAG tip. Include this nonce in your subsequent myco_submit_mutation call (with the same content) to prove a fresh, non-replay intent. Nonces expire after 5 minutes and are one-time use. Returns: nonce, expiry_unix_ns, bound_dag_tip (all hex-encoded).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        content: {
+          type: "string",
+          description:
+            "The mutation content you intend to submit (UTF-8); the nonce is bound to its SHA-256 hash",
+        },
+      },
+      required: ["content"],
+    },
+  },
+  {
     name: "myco_run_immune_check",
     description:
       "Trigger an ad-hoc immune verification scan. The substrate runs comprehensive integrity checks (substrate_id well-formedness, DAG hash chain integrity, cycle counter monotonicity, pinned operator pubkey well-formedness, owner_keys consistency). For each failed check, the substrate emits a C9 cold_resume_invariant_failure immune sporocarp (visible via myco_query_immune_events). Returns a per-check report.",
@@ -521,6 +537,26 @@ export class McpServer {
         return {
           content: [
             { type: "text" as const, text: formatRecentNodes(report) },
+          ],
+        };
+      }
+      case "myco_request_attestation_nonce": {
+        const sub = await this._ensureSubstrate();
+        const contentStr = String(args.content);
+        const contentBytes = new TextEncoder().encode(contentStr);
+        const result = await sub.requestAttestationNonce(contentBytes);
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: [
+                `nonce=${toHex(result.nonce)}`,
+                `bound_dag_tip=${toHex(result.boundDagTip)}`,
+                `expiry_unix_ns=${result.expiryUnixNs}`,
+                `ttl_seconds=${result.ttlSeconds}`,
+                "(use this nonce in myco_submit_mutation with the SAME content)",
+              ].join("\n"),
+            },
           ],
         };
       }

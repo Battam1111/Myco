@@ -72,6 +72,8 @@ export const MSG_TYPE = {
   QUERY_IMMUNE_EVENTS_RESPONSE: "query_immune_events_response",
   RUN_IMMUNE_CHECK: "run_immune_check",
   RUN_IMMUNE_CHECK_RESPONSE: "run_immune_check_response",
+  REQUEST_ATTESTATION_NONCE: "request_attestation_nonce",
+  REQUEST_ATTESTATION_NONCE_RESPONSE: "request_attestation_nonce_response",
 } as const;
 
 export type MessageType = (typeof MSG_TYPE)[keyof typeof MSG_TYPE];
@@ -373,10 +375,67 @@ export function computeIntentPayload(args: {
   return m;
 }
 
-/** Build the payload for a `submit_mutation` request (M10).
+/** Build the payload for a `request_attestation_nonce` request (M13).
+ *
+ *  Bound to the SHA-256 hash of the mutation's content_canonical_bytes.
+ *  Substrate issues a 32-byte nonce + returns expiry + bound dag_tip.
+ */
+export function requestAttestationNoncePayload(contentHash: Uint8Array): Map<string, Value> {
+  if (contentHash.length !== 32) {
+    throw new BridgeProtocolError(
+      `content_hash must be exactly 32 bytes; got ${contentHash.length}`,
+    );
+  }
+  const m = new Map<string, Value>();
+  m.set("content_hash", { type: "bytes", value: contentHash });
+  return m;
+}
+
+/** Parsed `request_attestation_nonce_response` (M13). */
+export interface AttestationNonceResult {
+  nonce: Uint8Array;
+  boundDagTip: Uint8Array;
+  expiryUnixNs: bigint;
+  ttlSeconds: bigint;
+}
+
+export function parseRequestAttestationNonceResponse(
+  response: Message,
+): AttestationNonceResult {
+  if (response.messageType !== MSG_TYPE.REQUEST_ATTESTATION_NONCE_RESPONSE) {
+    throw new BridgeProtocolError(
+      `expected request_attestation_nonce_response; got ${response.messageType}`,
+    );
+  }
+  const nonceV = response.payload.get("nonce");
+  const tipV = response.payload.get("bound_dag_tip");
+  const expiryV = response.payload.get("expiry_unix_ns");
+  const ttlV = response.payload.get("ttl_seconds");
+  if (
+    !nonceV || nonceV.type !== "bytes" ||
+    !tipV || tipV.type !== "bytes" ||
+    !expiryV || expiryV.type !== "timestamp" ||
+    !ttlV || ttlV.type !== "uint"
+  ) {
+    throw new BridgeProtocolError(
+      "request_attestation_nonce_response missing required typed fields",
+    );
+  }
+  return {
+    nonce: nonceV.value,
+    boundDagTip: tipV.value,
+    expiryUnixNs: expiryV.value,
+    ttlSeconds: ttlV.value,
+  };
+}
+
+/** Build the payload for a `submit_mutation` request (M10; extended M13).
  *
  *  CI mutations require `attestationSignature` — a 64-byte Ed25519 signature
  *  over `contentCanonicalBytes` by the active owner key. Daily mutations omit it.
+ *
+ *  M13: optional `nonce` + `expiryUnixNs` fields for anchor-surface envelope
+ *  verification (replay protection + dual-clock expiry).
  */
 export function submitMutationPayload(args: {
   mutationType: string;
@@ -385,6 +444,8 @@ export function submitMutationPayload(args: {
   touchedMetaStructures?: string[];
   contentCanonicalBytes: Uint8Array;
   attestationSignature?: Uint8Array;
+  nonce?: Uint8Array;
+  expiryUnixNs?: bigint;
 }): Map<string, Value> {
   const m = new Map<string, Value>();
   m.set("mutation_type", { type: "string", value: args.mutationType });
@@ -420,6 +481,17 @@ export function submitMutationPayload(args: {
       type: "bytes",
       value: args.attestationSignature,
     });
+  }
+  if (args.nonce) {
+    if (args.nonce.length !== 32) {
+      throw new BridgeProtocolError(
+        `nonce must be 32 bytes; got ${args.nonce.length}`,
+      );
+    }
+    m.set("nonce", { type: "bytes", value: args.nonce });
+  }
+  if (args.expiryUnixNs !== undefined) {
+    m.set("expiry_unix_ns", { type: "timestamp", value: args.expiryUnixNs });
   }
   return m;
 }

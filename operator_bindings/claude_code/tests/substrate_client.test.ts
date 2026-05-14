@@ -194,6 +194,182 @@ describe("SubstrateClient e2e", () => {
   });
 
   // -------------------------------------------------------------------------
+  // M13 anchor-surface nonce + dual-clock expiry tests.
+  // -------------------------------------------------------------------------
+  it("M13: requestAttestationNonce returns nonce + expiry + dag_tip", async () => {
+    const client = await spawn();
+    try {
+      const content = new TextEncoder().encode("hello m13");
+      const result = await client.requestAttestationNonce(content);
+      assert.equal(result.nonce.length, 32);
+      assert.equal(result.boundDagTip.length, 32);
+      assert.ok(result.expiryUnixNs > 0n);
+      assert.equal(result.ttlSeconds, 300n);
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("M13: full anchor-surface envelope CI mutation is accepted", async () => {
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m13-op-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identity = OperatorIdentity.loadOrCreate(opDir);
+      const stateDir = freshStateDir();
+      const client = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identity,
+      });
+      try {
+        const content = new TextEncoder().encode("CI with full envelope");
+        const nonceResult = await client.requestAttestationNonce(content);
+        const sig = identity.sign(content);
+        const result = await client.submitMutation({
+          mutationType: "schema_change",
+          touchedMetaStructures: ["appetite_axis_schema"],
+          contentCanonicalBytes: content,
+          attestationSignature: sig,
+          nonce: nonceResult.nonce,
+          expiryUnixNs: nonceResult.expiryUnixNs,
+        });
+        assert.equal(
+          result.accepted,
+          true,
+          `full envelope should accept; got rejection: ${result.rejectionReason}`,
+        );
+        assert.equal(result.classification, "contract_identity_level");
+      } finally {
+        await client.shutdown();
+      }
+    } finally {
+      cleanupDir(opDir);
+    }
+  });
+
+  it("M13: replayed nonce is rejected with C5 immune emission", async () => {
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m13-op-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identity = OperatorIdentity.loadOrCreate(opDir);
+      const stateDir = freshStateDir();
+      const client = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identity,
+      });
+      try {
+        const content = new TextEncoder().encode("replay test");
+        const nonceResult = await client.requestAttestationNonce(content);
+        const sig = identity.sign(content);
+
+        // First submission: succeeds.
+        const r1 = await client.submitMutation({
+          mutationType: "schema_change",
+          touchedMetaStructures: ["appetite_axis_schema"],
+          contentCanonicalBytes: content,
+          attestationSignature: sig,
+          nonce: nonceResult.nonce,
+          expiryUnixNs: nonceResult.expiryUnixNs,
+        });
+        assert.equal(r1.accepted, true);
+
+        // Second submission with SAME nonce: must be rejected (replay).
+        const r2 = await client.submitMutation({
+          mutationType: "schema_change",
+          touchedMetaStructures: ["appetite_axis_schema"],
+          contentCanonicalBytes: content,
+          attestationSignature: sig,
+          nonce: nonceResult.nonce,
+          expiryUnixNs: nonceResult.expiryUnixNs,
+        });
+        assert.equal(r2.accepted, false);
+        assert.match(r2.rejectionReason, /replay|consumed/);
+
+        // Verify C5 immune sporocarp was emitted.
+        const events = await client.queryImmuneEvents();
+        const c5 = events.events.find((e) =>
+          e.nodeType.includes("C5_attestation_invalid"),
+        );
+        assert.ok(c5, "expected C5 immune sporocarp on replay");
+      } finally {
+        await client.shutdown();
+      }
+    } finally {
+      cleanupDir(opDir);
+    }
+  });
+
+  it("M13: unknown nonce is rejected with C5", async () => {
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m13-op-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identity = OperatorIdentity.loadOrCreate(opDir);
+      const stateDir = freshStateDir();
+      const client = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identity,
+      });
+      try {
+        const content = new TextEncoder().encode("unknown nonce attempt");
+        const sig = identity.sign(content);
+        // Make up a nonce that was never issued.
+        const fakeNonce = new Uint8Array(32).fill(0xee);
+        const result = await client.submitMutation({
+          mutationType: "schema_change",
+          touchedMetaStructures: ["appetite_axis_schema"],
+          contentCanonicalBytes: content,
+          attestationSignature: sig,
+          nonce: fakeNonce,
+        });
+        assert.equal(result.accepted, false);
+        assert.match(result.rejectionReason, /unknown|never issued/);
+      } finally {
+        await client.shutdown();
+      }
+    } finally {
+      cleanupDir(opDir);
+    }
+  });
+
+  it("M13: wrong content hash binding is rejected with C5", async () => {
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m13-op-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identity = OperatorIdentity.loadOrCreate(opDir);
+      const stateDir = freshStateDir();
+      const client = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identity,
+      });
+      try {
+        const contentA = new TextEncoder().encode("original content");
+        const contentB = new TextEncoder().encode("different content");
+        // Request nonce bound to A.
+        const nonceResult = await client.requestAttestationNonce(contentA);
+        const sig = identity.sign(contentB);
+        // Try to submit with B (wrong binding).
+        const result = await client.submitMutation({
+          mutationType: "schema_change",
+          touchedMetaStructures: ["appetite_axis_schema"],
+          contentCanonicalBytes: contentB,
+          attestationSignature: sig,
+          nonce: nonceResult.nonce,
+          expiryUnixNs: nonceResult.expiryUnixNs,
+        });
+        assert.equal(result.accepted, false);
+        assert.match(result.rejectionReason, /wrong-binding|content_hash/);
+      } finally {
+        await client.shutdown();
+      }
+    } finally {
+      cleanupDir(opDir);
+    }
+  });
+
+  // -------------------------------------------------------------------------
   // M12 ad-hoc immune check tests.
   // -------------------------------------------------------------------------
   it("M12: runImmuneCheck on healthy substrate returns all checks passed", async () => {

@@ -21,6 +21,7 @@ import { encodeFrame, FrameReader } from "./protocol/framing.ts";
 import {
   advancePayload,
   type AdvanceReport,
+  type AttestationNonceResult,
   BOOTSTRAP_KEY,
   computeIntentPayload,
   decodeFrameBody,
@@ -40,6 +41,7 @@ import {
   parseHelloAck,
   parseQueryImmuneEventsResponse,
   parseQueryRecentNodesResponse,
+  parseRequestAttestationNonceResponse,
   parseRunImmuneCheckResponse,
   parseSnapshotResponse,
   parseSubmitMutationResponse,
@@ -48,6 +50,7 @@ import {
   queryRecentNodesPayload,
   type RecentNodesReport,
   registerAxisPayload,
+  requestAttestationNoncePayload,
   submitMutationPayload,
 } from "./protocol/messages.ts";
 import { OperatorIdentity } from "./operator_identity.ts";
@@ -383,7 +386,9 @@ export class SubstrateClient {
 
   /** M10: Submit a classified mutation. Daily mutations omit the signature;
    *  CI mutations include an Ed25519 signature over `contentCanonicalBytes`
-   *  by the active owner key (for M10 minimum: the operator identity key). */
+   *  by the active owner key (for M10 minimum: the operator identity key).
+   *  M13: optionally include `nonce` + `expiryUnixNs` for anchor-surface envelope
+   *  verification (replay protection + dual-clock expiry). */
   async submitMutation(args: {
     mutationType: string;
     touchedFields?: string[];
@@ -391,12 +396,34 @@ export class SubstrateClient {
     touchedMetaStructures?: string[];
     contentCanonicalBytes: Uint8Array;
     attestationSignature?: Uint8Array;
+    nonce?: Uint8Array;
+    expiryUnixNs?: bigint;
   }): Promise<MutationResult> {
     const response = await this._sendRequest(
       MSG_TYPE.SUBMIT_MUTATION,
       submitMutationPayload(args),
     );
     return parseSubmitMutationResponse(response);
+  }
+
+  /** M13: Request an attestation nonce bound to a proposed mutation's content
+   *  hash. The substrate returns nonce + expiry + dag_tip; operator includes
+   *  the nonce in submit_mutation to prove a fresh (non-replay) intent. */
+  async requestAttestationNonce(
+    contentCanonicalBytes: Uint8Array,
+  ): Promise<AttestationNonceResult> {
+    const contentHash = await this._sha256(contentCanonicalBytes);
+    const response = await this._sendRequest(
+      MSG_TYPE.REQUEST_ATTESTATION_NONCE,
+      requestAttestationNoncePayload(contentHash),
+    );
+    return parseRequestAttestationNonceResponse(response);
+  }
+
+  /** M13: Internal SHA-256 helper (substrate-side compute_content_hash counterpart). */
+  private async _sha256(data: Uint8Array): Promise<Uint8Array> {
+    const { sha256 } = await import("@noble/hashes/sha2.js");
+    return sha256(data);
   }
 
   /** M11: Query recent immune events (rejected mutations, pubkey mismatches,
