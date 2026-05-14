@@ -32,15 +32,18 @@ import {
   type IntentReport,
   type Message,
   MSG_TYPE,
+  type MutationResult,
   parseAdvanceResponse,
   parseComputeIntentResponse,
   parseHelloAck,
   parseQueryRecentNodesResponse,
   parseSnapshotResponse,
+  parseSubmitMutationResponse,
   perturbPayload,
   queryRecentNodesPayload,
   type RecentNodesReport,
   registerAxisPayload,
+  submitMutationPayload,
 } from "./protocol/messages.ts";
 import { OperatorIdentity } from "./operator_identity.ts";
 
@@ -371,6 +374,24 @@ export class SubstrateClient {
       }),
     );
     return parseComputeIntentResponse(response);
+  }
+
+  /** M10: Submit a classified mutation. Daily mutations omit the signature;
+   *  CI mutations include an Ed25519 signature over `contentCanonicalBytes`
+   *  by the active owner key (for M10 minimum: the operator identity key). */
+  async submitMutation(args: {
+    mutationType: string;
+    touchedFields?: string[];
+    touchedFiles?: string[];
+    touchedMetaStructures?: string[];
+    contentCanonicalBytes: Uint8Array;
+    attestationSignature?: Uint8Array;
+  }): Promise<MutationResult> {
+    const response = await this._sendRequest(
+      MSG_TYPE.SUBMIT_MUTATION,
+      submitMutationPayload(args),
+    );
+    return parseSubmitMutationResponse(response);
   }
 
   /** Graceful shutdown — sends shutdown, awaits ack, waits for child exit. */

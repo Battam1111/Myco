@@ -286,8 +286,26 @@ impl BridgeClient {
     /// Returns `(axis_count, hydrated)` where `hydrated=false` indicates the
     /// caller should treat this as a genesis condition.
     pub fn load_state(&mut self, state_dir: &str) -> Result<(u64, bool), BridgeError> {
-        use myco_kernel_shared::canonical_bytes::{map_get_bool, map_get_uint};
-        let response = self.send_request(msg_type::LOAD_STATE, state_dir_payload(state_dir))?;
+        self.load_state_with_genesis(state_dir, None)
+    }
+
+    /// M10: like [`Self::load_state`] but also supplies a genesis owner pubkey.
+    /// If no `owner_keys.cb` exists on disk, the Python worker initializes a
+    /// fresh owner-key history with this pubkey as the genesis owner.
+    pub fn load_state_with_genesis(
+        &mut self,
+        state_dir: &str,
+        genesis_owner_pubkey: Option<&[u8; 32]>,
+    ) -> Result<(u64, bool), BridgeError> {
+        use myco_kernel_shared::canonical_bytes::{map_get_bool, map_get_uint, Value};
+        let mut payload = state_dir_payload(state_dir);
+        if let Some(pk) = genesis_owner_pubkey {
+            payload.insert(
+                "genesis_owner_pubkey".to_string(),
+                Value::Bytes(pk.to_vec()),
+            );
+        }
+        let response = self.send_request(msg_type::LOAD_STATE, payload)?;
         if response.message_type != msg_type::LOAD_STATE_ACK {
             return Err(BridgeError::Protocol(format!(
                 "expected load_state_ack; got {}",

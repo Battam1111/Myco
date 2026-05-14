@@ -32,8 +32,10 @@ import {
 import type {
   AdvanceReport,
   IntentReport,
+  MutationResult,
   RecentNodesReport,
 } from "./protocol/messages.ts";
+import { OperatorIdentity } from "./operator_identity.ts";
 
 /** Configuration for the MCP server. */
 export interface McpServerConfig {
@@ -80,6 +82,18 @@ function formatIntent(report: IntentReport): string {
     lines.push(
       `  cluster #${cluster.clusterId}: ${cluster.nodeCount} nodes [${hashPreviews}${more}]`,
     );
+  }
+  return lines.join("\n");
+}
+
+function formatMutation(result: MutationResult): string {
+  const lines: string[] = [];
+  lines.push(`classification=${result.classification}  accepted=${result.accepted}`);
+  if (!result.accepted) {
+    lines.push(`rejection_reason: ${result.rejectionReason}`);
+  } else if (result.dagNodeHash) {
+    lines.push(`mutation_type=${result.mutationType}`);
+    lines.push(`dag_node_hash=${toHex(result.dagNodeHash).substring(0, 24)}…`);
   }
   return lines.join("\n");
 }
@@ -230,6 +244,42 @@ const TOOL_DEFINITIONS = [
         },
       },
       required: [],
+    },
+  },
+  {
+    name: "myco_submit_mutation",
+    description:
+      "Submit a mutation for the substrate to classify and (for contract-identity-level mutations) verify owner attestation. The substrate classifies via L1_GOVERNANCE rules: daily mutations are auto-accepted; CI mutations require owner attestation; untyped mutations are rejected. Accepted mutations are recorded as DAG nodes (causal history preserved).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        mutation_type: {
+          type: "string",
+          description:
+            'Mutation tag (e.g., "operator_facing_note" for DAILY, "appetite_axis_schema_meta" for CI, "untyped_test" for rejection)',
+        },
+        content: {
+          type: "string",
+          description: "Free-form content payload (encoded as UTF-8 bytes)",
+        },
+        touched_fields: {
+          type: "array",
+          items: { type: "string" },
+          description: "Optional list of SSoT field names touched",
+        },
+        touched_meta_structures: {
+          type: "array",
+          items: { type: "string" },
+          description:
+            "Optional list of meta-structure names touched (e.g. appetite_axis_schema)",
+        },
+        require_attestation: {
+          type: "boolean",
+          description:
+            "When true, the operator's identity key (M9) signs the content as the owner attestation (for M10 operator==owner)",
+        },
+      },
+      required: ["mutation_type", "content"],
     },
   },
 ];
@@ -414,6 +464,38 @@ export class McpServer {
           content: [
             { type: "text" as const, text: formatRecentNodes(report) },
           ],
+        };
+      }
+      case "myco_submit_mutation": {
+        const sub = await this._ensureSubstrate();
+        const mutationType = String(args.mutation_type);
+        const contentStr = String(args.content);
+        const contentBytes = new TextEncoder().encode(contentStr);
+        const touchedFields = Array.isArray(args.touched_fields)
+          ? (args.touched_fields as unknown[]).map((s) => String(s))
+          : [];
+        const touchedMeta = Array.isArray(args.touched_meta_structures)
+          ? (args.touched_meta_structures as unknown[]).map((s) => String(s))
+          : [];
+        let attestationSignature: Uint8Array | undefined;
+        if (args.require_attestation === true) {
+          // Sign the content with the operator's M9 identity key (which doubles
+          // as the genesis owner key for M10 minimum).
+          const identity = OperatorIdentity.loadOrCreate();
+          attestationSignature = identity.sign(contentBytes);
+        }
+        const result = await sub.submitMutation({
+          mutationType,
+          touchedFields,
+          touchedMetaStructures: touchedMeta,
+          contentCanonicalBytes: contentBytes,
+          attestationSignature,
+        });
+        return {
+          content: [
+            { type: "text" as const, text: formatMutation(result) },
+          ],
+          isError: !result.accepted,
         };
       }
       default:

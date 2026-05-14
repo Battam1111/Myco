@@ -194,6 +194,167 @@ describe("SubstrateClient e2e", () => {
   });
 
   // -------------------------------------------------------------------------
+  // M10 classified-mutation flow tests.
+  // -------------------------------------------------------------------------
+  it("M10: DAILY mutation is accepted and recorded as DAG node", async () => {
+    const client = await spawn();
+    try {
+      const result = await client.submitMutation({
+        mutationType: "delta_absorb",
+        contentCanonicalBytes: new TextEncoder().encode("hello world daily"),
+      });
+      assert.equal(result.classification, "daily");
+      assert.equal(result.accepted, true);
+      assert.equal(result.rejectionReason, "");
+      assert.ok(result.dagNodeHash, "accepted mutation must carry dag_node_hash");
+      assert.equal(result.dagNodeHash!.length, 32);
+      // Verify DAG actually grew.
+      const recent = await client.queryRecentNodes(10n);
+      assert.equal(recent.totalDagSize, 1n);
+      assert.equal(recent.nodes[0]!.nodeType, "mutation:delta_absorb");
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("M10: UNTYPED mutation is rejected (L1_HARD_RULES C14)", async () => {
+    const client = await spawn();
+    try {
+      const result = await client.submitMutation({
+        mutationType: "completely_unknown_random_type_xyz",
+        contentCanonicalBytes: new TextEncoder().encode("should fail"),
+      });
+      assert.equal(result.classification, "untyped");
+      assert.equal(result.accepted, false);
+      assert.match(result.rejectionReason, /untyped/);
+      // Verify DAG did NOT grow.
+      const recent = await client.queryRecentNodes(10n);
+      assert.equal(recent.totalDagSize, 0n);
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("M10: CI mutation WITHOUT attestation is rejected", async () => {
+    const client = await spawn();
+    try {
+      const result = await client.submitMutation({
+        mutationType: "axis_schema_change",
+        touchedMetaStructures: ["appetite_axis_schema"],
+        contentCanonicalBytes: new TextEncoder().encode("schema change attempt"),
+        // attestationSignature: undefined  ← no attestation
+      });
+      assert.equal(result.classification, "contract_identity_level");
+      assert.equal(result.accepted, false);
+      assert.match(result.rejectionReason, /attestation/i);
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("M10: CI mutation WITH valid attestation is accepted", async () => {
+    // Operator identity doubles as genesis owner key (M10 minimum: operator==owner).
+    // So signing with the operator's identity key produces a valid CI attestation.
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m10-op-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identity = OperatorIdentity.loadOrCreate(opDir);
+
+      const stateDir = freshStateDir();
+      const client = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identity,
+      });
+      try {
+        const content = new TextEncoder().encode("CI mutation content");
+        const signature = identity.sign(content);
+        const result = await client.submitMutation({
+          mutationType: "axis_schema_change",
+          touchedMetaStructures: ["appetite_axis_schema"],
+          contentCanonicalBytes: content,
+          attestationSignature: signature,
+        });
+        assert.equal(result.classification, "contract_identity_level");
+        assert.equal(
+          result.accepted,
+          true,
+          `CI mutation should be accepted; got rejection: ${result.rejectionReason}`,
+        );
+        assert.ok(result.dagNodeHash);
+      } finally {
+        await client.shutdown();
+      }
+    } finally {
+      cleanupDir(opDir);
+    }
+  });
+
+  it("M10: CI mutation WITH invalid (wrong-key) signature is rejected", async () => {
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m10-op-"));
+    const wrongDir = mkdtempSync(resolvePath(tmpdir(), "myco-m10-wrong-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identity = OperatorIdentity.loadOrCreate(opDir);
+      const wrongIdentity = OperatorIdentity.loadOrCreate(wrongDir);
+
+      const stateDir = freshStateDir();
+      const client = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identity, // Substrate pins identity's pubkey
+      });
+      try {
+        const content = new TextEncoder().encode("forged attestation attempt");
+        // Sign with the WRONG key (not the pinned/owner key).
+        const wrongSignature = wrongIdentity.sign(content);
+        const result = await client.submitMutation({
+          mutationType: "axis_schema_change",
+          touchedMetaStructures: ["appetite_axis_schema"],
+          contentCanonicalBytes: content,
+          attestationSignature: wrongSignature,
+        });
+        assert.equal(result.classification, "contract_identity_level");
+        assert.equal(result.accepted, false);
+        assert.match(result.rejectionReason, /attestation/i);
+      } finally {
+        await client.shutdown();
+      }
+    } finally {
+      cleanupDir(opDir);
+      cleanupDir(wrongDir);
+    }
+  });
+
+  it("M10: accepted DAILY mutation DAG persists across restart", async () => {
+    const dir = freshStateDir();
+    try {
+      // Session 1: submit a daily mutation.
+      const c1 = await spawn(dir);
+      const r1 = await c1.submitMutation({
+        mutationType: "delta_absorb",
+        contentCanonicalBytes: new TextEncoder().encode("session1 mutation"),
+      });
+      assert.equal(r1.accepted, true);
+      const dagSizeBefore = (await c1.queryRecentNodes(10n)).totalDagSize;
+      assert.equal(dagSizeBefore, 1n);
+      await c1.shutdown();
+
+      // Session 2: DAG should be hydrated.
+      const c2 = await spawn(dir);
+      try {
+        const recent = await c2.queryRecentNodes(10n);
+        assert.equal(recent.totalDagSize, 1n);
+        assert.equal(recent.nodes[0]!.nodeType, "mutation:delta_absorb");
+      } finally {
+        await c2.shutdown();
+      }
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  // -------------------------------------------------------------------------
   // M9 operator identity + TOFU tests.
   // -------------------------------------------------------------------------
   it("M9: TOFU pins operator pubkey on first hello", async () => {

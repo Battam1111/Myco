@@ -163,6 +163,12 @@ class MessageType(str, Enum):
     COMPUTE_INTENT_RESPONSE = "compute_intent_response"
     """Python → Rust: clusters resulting from cluster_C over the DAG subset."""
 
+    SUBMIT_MUTATION = "submit_mutation"
+    """Operator/Rust → Python: classify a mutation + (for CI) verify owner attestation (M10)."""
+
+    SUBMIT_MUTATION_RESPONSE = "submit_mutation_response"
+    """Python → Rust: classification + accepted/rejected + content for DAG commit."""
+
 
 # ---------------------------------------------------------------------------
 # Error types.

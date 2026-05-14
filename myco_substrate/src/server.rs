@@ -341,6 +341,12 @@ fn dispatch(state: &mut ServerState, request: &Message) -> Result<Option<Message
         // M8: DAG-related operator requests handled substrate-side.
         msg_type::QUERY_RECENT_NODES => handle_query_recent_nodes(state, request),
         msg_type::COMPUTE_INTENT => handle_compute_intent(state, request),
+        // M10: classified-mutation submission.
+        msg_type::SUBMIT_MUTATION => {
+            let response = handle_submit_mutation(state, request)?;
+            save_dag_state(state)?;
+            Ok(response)
+        }
         other => Err(SubstrateError::Protocol(format!(
             "substrate cannot handle message type {other:?}"
         ))),
@@ -483,6 +489,115 @@ fn handle_compute_intent(
     )))
 }
 
+/// M10: Forward submit_mutation to Python for classification + (CI) verification,
+/// and on accept insert the mutation as a DAG node.
+fn handle_submit_mutation(
+    state: &mut ServerState,
+    request: &Message,
+) -> Result<Option<Message>, SubstrateError> {
+    let client = state
+        .python_client
+        .as_mut()
+        .ok_or_else(|| SubstrateError::Handshake("python worker not connected".to_string()))?;
+
+    // Forward verbatim to Python via the generic `call` API.
+    let python_response = client
+        .call(msg_type::SUBMIT_MUTATION, request.payload.clone())
+        .map_err(SubstrateError::Bridge)?;
+    if python_response.message_type != msg_type::SUBMIT_MUTATION_RESPONSE {
+        return Err(SubstrateError::Protocol(format!(
+            "expected submit_mutation_response; got {}",
+            python_response.message_type
+        )));
+    }
+
+    // Parse Python's response.
+    let classification = python_response
+        .payload
+        .get("classification")
+        .and_then(|v| match v {
+            Value::String(s) => Some(s.clone()),
+            _ => None,
+        })
+        .unwrap_or_default();
+    let accepted = python_response
+        .payload
+        .get("accepted")
+        .and_then(|v| match v {
+            Value::Bool(b) => Some(*b),
+            _ => None,
+        })
+        .unwrap_or(false);
+    let rejection_reason = python_response
+        .payload
+        .get("rejection_reason")
+        .and_then(|v| match v {
+            Value::String(s) => Some(s.clone()),
+            _ => None,
+        })
+        .unwrap_or_default();
+    let content_bytes = python_response
+        .payload
+        .get("content_canonical_bytes")
+        .and_then(|v| match v {
+            Value::Bytes(b) => Some(b.clone()),
+            _ => None,
+        })
+        .unwrap_or_default();
+    let mutation_type = python_response
+        .payload
+        .get("mutation_type")
+        .and_then(|v| match v {
+            Value::String(s) => Some(s.clone()),
+            _ => None,
+        })
+        .unwrap_or_default();
+
+    // If accepted: wrap as DAG node with parent=tip.
+    let dag_node_hash = if accepted {
+        let parents: Vec<myco_kernel_shared::crypto::NodeHash> = match state.dag.tip() {
+            Some(t) => vec![t],
+            None => Vec::new(),
+        };
+        let node_type = format!("mutation:{mutation_type}");
+        let current_cycle = state.manifest.cycle_counter;
+        let hash = state
+            .dag
+            .insert_node(
+                parents,
+                node_type,
+                current_cycle,
+                CanonicalBytes(content_bytes),
+            )
+            .map_err(|e| SubstrateError::Protocol(format!("mutation DAG insert: {e}")))?;
+        Some(hash)
+    } else {
+        None
+    };
+
+    // Build response to operator.
+    let mut payload = BTreeMap::new();
+    payload.insert("classification".to_string(), Value::String(classification));
+    payload.insert("accepted".to_string(), Value::Bool(accepted));
+    payload.insert(
+        "rejection_reason".to_string(),
+        Value::String(rejection_reason),
+    );
+    payload.insert("mutation_type".to_string(), Value::String(mutation_type));
+    if let Some(h) = dag_node_hash {
+        payload.insert(
+            "dag_node_hash".to_string(),
+            Value::Bytes(h.as_ref().to_vec()),
+        );
+    }
+
+    Ok(Some(Message::new(
+        msg_type::SUBMIT_MUTATION_RESPONSE,
+        request.request_id,
+        payload,
+    )))
+}
+
 /// Build an "empty DAG → cold-start" intent response (no clusters, cold_start=true).
 fn empty_intent_response(request_id: u64) -> Message {
     let mut payload = BTreeMap::new();
@@ -551,11 +666,14 @@ fn handle_hello(
     let python_version = python_client.hello_ack.python_version.clone();
     let kernel_tropism_version = python_client.hello_ack.kernel_tropism_version.clone();
 
-    // M7 cold-resume: ask the Python worker to hydrate from disk, if a
-    // gradient.cb exists in our state directory. Genesis condition →
-    // hydrated=false; the worker starts with an empty gradient.
+    // M7 cold-resume: ask the Python worker to hydrate from disk.
+    // M10: also pass the just-verified operator pubkey as the genesis owner
+    // pubkey, so Python can initialize owner_keys.cb if no prior owner-key
+    // history exists on disk. (For M10 minimum, operator == owner.)
     let state_dir_str = state.state_dir.to_string_lossy().into_owned();
-    let (_hydrated_axis_count, _hydrated) = python_client.load_state(&state_dir_str)?;
+    let genesis_owner = state.pinned_operator_identity.as_ref().map(|p| p.pubkey);
+    let (_hydrated_axis_count, _hydrated) =
+        python_client.load_state_with_genesis(&state_dir_str, genesis_owner.as_ref())?;
 
     state.python_client = Some(python_client);
     state.handshake_complete = true;
