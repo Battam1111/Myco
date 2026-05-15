@@ -933,6 +933,146 @@ fn m22_2_double_connect_returns_already_pinned() {
 // operator_bindings/claude_code/tests/ (where M9 pinning IS supported).
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Phase α — Living Bets observatory signal #1 + #6.
+//
+// First observatory primitive — proves Phase α audit isn't paperwork.
+// Substrate can answer "how big am I?" + "do I fit in agent context?"
+// ---------------------------------------------------------------------------
+
+#[test]
+fn phase_alpha_observatory_signal_1_basic_persistence_budget() {
+    let (mut client, _dir) = spawn_substrate();
+    // Do some work so the DAG has content.
+    client
+        .register_axis("obs_test", "appetite", 5.0, 0.0, 1.0, false, "noop")
+        .expect("register");
+    client.perturb("obs_test", 1.5).expect("perturb");
+
+    let resp = client
+        .call(proto::QUERY_SUBSTRATE_OBSERVATORY, build_payload(vec![]))
+        .expect("observatory query");
+    assert_eq!(resp.message_type, proto::QUERY_SUBSTRATE_OBSERVATORY_RESPONSE);
+
+    let signal_1 = match resp.payload.get("signal_1_persistence_budget") {
+        Some(CbValue::Map(m)) => m.clone(),
+        _ => panic!("signal_1 missing"),
+    };
+    let node_count = match signal_1.get("dag_node_count") {
+        Some(CbValue::Uint(n)) => *n,
+        _ => panic!("node_count missing"),
+    };
+    let edge_count = match signal_1.get("dag_edge_count") {
+        Some(CbValue::Uint(n)) => *n,
+        _ => panic!("edge_count missing"),
+    };
+    let content_bytes = match signal_1.get("dag_total_content_bytes") {
+        Some(CbValue::Uint(n)) => *n,
+        _ => panic!("content_bytes missing"),
+    };
+    // genesis_event + axis_registered + axis_perturbed → at least 3 nodes.
+    assert!(
+        node_count >= 3,
+        "expected >=3 nodes after register+perturb; got {node_count}"
+    );
+    // Linear chain → edges = node_count - 1 (every non-genesis has 1 parent).
+    assert!(edge_count >= node_count - 1, "edges {edge_count} < nodes-1 {}", node_count - 1);
+    // Content non-trivial.
+    assert!(content_bytes > 0, "total bytes should be > 0");
+
+    // Signal #6 should be ABSENT when operator doesn't attest context window.
+    assert!(
+        resp.payload.get("signal_6_read_window_position").is_none(),
+        "signal_6 should be absent without operator-supplied window"
+    );
+
+    // observatory_format_version pinned at 1.
+    let fmt = match resp.payload.get("observatory_format_version") {
+        Some(CbValue::Uint(n)) => *n,
+        _ => panic!("fmt version missing"),
+    };
+    assert_eq!(fmt, 1);
+
+    client.shutdown().expect("shutdown");
+}
+
+#[test]
+fn phase_alpha_observatory_signal_6_computes_ratio_when_window_attested() {
+    let (mut client, _dir) = spawn_substrate();
+    client
+        .register_axis("o6", "appetite", 5.0, 0.0, 1.0, false, "noop")
+        .expect("register");
+
+    // Operator attests a 1MiB context window.
+    let one_mib: u64 = 1024 * 1024;
+    let resp = client
+        .call(
+            proto::QUERY_SUBSTRATE_OBSERVATORY,
+            build_payload(vec![(
+                "operator_attested_context_window_bytes",
+                CbValue::Uint(one_mib),
+            )]),
+        )
+        .expect("query with window");
+
+    let signal_6 = match resp.payload.get("signal_6_read_window_position") {
+        Some(CbValue::Map(m)) => m.clone(),
+        _ => panic!("signal_6 should be present when window is supplied"),
+    };
+    let window = match signal_6.get("operator_attested_context_window_bytes") {
+        Some(CbValue::Uint(n)) => *n,
+        _ => panic!("window field missing"),
+    };
+    assert_eq!(window, one_mib);
+    let substrate_bytes = match signal_6.get("substrate_total_bytes") {
+        Some(CbValue::Uint(n)) => *n,
+        _ => panic!("substrate_total_bytes missing"),
+    };
+    assert!(substrate_bytes > 0);
+    // Ratio repr is a parseable float string.
+    let ratio_repr = match signal_6.get("ratio_repr") {
+        Some(CbValue::String(s)) => s.clone(),
+        _ => panic!("ratio_repr missing"),
+    };
+    let parsed_ratio: f64 = ratio_repr.parse().expect("ratio parses as float");
+    // Substrate is way smaller than 1MiB at this point, so ratio < 1.
+    assert!(parsed_ratio < 1.0, "ratio should be < 1.0 for tiny substrate vs 1MiB window; got {parsed_ratio}");
+    // And ratio should match substrate_bytes / window exactly (modulo float).
+    let expected_ratio = (substrate_bytes as f64) / (one_mib as f64);
+    let delta = (parsed_ratio - expected_ratio).abs();
+    assert!(delta < 1e-9, "ratio drift: got {parsed_ratio}, expected {expected_ratio}");
+
+    client.shutdown().expect("shutdown");
+}
+
+#[test]
+fn phase_alpha_observatory_signal_6_handles_zero_window() {
+    let (mut client, _dir) = spawn_substrate();
+    let resp = client
+        .call(
+            proto::QUERY_SUBSTRATE_OBSERVATORY,
+            build_payload(vec![(
+                "operator_attested_context_window_bytes",
+                CbValue::Uint(0),
+            )]),
+        )
+        .expect("zero window query");
+    let signal_6 = match resp.payload.get("signal_6_read_window_position") {
+        Some(CbValue::Map(m)) => m.clone(),
+        _ => panic!("signal_6 missing"),
+    };
+    // Convention: ratio for zero window is "inf" (unbounded).
+    let ratio_repr = match signal_6.get("ratio_repr") {
+        Some(CbValue::String(s)) => s.clone(),
+        _ => panic!("ratio_repr missing"),
+    };
+    assert_eq!(
+        ratio_repr, "inf",
+        "zero window should yield 'inf' ratio (substrate has unbounded headroom)"
+    );
+    client.shutdown().expect("shutdown");
+}
+
 #[test]
 fn m23_2_accept_self_euthanasia_rejects_when_no_pinned_identity() {
     let (mut client, _dir) = spawn_substrate();

@@ -258,6 +258,24 @@ pub mod msg_type {
     /// substrate's main loop terminates (clean shutdown, exit code 0).
     pub const ACCEPT_SELF_EUTHANASIA_PROPOSAL_RESPONSE: &str =
         "accept_self_euthanasia_proposal_response";
+
+    /// `query_substrate_observatory` — Operator→Substrate: read Living Bets
+    /// observatory signal values (Phase α: signal #1 persistence budget +
+    /// signal #6 read-window-relative position).
+    ///
+    /// This is the FIRST observatory primitive. L2_OBSERVABILITY §2 specifies
+    /// 6 base signals + composite; Phase α ships signals 1 + 6 only. Signals
+    /// 2-5 + composite are M25+ work.
+    ///
+    /// Per L2_OBSERVABILITY §2.1 + L0 §7 Living Bets. Optional payload field
+    /// `operator_attested_context_window_bytes` lets the substrate compute
+    /// signal #6 ratio (substrate_total / context_window).
+    pub const QUERY_SUBSTRATE_OBSERVATORY: &str = "query_substrate_observatory";
+    /// `query_substrate_observatory_response` — Substrate→Operator:
+    /// Living Bets signal values + observatory format version + captured_at
+    /// timestamp.
+    pub const QUERY_SUBSTRATE_OBSERVATORY_RESPONSE: &str =
+        "query_substrate_observatory_response";
 }
 
 /// A decoded bridge message.

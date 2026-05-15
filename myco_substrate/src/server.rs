@@ -988,6 +988,9 @@ fn dispatch(state: &mut ServerState, request: &Message) -> Result<Option<Message
             save_dag_state(state)?;
             Ok(response)
         }
+        msg_type::QUERY_SUBSTRATE_OBSERVATORY => {
+            handle_query_substrate_observatory(state, request)
+        }
         other => Err(SubstrateError::Protocol(format!(
             "substrate cannot handle message type {other:?}"
         ))),
@@ -1577,6 +1580,124 @@ fn handle_accept_self_euthanasia_proposal(
     );
     Ok(Some(Message::new(
         msg_type::ACCEPT_SELF_EUTHANASIA_PROPOSAL_RESPONSE,
+        request.request_id,
+        payload,
+    )))
+}
+
+/// Phase α (2026-05-15) — Living Bets observatory primitive.
+///
+/// Per L2_OBSERVABILITY §2.1 + L0 §7. Ships ONLY signals #1 (persistence
+/// budget) + #6 (read-window-relative position). Signals 2-5 + composite are
+/// M25+ work.
+///
+/// Format version: 1. This is the first observatory primitive — future
+/// versions will add signals 2-5 + composite, possibly via separate query
+/// messages per signal (avoiding monolithic schema).
+///
+/// Payload:
+/// ```text
+/// Map({
+///   "operator_attested_context_window_bytes": Uint [optional],
+/// })
+/// ```
+///
+/// Response payload:
+/// ```text
+/// Map({
+///   "signal_1_persistence_budget": Map({
+///     "dag_node_count": Uint,
+///     "dag_edge_count": Uint,                    // sum of parent_hashes.len() across all nodes
+///     "dag_total_content_bytes": Uint,           // sum of content_canonical_bytes.len()
+///     "manifest_cycle_counter": Uint,
+///   }),
+///   "signal_6_read_window_position": Map({...}) [present iff operator supplied window],
+///   "observatory_format_version": Uint,
+///   "captured_at_unix_ns": Timestamp,
+/// })
+/// ```
+fn handle_query_substrate_observatory(
+    state: &mut ServerState,
+    request: &Message,
+) -> Result<Option<Message>, SubstrateError> {
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    // Compute signal #1 (persistence budget) by iterating the DAG.
+    // This is O(N) over the DAG; for very large DAGs we may want to
+    // cache + incrementally update. Phase α: simple full scan.
+    let dag_node_count = state.dag.node_count() as u64;
+    let mut dag_edge_count: u64 = 0;
+    let mut dag_total_content_bytes: u64 = 0;
+    for node in state.dag.iter_in_insertion_order() {
+        dag_edge_count = dag_edge_count.saturating_add(node.parent_hashes.len() as u64);
+        dag_total_content_bytes = dag_total_content_bytes
+            .saturating_add(node.content_canonical_bytes.as_ref().len() as u64);
+    }
+    let manifest_cycle_counter = state.manifest.cycle_counter;
+
+    // Signal #6: read-window-relative position. Only computed if the
+    // operator attests their context window size.
+    let operator_window = match request.payload.get("operator_attested_context_window_bytes") {
+        Some(Value::Uint(n)) => Some(*n),
+        _ => None,
+    };
+
+    let mut signal_1_map = BTreeMap::new();
+    signal_1_map.insert("dag_node_count".to_string(), Value::Uint(dag_node_count));
+    signal_1_map.insert("dag_edge_count".to_string(), Value::Uint(dag_edge_count));
+    signal_1_map.insert(
+        "dag_total_content_bytes".to_string(),
+        Value::Uint(dag_total_content_bytes),
+    );
+    signal_1_map.insert(
+        "manifest_cycle_counter".to_string(),
+        Value::Uint(manifest_cycle_counter),
+    );
+
+    let mut payload = BTreeMap::new();
+    payload.insert(
+        "signal_1_persistence_budget".to_string(),
+        Value::Map(signal_1_map),
+    );
+
+    if let Some(window_bytes) = operator_window {
+        let mut signal_6_map = BTreeMap::new();
+        signal_6_map.insert(
+            "substrate_total_bytes".to_string(),
+            Value::Uint(dag_total_content_bytes),
+        );
+        signal_6_map.insert(
+            "operator_attested_context_window_bytes".to_string(),
+            Value::Uint(window_bytes),
+        );
+        // Ratio: substrate_total / context_window. Repr-float for cross-language
+        // determinism.
+        let ratio = if window_bytes == 0 {
+            // Convention: ratio "+inf" when window is zero (no window = unbounded).
+            "inf".to_string()
+        } else {
+            float_repr((dag_total_content_bytes as f64) / (window_bytes as f64))
+        };
+        signal_6_map.insert("ratio_repr".to_string(), Value::String(ratio));
+        payload.insert(
+            "signal_6_read_window_position".to_string(),
+            Value::Map(signal_6_map),
+        );
+    }
+
+    payload.insert("observatory_format_version".to_string(), Value::Uint(1));
+    let captured_at_unix_ns = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .ok()
+        .and_then(|d| i64::try_from(d.as_nanos()).ok())
+        .unwrap_or(0);
+    payload.insert(
+        "captured_at_unix_ns".to_string(),
+        Value::Timestamp(captured_at_unix_ns),
+    );
+
+    Ok(Some(Message::new(
+        msg_type::QUERY_SUBSTRATE_OBSERVATORY_RESPONSE,
         request.request_id,
         payload,
     )))
