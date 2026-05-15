@@ -10,6 +10,7 @@ import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 
 import { SubstrateClient } from "../src/substrate_client.ts";
+import type { FederationStatusResult } from "../src/protocol/messages.ts";
 
 function locateSubstrateBinary(): string {
   const fromEnv = process.env.MYCO_SUBSTRATE_BIN;
@@ -2837,13 +2838,17 @@ describe("SubstrateClient e2e", () => {
       await c1.shutdown();
 
       // M21.5: snapshot.cb should exist alongside dag.cb.
+      // M25.0: substrate_signing_key.cb (substrate-private Ed25519 seed) is also
+      // required — it cannot be derived from DAG content (a derived key would
+      // be predictable from the DAG, defeating signature security). The seed
+      // is generated on first boot and persisted for re-use on subsequent boots.
       const fs = await import("node:fs");
       const path = await import("node:path");
       const files = fs.readdirSync(stateDir).filter((f) => !f.endsWith(".tmp")).sort();
       assert.deepEqual(
         files,
-        ["dag.cb", "snapshot.cb"],
-        `M21.5: expected only dag.cb + snapshot.cb; got: ${files.join(", ")}`,
+        ["dag.cb", "snapshot.cb", "substrate_signing_key.cb"],
+        `M21.5 + M25.0: expected dag.cb + snapshot.cb + substrate_signing_key.cb; got: ${files.join(", ")}`,
       );
 
       // Boot should succeed (uses snapshot for fast Rust-side init).
@@ -2949,20 +2954,30 @@ describe("SubstrateClient e2e", () => {
       // After shutdown, the state_dir must contain ONLY:
       // - dag.cb (authoritative substrate state, M21.4)
       // - snapshot.cb (optional cache, M21.5 — present if any K=10 cycle happened)
-      // No legacy state files allowed (M21.4 commitment).
+      // - substrate_signing_key.cb (substrate-private Ed25519 seed, M25.0 — REQUIRED;
+      //   secret cannot be derived from DAG without defeating signature security)
+      // No legacy state files allowed (M21.4 commitment + M25.0 evolution).
+      //
+      // Doctrine: a persistent file other than dag.cb is allowed iff it is either
+      // (a) a cache derivable from DAG, OR (b) a substrate-private secret that
+      // the substrate cannot operate without. snapshot.cb is (a); signing_key.cb is (b).
       const fs = await import("node:fs");
       const files = fs
         .readdirSync(stateDir)
         .filter((f) => !f.endsWith(".tmp"))
         .sort();
-      const allowed = new Set(["dag.cb", "snapshot.cb"]);
+      const allowed = new Set(["dag.cb", "snapshot.cb", "substrate_signing_key.cb"]);
       for (const f of files) {
         assert.ok(
           allowed.has(f),
-          `M21.4: legacy state file present: ${f}. Only dag.cb + (optional) snapshot.cb allowed.`,
+          `M21.4 + M25.0: unexpected state file: ${f}. Only dag.cb + (optional) snapshot.cb + substrate_signing_key.cb allowed.`,
         );
       }
       assert.ok(files.includes("dag.cb"), "dag.cb must exist");
+      assert.ok(
+        files.includes("substrate_signing_key.cb"),
+        "M25.0: substrate_signing_key.cb must exist (substrate-private signing seed)",
+      );
     } finally {
       cleanupDir(opDir);
     }
@@ -3221,6 +3236,448 @@ describe("SubstrateClient e2e", () => {
         check3.failedChecks,
         0n,
         "C19 should remain green throughout operations",
+      );
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  // -------------------------------------------------------------------------
+  // M25.5 — TS substrate_client gains 10 operator-facing methods:
+  //   federation_{open,close}_listener / federation_status /
+  //   federation_connect_peer / federation_poll /
+  //   federation_pull_events_from_peer / federation_link_to_parent_from_hint /
+  //   lift_birth_period_quarantine / accept_self_euthanasia_proposal /
+  //   query_substrate_observatory.
+  // -------------------------------------------------------------------------
+
+  it("m25_5_federation_open_close_listener_e2e", async () => {
+    const client = await spawn();
+    try {
+      // Open on port-0 → OS picks port.
+      const opened = await client.federationOpenListener({
+        bindAddr: "127.0.0.1:0",
+      });
+      assert.ok(opened.boundAddr.startsWith("127.0.0.1:"));
+      assert.notEqual(opened.boundAddr, "127.0.0.1:0", "OS picked real port");
+      assert.equal(opened.listenerOpenedEventHash.length, 32);
+
+      // Status reflects the listener.
+      const status1 = await client.federationStatus();
+      assert.equal(status1.isListening, true);
+      assert.equal(status1.boundAddr, opened.boundAddr);
+      assert.equal(status1.peerCount, 0n);
+
+      // Close the listener.
+      const closed = await client.federationCloseListener();
+      assert.equal(closed.wasListening, true);
+      assert.equal(closed.priorBindAddr, opened.boundAddr);
+      assert.ok(closed.listenerClosedEventHash !== null);
+      assert.equal(closed.listenerClosedEventHash!.length, 32);
+
+      // Status reflects the close.
+      const status2 = await client.federationStatus();
+      assert.equal(status2.isListening, false);
+      assert.equal(status2.boundAddr, "");
+
+      // Idempotent: closing again returns wasListening=false.
+      const closed2 = await client.federationCloseListener();
+      assert.equal(closed2.wasListening, false);
+      assert.equal(closed2.listenerClosedEventHash, null);
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("m25_5_federation_status_empty_substrate", async () => {
+    const client = await spawn();
+    try {
+      const status = await client.federationStatus();
+      assert.equal(status.isListening, false);
+      assert.equal(status.boundAddr, "");
+      assert.equal(status.peerCount, 0n);
+      assert.equal(status.eventsReceivedTotal, 0n);
+      assert.equal(status.eventsSentTotal, 0n);
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("m25_5_federation_connect_peer_two_substrates_pin_each_other", async () => {
+    // Spawn two substrates with isolated operator identities.
+    const opDir1 = mkdtempSync(resolvePath(tmpdir(), "myco-m25-op1-"));
+    const opDir2 = mkdtempSync(resolvePath(tmpdir(), "myco-m25-op2-"));
+    const state1 = freshStateDir();
+    const state2 = freshStateDir();
+    let client1: SubstrateClient | null = null;
+    let client2: SubstrateClient | null = null;
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const id1 = OperatorIdentity.loadOrCreate(opDir1);
+      const id2 = OperatorIdentity.loadOrCreate(opDir2);
+      client1 = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: state1 },
+        operatorIdentity: id1,
+      });
+      client2 = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: state2 },
+        operatorIdentity: id2,
+      });
+
+      // Substrate 1 opens listener; substrate 2 connects.
+      const opened = await client1.federationOpenListener({
+        bindAddr: "127.0.0.1:0",
+      });
+      const connect = await client2.federationConnectPeer({
+        remoteAddr: opened.boundAddr,
+      });
+      assert.equal(connect.outcome, "pinned");
+      assert.ok(connect.peerSubstrateId);
+      assert.equal(connect.peerSubstrateId!.length, 32);
+      assert.ok(connect.peerPinnedEventHash);
+      assert.equal(connect.peerPinnedEventHash!.length, 32);
+
+      // Substrate 2 should report 1 peer pinned (substrate 1).
+      const status2 = await client2.federationStatus();
+      assert.equal(status2.peerCount, 1n, "substrate 2 has substrate 1 pinned");
+
+      // Substrate 1 should pin substrate 2 via its autonomous M23.1 tick OR
+      // via explicit federation_poll. We call federation_poll explicitly
+      // (the autonomous tick may have already consumed the accept, in which
+      // case our explicit poll returns 0/0 — both paths are valid). We
+      // confirm pinning via status, which is the authoritative state.
+      let status1: FederationStatusResult | null = null;
+      for (let i = 0; i < 60; i++) {
+        await client1.federationPoll();
+        const s = await client1.federationStatus();
+        if (s.peerCount >= 1n) {
+          status1 = s;
+          break;
+        }
+        await new Promise<void>((r) => setTimeout(r, 50));
+      }
+      assert.ok(
+        status1 !== null,
+        "substrate 1 should pin substrate 2 within 3s of dial completion",
+      );
+      assert.equal(status1!.peerCount, 1n, "substrate 1 has substrate 2 pinned");
+    } finally {
+      if (client1) await client1.shutdown();
+      if (client2) await client2.shutdown();
+      cleanupDir(opDir1);
+      cleanupDir(opDir2);
+      cleanupDir(state1);
+      cleanupDir(state2);
+    }
+  });
+
+  it("m25_5_federation_poll_empty_returns_zero_counts", async () => {
+    const client = await spawn();
+    try {
+      // Open a listener but no peers connect.
+      await client.federationOpenListener({ bindAddr: "127.0.0.1:0" });
+      const poll = await client.federationPoll();
+      assert.equal(poll.acceptedConnections, 0n);
+      assert.equal(poll.pinnedPeers, 0n);
+      assert.equal(poll.rejectedPeers, 0n);
+      assert.equal(poll.eventBatchesSent, 0n);
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("m25_5_federation_pull_events_unknown_peer_rejected", async () => {
+    const client = await spawn();
+    try {
+      // Pull from a peer that was never pinned. Substrate rejects this
+      // with a Protocol error — the call should throw.
+      const unknownPeerId = new Uint8Array(32).fill(0xaa);
+      await assert.rejects(
+        () =>
+          client.federationPullEventsFromPeer({
+            peerSubstrateId: unknownPeerId,
+          }),
+        /not pinned|unknown peer|peer/i,
+      );
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("m25_5_federation_link_to_parent_from_hint_no_hint_returns_false", async () => {
+    // Fresh substrate has no parent_federation_hint event. Substrate should
+    // report hint_found=false without error.
+    const client = await spawn();
+    try {
+      const result = await client.federationLinkToParentFromHint();
+      assert.equal(result.hintFound, false);
+      assert.equal(result.alreadyLinked, false);
+      assert.equal(result.parentSubstrateId, null);
+      assert.equal(result.parentFederationAddr, null);
+      assert.equal(result.parentLinkedEventHash, null);
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("m25_5_lift_birth_period_quarantine_returns_was_in_quarantine_false_when_not_in_quarantine", async () => {
+    // Fresh top-level substrate is never in quarantine (only child substrates
+    // sprouted from a parent in active quarantine inherit it). Lift should
+    // succeed with wasInQuarantine=false + no event emitted.
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m25-quarantine-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identity = OperatorIdentity.loadOrCreate(opDir);
+      const stateDir = freshStateDir();
+      const client = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identity,
+      });
+      try {
+        const ownerSignature = await client.signLiftBirthPeriodQuarantine(
+          identity,
+        );
+        const result = await client.liftBirthPeriodQuarantine({
+          ownerSignature,
+        });
+        assert.equal(result.wasInQuarantine, false);
+        assert.equal(result.quarantineLiftedEventHash, null);
+      } finally {
+        await client.shutdown();
+      }
+    } finally {
+      cleanupDir(opDir);
+    }
+  });
+
+  it("m25_5_lift_birth_period_quarantine_rejects_invalid_signature", async () => {
+    // A bad signature must be rejected — closes the Phase β security regression.
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m25-q-bad-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identity = OperatorIdentity.loadOrCreate(opDir);
+      const stateDir = freshStateDir();
+      const client = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identity,
+      });
+      try {
+        const garbageSignature = new Uint8Array(64); // all-zeros: invalid
+        await assert.rejects(
+          () =>
+            client.liftBirthPeriodQuarantine({
+              ownerSignature: garbageSignature,
+            }),
+          /signature invalid|invalid/i,
+        );
+      } finally {
+        await client.shutdown();
+      }
+    } finally {
+      cleanupDir(opDir);
+    }
+  });
+
+  it("m25_5_accept_self_euthanasia_proposal_terminates_client", async () => {
+    // Drive substrate to mortality_signal fruiting, then accept the proposal.
+    // Substrate must gracefully shut down after responding.
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m25-euth-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identity = OperatorIdentity.loadOrCreate(opDir);
+      const stateDir = freshStateDir();
+      const client = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identity,
+      });
+      try {
+        await client.registerAxis({
+          name: "vitality",
+          axisClass: "decay",
+          fruitingThreshold: 0.1,
+          initialValue: 1.0,
+          decayRatePerCycle: 0.5,
+          isMortalitySignal: true,
+          updateRuleKind: "decay",
+        });
+        // Advance until the mortality signal fires.
+        let proposalHash: Uint8Array | null = null;
+        for (let c = 1n; c <= 10n; c++) {
+          const adv = await client.advance(c);
+          if (adv.selfEuthanasiaProposalHashes.length > 0) {
+            proposalHash = adv.selfEuthanasiaProposalHashes[0]!;
+            break;
+          }
+        }
+        assert.ok(proposalHash, "mortality_signal should fire within 10 cycles");
+
+        // Owner co-attests acceptance.
+        const ownerSignature = await client.signAcceptSelfEuthanasiaProposal(
+          identity,
+          proposalHash!,
+        );
+        const result = await client.acceptSelfEuthanasiaProposal({
+          proposalHash: proposalHash!,
+          ownerSignature,
+        });
+        assert.equal(result.axisName, "vitality");
+        assert.equal(result.executedEventHash.length, 32);
+
+        // Substrate gracefully shuts down. Verify the child exits.
+        // We wait on the underlying child process; if it doesn't exit within
+        // a reasonable window we surface the failure.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const child = (client as unknown as { child: { once: (e: string, f: () => void) => void; exitCode: number | null } }).child;
+        if (child.exitCode === null) {
+          await new Promise<void>((resolve, reject) => {
+            const t = setTimeout(
+              () => reject(new Error("substrate did not exit within 5s")),
+              5000,
+            );
+            child.once("exit", () => {
+              clearTimeout(t);
+              resolve();
+            });
+          });
+        }
+      } finally {
+        // shutdown() is harmless if already exited.
+        try {
+          await client.shutdown();
+        } catch {
+          // Expected — substrate already exited cleanly.
+        }
+      }
+    } finally {
+      cleanupDir(opDir);
+    }
+  });
+
+  it("m25_5_accept_self_euthanasia_proposal_rejects_invalid_signature", async () => {
+    // Forge a bad signature; substrate must reject + stay alive.
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m25-euth-bad-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identity = OperatorIdentity.loadOrCreate(opDir);
+      const stateDir = freshStateDir();
+      const client = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identity,
+      });
+      try {
+        await client.registerAxis({
+          name: "vitality",
+          axisClass: "decay",
+          fruitingThreshold: 0.1,
+          initialValue: 1.0,
+          decayRatePerCycle: 0.5,
+          isMortalitySignal: true,
+          updateRuleKind: "decay",
+        });
+        let proposalHash: Uint8Array | null = null;
+        for (let c = 1n; c <= 10n; c++) {
+          const adv = await client.advance(c);
+          if (adv.selfEuthanasiaProposalHashes.length > 0) {
+            proposalHash = adv.selfEuthanasiaProposalHashes[0]!;
+            break;
+          }
+        }
+        assert.ok(proposalHash);
+        // Garbage signature.
+        const garbageSig = new Uint8Array(64);
+        await assert.rejects(
+          () =>
+            client.acceptSelfEuthanasiaProposal({
+              proposalHash: proposalHash!,
+              ownerSignature: garbageSig,
+            }),
+          /signature invalid|invalid/i,
+        );
+        // Substrate must be alive — confirm by issuing another query.
+        const status = await client.federationStatus();
+        assert.equal(status.isListening, false);
+      } finally {
+        await client.shutdown();
+      }
+    } finally {
+      cleanupDir(opDir);
+    }
+  });
+
+  it("m25_5_query_substrate_observatory_format_v2_or_greater", async () => {
+    // Fresh substrate, observatory query without window — signal_1 always
+    // present, signal_2/3/4/7 present at format_version >= 2.
+    const client = await spawn();
+    try {
+      // Make the DAG non-trivial so signals carry meaningful values.
+      await client.registerAxis({
+        name: "obs_axis",
+        axisClass: "appetite",
+        fruitingThreshold: 100.0,
+        initialValue: 0.0,
+        decayRatePerCycle: 1.0,
+        isMortalitySignal: false,
+        updateRuleKind: "noop",
+      });
+      await client.perturb("obs_axis", 1.0);
+      await client.advance(1n);
+
+      const snap = await client.querySubstrateObservatory();
+      // M25.x will land format_version=3; current substrate emits 2. Accept >= 2.
+      assert.ok(
+        snap.formatVersion >= 2n,
+        `expected format_version >= 2; got ${snap.formatVersion}`,
+      );
+      assert.ok(snap.capturedAtUnixNs > 0n);
+
+      // Signal #1 is always emitted (Phase α).
+      assert.ok(snap.signal1, "signal_1 must be present in any observatory response");
+      assert.ok(snap.signal1!.dagNodeCount > 0n);
+      assert.ok(snap.signal1!.dagEdgeCount >= 0n);
+      assert.ok(snap.signal1!.dagTotalContentBytes > 0n);
+      assert.equal(snap.signal1!.manifestCycleCounter, 1n);
+
+      // No window supplied → signal_6 absent.
+      assert.equal(snap.signal6, undefined, "signal_6 should be absent when no window supplied");
+
+      // format_version >= 2 → signals 2/3/4/7 must be present.
+      assert.ok(snap.signal2, "signal_2 must be present at format_version >= 2");
+      assert.ok(snap.signal3, "signal_3 must be present at format_version >= 2");
+      assert.ok(snap.signal4, "signal_4 must be present at format_version >= 2");
+      assert.ok(snap.signal7, "signal_7 (composite) must be present at format_version >= 2");
+      assert.ok(Number.isFinite(snap.signal7!.compositeHealthScore));
+      assert.equal(snap.signal4!.signal4bReachablePeerCount, 0n);
+      assert.equal(snap.signal3!.distinctPerturbedAxesCount, 1n);
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("m25_5_query_substrate_observatory_signal_6_populated_when_window_supplied", async () => {
+    const client = await spawn();
+    try {
+      const snap = await client.querySubstrateObservatory({
+        operatorAttestedContextWindowBytes: 200_000n,
+      });
+      assert.ok(snap.signal6, "signal_6 must be present when window supplied");
+      assert.equal(snap.signal6!.operatorAttestedContextWindowBytes, 200_000n);
+      assert.ok(
+        snap.signal6!.substrateTotalBytes >= 0n,
+        "substrate_total_bytes must be a real count",
+      );
+      // ratio must equal substrate_total / window (as Number).
+      const expectedRatio =
+        Number(snap.signal6!.substrateTotalBytes) /
+        Number(snap.signal6!.operatorAttestedContextWindowBytes);
+      assert.ok(
+        Math.abs(snap.signal6!.ratio - expectedRatio) < 1e-9,
+        `ratio mismatch: got ${snap.signal6!.ratio}, expected ~${expectedRatio}`,
       );
     } finally {
       await client.shutdown();

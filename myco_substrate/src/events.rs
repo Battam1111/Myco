@@ -19,6 +19,11 @@
 //!     C33_federation_peer_identity_mismatch (was C20; freed L1's C20 = genesis_attestation_chain_broken)
 //!     C34_birth_period_violation_during_quarantine (was C21; catalog ends at C20)
 //!     C35_federation_substrate_private_event_injection (new Phase β)
+//!     C36_cycle_backlog                     (M24: cycle taking >5s, backlog ≥10)
+//!     C37_doctrine_instability_burst        (M25.1: >10 CI events / 100 cycles per L2_OBSERVABILITY §8)
+//!     C38_snapshot_integrity_violation      (M25.0: snapshot.cb signer_pubkey mismatch or signature invalid)
+//!     C39_federation_hello_signature_invalid (M25.4: peer presented signature that fails Ed25519 verify)
+//!     C40_bet_weakening_quorum              (M25.2: L0 §7 falsifiability trigger — ≥3 of signals 1-6 against the bet)
 //!
 //! The Phase α/β audit found my prior emit sites occupied C2/C12/C19/C20/C21
 //! with substrate-private detector semantics — labeling drift from L1 spec.
@@ -142,6 +147,12 @@ pub const NODE_TYPE_FEDERATION_PEER_PINNED_PREFIX: &str = "federation_peer_pinne
 /// Full type: `federation_peer_rejected:{first_8_bytes_of_offered_id_hex}` (M22.2).
 pub const NODE_TYPE_FEDERATION_PEER_REJECTED_PREFIX: &str = "federation_peer_rejected:";
 
+/// M25.4: prefix for `federation_legacy_peer_pinned:{first_8_hex}` events,
+/// emitted when a peer is pinned without an Ed25519 signature (legacy compat).
+/// NOT an immune sporocarp — legacy peers are allowed; this is observability.
+pub const NODE_TYPE_FEDERATION_LEGACY_PEER_PINNED_PREFIX: &str =
+    "federation_legacy_peer_pinned:";
+
 /// Federation events received from a peer (M22.3).
 pub const NODE_TYPE_FEDERATION_EVENTS_RECEIVED: &str = "federation_events_received";
 
@@ -227,7 +238,65 @@ pub fn federation_peer_pinned_node_type(peer_substrate_id: &[u8; 32]) -> String 
     )
 }
 
-/// Content of a `federation_peer_pinned` event (M22.2):
+/// Content of a `federation_peer_pinned` event (M22.2 + M25.4):
+/// ```text
+/// Map({
+///   "peer_substrate_id": Bytes(32),
+///   "remote_addr": String,
+///   "first_pinned_unix_ns": Timestamp,
+///   "signer_pubkey": Bytes(32) | absent,    // M25.4; absent for legacy peers
+/// })
+/// ```
+///
+/// M25.4: when present, `signer_pubkey` is the peer's Ed25519 signing key
+/// learned + verified during the FED_HELLO exchange. Receivers that re-parse
+/// this event on boot use the pubkey as the long-term peer-identity pin
+/// (subsequent connections from the same substrate_id must present the same
+/// pubkey OR the connection is treated as identity drift).
+///
+/// Backward compat: pre-M25 peers omit the field; receivers tolerate absence.
+pub fn encode_federation_peer_pinned(
+    peer_substrate_id: &[u8; 32],
+    remote_addr: &str,
+    first_pinned_unix_ns: i64,
+    signer_pubkey: Option<&[u8; 32]>,
+) -> CanonicalBytes {
+    let mut m = BTreeMap::new();
+    m.insert(
+        "peer_substrate_id".to_string(),
+        Value::Bytes(peer_substrate_id.to_vec()),
+    );
+    m.insert(
+        "remote_addr".to_string(),
+        Value::String(remote_addr.to_string()),
+    );
+    m.insert(
+        "first_pinned_unix_ns".to_string(),
+        Value::Timestamp(first_pinned_unix_ns),
+    );
+    if let Some(pk) = signer_pubkey {
+        m.insert("signer_pubkey".to_string(), Value::Bytes(pk.to_vec()));
+    }
+    cb_encode(&Value::Map(m)).expect("federation_peer_pinned encode infallible")
+}
+
+/// M25.4: node_type for a federation_legacy_peer_pinned event:
+/// `federation_legacy_peer_pinned:{first_8_hex_of_peer_substrate_id}`.
+pub fn federation_legacy_peer_pinned_node_type(peer_substrate_id: &[u8; 32]) -> String {
+    format!(
+        "{}{}",
+        NODE_TYPE_FEDERATION_LEGACY_PEER_PINNED_PREFIX,
+        hex_prefix(peer_substrate_id, 8)
+    )
+}
+
+/// M25.4: content of a `federation_legacy_peer_pinned` observability event.
+///
+/// Emitted when a peer is pinned without presenting an Ed25519 hello signature
+/// (pre-M25 peer; allowed by legacy-compat path). Operators can grep for this
+/// event to audit which connections are authenticated by substrate_id-TOFU
+/// only vs full Ed25519 mutual auth.
+///
 /// ```text
 /// Map({
 ///   "peer_substrate_id": Bytes(32),
@@ -235,7 +304,7 @@ pub fn federation_peer_pinned_node_type(peer_substrate_id: &[u8; 32]) -> String 
 ///   "first_pinned_unix_ns": Timestamp,
 /// })
 /// ```
-pub fn encode_federation_peer_pinned(
+pub fn encode_federation_legacy_peer_pinned(
     peer_substrate_id: &[u8; 32],
     remote_addr: &str,
     first_pinned_unix_ns: i64,
@@ -253,7 +322,7 @@ pub fn encode_federation_peer_pinned(
         "first_pinned_unix_ns".to_string(),
         Value::Timestamp(first_pinned_unix_ns),
     );
-    cb_encode(&Value::Map(m)).expect("federation_peer_pinned encode infallible")
+    cb_encode(&Value::Map(m)).expect("federation_legacy_peer_pinned encode infallible")
 }
 
 /// node_type for a federation_peer_rejected event (M22.2 — C20 detector).

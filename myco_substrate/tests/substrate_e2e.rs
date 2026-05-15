@@ -986,12 +986,13 @@ fn phase_alpha_observatory_signal_1_basic_persistence_budget() {
         "signal_6 should be absent without operator-supplied window"
     );
 
-    // observatory_format_version bumped to 2 in M24.5 (added signals 2/3/4/7).
+    // observatory_format_version bumped to 3 in M25 (signal_5 + signal_8 +
+    // bet_weakening_quorum + emergent composite weights).
     let fmt = match resp.payload.get("observatory_format_version") {
         Some(CbValue::Uint(n)) => *n,
         _ => panic!("fmt version missing"),
     };
-    assert_eq!(fmt, 2);
+    assert_eq!(fmt, 3);
 
     // M24.5: signals 2/3/4/7 present.
     assert!(
@@ -1090,7 +1091,10 @@ fn m24_5_observatory_signal_7_composite_is_valid_float() {
         Some(CbValue::Uint(n)) => *n,
         _ => panic!("composite_format_version missing"),
     };
-    assert_eq!(fmt, 2, "composite format version pinned at 2");
+    assert_eq!(
+        fmt, 3,
+        "composite format version bumped to 3 in M25.3 (emergent weights)"
+    );
     client.shutdown().expect("shutdown");
 }
 
@@ -2078,4 +2082,676 @@ fn m22_1_federation_listener_can_accept_tcp_connection() {
     drop(stream);
 
     client.shutdown().expect("shutdown");
+}
+
+// ---------------------------------------------------------------------------
+// M25.1 + M25.2 + M25.3 P5 万物互联 — Living Bets observatory: doctrine-burst
+// detection, signal #5 time trends, bet_weakening_quorum predicate, and
+// emergent composite weights.
+// ---------------------------------------------------------------------------
+
+/// Helper: pump N advance cycles through the substrate so the observatory
+/// history fills up.
+fn pump_cycles(client: &mut BridgeClient, n: u64) {
+    for cycle in 1..=n {
+        client.advance(cycle).expect("advance");
+    }
+}
+
+#[test]
+fn m25_3_observatory_format_version_3() {
+    let (mut client, _dir) = spawn_substrate();
+    let resp = client
+        .call(proto::QUERY_SUBSTRATE_OBSERVATORY, build_payload(vec![]))
+        .expect("observatory query");
+    let fmt = match resp.payload.get("observatory_format_version") {
+        Some(CbValue::Uint(n)) => *n,
+        _ => panic!("observatory_format_version missing"),
+    };
+    assert_eq!(fmt, 3, "M25.3: observatory_format_version bumped to 3");
+    client.shutdown().expect("shutdown");
+}
+
+#[test]
+fn m25_3_emergent_weights_cold_start_returns_equal() {
+    // Fresh substrate with no cycle history yet → emergent_weights cannot
+    // be computed; the handler MUST fall back to "equal_cold_start" weights.
+    let (mut client, _dir) = spawn_substrate();
+    let resp = client
+        .call(proto::QUERY_SUBSTRATE_OBSERVATORY, build_payload(vec![]))
+        .expect("observatory");
+    let s7 = match resp.payload.get("signal_7_composite_health") {
+        Some(CbValue::Map(m)) => m.clone(),
+        _ => panic!("signal_7 missing"),
+    };
+    let method = match s7.get("weights_method") {
+        Some(CbValue::String(s)) => s.clone(),
+        _ => panic!("weights_method missing"),
+    };
+    assert_eq!(
+        method, "equal_cold_start",
+        "cold-start substrate must use equal weights; got {method}"
+    );
+    let w1 = match s7.get("weight_signal_1_repr") {
+        Some(CbValue::String(s)) => s.parse::<f64>().expect("w1 parses"),
+        _ => panic!("weight_signal_1_repr missing"),
+    };
+    let w2 = match s7.get("weight_signal_2_repr") {
+        Some(CbValue::String(s)) => s.parse::<f64>().expect("w2 parses"),
+        _ => panic!("weight_signal_2_repr missing"),
+    };
+    let w4b = match s7.get("weight_signal_4b_repr") {
+        Some(CbValue::String(s)) => s.parse::<f64>().expect("w4b parses"),
+        _ => panic!("weight_signal_4b_repr missing"),
+    };
+    let one_third = 1.0_f64 / 3.0;
+    let eps = 1e-9;
+    assert!((w1 - one_third).abs() < eps, "w1 ≈ 1/3, got {w1}");
+    assert!((w2 - one_third).abs() < eps, "w2 ≈ 1/3, got {w2}");
+    assert!((w4b - one_third).abs() < eps, "w4b ≈ 1/3, got {w4b}");
+    let composite_fmt = match s7.get("composite_format_version") {
+        Some(CbValue::Uint(n)) => *n,
+        _ => panic!("composite_format_version missing"),
+    };
+    assert_eq!(composite_fmt, 3, "composite format version bumped to 3");
+    client.shutdown().expect("shutdown");
+}
+
+#[test]
+fn m25_3_emergent_weights_after_history_become_emergent_or_degenerate() {
+    // Once the substrate has accumulated ≥10 history snapshots, weights
+    // must shift to either "emergent_variance" (signals moved) or
+    // "equal_degenerate" (everything flat across the window). A bare
+    // axis-register-only substrate has flat signal_4b (no peers) and
+    // flat signal_2 (no evolution events) but signal_1 grows with each
+    // cycle_advanced event — so we expect "emergent_variance".
+    let (mut client, _dir) = spawn_substrate();
+    client
+        .register_axis("m25_3_e", "appetite", 5.0, 0.0, 1.0, false, "noop")
+        .expect("register");
+    pump_cycles(&mut client, 12);
+    let resp = client
+        .call(proto::QUERY_SUBSTRATE_OBSERVATORY, build_payload(vec![]))
+        .expect("observatory");
+    let s7 = match resp.payload.get("signal_7_composite_health") {
+        Some(CbValue::Map(m)) => m.clone(),
+        _ => panic!("signal_7 missing"),
+    };
+    let method = match s7.get("weights_method") {
+        Some(CbValue::String(s)) => s.clone(),
+        _ => panic!("weights_method missing"),
+    };
+    assert!(
+        method == "emergent_variance" || method == "equal_degenerate",
+        "post-history weights must be emergent_variance or equal_degenerate; got {method}"
+    );
+    // Weights must always sum to ~1.
+    let w1: f64 = match s7.get("weight_signal_1_repr") {
+        Some(CbValue::String(s)) => s.parse().unwrap(),
+        _ => panic!(),
+    };
+    let w2: f64 = match s7.get("weight_signal_2_repr") {
+        Some(CbValue::String(s)) => s.parse().unwrap(),
+        _ => panic!(),
+    };
+    let w4b: f64 = match s7.get("weight_signal_4b_repr") {
+        Some(CbValue::String(s)) => s.parse().unwrap(),
+        _ => panic!(),
+    };
+    let total = w1 + w2 + w4b;
+    assert!(
+        (total - 1.0).abs() < 1e-6,
+        "weights must sum to 1.0; got w1={w1}, w2={w2}, w4b={w4b}, sum={total}"
+    );
+    println!(
+        "M25.3 demonstration: method={method}, w1={w1:.4}, w2={w2:.4}, w4b={w4b:.4}, \
+         sum={total:.6}"
+    );
+    client.shutdown().expect("shutdown");
+}
+
+#[test]
+fn m25_2_signal_5_time_trends_unknown_when_history_short() {
+    // Fresh substrate; observatory_history empty → trends MUST be "unknown"
+    // and evaluable=false.
+    let (mut client, _dir) = spawn_substrate();
+    let resp = client
+        .call(proto::QUERY_SUBSTRATE_OBSERVATORY, build_payload(vec![]))
+        .expect("observatory");
+    let s5 = match resp.payload.get("signal_5_time_trends") {
+        Some(CbValue::Map(m)) => m.clone(),
+        _ => panic!("signal_5 missing"),
+    };
+    let evaluable = match s5.get("evaluable") {
+        Some(CbValue::Bool(b)) => *b,
+        _ => panic!("evaluable missing"),
+    };
+    assert!(!evaluable, "fresh substrate: trends must NOT be evaluable");
+    for k in &[
+        "signal_1_direction",
+        "signal_2_direction",
+        "signal_3_direction",
+        "signal_4b_direction",
+        "signal_6_direction",
+    ] {
+        let v = match s5.get(*k) {
+            Some(CbValue::String(s)) => s.clone(),
+            _ => panic!("{k} missing"),
+        };
+        assert_eq!(v, "unknown", "{k} should be 'unknown' on fresh substrate");
+    }
+    let window_samples = match s5.get("window_samples") {
+        Some(CbValue::Uint(n)) => *n,
+        _ => panic!("window_samples missing"),
+    };
+    assert_eq!(window_samples, 0, "fresh substrate has zero window samples");
+    client.shutdown().expect("shutdown");
+}
+
+#[test]
+fn m25_2_signal_5_time_trends_evaluable_after_10_cycles() {
+    let (mut client, _dir) = spawn_substrate();
+    pump_cycles(&mut client, 12);
+    let resp = client
+        .call(proto::QUERY_SUBSTRATE_OBSERVATORY, build_payload(vec![]))
+        .expect("observatory");
+    let s5 = match resp.payload.get("signal_5_time_trends") {
+        Some(CbValue::Map(m)) => m.clone(),
+        _ => panic!("signal_5 missing"),
+    };
+    let evaluable = match s5.get("evaluable") {
+        Some(CbValue::Bool(b)) => *b,
+        _ => panic!("evaluable missing"),
+    };
+    assert!(evaluable, "after ≥10 cycles, trends MUST be evaluable");
+    let s1_dir = match s5.get("signal_1_direction") {
+        Some(CbValue::String(s)) => s.clone(),
+        _ => panic!(),
+    };
+    // signal_1 grows with each cycle (one cycle_advanced event each tick),
+    // so it MUST trend "up".
+    assert_eq!(s1_dir, "up", "signal_1 (dag size) should trend up; got {s1_dir}");
+    let window_samples = match s5.get("window_samples") {
+        Some(CbValue::Uint(n)) => *n,
+        _ => panic!(),
+    };
+    assert!(window_samples >= 10, "window samples >= 10; got {window_samples}");
+    client.shutdown().expect("shutdown");
+}
+
+#[test]
+fn m25_2_bet_weakening_quorum_not_triggered_in_birth() {
+    let (mut client, _dir) = spawn_substrate();
+    let resp = client
+        .call(proto::QUERY_SUBSTRATE_OBSERVATORY, build_payload(vec![]))
+        .expect("observatory");
+    let bwq = match resp.payload.get("bet_weakening_quorum") {
+        Some(CbValue::Map(m)) => m.clone(),
+        _ => panic!("bet_weakening_quorum missing"),
+    };
+    let evaluable = match bwq.get("evaluable") {
+        Some(CbValue::Bool(b)) => *b,
+        _ => panic!("evaluable missing"),
+    };
+    let triggered = match bwq.get("triggered") {
+        Some(CbValue::Bool(b)) => *b,
+        _ => panic!("triggered missing"),
+    };
+    assert!(!evaluable, "fresh substrate: quorum predicate not evaluable");
+    assert!(!triggered, "fresh substrate: quorum cannot fire");
+    client.shutdown().expect("shutdown");
+}
+
+#[test]
+fn m25_1_doctrine_burst_detector_fires_on_excess_axis_registrations() {
+    // Burst threshold = 10 CI events in 100-cycle window. Register 12
+    // axes rapidly so the burst predicate fires.
+    let (mut client, _dir) = spawn_substrate();
+    for i in 0..12 {
+        let name = format!("burst_axis_{i}");
+        client
+            .register_axis(&name, "appetite", 5.0, 0.0, 1.0, false, "noop")
+            .expect("register");
+    }
+    let resp = client
+        .call(proto::QUERY_SUBSTRATE_OBSERVATORY, build_payload(vec![]))
+        .expect("observatory");
+    let s8 = match resp.payload.get("signal_8_doctrine_revision_burst") {
+        Some(CbValue::Map(m)) => m.clone(),
+        _ => panic!("signal_8 missing"),
+    };
+    let is_burst = match s8.get("is_burst") {
+        Some(CbValue::Bool(b)) => *b,
+        _ => panic!("is_burst missing"),
+    };
+    let ci_count = match s8.get("ci_events_recent_100_cycles") {
+        Some(CbValue::Uint(n)) => *n,
+        _ => panic!("ci_events_recent_100_cycles missing"),
+    };
+    let threshold = match s8.get("burst_threshold") {
+        Some(CbValue::Uint(n)) => *n,
+        _ => panic!("burst_threshold missing"),
+    };
+    assert!(
+        ci_count > threshold,
+        "12 axis_registered events should exceed threshold {threshold}; got {ci_count}"
+    );
+    assert!(
+        is_burst,
+        "is_burst must be true when ci_events_recent_100_cycles ({ci_count}) > threshold ({threshold})"
+    );
+
+    // The handler MUST have emitted a C37 immune sporocarp.
+    let immune_resp = client
+        .call(
+            proto::QUERY_IMMUNE_EVENTS,
+            build_payload(vec![("count", CbValue::Uint(50))]),
+        )
+        .expect("query immune");
+    let events = match immune_resp.payload.get("events") {
+        Some(CbValue::Array(a)) => a.clone(),
+        _ => panic!("events missing"),
+    };
+    // Immune events surface as DAG nodes with `node_type = "immune:{detector_id}"`.
+    let mut found_c37 = false;
+    for ev in &events {
+        if let CbValue::Map(m) = ev {
+            if let Some(CbValue::String(nt)) = m.get("node_type") {
+                if nt == "immune:C37_doctrine_instability_burst" {
+                    found_c37 = true;
+                    break;
+                }
+            }
+        }
+    }
+    assert!(
+        found_c37,
+        "C37_doctrine_instability_burst sporocarp must appear in immune events after burst; \
+         events seen: {:?}",
+        events
+            .iter()
+            .filter_map(|e| match e {
+                CbValue::Map(m) => m.get("node_type").and_then(|v| match v {
+                    CbValue::String(s) => Some(s.clone()),
+                    _ => None,
+                }),
+                _ => None,
+            })
+            .collect::<Vec<_>>()
+    );
+    client.shutdown().expect("shutdown");
+}
+
+#[test]
+fn m25_2_operator_context_window_cached_across_queries() {
+    // Operator attests a context window in one query; the substrate caches it
+    // so subsequent cycle-tick snapshots populate signal_6_ratio_repr without
+    // a fresh attestation. We can observe this indirectly by pumping a few
+    // cycles after the attested query and then asking for signal_5: the
+    // signal_6_direction will eventually become non-"unknown" once history is
+    // long enough.
+    let (mut client, _dir) = spawn_substrate();
+    // Attest a small window.
+    let _ = client
+        .call(
+            proto::QUERY_SUBSTRATE_OBSERVATORY,
+            build_payload(vec![(
+                "operator_attested_context_window_bytes",
+                CbValue::Uint(64 * 1024),
+            )]),
+        )
+        .expect("attested observatory");
+    pump_cycles(&mut client, 12);
+    let resp = client
+        .call(proto::QUERY_SUBSTRATE_OBSERVATORY, build_payload(vec![]))
+        .expect("observatory");
+    let s5 = match resp.payload.get("signal_5_time_trends") {
+        Some(CbValue::Map(m)) => m.clone(),
+        _ => panic!("signal_5 missing"),
+    };
+    let sig_6_dir = match s5.get("signal_6_direction") {
+        Some(CbValue::String(s)) => s.clone(),
+        _ => panic!("signal_6_direction missing"),
+    };
+    // The substrate's dag grew during pump_cycles → if the cached window
+    // attestation is being used, signal_6 should NOT remain "unknown"
+    // anymore (we have ≥3 samples) and should trend "up" (substrate
+    // consuming more of the window).
+    assert_ne!(
+        sig_6_dir, "unknown",
+        "cached operator window should populate signal_6 history; got '{sig_6_dir}'"
+    );
+    client.shutdown().expect("shutdown");
+}
+
+// ---------------------------------------------------------------------------
+// M25.0 + M25.4 — substrate-signing-key integration tests.
+//
+// These cover the two security gaps closed jointly by the substrate-private
+// Ed25519 keypair: snapshot integrity (M25.0) and federation HELLO mutual
+// auth (M25.4).
+// ---------------------------------------------------------------------------
+
+#[test]
+fn m25_0_substrate_writes_signing_key_file_on_first_boot() {
+    // Sanity: a fresh substrate must persist its signing key during boot
+    // (via boot_or_genesis_substrate_signing_key). The file's mere presence
+    // demonstrates the boot path wired the seed through ServerState.
+    let (client, dir) = spawn_substrate();
+    let signing_key_path = dir.join("substrate_signing_key.cb");
+    assert!(
+        signing_key_path.exists(),
+        "substrate_signing_key.cb must be persisted on first boot at {}",
+        signing_key_path.display()
+    );
+    client.shutdown().expect("shutdown");
+}
+
+#[test]
+fn m25_0_snapshot_cross_substrate_rejection() {
+    // Build substrate A. Pump enough cycles for a snapshot.cb to land
+    // (SNAPSHOT_EVERY_K_CYCLES = 10 in server.rs).
+    let dir_a = fresh_state_dir();
+    {
+        let mut client_a = spawn_substrate_with_state_dir(&dir_a);
+        for cycle in 1..=10u64 {
+            client_a.advance(cycle).expect("advance A");
+        }
+        client_a.shutdown().expect("shutdown A");
+    }
+    let snapshot_a = dir_a.join("snapshot.cb");
+    assert!(
+        snapshot_a.exists(),
+        "snapshot.cb should be written every K=10 cycles; absent at {}",
+        snapshot_a.display()
+    );
+
+    // Build substrate B with its OWN state_dir (and thus its own signing key).
+    let dir_b = fresh_state_dir();
+    {
+        // Boot B briefly so it generates its own signing key.
+        let client_b = spawn_substrate_with_state_dir(&dir_b);
+        client_b.shutdown().expect("shutdown B genesis");
+    }
+    // Sanity: B has its own signing key, different from A's.
+    let key_a = std::fs::read(dir_a.join("substrate_signing_key.cb")).expect("read A key");
+    let key_b = std::fs::read(dir_b.join("substrate_signing_key.cb")).expect("read B key");
+    assert_ne!(
+        key_a, key_b,
+        "different substrates must have independent signing keys"
+    );
+
+    // Copy A's snapshot.cb into B's state_dir — but NOT A's signing key.
+    // B's boot path should reject the snapshot (signer_pubkey mismatch) and
+    // fall back to full DAG replay (which means B's state stays at genesis).
+    std::fs::copy(&snapshot_a, dir_b.join("snapshot.cb")).expect("copy snapshot");
+
+    // Restart B. It must boot successfully without using A's snapshot.
+    let mut client_b = spawn_substrate_with_state_dir(&dir_b);
+    // The substrate should respond to operator messages — proves it didn't
+    // crash on the forged snapshot.
+    let snap = client_b.snapshot().expect("snapshot must work after boot");
+    assert!(
+        snap.is_empty(),
+        "B's gradient state should still be empty (genesis); cross-substrate snapshot \
+         must NOT have polluted state"
+    );
+
+    // The rejection should have left a C38_snapshot_integrity_violation
+    // immune sporocarp in the DAG. Query immune events to verify.
+    let immune_resp = client_b
+        .call(proto::QUERY_IMMUNE_EVENTS, build_payload(vec![]))
+        .expect("query immune events");
+    let events = match immune_resp.payload.get("events") {
+        Some(CbValue::Array(a)) => a.clone(),
+        _ => panic!("immune events response missing 'events' array"),
+    };
+    let has_c38 = events.iter().any(|ev| match ev {
+        CbValue::Map(m) => match m.get("node_type") {
+            Some(CbValue::String(s)) => s.contains("C38_snapshot_integrity_violation"),
+            _ => false,
+        },
+        _ => false,
+    });
+    assert!(
+        has_c38,
+        "C38_snapshot_integrity_violation immune sporocarp must be emitted; \
+         events: {:?}",
+        events
+    );
+    client_b.shutdown().expect("shutdown B final");
+}
+
+#[test]
+fn m25_4_federation_hello_signed_two_substrates() {
+    // Two substrates connect via federation; each has its own signing seed.
+    // Both should pin each other with signature_verified = true.
+    let (mut client_a, _dir_a) = spawn_substrate();
+    let open_resp = client_a
+        .call(
+            proto::FEDERATION_OPEN_LISTENER,
+            build_payload(vec![(
+                "bind_addr",
+                CbValue::String("127.0.0.1:0".to_string()),
+            )]),
+        )
+        .expect("A open listener");
+    let addr_a = match open_resp.payload.get("bind_addr") {
+        Some(CbValue::String(s)) => s.clone(),
+        _ => panic!("addr missing"),
+    };
+
+    let (mut client_b, _dir_b) = spawn_substrate();
+    let connect_resp = client_b
+        .call(
+            proto::FEDERATION_CONNECT_PEER,
+            build_payload(vec![("remote_addr", CbValue::String(addr_a))]),
+        )
+        .expect("B connect");
+    let outcome = match connect_resp.payload.get("outcome") {
+        Some(CbValue::String(s)) => s.clone(),
+        _ => panic!("outcome missing"),
+    };
+    assert_eq!(outcome, "pinned", "B should pin A");
+    // M25.4: B's response should carry signature_verified = true and a
+    // peer_signer_pubkey field (32 bytes).
+    let sig_verified = match connect_resp.payload.get("signature_verified") {
+        Some(CbValue::Bool(b)) => *b,
+        _ => panic!("signature_verified missing in connect_peer response"),
+    };
+    assert!(
+        sig_verified,
+        "M25.4: substrates with signing keys must produce verified hellos"
+    );
+    let signer_pk = match connect_resp.payload.get("peer_signer_pubkey") {
+        Some(CbValue::Bytes(b)) => b.clone(),
+        _ => panic!("peer_signer_pubkey missing in connect_peer response"),
+    };
+    assert_eq!(
+        signer_pk.len(),
+        32,
+        "signer_pubkey must be 32 bytes (Ed25519 pubkey)"
+    );
+
+    // Wait for A's autonomous tick to pick up B's hello + ack.
+    std::thread::sleep(std::time::Duration::from_millis(800));
+    let a_status = client_a
+        .call(proto::FEDERATION_STATUS, build_payload(vec![]))
+        .expect("A status");
+    let a_peer_count = match a_status.payload.get("peer_count") {
+        Some(CbValue::Uint(n)) => *n,
+        _ => panic!("peer_count missing"),
+    };
+    assert_eq!(a_peer_count, 1, "A should have pinned B");
+    client_a.shutdown().expect("shutdown A");
+    client_b.shutdown().expect("shutdown B");
+}
+
+#[test]
+fn m25_4_federation_hello_tampered_signature_rejected() {
+    // We open A's listener, then manually dial as a fake peer and write a
+    // FED_HELLO frame carrying a tampered signature. A's autonomous tick
+    // must reject and emit a C39 immune sporocarp; the peer must NOT be pinned.
+    use myco_kernel_bridge::framing::write_frame;
+    use myco_kernel_bridge::protocol::{encode_frame_body, Message};
+    use myco_kernel_shared::canonical_bytes::Value as CbV;
+    use std::collections::BTreeMap as BTM;
+
+    let (mut client_a, _dir_a) = spawn_substrate();
+    let open_resp = client_a
+        .call(
+            proto::FEDERATION_OPEN_LISTENER,
+            build_payload(vec![(
+                "bind_addr",
+                CbValue::String("127.0.0.1:0".to_string()),
+            )]),
+        )
+        .expect("A open listener");
+    let addr_a = match open_resp.payload.get("bind_addr") {
+        Some(CbValue::String(s)) => s.clone(),
+        _ => panic!("addr missing"),
+    };
+
+    use std::net::TcpStream;
+    let mut stream = TcpStream::connect(&addr_a).expect("dial A");
+    let fake_peer_id = [0xABu8; 32];
+    let fake_pubkey = [0xCDu8; 32];
+    let bogus_sig = [0xEFu8; 64];
+    let mut payload = BTM::new();
+    payload.insert(
+        "peer_substrate_id".to_string(),
+        CbV::Bytes(fake_peer_id.to_vec()),
+    );
+    payload.insert("protocol_version".to_string(), CbV::Uint(1));
+    payload.insert(
+        "signer_pubkey".to_string(),
+        CbV::Bytes(fake_pubkey.to_vec()),
+    );
+    payload.insert(
+        "hello_signature".to_string(),
+        CbV::Bytes(bogus_sig.to_vec()),
+    );
+    let msg = Message::new("fed_hello", 1, payload);
+    // Use the federation bootstrap HMAC key (sha256 of literal string).
+    use sha2::{Digest, Sha256};
+    let mut h = Sha256::new();
+    h.update(b"myco-federation-protocol-v1-bootstrap");
+    let bootstrap_arr: [u8; 32] = h.finalize().into();
+    let frame = encode_frame_body(&msg, &bootstrap_arr).expect("encode");
+    write_frame(&mut stream, &frame).expect("send hello");
+    // Give A's autonomous tick time to process the hello.
+    std::thread::sleep(std::time::Duration::from_millis(1500));
+
+    // Verify A emitted a C39 immune sporocarp.
+    let immune_resp = client_a
+        .call(proto::QUERY_IMMUNE_EVENTS, build_payload(vec![]))
+        .expect("query immune events");
+    let events = match immune_resp.payload.get("events") {
+        Some(CbValue::Array(a)) => a.clone(),
+        _ => panic!("events missing"),
+    };
+    let has_c39 = events.iter().any(|ev| match ev {
+        CbValue::Map(m) => match m.get("node_type") {
+            Some(CbValue::String(s)) => s.contains("C39_federation_hello_signature_invalid"),
+            _ => false,
+        },
+        _ => false,
+    });
+    assert!(
+        has_c39,
+        "tampered fed_hello must emit C39 immune sporocarp; saw events: {:?}",
+        events
+    );
+    // The peer should NOT be pinned.
+    let status = client_a
+        .call(proto::FEDERATION_STATUS, build_payload(vec![]))
+        .expect("status");
+    let peer_count = match status.payload.get("peer_count") {
+        Some(CbValue::Uint(n)) => *n,
+        _ => panic!("peer_count missing"),
+    };
+    assert_eq!(
+        peer_count, 0,
+        "tampered hello must NOT result in a pinned peer"
+    );
+    client_a.shutdown().expect("shutdown");
+}
+
+#[test]
+fn m25_4_federation_hello_legacy_compat_no_signature() {
+    // Simulate a pre-M25 peer that sends a hello with no signature fields.
+    // A's autonomous tick should accept it (legacy compat), pin it, and emit
+    // a federation_legacy_peer_pinned observability event — NOT a C39
+    // immune sporocarp.
+    use myco_kernel_bridge::framing::write_frame;
+    use myco_kernel_bridge::protocol::{encode_frame_body, Message};
+    use myco_kernel_shared::canonical_bytes::Value as CbV;
+    use std::collections::BTreeMap as BTM;
+
+    let (mut client_a, _dir_a) = spawn_substrate();
+    let open_resp = client_a
+        .call(
+            proto::FEDERATION_OPEN_LISTENER,
+            build_payload(vec![(
+                "bind_addr",
+                CbValue::String("127.0.0.1:0".to_string()),
+            )]),
+        )
+        .expect("A open listener");
+    let addr_a = match open_resp.payload.get("bind_addr") {
+        Some(CbValue::String(s)) => s.clone(),
+        _ => panic!("addr missing"),
+    };
+
+    use std::net::TcpStream;
+    let mut stream = TcpStream::connect(&addr_a).expect("dial");
+    let legacy_peer_id = [0x11u8; 32];
+    let mut payload = BTM::new();
+    payload.insert(
+        "peer_substrate_id".to_string(),
+        CbV::Bytes(legacy_peer_id.to_vec()),
+    );
+    payload.insert("protocol_version".to_string(), CbV::Uint(1));
+    // No signer_pubkey or hello_signature — pure pre-M25 hello.
+    let msg = Message::new("fed_hello", 1, payload);
+    use sha2::{Digest, Sha256};
+    let mut h = Sha256::new();
+    h.update(b"myco-federation-protocol-v1-bootstrap");
+    let bootstrap_arr: [u8; 32] = h.finalize().into();
+    let frame = encode_frame_body(&msg, &bootstrap_arr).expect("encode");
+    write_frame(&mut stream, &frame).expect("send legacy hello");
+    // Wait for A's autonomous tick.
+    std::thread::sleep(std::time::Duration::from_millis(1500));
+
+    // Verify peer is pinned.
+    let status = client_a
+        .call(proto::FEDERATION_STATUS, build_payload(vec![]))
+        .expect("status");
+    let peer_count = match status.payload.get("peer_count") {
+        Some(CbValue::Uint(n)) => *n,
+        _ => panic!("peer_count missing"),
+    };
+    assert_eq!(peer_count, 1, "legacy hello (no signature) must still pin");
+
+    // No C39 immune sporocarp should have been emitted.
+    let immune_resp = client_a
+        .call(proto::QUERY_IMMUNE_EVENTS, build_payload(vec![]))
+        .expect("query immune events");
+    let events = match immune_resp.payload.get("events") {
+        Some(CbValue::Array(a)) => a.clone(),
+        _ => panic!("events missing"),
+    };
+    let has_c39 = events.iter().any(|ev| match ev {
+        CbValue::Map(m) => match m.get("node_type") {
+            Some(CbValue::String(s)) => s.contains("C39_federation_hello_signature_invalid"),
+            _ => false,
+        },
+        _ => false,
+    });
+    assert!(
+        !has_c39,
+        "legacy hello must NOT trigger C39; saw events: {:?}",
+        events
+    );
+    client_a.shutdown().expect("shutdown");
 }

@@ -297,8 +297,29 @@ pub fn load_nonce_log(
 /// Filename for the Rust-managed snapshot cache (M21.5).
 pub const SNAPSHOT_FILENAME: &str = "snapshot.cb";
 
-/// Current snapshot file format version (M21.5).
-pub const SNAPSHOT_FORMAT_VERSION: u64 = 1;
+/// Current snapshot file format version (M21.5; bumped to v2 in M25.0 for
+/// Ed25519 wrapper integrity).
+///
+/// The loader ALSO ACCEPTS legacy v1 (M21.5 unsigned format) by returning
+/// `None` — caller treats absence/legacy as "snapshot cache not usable, do
+/// full DAG replay" exactly as if the file were missing.
+pub const SNAPSHOT_FORMAT_VERSION: u64 = 2;
+
+/// M25.0: filename for the substrate-private Ed25519 signing keypair seed.
+///
+/// This is the SUBSTRATE'S OWN private key — separate from any operator/owner
+/// key. Used to (1) sign `snapshot.cb` so a malicious actor with write access
+/// to state_dir cannot substitute a forged snapshot, and (2) sign FED_HELLO
+/// payloads so federation peers can mutually authenticate beyond TOFU.
+///
+/// The seed is 32 bytes (per `Ed25519PrivateKey::from_seed`). It NEVER leaves
+/// the substrate process boundary on the wire. Substrate-side appearance of
+/// the seed file is the same trust class as the DAG itself: tampering with it
+/// is a doctrine-breach observable at boot via signature-verification failure.
+pub const SUBSTRATE_SIGNING_KEY_FILENAME: &str = "substrate_signing_key.cb";
+
+/// M25.0: current substrate-signing-key file format version.
+pub const SUBSTRATE_SIGNING_KEY_FORMAT_VERSION: u64 = 1;
 
 /// Current operator-identity-pubkey file format version (M9).
 pub const OPERATOR_IDENTITY_PUBKEY_FORMAT_VERSION: u64 = 1;
@@ -623,44 +644,298 @@ impl Manifest {
     }
 }
 
-/// M21.5 P5 万物互联: atomically save `snapshot.cb` to `<state_dir>/snapshot.cb`.
+/// M25.0: parsed snapshot wrapper returned by [`load_snapshot`].
+///
+/// `payload` is the unwrapped `DerivedState` canonical bytes (suitable for
+/// `DerivedState::from_canonical_bytes`). `signer_pubkey` is the Ed25519
+/// public key that signed this snapshot; the caller MUST compare it against
+/// the substrate's own signing pubkey before accepting the snapshot, AND MUST
+/// call `verify_signature(signer_pubkey, signature, payload)` to confirm the
+/// signature is intact.
+///
+/// Signature verification happens at the caller (server boot path) rather than
+/// inside `load_snapshot` itself — this is deliberate. The caller has access
+/// to the substrate's own loaded signing keypair and can compare
+/// `signer_pubkey` against its own pubkey before trusting the signature.
+/// Folding verification into load would inadvertently trust whatever pubkey
+/// was embedded in the wrapper.
+#[derive(Debug, Clone)]
+pub struct LoadedSnapshot {
+    /// The unwrapped `DerivedState` canonical bytes — pass this to
+    /// `DerivedState::from_canonical_bytes`.
+    pub payload: Vec<u8>,
+    /// The Ed25519 public key (32 bytes) declared by the signer of this snapshot.
+    pub signer_pubkey: [u8; 32],
+    /// The Ed25519 signature (64 bytes) over `payload`. Caller verifies via
+    /// `verify_signature(signer_pubkey, signature, payload)`.
+    pub signature: [u8; 64],
+}
+
+/// M21.5 P5 万物互联 + M25.0: atomically save `snapshot.cb` to
+/// `<state_dir>/snapshot.cb`, wrapping the payload in a signed envelope.
 ///
 /// The snapshot is a CACHE — substrate boot works without it via full DAG replay.
 /// When present + valid, it accelerates boot by restoring Rust-side derived state
 /// from a known DAG tip; only events newer than the snapshot's recorded tip need
 /// to be replayed.
+///
+/// ## M25.0 wrapper schema (format_version = 2)
+///
+/// ```text
+/// Map({
+///   "format_version": Uint(2),
+///   "payload": Bytes,                 // DerivedState canonical bytes
+///   "signature": Bytes(64),           // Ed25519(payload) under signer_pubkey
+///   "signer_pubkey": Bytes(32),       // who signed
+/// })
+/// ```
+///
+/// The signature is computed over the BARE `payload` bytes (not the wrapped
+/// canonical-bytes encoding). This means snapshot bytes can be re-wrapped
+/// (e.g., upgraded to a newer wrapper format) without re-signing the inner
+/// payload — preserving signature stability across wrapper schema bumps.
 pub fn save_snapshot(
-    snapshot_bytes: &myco_kernel_shared::canonical_bytes::CanonicalBytes,
+    snapshot_payload: &myco_kernel_shared::canonical_bytes::CanonicalBytes,
+    signing_key: &myco_kernel_shared::crypto::Ed25519PrivateKey,
     state_dir: &Path,
 ) -> Result<(), SubstrateError> {
+    use myco_kernel_shared::canonical_bytes::{encode, Value};
     ensure_state_dir(state_dir)?;
     let final_path = state_dir.join(SNAPSHOT_FILENAME);
     let tmp_path = state_dir.join(format!("{SNAPSHOT_FILENAME}.tmp"));
+
+    let payload_bytes = snapshot_payload.as_ref();
+    let signature = signing_key.sign(payload_bytes);
+    let signer_pubkey = signing_key.public_key();
+
+    let mut wrapper = BTreeMap::new();
+    wrapper.insert(
+        "format_version".to_string(),
+        Value::Uint(SNAPSHOT_FORMAT_VERSION),
+    );
+    wrapper.insert(
+        "payload".to_string(),
+        Value::Bytes(payload_bytes.to_vec()),
+    );
+    wrapper.insert(
+        "signature".to_string(),
+        Value::Bytes(signature.as_ref().to_vec()),
+    );
+    wrapper.insert(
+        "signer_pubkey".to_string(),
+        Value::Bytes(signer_pubkey.as_ref().to_vec()),
+    );
+    let wrapped = encode(&Value::Map(wrapper))
+        .map_err(|e| SubstrateError::Protocol(format!("snapshot wrapper encode: {e}")))?;
+
     {
         let mut f = fs::File::create(&tmp_path)?;
-        f.write_all(snapshot_bytes.as_ref())?;
+        f.write_all(wrapped.as_ref())?;
         f.sync_all()?;
     }
     fs::rename(&tmp_path, &final_path)?;
     Ok(())
 }
 
-/// M21.5: load `snapshot.cb` raw bytes from `<state_dir>/snapshot.cb`.
+/// M21.5 + M25.0: load `snapshot.cb` from `<state_dir>/snapshot.cb` and parse
+/// the wrapper.
 ///
-/// Returns `Ok(Some(bytes))` if present, `Ok(None)` if missing,
-/// `Err` on I/O. The caller passes bytes to `DerivedState::from_canonical_bytes`
-/// for decoding (failures there → caller falls back to full DAG replay).
-pub fn load_snapshot(state_dir: &Path) -> Result<Option<Vec<u8>>, SubstrateError> {
+/// Returns:
+/// - `Ok(Some(LoadedSnapshot))` — file exists, parses cleanly, format = v2.
+///   Caller MUST `verify_signature(signer_pubkey, signature, payload)` AND
+///   compare `signer_pubkey` against the substrate's own loaded signing
+///   pubkey before trusting the payload. On either failure, caller falls
+///   back to full DAG replay.
+/// - `Ok(None)` — file missing, OR legacy v1 (M21.5 unsigned format), OR
+///   any wrapper-schema mismatch. Caller falls back to full DAG replay.
+/// - `Err(...)` — I/O error reading the file, or canonical-bytes decode
+///   error on otherwise-readable bytes. The caller should treat decode
+///   errors as "corrupted snapshot → discard + DAG replay" but bubbling the
+///   error preserves visibility for the operator.
+pub fn load_snapshot(state_dir: &Path) -> Result<Option<LoadedSnapshot>, SubstrateError> {
+    use myco_kernel_shared::canonical_bytes::{decode, Value};
     let path = state_dir.join(SNAPSHOT_FILENAME);
-    match fs::File::open(&path) {
-        Ok(mut f) => {
-            let mut bytes = Vec::new();
-            f.read_to_end(&mut bytes)?;
-            Ok(Some(bytes))
-        }
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
-        Err(e) => Err(SubstrateError::Io(e)),
+    let mut f = match fs::File::open(&path) {
+        Ok(f) => f,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(e) => return Err(SubstrateError::Io(e)),
+    };
+    let mut bytes = Vec::new();
+    f.read_to_end(&mut bytes)?;
+    let decoded = decode(&bytes)
+        .map_err(|e| SubstrateError::Protocol(format!("snapshot wrapper decode: {e}")))?;
+    let map = match decoded {
+        Value::Map(m) => m,
+        _ => return Ok(None), // not a wrapper Map → treat as legacy/corrupted
+    };
+    // Version gate. v1 (legacy M21.5 unsigned) and unknown future versions both
+    // return None: caller treats as "no usable snapshot" and falls back to DAG
+    // replay. Only v2 enters the LoadedSnapshot construction path.
+    let version = match map.get("format_version") {
+        Some(Value::Uint(n)) => *n,
+        _ => return Ok(None),
+    };
+    if version != SNAPSHOT_FORMAT_VERSION {
+        return Ok(None);
     }
+    let payload = match map.get("payload") {
+        Some(Value::Bytes(b)) => b.clone(),
+        _ => return Ok(None),
+    };
+    let signature_bytes = match map.get("signature") {
+        Some(Value::Bytes(b)) if b.len() == 64 => b,
+        _ => return Ok(None),
+    };
+    let signer_pubkey_bytes = match map.get("signer_pubkey") {
+        Some(Value::Bytes(b)) if b.len() == 32 => b,
+        _ => return Ok(None),
+    };
+    let mut signature = [0u8; 64];
+    signature.copy_from_slice(signature_bytes);
+    let mut signer_pubkey = [0u8; 32];
+    signer_pubkey.copy_from_slice(signer_pubkey_bytes);
+    Ok(Some(LoadedSnapshot {
+        payload,
+        signer_pubkey,
+        signature,
+    }))
+}
+
+// ---------------------------------------------------------------------------
+// M25.0 + M25.4: substrate-private Ed25519 signing key persistence.
+//
+// The substrate-signing seed serves DOUBLE DUTY:
+//   - M25.0: signs `snapshot.cb` payload so a forged snapshot can't masquerade.
+//   - M25.4: signs FED_HELLO payloads so federation peers can mutually-auth
+//     beyond TOFU substrate_id pinning.
+// ---------------------------------------------------------------------------
+
+/// M25.0: atomically save the substrate's private signing seed to
+/// `<state_dir>/substrate_signing_key.cb`.
+///
+/// On-disk schema:
+/// ```text
+/// Map({
+///   "format_version": Uint(1),
+///   "seed": Bytes(32),
+///   "created_at_unix_ns": Timestamp,
+/// })
+/// ```
+///
+/// The seed bytes are stored as-is (no envelope encryption at M25.0 — the
+/// trust boundary is the state_dir as a whole; if an attacker has write
+/// access there, snapshot integrity is moot anyway). Future M27+ may add a
+/// passphrase-derived sealing key.
+pub fn save_substrate_signing_key(
+    seed: &[u8; 32],
+    state_dir: &Path,
+) -> Result<(), SubstrateError> {
+    use myco_kernel_shared::canonical_bytes::{encode, Value};
+    ensure_state_dir(state_dir)?;
+    let final_path = state_dir.join(SUBSTRATE_SIGNING_KEY_FILENAME);
+    let tmp_path = state_dir.join(format!("{SUBSTRATE_SIGNING_KEY_FILENAME}.tmp"));
+    let mut m = BTreeMap::new();
+    m.insert(
+        "format_version".to_string(),
+        Value::Uint(SUBSTRATE_SIGNING_KEY_FORMAT_VERSION),
+    );
+    m.insert("seed".to_string(), Value::Bytes(seed.to_vec()));
+    m.insert(
+        "created_at_unix_ns".to_string(),
+        Value::Timestamp(current_unix_ns()),
+    );
+    let bytes = encode(&Value::Map(m))
+        .map_err(|e| SubstrateError::Protocol(format!("substrate_signing_key encode: {e}")))?;
+    {
+        let mut f = fs::File::create(&tmp_path)?;
+        f.write_all(bytes.as_ref())?;
+        f.sync_all()?;
+    }
+    fs::rename(&tmp_path, &final_path)?;
+    Ok(())
+}
+
+/// M25.0: load the substrate's private signing seed from
+/// `<state_dir>/substrate_signing_key.cb`.
+///
+/// Returns:
+/// - `Ok(Some(seed))` — file present + format matches.
+/// - `Ok(None)` — file missing OR version mismatch (caller treats as
+///   "no key yet, must genesis"; see [`boot_or_genesis_substrate_signing_key`]).
+/// - `Err(...)` — I/O or canonical-bytes decode error.
+pub fn load_substrate_signing_key(state_dir: &Path) -> Result<Option<[u8; 32]>, SubstrateError> {
+    use myco_kernel_shared::canonical_bytes::{decode, Value};
+    let path = state_dir.join(SUBSTRATE_SIGNING_KEY_FILENAME);
+    let mut f = match fs::File::open(&path) {
+        Ok(f) => f,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(e) => return Err(SubstrateError::Io(e)),
+    };
+    let mut bytes = Vec::new();
+    f.read_to_end(&mut bytes)?;
+    let decoded = decode(&bytes)
+        .map_err(|e| SubstrateError::Protocol(format!("substrate_signing_key decode: {e}")))?;
+    let map = match decoded {
+        Value::Map(m) => m,
+        _ => return Ok(None),
+    };
+    let version = match map.get("format_version") {
+        Some(Value::Uint(n)) => *n,
+        _ => return Ok(None),
+    };
+    if version != SUBSTRATE_SIGNING_KEY_FORMAT_VERSION {
+        return Ok(None);
+    }
+    let seed_bytes = match map.get("seed") {
+        Some(Value::Bytes(b)) if b.len() == 32 => b,
+        _ => return Ok(None),
+    };
+    let mut seed = [0u8; 32];
+    seed.copy_from_slice(seed_bytes);
+    Ok(Some(seed))
+}
+
+/// M25.0: boot path helper — load the substrate's signing seed if persisted,
+/// else generate a fresh one (genesis), persist it, and return it.
+///
+/// The seed-generation mix is the same time + pid + stack-address SHA-256
+/// mix as [`generate_substrate_id`], but with a distinct domain string
+/// (`b"myco-substrate-signing-seed-v1"`). The substrate_id seed and signing
+/// seed MUST be uncorrelated so a substrate_id leak can't be used to predict
+/// the signing key.
+pub fn boot_or_genesis_substrate_signing_key(
+    state_dir: &Path,
+) -> Result<[u8; 32], SubstrateError> {
+    if let Some(seed) = load_substrate_signing_key(state_dir)? {
+        return Ok(seed);
+    }
+    let seed = generate_substrate_signing_seed();
+    save_substrate_signing_key(&seed, state_dir)?;
+    Ok(seed)
+}
+
+/// M25.0: generate a fresh 32-byte signing seed.
+///
+/// Same construction pattern as [`generate_substrate_id`] but with a distinct
+/// domain string so the substrate_id and signing seed never collide.
+fn generate_substrate_signing_seed() -> [u8; 32] {
+    use sha2::{Digest, Sha256};
+    let mut h = Sha256::new();
+    h.update(b"myco-substrate-signing-seed-v1");
+    h.update(current_unix_ns().to_le_bytes());
+    h.update(std::process::id().to_le_bytes());
+    let stack_var = 0u8;
+    let addr = &stack_var as *const u8 as usize;
+    h.update(addr.to_le_bytes());
+    // Mix one extra entropy source: this function's own code address,
+    // so two substrates born in the same nanosecond on the same machine
+    // with the same pid (impossible but defended) still differ.
+    let fn_addr = generate_substrate_signing_seed as *const () as usize;
+    h.update(fn_addr.to_le_bytes());
+    let result = h.finalize();
+    let mut out = [0u8; 32];
+    out.copy_from_slice(&result);
+    out
 }
 
 /// Resolve the default state directory for the substrate.
@@ -1127,6 +1402,141 @@ mod tests {
         let loaded_again = Manifest::load(&dir).unwrap().unwrap();
         assert_eq!(loaded_again.cycle_counter, 456);
         assert_eq!(loaded_again.substrate_id, original_id);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    // -----------------------------------------------------------------------
+    // M25.0 substrate-private signing key + snapshot signature tests.
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn substrate_signing_key_roundtrips_canonical_bytes() {
+        let dir = temp_state_dir();
+        let seed = [0x42u8; 32];
+        save_substrate_signing_key(&seed, &dir).unwrap();
+        let loaded = load_substrate_signing_key(&dir).unwrap().unwrap();
+        assert_eq!(loaded, seed);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn substrate_signing_key_missing_returns_none() {
+        let dir = temp_state_dir();
+        let loaded = load_substrate_signing_key(&dir).unwrap();
+        assert!(loaded.is_none());
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn substrate_signing_key_version_mismatch_returns_none() {
+        use myco_kernel_shared::canonical_bytes::{encode, Value};
+        let dir = temp_state_dir();
+        let mut bad = BTreeMap::new();
+        bad.insert("format_version".to_string(), Value::Uint(999));
+        bad.insert("seed".to_string(), Value::Bytes(vec![0u8; 32]));
+        bad.insert("created_at_unix_ns".to_string(), Value::Timestamp(0));
+        let bad_bytes = encode(&Value::Map(bad)).unwrap();
+        fs::write(dir.join(SUBSTRATE_SIGNING_KEY_FILENAME), bad_bytes.as_ref()).unwrap();
+        let loaded = load_substrate_signing_key(&dir).unwrap();
+        assert!(loaded.is_none());
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn boot_or_genesis_generates_when_missing() {
+        let dir = temp_state_dir();
+        // First call: file missing → should generate and persist a non-zero seed.
+        let seed1 = boot_or_genesis_substrate_signing_key(&dir).unwrap();
+        assert_ne!(seed1, [0u8; 32]);
+        assert!(dir.join(SUBSTRATE_SIGNING_KEY_FILENAME).exists());
+        // Second call: should load the same seed (not regenerate).
+        let seed2 = boot_or_genesis_substrate_signing_key(&dir).unwrap();
+        assert_eq!(seed1, seed2);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn m25_0_snapshot_save_load_with_signature_verifies() {
+        use myco_kernel_shared::canonical_bytes::{encode, Value};
+        use myco_kernel_shared::crypto::{verify_signature, Ed25519PrivateKey};
+        let dir = temp_state_dir();
+        let seed = [0xAB; 32];
+        let key = Ed25519PrivateKey::from_seed(&seed);
+        // Build a synthetic payload (any canonical-bytes will do for this test).
+        let mut payload_map = BTreeMap::new();
+        payload_map.insert("hello".to_string(), Value::String("world".to_string()));
+        let payload = encode(&Value::Map(payload_map)).unwrap();
+        // Save the snapshot wrapper around this payload.
+        save_snapshot(&payload, &key, &dir).unwrap();
+        // Load and inspect.
+        let loaded = load_snapshot(&dir).unwrap().expect("snapshot present");
+        // The unwrapped payload bytes match the original.
+        assert_eq!(loaded.payload, payload.as_ref());
+        // The signer_pubkey matches the key's public_key.
+        assert_eq!(loaded.signer_pubkey, key.public_key().0);
+        // The embedded signature verifies against the embedded pubkey + payload.
+        verify_signature(&loaded.signer_pubkey, &loaded.signature, &loaded.payload)
+            .expect("snapshot signature must verify");
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn m25_0_snapshot_load_returns_none_on_corruption() {
+        use myco_kernel_shared::canonical_bytes::{encode, Value};
+        use myco_kernel_shared::crypto::{verify_signature, CryptoError, Ed25519PrivateKey};
+        let dir = temp_state_dir();
+        let seed = [0xCD; 32];
+        let key = Ed25519PrivateKey::from_seed(&seed);
+        // Save a valid snapshot first.
+        let mut payload_map = BTreeMap::new();
+        payload_map.insert("k".to_string(), Value::Uint(7));
+        let payload = encode(&Value::Map(payload_map)).unwrap();
+        save_snapshot(&payload, &key, &dir).unwrap();
+        // Tamper with the file: flip one signature byte. We re-encode the
+        // wrapper Map with a corrupted signature so the canonical-bytes shape
+        // stays valid (so load_snapshot returns Some) but the signature won't
+        // verify.
+        let path = dir.join(SNAPSHOT_FILENAME);
+        let bytes = fs::read(&path).unwrap();
+        let decoded = myco_kernel_shared::canonical_bytes::decode(&bytes).unwrap();
+        let mut wrapper = match decoded {
+            Value::Map(m) => m,
+            _ => panic!("wrapper not a Map"),
+        };
+        let mut sig = match wrapper.get("signature") {
+            Some(Value::Bytes(b)) => b.clone(),
+            _ => panic!("signature missing"),
+        };
+        sig[0] ^= 0xFF; // flip a bit in the signature
+        wrapper.insert("signature".to_string(), Value::Bytes(sig));
+        let bad_wrapper = encode(&Value::Map(wrapper)).unwrap();
+        fs::write(&path, bad_wrapper.as_ref()).unwrap();
+        // load_snapshot still returns Some — the wrapper is well-formed — but
+        // the caller's verify_signature call will reject the corrupted sig.
+        let loaded = load_snapshot(&dir).unwrap().expect("wrapper still parses");
+        let verify_result = verify_signature(
+            &loaded.signer_pubkey,
+            &loaded.signature,
+            &loaded.payload,
+        );
+        assert_eq!(verify_result, Err(CryptoError::SignatureInvalid));
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn m25_0_snapshot_legacy_v1_format_returns_none() {
+        // A pre-M25 (v1, unsigned) snapshot.cb must not be silently trusted.
+        // load_snapshot returns None so the caller falls back to DAG replay.
+        use myco_kernel_shared::canonical_bytes::{encode, Value};
+        let dir = temp_state_dir();
+        let mut legacy = BTreeMap::new();
+        legacy.insert("format_version".to_string(), Value::Uint(1));
+        // Some arbitrary legacy fields (the old DerivedState canonical form).
+        legacy.insert("cycle_counter".to_string(), Value::Uint(0));
+        let legacy_bytes = encode(&Value::Map(legacy)).unwrap();
+        fs::write(dir.join(SNAPSHOT_FILENAME), legacy_bytes.as_ref()).unwrap();
+        let loaded = load_snapshot(&dir).unwrap();
+        assert!(loaded.is_none(), "legacy v1 snapshot must return None");
         let _ = fs::remove_dir_all(&dir);
     }
 }

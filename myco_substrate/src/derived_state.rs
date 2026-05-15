@@ -34,12 +34,144 @@
 //! All float values are stored as repr-strings inside DAG nodes; replay
 //! produces identical bytewise state regardless of platform.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 
 use myco_kernel_schema::dag::{Dag, DagNode};
 use myco_kernel_shared::canonical_bytes::{
     decode as cb_decode, map_get_bytes, map_get_uint, Value,
 };
+
+/// M25.2 P5 万物互联: a single point-in-time observatory snapshot used to
+/// build historical signal series for signal #5 (time trends),
+/// `bet_weakening_quorum`, and emergent composite weights.
+///
+/// Canonical form (used inside DerivedState's `observatory_history` array):
+/// ```text
+/// Map({
+///   "at_cycle": Uint,
+///   "at_unix_ns": Timestamp,
+///   "signal_1_dag_node_count": Uint,
+///   "signal_1_dag_total_content_bytes": Uint,
+///   "signal_2_evolution_event_count": Uint,
+///   "signal_3_distinct_perturbed_axes_count": Uint,
+///   "signal_4b_reachable_peer_count": Uint,
+///   "signal_6_ratio_repr": String,    // empty string if no operator window
+/// })
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ObservatorySnapshot {
+    /// `manifest.cycle_counter` at snapshot time.
+    pub at_cycle: u64,
+    /// Wall-clock at snapshot time.
+    pub at_unix_ns: i64,
+    /// Signal #1: total DAG nodes.
+    pub signal_1_dag_node_count: u64,
+    /// Signal #1: total DAG content bytes (sum of node `content_canonical_bytes.len`).
+    pub signal_1_dag_total_content_bytes: u64,
+    /// Signal #2: cumulative count of evolution / schema-change events.
+    pub signal_2_evolution_event_count: u64,
+    /// Signal #3: distinct axis names that ever appeared in `axis_perturbed:*`.
+    pub signal_3_distinct_perturbed_axes_count: u64,
+    /// Signal #4b: count of currently-Established federation peers.
+    pub signal_4b_reachable_peer_count: u64,
+    /// Signal #6: `substrate_total_bytes / operator_context_window_bytes`.
+    /// Empty string when no operator context-window attestation has been
+    /// supplied recently (substrate cannot derive this autonomously).
+    pub signal_6_ratio_repr: String,
+}
+
+/// L1-tunable seed cap for the in-memory observatory history. The substrate
+/// trims oldest entries when this is exceeded.
+pub const OBSERVATORY_HISTORY_CAP: usize = 90;
+
+impl ObservatorySnapshot {
+    /// Encode this snapshot as a canonical-bytes Map. Used by the surrounding
+    /// `DerivedState::to_canonical_bytes` to serialize the history array.
+    pub fn to_canonical_value(&self) -> Value {
+        use std::collections::BTreeMap;
+        let mut m = BTreeMap::new();
+        m.insert("at_cycle".to_string(), Value::Uint(self.at_cycle));
+        m.insert("at_unix_ns".to_string(), Value::Timestamp(self.at_unix_ns));
+        m.insert(
+            "signal_1_dag_node_count".to_string(),
+            Value::Uint(self.signal_1_dag_node_count),
+        );
+        m.insert(
+            "signal_1_dag_total_content_bytes".to_string(),
+            Value::Uint(self.signal_1_dag_total_content_bytes),
+        );
+        m.insert(
+            "signal_2_evolution_event_count".to_string(),
+            Value::Uint(self.signal_2_evolution_event_count),
+        );
+        m.insert(
+            "signal_3_distinct_perturbed_axes_count".to_string(),
+            Value::Uint(self.signal_3_distinct_perturbed_axes_count),
+        );
+        m.insert(
+            "signal_4b_reachable_peer_count".to_string(),
+            Value::Uint(self.signal_4b_reachable_peer_count),
+        );
+        m.insert(
+            "signal_6_ratio_repr".to_string(),
+            Value::String(self.signal_6_ratio_repr.clone()),
+        );
+        Value::Map(m)
+    }
+
+    /// Decode a single snapshot Map. Returns an EventDecode error if the
+    /// shape is wrong.
+    pub fn from_canonical_value(v: &Value) -> Result<Self, DerivedStateError> {
+        let m = match v {
+            Value::Map(m) => m,
+            other => {
+                return Err(DerivedStateError::EventDecode {
+                    node_type: "observatory_snapshot".to_string(),
+                    reason: format!("not a Map: {other:?}"),
+                })
+            }
+        };
+        let read_uint = |k: &str| -> Result<u64, DerivedStateError> {
+            map_get_uint(m, k).map_err(|e| DerivedStateError::EventField {
+                node_type: "observatory_snapshot".to_string(),
+                field: k.to_string(),
+                reason: e.to_string(),
+            })
+        };
+        let at_cycle = read_uint("at_cycle")?;
+        let at_unix_ns = match m.get("at_unix_ns") {
+            Some(Value::Timestamp(t)) => *t,
+            _ => {
+                return Err(DerivedStateError::EventField {
+                    node_type: "observatory_snapshot".to_string(),
+                    field: "at_unix_ns".to_string(),
+                    reason: "missing or not Timestamp".to_string(),
+                })
+            }
+        };
+        let signal_1_dag_node_count = read_uint("signal_1_dag_node_count")?;
+        let signal_1_dag_total_content_bytes = read_uint("signal_1_dag_total_content_bytes")?;
+        let signal_2_evolution_event_count = read_uint("signal_2_evolution_event_count")?;
+        let signal_3_distinct_perturbed_axes_count =
+            read_uint("signal_3_distinct_perturbed_axes_count")?;
+        let signal_4b_reachable_peer_count = read_uint("signal_4b_reachable_peer_count")?;
+        let signal_6_ratio_repr = match m.get("signal_6_ratio_repr") {
+            Some(Value::String(s)) => s.clone(),
+            // tolerate absent for forward-compat
+            _ => String::new(),
+        };
+        Ok(ObservatorySnapshot {
+            at_cycle,
+            at_unix_ns,
+            signal_1_dag_node_count,
+            signal_1_dag_total_content_bytes,
+            signal_2_evolution_event_count,
+            signal_3_distinct_perturbed_axes_count,
+            signal_4b_reachable_peer_count,
+            signal_6_ratio_repr,
+        })
+    }
+}
 
 use crate::events::{
     NODE_TYPE_CYCLE_ADVANCED, NODE_TYPE_GENESIS_PREFIX, NODE_TYPE_NONCE_CONSUMED_PREFIX,
@@ -125,6 +257,14 @@ pub struct DerivedState {
     /// Live nonce log: derived from nonce_issued events, with nonce_consumed /
     /// nonce_expired events updating per-entry `consumed` flag or removing.
     pub nonce_log: HashMap<[u8; 32], DerivedNonce>,
+    /// M25.2 P5 万物互联: rolling history of per-cycle observatory snapshots.
+    /// Populated by the live server on every `cycle_advanced` emission. The
+    /// snapshot.cb persistence layer round-trips this so the trend window
+    /// survives reboots; pure DAG-replay boots start with an empty history
+    /// (filled organically over subsequent cycles).
+    ///
+    /// Capped at `OBSERVATORY_HISTORY_CAP` (90); oldest dropped on overflow.
+    pub observatory_history: VecDeque<ObservatorySnapshot>,
 }
 
 impl DerivedState {
@@ -137,6 +277,7 @@ impl DerivedState {
             last_absorbed_cycle: None,
             pinned_operator_identity: None,
             nonce_log: HashMap::new(),
+            observatory_history: VecDeque::new(),
         }
     }
 
@@ -163,6 +304,7 @@ impl DerivedState {
     ///   "last_absorbed_cycle": Uint,       // optional
     ///   "pinned_operator_identity": Map,   // optional
     ///   "nonce_log": Array<Map>,
+    ///   "observatory_history": Array<Map>, // optional; absent in pre-M25.2 snapshots
     /// })
     /// ```
     pub fn to_canonical_bytes(
@@ -238,6 +380,17 @@ impl DerivedState {
             })
             .collect();
         root.insert("nonce_log".to_string(), Value::Array(nonces));
+
+        // M25.2: persist the observatory history. Omitted entirely when
+        // empty (back-compat with pre-M25.2 snapshot decoders).
+        if !self.observatory_history.is_empty() {
+            let snapshots: Vec<Value> = self
+                .observatory_history
+                .iter()
+                .map(|s| s.to_canonical_value())
+                .collect();
+            root.insert("observatory_history".to_string(), Value::Array(snapshots));
+        }
 
         encode(&Value::Map(root)).expect("snapshot encode infallible")
     }
@@ -403,6 +556,19 @@ impl DerivedState {
                 },
             );
         }
+        // M25.2: optional observatory_history. Absent → empty.
+        let observatory_history: VecDeque<ObservatorySnapshot> = match map.get("observatory_history")
+        {
+            Some(Value::Array(arr)) => {
+                let mut hist = VecDeque::with_capacity(arr.len());
+                for v in arr {
+                    hist.push_back(ObservatorySnapshot::from_canonical_value(v)?);
+                }
+                hist
+            }
+            _ => VecDeque::new(),
+        };
+
         Ok(Some((
             DerivedState {
                 substrate_id,
@@ -411,6 +577,7 @@ impl DerivedState {
                 last_absorbed_cycle,
                 pinned_operator_identity,
                 nonce_log,
+                observatory_history,
             },
             snapshot_at_dag_tip,
         )))
@@ -1025,5 +1192,90 @@ mod tests {
         s.apply_event(&make_abs(7)).unwrap();
         s.apply_event(&make_abs(5)).unwrap(); // out-of-order: should NOT regress
         assert_eq!(s.last_absorbed_cycle, Some(7));
+    }
+
+    // ---------------------------------------------------------------------
+    // M25.2: ObservatorySnapshot canonical-bytes roundtrip tests.
+    // ---------------------------------------------------------------------
+
+    fn make_observatory_snapshot(at_cycle: u64) -> ObservatorySnapshot {
+        ObservatorySnapshot {
+            at_cycle,
+            at_unix_ns: 1_700_000_000_000 + (at_cycle as i64) * 1_000_000,
+            signal_1_dag_node_count: 100 + at_cycle * 7,
+            signal_1_dag_total_content_bytes: 5_000 + at_cycle * 137,
+            signal_2_evolution_event_count: at_cycle / 3,
+            signal_3_distinct_perturbed_axes_count: (at_cycle % 5).saturating_add(1),
+            signal_4b_reachable_peer_count: at_cycle % 4,
+            signal_6_ratio_repr: format!("{}.{:0>2}", at_cycle / 10, at_cycle % 10),
+        }
+    }
+
+    #[test]
+    fn observatory_snapshot_canonical_value_roundtrip() {
+        let original = make_observatory_snapshot(7);
+        let v = original.to_canonical_value();
+        let decoded = ObservatorySnapshot::from_canonical_value(&v)
+            .expect("snapshot decodes from its own canonical Value");
+        assert_eq!(decoded, original);
+    }
+
+    #[test]
+    fn observatory_snapshot_empty_signal_6_repr_roundtrip() {
+        let mut snap = make_observatory_snapshot(3);
+        snap.signal_6_ratio_repr.clear(); // simulate "no operator window attested"
+        let v = snap.to_canonical_value();
+        let decoded = ObservatorySnapshot::from_canonical_value(&v).unwrap();
+        assert_eq!(decoded.signal_6_ratio_repr, "");
+        assert_eq!(decoded, snap);
+    }
+
+    #[test]
+    fn observatory_history_canonical_bytes_roundtrip() {
+        // Populate a DerivedState with a non-empty observatory_history,
+        // round-trip it through canonical_bytes, and assert structural
+        // equality.
+        let mut state = DerivedState::empty();
+        state.substrate_id = Some([0x33; 32]);
+        state.genesis_time_unix_ns = Some(1_700_000_000_000);
+        state.cycle_counter = 12;
+        for cycle in 1..=12 {
+            state.observatory_history.push_back(make_observatory_snapshot(cycle));
+        }
+        let snapshot_at_tip = [0x77u8; 32];
+        let bytes = state.to_canonical_bytes(Some(&snapshot_at_tip));
+        let (decoded_state, decoded_tip) =
+            DerivedState::from_canonical_bytes(bytes.as_ref())
+                .expect("snapshot decode succeeds")
+                .expect("snapshot version 1 recognized");
+        assert_eq!(decoded_tip, Some(snapshot_at_tip));
+        assert_eq!(decoded_state.observatory_history.len(), 12);
+        for (orig, dec) in state
+            .observatory_history
+            .iter()
+            .zip(decoded_state.observatory_history.iter())
+        {
+            assert_eq!(orig, dec, "snapshot identity preserved across roundtrip");
+        }
+        assert_eq!(state, decoded_state, "full DerivedState equality");
+    }
+
+    #[test]
+    fn observatory_history_empty_compatible() {
+        // A DerivedState with NO observatory_history (pre-M25.2 snapshot)
+        // round-trips: the omitted field decodes back to an empty deque.
+        let mut state = DerivedState::empty();
+        state.substrate_id = Some([0x44; 32]);
+        state.genesis_time_unix_ns = Some(1_700_000_000_000);
+        state.cycle_counter = 5;
+        assert!(state.observatory_history.is_empty());
+        let bytes = state.to_canonical_bytes(None);
+        let (decoded_state, decoded_tip) =
+            DerivedState::from_canonical_bytes(bytes.as_ref())
+                .expect("decode ok")
+                .expect("version 1");
+        assert!(decoded_tip.is_none());
+        assert!(decoded_state.observatory_history.is_empty());
+        assert_eq!(state, decoded_state);
     }
 }

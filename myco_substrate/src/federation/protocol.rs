@@ -97,19 +97,77 @@ pub fn derive_federation_session_key(id_a: &[u8; 32], id_b: &[u8; 32]) -> [u8; 3
 use myco_kernel_shared::canonical_bytes::Value;
 use std::collections::BTreeMap;
 
+/// M25.4: domain-separation context string for FED_HELLO signing.
+///
+/// The signing message is `canonical_bytes(Map({"context", "peer_substrate_id",
+/// "dag_tip", "protocol_version"}))` — see [`build_fed_hello_signing_message`].
+/// The fixed context prevents a FED_HELLO signature from being replayed as
+/// some other Ed25519-signed message the substrate might sign in another
+/// context (e.g., self-euthanasia attestation, snapshot wrapper). A signature
+/// produced for one context cannot be lifted into another because the context
+/// byte string is part of the signed material.
+pub const FED_HELLO_SIGNING_CONTEXT: &str = "myco-fed-hello-v1";
+
+/// M25.4: build the canonical-bytes signing message for a FED_HELLO.
+///
+/// The signed material is a Map with a fixed context tag + the peer-asserted
+/// substrate_id + DAG tip + protocol_version. Both sender and receiver build
+/// the same canonical-bytes-encoded Map and verify against the embedded
+/// signature.
+///
+/// Note: `peer_substrate_id` here is the SENDER's substrate_id (i.e., the
+/// signer's own id). The name "peer" follows the wire-payload convention
+/// where each side refers to its own id as `peer_substrate_id` (the message
+/// is FROM this peer).
+pub fn build_fed_hello_signing_message(
+    peer_substrate_id: &[u8; 32],
+    dag_tip: Option<&[u8; 32]>,
+    protocol_version: u64,
+) -> Vec<u8> {
+    let mut m = BTreeMap::new();
+    m.insert(
+        "context".to_string(),
+        Value::String(FED_HELLO_SIGNING_CONTEXT.to_string()),
+    );
+    m.insert(
+        "peer_substrate_id".to_string(),
+        Value::Bytes(peer_substrate_id.to_vec()),
+    );
+    if let Some(tip) = dag_tip {
+        m.insert("dag_tip".to_string(), Value::Bytes(tip.to_vec()));
+    }
+    m.insert(
+        "protocol_version".to_string(),
+        Value::Uint(protocol_version),
+    );
+    myco_kernel_shared::canonical_bytes::encode(&Value::Map(m))
+        .expect("fed_hello signing message encode infallible")
+        .as_ref()
+        .to_vec()
+}
+
 /// Build the payload Map for a [`FED_HELLO`](fed_msg_type::FED_HELLO) message.
 ///
-/// Payload Map shape:
+/// Payload Map shape (M22 baseline + M25.4 optional signature fields):
 /// ```text
 /// {
 ///   "peer_substrate_id": Bytes(32),
 ///   "dag_tip": Bytes(32) | absent,           // absent for empty DAG
 ///   "protocol_version": Uint,
+///   "signer_pubkey": Bytes(32) | absent,     // M25.4; absent = legacy peer
+///   "hello_signature": Bytes(64) | absent,   // M25.4; absent = legacy peer
 /// }
 /// ```
+///
+/// M25.4: when both `signer_pubkey` and `hello_signature` are present, the
+/// receiver MUST verify the signature over `build_fed_hello_signing_message`'s
+/// output. Absence indicates a pre-M25 peer; the receiver falls back to
+/// substrate_id-only TOFU pinning (legacy compat).
 pub fn build_fed_hello_payload(
     our_substrate_id: &[u8; 32],
     our_dag_tip: Option<&[u8; 32]>,
+    our_signer_pubkey: Option<&[u8; 32]>,
+    our_hello_signature: Option<&[u8; 64]>,
 ) -> BTreeMap<String, Value> {
     let mut m = BTreeMap::new();
     m.insert(
@@ -123,17 +181,30 @@ pub fn build_fed_hello_payload(
         "protocol_version".to_string(),
         Value::Uint(FEDERATION_PROTOCOL_VERSION),
     );
+    if let Some(pk) = our_signer_pubkey {
+        m.insert("signer_pubkey".to_string(), Value::Bytes(pk.to_vec()));
+    }
+    if let Some(sig) = our_hello_signature {
+        m.insert("hello_signature".to_string(), Value::Bytes(sig.to_vec()));
+    }
     m
 }
 
 /// Build the payload Map for a [`FED_HELLO_ACK`](fed_msg_type::FED_HELLO_ACK)
 /// message. Same shape as the FED_HELLO payload (responder asserts its own
-/// substrate_id + DAG tip + version back at the initiator).
+/// substrate_id + DAG tip + version + optional signature back at the initiator).
 pub fn build_fed_hello_ack_payload(
     our_substrate_id: &[u8; 32],
     our_dag_tip: Option<&[u8; 32]>,
+    our_signer_pubkey: Option<&[u8; 32]>,
+    our_hello_signature: Option<&[u8; 64]>,
 ) -> BTreeMap<String, Value> {
-    build_fed_hello_payload(our_substrate_id, our_dag_tip)
+    build_fed_hello_payload(
+        our_substrate_id,
+        our_dag_tip,
+        our_signer_pubkey,
+        our_hello_signature,
+    )
 }
 
 /// Parsed FED_HELLO / FED_HELLO_ACK payload fields.
@@ -145,11 +216,20 @@ pub struct ParsedFedHello {
     pub peer_dag_tip: Option<[u8; 32]>,
     /// The peer's federation protocol version.
     pub protocol_version: u64,
+    /// M25.4: the peer's Ed25519 signing public key, if present.
+    /// `None` indicates a pre-M25 peer (legacy compat — receiver falls back
+    /// to substrate_id-only TOFU pinning).
+    pub signer_pubkey: Option<[u8; 32]>,
+    /// M25.4: the peer's Ed25519 signature over its hello signing message,
+    /// if present. `None` indicates a pre-M25 peer.
+    pub hello_signature: Option<[u8; 64]>,
 }
 
 /// Parse a FED_HELLO / FED_HELLO_ACK payload Map.
 ///
 /// Returns an error if any required field is missing or malformed.
+/// M25.4 optional fields (`signer_pubkey`, `hello_signature`) are tolerated
+/// when absent but rejected when present-but-malformed (wrong size etc.).
 pub fn parse_fed_hello_payload(
     payload: &BTreeMap<String, Value>,
 ) -> Result<ParsedFedHello, String> {
@@ -176,11 +256,79 @@ pub fn parse_fed_hello_payload(
         _ => return Err("protocol_version missing or not Uint".to_string()),
     };
 
+    // M25.4: optional signer_pubkey + hello_signature. Both must be present
+    // (or both absent) — a half-signed hello is malformed.
+    let signer_pubkey = match payload.get("signer_pubkey") {
+        Some(Value::Bytes(b)) if b.len() == 32 => {
+            let mut pk = [0u8; 32];
+            pk.copy_from_slice(b);
+            Some(pk)
+        }
+        Some(_) => return Err("signer_pubkey present but not 32 Bytes".to_string()),
+        None => None,
+    };
+    let hello_signature = match payload.get("hello_signature") {
+        Some(Value::Bytes(b)) if b.len() == 64 => {
+            let mut sig = [0u8; 64];
+            sig.copy_from_slice(b);
+            Some(sig)
+        }
+        Some(_) => return Err("hello_signature present but not 64 Bytes".to_string()),
+        None => None,
+    };
+    if signer_pubkey.is_some() != hello_signature.is_some() {
+        return Err(
+            "fed_hello: signer_pubkey and hello_signature must both be present or both absent"
+                .to_string(),
+        );
+    }
+
     Ok(ParsedFedHello {
         peer_substrate_id,
         peer_dag_tip,
         protocol_version,
+        signer_pubkey,
+        hello_signature,
     })
+}
+
+/// M25.4: verification outcome for a parsed FED_HELLO's optional signature.
+///
+/// The Ok payload distinguishes a verified signature (`true`) from a legacy
+/// peer that didn't provide one (`false`) — both are acceptable to the
+/// caller, but the legacy case downgrades to TOFU-only and emits a
+/// `federation_legacy_peer_pinned` observability event so the operator can
+/// see at audit time which connections were authenticated by signature vs
+/// fingerprint-pinned only.
+///
+/// Returns:
+/// - `Ok(true)` — signature is present and Ed25519-verifies against the
+///   embedded `signer_pubkey` for the canonical-bytes signing message
+///   constructed from the hello's other fields.
+/// - `Ok(false)` — both `signer_pubkey` and `hello_signature` are absent;
+///   this is a pre-M25 legacy peer. Caller proceeds with TOFU pinning.
+/// - `Err(msg)` — signature is present but verification failed (tampered
+///   signature, mismatched pubkey, or wire corruption). Caller MUST reject
+///   the connection and emit a `C39_federation_hello_signature_invalid`
+///   immune sporocarp.
+pub fn verify_fed_hello_signature(parsed: &ParsedFedHello) -> Result<bool, String> {
+    let (pk, sig) = match (&parsed.signer_pubkey, &parsed.hello_signature) {
+        (Some(pk), Some(sig)) => (pk, sig),
+        (None, None) => return Ok(false),
+        _ => {
+            // parse_fed_hello_payload already rejects this; defensive.
+            return Err("hello has only one of signer_pubkey/hello_signature".to_string());
+        }
+    };
+    let msg = build_fed_hello_signing_message(
+        &parsed.peer_substrate_id,
+        parsed.peer_dag_tip.as_ref(),
+        parsed.protocol_version,
+    );
+    match myco_kernel_shared::crypto::verify_signature(pk, sig, &msg) {
+        Ok(()) => Ok(true),
+        Err(e) => Err(format!("fed_hello signature verify failed: {e}")),
+    }
 }
 
 /// Build a federation error payload:
@@ -517,17 +665,20 @@ mod tests {
     fn fed_hello_payload_roundtrips_with_tip() {
         let id = [0x42; 32];
         let tip = [0x99; 32];
-        let payload = build_fed_hello_payload(&id, Some(&tip));
+        let payload = build_fed_hello_payload(&id, Some(&tip), None, None);
         let parsed = parse_fed_hello_payload(&payload).expect("parse");
         assert_eq!(parsed.peer_substrate_id, id);
         assert_eq!(parsed.peer_dag_tip, Some(tip));
         assert_eq!(parsed.protocol_version, FEDERATION_PROTOCOL_VERSION);
+        // M25.4: legacy peer (no signature fields) parses to None.
+        assert!(parsed.signer_pubkey.is_none());
+        assert!(parsed.hello_signature.is_none());
     }
 
     #[test]
     fn fed_hello_payload_roundtrips_without_tip() {
         let id = [0xab; 32];
-        let payload = build_fed_hello_payload(&id, None);
+        let payload = build_fed_hello_payload(&id, None, None, None);
         let parsed = parse_fed_hello_payload(&payload).expect("parse");
         assert_eq!(parsed.peer_substrate_id, id);
         assert_eq!(parsed.peer_dag_tip, None);
@@ -564,5 +715,133 @@ mod tests {
         let p = build_fed_error_payload("identity_mismatch", "peer id drift");
         assert!(matches!(p.get("code"), Some(Value::String(s)) if s == "identity_mismatch"));
         assert!(matches!(p.get("message"), Some(Value::String(s)) if s == "peer id drift"));
+    }
+
+    // -----------------------------------------------------------------------
+    // M25.4 FED_HELLO Ed25519 mutual-auth tests.
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn m25_4_fed_hello_with_signature_roundtrips() {
+        use myco_kernel_shared::crypto::Ed25519PrivateKey;
+        let id = [0x55; 32];
+        let tip = [0x66; 32];
+        let seed = [0x77; 32];
+        let key = Ed25519PrivateKey::from_seed(&seed);
+        let pubkey = key.public_key().0;
+        let msg = build_fed_hello_signing_message(&id, Some(&tip), FEDERATION_PROTOCOL_VERSION);
+        let sig = key.sign(&msg).0;
+        let payload = build_fed_hello_payload(&id, Some(&tip), Some(&pubkey), Some(&sig));
+        let parsed = parse_fed_hello_payload(&payload).expect("parse must succeed");
+        assert_eq!(parsed.peer_substrate_id, id);
+        assert_eq!(parsed.peer_dag_tip, Some(tip));
+        assert_eq!(parsed.signer_pubkey, Some(pubkey));
+        assert_eq!(parsed.hello_signature, Some(sig));
+    }
+
+    #[test]
+    fn m25_4_fed_hello_without_signature_legacy_compat() {
+        // Pre-M25 peer: hello carries no signature fields. Both signer_pubkey
+        // and hello_signature parse to None — receiver downgrades to TOFU.
+        let id = [0x88; 32];
+        let payload = build_fed_hello_payload(&id, None, None, None);
+        let parsed = parse_fed_hello_payload(&payload).expect("legacy hello parses");
+        assert!(parsed.signer_pubkey.is_none());
+        assert!(parsed.hello_signature.is_none());
+        // verify_fed_hello_signature returns Ok(false) for legacy peers.
+        let verified = verify_fed_hello_signature(&parsed).expect("legacy returns Ok");
+        assert!(!verified, "Ok(false) signals legacy peer (no signature)");
+    }
+
+    #[test]
+    fn m25_4_verify_fed_hello_signature_valid() {
+        use myco_kernel_shared::crypto::Ed25519PrivateKey;
+        let id = [0x99; 32];
+        let seed = [0xAA; 32];
+        let key = Ed25519PrivateKey::from_seed(&seed);
+        let pubkey = key.public_key().0;
+        let msg = build_fed_hello_signing_message(&id, None, FEDERATION_PROTOCOL_VERSION);
+        let sig = key.sign(&msg).0;
+        let payload = build_fed_hello_payload(&id, None, Some(&pubkey), Some(&sig));
+        let parsed = parse_fed_hello_payload(&payload).unwrap();
+        let verified = verify_fed_hello_signature(&parsed).expect("verify");
+        assert!(verified, "Ok(true) signals signature verified");
+    }
+
+    #[test]
+    fn m25_4_verify_fed_hello_signature_tampered_fails() {
+        use myco_kernel_shared::crypto::Ed25519PrivateKey;
+        let id = [0xBB; 32];
+        let tip = [0xCC; 32];
+        let seed = [0xDD; 32];
+        let key = Ed25519PrivateKey::from_seed(&seed);
+        let pubkey = key.public_key().0;
+        let msg = build_fed_hello_signing_message(&id, Some(&tip), FEDERATION_PROTOCOL_VERSION);
+        let mut sig = key.sign(&msg).0;
+        // Flip a bit in the signature.
+        sig[0] ^= 0x01;
+        let payload = build_fed_hello_payload(&id, Some(&tip), Some(&pubkey), Some(&sig));
+        let parsed = parse_fed_hello_payload(&payload).unwrap();
+        let result = verify_fed_hello_signature(&parsed);
+        assert!(result.is_err(), "tampered signature must yield Err");
+    }
+
+    #[test]
+    fn m25_4_verify_fed_hello_signature_legacy_returns_ok_false() {
+        // Defensive: a freshly-built ParsedFedHello with neither pubkey nor
+        // signature returns Ok(false) — duplicates m25_4_fed_hello_without_*
+        // above but exercises the verify_fed_hello_signature path directly.
+        let parsed = ParsedFedHello {
+            peer_substrate_id: [0xEE; 32],
+            peer_dag_tip: None,
+            protocol_version: FEDERATION_PROTOCOL_VERSION,
+            signer_pubkey: None,
+            hello_signature: None,
+        };
+        let verified = verify_fed_hello_signature(&parsed).expect("Ok");
+        assert!(!verified, "legacy peer must downgrade to TOFU (Ok(false))");
+    }
+
+    #[test]
+    fn m25_4_parse_rejects_half_signed_hello() {
+        // A payload with signer_pubkey but no hello_signature (or vice versa)
+        // is malformed — parse_fed_hello_payload must reject it.
+        let id = [0xFF; 32];
+        let mut payload = build_fed_hello_payload(&id, None, None, None);
+        payload.insert(
+            "signer_pubkey".to_string(),
+            Value::Bytes(vec![0x33; 32]),
+        );
+        // signature missing → malformed.
+        let err = parse_fed_hello_payload(&payload).unwrap_err();
+        assert!(
+            err.contains("both be present or both absent"),
+            "expected 'both present or absent' error; got: {err}"
+        );
+    }
+
+    #[test]
+    fn m25_4_signing_message_includes_context_string() {
+        // Sanity: the signing-message bytes must contain the literal context
+        // string. This makes domain separation observable + deters
+        // accidental reuse with another Ed25519 signing context.
+        let msg = build_fed_hello_signing_message(&[0u8; 32], None, FEDERATION_PROTOCOL_VERSION);
+        let needle = FED_HELLO_SIGNING_CONTEXT.as_bytes();
+        assert!(
+            msg.windows(needle.len()).any(|w| w == needle),
+            "signing message must include context string '{FED_HELLO_SIGNING_CONTEXT}'"
+        );
+    }
+
+    #[test]
+    fn m25_4_signing_message_changes_with_tip() {
+        // Different DAG tips → different signing messages (so signatures
+        // don't transfer across stale-tip vs current-tip hellos).
+        let id = [0u8; 32];
+        let msg_no_tip = build_fed_hello_signing_message(&id, None, FEDERATION_PROTOCOL_VERSION);
+        let tip = [0x42; 32];
+        let msg_with_tip =
+            build_fed_hello_signing_message(&id, Some(&tip), FEDERATION_PROTOCOL_VERSION);
+        assert_ne!(msg_no_tip, msg_with_tip);
     }
 }

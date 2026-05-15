@@ -183,11 +183,14 @@ fn do_autonomous_tick(state: &mut ServerState) -> Result<(), SubstrateError> {
 
     let our_substrate_id = state.manifest.substrate_id;
     let our_dag_tip = state.dag.tip().map(|t| t.0);
+    let our_signing_seed = state.substrate_signing_seed;
     let _accepted = state.federation.accept_pending()?;
-    let events =
-        state
-            .federation
-            .progress_peers(&our_substrate_id, our_dag_tip.as_ref(), &state.dag);
+    let events = state.federation.progress_peers(
+        &our_substrate_id,
+        our_dag_tip.as_ref(),
+        Some(&our_signing_seed),
+        &state.dag,
+    );
 
     if events.is_empty() {
         return Ok(());
@@ -205,9 +208,28 @@ fn do_autonomous_tick(state: &mut ServerState) -> Result<(), SubstrateError> {
                 peer_substrate_id,
                 remote_addr_str,
                 peer_dag_tip: _,
+                signer_pubkey,
+                signature_verified,
             } => {
-                let _ =
-                    emit_federation_peer_pinned(state, &peer_substrate_id, &remote_addr_str, now);
+                // M25.4 (autonomous tick path): include the signer_pubkey in
+                // the federation_peer_pinned event if the hello signature was
+                // verified. Legacy peers (no signature) also emit a separate
+                // federation_legacy_peer_pinned observability event.
+                let _ = emit_federation_peer_pinned(
+                    state,
+                    &peer_substrate_id,
+                    &remote_addr_str,
+                    now,
+                    signer_pubkey.as_ref(),
+                );
+                if !signature_verified {
+                    let _ = emit_federation_legacy_peer_pinned(
+                        state,
+                        &peer_substrate_id,
+                        &remote_addr_str,
+                        now,
+                    );
+                }
             }
             crate::federation::PollPeerEvent::RejectedSelfConnection { remote_addr_str } => {
                 let _ = emit_federation_peer_rejected(
@@ -216,6 +238,18 @@ fn do_autonomous_tick(state: &mut ServerState) -> Result<(), SubstrateError> {
                     &our_substrate_id,
                     &remote_addr_str,
                     "inbound peer claimed our own substrate_id (autonomous tick)",
+                );
+            }
+            crate::federation::PollPeerEvent::RejectedSignatureInvalid {
+                peer_substrate_id,
+                remote_addr_str,
+                reason,
+            } => {
+                let _ = emit_federation_hello_signature_invalid(
+                    state,
+                    &peer_substrate_id,
+                    &remote_addr_str,
+                    &reason,
                 );
             }
             crate::federation::PollPeerEvent::FailedFrameRead {
@@ -326,6 +360,38 @@ struct ServerState {
     /// Always present; the listener field stays `None` until the operator
     /// invokes `federation_open_listener`.
     federation: crate::federation::FederationState,
+    /// M25.0 + M25.4: the substrate's private Ed25519 signing seed.
+    ///
+    /// This NEVER goes on the wire. Used to (1) sign `snapshot.cb` so a
+    /// forged snapshot can't masquerade, and (2) sign FED_HELLO payloads
+    /// for federation mutual auth beyond TOFU. Reconstruct an
+    /// `Ed25519PrivateKey` via `Ed25519PrivateKey::from_seed(&seed)` at
+    /// each signing site (the keypair is cheap to derive on demand).
+    substrate_signing_seed: [u8; 32],
+    /// M25.2 P5 万物互联: rolling observatory snapshot history. One snapshot
+    /// is appended on every `cycle_advanced` emission. Used by
+    /// `handle_query_substrate_observatory` to compute signal #5 time
+    /// trends, `bet_weakening_quorum`, and emergent composite weights.
+    ///
+    /// Capped at `OBSERVATORY_HISTORY_CAP`; oldest dropped on overflow.
+    /// Round-trips through `snapshot.cb` so the trend window survives
+    /// reboots when a fresh snapshot is on disk; otherwise filled
+    /// organically as cycles tick.
+    observatory_history: std::collections::VecDeque<crate::derived_state::ObservatorySnapshot>,
+    /// M25.2: cache of the most-recent operator-attested context-window size.
+    /// Set whenever a `query_substrate_observatory` request carries
+    /// `operator_attested_context_window_bytes`. Used at cycle-advance time
+    /// to populate `signal_6_ratio_repr` on each new ObservatorySnapshot.
+    /// `None` until the operator first attests a window. The substrate
+    /// cannot derive this autonomously — it is an operator-environment fact.
+    last_operator_context_window_bytes: Option<u64>,
+    /// M25.1: tracks the most recent doctrine-burst sporocarp emission to
+    /// prevent burst spam on every observatory query. Stores
+    /// `manifest.cycle_counter` at emission time. Cooldown: 100 cycles.
+    last_doctrine_burst_emitted_at_cycle: Option<u64>,
+    /// M25.2: same as above but for the `C40_bet_weakening_quorum`
+    /// detector. Cooldown: 100 cycles.
+    last_bet_weakening_quorum_emitted_at_cycle: Option<u64>,
 }
 
 impl ServerState {
@@ -334,6 +400,7 @@ impl ServerState {
         manifest: Manifest,
         dag: Dag,
         pinned_operator_identity: Option<PinnedOperatorIdentity>,
+        substrate_signing_seed: [u8; 32],
     ) -> Self {
         // M7: the manifest's cycle_counter is the authoritative persisted
         // counter; the in-process CycleEngine maintains its own counter that
@@ -342,6 +409,8 @@ impl ServerState {
         // M8: dag carries the substrate's causal history (sporocarps + future event types).
         // M9: pinned_operator_identity is the TOFU-pinned operator pubkey;
         //     None pre-first-hello.
+        // M25.0: substrate_signing_seed is the substrate-private Ed25519 seed,
+        //     loaded or genesis-generated by `boot_or_genesis_substrate_signing_key`.
         ServerState {
             session_secret: [0u8; 32],
             handshake_complete: false,
@@ -353,7 +422,26 @@ impl ServerState {
             pinned_operator_identity,
             nonce_log: std::collections::HashMap::new(),
             federation: crate::federation::FederationState::default(),
+            substrate_signing_seed,
+            observatory_history: std::collections::VecDeque::new(),
+            last_operator_context_window_bytes: None,
+            last_doctrine_burst_emitted_at_cycle: None,
+            last_bet_weakening_quorum_emitted_at_cycle: None,
         }
+    }
+
+    /// M25.0 + M25.4: return the substrate's own Ed25519 public key (32 bytes),
+    /// derived from `substrate_signing_seed`. The pubkey appears on the wire
+    /// (snapshot wrapper + FED_HELLO signed payload); the private seed never does.
+    ///
+    /// Currently only used by tests; the runtime derives the pubkey inline
+    /// at each emission site (cheap; avoids cloning the seed for borrow).
+    #[allow(dead_code)]
+    fn substrate_signing_pubkey(&self) -> [u8; 32] {
+        use myco_kernel_shared::crypto::Ed25519PrivateKey;
+        Ed25519PrivateKey::from_seed(&self.substrate_signing_seed)
+            .public_key()
+            .0
     }
 
     /// M21.4 P5 万物互联: manifest persistence is now NO-OP.
@@ -440,41 +528,87 @@ pub fn run_loop() -> Result<u8, SubstrateError> {
         }
     };
 
-    // M21.5 P5 万物互联: try to load snapshot.cb first. If present + the
-    // snapshot's recorded tip is in the DAG → use it as the starting state +
-    // replay only events newer than that tip. This avoids full DAG replay on
-    // large substrates.
+    // M25.0: load (or genesis) the substrate's private signing seed BEFORE
+    // attempting to load snapshot.cb. The seed lets us verify that the
+    // on-disk snapshot was signed by THIS substrate (not a forged one) — the
+    // snapshot's embedded signer_pubkey must match the pubkey derived from
+    // our own seed, AND the signature must verify over the payload bytes.
+    let substrate_signing_seed =
+        crate::persistence::boot_or_genesis_substrate_signing_key(&state_dir)?;
+    let substrate_signing_pubkey = {
+        use myco_kernel_shared::crypto::Ed25519PrivateKey;
+        Ed25519PrivateKey::from_seed(&substrate_signing_seed)
+            .public_key()
+            .0
+    };
+
+    // M21.5 P5 万物互联 + M25.0: try to load snapshot.cb first. If present +
+    // (signature verifies against our own pubkey) + (snapshot's recorded tip
+    // is in the DAG) → use it as the starting state + replay only events
+    // newer than that tip. This avoids full DAG replay on large substrates.
     //
-    // Fallback (snapshot missing / corrupted / stale): full DAG replay
-    // (correctness preserved; snapshot is purely an optimization).
+    // Fallback (snapshot missing / corrupted / signature invalid / signer
+    // pubkey mismatch / stale tip): full DAG replay (correctness preserved;
+    // snapshot is purely an optimization). M25.0 specifically defends against
+    // cross-substrate forgery: copying substrate A's snapshot.cb into
+    // substrate B's state_dir fails the signer-pubkey check at B's boot.
+    let mut snapshot_rejection_evidence: Option<String> = None;
     let derived = {
-        let snapshot_bytes = crate::persistence::load_snapshot(&state_dir).ok().flatten();
-        let from_snapshot = match snapshot_bytes {
-            Some(bytes) => match DerivedState::from_canonical_bytes(&bytes) {
-                Ok(Some((mut state_from_snap, snap_tip))) => {
-                    // Validate: snapshot tip must be in DAG (else snapshot is
-                    // stale and DAG was rebuilt/quarantined).
-                    let snap_tip_in_dag = match snap_tip {
-                        None => dag.node_count() == 0,
-                        Some(tip_arr) => {
-                            let nh = myco_kernel_shared::crypto::NodeHash::from_bytes(tip_arr);
-                            dag.get(&nh).is_some()
+        let loaded = crate::persistence::load_snapshot(&state_dir).ok().flatten();
+        let from_snapshot = match loaded {
+            Some(snap) => {
+                // M25.0 step 1: signer pubkey must match our own — otherwise
+                // some other substrate wrote this snapshot (or it was forged).
+                if snap.signer_pubkey != substrate_signing_pubkey {
+                    snapshot_rejection_evidence = Some(format!(
+                        "snapshot.cb signer_pubkey {} != substrate signing pubkey {} \
+                         (snapshot was signed by a different substrate; rejected)",
+                        hex_first_8_bytes(&snap.signer_pubkey),
+                        hex_first_8_bytes(&substrate_signing_pubkey),
+                    ));
+                    None
+                } else if let Err(e) = myco_kernel_shared::crypto::verify_signature(
+                    &snap.signer_pubkey,
+                    &snap.signature,
+                    &snap.payload,
+                ) {
+                    // M25.0 step 2: signature must verify over the payload.
+                    snapshot_rejection_evidence = Some(format!(
+                        "snapshot.cb signature failed verification: {e} (rejected)"
+                    ));
+                    None
+                } else {
+                    // Signature OK — decode payload and proceed with M21.5
+                    // tip-in-DAG check.
+                    match DerivedState::from_canonical_bytes(&snap.payload) {
+                        Ok(Some((mut state_from_snap, snap_tip))) => {
+                            let snap_tip_in_dag = match snap_tip {
+                                None => dag.node_count() == 0,
+                                Some(tip_arr) => {
+                                    let nh = myco_kernel_shared::crypto::NodeHash::from_bytes(
+                                        tip_arr,
+                                    );
+                                    dag.get(&nh).is_some()
+                                }
+                            };
+                            if snap_tip_in_dag {
+                                let replay_result = replay_events_after_tip(
+                                    &mut state_from_snap,
+                                    &dag,
+                                    snap_tip.as_ref(),
+                                );
+                                match replay_result {
+                                    Ok(()) => Some(state_from_snap),
+                                    Err(_) => None,
+                                }
+                            } else {
+                                None
+                            }
                         }
-                    };
-                    if snap_tip_in_dag {
-                        // Replay only events AFTER snapshot_at_dag_tip.
-                        let replay_result =
-                            replay_events_after_tip(&mut state_from_snap, &dag, snap_tip.as_ref());
-                        match replay_result {
-                            Ok(()) => Some(state_from_snap),
-                            Err(_) => None, // fall back to full replay
-                        }
-                    } else {
-                        None
+                        _ => None,
                     }
                 }
-                _ => None,
-            },
+            }
             None => None,
         };
         from_snapshot.unwrap_or_else(|| {
@@ -534,7 +668,18 @@ pub fn run_loop() -> Result<u8, SubstrateError> {
         (m, pinned, entries, fresh)
     };
 
-    let mut state = ServerState::new(state_dir, manifest, dag, pinned_operator_identity);
+    let mut state = ServerState::new(
+        state_dir,
+        manifest,
+        dag,
+        pinned_operator_identity,
+        substrate_signing_seed,
+    );
+    // M25.2: restore observatory history from snapshot.cb if the boot path
+    // hydrated it onto `derived`. Fresh substrates / DAG-replay-only boots
+    // start with an empty deque; the history then fills organically as
+    // cycles tick. Cap is enforced on insert; we copy as-is here.
+    state.observatory_history = derived.observatory_history.clone();
     for entry in nonce_log_entries {
         state.nonce_log.insert(
             entry.nonce,
@@ -549,6 +694,20 @@ pub fn run_loop() -> Result<u8, SubstrateError> {
                 consumed: entry.consumed,
             },
         );
+    }
+
+    // M25.0: if snapshot.cb was rejected for signature mismatch or invalid
+    // signature, surface as a C38 immune sporocarp so the operator can
+    // investigate. The substrate continues running (snapshot is a cache;
+    // DAG replay rebuilt state from authoritative source).
+    if let Some(evidence) = snapshot_rejection_evidence {
+        let _ = emit_immune_sporocarp(
+            &mut state,
+            "C38_snapshot_integrity_violation",
+            "snapshot_integrity_violation",
+            &evidence,
+        );
+        let _ = save_dag_state(&state);
     }
 
     // If DAG load failed: emit C7 immune sporocarp into the fresh DAG.
@@ -883,6 +1042,14 @@ fn dispatch(state: &mut ServerState, request: &Message) -> Result<Option<Message
                 crate::events::NODE_TYPE_CYCLE_ADVANCED.to_string(),
                 event_content,
             );
+            // M25.2 P5 万物互联: append a fresh observatory snapshot to the
+            // trend window. Must happen AFTER the cycle_advanced DAG event
+            // is appended (so dag_node_count reflects the new state) and
+            // BEFORE save_dag_state (so the snapshot is built against the
+            // same state that gets persisted). The signal #5 / quorum /
+            // emergent-weights logic in `handle_query_substrate_observatory`
+            // walks this history.
+            append_observatory_snapshot_to_state(state);
             state.save_manifest()?;
             save_python_state(state)?;
             // M8: persist the DAG (sporocarps inserted during handle_advance).
@@ -1125,7 +1292,12 @@ fn handle_federation_close_listener(
     )))
 }
 
-/// M22.2: emit a `federation_peer_pinned` DAG event for a newly-pinned peer.
+/// M22.2 + M25.4: emit a `federation_peer_pinned` DAG event for a newly-pinned
+/// peer.
+///
+/// M25.4 added optional `signer_pubkey` payload — present iff the peer's
+/// FED_HELLO carried a verified Ed25519 signature (so the receiver pinned the
+/// signing key alongside the substrate_id). Absence = legacy peer.
 ///
 /// Returns the inserted node hash so the caller can surface it in the
 /// connect-peer / poll response.
@@ -1134,14 +1306,58 @@ fn emit_federation_peer_pinned(
     peer_substrate_id: &[u8; 32],
     remote_addr: &str,
     first_pinned_unix_ns: i64,
+    signer_pubkey: Option<&[u8; 32]>,
 ) -> Result<myco_kernel_shared::crypto::NodeHash, SubstrateError> {
     let nt = crate::events::federation_peer_pinned_node_type(peer_substrate_id);
     let content = crate::events::encode_federation_peer_pinned(
         peer_substrate_id,
         remote_addr,
         first_pinned_unix_ns,
+        signer_pubkey,
     );
     emit_substrate_event(state, nt, content)
+}
+
+/// M25.4: emit a `federation_legacy_peer_pinned` observability event for a
+/// peer pinned WITHOUT an Ed25519 signature (legacy compat). This is NOT an
+/// immune sporocarp — legacy peers are allowed. The event exists so operators
+/// can audit which connections were authenticated by signature vs TOFU only.
+fn emit_federation_legacy_peer_pinned(
+    state: &mut ServerState,
+    peer_substrate_id: &[u8; 32],
+    remote_addr: &str,
+    first_pinned_unix_ns: i64,
+) -> Result<myco_kernel_shared::crypto::NodeHash, SubstrateError> {
+    let nt = crate::events::federation_legacy_peer_pinned_node_type(peer_substrate_id);
+    let content = crate::events::encode_federation_legacy_peer_pinned(
+        peer_substrate_id,
+        remote_addr,
+        first_pinned_unix_ns,
+    );
+    emit_substrate_event(state, nt, content)
+}
+
+/// M25.4: emit `C39_federation_hello_signature_invalid` immune sporocarp when
+/// a peer presents a tampered/invalid Ed25519 signature in their FED_HELLO.
+fn emit_federation_hello_signature_invalid(
+    state: &mut ServerState,
+    peer_substrate_id: &[u8; 32],
+    remote_addr: &str,
+    reason: &str,
+) -> Result<(), SubstrateError> {
+    let evidence = format!(
+        "fed_hello signature verification failed: peer_id_prefix={} remote={} reason={}",
+        hex_first_8_bytes(peer_substrate_id),
+        remote_addr,
+        reason
+    );
+    let _ = emit_immune_sporocarp(
+        state,
+        "C39_federation_hello_signature_invalid",
+        "federation_hello_signature_invalid",
+        &evidence,
+    );
+    Ok(())
 }
 
 /// M22.2: emit a `federation_peer_rejected` DAG event + a C20 immune sporocarp
@@ -1215,11 +1431,14 @@ fn handle_federation_connect_peer(
     };
     let our_substrate_id = state.manifest.substrate_id;
     let our_dag_tip = state.dag.tip().map(|t| t.0);
+    let our_signing_seed = state.substrate_signing_seed;
 
-    let outcome =
-        state
-            .federation
-            .connect_peer(&remote_addr, &our_substrate_id, our_dag_tip.as_ref())?;
+    let outcome = state.federation.connect_peer(
+        &remote_addr,
+        &our_substrate_id,
+        our_dag_tip.as_ref(),
+        Some(&our_signing_seed),
+    )?;
 
     let mut payload = BTreeMap::new();
     payload.insert("remote_addr".to_string(), Value::String(remote_addr.clone()));
@@ -1228,6 +1447,8 @@ fn handle_federation_connect_peer(
             peer_substrate_id,
             remote_addr_str,
             peer_dag_tip,
+            signer_pubkey,
+            signature_verified,
         } => {
             let now = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
@@ -1239,7 +1460,16 @@ fn handle_federation_connect_peer(
                 &peer_substrate_id,
                 &remote_addr_str,
                 now,
+                signer_pubkey.as_ref(),
             )?;
+            if !signature_verified {
+                let _ = emit_federation_legacy_peer_pinned(
+                    state,
+                    &peer_substrate_id,
+                    &remote_addr_str,
+                    now,
+                );
+            }
             payload.insert("outcome".to_string(), Value::String("pinned".to_string()));
             payload.insert(
                 "peer_substrate_id".to_string(),
@@ -1251,6 +1481,16 @@ fn handle_federation_connect_peer(
             payload.insert(
                 "peer_pinned_event_hash".to_string(),
                 Value::Bytes(event_hash.0.to_vec()),
+            );
+            if let Some(pk) = signer_pubkey {
+                payload.insert(
+                    "peer_signer_pubkey".to_string(),
+                    Value::Bytes(pk.to_vec()),
+                );
+            }
+            payload.insert(
+                "signature_verified".to_string(),
+                Value::Bool(signature_verified),
             );
         }
         crate::federation::ConnectPeerOutcome::RejectedSelfConnection {
@@ -1293,6 +1533,31 @@ fn handle_federation_connect_peer(
                 "remote_addr".to_string(),
                 Value::String(new_remote_addr_str),
             );
+        }
+        crate::federation::ConnectPeerOutcome::RejectedSignatureInvalid {
+            peer_substrate_id,
+            remote_addr_str,
+            reason,
+        } => {
+            let _ = emit_federation_hello_signature_invalid(
+                state,
+                &peer_substrate_id,
+                &remote_addr_str,
+                &reason,
+            );
+            payload.insert(
+                "outcome".to_string(),
+                Value::String("hello_signature_invalid".to_string()),
+            );
+            payload.insert(
+                "peer_substrate_id".to_string(),
+                Value::Bytes(peer_substrate_id.to_vec()),
+            );
+            payload.insert(
+                "remote_addr".to_string(),
+                Value::String(remote_addr_str),
+            );
+            payload.insert("reason".to_string(), Value::String(reason));
         }
         crate::federation::ConnectPeerOutcome::AlreadyPinned {
             peer_substrate_id,
@@ -1343,11 +1608,16 @@ fn handle_federation_poll(
     let accepted = state.federation.accept_pending()?;
     let our_substrate_id = state.manifest.substrate_id;
     let our_dag_tip = state.dag.tip().map(|t| t.0);
-    // M22.3: pass &dag so progress_peers can enumerate events for inbound
-    // FED_REQUEST_EVENTS_SINCE responses.
-    let events = state
-        .federation
-        .progress_peers(&our_substrate_id, our_dag_tip.as_ref(), &state.dag);
+    let our_signing_seed = state.substrate_signing_seed;
+    // M22.3 + M25.4: pass &dag so progress_peers can enumerate events for
+    // inbound FED_REQUEST_EVENTS_SINCE responses, and pass the signing seed
+    // so outbound FED_HELLO_ACK frames carry our Ed25519 signature.
+    let events = state.federation.progress_peers(
+        &our_substrate_id,
+        our_dag_tip.as_ref(),
+        Some(&our_signing_seed),
+        &state.dag,
+    );
 
     let mut pinned_count = 0u64;
     let mut rejected_count = 0u64;
@@ -1364,13 +1634,24 @@ fn handle_federation_poll(
                 peer_substrate_id,
                 remote_addr_str,
                 peer_dag_tip: _,
+                signer_pubkey,
+                signature_verified,
             } => {
                 let _ = emit_federation_peer_pinned(
                     state,
                     &peer_substrate_id,
                     &remote_addr_str,
                     now,
+                    signer_pubkey.as_ref(),
                 );
+                if !signature_verified {
+                    let _ = emit_federation_legacy_peer_pinned(
+                        state,
+                        &peer_substrate_id,
+                        &remote_addr_str,
+                        now,
+                    );
+                }
                 pinned_count += 1;
             }
             crate::federation::PollPeerEvent::RejectedSelfConnection { remote_addr_str } => {
@@ -1380,6 +1661,19 @@ fn handle_federation_poll(
                     &our_substrate_id,
                     &remote_addr_str,
                     "inbound peer claimed our own substrate_id (self-connection)",
+                );
+                rejected_count += 1;
+            }
+            crate::federation::PollPeerEvent::RejectedSignatureInvalid {
+                peer_substrate_id,
+                remote_addr_str,
+                reason,
+            } => {
+                let _ = emit_federation_hello_signature_invalid(
+                    state,
+                    &peer_substrate_id,
+                    &remote_addr_str,
+                    &reason,
                 );
                 rejected_count += 1;
             }
@@ -1585,6 +1879,161 @@ fn handle_accept_self_euthanasia_proposal(
     )))
 }
 
+/// M25.2 P5 万物互联: aggregated counts produced by one full O(N) DAG scan
+/// for the observatory. Used both by `handle_query_substrate_observatory`
+/// (for the live response) and by the per-cycle snapshot hook
+/// `append_observatory_snapshot_to_state` (for the trend window).
+///
+/// This avoids walking the DAG twice when the observatory is queried right
+/// after a cycle advance, AND keeps signal definitions in one place — the
+/// time-trend signal in the query handler MUST agree with what gets logged
+/// to the history.
+struct ObservatoryCounts {
+    /// `state.dag.node_count()`. Cheap, but included so callers don't need a
+    /// second DAG borrow.
+    dag_node_count: u64,
+    /// Sum of `parent_hashes.len()` over all DAG nodes.
+    dag_edge_count: u64,
+    /// Sum of `content_canonical_bytes.len()` over all DAG nodes.
+    dag_total_content_bytes: u64,
+    /// Cumulative count of `axis_registered:*` + `evolution_succeeded:*` +
+    /// `evolution_failed:*` events.
+    evolution_event_count: u64,
+    /// Cumulative count of `axis_registered:*` events (subset of the above).
+    axis_register_count: u64,
+    /// Distinct axis names that ever appeared in `axis_perturbed:*` events.
+    distinct_perturbed_axes_count: u64,
+    /// Cumulative count of `federation_received:*` events.
+    federation_received_count: u64,
+    /// Currently-Established federation peers (live state, not DAG-derived).
+    established_peers: u64,
+    /// Count of CI-class events (axis_registered + owner_key_* + evolution_*)
+    /// that landed in the most-recent `cycle_window` substrate-cycles
+    /// (NOT wall time). Used by M25.1 doctrine-burst detection.
+    ci_events_in_burst_window: u64,
+}
+
+/// M25.2: scan the DAG once + read live federation state to populate an
+/// `ObservatoryCounts` snapshot. `burst_window_cycles` controls how far
+/// back doctrine-burst counting reaches (typically 100; lower for tests).
+fn compute_observatory_counts(state: &ServerState, burst_window_cycles: u64) -> ObservatoryCounts {
+    let dag_node_count = state.dag.node_count() as u64;
+    let manifest_cycle = state.manifest.cycle_counter;
+    let burst_cutoff_cycle = manifest_cycle.saturating_sub(burst_window_cycles);
+
+    let mut dag_edge_count: u64 = 0;
+    let mut dag_total_content_bytes: u64 = 0;
+    let mut evolution_event_count: u64 = 0;
+    let mut axis_register_count: u64 = 0;
+    let mut perturbed_axes: std::collections::BTreeSet<String> =
+        std::collections::BTreeSet::new();
+    let mut federation_received_count: u64 = 0;
+    let mut ci_events_in_burst_window: u64 = 0;
+
+    for n in state.dag.iter_in_insertion_order() {
+        dag_edge_count = dag_edge_count.saturating_add(n.parent_hashes.len() as u64);
+        dag_total_content_bytes = dag_total_content_bytes
+            .saturating_add(n.content_canonical_bytes.as_ref().len() as u64);
+        let nt = &n.node_type;
+        let mut is_ci = false;
+        if nt.starts_with("axis_registered:") {
+            axis_register_count = axis_register_count.saturating_add(1);
+            evolution_event_count = evolution_event_count.saturating_add(1);
+            is_ci = true;
+        } else if nt.starts_with("evolution_succeeded:") || nt.starts_with("evolution_failed:") {
+            evolution_event_count = evolution_event_count.saturating_add(1);
+            is_ci = true;
+        } else if let Some(axis_name) = nt.strip_prefix("axis_perturbed:") {
+            perturbed_axes.insert(axis_name.to_string());
+        } else if nt.starts_with("federation_received:") {
+            federation_received_count = federation_received_count.saturating_add(1);
+        }
+        // M25.1 doctrine-burst: owner_key_* events are also CI-class.
+        if nt == crate::events::NODE_TYPE_OWNER_KEY_INITIALIZED
+            || nt == crate::events::NODE_TYPE_OWNER_KEY_ADDED
+            || nt == crate::events::NODE_TYPE_OWNER_KEY_ARCHIVED
+        {
+            is_ci = true;
+        }
+        if is_ci && n.created_at_cycle >= burst_cutoff_cycle {
+            ci_events_in_burst_window = ci_events_in_burst_window.saturating_add(1);
+        }
+    }
+
+    let established_peers = state
+        .federation
+        .peers
+        .iter()
+        .filter(|p| p.state == crate::federation::transport::PeerConnectionState::Established)
+        .count() as u64;
+
+    ObservatoryCounts {
+        dag_node_count,
+        dag_edge_count,
+        dag_total_content_bytes,
+        evolution_event_count,
+        axis_register_count,
+        distinct_perturbed_axes_count: perturbed_axes.len() as u64,
+        federation_received_count,
+        established_peers,
+        ci_events_in_burst_window,
+    }
+}
+
+/// M25.2: append a fresh observatory snapshot to `state.observatory_history`
+/// and enforce the cap. Called on every `cycle_advanced` emission.
+///
+/// `signal_6_ratio_repr` is filled from `state.last_operator_context_window_bytes`
+/// if present (empty string otherwise — substrate cannot derive autonomously).
+fn append_observatory_snapshot_to_state(state: &mut ServerState) {
+    use crate::derived_state::{ObservatorySnapshot, OBSERVATORY_HISTORY_CAP};
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    let counts = compute_observatory_counts(state, M25_1_DOCTRINE_BURST_WINDOW_CYCLES);
+    let at_unix_ns = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .ok()
+        .and_then(|d| i64::try_from(d.as_nanos()).ok())
+        .unwrap_or(0);
+
+    let signal_6_ratio_repr = match state.last_operator_context_window_bytes {
+        Some(0) => "inf".to_string(),
+        Some(w) => float_repr((counts.dag_total_content_bytes as f64) / (w as f64)),
+        None => String::new(),
+    };
+
+    let snapshot = ObservatorySnapshot {
+        at_cycle: state.manifest.cycle_counter,
+        at_unix_ns,
+        signal_1_dag_node_count: counts.dag_node_count,
+        signal_1_dag_total_content_bytes: counts.dag_total_content_bytes,
+        signal_2_evolution_event_count: counts.evolution_event_count,
+        signal_3_distinct_perturbed_axes_count: counts.distinct_perturbed_axes_count,
+        signal_4b_reachable_peer_count: counts.established_peers,
+        signal_6_ratio_repr,
+    };
+    state.observatory_history.push_back(snapshot);
+    while state.observatory_history.len() > OBSERVATORY_HISTORY_CAP {
+        state.observatory_history.pop_front();
+    }
+}
+
+/// M25.1: cycle-window for doctrine-burst detection. Counts CI-class events
+/// landed in the last N substrate-cycles (NOT wall time). 100 is the L0 §9.4
+/// seed; the L1 tunable will live in a future seed-config event.
+const M25_1_DOCTRINE_BURST_WINDOW_CYCLES: u64 = 100;
+/// M25.1: threshold above which the CI-event burst window fires a C37
+/// immune sporocarp.
+const M25_1_DOCTRINE_BURST_THRESHOLD: u64 = 10;
+/// M25.1 + M25.2: cooldown (in substrate-cycles) between repeated emissions
+/// of the doctrine-burst / bet-weakening-quorum sporocarps so a single
+/// burst is not amplified into hundreds of immune events.
+const M25_DETECTOR_COOLDOWN_CYCLES: u64 = 100;
+/// M25.2: minimum history length before signal #5 (time trends) and the
+/// `bet_weakening_quorum` quorum predicate become evaluable. Below this
+/// the trend signals are reported as "unknown" / "evaluable=false".
+const M25_2_MIN_HISTORY_LEN_FOR_TRENDS: usize = 10;
+
 /// Phase α (2026-05-15) — Living Bets observatory primitive.
 ///
 /// Per L2_OBSERVABILITY §2.1 + L0 §7. Ships ONLY signals #1 (persistence
@@ -1622,25 +2071,32 @@ fn handle_query_substrate_observatory(
 ) -> Result<Option<Message>, SubstrateError> {
     use std::time::{SystemTime, UNIX_EPOCH};
 
-    // Compute signal #1 (persistence budget) by iterating the DAG.
-    // This is O(N) over the DAG; for very large DAGs we may want to
-    // cache + incrementally update. Phase α: simple full scan.
-    let dag_node_count = state.dag.node_count() as u64;
-    let mut dag_edge_count: u64 = 0;
-    let mut dag_total_content_bytes: u64 = 0;
-    for node in state.dag.iter_in_insertion_order() {
-        dag_edge_count = dag_edge_count.saturating_add(node.parent_hashes.len() as u64);
-        dag_total_content_bytes = dag_total_content_bytes
-            .saturating_add(node.content_canonical_bytes.as_ref().len() as u64);
-    }
+    // Single O(N) DAG scan shared with the cycle-tick snapshot path so
+    // signal definitions cannot drift between the live response and the
+    // history series.
+    let counts = compute_observatory_counts(state, M25_1_DOCTRINE_BURST_WINDOW_CYCLES);
+    let dag_node_count = counts.dag_node_count;
+    let dag_edge_count = counts.dag_edge_count;
+    let dag_total_content_bytes = counts.dag_total_content_bytes;
+    let evolution_event_count = counts.evolution_event_count;
+    let axis_register_count = counts.axis_register_count;
+    let distinct_perturbed_axes_count = counts.distinct_perturbed_axes_count;
+    let federation_received_count = counts.federation_received_count;
+    let established_peers = counts.established_peers;
+    let ci_events_in_burst_window = counts.ci_events_in_burst_window;
     let manifest_cycle_counter = state.manifest.cycle_counter;
 
     // Signal #6: read-window-relative position. Only computed if the
-    // operator attests their context window size.
+    // operator attests their context window size. M25.2: the attested
+    // window is cached on ServerState so subsequent cycle-tick snapshots
+    // can keep populating `signal_6_ratio_repr` between operator queries.
     let operator_window = match request.payload.get("operator_attested_context_window_bytes") {
         Some(Value::Uint(n)) => Some(*n),
         _ => None,
     };
+    if let Some(w) = operator_window {
+        state.last_operator_context_window_bytes = Some(w);
+    }
 
     let mut signal_1_map = BTreeMap::new();
     signal_1_map.insert("dag_node_count".to_string(), Value::Uint(dag_node_count));
@@ -1685,36 +2141,6 @@ fn handle_query_substrate_observatory(
         );
     }
 
-    // M24.5 (Phase β): signal #2 evolution rate, #3 read-pattern diversity,
-    // #4 federation health, + composite #7. Single-pass O(N) over DAG with
-    // accumulators per signal — matches signal #1 cost.
-    //
-    // Per L2_OBSERVABILITY §2.1:
-    //  - signal #2: governance/schema changes count (axis_registered + evolution_*)
-    //  - signal #3: variety of axis names involved in axis_perturbed (proxy)
-    //  - signal #4a: cumulative federation fork count (placeholder; M25 will track)
-    //  - signal #4b: reachable federation peer count (live state)
-    //  - signal #5 time trend: NOT IMPLEMENTED (requires historical series; M25)
-    //  - signal #7 composite: weighted aggregate of #1+#2+#4b (#3 + #5 not yet
-    //    available, omitted from composite at this format_version=2)
-    let mut evolution_event_count: u64 = 0;
-    let mut axis_register_count: u64 = 0;
-    let mut perturbed_axes: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
-    let mut federation_received_count: u64 = 0;
-    for n in state.dag.iter_in_insertion_order() {
-        let nt = &n.node_type;
-        if nt.starts_with("axis_registered:") {
-            axis_register_count = axis_register_count.saturating_add(1);
-            evolution_event_count = evolution_event_count.saturating_add(1);
-        } else if nt.starts_with("evolution_succeeded:") || nt.starts_with("evolution_failed:") {
-            evolution_event_count = evolution_event_count.saturating_add(1);
-        } else if let Some(axis_name) = nt.strip_prefix("axis_perturbed:") {
-            perturbed_axes.insert(axis_name.to_string());
-        } else if nt.starts_with("federation_received:") {
-            federation_received_count = federation_received_count.saturating_add(1);
-        }
-    }
-
     let mut signal_2_map = BTreeMap::new();
     signal_2_map.insert(
         "evolution_event_count".to_string(),
@@ -1742,7 +2168,7 @@ fn handle_query_substrate_observatory(
     let mut signal_3_map = BTreeMap::new();
     signal_3_map.insert(
         "distinct_perturbed_axes_count".to_string(),
-        Value::Uint(perturbed_axes.len() as u64),
+        Value::Uint(distinct_perturbed_axes_count),
     );
     payload.insert(
         "signal_3_read_pattern_diversity".to_string(),
@@ -1751,15 +2177,9 @@ fn handle_query_substrate_observatory(
 
     // signal_4: federation health (4a/4b).
     let mut signal_4_map = BTreeMap::new();
-    let established_peers = state
-        .federation
-        .peers
-        .iter()
-        .filter(|p| p.state == crate::federation::transport::PeerConnectionState::Established)
-        .count() as u64;
     signal_4_map.insert(
         "signal_4a_cumulative_fork_count".to_string(),
-        Value::Uint(0), // placeholder — fork tracking M25
+        Value::Uint(0), // placeholder — fork tracking M25+
     );
     signal_4_map.insert(
         "signal_4b_reachable_peer_count".to_string(),
@@ -1771,32 +2191,325 @@ fn handle_query_substrate_observatory(
     );
     payload.insert("signal_4_federation_health".to_string(), Value::Map(signal_4_map));
 
-    // signal_7 composite (M24.5 minimum-viable): weighted aggregate over
-    // available numeric signals. Format_version=2 composite weights:
-    //   0.4 * normalize(persistence_budget_dag_node_count) +
-    //   0.3 * normalize(evolution_rate) +
-    //   0.3 * normalize(federation_health_4b)
-    // Normalization is log-scaled (substrate-size + evolution + peer count
-    // each span many orders of magnitude in production). M25 will replace
-    // with emergent-weight composite per L0 §7 line 357.
-    let log_normalized = |x: u64| -> f64 {
-        if x == 0 { 0.0 } else { ((x as f64).ln() / 10.0_f64.ln()).max(0.0).min(10.0) }
+    // -----------------------------------------------------------------------
+    // M25.2: signal #5 time trends + bet_weakening_quorum predicate.
+    //
+    // signal_5 = per-signal direction ("up" / "down" / "flat" / "unknown")
+    // computed over the rolling observatory_history window. Becomes evaluable
+    // after `M25_2_MIN_HISTORY_LEN_FOR_TRENDS` snapshots are accumulated.
+    //
+    // bet_weakening_quorum = L0 §7 falsifiability mechanism. Triggered when
+    // ≥3 of signals 1/2/3/4b/6 trend AGAINST the bet (i.e. "down" for the
+    // signals where "up" means substrate-favorable) AND signal #6 stays < 1
+    // for ≥50% of cycles in the window. Emits a C38 immune sporocarp +
+    // bet_weakening_quorum_quorum:<cycle> positive DAG event.
+    // -----------------------------------------------------------------------
+    // Extract everything we need from history into owned locals so the
+    // immutable borrow drops here. Subsequent mutable state.emit_* calls
+    // would otherwise conflict with `&state.observatory_history`.
+    let (
+        window_samples,
+        trends_evaluable,
+        sig_1_dir,
+        sig_2_dir,
+        sig_3_dir,
+        sig_4b_dir,
+        sig_6_dir,
+        sig_6_below_one_fraction,
+        emergent_weights,
+    ) = {
+        let history = &state.observatory_history;
+        let window_samples: u64 = history.len() as u64;
+        let trends_evaluable = history.len() >= M25_2_MIN_HISTORY_LEN_FOR_TRENDS;
+
+        let sig_1_dir = signal_direction_label(history, |s| s.signal_1_dag_node_count as f64);
+        let sig_2_dir =
+            signal_direction_label(history, |s| s.signal_2_evolution_event_count as f64);
+        let sig_3_dir = signal_direction_label(history, |s| {
+            s.signal_3_distinct_perturbed_axes_count as f64
+        });
+        let sig_4b_dir =
+            signal_direction_label(history, |s| s.signal_4b_reachable_peer_count as f64);
+        let sig_6_dir = signal_direction_label(history, |s| {
+            s.signal_6_ratio_repr.parse::<f64>().unwrap_or(0.0)
+        });
+
+        let (sig_6_below_one_count, sig_6_measured_count) = history
+            .iter()
+            .filter(|s| !s.signal_6_ratio_repr.is_empty())
+            .fold((0u64, 0u64), |(below, total), s| {
+                let r = s.signal_6_ratio_repr.parse::<f64>().unwrap_or(0.0);
+                (below + (r < 1.0) as u64, total + 1)
+            });
+        let sig_6_below_one_fraction: f64 = if sig_6_measured_count == 0 {
+            0.0
+        } else {
+            sig_6_below_one_count as f64 / sig_6_measured_count as f64
+        };
+
+        // M25.3 emergent weights: compute here while we still hold the
+        // immutable borrow on history. The weights tuple flows out as
+        // an owned value.
+        let log_normalized_local = |x: u64| -> f64 {
+            if x == 0 {
+                0.0
+            } else {
+                ((x as f64).ln() / 10.0_f64.ln()).max(0.0).min(10.0)
+            }
+        };
+        let emergent_weights: ((f64, f64, f64), &'static str) =
+            if history.len() >= M25_2_MIN_HISTORY_LEN_FOR_TRENDS {
+                let s1: Vec<f64> = history
+                    .iter()
+                    .map(|s| log_normalized_local(s.signal_1_dag_node_count))
+                    .collect();
+                let s2: Vec<f64> = history
+                    .iter()
+                    .map(|s| log_normalized_local(s.signal_2_evolution_event_count))
+                    .collect();
+                let s4b: Vec<f64> = history
+                    .iter()
+                    .map(|s| log_normalized_local(s.signal_4b_reachable_peer_count))
+                    .collect();
+                let stddev = |v: &[f64]| -> f64 {
+                    if v.is_empty() {
+                        return 0.0;
+                    }
+                    let m: f64 = v.iter().sum::<f64>() / v.len() as f64;
+                    let var =
+                        v.iter().map(|x| (x - m).powi(2)).sum::<f64>() / v.len() as f64;
+                    var.sqrt()
+                };
+                let v1 = stddev(&s1);
+                let v2 = stddev(&s2);
+                let v4 = stddev(&s4b);
+                let sum = v1 + v2 + v4;
+                if sum > 1e-9 {
+                    ((v1 / sum, v2 / sum, v4 / sum), "emergent_variance")
+                } else {
+                    // Degenerate: every signal flat across the window → equal weights.
+                    ((1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0), "equal_degenerate")
+                }
+            } else {
+                // Cold-start: insufficient history; fall back to equal weights.
+                ((1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0), "equal_cold_start")
+            };
+
+        (
+            window_samples,
+            trends_evaluable,
+            sig_1_dir,
+            sig_2_dir,
+            sig_3_dir,
+            sig_4b_dir,
+            sig_6_dir,
+            sig_6_below_one_fraction,
+            emergent_weights,
+        )
     };
-    let composite = 0.4 * log_normalized(dag_node_count)
-        + 0.3 * log_normalized(evolution_event_count)
-        + 0.3 * log_normalized(established_peers);
+
+    let mut signal_5_map = BTreeMap::new();
+    signal_5_map.insert(
+        "signal_1_direction".to_string(),
+        Value::String(sig_1_dir.to_string()),
+    );
+    signal_5_map.insert(
+        "signal_2_direction".to_string(),
+        Value::String(sig_2_dir.to_string()),
+    );
+    signal_5_map.insert(
+        "signal_3_direction".to_string(),
+        Value::String(sig_3_dir.to_string()),
+    );
+    signal_5_map.insert(
+        "signal_4b_direction".to_string(),
+        Value::String(sig_4b_dir.to_string()),
+    );
+    signal_5_map.insert(
+        "signal_6_direction".to_string(),
+        Value::String(sig_6_dir.to_string()),
+    );
+    signal_5_map.insert("window_samples".to_string(), Value::Uint(window_samples));
+    signal_5_map.insert(
+        "evaluable".to_string(),
+        Value::Bool(trends_evaluable),
+    );
+    payload.insert("signal_5_time_trends".to_string(), Value::Map(signal_5_map));
+
+    // bet_weakening_quorum predicate. For signals 1/2/3/4b, "down" means
+    // against the bet (substrate shrinking / not learning / monoculturing /
+    // federation isolating). For signal 6, "down" means ratio shrinking
+    // (substrate-relative-to-window improving) — so for bet-against semantics
+    // signal #6 trending "up" is the negative direction (substrate consuming
+    // more of the context window). We follow the spec literally: count
+    // signal_6 == "down" as "against bet" too, because a substrate that
+    // can't materialize new events at all (ratio drifting down) is failing
+    // its persistence bet just as badly. The L0 §7 spec intentionally
+    // leaves the direction-of-against-bet interpretation simple here —
+    // it can be refined when L1 tunables ship.
+    let against_count: u64 = [
+        sig_1_dir == "down",
+        sig_2_dir == "down",
+        sig_3_dir == "down",
+        sig_4b_dir == "down",
+        sig_6_dir == "down",
+    ]
+    .iter()
+    .filter(|&&b| b)
+    .count() as u64;
+
+    let quorum_evaluable = trends_evaluable;
+    let quorum_triggered =
+        quorum_evaluable && against_count >= 3 && sig_6_below_one_fraction >= 0.5;
+
+    let mut bwq_map = BTreeMap::new();
+    bwq_map.insert("triggered".to_string(), Value::Bool(quorum_triggered));
+    bwq_map.insert("evaluable".to_string(), Value::Bool(quorum_evaluable));
+    bwq_map.insert("against_count".to_string(), Value::Uint(against_count));
+    bwq_map.insert(
+        "signal_6_below_one_fraction_repr".to_string(),
+        Value::String(float_repr(sig_6_below_one_fraction)),
+    );
+    bwq_map.insert("window_samples".to_string(), Value::Uint(window_samples));
+    payload.insert("bet_weakening_quorum".to_string(), Value::Map(bwq_map));
+
+    // Fire C38 sporocarp on quorum trigger (deduped via cooldown).
+    if quorum_triggered {
+        let cooldown_expired = match state.last_bet_weakening_quorum_emitted_at_cycle {
+            None => true,
+            Some(prior) => manifest_cycle_counter.saturating_sub(prior)
+                >= M25_DETECTOR_COOLDOWN_CYCLES,
+        };
+        if cooldown_expired {
+            let evidence = format!(
+                "against_count={against_count}, sig_6_below_one_fraction={:.4}, \
+                 window_samples={window_samples}, dirs=[1:{sig_1_dir},2:{sig_2_dir},\
+                 3:{sig_3_dir},4b:{sig_4b_dir},6:{sig_6_dir}]",
+                sig_6_below_one_fraction
+            );
+            let _ = emit_immune_sporocarp(
+                state,
+                "C40_bet_weakening_quorum",
+                "bet_weakening_quorum_detected",
+                &evidence,
+            );
+            // Positive (non-immune) DAG event preserving the trigger.
+            let mut quorum_content = BTreeMap::new();
+            quorum_content.insert("at_cycle".to_string(), Value::Uint(manifest_cycle_counter));
+            quorum_content.insert("against_count".to_string(), Value::Uint(against_count));
+            quorum_content.insert(
+                "signal_6_below_one_fraction_repr".to_string(),
+                Value::String(float_repr(sig_6_below_one_fraction)),
+            );
+            quorum_content.insert("window_samples".to_string(), Value::Uint(window_samples));
+            if let Ok(bytes) = cb_encode(&Value::Map(quorum_content)) {
+                let _ = emit_substrate_event(
+                    state,
+                    format!("bet_weakening_quorum_quorum:{}", manifest_cycle_counter),
+                    bytes,
+                );
+            }
+            state.last_bet_weakening_quorum_emitted_at_cycle = Some(manifest_cycle_counter);
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // M25.1: doctrine-instability burst detection.
+    //
+    // CI-class events (axis_registered + evolution_succeeded/failed +
+    // owner_key_*) over the rolling cycle window. If burst threshold
+    // exceeded, fruit a C37 immune sporocarp (deduped via cooldown).
+    // -----------------------------------------------------------------------
+    let is_burst = ci_events_in_burst_window > M25_1_DOCTRINE_BURST_THRESHOLD;
+    let mut signal_8_map = BTreeMap::new();
+    signal_8_map.insert(
+        "ci_events_recent_100_cycles".to_string(),
+        Value::Uint(ci_events_in_burst_window),
+    );
+    signal_8_map.insert(
+        "burst_threshold".to_string(),
+        Value::Uint(M25_1_DOCTRINE_BURST_THRESHOLD),
+    );
+    signal_8_map.insert("is_burst".to_string(), Value::Bool(is_burst));
+    payload.insert(
+        "signal_8_doctrine_revision_burst".to_string(),
+        Value::Map(signal_8_map),
+    );
+
+    if is_burst {
+        let cooldown_expired = match state.last_doctrine_burst_emitted_at_cycle {
+            None => true,
+            Some(prior) => manifest_cycle_counter.saturating_sub(prior)
+                >= M25_DETECTOR_COOLDOWN_CYCLES,
+        };
+        if cooldown_expired {
+            let evidence = format!(
+                "ci_events_in_window={ci_events_in_burst_window}, \
+                 threshold={}, window_cycles={}",
+                M25_1_DOCTRINE_BURST_THRESHOLD, M25_1_DOCTRINE_BURST_WINDOW_CYCLES
+            );
+            let _ = emit_immune_sporocarp(
+                state,
+                "C37_doctrine_instability_burst",
+                "doctrine_instability_burst",
+                &evidence,
+            );
+            state.last_doctrine_burst_emitted_at_cycle = Some(manifest_cycle_counter);
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // M25.3: emergent composite weights. (Computed above while the
+    // immutable history borrow was active; here we just consume the
+    // result and apply it to the live signals.)
+    //
+    // The composite blends substrate-history-derived weights with the
+    // current live signal values. When `history.len() <` the threshold,
+    // weights are equal (1/3 each); once enough history accumulates,
+    // weights track the stddev of each signal over the window —
+    // signals that actually move for THIS substrate contribute more.
+    // -----------------------------------------------------------------------
+    let log_normalized = |x: u64| -> f64 {
+        if x == 0 {
+            0.0
+        } else {
+            ((x as f64).ln() / 10.0_f64.ln()).max(0.0).min(10.0)
+        }
+    };
+    let ((w1, w2, w4b), weights_method) = emergent_weights;
+    let composite = w1 * log_normalized(dag_node_count)
+        + w2 * log_normalized(evolution_event_count)
+        + w4b * log_normalized(established_peers);
     let mut signal_7_map = BTreeMap::new();
     signal_7_map.insert(
         "composite_health_score_repr".to_string(),
         Value::String(float_repr(composite)),
     );
+    signal_7_map.insert("composite_format_version".to_string(), Value::Uint(3));
     signal_7_map.insert(
-        "composite_format_version".to_string(),
-        Value::Uint(2),
+        "weight_signal_1_repr".to_string(),
+        Value::String(float_repr(w1)),
     );
-    payload.insert("signal_7_composite_health".to_string(), Value::Map(signal_7_map));
+    signal_7_map.insert(
+        "weight_signal_2_repr".to_string(),
+        Value::String(float_repr(w2)),
+    );
+    signal_7_map.insert(
+        "weight_signal_4b_repr".to_string(),
+        Value::String(float_repr(w4b)),
+    );
+    signal_7_map.insert(
+        "weights_method".to_string(),
+        Value::String(weights_method.to_string()),
+    );
+    payload.insert(
+        "signal_7_composite_health".to_string(),
+        Value::Map(signal_7_map),
+    );
 
-    payload.insert("observatory_format_version".to_string(), Value::Uint(2));
+    // Bump version to 3 — M25.1 added signal_8, M25.2 added signal_5 +
+    // bet_weakening_quorum, M25.3 changed signal_7 weights schema.
+    payload.insert("observatory_format_version".to_string(), Value::Uint(3));
     let captured_at_unix_ns = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .ok()
@@ -1812,6 +2525,37 @@ fn handle_query_substrate_observatory(
         request.request_id,
         payload,
     )))
+}
+
+/// M25.2: classify a signal's direction over the rolling observatory history
+/// window. Returns "unknown" until ≥3 samples are available, then "up" /
+/// "down" / "flat" based on a 5% normalized delta threshold between the
+/// oldest and newest samples.
+fn signal_direction_label(
+    history: &std::collections::VecDeque<crate::derived_state::ObservatorySnapshot>,
+    getter: impl Fn(&crate::derived_state::ObservatorySnapshot) -> f64,
+) -> &'static str {
+    if history.len() < 3 {
+        return "unknown";
+    }
+    let first = match history.front() {
+        Some(s) => getter(s),
+        None => return "unknown",
+    };
+    let last = match history.back() {
+        Some(s) => getter(s),
+        None => return "unknown",
+    };
+    let delta = last - first;
+    let scale = first.abs().max(1.0);
+    let normalized = delta / scale;
+    if normalized > 0.05 {
+        "up"
+    } else if normalized < -0.05 {
+        "down"
+    } else {
+        "flat"
+    }
 }
 
 /// M22.5: information about the substrate's current quarantine state, derived
@@ -2086,16 +2830,20 @@ fn handle_federation_link_to_parent_from_hint(
     // Connect to parent.
     let our_substrate_id = state.manifest.substrate_id;
     let our_dag_tip = state.dag.tip().map(|t| t.0);
+    let our_signing_seed = state.substrate_signing_seed;
     let outcome = state.federation.connect_peer(
         &parent_federation_addr,
         &our_substrate_id,
         our_dag_tip.as_ref(),
+        Some(&our_signing_seed),
     )?;
 
     if let crate::federation::ConnectPeerOutcome::Pinned {
         peer_substrate_id,
         remote_addr_str,
         peer_dag_tip: _,
+        signer_pubkey,
+        signature_verified,
     } = outcome
     {
         // Verify the pinned peer matches the hint's parent_substrate_id.
@@ -2113,7 +2861,21 @@ fn handle_federation_link_to_parent_from_hint(
             .and_then(|d| i64::try_from(d.as_nanos()).ok())
             .unwrap_or(0);
         // Emit federation_peer_pinned (general) + federation_parent_linked (M22.4 specific).
-        let _ = emit_federation_peer_pinned(state, &peer_substrate_id, &remote_addr_str, now_ns);
+        let _ = emit_federation_peer_pinned(
+            state,
+            &peer_substrate_id,
+            &remote_addr_str,
+            now_ns,
+            signer_pubkey.as_ref(),
+        );
+        if !signature_verified {
+            let _ = emit_federation_legacy_peer_pinned(
+                state,
+                &peer_substrate_id,
+                &remote_addr_str,
+                now_ns,
+            );
+        }
         let nt = crate::events::NODE_TYPE_FEDERATION_PARENT_LINKED.to_string();
         let content = crate::events::encode_federation_parent_linked(
             &peer_substrate_id,
@@ -4410,13 +5172,18 @@ fn replay_events_after_tip(
     Ok(())
 }
 
-/// M21.5 P5 万物互联: save a snapshot of the current Rust-side derived state.
-/// Used opportunistically every K cycles to accelerate boot — boot can use
-/// the snapshot instead of full DAG replay (replays only events after the
-/// snapshot's recorded tip).
+/// M21.5 P5 万物互联 + M25.0: save a snapshot of the current Rust-side derived
+/// state, wrapped in an Ed25519-signed envelope. Used opportunistically every
+/// K cycles to accelerate boot — boot can use the snapshot instead of full
+/// DAG replay (replays only events after the snapshot's recorded tip).
+///
+/// M25.0: the signing key is reconstructed from the substrate's own seed
+/// (`state.substrate_signing_seed`). The wrapper schema embeds the pubkey
+/// + signature; boot verifies both before trusting the snapshot.
 fn save_snapshot_for_state(state: &ServerState) -> Result<(), SubstrateError> {
     use crate::derived_state::{DerivedNonce, DerivedState};
     use crate::persistence::save_snapshot;
+    use myco_kernel_shared::crypto::Ed25519PrivateKey;
 
     // Build a DerivedState from the current in-memory ServerState fields.
     let derived = DerivedState {
@@ -4452,6 +5219,9 @@ fn save_snapshot_for_state(state: &ServerState) -> Result<(), SubstrateError> {
                 )
             })
             .collect(),
+        // M25.2: persist the observatory history so the trend window
+        // survives reboots when a fresh snapshot lands on disk.
+        observatory_history: state.observatory_history.clone(),
     };
     // Record the DAG tip at snapshot time so boot knows where to resume replay.
     let snapshot_at_tip: Option<[u8; 32]> = state.dag.tip().map(|t| {
@@ -4460,7 +5230,8 @@ fn save_snapshot_for_state(state: &ServerState) -> Result<(), SubstrateError> {
         arr
     });
     let bytes = derived.to_canonical_bytes(snapshot_at_tip.as_ref());
-    save_snapshot(&bytes, &state.state_dir)
+    let signing_key = Ed25519PrivateKey::from_seed(&state.substrate_signing_seed);
+    save_snapshot(&bytes, &signing_key, &state.state_dir)
 }
 
 /// M12: Result of one integrity check (C9 cold_resume_invariant_failure sub-check).

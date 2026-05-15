@@ -82,6 +82,30 @@ export const MSG_TYPE = {
   PERTURB_AXIS_FROM_RAW_MATERIAL_RESPONSE: "perturb_axis_from_raw_material_response",
   SPROUT_CHILD: "sprout_child",
   SPROUT_CHILD_RESPONSE: "sprout_child_response",
+  // M22 P5 万物互联: inter-substrate federation (M25.5 TS wiring).
+  FEDERATION_OPEN_LISTENER: "federation_open_listener",
+  FEDERATION_OPEN_LISTENER_RESPONSE: "federation_open_listener_response",
+  FEDERATION_CLOSE_LISTENER: "federation_close_listener",
+  FEDERATION_CLOSE_LISTENER_RESPONSE: "federation_close_listener_response",
+  FEDERATION_STATUS: "federation_status",
+  FEDERATION_STATUS_RESPONSE: "federation_status_response",
+  FEDERATION_CONNECT_PEER: "federation_connect_peer",
+  FEDERATION_CONNECT_PEER_RESPONSE: "federation_connect_peer_response",
+  FEDERATION_POLL: "federation_poll",
+  FEDERATION_POLL_RESPONSE: "federation_poll_response",
+  FEDERATION_PULL_EVENTS_FROM_PEER: "federation_pull_events_from_peer",
+  FEDERATION_PULL_EVENTS_FROM_PEER_RESPONSE: "federation_pull_events_from_peer_response",
+  FEDERATION_LINK_TO_PARENT_FROM_HINT: "federation_link_to_parent_from_hint",
+  FEDERATION_LINK_TO_PARENT_FROM_HINT_RESPONSE: "federation_link_to_parent_from_hint_response",
+  // M22.5 P8 birth-period quarantine — operator owner-signed override.
+  LIFT_BIRTH_PERIOD_QUARANTINE: "lift_birth_period_quarantine",
+  LIFT_BIRTH_PERIOD_QUARANTINE_RESPONSE: "lift_birth_period_quarantine_response",
+  // M23.2 P7 必朽 — self-euthanasia owner-co-attestation.
+  ACCEPT_SELF_EUTHANASIA_PROPOSAL: "accept_self_euthanasia_proposal",
+  ACCEPT_SELF_EUTHANASIA_PROPOSAL_RESPONSE: "accept_self_euthanasia_proposal_response",
+  // Phase α / M24.5 — Living Bets observatory primitive.
+  QUERY_SUBSTRATE_OBSERVATORY: "query_substrate_observatory",
+  QUERY_SUBSTRATE_OBSERVATORY_RESPONSE: "query_substrate_observatory_response",
 } as const;
 
 export type MessageType = (typeof MSG_TYPE)[keyof typeof MSG_TYPE];
@@ -443,6 +467,841 @@ export function parseSproutChildResponse(response: Message): SproutChildResult {
     childAxisCount: axisV.value,
     sporeEmissionHash: hashV.value,
   };
+}
+
+// ---------------------------------------------------------------------------
+// M25.5 P5 万物互联: operator-facing federation message builders/parsers.
+//
+// All payloads/responses mirror `myco_substrate::server::handle_federation_*`
+// + `handle_lift_birth_period_quarantine` + `handle_accept_self_euthanasia_proposal`
+// + `handle_query_substrate_observatory`. Field name/type drift = bridge
+// protocol drift, surface as decode errors here.
+// ---------------------------------------------------------------------------
+
+/** Build the payload for a `federation_open_listener` request (M22.1).
+ *
+ *  `bindAddr` may be `"127.0.0.1:0"` to let the OS pick a port. Resolved
+ *  address is returned by the substrate in the response.
+ */
+export function federationOpenListenerPayload(args: {
+  bindAddr: string;
+}): Map<string, Value> {
+  if (!args.bindAddr || args.bindAddr.length === 0) {
+    throw new BridgeProtocolError(
+      "federation_open_listener: bind_addr must be non-empty",
+    );
+  }
+  const m = new Map<string, Value>();
+  m.set("bind_addr", { type: "string", value: args.bindAddr });
+  return m;
+}
+
+/** Parsed `federation_open_listener_response` (M22.1). */
+export interface FederationOpenListenerResult {
+  /** Resolved bind address (port-zero replaced by OS-picked port). */
+  boundAddr: string;
+  /** DAG node hash of the `federation_listener_opened` event. */
+  listenerOpenedEventHash: Uint8Array;
+}
+
+export function parseFederationOpenListenerResponse(
+  response: Message,
+): FederationOpenListenerResult {
+  if (response.messageType !== MSG_TYPE.FEDERATION_OPEN_LISTENER_RESPONSE) {
+    throw new BridgeProtocolError(
+      `expected federation_open_listener_response; got ${response.messageType}`,
+    );
+  }
+  const addrV = response.payload.get("bind_addr");
+  const hashV = response.payload.get("listener_opened_event_hash");
+  if (
+    !addrV || addrV.type !== "string" ||
+    !hashV || hashV.type !== "bytes"
+  ) {
+    throw new BridgeProtocolError(
+      "federation_open_listener_response missing required typed fields",
+    );
+  }
+  return {
+    boundAddr: addrV.value,
+    listenerOpenedEventHash: hashV.value,
+  };
+}
+
+/** Build the payload for a `federation_close_listener` request (M22.1).
+ *  Empty payload — idempotent, no-op if no listener active. */
+export function federationCloseListenerPayload(): Map<string, Value> {
+  return new Map<string, Value>();
+}
+
+/** Parsed `federation_close_listener_response` (M22.1). */
+export interface FederationCloseListenerResult {
+  /** True iff a listener was active and got closed. */
+  wasListening: boolean;
+  /** The address that was bound (empty string when wasListening=false). */
+  priorBindAddr: string;
+  /** DAG hash of the `federation_listener_closed` event; null if no listener. */
+  listenerClosedEventHash: Uint8Array | null;
+}
+
+export function parseFederationCloseListenerResponse(
+  response: Message,
+): FederationCloseListenerResult {
+  if (response.messageType !== MSG_TYPE.FEDERATION_CLOSE_LISTENER_RESPONSE) {
+    throw new BridgeProtocolError(
+      `expected federation_close_listener_response; got ${response.messageType}`,
+    );
+  }
+  const wasV = response.payload.get("was_listening");
+  const addrV = response.payload.get("prior_bind_addr");
+  if (
+    !wasV || wasV.type !== "bool" ||
+    !addrV || addrV.type !== "string"
+  ) {
+    throw new BridgeProtocolError(
+      "federation_close_listener_response missing required typed fields",
+    );
+  }
+  const hashV = response.payload.get("listener_closed_event_hash");
+  return {
+    wasListening: wasV.value,
+    priorBindAddr: addrV.value,
+    listenerClosedEventHash: hashV && hashV.type === "bytes" ? hashV.value : null,
+  };
+}
+
+/** Build the payload for a `federation_status` request (M22.1).
+ *  Empty payload — read-only state query. */
+export function federationStatusPayload(): Map<string, Value> {
+  return new Map<string, Value>();
+}
+
+/** Parsed `federation_status_response` (M22.1). */
+export interface FederationStatusResult {
+  /** True iff a listener is currently bound. */
+  isListening: boolean;
+  /** Currently bound address; empty string when not listening. */
+  boundAddr: string;
+  /** Count of currently-tracked peers (any state — pending, established, etc.). */
+  peerCount: bigint;
+  /** Total federation events ingested from peers since process start. */
+  eventsReceivedTotal: bigint;
+  /** Total federation events sent to peers since process start. */
+  eventsSentTotal: bigint;
+}
+
+export function parseFederationStatusResponse(
+  response: Message,
+): FederationStatusResult {
+  if (response.messageType !== MSG_TYPE.FEDERATION_STATUS_RESPONSE) {
+    throw new BridgeProtocolError(
+      `expected federation_status_response; got ${response.messageType}`,
+    );
+  }
+  const isV = response.payload.get("is_listening");
+  const addrV = response.payload.get("bind_addr");
+  const peerV = response.payload.get("peer_count");
+  const recvV = response.payload.get("events_received_total");
+  const sentV = response.payload.get("events_sent_total");
+  if (
+    !isV || isV.type !== "bool" ||
+    !addrV || addrV.type !== "string" ||
+    !peerV || peerV.type !== "uint" ||
+    !recvV || recvV.type !== "uint" ||
+    !sentV || sentV.type !== "uint"
+  ) {
+    throw new BridgeProtocolError(
+      "federation_status_response missing required typed fields",
+    );
+  }
+  return {
+    isListening: isV.value,
+    boundAddr: addrV.value,
+    peerCount: peerV.value,
+    eventsReceivedTotal: recvV.value,
+    eventsSentTotal: sentV.value,
+  };
+}
+
+/** Build the payload for a `federation_connect_peer` request (M22.2). */
+export function federationConnectPeerPayload(args: {
+  remoteAddr: string;
+}): Map<string, Value> {
+  if (!args.remoteAddr || args.remoteAddr.length === 0) {
+    throw new BridgeProtocolError(
+      "federation_connect_peer: remote_addr must be non-empty",
+    );
+  }
+  const m = new Map<string, Value>();
+  m.set("remote_addr", { type: "string", value: args.remoteAddr });
+  return m;
+}
+
+/** Parsed `federation_connect_peer_response` (M22.2). */
+export interface FederationConnectPeerResult {
+  /** One of: "pinned" | "self_connection" | "identity_drift" | "already_pinned". */
+  outcome: string;
+  /** Set when outcome ∈ {"pinned","identity_drift","already_pinned"}. */
+  peerSubstrateId: Uint8Array | null;
+  /** Echo of remote_addr (or substrate-determined string for some outcomes). */
+  remoteAddr: string;
+  /** Peer's reported DAG tip (only present on initial "pinned" outcome). */
+  peerDagTip: Uint8Array | null;
+  /** DAG hash of `federation_peer_pinned` event; present only when newly pinned. */
+  peerPinnedEventHash: Uint8Array | null;
+}
+
+export function parseFederationConnectPeerResponse(
+  response: Message,
+): FederationConnectPeerResult {
+  if (response.messageType !== MSG_TYPE.FEDERATION_CONNECT_PEER_RESPONSE) {
+    throw new BridgeProtocolError(
+      `expected federation_connect_peer_response; got ${response.messageType}`,
+    );
+  }
+  const outV = response.payload.get("outcome");
+  const addrV = response.payload.get("remote_addr");
+  if (
+    !outV || outV.type !== "string" ||
+    !addrV || addrV.type !== "string"
+  ) {
+    throw new BridgeProtocolError(
+      "federation_connect_peer_response missing required typed fields",
+    );
+  }
+  const idV = response.payload.get("peer_substrate_id");
+  const tipV = response.payload.get("peer_dag_tip");
+  const hashV = response.payload.get("peer_pinned_event_hash");
+  return {
+    outcome: outV.value,
+    peerSubstrateId: idV && idV.type === "bytes" ? idV.value : null,
+    remoteAddr: addrV.value,
+    peerDagTip: tipV && tipV.type === "bytes" ? tipV.value : null,
+    peerPinnedEventHash: hashV && hashV.type === "bytes" ? hashV.value : null,
+  };
+}
+
+/** Build the payload for a `federation_poll` request (M22.2). Empty payload. */
+export function federationPollPayload(): Map<string, Value> {
+  return new Map<string, Value>();
+}
+
+/** Parsed `federation_poll_response` (M22.2). */
+export interface FederationPollResult {
+  /** Count of inbound connections accepted this poll. */
+  acceptedConnections: bigint;
+  /** Count of peers newly pinned this poll (via inbound HELLO completion). */
+  pinnedPeers: bigint;
+  /** Count of peers rejected this poll (TOFU mismatches, frame errors). */
+  rejectedPeers: bigint;
+  /** Count of outbound event batches sent to peers this poll. */
+  eventBatchesSent: bigint;
+}
+
+export function parseFederationPollResponse(
+  response: Message,
+): FederationPollResult {
+  if (response.messageType !== MSG_TYPE.FEDERATION_POLL_RESPONSE) {
+    throw new BridgeProtocolError(
+      `expected federation_poll_response; got ${response.messageType}`,
+    );
+  }
+  const acceptedV = response.payload.get("accepted_connections");
+  const pinnedV = response.payload.get("pinned_peers");
+  const rejectedV = response.payload.get("rejected_peers");
+  const sentV = response.payload.get("event_batches_sent");
+  if (
+    !acceptedV || acceptedV.type !== "uint" ||
+    !pinnedV || pinnedV.type !== "uint" ||
+    !rejectedV || rejectedV.type !== "uint" ||
+    !sentV || sentV.type !== "uint"
+  ) {
+    throw new BridgeProtocolError(
+      "federation_poll_response missing required typed fields",
+    );
+  }
+  return {
+    acceptedConnections: acceptedV.value,
+    pinnedPeers: pinnedV.value,
+    rejectedPeers: rejectedV.value,
+    eventBatchesSent: sentV.value,
+  };
+}
+
+/** Build the payload for `federation_pull_events_from_peer` (M22.3). */
+export function federationPullEventsFromPeerPayload(args: {
+  peerSubstrateId: Uint8Array;
+  sinceNodeHash?: Uint8Array;
+  maxEvents?: bigint;
+}): Map<string, Value> {
+  if (args.peerSubstrateId.length !== 32) {
+    throw new BridgeProtocolError(
+      `peer_substrate_id must be 32 bytes; got ${args.peerSubstrateId.length}`,
+    );
+  }
+  const m = new Map<string, Value>();
+  m.set("peer_substrate_id", { type: "bytes", value: args.peerSubstrateId });
+  if (args.sinceNodeHash !== undefined) {
+    if (args.sinceNodeHash.length !== 32) {
+      throw new BridgeProtocolError(
+        `since_node_hash must be 32 bytes; got ${args.sinceNodeHash.length}`,
+      );
+    }
+    m.set("since_node_hash", { type: "bytes", value: args.sinceNodeHash });
+  }
+  if (args.maxEvents !== undefined) {
+    m.set("max_events", { type: "uint", value: args.maxEvents });
+  }
+  return m;
+}
+
+/** Parsed `federation_pull_events_from_peer_response` (M22.3). */
+export interface FederationPullEventsFromPeerResult {
+  /** Count of events the peer returned. */
+  eventsReceivedCount: bigint;
+  /** Count of events ingested into the receiver's DAG as
+   *  `federation_received:{peer_prefix}` wrappers (allowlist-filtered). */
+  eventsIngestedCount: bigint;
+  /** True iff the peer indicated this batch completes its known events. */
+  isLastBatch: boolean;
+  /** DAG node hash of the `federation_events_received` marker emitted by the
+   *  receiver; null if no events were ingested (allowlist may have filtered all). */
+  eventsReceivedEventHash: Uint8Array | null;
+}
+
+export function parseFederationPullEventsFromPeerResponse(
+  response: Message,
+): FederationPullEventsFromPeerResult {
+  if (response.messageType !== MSG_TYPE.FEDERATION_PULL_EVENTS_FROM_PEER_RESPONSE) {
+    throw new BridgeProtocolError(
+      `expected federation_pull_events_from_peer_response; got ${response.messageType}`,
+    );
+  }
+  const recvV = response.payload.get("events_received_count");
+  const ingV = response.payload.get("events_ingested_count");
+  const lastV = response.payload.get("is_last_batch");
+  if (
+    !recvV || recvV.type !== "uint" ||
+    !ingV || ingV.type !== "uint" ||
+    !lastV || lastV.type !== "bool"
+  ) {
+    throw new BridgeProtocolError(
+      "federation_pull_events_from_peer_response missing required typed fields",
+    );
+  }
+  const hashV = response.payload.get("events_received_event_hash");
+  return {
+    eventsReceivedCount: recvV.value,
+    eventsIngestedCount: ingV.value,
+    isLastBatch: lastV.value,
+    eventsReceivedEventHash:
+      hashV && hashV.type === "bytes" ? hashV.value : null,
+  };
+}
+
+/** Build the payload for `federation_link_to_parent_from_hint` (M22.4).
+ *  Empty payload — substrate scans its own DAG for the hint event. */
+export function federationLinkToParentFromHintPayload(): Map<string, Value> {
+  return new Map<string, Value>();
+}
+
+/** Parsed `federation_link_to_parent_from_hint_response` (M22.4). */
+export interface FederationLinkToParentFromHintResult {
+  /** True iff a parent_federation_hint event was found in the DAG. */
+  hintFound: boolean;
+  /** True iff a federation_parent_linked event already existed (idempotent). */
+  alreadyLinked: boolean;
+  /** Present when hintFound=true. */
+  parentSubstrateId: Uint8Array | null;
+  /** Present when hintFound=true. */
+  parentFederationAddr: string | null;
+  /** Present when a new federation_parent_linked event was emitted. */
+  parentLinkedEventHash: Uint8Array | null;
+  /** Present when hintFound=true but connect failed
+   *  (values: "self_connection" | "identity_drift" | "already_pinned" | "unknown"). */
+  connectOutcome: string | null;
+}
+
+export function parseFederationLinkToParentFromHintResponse(
+  response: Message,
+): FederationLinkToParentFromHintResult {
+  if (response.messageType !== MSG_TYPE.FEDERATION_LINK_TO_PARENT_FROM_HINT_RESPONSE) {
+    throw new BridgeProtocolError(
+      `expected federation_link_to_parent_from_hint_response; got ${response.messageType}`,
+    );
+  }
+  const foundV = response.payload.get("hint_found");
+  const linkedV = response.payload.get("already_linked");
+  if (
+    !foundV || foundV.type !== "bool" ||
+    !linkedV || linkedV.type !== "bool"
+  ) {
+    throw new BridgeProtocolError(
+      "federation_link_to_parent_from_hint_response missing required typed fields",
+    );
+  }
+  const idV = response.payload.get("parent_substrate_id");
+  const addrV = response.payload.get("parent_federation_addr");
+  const hashV = response.payload.get("parent_linked_event_hash");
+  const outV = response.payload.get("connect_outcome");
+  return {
+    hintFound: foundV.value,
+    alreadyLinked: linkedV.value,
+    parentSubstrateId: idV && idV.type === "bytes" ? idV.value : null,
+    parentFederationAddr: addrV && addrV.type === "string" ? addrV.value : null,
+    parentLinkedEventHash: hashV && hashV.type === "bytes" ? hashV.value : null,
+    connectOutcome: outV && outV.type === "string" ? outV.value : null,
+  };
+}
+
+/** Compute the canonical-bytes signing input for `lift_birth_period_quarantine`
+ *  owner attestation (M22.5; Phase β security fix).
+ *
+ *  Mirrors Rust reconstruction in `handle_lift_birth_period_quarantine`:
+ *  ```
+ *  canonical_bytes(Map({
+ *    "context": "myco-lift-birth-period-quarantine-v1",
+ *    "substrate_id": Bytes(32),
+ *    "current_cycle": Uint(cycle_counter),
+ *  }))
+ *  ```
+ *
+ *  The operator IDENTITY key signs THIS. The `current_cycle` field binds the
+ *  signature to a specific point in time — replay across cycles is blocked.
+ */
+export function liftBirthPeriodQuarantineSigningInput(
+  substrateId: Uint8Array,
+  currentCycle: bigint,
+): Uint8Array {
+  if (substrateId.length !== 32) {
+    throw new BridgeProtocolError(
+      `substrate_id must be 32 bytes; got ${substrateId.length}`,
+    );
+  }
+  const m = new Map<string, Value>();
+  m.set("context", {
+    type: "string",
+    value: "myco-lift-birth-period-quarantine-v1",
+  });
+  m.set("substrate_id", { type: "bytes", value: substrateId });
+  m.set("current_cycle", { type: "uint", value: currentCycle });
+  return encode({ type: "map", value: m }).bytes;
+}
+
+/** Build the payload for `lift_birth_period_quarantine` (M22.5). */
+export function liftBirthPeriodQuarantinePayload(args: {
+  ownerSignature: Uint8Array;
+}): Map<string, Value> {
+  if (args.ownerSignature.length !== 64) {
+    throw new BridgeProtocolError(
+      `owner_signature must be 64 bytes; got ${args.ownerSignature.length}`,
+    );
+  }
+  const m = new Map<string, Value>();
+  m.set("owner_signature", { type: "bytes", value: args.ownerSignature });
+  return m;
+}
+
+/** Parsed `lift_birth_period_quarantine_response` (M22.5). */
+export interface LiftBirthPeriodQuarantineResult {
+  /** True iff the substrate was in active quarantine when the call landed. */
+  wasInQuarantine: boolean;
+  /** DAG node hash of the emitted `birth_period_quarantine_lifted` event;
+   *  null when wasInQuarantine=false (nothing to lift). */
+  quarantineLiftedEventHash: Uint8Array | null;
+}
+
+export function parseLiftBirthPeriodQuarantineResponse(
+  response: Message,
+): LiftBirthPeriodQuarantineResult {
+  if (response.messageType !== MSG_TYPE.LIFT_BIRTH_PERIOD_QUARANTINE_RESPONSE) {
+    throw new BridgeProtocolError(
+      `expected lift_birth_period_quarantine_response; got ${response.messageType}`,
+    );
+  }
+  const wasV = response.payload.get("was_in_quarantine");
+  if (!wasV || wasV.type !== "bool") {
+    throw new BridgeProtocolError(
+      "lift_birth_period_quarantine_response missing was_in_quarantine bool",
+    );
+  }
+  const hashV = response.payload.get("quarantine_lifted_event_hash");
+  return {
+    wasInQuarantine: wasV.value,
+    quarantineLiftedEventHash:
+      hashV && hashV.type === "bytes" ? hashV.value : null,
+  };
+}
+
+/** Compute the canonical-bytes signing input for `accept_self_euthanasia_proposal`
+ *  owner co-attestation (M23.2 P7 必朽).
+ *
+ *  Mirrors Rust reconstruction in `handle_accept_self_euthanasia_proposal`:
+ *  ```
+ *  canonical_bytes(Map({
+ *    "context": "myco-self-euthanasia-v1",
+ *    "proposal_hash": Bytes(32),
+ *    "substrate_id": Bytes(32),
+ *  }))
+ *  ```
+ *
+ *  The operator IDENTITY key signs THIS. The triple binding
+ *  (context + proposal_hash + substrate_id) prevents replay:
+ *  - context: distinct from other operator co-attestations
+ *  - proposal_hash: this specific proposal in this DAG
+ *  - substrate_id: not replayable against another substrate
+ */
+export function acceptSelfEuthanasiaProposalSigningInput(
+  proposalHash: Uint8Array,
+  substrateId: Uint8Array,
+): Uint8Array {
+  if (proposalHash.length !== 32) {
+    throw new BridgeProtocolError(
+      `proposal_hash must be 32 bytes; got ${proposalHash.length}`,
+    );
+  }
+  if (substrateId.length !== 32) {
+    throw new BridgeProtocolError(
+      `substrate_id must be 32 bytes; got ${substrateId.length}`,
+    );
+  }
+  const m = new Map<string, Value>();
+  m.set("context", { type: "string", value: "myco-self-euthanasia-v1" });
+  m.set("proposal_hash", { type: "bytes", value: proposalHash });
+  m.set("substrate_id", { type: "bytes", value: substrateId });
+  return encode({ type: "map", value: m }).bytes;
+}
+
+/** Build the payload for `accept_self_euthanasia_proposal` (M23.2). */
+export function acceptSelfEuthanasiaProposalPayload(args: {
+  proposalHash: Uint8Array;
+  ownerSignature: Uint8Array;
+}): Map<string, Value> {
+  if (args.proposalHash.length !== 32) {
+    throw new BridgeProtocolError(
+      `proposal_hash must be 32 bytes; got ${args.proposalHash.length}`,
+    );
+  }
+  if (args.ownerSignature.length !== 64) {
+    throw new BridgeProtocolError(
+      `owner_signature must be 64 bytes; got ${args.ownerSignature.length}`,
+    );
+  }
+  const m = new Map<string, Value>();
+  m.set("proposal_hash", { type: "bytes", value: args.proposalHash });
+  m.set("owner_signature", { type: "bytes", value: args.ownerSignature });
+  return m;
+}
+
+/** Parsed `accept_self_euthanasia_proposal_response` (M23.2). */
+export interface AcceptSelfEuthanasiaProposalResult {
+  /** The mortality_signal axis name that originally fruited (echoed from proposal). */
+  axisName: string;
+  /** DAG node hash of the emitted `self_euthanasia_executed:{axis}` event —
+   *  the substrate's signed post-mortem record. The substrate gracefully
+   *  shuts down AFTER this response is written. */
+  executedEventHash: Uint8Array;
+}
+
+export function parseAcceptSelfEuthanasiaProposalResponse(
+  response: Message,
+): AcceptSelfEuthanasiaProposalResult {
+  if (response.messageType !== MSG_TYPE.ACCEPT_SELF_EUTHANASIA_PROPOSAL_RESPONSE) {
+    throw new BridgeProtocolError(
+      `expected accept_self_euthanasia_proposal_response; got ${response.messageType}`,
+    );
+  }
+  const axisV = response.payload.get("axis_name");
+  const hashV = response.payload.get("executed_event_hash");
+  if (
+    !axisV || axisV.type !== "string" ||
+    !hashV || hashV.type !== "bytes"
+  ) {
+    throw new BridgeProtocolError(
+      "accept_self_euthanasia_proposal_response missing required typed fields",
+    );
+  }
+  return {
+    axisName: axisV.value,
+    executedEventHash: hashV.value,
+  };
+}
+
+/** Build the payload for `query_substrate_observatory` (Phase α / M24.5).
+ *
+ *  `operatorAttestedContextWindowBytes` is optional. When supplied, the
+ *  substrate computes signal #6 (read-window-relative position); otherwise
+ *  signal #6 is omitted from the response.
+ */
+export function querySubstrateObservatoryPayload(args: {
+  operatorAttestedContextWindowBytes?: bigint;
+} = {}): Map<string, Value> {
+  const m = new Map<string, Value>();
+  if (args.operatorAttestedContextWindowBytes !== undefined) {
+    m.set("operator_attested_context_window_bytes", {
+      type: "uint",
+      value: args.operatorAttestedContextWindowBytes,
+    });
+  }
+  return m;
+}
+
+/** Signal #1 — persistence budget. Always present in v1+. */
+export interface ObservatorySignal1 {
+  dagNodeCount: bigint;
+  dagEdgeCount: bigint;
+  dagTotalContentBytes: bigint;
+  manifestCycleCounter: bigint;
+}
+
+/** Signal #2 — evolution rate. Present from format_version >= 2. */
+export interface ObservatorySignal2 {
+  evolutionEventCount: bigint;
+  axisRegisterCount: bigint;
+  /** evolution_event_count / max(1, manifest_cycle_counter). */
+  rate: number;
+}
+
+/** Signal #3 — read-pattern diversity. Present from format_version >= 2. */
+export interface ObservatorySignal3 {
+  distinctPerturbedAxesCount: bigint;
+}
+
+/** Signal #4 — federation health. Present from format_version >= 2. */
+export interface ObservatorySignal4 {
+  /** Cumulative fork detection count (placeholder pre-M25; 0n). */
+  signal4aCumulativeForkCount: bigint;
+  /** Currently-established peer count. */
+  signal4bReachablePeerCount: bigint;
+  /** Cumulative count of `federation_received:*` envelopes ingested. */
+  eventsReceivedFromPeers: bigint;
+}
+
+/** Signal #5 — time trends (format_version >= 3). */
+export interface ObservatorySignal5 {
+  /** Raw substrate-private structure; surface untouched for forward-compat. */
+  raw: Map<string, Value>;
+}
+
+/** Signal #6 — read-window-relative position. Present iff caller supplied
+ *  operator_attested_context_window_bytes. */
+export interface ObservatorySignal6 {
+  substrateTotalBytes: bigint;
+  operatorAttestedContextWindowBytes: bigint;
+  /** substrate_total / context_window. Parsed from repr string; +Infinity when
+   *  window=0 (substrate emits "inf"). */
+  ratio: number;
+}
+
+/** Signal #7 — composite health score. Present from format_version >= 2. */
+export interface ObservatorySignal7 {
+  compositeHealthScore: number;
+  compositeFormatVersion: bigint;
+  /** Per-signal weights map (format_version >= 3); undefined otherwise. */
+  weights?: Map<string, number>;
+  /** Method tag for the weight derivation (format_version >= 3). */
+  weightsMethod?: string;
+}
+
+/** Signal #8 — doctrine-instability burst (format_version >= 3). */
+export interface ObservatorySignal8 {
+  /** Raw substrate-private structure; surface untouched for forward-compat. */
+  raw: Map<string, Value>;
+}
+
+/** bet_weakening_quorum — composite L0 §7 falsifiability counter
+ *  (format_version >= 3). */
+export interface ObservatoryBetWeakeningQuorum {
+  raw: Map<string, Value>;
+}
+
+/** Parsed `query_substrate_observatory_response`. Supports format_versions 1,
+ *  2, and 3 — fields not yet emitted by the running substrate are undefined.
+ *  M25.x lands signals 5/8 + bet-quorum at format_version=3.
+ */
+export interface ObservatorySnapshot {
+  formatVersion: bigint;
+  capturedAtUnixNs: bigint;
+  signal1?: ObservatorySignal1;
+  signal2?: ObservatorySignal2;
+  signal3?: ObservatorySignal3;
+  signal4?: ObservatorySignal4;
+  signal5?: ObservatorySignal5;
+  signal6?: ObservatorySignal6;
+  signal7?: ObservatorySignal7;
+  signal8?: ObservatorySignal8;
+  betWeakeningQuorum?: ObservatoryBetWeakeningQuorum;
+}
+
+export function parseQuerySubstrateObservatoryResponse(
+  response: Message,
+): ObservatorySnapshot {
+  if (response.messageType !== MSG_TYPE.QUERY_SUBSTRATE_OBSERVATORY_RESPONSE) {
+    throw new BridgeProtocolError(
+      `expected query_substrate_observatory_response; got ${response.messageType}`,
+    );
+  }
+  const verV = response.payload.get("observatory_format_version");
+  const capturedV = response.payload.get("captured_at_unix_ns");
+  if (
+    !verV || verV.type !== "uint" ||
+    !capturedV || capturedV.type !== "timestamp"
+  ) {
+    throw new BridgeProtocolError(
+      "query_substrate_observatory_response missing observatory_format_version or captured_at_unix_ns",
+    );
+  }
+  const snap: ObservatorySnapshot = {
+    formatVersion: verV.value,
+    capturedAtUnixNs: capturedV.value,
+  };
+
+  // Signal #1 (persistence budget) — always emitted from v1.
+  const s1 = response.payload.get("signal_1_persistence_budget");
+  if (s1 && s1.type === "map") {
+    const m = s1.value;
+    const nc = m.get("dag_node_count");
+    const ec = m.get("dag_edge_count");
+    const cb = m.get("dag_total_content_bytes");
+    const cc = m.get("manifest_cycle_counter");
+    if (
+      nc && nc.type === "uint" &&
+      ec && ec.type === "uint" &&
+      cb && cb.type === "uint" &&
+      cc && cc.type === "uint"
+    ) {
+      snap.signal1 = {
+        dagNodeCount: nc.value,
+        dagEdgeCount: ec.value,
+        dagTotalContentBytes: cb.value,
+        manifestCycleCounter: cc.value,
+      };
+    }
+  }
+
+  // Signal #2 (evolution rate) — format_version >= 2.
+  const s2 = response.payload.get("signal_2_evolution_rate");
+  if (s2 && s2.type === "map") {
+    const m = s2.value;
+    const ec = m.get("evolution_event_count");
+    const ar = m.get("axis_register_count");
+    const rr = m.get("rate_repr");
+    if (
+      ec && ec.type === "uint" &&
+      ar && ar.type === "uint" &&
+      rr && rr.type === "string"
+    ) {
+      snap.signal2 = {
+        evolutionEventCount: ec.value,
+        axisRegisterCount: ar.value,
+        rate: parseFloat(rr.value),
+      };
+    }
+  }
+
+  // Signal #3 (read-pattern diversity).
+  const s3 = response.payload.get("signal_3_read_pattern_diversity");
+  if (s3 && s3.type === "map") {
+    const m = s3.value;
+    const dc = m.get("distinct_perturbed_axes_count");
+    if (dc && dc.type === "uint") {
+      snap.signal3 = { distinctPerturbedAxesCount: dc.value };
+    }
+  }
+
+  // Signal #4 (federation health).
+  const s4 = response.payload.get("signal_4_federation_health");
+  if (s4 && s4.type === "map") {
+    const m = s4.value;
+    const fa = m.get("signal_4a_cumulative_fork_count");
+    const fb = m.get("signal_4b_reachable_peer_count");
+    const er = m.get("events_received_from_peers");
+    if (
+      fa && fa.type === "uint" &&
+      fb && fb.type === "uint" &&
+      er && er.type === "uint"
+    ) {
+      snap.signal4 = {
+        signal4aCumulativeForkCount: fa.value,
+        signal4bReachablePeerCount: fb.value,
+        eventsReceivedFromPeers: er.value,
+      };
+    }
+  }
+
+  // Signal #5 (time trends) — substrate-private structure; preserved raw.
+  const s5 = response.payload.get("signal_5_time_trends");
+  if (s5 && s5.type === "map") {
+    snap.signal5 = { raw: s5.value };
+  }
+
+  // Signal #6 (read-window-relative position) — present iff operator
+  // supplied operator_attested_context_window_bytes in the request.
+  const s6 = response.payload.get("signal_6_read_window_position");
+  if (s6 && s6.type === "map") {
+    const m = s6.value;
+    const tb = m.get("substrate_total_bytes");
+    const cw = m.get("operator_attested_context_window_bytes");
+    const rr = m.get("ratio_repr");
+    if (
+      tb && tb.type === "uint" &&
+      cw && cw.type === "uint" &&
+      rr && rr.type === "string"
+    ) {
+      // Substrate emits "inf" when window=0; parseFloat returns NaN.
+      const ratio = rr.value === "inf" ? Infinity :
+        rr.value === "-inf" ? -Infinity :
+          rr.value === "nan" ? NaN : parseFloat(rr.value);
+      snap.signal6 = {
+        substrateTotalBytes: tb.value,
+        operatorAttestedContextWindowBytes: cw.value,
+        ratio,
+      };
+    }
+  }
+
+  // Signal #7 (composite health score).
+  const s7 = response.payload.get("signal_7_composite_health");
+  if (s7 && s7.type === "map") {
+    const m = s7.value;
+    const sr = m.get("composite_health_score_repr");
+    const fv = m.get("composite_format_version");
+    if (
+      sr && sr.type === "string" &&
+      fv && fv.type === "uint"
+    ) {
+      const sig7: ObservatorySignal7 = {
+        compositeHealthScore: parseFloat(sr.value),
+        compositeFormatVersion: fv.value,
+      };
+      // weights map (M25.3 emergent composite) — format_version >= 3.
+      const wMap = m.get("weights");
+      if (wMap && wMap.type === "map") {
+        const weights = new Map<string, number>();
+        for (const [k, v] of wMap.value) {
+          if (v.type === "string") weights.set(k, parseFloat(v.value));
+        }
+        if (weights.size > 0) sig7.weights = weights;
+      }
+      const wm = m.get("weights_method");
+      if (wm && wm.type === "string") sig7.weightsMethod = wm.value;
+      snap.signal7 = sig7;
+    }
+  }
+
+  // Signal #8 (doctrine-instability burst) — substrate-private; preserved raw.
+  const s8 = response.payload.get("signal_8_doctrine_burst");
+  if (s8 && s8.type === "map") {
+    snap.signal8 = { raw: s8.value };
+  }
+
+  // bet_weakening_quorum (M25.2) — composite L0 §7 falsifiability counter.
+  const bq = response.payload.get("bet_weakening_quorum");
+  if (bq && bq.type === "map") {
+    snap.betWeakeningQuorum = { raw: bq.value };
+  }
+
+  return snap;
 }
 
 // ---------------------------------------------------------------------------

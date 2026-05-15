@@ -157,6 +157,7 @@ impl FederationState {
         remote_addr: &str,
         our_substrate_id: &[u8; 32],
         our_dag_tip: Option<&[u8; 32]>,
+        our_signing_seed: Option<&[u8; 32]>,
     ) -> Result<ConnectPeerOutcome, SubstrateError> {
         let (mut stream, peer_addr) = transport::dial_blocking(remote_addr)
             .map_err(|e| SubstrateError::Protocol(format!("federation dial: {e}")))?;
@@ -166,9 +167,23 @@ impl FederationState {
             )))
             .map_err(SubstrateError::Io)?;
 
+        // M25.4: derive our hello signature when a signing seed is provided.
+        // Pre-M25 callers (or substrates that have not yet wired the seed
+        // through) pass None and downgrade to substrate_id-only TOFU.
+        let (our_signer_pubkey_arr, our_hello_signature_arr) =
+            sign_fed_hello_if_available(
+                our_signing_seed,
+                our_substrate_id,
+                our_dag_tip,
+            );
+
         // Send our FED_HELLO.
-        let hello_payload =
-            protocol::build_fed_hello_payload(our_substrate_id, our_dag_tip);
+        let hello_payload = protocol::build_fed_hello_payload(
+            our_substrate_id,
+            our_dag_tip,
+            our_signer_pubkey_arr.as_ref(),
+            our_hello_signature_arr.as_ref(),
+        );
         let hello_msg = Message::new(protocol::fed_msg_type::FED_HELLO, 1, hello_payload);
         let bootstrap = protocol::federation_bootstrap_key();
         transport::write_fed_frame(&mut stream, &hello_msg, &bootstrap)
@@ -198,6 +213,23 @@ impl FederationState {
         let parsed = protocol::parse_fed_hello_payload(&ack_msg.payload)
             .map_err(SubstrateError::Protocol)?;
 
+        // M25.4: verify the peer's hello signature if present. Three outcomes:
+        // - Ok(true): signature verified — pin signer_pubkey alongside id.
+        // - Ok(false): legacy peer (no signature) — fall through to TOFU-only
+        //   pinning; caller emits federation_legacy_peer_pinned observability.
+        // - Err: tampered signature — reject the connection.
+        let signature_verified = match protocol::verify_fed_hello_signature(&parsed) {
+            Ok(v) => v,
+            Err(reason) => {
+                transport::close_stream(&stream);
+                return Ok(ConnectPeerOutcome::RejectedSignatureInvalid {
+                    peer_substrate_id: parsed.peer_substrate_id,
+                    remote_addr_str: peer_addr.to_string(),
+                    reason,
+                });
+            }
+        };
+
         // Self-connect rejection: a substrate connecting to itself is a no-op
         // (and would cause confusing self-replication). M22.2 makes this an
         // explicit error rather than silently accepting.
@@ -225,6 +257,22 @@ impl FederationState {
                     previously_pinned_remote_addr_str: existing_addr_str,
                 });
             }
+            // M25.4: if both we and peer have pinned signer_pubkeys, they must
+            // match — otherwise a peer presenting the same substrate_id with a
+            // DIFFERENT signing pubkey is identity drift even on a stable IP.
+            if let (Some(existing_pk), Some(new_pk)) =
+                (&existing.pinned_signer_pubkey, &parsed.signer_pubkey)
+            {
+                if existing_pk != new_pk {
+                    let existing_addr_str = existing.remote_addr.to_string();
+                    transport::close_stream(&stream);
+                    return Ok(ConnectPeerOutcome::RejectedIdentityDrift {
+                        peer_substrate_id: parsed.peer_substrate_id,
+                        new_remote_addr_str: peer_addr.to_string(),
+                        previously_pinned_remote_addr_str: existing_addr_str,
+                    });
+                }
+            }
             // Same id, same addr — peer is reconnecting after a network hiccup.
             // The existing connection may be stale; replace it.
             // For M22.2 we just refuse the reconnect — operator can call
@@ -236,11 +284,18 @@ impl FederationState {
             });
         }
 
-        // Pin the new peer.
+        // Pin the new peer. M25.4: only pin signer_pubkey when we *verified*
+        // the signature — never trust an unverified key.
+        let pinned_signer = if signature_verified {
+            parsed.signer_pubkey
+        } else {
+            None
+        };
         let peer = transport::PeerConnection {
             stream,
             state: transport::PeerConnectionState::Established,
             peer_substrate_id: Some(parsed.peer_substrate_id),
+            pinned_signer_pubkey: pinned_signer,
             remote_addr: peer_addr,
             opened_at_unix_ns: current_unix_ns(),
         };
@@ -250,6 +305,8 @@ impl FederationState {
             peer_substrate_id: parsed.peer_substrate_id,
             remote_addr_str: peer_addr.to_string(),
             peer_dag_tip: parsed.peer_dag_tip,
+            signer_pubkey: pinned_signer,
+            signature_verified,
         })
     }
 
@@ -274,6 +331,7 @@ impl FederationState {
                         stream,
                         state: transport::PeerConnectionState::AwaitingHello,
                         peer_substrate_id: None,
+                        pinned_signer_pubkey: None,
                         remote_addr,
                         opened_at_unix_ns: current_unix_ns(),
                     });
@@ -301,10 +359,19 @@ impl FederationState {
         &mut self,
         our_substrate_id: &[u8; 32],
         our_dag_tip: Option<&[u8; 32]>,
+        our_signing_seed: Option<&[u8; 32]>,
     ) -> Vec<PollPeerEvent> {
         let bootstrap = protocol::federation_bootstrap_key();
         let mut events = Vec::new();
         let mut indices_to_remove: Vec<usize> = Vec::new();
+
+        // M25.4: pre-compute our outbound ack signature once per poll round.
+        let (our_signer_pubkey_arr, our_hello_signature_arr) =
+            sign_fed_hello_if_available(
+                our_signing_seed,
+                our_substrate_id,
+                our_dag_tip,
+            );
 
         for (idx, peer) in self.peers.iter_mut().enumerate() {
             if peer.state != transport::PeerConnectionState::AwaitingHello {
@@ -352,6 +419,27 @@ impl FederationState {
                     continue;
                 }
             };
+            // M25.4: verify the peer's hello signature when present. A tampered
+            // signature is a hard reject (peer impersonation attempt).
+            let signature_verified = match protocol::verify_fed_hello_signature(&parsed) {
+                Ok(v) => v,
+                Err(reason) => {
+                    let _ = send_fed_error(
+                        &mut peer.stream,
+                        "hello_signature_invalid",
+                        &reason,
+                    );
+                    events.push(PollPeerEvent::RejectedSignatureInvalid {
+                        peer_substrate_id: parsed.peer_substrate_id,
+                        remote_addr_str: peer.remote_addr.to_string(),
+                        reason,
+                    });
+                    transport::close_stream(&peer.stream);
+                    peer.state = transport::PeerConnectionState::Failed;
+                    indices_to_remove.push(idx);
+                    continue;
+                }
+            };
             // Self-connect rejection.
             if &parsed.peer_substrate_id == our_substrate_id {
                 let _ = send_fed_error(&mut peer.stream, "self_connection", "peer id is self");
@@ -372,7 +460,12 @@ impl FederationState {
             // connections) is intentionally tolerant at M22.2 inbound — the
             // outbound `connect_peer` path enforces drift detection because
             // that's where the operator has clear policy intent.
-            let ack_payload = protocol::build_fed_hello_ack_payload(our_substrate_id, our_dag_tip);
+            let ack_payload = protocol::build_fed_hello_ack_payload(
+                our_substrate_id,
+                our_dag_tip,
+                our_signer_pubkey_arr.as_ref(),
+                our_hello_signature_arr.as_ref(),
+            );
             let ack_msg = Message::new(
                 protocol::fed_msg_type::FED_HELLO_ACK,
                 hello_msg.request_id,
@@ -382,10 +475,20 @@ impl FederationState {
                 Ok(()) => {
                     peer.state = transport::PeerConnectionState::Established;
                     peer.peer_substrate_id = Some(parsed.peer_substrate_id);
+                    // M25.4: only pin signer_pubkey on verified signatures.
+                    if signature_verified {
+                        peer.pinned_signer_pubkey = parsed.signer_pubkey;
+                    }
                     events.push(PollPeerEvent::Pinned {
                         peer_substrate_id: parsed.peer_substrate_id,
                         remote_addr_str: peer.remote_addr.to_string(),
                         peer_dag_tip: parsed.peer_dag_tip,
+                        signer_pubkey: if signature_verified {
+                            parsed.signer_pubkey
+                        } else {
+                            None
+                        },
+                        signature_verified,
                     });
                 }
                 Err(e) => {
@@ -485,11 +588,15 @@ impl FederationState {
         &mut self,
         our_substrate_id: &[u8; 32],
         our_dag_tip: Option<&[u8; 32]>,
+        our_signing_seed: Option<&[u8; 32]>,
         local_dag: &myco_kernel_schema::dag::Dag,
     ) -> Vec<PollPeerEvent> {
         // M22.2 path: progress AwaitingHello peers first (existing logic).
-        let mut events =
-            self.progress_awaiting_hello_peers(our_substrate_id, our_dag_tip);
+        let mut events = self.progress_awaiting_hello_peers(
+            our_substrate_id,
+            our_dag_tip,
+            our_signing_seed,
+        );
 
         // M22.3 path: progress Established peers (read inbound REQUEST_EVENTS_SINCE).
         let mut indices_to_remove: Vec<usize> = Vec::new();
@@ -630,6 +737,33 @@ fn send_fed_error(stream: &mut std::net::TcpStream, code: &str, message: &str) -
     transport::write_fed_frame(stream, &msg, &bootstrap).map_err(|_| ())
 }
 
+/// M25.4: helper — derive (pubkey, signature) pair for our outbound FED_HELLO
+/// payload when a signing seed is provided. Returns (None, None) when seed is
+/// absent (caller acts as a legacy peer; receiver falls through to TOFU).
+///
+/// Materialises the result as `[u8; 32]` and `[u8; 64]` arrays so the caller
+/// can borrow `Option::as_ref()` into the payload builder without moving the
+/// signing key.
+fn sign_fed_hello_if_available(
+    our_signing_seed: Option<&[u8; 32]>,
+    our_substrate_id: &[u8; 32],
+    our_dag_tip: Option<&[u8; 32]>,
+) -> (Option<[u8; 32]>, Option<[u8; 64]>) {
+    let seed = match our_signing_seed {
+        Some(s) => s,
+        None => return (None, None),
+    };
+    let key = myco_kernel_shared::crypto::Ed25519PrivateKey::from_seed(seed);
+    let pubkey = key.public_key().0;
+    let signing_message = protocol::build_fed_hello_signing_message(
+        our_substrate_id,
+        our_dag_tip,
+        protocol::FEDERATION_PROTOCOL_VERSION,
+    );
+    let sig = key.sign(&signing_message).0;
+    (Some(pubkey), Some(sig))
+}
+
 /// Outcome of `connect_peer`. The substrate's federation handler reads this
 /// to decide which DAG event (or operator error envelope) to emit.
 #[derive(Debug, Clone)]
@@ -643,6 +777,14 @@ pub enum ConnectPeerOutcome {
         remote_addr_str: String,
         /// Peer's DAG tip (if any).
         peer_dag_tip: Option<[u8; 32]>,
+        /// M25.4: peer's signing pubkey if their hello carried a verified
+        /// signature; `None` when the peer is legacy / unsigned.
+        signer_pubkey: Option<[u8; 32]>,
+        /// M25.4: `true` if the peer presented a signature we verified;
+        /// `false` for legacy peers. Used to differentiate the
+        /// `federation_peer_pinned` event payload from the observability
+        /// `federation_legacy_peer_pinned` event.
+        signature_verified: bool,
     },
     /// Peer's substrate_id matches our own — silly self-connect. Emit nothing;
     /// surface as operator-level error.
@@ -660,6 +802,16 @@ pub enum ConnectPeerOutcome {
         new_remote_addr_str: String,
         /// Address that previously pinned the id.
         previously_pinned_remote_addr_str: String,
+    },
+    /// M25.4: Peer presented a `hello_signature` that failed Ed25519 verification.
+    /// This is a peer impersonation attempt; emit C39 immune sporocarp.
+    RejectedSignatureInvalid {
+        /// The peer's claimed substrate_id (cannot be trusted; logged only).
+        peer_substrate_id: [u8; 32],
+        /// Remote socket address.
+        remote_addr_str: String,
+        /// Verifier's failure reason (for observability).
+        reason: String,
     },
     /// Peer's substrate_id + address match an already-pinned peer — no-op.
     AlreadyPinned {
@@ -682,11 +834,26 @@ pub enum PollPeerEvent {
         remote_addr_str: String,
         /// Peer's DAG tip (if any).
         peer_dag_tip: Option<[u8; 32]>,
+        /// M25.4: peer's signing pubkey if signature verified; `None` for
+        /// legacy peers.
+        signer_pubkey: Option<[u8; 32]>,
+        /// M25.4: whether the peer's hello carried a verified Ed25519 signature.
+        signature_verified: bool,
     },
     /// Inbound peer claimed our own substrate_id — rejected.
     RejectedSelfConnection {
         /// Remote socket address of the offending connection.
         remote_addr_str: String,
+    },
+    /// M25.4: inbound peer presented a `hello_signature` that failed
+    /// verification — peer impersonation attempt.
+    RejectedSignatureInvalid {
+        /// The peer's claimed substrate_id (untrusted).
+        peer_substrate_id: [u8; 32],
+        /// Remote socket address.
+        remote_addr_str: String,
+        /// Verifier's failure reason.
+        reason: String,
     },
     /// A peer connection failed at the frame-read stage. The peer has been
     /// removed from `self.peers` by `progress_awaiting_hello_peers`.

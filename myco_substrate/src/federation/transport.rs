@@ -36,6 +36,14 @@ pub struct PeerConnection {
     /// `None` while still in [`PeerConnectionState::AwaitingHello`].
     pub peer_substrate_id: Option<[u8; 32]>,
 
+    /// M25.4: the peer's Ed25519 signing public key, pinned at hello-handshake
+    /// time when the peer presented a valid `hello_signature`. Legacy peers
+    /// (no signature in their hello) leave this `None` — the peer is
+    /// authenticated by TOFU substrate_id only. On reconnect, an established
+    /// signer_pubkey must match this pin exactly OR the connection is
+    /// rejected as identity drift (C33).
+    pub pinned_signer_pubkey: Option<[u8; 32]>,
+
     /// The peer's remote socket address (informational).
     pub remote_addr: SocketAddr,
 

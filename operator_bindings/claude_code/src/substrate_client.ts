@@ -19,6 +19,9 @@ import { randomBytes } from "node:crypto";
 
 import { encodeFrame, FrameReader } from "./protocol/framing.ts";
 import {
+  acceptSelfEuthanasiaProposalPayload,
+  type AcceptSelfEuthanasiaProposalResult,
+  acceptSelfEuthanasiaProposalSigningInput,
   advancePayload,
   type AdvanceReport,
   type AttestationNonceResult,
@@ -29,6 +32,20 @@ import {
   emptyPayload,
   encodeFrameBody,
   enumerateDagSincePayload,
+  federationCloseListenerPayload,
+  type FederationCloseListenerResult,
+  federationConnectPeerPayload,
+  type FederationConnectPeerResult,
+  federationLinkToParentFromHintPayload,
+  type FederationLinkToParentFromHintResult,
+  federationOpenListenerPayload,
+  type FederationOpenListenerResult,
+  federationPollPayload,
+  type FederationPollResult,
+  federationPullEventsFromPeerPayload,
+  type FederationPullEventsFromPeerResult,
+  federationStatusPayload,
+  type FederationStatusResult,
   type HelloAck,
   helloPayload,
   helloSigningBody,
@@ -37,16 +54,30 @@ import {
   type IngestResult,
   ingestRawMaterialPayload,
   type IntentReport,
+  liftBirthPeriodQuarantinePayload,
+  type LiftBirthPeriodQuarantineResult,
+  liftBirthPeriodQuarantineSigningInput,
   type Message,
   MSG_TYPE,
   type MutationResult,
+  type ObservatorySnapshot,
+  parseAcceptSelfEuthanasiaProposalResponse,
   parseAdvanceResponse,
   parseComputeIntentResponse,
   parseEnumerateDagSinceResponse,
+  parseFederationCloseListenerResponse,
+  parseFederationConnectPeerResponse,
+  parseFederationLinkToParentFromHintResponse,
+  parseFederationOpenListenerResponse,
+  parseFederationPollResponse,
+  parseFederationPullEventsFromPeerResponse,
+  parseFederationStatusResponse,
   parseHelloAck,
   parseIngestRawMaterialResponse,
+  parseLiftBirthPeriodQuarantineResponse,
   parsePerturbAxisFromRawMaterialResponse,
   parseQueryImmuneEventsResponse,
+  parseQuerySubstrateObservatoryResponse,
   parseQueryRecentNodesResponse,
   parseRequestAttestationNonceResponse,
   parseRunImmuneCheckResponse,
@@ -58,6 +89,7 @@ import {
   type PerturbFromRawResult,
   queryImmuneEventsPayload,
   queryRecentNodesPayload,
+  querySubstrateObservatoryPayload,
   type RawMaterialKind,
   type RecentNodesReport,
   registerAxisPayload,
@@ -728,6 +760,218 @@ export class SubstrateClient {
       emptyPayload(),
     );
     return parseRunImmuneCheckResponse(response);
+  }
+
+  // -------------------------------------------------------------------------
+  // M25.5 P5 万物互联 — operator-facing federation + observatory + mortality.
+  // -------------------------------------------------------------------------
+
+  /** M22.1: Open a TCP federation listener. Pass `127.0.0.1:0` to let the OS
+   *  pick a port; the response carries the resolved address.
+   *
+   *  The substrate emits a `federation_listener_opened` DAG event on success,
+   *  recording the bind address into its causal graph (P5 + P6). */
+  async federationOpenListener(args: {
+    bindAddr: string;
+  }): Promise<FederationOpenListenerResult> {
+    const response = await this._sendRequest(
+      MSG_TYPE.FEDERATION_OPEN_LISTENER,
+      federationOpenListenerPayload(args),
+    );
+    return parseFederationOpenListenerResponse(response);
+  }
+
+  /** M22.1: Close the active federation listener. Idempotent — no-op if no
+   *  listener was active. When a listener was active, the substrate emits a
+   *  `federation_listener_closed` DAG event. */
+  async federationCloseListener(): Promise<FederationCloseListenerResult> {
+    const response = await this._sendRequest(
+      MSG_TYPE.FEDERATION_CLOSE_LISTENER,
+      federationCloseListenerPayload(),
+    );
+    return parseFederationCloseListenerResponse(response);
+  }
+
+  /** M22.1: Read-only federation status query — currently bound address,
+   *  peer count, cumulative event totals. */
+  async federationStatus(): Promise<FederationStatusResult> {
+    const response = await this._sendRequest(
+      MSG_TYPE.FEDERATION_STATUS,
+      federationStatusPayload(),
+    );
+    return parseFederationStatusResponse(response);
+  }
+
+  /** M22.2: Dial a peer substrate at `remoteAddr`, perform FED_HELLO handshake,
+   *  TOFU-pin the peer's substrate_id. Outcome is one of:
+   *  - `"pinned"` — first time we saw this peer; pinned successfully.
+   *  - `"self_connection"` — peer's substrate_id matches our own (rejected).
+   *  - `"identity_drift"` — peer's substrate_id differs from a previous pinning
+   *    at the same address (C20 immune sporocarp emitted).
+   *  - `"already_pinned"` — we already pinned this peer at this address. */
+  async federationConnectPeer(args: {
+    remoteAddr: string;
+  }): Promise<FederationConnectPeerResult> {
+    const response = await this._sendRequest(
+      MSG_TYPE.FEDERATION_CONNECT_PEER,
+      federationConnectPeerPayload(args),
+    );
+    return parseFederationConnectPeerResponse(response);
+  }
+
+  /** M22.2+: Drive one round of nonblocking federation I/O:
+   *  1. Accept queued inbound TCP connections.
+   *  2. Advance each pending peer through FED_HELLO handshake.
+   *  3. Drain inbound frames (event batches) from established peers.
+   *
+   *  This is a poll — call it periodically (e.g. each cycle) when federation
+   *  is active. M23 wires it into the substrate's autonomous tick. */
+  async federationPoll(): Promise<FederationPollResult> {
+    const response = await this._sendRequest(
+      MSG_TYPE.FEDERATION_POLL,
+      federationPollPayload(),
+    );
+    return parseFederationPollResponse(response);
+  }
+
+  /** M22.3: Request DAG events from a previously-pinned peer.
+   *
+   *  Inbound peer events pass through an ALLOWLIST (only substrate-environmental
+   *  node types — raw_material/sporocarp/mutation/immune — are accepted). Each
+   *  allowed event is wrapped in a `federation_received:{peer_prefix}` envelope
+   *  parented by the RECEIVER's local tip; the receiver's Merkle chain stays
+   *  valid. Cross-substrate provenance is preserved inside the wrapper content
+   *  (peer_event_original_hash + peer_event_parent_hashes). */
+  async federationPullEventsFromPeer(args: {
+    peerSubstrateId: Uint8Array;
+    sinceNodeHash?: Uint8Array;
+    maxEvents?: bigint;
+  }): Promise<FederationPullEventsFromPeerResult> {
+    const response = await this._sendRequest(
+      MSG_TYPE.FEDERATION_PULL_EVENTS_FROM_PEER,
+      federationPullEventsFromPeerPayload(args),
+    );
+    return parseFederationPullEventsFromPeerResponse(response);
+  }
+
+  /** M22.4: After child substrate boot, scan local DAG for a
+   *  `parent_federation_hint` event (written by the parent at `sproutChild`
+   *  time when federation was active). If found, dial the parent's federation
+   *  address + TOFU-pin + emit `federation_parent_linked`. Idempotent if
+   *  already linked. */
+  async federationLinkToParentFromHint(): Promise<FederationLinkToParentFromHintResult> {
+    const response = await this._sendRequest(
+      MSG_TYPE.FEDERATION_LINK_TO_PARENT_FROM_HINT,
+      federationLinkToParentFromHintPayload(),
+    );
+    return parseFederationLinkToParentFromHintResponse(response);
+  }
+
+  /** M22.5 (Phase β security fix): Owner-signed lift of birth-period
+   *  quarantine. The substrate requires the caller's Ed25519 IDENTITY-key
+   *  signature over the canonical signing input built by
+   *  `liftBirthPeriodQuarantineSigningInput` (context + substrate_id +
+   *  current_cycle). The current_cycle binding ensures the signature is not
+   *  replayable across substrate boots — operator must re-sign per-cycle.
+   *
+   *  When not in active quarantine, `wasInQuarantine=false` and no DAG event
+   *  is emitted.
+   *
+   *  Use `signLiftBirthPeriodQuarantine` to build the signature deterministically. */
+  async liftBirthPeriodQuarantine(args: {
+    ownerSignature: Uint8Array;
+  }): Promise<LiftBirthPeriodQuarantineResult> {
+    const response = await this._sendRequest(
+      MSG_TYPE.LIFT_BIRTH_PERIOD_QUARANTINE,
+      liftBirthPeriodQuarantinePayload(args),
+    );
+    return parseLiftBirthPeriodQuarantineResponse(response);
+  }
+
+  /** Helper: build the 64-byte Ed25519 owner signature for
+   *  `liftBirthPeriodQuarantine`. The signing input is bound to the
+   *  substrate_id (no cross-substrate replay) and current_cycle (no cross-boot
+   *  replay). The substrate's cycle counter is queried automatically. */
+  async signLiftBirthPeriodQuarantine(
+    operatorIdentity: OperatorIdentity,
+  ): Promise<Uint8Array> {
+    const substrateId = await this.querySubstrateId();
+    // Read current cycle via observatory (signal #1.manifest_cycle_counter is
+    // always present in v1+). This costs one round-trip per signature but
+    // ensures the cycle binding is exact.
+    const observatory = await this.querySubstrateObservatory();
+    const currentCycle = observatory.signal1?.manifestCycleCounter ?? 0n;
+    const signingInput = liftBirthPeriodQuarantineSigningInput(
+      substrateId,
+      currentCycle,
+    );
+    return operatorIdentity.sign(signingInput);
+  }
+
+  /** M23.2 P7 必朽: Owner co-attestation acceptance of a previously-emitted
+   *  `self_euthanasia_proposal:{axis_name}` DAG node. The substrate verifies
+   *  the IDENTITY-key signature over the canonical input built by
+   *  `acceptSelfEuthanasiaProposalSigningInput` (context + proposal_hash +
+   *  substrate_id), emits a `self_euthanasia_executed:{axis_name}` event, and
+   *  replies with success.
+   *
+   *  **The substrate gracefully shuts down AFTER this response is written.**
+   *  The DAG persists on disk as the substrate's signed post-mortem record.
+   *  The caller's `this.child` will exit cleanly (code 0) shortly after the
+   *  response resolves. Subsequent client operations will fail; callers
+   *  typically follow this call with `shutdown()` or `_waitChildExit()` to
+   *  observe the exit.
+   *
+   *  Use `signAcceptSelfEuthanasiaProposal` to build the signature
+   *  deterministically. */
+  async acceptSelfEuthanasiaProposal(args: {
+    proposalHash: Uint8Array;
+    ownerSignature: Uint8Array;
+  }): Promise<AcceptSelfEuthanasiaProposalResult> {
+    const response = await this._sendRequest(
+      MSG_TYPE.ACCEPT_SELF_EUTHANASIA_PROPOSAL,
+      acceptSelfEuthanasiaProposalPayload(args),
+    );
+    return parseAcceptSelfEuthanasiaProposalResponse(response);
+  }
+
+  /** Helper: build the 64-byte Ed25519 owner signature for
+   *  `acceptSelfEuthanasiaProposal`. The signing input is bound to the
+   *  proposal_hash + substrate_id; the signature is not replayable across
+   *  different proposals nor across different substrates. */
+  async signAcceptSelfEuthanasiaProposal(
+    operatorIdentity: OperatorIdentity,
+    proposalHash: Uint8Array,
+  ): Promise<Uint8Array> {
+    const substrateId = await this.querySubstrateId();
+    const signingInput = acceptSelfEuthanasiaProposalSigningInput(
+      proposalHash,
+      substrateId,
+    );
+    return operatorIdentity.sign(signingInput);
+  }
+
+  /** Phase α / M24.5: Read the Living Bets observatory snapshot.
+   *
+   *  Currently exposes (format_version=2):
+   *  - signal #1: persistence budget (DAG size + cycle counter)
+   *  - signal #2: evolution rate (axis_registered + evolution_* counts)
+   *  - signal #3: read-pattern diversity (distinct perturbed-axis count)
+   *  - signal #4: federation health (reachable peers + events received)
+   *  - signal #6: read-window-relative ratio (iff caller supplies window)
+   *  - signal #7: composite health score (weighted aggregate of 1+2+4b)
+   *
+   *  M25.x lands signal #5 (time trends) + #8 (doctrine-instability burst)
+   *  + bet_weakening_quorum at format_version=3. The parser surfaces those
+   *  fields when present and leaves them undefined otherwise. */
+  async querySubstrateObservatory(args: {
+    operatorAttestedContextWindowBytes?: bigint;
+  } = {}): Promise<ObservatorySnapshot> {
+    const response = await this._sendRequest(
+      MSG_TYPE.QUERY_SUBSTRATE_OBSERVATORY,
+      querySubstrateObservatoryPayload(args),
+    );
+    return parseQuerySubstrateObservatoryResponse(response);
   }
 
   /** Graceful shutdown — sends shutdown, awaits ack, waits for child exit. */
