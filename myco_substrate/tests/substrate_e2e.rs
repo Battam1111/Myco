@@ -986,13 +986,111 @@ fn phase_alpha_observatory_signal_1_basic_persistence_budget() {
         "signal_6 should be absent without operator-supplied window"
     );
 
-    // observatory_format_version pinned at 1.
+    // observatory_format_version bumped to 2 in M24.5 (added signals 2/3/4/7).
     let fmt = match resp.payload.get("observatory_format_version") {
         Some(CbValue::Uint(n)) => *n,
         _ => panic!("fmt version missing"),
     };
-    assert_eq!(fmt, 1);
+    assert_eq!(fmt, 2);
 
+    // M24.5: signals 2/3/4/7 present.
+    assert!(
+        resp.payload.contains_key("signal_2_evolution_rate"),
+        "M24.5: signal_2 present"
+    );
+    assert!(
+        resp.payload.contains_key("signal_3_read_pattern_diversity"),
+        "M24.5: signal_3 present"
+    );
+    assert!(
+        resp.payload.contains_key("signal_4_federation_health"),
+        "M24.5: signal_4 present"
+    );
+    assert!(
+        resp.payload.contains_key("signal_7_composite_health"),
+        "M24.5: signal_7 composite present"
+    );
+
+    client.shutdown().expect("shutdown");
+}
+
+#[test]
+fn m24_5_observatory_signal_2_counts_axis_registers() {
+    let (mut client, _dir) = spawn_substrate();
+    client
+        .register_axis("ev1", "appetite", 5.0, 0.0, 1.0, false, "noop")
+        .expect("register 1");
+    client
+        .register_axis("ev2", "appetite", 5.0, 0.0, 1.0, false, "noop")
+        .expect("register 2");
+
+    let resp = client
+        .call(proto::QUERY_SUBSTRATE_OBSERVATORY, build_payload(vec![]))
+        .expect("observatory");
+    let s2 = match resp.payload.get("signal_2_evolution_rate") {
+        Some(CbValue::Map(m)) => m.clone(),
+        _ => panic!("signal_2 missing"),
+    };
+    let count = match s2.get("axis_register_count") {
+        Some(CbValue::Uint(n)) => *n,
+        _ => panic!("axis_register_count missing"),
+    };
+    assert!(count >= 2, "expected >= 2 axis_register events; got {count}");
+    client.shutdown().expect("shutdown");
+}
+
+#[test]
+fn m24_5_observatory_signal_3_distinct_perturbed_axes() {
+    let (mut client, _dir) = spawn_substrate();
+    client
+        .register_axis("a", "appetite", 5.0, 0.0, 1.0, false, "noop")
+        .expect("ra");
+    client
+        .register_axis("b", "appetite", 5.0, 0.0, 1.0, false, "noop")
+        .expect("rb");
+    client.perturb("a", 0.5).expect("pa1");
+    client.perturb("a", 0.7).expect("pa2"); // duplicate axis name; counted once
+    client.perturb("b", 0.3).expect("pb1");
+
+    let resp = client
+        .call(proto::QUERY_SUBSTRATE_OBSERVATORY, build_payload(vec![]))
+        .expect("observatory");
+    let s3 = match resp.payload.get("signal_3_read_pattern_diversity") {
+        Some(CbValue::Map(m)) => m.clone(),
+        _ => panic!("signal_3 missing"),
+    };
+    let distinct = match s3.get("distinct_perturbed_axes_count") {
+        Some(CbValue::Uint(n)) => *n,
+        _ => panic!("distinct_perturbed_axes_count missing"),
+    };
+    assert_eq!(distinct, 2, "expected 2 distinct axes (a + b); got {distinct}");
+    client.shutdown().expect("shutdown");
+}
+
+#[test]
+fn m24_5_observatory_signal_7_composite_is_valid_float() {
+    let (mut client, _dir) = spawn_substrate();
+    client
+        .register_axis("composite_test", "appetite", 5.0, 0.0, 1.0, false, "noop")
+        .expect("register");
+    let resp = client
+        .call(proto::QUERY_SUBSTRATE_OBSERVATORY, build_payload(vec![]))
+        .expect("observatory");
+    let s7 = match resp.payload.get("signal_7_composite_health") {
+        Some(CbValue::Map(m)) => m.clone(),
+        _ => panic!("signal_7 missing"),
+    };
+    let composite_repr = match s7.get("composite_health_score_repr") {
+        Some(CbValue::String(s)) => s.clone(),
+        _ => panic!("composite_health_score_repr missing"),
+    };
+    let parsed: f64 = composite_repr.parse().expect("composite is parseable float");
+    assert!(parsed >= 0.0, "composite should be non-negative; got {parsed}");
+    let fmt = match s7.get("composite_format_version") {
+        Some(CbValue::Uint(n)) => *n,
+        _ => panic!("composite_format_version missing"),
+    };
+    assert_eq!(fmt, 2, "composite format version pinned at 2");
     client.shutdown().expect("shutdown");
 }
 
@@ -1392,7 +1490,7 @@ fn phase_beta_federation_pull_rejects_substrate_private_events() {
             proto::QUERY_RECENT_NODES,
             build_payload(vec![
                 ("count", CbValue::Uint(50)),
-                ("node_type_prefix", CbValue::String("immune:C22".to_string())),
+                ("node_type_prefix", CbValue::String("immune:C35".to_string())),
             ]),
         )
         .expect("query immune");

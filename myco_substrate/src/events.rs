@@ -1,3 +1,30 @@
+//! ## C-row detector namespace (M24.1 Phase β follow-up)
+//!
+//! Immune sporocarp `detector_id` values use two disjoint namespaces:
+//!
+//! - **C1-C20 (L1_HARD_RULES §1 catalog)** — formal CRITICAL breach catalog.
+//!   Substrate emit sites for these MUST match the L1 spec label exactly.
+//!   Currently 7 of 20 are emitted with matching labels: C5 attestation_invalid,
+//!   C6 dag_enumeration_unclosed, C7 dag_retro_edit_detected, C9
+//!   cold_resume_invariant_failure, C14 untyped_mutation_blocked, C17
+//!   operator_witness_forgery, C18 canonical_bytes_render_drift.
+//!
+//! - **C30+ (substrate-private)** — detectors needed for live-substrate
+//!   correctness but not in the L1 catalog. Reserved range so a future L1
+//!   revision can extend the formal catalog without renumber thrash.
+//!   Current C30+ detectors:
+//!     C30_handshake_pubkey_mismatch         (was C2; freed L1's C2 = output_endpoint_breach)
+//!     C31_cycle_step_failed                 (was C12; freed L1's C12 = successor_activation_with_fresh_owner_heartbeat)
+//!     C32_substrate_state_orphan_detected   (was C19; freed L1's C19 = paused_dormancy_unsafe_host)
+//!     C33_federation_peer_identity_mismatch (was C20; freed L1's C20 = genesis_attestation_chain_broken)
+//!     C34_birth_period_violation_during_quarantine (was C21; catalog ends at C20)
+//!     C35_federation_substrate_private_event_injection (new Phase β)
+//!
+//! The Phase α/β audit found my prior emit sites occupied C2/C12/C19/C20/C21
+//! with substrate-private detector semantics — labeling drift from L1 spec.
+//! M24.1 renames to C30+ namespace; C1-C20 emit sites NOW reserved for L1
+//! spec labels (some still unimplemented, will land in M25+).
+//!
 //! M21 P5 万物互联 — DAG event type definitions.
 //!
 //! This module defines the **substrate event vocabulary**: every state

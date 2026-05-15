@@ -417,6 +417,45 @@ export class SubstrateClient {
     return parseIngestRawMaterialResponse(response);
   }
 
+  /** M24.2: query the substrate's substrate_id by inspecting its genesis_event.
+   *
+   *  Returns the 32-byte substrate_id stored in the genesis_event DAG node's
+   *  content_canonical_bytes Map. Throws if the substrate has no genesis_event
+   *  (pre-M21 legacy substrate or fresh-state-dir before first hello).
+   *
+   *  Used by M24.2 REVEAL substrate_id binding: TS-side reveal_key_binding
+   *  signing input includes substrate_id to prevent cross-substrate replay.
+   */
+  async querySubstrateId(): Promise<Uint8Array> {
+    const recent = await this.queryRecentNodes(50n, "genesis_event:");
+    if (recent.nodes.length === 0) {
+      throw new Error(
+        "querySubstrateId: no genesis_event found in substrate's DAG (pre-M21 legacy or empty state)",
+      );
+    }
+    // Genesis is the first DAG node (insertion order); newest-first traversal
+    // means it's the LAST in `nodes` array.
+    const genesis = recent.nodes[recent.nodes.length - 1]!;
+    const { decode } = await import("@myco/anchor-client/src/renderer.ts");
+    const { CanonicalBytes } = await import(
+      "@myco/anchor-client/src/canonical_bytes.ts"
+    );
+    const decoded = decode(new CanonicalBytes(genesis.contentCanonicalBytes));
+    if (decoded.type !== "map") {
+      throw new Error("genesis_event content is not a Map");
+    }
+    const idValue = decoded.value.get("substrate_id");
+    if (!idValue || idValue.type !== "bytes") {
+      throw new Error("genesis_event content missing substrate_id bytes");
+    }
+    if (idValue.value.length !== 32) {
+      throw new Error(
+        `substrate_id has wrong length: ${idValue.value.length} (expected 32)`,
+      );
+    }
+    return idValue.value;
+  }
+
   /** M20: P8 永恒繁衍 — Sprout a child substrate from the parent's spore-schema.
    *
    *  The substrate creates a child state_dir at `childStateDir` containing:
@@ -532,6 +571,11 @@ export class SubstrateClient {
     touchedMetaStructures?: string[];
     contentCanonicalBytes: Uint8Array;
     operatorIdentity: import("./operator_identity.ts").OperatorIdentity;
+    /** M24.2 SECURITY (Phase β fix): substrate_id of the target substrate,
+     *  bound into the IDENTITY-over-REVEAL signature so the signature cannot
+     *  be replayed against a different substrate with the same pinned operator.
+     *  Obtainable from the genesis_event in the substrate's DAG. */
+    substrateId: Uint8Array;
   }): Promise<MutationResult> {
     const { ed25519 } = await import("@noble/curves/ed25519.js");
     const { randomBytes: rb } = await import("node:crypto");
@@ -540,8 +584,11 @@ export class SubstrateClient {
     const revealSeed = new Uint8Array(rb(32));
     const revealPubkey = ed25519.getPublicKey(revealSeed);
 
-    // 2. IDENTITY signs the REVEAL pubkey (with domain separation).
-    const identitySigningInput = revealKeyBindingSigningInput(revealPubkey);
+    // 2. IDENTITY signs the REVEAL pubkey + substrate_id (M24.2 v2 binding).
+    const identitySigningInput = revealKeyBindingSigningInput(
+      revealPubkey,
+      args.substrateId,
+    );
     const identitySigOverReveal = args.operatorIdentity.sign(identitySigningInput);
 
     // 3. REVEAL signs the content (the "attestation" signature).

@@ -607,7 +607,7 @@ pub fn run_loop() -> Result<u8, SubstrateError> {
                 )
             } else if result.check_id == "substrate_state_orphan_detected" {
                 (
-                    "C19_substrate_state_orphan_detected",
+                    "C32_substrate_state_orphan_detected",
                     "substrate_state_orphan_detected".to_string(),
                 )
             } else {
@@ -760,7 +760,7 @@ pub fn run_loop() -> Result<u8, SubstrateError> {
                     let evidence = format!("hello rejected: {e}");
                     let _ = emit_immune_sporocarp(
                         &mut state,
-                        "C2_handshake_pubkey_mismatch",
+                        "C30_handshake_pubkey_mismatch",
                         "handshake_pubkey_mismatch",
                         &evidence,
                     );
@@ -1177,7 +1177,7 @@ fn emit_federation_peer_rejected(
     );
     let _ = emit_immune_sporocarp(
         state,
-        "C20_federation_identity_mismatch_detected",
+        "C33_federation_peer_identity_mismatch",
         "federation_identity_mismatch_detected",
         &evidence,
     );
@@ -1685,7 +1685,118 @@ fn handle_query_substrate_observatory(
         );
     }
 
-    payload.insert("observatory_format_version".to_string(), Value::Uint(1));
+    // M24.5 (Phase β): signal #2 evolution rate, #3 read-pattern diversity,
+    // #4 federation health, + composite #7. Single-pass O(N) over DAG with
+    // accumulators per signal — matches signal #1 cost.
+    //
+    // Per L2_OBSERVABILITY §2.1:
+    //  - signal #2: governance/schema changes count (axis_registered + evolution_*)
+    //  - signal #3: variety of axis names involved in axis_perturbed (proxy)
+    //  - signal #4a: cumulative federation fork count (placeholder; M25 will track)
+    //  - signal #4b: reachable federation peer count (live state)
+    //  - signal #5 time trend: NOT IMPLEMENTED (requires historical series; M25)
+    //  - signal #7 composite: weighted aggregate of #1+#2+#4b (#3 + #5 not yet
+    //    available, omitted from composite at this format_version=2)
+    let mut evolution_event_count: u64 = 0;
+    let mut axis_register_count: u64 = 0;
+    let mut perturbed_axes: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
+    let mut federation_received_count: u64 = 0;
+    for n in state.dag.iter_in_insertion_order() {
+        let nt = &n.node_type;
+        if nt.starts_with("axis_registered:") {
+            axis_register_count = axis_register_count.saturating_add(1);
+            evolution_event_count = evolution_event_count.saturating_add(1);
+        } else if nt.starts_with("evolution_succeeded:") || nt.starts_with("evolution_failed:") {
+            evolution_event_count = evolution_event_count.saturating_add(1);
+        } else if let Some(axis_name) = nt.strip_prefix("axis_perturbed:") {
+            perturbed_axes.insert(axis_name.to_string());
+        } else if nt.starts_with("federation_received:") {
+            federation_received_count = federation_received_count.saturating_add(1);
+        }
+    }
+
+    let mut signal_2_map = BTreeMap::new();
+    signal_2_map.insert(
+        "evolution_event_count".to_string(),
+        Value::Uint(evolution_event_count),
+    );
+    signal_2_map.insert(
+        "axis_register_count".to_string(),
+        Value::Uint(axis_register_count),
+    );
+    signal_2_map.insert(
+        "rate_repr".to_string(),
+        Value::String(if manifest_cycle_counter == 0 {
+            "0.0".to_string()
+        } else {
+            float_repr(
+                (evolution_event_count as f64) / (manifest_cycle_counter.max(1) as f64),
+            )
+        }),
+    );
+    payload.insert(
+        "signal_2_evolution_rate".to_string(),
+        Value::Map(signal_2_map),
+    );
+
+    let mut signal_3_map = BTreeMap::new();
+    signal_3_map.insert(
+        "distinct_perturbed_axes_count".to_string(),
+        Value::Uint(perturbed_axes.len() as u64),
+    );
+    payload.insert(
+        "signal_3_read_pattern_diversity".to_string(),
+        Value::Map(signal_3_map),
+    );
+
+    // signal_4: federation health (4a/4b).
+    let mut signal_4_map = BTreeMap::new();
+    let established_peers = state
+        .federation
+        .peers
+        .iter()
+        .filter(|p| p.state == crate::federation::transport::PeerConnectionState::Established)
+        .count() as u64;
+    signal_4_map.insert(
+        "signal_4a_cumulative_fork_count".to_string(),
+        Value::Uint(0), // placeholder — fork tracking M25
+    );
+    signal_4_map.insert(
+        "signal_4b_reachable_peer_count".to_string(),
+        Value::Uint(established_peers),
+    );
+    signal_4_map.insert(
+        "events_received_from_peers".to_string(),
+        Value::Uint(federation_received_count),
+    );
+    payload.insert("signal_4_federation_health".to_string(), Value::Map(signal_4_map));
+
+    // signal_7 composite (M24.5 minimum-viable): weighted aggregate over
+    // available numeric signals. Format_version=2 composite weights:
+    //   0.4 * normalize(persistence_budget_dag_node_count) +
+    //   0.3 * normalize(evolution_rate) +
+    //   0.3 * normalize(federation_health_4b)
+    // Normalization is log-scaled (substrate-size + evolution + peer count
+    // each span many orders of magnitude in production). M25 will replace
+    // with emergent-weight composite per L0 §7 line 357.
+    let log_normalized = |x: u64| -> f64 {
+        if x == 0 { 0.0 } else { ((x as f64).ln() / 10.0_f64.ln()).max(0.0).min(10.0) }
+    };
+    let composite = 0.4 * log_normalized(dag_node_count)
+        + 0.3 * log_normalized(evolution_event_count)
+        + 0.3 * log_normalized(established_peers);
+    let mut signal_7_map = BTreeMap::new();
+    signal_7_map.insert(
+        "composite_health_score_repr".to_string(),
+        Value::String(float_repr(composite)),
+    );
+    signal_7_map.insert(
+        "composite_format_version".to_string(),
+        Value::Uint(2),
+    );
+    payload.insert("signal_7_composite_health".to_string(), Value::Map(signal_7_map));
+
+    payload.insert("observatory_format_version".to_string(), Value::Uint(2));
     let captured_at_unix_ns = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .ok()
@@ -1773,7 +1884,7 @@ fn quarantine_block(
     );
     let _ = emit_immune_sporocarp(
         state,
-        "C21_birth_period_violation_detected",
+        "C34_birth_period_violation_during_quarantine",
         "birth_period_violation_detected",
         &evidence,
     );
@@ -2136,7 +2247,7 @@ fn handle_federation_pull_events_from_peer(
         );
         let _ = emit_immune_sporocarp(
             state,
-            "C22_federation_substrate_private_event_injection",
+            "C35_federation_substrate_private_event_injection",
             "federation_substrate_private_event_injection",
             &evidence,
         );
@@ -2824,22 +2935,36 @@ fn verify_reveal_keypair_envelope(state: &ServerState, request: &Message) -> Res
         _ => return Err("identity_signature_over_reveal_pubkey must be 64 bytes".to_string()),
     };
 
-    // Reconstruct the signing input: canonical_bytes(Map({"context", "reveal_pubkey"})).
+    // M24.2 SECURITY FIX (2026-05-15): include substrate_id in the signing
+    // input so an operator's IDENTITY-signature over a reveal_pubkey for
+    // substrate_A cannot be replayed against substrate_B. Context bumped
+    // to v2 — any v1 signer must be updated. (Phase β audit Surface 5.3.)
+    //
+    // Signing input shape (v2):
+    //   canonical_bytes(Map({
+    //     "context": "myco-reveal-key-binding-v2",
+    //     "reveal_pubkey": Bytes(32),
+    //     "substrate_id": Bytes(32),
+    //   }))
     let mut signing_map = BTreeMap::new();
     signing_map.insert(
         "context".to_string(),
-        Value::String("myco-reveal-key-binding-v1".to_string()),
+        Value::String("myco-reveal-key-binding-v2".to_string()),
     );
     signing_map.insert(
         "reveal_pubkey".to_string(),
         Value::Bytes(reveal_pubkey_bytes.clone()),
     );
+    signing_map.insert(
+        "substrate_id".to_string(),
+        Value::Bytes(state.manifest.substrate_id.to_vec()),
+    );
     let signing_input = cb_encode(&Value::Map(signing_map))
         .map_err(|e| format!("signing input encode failed: {e}"))?;
 
-    // Verify IDENTITY-signature-over-REVEAL.
+    // Verify IDENTITY-signature-over-REVEAL (v2 binding).
     verify_signature(&pinned.pubkey, &identity_sig_bytes, signing_input.as_ref())
-        .map_err(|e| format!("identity signature over reveal_pubkey invalid: {e}"))?;
+        .map_err(|e| format!("identity signature over reveal_pubkey invalid (v2 binding): {e}"))?;
 
     Ok(())
 }
@@ -2884,7 +3009,7 @@ fn handle_run_immune_check(
                 )
             } else if result.check_id == "substrate_state_orphan_detected" {
                 (
-                    "C19_substrate_state_orphan_detected",
+                    "C32_substrate_state_orphan_detected",
                     "substrate_state_orphan_detected".to_string(),
                 )
             } else {
@@ -5186,6 +5311,12 @@ fn handle_advance(
     state: &mut ServerState,
     request: &Message,
 ) -> Result<Option<Message>, SubstrateError> {
+    // M24.4 (Phase β): wall-clock cycle duration tracking for L2_OBSERVABILITY
+    // §7 cycle_backlog detection. If the cycle exceeds the alive-tier budget
+    // (5s default), record_backlog(); if backlog crosses threshold (10),
+    // emit C36_cycle_backlog immune event.
+    let cycle_wall_start = std::time::Instant::now();
+
     // Extract the requested cycle number (informational; engine has its own counter).
     let _requested_cycle = request.payload.get("current_cycle").and_then(|v| match v {
         Value::Uint(u) => Some(*u),
@@ -5286,7 +5417,7 @@ fn handle_advance(
             let evidence = format!("CycleEngine.run_cycle returned Err: {e}");
             let _ = emit_immune_sporocarp(
                 state,
-                "C12_cycle_step_failed",
+                "C31_cycle_step_failed",
                 "cycle_step_failed",
                 &evidence,
             );
@@ -5297,7 +5428,7 @@ fn handle_advance(
     if !cycle_report.committed {
         let _ = emit_immune_sporocarp(
             state,
-            "C12_cycle_step_failed",
+            "C31_cycle_step_failed",
             "cycle_step_failed",
             "CycleEngine.run_cycle returned non-committed report",
         );
@@ -5530,6 +5661,36 @@ fn handle_advance(
             "self_euthanasia_proposal_hashes".to_string(),
             Value::Array(proposals_array),
         );
+    }
+
+    // M24.4 (Phase β): cycle_backlog detection (L2_OBSERVABILITY §7).
+    // If wall-clock duration exceeded the alive-tier budget (5s default),
+    // record_backlog(). On crossing backlog_threshold (10), emit C36 immune
+    // event so the operator and the observatory see compute saturation.
+    const MAX_CYCLE_DURATION_MS_ALIVE: u128 = 5_000;
+    let cycle_duration_ms = cycle_wall_start.elapsed().as_millis();
+    payload.insert(
+        "cycle_duration_ms".to_string(),
+        Value::Uint(cycle_duration_ms as u64),
+    );
+    if cycle_duration_ms > MAX_CYCLE_DURATION_MS_ALIVE {
+        state.cycle_engine.record_backlog();
+        if state.cycle_engine.is_backlogged() {
+            let evidence = format!(
+                "cycle {} ran {}ms exceeding alive-tier budget {}ms; \
+                 backlog_count={} >= threshold (L2_OBSERVABILITY §7)",
+                state.manifest.cycle_counter,
+                cycle_duration_ms,
+                MAX_CYCLE_DURATION_MS_ALIVE,
+                state.cycle_engine.backlog_count(),
+            );
+            let _ = emit_immune_sporocarp(
+                state,
+                "C36_cycle_backlog",
+                "cycle_backlog",
+                &evidence,
+            );
+        }
     }
 
     Ok(Some(Message::new(

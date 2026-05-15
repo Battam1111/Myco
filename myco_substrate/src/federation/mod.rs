@@ -39,7 +39,7 @@
 //! TOFU pinning (M22.2): each peer pins the first substrate_id seen from a
 //! given connection. Subsequent connections from that TCP origin must present
 //! the same substrate_id, OR the federation rejects the second hello with a
-//! `C20_federation_identity_mismatch_detected` immune sporocarp.
+//! `C33_federation_peer_identity_mismatch` (Phase β: renamed from C20 to free that L1 spec number; substrate-private C30+ namespace) immune sporocarp.
 //!
 //! ## Doctrine alignment
 //!
@@ -210,7 +210,7 @@ impl FederationState {
 
         // TOFU pinning check: if we already have a peer with this substrate_id
         // but at a DIFFERENT remote address, that's identity drift — reject
-        // and surface for the C20 detector.
+        // and surface for the C33 detector (substrate-private namespace; was C20 prior to Phase β rename).
         if let Some(existing) = self
             .peers
             .iter()
@@ -652,7 +652,7 @@ pub enum ConnectPeerOutcome {
     },
     /// Peer's substrate_id matches a previously-pinned peer at a DIFFERENT
     /// address — identity drift. Emit `federation_peer_rejected` DAG event +
-    /// C20 immune sporocarp.
+    /// C33 immune sporocarp (substrate-private; was C20).
     RejectedIdentityDrift {
         /// The substrate_id that's being re-claimed.
         peer_substrate_id: [u8; 32],

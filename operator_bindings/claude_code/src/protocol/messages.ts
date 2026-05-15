@@ -724,25 +724,41 @@ export function parseRequestAttestationNonceResponse(
 }
 
 /** Compute the canonical-bytes signing input for an identity-over-REVEAL
- *  signature (M14). Mirrors Rust's reconstruction in verify_reveal_keypair_envelope.
+ *  signature (M14; M24.2 v2 binding adds substrate_id).
+ *  Mirrors Rust's reconstruction in verify_reveal_keypair_envelope.
  *
- *  Signing input = canonical_bytes(Map({
- *    "context": "myco-reveal-key-binding-v1",
- *    "reveal_pubkey": Bytes(reveal_pubkey)
+ *  Signing input (M24.2 v2) = canonical_bytes(Map({
+ *    "context": "myco-reveal-key-binding-v2",
+ *    "reveal_pubkey": Bytes(reveal_pubkey),
+ *    "substrate_id": Bytes(substrate_id),
  *  }))
  *
+ *  M24.2 SECURITY: substrate_id is now required so a signature for
+ *  substrate A cannot be replayed against substrate B with the same pinned
+ *  operator. (Phase β audit Surface 5.3.)
+ *
  *  The IDENTITY key signs this to prove that the operator authorized this
- *  REVEAL keypair. M14+ activates C17 operator_witness_forgery on failure.
+ *  REVEAL keypair FOR THIS SUBSTRATE. M14+ activates C17 operator_witness_forgery
+ *  on failure.
  */
-export function revealKeyBindingSigningInput(revealPubkey: Uint8Array): Uint8Array {
+export function revealKeyBindingSigningInput(
+  revealPubkey: Uint8Array,
+  substrateId: Uint8Array,
+): Uint8Array {
   if (revealPubkey.length !== 32) {
     throw new BridgeProtocolError(
       `revealPubkey must be exactly 32 bytes; got ${revealPubkey.length}`,
     );
   }
+  if (substrateId.length !== 32) {
+    throw new BridgeProtocolError(
+      `substrateId must be exactly 32 bytes; got ${substrateId.length}`,
+    );
+  }
   const m = new Map<string, Value>();
-  m.set("context", { type: "string", value: "myco-reveal-key-binding-v1" });
+  m.set("context", { type: "string", value: "myco-reveal-key-binding-v2" });
   m.set("reveal_pubkey", { type: "bytes", value: revealPubkey });
+  m.set("substrate_id", { type: "bytes", value: substrateId });
   return encode({ type: "map", value: m }).bytes;
 }
 

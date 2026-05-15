@@ -209,11 +209,14 @@ describe("SubstrateClient e2e", () => {
       });
       try {
         const content = new TextEncoder().encode("M14 REVEAL envelope test");
+        // M24.2: fetch substrate_id for v2 binding.
+        const substrateId = await client.querySubstrateId();
         const result = await client.submitMutationWithReveal({
           mutationType: "schema_change",
           touchedMetaStructures: ["appetite_axis_schema"],
           contentCanonicalBytes: content,
           operatorIdentity: identity,
+          substrateId,
         });
         assert.equal(
           result.accepted,
@@ -250,8 +253,10 @@ describe("SubstrateClient e2e", () => {
         const revealPubkey = ed25519.getPublicKey(revealSeed);
 
         // Sign the REVEAL pubkey with the WRONG identity (not the pinned one).
+        // M24.2: signing input v2 binds substrate_id; fetch from genesis_event.
         const { revealKeyBindingSigningInput } = await import("../src/protocol/messages.ts");
-        const signingInput = revealKeyBindingSigningInput(revealPubkey);
+        const substrateId = await client.querySubstrateId();
+        const signingInput = revealKeyBindingSigningInput(revealPubkey, substrateId);
         const forgedSig = wrongIdentity.sign(signingInput);
 
         // Sign content with REVEAL.
@@ -362,7 +367,9 @@ describe("SubstrateClient e2e", () => {
         const revealPubkey = ed25519.getPublicKey(revealSeed);
 
         const { revealKeyBindingSigningInput } = await import("../src/protocol/messages.ts");
-        const signingInput = revealKeyBindingSigningInput(revealPubkey);
+        // M24.2: signing input v2 binds substrate_id; fetch from genesis_event.
+        const substrateId = await client.querySubstrateId();
+        const signingInput = revealKeyBindingSigningInput(revealPubkey, substrateId);
         const validIdentitySig = identity.sign(signingInput);
 
         const content = new TextEncoder().encode("malformed reveal sig");
@@ -796,10 +803,13 @@ describe("SubstrateClient e2e", () => {
           report.totalImmuneCount >= 1n,
           `expected ≥1 immune event after rejected handshake; got ${report.totalImmuneCount}`,
         );
-        const c2Event = report.events.find((e) =>
-          e.nodeType.includes("C2_handshake_pubkey_mismatch"),
+        // M24.1 renamed: detector moved from C2 (which was reserved by
+        // L1_HARD_RULES for output_endpoint_breach) to C30 (substrate-private
+        // namespace). Test now asserts the new label.
+        const c30Event = report.events.find((e) =>
+          e.nodeType.includes("C30_handshake_pubkey_mismatch"),
         );
-        assert.ok(c2Event, "C2 handshake_pubkey_mismatch should be in immune events");
+        assert.ok(c30Event, "C30 handshake_pubkey_mismatch should be in immune events");
       } finally {
         await c3.shutdown();
       }
