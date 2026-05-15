@@ -913,6 +913,136 @@ fn m22_2_double_connect_returns_already_pinned() {
     client_b.shutdown().expect("shutdown B");
 }
 
+// ---------------------------------------------------------------------------
+// M23.1 P4 永恒迭代 — autonomous tick e2e tests.
+//
+// These tests prove the substrate handles federation activity WITHOUT
+// requiring the operator to call federation_poll. The stdin-reader-thread
+// + recv_timeout architecture means idle time → federation tick.
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// M23.2 P7 必朽 — self-euthanasia EXECUTION (owner co-attestation gate).
+//
+// Happy-path execution test requires a pinned operator IDENTITY (M9 TOFU);
+// the test harness's BridgeClient::spawn_and_handshake at M22 still uses
+// the basic HELLO without operator_pubkey, so we don't have a pinned
+// identity here. The negative tests below cover the validation paths
+// (missing identity, missing fields, bad proposal_hash) and the happy
+// path is exercised end-to-end via the TS operator_bindings test in
+// operator_bindings/claude_code/tests/ (where M9 pinning IS supported).
+// ---------------------------------------------------------------------------
+
+#[test]
+fn m23_2_accept_self_euthanasia_rejects_when_no_pinned_identity() {
+    let (mut client, _dir) = spawn_substrate();
+    let result = client.call(
+        proto::ACCEPT_SELF_EUTHANASIA_PROPOSAL,
+        build_payload(vec![
+            ("proposal_hash", CbValue::Bytes(vec![0u8; 32])),
+            ("owner_signature", CbValue::Bytes(vec![0u8; 64])),
+        ]),
+    );
+    assert!(result.is_err(), "must reject when no operator identity is pinned");
+    if let Err(e) = &result {
+        assert!(
+            e.to_string().contains("pinned operator identity"),
+            "error should mention pinning; got {e}"
+        );
+    }
+    client.shutdown().expect("shutdown");
+}
+
+#[test]
+fn m23_2_accept_self_euthanasia_rejects_wrong_size_fields() {
+    let (mut client, _dir) = spawn_substrate();
+    let r1 = client.call(
+        proto::ACCEPT_SELF_EUTHANASIA_PROPOSAL,
+        build_payload(vec![
+            ("proposal_hash", CbValue::Bytes(vec![0u8; 16])), // wrong size
+            ("owner_signature", CbValue::Bytes(vec![0u8; 64])),
+        ]),
+    );
+    assert!(r1.is_err());
+    let r2 = client.call(
+        proto::ACCEPT_SELF_EUTHANASIA_PROPOSAL,
+        build_payload(vec![
+            ("proposal_hash", CbValue::Bytes(vec![0u8; 32])),
+            ("owner_signature", CbValue::Bytes(vec![0u8; 32])), // wrong size
+        ]),
+    );
+    assert!(r2.is_err());
+    client.shutdown().expect("shutdown");
+}
+
+#[test]
+fn m23_1_substrate_accepts_peer_hello_via_autonomous_tick() {
+    // Spawn A, open listener — do NOT start a polling thread.
+    let (mut client_a, _dir_a) = spawn_substrate();
+    let open_resp = client_a
+        .call(
+            proto::FEDERATION_OPEN_LISTENER,
+            build_payload(vec![(
+                "bind_addr",
+                CbValue::String("127.0.0.1:0".to_string()),
+            )]),
+        )
+        .expect("A open");
+    let addr_a = match open_resp.payload.get("bind_addr") {
+        Some(CbValue::String(s)) => s.clone(),
+        _ => panic!("addr missing"),
+    };
+
+    // B connects to A — A's autonomous tick (background) should process the
+    // inbound HELLO without explicit polling.
+    let (mut client_b, _dir_b) = spawn_substrate();
+    let connect_resp = client_b
+        .call(
+            proto::FEDERATION_CONNECT_PEER,
+            build_payload(vec![("remote_addr", CbValue::String(addr_a))]),
+        )
+        .expect("B connect");
+    let outcome = match connect_resp.payload.get("outcome") {
+        Some(CbValue::String(s)) => s.clone(),
+        _ => panic!("outcome missing"),
+    };
+    assert_eq!(
+        outcome, "pinned",
+        "B should pin A successfully via A's autonomous tick (no operator poll needed)"
+    );
+
+    // Give A's tick a moment to land, then check A's peer count.
+    std::thread::sleep(std::time::Duration::from_millis(800));
+    let a_status = client_a
+        .call(proto::FEDERATION_STATUS, build_payload(vec![]))
+        .expect("A status");
+    let a_peer_count = match a_status.payload.get("peer_count") {
+        Some(CbValue::Uint(n)) => *n,
+        _ => panic!("a peer_count missing"),
+    };
+    assert_eq!(
+        a_peer_count, 1,
+        "A should have pinned B autonomously without operator polling"
+    );
+
+    client_a.shutdown().expect("shutdown A");
+    client_b.shutdown().expect("shutdown B");
+}
+
+#[test]
+fn m23_1_idle_substrate_does_not_crash() {
+    // Sanity: substrate with no operator activity for >1 tick interval
+    // should remain responsive (autonomous tick must not deadlock or crash).
+    let (mut client, _dir) = spawn_substrate();
+    std::thread::sleep(std::time::Duration::from_millis(1200));
+    // After idle period, the substrate should still respond to operator calls.
+    let resp = client
+        .call(proto::FEDERATION_STATUS, build_payload(vec![]))
+        .expect("idle substrate still responsive");
+    assert_eq!(resp.message_type, proto::FEDERATION_STATUS_RESPONSE);
+    client.shutdown().expect("clean shutdown after idle");
+}
+
 #[test]
 fn m22_3_pull_events_from_peer_ingests_into_local_dag() {
     // Spawn A. Open listener. Register an axis (which emits axis_registered).

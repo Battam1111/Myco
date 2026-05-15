@@ -99,6 +99,11 @@ pub const NODE_TYPE_NONCE_EXPIRED_PREFIX: &str = "nonce_expired:";
 /// federation connections on a TCP address (M22.1).
 pub const NODE_TYPE_FEDERATION_LISTENER_OPENED: &str = "federation_listener_opened";
 
+/// M23.2: prefix for `self_euthanasia_executed:{axis_name}` DAG nodes.
+/// Emitted when the owner co-attests a `self_euthanasia_proposal` and the
+/// substrate is about to shut down gracefully.
+pub const NODE_TYPE_SELF_EUTHANASIA_EXECUTED_PREFIX: &str = "self_euthanasia_executed:";
+
 /// Federation listener closed (M22.1).
 pub const NODE_TYPE_FEDERATION_LISTENER_CLOSED: &str = "federation_listener_closed";
 
@@ -427,6 +432,54 @@ pub fn encode_birth_period_quarantine_entered(
         Value::Timestamp(entered_at_unix_ns),
     );
     cb_encode(&Value::Map(m)).expect("birth_period_quarantine_entered encode infallible")
+}
+
+/// node_type for a `self_euthanasia_executed` event (M23.2):
+/// `self_euthanasia_executed:{axis_name}`.
+pub fn self_euthanasia_executed_node_type(axis_name: &str) -> String {
+    format!("{NODE_TYPE_SELF_EUTHANASIA_EXECUTED_PREFIX}{axis_name}")
+}
+
+/// Content of a `self_euthanasia_executed` event (M23.2):
+///
+/// ```text
+/// Map({
+///   "axis_name": String,                          // axis whose proposal was accepted
+///   "triggering_proposal_hash": Bytes(32),        // hash of the accepted proposal node
+///   "owner_signature": Bytes(64),                 // Ed25519 sig (canonical "myco-self-euthanasia-v1" + proposal_hash + substrate_id)
+///   "owner_pubkey": Bytes(32),                    // the IDENTITY pubkey at moment of execution
+///   "at_cycle": Uint,
+///   "executed_at_unix_ns": Timestamp,
+/// })
+/// ```
+pub fn encode_self_euthanasia_executed(
+    axis_name: &str,
+    triggering_proposal_hash: &[u8; 32],
+    owner_signature: &[u8; 64],
+    owner_pubkey: &[u8; 32],
+    at_cycle: u64,
+    executed_at_unix_ns: i64,
+) -> CanonicalBytes {
+    let mut m = BTreeMap::new();
+    m.insert("axis_name".to_string(), Value::String(axis_name.to_string()));
+    m.insert(
+        "triggering_proposal_hash".to_string(),
+        Value::Bytes(triggering_proposal_hash.to_vec()),
+    );
+    m.insert(
+        "owner_signature".to_string(),
+        Value::Bytes(owner_signature.to_vec()),
+    );
+    m.insert(
+        "owner_pubkey".to_string(),
+        Value::Bytes(owner_pubkey.to_vec()),
+    );
+    m.insert("at_cycle".to_string(), Value::Uint(at_cycle));
+    m.insert(
+        "executed_at_unix_ns".to_string(),
+        Value::Timestamp(executed_at_unix_ns),
+    );
+    cb_encode(&Value::Map(m)).expect("self_euthanasia_executed encode infallible")
 }
 
 /// Content of a `birth_period_quarantine_lifted` event (M22.5).

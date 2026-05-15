@@ -18,8 +18,9 @@
 //! - Any other type → `error` envelope.
 
 use std::collections::BTreeMap;
-use std::io::{Read, Write};
+use std::io::Write;
 use std::path::PathBuf;
+use std::time::Duration;
 
 use myco_kernel_bridge::client::{BridgeClient, BridgeClientConfig};
 use myco_kernel_bridge::framing::{read_frame, write_frame};
@@ -127,6 +128,127 @@ impl<'a> GradientAdvancer for PythonGradientAdvancer<'a> {
             Err(e) => Err(format!("python gradient advance failed: {e}")),
         }
     }
+}
+
+// ---------------------------------------------------------------------------
+// M23.1 P4 永恒迭代 — autonomous tick infrastructure.
+// ---------------------------------------------------------------------------
+
+/// Frame messages shipped from the stdin reader thread to the main loop.
+///
+/// The reader sends `Frame(bytes)` per successful frame read. On clean EOF
+/// (read_frame returns `Ok(None)`), the reader exits — dropping its `Sender`
+/// — and the main loop's next `recv_timeout` returns `Disconnected`. On I/O
+/// error, the reader sends `ReadError(msg)` so the main loop can surface the
+/// actual cause before terminating.
+#[derive(Debug)]
+enum FrameMsg {
+    /// A complete length-prefixed frame body (HMAC + canonical-bytes).
+    Frame(Vec<u8>),
+    /// A read error encountered before reaching EOF — surfaced for diagnostics.
+    ReadError(String),
+}
+
+/// Default autonomous tick interval (milliseconds). At 500ms the substrate
+/// ticks twice per second when idle. Configurable via `MYCO_TICK_INTERVAL_MS`.
+const DEFAULT_TICK_INTERVAL_MS: u64 = 500;
+
+/// Parse the autonomous tick interval from `MYCO_TICK_INTERVAL_MS` env var
+/// (defaults to [`DEFAULT_TICK_INTERVAL_MS`]).
+fn parse_tick_interval() -> Duration {
+    let ms: u64 = std::env::var("MYCO_TICK_INTERVAL_MS")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(DEFAULT_TICK_INTERVAL_MS);
+    Duration::from_millis(ms)
+}
+
+/// M23.1 P4 永恒迭代: one autonomous tick.
+///
+/// Invoked from the main loop's `recv_timeout` Timeout branch. Runs the same
+/// federation-side work as `handle_federation_poll` but without producing an
+/// operator response (the tick is operator-invisible — its effects are
+/// observed via the DAG events emitted).
+///
+/// Tick is a **no-op** when no federation listener is open (the common case
+/// for substrates that don't use federation). This keeps the autonomous-tick
+/// path zero-cost for non-federated substrates.
+fn do_autonomous_tick(state: &mut ServerState) -> Result<(), SubstrateError> {
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    if state.federation.listener.is_none() && state.federation.peers.is_empty() {
+        // Fast path: nothing federation-related to poll.
+        return Ok(());
+    }
+
+    let our_substrate_id = state.manifest.substrate_id;
+    let our_dag_tip = state.dag.tip().map(|t| t.0);
+    let _accepted = state.federation.accept_pending()?;
+    let events =
+        state
+            .federation
+            .progress_peers(&our_substrate_id, our_dag_tip.as_ref(), &state.dag);
+
+    if events.is_empty() {
+        return Ok(());
+    }
+
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .ok()
+        .and_then(|d| i64::try_from(d.as_nanos()).ok())
+        .unwrap_or(0);
+
+    for ev in events {
+        match ev {
+            crate::federation::PollPeerEvent::Pinned {
+                peer_substrate_id,
+                remote_addr_str,
+                peer_dag_tip: _,
+            } => {
+                let _ =
+                    emit_federation_peer_pinned(state, &peer_substrate_id, &remote_addr_str, now);
+            }
+            crate::federation::PollPeerEvent::RejectedSelfConnection { remote_addr_str } => {
+                let _ = emit_federation_peer_rejected(
+                    state,
+                    &our_substrate_id,
+                    &our_substrate_id,
+                    &remote_addr_str,
+                    "inbound peer claimed our own substrate_id (autonomous tick)",
+                );
+            }
+            crate::federation::PollPeerEvent::FailedFrameRead {
+                remote_addr_str,
+                reason,
+            } => {
+                let _ = emit_federation_peer_rejected(
+                    state,
+                    &[0u8; 32],
+                    &our_substrate_id,
+                    &remote_addr_str,
+                    &format!("autonomous tick frame read failure: {reason}"),
+                );
+            }
+            crate::federation::PollPeerEvent::EventsSent {
+                peer_substrate_id,
+                sent_event_hashes,
+            } => {
+                let content = crate::events::encode_federation_events_sent(
+                    &peer_substrate_id,
+                    &sent_event_hashes,
+                    now,
+                );
+                let _ = emit_substrate_event(
+                    state,
+                    crate::events::NODE_TYPE_FEDERATION_EVENTS_SENT.to_string(),
+                    content,
+                );
+            }
+        }
+    }
+    let _ = save_dag_state(state);
+    Ok(())
 }
 
 // ---------------------------------------------------------------------------
@@ -266,8 +388,17 @@ impl ServerState {
 /// present) during the hello-handshake forwarding.
 ///
 /// Returns the exit code (0 = clean shutdown, 2 = handshake failure).
-pub fn run_loop<R: Read, W: Write>(stdin: &mut R, stdout: &mut W) -> Result<u8, SubstrateError> {
+///
+/// M23.1 P4 永恒迭代: the loop is now **autonomous**. A dedicated stdin reader
+/// thread reads operator frames in the background and ships them to the main
+/// loop via an `mpsc::Sender<FrameMsg>`. The main loop uses
+/// `recv_timeout(MYCO_TICK_INTERVAL_MS)` so that — when no operator frame is
+/// pending — the substrate uses the idle slice to do federation work
+/// (`do_autonomous_tick`) without operator intervention. This is the moment
+/// the substrate stops being purely reactive: it ticks under its own clock.
+pub fn run_loop() -> Result<u8, SubstrateError> {
     use crate::derived_state::DerivedState;
+    use std::sync::mpsc;
 
     let state_dir = default_state_dir();
     ensure_state_dir(&state_dir)?;
@@ -492,6 +623,41 @@ pub fn run_loop<R: Read, W: Write>(stdin: &mut R, stdout: &mut W) -> Result<u8, 
         let _ = save_dag_state(&state);
     }
 
+    // M23.1: spawn stdin reader thread. The reader thread blocks on
+    // `read_frame(stdin)` and ships frames to the main loop via mpsc. The
+    // main loop uses `recv_timeout(tick_interval)` so that idle periods
+    // become autonomous-tick opportunities.
+    let (frame_tx, frame_rx) = mpsc::channel::<FrameMsg>();
+    let _reader_thread = std::thread::spawn(move || {
+        let stdin = std::io::stdin();
+        let mut stdin_lock = stdin.lock();
+        loop {
+            match read_frame(&mut stdin_lock) {
+                Ok(Some(frame)) => {
+                    if frame_tx.send(FrameMsg::Frame(frame)).is_err() {
+                        return; // main loop dropped receiver
+                    }
+                }
+                Ok(None) => {
+                    // Clean EOF — drop tx; main loop sees Disconnected.
+                    return;
+                }
+                Err(e) => {
+                    let _ = frame_tx.send(FrameMsg::ReadError(format!("{e}")));
+                    return;
+                }
+            }
+        }
+    });
+
+    // Lock stdout for the main loop's writes.
+    let stdout_handle = std::io::stdout();
+    let mut stdout_guard = stdout_handle.lock();
+    let stdout = &mut stdout_guard;
+
+    // M23.1: parse tick interval from env (default 500ms = 2 ticks/sec).
+    let tick_interval = parse_tick_interval();
+
     loop {
         let expected_key = if state.handshake_complete {
             state.session_secret
@@ -499,18 +665,35 @@ pub fn run_loop<R: Read, W: Write>(stdin: &mut R, stdout: &mut W) -> Result<u8, 
             bootstrap_key()
         };
 
-        let frame = match read_frame(stdin) {
-            Ok(Some(f)) => f,
-            Ok(None) => {
-                // Clean EOF.
-                graceful_shutdown_python(&mut state);
-                return Ok(if state.handshake_complete { 0 } else { 2 });
-            }
-            Err(e) => {
+        // M23.1: receive next frame OR fire autonomous tick on timeout.
+        let frame = match frame_rx.recv_timeout(tick_interval) {
+            Ok(FrameMsg::Frame(f)) => f,
+            Ok(FrameMsg::ReadError(msg)) => {
                 graceful_shutdown_python(&mut state);
                 return Err(SubstrateError::Io(std::io::Error::other(format!(
-                    "read_frame failed: {e}"
+                    "stdin reader thread error: {msg}"
                 ))));
+            }
+            Err(mpsc::RecvTimeoutError::Timeout) => {
+                // Autonomous tick — do federation work iff handshake done +
+                // listener open. Other ticks are no-ops (preserves the
+                // pre-handshake / no-federation idle behavior of M22 and
+                // earlier).
+                if state.handshake_complete {
+                    if let Err(e) = do_autonomous_tick(&mut state) {
+                        // Non-fatal: log + continue (tick failures should
+                        // never crash the substrate; they surface via DAG
+                        // events emitted by the tick).
+                        let _ = writeln!(std::io::stderr(), "autonomous tick error: {e}");
+                    }
+                }
+                continue;
+            }
+            Err(mpsc::RecvTimeoutError::Disconnected) => {
+                // stdin reader thread exited (clean EOF or error after
+                // reporting). Treat as clean shutdown.
+                graceful_shutdown_python(&mut state);
+                return Ok(if state.handshake_complete { 0 } else { 2 });
             }
         };
 
@@ -549,6 +732,13 @@ pub fn run_loop<R: Read, W: Write>(stdin: &mut R, stdout: &mut W) -> Result<u8, 
                     .map_err(SubstrateError::Bridge)?;
                 write_frame(stdout, &frame).map_err(SubstrateError::Bridge)?;
                 if request.message_type == msg_type::SHUTDOWN {
+                    graceful_shutdown_python(&mut state);
+                    return Ok(0);
+                }
+                // M23.2 P7 必朽: after a successful accept_self_euthanasia_proposal
+                // we MUST shut down — the substrate has been authorized to die.
+                // The response was just delivered (so the operator sees success).
+                if request.message_type == msg_type::ACCEPT_SELF_EUTHANASIA_PROPOSAL {
                     graceful_shutdown_python(&mut state);
                     return Ok(0);
                 }
@@ -790,6 +980,11 @@ fn dispatch(state: &mut ServerState, request: &Message) -> Result<Option<Message
         }
         msg_type::LIFT_BIRTH_PERIOD_QUARANTINE => {
             let response = handle_lift_birth_period_quarantine(state, request)?;
+            save_dag_state(state)?;
+            Ok(response)
+        }
+        msg_type::ACCEPT_SELF_EUTHANASIA_PROPOSAL => {
+            let response = handle_accept_self_euthanasia_proposal(state, request)?;
             save_dag_state(state)?;
             Ok(response)
         }
@@ -1230,6 +1425,158 @@ fn handle_federation_poll(
     );
     Ok(Some(Message::new(
         msg_type::FEDERATION_POLL_RESPONSE,
+        request.request_id,
+        payload,
+    )))
+}
+
+/// M23.2 P7 必朽: handle `accept_self_euthanasia_proposal`.
+///
+/// Owner co-attestation gate for self-euthanasia execution:
+/// 1. Verify operator's Ed25519 IDENTITY-key signature over
+///    `canonical_bytes(Map({ "context": "myco-self-euthanasia-v1",
+///    "proposal_hash": Bytes(32), "substrate_id": Bytes(32) }))`.
+/// 2. Confirm the proposal_hash points to a real `self_euthanasia_proposal:*`
+///    event in the substrate's DAG.
+/// 3. Emit `self_euthanasia_executed:{axis_name}` DAG event carrying the
+///    owner signature + pubkey as the post-mortem signed attestation.
+/// 4. Return response. The main loop, observing the request type, will then
+///    `graceful_shutdown_python` and exit cleanly.
+///
+/// Payload:
+/// ```text
+/// Map({
+///   "proposal_hash": Bytes(32),
+///   "owner_signature": Bytes(64),
+/// })
+/// ```
+///
+/// Response payload:
+/// ```text
+/// Map({
+///   "axis_name": String,
+///   "executed_event_hash": Bytes(32),
+/// })
+/// ```
+fn handle_accept_self_euthanasia_proposal(
+    state: &mut ServerState,
+    request: &Message,
+) -> Result<Option<Message>, SubstrateError> {
+    use myco_kernel_shared::canonical_bytes::{decode as cb_decode, map_get_string, Value as CbV};
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    // Require pinned operator identity — owner co-attestation needs the
+    // pinned IDENTITY key (M9 TOFU completed).
+    let pinned = state
+        .pinned_operator_identity
+        .as_ref()
+        .ok_or_else(|| {
+            SubstrateError::Protocol(
+                "accept_self_euthanasia_proposal: no pinned operator identity (M9 TOFU not completed)"
+                    .to_string(),
+            )
+        })?
+        .clone();
+
+    let proposal_hash_bytes = match request.payload.get("proposal_hash") {
+        Some(Value::Bytes(b)) if b.len() == 32 => b.clone(),
+        _ => {
+            return Err(SubstrateError::Protocol(
+                "accept_self_euthanasia_proposal: proposal_hash must be 32 Bytes".to_string(),
+            ));
+        }
+    };
+    let mut proposal_hash = [0u8; 32];
+    proposal_hash.copy_from_slice(&proposal_hash_bytes);
+    let owner_sig_bytes = match request.payload.get("owner_signature") {
+        Some(Value::Bytes(b)) if b.len() == 64 => b.clone(),
+        _ => {
+            return Err(SubstrateError::Protocol(
+                "accept_self_euthanasia_proposal: owner_signature must be 64 Bytes".to_string(),
+            ));
+        }
+    };
+    let mut owner_sig = [0u8; 64];
+    owner_sig.copy_from_slice(&owner_sig_bytes);
+
+    // Reconstruct the canonical signing input:
+    //   Map({ "context": "myco-self-euthanasia-v1",
+    //         "proposal_hash": Bytes(32),
+    //         "substrate_id": Bytes(32) })
+    let mut signing_map = BTreeMap::new();
+    signing_map.insert(
+        "context".to_string(),
+        Value::String("myco-self-euthanasia-v1".to_string()),
+    );
+    signing_map.insert(
+        "proposal_hash".to_string(),
+        Value::Bytes(proposal_hash.to_vec()),
+    );
+    signing_map.insert(
+        "substrate_id".to_string(),
+        Value::Bytes(state.manifest.substrate_id.to_vec()),
+    );
+    let signing_input = cb_encode(&Value::Map(signing_map))
+        .map_err(|e| SubstrateError::Protocol(format!("signing input encode: {e}")))?;
+
+    verify_signature(&pinned.pubkey, &owner_sig, signing_input.as_ref()).map_err(|e| {
+        SubstrateError::Protocol(format!(
+            "accept_self_euthanasia_proposal: owner signature invalid: {e}"
+        ))
+    })?;
+
+    // Look up the proposal in DAG; extract axis_name.
+    let proposal_node_hash = myco_kernel_shared::crypto::NodeHash::from_bytes(proposal_hash);
+    let proposal_node = state.dag.get(&proposal_node_hash).ok_or_else(|| {
+        SubstrateError::Protocol(format!(
+            "accept_self_euthanasia_proposal: proposal_hash {} not found in DAG",
+            hex_first_8_bytes(&proposal_hash),
+        ))
+    })?;
+    if !proposal_node.node_type.starts_with("self_euthanasia_proposal:") {
+        return Err(SubstrateError::Protocol(format!(
+            "accept_self_euthanasia_proposal: proposal_hash points to {} (not a self_euthanasia_proposal)",
+            proposal_node.node_type
+        )));
+    }
+    let axis_name = match cb_decode(proposal_node.content_canonical_bytes.as_ref())
+        .map_err(|e| SubstrateError::Protocol(format!("decode proposal content: {e}")))?
+    {
+        CbV::Map(m) => map_get_string(&m, "axis_name")
+            .map_err(|e| SubstrateError::Protocol(e.to_string()))?
+            .to_string(),
+        _ => {
+            return Err(SubstrateError::Protocol(
+                "proposal content not a Map".to_string(),
+            ));
+        }
+    };
+
+    // Emit the self_euthanasia_executed event.
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .ok()
+        .and_then(|d| i64::try_from(d.as_nanos()).ok())
+        .unwrap_or(0);
+    let nt = crate::events::self_euthanasia_executed_node_type(&axis_name);
+    let content = crate::events::encode_self_euthanasia_executed(
+        &axis_name,
+        &proposal_hash,
+        &owner_sig,
+        &pinned.pubkey,
+        state.manifest.cycle_counter,
+        now,
+    );
+    let event_hash = emit_substrate_event(state, nt, content)?;
+
+    let mut payload = BTreeMap::new();
+    payload.insert("axis_name".to_string(), Value::String(axis_name));
+    payload.insert(
+        "executed_event_hash".to_string(),
+        Value::Bytes(event_hash.0.to_vec()),
+    );
+    Ok(Some(Message::new(
+        msg_type::ACCEPT_SELF_EUTHANASIA_PROPOSAL_RESPONSE,
         request.request_id,
         payload,
     )))

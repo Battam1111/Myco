@@ -244,6 +244,20 @@ pub mod msg_type {
     /// hint discovered + connect outcome + parent_linked event hash.
     pub const FEDERATION_LINK_TO_PARENT_FROM_HINT_RESPONSE: &str =
         "federation_link_to_parent_from_hint_response";
+
+    /// `accept_self_euthanasia_proposal` — Operator→Substrate: owner
+    /// co-attests acceptance of a previously-emitted self_euthanasia_proposal
+    /// DAG node. The substrate verifies the operator's IDENTITY-key signature
+    /// over (canonical_bytes("myco-self-euthanasia-v1") + proposal_hash +
+    /// substrate_id), emits `self_euthanasia_executed:{axis_name}` into the
+    /// DAG, replies with success, and then **gracefully shuts down**.
+    /// The DAG persists as the substrate's post-mortem record (M23.2).
+    pub const ACCEPT_SELF_EUTHANASIA_PROPOSAL: &str = "accept_self_euthanasia_proposal";
+    /// `accept_self_euthanasia_proposal_response` — Substrate→Operator:
+    /// executed event hash + axis_name. After this response is written the
+    /// substrate's main loop terminates (clean shutdown, exit code 0).
+    pub const ACCEPT_SELF_EUTHANASIA_PROPOSAL_RESPONSE: &str =
+        "accept_self_euthanasia_proposal_response";
 }
 
 /// A decoded bridge message.

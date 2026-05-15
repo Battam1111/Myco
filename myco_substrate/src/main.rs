@@ -10,22 +10,17 @@
 //! - `1` — fatal I/O or subprocess error.
 //! - `2` — handshake failed before completion.
 
-use std::io::{stdin, stdout};
 use std::process::ExitCode;
 
 use myco_substrate::server;
 
 fn main() -> ExitCode {
-    let stdin_handle = stdin();
-    let stdout_handle = stdout();
-    let mut stdin_lock = stdin_handle.lock();
-    let mut stdout_lock = stdout_handle.lock();
-
-    let result = server::run_loop(&mut stdin_lock, &mut stdout_lock);
-    match result {
+    // M23.1 P4 永恒迭代: run_loop manages its own stdin (via a background
+    // reader thread) and stdout (locked inside the loop). The binary just
+    // dispatches and surfaces the exit code.
+    match server::run_loop() {
         Ok(code) => ExitCode::from(code),
         Err(err) => {
-            // Surface to stderr — the operator runtime can capture this.
             eprintln!("myco-substrate fatal: {err}");
             ExitCode::from(1)
         }
