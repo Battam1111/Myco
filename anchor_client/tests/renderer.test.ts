@@ -111,6 +111,50 @@ test("decode error: trailing bytes", () => {
   assert.throws(() => decode(bad), /trailing bytes/);
 });
 
+// Phase β SECURITY FIX (2026-05-15): TS decoder must enforce strict
+// canonical key ordering, matching Rust + Python. Pre-fix, TS silently
+// accepted out-of-order Maps — opening a C18 (canonical_bytes_render_drift)
+// gap where an adversary's blob is rendered by anchor_client but rejected
+// by the substrate.
+test("Phase β: decode rejects map with keys not in strict canonical order", () => {
+  // Construct canonical bytes for a Map with TWO keys ("b", "a") in WRONG
+  // (decreasing) canonical order. Canonical order requires "a" before "b".
+  // Tag MAP (0x70) || varint count (0x02) || key2 ("b") || val || key1 ("a") || val.
+  const wrong = new Uint8Array([
+    0x31,  // TAG.MAP
+    0x02,  // count = 2
+    0x20,  // TAG.STRING
+    0x01,  // varint len = 1
+    0x62,  // "b"
+    0x00,  // TAG.NULL (value)
+    0x20,  // TAG.STRING
+    0x01,  // varint len = 1
+    0x61,  // "a"
+    0x00,  // TAG.NULL (value)
+  ]);
+  assert.throws(
+    () => decode(new CanonicalBytes(wrong)),
+    /map keys not in strict canonical order/,
+    "out-of-order map keys must be rejected (Phase β SECURITY fix)",
+  );
+});
+
+test("Phase β: decode rejects map with duplicate keys", () => {
+  // Duplicate keys also violate strict canonical order (a key cannot be
+  // <= itself in canonical bytes).
+  const dup = new Uint8Array([
+    0x31,  // TAG.MAP
+    0x02,  // count = 2
+    0x20, 0x01, 0x61, 0x00,  // "a" → null
+    0x20, 0x01, 0x61, 0x00,  // "a" → null (duplicate)
+  ]);
+  assert.throws(
+    () => decode(new CanonicalBytes(dup)),
+    /not in strict canonical order/,
+    "duplicate keys must be rejected (Phase β)",
+  );
+});
+
 test("decode error: map key not a string", () => {
   // Map with count=1 + key=Null + value=Null → invalid.
   const bad = new CanonicalBytes(new Uint8Array([0x31, 0x01, 0x00, 0x00]));

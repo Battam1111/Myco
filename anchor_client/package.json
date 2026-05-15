@@ -9,7 +9,7 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "node --experimental-strip-types --no-warnings --test --test-reporter=spec tests/",
+    "test": "node --experimental-strip-types --no-warnings --test --test-reporter=spec tests/*.test.ts",
     "test:all": "npm run typecheck && npm test"
   },
   "devDependencies": {

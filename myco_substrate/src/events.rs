@@ -118,6 +118,15 @@ pub const NODE_TYPE_FEDERATION_PEER_REJECTED_PREFIX: &str = "federation_peer_rej
 /// Federation events received from a peer (M22.3).
 pub const NODE_TYPE_FEDERATION_EVENTS_RECEIVED: &str = "federation_events_received";
 
+/// Phase β (2026-05-15) SECURITY: prefix for `federation_received:{peer_prefix}`
+/// wrapper events. Each peer event ingested via federation pull is wrapped
+/// into one of these envelopes (parent = receiver's local tip, content
+/// includes the original peer event + its hash + its parents). This makes
+/// federation an "I heard X say Y" attestation graph rather than a
+/// multi-substrate event-graph merge (which would require shared causal
+/// ancestors, impossible without owner co-attestation at genesis).
+pub const NODE_TYPE_FEDERATION_RECEIVED_PREFIX: &str = "federation_received:";
+
 /// Federation events sent to a peer (M22.3).
 pub const NODE_TYPE_FEDERATION_EVENTS_SENT: &str = "federation_events_sent";
 

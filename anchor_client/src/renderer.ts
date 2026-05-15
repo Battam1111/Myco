@@ -45,6 +45,20 @@ interface Reader {
   offset: number;
 }
 
+/**
+ * Byte-wise lexicographic comparison of two Uint8Arrays.
+ * Returns negative if a < b, 0 if equal, positive if a > b.
+ * Used by Phase β decoder Map-key-order enforcement (Rust/Python parity).
+ */
+function compareBytes(a: Uint8Array, b: Uint8Array): number {
+  const min = Math.min(a.length, b.length);
+  for (let i = 0; i < min; i++) {
+    const diff = a[i]! - b[i]!;
+    if (diff !== 0) return diff;
+  }
+  return a.length - b.length;
+}
+
 function readByte(r: Reader): number {
   if (r.offset >= r.bytes.length) {
     throw new CanonicalBytesDecodeError(
@@ -139,14 +153,32 @@ function decodeOne(r: Reader): Value {
     case TAG.MAP: {
       const count = readVarint(r);
       const m = new Map<string, Value>();
+      // Phase β SECURITY FIX (2026-05-15): enforce strict canonical key
+      // ordering on decode (matches Rust + Python decoder behavior). Pre-fix,
+      // TS decoder silently accepted out-of-order Maps — creating a
+      // canonical_bytes_render_drift (C18) attack: an adversary's blob could
+      // be accepted by TS but rejected by Rust/Python, causing the owner's
+      // rendered view to diverge from what the substrate would accept.
+      let prevKeyCanonical: Uint8Array | null = null;
       for (let i = 0n; i < count; i++) {
-        // Key is a String value.
+        // Key is a String value. Capture its canonical-bytes span (tag +
+        // varint length + utf8 bytes) for strict-order comparison.
+        const keyStartOffset = r.offset;
         const key = decodeOne(r);
         if (key.type !== "string") {
           throw new CanonicalBytesDecodeError(
             `map key is not a string: got ${key.type}`,
           );
         }
+        const keyCanonical = r.bytes.slice(keyStartOffset, r.offset);
+        if (prevKeyCanonical !== null) {
+          if (compareBytes(keyCanonical, prevKeyCanonical) <= 0) {
+            throw new CanonicalBytesDecodeError(
+              `map keys not in strict canonical order at index ${i.toString()}`,
+            );
+          }
+        }
+        prevKeyCanonical = keyCanonical;
         const value = decodeOne(r);
         m.set(key.value, value);
       }

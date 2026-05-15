@@ -194,6 +194,47 @@ pub fn build_fed_error_payload(code: &str, message: &str) -> BTreeMap<String, Va
     m
 }
 
+/// Phase β SECURITY FIX (2026-05-15): allowlist for federation-ingestible
+/// event types. A peer's pushed/pulled events may ONLY have a node_type
+/// matching one of these prefixes. Substrate-private events (those that
+/// `DerivedState::apply_event` interprets as Rust-authoritative state
+/// mutation) are explicitly **rejected** when arriving via federation —
+/// blocking the attack class where a malicious peer injects e.g.
+/// `operator_pinned:*` or `genesis_event:*` to take over the substrate.
+///
+/// The allowed types are environmental / observational / causal-history:
+/// raw_material from peer's environment, peer's sporocarp emissions,
+/// peer's mutation audit trail, peer's immune sporocarps.
+///
+/// FORBIDDEN (substrate-private; rejection emits C22 immune sporocarp):
+/// - operator_pinned:* (overwrites pinned_operator_identity)
+/// - cycle_advanced (sets cycle_counter)
+/// - genesis_event:* (causes MultipleGenesis error → empty state)
+/// - nonce_issued:*, nonce_consumed:*, nonce_expired:* (nonce log)
+/// - owner_key_* (owner key history)
+/// - federation_* (federation state)
+/// - parent_federation_hint (M22.4 federation parent linking forgery)
+/// - self_euthanasia_* (mortality state)
+/// - birth_period_quarantine_* (quarantine state)
+/// - axis_registered:* / axis_perturbed:* / axis_reset_after_fruiting:*
+///   (gradient state — peer events would corrupt local gradient)
+/// - spore_emission:* (reproduction state)
+/// - absorption_event:cycle_* (cycle absorption record)
+/// - evolution_succeeded:* / evolution_failed:* (schema evolution)
+/// - perturb_from_raw:* (causal-linked perturbation)
+pub fn is_federation_safe_node_type(node_type: &str) -> bool {
+    // Allowed prefixes — peer environmental / observational events.
+    const ALLOWED_PREFIXES: &[&str] = &[
+        "raw_material:",         // peer's environmental ingestion (P2)
+        "sporocarp:",            // peer's fruiting events (causal-only, no state mutation)
+        "mutation:",             // peer's mutation audit trail (operator-supplied opaque content)
+        "immune:",               // peer's immune sporocarps (observation across substrates)
+        "federation_received:",  // Phase β: wrapped peer events from chained federation
+                                 // ("I heard A heard B say X" — propagated attestation)
+    ];
+    ALLOWED_PREFIXES.iter().any(|p| node_type.starts_with(p))
+}
+
 // ---------------------------------------------------------------------------
 // M22.3 FED_REQUEST_EVENTS_SINCE / FED_EVENT_BATCH payload encoders + parsers.
 // ---------------------------------------------------------------------------

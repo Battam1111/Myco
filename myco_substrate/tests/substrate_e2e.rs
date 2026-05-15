@@ -1200,11 +1200,29 @@ fn m22_3_pull_events_from_peer_ingests_into_local_dag() {
         Some(CbValue::String(s)) => s.clone(),
         _ => panic!("addr missing"),
     };
-    // Register some events on A's DAG so there's something to pull.
+    // Phase β SECURITY (2026-05-15): only ALLOWLISTED node_type prefixes are
+    // ingested via federation pull (raw_material/sporocarp/mutation/immune).
+    // axis_registered/axis_perturbed are substrate-private — would be
+    // rejected with C22 immune sporocarp if pulled. So we ingest
+    // raw_material events on A (peer-environmental).
     client_a
-        .register_axis("fed_x", "appetite", 5.0, 0.0, 1.0, false, "noop")
-        .expect("A register");
-    client_a.perturb("fed_x", 2.0).expect("A perturb");
+        .call(
+            proto::INGEST_RAW_MATERIAL,
+            build_payload(vec![
+                ("content_kind", CbValue::String("text".to_string())),
+                ("content_bytes", CbValue::Bytes(b"sample raw material A".to_vec())),
+            ]),
+        )
+        .expect("A ingest raw_material 1");
+    client_a
+        .call(
+            proto::INGEST_RAW_MATERIAL,
+            build_payload(vec![
+                ("content_kind", CbValue::String("text".to_string())),
+                ("content_bytes", CbValue::Bytes(b"sample raw material A #2".to_vec())),
+            ]),
+        )
+        .expect("A ingest raw_material 2");
 
     // Start A's polling thread so it can serve B's requests.
     let poll_handle = poll_in_background_for(client_a, 80);
@@ -1238,8 +1256,8 @@ fn m22_3_pull_events_from_peer_ingests_into_local_dag() {
         _ => panic!("events_ingested_count missing"),
     };
     assert!(
-        events_ingested >= 3,
-        "B should ingest at least 3 events from A (genesis + axis_registered + axis_perturbed); got {events_ingested}"
+        events_ingested >= 2,
+        "Phase β allowlist: B should ingest A's 2 raw_material events; got {events_ingested}"
     );
     let is_last = match pull_resp.payload.get("is_last_batch") {
         Some(CbValue::Bool(b)) => *b,
@@ -1275,6 +1293,124 @@ fn m22_3_pull_events_from_peer_ingests_into_local_dag() {
 }
 
 #[test]
+fn phase_beta_federation_pull_rejects_substrate_private_events() {
+    // Phase β SECURITY: peer B has a `cycle_advanced` event in its own DAG
+    // (built up via legitimate advance calls). When A pulls from B, A must
+    // REJECT this event (substrate-private; would corrupt A's cycle_counter).
+    let (mut client_a, _dir_a) = spawn_substrate();
+    let open_resp = client_a
+        .call(
+            proto::FEDERATION_OPEN_LISTENER,
+            build_payload(vec![(
+                "bind_addr",
+                CbValue::String("127.0.0.1:0".to_string()),
+            )]),
+        )
+        .expect("A open");
+    let addr_a = match open_resp.payload.get("bind_addr") {
+        Some(CbValue::String(s)) => s.clone(),
+        _ => panic!("addr missing"),
+    };
+    // A registers + advances → A's DAG accumulates substrate-private events
+    // (cycle_advanced, axis_registered, etc.) — these are what peers might
+    // attempt to push but are forbidden by the allowlist.
+    client_a
+        .register_axis("ax", "appetite", 5.0, 0.0, 1.0, false, "noop")
+        .expect("A register");
+    client_a.perturb("ax", 1.0).expect("A perturb");
+    client_a.advance(1).expect("A advance");
+
+    let poll_handle = poll_in_background_for(client_a, 80);
+
+    // B connects + pulls.
+    let (mut client_b, _dir_b) = spawn_substrate();
+    let connect_resp = client_b
+        .call(
+            proto::FEDERATION_CONNECT_PEER,
+            build_payload(vec![("remote_addr", CbValue::String(addr_a))]),
+        )
+        .expect("B connect");
+    let a_id = match connect_resp.payload.get("peer_substrate_id") {
+        Some(CbValue::Bytes(b)) => b.clone(),
+        _ => panic!("a_id missing"),
+    };
+
+    let pull_resp = client_b
+        .call(
+            proto::FEDERATION_PULL_EVENTS_FROM_PEER,
+            build_payload(vec![
+                ("peer_substrate_id", CbValue::Bytes(a_id)),
+                ("max_events", CbValue::Uint(50)),
+            ]),
+        )
+        .expect("B pull");
+    let events_received = match pull_resp.payload.get("events_received_count") {
+        Some(CbValue::Uint(n)) => *n,
+        _ => panic!("events_received_count missing"),
+    };
+    let events_ingested = match pull_resp.payload.get("events_ingested_count") {
+        Some(CbValue::Uint(n)) => *n,
+        _ => panic!("events_ingested_count missing"),
+    };
+    // Phase β: received >= ingested. The difference is rejected substrate-
+    // private events (genesis_event, cycle_advanced, axis_registered,
+    // axis_perturbed, operator_pinned, federation_*, sporocarp etc.).
+    // Wait — sporocarp IS allowed. Let me think.
+    // A's DAG: genesis_event(*), operator_pinned(?), axis_registered(*),
+    //          axis_perturbed(*), cycle_advanced(*), sporocarp(maybe).
+    // Allowed by Phase β: sporocarp only (assuming any fruited)
+    // Rejected: genesis_event, axis_registered, axis_perturbed, cycle_advanced
+    // So ingested < received.
+    assert!(
+        events_ingested < events_received,
+        "Phase β: peer's substrate-private events must be rejected; ingested={events_ingested} received={events_received}"
+    );
+
+    // B's DAG must NOT contain peer's cycle_advanced.
+    let nodes_resp = client_b
+        .call(
+            proto::QUERY_RECENT_NODES,
+            build_payload(vec![
+                ("count", CbValue::Uint(50)),
+                ("node_type_prefix", CbValue::String("cycle_advanced".to_string())),
+            ]),
+        )
+        .expect("query");
+    let nodes_arr = match nodes_resp.payload.get("nodes") {
+        Some(CbValue::Array(a)) => a.clone(),
+        _ => panic!(),
+    };
+    assert_eq!(
+        nodes_arr.len(),
+        0,
+        "B's DAG must not contain federation-injected cycle_advanced events"
+    );
+
+    // B's DAG MUST contain a C22 immune sporocarp (federation_substrate_private_event_injection).
+    let immune_resp = client_b
+        .call(
+            proto::QUERY_RECENT_NODES,
+            build_payload(vec![
+                ("count", CbValue::Uint(50)),
+                ("node_type_prefix", CbValue::String("immune:C22".to_string())),
+            ]),
+        )
+        .expect("query immune");
+    let immune_arr = match immune_resp.payload.get("nodes") {
+        Some(CbValue::Array(a)) => a.clone(),
+        _ => panic!(),
+    };
+    assert!(
+        !immune_arr.is_empty(),
+        "Phase β: C22 immune sporocarp must be emitted on rejected federation push"
+    );
+
+    let client_a = poll_handle.join().expect("poll join");
+    client_a.shutdown().expect("shutdown A");
+    client_b.shutdown().expect("shutdown B");
+}
+
+#[test]
 fn m22_3_pull_events_idempotent_on_duplicate_pull() {
     // Pulling the same range twice should not duplicate events in the local DAG
     // (Dag::insert_node is idempotent on content hash + parents).
@@ -1292,9 +1428,25 @@ fn m22_3_pull_events_idempotent_on_duplicate_pull() {
         Some(CbValue::String(s)) => s.clone(),
         _ => panic!("addr missing"),
     };
+    // Phase β: ingest raw_material on A (allowlisted by federation pull).
     client_a
-        .register_axis("dup", "appetite", 10.0, 0.0, 1.0, false, "noop")
-        .expect("A register");
+        .call(
+            proto::INGEST_RAW_MATERIAL,
+            build_payload(vec![
+                ("content_kind", CbValue::String("text".to_string())),
+                ("content_bytes", CbValue::Bytes(b"dup test material".to_vec())),
+            ]),
+        )
+        .expect("A ingest");
+    client_a
+        .call(
+            proto::INGEST_RAW_MATERIAL,
+            build_payload(vec![
+                ("content_kind", CbValue::String("text".to_string())),
+                ("content_bytes", CbValue::Bytes(b"dup test material #2".to_vec())),
+            ]),
+        )
+        .expect("A ingest 2");
     let poll_handle = poll_in_background_for(client_a, 80);
 
     let (mut client_b, _dir_b) = spawn_substrate();
@@ -1323,7 +1475,7 @@ fn m22_3_pull_events_idempotent_on_duplicate_pull() {
         Some(CbValue::Uint(n)) => *n,
         _ => panic!(),
     };
-    assert!(ingested1 >= 2);
+    assert!(ingested1 >= 2, "Phase β: expect >=2 raw_material events ingested; got {ingested1}");
 
     // Second pull (same range) — should still complete cleanly. Note that
     // A's DAG grew between the two pulls (each FED_EVENT_BATCH A sends emits
@@ -1698,6 +1850,12 @@ fn m22_5_quarantined_child_blocks_register_axis() {
 
 #[test]
 fn m22_5_lift_quarantine_unblocks_operations() {
+    // Phase β SECURITY FIX (2026-05-15): lift_birth_period_quarantine now
+    // requires owner Ed25519 signature. Pre-fix this test exercised the
+    // INSECURE no-auth path. Post-fix it verifies the GUARD: unauthenticated
+    // lift attempts are rejected, quarantine remains in force. The
+    // happy-path (lift WITH valid signature) is M24+ work requiring TS-side
+    // M9 TOFU pinning helper.
     let parent_dir = fresh_state_dir();
     let client1 = spawn_substrate_with_state_dir(&parent_dir);
     client1.shutdown().expect("shutdown 1");
@@ -1721,43 +1879,53 @@ fn m22_5_lift_quarantine_unblocks_operations() {
 
     let mut client_b = spawn_substrate_with_state_dir(&child_dir);
 
-    // Confirm quarantine blocks first.
+    // Confirm quarantine blocks register_axis (M22.5 behavior unchanged).
     assert!(client_b
         .register_axis("blocked1", "appetite", 5.0, 0.0, 1.0, false, "noop")
         .is_err());
 
-    // Lift quarantine.
-    let lift_resp = client_b
-        .call(proto::LIFT_BIRTH_PERIOD_QUARANTINE, build_payload(vec![]))
-        .expect("lift");
-    let was_in_q = match lift_resp.payload.get("was_in_quarantine") {
-        Some(CbValue::Bool(b)) => *b,
-        _ => panic!(),
-    };
-    assert!(was_in_q, "should report was_in_quarantine=true");
-
-    // Now register_axis should succeed.
-    let after_lift = client_b.register_axis("after_lift", "appetite", 5.0, 0.0, 1.0, false, "noop");
+    // Phase β SECURITY: unauthenticated lift attempt MUST fail. Pre-fix this
+    // succeeded with empty payload — that was the working bug.
+    let lift_attempt = client_b
+        .call(proto::LIFT_BIRTH_PERIOD_QUARANTINE, build_payload(vec![]));
     assert!(
-        after_lift.is_ok(),
-        "register_axis should succeed after lift; got {after_lift:?}"
+        lift_attempt.is_err(),
+        "Phase β: unauthenticated lift must be rejected; got {lift_attempt:?}"
     );
+
+    // Quarantine remains in force after the rejected lift.
+    assert!(client_b
+        .register_axis("still_blocked", "appetite", 5.0, 0.0, 1.0, false, "noop")
+        .is_err());
 
     client_b.shutdown().expect("shutdown B");
 }
 
 #[test]
-fn m22_5_lift_quarantine_idempotent_when_not_quarantined() {
-    // Clean substrate (no quarantine ever) → lift returns was_in_quarantine=false.
+fn m22_5_lift_quarantine_rejects_unauthenticated_call() {
+    // Phase β SECURITY FIX: even when not in quarantine, lift requires owner
+    // signature. Pre-fix this returned was_in_quarantine=false (insecure).
     let (mut client, _dir) = spawn_substrate();
-    let resp = client
-        .call(proto::LIFT_BIRTH_PERIOD_QUARANTINE, build_payload(vec![]))
-        .expect("lift");
-    let was = match resp.payload.get("was_in_quarantine") {
-        Some(CbValue::Bool(b)) => *b,
-        _ => panic!(),
-    };
-    assert!(!was, "fresh substrate is not in quarantine");
+    let result = client
+        .call(proto::LIFT_BIRTH_PERIOD_QUARANTINE, build_payload(vec![]));
+    assert!(
+        result.is_err(),
+        "Phase β: unauthenticated lift must always be rejected; got {result:?}"
+    );
+    client.shutdown().expect("shutdown");
+}
+
+#[test]
+fn m22_5_lift_quarantine_rejects_wrong_signature_size() {
+    let (mut client, _dir) = spawn_substrate();
+    let result = client.call(
+        proto::LIFT_BIRTH_PERIOD_QUARANTINE,
+        build_payload(vec![("owner_signature", CbValue::Bytes(vec![0u8; 32]))]),
+    );
+    assert!(
+        result.is_err(),
+        "Phase β: signature with wrong size must be rejected"
+    );
     client.shutdown().expect("shutdown");
 }
 

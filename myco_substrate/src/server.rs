@@ -1789,6 +1789,58 @@ fn handle_lift_birth_period_quarantine(
     request: &Message,
 ) -> Result<Option<Message>, SubstrateError> {
     use std::time::{SystemTime, UNIX_EPOCH};
+
+    // Phase β SECURITY FIX (2026-05-15): require owner Ed25519 signature.
+    // Prior to this fix, ANY bridge connection could lift the quarantine
+    // (defeating M22.5 P8 birth-period protection). Now we require an owner
+    // signature over canonical_bytes(Map({
+    //   "context": "myco-lift-birth-period-quarantine-v1",
+    //   "substrate_id": Bytes(32),
+    //   "current_cycle": Uint,
+    // })) verified against the pinned operator identity pubkey (M9 TOFU).
+    let pinned = state
+        .pinned_operator_identity
+        .as_ref()
+        .ok_or_else(|| {
+            SubstrateError::Protocol(
+                "lift_birth_period_quarantine: no pinned operator identity (M9 TOFU not completed)"
+                    .to_string(),
+            )
+        })?
+        .clone();
+    let owner_sig_bytes = match request.payload.get("owner_signature") {
+        Some(Value::Bytes(b)) if b.len() == 64 => b.clone(),
+        _ => {
+            return Err(SubstrateError::Protocol(
+                "lift_birth_period_quarantine: owner_signature must be 64 Bytes".to_string(),
+            ));
+        }
+    };
+    let mut owner_sig = [0u8; 64];
+    owner_sig.copy_from_slice(&owner_sig_bytes);
+
+    let current_cycle = state.manifest.cycle_counter;
+    let mut signing_map = BTreeMap::new();
+    signing_map.insert(
+        "context".to_string(),
+        Value::String("myco-lift-birth-period-quarantine-v1".to_string()),
+    );
+    signing_map.insert(
+        "substrate_id".to_string(),
+        Value::Bytes(state.manifest.substrate_id.to_vec()),
+    );
+    signing_map.insert(
+        "current_cycle".to_string(),
+        Value::Uint(current_cycle),
+    );
+    let signing_input = cb_encode(&Value::Map(signing_map))
+        .map_err(|e| SubstrateError::Protocol(format!("signing input encode: {e}")))?;
+    verify_signature(&pinned.pubkey, &owner_sig, signing_input.as_ref()).map_err(|e| {
+        SubstrateError::Protocol(format!(
+            "lift_birth_period_quarantine: owner signature invalid: {e}"
+        ))
+    })?;
+
     let q = current_quarantine_state(state);
     let mut payload = BTreeMap::new();
     let was_in_q = q.as_ref().map(|s| !s.lifted).unwrap_or(false);
@@ -2043,30 +2095,131 @@ fn handle_federation_pull_events_from_peer(
     )?;
     let events_received = parsed_batch.events.len();
 
-    // Ingest each event into the local DAG. Idempotent on duplicate content
-    // hashes; parent-not-found errors are surfaced (sender should enumerate
-    // in causal order).
-    let mut ingested_hashes: Vec<[u8; 32]> = Vec::new();
+    // Phase β SECURITY FIX (2026-05-15): event-type ALLOWLIST.
+    //
+    // Pre-fix, this loop accepted ANY node_type from the peer — letting a
+    // malicious peer inject `operator_pinned:`, `cycle_advanced`,
+    // `genesis_event:*`, `nonce_issued:*`, etc. The injected events would
+    // then mutate Rust-authoritative state via `DerivedState::apply_event`
+    // at boot — taking over the substrate's identity, cycle counter,
+    // nonce log, or causing MultipleGenesis → empty derived state.
+    //
+    // Post-fix: only substrate-environmental events (raw_material, sporocarp,
+    // mutation, immune) are accepted. Any other node_type triggers a
+    // C22 immune sporocarp emission + the event is dropped.
+    let mut rejected_events: Vec<(String, [u8; 32])> = Vec::new();
+    let mut safe_events: Vec<&crate::federation::protocol::EventForFederation> = Vec::new();
     for ev in &parsed_batch.events {
-        let parents: Vec<myco_kernel_shared::crypto::NodeHash> = ev
+        if crate::federation::protocol::is_federation_safe_node_type(&ev.node_type) {
+            safe_events.push(ev);
+        } else {
+            // Compute the would-be hash for the rejection record.
+            let parents: Vec<myco_kernel_shared::crypto::NodeHash> = ev
+                .parent_hashes
+                .iter()
+                .map(|h| myco_kernel_shared::crypto::NodeHash::from_bytes(*h))
+                .collect();
+            let would_be_hash = myco_kernel_shared::crypto::merkle_hash(&parents, &ev.content_canonical_bytes);
+            rejected_events.push((ev.node_type.clone(), would_be_hash.0));
+        }
+    }
+    if !rejected_events.is_empty() {
+        let evidence = format!(
+            "federation peer {} attempted to push {} substrate-private event(s); types: {}",
+            hex_first_8_bytes(&peer_substrate_id),
+            rejected_events.len(),
+            rejected_events
+                .iter()
+                .map(|(t, _)| t.as_str())
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
+        let _ = emit_immune_sporocarp(
+            state,
+            "C22_federation_substrate_private_event_injection",
+            "federation_substrate_private_event_injection",
+            &evidence,
+        );
+    }
+
+    // Phase β SECURITY: wrap each ALLOWED peer event in a
+    // `federation_received:{peer_id_prefix}` envelope whose parent is the
+    // RECEIVER's local DAG tip — NOT the peer's parent_hashes. This:
+    //   1. Preserves receiver's Merkle-chain correctness (peer's chain
+    //      never merges into receiver's chain).
+    //   2. Records full cross-substrate provenance (original peer event +
+    //      its parent hashes + its hash are all inside the wrapper content).
+    //   3. Makes federation a "I HEARD peer say X" attestation graph rather
+    //      than a multi-substrate event-graph merge (which would require
+    //      shared causal ancestors, impossible without owner co-attestation
+    //      at genesis).
+    // Idempotency: re-pulling the same peer event produces the same wrapper
+    // content (since wrapper content includes peer_event_original_hash),
+    // and Dag::insert_node is content-hash idempotent.
+    let peer_id_prefix = hex_first_8_bytes(&peer_substrate_id);
+    let wrapper_node_type = format!("federation_received:{peer_id_prefix}");
+    let mut ingested_hashes: Vec<[u8; 32]> = Vec::new();
+    for ev in &safe_events {
+        // Compute the peer's original event hash (what they have in their DAG).
+        let peer_parents_nh: Vec<myco_kernel_shared::crypto::NodeHash> = ev
             .parent_hashes
             .iter()
             .map(|h| myco_kernel_shared::crypto::NodeHash::from_bytes(*h))
             .collect();
-        let content_cb = myco_kernel_shared::canonical_bytes::CanonicalBytes(
-            ev.content_canonical_bytes.clone(),
+        let peer_original_hash = myco_kernel_shared::crypto::merkle_hash(
+            &peer_parents_nh,
+            &ev.content_canonical_bytes,
         );
+        // Build wrapper content.
+        let mut wrapper_map = BTreeMap::new();
+        wrapper_map.insert(
+            "from_peer_substrate_id".to_string(),
+            Value::Bytes(peer_substrate_id.to_vec()),
+        );
+        wrapper_map.insert(
+            "peer_event_node_type".to_string(),
+            Value::String(ev.node_type.clone()),
+        );
+        let peer_parent_values: Vec<Value> = ev
+            .parent_hashes
+            .iter()
+            .map(|h| Value::Bytes(h.to_vec()))
+            .collect();
+        wrapper_map.insert(
+            "peer_event_parent_hashes".to_string(),
+            Value::Array(peer_parent_values),
+        );
+        wrapper_map.insert(
+            "peer_event_content_canonical_bytes".to_string(),
+            Value::Bytes(ev.content_canonical_bytes.clone()),
+        );
+        wrapper_map.insert(
+            "peer_event_original_hash".to_string(),
+            Value::Bytes(peer_original_hash.0.to_vec()),
+        );
+        wrapper_map.insert(
+            "peer_event_created_at_cycle".to_string(),
+            Value::Uint(ev.created_at_cycle),
+        );
+        let wrapper_content = cb_encode(&Value::Map(wrapper_map))
+            .map_err(|e| SubstrateError::Protocol(format!("federation wrapper encode: {e}")))?;
+        // Parent = receiver's local tip (NOT peer's parent_hashes).
+        let parents = match state.dag.tip() {
+            Some(t) => vec![t],
+            None => Vec::new(),
+        };
+        let cycle = state.manifest.cycle_counter;
         match state.dag.insert_node(
             parents,
-            ev.node_type.clone(),
-            ev.created_at_cycle,
-            content_cb,
+            wrapper_node_type.clone(),
+            cycle,
+            wrapper_content,
         ) {
             Ok(h) => ingested_hashes.push(h.0),
             Err(e) => {
                 return Err(SubstrateError::Protocol(format!(
-                    "ingest federation event ({}): {e}",
-                    ev.node_type
+                    "ingest federation wrapper ({}): {e}",
+                    wrapper_node_type
                 )));
             }
         }
