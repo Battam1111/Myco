@@ -1,7 +1,5 @@
 # L3 — Package Map (module-by-module specification)
 
-> **Status**: DRAFT 3 (2026-05-17, M27 R5 cleanup). Sizing pre-Phase-γ M22-M25.
-
 ---
 
 ## §1. Module index

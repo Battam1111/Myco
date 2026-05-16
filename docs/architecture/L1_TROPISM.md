@@ -1,6 +1,6 @@
 # L1 — Tropism (positive dispatch form for Myco v0.9)
 
-> **Status**: DRAFT 3. L1 for positive dispatch satisfying L0 §5.2 + two L0-mandated mechanisms (§E salience, §F telos). Cultivation vocabulary at L0 §1.2.
+> L1 for positive dispatch satisfying L0 §5.2 + two L0-mandated mechanisms (§E salience, §F telos). All numeric thresholds L1-tunable unless specified.
 
 ---
 
@@ -31,7 +31,7 @@ Excluded by L0 §5.2: verbs, request/response, hybrid, coexistence-with-verbs-at
 
 - **Birth period**: seed thresholds + seed update-rules. End per L1_GOVERNANCE §1.3 (maturity-attested OR 180-day ceiling).
 - **Steady state**: emergent thresholds activate; gradient rules MAY evolve per P3 (CI-gated).
-- **Birth-period detectors SUSPENDED** during birth + post-birth settling window; arm at owner-attested `birth_period_terminated` + L1-tunable settling: `bet_weakening_quorum` (L0 §7.4) emits `bet_weakening_evaluation_suspended`; `salience_collapse` (P12.b) emits `salience_emergence_pending`; `telos_drift` (§P14.c) emits `telos_alignment_pending`.
+- **Birth-period detectors SUSPENDED** during birth + post-birth settling window; arm at owner-attested `birth_period_terminated` + settling: `bet_weakening_quorum` (L0 §7.4) emits `bet_weakening_evaluation_suspended`; `salience_collapse` (P12.b) emits `salience_emergence_pending`; `telos_drift` (§P14.c) emits `telos_alignment_pending`.
 
 ## §A. Continuity hooks
 
@@ -52,12 +52,10 @@ L1_CONTINUITY owns cycle cadence, dormancy, recovery, quarantine, delta atomicit
 **B6. Sporocarp governance gate** — Daily class → DAG immediately. CI-class emits `attestation_request` via anchor; pending → published on owner attestation. Every fruiting carries `causal_in_edges` per B1; I3 recomputes; unverifiable rejected pre-DAG. Salience + telos immune sporocarps (`salience_collapse` §E, `telos_drift` §F) fruit through this gate; both SUSPENDED in birth.
 
 **B7-B10**:
-- **B7** Continuity recovery → L1_CONTINUITY §3.
-- **B8** Causal DAG (L1_SCHEMA §2). Edge classes: `gradient_causation`, `delta_source`, `sporocarp_derivation`, `federation_coupling`, `governance_resolution`.
-- **B9** Federation surface (L1_GOVERNANCE §5): discovery + freshness L1_GOVERNANCE-owned; tropism contributes cross-substrate gradient coupling. Coupling mode L4.
+- **B7** Continuity recovery → L1_CONTINUITY §3. **B8** Causal DAG → L1_SCHEMA §2; edge classes: `gradient_causation`, `delta_source`, `sporocarp_derivation`, `federation_coupling`, `governance_resolution`. **B9** Federation surface → L1_GOVERNANCE §5; tropism contributes cross-substrate gradient coupling (mode L4).
 - **B10** Self-hosting bootstrap: kernel substrate IS ordinary substrate with one specialization — `evolution-tension` bound to kernel source repo; no outbound RPC. Kernel substrate IS a Cultivar under Cultivation by its human owner.
 
-## §E. Salience / Attention emergence (P12 landing per L0 §2.3 G-9.b)
+## §E. Salience / Attention emergence (P12 landing)
 
 **§E.1 The form**: **Salience**: `raw_material_kind → attention_weight ∈ [0, 1]` modulating each kind's reach into axis update rules. Algorithm: `algorithms/ewma_salience.md` (bootstrap until N=100 samples → EWMA per-kind; decay seed 0.05/cycle; anti-collapse floor; entropy-based `salience_collapse` grading). Kind taxonomy (`conversation_turn`, `file_change`, `federation_envelope`, etc.) L4. Operates between intake (L1_SKIN §2) and gradient advance — intake decision binary; salience modulates downstream.
 
@@ -67,7 +65,7 @@ L1_CONTINUITY owns cycle cadence, dormancy, recovery, quarantine, delta atomicit
 
 **§E.4 Agent exposure + federation + scope**: §B4 digest includes salience-summary block (top-`k` + entropy). Substrate-attested; NEVER agent-set/overridable (P1.c). Each substrate carries own salience map; maps do NOT transfer at federation or reproduction; cross-substrate sporocarps feed receiving substrate's `federation` kind. **§E does NOT**: replace P2 envelope admission; trigger compression (L0 P10); replace `bet_weakening_quorum` or `telos_drift`; classify/attest envelopes.
 
-## §F. Telos alignment operationalization (P14.c per L0 §P14.c G-6.a)
+## §F. Telos alignment operationalization (P14.c)
 
 **§F.1 The form**: **Telos-alignment** scalar `[-1, 1]`. Algorithm: `algorithms/telos_drift.md` (cosine of sporocarp centroid vs objective embedding; 5-grade threshold table from aligned ≥0.6 to CRITICAL ≤0.0 / C24; causal_in_edges; embedding-model identity F-row). Per-substrate at genesis, CI; switching branches requires owner CI attestation. Branch selection: owner objective declared (P14.b) → `embed(owner_stated_objective_text)`; no objective → `embed(agent_feedback_trajectory_recent)` (L1_TRAJECTORY-derived).
 
@@ -79,8 +77,6 @@ L1_CONTINUITY owns cycle cadence, dormancy, recovery, quarantine, delta atomicit
 
 **§F.5 Interaction + scope**: Per P14.a: cosine-similarity chosen over trajectory-cluster-coherence — L4-implementable in one cycle, no clustering dependency; cluster_C is CI and MUST NOT silently break telos-alignment. **§F does NOT**: replace `bet_weakening_quorum`; enforce owner stating objective (P14.b MAY-not-must); compute over CI-class sporocarps; block CI events (CRITICAL telos_drift owner-gated, not auto-mortality); cross substrates (per-pair).
 
-## §G. Glossary
-
-Cultivation / Cultivator / Cultivar at L0 §12. Document-private:
+## §G. Doc-private terms
 
 - **Cultivar-individuality** (§E.4 + P8): each Cultivar emerges own salience map + accumulates own telos history; inheritance is rule-level (salience rule, embedding-model identity, telos objective), not state-level.

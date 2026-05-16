@@ -1,6 +1,6 @@
 # L2 — Outline / Charter
 
-> **Status**: OUTLINE post L0 DRAFT 9 SEALED 2026-05-17, commit `e796451`. **Authority**: navigation only; the 6 L2 docs below are authoritative.
+> **Authority**: navigation only; the 6 L2 docs below are authoritative.
 
 ---
 

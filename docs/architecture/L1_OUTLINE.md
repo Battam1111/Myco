@@ -1,7 +1,6 @@
 # L1 — Outline / Charter
 
-> **Status**: OUTLINE post L0 sealing 2026-05-17, commit `e796451`. **Authority**: navigation only; L1 documents below ARE authoritative.
-> L1 is the **mechanism enforcement layer** for L0 principles + invariants; commits to positive forms; answers "how does the substrate do X?".
+> Navigation only; L1 documents are authoritative. L1 is the **mechanism enforcement layer** for L0 principles + invariants; commits to positive forms; answers "how does the substrate do X?".
 
 ---
 
@@ -9,7 +8,6 @@
 
 | File | Topic |
 |---|---|
-| `L1_OUTLINE.md` (this) | Charter + index |
 | `L1_TROPISM.md` | Positive dispatch form |
 | `L1_TRAJECTORY.md` | Positive intent-derivation |
 | `L1_SCHEMA.md` | SSoT, Merkle DAG, recoverability, spore-schema, validation tiers |

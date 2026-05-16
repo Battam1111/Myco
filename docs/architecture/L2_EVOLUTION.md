@@ -1,6 +1,6 @@
 # L2 — Evolution Doctrine
 
-> **Status**: DRAFT 3 (2026-05-17, M27 R5 cleanup). Cross-cuts L0 P3 + L1_GOVERNANCE §1.3/§6 + L1_SCHEMA §1.3/§4.2 + L1_TROPISM §B1 + L1_TRAJECTORY §5 + L0 §10.2.
+> Cross-cuts L0 P3 + L1_GOVERNANCE §1.3/§6 + L1_SCHEMA §1.3/§4.2 + L1_TROPISM §B1 + L1_TRAJECTORY §5 + L0 §10.2. All numeric thresholds L1-tunable unless specified.
 
 ---
 
@@ -21,7 +21,7 @@ Five classes of mutable substrate state; unifying principle **P3 — substrate's
 ## §2. Evolution invariants
 
 - **§2.1 Causal traceability (I4)**: every event DAG-recorded; pre-evolution state retained (L1_SCHEMA §2.3 cold-tier); post-evolution references prior; Merkle proves legitimacy.
-- **§2.2 Failure rollback (P3)**: I3-inconsistent → pre-evolution snapshot; recorded `evolution_failed` (CI-elevated, ungated); pending CI sporocarps in window dropped as `evolution_failed_pending_dropped`.
+- **§2.2 Failure rollback (P3)**: I3-inconsistent → pre-evolution snapshot; recorded `evolution_failed` (CI-elevated, ungated); in-flight CI sporocarps in window dropped as `evolution_failed_pending_dropped`.
 - **§2.3 No silent corruption (I3)**: SSoT-changing passes two-phase migration: candidate alongside current; per-cycle dual-validation; mismatch → `ssot_migration_inconsistent` + abort.
 
 ---
@@ -50,6 +50,6 @@ Every evolvable state has explicit versions; historical state validates against 
 
 §8 observability: L2_OBSERVABILITY §2.1 (signal #2 evolution-rate; zero = stagnation/P3-weak; excessive = `doctrine_instability` per L0 §9.4) + §8 (burst detector).
 
-§9 failure modes: L1_GOVERNANCE §6.2 — failed schema migration / template evolution / lexicon mutation share rollback shape; pre-evolution snapshot restored; pending sporocarps dropped; emissions under failed template marked `failed_template_emission`. Persistent failure: ≥3 consecutive within L1-tunable window → quarantine per L1_CONTINUITY §5.1.
+§9 failure modes: L1_GOVERNANCE §6.2 — failed schema migration / template evolution / lexicon mutation share rollback shape; pre-evolution snapshot restored; in-flight sporocarps dropped; emissions under failed template marked `failed_template_emission`. Persistent failure: ≥3 consecutive within window → quarantine per L1_CONTINUITY §5.1.
 
 §10 summary: substrate evolves freely in steady state, disciplined at three layers — (1) doctrine: rare, owner-attested, burst-detected; (2) schema/dispatch: two-phase migration + canonical-bytes + I3-rollback; (3) threshold/parameter: emergent + mortality-protected. Active-prefix + archived-tail keeps tier-1 cost O(K). **Substrate that does not evolve is dead** (L0 P3); silent/arbitrary evolution violates I3/I4.

@@ -15,7 +15,7 @@
   "tofu_pinning": "On first FED_HELLO from peer_substrate_id, verify Ed25519 with signer_pubkey; pin (peer_substrate_id, pinned_signer_pubkey, pinned_at_cycle). Subsequent HELLOs MUST match pinned key.",
   "tampering_response": "Reject; emit C39_federation_hello_signature_invalid.",
   "legacy_peer_fallback": {
-    "trigger": "Both signer_pubkey and hello_signature absent (pre-M25.4 peer).",
+    "trigger": "Both signer_pubkey and hello_signature absent (legacy / pre-mutual-auth peer).",
     "behavior": "Accept under substrate-ID-TOFU only; emit federation_legacy_peer_pinned (not immune); pinned_signer_pubkey = None.",
     "consensus_eligibility": "Consensus-passive (counted in §6.5.d N; contributes no votes).",
     "deprecation_horizon": "L1 deprecation horizon (seed 12 wall-clock months); post-horizon → reject + federation_legacy_peer_horizon_expired."

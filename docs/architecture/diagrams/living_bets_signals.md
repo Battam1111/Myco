@@ -1,7 +1,6 @@
-# Living Bets — 10-signal observatory catalog (extracted from L0_VISION.md §7.3)
+# Living Bets — 10-signal observatory catalog
 
-> **Status**: REFERENCE TABLE. Extracted from L0_VISION.md DRAFT 9 SEALED §7.3 to keep active doctrine lean. Authoritative full enumeration lives at **L2_OBSERVABILITY §2**; this file is a quick-reference mirror.
-> **Source**: L0_VISION.md DRAFT 9 SEALED commit `e796451`; M26.0 cascade A6 + M25.2/M25.3 elaborations folded into L2_OBSERVABILITY.
+> Reference table extracted from L0 §7.3 to keep active doctrine lean. Authoritative full enumeration lives at **L2_OBSERVABILITY §2**; this file is a quick-reference mirror.
 
 ---
 

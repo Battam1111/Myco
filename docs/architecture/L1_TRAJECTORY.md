@@ -1,6 +1,6 @@
 # L1 — Trajectory (positive intent-derivation mechanism for Myco v0.9)
 
-> **Status**: DRAFT 2. L1 for intent-derivation satisfying L0 §5.3.
+> L1 for intent-derivation satisfying L0 §5.3.
 
 ---
 

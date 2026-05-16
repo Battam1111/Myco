@@ -1,6 +1,6 @@
 # Federation — Recursive Injection Defense
 
-Canonical algorithm reference for **L2_FEDERATION §11** (SECURITY-CRITICAL; M27 impl).
+Canonical algorithm reference for **L2_FEDERATION §11** (SECURITY-CRITICAL).
 
 ## Why required
 

@@ -1,6 +1,6 @@
 # L1 — Governance (classifier, lifecycle, Cultivation succession, attestation, generation, federation)
 
-> **Status**: DRAFT 3. Authoritative L1 for I2 classifier; lifecycle; Cultivation succession FSM (§3.2); attestation; key rotation; heartbeat sub-state transitions; federation; P3 rollback; §16 generation limits; F18-F25 catalog (SSoT here; L1_HARD_RULES §2 indexes). "Cultivator" = relational role, "owner" = governance role — same party. All numeric thresholds L1-tunable.
+> Authoritative L1 for I2 classifier; lifecycle; Cultivation succession FSM (§3.2); attestation; key rotation; heartbeat sub-state transitions; federation; P3 rollback; §16 generation limits; F18-F25 catalog (SSoT here; L1_HARD_RULES §2 indexes). "Cultivator" = relational role, "owner" = governance role — same party. All numeric thresholds L1-tunable unless specified.
 
 ---
 
@@ -38,13 +38,13 @@
 | Daily content (deltas, gradient updates, ordinary fruiting, federation coupling, per-cycle telos/salience/cost values) | daily |
 | All else | **untyped** (rejected) |
 
-**§1.3 Birth-period CI elevation**: During birth period (§4.1), ALL parameter-tuning CI; reclassification at owner-attested termination. Maximum duration CI-attested at genesis (default 180 active-operation days); reaching max forces graduation-or-self-euthanasia. DRAFT 9 detector exemptions at L1_HARD_RULES §3.
+**§1.3 Birth-period CI elevation**: During birth period (§4.1), ALL parameter-tuning CI; reclassification at owner-attested termination. Maximum duration CI-attested at genesis (default 180 active-operation days); reaching max forces graduation-or-self-euthanasia. Detector exemptions at L1_HARD_RULES §3.
 
 ---
 
 ## §2. Owner attestation protocol
 
-**§2.1 Key custody**: Owner key MUST live outside substrate process + any process agent can spawn/read. Mechanism L4 ∈ {hardware token, separate machine, cloud HSM, signed-prompt review}. Adversarial-Cultivator caveat: defenses raise cost not block (L2_TRUST_MODEL §10).
+**§2.1 Key custody**: Owner key MUST live outside substrate process + any process agent can spawn/read. Mechanism L4 ∈ {hardware token, separate machine, cloud HSM, signed-prompt review}.
 
 **§2.2 Envelope + flow**: Schema [`schemas/attestation_envelope.json`](schemas/attestation_envelope.json) (11 required fields per L0 §9.3.1). CI flow: (1) Substrate requests anchor nonce bound to `(mutation_hash, dag_tip_hash)`; TTL 5 anchor-min. (2) Substrate emits attestation request per schema. (3) Cultivator at anchor: (a) render canonical-bytes via anchor-client; (b) recompute `proposed_mutation_hash`; (c) verify `operator_witness` against logged handshake pubkey; (d) DAG enumeration closure (L0 §9.3.6); (e) verify nonce binding + TTL; (f) attach trusted wall-clock; (g) sign `(substrate_id, dag_tip_hash, proposed_mutation_hash, operator_witness_signature, operator_signing_key_public, anchor_surface_nonce, anchor_surface_timestamp)`.
 
@@ -58,15 +58,13 @@
 
 **§3.1 Key rotation (in-life)**: Identity record carries `owner_key_history = [(public_key_n, valid_from, valid_until, rotation_attestation, cooldown_expired_at)]`. Protocol: (1) current owner publishes new candidate at anchor signed by current key; (2) cooldown 30 anchor-days, any pre-registered key MAY `rotation_veto`; (3) post-cooldown both keys co-sign; substrate updates history. Historical co-sign verification uses key valid at co-sign timestamp. Suite rotation: history carries `(suite, public_key)` tuples. **Active-prefix + archived-tail discipline**: active_prefix (most-recent K=8) per-cycle I3 tier-1; archived_tail deep-cycle via Merkle-anchor (applies to `template_version_registry` per L1_TROPISM §B1 + federation peer-set aggregate chain per §5).
 
-**§3.2 Cultivation succession (FSM per L0 §15)**: Documented-not-defended under operator-IS-anchor collapse (L0 §9.5); M-anchor-3 begins enforcement. Substrate-ID fixed across transfer. FSM: [`diagrams/cultivation_succession_fsm.txt`](diagrams/cultivation_succession_fsm.txt) (Normal/Legacy/Orphaned/Archived/Recovered; transitions T1-T8).
+**§3.2 Cultivation succession (FSM per L0 §15)**: Substrate-ID fixed across transfer. FSM: [`diagrams/cultivation_succession_fsm.txt`](diagrams/cultivation_succession_fsm.txt) (Normal/Legacy/Orphaned/Archived/Recovered; transitions T1-T8).
 
-**§3.2.A Successor_chain registry (F21)**: `SuccessorEntry: { successor_pubkey: Bytes(32), valid_from_unix_ns: i64, valid_until_unix_ns: i64 | nil, attestation_signature: Bytes(64) }`. Discipline: non-overlapping intervals; monotone `valid_from`; chain-head attestation against current Cultivator OR prior chain-head; depth default 4. Empty genesis → `alive::orphaned` if Cultivator unavailable. Mutation requires §2 attestation; without → `untyped` (C14).
+**§3.2.A Successor_chain registry (F21)**: `SuccessorEntry: { successor_pubkey: Bytes(32), valid_from_unix_ns: i64, valid_until_unix_ns: i64 | nil, attestation_signature: Bytes(64) }`. Non-overlapping intervals; monotone `valid_from`; chain-head attests against current Cultivator OR prior chain-head; depth default 4. Empty genesis → `alive::orphaned` if Cultivator unavailable. Mutation requires §2 attestation; without → `untyped` (C14).
 
-**§3.2.B Liveness heartbeat (L0 §9.2.7)**: envelope `cultivator_liveness_heartbeat { substrate_id, cultivator_pubkey, anchor_surface_timestamp, valid_until_unix_ns, signature }`. Cadence 30 anchor-days [1d, 90d]; `valid_until ≤ anchor_timestamp + 30d`. Staleness 90 anchor-days (3× cadence).
+**§3.2.B Liveness heartbeat (L0 §9.2.7)**: envelope `cultivator_liveness_heartbeat { substrate_id, cultivator_pubkey, anchor_surface_timestamp, valid_until_unix_ns, signature }`. Cadence 30 anchor-days [1d, 90d]; staleness 90 anchor-days (3× cadence).
 
-**§3.2.C Transition events**: `cultivator_heartbeat_stale` (T1) / `succession_completed:{successor_pubkey}` (T3) / `cultivation_orphaned:{prior_cultivator_pubkey, anchor_surface_timestamp}` (T4) / `cultivation_recovered:{successor_pubkey, recovery_proof_reference}` (T5) / `endogenous_mortality_proposal:cultivation_orphaned_terminal` (T6). `legacy_window` 365d; `orphaned_terminal_window` 730d. Genesis `cultivation_orphaned_terminal_choice ∈ {self_euthanasia | bet_retirement | indefinite_orphan}`.
-
-**§3.2.D Substrate enforcement**: heartbeat query cadence 1/cycle or 1/24h; unreachable → `cultivator_heartbeat_query_failed`; sustained >7 anchor-days → `anchor_surface_partition`. Under collapse substrate MAY emit `cultivation_succession_collapse_window`. Mortality protection (L0 §14.2): `cultivation_orphaned` MUST NOT be suppressed.
+**§3.2.C Transitions + enforcement**: events `cultivator_heartbeat_stale` (T1) / `succession_completed` (T3) / `cultivation_orphaned` (T4) / `cultivation_recovered` (T5) / `endogenous_mortality_proposal:cultivation_orphaned_terminal` (T6); `legacy_window` 365d / `orphaned_terminal_window` 730d; genesis `cultivation_orphaned_terminal_choice ∈ {self_euthanasia | bet_retirement | indefinite_orphan}`. Substrate heartbeat-query cadence 1/cycle or 1/24h; unreachable → `cultivator_heartbeat_query_failed`; sustained >7 anchor-days → `anchor_surface_partition`. Under collapse substrate MAY emit `cultivation_succession_collapse_window`. Mortality protection (L0 §14.2): `cultivation_orphaned` MUST NOT be suppressed.
 
 ---
 
@@ -120,12 +118,9 @@ Detection: P3 → I3 next cycle; failure → `evolution_failed` (CI-elevated, au
 Defends forkbomb attack class. Seeds: depth=10, rate=24h, quota=100.
 
 - **§16.A `reproduction_lineage_depth_max`** (default 10): child spore-schema records `generation_depth = parent.generation_depth + 1`; parent verifies `+1 ≤ max` pre-spawn; ≥ max → refuse unless Cultivator attests `depth_override` (F22); immune `generation_depth_exceeded` (C47).
-- **§16.B `reproduction_rate_min_interval`** (default 1/24h anchor-clock; substrate-cycle counter NOT — throttle-evasion per L0 §13.1): verify `current_anchor_timestamp − parent.last_spawn_timestamp ≥ interval`; exceeding → refuse + `reproduction_rate_exceeded` (C48); soft-freeze pending `rate_override` (F22).
+- **§16.B `reproduction_rate_min_interval`** (default 1/24h anchor-clock; substrate-cycle counter NOT — throttle-evasion per L0 §13.1): verify `current_anchor_timestamp − parent.last_spawn_timestamp ≥ interval`; exceeding → refuse + `reproduction_rate_exceeded` (C48); soft-freeze awaiting `rate_override` (F22).
 - **§16.C `reproduction_lifetime_quota`** (default 100): verify `parent.children_spawned_count + 1 ≤ quota`; counter = DAG event count of `spawn_completed:{child_substrate_id}` (I4 prevents retro-edit; CI-class → P10.b-invariant); each over-quota spawn requires own §2 attestation (NO bulk); immune `reproduction_lifetime_quota_exceeded` (C48-grade).
 - **§16.D Mesh forkbomb**: per-substrate quota local (mesh across 100 peers aggregates to 10K children); L2_FEDERATION owns `mesh_aggregate_quota`; detection at L1_SKIN §3.1 federation egress; aggregate breach → `mesh_forkbomb_alert`; mitigation requires P15 Byzantine consensus (≥3 peers).
 
 ---
 
-## §17. Glossary
-
-Base terms at L0 §12; doc-specific defined inline at §3.2/§4.1/§16.

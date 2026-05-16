@@ -1,6 +1,6 @@
 # L1 — Hard Rules (cross-cuts index)
 
-> **Status**: DRAFT 2. Tier-2 SSoT cross-cuts index over L1_SKIN/L1_CONTINUITY/L1_GOVERNANCE/L1_SCHEMA/L1_TROPISM/L1_TRAJECTORY. Every row cites ≥1 P + ≥1 I.
+> Tier-2 SSoT cross-cuts index over L1_SKIN/L1_CONTINUITY/L1_GOVERNANCE/L1_SCHEMA/L1_TROPISM/L1_TRAJECTORY. Every row cites ≥1 P + ≥1 I.
 
 ---
 
@@ -107,5 +107,5 @@ Cross-ref L1_GOVERNANCE §1.3 (ALL parameter-tuning CI) + L0 §7.4.e (C40 + P14.
 
 Exclusively owner-controlled; substrate-side forge attempt MUST be `untyped` (C14). Covers: anchor nonces + consumed-nonce log (§9.2.5); trusted wall-clock (§9.2.6); liveness heartbeat (§9.2.7); key-rotation cooldown veto (L1_GOVERNANCE §3.1); successor attestations + revocations (§3.2 + F21); final-seal (§4.4); anchor-client provenance (§9.3.3); peer revocation list + aggregate-reattestation Merkle commitments (§5.2); L0/L1 revision diff records (§9.2.4); DAG-tip co-signing logs with enumerated nodes (§9.2.2); substrate-ID birth attestation (§9.2.1); generation-counter ceiling (F22).
 
-## §5-§6. Consistency + glossary
-Tier-2 SSoT (citation-only); drift resolves to source L1 doc as canonical. Base terms at L0 §12; status keys at §1.1; compression-invariant set at L0 P10.b + F18.
+## §5. Consistency
+Tier-2 SSoT (citation-only); drift resolves to source L1 doc as canonical. Status keys at §1.1; compression-invariant set at L0 P10.b + F18.

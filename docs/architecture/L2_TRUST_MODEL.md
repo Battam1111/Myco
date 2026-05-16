@@ -1,7 +1,6 @@
 # L2 — Trust Model Doctrine
 
-> **Status**: DRAFT 3 (2026-05-17, M27 R5 cleanup). M26-cascade A4 for L0 DRAFT 9 SEALED.
-> **Scope**: cross-cut trust framing. Mechanism specs at L1 + L2_FEDERATION + L2_OBSERVABILITY.
+> **Scope**: cross-cut trust framing. Mechanism specs at L1 + L2_FEDERATION + L2_OBSERVABILITY. All numeric thresholds L1-tunable unless specified.
 
 ---
 
@@ -30,11 +29,7 @@ No party unilaterally fabricates trust; roles structurally non-substitutable (mo
 
 ## §6-§8. Trust limits + federation + invariants
 
-§6 limits: identity carrier substrate; cannot enforce against own host (L0 §6) or operator runtime; P1.a adversarial-maintainer attacks codebase (anchor raises bar); cannot enforce against adversarial Cultivator (§10); L0 §14.2 commitments survive.
-
-§7 federation: see **L2_FEDERATION** (§6.3 peer attestation, §6.2 freshness, §6.4 non-transitivity, §13.1 Sybil, §13.2 Eclipse, §11 recursive injection).
-
-§8 invariants: model rests on L0 §4 + §9 + L1_GOVERNANCE §2.2/§3.1 + L1_SKIN §4.2; when these hold AND §11 collapse closed, model addresses L1_HARD_RULES §1 CRITICAL breaches; novel classes caught by observatory drift.
+§6 limits: identity carrier substrate; cannot enforce against own host, operator runtime, P1.a adversarial maintainer, or adversarial Cultivator (§10); L0 §14.2 commitments survive. §7 federation → **L2_FEDERATION** (§6.2-§6.4 + §11-§13 enumerate Sybil / Eclipse / recursive injection / non-transitivity). §8 invariants: model rests on L0 §4 + §9 + L1_GOVERNANCE §2.2/§3.1 + L1_SKIN §4.2; when these hold AND §11 collapse closed, addresses L1_HARD_RULES §1 CRITICAL breaches; novel classes caught by observatory drift.
 
 ---
 
@@ -50,7 +45,7 @@ L0 §14: Myco not safe under adversarial Cultivator; defenses raise attack cost.
 
 **§10.A.4 Deceased without succession** — L1_GOVERNANCE §3.2 + L0 §15: no successor → `legacy` → `orphaned`; terminal-state choice is genesis-Cultivator pre-attestation.
 
-**§10.A.5 Anchor-client tampering** — L0 §9.3.3 + F6: Cultivator signs `anchor_client_provenance_attestation` at genesis declaring install channel structurally independent. v0.9: NOT provenance-independent (§11); M-anchor-1 closes.
+**§10.A.5 Anchor-client tampering** — L0 §9.3.3 + F6: Cultivator signs `anchor_client_provenance_attestation` at genesis declaring install channel structurally independent. Under §11 collapse: not provenance-independent.
 
 **§10.B Irreducible commitments (L0 §14.2)**: Enforced via I9/I10/I12/I4: P6 causality; truthful observability + mortality signals; P10.b compression-invariant preservation.
 
@@ -58,34 +53,15 @@ L0 §14: Myco not safe under adversarial Cultivator; defenses raise attack cost.
 
 ## §11. Anchor-surface honor-system collapse window
 
-v0.9 anchor surface honor-system; substrate documented-vulnerable until M-anchor-1..5.
-
-**§11.1 Current state**: v0.9 `e796451`: owner key on same host as operator; nonces substrate-minted; wall-clock from operator process; anchor client uses same-package code; witnesses pass/fail not re-derivable. L0 §9.2: 9/11 sub-clauses 0-30% mechanical.
-
-**§11.2 Attack surface**:
-
-| Attack | Closed by |
-|---|---|
-| Cultivator-key disk extraction | M-anchor-1 |
-| Substrate-minted nonce replay | M-anchor-3 |
-| Process clock spoofing | M-anchor-3 |
-| Anchor-client tampering (same npm) | M-anchor-1 |
-| Witness omission (pass/fail) | M-anchor-4 |
-| DAG-enumeration closure not Cultivator-side | M-anchor-5 |
-| Owner-liveness-heartbeat library no callers | M-anchor-3 |
-| L0 revision workflow absent | M-anchor-5 |
-
-**§11.3 M-anchor closure**: M1 = key out of agent-spawnable process + anchor client independent channel + owner-side rendering. M2 = substrate-ID birth-attestation. M3 = anchor-issued nonces + anchor-clock + heartbeat. M4 = Merkle-witness emission + anchor-nonce-derived sampling. M5 = DAG-enumeration closure + L0 revision diff workflow.
-
-**§11.4 Posture**: Until closure: Cultivator must trust same host as substrate process; §10 + §13 defenses are LANDING TARGETS; observatory + immune provide partial protection.
+Anchor surface honor-system: owner key on same host as operator; nonces substrate-minted; wall-clock from operator process; anchor client uses same-package code; witnesses pass/fail not re-derivable. Under collapse: Cultivator must trust same host as substrate process; §10 + §13 defenses are landing targets; observatory + immune provide partial protection. Attack-surface inventory + closure milestones: `docs/implementation_status.md`. Irreducible commitments (§10.B) survive collapse.
 
 ---
 
 ## §12. Time-semantics attacks (per L0 §13)
 
-- **§12.1 NTP poisoning** — anchor wall-clock authoritative; L1_CONTINUITY NTP discipline; §11 → M-anchor-3.
+- **§12.1 NTP poisoning** — anchor wall-clock authoritative; L1_CONTINUITY NTP discipline; closure under §11.
 - **§12.2 Year 2038 (i32)** — L0 §13.1 mandates i64 nanoseconds; I3 catches drift.
-- **§12.3 Year 2262 (i64)** — `time_horizon_2262_warning` daily within L1-tunable horizon (default 100y); negative pre-1970 → `negative_epoch_timestamp`.
+- **§12.3 Year 2262 (i64)** — `time_horizon_2262_warning` daily within horizon (default 100y); negative pre-1970 → `negative_epoch_timestamp`.
 - **§12.4 Wall-clock untrustworthiness** — attestation expiry / cooldown / federation freshness → anchor-clock; DAG ordering → substrate-monotonic.
 
 ---
@@ -96,7 +72,7 @@ Mechanisms at L2_FEDERATION + L1_SKIN; threat framing here:
 
 - **§13.1 Sybil** — L1_GOVERNANCE §5: Cultivator-attested peer list; new peers CI-grade (F14); non-transitive (§6.4); requires §10 compromise.
 - **§13.2 Eclipse** — defense: ≥3 peers from ≥3 independent organizational lineages; signals #4a/#4b. Cultivator does diverse selection + out-of-Myco cross-channel verification.
-- **§13.3 Recursive injection** — L2_FEDERATION §9/§11 (wrapped-events + allowlist + recursive defense). Shipped M24/M25.
+- **§13.3 Recursive injection** — L2_FEDERATION §9/§11 (wrapped-events + allowlist + recursive defense).
 - **§13.4 Forkbomb** — L0 §16 + L1_GOVERNANCE §16: depth + rate + quota + per-spawn birth gate; requires §10 compromise or I7 violation.
 - **§13.5 substrate_id collision** — hash of `(spore-schema-canonical-bytes, owner-pubkey, anchor-pubkey, genesis-timestamp)`; primitive break → suite migration; collision requires BOTH hash break AND key compromise.
 - **§13.6 Backup privacy** — L1_SKIN backup encryption: operator-controlled symmetric; Cultivator out-of-band escrow; backups predating rotation readable with old key.
@@ -104,8 +80,6 @@ Mechanisms at L2_FEDERATION + L1_SKIN; threat framing here:
 
 ---
 
-## §14-§15. Glossary + cascade
+## §14. L1 cascade
 
-§14 — base terms at L0 §12; trust-specific defined inline at §10/§11/§13.
-
-§15 L1 cascade — F23 shipped; `owner_signature_velocity_anomaly` deferred. L1_GOVERNANCE §3.1 (multisig + duress + quorum-emergency); §3.2 (successor FSM + court-attested recovery); §5 (peer diversity). L1_CONTINUITY (NTP). L1_SCHEMA (i64 + year-2262). L1_SKIN (backup encryption). L2_FEDERATION (allowlist + wrapped-events). L2_OBSERVABILITY (`owner_signature_velocity` sub-signal).
+L1_GOVERNANCE §3.1 (multisig + duress + quorum-emergency); §3.2 (successor FSM + court-attested recovery); §5 (peer diversity). L1_CONTINUITY (NTP). L1_SCHEMA (i64 + year-2262). L1_SKIN (backup encryption). L2_FEDERATION (allowlist + wrapped-events). L2_OBSERVABILITY (`owner_signature_velocity` sub-signal).

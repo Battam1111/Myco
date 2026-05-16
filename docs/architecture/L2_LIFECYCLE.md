@@ -1,6 +1,6 @@
 # L2 — Lifecycle Doctrine
 
-> **Status**: DRAFT 3 (2026-05-17, M27 R5 cleanup). Cross-cuts L0 I1 / P7 / P8 + L1_GOVERNANCE §3-§4 + L1_CONTINUITY §2-§5 + L1_TROPISM §4.
+> Cross-cuts L0 I1 / P7 / P8 + L1_GOVERNANCE §3-§4 + L1_CONTINUITY §2-§5 + L1_TROPISM §4. All numeric thresholds L1-tunable unless specified.
 
 ---
 
@@ -20,7 +20,7 @@
 
 §3 birth period (L1_TROPISM §4 + L1_GOVERNANCE §1.3; all parameter-tuning CI; reclassification at owner-attested termination):
 - **Path A (convergence-attested)**: ≥N sporocarps + ≥M active-operation time + per-axis convergence below epsilon → `birth_period_complete_proposal` + owner co-attest → `alive (steady-state)` + `maturity_attestation`.
-- **Path B (max-duration ceiling)**: L1-tunable max (default 180 active-operation days); forces graduation OR `self_euthanasia_proposal` (attention-exhaustion safety valve).
+- **Path B (max-duration ceiling)**: default 180 active-operation days; forces graduation OR `self_euthanasia_proposal` (attention-exhaustion safety valve).
 - **Observability**: #2 HIGH, #3 RISING, #10 variance-weighted (L2_OBSERVABILITY §2.3) until P14 lands.
 
 §4 steady state: emergent thresholds replace seeds; 5-step metabolic cycle (L1_CONTINUITY §1.1); Living Bets baselines build; falsifiability quorum arms (90-day rolling); L0/L1 evolutions follow P3 CI-attested.
@@ -29,7 +29,7 @@
 
 ## §5-§7. Dormancy + quarantine + legacy-FSM
 
-§5 dormancy: L1_CONTINUITY §2 (triggers, throttled/paused, wake, dual-clock asymmetry, compute-budget asymmetry). Wall-clock-vs-cycle-clock asymmetry during paused dormancy is canonical defense vs self-induced-pause wall-clock-budget-extension. Compute-budget enforcement vs host is declared asymmetry; Cultivator-side monitoring is detection path.
+§5 dormancy: L1_CONTINUITY §2 (triggers, throttled/paused, wake, dual-clock asymmetry, compute-budget asymmetry). Wall-clock-vs-cycle-clock asymmetry defends against self-induced-pause wall-clock-budget-extension; host-enforcement asymmetry declared, Cultivator-monitored.
 
 §6 quarantined: L1_CONTINUITY §5 (entry, metabolism-while-quarantined, exit via Cultivator-attested `quarantine_clearance` — never auto-clears). Only alive sub-state requiring fresh co-attestation for exit. Federation outputs suspended.
 
@@ -45,7 +45,7 @@ L1_GOVERNANCE §4.3 + §16 (generation discipline F22) + L1_SCHEMA §3.3; inter-
 
 ## §9. Mortality (alive → destroyed; terminal)
 
-L0 P7 + L1_GOVERNANCE §4.4 (three modes: intentional-Cultivator, catastrophic-environment, endogenous-pair dual-channel; M23.2 self-euthanasia). Mortality-axis F7: threshold + update-rule + emergence-rule all CI.
+L0 P7 + L1_GOVERNANCE §4.4 (three modes: intentional-Cultivator, catastrophic-environment, endogenous-pair dual-channel). Mortality-axis F7: threshold + update-rule + emergence-rule all CI.
 
 - **Endogenous dual-channel**: substrate emits `self_euthanasia_proposal` with `operator_witness`; anchor emits `mortality_drill_failure` on two consecutive failed drills.
 - **Terminal record**: `anchor_surface_final_seal` Cultivator-co-signed; post-destruction handshakes return `substrate_destroyed`; seal substrate-ID-scoped.

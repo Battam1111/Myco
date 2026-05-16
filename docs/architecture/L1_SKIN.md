@@ -1,6 +1,6 @@
 # L1 — Skin (envelope, handshake, single-operator, breach detection, spatial-locus, backup, restart)
 
-> **Status**: DRAFT 3. L1 for boundary surface (I8). Cultivation vocabulary at L0 §1.2.
+> L1 for boundary surface (I8). All numeric thresholds L1-tunable unless specified.
 > **Scope**: envelope; intake/output; operator handshake; single-operator; non-deterministic operator-token; network-egress; spatial-locus (P13 folded into P9+I8); backup encryption (L0 §11.1); skin-restart (P9.b); breach detection. Excludes: classifier crypto (L1_GOVERNANCE), SSoT (L1_SCHEMA), cycle cadence/cold-resume (L1_CONTINUITY).
 
 ---
@@ -13,7 +13,7 @@ Substrate MUST declare exactly one skin surface in SSoT (tier-1 field): **intake
 
 Schema: `schemas/skin_envelope.json` (8 fields + payload; envelope wraps every delta at intake).
 
-**§2.1 Integrity check** (I8 + P2): all required fields present; `sender_token` matches active token (§4); `payload_shape` in recognized set; `size_bytes` ≤ L1-tunable (default 100 MB); `envelope_digest` recomputes via HMAC; `submitted_at_cycle` within freshness window (default 60 cycles, per L0 §13.1). Failure → `envelope_malformed` (no oracle disclosure).
+**§2.1 Integrity check** (I8 + P2): all required fields present; `sender_token` matches active token (§4); `payload_shape` in recognized set; `size_bytes` ≤ default 100 MB; `envelope_digest` recomputes via HMAC; `submitted_at_cycle` within freshness window (default 60 cycles, per L0 §13.1). Failure → `envelope_malformed` (no oracle disclosure).
 
 > Boundary (P2 vs P12): skin admits-or-rejects = P2. Downstream selective attention = P12 (L1_TROPISM).
 
@@ -29,11 +29,11 @@ Outputs leave via declared endpoints; signed by substrate identity key. Anchor o
 
 ## §4. Operator handshake protocol (bidirectional)
 
-**§4.1 Initiation + operator key bootstrap**: Operator per-handshake signing keypair: runtime generates fresh; private in runtime-memory only (never disk/transmitted); public in `handshake_initiate` envelope carrying `(envelope_version, operator_kind="handshake_initiate", substrate_id_proof, operator_signing_key_public, operator_attestation_request, continuity_claim, submitted_at)`. Substrate cross-checks `submitted_at`; skew > L1-tunable (default ±300s vs anchor trusted-timestamp) → `time_source_drift`. Operator pubkey-pinning at bootstrap: owner provides `(substrate-ID, anchor-endpoint-pubkey, owner-pubkey)` out-of-band at first install; operator pins; NEVER trusts owner-pubkey from substrate handshake. Mismatch → `substrate_id_mismatch` + rejection.
+**§4.1 Initiation + operator key bootstrap**: Operator per-handshake signing keypair: runtime generates fresh; private in runtime-memory only (never disk/transmitted); public in `handshake_initiate` envelope carrying `(envelope_version, operator_kind="handshake_initiate", substrate_id_proof, operator_signing_key_public, operator_attestation_request, continuity_claim, submitted_at)`. Substrate cross-checks `submitted_at`; skew > default ±300s vs anchor trusted-timestamp → `time_source_drift`. Operator pubkey-pinning at bootstrap: owner provides `(substrate-ID, anchor-endpoint-pubkey, owner-pubkey)` out-of-band at first install; operator pins; NEVER trusts owner-pubkey from substrate handshake. Mismatch → `substrate_id_mismatch` + rejection.
 
 **§4.2 Substrate response — bidirectional validation**: Substrate MUST: (1) validate `substrate_id_proof`; (2) derive **non-deterministic operator_token** via `operator_token = sealed_derive(handshake_nonce, current_cycle, kernel_random)` kernel-mediated into {TPM, OS keyring, HSM, hardware-secure-element} — substrate_secret never in process address space plaintext; plaintext-on-disk IS CRITICAL (`substrate_secret_unsealed`); sealing attestation owner-attested at genesis; protects against adversarial agent, NOT adversarial Cultivator; (3) emit `handshake_complete` carrying `(operator_token, substrate_id, owner_birth_attestation_signature, owner_public_key_active_at_handshake, anchor_surface_endpoint_public_key, handshake_timestamp)` — operator fetches owner pubkey from anchor (pinned anchor key), verifies signature, mismatch → rejects; (4) record handshake as sporocarp.
 
-**§4.3 Continuity-challenge**: `continuity_claim: "owner_attested_continuity"` → envelope MUST include owner-signed `continuity_attestation`; verified → quarantine shortened to L1-tunable min (default 10 cycles). Otherwise: post-handshake quarantine window (default 100 cycles); all CI requires fresh attestation.
+**§4.3 Continuity-challenge**: `continuity_claim: "owner_attested_continuity"` → envelope MUST include owner-signed `continuity_attestation`; verified → quarantine shortened to default 10 cycles. Otherwise: post-handshake quarantine window default 100 cycles; all CI requires fresh attestation.
 
 **§4.4 Single-operator + race handling**: Per I8: skin admits at most one operator-token. Second handshake during active → `skin_busy` + `concurrent_connect_attempt`. Same-cycle A/B tiebreak by OS-accept-queue order (strict FIFO at socket; single-threaded skin enforcer). Nonce-content tiebreak FORBIDDEN.
 
@@ -45,7 +45,7 @@ Substrate MUST operate within egress boundary permitting exactly §1 declared en
 
 L4-platform ∈ {kernel-level (netns), container (iptables/nftables), syscall (eBPF/ptrace), userspace proxy}. **Prevents**: secret callouts, embedding service calls outside declared endpoint, covert exfiltration. **Does NOT prevent**: agent-maintainer source modification (CI); host-level adversarial action; covert channels in legitimate federation envelopes.
 
-## §6. Spatial-locus enforcement (P13 folded into P9 + I8 per L0 G-9.b)
+## §6. Spatial-locus enforcement (P13 folded into P9 + I8)
 
 Substrate MUST periodically list own spatial locus, compare against declared allowed-set. Deviation → `P9_spatial_locus_breach` immune; CRITICAL → §9 quarantine.
 
@@ -53,7 +53,7 @@ Substrate MUST periodically list own spatial locus, compare against declared all
 - **OS-noise allowed**: `{".DS_Store", "Thumbs.db", "desktop.ini", "*.lock", ".tmp/*", ".lockfile"}` → `spatial_locus_noise_observed` (Daily).
 - **FD allowed**: state_dir files; skin sockets; sealed-key handles; stdin/stdout/stderr. Other → `P9_spatial_locus_breach:fd_unexpected:{fd_kind}`.
 - **Network binding allowed**: §1 listening; outbound matches §1 output OR anchor OR federation peer in signed list. Outside → `P9_spatial_locus_breach:network_unexpected:{peer}`.
-- **Cadence**: default once per cycle; L1-tunable. Allowed-set extensions CI; silent extension IS breach.
+- **Cadence**: default once per cycle. Allowed-set extensions CI; silent extension IS breach.
 - **Birth-period + cold-resume**: transient unknown files → `spatial_locus_birth_period_pending` (Daily); owner quarantine-clearance enumerates canonical. Cold-resume: spatial-locus IS pre-handshake witness — file/fd/binding lists as cryptographic-proof tuples.
 
 Excluded: inside-file content drift; CPU/memory/disk budgets (L2_OBSERVABILITY); agent-side source tampering (L0 §14).
@@ -61,9 +61,9 @@ Excluded: inside-file content drift; CPU/memory/disk budgets (L2_OBSERVABILITY);
 ## §7. Skin-restart discipline (P9.b)
 
 - **Process supervision (L4)**: external supervisor restarts on crash/OOM-kill/operator-requested cycle (Linux systemd/runit/s6; macOS launchd; Windows sc.exe/NSSM; orchestrator restart-policy). L1 commits external-supervisor shape; substrate does NOT self-restart.
-- **Ordered shutdown** on SIGTERM: (1) stop accepting envelopes; (2) drain in-flight up to L1-tunable (default 30s); in-transit → `skin_draining` + dead-letter; (3) flush WAL + persist DAG + snapshot.cb + fsync; (4) close output endpoints — peers receive `skin_restart_pending`; (5) emit `skin_restart_started` (Daily); (6) exit 0. Hard-kill → L1_CONTINUITY §4 WAL replay.
+- **Ordered shutdown** on SIGTERM: (1) stop accepting envelopes; (2) drain in-flight up to default 30s; in-transit → `skin_draining` + dead-letter; (3) flush WAL + persist DAG + snapshot.cb + fsync; (4) close output endpoints — peers receive `skin_restart_pending`; (5) emit `skin_restart_started` (Daily); (6) exit 0. Hard-kill → L1_CONTINUITY §4 WAL replay.
 - **Recovery on restart**: cold-resume pre-handshake checks (L1_CONTINUITY §3.1); spatial-locus enumeration (§6); WAL recovery (L1_CONTINUITY §4); re-open intake; `dormant → alive`; await handshake; emit `skin_restart_completed` (pre/post cycle MUST equal).
-- **Anti-flap rate limit**: ≥ L1-tunable (default 5) `skin_restart_completed` within window (default 1 hr) → `skin_restart_flap` (CRITICAL); refuses re-open until owner `flap_clearance`.
+- **Anti-flap rate limit**: ≥ default 5 `skin_restart_completed` within default 1 hr window → `skin_restart_flap` (CRITICAL); refuses re-open until owner `flap_clearance`.
 
 **§7.5 Skin-restart observability events**:
 
@@ -118,6 +118,6 @@ Cross-layer immune signals (`salience_collapse`, `telos_drift`, `compression_inv
 
 ---
 
-## §10. Glossary
+## §10. Doc-private terms
 
-Base terms at L0 §12. Document-private: **Spatial locus** = `state_dir + process + skin endpoints` (§6); **Skin endpoints** = `(intake, output, anchor-surface, federation, backup-output)` per §1 + §8; **Single integument** = P9 one declared skin surface, no redundancy, process-level restartability (P9.b).
+**Spatial locus** = `state_dir + process + skin endpoints` (§6); **Skin endpoints** = `(intake, output, anchor-surface, federation, backup-output)` per §1 + §8; **Single integument** = P9 one declared skin surface, no redundancy, process-level restartability (P9.b).

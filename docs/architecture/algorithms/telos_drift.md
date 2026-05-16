@@ -1,6 +1,6 @@
 # Telos Drift (Cosine Centroid Algorithm)
 
-> Extracted from L1_TROPISM §F. Normative spec lives at L1_TROPISM §F (P14.c per L0 §P14.c G-6.a).
+> Extracted from L1_TROPISM §F. Normative spec lives at L1_TROPISM §F (P14.c).
 
 ## Form
 

@@ -9,9 +9,7 @@
 
 **Myco is a new species of digital symbiotic organism** under Cultivation: agent-substrate symbiosis via asymmetric carrier (P1.c); autopoietic daily / owner-gated CI; universal inclusion (P2.a); continuous-operation default; biological-essence kit (time, causality, mortality, reproduction, boundary, selective compression, metabolic economy, telos).
 
-**§1.1 Maturity**: P6 100%, P7 95%, P8 50%, P9 70% mature; P10/P11/P14 sealed L0 + mechanism M26+; P12 → L1_TROPISM; P13 → P9+I8; P15 → L2_FEDERATION.
-**§1.2 Cultivation (G-11.a)**: Owner = **Cultivator**; substrate = **Cultivar**; asymmetric care (P11) + co-evolution (P14). Use "owner" for governance role.
-**§1.3 Governance**: Operational pair = Cultivar-with-current-operator (P1.c); governance gate = Cultivator (P1.b''); anchor surface (§9) = cryptographic root. Cultivation transferable (L1_GOVERNANCE §3.2); substrate-ID fixed across transfer.
+**§1.1 Cultivation**: Owner = **Cultivator**; substrate = **Cultivar**; transferable (L1_GOVERNANCE §3.2); substrate-ID fixed across transfer. Operational pair = Cultivar-with-current-operator (P1.c); governance gate = Cultivator (P1.b''); anchor surface (§9) = cryptographic root. Retracted principles (P12 → L1_TROPISM; P13 → P9+I8; P15 → L2_FEDERATION) traced in sealing provenance.
 
 ---
 
@@ -59,14 +57,10 @@ Substrate's **telos** = contribute to flourishing of agent-substrate symbiotic p
 
 ## §3. What Myco is NOT
 
-- Not a documentation system / single-project knowledge base / chatbot memory / file synchronizer / literal biological organism.
-- Not version control (Git owns operational history; Myco owns symbiotic graph).
-- Not a LangChain/CrewAI/DSPy reimplementation (P2.a: patterns, not codebases).
-- Not session-bounded within substrate (§6); not request/response (§5.2).
-- Not silently trusting either party (out-of-band anchors §9).
-- Not safe under adversarial owner (§14); not safe across owner death without succession (§15).
-- Not embodied in physical reality (body = filesystem + process + endpoints per P9 + I8).
-- Not free of metabolic cost (P11); not eternal-memory (P10).
+- Not a documentation system / knowledge base / chatbot memory / file synchronizer / literal biological organism / version control / LangChain reimplementation.
+- Not session-bounded; not request/response; not silently trusting either party (anchors §9).
+- Not safe under adversarial owner or owner death without succession (§13.2 + §13.3).
+- Not embodied physically; not free of metabolic cost; not eternal-memory.
 - Not population-consensus-aware at substrate level (L2_FEDERATION).
 - Not winning Sutton's bet at every intelligence tier (§7.5 graceful retirement).
 
@@ -129,9 +123,7 @@ Substrate presumed continuously operated; no boot/session-end ritual; host disco
 **§7.3 Observatory**: 10 signals (6 base + 3 cost + 1 composite). See **L2_OBSERVABILITY §2**.
 **§7.4 Falsifiability**: 90-day wall-clock window (§13); ≥3 of {#1,#2,#3,#4a,#4b,#6} trend against bet (OLS Z ≥ 1.96) AND #6 < 1 for ≥50% → fires `bet_weakening_quorum`. Algorithm: `docs/architecture/algorithms/bet_weakening_quorum.md`. Birth-period SUSPENDED → `bet_weakening_evaluation_suspended`.
 
-**§7.5 Bet retirement**: Trigger (ALL, 2-year window): C40 fires; owner re-justification fails 3× consecutive; #6 < 0.1 for >75% of final-90-day samples; substrate `alive::normal` → `bet_retired_proposal`. Execution: owner co-attestation → `alive::archived` (state_dir preserved, anchor seals last DAG tip). Counter reset on: successful re-justification, `alive::quarantined`, or owner-attested `bet_retirement_counter_reset`.
-
-**§7.6 Review cadence**: Every CI boundary re-audits; until trigger fires, twelve principles + symbiosis-via-Cultivation stand.
+**§7.5 Bet retirement**: Trigger (ALL, 2-year window): C40 fires; owner re-justification fails 3× consecutive; #6 < 0.1 for >75% of final-90-day samples; `alive::normal` → `bet_retired_proposal`. Execution: owner co-attestation → `alive::archived` (state_dir preserved, anchor seals last DAG tip). Counter reset / cadence: `algorithms/bet_weakening_quorum.md`.
 
 ---
 
@@ -145,27 +137,11 @@ v0.9 targets ~200K to ~10M read-window. Mechanical: state digest ≤ read-window
 
 **§9.1**: Surface where owner signatures, DAG-tip hashes, substrate-ID lineage, trusted timestamps are externally visible + untouchable by agent process; form L1_GOVERNANCE-specified.
 
-### §9.2 Sub-mechanism inventory (implementation status: `docs/implementation_status.md`)
-
-| # | Sub-mechanism | Milestone |
-|---|---|---|
-| §9.2.1 | Substrate-ID birth attestation | M-anchor-2 |
-| §9.2.2 | DAG-tip co-signing every CI boundary | M-anchor-5 |
-| §9.2.3 | Owner attestations out-of-band | M-anchor-1 |
-| §9.2.4 | L0 revision diff workflow | M-anchor-5 |
-| §9.2.5 | Anchor-surface-generated nonces | M-anchor-3 |
-| §9.2.6 | Anchor-stamped wall-clock | M-anchor-3 |
-| §9.2.7 | Owner liveness heartbeat | M-anchor-3 |
-| §9.3.1 | Canonical-bytes serialization | DONE |
-| §9.3.2 | Owner-side rendering | M-anchor-1 |
-| §9.3.3 | Anchor-client provenance independence | M-anchor-1 |
-| §9.3.4 | Witnesses, not verdicts | M-anchor-4 |
-| §9.3.5 | Anchor-nonce-derived sampling | M-anchor-4 |
-| §9.3.6 | DAG-enumeration closure check | M-anchor-5 |
+**§9.2 Sub-mechanism inventory**: §9.2.1 substrate-ID birth attestation; §9.2.2 DAG-tip co-signing every CI boundary; §9.2.3 owner attestations out-of-band; §9.2.4 L0 revision diff workflow; §9.2.5 anchor-surface-generated nonces; §9.2.6 anchor-stamped wall-clock; §9.2.7 owner liveness heartbeat. §9.3.1 canonical-bytes serialization; §9.3.2 owner-side rendering; §9.3.3 anchor-client provenance independence; §9.3.4 witnesses, not verdicts; §9.3.5 anchor-nonce-derived sampling; §9.3.6 DAG-enumeration closure check. Per-sub-mechanism milestone schedule + status: `docs/implementation_status.md`.
 
 **§9.3 Specs**: §9.2.1 5-tuple = `(substrate-ID, genesis-timestamp, initial-spore-schema-canonical-bytes-hash, owner-public-key, anchor-surface-endpoint-public-key)`. §9.3.5 = `H(anchor_surface_nonce, leaf_count)`. §9.3.6 closure: owner verifies new tip reachable from prior signed tip via enumerated nodes.
 **§9.4 Doctrine**: Anchor receives canonical bytes + witnesses; verifier re-derives.
-**§9.5-§9.6**: v0.9 anchor collapsed to operator process (gated on M-anchor-1..5); does NOT defend against compromised/coerced/impersonated owner (§14 bounded defenses).
+**§9.5-§9.6**: v0.9 anchor collapsed to operator process; does NOT defend against compromised/coerced/impersonated owner (§14 bounded defenses).
 
 ---
 
@@ -198,34 +174,14 @@ L0 commits NO internal privacy/access model; substrate wholly accessible to oper
 | **Skin / boundary** | Substrate's single declared interface. |
 | **Sporocarp** | Atomic-event-record under L1_TROPISM dispatch. |
 | **Anchor surface** | Cryptographic root (§9). |
-| **Cultivation / Cultivator / Cultivar** | See §1.2. |
+| **Cultivation / Cultivator / Cultivar** | See §1.1. |
 
 ---
 
-## §13. Time semantics (L0 short)
+## §13. L1/L2-deferred topics (L0 short)
 
-Anchor-surface trusted wall-clock (§9.2.6) authoritative for owner-attested events + time-bound security defenses; substrate-process monotonic clock authoritative for within-substrate ordering; i32 timestamps FORBIDDEN; i64 nanoseconds-since-epoch canonical. L1 cascade: L1_CONTINUITY NTP + L1_SCHEMA i64-nanos / year-2262 / pre-1970.
+- **§13.1 Time semantics**: anchor wall-clock (§9.2.6) authoritative for owner-attested events + time-bound defenses; substrate monotonic clock for within-substrate ordering; i32 FORBIDDEN; i64-ns canonical. Cascade: L1_CONTINUITY NTP + L1_SCHEMA i64/year-2262/pre-1970.
+- **§13.2 Adversarial owner**: not safe under adversarial Cultivator; bounded defenses at L2_TRUST_MODEL. Irreducible commitments (via I4/I9/I10/I12): P6 causality, truthful observability + mortality emission, P10.b invariant preserved.
+- **§13.3 Owner mortality / succession**: not safe across owner death without succession; Cultivation transferable (§1.1). Cascade: L1_GOVERNANCE §3.2 + diagrams/cultivation_succession_fsm.txt.
+- **§13.4 Generation limits**: reproduction discipline-bounded; seeds depth=10 / rate=24h / quota=100. Cascade: L1_GOVERNANCE §16.
 
----
-
-## §14. Adversarial-owner threat model (L0 short)
-
-Myco is **not safe under adversarial owner**; bounded defenses at L2_TRUST_MODEL. **Irreducible commitments** (via I4/I9/I10/I12): P6 causality continues; truthful observability + mortality signal emission; P10.b compression-invariant preserved. L2 cascade: threat scenario table + bounded defenses (duress_attestation, owner_signature_velocity, anchor-client provenance, n-of-m multisig).
-
----
-
-## §15. Owner mortality and succession (L0 short)
-
-Myco is **not safe across owner death without succession**; Cultivation transferable per §1.3. L1 cascade: successor_chain registry + heartbeat staleness trigger + legacy/orphaned transitions + terminal-state (bet-retirement / self-euthanasia / indefinite-orphan) + court-attested key recovery exceptional path.
-
----
-
-## §16. Generation limits (L0 short)
-
-Reproduction **discipline-bounded**; P8 = eternal *capacity*, not velocity/depth. L1 cascade: L1_GOVERNANCE §16 specifies reproduction_lineage_depth + reproduction_rate + lifetime quota + override mechanisms. Seeds: depth=10, rate=24h, quota=100.
-
----
-
-## §17. Sealing provenance
-
-Sealed 2026-05-17 via owner-attested resolution of 11 decision gates G-1 through G-11. Log: `docs/audits/draft_9_seal_provenance.md`.

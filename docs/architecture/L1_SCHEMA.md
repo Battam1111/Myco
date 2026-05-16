@@ -1,6 +1,6 @@
 # L1 — Schema (SSoT, causal DAG, recoverability, spore-schema, validation tiers, canonical-bytes, snapshot integrity)
 
-> **Status**: DRAFT 2. L1 for SSoT + DAG + recoverability + spore + validation tiering + canonical-bytes serializer + i64-ns timestamps + snapshot.cb + substrate_signing_key.cb. **TBD-L4** items are deferrals.
+> L1 for SSoT + DAG + recoverability + spore + validation tiering + canonical-bytes serializer + i64-ns timestamps + snapshot.cb + substrate_signing_key.cb. **TBD-L4** items are deferrals. All numeric thresholds L1-tunable unless specified.
 
 ---
 
@@ -42,7 +42,7 @@
 
 **§4.1 Three-tier policy**:
 - **Tier 1 (identity-critical)** every cycle: `substrate-ID`; `owner_key_history` (active-prefix); `anchor_surface_endpoint_public_key`; `DAG-tip-hash` + Merkle parent-edge closure of recent N cycles; `classifier_dimension_table` + fixed-point fields; `mortality_signal_threshold + update-rule` (F7); `skin_surface_declaration` (F11); `canonical_bytes_serializer_spec` (F16); `compression_rule_registry` (F18); `compression_invariant_set_enumeration` (P10.b); `cost_budget_thresholds_per_axis` (F19); `telos_objective_declaration` when present (F20); `generation_depth + max_remaining_depth + reproduction_rate_state` (F21); `SSoT_migration_M_parameter` (§1.3).
-- **Tier 2 (sampled, rolling 100% coverage)** per deep-cycle: window seed 10000 cycles L1-tunable; every field sampled ≥1× per window; indices anchor-nonce-derived; end-of-window emits `tier_2_coverage_witness {window_start, window_end, sampled_set, completeness, missed_set}`.
+- **Tier 2 (sampled, rolling 100% coverage)** per deep-cycle: window seed 10000 cycles; every field sampled ≥1× per window; indices anchor-nonce-derived; end-of-window emits `tier_2_coverage_witness {window_start, window_end, sampled_set, completeness, missed_set}`.
 - **Tier 3 (owner-triggered)** explicit anchor event; catalogs fields outside Tier 1/2.
 
 **§4.2 Tiering discipline**: New fields default tier-1. Promotion (3→2→1) daily-autonomous; demotion (1→2→3) CI-gated. Tier assignment is tier-1 SSoT.
@@ -67,11 +67,11 @@
 
 **§5.2 Negative timestamps (pre-1970)**: Permitted at serializer level (historical annotations). Rejected at DAG-write boundary: events with `at_unix_ns < genesis_at_unix_ns` rejected. Violation routes through C7.
 
-**§5.3 Year-2262 horizon-warning**: i64-ns overflows ~2262-04-11. `genesis_horizon_warning_threshold_unix_ns = 2200-01-01T00:00:00Z` (62y pre-overflow; L1-tunable [10y, 100y]); every cycle (tier-1): `genesis_time > threshold` → `genesis_timestamp_horizon_warning`; `current_wall_clock > threshold` → `i64_timestamp_horizon_warning`. 5y before overflow → `mortality_imminent_clock_overflow` approaching-mortality. i128 migration would require P3 SSoT migration (§1.3).
+**§5.3 Year-2262 horizon-warning**: i64-ns overflows ~2262-04-11. `genesis_horizon_warning_threshold_unix_ns = 2200-01-01T00:00:00Z` (62y pre-overflow; tunable [10y, 100y]); every cycle (tier-1): `genesis_time > threshold` → `genesis_timestamp_horizon_warning`; `current_wall_clock > threshold` → `i64_timestamp_horizon_warning`. 5y before overflow → `mortality_imminent_clock_overflow` approaching-mortality. i128 migration would require P3 SSoT migration (§1.3).
 
 **§5.4 Round-trip invariant**: `decode(encode(V)) ≡ V`; `encode(decode(B)) ≡ B`. Tier-1 check; round-trip on sampled values; violation emits `canonical_bytes_round_trip_failure`.
 
-**§5.5 Implementation status**: Canonical-bytes ~95% (Rust + Python + TS). Gap: declarative spec format (transmittable via spore-schema) not yet codified; M27+ closes.
+**§5.5 Declarative spec**: declarative serializer specification (transmittable via spore-schema, language-agnostic) is doctrine commitment; format TBD-L4.
 
 ---
 
@@ -89,9 +89,7 @@
 
 ## §7. substrate_signing_key.cb
 
-32-byte Ed25519 seed at `<state_dir>/substrate_signing_key.cb`; signs `snapshot.cb` + federation handshakes. First-boot generation: `seed = sha256(domain="myco-substrate-signing-seed-v1" || current_unix_ns_le || process_id_le || stack_local_addr_le || generate_substrate_signing_seed_fn_addr_le)`; domain distinct from substrate_id seed.
-
-**Known entropy gap** (declared, not concealed): mix ≈ 80-100 bits, below Ed25519 256-bit; fruits `signing_key_entropy_known_gap` at first boot. **Closure (M26+)**: replace with CSPRNG (POSIX `getrandom(2)` / Windows `BCryptGenRandom` / Rust `rand_core::OsRng`); seed-file format unchanged.
+32-byte Ed25519 seed at `<state_dir>/substrate_signing_key.cb`; signs `snapshot.cb` + federation handshakes. First-boot generation MUST use OS CSPRNG (POSIX `getrandom(2)` / Windows `BCryptGenRandom` / equivalent); domain distinct from substrate_id seed. Entropy-deficient seeds (non-CSPRNG composition) MUST emit `signing_key_entropy_known_gap` at first boot — declared, not concealed.
 
 ---
 

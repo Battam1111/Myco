@@ -1,9 +1,6 @@
 Cultivation succession FSM (L1_GOVERNANCE §3.2; per L0 §15)
 ============================================================
 
-Status: documented-not-defended under operator-IS-anchor collapse (L0 §9.5).
-M-anchor-3 begins enforcement; M-anchor-1 closes trust loop.
-
 Substrate-ID INVARIANT across all transitions (P1.c). Only Cultivator-side changes.
 
 

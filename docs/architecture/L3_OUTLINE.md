@@ -1,6 +1,6 @@
 # L3 — Outline / Charter (implementation map)
 
-> **Status**: OUTLINE DRAFT 3 (2026-05-17, M27 R5 cleanup). Code organization L2 → L4. Normative for module boundaries / dependency direction / build order / test discipline; **language-agnostic**.
+> Code organization L2 → L4. Normative for module boundaries / dependency direction / build order / test discipline; **language-agnostic**.
 
 ---
 
@@ -17,27 +17,7 @@ L3 maps L1 mechanisms + L2 themes to code modules. Commits: module boundaries + 
 
 ## §2. Module-boundary principles
 
-7 L1 mechanism docs → 7 substrate code modules; +1 shared crypto/canonical-bytes module; +owner-side `anchor_client` + per-LLM-host `operator_runtime` (out-of-band).
-
-**§2.1 Substrate-side**:
-
-| L3 module | L1 source | Responsibility |
-|---|---|---|
-| `kernel/skin` | L1_SKIN | Envelope + handshake + single-operator + egress |
-| `kernel/governance` | L1_GOVERNANCE | Classifier + dimension table + attestation + lifecycle |
-| `kernel/schema` | L1_SCHEMA | SSoT + Merkle DAG + canonical-bytes + spore + validation dispatch |
-| `kernel/continuity` | L1_CONTINUITY | Metabolic cycle + dormancy FSM + cold-resume + WAL |
-| `kernel/tropism` | L1_TROPISM | Appetite axes + gradient + sporocarp emission + fruiting |
-| `kernel/trajectory` | L1_TRAJECTORY | Cluster_C + trajectory query + thread_id + echo-chamber |
-| `kernel/hard_rules` | L1_HARD_RULES | Immune detection (C1-C20 + C30-C49 + F1-F25) |
-| `kernel/shared` | (cross-cut) | Crypto + canonical-bytes runtime + Merkle + sealed-derive |
-
-**§2.2 Non-substrate**:
-
-| L3 module | Role | Where |
-|---|---|---|
-| `anchor_client` | Owner anchor tool (render + sign + nonces + heartbeats) | Owner-controlled host |
-| `operator_runtime` | Per-handshake keypair; HMAC envelope_digest; trajectory consumer | Operator host; pinned with (substrate-ID, anchor-pubkey, owner-pubkey) |
+7 L1 mechanism docs → 7 substrate code modules; +1 shared crypto/canonical-bytes module; +owner-side `anchor_client` + per-LLM-host `operator_runtime` (out-of-band). Module index + responsibilities + dependencies: **L3_PACKAGE_MAP §1**.
 
 ---
 

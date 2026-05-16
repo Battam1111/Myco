@@ -1,6 +1,6 @@
 # L1 — Continuity (metabolic cycle, dormancy, recovery, NTP discipline, cycle backlog, cold-resume invariants)
 
-> **Status**: DRAFT 3. L1 for substrate operational continuity. Cultivation vocabulary at L0 §1.2.
+> L1 for substrate operational continuity. All numeric thresholds L1-tunable unless specified.
 
 ---
 
@@ -22,7 +22,7 @@
 
 **§1.3 Cycle-backlog mechanism (C36_cycle_backlog)** — Algorithm: `algorithms/cycle_backlog.md` (predicate + counter + witnesses + escalation to mortality per P11.c). C36 IS signal #7 per L0 §7.3 + L2_OBSERVABILITY §7; feeds §7.4 falsifiability quorum.
 
-**§1.4 NTP discipline (per L0 §13.2)** — Substrate MUST run under NTP-disciplined host (or chrony / PTP / anchor-stamped-wall-clock via §9.2.6). Cycle-clock-only operation FORBIDDEN. Drift detection: peer-handshake `substrate_issued_at_unix_ns` vs `submitted_at_unix_ns` and `peer_issued_at_unix_ns`; tolerance L1-tunable (seed 5s); anchor-clock cross-check at every attestation arrival; deviation > threshold → `clock_drift_suspected` with witnesses `(substrate_clock_unix_ns, peer_or_operator_clock_unix_ns, anchor_clock_unix_ns_when_available, observed_delta_unix_ns, drift_threshold_unix_ns)`. Anchor-clock IS security-bound: attestation `expiry_unix_ns` measured against anchor-stamp, not local wall-clock. Adversarial-clock (L2_TRUST_MODEL §14.2): homogeneous host compromise structurally undetectable at L1.
+**§1.4 NTP discipline (per L0 §13.2)** — Substrate MUST run under NTP-disciplined host (or chrony / PTP / anchor-stamped-wall-clock via §9.2.6). Cycle-clock-only operation FORBIDDEN. Drift detection: peer-handshake `substrate_issued_at_unix_ns` vs `submitted_at_unix_ns` and `peer_issued_at_unix_ns`; tolerance seed 5s; anchor-clock cross-check at every attestation arrival; deviation > threshold → `clock_drift_suspected` with witnesses `(substrate_clock_unix_ns, peer_or_operator_clock_unix_ns, anchor_clock_unix_ns_when_available, observed_delta_unix_ns, drift_threshold_unix_ns)`. Anchor-clock IS security-bound: attestation `expiry_unix_ns` measured against anchor-stamp, not local wall-clock. Adversarial-clock (L2_TRUST_MODEL): homogeneous host compromise structurally undetectable at L1.
 
 **§1.5 Time-source authority hierarchy (L0 §13.1)**:
 
@@ -46,7 +46,7 @@
 
 **§2.3 dormant → alive triggers**: Valid operator handshake (L1_SKIN §4); owner-attestation arrival at anchor inbound channel — wakes to verify + commit pending CI sporocarp into `alive-administrative` micro-state (only attestation-resolution events fire until idle-timeout). Emits `dormancy_exit`.
 
-**§2.4 Dormant compute budget**: Two modes (operator-selectable; default throttled): **Throttled** cycles at max-interval floor; tier-1 invariants every cycle; decay-class gradient evolves; no fruiting; intake closed; handshake + attestation-channel listening continues. **Paused** halts all metabolism; only handshake + attestation-channel listening continues. Host-observability: external observables MUST remain below L1-tunable ceilings (default <1% of alive averages). Substrate cannot enforce against own host; owner monitors independently — declared asymmetry. Attestation `expiry_cycles` does NOT advance during paused; on wake substrate re-validates against anchor trusted-timestamp; stale-on-wake → `attestation_expired`.
+**§2.4 Dormant compute budget**: Two modes (operator-selectable; default throttled): **Throttled** cycles at max-interval floor; tier-1 invariants every cycle; decay-class gradient evolves; no fruiting; intake closed; handshake + attestation-channel listening continues. **Paused** halts all metabolism; only handshake + attestation-channel listening continues. Host-observability: external observables MUST remain below default <1% of alive averages. Substrate cannot enforce against own host; owner monitors independently — declared asymmetry. Attestation `expiry_cycles` does NOT advance during paused; on wake substrate re-validates against anchor trusted-timestamp; stale-on-wake → `attestation_expired`.
 
 ---
 
@@ -83,7 +83,7 @@ Schema: `schemas/wal_record.json` (WAL record + 4-step atomicity protocol + fail
 
 ## §5. Quarantine sub-state of alive
 
-Entry triggers: cold-resume invariant failure (§3.1.a / C9); CRITICAL skin breach (L1_HARD_RULES C1/C2/C3/C4/C11); sustained I3 failure (≥L1-tunable consecutive cycles); owner CI command; sustained cycle-backlog past saturation-threshold (§1.3 + C36); snapshot integrity violation (L1_SCHEMA §6.3 + C38) → discard snapshot + full DAG replay; replay fails → quarantine.
+Entry triggers: cold-resume invariant failure (§3.1.a / C9); CRITICAL skin breach (L1_HARD_RULES C1/C2/C3/C4/C11); sustained I3 failure (≥ threshold consecutive cycles); owner CI command; sustained cycle-backlog past saturation-threshold (§1.3 + C36); snapshot integrity violation (L1_SCHEMA §6.3 + C38) → discard snapshot + full DAG replay; replay fails → quarantine.
 
 Quarantine metabolism: cycle continues at alive cadence; tier-1 invariants run; intake closed except owner admin; sporocarp fruiting continues (diagnostic/immune); federation outputs suspended. Exit: owner-attested `quarantine_clearance`.
 

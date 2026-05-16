@@ -1,7 +1,6 @@
-# `bet_weakening_quorum` — falsifiability trigger algorithm (extracted from L0_VISION.md §7.4)
+# `bet_weakening_quorum` — falsifiability trigger algorithm
 
-> **Status**: REFERENCE ALGORITHM. Extracted from L0_VISION.md DRAFT 9 SEALED §7.4 to keep active doctrine lean. Authoritative algorithm lives at **L2_OBSERVABILITY §3** (per-cycle detector) + L0 §7.4 (commitment); this file is the consolidated specification.
-> **Source**: L0_VISION.md DRAFT 9 SEALED commit `e796451`; M25.2 wall-clock-window correction pending (cycle→wall-clock; observatory_history capped at 90).
+> Reference algorithm extracted from L0 §7.4 to keep active doctrine lean. Authoritative algorithm lives at **L2_OBSERVABILITY §3** (per-cycle detector) + L0 §7.4 (commitment); this file is the consolidated specification. Wall-clock window + 90-sample observatory_history cap normative.
 
 ---
 
@@ -24,7 +23,7 @@ Signal #5 (OLS slope) is the **meta-direction-detector** — its outputs power s
 
 - 6 countable signals (#5 meta; #4 splits into 4a + 4b).
 - Threshold: ≥ 3 of 6.
-- Until #4a implemented (M28-cascade deferred): quorum operates over 5 of 6; documented false-negative bias per L2_OBSERVABILITY §3.4.
+- Until #4a lands: quorum operates over 5 of 6; documented false-negative bias per L2_OBSERVABILITY §3.4.
 
 ## §4. Birth-period exemption (per L0 §7.4.e)
 
@@ -45,4 +44,3 @@ On fire: positive `bet_weakening_quorum_quorum:{cycle}` DAG event + C40 immune s
 - L0 commitment: §7.4 + §7.5 retirement trigger.
 - L1 mechanism site: L1_GOVERNANCE (proposal lifecycle) + L1_HARD_RULES C40.
 - L2 detector: L2_OBSERVABILITY §3.
-- M25.2 implementation status: ships wall-clock window + observatory_history cap = 90 samples + Z-test.
