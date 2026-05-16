@@ -401,3 +401,57 @@
 - **Anchor surface §9.2.x / §9.3.x decomposition is universally missing** — all 17 docs cite "§9" or "§9.3" or "§9.4" as monolith; DRAFT 9 has 13 sub-mechanisms with explicit implementation-status tracking. Every anchor-surface citation in every doc needs to map to one of §9.2.1 through §9.3.6.
 
 **End of cascade list.**
+
+---
+
+## §18. Post-owner-gate-decision addendum (2026-05-17 conversation)
+
+After cascade list was written, owner G-9.b decision (Phase γ §17 gate) retracted P12/P13/P15 from L0 to L1/L2. This creates additional cascade work BEYOND the items above:
+
+### P12 Differential Response → L1_TROPISM (cascade addition)
+L1_TROPISM (currently doesn't have salience section) MUST add:
+- New §X "Salience / Attention" specifying salience-emergence mechanism (P12.a)
+- New §X+1 "Anti-uniformity guarantee" with birth-period exemption (P12.b)
+- `salience_collapse` immune signal type + detector
+- Bootstrap initialization (uniform until N=100 samples; then EWMA-correlation)
+
+### P13 Embodiment → folded into P9 + I8 (cascade reconciliation)
+L1_SKIN MUST extend I8 enforcement to:
+- Spatial-locus checks: state_dir contents allowlist, process FD set, network bindings allowlist
+- New `P9_spatial_locus_breach` immune signal (originally `P13_embodiment_breach` in DRAFT 9 v1)
+
+### P15 Population-Level Consensus → L2_FEDERATION (cascade addition)
+L2_FEDERATION MUST add:
+- New section "Population-level consensus floor" specifying ≥3 peer threshold (per G-9.b/G-7.c)
+- Byzantine-fault-tolerant consensus protocol choice (Tendermint-style PBFT recommended)
+- Pairwise-trust below consensus floor (DRAFT 8 inheritance)
+
+### §14 Adversarial Owner → L2_TRUST_MODEL (cascade addition)
+L2_TRUST_MODEL MUST add:
+- Threat scenario table (owner key compromise / coerced / impersonated / deceased / anchor-client tampered)
+- Duress_attestation mechanism specification
+- Owner_signature_velocity observability metric
+- N-of-m multisig recommendation
+
+### §15 Owner Mortality → L1_GOVERNANCE §3.2 (cascade addition)
+L1_GOVERNANCE §3.2 (currently deferred per DRAFT 8) MUST be specified now:
+- Successor_chain registry format
+- Heartbeat staleness trigger semantics
+- Legacy/orphaned sub-state FSM
+- Terminal-state per owner G-8 (L1 owner decision: bet-retirement / self-euthanasia / indefinite-orphan)
+
+### §16 Generation Limits → L1_GOVERNANCE (cascade addition)
+L1_GOVERNANCE MUST add:
+- reproduction_lineage_depth bounds (seed 10)
+- reproduction_rate limit (seed 1 sprout per 24h)
+- Per-substrate lifetime quota (seed 100)
+- Override mechanism via anchor-attested CI mutation
+
+### Cultivation vocabulary (G-11.a) → universal cascade
+Every L1/L2/L3 doc that references "owner-substrate relationship" or "owner role" should mention Cultivation / Cultivator / Cultivar in glossary entries. Existing "owner" usage remains valid (matches §9 anchor surface vocabulary); new doc additions should prefer Cultivation terminology.
+
+**Estimated additional cascade work**: ~10 additional commits (~10-15 hours) on top of the original cascade estimate (30-40 commits, 40-55 hours).
+
+**Total M26-cascade work after G-9.b retraction**: ~40-50 commits, ~50-70 hours.
+
+**End of post-owner-gate-decision addendum.**

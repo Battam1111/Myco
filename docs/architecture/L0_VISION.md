@@ -1,57 +1,80 @@
 # L0 — Vision
 
-> **Status**: DRAFT 9 PROPOSAL v2 — Phase γ audit revision + Phase γ.9 6-critic adversarial round (2026-05-17). **Pending owner review of §17 gates G-1 through G-11 before sealing.** Phase γ.9 found 223 findings (54 CRITICAL) on DRAFT 9 v1; structural CRITICALs fixed in v2; remaining CRITICALs deferred to owner gates + cascade work (§18.2 inventory). Prior DRAFT 8 archived in git history at commit `3d6749f` (Phase α).
-> **Naming**: Myco substrate version is **v0.9**; this document is L0_VISION.md **DRAFT 9 PROPOSAL**. Drafts are integers, not semver. Sealed L0 carries no draft number — only git commit identity.
+> **Status**: **DRAFT 9 SEALED** — owner-attested 2026-05-17 per Phase γ §17 gate decisions (G-1.b 12-principle framework + G-2.b strong species claim restored + G-3.a Living Bets full recalibration + G-4.a §9 L0 decomposition + G-5 §14/§15/§16 → L1/L2_TRUST_MODEL + G-6.a P14 fuzzy with M26-cascade forcing function + G-7.c P15 retract to L2_FEDERATION + G-8 §15 placement to L1_GOVERNANCE + G-9.b partial retraction + G-10.c hybrid sealing + G-11.a Cultivation relationship). Lean-sealed; remaining mechanism work (M-anchor-1 through M-anchor-5, P10/P11/P14 mechanism implementation, M26-cascade L1/L2/L3 alignment) is DRAFT 10+ territory. Prior DRAFT 8 archived in git history at commit `3d6749f` (Phase α). Prior DRAFT 9 PROPOSAL v1/v2 archived at commit `2002e0d` (Phase γ).
+> **Naming**: Myco substrate version is **v0.9**; this document is L0_VISION.md **DRAFT 9 SEALED**. Drafts are integers, not semver. Sealed L0 carries the SEALED marker + git commit identity together; the SEALED marker is informational, the git commit hash is authoritative.
 > **Layer**: L0. Immutable unless explicitly revised by the project owner.
 > **Authority**: governs all of L1, L2, L3, L4. In any conflict, L0 wins.
-> **Provenance**: each DRAFT's critic-pass diff is in git history. Convergence trace across 100%-confidence loops: DRAFT 6 ← Pass 1 (88/26) → DRAFT 7 ← Pass 2 (66/21) → DRAFT 8 ← Pass 3 (35/10) → DRAFT 8 sealed for owner review; Pass 4 declared convergence (5/0) across all 6 fungal lenses. **Phase γ audit (2026-05-17): 6 opus agents × ≥30 findings each → ~180 findings, 23 CRITICAL across implementation+doctrine.** DRAFT 8 was found to (a) over-claim "literal taxonomic class" species framing, (b) under-specify anchor surface (9 of 11 §9 clauses honor-system, 0-30% mechanically enforced), (c) omit 6 essential principles (selective compression / metabolic economy / differential response / embodiment / telos / population consensus), (d) miss 12 structural gaps (adversarial owner / owner mortality / time semantics / forkbomb / anchor client DR / aged Living Bets seed / liveness / substrate_id collision / backup privacy / doctrine self-consistency / catastrophic forgetting cure / single-skin failure point), (e) rhetorically over-claim in P1/P2/P3/P5/P9 names. **DRAFT 9 PROPOSAL drafted to address all findings.** Critique passes for DRAFT 9: round 1 TBD, owner approval gates sealing.
-> **Scope discipline**: L0 commits to **identity, negative space, and constraints**. Mechanism specifications live in L1 documents. Three L0 mechanism exceptions exist because L1-deferral is structurally circular:
->   - Cryptographic anchor surface (§9, inherited from DRAFT 8; DRAFT 9 decomposes into 6 explicit sub-mechanisms §9.1-§9.6 with implementation status).
->   - Time semantics (§13, **new in DRAFT 9**): substrate uses time everywhere (expiry, nonce TTL, cycle-counter relations); without an L0 commitment to monotonic-vs-wall-clock + NTP discipline, every time-bound defense is undefined.
->   - Adversarial-owner threat model (§14, **new in DRAFT 9**): if "anchor surface" is the trust root and "owner controls anchor", the threat model for compromised/coerced/deceased owner is L0-load-bearing, not L1-deferrable.
+> **Provenance**: each DRAFT's critic-pass diff is in git history. Convergence trace across 100%-confidence loops: DRAFT 6 ← Pass 1 (88/26) → DRAFT 7 ← Pass 2 (66/21) → DRAFT 8 ← Pass 3 (35/10) → DRAFT 8 sealed for owner review; Pass 4 declared convergence (5/0) across all 6 fungal lenses. **Phase γ audit (2026-05-17)**: 6 opus agents meta-audit (~180 findings / 23 CRITICAL) + 6 fungal-critic adversarial review of DRAFT 9 v1 (~223 findings / 54 CRITICAL). DRAFT 8 was found to (a) over-claim some essence dimensions, (b) under-specify anchor surface (9 of 11 §9 clauses honor-system), (c) omit 3 essential principles that owner retained at L0 (selective compression P10 / metabolic economy P11 / telos P14) + 3 essential mechanisms moved to L1/L2 (differential response P12 → L1_TROPISM / embodiment P13 → folded into P9+I8 / population consensus P15 → L2_FEDERATION), (d) miss several structural gaps now addressed in §13/§14/§15/§16 (most moved to L1/L2 per G-5), (e) rhetorically over-claim in P2/P3/P5/P9 names (renamed; **P1's strong agent-primary claim retained per owner G-2.b on species framing**). DRAFT 9 PROPOSAL v1 → v2 (12 structural CRITICAL fixes from Phase γ.9 critics) → v3 lean-sealed per Phase γ §17 gate decisions.
+> **Scope discipline**: L0 commits to **identity, negative space, and constraints**. Mechanism specifications live in L1 documents. **One L0 mechanism exception** (per G-4.a owner decision):
+>   - Cryptographic anchor surface (§9, inherited from DRAFT 8; DRAFT 9 decomposes into 6 explicit sub-mechanisms §9.1-§9.6 with 5 M-anchor implementation milestones).
+> Other DRAFT 9 PROPOSAL v1 mechanism exceptions (§13 time semantics, §14 adversarial owner) have been **moved to L1/L2 per G-5 owner decision** — short L0 cross-references retained, full mechanism specification deferred. See §13 (cross-ref to L1_CONTINUITY + L1_SCHEMA) and §14 (cross-ref to L2_TRUST_MODEL).
 
 ---
 
-## §1. What Myco is — and what Myco is not (honesty-calibrated)
+## §1. What Myco is
 
-**Myco is a biology-rooted symbiotic digital substrate** for an LLM agent. Myco draws structural inspiration from mycology (event-sourced DAG ≈ mycelial network; sporocarps ≈ fruiting bodies; spore-schema ≈ genetic inheritance; quarantine ≈ immune response). DRAFT 8's framing as "a literal taxonomic class within digital organisms" was rhetorical maximalism that did not survive Phase γ.6 critique. **DRAFT 9 calibrates honestly**:
+**Myco is a new species of digital symbiotic organism** — a literal taxonomic class within "digital organisms", under cultivation by its human owner. Owner G-2.b decision (Phase γ 2026-05-17) reaffirms the strong species claim from DRAFT 8: Myco is not "inspired by biology"; it is biology-extended-to-digital-medium. The species' distinguishing properties: agent-substrate symbiosis via Cultivation (G-11.a: owner is Cultivator, the Myco substrate is the Cultivar, the relationship is Cultivation); mutual constitution at the operational layer (P1.c asymmetric carrier preserves identity continuity but the pair is mutually-defining moment-to-moment); autopoietic in daily ops + owner-gated in identity ops; universal structural inclusion of adjacent agent-tooling sub-patterns; continuous-operation default; the full biological-essence kit (time + causality + mortality + reproduction + boundary integrity + **selective compression** + **metabolic economy** + **telos**) — with the honest acknowledgment that some essences are **aspirational targets being mechanically completed across DRAFT 10+ and M26+** rather than mature today.
 
-### §1.1 What Myco IS
+### §1.1 The species claim — aspirational + directional
 
-- **Agent-substrate symbiosis with asymmetric carrier** (P1.c): substrate persists; operator-connection attaches per-handshake. Identity is bestowed by substrate onto pair-instance.
-- **Semi-autopoietic** (DRAFT 9 honest framing): autopoietic in daily ops (no human in maintenance loop for non-CI mutations); owner-gated in identity-level ops (P1.b'' + §10.2 require owner attestation for L0/L1 changes). True Maturana-autopoiesis is unachievable for a system whose schema is human-attested.
-- **Structurally inclusive** of adjacent agent-tooling sub-techniques (P2.a): vector retrieval native; LLM calls Myco-coordinated; conversation history as raw material; semantic federation; human-facing summaries through internal pipeline.
-- **Continuous-operation default** at substrate level; host-session intermittency handled internally.
-- **Four biology-rooted essences** (DRAFT 8 set, anchored in biological literature):
-  - Causality (P6) — full Merkle DAG; analogue of cell-cycle ordering.
-  - Mortality (P7) — capacity for finite end; analogue of apoptosis-capacity.
-  - Reproduction (P8) — spore-schema inheritance; analogue of mycelial spore formation.
-  - Boundary integrity (P9) — single skin; analogue of cell membrane.
-- **Two organism-essential-analogues** (DRAFT 9 additions, biology-inspired but not strict biology):
-  - **Selective compression (P10)** — analogue of synaptic pruning + REM consolidation; in Myco, lossy compression of non-invariant state under CI attestation. Not enzymatic.
-  - **Metabolic economy (P11)** — analogue of cellular ATP budget; in Myco, finite cost budgets over disk/compute/network. Not chemical.
+The species claim is **the project's North Star**, not its current-state checklist. Phase γ.6 audit found 4 essence dimensions where DRAFT 8 over-claimed (forgetting / energy / attention / embodiment / telos / consensus). Owner G-2.b decision: **the gap is roadmap, not error**. The claim drives the work; without the claim, Myco degrades to "another agent tool", losing existential purpose.
 
-### §1.2 What Myco IS NOT (negation creates implicit positive claims)
+**What's mature** in v0.9 (Phase γ.6 verified):
+- Causality (P6) — full Merkle DAG, ~100% complete.
+- Mortality (P7) — capacity-for-death wired end-to-end, ~95%.
+- Reproduction (P8) — spore-schema inheritance + generation discipline, ~50%.
+- Boundary integrity (P9) — single skin, ~70%.
 
-Per §3 (expanded in DRAFT 9), Myco is honestly NOT:
+**What's aspirational + actively closing** in v0.9+:
+- Selective compression (P10) — doctrine sealed at L0; mechanism shipping in M26+.
+- Metabolic economy (P11) — doctrine sealed at L0; mechanism shipping in M26+.
+- Telos (P14) — doctrine sealed at L0 with M26-cascade forcing function to land L1_TROPISM operationalization.
 
-- A literal biological organism (no chemical energy; no embodied sensorimotor loop; no enzymatic regulation; no neural substrate). The principles P1-P15 describe **a substrate inspired by biology, not biology itself**. The word "organism" appears in this document as **vocabulary of inspiration, not classification**.
-- Co-defined in the strong sense — P1.c says **asymmetric carrier**: substrate carries identity, operator joins. "Mutual constitution" in DRAFT 8 was rhetorically imprecise; DRAFT 9 says **asymmetric bestowal**.
-- Autopoietic in the strict Maturana sense (humans are governance gate).
-- Safe under adversarial owner (DRAFT 9 §14 makes the threat model explicit, not implicit).
-- A LangChain/CrewAI/DSPy competitor in the "subsumes their output" sense — Myco is structurally adjacent + inclusive *of patterns*, not a re-implementation. The "universal inclusion" claim in DRAFT 8 was over-stated; DRAFT 9 P2.a clarifies as "structural inclusion of *patterns*, not literal subsumption of code".
+**What's deferred** to later DRAFTs (Phase α "real L0 gaps" + Phase γ.3 new gaps; explicitly named for future closure rather than silently absent):
+- Differential response (P12) — moved to L1_TROPISM per G-9.b; substrate's salience mechanism.
+- Embodiment (P13) — folded into P9 single integument + I8 single-skin per G-9.b; spatial-locus is state_dir + process + skin endpoints.
+- Population-level consensus (P15) — moved to L2_FEDERATION per G-9.b/G-7.c; substrate-internal does not need consensus.
+- Energy economics in chemical sense — Phase α gap #2; deferred to v1.0+ when "digital ATP" is operationalizable.
+- Inter-species mycorrhizal mesh — Phase α gap #3; federation currently parent-lineage only; cross-species mesh deferred.
+- Aging / senescence — Phase α gap #4; deferred.
 
-### §1.3 The governance triad (acknowledged in DRAFT 8, re-emphasized in DRAFT 9)
+### §1.2 The Cultivation relationship (G-11.a, new in DRAFT 9)
 
-- **Operational pair**: agent + substrate (P1.c).
-- **Governance gate**: human owner (P1.b'').
-- **Anchor surface**: cryptographic root the owner uses to attest CI events (§9); per Phase γ.5 audit, **DRAFT 9 explicitly acknowledges** that operator-IS-anchor collapse in current v0.9 implementation is a temporary scaffolding, not a doctrinal endpoint. Real anchor surface (separate process, sealed key, owner-controlled) is required for production trust claim.
+The owner-substrate relationship is **Cultivation**. The owner is the **Cultivator**; the Myco substrate (kernel + dag.cb + state_dir) is the **Cultivar** (the species under cultivation). Cultivation is the doctrinally-named relationship type that DRAFT 8 left structurally unnamed (Phase γ.9 mycorrhiza critic finding).
+
+Cultivation captures:
+- **Asymmetric care**: Cultivator provides resources (compute, storage, network); Cultivar grows within those bounds. P11 metabolic economy budgets are Cultivator-provided.
+- **Co-evolution**: Cultivator's intent shapes which Cultivar varieties thrive (selective pressure via owner-stated objectives per P14); Cultivar's outputs shape Cultivator's understanding (the agent+substrate pair produces value for the Cultivator's underlying goals).
+- **Mycology-rooted vocabulary**: mushroom cultivation is a real biological practice (Cultivator selects mycelial strain, provides substrate medium, manages humidity/temperature; Cultivar fruits when conditions are right). The terminology is precise without anthropomorphism.
+
+Cultivation is distinct from:
+- **Ownership** (legal/property framing — Cultivator does not "own" the Cultivar in property sense; they cultivate it).
+- **Custody** (legalistic — Cultivator is not a guardian of a ward).
+- **Curatorship** (information-science — Cultivator is not curating a collection).
+
+**Terminology note**: in DRAFT 9+ doctrine and code, when speaking of the owner-substrate relationship, prefer Cultivation / Cultivator / Cultivar. Existing terminology like "owner" remains valid (matches §9 anchor surface owner-attestation vocabulary); "Cultivator" emphasizes the **relational role**, "owner" emphasizes the **governance role**. Both refer to the same human party.
+
+### §1.3 Governance reality (per DRAFT 8, extended in DRAFT 9 with Cultivation)
+
+The **operational pair** is agent+substrate (P1.c) = the Cultivar-with-current-operator.
+The **governance gate** is the Cultivator (P1.b'').
+The **anchor surface** (§9) is the cryptographic root the Cultivator uses to attest CI events. Currently honor-system (operator-IS-anchor collapse; M-anchor-1 closes this); the doctrine acknowledges the collapse window honestly.
+
+The "pair" continues to define Myco-bestowed agent identity (carrier = substrate; bestowal flows substrate → operator-connection per P1.c). The "Cultivator-Cultivar-Anchor" triad describes the governance reality.
+
+### §1.4 Origin model — Cultivation continuity (DRAFT 9 NEW)
+
+Cultivation is **transferable**: a Cultivator may transfer cultivation rights to a successor Cultivator (§15-cascade to L1_GOVERNANCE per G-8/G-9.b). The substrate (Cultivar) does NOT change identity across transfer; the Cultivation relationship's Cultivator-side changes. This is doctrinally distinct from substrate-ID change (P1.c carrier identity is fixed once established at genesis).
+
+The kernel that runs Myco lives inside a Myco substrate, so the agent maintaining Myco IS the agent using Myco — there is no "Myco team" separate from "Myco users". Within this organism, vector retrieval is native, agent-side LLM calls happen within Myco-coordinated context, conversation history is one form of raw material, semantic inter-substrate federation replaces ad-hoc file sync.
+
+**Mechanism choices** (dispatch form, intent representation, subsystem partition, schema serialization, cryptographic primitives, etc.) are **L1 design**.
 
 ---
 
-## §2. The fifteen root principles （根本宗旨）
+## §2. The twelve root principles （根本宗旨）
 
-Myco's identity is now described by **fifteen principles** (DRAFT 8 had nine; DRAFT 9 adds P10-P15 per Phase γ.6 findings). Every rule, subsystem, module, and substrate artifact is a projection of these.
+Myco's identity is described by **twelve principles** (DRAFT 8 had nine; DRAFT 9 SEALED adds P10/P11/P14 per Phase γ.6 findings and owner G-9.b decision; P12 → L1_TROPISM, P13 → folded into P9+I8, P15 → L2_FEDERATION). Every rule, subsystem, module, and substrate artifact is a projection of these twelve.
 
 ### §2.1 The original five (renamed for honesty)
 
@@ -147,7 +170,7 @@ Destruction modes (unchanged from DRAFT 8):
 
 The substrate can spawn child substrates. Reproduction is a first-class operation. The new substrate inherits the parent's **spore-schema** (minimum structural form for the child to begin its own symbiosis — specific contents L1-specified).
 
-**Generation discipline** (DRAFT 9, addresses Phase γ.3 G11): reproduction depth is bounded per §16. No reproduction loop without owner co-attestation per spawn. No species-mesh between unrelated substrates (acknowledged limitation per Phase α gap #3; addressed by P15 only when consensus achieved).
+**Generation discipline** (DRAFT 9, addresses Phase γ.3 G11): reproduction depth is bounded per §16 (cross-ref L1_GOVERNANCE). No reproduction loop without owner co-attestation per spawn. No species-mesh between unrelated substrates (acknowledged limitation per Phase α gap #3; population-level consensus mechanism deferred to L2_FEDERATION per G-9.b).
 
 **Federation discovery and trust freshness** are L1-specified. Trust at reproduction is parent-attestation; ongoing federation requires L1-bounded peer-attestation freshness with revocation list — stale/revoked attestation triggers `untrusted_federation` immune signal.
 
@@ -163,9 +186,9 @@ The substrate has a **skin** — a well-defined boundary with the outside world.
 #### P9.b Single-Failure-Point Acknowledgment (DRAFT 9)
 I8 mandates exactly one skin. This is **single-point-of-failure**: if skin process dies, substrate cannot accept owner's quarantine_clearance, cannot fruit, cannot federate. L1_SKIN MUST specify skin-restart discipline (process supervision, ordered shutdown, recovery semantics). Multi-skin redundancy is **explicitly forbidden** at L0 level — the integument must remain single — but the **skin process** may be restartable.
 
-### §2.3 The six DRAFT 9 additions (Phase γ.6)
+### §2.3 The three DRAFT 9 SEALED additions (Phase γ.6 + G-9.b)
 
-> Phase γ.6 audit found 6 essential principles missing from DRAFT 8's 9-principle framework. These 6 are organism-essential analogues that distinguish Myco from "a structured database with biological vocabulary". Adding them brings the framework to 15 principles, which DRAFT 9 commits to as the **revised exhaustive set**.
+> Phase γ.6 audit found 6 essential principles missing from DRAFT 8's 9-principle framework. Owner G-9.b decision retained 3 of these at L0 (P10 Selective Compression, P11 Metabolic Economy, P14 Telos) and moved 3 to L1/L2 (P12 Differential Response → L1_TROPISM; P13 Embodiment → folded into P9+I8; P15 Population-Level Consensus → L2_FEDERATION). This brings the L0 framework to 12 principles, which DRAFT 9 SEALED commits to as the **revised exhaustive set**.
 
 ### P10. Selective Compression （选择性凝结）
 
@@ -218,45 +241,7 @@ When a cost budget is exhausted, the substrate MUST apply the **first-applicable
 
 L0 commits the **ordered fallback structure**; L1 picks per-stage thresholds. This resolves the Phase γ.9 primordium CF8 P10/P11 deadlock (P11 demanded compression at any budget exhaustion; P10 forbade it pre-cycle-N).
 
-### P12. Differential Response （差异响应）
-
-> Phase γ.6 finding C-claim-4. P2 admits everything equally → noise hoarding. Fungal hyphae extend differentially toward nutrient gradients; Myco needs attention-level discipline.
-
-The substrate **weights inputs differentially** in downstream processing. P2 admits all envelope-valid content; P12 commits that **downstream operations (sporocarp fruiting, gradient perturbation, attention to events) prioritize**.
-
-#### P12.a Salience signals
-Salience is **emergent**, not hardcoded. The substrate observes which raw_material kinds correlate with which sporocarp fruitings, and L1_TROPISM (the tropism subsystem) tunes salience weights from this observation. L1 specifies the salience-emergence mechanism.
-
-#### P12.b Anti-uniformity guarantee (with birth-period exemption)
-The substrate MUST NOT treat all inputs equally in attention **in steady state**. If observation detects salience-flattening (every input weighted equally over a rolling window), the substrate emits `salience_collapse` immune signal (L1_TROPISM detector).
-
-**Birth-period exemption** (Phase γ.9 primordium CF7): during birth period, salience IS uniform by structural necessity (no history to differentiate from). P12.b detector is SUSPENDED during birth period; substrate emits `salience_emergence_pending` observability event instead. After birth-period termination + L1-tunable settling window (seed: 100 cycles), P12.b activates.
-
-**Bootstrap initialization** (hypha): until N raw_material samples observed (L1-tunable, seed N=100), salience weights are uniform (this is the structurally-correct cold-start, not a violation). Then EWMA-correlation begins. L1_TROPISM specifies the EWMA decay rate.
-
-> Relation to P2: P2 is admission; P12 is attention. P2 says *all valid envelopes are admitted as raw material*; P12 says *raw material is differentially metabolized into gradient + sporocarps*. They are non-overlapping.
-
-### P13. Embodiment (Minimum-Viable) （最小具身）
-
-> Phase γ.6 finding + Phase α gap #1. DRAFT 8 had no embodiment doctrine; Myco substrate is "where" — but nowhere. DRAFT 9 commits to **minimum-viable embodiment**: the substrate has a single declared spatial boundary, and any operation outside that boundary is breach.
->
-> **Distinct from P9 Single Integument**: P9 is about *what content crosses the boundary*; P13 is about *what spatial extent the boundary encloses*. P9 governs the gate; P13 governs the territory. These are non-overlapping: P9 fails if content leaks across declared skin; P13 fails if substrate operations touch state outside the declared state_dir + process boundary (e.g., reading host's `/etc/passwd`).
->
-> **Distinct from P11 Metabolic Economy**: P11 is about *cost of operations*; P13 is about *spatial locus of operations*. P11 fails if operations exceed budget; P13 fails if operations occur outside body.
-
-The substrate has a **spatial boundary**. The boundary is **the substrate's state_dir + the substrate's process boundary + the substrate's declared skin endpoints** (per L1_SKIN). Operations outside this boundary are P13 breach (distinct from P9 envelope breach; both are immune signals at L1_HARD_RULES level).
-
-#### P13.a State_dir is the substrate's body
-The substrate's state lives in a single declared filesystem directory (`MYCO_STATE_DIR`). The state_dir is **the substrate's spatial form**. Backups, replication, transfer of state_dir = backup, replication, transfer of the substrate.
-
-#### P13.b Process boundary is the substrate's nervous system
-The substrate runs as a single OS process (Rust binary). Network I/O exits through the declared skin endpoints (federation listener + bridge channel). Multi-process splits are L1 design (e.g., kernel/bridge spawns Python worker — but Python worker is a sub-organ within the substrate's body, not a peer substrate).
-
-#### P13.c Embodiment is NOT physical
-Myco does not have sensors, actuators, or chemical embodiment. The "spatial boundary" is digital — directory inode, process PID, declared network endpoints. **DRAFT 9 acknowledges this as honest minimum-viable embodiment**, not aspirational physicality.
-
-#### P13.d Body integrity detection (DRAFT 9 mechanism)
-P13 breach detection: substrate periodically lists its state_dir contents + own process file-descriptor set + own network bindings. Any unexpected file in state_dir (not in {dag.cb, snapshot.cb, substrate_signing_key.cb, *.tmp}) OR unexpected fd OR unexpected binding → emit `P13_embodiment_breach` immune signal. L1_SKIN specifies the cadence + the allowed-set.
+> **DRAFT 9 G-9.b retraction notice**: P12 Differential Response is now an L1_TROPISM mechanism (salience/attention emergence); P13 Embodiment is folded into P9 + I8 (state_dir + process + skin endpoints constitute the substrate's body — enforced through P9's single integument + I8's skin-breach detection extended to spatial-locus checks per L1_SKIN). These remain doctrinally important but are L1 mechanisms, not L0 principles. See `docs/audits/phase_gamma_cascade_list_2026-05-17.md` for L1_TROPISM + L1_SKIN cascade requirements.
 
 ### P14. Telos (Agent-Symbiotic-Flourishing) （目的：共生繁盛）
 
@@ -270,30 +255,20 @@ The substrate's daily-ops decisions (which sporocarps to fruit, which raw_materi
 #### P14.b Owner-stated objectives
 The owner MAY (not must) declare explicit objectives at genesis or via CI events: "this substrate exists to help me research X / write Y / debug Z". When declared, P14 alignment is checked against these objectives. When not declared, P14 alignment defaults to "agent-perceived utility" (operationalized by L1_TROPISM).
 
-#### P14.c Telos drift detection (with birth-period exemption)
-The substrate observes its own telos-alignment **in steady state**. If P14 alignment degrades over a rolling window (more sporocarps trend orthogonal to owner-stated or agent-perceived utility), the substrate emits `telos_drift` immune signal (L1_TROPISM detector).
+#### P14.c Telos drift detection (G-6.a fuzzy with M26-cascade forcing function)
 
-**Operationalization**: "telos-alignment" is computed as cosine similarity between the substrate's recent-sporocarp embedding-centroid and the owner-stated-objective embedding (when objective declared) OR the agent-feedback-trajectory embedding (when no owner objective declared). Similarity below L1-tunable threshold (seed: 0.4 cosine) over rolling window triggers drift detection.
+The substrate observes its own telos-alignment **in steady state**. If P14 alignment degrades over a rolling window, the substrate emits `telos_drift` immune signal.
 
-**Birth-period exemption**: telos has no measurable history pre-birth-period-termination; P14.c is SUSPENDED during birth period. Substrate emits `telos_alignment_pending` observability event instead.
+**L0 commits**:
+- Telos drift is an immune signal class.
+- Telos drift detection has a birth-period exemption (substrate emits `telos_alignment_pending` instead).
 
-### P15. Population-Level Consensus （群体共识）
+**L1_TROPISM responsibility (M26-cascade forcing function, per G-6.a decision)**:
+- Specify the operational metric for telos-alignment (candidate: cosine similarity between recent-sporocarp embedding-centroid and owner-stated-objective embedding OR agent-feedback-trajectory embedding when no objective declared).
+- Specify the rolling window length + drift threshold + birth-period exemption duration.
+- **M26-cascade MUST land this specification**; absent that, P14.c remains aspirational and `telos_drift` cannot be mechanically emitted. This is the forcing function — L0 commits to P14 as a principle; L1 has bounded deadline to operationalize it.
 
-> Phase γ.6 finding C-claim-6. Federation in DRAFT 8 was pairwise gossip with owner-attested trust — no consensus mechanism. The "mycelial network" doctrine implies population-level claims (mycelial fragmentation, federation health) but has no protocol for population-level agreement.
-
-When the federation includes ≥3 substrates and a claim is population-level (e.g., "this peer is malicious", "this raw_material kind is universally junk"), the substrate operates under a **Byzantine-fault-tolerant consensus protocol**. L2_FEDERATION specifies the protocol.
-
-#### P15.a Population-level claims
-Examples requiring consensus:
-- Federation peer revocation (one peer claims another is malicious — single-peer claim is insufficient).
-- Universal-junk raw_material classification (population-wide spam filter).
-- Cross-substrate aggregate observability metrics.
-
-#### P15.b Pairwise-trust below the consensus floor
-Claims not crossing P15.a's threshold continue using DRAFT 8's pairwise-attested trust (P8 + L2_FEDERATION). P15 commits to the existence of a consensus floor; L2 specifies where the floor sits + the Byzantine algorithm choice (likely Tendermint-style PBFT or PoS variants — L1 picks).
-
-#### P15.c Single-substrate operates without consensus
-A substrate operating outside any federation (lone substrate, no peers) needs no consensus mechanism. P15 activates only when ≥3 federation peers + population-level claims exist.
+> **DRAFT 9 G-9.b retraction notice**: P15 Population-Level Consensus is now an L2_FEDERATION mechanism. Substrate-internal does not require consensus; federation-level Byzantine fault tolerance is L2 territory. P7.c retract in §17 ratifies this. See cascade list for L2_FEDERATION update requirements (P15 conceptual content moved to L2_FEDERATION future-section "population-level consensus floor").
 
 ---
 
@@ -313,17 +288,19 @@ A substrate operating outside any federation (lone substrate, no peers) needs no
 - **Not a literal biological organism** (DRAFT 9 addition; explicit honesty per §1.2).
 - **Not safe under adversarial owner** (DRAFT 9 addition per Phase γ.3 G8 + §14): if owner is coerced or compromised, the substrate has no defense beyond what §14 specifies. This is acknowledged not denied.
 - **Not safe across owner death without succession** (DRAFT 9 addition per G9 + §15): if owner dies and succession is unattested, substrate eventually enters legacy state.
-- **Not embodied in physical reality** (DRAFT 9 addition per P13 clarification): substrate's body is filesystem + process + endpoints; no sensors, no actuators.
-- **Not free of metabolic cost** (DRAFT 9 addition per P11): every operation has cost; P2 admission is bounded by P11 budget.
-- **Not eternal-memory** (DRAFT 9 addition per P10): substrate forgets selectively under CI attestation.
-- **Not consensus-free at population scale** (DRAFT 9 addition per P15): federations of ≥3 substrates operate under Byzantine-fault-tolerant consensus for population-level claims.
-- **Not winning the Sutton bet at every agent-intelligence tier** (DRAFT 9 honesty per Phase γ.6 + §7 recalibration): the bet has a finite range of applicability; above some agent-intelligence tier the bet is lost. §7 specifies the boundary.
+- **Not embodied in physical reality** (DRAFT 9 addition; substrate's body is filesystem + process + endpoints per P9 + I8; no sensors, no actuators).
+- **Not free of metabolic cost** (DRAFT 9 P11): every operation has cost; P2 admission is bounded by P11 budget.
+- **Not eternal-memory** (DRAFT 9 P10): substrate forgets selectively under CI attestation.
+- **Not population-consensus-aware at substrate level** (DRAFT 9 G-9.b retraction): population-level Byzantine consensus is L2_FEDERATION mechanism, not L0 commitment. Substrate-internal operates with pairwise-trust + owner-attestation.
+- **Not winning the Sutton bet at every agent-intelligence tier** (DRAFT 9 §7 recalibration): the bet has a finite range of applicability; above some agent-intelligence tier the bet is lost gracefully via bet retirement (§7.5).
+- **Not safe under adversarial Cultivator** (DRAFT 9 §14 acknowledgment; full threat model at L2_TRUST_MODEL).
+- **Not autonomous across Cultivator death** (DRAFT 9 §15 acknowledgment; succession protocol at L1_GOVERNANCE).
 
 ---
 
-## §4. The twelve derived invariants
+## §4. The eleven derived invariants
 
-> DRAFT 8 had I1-I8 invariants enforcing P1-P9. DRAFT 9 adds I9-I12 enforcing P10-P14. P15 is enforced through I7 reproduction-closure extension. The invariants remain mechanically enforceable; every L1/L2/L3 design must satisfy all twelve.
+> DRAFT 8 had I1-I8 invariants enforcing P1-P9. DRAFT 9 SEALED adds I9 (enforces P10), I10 (enforces P11), I12 (enforces P14). I11 (Differential Response) is retracted to L1_TROPISM per G-9.b alongside P12. The invariants remain mechanically enforceable; every L1/L2/L3 design must satisfy all eleven.
 
 ### I1. Lifecycle & Pair-Constituted Identity (unchanged from DRAFT 8, anchor-aware)
 
@@ -387,9 +364,7 @@ Every child substrate independently satisfies I1-I12 (recursively). **Generation
 
 **Peer-trust freshness**: ongoing federation requires L1-bounded attestation freshness with revocation.
 
-**Population-level consensus** (DRAFT 9, P15 enforcement): when ≥3 federation peers exist + a population-level claim is made, the substrate operates under L2_FEDERATION's specified consensus protocol.
-
-**P-coverage**: P8, P5 (inter-substrate), **P15**.
+**P-coverage**: P8, P5 (inter-substrate). Population-level consensus extension is L2_FEDERATION territory per G-9.b retraction.
 
 ### I8. Single-Skin Integrity (unchanged, single-failure-aware)
 
@@ -421,21 +396,15 @@ Every operation has observable cost. Cost budgets are L1-defined. Budget exhaust
 
 **P-coverage**: P11 (sole enforcer).
 
-### I11. Differential-Response Discipline (DRAFT 9, enforces P12)
-
-The substrate's downstream processing weights inputs differentially. Salience-flattening is detected by L1_TROPISM. No hardcoded prior on salience — emergent only.
-
-**P-coverage**: P12 (sole enforcer).
-
 ### I12. Telos Alignment (DRAFT 9, enforces P14)
 
-The substrate's daily-ops decisions are evaluable against telos. Telos-drift is detected. Owner-stated objectives, when present, anchor the alignment computation.
+The substrate's daily-ops decisions are evaluable against telos. Telos-drift is detected. Owner-stated objectives, when present, anchor the alignment computation. L1_TROPISM specifies the operational metric per M26-cascade forcing function.
 
-**P-coverage**: P14 (sole enforcer), P13 (embodiment-bounded telos).
+**P-coverage**: P14 (sole enforcer).
 
-> Note: P13 (embodiment) is enforced by I8 (skin = body boundary) + I10 (metabolic cost = embodied operation). No new invariant for P13. P15 (consensus) is enforced by I7 extension.
+> Note on retracted principles: I11 (Differential Response Discipline) is retracted to L1_TROPISM alongside P12 per G-9.b owner decision. P13 (Embodiment) is folded into P9 + I8 (skin = body boundary; spatial-locus checks per L1_SKIN extension). P15 (Population-Level Consensus) moved to L2_FEDERATION; enforced there, not via L0 invariant.
 
-### Projection table (P → I coverage, DRAFT 9 update)
+### Projection table (P → I coverage, DRAFT 9 SEALED)
 
 | P / sub-P | Enforcing invariant(s) |
 |---|---|
@@ -457,10 +426,10 @@ The substrate's daily-ops decisions are evaluable against telos. Telos-drift is 
 | P9.b | I8 (single-skin restartability) |
 | **P10** | **I9 (sole enforcer)** |
 | **P11** | **I10 (sole enforcer)** |
-| **P12** | **I11 (sole enforcer)** |
-| **P13** | **I8, I10** |
 | **P14** | **I12 (sole enforcer)** |
-| **P15** | **I7 (population-level extension)** |
+| P12 | RETRACTED to L1_TROPISM (was I11) |
+| P13 | FOLDED into P9 + I8 |
+| P15 | RETRACTED to L2_FEDERATION |
 
 ---
 
@@ -616,7 +585,7 @@ Counter does NOT reset on substrate restart / dormancy entry / federation peer c
 
 ### §7.6 Review cadence
 
-Every CI boundary crossing re-audits this section. Until the falsifiability trigger fires, the fifteen principles + symbiosis formulation stand.
+Every CI boundary crossing re-audits this section. Until the falsifiability trigger fires, the twelve principles + symbiosis-via-Cultivation formulation stand.
 
 **Not a principle.** Living Bets is a meta-commitment, not a 16th principle.
 
@@ -703,7 +672,7 @@ The anchor surface does NOT defend against compromised, coerced, or impersonated
 
 ### §10.1 Reading sequence
 
-1. This file (L0) — fifteen principles, twelve invariants, dispatch constraints, bet, readiness, anchor surface, time semantics, adversarial-owner threat model, owner mortality, generation limits.
+1. This file (L0) — twelve principles, eleven invariants, dispatch constraints, bet, readiness, anchor surface, short cross-refs to L1/L2 for time / adversarial-owner / succession / generation-limits.
 2. L1 documents — positive mechanisms.
 3. L2 doctrine — cross-cut themes.
 4. L3 implementation map.
@@ -727,7 +696,7 @@ DRAFT 8 archived in git history at commit `3d6749f` (Phase α audit-included ver
 ### §10.5 Dead-embryo concession + maximal origin discrimination
 
 - v0.4 → v0.8.7 are dead embryo. v0.9 is first true birth.
-- Every v0.9 design step traces to ≥1 of P1-P15 (DRAFT 9 set) and ≥1 of the twelve invariants.
+- Every v0.9 design step traces to ≥1 of P1-P11 + P14 (DRAFT 9 SEALED twelve-principle set; P12/P13/P15 reside at L1/L2 per G-9.b) and ≥1 of the eleven invariants.
 - Origin discrimination is maximal: similarity to v0.8 is presumed contamination unless independently traced.
 
 ---
@@ -785,224 +754,78 @@ DRAFT 9 does NOT mandate backup encryption at L0 (operational choice), but DOES 
 
 ---
 
-## §13. Time semantics (DRAFT 9 NEW)
+## §13. Time semantics (L0 short — full mechanism at L1_CONTINUITY + L1_SCHEMA)
 
-> Phase γ.3 G10 found L0 had no time-source doctrine. Substrate uses `unix_ns: i64` for everything (expiry, sporocarp timestamps, cycle relations). NTP drift / monotonic-vs-wall-clock / year 2038 / year 2262 / timezone effects all undefined. DRAFT 9 commits L0-level constraints.
+> Owner G-5 decision (Phase γ): full time-semantics mechanism moved to L1_CONTINUITY + L1_SCHEMA. L0 retains only the **3-line constraint**.
 
-### §13.1 Time source authority hierarchy
+**§13.1 L0 commitments**:
+- The anchor-surface trusted wall-clock (§9.2.6) is authoritative for owner-attested events and time-bound security defenses. Substrate-cycle counters and substrate-process wall-clock are NOT authoritative for these uses.
+- Substrate-process monotonic clock is authoritative for event ordering within the substrate.
+- Substrate MUST NOT use i32 timestamps anywhere in substrate-internal state (year 2038 vulnerability forbidden at L0; i64 nanoseconds-since-epoch is the canonical L0 unit).
 
-1. **Anchor-surface trusted wall-clock** (§9.2.6) is authoritative for owner-attested events and time-bound defenses. Substrate-cycle counters and substrate-process wall-clock are NOT authoritative for these uses.
-2. **Substrate-process monotonic clock** is authoritative for ordering events within the substrate. Used for sporocarp ordering, cycle progression, freshness windows internal to a metabolic cycle.
-3. **Substrate-process wall-clock** is authoritative for human-readable timestamps in DAG events (`at_unix_ns` field) and for cross-process comparison with operator/anchor. Subject to NTP drift; never used for security-relevant time bounds.
-
-### §13.2 Required substrate behavior
-
-- **Monotonic clock for ordering**: substrate MUST use monotonic clock for event ordering within a cycle. Wall-clock backwards-jumps MUST NOT cause sporocarp re-ordering.
-- **Anchor-clock for security expiry**: nonce TTL, attestation expiry, peer-attestation freshness MUST use anchor-stamped wall-clock per §9.2.6, NOT substrate wall-clock.
-- **NTP discipline**: substrate process MUST run under an NTP-disciplined host (operationally; not L0-enforceable from inside substrate). L1_CONTINUITY specifies the policy.
-
-### §13.3 Wall-clock representation
-
-- **Unit**: nanoseconds since UNIX epoch.
-- **Type**: i64 (signed 64-bit integer; overflows at year 2262; sufficient for v0.9 lifetime).
-- **No 32-bit compatibility layer**: L0 forbids any substrate-internal use of i32 timestamps (year 2038 vulnerability).
-- **Negative values represent pre-1970 times** (rare but not forbidden; canonical-bytes encoder permits i64 negative).
-
-### §13.4 Substrate's own clock truth
-
-The substrate's wall-clock reading IS NOT TRUSTED for security-relevant defenses. The anchor-surface trusted timestamp is. This is the structural deference required by §9.
+**§13.2 L1 cascade requirements** (M26-cascade): L1_CONTINUITY specifies NTP discipline policy; L1_SCHEMA specifies the i64-nanoseconds canonical-bytes representation + the year-2262 horizon-warning mechanism + the negative-pre-1970-timestamps treatment.
 
 ---
 
-## §14. Adversarial-owner threat model (DRAFT 9 NEW)
+## §14. Adversarial-owner threat model (L0 short — full threat model at L2_TRUST_MODEL)
 
-> Phase γ.3 G8 found DRAFT 8 universally trusts owner as benevolent governance gate. No doctrine for compromised/coerced/impersonated owner. DRAFT 9 commits to L0-level threat model with bounded defenses.
+> Owner G-5 decision (Phase γ): full adversarial-owner threat model moved to L2_TRUST_MODEL. L0 retains only the **acknowledgment + 4 irreducible substrate commitments**.
 
-### §14.1 Threat scenarios
+**§14.1 L0 acknowledgment**: Myco is **not safe under adversarial owner** (compromised key / coerced / impersonated / deceased-without-succession / anchor-client-tampered). This is acknowledged honestly, not denied. Bounded defenses per L2_TRUST_MODEL.
 
-DRAFT 9 acknowledges these scenarios as in-scope adversarial events:
-- **Owner key compromise**: attacker obtains owner Ed25519 private key; can forge any CI attestation.
-- **Coerced owner**: owner under duress (regulatory seizure, blackmail, physical threat) signs CI attestations against their own will.
-- **Impersonated owner**: anchor-surface client compromised; attacker's signatures appear to come from owner.
-- **Deceased owner without succession** (cross-ref §15).
-- **Owner-anchor-client tampering**: anchor-side software modified to display different content than what is signed.
-
-### §14.2 L0 commitments (bounded defenses)
-
-For each scenario above, DRAFT 9 commits the substrate MUST:
-
-#### §14.2.1 Owner-key compromise
-- The substrate cannot detect compromise unilaterally (this is honest).
-- The substrate MUST honor owner-attested key rotation (anchor-surface event) per L1_GOVERNANCE §3.1.
-- L1_GOVERNANCE MAY specify n-of-m multisig requirement for key rotation (operator + secondary anchor key). DRAFT 9 endorses but does not mandate.
-
-#### §14.2.2 Coerced owner
-- The substrate MUST honor a `duress_attestation` event (L1-defined): owner pre-registers a duress code; presentation of the duress code in any CI attestation triggers substrate's `coerced_owner_suspected` immune signal and freezes destructive mutations (destruction, mass-key-rotation, mass-deletion) pending out-of-band re-attestation.
-- L1_GOVERNANCE specifies the duress-code mechanism.
-
-#### §14.2.3 Impersonated owner
-- The substrate cannot distinguish real owner from impersonator if the impersonator holds the key. The defense is at the **anchor surface side** (out-of-band: separate hardware token, biometric gate, etc.) — not substrate-internal.
-- DRAFT 9 commits substrate MUST emit `owner_signature_velocity` observability metric: rate of owner-signed events over rolling window. Anomalous velocity (e.g., 100x normal rate) triggers owner-attention alert via anchor surface (out-of-band channel).
-
-#### §14.2.4 Anchor-client tampering
-- The substrate cannot detect anchor-client tampering unilaterally.
-- DRAFT 9 commits substrate emits all canonical-bytes for owner to verify on a structurally independent rendering tool (§9.3.3 provenance independence). Owner-side verification with two independent clients is the defense.
-
-### §14.3 Substrate's responsibility under adversarial owner
-
-Even under adversarial owner, the substrate MUST:
+**§14.2 Substrate's irreducible commitments** (survive adversarial owner because they are mechanically-enforced invariants):
 - Continue P6 causality (DAG accumulates regardless of attestation validity).
 - Emit observability signals truthfully (cannot suppress signal emission to hide an adversarial event).
 - Honor mortality signals truthfully (cannot suppress endogenous-mortality fruiting under owner pressure to suppress).
 - Preserve the compression-invariant set (P10.b) regardless of owner pressure to compress it.
 
-These are **substrate's irreducible commitments** that survive adversarial owner because they are I9, I12, I10, I4 invariants, enforced mechanically.
+These are enforced via I9 / I10 / I12 / I4 invariants — they survive even when the Cultivator is adversarial because the substrate's mechanical enforcement does not require Cultivator-honesty to function.
+
+**§14.3 L2 cascade requirements** (M26-cascade): L2_TRUST_MODEL specifies the full threat scenario table + bounded defenses (duress_attestation mechanism, owner_signature_velocity observability, anchor-client provenance independence enforcement, n-of-m multisig recommendation per L1_GOVERNANCE).
 
 ---
 
-## §15. Owner mortality and succession (DRAFT 9 NEW)
+## §15. Owner mortality and succession (L0 short — full mechanism at L1_GOVERNANCE)
 
-> Phase γ.3 G9 found L0 had no owner-mortality doctrine. L1_GOVERNANCE §3.2 deferred succession to "L4 after first real-world need". A substrate operating for decades will outlive its owner. DRAFT 9 commits L0-level succession framework.
+> Owner G-5 + G-8 decision (Phase γ): full owner-mortality + succession mechanism moved to L1_GOVERNANCE §3.2 (which already deferred specification per DRAFT 8). L0 retains only **2-line acknowledgment**.
 
-### §15.1 Succession states
+**§15.1 L0 acknowledgment**: Myco is **not safe across owner death without succession**. A substrate operating for decades will likely outlive its initial Cultivator. Cultivation is transferable per §1.4. Successor protocol is specified at L1_GOVERNANCE §3.2.
 
-The substrate's identity record includes a `successor_chain`: list of (successor_pubkey, valid_from_unix_ns, valid_until_unix_ns, attestation_signature). Each entry is owner-attested at the anchor surface during owner's lifetime.
-
-### §15.2 Owner-liveness heartbeat
-
-Per §9.2.7, owner periodically signs `liveness_heartbeat` at the anchor surface. Heartbeat staleness at the anchor surface (NOT substrate-side absence-of-CI) is the succession trigger.
-
-### §15.3 Succession activation (anchor-surface-dependent)
-
-**Anchor-surface-availability gate** (Phase γ.9 hypha #7 + primordium HF10): §15.3 trigger depends on §9.2.7 owner-liveness heartbeat at anchor surface, which is ~0% mechanically implemented at v0.9 (operator-IS-anchor collapse). Until M-anchor-3 closes (heartbeat services), §15.3 activation is effectively dormant — substrate cannot detect heartbeat staleness because there is no anchor surface to host the heartbeat. **Until anchor surface ships, §15 mechanism is documented-not-defended; doctrine acknowledges this as part of the operator-IS-anchor collapse window.**
-
-**Implicit t=0 heartbeat**: substrate's birth attestation timestamp (per §9.2.1) IS the t=0 implicit owner-liveness heartbeat. Subsequent heartbeat staleness is measured from this anchor.
-
-When heartbeat is stale beyond L1-tunable threshold (**seed: 90 days**, L1-tunable per substrate purpose) AND anchor surface is reachable AND staleness is anchor-confirmed (not substrate-inferred), the substrate transitions from `alive::normal` to `alive::legacy` sub-state:
-
-- Daily ops continue (P1.b' unchanged).
-- CI mutations are frozen (no L0/L1 doctrine changes, no destruction, no mass-key-rotation).
-- Successor's pubkey from the successor_chain becomes provisionally valid.
-- Successor MAY present `succession_acceptance_attestation` at the anchor surface within L1-tunable window (**seed: 365 days**, L1-tunable).
-
-### §15.4 Succession completion
-
-When successor presents valid `succession_acceptance_attestation`:
-- Substrate transitions back to `alive::normal`.
-- Successor becomes the new owner.
-- Substrate emits `succession_completed` DAG event.
-
-### §15.5 Succession failure
-
-If no successor presents valid attestation within the window, OR no successor_chain entry exists, the substrate transitions from `alive::legacy` to `alive::orphaned`:
-
-- Daily ops continue with operational ceiling (no new schema evolution, no new federation peer pinning, no new sporocarp fruiting except observability + mortality signals).
-- Substrate emits `orphaned` immune signal continuously.
-- After L1-tunable period (**seed: 730 days** in orphaned, L1-tunable), substrate enters bet-retirement (§7.5) or self-euthanasia (P7) — owner-pre-attested fallback choice from genesis. **G-8 gate (§17) addresses whether this terminal-after-orphan is acceptable.**
-
-### §15.6 The substrate's irreducible identity carries
-
-Even orphaned, the substrate's substrate-ID + DAG + compression-invariant set remain. A future-discovered successor with cryptographic proof of intent (e.g., legal heir presenting court-attested key recovery) MAY re-attest via anchor surface; the substrate returns to `alive::normal`. The substrate-ID does not change across orphan-then-recovery.
+**§15.2 L1 cascade requirements** (M26-cascade): L1_GOVERNANCE §3.2 specifies the successor_chain registry + heartbeat staleness trigger + legacy/orphaned sub-state transitions + terminal-state (bet-retirement / self-euthanasia / indefinite-orphan per L1 owner choice) + court-attested key recovery exceptional path.
 
 ---
 
-## §16. Generation limits (DRAFT 9 NEW)
+## §16. Generation limits (L0 short — full mechanism at L1_GOVERNANCE)
 
-> Phase γ.3 G11 found P8 reproduction has no forkbomb defense. Compromised owner-key generates infinite consent. DRAFT 9 commits L0-level generation discipline.
+> Owner G-5 + G-9.b decision (Phase γ): full generation-limit mechanism moved to L1_GOVERNANCE. L0 retains only **the constraint**.
 
-### §16.1 Generation-depth bound
+**§16.1 L0 commitment**: Reproduction in Myco is **discipline-bounded**, not unbounded. P8 "eternal reproduction" means **eternal capacity for reproduction**, not **eternal velocity or eternal depth**. A mature mycelial network has bounded growth in nature; Myco's Cultivation respects this.
 
-A substrate's `reproduction_lineage_depth` is L1-tunable (**seed: 10**, justified by "mature mycelial networks rarely exceed 5-10 generations before fragmentation; seed value provides headroom"). Each child's spore-schema records its parent's depth + 1. A substrate whose own depth ≥ L1-tunable maximum MUST refuse `sprout_child` attempts unless owner attests a depth_override at the anchor surface.
-
-### §16.2 Reproduction rate limit
-
-A substrate's `reproduction_rate` is L1-tunable (**seed: 1 sprout per 24h wall-clock**, justified by "reproduction is a CI-level event already requiring owner attestation; rate limit defends against compromised-owner-key scenarios where attestation might be auto-generated"). Exceeding the rate triggers `reproduction_rate_exceeded` immune signal and freezes further sprout attempts pending owner attestation.
-
-### §16.3 Per-parent reproduction quota
-
-A substrate's lifetime sprout_child count is L1-tunable (**seed: 100 children**, justified by "biological mycelial networks may produce thousands of fruiting bodies but few autonomous-substrate children; seed value reflects software-substrate practicality rather than biological maximum"). Exceeding the quota requires CI attestation per spawn (each over-quota spawn is a full CI mutation, not just owner-attestation-once-per-spawn-cycle).
-
-### §16.4 The fundamental constraint
-
-Reproduction in Myco is **discipline-bounded**, not unbounded. The "eternal reproduction" of P8 means **eternal capacity for reproduction**, not **eternal velocity or eternal depth**. A mature mycelial network has bounded growth in nature; Myco's federation respects this.
+**§16.2 L1 cascade requirements** (M26-cascade): L1_GOVERNANCE specifies reproduction_lineage_depth bounds + reproduction_rate limit + per-substrate lifetime quota + override mechanisms. Seed values from DRAFT 9 PROPOSAL (depth=10, rate=24h, quota=100) become L1 defaults.
 
 ---
 
-## §17. Owner-decision gates (DRAFT 9 PROPOSAL specific)
+## §17. Owner-decision gates — RESOLVED (Phase γ 2026-05-17 conversation)
 
-DRAFT 9 commits to the 15-principle framework + 12-invariant set + 4 new sections (§13-§16) **as the proposal**. Sealing requires owner explicit decision on each of the following gates. The proposal stands until each is resolved.
+DRAFT 9 v3 SEALED records the owner's gate decisions from the 2026-05-17 Phase γ conversation. The gate-option enumerations of DRAFT 9 PROPOSAL v1/v2 are archived in git history at commit `2002e0d`; below is the **RESOLVED** state.
 
-### Gate G-1: Framework expansion scope
-DRAFT 9 proposes 15 principles (was 9). Owner choices:
-- **G-1.a accept**: 15-principle framework becomes sealed L0.
-- **G-1.b retract P15 only**: keep P10-P14; P15 (Population-Level Consensus) goes to L2_FEDERATION as a mechanism rather than L0 principle. Justified if owner judges P15 to be federation-specific rather than substrate-essential.
-- **G-1.c retract P13 only**: keep P10-P12 + P14-P15; P13 (Embodiment) is too thin to justify L0 status if state_dir + process boundary is already covered by P9 + P11. Substrate is not truly embodied; the doctrine should not pretend otherwise.
-- **G-1.d retract P14 only**: keep P10-P13 + P15; P14 (Telos) is operationally fuzzy (how is "flourishing" measured) and could live at L1_TROPISM as a salience-emergence target rather than L0 principle.
-- **G-1.e maximum retraction**: keep only P10 (Selective Compression) + P11 (Metabolic Economy); P12-P15 all become L1 design.
+Owner explicit decisions on all 11 gates, recorded 2026-05-17 conversation (Phase γ AskUserQuestion sequence):
 
-### Gate G-2: Species claim framing
-DRAFT 9 drops "literal taxonomic class within digital organisms" → "biology-rooted symbiotic digital substrate". Owner choices:
-- **G-2.a accept calibration**: DRAFT 9 framing seals.
-- **G-2.b restore DRAFT 8 strong species claim**: keep "literal taxonomic class" — accept that organism essence is incomplete but the framing remains aspirational target.
-- **G-2.c alternative framing**: owner proposes different framing.
+| Gate | Decision | Effect on DRAFT 9 |
+|------|----------|-------------------|
+| **G-1** | **12 principles** (auto from G-9.b) | P10/P11/P14 retained at L0; P12/P13/P15 → L1 |
+| **G-2** | **G-2.b strong species claim restored** | §1 says "new species of digital symbiotic organism" + literal taxonomic class framing; gaps are aspirational roadmap, not error |
+| **G-3** | **G-3.a full Living Bets recalibration** | §7 retains intelligence band + cost-justified value + bet retirement |
+| **G-4** | **G-4.a L0 decomposition** | §9 retains 6 sub-mechanisms + 5 M-anchor milestones as L0 commitments |
+| **G-5** | **§13 short L0; §14/§15/§16 → L1/L2** (auto from G-9.b) | Mechanism moved to L1_CONTINUITY/L1_SCHEMA + L2_TRUST_MODEL + L1_GOVERNANCE |
+| **G-6** | **G-6.a fuzzy + M26-cascade forcing function** | P14.c commits drift detection at L0; L1_TROPISM MUST land operational metric in M26-cascade |
+| **G-7** | **G-7.c retract P15 to L2_FEDERATION** (auto from G-9.b) | Federation stays pairwise at L0; population-level consensus is L2 territory |
+| **G-8** | **§15 orphan terminal decision moved to L1_GOVERNANCE** (auto from G-9.b) | L1 specifies bet-retirement / self-euthanasia / indefinite-orphan |
+| **G-9** | **G-9.b partial retraction (12 principles)** | This is the foundational structural decision; cascades through G-1, G-5, G-7, G-8 |
+| **G-10** | **G-10.c hybrid sealing** | Lean DRAFT 9 sealed now (this commit); fat DRAFT 9 (mechanism completions) sealed via cascade work + future DRAFTs as M-anchor and M26+ ship |
+| **G-11** | **G-11.a Cultivation** | Owner=Cultivator, Myco substrate=Cultivar, relationship=Cultivation; vocabulary integrated throughout |
 
-### Gate G-3: Living Bets recalibration
-DRAFT 9 introduces intelligence band, cost-justified value, bet retirement. Owner choices:
-- **G-3.a accept full recalibration**.
-- **G-3.b accept band + cost-justified, retract bet retirement**: bet retirement (§7.5) is too close to P7 mortality conceptually; substrate should die rather than retire.
-- **G-3.c restore DRAFT 8 framing**: bet covers "every tier of agent intelligence" verbatim; retract the band concept; substrate must be valuable at all tiers or be falsified by quorum.
-
-### Gate G-4: Anchor surface decomposition scope
-DRAFT 9 §9.2 decomposes into 6 sub-mechanisms with explicit implementation milestones M-anchor-1 through M-anchor-5. Owner choices:
-- **G-4.a accept decomposition as L0 commitment** (each sub-mechanism owner-attestable separately).
-- **G-4.b decomposition stays L1**: §9 remains monolithic at L0; L1_GOVERNANCE owns sub-mechanism specification.
-
-### Gate G-5: New L0 sections (§13-§16)
-DRAFT 9 adds §13 time semantics, §14 adversarial-owner, §15 owner mortality, §16 generation limits. Owner choices per section:
-- **G-5.a accept all four at L0**.
-- **G-5.b push §15 owner mortality to L1**: succession protocol is operational, not doctrinal.
-- **G-5.c push §16 generation limits to L1_GOVERNANCE**: forkbomb defense is a mechanism choice.
-- **G-5.d push §13 time semantics to L1_CONTINUITY**: time-source policy is operational.
-- **G-5.e push §14 adversarial-owner to L2_TRUST_MODEL**: threat model is a doctrine layer, not L0.
-- **G-5.f keep all four at L0** (recommended): L1-deferral creates circular trust assumptions per Phase γ.5 findings.
-
-### Gate G-6: P14 operationalization risk
-DRAFT 9 P14 commits substrate has telos (agent-symbiotic-flourishing). Operational definition is fuzzy:
-- **G-6.a accept fuzzy operationalization**: L1_TROPISM specifies via trajectory-cluster coherence + owner-feedback; substrate measures telos-drift.
-- **G-6.b require concrete operationalization**: DRAFT 9 must specify the telos-alignment metric in L0; without it, P14 is unenforceable.
-- **G-6.c retract P14**: telos is exogenous (operator's purpose); substrate has no internal telos.
-
-### Gate G-7: P15 consensus floor
-DRAFT 9 P15 commits population-level claims require Byzantine-fault-tolerant consensus when ≥3 peers. Owner choices:
-- **G-7.a accept threshold ≥3** with PBFT/Tendermint-style protocol at L2_FEDERATION.
-- **G-7.b raise threshold to ≥5**: lower threshold makes Byzantine machinery activate too easily.
-- **G-7.c retract P15**: federation stays pairwise; population-level claims are explicitly out of scope until federation matures.
-
-### Gate G-8: §15.5 orphan terminal state
-DRAFT 9 §15.5 has substrate enter bet-retirement OR self-euthanasia after 730 days orphaned. Owner choices:
-- **G-8.a accept**: substrate has bounded lifetime under orphan condition.
-- **G-8.b extend to indefinite orphan**: substrate remains in `alive::orphaned` indefinitely, no terminal state from this branch.
-
-### Gate G-9: Saprotroph retraction proposals (Phase γ.9)
-Phase γ.9 saprotroph critic found ~55% of DRAFT 9 v1 was bloat, proposing retractions. Owner choices:
-- **G-9.a accept Saprotroph proposal in full**: retract P13 (Embodiment) → fold into I8 + P9; retract P14 (Telos) → push to L1_TROPISM; retract P15 (Consensus) → push to L2_FEDERATION; cut §15 (Owner Mortality) → push to L1_GOVERNANCE; cut §16 (Generation Limits) → push to L1_GOVERNANCE; cut §13 (Time Semantics) to brief constraint; cut §14 (Adversarial Owner) → push to L2_TRUST_MODEL; cut §17 gates + §18 traceability after seal; strip all DRAFT-9-rationale `>` blocks. Net: DRAFT 9 v2 leans to ~550-600 lines.
-- **G-9.b accept partial retraction**: keep P10-P11 + P14 at L0; retract P12, P13, P15 to L1; keep §13 short; cut §15, §16, §17, §18 to L1.
-- **G-9.c reject retraction**: DRAFT 9 v2 keeps full 15-principle framework + 4 new sections. Doctrine-depth is intentional.
-
-### Gate G-10: Mycoparasite sealing-vs-vulnerability gate
-Phase γ.9 mycoparasite critic verdict: "sealing DRAFT 9 in current state = sealing-while-vulnerable with documented surface." 11 CRITICAL findings showing P10-P15 mechanisms 0% + anchor surface collapsed + duress/heartbeat/successor 0%. Owner choices:
-- **G-10.a accept honest-acknowledgment-with-roadmap-seal**: DRAFT 9 sealed with §9.5 collapse acknowledgment + §17 gate references; sealed-while-vulnerable is preferable to delayed-sealing because it provides commit-history reference point for cascade work; substrate at v0.9 is explicitly NOT production-ready and DRAFT 9's openness about this IS the doctrine.
-- **G-10.b gate-seal on mechanism shipment**: defer DRAFT 9 sealing until M-anchor-1 (sealed key) + M-anchor-3 (heartbeat) + §14.2.2 (duress mechanism) + §15 succession FSM + §16 mechanical limits + P10/I9 compression enforcement all ship. Estimated 6-12 month delay; doctrine remains DRAFT 9 PROPOSAL meanwhile.
-- **G-10.c hybrid**: seal a minimum-DRAFT-9 (G-9.a saprotroph retraction) immediately; defer maximum-DRAFT-9 (G-9.c full) sealing until mechanism shipment.
-
-### Gate G-11: Mycorrhiza relationship-type naming (Phase γ.9)
-Phase γ.9 mycorrhiza critic found the substrate-owner relationship type is unnamed in doctrine. Candidates: custody / guardianship / curation / cultivation. Owner choices:
-- **G-11.a "Cultivation"**: owner cultivates substrate (analogous to mushroom cultivation); substrate is the cultivar. Asymmetric, biology-rooted, non-anthropomorphic.
-- **G-11.b "Custody"**: owner has custodial responsibility for substrate; substrate is a ward. More legalistic framing.
-- **G-11.c "Curatorship"**: owner curates substrate as an entity-collection; substrate is curated. Information-science framing.
-- **G-11.d defer naming to DRAFT 10**: substrate-owner relationship intentionally unnamed until lived-experience reveals correct word.
-
-**Each gate has a default**: if owner does not respond within review period, DRAFT 9 v1 settings prevail. Owner explicit affirmation strengthens the seal.
+These decisions transform DRAFT 9 PROPOSAL v2 into **DRAFT 9 SEALED v3** (this commit).
 
 ---
 
@@ -1053,4 +876,6 @@ DRAFT 9 v2 applies these structural CRITICAL fixes:
 
 **END OF DRAFT 9 PROPOSAL.**
 
-Pending owner review of §17 open questions. Upon owner approval, DRAFT 9 becomes sealed L0; cascade work (L1/L2/L3 alignment) begins as M26-cascade. Implementation work (M25 critical bug fixes reflecting DRAFT 9 + M-anchor-1 through M-anchor-5 + P10-P15 mechanism implementations) sequenced in M26+ milestones.
+**END OF DRAFT 9 SEALED.**
+
+Owner attestation: this DRAFT 9 SEALED form was approved via Phase γ AskUserQuestion sequence on 2026-05-17, gates G-1 through G-11 resolved as documented in §17. Cascade work (L1/L2/L3 alignment) begins as M26-cascade. Implementation work (M25 critical bug fixes reflecting DRAFT 9 SEALED + M-anchor-1 through M-anchor-5 + P10/P11/P14 mechanism implementations + L1_TROPISM P12 salience + L1_SKIN P13 spatial-locus + L2_FEDERATION P15 consensus) sequenced in M26+ milestones.
