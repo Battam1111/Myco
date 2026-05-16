@@ -43,21 +43,73 @@ pub(crate) struct ObservatoryCounts {
     /// Currently-Established federation peers (live state, not DAG-derived).
     pub(crate) established_peers: u64,
     /// Count of CI-class events (axis_registered + owner_key_* + evolution_*)
-    /// that landed in the most-recent `cycle_window` substrate-cycles
-    /// (NOT wall time). Used by M25.1 doctrine-burst detection.
+    /// that landed in the most-recent burst window (wall-clock per L0 §7.4 +
+    /// §13.1; M26.1 C3 fix). Used by M25.1 doctrine-burst detection.
     pub(crate) ci_events_in_burst_window: u64,
 }
 
 /// M25.2: scan the DAG once + read live federation state to populate an
-/// `ObservatoryCounts` snapshot. `burst_window_cycles` controls how far
-/// back doctrine-burst counting reaches (typically 100; lower for tests).
+/// `ObservatoryCounts` snapshot.
+///
+/// M26.1 C3 fix: `burst_window_unix_ns` is now a wall-clock window in
+/// nanoseconds (was previously a substrate-cycle count). Doctrine intent
+/// (L0 §7.4 + §13.1) is wall-clock 90 days; substrate-cycle counters drift
+/// 4-6 orders of magnitude under typical cycle cadence (~1 cycle/sec) so
+/// the prior cycle-based window was structurally wrong.
+///
+/// INTERIM: substrate-process wall-clock used here. M-anchor-3 promotes
+/// to anchor-stamped wall-clock per L0 §13.1 (anchor surface authoritative
+/// for time-bound defenses).
+///
+/// Mapping cycle → wall-clock uses `state.observatory_history` (each
+/// snapshot stamps `at_unix_ns` alongside `at_cycle`). When observatory
+/// history does not yet cover the window (fresh substrate / first cycles),
+/// the cutoff falls back to cycle 0 = count all CI events. This is the
+/// conservative-aggressive choice: the burst threshold (10 events) still
+/// fires correctly during the test-bench `m25_1_doctrine_burst_detector_*`
+/// scenarios where a substrate registers 12 axes in a fresh DAG.
 pub(crate) fn compute_observatory_counts(
     state: &ServerState,
-    burst_window_cycles: u64,
+    burst_window_unix_ns: i64,
 ) -> ObservatoryCounts {
+    use std::time::{SystemTime, UNIX_EPOCH};
+
     let dag_node_count = state.dag.node_count() as u64;
-    let manifest_cycle = state.manifest.cycle_counter;
-    let burst_cutoff_cycle = manifest_cycle.saturating_sub(burst_window_cycles);
+
+    // M26.1 C3 fix: derive a cycle cutoff from the wall-clock window via
+    // observatory_history. Each observatory snapshot is appended on
+    // `cycle_advanced` (see `append_observatory_snapshot_to_state`), so
+    // history.at_cycle ↔ history.at_unix_ns is the cycle ↔ wall-clock map.
+    let now_unix_ns: i64 = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .ok()
+        .and_then(|d| i64::try_from(d.as_nanos()).ok())
+        .unwrap_or(0);
+    let cutoff_unix_ns: i64 = now_unix_ns.saturating_sub(burst_window_unix_ns);
+    let burst_cutoff_cycle: u64 = match state.observatory_history.front() {
+        // History exists.
+        Some(oldest) => {
+            if oldest.at_unix_ns >= cutoff_unix_ns {
+                // The oldest snapshot is already inside the window — window
+                // exceeds available history. Count from cycle 0.
+                0
+            } else {
+                // Find the first snapshot whose wall-clock is at-or-after
+                // cutoff. Its at_cycle is the cycle cutoff.
+                state
+                    .observatory_history
+                    .iter()
+                    .find(|s| s.at_unix_ns >= cutoff_unix_ns)
+                    .map(|s| s.at_cycle)
+                    // Fallback: every snapshot predates the window → no
+                    // events in window.
+                    .unwrap_or(state.manifest.cycle_counter.saturating_add(1))
+            }
+        }
+        // No history yet (fresh substrate, no cycles advanced): count all CI
+        // events. INTERIM behavior; refines as observatory history grows.
+        None => 0,
+    };
 
     let mut dag_edge_count: u64 = 0;
     let mut dag_total_content_bytes: u64 = 0;
@@ -127,7 +179,7 @@ pub(crate) fn append_observatory_snapshot_to_state(state: &mut ServerState) {
     use crate::derived_state::{ObservatorySnapshot, OBSERVATORY_HISTORY_CAP};
     use std::time::{SystemTime, UNIX_EPOCH};
 
-    let counts = compute_observatory_counts(state, M25_1_DOCTRINE_BURST_WINDOW_CYCLES);
+    let counts = compute_observatory_counts(state, M25_1_DOCTRINE_BURST_WINDOW_UNIX_NS);
     let at_unix_ns = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .ok()
@@ -156,10 +208,15 @@ pub(crate) fn append_observatory_snapshot_to_state(state: &mut ServerState) {
     }
 }
 
-/// M25.1: cycle-window for doctrine-burst detection. Counts CI-class events
-/// landed in the last N substrate-cycles (NOT wall time). 100 is the L0 §9.4
+/// M25.1 + M26.1 C3 fix: wall-clock window (nanoseconds) for doctrine-burst
+/// detection. Counts CI-class events landed in the last N wall-clock seconds
+/// (NOT substrate-cycles). 90 days is the L0 §7.4 + L2_OBSERVABILITY §8
 /// seed; the L1 tunable will live in a future seed-config event.
-pub(crate) const M25_1_DOCTRINE_BURST_WINDOW_CYCLES: u64 = 100;
+///
+/// INTERIM: substrate-process wall-clock per L0 §13.1; M-anchor-3 promotes
+/// to anchor-stamped wall-clock.
+pub(crate) const M25_1_DOCTRINE_BURST_WINDOW_UNIX_NS: i64 =
+    90 * 24 * 60 * 60 * 1_000_000_000;
 /// M25.1: threshold above which the CI-event burst window fires a C37
 /// immune sporocarp.
 pub(crate) const M25_1_DOCTRINE_BURST_THRESHOLD: u64 = 10;
@@ -212,7 +269,7 @@ pub(crate) fn handle_query_substrate_observatory(
     // Single O(N) DAG scan shared with the cycle-tick snapshot path so
     // signal definitions cannot drift between the live response and the
     // history series.
-    let counts = compute_observatory_counts(state, M25_1_DOCTRINE_BURST_WINDOW_CYCLES);
+    let counts = compute_observatory_counts(state, M25_1_DOCTRINE_BURST_WINDOW_UNIX_NS);
     let dag_node_count = counts.dag_node_count;
     let dag_edge_count = counts.dag_edge_count;
     let dag_total_content_bytes = counts.dag_total_content_bytes;
@@ -474,17 +531,28 @@ pub(crate) fn handle_query_substrate_observatory(
     );
     payload.insert("signal_5_time_trends".to_string(), Value::Map(signal_5_map));
 
-    // bet_weakening_quorum predicate. For signals 1/2/3/4b, "down" means
-    // against the bet (substrate shrinking / not learning / monoculturing /
-    // federation isolating). For signal 6, "down" means ratio shrinking
-    // (substrate-relative-to-window improving) — so for bet-against semantics
-    // signal #6 trending "up" is the negative direction (substrate consuming
-    // more of the context window). We follow the spec literally: count
-    // signal_6 == "down" as "against bet" too, because a substrate that
-    // can't materialize new events at all (ratio drifting down) is failing
-    // its persistence bet just as badly. The L0 §7 spec intentionally
-    // leaves the direction-of-against-bet interpretation simple here —
-    // it can be refined when L1 tunables ship.
+    // bet_weakening_quorum predicate. M26.1 C4 fix: comment rewritten to
+    // align with L2_OBSERVABILITY §2.1 + algorithms/bet_weakening_quorum.md.
+    //
+    // Per the §2.1 direction table:
+    //   - Signal #1 (persistence budget): DOWN = "not growing" = against bet.
+    //   - Signal #2 (evolution rate): DOWN = "stagnating" = against bet.
+    //   - Signal #3 (read-pattern diversity): DOWN = "not being read" = against bet.
+    //   - Signal #4b (reachable peers): DOWN = "mycelial fragmentation" = against bet.
+    //   - Signal #6 (read-window-relative ratio = substrate_total/context_window):
+    //     DOWN = "shrinking vs context" = ratio decreasing over time = substrate
+    //     becoming RELATIVELY SMALLER than the read-window = substrate failing
+    //     its persistence bet = against bet. The §2.1 "DOWN <1.0" notation
+    //     captures the combined condition: counts against bet when DOWN AND
+    //     ratio is already below 1 (substrate cannot fill the read-window).
+    //     The "ratio < 1 for ≥ 50% of window" check is enforced separately
+    //     below as `sig_6_below_one_fraction >= 0.5`; here we only count
+    //     the trend direction.
+    //
+    // Prior comment (replaced) said signal_6 DOWN means "substrate-relative-
+    // to-window improving" — that was inverted relative to doctrine and was
+    // flagged as Phase γ.2 C4. The behavior here (counting sig_6_dir == "down"
+    // as against bet) was correct; only the comment misrepresented spec.
     let against_count: u64 = [
         sig_1_dir == "down",
         sig_2_dir == "down",
@@ -555,14 +623,21 @@ pub(crate) fn handle_query_substrate_observatory(
     // M25.1: doctrine-instability burst detection.
     //
     // CI-class events (axis_registered + evolution_succeeded/failed +
-    // owner_key_*) over the rolling cycle window. If burst threshold
-    // exceeded, fruit a C37 immune sporocarp (deduped via cooldown).
+    // owner_key_*) over the rolling wall-clock window (M26.1 C3 fix). If
+    // burst threshold exceeded, fruit a C37 immune sporocarp (deduped via
+    // cooldown).
     // -----------------------------------------------------------------------
     let is_burst = ci_events_in_burst_window > M25_1_DOCTRINE_BURST_THRESHOLD;
     let mut signal_8_map = BTreeMap::new();
+    // M26.1 C3 fix: field renamed from `ci_events_recent_100_cycles` to
+    // `ci_events_in_burst_window` — window is now wall-clock per L0 §7.4.
     signal_8_map.insert(
-        "ci_events_recent_100_cycles".to_string(),
+        "ci_events_in_burst_window".to_string(),
         Value::Uint(ci_events_in_burst_window),
+    );
+    signal_8_map.insert(
+        "burst_window_unix_ns".to_string(),
+        Value::Uint(M25_1_DOCTRINE_BURST_WINDOW_UNIX_NS as u64),
     );
     signal_8_map.insert(
         "burst_threshold".to_string(),
@@ -583,8 +658,8 @@ pub(crate) fn handle_query_substrate_observatory(
         if cooldown_expired {
             let evidence = format!(
                 "ci_events_in_window={ci_events_in_burst_window}, \
-                 threshold={}, window_cycles={}",
-                M25_1_DOCTRINE_BURST_THRESHOLD, M25_1_DOCTRINE_BURST_WINDOW_CYCLES
+                 threshold={}, window_unix_ns={}",
+                M25_1_DOCTRINE_BURST_THRESHOLD, M25_1_DOCTRINE_BURST_WINDOW_UNIX_NS
             );
             let _ = emit_immune_sporocarp(
                 state,
@@ -624,18 +699,18 @@ pub(crate) fn handle_query_substrate_observatory(
         Value::String(float_repr(composite)),
     );
     signal_7_map.insert("composite_format_version".to_string(), Value::Uint(3));
-    signal_7_map.insert(
-        "weight_signal_1_repr".to_string(),
-        Value::String(float_repr(w1)),
-    );
-    signal_7_map.insert(
-        "weight_signal_2_repr".to_string(),
-        Value::String(float_repr(w2)),
-    );
-    signal_7_map.insert(
-        "weight_signal_4b_repr".to_string(),
-        Value::String(float_repr(w4b)),
-    );
+    // M26.1 C2 fix: emit per-signal weights as a nested `weights` Map
+    // (keys: signal_1 / signal_2 / signal_4b → float repr-strings) rather
+    // than three flat sibling keys (`weight_signal_1_repr` /
+    // `weight_signal_2_repr` / `weight_signal_4b_repr`). Phase γ.2 found
+    // that TS clients expected the Map shape, so the flat keys were
+    // unreachable from the operator side. Map keys avoid further drift
+    // when future signals (#3/#4a/#5/#6) start contributing to weights.
+    let mut weights_map = BTreeMap::new();
+    weights_map.insert("signal_1".to_string(), Value::String(float_repr(w1)));
+    weights_map.insert("signal_2".to_string(), Value::String(float_repr(w2)));
+    weights_map.insert("signal_4b".to_string(), Value::String(float_repr(w4b)));
+    signal_7_map.insert("weights".to_string(), Value::Map(weights_map));
     signal_7_map.insert(
         "weights_method".to_string(),
         Value::String(weights_method.to_string()),

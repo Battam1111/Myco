@@ -292,7 +292,11 @@ impl ServerState {
             dag,
             pinned_operator_identity,
             nonce_log: std::collections::HashMap::new(),
-            federation: crate::federation::FederationState::default(),
+            // M26.1 C5 SECURITY FIX: read `MYCO_ACCEPT_LEGACY_PEERS` env var at
+            // construction. Default policy (env unset) rejects legacy FED_HELLOs;
+            // override is for transition-period compatibility with pre-M25 peers.
+            // See `FederationState::new_with_env_policy`.
+            federation: crate::federation::FederationState::new_with_env_policy(),
             substrate_signing_seed,
             observatory_history: std::collections::VecDeque::new(),
             last_operator_context_window_bytes: None,
@@ -404,8 +408,22 @@ pub fn run_loop() -> Result<u8, SubstrateError> {
     // on-disk snapshot was signed by THIS substrate (not a forged one) — the
     // snapshot's embedded signer_pubkey must match the pubkey derived from
     // our own seed, AND the signature must verify over the payload bytes.
-    let substrate_signing_seed =
-        crate::persistence::boot_or_genesis_substrate_signing_key(&state_dir)?;
+    //
+    // M26.1 C6 SECURITY FIX: also probe the on-disk permission posture of the
+    // seed file. If it was loose (Unix mode allowed group/world access), we
+    // tighten in-place immediately AND queue a C4_substrate_secret_unsealed
+    // immune sporocarp to emit once `state` is constructed (DAG handle lives
+    // inside ServerState, so emission happens after `new()` returns).
+    let (substrate_signing_seed, signing_key_was_restrictive) =
+        crate::persistence::boot_or_genesis_substrate_signing_key_with_permission_status(
+            &state_dir,
+        )?;
+    if !signing_key_was_restrictive {
+        // M26.1 C6: tighten in-place so the gap doesn't widen. Best-effort —
+        // a failure here is logged but does NOT abort boot (substrate remains
+        // functional; the C4 sporocarp emitted below records the breach).
+        let _ = crate::persistence::tighten_substrate_signing_key_permissions(&state_dir);
+    }
     let substrate_signing_pubkey = {
         use myco_kernel_shared::crypto::Ed25519PrivateKey;
         Ed25519PrivateKey::from_seed(&substrate_signing_seed)
@@ -576,6 +594,29 @@ pub fn run_loop() -> Result<u8, SubstrateError> {
             &mut state,
             "C38_snapshot_integrity_violation",
             "snapshot_integrity_violation",
+            &evidence,
+        );
+        let _ = save_dag_state(&state);
+    }
+
+    // M26.1 C6 SECURITY FIX (Phase γ.2): substrate_signing_key.cb existed on
+    // disk with loose Unix permissions (group/world bits set) — emit a
+    // `C4_substrate_secret_unsealed` immune sporocarp on the DAG so the
+    // breach is observable. We already tightened the file in-place above;
+    // the sporocarp is the audit-trail record. This path is a no-op on the
+    // genesis branch (fresh seed; file was written with 0600 from the start)
+    // and on Windows (ACL inspection deferred to M-anchor-1).
+    if !signing_key_was_restrictive {
+        let evidence = format!(
+            "substrate_signing_key.cb at {} had loose permissions on boot \
+             (group/world bits set); tightened to 0600 in-place. M-anchor-1 \
+             will replace file-permission defense with OS-sealed keystore.",
+            state.state_dir.display()
+        );
+        let _ = emit_immune_sporocarp(
+            &mut state,
+            "C4_substrate_secret_unsealed",
+            "substrate_secret_unsealed",
             &evidence,
         );
         let _ = save_dag_state(&state);

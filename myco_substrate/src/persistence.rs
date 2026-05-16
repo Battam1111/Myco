@@ -822,10 +822,20 @@ pub fn load_snapshot(state_dir: &Path) -> Result<Option<LoadedSnapshot>, Substra
 /// })
 /// ```
 ///
-/// The seed bytes are stored as-is (no envelope encryption at M25.0 — the
-/// trust boundary is the state_dir as a whole; if an attacker has write
-/// access there, snapshot integrity is moot anyway). Future M27+ may add a
-/// passphrase-derived sealing key.
+/// M26.1 C6 SECURITY FIX (Phase γ.2): on Unix the seed file is `chmod 0600`d
+/// (owner read+write only) immediately after the atomic rename. Pre-fix, the
+/// seed file inherited default permissions (often 0644 = world-readable on
+/// shared hosts) — violating L1_HARD_RULES C4 `substrate_secret_unsealed`.
+/// On Windows the file inherits ACLs from the parent directory; defense-in-
+/// depth there is deferred to M-anchor-1 (OS-sealed keystore: TPM / Apple
+/// Secure Enclave / Linux keyring / Windows DPAPI). The interim fix closes
+/// the most common Unix exposure class while keeping behavior unchanged for
+/// Windows substrates.
+///
+/// The seed bytes are stored as-is (no envelope encryption at M25.0/M26.1 —
+/// the trust boundary is the state_dir as a whole; if an attacker has write
+/// access there, snapshot integrity is moot anyway). Full OS sealing arrives
+/// at M-anchor-1.
 pub fn save_substrate_signing_key(
     seed: &[u8; 32],
     state_dir: &Path,
@@ -852,7 +862,74 @@ pub fn save_substrate_signing_key(
         f.sync_all()?;
     }
     fs::rename(&tmp_path, &final_path)?;
+    // M26.1 C6: harden permissions to 0600 on Unix immediately after rename.
+    // The rename target inherits the temp file's permissions, which on Unix
+    // are subject to the process umask — we cannot rely on umask being
+    // restrictive enough. Set explicitly. On Windows std::os::unix::fs is not
+    // available so the cfg gate compiles out; ACL hardening lands at M-anchor-1.
+    restrict_secret_file_permissions(&final_path)?;
     Ok(())
+}
+
+/// M26.1 C6 SECURITY FIX: harden the on-disk permissions of a substrate
+/// secret file to "owner read+write only" (`0600` on Unix). On Windows this
+/// is currently a no-op — Windows ACLs are inherited from the parent
+/// directory and full hardening requires the `windows` crate or a PowerShell
+/// shell-out, both of which are deferred to M-anchor-1.
+///
+/// Errors from the permission set are returned as `SubstrateError::Io` so the
+/// caller can surface them; the secret is still on disk (save_* persisted
+/// successfully before this call), so the caller MUST treat permission
+/// failures as a hard failure to avoid leaving a 0644-mode secret around.
+fn restrict_secret_file_permissions(path: &Path) -> Result<(), SubstrateError> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let perms = fs::Permissions::from_mode(0o600);
+        fs::set_permissions(path, perms).map_err(SubstrateError::Io)?;
+    }
+    #[cfg(not(unix))]
+    {
+        // Touch the path so the parameter is "used" on non-Unix builds
+        // (silences `unused_variables`); the actual ACL hardening on Windows
+        // is M-anchor-1 work. Pre-M-anchor-1 Windows substrates rely on the
+        // user-profile directory ACL inheritance for confidentiality.
+        let _ = path;
+    }
+    Ok(())
+}
+
+/// M26.1 C6 SECURITY FIX: check whether a secret file's permissions are
+/// loose (group/world bits set on Unix). Used at load-time to emit a
+/// `C4_substrate_secret_unsealed` immune sporocarp when the seed file was
+/// created by an older substrate version or had its mode manually relaxed.
+///
+/// Returns:
+/// - `Ok(true)` — permissions look fine (0600-equivalent on Unix; always
+///   true on Windows — Windows ACL inspection is M-anchor-1 work).
+/// - `Ok(false)` — Unix mode has any group/other bits set (caller emits
+///   C4 sporocarp + tightens permissions in-place if possible).
+/// - `Err(...)` — I/O error reading metadata.
+#[allow(dead_code)] // exported for callers in server.rs / persistence_runtime.rs
+pub fn substrate_secret_permissions_are_restrictive(
+    path: &Path,
+) -> Result<bool, SubstrateError> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let meta = fs::metadata(path).map_err(SubstrateError::Io)?;
+        let mode = meta.permissions().mode();
+        // Any bit in 0o077 = group or world access → loose.
+        Ok((mode & 0o077) == 0)
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = path;
+        // Windows: cannot cheaply inspect ACLs without the `windows` crate.
+        // Report restrictive to avoid spurious C4 sporocarps; doctrine debt
+        // tracked at M-anchor-1.
+        Ok(true)
+    }
 }
 
 /// M25.0: load the substrate's private signing seed from
@@ -863,9 +940,40 @@ pub fn save_substrate_signing_key(
 /// - `Ok(None)` — file missing OR version mismatch (caller treats as
 ///   "no key yet, must genesis"; see [`boot_or_genesis_substrate_signing_key`]).
 /// - `Err(...)` — I/O or canonical-bytes decode error.
+///
+/// M26.1 C6 SECURITY FIX: this loader does NOT inspect permissions — that's
+/// done by [`boot_or_genesis_substrate_signing_key`] via
+/// [`load_substrate_signing_key_with_permission_check`] so a loose-mode
+/// finding can be surfaced to ServerState's caller (which is the only site
+/// that holds the DAG handle and can emit a C4 immune sporocarp).
 pub fn load_substrate_signing_key(state_dir: &Path) -> Result<Option<[u8; 32]>, SubstrateError> {
+    Ok(load_substrate_signing_key_with_permission_check(state_dir)?.map(|(seed, _)| seed))
+}
+
+/// M26.1 C6 SECURITY FIX: extended loader that also reports whether the
+/// on-disk file had loose Unix permissions when it was opened. The
+/// permission status is checked BEFORE the contents are read, so even a
+/// malformed file's loose mode is reported.
+///
+/// Returns `Ok(Some((seed, was_restrictive)))` on success — the caller emits
+/// a `C4_substrate_secret_unsealed` immune sporocarp + tightens the mode
+/// in-place when `was_restrictive == false`. Returns `Ok(None)` for the
+/// usual "missing / version mismatch" path (no permission concern in that
+/// case — there's nothing on disk to be loose).
+pub fn load_substrate_signing_key_with_permission_check(
+    state_dir: &Path,
+) -> Result<Option<([u8; 32], bool)>, SubstrateError> {
     use myco_kernel_shared::canonical_bytes::{decode, Value};
     let path = state_dir.join(SUBSTRATE_SIGNING_KEY_FILENAME);
+    // M26.1 C6: probe permissions before reading. We MUST distinguish
+    // file-missing (caller's "fresh genesis" path) from permission-loose
+    // (caller emits C4 + tightens). The metadata call doubles as a
+    // file-presence check.
+    let was_restrictive = match fs::metadata(&path) {
+        Ok(_) => substrate_secret_permissions_are_restrictive(&path)?,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(e) => return Err(SubstrateError::Io(e)),
+    };
     let mut f = match fs::File::open(&path) {
         Ok(f) => f,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
@@ -892,7 +1000,22 @@ pub fn load_substrate_signing_key(state_dir: &Path) -> Result<Option<[u8; 32]>, 
     };
     let mut seed = [0u8; 32];
     seed.copy_from_slice(seed_bytes);
-    Ok(Some(seed))
+    Ok(Some((seed, was_restrictive)))
+}
+
+/// M26.1 C6 SECURITY FIX: tighten the substrate signing key file's
+/// permissions in-place to 0600 on Unix. Called by the boot path when
+/// [`load_substrate_signing_key_with_permission_check`] reports loose mode
+/// — repairs the gap going forward + the substrate keeps booting (interim
+/// behavior; long-term doctrine M-anchor-1 will surface a hard refusal).
+pub fn tighten_substrate_signing_key_permissions(
+    state_dir: &Path,
+) -> Result<(), SubstrateError> {
+    let path = state_dir.join(SUBSTRATE_SIGNING_KEY_FILENAME);
+    if !path.exists() {
+        return Ok(());
+    }
+    restrict_secret_file_permissions(&path)
 }
 
 /// M25.0: boot path helper — load the substrate's signing seed if persisted,
@@ -906,12 +1029,32 @@ pub fn load_substrate_signing_key(state_dir: &Path) -> Result<Option<[u8; 32]>, 
 pub fn boot_or_genesis_substrate_signing_key(
     state_dir: &Path,
 ) -> Result<[u8; 32], SubstrateError> {
-    if let Some(seed) = load_substrate_signing_key(state_dir)? {
-        return Ok(seed);
+    Ok(boot_or_genesis_substrate_signing_key_with_permission_status(state_dir)?.0)
+}
+
+/// M26.1 C6 SECURITY FIX: extended boot helper that ALSO reports whether the
+/// on-disk seed file (when it existed before this call) had restrictive
+/// permissions. The caller in `server.rs` uses this signal to emit a
+/// `C4_substrate_secret_unsealed` immune sporocarp on the DAG when the
+/// permission posture is loose — and immediately tightens the file in-place
+/// so the next boot won't re-emit.
+///
+/// Returns `(seed, was_restrictive_at_load_time)`. For the genesis path
+/// (fresh seed; file didn't exist) `was_restrictive_at_load_time` is `true`
+/// — `save_substrate_signing_key` immediately writes the file with 0600 on
+/// Unix, so there's no exposure window to report.
+pub fn boot_or_genesis_substrate_signing_key_with_permission_status(
+    state_dir: &Path,
+) -> Result<([u8; 32], bool), SubstrateError> {
+    if let Some((seed, was_restrictive)) =
+        load_substrate_signing_key_with_permission_check(state_dir)?
+    {
+        return Ok((seed, was_restrictive));
     }
     let seed = generate_substrate_signing_seed();
+    // M26.1 C6: save_substrate_signing_key now hardens to 0600 immediately.
     save_substrate_signing_key(&seed, state_dir)?;
-    Ok(seed)
+    Ok((seed, true))
 }
 
 /// M25.0: generate a fresh 32-byte signing seed.
@@ -1537,6 +1680,121 @@ mod tests {
         fs::write(dir.join(SNAPSHOT_FILENAME), legacy_bytes.as_ref()).unwrap();
         let loaded = load_snapshot(&dir).unwrap();
         assert!(loaded.is_none(), "legacy v1 snapshot must return None");
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    // -----------------------------------------------------------------------
+    // M26.1 C6 (Phase γ.2): substrate_signing_key.cb permission hardening.
+    //
+    // On Unix the seed file MUST be 0600 (owner read+write only). On Windows
+    // ACL hardening is M-anchor-1 work; the C6 tests assert restrictive ==
+    // true unconditionally there (no exposure surfaced via the metadata API).
+    // -----------------------------------------------------------------------
+
+    #[cfg(unix)]
+    #[test]
+    fn m26_1_c6_save_writes_seed_with_0600_mode() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = temp_state_dir();
+        let seed = [0x55u8; 32];
+        save_substrate_signing_key(&seed, &dir).unwrap();
+        let path = dir.join(SUBSTRATE_SIGNING_KEY_FILENAME);
+        let mode = fs::metadata(&path).unwrap().permissions().mode();
+        // Mask off the file-type bits — we only care about the perm bits.
+        let perm_bits = mode & 0o777;
+        assert_eq!(
+            perm_bits, 0o600,
+            "M26.1 C6: seed file must be 0600; got {:o}",
+            perm_bits
+        );
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn m26_1_c6_loose_mode_reported_by_permission_check() {
+        // Manually create a seed file with loose permissions, then verify the
+        // load-with-permission-check function reports `was_restrictive=false`.
+        use myco_kernel_shared::canonical_bytes::{encode, Value};
+        use std::os::unix::fs::PermissionsExt;
+        let dir = temp_state_dir();
+        let seed = [0x66u8; 32];
+        save_substrate_signing_key(&seed, &dir).unwrap();
+        let path = dir.join(SUBSTRATE_SIGNING_KEY_FILENAME);
+        // Manually loosen to 0644 (the pre-fix exposure class).
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o644)).unwrap();
+        let (loaded_seed, was_restrictive) =
+            load_substrate_signing_key_with_permission_check(&dir)
+                .unwrap()
+                .expect("seed file present");
+        assert_eq!(loaded_seed, seed);
+        assert!(
+            !was_restrictive,
+            "M26.1 C6: 0644-mode seed file must report was_restrictive=false"
+        );
+        // Encode used to keep the use statement non-dead in case other tests
+        // get removed; documents what the file shape is.
+        let _ = encode(&Value::Uint(0));
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn m26_1_c6_tighten_in_place_restores_0600() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = temp_state_dir();
+        let seed = [0x77u8; 32];
+        save_substrate_signing_key(&seed, &dir).unwrap();
+        let path = dir.join(SUBSTRATE_SIGNING_KEY_FILENAME);
+        // Loosen, then tighten.
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o666)).unwrap();
+        tighten_substrate_signing_key_permissions(&dir).unwrap();
+        let mode_after = fs::metadata(&path).unwrap().permissions().mode() & 0o777;
+        assert_eq!(
+            mode_after, 0o600,
+            "tighten must restore 0600; got {:o}",
+            mode_after
+        );
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn m26_1_c6_boot_helper_reports_loose_mode() {
+        // boot_or_genesis_substrate_signing_key_with_permission_status must
+        // bubble the loose-mode signal through to its caller (server.rs uses
+        // this to emit the C4 immune sporocarp).
+        use std::os::unix::fs::PermissionsExt;
+        let dir = temp_state_dir();
+        let seed = [0x88u8; 32];
+        save_substrate_signing_key(&seed, &dir).unwrap();
+        let path = dir.join(SUBSTRATE_SIGNING_KEY_FILENAME);
+        // Loosen permissions, simulating a pre-M26.1 substrate that wrote
+        // the seed before the C6 fix landed.
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o644)).unwrap();
+        let (loaded_seed, was_restrictive) =
+            boot_or_genesis_substrate_signing_key_with_permission_status(&dir).unwrap();
+        assert_eq!(loaded_seed, seed);
+        assert!(
+            !was_restrictive,
+            "boot helper must surface loose-mode signal to server.rs"
+        );
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn m26_1_c6_genesis_path_reports_restrictive() {
+        // On the genesis (fresh-seed) branch, the file is written by
+        // save_substrate_signing_key with 0600 from the start — the boot
+        // helper must report was_restrictive=true so no spurious C4
+        // sporocarp gets emitted.
+        let dir = temp_state_dir();
+        let (_seed, was_restrictive) =
+            boot_or_genesis_substrate_signing_key_with_permission_status(&dir).unwrap();
+        assert!(
+            was_restrictive,
+            "fresh genesis must report was_restrictive=true (no exposure window)"
+        );
         let _ = fs::remove_dir_all(&dir);
     }
 }

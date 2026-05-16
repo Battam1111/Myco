@@ -1290,7 +1290,12 @@ export function parseQuerySubstrateObservatoryResponse(
   }
 
   // Signal #8 (doctrine-instability burst) — substrate-private; preserved raw.
-  const s8 = response.payload.get("signal_8_doctrine_burst");
+  // M26.1 C1 fix: key is `signal_8_doctrine_revision_burst` to match
+  // L2_OBSERVABILITY §8 doctrine + Rust emission in
+  // myco_substrate::observatory. Prior code (`signal_8_doctrine_burst`)
+  // silently produced an undefined `signal8` field because the substrate
+  // emits the longer name.
+  const s8 = response.payload.get("signal_8_doctrine_revision_burst");
   if (s8 && s8.type === "map") {
     snap.signal8 = { raw: s8.value };
   }

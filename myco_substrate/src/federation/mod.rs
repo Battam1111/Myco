@@ -98,6 +98,28 @@ pub struct FederationState {
 
     /// Counter of total DAG events sent to peers (M22.3+).
     pub events_sent_total: u64,
+
+    /// M26.1 C5 SECURITY FIX (Phase γ.2): policy gate for pre-M25 peers that
+    /// present no Ed25519 signature in their FED_HELLO.
+    ///
+    /// **Default**: `false` — legacy hellos are REJECTED and trigger a
+    /// `C39_federation_hello_signature_invalid` immune sporocarp (sub-grade
+    /// "missing_required_signature"). Under the default policy, M25.4 mutual
+    /// auth has real defensive value: an attacker's optimal strategy was
+    /// "never sign" because legacy fall-through was always free — that
+    /// strategy is now closed.
+    ///
+    /// **Override**: set the `MYCO_ACCEPT_LEGACY_PEERS=1` environment variable
+    /// at substrate boot. When true, legacy hellos are pinned (TOFU only) and
+    /// `federation_legacy_peer_pinned` is emitted as observability (NOT an
+    /// immune sporocarp — legacy peers are explicitly allowed under this
+    /// policy). This is the transition-period flag; long-term doctrine
+    /// (L1_GOVERNANCE) expects CI-attested override rather than env var.
+    ///
+    /// Doctrine traceability: L0 §3 — "the substrate does not silently trust
+    /// either party"; Phase γ.2 audit finding "M25.4 mutual auth = 0 because
+    /// attacker omits signature".
+    pub accept_legacy_peers: bool,
 }
 
 /// Wrapper around a `TcpListener` carrying its bind address + open timestamp
@@ -115,6 +137,29 @@ pub struct FederationListener {
 }
 
 impl FederationState {
+    /// M26.1 C5: construct a `FederationState` with policy read from the
+    /// `MYCO_ACCEPT_LEGACY_PEERS` environment variable.
+    ///
+    /// Value handling:
+    /// - `"1"` / `"true"` / `"yes"` (case-insensitive) → accept_legacy_peers = true
+    /// - anything else (including unset) → false (default-deny per Phase γ.2)
+    ///
+    /// Use this at substrate boot in `ServerState::new`. Tests that need the
+    /// override-active behavior can also construct directly with
+    /// `FederationState { accept_legacy_peers: true, ..Default::default() }`.
+    pub fn new_with_env_policy() -> Self {
+        let accept_legacy = std::env::var("MYCO_ACCEPT_LEGACY_PEERS")
+            .map(|v| {
+                let trimmed = v.trim().to_ascii_lowercase();
+                trimmed == "1" || trimmed == "true" || trimmed == "yes"
+            })
+            .unwrap_or(false);
+        FederationState {
+            accept_legacy_peers: accept_legacy,
+            ..Default::default()
+        }
+    }
+
     /// Open a federation TCP listener on `addr`.
     ///
     /// Idempotent in the sense that an existing listener is dropped first.
@@ -228,11 +273,32 @@ impl FederationState {
 
         // M25.4: verify the peer's hello signature if present. Three outcomes:
         // - Ok(true): signature verified — pin signer_pubkey alongside id.
-        // - Ok(false): legacy peer (no signature) — fall through to TOFU-only
-        //   pinning; caller emits federation_legacy_peer_pinned observability.
+        // - Ok(false): legacy peer (no signature) — M26.1 C5 SECURITY FIX:
+        //   under default policy (`accept_legacy_peers=false`) this is REJECTED
+        //   with sub-grade `missing_required_signature`. Pre-fix, M25.4 mutual
+        //   auth had 0 defensive value because attackers could simply omit the
+        //   signature; Phase γ.2 audit closed that hole. Override via
+        //   `MYCO_ACCEPT_LEGACY_PEERS=1` for transition-period compatibility.
         // - Err: tampered signature — reject the connection.
         let signature_verified = match protocol::verify_fed_hello_signature(&parsed) {
-            Ok(v) => v,
+            Ok(true) => true,
+            Ok(false) => {
+                if self.accept_legacy_peers {
+                    // Legacy override active: fall through to TOFU-only pinning;
+                    // caller emits federation_legacy_peer_pinned observability.
+                    false
+                } else {
+                    // M26.1 C5: reject — peer omitted the required signature.
+                    transport::close_stream(&stream);
+                    return Ok(ConnectPeerOutcome::RejectedSignatureInvalid {
+                        peer_substrate_id: parsed.peer_substrate_id,
+                        remote_addr_str: peer_addr.to_string(),
+                        reason: "missing_required_signature: legacy hellos are \
+                                 rejected unless MYCO_ACCEPT_LEGACY_PEERS=1"
+                            .to_string(),
+                    });
+                }
+            }
             Err(reason) => {
                 transport::close_stream(&stream);
                 return Ok(ConnectPeerOutcome::RejectedSignatureInvalid {
@@ -434,8 +500,39 @@ impl FederationState {
             };
             // M25.4: verify the peer's hello signature when present. A tampered
             // signature is a hard reject (peer impersonation attempt).
+            // M26.1 C5 SECURITY FIX: a peer with NO signature is also a hard
+            // reject under the default policy (`accept_legacy_peers=false`).
+            // Pre-fix, M25.4 mutual auth was bypassable by omitting the
+            // signature — attacker's optimal strategy was "never sign".
+            // Override via `MYCO_ACCEPT_LEGACY_PEERS=1` env var for
+            // transition-period compatibility (legacy hellos then pin TOFU
+            // only + emit `federation_legacy_peer_pinned` observability).
             let signature_verified = match protocol::verify_fed_hello_signature(&parsed) {
-                Ok(v) => v,
+                Ok(true) => true,
+                Ok(false) => {
+                    if self.accept_legacy_peers {
+                        // Override active — proceed with TOFU-only pinning.
+                        false
+                    } else {
+                        let reason = "missing_required_signature: legacy hellos \
+                                      are rejected unless MYCO_ACCEPT_LEGACY_PEERS=1"
+                            .to_string();
+                        let _ = send_fed_error(
+                            &mut peer.stream,
+                            "hello_signature_invalid",
+                            &reason,
+                        );
+                        events.push(PollPeerEvent::RejectedSignatureInvalid {
+                            peer_substrate_id: parsed.peer_substrate_id,
+                            remote_addr_str: peer.remote_addr.to_string(),
+                            reason,
+                        });
+                        transport::close_stream(&peer.stream);
+                        peer.state = transport::PeerConnectionState::Failed;
+                        indices_to_remove.push(idx);
+                        continue;
+                    }
+                }
                 Err(reason) => {
                     let _ = send_fed_error(
                         &mut peer.stream,
@@ -952,5 +1049,67 @@ mod tests {
         assert_eq!(fed.peer_count(), 0);
         assert_eq!(fed.events_received_total, 0);
         assert_eq!(fed.events_sent_total, 0);
+    }
+
+    // ---------------------------------------------------------------------------
+    // M26.1 C5 (Phase γ.2): mandatory FED_HELLO signature policy.
+    //
+    // FederationState::default() must have accept_legacy_peers = false; the
+    // env-policy constructor reads MYCO_ACCEPT_LEGACY_PEERS. These tests are
+    // serial because they mutate the process environment.
+    // ---------------------------------------------------------------------------
+
+    /// Lock to serialize env-var manipulation across the C5 unit tests below.
+    /// Cargo test parallelism would otherwise race on `std::env::set_var`.
+    fn env_lock() -> std::sync::MutexGuard<'static, ()> {
+        use std::sync::{Mutex, OnceLock};
+        static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+        LOCK.get_or_init(|| Mutex::new(()))
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+    }
+
+    #[test]
+    fn m26_1_c5_default_rejects_legacy_peers() {
+        let _g = env_lock();
+        std::env::remove_var("MYCO_ACCEPT_LEGACY_PEERS");
+        let fed = FederationState::new_with_env_policy();
+        assert!(
+            !fed.accept_legacy_peers,
+            "M26.1 C5: default policy must reject legacy peers"
+        );
+    }
+
+    #[test]
+    fn m26_1_c5_env_var_1_enables_override() {
+        let _g = env_lock();
+        std::env::set_var("MYCO_ACCEPT_LEGACY_PEERS", "1");
+        let fed = FederationState::new_with_env_policy();
+        std::env::remove_var("MYCO_ACCEPT_LEGACY_PEERS");
+        assert!(
+            fed.accept_legacy_peers,
+            "MYCO_ACCEPT_LEGACY_PEERS=1 must enable override"
+        );
+    }
+
+    #[test]
+    fn m26_1_c5_env_var_true_enables_override() {
+        let _g = env_lock();
+        std::env::set_var("MYCO_ACCEPT_LEGACY_PEERS", "true");
+        let fed = FederationState::new_with_env_policy();
+        std::env::remove_var("MYCO_ACCEPT_LEGACY_PEERS");
+        assert!(fed.accept_legacy_peers);
+    }
+
+    #[test]
+    fn m26_1_c5_env_var_garbage_keeps_default_deny() {
+        let _g = env_lock();
+        std::env::set_var("MYCO_ACCEPT_LEGACY_PEERS", "no");
+        let fed = FederationState::new_with_env_policy();
+        std::env::remove_var("MYCO_ACCEPT_LEGACY_PEERS");
+        assert!(
+            !fed.accept_legacy_peers,
+            "non-truthy value must keep default-deny"
+        );
     }
 }

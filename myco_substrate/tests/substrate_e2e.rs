@@ -50,14 +50,25 @@ fn spawn_substrate() -> (BridgeClient, PathBuf) {
 }
 
 fn spawn_substrate_with_state_dir(state_dir: &std::path::Path) -> BridgeClient {
+    spawn_substrate_with_env(state_dir, vec![])
+}
+
+/// M26.1 C5: spawn helper allowing additional env vars (e.g.
+/// `MYCO_ACCEPT_LEGACY_PEERS=1`) on top of the always-set `MYCO_STATE_DIR`.
+fn spawn_substrate_with_env(
+    state_dir: &std::path::Path,
+    extra: Vec<(String, String)>,
+) -> BridgeClient {
     let substrate_binary = env!("CARGO_BIN_EXE_myco-substrate");
+    let mut extra_env = vec![(
+        "MYCO_STATE_DIR".to_string(),
+        state_dir.to_string_lossy().into_owned(),
+    )];
+    extra_env.extend(extra);
     BridgeClient::spawn_and_handshake(BridgeClientConfig {
         python_executable: substrate_binary.to_string(),
         session_secret: None,
-        extra_env: vec![(
-            "MYCO_STATE_DIR".to_string(),
-            state_dir.to_string_lossy().into_owned(),
-        )],
+        extra_env,
     })
     .expect("spawn myco-substrate binary")
 }
@@ -2132,17 +2143,22 @@ fn m25_3_emergent_weights_cold_start_returns_equal() {
         method, "equal_cold_start",
         "cold-start substrate must use equal weights; got {method}"
     );
-    let w1 = match s7.get("weight_signal_1_repr") {
+    // M26.1 C2 fix: weights are now nested under signal_7.weights Map.
+    let weights = match s7.get("weights") {
+        Some(CbValue::Map(m)) => m.clone(),
+        _ => panic!("signal_7.weights map missing"),
+    };
+    let w1 = match weights.get("signal_1") {
         Some(CbValue::String(s)) => s.parse::<f64>().expect("w1 parses"),
-        _ => panic!("weight_signal_1_repr missing"),
+        _ => panic!("weights.signal_1 missing"),
     };
-    let w2 = match s7.get("weight_signal_2_repr") {
+    let w2 = match weights.get("signal_2") {
         Some(CbValue::String(s)) => s.parse::<f64>().expect("w2 parses"),
-        _ => panic!("weight_signal_2_repr missing"),
+        _ => panic!("weights.signal_2 missing"),
     };
-    let w4b = match s7.get("weight_signal_4b_repr") {
+    let w4b = match weights.get("signal_4b") {
         Some(CbValue::String(s)) => s.parse::<f64>().expect("w4b parses"),
-        _ => panic!("weight_signal_4b_repr missing"),
+        _ => panic!("weights.signal_4b missing"),
     };
     let one_third = 1.0_f64 / 3.0;
     let eps = 1e-9;
@@ -2185,16 +2201,21 @@ fn m25_3_emergent_weights_after_history_become_emergent_or_degenerate() {
         method == "emergent_variance" || method == "equal_degenerate",
         "post-history weights must be emergent_variance or equal_degenerate; got {method}"
     );
-    // Weights must always sum to ~1.
-    let w1: f64 = match s7.get("weight_signal_1_repr") {
+    // Weights must always sum to ~1. M26.1 C2 fix: weights are now nested
+    // under signal_7.weights Map.
+    let weights = match s7.get("weights") {
+        Some(CbValue::Map(m)) => m.clone(),
+        _ => panic!("signal_7.weights map missing"),
+    };
+    let w1: f64 = match weights.get("signal_1") {
         Some(CbValue::String(s)) => s.parse().unwrap(),
         _ => panic!(),
     };
-    let w2: f64 = match s7.get("weight_signal_2_repr") {
+    let w2: f64 = match weights.get("signal_2") {
         Some(CbValue::String(s)) => s.parse().unwrap(),
         _ => panic!(),
     };
-    let w4b: f64 = match s7.get("weight_signal_4b_repr") {
+    let w4b: f64 = match weights.get("signal_4b") {
         Some(CbValue::String(s)) => s.parse().unwrap(),
         _ => panic!(),
     };
@@ -2324,9 +2345,11 @@ fn m25_1_doctrine_burst_detector_fires_on_excess_axis_registrations() {
         Some(CbValue::Bool(b)) => *b,
         _ => panic!("is_burst missing"),
     };
-    let ci_count = match s8.get("ci_events_recent_100_cycles") {
+    // M26.1 C3 fix: window switched from substrate-cycles to wall-clock 90d
+    // (L0 §7.4 + §13.1); the burst-count field renamed accordingly.
+    let ci_count = match s8.get("ci_events_in_burst_window") {
         Some(CbValue::Uint(n)) => *n,
-        _ => panic!("ci_events_recent_100_cycles missing"),
+        _ => panic!("ci_events_in_burst_window missing"),
     };
     let threshold = match s8.get("burst_threshold") {
         Some(CbValue::Uint(n)) => *n,
@@ -2338,7 +2361,7 @@ fn m25_1_doctrine_burst_detector_fires_on_excess_axis_registrations() {
     );
     assert!(
         is_burst,
-        "is_burst must be true when ci_events_recent_100_cycles ({ci_count}) > threshold ({threshold})"
+        "is_burst must be true when ci_events_in_burst_window ({ci_count}) > threshold ({threshold})"
     );
 
     // The handler MUST have emitted a C37 immune sporocarp.
@@ -2678,11 +2701,14 @@ fn m25_4_federation_hello_tampered_signature_rejected() {
 }
 
 #[test]
-fn m25_4_federation_hello_legacy_compat_no_signature() {
-    // Simulate a pre-M25 peer that sends a hello with no signature fields.
-    // A's autonomous tick should accept it (legacy compat), pin it, and emit
-    // a federation_legacy_peer_pinned observability event — NOT a C39
-    // immune sporocarp.
+fn m26_1_c5_legacy_hello_rejected_by_default() {
+    // M26.1 C5 SECURITY FIX (Phase γ.2): pre-M25 peer with no signature
+    // fields is REJECTED under the default policy (MYCO_ACCEPT_LEGACY_PEERS
+    // unset). The substrate must emit a C39 immune sporocarp with sub-grade
+    // `missing_required_signature` and the peer must NOT be pinned.
+    //
+    // Pre-fix behavior (M25.4 baseline): legacy peers were always accepted via
+    // TOFU, so attacker's optimal bypass was "never sign". That hole is closed.
     use myco_kernel_bridge::framing::write_frame;
     use myco_kernel_bridge::protocol::{encode_frame_body, Message};
     use myco_kernel_shared::canonical_bytes::Value as CbV;
@@ -2723,7 +2749,7 @@ fn m25_4_federation_hello_legacy_compat_no_signature() {
     // Wait for A's autonomous tick.
     std::thread::sleep(std::time::Duration::from_millis(1500));
 
-    // Verify peer is pinned.
+    // Verify peer is NOT pinned.
     let status = client_a
         .call(proto::FEDERATION_STATUS, build_payload(vec![]))
         .expect("status");
@@ -2731,9 +2757,108 @@ fn m25_4_federation_hello_legacy_compat_no_signature() {
         Some(CbValue::Uint(n)) => *n,
         _ => panic!("peer_count missing"),
     };
-    assert_eq!(peer_count, 1, "legacy hello (no signature) must still pin");
+    assert_eq!(
+        peer_count, 0,
+        "M26.1 C5: legacy hello must NOT pin under default policy"
+    );
 
-    // No C39 immune sporocarp should have been emitted.
+    // A C39 immune sporocarp MUST have been emitted with the new sub-grade.
+    let immune_resp = client_a
+        .call(proto::QUERY_IMMUNE_EVENTS, build_payload(vec![]))
+        .expect("query immune events");
+    let events = match immune_resp.payload.get("events") {
+        Some(CbValue::Array(a)) => a.clone(),
+        _ => panic!("events missing"),
+    };
+    let c39_with_subgrade = events.iter().any(|ev| match ev {
+        CbValue::Map(m) => {
+            let node_type_match = match m.get("node_type") {
+                Some(CbValue::String(s)) => s.contains("C39_federation_hello_signature_invalid"),
+                _ => false,
+            };
+            let evidence_match = match m.get("content_canonical_bytes") {
+                Some(CbValue::Bytes(b)) => {
+                    // The evidence field is part of the content map's canonical
+                    // bytes; we search for the "missing_required_signature"
+                    // sub-grade marker directly in the byte stream as a string.
+                    let needle = b"missing_required_signature";
+                    b.windows(needle.len()).any(|w| w == needle)
+                }
+                _ => false,
+            };
+            node_type_match && evidence_match
+        }
+        _ => false,
+    });
+    assert!(
+        c39_with_subgrade,
+        "M26.1 C5: legacy hello must emit C39 with `missing_required_signature` sub-grade; saw events: {:?}",
+        events
+    );
+    client_a.shutdown().expect("shutdown");
+}
+
+#[test]
+fn m26_1_c5_legacy_hello_accepted_with_env_override() {
+    // M26.1 C5 SECURITY FIX: when MYCO_ACCEPT_LEGACY_PEERS=1 is set, the
+    // pre-M25 legacy-pin path is restored. Peer is pinned via TOFU only,
+    // `federation_legacy_peer_pinned` observability event is emitted, and
+    // NO C39 immune sporocarp fires (legacy peers are explicitly allowed
+    // under this transition-period override).
+    use myco_kernel_bridge::framing::write_frame;
+    use myco_kernel_bridge::protocol::{encode_frame_body, Message};
+    use myco_kernel_shared::canonical_bytes::Value as CbV;
+    use std::collections::BTreeMap as BTM;
+
+    let dir_a = fresh_state_dir();
+    let mut client_a = spawn_substrate_with_env(
+        &dir_a,
+        vec![("MYCO_ACCEPT_LEGACY_PEERS".to_string(), "1".to_string())],
+    );
+    let open_resp = client_a
+        .call(
+            proto::FEDERATION_OPEN_LISTENER,
+            build_payload(vec![(
+                "bind_addr",
+                CbValue::String("127.0.0.1:0".to_string()),
+            )]),
+        )
+        .expect("A open listener");
+    let addr_a = match open_resp.payload.get("bind_addr") {
+        Some(CbValue::String(s)) => s.clone(),
+        _ => panic!("addr missing"),
+    };
+
+    use std::net::TcpStream;
+    let mut stream = TcpStream::connect(&addr_a).expect("dial");
+    let legacy_peer_id = [0x22u8; 32];
+    let mut payload = BTM::new();
+    payload.insert(
+        "peer_substrate_id".to_string(),
+        CbV::Bytes(legacy_peer_id.to_vec()),
+    );
+    payload.insert("protocol_version".to_string(), CbV::Uint(1));
+    let msg = Message::new("fed_hello", 1, payload);
+    use sha2::{Digest, Sha256};
+    let mut h = Sha256::new();
+    h.update(b"myco-federation-protocol-v1-bootstrap");
+    let bootstrap_arr: [u8; 32] = h.finalize().into();
+    let frame = encode_frame_body(&msg, &bootstrap_arr).expect("encode");
+    write_frame(&mut stream, &frame).expect("send legacy hello");
+    std::thread::sleep(std::time::Duration::from_millis(1500));
+
+    let status = client_a
+        .call(proto::FEDERATION_STATUS, build_payload(vec![]))
+        .expect("status");
+    let peer_count = match status.payload.get("peer_count") {
+        Some(CbValue::Uint(n)) => *n,
+        _ => panic!("peer_count missing"),
+    };
+    assert_eq!(
+        peer_count, 1,
+        "M26.1 C5: with MYCO_ACCEPT_LEGACY_PEERS=1, legacy hello must pin"
+    );
+
     let immune_resp = client_a
         .call(proto::QUERY_IMMUNE_EVENTS, build_payload(vec![]))
         .expect("query immune events");
@@ -2750,8 +2875,86 @@ fn m25_4_federation_hello_legacy_compat_no_signature() {
     });
     assert!(
         !has_c39,
-        "legacy hello must NOT trigger C39; saw events: {:?}",
+        "M26.1 C5 override: legacy hello with override active must NOT trigger C39; saw events: {:?}",
         events
     );
     client_a.shutdown().expect("shutdown");
+}
+
+// ---------------------------------------------------------------------------
+// M26.1 C6 (Phase γ.2): substrate_signing_key.cb permission hardening e2e.
+//
+// This e2e is Unix-only — Windows ACL hardening is M-anchor-1 work. It boots
+// a substrate (which writes the seed with 0600), kills it, manually relaxes
+// the seed file to 0644 to simulate a pre-M26.1 substrate, then re-boots
+// and verifies (a) the C4 immune sporocarp is emitted on the DAG, and (b)
+// the file's permissions get tightened back to 0600 in-place.
+// ---------------------------------------------------------------------------
+
+#[cfg(unix)]
+#[test]
+fn m26_1_c6_loose_seed_emits_c4_and_tightens() {
+    use std::os::unix::fs::PermissionsExt;
+    let dir = fresh_state_dir();
+    // First boot: substrate creates the seed file at 0600.
+    {
+        let mut client = spawn_substrate_with_state_dir(&dir);
+        // Drive a single round-trip so the substrate has finished its boot
+        // path (otherwise the seed file may not yet be persisted).
+        let _ = client
+            .call(proto::FEDERATION_STATUS, build_payload(vec![]))
+            .expect("status to warm boot path");
+        client.shutdown().expect("shutdown initial boot");
+    }
+    let seed_path = dir.join("substrate_signing_key.cb");
+    assert!(seed_path.exists(), "seed file must exist after first boot");
+    let initial_mode = std::fs::metadata(&seed_path)
+        .unwrap()
+        .permissions()
+        .mode()
+        & 0o777;
+    assert_eq!(
+        initial_mode, 0o600,
+        "M26.1 C6: initial save must write 0600; got {:o}",
+        initial_mode
+    );
+
+    // Simulate a pre-M26.1 substrate: relax the seed file to 0644.
+    std::fs::set_permissions(&seed_path, std::fs::Permissions::from_mode(0o644)).unwrap();
+
+    // Re-boot: the substrate's boot path must (1) detect loose mode,
+    // (2) emit C4 immune sporocarp, (3) tighten back to 0600 in-place.
+    let mut client = spawn_substrate_with_state_dir(&dir);
+    let immune_resp = client
+        .call(proto::QUERY_IMMUNE_EVENTS, build_payload(vec![]))
+        .expect("query immune events");
+    let events = match immune_resp.payload.get("events") {
+        Some(CbValue::Array(a)) => a.clone(),
+        _ => panic!("events missing"),
+    };
+    let has_c4 = events.iter().any(|ev| match ev {
+        CbValue::Map(m) => match m.get("node_type") {
+            Some(CbValue::String(s)) => s.contains("C4_substrate_secret_unsealed"),
+            _ => false,
+        },
+        _ => false,
+    });
+    assert!(
+        has_c4,
+        "M26.1 C6: re-boot with loose seed mode must emit C4; saw events: {:?}",
+        events
+    );
+    client.shutdown().expect("shutdown second boot");
+
+    // Verify mode was tightened back.
+    let tightened_mode = std::fs::metadata(&seed_path)
+        .unwrap()
+        .permissions()
+        .mode()
+        & 0o777;
+    assert_eq!(
+        tightened_mode, 0o600,
+        "M26.1 C6: boot must tighten loose seed file back to 0600; got {:o}",
+        tightened_mode
+    );
 }
