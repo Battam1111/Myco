@@ -1,6 +1,6 @@
 # L3 — Outline / Charter (implementation map)
 
-> **Status**: OUTLINE DRAFT 3 (2026-05-17, M27 R4 cleanup). Code organization L2 → L4. Normative for module boundaries / dependency direction / build order / test discipline; **language-agnostic**.
+> **Status**: OUTLINE DRAFT 3 (2026-05-17, M27 R5 cleanup). Code organization L2 → L4. Normative for module boundaries / dependency direction / build order / test discipline; **language-agnostic**.
 
 ---
 
@@ -19,7 +19,7 @@ L3 maps L1 mechanisms + L2 themes to code modules. Commits: module boundaries + 
 
 7 L1 mechanism docs → 7 substrate code modules; +1 shared crypto/canonical-bytes module; +owner-side `anchor_client` + per-LLM-host `operator_runtime` (out-of-band).
 
-### §2.1 Substrate-side
+**§2.1 Substrate-side**:
 
 | L3 module | L1 source | Responsibility |
 |---|---|---|
@@ -32,7 +32,7 @@ L3 maps L1 mechanisms + L2 themes to code modules. Commits: module boundaries + 
 | `kernel/hard_rules` | L1_HARD_RULES | Immune detection (C1-C20 + C30-C49 + F1-F25) |
 | `kernel/shared` | (cross-cut) | Crypto + canonical-bytes runtime + Merkle + sealed-derive |
 
-### §2.2 Non-substrate
+**§2.2 Non-substrate**:
 
 | L3 module | Role | Where |
 |---|---|---|

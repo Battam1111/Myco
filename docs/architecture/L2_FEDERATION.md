@@ -1,7 +1,7 @@
 # L2 — Federation Doctrine
 
-> **Status**: DRAFT 3 (2026-05-17, M27 R4 cleanup). M26-cascade for L0 DRAFT 9 SEALED.
-> **Scope**: inter-substrate cross-cut. Cross-cuts L0 P5/P8/P1.c/P9 + P15 (retracted from L0 per G-9.b) + L1_GOVERNANCE §4.3/§5 + L1_SCHEMA §3 + L1_SKIN §3.1 + I7 + I8.
+> **Status**: DRAFT 3 (2026-05-17, M27 R5 cleanup). M26-cascade for L0 DRAFT 9 SEALED.
+> **Scope**: inter-substrate cross-cut. Cross-cuts L0 P5/P8/P1.c/P9 + P15 + L1_GOVERNANCE §4.3/§5 + L1_SCHEMA §3 + L1_SKIN §3.1 + I7 + I8.
 
 ---
 
@@ -29,9 +29,9 @@ Each substrate has own `substrate-ID`, owner key history, DAG, P9 boundary. Spaw
 
 ## §4-§5. Spore + closure
 
-§4 spore-schema: **L1_SCHEMA §3.1 + §3.2** canonical field set; child starts with own genesis sporocarp; parent DAG records `federation_coupling` edge.
+§4 spore-schema: L1_SCHEMA §3.1 + §3.2 canonical field set; child starts with own genesis sporocarp; parent DAG records `federation_coupling` edge.
 
-§5 closure verification (I7): **L1_SCHEMA §3.3 + L1_GOVERNANCE §4.3** — parent static-schema validation → child I3 as first cycle → owner anchor co-sign. Failure aborts pre-`federation_coupling`; partials GC'd. Success emits `genesis_attested`. §5.1 immune-summary inheritance: unresolved CI-grade signals → child enters birth-period `quarantined` (prevents pathology laundering).
+§5 closure verification (I7): L1_SCHEMA §3.3 + L1_GOVERNANCE §4.3 — parent static-schema validation → child I3 as first cycle → owner anchor co-sign. Failure aborts pre-`federation_coupling`; partials GC'd. Success emits `genesis_attested`. §5.1 immune-summary inheritance: unresolved CI-grade signals → child enters birth-period `quarantined`.
 
 ---
 
@@ -40,19 +40,19 @@ Each substrate has own `substrate-ID`, owner key history, DAG, P9 boundary. Spaw
 - **§6.1 Discovery** — L1_GOVERNANCE §5.1: p2p / owner-attested list (default) / hub-and-spoke / hybrid.
 - **§6.2 Freshness** — L1_GOVERNANCE §5.2: L1-bounded window (default 90 active-operation days); past → `peer_attestation_stale`; past grace → `untrusted_federation`.
 - **§6.3 Aggregate re-attestation** — owner signs peer-set Merkle root + diff; O(1) owner, O(N) verification.
-- **§6.4 Non-transitivity** — A↔B + B↔C does NOT give A↔C; each pairwise requires owner attestation (L1_GOVERNANCE §5.4); P15 (§6.5) operates over shared claims, not chained trust.
+- **§6.4 Non-transitivity** — A↔B + B↔C does NOT give A↔C; each pairwise requires owner attestation; P15 (§6.5) operates over shared claims, not chained trust.
 
 ### §6.5 Population-level consensus floor (P15 landing per G-9.b/G-7.c)
 
-- **§6.5.a Activation** — BOTH peer-count ≥3 AND population-level claim (§6.5.b). 2→3 emits `consensus_floor_activated(peer_count, activation_cycle, peer_set_merkle_root)`; 3→2 emits `consensus_floor_deactivated` (in-flight → `population_consensus_pending` indefinitely; no retroactive pairwise). Bypass = `C49_consensus_floor_bypass`.
-- **§6.5.b Taxonomy** — three population-only claim classes: (1) peer revocation by another peer (≥2/3 quorum; accused cannot self-revoke); (2) universal-junk raw_material classification (population-wide spam fingerprint); (3) cross-substrate aggregate observability metrics (L2_OBSERVABILITY §9). Pairwise: peer freshness §6.2; per-peer P12; trust §6.4 non-transitive; per-peer owner revocation.
-- **§6.5.c-h Protocol** — PBFT Tendermint-style; see `algorithms/pbft_consensus_floor.md` for FT bound `f ≤ ⌊(N-1)/3⌋`, voting context `myco-population-vote-v1`, quorum-certificate schema, timeout/pending behavior, and composition with P1.c/P5/P6/P7/P11/P14/I7.
+- **§6.5.a Activation** — BOTH peer-count ≥3 AND population-level claim (§6.5.b). 2→3 emits `consensus_floor_activated(peer_count, activation_cycle, peer_set_merkle_root)`; 3→2 emits `consensus_floor_deactivated`. Bypass = `C49_consensus_floor_bypass`.
+- **§6.5.b Taxonomy** — three population-only claim classes: (1) peer revocation by another peer (≥2/3 quorum; accused cannot self-revoke); (2) universal-junk raw_material classification; (3) cross-substrate aggregate observability metrics (L2_OBSERVABILITY §9). Pairwise: freshness §6.2; per-peer P12; trust §6.4 non-transitive; per-peer owner revocation.
+- **§6.5.c-h Protocol** — PBFT Tendermint-style; see `algorithms/pbft_consensus_floor.md` for FT bound `f ≤ ⌊(N-1)/3⌋`, voting context `myco-population-vote-v1`, quorum-certificate schema, timeout/pending behavior, composition with P1.c/P5/P6/P7/P11/P14/I7.
 
 ---
 
 ## §7-§8. Event flow
 
-§7 egress (L1_SKIN §3.1 + L1_GOVERNANCE §5.3): per-emission freshness + non-revocation; per-peer-per-day rate-limit (spike → `federation_egress_saturation` covert-channel defense); canonical low-entropy serialization; `federation_coupling` DAG edges record `(peer_substrate_id, aggregate_reattestation_root_at_emission, peer_inclusion_merkle_path)` self-contained proof.
+§7 egress (L1_SKIN §3.1 + L1_GOVERNANCE §5.3): per-emission freshness + non-revocation; per-peer-per-day rate-limit (spike → `federation_egress_saturation`); canonical low-entropy serialization; `federation_coupling` DAG edges record `(peer_substrate_id, aggregate_reattestation_root_at_emission, peer_inclusion_merkle_path)` self-contained proof.
 
 §8 intake (L1_SKIN §2): envelope integrity + freshness + absorb as gradient delta; metabolism may fruit sporocarp with `federation_coupling` to source. Subject to P2 + I6. **Peer events MUST be wrapped per §9 before insertion** — SECURITY-CRITICAL.
 
@@ -64,7 +64,7 @@ Cascades L0 P1.c + P9 + I4: peer substrate-IDs DISTINCT carriers; peer DAGs DIST
 
 - **§9.1 Envelope** — wrapper `node_type = "federation_received:{peer_id_prefix}"` (first 8 hex bytes / 16 chars). Full field set + types + allowed/banned inner prefixes: `schemas/federation_received.json`.
 - **§9.2 Parent rule (security-critical)** — wrapper parent = THIS substrate's local DAG tip at ingest. NEVER peer parent_hashes. Preserves Merkle validity; peer chains never merge.
-- **§9.3 "I heard X say Y" semantics** — testimony, not adoption. Receiver MAY treat inner as `raw_material:` (P2 + I8); aggregate multi-peer same-content as P15 input.
+- **§9.3 Semantics** — "I heard X say Y" testimony, not adoption. Receiver MAY treat inner as `raw_material:` (P2 + I8); aggregate multi-peer same-content as P15 input.
 - **§9.4 Allowed inner prefixes** — enforced by `is_federation_safe_node_type` (`myco_substrate/src/federation/protocol.rs`); allowlist + banned set in `schemas/federation_received.json`. Banned → reject + `C35_federation_substrate_private_event_injection`.
 - **§9.5 Idempotency** — re-pull → identical wrapper (deterministic + canonical-bytes); content-hash idempotent.
 - **§9.6 Composition with §6.5** — P15 quorum cert crosses federation as `federation_received:{cert_origin_peer_prefix}`; receiver verifies embedded `peer_votes` using each peer's §10 pinned `signer_pubkey`. Quorum self-evidenced; wrapping = provenance, not authority.
@@ -73,12 +73,12 @@ Cascades L0 P1.c + P9 + I4: peer substrate-IDs DISTINCT carriers; peer DAGs DIST
 
 ## §10. Ed25519 FED_HELLO mutual auth (M25.4 sealed)
 
-Cascades L0 P9 (skin endpoint) + P1.c (distinct carriers; symmetric pinning) + §6.5.e (pinned `signer_pubkey` for population votes).
+Cascades L0 P9 + P1.c + §6.5.e (pinned `signer_pubkey` for population votes).
 
 - **§10.1 Context + signing input** — context `myco-fed-hello-v1`; signing input fields (canonical-bytes Map) + legacy-peer fallback + TOFU + tamper response in `schemas/fed_hello_signing.json`.
 - **§10.2 Pinning** — first FED_HELLO → pin `(peer_substrate_id, pinned_signer_pubkey, pinned_at_cycle)`; subsequent must match BOTH. Mismatch → reject + `C39_federation_hello_signature_invalid`.
 - **§10.3 Legacy peer** — pre-M25.4 fallback: substrate-ID-TOFU only; consensus-passive (counted in §6.5.d N; no votes); L1 deprecation horizon (seed 12 months) → `federation_legacy_peer_horizon_expired`.
-- **§10.4 Mutual asymmetry** — initiator → receiver verify → ACK signed → initiator verify. Either fail → BOTH emit C39. Closes pre-M25.4 origin-asymmetry where receiver-only TOFU let attacker first-connect under victim substrate-ID.
+- **§10.4 Mutual asymmetry** — initiator → receiver verify → ACK signed → initiator verify. Either fail → BOTH emit C39. Closes pre-M25.4 origin-asymmetry.
 
 ---
 
@@ -90,23 +90,14 @@ Cascades L0 P9 (skin endpoint) + P1.c (distinct carriers; symmetric pinning) + �
 
 ## §12-§14. Network shape + observability + limits
 
-§12 network shape: mycelial network = genealogy (P8 parent→child) + coupling (§9 peer-to-peer) + aggregation (hub from spokes) + consensus (§6.5 active). Doctrine: identity per-substrate (P1.c); trust pairwise below floor + population above; reproduction generation-bounded (I7); peer events wrapped (§9); recursive bounded (§11); FED_HELLO mutually authenticated (§10); independently mortal (P7); each Cultivar with own Cultivator (L0 §1.2/§1.4/§15).
+§12 network shape: mycelial network = genealogy (P8) + coupling (§9) + aggregation + consensus (§6.5). Doctrine: identity per-substrate (P1.c); trust pairwise below floor + population above; reproduction generation-bounded (I7); peer events wrapped (§9); recursive bounded (§11); FED_HELLO mutually authenticated (§10); independently mortal (P7).
 
-§13 observability — cross-ref **L2_OBSERVABILITY §10** for #4a/#4b. Federation-specific (not in 10-signal Living Bets): `consensus_participation_rate` (§6.5 active); `byzantine_witness_lag` (per-claim first-vote → quorum); `fork_resolution_latency` (first-dissenting → cert/pending); `federation_legacy_peer_count` (M25.4; → 0 post-horizon); `federation_hello_signature_burst` (persistent C39); `federation_peer_recursive_attack_burst` (persistent C35/C43; §11); `federation_received_event_count`. Consensus signals NULL until §6.5 active; legacy nonzero only during M25.4 transition.
+§13 observability — see **L2_OBSERVABILITY §10** for #4a/#4b. Federation-specific: `consensus_participation_rate`; `byzantine_witness_lag`; `fork_resolution_latency`; `federation_legacy_peer_count`; `federation_hello_signature_burst`; `federation_peer_recursive_attack_burst`; `federation_received_event_count`. Consensus signals NULL until §6.5 active.
 
-§14 limits — peer-compromise detection: freshness catches staleness; subtler drift needs owner-monitoring OR §6.5 ≥2/3 revocation. Content canonical-bytes verifiable; semantics not validatable beyond §9.4 allowlist + §11 recursive validation. Cross-substrate trust non-transitive (feature). Wrapped-events one-way receiver-protective. FED_HELLO protects identity asymmetry, NOT key compromise. Consensus floor adds safety not liveness; partition → `population_consensus_pending` indefinitely.
+§14 limits — peer-compromise detection: freshness catches staleness; subtler drift needs owner-monitoring OR §6.5 ≥2/3 revocation. Cross-substrate trust non-transitive. Wrapped-events one-way receiver-protective. FED_HELLO protects identity asymmetry, NOT key compromise. Consensus floor adds safety not liveness; partition → `population_consensus_pending` indefinitely.
 
 ---
 
 ## §15. Glossary
 
-See **L0 §12** for Cultivator/Cultivar/Cultivation. Federation-specific:
-
-- **federation_received** (§9; M25.4): wrapper prefix; schema `schemas/federation_received.json`.
-- **wrapped-events** (§9): peer events parented to receiver's local DAG tip; "I heard X say Y".
-- **recursive injection defense** (§11): bounded-depth inner validation (seed 5); `algorithms/federation_recursive_validation.md`.
-- **population-level claim** (§6.5.b): claim requiring BFT agreement.
-- **consensus floor** (§6.5): ≥3 peers + population claim; PBFT-style; `algorithms/pbft_consensus_floor.md`.
-- **quorum certificate** (§6.5.f): self-verifying DAG event with embedded signed votes.
-- **legacy peer** (§10.3): FED_HELLO without `signer_pubkey`; consensus-passive; L1-horizon deprecation.
-- **TOFU**: M25.4 pins `(substrate_id, signer_pubkey)` jointly.
+Base terms at L0 §12; federation-specific defined inline at §9/§10/§11/§6.5.

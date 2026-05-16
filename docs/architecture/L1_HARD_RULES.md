@@ -1,6 +1,6 @@
 # L1 — Hard Rules (cross-cuts index)
 
-> **Status**: DRAFT 2. Tier-2 SSoT cross-cuts index over L1_SKIN/L1_CONTINUITY/L1_GOVERNANCE/L1_SCHEMA/L1_TROPISM/L1_TRAJECTORY. Every row cites ≥1 P (P1-P11, P14) AND ≥1 I (I1-I10, I12).
+> **Status**: DRAFT 2. Tier-2 SSoT cross-cuts index over L1_SKIN/L1_CONTINUITY/L1_GOVERNANCE/L1_SCHEMA/L1_TROPISM/L1_TRAJECTORY. Every row cites ≥1 P + ≥1 I.
 
 ---
 
@@ -8,77 +8,73 @@
 
 CRITICAL breach MUST immediately transition substrate to `alive::quarantined` (L1_CONTINUITY §5) + emit named immune sporocarp; resumption REQUIRES Cultivator-attested `quarantine_clearance`.
 
-### §1.1 L1 spec catalog rows (C1-C20)
-
-Status key: **L** live (emitted with label); **U** unimplemented; **R** reserved.
+### §1.1 L1 spec catalog rows (C1-C20); status key: **L** live / **U** unimplemented / **R** reserved
 
 | # | Breach name | Detection site | Detection mechanism | L0 trace | I trace | Status |
 |---|---|---|---|---|---|---|
 | C1 | `appetite_locality_breach` | L1_SKIN §5 | Network-egress outside declared output endpoints | P2.a, P9 | I6, I8 | **U** |
 | C2 | `output_endpoint_breach` | L1_SKIN §3 + §6 | Output to non-declared endpoint | P9.a, P2.a | I8, I6 | **R** |
 | C3 | `post_handshake_ci_unattested` | L1_SKIN §4.3 | CI during post-handshake quarantine without fresh attestation | P1.b'' | I2, I8 | **U** |
-| C4 | `substrate_secret_unsealed` | L1_SKIN §4.2 | substrate_secret in process address space (not OS-sealed) | P1.c, P1.a | I1 | **U** |
-| C5 | `attestation_invalid` | L1_GOVERNANCE §2.3 | Signature fails OR nonce reuse OR dual-clock expiry mismatch | P1.b'' | I2 | **L** |
-| C6 | `dag_enumeration_unclosed` | L1_SCHEMA §2.2 | Enumerated DAG-node parent-hash fails closure check | P6, P3 | I4 | **L** |
+| C4 | `substrate_secret_unsealed` | L1_SKIN §4.2 | substrate_secret in process address space | P1.c, P1.a | I1 | **U** |
+| C5 | `attestation_invalid` | L1_GOVERNANCE §2.3 | Signature fails OR nonce reuse OR dual-clock expiry | P1.b'' | I2 | **L** |
+| C6 | `dag_enumeration_unclosed` | L1_SCHEMA §2.2 | Enumerated DAG-node parent-hash fails closure | P6, P3 | I4 | **L** |
 | C7 | `dag_retro_edit_detected` | L1_SCHEMA §2.1 | Merkle DAG node hash mismatch on re-computation | P6 | I4 | **L** |
-| C8 | `ssot_migration_phase_skip` | L1_SCHEMA §1.3 | Single-step SSoT migration without ≥M-cycle dual-validation | P3 | I3 | **U** |
+| C8 | `ssot_migration_phase_skip` | L1_SCHEMA §1.3 | Single-step SSoT migration without dual-validation | P3 | I3 | **U** |
 | C9 | `cold_resume_invariant_failure` | L1_CONTINUITY §3.1 | I1/I3/I4/I5/I8/I9/I10 pre-handshake re-derivation fails | P1.c, P3, P9 | I3, I4, I5, I8, I9, I10 | **L** |
-| C10 | `agent_discriminating_attribute_persisted` | L1_SCHEMA §3.1 + L1_SKIN §4.2 | Persistent model-name / API-fingerprint / host-fingerprint / operator-token | P1.c | I1 | **U** |
-| C11 | `concurrent_operator_persistent` | L1_SKIN §4.4 | Two operator-tokens simultaneously valid beyond FIFO serialization | P1.c | I8 | **U** |
-| C12 | `successor_activation_with_fresh_owner_heartbeat` | L1_GOVERNANCE §3.2 | Successor activation while heartbeat fresh at anchor | P1.b'' | I1, I2 | **R** |
+| C10 | `agent_discriminating_attribute_persisted` | L1_SCHEMA §3.1 + L1_SKIN §4.2 | Persistent model-name / API-fingerprint / operator-token | P1.c | I1 | **U** |
+| C11 | `concurrent_operator_persistent` | L1_SKIN §4.4 | Two operator-tokens simultaneously valid beyond FIFO | P1.c | I8 | **U** |
+| C12 | `successor_activation_with_fresh_owner_heartbeat` | L1_GOVERNANCE §3.2 | Successor activation while heartbeat fresh | P1.b'' | I1, I2 | **R** |
 | C13 | `peer_attestation_revoked_egress` | L1_GOVERNANCE §5 + L1_SKIN §3.1 | Egress to peer on anchor revocation list | P8 | I7 | **U** |
 | C14 | `untyped_mutation` | L1_GOVERNANCE §1.1 | I2 classifier returns `untyped` | P1.b'/P1.b'' | I2 | **L** |
-| C15 | `classifier_fixed_point_bypass` | L1_GOVERNANCE §1.2 | Mutation of classifier table/function via non-CI path | P1.b'' | I2 | **U** |
-| C16 | `mortality_signal_suppression` | L1_GOVERNANCE §4.4 + L1_TROPISM §B2 | Mortality-signal threshold/update-rule mutated via non-CI | P7 | I1, I2 | **U** |
+| C15 | `classifier_fixed_point_bypass` | L1_GOVERNANCE §1.2 | Mutation of classifier table/function via non-CI | P1.b'' | I2 | **U** |
+| C16 | `mortality_signal_suppression` | L1_GOVERNANCE §4.4 + L1_TROPISM §B2 | Mortality threshold/update-rule mutated via non-CI | P7 | I1, I2 | **U** |
 | C17 | `operator_witness_forgery` | L1_GOVERNANCE §2.2 | `operator_witness` does not verify against logged handshake pubkey | P1.c | I1, I2 | **L** |
-| C18 | `canonical_bytes_render_drift` | L0 §9.3.1 + §9.3.2 | Anchor-client render's canonical hash diverges from substrate's signed hash | P1.b'' | I2 | **L** |
-| C19 | `paused_dormancy_unsafe_host` | L1_CONTINUITY §2.4 + §3.2 | Process terminated (not suspended) during paused dormancy | P7, P1.c | I1 | **R** |
-| C20 | `genesis_attestation_chain_broken` | L1_GOVERNANCE §4.1 + L0 §9.2.1 | Substrate-ID's birth attestation signature does not verify | P1.a | I1 | **R** |
+| C18 | `canonical_bytes_render_drift` | L0 §9.3.1 + §9.3.2 | Anchor-client render hash diverges from substrate signed hash | P1.b'' | I2 | **L** |
+| C19 | `paused_dormancy_unsafe_host` | L1_CONTINUITY §2.4 + §3.2 | Process terminated during paused dormancy | P7, P1.c | I1 | **R** |
+| C20 | `genesis_attestation_chain_broken` | L1_GOVERNANCE §4.1 + L0 §9.2.1 | Substrate-ID birth attestation does not verify | P1.a | I1 | **R** |
 
-Rows INDEPENDENT — none silently downgradeable (I2 fixed-point). **Coverage**: 7/20 EMITTED (C5/C6/C7/C9/C14/C17/C18).
+**Coverage**: 7/20 EMITTED (C5/C6/C7/C9/C14/C17/C18). Rows INDEPENDENT (I2 fixed-point).
 
-### §1.2 Substrate-private catalog rows (C30+)
-Substrate-correctness detectors outside L1 spec occupy C30+; C21-C29 reserved for catalog extension.
+### §1.2 Substrate-private catalog rows (C30+); C21-C29 reserved
 
-| # | Breach name | Detection site | Detection mechanism | L0 trace | I trace | Status / Provenance |
-|---|---|---|---|---|---|---|
-| C30 | `handshake_pubkey_mismatch` | L1_SKIN §4.1 | Operator pubkey differs from pinned | P1.c | I1, I8 | **L** |
-| C31 | `cycle_step_failed` | L1_CONTINUITY §1.1 | Metabolic-cycle step raises uncaught error | P3, P6 | I3, I4 | **L** |
-| C32 | `substrate_state_orphan_detected` | L1_SCHEMA §2.5 | DAG-tip references node not stored | P5 | I4, I5 | **L** |
-| C33 | `federation_peer_identity_mismatch` | L2_FEDERATION §6 + L1_SKIN §3 | Peer substrate_id differs from pin | P8 | I7 | **L** |
-| C34 | `birth_period_violation_during_quarantine` | L1_TROPISM §4 + L1_CONTINUITY §5 | Sporocarp / CI mutation accepted while in birth period AND quarantine | P1.b'', P7 | I2 | **L** |
-| C35 | `federation_substrate_private_event_injection` | L2_FEDERATION §6 + L1_SKIN §3 | Peer injects substrate-private event type (allowlist breach) | P8, P1.c | I7, I8 | **L** |
-| C36 | `cycle_backlog` | L1_CONTINUITY §1.2 | Cycle ≥5s OR backlog ≥10 in mpsc bus | P11 | I10 | **L** |
-| C37 | `doctrine_instability_burst` | L1_GOVERNANCE §6 + L0 §9.4 + L2_OBSERVABILITY §8 | >10 CI events in rolling 100-cycle window | P3 | I2, I4 | **L** |
-| C38 | `snapshot_integrity_violation` | L1_SCHEMA §4 | `snapshot.cb` Ed25519 verification fails OR signer_pubkey not in `owner_key_history` active-prefix | P1.c, P6 | I1, I4 | **L** |
-| C39 | `federation_hello_signature_invalid` | L2_FEDERATION §6 + §6.2 | Peer HELLO Ed25519 signature over substrate_id fails | P8, P1.c | I7 | **L** |
-| C40 | `bet_weakening_quorum` | L0 §7.4 + L2_OBSERVABILITY §3 | Falsifiability quorum predicate fires (algorithm: `docs/architecture/algorithms/bet_weakening_quorum.md`) | P14 | I12 | **L** |
-| C41 | `dag_cb_integrity_violation` | L1_SCHEMA §2.1 + L0 §9.4 | `dag.cb` wrapper integrity check fails | P1.c, P6, P10 | I4, I9 | **U** |
-| C42 | `manifest_cb_integrity_violation` | L1_SCHEMA §4 | `manifest.cb` content-hash inconsistent OR signature missing | P1.c, P6 | I1, I4 | **U** |
-| C43 | `federation_recursive_injection` | L2_FEDERATION §6 + L1_SKIN §3 | Peer wrapped event whose inner prefix matches another `federation_received:` prefix | P8, P1.c | I7, I8 | **U** |
-| C44 | `nonce_substrate_minted_replay` | L1_GOVERNANCE §2.2 + L0 §9.2.5 | Substrate-minted nonce reused across attestations within TTL | P1.b'' | I2 | **U** |
-| C45 | `substrate_id_low_entropy_collision` | L1_GOVERNANCE §4.1 + L0 §9.2.1 | Genesis produces substrate_id with Shannon entropy < L1-tunable floor | P1.a | I1 | **U** |
-| C46 | `owner_succession_bypass` | L1_GOVERNANCE §3.2 | Transition to `alive::normal` via succession without valid `succession_acceptance_attestation` | P1.b'', P7 | I1, I2 | **U** |
-| C47 | `generation_depth_exceeded` | L1_GOVERNANCE §16.A | `sprout_child` past `reproduction_lineage_depth` max without override | P8 | I7 | **U** |
-| C48 | `reproduction_rate_exceeded` | L1_GOVERNANCE §16.B | `sprout_child` within `reproduction_rate` window | P8 | I7 | **U** |
-| C49 | `consensus_floor_bypass` | L2_FEDERATION §6.5 | Population-level claim accepted without ≥3-peer Byzantine consensus | P8, P15 | I7 | **U** |
-| C50 | `coerced_owner_suspected` | L2_TRUST_MODEL §10.A.2 | Adversarial-Cultivator heuristic positive | P1.b'' | I1, I2 | **U** |
-| C51 | `compression_invariant_corruption` | L1_SCHEMA §2.5 | Compression event violates P10.b invariant set | P10 | I9 | **U** |
-| C52 | `compression_uncattested` | L1_SCHEMA §2.5 + P10.c | Compression event fires without owner attestation | P10 | I9 | **U** |
-| C53 | `budget_exhausted_silent` | L1_SCHEMA §4.1 | Cost-budget threshold reached without `budget_exhausted:{axis}` | P11 | I10 | **U** |
-| C54 | *(reserved for L1_TROPISM C23/C24 promotion)* | — | — | — | — | **R** |
+| # | Breach name | Detection site | L0 trace | I trace | Status |
+|---|---|---|---|---|---|
+| C30 | `handshake_pubkey_mismatch` | L1_SKIN §4.1 | P1.c | I1, I8 | **L** |
+| C31 | `cycle_step_failed` | L1_CONTINUITY §1.1 | P3, P6 | I3, I4 | **L** |
+| C32 | `substrate_state_orphan_detected` | L1_SCHEMA §2.5 | P5 | I4, I5 | **L** |
+| C33 | `federation_peer_identity_mismatch` | L2_FEDERATION §6 + L1_SKIN §3 | P8 | I7 | **L** |
+| C34 | `birth_period_violation_during_quarantine` | L1_TROPISM §4 + L1_CONTINUITY §5 | P1.b'', P7 | I2 | **L** |
+| C35 | `federation_substrate_private_event_injection` | L2_FEDERATION §6 + L1_SKIN §3 | P8, P1.c | I7, I8 | **L** |
+| C36 | `cycle_backlog` | L1_CONTINUITY §1.2 | P11 | I10 | **L** |
+| C37 | `doctrine_instability_burst` | L1_GOVERNANCE §6 + L0 §9.4 + L2_OBSERVABILITY §8 | P3 | I2, I4 | **L** |
+| C38 | `snapshot_integrity_violation` | L1_SCHEMA §4 | P1.c, P6 | I1, I4 | **L** |
+| C39 | `federation_hello_signature_invalid` | L2_FEDERATION §6 + §6.2 | P8, P1.c | I7 | **L** |
+| C40 | `bet_weakening_quorum` | L0 §7.4 + L2_OBSERVABILITY §3 | P14 | I12 | **L** |
+| C41 | `dag_cb_integrity_violation` | L1_SCHEMA §2.1 + L0 §9.4 | P1.c, P6, P10 | I4, I9 | **U** |
+| C42 | `manifest_cb_integrity_violation` | L1_SCHEMA §4 | P1.c, P6 | I1, I4 | **U** |
+| C43 | `federation_recursive_injection` | L2_FEDERATION §6 + L1_SKIN §3 | P8, P1.c | I7, I8 | **U** |
+| C44 | `nonce_substrate_minted_replay` | L1_GOVERNANCE §2.2 + L0 §9.2.5 | P1.b'' | I2 | **U** |
+| C45 | `substrate_id_low_entropy_collision` | L1_GOVERNANCE §4.1 + L0 §9.2.1 | P1.a | I1 | **U** |
+| C46 | `owner_succession_bypass` | L1_GOVERNANCE §3.2 | P1.b'', P7 | I1, I2 | **U** |
+| C47 | `generation_depth_exceeded` | L1_GOVERNANCE §16.A | P8 | I7 | **U** |
+| C48 | `reproduction_rate_exceeded` | L1_GOVERNANCE §16.B | P8 | I7 | **U** |
+| C49 | `consensus_floor_bypass` | L2_FEDERATION §6.5 | P8, P15 | I7 | **U** |
+| C50 | `coerced_owner_suspected` | L2_TRUST_MODEL §10.A.2 | P1.b'' | I1, I2 | **U** |
+| C51 | `compression_invariant_corruption` | L1_SCHEMA §2.5 | P10 | I9 | **U** |
+| C52 | `compression_uncattested` | L1_SCHEMA §2.5 + P10.c | P10 | I9 | **U** |
+| C53 | `budget_exhausted_silent` | L1_SCHEMA §4.1 | P11 | I10 | **U** |
 
 **Coverage**: C30-C40 EMITTED (11); C41-C53 deferred.
 
 ### §1.3 Bet-retirement sporocarp
-C40 = trigger arc for L0 §7.5 bet retirement; NOT CRITICAL — CI lifecycle parallel to `self_euthanasia_executed`.
+C40 = trigger arc for L0 §7.5; NOT CRITICAL — CI lifecycle parallel to `self_euthanasia_executed`.
 
 ## §2. Contract-identity fixed points (unconditionally CI)
-L0-doctrinal; CI status unconditional, NOT subject to classifier-table mutation; mutation REQUIRES anchor-surface owner attestation per L1_GOVERNANCE §2.2 (canonical bytes + operator_witness + anchor nonce + dual-clock + DAG-enumeration closure).
+L0-doctrinal; CI status unconditional; mutation REQUIRES anchor-surface owner attestation per L1_GOVERNANCE §2.2.
 
 | # | Fixed-point | Defined at | L0 trace | I trace |
 |---|---|---|---|---|
-| F1 | Classifier dimension table + classifier function | L1_GOVERNANCE §1.2 | P1.b'' | I2 |
+| F1 | Classifier dimension table + function | L1_GOVERNANCE §1.2 | P1.b'' | I2 |
 | F2 | `substrate-ID` (immutable post-genesis) | L1_GOVERNANCE §4.1 | P1.a, P1.c | I1 |
 | F3 | `owner_key_history` (active-prefix + archived-tail) | L1_GOVERNANCE §3.1 | P1.b'', P1.c | I1 |
 | F4 | `anchor_surface_endpoint_public_key` | L1_GOVERNANCE §4.1 | P1.b'' | I2, I8 |
@@ -86,13 +82,13 @@ L0-doctrinal; CI status unconditional, NOT subject to classifier-table mutation;
 | F6 | `anchor_client_provenance_attestation` | L0 §9.3.3 | P1.b'' | I2 |
 | F7 | Mortality-signal threshold + update-rule + emergence-rule | L1_GOVERNANCE §1.2 | P7 | I1 |
 | F8 | SSoT designation | L1_SCHEMA §1.2 | P3 | I3 |
-| F9 | DAG retention policy (P10.b invariant set; cold-tier CI) | L1_SCHEMA §2.5 | P6, P10 | I4, I9 |
+| F9 | DAG retention policy (P10.b invariant set) | L1_SCHEMA §2.5 | P6, P10 | I4, I9 |
 | F10 | Storage tier exemption from I5 reachability | L1_SCHEMA §2.3 | P5 | I5 |
 | F11 | Skin surface declaration | L1_SKIN §1 | P9 | I8 |
 | F12 | Appetite-axis schema + sporocarp-type tree | L1_GOVERNANCE §1.2 | P3 | I2 |
 | F13 | Threshold_emergence_rule (any axis) | L1_GOVERNANCE §1.2 | P3 | I2 |
 | F14 | Federation peer attestation list (+revocations) | L1_GOVERNANCE §5 | P8 | I7 |
-| F15 | `template_version_registry` (active-prefix + archived-tail) | L1_TROPISM §B1 | P3, P6 | I2, I4 |
+| F15 | `template_version_registry` (active + archived) | L1_TROPISM §B1 | P3, P6 | I2, I4 |
 | F16 | `canonical_bytes_serializer_spec` | L1_SCHEMA §3.1, §4.1 | P1.c, P6 | I1, I3, I4 |
 | F17 | `cluster_C` (L1_TRAJECTORY clustering) | L1_TRAJECTORY §4 | P6 | I4 |
 | F18 | Selective compression rule set | L1_GOVERNANCE §15.F18 | P10 | I9 |
@@ -105,19 +101,11 @@ L0-doctrinal; CI status unconditional, NOT subject to classifier-table mutation;
 | F25 | Salience-emergence rule | L1_TROPISM §E.4 + L1_GOVERNANCE §15.F25 | P12 | I2 |
 
 ## §3. Birth-period CI elevation
-Cross-ref L1_GOVERNANCE §1.3 (ALL parameter-tuning events CI during birth period) + L0 §7.4.e (C40 + P14.c SUSPENDED → `bet_weakening_evaluation_suspended` / `telos_alignment_pending`).
+Cross-ref L1_GOVERNANCE §1.3 (ALL parameter-tuning CI) + L0 §7.4.e (C40 + P14.c SUSPENDED).
 
 ## §4. Anchor-surface-resident state (substrate cannot author)
 
-Exclusively owner-controlled at anchor, mapped to L0 §9.2; substrate-side forge/shadow-mirror attempt MUST be `untyped` (C14), rejected at skin.
+Exclusively owner-controlled; substrate-side forge attempt MUST be `untyped` (C14). Covers: anchor nonces + consumed-nonce log (§9.2.5); trusted wall-clock (§9.2.6); liveness heartbeat (§9.2.7); key-rotation cooldown veto (L1_GOVERNANCE §3.1); successor attestations + revocations (§3.2 + F21); final-seal (§4.4); anchor-client provenance (§9.3.3); peer revocation list + aggregate-reattestation Merkle commitments (§5.2); L0/L1 revision diff records (§9.2.4); DAG-tip co-signing logs with enumerated nodes (§9.2.2); substrate-ID birth attestation (§9.2.1); generation-counter ceiling (F22).
 
-- Anchor-generated nonces + consumed-nonce log (§9.2.5); anchor trusted wall-clock (§9.2.6); owner-liveness heartbeat (§9.2.7).
-- Owner-key rotation cooldown veto window (L1_GOVERNANCE §3.1); `successor_attestation` records + revocations (§3.2 + F21); `anchor_surface_final_seal` (§4.4).
-- Anchor client provenance attestation (§9.3.3); federation peer revocation list (L1_GOVERNANCE §5); aggregate-reattestation peer-set Merkle commitments (§5.2).
-- L0/L1 revision diff records (§9.2.4; feeds C37); DAG-tip co-signing logs with enumerated nodes (§9.2.2); substrate-ID birth attestation (§9.2.1); generation-counter ceiling (F22; L0 §16).
-
-## §5. Cross-doc consistency
-This doc is tier-2 SSoT (citation only, no normative content); drift MUST resolve to source L1 doc as canonical; updates atomically with source attestation events.
-
-## §6. Glossary
-Cross-ref L0 §12 (Cultivation/Cultivator/Cultivar/anchor-surface/etc.); status keys defined inline at §1.1; compression-invariant set definition at L0 P10.b + F18.
+## §5-§6. Consistency + glossary
+Tier-2 SSoT (citation-only); drift resolves to source L1 doc as canonical. Base terms at L0 §12; status keys at §1.1; compression-invariant set at L0 P10.b + F18.

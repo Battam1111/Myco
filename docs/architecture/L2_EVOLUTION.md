@@ -1,6 +1,6 @@
 # L2 — Evolution Doctrine
 
-> **Status**: DRAFT 3 (2026-05-17, M27 R4 cleanup). Cross-cuts L0 P3 + L1_GOVERNANCE §1.3/§6 + L1_SCHEMA §1.3/§4.2 + L1_TROPISM §B1 + L1_TRAJECTORY §5 + L0 §10.2.
+> **Status**: DRAFT 3 (2026-05-17, M27 R5 cleanup). Cross-cuts L0 P3 + L1_GOVERNANCE §1.3/§6 + L1_SCHEMA §1.3/§4.2 + L1_TROPISM §B1 + L1_TRAJECTORY §5 + L0 §10.2.
 
 ---
 
@@ -21,7 +21,7 @@ Five classes of mutable substrate state; unifying principle **P3 — substrate's
 ## §2. Evolution invariants
 
 - **§2.1 Causal traceability (I4)**: every event DAG-recorded; pre-evolution state retained (L1_SCHEMA §2.3 cold-tier); post-evolution references prior; Merkle proves legitimacy.
-- **§2.2 Failure rollback (P3)** (L0 P3 + L1_GOVERNANCE §6): I3-inconsistent → pre-evolution snapshot; recorded `evolution_failed` (CI-elevated, ungated); pending CI sporocarps in window dropped as `evolution_failed_pending_dropped`.
+- **§2.2 Failure rollback (P3)**: I3-inconsistent → pre-evolution snapshot; recorded `evolution_failed` (CI-elevated, ungated); pending CI sporocarps in window dropped as `evolution_failed_pending_dropped`.
 - **§2.3 No silent corruption (I3)**: SSoT-changing passes two-phase migration: candidate alongside current; per-cycle dual-validation; mismatch → `ssot_migration_inconsistent` + abort.
 
 ---
@@ -36,7 +36,7 @@ Five classes of mutable substrate state; unifying principle **P3 — substrate's
 
 ## §4. Versioning
 
-Every evolvable state has explicit versions; historical state validates against own version. Carriers: SSoT designation (L1_SCHEMA §1.3); `causal_proof_template` (L1_TROPISM §B1 `template_version_registry`); `Cluster_C` (L1_TRAJECTORY §4 CI creates trajectory epoch); owner-key history (L1_GOVERNANCE §3.1); signature suite (same pattern). **Active-prefix + archived-tail** (L1_GOVERNANCE §3.1) applied to all monotone tier-1 fields; per-cycle tier-1 cost O(K) regardless of age.
+Every evolvable state has explicit versions; historical state validates against own version. Carriers: SSoT designation (L1_SCHEMA §1.3); `causal_proof_template` (L1_TROPISM §B1 `template_version_registry`); `Cluster_C` (L1_TRAJECTORY §4 CI creates trajectory epoch); owner-key history (L1_GOVERNANCE §3.1); signature suite. **Active-prefix + archived-tail** applied to all monotone tier-1 fields; per-cycle tier-1 cost O(K) regardless of age.
 
 ---
 

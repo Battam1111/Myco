@@ -1,6 +1,6 @@
 # L2 — Trajectory Doctrine
 
-> **Status**: DRAFT 3 (2026-05-17, M27 R4 cleanup). Cross-cuts L0 §5.3 + L1_TRAJECTORY + L1_TROPISM §B6 + L1_GOVERNANCE §1.2 / L1_HARD_RULES F17 + L1_SCHEMA §2 + L2_EVOLUTION §5 + L2_OBSERVABILITY §11.
+> **Status**: DRAFT 3 (2026-05-17, M27 R5 cleanup). Cross-cuts L0 §5.3 + L1_TRAJECTORY + L1_TROPISM §B6 + L1_GOVERNANCE §1.2 / L1_HARD_RULES F17 + L1_SCHEMA §2 + L2_EVOLUTION §5 + L2_OBSERVABILITY §11.
 
 ---
 
@@ -18,7 +18,7 @@ Intent is emergent from causal DAG as trajectory view — query, not stored type
 intent(t) := cluster_C(causal_ancestors_and_descendants(neighborhood(t)))
 ```
 
-Function of `(DAG, cluster_C)`. DAG = substrate state (I4); `cluster_C` substrate-resident with CI fixed-point identity (L1_HARD_RULES F17). Governance: `cluster_C` mutation CI-level (L1_GOVERNANCE §2.2) — substrate cannot silently change how trajectories are read. Schema: queries traverse Merkle DAG (L1_SCHEMA §2.1); proof via parent-hashes; closure verified at CI. Evolution: each CI mutation creates trajectory epoch boundary (L2_EVOLUTION §5 + L1_TRAJECTORY §5); queries default within-epoch.
+Function of `(DAG, cluster_C)`. DAG = substrate state (I4); `cluster_C` substrate-resident with CI fixed-point identity (L1_HARD_RULES F17). Governance: `cluster_C` mutation CI-level (L1_GOVERNANCE §2.2). Schema: queries traverse Merkle DAG (L1_SCHEMA §2.1); proof via parent-hashes; closure verified at CI. Evolution: each CI mutation creates trajectory epoch boundary (L2_EVOLUTION §5 + L1_TRAJECTORY §5); queries default within-epoch.
 
 ---
 
@@ -28,7 +28,7 @@ Function of `(DAG, cluster_C)`. DAG = substrate state (I4); `cluster_C` substrat
 
 §4 cold-start: L1_TRAJECTORY §3 (explicit `cold_start_marker`, not error). L2_LIFECYCLE §3 birth-period: "expressed direction" read directly from DAG, bypassing clustering. Downstream consumers do NOT depend on trajectory being non-empty (appetite gradients are primary internal signal).
 
-§5 clusterer coupling: `cluster_C` substrate-resident; CI-mutation-governed (L1_GOVERNANCE §1.2 + L1_HARD_RULES F17). I4 unchanged by clusterer evolution; what changes is the view. Swap is epoch-boundary (L2_EVOLUTION §5); in-flight queries abort with `clusterer_swap_interrupted`. Past trajectories read through their epoch's clusterer. Historical retention per L1_GOVERNANCE §3.1 active-prefix + archived-tail if L4 elects.
+§5 clusterer coupling: `cluster_C` substrate-resident; CI-mutation-governed. I4 unchanged by clusterer evolution; what changes is the view. Swap is epoch-boundary (L2_EVOLUTION §5); in-flight queries abort with `clusterer_swap_interrupted`. Past trajectories read through their epoch's clusterer. Historical retention per L1_GOVERNANCE §3.1 active-prefix + archived-tail if L4 elects.
 
 ---
 

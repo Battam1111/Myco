@@ -1,6 +1,6 @@
 # L1 — Trajectory (positive intent-derivation mechanism for Myco v0.9)
 
-> **Status**: DRAFT 2. L1 for intent-derivation satisfying L0 §5.3. Governed by L0.
+> **Status**: DRAFT 2. L1 for intent-derivation satisfying L0 §5.3.
 
 ---
 
@@ -37,10 +37,10 @@ Genesis DAG contains only `genesis_event` + owner birth attestation. Early queri
 ## §4. Clusterer coupling
 
 - `cluster_C` IS a substrate-resident object with own identity (NOT free parameter).
-- Changing `cluster_C` IS CI (L1_GOVERNANCE §1.2) — retroactively alters past intents.
+- Changing `cluster_C` IS CI — retroactively alters past intents.
 - I4 full-fidelity: DAG unchanged by clusterer evolution; trajectory *view* changes.
-- Candidate algorithms (L4 picks): graph community detection (Louvain/Leiden/label-propagation); density (HDBSCAN/OPTICS); hierarchical; hybrid.
-- **Atomicity**: cluster_C swap IS epoch-boundary event (§5); in-flight queries abort with `clusterer_swap_interrupted` (re-issuable) or snapshot-isolate to clusterer active at query start. L4 picks.
+- Candidate algorithms (L4): graph community detection (Louvain/Leiden/label-propagation); density (HDBSCAN/OPTICS); hierarchical; hybrid.
+- **Atomicity**: cluster_C swap IS epoch-boundary event (§5); in-flight queries abort with `clusterer_swap_interrupted` or snapshot-isolate to clusterer active at query start.
 
 ---
 
@@ -52,9 +52,7 @@ Each CI mutation creates trajectory epoch boundary recorded as `epoch_boundary` 
 
 ## §6. thread_id — orthogonal grouping primitive
 
-Each delta/sporocarp MAY carry optional opaque `thread_id` — lightweight mechanically-typed agent-declared grouping. Cost: 1 optional field per node; benefit: cold-start works, clusterer-independent, schema-evolution-resilient. Queries MAY use thread_id as clustering hint (esp. cold-start) but trajectory ≠ threads.
-
-**L1 commits**: thread_id OPTIONAL; substrate canon at genesis chooses to expose. If exposed, opaque string scoped per-substrate. L4 picks construction. Recommended default: expose; use as clustering hint.
+Each delta/sporocarp MAY carry optional opaque `thread_id` — lightweight agent-declared grouping. Cost: 1 optional field per node; benefit: cold-start works, clusterer-independent, schema-evolution-resilient. Queries MAY use thread_id as clustering hint but trajectory ≠ threads. **L1 commits**: thread_id OPTIONAL; substrate canon at genesis chooses to expose; opaque string scoped per-substrate. Recommended default: expose; use as clustering hint.
 
 ---
 
