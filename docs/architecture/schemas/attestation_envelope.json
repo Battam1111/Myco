@@ -1,0 +1,71 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "myco.l1.governance.attestation_envelope.v1",
+  "title": "contract_identity_attestation_request",
+  "description": "CI attestation envelope (L1_GOVERNANCE §2.2; per L0 §9.3.1 canonical-bytes). Substrate emits; Cultivator verifies + co-signs per L1_GOVERNANCE §2.3. Anchor-nonce bound to (mutation_hash, dag_tip_hash); TTL default 5 anchor-min.",
+  "type": "object",
+  "required": [
+    "type",
+    "substrate_id",
+    "dag_tip_hash",
+    "enumerated_dag_nodes_since_last_co_sign",
+    "proposed_mutation_canonical_bytes",
+    "proposed_mutation_hash",
+    "operator_witness",
+    "operator_signing_key_public",
+    "request_timestamp_substrate_cycles",
+    "anchor_surface_nonce",
+    "expiry_constraints"
+  ],
+  "properties": {
+    "type": {
+      "type": "string",
+      "const": "contract_identity_attestation_request"
+    },
+    "substrate_id": {
+      "type": "string",
+      "description": "Per L0 §9.2.1; substrate-ID fixed post-genesis."
+    },
+    "dag_tip_hash": {
+      "type": "string",
+      "description": "Current Merkle DAG tip (per L1_SCHEMA §2.2)."
+    },
+    "enumerated_dag_nodes_since_last_co_sign": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "All DAG node hashes added since prior co-sign (not summary diff); enables Merkle-chain closure check per L0 §9.3.6 + §9.2.2."
+    },
+    "proposed_mutation_canonical_bytes": {
+      "type": "string",
+      "description": "Canonical-bytes per §9.3.1; substrate emits, Cultivator renders (substrate does not render)."
+    },
+    "proposed_mutation_hash": {
+      "type": "string",
+      "description": "Hash over canonical-bytes."
+    },
+    "operator_witness": {
+      "type": "string",
+      "description": "Signature using operator_signing_key_private per L1_SKIN §4.1."
+    },
+    "operator_signing_key_public": {
+      "type": "string",
+      "description": "From current handshake; cross-checked vs anchor-logged handshake by Cultivator."
+    },
+    "request_timestamp_substrate_cycles": {
+      "type": "integer",
+      "description": "Per L0 §13.1 substrate-cycle authority for within-substrate ordering."
+    },
+    "anchor_surface_nonce": {
+      "type": "string",
+      "description": "Single-use nonce bound at step 1 of L1_GOVERNANCE §2.2 to (mutation_hash, dag_tip_hash); minted by anchor not substrate."
+    },
+    "expiry_constraints": {
+      "type": "object",
+      "required": ["cycles_max", "wall_clock_seconds_max"],
+      "properties": {
+        "cycles_max": {"type": "integer", "description": "Substrate-cycle expiry (L1-tunable)."},
+        "wall_clock_seconds_max": {"type": "integer", "description": "Anchor wall-clock expiry (L1-tunable). Whichever first invalidates wins (substrate cannot extend wall-clock via cycle throttle)."}
+      }
+    }
+  }
+}

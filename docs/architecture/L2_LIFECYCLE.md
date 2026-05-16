@@ -1,75 +1,45 @@
 # L2 — Lifecycle Doctrine
 
-> **Status**: DRAFT 2 (2026-05-17, M27 CA5 cleanup). Cross-cuts L0 I1 / P7 / P8 + L1_GOVERNANCE §3-§4 + L1_CONTINUITY §2-§5 + L1_TROPISM §4.
+> **Status**: DRAFT 3 (2026-05-17, M27 R4 cleanup). Cross-cuts L0 I1 / P7 / P8 + L1_GOVERNANCE §3-§4 + L1_CONTINUITY §2-§5 + L1_TROPISM §4.
 
 ---
 
-## §1. State space
-
-Three top-level states (L0 I1):
+## §1. State space (L0 I1)
 
 ```
-              ┌──────────┐         ┌──────────┐
-   genesis ───▶│  alive   │ ◀────▶  │ dormant  │
-              └────┬─────┘         └────┬─────┘
-                   │                    │
-                   └──────┬─────────────┘
-                          │
-                          ▼
-                   ┌──────────────┐
-                   │  destroyed   │ (terminal; anchor-surface final seal)
-                   └──────────────┘
+   genesis ──▶ alive ◀──▶ dormant ──▶ destroyed (terminal; anchor final seal)
 ```
 
-Sub-states of `alive` (per L0 §I1 + L1_GOVERNANCE §3.2): **normal** (steady-state); **birth-period** (first ~N events; CI-elevation); **quarantined** (invariant breach; intake closed; awaits Cultivator clearance); **legacy** (Cultivator heartbeat stale past §15.3; mutations frozen; daily ops continue); **orphaned** (legacy_window elapsed without `succession_acceptance_attestation` OR empty `successor_chain`); **archived** (terminal-non-destroyed via §7.5; state_dir preserved with anchor-seal); **saturated** (compression-insufficient OR no pre-attested rules per L0 P11.c; sustained → P7). Sub-states compose.
+`alive` sub-states (L0 §I1 + L1_GOVERNANCE §3.2; compositional): **normal**; **birth-period** (CI-elevation); **quarantined** (intake closed; awaits clearance); **legacy** (heartbeat stale past §15.3; mutations frozen); **orphaned** (legacy_window elapsed without `succession_acceptance_attestation`); **archived** (terminal-non-destroyed via §7.5; state_dir preserved + anchor-seal); **saturated** (compression-insufficient per P11.c).
 
 ---
 
-## §2. Genesis
+## §2-§4. Genesis + birth + steady (cross-refs)
 
-L1_GOVERNANCE §4.1; trust derivation L2_TRUST_MODEL §2. Genesis sporocarp lands in DAG; substrate enters `alive (birth-period)`. The only operationally human-load-bearing transition.
+§2 genesis: L1_GOVERNANCE §4.1 + L2_TRUST_MODEL §2; sporocarp lands in DAG → `alive (birth-period)`; only operationally human-load-bearing transition.
 
----
+§3 birth period (L1_TROPISM §4 + L1_GOVERNANCE §1.3; all parameter-tuning CI; reclassification at owner-attested termination):
+- **Path A (convergence-attested)**: ≥N sporocarps + ≥M active-operation time + per-axis convergence below epsilon → `birth_period_complete_proposal` + owner co-attest → `alive (steady-state)` + `maturity_attestation`.
+- **Path B (max-duration ceiling)**: L1-tunable max (default 180 active-operation days); forces graduation OR `self_euthanasia_proposal` (attention-exhaustion safety valve).
+- **Observability**: #2 HIGH, #3 RISING, #10 variance-weighted (L2_OBSERVABILITY §2.3) until P14 lands.
 
-## §3. Birth period
-
-Seed thresholds + gradient-update-rules apply (L1_TROPISM §4). All parameter-tuning elevates to CI (L1_GOVERNANCE §1.3); reclassification to daily-autonomous at owner-attested termination.
-
-- **Path A (convergence-attested)**: ≥N sporocarps + ≥M active-operation time + `threshold_emergence_rule` per-axis convergence below epsilon → `birth_period_complete_proposal` + owner co-attest → `alive (steady-state)` + `maturity_attestation`.
-- **Path B (max-duration ceiling)**: L1-tunable max (default 180 active-operation days); forces forced-graduation OR `self_euthanasia_proposal`. Safety valve vs attention-exhaustion.
-- **Observability**: signals #2 HIGH, #3 RISING, #10 variance-weighted (L2_OBSERVABILITY §2.3.1) until P14 lands. Pathological birth signals → classifier auto-elevate or Cultivator intervene.
+§4 steady state: emergent thresholds replace seeds; 5-step metabolic cycle (L1_CONTINUITY §1.1); Living Bets baselines build; falsifiability quorum arms (90-day rolling); L0/L1 evolutions follow P3 CI-attested.
 
 ---
 
-## §4. Steady state
+## §5-§7. Dormancy + quarantine + legacy-FSM
 
-Emergent thresholds replace seeds. 5-step metabolic cycle runs (L1_CONTINUITY §1.1). Living Bets observatory signals build historical baselines; falsifiability trigger arms (90-day rolling quorum). L0/L1 evolutions follow P3 protocol (CI-attested).
+§5 dormancy (alive ↔ dormant): L1_CONTINUITY §2 (triggers, throttled/paused, wake, dual-clock asymmetry, compute-budget asymmetry). Wall-clock-vs-cycle-clock asymmetry during paused dormancy is canonical defense vs self-induced-pause wall-clock-budget-extension (L2_TRUST_MODEL §3.4). Compute-budget enforcement vs host is declared asymmetry (L0 §6 + L2_TRUST_MODEL §6); Cultivator-side monitoring is detection path.
 
----
+§6 quarantined: L1_CONTINUITY §5 (entry, metabolism-while-quarantined, exit via Cultivator-attested `quarantine_clearance` — never auto-clears). Only alive sub-state requiring fresh co-attestation for exit. Federation outputs suspended.
 
-## §5. Dormancy (alive ↔ dormant)
-
-L1_CONTINUITY §2 specifies triggers, throttled/paused modes, wake protocol, dual-clock asymmetry, compute-budget host-observability asymmetry. Dominant non-terminal transition. Wall-clock-vs-cycle-clock asymmetry during paused dormancy is canonical defense vs self-induced-pause wall-clock-budget-extension (L2_TRUST_MODEL §3.4). Compute-budget enforcement vs host is declared asymmetry (L0 §6 + L2_TRUST_MODEL §6); Cultivator-side monitoring is detection path.
-
----
-
-## §6. Quarantined
-
-L1_CONTINUITY §5 (entry triggers, metabolism while quarantined, exit via Cultivator-attested `quarantine_clearance` — never auto-clears). Only alive sub-state requiring fresh Cultivator co-attestation for exit. Federation outputs suspended.
-
----
-
-## §7. Legacy / Orphaned / Archived
-
-Full FSM: L1_GOVERNANCE §3.2; L0 §15 (Cultivator mortality) + §7.5 (bet-retirement).
-
-Vocabulary (DRAFT 3 SEALED): `succession_acceptance_attestation` (chain-head signs at anchor); `legacy_window` (default 365 days); `orphaned_terminal_window` (default 730 days); `cultivation_orphaned_terminal_choice` (genesis-pre-attested ∈ {self_euthanasia | bet_retirement | indefinite_orphan}). `alive::legacy`/`alive::orphaned`/`alive::archived` remain alive sub-states (substrate-ID + DAG preserved); compositional (may overlap quarantined). Bet-retirement transitions alive → `alive::archived` (state_dir preserved with anchor-seal; distinct from `destroyed`).
+§7 legacy/orphaned/archived: L1_GOVERNANCE §3.2; L0 §15 (Cultivator mortality) + §7.5 (bet-retirement). Vocabulary (DRAFT 3 SEALED): `succession_acceptance_attestation`, `legacy_window` (default 365 days), `orphaned_terminal_window` (default 730 days), `cultivation_orphaned_terminal_choice` (genesis pre-attested ∈ {self_euthanasia | bet_retirement | indefinite_orphan}). Sub-states remain alive (substrate-ID + DAG preserved); may overlap quarantined. Bet-retirement → `alive::archived` (state_dir preserved with anchor-seal; distinct from `destroyed`).
 
 ---
 
 ## §8. Reproduction (P8)
 
-L1_GOVERNANCE §4.3 + §16 (generation discipline per F22) + L1_SCHEMA §3.3 (spore construction). Inter-substrate: L2_FEDERATION. Modes: federation (semantic), cloning (full copy), cross-pollination (multi-parent, L1-deferred). Each child runs own complete lifecycle from own genesis; recursive under generation-limit (L0 §16 + F22). Child-substrate-ID Cultivator-minted at anchor (not parent-minted; F2 + L1_GOVERNANCE §4.1).
+L1_GOVERNANCE §4.3 + §16 (generation discipline F22) + L1_SCHEMA §3.3; inter-substrate L2_FEDERATION. Modes: federation (semantic), cloning (full copy), cross-pollination (multi-parent, L1-deferred). Each child runs own complete lifecycle from own genesis; recursive under generation-limit (L0 §16 + F22). Child-substrate-ID Cultivator-minted at anchor (not parent-minted; F2 + L1_GOVERNANCE §4.1).
 
 ---
 
@@ -79,10 +49,10 @@ L0 P7 + L1_GOVERNANCE §4.4 (three modes: intentional-Cultivator, catastrophic-e
 
 - **Endogenous dual-channel**: substrate emits `self_euthanasia_proposal` with `operator_witness`; anchor emits `mortality_drill_failure` on two consecutive failed drills.
 - **Terminal record**: `anchor_surface_final_seal` Cultivator-co-signed; post-destruction handshakes return `substrate_destroyed`; seal substrate-ID-scoped.
-- **Alternative terminal**: `alive::archived` via §7.5 bet-retirement preserves state_dir (not erased; substrate-ID does not re-bind).
+- **Alternative terminal**: `alive::archived` via §7.5 preserves state_dir (substrate-ID does not re-bind).
 
 ---
 
 ## §10. Lifecycle sporocarp index
 
-Each transition fruits a named sporocarp (substrate's auditable life-trail): `genesis_event`; `birth_period_complete_proposal` / `maturity_attestation` / `birth_period_max_reached`; `dormancy_enter` / `dormancy_exit`; `cold_resume_quarantine` / `quarantine_clearance`; `succession_required` / `succession_acceptance_attestation` / `cultivation_recovered`; `reproduction_request` / `genesis_attested` (in parent's DAG); `bet_retired_proposal` / `endogenous_mortality_proposal:cultivation_orphaned_terminal` (L0 §7.5 + §15.5); `destruction_attestation` / `mortality_drill_failure` / `self_euthanasia_proposal`; `anchor_surface_final_seal` (terminal for `destroyed`; also for `alive::archived` per L0 §7.5.c).
+Substrate's auditable life-trail: `genesis_event`; `birth_period_complete_proposal` / `maturity_attestation` / `birth_period_max_reached`; `dormancy_enter` / `dormancy_exit`; `cold_resume_quarantine` / `quarantine_clearance`; `succession_required` / `succession_acceptance_attestation` / `cultivation_recovered`; `reproduction_request` / `genesis_attested` (in parent's DAG); `bet_retired_proposal` / `endogenous_mortality_proposal:cultivation_orphaned_terminal` (L0 §7.5 + §15.5); `destruction_attestation` / `mortality_drill_failure` / `self_euthanasia_proposal`; `anchor_surface_final_seal` (terminal for `destroyed`; also `alive::archived` per L0 §7.5.c).

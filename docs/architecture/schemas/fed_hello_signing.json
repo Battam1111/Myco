@@ -1,0 +1,25 @@
+{
+  "schema_name": "FED_HELLO mutual authentication signing input (L2_FEDERATION §10)",
+  "context": "myco-fed-hello-v1",
+  "context_rotation": "Fixed; rotated only via CI. Distinct from myco-self-euthanasia-v1 (M23.2) and myco-population-vote-v1 (L2_FEDERATION §6.5.e) to prevent cross-protocol replay.",
+  "signing_input": {
+    "format": "canonical-bytes sorted-key Map",
+    "fields": {
+      "context": "String(\"myco-fed-hello-v1\")",
+      "peer_substrate_id": "Bytes(32)",
+      "dag_tip": "Bytes(32)",
+      "protocol_version": "Uint"
+    }
+  },
+  "signing_key": "Substrate's federation signing key (identity-signing or derived sub-key; L1-tunable).",
+  "tofu_pinning": "On first FED_HELLO from peer_substrate_id, verify Ed25519 with signer_pubkey; pin (peer_substrate_id, pinned_signer_pubkey, pinned_at_cycle). Subsequent HELLOs MUST match pinned key.",
+  "tampering_response": "Reject; emit C39_federation_hello_signature_invalid.",
+  "legacy_peer_fallback": {
+    "trigger": "Both signer_pubkey and hello_signature absent (pre-M25.4 peer).",
+    "behavior": "Accept under substrate-ID-TOFU only; emit federation_legacy_peer_pinned (not immune); pinned_signer_pubkey = None.",
+    "consensus_eligibility": "Consensus-passive (counted in §6.5.d N; contributes no votes).",
+    "deprecation_horizon": "L1 deprecation horizon (seed 12 wall-clock months); post-horizon → reject + federation_legacy_peer_horizon_expired."
+  },
+  "mutual_asymmetry": "Initiator HELLO → receiver verifies → HELLO_ACK signed → initiator verifies. Either-side failure → terminate + BOTH emit C39. Pinning per-direction (A pins B; B pins A).",
+  "burst_detection": "Persistent same-IP C39 → federation_hello_signature_burst (L1-tunable; immune >10/hour). Detector: verify_fed_hello_signature."
+}

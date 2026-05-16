@@ -1,0 +1,29 @@
+L3 Module Dependency Graph (acyclic)
+
+  Canonical for L3_OUTLINE §3. Substrate-side kernel modules:
+
+  kernel/hard_rules     <-- cross-cuts (citation only; emission observation)
+  kernel/skin           <-- kernel/shared
+  kernel/governance     <-- kernel/skin + kernel/schema
+  kernel/schema         <-- kernel/shared
+  kernel/continuity     <-- kernel/schema + kernel/skin
+  kernel/tropism        <-- kernel/schema + kernel/continuity
+  kernel/trajectory     <-- kernel/schema + kernel/tropism
+
+  Rules:
+  - Acyclic: higher cannot import lower.
+  - L4 cyclic dependency requires L3 module-boundary revision (CI per L0 §10.2).
+  - kernel/hard_rules cites every module's CRITICAL surfaces but does NOT
+    compile-time import.
+
+  Build order (parallelizable groups):
+    shared
+      -> skin || schema
+        -> governance (skin + schema) || continuity (skin + schema)
+          -> tropism (schema + continuity)
+            -> trajectory (schema + tropism)
+              -> hard_rules (citation-only over all)
+
+  Parallel non-kernel:
+    anchor_client + operator_runtime depend only on kernel/shared serializer
+    spec; built independently once shared stable.

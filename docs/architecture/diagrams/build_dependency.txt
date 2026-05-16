@@ -1,0 +1,32 @@
+Build Dependency Graph (L3_PACKAGE_MAP §10)
+
+  Substrate-kernel build order (parallel groups):
+
+    Stage 1:   kernel/shared
+    Stage 2:   kernel/skin    ||  kernel/schema
+    Stage 3:   kernel/governance (skin + schema)  ||
+               kernel/continuity (skin + schema)
+    Stage 4:   kernel/tropism (schema + continuity)
+    Stage 5:   kernel/trajectory (schema + tropism)
+    Stage 6:   kernel/hard_rules (citation-only over all)
+
+  Independent (parallel with stages 2+):
+    anchor_client          <-- kernel/shared (serializer spec)
+    operator_bindings/*    <-- kernel/shared (serializer spec)
+
+  Approx line totals per module (pre-Phase-γ M22-M25 sizing):
+
+    kernel/shared          1000-1500
+    kernel/skin            1500-2500
+    kernel/schema          2000-3000
+    kernel/governance      2500-3500
+    kernel/continuity      1500-2500
+    kernel/tropism         2000-3000
+    kernel/trajectory      1500-2500
+    kernel/hard_rules      1500-2500
+    anchor_client          2000-3000
+    operator_bindings      500-1000 per binding
+
+  Substrate-kernel total:           12000-19000
+  + anchor_client + bindings:       +3000-5000
+  v0.9 first-birth total estimate:  15000-24000

@@ -1,0 +1,47 @@
+{
+  "schema_name": "federation_received envelope (L2_FEDERATION §9.1)",
+  "wrapper_node_type": "federation_received:{peer_id_prefix}",
+  "peer_id_prefix": "first 8 hex bytes / 16 chars of peer substrate-ID",
+  "content_serialization": "canonical-bytes Map",
+  "fields": {
+    "from_peer_substrate_id": {
+      "type": "Bytes(32)",
+      "semantics": "Peer's full substrate-ID."
+    },
+    "peer_event_node_type": {
+      "type": "String",
+      "semantics": "Inner node_type. Subject to L2_FEDERATION §9.4 allowlist and §11 recursive validation."
+    },
+    "peer_event_parent_hashes": {
+      "type": "Array(Bytes(32))",
+      "semantics": "Peer-side parents. Provenance ONLY — not wrapper parents."
+    },
+    "peer_event_content_canonical_bytes": {
+      "type": "Bytes",
+      "semantics": "Inner canonical-bytes content."
+    },
+    "peer_event_original_hash": {
+      "type": "Bytes(32)",
+      "semantics": "BLAKE3 merkle_hash(parent_hashes, content_canonical_bytes); proves exact event seen."
+    },
+    "peer_event_created_at_cycle": {
+      "type": "Uint",
+      "semantics": "Inner created_at_cycle (peer-side)."
+    }
+  },
+  "parent_rule_security_critical": "Wrapper parent = THIS substrate's local DAG tip at ingest. NEVER peer's parent_hashes. Cross-chain merge is banned.",
+  "allowed_inner_prefixes": [
+    "raw_material:",
+    "sporocarp:",
+    "mutation:",
+    "immune:",
+    "federation_received:"
+  ],
+  "banned_inner_prefixes": [
+    "operator_pinned:* (hijacks TOFU)",
+    "cycle_advanced:* (corrupts metabolic time)",
+    "genesis_event:* (re-genesis attempt)"
+  ],
+  "banned_reject_immune": "C35_federation_substrate_private_event_injection",
+  "idempotency": "Re-pull produces identical wrapper (deterministic fields + canonical-bytes); DAG insert_node content-hash idempotent."
+}

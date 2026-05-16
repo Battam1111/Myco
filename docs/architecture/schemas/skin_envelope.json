@@ -1,0 +1,55 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Skin Envelope",
+  "description": "Extracted from L1_SKIN §2. Every delta at intake is wrapped per this schema. 7 fields normative; 8th field is payload.",
+  "type": "object",
+  "required": [
+    "envelope_version",
+    "sender_token",
+    "payload_shape",
+    "causal_parent_ref",
+    "size_bytes",
+    "content_type_hint",
+    "submitted_at_cycle",
+    "envelope_digest",
+    "payload"
+  ],
+  "properties": {
+    "envelope_version": {
+      "type": "integer",
+      "description": "Envelope format version."
+    },
+    "sender_token": {
+      "type": "string",
+      "description": "Operator-token from L1_SKIN §4 handshake. MUST match active token."
+    },
+    "payload_shape": {
+      "type": "string",
+      "enum": ["text", "file_ref", "structured_yaml", "binary_ref"],
+      "description": "Recognized payload shape category (extensible per L1_SCHEMA)."
+    },
+    "causal_parent_ref": {
+      "type": ["string", "null"],
+      "description": "Prior sporocarp ID, or null at first delta after handshake. Non-null MUST refer to a recent sporocarp in the most-recent digest."
+    },
+    "size_bytes": {
+      "type": "integer",
+      "description": "Delta size in bytes. MUST be ≤ L1-tunable (default 100 MB)."
+    },
+    "content_type_hint": {
+      "type": ["string", "null"],
+      "description": "MIME-style hint or null."
+    },
+    "submitted_at_cycle": {
+      "type": "integer",
+      "description": "Substrate metabolic-cycle counter at submission. MUST be within freshness window (default 60 cycles, per L0 §13.1)."
+    },
+    "envelope_digest": {
+      "type": "string",
+      "description": "HMAC(operator_token, canonical_envelope_fields || payload). Recomputed on intake."
+    },
+    "payload": {
+      "description": "Delta content. Substrate validates envelope only (I8 + P2 shape-agnostic)."
+    }
+  }
+}

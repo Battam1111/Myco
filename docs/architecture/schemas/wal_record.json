@@ -1,0 +1,48 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "WAL Record (Delta Atomicity)",
+  "description": "Extracted from L1_CONTINUITY §4.1. Write-ahead log entry written + fsync'd BEFORE any DAG mutation. Per L0 §6.",
+  "type": "object",
+  "required": [
+    "envelope_canonical_bytes",
+    "payload_canonical_bytes",
+    "claimed_dag_parents",
+    "wall_clock_unix_ns_at_wal_append",
+    "monotonic_clock_at_wal_append"
+  ],
+  "properties": {
+    "envelope_canonical_bytes": {
+      "type": "string",
+      "description": "Canonical-bytes serialization of the L1_SKIN §2 envelope."
+    },
+    "payload_canonical_bytes": {
+      "type": "string",
+      "description": "Canonical-bytes serialization of the delta payload."
+    },
+    "claimed_dag_parents": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Sporocarp IDs the delta claims as parents."
+    },
+    "wall_clock_unix_ns_at_wal_append": {
+      "type": "integer",
+      "description": "i64 nanoseconds since 1970-01-01T00:00:00Z (per L0 §13.1)."
+    },
+    "monotonic_clock_at_wal_append": {
+      "type": "integer",
+      "description": "Substrate-process monotonic clock at WAL append (event ordering authority per §1.5)."
+    }
+  },
+  "atomicity_protocol": {
+    "step_1_wal_first": "Append envelope + payload canonical-bytes to WAL with fsync BEFORE any DAG mutation.",
+    "step_2_dag_transaction": "Node creation + parent-edge insertion + tier-1 SSoT update = single in-memory transaction; all-or-nothing.",
+    "step_3_cycle_commit": "Cycle completion bumps DAG-tip atomically (single canonical-bytes write) AND fsyncs persisted DAG.",
+    "step_4_crash_recovery": "On restart, WAL replayed; entries past persisted DAG-tip rolled back."
+  },
+  "failure_modes": {
+    "wal_fsynced_dag_tip_not_bumped": "Replay succeeds → recovered_committed.",
+    "wal_fsynced_dag_mid_way_failure": "Rolled back.",
+    "wal_failed_pre_fsync": "Delta lost + interrupted_intake.",
+    "wal_corrupted": "crashed_unrecoverable → quarantine."
+  }
+}

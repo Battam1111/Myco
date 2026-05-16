@@ -1,0 +1,35 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "myco.l1.schema.snapshot_wrapper.v2",
+  "title": "snapshot.cb integrity wrapper (format_version=2)",
+  "description": "Periodic substrate derived-state snapshot wrapper (L1_SCHEMA §6). Signature over BARE payload bytes (not wrapper) — allows wrapper-schema upgrade without re-signing inner payload. Encoded via canonical-bytes serializer (L1_SCHEMA §5; Map keys strict canonical-order). Written every K cycles (seed K=1000). On boot: substrate seeds in-memory state from snapshot, then replays only past-tip events.",
+  "type": "object",
+  "x-canonical-bytes-map": true,
+  "required": ["format_version", "payload", "signature", "signer_pubkey"],
+  "properties": {
+    "format_version": {
+      "type": "integer",
+      "const": 2,
+      "description": "v1=legacy unsigned (load returns Ok(None), forces full replay); v2=current canonical; v3+=future."
+    },
+    "payload": {
+      "type": "string",
+      "contentEncoding": "base64",
+      "description": "Snapshot canonical-bytes (per L1_SCHEMA §5)."
+    },
+    "signature": {
+      "type": "string",
+      "contentEncoding": "base64",
+      "minLength": 64,
+      "maxLength": 64,
+      "description": "Ed25519 over BARE payload bytes (64 bytes). Signer = substrate_signing_keypair (F24)."
+    },
+    "signer_pubkey": {
+      "type": "string",
+      "contentEncoding": "base64",
+      "minLength": 32,
+      "maxLength": 32,
+      "description": "Ed25519 substrate pubkey (32 bytes); MUST match substrate's derived pubkey from L1_SCHEMA §7. Mismatch → C38_snapshot_integrity_violation."
+    }
+  }
+}
