@@ -1,8 +1,7 @@
 # L1 — Continuity (metabolic cycle, dormancy, recovery, NTP discipline, cycle backlog, cold-resume invariants)
 
-> **Status**: DRAFT 3 (2026-05-17). Authoritative L1 doc for substrate operational continuity. Canonical owner of dormancy, NTP discipline, cycle-backlog signal, and cold-resume invariant-set specification.
-> **Layer**: L1. Governed by L0 DRAFT 9 SEALED (commit `e796451`).
-> **Scope**: metabolic cycle + cadence; dormancy transitions + compute budget; cold-resume recovery (witnesses, not verdicts); host-crash recovery + delta atomicity; quarantine sub-state; NTP discipline (L0 §13.2); cycle-backlog → C36_cycle_backlog (M24-shipped); cold-resume invariant set + C9_cold_resume_invariant_failure (L1_HARD_RULES C9). Principle names follow L0 DRAFT 9 SEALED (P1.b''/P3/P4/P6/P7/P9.b/P10/P11 — projection at L0 §4); Cultivation vocabulary at L0 §1.2.
+> **Status**: DRAFT 3 (2026-05-17). L1 doc for substrate operational continuity. Canonical owner of dormancy, NTP discipline, cycle-backlog signal, cold-resume invariant-set specification.
+> **Layer**: L1. Governed by L0 DRAFT 9 SEALED (commit `e796451`). Cultivation vocabulary at L0 §1.2.
 
 ---
 
@@ -12,61 +11,55 @@
 
 Each cycle:
 
-1. **Tier-1 invariant checks** (per L1_SCHEMA §4.1).
-2. **Gradient configuration advances** (per L1_TROPISM, or equivalent under chosen dispatch).
-3. **Deltas absorbed** atomically (per §4 delta atomicity); sporocarps emitted; DAG atomically commits with new tip-hash.
-4. **Skin breach check** (I8) over events absorbed this cycle.
-5. **Skin handshake / attestation arrival** processed (any new handshake or owner-attestation event).
+1. **Tier-1 invariant checks** (L1_SCHEMA §4.1).
+2. **Gradient advances** (L1_TROPISM).
+3. **Deltas absorbed atomically** (§4); sporocarps emitted; DAG commits new tip-hash.
+4. **Skin breach check** (I8) over absorbed events.
+5. **Skin handshake / attestation arrival** processed.
 
-**Deep cycle** runs at lower cadence (L4-tunable, default 1/100 of metabolic-cycle rate) and additionally executes:
+**Deep cycle** (L4-tunable, default 1/100 metabolic-cycle rate): I5 reachability; tier-2 sampled validation (if §4.3 tier-3 escalation L4); recovery-drill scheduling.
 
-- I5 reachability check.
-- Tier-2 sampled validation (if §4.3 tier-3 escalation activates in L4).
-- Recovery-drill scheduling.
-
-A cycle is atomic — either all 5 steps complete and DAG-tip advances, or the cycle aborts and substrate state rolls back to the previous cycle's DAG-tip.
+Atomic — all 5 steps complete + DAG-tip advances, or cycle aborts + state rolls back.
 
 ### §1.2 Cycle cadence
 
-**Cadence is L4-tunable** within:
+L4-tunable:
 
-- Minimum cycle interval: default 100 ms **substrate-process wall-clock** (the local NTP-disciplined clock; cross-ref §1.5 time-source authority). Per L0 §13.1: substrate-process wall-clock is authoritative for cycle scheduling decisions; **the substrate-process monotonic clock** is authoritative for ordering events within the substrate.
-- Maximum cycle interval: default 10 s alive; 100 s dormant-throttled.
-- **Adaptive cadence** (alive): fire on minimum-interval OR delta arrival OR gradient threshold approach.
-- **Dormant cadence**: time-only at the dormant rate.
+- **Minimum**: default 100 ms substrate-process wall-clock (NTP-disciplined per §1.5). Per L0 §13.1: wall-clock authoritative for scheduling; **monotonic** for ordering within substrate.
+- **Maximum**: default 10s alive; 100s dormant-throttled.
+- **Adaptive (alive)**: fire on minimum-interval OR delta arrival OR gradient threshold approach.
+- **Dormant**: time-only at dormant rate.
 
-### §1.3 Cycle-backlog mechanism (C36_cycle_backlog, M24-shipped — spec'd here)
+### §1.3 Cycle-backlog mechanism (C36_cycle_backlog, M24-shipped)
 
-**Formal definition**. Backlog forms when a metabolic cycle takes longer than the L1-tunable **cycle-budget-threshold** (default 5 s wall-clock; distinct from the minimum-cycle-interval scheduling floor). A backlog cycle is one whose `cycle_end_wall_clock − cycle_start_wall_clock > cycle_budget_threshold`.
+Backlog: `cycle_end_wall_clock − cycle_start_wall_clock > cycle_budget_threshold` (L1-tunable, default 5s; distinct from minimum-cycle-interval).
 
 **Counter and emission**:
-- The substrate maintains a `consecutive_backlog_cycles` counter (resets to 0 on any cycle completing within budget).
-- Counter ≥ L1-tunable **backlog-emission-threshold** (default 10 consecutive backlog cycles) → substrate emits `C36_cycle_backlog` immune sporocarp (catalog row C36 in this doc + future L1_HARD_RULES catalog seat).
-- The emitted sporocarp carries witnesses (NOT a verdict per L0 §9.3.4): `(cycle_id, observed_cycle_duration_unix_ns, cycle_budget_threshold_unix_ns, consecutive_backlog_count, gradient_axis_pressures_at_emission, anchor_nonce_derived_sample_of_recent_cycle_durations)`.
+- `consecutive_backlog_cycles` (resets to 0 on any in-budget cycle).
+- Counter ≥ L1-tunable backlog-emission-threshold (default 10) → emits `C36_cycle_backlog` immune sporocarp.
+- Witnesses (NOT verdict per L0 §9.3.4): `(cycle_id, observed_cycle_duration_unix_ns, cycle_budget_threshold_unix_ns, consecutive_backlog_count, gradient_axis_pressures_at_emission, anchor_nonce_derived_sample_of_recent_cycle_durations)`.
 
-**Recovery**: substrate **continues operating** under backlog; no automatic clear. The owner sees the C36 sporocarp at the next CI co-sign and decides whether to attest a `quarantine_clearance`-equivalent re-baseline, or to leave the signal in flight as observability.
+**Recovery**: continues operating; no automatic clear. Owner sees C36 at next CI co-sign; decides whether to attest re-baseline or leave in flight.
 
-**Escalation to mortality** (per L0 §2.2 P11.c ordered fallback): sustained C36 emission past L1-tunable **saturation-threshold** (default: 1000 cycles or 24 hours wall-clock continuous backlog) routes to the alive-but-saturated sub-state per L1_GOVERNANCE / P11.c clause 3; further sustained saturation escalates to P7 endogenous-mortality consideration (substrate fruits `self_euthanasia_proposal`).
+**Escalation to mortality** (per L0 §2.2 P11.c): sustained C36 past L1-tunable saturation-threshold (default 1000 cycles or 24hr continuous) → alive-but-saturated sub-state per L1_GOVERNANCE / P11.c clause 3; further saturation → P7 endogenous-mortality (`self_euthanasia_proposal`).
 
-**Cross-ref**: C36_cycle_backlog is signal #7 (compute cost / cycle) per L0 §7.3 Living Bets observatory + L2_OBSERVABILITY §7 cycle-level diagnostics. The cycle-backlog signal feeds the Living Bets §7.4 falsifiability quorum.
+C36 is signal #7 (compute cost / cycle) per L0 §7.3 + L2_OBSERVABILITY §7; feeds §7.4 falsifiability quorum.
 
-### §1.4 NTP discipline policy (per L0 §13.2 cascade requirement)
+### §1.4 NTP discipline (per L0 §13.2)
 
-**Mandate**. The substrate MUST run under an **NTP-disciplined host** (or equivalently rigorous time-synchronization protocol — chrony, PTP, or anchor-surface-stamped-wall-clock-via-§9.2.6 if the host is anchor-clock-bound). Cycle-clock-only operation without NTP discipline is **doctrinally forbidden** because it defeats L0 §13.1's substrate-wall-clock = "the local NTP-disciplined clock" presumption.
+Substrate MUST run under **NTP-disciplined host** (or rigorous — chrony, PTP, or anchor-surface-stamped-wall-clock via §9.2.6). Cycle-clock-only operation **doctrinally forbidden** (defeats L0 §13.1 presumption).
 
-**Drift detection mechanism**:
-1. **Peer-handshake comparison**: at every L1_SKIN handshake AND at every federation peer-handshake (L2_FEDERATION), the substrate compares its `substrate_issued_at_unix_ns` to the operator's `submitted_at_unix_ns` and to the peer-substrate's `peer_issued_at_unix_ns`.
-2. **Deviation tolerance**: L1-tunable **clock-drift-threshold** (seed default **5 seconds**).
-3. **Anchor-clock cross-check**: when the anchor surface stamps an attestation with §9.2.6 trusted wall-clock, the substrate compares its own `substrate_issued_at_unix_ns` against the anchor-clock-stamp (operator-process timestamp + anchor-clock-stamp pair) at every attestation arrival.
-4. **Emission**: deviation > clock-drift-threshold → substrate emits `clock_drift_suspected` observability sporocarp with witnesses `(substrate_clock_unix_ns, peer_or_operator_clock_unix_ns, anchor_clock_unix_ns_when_available, observed_delta_unix_ns, drift_threshold_unix_ns)`.
+**Drift detection**:
+1. **Peer-handshake**: at every L1_SKIN + L2_FEDERATION handshake, compares `substrate_issued_at_unix_ns` to `submitted_at_unix_ns` and `peer_issued_at_unix_ns`.
+2. **Tolerance**: L1-tunable clock-drift-threshold (seed 5s).
+3. **Anchor-clock cross-check**: at every attestation arrival, compares own `substrate_issued_at_unix_ns` against §9.2.6 trusted-wall-clock stamp.
+4. **Emission**: deviation > threshold → `clock_drift_suspected` with witnesses `(substrate_clock_unix_ns, peer_or_operator_clock_unix_ns, anchor_clock_unix_ns_when_available, observed_delta_unix_ns, drift_threshold_unix_ns)`.
 
-**Cross-ref to §9.2.6 anchor-clock authority**: the anchor-clock authority is **security-bound** — owner attestation `expiry_unix_ns` is measured against the anchor-clock-stamp, not the substrate's local wall-clock. A substrate whose local clock drifts ahead cannot extend security-bound expiries by lying about wall-clock; the anchor-clock is authoritative for `attestation_expired` immune-event determination. Substrate-process wall-clock authority applies ONLY to scheduling decisions (cycle cadence, backlog detection).
+Anchor-clock is **security-bound**: attestation `expiry_unix_ns` measured against anchor-stamp, not local wall-clock. Substrate cannot extend security-bound expiries via wall-clock lying; anchor-clock authoritative for `attestation_expired`. Wall-clock authority applies ONLY to scheduling.
 
-**Adversarial-clock scenario** (per L2_TRUST_MODEL §14.2 cross-ref): a substrate whose host's NTP source is compromised cannot self-detect this — the `clock_drift_suspected` mechanism depends on peer-disagreement. A homogeneous compromise of all peers + anchor source is structurally undetectable at L1; L2_TRUST_MODEL specifies the bounded defenses.
+Adversarial-clock (L2_TRUST_MODEL §14.2): compromised host NTP cannot self-detect — depends on peer-disagreement. Homogeneous compromise structurally undetectable at L1.
 
-### §1.5 Time-source authority hierarchy (L0 §13.1 codified at L1)
-
-Three clocks; authority is **explicit per use-case** (per L0 §13.1):
+### §1.5 Time-source authority hierarchy (L0 §13.1)
 
 | Use-case | Authoritative clock | Cite |
 |---|---|---|
@@ -76,184 +69,154 @@ Three clocks; authority is **explicit per use-case** (per L0 §13.1):
 | Owner-attested event timestamp | Anchor-surface trusted wall-clock (§9.2.6) | L0 §9.2.6 |
 | Federation peer-attestation freshness | Anchor-surface trusted wall-clock (§9.2.6) | L0 §13.1 + L2_FEDERATION |
 
-**i64 nanoseconds**: per L0 §13.1, the substrate MUST NOT use i32 timestamps anywhere in substrate-internal state. The canonical wire + storage representation is **i64 nanoseconds since 1970-01-01T00:00:00Z** (Unix epoch). L1_SCHEMA §4.1 carries this through to the canonical-bytes serializer specification (tier-1 SSoT field).
+**i64 nanoseconds**: per L0 §13.1, substrate MUST NOT use i32 timestamps. Canonical wire + storage = i64 nanoseconds since 1970-01-01T00:00:00Z. L1_SCHEMA §4.1 carries through to canonical-bytes serializer (tier-1 SSoT).
 
 ---
 
-## §2. Dormancy (canonical specification)
+## §2. Dormancy
 
 ### §2.1 State definition
 
-Three top-level states per L0 I1: alive, dormant, destroyed. Sub-states of alive (quarantined, legacy) are defined here (§5) and L1_GOVERNANCE (§3.2 succession).
+Three top-level states per L0 I1: alive, dormant, destroyed. Sub-states of alive (quarantined, legacy) at §5 + L1_GOVERNANCE §3.2.
 
 ### §2.2 alive → dormant triggers
 
-- Operator-connection drop (detected at L1_SKIN §4.5).
-- Idle timeout: ≥L1-tunable cycles without delta absorption (default 100 cycles).
-- Owner-commanded dormancy via CI event (rare; substrate hibernation).
-- Operator-requested dormancy: per L1_SKIN §4.5 `handshake_terminate` with `request_dormancy` field; substrate honors the operator's mode preference (paused vs throttled), subject to resource-pressure override.
+- Operator-connection drop (L1_SKIN §4.5).
+- Idle timeout (default 100 cycles).
+- Owner-commanded via CI event (rare; hibernation).
+- Operator-requested per L1_SKIN §4.5 `handshake_terminate` with `request_dormancy` (substrate honors mode preference paused/throttled, subject to resource-pressure override).
 
-Transition emits `dormancy_enter` sporocarp; operator-token invalidated.
+Emits `dormancy_enter`; operator-token invalidated.
 
 ### §2.3 dormant → alive triggers
 
 - Valid operator handshake (L1_SKIN §4).
-- **Owner-attestation arrival** at the anchor-surface inbound channel: substrate wakes to verify + commit pending CI sporocarp. Wakes into `alive-administrative` micro-state — only attestation-resolution events fire until idle-timeout returns substrate to dormant.
+- **Owner-attestation arrival** at anchor-surface inbound channel: wakes to verify + commit pending CI sporocarp. Wakes into `alive-administrative` micro-state — only attestation-resolution events fire until idle-timeout returns to dormant.
 
-Transition emits `dormancy_exit` sporocarp.
+Emits `dormancy_exit`.
 
 ### §2.4 Dormant compute budget
 
-Two modes (operator-selectable per L1_SKIN §4.5; substrate default = throttled):
+Two modes (operator-selectable per L1_SKIN §4.5; default throttled):
 
-**Throttled mode**:
-- Cycle rate at maximum-cycle-interval floor.
-- Tier-1 invariant checks every cycle (cheap).
-- Gradient configuration continues to evolve (decay-class appetites primarily).
-- No fruiting; intake closed; handshake + attestation-channel listening continues.
+**Throttled**: cycle at maximum-interval floor; tier-1 invariants every cycle; gradient continues to evolve (decay-class appetites); no fruiting; intake closed; handshake + attestation-channel listening continues.
 
-**Paused mode**:
-- All metabolism halted.
-- Only handshake + attestation-channel listening continues.
+**Paused**: all metabolism halted; only handshake + attestation-channel listening continues.
 
-**Dormancy host-observability**: external observables (network, CPU, disk) must remain below L1-tunable ceilings (default <1% of alive averages). **The substrate cannot enforce this against its own host**; the owner must independently monitor. This is an explicit declared asymmetry, not concealed.
+**Host-observability**: external observables (network, CPU, disk) must remain below L1-tunable ceilings (default <1% of alive averages). Substrate cannot enforce against own host; owner monitors independently. Explicit declared asymmetry.
 
-**Wall-clock vs cycle-clock during paused**: attestation-request `expiry_cycles` does NOT advance during paused dormancy. On wake, substrate re-validates attestation freshness against the anchor-surface trusted-timestamp (which IS wall-clock); stale-on-wake → `attestation_expired` immune event. Substrate cannot extend wall-clock budgets by entering paused dormancy.
+**Wall-clock vs cycle-clock during paused**: attestation `expiry_cycles` does NOT advance during paused dormancy. On wake, substrate re-validates against anchor trusted-timestamp; stale-on-wake → `attestation_expired`. Substrate cannot extend wall-clock budgets via paused.
 
----
 
-## §3. Cold-resume recovery (canonical owner; spec for C9_cold_resume_invariant_failure)
 
-### §3.1 Cold-resume invariant set (per L0 I8 §4.3 mention + L1_HARD_RULES C9)
+## §3. Cold-resume recovery (spec for C9_cold_resume_invariant_failure)
 
-**Invariant set checked on every cold-resume / reboot path** (DRAFT 9 expansion):
+### §3.1 Cold-resume invariant set (per L0 I8 §4.3 + L1_HARD_RULES C9)
 
-Before accepting an operator handshake on a substrate in dormant or freshly-loaded state, the substrate runs:
+Before accepting operator handshake on dormant/freshly-loaded substrate:
 
-1. **I1 check**: substrate-ID + owner-signature integrity + genesis-attestation chain.
-2. **I3 check**: SSoT consistency at tier-1 fields (per L1_SCHEMA §4.1 — including canonical-bytes serializer spec).
-3. **I4 check**: DAG-tip hash + Merkle chain self-consistency + compression-aware retention closure (per L1_SCHEMA §2.3 + I4 reframing).
-4. **I5 check**: reachability over current SSoT-listed active-tier nodes (deep-cycle scope).
-5. **I8 check**: skin declaration matches expected canon.
-6. **I9 check** (DRAFT 9 NEW): **compression-invariant set is preserved across reboot**. The substrate enumerates the P10.b compression-invariant set (substrate-ID + genesis + owner_key_history active+archived + all CI-attested events + mortality signals + federation pin events + most-recent-N-cycles full DAG) and computes the canonical-bytes-hash of each preserved item; the hash chain must reproduce the pre-reboot hash chain.
-7. **I10 check** (DRAFT 9 NEW): **metabolic-budget state is recoverable**. The substrate replays cost-budget counters (signals #7/#8/#9 per L0 §7.3 + L0 §2.2 P11.b) and confirms no counter is in a forbidden state (negative, overflow, NaN).
-8. **I12 check** (DRAFT 9 NEW): **telos-alignment state is recoverable when declared**. If the substrate carries an owner-stated telos objective (P14.b), the substrate verifies the objective text + objective embedding (when present) is intact across reboot.
+1. **I1**: substrate-ID + owner-signature integrity + genesis-attestation chain.
+2. **I3**: SSoT consistency at tier-1 fields (L1_SCHEMA §4.1).
+3. **I4**: DAG-tip hash + Merkle self-consistency + compression-aware retention closure (L1_SCHEMA §2.3).
+4. **I5**: reachability over current SSoT-listed active-tier nodes (deep-cycle scope).
+5. **I8**: skin declaration matches expected canon.
+6. **I9** (DRAFT 9): **compression-invariant set preserved across reboot**. Enumerate P10.b set (substrate-ID + genesis + owner_key_history active+archived + all CI-attested events + mortality signals + federation pin events + most-recent-N-cycles full DAG); canonical-bytes-hash each; hash chain must reproduce pre-reboot chain.
+7. **I10** (DRAFT 9): **metabolic-budget state recoverable**. Replay cost-budget counters (signals #7/#8/#9 per L0 §7.3 + §2.2 P11.b); no counter in forbidden state.
+8. **I12** (DRAFT 9): **telos-alignment state recoverable when declared**. If owner-stated objective (P14.b), verify objective text + embedding intact.
 
-**Witnesses, not verdicts** (per L0 §9.3.4 + pass-2 mycoparasite-32 + Phase γ.5 anchor-decomposition): check results are emitted as **cryptographic-proof tuples** the owner / anchor-surface verifier can independently re-derive — sampled leaf hashes, Merkle paths, parent hashes, check inputs. The substrate emits the **evidence**, not the verdict. Cold-resume that emits only verdicts is breach (per L0 §9.3.4 + C9 in L1_HARD_RULES).
+**Witnesses, not verdicts** (per L0 §9.3.4): emitted as cryptographic-proof tuples the owner / anchor verifier can independently re-derive — sampled leaf hashes, Merkle paths, parent hashes, check inputs. Verdict-only = breach.
 
-**Anchor-nonce-derived sampling** (per L0 §9.3.5): the sampling indices for I3/I4/I5/I9 witness emission are deterministically derived from the anchor-surface nonce (`H(anchor_surface_nonce, leaf_count)`) — the substrate cannot pre-compute and bias sampling toward honest portions. (Current implementation status: anchor-surface-side nonce minting is §9.2.5 sub-mechanism, 0% implemented per L0 §9.2 status table; until M-anchor-3 lands, this clause runs in honor-system mode under collapsed-anchor.)
+**Anchor-nonce-derived sampling** (per L0 §9.3.5): sampling indices for I3/I4/I5/I9 deterministically derived from anchor nonce (`H(anchor_surface_nonce, leaf_count)`); substrate cannot pre-compute. (Anchor-side nonce minting §9.2.5, 0% implemented; until M-anchor-3 lands, honor-system mode.)
 
-These witness tuples land in the handshake-response envelope (per L1_SKIN §4.2 step 3 substrate→agent attestation) AND in the anchor-surface inbound channel for owner-side audit.
+Witness tuples land in handshake-response (L1_SKIN §4.2 step 3) AND anchor-surface inbound channel for owner-side audit.
 
-### §3.1.a `cold_resume_invariant_failure` immune signal (C9 in L1_HARD_RULES)
+### §3.1.a `cold_resume_invariant_failure` immune signal (C9)
 
-**Trigger**: any of I1/I3/I4/I5/I8/I9/I10/I12 cold-resume check fails (witnesses fail re-derivation at anchor-surface verifier OR substrate-side enumeration shows missing/corrupted invariant item).
+**Trigger**: any I1/I3/I4/I5/I8/I9/I10/I12 check fails.
 
-**Action sequence** (per L1_HARD_RULES C9):
-1. Substrate transitions to `alive but quarantined` (§5 sub-state).
-2. Handshake completes with `quarantined` marker + the specific failure-category list (e.g., `I9_compression_invariant_corruption`, `I4_dag_merkle_break`).
-3. Intake closed except owner-attested administration deltas.
-4. Substrate fruits `cold_resume_invariant_failure` immune sporocarp with witnesses identifying which check(s) failed AND the canonical-bytes-hash inputs of each failing check.
+**Action**:
+1. Substrate → `alive but quarantined` (§5).
+2. Handshake completes with `quarantined` marker + specific failure-category list (e.g., `I9_compression_invariant_corruption`, `I4_dag_merkle_break`).
+3. Intake closed except owner-attested administration.
+4. Fruits `cold_resume_invariant_failure` with witnesses identifying failed check(s) AND canonical-bytes-hash inputs of each.
 
-**Owner-side response**: anchor-surface client re-derives each failure witness; if witness re-derivation confirms the failure, owner attests `quarantine_clearance` only after acknowledging which invariant requires repair; if witness re-derivation FAILS to confirm (substrate is lying about a failure to manufacture quarantine drama), the anchor-surface verifier flags `substrate_witness_forgery` to L1_HARD_RULES C17_operator_witness_forgery analog.
+**Owner response**: anchor client re-derives failure witness; confirmed → `quarantine_clearance` attestation after acknowledging which invariant requires repair; if re-derivation FAILS (substrate lying), anchor verifier flags `substrate_witness_forgery` → C17 analog.
 
 ### §3.2 Quarantine on cold-resume failure
 
-If any check fails, substrate enters quarantine per §3.1.a action sequence; handshake completes with `quarantined` marker; intake closed except owner-attested administration; substrate fruits `cold_resume_quarantine` sporocarp recording the failure category list.
+Any check fails → quarantine per §3.1.a; handshake completes with `quarantined`; intake closed except owner-attested administration; fruits `cold_resume_quarantine` recording failure category list.
 
 ### §3.3 Quarantine clearance
 
-Owner-attested `quarantine_clearance` CI event after owner has examined state. Never auto-clears.
+Owner-attested `quarantine_clearance` CI event after owner examines state. Never auto-clears.
 
----
 
-## §4. Host-crash recovery + delta atomicity (per L0 §6 cross-ref)
 
-### §4.1 Delta atomicity (canonical spec)
+## §4. Host-crash recovery + delta atomicity (per L0 §6)
 
-A delta is either **fully absorbed** (event committed with all causal edges + DAG-tip bumped + WAL fsync'd) **or not absorbed at all**. Per L0 §6 ("Delta atomicity"), partial absorption is doctrinally forbidden — the substrate's causal record either records a complete event or no event.
+### §4.1 Delta atomicity
 
-**Atomicity mechanism** (DRAFT 9 expanded):
+Delta is either **fully absorbed** (committed with all causal edges + DAG-tip bumped + WAL fsync'd) **or not absorbed**. Per L0 §6, partial absorption forbidden.
 
-1. **WAL-first write**: delta envelope + canonical-bytes payload are appended to the write-ahead log (WAL) with `fsync` durability barrier BEFORE any DAG-tip mutation. WAL append-record format: `(envelope_canonical_bytes, payload_canonical_bytes, claimed_dag_parents, wall_clock_unix_ns_at_wal_append, monotonic_clock_at_wal_append)` per L1_SCHEMA §4.1 i64-nanoseconds discipline.
-2. **DAG transaction**: DAG node creation + parent-edge insertion + tier-1 SSoT index update = single in-memory transaction. The transaction's success criterion is `all-or-nothing` at the in-memory data structure level (a failure midway through the transaction rolls back the in-memory state).
-3. **Cycle completion**: cycle bumps the DAG-tip atomically (single canonical-bytes write of the new tip hash) AND fsync's the persisted DAG file.
-4. **Crash recovery**: on restart, WAL replayed; WAL entries past the persisted DAG-tip indicate incomplete cycles → rolled back.
+**Atomicity**:
 
-**Failure modes catalogued**:
-- WAL write succeeded + fsync'd, DAG-tip not yet bumped → replay succeeds, event committed (recovered_committed).
-- WAL write succeeded + fsync'd, DAG transaction failed mid-way → rolled back (recovered_rolled_back).
-- WAL write failed before fsync → delta lost; emits `interrupted_intake` immune sporocarp at recovery time.
-- WAL corrupted (read failure) → cold-resume with `crashed_unrecoverable` marker → quarantine.
+1. **WAL-first write**: delta envelope + canonical-bytes payload appended to WAL with `fsync` BEFORE any DAG-tip mutation. WAL record: `(envelope_canonical_bytes, payload_canonical_bytes, claimed_dag_parents, wall_clock_unix_ns_at_wal_append, monotonic_clock_at_wal_append)` per L1_SCHEMA §4.1.
+2. **DAG transaction**: node creation + parent-edge insertion + tier-1 SSoT index update = single in-memory transaction; all-or-nothing (mid-transaction failure rolls back).
+3. **Cycle completion**: cycle bumps DAG-tip atomically (single canonical-bytes write of new tip hash) AND fsync's persisted DAG file.
+4. **Crash recovery**: on restart, WAL replayed; entries past persisted DAG-tip → rolled back.
+
+**Failure modes**:
+- WAL fsync'd, DAG-tip not bumped → replay succeeds, event committed (recovered_committed).
+- WAL fsync'd, DAG transaction failed mid-way → rolled back (recovered_rolled_back).
+- WAL failed before fsync → delta lost; emits `interrupted_intake` at recovery.
+- WAL corrupted → cold-resume with `crashed_unrecoverable` → quarantine.
 
 ### §4.2 Crash detection on restart
 
-1. Read WAL with canonical-bytes decode discipline (a decode failure = WAL corruption = `crashed_unrecoverable`).
+1. Read WAL with canonical-bytes decode (decode failure = `crashed_unrecoverable`).
 2. Compare WAL entries to last persisted DAG-tip.
 3. WAL has uncommitted entries past DAG-tip:
-   - Replay succeeds → enter cold-resume with `crashed_recovered` marker.
-   - Replay fails (canonical-bytes decode error, parent-hash unresolvable, schema mismatch) → enter cold-resume with `crashed_unrecoverable` marker.
-4. Each crashed delta's recovery status fruits a `delta_recovery` sporocarp `(delta_id, recovery_outcome, wal_offset, canonical_bytes_hash, evidence_inputs)` (committed / rolled-back / dead-letter).
+   - Replay succeeds → cold-resume with `crashed_recovered`.
+   - Replay fails (decode error, parent-hash unresolvable, schema mismatch) → `crashed_unrecoverable`.
+4. Each crashed delta's recovery status fruits `delta_recovery` `(delta_id, recovery_outcome, wal_offset, canonical_bytes_hash, evidence_inputs)`.
 
-### §4.3 Partial-delta handling + `interrupted_intake` immune signal
+### §4.3 Partial-delta handling + `interrupted_intake`
 
-Three sub-cases by WAL durability state: (a) fsync-confirmed but no DAG-tip update → roll back + dead-letter + emit `interrupted_intake` immune sporocarp with witnesses `(delta_canonical_bytes_hash, wal_offset, last_persisted_dag_tip_hash, monotonic_at_wal_append)`; (b) no fsync barrier → treat as never-persisted + emit `delta_pre_fsync_lost` (operator request retryable since durability not confirmed); (c) WAL empty → nothing to recover, operator timeout governs retry.
+Three sub-cases by WAL durability: (a) fsync-confirmed but no DAG-tip update → roll back + dead-letter + emit `interrupted_intake` with `(delta_canonical_bytes_hash, wal_offset, last_persisted_dag_tip_hash, monotonic_at_wal_append)`; (b) no fsync barrier → treat as never-persisted + emit `delta_pre_fsync_lost` (operator retryable); (c) WAL empty → nothing to recover, operator timeout governs retry.
 
-The substrate **does NOT silently complete a partial delta on restart**. Recovery is **observable** per L0 P6 — silent partial-completion is breach (violates I4).
+Substrate **does NOT silently complete a partial delta on restart**. Recovery is observable per L0 P6 — silent partial-completion is breach (violates I4).
 
----
+
 
 ## §5. Quarantine sub-state of alive
 
-### §5.1 Entry triggers (DRAFT 9 expanded)
+### §5.1 Entry triggers
 
-- Cold-resume invariant failure (§3.1.a `cold_resume_invariant_failure` / L1_HARD_RULES C9).
-- CRITICAL skin breach (per L1_SKIN §6 + L1_HARD_RULES C1/C2/C3/C4/C11).
-- Sustained I3 failure (≥L1-tunable consecutive cycles without rollback resolution).
-- Owner-commanded quarantine via CI event.
-- **Sustained cycle-backlog past saturation-threshold** (§1.3 + L1_HARD_RULES C36_cycle_backlog) — routes through standard quarantine; pre-saturation just emits C36 signal.
-- **Snapshot integrity violation** (cross-ref L1_SCHEMA §6.3 + L1_HARD_RULES C38_snapshot_integrity_violation) — substrate boots, signer-pubkey on snapshot.cb does not match its own derived pubkey OR signature fails verification → discard snapshot + full DAG replay; if DAG replay also fails → quarantine.
+- Cold-resume invariant failure (§3.1.a / C9).
+- CRITICAL skin breach (L1_SKIN §6 + L1_HARD_RULES C1/C2/C3/C4/C11).
+- Sustained I3 failure (≥L1-tunable consecutive cycles without rollback).
+- Owner-commanded via CI event.
+- Sustained cycle-backlog past saturation-threshold (§1.3 + C36) — pre-saturation emits C36 only.
+- Snapshot integrity violation (L1_SCHEMA §6.3 + C38) — signer-pubkey mismatch OR signature fails → discard snapshot + full DAG replay; replay fails → quarantine.
 
 ### §5.2 Quarantine-state metabolism
 
-- Cycle continues at alive cadence (substrate observes itself).
-- Tier-1 invariants run.
-- Intake closed except owner-attested administration.
-- Sporocarp fruiting continues for diagnostic / immune.
-- Federation outputs suspended.
+Cycle continues at alive cadence; tier-1 invariants run; intake closed except owner-attested administration; sporocarp fruiting continues for diagnostic/immune; federation outputs suspended.
 
 ### §5.3 Quarantine exit
 
 Owner-attested `quarantine_clearance` (§3.3).
 
-### §5.4 Distinction from legacy (L1_GOVERNANCE §3.2 succession)
+### §5.4 Distinction from legacy (L1_GOVERNANCE §3.2)
 
 - **Legacy**: owner unavailable; substrate runs normally except L0/L1 mutations frozen.
-- **Quarantined**: substrate is observing an internal pathology; intake closed; federation suspended; L0/L1 mutations also gated.
+- **Quarantined**: substrate observing internal pathology; intake closed; federation suspended; L0/L1 mutations gated.
 
-A substrate may be both legacy AND quarantined; recovery requires owner-equivalent attestation per L1_GOVERNANCE §3.2 + quarantine clearance.
+May be both; recovery requires owner-equivalent attestation per L1_GOVERNANCE §3.2 + quarantine clearance.
 
----
+## §7. C-row catalog (L1_CONTINUITY-owned)
 
-## §6. Open at L1, deferred to L4
-
-- Specific cycle minimum/maximum intervals (seed defaults committed: 100 ms min, 10 s max alive, 100 s max dormant-throttled).
-- Idle timeout (default 100 cycles).
-- Cycle-budget-threshold (default 5 s wall-clock).
-- Backlog-emission-threshold (default 10 consecutive backlog cycles).
-- Backlog-saturation-threshold (default 1000 cycles or 24 hours continuous backlog → escalates per P11.c).
-- Clock-drift-threshold (default 5 seconds; seed per §1.4).
-- Dormant compute ceilings (default <1% of alive averages).
-- WAL implementation within {filesystem-level, embedded library, custom append log} — must support fsync barriers.
-- Deep-cycle cadence (default 1/100 of metabolic-cycle rate).
-
-Shape is committed; values are L4.
-
----
-
-## §7. C-row catalog rows owned by L1_CONTINUITY
-
-Detection sites lived in this doc; full catalog rows (L0 trace, I trace, full grading) are at L1_HARD_RULES §1 / §2:
+Detection sites here; full catalog rows at L1_HARD_RULES §1/§2:
 
 - **C9** `cold_resume_invariant_failure` — §3.1.a
 - **C19** `paused_dormancy_unsafe_host` — §2.4 + §3

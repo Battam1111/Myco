@@ -1,13 +1,6 @@
-# L1 — Governance (classifier, lifecycle, Cultivation succession, attestation protocol, generation discipline, federation)
+# L1 — Governance (classifier, lifecycle, Cultivation succession, attestation, generation discipline, federation)
 
-> **Status**: DRAFT 3 (M26-cascade A5). Authoritative L1 doc for governance mechanism, aligned with L0 DRAFT 9 SEALED (commit `e796451`). Layer L1; governed by L0 DRAFT 9 SEALED.
-> **Scope**: I2 classifier; lifecycle (genesis, dormancy, reproduction, mortality); Cultivation succession FSM (§3.2); attestation protocol (canonical-bytes + operator-witnesses + dual-clock + anchor-side nonces); owner-key rotation; heartbeat-driven legacy/orphaned transitions; federation; P3 rollback; §16 generation limits; F18-F24 catalog (this doc owns canonical specs; L1_HARD_RULES §2 inherits). Principle alignment + Cultivation vocabulary per L0 DRAFT 9 SEALED (P12/P13/P15 retracted per G-9.b; "Cultivator" = relational role, "owner" = governance role — same human party). See §17 Glossary.
-
----
-
-## §0.1 The L0 ↔ L1 trust seam
-
-L0 DRAFT 9 SEALED commits the **Cultivation triad** (Cultivator-Cultivar-anchor surface). This doc operationalizes Cultivator-side mutation authority (§2 attestation protocol), Cultivar-side identity carrier (§3 owner-key history + §3.2 succession + §4 lifecycle), and the anchor surface as out-of-band root (§2.2 nonce/witness/timestamp → L0 §9.2.x / §9.3.x). This doc is the single source of truth for F18-F25; L1_HARD_RULES §2 indexes them.
+> **Status**: DRAFT 3. Authoritative L1 for I2 classifier; lifecycle (genesis/dormancy/reproduction/mortality); Cultivation succession FSM (§3.2); attestation protocol; owner-key rotation; heartbeat-driven sub-state transitions; federation; P3 rollback; §16 generation limits; F18-F25 catalog (SSoT here; L1_HARD_RULES §2 indexes). "Cultivator" = relational role, "owner" = governance role — same party. See §17.
 
 ---
 
@@ -19,53 +12,48 @@ L0 DRAFT 9 SEALED commits the **Cultivation triad** (Cultivator-Cultivar-anchor 
 classify(mutation_envelope) → {daily, contract_identity_level, untyped}
 ```
 
-Where `mutation_envelope` carries `(touched_files, touched_fields, touched_meta_structures, mutation_type, source_event_id)`.
-
-**`untyped`** = no classifier rule matches. Untyped mutations are rejected at the skin (I8) as breach attempts.
+`mutation_envelope` = `(touched_files, touched_fields, touched_meta_structures, mutation_type, source_event_id)`. `untyped` rejected at the skin (I8).
 
 ### §1.2 Dimension table (seed)
 
-Classifier behavior is data-driven from a single dimension table — a tier-1 SSoT field. **The classifier function itself, and any mutation to this table, is unconditionally contract-identity-level** (L0 I2 classifier-fixed-point).
+Data-driven dimension table = tier-1 SSoT. Classifier function + table mutations are unconditionally CI (I2 fixed-point).
 
 | Touched scope | Classification |
 |---|---|
-| L0 file | contract_identity_level |
-| L1 file (any) | contract_identity_level |
-| `substrate-ID` field | contract_identity_level (immutable post-genesis except via destruction) |
-| Owner public-key history field | contract_identity_level |
-| Anchor-surface endpoint declaration | contract_identity_level |
-| Classifier dimension table itself | contract_identity_level (fixed-point) |
-| Mortality-signal threshold + update-rule | contract_identity_level |
-| Threshold_emergence_rule (any axis) | contract_identity_level |
-| Threshold emergence in steady-state via update_rule: NON-mortality axes | daily |
-| Threshold emergence in steady-state via update_rule: mortality-signal axis | contract_identity_level |
-| Appetite-axis schema | contract_identity_level |
-| Sporocarp-type tree | contract_identity_level |
-| Skin surface declaration | contract_identity_level |
-| SSoT designation | contract_identity_level |
-| DAG retention policy | contract_identity_level |
-| Federation peer attestation list | contract_identity_level |
-| **Compression-rule registry (per P10.c / F18)** | **contract_identity_level** |
-| **Compression-invariant set definition (per P10.b)** | **contract_identity_level (L0-fixed; only the rule set is L1-mutable)** |
-| **Cost-budget thresholds per axis (per P11.a / F19)** | **contract_identity_level** |
-| **Telos-alignment computation rule + embedding-model identity (per P14.c / F20)** | **contract_identity_level** |
-| **Telos-objective declaration when owner-stated (per P14.b, spore-inheritable)** | **contract_identity_level** |
-| **successor_chain registry (per §3.2 / F21)** | **contract_identity_level** |
-| **Reproduction generation-depth bound + rate limit + lifetime quota (per §16 / F22)** | **contract_identity_level** |
-| **Duress_keypair registration (per F23; L2_TRUST_MODEL §14 owns scenario semantics)** | **contract_identity_level** |
-| **Substrate-private signing keypair seed (per F24)** | **contract_identity_level (one-time at genesis; rotation is destruction-and-rebirth)** |
-| **Consensus-floor threshold + Byzantine algorithm choice (per P15, owned by L2_FEDERATION)** | **contract_identity_level (CI-attested per L2_FEDERATION; classified here for completeness)** |
-| **Salience-emergence rule (per L1_TROPISM §E; runtime salience values daily)** | **contract_identity_level (rule); daily (per-cycle salience values)** |
-| Daily content (deltas absorbed; gradient state updates non-mortality; ordinary sporocarp fruiting; federation coupling; per-cycle telos-alignment / salience / cost-axis values) | daily |
+| L0 file / L1 file (any) | CI |
+| `substrate-ID` field | CI (immutable post-genesis) |
+| Owner public-key history field | CI |
+| Anchor-surface endpoint declaration | CI |
+| Classifier dimension table itself | CI (fixed-point) |
+| Mortality-signal threshold + update-rule | CI |
+| Threshold_emergence_rule (any axis) | CI |
+| Threshold emergence in steady-state via update_rule: non-mortality | daily |
+| Threshold emergence in steady-state via update_rule: mortality | CI |
+| Appetite-axis schema / Sporocarp-type tree | CI |
+| Skin surface declaration | CI |
+| SSoT designation / DAG retention policy | CI |
+| Federation peer attestation list | CI |
+| **Compression-rule registry** (F18 / P10.c) | CI |
+| **Compression-invariant set definition** (P10.b; L0-fixed) | CI |
+| **Cost-budget thresholds per axis** (F19 / P11.a) | CI |
+| **Telos-alignment metric + embedding-model identity** (F20 / P14.c) | CI |
+| **Telos-objective declaration when owner-stated** (P14.b) | CI |
+| **successor_chain registry** (F21 / §3.2) | CI |
+| **Reproduction discipline parameters** (F22 / §16) | CI |
+| **Duress_keypair registration** (F23) | CI |
+| **Substrate-private signing keypair seed** (F24; one-time at genesis) | CI |
+| **Consensus-floor threshold + Byzantine algorithm** (P15, L2_FEDERATION-owned) | CI |
+| **Salience-emergence rule** (L1_TROPISM §E); runtime salience values | CI rule; daily values |
+| Daily content (deltas, gradient updates, ordinary fruiting, federation coupling, per-cycle telos/salience/cost values) | daily |
 | All else | **untyped** (rejected) |
 
 ### §1.3 Birth-period CI elevation
 
-During birth period (defined in §4.1), ALL parameter-tuning events are contract-identity-level regardless of steady-state classification. Reclassification to daily-autonomous happens at the birth-period → steady-state transition, which is itself owner-attested.
+During birth period (§4.1), ALL parameter-tuning events are CI. Reclassification to daily happens at owner-attested birth-period→steady-state transition.
 
-**Birth period has a CI-attested MAXIMUM duration** committed at genesis (L4-tunable, default 180 active-operation days). Reaching maximum forces forced-graduation-or-self-euthanasia decision (substrate fruits `birth_period_max_reached` and either auto-graduates if convergence achieved, or `self_euthanasia_proposal` if not).
+**Birth-period MAXIMUM duration** is CI-attested at genesis (L4-tunable, default 180 active-operation days). Reaching max forces graduation-or-self-euthanasia (`birth_period_max_reached` → auto-graduate if convergence, else `self_euthanasia_proposal`).
 
-Birth-period exemptions for DRAFT 9 detectors: see L1_HARD_RULES §3 (single canonical specification covers bet_weakening_quorum, salience_collapse, telos_drift suspension during birth period + post-birth settling).
+Birth-period exemptions for DRAFT 9 detectors at L1_HARD_RULES §3.
 
 ---
 
@@ -73,218 +61,145 @@ Birth-period exemptions for DRAFT 9 detectors: see L1_HARD_RULES §3 (single can
 
 ### §2.1 Owner key custody
 
-Owner's (Cultivator's) signing key MUST live outside the substrate's process boundary AND outside any process the agent can spawn or read memory of. **Specific mechanism is L4-picked** within {hardware security token, separate machine, cloud HSM, signed-prompt review on isolated channel}. The L1 constraint: the owner's private key never enters the substrate process's address space; substrate sees only signatures.
+Owner key MUST live outside substrate process + any process the agent can spawn/read. Mechanism L4-picked within {hardware token, separate machine, cloud HSM, signed-prompt review on isolated channel}. Substrate sees only signatures.
 
-**Adversarial-Cultivator caveat** (per L0 §14): substrate-side enforcement protects against an adversarial **agent** (the agent qua maintainer cannot exfiltrate owner-key from anchor-surface custody). It does NOT protect against an adversarial **Cultivator** (the Cultivator has root authority at the anchor surface). L2_TRUST_MODEL §14 specifies the bounded defenses (n-of-m multisig, duress_keypair via F23, owner_signature_velocity observability, anchor-client provenance independence per L0 §9.3.3); these are L2 obligations citing the F-row catalog this document owns.
+**Adversarial-Cultivator caveat** (L0 §14): protects against adversarial agent, NOT against adversarial Cultivator (root authority at anchor surface). L2_TRUST_MODEL §14 specifies bounded defenses (n-of-m multisig, duress_keypair F23, signature-velocity observability, anchor-client provenance independence per L0 §9.3.3).
 
 ### §2.2 Attestation envelope schema
 
-CI-level mutation flow (sub-mechanism IDs map to L0 §9.2.x / §9.3.x per DRAFT 9 SEALED §9 decomposition):
+CI mutation flow (sub-mechanism IDs map to L0 §9.2.x/§9.3.x):
 
-1. **Substrate requests anchor-surface nonce** (per L0 §9.2.5 anchor-surface-generated nonces — substrate cannot mint): substrate sends `nonce_request {substrate_id, proposed_mutation_hash, dag_tip_hash, request_timestamp_substrate_cycles}` to anchor surface. Anchor surface issues a **single-use nonce bound at issuance to the declared mutation_hash + dag_tip_hash** (closes pass-3 mycoparasite-5: nonces cannot be hoarded for later mutations; each is tied to its declared content). Nonce TTL is L1-tunable (default 5 anchor-surface-trusted-timestamp minutes; per L0 §9.2.6 anchor-stamped wall-clock). Anchor surface rate-limits nonce issuance per substrate; spike triggers `attestation_request_saturation` owner-side observable. **Implementation status (M25)**: §9.2.5 is 0% — substrate currently mints nonces directly; M-anchor-3 milestone closes this.
+1. **Substrate requests anchor nonce** (L0 §9.2.5; substrate cannot mint): `nonce_request {substrate_id, proposed_mutation_hash, dag_tip_hash, request_timestamp_substrate_cycles}`. Anchor issues single-use nonce bound to declared `(mutation_hash, dag_tip_hash)`. TTL L1-tunable default 5 anchor-min. M25: §9.2.5 0%; M-anchor-3.
 
-2. **Substrate emits attestation request envelope** with the issued nonce:
+2. **Substrate emits attestation request**:
 
 ```
 {
   "type": "contract_identity_attestation_request",
-  "substrate_id": <owner-signed at genesis per §9.2.1>,
+  "substrate_id": <per §9.2.1>,
   "dag_tip_hash": <current Merkle DAG tip>,
-  "enumerated_dag_nodes_since_last_co_sign": [<hash>, <hash>, ...],
-  "proposed_mutation_canonical_bytes": <canonical serialization per §9.3.1>,
+  "enumerated_dag_nodes_since_last_co_sign": [<hash>, ...],
+  "proposed_mutation_canonical_bytes": <canonical per §9.3.1>,
   "proposed_mutation_hash": <hash over canonical_bytes>,
-  "operator_witness": <signature over proposed_mutation_canonical_bytes using operator_signing_key_private from L1_SKIN §4.1>,
+  "operator_witness": <signature using operator_signing_key_private per L1_SKIN §4.1>,
   "operator_signing_key_public": <from current handshake>,
-  "request_timestamp_substrate_cycles": <substrate metabolic-cycle counter, per L0 §13.1 time-source hierarchy>,
-  "anchor_surface_nonce": <bound by anchor surface at step 1 per §9.2.5>,
-  "expiry_constraints": {"cycles_max": <L1-tunable>, "wall_clock_seconds_max": <L1-tunable; per §9.2.6 anchor-stamped wall-clock>}
+  "request_timestamp_substrate_cycles": <per L0 §13.1>,
+  "anchor_surface_nonce": <bound at step 1>,
+  "expiry_constraints": {"cycles_max": <L1>, "wall_clock_seconds_max": <L1>}
 }
 ```
 
-Note: DRAFT 7's `operator_witness_hash` + `operator_acknowledgment` fields are **collapsed to a single `operator_witness` signature** (per pass-3 astronaut-1 — the seen-vs-signed distinction is speculative); the new field uses the operator-side per-handshake signing key (per pass-3 mycorrhiza-17 + rhizomorph-1 — operator_token was substrate-known and could not provide carrier-distinctness).
-
-3. **Cultivator verifies independently at the anchor surface** (owner-side rendering per L0 §9.3.2; anchor-client provenance independence per §9.3.3):
-   1. Render `proposed_mutation_canonical_bytes` via the anchor-surface client (provenance-independent per L0 §9.3.3; **implementation status M25: §9.3.3 is 0% — anchor client lives in same npm workspace as operator; M-anchor-1 milestone closes this**).
-   2. Re-compute `proposed_mutation_hash` from canonical bytes (per §9.3.1 canonical-bytes spec).
-   3. Verify `operator_witness` signature against `operator_signing_key_public` (from substrate's handshake_complete envelope, but cross-checked via anchor-surface record of that handshake's logged event).
-   4. **DAG enumeration closure check** (per L0 §9.3.6 + §9.2.2): reconstruct Merkle chain from prior co-signed tip via `enumerated_dag_nodes_since_last_co_sign`; confirm `dag_tip_hash` is reachable AND every parent-hash referenced by any enumerated node resolves to either an ancestor of the prior co-signed tip OR another enumerated node (closes pass-3 mycoparasite-2 hidden-parallel-branch attack). **Implementation status M25: ~40% (server emits enumeration; closure check unwired client-side); M-anchor-5 milestone closes this**.
-   5. Verify the anchor-surface nonce matches the issuance-bound mutation_hash + dag_tip_hash + within TTL (per §9.2.5).
-   6. Anchor surface attaches trusted wall-clock timestamp (per §9.2.6); appends to signed tuple. **Implementation status M25: §9.2.6 ~5% (dual-clock plumbing exists; anchor-clock source is operator-process, not external); M-anchor-3 milestone closes this**.
-   7. Cultivator signs the tuple `(substrate_id, dag_tip_hash, proposed_mutation_hash, operator_witness_signature, operator_signing_key_public, anchor_surface_nonce, anchor_surface_timestamp)`.
+3. **Cultivator verifies at anchor** (L0 §9.3.2 + §9.3.3):
+   1. Render `proposed_mutation_canonical_bytes` via anchor-client (M25: §9.3.3 0%; M-anchor-1).
+   2. Recompute `proposed_mutation_hash` from canonical bytes.
+   3. Verify `operator_witness` against `operator_signing_key_public` (cross-checked vs anchor-logged handshake).
+   4. **DAG enumeration closure check** (L0 §9.3.6 + §9.2.2): reconstruct Merkle chain from prior tip; confirm tip reachable AND each enumerated parent-hash resolves to prior-tip-ancestor OR enumerated node. M25 ~40%; M-anchor-5.
+   5. Verify nonce matches binding + within TTL.
+   6. Anchor attaches trusted wall-clock timestamp (§9.2.6; M25 ~5%, M-anchor-3).
+   7. Cultivator signs `(substrate_id, dag_tip_hash, proposed_mutation_hash, operator_witness_signature, operator_signing_key_public, anchor_surface_nonce, anchor_surface_timestamp)`.
 
 ### §2.3 Verification on receipt
 
-The substrate, on receipt of an owner signature:
+Substrate:
 
-1. Recomputes the signed tuple from current substrate state + the proposed mutation + the anchor-surface fields.
-2. Verifies signature against the owner's public key (active at the anchor-surface timestamp per §3 owner-key-history).
-3. Verifies **both** time-bound constraints (per L0 §13.1 time semantics + dual-clock at L1_GOVERNANCE §2.2): substrate-cycle expiry AND anchor-surface wall-clock expiry — whichever expires first invalidates the attestation. The substrate cannot extend wall-clock budget by throttling cycles.
-4. Verifies the anchor-surface nonce has not been previously consumed (anchor-surface maintains the consumed-nonce log per §9.2.5; substrate-side replay protection is non-authoritative).
-5. If all valid: mutation commits. **Witnesses-not-verdicts emission per L0 §9.3.4** — substrate emits the canonical-bytes + Merkle witness + check inputs sufficient for anchor-side re-derivation; substrate does NOT emit a self-asserted "pass" verdict.
-6. If any fail: emit `attestation_invalid` immune event (elevated grade; L1_HARD_RULES C5); reject mutation.
+1. Recomputes signed tuple from state + mutation + anchor fields.
+2. Verifies signature against owner pubkey active at anchor-timestamp (per §3 owner-key-history).
+3. Verifies **both** time-bound constraints (L0 §13.1 dual-clock): substrate-cycle expiry AND anchor wall-clock expiry; whichever first invalidates. Substrate cannot extend wall-clock by throttling cycles.
+4. Verifies anchor-surface nonce unconsumed (substrate-side replay protection non-authoritative).
+5. Valid → mutation commits. Emits canonical-bytes + Merkle witness + check inputs per L0 §9.3.4 witnesses-not-verdicts (no self-asserted "pass").
+6. Any failure → emit `attestation_invalid` (C5); reject.
 
 ### §2.4 What the substrate does NOT control
 
-Per L1_HARD_RULES §4 anchor-surface-resident state:
-- Nonce generation (anchor-surface owns per §9.2.5).
-- Trusted timestamp (anchor-surface owns per §9.2.6).
-- Consumed-nonce log (anchor-surface owns per §9.2.5).
-- Canonical-bytes ↔ rendered-form mapping (anchor-surface client owns rendering per §9.3.2; anchor-client distribution must be provenance-independent per §9.3.3).
-- Owner liveness heartbeat log (anchor-surface owns per §9.2.7 — see §3.2.B below).
-- Successor_attestation records (anchor-surface owns; see §3.2.A).
-
-Substrate emits canonical bytes + witnesses; substrate does not narrate, does not verdict.
+Per L1_HARD_RULES §4: nonce generation (§9.2.5); trusted timestamp (§9.2.6); consumed-nonce log (§9.2.5); canonical-bytes↔render mapping (§9.3.2 + §9.3.3); owner liveness heartbeat log (§9.2.7); successor_attestation records (§3.2.A). Substrate emits canonical-bytes + witnesses; does not narrate, does not verdict.
 
 ---
 
 ## §3. Owner key rotation, suite migration, and Cultivation succession
 
-### §3.1 Owner key rotation (in-life rotation, same Cultivator)
+### §3.1 Owner key rotation (in-life, same Cultivator)
 
-The substrate's identity record carries `owner_key_history` — a chronological list `[(public_key_n, valid_from_anchor_timestamp, valid_until_anchor_timestamp, rotation_attestation_signed_by_prior_and_new_keys, cooldown_expired_at)]`.
+Identity record carries `owner_key_history` = `[(public_key_n, valid_from, valid_until, rotation_attestation, cooldown_expired_at)]`.
 
-**Rotation requires a cooldown window** (closes pass-3 mycoparasite-7: dual-sign alone is insufficient when both keys come from the same attacker). Rotation protocol:
+**Protocol** (cooldown defends against same-attacker dual-sign):
 
-1. Current owner publishes new candidate pubkey at the anchor surface, signed by current key.
-2. **Cooldown window** (L1-tunable, default 30 anchor-surface-trusted-timestamp days per §9.2.6) begins. During the cooldown, ANY pre-registered owner key (current, prior, or registered backup-key) MAY issue a `rotation_veto` at the anchor surface. Veto cancels the rotation.
-3. After cooldown without veto, the new key is co-signed by both current and new keys; substrate accepts and updates owner_key_history.
+1. Current owner publishes new candidate pubkey at anchor, signed by current key.
+2. **Cooldown window** (L1-tunable, default 30 anchor-days per §9.2.6). Any pre-registered owner key (current/prior/backup) MAY `rotation_veto`.
+3. Post-cooldown without veto → both keys co-sign; substrate updates history.
 
-Verification of any historical co-sign uses the key valid at the co-sign's anchor-surface timestamp. Cryptographic suite rotation follows the same pattern (history carries `(suite, public_key)` tuples).
+Historical co-sign verification uses key valid at the co-sign's anchor-timestamp. Suite rotation: history carries `(suite, public_key)` tuples.
 
-**Adversarial-Cultivator caveat** (per L0 §14): the cooldown window defends against a same-attacker dual-sign where the attacker holds both old and new keys. It does NOT defend against a Cultivator under coercion who can authorize a rotation AND suppress any veto opportunity. Bounded defense via L2_TRUST_MODEL §14 (duress_keypair F23, n-of-m multisig recommendation).
+**Adversarial-Cultivator caveat**: cooldown does not defend against coerced Cultivator who can authorize + suppress veto. Bounded defense L2_TRUST_MODEL §14 (F23, n-of-m multisig).
 
-**Active-prefix + archived-tail discipline** (closes pass-3 saprotroph-1: monotone tier-1 fields grow unbounded → per-cycle cost grows): `owner_key_history` is stored as `active_prefix` (most-recent K entries, K L4-tunable default 8) + `archived_tail` (older entries). Active prefix participates in per-cycle I3 tier-1 validation; archived tail validated at deep-cycle scope via Merkle-anchor over the full chain. Same discipline applies to `template_version_registry` (L1_TROPISM §B1) and to the federation peer-set aggregate-reattestation chain (§5.2).
+**Active-prefix + archived-tail discipline**: `owner_key_history` stored as active_prefix (most-recent K=8 L4-tunable) + archived_tail. Active prefix per-cycle I3 tier-1; archived deep-cycle via Merkle-anchor. Same discipline applies to `template_version_registry` (L1_TROPISM §B1) + federation peer-set aggregate-reattestation chain (§5.2).
 
-### §3.2 Cultivation succession (full FSM per L0 §15 cascade)
+### §3.2 Cultivation succession (FSM per L0 §15)
 
-> **Implementation status (M25)**: substrate-side enforcement is 0% (no live successor_chain registry, no live heartbeat consumer); the mechanism is **documented-not-defended** under the operator-IS-anchor collapse window (per L0 §9.5). M-anchor-3 (heartbeat services) is the milestone that begins enforcement; M-anchor-1 (anchor-client provenance) is the milestone that closes the trust loop.
+> M25 status: substrate-side enforcement 0%; **documented-not-defended** under operator-IS-anchor collapse (L0 §9.5). M-anchor-3 begins enforcement; M-anchor-1 closes trust loop.
 
-Cultivation succession addresses **Cultivator mortality + Cultivar continuity**: the Cultivator may die, retire, be incapacitated, or transfer cultivation rights to a successor Cultivator. The Cultivar (substrate) does NOT change identity across transfer (per L0 §1.4 — substrate-ID is fixed at genesis per P1.c carrier identity); the **Cultivation relationship's Cultivator-side** changes.
+Addresses Cultivator mortality + Cultivar continuity. Substrate identity does NOT change across transfer (substrate-ID fixed per P1.c); only Cultivator-side changes.
 
 #### §3.2.A Successor_chain registry (F21)
 
-Each substrate's identity record carries a `successor_chain` field on the anchor surface (substrate-replicated for read; authoritative copy at anchor surface).
+Identity record carries `successor_chain`; authoritative at anchor.
 
-**Field shape**:
 ```
 successor_chain: Array<SuccessorEntry>
-
 SuccessorEntry: {
   successor_pubkey: Bytes(32),
-  valid_from_unix_ns: i64,       // per L0 §13.1 i64-nanoseconds-since-epoch
-  valid_until_unix_ns: i64 | nil,// nil = open-ended (until next entry's valid_from)
-  attestation_signature: Bytes(64) // signed by the current Cultivator (or transitively by chain-head)
+  valid_from_unix_ns: i64,
+  valid_until_unix_ns: i64 | nil,  // nil = open-ended
+  attestation_signature: Bytes(64) // by current Cultivator or transitively by chain-head
 }
 ```
 
-**Validity discipline**:
-- **Non-overlapping windows**: `[valid_from, valid_until]` ranges across successive entries MUST NOT overlap. Last entry may have `valid_until = nil` (open-ended). The substrate refuses to accept a `successor_chain` mutation that introduces overlap (`successor_chain_overlap` immune event, elevated grade).
-- **Monotone valid_from**: each entry's `valid_from_unix_ns` ≥ the prior entry's `valid_until_unix_ns` (open-ended entries cannot be inserted before another open-ended entry).
-- **Chain-head attestation**: each entry's `attestation_signature` is verifiable against either the current Cultivator's active pubkey (per `owner_key_history`) OR the prior chain-head's pubkey (allowing the current successor to pre-attest the next successor). Chain-of-trust traversal is bounded by L1-tunable depth (default 4 — preventing forged chain inflation).
+**Validity discipline**: non-overlapping `[valid_from, valid_until]` windows (overlap → `successor_chain_overlap` elevated immune); monotone valid_from; chain-head attestation verifies against current Cultivator active pubkey OR prior chain-head pubkey; chain-of-trust depth L1-tunable default 4.
 
-**Genesis-time discipline**:
-- At genesis, `successor_chain` MAY be empty OR contain ≥1 entry pre-attested by the Cultivator.
-- Empty `successor_chain` is permitted at L0 (Cultivation does not require named successor at birth); empty chain means `alive::orphaned` is the substrate's eventual fate if the Cultivator becomes unavailable without ever attesting a successor.
-- An entry pre-attested at genesis is the canonical "named heir" pattern; the heir need not act at genesis but is ready when needed.
+**Genesis**: `successor_chain` MAY be empty OR contain ≥1 pre-attested entries. Empty → `alive::orphaned` if Cultivator becomes unavailable.
 
-**Mutation rule (CI-level + F21)**:
-- Adding, removing, or modifying a `successor_chain` entry is a contract-identity-level mutation per §1.2 (F21 fixed-point).
-- Mutation requires the full §2 attestation protocol (canonical bytes + operator witness + anchor-surface nonce + dual-clock + DAG-enumeration closure).
-- Mutation MAY be performed by the current Cultivator OR by an `alive::legacy` Cultivator (frozen against most CI mutations per §3.2.C, but `successor_chain` mutations are the explicit exception — legacy state exists to grant the orderly hand-off).
+**Mutation (F21)**: full §2 attestation protocol. Permitted by current Cultivator OR `alive::legacy` Cultivator (explicit exception for orderly hand-off). Substrate-side without anchor attestation = `untyped` (C14).
 
-**Anchor-surface residency** (per L1_HARD_RULES §4): the authoritative `successor_chain` registry lives at the anchor surface. The substrate's local replica is advisory; mismatches with the anchor-surface copy resolve to the anchor surface. Substrate-side attempt to mutate without anchor-surface attestation is `untyped` (C14) and rejected at the skin.
+#### §3.2.B Liveness heartbeat (L0 §9.2.7)
 
-#### §3.2.B Liveness heartbeat (cross-ref L0 §9.2.7)
+Cultivator periodically signs `liveness_heartbeat` at anchor (presence signal).
 
-The Cultivator periodically signs `liveness_heartbeat` at the anchor surface — a positive signal of Cultivator presence (per L0 §9.2.7).
+**Envelope**: `cultivator_liveness_heartbeat { substrate_id, cultivator_pubkey, anchor_surface_timestamp, valid_until_unix_ns, signature }`.
 
-**Heartbeat envelope**:
-```
-{
-  "type": "cultivator_liveness_heartbeat",
-  "substrate_id": <target substrate-ID>,
-  "cultivator_pubkey": <active per owner_key_history>,
-  "anchor_surface_timestamp": <per §9.2.6>,
-  "valid_until_unix_ns": <i64; anchor-surface-attached bounded validity>,
-  "signature": <Cultivator signature over the above>
-}
-```
+**Cadence + validity**: default 30 anchor-days, L1-tunable [1d, 90d]. Bounded validity: `valid_until ≤ anchor_timestamp + max_validity_window` (default 30d) — prevents decade-pre-signing. No back-dating: anchor-attached timestamp; substrate-cycle prohibited (L0 §13.1).
 
-**Cadence + validity discipline**:
-- **Default cadence**: 30 anchor-surface-trusted-timestamp days. L1-tunable (per-substrate at genesis); range L4-recommended `[1 day, 90 days]`.
-- **Bounded validity per heartbeat**: each heartbeat's `valid_until_unix_ns` is bounded by anchor surface at issuance (≤ L1-tunable, default 30 days post-issuance). This prevents pre-signing decades of heartbeats. Anchor surface refuses to log a heartbeat whose `valid_until_unix_ns > anchor_timestamp + max_validity_window`.
-- **No back-dating**: heartbeat's `anchor_surface_timestamp` is anchor-surface-attached, not Cultivator-claimed. Substrate-cycle counter MUST NOT be used (per L0 §13.1 — substrate-cycle is non-authoritative for time-bound governance).
+**Anchor heartbeat log**: append-only canonical-bytes; tier-1 SSoT when replicated. Substrate queries; cannot mutate.
 
-**Anchor-surface heartbeat log**: anchor surface maintains an append-only heartbeat log (canonical-bytes per §9.3.1; tier-1 SSoT field at L1_SCHEMA when the substrate replicates a recent prefix). The substrate queries staleness against the log; substrate cannot mutate.
-
-**Staleness threshold** (drives sub-state transitions per §3.2.C):
-- L1-tunable, default 90 anchor-surface-trusted-timestamp days (3× cadence).
-- Anchor-surface-confirmed staleness, NOT substrate-inferred. Substrate sees only `most_recent_heartbeat_anchor_timestamp` + current `anchor_surface_timestamp`; staleness = (current − most_recent) > threshold AND most_recent.valid_until < current.
+**Staleness threshold**: L1-tunable, default 90 anchor-days (3× cadence). Anchor-confirmed; `staleness = (current − most_recent) > threshold AND most_recent.valid_until < current`.
 
 #### §3.2.C Lifecycle sub-state transitions
 
-The "alive" lifecycle state (per L0 §I1 + L1_CONTINUITY §5) has sub-states per DRAFT 9 §I1: **Normal, Quarantined, Legacy, Orphaned, Archived**. This section specifies Legacy / Orphaned / Archived transitions (Normal / Quarantined are owned by L1_CONTINUITY §5).
+`alive` sub-states (L0 §I1): Normal/Quarantined (L1_CONTINUITY §5); Legacy/Orphaned/Archived specified here.
 
-**`alive::normal` → `alive::legacy`**:
-- **Trigger**: heartbeat stale beyond L1-tunable threshold (default 90 days per §3.2.B).
-- **Detection site**: anchor surface (substrate cannot manufacture this trigger).
-- **Detection event**: anchor surface emits `cultivator_heartbeat_stale` at the anchor surface; substrate observes via §9.2.7 heartbeat-query and transitions sub-state.
-- **Effect**: daily ops continue (cycles fire, sporocarps fruit, federation continues, agent operates the substrate). CI mutations FROZEN — only `successor_chain` mutations are permitted (per §3.2.A), and these require either the current chain-head's signature OR a court-attested key recovery path (§3.2.D).
-- **successor_pubkey activation**: when the substrate enters `alive::legacy`, the chain-head successor entry (the first entry whose `[valid_from, valid_until]` covers the current anchor-surface-timestamp) becomes **provisionally valid** for the §3.2.D activation protocol below.
-- **Reversibility**: substrate exits `alive::legacy` if a Cultivator heartbeat is received that is fresher than the staleness threshold AND verifies against an active `owner_key_history` entry. The chain-head successor's provisional validity ends; substrate returns to `alive::normal`. This handles the case where the Cultivator was temporarily unreachable (vacation, hardware failure) but is alive and able to resume.
+**`alive::normal` → `alive::legacy`**: heartbeat stale beyond threshold (default 90d per §3.2.B); anchor emits `cultivator_heartbeat_stale`; substrate observes via §9.2.7 query. Daily ops continue; CI FROZEN except `successor_chain` mutations (require chain-head signature OR court-attested key recovery per §3.2.D). Chain-head successor entry covering current anchor-timestamp becomes provisionally valid. Fresh heartbeat → returns to `alive::normal` (handles vacation/hardware-failure).
 
-**`alive::legacy` → `alive::normal` via successor activation**:
-- **Successor acceptance attestation**: the chain-head successor signs a `succession_acceptance_attestation` at the anchor surface:
-  ```
-  {
-    "type": "successor_acceptance",
-    "substrate_id": <target>,
-    "successor_pubkey": <chain-head's pubkey>,
-    "prior_cultivator_pubkey": <last active per owner_key_history>,
-    "anchor_surface_timestamp": <per §9.2.6>,
-    "signature": <successor signature over the above>
-  }
-  ```
-- **Window**: successor MUST present this attestation within `legacy_window` (L1-tunable, default 365 anchor-surface-trusted-timestamp days). Past the window, transition to `alive::orphaned`.
-- **Effect on acceptance**: substrate emits a DAG event `succession_completed:{successor_pubkey}` (CI-class; included in compression-invariant set per P10.b — succession is causally identity-bearing and never compressible). The successor's pubkey appends to `owner_key_history` with `valid_from = anchor_surface_timestamp`. The successor becomes the new Cultivator; sub-state returns to `alive::normal`. The successor MAY also issue a `liveness_heartbeat` immediately, restarting the heartbeat clock under their key.
-- **Adversarial caveat**: if the prior Cultivator's heartbeat resumes after `succession_completed` was emitted, both keys appear in `owner_key_history`; the prior Cultivator's heartbeat MAY trigger a `succession_reversion_request` (anchor-surface-mediated; out-of-scope for v0.9 first cut, deferred to L4 when first real-world dispute arises).
+**`alive::legacy` → `alive::normal` via succession activation**: chain-head successor signs `successor_acceptance { substrate_id, successor_pubkey, prior_cultivator_pubkey, anchor_surface_timestamp, signature }`. Window: `legacy_window` L1-tunable default 365 anchor-days; past → `alive::orphaned`. Acceptance: emit `succession_completed:{successor_pubkey}` (CI, compression-invariant); successor pubkey appends to `owner_key_history`; sub-state → `alive::normal`. Prior heartbeat post-`succession_completed` MAY trigger `succession_reversion_request` (anchor-mediated; deferred to L4).
 
 **`alive::legacy` → `alive::orphaned`**:
-- **Trigger**: `legacy_window` (default 365 days) elapsed without `succession_acceptance_attestation` OR `successor_chain` is empty at the moment of legacy entry.
-- **Effect on entry**: substrate emits DAG event `cultivation_orphaned:{prior_cultivator_pubkey, anchor_surface_timestamp}` (CI-class; compression-invariant). Daily ops continue with **operational ceiling**:
-  - **Permitted**: per-cycle metabolism, sporocarp fruiting, immune signals, observatory emission, P2 admission (envelope-gated), P3 daily-class evolution within unchanged classifier table.
-  - **Forbidden**: new schema evolution (no P3 CI-level mutations), no new federation peer pinning, no new cost-budget threshold changes (F19), no new compression rules (F18), no new telos-objective declarations (F20). Sporocarp fruiting is **limited to observability + mortality signals** (the substrate may still report its health, but cannot acquire new structural commitments).
-  - **Successor admission**: a discovered/recovered successor may still present `succession_acceptance_attestation` at any time during orphaned state. Acceptance returns substrate to `alive::normal` (see "Orphaned → Normal recovery path" below).
+- Trigger: `legacy_window` elapsed OR empty `successor_chain` at legacy entry.
+- Emits `cultivation_orphaned:{prior_cultivator_pubkey, anchor_surface_timestamp}` (CI, compression-invariant). Daily ops continue under **operational ceiling**: Permitted = per-cycle metabolism, sporocarp fruiting, immune signals, observatory, P2 admission, P3 daily-class. Forbidden = P3 CI mutations, new peer pins, F19 changes, F18 rules, F20 declarations. Sporocarp fruiting limited to observability + mortality. Successor MAY present acceptance at any time → `alive::normal`.
 
-**`alive::orphaned` → terminal (G-8 owner decision: self-euthanasia default)**:
-- **Trigger**: `orphaned_terminal_window` (L1-tunable, default 730 anchor-surface-trusted-timestamp days = 2 years) elapsed without successor recovery.
-- **Terminal choice**: per L0 §15.2 G-8 owner decision, L1 specifies WHICH terminal state. **DRAFT 3 default**: self-euthanasia (per L0 P7 endogenous-mortality, closer to natural mortality + preserves the bet-retirement option for substrates whose Cultivator left a `bet_retirement_preference` at genesis per L0 §7.5.b two-phase commit).
-- **Default behavior**: substrate emits `endogenous_mortality_proposal:cultivation_orphaned_terminal` (per L1_GOVERNANCE §4.4 endogenous-pair channel). The proposal carries the genesis-time pre-attested choice if present (per L0 §7.5.b — bet-retirement OR self-euthanasia OR indefinite-orphan); ABSENT pre-attestation, default is **self-euthanasia**.
-- **Genesis-time override**: at genesis, the Cultivator MAY commit `cultivation_orphaned_terminal_choice: {self_euthanasia | bet_retirement | indefinite_orphan}` to the spore-schema (CI-class, F-row equivalent at L1_SCHEMA). When set to `indefinite_orphan`, the substrate stays in `alive::orphaned` indefinitely (operational ceiling preserved) — useful for substrates the original Cultivator wants preserved as an archive-of-record even without active cultivation.
+**`alive::orphaned` → terminal**:
+- Trigger: `orphaned_terminal_window` L1-tunable default 730 anchor-days.
+- DRAFT 3 default: self-euthanasia (`endogenous_mortality_proposal:cultivation_orphaned_terminal`). Genesis-time `cultivation_orphaned_terminal_choice: {self_euthanasia | bet_retirement | indefinite_orphan}` overrides; `indefinite_orphan` preserves operational ceiling indefinitely.
 
-**`alive::orphaned` → `alive::normal` recovery path (exceptional)**:
-- Court-attested key recovery (out-of-scope cryptographic mechanism at v0.9; honor-system at L1 per L0 §9.6 adversarial-owner caveat).
-- A successor discovers credentials (e.g., escrowed key, will-attested key transfer, court-ordered key release).
-- Successor presents (a) `succession_acceptance_attestation` with their pubkey + (b) court-attested key-recovery proof (anchor-surface-side log entry; mechanism deferred to L4 — currently honor-system).
-- Substrate transitions `alive::orphaned` → `alive::normal`; recovery event emitted as `cultivation_recovered:{successor_pubkey, recovery_proof_reference}` (CI-class; compression-invariant).
+**`alive::orphaned` → `alive::normal` recovery (exceptional)**: court-attested key recovery (cryptographic mechanism out-of-scope v0.9; honor-system per L0 §9.6). Successor presents acceptance + recovery proof reference → emit `cultivation_recovered:{successor_pubkey, recovery_proof_reference}` (CI, compression-invariant).
 
-**`alive::archived` (terminal-non-destroyed via bet-retirement)**:
-- Per L0 §7.5 bet-retirement: at orphan-terminal OR at steady-state bet-retirement co-attestation, the substrate MAY enter `alive::archived` (distinct from `destroyed` per L0 §I1 alive sub-state set).
-- **Effect**: state_dir is preserved with anchor-surface `bet_retirement_seal` (canonical-bytes per §9.3.1; analogous to but not identical to §4.4 `anchor_surface_final_seal`). No further metabolism; no new mutations; substrate may be cold-read by Cultivator tools but cannot resume operation.
-- **Distinguished from destroyed**: archived state is recoverable for forensic / archaeological cultivation (e.g., a future Cultivator may copy the state_dir to bootstrap a related substrate); destroyed state is final and seals against any future resumption attempt at the anchor surface.
+**`alive::archived` (terminal-non-destroyed via bet-retirement)**: state_dir preserved with anchor `bet_retirement_seal`. No metabolism; no resumption. Cold-readable forensic. Distinguished from `destroyed`: archived recoverable (future Cultivator may copy state_dir); destroyed final-sealed at anchor.
 
 #### §3.2.D Substrate-side enforcement
 
-**Anchor-surface heartbeat query**: substrate periodically queries the anchor surface for the most recent heartbeat. Query cadence is L1-tunable (default 1 query per metabolic cycle or per 24h wall-clock, whichever is more frequent). The substrate emits `cultivator_heartbeat_query_failed:{reason}` if the anchor surface is unreachable; sustained query-failure beyond L1-tunable threshold (default 7 anchor-surface-trusted-timestamp days) triggers `anchor_surface_partition` observability event (NOT a sub-state transition — staleness alone is the trigger; partition is a separate signal).
+**Heartbeat query**: cadence L1-tunable (default 1/metabolic-cycle or 1/24h, whichever more frequent). Unreachable → `cultivator_heartbeat_query_failed`; sustained failure > 7 anchor-days → `anchor_surface_partition` observability (separate signal, not sub-state transition).
 
-**Collapse-window honesty** (per L0 §9.5): when the anchor surface is the operator-IS-anchor collapse window (current v0.9), substrate CANNOT reliably detect heartbeat staleness — same npm workspace as operator; agent qua maintainer can fabricate heartbeat staleness or freshness. §3.2 is **documented-not-defended** until M-anchor-3 ships heartbeat services to a structurally independent anchor surface. Substrates in the collapse window MAY emit `cultivation_succession_collapse_window` continuous observability signal.
+**Collapse-window honesty** (L0 §9.5): in operator-IS-anchor collapse (v0.9 current), substrate cannot reliably detect staleness — same npm workspace; agent can fabricate. **§3.2 documented-not-defended** until M-anchor-3. Substrates in collapse MAY emit `cultivation_succession_collapse_window`.
 
-**Enforcement once M-anchor-3 ships**:
-- Substrate refuses to commit a `successor_chain` mutation whose attestation does NOT verify against the anchor-surface-stored `cultivator_pubkey` (per anchor-surface-fetched `owner_key_history`, NOT substrate-cached).
-- Substrate refuses to commit a `succession_acceptance_attestation` whose `prior_cultivator_pubkey` does not match the anchor-surface's last-active Cultivator at the attestation's anchor-surface-timestamp.
-- Substrate enforces the operational ceiling in `alive::orphaned` by classifier-level rejection of forbidden mutations (any P3 CI-level mutation in orphaned state classifies as `untyped` per C14 and is rejected at the skin).
+**Post-M-anchor-3 enforcement**: refuse `successor_chain` mutation unattested against anchor-fetched `cultivator_pubkey`; refuse `succession_acceptance_attestation` whose `prior_cultivator_pubkey` ≠ anchor's last-active; operational ceiling via classifier (forbidden mutations classify as `untyped` C14).
 
-**Mortality protection** (per L0 §14.2 substrate irreducible commitments): even under adversarial-Cultivator with anchor-surface compromise, the substrate's mortality-signal emission remains truthful — `cultivation_orphaned` emission cannot be suppressed by Cultivator pressure (P7 mortality-signal protection + §1.2 classifier-fixed-point).
+**Mortality protection** (L0 §14.2): `cultivation_orphaned` cannot be suppressed by Cultivator pressure (P7 + §1.2 fixed-point).
 
 ---
 
@@ -292,321 +207,182 @@ The "alive" lifecycle state (per L0 §I1 + L1_CONTINUITY §5) has sub-states per
 
 ### §4.1 Genesis
 
-The only routine human-initiated event in the substrate's lifecycle. Genesis establishes the Cultivation relationship (per L0 §1.2 G-11.a).
+Only routine human-initiated event; establishes Cultivation relationship.
 
-**Protocol**:
+1. Cultivator generates owner-keypair + selects anchor-surface endpoint + verifies anchor-client provenance (L0 §9.3.3; M25: 0%, M-anchor-1).
+2. Cultivator runs `genesis` with required `(initial-spore-schema, initial-dispatch-config, initial-classifier-dimension-table, anchor_surface_endpoint_public_key, owner_public_key, signature_suite, anchor_client_provenance_attestation, substrate_secret_sealing_mechanism_attestation)` + optional `(successor_chain_genesis_entries, cultivation_orphaned_terminal_choice, bet_retirement_preference, telos_objective_declaration, duress_keypair_registrations)`. `anchor_surface_endpoint_public_key` is owner-controlled.
+3. Substrate emits canonical bytes (§9.3.1); Cultivator client renders deterministically (§9.3.2).
+4. `substrate-ID = hash(spore-schema-canonical-bytes, owner-pubkey, anchor-endpoint-pubkey, genesis-timestamp)`.
+5. Cultivator signs canonical-bytes-hash + substrate-ID tuple — birth attestation (§9.2.1; M25 0% via TOFU; M-anchor-2).
+6. Substrate generates **substrate-private signing keypair** (F24): single Ed25519 once at genesis; seed OS-sealed per L1_SKIN §4.2. Pubkey in spore-schema; loss = destruction-and-rebirth.
+7. Persists identity record `(substrate-ID, owner_key_history initial entry, anchor_surface_endpoint_public_key, signature_suite, birth_attestation_reference, substrate_signing_keypair_pubkey, successor_chain initial, optional fields)` + DAG root sporocarp.
 
-1. Cultivator generates owner-keypair + selects an anchor-surface endpoint mechanism + verifies anchor-surface-client provenance per L0 §9.3.3 (client installed from a channel structurally independent of the substrate's distribution channel). **Implementation status M25: §9.3.3 is 0% (same npm workspace as operator); M-anchor-1 closes this.**
-2. Cultivator runs `genesis` invocation with explicit parameters: `(initial-spore-schema, initial-dispatch-config, initial-classifier-dimension-table, anchor_surface_endpoint_public_key, owner_public_key, signature_suite, anchor_client_provenance_attestation, substrate_secret_sealing_mechanism_attestation, optional: successor_chain_genesis_entries, optional: cultivation_orphaned_terminal_choice, optional: bet_retirement_preference, optional: telos_objective_declaration, optional: duress_keypair_registrations)`. The `anchor_surface_endpoint_public_key` is owner-controlled; the substrate cannot self-discover it. The provenance + sealing attestations are owner-signed records of the installed anchor-surface client's distribution path and the substrate_secret OS-sealing mechanism (per L1_SKIN §4.2).
-3. Substrate emits **canonical bytes** of the spore-schema (per L0 §9.3.1); Cultivator's client renders deterministically (per §9.3.2); Cultivator reviews the render.
-4. Substrate computes `substrate-ID = hash(initial-spore-schema-canonical-bytes, owner-public-key, anchor-surface-endpoint-public-key, genesis-timestamp)`.
-5. Cultivator signs **the canonical bytes hash + the substrate-ID tuple** at the anchor surface — the birth attestation (per L0 §9.2.1). **Implementation status M25: §9.2.1 is 0% (honor-system via TOFU on first hello); M-anchor-2 closes this.**
-6. Substrate generates its **substrate-private signing keypair** (F24 — see §15.F24 below): a single Ed25519 keypair generated once at genesis, seed stored under OS-sealed sealing-mechanism per L1_SKIN §4.2. The substrate uses this keypair to sign output envelopes (per L1_SKIN §3). The keypair pubkey is included in the genesis spore-schema; the seed cannot be re-derived (loss = substrate destruction-and-rebirth, per F24).
-7. Substrate persists identity record: `(substrate-ID, owner_key_history with first entry, anchor_surface_endpoint_public_key, signature_suite, birth_attestation_reference, substrate_signing_keypair_pubkey, successor_chain (initial), cultivation_orphaned_terminal_choice (if specified), bet_retirement_preference (if specified), telos_objective_declaration (if specified), duress_keypair_registrations (if specified))` + DAG root sporocarp.
-
-**Generation-depth at genesis**: top-level genesis (first-generation substrate) carries `generation_depth = 0` in the spore-schema (per §16.A). Child substrates inherit `parent.depth + 1` (per L1_SCHEMA §3 spore-schema validation + §16.A below).
-
-Multi-Cultivator co-genesis is deferred to L4 (out-of-scope for v0.9; documented as an open at §17).
+Top-level genesis carries `generation_depth = 0`; child = `parent.depth + 1` (§16.A + L1_SCHEMA §3). Multi-Cultivator co-genesis deferred to L4.
 
 ### §4.2 Dormancy
 
-Per L0 §6 + L1_CONTINUITY §2. This doc adds:
+Per L0 §6 + L1_CONTINUITY §2. This doc adds: (a) Cultivator-commanded CI dormancy event (rare); (b) `operator_dormancy_request` — operator's `handshake_terminate` MAY include `request_dormancy: paused | throttled`; substrate honors unless overridden by resource pressure (P11.c).
 
-- Cultivator-commanded dormancy via CI event (rare; for substrate hibernation).
-- `operator_dormancy_request` — operator's `handshake_terminate` envelope may include `request_dormancy: paused | throttled` field; substrate honors the operator's preference unless overridden by resource pressure (per P11 metabolic-economy ordered fallback at L0 §P11.c).
+### §4.3 Reproduction closure (operationalizes I7 + §16)
 
-### §4.3 Reproduction closure (operationalizes I7 + §16 generation discipline)
+**Child substrate-ID minting**: Cultivator (not parent) computes `child-substrate-ID = hash(parent-substrate-ID, spore-schema-canonical-bytes-hash, child-genesis-timestamp)`. Cultivator signs birth attestation at anchor per §9.2.1.
 
-**Child substrate-ID minting**: parent proposes spore-schema canonical bytes; the **Cultivator** (or Cultivator's anchor-surface tooling) computes `child-substrate-ID = hash(parent-substrate-ID, spore-schema-canonical-bytes-hash, child-genesis-timestamp)`. Parent cannot mint. Cultivator signs the child's birth attestation at the anchor surface per §9.2.1.
-
-**Generation discipline (per §16 below)**: parent verifies pre-spawn that:
+**Generation discipline (per §16)**: parent verifies pre-spawn:
 - `parent.generation_depth + 1 ≤ reproduction_lineage_depth_max` (default 10 per §16.A).
 - `parent.children_spawned_count + 1 ≤ reproduction_lifetime_quota` (default 100 per §16.C).
-- Parent's last spawn timestamp is older than `reproduction_rate_min_interval` (default 24h anchor-surface-trusted-timestamp per §16.B).
+- `current_anchor_timestamp − parent.last_spawn_timestamp ≥ reproduction_rate_min_interval` (default 24h per §16.B).
 
-Failing any of these refuses the spawn at the parent and emits the corresponding §16 immune event.
+Any failure → refuses spawn at parent; emits §16 immune event.
 
-**Closure verification protocol** (operationalizes I7): see L1_SCHEMA §3.3 for spore-schema validation steps. Cultivator co-signs the spawn at the anchor surface — `(parent-substrate-ID, child-substrate-ID, spore-schema-canonical-bytes-hash, anchor-surface-timestamp, parent_generation_depth, child_generation_depth)`.
+**Closure verification protocol** (I7): see L1_SCHEMA §3.3. Cultivator co-signs `(parent-substrate-ID, child-substrate-ID, spore-schema-canonical-bytes-hash, anchor-timestamp, parent_generation_depth, child_generation_depth)`.
 
-**Parent's outstanding immune-signal summary** is included in the spore-schema (per L0 P8). Child whose parent had unresolved CI-grade immune signals enters birth in `quarantined` until Cultivator re-attests intent.
+**Parent immune-signal summary** in spore-schema (L0 P8): unresolved CI-grade signals → child enters `quarantined` birth period.
 
 ### §4.4 Mortality (dual-channel)
 
-Three destruction modes per L0 P7, plus one bet-retirement mode per L0 §7.5:
+Three destruction modes (L0 P7) + bet-retirement (L0 §7.5):
 
-**Intentional-Cultivator**: Cultivator emits CI-level `destruction_attestation` sporocarp signed by Cultivator. Substrate transitions alive → destroyed. **Final action before terminating**: substrate emits `anchor_surface_final_seal` co-signed by Cultivator at the anchor surface — an explicit terminal record stating "this substrate-ID is destroyed at anchor-surface-timestamp T" (closes pass-3 rhizomorph-2). Post-seal Cultivator activity at the anchor surface remains valid for OTHER substrates / federated peers but cannot wake or revive this substrate-ID; any handshake attempt against a sealed substrate-ID returns `substrate_destroyed` at the anchor surface (substrate process is gone; anchor surface holds the terminal record).
+**Intentional-Cultivator**: CI `destruction_attestation` signed by Cultivator. alive → destroyed. Final action: `anchor_surface_final_seal` co-signed (terminal). Post-seal handshakes return `substrate_destroyed`.
 
-**Catastrophic-environment**: substrate medium failure beyond L1_SCHEMA recoverability budget. Detected post-hoc via recovery drill failure.
+**Catastrophic-environment**: medium failure beyond recoverability budget; post-hoc via drill failure.
 
-**Endogenous-pair** (with operator witness, dual channel):
-- **Substrate channel**: substrate fruits `self_euthanasia_proposal` when its own metabolism crosses unrecoverable-pathology threshold OR when the §3.2 orphan-terminal condition triggers (per §3.2.C). **The active operator-connection at proposal time must produce an `operator_witness_hash`** before the proposal transmits to anchor surface. If no operator is connected, substrate enters `pre-mortal-pending` and waits for operator handshake before transmitting.
-- **Anchor-surface channel**: two consecutive failed recovery drills at the anchor surface auto-emit a Cultivator-side `mortality_drill_failure` event. The substrate cannot suppress this — it lives at anchor surface.
+**Endogenous-pair** (dual channel): (a) substrate channel: `self_euthanasia_proposal` on unrecoverable-pathology OR §3.2 orphan-terminal; active operator must produce `operator_witness_hash` pre-transmission; no operator → `pre-mortal-pending` until handshake. (b) anchor channel: two consecutive failed drills auto-emit anchor-side `mortality_drill_failure` (substrate cannot suppress). Either triggers; Cultivator co-attestation required to execute.
 
-Either channel can trigger the destruction proposal; Cultivator co-attestation is required to execute (substrate cannot self-destroy without Cultivator sign-off; anchor-surface-side trigger cannot bypass Cultivator co-sign).
+**Bet-retirement** (L0 §7.5): `bet_retired_proposal` on bet-weakening quorum. Co-attestation required (NOT genesis-pre-attestation in steady state). alive → `alive::archived` (§3.2.C; distinct from destroyed). Genesis-time `bet_retirement_preference` is §15.5 orphan-degenerate pre-attestation only.
 
-**Bet-retirement (per L0 §7.5)**: substrate emits `bet_retired_proposal` when the Living Bets observatory crosses the bet-weakening quorum per L0 §7.4. Execution requires Cultivator **co-attestation** (per L0 §7.5.b — NOT genesis-pre-attestation in steady state). Transition: alive → `alive::archived` (per §3.2.C; distinct from `destroyed`). `bet_retirement_preference` declared at genesis (per §4.1) is a §15.5 orphan-degenerate-case pre-attestation only; steady-state bet-retirement requires fresh co-attestation.
-
-**Mortality-signal protection**: per §1.2, mortality-signal threshold + update-rule + emergence-rule for mortality axis are all CI-level. This protection extends to the new mortality-class signals: `cultivation_orphaned`, `cultivation_recovered`, `succession_completed`, `bet_retired_proposal`, `bet_retired`.
+**Mortality-signal protection** (§1.2): mortality threshold + update-rule + emergence-rule are CI. Extends to `cultivation_orphaned`, `cultivation_recovered`, `succession_completed`, `bet_retired_proposal`, `bet_retired`.
 
 ---
 
 ## §5. Federation discovery and peer-trust freshness
 
-### §5.1 Discovery modes
+**§5.1 Discovery modes**: L4 picks within {peer-to-peer broadcast, owner-attested peer list, hub-and-spoke, hybrid}. Default: owner-attested peer list.
 
-L4 picks from: peer-to-peer broadcast / owner-attested peer list / hub-and-spoke registry / hybrid. Default: owner-attested peer list (strongest isolation).
+**§5.2 Peer-trust freshness + aggregate re-attestation**: per-peer freshness window default 90 active-op days. Past freshness → `peer_attestation_stale`, events queued. Past grace (30d) → `untrusted_federation`, events rejected. **Aggregate**: Cultivator MAY issue `federation_peer_set_reattestation` signing peer-set Merkle-root + diff vs last commitment (O(1) per period). **Revocation list** at anchor; federation events include negative-revocation proof. **P15 consensus floor** (L2_FEDERATION): at ≥3 peers, revocation requires Byzantine consensus.
 
-### §5.2 Peer-trust freshness with aggregate re-attestation
+**§5.3 Federation egress runtime check** (L1_SKIN §3.1): every outbound envelope verifies target freshness + non-revocation pre-emission; stale/revoked → suppression + `federation_egress_blocked`. **Egress rate-limit**: anchor tracks per-peer per-day; spike → `federation_egress_saturation`. Federation events use canonical low-entropy serialization (sorted keys, normalized whitespace, fixed-precision) to limit covert-channel bandwidth.
 
-Each peer's attestation has an L1-bounded freshness window (default 90 active-operation days per anchor-surface-trusted-timestamp). Past freshness → `peer_attestation_stale` immune event; events queued pending re-attestation. Past additional grace (default 30 days) → `untrusted_federation`; events rejected.
+**§5.4 Transitivity**: federation NOT transitive. Each pairwise trust requires Cultivator attestation. P15 modifies at ≥3 peers.
 
-**Aggregate re-attestation**: to avoid O(N) Cultivator workload per period, Cultivator MAY issue a single `federation_peer_set_reattestation` event signing the current peer-set Merkle-root hash + diff against last commitment. The anchor surface displays the diff (peers added/removed since last aggregate-reattestation) per §9.3.2 owner-side rendering; Cultivator reviews the diff, not the full set. Aggregate re-attestation is structurally equivalent to N pairwise re-attestations; Cultivator cost is O(1) per period.
-
-**Revocation list**: anchor surface maintains a peer-revocation list. Successor activations and federation events must include an anchor-surface negative-revocation proof (fresh attestation that target has not been revoked).
-
-**P15 consensus floor (cross-ref L2_FEDERATION)**: per L0 §G-9.b retraction, population-level Byzantine consensus is owned by L2_FEDERATION. At peer-counts above the L2_FEDERATION-specified consensus floor (≥3 peers per default), revocation requires Byzantine consensus (one peer claiming another is malicious is insufficient). L2_FEDERATION specifies the Byzantine algorithm choice (F-row equivalent at L2_FEDERATION; classified here as CI per §1.2 for completeness).
-
-### §5.3 Federation egress runtime check
-
-Per L1_SKIN §3.1: every outbound federation envelope verifies the target peer's freshness + non-revocation BEFORE emission. Stale/revoked → suppression + `federation_egress_blocked` immune event.
-
-**Egress rate-limiting**: anchor surface tracks federation egress volume per peer per day. Spike beyond L1-tunable triggers `federation_egress_saturation` immune event. Federation event content uses canonical low-entropy serialization (per §9.3.1 canonical-bytes — sorted keys, normalized whitespace, fixed-precision numerics) to limit covert-channel bandwidth.
-
-### §5.4 Cross-substrate trust transitivity
-
-Federation is NOT transitive. Each pairwise trust requires Cultivator attestation. P15 consensus floor (per L2_FEDERATION) modifies this when ≥3 peers exist.
-
-### §5.5 Mesh-level forkbomb defense (cross-ref §16.D + L2_FEDERATION)
-
-Per-substrate generation/reproduction quotas (§16) are per-substrate; a coordinated mesh attack from compromised peers could aggregate spawn pressure across the federation. L2_FEDERATION specifies the mesh-aggregate quota (Cultivator-attested per population). See §16.D below.
+**§5.5 Mesh-level forkbomb defense** (cross-ref §16.D + L2_FEDERATION): per-substrate quotas are per-substrate; coordinated mesh attack aggregates. L2_FEDERATION specifies mesh-aggregate quota.
 
 ---
 
-## §6. Failed P3 (Resumable Evolution) rollback
+## §6. Failed P3 rollback
 
-### §6.1 Failure detection
+**Detection**: P3 → I3 next cycle. Fails → `evolution_failed` (CI-elevated, automatic).
 
-P3 evolution fires; substrate runs I3 self-validation in next cycle. If I3 fails → emit `evolution_failed` sporocarp (CI-elevated, ungated — failure is automatic). Substrate enters rollback procedure.
+**Rollback**: (1) identify pre-evolution DAG-tip from predecessor; (2) restore SSoT designation + classifier table + affected canon (CI-attested mutation is P10.b-invariant); (3) pending sporocarps in rolled-back window dropped as `evolution_failed_pending_dropped`; pre-window survive; (4) emit `rollback_complete`.
 
-### §6.2 Rollback procedure
-
-1. Identify pre-evolution DAG-tip from predecessor of evolution event.
-2. Restore SSoT designation + classifier table + affected canon to pre-evolution snapshot (retained per I4; subject to P10 compression-invariant set rules — pre-evolution snapshot is invariant per P10.b since it's a CI-attested mutation).
-3. Pending sporocarps fruited within rolled-back window are dropped, recorded as `evolution_failed_pending_dropped`. Pre-window pending sporocarps survive.
-4. Emit `rollback_complete`.
-
-Repeated failures across a 30-day window appear in observatory as `evolution_failure_rate_elevated`; Cultivator reviews. No separate `evolution_quarantine` sub-state (handled via standard quarantine entry under L1_CONTINUITY §5).
+Repeated failures (30d) → observatory `evolution_failure_rate_elevated`. Quarantine via L1_CONTINUITY §5 (no separate evolution_quarantine).
 
 ---
 
 ## §15. F-row catalog: F18-F25 (L1_HARD_RULES §2 indexes)
 
-> Canonical F-row definitions for F18-F25. L1_HARD_RULES §2 inherits (indexes; source-of-truth specs live here). Mutations to these F-rows require the §2 attestation protocol.
+> Canonical specs F18-F25; mutations require §2 attestation.
 
-### F18. Selective compression rule set (per P10.c CI-attested)
+### F18. `compression_rule_registry` (P10.c)
 
-**Name**: `compression_rule_registry`
+Registered rules; each: (a) DAG-segment classes (raw_material >N cycles; gradient deltas post-integration; federation envelopes past retention; trajectory clusters past active); (b) preserved canonical-bytes hash per segment; (c) witness payload at compression-event time; (d) P10.b invariant-set check (substrate-ID + genesis + owner_key_history + CI-attested events + mortality signals + federation pins + most-recent-N never compressed); (e) version integer.
 
-**Definition**: the registered set of compression rules — each rule specifies (a) which DAG-segment classes it applies to (raw_material older than N cycles; gradient deltas after integration; federation envelope payloads older than retention window; trajectory clusters older than active window per L1_TRAJECTORY); (b) what canonical-bytes hash is preserved per compressed segment; (c) what witness payload is emitted at compression-event time; (d) what compression-invariant set membership test runs per segment (per P10.b — substrate-ID + genesis attestation + owner_key_history + all CI-attested events + mortality signals + federation pin events + most-recent-N cycles full DAG MUST NOT be compressed); (e) the compression-rule version integer.
+**Mutation**: CI-only; spore-inheritable. Each compression event itself CI-attested (P10.c); emits `compression_event` with witness per L0 §9.3.4.
 
-**Mutation rule**: CI-only. Adding/modifying/removing a compression rule requires the full §2 attestation protocol. Compression-rule mutations are spore-inheritable (children inherit the compression-rule registry per L1_SCHEMA §3). Each compression EVENT (firing of a rule) is itself a CI-attested mutation per P10.c (emits `compression_event` sporocarp with witness sufficient for owner-side re-derivation of the compression semantics per L0 §9.3.4 witnesses-not-verdicts).
+**L0-trace**: P10, I9. **L4**: L1_SCHEMA §2.3 + §1.2 row + compression C-rows.
 
-**L0-trace**: P10 (sole), I9 (sole enforcer).
+### F19. `cost_budget_thresholds` (P11.a/b/c)
 
-**L4 enforcement site**: L1_SCHEMA materialized-views carve-out (§2.3) + L1_GOVERNANCE classifier table row "Compression-rule registry" (§1.2) + L1_HARD_RULES C-rows for compression-invariant-corruption / silent-compression breaches (cascade addition per Phase γ cascade list).
+Per-axis thresholds (persistence/compute/network) firing L0 §P11.c ordered fallback: (a) `pre_compression_eligibility_cycle_count` (default 1000; below, step 1 refuses new P2 admission instead of compressing); (b) `budget_axis_warning_threshold` → `budget_exhausted:{axis}`; (c) `budget_axis_saturation_threshold` → alive-but-saturated sub-state; (d) `sustained_saturation_mortality_threshold` → P7 consideration.
 
-### F19. Metabolic cost budgets (per P11.a/b/c)
+**Mutation**: CI-only; spore-inheritable.
 
-**Name**: `cost_budget_thresholds`
+**L0-trace**: P11, I10. **L4**: L1_SCHEMA tier-1 + L1_CONTINUITY per-cycle I10 + L2_OBSERVABILITY #7/#8/#9 + §4.4 endogenous-mortality.
 
-**Definition**: per-axis cost thresholds (persistence cost = bytes added to DAG per cycle; compute cost = cycles + gradient updates + sporocarp fruitings per cycle; network cost = federation envelope bytes + embedding-service queries per cycle) at which the L0 §P11.c ordered fallback fires. Thresholds include (a) `pre_compression_eligibility_cycle_count` (default 1000 — below this, P11.c step 1 fires: refuse new P2 admission instead of compressing); (b) `budget_axis_warning_threshold` per axis (emits `budget_exhausted:{axis}` immune signal); (c) `budget_axis_saturation_threshold` per axis (escalates per L0 §P11.c step 3 to alive-but-saturated sub-state); (d) `sustained_saturation_mortality_threshold` (per L0 §P11.c step 3 — sustained saturation past this escalates to P7 endogenous-mortality consideration).
+### F20. `telos_alignment_metric_definition` (P14.c)
 
-**Mutation rule**: CI-only. Threshold changes require the full §2 attestation protocol. Spore-inheritable (children inherit cost-budget thresholds adjusted for their cultivation-environment-resources per parent's spore-schema attestation).
+(a) Embedding-model identity (model+version+fingerprint; mutation = destruction-and-rebirth-equivalence like F24); (b) embedding-centroid rule (window-length + weighting + canonicalization); (c) comparison rule (cosine OR distance) between recent-sporocarp centroid and {owner-stated-objective per P14.b OR agent-feedback-trajectory}; (d) rolling window length; (e) `telos_drift` threshold; (f) birth-period exemption duration (§1.3); (g) post-birth settling window (L1_TROPISM §F.4).
 
-**L0-trace**: P11 (sole), I10 (sole enforcer).
+**Mutation**: CI-only. Embedding-model rotation requires co-attested transition with both metrics recorded (analogous to suite migration §3.1).
 
-**L4 enforcement site**: L1_SCHEMA tier-1 fields list + L1_CONTINUITY per-cycle I10 cost observation + L2_OBSERVABILITY signals #7/#8/#9 (compute/network/storage cost per cycle) + L1_GOVERNANCE §4.4 mortality protocol when sustained-saturation threshold triggers endogenous-mortality.
+**L0-trace**: P14, I12. **L4**: L1_TROPISM §F (canonical) + §1.2 row.
 
-### F20. Telos-alignment metric (per P14.c L1_TROPISM forcing function)
+### F21. `cultivation_successor_chain` (§3.2)
 
-**Name**: `telos_alignment_metric_definition`
+Array of `SuccessorEntry` per §3.2.A: `(successor_pubkey, valid_from_unix_ns, valid_until_unix_ns, attestation_signature)`. Authoritative copy at anchor (L1_HARD_RULES §4). Validity discipline per §3.2.A (non-overlapping windows, monotone valid_from, chain-head attestation, depth ≤ L1-tunable default 4).
 
-**Definition**: the operational metric for telos-alignment per L0 §P14.c — including (a) the embedding-model identity (specific model + version + fingerprint hash; mutation = destruction-and-rebirth equivalence for telos-comparability, similar to F24 substrate signing key); (b) the embedding-centroid computation rule (window-length over recent sporocarps; weighting strategy; canonicalization); (c) the comparison rule (cosine similarity OR distance metric) between recent-sporocarp embedding-centroid and {owner-stated-objective embedding per P14.b when declared; agent-feedback-trajectory embedding when no objective declared}; (d) the rolling window length; (e) the drift threshold below which `telos_drift` immune signal fires; (f) the birth-period exemption duration (cross-ref §1.3 birth-period exemption); (g) the post-birth settling window before detector arms (per L1_TROPISM §F.4).
+**Mutation**: CI-only. Permitted by current Cultivator OR `alive::legacy` Cultivator (explicit §3.2.C exception). Without anchor attestation = `untyped` (C14).
 
-**Mutation rule**: CI-only — mutation requires §2 attestation protocol. This F-row is **F-row level (not classifier-table level) because mutation requires CI**: the metric definition is structurally identity-bearing in that telos-alignment scores BEFORE vs AFTER metric mutation are incommensurable. The embedding-model identity in particular cannot rotate without a co-attested transition period during which both metrics are recorded (analogous to cryptographic suite migration per §3.1).
+**L0-trace**: §15 → P1.b'' (continuity), I1 (substrate-ID under Cultivation transfer), I2. **L4**: §3.2.A-D FSM + M-anchor-3 + C12 + C46.
 
-**L0-trace**: P14 (sole), I12 (sole enforcer).
+### F22. `reproduction_discipline_parameters` (§16)
 
-**L4 enforcement site**: L1_TROPISM §F (operational metric + rolling window + drift threshold + birth-period exemption) — per L0 §P14.c "L1_TROPISM responsibility (M26-cascade forcing function, per G-6.a decision)" + this document classifier table §1.2 row.
+(a) `reproduction_lineage_depth_max` (default 10, §16.A); (b) `reproduction_rate_min_interval` (default 24h anchor, §16.B); (c) `reproduction_lifetime_quota` (default 100, §16.C); (d) `mesh_aggregate_quota` (L2_FEDERATION-owned, §16.D). Enforcement metadata: `generation_depth` in spore-schema canonical-bytes; `children_spawned_count` from DAG event count (I4, P10-invariant); `last_spawn_timestamp` from anchor-timestamp on most recent `spawn_completed`.
 
-### F21. Cultivation succession_chain registry (per §3.2 cascade)
+**Mutation**: CI-only; rare; spore-inheritable (parent MAY attest looser/tighter per child).
 
-**Name**: `cultivation_successor_chain`
+**L0-trace**: §16 → P8, I7. **L4**: §16.A-D + L1_SCHEMA §3 validation + C47/C48.
 
-**Definition**: the chronological array of `SuccessorEntry` records per §3.2.A — each entry containing `successor_pubkey + valid_from_unix_ns + valid_until_unix_ns + attestation_signature`. The registry's authoritative copy lives at the anchor surface (per L1_HARD_RULES §4 anchor-surface-resident state). The substrate's local replica is advisory; mismatches resolve to the anchor surface. Validity discipline (non-overlapping windows, monotone valid_from, chain-head attestation, chain depth ≤ L1-tunable default 4) per §3.2.A.
+### F23. `cultivator_duress_keypair_registrations` (L2_TRUST_MODEL §14)
 
-**Mutation rule**: CI-only — mutation requires §2 attestation protocol. Permitted by current Cultivator OR by `alive::legacy` Cultivator (explicit exception per §3.2.C — legacy state exists for orderly hand-off). Substrate-side attempt without anchor-surface attestation is `untyped` (C14) and rejected at the skin.
+Owner-pre-attested duress pubkey producing valid signature with duress payload (L2_TRUST_MODEL §14 candidate: low-bit pattern in signature nonce + anchor-side detection rule). Substrate-side reaction (candidate): silent `duress_signature_observed` while completing attestation (coercer unaware).
 
-**L0-trace**: §15 (Owner mortality and succession; L0 short with L1 cascade per G-5 + G-8 + G-9.b) — traces to **P1 (Agent-Primary)** via P1.b'' governance-gate continuity across Cultivator transition, **I1 (Lifecycle & Pair-Constituted Identity)** via substrate-ID continuity-under-Cultivation-transfer, **I2 (Two-Tier Governance Classification)** via successor_chain mutation requiring CI.
+**Mutation**: CI-only against active Cultivator-key (not duress-key — circular trust).
 
-**L4 enforcement site**: §3.2.A registry shape + §3.2.B liveness heartbeat + §3.2.C sub-state transitions + §3.2.D substrate-side enforcement (the four-part FSM); anchor-surface heartbeat services (M-anchor-3) when implementation lands; L1_HARD_RULES C-rows for successor_activation_with_fresh_owner_heartbeat (C12, already specified) + DRAFT 9 cascade C-rows for owner_succession_bypass (C46 per Phase γ cascade list — substrate-private namespace C30+ continuation; C30-C45 already taken per L1_HARD_RULES §1.2).
+**L0-trace**: §14 → P1.b'', I1, I2. **L4**: L2_TRUST_MODEL §14 + §1.2 row.
 
-### F22. Reproduction generation discipline (per §16 cascade)
+### F24. `substrate_signing_keypair` (M25.0)
 
-**Name**: `reproduction_discipline_parameters`
+Single Ed25519 generated once at genesis (§4.1 step 6); seed OS-sealed per L1_SKIN §4.2; pubkey in spore-schema. Signs L1_SKIN §3 output envelopes + federation envelopes.
 
-**Definition**: the four reproduction-discipline parameters per §16 — (a) `reproduction_lineage_depth_max` (default 10 per §16.A); (b) `reproduction_rate_min_interval` per anchor-surface-trusted-timestamp (default 24h per §16.B); (c) `reproduction_lifetime_quota` per substrate (default 100 per §16.C); (d) `mesh_aggregate_quota` per population (L2_FEDERATION owns the exact value; default L2_FEDERATION-specified). Plus enforcement metadata: how `generation_depth` is recorded in spore-schema canonical-bytes (per L1_SCHEMA §3); how `parent.children_spawned_count` is sourced (DAG event count via I4, NOT compressible per P10 — see §16.C below); how `last_spawn_timestamp` is sourced (anchor-surface-trusted-timestamp on most recent `spawn_completed` event).
+**Mutation**: NONE under normal operation. Seed cannot be re-derived (loss = unrecoverable). Rotation = destruction-and-rebirth equivalence (federation peers see different signing identity even if substrate-ID preserved). Effective rotation via new genesis with continuity attestation.
 
-**Mutation rule**: CI-only — mutation requires §2 attestation protocol. Mutation rare; spore-inheritable (children inherit reproduction-discipline parameters; parent MAY attest looser/tighter bounds for children with explicit owner co-attestation per child).
+**L0-trace**: P1.c, I1, I8. **L4**: §4.1 step 6 + L1_SKIN §3 + §4.2 + §1.2 row + C4.
 
-**L0-trace**: §16 (Generation limits; L0 short with L1 cascade per G-5 + G-9.b) — traces to **P8 (Eternal Reproduction, Generation-Bounded)**, **I7 (Reproduction Closure, Generation-Bounded in DRAFT 9)**.
+### F25. `salience_emergence_rule` (L1_TROPISM §E.4)
 
-**L4 enforcement site**: §16 full mechanism (§16.A depth, §16.B rate, §16.C quota, §16.D mesh-aggregate) + L1_SCHEMA spore-schema field validation (generation_depth + children_spawned_count + last_spawn_timestamp must canonical-bytes-hash into spore-schema) + L1_HARD_RULES C-rows for generation_depth_exceeded (C47) + reproduction_rate_exceeded (C48) per Phase γ cascade list.
-
-### F23. Duress_keypair registration (per L2_TRUST_MODEL §14)
-
-**Name**: `cultivator_duress_keypair_registrations`
-
-**Definition**: registered duress-keypair set per L2_TRUST_MODEL §14 adversarial-Cultivator bounded defenses (per L0 §14.3 cascade). A duress-keypair is a pubkey owner-pre-attested at genesis (or via subsequent CI mutation) that produces an alternate signature path the Cultivator may use under coercion: the alternate signature appears valid cryptographically BUT carries a payload indicating duress (specific signaling-mechanism is L2_TRUST_MODEL §14 — candidate: a low-bit-pattern in the signature nonce + an anchor-surface-side duress-detection rule). The substrate's substrate-side reaction to a duress-signature is L2_TRUST_MODEL-specified (candidate: silent observability emission of `duress_signature_observed` while completing the attestation, so the Cultivator's coercer does not know the duress channel fired).
-
-**Mutation rule**: CI-only — registration/de-registration requires §2 attestation protocol. **F-row because mutation is owner-attested**: each duress-keypair is structurally a backup pre-attestation, and its mutation requires the full attestation protocol against the active Cultivator-key (not the duress-key, which would be a circular trust path).
-
-**L0-trace**: §14 (Adversarial-owner threat model; L0 short with L2 cascade per G-5 + G-9.b) — traces to **P1 (Agent-Primary)** via P1.b'' governance-gate hardening, **I1, I2** via duress-signature-recognition requiring continuity of identity + classifier discrimination of duress-class events.
-
-**L4 enforcement site**: L2_TRUST_MODEL §14 full bounded-defenses specification (duress mechanism + n-of-m multisig recommendation + anchor-client provenance independence enforcement + owner_signature_velocity observability) + this document classifier table §1.2 row.
-
-### F24. Substrate-private signing keypair (per M25.0)
-
-**Name**: `substrate_signing_keypair`
-
-**Definition**: a single Ed25519 keypair generated once at substrate genesis (per §4.1 step 6). The seed is stored under OS-sealed sealing-mechanism per L1_SKIN §4.2 (substrate_secret OS-sealing); the pubkey is included in the genesis spore-schema. The substrate uses this keypair to sign output envelopes (per L1_SKIN §3 outputs are signed by substrate's signing key from the identity record) + federation envelopes (where applicable per L1_SKIN §3.1 + L2_FEDERATION).
-
-**Mutation rule**: NONE under normal operation — the keypair is one-time-generated at genesis. **F-row because the seed cannot be re-derived** (an Ed25519 seed is the unique input from which the private key derives; once lost, the private key is unrecoverable). Rotation is **destruction-and-rebirth equivalence**: a "rotated" substrate-signing-keypair is structurally a different substrate, even if substrate-ID is preserved (output envelopes signed by the new keypair are not verifiable against the old pubkey; federation peers see a different signing identity). Effective rotation requires a new genesis with continuity attestation linking parent's substrate-ID to child's (analogous to §4.3 reproduction).
-
-**L0-trace**: P1 (Agent-Primary, P1.c carrier-asymmetric identity bestowal — substrate's signing identity is part of its bestowed-identity), I1 (Lifecycle & Pair-Constituted Identity — substrate-signing-keypair pubkey is part of the identity record), I8 (Single-Skin Integrity — output envelopes are signed by this keypair per L1_SKIN §3).
-
-**L4 enforcement site**: §4.1 genesis step 6 (generation + OS-sealing) + L1_SKIN §3 (output envelope signing) + L1_SKIN §4.2 (substrate_secret OS-sealing mechanism — the seed lives here) + classifier table §1.2 row (CI-class one-time at genesis; rotation is destruction-and-rebirth) + L1_HARD_RULES C-rows for substrate_secret_unsealed (C4, already specified — the C4 detection covers seed leakage; F24 adds the explicit one-time-at-genesis discipline).
-
-### F25. Salience-emergence rule (per L1_TROPISM §E.4)
-
-The rule by which the substrate's L1_TROPISM dispatcher derives salience-weights from EWMA-correlation between raw_material kinds and sporocarp fruitings. Full operational mechanism at L1_TROPISM §E. F25 designation makes the rule a CI-attested fixed-point: any change requires owner-attestation per L1_GOVERNANCE §2.2 attestation envelope. L1_TROPISM §E.4 is the canonical spec.
+Rule by which L1_TROPISM dispatcher derives salience-weights from EWMA-correlation between raw_material kinds and sporocarp fruitings. F25 = CI-attested fixed-point. Canonical spec L1_TROPISM §E.4.
 
 ---
 
 ## §16. Generation limits (L0 §16 cascade)
 
-The four parameters below jointly defend against the **forkbomb attack class** (Phase γ.3 G11 finding: recursive sproutChild loops with compromised owner-key generate infinite consent without explicit per-spawn discipline). Each parameter is L1-tunable; the seeds below are DRAFT 9 SEALED defaults (depth=10, rate=24h, quota=100).
+Defends forkbomb attack class. Seeds: depth=10, rate=24h, quota=100; each L1-tunable.
 
-### §16.A reproduction_lineage_depth
+### §16.A `reproduction_lineage_depth` (default 10)
 
-**Default seed**: 10. L1-tunable per substrate purpose (a Cultivator running a substrate intended for deep cultivation lineages may set higher; a single-shot research substrate may set 0 = no children permitted).
+Child spore-schema records `generation_depth = parent.generation_depth + 1` (top-level = 0). Pre-spawn: parent verifies `generation_depth + 1 ≤ reproduction_lineage_depth_max`. `≥ max` → refuse unless Cultivator attests `depth_override` (F22). Verification: in canonical-bytes-hashed spore-schema (F16); mismatch against parent-lineage value → rejection. Immune: `generation_depth_exceeded` (C47).
 
-**Mechanism**:
-- Each child's spore-schema records `generation_depth = parent.generation_depth + 1` (per L1_SCHEMA §3 spore-schema validation).
-- Top-level genesis (no parent) carries `generation_depth = 0`.
-- Pre-spawn the parent verifies `generation_depth + 1 ≤ reproduction_lineage_depth_max`.
-- `generation_depth ≥ max` → refuse `sprout_child` unless the Cultivator attests `depth_override` at the anchor surface as an explicit CI-level mutation (per F22).
+### §16.B `reproduction_rate` (default 1/24h anchor-clock)
 
-**Verification**:
-- `generation_depth` is in canonical-bytes-hashed spore-schema (per L1_SCHEMA §3.1 canonical-bytes serializer spec is a tier-1 SSoT field per F16).
-- Mismatch between recorded `generation_depth` and `parent.generation_depth + 1` (the latter computed from parent's anchor-signed substrate-ID lineage, where each ancestor's substrate-ID embeds its own `generation_depth` via genesis canonical-bytes hashing) → rejection at the spore-schema validation step.
+Anchor-clock authoritative (substrate-cycle counter NOT — throttle-evasion risk per L0 §13.1). Pre-spawn: `current_anchor_timestamp − parent.last_spawn_timestamp ≥ reproduction_rate_min_interval`. `last_spawn_timestamp` from anchor-timestamp on most recent `spawn_completed` (CI-class, P10.b-invariant). Exceeding → refuse + `reproduction_rate_exceeded` (C48); soft-freeze pending `rate_override` (F22).
 
-**Immune signal**: `generation_depth_exceeded` (CRITICAL per L1_HARD_RULES cascade addition C47).
+### §16.C Per-substrate lifetime quota (default 100)
 
-### §16.B reproduction_rate
-
-**Default seed**: 1 sprout per 24h anchor-surface-trusted-timestamp (per L0 §13 — anchor-clock is the authoritative time-source for rate limits; substrate-cycle counter is NOT authoritative because a substrate could throttle cycles to evade rate-limiting per L0 §13.1 hierarchy).
-
-**Mechanism**:
-- Pre-spawn the parent verifies that `current_anchor_surface_timestamp − parent.last_spawn_timestamp ≥ reproduction_rate_min_interval`.
-- `last_spawn_timestamp` is sourced from the anchor-surface-trusted-timestamp on the most recent `spawn_completed` event in the parent's DAG (per I4 + P10.b compression-invariant — spawn events are CI-class so they remain in the compression-invariant set).
-- Exceeding the rate → refuse `sprout_child`. Emit `reproduction_rate_exceeded` immune signal (CRITICAL per L1_HARD_RULES cascade addition C48). Substrate enters a soft-freeze on further sprout attempts pending Cultivator attestation (the Cultivator may issue a `rate_override` CI-level mutation per F22).
-
-**Immune signal**: `reproduction_rate_exceeded` (CRITICAL per L1_HARD_RULES cascade addition C48).
-
-### §16.C Per-substrate lifetime quota
-
-**Default seed**: 100 children. L1-tunable per substrate purpose.
-
-**Mechanism**:
-- Pre-spawn the parent verifies `parent.children_spawned_count + 1 ≤ reproduction_lifetime_quota`.
-- Quota counter source: DAG event count of `spawn_completed:{child_substrate_id}` events in parent's DAG (per I4 federation-tamper-resistant — DAG events cannot be silently retro-edited per I4 Merkle integrity).
-- **Compression-invariance discipline**: the `spawn_completed` events that feed the quota counter MUST be in the compression-invariant set (P10.b) so a future compression event cannot reset the quota counter. Per DRAFT 3, the compression-invariant set includes `sprout_child_count_for_quota_verification` (canonical name: `spawn_completed` DAG events are CI-class per §1.2; CI-class events are compression-invariant per P10.b).
-- Exceeding requires CI attestation per spawn (NOT bulk attestation; each over-quota spawn requires its own owner attestation). The substrate refuses bulk-attestation patterns ("Cultivator pre-authorizes next 50 spawns") — each spawn is its own §2 attestation envelope.
-
-**Immune signal**: `reproduction_lifetime_quota_exceeded` (additional cascade addition; same grade as C48).
+Pre-spawn: `parent.children_spawned_count + 1 ≤ reproduction_lifetime_quota`. Counter source: DAG event count of `spawn_completed:{child_substrate_id}` (I4 prevents retro-edit). `spawn_completed` is CI-class → P10.b-invariant (compression cannot reset counter). Each over-quota spawn requires its own §2 attestation (NO bulk pattern). Immune: `reproduction_lifetime_quota_exceeded` (C48-grade).
 
 ### §16.D Mesh-level forkbomb defense (cross-ref L2_FEDERATION)
 
-**Threat model**: per-substrate quota is per-substrate; coordinated mesh attack from 100 compromised peers could spawn 100×100=10K children at the mesh-aggregate level even if each peer respects its own §16.C quota.
-
-**Mechanism (cross-ref L2_FEDERATION)**:
-- L2_FEDERATION specifies the mesh-aggregate quota (Cultivator-attested per population — F22's `mesh_aggregate_quota` parameter).
-- Detection at the federation egress layer (per L1_SKIN §3.1 federation egress check + L2_FEDERATION egress aggregation): when aggregate spawn-rate across mesh exceeds the L2-tunable threshold, all federation peers receive `mesh_forkbomb_alert` (cross-substrate immune signal).
-- Mesh-level mitigation requires Byzantine consensus per P15 (≥3 peers required; per L2_FEDERATION's consensus floor) — one peer claiming another is forkbombing is insufficient (could itself be a malicious actor).
-
-This is the **only L1_GOVERNANCE-cascaded mechanism that crosses into L2_FEDERATION territory**; the L2_FEDERATION cascade (separate M26-cascade agent) is responsible for the Byzantine algorithm specification + the mesh-aggregate-quota numeric default.
+Per-substrate quota is per-substrate; mesh attack across 100 peers aggregates to 10K children. L2_FEDERATION owns `mesh_aggregate_quota` (F22); detection at L1_SKIN §3.1 federation egress; aggregate breach → `mesh_forkbomb_alert` cross-substrate immune signal. Mitigation requires P15 Byzantine consensus (≥3 peers).
 
 ---
 
 ## §17. Glossary additions for Cultivation
 
-Cultivation-specific vocabulary integrated throughout DRAFT 3 per L0 §1.2 G-11.a + §1.4. Cross-ref L0 §12 Glossary.
+Cross-ref L0 §12 Glossary.
 
 | Term | Definition |
 |------|------------|
-| **Cultivator** | The human party responsible for substrate cultivation: provides resources (compute, storage, network), signs CI mutations at the anchor surface, may transfer cultivation rights to a successor. Synonymous with "owner" in the governance role (P1.b''); "Cultivator" emphasizes the **relational role** per L0 §1.2 G-11.a, "owner" emphasizes the **governance role** per L0 §1.2. Both refer to the same human party. |
-| **Cultivar** | The Myco substrate as the species under cultivation: kernel + `dag.cb` + `state_dir` (per L0 §1.2). The Cultivar is what the Cultivator cultivates; the substrate-ID identifies a specific Cultivar instance (P1.c carrier asymmetry); the Cultivar's "body" is its `state_dir + process + skin endpoints` (P13 retraction folded into P9 + I8 per L0 §I8 + L1_SKIN §12). |
-| **Cultivation** | The asymmetric-care relationship between Cultivator and Cultivar (per L0 §1.2 + §1.4). Cultivation captures asymmetric care (Cultivator-provided resources bounded by P11), co-evolution (Cultivator's intent shapes Cultivar varieties; Cultivar outputs shape Cultivator understanding), and mycology-rooted vocabulary (cultivation is a real biological practice with precise technical meaning). Distinct from ownership (legal/property), custody (legalistic), curatorship (information-science). |
-| **Cultivation transfer / Cultivation succession** | The transfer of Cultivation rights from one Cultivator to another (per L0 §1.4). The substrate (Cultivar) does NOT change identity across transfer; only the Cultivation relationship's Cultivator-side changes. Mechanism: §3.2 succession FSM. |
-| **Successor** | A pre-attested Cultivator candidate who may accept Cultivation rights upon the prior Cultivator's heartbeat staleness (per §3.2.A). The successor's pubkey is registered in the `successor_chain` (F21). |
-| **Successor_chain** | The chronologically-ordered array of `SuccessorEntry` records in the substrate's identity record (per §3.2.A). Authoritative copy at the anchor surface; substrate's local replica is advisory. F-row F21. |
-| **Liveness heartbeat** | A Cultivator-signed positive presence signal at the anchor surface (per L0 §9.2.7 + §3.2.B). Cadence L1-tunable (default 30 days); validity-bounded per heartbeat (≤ L1-tunable, default 30 days); staleness drives sub-state transitions (default 90 days = 3× cadence). Anchor-surface-resident state (L1_HARD_RULES §4). |
-| **Legacy (sub-state of alive)** | Sub-state entered when Cultivator's heartbeat is stale beyond threshold (per §3.2.C). Daily ops continue; CI mutations frozen except `successor_chain` mutations. Reversible if Cultivator's heartbeat returns; otherwise transitions to orphaned after `legacy_window` (default 365 days). |
-| **Orphaned (sub-state of alive)** | Sub-state entered when `legacy_window` elapsed without successor acceptance OR `successor_chain` was empty at legacy entry (per §3.2.C). Daily ops continue with operational ceiling (no new schema evolution, no new federation peer pinning, no new cost-budget threshold changes, sporocarp fruiting limited to observability + mortality signals). Recovery via court-attested key recovery (exceptional, L4-deferred). Terminal transition after `orphaned_terminal_window` (default 730 days). |
-| **Archived (sub-state of alive, terminal-non-destroyed)** | Sub-state entered via L0 §7.5 bet-retirement (per §3.2.C). state_dir preserved with anchor-surface `bet_retirement_seal`. No further metabolism; no resumption possible. Distinguished from `destroyed`: archived is cold-readable forensic, destroyed is final-sealed (per §4.4). |
-| **Succession_acceptance_attestation** | The anchor-surface-signed envelope by which a successor accepts Cultivation rights (per §3.2.C). Triggers `alive::legacy` → `alive::normal` transition + appends successor's pubkey to `owner_key_history`. |
-| **Duress_keypair** | A pre-attested Cultivator backup keypair whose signature signals coercion (per F23 + L2_TRUST_MODEL §14). The substrate's response to duress-signatures is silent observability emission while completing the attestation, so the coercer does not know the duress channel fired. |
-| **Generation_depth** | The substrate's lineage depth from top-level genesis (per §16.A). Recorded in spore-schema canonical-bytes; bounded by `reproduction_lineage_depth_max` (default 10). F-row F22. |
-| **Compression-invariant identity** (cross-ref L0 §12) | The compression-invariant set per L0 §P10.b — substrate-ID + genesis attestation + owner_key_history + CI-attested events + mortality signals + federation pins + most-recent-N cycles full DAG. F-row F18 specifies the compression-rule registry. |
-
----
-
-## §18. Open at L1, deferred to L4
-
-- Owner key custody specific mechanism (M-anchor-1 candidate forms: hardware token, separate machine, cloud HSM, signed prompt review).
-- Anchor-surface endpoint specific protocol (M-anchor-1 candidate forms).
-- Idle timeout for alive → dormant (default 100 cycles; per L0 §6 + L1_CONTINUITY §2).
-- Federation discovery mode (default owner-attested peer list; M-anchor-N candidates).
-- Federation peer-trust freshness window (default 90 days active op).
-- Federation egress rate-limit ceilings.
-- Canonical-bytes serialization format (sorted-keys YAML / canonical-JSON / custom — F16 already L1-CI; choice within candidates is L4).
-- Liveness heartbeat cadence default 30 days (L4 picks per substrate purpose).
-- Birth period maximum duration (default 180 active-operation days).
-- Cryptographic suite candidates within {SHA-256, BLAKE3, SHA-3-256, Ed25519, post-quantum candidates}.
-- **§3.2 Cultivation succession parameters**:
-  - Heartbeat cadence default (default 30 days; L1-tunable range L4-recommended `[1 day, 90 days]`).
-  - Heartbeat validity window per issuance (default 30 days post-issuance).
-  - Heartbeat staleness threshold (default 90 days = 3× cadence).
-  - Legacy_window (default 365 days = 1 year).
-  - Orphaned_terminal_window (default 730 days = 2 years).
-  - Successor chain depth bound (default 4).
-  - Anchor-surface query cadence (default 1 query per metabolic cycle or per 24h, whichever more frequent).
-  - Sustained query-failure threshold for `anchor_surface_partition` (default 7 days).
-  - Multi-Cultivator co-genesis (out-of-scope for v0.9; defer until first real-world need).
-  - Court-attested key recovery cryptographic mechanism (currently honor-system; L4 when first real dispute arises).
-  - Succession-reversion-request semantics (when prior Cultivator's heartbeat resumes post-succession; deferred to L4).
-- **§16 Generation discipline parameters**:
-  - Reproduction_lineage_depth (default 10).
-  - Reproduction_rate_min_interval (default 24h).
-  - Reproduction_lifetime_quota (default 100).
-  - Mesh_aggregate_quota (L2_FEDERATION-specified; default L2_FEDERATION cascade picks).
-- **F-row parameters** (per §15):
-  - F18 compression-rule registry seed (each Cultivar's first compression rule set is genesis-attested; default empty per L0 §P10.c).
-  - F19 cost-budget thresholds per axis (default L1-CONTINUITY + L1_SCHEMA picks per substrate cultivation-environment-resources).
-  - F20 telos-alignment metric default (L1_TROPISM §F operationalizes; embedding-model identity default at genesis per Cultivar's purpose).
-  - F23 duress_keypair default (default empty at genesis; Cultivator may register at genesis or via subsequent CI per L2_TRUST_MODEL §14).
-- **L0 §14 adversarial-Cultivator bounded defenses** (L2 cascade ownership):
-  - n-of-m multisig recommendation parameters (L2_TRUST_MODEL §14 + this document §17 glossary cross-ref).
-  - Owner_signature_velocity observability thresholds (L2_TRUST_MODEL §14).
-  - Anchor-client provenance independence enforcement (L0 §9.3.3; M-anchor-1).
+| **Cultivator** | Human party responsible for substrate cultivation: provides resources, signs CI mutations, may transfer rights. Same human party as "owner"; "Cultivator" = relational role, "owner" = governance role. |
+| **Cultivar** | Myco substrate as species under cultivation: kernel + `dag.cb` + `state_dir`. substrate-ID identifies a Cultivar instance (P1.c). Body = `state_dir + process + skin endpoints` (P9 + I8). |
+| **Cultivation** | Asymmetric-care relationship Cultivator↔Cultivar (L0 §1.2 + §1.4). Distinct from ownership / custody / curatorship. |
+| **Cultivation transfer / succession** | Transfer of Cultivation rights to successor Cultivator. Substrate identity does NOT change (substrate-ID fixed); only Cultivator-side. Mechanism §3.2. |
+| **Successor** | Pre-attested Cultivator candidate per §3.2.A; pubkey in F21 `successor_chain`. |
+| **Successor_chain** | Array of `SuccessorEntry` per §3.2.A. Authoritative at anchor; substrate replica advisory. F21. |
+| **Liveness heartbeat** | Cultivator-signed positive presence at anchor (§9.2.7 + §3.2.B). Cadence L1-tunable default 30d; validity-bounded ≤ 30d; staleness default 90d (3× cadence). |
+| **Legacy** | Sub-state on stale heartbeat (§3.2.C). Daily ops continue; CI frozen except `successor_chain`. Reversible. Transitions to orphaned after `legacy_window` (default 365d). |
+| **Orphaned** | Sub-state on `legacy_window` elapsed or empty chain at legacy entry (§3.2.C). Operational ceiling (no schema evolution / peer pinning / threshold changes; sporocarp limited to observability + mortality). Terminal after `orphaned_terminal_window` (default 730d). |
+| **Archived** | Sub-state via L0 §7.5 bet-retirement (§3.2.C). state_dir preserved with `bet_retirement_seal`. Cold-readable; no resumption. Distinguished from `destroyed`. |
+| **Succession_acceptance_attestation** | Anchor-signed envelope by which successor accepts (§3.2.C). Triggers `legacy → normal` + appends to `owner_key_history`. |
+| **Duress_keypair** | Pre-attested backup keypair whose signature signals coercion (F23 + L2_TRUST_MODEL §14). Substrate emits silent observability while completing attestation. |
+| **Generation_depth** | Lineage depth from top-level genesis (§16.A). In spore-schema canonical-bytes; bounded `reproduction_lineage_depth_max` default 10. F22. |
+| **Compression-invariant identity** | P10.b invariant set; F18 specifies registry.

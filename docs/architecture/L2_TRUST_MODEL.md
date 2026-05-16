@@ -1,390 +1,237 @@
 # L2 — Trust Model Doctrine
 
-> **Status**: DRAFT 2 (2026-05-17). M26-cascade A4 update for L0 DRAFT 9 SEALED.
-> **Scope**: cross-cut trust framing. Mechanism specs live in L1 docs (governance, skin, schema, continuity) and in L2_FEDERATION + L2_OBSERVABILITY. This doc answers: how does v0.9 establish/maintain/recover/verify trust + what defenses exist against adversarial Cultivators, time-semantics attacks, federation Sybil/eclipse, and the anchor-surface honor-system collapse.
+> **Status**: DRAFT 2 (2026-05-17). M26-cascade A4 for L0 DRAFT 9 SEALED.
+> **Scope**: cross-cut trust framing. Mechanism specs at L1 (governance/skin/schema/continuity) + L2_FEDERATION + L2_OBSERVABILITY.
 
 ---
 
 ## §1. The trust triad (per L0 §1)
 
-v0.9 has **three trust-bearing parties** with **carrier-asymmetric responsibilities**: operator+substrate is the **operational pair** (per L0 P1.c — joint identity, substrate as identity carrier); the **Cultivator** (per L0 §1.2 G-11.a; "owner" remains valid for the governance role) is the **governance gate** (per L0 P1.b'' — load-bearing but structurally distinct).
+Three trust-bearing parties with **carrier-asymmetric responsibilities** (per L0 P1.c + §1.2 G-11.a; "owner" remains valid for the governance role):
 
 | Party | Carries | Cannot author | Provides |
 |---|---|---|---|
 | **Substrate (Cultivar)** | substrate-ID, owner_key_history, DAG, SSoT | Cultivator signatures, anchor nonces, trusted timestamps, heartbeats, anchor client | Witnesses, enumerated DAG nodes, sealed `operator_token`, metabolism events |
-| **Operator-connection (agent)** | Per-handshake signing keypair (private in runtime memory only) | substrate_secret, substrate state, Cultivator signatures, anchor state | `operator_witness` signatures over canonical bytes |
-| **Cultivator (owner)** | Anchor-surface ownership, private signing key, optional `duress_keypair` per §10.A, liveness heartbeat | Substrate-internal state, operator-runtime state | All CI attestations, owner-key rotation co-signs, successor pre-attestations, peer attestations/revocations, final-seal, duress attestations |
+| **Operator (agent)** | Per-handshake signing keypair (runtime memory only) | substrate_secret, substrate state, Cultivator signatures, anchor state | `operator_witness` signatures over canonical bytes |
+| **Cultivator (owner)** | Anchor-surface ownership, private signing key, optional `duress_keypair` (§10.A), liveness heartbeat | Substrate-internal state, operator-runtime state | All CI attestations, key rotation co-signs, successor pre-attestations, peer attestations/revocations, final-seal, duress attestations |
 
-**No party can unilaterally fabricate trust.** Each role is structurally non-substitutable (modulo P1.a self-hosting caveats — §6, and §10 adversarial-Cultivator caveats). Cultivation vocabulary per L0 §1.2 G-11.a is used interchangeably in this document; §10–§13 prefer **Cultivator** framing where threat-model framing is load-bearing.
+No party can unilaterally fabricate trust; each role is structurally non-substitutable (modulo P1.a self-hosting + §10 adversarial-Cultivator caveats).
 
 ---
 
 ## §2. Trust establishment (genesis)
 
-Per **L1_GOVERNANCE §4.1**: Cultivator generates owner-keypair + selects anchor-surface endpoint + verifies anchor-client provenance per L0 §9.3 (optionally registers `duress_keypair` per §10.A); runs `genesis` invocation; substrate computes `substrate-ID` = hash(canonical-bytes(initial-spore-schema), owner-public-key, anchor-surface-endpoint-public-key, genesis-timestamp); Cultivator signs birth attestation; substrate persists identity record. The birth attestation is the root of all subsequent trust derivations.
+Per **L1_GOVERNANCE §4.1**: Cultivator generates owner-keypair + selects anchor endpoint + verifies anchor-client provenance per L0 §9.3 (optionally registers `duress_keypair` per §10.A); runs `genesis`; substrate computes `substrate-ID = hash(canonical-bytes(initial-spore-schema), owner-public-key, anchor-surface-endpoint-public-key, genesis-timestamp)`; Cultivator signs birth attestation; substrate persists identity record. Birth attestation is the root of subsequent trust derivations.
 
-**Operator-side bootstrap** (per L1_SKIN §4.1): at first agent install, Cultivator provides `(substrate-ID, anchor-endpoint-pubkey, owner-pubkey)` out-of-band; operator-runtime pins these. Substrate is NEVER trusted as source of these values.
+**Operator bootstrap** (L1_SKIN §4.1): at first install, Cultivator provides `(substrate-ID, anchor-endpoint-pubkey, owner-pubkey)` out-of-band; operator pins these. Substrate is NEVER source of these values.
 
 ---
 
 ## §3. Trust at every interaction (steady state)
 
-Mechanism specifications live in their canonical homes:
-
-- **Operator handshake** (bidirectional validation): **L1_SKIN §4.2**. Operator generates fresh per-handshake keypair; substrate validates substrate-ID proof + emits `owner_birth_attestation_signature` + `owner_public_key_active_at_handshake`; operator independently fetches owner pubkey from anchor surface and cross-checks; mismatch → operator rejects.
-- **Delta absorption**: **L1_SKIN §2** envelope schema with `envelope_digest = HMAC(operator_token, ...)` + `causal_parent_ref`. Content is unfiltered (P2 universality).
-- **Sporocarp emission with `causal_in_edges`**: **L1_TROPISM §B6**. I3 self-validation re-derives fruiting condition.
-- **CI-level mutation attestation**: **L1_GOVERNANCE §2.2**. Substrate requests anchor-surface nonce → emits attestation envelope → Cultivator independently verifies at anchor surface (renders canonical bytes via provenance-independent anchor client; DAG-enumeration closure check; nonce/TTL match) → Cultivator signs the tuple `(substrate_id, dag_tip_hash, proposed_mutation_hash, operator_witness_signature, operator_signing_key_public, anchor_surface_nonce, anchor_surface_timestamp)`. Signature against `duress_keypair_public_key` routes to §10.A duress path. Every byte the Cultivator signs is independently re-derivable by all three parties.
+- **Operator handshake** (L1_SKIN §4.2): bidirectional; substrate emits `owner_birth_attestation_signature` + `owner_public_key_active_at_handshake`; operator cross-checks anchor surface; mismatch → reject.
+- **Delta absorption** (L1_SKIN §2): envelope with `envelope_digest = HMAC(operator_token, ...)` + `causal_parent_ref`. Content unfiltered (P2).
+- **Sporocarp emission with `causal_in_edges`** (L1_TROPISM §B6): I3 re-derives fruiting condition.
+- **CI-level mutation attestation** (L1_GOVERNANCE §2.2): substrate requests anchor nonce → attestation envelope → Cultivator verifies (provenance-independent client; DAG-enumeration closure; nonce/TTL match) → signs `(substrate_id, dag_tip_hash, proposed_mutation_hash, operator_witness_signature, operator_signing_key_public, anchor_surface_nonce, anchor_surface_timestamp)`. Duress-keypair signature routes to §10.A.
 
 ---
 
-## §4. Trust maintenance (over time)
+## §4. Trust maintenance
 
-- **Cultivator key rotation**: **L1_GOVERNANCE §3.1** — cooldown window with `rotation_veto` from any pre-registered Cultivator key; active-prefix + archived-tail discipline keeps tier-1 validation O(1).
-- **Substrate self-validation per cycle**: **L1_SCHEMA §4.1** — tier-1 fields per metabolic cycle; tier-2 per deep cycle; I3 + I4 + I5 + I8 invariants per **L1_CONTINUITY §1.1** 5-step cycle.
-- **Living Bets observatory (L0 §7)**: per **L2_OBSERVABILITY §2** — 10 signals (6 base + 3 cost + 1 composite per L0 §7.3 + L2_OBSERVABILITY §2.1-§2.3). Falsifiability trigger: 90-day wall-clock rolling window quorum (≥3 of 6 signals trending against bet + signal #6 ratio < 1 for ≥50% of wall-clock window samples per L0 §7.4.a + §13.1) → `bet_weakening_quorum` (C40) event requires Cultivator re-justification per L0 §10.2.
-
----
-
-## §5. Trust recovery (failure modes)
-
-- **Cold-resume**: **L1_CONTINUITY §3** — pre-handshake invariant checks (I1, I3, I4, I5, I8) emit **witnesses, not verdicts** sampled by anchor-nonce-derived indices (L0 §9.3); failure → `alive but quarantined`; Cultivator-attested `quarantine_clearance` required for resumption.
-- **Cultivator unavailability**: **L1_GOVERNANCE §3.2** — stale liveness heartbeat → `succession_required` (anchor-surface-detected, substrate cannot manufacture); pre-attested successor activates via `successor_activation`; no successor within grace → substrate transitions to `legacy` sub-state.
-- **Substrate destruction**: **L1_GOVERNANCE §4.4** — intentional-owner (signed `destruction_attestation` + `anchor_surface_final_seal`), catastrophic-environment (drill failures + medium-failure-beyond-budget), endogenous-pair (substrate fruits `self_euthanasia_proposal` with operator_witness; Cultivator co-attestation executes; dual-channel).
+- **Cultivator key rotation** (L1_GOVERNANCE §3.1): cooldown window with `rotation_veto` from any pre-registered key; active-prefix + archived-tail keeps tier-1 validation O(1).
+- **Substrate self-validation** (L1_SCHEMA §4.1 + L1_CONTINUITY §1.1): tier-1 fields per metabolic cycle; tier-2 per deep cycle; I3 + I4 + I5 + I8 per 5-step cycle.
+- **Living Bets observatory** (L2_OBSERVABILITY §2): 10 signals (6 base + 3 cost + 1 composite). Falsifiability: 90-day wall-clock rolling window quorum (≥3 of 6 signals trending against bet + signal #6 ratio <1 for ≥50% of samples) → `bet_weakening_quorum` (C40) requires Cultivator re-justification per L0 §10.2.
 
 ---
 
-## §6. Trust limits (acknowledged asymmetries)
+## §5. Trust recovery
 
-Carrier-asymmetry licenses asymmetries that pure-symmetric pair models would forbid. These are declared, not concealed:
-
-- **Substrate is identity carrier**: bestowal flows substrate → operator at each handshake; operator-disconnect ends a pair-instance but NOT the substrate's identity continuum.
-- **Substrate cannot enforce against its own host** (dormancy host-observability per L0 §6): Cultivator-side monitoring required for host-level adversarial detection.
-- **Substrate cannot enforce against operator runtime** (L1_SKIN §5.4): exfiltration via operator runtime is Cultivator-side concern.
-- **P1.a self-hosting**: an adversarial agent maintaining substrate code can attack the codebase. The anchor-surface out-of-band root raises the bar from "edit a file" to "compromise a separate system the Cultivator controls".
-- **Substrate cannot enforce against adversarial Cultivator** (§10 cascade): defenses are bounded — substrate can observe and emit, not reject legitimate-looking signatures. L0 §14.2 irreducible commitments survive; full mechanical defense does not exist.
-
-Beyond these limits, Cultivator-side discipline is load-bearing.
+- **Cold-resume** (L1_CONTINUITY §3): pre-handshake invariant checks (I1, I3, I4, I5, I8) emit **witnesses, not verdicts** sampled by anchor-nonce-derived indices; failure → `quarantined`; Cultivator-attested `quarantine_clearance` required.
+- **Cultivator unavailability** (L1_GOVERNANCE §3.2): stale liveness heartbeat → `succession_required`; pre-attested successor activates; no successor → `legacy` sub-state.
+- **Substrate destruction** (L1_GOVERNANCE §4.4): intentional-owner (signed `destruction_attestation` + final seal), catastrophic-environment (drill failures + medium-failure-beyond-budget), endogenous-pair (substrate `self_euthanasia_proposal` + Cultivator co-attestation).
 
 ---
 
-## §7. Trust at federation (cross-substrate)
+## §6. Trust limits
 
-See **`L2_FEDERATION.md`** for the full federation doctrine: peer attestation + aggregate re-attestation (§6.3), peer-trust freshness (§6.2), egress per L1_SKIN §3.1, non-transitivity (§6.4), and population-level adversary defenses (Sybil §13.1, eclipse §13.2, recursive injection §11). Threat-model framing for these classes is §13 below.
+Declared, not concealed:
+
+- **Substrate is identity carrier**: bestowal flows substrate → operator at handshake; operator-disconnect ends a pair-instance, not substrate identity.
+- **Cannot enforce against own host** (L0 §6): Cultivator-side monitoring required.
+- **Cannot enforce against operator runtime** (L1_SKIN §5.4): exfiltration is Cultivator concern.
+- **P1.a self-hosting**: adversarial agent maintaining code can attack codebase; anchor surface raises bar from "edit a file" to "compromise separate system".
+- **Cannot enforce against adversarial Cultivator** (§10): substrate observes/emits, cannot reject legitimate signatures. L0 §14.2 irreducible commitments survive.
+
+---
+
+## §7. Trust at federation
+
+See **`L2_FEDERATION.md`** for full doctrine: peer attestation + aggregate re-attestation (§6.3), peer-trust freshness (§6.2), egress per L1_SKIN §3.1, non-transitivity (§6.4), population-level adversary defenses (Sybil §13.1, eclipse §13.2, recursive injection §11). Threat-model framing in §13 below.
 
 ---
 
 ## §8. Trust model invariants summary
 
-The trust model rests on **L0 §4 invariant set** — P1.c carrier-asymmetry identity; out-of-band anchor surface (L0 §9) structurally non-substrate-authorable; canonical bytes + witnesses (L0 §9.3) re-derivable by all three parties; dual-clock attestation (L1_GOVERNANCE §2.2); DAG-enumeration closure (L0 §9.2); positive Cultivator-liveness heartbeat (L0 §9.2); rotation cooldown (L1_GOVERNANCE §3.1); OS-sealed `substrate_secret` (L1_SKIN §4.2). When these hold AND the §11 collapse window is closed, the trust model addresses the L1_HARD_RULES §1 CRITICAL breaches. Novel attack classes are caught by observatory drift signals — per L2_OBSERVABILITY §14 falsifiability is the residual defense.
-
----
-
-## §9. Open at L2
-
-- **Anchor-surface-client distribution channels** beyond candidates listed (L0 §9.3): are there better candidates we haven't enumerated?
-- **Cryptographic suite migration** when current suite is broken (not just deprecated): L1_GOVERNANCE §3.1 says "follows same pattern" but historical-reanchoring details may need L4 codification.
-- **Anchor-surface high-availability**: what happens if the anchor surface itself goes offline? Substrate cannot proceed with CI events. Possibly out-of-scope (Cultivator picks anchor-surface mechanism robust enough; multiple-redundant anchor surfaces is L4).
-- **n-of-m multisig L1 codification**: §10.A.1 recommends multisig as defense for key-compromise; L1_GOVERNANCE §3.1 SHOULD codify the m-of-n threshold semantics, veto-during-cooldown semantics for multisig, and quorum-emergency-rotation. Deferred to L1_GOVERNANCE.
-- **Duress-keypair re-attestation channel**: §10.A.2 freeze-then-unfreeze requires out-of-band re-attestation; the specific channel (anchor heartbeat? separate trusted party? legal authority signature?) is L4.
+Trust model rests on L0 §4 invariants — see L0 §4 + L0 §9 + L1_GOVERNANCE §2.2/§3.1 + L1_SKIN §4.2 for individual mechanisms. When these hold AND §11 collapse window closed, model addresses L1_HARD_RULES §1 CRITICAL breaches. Novel attack classes caught by observatory drift signals (L2_OBSERVABILITY §14).
 
 ---
 
 ## §10. Adversarial-Cultivator threat model (L0 §14 cascade)
 
-> Cascade from L0 DRAFT 9 SEALED §14: L0 retains only the **acknowledgment + 4 irreducible substrate commitments**. L2_TRUST_MODEL specifies the full **threat scenario table + bounded defenses**.
+L0 §14: **Myco is not safe under adversarial Cultivator.** If governance gate is compromised/coerced/impersonated/absent-without-succession, no in-substrate defense fully substitutes. Defenses raise attack cost; not guaranteed safety.
 
-The L0 commitment is honest: **Myco is not safe under adversarial Cultivator.** The Cultivator is the governance gate; if the gate is compromised, coerced, impersonated, or absent without succession, no in-substrate mechanical defense can fully substitute. What follows is the bounded set of defenses v0.9 specifies — they raise the attack cost; they do not provide guaranteed-safety claims.
-
-### §10.A Threat scenarios in scope
+### §10.A Threat scenarios
 
 #### §10.A.1 Cultivator key compromise
 
-**Threat**: attacker obtains the Cultivator's primary Ed25519 private key (theft from disk, memory extraction, side-channel, hardware-token compromise). All subsequent CI co-signs from the stolen key verify as if from the Cultivator.
+**Threat**: attacker obtains primary Ed25519 key; CI co-signs verify as legitimate.
 
-**Mechanical defenses**:
-- **Anchor-attested key rotation** (per L1_GOVERNANCE §3.1): if the Cultivator detects compromise, they emit `rotation_request` from a registered backup key OR from the compromised key (race condition — see below).
-- **Cooldown window** (L1_GOVERNANCE §3.1, default 30 anchor-surface-trusted-timestamp days): rotation requires cooldown; during cooldown ANY pre-registered Cultivator key (current, prior, or backup) may issue `rotation_veto`. This closes the dual-sign attack: dual-sign alone is insufficient when both keys come from the same attacker.
-- **Active-prefix Cultivator-key history**: historical CI co-signs use the key valid at the timestamp — past attestations remain verifiable even after rotation.
+**Defenses**: anchor-attested key rotation (L1_GOVERNANCE §3.1) `rotation_request` from registered backup; cooldown window (default 30 anchor-trusted-timestamp days) during which ANY pre-registered key may `rotation_veto` (closes dual-sign attack); active-prefix key history keeps historical co-signs verifiable. **Limits**: primary captured before backup registered → out-of-band recovery only (L1_GOVERNANCE §3.2 court-attested).
 
-**Defense limits** (acknowledged):
-- If the attacker captures the primary key BEFORE the Cultivator can register a backup, no in-substrate mechanism can revoke it. The Cultivator must engage out-of-band channels (court-attested key recovery exceptional path per L1_GOVERNANCE §3.2).
-- Cooldown gives the Cultivator time to detect, but only if they have a registered veto-capable backup key BEFORE the compromise.
-
-**Recommendation (n-of-m multisig at L1)**: L1_GOVERNANCE §3.1 SHOULD specify an optional **m-of-n owner-key multisig** scheme. With m-of-n configuration (e.g., 2-of-3 keys, each held on structurally independent media — hardware token, paper backup vault, separate Cultivator-trusted party), compromise of a single key is insufficient to author CI co-signs. The substrate verifies m signatures against n registered pubkeys; threshold below m → `multisig_threshold_unmet` immune event.
-
-- Multisig keys participate equally in rotation veto.
-- Quorum-emergency rotation (≥m of n agreeing on emergency rotation, bypassing cooldown) requires `quorum_emergency_attestation` event at the anchor surface — a hard-coded escape hatch for true emergencies; substrate emits `emergency_rotation_invoked` for owner-visible audit.
-- Multisig is L1-codified as L4-tunable: small-substrate Cultivators may prefer single-key simplicity; institutional Cultivars MUST use multisig.
+**Recommendation — n-of-m multisig**: L1_GOVERNANCE §3.1 SHOULD specify optional m-of-n on structurally independent media. Below threshold → `multisig_threshold_unmet`. Multisig keys participate equally in rotation veto. Quorum-emergency rotation (≥m bypass cooldown) requires `quorum_emergency_attestation`; substrate emits `emergency_rotation_invoked`. L4-tunable; institutional Cultivars MUST use multisig.
 
 #### §10.A.2 Coerced Cultivator (duress)
 
-**Threat**: Cultivator under duress (regulatory seizure, blackmail, physical threat, court order to reveal keys, hostage scenario) signs CI attestations against their will. Signatures verify legitimately; substrate has no signal that the signing party is coerced.
+**Threat**: Cultivator signs CI under coercion; signatures verify legitimately.
 
-**Mechanical defense — duress attestation mechanism** (formal spec):
+**Defense — duress attestation**: Cultivator pre-registers `duress_keypair` (separate Ed25519) at genesis; public in birth attestation + identity record + anchor surface; private on separate medium. Under coercion, sign with duress_keypair. On duress-keypair verify, substrate (a) emits `coerced_owner_suspected` (CI-grade per F23); (b) freezes destructive mutations (`destruction_attestation`, mass key rotation, mass deletion, wholesale schema replacement, anything I2-classified `destructive_irreversible`); non-destructive continues; (c) re-emits at every CI boundary until cleared; (d) does NOT reject the signature outright (defeats purpose). Unfreeze: `out_of_band_safety_reattestation` signed by primary key at anchor, OR `anchor_heartbeat_with_safety_confirmation`. Channel L4-codified.
 
-1. **Pre-registration at genesis**: Cultivator pre-registers a `duress_keypair` (separate Ed25519 keypair from primary) at genesis. The `duress_keypair_public_key` is included in the birth attestation tuple (§2 step 4), persisted in the substrate's identity record, and visible at the anchor surface. The `duress_keypair_private` is held on physically separate medium and used only under duress.
-
-2. **Duress-signed attestation**: when coerced, the Cultivator signs the attestation tuple with the **duress_keypair** (not the primary key). To an observer the signature is cryptographically valid; to the substrate, signature verification distinguishes the two keys.
-
-3. **Substrate response on duress signature**: when an attestation verifies against the **duress_keypair_public_key** instead of the active primary owner-public-key, the substrate:
-   - **Emits `coerced_owner_suspected` immune signal** (CI-grade per F23 `Duress_keypair` in L1_HARD_RULES §2 + L1_GOVERNANCE §15.F23).
-   - **Freezes destructive mutations**: blocks `destruction_attestation` execution, mass key rotation, mass record deletion, schema-table wholesale replacement, and any other mutation classified by the I2 classifier as `destructive_irreversible`. Non-destructive mutations may continue (substrate keeps operating, signal keeps emitting, Cultivator may be able to recover).
-   - **Re-emits the duress signal at every subsequent CI boundary** until cleared (the signal is not transient).
-   - **The substrate does NOT reject the duress signature outright** — that would defeat the purpose. The signature is honored at attestation level (the mutation is recorded as Cultivator-attested) but execution of destructive paths is gated.
-
-4. **Out-of-band re-attestation required to unfreeze**: clearing the duress-frozen state requires an `out_of_band_safety_reattestation` event signed by the **primary** owner-key (not the duress key) at the anchor surface, OR an `anchor_heartbeat_with_safety_confirmation` from the anchor surface (per L1_GOVERNANCE §3.2 successor-protocol; the specific channel is L4-codified per §9 open above).
-
-5. **What duress doesn't defend against**: an attacker who captures both the primary AND duress keys; a Cultivator with no duress keypair registered (recommendation: high-stakes Cultivars MUST register at genesis); a duress signature mistakenly issued (the freeze is recoverable by primary re-attestation, but the destructive mutation is delayed).
-
-**Cross-ref**: L1_HARD_RULES candidate new row for `coerced_owner_suspected` immune signal type. L1_GOVERNANCE §3 SHOULD codify the duress-keypair registration as a genesis-optional field (L1 DRAFT 2 work).
+**Limits**: attacker capturing both keys; Cultivar without duress keypair registered; mistaken issuance (recoverable).
 
 #### §10.A.3 Impersonated Cultivator
 
-**Threat**: anchor-surface client compromised (malware, supply-chain attack on the anchor-client distribution channel, social-engineering install of fake client); attacker's signatures appear to come from the legitimate Cultivator. Signatures cryptographically verify under the registered owner-public-key because the attacker controls the rendering and signing tool.
+**Threat**: anchor-client compromised; attacker's signatures verify under legitimate owner-public-key.
 
-**Mechanical defense — owner_signature_velocity metric** (formal spec):
-
-1. **Definition**: a rolling-window count of Cultivator-signed CI events emitted per L1-tunable cadence period (default rolling window = 30 anchor-surface-trusted-timestamp days, cadence period = 1 day).
-
-2. **Baseline establishment**: after the first N CI events have been Cultivator-signed (L1-tunable, seed N = 20), the substrate computes a baseline `owner_signature_velocity_baseline_mean` and `owner_signature_velocity_baseline_stddev` over the post-genesis window. Baseline retires when the substrate transitions out of birth-period (per L1_TROPISM §4) and recomputes from the first N steady-state CI events.
-
-3. **Anomaly detection**: every cycle that includes a Cultivator-signed CI event, the substrate updates the rolling-window velocity. If the rolling velocity exceeds (`baseline_mean + 3 * baseline_stddev`) OR (`baseline_mean * 100`) — whichever fires first; both L1-tunable — the substrate emits **`owner_signature_velocity_anomaly`** immune signal (daily grade per L1_HARD_RULES; CI-elevation during birth-period per §3 of L1_HARD_RULES).
-
-4. **What substrate does NOT do**: it does NOT unilaterally reject the signatures — the signatures verify; rejecting valid signatures would break the trust contract. The signal is **out-of-band channel to the Cultivator via the anchor surface**: the Cultivator observes the velocity anomaly on the anchor-surface dashboard (per L2_OBSERVABILITY §12 owner-side observability) and can investigate whether the high-velocity activity is theirs.
-
-5. **Pairing with anchor-client provenance check**: §10.A.5 covers the anchor-client tampering side. owner_signature_velocity catches the BEHAVIORAL pattern (suddenly many CI co-signs); anchor-client provenance independence catches the SOURCE (compromised tool).
-
-**Cross-ref**: L2_OBSERVABILITY §2 should add `owner_signature_velocity` as an observability sub-signal under composite health; not part of the 6 base Living Bets signals (which speak to the substrate's organism-fitness bet, not to attack-detection signals). L1_HARD_RULES F23 (Duress_keypair) covers the duress side; `owner_signature_velocity_anomaly` daily-grade immune signal is a related but distinct cascade row (deferred catalog assignment).
+**Defense — owner_signature_velocity**: rolling-window count of Cultivator-signed CI events per L1-tunable cadence (seed: 30-day window, daily cadence). After N=20 post-genesis events, compute `baseline_mean` + `baseline_stddev`; recompute after birth-period termination. Anomaly: rolling velocity > `mean + 3*stddev` OR `mean * 100` (L1-tunable) → emit `owner_signature_velocity_anomaly` (daily; CI-elevation during birth-period). Substrate does NOT reject signatures (verify → valid → rejecting breaks trust); signal goes to Cultivator via anchor dashboard (L2_OBSERVABILITY §12). Velocity catches BEHAVIORAL pattern; §10.A.5 anchor-client provenance catches SOURCE.
 
 #### §10.A.4 Deceased Cultivator without succession
 
-**Threat**: the Cultivator dies, is incapacitated, or otherwise becomes permanently unavailable, and never registered a successor. The substrate has a fresh-CI-attestation requirement (substrate cannot self-mutate at CI level) but no living party can sign.
+**Threat**: Cultivator permanently unavailable, no successor registered.
 
-**Threat framing** (this section): the substrate must NOT manufacture trust to compensate for absent Cultivator; the substrate must NOT make destructive decisions on its own; the substrate must NOT silently terminate.
+**Framing**: substrate MUST NOT manufacture trust, make destructive decisions alone, or silently terminate.
 
-**Mechanism** (L1_GOVERNANCE §3.2 + L0 §15 cross-ref): full succession FSM specification lives at L1_GOVERNANCE §3.2. L2_TRUST_MODEL frames the threat:
-- Without succession: substrate transitions to `legacy` sub-state (alive but CI-frozen; daily ops continue).
-- Long-running `legacy` substrates with no successor activation eventually become `orphaned` sub-state per L1_GOVERNANCE.
-- Terminal-state choice (bet-retirement / endogenous self-euthanasia / indefinite-orphan) is L1 Cultivator-choice at genesis.
-
-**Court-attested key recovery exceptional path** (per L1_GOVERNANCE §3.2 hint): a recognized legal authority (will probate, regulatory order, court-appointed estate executor) may issue an `external_authority_succession` event at the anchor surface. The substrate honors this only if the anchor-surface infrastructure was configured at genesis to recognize external authorities (L1 owner-choice at genesis); otherwise the substrate stays `orphaned`. This is a hardpoint where mechanical defense exhausts and out-of-Myco governance applies.
+**Mechanism** (L1_GOVERNANCE §3.2 + L0 §15): no succession → `legacy` (alive, CI-frozen, daily ops continue); long-running `legacy` → `orphaned`; terminal-state choice (bet-retirement / endogenous self-euthanasia / indefinite-orphan) is genesis Cultivator-choice. **Court-attested key recovery**: legal authority issues `external_authority_succession`; honored only if substrate configured at genesis to recognize external authorities. Hardpoint where mechanical defense exhausts.
 
 #### §10.A.5 Anchor-client tampering
 
-**Threat**: the Cultivator's anchor-surface client (their local rendering + signing tool, per L0 §9.3) is modified to display different content than what is actually signed. The Cultivator believes they're signing X; the tool actually signs Y; the signature verifies under their key.
+**Threat**: anchor-surface client (L0 §9.3) modified to display different content than what is signed.
 
-**Mechanical defense — anchor-client provenance independence** (L0 §9.3.3, L1_HARD_RULES F6):
+**Defense — anchor-client provenance independence** (L0 §9.3.3, L1_HARD_RULES F6): Cultivator signs `anchor_client_provenance_attestation` at genesis declaring install channel. Channel must be structurally independent of substrate-distribution (same-machine local-binary INSUFFICIENT; valid: HSM-vendor bundle vs. npm; separate Cultivator-controlled fork; institutional-CA-signed). Two-tool verification: render canonical bytes on a second independently-provenanced tool before signing high-stakes CI events. **Limits**: defends single-tool compromise, not coordinated multi-channel. Layer with §10.A.2 + §10.A.3.
 
-1. **Genesis attestation**: at substrate genesis (per §2 step 4 + L1_GOVERNANCE §4.1 step 2), the Cultivator signs `anchor_client_provenance_attestation` declaring the channel through which the anchor client was installed. The channel must be **structurally independent** of the substrate's distribution channel (different signer, different repository, different distribution medium).
-
-2. **Independence requirement** (per L0 §9.3): "structurally independent" means the channel cannot be compromised by the same adversary who compromises the substrate's distribution. Same-machine local-binary is INSUFFICIENT independence. Examples that DO satisfy independence:
-   - Anchor client distributed via hardware-token vendor (HSM bundle) — substrate code via npm.
-   - Anchor client built from a separate fork on Cultivator-controlled infrastructure — substrate code from upstream repository.
-   - Anchor client distributed via a Cultivator-trusted third-party signing authority (e.g., institutional CA) — substrate code via developer-tier signing.
-
-3. **Owner-side verification — read canonical-bytes on TWO independent rendering tools** (DRAFT 2 explicit defense): the most direct mitigation for anchor-client tampering is for the Cultivator to **render the canonical bytes on a second, independently-provenanced tool** before signing. Examples:
-   - Render via the primary anchor client + render via a CLI canonical-bytes-printer from a separate repository; compare visually.
-   - For high-stakes CI events (key rotation, schema migration, destruction attestation), engage two anchor-client instances on different hardware.
-   - The substrate exposes canonical bytes via the standard render-witness contract (L0 §9.3.4); any compliant tool can re-render. The substrate cannot detect which tool the Cultivator uses.
-
-4. **What this defends against and what it does not**: provenance independence prevents *single-tool compromise* from being a silent kill switch. It does NOT defend against *coordinated compromise* of multiple supposedly-independent channels (a sufficiently capable adversary may compromise both). Layer with §10.A.2 duress and §10.A.3 velocity for diversity of defense.
-
-**Anchor-client status at v0.9**: per §11 below, the v0.9 anchor client is **not currently provenance-independent** (collapsed to operator npm workspace). M-anchor-1 closes this collapse. Until M-anchor-1, §10.A.5 is documented-mitigation-only, not implemented defense.
+**v0.9 status**: anchor client NOT currently provenance-independent (§11 collapse window). M-anchor-1 closes.
 
 ### §10.B Substrate's irreducible commitments (per L0 §14.2)
 
-The substrate maintains four commitments that survive ALL adversarial-Cultivator scenarios because they are mechanically enforced regardless of Cultivator-honesty:
-
-1. **Continue P6 causality**: the DAG continues accumulating events regardless of whether attestations are coerced, impersonated, or absent. An adversarial Cultivator cannot erase history — they can only fail to attest future events.
-
-2. **Emit observability signals truthfully**: per L2_OBSERVABILITY §14 falsifiability summary, the observatory signals (Living Bets quorum, immune CRITICAL emission, drill failure-rate, doctrine-instability burst, federation fragmentation, mortality dual-channel) emit from substrate mechanism, not from Cultivator instruction. The Cultivator cannot suppress signal emission to hide an adversarial event.
-
-3. **Honor mortality signals truthfully**: per L1_GOVERNANCE §4.4, mortality dual-channel (substrate self-euthanasia proposal + anchor-surface drill failure auto-emit) cannot be suppressed by Cultivator pressure. An adversarial Cultivator can REFUSE to co-attest a destruction proposal (the substrate stays alive) but cannot make the substrate emit FALSE mortality signals or suppress TRUE ones.
-
-4. **Preserve the compression-invariant set (P10.b)**: per L0 P10.b, the compression-invariant set survives any compression event. Cultivator pressure to compress it is rejected at I9 invariant check; the violation emits as immune CRITICAL.
-
-These four are enforced via I9 / I10 / I12 / I4 invariants. They survive adversarial-Cultivator scenarios because the substrate's mechanical enforcement does not require Cultivator-honesty to function. An adversarial Cultivator may prevent NEW honest events from being attested, but cannot rewrite the historical record or silence the substrate's self-observation.
+Four commitments enforced regardless of Cultivator honesty (via I9/I10/I12/I4): (1) P6 causality (DAG accumulates; cannot erase history); (2) truthful observability emission (substrate-mechanism, Cultivator cannot suppress); (3) truthful mortality signals (L1_GOVERNANCE §4.4 dual-channel; Cultivator can refuse co-attestation, cannot fake FALSE signals); (4) compression-invariant set preservation (L0 P10.b; I9 rejects pressure to compress; emits CRITICAL).
 
 ---
 
 ## §11. Anchor-surface honor-system collapse window
 
-> Cascade from L0 DRAFT 9 SEALED §9.5 + Phase γ audit: the v0.9 anchor surface is currently honor-system; this collapse is documented honestly, not concealed. Until M-anchor-1 through M-anchor-5 close, the substrate is documented-vulnerable, NOT production-ready.
+v0.9 anchor surface is honor-system. Until M-anchor-1 through M-anchor-5 close, substrate is documented-vulnerable, NOT production-ready.
 
 ### §11.1 Current state — operator IS anchor
 
-At v0.9 commit `e796451` (DRAFT 9 SEALED), the operator and anchor surface are collapsed:
-- Owner Ed25519 private key lives at `~/.myco/operator_keys/identity.key` on the same host as the operator runtime, in the same npm workspace.
-- Anchor-surface nonces are minted by the substrate, not by an out-of-band anchor surface.
-- Anchor-stamped wall-clock comes from the operator process, not from an external clock.
-- Anchor client renders canonical bytes using code from the same package as the operator.
-- Witnesses are emitted as pass/fail verdicts; the substrate does not emit re-derivable Merkle witnesses.
+At v0.9 commit `e796451`: owner Ed25519 key at `~/.myco/operator_keys/identity.key` on same host as operator runtime (same npm workspace); anchor nonces substrate-minted; wall-clock from operator process; anchor client uses same-package code; witnesses are pass/fail verdicts not re-derivable Merkle. Per L0 §9.2: 9 of 11 sub-clauses 0-30% mechanical; §9.3.1 (~95%) + §9.3.2 (~30%) partial.
 
-Per L0 §9.2 sub-mechanism inventory: **9 of 11 §9 sub-clauses are 0-30% mechanically enforced**. Two clauses (§9.3.1 canonical-bytes serialization at ~95%, §9.3.2 owner-side rendering library at ~30%) are partially in place; the rest are honor-system.
+### §11.2 Attack surface during collapse
 
-### §11.2 Attack surface during collapse window
+| Attack | Closed by |
+|---|---|
+| Cultivator-key disk extraction | M-anchor-1 |
+| Substrate-minted nonce replay | M-anchor-3 |
+| Process clock spoofing | M-anchor-3 |
+| Anchor-client tampering (same npm) | M-anchor-1 |
+| Witness omission (pass/fail, not re-derivable) | M-anchor-4 |
+| DAG-enumeration closure not Cultivator-side | M-anchor-5 |
+| Owner-liveness-heartbeat library has no callers | M-anchor-3 |
+| L0 revision workflow absent | M-anchor-5 |
 
-While the collapse holds, the following attack vectors are open and **not mechanically defended**:
+### §11.3 M-anchor closure timeline
 
-| Attack | Mechanism | Bounded by | Closed by |
-|---|---|---|---|
-| **Cultivator-key extraction from disk** | File-read on operator host gives full Ed25519 signing capability | OS file permissions + Cultivator host hygiene | M-anchor-1 (key out of process) |
-| **Substrate-minted attestation nonce replay** | Substrate generates nonces; attacker who reads substrate state can pre-compute or replay | None at substrate-only — needs anchor-surface-issued nonces | M-anchor-3 (anchor-issued nonces) |
-| **Cultivator-process clock spoofing** | Anchor-stamped timestamps come from operator process; spoofable | Substrate dual-clock plumbing exists but anchor-clock source is local | M-anchor-3 (anchor-clock independence) |
-| **Anchor-client tampering (no provenance independence)** | Anchor client is same npm package as substrate — same-channel compromise kills both | §10.A.5 mitigations are documentary, not enforced | M-anchor-1 (provenance-independent channel) |
-| **Witness omission** | Substrate emits pass/fail verdicts; Cultivator cannot independently re-derive | §11.4 backup-quality logging only | M-anchor-4 (Merkle-witness emission) |
-| **DAG-enumeration closure not re-validated** | Substrate emits enumeration; closure-check on Cultivator side is not run | Substrate-side validation exists but Cultivator-side independent check is absent | M-anchor-5 (closure-check on Cultivator side) |
-| **Owner-liveness-heartbeat not detected** | Library exists with zero non-test callers | Substrate proceeds without heartbeat enforcement | M-anchor-3 (liveness heartbeat live) |
-| **L0 revision workflow** | L0 changes via git, no workflow event at the anchor surface | None — currently doctrine drifts silently | M-anchor-5 (revision event workflow) |
-
-### §11.3 M-anchor closure timeline (per L0 §9.2 sub-mechanism inventory)
-
-Closure of the collapse is sequenced as M-anchor-1 through M-anchor-5:
-
-- **M-anchor-1**: Key out of agent-spawnable process + anchor client from independent channel + owner-side rendering live consumer. Closes §9.2.3, §9.3.2, §9.3.3.
-- **M-anchor-2**: Substrate-ID birth attestation owner-signature (replaces TOFU first-hello). Closes §9.2.1.
+- **M-anchor-1**: Key out of agent-spawnable process + anchor client from independent channel + owner-side rendering live. Closes §9.2.3, §9.3.2, §9.3.3.
+- **M-anchor-2**: Substrate-ID birth attestation owner-signature. Closes §9.2.1.
 - **M-anchor-3**: Anchor-issued nonces + anchor-clock independence + owner liveness heartbeat. Closes §9.2.5, §9.2.6, §9.2.7.
-- **M-anchor-4**: Merkle-witness emission (witnesses-not-verdicts) + anchor-nonce-derived sampling. Closes §9.3.4, §9.3.5.
+- **M-anchor-4**: Merkle-witness emission + anchor-nonce-derived sampling. Closes §9.3.4, §9.3.5.
 - **M-anchor-5**: DAG-enumeration closure check + L0 revision diff workflow. Closes §9.2.2, §9.2.4, §9.3.6.
 
-### §11.4 Honest production-readiness posture
+### §11.4 Production-readiness posture
 
-**Until M-anchor-1 through M-anchor-5 are closed, the substrate is documented-vulnerable.** Production-readiness claims at v0.9 are bounded by:
-- The Cultivator must trust the same host that runs the substrate process — there is no out-of-band escape from compromise.
-- §10 adversarial-Cultivator defenses (duress keypair, owner_signature_velocity, multisig) are LANDING TARGETS, not deployed defenses.
-- §13 federation defenses (Sybil, eclipse, recursive-injection) likewise.
-- Substrate observatory + immune-grade signals still operate (they are substrate-mechanical, not anchor-surface-mechanical) and provide partial protection.
-
-**Doctrine posture (per L0 §9.5)**: "the anchor surface is collapsed to the operator process — owner key lives in the same npm workspace as the agent code. This is a temporary scaffolding, not a doctrinal endpoint." DRAFT 2 here makes the collapse window a first-class threat-model section so that all readers — including future Cultivators evaluating deployment — see the gap before they see the marketing.
+Until closure: Cultivator must trust same host as substrate process (no out-of-band escape); §10 + §13 defenses are LANDING TARGETS not deployed; substrate observatory + immune signals provide partial protection.
 
 ---
 
-## §12. Time-semantics attacks
-
-> Cascade from L0 DRAFT 9 SEALED §13: substrate's wall-clock is untrusted for security-bound defenses (per §13.1). L2_TRUST_MODEL specifies the time-semantics threat scenarios and their mitigations.
+## §12. Time-semantics attacks (per L0 §13)
 
 ### §12.1 NTP poisoning
 
-**Threat**: an attacker controls the substrate-process's wall-clock source (the host's NTP) and feeds false time. Attestation expiry checks (dual-clock per L1_GOVERNANCE §2.2) can be defeated if the substrate-process clock is moved forward (attestation appears to be expired when it is not, or vice versa).
+**Threat**: attacker controls substrate-process wall-clock → defeats dual-clock expiry by moving clock.
 
-**Mitigation**:
-- **Anchor-surface trusted wall-clock is authoritative** (per L0 §13.1 + L0 §9.2.6): substrate-process wall-clock is NOT authoritative for attestation expiry; the anchor-surface trusted timestamp issued at nonce-issuance is canonical. NTP poisoning of substrate host does NOT defeat attestation expiry as long as the anchor-clock source is independent.
-- **Dual-clock attestation** (L1_GOVERNANCE §2.2): attestations carry both substrate-cycle-count expiry AND anchor-surface-timestamp expiry. To defeat, attacker must compromise both clocks (substrate-cycle requires substrate-internal compromise; anchor-clock requires anchor-surface-side compromise).
-- **L1_CONTINUITY NTP discipline policy** (cascade requirement per L0 §13.2): L1_CONTINUITY MUST specify the NTP discipline — minimum source diversity, recommended trusted-time sources (e.g., NTS, signed NTP), monitoring for clock-drift anomalies.
-
-**During §11 collapse window**: the anchor-clock comes from the operator process — same host as substrate-process clock — so NTP poisoning defeats both. After M-anchor-3, anchor-clock independence closes this.
+**Mitigation**: anchor-surface trusted wall-clock is authoritative (L0 §13.1 + §9.2.6); dual-clock attestation (both substrate-cycle + anchor-timestamp expiry required); L1_CONTINUITY NTP discipline policy per L0 §13.2 (source diversity, trusted sources NTS/signed-NTP, clock-drift monitoring). During §11 collapse, anchor-clock = operator-process; M-anchor-3 closes.
 
 ### §12.2 Year 2038 (i32) horizon
 
-**Threat**: any timestamp field stored as 32-bit signed seconds-since-epoch overflows on 2038-01-19. Substrates running across the rollover with i32 timestamps experience silent corruption of attestation expiry checks, DAG ordering, freshness windows, succession-trigger windows, federation peer-trust freshness.
+**Threat**: i32 timestamps overflow 2038-01-19 → silent corruption.
 
-**L0 commitment** (§13.1): "Substrate MUST NOT use i32 timestamps anywhere in substrate-internal state (year 2038 vulnerability forbidden at L0; i64 nanoseconds-since-epoch is the canonical L0 unit)."
-
-**L1_SCHEMA cascade requirement** (L0 §13.2): L1_SCHEMA specifies the i64-nanoseconds canonical-bytes representation; canonical-bytes-spec enforcement at I3 catches any drift.
-
-**Defense**: the i64 forbiddance is L0-mechanical (catchable by I3 invariant scanning the SSoT for forbidden timestamp types). The substrate cannot ship with i32 timestamps in tier-1 SSoT.
+L0 §13.1: substrate MUST NOT use i32; i64 nanoseconds-since-epoch is canonical. L1_SCHEMA cascade enforces; I3 catches drift.
 
 ### §12.3 Year 2262 (i64) horizon-warning
 
-**Threat**: i64 nanoseconds-since-epoch overflows at approximately 2262-04-11. A v0.9 substrate operating with i64 nanoseconds will face the same silent-overflow risk in 237 years that v0.8 (or any i32 substrate) faces today.
+**Threat**: i64 nanoseconds overflows ~2262-04-11.
 
-**Mitigation per L0 §13.2 cascade**:
-- L1_SCHEMA specifies a year-2262 horizon-warning mechanism: as substrate-runtime approaches 2262 within an L1-tunable horizon (default 100 years), the substrate emits `time_horizon_2262_warning` daily signal at every CI boundary. Allows Cultivators to plan migration (likely to i128 or to date-relative encoding) decades before the hard deadline.
-- L1_SCHEMA specifies the negative-pre-1970-timestamps treatment: substrate state MUST NOT contain pre-1970 timestamps (no negative epoch); detected as `negative_epoch_timestamp` daily signal.
+L0 §13.2 cascade: L1_SCHEMA emits `time_horizon_2262_warning` daily as substrate approaches 2262 within L1-tunable horizon (default 100 years). Negative-pre-1970 forbidden → `negative_epoch_timestamp` daily.
 
-### §12.4 Substrate wall-clock untrustworthiness for security-bound defenses
+### §12.4 Wall-clock untrustworthiness
 
-**Per L0 §13.1**: substrate-cycle counters and substrate-process wall-clock are NOT authoritative for time-bound security defenses. This is doctrinally explicit:
-
-- Attestation expiry: anchor-clock authoritative.
-- Owner-key rotation cooldown: anchor-clock authoritative.
-- Federation peer-trust freshness: anchor-clock authoritative.
-- Mortality drill timing: anchor-clock authoritative for the drill record; substrate-monotonic for the drill scheduling.
-- DAG event ordering within substrate: substrate-monotonic authoritative.
-
-**Defense gap during §11 collapse window**: with anchor-clock collapsed to operator-process clock, all of the above degrade to substrate-host-clock dependence. M-anchor-3 closes this. Until then, dual-clock checking still catches inconsistencies but cannot detect coordinated clock-spoofing.
+Per L0 §13.1, substrate-cycle counters + process wall-clock NOT authoritative for: attestation expiry, owner-key rotation cooldown, federation peer-trust freshness (→ anchor-clock); mortality drill timing (→ anchor-clock for record, substrate-monotonic for scheduling); DAG event ordering (→ substrate-monotonic authoritative). During §11 collapse, all degrade to substrate-host-clock; M-anchor-3 closes.
 
 ---
 
-## §13. Federation Sybil + Eclipse + Recursive-injection attacks
+## §13. Federation + reproduction + skin attacks
 
-> Cascade from L2_FEDERATION (A3 update; primary spec lives there) + L0 DRAFT 9 SEALED §17 G-9.b (P15 population-consensus retracted to L2_FEDERATION). L2_TRUST_MODEL frames the threat-model considerations; L2_FEDERATION specifies the federation-level mechanisms.
+Threat-model framing; mechanisms at L2_FEDERATION + L1_SKIN.
 
-### §13.1 Sybil attack
+### §13.1 Sybil
 
-**Threat**: an attacker creates many federation peer substrates (all controlled by the attacker, all with separately-generated substrate-IDs and owner-keys). At the population level, the attacker's peers vastly outnumber legitimate peers; any consensus or majority-trust mechanism is dominated by the attacker.
+**Threat**: attacker creates many peers; population-consensus dominated.
 
-**Defense via Cultivator-attested peer list** (L1_GOVERNANCE §5.1 default mode):
-- The default federation discovery mode is **owner-attested peer list**: the Cultivator curates the list of approved peer substrate-IDs. New peers do NOT auto-trust; they require Cultivator attestation.
-- Each peer attestation is a CI-grade event (per L1_HARD_RULES F14 federation peer attestation list). Adding many peers requires many CI co-signs; Cultivator workload is O(N) without aggregate-reattestation.
-- Aggregate re-attestation (L1_GOVERNANCE §5.2) provides O(1) Cultivator workload — but the diff against last commitment is still surfaced for review; the Cultivator should reject diffs containing unfamiliar peers.
+**Defense — Cultivator-attested peer list** (L1_GOVERNANCE §5.1 default): owner curates approved IDs; new peers require attestation (CI-grade, L1_HARD_RULES F14). Aggregate re-attestation (L1_GOVERNANCE §5.2) gives O(1) workload; diffs are reviewed. Cultivator is bottleneck; Sybil requires §10 compromise; cross-substrate trust non-transitive (L2_FEDERATION §6.4). **Limits**: bounded by Cultivator due diligence.
 
-**Why this defends**: the Cultivator is the bottleneck. To Sybil the federation, the attacker must compromise the Cultivator (which falls back to §10 adversarial-Cultivator scenarios). At the population level, no peer can vouch for another's legitimacy without Cultivator-attested chain (cross-substrate trust is non-transitive per L2_FEDERATION §6.4).
+### §13.2 Eclipse
 
-**Defense limits**: if the Cultivator is naive about peer selection, they may attest peers that the attacker has socially-engineered them to accept. Sybil-resistance is bounded by Cultivator due diligence. The substrate provides the mechanism (peer attestation list); the Cultivator provides the discrimination.
+**Threat**: attacker controls ALL peers a substrate connects to; coordinated false view despite individual attestation.
 
-### §13.2 Eclipse attack
-
-**Threat**: an attacker controls ALL the federation peers that a substrate connects to. Even if each peer is individually Cultivator-attested, the attacker can present a coordinated false view of the federation network — the substrate sees only what the attacker wants it to see.
-
-**Defense via diverse Cultivator-attested peers**:
-- The Cultivator-attested peer list SHOULD contain peers of diverse provenance — peers run by structurally independent parties (different organizations, different geographic regions, different ownership lineages).
-- L1_GOVERNANCE SHOULD recommend a minimum peer diversity threshold (e.g., ≥3 peers from ≥3 independent organizational lineages).
-- The substrate cannot mechanically enforce peer diversity (it cannot tell organizational independence from substrate-IDs alone); this is Cultivator-side discipline.
-
-**Federation health observability** (L2_FEDERATION §13 + L2_OBSERVABILITY §10): signal #4 split into 4a (cumulative fork count) + 4b (reachable-federation count). If 4b drops (most peers stop responding), the substrate sees mycelial fragmentation. Eclipse attacks present partial signal — peers respond (4b stable) but their content is attacker-controlled.
-
-**Defense limits**: eclipse is hard to mechanically detect. The substrate observes 4a/4b health but cannot tell coordinated-attacker peers from honest peers. The Cultivator's only defense is diverse peer-selection at attestation time + occasional cross-channel verification (verify federation peers' state via out-of-Myco channels).
+**Defense — diverse Cultivator-attested peers**: ≥3 peers from ≥3 independent organizational lineages. Substrate cannot enforce diversity mechanically. **Observability** (L2_FEDERATION §13 + L2_OBSERVABILITY §10): signals #4a/#4b. Eclipse presents partial signal (peers respond, content attacker-controlled). **Limits**: substrate cannot distinguish coordinated from honest; Cultivator does diverse peer-selection + out-of-Myco cross-channel verification.
 
 ### §13.3 Recursive injection
 
-**Threat**: a malicious federation peer crafts events whose payload causes the receiver to emit further federation events that look like first-party events (e.g., `operator_pinned`, `cycle_advanced`, `genesis_event`), hijacking the receiver's identity or state.
+**Threat**: malicious peer crafts events causing receiver to emit posing-as-first-party events (`operator_pinned`, `cycle_advanced`, `genesis_event`).
 
-**Primary spec**: see **L2_FEDERATION §9** (wrapped-events architecture: `federation_received:{peer_prefix}` envelopes + parent = receiver's own local tip), **§9.4** (federation-safe-node-type ALLOWLIST), and **§11** (recursive injection defense). The substrate's identity-record fields are TIER-1 SSoT protected by I1 — federation events cannot mutate identity even if intake passes. M24/M25 fix shipped this architecture.
+**Spec**: L2_FEDERATION §9 (wrapped-events) + §9.4 (allowlist) + §11 (recursive defense). Identity-record fields are I1-protected TIER-1 SSoT; federation events cannot mutate identity. Shipped M24/M25.
 
-### §13.4 Forkbomb (reproduction-loop attack)
+### §13.4 Forkbomb
 
-**Threat**: an attacker triggers a reproduction loop (substrate spawns child; child spawns grandchild; ...). Without bounds, the substrate's resource budget is exhausted in spawning instead of metabolism.
+**Threat**: unbounded reproduction loop exhausts resources.
 
-**Defense via P8 generation limits**: see **L0 §16** (eternal *capacity* for reproduction, not velocity/depth) + **L1_GOVERNANCE §16** (depth bound + rate min-interval + lifetime quota + override mechanism + per-spawn Cultivator-attested birth gate per §4.3). The Cultivator is the bottleneck; forkbomb requires Cultivator-compromise (§10) or substrate-internal-corruption (caught by I7 reproduction closure invariant). Defense limits: loose L1 defaults can still exhaust resources cumulatively; tight defaults are doctrinally preferred.
+**Defense via P8** (L0 §16 + L1_GOVERNANCE §16): depth bound + rate min-interval + lifetime quota + per-spawn Cultivator-attested birth gate. Forkbomb requires §10 compromise or I7 violation. **Limits**: loose defaults still cumulatively exhaust; tight defaults preferred.
 
-### §13.5 substrate_id collision attacks
+### §13.5 substrate_id collision
 
-**Threat**: an attacker constructs a substrate-ID that collides with an existing legitimate substrate-ID (preimage attack on the substrate-ID hash function). The colliding substrate impersonates the legitimate one in federation.
+**Threat**: preimage attack on substrate-ID hash → impersonation.
 
-**Mechanical defense**:
-- substrate-ID is `hash(canonical-bytes(initial-spore-schema), owner-public-key, anchor-surface-endpoint-public-key, genesis-timestamp)` — a SHA-256 or stronger hash per L1_SCHEMA.
-- Hash collision requires breaking the underlying cryptographic primitive (current state-of-the-art: infeasible for SHA-256, SHA-512). When the primitive weakens, cryptographic suite migration (L1_GOVERNANCE §3.1 same pattern as owner-key rotation) is the response.
-- Birth-attestation signature anchors the substrate-ID to the Cultivator's signing key. A collision-substrate without a Cultivator-attested birth fails handshake (per §3.1 step 6 — substrate-emitted owner_birth_attestation_signature must verify against anchor-surface-fetched owner pubkey).
+**Defense**: substrate-ID = `hash(canonical-bytes(initial-spore-schema), owner-public-key, anchor-surface-endpoint-public-key, genesis-timestamp)` per L1_SCHEMA (SHA-256+). Primitive break → cryptographic suite migration (L1_GOVERNANCE §3.1). Birth-attestation signature anchors ID to Cultivator's key; collision substrate without Cultivator-attested birth fails handshake. Collision requires BOTH hash break AND key compromise.
 
-**Why this defends**: substrate-ID alone is insufficient identity; the birth-attestation signature is the verifying anchor. Collision attacks must compromise both the substrate-ID hash AND the Cultivator's signing key.
+### §13.6 Backup attack (privacy)
 
-**Cross-ref**: federation peer-trust freshness (L1_GOVERNANCE §5.2) does NOT trust substrate-ID alone — it requires Cultivator attestation per peer. Collision substrates would require fresh Cultivator attestation, which is §10.A.3 impersonation territory.
+**Threat**: attacker reads backup media → full substrate state without compromising process.
 
-### §13.6 Backup-attack (privacy via backup medium)
+**Defense via L1_SKIN backup encryption** (L0 §11.1 cascade): operator-controlled symmetric key (L1_SKIN DRAFT 2); not mandated at L0 (operational) but absence is acknowledged privacy surface. Key escrow: held by Cultivator out-of-band. Rotation aligned with owner-key rotation. **Limits**: backups predating rotation readable with old key; privacy-only attack; Cultivator backup-storage discipline load-bearing.
 
-**Threat**: substrate state_dir backups (per L1_SCHEMA recoverability budget) are stored on backup media. An attacker with read access to backup media reads the full substrate state (potentially including operator deltas, sporocarp content, Cultivator-attested data) without ever compromising the substrate process.
+### §13.7 Single-skin failure (L1_SKIN P9.b)
 
-**Defense via L1_SKIN backup encryption requirements** (per L0 §11.1 cascade):
-- Backups MUST be encrypted with an operator-controlled symmetric key (L1_SKIN DRAFT 2 work). Backup encryption is not mandated at L0 (operational choice), but L0 §11.1 mandates that backup access controls are documented at L1 and that absent encryption is acknowledged as a known privacy attack surface.
-- Key escrow protocol: the backup-encryption key is held by the Cultivator out-of-band (NOT in the substrate's state_dir). Restoring a backup requires Cultivator-side key access.
-- Key rotation aligned with Cultivator-key rotation: when the Cultivator rotates owner-key, the backup-encryption key SHOULD rotate too (L1_SKIN policy).
+**Threat**: skin endpoint failure (outage/crash/cert-expiry/DDoS) → cannot intake/emit. Availability attack.
 
-**Defense limits**: backups predating encryption rotation may still be readable with the old key. Backup-attack is a privacy attack, not an integrity attack — the substrate's own state remains uncorrupted, but historical content is exposed if the key leaks. Cultivator-side discipline (where backups are stored, how access is granted) is load-bearing.
-
-### §13.7 Single-skin failure point (L1_SKIN P9.b)
-
-**Threat**: per L1_SKIN P9.b, "single skin = single point of failure." If the skin endpoint fails (network outage, process crash, certificate expiry, DDoS), the substrate cannot intake new operator-connections or emit federation events. An attacker can mount an availability attack at the skin.
-
-**Defense via L1_SKIN §13 skin-restart discipline**:
-- L1_SKIN §13 mandates skin-restart discipline: the substrate detects skin failure (transport-level errors), enters `quarantined` on persistent failure (per L1_CONTINUITY §5), emits `skin_failure` immune signal, awaits Cultivator-attested `skin_restart_attestation` to re-open.
-- During quarantine, the substrate's metabolism continues (intake closed; output also restricted), so DDoS at the skin does not destroy the substrate — it suspends external operations.
-- L1_SKIN §1 skin surface declaration is a CI-grade tier-1 field (per L1_HARD_RULES F11): the attacker cannot reconfigure the skin to a fake endpoint without Cultivator attestation.
-
-**Defense limits**: extended skin-failure ages the substrate (drill scheduling, federation peer-trust freshness windows lapse). Sustained availability attacks can force the substrate into `legacy` or even mortality territory. Mitigation requires Cultivator-side infrastructure resilience (geographic redundancy, DDoS mitigation, certificate hygiene).
-
-**Why not multi-skin**: doctrinally, P9 (skin) commits to a single declared boundary; multi-skin would multiply trust-establishment surface. Trade-off: single-skin gives sharper trust model, weaker availability. Multi-skin would give better availability at the cost of trust-model complexity. v0.9 chooses single-skin; L4 may reconsider.
+**Defense via L1_SKIN §13 skin-restart discipline**: detect transport-level errors → `quarantined` on persistent failure → emit `skin_failure` immune → await Cultivator-attested `skin_restart_attestation`. Metabolism continues during quarantine. Skin declaration is CI-grade tier-1 (L1_HARD_RULES F11); attacker cannot reconfigure without attestation. **Limits**: extended skin-failure ages substrate; sustained → `legacy` or mortality. Multi-skin rejected: P9 single-boundary doctrinally preferred; L4 may reconsider.
 
 ---
 
@@ -392,41 +239,26 @@ Closure of the collapse is sequenced as M-anchor-1 through M-anchor-5:
 
 | Term | Definition |
 |---|---|
-| **Cultivator / Cultivar / Cultivation** | See **L0 §12** for canonical definitions. |
-| **Duress attestation** | A CI attestation signed by the Cultivator's pre-registered `duress_keypair` instead of the primary owner-key, indicating the Cultivator is under coercion (per §10.A.2). |
-| **Duress keypair** | A separate Ed25519 keypair the Cultivator pre-registers at genesis (per §2 + §10.A.2). The public key is persisted in the substrate identity record; the private key is held on physically separate medium. Used only when coerced. |
-| **owner_signature_velocity** | A rolling-window count of Cultivator-signed CI events per L1-tunable cadence; baseline established after N steady-state events; anomalous velocity emits `owner_signature_velocity_anomaly` daily immune signal (per §10.A.3). |
-| **coerced_owner_suspected** | CI-grade immune signal emitted by the substrate when a CI attestation verifies against the duress_keypair instead of the primary owner-key (per §10.A.2). Freezes destructive mutations until out-of-band re-attestation. |
-| **Anchor-client provenance independence** | Per L0 §9.3.3 + §10.A.5: the anchor-surface client (Cultivator's local rendering + signing tool) MUST be installed and updated through a channel structurally independent of the substrate's distribution channel. Closed by M-anchor-1. |
-| **n-of-m multisig (owner-key)** | An optional owner-key configuration where m of n registered Cultivator-keys must sign for CI attestations to verify (per §10.A.1). Recommended for institutional Cultivars; codified at L1_GOVERNANCE §3.1 DRAFT 2. |
-| **Honor-system collapse window** | The v0.9 state where the operator and anchor surface are collapsed into the same process / npm workspace / host (per §11). Documented vulnerable, NOT production-ready. Closes progressively across M-anchor-1 through M-anchor-5. |
-| **M-anchor-N** | Future milestone block closing one or more sub-clauses of the L0 §9.2/§9.3 anchor-surface decomposition. See §11.3 for the timeline. |
-| **Sybil (federation)** | An attacker creates many federation peer substrates to dominate population-level consensus (per §13.1). Defended by Cultivator-attested peer list. |
-| **Eclipse (federation)** | An attacker controls all federation peers a substrate connects to, presenting a coordinated false view (per §13.2). Defended by diverse Cultivator-attested peer selection. |
-| **Recursive injection (federation)** | A malicious federation peer injects events that the receiver misinterprets as first-party identity-altering events (per §13.3). Defended by federation-safe-node-type allowlist + wrapped-events architecture. |
-| **Forkbomb (reproduction loop)** | An attacker triggers unbounded reproduction (per §13.4). Defended by L0 §16 generation limits + Cultivator-attested birth gate. |
+| Cultivator / Cultivar / Cultivation | See L0 §12. |
+| Duress attestation / keypair | Separate Ed25519 pre-registered (§10.A.2); private on separate medium; signs under coercion. |
+| owner_signature_velocity | Rolling Cultivator-signed CI events count; anomaly → daily signal (§10.A.3). |
+| coerced_owner_suspected | CI-grade signal on duress-keypair verify; freezes destructive mutations (§10.A.2). |
+| Anchor-client provenance independence | Install channel structurally independent of substrate (L0 §9.3.3, §10.A.5; M-anchor-1). |
+| n-of-m multisig | Optional m-of-n owner-key config (§10.A.1). |
+| Honor-system collapse window | v0.9 collapsed operator+anchor (§11); closes via M-anchor-1 through M-anchor-5. |
+| M-anchor-N | Milestone closing L0 §9.2/§9.3 sub-clauses (§11.3). |
+| Sybil / Eclipse / Recursive injection / Forkbomb | §13.1 / §13.2 / §13.3 / §13.4. |
 
 ---
 
 ## §15. Cross-reference + L1 cascade obligations
 
-This document creates new obligations on other layers that must be reflected in their DRAFT-N updates:
-
-- **L1_HARD_RULES (cascade)**: `coerced_owner_suspected` covered by F23 Duress_keypair (already shipped); `owner_signature_velocity_anomaly` daily-grade catalog row deferred.
-- **L1_GOVERNANCE §3.1 (cascade)**: codification of n-of-m multisig (per §10.A.1); duress-keypair registration as genesis-optional field (per §10.A.2, F23); quorum-emergency-rotation mechanism.
-- **L1_GOVERNANCE §3.2 (cascade)**: successor FSM specification (per L0 §15.2); court-attested key recovery exceptional path; deceased-Cultivator-without-succession terminal states.
-- **L1_GOVERNANCE §5 (cascade)**: federation peer diversity recommendation per §13.2; per-peer attestation chain audit hooks.
-- **L1_CONTINUITY (cascade per L0 §13.2)**: NTP discipline policy per §12.1; minimum source diversity; clock-drift monitoring.
-- **L1_SCHEMA (cascade per L0 §13.2)**: i64-nanoseconds canonical-bytes representation + year-2262 horizon-warning + negative-pre-1970 treatment per §12.3.
-- **L1_SKIN (cascade per L0 §11.1)**: backup encryption requirements + key escrow + key rotation alignment per §13.6.
-- **L2_FEDERATION (A3 update)**: federation-safe-node-type allowlist + wrapped-events architecture per §13.3 (primary spec there; threat-model framing here).
-- **L2_OBSERVABILITY**: `owner_signature_velocity` sub-signal per §10.A.3 should appear in §12 owner-side observability (anchor-surface dashboard).
-
-This list is the M26-cascade A4 obligation surface. Subsequent A-cascade documents close each row.
-
----
-
-## §16. DRAFT history
-
-- **DRAFT 1 (2026-05-13)**: initial L2_TRUST_MODEL with §1–§9 (triad, genesis, steady state, maintenance, recovery, limits, federation, invariants, open).
-- **DRAFT 2 (2026-05-17, this commit)**: M26-cascade A4 update for L0 DRAFT 9 SEALED. Added §10 adversarial-Cultivator threat model (full L0 §14 cascade), §11 anchor-surface honor-system collapse window (Phase γ.5), §12 time-semantics attacks (Phase γ.3 G10), §13 federation Sybil/eclipse/recursive-injection/forkbomb/substrate_id-collision/backup-attack/single-skin-failure (Phase γ.3 G8/G11/G15/G16/G19 + L2_FEDERATION cross-ref), §14 glossary (Cultivator/Cultivar/Cultivation/duress/velocity/anchor-client provenance), §15 cross-reference cascade obligations. Cultivator/Cultivar/Cultivation vocabulary integrated throughout. Existing §1–§9 preserved with §1 + §6 + §8 + §9 updated to reference new sections.
+- **L1_HARD_RULES**: `coerced_owner_suspected` shipped F23; `owner_signature_velocity_anomaly` deferred.
+- **L1_GOVERNANCE §3.1**: n-of-m multisig + duress-keypair registration (F23) + quorum-emergency-rotation.
+- **L1_GOVERNANCE §3.2**: successor FSM (L0 §15.2) + court-attested key recovery + deceased-without-succession terminal states.
+- **L1_GOVERNANCE §5**: peer diversity (§13.2) + per-peer attestation audit hooks.
+- **L1_CONTINUITY** (L0 §13.2): NTP discipline (§12.1).
+- **L1_SCHEMA** (L0 §13.2): i64-nanoseconds + year-2262 horizon-warning + negative-pre-1970 (§12.3).
+- **L1_SKIN** (L0 §11.1): backup encryption + key escrow + rotation alignment (§13.6).
+- **L2_FEDERATION**: allowlist + wrapped-events (§13.3).
+- **L2_OBSERVABILITY**: `owner_signature_velocity` as §12 sub-signal (§10.A.3).

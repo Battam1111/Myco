@@ -1,29 +1,25 @@
 # L2 — Observability Doctrine
 
-> **Status**: DRAFT 2 (2026-05-17, M26-cascade A6). Cross-cut doctrine canonical for Living Bets signals + falsifiability quorum.
-> **Scope**: cross-cuts L0 §7 + §9.4 + §14 + §15 + L1_HARD_RULES §1 + I3/I5/I9/I10/I12 + L1_SCHEMA §2.4 + L1_CONTINUITY §1.2. Answers: what is v0.9's self-model; what is the falsifiability surface; how does the substrate know if it is healthy / drifting / failing?
+> **Status**: DRAFT 2 (2026-05-17, M26-cascade A6). Canonical for Living Bets signals + falsifiability quorum.
+> **Scope**: L0 §7/§9.4/§14/§15 + L1_HARD_RULES §1 + I3/I5/I9/I10/I12 + L1_SCHEMA §2.4 + L1_CONTINUITY §1.2.
 
 ---
 
 ## §1. Why observability is L0-anchored
 
-The substrate is autopoietic (per P1.a self-hosting): no human in the maintenance loop. The substrate must observe itself, signal pathology to itself + the operator-agent + the owner (Cultivator per G-11.a) via the anchor surface. Without observability, the substrate's claim "I am healthy" is unfalsifiable.
+Substrate is autopoietic (P1.a); no human in maintenance loop. Substrate must observe itself + signal pathology to itself + operator-agent + Cultivator via anchor. Without observability, "I am healthy" is unfalsifiable.
 
-L0 §7 Living Bets is the meta-commitment: the substrate's value-to-the-pair is **falsifiable** within a bounded **intelligence band** (per DRAFT 9 SEALED §7.2: ~200K to ~10M context). The bet is staked + **cost-justified** (value > engineering cost per §7.1); the observatory measures the stakes; the falsifiability trigger fires when the bet is lost; bet retirement (§7.5) handles graceful sunset at the band's upper edge.
+L0 §7 Living Bets is meta-commitment: substrate's value-to-pair is **falsifiable** within bounded **intelligence band** (~200K to ~10M context); bet is cost-justified (value > engineering cost); observatory measures stakes; falsifiability trigger fires when bet is lost; bet retirement (§7.5) handles graceful sunset at upper edge.
 
-Observability is what makes the autopoietic loop honest. Per L0 §14.2 substrate's irreducible commitments, observability signals are **truthfully emitted** — a substrate cannot suppress signal emission to hide an adversarial event, even under adversarial Cultivator pressure (subject to L2_TRUST_MODEL §6 P1.a self-hosting asymmetry caveat).
+Per L0 §14.2 substrate's irreducible commitments: signals are **truthfully emitted** — substrate cannot suppress emission to hide adversarial events (subject to L2_TRUST_MODEL §6 P1.a self-hosting caveat).
 
 ---
 
-## §2. The Living Bets observatory (6 base + 3 cost + 1 composite = 10 signals; DRAFT 9 SEALED §7.3)
+## §2. The Living Bets observatory (10 signals; L0 §7.3)
 
-Per L0 §7 + L1_TROPISM §4 birth-period predictor.
+Per L0 §7 + L1_TROPISM §4 birth-period predictor. **10 signals = 6 base + 3 cost + 1 composite**.
 
-**Signal count**: DRAFT 9 SEALED §7.3 specifies **10 signals = 6 base (signals #1-#6) + 3 cost (signals #7-#9) + 1 composite (signal #10)**.
-
-### §2.1 Six base signals (DRAFT 9 SEALED §7.3, unchanged semantics, signal-direction clarified)
-
-Per L0 §7.4.c per-signal direction-against-the-bet table:
+### §2.1 Six base signals (L0 §7.3; §7.4.c per-signal direction)
 
 | # | Signal | Definition | Trend DOWN means | Counts toward quorum if | Threshold |
 |---|---|---|---|---|---|
@@ -35,11 +31,11 @@ Per L0 §7.4.c per-signal direction-against-the-bet table:
 | 5 | **Time trend per signal** | OLS-regression slope **over wall-clock-90-day window** (per L0 §7.4.a window definition + §7.4.b mathematical definition); significance gate `|slope / standard-error| ≥ Z` where Z = 1.96 default (95% confidence; L1-tunable); below significance gate signal is "flat" and does NOT count toward quorum. **Signal #5 is the meta-direction-detector** powering the above table — it is NOT itself counted in the quorum (per L0 §7.4.d). | — | NOT counted (meta-detector) | Z=1.96 seed |
 | 6 | **Read-window-relative position** | `substrate-total-size / agent-attested-context-window` (substrate-total, not digest-fraction). | Substrate shrinking vs context window; threshold separating bet-wins from bet-loses is **ratio < 1** (per L0 §7.4.c + §7.4.d) | DOWN below ratio 1.0 | Emergent in steady state; seed at birth |
 
-**Signal #4a unimplemented** (per L0 §7.4.d Phase γ.9 note + cascade list): the cumulative fork count is currently NOT computed in `query_substrate_observatory` format v2 (the M24 observatory primitive returns 5 of 7 Living Bets signals per M24 snapshot). **Signal #4a implementation is deferred to M28-cascade per L0 SEALED §7.4.d**. Known-gap: until M28-cascade, falsifiability trigger arithmetic counts {#1, #2, #3, #4b, #6} = 5 of the 6 countable signals; the wall-clock-90-day quorum (≥3) operates over the 5-signal subset, raising false-negative probability bounded by P(missing-#4a-pattern).
+**Signal #4a unimplemented** (L0 §7.4.d, M28-cascade deferred): not in `query_substrate_observatory` format v2 (M24 returns 5 of 7 Living Bets). Until M28: quorum operates over {#1, #2, #3, #4b, #6} = 5 of 6 countable signals; false-negative bounded by P(missing-#4a-pattern).
 
-### §2.2 Three cost signals (DRAFT 9 SEALED §7.3 P11.b new signals)
+### §2.2 Three cost signals (L0 §7.3 P11.b)
 
-Per L0 P11 metabolic economy + I10 metabolic-economy observation (signals are #7/#8/#9 uniformly):
+Per L0 P11 + I10 observation:
 
 | # | Signal | Definition | L1 unit | Counts toward quorum if |
 |---|---|---|---|---|
@@ -47,298 +43,195 @@ Per L0 P11 metabolic economy + I10 metabolic-economy observation (signals are #7
 | 8 | **Network cost / cycle** | Federation envelope bytes egress + embedding-service query bytes (per L0 P11.a network cost units; L1_SKIN §5 network-egress detection) | Bytes-egressed per cycle | UP (rising network cost = scaling stress) |
 | 9 | **Storage cost / cycle** | Bytes added to `dag.cb` + `snapshot.cb` deltas per cycle (per L0 P11.a persistence cost + L1_SCHEMA §4 storage tier) | Bytes-added per cycle | UP (rising storage cost = compression pressure, drives P11.c ordered fallback) |
 
-All three cost signals are **emergent from substrate's own operation** (substrate measures them; no external observer). L1-defined units per L0 P11.a.
+All three cost signals are emergent from substrate's own operation; L1-defined units per L0 P11.a. Feed composite #10 alongside signals 1-6 (variance-weighted in birth period; correlation-weighted in steady state).
 
-**Cost-signal interaction with composite #10**: cost signals feed into the composite alongside signals 1-6. Variance-weighted in birth period; correlation-weighted in steady state (correlation against agent-reported utility / telos-alignment from P14 — see §2.3).
+**Per L0 P11.c ordered fallback**:
+1. Pre-compression-eligibility (cycle < L1-tunable N, default 1000): refuse new P2 admission; emit `budget_exhausted:{axis}` immune (daily-grade, F19 thresholds).
+2. Post-compression-eligibility (cycle ≥ N AND owner-pre-attested compression rules exist): trigger P10 selective compression with I9 witness emission.
+3. Compression-insufficient OR no pre-attested rules: degraded operation per L1_CONTINUITY (alive-but-saturated). Sustained saturation → P7 endogenous-mortality consideration.
 
-**Per L0 P11.c ordered fallback** (referenced here for observability completeness):
-1. Pre-compression-eligibility (cycle counter < L1-tunable N, default 1000): refuse new P2 admission; emit `budget_exhausted:{axis}` immune signal.
-2. Post-compression-eligibility (cycle counter ≥ N AND owner-pre-attested compression rules exist): trigger P10 selective compression with witness emission per I9.
-3. Compression-insufficient OR no pre-attested rules: enter degraded operation per L1_CONTINUITY (alive-but-saturated sub-state). Sustained saturation past L1-tunable threshold escalates to P7 endogenous-mortality consideration.
+### §2.3 Composite signal #10 (L0 §7.3)
 
-`budget_exhausted:{axis}` is a daily-grade immune signal (not CRITICAL); it emits via cost signal monitoring at thresholds defined per F19 cost-budget table (L1_HARD_RULES §2 + L1_GOVERNANCE A5 cascade).
+Emergent weighted aggregation of signals 1-6 + 7-9 = **9 inputs** (signal #5 is meta and does NOT feed composite; #4a + #4b feed separately).
 
-### §2.3 Composite signal (#10 — DRAFT 9 SEALED renumber from old #7)
+**§2.3.1 Variance-weighted (birth-period regime)**: used when no outcome signal exists (per L1_TROPISM §4 + L0 P14.c — telos-alignment is `telos_alignment_pending` until birth-period termination). Seed: `w_i = Var(signal_i over rolling 100-cycle window) / sum(Var across 9 inputs)`. Normalized to sum 1.
 
-**10. Composite health score** — emergent weighted aggregation of signals 1-6 + 7-9 = **9 input signals** (signal #5 is meta and does NOT feed the composite; signals #4a + #4b feed separately).
+**§2.3.2 Correlation-weighted (steady state)**: requires outcome signal (telos-alignment from P14: primary = cosine similarity recent-sporocarp embedding-centroid vs. owner-stated-objective embedding per L1_TROPISM A1; fallback = vs. agent-feedback-trajectory embedding). Seed: `w_i = |Corr(signal_i, outcome over rolling window)| / sum(|Corr| across 9 inputs)`.
 
-DRAFT 9 SEALED §7.3 explicitly distinguishes two weighting regimes:
-
-#### §2.3.1 Variance-weighted composite (M25.3 fallback — birth-period regime)
-Used when no outcome signal exists. Picks signals that move most (high variance over the rolling window). Use this **only in birth period** (per L1_TROPISM §4 + L0 P14.c birth-period exemption — telos-alignment is `telos_alignment_pending` until birth-period termination).
-
-Weight formula (seed; L1-tunable): `w_i = Var(signal_i over rolling 100-cycle window) / sum(Var across all 9 inputs)`. Normalized to sum to 1.
-
-#### §2.3.2 Correlation-weighted composite (steady state)
-Requires an **outcome signal**: telos-alignment from P14 (owner-stated objective when present; agent-reported utility events when no objective declared — per L0 P14.b). Picks signals that **predict outcomes**.
-
-Weight formula (seed; L1-tunable): `w_i = |Corr(signal_i, outcome_signal over rolling window)| / sum(|Corr| across all 9 inputs)`. The substrate's own historical correlation between signal patterns and substrate-health outcomes. No pre-set weights.
-
-**Outcome signal definition** (per L0 P14):
-- Primary (when owner-stated objective present): cosine similarity between recent-sporocarp embedding-centroid and owner-stated-objective embedding (L1_TROPISM A1 specifies; M26-cascade forcing function active).
-- Fallback (when no owner objective): cosine similarity between recent-sporocarp embedding-centroid and agent-feedback-trajectory embedding.
-
-#### §2.3.3 Transition from variance to correlation weighting (L1-tunable)
-Per L0 §7.3: the transition is L1-tunable. Seed rule: after birth-period termination + minimum sample size N=100 of (signal, outcome) pairs, switch to correlation weighting; revert to variance weighting if outcome signal becomes unavailable (e.g., agent disconnect).
+**§2.3.3 Transition**: L1-tunable; seed = after birth-period termination + N=100 (signal, outcome) pairs → switch to correlation; revert to variance if outcome becomes unavailable.
 
 ### §2.4 Birth-period observability (per L1_TROPISM §4)
 
-Birth-period observatory provides early signals for maturity-attestation termination (sporocarp count progression, active-operation time accumulation, per-axis threshold-emergence convergence). These signals are NOT part of the steady-state 10-signal observatory; they retire after birth-period termination.
+Provides early signals for maturity-attestation termination (sporocarp count, active-operation time, per-axis threshold-emergence convergence). NOT part of steady-state 10-signal observatory; retires post-birth-period.
 
-**Per L0 §7.4.e**: during birth period, `bet_weakening_quorum` (C40) is SUSPENDED — substrate emits `bet_weakening_evaluation_suspended` instead. Reason: at t=0 signals are mathematically vacuous (signal #6 <1, #1 monotone-growing, #3 zero). Per L0 P14.c: `telos_drift` similarly SUSPENDED — substrate emits `telos_alignment_pending`.
+Per L0 §7.4.e: `bet_weakening_quorum` (C40) SUSPENDED in birth period (signals mathematically vacuous: #6<1, #1 monotone-growing, #3 zero) → emit `bet_weakening_evaluation_suspended`. Per P14.c: `telos_drift` similarly SUSPENDED → emit `telos_alignment_pending`.
 
 ---
 
-## §3. Falsifiability trigger (the bet-resolution mechanism)
+## §3. Falsifiability trigger (per L0 §7.4)
 
-Per L0 §7.4:
+**§3.1 Window** (§7.4.a): wall-clock 90 days (anchor-stamped per L0 §13.1), NOT 90 substrate-cycles. **M25.2 drift correction pending**: as shipped uses cycle-based; DRAFT 9 SEALED demands wall-clock; cycle-vs-wall-clock unit off by ~6 orders of magnitude in production. C40 detector window-unit is post-M25.2 fix scope.
 
-### §3.1 Window definition (§7.4.a)
-**Window is wall-clock 90 days** (anchor-stamped wall-clock per L0 §13.1 time semantics), NOT 90 substrate-cycles. 
+**§3.2 Trend** (§7.4.b): sign of OLS-regression slope over wall-clock-90-day samples (cadence L1-tunable; seed 1/substrate-day → ≥90 samples). Significance gate: `|slope/SE| ≥ Z` (seed Z=1.96, 95% confidence). Below gate = flat (does NOT count toward quorum).
 
-**M25.2 implementation drift correction required (M26-cascade post-fix)**: as shipped, M25.2 uses substrate-cycle-based windows. DRAFT 9 SEALED §7.4.a explicitly demands wall-clock; the cycle-vs-wall-clock unit is **off by ~6 orders of magnitude** in production (per cascade list direct-contradiction list). C40 detector window-unit is the post-M25.2 fix scope. Per L0 §13.1, anchor-surface trusted wall-clock is authoritative; substrate-process monotonic clock is for event ordering only.
+**§3.3 Per-signal direction-against-the-bet** (§7.4.c):
 
-### §3.2 "Trend" mathematical definition (§7.4.b)
-**Trend** = sign of OLS-regression slope over the wall-clock-90-day samples (cadence L1-tunable; seed: 1 sample per substrate-day → ≥90 samples). **Significance gate**: `|slope / standard_error| ≥ Z-threshold` (L1-tunable; seed Z=1.96 corresponding to 95% confidence) before trend direction counts. **Below significance gate, signal is "flat" — does NOT count toward quorum**.
-
-### §3.3 Per-signal direction-against-the-bet (§7.4.c)
-See §2.1 table column "Counts toward quorum if". Concisely:
-
-| Signal | DOWN trend means | Counts as "against the bet" |
+| Signal | DOWN means | Counts |
 |---|---|---|
-| #1 persistence budget | substrate not growing | DOWN |
-| #2 evolution rate | substrate stagnating | DOWN |
-| #3 read-pattern diversity | substrate not being read | DOWN |
+| #1 persistence budget | not growing | DOWN |
+| #2 evolution rate | stagnating | DOWN |
+| #3 read-pattern diversity | not being read | DOWN |
 | #4a cumulative forks | peers exiting | DOWN |
 | #4b reachable peers | mycelial fragmentation | DOWN |
-| #6 read-window ratio | substrate shrinking vs context window | DOWN below ratio 1.0 |
+| #6 read-window ratio | substrate shrinking vs context | DOWN <1.0 |
 
-Signal #5 (time trend per signal) is the **meta-direction-detector** powering the above table; it is NOT itself counted in the quorum.
+Signal #5 is meta-direction-detector; NOT counted.
 
-### §3.4 Quorum arithmetic (§7.4.d)
-**"≥3 of signals 1-6" counts**: {#1, #2, #3, #4a, #4b, #6} — **6 countable signals** (signal #5 is meta; signal #4 is split into 4a + 4b which count separately). Quorum threshold ≥3 of these 6.
+**§3.4 Quorum** (§7.4.d): ≥3 of 6 countable signals {#1, #2, #3, #4a, #4b, #6}. Until M28-cascade implements #4a: quorum over 5 {#1, #2, #3, #4b, #6} with ≥3 threshold (conservative; under-fires; documented false-negative bias).
 
-**Until M28-cascade implements signal #4a**: quorum operates over 5 countable signals {#1, #2, #3, #4b, #6} with ≥3 threshold (a more conservative implementation that under-fires the trigger). This is acknowledged false-negative bias; substrate observability docs the gap; M28-cascade closes it.
+**§3.5 Spike vs trend**: spikes are DAG-recorded but do not fire trigger; only OLS-slope-Z-significant trends do.
 
-### §3.5 Spike vs trend
-Spike events within a window are DAG-recorded but do not by themselves fire the trigger. Only OLS-slope-Z-significant trends do.
+**§3.6 Birth-period exemption** (§7.4.e): C40 SUSPENDED in birth period (L1_TROPISM §4 + L1_GOVERNANCE §1.3 ceiling); emit `bet_weakening_evaluation_suspended`. Trigger fires `bet_weakening_quorum` (C40) requiring owner re-justification per L0 §10.2. This is substrate's structural confession mechanism: substrate auto-emits when bet weakens.
 
-### §3.6 Birth-period exemption (§7.4.e)
-**Bet_weakening_quorum is SUSPENDED during birth period** (per L1_TROPISM §4 birth-period termination criteria + L1_GOVERNANCE §1.3 ceiling). Substrate emits `bet_weakening_evaluation_suspended` observability event during birth period.
+**§3.7 Bet retirement** (L0 §7.5; L1_HARD_RULES §1.3): C40 fires AND re-justification fails 3 consecutive times over 2-year wall-clock window AND signal #6 stays <0.1 for >75% of final-90-day samples AND substrate `alive::normal` → emit `bet_retired_proposal` (CI-level proposal). Execution requires owner co-attestation (L0 §7.5.b two-phase commit). On execution → `alive::archived` (L0 §7.5.c).
 
-The trigger fires `bet_weakening_quorum` (C40 per L1_HARD_RULES §1.2) event requiring owner re-justification per L0 §10.2.
-
-**This is the substrate's structural confession mechanism**: when the bet weakens, the substrate auto-emits the admission. The owner is not relied on to detect drift; the substrate is.
-
-### §3.7 Bet retirement (DRAFT 9 SEALED §7.5; see L1_HARD_RULES §1.3)
-After C40 fires AND owner re-justification fails 3 consecutive times over 2-year wall-clock window AND signal #6 stays <0.1 for >75% of samples in final 90-day window AND substrate is in `alive::normal` sub-state, substrate emits `bet_retired_proposal` (NOT immune-grade — CI-level proposal). Execution requires owner co-attestation per L0 §7.5.b two-phase commit (genesis-time consent flag vs steady-state co-attestation). On execution, substrate transitions to `alive::archived` per L0 §7.5.c.
-
-**Failed re-justification counter reset rules** (per L0 §7.5.d): counter resets to 0 on (a) successful re-justification, (b) transition through `alive::quarantined`, (c) owner-attested `bet_retirement_counter_reset` CI mutation. Counter does NOT reset on substrate restart / dormancy entry / federation peer changes.
+**Counter resets** (L0 §7.5.d): 0 on (a) successful re-justification, (b) transition through `alive::quarantined`, (c) owner-attested `bet_retirement_counter_reset` CI mutation. Does NOT reset on substrate restart / dormancy entry / federation peer changes.
 
 ---
 
 ## §4. Per-cycle invariant checks (the immune system)
 
-Tiered validation per **L1_CONTINUITY §1.1 + L1_SCHEMA §4** + L0 §6 (I3 + I5 + I8 + I10 cost observation are L0-mandated).
+Tiered validation per **L1_CONTINUITY §1.1 + L1_SCHEMA §4** + L0 §6 (I3/I5/I8/I10 L0-mandated).
 
-### §4.1 Per-cycle checks (tier-1)
+**§4.1 Per-cycle (tier-1)**: I1 identity record + active prefix of owner_key_history; I3 tier-1 fields vs SSoT; I4 DAG-tip hash + Merkle; I8 skin breach; I10 cost-observation (emit signals #7/#8/#9).
 
-I1 identity record + active prefix of owner_key_history; I3 consistency at tier-1 fields against SSoT; I4 DAG-tip hash + Merkle self-consistency; I8 skin breach check; **I10 cost-observation** — emit cost signals #7/#8/#9 per cycle.
+**§4.2 Per-deep-cycle (tier-2; default 1/100 metabolic-cycle rate)**: I5 reachability over SSoT-listed tiers; tier-2 sampled validation (L1_SCHEMA §4.3); recovery-drill scheduling; I9 compression-invariant set verification (hash vs baseline; mismatch → C41/C42); I12 telos-alignment in steady state (post-birth-period).
 
-### §4.2 Per-deep-cycle checks (tier-2)
+**§4.3 Witnesses-not-verdicts** (L0 §9.3.4): emit cryptographic-proof tuples — sampled leaf hashes (derived from anchor-nonce per §9.3.5), Merkle paths, parent hashes, check inputs — sufficient for owner/anchor verifier to re-derive. Substrate does NOT emit pass/fail summaries. Anchor-nonce-derived sampling indices = `H(anchor_surface_nonce, leaf_count)`; substrate cannot bias. Implementation 0%; M-anchor-4 closes.
 
-Deep cycle (default 1/100 of metabolic-cycle rate): I5 reachability over current SSoT-listed storage tiers; tier-2 sampled validation (L1_SCHEMA §4.3); recovery-drill scheduling; **I9 compression-invariant set verification** (recompute hash against expected baseline; mismatch → C41/C42 wrapper-integrity flag); **I12 telos-alignment computation** in steady state (post-birth-period per L0 P14.c).
-
-### §4.3 Witnesses-not-verdicts (per L0 §9.3.4)
-
-Check results emit cryptographic-proof tuples — sampled leaf hashes (derived from anchor-surface nonce per L0 §9.3.5), Merkle paths, parent hashes, check inputs — sufficient for owner / anchor-surface verifier to independently re-derive. The substrate does NOT emit pass/fail summaries.
-
-**Anchor-nonce-derived sampling** (per L0 §9.3.5): sampling indices are `H(anchor_surface_nonce, leaf_count)` — substrate cannot bias sampling toward honest portions. **Current implementation is 0%**; M-anchor-4 milestone closes (per L0 §9.2 status table).
-
-**DRAFT 9 SEALED extension**: "witnesses, not verdicts" now applies to **I9 (compression), I10 (cost), I12 (telos) outputs** as well. Compression events emit witness tuples sufficient for owner to re-derive what was kept vs discarded. Cost signals emit raw measurements + L1-budget thresholds, not pass/fail. Telos-alignment emits the embedding centroid + objective embedding + similarity score (anchor-surface client computes the verdict; substrate emits inputs).
+DRAFT 9 SEALED extension: applies to I9 (compression), I10 (cost), I12 (telos) outputs. Compression events emit kept-vs-discarded witnesses. Cost signals emit raw measurements + L1 thresholds. Telos emits embedding centroid + objective embedding + similarity score (anchor-client computes verdict).
 
 ---
 
 ## §5. Immune-grade sporocarp catalog (per L1_HARD_RULES §1)
 
-20 L1-catalog CRITICAL-grade breaches (C1-C20) + 16 substrate-private (C30-C45) detectors are immune-event types. Each:
-- Detected at a specific L1 mechanism site
-- Independently traces to ≥1 P + ≥1 I per L0 DRAFT 9 SEALED
-- Triggers immediate auto-quarantine + named immune sporocarp (for CRITICAL grades)
+20 L1-catalog CRITICAL (C1-C20) + 16 substrate-private (C30-C45) detectors. Each detected at L1 mechanism site; traces to ≥1 P + ≥1 I; CRITICAL → auto-quarantine + named immune sporocarp. Daily/elevated grades emit without quarantine (e.g., `budget_exhausted:{axis}`). Observatory tracks immune rates in composite #10.
 
-Less-than-CRITICAL breaches (daily / elevated grades) emit immune sporocarps without auto-quarantine. Examples per L0 P11.c: `budget_exhausted:{axis}` is daily-grade. The observatory tracks immune-event rates as part of composite health score (#10).
-
-**The full catalog is in L1_HARD_RULES §1** — a single index across the 6 mechanism docs. When L4 implements the immune detection layer, L1_HARD_RULES §1 IS the enumeration of "what to detect".
-
-**M26-cascade A6 catalog additions** referenced from L1_HARD_RULES DRAFT 2:
-- C36 `cycle_backlog` (M24-shipped; signal site = L1_CONTINUITY §1.2; cycle ≥5s OR backlog ≥10)
-- C37 `doctrine_instability_burst` (M25.1-shipped; >10 CI events / 100 cycles per §8; **wall-clock window correction pending per L0 §13.1**)
-- C38 `snapshot_integrity_violation` (M25.0-shipped; snapshot.cb signer_pubkey or signature invalid)
-- C39 `federation_hello_signature_invalid` (M25.4-shipped; peer HELLO Ed25519 fails)
-- C40 `bet_weakening_quorum` (M25.2-shipped; L0 §7.4 trigger; cycle→wall-clock correction pending)
-- C41-C45 (mycoparasite findings; M28-cascade deferred)
+Full catalog in L1_HARD_RULES §1. M26-cascade A6 additions:
+- C36 `cycle_backlog` (M24; L1_CONTINUITY §1.2; cycle ≥5s OR backlog ≥10)
+- C37 `doctrine_instability_burst` (M25.1; >10 CI/100 cycles per §8; wall-clock window correction pending)
+- C38 `snapshot_integrity_violation` (M25.0; snapshot.cb signer_pubkey or signature invalid)
+- C39 `federation_hello_signature_invalid` (M25.4; HELLO Ed25519 fails)
+- C40 `bet_weakening_quorum` (M25.2; cycle→wall-clock correction pending)
+- C41-C45 mycoparasite findings; M28-cascade deferred
 
 ---
 
-## §6. Drill failure-rate baseline (long-horizon health)
+## §6. Drill failure-rate baseline
 
-Drill cadences + sampled cold-tier verification + `recovery_drill_result` sporocarp emission are specified at **L1_SCHEMA §2.4** (canonical). This section adds observability-layer baselines:
+Canonical at **L1_SCHEMA §2.4** (cadences, sampled cold-tier verification, `recovery_drill_result` emission). Observability adds: rolling 30-drill window; emergent `drill_failure_rate`; ≥2σ departure → immune; secular up-trend → `drill_aging_grade` approaching-mortality.
 
-**Baseline tracking**: rolling 30-drill window; emergent `drill_failure_rate`. ≥2σ departure → immune event. Secular trend up → `drill_aging_grade` approaching-mortality signal.
-
-**Two-baseline approach**: **near-baseline** (rolling last-10-drill window — detects acute departures); **secular-baseline** (anchored to first-stable-window drills 6-15; never advances; trend metric = current / secular; departure ≥L1-tunable threshold default 3× → `drill_aging_grade`). The cold-tier slow drill cadence means the secular-baseline scales over decades.
-
-Drills emit witnesses-not-verdicts per §9.3.4. Drill cadence is wall-clock days per L0 §13.1. Drills must include backup-access discipline check per L1_SKIN §11.1.
+Two-baseline: **near-baseline** (last-10-drill rolling; acute departures); **secular-baseline** (anchored to first-stable drills 6-15; never advances; current/secular ratio ≥L1-tunable threshold default 3× → `drill_aging_grade`). Cold-tier slow cadence means secular scales over decades. Drills emit witnesses-not-verdicts; cadence is wall-clock days per L0 §13.1; must include backup-access discipline check per L1_SKIN §11.1.
 
 ---
 
-## §7. Cycle-level diagnostics (C36 detector site)
+## §7. Cycle-level diagnostics (C36 site)
 
-Cycle backlog detection rules (cycle ≥5s OR backlog ≥10 → `cycle_backlog` C36; persistent backlog → quarantine; cycle cadence bounds) are at **L1_CONTINUITY §1.2** (canonical). Observability adds: cycles consistently approaching max-interval → `compute_pressure` signal AND feeds signal #7 compute-cost. Backlog detection uses substrate-process monotonic clock per L0 §13.1; wall-clock-anchored thresholds use anchor-surface trusted timestamp.
-
----
-
-## §8. L0/L1 revision burst detection (C37 detector site — doctrine-instability)
-
-Per **L0 §9.4**: **>10 CI events / 100 cycles** rate of L0/L1 revisions over rolling window emits `doctrine_instability_burst` immune signal (C37; M25.1-shipped). CI events counted: attestation envelope acceptances; F1 classifier dimension table mutations; F3 owner-key rotation events; L0/L1 revision diff records (L0 §9.2.4); L1_HARD_RULES F-row mutations.
-
-Owner reviews whether revisions are doctrine-driven (continue) or implementation-driven (rollback). Rolling rate over 12 months above threshold marks substrate `doctrine_drift_grade`. This is observability-of-the-observer — preventing silently-cumulative doctrinal drift.
-
-**Wall-clock window post-fix required per L0 §13.1**: C37 currently uses substrate-cycle window (100-cycle rolling); DRAFT 9 SEALED demands wall-clock 24-hour rolling window. Same class of cycle-vs-wall-clock unit drift as C40 (§3.1).
+Canonical at **L1_CONTINUITY §1.2** (cycle ≥5s OR backlog ≥10 → C36; persistent → quarantine; cadence bounds). Observability: cycles approaching max-interval → `compute_pressure` + feeds signal #7. Backlog uses substrate-monotonic clock per L0 §13.1; wall-clock thresholds use anchor timestamp.
 
 ---
 
-## §9. Telos-drift signal class (per L0 P14.c + L1_TROPISM forcing function)
+## §8. L0/L1 revision burst (C37 — doctrine-instability)
 
-Per L0 §2.3 P14.c telos drift detection (G-6.a fuzzy with M26-cascade forcing function):
+Per L0 §9.4: >10 CI events / 100 cycles rolling → `doctrine_instability_burst` (C37; M25.1-shipped). CI events counted: attestation acceptances; F1 classifier mutations; F3 owner-key rotations; L0/L1 revision diff records (§9.2.4); L1_HARD_RULES F-row mutations. Rolling rate over 12 months above threshold → `doctrine_drift_grade`. Observability-of-the-observer; prevents silently-cumulative drift.
 
-The substrate observes its own telos-alignment **in steady state**. If P14 alignment degrades over a rolling window, the substrate emits `telos_drift` immune signal.
+**Wall-clock post-fix pending per L0 §13.1**: currently 100-cycle window; DRAFT 9 SEALED demands wall-clock 24-hour rolling.
 
-**L0 commits**:
-- Telos drift is an immune signal class (not a single signal — admits multiple operational metrics per L1_TROPISM choice).
-- Telos drift detection has a **birth-period exemption** (substrate emits `telos_alignment_pending` instead during birth period).
+---
 
-**L1_TROPISM responsibility (M26-cascade forcing function, per G-6.a decision; A1 primary spec)**:
-- Specify the operational metric for telos-alignment.
-- Specify the rolling window length + drift threshold + birth-period exemption duration.
-- **M26-cascade MUST land this specification**; absent that, P14.c remains aspirational and `telos_drift` cannot be mechanically emitted.
+## §9. Telos-drift signal class (per L0 P14.c)
 
-**L2_OBSERVABILITY responsibility** (this section): document the signal class (DONE here), receive the telos-alignment outcome signal for composite #10 correlation-weighted regime (per §2.3.2), document birth-period exemption (per §2.4).
+Substrate observes own telos-alignment in steady state; degradation → `telos_drift` immune signal class (multiple operational metrics per L1_TROPISM A1 choice). Birth-period exemption → `telos_alignment_pending`.
 
-**Cascade list note**: L1_TROPISM A1 must define the actual operational metric (candidate: cosine similarity between recent-sporocarp embedding-centroid and owner-stated-objective embedding OR agent-feedback-trajectory embedding when no objective declared). Without A1 landing, signal #10's correlation-weighted regime cannot operate; composite remains variance-weighted (birth-period fallback).
+**L1_TROPISM A1 forcing function (G-6.a)**: specify operational metric + window length + drift threshold + birth-period exemption duration. Without A1, P14.c remains aspirational; `telos_drift` cannot be mechanically emitted; composite #10 stays variance-weighted (birth-period fallback). Candidate metric: cosine similarity recent-sporocarp embedding-centroid vs. owner-objective embedding (or agent-feedback-trajectory when no objective).
+
+L2_OBSERVABILITY: receives outcome signal for composite #10 correlation regime (§2.3.2); documents birth-period exemption (§2.4).
 
 ---
 
 ## §10. Federation-network observability (cross-ref L2_FEDERATION §13)
 
-Cross-substrate observability:
-
-- Federation health (signals #4a/#4b) is intra-substrate; tracks own peers
-- Network-level patterns (50% peers untrusted simultaneously, hub substrate failing) are emergent at the population level; possibly L4 surfaces a network observatory layer
-
-For now, each substrate observes its OWN federation health; network-level patterns are inferable from collective substrate signals but not aggregated by any single substrate.
-
-**Per L0 §15 + G-7.c retract**: P15 population-level consensus moved to L2_FEDERATION. When federation reaches ≥3 peers, the consensus algorithm choice itself is observable as a P3 evolution event.
+Federation health (signals #4a/#4b) is intra-substrate; tracks own peers. Network-level patterns (50% peers untrusted simultaneously, hub failing) are population-level emergent; possibly L4 surfaces network observatory. Per L0 §15 + G-7.c: P15 population consensus moved to L2_FEDERATION; when federation reaches ≥3 peers, consensus algorithm choice itself is observable as P3 evolution event.
 
 ---
 
 ## §11. Operator-side observability
 
-The operator-agent observes the substrate via:
+Operator-agent observes substrate via: gradient digest in handshake + per-cycle digest emission (L1_TROPISM §B4); sporocarp visibility (recent K in digest); cold-resume witness emission at handshake (L1_CONTINUITY §3.1).
 
-- **Gradient digest** in handshake response + per-cycle digest emission (per L1_TROPISM §B4 digest budget)
-- **Sporocarp visibility**: recent K sporocarps in digest
-- **Cold-resume witness emission** at handshake (per L1_CONTINUITY §3.1)
-
-The operator does NOT have direct access to the observatory state; the substrate emits the digest and sporocarps the operator sees.
-
-This is intentional: the operator's view is curated by the substrate (digest is bounded). The operator's distrust of substrate self-report is structurally enforced via the L0 §9 anchor-surface / owner channel (operator queries anchor surface to verify substrate claims, per L2_TRUST_MODEL §3.1).
-
-**Per L0 §14 adversarial-Cultivator**: operator-side observability is the agent's primary defense against an adversarial Cultivator (since the agent doesn't get raw anchor-surface access). Substrate emits witnesses; operator can independently verify via anchor surface; mismatches surface as observability events.
+Operator has NO direct observatory access; substrate curates digest (bounded). Operator's distrust of substrate self-report is structurally enforced via L0 §9 anchor-surface channel (operator queries anchor to verify substrate claims, per L2_TRUST_MODEL §3.1). Per L0 §14: operator-side observability is agent's primary adversarial-Cultivator defense (agent has no raw anchor access); substrate emits witnesses; operator independently verifies via anchor; mismatches surface as observability events.
 
 ---
 
-## §12. Owner-side observability (anchor surface) — DRAFT 9 SEALED sub-mechanism mapping
+## §12. Owner-side observability (anchor surface)
 
-The Cultivator's (G-11.a) view is fundamentally different from the operator's:
+Cultivator's view (G-11.a) is fundamentally different from operator's:
 
-- **Substrate-ID birth attestation** (L0 §9.2.1; M-anchor-2 milestone)
-- **DAG-tip co-signing logs with enumerated nodes** at every CI co-sign (L0 §9.2.2; M-anchor-5 closure check)
-- **`recovery_drill_result` events** (per §6)
-- **`succession_required`, `quarantine_entered`, `mortality_drill_failure`, `anchor_surface_final_seal`, etc.** (L1_GOVERNANCE §4.4 + L0 §15 succession)
-- **Aggregate-reattestation diffs** (L1_GOVERNANCE §5.2)
-- **Compression-event witnesses** (per I9; L1_SCHEMA §2 P10 compression)
-- **Cost-signal observations** (signals #7/#8/#9 per cycle)
-- **Telos-alignment scores + objective embeddings** (per F20; L1_TROPISM A1)
-- **`bet_weakening_quorum` events** (C40) + `bet_retired_proposal` / `bet_retired_executed` (per §3.7 + L1_HARD_RULES §1.3)
+- Substrate-ID birth attestation (L0 §9.2.1; M-anchor-2)
+- DAG-tip co-signing logs with enumerated nodes at every CI (L0 §9.2.2; M-anchor-5)
+- `recovery_drill_result` events (§6)
+- `succession_required`, `quarantine_entered`, `mortality_drill_failure`, `anchor_surface_final_seal` (L1_GOVERNANCE §4.4 + L0 §15)
+- Aggregate-reattestation diffs (L1_GOVERNANCE §5.2)
+- Compression-event witnesses (I9; L1_SCHEMA §2 P10)
+- Cost-signal observations (#7/#8/#9 per cycle)
+- Telos-alignment scores + objective embeddings (F20; L1_TROPISM A1)
+- `bet_weakening_quorum` (C40) + `bet_retired_proposal` / `bet_retired_executed` (§3.7)
 
-Per-sub-mechanism implementation status and M-anchor-N closure milestones live in the **L0 §9.2 status table** (canonical). The anchor-surface client surfaces these for owner review. The owner's view is the **archaeological-quality** view: complete history, canonical bytes, witnesses re-derivable.
-
-The substrate cannot hide events from the anchor surface (the anchor surface is where its CI history lives, including the seal) — subject to L0 §14 adversarial-Cultivator caveats per L2_TRUST_MODEL §6.
+Per-sub-mechanism status + M-anchor-N closure milestones at **L0 §9.2 status table** (canonical). Anchor-client surfaces for review. Owner view is archaeological-quality: complete history, canonical bytes, re-derivable witnesses. Substrate cannot hide events from anchor (anchor is where CI history + seal live) — subject to L0 §14 caveats per L2_TRUST_MODEL §6.
 
 ---
 
 ## §13. The substrate's self-model
 
-The substrate's self-observation chain is recursive: the observatory IS substrate state; the immune system observes substrate state; substrate-state mutations are observed by I3; I3's observations are witnessed for the anchor surface. The recursion terminates at the anchor surface (which is outside substrate). 
+Substrate's self-observation chain is recursive: observatory IS substrate state; immune observes substrate state; state mutations observed by I3; I3's observations witnessed for anchor. Recursion terminates at anchor (outside substrate). §5 immune-catalog (per-cycle witnesses) + §6 drill-baseline (per-1000-day samples) aggregate into §2 composite #10; both terminate at anchor.
 
-Both §5 immune-catalog (per-cycle witnesses) and §6 drill-baseline (per-1000-day samples) aggregate into §2 Living-Bets composite signal #10 (DRAFT 9 SEALED renumber); both terminate observation at the anchor surface.
-
-Per DRAFT 9 SEALED §6 + §13.1, the recursion is wall-clock-anchored at the anchor surface; substrate-process monotonic clock provides only event ordering within substrate. This **dual-clock** discipline is what makes self-observation immune to substrate-process clock drift / pause-resume jumps.
+Per L0 §6 + §13.1: recursion wall-clock-anchored at anchor; substrate-process monotonic clock provides only event ordering within substrate. Dual-clock discipline makes self-observation immune to substrate clock drift / pause-resume jumps.
 
 ---
 
-## §14. Falsifiability summary (DRAFT 9 SEALED §13 corrected)
+## §14. Falsifiability summary
 
 v0.9's claim "I am a valuable symbiotic Cultivar within the agent-Cultivator pair" is falsifiable via:
 
-1. **Living Bets quorum trigger** (§3) — bet weakening becomes observable (C40 `bet_weakening_quorum`).
-2. **Bet retirement** (§3.7) — strategic graceful sunset at intelligence band's upper edge (`bet_retired_proposal` + co-attested execution).
-3. **Immune CRITICAL emission** (§5) — pathology detected and recorded (C1-C20 catalog + C30-C45 substrate-private).
-4. **Drill failure-rate departure** (§6) — substrate's recoverability degrading.
-5. **Doctrine-instability burst** (§8 / C37) — substrate's own shape thrashing.
-6. **Telos drift** (§9) — substrate's purpose-alignment degrading (when L1_TROPISM A1 lands operational metric).
-7. **Federation fragmentation** (§10) — mycelial network unhealthy (signals #4a/#4b divergence).
-8. **Mortality dual-channel signals** (per L1_GOVERNANCE §4.4) — substrate or anchor-surface declares the substrate should die.
+1. Living Bets quorum trigger (§3) — `bet_weakening_quorum` (C40).
+2. Bet retirement (§3.7) — `bet_retired_proposal` + co-attested execution.
+3. Immune CRITICAL emission (§5) — C1-C20 + C30-C45 substrate-private.
+4. Drill failure-rate departure (§6) — recoverability degrading.
+5. Doctrine-instability burst (§8 / C37).
+6. Telos drift (§9) — when L1_TROPISM A1 lands metric.
+7. Federation fragmentation (§10) — signals #4a/#4b divergence.
+8. Mortality dual-channel signals (L1_GOVERNANCE §4.4).
 
-The substrate cannot silently die or silently lie. Either it operates within healthy observable bounds, or its self-observation surfaces the deviation.
-
-**This is the structural answer to "how do we know v0.9 is working?"** The substrate tells us, via mechanisms it cannot suppress — *subject to L2_TRUST_MODEL §6 P1.a self-hosting asymmetry* (an adversarial agent maintaining substrate code can attempt to suppress observatory emissions; the anchor surface out-of-band root raises the bar from "edit a file" to "compromise a separate system the owner controls", but cannot make P1.a guaranteed-honest) AND *subject to L0 §14 adversarial-Cultivator caveat* (the irreducible commitments per §14.2 — continue causality, emit observability truthfully, honor mortality, preserve compression-invariant — survive adversarial Cultivator pressure because they are mechanically enforced, not Cultivator-permission-gated).
+Substrate cannot silently die or silently lie — subject to L2_TRUST_MODEL §6 P1.a self-hosting asymmetry caveat AND L0 §14 adversarial-Cultivator caveat (§14.2 irreducible commitments — continue causality, emit observability truthfully, honor mortality, preserve compression-invariant — survive adversarial pressure because mechanically enforced).
 
 ---
 
-## §15. Open at L2
-
-- **Network-level observability layer**: when many federated substrates exhibit correlated pathology, is there value in a substrate-of-substrates observatory? Likely L4 / out-of-Myco-scope.
-- **Owner-side dashboard format**: the anchor-surface client surfaces events for owner review; the specific UI / dashboard is L4-platform-specific.
-- **Observatory weight emergence cold-start**: weights emerge from history; during birth period there is no history. DRAFT 9 SEALED §2.3.1 codifies variance-weighted fallback in birth period + L1-tunable transition to correlation-weighted (§2.3.3). L4 codifies the precise transition rule.
-- **Telos-alignment outcome-signal validation**: does substrate self-report of telos-alignment correlate with agent-reported utility? L1_TROPISM A1 must specify the metric; observability must validate the correlation in steady state.
-- **Composite weighting transition** (per cascade list new open): the variance → correlation regime transition is L1-tunable; what's the empirical signature that triggers it (sample size N=100; outcome signal availability; birth-period termination event)? L4 picks; observability must record the transition as a P3 evolution event.
-- **Bet-retirement counter precision**: per L0 §7.5.d failed-re-justification counter persists across substrate restart but resets through quarantine clearance. Is this the right discipline? Observability records each reset event; L0 may evolve the rule based on data.
-- **Signal #4a M28-deferred gap**: implementation depends on cumulative fork-count emission from `kernel/governance` reproduction lineage tracking. Until M28-cascade, quorum operates over 5-signal subset with documented false-negative bias.
-- **C37 wall-clock window post-fix**: same M26.x correction needed as C40; current 100-cycle window must convert to wall-clock 24-hour rolling per L0 §13.1.
-
----
-
-## §16. Glossary
+## §15. Glossary
 
 | Term | Definition |
 |---|---|
-| **Intelligence band** (per L0 §7.2 DRAFT 9 SEALED) | The agent-capability range over which Myco's bet is cost-justified: ~200K to ~10M context. Below: naive RAG suffices. Above: Sutton's bitter lesson dominates. Living Bets observatory measures fitness within the band. |
-| **Cost-justified value** (per L0 §7.1) | The bet is true iff (a) substrate value exists AND (b) substrate engineering cost < value delta over no-substrate operation. |
-| **Bet retirement** (per L0 §7.5) | Strategic graceful sunset when 2-year wall-clock + 3-failed-re-justification + signal #6 <0.1 thresholds met. Distinct from Destruction; substrate transitions to `alive::archived` sub-state with state_dir preserved + anchor seal. |
-| **Variance-weighted composite** (per §2.3.1 / L0 §7.3 DRAFT 9 SEALED) | Birth-period composite signal #10 weighting; picks signals with highest variance over rolling window. L1-tunable. Replaces correlation-weighting when outcome signal unavailable. |
-| **Correlation-weighted composite** (per §2.3.2 / L0 §7.3 DRAFT 9 SEALED) | Steady-state composite signal #10 weighting; picks signals correlating with telos-alignment outcome signal. Requires P14 telos-alignment from L1_TROPISM A1. |
-| **Outcome signal** (per §2.3.2) | The signal correlation-weighting computes against: telos-alignment per L0 P14 (owner-stated objective primary; agent-reported utility fallback). |
-| **Wall-clock window** (per L0 §13.1) | Anchor-surface trusted wall-clock interval (e.g., 90 days for falsifiability quorum, 2 years for bet retirement). Authoritative for time-bound security defenses + observability windows. Distinct from substrate-cycle window (currently used by M25.2 C40 + M25.1 C37; post-fix required). |
-| **OLS-slope-Z-significance trend** (per L0 §7.4.b) | Mathematical definition of "trend": sign of OLS-regression slope over wall-clock-90-day samples, gated by `|slope/SE| ≥ Z` where Z=1.96 seed (95% confidence). Below significance gate = flat (does not count toward quorum). |
-| **Meta-detector** (per L0 §7.4.c) | Signal #5 "time trend per signal" is the meta-direction-detector powering the per-signal direction table; it is NOT itself counted in the quorum. |
-| **Birth-period exemption** (per §2.4 / L0 §7.4.e / §P14.c) | Bet_weakening_quorum (C40) + telos_drift suspended during birth period. Substrate emits `bet_weakening_evaluation_suspended` + `telos_alignment_pending` observability events. Reason: at t=0, signals are mathematically vacuous. |
-| **Doctrine-instability burst** (per §8 / L0 §9.4 / C37) | >10 CI events / rolling window. Owner reviews whether revisions are doctrine-driven or implementation-driven. Rolling rate over 12 months above threshold marks substrate `doctrine_drift_grade`. **Wall-clock window correction pending per L0 §13.1**. |
-| **Telos drift** (per L0 P14.c) | Substrate's alignment with telos degrading over rolling window; detected by L1_TROPISM A1 metric (M26-cascade forcing function). Class of immune signals (operational metric is L1_TROPISM choice). |
-| **Cumulative fork count (signal #4a)** | Monotonic count of federation forks (new federation peers spawned via P8 reproduction) over substrate lifetime. **Currently unimplemented**; deferred to M28-cascade per L0 §7.4.d. Quorum arithmetic operates on 5-signal subset until M28 lands. |
-| **Cultivation / Cultivator / Cultivar** | See **L0 §12** for canonical definitions. |
-| **Witnesses-not-verdicts** (per L0 §9.3.4 / §9.4 + DRAFT 9 SEALED extension to I9/I10/I12) | Substrate emits cryptographic-proof tuples (sampled leaf hashes + Merkle paths + parent hashes + check inputs) sufficient for anchor-surface verifier to independently re-derive results. Substrate does NOT emit pass/fail. **Extended to compression (I9), cost (I10), and telos (I12) outputs in DRAFT 9 SEALED.** |
-| **Anchor-nonce-derived sampling** (per L0 §9.3.5) | Sampling indices for witness emission are `H(anchor_surface_nonce, leaf_count)` — substrate cannot pre-compute and cannot bias. Implementation 0%; M-anchor-4 milestone. |
-| **`bet_weakening_evaluation_suspended`** (per §3.6 / §2.4) | Birth-period observability event emitted in lieu of C40 evaluation. Records that the substrate considered but suspended bet_weakening_quorum computation pending birth-period termination. |
-| **`telos_alignment_pending`** (per §2.4 / L0 P14.c) | Birth-period observability event emitted in lieu of `telos_drift` evaluation. Records that the substrate considered but suspended telos-alignment computation pending birth-period termination + L1_TROPISM A1 metric landing. |
+| Intelligence band | Agent-capability range where Myco's bet is cost-justified (~200K to ~10M context). Below: RAG suffices. Above: bitter lesson dominates. |
+| Cost-justified value | (a) substrate value exists AND (b) engineering cost < value delta over no-substrate. |
+| Bet retirement | Graceful sunset when 2-year wall-clock + 3-failed-re-justification + signal #6 <0.1 met. Distinct from Destruction; → `alive::archived`. |
+| Variance/Correlation-weighted composite | §2.3.1 (birth-period; high-variance signals) / §2.3.2 (steady; signals correlating with telos outcome). |
+| Outcome signal | Telos-alignment per P14 (owner-objective primary; agent-utility fallback). |
+| Wall-clock window | Anchor-trusted interval (90d quorum, 2y retirement). Authoritative for time-bound defenses. Distinct from substrate-cycle window (M25.2 C40 + M25.1 C37; post-fix pending). |
+| OLS-slope-Z-significance trend | Sign of OLS slope over wall-clock-90-day samples, `|slope/SE| ≥ Z=1.96`. Below = flat. |
+| Meta-detector | Signal #5 powers direction table; NOT counted in quorum. |
+| Birth-period exemption | C40 + telos_drift suspended; emit `bet_weakening_evaluation_suspended` + `telos_alignment_pending`. Reason: t=0 signals mathematically vacuous. |
+| Doctrine-instability burst | >10 CI events / rolling window; →`doctrine_drift_grade` if sustained. Wall-clock correction pending. |
+| Telos drift | P14.c alignment degradation; L1_TROPISM A1 metric (M26-cascade forcing function). |
+| Cumulative fork count (#4a) | Monotonic federation-fork count. Unimplemented; M28-cascade deferred. |
+| Cultivation / Cultivator / Cultivar | See L0 §12. |
+| Witnesses-not-verdicts | Crypto-proof tuples (leaf hashes + Merkle paths + parent hashes + check inputs); anchor-verifier re-derives. DRAFT 9 SEALED extends to I9/I10/I12. |
+| Anchor-nonce-derived sampling | Indices = `H(anchor_surface_nonce, leaf_count)`; substrate cannot bias. Implementation 0%; M-anchor-4. |
