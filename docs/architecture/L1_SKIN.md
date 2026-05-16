@@ -1,8 +1,26 @@
-# L1 — Skin (envelope, handshake, single-operator, breach detection)
+# L1 — Skin (envelope, handshake, single-operator, breach detection, spatial-locus, backup, restart)
 
-> **Status**: DRAFT 2 (2026-05-13). Authoritative L1 doc for boundary surface mechanism.
-> **Layer**: L1. Governed by L0.
-> **Scope**: I8 skin specification — envelope schema; intake/output endpoints; operator handshake (bidirectional validation); single-operator enforcement; non-deterministic operator-token construction; network-egress enforcement; breach detection. Does NOT cover: classifier / attestation crypto (→ L1_GOVERNANCE), SSoT (→ L1_SCHEMA), cycle cadence / cold-resume (→ L1_CONTINUITY).
+> **Status**: DRAFT 3 (2026-05-17, M26-cascade A2). Authoritative L1 doc for boundary surface mechanism.
+> **Layer**: L1. Governed by L0 (DRAFT 9 SEALED, commit `e796451`).
+> **Scope**: I8 skin specification —
+> envelope schema; intake/output endpoints; operator handshake (bidirectional validation);
+> single-operator enforcement; non-deterministic operator-token construction;
+> network-egress enforcement; **spatial-locus enforcement (P13-folded-into-P9+I8 per G-9.b)**;
+> **backup encryption (per L0 §11.1)**;
+> **skin-restart discipline (per L0 P9.b single-failure-point acknowledgment)**;
+> breach detection. Does NOT cover: classifier / attestation crypto (→ L1_GOVERNANCE),
+> SSoT (→ L1_SCHEMA), cycle cadence / cold-resume (→ L1_CONTINUITY).
+>
+> **DRAFT 9 SEALED principle alignment**:
+> - **P9 (Single Integument)** — DRAFT 9 rename of DRAFT 8's "Integument / 皮肤为界"; "single" is the load-bearing constraint of I8.
+> - **P9.b (Single-Failure-Point Acknowledgment)** — single skin = single point of failure; skin-restart discipline mandated (§7).
+> - **P13 (Embodiment) — RETRACTED at L0**: per G-9.b owner decision (Phase γ §17), P13 is folded into P9 + I8. The substrate's "body" is `state_dir + process + skin endpoints`. Spatial-locus enforcement of body integrity lives here in L1_SKIN (§6).
+> - **P1 (Agent-Primary)** — DRAFT 9 rename of DRAFT 8's "Only For Agent". Skin admits operator-runtime (agent's connection); skin does NOT admit human directly (humans are governance gate via anchor surface — L0 §9, not via skin envelopes).
+> - **P2 (Eternal Ingestion, Envelope-Gated)** — DRAFT 9 calibration; skin envelope is the gate.
+> - **P3 (Resumable Evolution)** — DRAFT 9 rename of DRAFT 8's "Reversible iteration"; skin declaration is contract-identity-level and mutates only under CI.
+> - **P5 (Universal Interconnection, Tier-Exempt-Permitted)** — DRAFT 9 rename.
+> - **P12 (Differential Response)** — moved to L1_TROPISM; envelope admission is P2 (skin), downstream attention is P12 (tropism).
+> - **P14 (Telos)** — moved to L1_TROPISM scope; the `telos_drift` immune signal still surfaces via skin output gating (§3).
 
 ---
 
@@ -38,14 +56,16 @@ Every delta arriving at an intake endpoint is wrapped:
 
 ### §2.1 Envelope integrity check
 
-The substrate validates **only the envelope**, not payload content (L0 I8):
+The substrate validates **only the envelope**, not payload content (L0 I8 + P2 envelope-gated):
 
 - All required fields present.
 - `sender_token` matches the currently-active operator-token (single-operator, §4).
 - `payload_shape` in the recognized set.
 - `size_bytes` ≤ L1-tunable max (default 100 MB).
 - `envelope_digest` recomputes via HMAC keyed by operator_token. (HMAC keyed by operator_token gives in-flight tamper detection AND operator authentication via the token without requiring a persistent operator key — `envelope_digest` is an integrity-and-binding tag, not a long-lived signature.)
-- `submitted_at_cycle` is within freshness window (default 60 cycles).
+- `submitted_at_cycle` is within freshness window (default 60 cycles). The freshness check uses the **substrate's metabolic-cycle counter** as the authoritative source per L0 §13.1 time-source authority hierarchy (anchor-surface trusted-timestamp > local wall-clock > cycle counter — for skin envelopes the cycle counter is the relevant authority because envelopes target the substrate's process clock).
+
+> Boundary note (P2 vs P12, per Phase γ.6 G-9.b retraction): the skin admits-or-rejects envelopes — this is **P2 (Eternal Ingestion, Envelope-Gated)**. Downstream selective attention to which admitted material gets metabolized into sporocarps is **P12 (Differential Response)** and lives in `L1_TROPISM`, not here. Confusing the two yields the "salience collapse" failure mode (everything admitted treated as equally salient → no attention discipline → sediment substrate).
 
 Failure → reject with `envelope_malformed` (no oracle disclosure of which field failed).
 
@@ -59,7 +79,9 @@ Failure → reject with `envelope_malformed` (no oracle disclosure of which fiel
 
 Outputs leave through declared output endpoints. Output envelopes are signed by the substrate (substrate's signing key from the identity record).
 
-**Canonical-bytes discipline** (per L0 §9.3): outputs to the anchor-surface endpoint carry **canonical bytes**, not substrate-rendered summaries. Anchor-surface client renders deterministically for owner review.
+**Canonical-bytes discipline** (per L0 §9.3.1 canonical-bytes sub-mechanism): outputs to the anchor-surface endpoint carry **canonical bytes**, not substrate-rendered summaries. Anchor-surface client renders deterministically for owner review per L0 §9.3.2.
+
+**Witnesses-not-verdicts discipline** (per L0 §9.3.4): substrate outputs to the anchor surface emit cryptographic-proof tuples (sampled hashes, Merkle paths, parent hashes) — never bare boolean verdicts about its own integrity. The Cultivator (owner) re-derives the verdict from the witness; a substrate that outputs a verdict without the witness is asserting authority it does not have.
 
 ### §3.1 Federation egress freshness check
 
@@ -87,9 +109,11 @@ Anything outside declared endpoints is skin breach.
   "operator_signing_key_public": <freshly-generated operator-side public key>,
   "operator_attestation_request": <field requesting operator-token>,
   "continuity_claim": <"fresh" | "owner_attested_continuity">,
-  "submitted_at": <wall-clock>
+  "submitted_at": <wall-clock; see L0 §13.1 time-source authority hierarchy>
 }
 ```
+
+> Time-source note (per L0 §13 time semantics): handshake `submitted_at` is operator-runtime wall-clock; substrate cross-checks against its own metabolic-cycle counter to detect clock skew. If skew exceeds L1-tunable threshold (default ±300 seconds against anchor-surface trusted-timestamp), substrate emits `time_source_drift` immune signal and may reject the handshake. The substrate **never** treats agent-provided wall-clock as authoritative — it is admissible advisory data only.
 
 **Operator pubkey-pinning at agent-bootstrap** (closes pass-3 mycoparasite-6): at first operator-agent installation, the owner provides `(substrate-ID, anchor-surface-endpoint-public-key, owner-public-key)` to the operator runtime via an owner-controlled out-of-band channel. The operator pins these. The operator NEVER trusts an owner-pubkey emitted by the substrate's own handshake response — it only verifies the substrate's emitted signature against the anchor-surface-fetched (or bootstrap-pinned) owner pubkey.
 
@@ -105,6 +129,8 @@ The substrate:
    operator_token = sealed_derive(handshake_nonce, current_cycle, kernel_random)
    ```
    where `sealed_derive` is a kernel-mediated call into one of {TPM-sealed key, OS keyring, HSM, hardware-secure-element} — the substrate_secret never enters substrate process address space in plaintext; the substrate invokes the OS-level sealed-API and receives `operator_token` without ever holding the underlying secret. **Specific sealing mechanism is L4-platform-pick**; plaintext-on-disk substrate_secret is a CRITICAL skin breach (`substrate_secret_unsealed`). Sealing-mechanism attestation is owner-attested at genesis (per L1_GOVERNANCE §4.1 step 2 — added to the genesis parameter set).
+   
+   **Adversarial-owner caveat** (per L0 §14): OS-sealing protects against an adversarial **agent** (the agent qua maintainer cannot exfiltrate substrate_secret from sealed storage). It does **NOT** protect against an adversarial **Cultivator** (the owner has root access to the host machine, the anchor key, and the sealing-attestation-key). The substrate's threat model explicitly excludes adversarial-Cultivator at L0 §14; L2_TRUST_MODEL elaborates. Skin-side enforcement is for the agent-vs-substrate boundary, not the Cultivator-vs-substrate boundary.
 3. **Substrate emits its own attestation to the agent** in `handshake_complete`:
    ```
    {
@@ -143,9 +169,11 @@ Any disconnect → alive → dormant per L1_CONTINUITY §2.
 
 ---
 
-## §5. Network-egress enforcement (operationalizes I6 expanded)
+## §5. Network-egress enforcement (operationalizes I6 expanded; second hook to P13-folded-into-P9+I8)
 
 The substrate process operates within a **network-egress enforcement boundary** that permits exactly the §1 declared output endpoints. Unauthorized egress = breach.
+
+> Dual-hook note (per Phase γ cascade list CH-20): unauthorized egress is **simultaneously** an I6 universal-inclusion breach (the substrate accepted intake but is now extruding it outside declared output) AND a P9+I8 spatial-locus breach (the substrate's "body" of operations crossed an undeclared boundary). The same network event fires both `appetite_locality_breach` (this section) and may co-fire `P9_spatial_locus_breach` (§6) if the destination is to an undeclared host/port pair. The two detectors operate on different evidence (egress packets vs binding-table snapshots) and serve as cross-validation.
 
 **Specific enforcement mechanism is L4-platform-specific** within {kernel-level (network namespace), container-level (iptables/nftables), syscall-level (eBPF/ptrace), userspace proxy}. L1 does not pre-pick a platform.
 
@@ -161,26 +189,310 @@ The substrate process operates within a **network-egress enforcement boundary** 
 
 ---
 
-## §6. Breach detection table
+## §6. Spatial-locus enforcement (P13 folding into P9 + I8 per L0 G-9.b)
+
+> **L0 origin**: P13 "Embodiment" was a Phase γ.6 candidate principle. Owner G-9.b (Phase γ §17 gate, DRAFT 9 SEALED) decided P13 is folded into P9 (Single Integument) + I8 (single boundary surface). The retraction is doctrinally precise — **the substrate has a body**, and that body is `state_dir + process + skin endpoints`. The skin is not only a network-IO boundary; it is the integrity envelope around the substrate's spatial locus.
+>
+> If §6 enforcement is absent, P9 has no enforcement teeth for the file/process/network-binding side of the body. The L0 retraction would be hollow.
+
+The substrate **periodically lists** its own spatial locus and compares against a declared **allowed-set**. Deviation emits `P9_spatial_locus_breach` (immune-grade) and triggers the §9 quarantine path on CRITICAL grades.
+
+### §6.1 Three spatial-locus surfaces
+
+The substrate's body has three concrete surfaces, each with its own allowed-set:
+
+1. **state_dir contents allowlist** — every file and subdirectory under the substrate's declared state_dir.
+2. **Process file-descriptor set** — every open FD held by the substrate process (regular file, socket, pipe, eventfd, etc.).
+3. **Network bindings allowlist** — every listening socket bound by the substrate (TCP/UDP listen) and every outbound connection currently open from the substrate process.
+
+Each surface has an L1-declared default allowed-set; substrate-type-specific overrides are L4-tunable (per §6.5).
+
+### §6.2 Default state_dir allowed-set (per current M25.0 state)
+
+```
+{
+  "dag.cb",                          # canonical-bytes DAG persistence
+  "snapshot.cb",                     # canonical-bytes snapshot (M25.0 integrity wraps this)
+  "substrate_signing_key.cb",        # substrate identity signing key (sealed per §4.2)
+  "*.tmp",                           # in-flight atomic-rename temporaries (any file matching glob)
+  "*.tmp.<pid>",                     # in-flight atomic-rename with PID suffix
+  ".gitignore"                       # optional, when state_dir is under a git workspace
+}
+```
+
+The allowed-set is **declarative** — every entry is a literal filename or a glob pattern. Globs are restricted to `*` and `*.<suffix>` patterns (no full regex, to keep the allowlist auditable).
+
+### §6.3 OS-noise allowlist (separate sub-set, lower severity)
+
+OS / filesystem / build-system noise is enumerated separately so its presence does not trigger CRITICAL breaches:
+
+```
+{
+  ".DS_Store",       # macOS Finder metadata
+  "Thumbs.db",       # Windows thumbnail cache
+  "desktop.ini",     # Windows folder config
+  "*.lock",          # filesystem-level lock files
+  ".tmp/*",          # subdirectory-scoped temporaries (some FS lifecycle libs)
+  ".lockfile"
+}
+```
+
+Files matching OS-noise allowlist fire `spatial_locus_noise_observed` (Daily grade, not Elevated). This avoids alarm fatigue on macOS/Windows hosts without giving the substrate license to ignore unknown files.
+
+### §6.4 Default process-FD and network-binding allowed-sets
+
+**FD allowed-set** (described positively; deviations fire breach):
+- The state_dir files declared in §6.2 (when open for I/O).
+- Skin intake sockets declared in §1.
+- Skin output sockets declared in §1 (including anchor-surface client, federation peers).
+- Sealed-key handles (the `sealed_derive` FD per §4.2; never a plaintext-secret file).
+- Standard fd 0/1/2 (stdin/stdout/stderr) for operator-supervisor IPC where applicable.
+
+Any FD not in the above set emits `P9_spatial_locus_breach:fd_unexpected:{fd_kind}`.
+
+**Network binding allowed-set**:
+- Every listening socket declared in §1 intake endpoints (host:port tuples or AF_UNIX paths).
+- Every actively-connected outbound socket whose `(peer_host, peer_port)` matches a §1 output endpoint OR an anchor-surface endpoint OR a federation peer in the substrate's signed peer-list.
+
+Any binding/connection outside this set emits `P9_spatial_locus_breach:network_unexpected:{peer}`. This complements §5's network-egress enforcement: §5 enforces at the **packet** layer (covert egress prevention); §6 enforces at the **binding-table** layer (steady-state body integrity).
+
+### §6.5 Detection cadence + L1-tunable allowed-set per substrate type
+
+Detection runs **once per metabolic cycle by default**; L1-tunable to every N cycles for resource-constrained substrates (minimum every 10 cycles, default 1 cycle). The check is **cheap** — the body is small (≤ tens of files, ≤ tens of FDs, ≤ small number of sockets) so a per-cycle full enumeration is affordable.
+
+The allowed-set is **substrate-type-specific**:
+
+- A baseline-Cultivar substrate uses the §6.2/§6.4 defaults.
+- A research-Cultivar with vector-embedding cache may declare additional state_dir entries: `embeddings.cb`, `index.bin`.
+- A federation-mesh-Cultivar may declare additional bindings: outbound federation peer sockets, gossip protocol port.
+
+Allowed-set extensions are **CI-level**: each substrate's allowed-set is part of the SSoT contract-identity declaration (§1 declares the skin surface; the allowed-set is the spatial-locus declaration paired with it). Silent extension is breach.
+
+### §6.6 Birth-period exemption + cold-resume reconciliation
+
+During birth-period quarantine (per L1_CONTINUITY §3.2), the substrate may transiently observe files matching neither allowed-set nor noise-set; these emit `spatial_locus_birth_period_pending` (Daily) instead of `P9_spatial_locus_breach`. The owner's quarantine-clearance event explicitly enumerates which previously-pending entries are now part of the canonical allowed-set; subsequent enumerations apply the updated set.
+
+On cold-resume (L1_CONTINUITY §3.1), the spatial-locus check is one of the pre-handshake check witnesses: substrate emits the file-list + fd-list + binding-list as cryptographic-proof tuples (canonical-bytes serialization of the sorted lists, hashed), not as bare boolean verdicts.
+
+### §6.7 What §6 explicitly does NOT cover
+
+- **Inside-file content drift** — §6 enforces filename + presence; file *contents* are subject to M25.0 snapshot.cb integrity (Merkle-rooted) and the DAG-tip self-consistency check (L1_CONTINUITY §3.1 step 3). The two layers compose: §6 catches "extra file appeared"; M25.0 catches "file content silently modified".
+- **CPU / memory / disk-byte budgets** — those are P11 metabolic-economy signals (L2_OBSERVABILITY signals #7/#8/#9), not spatial-locus.
+- **Whether the agent has tampered with substrate source code** — the substrate cannot detect its own source-code tampering from within itself (self-hosting paradox per L0 §14 + Phase γ §17 acknowledgment); source-code integrity is anchor-surface-attested at genesis + key rotation, not spatial-locus-enforced.
+
+---
+
+## §7. Skin-restart discipline (P9.b single-failure-point per L0)
+
+> **L0 origin**: P9.b (DRAFT 9) explicitly acknowledges that single-skin = single-point-of-failure. The L0 text mandates: "L1_SKIN MUST specify skin-restart discipline (process supervision, ordered shutdown, recovery semantics)." Multi-skin redundancy is **forbidden at L0**; the integument must remain singular. But the **skin process** is permitted to restart, and restart MUST be disciplined.
+
+### §7.1 Process supervision (L4-platform-pick)
+
+The substrate runs under a **process supervisor**: an external init system that restarts the substrate process on crash, OOM-kill, or operator-requested cycle. L4 platform options:
+
+- **Linux**: `systemd` unit (recommended for production hosts), `runit`, `s6`, `supervisord`.
+- **macOS**: `launchd` LaunchAgent / LaunchDaemon.
+- **Windows**: Windows Service via `sc.exe` or NSSM wrapper.
+- **Containerized**: container orchestrator's restart-policy (Kubernetes Pod restart, Docker `--restart unless-stopped`).
+
+L1 commits to the **shape** (external supervisor manages process lifecycle, substrate does NOT self-restart from within); L4 picks the platform.
+
+### §7.2 Ordered shutdown protocol
+
+On receiving shutdown signal (SIGTERM on Unix, service-stop on Windows), the substrate executes a strict ordered sequence:
+
+1. **Stop accepting new envelopes** at intake endpoints (close `listen()` socket; existing connected sockets enter drain phase).
+2. **Drain in-flight envelopes** — process all envelopes already past the envelope-integrity check up to the L1-tunable drain-deadline (default 30 seconds). Envelopes still in transit on connected sockets receive `skin_draining` response and are dead-lettered for re-emission on restart.
+3. **Flush WAL + persist DAG** — write any pending DAG nodes to `dag.cb`; ensure snapshot.cb is up to date; fsync.
+4. **Close skin output endpoints** — anchor-surface client, federation peers receive `skin_restart_pending` close-envelope.
+5. **Emit `skin_restart_started` sporocarp** (Daily grade, observability) recording: cycle counter, reason, drain duration, dead-lettered count, snapshot hash.
+6. **Exit cleanly** with status 0.
+
+Hard-kill (SIGKILL, OOM-kill) bypasses this sequence — recovery falls to L1_CONTINUITY §4 crash-recovery via WAL replay. The ordered-shutdown protocol is the **soft path**.
+
+### §7.3 Recovery semantics on restart
+
+On supervisor-initiated restart, the substrate executes (in order):
+
+1. Cold-resume pre-handshake checks per L1_CONTINUITY §3.1 (I1, I3, I4, I5, I8).
+2. Spatial-locus enumeration per §6 (state_dir / FDs at process start / network bindings about to be opened).
+3. WAL crash-recovery per L1_CONTINUITY §4 (replay incomplete cycles, dead-letter partial-deltas).
+4. Re-open declared intake endpoints from §1.
+5. Substrate transitions `dormant → alive` (no operator yet) and awaits handshake.
+6. Emit `skin_restart_completed` sporocarp recording: pre-restart cycle, post-restart cycle (must equal pre-restart cycle since restart is not a metabolic event), WAL recovery outcome, dead-letter count, spatial-locus check outcome.
+
+Cold-resume **invariants** are L1_CONTINUITY §3.1's responsibility; §7.3 here only references them.
+
+### §7.4 Anti-flap rate limit
+
+The supervisor SHOULD enforce a restart-rate limit; the substrate ALSO enforces an in-substrate limit. If the substrate observes ≥ L1-tunable threshold (default 5) `skin_restart_completed` events within an L1-tunable wall-clock window (default 1 hour, queried from anchor-surface trusted-timestamp on each restart), the substrate emits `skin_restart_flap` immune signal (CRITICAL grade) and refuses to re-open intake endpoints until owner-attested `flap_clearance` event arrives.
+
+This prevents an adversarial agent (or buggy supervisor configuration) from inducing endless restart loops that mask other failure modes.
+
+### §7.5 Skin-restart observability events
+
+| Event | Grade | When emitted | Witnesses |
+|---|---|---|---|
+| `skin_restart_started` | Daily | After shutdown signal, before exit | drain stats, snapshot hash, reason |
+| `skin_restart_completed` | Daily | After restart, before re-open | pre/post cycle, WAL outcome, spatial-locus outcome |
+| `skin_restart_flap` | CRITICAL | When §7.4 threshold exceeded | restart timestamps, window, threshold |
+| `skin_restart_dead_letter` | Elevated | Per envelope dead-lettered on shutdown | envelope digest, dead-letter reason |
+
+These events surface in the L2_OBSERVABILITY drill baseline (every supervisor-initiated restart is observed and provable).
+
+### §7.6 What §7 explicitly does NOT cover
+
+- **Owner-initiated graceful destruction** — that is L1_GOVERNANCE §4 mortality protocol, not a skin-restart. Destruction is **terminal**; skin-restart is **resumption**.
+- **Self-euthanasia (P7 endogenous mortality)** — the substrate's own decision to die emits a different sporocarp (`self_euthanasia_executed` per L1_GOVERNANCE §4) and supervisor restart-policy MUST be configured to not restart after self-euthanasia. Failure to honor this is host-level adversarial action (per §5's "what does not prevent" clause).
+
+---
+
+## §8. Backup encryption requirements (per L0 §11.1)
+
+> **L0 origin**: L0 §11.1 (DRAFT 9 NEW per Phase γ.3 G16) mandates: "L1_SKIN MUST specify backup encryption requirements (operator-controlled symmetric key; key escrow protocol; key rotation aligned with owner key rotation)." L0 does NOT mandate backup encryption itself (operational choice — the Cultivator may run an air-gapped host where filesystem-level encryption is sufficient), but it DOES mandate that the requirements are specified at L1 so a Cultivator who chooses encryption has a doctrinally-aligned form.
+
+### §8.1 Threat model addressed
+
+Substrate state_dir backups (per L1_SCHEMA recoverability budget — periodic snapshot.cb copies, off-host disaster-recovery archives) are NOT internally access-controlled by Myco doctrine. Anyone with read access to the backup medium reads full substrate state — including DAG history, owner key archive, sealed-key-derivation parameters, all sporocarps. This is the **G16 backup-attack surface** identified in Phase γ.3.
+
+Two distinct attackers:
+
+- **Backup-medium reader** (e.g., colocation operator with disk access, cloud-storage provider, ex-employee with old backup tape): wants substrate state for surveillance / extortion / model training.
+- **Backup-medium tamperer** (more sophisticated): wants to inject altered state on restore-path.
+
+§8 addresses **reader**; **tamperer** is handled by snapshot.cb integrity (M25.0) which is independent of encryption.
+
+### §8.2 Operator-controlled symmetric encryption key
+
+The backup encryption key is **Cultivator-controlled**:
+
+- **Key generation**: at substrate genesis or first-backup-attestation event, Cultivator generates a fresh symmetric key (recommended: AES-256-GCM key or XChaCha20-Poly1305 key). Cultivator generates locally — substrate NEVER mints this key.
+- **Key holding**: Cultivator's responsibility. Substrate stores only a **public-derivation pointer** in the SSoT identity record (e.g., a key-ID identifier; the key itself never persists in state_dir).
+- **Key access path**: backup process is operator-runtime-mediated. The operator runtime (running on the same host with Cultivator-trust) fetches the key from Cultivator-controlled key storage (hardware token, password manager, OS keyring, HSM — Cultivator's pick) and encrypts the backup. Substrate provides the **plaintext canonical-bytes** at backup time; operator runtime applies encryption transit-side.
+
+This separates the encryption-key custody (Cultivator + operator runtime) from the substrate process (which never holds the key). An adversarial agent cannot exfiltrate the backup key from the substrate because the substrate never had it.
+
+### §8.3 Key escrow protocol
+
+The Cultivator MAY (not must) declare a key-escrow tuple at the anchor surface during their lifetime, supporting recovery if the primary key is lost:
+
+```
+key_escrow = (
+  escrow_method,        # one of: M-of-N Shamir secret-sharing,
+                        #         time-locked hardware token,
+                        #         attorney-held sealed envelope,
+                        #         successor-Cultivator-co-signed
+  escrow_parameters,    # method-specific parameters
+  escrow_attestation    # anchor-surface-signed by Cultivator
+)
+```
+
+If the Cultivator declares **no** escrow, backup recovery on key-loss is **impossible** — the backup becomes a sealed black box. This is a real and acceptable failure mode (some Cultivators value confidentiality above recoverability). DRAFT 9 mandates only that the choice is **explicit and documented at the anchor surface**, not silently assumed.
+
+Successor-Cultivator coordination (per L0 §1.4 Cultivation transferability + L1_GOVERNANCE §3.2 succession): if the Cultivator declares a successor, the key-escrow protocol SHOULD include the successor as one of the M-of-N parties, ensuring the successor inherits backup-decryption capability alongside Cultivation rights.
+
+### §8.4 Key rotation aligned with owner key rotation
+
+Backup encryption-key rotation is **logically distinct** from owner-key (Ed25519 anchor-key) rotation, but the two SHOULD be coordinated to bound exposure of any single compromised key:
+
+- When the Cultivator rotates the owner anchor-key per L1_GOVERNANCE §3.1 (default 30-day cooldown window), the Cultivator SHOULD ALSO rotate the backup encryption-key.
+- The new backup-encryption-key is applied to **all backups produced after the rotation**. Older backups remain decryptable with the prior key (which the Cultivator retains in archived state).
+- The substrate's SSoT identity record's `backup_key_id_history` tracks `(key_id, valid_from_anchor_timestamp, valid_until_anchor_timestamp, rotation_attestation_signed_by_owner)`, with the same active-prefix + archived-tail discipline as `owner_key_history` per L1_GOVERNANCE §3.1.
+- Rotation cooldown windows for backup-keys are L1-tunable; recommended alignment is the same 30-day cooldown as owner-key rotation, so the Cultivator's rotation cadence is unified.
+
+### §8.5 Backup access controls (per Phase γ.3 G16 surface)
+
+The backup *file*, once encrypted, has filesystem-level access controls per the host platform's discipline. L1 mandates:
+
+- **Backup files MUST be written with restrictive filesystem permissions** (`umask 077` discipline; Unix `0600` or equivalent ACL). Loose permissions on the backup file (world-readable) emit `backup_permissions_loose` (Elevated) on next backup-emit.
+- **Backup destination MUST be declared in the SSoT identity record** as a backup-output endpoint (alongside §1's intake/output endpoints). Writes to undeclared destinations emit `output_endpoint_breach`.
+- **Backup integrity** (separate from confidentiality): every backup carries its snapshot.cb canonical-bytes hash signed by the substrate's signing key; the Cultivator verifies the signature on restore. Tampered-or-truncated backup emits `backup_integrity_failure` on attempted restore.
+
+### §8.6 Absent-encryption acknowledgment
+
+Per L0 §11.1: "DRAFT 9 does NOT mandate backup encryption at L0 (operational choice), but DOES mandate that backup access controls are documented at L1 and that absent encryption is acknowledged as a known privacy attack surface."
+
+L1_SKIN ratifies the acknowledgment: if the Cultivator chooses to operate without backup encryption (e.g., air-gapped host, filesystem-level encryption deemed sufficient), the substrate's SSoT identity record carries `backup_encryption_status = "cultivator_declined_explicit"` with the Cultivator-signed declination attestation. Silent omission (no explicit attestation) is treated as `backup_encryption_status = "unspecified"`, which emits `backup_encryption_undeclared` (Daily) on each backup-emit until the Cultivator resolves the question. This is the **Cultivator-aware** acknowledgment — the choice is named, not hidden.
+
+### §8.7 What §8 explicitly does NOT cover
+
+- **In-process memory encryption** — substrate process memory is plaintext for operational reasons (canonical-bytes serialization, DAG manipulation). An attacker with live-process memory access (kernel-level adversary on the host) defeats §8 regardless of backup encryption. This is the adversarial-Cultivator surface per L0 §14.
+- **Backup-transit encryption** — when the backup is moved off-host (network copy to disaster-recovery site, removable-media transport), the transit is **at-rest-encrypted form**; transit-layer additional encryption (TLS, SSH) is L4-operational.
+- **Quantum-cryptography readiness** — DRAFT 9 uses classical symmetric encryption (AES/ChaCha). Post-quantum migration is L4-future-evolution per L0 §10 (CI revision when a federally-attested post-quantum scheme is L4-pickable).
+
+---
+
+## §9. Breach detection table
 
 | Breach | Detection | Immune-event | Grade |
 |---|---|---|---|
 | Envelope malformed | §2.1 | `envelope_malformed` | Daily |
 | Stale envelope replay | §2.1 freshness | `envelope_replay` | Elevated |
+| Time-source drift exceeds threshold | §4.1 | `time_source_drift` | Elevated |
 | Wrong substrate-ID claim | §4.2 step 1 | `substrate_id_mismatch` | Elevated |
 | Concurrent connect attempt | §4.4 | `concurrent_connect_attempt` | Elevated |
-| Unauthorized network egress | §5 | `appetite_locality_breach` | CRITICAL |
+| Substrate-secret in plaintext on disk | §4.2 | `substrate_secret_unsealed` | CRITICAL |
+| Unauthorized network egress (packet layer) | §5 | `appetite_locality_breach` | CRITICAL |
 | Output outside declared endpoint | §1 + §3 | `output_endpoint_breach` | CRITICAL |
 | Causal-chain violation | §2.2 | `causal_chain_violation` | Elevated |
 | Post-handshake CI without fresh attestation | §4.3 | `post_handshake_ci_unattested` | CRITICAL |
 | Federation egress to stale/revoked peer | §3.1 | `federation_egress_blocked` | Elevated |
 | Federation egress volume saturation | L1_GOVERNANCE §5.3 | `federation_egress_saturation` | Elevated |
+| **Spatial-locus breach (state_dir file)** | **§6.1 + §6.2** | **`P9_spatial_locus_breach:file_unexpected:{path}`** | **CRITICAL** |
+| **Spatial-locus breach (process FD)** | **§6.1 + §6.4** | **`P9_spatial_locus_breach:fd_unexpected:{fd_kind}`** | **CRITICAL** |
+| **Spatial-locus breach (network binding)** | **§6.1 + §6.4** | **`P9_spatial_locus_breach:network_unexpected:{peer}`** | **CRITICAL** |
+| **Spatial-locus OS-noise observed** | **§6.3** | **`spatial_locus_noise_observed`** | **Daily** |
+| **Spatial-locus birth-period pending** | **§6.6** | **`spatial_locus_birth_period_pending`** | **Daily** |
+| **Skin-restart flap (rate-limit exceeded)** | **§7.4** | **`skin_restart_flap`** | **CRITICAL** |
+| **Skin-restart dead-letter on shutdown** | **§7.5** | **`skin_restart_dead_letter`** | **Elevated** |
+| **Backup permissions loose** | **§8.5** | **`backup_permissions_loose`** | **Elevated** |
+| **Backup encryption undeclared** | **§8.6** | **`backup_encryption_undeclared`** | **Daily** |
+| **Backup integrity failure on restore** | **§8.5** | **`backup_integrity_failure`** | **CRITICAL** |
+
+> Cross-layer immune signals (surfaced here for skin-side visibility but **detected and emitted by other L1 docs**):
+>
+> | Signal | Detected by | Cross-ref |
+> |---|---|---|
+> | `salience_collapse` | L1_TROPISM (P12 attention discipline) | L1_TROPISM §B |
+> | `telos_drift` | L1_TROPISM (P14 telos-alignment) | L1_TROPISM §B; L0 P14.c |
+> | `compression_invariant_corruption` | L1_SCHEMA (I9 compression-invariant set) | L1_SCHEMA §3 |
+> | `compression_unattested` | L1_SCHEMA (P10.c CI-attested compression) | L1_SCHEMA §3 |
+> | `budget_exhausted:{axis}` | L1_CONTINUITY + L2_OBSERVABILITY (P11/I10) | L2_OBSERVABILITY signals #7/#8/#9 |
+> | `generation_depth_exceeded` | L1_GOVERNANCE (§16 generation discipline) | L1_GOVERNANCE §4.3 |
+> | `consensus_floor_bypass` | L2_FEDERATION (P15 population consensus) | L2_FEDERATION future-section |
+> | `bet_retired` | L2_OBSERVABILITY (§7.5 bet retirement) | L2_OBSERVABILITY |
+>
+> Listed here so a Cultivator reviewing skin-side breach evidence sees the full immune-signal landscape, not only skin-detected signals.
 
 CRITICAL breaches → immediate skin-level quarantine per L1_CONTINUITY §5.
 
 ---
 
-## §7. Open at L1, deferred to L4
+## §10. Glossary (Cultivation vocabulary per L0 §1.2 G-11.a)
+
+> L0 §1.2 (DRAFT 9 SEALED) establishes the Cultivation vocabulary for the owner-substrate relationship. L1_SKIN integrates the terms here because skin-level discourse touches the relational role constantly (the operator-handshake admits the **Cultivator's operator**, not "the user"; backup encryption per §8 is **Cultivator-controlled**, not "operator-controlled" in the legal sense).
+
+| Term | Definition | When to use |
+|---|---|---|
+| **Cultivator** | The human party in the owner-substrate relationship; the **relational** role (provides resources, declares telos, holds anchor key, attests CI events). Same human as "owner" (per L0 §1.2). | Use in L1_SKIN when emphasizing relational care, intent, ongoing co-evolution: "Cultivator-controlled backup key", "Cultivator declares spatial-locus allowed-set". |
+| **Cultivar** | The Myco substrate (kernel + dag.cb + state_dir + signing key + skin endpoints); the **species under cultivation**. | Use when emphasizing the substrate as a *living species* with body, intake, fruiting (vs. as a static "system" or "process"). |
+| **Cultivation** | The doctrinally-named owner-substrate relationship type (DRAFT 9 G-11.a). Asymmetric care + co-evolution + bounded substrate scope. | Use as the relationship-type noun: "Cultivation rights transfer per L1_GOVERNANCE §3.2", "Cultivation continuity across substrate generations". |
+| **Owner** | Synonym for Cultivator; emphasizes the **governance** role (anchor-key holder, CI gate, signature authority). | Use when discussing crypto / attestation / signatures: "owner-signed birth attestation", "owner_key_history", "owner-public-key". The terminology pair (Cultivator/owner) is preserved per L0 §1.2 — both refer to the same human party with different framings. |
+| **Spatial locus** | The substrate's physical body: `state_dir + process + skin endpoints`. Introduced as the operational target of P13 (folded into P9+I8 per G-9.b). | Use when discussing §6 enforcement: "spatial-locus enumeration", "spatial-locus allowed-set". |
+| **Skin endpoints** | The declared `(intake, output, anchor-surface, federation, backup-output)` declared in §1 + §8.5. Constitutes the network/IPC side of the substrate's body. | Use when discussing §1 declarations. |
+| **Anchor surface** | The Cultivator-controlled cryptographic root for CI attestation (per L0 §9). External to substrate; provides freshness check that substrate cannot subvert. | Use throughout skin doc — the anchor surface is the substrate's gate to Cultivator authority. |
+| **Single integument** | P9 (DRAFT 9 rename of "Integument"). The substrate's single declared skin surface; one, no redundancy at the integument level, restartability at the process level (P9.b). | Use when discussing P9 enforcement or P9.b restart discipline. |
+
+**Terminology guidance for skin-doc authors**:
+- **Default to "Cultivator"** when speaking of the relational role (intent, attestation, key-holding).
+- **Use "owner"** when matching existing crypto/identity-record field names (owner_birth_attestation_signature, owner_public_key_active_at_handshake).
+- **Use "agent" or "operator"** for the runtime that connects to the substrate via skin envelopes — these are distinct from Cultivator.
+- **Avoid "user"** (ambiguous between agent and Cultivator).
+- **Avoid "system"** (de-living language; the substrate is a Cultivar, not a system).
+
+---
+
+## §11. Open at L1, deferred to L4
 
 - Specific egress-enforcement mechanism within the four candidate families (L4 platform-pick).
 - Max-delta-size within {10 MB, 100 MB, 1 GB}.
@@ -188,5 +500,13 @@ CRITICAL breaches → immediate skin-level quarantine per L1_CONTINUITY §5.
 - Post-handshake quarantine window (default 100 cycles).
 - Envelope freshness window (default 60 cycles).
 - Anchor-surface endpoint protocol per genesis-specified L1_GOVERNANCE §2.1.
+- **Process supervisor choice (§7.1)** within {systemd, launchd, Windows Service, container orchestrator}.
+- **Drain-deadline (§7.2)** within {10, 30, 120 seconds}.
+- **Anti-flap restart window + threshold (§7.4)** within {1 hr / 5 restarts, 24 hr / 20 restarts, custom}.
+- **Spatial-locus detection cadence (§6.5)** within {every cycle, every 10 cycles, every 100 cycles}.
+- **Spatial-locus substrate-type allowed-set extensions (§6.5)** — substrate-type-specific.
+- **Backup encryption suite (§8.2)** within {AES-256-GCM, XChaCha20-Poly1305, post-quantum candidate}.
+- **Backup key escrow method (§8.3)** within {Shamir M-of-N, time-locked HSM, attorney-held envelope, successor-co-signed}.
+- **Backup-key rotation cadence (§8.4)** aligned with L1_GOVERNANCE §3.1 owner-key rotation.
 
 The shape is committed; values are L4.

@@ -1,6 +1,6 @@
 # L2 — Outline / Charter
 
-> **Status**: OUTLINE DRAFT 3 (2026-05-13). Post L2 pass-2 verification: 5/6 lenses CONVERGED, 0 CRITICAL, 7 findings (3 SHOULD, 4 NICE). All 3 SHOULDs were L2_OUTLINE stale-text drift — this DRAFT 3 resyncs.
+> **Status**: OUTLINE DRAFT 4 (2026-05-17). M26-cascade A3/A4/A6 expanded L2_FEDERATION (P15 landing + wrapped-events + recursive injection defense) + L2_TRUST_MODEL (adversarial Cultivator + honor-system collapse + Sybil/Eclipse) + L2_OBSERVABILITY (Living Bets recalibration + signals #7-9 + composite renumber). DRAFT 9 SEALED commit: `e796451`.
 > **Layer**: L2.
 > **Authority**: navigation only. The 6 L2 docs below are authoritative.
 

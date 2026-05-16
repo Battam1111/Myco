@@ -1,6 +1,6 @@
 # L1 — Outline / Charter
 
-> **Status**: OUTLINE (revised post DRAFT 6 of L0 + 4 new L1 doc spawns, 2026-05-13).
+> **Status**: OUTLINE (revised post L0 DRAFT 9 SEALED + M26-cascade A1-A7, 2026-05-17). DRAFT 9 SEALED commit: `e796451`.
 > **Layer**: L1. Governed by L0.
 > **Authority**: this outline is navigation only — no binding authority. The L1 documents listed below ARE the authoritative L1 layer.
 > **Naming**: *"v0.9"* = Myco substrate version. *"DRAFT N"* (no `v` prefix) = document revision counter.
@@ -13,9 +13,11 @@ L1 is the **mechanism enforcement layer** for L0's principles + invariants. L0 c
 
 The 100%-confidence-loop applied between DRAFT 5 and DRAFT 6 of L0 surfaced that 5 of 8 invariants pointed to unwritten L1 docs — making the doctrine layer claim completeness it could not demonstrate. DRAFT 6 spawning includes **4 new L1 documents** (SCHEMA / GOVERNANCE / SKIN / CONTINUITY) addressing the foundational mechanisms.
 
+**Phase γ (2026-05-17)** completed the L1 cascade for DRAFT 9 SEALED — all 7 L1 docs now reflect the 12-principle / 11-invariant framework + Cultivation vocabulary + §9 anchor surface decomposition + L0 §13/§14/§15/§16 short cross-refs. M26-cascade A1-A7 added ~2200+ new doctrinal lines across L1 + L2.
+
 ### What L1 does NOT inherit from v0.8
 
-v0.8 L1 was 7 hard rules (R1-R7) + canon schema + exit codes. Per L0 C7.3, v0.9 L1 is rebuilt from L0's eight invariants and nine principles:
+v0.8 L1 was 7 hard rules (R1-R7) + canon schema + exit codes. Per L0 C7.3, v0.9 L1 is rebuilt from L0's eleven invariants and twelve principles (post-DRAFT 9 SEALED — P10/P11/P14 added at L0; I9/I10/I12 added at L0; P12/P13/P15 retracted to L1_TROPISM/L1_SKIN+I8/L2_FEDERATION respectively):
 
 - **No boot/session-end ritual** (§6 — continuous online substrate dissolves R1/R2).
 - **Sense-before-assert** subsumed into gradient-read primitive.
@@ -24,7 +26,16 @@ v0.8 L1 was 7 hard rules (R1-R7) + canon schema + exit codes. Per L0 C7.3, v0.9 
 - **Write-surface** survives as I8 + appetite-locality from I6.
 - **Top-down** survives as the L0-L1-L2-L3-L4 layering itself.
 
-L1 v0.9 is **not** "R1-R7 rephrased". L1 is whatever specifications emerge from operationalizing the 8 invariants + the chosen positive forms (tropism + trajectory) + remaining mechanism choices.
+L1 v0.9 is **not** "R1-R7 rephrased". L1 is whatever specifications emerge from operationalizing the 11 invariants (DRAFT 9 SEALED: I1-I10 + I12; I11 retracted with P12) + the chosen positive forms (tropism + trajectory) + remaining mechanism choices.
+
+**DRAFT 9 SEALED M26-cascade additions to L1** (2026-05-17):
+- L1_TROPISM: P12 Differential Response landing (§E salience emergence) + P14 telos operationalization (§F forcing function for `telos_drift`)
+- L1_SKIN: P13 Embodiment folded into P9+I8 (§6 spatial-locus enforcement) + skin-restart discipline (§7) + backup encryption (§8)
+- L1_GOVERNANCE: §3.2 Cultivation succession FSM + §16 generation limits + F18-F24 catalog expansion
+- L1_HARD_RULES: C36-C49 substrate-private namespace + F18-F24 traceability
+- L1_CONTINUITY: §1.3 cycle-backlog formal spec + §1.4 NTP discipline + cold-resume I9/I10/I12 extension
+- L1_SCHEMA: §5 canonical-bytes serializer + §6 snapshot.cb integrity wrapper + §7 substrate_signing_key.cb + year-2262 horizon
+- L1_TRAJECTORY: salience + telos integration with L1_TROPISM cross-refs
 
 ---
 

@@ -1,9 +1,20 @@
-# L1 — Schema (SSoT, causal DAG, recoverability, spore-schema, validation tiers)
+# L1 — Schema (SSoT, causal DAG, recoverability, spore-schema, validation tiers, canonical-bytes spec, snapshot integrity)
 
-> **Status**: DRAFT 1 (2026-05-13). Authoritative L1 doc for substrate-internal data shape.
-> **Layer**: L1 (mechanism). Governed by L0.
-> **Scope**: SSoT designation + format; causal-DAG storage; recoverability budget; spore-schema (P8); validation tiering (I3 cycles). Does NOT cover: classifier function (→ L1_GOVERNANCE), envelope schema (→ L1_SKIN), cycle cadence (→ L1_CONTINUITY), dispatch atomic records (→ L1_TROPISM).
+> **Status**: DRAFT 2 (2026-05-17). M26-cascade for L0 DRAFT 9 SEALED (commit `e796451`). Authoritative L1 doc for substrate-internal data shape + canonical-bytes serializer specification + snapshot integrity wrapper + year-2262 horizon warning + substrate_signing_key.cb mechanism (with known M3 entropy gap acknowledged) + drill failure-rate baseline two-baseline approach.
+> **Layer**: L1 (mechanism). Governed by L0 (DRAFT 9 SEALED, commit `e796451`).
+> **Scope**: SSoT designation + format; causal-DAG storage; recoverability budget + drill discipline + two-baseline approach; spore-schema (P8); validation tiering (I3 cycles); **canonical-bytes serializer specification** (per L0 §9.4 + F16); **i64-nanoseconds-since-epoch representation + year-2262 horizon-warning + negative-pre-1970-timestamps treatment** (per L0 §13.2 cascade requirement); **snapshot.cb integrity wrapper** (M25.0-shipped); **substrate_signing_key.cb generation + known M3 entropy gap** (per Phase γ.9 mycoparasite finding). Does NOT cover: classifier function (→ L1_GOVERNANCE), envelope schema (→ L1_SKIN), cycle cadence + NTP discipline + cycle-backlog (→ L1_CONTINUITY), dispatch atomic records (→ L1_TROPISM).
 > **Honesty**: items marked **TBD-L4** are explicit deferrals — L1 commits that the decision exists and bounds the space; L4 implementation makes the call. Per pass-1 architectural-astronaut, L1 over-commitment is anti-pattern.
+>
+> **DRAFT 9 SEALED principle alignment**:
+> - **P1.c (Agent identity via symbiosis — asymmetric carrier)** — substrate-ID is the persistent carrier; canonical-bytes serializer is spore-inheritable so child substrates can independently render their own canonical bytes.
+> - **P3 (Resumable Evolution)** — DRAFT 9 rename of "Eternal evolution"; SSoT migration is two-phase with dual-validation.
+> - **P6 (Eternal Causality)** — DAG is the canonical Time. Snapshot integrity preserves the carrier of P6.
+> - **P7 (Mortality, Capacity-for-Death)** — DRAFT 9 rename of "必朽"; drill failure-rate baseline two-baseline approach is the long-horizon mortality observability.
+> - **P8 (Eternal Reproduction, Generation-Bounded)** — DRAFT 9 rename; spore-schema is the reproduction-closure carrier.
+> - **P10 (Selective Compression)** — DRAFT 9 addition (Phase γ.6 C-claim-2); compression-invariant set enforced via I9 against the SSoT.
+> - **P11 (Metabolic Economy)** — DRAFT 9 addition; cost-budget thresholds are tier-1 SSoT fields.
+> - **P14 (Telos)** — DRAFT 9 addition; owner-stated objective is tier-1 SSoT when declared.
+> - **Cultivation vocabulary (G-11.a, L0 §1.2)** — owner = Cultivator (governance role); substrate = Cultivar. Spore-schema is the seed-state inherited Cultivar→Cultivar during P8 reproduction; the Cultivator co-attests each spore. Existing "owner" terminology preserved throughout (matches §9 anchor-surface owner-attestation vocabulary).
 
 ---
 
@@ -36,11 +47,24 @@ What the SSoT *covers* — the claim space against which I3 self-validation runs
 
 ### §1.3 SSoT migration two-phase commit (operationalizes L0 I3)
 
-**M (cycles of consistency before commit)**: TBD-L4. Default proposal: M = 1000 metabolic cycles OR 30 days continuous operation, whichever longer. Tunable per substrate canon.
+Per L0 I3 + L0 §10 ("L1 prototyping may surface L0 revision needs"): SSoT-designation evolution is itself a contract-identity-level mutation; the two-phase commit ensures the **migration window** is observable + bounded.
 
-**Phase 1**: candidate SSoT lives alongside current SSoT; substrate runs **dual-validation** every cycle (both must remain self-consistent). Mismatch emits `ssot_migration_inconsistent` immune event; migration aborts.
+**M (cycles of consistency before commit)**:
+- **Seed default**: **M = 100 metabolic cycles** of successful dual-validation (M26-cascade explicit seed per L0 §13.2 cascade requirement). The DRAFT 1 "M = 1000 OR 30 days" reads now as a maximum L4-tunable ceiling, not the seed.
+- **L4-tunable** within the bounded range [100, 10000] cycles. Setting M outside this range requires CI attestation.
+- The L1-tunable M is itself a **tier-1 SSoT field** (per §4.1 — it governs identity-critical migration cadence).
 
-**Phase 2**: owner co-signs migration via anchor surface (L0 §9). Old SSoT is retained as archived per I4 (no lossy compression).
+**Phase 1** (proposal + dual-validation):
+- Owner co-signs `ssot_migration_proposal` at the anchor surface with canonical-bytes of both the current SSoT designation AND the candidate designation (per L0 §9.4 canonical-bytes doctrine).
+- Substrate runs **dual-validation every cycle**: both current and candidate SSoT designations must independently produce a self-consistent I3 check result. Mismatch emits `ssot_migration_inconsistent` immune sporocarp; migration aborts; substrate continues under current SSoT.
+- Phase 1 must complete with **≥M consecutive successful dual-validation cycles** with no `ssot_migration_inconsistent` events; the M counter resets on any inconsistency.
+
+**Phase 2** (commit):
+- Owner co-signs `ssot_migration_commit` at the anchor surface, including: (current_ssot_canonical_bytes_hash, candidate_ssot_canonical_bytes_hash, M_consecutive_count_observed, dual_validation_witness_sample).
+- The **owner verifies the M-count witness** before signing — substrate cannot fake completion of Phase 1.
+- Old SSoT is **retained as archived** per I4 (no lossy compression of CI-attested state; the prior SSoT designation joins the compression-invariant set per P10.b).
+
+**Witnesses, not verdicts** (per L0 §9.3.4): substrate emits Merkle-chain proof of M consecutive Phase 1 cycles + sampled per-cycle dual-validation comparisons (sampling indices derived from anchor-surface nonce per §9.3.5), NOT a verdict-only `phase_1_passed` flag.
 
 ---
 
@@ -93,24 +117,57 @@ Co-signs accumulate; the chain of co-signs is the immune-detectable integrity hi
 
 **Cold-tier inaccessibility marker** (per pass-2 rhizomorph-7): cold-tier fetch is owner-attested. During legacy / quarantined sub-states, cold-tier-spanning queries (trajectory; cross-epoch sporocarp reads) return explicit `cold_tier_inaccessible` markers — substrate distinguishes "no data" from "data exists but inaccessible".
 
-### §2.4 Recoverability budget + drill discipline
+### §2.4 Recoverability budget + drill discipline (canonical owner, DRAFT 9 expanded)
 
-Recoverability budget is the L1-specified backup/redundancy policy defining when "destroyed" actually means destroyed.
+Recoverability budget is the L1-specified backup/redundancy policy defining when "destroyed" actually means destroyed (per L0 P7 mortality + I4 full-fidelity causal DAG).
 
 **Components**:
-- **Backup frequency**: TBD-L4. Default: continuous WAL + periodic full snapshot (WAL per cycle; snapshot every 1000 cycles).
+- **Backup frequency**: TBD-L4. Default: continuous WAL + periodic full snapshot (WAL per cycle; snapshot every 1000 cycles per §6 — wrapped in M25.0 integrity envelope).
 - **Backup locations**: TBD-L4. Constraint: ≥1 off-host-process location.
-- **Recovery test cadence**: tiered to manage scaling cost.
+- **Recovery test cadence**: tiered to manage scaling cost (per pass-2 saprotroph-14 cold-tier cost over decades + saprotroph-2 cold-tier slow-drill problem).
 
-**Tiered recovery drill** (per pass-2 saprotroph-14, addresses cold-tier cost over decades):
+**Tiered recovery drill** (canonical, DRAFT 9 explicit per L2_OBSERVABILITY §6 cross-ref):
 
-- **Hot+warm drill** every 100 substrate days: full restore from backup of hot+warm tier; verify I1-I8.
-- **Cold-tier sampled drill** every 1000 substrate days: pick N random cold-tier nodes per drill (`N = ceil(log₂(cold_tier_count))`); prove each recoverable; fruit `cold_tier_sample_recovery_pass`.
-- **Drill failure-rate baseline** (per saprotroph-18): each drill outcome is fruited as `recovery_drill_result` with `(drill_id, scope, outcome, failure_classification)`. Over a rolling 30-drill window, emergent `drill_failure_rate` is computed. ≥2σ departures from baseline are immune events; secular trending up is an approaching-mortality `drill_aging_grade` signal.
+- **Hot+warm-tier drill** every **100 substrate days** (seed default; L1-tunable in [30, 365] days): full restore from backup of hot+warm tier; verify I1, I3, I4, I5, I8 (DRAFT 9: also I9 compression-invariant set + I10 cost-budget recoverability + I12 telos-objective recoverability when declared). Fruit `recovery_drill_result` sporocarp.
+- **Cold-tier sampled drill** every **1000 substrate days** (seed default; L1-tunable in [365, 3650] days): pick N random cold-tier nodes per drill where `N = ceil(log₂(cold_tier_count))`. Sampling indices derived from anchor-surface nonce per §9.3.5 (substrate cannot pre-compute and bias toward honest portions). Prove each sampled node recoverable; fruit `cold_tier_sample_recovery_pass` sporocarp.
 
-**Witnesses, not verdicts** (per L0 §9.3): drill results emit cryptographic-proof tuples — sampled hashes, Merkle paths, reproducible inputs — sufficient for the anchor-surface verifier to re-derive. The substrate does not emit "pass/fail"; it emits evidence.
+**Drill failure-rate baseline — two-baseline approach** (per pass-2 saprotroph-18 + saprotroph-2; DRAFT 9 cascade explicit per L2_OBSERVABILITY §6):
 
-**Beyond the budget = destruction**: when backups are exhausted AND substrate medium fails, P7 catastrophic destruction. Two consecutive failed drills auto-emit anchor-surface-side `mortality_drill_failure` event (the dual channel for endogenous mortality per L1_GOVERNANCE §4.4).
+Each drill outcome is fruited as `recovery_drill_result` with the canonical structure:
+
+```
+{
+  "drill_id": <i64 anchor-nonce-derived id>,
+  "scope": "hot_warm" | "cold_tier_sample",
+  "outcome": "pass" | "fail" | "partial",
+  "failure_classification": <enum or null>,
+  "evidence_inputs": {
+    "sampled_node_hashes": [Bytes(32), ...],
+    "merkle_paths": [...],
+    "recovery_canonical_bytes_hashes": [...],
+    "drill_started_at_unix_ns": Timestamp,
+    "drill_ended_at_unix_ns": Timestamp
+  }
+}
+```
+
+Two parallel baselines are tracked:
+
+1. **Near-baseline (rolling last-10 drill window)**:
+   - Computes `near_drill_failure_rate = (failures_in_last_10) / 10` per drill scope.
+   - **≥2σ departure** from the near-baseline mean (computed from the rolling window's own historical mean across all-time observations of the same scope) → emit `drill_failure_near_baseline_departure` immune sporocarp.
+   - **Purpose**: detects acute departures (a sudden failure cluster).
+
+2. **Secular-baseline (anchored to first-stable-window — drills 6 through 15)**:
+   - The secular baseline is **anchored**: drills 6-15 establish a `secular_failure_rate_baseline` (per scope); this baseline **never advances** for the substrate's lifetime.
+   - `secular_trend_metric = current_rolling_failure_rate / secular_failure_rate_baseline`.
+   - **Departure threshold**: L1-tunable, **default 3×** (i.e., current rate exceeds 3× the anchored baseline) → emit `drill_aging_grade` approaching-mortality signal sporocarp.
+   - **Purpose**: detects slow secular drift over decades. The cold-tier slow-drill cadence (every 1000 substrate days) means the secular baseline approach is what scales beyond the near-baseline window.
+   - **Rationale**: a near-baseline rolling window can drift with the substrate's accumulating decay; the anchored secular baseline preserves the substrate's young-self standard as the comparison point.
+
+**Witnesses, not verdicts** (per L0 §9.3.4): drill results emit cryptographic-proof tuples — sampled hashes, Merkle paths, reproducible inputs — sufficient for the anchor-surface verifier to independently re-derive. The substrate does NOT emit "pass/fail"; it emits the evidence. The owner-side re-derivation is **load-bearing for I3/I4 enforcement** — a substrate forging drill results forges its own mortality observability.
+
+**Beyond the budget = destruction**: when backups are exhausted AND substrate medium fails, P7 catastrophic destruction. **Two consecutive failed drills** at the anchor surface auto-emit owner-side `mortality_drill_failure` event (the dual channel for endogenous mortality per L1_GOVERNANCE §4.4). The substrate cannot suppress this — `mortality_drill_failure` lives at the anchor surface (per L1_HARD_RULES §4 anchor-surface-resident state).
 
 ### §2.5 DAG-pruning prohibition
 
@@ -130,12 +187,15 @@ Substrate-initiated "I'm out of space" responses:
 When parent substrate spawns child, the spore-schema MUST include:
 
 - **Schema definitions** (SSoT structure, validated against parent's current SSoT designation).
-- **Canonical-bytes serializer specification** — the function that maps SSoT-typed values to canonical bytes. Spore-inherited; tier-1 SSoT field (closes pass-3 mycorrhiza-18 + mycorrhiza-20: operator + owner + child substrate all need this for independent canonical-bytes derivation). Specification format must be pure declarative (no runtime-dependent primitives; runnable by any party that has the spec).
+- **Canonical-bytes serializer specification** (full specification in §5 below). Spore-inherited; tier-1 SSoT field (closes pass-3 mycorrhiza-18 + mycorrhiza-20: operator + owner + child substrate all need this for independent canonical-bytes derivation). Specification format must be pure declarative (no runtime-dependent primitives; runnable by any party that has the spec).
 - **Dispatch-form atomic-record type tree** (under L1_TROPISM dispatch: sporocarp type tree; under other forms: equivalent atomic-record schema).
 - **Classifier dimension table** (from L1_GOVERNANCE — the I2 classifier function as data).
 - **Initial appetite axis schema** OR equivalent under chosen dispatch (gradient-update-rule signatures, threshold seeds).
 - **Anchor surface configuration** (where the owner's signing key lives; what the child's birth attestation looks like; sealing mechanism for substrate_secret per L1_SKIN §4.2).
 - **Parent immune-signal summary** (counts of unresolved immune sporocarps by type + most recent tip-hash). Spawning while parent has unresolved immune sporocarps puts child in `quarantined` birth period until owner re-attests intent.
+- **Compression-rule registry** (per L0 P10.c + L1_HARD_RULES §2 F18): each owner-attested compression rule is spore-inheritable so the child can apply the rule from genesis. Rules are CI-attested per L0 §2.3 P10.c — the child cannot author its own rules until owner attestation arrives.
+- **Telos-objective declaration** when owner-stated (per L0 §2.3 P14.b + L1_HARD_RULES §2 F20): optional; inheritable when present. Carries the objective text + objective embedding (when canonical-bytes-serialized) for I12 alignment computation.
+- **Generation-depth telemetry** (per L0 §16 cascade requirement + L1_HARD_RULES §2 F21): `(generation_depth, max_remaining_depth)` field — a child cannot spawn its own children if `max_remaining_depth == 0`. (Full generation discipline mechanism: L1_GOVERNANCE §4.3.)
 
 ### §3.2 Contents NOT included
 
@@ -157,36 +217,237 @@ Success emits `genesis_attested` sporocarp in parent's DAG (federation_coupling 
 
 ---
 
-## §4. Validation tiers (TENTATIVE; operationalizes L0 I3)
+## §4. Validation tiers (operationalizes L0 I3, DRAFT 9 expanded to 3 tiers)
 
-**Tentative at L1**: pass-2 architectural-astronaut flagged 3-tier validation as premature optimization (SSoT is trivially small at v0.9 birth; full per-cycle validation has no measurable cost yet). DRAFT 2 collapses to 2 tiers as default; L4 may re-introduce tier-3 if I3 validation begins overrunning cycle budget.
+### §4.1 Three-tier policy (canonical, DRAFT 9 — supersedes DRAFT 1 tentative two-tier)
 
-### §4.1 Two-tier policy (default)
+Per L0 §13.2 cascade requirement + I3 self-validation, validation runs at three tiers:
 
-- **Tier 1 (identity-critical)**: substrate-ID, owner_key_history (active-prefix only — see L1_GOVERNANCE §3.1 active-prefix + archived-tail discipline), anchor_surface_endpoint, DAG-tip-hash, classifier dimension table, classifier-fixed-point fields, mortality-signal threshold + update-rule, skin surface declaration, **canonical-bytes serializer specification** (per §3.1 spore-schema). Validated **every metabolic cycle**.
-- **Tier 2 (everything else)**: owner-triggered or per-deep-cycle (deep-cycle cadence L1_CONTINUITY-specified).
+- **Tier 1 (identity-critical)** — validated **every metabolic cycle**:
+  - `substrate-ID`
+  - `owner_key_history` (active-prefix only — see L1_GOVERNANCE §3.1 active-prefix + archived-tail discipline)
+  - `anchor_surface_endpoint_public_key`
+  - `DAG-tip-hash` + Merkle parent-edge closure of the most recent N cycles (per §2.3 + P10.b compression-invariant set)
+  - `classifier_dimension_table` + classifier-fixed-point fields
+  - `mortality_signal_threshold + update-rule` (per L0 P7 + L1_HARD_RULES F7)
+  - `skin_surface_declaration` (intake + output endpoints + forbidden surfaces; per L1_SKIN §1 + F11)
+  - **`canonical_bytes_serializer_spec`** (per §5 + F16; pure declarative, spore-inheritable)
+  - **`compression_rule_registry`** (per L0 P10.c + F18) — DRAFT 9 NEW
+  - **`compression_invariant_set_enumeration`** (per L0 P10.b — the substrate's authoritative list of what cannot be compressed)
+  - **`cost_budget_thresholds_per_axis`** (per L0 P11.b + F19) — DRAFT 9 NEW
+  - **`telos_objective_declaration`** when present (per L0 P14.b + F20)
+  - **`generation_depth + max_remaining_depth + reproduction_rate_state`** (per L0 §16 + F21)
+  - **`SSoT_migration_M_parameter`** (per §1.3 — the M-cycle count itself governs identity-critical migration cadence)
+
+- **Tier 2 (sampled with rolling 100% coverage over window)** — validated by **sampling per deep-cycle** (deep-cycle cadence per L1_CONTINUITY §1.1):
+  - The window is L1-tunable; **seed default 10000 cycles** (M26-cascade explicit per L0 §13.2 cascade requirement).
+  - Within the window, every tier-2 field MUST be sampled at least once (rolling 100% coverage discipline).
+  - Sampling indices derived from anchor-surface nonce per §9.3.5 (substrate cannot bias sampling toward honest portions).
+  - **Coverage witness emission**: substrate emits `tier_2_coverage_witness` sporocarp at end-of-window with `(window_start_cycle, window_end_cycle, sampled_field_set, coverage_completeness, missed_field_set_if_any)`.
+
+- **Tier 3 (owner-triggered)** — validated only on explicit owner request (anchor-surface event):
+  - Catalogs every field outside Tier 1 + Tier 2.
+  - Owner-triggered as part of an audit, recovery drill, or quarantine-clearance evidence-gathering.
 
 ### §4.2 Tiering discipline
 
-- **New fields default to tier 1** (per pass-2 mycoparasite-26 — adversarial default forbidden). To create a new field at tier 2 requires explicit CI-attestation downgrade.
-- Tier promotion (tier 2 → tier 1) is daily-autonomous (more aggressive validation is always safe).
-- Tier demotion (tier 1 → tier 2) is CI-gated.
+- **New fields default to tier 1** (per pass-2 mycoparasite-26 — adversarial default forbidden). To create a new field at tier 2 or tier 3 requires explicit CI-attestation downgrade.
+- Tier promotion (tier 3 → tier 2 → tier 1) is daily-autonomous (more aggressive validation is always safe).
+- Tier demotion (tier 1 → tier 2 → tier 3) is CI-gated.
 - Tier assignment is a SSoT tier-1 field itself.
 
-### §4.3 L4 escalation to 3-tier (if needed)
+### §4.3 Rolling-window coverage enforcement (DRAFT 9 NEW per L0 §13.2)
 
-If L4 observes tier-1 per-cycle validation overrunning cycle budget, L4 may propose introducing tier 3 (sampled rolling-window-coverage) as a CI-level evolution. The shape would be: `tier 2` becomes deep-cycle-only; new `tier 2.5 sampled` covers high-volume governance-relevant fields with rolling-window-100%-coverage discipline. L1 does not pre-commit this; L4 picks if needed.
+Per L0 I3 cascade requirement: tier-2 validation MUST achieve 100% coverage over the L1-tunable window. If the window closes with `missed_field_set_if_any` non-empty, the substrate emits `tier_2_coverage_breach` immune sporocarp; sustained breach (≥3 consecutive windows with missed fields) routes through quarantine entry per L1_CONTINUITY §5.1.
+
+The substrate cannot **silently allow** tier-2 coverage to slip; emission is mandatory at end-of-window.
 
 ---
 
-## §5. Open at L1, deferred to L4
+## §5. Canonical-bytes serializer specification (per L0 §9.4 + F16, DRAFT 9 explicit per §13.2 cascade)
+
+The **canonical-bytes serializer** is the deterministic function `serialize: SSoT-typed-value → Bytes` that maps a typed value to a unique byte string such that any two parties (substrate, anchor-surface client, operator process, child substrate) that hold the serializer spec compute byte-identical output for byte-identical input.
+
+This is the foundation of L0 §9.4 canonical-bytes doctrine (owner-side rendering, witnesses, signature-bound determinism). Per L1_HARD_RULES F16, the serializer spec is a tier-1 SSoT field + spore-inheritable.
+
+### §5.1 Type-level requirements
+
+The serializer covers the following typed values (the "value space"):
+
+- **Bool** (single-byte determinate encoding)
+- **Uint** (variable-length unsigned integer — explicit byte-length prefix; never an architecture-dependent native int)
+- **Sint** (variable-length signed integer)
+- **Timestamp** — **MUST be i64 nanoseconds since Unix epoch (1970-01-01T00:00:00Z)**. The serializer rejects any value outside the i64 range. Per L0 §13.1: substrate MUST NOT use i32 timestamps anywhere — this clause enforces that prohibition at the serializer boundary.
+- **Bytes** (length-prefixed byte string)
+- **String** (UTF-8 byte string with explicit length prefix; the serializer rejects invalid UTF-8 at encode time)
+- **Map** — **keys MUST be in strict canonical order** (per Phase β fix already implemented in Rust + Python + TS decoders; closes C18_canonical_bytes_render_drift asymmetry). Canonical order = byte-lexicographic order of the encoded keys. A Map encoder that does NOT enforce strict canonical order is breach (substrate-side serializer that emits unordered maps produces non-reproducible canonical bytes).
+- **Array** (length-prefixed, ordered)
+
+### §5.2 Negative timestamps (pre-1970 treatment)
+
+**Permitted at the serializer level**: the serializer accepts negative i64 nanosecond timestamps (e.g., a substrate that imports a historical document with an annotation timestamped 1969-12-31 can canonically encode that timestamp).
+
+**Rejected at the DAG-event level**: per Phase γ.9 hypha MnF35, **DAG events whose `at_unix_ns < genesis_at_unix_ns` are REJECTED at the DAG-write boundary**. A substrate's own causal events cannot precede its genesis. The serializer permits the type-level value; the DAG validation layer rejects substrate-event payloads carrying such values. (Cross-ref: this validation is part of I4 full-fidelity causal DAG enforcement; a DAG node whose `at_unix_ns` violates this is breach and routes through C7_dag_retro_edit_detected.)
+
+### §5.3 Year-2262 horizon-warning mechanism (per L0 §13.2 cascade requirement)
+
+**Reason**: i64-nanoseconds since Unix epoch overflows around **2262-04-11T23:47:16.854Z** (i64 max nanoseconds ≈ 9.223e18 ns ≈ 292 years past 1970). A substrate's expected lifetime is **bounded by clock overflow** at the i64 limit.
+
+**Mechanism**:
+- The substrate computes a derived `genesis_horizon_warning_threshold_unix_ns` = 62 years before the i64 overflow point, i.e., 2200-01-01T00:00:00Z encoded as i64 nanoseconds.
+- At every metabolic cycle (tier-1 check), the substrate compares its `genesis_time_unix_ns` against the horizon threshold:
+  - If `genesis_time_unix_ns > genesis_horizon_warning_threshold_unix_ns` → emit `genesis_timestamp_horizon_warning` observability sporocarp. (A substrate **born** past 2200 has fewer than 62 years before i64 overflow.)
+- At every metabolic cycle, the substrate also compares **the current wall-clock** to the i64 overflow threshold:
+  - If `current_wall_clock_unix_ns > genesis_horizon_warning_threshold_unix_ns` (i.e., now is past 2200-01-01) → emit `i64_timestamp_horizon_warning` observability sporocarp.
+
+**L1-tunable threshold**: the horizon-warning offset (default 62 years before overflow) is L1-tunable in [10 years, 100 years]. Larger offsets give the owner more decades of warning at the cost of earlier (potentially false-alarm) signal emission.
+
+**Beyond the warning** (the substrate approaches actual overflow): the substrate's `i64_timestamp_horizon_warning` emission cadence escalates per L1-tunable schedule; the substrate emits `mortality_imminent_clock_overflow` approaching-mortality sporocarp at L1-tunable threshold (default 5 years before overflow). The substrate's lineage MUST migrate to a successor substrate (P8 reproduction) with a new genesis-time before the parent substrate's wall-clock overflows.
+
+**Acknowledged limitation**: this is a **soft horizon**, not a hard prohibition. The L0 commitment is to i64-nanoseconds-since-epoch as the canonical L0 unit. A future L0 revision could move to i128, but that revision itself would require a P3 SSoT migration (per §1.3) — the substrate's running data store is i64-bound by the L0 doctrine at its current revision.
+
+### §5.4 Canonical-bytes round-trip invariant (per L0 §9.4)
+
+For every typed value V in the serializer's domain:
+`decode(encode(V)) ≡ V` (round-trip identity)
+`encode(decode(B)) ≡ B` for every byte-string B in the serializer's range (encode-decode reversibility)
+
+This invariant is part of tier-1 validation: the substrate periodically runs round-trip tests on sampled SSoT values and emits `canonical_bytes_round_trip_failure` immune sporocarp on any violation. The round-trip-failure check is one of the I3 sub-checks at tier-1 validation cadence.
+
+### §5.5 Implementation status note (DRAFT 9 honest)
+
+Per L0 §9 status table §9.3.1: canonical-bytes serialization is ~95% implemented across Rust + Python + TS decoders (Phase β fixed the TS decoder Map-key canonical-order gap that was the C18 asymmetry source).
+
+**Remaining gap** (acknowledged for L4 closure): the **declarative serializer spec format** (the format in which the spec itself is canonically transmitted to a child substrate via spore-schema) is **not yet codified**. Currently the spec exists only as code (the Rust + Python + TS implementations). M27+ work will lift the spec to a pure-declarative format that operator + anchor-surface + child substrate can re-derive independently.
+
+---
+
+## §6. Snapshot.cb integrity wrapper (M25.0-shipped, spec'd here)
+
+### §6.1 Purpose
+
+`snapshot.cb` is the optimistic boot-time accelerator — a periodic snapshot of the substrate's derived state, written every K cycles (seed K=1000 per §2.4), wrapped in an Ed25519-signed envelope. On boot, the substrate uses the snapshot to seed its in-memory state instead of full DAG replay (replay only events after the snapshot's recorded tip).
+
+**Forgery defense**: without the integrity wrapper, an attacker could substitute a snapshot.cb from a different substrate (or a forged file) and the booting substrate would accept it as truth. The wrapper closes this attack via Ed25519 signature + signer-pubkey check.
+
+### §6.2 Wrapper format (canonical, format_version = 2)
+
+```
+Map({
+  "format_version": Uint(2),
+  "payload":         Bytes,        // the snapshot canonical-bytes
+  "signature":       Bytes(64),    // Ed25519 signature over BARE payload bytes
+  "signer_pubkey":   Bytes(32),    // Ed25519 public key of the substrate that signed
+})
+```
+
+**Critical clause**: the signature is computed over the **BARE payload bytes** (not the wrapper bytes). This allows the wrapper-schema to be upgraded (e.g., format_version 2 → 3) **without re-signing** the inner payload — preserving signature stability across wrapper schema bumps.
+
+**format_version semantics**:
+- v1 = legacy M21.5 unsigned format (no signature; load_snapshot returns Ok(None) to force full DAG replay).
+- v2 = current M25.0 signed format (canonical).
+- v3+ = future upgrades; the wrapper schema may change but the bare-payload signature semantics stay stable.
+
+### §6.3 Verification protocol (boot path)
+
+The booting substrate performs three sequential checks before accepting a snapshot.cb as a state seed:
+
+1. **Format check**: wrapper decodes as Map with `format_version == 2`. Failure → return Ok(None), fall back to full DAG replay.
+2. **Signer-pubkey identity check**: the wrapper's `signer_pubkey` MUST match the substrate's own derived pubkey (from `substrate_signing_key.cb` per §7). Failure → emit `C38_snapshot_integrity_violation` immune sporocarp with witness `(observed_signer_pubkey, expected_signer_pubkey, snapshot_canonical_bytes_hash)`; discard snapshot; full DAG replay.
+3. **Signature verification check**: `verify_signature(signer_pubkey, signature, payload) == OK`. Failure → emit `C38_snapshot_integrity_violation` with witness `(signature, payload_hash, signer_pubkey, verification_error)`; discard snapshot; full DAG replay.
+
+**C38_snapshot_integrity_violation** is a new L1_HARD_RULES catalog row (CRITICAL grade — the substrate cannot proceed under boot-time forgery; quarantine routes through L1_CONTINUITY §5.1 if both snapshot AND DAG replay fail).
+
+### §6.4 Cross-substrate forgery defense (M25.0 explicit)
+
+The signer-pubkey identity check (§6.3 step 2) defends specifically against **cross-substrate forgery**: copying substrate A's snapshot.cb into substrate B's state_dir fails the signer-pubkey check at B's boot. B's own derived pubkey differs from A's, so the substituted snapshot is rejected.
+
+### §6.5 Implementation status
+
+M25.0-shipped (commit `52a4cce`). All format_version=2 snapshot writes use this wrapper; boot verification is wired in `server.rs:540-595`. Cross-ref `myco_substrate/src/persistence.rs::save_snapshot` + `myco_substrate/src/persistence.rs::load_snapshot`.
+
+---
+
+## §7. substrate_signing_key.cb (M25.0-shipped; known M3 entropy gap)
+
+### §7.1 Purpose
+
+A 32-byte Ed25519 seed persisted on first boot at `<state_dir>/substrate_signing_key.cb`. The seed is the substrate's private signing material — used to sign `snapshot.cb` (§6) and (M25.4+) to attest federation peer handshakes.
+
+### §7.2 Generation mechanism
+
+On first boot (no prior `substrate_signing_key.cb` present), the substrate generates a fresh seed via:
+
+```
+seed = sha256(
+  domain = b"myco-substrate-signing-seed-v1"
+  ||  current_unix_ns_le_bytes
+  ||  process_id_le_bytes
+  ||  stack_local_addr_le_bytes
+  ||  generate_substrate_signing_seed_fn_addr_le_bytes
+)
+```
+
+The domain string `"myco-substrate-signing-seed-v1"` is **distinct from** the substrate_id seed generation domain to prevent correlation — a substrate_id leak cannot be used to predict the signing key (per `persistence.rs:902-905` comment).
+
+### §7.3 Known M3 entropy gap (Phase γ.9 mycoparasite finding, DRAFT 9 honest acknowledgment)
+
+**The current generation mechanism is low-entropy**:
+- `current_unix_ns` has ~30 bits of entropy at sub-millisecond resolution.
+- `process_id` has ~16 bits.
+- Stack address randomization (ASLR) contributes ~16-30 bits depending on platform.
+- Function address contributes a similar bit count.
+
+**Total entropy estimate**: ~80-100 bits, well below the 256-bit security level that an Ed25519 seed nominally requires. A sufficiently capable adversary (with knowledge of substrate boot time, host PID, and platform ASLR characteristics) could conceivably narrow the seed search space.
+
+**L1 acknowledged-gap status**: this gap is **explicitly marked at L1** rather than concealed. Per the v0.9 doctrine of declared asymmetries (cross-ref §6 dormancy-host-observability and L0 §9.5), the substrate's L1 spec documents the gap, fruits `signing_key_entropy_known_gap` observability sporocarp at first boot, and commits to closure in **M26.x cascade**.
+
+### §7.4 M26.x closure path (forward commitment)
+
+L4 closure path: replace the sha256-of-low-entropy-mix with **CSPRNG primitive**:
+- POSIX: `getrandom(2)` (Linux + recent BSD) with `GRND_RANDOM` blocking for first 32 bytes.
+- Windows: `BCryptGenRandom` from CNG.
+- Rust: `rand_core::OsRng` (which wraps the platform CSPRNG).
+
+The closure preserves the seed-file format (32 raw bytes) and the file-rest-of-lifetime semantics (load on subsequent boots, never regenerate while the file persists). Only the **first-boot generation** changes; existing substrates retain their original seed across the upgrade.
+
+### §7.5 Cross-ref to C-row catalog
+
+Until M26.x closes, the entropy gap is observability-only (fruits `signing_key_entropy_known_gap` sporocarp). A future C-row catalog row may be added if observable exploitation surfaces.
+
+---
+
+## §8. C-row catalog rows owned by L1_SCHEMA (cross-ref L1_HARD_RULES)
+
+DRAFT 9 cascade catalog rows whose detection site / detection mechanism lives in L1_SCHEMA:
+
+| # | Breach name | Detection site | L0 trace | I trace |
+|---|---|---|---|---|
+| C6 | `dag_enumeration_unclosed` | §2.2 | P6, P3 | I4 |
+| C7 | `dag_retro_edit_detected` | §2.1 + §5.2 (negative-pre-genesis DAG events) | P6 | I4 |
+| C8 | `ssot_migration_phase_skip` | §1.3 | P3 | I3 |
+| C18 | `canonical_bytes_render_drift` | §5 (canonical-bytes spec) | P1.b'' | I2 |
+| C21 | `compression_invariant_corruption` (DRAFT 9 NEW per cascade list) | §2.3 + §4.1 | P10 | I9 |
+| C22 | `compression_uncattested` (DRAFT 9 NEW per cascade list) | §2.3 + P10.c | P10 | I9 |
+| C25 | `budget_exhausted_silent` (DRAFT 9 NEW per cascade list) | §4.1 cost-budget-thresholds tier-1 | P11 | I10 |
+| C47 | `generation_depth_exceeded` (DRAFT 9 NEW per cascade list; substrate-private C30+ namespace) | §3.1 spore-schema generation-depth | P8 | I7 |
+| C36 | `cycle_backlog` | L1_CONTINUITY §1.3 (cross-ref; observability signal #7) | P7, P11 | I10 |
+| C38 | `snapshot_integrity_violation` (DRAFT 9 NEW M25.0) | §6.3 | P1.c, P6 | I1, I4 |
+
+> The L1_HARD_RULES catalog cascade will absorb these rows in the same M26-cascade pass; until then, L1_SCHEMA is the canonical owner.
+
+---
+
+## §9. Open at L1, deferred to L4
 
 Per pass-1 architectural-astronaut: don't over-commit. These are L4 calls informed by first-month metabolism observations:
 
 - Exact hash function within {SHA-256, BLAKE3, SHA-3-256}.
 - Exact storage layout within {file-per-node, log+index, embedded KV}.
-- Exact M for SSoT migration phase-1 within {1000 cycles, 30 days, custom}.
-- Exact backup frequency within the WAL+snapshot pattern.
-- Exact validation window size within {50, 100, 200, custom}.
+- Exact M for SSoT migration phase-1 within [100, 10000] cycles (seed M=100 per §1.3 cascade-explicit).
+- Exact backup frequency within the WAL+snapshot pattern (seed: WAL per cycle, snapshot every 1000 cycles).
+- Exact tier-2 validation window size within [1000, 100000] cycles (seed 10000 per §4.1 cascade-explicit).
+- Exact horizon-warning offset within [10 years, 100 years] (seed 62 years per §5.3 cascade-explicit).
+- M26.x closure mechanism for substrate_signing_key.cb entropy gap (CSPRNG primitive selection per §7.4).
 
 L1_SCHEMA commits to the **shape** of these decisions; L4 picks values based on observed behavior.

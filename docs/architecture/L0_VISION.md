@@ -488,7 +488,7 @@ Operational implications:
 
 ### §7.1 The bet (calibrated)
 
-Myco's symbiotic-organism-like-substrate shape — agent + substrate as **asymmetric pair per P1.c** (substrate-carrier + operator-connection-holder, NOT mutual constitution — DRAFT 9 corrects DRAFT 8 wording inherited at line 339 here), continuously operating, with the fifteen-principle structure — **has cost-justified value within an agent-intelligence band**. The band's lower edge is where naive agent-tools suffice; the band's upper edge is where Sutton's bitter lesson trivializes substrate value.
+Myco's symbiotic-organism-like-substrate shape — agent + substrate as **asymmetric pair per P1.c** (substrate-carrier + operator-connection-holder, NOT mutual constitution — DRAFT 9 corrects DRAFT 8 wording), continuously operating, with the twelve-principle structure (post-G-9.b retraction; P10/P11/P14 at L0; P12/P13/P15 at L1/L2) — **has cost-justified value within an agent-intelligence band**. The band's lower edge is where naive agent-tools suffice; the band's upper edge is where Sutton's bitter lesson trivializes substrate value.
 
 **Cost-justified value** (DRAFT 9 new framing): the bet is true iff (a) substrate value exists AND (b) substrate engineering cost (anchor surface + dual-clock + Merkle DAG + Ed25519 + canonical-bytes + cross-language byte parity + selective-compression discipline + ...) is **less than** the value delta over no-substrate operation. DRAFT 8 conflated (a) with (b); DRAFT 9 separates them.
 
