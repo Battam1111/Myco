@@ -6,7 +6,7 @@
 
 ## §0. Charter
 
-L3 maps L1 mechanisms + L2 themes to code modules. **Commits**: module boundaries, acyclic dependency direction, build order, test discipline, file layout shape. **Does NOT commit**: language(s), framework/library, build tooling, naming conventions — all L4.
+L3 maps L1 mechanisms + L2 themes to code modules. Commits: module boundaries + acyclic dependency direction + build order + test discipline + file layout shape. Does NOT commit: language(s) / framework / build tooling / naming — all L4.
 
 ---
 
@@ -21,7 +21,7 @@ L3 maps L1 mechanisms + L2 themes to code modules. **Commits**: module boundarie
 
 ## §2. Module-boundary principles
 
-7 L1 mechanism docs → 7 substrate code modules; plus 1 shared crypto/canonical-bytes module; plus owner-side `anchor_client` and per-LLM-host `operator_runtime` (out-of-band).
+7 L1 mechanism docs → 7 substrate code modules; +1 shared crypto/canonical-bytes module; +owner-side `anchor_client` + per-LLM-host `operator_runtime` (out-of-band).
 
 ### §2.1 Substrate-side
 
@@ -48,41 +48,28 @@ L3 maps L1 mechanisms + L2 themes to code modules. **Commits**: module boundarie
 ## §3. Dependency direction (acyclic DAG)
 
 ```
-kernel/hard_rules    ← cross-cuts everything (citation only; no runtime dep from rules to mechanisms)
-       ↓ (declarative)
-kernel/skin   ← depends on kernel/shared
-       ↓
-kernel/governance ← depends on kernel/skin (attestation requests) + kernel/schema
-       ↓
-kernel/schema ← depends on kernel/shared
-       ↓
-kernel/continuity ← depends on kernel/schema + kernel/skin
-       ↓
-kernel/tropism ← depends on kernel/schema + kernel/continuity
-       ↓
-kernel/trajectory ← depends on kernel/schema + kernel/tropism (consumes sporocarps from tropism's DAG)
+kernel/hard_rules     ← cross-cuts (citation only; emission observation)
+kernel/skin           ← kernel/shared
+kernel/governance     ← kernel/skin + kernel/schema
+kernel/schema         ← kernel/shared
+kernel/continuity     ← kernel/schema + kernel/skin
+kernel/tropism        ← kernel/schema + kernel/continuity
+kernel/trajectory     ← kernel/schema + kernel/tropism
 ```
 
-Acyclic. Higher cannot import lower. Cyclic dependency in L4 → L3 module-boundary revision (CI-level per L0 §10.2). `kernel/hard_rules` cites every module's CRITICAL surfaces but does NOT compile-time import — runtime observation reading other modules' emission streams.
+Acyclic; higher cannot import lower. L4 cyclic dependency → L3 module-boundary revision (CI per L0 §10.2). `kernel/hard_rules` cites every module's CRITICAL surfaces but does NOT compile-time import.
 
 ---
 
 ## §4. Build order
 
-`shared` → `skin` + `schema` (parallel) → `governance` (skin+schema) + `continuity` (skin+schema) → `tropism` (schema+continuity) → `trajectory` (schema+tropism) → `hard_rules` (citation-only over all, drafts last).
-
-Parallel tracks: `anchor_client` and `operator_runtime` both depend only on `kernel/shared` serializer spec; built independently of substrate-kernel once shared is stable.
+`shared` → `skin` + `schema` (parallel) → `governance` (skin+schema) + `continuity` (skin+schema) → `tropism` (schema+continuity) → `trajectory` (schema+tropism) → `hard_rules` (citation-only over all). Parallel: `anchor_client` + `operator_runtime` depend only on `kernel/shared` serializer spec; built independently once shared stable.
 
 ---
 
 ## §5. Test discipline
 
-- **Tier 1 (unit)** — per-module.
-- **Tier 2 (integration)** — cross-module.
-- **Tier 3 (substrate e2e)** — full lifecycle; L0 invariants + L1_HARD_RULES C-row breach detection.
-- **Tier 4 (adversarial)** — red-team.
-
-Per-module test surfaces in L3_PACKAGE_MAP §§2-11 (each §X.3). L4 picks frameworks per module language.
+T1 (unit) per-module; T2 (integration) cross-module; T3 (substrate e2e) full lifecycle, L0 invariants + L1_HARD_RULES C-row breach; T4 (adversarial) red-team. Per-module surfaces in L3_PACKAGE_MAP §§2-11 (each §X.3); L4 picks frameworks per module language.
 
 ---
 
