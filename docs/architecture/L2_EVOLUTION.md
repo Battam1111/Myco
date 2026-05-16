@@ -1,8 +1,7 @@
 # L2 — Evolution Doctrine
 
-> **Status**: DRAFT 1 (2026-05-13). Cross-cut doctrine theme.
-> **Layer**: L2.
-> **Scope**: substrate-self-evolution discipline. Cross-cuts L0 P3 / P3.b joint-context evolution + lexicon evolution + L1_GOVERNANCE §1.3 birth-period CI elevation / §6 failed-evolution rollback + L1_SCHEMA §1.3 SSoT migration two-phase + §4.2 tier promotion/demotion + L1_TROPISM §B1 template versioning + L1_TRAJECTORY §5 schema-evolution epochs + L0 §9.4 L0-revision burst-detection. Answers: how does v0.9 evolve its own shape over decades without violating invariants?
+> **Status**: DRAFT 2 (2026-05-17, M27 CA5 cleanup). Cross-cut doctrine theme.
+> **Scope**: substrate-self-evolution discipline. Cross-cuts L0 P3 + L1_GOVERNANCE §1.3 / §6 + L1_SCHEMA §1.3 / §4.2 + L1_TROPISM §B1 + L1_TRAJECTORY §5 + L0 §10.2 doctrine-revision protocol.
 
 ---
 
@@ -44,27 +43,14 @@ Every state-claim against SSoT must be verifiable. Evolution that changes SSoT m
 
 ### §3.1 Doctrine evolution (L0 / L1 revision)
 
-**Slowest**. Owner-attested per L0 §10.2 protocol. L0 revision diffs are verbatim against prior L0 commit hash; owner reviews canonical bytes at anchor surface (not substrate-supplied summary).
-
-Burst-detection per L0 §9.4: ≥L1-tunable rate of L0/L1 revisions over rolling window emits `doctrine_instability` immune event. Owner reviews whether revisions are doctrine-driven (continue) or implementation-driven (rollback). Rolling rate over 12 months above threshold marks `doctrine_drift_grade`.
-
-**L0 revisions should be rare post-seal.** L1 revisions may be more frequent (L1 is closer to mechanism); L1_OUTLINE §4.3 acknowledges higher tolerance.
+Cross-ref L0 §10.2 (revision protocol) + L1_OUTLINE §4 item 3 (L1-vs-L0 burst-tolerance asymmetry). Doctrine evolution is the slowest tier; Cultivator-attested; L0 revision diffs verbatim against prior L0 commit hash; burst-detection per L0 §9.4 emits `doctrine_instability` immune event.
 
 ### §3.2 Schema evolution (SSoT, dispatch params)
 
 **Medium-paced**. CI-attested per L1_GOVERNANCE §2.2.
 
-For SSoT migration (L1_SCHEMA §1.3):
-1. New candidate SSoT designation co-exists with current for ≥M cycles (default 1000 cycles or 30 days, whichever longer).
-2. Substrate runs dual-validation every cycle. Mismatch → abort.
-3. Owner co-signs migration via anchor surface.
-4. Old SSoT retained per I4 (cold-tier-eligible).
-
-For dispatch-parameter evolution (appetite-axis schema, sporocarp-type tree, classifier table, lexicon):
-1. CI proposal lands at anchor surface per L1_GOVERNANCE §2.2.
-2. Owner reviews canonical bytes; signs.
-3. Substrate applies in next cycle.
-4. If next cycle's I3 fails → rollback per §2.2.
+- **SSoT migration two-phase commit**: L1_SCHEMA §1.3 (candidate ≥M cycles co-exist; dual-validation each cycle; mismatch → abort; Cultivator co-signs; old SSoT cold-tier-retained per I4).
+- **Dispatch-parameter evolution** (appetite-axis schema, sporocarp-type tree, classifier table, lexicon): standard L1_GOVERNANCE §2.2 CI protocol; rollback on I3 failure per §2.2.
 
 ### §3.3 Daily evolution (steady-state thresholds)
 
@@ -79,26 +65,16 @@ Constraints:
 
 ## §4. Versioning everything that evolves
 
-### §4.1 Why versioning
+**Why versioning**: without versions, evolved state cannot reference historical state. v0.9's discipline: every evolvable state has explicit versions; historical state validates against its own version.
 
-Without versions, evolved state cannot reference historical state. Validating a year-old sporocarp under the current schema fails if the schema evolved meanwhile. v0.9's discipline: every evolvable state has explicit versions; historical state validates against its own version.
+**What carries versions** (full mechanism specs in cited L1 docs):
+- **SSoT designation** — L1_SCHEMA §1.3 (migration; I4 archival).
+- **causal_proof_template** — L1_TROPISM §B1 (`template_version_registry`).
+- **Cluster_C** — L1_TRAJECTORY §4 (CI event creating new trajectory epoch).
+- **Owner-key history** — L1_GOVERNANCE §3.1 (active-prefix + archived-tail).
+- **Signature suite** — L1_GOVERNANCE §3.1 same pattern.
 
-### §4.2 What carries versions
-
-- **SSoT designation**: each designation is a contract-identity-level object; migration transitions update the active designation; prior designations are archived per I4.
-- **causal_proof_template** (L1_TROPISM §B1): each template carries `template_version`. Sporocarps record version under which proof was computed; I3 validates against that version, not the current. `template_version_registry` (CI-level field, active-prefix + archived-tail discipline) lists historical templates.
-- **Cluster_C** (L1_TRAJECTORY §4): substrate-resident clustering algorithm. Each change is a CI event creating a new trajectory epoch.
-- **Owner key history** (L0 I1 + L1_GOVERNANCE §3.1): chronological list of `(public_key_n, valid_from, valid_until, rotation_attestation)` with active-prefix + archived-tail.
-- **Signature suite**: same pattern as owner keys; historical signatures verify under the suite valid at the time.
-
-### §4.3 Active-prefix + archived-tail discipline
-
-Per L1_GOVERNANCE §3.1, applied to all monotone tier-1 fields (closes pass-3 saprotroph-1 unbounded growth):
-
-- **Active prefix**: most-recent K entries + currently-valid entries. Participates in per-cycle tier-1 I3 validation. O(K) cost.
-- **Archived tail**: older entries. Stored cold-tier-eligible (per L1_SCHEMA §2.3). Validated at deep-cycle scope via Merkle anchor over the full chain.
-
-This keeps tier-1 per-cycle cost O(K) regardless of substrate age.
+**Active-prefix + archived-tail discipline**: full spec L1_GOVERNANCE §3.1; applied to all monotone tier-1 fields; keeps per-cycle tier-1 cost O(K) regardless of substrate age (closes pass-3 saprotroph-1 unbounded growth).
 
 ---
 
@@ -114,63 +90,29 @@ Implication: trajectory becomes "natively scoped" to the current schema epoch. L
 
 ## §6. Lexicon evolution
 
-Per L0 P3 lexicon-evolution clause + L0 §5.1:
+**Mechanism**: L0 P3 lexicon-evolution clause + L0 §5.1 (mycology-literature attestation requirement; deprecation marks `terminal`; historical sporocarps retain old term per I4; cross-epoch translation deferred to L4).
 
-**Adding a term**:
-- Requires mycology-literature attestation (the new term describes a real fungal phenomenon)
-- CI event; owner co-signs at anchor surface
-- New term lands in lexicon registry
-
-**Deprecating a term**:
-- Marks term `terminal` — no new sporocarps use it
-- Historical sporocarps with the deprecated term retain it per I4 (no retroactive edits)
-- Cross-epoch translation tables (deferred to L4) MAY map deprecated → current within strict-mycology constraint
-
-**Why lexicon is CI**: vocabulary shifts cascade through all sporocarps emitted under it. Silent vocabulary drift would break I3 (claims under new vocabulary not validatable against historical sporocarps under old vocabulary).
+**Why CI**: vocabulary shifts cascade through all sporocarps emitted under it. Silent vocabulary drift would break I3.
 
 ---
 
 ## §7. Birth-period evolution discipline
 
-Per L2_LIFECYCLE §3 + L1_GOVERNANCE §1.3: during birth period, ALL parameter-tuning events are CI-level regardless of steady-state classification.
-
-This means during birth:
-- Threshold seed adjustments → CI
-- Lexicon additions → CI (same as steady state)
-- Schema tweaks → CI
-- Appetite-axis additions → CI
-
-The CI elevation is intentional: owner attention is concentrated when the substrate is most vulnerable to silent bad-tuning. Birth-period maximum duration (default 180 active-operation days) prevents indefinite CI-elevation as an attention-exhaustion attack vector.
-
-After birth-period termination, most parameter-tuning relaxes to daily-autonomous per the classifier dimension table.
+**Mechanism**: L1_GOVERNANCE §1.3 (during birth, ALL parameter-tuning elevates to CI; max-duration 180 days prevents attention-exhaustion attack). Cross-cut: L2_LIFECYCLE §3.
 
 ---
 
 ## §8. Evolution observability
 
-The Living Bets observatory (L0 §7) tracks evolution-rate as signal #2. Healthy v0.9 substrates evolve continuously (P3); zero evolution rate is a stagnation signal (Living Bets weak). Excessive evolution rate triggers `doctrine_instability` (per L0 §9.4).
-
-The substrate's evolution-rate baseline is itself emergent from historical metrics per C6.4. Pathological patterns (e.g., L0 revisions spiking during owner-unavailability) are immune-detectable.
+Cross-ref L2_OBSERVABILITY §2.1 (signal #2 evolution-rate; zero rate = stagnation, P3 weak; excessive rate = `doctrine_instability` per L0 §9.4) + §8 (doctrine-instability burst detector).
 
 ---
 
 ## §9. Evolution failure modes
 
-### §9.1 Failed schema migration
+**Rollback procedure**: L1_GOVERNANCE §6.2 (failed schema migration / failed template evolution / failed lexicon mutation all share the same rollback shape — pre-evolution snapshot restored; pending sporocarps in rolled-back window dropped; sporocarps emitted under failed template marked `failed_template_emission`).
 
-Per L1_GOVERNANCE §6.2 rollback procedure. Pre-evolution snapshot is restored; pending sporocarps fruited within rolled-back window are dropped.
-
-### §9.2 Failed template evolution
-
-Same pattern: rollback to prior template_version. Sporocarps emitted under the failed version are marked `failed_template_emission`; they retain their causal_in_edges but I3 validation under the rollback template will likely fail them, routing through standard quarantine entry per L1_CONTINUITY §5.1.
-
-### §9.3 Failed lexicon mutation
-
-Lexicon additions that pass owner attestation but produce I3 failures in subsequent cycles trigger standard rollback. Deprecations should not produce I3 failures (deprecated terms in historical sporocarps remain valid via I4 retention).
-
-### §9.4 Persistent evolution failure pattern
-
-If repeated evolutions fail (≥3 consecutive within L1-tunable window), substrate enters standard quarantine per L1_CONTINUITY §5.1. No separate `evolution_quarantine` sub-state (cut per pass-2 astronaut-7).
+**Persistent failure pattern**: ≥3 consecutive failed evolutions within L1-tunable window → substrate enters standard quarantine per L1_CONTINUITY §5.1. No separate `evolution_quarantine` sub-state.
 
 ---
 
@@ -191,7 +133,7 @@ Active-prefix + archived-tail discipline ensures monotone tier-1 fields don't im
 ## §11. Open at L2
 
 - **L0 / L1 archive discipline**: how is the full history of L0/L1 revisions persisted for cold-read by future agents at year-30? Current commits-as-archaeology pattern is adequate; possibly worth substrate-side mirroring of doctrine git-blobs for offline access.
-- **Cross-epoch trajectory translation format**: deferred to L4 per L1_TRAJECTORY §5; expected to emerge from first multi-epoch concrete need.
-- **Suite-break vs suite-deprecation** (per pass-2 saprotroph-5): cryptographic-suite rotation when current suite is broken (not just deprecated) needs historical re-anchoring. L1_GOVERNANCE §3.1 says "same pattern as key rotation" but operationalization is L4.
-- **Decade-scale archived-tail validation cost** (per L2 pass-1 saprotroph-1): active-prefix + archived-tail discipline keeps per-cycle tier-1 cost O(K). But deep-cycle Merkle-anchor validation over the FULL archived chain grows with substrate age. At year-30 with 100+ owner-key rotations + 100+ template versions + N-thousand federation peer-set commitments, deep-cycle validation cost may exceed deep-cycle budget. **Open**: does archived-tail need PERIODIC RE-ANCHORING (e.g., every 5 years, owner co-signs the full archived-tail Merkle root, making historical validation cost O(re-anchor-count) rather than O(history))? L4 confirms shape.
-- **Federation historical re-anchoring** (per L2 pass-1 saprotroph-2): 20+-year-old federation_coupling sporocarps reference aggregate-reattestation roots from epochs where signature suites may be deprecated. Cross-cut with suite-migration: a federation event from year-3 signed under SHA-256 must remain verifiable at year-25 when SHA-256 is broken. Possible mechanism: at suite rotation, owner co-signs a `federation_historical_reanchor` event re-asserting historical federation_coupling validity under the new suite. L4 codifies.
+- **Cross-epoch trajectory translation format**: deferred to L4 per L1_TRAJECTORY §5.
+- **Suite-break vs suite-deprecation**: cryptographic-suite rotation when current suite is broken (not just deprecated) needs historical re-anchoring. L1_GOVERNANCE §3.1 says "same pattern as key rotation" but operationalization is L4.
+- **Decade-scale archived-tail validation cost**: active-prefix + archived-tail discipline keeps per-cycle tier-1 cost O(K), but deep-cycle Merkle-anchor validation over the FULL archived chain grows with substrate age. **Open**: does archived-tail need PERIODIC RE-ANCHORING (e.g., every 5 years, Cultivator co-signs full archived-tail Merkle root)? L4 confirms.
+- **Federation historical re-anchoring**: 20+-year-old `federation_coupling` sporocarps reference aggregate-reattestation roots from epochs where signature suites may be deprecated. Possible mechanism: at suite rotation, Cultivator co-signs a `federation_historical_reanchor` event. L4 codifies.

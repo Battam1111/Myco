@@ -1,10 +1,8 @@
 # L1 — Hard Rules (cross-cuts index)
 
-> **Status**: DRAFT 2 (2026-05-17, M26-cascade A6). Cross-cuts index for the 6 mechanism L1 docs + DRAFT 9 SEALED L0 additions. NOT a v0.8 R1-R7 grammatical inheritance — it is a normative enumeration of CRITICAL-grade breach surfaces + contract-identity-level fixed points, drawn from the 6 mechanism docs + L0 DRAFT 9 SEALED as a single source of truth for L4 immune-system construction.
-> **Layer**: L1. Governed by L0 DRAFT 9 SEALED.
-> **Scope**: indexes (does not duplicate) the enforcement targets across L1_SKIN, L1_CONTINUITY, L1_GOVERNANCE, L1_SCHEMA, L1_TROPISM, L1_TRAJECTORY. When L4 implements the immune system, this doc is the enumeration of "what to detect" — CRITICAL breaches that auto-quarantine + CI fixed-points that owner-attestation is unconditionally required for.
-> **L0 traceability** (per C7.3 v0.8-origin discrimination — this doc traces independently to L0): every row in §1 and §2 below cites at least one P (P1-P11, P14 — twelve-principle DRAFT 9 SEALED set; P12/P13 retracted to L1_TROPISM/L1_SKIN per G-9.b; P15 retracted to L2_FEDERATION) AND one I (I1-I10, I12 — eleven-invariant DRAFT 9 SEALED set; I11 retracted to L1_TROPISM) it enforces. The G-rules grammar of v0.8 is NOT inherited; the index pattern is independently derived from L0's invariants.
-> **DRAFT 2 additions** (M26-cascade A6, 2026-05-17): C36-C45 substrate-private + DRAFT 9 SEALED catalog additions; F18-F24 new F-rows; Status column added for C1-C20; Cultivation vocabulary integrated.
+> **Status**: DRAFT 2 (M26-cascade A6). Cross-cuts index for the 6 mechanism L1 docs + DRAFT 9 SEALED L0 additions. Normative enumeration of CRITICAL-grade breach surfaces + contract-identity-level fixed points, drawn from the 6 mechanism docs + L0 DRAFT 9 SEALED as a single source of truth for L4 immune-system construction.
+> **Layer**: L1. Governed by L0 DRAFT 9 SEALED. **Scope**: indexes (does not duplicate) the enforcement targets across L1_SKIN, L1_CONTINUITY, L1_GOVERNANCE, L1_SCHEMA, L1_TROPISM, L1_TRAJECTORY.
+> **L0 traceability**: every row in §1 and §2 cites ≥1 P (P1-P11, P14; P12/P13/P15 retracted per G-9.b) AND ≥1 I (I1-I10, I12; I11 retracted) it enforces.
 
 ---
 
@@ -32,7 +30,7 @@ Status column key:
 | C9 | `cold_resume_invariant_failure` | L1_CONTINUITY §3.1 | Any of I1/I3/I4/I5/I8 pre-handshake check fails (witnesses fail re-derivation at anchor-surface verifier); per DRAFT 9 SEALED also include I9 compression-invariant + I10 cost-budget state check | P1.c, P3, P9 | I3, I4, I5, I8, **I9, I10** | **L** (emitted; I9/I10 wiring deferred to M27+) |
 | C10 | `agent_discriminating_attribute_persisted` | L1_SCHEMA §3.1 + L1_SKIN §4.2 | Persistent storage of model-name / API-fingerprint / host-fingerprint / deterministic-operator-token | P1.c | I1 | **U** |
 | C11 | `concurrent_operator_persistent` | L1_SKIN §4.4 | Two operator-tokens simultaneously valid for the same substrate beyond the strict-FIFO handshake serialization window | P1.c | I8 | **U** |
-| C12 | `successor_activation_with_fresh_owner_heartbeat` | L1_GOVERNANCE §3.2 | Successor `successor_activation` event fires while owner liveness heartbeat is fresh at anchor surface (per L0 §15 succession protocol + §9.2.7 heartbeat) | P1.b'' | I1, I2 | **R** (C31 occupied this slot pre-M24.1; reserved for M27+ owner-succession FSM) |
+| C12 | `successor_activation_with_fresh_owner_heartbeat` | L1_GOVERNANCE §3.2 | Successor `successor_activation` event fires while owner liveness heartbeat is fresh at anchor surface (per L0 §15 succession protocol + §9.2.7 heartbeat) | P1.b'' | I1, I2 | **R** (C31 occupied this slot pre-M24.1; succession FSM landed in L1_GOVERNANCE §3.2; reserved-for-anchor-availability per M-anchor-3 heartbeat services) |
 | C13 | `peer_attestation_revoked_egress` | L1_GOVERNANCE §5 + L1_SKIN §3.1 | Federation envelope emitted to a peer whose attestation appears on anchor-surface revocation list | P8 | I7 | **U** |
 | C14 | `untyped_mutation` | L1_GOVERNANCE §1.1 | Mutation envelope cannot be classified by the I2 classifier function (returns `untyped`) | P1.b'/P1.b'' | I2 | **L** (emitted as `untyped_mutation_blocked`) |
 | C15 | `classifier_fixed_point_bypass` | L1_GOVERNANCE §1.2 | Attempt to mutate classifier dimension table or classifier function via non-CI path | P1.b'' | I2 | **U** |
@@ -42,9 +40,9 @@ Status column key:
 | C19 | `paused_dormancy_unsafe_host` | L1_CONTINUITY §2.4 + §3.2 | Substrate process terminated (not suspended) during paused dormancy; routes through cold-resume quarantine | P7, P1.c | I1 | **R** (C32 occupied this slot pre-M24.1) |
 | C20 | `genesis_attestation_chain_broken` | L1_GOVERNANCE §4.1 + L0 §9.2.1 | Substrate-ID's birth attestation signature does not verify against anchor-surface birth attestation record | P1.a | I1 | **R** (C33 occupied this slot pre-M24.1; reserved for M-anchor-2 substrate-ID birth attestation) |
 
-**Each L1 catalog CRITICAL row above is INDEPENDENT** — none can be silently downgraded to elevated/daily by any L1 mutation (per §1's L0 trace and classifier-fixed-point in I2).
+**Each L1 catalog CRITICAL row is INDEPENDENT** — none can be silently downgraded to elevated/daily by any L1 mutation (per L0 trace + classifier-fixed-point in I2).
 
-**Coverage as of 2026-05-17 (M26-cascade A6)**: 7 of 20 L1-catalog C-rows are EMITTED with matching labels (C5, C6, C7, C9, C14, C17, C18). 13 are unimplemented (U) or label-reserved post-M24.1 namespace cleanup (R). Closing the unimplemented set is **M27+ work** (depends on importing stranded `kernel/skin`, `kernel/continuity::DormancyMachine`, and `kernel/governance::classifier` libraries — see M24 snapshot).
+**Coverage**: 7 of 20 L1-catalog C-rows are EMITTED with matching labels (C5, C6, C7, C9, C14, C17, C18). 13 are unimplemented (U) or label-reserved post-M24.1 namespace cleanup (R). Closing the unimplemented set is **M27+ work** (depends on importing stranded `kernel/skin`, `kernel/continuity::DormancyMachine` libraries — see M24 snapshot).
 
 ### §1.2 Substrate-private catalog rows (C30+)
 
@@ -72,8 +70,13 @@ Per `myco_substrate/src/events.rs` M24.1 namespace doctrine: detectors needed fo
 | **C47** | `generation_depth_exceeded` | L1_GOVERNANCE §16.A + L1_SCHEMA §3.1 | A `sprout_child` attempt where parent's `reproduction_lineage_depth` ≥ L1-tunable maximum (default 10) AND no Cultivator-attested `depth_override` at the anchor surface | P8 | I7 | **U** (DRAFT 9 cascade addition per L0 §16 → L1_GOVERNANCE §16 cascade; depends on M27 implementation) |
 | **C48** | `reproduction_rate_exceeded` | L1_GOVERNANCE §16.B | A `sprout_child` attempt within `reproduction_rate` window (default: 1 sprout per 24h anchor-clock); attacker-driven forkbomb pattern | P8 | I7 | **U** (DRAFT 9 cascade addition per L0 §16 → L1_GOVERNANCE §16 cascade; depends on M27 implementation + M-anchor-3 anchor-clock services) |
 | **C49** | `consensus_floor_bypass` | L2_FEDERATION §6.5 | Population-level claim (peer revocation, universal-junk classification, aggregate observability) accepted by substrate WITHOUT going through ≥3-peer Byzantine consensus protocol (per L2_FEDERATION §6.5.a-c) | P8, P15 | I7 | **U** (DRAFT 9 cascade addition per G-7.c P15 retraction to L2_FEDERATION; depends on M27 + future L2_FEDERATION Tendermint-style PBFT implementation) |
+| **C50** | `coerced_owner_suspected` | L2_TRUST_MODEL §10.A.2 | Adversarial-Cultivator detection — suspected coercion via observability heuristics (signature velocity, anomalous CI-burst, duress-keypair use) per L2_TRUST_MODEL §10.A.2 | P1.b'' | I1, I2 | **U** (M26-cascade addition; depends on L2_TRUST_MODEL detection wiring) |
+| **C51** | `compression_invariant_corruption` | L1_SCHEMA §2.5 retention | Compression event violates the compression-invariant set per L0 P10.b (substrate-ID, owner_key_history, CI events, mortality signals, federation pins, most-recent-N cycles full DAG, F24 substrate signing key seed) | P10 | I9 | **U** (DRAFT 9 cascade addition) |
+| **C52** | `compression_uncattested` | L1_SCHEMA §2.5 + P10.c attestation gate | Compression event fires without owner attestation per L0 §2.3 P10.c CI-attestation requirement | P10 | I9 | **U** (DRAFT 9 cascade addition) |
+| **C53** | `budget_exhausted_silent` | L1_SCHEMA §4.1 cost-budget thresholds tier-1 | Cost-budget threshold per axis (persistence / compute / network) reached without substrate emitting `budget_exhausted:{axis}` immune signal per P11.c clause 1 ordered fallback | P11 | I10 | **U** (DRAFT 9 cascade addition) |
+| **C54** | *(reserved for L1_TROPISM C23/C24 promotion if needed)* | — | — | — | — | **R** (reserved; cascade alignment with L1_TROPISM's C23 `salience_collapse` / C24 `telos_drift_critical` pending) |
 
-**Coverage as of 2026-05-17 (M26-cascade A6 + reconciliation)**: C30-C40 emit (11 substrate-private detectors shipped). C41-C49 are Phase γ.9 mycoparasite findings + DRAFT 9 cascade additions, all DEFERRED to M28-cascade / M-anchor / M27 milestones — they are doctrinally enumerated here so that future implementation has a stable label namespace.
+**Coverage**: C30-C40 emit (11 substrate-private detectors shipped). C41-C49 are Phase γ.9 mycoparasite findings + DRAFT 9 cascade additions, all DEFERRED to M28-cascade / M-anchor / M27 milestones. C50-C53 are M26-cascade renumberings of detectors previously misclassified into the L1-reserved C21-C29 range. C54 reserved for L1_TROPISM cascade alignment. All are doctrinally enumerated here so that future implementation has a stable label namespace.
 
 ### §1.3 Mortality- and bet-related additional sporocarps (cross-ref §1 of catalog)
 
@@ -107,13 +110,14 @@ These are L0-doctrinal fixed-points whose CI-level status is unconditional, NOT 
 | F15 | `template_version_registry` (active-prefix + archived-tail; L1_TROPISM §B1) | L1_TROPISM §B1, L1_GOVERNANCE §1.2 | P3, P6 | I2, I4 |
 | F16 | `canonical_bytes_serializer_spec` (spore-inheritable, tier-1 SSoT, pure declarative) | L1_SCHEMA §3.1, §4.1 | P1.c, P6 | I1, I3, I4 |
 | F17 | `cluster_C` (L1_TRAJECTORY clustering algorithm) | L1_TRAJECTORY §4 | P6 | I4 |
-| **F18** | **Selective compression rule set** (per L0 P10.c; compression-rule registry is spore-inheritable; each rule is CI-attested per L0 P10.c with witness emission; rules generate compression events that produce `compression_event` sporocarp witnesses per I9) | L0 P10 + I9 (DRAFT 9 SEALED), L1_SCHEMA §2.5 + §3.1, **L1_GOVERNANCE §1.2 (A5 primary spec)** | P10 | I9 |
-| **F19** | **Metabolic cost budgets** (per L0 P11.a abstract cost units + P11.b cost-budget signals + P11.c ordered fallback; L1-budgeted thresholds for persistence cost, compute cost, network cost; mutation of budget threshold = CI; tier-1 SSoT field per L1_SCHEMA §4) | L0 P11 + I10 (DRAFT 9 SEALED), L1_SCHEMA §4, L1_CONTINUITY §1.2, **L1_GOVERNANCE §1.2 (A5 primary spec)** | P11 | I10 |
-| **F20** | **Telos-alignment metric** (per L0 P14.a substrate-internal purpose + P14.c drift detection; M26-cascade forcing function — L1_TROPISM operationalizes the metric; the **metric specification itself** is CI; substrate cannot tune the metric to suppress drift signals; owner-stated objectives per P14.b are also CI-attested when present) | L0 P14 + I12 (DRAFT 9 SEALED), **L1_TROPISM §B-telos (A1 primary spec)**, L1_GOVERNANCE §1.2 | P14 | I12 |
-| **F21** | **Cultivation successor_chain registry** (per L0 §15.1 succession states + §1.4 Cultivation transferability; successor_chain is anchor-resident at §9.2.7 owner-liveness-heartbeat layer; successor attestations + revocations + activation events live there; per G-11.a the Cultivator-side of the Cultivation relationship is what changes across succession, not the Cultivar's substrate-ID) | L0 §15 (DRAFT 9 SEALED), **L1_GOVERNANCE §3.2 (A5 primary spec)** | P1.b'', P7 | I1 |
-| **F22** | **Reproduction generation discipline** (per L0 §16.1 generation-depth bound + §16.2 reproduction rate + §16.3 per-parent quota; spore-schema MUST carry `(generation_depth, max_remaining_depth)` field; bounds are CI-attested; override is anchor-attested CI mutation; seed values from DRAFT 9 PROPOSAL: depth=10, rate=24h, quota=100) | L0 P8 (Generation-Bounded) + §16 (DRAFT 9 SEALED), **L1_GOVERNANCE §4.3 (A5 primary spec)**, L1_SCHEMA §3.1 | P8 | I7 |
-| **F23** | **Duress_keypair registration** (per L0 §14.1 adversarial-owner threat model + §14.2 substrate's irreducible commitments; owner registers a duress keypair at genesis whose use triggers structural responses without alerting the coercer — substrate emits silent observability events recording duress signature; the duress keypair list + its trigger rules are CI-attested; cannot be silently revoked) | L0 §14 (DRAFT 9 SEALED), **L2_TRUST_MODEL §X (A5 primary spec)**, L1_GOVERNANCE §3.1 | P1.b'' | I1, I2 |
-| **F24** | **Substrate-private signing keypair seed** (per Phase γ.9 mycoparasite M3 finding + L0 §9.2.1 substrate-ID birth attestation; the seed material for substrate's own signing keypair — used for snapshot.cb signatures, federation HELLO signatures, etc. — must be CI-attested at genesis with owner co-attestation over the keypair fingerprint; substrate cannot silently rotate this keypair without re-attestation; per L0 P10.b also part of compression-invariant set) | L0 §9.2.1 + P1.c + Phase γ.9 finding (DRAFT 9 SEALED), **L1_GOVERNANCE §4.1 (A5 primary spec)**, L1_SCHEMA §4 tier-1 | P1.a, P1.c | I1 |
+| **F18** | Selective compression rule set (full spec: L1_GOVERNANCE §15.F18) | L1_GOVERNANCE §15.F18 | P10 | I9 |
+| **F19** | Metabolic cost budgets (full spec: L1_GOVERNANCE §15.F19) | L1_GOVERNANCE §15.F19 | P11 | I10 |
+| **F20** | Telos-alignment metric (full spec: L1_TROPISM §F operational + L1_GOVERNANCE §15.F20 identity) | L1_TROPISM §F + L1_GOVERNANCE §15.F20 | P14 | I12 |
+| **F21** | Cultivation successor_chain registry (full spec: L1_GOVERNANCE §3.2 + §15.F21) | L1_GOVERNANCE §3.2 + §15.F21 | P1.b'', P7 | I1 |
+| **F22** | Reproduction generation discipline (full spec: L1_GOVERNANCE §4.3 + §15.F22 + §16) | L1_GOVERNANCE §4.3 + §15.F22 + §16 | P8 | I7 |
+| **F23** | Duress_keypair registration (full spec: L2_TRUST_MODEL §10 + L1_GOVERNANCE §15.F23) | L2_TRUST_MODEL §10 + L1_GOVERNANCE §15.F23 | P1.b'' adversarial | I1, I2 |
+| **F24** | Substrate-private signing keypair seed (full spec: L1_GOVERNANCE §15.F24) | L1_GOVERNANCE §15.F24 | P1.c, P6 | I1, I4 |
+| **F25** | Salience-emergence rule (full spec: L1_TROPISM §E.4 + L1_GOVERNANCE §15.F25) | L1_TROPISM §E.4 + L1_GOVERNANCE §15.F25 | P12 (retracted to L1) | I2 |
 
 **Mutation of any F-row requires anchor-surface owner attestation** with all the protocol elements from L1_GOVERNANCE §2.2 (canonical bytes + operator_witness + anchor-side nonce + dual-clock + DAG-enumeration closure check). Per DRAFT 9 SEALED §9.2.5, nonces are anchor-surface-generated (NOT substrate-mintable) — the M-anchor-3 milestone closes the implementation gap.
 
@@ -156,19 +160,11 @@ Any substrate-side attempt to forge or shadow-mirror these is breach (specifical
 
 ## §5. Cross-doc consistency claims
 
-This doc carries NO new normative content. Every row is a citation. Drift between this doc and its source L1 doc resolves to the source L1 doc as canonical.
-
-When source L1 docs are updated (CI events), this doc updates as part of the same attestation event (it's a tier-2 SSoT field at L1_SCHEMA; not tier-1 because it's derivative).
-
-**M26-cascade A6 alignment** (this DRAFT 2): C36-C40 substrate-private rows are sourced from `myco_substrate/src/events.rs` M24+ doctrine block (live emit sites). C41-C45 are sourced from Phase γ.9 mycoparasite findings + DRAFT 9 SEALED Phase γ §17 G-10.c hybrid sealing decision (deferred to cascade work). F18-F24 are sourced from DRAFT 9 SEALED §2.3 (P10/P11/P14), §14, §15, §16.
+This doc carries NO new normative content; every row is a citation. Drift resolves to the source L1 doc as canonical. When source L1 docs are updated (CI events), this doc updates in the same attestation event (tier-2 SSoT field at L1_SCHEMA; derivative).
 
 ## §6. What this doc is NOT
 
-- NOT a duplication of v0.8 R1-R7. R1-R7 was an imperative-rules grammar; this is an enumeration of breach + fixed-point surfaces.
-- NOT load-bearing normative content. Every row cites a load-bearing source doc.
-- NOT a replacement for the source docs. Reading this doc alone is insufficient to operate v0.9; it indexes the docs that ARE sufficient.
-- NOT a v0.8 contamination per C7.3 — each row independently traces to ≥1 P + ≥1 I; the v0.8 R-rule grammar is structurally absent.
-- NOT the immune system itself. The immune system is L4 substrate code that **uses** this catalog to detect breach.
+NOT a duplication of v0.8 R1-R7 (R1-R7 was imperative-rules grammar; this is breach + fixed-point enumeration). NOT load-bearing normative content (every row cites a load-bearing source doc). NOT a replacement for source docs (reading this alone is insufficient to operate v0.9). NOT the immune system itself (the immune system is L4 substrate code that **uses** this catalog).
 
 ## §7. Open at L1 / L4 design questions surfaced by this index
 
@@ -187,7 +183,7 @@ When source L1 docs are updated (CI events), this doc updates as part of the sam
 | **R status** | "Reserved" — the L1 catalog label is preserved; the previously-misnamed emit site has been renamed into C30+ namespace per M24.1 doctrine cleanup; awaiting future L1-catalog implementation. |
 | **L status** | "Live" — the L1 catalog label is emitted in substrate code at runtime with matching tag. |
 | **U status** | "Unimplemented" — the L1 catalog label is reserved but no substrate emit site exists yet; depends on stranded-library import (M27+) or anchor-surface milestone closure (M-anchor-1 through M-anchor-5). |
-| **Cultivation / Cultivator / Cultivar** (G-11.a) | Owner-substrate relationship per L0 §1.2 DRAFT 9 SEALED. Cultivator = owner (relational role); owner = same party (governance role). Cultivar = substrate-as-cultivated-species. "Quarantine clearance is Cultivator-attested" = "owner attests; the doctrinal vocabulary is Cultivation". Both vocabularies remain valid; new doc additions prefer Cultivation terminology per G-11.a. |
+| **Cultivation / Cultivator / Cultivar** | See L0 §12 Glossary (canonical) + L1_GOVERNANCE §17. |
 | **bet_retired_proposal / bet_retired_executed** | CI-level lifecycle proposals per L0 §7.5.b two-phase commit. NOT immune sporocarps. Trigger: 3 consecutive failed re-justifications over 2-year wall-clock + signal #6 <0.1 for >75% of samples in final 90-day window. Execution: owner co-attestation per genesis-time `bet_retirement_consent_at_genesis` flag (DRAFT 9 SEALED §7.5.b two-phase commit). |
 | **Compression-invariant set** (per F18 + L0 P10.b) | The set of substrate state surviving any compression event: substrate-ID, owner_key_history, ALL CI-attested events, mortality signal events, federation peer pin events, most recent N cycles (≥1000, L1-tunable, monotone-non-decreasing per Phase γ.9 hypha C5 fix) of full DAG, **substrate-private signing keypair seed (F24)**. |
 | **M-anchor-N milestones** (per L0 §9.2 status table) | M-anchor-1 (anchor-client provenance independence + owner-side rendering live consumer), M-anchor-2 (substrate-ID birth attestation + low-entropy fix C45), M-anchor-3 (anchor-surface-generated nonces + anchor-stamped wall-clock + owner-liveness-heartbeat), M-anchor-4 (witnesses-not-verdicts + anchor-nonce-derived sampling), M-anchor-5 (L0 revision diff workflow + DAG-tip co-signing closure check). DRAFT 9 SEALED commits to all 5 as future milestone blocks; this catalog references them as closure paths for U-status rows. |

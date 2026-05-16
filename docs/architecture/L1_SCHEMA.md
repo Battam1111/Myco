@@ -1,20 +1,6 @@
 # L1 — Schema (SSoT, causal DAG, recoverability, spore-schema, validation tiers, canonical-bytes spec, snapshot integrity)
 
-> **Status**: DRAFT 2 (2026-05-17). M26-cascade for L0 DRAFT 9 SEALED (commit `e796451`). Authoritative L1 doc for substrate-internal data shape + canonical-bytes serializer specification + snapshot integrity wrapper + year-2262 horizon warning + substrate_signing_key.cb mechanism (with known M3 entropy gap acknowledged) + drill failure-rate baseline two-baseline approach.
-> **Layer**: L1 (mechanism). Governed by L0 (DRAFT 9 SEALED, commit `e796451`).
-> **Scope**: SSoT designation + format; causal-DAG storage; recoverability budget + drill discipline + two-baseline approach; spore-schema (P8); validation tiering (I3 cycles); **canonical-bytes serializer specification** (per L0 §9.4 + F16); **i64-nanoseconds-since-epoch representation + year-2262 horizon-warning + negative-pre-1970-timestamps treatment** (per L0 §13.2 cascade requirement); **snapshot.cb integrity wrapper** (M25.0-shipped); **substrate_signing_key.cb generation + known M3 entropy gap** (per Phase γ.9 mycoparasite finding). Does NOT cover: classifier function (→ L1_GOVERNANCE), envelope schema (→ L1_SKIN), cycle cadence + NTP discipline + cycle-backlog (→ L1_CONTINUITY), dispatch atomic records (→ L1_TROPISM).
-> **Honesty**: items marked **TBD-L4** are explicit deferrals — L1 commits that the decision exists and bounds the space; L4 implementation makes the call. Per pass-1 architectural-astronaut, L1 over-commitment is anti-pattern.
->
-> **DRAFT 9 SEALED principle alignment**:
-> - **P1.c (Agent identity via symbiosis — asymmetric carrier)** — substrate-ID is the persistent carrier; canonical-bytes serializer is spore-inheritable so child substrates can independently render their own canonical bytes.
-> - **P3 (Resumable Evolution)** — DRAFT 9 rename of "Eternal evolution"; SSoT migration is two-phase with dual-validation.
-> - **P6 (Eternal Causality)** — DAG is the canonical Time. Snapshot integrity preserves the carrier of P6.
-> - **P7 (Mortality, Capacity-for-Death)** — DRAFT 9 rename of "必朽"; drill failure-rate baseline two-baseline approach is the long-horizon mortality observability.
-> - **P8 (Eternal Reproduction, Generation-Bounded)** — DRAFT 9 rename; spore-schema is the reproduction-closure carrier.
-> - **P10 (Selective Compression)** — DRAFT 9 addition (Phase γ.6 C-claim-2); compression-invariant set enforced via I9 against the SSoT.
-> - **P11 (Metabolic Economy)** — DRAFT 9 addition; cost-budget thresholds are tier-1 SSoT fields.
-> - **P14 (Telos)** — DRAFT 9 addition; owner-stated objective is tier-1 SSoT when declared.
-> - **Cultivation vocabulary (G-11.a, L0 §1.2)** — owner = Cultivator (governance role); substrate = Cultivar. Spore-schema is the seed-state inherited Cultivar→Cultivar during P8 reproduction; the Cultivator co-attests each spore. Existing "owner" terminology preserved throughout (matches §9 anchor-surface owner-attestation vocabulary).
+> **Status**: DRAFT 2 (M26-cascade for L0 DRAFT 9 SEALED, commit `e796451`). Authoritative L1 doc for SSoT + causal-DAG + recoverability + spore-schema + validation tiering + canonical-bytes serializer + i64-nanoseconds timestamps + year-2262 horizon-warning + snapshot.cb integrity wrapper + substrate_signing_key.cb mechanism. Does NOT cover: classifier function (→ L1_GOVERNANCE), envelope schema (→ L1_SKIN), cycle cadence (→ L1_CONTINUITY), dispatch atomic records (→ L1_TROPISM). Items marked **TBD-L4** are explicit deferrals.
 
 ---
 
@@ -390,17 +376,11 @@ seed = sha256(
 
 The domain string `"myco-substrate-signing-seed-v1"` is **distinct from** the substrate_id seed generation domain to prevent correlation — a substrate_id leak cannot be used to predict the signing key (per `persistence.rs:902-905` comment).
 
-### §7.3 Known M3 entropy gap (Phase γ.9 mycoparasite finding, DRAFT 9 honest acknowledgment)
+### §7.3 Known M3 entropy gap (Phase γ.9 mycoparasite finding)
 
-**The current generation mechanism is low-entropy**:
-- `current_unix_ns` has ~30 bits of entropy at sub-millisecond resolution.
-- `process_id` has ~16 bits.
-- Stack address randomization (ASLR) contributes ~16-30 bits depending on platform.
-- Function address contributes a similar bit count.
+**Low-entropy mechanism**: `current_unix_ns` (~30 bits sub-ms), `process_id` (~16 bits), ASLR stack address (~16-30 bits), function address (similar). Total ~80-100 bits — well below Ed25519's nominal 256-bit security level. A capable adversary with knowledge of boot time, PID, and ASLR characteristics could narrow seed search space.
 
-**Total entropy estimate**: ~80-100 bits, well below the 256-bit security level that an Ed25519 seed nominally requires. A sufficiently capable adversary (with knowledge of substrate boot time, host PID, and platform ASLR characteristics) could conceivably narrow the seed search space.
-
-**L1 acknowledged-gap status**: this gap is **explicitly marked at L1** rather than concealed. Per the v0.9 doctrine of declared asymmetries (cross-ref §6 dormancy-host-observability and L0 §9.5), the substrate's L1 spec documents the gap, fruits `signing_key_entropy_known_gap` observability sporocarp at first boot, and commits to closure in **M26.x cascade**.
+**Declared-asymmetry status** (cross-ref §6 + L0 §9.5): the gap is **explicitly marked at L1** rather than concealed; substrate fruits `signing_key_entropy_known_gap` observability sporocarp at first boot; closure in M26.x cascade.
 
 ### §7.4 M26.x closure path (forward commitment)
 
@@ -417,37 +397,31 @@ Until M26.x closes, the entropy gap is observability-only (fruits `signing_key_e
 
 ---
 
-## §8. C-row catalog rows owned by L1_SCHEMA (cross-ref L1_HARD_RULES)
+## §8. C-rows whose detection site is L1_SCHEMA
 
-DRAFT 9 cascade catalog rows whose detection site / detection mechanism lives in L1_SCHEMA:
+This document hosts the detection mechanism for the following C-rows; full catalog row + status at L1_HARD_RULES §1:
 
-| # | Breach name | Detection site | L0 trace | I trace |
-|---|---|---|---|---|
-| C6 | `dag_enumeration_unclosed` | §2.2 | P6, P3 | I4 |
-| C7 | `dag_retro_edit_detected` | §2.1 + §5.2 (negative-pre-genesis DAG events) | P6 | I4 |
-| C8 | `ssot_migration_phase_skip` | §1.3 | P3 | I3 |
-| C18 | `canonical_bytes_render_drift` | §5 (canonical-bytes spec) | P1.b'' | I2 |
-| C21 | `compression_invariant_corruption` (DRAFT 9 NEW per cascade list) | §2.3 + §4.1 | P10 | I9 |
-| C22 | `compression_uncattested` (DRAFT 9 NEW per cascade list) | §2.3 + P10.c | P10 | I9 |
-| C25 | `budget_exhausted_silent` (DRAFT 9 NEW per cascade list) | §4.1 cost-budget-thresholds tier-1 | P11 | I10 |
-| C47 | `generation_depth_exceeded` (DRAFT 9 NEW per cascade list; substrate-private C30+ namespace) | §3.1 spore-schema generation-depth | P8 | I7 |
-| C36 | `cycle_backlog` | L1_CONTINUITY §1.3 (cross-ref; observability signal #7) | P7, P11 | I10 |
-| C38 | `snapshot_integrity_violation` (DRAFT 9 NEW M25.0) | §6.3 | P1.c, P6 | I1, I4 |
+- C6 `dag_enumeration_unclosed` — §2.2 closure check
+- C7 `dag_retro_edit_detected` — §2.1 Merkle integrity
+- C8 `ssot_migration_phase_skip` — §1.3 two-phase commit
+- C18 `canonical_bytes_render_drift` — §5 canonical-bytes serializer
+- C38 `snapshot_integrity_violation` — §6 snapshot wrapper
+- C51 `compression_invariant_corruption` — §2.5 retention
+- C52 `compression_uncattested` — §2.5 + P10.c attestation gate
+- C53 `budget_exhausted_silent` — §4.1 cost-budget thresholds tier-1
 
-> The L1_HARD_RULES catalog cascade will absorb these rows in the same M26-cascade pass; until then, L1_SCHEMA is the canonical owner.
+L1_HARD_RULES §1 is the single source of truth for C-row labels, status, and L0/I traces.
 
 ---
 
 ## §9. Open at L1, deferred to L4
 
-Per pass-1 architectural-astronaut: don't over-commit. These are L4 calls informed by first-month metabolism observations:
+L1 commits to the shape; L4 picks values from first-month metabolism observations:
 
-- Exact hash function within {SHA-256, BLAKE3, SHA-3-256}.
-- Exact storage layout within {file-per-node, log+index, embedded KV}.
-- Exact M for SSoT migration phase-1 within [100, 10000] cycles (seed M=100 per §1.3 cascade-explicit).
-- Exact backup frequency within the WAL+snapshot pattern (seed: WAL per cycle, snapshot every 1000 cycles).
-- Exact tier-2 validation window size within [1000, 100000] cycles (seed 10000 per §4.1 cascade-explicit).
-- Exact horizon-warning offset within [10 years, 100 years] (seed 62 years per §5.3 cascade-explicit).
-- M26.x closure mechanism for substrate_signing_key.cb entropy gap (CSPRNG primitive selection per §7.4).
-
-L1_SCHEMA commits to the **shape** of these decisions; L4 picks values based on observed behavior.
+- Hash function within {SHA-256, BLAKE3, SHA-3-256}.
+- Storage layout within {file-per-node, log+index, embedded KV}.
+- SSoT migration phase-1 M within [100, 10000] cycles (seed 100 per §1.3).
+- Backup frequency within WAL+snapshot pattern (seed: WAL per cycle, snapshot every 1000 cycles).
+- Tier-2 validation window within [1000, 100000] cycles (seed 10000 per §4.1).
+- Horizon-warning offset within [10y, 100y] (seed 62y per §5.3).
+- M26.x CSPRNG primitive selection for §7.4 closure.

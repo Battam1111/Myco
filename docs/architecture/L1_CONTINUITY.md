@@ -1,19 +1,8 @@
 # L1 — Continuity (metabolic cycle, dormancy, recovery, NTP discipline, cycle backlog, cold-resume invariants)
 
-> **Status**: DRAFT 3 (2026-05-17). M26-cascade for L0 DRAFT 9 SEALED (commit `e796451`). Authoritative L1 doc for substrate operational continuity. Canonical owner of dormancy mechanism + NTP discipline + cycle-backlog signal + cold-resume invariant-set specification.
-> **Layer**: L1. Governed by L0 (DRAFT 9 SEALED, commit `e796451`).
-> **Scope**: metabolic cycle structure + cadence; dormancy transitions + compute budget; cold-resume recovery (with witnesses, not verdicts); host-crash recovery + delta atomicity; quarantine sub-state; **NTP discipline policy** (per L0 §13.2); **cycle-backlog → C36_cycle_backlog immune mechanism** (M24-shipped, spec'd here); **cold-resume invariant set + C9_cold_resume_invariant_failure** (L1_HARD_RULES C9).
->
-> **DRAFT 9 SEALED principle alignment**:
-> - **P1.b'' (Two-tier human-loop boundary)** — DRAFT 9 calibration; cold-resume produces witnesses for anchor-surface verifier.
-> - **P3 (Resumable Evolution)** — DRAFT 9 rename of DRAFT 8's "Eternal evolution"; failed cycles roll back, recovery is observable.
-> - **P4 (Eternal Iteration)** — DRAFT 9 preserved; "eternal" bounded by P7 mortality.
-> - **P6 (Eternal Causality)** — DAG-tip atomicity ensures the arrow of time.
-> - **P7 (Mortality, Capacity-for-Death)** — DRAFT 9 rename of DRAFT 8's "必朽". Sustained cycle-backlog escalates to P7 endogenous-mortality consideration (per L0 §2.2 P11.c).
-> - **P9.b (Single-Failure-Point Acknowledgment)** — skin process restart discipline cross-refs §3 cold-resume.
-> - **P10 (Selective Compression)** — cold-resume verifies the compression-invariant set (P10.b) survives reboot.
-> - **P11 (Metabolic Economy)** — cycle-backlog is the canonical signal #7 (compute cost / cycle) trigger.
-> - **Cultivation vocabulary (G-11.a, L0 §1.2)** — Cultivator = owner (governance role); Cultivar = the substrate. Cold-resume serves the Cultivation continuity across power cycles: the Cultivar wakes, presents witnesses, the Cultivator re-attests trust if needed. Existing "owner" terminology preserved throughout (matches §9 anchor-surface vocabulary); "Cultivator" emphasizes the relational role.
+> **Status**: DRAFT 3 (2026-05-17). Authoritative L1 doc for substrate operational continuity. Canonical owner of dormancy, NTP discipline, cycle-backlog signal, and cold-resume invariant-set specification.
+> **Layer**: L1. Governed by L0 DRAFT 9 SEALED (commit `e796451`).
+> **Scope**: metabolic cycle + cadence; dormancy transitions + compute budget; cold-resume recovery (witnesses, not verdicts); host-crash recovery + delta atomicity; quarantine sub-state; NTP discipline (L0 §13.2); cycle-backlog → C36_cycle_backlog (M24-shipped); cold-resume invariant set + C9_cold_resume_invariant_failure (L1_HARD_RULES C9). Principle names follow L0 DRAFT 9 SEALED (P1.b''/P3/P4/P6/P7/P9.b/P10/P11 — projection at L0 §4); Cultivation vocabulary at L0 §1.2.
 
 ---
 
@@ -89,10 +78,6 @@ Three clocks; authority is **explicit per use-case** (per L0 §13.1):
 
 **i64 nanoseconds**: per L0 §13.1, the substrate MUST NOT use i32 timestamps anywhere in substrate-internal state. The canonical wire + storage representation is **i64 nanoseconds since 1970-01-01T00:00:00Z** (Unix epoch). L1_SCHEMA §4.1 carries this through to the canonical-bytes serializer specification (tier-1 SSoT field).
 
-### §1.6 Backlog detection (legacy short text, superseded by §1.3)
-
-> §1.3 above is the canonical cycle-backlog spec. The DRAFT 2 one-line "Backlog ≥10 emits `cycle_backlog`" text is preserved here as a deprecation marker for any L4 reader that finds the older anchor reference. The C36_cycle_backlog catalog row (M24-shipped) is the authoritative implementation handle.
-
 ---
 
 ## §2. Dormancy (canonical specification)
@@ -133,7 +118,7 @@ Two modes (operator-selectable per L1_SKIN §4.5; substrate default = throttled)
 
 **Dormancy host-observability**: external observables (network, CPU, disk) must remain below L1-tunable ceilings (default <1% of alive averages). **The substrate cannot enforce this against its own host**; the owner must independently monitor. This is an explicit declared asymmetry, not concealed.
 
-**Wall-clock vs cycle-clock during paused** (per pass-2 mycoparasite-23 + rhizomorph-11): attestation-request `expiry_cycles` does NOT advance during paused dormancy. On wake, substrate re-validates attestation freshness against the anchor-surface trusted-timestamp (which IS wall-clock); stale-on-wake → `attestation_expired` immune event. Substrate cannot extend wall-clock budgets by entering paused dormancy.
+**Wall-clock vs cycle-clock during paused**: attestation-request `expiry_cycles` does NOT advance during paused dormancy. On wake, substrate re-validates attestation freshness against the anchor-surface trusted-timestamp (which IS wall-clock); stale-on-wake → `attestation_expired` immune event. Substrate cannot extend wall-clock budgets by entering paused dormancy.
 
 ---
 
@@ -174,12 +159,7 @@ These witness tuples land in the handshake-response envelope (per L1_SKIN §4.2 
 
 ### §3.2 Quarantine on cold-resume failure
 
-If any check fails:
-
-1. Substrate transitions to `alive but quarantined` (alive sub-state).
-2. Handshake completes with `quarantined` marker in response envelope.
-3. Intake closed except for owner-attested administration deltas.
-4. Substrate fruits `cold_resume_quarantine` sporocarp recording which check(s) failed.
+If any check fails, substrate enters quarantine per §3.1.a action sequence; handshake completes with `quarantined` marker; intake closed except owner-attested administration; substrate fruits `cold_resume_quarantine` sporocarp recording the failure category list.
 
 ### §3.3 Quarantine clearance
 
@@ -217,11 +197,9 @@ A delta is either **fully absorbed** (event committed with all causal edges + DA
 
 ### §4.3 Partial-delta handling + `interrupted_intake` immune signal
 
-- WAL has envelope + payload + fsync barrier confirmation but no DAG-tip update → roll back; delta dead-lettered; **substrate emits `interrupted_intake` immune sporocarp** with witnesses `(delta_canonical_bytes_hash, wal_offset, last_persisted_dag_tip_hash, monotonic_at_wal_append)`. Operator may re-emit on reconnect. (Per L0 §6: recovery is observable, not silent.)
-- WAL has envelope + payload but no fsync barrier confirmation → treat as never-persisted; emits a lower-severity observability event `delta_pre_fsync_lost` (the operator-side request is presumed retryable since the protocol did not confirm durability).
-- WAL has nothing → delta never persisted; nothing to recover. The operator's request-side timeout governs retry.
+Three sub-cases by WAL durability state: (a) fsync-confirmed but no DAG-tip update → roll back + dead-letter + emit `interrupted_intake` immune sporocarp with witnesses `(delta_canonical_bytes_hash, wal_offset, last_persisted_dag_tip_hash, monotonic_at_wal_append)`; (b) no fsync barrier → treat as never-persisted + emit `delta_pre_fsync_lost` (operator request retryable since durability not confirmed); (c) WAL empty → nothing to recover, operator timeout governs retry.
 
-The substrate **does NOT silently complete a partial delta on restart**. Recovery is **observable** per L0 P6 (eternal causality) — the causal DAG must show what happened during recovery, including dead-letter outcomes. Silent partial-completion is breach (substrate-side fabrication of an event that the WAL does not durably support violates I4).
+The substrate **does NOT silently complete a partial delta on restart**. Recovery is **observable** per L0 P6 — silent partial-completion is breach (violates I4).
 
 ---
 
@@ -235,8 +213,6 @@ The substrate **does NOT silently complete a partial delta on restart**. Recover
 - Owner-commanded quarantine via CI event.
 - **Sustained cycle-backlog past saturation-threshold** (§1.3 + L1_HARD_RULES C36_cycle_backlog) — routes through standard quarantine; pre-saturation just emits C36 signal.
 - **Snapshot integrity violation** (cross-ref L1_SCHEMA §6.3 + L1_HARD_RULES C38_snapshot_integrity_violation) — substrate boots, signer-pubkey on snapshot.cb does not match its own derived pubkey OR signature fails verification → discard snapshot + full DAG replay; if DAG replay also fails → quarantine.
-
-(Note: standalone `evolution_quarantine` sub-state from DRAFT 1 was cut per pass-2 astronaut-7 — repeated P3 evolution failures route through standard quarantine entry above, not a separate state. Repeated-failure observability lives in L1_GOVERNANCE §6 + the observatory rate signals.)
 
 ### §5.2 Quarantine-state metabolism
 
@@ -275,15 +251,11 @@ Shape is committed; values are L4.
 
 ---
 
-## §7. C-row catalog rows owned by L1_CONTINUITY (cross-ref L1_HARD_RULES)
+## §7. C-row catalog rows owned by L1_CONTINUITY
 
-DRAFT 9 cascade catalog rows whose detection site / detection mechanism lives in L1_CONTINUITY (these populate L1_HARD_RULES §1 / §2 once the catalog cascade is applied):
+Detection sites lived in this doc; full catalog rows (L0 trace, I trace, full grading) are at L1_HARD_RULES §1 / §2:
 
-| # | Breach name | Detection site | L0 trace | I trace |
-|---|---|---|---|---|
-| C9 | `cold_resume_invariant_failure` | §3.1.a (this doc) | P1.c, P3, P9, P10, P11, P14 | I3, I4, I5, I8, I9, I10, I12 |
-| C19 | `paused_dormancy_unsafe_host` | §2.4 + §3 | P7, P1.c | I1 |
-| C36 | `cycle_backlog` | §1.3 (this doc — M24-shipped) | P7, P11 | I10 |
-| C9 alt | `interrupted_intake` (sub-grade observability) | §4.3 (this doc) | P6 | I4 |
-
-> C19 and C9 are existing L1_HARD_RULES rows; this section preserves the cross-ref. C36 is a DRAFT 9 NEW row added per M24-shipping; the formal L1_HARD_RULES catalog cascade will absorb this row in the same M26-cascade pass.
+- **C9** `cold_resume_invariant_failure` — §3.1.a
+- **C19** `paused_dormancy_unsafe_host` — §2.4 + §3
+- **C36** `cycle_backlog` — §1.3 (M24-shipped)
+- `interrupted_intake` (sub-grade observability) — §4.3

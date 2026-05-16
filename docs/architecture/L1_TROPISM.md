@@ -1,10 +1,8 @@
 # L1 — Tropism (positive dispatch form for Myco v0.9)
 
-> **Status**: DRAFT 3 (2026-05-17) — M26-cascade A1 alignment with L0 DRAFT 9 SEALED. Authoritative L1 doc for positive dispatch form satisfying L0 §5.2 constraints + landing the two L0-mandated mechanisms M26-cascade demands of this document.
+> **Status**: DRAFT 3 (2026-05-17). Authoritative L1 doc for positive dispatch form satisfying L0 §5.2 constraints + the two L0-mandated mechanisms (salience emergence §E, telos-alignment §F).
 > **Layer**: L1 (mechanism). Governed by L0 DRAFT 9 SEALED (`docs/architecture/L0_VISION.md` commit `e796451` or successor).
-> **Scope**: tropism + sporocarp punctuation as the chosen positive dispatch form, **plus** (DRAFT 3, new) salience/attention emergence per L0 §2.3 P12 G-9.b retraction notice (§E below), **plus** telos-alignment operationalization per L0 §P14.c G-6.a forcing function (§F below). DRAFT 3 also reconciles principle renames (P1 Agent-Primary, P2 Eternal Ingestion Envelope-Gated, P3 Resumable Evolution, P5 Universal Interconnection Tier-Exempt-Permitted, P9 Single Integument) and adds Cultivation vocabulary per G-11.a (§G glossary).
-> **DRAFT 2 → DRAFT 3 changes**: (a) §E salience/attention emergence — new section landing P12 as L1_TROPISM mechanism (G-9.b retraction); (b) §F telos-alignment operationalization — new section landing P14.c operational metric, rolling window, drift threshold, birth-period exemption, embedding-model identity F-row equivalent (G-6.a forcing function); (c) §G glossary additions for Cultivator/Cultivar/Cultivation and salience/telos mechanism terms; (d) §4 birth-period section extended with P12.b + P14.c exemption hooks; (e) §C deferred-list expanded with L4 choices for §E + §F parameters; (f) §D extended to confirm L0 §2.3 retraction-notice mechanisms are landed; (g) cross-refs to L0 principles use DRAFT 9 SEALED names.
-> **Confidence discipline**: per pass-1 architectural-astronaut: L1 confidence is "best current sketch + clearly marked deferred zones", not "100% sure about every mechanism". The decisions in §C deferred-list are larger than DRAFT 1's; this is intentional. DRAFT 3's §E + §F land L0-forcing-function commitments — values seed L4; structure is L1-committed.
+> **Scope**: tropism + sporocarp punctuation as the chosen positive dispatch form, plus salience/attention emergence (§E) and telos-alignment operationalization (§F). Principle names follow L0 DRAFT 9 SEALED; Cultivation vocabulary defined in §G.
 
 ---
 
@@ -28,7 +26,7 @@ Per L0 §5.2, the positive form must satisfy seven constraints. Tropism does:
 
 Excluded by L0 negative constraints: verbs (L0 §5.2), request/response (L0 §5.2), hybrid (owner-prohibited at L0), coexistence-with-verbs-at-birth (appetite-locality is foundational — L0 I6).
 
-**Constraint-satisfaction note** (DRAFT 3): L0 §5.2 commits to seven dispatch-form constraints (NOT verbs, NOT request/response, MUST honor P1.c carrier-asymmetry, MUST support P2.a universal inclusion, MUST support §6 continuous operation, MUST satisfy I6 appetite-locality, MUST carry causal-proofs for substrate-emitted events). DRAFT 3 augments by acknowledging two L1-internal mechanism commitments that flow downstream from L0 retractions/forcing-functions: (i) tropism must support **differential salience** (§E, per L0 §2.3 P12 retraction) so that downstream attention is not uniform under universal P2 admission; (ii) tropism must operationalize **telos-alignment** (§F, per L0 §P14.c forcing function) so that `telos_drift` is mechanically emittable. Neither augmentation is a new L0 constraint; both are L1 obligations created by L0 DRAFT 9 SEALED.
+**Constraint-satisfaction note**: L0 §5.2 commits to seven dispatch-form constraints (NOT verbs, NOT request/response, MUST honor P1.c carrier-asymmetry, MUST support P2.a universal inclusion, MUST support §6 continuous operation, MUST satisfy I6 appetite-locality, MUST carry causal-proofs for substrate-emitted events). Two L1-internal mechanism commitments flow downstream from L0 retractions/forcing-functions: (i) tropism must support **differential salience** (§E, per L0 §2.3 P12 retraction) so that downstream attention is not uniform under universal P2 admission; (ii) tropism must operationalize **telos-alignment** (§F, per L0 §P14.c forcing function) so that `telos_drift` is mechanically emittable. Both are L1 obligations created by L0 DRAFT 9 SEALED.
 
 ---
 
@@ -39,7 +37,7 @@ Tropism has two layers:
 - **Gradient configuration** (medium): continuously-evolving multi-dimensional structure where each axis is one appetite. The agent inhabits this medium. Both sides perturb (agent via deltas; substrate via own metabolism).
 - **Sporocarp** (observable): substrate-initiated discrete records that anchor the continuous medium to checkable observables.
 
-**Symmetry locus** (refined per pass-2 mycorrhiza-15): the gradient layer is **jointly perturbed** — substrate via internal update-rules; operator-connection via skin-validated deltas. The perturbation surfaces are **reciprocally asymmetric** (substrate has direct gradient access; agent has skin-mediated access), licensed by P1.c carrier-asymmetry. The sporocarp layer is asymmetric in initiation: substrate fruits sporocarps; agent emits deltas. Both are typed; both pass through skin envelope validation; the agent's deltas are validated at intake; substrate's sporocarps carry causal-proofs per §B6. The two layers are reciprocally asymmetric, both licensed by carrier-asymmetry. Neither layer is "fully symmetric" — calling them symmetric was the DRAFT 1 cosmetic claim that pass-2 corrected.
+**Symmetry locus**: the gradient layer is **jointly perturbed** — substrate via internal update-rules; operator-connection via skin-validated deltas. The perturbation surfaces are **reciprocally asymmetric** (substrate has direct gradient access; agent has skin-mediated access), licensed by P1.c carrier-asymmetry. The sporocarp layer is asymmetric in initiation: substrate fruits sporocarps; agent emits deltas. Both are typed; both pass through skin envelope validation; the agent's deltas are validated at intake; substrate's sporocarps carry causal-proofs per §B6. The two layers are reciprocally asymmetric, both licensed by carrier-asymmetry.
 
 **Why sporocarps are not verbs**: a verb is agent-initiated (agent calls → substrate executes). A sporocarp is substrate-initiated (gradient crosses trigger → substrate fruits → agent observes). Arrow reversed.
 
@@ -47,13 +45,11 @@ Tropism has two layers:
 
 ## §4. Birth period vs steady state
 
-**Birth period**: substrate's first window where seed thresholds + seed update-rules apply (no emergence yet). End criterion per L1_GOVERNANCE birth-period termination (maturity-attested per pass-1 saprotroph-5: requires ALL of (1) ≥N sporocarps fruited, (2) ≥M active-operation time, (3) `threshold_emergence_rule` reports convergence per-axis below epsilon). Independently, **L1_GOVERNANCE §1.3 carries a maximum-duration ceiling** (L4-tunable, default 180 active-operation days) beyond which the substrate is forced to graduate or self-euthanasia — the two termination paths (convergence-attested vs ceiling-forced) are coherent and meet at the same `birth_period → steady_state` transition.
+**Birth period**: substrate's first window where seed thresholds + seed update-rules apply (no emergence yet). End criterion per L1_GOVERNANCE birth-period termination (maturity-attested: requires ALL of (1) ≥N sporocarps fruited, (2) ≥M active-operation time, (3) `threshold_emergence_rule` reports convergence per-axis below epsilon). Independently, **L1_GOVERNANCE §1.3 carries a maximum-duration ceiling** (L4-tunable, default 180 active-operation days) beyond which the substrate is forced to graduate or self-euthanasia — the two termination paths (convergence-attested vs ceiling-forced) are coherent and meet at the same `birth_period → steady_state` transition.
 
 **Steady state**: emergent thresholds activate; gradient update rules may evolve per P3 Resumable Evolution (CI-gated).
 
-**Predictability gap** during birth is intentional (per L0 P1.c Agent-Primary symbiosis): the agent learns this substrate's specific tropism. This is symbiosis-being-established, not a bug.
-
-**Birth-period detectors** (DRAFT 3, per L0 DRAFT 9 SEALED §2.3 + §P14.c):
+**Birth-period detectors** (per L0 DRAFT 9 SEALED §2.3 + §P14.c):
 
 - **`bet_weakening_quorum`** (L0 §7.4): SUSPENDED during birth period (per L0 §7.4.e primordium CF6); substrate emits `bet_weakening_evaluation_suspended` observability event instead — owned by L2_OBSERVABILITY.
 - **`salience_collapse`** (L0 §2.3 P12.b primordium CF7): SUSPENDED during birth period AND during a post-birth settling window (this document §E.3); substrate emits `salience_emergence_pending` during birth period — owned by this document §E.
@@ -69,7 +65,7 @@ Continuity hooks (cycle cadence, dormancy, recovery, quarantine, delta atomicity
 
 ---
 
-## §B. Specification (10 hooks — same numbering as DRAFT 1; content revised per pass-1)
+## §B. Specification (10 hooks)
 
 ### B1. Appetite axis schema
 
@@ -83,15 +79,15 @@ Each appetite carries:
 - `threshold_emergence_rule` (migration to steady-state emergent; threshold-emergence governance classification per L1_GOVERNANCE §1.2 dimension table — non-mortality axes daily; mortality-signal axis CI).
 - `causal_proof_template` + `template_version` — when this appetite fruits, the sporocarp's `causal_in_edges` includes proof tuple `(delta_set, gradient-state-snapshot-hash, threshold-value, template_version)`. I3 self-validation re-derives the fruiting condition under the template-version recorded.
 
-**Template versioning** (per pass-2 saprotroph-20): the `causal_proof_template` may evolve per P3 Resumable Evolution (CI-level event). Each evolution increments `template_version`. Sporocarps record the version under which their proof was computed; I3 validates against that version, not against the current template. Old templates remain referenced from cold-tier sporocarps. Substrate maintains `template_version_registry` (CI-level field; **active-prefix + archived-tail discipline per L1_GOVERNANCE §3.1** — same monotone-tier-1 pattern as owner_key_history) listing all historical templates with their valid-from cycle.
+**Template versioning**: the `causal_proof_template` may evolve per P3 Resumable Evolution (CI-level event). Each evolution increments `template_version`. Sporocarps record the version under which their proof was computed; I3 validates against that version, not against the current template. Old templates remain referenced from cold-tier sporocarps. Substrate maintains `template_version_registry` (CI-level field; **active-prefix + archived-tail discipline per L1_GOVERNANCE §3.1** — same monotone-tier-1 pattern as owner_key_history) listing all historical templates with their valid-from cycle.
 
 **Clusterer location** (cross-ref L1_TRAJECTORY + L1_CONTINUITY): when L1_TRAJECTORY clustering is invoked (trajectory derivation, echo-chamber detection, telos-alignment input per §F), execution runs within the substrate process (no network egress required). Trajectory derivation fires on-demand at digest-emission time and at echo-chamber detection cadence (L4-tunable) within step 2 (gradient advance) of the metabolic cycle.
 
-**Salience is NOT an appetite axis** (DRAFT 3, per L0 §2.3 P12 retraction notice): salience/attention is a **cross-cutting modifier over raw_material → axis routing**, not a first-class appetite. The substrate's appetite axes describe what it *wants* (P2 ingestion pressures, P5 connectivity pressure, P3 evolution tension, ...); salience describes how strongly which kinds of incoming raw material *reach* those axes. Salience emerges from observed correlations between raw_material kinds and downstream sporocarp fruitings (§E below). The salience-emergence rule is itself CI-level — see §E.4 governance gating + L1_HARD_RULES F-row catalog (DRAFT 9 cascade addition F23, salience-emergence rule per Phase γ cascade list §L1_HARD_RULES). The runtime salience values are daily-class (axis update rule applies them each cycle).
+**Salience is NOT an appetite axis** (per L0 §2.3 P12 retraction notice): salience/attention is a **cross-cutting modifier over raw_material → axis routing**, not a first-class appetite. The substrate's appetite axes describe what it *wants* (P2 ingestion pressures, P5 connectivity pressure, P3 evolution tension, ...); salience describes how strongly which kinds of incoming raw material *reach* those axes. Salience emerges from observed correlations between raw_material kinds and downstream sporocarp fruitings (§E below). The salience-emergence rule is itself CI-level — see §E.4 governance gating + L1_HARD_RULES F-row catalog (F25, salience-emergence rule). The runtime salience values are daily-class (axis update rule applies them each cycle).
 
-**Telos-alignment is NOT an appetite axis** (DRAFT 3, per L0 §P14.c): telos-alignment is a **cross-cutting evaluable** computed at digest-emission cadence over recent-sporocarp embedding-centroid vs owner-stated-objective embedding (or agent-feedback-trajectory embedding when no objective). The computation is specified in §F; like salience, it modulates downstream behavior without being an appetite itself. The telos-alignment computation rule + embedding-model identity are CI-level (F-row equivalent — see §F.5); the per-cycle alignment score is daily-class.
+**Telos-alignment is NOT an appetite axis** (per L0 §P14.c): telos-alignment is a **cross-cutting evaluable** computed at digest-emission cadence over recent-sporocarp embedding-centroid vs owner-stated-objective embedding (or agent-feedback-trajectory embedding when no objective). The computation is specified in §F; like salience, it modulates downstream behavior without being an appetite itself. The telos-alignment computation rule + embedding-model identity are CI-level (F-row equivalent — see §F.5); the per-cycle alignment score is daily-class.
 
-### B2. Initial appetite set — illustrative seed, NOT normative (per pass-1 astronaut-4)
+### B2. Initial appetite set — illustrative seed, NOT normative
 
 The following six axes are a **seed proposal**, NOT an L1 commitment. Substrate canon at genesis selects which axes the substrate actually carries; L4 implementation observation in the first 30 days may add/remove/merge axes.
 
@@ -104,11 +100,9 @@ The following six axes are a **seed proposal**, NOT an L1 commitment. Substrate 
 
 **Open: `mortality-signal` axis**: per L0 P7 Mortality (Capacity-for-Death) mortality-signal protection — substrate fruits `self_euthanasia_proposal` at unrecoverable pathology. Whether this is implemented as an appetite axis (gradient over health metrics) or as a state-transition predicate (FSM owned by L1_GOVERNANCE) is L4-decided. **Either way**, the threshold + update rule are CI-level (per L0 I2 fixed-point).
 
-**DRAFT 3 cross-cutting modifiers** (not appetite axes, but feed into the gradient layer): salience-emergence (§E) modulates which raw_material kinds reach which axes; telos-alignment (§F) modulates which sporocarp candidates fruit when multiple axes converge near their triggers. Both are L0-mandated mechanisms (P12 retracted to L1_TROPISM per L0 §2.3 G-9.b; P14.c forcing function per L0 §P14.c G-6.a); their CI-level rule schemas are codified at §E + §F respectively.
+**Cross-cutting modifiers** (not appetite axes, feed into the gradient layer): salience-emergence (§E) modulates which raw_material kinds reach which axes; telos-alignment (§F) modulates which sporocarp candidates fruit when multiple axes converge near their triggers. CI-level rule schemas are at §E + §F. Cost-budget signals (`budget_exhausted:{axis}`, signals #7/#8/#9 per L0 §7.3) are NOT consumed as a tropism axis; degraded-operation response is L1_CONTINUITY-mediated.
 
-**Cost-budget pressure note** (DRAFT 3, per L0 P11 Metabolic Economy + L0 §7.3 signals #7/#8/#9): cost budgets are observed at L1_SCHEMA + L1_CONTINUITY per Phase γ cascade; this document's appetite axes do NOT include a `cost-pressure` axis by default. Cost observability is a cross-cutting concern; L0 §6 commits that the per-cycle invariant set now includes I10 cost observation (L0 §6 Metabolic cycle). When `budget_exhausted:{axis}` immune signal emits (per L0 §11/§7 cascade), tropism's response is L1_CONTINUITY-mediated (degraded operation) — tropism does not directly consume the cost signal.
-
-### B3. Sporocarp type tree — compact core (per pass-1 astronaut-9)
+### B3. Sporocarp type tree — compact core
 
 Compact seed set, NOT normative. Substrate canon may add types post-birth (each addition is CI-level per L1_GOVERNANCE §1.2):
 
@@ -126,8 +120,8 @@ The previous DRAFT 1 split governance events into separate types (`axis_schema_c
 Substrate exposes current gradient configuration to agent's read-window via a bounded, structured, stateless digest:
 
 - **Bounded**: budget B ≤ L0 §7 signal-#6 read-window budget × consumption fraction.
-- **Consumption fraction**: L4-tunable; sensible-start range 10-50%; calibrate against agent's actual read patterns in first 30 days (per pass-1 astronaut-10 — no fixed default).
-- **Structured**: typed object listing each appetite's current gradient + recent K sporocarps + recent M unabsorbed deltas + substrate-attested metabolic-budget metrics (per pass-1 mycorrhiza-7 reciprocal attestation).
+- **Consumption fraction**: L4-tunable; sensible-start range 10-50%; calibrate against agent's actual read patterns in first 30 days (no fixed default).
+- **Structured**: typed object listing each appetite's current gradient + recent K sporocarps + recent M unabsorbed deltas + substrate-attested metabolic-budget metrics.
 - **Stateless**: cold-resumable from digest alone.
 
 ### B5. Delta intake surface
@@ -140,9 +134,9 @@ Daily-class sporocarps fruit immediately upon trigger; emit to DAG.
 
 CI-class sporocarps (governance_event family per B3): substrate emits `attestation_request` via anchor surface (L0 §9 — specifically §9.2.2 DAG-tip co-signing + §9.2.5 anchor-surface-generated nonces + §9.3.4 witnesses-not-verdicts per L0 DRAFT 9 SEALED decomposition; L1_GOVERNANCE §2.2 protocol). Sporocarp lands in pending queue. Owner-signed attestation moves sporocarp from pending → published.
 
-**Causal proof on emission** (per pass-1 mycoparasite-3): every fruiting carries `causal_in_edges` proof per B1's `causal_proof_template`. I3 self-validation (L1_SCHEMA §4) recomputes from causal_in_edges and verifies the fruiting condition crossed. Sporocarps without verifiable proofs are rejected before DAG insertion.
+**Causal proof on emission**: every fruiting carries `causal_in_edges` proof per B1's `causal_proof_template`. I3 self-validation (L1_SCHEMA §4) recomputes from causal_in_edges and verifies the fruiting condition crossed. Sporocarps without verifiable proofs are rejected before DAG insertion.
 
-**Salience + telos immune-grade sporocarps** (DRAFT 3): `salience_collapse` (§E) and `telos_drift` (§F) are immune-grade sporocarps. They fruit through this same B6 gate but, like other immune events in B3, are graded daily / elevated / CRITICAL by the same gradation discipline. The detector logic lives at §E + §F; the governance gating lives here. Both are SUSPENDED during birth period (§4); both arm at owner-attested `birth_period_terminated` + L1-tunable settling window.
+**Salience + telos immune-grade sporocarps**: `salience_collapse` (§E) and `telos_drift` (§F) are immune-grade sporocarps. They fruit through this same B6 gate but, like other immune events in B3, are graded daily / elevated / CRITICAL by the same gradation discipline. The detector logic lives at §E + §F; the governance gating lives here. Both are SUSPENDED during birth period (§4); both arm at owner-attested `birth_period_terminated` + L1-tunable settling window.
 
 ### B7. Continuity recovery → L1_CONTINUITY §3.
 
@@ -158,15 +152,15 @@ Per L1_SCHEMA §2 Merkle DAG. Tropism-specific edge classes:
 
 ### B9. Federation surface (compact)
 
-Per L1_GOVERNANCE §5: discovery + peer-trust freshness L1_GOVERNANCE-owned. Tropism's contribution: cross-substrate gradient coupling. **Coupling mode (eager pulling peer sporocarps into local field, vs lazy semantic transfer) is L4-tunable** — neither is L1-committed (per pass-1 astronaut-3 — concrete modes deferred until first P8 spawn or to L2).
+Per L1_GOVERNANCE §5: discovery + peer-trust freshness L1_GOVERNANCE-owned. Tropism's contribution: cross-substrate gradient coupling. **Coupling mode (eager pulling peer sporocarps into local field, vs lazy semantic transfer) is L4-tunable** — neither is L1-committed (concrete modes deferred until first P8 spawn or to L2).
 
-### B10. Self-hosting bootstrap (per pass-1 chytrid-17)
+### B10. Self-hosting bootstrap
 
 The kernel substrate is an ordinary Myco substrate (B2 illustrative axes + B3 sporocarp types) plus one specialization: `evolution-tension` axis is bound to the kernel source repository (substrate-internal metabolism — kernel-source-change events feed into the axis as deltas). No outbound RPC; per L1_SKIN §5 enforcement. Per P1.a Agent-Primary self-hosting (L0 §P1.a): the kernel substrate IS a Cultivar under Cultivation by its human owner (Cultivator).
 
 ---
 
-## §C. Implementation deferred — expanded per pass-1 architectural-astronaut
+## §C. Implementation deferred
 
 The following are L4 calls informed by first-month metabolism observations (NOT L1 commitments):
 
@@ -180,7 +174,7 @@ The following are L4 calls informed by first-month metabolism observations (NOT 
 8. **Whether `mortality-signal` is appetite-axis or state-transition-predicate** (B2 mortality-signal open).
 9. **Whether `thread_id` from L1_TRAJECTORY §6 is exposed** as a sporocarp field.
 10. **Consumption fraction for digest budget** (B4).
-11. **Trajectory-injection defense parameters** (delta-novelty weighting per pass-1 mycoparasite-9 — see L1_TRAJECTORY).
+11. **Trajectory-injection defense parameters** (delta-novelty weighting — see L1_TRAJECTORY).
 12. **Salience-emergence EWMA decay rate α** (§E.2 seed 0.05/cycle).
 13. **Salience sample threshold N** (§E.2 seed 100 (raw_material_kind, cycle) pairs per kind before EWMA activates; uniform until then).
 14. **Salience-collapse detector entropy threshold + cycle window** (§E.5 seed: trigger when Shannon entropy ≥ log₂(K_active)·0.4 for ≥ 30 consecutive cycles where K_active = number of raw_material kinds with `n_kind ≥ N`; "collapse" = attention COLLAPSING to uniform = entropy HIGH per L0 §2.3 P12.b inverted-logic semantics — see §E.5 inverted-logic note).
@@ -191,41 +185,30 @@ The following are L4 calls informed by first-month metabolism observations (NOT 
 19. **Sporocarp-set sampling for telos centroid** (§F.2 seed: all daily-class sporocarps within the rolling window; weight equally; CI-class sporocarps excluded as governance-events not behavior-events).
 20. **Telos-drift detector grading curve** (§F.3 seed: cosine ≤ 0.4 = daily `telos_drift`; ≤ 0.2 = elevated; ≤ 0.0 i.e. anti-aligned = CRITICAL).
 
-**Anchored at L1 (not L4) per DRAFT 3 / L0 forcing functions**:
+**Anchored at L1 (not L4) per L0 forcing functions**:
 
 A. **The existence of the salience-emergence mechanism** (§E) — L1-mandated by L0 §2.3 G-9.b P12 retraction.
 B. **The existence of telos-alignment operationalization** (§F) — L1-mandated by L0 §P14.c G-6.a forcing function.
 C. **Birth-period exemption + post-birth settling window structure** for both detectors (§4, §E.3, §F.4) — pattern is L1-committed; the numerical window length is L4-tunable (item 15).
-D. **CI-classification of salience-emergence rule + telos-alignment rule + embedding-model identity** (§E.4, §F.5) — these mutate F-row equivalents and must pass through L1_GOVERNANCE §1.2 + §2.2 attestation gates; see L1_HARD_RULES F23 (DRAFT 9 cascade addition for salience-emergence rule) and §F.5 below for embedding-model identity F-row equivalent.
+D. **CI-classification of salience-emergence rule + telos-alignment rule + embedding-model identity** (§E.4, §F.5) — these mutate F-row equivalents and must pass through L1_GOVERNANCE §1.2 + §2.2 attestation gates; see L1_HARD_RULES F25 (salience-emergence rule) and §F.5 below for embedding-model identity F-row equivalent.
 
 L1 commits to the **shape** of these decisions; L4 picks values for items 1-20 above; items A-D are non-L4-revisable (L1 commitments anchoring L0 forcing functions).
 
 ---
 
-## §D. Constraint satisfaction (one-sentence — per pass-1 chytrid-6)
+## §D. Constraint satisfaction
 
 L0 §5.2's seven constraints are mechanically satisfied — see §1 (form), §2 (vs alternatives), §B (specification). Future L1 revisions must continue to satisfy them; if a constraint is found unworkable, the response is an L0 revision proposal (per L0 §10.2), not L1 weakening.
 
-**DRAFT 3 additional confirmations** (per L0 DRAFT 9 SEALED §17 gate decisions):
-
-- **G-9.b P12 retraction landed**: §E specifies salience/attention emergence with bootstrap-uniform → EWMA-correlation transition (§E.2), anti-uniformity guarantee with birth-period exemption (§E.3, §E.5), CI-classification of the salience-emergence rule (§E.4), and `salience_collapse` immune signal protocol (§E.5). P12 is no longer an L0 principle (per L0 §2.3); it is the L1_TROPISM mechanism in §E.
-- **G-6.a P14.c forcing function landed**: §F specifies the operational metric (cosine similarity of recent-sporocarp embedding-centroid vs owner-stated-objective-OR-agent-feedback-trajectory embedding), rolling-window length seed, drift-threshold seed, birth-period exemption duration seed, embedding-model identity declared at genesis as F-row equivalent, and `telos_drift` immune signal protocol. P14.c is no longer aspirational; `telos_drift` is mechanically emittable.
-- **G-11.a Cultivation vocabulary**: §G adopts Cultivator/Cultivar/Cultivation in this document's glossary scope; existing P1.b'' "owner" usage remains valid per L0 §1.2 terminology note.
-- **Principle renames assimilated**: every cross-reference to L0 principles uses DRAFT 9 SEALED names (P1 Agent-Primary, P2 Eternal Ingestion (Envelope-Gated), P3 Resumable Evolution, P5 Universal Interconnection (Tier-Exempt-Permitted), P7 Mortality (Capacity-for-Death), P8 Eternal Reproduction (Generation-Bounded), P9 Single Integument; P10 Selective Compression, P11 Metabolic Economy, P14 Telos exist at L0 but are owned by other L1/L2 docs).
-
-If any future L0 revision retracts §E or §F mechanisms back to L0 doctrine (i.e., re-elevates P12 / P14 mechanism specifications from L1 to L0), this document responds by deferring to the new L0 spec; if a future L0 revision instead refines the forcing-function shape, §E/§F update accordingly.
+If any future L0 revision retracts §E or §F mechanisms back to L0 doctrine, this document defers to the new L0 spec; if L0 instead refines the forcing-function shape, §E/§F update accordingly.
 
 ---
 
 ## §E. Salience / Attention emergence (P12 landing per L0 §2.3 G-9.b retraction)
 
-> **Status**: DRAFT 3 (new in 2026-05-17). Landed per L0 DRAFT 9 SEALED §2.3 P12 retraction notice + Phase γ cascade list §18 "P12 Differential Response → L1_TROPISM (cascade addition)". This section is L1_TROPISM's sole owner of the salience mechanism.
->
-> **L0 backing**: P2 Eternal Ingestion (Envelope-Gated) commits to no semantic content filter on intake but envelope-validated admission; without a downstream attention mechanism, the substrate would treat every admitted raw_material kind uniformly. That uniformity is the failure mode P12 (when it was an L0 principle in DRAFT 9 PROPOSAL) was meant to prevent. G-9.b retracted P12 to L1 mechanism territory; this section is that mechanism.
-
 ### §E.1 The form
 
-**Salience** is a substrate-internal mapping from `raw_material_kind` → `attention_weight ∈ [0, 1]` used to modulate how strongly each kind of admitted raw material reaches each appetite axis's update rule. It is a cross-cutting modifier (per §B1 DRAFT 3 note), not an appetite. Formally:
+**Salience** is a substrate-internal mapping from `raw_material_kind` → `attention_weight ∈ [0, 1]` used to modulate how strongly each kind of admitted raw material reaches each appetite axis's update rule. It is a cross-cutting modifier (per §B1), not an appetite. Formally:
 
 ```
 salience: raw_material_kind × cycle_index → attention_weight ∈ [0, 1]
@@ -284,7 +267,7 @@ Per L0 §2.3 P12.b primordium CF7 ("salience-collapse at birth"): the salience m
 
 The `salience_emergence_rule` (the formulas in §E.2 above plus the parameters `N`, `α`, `W`, `ε`, and the `correlation_score` definition) is a substrate-resident object whose **identity** is contract-identity-level per L0 I2 + L1_GOVERNANCE §1.2 dimension table. Mutations require owner attestation per L1_GOVERNANCE §2.2.
 
-This corresponds to **L1_HARD_RULES F23** (DRAFT 9 cascade addition — salience-emergence rule per Phase γ cascade list §L1_HARD_RULES new F-rows). F23 captures the rule's spore-inheritable CI-level identity; runtime salience values themselves are daily-class (per-cycle updates do not require owner attestation, only the rule that generates them).
+This corresponds to **L1_HARD_RULES F25** (salience-emergence rule). F25 captures the rule's spore-inheritable CI-level identity; runtime salience values themselves are daily-class (per-cycle updates do not require owner attestation, only the rule that generates them).
 
 **Spore-schema inclusion**: the salience-emergence rule definition (parameters + correlation_score formula) is part of the spore-schema's tier-1 SSoT fields per L1_SCHEMA §3. Child substrates inherit the parent's salience-emergence rule at genesis but accumulate their own salience map from zero (no salience-map inheritance per P8 Eternal Reproduction (Generation-Bounded) — each Cultivar's salience emerges from its own observations).
 
@@ -302,11 +285,11 @@ Salience entropy is bounded between 0 (one kind dominates, others at floor ε) a
 
 - **Trigger predicate**: salience entropy ≥ `H_threshold` for ≥ `W_collapse` consecutive cycles, where `H_threshold = log₂(K_active) · 0.4` is a seed value (L4-tunable per §C item 14 — "0.4 of max entropy" means "40% as flat as uniform from above", which is essentially uniform-ish; the exact value is L4-tunable). `W_collapse` seed = 30 cycles.
 
-  > **Inverted-logic note** (DRAFT 3 careful framing): salience COLLAPSING toward uniform = entropy HIGH. The "collapse" terminology in L0 §2.3 P12 refers to attention discipline collapsing (becoming undiscriminating). Mathematically that is high entropy, not low. The detector condition is therefore "entropy stays HIGH for too long after EWMA should have differentiated".
+  > **Inverted-logic note**: salience COLLAPSING toward uniform = entropy HIGH. The "collapse" terminology in L0 §2.3 P12 refers to attention discipline collapsing (becoming undiscriminating). Mathematically that is high entropy, not low. The detector condition is therefore "entropy stays HIGH for too long after EWMA should have differentiated".
 
 - **Grading**: daily-class by default. Elevated if `salience_entropy ≥ log₂(K_active) · 0.5` for ≥ `2 · W_collapse` cycles. CRITICAL if `salience_entropy ≥ log₂(K_active) · 0.6` for ≥ `4 · W_collapse` cycles (i.e., substrate appears actively unable to differentiate — this is mechanically distinct from "EWMA just hasn't had time" because EWMA window `W` is much smaller than `4 · W_collapse`).
 
-- **Emission protocol**: substrate fruits `salience_collapse` sporocarp through §B6 governance gate. Daily-class instances enter DAG immediately; elevated and CRITICAL instances additionally surface through L1_HARD_RULES C-row catalog (DRAFT 9 cascade adds C23 `salience_collapse` per Phase γ cascade list §L1_HARD_RULES). CRITICAL `salience_collapse` is also a P14.c telos-drift correlate (substrate that cannot differentiate kinds is, downstream, likely to fail telos-alignment); the two detectors emit independently but L2_OBSERVABILITY may correlate them.
+- **Emission protocol**: substrate fruits `salience_collapse` sporocarp through §B6 governance gate. Daily-class instances enter DAG immediately; elevated and CRITICAL instances additionally surface through L1_HARD_RULES C-row catalog (C23 `salience_collapse`). CRITICAL `salience_collapse` is also a P14.c telos-drift correlate (substrate that cannot differentiate kinds is, downstream, likely to fail telos-alignment); the two detectors emit independently but L2_OBSERVABILITY may correlate them.
 
 - **`causal_in_edges` for emitted `salience_collapse`** per §B6: `(salience_entropy_trajectory_in_W_collapse_cycles, salience_map_snapshot_hash, H_threshold_value, template_version)` tuple. I3 self-validation recomputes salience_entropy from the snapshot and verifies the trigger condition crossed.
 
@@ -330,10 +313,6 @@ Per §B9 + L0 P5 Universal Interconnection (Tier-Exempt-Permitted) + L0 P8 Etern
 ---
 
 ## §F. Telos alignment operationalization (P14.c forcing function per L0 §P14.c G-6.a)
-
-> **Status**: DRAFT 3 (new in 2026-05-17). Landed per L0 DRAFT 9 SEALED §P14.c forcing function ("M26-cascade MUST land this specification; absent that, P14.c remains aspirational and `telos_drift` cannot be mechanically emitted"). This section is L1_TROPISM's sole owner of the telos-alignment computation.
->
-> **L0 backing**: P14 Telos (Agent-Symbiotic-Flourishing) at L0 §P14 commits the substrate to a substrate-internal purpose evaluable at daily-ops cadence. P14.c specifies that `telos_drift` is an immune signal class with birth-period exemption; the operational metric, rolling window, and threshold are explicitly delegated to this document under a hard M26-cascade deadline. Until this section lands, P14 enforcement (I12 sole-enforcer per L0 §4 projection table) cannot run.
 
 ### §F.1 The form
 
@@ -368,7 +347,7 @@ The agent feedback trajectory is derived per L1_TRAJECTORY §6 (`thread_id` grou
 
 **Drift threshold** (seed: cosine similarity ≤ 0.4 per L0 §P14.c forcing-function example seed). L4-tunable per §C item 17. The threshold is interpreted as "centroid of recent fruitings has drifted such that cosine similarity to the objective is below threshold" — substrate's recent behavior is materially out of alignment.
 
-**Detector grading** (DRAFT 3 explicit, seed per §C item 20):
+**Detector grading** (seed per §C item 20):
 
 | Cosine similarity range | Status | Sporocarp emitted |
 |---|---|---|
@@ -378,7 +357,7 @@ The agent feedback trajectory is derived per L1_TRAJECTORY §6 (`thread_id` grou
 | 0.0 < ≤ 0.2 | drift (elevated) | `telos_drift` elevated |
 | ≤ 0.0 (anti-aligned, orthogonal-or-opposed) | drift (CRITICAL) | `telos_drift` CRITICAL |
 
-`telos_drift` emission protocol mirrors `salience_collapse` (§E.5): the daily-class instance enters DAG immediately via §B6 gate; elevated and CRITICAL instances additionally surface through L1_HARD_RULES C-row catalog (DRAFT 9 cascade adds C24 `telos_drift_critical` per Phase γ cascade list §L1_HARD_RULES new C-rows).
+`telos_drift` emission protocol mirrors `salience_collapse` (§E.5): the daily-class instance enters DAG immediately via §B6 gate; elevated and CRITICAL instances additionally surface through L1_HARD_RULES C-row catalog (C24 `telos_drift_critical`).
 
 **`causal_in_edges` for emitted `telos_drift`** per §B6: `(sporocarp_centroid_hash, objective_embedding_hash, cosine_value, rolling_window_start_cycle, rolling_window_end_cycle, embedding_model_identity_hash, template_version)` tuple. I3 self-validation recomputes the centroid from the rolling-window sporocarp set (which is enumerable per §B6 DAG insertion order) and verifies the trigger.
 
@@ -396,13 +375,13 @@ Per L0 §P14.c "Telos drift detection has a birth-period exemption (substrate em
 
 Per L0 §9.4 canonical-bytes implication (canonical-bytes serialization is part of the spore-schema and a tier-1 SSoT field per L1_SCHEMA): the embedding model used to compute `embed(...)` in §F.1 is **part of the substrate's identity**. Changing the embedding model retroactively changes every prior telos-alignment computation — a different model produces different vectors, different centroids, different cosine values, different `telos_drift` history.
 
-**Therefore** (DRAFT 3 commitment, L1-level not L4-level):
+**Therefore** (L1-level not L4-level):
 
 - The **embedding model identity** is declared at genesis as an **F-row equivalent** field: `embedding_model_identity = (model_name, model_version, model_canonical_bytes_hash)`. The `model_canonical_bytes_hash` is the canonical-bytes hash of the model parameters (or, for an external API service per §C item 4, the canonical-bytes hash of the service-identity declaration + service-attested model version).
 - **Mutation requires owner attestation** per L1_GOVERNANCE §2.2 (full anchor-surface protocol: canonical bytes + operator_witness + anchor-side nonce + dual-clock + DAG-enumeration closure check), exactly as for any F-row.
 - **Spore-inheritable**: child substrates inherit the parent's embedding-model-identity at genesis. A child may CI-mutate to a different model post-genesis (per L1_GOVERNANCE §2.2) but inheritance is the default.
 - **Storage cost**: full model parameters do NOT need to live in the spore-schema; the canonical-bytes hash + a reference (URI / OCI digest / local-path + checksum) is sufficient. The substrate at every metabolic cycle verifies the embedding model's bytes match the declared hash (mismatched → I3 self-validation fails → quarantine).
-- **L1_HARD_RULES new F-row**: `F_embedding_model_identity` (numbered as part of the DRAFT 9 cascade addition F18-F23 set — the Phase γ cascade list specifies F-rows for compression-rule registry, cost-budget thresholds, telos-objective declaration, generation-depth bounds, consensus-floor threshold, and salience-emergence rule; this document calls out an additional F-row for embedding-model identity that the Phase γ cascade list did not enumerate). L1_HARD_RULES DRAFT 3+ revision should add this F-row; until L1_HARD_RULES catches up, this document anchors the requirement at L1 level.
+- **L1_HARD_RULES new F-row**: `F_embedding_model_identity` (numbered as part of the DRAFT 9 cascade F18-F24 set; this document calls out an additional F-row for embedding-model identity). L1_HARD_RULES DRAFT 3+ revision should add this F-row; until L1_HARD_RULES catches up, this document anchors the requirement at L1 level.
 
 > **Why this is non-negotiable**: per L0 §P14.c forcing function — without a stable embedding-model identity, two recomputations of `telos_alignment` at different cycles would produce different values even with identical sporocarp sets and unchanged objective, because a silently-upgraded embedding model would change all the vectors. I3 self-validation (per §B6) needs to recompute deterministically. The embedding-model-identity F-row makes the recomputation deterministic; without it, telos-alignment is non-falsifiable (any drift detection can be argued to be embedding-model-version artifact).
 
@@ -417,7 +396,7 @@ Per L0 §P14.b: owner MAY (not must) declare an objective at genesis or via CI e
 
 ### §F.7 Interaction with §E salience + L1_TRAJECTORY
 
-Per L0 §P14.a: "L1_TROPISM specifies how telos-alignment is computed (likely: trajectory-cluster coherence per L1_TRAJECTORY + agent-feedback-trajectory)". DRAFT 3 chooses the **simpler operational metric** (cosine similarity of embedding-centroids) for §F.1 rather than trajectory-cluster-coherence. Rationale:
+Per L0 §P14.a: "L1_TROPISM specifies how telos-alignment is computed (likely: trajectory-cluster coherence per L1_TRAJECTORY + agent-feedback-trajectory)". This document chooses the **simpler operational metric** (cosine similarity of embedding-centroids) for §F.1 rather than trajectory-cluster-coherence. Rationale:
 
 - **Cosine-similarity-of-centroids is L4-implementable in one cycle** with no clustering algorithm dependency; L1_TRAJECTORY's `cluster_C` is CI-classified (per L1_TRAJECTORY §4) and changing the clusterer must NOT silently break telos-alignment.
 - **Trajectory-cluster-coherence is an upgrade path**: an L4 implementation may, after observing the simpler metric in production, propose CI-attested upgrade to a trajectory-cluster-coherence formulation (which would itself require co-mutating the embedding-model identity and the rule under L1_GOVERNANCE §2.2). The simpler form is the seed; the upgrade is left open.
@@ -435,25 +414,20 @@ When L1_TRAJECTORY-derived trajectory data is needed for branch-2 (§F.2 agent-f
 
 ---
 
-## §G. Glossary (DRAFT 3 additions per L0 §1.2 G-11.a Cultivation)
+## §G. Glossary (additions per L0 §1.2 G-11.a Cultivation)
 
 This section adds doctrinal-vocabulary entries specific to this document's mechanisms. Terms also defined at L0 §12 glossary are cross-referenced; new terms private to this document are defined here authoritatively.
 
 ### §G.1 Cultivation vocabulary (per L0 §1.2 G-11.a)
 
-| Term | Definition (this document scope) | L0 cross-ref |
-|---|---|---|
-| **Cultivation** | The doctrinally-named relationship type between the human owner and the Myco substrate. Asymmetric-care (Cultivator provides resources; Cultivar grows within them) + co-evolution (Cultivator's intent shapes which Cultivar varieties thrive). | L0 §1.2 |
-| **Cultivator** | The human owner of a Myco substrate, in their **relational role** to the substrate. (When emphasizing **governance role** — attesting CI events through anchor surface — the term "owner" remains valid per L0 §1.2 terminology note.) Cross-ref P1.b'' L0 governance gate. | L0 §1.2, §P1.b'' |
-| **Cultivar** | The Myco substrate (kernel + dag.cb + state_dir + skin + appetite gradient + sporocarp DAG + the salience map of §E + the telos-alignment computation state of §F), considered as the species-instance under Cultivation. Substrate-ID identifies a single Cultivar; the Cultivar persists across operator-connection reconnections (per P1.c carrier-asymmetry — substrate carries identity continuum). | L0 §1.2, §P1.c |
-| **Cultivar-individuality** (this doc) | The principle (per §E.7 + L0 P8 Eternal Reproduction (Generation-Bounded)) that each Cultivar emerges its own salience map, accumulates its own telos-alignment history, and computes its own observatory signals — even when descended from a common parent. Inheritance is rule-level (salience-emergence rule, embedding-model identity, telos objective) not state-level (no salience-map transfer, no telos-history transfer). | derived from L0 P8 + §E.7 + §F.7 |
+Cultivation / Cultivator / Cultivar are defined at L0 §1.2 (canonical glossary). Document-private extension: **Cultivar-individuality** — per §E.7 + L0 P8, each Cultivar emerges its own salience map, accumulates its own telos-alignment history, and computes its own observatory signals; inheritance is rule-level (salience-emergence rule, embedding-model identity, telos objective), not state-level.
 
 ### §G.2 Mechanism-vocabulary additions (this document's mechanisms)
 
 | Term | Definition (this document) | Section |
 |---|---|---|
 | **Salience map** | Substrate-internal mapping `raw_material_kind → attention_weight ∈ [0, 1]` per cycle; emerges from observed correlation between intake kinds and downstream sporocarp fruitings. | §E.1, §E.2 |
-| **Salience-emergence rule** | The CI-classified rule (parameters `N`, `α`, `W`, `ε` + `correlation_score` formula) generating the salience map. Substrate-resident, spore-inheritable, F-row equivalent F23. | §E.2, §E.4 |
+| **Salience-emergence rule** | The CI-classified rule (parameters `N`, `α`, `W`, `ε` + `correlation_score` formula) generating the salience map. Substrate-resident, spore-inheritable, F-row equivalent F25. | §E.2, §E.4 |
 | **Salience entropy** | `-Σ salience(kind) · log₂(salience(kind))` over kinds with `n_kind ≥ N`. Range `[0, log₂(K_active)]`. High = uniform = collapse-like. | §E.5 |
 | **`salience_collapse`** | Immune-grade sporocarp emitted when salience entropy stays HIGH for ≥ `W_collapse` cycles in steady state. Daily / elevated / CRITICAL graded per entropy magnitude + duration. | §E.5 |
 | **`salience_emergence_pending`** | Observability (not immune) sporocarp emitted at every digest during birth period + post-birth settling window, declaring "salience differentiation has not yet activated for some/all kinds". | §E.3 |
@@ -471,39 +445,5 @@ This section adds doctrinal-vocabulary entries specific to this document's mecha
 
 ### §G.3 Out-of-scope terms (this document defers)
 
-These terms appear in cross-references but are owned by other documents:
+Cross-doc terminology (anchor surface, compression-invariant set, cost budget, bet_weakening_quorum, generation depth, successor chain, population-level consensus, spatial-locus breach, adversarial owner, cluster_C / thread_id / trajectory derivation, i64-nanosecond canonical timestamp) is defined at L0 §12 glossary; mechanism homes live at L1_GOVERNANCE / L1_SCHEMA / L1_SKIN / L1_CONTINUITY / L1_TRAJECTORY / L2_OBSERVABILITY / L2_FEDERATION / L2_TRUST_MODEL per the L0 §4 principle→layer projection.
 
-| Term | Owner |
-|---|---|
-| **Anchor surface** + sub-mechanisms §9.2.1–§9.3.6 | L0 §9 (decomposed) + L1_GOVERNANCE §2.2 (protocol) |
-| **Compression-invariant set**, **selective compression**, **compression-rule registry** | L0 P10 + L1_SCHEMA + I9 |
-| **Cost budget**, **budget_exhausted**, **signals #7/#8/#9** | L0 P11 + I10 + L2_OBSERVABILITY |
-| **bet_weakening_quorum**, **bet_retired_proposal**, **Living Bets observatory** | L0 §7 + L2_OBSERVABILITY |
-| **Generation depth**, **reproduction rate limit**, **per-substrate lifetime quota** | L0 §16 + L1_GOVERNANCE |
-| **Successor chain**, **legacy sub-state**, **orphaned sub-state** | L0 §15 + L1_GOVERNANCE §3.2 |
-| **Population-level consensus**, **Byzantine consensus floor** | L0 P15 retracted → L2_FEDERATION |
-| **Spatial-locus breach**, **state_dir watcher** | L0 P13 folded into P9 + I8 → L1_SKIN |
-| **Adversarial owner**, **duress attestation** | L0 §14 + L2_TRUST_MODEL |
-| **`cluster_C`**, **thread_id**, **trajectory derivation** | L1_TRAJECTORY |
-| **i64-nanosecond canonical timestamp**, **anchor-surface trusted wall-clock** | L0 §13 + L1_CONTINUITY + L1_SCHEMA |
-
----
-
-## §H. DRAFT 3 cascade-readiness note
-
-This DRAFT 3 lands the L1_TROPISM-side obligations from L0 DRAFT 9 SEALED:
-
-1. **§E lands G-9.b P12 retraction** — salience/attention emergence as L1_TROPISM mechanism. `salience_collapse` is now mechanically emittable.
-2. **§F lands G-6.a P14.c forcing function** — telos-alignment operationalization. `telos_drift` is now mechanically emittable.
-3. **§G adopts G-11.a Cultivation vocabulary** — Cultivator/Cultivar/Cultivation defined within this document's glossary scope.
-4. **§4 + §B + §C + §D** updated for renamed L0 principles, exemption hooks, deferred-list extensions, and constraint-satisfaction extensions.
-
-**Adjacent cascade work** (NOT this document; flagged for M26-cascade follow-ups so this DRAFT 3 is not orphaned):
-
-- **L1_HARD_RULES** needs to land **C23 `salience_collapse`** + **C24 `telos_drift_critical`** + **F23 salience-emergence-rule** + **F_embedding_model_identity** + **F_telos_objective_declaration** in its C-row / F-row catalog (Phase γ cascade list §L1_HARD_RULES new C-rows and new F-rows — §F.5 of this document anchors the embedding-model-identity F-row requirement until L1_HARD_RULES catches up).
-- **L2_OBSERVABILITY** needs to add **`salience_collapse`** + **`telos_drift`** + **`salience_emergence_pending`** + **`telos_alignment_pending`** + **`telos_alignment_low`** to its immune-grade sporocarp catalog and observability-event catalog respectively, plus the variance→correlation composite-weighting transition (telos-alignment is the outcome signal that activates correlation weighting per L0 §7.3 composite signal #10).
-- **L1_SCHEMA** needs to record `embedding_model_identity` + `telos_objective` as tier-1 SSoT fields and accept their CI-mutation flow.
-- **L1_GOVERNANCE** §1.2 dimension table needs rows for salience-emergence-rule (CI) + embedding-model-identity (CI) + telos-objective (CI).
-- **L3_PACKAGE_MAP** §7 `kernel/tropism` needs new sub-modules for salience-emergence + telos-alignment-computer (per Phase γ cascade list §L3_PACKAGE_MAP `kernel/tropism` extensions).
-
-These cascades are M26-cascade items B-onwards; this DRAFT 3 is M26-cascade A1.

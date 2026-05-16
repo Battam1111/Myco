@@ -1,15 +1,7 @@
 # L2 — Federation Doctrine
 
-> **Status**: DRAFT 2 (2026-05-17). Cross-cut doctrine theme. Cascaded for L0 DRAFT 9 SEALED (commit `e796451`).
-> **Layer**: L2.
-> **Scope**: inter-substrate doctrine — the population-level shape of Myco. Cross-cuts L0 **P5 (Universal Interconnection, Tier-Exempt-Permitted)** / **P8 (Eternal Reproduction, Generation-Bounded)** / **P1.c carrier-asymmetry** / **P9 (Single Integument)** + **P15 (Population-Level Consensus)** retracted from L0 to here per G-9.b/G-7.c + L1_GOVERNANCE §4.3 reproduction / §5 federation discovery & peer-trust freshness + L1_SCHEMA §3 spore-schema + L1_SKIN §3.1 federation egress / §3 output gating + I7 (Reproduction Closure, Generation-Bounded) reproduction closure / I8 inter-substrate edge in P5. Answers: how does v0.9 extend beyond a single substrate; what is the mycelial network shape; how do substrates trust each other without compromising P1.c; how does the substrate behave at population level (≥3 peers) where pairwise trust no longer suffices; how is the wrapped-events architecture security-hardened against recursive injection.
-
-> **DRAFT 9 cascade additions** (this revision):
-> - **§6.5 Population-level consensus floor** (P15 landing per G-9.b/G-7.c): activates at ≥3 federation peers + population-level claim taxonomy; PBFT-style Byzantine consensus; ≤(N-1)/3 fault tolerance.
-> - **§9 Wrapped-events architecture** (M25.4 formal doctrine): `federation_received:{peer_prefix}` envelope schema; "I heard X say Y" attestation graph (NOT multi-substrate event-graph merge).
-> - **§10 Ed25519 FED_HELLO mutual auth** (M25.4 formal doctrine): signing context `myco-fed-hello-v1`; TOFU + signer_pubkey pin; legacy peer fallback; C39 detector.
-> - **§11 Recursive injection defense** (Phase γ.9 mycoparasite M11 SECURITY-CRITICAL): inner content of `federation_received:` envelopes MUST be recursively validated against allowed-prefix list to a bounded depth; C36 detector.
-> - **§15 Glossary** expanded with Cultivation vocabulary (G-11.a) + new federation security terms.
+> **Status**: DRAFT 2 (2026-05-17). M26-cascade for L0 DRAFT 9 SEALED.
+> **Scope**: inter-substrate cross-cut. Cross-cuts L0 **P5 / P8 / P1.c / P9** + **P15** (retracted from L0 to here per G-9.b) + L1_GOVERNANCE §4.3 / §5 + L1_SCHEMA §3 + L1_SKIN §3.1 + I7 + I8. Specifies §6.5 population-level consensus floor (P15 landing), §9 wrapped-events architecture (M25.4), §10 Ed25519 FED_HELLO mutual auth (M25.4), §11 recursive injection defense (Phase γ.9; C43 detector), §15 glossary.
 
 ---
 
@@ -47,99 +39,49 @@ L4 picks default mode; substrate canon at genesis specifies which modes the subs
 
 ## §3. Identity carrier across federation (P1.c)
 
-Per L0 P1.c carrier-asymmetry: the substrate is the identity carrier. Federation does NOT transfer identity:
+Per L0 P1.c carrier-asymmetry: each substrate has its own `substrate-ID`, owner key history (Cultivator-side transferable per L0 §1.4 / §15 succession; substrate-ID fixed at genesis), DAG, operator-connections, and **P9 Single Integument** boundary (state_dir + process + skin endpoints — federation does NOT merge integuments). A spawned child has a DIFFERENT agent-identity continuum than its parent.
 
-- Each substrate has its own `substrate-ID` (owner-signed at its own genesis; P1.c carrier-asymmetry).
-- Each substrate has its own owner key history (its own Cultivator key chain; the Cultivation relationship's Cultivator-side may transfer per L0 §1.4 / §15 succession, but substrate-ID is fixed at genesis).
-- Each substrate has its own DAG.
-- Each substrate has its own operator-connections.
-- Each substrate has its own **P9 Single Integument** boundary (its own state_dir + process + skin endpoints — federation does NOT merge integuments).
-- A child substrate spawned from a parent has a DIFFERENT agent-identity continuum than its parent.
-
-**Federation transfers content, not identity.** This is the structural reason cross-substrate trust is NOT transitive (§6.4 below). It is also the doctrinal grounding for the wrapped-events architecture (§9): peer events do NOT graft into the receiver's Merkle chain; they are wrapped as "I heard peer say X" attestations whose parent is the receiver's own local tip.
+**Federation transfers content, not identity.** This is the structural reason cross-substrate trust is NOT transitive (§6.4) and the doctrinal grounding for the wrapped-events architecture (§9).
 
 ---
 
-## §4. Spore-schema (parent → child, per L1_SCHEMA §3)
+## §4. Spore-schema (parent → child)
 
-When parent substrate spawns child:
-
-**Spore-schema includes** (per L1_SCHEMA §3.1):
-- Schema definitions (validated against parent's current SSoT)
-- Canonical-bytes serializer specification (spore-inheritable; tier-1)
-- Dispatch-form atomic-record type tree
-- Classifier dimension table
-- Initial appetite-axis schema (or equivalent under chosen dispatch)
-- Anchor-surface configuration (incl. sealing mechanism)
-- Parent's outstanding immune-signal summary
-
-**Spore-schema does NOT include** (per L1_SCHEMA §3.2):
-- Parent's full causal DAG (child starts own DAG from genesis)
-- Parent's operator-token history (forbidden by I1)
-- Parent's accumulated read-pattern norms (model-class epoch buckets per L0 §7 signal #6)
-
-**Child starts with own genesis sporocarp.** Parent-child link in parent's DAG is a `federation_coupling` edge to the child-substrate-ID.
+Spore-schema included / not-included field set is the canonical L1_SCHEMA §3.1 + §3.2 specification. Child starts with own genesis sporocarp. Parent-child link in parent's DAG is a `federation_coupling` edge to the child-substrate-ID.
 
 ---
 
 ## §5. Closure verification (I7)
 
-Spawn protocol verification (per L1_SCHEMA §3.3 + L1_GOVERNANCE §4.3):
+Spawn protocol is per **L1_SCHEMA §3.3 + L1_GOVERNANCE §4.3** (canonical): parent's static-schema validation against current spore-schema-hash for the I7 field set → child runs own I3 self-validation as first metabolic cycle → owner co-signs spawn at anchor surface. Failure aborts spawn before `federation_coupling` edge commits; partial spawns are GC'd. Success emits `genesis_attested` sporocarp in parent's DAG.
 
-1. Parent runs static-schema validation: child's spore-schema matches parent's current spore-schema-hash for the I7 field set.
-2. Child runs own I3 self-validation as first metabolic cycle.
-3. Owner co-signs spawn at anchor surface: `(parent-substrate-ID, child-substrate-ID, spore-schema-canonical-bytes-hash, anchor-surface-timestamp)`.
+### §5.1 Immune-summary inheritance
 
-**Failure on any step aborts spawn BEFORE federation_coupling edge commits.** Partial spawns are GC'd by L1_CONTINUITY at next cycle.
-
-**Success emits `genesis_attested` sporocarp** in parent's DAG.
-
-### §5.1 Immune-summary inheritance (per pass-1 mycoparasite-13)
-
-Spore-schema includes parent's outstanding immune-signal summary (counts of unresolved CI-grade immune sporocarps + most recent tip-hash). If parent had unresolved CI-grade immune signals at spawn, child enters birth-period in `quarantined` until owner re-attests intent. This prevents "spawning to launder unresolved pathology".
+Spore-schema carries parent's outstanding immune-signal summary. If parent had unresolved CI-grade immune signals at spawn, child enters birth-period in `quarantined` until owner re-attests intent (prevents "spawning to launder unresolved pathology").
 
 ---
 
 ## §6. Federation discovery and peer-trust
 
-### §6.1 Discovery modes (per L1_GOVERNANCE §5.1)
+### §6.1 Discovery modes
 
-L4 picks from:
-- **Peer-to-peer broadcast**: substrates announce on a shared discovery channel; potential peers attest interest; owner attests adoption per peer.
-- **Owner-attested peer list** (default): owner curates list of approved peer substrate-IDs.
-- **Hub-and-spoke registry**: a registry substrate aggregates peers; subordinate substrates discover through hub.
-- **Hybrid**.
+Per **L1_GOVERNANCE §5.1**: peer-to-peer broadcast / owner-attested peer list (default; strongest isolation) / hub-and-spoke registry / hybrid.
 
-Default is owner-attested peer list: strongest isolation; lowest discovery automation.
+### §6.2 Peer-trust freshness
 
-### §6.2 Peer-trust freshness (per L1_GOVERNANCE §5.2)
+Per **L1_GOVERNANCE §5.2**: L1-bounded freshness window (default 90 active-operation days); within → events flow; past → `peer_attestation_stale` + queue pending re-attestation; past additional grace (default 30 days) → events rejected + `untrusted_federation` immune event. Revocation list at anchor surface rejects immediately.
 
-Each peer's attestation has an L1-bounded freshness window (default 90 active-operation days):
+### §6.3 Aggregate re-attestation
 
-- **Within freshness**: federation events flow normally.
-- **Past freshness**: substrate emits `peer_attestation_stale`; federation events queue pending owner re-attestation.
-- **Past additional grace** (default 30 days): events rejected; `untrusted_federation` immune event.
-
-**Revocation list at anchor surface**: revoked peers' events are immediately rejected (no grace).
-
-### §6.3 Aggregate re-attestation (per pass-2 saprotroph-17)
-
-To avoid O(N) owner workload per period: owner MAY issue `federation_peer_set_reattestation` event signing the current peer-set Merkle root + diff against last commitment. Anchor surface displays diff (peers added/removed since last aggregate-reattestation); owner reviews diff (not full set); signs.
-
-**Owner workload is O(1) per period; verification cost is O(N) at the anchor surface** (anchor surface re-computes Merkle root from enumerated peer list, not from substrate-supplied summary).
+Owner MAY issue `federation_peer_set_reattestation` signing peer-set Merkle root + diff against last commitment (anchor surface displays diff). **Owner workload O(1) per period; anchor-surface verification cost O(N)**.
 
 ### §6.4 Cross-substrate trust is NOT transitive
 
-If A federates with B and B federates with C, A does NOT automatically trust C. Each pairwise trust requires owner attestation.
-
-**Rationale**: trust transitivity would let a compromised B route untrusted-C content into A under the guise of B's authority. Per L1_GOVERNANCE §5.4 explicit clause.
-
-**Note on P15 (§6.5)**: population-level consensus does NOT make trust transitive. Consensus operates over **shared claims** (taxonomy in §6.5.b), not over chained trust. Even at ≥3-peer scale, A still attests each peer of A's pairwise; the consensus layer adds a quorum check on whether population-level claims are valid, not on whether A inherits B's trust list.
+A federates with B and B federates with C → A does NOT automatically trust C. Each pairwise trust requires owner attestation (per L1_GOVERNANCE §5.4). Trust transitivity would let a compromised B route untrusted-C content into A under B's authority. **P15 (§6.5) does NOT make trust transitive** — consensus operates over **shared claims** (taxonomy §6.5.b), not over chained trust.
 
 ### §6.5 Population-level consensus floor (P15 landing)
 
-> **DRAFT 9 cascade addition** (per L0 §2.3 G-9.b retraction + §17 G-7.c choice).
-> **Doctrinal status**: P15 Population-Level Consensus retracted from L0 to L2_FEDERATION. Substrate-internal does not require consensus; federation-level Byzantine fault tolerance is L2 territory.
+> **Doctrinal status**: P15 Population-Level Consensus retracted from L0 to L2_FEDERATION per G-9.b/G-7.c. Substrate-internal does not require consensus; federation-level Byzantine fault tolerance is L2 territory.
 
 #### §6.5.a Activation threshold
 
@@ -150,7 +92,7 @@ The consensus floor activates when **both** conditions hold simultaneously:
 
 Below the activation threshold (≤2 peers, OR claim is not population-level): **pairwise-trust + owner-attestation** per DRAFT 8 inheritance (§6.1–§6.4 above). The consensus mechanism is dormant — no Byzantine layer is invoked, no `population_consensus_*` events emit.
 
-**Above the threshold**: the Byzantine consensus protocol (§6.5.c) is the **only** valid mechanism for the population-level claim to take effect. Bypass = breach (`C29_consensus_floor_bypass` per L1_HARD_RULES extension; A6 cascade).
+**Above the threshold**: the Byzantine consensus protocol (§6.5.c) is the **only** valid mechanism for the population-level claim to take effect. Bypass = breach (`C49_consensus_floor_bypass` per L1_HARD_RULES extension; A6 cascade).
 
 **Floor crossing — activation event**: when the active peer-set count first crosses from 2 to 3 (or when a substrate is born into a federation that already has ≥3 peers), substrate emits `consensus_floor_activated` sporocarp recording (peer_count, activation_cycle, peer_set_merkle_root). Anchor surface co-attests at next CI boundary.
 
@@ -219,38 +161,24 @@ If the round timeout elapses without quorum: the claim becomes `population_conse
 
 #### §6.5.h Composition with other principles
 
-- **P1.c carrier-asymmetry preserved**: consensus is on claims, not on identity. Even after consensus, each substrate retains its own substrate-ID, owner-key history, DAG, integument. §6.4 non-transitivity continues to hold.
-- **P5 Universal Interconnection (Tier-Exempt-Permitted)**: consensus participation is the population-level expression of P5. The "tier-exempt" carve-out lets substrates declare consensus-passive participation (read certificates but never vote) — declared in substrate canon at federation enrollment; CI-attested.
-- **P6 Eternal Causality**: every consensus action (vote emitted, vote received, quorum reached, round timeout, pending state) is a DAG event with `causal_in_edges` proof per I4. Consensus is not parallel to causality; it is woven into it.
-- **P7 Mortality**: a substrate self-euthanasia (M19/M23.2) emits a final `self_euthanasia_executed` event whether or not population consensus is pending; P15 does not gate P7. The mortal substrate's votes in any in-flight round become orphaned (the round either reaches quorum without them or times out).
-- **P11 Metabolic Economy**: consensus voting is a `network cost / cycle` line item (signal #8 per L0 §7.3). Persistent high-vote-rate triggers `consensus_cost_elevated` observability signal; L1-tunable.
-- **P14 Telos**: a substrate may include consensus_participation as a sub-criterion of telos-alignment computation per L1_TROPISM (e.g. "this substrate's purpose includes being a reliable federation peer"). Optional; not L0-mandated.
-- **I7 Reproduction Closure (Generation-Bounded)**: a spawned child does NOT inherit its parent's consensus state. Each substrate joins its own federation. Cross-ref L1_SCHEMA §3.2 NOT-included list.
+- **P1.c**: consensus is on claims, not identity. Each substrate retains its substrate-ID, owner-key history, DAG, integument. §6.4 non-transitivity holds.
+- **P5 (Tier-Exempt-Permitted)**: consensus-passive participation (read certificates but never vote) is CI-attested at federation enrollment.
+- **P6**: every consensus action is a DAG event with `causal_in_edges` proof per I4.
+- **P7**: self-euthanasia emits regardless of pending consensus; P15 does not gate P7; in-flight votes orphan.
+- **P11**: consensus voting feeds signal #8 (network cost / cycle); high-vote-rate triggers `consensus_cost_elevated`.
+- **P14**: substrate canon may include consensus_participation as telos sub-criterion (optional, L1_TROPISM).
+- **I7**: spawned child does NOT inherit parent's consensus state (L1_SCHEMA §3.2 NOT-included list).
 
 ---
 
 ## §7. Federation event flow (egress)
 
-Per L1_SKIN §3.1 + L1_GOVERNANCE §5.3:
+Per **L1_SKIN §3.1 + L1_GOVERNANCE §5.3**:
 
-### §7.1 Per-emission freshness check
-
-Every outbound federation envelope verifies the target peer's freshness + non-revocation BEFORE emission. Stale/revoked → suppression + `federation_egress_blocked` immune event.
-
-### §7.2 Egress rate-limiting
-
-Anchor surface tracks federation egress volume per peer per day. Spike beyond L1-tunable triggers `federation_egress_saturation` immune event. Defends against covert-channel exfiltration via federation envelopes.
-
-### §7.3 Canonical low-entropy serialization
-
-Federation event content uses sorted-key, normalized-whitespace, fixed-precision-numeric serialization. Limits covert-channel bandwidth within legitimate federation envelopes.
-
-### §7.4 Federation_coupling DAG edges (per L1_TROPISM §B8)
-
-When federation event emits, parent's DAG records:
-- `federation_coupling` edge with `(peer_substrate_id, aggregate_reattestation_root_at_emission, peer_inclusion_merkle_path)` — a self-contained proof that this peer was trusted at this emission (per pass-3 saprotroph-3).
-
-Historical federation events thus remain verifiable: a 20-year-old federation_coupling sporocarp can prove "this peer was trusted at this emission" without chain-walking through all subsequent aggregate-reattestations.
+- **§7.1 Per-emission freshness check**: every outbound envelope verifies target peer freshness + non-revocation; stale/revoked → suppression + `federation_egress_blocked` immune event.
+- **§7.2 Egress rate-limiting**: per-peer-per-day volume tracked at anchor surface; spike → `federation_egress_saturation` (defends covert-channel exfiltration).
+- **§7.3 Canonical low-entropy serialization**: sorted-key, normalized-whitespace, fixed-precision-numeric. Limits covert-channel bandwidth.
+- **§7.4 `federation_coupling` DAG edges** (per L1_TROPISM §B8): record `(peer_substrate_id, aggregate_reattestation_root_at_emission, peer_inclusion_merkle_path)` — self-contained proof "this peer was trusted at this emission", verifiable without chain-walking through subsequent aggregate-reattestations.
 
 ---
 
@@ -267,11 +195,11 @@ Federation intake is **substrate-mediated**, not direct content insertion. The p
 
 ---
 
-## §9. Wrapped-events architecture (M25.4 sealed; Phase β origin)
+## §9. Wrapped-events architecture (M25.4 sealed)
 
-> **Doctrinal status**: formal mechanism sealed by Phase β security audit (commit `8ffc305`) and M25.4 (commit `e0d0e38`). Cascades from L0 P1.c carrier-asymmetry + P9 single-integument boundary + I4 full-fidelity (compression-aware) DAG: peer substrate-IDs are DISTINCT carrier identities (P1.c); peer DAGs are DISTINCT Merkle chains (I4); peer integuments are DISTINCT boundaries (P9). Therefore peer events cannot graft into this substrate's DAG; they must be wrapped as "I heard X say Y" attestations.
+> **Doctrinal status**: formal mechanism sealed at M25.4. Cascades from L0 P1.c carrier-asymmetry + P9 single-integument boundary + I4 full-fidelity DAG: peer substrate-IDs are DISTINCT carrier identities; peer DAGs are DISTINCT Merkle chains; peer integuments are DISTINCT boundaries. Peer events cannot graft into this substrate's DAG; they must be wrapped as "I heard X say Y" attestations.
 >
-> **Origin attack** (pre-Phase β; pre-fix): a malicious peer could push `operator_pinned` / `cycle_advanced` / `genesis_event` events whose parent_hashes pointed into peer's chain. Receiver inserting those events directly would have created cross-substrate parent edges, hijacking receiver's identity or wiping its state. The wrapped-events architecture closes this attack at the structural level.
+> **Origin attack** (pre-fix): a malicious peer could push `operator_pinned` / `cycle_advanced` / `genesis_event` events whose parent_hashes pointed into peer's chain. Receiver inserting those events directly would have created cross-substrate parent edges, hijacking receiver's identity or wiping its state. The wrapped-events architecture closes this attack at the structural level.
 
 ### §9.1 Envelope schema
 
@@ -322,7 +250,7 @@ The inner event's `node_type` MUST match one of the allowlisted prefixes (enforc
 | `sporocarp:` | Peer's fruiting events (causal-only attestations; no state mutation at receiver) |
 | `mutation:` | Peer's mutation audit trail (operator-supplied opaque content; observability only) |
 | `immune:` | Peer's immune sporocarps (cross-substrate observability of peer pathology) |
-| `federation_received:` | Recursive wrapper (Phase β: chained federation — "A heard B heard C"); subject to §11 recursion bound |
+| `federation_received:` | Recursive wrapper (chained federation — "A heard B heard C"); subject to §11 recursion bound |
 
 **Banned inner node_types** (rejected at ingest; emit `C35_federation_substrate_private_event_injection` per L1_HARD_RULES extension):
 
@@ -406,25 +334,25 @@ If a FED_HELLO has BOTH `signer_pubkey` AND `hello_signature` present but Ed2551
 - Emit `C39_federation_hello_signature_invalid` immune sporocarp recording (peer's claimed substrate-ID, attempted signer_pubkey hex prefix, signing context bytes prefix)
 - Log to observatory; persistent C39 emission from same IP triggers `federation_hello_signature_burst` (L1-tunable; immune-grade if >10/hour)
 
-C39 is in the L1_HARD_RULES C-row catalog (per Phase β origin + M25.4 implementation). The detector lives in `myco_substrate/src/federation/protocol.rs::verify_fed_hello_signature`.
+C39 is in the L1_HARD_RULES C-row catalog (M25.4 implementation). The detector lives in `myco_substrate/src/federation/protocol.rs::verify_fed_hello_signature`.
 
 ### §10.6 Mutual asymmetry (both sides authenticate)
 
 The protocol is **mutually authenticating**: initiator emits HELLO → receiver verifies → receiver emits HELLO_ACK with receiver's own signed payload → initiator verifies. If either verification fails, the connection terminates and BOTH sides emit C39. Pinning is **per-direction**: A pins B's `signer_pubkey`; B pins A's `signer_pubkey`. If pinned key on either side mismatches an in-flight HELLO, connection rejects.
 
-This closes the **Phase β origin asymmetry attack**: pre-M25.4, only the receiver TOFU-pinned by substrate-ID; an attacker connecting first under a victim's substrate-ID could occupy the TOFU slot. Now both sides require Ed25519 over a fresh signing input; an attacker without the victim's signing private key cannot forge it.
+This closes the **origin asymmetry attack**: pre-M25.4, only the receiver TOFU-pinned by substrate-ID; an attacker connecting first under a victim's substrate-ID could occupy the TOFU slot. Now both sides require Ed25519 over a fresh signing input; an attacker without the victim's signing private key cannot forge it.
 
 ---
 
-## §11. Recursive injection defense (Phase γ.9 mycoparasite M11 SECURITY-CRITICAL)
+## §11. Recursive injection defense (SECURITY-CRITICAL)
 
-> **Doctrinal status**: cascade addition from Phase γ.9 mycoparasite-round-2 finding M11. **The attack and defense were identified by Phase γ.9; pre-DRAFT-9 substrate code did NOT enforce this defense.** L4 implementation milestone is **M27** (`myco_substrate/src/server.rs` federation ingest path extension; cross-ref L1_HARD_RULES C36 cascade per A6).
+> **Doctrinal status**: cascade addition; pre-DRAFT-9 substrate code did NOT enforce this defense. L4 implementation milestone is **M27** (`myco_substrate/src/server.rs` federation ingest path extension; cross-ref L1_HARD_RULES C43).
 >
 > **Severity**: CRITICAL — without this defense, the wrapped-events architecture (§9) is bypassable via recursive nesting. The §9.4 allowlist check applies only to the OUTERMOST inner `node_type`; without recursive validation, an attacker can smuggle a banned inner event by nesting it inside a `federation_received:` wrapper that itself nests another `federation_received:` wrapper that contains the banned event.
 
 ### §11.1 The attack
 
-Concrete attack pattern (Phase γ.9 M11 finding):
+Concrete attack pattern:
 
 1. Malicious peer X constructs a fake inner event: `federation_received:peer_X/operator_pinned` (claims to be a wrapper recording peer X's observation of `operator_pinned`).
 2. X wraps this in an OUTER `federation_received:peer_Y` envelope (claims to attest "I heard peer Y attest the above").
@@ -445,7 +373,7 @@ When ingesting any `federation_received:{prefix}` event, the substrate MUST recu
 function validate_federation_inner(content_canonical_bytes, depth, max_depth):
     if depth > max_depth:
         reject ("federation_recursive_depth_exceeded")
-        emit C36_federation_recursive_injection (cascade_flag=true)
+        emit C43_federation_recursive_injection (cascade_flag=true)
         return Rejected
     decoded = cb_decode(content_canonical_bytes)
     inner_node_type = decoded["peer_event_node_type"]
@@ -481,18 +409,18 @@ When recursive validation rejects:
 1. **The entire outermost envelope is rejected** (NOT just the inner-bad layer). Partial acceptance is forbidden — there is no doctrinally-coherent state where "we accepted layers 0-3 but not layer 4" because layers 0-3's wrapping testimony was *about* layer 4. Drop the outer envelope entirely.
 2. **Emit the appropriate immune sporocarp**:
    - If the rejection cause was a banned inner `node_type` at any depth: `C35_federation_substrate_private_event_injection` with `cascade_flag = true`, `depth = N`, `inner_node_type = T`, `peer_substrate_id = ...`
-   - If the rejection cause was depth-exceeded: `C36_federation_recursive_injection` (new C-row; A6 cascade adds this to L1_HARD_RULES) with `attempted_depth = N+1`, `peer_substrate_id = ...`
-3. **Per-peer attack rate-limiting**: persistent C35/C36 emission from the same `peer_substrate_id` (L1-tunable threshold; seed: 3 rejections per 24 wall-clock hours) triggers escalation: substrate emits `federation_peer_recursive_attack_burst` and proposes peer revocation. Below the §6.5 consensus floor, owner-attested revocation; above the floor, P15 population-level revocation per §6.5.b.1.
+   - If the rejection cause was depth-exceeded: `C43_federation_recursive_injection` (new C-row; A6 cascade adds this to L1_HARD_RULES) with `attempted_depth = N+1`, `peer_substrate_id = ...`
+3. **Per-peer attack rate-limiting**: persistent C35/C43 emission from the same `peer_substrate_id` (L1-tunable threshold; seed: 3 rejections per 24 wall-clock hours) triggers escalation: substrate emits `federation_peer_recursive_attack_burst` and proposes peer revocation. Below the §6.5 consensus floor, owner-attested revocation; above the floor, P15 population-level revocation per §6.5.b.1.
 
-### §11.5 New C-row: C36_federation_recursive_injection
+### §11.5 New C-row: C43_federation_recursive_injection
 
 **A6 cascade** (L1_HARD_RULES update) adds:
 
 | ID | Name | P-coverage | I-coverage | Detector | Semantics |
 |---|---|---|---|---|---|
-| C36 | `federation_recursive_injection` | P9 (single integument; recursive wrapping breach) + P15.guard | I8 (skin envelope filter) | `myco_substrate/src/server.rs` (M27 implementation) | Federation recursive validation depth exceeded; outermost envelope rejected; emitted with `attempted_depth + peer_substrate_id` evidence |
+| C43 | `federation_recursive_injection` | P9 (single integument; recursive wrapping breach) + P15.guard | I8 (skin envelope filter) | `myco_substrate/src/server.rs` (M27 implementation) | Federation recursive validation depth exceeded; outermost envelope rejected; emitted with `attempted_depth + peer_substrate_id` evidence |
 
-C36 is **distinct from** C35 in that C35 is a banned-type-found-at-some-depth breach (the type itself is the problem) while C36 is a depth-exhaustion breach (the structure itself is the problem). Both can fire on the same ingest; the implementation emits whichever is detected first (banned-type detection is checked before recursing further).
+C43 is **distinct from** C35 in that C35 is a banned-type-found-at-some-depth breach (the type itself is the problem) while C43 is a depth-exhaustion breach (the structure itself is the problem). Both can fire on the same ingest; the implementation emits whichever is detected first (banned-type detection is checked before recursing further).
 
 ### §11.6 Composition with §9 and §10
 
@@ -526,23 +454,16 @@ The network shape is L4 emergent. The doctrine commits only to:
 
 ## §13. Federation health observability
 
-Living Bets signal #4 (federation health) is split (per pass-2 saprotroph-6):
+Federation health signals #4a (cumulative fork count) + #4b (reachable-federation count) and observability framing are specified at **L2_OBSERVABILITY §10** (cross-substrate observability) + §2.1 (signal table). Divergence between 4a and 4b = **mycelial fragmentation**.
 
-- **4a: Cumulative fork count** (monotonic; counts all children + peer couplings)
-- **4b: Reachable-federation count** (peers responding to skin-level health probe at L1-specified cadence)
-
-Divergence between 4a and 4b = **mycelial fragmentation** — the substrate is structurally peered with many but actually-reachable to few. Immune-grade if persistent.
-
-Healthy mycelial network: 4a grows; 4b tracks 4a (most federated peers are responsive).
-
-**Additional federation observability signals (DRAFT 9 cascade additions)**:
+**Federation-specific signals** (not part of the 10-signal Living Bets observatory; emitted by federation mechanism here):
 
 - **`consensus_participation_rate`** (only when §6.5 floor active): per-claim quorum-cert completion rate over rolling window; declining → federation fragmenting in voting-behavior space
 - **`byzantine_witness_lag`**: per-claim wall-clock time from first vote received to quorum reached; trending up → federation throughput stress
 - **`fork_resolution_latency`**: per-claim cycles between first dissenting vote received and quorum-cert OR pending-state finalization
-- **`federation_legacy_peer_count`** (M25.4): peers without pinned `signer_pubkey` (legacy / pre-M25.4); should trend to zero post-deprecation-horizon (§10.4)
+- **`federation_legacy_peer_count`** (M25.4): peers without pinned `signer_pubkey`; should trend to zero post-deprecation-horizon (§10.4)
 - **`federation_hello_signature_burst`**: persistent C39 tampered-FED_HELLO from one IP/peer (L1-tunable threshold; immune)
-- **`federation_peer_recursive_attack_burst`**: persistent C35/C36 from one peer (per §11.4)
+- **`federation_peer_recursive_attack_burst`**: persistent C35/C43 from one peer (per §11.4)
 - **`federation_received_event_count`**: cumulative count of `federation_received:*` events ingested (per `myco_substrate/src/server.rs` count)
 
 All consensus-related signals NULL until §6.5 floor activates; legacy peer signal nonzero during M25.4 transition only.
@@ -551,27 +472,24 @@ All consensus-related signals NULL until §6.5 floor activates; legacy peer sign
 
 ## §14. Federation limits + acknowledged asymmetries
 
-- **Substrate cannot detect compromise of a federated peer**: trust freshness window detects staleness; revocation detects owner-declared compromise; subtler attacks (peer slowly drifts adversarial without owner notice) require owner-side monitoring OR — at §6.5 floor — population-level revocation by ≥2/3 quorum (§6.5.b.1).
-- **Federation event content is canonical-bytes verifiable** (substrate signs egress per §10; peer verifies on intake; wrapped per §9) but content semantics are not validatable (peer can't tell if the content is "honest" beyond canonical-bytes integrity + allowlisted node_type per §9.4 + recursive validation per §11).
-- **Aggregate re-attestation collapses owner workload to O(1)** but introduces O(N) anchor-surface verification cost.
-- **Cross-substrate trust non-transitivity** is a feature, not a limitation: it prevents trust dilution across federation chains. Per §6.5 cross-ref: P15 population-level consensus operates over **shared claims**, not over **chained trust** — non-transitivity holds even at scale.
-- **Wrapped-events architecture is one-way receiver-protective**: this substrate's Merkle chain stays valid regardless of what peers push, but this substrate cannot independently validate peer's claimed inner content's `causal_in_edges` proofs (peer's I4 obligation). Cross-substrate trust limit per §11.6.
-- **FED_HELLO mutual auth (§10) protects identity asymmetry but not key compromise**: if a peer's signing key is exfiltrated, an attacker can impersonate the peer. Per §10.3, key rotation requires CI attestation at peer's anchor surface and observation at this substrate; window of exposure is bounded by peer's own anchor-surface discipline.
-- **Recursive injection defense (§11) is bounded-depth, not unbounded**: an attack at depth N+1 where N=`max_recursion_depth` is rejected, but the doctrinal commitment is to depth N+1 rejection, NOT to depth ∞ tolerance. Setting depth too low risks rejecting legitimate long peer chains; setting too high risks computational DoS on deep wrappers. L1 tunes.
-- **Consensus floor (§6.5) does NOT add liveness above pairwise**: a partitioned federation with insufficient quorum reaches `population_consensus_pending` indefinitely; substrate continues normal operation under pairwise semantics. P15 adds *safety* (population-level claims need quorum to act) but not *liveness* (no claim is forced to resolve in bounded time).
+- **Substrate cannot detect compromise of a federated peer**: freshness window detects staleness; subtler drift requires owner-side monitoring OR — at §6.5 floor — ≥2/3 quorum revocation.
+- **Federation content is canonical-bytes verifiable** (per §10 + §9) but content semantics are NOT validatable beyond allowlist (§9.4) + recursive validation (§11).
+- **Aggregate re-attestation** collapses owner workload to O(1) but introduces O(N) anchor verification cost.
+- **Cross-substrate trust non-transitivity is a feature**: P15 operates over shared claims, not chained trust — non-transitivity holds at scale.
+- **Wrapped-events is one-way receiver-protective**: this substrate's Merkle chain stays valid; cannot independently validate peer's inner `causal_in_edges` (per §11.6).
+- **FED_HELLO mutual auth protects identity asymmetry but not key compromise**: peer key exfiltration enables impersonation; window bounded by peer's own anchor-surface discipline.
+- **Recursive injection defense is bounded-depth**: depth N+1 rejected; not depth ∞ tolerance. L1 tunes.
+- **Consensus floor adds safety not liveness**: partitioned federation reaches `population_consensus_pending` indefinitely; substrate continues normal pairwise operation.
 
 ---
 
 ## §15. Glossary
 
-> **Section added in DRAFT 9 cascade**. Federation-specific vocabulary. Cross-ref L0 §12 glossary for the substrate-wide terms (Cultivation / Cultivar / Cultivator; population-level claim; etc.).
+> Federation-specific vocabulary. **Cultivator / Cultivar / Cultivation**: see **L0 §12** for canonical definitions. In federation context: each peer is a separate Cultivar with its own Cultivator (NOT shared across peers); reproduction modes (§2) produce new Cultivars with distinct substrate-IDs.
 
-- **Cultivator** (per L0 §1.2): the owner-as-relationship-role; the human party who provides resources (compute, storage, network) and selectively shapes substrate evolution via owner-stated objectives per P14. In federation context, each substrate has its own Cultivator (NOT shared across federation peers). The Cultivator-side of the Cultivation relationship is transferable per L0 §1.4 / §15 succession; the substrate-side (Cultivar) is identity-stable.
-- **Cultivar** (per L0 §1.2): the Myco substrate (kernel + dag.cb + state_dir) as the species under cultivation. In federation context, each peer is a separate Cultivar; reproduction modes (§2) produce new Cultivars with distinct substrate-IDs.
-- **Cultivation** (per L0 §1.2 G-11.a): the doctrinally-named relationship type. Asymmetric care + co-evolution + mycology-rooted vocabulary. Distinct from ownership / custody / curatorship. The Cultivation relationship is the doctrinal grounding for why substrate-side identity (P1.c) survives Cultivator transfer per L0 §1.4 / §15.
 - **federation_received** (per §9; M25.4): the wrapper event prefix used when ingesting peer events. Format: `federation_received:{peer_id_prefix}` where peer_id_prefix is first 8 hex bytes of peer substrate-ID. Content schema per §9.1.
-- **wrapped-events architecture** (per §9; Phase β + M25.4): the SECURITY-CRITICAL mechanism in which peer events are ingested as wrapper envelopes whose parent is the receiver's local DAG tip (NOT peer's parent_hashes). Makes federation "I heard X say Y" attestation, not multi-substrate Merkle-merge. Closes the pre-Phase-β cross-chain-injection attack.
-- **recursive injection defense** (per §11; Phase γ.9 mycoparasite M11): the bounded-depth recursive validation of inner content within `federation_received:` wrappers. Prevents the "outer + inner content prefix recursion attack" in which a banned inner event is smuggled by nesting it inside multiple `federation_received:` wrappers (each layer satisfying the §9.4 allowlist check at its surface but the deepest layer carrying a banned type). Depth bound seed = 5.
+- **wrapped-events architecture** (per §9; M25.4): the SECURITY-CRITICAL mechanism in which peer events are ingested as wrapper envelopes whose parent is the receiver's local DAG tip (NOT peer's parent_hashes). Makes federation "I heard X say Y" attestation, not multi-substrate Merkle-merge. Closes the cross-chain-injection attack.
+- **recursive injection defense** (per §11): the bounded-depth recursive validation of inner content within `federation_received:` wrappers. Prevents the "outer + inner content prefix recursion attack" in which a banned inner event is smuggled by nesting it inside multiple `federation_received:` wrappers (each layer satisfying the §9.4 allowlist check at its surface but the deepest layer carrying a banned type). Depth bound seed = 5.
 - **population-level claim** (per §6.5; L0 §12): a claim crossing the consensus floor (≥3 peers + claim taxonomy match per §6.5.b) requiring Byzantine-tolerant agreement. Distinct from pairwise claims (per-peer attestation / per-substrate content filtering / per-peer revocation by owner).
 - **consensus floor** (per §6.5; L0 §17 G-7.c): the activation threshold (≥3 peers + population-level claim) above which Byzantine consensus is required. Below the floor: pairwise-trust + owner-attestation per DRAFT 8 inheritance.
 - **quorum certificate** (per §6.5.f): the self-verifying DAG event emitted when ≥2/3 valid distinct-peer votes accumulate. Contains embedded signed votes; downstream substrates verify the certificate without re-contacting peers.

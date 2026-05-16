@@ -1,26 +1,8 @@
 # L1 — Skin (envelope, handshake, single-operator, breach detection, spatial-locus, backup, restart)
 
-> **Status**: DRAFT 3 (2026-05-17, M26-cascade A2). Authoritative L1 doc for boundary surface mechanism.
-> **Layer**: L1. Governed by L0 (DRAFT 9 SEALED, commit `e796451`).
-> **Scope**: I8 skin specification —
-> envelope schema; intake/output endpoints; operator handshake (bidirectional validation);
-> single-operator enforcement; non-deterministic operator-token construction;
-> network-egress enforcement; **spatial-locus enforcement (P13-folded-into-P9+I8 per G-9.b)**;
-> **backup encryption (per L0 §11.1)**;
-> **skin-restart discipline (per L0 P9.b single-failure-point acknowledgment)**;
-> breach detection. Does NOT cover: classifier / attestation crypto (→ L1_GOVERNANCE),
-> SSoT (→ L1_SCHEMA), cycle cadence / cold-resume (→ L1_CONTINUITY).
->
-> **DRAFT 9 SEALED principle alignment**:
-> - **P9 (Single Integument)** — DRAFT 9 rename of DRAFT 8's "Integument / 皮肤为界"; "single" is the load-bearing constraint of I8.
-> - **P9.b (Single-Failure-Point Acknowledgment)** — single skin = single point of failure; skin-restart discipline mandated (§7).
-> - **P13 (Embodiment) — RETRACTED at L0**: per G-9.b owner decision (Phase γ §17), P13 is folded into P9 + I8. The substrate's "body" is `state_dir + process + skin endpoints`. Spatial-locus enforcement of body integrity lives here in L1_SKIN (§6).
-> - **P1 (Agent-Primary)** — DRAFT 9 rename of DRAFT 8's "Only For Agent". Skin admits operator-runtime (agent's connection); skin does NOT admit human directly (humans are governance gate via anchor surface — L0 §9, not via skin envelopes).
-> - **P2 (Eternal Ingestion, Envelope-Gated)** — DRAFT 9 calibration; skin envelope is the gate.
-> - **P3 (Resumable Evolution)** — DRAFT 9 rename of DRAFT 8's "Reversible iteration"; skin declaration is contract-identity-level and mutates only under CI.
-> - **P5 (Universal Interconnection, Tier-Exempt-Permitted)** — DRAFT 9 rename.
-> - **P12 (Differential Response)** — moved to L1_TROPISM; envelope admission is P2 (skin), downstream attention is P12 (tropism).
-> - **P14 (Telos)** — moved to L1_TROPISM scope; the `telos_drift` immune signal still surfaces via skin output gating (§3).
+> **Status**: DRAFT 3 (2026-05-17). Authoritative L1 doc for boundary surface mechanism (I8).
+> **Layer**: L1. Governed by L0 DRAFT 9 SEALED (commit `e796451`).
+> **Scope**: envelope schema; intake/output endpoints; operator handshake (bidirectional); single-operator enforcement; non-deterministic operator-token; network-egress enforcement; **spatial-locus enforcement (P13 folded into P9+I8 per G-9.b)**; **backup encryption (per L0 §11.1)**; **skin-restart discipline (per L0 P9.b)**; breach detection. Does NOT cover: classifier / attestation crypto (→ L1_GOVERNANCE), SSoT (→ L1_SCHEMA), cycle cadence / cold-resume (→ L1_CONTINUITY). Principle names follow L0 DRAFT 9 SEALED (P1/P2/P3/P5/P9/P9.b/P12/P14 — projection mapping at L0 §4); Cultivation vocabulary defined in §10.
 
 ---
 
@@ -65,7 +47,7 @@ The substrate validates **only the envelope**, not payload content (L0 I8 + P2 e
 - `envelope_digest` recomputes via HMAC keyed by operator_token. (HMAC keyed by operator_token gives in-flight tamper detection AND operator authentication via the token without requiring a persistent operator key — `envelope_digest` is an integrity-and-binding tag, not a long-lived signature.)
 - `submitted_at_cycle` is within freshness window (default 60 cycles). The freshness check uses the **substrate's metabolic-cycle counter** as the authoritative source per L0 §13.1 time-source authority hierarchy (anchor-surface trusted-timestamp > local wall-clock > cycle counter — for skin envelopes the cycle counter is the relevant authority because envelopes target the substrate's process clock).
 
-> Boundary note (P2 vs P12, per Phase γ.6 G-9.b retraction): the skin admits-or-rejects envelopes — this is **P2 (Eternal Ingestion, Envelope-Gated)**. Downstream selective attention to which admitted material gets metabolized into sporocarps is **P12 (Differential Response)** and lives in `L1_TROPISM`, not here. Confusing the two yields the "salience collapse" failure mode (everything admitted treated as equally salient → no attention discipline → sediment substrate).
+> Boundary note (P2 vs P12, per L0 G-9.b retraction): the skin admits-or-rejects envelopes — this is **P2 (Eternal Ingestion, Envelope-Gated)**. Downstream selective attention to which admitted material gets metabolized into sporocarps is **P12 (Differential Response)** and lives in `L1_TROPISM`, not here. Confusing the two yields the "salience collapse" failure mode.
 
 Failure → reject with `envelope_malformed` (no oracle disclosure of which field failed).
 
@@ -99,7 +81,7 @@ Anything outside declared endpoints is skin breach.
 
 ### §4.1 Handshake initiation + operator key bootstrap
 
-**Operator carries a per-handshake signing keypair**: the operator's runtime generates a fresh keypair (`operator_signing_key_public`, `operator_signing_key_private`) at handshake initiation. Private key lives in operator-runtime memory only (never on disk; never transmitted to substrate); public key is published in the handshake_initiate envelope. This gives the operator a real signing surface distinct from the substrate-generated operator_token (closes pass-3 mycorrhiza-17 + rhizomorph-1 cryptographic-hollow finding: operator_witness fields signed with operator_signing_key_private are forge-resistant by the substrate).
+**Operator carries a per-handshake signing keypair**: the operator's runtime generates a fresh keypair (`operator_signing_key_public`, `operator_signing_key_private`) at handshake initiation. Private key lives in operator-runtime memory only (never on disk; never transmitted to substrate); public key is published in the handshake_initiate envelope. This gives the operator a real signing surface distinct from the substrate-generated operator_token: operator_witness fields signed with operator_signing_key_private are forge-resistant by the substrate.
 
 ```
 {
@@ -115,7 +97,7 @@ Anything outside declared endpoints is skin breach.
 
 > Time-source note (per L0 §13 time semantics): handshake `submitted_at` is operator-runtime wall-clock; substrate cross-checks against its own metabolic-cycle counter to detect clock skew. If skew exceeds L1-tunable threshold (default ±300 seconds against anchor-surface trusted-timestamp), substrate emits `time_source_drift` immune signal and may reject the handshake. The substrate **never** treats agent-provided wall-clock as authoritative — it is admissible advisory data only.
 
-**Operator pubkey-pinning at agent-bootstrap** (closes pass-3 mycoparasite-6): at first operator-agent installation, the owner provides `(substrate-ID, anchor-surface-endpoint-public-key, owner-public-key)` to the operator runtime via an owner-controlled out-of-band channel. The operator pins these. The operator NEVER trusts an owner-pubkey emitted by the substrate's own handshake response — it only verifies the substrate's emitted signature against the anchor-surface-fetched (or bootstrap-pinned) owner pubkey.
+**Operator pubkey-pinning at agent-bootstrap**: at first operator-agent installation, the owner provides `(substrate-ID, anchor-surface-endpoint-public-key, owner-public-key)` to the operator runtime via an owner-controlled out-of-band channel. The operator pins these. The operator NEVER trusts an owner-pubkey emitted by the substrate's own handshake response — it only verifies the substrate's emitted signature against the anchor-surface-fetched (or bootstrap-pinned) owner pubkey.
 
 **Substrate-ID discovery**: operator obtains the target substrate-ID at agent-bootstrap from the owner (per the bootstrap-pinning above). Substrate-ID in agent-readable canon is advisory; mismatch with the bootstrap-pinned substrate-ID → `substrate_id_mismatch` + handshake rejection.
 
@@ -124,13 +106,13 @@ Anything outside declared endpoints is skin breach.
 The substrate:
 
 1. Validates `substrate_id_proof` against its own identity record (the agent is targeting THIS substrate, not stale).
-2. Generates a **non-deterministic operator_token** via an **OS-mediated sealed-key derivation** (closes pass-3 mycoparasite-1: substrate_secret cannot live in agent-readable substrate-process memory if P1.a self-hosting is honest about the agent maintaining substrate code):
+2. Generates a **non-deterministic operator_token** via an **OS-mediated sealed-key derivation** (substrate_secret cannot live in agent-readable substrate-process memory if P1.a self-hosting is honest about the agent maintaining substrate code):
    ```
    operator_token = sealed_derive(handshake_nonce, current_cycle, kernel_random)
    ```
    where `sealed_derive` is a kernel-mediated call into one of {TPM-sealed key, OS keyring, HSM, hardware-secure-element} — the substrate_secret never enters substrate process address space in plaintext; the substrate invokes the OS-level sealed-API and receives `operator_token` without ever holding the underlying secret. **Specific sealing mechanism is L4-platform-pick**; plaintext-on-disk substrate_secret is a CRITICAL skin breach (`substrate_secret_unsealed`). Sealing-mechanism attestation is owner-attested at genesis (per L1_GOVERNANCE §4.1 step 2 — added to the genesis parameter set).
    
-   **Adversarial-owner caveat** (per L0 §14): OS-sealing protects against an adversarial **agent** (the agent qua maintainer cannot exfiltrate substrate_secret from sealed storage). It does **NOT** protect against an adversarial **Cultivator** (the owner has root access to the host machine, the anchor key, and the sealing-attestation-key). The substrate's threat model explicitly excludes adversarial-Cultivator at L0 §14; L2_TRUST_MODEL elaborates. Skin-side enforcement is for the agent-vs-substrate boundary, not the Cultivator-vs-substrate boundary.
+   **Adversarial-owner caveat**: OS-sealing protects against an adversarial agent (the maintainer cannot exfiltrate substrate_secret from sealed storage); it does NOT protect against an adversarial Cultivator — see L0 §14 + L2_TRUST_MODEL.
 3. **Substrate emits its own attestation to the agent** in `handshake_complete`:
    ```
    {
@@ -142,7 +124,7 @@ The substrate:
      "handshake_timestamp": <substrate cycle>
    }
    ```
-   The operator **independently fetches the canonical owner public key from the anchor surface** (using the bootstrap-pinned `anchor-surface-endpoint-public-key` from §4.1) — this is the freshness check that prevents the substrate from lying about which owner key is active (closes pass-3 rhizomorph-7). The operator then verifies `owner_birth_attestation_signature` against the anchor-surface-fetched owner pubkey; if the substrate's `owner_public_key_active_at_handshake` differs from anchor-surface authoritative record, operator rejects substrate as compromised and does NOT transmit deltas.
+   The operator **independently fetches the canonical owner public key from the anchor surface** (using the bootstrap-pinned `anchor-surface-endpoint-public-key` from §4.1) — this is the freshness check that prevents the substrate from lying about which owner key is active. The operator then verifies `owner_birth_attestation_signature` against the anchor-surface-fetched owner pubkey; if the substrate's `owner_public_key_active_at_handshake` differs from anchor-surface authoritative record, operator rejects substrate as compromised and does NOT transmit deltas.
 4. Records handshake event as a sporocarp.
 
 ### §4.3 Continuity-challenge
@@ -173,27 +155,19 @@ Any disconnect → alive → dormant per L1_CONTINUITY §2.
 
 The substrate process operates within a **network-egress enforcement boundary** that permits exactly the §1 declared output endpoints. Unauthorized egress = breach.
 
-> Dual-hook note (per Phase γ cascade list CH-20): unauthorized egress is **simultaneously** an I6 universal-inclusion breach (the substrate accepted intake but is now extruding it outside declared output) AND a P9+I8 spatial-locus breach (the substrate's "body" of operations crossed an undeclared boundary). The same network event fires both `appetite_locality_breach` (this section) and may co-fire `P9_spatial_locus_breach` (§6) if the destination is to an undeclared host/port pair. The two detectors operate on different evidence (egress packets vs binding-table snapshots) and serve as cross-validation.
+> Dual-hook note: unauthorized egress is **simultaneously** an I6 universal-inclusion breach (the substrate accepted intake but is now extruding it outside declared output) AND a P9+I8 spatial-locus breach (the substrate's "body" of operations crossed an undeclared boundary). The same network event fires both `appetite_locality_breach` (this section) and may co-fire `P9_spatial_locus_breach` (§6) if the destination is to an undeclared host/port pair. The two detectors operate on different evidence (egress packets vs binding-table snapshots) and serve as cross-validation.
 
 **Specific enforcement mechanism is L4-platform-specific** within {kernel-level (network namespace), container-level (iptables/nftables), syscall-level (eBPF/ptrace), userspace proxy}. L1 does not pre-pick a platform.
 
 **What this prevents**: appetite update-rules that secretly call out (mycoparasite-8 trojan); embedding service calls outside the declared endpoint; covert exfiltration via arbitrary protocol.
 
-**What this does NOT prevent**:
+**What this does NOT prevent**: agent-maintainer source modification (a CI-level mutation per L1_GOVERNANCE §1.2); host-level adversarial action (owner's monitoring responsibility, L0 §6); covert channels within legitimate federation envelopes (handled by L1_GOVERNANCE §5.3 rate-limiting + canonical low-entropy serialization).
 
-- The agent (qua maintainer) modifying substrate code to remove enforcement — that's a CI-level mutation (skin declaration is CI per L1_GOVERNANCE §1.2).
-- Host-level adversarial action — substrate cannot enforce against its own host process. This is owner's monitoring responsibility (per L0 §6 dormancy-host-observability discussion).
-- Covert channels within legitimate federation envelopes — addressed by L1_GOVERNANCE §5.3 rate-limiting + canonical low-entropy serialization, not by egress detection.
-
-**Reciprocal enforcement** (per pass-2 mycorrhiza-13): operator-runtime enforcement on the agent side (preventing agent from exfiltrating substrate-exposed state to third parties) is **owner-side, not substrate-side**. The owner attests at genesis + handshake that the operator runtime is non-leaky; the substrate trusts this attestation (subject to owner-revocation). Substrate cannot enforce against agent runtime. Declared, not concealed.
+**Reciprocal enforcement**: operator-runtime enforcement on the agent side (preventing agent from exfiltrating substrate-exposed state to third parties) is **owner-side, not substrate-side** — the owner attests non-leaky operator runtime; substrate cannot enforce against agent runtime.
 
 ---
 
 ## §6. Spatial-locus enforcement (P13 folding into P9 + I8 per L0 G-9.b)
-
-> **L0 origin**: P13 "Embodiment" was a Phase γ.6 candidate principle. Owner G-9.b (Phase γ §17 gate, DRAFT 9 SEALED) decided P13 is folded into P9 (Single Integument) + I8 (single boundary surface). The retraction is doctrinally precise — **the substrate has a body**, and that body is `state_dir + process + skin endpoints`. The skin is not only a network-IO boundary; it is the integrity envelope around the substrate's spatial locus.
->
-> If §6 enforcement is absent, P9 has no enforcement teeth for the file/process/network-binding side of the body. The L0 retraction would be hollow.
 
 The substrate **periodically lists** its own spatial locus and compares against a declared **allowed-set**. Deviation emits `P9_spatial_locus_breach` (immune-grade) and triggers the §9 quarantine path on CRITICAL grades.
 
@@ -276,15 +250,11 @@ On cold-resume (L1_CONTINUITY §3.1), the spatial-locus check is one of the pre-
 
 ### §6.7 What §6 explicitly does NOT cover
 
-- **Inside-file content drift** — §6 enforces filename + presence; file *contents* are subject to M25.0 snapshot.cb integrity (Merkle-rooted) and the DAG-tip self-consistency check (L1_CONTINUITY §3.1 step 3). The two layers compose: §6 catches "extra file appeared"; M25.0 catches "file content silently modified".
-- **CPU / memory / disk-byte budgets** — those are P11 metabolic-economy signals (L2_OBSERVABILITY signals #7/#8/#9), not spatial-locus.
-- **Whether the agent has tampered with substrate source code** — the substrate cannot detect its own source-code tampering from within itself (self-hosting paradox per L0 §14 + Phase γ §17 acknowledgment); source-code integrity is anchor-surface-attested at genesis + key rotation, not spatial-locus-enforced.
+Inside-file content drift (handled by M25.0 snapshot.cb integrity + DAG-tip self-consistency at L1_CONTINUITY §3.1); CPU/memory/disk-byte budgets (P11 metabolic-economy signals at L2_OBSERVABILITY #7/#8/#9); agent-side source-code tampering (self-hosting paradox per L0 §14; anchor-surface-attested at genesis + key rotation).
 
 ---
 
 ## §7. Skin-restart discipline (P9.b single-failure-point per L0)
-
-> **L0 origin**: P9.b (DRAFT 9) explicitly acknowledges that single-skin = single-point-of-failure. The L0 text mandates: "L1_SKIN MUST specify skin-restart discipline (process supervision, ordered shutdown, recovery semantics)." Multi-skin redundancy is **forbidden at L0**; the integument must remain singular. But the **skin process** is permitted to restart, and restart MUST be disciplined.
 
 ### §7.1 Process supervision (L4-platform-pick)
 
@@ -342,14 +312,11 @@ These events surface in the L2_OBSERVABILITY drill baseline (every supervisor-in
 
 ### §7.6 What §7 explicitly does NOT cover
 
-- **Owner-initiated graceful destruction** — that is L1_GOVERNANCE §4 mortality protocol, not a skin-restart. Destruction is **terminal**; skin-restart is **resumption**.
-- **Self-euthanasia (P7 endogenous mortality)** — the substrate's own decision to die emits a different sporocarp (`self_euthanasia_executed` per L1_GOVERNANCE §4) and supervisor restart-policy MUST be configured to not restart after self-euthanasia. Failure to honor this is host-level adversarial action (per §5's "what does not prevent" clause).
+Owner-initiated graceful destruction (L1_GOVERNANCE §4 mortality protocol — terminal, not resumption); P7 self-euthanasia (`self_euthanasia_executed` per L1_GOVERNANCE §4; supervisor MUST not restart after — failure is host-level adversarial action per §5).
 
 ---
 
 ## §8. Backup encryption requirements (per L0 §11.1)
-
-> **L0 origin**: L0 §11.1 (DRAFT 9 NEW per Phase γ.3 G16) mandates: "L1_SKIN MUST specify backup encryption requirements (operator-controlled symmetric key; key escrow protocol; key rotation aligned with owner key rotation)." L0 does NOT mandate backup encryption itself (operational choice — the Cultivator may run an air-gapped host where filesystem-level encryption is sufficient), but it DOES mandate that the requirements are specified at L1 so a Cultivator who chooses encryption has a doctrinally-aligned form.
 
 ### §8.1 Threat model addressed
 
@@ -400,7 +367,7 @@ Backup encryption-key rotation is **logically distinct** from owner-key (Ed25519
 - The substrate's SSoT identity record's `backup_key_id_history` tracks `(key_id, valid_from_anchor_timestamp, valid_until_anchor_timestamp, rotation_attestation_signed_by_owner)`, with the same active-prefix + archived-tail discipline as `owner_key_history` per L1_GOVERNANCE §3.1.
 - Rotation cooldown windows for backup-keys are L1-tunable; recommended alignment is the same 30-day cooldown as owner-key rotation, so the Cultivator's rotation cadence is unified.
 
-### §8.5 Backup access controls (per Phase γ.3 G16 surface)
+### §8.5 Backup access controls
 
 The backup *file*, once encrypted, has filesystem-level access controls per the host platform's discipline. L1 mandates:
 
@@ -416,9 +383,7 @@ L1_SKIN ratifies the acknowledgment: if the Cultivator chooses to operate withou
 
 ### §8.7 What §8 explicitly does NOT cover
 
-- **In-process memory encryption** — substrate process memory is plaintext for operational reasons (canonical-bytes serialization, DAG manipulation). An attacker with live-process memory access (kernel-level adversary on the host) defeats §8 regardless of backup encryption. This is the adversarial-Cultivator surface per L0 §14.
-- **Backup-transit encryption** — when the backup is moved off-host (network copy to disaster-recovery site, removable-media transport), the transit is **at-rest-encrypted form**; transit-layer additional encryption (TLS, SSH) is L4-operational.
-- **Quantum-cryptography readiness** — DRAFT 9 uses classical symmetric encryption (AES/ChaCha). Post-quantum migration is L4-future-evolution per L0 §10 (CI revision when a federally-attested post-quantum scheme is L4-pickable).
+In-process memory encryption (plaintext for canonical-bytes serialization + DAG manipulation; kernel-level adversary defeats §8 — adversarial-Cultivator surface per L0 §14); backup-transit encryption (off-host transit is at-rest-encrypted form; transit-layer TLS/SSH is L4-operational); quantum-cryptography readiness (post-quantum migration is L4 future per L0 §10).
 
 ---
 
@@ -449,20 +414,7 @@ L1_SKIN ratifies the acknowledgment: if the Cultivator chooses to operate withou
 | **Backup encryption undeclared** | **§8.6** | **`backup_encryption_undeclared`** | **Daily** |
 | **Backup integrity failure on restore** | **§8.5** | **`backup_integrity_failure`** | **CRITICAL** |
 
-> Cross-layer immune signals (surfaced here for skin-side visibility but **detected and emitted by other L1 docs**):
->
-> | Signal | Detected by | Cross-ref |
-> |---|---|---|
-> | `salience_collapse` | L1_TROPISM (P12 attention discipline) | L1_TROPISM §B |
-> | `telos_drift` | L1_TROPISM (P14 telos-alignment) | L1_TROPISM §B; L0 P14.c |
-> | `compression_invariant_corruption` | L1_SCHEMA (I9 compression-invariant set) | L1_SCHEMA §3 |
-> | `compression_unattested` | L1_SCHEMA (P10.c CI-attested compression) | L1_SCHEMA §3 |
-> | `budget_exhausted:{axis}` | L1_CONTINUITY + L2_OBSERVABILITY (P11/I10) | L2_OBSERVABILITY signals #7/#8/#9 |
-> | `generation_depth_exceeded` | L1_GOVERNANCE (§16 generation discipline) | L1_GOVERNANCE §4.3 |
-> | `consensus_floor_bypass` | L2_FEDERATION (P15 population consensus) | L2_FEDERATION future-section |
-> | `bet_retired` | L2_OBSERVABILITY (§7.5 bet retirement) | L2_OBSERVABILITY |
->
-> Listed here so a Cultivator reviewing skin-side breach evidence sees the full immune-signal landscape, not only skin-detected signals.
+> Cross-layer immune signals not detected here (`salience_collapse`, `telos_drift` → L1_TROPISM; `compression_invariant_corruption`, `compression_unattested` → L1_SCHEMA; `budget_exhausted:{axis}` → L1_CONTINUITY + L2_OBSERVABILITY signals #7/#8/#9; `generation_depth_exceeded` → L1_GOVERNANCE §4.3; `consensus_floor_bypass` → L2_FEDERATION; `bet_retired` → L2_OBSERVABILITY §7.5) surface in their respective detector docs; this table lists only the skin-detected signals.
 
 CRITICAL breaches → immediate skin-level quarantine per L1_CONTINUITY §5.
 
@@ -470,25 +422,13 @@ CRITICAL breaches → immediate skin-level quarantine per L1_CONTINUITY §5.
 
 ## §10. Glossary (Cultivation vocabulary per L0 §1.2 G-11.a)
 
-> L0 §1.2 (DRAFT 9 SEALED) establishes the Cultivation vocabulary for the owner-substrate relationship. L1_SKIN integrates the terms here because skin-level discourse touches the relational role constantly (the operator-handshake admits the **Cultivator's operator**, not "the user"; backup encryption per §8 is **Cultivator-controlled**, not "operator-controlled" in the legal sense).
+Cultivator / Cultivar / Cultivation / Owner / Anchor surface are defined at L0 §1.2 (canonical glossary). Document-private terms:
 
-| Term | Definition | When to use |
-|---|---|---|
-| **Cultivator** | The human party in the owner-substrate relationship; the **relational** role (provides resources, declares telos, holds anchor key, attests CI events). Same human as "owner" (per L0 §1.2). | Use in L1_SKIN when emphasizing relational care, intent, ongoing co-evolution: "Cultivator-controlled backup key", "Cultivator declares spatial-locus allowed-set". |
-| **Cultivar** | The Myco substrate (kernel + dag.cb + state_dir + signing key + skin endpoints); the **species under cultivation**. | Use when emphasizing the substrate as a *living species* with body, intake, fruiting (vs. as a static "system" or "process"). |
-| **Cultivation** | The doctrinally-named owner-substrate relationship type (DRAFT 9 G-11.a). Asymmetric care + co-evolution + bounded substrate scope. | Use as the relationship-type noun: "Cultivation rights transfer per L1_GOVERNANCE §3.2", "Cultivation continuity across substrate generations". |
-| **Owner** | Synonym for Cultivator; emphasizes the **governance** role (anchor-key holder, CI gate, signature authority). | Use when discussing crypto / attestation / signatures: "owner-signed birth attestation", "owner_key_history", "owner-public-key". The terminology pair (Cultivator/owner) is preserved per L0 §1.2 — both refer to the same human party with different framings. |
-| **Spatial locus** | The substrate's physical body: `state_dir + process + skin endpoints`. Introduced as the operational target of P13 (folded into P9+I8 per G-9.b). | Use when discussing §6 enforcement: "spatial-locus enumeration", "spatial-locus allowed-set". |
-| **Skin endpoints** | The declared `(intake, output, anchor-surface, federation, backup-output)` declared in §1 + §8.5. Constitutes the network/IPC side of the substrate's body. | Use when discussing §1 declarations. |
-| **Anchor surface** | The Cultivator-controlled cryptographic root for CI attestation (per L0 §9). External to substrate; provides freshness check that substrate cannot subvert. | Use throughout skin doc — the anchor surface is the substrate's gate to Cultivator authority. |
-| **Single integument** | P9 (DRAFT 9 rename of "Integument"). The substrate's single declared skin surface; one, no redundancy at the integument level, restartability at the process level (P9.b). | Use when discussing P9 enforcement or P9.b restart discipline. |
+- **Spatial locus** — the substrate's physical body: `state_dir + process + skin endpoints`. The operational target of P13 (folded into P9+I8 per G-9.b). See §6.
+- **Skin endpoints** — the declared `(intake, output, anchor-surface, federation, backup-output)` from §1 + §8.5; the network/IPC side of the substrate's body.
+- **Single integument** — P9 (DRAFT 9). The substrate's single declared skin surface; no redundancy at the integument level, restartability at the process level (P9.b).
 
-**Terminology guidance for skin-doc authors**:
-- **Default to "Cultivator"** when speaking of the relational role (intent, attestation, key-holding).
-- **Use "owner"** when matching existing crypto/identity-record field names (owner_birth_attestation_signature, owner_public_key_active_at_handshake).
-- **Use "agent" or "operator"** for the runtime that connects to the substrate via skin envelopes — these are distinct from Cultivator.
-- **Avoid "user"** (ambiguous between agent and Cultivator).
-- **Avoid "system"** (de-living language; the substrate is a Cultivar, not a system).
+**Skin-doc terminology guidance**: default to "Cultivator" for the relational role; use "owner" for crypto/identity-record field names; "agent"/"operator" for the runtime that connects via skin envelopes; avoid "user" (ambiguous) and "system" (de-living).
 
 ---
 

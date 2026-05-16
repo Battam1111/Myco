@@ -2,8 +2,7 @@
 
 > **Status**: DRAFT 2 (2026-05-13). Authoritative L1 doc for intent-derivation satisfying L0 §5.3.
 > **Layer**: L1. Governed by L0.
-> **Scope**: trajectory derivation over the causal DAG as the positive intent mechanism. DRAFT 2 post pass-1 100%-confidence-loop: cut bloat, demoted epoch machinery to deferred (astronaut-2), cut Leiden algorithm naming (astronaut-5), added trajectory-injection defense (mycoparasite-9), kept the four edge-case codifications (cold-start, clusterer coupling, schema epochs, thread_id).
-> **Confidence discipline**: per L1 norm — best current sketch + clearly-deferred zones.
+> **Scope**: trajectory derivation over the causal DAG as the positive intent mechanism (with cold-start, clusterer coupling, schema epochs, thread_id, trajectory-injection defense).
 
 ---
 
@@ -54,7 +53,7 @@ Different clustering algorithms produce different trajectories from identical DA
 - **Changing `cluster_C` is contract-identity-level** (per L1_GOVERNANCE §1.2) — retroactively alters how past intents are read.
 - L0 I4 full-fidelity-recoverability: the DAG is unchanged by clusterer evolution; what changes is the trajectory *view*.
 
-**Candidate algorithm families** (per pass-1 astronaut-5, no L1 preference; L4 picks):
+**Candidate algorithm families** (no L1 preference; L4 picks):
 
 - Graph community detection (Louvain / Leiden / label-propagation).
 - Density clustering (HDBSCAN / OPTICS) on causal-distance metric.
@@ -63,25 +62,21 @@ Different clustering algorithms produce different trajectories from identical DA
 
 Algorithm choice is L4. L1 commits that the choice exists and is CI-protected.
 
-**Atomicity** (per pass-1 rhizomorph-10): cluster_C swap is an epoch-boundary event (§5); trajectory queries in flight at swap time are aborted with a `clusterer_swap_interrupted` marker and may be re-issued against the new clusterer. Alternatively: queries are snapshot-isolated to the clusterer active at query start. L4 picks.
+**Atomicity**: cluster_C swap is an epoch-boundary event (§5); trajectory queries in flight at swap time are aborted with a `clusterer_swap_interrupted` marker and may be re-issued against the new clusterer. Alternatively: queries are snapshot-isolated to the clusterer active at query start. L4 picks.
 
 ---
 
-## §5. Schema-evolution epochs (per pass-1 astronaut-2 — significantly trimmed)
+## §5. Schema-evolution epochs
 
-DRAFT 1 specified detailed epoch machinery (predicate-translation tables, adjacent-epoch composition, senescence horizons). DRAFT 2 acknowledges: **v0.9 has not survived its first schema change yet**. Specifying multi-epoch translation infrastructure before observing the first concrete cross-epoch read is architectural-astronaut territory.
-
-L1 commits to the structural minimum:
+v0.9 has not survived its first schema change yet; multi-epoch translation infrastructure is deferred. L1 commits to the structural minimum:
 
 - Each contract-identity-level mutation creates a trajectory epoch boundary, recorded as an `epoch_boundary` sporocarp (per L1_TROPISM §B3 governance_event family).
 - Trajectory queries default to **within current epoch**.
 - **Cross-epoch trajectory queries are L1-deferred until the substrate's first schema mutation surfaces concrete translation requirements**. L4 codifies after observed need.
 
-This is intentional: writing predicate-translation infrastructure now would mean writing it twice — once speculatively, once for real.
-
 ---
 
-## §6. thread_id — orthogonal grouping primitive (per pass-1 mycoparasite-21, retained)
+## §6. thread_id — orthogonal grouping primitive
 
 Each delta and sporocarp MAY carry an optional opaque `thread_id` field — a lightweight, mechanically-typed grouping primitive declared by the agent ("this delta belongs to long-running thread T"). Threads are **not intent**; they are *declarative grouping*.
 
@@ -96,7 +91,7 @@ Each delta and sporocarp MAY carry an optional opaque `thread_id` field — a li
 
 ---
 
-## §7. Trajectory-injection defense (per pass-1 mycoparasite-9 — NEW in DRAFT 2)
+## §7. Trajectory-injection defense
 
 **Attack**: the agent (the only delta source) floods deltas crafted to make `cluster_C` produce a desired trajectory T. Trajectory "honestly" shows T; downstream consumers trust it; immune-grade drift signal suppressed.
 
@@ -104,7 +99,7 @@ Each delta and sporocarp MAY carry an optional opaque `thread_id` field — a li
 
 **Detection of pathological self-citation**: trajectory dominated by self-citation chains beyond an L1-tunable threshold (default: ≥80% of recent-window node citations are within an L1-tunable causal-distance of recent self-citations **regardless of which operator-session emitted them**) emits an `echo_chamber` immune sporocarp.
 
-(Per pass-2 mycoparasite-33: the detection is **substrate-keyed** — a property of the DAG structure, not of operator-sessions. Operator-keyed detection would conflict with L0 I1 prohibition on persisting operator-discriminating attributes, AND would be trivially bypassable by logout-reconnect-replay.)
+(The detection is **substrate-keyed** — a property of the DAG structure, not of operator-sessions. Operator-keyed detection would conflict with L0 I1 prohibition on persisting operator-discriminating attributes, AND would be trivially bypassable by logout-reconnect-replay.)
 
 **Implementation**: down-weighting algorithm + threshold tuning are L4. The structure of the defense (novelty score per delta + echo-chamber detection) is L1-committed.
 
@@ -114,11 +109,7 @@ Each delta and sporocarp MAY carry an optional opaque `thread_id` field — a li
 
 Per L0 §5.3 commitment: the substrate's view of intent is **fossil-record honest**, not teleologically-honest. The substrate sees what the pair did; it does not believe agent self-reports about what the agent aimed at.
 
-Consequences:
-
-- Trajectory queries never return "the agent's stated goal".
-- If an agent's stated goal (in delta text content) diverges from the trajectory the substrate reads, the trajectory wins — empirically.
-- Drift detection (L0 §7 falsifiability trigger): trajectory showing wandering / inconsistency in conjunction with other observatory signals contributes to the bet_weakening_quorum.
+Consequences: trajectory queries never return "the agent's stated goal"; if the agent's stated goal diverges from what the trajectory reads, trajectory wins empirically; trajectory wandering/inconsistency feeds the L0 §7 bet_weakening_quorum.
 
 ---
 

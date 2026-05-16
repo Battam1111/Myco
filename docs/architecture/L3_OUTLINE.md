@@ -1,8 +1,6 @@
 # L3 — Outline / Charter (implementation map)
 
-> **Status**: OUTLINE DRAFT 1 (2026-05-13).
-> **Layer**: L3 (code organization; bridges L2 doctrine → L4 substrate).
-> **Authority**: navigation + boundary-discipline. The L3 docs are normative for L4 code organization (module boundaries; dependency direction; build order) but **language-agnostic** — language choice is L4.
+> **Status**: OUTLINE DRAFT 2 (2026-05-17, M27 CA5 cleanup). Code organization layer (bridges L2 doctrine → L4 substrate). Normative for L4 module boundaries / dependency direction / build order; **language-agnostic**.
 
 ---
 
@@ -50,7 +48,7 @@ The 7 L1 mechanism docs each become one substrate code module (or one tightly-co
 | `kernel/continuity` | L1_CONTINUITY | Metabolic cycle engine + dormancy state machine + cold-resume protocol + delta-atomicity WAL |
 | `kernel/tropism` | L1_TROPISM | Appetite axes + gradient configuration + sporocarp emission + fruiting-trigger evaluation |
 | `kernel/trajectory` | L1_TRAJECTORY | Cluster_C dispatcher + trajectory query API + thread_id support + echo-chamber detector |
-| `kernel/hard_rules` | L1_HARD_RULES | Cross-cuts index → immune detection layer (the 20 CRITICAL detectors + F-row mutation watchdogs) |
+| `kernel/hard_rules` | L1_HARD_RULES | Cross-cuts index → immune detection layer (CRITICAL detectors C1-C20 spec + C30-C49 substrate-private namespace; F-row watchdogs F1-F25 per current catalog) |
 | `kernel/shared` | (cross-cut) | Cryptographic primitives + canonical-bytes serializer runtime + Merkle hash + sealed-derive wrapper |
 
 ### §2.2 Non-substrate modules
@@ -82,7 +80,7 @@ kernel/trajectory ← depends on kernel/schema + kernel/tropism (consumes sporoc
 
 **Strict rule**: dependency direction is acyclic. A module higher in the graph cannot import a module lower. If a cyclic dependency surfaces during L4 implementation, the L3 module boundary needs revision (CI-level revision per L0 §10.2 — L3 is L0-governed).
 
-**Cross-cut module `kernel/hard_rules`**: contains immune detectors. It cites every other module's CRITICAL surfaces (per L1_HARD_RULES §1 C1-C20) but does NOT import them at compile time — it's the runtime observation/enforcement layer that reads from the other modules' emission streams.
+**Cross-cut module `kernel/hard_rules`**: contains immune detectors. It cites every other module's CRITICAL surfaces (per L1_HARD_RULES §1 — C1-C20 spec + C30-C49 substrate-private) but does NOT import them at compile time — it's the runtime observation/enforcement layer that reads from the other modules' emission streams.
 
 ---
 
@@ -106,52 +104,15 @@ In parallel with substrate-side build:
 
 ---
 
-## §5. Language choice — L4 territory (with L3 recommendations)
+## §5. Language choice — deferred to L4
 
-L3 does NOT commit to specific languages. But L3 surfaces the **shape considerations** L4 must answer:
-
-### §5.1 Substrate-kernel language considerations
-
-- **Security-critical**: OS-sealed-key access (TPM / kernel keyring / HSM), cryptographic primitives, Merkle DAG integrity, network-egress enforcement.
-- **Performance-relevant**: DAG operations scale with substrate age; trajectory clustering may be compute-intensive.
-- **Agent-maintainability**: per P1.a self-hosting, the agent maintains substrate code; the language affects how easily an LLM agent can read + modify + extend it.
-
-Trade-off space: **Rust/Go** (security + performance, harder agent maintenance) vs **Python/TypeScript** (easier agent maintenance, weaker system access, runtime overhead).
-
-L4 recommendation: **multi-language is plausible** (substrate-kernel core in Rust/Go for `kernel/shared` + `kernel/skin` + `kernel/schema`; substrate-kernel doctrine modules in Python for `kernel/tropism` + `kernel/trajectory` + `kernel/hard_rules` where agent-readability matters more than performance). **Single-language is also plausible** (Rust throughout, with agent learning curve as a P1.c-symbiosis cost) (Python throughout, with system-access via careful FFI / privileged daemon companion).
-
-L4 chooses.
-
-### §5.2 Anchor-client language considerations
-
-- **Owner-friendly**: owner is human; the anchor-client is the human interface.
-- **Independent provenance**: per L0 §9.3, distributed via channel structurally independent of substrate.
-- **Cryptographically robust**: signature verification, canonical-bytes rendering.
-
-L4 recommendation: anchor-client can be a **separate language ecosystem** from substrate (recommended: Rust for cryptographic robustness + TypeScript/web for owner UI). Cross-ecosystem mitigates supply-chain risk (substrate-kernel compromise doesn't automatically compromise anchor-client).
-
-### §5.3 Operator-runtime language considerations
-
-- **LLM-host-language**: depends on which LLM tooling consumes substrate (Claude Code = Node.js; MCP server libs = TypeScript / Python; etc.)
-- **Per-handshake keypair generation + signing**: standard crypto primitives needed.
-
-L4 recommendation: operator-runtime is **multiple bindings** (one per LLM-host-language); each binding uses the same canonical-bytes serializer spec from `kernel/shared`.
+L3 does NOT commit to specific languages. Per-module language selection (substrate-kernel multi-language plausible; anchor-client separate ecosystem mitigates supply-chain risk; operator-runtime is multiple bindings per LLM-host-language) is L4 territory. All bindings use the same canonical-bytes serializer spec from `kernel/shared`.
 
 ---
 
 ## §6. Test discipline
 
-Each module has three test tiers:
-
-**Tier 1 (unit)**: per-module; pure tests; no inter-module dependencies; runs in CI on every commit. Tests boundaries, edge cases, invariants of the module.
-
-**Tier 2 (integration)**: cross-module; runs after tier 1 passes. Tests dependency interactions (e.g., `kernel/skin` + `kernel/governance` integration for attestation envelope flow).
-
-**Tier 3 (substrate-end-to-end)**: full substrate lifecycle from genesis through some metabolism cycles. Runs less frequently (per build, not per commit). Tests L0 invariants + L1_HARD_RULES C1-C20 breach detection.
-
-**Tier 4 (adversarial)** — optional but recommended: red-team scenarios per L1_HARD_RULES C-rows. Run on a schedule (e.g., nightly), not per-commit.
-
-L4 picks specific test frameworks per module language.
+Four-tier discipline: **Tier 1 (unit)** per-module; **Tier 2 (integration)** cross-module; **Tier 3 (substrate-end-to-end)** full lifecycle, tests L0 invariants + L1_HARD_RULES C-row breach detection; **Tier 4 (adversarial)** red-team scenarios. Per-module test surface specifications in L3_PACKAGE_MAP §§2-11 (each module's §X.3 Test discipline subsection). L4 picks frameworks per module language.
 
 ---
 
@@ -187,32 +148,7 @@ Specific repository layout (monorepo vs multi-repo vs hybrid) is L4-decided. The
 
 ---
 
-## §8. First-implementation priorities
-
-When L4 begins coding, the recommended order:
-
-1. **`kernel/shared`** — establish canonical-bytes serializer + crypto primitives. Validates the serializer spec is implementable. Unblocks every other module.
-2. **`kernel/skin`** — establish envelope schema + handshake protocol. Validates the L1_SKIN spec. Unblocks substrate↔operator path.
-3. **`kernel/schema`** — establish SSoT + Merkle DAG storage. Validates L1_SCHEMA spec.
-4. **`anchor_client`** (parallel) — establish owner-side rendering + signing. Validates anchor-surface independence.
-5. **`operator_bindings/<first-target>`** (parallel) — pick one LLM-host-language; build first binding; demonstrates end-to-end substrate↔operator.
-6. **`kernel/governance`** — wire attestation flow end-to-end (substrate → anchor-client → owner-signature → substrate).
-7. **`kernel/continuity`** — metabolic cycle engine.
-8. **`kernel/tropism`** — gradient configuration + first appetite axis (e.g., `hunger`).
-9. **`kernel/trajectory`** — first clusterer.
-10. **`kernel/hard_rules`** — immune detection wired to all modules.
-
-Milestone targets:
-- **Milestone 1 (M1)**: `kernel/shared` + `kernel/skin` + `kernel/schema` running standalone; can perform a single handshake + store a single DAG node. ~3-4 weeks.
-- **Milestone 2 (M2)**: + `anchor_client` + `kernel/governance`; can execute a single attestation flow end-to-end. ~3-4 weeks more.
-- **Milestone 3 (M3)**: + `kernel/continuity` + minimal `kernel/tropism`; runs a metabolic cycle; absorbs deltas; emits sporocarps. ~4-6 weeks more.
-- **Milestone 4 (M4)**: + `kernel/trajectory` + `kernel/hard_rules`; first end-to-end substrate "alive" with all 8 invariants enforced + 20 CRITICAL detectors wired. ~4-6 weeks more.
-
-Total v0.9 first-birth target: **~16-20 weeks** of dedicated implementation work post-L3-sealing.
-
----
-
-## §9. Open at L3 (deferred to L4)
+## §8. Open at L3 (deferred to L4)
 
 - Language choice per module (see §5).
 - Specific framework / library / build-tool selections.

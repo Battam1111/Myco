@@ -1,37 +1,13 @@
 # L1 — Governance (classifier, lifecycle, Cultivation succession, attestation protocol, generation discipline, federation)
 
-> **Status**: DRAFT 3 (2026-05-17, M26-cascade A5). Authoritative L1 doc for governance mechanism, aligned with L0 DRAFT 9 SEALED (`docs/architecture/L0_VISION.md` commit `e796451`).
-> **Layer**: L1. Governed by L0 DRAFT 9 SEALED.
-> **Scope**: I2 classifier function + dimension table; lifecycle (genesis, dormancy, reproduction, mortality); **Cultivation succession FSM (§3.2 — DRAFT 3 lands per G-5 + G-8 + G-9.b cascade)**; attestation protocol with canonical-bytes + operator-witnesses + dual-clock + anchor-side nonces; owner-key rotation; owner-liveness-heartbeat-based legacy/orphaned transitions; federation discovery + peer-trust-freshness with aggregate re-attestation; rollback for failed P3 (Resumable Evolution) evolution; **§16 Generation limits (DRAFT 3 lands per G-5 + G-9.b cascade)**; **F-row catalog for F18-F24 (DRAFT 3 owns the canonical specifications; L1_HARD_RULES §2 inherits)**.
->
-> **DRAFT 9 SEALED principle alignment** (renames + retractions):
-> - **P1 (Agent-Primary)** — DRAFT 9 rename of DRAFT 8's "Only For Agent / 人类无感知". Governance gate is the **Cultivator** (P1.b'') — see §0.1.
-> - **P2 (Eternal Ingestion, Envelope-Gated)** — DRAFT 9 rename of DRAFT 8's "Eternal Ingestion / 永恒吞噬". P11 metabolic-economy budgets bound P2 admission (per L0 §P11.c ordered fallback).
-> - **P3 (Resumable Evolution)** — DRAFT 9 rename of DRAFT 8's "Eternal Evolution / 永恒进化". §6 failed-evolution rollback enforces resumability.
-> - **P5 (Universal Interconnection, Tier-Exempt-Permitted)** — DRAFT 9 rename of DRAFT 8's "Universal Interconnection / 万物互联".
-> - **P7 (Mortality, Capacity-for-Death)** — DRAFT 9 rename of DRAFT 8's "Mortality / 必朽" (substrate is *capable* of mortality, not *required* to die). §4.4 mortality dual-channel is the L1 enforcement.
-> - **P8 (Eternal Reproduction, Generation-Bounded)** — DRAFT 9 rename of DRAFT 8's "Eternal Reproduction / 永恒繁衍" with §16 generation discipline cascade.
-> - **P9 (Single Integument)** — DRAFT 9 rename of DRAFT 8's "Integument / 皮肤为界". P9.b single-failure-point acknowledgment owned by L1_SKIN.
-> - **P10 (Selective Compression)** — DRAFT 9 NEW. F18 compression-rule registry (this doc).
-> - **P11 (Metabolic Economy)** — DRAFT 9 NEW. F19 cost-budget thresholds (this doc).
-> - **P12 (Differential Response)** — RETRACTED at L0 per G-9.b; owned by L1_TROPISM (salience emergence).
-> - **P13 (Embodiment)** — RETRACTED at L0 per G-9.b; folded into P9 + I8 (spatial-locus enforcement in L1_SKIN).
-> - **P14 (Telos, Agent-Symbiotic-Flourishing)** — DRAFT 9 NEW. F20 telos-alignment metric (this doc; L1_TROPISM owns operational metric per P14.c forcing function).
-> - **P15 (Population-Level Consensus)** — RETRACTED at L0 per G-9.b; owned by L2_FEDERATION (Byzantine consensus floor above peer-count threshold).
->
-> **Cultivation vocabulary integration** (per G-11.a, new in DRAFT 9 §1.2): the owner-substrate relationship is named **Cultivation**. The owner is the **Cultivator** (when emphasizing the relational role); "owner" remains a valid term (when emphasizing the governance role per P1.b''). Both refer to the same human party. This doc uses **Cultivator** for genesis / succession / generational-limit / F-row attestation language (relational); **owner** for cryptographic attestation language (governance — preserves continuity with §9 anchor surface vocabulary). See §17 Glossary (DRAFT 3 new).
+> **Status**: DRAFT 3 (M26-cascade A5). Authoritative L1 doc for governance mechanism, aligned with L0 DRAFT 9 SEALED (commit `e796451`). Layer L1; governed by L0 DRAFT 9 SEALED.
+> **Scope**: I2 classifier; lifecycle (genesis, dormancy, reproduction, mortality); Cultivation succession FSM (§3.2); attestation protocol (canonical-bytes + operator-witnesses + dual-clock + anchor-side nonces); owner-key rotation; heartbeat-driven legacy/orphaned transitions; federation; P3 rollback; §16 generation limits; F18-F24 catalog (this doc owns canonical specs; L1_HARD_RULES §2 inherits). Principle alignment + Cultivation vocabulary per L0 DRAFT 9 SEALED (P12/P13/P15 retracted per G-9.b; "Cultivator" = relational role, "owner" = governance role — same human party). See §17 Glossary.
 
 ---
 
-## §0.1 The L0 ↔ L1 trust seam (DRAFT 3, summarizing the principle alignment)
+## §0.1 The L0 ↔ L1 trust seam
 
-L0 DRAFT 9 SEALED commits the **Cultivation triad** (Cultivator-Cultivar-anchor surface). This doc operationalizes:
-
-- **Cultivator-side mutation authority** through the §2 attestation protocol (CI-level mutation gating).
-- **Cultivar-side identity carrier** through §3 owner-key history + §3.2 Cultivation succession + §4 lifecycle.
-- **Anchor-surface as out-of-band root** through §2.2 nonce/witness/timestamp references mapped to specific L0 §9.2.x / §9.3.x sub-mechanisms.
-
-This document is the **single source of truth** for the F-row catalog covering F18-F24. L1_HARD_RULES §2 inherits these definitions (per §15 below); when L1_HARD_RULES enumerates F18-F24, the canonical definitions live here.
+L0 DRAFT 9 SEALED commits the **Cultivation triad** (Cultivator-Cultivar-anchor surface). This doc operationalizes Cultivator-side mutation authority (§2 attestation protocol), Cultivar-side identity carrier (§3 owner-key history + §3.2 succession + §4 lifecycle), and the anchor surface as out-of-band root (§2.2 nonce/witness/timestamp → L0 §9.2.x / §9.3.x). This doc is the single source of truth for F18-F25; L1_HARD_RULES §2 indexes them.
 
 ---
 
@@ -69,21 +45,19 @@ Classifier behavior is data-driven from a single dimension table — a tier-1 SS
 | SSoT designation | contract_identity_level |
 | DAG retention policy | contract_identity_level |
 | Federation peer attestation list | contract_identity_level |
-| **Compression-rule registry (per P10.c / F18, DRAFT 3 NEW)** | **contract_identity_level** |
+| **Compression-rule registry (per P10.c / F18)** | **contract_identity_level** |
 | **Compression-invariant set definition (per P10.b)** | **contract_identity_level (L0-fixed; only the rule set is L1-mutable)** |
-| **Cost-budget thresholds per axis (per P11.a / F19, DRAFT 3 NEW)** | **contract_identity_level** |
-| **Telos-alignment computation rule + embedding-model identity (per P14.c / F20, DRAFT 3 NEW)** | **contract_identity_level** |
+| **Cost-budget thresholds per axis (per P11.a / F19)** | **contract_identity_level** |
+| **Telos-alignment computation rule + embedding-model identity (per P14.c / F20)** | **contract_identity_level** |
 | **Telos-objective declaration when owner-stated (per P14.b, spore-inheritable)** | **contract_identity_level** |
-| **successor_chain registry (per §3.2 / F21, DRAFT 3 NEW)** | **contract_identity_level** |
-| **Reproduction generation-depth bound + rate limit + lifetime quota (per §16 / F22, DRAFT 3 NEW)** | **contract_identity_level** |
-| **Duress_keypair registration (per F23, DRAFT 3 NEW; L2_TRUST_MODEL §14 owns scenario semantics)** | **contract_identity_level** |
-| **Substrate-private signing keypair seed (per F24, DRAFT 3 NEW)** | **contract_identity_level (one-time at genesis; rotation is destruction-and-rebirth)** |
+| **successor_chain registry (per §3.2 / F21)** | **contract_identity_level** |
+| **Reproduction generation-depth bound + rate limit + lifetime quota (per §16 / F22)** | **contract_identity_level** |
+| **Duress_keypair registration (per F23; L2_TRUST_MODEL §14 owns scenario semantics)** | **contract_identity_level** |
+| **Substrate-private signing keypair seed (per F24)** | **contract_identity_level (one-time at genesis; rotation is destruction-and-rebirth)** |
 | **Consensus-floor threshold + Byzantine algorithm choice (per P15, owned by L2_FEDERATION)** | **contract_identity_level (CI-attested per L2_FEDERATION; classified here for completeness)** |
 | **Salience-emergence rule (per L1_TROPISM §E; runtime salience values daily)** | **contract_identity_level (rule); daily (per-cycle salience values)** |
 | Daily content (deltas absorbed; gradient state updates non-mortality; ordinary sporocarp fruiting; federation coupling; per-cycle telos-alignment / salience / cost-axis values) | daily |
 | All else | **untyped** (rejected) |
-
-> **DRAFT 3 note on additions**: rows beginning with bold-and-DRAFT-3-NEW are the cascade additions for DRAFT 9 SEALED's three new principles + Cultivation succession + generation limits + adversarial-Cultivator/L2_TRUST_MODEL §14 mechanism. Rows above remain unchanged from DRAFT 2.
 
 ### §1.3 Birth-period CI elevation
 
@@ -91,12 +65,7 @@ During birth period (defined in §4.1), ALL parameter-tuning events are contract
 
 **Birth period has a CI-attested MAXIMUM duration** committed at genesis (L4-tunable, default 180 active-operation days). Reaching maximum forces forced-graduation-or-self-euthanasia decision (substrate fruits `birth_period_max_reached` and either auto-graduates if convergence achieved, or `self_euthanasia_proposal` if not).
 
-**Birth-period exemptions for DRAFT 9 detectors** (per L0 §7.4.e / §2.3 P12.b / §P14.c):
-- `bet_weakening_quorum` evaluation SUSPENDED during birth period; `bet_weakening_evaluation_suspended` event emitted instead (owned by L2_OBSERVABILITY).
-- `salience_collapse` detection SUSPENDED during birth period + post-birth settling window (owned by L1_TROPISM §E.3).
-- `telos_drift` detection SUSPENDED during birth period + post-birth settling window (owned by L1_TROPISM §F.4); substrate emits `telos_alignment_pending` instead.
-
-The three detectors share a single birth-period exemption door; activation happens at owner-attested `birth_period_terminated` plus the L1_TROPISM-specified post-birth offset.
+Birth-period exemptions for DRAFT 9 detectors: see L1_HARD_RULES §3 (single canonical specification covers bet_weakening_quorum, salience_collapse, telos_drift suspension during birth period + post-birth settling).
 
 ---
 
@@ -186,10 +155,8 @@ Verification of any historical co-sign uses the key valid at the co-sign's ancho
 
 **Active-prefix + archived-tail discipline** (closes pass-3 saprotroph-1: monotone tier-1 fields grow unbounded → per-cycle cost grows): `owner_key_history` is stored as `active_prefix` (most-recent K entries, K L4-tunable default 8) + `archived_tail` (older entries). Active prefix participates in per-cycle I3 tier-1 validation; archived tail validated at deep-cycle scope via Merkle-anchor over the full chain. Same discipline applies to `template_version_registry` (L1_TROPISM §B1) and to the federation peer-set aggregate-reattestation chain (§5.2).
 
-### §3.2 Cultivation succession (DRAFT 3 — full FSM landed per L0 §15 cascade)
+### §3.2 Cultivation succession (full FSM per L0 §15 cascade)
 
-> **DRAFT 3 status note**: DRAFT 2 (DRAFT 8-era) said "deferred to L4 after first real-world need". L0 DRAFT 9 SEALED §15.2 (per G-5 + G-8 + G-9.b owner gate decisions) elevates this to L1-mandatory specification. The full FSM below is the cascade landing.
->
 > **Implementation status (M25)**: substrate-side enforcement is 0% (no live successor_chain registry, no live heartbeat consumer); the mechanism is **documented-not-defended** under the operator-IS-anchor collapse window (per L0 §9.5). M-anchor-3 (heartbeat services) is the milestone that begins enforcement; M-anchor-1 (anchor-client provenance) is the milestone that closes the trust loop.
 
 Cultivation succession addresses **Cultivator mortality + Cultivar continuity**: the Cultivator may die, retire, be incapacitated, or transfer cultivation rights to a successor Cultivator. The Cultivar (substrate) does NOT change identity across transfer (per L0 §1.4 — substrate-ID is fixed at genesis per P1.c carrier identity); the **Cultivation relationship's Cultivator-side** changes.
@@ -310,12 +277,7 @@ The "alive" lifecycle state (per L0 §I1 + L1_CONTINUITY §5) has sub-states per
 
 **Anchor-surface heartbeat query**: substrate periodically queries the anchor surface for the most recent heartbeat. Query cadence is L1-tunable (default 1 query per metabolic cycle or per 24h wall-clock, whichever is more frequent). The substrate emits `cultivator_heartbeat_query_failed:{reason}` if the anchor surface is unreachable; sustained query-failure beyond L1-tunable threshold (default 7 anchor-surface-trusted-timestamp days) triggers `anchor_surface_partition` observability event (NOT a sub-state transition — staleness alone is the trigger; partition is a separate signal).
 
-**Collapse-window honesty** (per L0 §9.5): when the anchor surface is the operator-IS-anchor collapse window (current v0.9 implementation), substrate CANNOT reliably detect heartbeat staleness:
-- The "anchor surface" is the same npm workspace as the operator process.
-- The agent qua maintainer can fabricate heartbeat staleness OR fabricate fresh heartbeats.
-- The §3.2 mechanism is **documented-not-defended** until M-anchor-3 ships heartbeat services to a structurally independent anchor surface.
-
-This is **acknowledged honestly per L0 §9.5**: the §3.2 specification is L1-committed but L4 enforcement waits on M-anchor-3 implementation. Substrates operating in the collapse window MAY emit `cultivation_succession_collapse_window` as a continuous observability signal (the Cultivator knows their substrate is in the unenforced regime).
+**Collapse-window honesty** (per L0 §9.5): when the anchor surface is the operator-IS-anchor collapse window (current v0.9), substrate CANNOT reliably detect heartbeat staleness — same npm workspace as operator; agent qua maintainer can fabricate heartbeat staleness or freshness. §3.2 is **documented-not-defended** until M-anchor-3 ships heartbeat services to a structurally independent anchor surface. Substrates in the collapse window MAY emit `cultivation_succession_collapse_window` continuous observability signal.
 
 **Enforcement once M-anchor-3 ships**:
 - Substrate refuses to commit a `successor_chain` mutation whose attestation does NOT verify against the anchor-surface-stored `cultivator_pubkey` (per anchor-surface-fetched `owner_key_history`, NOT substrate-cached).
@@ -437,11 +399,9 @@ Repeated failures across a 30-day window appear in observatory as `evolution_fai
 
 ---
 
-## §15. F-row catalog: F18-F24 (DRAFT 3 NEW — L1_HARD_RULES §2 inherits)
+## §15. F-row catalog: F18-F25 (L1_HARD_RULES §2 indexes)
 
-> **Catalog ownership** (per DRAFT 9 cascade): L1_GOVERNANCE owns the canonical F-row definitions for F18 through F24. L1_HARD_RULES §2 inherits these (it indexes; the source-of-truth specifications live here). When L1_HARD_RULES expands its F-row table beyond F17, it cites this section; mutations to these F-rows require the §2 attestation protocol (canonical bytes + operator witness + anchor-surface nonce + dual-clock + DAG-enumeration closure).
->
-> **Indexing pattern** (per L1_HARD_RULES §2): each F-row spec records `name | definition | mutation rule | L0-trace (P + I) | L4 enforcement site`.
+> Canonical F-row definitions for F18-F25. L1_HARD_RULES §2 inherits (indexes; source-of-truth specs live here). Mutations to these F-rows require the §2 attestation protocol.
 
 ### F18. Selective compression rule set (per P10.c CI-attested)
 
@@ -527,13 +487,15 @@ Repeated failures across a 30-day window appear in observatory as `evolution_fai
 
 **L4 enforcement site**: §4.1 genesis step 6 (generation + OS-sealing) + L1_SKIN §3 (output envelope signing) + L1_SKIN §4.2 (substrate_secret OS-sealing mechanism — the seed lives here) + classifier table §1.2 row (CI-class one-time at genesis; rotation is destruction-and-rebirth) + L1_HARD_RULES C-rows for substrate_secret_unsealed (C4, already specified — the C4 detection covers seed leakage; F24 adds the explicit one-time-at-genesis discipline).
 
+### F25. Salience-emergence rule (per L1_TROPISM §E.4)
+
+The rule by which the substrate's L1_TROPISM dispatcher derives salience-weights from EWMA-correlation between raw_material kinds and sporocarp fruitings. Full operational mechanism at L1_TROPISM §E. F25 designation makes the rule a CI-attested fixed-point: any change requires owner-attestation per L1_GOVERNANCE §2.2 attestation envelope. L1_TROPISM §E.4 is the canonical spec.
+
 ---
 
-## §16. Generation limits (DRAFT 3 NEW — L0 §16 cascade)
+## §16. Generation limits (L0 §16 cascade)
 
-> **DRAFT 3 status note**: L0 DRAFT 9 SEALED §16 elevates generation discipline to L0 doctrine + cascades full mechanism specification here. Per L0 §16.2: "L1_GOVERNANCE specifies reproduction_lineage_depth bounds + reproduction_rate limit + per-substrate lifetime quota + override mechanisms. Seed values from DRAFT 9 PROPOSAL (depth=10, rate=24h, quota=100) become L1 defaults."
-
-The four parameters below jointly defend against the **forkbomb attack class** (Phase γ.3 G11 finding: recursive sproutChild loops with compromised owner-key generate infinite consent without explicit per-spawn discipline). Each parameter is L1-tunable; the seeds below are DRAFT 9 SEALED defaults.
+The four parameters below jointly defend against the **forkbomb attack class** (Phase γ.3 G11 finding: recursive sproutChild loops with compromised owner-key generate infinite consent without explicit per-spawn discipline). Each parameter is L1-tunable; the seeds below are DRAFT 9 SEALED defaults (depth=10, rate=24h, quota=100).
 
 ### §16.A reproduction_lineage_depth
 
@@ -587,9 +549,9 @@ This is the **only L1_GOVERNANCE-cascaded mechanism that crosses into L2_FEDERAT
 
 ---
 
-## §17. Glossary additions for Cultivation (DRAFT 3 NEW)
+## §17. Glossary additions for Cultivation
 
-This section defines the Cultivation-specific vocabulary integrated throughout DRAFT 3 per L0 §1.2 G-11.a + §1.4. Cross-ref L0 §12 Glossary (which contains additional DRAFT 9 vocabulary).
+Cultivation-specific vocabulary integrated throughout DRAFT 3 per L0 §1.2 G-11.a + §1.4. Cross-ref L0 §12 Glossary.
 
 | Term | Definition |
 |------|------------|
@@ -610,9 +572,7 @@ This section defines the Cultivation-specific vocabulary integrated throughout D
 
 ---
 
-## §18. Open at L1, deferred to L4 (renumbered from prior §7)
-
-> DRAFT 2's §7 "Open at L1, deferred to L4" is renumbered §18 in DRAFT 3 to accommodate §15-§17 additions. Content updated for DRAFT 9 SEALED cascade.
+## §18. Open at L1, deferred to L4
 
 - Owner key custody specific mechanism (M-anchor-1 candidate forms: hardware token, separate machine, cloud HSM, signed prompt review).
 - Anchor-surface endpoint specific protocol (M-anchor-1 candidate forms).
@@ -624,7 +584,7 @@ This section defines the Cultivation-specific vocabulary integrated throughout D
 - Liveness heartbeat cadence default 30 days (L4 picks per substrate purpose).
 - Birth period maximum duration (default 180 active-operation days).
 - Cryptographic suite candidates within {SHA-256, BLAKE3, SHA-3-256, Ed25519, post-quantum candidates}.
-- **§3.2 Cultivation succession parameters** (DRAFT 3 NEW):
+- **§3.2 Cultivation succession parameters**:
   - Heartbeat cadence default (default 30 days; L1-tunable range L4-recommended `[1 day, 90 days]`).
   - Heartbeat validity window per issuance (default 30 days post-issuance).
   - Heartbeat staleness threshold (default 90 days = 3× cadence).
@@ -636,12 +596,12 @@ This section defines the Cultivation-specific vocabulary integrated throughout D
   - Multi-Cultivator co-genesis (out-of-scope for v0.9; defer until first real-world need).
   - Court-attested key recovery cryptographic mechanism (currently honor-system; L4 when first real dispute arises).
   - Succession-reversion-request semantics (when prior Cultivator's heartbeat resumes post-succession; deferred to L4).
-- **§16 Generation discipline parameters** (DRAFT 3 NEW):
+- **§16 Generation discipline parameters**:
   - Reproduction_lineage_depth (default 10).
   - Reproduction_rate_min_interval (default 24h).
   - Reproduction_lifetime_quota (default 100).
   - Mesh_aggregate_quota (L2_FEDERATION-specified; default L2_FEDERATION cascade picks).
-- **F-row parameters** (DRAFT 3 NEW; per §15):
+- **F-row parameters** (per §15):
   - F18 compression-rule registry seed (each Cultivar's first compression rule set is genesis-attested; default empty per L0 §P10.c).
   - F19 cost-budget thresholds per axis (default L1-CONTINUITY + L1_SCHEMA picks per substrate cultivation-environment-resources).
   - F20 telos-alignment metric default (L1_TROPISM §F operationalizes; embedding-model identity default at genesis per Cultivar's purpose).

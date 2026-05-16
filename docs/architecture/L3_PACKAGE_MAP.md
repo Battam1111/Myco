@@ -1,8 +1,6 @@
 # L3 — Package Map (module-by-module specification)
 
-> **Status**: DRAFT 1 (2026-05-13).
-> **Layer**: L3.
-> **Scope**: complete module-by-module map of substrate code. Each module = one row in the table below; full detail in §§2-10.
+> **Status**: DRAFT 2 (2026-05-17, M27 CA5 cleanup). Complete module-by-module map. Module line-estimate ranges are pre-Phase-γ M22-M25 sizing.
 
 ---
 
@@ -17,7 +15,7 @@
 | `kernel/continuity` | L1_CONTINUITY | Metabolic cycle + dormancy + cold-resume + delta atomicity | `kernel/skin`, `kernel/schema` | 1500-2500 |
 | `kernel/tropism` | L1_TROPISM | Appetite gradient + sporocarp emission + fruiting evaluator | `kernel/schema`, `kernel/continuity` | 2000-3000 |
 | `kernel/trajectory` | L1_TRAJECTORY | Cluster_C + trajectory queries + thread_id + echo-chamber | `kernel/schema`, `kernel/tropism` | 1500-2500 |
-| `kernel/hard_rules` | L1_HARD_RULES | Immune detection: 20 CRITICAL + F-row watchdog | All other kernel/* (citation; runtime observation) | 1500-2500 |
+| `kernel/hard_rules` | L1_HARD_RULES | Immune detection: C1-C20 spec rows + C30-C49 substrate-private + F1-F25 watchdog | All other kernel/* (citation; runtime observation) | 1500-2500 |
 | `anchor_client` | (L0 §9 + multiple L1) | Owner-side rendering + signing + nonce + heartbeat | `kernel/shared` (serializer spec) | 2000-3000 |
 | `operator_bindings/<host>` | L1_SKIN §4.1 | Per-LLM-host operator runtime; per-handshake keypair; HMAC envelope | `kernel/shared` (serializer spec) | 500-1000 per binding |
 
@@ -36,20 +34,7 @@
 - **Sealed-derive wrapper**: OS-level sealing API for substrate_secret. Wrapper around L4-picked mechanism (TPM / kernel keyring / HSM / hardware-secure-element). Substrate code uses sealed-derive without ever seeing substrate_secret in plaintext.
 - **Active-prefix + archived-tail data structure** (per L1_GOVERNANCE §3.1): generic primitive used by `kernel/governance` for `owner_key_history`, `kernel/tropism` for `template_version_registry`, `kernel/governance` for federation aggregate-reattestation chain.
 
-### §2.2 Public API surface (illustrative; L4 picks)
-
-```
-serialize_canonical(value: TypedValue) → CanonicalBytes
-verify_signature(public_key, signature, canonical_bytes) → bool
-hmac_sign(key, canonical_bytes) → HmacTag
-merkle_hash(parent_hashes, content_canonical_bytes) → NodeHash
-merkle_path(node_hash, ancestor_hash) → MerklePath  # for DAG closure proofs
-sealed_derive(handshake_nonce, current_cycle, kernel_random) → OperatorToken
-active_prefix_get(active_prefix, key) → Value | None
-archived_tail_query(archived_tail, key, deep_cycle_token) → Value | None
-```
-
-### §2.3 Test discipline
+### §2.2 Test discipline
 
 Tier 1: unit tests per primitive (Merkle hash, canonical serialization round-trip, HMAC determinism, signature verification edge cases). Tier 2: sealed-derive integration with chosen L4 sealing mechanism. **Critical**: canonical-bytes serializer must round-trip identically across all language bindings (substrate-kernel, operator-binding, anchor-client) — a single canonical-bytes test suite shared across language ecosystems.
 
@@ -71,10 +56,7 @@ Per L1_SKIN §1-§6:
 
 ### §3.2 Internal sub-modules
 
-- `kernel/skin/envelope` — envelope schema + integrity check.
-- `kernel/skin/handshake` — handshake protocol + operator-token generation.
-- `kernel/skin/output_gate` — output endpoint routing + canonical-bytes discipline for anchor-surface output.
-- `kernel/skin/egress_enforce` — runtime network-egress detection.
+`envelope` (schema + integrity) / `handshake` (protocol + operator-token) / `output_gate` (output routing + canonical-bytes) / `egress_enforce` (runtime egress detection).
 
 ### §3.3 Test discipline
 
@@ -98,11 +80,7 @@ Per L1_SCHEMA §1-§4:
 
 ### §4.2 Internal sub-modules
 
-- `kernel/schema/ssot` — SSoT designation + tier classification + designation migration two-phase commit.
-- `kernel/schema/dag` — Merkle DAG storage + tip maintenance + enumerated-node export for CI events.
-- `kernel/schema/spore` — spore-schema construction + validation (for genesis + reproduction).
-- `kernel/schema/validation` — tier-1/tier-2 dispatch.
-- `kernel/schema/recovery` — backup mechanism + drill engine + baseline tracking.
+`ssot` (designation + tier + migration) / `dag` (Merkle storage + tip + enumerated export) / `spore` (genesis + reproduction) / `validation` (tier-1/tier-2 dispatch) / `recovery` (backup + drill + baseline).
 
 ### §4.3 Test discipline
 
@@ -127,12 +105,7 @@ Per L1_GOVERNANCE §1-§6:
 
 ### §5.2 Internal sub-modules
 
-- `kernel/governance/classifier` — dimension table + classify function.
-- `kernel/governance/attestation` — attestation envelope construction + verification.
-- `kernel/governance/lifecycle` — genesis / dormancy / reproduction / mortality state transitions.
-- `kernel/governance/owner_keys` — key rotation + succession + cooldown.
-- `kernel/governance/federation` — discovery + peer list + freshness + aggregate reattestation.
-- `kernel/governance/rollback` — failed-evolution rollback.
+`classifier` (dimension table + classify) / `attestation` (envelope construction + verification) / `lifecycle` (genesis / dormancy / reproduction / mortality FSM) / `owner_keys` (rotation + succession + cooldown) / `federation` (discovery + peer list + aggregate reattestation) / `rollback` (failed-evolution).
 
 ### §5.3 Test discipline
 
@@ -154,11 +127,7 @@ Per L1_CONTINUITY §1-§5:
 
 ### §6.2 Internal sub-modules
 
-- `kernel/continuity/cycle` — metabolic cycle engine.
-- `kernel/continuity/dormancy` — dormancy state machine.
-- `kernel/continuity/cold_resume` — pre-handshake checks + witness emission.
-- `kernel/continuity/wal` — WAL-based delta atomicity.
-- `kernel/continuity/quarantine` — quarantine sub-state.
+`cycle` (metabolic engine) / `dormancy` (state machine) / `cold_resume` (pre-handshake checks + witness emission) / `wal` (delta atomicity) / `quarantine` (sub-state).
 
 ### §6.3 Test discipline
 
@@ -181,10 +150,7 @@ Per L1_TROPISM §1-§B10:
 
 ### §7.2 Internal sub-modules
 
-- `kernel/tropism/appetite` — appetite-axis runtime + gradient state.
-- `kernel/tropism/sporocarp` — sporocarp construction + causal-proof + emission.
-- `kernel/tropism/template_registry` — template_version_registry (uses `kernel/shared` active-prefix + archived-tail primitive).
-- `kernel/tropism/birth_period` — birth-period state + maturity attestation.
+`appetite` (axis runtime + gradient state) / `sporocarp` (construction + causal-proof + emission) / `template_registry` (template_version_registry per `kernel/shared` active-prefix + archived-tail) / `birth_period` (state + maturity attestation).
 
 ### §7.3 Test discipline
 
@@ -207,10 +173,7 @@ Per L1_TRAJECTORY §1-§9 + L2_TRAJECTORY:
 
 ### §8.2 Internal sub-modules
 
-- `kernel/trajectory/cluster` — cluster_C dispatch + algorithm runtime.
-- `kernel/trajectory/query` — neighborhood + trajectory query API.
-- `kernel/trajectory/epoch` — epoch-boundary tracking + within-epoch query.
-- `kernel/trajectory/echo_chamber` — delta-novelty weighting + detection.
+`cluster` (cluster_C dispatch + runtime) / `query` (neighborhood + trajectory query API) / `epoch` (boundary tracking + within-epoch query) / `echo_chamber` (delta-novelty weighting + detection).
 
 ### §8.3 Test discipline
 
@@ -224,20 +187,18 @@ Tier 1: cluster_C produces deterministic output given same `(DAG, cluster_C)`; e
 
 Per L1_HARD_RULES §1-§5:
 
-- **20 CRITICAL detectors** (C1-C20 from L1_HARD_RULES §1) — runtime observers reading from other modules' emission streams; emit CRITICAL immune sporocarps + trigger auto-quarantine via `kernel/continuity/quarantine`.
-- **F-row watchdogs** (F1-F17 from L1_HARD_RULES §2) — observe CI fixed-point mutation attempts; emit `classifier_fixed_point_bypass` + similar.
+- **CRITICAL detectors** (C1-C20 spec rows + C30-C49 substrate-private namespace per L1_HARD_RULES §1 current catalog) — runtime observers reading from other modules' emission streams; emit CRITICAL immune sporocarps + trigger auto-quarantine via `kernel/continuity/quarantine`.
+- **F-row watchdogs** (F1-F25 per L1_HARD_RULES §2 current catalog, including F18-F25 cascade additions for P10/P11/P14/§14/§15/§16) — observe CI fixed-point mutation attempts; emit `classifier_fixed_point_bypass` + similar.
 - **Birth-period CI elevation enforcement** — verifies the birth-period flag is honored.
 - **Anchor-surface-resident state non-authorability check** — verifies the substrate doesn't author the anchor-surface-resident fields enumerated in L1_HARD_RULES §4.
 
 ### §9.2 Internal sub-modules
 
-- `kernel/hard_rules/critical_detectors` — 20 C-row detectors (each one a focused observer pattern).
-- `kernel/hard_rules/fixed_point_watchdog` — 17 F-row watchdogs.
-- `kernel/hard_rules/anchor_surface_check` — non-authorability verifier.
+`critical_detectors` (C-row detectors, each focused observer pattern) / `fixed_point_watchdog` (F-row watchdogs) / `anchor_surface_check` (non-authorability verifier).
 
 ### §9.3 Test discipline
 
-Tier 1: per-detector unit tests (synthetic breach inputs → expected immune emission). Tier 2: integration with other modules (real breach scenarios trigger correct detectors). Tier 3 + Tier 4 adversarial: full attack-scenario suite per L1_HARD_RULES C1-C20.
+Tier 1: per-detector unit tests (synthetic breach inputs → expected immune emission). Tier 2: integration with other modules (real breach scenarios trigger correct detectors). Tier 3 + Tier 4 adversarial: full attack-scenario suite per L1_HARD_RULES C-row + F-row catalog.
 
 ---
 
@@ -257,11 +218,7 @@ Per L0 §9 + L1_GOVERNANCE §2:
 
 ### §10.2 Internal sub-modules
 
-- `anchor_client/renderer` — canonical-bytes rendering.
-- `anchor_client/sealed_key` — OS-sealed owner-key access.
-- `anchor_client/nonce_log` — nonce generation + consumed-nonce tracking.
-- `anchor_client/heartbeat` — periodic liveness signing.
-- `anchor_client/ui` — owner-facing review UI (web / CLI / hardware-token UI — L4-picked).
+`renderer` (canonical-bytes rendering) / `sealed_key` (OS-sealed owner-key access) / `nonce_log` (generation + consumed-nonce tracking) / `heartbeat` (periodic liveness signing) / `ui` (owner-facing review UI — web / CLI / hardware-token, L4-picked).
 
 ### §10.3 Test discipline
 
@@ -292,55 +249,9 @@ Tier 1: keypair generation + signature; HMAC envelope_digest construction. Tier 
 
 ---
 
-## §12. Build dependency graph (visualized)
+## §12. Build dependency graph
 
-```
-                                                        ┌──────────┐
-                                                        │  shared  │
-                                                        └────┬─────┘
-                                                             │
-                              ┌──────────────────────────────┼──────────────────────────────┐
-                              │                              │                              │
-                              ▼                              ▼                              ▼
-                       ┌────────────┐                 ┌────────────┐                 ┌──────────────┐
-                       │    skin    │                 │   schema   │                 │ anchor_client│
-                       └─────┬──────┘                 └─────┬──────┘                 └──────────────┘
-                             │                              │
-                             ├──────────────┬───────────────┤
-                             ▼              ▼               ▼
-                      ┌─────────────┐ ┌────────────┐ ┌──────────────┐
-                      │ governance  │ │ continuity │ │ operator_bd  │
-                      └──────┬──────┘ └──────┬─────┘ └──────────────┘
-                             │               │
-                             │               ├─────────────────┐
-                             │               ▼                 │
-                             │        ┌─────────────┐          │
-                             │        │   tropism   │          │
-                             │        └──────┬──────┘          │
-                             │               │                 │
-                             │               ▼                 │
-                             │        ┌─────────────┐          │
-                             │        │ trajectory  │          │
-                             │        └─────────────┘          │
-                             │                                 │
-                             └──────────────┬──────────────────┘
-                                            ▼
-                                    ┌────────────────┐
-                                    │   hard_rules   │ (citation-only; observes all)
-                                    └────────────────┘
-```
+Canonical ASCII visualization: L3_OUTLINE §3 (`kernel/hard_rules` cites every module's CRITICAL surface but does NOT import at compile time; runtime observation/enforcement layer only).
 
 ---
 
-## §13. L4 implementation entry point
-
-For an L4 implementer beginning work, the recommended starting commit set:
-
-1. Clone v0.9-genesis branch.
-2. Read L0_VISION.md (full).
-3. Read L1_OUTLINE.md + L1_HARD_RULES.md (cross-cuts index).
-4. Read L3_OUTLINE.md + L3_PACKAGE_MAP.md (this file).
-5. Choose L4 implementation language(s) for `kernel/shared` + `kernel/skin` + `kernel/schema`.
-6. Begin Milestone 1: implement `kernel/shared` per §2 above.
-
-Pass-1 critic on first L4 code: same 6-lens 100%-confidence loop methodology, applied to actual code. The doctrine layer's pass-1 → pass-2 → pass-3 → pass-4 convergence pattern applies to code as well — expect first code submissions to surface ~30-50 findings; iterate.
