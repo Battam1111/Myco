@@ -89,6 +89,29 @@ Quarantine metabolism: cycle continues at alive cadence; tier-1 invariants run; 
 
 Distinction from **legacy** (L1_GOVERNANCE §3.2): legacy = owner unavailable + L0/L1 mutations frozen; quarantined = internal pathology + intake closed + federation suspended + mutations gated. May be both; recovery requires owner-equivalent attestation + quarantine clearance.
 
+## §6. Lifecycle regime cross-cut
+
+> Cross-cuts L0 I1 / P7 / P8 + L1_GOVERNANCE §3-§4 + L1_SKIN §4.5 + L1_TROPISM §4 + L2_TRUST_MODEL §2. Numeric thresholds L1-tunable unless specified. Regime view of states this doc operationalizes.
+
+**§6.1 State space + alive sub-states (L0 I1)** — `genesis → alive ⇄ dormant → destroyed (terminal; anchor final seal)`. `alive` sub-states (compositional): **normal**; **birth-period** (CI-elevation); **quarantined** (§5; intake closed); **legacy** (L1_GOVERNANCE §3.2; heartbeat stale; mutations frozen); **orphaned** (legacy_window elapsed without `succession_acceptance_attestation`); **archived** (terminal-non-destroyed via §6.4 / L0 §7.5; state_dir + anchor-seal preserved); **saturated** (compression-insufficient per P11.c).
+
+**§6.2 Genesis + birth period + steady** — Genesis: L1_GOVERNANCE §4.1 + L2_TRUST_MODEL §2; sporocarp lands → `alive (birth-period)`. Birth period (L1_TROPISM §4 + L1_GOVERNANCE §1.3; all parameter-tuning CI; reclassification at owner-attested termination):
+- **Path A (convergence-attested)**: ≥N sporocarps + ≥M active-operation time + per-axis convergence below epsilon → `birth_period_complete_proposal` + owner co-attest → `alive (steady-state)` + `maturity_attestation`.
+- **Path B (max-duration ceiling)**: default 180 active-operation days; forces graduation OR `self_euthanasia_proposal` (attention-exhaustion safety valve).
+- **Observability**: signal #2 HIGH, #3 RISING, #10 variance-weighted (L2_OBSERVABILITY §2.3) until P14 lands.
+
+Steady state: emergent thresholds replace seeds; 5-step metabolic cycle (§1.1); Living Bets baselines build; falsifiability quorum arms (90-day rolling); L0/L1 evolutions follow P3 CI-attested.
+
+**§6.3 Legacy / orphaned / archived vocabulary** — Per L1_GOVERNANCE §3.2 + L0 §15 (Cultivator mortality) + §7.5 (bet-retirement): `succession_acceptance_attestation`, `legacy_window` (default 365 days), `orphaned_terminal_window` (default 730 days), `cultivation_orphaned_terminal_choice` (genesis pre-attested ∈ {self_euthanasia | bet_retirement | indefinite_orphan}). Sub-states remain alive (substrate-ID + DAG preserved); may overlap quarantined.
+
+**§6.4 Reproduction (P8)** — L1_GOVERNANCE §4.3 + §16 (generation discipline F22) + L1_SCHEMA §3.3; inter-substrate L2_FEDERATION. Modes: federation (semantic), cloning (full copy), cross-pollination (multi-parent, L1-deferred). Each child runs own complete lifecycle from own genesis; recursive under generation-limit. Child-substrate-ID Cultivator-minted at anchor (not parent-minted; F2 + L1_GOVERNANCE §4.1).
+
+**§6.5 Mortality (alive → destroyed; terminal)** — L0 P7 + L1_GOVERNANCE §4.4. Three modes: intentional-Cultivator, catastrophic-environment, endogenous-pair dual-channel. Mortality-axis F7: threshold + update-rule + emergence-rule all CI. Endogenous dual-channel: substrate emits `self_euthanasia_proposal` with `operator_witness`; anchor emits `mortality_drill_failure` on two consecutive failed drills. Terminal record: `anchor_surface_final_seal` Cultivator-co-signed; post-destruction handshakes return `substrate_destroyed`; seal substrate-ID-scoped. Alternative terminal: `alive::archived` via L0 §7.5 / §6.3 preserves state_dir (substrate-ID does not re-bind).
+
+**§6.6 Lifecycle sporocarp index** — Auditable life-trail: `genesis_event`; `birth_period_complete_proposal` / `maturity_attestation` / `birth_period_max_reached`; `dormancy_enter` / `dormancy_exit`; `cold_resume_quarantine` / `quarantine_clearance`; `succession_required` / `succession_acceptance_attestation` / `cultivation_recovered`; `reproduction_request` / `genesis_attested`; `bet_retired_proposal` / `endogenous_mortality_proposal:cultivation_orphaned_terminal`; `destruction_attestation` / `mortality_drill_failure` / `self_euthanasia_proposal`; `anchor_surface_final_seal` (terminal for `destroyed`; also `alive::archived` per L0 §7.5.c).
+
+---
+
 ## §7. C-row catalog
 
 Full catalog at L1_HARD_RULES §1/§2; detection sites: **C9** (§3.1.a) / **C19** (§2.4 + §3) / **C36** (§1.3) / `interrupted_intake` sub-grade (§4).

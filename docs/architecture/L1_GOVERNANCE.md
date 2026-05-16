@@ -90,9 +90,35 @@
 
 ---
 
-## §6. Failed P3 rollback
+## §6. P3 self-evolution discipline (rollback + classes + layers)
 
-Detection: P3 → I3 next cycle; failure → `evolution_failed` (CI-elevated, automatic). Rollback: identify pre-evolution DAG-tip; restore SSoT designation + classifier table + affected canon (CI-attested mutation is P10.b-invariant); drop pending sporocarps in rolled-back window as `evolution_failed_pending_dropped`; emit `rollback_complete`. Repeated failures (30d) → observatory `evolution_failure_rate_elevated`. Quarantine via L1_CONTINUITY §5.
+### §6.1 Five classes of mutable substrate state (P3)
+
+| Class | Examples | Governance | Discipline |
+|---|---|---|---|
+| Schema (SSoT) | Fields exist; what I3 validates | Contract-identity (F8) | Two-phase migration (L1_SCHEMA §1.3) |
+| Lexicon | Subsystem / appetite / sporocarp names | Contract-identity (L0 P3) | Mycology-literature attestation; deprecation `terminal` (L0 §5.1) |
+| Dispatch parameters | Appetite-axis schema; sporocarp-type tree; clusterer choice | Contract-identity | P3 evolution; I3-failure rollback |
+| Threshold values (steady) | Emergent fruiting; bets weights; signals | Daily-autonomous non-mortality; CI for mortality | Emergent from history (C6.4) |
+| L0/L1 doctrine | This document set | Owner-attested via L0 §10.2 | Burst-detection per L0 §9.4 → `doctrine_instability` |
+
+### §6.2 Three layers — doctrine + schema/dispatch + threshold
+
+- **Doctrine (L0/L1)**: slowest; Cultivator-attested per L0 §10.2 + L1_OUTLINE §4 item 3; L0 revision diffs verbatim against prior commit hash; burst-detection per L0 §9.4 (signal #2 evolution-rate; zero = stagnation/P3-weak; excessive = `doctrine_instability` → C37; detector L2_OBSERVABILITY §8).
+- **Schema/dispatch (CI)**: L1_SCHEMA §1.3 two-phase migration; §2.2 dispatch-parameter evolution; I3-failure rollback per §6.4.
+- **Daily threshold**: fast; daily-autonomous non-mortality; emergent per C6.4. Constraints: mortality-signal triple (threshold + update-rule + emergence-rule) CI-level; tier-1 fields cannot be daily-mutated; I3-inconsistent → §6.4 rollback.
+
+### §6.3 Evolution invariants
+
+- **Causal traceability (I4)**: every event DAG-recorded; pre-evolution state retained (L1_SCHEMA §2.3 cold-tier); post-evolution references prior; Merkle proves legitimacy.
+- **No silent corruption (I3)**: SSoT-changing mutation passes two-phase migration: candidate alongside current; per-cycle dual-validation; mismatch → `ssot_migration_inconsistent` immune sporocarp + abort (algorithm at L1_SCHEMA §1.3).
+- **Versioning carriers**: SSoT designation (L1_SCHEMA §1.3); `causal_proof_template` (L1_TROPISM §B1 `template_version_registry`); `Cluster_C` (L1_TRAJECTORY §4 — each CI mutation creates trajectory `epoch_boundary` sporocarp, queries default within-epoch); owner-key history (§3.1); signature suite. Active-prefix + archived-tail (§3.1) keeps per-cycle tier-1 cost O(K) regardless of age.
+
+### §6.4 Failed P3 rollback
+
+Detection: P3 → I3 next cycle; failure → `evolution_failed` (CI-elevated, automatic, ungated). Rollback: identify pre-evolution DAG-tip; restore SSoT designation + classifier table + affected canon (CI-attested mutation is P10.b-invariant); drop pending sporocarps in rolled-back window as `evolution_failed_pending_dropped`; emit `rollback_complete`. Failed schema migration / template evolution / lexicon mutation share this rollback shape; emissions under failed template marked `failed_template_emission`. Repeated failures (30d) → observatory `evolution_failure_rate_elevated`. Persistent failure ≥3 consecutive within window → quarantine per L1_CONTINUITY §5.
+
+> **Doctrinal frame**: substrate evolves freely in steady state, disciplined at three layers — (1) doctrine: rare, owner-attested, burst-detected; (2) schema/dispatch: two-phase migration + canonical-bytes + I3-rollback; (3) threshold/parameter: emergent + mortality-protected. **Substrate that does not evolve is dead** (L0 P3); silent or arbitrary evolution violates I3/I4.
 
 ---
 

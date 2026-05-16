@@ -1,6 +1,6 @@
 # L0 — Vision
 
-> **Status**: **DRAFT 9 SEALED** (2026-05-17, commit `e796451`). Provenance: `docs/audits/draft_9_seal_provenance.md`.
+> **Status**: **DRAFT 9 SEALED** (2026-05-17, commit `e796451`; sealing via 11 owner gates G-1..G-11; provenance: `docs/audits/draft_9_seal_provenance.md`).
 > **Layer**: L0. **Authority**: governs L1/L2/L3/L4; conflicts → L0 wins.
 
 ---
@@ -53,16 +53,9 @@ Substrate operates within **finite resource budgets**; every operation observabl
 ### P14. Telos （目的：共生繁盛）
 Substrate's **telos** = contribute to flourishing of agent-substrate symbiotic pair; `bet_weakening_quorum` (§7) measures absence. P14.a Substrate-internal: daily-ops decisions evaluable. P14.b Owner-stated objectives: declared at genesis/CI; absent → agent-perceived utility. P14.c Telos drift: rolling-window degradation emits `telos_drift`; birth-period exempt emits `telos_alignment_pending`.
 
----
-
 ## §3. What Myco is NOT
 
-- Not a documentation system / knowledge base / chatbot memory / file synchronizer / literal biological organism / version control / LangChain reimplementation.
-- Not session-bounded; not request/response; not silently trusting either party (anchors §9).
-- Not safe under adversarial owner or owner death without succession (§13.2 + §13.3).
-- Not embodied physically; not free of metabolic cost; not eternal-memory.
-- Not population-consensus-aware at substrate level (L2_FEDERATION).
-- Not winning Sutton's bet at every intelligence tier (§7.5 graceful retirement).
+Myco is NOT a documentation system / knowledge base / chatbot memory / file synchronizer / version control / LangChain reimplementation / literal biological organism; NOT session-bounded; NOT request/response; NOT silently trusting either party (anchor §9); NOT safe under adversarial owner / owner death without succession (§13); NOT embodied physically; NOT free of metabolic cost (P11); NOT eternal-memory (P10); NOT population-consensus-aware at substrate level (L2_FEDERATION); NOT winning Sutton's bet at every intelligence tier (§7.5 graceful retirement).
 
 ---
 
@@ -147,9 +140,7 @@ v0.9 targets ~200K to ~10M read-window. Mechanical: state digest ≤ read-window
 
 ## §10. Process
 
-- Reading sequence: L0 → L1 mechanisms → L2 cross-cuts → L3 implementation map.
-- L0 changes REQUIRE proposal + owner approval + CI bump + cascade review.
-- Origin discrimination: v0.9 first true birth; every step MUST trace to ≥1 of P1-P11+P14 + ≥1 invariant.
+L0 changes REQUIRE proposal + owner approval + CI bump + cascade review (process: OUTLINE.md §4). Origin discrimination: every step MUST trace to ≥1 of P1-P11+P14 + ≥1 invariant.
 
 ---
 

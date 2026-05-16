@@ -57,7 +57,7 @@ Appetite-axis schema + per-axis `update_rule` + threshold-emergence-rule (mortal
 
 ---
 
-## §8. `kernel/trajectory` (L1_TRAJECTORY §1-§9 + L2_TRAJECTORY)
+## §8. `kernel/trajectory` (L1_TRAJECTORY §1-§9)
 
 Cluster_C runtime (substrate-resident; CI-protected; epoch-bounded); query API (`causal_ancestors_and_descendants(neighborhood(t)) + cluster_C(.)`); cold-start (empty-DAG → `cold_start_marker`); thread_id grouping; echo-chamber detection (substrate-keyed delta-novelty + threshold); schema-evolution epoch boundary. Sub-modules: `cluster` / `query` / `epoch` / `echo_chamber`. **T1** cluster_C deterministic + epoch respected; **T2** trajectory over multi-cycle DAG; **T3** echo-chamber red-team.
 
