@@ -49,10 +49,19 @@
 #![allow(clippy::doc_overindented_list_items)]
 #![forbid(unsafe_code)]
 
+pub mod attestation;
+pub mod dag_query;
 pub mod derived_state;
 pub mod events;
 pub mod federation;
+pub mod handshake;
+pub mod ingest;
+pub mod integrity;
+pub mod lifecycle;
+pub mod observatory;
 pub mod persistence;
+pub mod persistence_runtime;
+pub mod reproduction;
 pub mod server;
 
 use thiserror::Error;

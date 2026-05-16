@@ -1,0 +1,779 @@
+//! M13/M14/M15 — anchor-surface attestation primitives.
+//!
+//! Extracted from `server.rs` (Phase B M27 follow-up Step 2): owns the
+//! `request_attestation_nonce` issuance handler, the `submit_mutation`
+//! anchor-surface envelope handler, the REVEAL keypair envelope verifier,
+//! the nonce verification helper, and the content-hash utility.
+//!
+//! Doctrine traceability:
+//! - L0 §9 — anchor surface envelope (nonce + binding + dual-clock).
+//! - L1_HARD_RULES §1 — C5 attestation_invalid + C17 operator_witness_forgery.
+
+use std::collections::BTreeMap;
+
+use myco_kernel_bridge::protocol::{msg_type, Message};
+use myco_kernel_shared::canonical_bytes::{encode as cb_encode, CanonicalBytes, Value};
+use myco_kernel_shared::crypto::verify_signature;
+
+use crate::server::{emit_immune_sporocarp, emit_substrate_event, save_dag_state, save_nonce_state, ServerState};
+use crate::SubstrateError;
+
+/// M13: An attestation nonce issued by the substrate, bound to a specific
+/// proposed mutation + DAG tip state. Operators include this nonce in their
+/// attestation envelope; the substrate verifies binding + marks consumed
+/// (replay protection).
+///
+/// M15: extended with optional anchor-clock fields for dual-clock expiry
+/// defense against clock skew (L0 §9 anchor-surface envelope hardening).
+#[derive(Debug, Clone)]
+#[allow(dead_code)]
+pub(crate) struct AttestationNonce {
+    /// 32-byte random nonce (substrate-issued; redundant with HashMap key but
+    /// useful for debug output / forensic logging).
+    pub(crate) nonce: [u8; 32],
+    /// Hash of `content_canonical_bytes` the operator intends to submit.
+    pub(crate) bound_content_hash: [u8; 32],
+    /// DAG tip at issuance time (32 bytes; all-zero if DAG was empty).
+    pub(crate) bound_dag_tip: [u8; 32],
+    /// Substrate-clock issuance time (M15) — used by the dual-clock elapsed-
+    /// time check to detect substrate clock jumping backward.
+    pub(crate) substrate_issued_at_unix_ns: i64,
+    /// Substrate-clock expiry (unix nanoseconds). Default: substrate_issued + TTL.
+    pub(crate) expiry_unix_ns: i64,
+    /// Operator-supplied anchor-clock issuance time (M15). `None` when the
+    /// operator did not supply a `client_clock_unix_ns` in the nonce request
+    /// (M13/M14 callers; preserves single-clock semantics).
+    pub(crate) anchor_clock_issued_at_unix_ns: Option<i64>,
+    /// Anchor-clock expiry = anchor_issued + TTL (M15). `None` iff
+    /// anchor_clock_issued_at is None.
+    pub(crate) anchor_clock_expiry_unix_ns: Option<i64>,
+    /// Whether this nonce has been consumed (one-time use).
+    pub(crate) consumed: bool,
+}
+
+/// M13: Default nonce TTL in seconds (5 minutes).
+pub(crate) const NONCE_TTL_SECONDS: i64 = 300;
+
+/// M15: Maximum allowed clock-skew between the substrate's own clock and the
+/// operator-supplied anchor clock at issuance time. Operators whose clock
+/// deviates from the substrate's by more than this are still accepted (we
+/// don't reject — clock-skew is a separate concern from forgery), but the
+/// elapsed-time check at verification will catch any inconsistency.
+///
+/// Reserved for M16+ proactive clock-skew rejection.
+#[allow(dead_code)]
+pub(crate) const MAX_ANCHOR_CLOCK_SKEW_NS: i64 = 3_600 * 1_000_000_000; // 1 hour
+
+/// M13: Issue a fresh attestation nonce bound to (content_hash, dag_tip).
+///
+/// The operator computes the hash of their proposed mutation content and
+/// includes it in this request. The substrate generates 32 random bytes,
+/// records the binding (content_hash + current DAG tip + expiry), and returns
+/// the nonce. Operator includes this nonce in submit_mutation; substrate
+/// verifies binding + marks consumed.
+///
+/// M15: optionally accepts `anchor_clock_unix_ns` (operator's view of "now"
+/// from the operator's wall clock). When present, the substrate records BOTH
+/// the substrate-clock issuance time AND the anchor-clock issuance time,
+/// and the response echoes an `anchor_clock_expiry_unix_ns` so the operator
+/// can later supply `anchor_clock_submitted_at_unix_ns` for the dual-clock
+/// check at verification time.
+pub(crate) fn handle_request_attestation_nonce(
+    state: &mut ServerState,
+    request: &Message,
+) -> Result<Option<Message>, SubstrateError> {
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    // Extract content_hash from payload (required).
+    let content_hash = match request.payload.get("content_hash") {
+        Some(Value::Bytes(b)) if b.len() == 32 => {
+            let mut arr = [0u8; 32];
+            arr.copy_from_slice(b);
+            arr
+        }
+        _ => {
+            return Err(SubstrateError::Protocol(
+                "request_attestation_nonce: content_hash must be 32 bytes".to_string(),
+            ));
+        }
+    };
+
+    // M15: optional operator-supplied anchor-clock time.
+    let anchor_clock_issued_at: Option<i64> = match request.payload.get("anchor_clock_unix_ns") {
+        Some(Value::Timestamp(ts)) => Some(*ts),
+        _ => None,
+    };
+
+    // Generate 32-byte nonce (time + counter + stack-address SHA-256 mix).
+    let nonce = {
+        use sha2::{Digest, Sha256};
+        let mut h = Sha256::new();
+        h.update(b"myco-attestation-nonce-v1");
+        h.update(
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .map(|d| d.as_nanos())
+                .unwrap_or(0)
+                .to_le_bytes(),
+        );
+        h.update(std::process::id().to_le_bytes());
+        h.update((state.nonce_log.len() as u64).to_le_bytes());
+        let stack_var = 0u8;
+        h.update((&stack_var as *const u8 as usize).to_le_bytes());
+        h.update(content_hash);
+        let result = h.finalize();
+        let mut out = [0u8; 32];
+        out.copy_from_slice(&result);
+        out
+    };
+
+    // M13 bound_dag_tip semantic: the operator's command was relative to
+    // THIS DAG state. We capture the tip BEFORE emitting the nonce_issued
+    // event, so the event content records what the operator "saw" at request
+    // time. (Used for forensic audit.)
+    let operator_visible_tip_at_request = state
+        .dag
+        .tip()
+        .map(|t| {
+            let mut arr = [0u8; 32];
+            arr.copy_from_slice(t.as_ref());
+            arr
+        })
+        .unwrap_or([0u8; 32]);
+
+    let substrate_issued_at = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .ok()
+        .and_then(|d| i64::try_from(d.as_nanos()).ok())
+        .unwrap_or(0);
+    let ttl_ns = NONCE_TTL_SECONDS * 1_000_000_000;
+    let expiry_unix_ns = substrate_issued_at.saturating_add(ttl_ns);
+    // M15: anchor-clock expiry = operator's anchor-clock at issuance + same TTL.
+    let anchor_clock_expiry_unix_ns: Option<i64> =
+        anchor_clock_issued_at.map(|a| a.saturating_add(ttl_ns));
+
+    // M21.1 P5 万物互联: emit nonce_issued DAG event FIRST, BEFORE binding
+    // bound_dag_tip on the nonce. The event records the pre-emit tip
+    // (operator-visible-at-request); the nonce's bound_dag_tip is set to the
+    // POST-emit tip (which equals the nonce_issued event's own hash). At
+    // verify time, substrate's current_tip must equal this — i.e., no DAG
+    // events have happened between issuance and submission. This preserves
+    // M13's "fresh-context" guarantee with dual-write.
+    let event_nt = crate::events::nonce_issued_node_type(&nonce);
+    let event_content = crate::events::encode_nonce_issued(
+        &nonce,
+        &content_hash,
+        &operator_visible_tip_at_request,
+        substrate_issued_at,
+        expiry_unix_ns,
+        anchor_clock_issued_at,
+        anchor_clock_expiry_unix_ns,
+    );
+    let nonce_issued_event_hash = emit_substrate_event(state, event_nt, event_content)?;
+    let _ = save_dag_state(state);
+
+    // bound_dag_tip = the nonce_issued event's hash (= post-event DAG tip).
+    let mut bound_dag_tip = [0u8; 32];
+    bound_dag_tip.copy_from_slice(nonce_issued_event_hash.as_ref());
+
+    state.nonce_log.insert(
+        nonce,
+        AttestationNonce {
+            nonce,
+            bound_content_hash: content_hash,
+            bound_dag_tip,
+            substrate_issued_at_unix_ns: substrate_issued_at,
+            expiry_unix_ns,
+            anchor_clock_issued_at_unix_ns: anchor_clock_issued_at,
+            anchor_clock_expiry_unix_ns,
+            consumed: false,
+        },
+    );
+    // M14: persist nonce log to disk so issued nonces survive restart.
+    save_nonce_state(state)?;
+    let _ = save_dag_state(state);
+
+    let mut payload = BTreeMap::new();
+    payload.insert("nonce".to_string(), Value::Bytes(nonce.to_vec()));
+    payload.insert(
+        "bound_dag_tip".to_string(),
+        Value::Bytes(bound_dag_tip.to_vec()),
+    );
+    payload.insert(
+        "expiry_unix_ns".to_string(),
+        Value::Timestamp(expiry_unix_ns),
+    );
+    payload.insert(
+        "ttl_seconds".to_string(),
+        Value::Uint(NONCE_TTL_SECONDS as u64),
+    );
+    // M15: echo anchor-clock expiry only when operator supplied anchor_clock.
+    if let Some(anchor_expiry) = anchor_clock_expiry_unix_ns {
+        payload.insert(
+            "anchor_clock_expiry_unix_ns".to_string(),
+            Value::Timestamp(anchor_expiry),
+        );
+    }
+
+    Ok(Some(Message::new(
+        msg_type::REQUEST_ATTESTATION_NONCE_RESPONSE,
+        request.request_id,
+        payload,
+    )))
+}
+
+/// M13: Verify an attestation nonce on a submit_mutation.
+///
+/// Returns Ok(()) if all checks pass; Err(reason) if any fail. The caller
+/// (handle_submit_mutation) translates Err into a C5 rejection + immune sporocarp
+/// with refined evidence.
+///
+/// M15: dual-clock expiry check. When the stored nonce has anchor-clock fields
+/// (operator supplied `anchor_clock_unix_ns` on the nonce request) AND the
+/// submit envelope supplies `anchor_clock_submitted_at_unix_ns`, the substrate
+/// enforces BOTH clocks (substrate-clock elapsed-time AND anchor-clock
+/// elapsed-time) must be in the [0, TTL] window. Clock-skew attacks that try
+/// to extend nonce lifetime by manipulating one clock will fail the other.
+pub(crate) fn verify_attestation_nonce(
+    state: &mut ServerState,
+    nonce_bytes: &[u8],
+    content_hash: &[u8; 32],
+    submitted_expiry_ns: Option<i64>,
+    submitted_anchor_clock_ns: Option<i64>,
+) -> Result<(), String> {
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    if nonce_bytes.len() != 32 {
+        return Err(format!("nonce must be 32 bytes; got {}", nonce_bytes.len()));
+    }
+    let mut nonce_arr = [0u8; 32];
+    nonce_arr.copy_from_slice(nonce_bytes);
+
+    let stored = state
+        .nonce_log
+        .get(&nonce_arr)
+        .ok_or_else(|| "unknown nonce (never issued by this substrate)".to_string())?
+        .clone();
+
+    if stored.consumed {
+        return Err("replay rejected: nonce already consumed".to_string());
+    }
+
+    if stored.bound_content_hash != *content_hash {
+        return Err(
+            "wrong-binding rejected: content_hash differs from nonce-bound hash".to_string(),
+        );
+    }
+
+    let current_tip = state
+        .dag
+        .tip()
+        .map(|t| {
+            let mut a = [0u8; 32];
+            a.copy_from_slice(t.as_ref());
+            a
+        })
+        .unwrap_or([0u8; 32]);
+    if stored.bound_dag_tip != current_tip {
+        return Err("wrong-binding rejected: DAG tip differs from issuance time".to_string());
+    }
+
+    let now_ns = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .ok()
+        .and_then(|d| i64::try_from(d.as_nanos()).ok())
+        .unwrap_or(0);
+    // Substrate-clock elapsed-time check (M15 — supersedes the simple
+    // `now > expiry` check by also detecting backward clock jumps).
+    if now_ns > stored.expiry_unix_ns {
+        return Err("expired rejected: substrate-clock nonce TTL passed".to_string());
+    }
+    if now_ns < stored.substrate_issued_at_unix_ns {
+        return Err(
+            "expired rejected: substrate clock has jumped backward since issuance".to_string(),
+        );
+    }
+    if let Some(submitted) = submitted_expiry_ns {
+        if submitted != stored.expiry_unix_ns {
+            return Err(
+                "wrong-binding rejected: submitted expiry differs from issued expiry".to_string(),
+            );
+        }
+    }
+
+    // M15: Dual-clock expiry check. Apply only when the nonce was issued WITH
+    // anchor-clock binding (operator supplied `anchor_clock_unix_ns` on
+    // request_attestation_nonce). If the submit envelope omits
+    // `anchor_clock_submitted_at_unix_ns` despite the nonce being dual-clock,
+    // reject (operator must use the dual-clock contract consistently).
+    if let (Some(anchor_issued), Some(anchor_expiry)) = (
+        stored.anchor_clock_issued_at_unix_ns,
+        stored.anchor_clock_expiry_unix_ns,
+    ) {
+        match submitted_anchor_clock_ns {
+            None => {
+                return Err(
+                    "dual-clock binding rejected: nonce was issued with anchor-clock, but \
+                     submit envelope omits anchor_clock_submitted_at_unix_ns"
+                        .to_string(),
+                );
+            }
+            Some(submitted_anchor) => {
+                if submitted_anchor < anchor_issued {
+                    return Err(
+                        "dual-clock rejected: anchor clock jumped backward since issuance"
+                            .to_string(),
+                    );
+                }
+                if submitted_anchor > anchor_expiry {
+                    return Err("dual-clock rejected: anchor-clock nonce TTL passed".to_string());
+                }
+            }
+        }
+    } else if submitted_anchor_clock_ns.is_some() {
+        // Operator supplied anchor_clock at submit time but the nonce was
+        // issued without anchor-clock binding. This is a protocol misuse —
+        // either upgrade nonce issuance to dual-clock or drop the submit
+        // field. We accept (M13 fallback path) but the inconsistency is
+        // surfaced upstream when the operator re-runs the flow.
+    }
+
+    // Mark consumed.
+    if let Some(n) = state.nonce_log.get_mut(&nonce_arr) {
+        n.consumed = true;
+    }
+    // M14: persist nonce log so the consumed flag survives restart (replay
+    // protection extends across substrate restarts).
+    save_nonce_state(state).map_err(|e| format!("nonce log save failed: {e}"))?;
+    // M21.1 P5 万物互联: emit nonce_consumed DAG event.
+    let consumed_at_unix_ns = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .ok()
+        .and_then(|d| i64::try_from(d.as_nanos()).ok())
+        .unwrap_or(0);
+    let event_nt = crate::events::nonce_consumed_node_type(&nonce_arr);
+    let event_content = crate::events::encode_nonce_consumed(&nonce_arr, consumed_at_unix_ns);
+    let _ = emit_substrate_event(state, event_nt, event_content);
+    let _ = save_dag_state(state);
+
+    Ok(())
+}
+
+/// M14: Verify the per-handshake REVEAL keypair envelope.
+///
+/// Checks that:
+/// 1. `identity_signature_over_reveal_pubkey` is a valid Ed25519 signature over
+///    `canonical_bytes(Map({"context": "myco-reveal-key-binding-v1", "reveal_pubkey": ...}))`
+///    by the pinned operator IDENTITY pubkey.
+/// 2. The substrate has a pinned operator identity (i.e. M9 TOFU completed).
+///
+/// Does NOT check the REVEAL→content signature; that happens in Python's
+/// dispatcher (which already verifies attestation_signature against whatever
+/// pubkey we pass in — for M14 we update Python to use reveal_pubkey instead
+/// of pinned operator pubkey when reveal_pubkey is present in the payload).
+///
+/// For M14 minimum-viable: Python is updated externally to look for reveal_pubkey
+/// first. If the substrate Rust layer accepts the REVEAL bundle, Python verifies
+/// `attestation_signature` against `reveal_pubkey` (passed through in payload).
+pub(crate) fn verify_reveal_keypair_envelope(state: &ServerState, request: &Message) -> Result<(), String> {
+    // Need pinned operator identity to verify identity-signature-over-REVEAL.
+    let pinned = state
+        .pinned_operator_identity
+        .as_ref()
+        .ok_or_else(|| "no pinned operator identity (M9 TOFU not completed)".to_string())?;
+
+    let reveal_pubkey_bytes = match request.payload.get("reveal_pubkey") {
+        Some(Value::Bytes(b)) if b.len() == 32 => b.clone(),
+        _ => return Err("reveal_pubkey must be 32 bytes".to_string()),
+    };
+
+    let identity_sig_bytes = match request.payload.get("identity_signature_over_reveal_pubkey") {
+        Some(Value::Bytes(b)) if b.len() == 64 => b.clone(),
+        _ => return Err("identity_signature_over_reveal_pubkey must be 64 bytes".to_string()),
+    };
+
+    // M24.2 SECURITY FIX (2026-05-15): include substrate_id in the signing
+    // input so an operator's IDENTITY-signature over a reveal_pubkey for
+    // substrate_A cannot be replayed against substrate_B. Context bumped
+    // to v2 — any v1 signer must be updated. (Phase β audit Surface 5.3.)
+    //
+    // Signing input shape (v2):
+    //   canonical_bytes(Map({
+    //     "context": "myco-reveal-key-binding-v2",
+    //     "reveal_pubkey": Bytes(32),
+    //     "substrate_id": Bytes(32),
+    //   }))
+    let mut signing_map = BTreeMap::new();
+    signing_map.insert(
+        "context".to_string(),
+        Value::String("myco-reveal-key-binding-v2".to_string()),
+    );
+    signing_map.insert(
+        "reveal_pubkey".to_string(),
+        Value::Bytes(reveal_pubkey_bytes.clone()),
+    );
+    signing_map.insert(
+        "substrate_id".to_string(),
+        Value::Bytes(state.manifest.substrate_id.to_vec()),
+    );
+    let signing_input = cb_encode(&Value::Map(signing_map))
+        .map_err(|e| format!("signing input encode failed: {e}"))?;
+
+    // Verify IDENTITY-signature-over-REVEAL (v2 binding).
+    verify_signature(&pinned.pubkey, &identity_sig_bytes, signing_input.as_ref())
+        .map_err(|e| format!("identity signature over reveal_pubkey invalid (v2 binding): {e}"))?;
+
+    Ok(())
+}
+
+/// M13: Compute SHA-256 hash of canonical bytes (used as content_hash in nonce binding).
+pub(crate) fn compute_content_hash(content: &[u8]) -> [u8; 32] {
+    use sha2::{Digest, Sha256};
+    let mut h = Sha256::new();
+    h.update(content);
+    let result = h.finalize();
+    let mut out = [0u8; 32];
+    out.copy_from_slice(&result);
+    out
+}
+
+/// M10: Forward submit_mutation to Python for classification + (CI) verification,
+/// and on accept insert the mutation as a DAG node.
+pub(crate) fn handle_submit_mutation(
+    state: &mut ServerState,
+    request: &Message,
+) -> Result<Option<Message>, SubstrateError> {
+    // M14: Pre-Python REVEAL keypair verification.
+    // If the operator included `reveal_pubkey` + `identity_signature_over_reveal_pubkey`,
+    // verify the IDENTITY signature against the pinned operator pubkey BEFORE
+    // doing anything else. Failures emit C17 operator_witness_forgery.
+    //
+    // The REVEAL pubkey then becomes the signer for the attestation signature
+    // (the operator's `attestation_signature` field is treated as a REVEAL
+    // signature when reveal_pubkey is present, rather than an IDENTITY signature).
+    let reveal_pubkey_present = request.payload.contains_key("reveal_pubkey");
+    if reveal_pubkey_present {
+        if let Err(reason) = verify_reveal_keypair_envelope(state, request) {
+            let evidence = format!("REVEAL keypair envelope verification failed: {reason}");
+            let _ = emit_immune_sporocarp(
+                state,
+                "C17_operator_witness_forgery",
+                "operator_witness_forgery",
+                &evidence,
+            );
+            let _ = save_dag_state(state);
+
+            let mut payload = BTreeMap::new();
+            payload.insert(
+                "classification".to_string(),
+                Value::String("contract_identity_level".to_string()),
+            );
+            payload.insert("accepted".to_string(), Value::Bool(false));
+            payload.insert("rejection_reason".to_string(), Value::String(reason));
+            let mtype = request
+                .payload
+                .get("mutation_type")
+                .and_then(|v| match v {
+                    Value::String(s) => Some(s.clone()),
+                    _ => None,
+                })
+                .unwrap_or_default();
+            payload.insert("mutation_type".to_string(), Value::String(mtype));
+            return Ok(Some(Message::new(
+                msg_type::SUBMIT_MUTATION_RESPONSE,
+                request.request_id,
+                payload,
+            )));
+        }
+    }
+
+    // M13: Pre-Python nonce verification (anchor-surface envelope check).
+    // If the operator included a nonce, verify it BEFORE forwarding. Failed
+    // nonce checks short-circuit with a C5 rejection + immune sporocarp.
+    let nonce_present = request.payload.contains_key("nonce");
+    if nonce_present {
+        let nonce_bytes = match request.payload.get("nonce") {
+            Some(Value::Bytes(b)) => b.clone(),
+            _ => Vec::new(),
+        };
+        let content_bytes_for_hash = match request.payload.get("content_canonical_bytes") {
+            Some(Value::Bytes(b)) => b.clone(),
+            _ => Vec::new(),
+        };
+        let content_hash = compute_content_hash(&content_bytes_for_hash);
+        let submitted_expiry = request.payload.get("expiry_unix_ns").and_then(|v| match v {
+            Value::Timestamp(t) => Some(*t),
+            _ => None,
+        });
+        // M15: dual-clock — operator-supplied "now on anchor clock at submit time".
+        let submitted_anchor_clock = request
+            .payload
+            .get("anchor_clock_submitted_at_unix_ns")
+            .and_then(|v| match v {
+                Value::Timestamp(t) => Some(*t),
+                _ => None,
+            });
+        if let Err(reason) = verify_attestation_nonce(
+            state,
+            &nonce_bytes,
+            &content_hash,
+            submitted_expiry,
+            submitted_anchor_clock,
+        ) {
+            // Build a rejection response directly; emit C5 immune sporocarp.
+            let evidence = format!("anchor-surface envelope verification failed: {reason}");
+            let _ = emit_immune_sporocarp(
+                state,
+                "C5_attestation_invalid",
+                "attestation_invalid_anchor_surface",
+                &evidence,
+            );
+            let _ = save_dag_state(state);
+
+            let mut payload = BTreeMap::new();
+            payload.insert(
+                "classification".to_string(),
+                Value::String("contract_identity_level".to_string()),
+            );
+            payload.insert("accepted".to_string(), Value::Bool(false));
+            payload.insert("rejection_reason".to_string(), Value::String(reason));
+            let mtype = request
+                .payload
+                .get("mutation_type")
+                .and_then(|v| match v {
+                    Value::String(s) => Some(s.clone()),
+                    _ => None,
+                })
+                .unwrap_or_default();
+            payload.insert("mutation_type".to_string(), Value::String(mtype));
+            return Ok(Some(Message::new(
+                msg_type::SUBMIT_MUTATION_RESPONSE,
+                request.request_id,
+                payload,
+            )));
+        }
+        // Nonce verified; proceed to forward.
+    }
+
+    let client = state
+        .python_client
+        .as_mut()
+        .ok_or_else(|| SubstrateError::Handshake("python worker not connected".to_string()))?;
+
+    // Forward verbatim to Python via the generic `call` API.
+    let python_response = client
+        .call(msg_type::SUBMIT_MUTATION, request.payload.clone())
+        .map_err(SubstrateError::Bridge)?;
+    if python_response.message_type != msg_type::SUBMIT_MUTATION_RESPONSE {
+        return Err(SubstrateError::Protocol(format!(
+            "expected submit_mutation_response; got {}",
+            python_response.message_type
+        )));
+    }
+
+    // Parse Python's response.
+    let classification = python_response
+        .payload
+        .get("classification")
+        .and_then(|v| match v {
+            Value::String(s) => Some(s.clone()),
+            _ => None,
+        })
+        .unwrap_or_default();
+    let accepted = python_response
+        .payload
+        .get("accepted")
+        .and_then(|v| match v {
+            Value::Bool(b) => Some(*b),
+            _ => None,
+        })
+        .unwrap_or(false);
+    let rejection_reason = python_response
+        .payload
+        .get("rejection_reason")
+        .and_then(|v| match v {
+            Value::String(s) => Some(s.clone()),
+            _ => None,
+        })
+        .unwrap_or_default();
+    let content_bytes = python_response
+        .payload
+        .get("content_canonical_bytes")
+        .and_then(|v| match v {
+            Value::Bytes(b) => Some(b.clone()),
+            _ => None,
+        })
+        .unwrap_or_default();
+    let mutation_type = python_response
+        .payload
+        .get("mutation_type")
+        .and_then(|v| match v {
+            Value::String(s) => Some(s.clone()),
+            _ => None,
+        })
+        .unwrap_or_default();
+
+    // M17 P3 永恒进化: read evolution outcome fields from Python's response.
+    let schema_apply_attempted = python_response
+        .payload
+        .get("schema_apply_attempted")
+        .and_then(|v| match v {
+            Value::Bool(b) => Some(*b),
+            _ => None,
+        })
+        .unwrap_or(false);
+    let schema_apply_succeeded = python_response
+        .payload
+        .get("schema_apply_succeeded")
+        .and_then(|v| match v {
+            Value::Bool(b) => Some(*b),
+            _ => None,
+        })
+        .unwrap_or(false);
+    let schema_apply_failure_reason = python_response
+        .payload
+        .get("schema_apply_failure_reason")
+        .and_then(|v| match v {
+            Value::String(s) => Some(s.clone()),
+            _ => None,
+        })
+        .unwrap_or_default();
+    let schema_apply_op = python_response
+        .payload
+        .get("schema_apply_op")
+        .and_then(|v| match v {
+            Value::String(s) => Some(s.clone()),
+            _ => None,
+        })
+        .unwrap_or_default();
+    let schema_apply_summary = python_response
+        .payload
+        .get("schema_apply_summary")
+        .and_then(|v| match v {
+            Value::String(s) => Some(s.clone()),
+            _ => None,
+        })
+        .unwrap_or_default();
+
+    // If accepted: wrap as DAG node with parent=tip.
+    // If rejected: emit an immune sporocarp (M11 C14 for UNTYPED; C5 for invalid CI attestation).
+    let dag_node_hash = if accepted {
+        let parents: Vec<myco_kernel_shared::crypto::NodeHash> = match state.dag.tip() {
+            Some(t) => vec![t],
+            None => Vec::new(),
+        };
+        let node_type = format!("mutation:{mutation_type}");
+        let current_cycle = state.manifest.cycle_counter;
+        let hash = state
+            .dag
+            .insert_node(
+                parents,
+                node_type,
+                current_cycle,
+                CanonicalBytes(content_bytes),
+            )
+            .map_err(|e| SubstrateError::Protocol(format!("mutation DAG insert: {e}")))?;
+        Some(hash)
+    } else {
+        // M11: emit immune sporocarp for the rejection.
+        let (detector_id, detector_name) = match classification.as_str() {
+            "untyped" => ("C14_untyped_mutation_blocked", "untyped_mutation_blocked"),
+            "contract_identity_level" => ("C5_attestation_invalid", "attestation_invalid"),
+            _ => ("C_unknown", "unknown_breach"),
+        };
+        let evidence_str = format!(
+            "mutation_type={mutation_type}; classification={classification}; reason={rejection_reason}"
+        );
+        // Best-effort emit; ignore errors (we don't want to mask the original rejection).
+        let _ = emit_immune_sporocarp(state, detector_id, detector_name, &evidence_str);
+        None
+    };
+
+    // M17 P3 永恒进化: after mutation acceptance, emit the evolution event DAG node.
+    // - schema_apply_attempted + schema_apply_succeeded → evolution_succeeded:{op}
+    // - schema_apply_attempted + !schema_apply_succeeded → evolution_failed:{op}
+    //   (mutation:schema_evolution still in DAG as audit trail of the attempt.)
+    let evolution_event_hash = if schema_apply_attempted {
+        let event_node_type = if schema_apply_succeeded {
+            format!("evolution_succeeded:{schema_apply_op}")
+        } else {
+            format!("evolution_failed:{schema_apply_op}")
+        };
+        let mut event_map = BTreeMap::new();
+        event_map.insert("op".to_string(), Value::String(schema_apply_op.clone()));
+        event_map.insert("succeeded".to_string(), Value::Bool(schema_apply_succeeded));
+        event_map.insert(
+            "summary".to_string(),
+            Value::String(schema_apply_summary.clone()),
+        );
+        if !schema_apply_succeeded {
+            event_map.insert(
+                "failure_reason".to_string(),
+                Value::String(schema_apply_failure_reason.clone()),
+            );
+        }
+        let event_canonical = cb_encode(&Value::Map(event_map))
+            .map_err(|e| SubstrateError::Protocol(format!("evolution event encode: {e}")))?;
+        let parents: Vec<myco_kernel_shared::crypto::NodeHash> = match state.dag.tip() {
+            Some(t) => vec![t],
+            None => Vec::new(),
+        };
+        let cycle = state.manifest.cycle_counter;
+        let h = state
+            .dag
+            .insert_node(parents, event_node_type, cycle, event_canonical)
+            .map_err(|e| SubstrateError::Protocol(format!("evolution event DAG insert: {e}")))?;
+        Some(h)
+    } else {
+        None
+    };
+
+    // Build response to operator.
+    let mut payload = BTreeMap::new();
+    payload.insert("classification".to_string(), Value::String(classification));
+    payload.insert("accepted".to_string(), Value::Bool(accepted));
+    payload.insert(
+        "rejection_reason".to_string(),
+        Value::String(rejection_reason),
+    );
+    payload.insert("mutation_type".to_string(), Value::String(mutation_type));
+    if let Some(h) = dag_node_hash {
+        payload.insert(
+            "dag_node_hash".to_string(),
+            Value::Bytes(h.as_ref().to_vec()),
+        );
+    }
+    // M17 evolution fields surfaced to operator.
+    payload.insert(
+        "schema_apply_attempted".to_string(),
+        Value::Bool(schema_apply_attempted),
+    );
+    payload.insert(
+        "schema_apply_succeeded".to_string(),
+        Value::Bool(schema_apply_succeeded),
+    );
+    payload.insert(
+        "schema_apply_failure_reason".to_string(),
+        Value::String(schema_apply_failure_reason),
+    );
+    payload.insert(
+        "schema_apply_op".to_string(),
+        Value::String(schema_apply_op),
+    );
+    payload.insert(
+        "schema_apply_summary".to_string(),
+        Value::String(schema_apply_summary),
+    );
+    if let Some(h) = evolution_event_hash {
+        payload.insert(
+            "evolution_event_hash".to_string(),
+            Value::Bytes(h.as_ref().to_vec()),
+        );
+    }
+
+    Ok(Some(Message::new(
+        msg_type::SUBMIT_MUTATION_RESPONSE,
+        request.request_id,
+        payload,
+    )))
+}

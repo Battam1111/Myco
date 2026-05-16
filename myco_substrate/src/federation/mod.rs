@@ -52,8 +52,21 @@
 //!   ingested with the same content-hash determinism as native events
 //!   (idempotent on duplicate insertion).
 
+pub mod handlers;
 pub mod protocol;
 pub mod transport;
+
+// Re-export the operator-facing federation handlers so call sites can use
+// `crate::federation::handle_federation_*` without reaching into the
+// `handlers` submodule. The `emit_federation_*` helpers are also re-exported
+// so the autonomous-tick path in `server.rs` can call them directly.
+pub(crate) use handlers::{
+    emit_federation_hello_signature_invalid, emit_federation_legacy_peer_pinned,
+    emit_federation_peer_pinned, emit_federation_peer_rejected, handle_federation_close_listener,
+    handle_federation_connect_peer, handle_federation_link_to_parent_from_hint,
+    handle_federation_open_listener, handle_federation_poll,
+    handle_federation_pull_events_from_peer, handle_federation_status,
+};
 
 use std::io::ErrorKind;
 use std::net::{SocketAddr, TcpListener};
