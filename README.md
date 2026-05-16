@@ -1,73 +1,42 @@
-# Myco v0.9 — Ground-up rewrite
+# Myco v0.9
 
-> **Branch**: `v0.9-genesis` (orphan; zero shared history with `main`).
-> **Status**: GENESIS in progress. The first artifact (this branch's L0)
-> exists; the rest of the substrate is being designed from α.
+> Branch: `v0.9-genesis`. **L0 DRAFT 9 SEALED** (2026-05-17, commit `e796451`).
 
-## What this branch is
+Myco is a biology-rooted symbiotic digital substrate: an LLM agent + a substrate form an asymmetric pair under Cultivation by a human owner via out-of-band anchor surface. See [`docs/architecture/L0_VISION.md`](./docs/architecture/L0_VISION.md) for the canonical vision.
 
-Per L0.5 Decision 3D (recorded in the `main` branch at commit `e47118f`,
-authored 2026-05-13), the v0.4 → v0.8.7 line of Myco is **proto-Myco /
-dead embryo / failed gestation attempts**. The actual Myco that
-satisfies α was never born in those iterations; this branch is the
-first attempt at **mature Myco birth**.
+## Doctrine
 
-This branch starts from an empty file tree (orphan branch, no parent
-commit on `main`). It inherits:
+Read in order: [`docs/architecture/OUTLINE.md`](./docs/architecture/OUTLINE.md) → L0 → L1 (mechanisms) → L2 (cross-cuts).
 
-- **L0's 5 root principles** (碎条根本原则: 只为 Agent / 永恒吞噬 /
-  永恒进化 / 永恒迭代 / 万物互联) — verbatim, per L0's "No alternate
-  vocabulary" rule.
-- **L0.5's 5 owner-arbitrated decisions** (1A agent-substrate
-  symbiosis, 2A MAJOR/MINOR governance gate, 3D dead-embryo
-  framing, 4B Living Bets observatory, 5E essence-layer lifecycle).
-- **L0.5's 3 derived reinforcements** (P1.a self-hosting,
-  P1.b'/P1.b'' two-tier human-loop, P2.a inclusion).
-- **The brainstorm's 10 fix-Hs** as design constraints.
+- **L0** (1 file): 12 principles + 11 invariants + Living Bets + anchor surface.
+- **L1** (7 files): GOVERNANCE, SKIN, CONTINUITY, SCHEMA, TROPISM, TRAJECTORY, HARD_RULES.
+- **L2** (3 files): TRUST_MODEL, FEDERATION, OBSERVABILITY.
+- **Extracted refs**: `schemas/`, `algorithms/`, `diagrams/`.
+- **Implementation map**: `docs/implementation/`.
+- **Audit history**: `docs/audits/`.
 
-It does NOT inherit any v0.8.x source code, tests, scripts, schema,
-specific verb names, specific lint dimension names, specific
-subsystem partition, or specific protocol surfaces. These are all
-β-layer choices that v0.9 redesigns from α.
+## Implementation
 
-## Archaeology
+- `myco_substrate/` — Rust substrate daemon (M25 + M26.0 cascade complete; doctrine refactor M27 complete).
+- `kernel/` — shared canonical-bytes + bridge + schema + continuity + skin + governance + tropism crates.
+- `operator_bindings/claude_code/` — TypeScript operator client.
+- `anchor_client/` — TypeScript anchor surface client.
 
-- [`_archive/proto_myco_v0_8/L0_VISION_proto.md`](./_archive/proto_myco_v0_8/L0_VISION_proto.md) —
-  v0.8.x's L0 vision (now retitled "proto" per L0.5 3D).
-- [`_archive/proto_myco_v0_8/L0_5_ESSENCE.md`](./_archive/proto_myco_v0_8/L0_5_ESSENCE.md) —
-  v0.8 → v0.9 transitional doctrine that carried the 5 decisions.
-- [`_archive/proto_myco_v0_8/ESSENCE_BRAINSTORM.md`](./_archive/proto_myco_v0_8/ESSENCE_BRAINSTORM.md) —
-  the deliberation log (4 self-corrections + 100%-confidence loop +
-  20 candidate holes + 10 fix-Hs).
+## Status
 
-These three are read-only references. They are NOT the v0.9 doctrine.
+- L0 sealed; doctrine refactor M27 R1-R8 complete (6617 → 1293 doctrine lines, -80.5%).
+- M25 5 critical bugs deferred to M26.1; M-anchor-1..5 anchor surface roadmap pending.
+- See `docs/audits/draft_9_seal_provenance.md` for sealing history.
 
-## v0.9 doctrine (under construction)
-
-- [`docs/architecture/L0_VISION.md`](./docs/architecture/L0_VISION.md) —
-  the new L0 (first artifact in v0.9).
-
-L1, L2, L3 doctrine + src/, tests/, scripts/, schema, canon-equivalent,
-entry-page-equivalent, protocol surfaces — all to be designed AFTER
-L0 is owner-approved.
-
-## How to follow this branch
+## Build + test
 
 ```bash
-git checkout v0.9-genesis
+cargo test --workspace --release         # Rust (substrate + kernel)
+cd operator_bindings/claude_code && npm test
+cd anchor_client && npm test
+cd kernel/tropism && pytest               # Python
 ```
 
-The branch is intentionally orphan; switching from `main` to
-`v0.9-genesis` and back wipes/restores entire file trees because
-the two branches share no commits.
+## v0.4-v0.8 archaeology
 
-## When v0.9 ships
-
-At v0.9 launch:
-
-- This branch becomes `main`'s new history (force-push or
-  fast-forward via owner decision)
-- The old `main` HEAD (`e47118f`, last v0.8.x commit) is preserved
-  via a tag `v0.8.8-final-embryo` for archaeological access
-- The 14 + 1 = 15 v0.8.x cleanup commits + the full v0.4 → v0.8
-  development history live in that tag's reachability
+Proto-Myco (v0.4-v0.8.7) is `dead embryo` per L0.5 Decision 3D. Reachable via git tag `v0.8.8-final-embryo`. Not part of v0.9 source tree.
