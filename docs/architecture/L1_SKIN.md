@@ -1,7 +1,6 @@
 # L1 — Skin (envelope, handshake, single-operator, breach detection, spatial-locus, backup, restart)
 
 > L1 for boundary surface (I8). All numeric thresholds L1-tunable unless specified.
-> **Scope**: envelope; intake/output; operator handshake; single-operator; non-deterministic operator-token; network-egress; spatial-locus (P13 folded into P9+I8); backup encryption (L0 §11.1); skin-restart (P9.b); breach detection. Excludes: classifier crypto (L1_GOVERNANCE), SSoT (L1_SCHEMA), cycle cadence/cold-resume (L1_CONTINUITY).
 
 ---
 
@@ -43,7 +42,7 @@ Outputs leave via declared endpoints; signed by substrate identity key. Anchor o
 
 Substrate MUST operate within egress boundary permitting exactly §1 declared endpoints. Unauthorized egress IS breach — simultaneously I6 + P9+I8 spatial-locus breach. Fires `appetite_locality_breach` (§5); MAY co-fire `P9_spatial_locus_breach` (§6) if destination undeclared host/port.
 
-L4-platform ∈ {kernel-level (netns), container (iptables/nftables), syscall (eBPF/ptrace), userspace proxy}. **Prevents**: secret callouts, embedding service calls outside declared endpoint, covert exfiltration. **Does NOT prevent**: agent-maintainer source modification (CI); host-level adversarial action; covert channels in legitimate federation envelopes.
+L4-platform ∈ {netns, iptables/nftables, eBPF/ptrace, userspace proxy}. Prevents: secret callouts + undeclared embedding calls + covert exfiltration. Does NOT prevent: agent-maintainer source modification (CI); host-level adversarial action; covert channels in legitimate envelopes.
 
 ## §6. Spatial-locus enforcement (P13 folded into P9 + I8)
 
@@ -55,8 +54,6 @@ Substrate MUST periodically list own spatial locus, compare against declared all
 - **Network binding allowed**: §1 listening; outbound matches §1 output OR anchor OR federation peer in signed list. Outside → `P9_spatial_locus_breach:network_unexpected:{peer}`.
 - **Cadence**: default once per cycle. Allowed-set extensions CI; silent extension IS breach.
 - **Birth-period + cold-resume**: transient unknown files → `spatial_locus_birth_period_pending` (Daily); owner quarantine-clearance enumerates canonical. Cold-resume: spatial-locus IS pre-handshake witness — file/fd/binding lists as cryptographic-proof tuples.
-
-Excluded: inside-file content drift; CPU/memory/disk budgets (L2_OBSERVABILITY); agent-side source tampering (L0 §14).
 
 ## §7. Skin-restart discipline (P9.b)
 
@@ -74,7 +71,7 @@ Excluded: inside-file content drift; CPU/memory/disk budgets (L2_OBSERVABILITY);
 | `skin_restart_flap` | CRITICAL | §7.4 exceeded | restart timestamps, window, threshold |
 | `skin_restart_dead_letter` | Elevated | Per dead-lettered envelope | envelope digest, reason |
 
-Excluded: owner-initiated graceful destruction (L1_GOVERNANCE §4 mortality — terminal); P7 self-euthanasia (supervisor MUST not restart).
+Excluded from restart scope: P7 self-euthanasia (supervisor MUST not restart); owner-attested destruction (L1_GOVERNANCE §4 — terminal).
 
 ## §8. Backup encryption (per L0 §11.1)
 
@@ -84,8 +81,6 @@ Cultivator-controlled symmetric encryption key; substrate NEVER mints. L1 commit
 - **Key escrow + rotation**: Cultivator MAY declare anchor-signed `key_escrow = (escrow_method ∈ {M-of-N Shamir, time-locked hardware token, attorney-held envelope, successor-Cultivator-co-signed}, escrow_parameters, escrow_attestation)`. No escrow → key-loss recovery impossible; acceptable iff explicit. Rotation coordinates with owner anchor-key rotation (default 30-day cooldown). SSoT `backup_key_id_history` (active-prefix + archived-tail).
 - **Access + integrity**: restrictive permissions (`umask 077`; Unix `0600`); loose → `backup_permissions_loose` (Elevated). Undeclared destinations → `output_endpoint_breach`. Backup carries snapshot.cb hash signed by substrate key; tampered/truncated → `backup_integrity_failure`.
 - **Absent-encryption acknowledgment**: SSoT `backup_encryption_status = "cultivator_declined_explicit"` with Cultivator-signed declination; silent omission → `"unspecified"` → `backup_encryption_undeclared` (Daily).
-
-Excluded: in-process memory encryption; backup-transit encryption (L4); post-quantum readiness (L4).
 
 ## §9. Breach detection table
 
@@ -116,8 +111,3 @@ Excluded: in-process memory encryption; backup-transit encryption (L4); post-qua
 
 Cross-layer immune signals (`salience_collapse`, `telos_drift`, `compression_invariant_corruption`, `compression_unattested`, `budget_exhausted:{axis}`, `generation_depth_exceeded`, `consensus_floor_bypass`, `bet_retired`) surface in respective detector docs. CRITICAL breaches → immediate skin-level quarantine per L1_CONTINUITY §5.
 
----
-
-## §10. Doc-private terms
-
-**Spatial locus** = `state_dir + process + skin endpoints` (§6); **Skin endpoints** = `(intake, output, anchor-surface, federation, backup-output)` per §1 + §8; **Single integument** = P9 one declared skin surface, no redundancy, process-level restartability (P9.b).

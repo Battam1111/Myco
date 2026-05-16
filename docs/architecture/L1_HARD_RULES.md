@@ -33,7 +33,7 @@ CRITICAL breach MUST immediately transition substrate to `alive::quarantined` (L
 | C19 | `paused_dormancy_unsafe_host` | L1_CONTINUITY §2.4 + §3.2 | Process terminated during paused dormancy | P7, P1.c | I1 | **R** |
 | C20 | `genesis_attestation_chain_broken` | L1_GOVERNANCE §4.1 + L0 §9.2.1 | Substrate-ID birth attestation does not verify | P1.a | I1 | **R** |
 
-**Coverage**: 7/20 EMITTED (C5/C6/C7/C9/C14/C17/C18). Rows INDEPENDENT (I2 fixed-point).
+Rows INDEPENDENT (I2 fixed-point). Coverage: `docs/implementation_status.md`.
 
 ### §1.2 Substrate-private catalog rows (C30+); C21-C29 reserved
 
@@ -63,8 +63,6 @@ CRITICAL breach MUST immediately transition substrate to `alive::quarantined` (L
 | C51 | `compression_invariant_corruption` | L1_SCHEMA §2.5 | P10 | I9 | **U** |
 | C52 | `compression_uncattested` | L1_SCHEMA §2.5 + P10.c | P10 | I9 | **U** |
 | C53 | `budget_exhausted_silent` | L1_SCHEMA §4.1 | P11 | I10 | **U** |
-
-**Coverage**: C30-C40 EMITTED (11); C41-C53 deferred.
 
 ### §1.3 Bet-retirement sporocarp
 C40 = trigger arc for L0 §7.5; NOT CRITICAL — CI lifecycle parallel to `self_euthanasia_executed`.
