@@ -655,6 +655,90 @@ pub(crate) fn handle_submit_mutation(
         })
         .unwrap_or_default();
 
+    // **M26.3 P10 / P10.b**: BEFORE inserting any DAG node for a
+    // compression mutation, verify the CompressionWitness doesn't target any
+    // invariant-set member. If it does, override Python's `accepted=true`
+    // and emit C51_compression_invariant_corruption. This check MUST happen
+    // here in Rust because the invariant set seed lives in Rust events.rs
+    // and the DAG (where compressed_node_hashes are resolved to node_types)
+    // is Rust-owned.
+    let mut accepted = accepted;
+    let mut rejection_reason = rejection_reason;
+    let mut compression_witness: Option<(String, Vec<[u8; 32]>, Vec<u8>, [u8; 32])> = None;
+    if accepted && mutation_type == "compression" {
+        match crate::events::decode_compression_witness_minimal(&content_bytes) {
+            Some(witness) => {
+                let (rule_id, compressed_hashes, _agg, _tip) = &witness;
+                let invariant_set = crate::events::seed_compression_invariant_set();
+                let current_cycle = state.manifest.cycle_counter;
+                let mut violation: Option<String> = None;
+                for h in compressed_hashes {
+                    // Look up node in DAG by hash.
+                    let node_opt = state
+                        .dag
+                        .iter_in_insertion_order()
+                        .find(|n| n.hash.as_ref() == h.as_slice());
+                    let node = match node_opt {
+                        Some(n) => n,
+                        None => {
+                            violation = Some(format!(
+                                "compression witness references node hash not present in DAG"
+                            ));
+                            break;
+                        }
+                    };
+                    // (a) Forbidden-prefix check.
+                    if crate::events::node_type_in_invariant_set(
+                        &node.node_type,
+                        &invariant_set,
+                    ) {
+                        violation = Some(format!(
+                            "compression targets invariant-set node_type={} (rule_id={})",
+                            node.node_type, rule_id
+                        ));
+                        break;
+                    }
+                    // (b) Recent-cycles floor check.
+                    let age = current_cycle.saturating_sub(node.created_at_cycle);
+                    if age < invariant_set.recent_cycles_floor {
+                        violation = Some(format!(
+                            "compression targets node from cycle {} (age {} < floor {})",
+                            node.created_at_cycle, age, invariant_set.recent_cycles_floor
+                        ));
+                        break;
+                    }
+                }
+                if let Some(reason) = violation {
+                    accepted = false;
+                    rejection_reason = format!(
+                        "P10.b compression_invariant_corruption: {}",
+                        reason
+                    );
+                    // Emit C51 immune sporocarp before continuing the rejection path.
+                    let _ = emit_immune_sporocarp(
+                        state,
+                        "C51_compression_invariant_corruption",
+                        "compression_invariant_corruption",
+                        &reason,
+                    );
+                } else {
+                    compression_witness = Some(witness);
+                }
+            }
+            None => {
+                accepted = false;
+                rejection_reason =
+                    "compression witness canonical-bytes decode failed".to_string();
+                let _ = emit_immune_sporocarp(
+                    state,
+                    "C5_attestation_invalid",
+                    "attestation_invalid",
+                    "compression_witness_decode_failed",
+                );
+            }
+        }
+    }
+
     // If accepted: wrap as DAG node with parent=tip.
     // If rejected: emit an immune sporocarp (M11 C14 for UNTYPED; C5 for invalid CI attestation).
     let dag_node_hash = if accepted {
@@ -686,6 +770,39 @@ pub(crate) fn handle_submit_mutation(
         );
         // Best-effort emit; ignore errors (we don't want to mask the original rejection).
         let _ = emit_immune_sporocarp(state, detector_id, detector_name, &evidence_str);
+        None
+    };
+
+    // **M26.3 P10.c**: after a successful compression mutation, emit the
+    // `compression_event:{rule_id}` DAG node (sibling to evolution_succeeded
+    // for schema_evolution). The compression_event records the rule_id,
+    // compressed_node_hashes, aggregate_summary, and the DAG tip at witness
+    // time — the I9 audit trail. Child substrates inheriting via spore-schema
+    // (L1_SCHEMA §3.1) replay this and verify P10.b invariant set membership.
+    let compression_event_hash = if accepted && compression_witness.is_some() {
+        let (rule_id, compressed_hashes, agg_summary, attestation_tip) =
+            compression_witness.as_ref().expect("guarded by Some check");
+        let event_canonical = crate::events::encode_compression_event(
+            rule_id,
+            compressed_hashes,
+            agg_summary,
+            attestation_tip,
+            state.manifest.cycle_counter,
+        );
+        let parents: Vec<myco_kernel_shared::crypto::NodeHash> = match state.dag.tip() {
+            Some(t) => vec![t],
+            None => Vec::new(),
+        };
+        let event_node_type = crate::events::compression_event_node_type(rule_id);
+        let cycle = state.manifest.cycle_counter;
+        let h = state
+            .dag
+            .insert_node(parents, event_node_type, cycle, event_canonical)
+            .map_err(|e| {
+                SubstrateError::Protocol(format!("compression event DAG insert: {e}"))
+            })?;
+        Some(h)
+    } else {
         None
     };
 
@@ -767,6 +884,14 @@ pub(crate) fn handle_submit_mutation(
     if let Some(h) = evolution_event_hash {
         payload.insert(
             "evolution_event_hash".to_string(),
+            Value::Bytes(h.as_ref().to_vec()),
+        );
+    }
+    // **M26.3**: surface the compression_event hash so operator can verify
+    // emission landed in the DAG.
+    if let Some(h) = compression_event_hash {
+        payload.insert(
+            "compression_event_hash".to_string(),
             Value::Bytes(h.as_ref().to_vec()),
         );
     }

@@ -38,6 +38,30 @@ use crate::persistence::{
 };
 use crate::SubstrateError;
 
+/// **M26.3 C42 fix**: thread-local side channel for surfacing
+/// `manifest.cb` load-failure evidence from the boot-time legacy-path branch
+/// (which doesn't yet hold `state`) up to the post-construction emit site.
+///
+/// Why a thread-local instead of a return-value thread-through:
+/// - The boot path is a complex chain of nested matches over Result/Option;
+///   threading another Option<String> through each arm would balloon the
+///   patch surface and risk subtle merge mistakes with the dag.cb evidence
+///   pattern (which IS thread-through). Thread-local keeps the M26.3 patch
+///   surgical and isolates the side channel to ONE boot per thread, which
+///   is the runtime invariant (server::run is called once per process).
+pub(crate) mod manifest_failure_evidence {
+    use std::cell::RefCell;
+    thread_local! {
+        static EV: RefCell<Option<String>> = const { RefCell::new(None) };
+    }
+    pub(crate) fn set(v: Option<String>) {
+        EV.with(|e| *e.borrow_mut() = v);
+    }
+    pub(crate) fn take() -> Option<String> {
+        EV.with(|e| e.borrow_mut().take())
+    }
+}
+
 // ---------------------------------------------------------------------------
 // M18 P4 永恒迭代 cycle trait adapters (DagVerifyTier1, CycleAbsorber,
 // DagBreachWatcher, PinnedHandshakeReader, PythonGradientAdvancer) and the
@@ -547,11 +571,47 @@ pub fn run_loop() -> Result<u8, SubstrateError> {
             .collect();
         (mfst, pinned, nonces, false)
     } else {
-        // Legacy path: load from state files.
-        let (m, fresh) = match Manifest::load(&state_dir)? {
-            Some(m) => (m, false),
-            None => (Manifest::genesis(), true),
+        // Legacy path: load from state files. **M26.3 C42 fix**: capture
+        // manifest load failure instead of propagating, so we can emit
+        // C42_manifest_cb_integrity_violation alongside boot continuation
+        // (fresh genesis manifest). This way a corrupt manifest.cb is
+        // observable in the substrate's immune DAG rather than silently
+        // crashing the daemon at boot.
+        let mut manifest_load_failure_evidence: Option<String> = None;
+        let (m, fresh) = match Manifest::load(&state_dir) {
+            Ok(Some(m)) => (m, false),
+            Ok(None) => (Manifest::genesis(), true),
+            Err(e) => {
+                let manifest_path = state_dir.join("manifest.cb");
+                let quarantine_path = state_dir.join(format!(
+                    "manifest.cb.quarantined_{}",
+                    std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .map(|d| d.as_secs())
+                        .unwrap_or(0)
+                ));
+                let _ = std::fs::rename(&manifest_path, &quarantine_path);
+                manifest_load_failure_evidence = Some(format!(
+                    "manifest.cb load failed ({e}); quarantined to {}",
+                    quarantine_path.display()
+                ));
+                (Manifest::genesis(), true)
+            }
         };
+        // Stash the failure evidence on a thread-local-ish side channel so we
+        // can emit C42 once `state` is built (mirrors the dag.cb pattern).
+        if let Some(ev) = manifest_load_failure_evidence.as_ref() {
+            eprintln!("[boot] C42 manifest.cb integrity violation: {ev}");
+        }
+        // Push the evidence into a static path via a side-effect free way:
+        // we re-derive on the way out by reading back the existence of the
+        // quarantine file. Simpler: thread the Option<String> via a closure
+        // — but in this branch we don't have access to `state` yet, so we
+        // emit the immune sporocarp AFTER state construction below by
+        // re-reading the quarantine evidence from disk-listing.
+        // To avoid threading complexity through the existing match arms,
+        // we use a thread-local Cell to carry the evidence forward.
+        crate::server::manifest_failure_evidence::set(manifest_load_failure_evidence);
         let pinned = load_pinned_operator_identity(&state_dir)?;
         let now_for_prune = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -633,13 +693,113 @@ pub fn run_loop() -> Result<u8, SubstrateError> {
         let _ = save_dag_state(&state);
     }
 
-    // If DAG load failed: emit C7 immune sporocarp into the fresh DAG.
+    // If DAG load failed: emit BOTH C7 + **C41 (M26.3)** immune sporocarps
+    // into the fresh DAG.
+    //
+    // - C7 dag_retro_edit_detected (L1_HARD_RULES §1.1) — Merkle DAG node
+    //   hash mismatch on re-computation; covers the case where bytes parse
+    //   but hashes don't reconstruct.
+    // - **C41 dag_cb_integrity_violation (M26.3 L1_HARD_RULES §1.2)** —
+    //   broader `dag.cb` file-level integrity check per L1_SCHEMA §2.1 + L0
+    //   §9.4. Covers raw bytes corruption / decode failure / canonical-bytes
+    //   format invalidity. Strict-superset of C7 for boot-time integrity.
+    //
+    // Pre-M26.3 emitted only C7 (semantically loose). M26.3 emits both so
+    // the C41 doctrine row goes from `U` → `L` while preserving the existing
+    // C7 emit contract that downstream tests assert.
     if let Some(evidence) = dag_load_failure_evidence {
         let _ = emit_immune_sporocarp(
             &mut state,
             "C7_dag_retro_edit_detected",
             "dag_retro_edit_detected",
             &evidence,
+        );
+        let _ = emit_immune_sporocarp(
+            &mut state,
+            "C41_dag_cb_integrity_violation",
+            "dag_cb_integrity_violation",
+            &evidence,
+        );
+        let _ = save_dag_state(&state);
+    }
+
+    // **M26.3 C42**: drain manifest.cb load failure evidence (if any was
+    // recorded above in the legacy boot path) and emit
+    // `C42_manifest_cb_integrity_violation`. Boot continues on a fresh genesis
+    // manifest, so cycle_counter resets and substrate-ID will be regenerated
+    // (the operator should treat this as substrate destruction + rebirth and
+    // investigate the corrupted file in `.quarantined_*`).
+    if let Some(evidence) = manifest_failure_evidence::take() {
+        let _ = emit_immune_sporocarp(
+            &mut state,
+            "C42_manifest_cb_integrity_violation",
+            "manifest_cb_integrity_violation",
+            &evidence,
+        );
+        let _ = save_dag_state(&state);
+    }
+
+    // **M26.3 C52**: scan the DAG for `compression_event:*` nodes lacking a
+    // `mutation:compression` parent. Every legitimate compression_event is
+    // inserted DIRECTLY AFTER a mutation:compression DAG node (whose
+    // canonical-bytes payload is the CompressionWitness). If a compression_event
+    // exists without that immediate ancestry, the DAG has been tampered with
+    // (or some other code path emitted compression_event without going through
+    // submit_mutation CI gate) — emit C52 per L1_HARD_RULES §1.2.
+    //
+    // Implementation: walk the DAG; for each compression_event, look at its
+    // parent_hashes; pull the parent node; check its node_type. If not
+    // "mutation:compression" → C52.
+    let c52_findings: Vec<String> = {
+        let mut findings: Vec<String> = Vec::new();
+        let nodes: Vec<_> = state.dag.iter_in_insertion_order().cloned().collect();
+        for node in &nodes {
+            if !node
+                .node_type
+                .starts_with(crate::events::NODE_TYPE_COMPRESSION_EVENT_PREFIX)
+            {
+                continue;
+            }
+            let parent_hashes = &node.parent_hashes;
+            if parent_hashes.is_empty() {
+                findings.push(format!(
+                    "compression_event node_type={} has no parents — orphan compression",
+                    node.node_type
+                ));
+                continue;
+            }
+            // A legitimate compression_event has exactly one parent: the
+            // mutation:compression node. Check the FIRST parent (sufficient
+            // because emitter always uses [tip] as parents).
+            let parent_hash = &parent_hashes[0];
+            let parent_opt = nodes
+                .iter()
+                .find(|n| n.hash.as_ref() == parent_hash.as_ref());
+            let parent = match parent_opt {
+                Some(p) => p,
+                None => {
+                    findings.push(format!(
+                        "compression_event node_type={} parent hash not present in DAG",
+                        node.node_type
+                    ));
+                    continue;
+                }
+            };
+            if parent.node_type != "mutation:compression" {
+                findings.push(format!(
+                    "compression_event node_type={} parent is {} (expected mutation:compression)",
+                    node.node_type, parent.node_type
+                ));
+            }
+        }
+        findings
+    };
+    for finding in c52_findings {
+        let _ = emit_immune_sporocarp(
+            &mut state,
+            "C52_compression_uncattested",
+            "compression_uncattested",
+            &finding,
         );
         let _ = save_dag_state(&state);
     }

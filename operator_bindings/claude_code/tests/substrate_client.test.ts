@@ -3764,4 +3764,186 @@ describe("SubstrateClient e2e", () => {
       await client.shutdown();
     }
   });
+
+  // -------------------------------------------------------------------------
+  // **M26.3 P10 Selective Compression** — operator-driven compression flow.
+  //
+  // These exercise the CI-attested compression mutation pipeline end-to-end:
+  // build a CompressionWitness, sign it as the owner, submit via the normal
+  // submit_mutation envelope, verify the substrate accepts/rejects per
+  // P10.b invariant-set semantics and emits the right DAG events.
+  // -------------------------------------------------------------------------
+
+  it("M26.3: compression mutation with valid CI attestation accepted + emits compression_event:{rule_id}", async () => {
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m26-3-op-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identity = await OperatorIdentity.loadOrCreate(opDir, {
+        hostBinary: ANCHOR_SURFACE_BIN,
+      });
+      const client = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: freshStateDir() },
+        operatorIdentity: identity,
+      });
+      try {
+        // Build a CompressionWitness payload. Use an EMPTY compressed_hashes
+        // list so we don't have to age out any real DAG nodes — the
+        // invariant-set check trivially passes when targeting zero nodes,
+        // and the compression_event still emits with rule_id stamped.
+        const { encode: cbEncode } = await import(
+          "@myco/anchor-client/src/canonical_bytes.ts"
+        );
+        const tipBytes = new Uint8Array(32); // all-zero tip (substrate accepts)
+        const witnessMap: Map<string, import("@myco/anchor-client/src/canonical_bytes.ts").Value> =
+          new Map();
+        witnessMap.set("rule_id", {
+          type: "string",
+          value: "raw_material_aggregate_v1",
+        });
+        witnessMap.set("compressed_node_hashes", {
+          type: "array",
+          value: [],
+        });
+        witnessMap.set("aggregate_summary", {
+          type: "bytes",
+          value: new TextEncoder().encode("M26.3 e2e test aggregate"),
+        });
+        witnessMap.set("attestation_dag_tip", {
+          type: "bytes",
+          value: tipBytes,
+        });
+        witnessMap.set("semantic_lossy", { type: "bool", value: true });
+        witnessMap.set("causal_recoverability_argument", {
+          type: "string",
+          value: "no-op compression: empty hash list, vacuously preserves invariants",
+        });
+        const witnessBytes = cbEncode({ type: "map", value: witnessMap }).bytes;
+
+        // Sign content + supply nonce for CI envelope.
+        const nonceResult = await client.requestAttestationNonce(witnessBytes);
+        const sig = await identity.sign(witnessBytes);
+        const result = await client.submitMutation({
+          mutationType: "compression",
+          contentCanonicalBytes: witnessBytes,
+          attestationSignature: sig,
+          nonce: nonceResult.nonce,
+          expiryUnixNs: nonceResult.expiryUnixNs,
+        });
+        assert.equal(
+          result.accepted,
+          true,
+          `valid compression mutation must accept; got rejection: ${result.rejectionReason}`,
+        );
+        assert.equal(result.classification, "contract_identity_level");
+
+        // Verify compression_event:raw_material_aggregate_v1 landed in the DAG.
+        const nodes = await client.queryRecentNodes(50n, "compression_event:");
+        assert.ok(
+          nodes.nodes.length >= 1,
+          "compression_event:* must appear in DAG after accepted compression mutation",
+        );
+        const found = nodes.nodes.find((n) =>
+          n.nodeType.endsWith(":raw_material_aggregate_v1"),
+        );
+        assert.ok(
+          found,
+          `compression_event:raw_material_aggregate_v1 not found; saw ${nodes.nodes.map((n) => n.nodeType).join(", ")}`,
+        );
+      } finally {
+        await client.shutdown();
+      }
+    } finally {
+      try { rmSync(opDir, { recursive: true, force: true }); } catch {}
+    }
+  });
+
+  it("M26.3: compression targeting an invariant-set member is rejected with C51", async () => {
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m26-3-c51-op-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identity = await OperatorIdentity.loadOrCreate(opDir, {
+        hostBinary: ANCHOR_SURFACE_BIN,
+      });
+      const client = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: freshStateDir() },
+        operatorIdentity: identity,
+      });
+      try {
+        // Find the genesis_event node hash (an invariant-set member) by
+        // querying recent DAG nodes.
+        const recent = await client.queryRecentNodes(20n, "genesis_event:");
+        assert.ok(
+          recent.nodes.length >= 1,
+          "genesis_event:* must be present in fresh substrate DAG",
+        );
+        const genesisHash = recent.nodes[0]!.hash;
+        assert.equal(genesisHash.length, 32, "genesis hash is 32 bytes");
+
+        // Build a compression witness targeting the genesis_event hash —
+        // this MUST be rejected by P10.b invariant set protection (C51).
+        const { encode: cbEncode } = await import(
+          "@myco/anchor-client/src/canonical_bytes.ts"
+        );
+        const tipBytes = new Uint8Array(32);
+        const witnessMap: Map<string, import("@myco/anchor-client/src/canonical_bytes.ts").Value> =
+          new Map();
+        witnessMap.set("rule_id", {
+          type: "string",
+          value: "raw_material_aggregate_v1",
+        });
+        witnessMap.set("compressed_node_hashes", {
+          type: "array",
+          value: [{ type: "bytes", value: genesisHash }],
+        });
+        witnessMap.set("aggregate_summary", {
+          type: "bytes",
+          value: new Uint8Array([0]),
+        });
+        witnessMap.set("attestation_dag_tip", {
+          type: "bytes",
+          value: tipBytes,
+        });
+        witnessMap.set("semantic_lossy", { type: "bool", value: true });
+        witnessMap.set("causal_recoverability_argument", {
+          type: "string",
+          value: "intentionally violating P10.b for test",
+        });
+        const witnessBytes = cbEncode({ type: "map", value: witnessMap }).bytes;
+        const nonceResult = await client.requestAttestationNonce(witnessBytes);
+        const sig = await identity.sign(witnessBytes);
+        const result = await client.submitMutation({
+          mutationType: "compression",
+          contentCanonicalBytes: witnessBytes,
+          attestationSignature: sig,
+          nonce: nonceResult.nonce,
+          expiryUnixNs: nonceResult.expiryUnixNs,
+        });
+        assert.equal(
+          result.accepted,
+          false,
+          "compression targeting genesis_event (P10.b invariant) must be rejected",
+        );
+        assert.match(
+          result.rejectionReason,
+          /P10\.b|compression_invariant_corruption/i,
+          `rejection reason should mention P10.b; got: ${result.rejectionReason}`,
+        );
+        // Verify C51 immune event landed.
+        const immune = await client.queryImmuneEvents();
+        const c51 = immune.events.find((e) =>
+          e.nodeType.includes("C51_compression_invariant_corruption"),
+        );
+        assert.ok(
+          c51,
+          `C51_compression_invariant_corruption must fire on P10.b breach; saw: ${immune.events.map((e) => e.nodeType).join(", ")}`,
+        );
+      } finally {
+        await client.shutdown();
+      }
+    } finally {
+      try { rmSync(opDir, { recursive: true, force: true }); } catch {}
+    }
+  });
 });

@@ -50,8 +50,8 @@ Rows INDEPENDENT (I2 fixed-point). Coverage: `docs/implementation_status.md`.
 | C38 | `snapshot_integrity_violation` | L1_SCHEMA §4 | P1.c, P6 | I1, I4 | **L** |
 | C39 | `federation_hello_signature_invalid` | L2_FEDERATION §6 + §6.2 | P8, P1.c | I7 | **L** |
 | C40 | `bet_weakening_quorum` | L0 §7.4 + L2_OBSERVABILITY §3 | P14 | I12 | **L** |
-| C41 | `dag_cb_integrity_violation` | L1_SCHEMA §2.1 + L0 §9.4 | P1.c, P6, P10 | I4, I9 | **U** |
-| C42 | `manifest_cb_integrity_violation` | L1_SCHEMA §4 | P1.c, P6 | I1, I4 | **U** |
+| C41 | `dag_cb_integrity_violation` | L1_SCHEMA §2.1 + L0 §9.4 | P1.c, P6, P10 | I4, I9 | **L** |
+| C42 | `manifest_cb_integrity_violation` | L1_SCHEMA §4 | P1.c, P6 | I1, I4 | **L** |
 | C43 | `federation_recursive_injection` | L2_FEDERATION §6 + L1_SKIN §3 | P8, P1.c | I7, I8 | **U** |
 | C44 | `nonce_substrate_minted_replay` | L1_GOVERNANCE §2.2 + L0 §9.2.5 | P1.b'' | I2 | **U** |
 | C45 | `substrate_id_low_entropy_collision` | L1_GOVERNANCE §4.1 + L0 §9.2.1 | P1.a | I1 | **U** |
@@ -60,8 +60,8 @@ Rows INDEPENDENT (I2 fixed-point). Coverage: `docs/implementation_status.md`.
 | C48 | `reproduction_rate_exceeded` | L1_GOVERNANCE §16.B | P8 | I7 | **U** |
 | C49 | `consensus_floor_bypass` | L2_FEDERATION §6.5 | P8, P15 | I7 | **U** |
 | C50 | `coerced_owner_suspected` | L2_TRUST_MODEL §10.A.2 | P1.b'' | I1, I2 | **U** |
-| C51 | `compression_invariant_corruption` | L1_SCHEMA §2.5 | P10 | I9 | **U** |
-| C52 | `compression_uncattested` | L1_SCHEMA §2.5 + P10.c | P10 | I9 | **U** |
+| C51 | `compression_invariant_corruption` | L1_SCHEMA §2.5 | P10 | I9 | **L** |
+| C52 | `compression_uncattested` | L1_SCHEMA §2.5 + P10.c | P10 | I9 | **L** |
 | C53 | `budget_exhausted_silent` | L1_SCHEMA §4.1 | P11 | I10 | **U** |
 
 ### §1.3 Bet-retirement sporocarp

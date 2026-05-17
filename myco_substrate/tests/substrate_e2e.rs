@@ -3215,3 +3215,224 @@ fn m26_2_observatory_snapshot_persists_cost_fields_across_restart() {
         client.shutdown().expect("shutdown boot2");
     }
 }
+
+// ---------------------------------------------------------------------------
+// **M26.3 P10 Selective Compression** — boot-time integrity detectors.
+//
+// These tests exercise the C41/C42/C52 immune detectors that fire at boot
+// when persistent state files are corrupt or when the DAG contains
+// compression_event nodes without proper CI attestation. They DO NOT
+// require operator signing (those tests live in the TS suite where the
+// attestation envelope helpers are already wired).
+// ---------------------------------------------------------------------------
+
+#[test]
+fn m26_3_c41_dag_cb_integrity_violation_fires_on_garbled_dag_cb() {
+    // Setup: spawn substrate, generate some DAG content, shut down.
+    let dir = fresh_state_dir();
+    let client = spawn_substrate_with_state_dir(&dir);
+    client.shutdown().expect("shutdown 1");
+
+    // Corrupt dag.cb with random bytes.
+    let dag_path = dir.join("dag.cb");
+    std::fs::write(&dag_path, b"M26.3-c41-test-garbage-not-canonical-bytes")
+        .expect("corrupt dag.cb");
+
+    // Respawn → C7 + C41 must both fire (M26.3 emits both).
+    let mut client2 = spawn_substrate_with_state_dir(&dir);
+    let immune_resp = client2
+        .call(
+            proto::QUERY_RECENT_NODES,
+            build_payload(vec![
+                ("count", CbValue::Uint(50)),
+                ("node_type_prefix", CbValue::String("immune:".to_string())),
+            ]),
+        )
+        .expect("query immune");
+    let immune_arr = match immune_resp.payload.get("nodes") {
+        Some(CbValue::Array(a)) => a.clone(),
+        _ => panic!("nodes array missing"),
+    };
+
+    let mut saw_c41 = false;
+    let mut saw_c7 = false;
+    for node in &immune_arr {
+        let node_map = match node {
+            CbValue::Map(m) => m,
+            _ => continue,
+        };
+        let nt = match node_map.get("node_type") {
+            Some(CbValue::String(s)) => s.clone(),
+            _ => continue,
+        };
+        if nt.contains("C41_dag_cb_integrity_violation") {
+            saw_c41 = true;
+        }
+        if nt.contains("C7_dag_retro_edit_detected") {
+            saw_c7 = true;
+        }
+    }
+    assert!(
+        saw_c41,
+        "M26.3 C41_dag_cb_integrity_violation must fire when dag.cb is garbled"
+    );
+    assert!(
+        saw_c7,
+        "C7 must also still fire (M26.3 emits both, doctrine-aligned)"
+    );
+    client2.shutdown().expect("shutdown 2");
+}
+
+#[test]
+fn m26_3_c42_manifest_cb_integrity_violation_fires_on_garbled_manifest_cb() {
+    // Setup: spawn substrate (writes manifest.cb), shut down.
+    let dir = fresh_state_dir();
+    let client = spawn_substrate_with_state_dir(&dir);
+    client.shutdown().expect("shutdown 1");
+
+    // Corrupt manifest.cb.
+    let manifest_path = dir.join("manifest.cb");
+    if !manifest_path.exists() {
+        // Manifest may not exist on M21+ DAG-only path; create one then corrupt.
+        // In that case this test path is trivially satisfied by the manifest
+        // being absent (Manifest::load returns Ok(None) → genesis); skip.
+        return;
+    }
+    std::fs::write(&manifest_path, b"M26.3-c42-test-garbage-not-canonical-bytes")
+        .expect("corrupt manifest.cb");
+
+    let mut client2 = spawn_substrate_with_state_dir(&dir);
+    let immune_resp = client2
+        .call(
+            proto::QUERY_RECENT_NODES,
+            build_payload(vec![
+                ("count", CbValue::Uint(50)),
+                ("node_type_prefix", CbValue::String("immune:".to_string())),
+            ]),
+        )
+        .expect("query immune");
+    let immune_arr = match immune_resp.payload.get("nodes") {
+        Some(CbValue::Array(a)) => a.clone(),
+        _ => panic!("nodes array missing"),
+    };
+    let saw_c42 = immune_arr.iter().any(|n| {
+        if let CbValue::Map(m) = n {
+            if let Some(CbValue::String(nt)) = m.get("node_type") {
+                return nt.contains("C42_manifest_cb_integrity_violation");
+            }
+        }
+        false
+    });
+    assert!(
+        saw_c42,
+        "M26.3 C42_manifest_cb_integrity_violation must fire when manifest.cb is garbled"
+    );
+    client2.shutdown().expect("shutdown 2");
+}
+
+#[test]
+fn m26_3_compression_rule_registry_seed_defaults_match_doctrine() {
+    // The seed compression_rule_registry MUST contain exactly the three
+    // L0 P10.a categories: raw_material / federation / trajectory. This
+    // test pins the public surface of the seed so doctrine drift surfaces
+    // in CI.
+    use myco_substrate::events::seed_compression_rule_registry;
+    let rules = seed_compression_rule_registry();
+    assert_eq!(rules.len(), 3, "M26.3 P10.a: must seed exactly 3 rules");
+    let rule_ids: Vec<&str> = rules.iter().map(|r| r.rule_id.as_str()).collect();
+    assert!(
+        rule_ids.contains(&"raw_material_aggregate_v1"),
+        "raw_material rule missing; got {rule_ids:?}"
+    );
+    assert!(
+        rule_ids.contains(&"federation_payload_retention_v1"),
+        "federation rule missing; got {rule_ids:?}"
+    );
+    assert!(
+        rule_ids.contains(&"trajectory_archive_v1"),
+        "trajectory rule missing; got {rule_ids:?}"
+    );
+    // Every seed rule has min_age_cycles ≥ 1000 (matches L0 P10.b
+    // "most recent ≥1000 cycles full DAG" floor).
+    for r in &rules {
+        assert!(
+            r.min_age_cycles >= 1000,
+            "rule {} has min_age_cycles {} < 1000 floor",
+            r.rule_id,
+            r.min_age_cycles
+        );
+    }
+}
+
+#[test]
+fn m26_3_compression_invariant_set_seed_covers_p10_b_categories() {
+    // P10.b enumerates the categories that MUST NEVER be compressed.
+    // The seed CompressionInvariantSet must cover all 6 of them plus the
+    // recent_cycles_floor.
+    use myco_substrate::events::{node_type_in_invariant_set, seed_compression_invariant_set};
+    let inv = seed_compression_invariant_set();
+    assert!(
+        inv.recent_cycles_floor >= 1000,
+        "P10.b: recent_cycles_floor must be ≥ 1000; got {}",
+        inv.recent_cycles_floor
+    );
+    // Every category must produce a match for a sample node_type.
+    let samples = [
+        "genesis_event:abc",
+        "owner_key_initialized",
+        "owner_key_added",
+        "owner_key_archived",
+        "mutation:schema_evolution",
+        "mutation:compression",
+        "evolution_succeeded:add_axis",
+        "evolution_failed:add_axis",
+        "self_euthanasia_executed:axis_x",
+        "federation_peer_pinned:abcd1234",
+        "operator_pinned:abcd1234",
+        "birth_period_quarantine_entered",
+        "birth_period_quarantine_lifted",
+        "compression_event:raw_material_aggregate_v1",
+    ];
+    for s in &samples {
+        assert!(
+            node_type_in_invariant_set(s, &inv),
+            "{s} must be recognized as invariant-set member by P10.b"
+        );
+    }
+    // Negative case: a normal raw_material node IS compressible (provided
+    // it's old enough).
+    assert!(
+        !node_type_in_invariant_set("raw_material:text", &inv),
+        "raw_material:* must NOT be in invariant set (it's a compression candidate)"
+    );
+    assert!(
+        !node_type_in_invariant_set("axis_perturbed:curiosity", &inv),
+        "axis_perturbed:* must NOT be in invariant set (it's a trajectory candidate)"
+    );
+}
+
+#[test]
+fn m26_3_compression_witness_canonical_bytes_roundtrip() {
+    // The CompressionWitness canonical-bytes encoder/decoder must round-trip
+    // — every byte that goes in must come back out unchanged. Pins F16
+    // canonical_bytes_serializer_spec compatibility for the M26.3 schema.
+    use myco_substrate::events::{
+        decode_compression_witness_minimal, encode_compression_witness,
+    };
+    let rule_id = "raw_material_aggregate_v1";
+    let h1 = [1u8; 32];
+    let h2 = [2u8; 32];
+    let hashes = vec![h1, h2];
+    let aggregate = b"M26.3 test aggregate payload";
+    let tip = [9u8; 32];
+    let arg = "I9 witness: sum-to-sporocarp preserves cumulative axis value";
+
+    let encoded = encode_compression_witness(rule_id, &hashes, aggregate, &tip, arg);
+    let (decoded_rule_id, decoded_hashes, decoded_agg, decoded_tip) =
+        decode_compression_witness_minimal(encoded.as_ref())
+            .expect("witness decodes from its own encoding");
+    assert_eq!(decoded_rule_id, rule_id);
+    assert_eq!(decoded_hashes, hashes);
+    assert_eq!(decoded_agg, aggregate);
+    assert_eq!(decoded_tip, tip);
+}

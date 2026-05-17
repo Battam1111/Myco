@@ -211,6 +211,31 @@ SEED_DIMENSION_TABLE: tuple[ClassifierRule, ...] = (
         classification=Classification.CONTRACT_IDENTITY_LEVEL,
         mutation_type="schema_evolution",
     ),
+    # **M26.3 P10 Selective Compression**: compression mutations are
+    # unconditionally CI per L0 P10.c ("each compression emits compression_event
+    # with witness; CI-attested"). Content is a CompressionWitness canonical-
+    # bytes Map (see myco_substrate::events::encode_compression_witness).
+    # Apply success → DAG node compression_event:{rule_id}.
+    ClassifierRule(
+        name="compression_mutation",
+        classification=Classification.CONTRACT_IDENTITY_LEVEL,
+        mutation_type="compression",
+    ),
+    # **M26.3 F18 fixed point**: mutations targeting the compression rule
+    # registry meta-structure are CI (rule registry is tier-1 SSoT).
+    ClassifierRule(
+        name="compression_rule_registry_meta",
+        classification=Classification.CONTRACT_IDENTITY_LEVEL,
+        meta_structure_name="compression_rule_registry",
+    ),
+    # **M26.3 P10.b fixed point**: mutations targeting the compression
+    # invariant set enumeration meta-structure are CI (tier-1 SSoT per
+    # L1_SCHEMA §4.1).
+    ClassifierRule(
+        name="compression_invariant_set_meta",
+        classification=Classification.CONTRACT_IDENTITY_LEVEL,
+        meta_structure_name="compression_invariant_set",
+    ),
     # Daily-content mutation types.
     ClassifierRule(
         name="daily_delta_absorb",
