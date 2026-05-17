@@ -28,19 +28,28 @@ Substrate is autopoietic (P1.a); no human in maintenance loop. Without observabi
 
 Until #4a lands, quorum operates over {#1, #2, #3, #4b, #6} = 5 of 6 countable.
 
-### §2.2 Three cost signals (P11.b)
+### §2.2 Three cost signals (P11.b) — **LIVE M26.2**
 
-| # | Signal | Unit | Counts |
-|---|---|---|---|
-| 7 | Compute/cycle | CPU+wall-clock μs | UP |
-| 8 | Network/cycle | Bytes egressed/cycle | UP |
-| 9 | Storage/cycle | Bytes added to `dag.cb`+`snapshot.cb` | UP |
+| # | Signal | Unit | Counts | Status |
+|---|---|---|---|---|
+| 7 | Compute/cycle | wall-clock ns (substrate-process `Instant`) | UP | **L** |
+| 8 | Network/cycle | Bytes egressed/cycle (federation wire bytes: 4-byte length prefix + frame body) | UP | **L** |
+| 9 | Storage/cycle | Bytes added to `dag.cb`+`snapshot.cb` (file-metadata delta, monotone) | UP | **L** |
 
-L0 P11.c ordered fallback: (1) pre-eligibility (cycle <N, default 1000): refuse new P2 + `budget_exhausted:{axis}` (F19 daily); (2) post-eligibility: trigger P10 + I9 witnesses; (3) compression-insufficient: degraded → `alive::saturated` → P7.
+L0 P11.c ordered fallback: (1) pre-eligibility (cycle <N, default 1000): refuse new P2 + `budget_exhausted:{axis}` (F19 daily); (2) post-eligibility: trigger P10 + I9 witnesses; (3) compression-insufficient: degraded → `alive::saturated` → P7. **Ordered fallback machinery (M26.3+) not yet implemented**; cost signals expose data but don't yet drive automatic budget actions.
 
-### §2.3 Composite #10
+Implementation: `myco_substrate::observatory::CostAccumulator` drains a federation egress counter + reads on-disk file sizes at each `cycle_advanced`; per-cycle values are stored in `ObservatorySnapshot.signal_{7,8,9}_*` and surfaced by `query_substrate_observatory` as `signal_7_compute_per_cycle` / `signal_8_network_per_cycle` / `signal_9_storage_per_cycle` (each carrying `current_cycle_*` + `rolling_mean_*_repr`).
 
-Variance-weighted in birth-period: `w_i = Var(signal_i over 100-cycle)/sum(Var)`. Correlation-weighted in steady state: outcome from P14 (primary: recent-sporocarp embedding-centroid vs owner-objective per L1_TROPISM A1); `w_i = |Corr(signal_i, outcome)|/sum(|Corr|)`. Transition: post-birth + N=100 (signal, outcome) pairs; revert to variance if outcome unavailable.
+### §2.3 Composite #10 — **LIVE M26.2**
+
+Variance-weighted in birth-period: `w_i = Var(signal_i over rolling window)/sum(Var)`. Correlation-weighted in steady state: outcome from P14 (primary: recent-sporocarp embedding-centroid vs owner-objective per L1_TROPISM A1); `w_i = |Corr(signal_i, outcome)|/sum(|Corr|)`. Transition: post-birth + N=100 (signal, outcome) pairs; revert to variance if outcome unavailable.
+
+**M26.2 implementation**:
+- Variance-weighted across all 6 dimensions {#1, #2, #4b, #7, #8, #9} (was {#1, #2, #4b} pre-M26.2)
+- Direction-inverted blend: `composite = Σ w_i · dir_i · log_normalized(value_i)` where `dir = +1` for production (#1/#2/#4b) and `dir = -1` for cost (#7/#8/#9). Higher composite = healthier substrate
+- Equal-weight cold start: 1/6 each (was 1/3 each pre-M26.2)
+- Steady-state correlation weighting is M26.3+ work (depends on P14 telos metric F20 also being live)
+- Exposed in observatory as `signal_10_composite_health` (renamed from `signal_7_composite_health` in observatory_format_version 3 → 4 schema bump)
 
 ### §2.4 Birth-period (L1_TROPISM §4)
 

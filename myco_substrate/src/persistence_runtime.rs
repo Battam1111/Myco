@@ -52,7 +52,12 @@ pub(crate) fn save_python_state(_state: &mut ServerState) -> Result<(), Substrat
 /// M8/M21.4: Persist the substrate's DAG to `<state_dir>/dag.cb`.
 /// This remains the sole persistent operation in M21.4 — dag.cb is the
 /// authoritative substrate state.
-pub(crate) fn save_dag_state(state: &ServerState) -> Result<(), SubstrateError> {
+///
+/// **M26.2 P11.b**: returns bytes-written for signal #9 (storage/cycle).
+/// Callers in the cycle-advance path forward this into
+/// `state.cost_accumulator.record_storage_write`. Pre-M26.2 callers that
+/// discard the count keep working — the value is just an extra useful return.
+pub(crate) fn save_dag_state(state: &ServerState) -> Result<usize, SubstrateError> {
     save_dag(&state.dag, &state.state_dir)
 }
 
@@ -97,7 +102,9 @@ pub(crate) fn replay_events_after_tip(
 /// M25.0: the signing key is reconstructed from the substrate's own seed
 /// (`state.substrate_signing_seed`). The wrapper schema embeds the pubkey
 /// + signature; boot verifies both before trusting the snapshot.
-pub(crate) fn save_snapshot_for_state(state: &ServerState) -> Result<(), SubstrateError> {
+///
+/// **M26.2 P11.b**: returns bytes-written for signal #9 (storage/cycle).
+pub(crate) fn save_snapshot_for_state(state: &ServerState) -> Result<usize, SubstrateError> {
     use crate::derived_state::{DerivedNonce, DerivedState};
     use crate::persistence::save_snapshot;
     use myco_kernel_shared::crypto::Ed25519PrivateKey;

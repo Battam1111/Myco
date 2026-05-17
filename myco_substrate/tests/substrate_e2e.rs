@@ -997,15 +997,15 @@ fn phase_alpha_observatory_signal_1_basic_persistence_budget() {
         "signal_6 should be absent without operator-supplied window"
     );
 
-    // observatory_format_version bumped to 3 in M25 (signal_5 + signal_8 +
-    // bet_weakening_quorum + emergent composite weights).
+    // **M26.2**: observatory_format_version bumped 3 → 4 (added signals
+    // 7/8/9 cost, renamed composite → signal_10, renamed doctrine_burst).
     let fmt = match resp.payload.get("observatory_format_version") {
         Some(CbValue::Uint(n)) => *n,
         _ => panic!("fmt version missing"),
     };
-    assert_eq!(fmt, 3);
+    assert_eq!(fmt, 4, "M26.2 bumps observatory_format_version to 4");
 
-    // M24.5: signals 2/3/4/7 present.
+    // M24.5 + M26.2: signals 2/3/4 + composite present.
     assert!(
         resp.payload.contains_key("signal_2_evolution_rate"),
         "M24.5: signal_2 present"
@@ -1019,8 +1019,8 @@ fn phase_alpha_observatory_signal_1_basic_persistence_budget() {
         "M24.5: signal_4 present"
     );
     assert!(
-        resp.payload.contains_key("signal_7_composite_health"),
-        "M24.5: signal_7 composite present"
+        resp.payload.contains_key("signal_10_composite_health"),
+        "M26.2: composite renamed from signal_7_composite_health → signal_10_composite_health"
     );
 
     client.shutdown().expect("shutdown");
@@ -1081,6 +1081,9 @@ fn m24_5_observatory_signal_3_distinct_perturbed_axes() {
 
 #[test]
 fn m24_5_observatory_signal_7_composite_is_valid_float() {
+    // **M26.2**: composite is now under `signal_10_composite_health` (was
+    // `signal_7_composite_health` in v3). Updated test name kept for git
+    // history clarity but body asserts the new key.
     let (mut client, _dir) = spawn_substrate();
     client
         .register_axis("composite_test", "appetite", 5.0, 0.0, 1.0, false, "noop")
@@ -1088,23 +1091,27 @@ fn m24_5_observatory_signal_7_composite_is_valid_float() {
     let resp = client
         .call(proto::QUERY_SUBSTRATE_OBSERVATORY, build_payload(vec![]))
         .expect("observatory");
-    let s7 = match resp.payload.get("signal_7_composite_health") {
+    let s10 = match resp.payload.get("signal_10_composite_health") {
         Some(CbValue::Map(m)) => m.clone(),
-        _ => panic!("signal_7 missing"),
+        _ => panic!("signal_10_composite_health missing"),
     };
-    let composite_repr = match s7.get("composite_health_score_repr") {
+    let composite_repr = match s10.get("composite_health_score_repr") {
         Some(CbValue::String(s)) => s.clone(),
         _ => panic!("composite_health_score_repr missing"),
     };
     let parsed: f64 = composite_repr.parse().expect("composite is parseable float");
-    assert!(parsed >= 0.0, "composite should be non-negative; got {parsed}");
-    let fmt = match s7.get("composite_format_version") {
+    // **M26.2 NOTE**: composite can now be negative (cost signals contribute
+    // with negative sign). For a fresh substrate with no cost history, all
+    // cost terms are 0, so composite is >= 0 here — but in general the
+    // bound is `Number::isFinite`, not `>= 0`.
+    assert!(parsed.is_finite(), "composite must be a finite float; got {parsed}");
+    let fmt = match s10.get("composite_format_version") {
         Some(CbValue::Uint(n)) => *n,
         _ => panic!("composite_format_version missing"),
     };
     assert_eq!(
-        fmt, 3,
-        "composite format version bumped to 3 in M25.3 (emergent weights)"
+        fmt, 4,
+        "M26.2: composite_format_version bumped 3 → 4 (negative cost-signal contributions)"
     );
     client.shutdown().expect("shutdown");
 }
@@ -2111,6 +2118,9 @@ fn pump_cycles(client: &mut BridgeClient, n: u64) {
 
 #[test]
 fn m25_3_observatory_format_version_3() {
+    // **M26.2**: name kept for git history; observatory_format_version
+    // bumped 3 → 4 (added signals 7/8/9 cost + renamed composite to
+    // signal_10 + renamed doctrine_burst to doctrine_revision_burst_status).
     let (mut client, _dir) = spawn_substrate();
     let resp = client
         .call(proto::QUERY_SUBSTRATE_OBSERVATORY, build_payload(vec![]))
@@ -2119,7 +2129,7 @@ fn m25_3_observatory_format_version_3() {
         Some(CbValue::Uint(n)) => *n,
         _ => panic!("observatory_format_version missing"),
     };
-    assert_eq!(fmt, 3, "M25.3: observatory_format_version bumped to 3");
+    assert_eq!(fmt, 4, "M26.2: observatory_format_version bumped 3 → 4");
     client.shutdown().expect("shutdown");
 }
 
@@ -2127,15 +2137,19 @@ fn m25_3_observatory_format_version_3() {
 fn m25_3_emergent_weights_cold_start_returns_equal() {
     // Fresh substrate with no cycle history yet → emergent_weights cannot
     // be computed; the handler MUST fall back to "equal_cold_start" weights.
+    //
+    // **M26.2**: weights basis expanded from {1, 2, 4b} to {1, 2, 4b, 7, 8, 9}.
+    // Equal cold-start weights are now 1/6 each (was 1/3). Composite is now
+    // under signal_10_composite_health (was signal_7_composite_health).
     let (mut client, _dir) = spawn_substrate();
     let resp = client
         .call(proto::QUERY_SUBSTRATE_OBSERVATORY, build_payload(vec![]))
         .expect("observatory");
-    let s7 = match resp.payload.get("signal_7_composite_health") {
+    let s10 = match resp.payload.get("signal_10_composite_health") {
         Some(CbValue::Map(m)) => m.clone(),
-        _ => panic!("signal_7 missing"),
+        _ => panic!("signal_10_composite_health missing"),
     };
-    let method = match s7.get("weights_method") {
+    let method = match s10.get("weights_method") {
         Some(CbValue::String(s)) => s.clone(),
         _ => panic!("weights_method missing"),
     };
@@ -2143,33 +2157,27 @@ fn m25_3_emergent_weights_cold_start_returns_equal() {
         method, "equal_cold_start",
         "cold-start substrate must use equal weights; got {method}"
     );
-    // M26.1 C2 fix: weights are now nested under signal_7.weights Map.
-    let weights = match s7.get("weights") {
+    let weights = match s10.get("weights") {
         Some(CbValue::Map(m)) => m.clone(),
-        _ => panic!("signal_7.weights map missing"),
+        _ => panic!("signal_10.weights map missing"),
     };
-    let w1 = match weights.get("signal_1") {
-        Some(CbValue::String(s)) => s.parse::<f64>().expect("w1 parses"),
-        _ => panic!("weights.signal_1 missing"),
-    };
-    let w2 = match weights.get("signal_2") {
-        Some(CbValue::String(s)) => s.parse::<f64>().expect("w2 parses"),
-        _ => panic!("weights.signal_2 missing"),
-    };
-    let w4b = match weights.get("signal_4b") {
-        Some(CbValue::String(s)) => s.parse::<f64>().expect("w4b parses"),
-        _ => panic!("weights.signal_4b missing"),
-    };
-    let one_third = 1.0_f64 / 3.0;
+    let one_sixth = 1.0_f64 / 6.0;
     let eps = 1e-9;
-    assert!((w1 - one_third).abs() < eps, "w1 ≈ 1/3, got {w1}");
-    assert!((w2 - one_third).abs() < eps, "w2 ≈ 1/3, got {w2}");
-    assert!((w4b - one_third).abs() < eps, "w4b ≈ 1/3, got {w4b}");
-    let composite_fmt = match s7.get("composite_format_version") {
+    for k in &["signal_1", "signal_2", "signal_4b", "signal_7", "signal_8", "signal_9"] {
+        let w = match weights.get(*k) {
+            Some(CbValue::String(s)) => s.parse::<f64>().expect("weight parses"),
+            _ => panic!("weights.{k} missing"),
+        };
+        assert!(
+            (w - one_sixth).abs() < eps,
+            "{k} weight ≈ 1/6 in cold-start; got {w}"
+        );
+    }
+    let composite_fmt = match s10.get("composite_format_version") {
         Some(CbValue::Uint(n)) => *n,
         _ => panic!("composite_format_version missing"),
     };
-    assert_eq!(composite_fmt, 3, "composite format version bumped to 3");
+    assert_eq!(composite_fmt, 4, "M26.2: composite_format_version bumped 3 → 4");
     client.shutdown().expect("shutdown");
 }
 
@@ -2189,11 +2197,12 @@ fn m25_3_emergent_weights_after_history_become_emergent_or_degenerate() {
     let resp = client
         .call(proto::QUERY_SUBSTRATE_OBSERVATORY, build_payload(vec![]))
         .expect("observatory");
-    let s7 = match resp.payload.get("signal_7_composite_health") {
+    // **M26.2**: composite is under signal_10_composite_health (was signal_7).
+    let s10 = match resp.payload.get("signal_10_composite_health") {
         Some(CbValue::Map(m)) => m.clone(),
-        _ => panic!("signal_7 missing"),
+        _ => panic!("signal_10_composite_health missing"),
     };
-    let method = match s7.get("weights_method") {
+    let method = match s10.get("weights_method") {
         Some(CbValue::String(s)) => s.clone(),
         _ => panic!("weights_method missing"),
     };
@@ -2201,32 +2210,32 @@ fn m25_3_emergent_weights_after_history_become_emergent_or_degenerate() {
         method == "emergent_variance" || method == "equal_degenerate",
         "post-history weights must be emergent_variance or equal_degenerate; got {method}"
     );
-    // Weights must always sum to ~1. M26.1 C2 fix: weights are now nested
-    // under signal_7.weights Map.
-    let weights = match s7.get("weights") {
+    // **M26.2**: weights basis expanded from 3 dims to 6 dims
+    // ({1, 2, 4b, 7, 8, 9}). Sum must still ≈ 1.
+    let weights = match s10.get("weights") {
         Some(CbValue::Map(m)) => m.clone(),
-        _ => panic!("signal_7.weights map missing"),
+        _ => panic!("signal_10.weights map missing"),
     };
-    let w1: f64 = match weights.get("signal_1") {
-        Some(CbValue::String(s)) => s.parse().unwrap(),
-        _ => panic!(),
+    let parse_weight = |key: &str| -> f64 {
+        match weights.get(key) {
+            Some(CbValue::String(s)) => s.parse().expect("weight parses"),
+            _ => panic!("weights.{key} missing"),
+        }
     };
-    let w2: f64 = match weights.get("signal_2") {
-        Some(CbValue::String(s)) => s.parse().unwrap(),
-        _ => panic!(),
-    };
-    let w4b: f64 = match weights.get("signal_4b") {
-        Some(CbValue::String(s)) => s.parse().unwrap(),
-        _ => panic!(),
-    };
-    let total = w1 + w2 + w4b;
+    let w1 = parse_weight("signal_1");
+    let w2 = parse_weight("signal_2");
+    let w4b = parse_weight("signal_4b");
+    let w7 = parse_weight("signal_7");
+    let w8 = parse_weight("signal_8");
+    let w9 = parse_weight("signal_9");
+    let total = w1 + w2 + w4b + w7 + w8 + w9;
     assert!(
         (total - 1.0).abs() < 1e-6,
-        "weights must sum to 1.0; got w1={w1}, w2={w2}, w4b={w4b}, sum={total}"
+        "weights must sum to 1.0; got w1={w1}, w2={w2}, w4b={w4b}, w7={w7}, w8={w8}, w9={w9}, sum={total}"
     );
     println!(
-        "M25.3 demonstration: method={method}, w1={w1:.4}, w2={w2:.4}, w4b={w4b:.4}, \
-         sum={total:.6}"
+        "M25.3 + M26.2 demonstration: method={method}, w1={w1:.4}, w2={w2:.4}, \
+         w4b={w4b:.4}, w7={w7:.4}, w8={w8:.4}, w9={w9:.4}, sum={total:.6}"
     );
     client.shutdown().expect("shutdown");
 }
@@ -2337,21 +2346,24 @@ fn m25_1_doctrine_burst_detector_fires_on_excess_axis_registrations() {
     let resp = client
         .call(proto::QUERY_SUBSTRATE_OBSERVATORY, build_payload(vec![]))
         .expect("observatory");
-    let s8 = match resp.payload.get("signal_8_doctrine_revision_burst") {
+    // **M26.2**: doctrine-burst is no longer one of the 10 numbered Living
+    // Bet signals — it's a C37 detector output. Renamed from
+    // `signal_8_doctrine_revision_burst` → `doctrine_revision_burst_status`.
+    let burst = match resp.payload.get("doctrine_revision_burst_status") {
         Some(CbValue::Map(m)) => m.clone(),
-        _ => panic!("signal_8 missing"),
+        _ => panic!("doctrine_revision_burst_status missing"),
     };
-    let is_burst = match s8.get("is_burst") {
+    let is_burst = match burst.get("is_burst") {
         Some(CbValue::Bool(b)) => *b,
         _ => panic!("is_burst missing"),
     };
     // M26.1 C3 fix: window switched from substrate-cycles to wall-clock 90d
     // (L0 §7.4 + §13.1); the burst-count field renamed accordingly.
-    let ci_count = match s8.get("ci_events_in_burst_window") {
+    let ci_count = match burst.get("ci_events_in_burst_window") {
         Some(CbValue::Uint(n)) => *n,
         _ => panic!("ci_events_in_burst_window missing"),
     };
-    let threshold = match s8.get("burst_threshold") {
+    let threshold = match burst.get("burst_threshold") {
         Some(CbValue::Uint(n)) => *n,
         _ => panic!("burst_threshold missing"),
     };
@@ -2957,4 +2969,249 @@ fn m26_1_c6_loose_seed_emits_c4_and_tightens() {
         "M26.1 C6: boot must tighten loose seed file back to 0600; got {:o}",
         tightened_mode
     );
+}
+
+// ---------------------------------------------------------------------------
+// **M26.2 P11.b — Living Bets cost signals #7/#8/#9 + composite #10 RENAMED.**
+//
+// These tests verify the third leg of the L2_OBSERVABILITY §2 10-signal
+// observatory: per-cycle compute / network / storage costs. Pre-M26.2 the
+// observatory exposed only 6 base signals + 1 composite; without cost
+// signals, P11 metabolic economy (budget exhaustion → compression → P7)
+// has no input data and `bet_weakening_quorum` runs on a half-blind view.
+//
+// These tests also exercise the v3 → v4 schema bump:
+// - signal_7_composite_health → signal_10_composite_health
+// - signal_8_doctrine_revision_burst → doctrine_revision_burst_status
+// - observatory_format_version = 4
+// ---------------------------------------------------------------------------
+
+#[test]
+fn m26_2_observatory_format_version_is_4() {
+    // Fresh substrate; v4 schema is unconditional at this point.
+    let (mut client, _dir) = spawn_substrate();
+    let resp = client
+        .call(proto::QUERY_SUBSTRATE_OBSERVATORY, build_payload(vec![]))
+        .expect("observatory");
+    let ver = match resp.payload.get("observatory_format_version") {
+        Some(CbValue::Uint(n)) => *n,
+        _ => panic!("observatory_format_version missing"),
+    };
+    assert_eq!(
+        ver, 4,
+        "M26.2 bumps observatory_format_version to 4; got {ver}"
+    );
+    client.shutdown().expect("shutdown");
+}
+
+#[test]
+fn m26_2_signal_7_compute_per_cycle_present_with_current_and_rolling_mean() {
+    let (mut client, _dir) = spawn_substrate();
+    // Pump some cycles so the rolling mean has real samples.
+    pump_cycles(&mut client, 3);
+    let resp = client
+        .call(proto::QUERY_SUBSTRATE_OBSERVATORY, build_payload(vec![]))
+        .expect("observatory");
+    let s7 = match resp.payload.get("signal_7_compute_per_cycle") {
+        Some(CbValue::Map(m)) => m.clone(),
+        _ => panic!("signal_7_compute_per_cycle missing"),
+    };
+    let current_ns = match s7.get("current_cycle_ns") {
+        Some(CbValue::Uint(n)) => *n,
+        _ => panic!("signal_7.current_cycle_ns missing"),
+    };
+    // Wall-clock should be > 0 (each cycle does real work: emit cycle_advanced,
+    // append observatory snapshot, save dag.cb).
+    assert!(
+        current_ns > 0,
+        "signal_7 current_cycle_ns must be > 0 after real cycles; got {current_ns}"
+    );
+    let mean_repr = match s7.get("rolling_mean_ns_repr") {
+        Some(CbValue::String(s)) => s.clone(),
+        _ => panic!("signal_7.rolling_mean_ns_repr missing"),
+    };
+    let mean: f64 = mean_repr.parse().expect("rolling_mean parseable as f64");
+    assert!(mean > 0.0, "rolling_mean_ns must be > 0; got {mean}");
+    client.shutdown().expect("shutdown");
+}
+
+#[test]
+fn m26_2_signal_8_network_per_cycle_is_zero_without_federation_activity() {
+    // No federation peer → signal_8 must be exactly 0 across cycles.
+    let (mut client, _dir) = spawn_substrate();
+    pump_cycles(&mut client, 3);
+    let resp = client
+        .call(proto::QUERY_SUBSTRATE_OBSERVATORY, build_payload(vec![]))
+        .expect("observatory");
+    let s8 = match resp.payload.get("signal_8_network_per_cycle") {
+        Some(CbValue::Map(m)) => m.clone(),
+        _ => panic!("signal_8_network_per_cycle missing"),
+    };
+    let current = match s8.get("current_cycle_bytes") {
+        Some(CbValue::Uint(n)) => *n,
+        _ => panic!("signal_8.current_cycle_bytes missing"),
+    };
+    assert_eq!(
+        current, 0,
+        "signal_8 must be 0 when no federation egress occurred; got {current}"
+    );
+    let mean_repr = match s8.get("rolling_mean_bytes_repr") {
+        Some(CbValue::String(s)) => s.clone(),
+        _ => panic!("signal_8.rolling_mean_bytes_repr missing"),
+    };
+    let mean: f64 = mean_repr.parse().expect("rolling_mean parseable as f64");
+    assert_eq!(mean, 0.0, "rolling_mean must be 0; got {mean}");
+    client.shutdown().expect("shutdown");
+}
+
+#[test]
+fn m26_2_signal_9_storage_per_cycle_grows_as_dag_grows() {
+    let (mut client, _dir) = spawn_substrate();
+    // Pump a few cycles so storage delta has samples to report.
+    pump_cycles(&mut client, 3);
+    let resp = client
+        .call(proto::QUERY_SUBSTRATE_OBSERVATORY, build_payload(vec![]))
+        .expect("observatory");
+    let s9 = match resp.payload.get("signal_9_storage_per_cycle") {
+        Some(CbValue::Map(m)) => m.clone(),
+        _ => panic!("signal_9_storage_per_cycle missing"),
+    };
+    let current = match s9.get("current_cycle_bytes") {
+        Some(CbValue::Uint(n)) => *n,
+        _ => panic!("signal_9.current_cycle_bytes missing"),
+    };
+    // dag.cb is rewritten every cycle and grows by at least the cycle_advanced
+    // event content. Storage delta MUST be positive for a healthy cycle.
+    assert!(
+        current > 0,
+        "signal_9 current_cycle_bytes must be > 0 after dag growth; got {current}"
+    );
+    let mean_repr = match s9.get("rolling_mean_bytes_repr") {
+        Some(CbValue::String(s)) => s.clone(),
+        _ => panic!("signal_9.rolling_mean_bytes_repr missing"),
+    };
+    let mean: f64 = mean_repr.parse().expect("rolling_mean parseable as f64");
+    assert!(mean > 0.0, "rolling_mean must be > 0; got {mean}");
+    client.shutdown().expect("shutdown");
+}
+
+#[test]
+fn m26_2_signal_10_composite_replaces_old_signal_7_key() {
+    // Verifies the v3 → v4 rename: composite lives under signal_10_composite_health,
+    // and the old signal_7_composite_health key is NO LONGER emitted.
+    let (mut client, _dir) = spawn_substrate();
+    pump_cycles(&mut client, 3);
+    let resp = client
+        .call(proto::QUERY_SUBSTRATE_OBSERVATORY, build_payload(vec![]))
+        .expect("observatory");
+    assert!(
+        resp.payload.get("signal_10_composite_health").is_some(),
+        "signal_10_composite_health must be present in v4 schema"
+    );
+    assert!(
+        resp.payload.get("signal_7_composite_health").is_none(),
+        "old signal_7_composite_health key must NOT be emitted in v4 (the slot is now signal_7_compute_per_cycle)"
+    );
+    let s10 = match resp.payload.get("signal_10_composite_health") {
+        Some(CbValue::Map(m)) => m.clone(),
+        _ => panic!("signal_10_composite_health missing"),
+    };
+    // Composite must include weights for all 6 dimensions {1,2,4b,7,8,9}.
+    let weights = match s10.get("weights") {
+        Some(CbValue::Map(m)) => m.clone(),
+        _ => panic!("weights missing"),
+    };
+    for key in &["signal_1", "signal_2", "signal_4b", "signal_7", "signal_8", "signal_9"] {
+        assert!(
+            weights.get(*key).is_some(),
+            "composite weights must include {key} in v4 schema"
+        );
+    }
+    let composite_format_version = match s10.get("composite_format_version") {
+        Some(CbValue::Uint(n)) => *n,
+        _ => panic!("composite_format_version missing"),
+    };
+    assert_eq!(
+        composite_format_version, 4,
+        "composite_format_version bumped to 4 alongside outer observatory_format_version"
+    );
+    client.shutdown().expect("shutdown");
+}
+
+#[test]
+fn m26_2_doctrine_revision_burst_status_renamed_from_signal_8_burst() {
+    // Verifies the v3 → v4 rename: burst-detector status lives under
+    // doctrine_revision_burst_status, not signal_8_doctrine_revision_burst
+    // (the old name collided with the new M26.2 actual signal #8 network/cycle).
+    let (mut client, _dir) = spawn_substrate();
+    let resp = client
+        .call(proto::QUERY_SUBSTRATE_OBSERVATORY, build_payload(vec![]))
+        .expect("observatory");
+    assert!(
+        resp.payload.get("doctrine_revision_burst_status").is_some(),
+        "doctrine_revision_burst_status must be present in v4 schema"
+    );
+    assert!(
+        resp.payload.get("signal_8_doctrine_revision_burst").is_none(),
+        "old signal_8_doctrine_revision_burst key must NOT be emitted in v4 (the slot is now signal_8_network_per_cycle)"
+    );
+    let burst = match resp.payload.get("doctrine_revision_burst_status") {
+        Some(CbValue::Map(m)) => m.clone(),
+        _ => panic!("doctrine_revision_burst_status missing"),
+    };
+    // Structural sanity: the four fields C37 detector emits are all present.
+    for k in &[
+        "ci_events_in_burst_window",
+        "burst_window_unix_ns",
+        "burst_threshold",
+        "is_burst",
+    ] {
+        assert!(
+            burst.get(*k).is_some(),
+            "doctrine_revision_burst_status missing field {k}"
+        );
+    }
+    client.shutdown().expect("shutdown");
+}
+
+#[test]
+fn m26_2_observatory_snapshot_persists_cost_fields_across_restart() {
+    // The observatory_history persisted in snapshot.cb must round-trip the
+    // M26.2 cost fields (signal_7/8/9). This guards against accidental loss
+    // of cost data across substrate reboots.
+    let dir = fresh_state_dir();
+    // Boot 1: pump enough cycles to write a snapshot (K=10 cycles).
+    {
+        let mut client = spawn_substrate_with_state_dir(&dir);
+        pump_cycles(&mut client, 10);
+        client.shutdown().expect("shutdown boot1");
+    }
+    // snapshot.cb should exist now.
+    let snap_path = dir.join("snapshot.cb");
+    assert!(
+        snap_path.exists(),
+        "snapshot.cb must be written after K=10 cycles"
+    );
+    // Boot 2: reload from snapshot, query observatory, verify cost fields
+    // survived the roundtrip (rolling_mean > 0 implies history has cost data).
+    {
+        let mut client = spawn_substrate_with_state_dir(&dir);
+        let resp = client
+            .call(proto::QUERY_SUBSTRATE_OBSERVATORY, build_payload(vec![]))
+            .expect("observatory");
+        let s7 = match resp.payload.get("signal_7_compute_per_cycle") {
+            Some(CbValue::Map(m)) => m.clone(),
+            _ => panic!("signal_7 missing after restart"),
+        };
+        let mean_repr = match s7.get("rolling_mean_ns_repr") {
+            Some(CbValue::String(s)) => s.clone(),
+            _ => panic!("signal_7.rolling_mean_ns_repr missing"),
+        };
+        let mean: f64 = mean_repr.parse().expect("parseable");
+        assert!(
+            mean > 0.0,
+            "signal_7 rolling mean must survive restart; got {mean}"
+        );
+        client.shutdown().expect("shutdown boot2");
+    }
 }

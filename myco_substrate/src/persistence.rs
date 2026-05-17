@@ -445,21 +445,25 @@ pub fn load_pinned_operator_identity(
 /// Save a DAG to `<state_dir>/dag.cb` atomically (M8).
 ///
 /// Same pattern as [`Manifest::save`]: write to `.tmp`, fsync, atomic rename.
+///
+/// **M26.2 P11.b**: returns the number of bytes written. Callers tracking
+/// signal #9 (storage/cycle) forward this into `CostAccumulator::record_storage_write`.
 pub fn save_dag(
     dag: &myco_kernel_schema::dag::Dag,
     state_dir: &Path,
-) -> Result<(), SubstrateError> {
+) -> Result<usize, SubstrateError> {
     ensure_state_dir(state_dir)?;
     let final_path = state_dir.join(DAG_FILENAME);
     let tmp_path = state_dir.join(format!("{DAG_FILENAME}.tmp"));
     let bytes = dag.to_canonical_bytes();
+    let n = bytes.as_ref().len();
     {
         let mut f = fs::File::create(&tmp_path)?;
         f.write_all(bytes.as_ref())?;
         f.sync_all()?;
     }
     fs::rename(&tmp_path, &final_path)?;
-    Ok(())
+    Ok(n)
 }
 
 /// Load a DAG from `<state_dir>/dag.cb` (M8).
@@ -694,11 +698,14 @@ pub struct LoadedSnapshot {
 /// canonical-bytes encoding). This means snapshot bytes can be re-wrapped
 /// (e.g., upgraded to a newer wrapper format) without re-signing the inner
 /// payload — preserving signature stability across wrapper schema bumps.
+/// **M26.2 P11.b**: returns the number of bytes written (wrapper + payload +
+/// signature). Callers tracking signal #9 (storage/cycle) forward this into
+/// `CostAccumulator::record_storage_write`.
 pub fn save_snapshot(
     snapshot_payload: &myco_kernel_shared::canonical_bytes::CanonicalBytes,
     signing_key: &myco_kernel_shared::crypto::Ed25519PrivateKey,
     state_dir: &Path,
-) -> Result<(), SubstrateError> {
+) -> Result<usize, SubstrateError> {
     use myco_kernel_shared::canonical_bytes::{encode, Value};
     ensure_state_dir(state_dir)?;
     let final_path = state_dir.join(SNAPSHOT_FILENAME);
@@ -727,6 +734,7 @@ pub fn save_snapshot(
     );
     let wrapped = encode(&Value::Map(wrapper))
         .map_err(|e| SubstrateError::Protocol(format!("snapshot wrapper encode: {e}")))?;
+    let n = wrapped.as_ref().len();
 
     {
         let mut f = fs::File::create(&tmp_path)?;
@@ -734,7 +742,7 @@ pub fn save_snapshot(
         f.sync_all()?;
     }
     fs::rename(&tmp_path, &final_path)?;
-    Ok(())
+    Ok(n)
 }
 
 /// M21.5 + M25.0: load `snapshot.cb` from `<state_dir>/snapshot.cb` and parse

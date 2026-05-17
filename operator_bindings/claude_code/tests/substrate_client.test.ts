@@ -3684,7 +3684,9 @@ describe("SubstrateClient e2e", () => {
       await client.advance(1n);
 
       const snap = await client.querySubstrateObservatory();
-      // M25.x will land format_version=3; current substrate emits 2. Accept >= 2.
+      // **M26.2**: format_version bumped 3 → 4 (added signals 7/8/9, renamed
+      // composite from signal_7 → signal_10, renamed doctrine_burst). Accept >= 2
+      // for backward-compat with potential pre-M26.2 producers.
       assert.ok(
         snap.formatVersion >= 2n,
         `expected format_version >= 2; got ${snap.formatVersion}`,
@@ -3701,14 +3703,38 @@ describe("SubstrateClient e2e", () => {
       // No window supplied → signal_6 absent.
       assert.equal(snap.signal6, undefined, "signal_6 should be absent when no window supplied");
 
-      // format_version >= 2 → signals 2/3/4/7 must be present.
+      // format_version >= 2 → signals 2/3/4 must be present.
       assert.ok(snap.signal2, "signal_2 must be present at format_version >= 2");
       assert.ok(snap.signal3, "signal_3 must be present at format_version >= 2");
       assert.ok(snap.signal4, "signal_4 must be present at format_version >= 2");
-      assert.ok(snap.signal7, "signal_7 (composite) must be present at format_version >= 2");
-      assert.ok(Number.isFinite(snap.signal7!.compositeHealthScore));
       assert.equal(snap.signal4!.signal4bReachablePeerCount, 0n);
       assert.equal(snap.signal3!.distinctPerturbedAxesCount, 1n);
+
+      // **M26.2**: composite is now signal_10 (was signal_7 at v3).
+      assert.ok(snap.signal10, "signal_10 (composite) must be present at format_version >= 4");
+      assert.ok(Number.isFinite(snap.signal10!.compositeHealthScore));
+
+      // **M26.2**: cost signals 7/8/9 land at v4. Substrate has advanced
+      // exactly 1 cycle so each cost signal carries a current_cycle value
+      // (compute_ns > 0 trivially; network may be 0 with no federation
+      // activity; storage > 0 because dag.cb just grew).
+      if (snap.formatVersion >= 4n) {
+        assert.ok(snap.signal7, "signal_7 (compute/cycle) must be present at v4");
+        assert.ok(
+          snap.signal7!.currentCycleNs > 0n,
+          "signal_7 currentCycleNs must reflect real wall-clock work in the cycle",
+        );
+        assert.ok(snap.signal8, "signal_8 (network/cycle) must be present at v4");
+        // No federation traffic in this test → expect 0 egress.
+        assert.equal(snap.signal8!.currentCycleBytes, 0n);
+        assert.ok(snap.signal9, "signal_9 (storage/cycle) must be present at v4");
+        // dag.cb grew this cycle (cycle_advanced + axis_perturbed events) →
+        // storage delta > 0.
+        assert.ok(
+          snap.signal9!.currentCycleBytes > 0n,
+          "signal_9 currentCycleBytes must reflect on-disk growth this cycle",
+        );
+      }
     } finally {
       await client.shutdown();
     }

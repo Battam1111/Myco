@@ -90,13 +90,23 @@ pub fn dial_blocking(remote_addr: &str) -> Result<(TcpStream, SocketAddr), Bridg
 /// Send one federation Message over the TCP stream with the given HMAC key.
 ///
 /// Mirrors `kernel/bridge::framing::write_frame` on a TCP socket.
+///
+/// **M26.2 P11.b**: returns the number of wire bytes written (4-byte length
+/// prefix + frame body). Callers that track P11 cost signal #8 (network/cycle)
+/// MUST forward this count into `FederationState::record_bytes_egressed` (or
+/// equivalent) so the observatory can derive `signal_8_network_per_cycle`.
+/// Pre-M26.2 callers that discard the count keep working — the bytes value is
+/// just an extra useful return.
 pub fn write_fed_frame(
     stream: &mut TcpStream,
     message: &Message,
     hmac_key: &[u8; 32],
-) -> Result<(), BridgeError> {
+) -> Result<usize, BridgeError> {
     let frame = encode_frame_body(message, hmac_key)?;
-    write_frame(stream, &frame)
+    let body_len = frame.len();
+    write_frame(stream, &frame)?;
+    // 4-byte length prefix + frame body. Mirrors kernel/bridge::framing::write_frame.
+    Ok(4 + body_len)
 }
 
 /// Read one federation Message from the TCP stream with the given HMAC key.

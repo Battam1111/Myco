@@ -41,9 +41,10 @@ use myco_kernel_shared::canonical_bytes::{
     decode as cb_decode, map_get_bytes, map_get_uint, Value,
 };
 
-/// M25.2 P5 万物互联: a single point-in-time observatory snapshot used to
-/// build historical signal series for signal #5 (time trends),
-/// `bet_weakening_quorum`, and emergent composite weights.
+/// M25.2 P5 万物互联 + **M26.2 P11.b**: a single point-in-time observatory
+/// snapshot used to build historical signal series for signal #5 (time
+/// trends), `bet_weakening_quorum`, the emergent composite weights, and the
+/// per-cycle cost signals (#7 compute, #8 network, #9 storage).
 ///
 /// Canonical form (used inside DerivedState's `observatory_history` array):
 /// ```text
@@ -56,8 +57,15 @@ use myco_kernel_shared::canonical_bytes::{
 ///   "signal_3_distinct_perturbed_axes_count": Uint,
 ///   "signal_4b_reachable_peer_count": Uint,
 ///   "signal_6_ratio_repr": String,    // empty string if no operator window
+///   "signal_7_compute_ns": Uint,      // M26.2 wall-clock ns for this cycle
+///   "signal_8_network_bytes": Uint,   // M26.2 federation egress bytes this cycle
+///   "signal_9_storage_bytes": Uint,   // M26.2 dag.cb + snapshot.cb delta this cycle
 /// })
 /// ```
+///
+/// **Backward compat**: the three M26.2 cost fields are tolerated as absent
+/// when parsing pre-M26.2 snapshots (default to 0). Old snapshot.cb files
+/// continue to load; only new snapshots carry the cost fields.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ObservatorySnapshot {
     /// `manifest.cycle_counter` at snapshot time.
@@ -78,6 +86,21 @@ pub struct ObservatorySnapshot {
     /// Empty string when no operator context-window attestation has been
     /// supplied recently (substrate cannot derive this autonomously).
     pub signal_6_ratio_repr: String,
+    /// **M26.2 P11.b signal #7**: wall-clock nanoseconds spent in the cycle
+    /// that produced this snapshot. Measured from previous `cycle_advanced`
+    /// to current `cycle_advanced` via `Instant::elapsed`. Substrate-process
+    /// wall-clock per L0 §13.1 (M-anchor-3 will promote to anchor-stamped
+    /// timing for tamper-evident cost evidence).
+    pub signal_7_compute_ns: u64,
+    /// **M26.2 P11.b signal #8**: cumulative federation-egress wire bytes
+    /// (length prefix + body) since the previous `cycle_advanced`. Drained
+    /// from `FederationState::bytes_egressed_since_last_drain` at snapshot time.
+    pub signal_8_network_bytes: u64,
+    /// **M26.2 P11.b signal #9**: bytes added to `dag.cb` + `snapshot.cb`
+    /// on disk since the previous `cycle_advanced`. Computed as
+    /// (current_file_sizes - last_recorded_file_sizes) at snapshot time.
+    /// Non-negative (file size is monotone within a cycle's perspective).
+    pub signal_9_storage_bytes: u64,
 }
 
 /// L1-tunable seed cap for the in-memory observatory history. The substrate
@@ -115,6 +138,21 @@ impl ObservatorySnapshot {
         m.insert(
             "signal_6_ratio_repr".to_string(),
             Value::String(self.signal_6_ratio_repr.clone()),
+        );
+        // M26.2 P11.b cost signals. Always emitted from M26.2 onward (default
+        // 0 means "no cost recorded for this cycle"). Pre-M26.2 readers
+        // tolerate these as unknown via the backward-compat parsing below.
+        m.insert(
+            "signal_7_compute_ns".to_string(),
+            Value::Uint(self.signal_7_compute_ns),
+        );
+        m.insert(
+            "signal_8_network_bytes".to_string(),
+            Value::Uint(self.signal_8_network_bytes),
+        );
+        m.insert(
+            "signal_9_storage_bytes".to_string(),
+            Value::Uint(self.signal_9_storage_bytes),
         );
         Value::Map(m)
     }
@@ -160,6 +198,20 @@ impl ObservatorySnapshot {
             // tolerate absent for forward-compat
             _ => String::new(),
         };
+        // M26.2 cost signals — tolerate absent for backward-compat with
+        // pre-M26.2 snapshot.cb files (default to 0 = "no cost recorded").
+        let signal_7_compute_ns = match m.get("signal_7_compute_ns") {
+            Some(Value::Uint(n)) => *n,
+            _ => 0,
+        };
+        let signal_8_network_bytes = match m.get("signal_8_network_bytes") {
+            Some(Value::Uint(n)) => *n,
+            _ => 0,
+        };
+        let signal_9_storage_bytes = match m.get("signal_9_storage_bytes") {
+            Some(Value::Uint(n)) => *n,
+            _ => 0,
+        };
         Ok(ObservatorySnapshot {
             at_cycle,
             at_unix_ns,
@@ -169,6 +221,9 @@ impl ObservatorySnapshot {
             signal_3_distinct_perturbed_axes_count,
             signal_4b_reachable_peer_count,
             signal_6_ratio_repr,
+            signal_7_compute_ns,
+            signal_8_network_bytes,
+            signal_9_storage_bytes,
         })
     }
 }
@@ -1208,6 +1263,11 @@ mod tests {
             signal_3_distinct_perturbed_axes_count: (at_cycle % 5).saturating_add(1),
             signal_4b_reachable_peer_count: at_cycle % 4,
             signal_6_ratio_repr: format!("{}.{:0>2}", at_cycle / 10, at_cycle % 10),
+            // M26.2 P11.b cost signals: vary the values cycle-over-cycle so
+            // roundtrip tests exercise distinct nonzero u64 paths.
+            signal_7_compute_ns: 1_000_000 + at_cycle * 13_579,
+            signal_8_network_bytes: at_cycle * 256,
+            signal_9_storage_bytes: 1_024 + at_cycle * 137,
         }
     }
 

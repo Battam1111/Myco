@@ -120,6 +120,17 @@ pub struct FederationState {
     /// either party"; Phase γ.2 audit finding "M25.4 mutual auth = 0 because
     /// attacker omits signature".
     pub accept_legacy_peers: bool,
+
+    /// **M26.2 P11.b signal #8 (network/cycle)**: cumulative wire bytes
+    /// egressed via federation since the last drain. Each successful
+    /// `write_fed_frame` increments this by `4 (length prefix) + frame_body`.
+    /// Drained at every `cycle_advanced` boundary by the observatory layer
+    /// (see `CostAccumulator::drain_from_federation_state`); the per-cycle
+    /// delta becomes `signal_8_network_per_cycle`.
+    ///
+    /// Saturating-add semantics; overflow at u64::MAX is benign (substrate
+    /// would have already exhausted budget/storage long before).
+    pub(crate) bytes_egressed_since_last_drain: u64,
 }
 
 /// Wrapper around a `TcpListener` carrying its bind address + open timestamp
@@ -158,6 +169,13 @@ impl FederationState {
             accept_legacy_peers: accept_legacy,
             ..Default::default()
         }
+    }
+
+    /// **M26.2 P11.b**: read and zero the per-cycle network-egress counter.
+    /// Called at each `cycle_advanced` by the observatory layer to produce
+    /// `signal_8_network_per_cycle`.
+    pub fn drain_bytes_egressed(&mut self) -> u64 {
+        std::mem::take(&mut self.bytes_egressed_since_last_drain)
     }
 
     /// Open a federation TCP listener on `addr`.
@@ -244,8 +262,12 @@ impl FederationState {
         );
         let hello_msg = Message::new(protocol::fed_msg_type::FED_HELLO, 1, hello_payload);
         let bootstrap = protocol::federation_bootstrap_key();
-        transport::write_fed_frame(&mut stream, &hello_msg, &bootstrap)
+        // M26.2 signal_8: track network bytes on successful egress.
+        let hello_bytes = transport::write_fed_frame(&mut stream, &hello_msg, &bootstrap)
             .map_err(|e| SubstrateError::Protocol(format!("federation hello write: {e}")))?;
+        self.bytes_egressed_since_last_drain = self
+            .bytes_egressed_since_last_drain
+            .saturating_add(hello_bytes as u64);
 
         // Await FED_HELLO_ACK.
         let ack_msg = match transport::read_fed_frame(&mut stream, &bootstrap)
@@ -582,7 +604,11 @@ impl FederationState {
                 ack_payload,
             );
             match transport::write_fed_frame(&mut peer.stream, &ack_msg, &bootstrap) {
-                Ok(()) => {
+                Ok(ack_bytes) => {
+                    // M26.2 signal_8: track network egress.
+                    self.bytes_egressed_since_last_drain = self
+                        .bytes_egressed_since_last_drain
+                        .saturating_add(ack_bytes as u64);
                     peer.state = transport::PeerConnectionState::Established;
                     peer.peer_substrate_id = Some(parsed.peer_substrate_id);
                     // M25.4: only pin signer_pubkey on verified signatures.
@@ -664,8 +690,12 @@ impl FederationState {
             1,
             req_payload,
         );
-        transport::write_fed_frame(&mut peer.stream, &req_msg, &session_key)
+        // M26.2 signal_8: track network egress for pull-request frame.
+        let req_bytes = transport::write_fed_frame(&mut peer.stream, &req_msg, &session_key)
             .map_err(|e| SubstrateError::Protocol(format!("pull req write: {e}")))?;
+        self.bytes_egressed_since_last_drain = self
+            .bytes_egressed_since_last_drain
+            .saturating_add(req_bytes as u64);
 
         let resp_msg = match transport::read_fed_frame(&mut peer.stream, &session_key)
             .map_err(|e| SubstrateError::Protocol(format!("pull resp read: {e}")))?
@@ -773,7 +803,11 @@ impl FederationState {
                     resp_payload,
                 );
                 match transport::write_fed_frame(&mut peer.stream, &resp_msg, &session_key) {
-                    Ok(()) => {
+                    Ok(resp_bytes) => {
+                        // M26.2 signal_8: track network egress.
+                        self.bytes_egressed_since_last_drain = self
+                            .bytes_egressed_since_last_drain
+                            .saturating_add(resp_bytes as u64);
                         self.events_sent_total =
                             self.events_sent_total.saturating_add(to_send.len() as u64);
                         events.push(PollPeerEvent::EventsSent {
@@ -840,11 +874,19 @@ fn enumerate_events_for_federation(
 }
 
 /// Helper: send a FED_ERROR envelope on a peer's stream (best-effort; ignored).
+///
+/// **M26.2 note**: error-path egress is NOT tracked in signal_8 because this
+/// free function lacks `&mut FederationState`. Error frames are rare, small
+/// (~50-100 bytes), and untracked egress is the conservative bias — better to
+/// undercount cost than to overcount. If error-path traffic ever dominates,
+/// promote this to a method on `FederationState`.
 fn send_fed_error(stream: &mut std::net::TcpStream, code: &str, message: &str) -> Result<(), ()> {
     let payload = protocol::build_fed_error_payload(code, message);
     let msg = Message::new(protocol::fed_msg_type::FED_ERROR, 0, payload);
     let bootstrap = protocol::federation_bootstrap_key();
-    transport::write_fed_frame(stream, &msg, &bootstrap).map_err(|_| ())
+    transport::write_fed_frame(stream, &msg, &bootstrap)
+        .map(|_| ())
+        .map_err(|_| ())
 }
 
 /// M25.4: helper — derive (pubkey, signature) pair for our outbound FED_HELLO

@@ -1093,18 +1093,53 @@ export interface ObservatorySignal6 {
   ratio: number;
 }
 
-/** Signal #7 — composite health score. Present from format_version >= 2. */
+/** **Signal #7 — compute per cycle (M26.2 P11.b)**. format_version >= 4.
+ *  Wall-clock nanoseconds elapsed in the most recent metabolic cycle. */
 export interface ObservatorySignal7 {
+  /** Most recent cycle's compute_ns. 0n if no cycle has advanced yet. */
+  currentCycleNs: bigint;
+  /** Rolling arithmetic mean of compute_ns across the observatory history. */
+  rollingMeanNs: number;
+}
+
+/** **Signal #8 — network per cycle (M26.2 P11.b)**. format_version >= 4.
+ *  Federation egress wire bytes (4-byte length prefix + body) in the most
+ *  recent metabolic cycle. */
+export interface ObservatorySignal8 {
+  /** Most recent cycle's egress bytes. */
+  currentCycleBytes: bigint;
+  /** Rolling arithmetic mean of network bytes across the history window. */
+  rollingMeanBytes: number;
+}
+
+/** **Signal #9 — storage per cycle (M26.2 P11.b)**. format_version >= 4.
+ *  Byte delta of `dag.cb` + `snapshot.cb` on disk in the most recent cycle. */
+export interface ObservatorySignal9 {
+  /** Most recent cycle's storage byte delta. */
+  currentCycleBytes: bigint;
+  /** Rolling arithmetic mean of storage delta across the history window. */
+  rollingMeanBytes: number;
+}
+
+/** **Signal #10 — composite health score (M26.2)**. Renamed from
+ *  `ObservatorySignal7` in earlier schemas. Composite blends signals
+ *  1, 2, 4b, 7, 8, 9; production signals contribute positively, cost
+ *  signals contribute negatively. Higher = healthier. */
+export interface ObservatorySignal10 {
   compositeHealthScore: number;
   compositeFormatVersion: bigint;
-  /** Per-signal weights map (format_version >= 3); undefined otherwise. */
+  /** Per-signal weights (format_version >= 4 includes signals 7/8/9). */
   weights?: Map<string, number>;
-  /** Method tag for the weight derivation (format_version >= 3). */
+  /** Method tag for the weight derivation (e.g. "emergent_variance"). */
   weightsMethod?: string;
 }
 
-/** Signal #8 — doctrine-instability burst (format_version >= 3). */
-export interface ObservatorySignal8 {
+/** Doctrine-instability burst status. NOT one of the 10 Living Bet signals
+ *  — this is a C37 detector output. Pre-M26.2 schemas emitted this under the
+ *  `signal_8_doctrine_revision_burst` key (a naming collision with the actual
+ *  signal #8 introduced in M26.2). format_version >= 4 emits under
+ *  `doctrine_revision_burst_status`. */
+export interface ObservatoryDoctrineRevisionBurstStatus {
   /** Raw substrate-private structure; surface untouched for forward-compat. */
   raw: Map<string, Value>;
 }
@@ -1115,10 +1150,12 @@ export interface ObservatoryBetWeakeningQuorum {
   raw: Map<string, Value>;
 }
 
-/** Parsed `query_substrate_observatory_response`. Supports format_versions 1,
- *  2, and 3 — fields not yet emitted by the running substrate are undefined.
- *  M25.x lands signals 5/8 + bet-quorum at format_version=3.
- */
+/** Parsed `query_substrate_observatory_response`. Supports format_versions
+ *  1 through 4. **M26.2 (v4)** added signals 7/8/9 (cost), renamed the
+ *  composite to signal_10, and decoupled doctrine_revision_burst_status
+ *  from numbered Living Bet signals. Pre-v4 producers that still emit the
+ *  old `signal_7_composite_health` key are parsed into `signal10` for
+ *  forward compatibility. */
 export interface ObservatorySnapshot {
   formatVersion: bigint;
   capturedAtUnixNs: bigint;
@@ -1128,8 +1165,19 @@ export interface ObservatorySnapshot {
   signal4?: ObservatorySignal4;
   signal5?: ObservatorySignal5;
   signal6?: ObservatorySignal6;
+  /** Signal #7 cost (M26.2+); pre-M26.2 producers emit no signal_7
+   *  `compute_per_cycle` key — this stays undefined. */
   signal7?: ObservatorySignal7;
+  /** Signal #8 cost (M26.2+). */
   signal8?: ObservatorySignal8;
+  /** Signal #9 cost (M26.2+). */
+  signal9?: ObservatorySignal9;
+  /** Composite #10 (M26.2+). Backward-compat: pre-v4 producers' old
+   *  `signal_7_composite_health` key is also surfaced here. */
+  signal10?: ObservatorySignal10;
+  /** C37 detector status. Pre-v4 key `signal_8_doctrine_revision_burst`
+   *  is also accepted (backward compat). */
+  doctrineRevisionBurstStatus?: ObservatoryDoctrineRevisionBurstStatus;
   betWeakeningQuorum?: ObservatoryBetWeakeningQuorum;
 }
 
@@ -1260,44 +1308,103 @@ export function parseQuerySubstrateObservatoryResponse(
     }
   }
 
-  // Signal #7 (composite health score).
-  const s7 = response.payload.get("signal_7_composite_health");
-  if (s7 && s7.type === "map") {
-    const m = s7.value;
+  // -----------------------------------------------------------------------
+  // **M26.2 P11.b** signals #7/#8/#9 (cost per cycle). format_version >= 4.
+  // Each cost signal carries {current_cycle_*, rolling_mean_*_repr}.
+  // -----------------------------------------------------------------------
+  const s7Cost = response.payload.get("signal_7_compute_per_cycle");
+  if (s7Cost && s7Cost.type === "map") {
+    const m = s7Cost.value;
+    const cur = m.get("current_cycle_ns");
+    const meanRepr = m.get("rolling_mean_ns_repr");
+    if (
+      cur && cur.type === "uint" &&
+      meanRepr && meanRepr.type === "string"
+    ) {
+      snap.signal7 = {
+        currentCycleNs: cur.value,
+        rollingMeanNs: parseFloat(meanRepr.value),
+      };
+    }
+  }
+
+  const s8Cost = response.payload.get("signal_8_network_per_cycle");
+  if (s8Cost && s8Cost.type === "map") {
+    const m = s8Cost.value;
+    const cur = m.get("current_cycle_bytes");
+    const meanRepr = m.get("rolling_mean_bytes_repr");
+    if (
+      cur && cur.type === "uint" &&
+      meanRepr && meanRepr.type === "string"
+    ) {
+      snap.signal8 = {
+        currentCycleBytes: cur.value,
+        rollingMeanBytes: parseFloat(meanRepr.value),
+      };
+    }
+  }
+
+  const s9Cost = response.payload.get("signal_9_storage_per_cycle");
+  if (s9Cost && s9Cost.type === "map") {
+    const m = s9Cost.value;
+    const cur = m.get("current_cycle_bytes");
+    const meanRepr = m.get("rolling_mean_bytes_repr");
+    if (
+      cur && cur.type === "uint" &&
+      meanRepr && meanRepr.type === "string"
+    ) {
+      snap.signal9 = {
+        currentCycleBytes: cur.value,
+        rollingMeanBytes: parseFloat(meanRepr.value),
+      };
+    }
+  }
+
+  // -----------------------------------------------------------------------
+  // Signal #10 — composite health. M26.2 RENAMED from `signal_7_composite_health`.
+  // Backward compat: pre-v4 producers still emit under the old key, so we
+  // accept either and surface as `snap.signal10`.
+  // -----------------------------------------------------------------------
+  const s10 =
+    response.payload.get("signal_10_composite_health") ??
+    response.payload.get("signal_7_composite_health");
+  if (s10 && s10.type === "map") {
+    const m = s10.value;
     const sr = m.get("composite_health_score_repr");
     const fv = m.get("composite_format_version");
     if (
       sr && sr.type === "string" &&
       fv && fv.type === "uint"
     ) {
-      const sig7: ObservatorySignal7 = {
+      const sig10: ObservatorySignal10 = {
         compositeHealthScore: parseFloat(sr.value),
         compositeFormatVersion: fv.value,
       };
-      // weights map (M25.3 emergent composite) — format_version >= 3.
       const wMap = m.get("weights");
       if (wMap && wMap.type === "map") {
         const weights = new Map<string, number>();
         for (const [k, v] of wMap.value) {
           if (v.type === "string") weights.set(k, parseFloat(v.value));
         }
-        if (weights.size > 0) sig7.weights = weights;
+        if (weights.size > 0) sig10.weights = weights;
       }
       const wm = m.get("weights_method");
-      if (wm && wm.type === "string") sig7.weightsMethod = wm.value;
-      snap.signal7 = sig7;
+      if (wm && wm.type === "string") sig10.weightsMethod = wm.value;
+      snap.signal10 = sig10;
     }
   }
 
-  // Signal #8 (doctrine-instability burst) — substrate-private; preserved raw.
-  // M26.1 C1 fix: key is `signal_8_doctrine_revision_burst` to match
-  // L2_OBSERVABILITY §8 doctrine + Rust emission in
-  // myco_substrate::observatory. Prior code (`signal_8_doctrine_burst`)
-  // silently produced an undefined `signal8` field because the substrate
-  // emits the longer name.
-  const s8 = response.payload.get("signal_8_doctrine_revision_burst");
-  if (s8 && s8.type === "map") {
-    snap.signal8 = { raw: s8.value };
+  // -----------------------------------------------------------------------
+  // Doctrine-revision burst status. M26.2 RENAMED key from
+  // `signal_8_doctrine_revision_burst` to `doctrine_revision_burst_status`
+  // (the old key collided with M26.2 actual signal #8). Backward-compat:
+  // also accept the old key for pre-v4 producers.
+  // -----------------------------------------------------------------------
+  const burst =
+    response.payload.get("doctrine_revision_burst_status") ??
+    response.payload.get("signal_8_doctrine_revision_burst");
+  if (burst && burst.type === "map") {
+    snap.doctrineRevisionBurstStatus = { raw: burst.value };
   }
 
   // bet_weakening_quorum (M25.2) — composite L0 §7 falsifiability counter.
