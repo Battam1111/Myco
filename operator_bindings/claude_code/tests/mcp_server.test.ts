@@ -3,13 +3,14 @@
 // Uses the internal _testDispatch entry point (bypasses the stdio JSON-RPC
 // transport) so we can drive the tool surface in-process.
 
-import { describe, it } from "node:test";
+import { after, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { resolve as resolvePath } from "node:path";
 import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 
 import { McpServer } from "../src/mcp_server.ts";
+import { killAllSpawnedHosts } from "../src/anchor_surface_client.ts";
 
 function locateSubstrateBinary(): string {
   const fromEnv = process.env.MYCO_SUBSTRATE_BIN;
@@ -26,6 +27,51 @@ function locateSubstrateBinary(): string {
 }
 
 const SUBSTRATE_BIN = locateSubstrateBinary();
+
+function locateAnchorSurfaceBinary(): string {
+  const fromEnv = process.env.MYCO_ANCHOR_SURFACE_BIN;
+  if (fromEnv && existsSync(fromEnv)) return fromEnv;
+  const root = resolvePath(import.meta.dirname ?? __dirname, "..", "..", "..");
+  const exe = process.platform === "win32" ? ".exe" : "";
+  const candidate = resolvePath(root, "target", "debug", `anchor-surface-host${exe}`);
+  if (!existsSync(candidate)) {
+    throw new Error(
+      `anchor-surface-host binary not found at ${candidate}; build with: cargo build -p anchor-surface-host`,
+    );
+  }
+  return candidate;
+}
+
+const ANCHOR_SURFACE_BIN = locateAnchorSurfaceBinary();
+
+// M-anchor-1: SubstrateClient.spawn (called internally by McpServer.dispose's
+// underlying SubstrateClient lifecycle) falls back to OperatorIdentity.loadOrCreate()
+// when no explicit identity is provided. loadOrCreate now requires an anchor-surface-host
+// binary path. Set the env var so the fallback chain finds the binary built in
+// target/debug/. Also point at an isolated default dir so the tests don't pollute
+// (or read from) the user's ~/.myco/anchor_surface/. All hosts spawned by
+// anchor_surface_client.ts are tracked module-level and killed in exit handlers.
+const SHARED_ANCHOR_DIR_FOR_TESTS = mkdtempSync(
+  resolvePath(tmpdir(), "myco-mcp-test-anchor-"),
+);
+process.env.MYCO_ANCHOR_SURFACE_BIN = ANCHOR_SURFACE_BIN;
+process.env.MYCO_ANCHOR_SURFACE_DIR = SHARED_ANCHOR_DIR_FOR_TESTS;
+process.once("exit", () => {
+  try {
+    rmSync(SHARED_ANCHOR_DIR_FOR_TESTS, { recursive: true, force: true });
+  } catch {
+    // Ignore.
+  }
+});
+
+// File-level teardown: McpServer creates SubstrateClient instances which
+// auto-load OperatorIdentity (now closed by SubstrateClient.shutdown). This
+// hook is a belt-and-suspenders cleanup for any anchor-surface-host children
+// not killed by the normal path — without it, leftover hosts hold stdio
+// pipes that keep the Node event loop alive and the test process hangs.
+after(async () => {
+  await killAllSpawnedHosts();
+});
 
 function freshStateDir(): string {
   return mkdtempSync(resolvePath(tmpdir(), "myco-mcp-test-"));

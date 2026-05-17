@@ -1,58 +1,64 @@
-// Operator identity — long-lived Ed25519 keypair persisted across sessions (L4 M9).
+// Operator identity — thin client over anchor_surface_host (M-anchor-1).
 //
-// ## Role
+// ## Role evolution
 //
-// The substrate's M5-M8 trust model was amnesiac: every MCP session generated
-// a fresh `session_secret` and the substrate trusted whoever held the
-// BOOTSTRAP_KEY. M9 introduces a persistent operator IDENTITY:
+// - M9 introduced a persistent Ed25519 identity for the operator, stored in
+//   `~/.myco/operator_keys/identity.key`. The private seed lived in the
+//   operator process memory.
+// - **M-anchor-1** (this version) moves the owner Ed25519 key into a
+//   SEPARATE process — the anchor_surface_host binary. The operator process
+//   talks to that host over local TCP via `AnchorSurfaceClient`. The seed
+//   bytes NEVER appear in the operator's memory after M-anchor-1.
 //
-// - Each operator (each LLM-host installation) owns ONE long-lived Ed25519
-//   keypair stored under `~/.myco/operator_keys/identity.key`.
-// - On every `hello` to a substrate, the operator includes its public key
-//   and a signature over the hello body.
-// - The substrate pins the public key on first sight (TOFU — trust on
-//   first use). Subsequent `hello` messages must present the same key OR
-//   the substrate rejects them.
+// ## Why this is the right M-anchor-1
 //
-// ## Why this is the right M9
-//
-// M7 made substrate identity persistent. M8 made substrate memory
-// persistent. M9 makes the **operator-substrate trust relationship**
-// persistent. This is the foundation for M10+ classified-mutation flow
-// (where the operator's signature on a classified mutation must trace back
-// to a known identity, not a random session_secret).
+// Phase γ.5 fungal-critic audit found "operator-IS-anchor honor-system
+// collapse" as DRAFT 9 SEALED's most critical surviving finding. Pre-
+// M-anchor-1, any agent that could read the operator's memory (or its
+// `~/.myco/operator_keys/identity.key` file) could forge owner signatures.
+// M-anchor-1 closes that gap by ensuring the operator process is a
+// signature CONSUMER — it can sign but cannot exfiltrate the key.
 //
 // ## Doctrine
 //
-// - L1_SKIN §4.1 — per-handshake operator signing key (this is the IDENTITY
-//   layer; the per-handshake REVEAL key for classified mutations is M10+).
+// - L1_SKIN §4.1 — per-handshake operator signing key. The IDENTITY layer
+//   now lives in anchor_surface_host, not the operator process.
 // - L1_HARD_RULES C2 — handshake_pubkey_mismatch: rejection on pinned-key
-//   divergence is the cross-process realization of this detector.
-// - L1_GOVERNANCE §2.1 — owner's private key never enters substrate memory;
-//   operator's private key never enters substrate memory either (this
-//   module only ships the key over a sealed-derive interface to the
-//   anchor surface; substrate sees only signatures + pubkey).
+//   divergence is the cross-process realization of this detector. The
+//   pubkey itself still flows through the operator process; only the
+//   private seed is hidden.
+// - L1_GOVERNANCE §2.1 — owner's private key never enters substrate memory
+//   nor operator memory after M-anchor-1.
+//
+// ## API change (breaking)
+//
+// `sign(message)` is now `async sign(message): Promise<Uint8Array>`. All
+// callers must `await` it. The async form is required because every signing
+// operation now performs a TCP round-trip to the anchor_surface_host.
+//
+// ## Migration from pre-M-anchor-1 operators
+//
+// Existing operators with a `~/.myco/operator_keys/identity.key` file have
+// NOT been auto-migrated. Auto-migration is risky (silent re-binding of
+// trust to a different process) and is deferred to an explicit one-shot
+// tool. New deployments use `anchor_surface_host` from day one; legacy
+// deployments must run the migration tool before upgrading.
 
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  writeFileSync,
-} from "node:fs";
-import { dirname, resolve as resolvePath } from "node:path";
+import { resolve as resolvePath } from "node:path";
 import { homedir } from "node:os";
-import { randomBytes } from "node:crypto";
 
 import {
-  Ed25519PrivateKey,
-  Ed25519PublicKey,
-  Ed25519Signature,
-} from "@myco/anchor-client/src/crypto.ts";
+  AnchorSurfaceClient,
+  type ConnectOrSpawnOptions,
+} from "./anchor_surface_client.ts";
 
-/** Filename for the operator identity seed (32-byte raw Ed25519 seed). */
+/** Legacy filename for the pre-M-anchor-1 operator identity seed. Kept as
+ *  a constant so legacy paths can still be referenced in migration tooling. */
 export const OPERATOR_IDENTITY_FILENAME = "identity.key";
 
-/** Default directory for operator keys. */
+/** Default directory for the legacy operator-key storage location (kept for
+ *  migration tooling). Production identity now lives in
+ *  `anchor_surface_host`'s state directory. */
 export function defaultOperatorKeyDir(): string {
   const override = process.env.MYCO_OPERATOR_KEY_DIR;
   if (override) return override;
@@ -67,59 +73,93 @@ export class OperatorIdentityError extends Error {
   }
 }
 
+/** Connection options for `OperatorIdentity.connectOrSpawn`. */
+export type OperatorIdentityOptions = ConnectOrSpawnOptions;
+
 /**
- * OperatorIdentity — the operator's long-lived Ed25519 identity.
+ * OperatorIdentity — thin client over `anchor_surface_host`.
  *
- * Held in memory only inside this class (the seed is never exposed via
- * accessors). On disk: `<keyDir>/identity.key` is the raw 32-byte seed.
+ * The owner's Ed25519 private seed lives in the SEPARATE anchor_surface_host
+ * process. This class issues sign/get_pubkey calls over the host's local
+ * TCP socket. The operator process never holds an `Ed25519PrivateKey`.
+ *
+ * **Construction**: use `OperatorIdentity.connectOrSpawn(options)`. The
+ * factory connects to an existing host if one is running (via the
+ * `~/.myco/anchor_surface/port.txt` discovery file) OR spawns a new host
+ * using `options.hostBinary`.
  */
 export class OperatorIdentity {
-  private readonly privateKey: Ed25519PrivateKey;
-  readonly publicKey: Ed25519PublicKey;
+  /** The pubkey is fetched eagerly at construction time so existing
+   *  synchronous-pubkey call sites keep working. Private seed is NOT here. */
+  readonly publicKey: { readonly bytes: Uint8Array };
+  private readonly client: AnchorSurfaceClient;
 
-  private constructor(privateKey: Ed25519PrivateKey) {
-    this.privateKey = privateKey;
-    this.publicKey = privateKey.publicKey();
+  private constructor(client: AnchorSurfaceClient, pubkey: Uint8Array) {
+    this.client = client;
+    this.publicKey = { bytes: pubkey };
   }
 
   /**
-   * Load the operator identity from `<keyDir>/identity.key`, or generate
-   * and persist a fresh one if no file exists.
-   *
-   * The file mode is set to 0600 on Unix-like systems (read+write owner only).
+   * Connect to a running anchor_surface_host OR spawn one if `hostBinary`
+   * is provided. Eagerly fetches the owner pubkey so synchronous-access
+   * call sites (`identity.publicKey.bytes`) keep working.
    */
-  static loadOrCreate(keyDir?: string): OperatorIdentity {
-    const dir = keyDir ?? defaultOperatorKeyDir();
-    const path = resolvePath(dir, OPERATOR_IDENTITY_FILENAME);
-    if (existsSync(path)) {
-      const seed = readFileSync(path);
-      if (seed.length !== 32) {
-        throw new OperatorIdentityError(
-          `seed file ${path} has ${seed.length} bytes; expected 32`,
-        );
-      }
-      return new OperatorIdentity(Ed25519PrivateKey.fromSeed(new Uint8Array(seed)));
+  static async connectOrSpawn(
+    options: OperatorIdentityOptions = {},
+  ): Promise<OperatorIdentity> {
+    const client = await AnchorSurfaceClient.connectOrSpawn(options);
+    try {
+      const pubkey = await client.getPubkey();
+      return new OperatorIdentity(client, pubkey);
+    } catch (e) {
+      await client.close().catch(() => undefined);
+      throw e;
     }
-    // Generate fresh.
-    const seed = randomBytes(32);
-    mkdirSync(dirname(path), { recursive: true });
-    writeFileSync(path, seed, { mode: 0o600 });
-    return new OperatorIdentity(Ed25519PrivateKey.fromSeed(new Uint8Array(seed)));
   }
 
-  /** Construct from an explicit seed (testing convenience). */
-  static fromSeed(seed: Uint8Array): OperatorIdentity {
-    return new OperatorIdentity(Ed25519PrivateKey.fromSeed(seed));
+  /**
+   * Static-style ergonomic alias preserved for backward-compat in call
+   * sites that previously used `OperatorIdentity.loadOrCreate(keyDir?)`.
+   *
+   * **Behavior change**: the `keyDir` parameter is now interpreted as the
+   * anchor_surface_host directory (not the legacy operator_keys directory).
+   * Existing tests that pass a fresh tmpdir will get an isolated host
+   * spawned (provided `MYCO_ANCHOR_SURFACE_BIN` is set in the environment
+   * or `options.hostBinary` is supplied).
+   *
+   * Most call sites should switch to `connectOrSpawn` for clarity.
+   */
+  static async loadOrCreate(
+    keyDir?: string,
+    options: Omit<OperatorIdentityOptions, "dir"> = {},
+  ): Promise<OperatorIdentity> {
+    const hostBinary =
+      options.hostBinary ??
+      process.env.MYCO_ANCHOR_SURFACE_BIN ??
+      undefined;
+    return OperatorIdentity.connectOrSpawn({
+      dir: keyDir,
+      hostBinary,
+      ...options,
+    });
   }
 
-  /** Public key bytes (32 bytes). */
+  /** Public key bytes (32 bytes; copy). */
   publicKeyBytes(): Uint8Array {
-    return this.publicKey.bytes;
+    return new Uint8Array(this.publicKey.bytes);
   }
 
-  /** Sign a message. Returns 64-byte Ed25519 signature. */
-  sign(message: Uint8Array): Uint8Array {
-    const sig: Ed25519Signature = this.privateKey.sign(message);
-    return sig.bytes;
+  /**
+   * Sign a message. Now async — every sign performs a TCP round-trip to
+   * the anchor_surface_host. Returns the 64-byte Ed25519 signature.
+   */
+  async sign(message: Uint8Array): Promise<Uint8Array> {
+    return this.client.sign(message);
+  }
+
+  /** Tear down the connection to the host (and kill the spawned host if
+   *  this client spawned its own). Required for clean test teardown. */
+  async close(): Promise<void> {
+    await this.client.close();
   }
 }

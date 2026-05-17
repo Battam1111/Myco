@@ -149,6 +149,10 @@ export class SubstrateClient {
   private fatalError: Error | null;
   /** Resolved hello_ack info. */
   helloAck: HelloAck;
+  /** Identity auto-loaded by spawn() (NOT a caller-provided one). When set,
+   *  shutdown() will close it; without this the anchor-surface-host child
+   *  it owns would leak (its stdio pipes keep the parent alive). */
+  private autoLoadedIdentity: OperatorIdentity | null;
 
   private constructor(child: ChildProcess, sessionSecret: Uint8Array) {
     this.child = child;
@@ -157,6 +161,7 @@ export class SubstrateClient {
     this.reader = new FrameReader();
     this.pendingResponses = new Map();
     this.fatalError = null;
+    this.autoLoadedIdentity = null;
     this.helloAck = {
       kernelTropismVersion: "",
       pythonVersion: "",
@@ -180,13 +185,23 @@ export class SubstrateClient {
       );
     }
 
-    // M9: load (or create) the operator identity for signing the hello message.
-    const identity = config.operatorIdentity ?? OperatorIdentity.loadOrCreate();
+    // M9/M-anchor-1: load (or create) the operator identity for signing
+    // the hello message. After M-anchor-1, this delegates to
+    // anchor_surface_host over local TCP — the owner Ed25519 private key
+    // never enters the operator process memory.
+    //
+    // If the caller passed an explicit identity, they OWN its lifecycle.
+    // If we auto-load one, WE own its lifecycle — shutdown() must close it
+    // so the anchor-surface-host child it spawned doesn't leak (its stdio
+    // pipes hold the parent process alive until the child exits).
+    const callerProvidedIdentity = config.operatorIdentity ?? null;
+    const identity =
+      callerProvidedIdentity ?? (await OperatorIdentity.loadOrCreate());
     const operatorPubkey = identity.publicKeyBytes();
 
     // Compute the hello signature over the canonical-bytes of {session_secret, operator_pubkey}.
     const signingInput = helloSigningBody(sessionSecret, operatorPubkey);
-    const helloSignature = identity.sign(signingInput);
+    const helloSignature = await identity.sign(signingInput);
 
     const child = spawn(binary, [], {
       stdio: ["pipe", "pipe", "inherit"],
@@ -194,6 +209,10 @@ export class SubstrateClient {
     });
 
     const client = new SubstrateClient(child, sessionSecret);
+    // Record ownership: if we auto-loaded the identity, we must close it.
+    if (!callerProvidedIdentity) {
+      client.autoLoadedIdentity = identity;
+    }
     client._wireStreams();
 
     // Send hello using BOOTSTRAP_KEY; await hello_ack signed with session_secret.
@@ -621,7 +640,7 @@ export class SubstrateClient {
       revealPubkey,
       args.substrateId,
     );
-    const identitySigOverReveal = args.operatorIdentity.sign(identitySigningInput);
+    const identitySigOverReveal = await args.operatorIdentity.sign(identitySigningInput);
 
     // 3. REVEAL signs the content (the "attestation" signature).
     const revealSig = ed25519.sign(args.contentCanonicalBytes, revealSeed);
@@ -905,7 +924,7 @@ export class SubstrateClient {
       substrateId,
       currentCycle,
     );
-    return operatorIdentity.sign(signingInput);
+    return await operatorIdentity.sign(signingInput);
   }
 
   /** M23.2 P7 必朽: Owner co-attestation acceptance of a previously-emitted
@@ -948,7 +967,7 @@ export class SubstrateClient {
       proposalHash,
       substrateId,
     );
-    return operatorIdentity.sign(signingInput);
+    return await operatorIdentity.sign(signingInput);
   }
 
   /** Phase α / M24.5: Read the Living Bets observatory snapshot.
@@ -974,11 +993,14 @@ export class SubstrateClient {
     return parseQuerySubstrateObservatoryResponse(response);
   }
 
-  /** Graceful shutdown — sends shutdown, awaits ack, waits for child exit. */
+  /** Graceful shutdown — sends shutdown, awaits ack, waits for child exit,
+   *  and closes any auto-loaded operator identity (which kills its spawned
+   *  anchor-surface-host child). */
   async shutdown(): Promise<void> {
     if (this.fatalError) {
       // Still try to clean up the child.
       this._killChild();
+      await this._closeAutoLoadedIdentity();
       return;
     }
     try {
@@ -995,6 +1017,18 @@ export class SubstrateClient {
       // Ignore — we'll kill the child anyway.
     }
     await this._waitChildExit();
+    await this._closeAutoLoadedIdentity();
+  }
+
+  private async _closeAutoLoadedIdentity(): Promise<void> {
+    const id = this.autoLoadedIdentity;
+    if (!id) return;
+    this.autoLoadedIdentity = null;
+    try {
+      await id.close();
+    } catch {
+      // Best-effort; anchor host may already be dead.
+    }
   }
 
   private _waitChildExit(): Promise<void> {

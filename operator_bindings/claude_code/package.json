@@ -13,7 +13,7 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "node --experimental-strip-types --no-warnings --test --test-reporter=spec tests/protocol.test.ts tests/framing.test.ts tests/canonical_bytes_parity.test.ts tests/substrate_client.test.ts tests/mcp_server.test.ts",
+    "test": "node --experimental-strip-types --no-warnings --test --test-reporter=spec tests/protocol.test.ts tests/framing.test.ts tests/canonical_bytes_parity.test.ts tests/operator_identity.test.ts tests/substrate_client.test.ts tests/mcp_server.test.ts",
     "test:all": "npm run typecheck && npm test",
     "start": "node --experimental-strip-types src/cli.ts"
   },

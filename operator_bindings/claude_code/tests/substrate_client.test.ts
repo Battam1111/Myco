@@ -3,13 +3,14 @@
 // THE M6 milestone proof: TypeScript ↔ Rust ↔ Python with all three
 // processes alive, exchanging canonical-bytes frames over stdio.
 
-import { describe, it } from "node:test";
+import { after, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { resolve as resolvePath } from "node:path";
 import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 
 import { SubstrateClient } from "../src/substrate_client.ts";
+import { killAllSpawnedHosts } from "../src/anchor_surface_client.ts";
 import type { FederationStatusResult } from "../src/protocol/messages.ts";
 
 function locateSubstrateBinary(): string {
@@ -26,6 +27,60 @@ function locateSubstrateBinary(): string {
 }
 
 const SUBSTRATE_BIN = locateSubstrateBinary();
+
+function locateAnchorSurfaceBinary(): string {
+  const fromEnv = process.env.MYCO_ANCHOR_SURFACE_BIN;
+  if (fromEnv && existsSync(fromEnv)) return fromEnv;
+  // M-anchor-1: target/debug/anchor-surface-host(.exe).
+  const root = resolvePath(import.meta.dirname ?? __dirname, "..", "..", "..");
+  const exe = process.platform === "win32" ? ".exe" : "";
+  const candidate = resolvePath(
+    root,
+    "target",
+    "debug",
+    `anchor-surface-host${exe}`,
+  );
+  if (existsSync(candidate)) return candidate;
+  throw new Error(
+    `anchor-surface-host binary not found. Build with: cargo build -p anchor-surface-host (looked at ${candidate})`,
+  );
+}
+
+const ANCHOR_SURFACE_BIN = locateAnchorSurfaceBinary();
+
+// M-anchor-1: SubstrateClient.spawn falls back to OperatorIdentity.loadOrCreate()
+// when no explicit `operatorIdentity` is passed. loadOrCreate now requires an
+// anchor-surface-host binary path. Set the env var so the fallback chain finds
+// the binary built in target/debug/. Also point at an isolated default dir so
+// the tests don't pollute (or read from) the user's ~/.myco/anchor_surface/.
+//
+// The first bare `spawn()` call in this suite will spawn one host in this
+// shared dir; subsequent bare spawns will connect to that same host via the
+// port.txt discovery file. Any host spawned through anchor_surface_client.ts
+// is tracked module-level and killed in process exit handlers.
+const SHARED_ANCHOR_DIR_FOR_TESTS = mkdtempSync(
+  resolvePath(tmpdir(), "myco-ts-e2e-anchor-"),
+);
+process.env.MYCO_ANCHOR_SURFACE_BIN = ANCHOR_SURFACE_BIN;
+process.env.MYCO_ANCHOR_SURFACE_DIR = SHARED_ANCHOR_DIR_FOR_TESTS;
+process.once("exit", () => {
+  try {
+    rmSync(SHARED_ANCHOR_DIR_FOR_TESTS, { recursive: true, force: true });
+  } catch {
+    // Ignore.
+  }
+});
+
+// File-level teardown: explicit-identity tests (which dominate this suite)
+// create an OperatorIdentity per test but never close it — the substrate
+// shutdown doesn't own the explicit identity. Without this hook, those
+// anchor-surface-host children stay alive, holding stdio pipes that keep
+// the Node event loop alive, and the test process hangs after all tests
+// pass instead of exiting cleanly. killAllSpawnedHosts() awaits actual
+// process exit so the test runner returns control to npm cleanly.
+after(async () => {
+  await killAllSpawnedHosts();
+});
 
 /** Allocate a fresh isolated state directory for one test. M7: prevents
  *  tests from leaking substrate state into each other or into the user's
@@ -201,7 +256,7 @@ describe("SubstrateClient e2e", () => {
     const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m14-op-"));
     try {
       const { OperatorIdentity } = await import("../src/operator_identity.ts");
-      const identity = OperatorIdentity.loadOrCreate(opDir);
+      const identity = await OperatorIdentity.loadOrCreate(opDir, { hostBinary: ANCHOR_SURFACE_BIN });
       const stateDir = freshStateDir();
       const client = await SubstrateClient.spawn({
         substrateBinary: SUBSTRATE_BIN,
@@ -238,8 +293,8 @@ describe("SubstrateClient e2e", () => {
     const wrongDir = mkdtempSync(resolvePath(tmpdir(), "myco-m14-wrong-"));
     try {
       const { OperatorIdentity } = await import("../src/operator_identity.ts");
-      const identity = OperatorIdentity.loadOrCreate(opDir);
-      const wrongIdentity = OperatorIdentity.loadOrCreate(wrongDir);
+      const identity = await OperatorIdentity.loadOrCreate(opDir, { hostBinary: ANCHOR_SURFACE_BIN });
+      const wrongIdentity = await OperatorIdentity.loadOrCreate(wrongDir, { hostBinary: ANCHOR_SURFACE_BIN });
       const stateDir = freshStateDir();
       const client = await SubstrateClient.spawn({
         substrateBinary: SUBSTRATE_BIN,
@@ -258,7 +313,7 @@ describe("SubstrateClient e2e", () => {
         const { revealKeyBindingSigningInput } = await import("../src/protocol/messages.ts");
         const substrateId = await client.querySubstrateId();
         const signingInput = revealKeyBindingSigningInput(revealPubkey, substrateId);
-        const forgedSig = wrongIdentity.sign(signingInput);
+        const forgedSig = await wrongIdentity.sign(signingInput);
 
         // Sign content with REVEAL.
         const content = new TextEncoder().encode("forged REVEAL attempt");
@@ -297,7 +352,7 @@ describe("SubstrateClient e2e", () => {
     const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m14-op-"));
     try {
       const { OperatorIdentity } = await import("../src/operator_identity.ts");
-      const identity = OperatorIdentity.loadOrCreate(opDir);
+      const identity = await OperatorIdentity.loadOrCreate(opDir, { hostBinary: ANCHOR_SURFACE_BIN });
       const stateDir = freshStateDir();
 
       // Session 1: request a nonce, use it once.
@@ -308,7 +363,7 @@ describe("SubstrateClient e2e", () => {
       });
       const content = new TextEncoder().encode("nonce persistence test");
       const nonceResult = await c1.requestAttestationNonce(content);
-      const sig = identity.sign(content);
+      const sig = await identity.sign(content);
       const r1 = await c1.submitMutation({
         mutationType: "schema_change",
         touchedMetaStructures: ["appetite_axis_schema"],
@@ -354,7 +409,7 @@ describe("SubstrateClient e2e", () => {
     const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m14-op-"));
     try {
       const { OperatorIdentity } = await import("../src/operator_identity.ts");
-      const identity = OperatorIdentity.loadOrCreate(opDir);
+      const identity = await OperatorIdentity.loadOrCreate(opDir, { hostBinary: ANCHOR_SURFACE_BIN });
       const stateDir = freshStateDir();
       const client = await SubstrateClient.spawn({
         substrateBinary: SUBSTRATE_BIN,
@@ -371,7 +426,7 @@ describe("SubstrateClient e2e", () => {
         // M24.2: signing input v2 binds substrate_id; fetch from genesis_event.
         const substrateId = await client.querySubstrateId();
         const signingInput = revealKeyBindingSigningInput(revealPubkey, substrateId);
-        const validIdentitySig = identity.sign(signingInput);
+        const validIdentitySig = await identity.sign(signingInput);
 
         const content = new TextEncoder().encode("malformed reveal sig");
         // Use a garbage REVEAL signature (won't verify against revealPubkey).
@@ -420,7 +475,7 @@ describe("SubstrateClient e2e", () => {
     const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m13-op-"));
     try {
       const { OperatorIdentity } = await import("../src/operator_identity.ts");
-      const identity = OperatorIdentity.loadOrCreate(opDir);
+      const identity = await OperatorIdentity.loadOrCreate(opDir, { hostBinary: ANCHOR_SURFACE_BIN });
       const stateDir = freshStateDir();
       const client = await SubstrateClient.spawn({
         substrateBinary: SUBSTRATE_BIN,
@@ -430,7 +485,7 @@ describe("SubstrateClient e2e", () => {
       try {
         const content = new TextEncoder().encode("CI with full envelope");
         const nonceResult = await client.requestAttestationNonce(content);
-        const sig = identity.sign(content);
+        const sig = await identity.sign(content);
         const result = await client.submitMutation({
           mutationType: "schema_change",
           touchedMetaStructures: ["appetite_axis_schema"],
@@ -457,7 +512,7 @@ describe("SubstrateClient e2e", () => {
     const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m13-op-"));
     try {
       const { OperatorIdentity } = await import("../src/operator_identity.ts");
-      const identity = OperatorIdentity.loadOrCreate(opDir);
+      const identity = await OperatorIdentity.loadOrCreate(opDir, { hostBinary: ANCHOR_SURFACE_BIN });
       const stateDir = freshStateDir();
       const client = await SubstrateClient.spawn({
         substrateBinary: SUBSTRATE_BIN,
@@ -467,7 +522,7 @@ describe("SubstrateClient e2e", () => {
       try {
         const content = new TextEncoder().encode("replay test");
         const nonceResult = await client.requestAttestationNonce(content);
-        const sig = identity.sign(content);
+        const sig = await identity.sign(content);
 
         // First submission: succeeds.
         const r1 = await client.submitMutation({
@@ -510,7 +565,7 @@ describe("SubstrateClient e2e", () => {
     const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m13-op-"));
     try {
       const { OperatorIdentity } = await import("../src/operator_identity.ts");
-      const identity = OperatorIdentity.loadOrCreate(opDir);
+      const identity = await OperatorIdentity.loadOrCreate(opDir, { hostBinary: ANCHOR_SURFACE_BIN });
       const stateDir = freshStateDir();
       const client = await SubstrateClient.spawn({
         substrateBinary: SUBSTRATE_BIN,
@@ -519,7 +574,7 @@ describe("SubstrateClient e2e", () => {
       });
       try {
         const content = new TextEncoder().encode("unknown nonce attempt");
-        const sig = identity.sign(content);
+        const sig = await identity.sign(content);
         // Make up a nonce that was never issued.
         const fakeNonce = new Uint8Array(32).fill(0xee);
         const result = await client.submitMutation({
@@ -543,7 +598,7 @@ describe("SubstrateClient e2e", () => {
     const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m13-op-"));
     try {
       const { OperatorIdentity } = await import("../src/operator_identity.ts");
-      const identity = OperatorIdentity.loadOrCreate(opDir);
+      const identity = await OperatorIdentity.loadOrCreate(opDir, { hostBinary: ANCHOR_SURFACE_BIN });
       const stateDir = freshStateDir();
       const client = await SubstrateClient.spawn({
         substrateBinary: SUBSTRATE_BIN,
@@ -555,7 +610,7 @@ describe("SubstrateClient e2e", () => {
         const contentB = new TextEncoder().encode("different content");
         // Request nonce bound to A.
         const nonceResult = await client.requestAttestationNonce(contentA);
-        const sig = identity.sign(contentB);
+        const sig = await identity.sign(contentB);
         // Try to submit with B (wrong binding).
         const result = await client.submitMutation({
           mutationType: "schema_change",
@@ -731,8 +786,8 @@ describe("SubstrateClient e2e", () => {
     const wrongDir = mkdtempSync(resolvePath(tmpdir(), "myco-m11-wrong-"));
     try {
       const { OperatorIdentity } = await import("../src/operator_identity.ts");
-      const identity = OperatorIdentity.loadOrCreate(opDir);
-      const wrongIdentity = OperatorIdentity.loadOrCreate(wrongDir);
+      const identity = await OperatorIdentity.loadOrCreate(opDir, { hostBinary: ANCHOR_SURFACE_BIN });
+      const wrongIdentity = await OperatorIdentity.loadOrCreate(wrongDir, { hostBinary: ANCHOR_SURFACE_BIN });
       const stateDir = freshStateDir();
       const client = await SubstrateClient.spawn({
         substrateBinary: SUBSTRATE_BIN,
@@ -741,7 +796,7 @@ describe("SubstrateClient e2e", () => {
       });
       try {
         const content = new TextEncoder().encode("forged attempt");
-        const wrongSig = wrongIdentity.sign(content);
+        const wrongSig = await wrongIdentity.sign(content);
         const result = await client.submitMutation({
           mutationType: "schema_change",
           touchedMetaStructures: ["appetite_axis_schema"],
@@ -770,8 +825,8 @@ describe("SubstrateClient e2e", () => {
     const opDirB = mkdtempSync(resolvePath(tmpdir(), "myco-m11-pin-b-"));
     try {
       const { OperatorIdentity } = await import("../src/operator_identity.ts");
-      const identityA = OperatorIdentity.loadOrCreate(opDirA);
-      const identityB = OperatorIdentity.loadOrCreate(opDirB);
+      const identityA = await OperatorIdentity.loadOrCreate(opDirA, { hostBinary: ANCHOR_SURFACE_BIN });
+      const identityB = await OperatorIdentity.loadOrCreate(opDirB, { hostBinary: ANCHOR_SURFACE_BIN });
 
       // Session 1: pin identity A.
       const c1 = await SubstrateClient.spawn({
@@ -927,7 +982,7 @@ describe("SubstrateClient e2e", () => {
     const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m10-op-"));
     try {
       const { OperatorIdentity } = await import("../src/operator_identity.ts");
-      const identity = OperatorIdentity.loadOrCreate(opDir);
+      const identity = await OperatorIdentity.loadOrCreate(opDir, { hostBinary: ANCHOR_SURFACE_BIN });
 
       const stateDir = freshStateDir();
       const client = await SubstrateClient.spawn({
@@ -937,7 +992,7 @@ describe("SubstrateClient e2e", () => {
       });
       try {
         const content = new TextEncoder().encode("CI mutation content");
-        const signature = identity.sign(content);
+        const signature = await identity.sign(content);
         const result = await client.submitMutation({
           mutationType: "axis_schema_change",
           touchedMetaStructures: ["appetite_axis_schema"],
@@ -964,8 +1019,8 @@ describe("SubstrateClient e2e", () => {
     const wrongDir = mkdtempSync(resolvePath(tmpdir(), "myco-m10-wrong-"));
     try {
       const { OperatorIdentity } = await import("../src/operator_identity.ts");
-      const identity = OperatorIdentity.loadOrCreate(opDir);
-      const wrongIdentity = OperatorIdentity.loadOrCreate(wrongDir);
+      const identity = await OperatorIdentity.loadOrCreate(opDir, { hostBinary: ANCHOR_SURFACE_BIN });
+      const wrongIdentity = await OperatorIdentity.loadOrCreate(wrongDir, { hostBinary: ANCHOR_SURFACE_BIN });
 
       const stateDir = freshStateDir();
       const client = await SubstrateClient.spawn({
@@ -976,7 +1031,7 @@ describe("SubstrateClient e2e", () => {
       try {
         const content = new TextEncoder().encode("forged attestation attempt");
         // Sign with the WRONG key (not the pinned/owner key).
-        const wrongSignature = wrongIdentity.sign(content);
+        const wrongSignature = await wrongIdentity.sign(content);
         const result = await client.submitMutation({
           mutationType: "axis_schema_change",
           touchedMetaStructures: ["appetite_axis_schema"],
@@ -1032,7 +1087,7 @@ describe("SubstrateClient e2e", () => {
     const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m9-op-"));
     try {
       const { OperatorIdentity } = await import("../src/operator_identity.ts");
-      const identity = OperatorIdentity.loadOrCreate(opDir);
+      const identity = await OperatorIdentity.loadOrCreate(opDir, { hostBinary: ANCHOR_SURFACE_BIN });
 
       const client = await SubstrateClient.spawn({
         substrateBinary: SUBSTRATE_BIN,
@@ -1062,7 +1117,7 @@ describe("SubstrateClient e2e", () => {
     const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m9-op-"));
     try {
       const { OperatorIdentity } = await import("../src/operator_identity.ts");
-      const identity = OperatorIdentity.loadOrCreate(opDir);
+      const identity = await OperatorIdentity.loadOrCreate(opDir, { hostBinary: ANCHOR_SURFACE_BIN });
 
       // Session 1: pin.
       const c1 = await SubstrateClient.spawn({
@@ -1092,8 +1147,8 @@ describe("SubstrateClient e2e", () => {
     const opDirB = mkdtempSync(resolvePath(tmpdir(), "myco-m9-op-b-"));
     try {
       const { OperatorIdentity } = await import("../src/operator_identity.ts");
-      const identityA = OperatorIdentity.loadOrCreate(opDirA);
-      const identityB = OperatorIdentity.loadOrCreate(opDirB);
+      const identityA = await OperatorIdentity.loadOrCreate(opDirA, { hostBinary: ANCHOR_SURFACE_BIN });
+      const identityB = await OperatorIdentity.loadOrCreate(opDirB, { hostBinary: ANCHOR_SURFACE_BIN });
       assert.notDeepEqual(
         identityA.publicKeyBytes(),
         identityB.publicKeyBytes(),
@@ -1473,7 +1528,7 @@ describe("SubstrateClient e2e", () => {
     const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m15-op-"));
     try {
       const { OperatorIdentity } = await import("../src/operator_identity.ts");
-      const identity = OperatorIdentity.loadOrCreate(opDir);
+      const identity = await OperatorIdentity.loadOrCreate(opDir, { hostBinary: ANCHOR_SURFACE_BIN });
       const stateDir = freshStateDir();
       const client = await SubstrateClient.spawn({
         substrateBinary: SUBSTRATE_BIN,
@@ -1491,7 +1546,7 @@ describe("SubstrateClient e2e", () => {
           nonceResult.anchorClockExpiryUnixNs !== null,
           "anchor_clock_expiry should be present when nonce request includes anchor_clock",
         );
-        const sig = identity.sign(content);
+        const sig = await identity.sign(content);
         // Submit with anchor_clock close to request time (in-window).
         const result = await client.submitMutation({
           mutationType: "schema_change",
@@ -1519,7 +1574,7 @@ describe("SubstrateClient e2e", () => {
     const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m15-op-"));
     try {
       const { OperatorIdentity } = await import("../src/operator_identity.ts");
-      const identity = OperatorIdentity.loadOrCreate(opDir);
+      const identity = await OperatorIdentity.loadOrCreate(opDir, { hostBinary: ANCHOR_SURFACE_BIN });
       const stateDir = freshStateDir();
       const client = await SubstrateClient.spawn({
         substrateBinary: SUBSTRATE_BIN,
@@ -1533,7 +1588,7 @@ describe("SubstrateClient e2e", () => {
           content,
           anchorClockAtRequest,
         );
-        const sig = identity.sign(content);
+        const sig = await identity.sign(content);
         // Submit anchor_clock_submitted_at WAY past anchor-clock expiry.
         const TTL_NS = 300n * 1_000_000_000n;
         const farFuture = anchorClockAtRequest + TTL_NS + 1_000_000_000n;
@@ -1560,7 +1615,7 @@ describe("SubstrateClient e2e", () => {
     const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m15-op-"));
     try {
       const { OperatorIdentity } = await import("../src/operator_identity.ts");
-      const identity = OperatorIdentity.loadOrCreate(opDir);
+      const identity = await OperatorIdentity.loadOrCreate(opDir, { hostBinary: ANCHOR_SURFACE_BIN });
       const stateDir = freshStateDir();
       const client = await SubstrateClient.spawn({
         substrateBinary: SUBSTRATE_BIN,
@@ -1574,7 +1629,7 @@ describe("SubstrateClient e2e", () => {
           content,
           anchorClockAtRequest,
         );
-        const sig = identity.sign(content);
+        const sig = await identity.sign(content);
         // Claim "submit happened BEFORE issuance" (impossible — backward skew).
         const before = anchorClockAtRequest - 1_000_000_000n;
         const result = await client.submitMutation({
@@ -1600,7 +1655,7 @@ describe("SubstrateClient e2e", () => {
     const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m15-op-"));
     try {
       const { OperatorIdentity } = await import("../src/operator_identity.ts");
-      const identity = OperatorIdentity.loadOrCreate(opDir);
+      const identity = await OperatorIdentity.loadOrCreate(opDir, { hostBinary: ANCHOR_SURFACE_BIN });
       const stateDir = freshStateDir();
       const client = await SubstrateClient.spawn({
         substrateBinary: SUBSTRATE_BIN,
@@ -1614,7 +1669,7 @@ describe("SubstrateClient e2e", () => {
           content,
           anchorClockAtRequest,
         );
-        const sig = identity.sign(content);
+        const sig = await identity.sign(content);
         // OMIT anchor_clock_submitted_at_unix_ns even though nonce is dual-clock.
         const result = await client.submitMutation({
           mutationType: "schema_change",
@@ -1638,7 +1693,7 @@ describe("SubstrateClient e2e", () => {
     const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m15-op-"));
     try {
       const { OperatorIdentity } = await import("../src/operator_identity.ts");
-      const identity = OperatorIdentity.loadOrCreate(opDir);
+      const identity = await OperatorIdentity.loadOrCreate(opDir, { hostBinary: ANCHOR_SURFACE_BIN });
       const stateDir = freshStateDir();
       const client = await SubstrateClient.spawn({
         substrateBinary: SUBSTRATE_BIN,
@@ -1654,7 +1709,7 @@ describe("SubstrateClient e2e", () => {
           null,
           "single-clock nonce should NOT echo anchor_clock_expiry",
         );
-        const sig = identity.sign(content);
+        const sig = await identity.sign(content);
         // Submit also without anchor_clock; this should work (M13 path).
         const result = await client.submitMutation({
           mutationType: "schema_change",
@@ -1917,7 +1972,7 @@ describe("SubstrateClient e2e", () => {
     try {
       const { OperatorIdentity } = await import("../src/operator_identity.ts");
       const { schemaDiffModifyAxisThresholdBytes } = await import("../src/protocol/messages.ts");
-      const identity = OperatorIdentity.loadOrCreate(opDir);
+      const identity = await OperatorIdentity.loadOrCreate(opDir, { hostBinary: ANCHOR_SURFACE_BIN });
       const stateDir = freshStateDir();
       const client = await SubstrateClient.spawn({
         substrateBinary: SUBSTRATE_BIN,
@@ -1938,7 +1993,7 @@ describe("SubstrateClient e2e", () => {
 
         // Evolve: change threshold to 50.0.
         const diff = schemaDiffModifyAxisThresholdBytes("curiosity", 50.0);
-        const sig = identity.sign(diff);
+        const sig = await identity.sign(diff);
         const result = await client.submitMutation({
           mutationType: "schema_evolution",
           contentCanonicalBytes: diff,
@@ -1985,7 +2040,7 @@ describe("SubstrateClient e2e", () => {
     try {
       const { OperatorIdentity } = await import("../src/operator_identity.ts");
       const { schemaDiffModifyAxisThresholdBytes } = await import("../src/protocol/messages.ts");
-      const identity = OperatorIdentity.loadOrCreate(opDir);
+      const identity = await OperatorIdentity.loadOrCreate(opDir, { hostBinary: ANCHOR_SURFACE_BIN });
       const stateDir = freshStateDir();
       const client = await SubstrateClient.spawn({
         substrateBinary: SUBSTRATE_BIN,
@@ -1994,7 +2049,7 @@ describe("SubstrateClient e2e", () => {
       });
       try {
         const diff = schemaDiffModifyAxisThresholdBytes("nonexistent_axis", 99.0);
-        const sig = identity.sign(diff);
+        const sig = await identity.sign(diff);
         const result = await client.submitMutation({
           mutationType: "schema_evolution",
           contentCanonicalBytes: diff,
@@ -2027,7 +2082,7 @@ describe("SubstrateClient e2e", () => {
     try {
       const { OperatorIdentity } = await import("../src/operator_identity.ts");
       const { schemaDiffAddAxisBytes } = await import("../src/protocol/messages.ts");
-      const identity = OperatorIdentity.loadOrCreate(opDir);
+      const identity = await OperatorIdentity.loadOrCreate(opDir, { hostBinary: ANCHOR_SURFACE_BIN });
       const stateDir = freshStateDir();
       const client = await SubstrateClient.spawn({
         substrateBinary: SUBSTRATE_BIN,
@@ -2044,7 +2099,7 @@ describe("SubstrateClient e2e", () => {
           isMortalitySignal: true,
           updateRuleKind: "decay",
         });
-        const sig = identity.sign(diff);
+        const sig = await identity.sign(diff);
         const result = await client.submitMutation({
           mutationType: "schema_evolution",
           contentCanonicalBytes: diff,
@@ -2214,7 +2269,7 @@ describe("SubstrateClient e2e", () => {
     const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m18-op-"));
     try {
       const { OperatorIdentity } = await import("../src/operator_identity.ts");
-      const identity = OperatorIdentity.loadOrCreate(opDir);
+      const identity = await OperatorIdentity.loadOrCreate(opDir, { hostBinary: ANCHOR_SURFACE_BIN });
       const stateDir = freshStateDir();
       const client = await SubstrateClient.spawn({
         substrateBinary: SUBSTRATE_BIN,
@@ -2641,7 +2696,7 @@ describe("SubstrateClient e2e", () => {
     const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m21-op-"));
     try {
       const { OperatorIdentity } = await import("../src/operator_identity.ts");
-      const identity = OperatorIdentity.loadOrCreate(opDir);
+      const identity = await OperatorIdentity.loadOrCreate(opDir, { hostBinary: ANCHOR_SURFACE_BIN });
       const stateDir = freshStateDir();
       const client = await SubstrateClient.spawn({
         substrateBinary: SUBSTRATE_BIN,
@@ -2724,7 +2779,7 @@ describe("SubstrateClient e2e", () => {
     const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m21-op-"));
     try {
       const { OperatorIdentity } = await import("../src/operator_identity.ts");
-      const identity = OperatorIdentity.loadOrCreate(opDir);
+      const identity = await OperatorIdentity.loadOrCreate(opDir, { hostBinary: ANCHOR_SURFACE_BIN });
       const stateDir = freshStateDir();
       const client = await SubstrateClient.spawn({
         substrateBinary: SUBSTRATE_BIN,
@@ -2748,7 +2803,7 @@ describe("SubstrateClient e2e", () => {
     const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m21-op-"));
     try {
       const { OperatorIdentity } = await import("../src/operator_identity.ts");
-      const identity = OperatorIdentity.loadOrCreate(opDir);
+      const identity = await OperatorIdentity.loadOrCreate(opDir, { hostBinary: ANCHOR_SURFACE_BIN });
       const stateDir = freshStateDir();
       const client = await SubstrateClient.spawn({
         substrateBinary: SUBSTRATE_BIN,
@@ -2758,7 +2813,7 @@ describe("SubstrateClient e2e", () => {
       try {
         const content = new TextEncoder().encode("m21 consume test");
         const nonceResult = await client.requestAttestationNonce(content);
-        const sig = identity.sign(content);
+        const sig = await identity.sign(content);
         const r = await client.submitMutation({
           mutationType: "schema_change",
           touchedMetaStructures: ["appetite_axis_schema"],
@@ -2915,7 +2970,7 @@ describe("SubstrateClient e2e", () => {
     const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m21-4-op-"));
     try {
       const { OperatorIdentity } = await import("../src/operator_identity.ts");
-      const identity = OperatorIdentity.loadOrCreate(opDir);
+      const identity = await OperatorIdentity.loadOrCreate(opDir, { hostBinary: ANCHOR_SURFACE_BIN });
       const stateDir = freshStateDir();
 
       const client = await SubstrateClient.spawn({
@@ -2938,7 +2993,7 @@ describe("SubstrateClient e2e", () => {
         await client.advance(1n);
         const content = new TextEncoder().encode("m21.4 single-file test");
         const nonceResult = await client.requestAttestationNonce(content);
-        const sig = identity.sign(content);
+        const sig = await identity.sign(content);
         await client.submitMutation({
           mutationType: "schema_change",
           touchedMetaStructures: ["appetite_axis_schema"],
@@ -2990,7 +3045,7 @@ describe("SubstrateClient e2e", () => {
     const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m21-3-op-"));
     try {
       const { OperatorIdentity } = await import("../src/operator_identity.ts");
-      const identity = OperatorIdentity.loadOrCreate(opDir);
+      const identity = await OperatorIdentity.loadOrCreate(opDir, { hostBinary: ANCHOR_SURFACE_BIN });
       const stateDir = freshStateDir();
 
       // Session 1: build up gradient state.
@@ -3071,7 +3126,7 @@ describe("SubstrateClient e2e", () => {
     const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m21-2-op-"));
     try {
       const { OperatorIdentity } = await import("../src/operator_identity.ts");
-      const identity = OperatorIdentity.loadOrCreate(opDir);
+      const identity = await OperatorIdentity.loadOrCreate(opDir, { hostBinary: ANCHOR_SURFACE_BIN });
       const stateDir = freshStateDir();
 
       // Session 1: build up substrate state.
@@ -3093,7 +3148,7 @@ describe("SubstrateClient e2e", () => {
       await c1.advance(1n);
       const content = new TextEncoder().encode("nonce persist test");
       const nonceResult = await c1.requestAttestationNonce(content);
-      const sig = identity.sign(content);
+      const sig = await identity.sign(content);
       await c1.submitMutation({
         mutationType: "schema_change",
         touchedMetaStructures: ["appetite_axis_schema"],
@@ -3313,8 +3368,8 @@ describe("SubstrateClient e2e", () => {
     let client2: SubstrateClient | null = null;
     try {
       const { OperatorIdentity } = await import("../src/operator_identity.ts");
-      const id1 = OperatorIdentity.loadOrCreate(opDir1);
-      const id2 = OperatorIdentity.loadOrCreate(opDir2);
+      const id1 = await OperatorIdentity.loadOrCreate(opDir1, { hostBinary: ANCHOR_SURFACE_BIN });
+      const id2 = await OperatorIdentity.loadOrCreate(opDir2, { hostBinary: ANCHOR_SURFACE_BIN });
       client1 = await SubstrateClient.spawn({
         substrateBinary: SUBSTRATE_BIN,
         env: { MYCO_STATE_DIR: state1 },
@@ -3429,7 +3484,7 @@ describe("SubstrateClient e2e", () => {
     const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m25-quarantine-"));
     try {
       const { OperatorIdentity } = await import("../src/operator_identity.ts");
-      const identity = OperatorIdentity.loadOrCreate(opDir);
+      const identity = await OperatorIdentity.loadOrCreate(opDir, { hostBinary: ANCHOR_SURFACE_BIN });
       const stateDir = freshStateDir();
       const client = await SubstrateClient.spawn({
         substrateBinary: SUBSTRATE_BIN,
@@ -3458,7 +3513,7 @@ describe("SubstrateClient e2e", () => {
     const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m25-q-bad-"));
     try {
       const { OperatorIdentity } = await import("../src/operator_identity.ts");
-      const identity = OperatorIdentity.loadOrCreate(opDir);
+      const identity = await OperatorIdentity.loadOrCreate(opDir, { hostBinary: ANCHOR_SURFACE_BIN });
       const stateDir = freshStateDir();
       const client = await SubstrateClient.spawn({
         substrateBinary: SUBSTRATE_BIN,
@@ -3488,7 +3543,7 @@ describe("SubstrateClient e2e", () => {
     const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m25-euth-"));
     try {
       const { OperatorIdentity } = await import("../src/operator_identity.ts");
-      const identity = OperatorIdentity.loadOrCreate(opDir);
+      const identity = await OperatorIdentity.loadOrCreate(opDir, { hostBinary: ANCHOR_SURFACE_BIN });
       const stateDir = freshStateDir();
       const client = await SubstrateClient.spawn({
         substrateBinary: SUBSTRATE_BIN,
@@ -3563,7 +3618,7 @@ describe("SubstrateClient e2e", () => {
     const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m25-euth-bad-"));
     try {
       const { OperatorIdentity } = await import("../src/operator_identity.ts");
-      const identity = OperatorIdentity.loadOrCreate(opDir);
+      const identity = await OperatorIdentity.loadOrCreate(opDir, { hostBinary: ANCHOR_SURFACE_BIN });
       const stateDir = freshStateDir();
       const client = await SubstrateClient.spawn({
         substrateBinary: SUBSTRATE_BIN,

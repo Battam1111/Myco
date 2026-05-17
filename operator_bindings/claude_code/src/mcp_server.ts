@@ -875,8 +875,10 @@ export class McpServer {
         }
         // Operator IDENTITY signs the schema_diff bytes (M10 path; M17-MV
         // accepts both REVEAL and IDENTITY signatures via classifier rule).
-        const identity = OperatorIdentity.loadOrCreate();
-        const sig = identity.sign(diffBytes);
+        // M-anchor-1: signing happens over local TCP to anchor_surface_host;
+        // the operator process never holds the owner Ed25519 private key.
+        const identity = await OperatorIdentity.loadOrCreate();
+        const sig = await identity.sign(diffBytes);
         const result = await sub.submitMutation({
           mutationType: "schema_evolution",
           contentCanonicalBytes: diffBytes,
@@ -1030,8 +1032,9 @@ export class McpServer {
         if (args.require_attestation === true) {
           // Sign the content with the operator's M9 identity key (which doubles
           // as the genesis owner key for M10 minimum).
-          const identity = OperatorIdentity.loadOrCreate();
-          attestationSignature = identity.sign(contentBytes);
+          // M-anchor-1: signing now delegates to anchor_surface_host.
+          const identity = await OperatorIdentity.loadOrCreate();
+          attestationSignature = await identity.sign(contentBytes);
         }
         const result = await sub.submitMutation({
           mutationType,

@@ -25,6 +25,7 @@ members = [
     "myco_substrate",
     "m1_milestone",
     "test_vectors_rs",
+    "anchor_surface_host",
 ]
 
 [workspace.package]
