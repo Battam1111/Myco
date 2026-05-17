@@ -101,6 +101,13 @@ pub struct ObservatorySnapshot {
     /// (current_file_sizes - last_recorded_file_sizes) at snapshot time.
     /// Non-negative (file size is monotone within a cycle's perspective).
     pub signal_9_storage_bytes: u64,
+    /// **M26.4 P14.c signal**: rolling-window telos_alignment cosine, repr-float
+    /// string for cross-language determinism. Range `[-1, +1]` after L2-norm
+    /// cosine computation; empty string when no telos signal is computable
+    /// (e.g. birth-period, or no sporocarps in window, or no owner objective +
+    /// no fallback feedback trajectory). NOT a Living Bet signal — P14.c
+    /// telos is orthogonal to L0 §7 Living Bets (per L1_TROPISM §F.5).
+    pub signal_telos_alignment_repr: String,
 }
 
 /// L1-tunable seed cap for the in-memory observatory history. The substrate
@@ -153,6 +160,11 @@ impl ObservatorySnapshot {
         m.insert(
             "signal_9_storage_bytes".to_string(),
             Value::Uint(self.signal_9_storage_bytes),
+        );
+        // M26.4 P14.c telos_alignment — empty string when not computable.
+        m.insert(
+            "signal_telos_alignment_repr".to_string(),
+            Value::String(self.signal_telos_alignment_repr.clone()),
         );
         Value::Map(m)
     }
@@ -212,6 +224,12 @@ impl ObservatorySnapshot {
             Some(Value::Uint(n)) => *n,
             _ => 0,
         };
+        // M26.4 P14.c telos_alignment — tolerate absent for backward-compat
+        // with pre-M26.4 snapshot.cb files.
+        let signal_telos_alignment_repr = match m.get("signal_telos_alignment_repr") {
+            Some(Value::String(s)) => s.clone(),
+            _ => String::new(),
+        };
         Ok(ObservatorySnapshot {
             at_cycle,
             at_unix_ns,
@@ -224,6 +242,7 @@ impl ObservatorySnapshot {
             signal_7_compute_ns,
             signal_8_network_bytes,
             signal_9_storage_bytes,
+            signal_telos_alignment_repr,
         })
     }
 }
@@ -1268,6 +1287,9 @@ mod tests {
             signal_7_compute_ns: 1_000_000 + at_cycle * 13_579,
             signal_8_network_bytes: at_cycle * 256,
             signal_9_storage_bytes: 1_024 + at_cycle * 137,
+            // M26.4 P14.c telos: vary cosine values across `[-1, +1]` to
+            // exercise serializer round-trip.
+            signal_telos_alignment_repr: format!("{:.6}", ((at_cycle as f64) * 0.07).sin()),
         }
     }
 

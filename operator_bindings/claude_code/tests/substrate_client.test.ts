@@ -3858,6 +3858,140 @@ describe("SubstrateClient e2e", () => {
     }
   });
 
+  it("M26.4: owner_objective_declaration with valid CI attestation accepted + emits owner_objective_declared:{id}", async () => {
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m26-4-op-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identity = await OperatorIdentity.loadOrCreate(opDir, {
+        hostBinary: ANCHOR_SURFACE_BIN,
+      });
+      const client = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: freshStateDir() },
+        operatorIdentity: identity,
+      });
+      try {
+        // Build an OwnerObjective canonical-bytes payload. Schema mirrors
+        // myco_substrate::events::encode_owner_objective.
+        const { encode: cbEncode } = await import(
+          "@myco/anchor-client/src/canonical_bytes.ts"
+        );
+        const objectiveMap: Map<string, import("@myco/anchor-client/src/canonical_bytes.ts").Value> =
+          new Map();
+        objectiveMap.set("objective_id", {
+          type: "string",
+          value: "m26_4_ts_e2e_objective",
+        });
+        objectiveMap.set("declared_at_cycle", { type: "uint", value: 0n });
+        const weightEntry1: Map<string, import("@myco/anchor-client/src/canonical_bytes.ts").Value> =
+          new Map();
+        weightEntry1.set("prefix", { type: "string", value: "axis_perturbed:" });
+        weightEntry1.set("weight_repr", { type: "string", value: "0.75" });
+        const weightEntry2: Map<string, import("@myco/anchor-client/src/canonical_bytes.ts").Value> =
+          new Map();
+        weightEntry2.set("prefix", { type: "string", value: "raw_material:" });
+        weightEntry2.set("weight_repr", { type: "string", value: "0.25" });
+        objectiveMap.set("weights", {
+          type: "array",
+          value: [
+            { type: "map", value: weightEntry1 },
+            { type: "map", value: weightEntry2 },
+          ],
+        });
+        const objectiveBytes = cbEncode({ type: "map", value: objectiveMap }).bytes;
+
+        const nonceResult = await client.requestAttestationNonce(objectiveBytes);
+        const sig = await identity.sign(objectiveBytes);
+        const result = await client.submitMutation({
+          mutationType: "owner_objective_declaration",
+          contentCanonicalBytes: objectiveBytes,
+          attestationSignature: sig,
+          nonce: nonceResult.nonce,
+          expiryUnixNs: nonceResult.expiryUnixNs,
+        });
+        assert.equal(
+          result.accepted,
+          true,
+          `valid owner_objective_declaration must accept; got rejection: ${result.rejectionReason}`,
+        );
+        assert.equal(result.classification, "contract_identity_level");
+
+        // Verify owner_objective_declared:m26_4_ts_e2e_objective lands.
+        const nodes = await client.queryRecentNodes(
+          50n,
+          "owner_objective_declared:",
+        );
+        assert.ok(
+          nodes.nodes.length >= 1,
+          "owner_objective_declared:* must appear after CI mutation",
+        );
+        const found = nodes.nodes.find((n) =>
+          n.nodeType.endsWith(":m26_4_ts_e2e_objective"),
+        );
+        assert.ok(
+          found,
+          `expected owner_objective_declared:m26_4_ts_e2e_objective; saw: ${nodes.nodes.map((n) => n.nodeType).join(", ")}`,
+        );
+      } finally {
+        await client.shutdown();
+      }
+    } finally {
+      try { rmSync(opDir, { recursive: true, force: true }); } catch {}
+    }
+  });
+
+  it("M26.4: owner_objective_declaration with empty weights is rejected via C5", async () => {
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m26-4-rej-op-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identity = await OperatorIdentity.loadOrCreate(opDir, {
+        hostBinary: ANCHOR_SURFACE_BIN,
+      });
+      const client = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: freshStateDir() },
+        operatorIdentity: identity,
+      });
+      try {
+        const { encode: cbEncode } = await import(
+          "@myco/anchor-client/src/canonical_bytes.ts"
+        );
+        const objectiveMap: Map<string, import("@myco/anchor-client/src/canonical_bytes.ts").Value> =
+          new Map();
+        objectiveMap.set("objective_id", {
+          type: "string",
+          value: "empty_weights_rejected",
+        });
+        objectiveMap.set("declared_at_cycle", { type: "uint", value: 0n });
+        objectiveMap.set("weights", { type: "array", value: [] });
+        const objectiveBytes = cbEncode({ type: "map", value: objectiveMap }).bytes;
+        const nonceResult = await client.requestAttestationNonce(objectiveBytes);
+        const sig = await identity.sign(objectiveBytes);
+        const result = await client.submitMutation({
+          mutationType: "owner_objective_declaration",
+          contentCanonicalBytes: objectiveBytes,
+          attestationSignature: sig,
+          nonce: nonceResult.nonce,
+          expiryUnixNs: nonceResult.expiryUnixNs,
+        });
+        assert.equal(
+          result.accepted,
+          false,
+          "empty-weights owner_objective_declaration must be rejected",
+        );
+        assert.match(
+          result.rejectionReason,
+          /weights array MUST be non-empty/i,
+          `rejection reason should mention empty weights; got: ${result.rejectionReason}`,
+        );
+      } finally {
+        await client.shutdown();
+      }
+    } finally {
+      try { rmSync(opDir, { recursive: true, force: true }); } catch {}
+    }
+  });
+
   it("M26.3: compression targeting an invariant-set member is rejected with C51", async () => {
     const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m26-3-c51-op-"));
     try {

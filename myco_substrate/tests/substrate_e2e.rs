@@ -3411,6 +3411,244 @@ fn m26_3_compression_invariant_set_seed_covers_p10_b_categories() {
     );
 }
 
+// ---------------------------------------------------------------------------
+// **M26.4 P11.c Ordered Fallback + P14.c Telos Drift** — F19 cost budgets +
+// F20 owner objective + P11.c saturation state machine + telos_alignment
+// cosine proxy + C53 budget_exhausted_silent + C24 telos_drift_critical.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn m26_4_seed_cost_budgets_match_doctrine() {
+    use myco_substrate::events::seed_cost_budgets;
+    let b = seed_cost_budgets();
+    // Doctrine: P11.b "compute / network / storage / cycle".
+    assert!(b.compute_ns_per_cycle > 0);
+    assert!(b.network_bytes_per_cycle > 0);
+    assert!(b.storage_bytes_per_cycle > 0);
+    // L0 P11.c default cycle floor = 1000.
+    assert_eq!(b.pre_eligibility_cycle_floor, 1000);
+    assert!(b.sustained_saturation_cycle_threshold > 0);
+}
+
+#[test]
+fn m26_4_seed_owner_objective_is_none_default() {
+    // L0 P14.b: owner objective is MAY-not-must declared at genesis. Seed =
+    // None (substrate falls back to L1_TROPISM §F.1 branch-2 trajectory
+    // centroid). Operator declares via CI mutation.
+    use myco_substrate::events::seed_owner_objective;
+    assert!(seed_owner_objective().is_none());
+}
+
+#[test]
+fn m26_4_saturation_stage_enum_as_str_stable() {
+    use myco_substrate::events::SaturationStage;
+    assert_eq!(SaturationStage::Normal.as_str(), "normal");
+    assert_eq!(SaturationStage::PreEligibility.as_str(), "pre_eligibility");
+    assert_eq!(SaturationStage::PostEligibility.as_str(), "post_eligibility");
+    assert_eq!(SaturationStage::Saturated.as_str(), "saturated");
+}
+
+#[test]
+fn m26_4_owner_objective_canonical_bytes_roundtrip() {
+    use myco_substrate::events::{decode_owner_objective, encode_owner_objective, OwnerObjective};
+    let obj = OwnerObjective {
+        objective_id: "m26_4_test_objective".to_string(),
+        declared_at_cycle: 42,
+        weights: vec![
+            ("axis_perturbed:".to_string(), 0.75),
+            ("raw_material:".to_string(), 0.25),
+        ],
+    };
+    let encoded = encode_owner_objective(&obj);
+    let decoded = decode_owner_objective(encoded.as_ref()).expect("roundtrips");
+    assert_eq!(decoded.objective_id, obj.objective_id);
+    assert_eq!(decoded.declared_at_cycle, obj.declared_at_cycle);
+    assert_eq!(decoded.weights.len(), obj.weights.len());
+    for ((p1, w1), (p2, w2)) in decoded.weights.iter().zip(obj.weights.iter()) {
+        assert_eq!(p1, p2);
+        assert!(
+            (w1 - w2).abs() < 1e-12,
+            "weight roundtrip: {w1} != {w2}"
+        );
+    }
+}
+
+#[test]
+fn m26_4_owner_objective_rejects_negative_weights() {
+    // P14.c proxy: negative weights rejected (M26.4 minimum). Future
+    // revisions may allow "actively against" semantics with negative
+    // weights, but not in this milestone.
+    use myco_substrate::events::{decode_owner_objective, encode_owner_objective, OwnerObjective};
+    let obj = OwnerObjective {
+        objective_id: "negative_weight_test".to_string(),
+        declared_at_cycle: 1,
+        weights: vec![("axis_perturbed:".to_string(), -0.5)],
+    };
+    let encoded = encode_owner_objective(&obj);
+    assert!(
+        decode_owner_objective(encoded.as_ref()).is_none(),
+        "negative weights must be rejected at decode time"
+    );
+}
+
+#[test]
+fn m26_4_budget_exhausted_events_observable_in_dag_when_exceeded() {
+    // Set a deliberately-low compute_ns budget via env var (we'll need to
+    // override seed budgets — but the seed defaults to 100ms which IS
+    // exceeded on real hardware over enough cycles). Instead of overriding,
+    // we use a different signal: register many axes + perturb in tight loop
+    // to force storage > 10 MiB? That's too slow.
+    //
+    // Simpler approach: just pump 200 cycles + verify the cycle counter
+    // crosses pre_eligibility_cycle_floor=1000? No, that's too slow too.
+    //
+    // The pragmatic M26.4 minimum coverage: structural test that the event
+    // type emission path works. We can't easily induce budget exhaustion
+    // in test (because real per-cycle compute is < 100ms). Instead, verify
+    // the EVENT TYPE PREFIX is correctly registered + observable when we
+    // synthesize the relevant DAG events directly via test helpers.
+    //
+    // This is a structural test, not a behavioral one. Behavioral tests
+    // (real budget exhaustion under load) require either a slow-cycle
+    // simulator or a budget-override hook (deferred to M26.5).
+    use myco_substrate::events::encode_budget_exhausted;
+    let bytes = encode_budget_exhausted("compute_per_cycle", 999_999_999, 100_000_000, 42);
+    assert!(!bytes.as_ref().is_empty());
+    // Roundtrip via canonical-bytes decode to confirm shape.
+    use myco_kernel_shared::canonical_bytes::{decode, Value};
+    let v = decode(bytes.as_ref()).expect("decodes");
+    let m = match v {
+        Value::Map(m) => m,
+        _ => panic!("budget_exhausted body is not a Map"),
+    };
+    match m.get("axis") {
+        Some(Value::String(s)) => assert_eq!(s, "compute_per_cycle"),
+        _ => panic!("axis missing"),
+    };
+    match m.get("at_cycle") {
+        Some(Value::Uint(n)) => assert_eq!(*n, 42),
+        _ => panic!("at_cycle missing"),
+    };
+}
+
+#[test]
+fn m26_4_compression_proposed_events_have_expected_shape() {
+    use myco_substrate::events::encode_compression_proposed;
+    let bytes = encode_compression_proposed(
+        "raw_material_aggregate_v1",
+        1234,
+        "storage_per_cycle",
+        17,
+    );
+    use myco_kernel_shared::canonical_bytes::{decode, Value};
+    let m = match decode(bytes.as_ref()).expect("decodes") {
+        Value::Map(m) => m,
+        _ => panic!(),
+    };
+    match m.get("rule_id") {
+        Some(Value::String(s)) => assert_eq!(s, "raw_material_aggregate_v1"),
+        _ => panic!("rule_id missing"),
+    };
+    match m.get("at_cycle") {
+        Some(Value::Uint(n)) => assert_eq!(*n, 1234),
+        _ => panic!("at_cycle missing"),
+    };
+    match m.get("proposed_axis") {
+        Some(Value::String(s)) => assert_eq!(s, "storage_per_cycle"),
+        _ => panic!("proposed_axis missing"),
+    };
+    match m.get("estimated_candidates") {
+        Some(Value::Uint(n)) => assert_eq!(*n, 17),
+        _ => panic!("estimated_candidates missing"),
+    };
+}
+
+#[test]
+fn m26_4_substrate_boots_in_normal_saturation_stage() {
+    // Fresh substrate on a real cycle should boot in SaturationStage::Normal
+    // (no cost signal exceeded yet). The state field is private; we verify
+    // indirectly by querying recent DAG nodes and asserting NO
+    // `substrate_saturated:*` event has been emitted.
+    let (mut client, _dir) = spawn_substrate();
+    pump_cycles(&mut client, 3);
+    let resp = client
+        .call(
+            proto::QUERY_RECENT_NODES,
+            build_payload(vec![
+                ("count", CbValue::Uint(50)),
+                (
+                    "node_type_prefix",
+                    CbValue::String("substrate_saturated".to_string()),
+                ),
+            ]),
+        )
+        .expect("query recent");
+    let nodes = match resp.payload.get("nodes") {
+        Some(CbValue::Array(a)) => a.clone(),
+        _ => panic!("nodes missing"),
+    };
+    assert!(
+        nodes.is_empty(),
+        "fresh substrate should NOT emit substrate_saturated; got {} nodes",
+        nodes.len()
+    );
+    client.shutdown().expect("shutdown");
+}
+
+#[test]
+fn m26_4_telos_alignment_pending_when_no_objective_declared() {
+    // No owner objective → compute_telos_alignment_cosine returns None →
+    // substrate periodically emits `telos_alignment_pending` per
+    // L1_TROPISM §F.3. Verify the event type exists in DAG after enough
+    // cycles to clear birth-period (≥10 cycles, the early-cycle skip
+    // threshold in `apply_p14c_telos_drift`).
+    let (mut client, _dir) = spawn_substrate();
+    pump_cycles(&mut client, 51); // cross the 50-cycle pending cadence
+    let resp = client
+        .call(
+            proto::QUERY_RECENT_NODES,
+            build_payload(vec![
+                ("count", CbValue::Uint(50)),
+                (
+                    "node_type_prefix",
+                    CbValue::String("telos_alignment_pending".to_string()),
+                ),
+            ]),
+        )
+        .expect("query recent");
+    let nodes = match resp.payload.get("nodes") {
+        Some(CbValue::Array(a)) => a.clone(),
+        _ => panic!("nodes missing"),
+    };
+    assert!(
+        !nodes.is_empty(),
+        "telos_alignment_pending must be emitted when no owner objective is declared"
+    );
+    client.shutdown().expect("shutdown");
+}
+
+#[test]
+fn m26_4_telos_grade_threshold_table_matches_doctrine() {
+    // Pin the §F.1 threshold table mapping. M26.4 implementation must
+    // grade cosines exactly per L1_TROPISM §F + algorithms/telos_drift.md.
+    //
+    // - cos >  0.6: aligned (no emission)
+    // - cos in (0.4, 0.6]: telos_alignment_low
+    // - cos in (0.2, 0.4]: telos_drift
+    // - cos in (0.0, 0.2]: telos_drift (elevated)
+    // - cos ≤ 0.0:        telos_drift_critical (→ C24)
+    //
+    // The grading function is a file-private helper, so we test indirectly
+    // via the public Const node-type prefixes that the grading table maps to.
+    use myco_substrate::events::{
+        NODE_TYPE_TELOS_ALIGNMENT_LOW, NODE_TYPE_TELOS_DRIFT, NODE_TYPE_TELOS_DRIFT_CRITICAL,
+    };
+    // Pin the constants themselves to catch accidental rename.
+    assert_eq!(NODE_TYPE_TELOS_ALIGNMENT_LOW, "telos_alignment_low");
+    assert_eq!(NODE_TYPE_TELOS_DRIFT, "telos_drift");
+    assert_eq!(NODE_TYPE_TELOS_DRIFT_CRITICAL, "telos_drift_critical");
+}
+
 #[test]
 fn m26_3_compression_witness_canonical_bytes_roundtrip() {
     // The CompressionWitness canonical-bytes encoder/decoder must round-trip

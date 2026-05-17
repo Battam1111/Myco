@@ -655,15 +655,59 @@ pub(crate) fn handle_submit_mutation(
         })
         .unwrap_or_default();
 
+    // **M26.4 + M26.3**: rebind acceptance / rejection state as mutable so
+    // both the M26.4 owner_objective_declaration validation and the M26.3
+    // compression invariant-set check below can override Python's
+    // `accepted=true` on local-validation failure.
+    let mut accepted = accepted;
+    let mut rejection_reason = rejection_reason;
+
+    // **M26.4 F20 owner_objective_declaration**: decode the OwnerObjective
+    // payload before insertion so we can refuse malformed declarations
+    // (rejected with C5 attestation_invalid; no DAG churn). Pre-apply
+    // staging keeps the latest accepted objective ready to assign to
+    // `state.owner_objective` AFTER the mutation DAG node is committed.
+    let mut staged_owner_objective: Option<crate::events::OwnerObjective> = None;
+    if accepted && mutation_type == "owner_objective_declaration" {
+        match crate::events::decode_owner_objective(&content_bytes) {
+            Some(obj) => {
+                if obj.weights.is_empty() {
+                    accepted = false;
+                    rejection_reason =
+                        "owner_objective_declaration: weights array MUST be non-empty"
+                            .to_string();
+                    let _ = emit_immune_sporocarp(
+                        state,
+                        "C5_attestation_invalid",
+                        "attestation_invalid",
+                        "owner_objective_empty_weights",
+                    );
+                } else {
+                    staged_owner_objective = Some(obj);
+                }
+            }
+            None => {
+                accepted = false;
+                rejection_reason =
+                    "owner_objective_declaration canonical-bytes decode failed".to_string();
+                let _ = emit_immune_sporocarp(
+                    state,
+                    "C5_attestation_invalid",
+                    "attestation_invalid",
+                    "owner_objective_decode_failed",
+                );
+            }
+        }
+    }
+
     // **M26.3 P10 / P10.b**: BEFORE inserting any DAG node for a
     // compression mutation, verify the CompressionWitness doesn't target any
     // invariant-set member. If it does, override Python's `accepted=true`
     // and emit C51_compression_invariant_corruption. This check MUST happen
     // here in Rust because the invariant set seed lives in Rust events.rs
     // and the DAG (where compressed_node_hashes are resolved to node_types)
-    // is Rust-owned.
-    let mut accepted = accepted;
-    let mut rejection_reason = rejection_reason;
+    // is Rust-owned. `accepted` + `rejection_reason` are already mutable
+    // from the M26.4 rebinding above; just reuse them.
     let mut compression_witness: Option<(String, Vec<[u8; 32]>, Vec<u8>, [u8; 32])> = None;
     if accepted && mutation_type == "compression" {
         match crate::events::decode_compression_witness_minimal(&content_bytes) {
@@ -772,6 +816,36 @@ pub(crate) fn handle_submit_mutation(
         let _ = emit_immune_sporocarp(state, detector_id, detector_name, &evidence_str);
         None
     };
+
+    // **M26.4 F20**: after a successful owner_objective_declaration, commit
+    // the staged objective onto ServerState AND emit an
+    // `owner_objective_declared:{objective_id}` DAG event. From this cycle
+    // onward, `compute_telos_alignment_cosine` uses the new objective.
+    if accepted && staged_owner_objective.is_some() {
+        let obj = staged_owner_objective.expect("guarded by Some check");
+        let body = crate::events::encode_owner_objective_declared(
+            &obj.objective_id,
+            obj.declared_at_cycle,
+            obj.weights.len() as u64,
+        );
+        let parents: Vec<myco_kernel_shared::crypto::NodeHash> = match state.dag.tip() {
+            Some(t) => vec![t],
+            None => Vec::new(),
+        };
+        let nt = format!(
+            "{}{}",
+            crate::events::NODE_TYPE_OWNER_OBJECTIVE_DECLARED_PREFIX,
+            obj.objective_id
+        );
+        let cycle = state.manifest.cycle_counter;
+        let _ = state
+            .dag
+            .insert_node(parents, nt, cycle, body)
+            .map_err(|e| {
+                SubstrateError::Protocol(format!("owner_objective_declared DAG insert: {e}"))
+            })?;
+        state.owner_objective = Some(obj);
+    }
 
     // **M26.3 P10.c**: after a successful compression mutation, emit the
     // `compression_event:{rule_id}` DAG node (sibling to evolution_succeeded

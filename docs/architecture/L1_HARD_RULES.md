@@ -62,7 +62,7 @@ Rows INDEPENDENT (I2 fixed-point). Coverage: `docs/implementation_status.md`.
 | C50 | `coerced_owner_suspected` | L2_TRUST_MODEL §10.A.2 | P1.b'' | I1, I2 | **U** |
 | C51 | `compression_invariant_corruption` | L1_SCHEMA §2.5 | P10 | I9 | **L** |
 | C52 | `compression_uncattested` | L1_SCHEMA §2.5 + P10.c | P10 | I9 | **L** |
-| C53 | `budget_exhausted_silent` | L1_SCHEMA §4.1 | P11 | I10 | **U** |
+| C53 | `budget_exhausted_silent` | L1_SCHEMA §4.1 | P11 | I10 | **L** |
 
 ### §1.3 Bet-retirement sporocarp
 C40 = trigger arc for L0 §7.5; NOT CRITICAL — CI lifecycle parallel to `self_euthanasia_executed`.

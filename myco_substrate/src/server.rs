@@ -292,6 +292,34 @@ pub(crate) struct ServerState {
     /// producing signals #7 (compute), #8 (network), #9 (storage) for the
     /// rolling observatory history.
     pub(crate) cost_accumulator: crate::observatory::CostAccumulator,
+    /// **M26.4 F19**: per-axis cost budget thresholds. Tier-1 SSoT seed; CI-
+    /// mutable via `mutation_type="cost_budget_set"` (rule registered in
+    /// Python classifier). When a cost signal exceeds its budget, P11.c
+    /// ordered fallback kicks in (see `saturation_stage`).
+    pub(crate) cost_budgets: crate::events::CostBudgets,
+    /// **M26.4 P11.c**: current saturation stage. Transitions on each
+    /// `cycle_advanced` based on cost signals vs `cost_budgets`. Persists
+    /// in-process only (re-derived at boot from DAG via the most recent
+    /// `substrate_saturated` / `substrate_normal_restored` event pair).
+    pub(crate) saturation_stage: crate::events::SaturationStage,
+    /// **M26.4 P11.c**: consecutive cycles spent in `PostEligibility`. When
+    /// this reaches `cost_budgets.sustained_saturation_cycle_threshold`, the
+    /// substrate transitions to `Saturated` (alive::saturated). Resets when
+    /// the stage drops back to Normal/PreEligibility.
+    pub(crate) post_eligibility_consecutive_cycles: u64,
+    /// **M26.4 F20**: owner-declared objective for P14.c telos_alignment.
+    /// `None` → substrate falls back to L1_TROPISM §F.1 branch-2 (centroid
+    /// over recent trajectory deltas). CI-mutable via
+    /// `mutation_type="owner_objective_declaration"`.
+    pub(crate) owner_objective: Option<crate::events::OwnerObjective>,
+    /// **M26.4 P14.c**: cooldown tracking for telos drift emission. Same
+    /// 100-cycle cooldown as M25.1/M25.2 detectors to prevent spam on every
+    /// observatory query.
+    pub(crate) last_telos_drift_emitted_at_cycle: Option<u64>,
+    /// **M26.4 P11.c**: track recent `budget_exhausted:{axis}` emissions per
+    /// axis to drive C53 (budget_exhausted_silent) detection. Key = axis
+    /// name; value = cycle of most recent emission.
+    pub(crate) last_budget_exhausted_per_axis: std::collections::HashMap<String, u64>,
 }
 
 impl ServerState {
@@ -337,6 +365,17 @@ impl ServerState {
             last_doctrine_burst_emitted_at_cycle: None,
             last_bet_weakening_quorum_emitted_at_cycle: None,
             cost_accumulator,
+            // M26.4 seed defaults — F19 budgets + F20 objective + P11.c
+            // state machine. Boot path will later replay
+            // `substrate_saturated`/`substrate_normal_restored` events to
+            // restore the runtime saturation_stage (M26.4 minimum: start at
+            // Normal on every boot; sustained-saturation tracking restarts).
+            cost_budgets: crate::events::seed_cost_budgets(),
+            saturation_stage: crate::events::SaturationStage::Normal,
+            post_eligibility_consecutive_cycles: 0,
+            owner_objective: crate::events::seed_owner_objective(),
+            last_telos_drift_emitted_at_cycle: None,
+            last_budget_exhausted_per_axis: std::collections::HashMap::new(),
         }
     }
 

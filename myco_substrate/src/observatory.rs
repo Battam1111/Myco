@@ -318,6 +318,199 @@ pub(crate) fn compute_observatory_counts(
     }
 }
 
+/// **M26.4 P14.c**: compute the rolling-window telos_alignment cosine
+/// proxy. Returns `None` if not computable (no sporocarps, no objective +
+/// no fallback, birth-period).
+///
+/// PROXY note: doctrine prescribes LLM embeddings; M26.4 substrates have
+/// no substrate-side LLM, so this is a sparse-vector cosine over node_type
+/// prefix space. See `events::OwnerObjective` doc comment for the full
+/// rationale. Output range matches doctrine (`[-1, +1]`) and threshold
+/// grading per L1_TROPISM §F.1.
+///
+/// Algorithm (M26.4 proxy):
+/// 1. Build sporocarp prefix-distribution vector over the most recent
+///    N=90 cycles (window = L0 §7.4 living-bets window). For each
+///    daily-class sporocarp, increment the count for ALL prefixes from
+///    OwnerObjective.weights that match its node_type. Normalize to a
+///    sum-1 distribution.
+/// 2. Build owner objective vector = the same prefix space, weights from
+///    OwnerObjective. Normalize to sum-1.
+/// 3. Cosine = dot(a, b) / (||a|| * ||b||).
+/// 4. If either vector is all-zero → return `None` (no signal computable;
+///    the substrate emits `telos_alignment_pending`).
+pub(crate) fn compute_telos_alignment_cosine(state: &ServerState) -> Option<f64> {
+    let objective = state.owner_objective.as_ref()?;
+    if objective.weights.is_empty() {
+        return None;
+    }
+    // Walk the DAG once over the most recent N cycles to count sporocarps
+    // per prefix. CI-class events (mutation:*, evolution_*) are EXCLUDED
+    // per L1_TROPISM §F.5 ("does NOT compute over CI-class sporocarps").
+    let window: u64 = 90; // L0 §7.4 living-bets window
+    let current_cycle = state.manifest.cycle_counter;
+    let cycle_floor = current_cycle.saturating_sub(window);
+    let mut per_prefix_count: std::collections::BTreeMap<String, u64> =
+        std::collections::BTreeMap::new();
+    let mut total: u64 = 0;
+    for node in state.dag.iter_in_insertion_order() {
+        if node.created_at_cycle < cycle_floor {
+            continue;
+        }
+        // Skip CI-class events.
+        let nt = &node.node_type;
+        if nt.starts_with("mutation:")
+            || nt.starts_with("evolution_succeeded:")
+            || nt.starts_with("evolution_failed:")
+            || nt.starts_with("genesis_event:")
+            || nt.starts_with("owner_key_")
+            || nt.starts_with("compression_event:")
+            || nt.starts_with("operator_pinned:")
+            || nt.starts_with("immune:")
+        {
+            continue;
+        }
+        // Count this sporocarp against every matching objective prefix.
+        // A sporocarp may match multiple prefixes (e.g. an axis-perturbed
+        // event could match both "axis_perturbed:" and "axis_perturbed:curiosity"
+        // if both are declared in the objective).
+        let mut matched_any = false;
+        for (prefix, _w) in &objective.weights {
+            if nt.starts_with(prefix.as_str()) {
+                *per_prefix_count.entry(prefix.clone()).or_insert(0) += 1;
+                matched_any = true;
+            }
+        }
+        if matched_any {
+            total += 1;
+        }
+    }
+    if total == 0 {
+        return None;
+    }
+    // Build vectors in prefix order from objective.weights.
+    let mut a: Vec<f64> = Vec::with_capacity(objective.weights.len()); // sporocarp distrib
+    let mut b: Vec<f64> = Vec::with_capacity(objective.weights.len()); // objective weights
+    for (prefix, weight) in &objective.weights {
+        let count = *per_prefix_count.get(prefix).unwrap_or(&0) as f64;
+        a.push(count / total as f64);
+        b.push(*weight);
+    }
+    // Cosine = dot / (||a|| * ||b||).
+    let dot: f64 = a.iter().zip(b.iter()).map(|(x, y)| x * y).sum();
+    let norm_a: f64 = a.iter().map(|x| x * x).sum::<f64>().sqrt();
+    let norm_b: f64 = b.iter().map(|x| x * x).sum::<f64>().sqrt();
+    if norm_a < 1e-12 || norm_b < 1e-12 {
+        return None;
+    }
+    Some(dot / (norm_a * norm_b))
+}
+
+/// **M26.4 P14.c grading**: map cosine value to L1_TROPISM §F.1 threshold
+/// table. Returns `(grade_label, node_type_to_emit_or_none)`.
+fn telos_grade_for_cosine(cos: f64) -> (&'static str, Option<&'static str>) {
+    if cos > 0.6 {
+        ("aligned", None)
+    } else if cos > 0.4 {
+        (
+            "low",
+            Some(crate::events::NODE_TYPE_TELOS_ALIGNMENT_LOW),
+        )
+    } else if cos > 0.2 {
+        ("drift", Some(crate::events::NODE_TYPE_TELOS_DRIFT))
+    } else if cos > 0.0 {
+        // §F.1 grades this as "telos_drift elevated".
+        ("drift_elevated", Some(crate::events::NODE_TYPE_TELOS_DRIFT))
+    } else {
+        // cos ≤ 0.0: CRITICAL — routes to C24 immune sporocarp + the
+        // dedicated telos_drift_critical event.
+        (
+            "critical",
+            Some(crate::events::NODE_TYPE_TELOS_DRIFT_CRITICAL),
+        )
+    }
+}
+
+/// **M26.4 P11.c stage check** — given the just-snapshotted cost values,
+/// the per-axis budgets, and the current saturation_stage, compute the
+/// new stage + any events that should be emitted on transition.
+///
+/// Returns `(new_stage, events_to_emit)`. Events are tuples of
+/// `(node_type, content_canonical_bytes)`; caller emits them sequentially
+/// via `emit_substrate_event`. Caller also emits per-axis
+/// `budget_exhausted:{axis}` events (handled separately because they have
+/// cooldown logic per-axis).
+fn p11c_advance_stage(
+    state: &ServerState,
+    cost_snapshot: &CostSnapshot,
+    any_axis_exceeded: bool,
+) -> (
+    crate::events::SaturationStage,
+    Vec<(String, myco_kernel_shared::canonical_bytes::CanonicalBytes)>,
+) {
+    use crate::events::SaturationStage;
+    let cycle = state.manifest.cycle_counter;
+    let floor = state.cost_budgets.pre_eligibility_cycle_floor;
+    let prev_stage = state.saturation_stage;
+
+    let new_stage = if !any_axis_exceeded {
+        SaturationStage::Normal
+    } else if cycle < floor {
+        SaturationStage::PreEligibility
+    } else {
+        // Either PostEligibility OR escalate to Saturated based on consecutive
+        // cycle count tracked on ServerState.
+        let next_consecutive = state.post_eligibility_consecutive_cycles.saturating_add(1);
+        if next_consecutive >= state.cost_budgets.sustained_saturation_cycle_threshold {
+            SaturationStage::Saturated
+        } else {
+            SaturationStage::PostEligibility
+        }
+    };
+
+    let mut events: Vec<(String, myco_kernel_shared::canonical_bytes::CanonicalBytes)> = Vec::new();
+    // Transition events: emit ONLY on stage change to avoid spam.
+    if prev_stage != new_stage {
+        match new_stage {
+            SaturationStage::Saturated => {
+                let triggering_axis = if cost_snapshot.compute_ns
+                    > state.cost_budgets.compute_ns_per_cycle
+                {
+                    "compute_per_cycle"
+                } else if cost_snapshot.network_bytes > state.cost_budgets.network_bytes_per_cycle {
+                    "network_per_cycle"
+                } else if cost_snapshot.storage_bytes > state.cost_budgets.storage_bytes_per_cycle {
+                    "storage_per_cycle"
+                } else {
+                    "unknown"
+                };
+                let body = crate::events::encode_substrate_saturated(
+                    cycle,
+                    state.post_eligibility_consecutive_cycles.saturating_add(1),
+                    triggering_axis,
+                );
+                events.push((
+                    crate::events::NODE_TYPE_SUBSTRATE_SATURATED.to_string(),
+                    body,
+                ));
+            }
+            SaturationStage::Normal => {
+                // Only emit "restored" when transitioning FROM a non-Normal stage.
+                if prev_stage != SaturationStage::Normal {
+                    let body = crate::events::encode_substrate_normal_restored(cycle);
+                    events.push((
+                        crate::events::NODE_TYPE_SUBSTRATE_NORMAL_RESTORED.to_string(),
+                        body,
+                    ));
+                }
+            }
+            _ => {} // PreEligibility / PostEligibility don't emit transition markers
+        }
+    }
+
+    (new_stage, events)
+}
+
 /// M25.2 + **M26.2**: append a fresh observatory snapshot to
 /// `state.observatory_history` and enforce the cap. Called on every
 /// `cycle_advanced` emission.
@@ -354,6 +547,14 @@ pub(crate) fn append_observatory_snapshot_to_state(state: &mut ServerState) {
         .cost_accumulator
         .snapshot_and_reset(&mut state.federation, &state.state_dir);
 
+    // **M26.4 P14.c**: compute telos_alignment cosine (proxy) NOW so it
+    // lands in this snapshot. None when not computable → empty string.
+    let telos_cosine = compute_telos_alignment_cosine(state);
+    let signal_telos_alignment_repr = match telos_cosine {
+        Some(c) => float_repr(c),
+        None => String::new(),
+    };
+
     let snapshot = ObservatorySnapshot {
         at_cycle: state.manifest.cycle_counter,
         at_unix_ns,
@@ -366,10 +567,235 @@ pub(crate) fn append_observatory_snapshot_to_state(state: &mut ServerState) {
         signal_7_compute_ns: cost.compute_ns,
         signal_8_network_bytes: cost.network_bytes,
         signal_9_storage_bytes: cost.storage_bytes,
+        signal_telos_alignment_repr,
     };
     state.observatory_history.push_back(snapshot);
     while state.observatory_history.len() > OBSERVATORY_HISTORY_CAP {
         state.observatory_history.pop_front();
+    }
+
+    // **M26.4 P11.c**: run the saturation stage machine NOW that the cycle's
+    // cost snapshot is finalized. This emits substrate_saturated /
+    // substrate_normal_restored on transitions, and per-axis
+    // `budget_exhausted:{axis}` events when budgets are exhausted (with
+    // per-axis cooldown to prevent spam). C53 detector logic also runs here.
+    apply_p11c_and_emit(state, &cost);
+
+    // **M26.4 P14.c**: emit telos_drift events (with cooldown) based on the
+    // grading in `compute_telos_alignment_cosine`.
+    apply_p14c_telos_drift(state, telos_cosine);
+}
+
+/// **M26.4 P11.c emission helper**. Walks per-axis budgets, emits
+/// `budget_exhausted:{axis}` events (cooldown-gated) for axes that exceed,
+/// runs the saturation stage machine, emits transition events, emits
+/// `compression_proposed:{rule_id}` daily events in PostEligibility, and
+/// runs the C53 budget_exhausted_silent detector.
+fn apply_p11c_and_emit(state: &mut ServerState, cost: &CostSnapshot) {
+    let cycle = state.manifest.cycle_counter;
+    let budgets = state.cost_budgets;
+
+    // Per-axis exceeded flags.
+    let compute_exceeded = cost.compute_ns > budgets.compute_ns_per_cycle;
+    let network_exceeded = cost.network_bytes > budgets.network_bytes_per_cycle;
+    let storage_exceeded = cost.storage_bytes > budgets.storage_bytes_per_cycle;
+    let any_exceeded = compute_exceeded || network_exceeded || storage_exceeded;
+
+    // Stage advance.
+    let (new_stage, transition_events) = p11c_advance_stage(state, cost, any_exceeded);
+    let prev_stage = state.saturation_stage;
+    state.saturation_stage = new_stage;
+    if matches!(new_stage, crate::events::SaturationStage::PostEligibility) {
+        state.post_eligibility_consecutive_cycles =
+            state.post_eligibility_consecutive_cycles.saturating_add(1);
+    } else if matches!(new_stage, crate::events::SaturationStage::Saturated) {
+        // Don't reset — we want to track how long sustained.
+        state.post_eligibility_consecutive_cycles =
+            state.post_eligibility_consecutive_cycles.saturating_add(1);
+    } else {
+        state.post_eligibility_consecutive_cycles = 0;
+    }
+    for (nt, body) in transition_events {
+        let _ = crate::server::emit_substrate_event(state, nt, body);
+    }
+
+    // Per-axis budget_exhausted emission with cooldown.
+    const BUDGET_EXHAUSTED_COOLDOWN_CYCLES: u64 = 10;
+    let emit_axis_exhaustion = |state: &mut ServerState,
+                                axis: &str,
+                                current: u64,
+                                budget: u64| {
+        let cooldown_ok = match state.last_budget_exhausted_per_axis.get(axis) {
+            None => true,
+            Some(prior) => cycle.saturating_sub(*prior) >= BUDGET_EXHAUSTED_COOLDOWN_CYCLES,
+        };
+        if cooldown_ok {
+            let body = crate::events::encode_budget_exhausted(axis, current, budget, cycle);
+            let _ = crate::server::emit_substrate_event(
+                state,
+                format!(
+                    "{}{}",
+                    crate::events::NODE_TYPE_BUDGET_EXHAUSTED_PREFIX,
+                    axis
+                ),
+                body,
+            );
+            state
+                .last_budget_exhausted_per_axis
+                .insert(axis.to_string(), cycle);
+        }
+    };
+    if compute_exceeded {
+        emit_axis_exhaustion(
+            state,
+            "compute_per_cycle",
+            cost.compute_ns,
+            budgets.compute_ns_per_cycle,
+        );
+    }
+    if network_exceeded {
+        emit_axis_exhaustion(
+            state,
+            "network_per_cycle",
+            cost.network_bytes,
+            budgets.network_bytes_per_cycle,
+        );
+    }
+    if storage_exceeded {
+        emit_axis_exhaustion(
+            state,
+            "storage_per_cycle",
+            cost.storage_bytes,
+            budgets.storage_bytes_per_cycle,
+        );
+    }
+
+    // **C53 budget_exhausted_silent**: if any axis exceeded budget AND the
+    // emit-axis-exhaustion path above DIDN'T emit (cooldown still active),
+    // verify there was a recent emission within window. If we're past
+    // cooldown AND no recent emission, fire C53 — substrate is hiding cost
+    // from operator. Within cooldown is acceptable: the recent emit already
+    // documented the breach.
+    const C53_CHECK_WINDOW_CYCLES: u64 = 50;
+    let axes_to_check: Vec<(&str, bool)> = vec![
+        ("compute_per_cycle", compute_exceeded),
+        ("network_per_cycle", network_exceeded),
+        ("storage_per_cycle", storage_exceeded),
+    ];
+    for (axis, exceeded) in axes_to_check {
+        if !exceeded {
+            continue;
+        }
+        let recently_documented = match state.last_budget_exhausted_per_axis.get(axis) {
+            None => false,
+            Some(prior) => cycle.saturating_sub(*prior) < C53_CHECK_WINDOW_CYCLES,
+        };
+        if !recently_documented {
+            let evidence = format!(
+                "axis={} exceeded budget at cycle {} but no budget_exhausted event in last \
+                 {} cycles (C53 silent-breach detector)",
+                axis, cycle, C53_CHECK_WINDOW_CYCLES
+            );
+            let _ = crate::server::emit_immune_sporocarp(
+                state,
+                "C53_budget_exhausted_silent",
+                "budget_exhausted_silent",
+                &evidence,
+            );
+        }
+    }
+
+    // PostEligibility stage 2: emit compression_proposed:{rule_id} for each
+    // eligible rule. Cooldown-gated to once per stage entry (we don't want
+    // to spam every cycle in PostEligibility).
+    if matches!(new_stage, crate::events::SaturationStage::PostEligibility)
+        && !matches!(prev_stage, crate::events::SaturationStage::PostEligibility)
+    {
+        let triggering_axis = if compute_exceeded {
+            "compute_per_cycle"
+        } else if network_exceeded {
+            "network_per_cycle"
+        } else if storage_exceeded {
+            "storage_per_cycle"
+        } else {
+            "unknown"
+        };
+        let rules = crate::events::seed_compression_rule_registry();
+        for rule in rules {
+            let body = crate::events::encode_compression_proposed(
+                &rule.rule_id,
+                cycle,
+                triggering_axis,
+                0, // estimated_candidates: deferred to M26.5 (requires DAG scan)
+            );
+            let _ = crate::server::emit_substrate_event(
+                state,
+                format!(
+                    "{}{}",
+                    crate::events::NODE_TYPE_COMPRESSION_PROPOSED_PREFIX,
+                    rule.rule_id
+                ),
+                body,
+            );
+        }
+    }
+}
+
+/// **M26.4 P14.c emission helper**. Given the just-computed telos cosine,
+/// fire the appropriate level of `telos_*` event (with 100-cycle cooldown).
+/// For CRITICAL grade, also fires C24_telos_drift_critical immune sporocarp.
+fn apply_p14c_telos_drift(state: &mut ServerState, telos_cosine: Option<f64>) {
+    let cycle = state.manifest.cycle_counter;
+    let cosine = match telos_cosine {
+        None => {
+            // Birth-period / no objective / no sporocarps → emit pending
+            // (daily, NOT immune) at cooldown-friendly cadence. Skip if
+            // we're early-cycle (cycle < 10): too noisy for fresh substrate.
+            if cycle >= 10 && cycle % 50 == 0 {
+                let body = crate::events::encode_telos_status(
+                    "",
+                    "pending",
+                    cycle,
+                    state.observatory_history.len() as u64,
+                );
+                let _ = crate::server::emit_substrate_event(
+                    state,
+                    crate::events::NODE_TYPE_TELOS_ALIGNMENT_PENDING.to_string(),
+                    body,
+                );
+            }
+            return;
+        }
+        Some(c) => c,
+    };
+    let (grade, emit_type_opt) = telos_grade_for_cosine(cosine);
+    if let Some(emit_type) = emit_type_opt {
+        let cooldown_ok = match state.last_telos_drift_emitted_at_cycle {
+            None => true,
+            Some(prior) => cycle.saturating_sub(prior) >= M25_DETECTOR_COOLDOWN_CYCLES,
+        };
+        if cooldown_ok {
+            let body = crate::events::encode_telos_status(
+                &float_repr(cosine),
+                grade,
+                cycle,
+                state.observatory_history.len() as u64,
+            );
+            let _ = crate::server::emit_substrate_event(state, emit_type.to_string(), body);
+            // CRITICAL grade also fires C24 immune sporocarp.
+            if grade == "critical" {
+                let evidence = format!(
+                    "telos_alignment cosine={cosine} (≤ 0); P14.c CRITICAL per L1_TROPISM §F.1",
+                );
+                let _ = crate::server::emit_immune_sporocarp(
+                    state,
+                    "C24_telos_drift_critical",
+                    "telos_drift_critical",
+                    &evidence,
+                );
+            }
+            state.last_telos_drift_emitted_at_cycle = Some(cycle);
+        }
     }
 }
 

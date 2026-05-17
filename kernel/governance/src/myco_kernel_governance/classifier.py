@@ -236,6 +236,32 @@ SEED_DIMENSION_TABLE: tuple[ClassifierRule, ...] = (
         classification=Classification.CONTRACT_IDENTITY_LEVEL,
         meta_structure_name="compression_invariant_set",
     ),
+    # **M26.4 F19 fixed point**: per-axis cost budget thresholds are tier-1
+    # SSoT + CI-mutable (L1_GOVERNANCE §15 F19). Operator-driven budget
+    # mutation goes through `mutation_type="cost_budget_set"`.
+    ClassifierRule(
+        name="cost_budget_set_mutation",
+        classification=Classification.CONTRACT_IDENTITY_LEVEL,
+        mutation_type="cost_budget_set",
+    ),
+    ClassifierRule(
+        name="cost_budget_thresholds_meta",
+        classification=Classification.CONTRACT_IDENTITY_LEVEL,
+        meta_structure_name="cost_budget_thresholds",
+    ),
+    # **M26.4 F20 fixed point**: owner objective declaration is CI per L0
+    # P14.b ("declared at genesis/CI"). Drives the P14.c telos_alignment
+    # cosine. Single mutation_type kicks both declare + amend pathways.
+    ClassifierRule(
+        name="owner_objective_declaration_mutation",
+        classification=Classification.CONTRACT_IDENTITY_LEVEL,
+        mutation_type="owner_objective_declaration",
+    ),
+    ClassifierRule(
+        name="telos_alignment_metric_meta",
+        classification=Classification.CONTRACT_IDENTITY_LEVEL,
+        meta_structure_name="telos_alignment_metric_definition",
+    ),
     # Daily-content mutation types.
     ClassifierRule(
         name="daily_delta_absorb",
