@@ -64,7 +64,7 @@ jobs:
           cache: pip
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@e46ed2cbd01164d986452f91f178727624ae40d7  # v4.35.3
+        uses: github/codeql-action/init@9e0d7b8d25671d64c341c19c0152d693099fb5ba  # v4.35.5
         with:
           languages: ${{ matrix.language }}
           # ``security-and-quality`` = security-extended + code-quality.
@@ -93,10 +93,10 @@ jobs:
         # Python is interpreted; autobuild is a no-op extract step,
         # but kept here for symmetry with compiled-language jobs and
         # future-proofing against language matrix expansion.
-        uses: github/codeql-action/autobuild@e46ed2cbd01164d986452f91f178727624ae40d7  # v4.35.3
+        uses: github/codeql-action/autobuild@9e0d7b8d25671d64c341c19c0152d693099fb5ba  # v4.35.5
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@e46ed2cbd01164d986452f91f178727624ae40d7  # v4.35.3
+        uses: github/codeql-action/analyze@9e0d7b8d25671d64c341c19c0152d693099fb5ba  # v4.35.5
         with:
           category: "/language:${{ matrix.language }}"
           # Upload the SARIF results to the Security tab.
