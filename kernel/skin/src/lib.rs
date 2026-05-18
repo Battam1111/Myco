@@ -30,7 +30,7 @@
 //!   C2 (`output_endpoint_breach`), C3 (`post_handshake_ci_unattested`),
 //!   C4 (`substrate_secret_unsealed`), C11 (`concurrent_operator_persistent`),
 //!   F11 (skin-surface declaration fixed-point)
-//! - **L3_PACKAGE_MAP** §3 (kernel/skin spec, 4 sub-modules)
+//! - **L3/PACKAGE_MAP** §3 (kernel/skin spec, 4 sub-modules)
 //!
 //! ## M1 implementation status
 //!

@@ -52,7 +52,7 @@
 //!
 //! - L1/CONTINUITY §1.1 — gradient_advance dispatch.
 //! - L1/TROPISM §3 — kernel/tropism is the gradient-state owner.
-//! - L3_PACKAGE_MAP §6 — Python is the L3-mapped language for tropism.
+//! - L3/PACKAGE_MAP §6 — Python is the L3-mapped language for tropism.
 //! - L1/SKIN §2 — envelope_digest HMAC discipline preserved across IPC.
 //! - L0/cards/AS_anchor_surface §3 — canonical-bytes determinism preserved across IPC.
 //!

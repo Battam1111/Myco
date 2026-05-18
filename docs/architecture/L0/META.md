@@ -502,7 +502,7 @@ Conflicts resolve upward: L4 < L3 < L2 < L1 < L0.
 
 ## §12. What's preserved from the old L0
 
-The old `L0_VISION.md` is marked `SUPERSEDED-BY: v3.1-stratigraphy` and remains readable. Every card in this new doctrine traces in its Provenance section back to the relevant old-L0 section. No content is erased.
+The old `L0_VISION.md` (DRAFT 9 SEALED at commit `e796451`, 2026-05-17) was removed from the working tree as part of the v3.1 supersession (2026-05-18); its full text remains recoverable via `git show e796451:docs/architecture/L0_VISION.md`. Every card in this new doctrine traces in its Provenance section back to the relevant old-L0 section; the complete prior-L0 → v3.1 mapping is `PROVENANCE.md` §2. No content is erased.
 
 Provenance is itself doctrine: a card's history of revisions, including the reasons for each, must be preserved alongside the current text. This is the *isnad* principle (Islamic Hadith transmission chain) applied to AI doctrine.
 

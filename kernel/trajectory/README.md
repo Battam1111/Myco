@@ -1,6 +1,6 @@
 # myco-kernel-trajectory
 
-Myco v0.9 — kernel/trajectory (Python) per L3_PACKAGE_MAP §8.
+Myco v0.9 — kernel/trajectory (Python) per L3/PACKAGE_MAP §8.
 
 Implements **intent derivation** as a substrate-resident query over the
 causal DAG. Per L1/TRAJECTORY §1: intent is computed, not stored —

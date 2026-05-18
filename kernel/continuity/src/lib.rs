@@ -20,7 +20,7 @@
 //! - **L1/CONTINUITY** §1-§5 (full document)
 //! - **L1/HARD_RULES** C9 (`cold_resume_invariant_failure`),
 //!   C19 (`paused_dormancy_unsafe_host`)
-//! - **L3_PACKAGE_MAP** §6 (kernel/continuity spec, 5 sub-modules)
+//! - **L3/PACKAGE_MAP** §6 (kernel/continuity spec, 5 sub-modules)
 //!
 //! ## M3 implementation status
 //!

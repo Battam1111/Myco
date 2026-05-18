@@ -32,7 +32,7 @@
 //!   C9 (`cold_resume_invariant_failure`), F8 (SSoT designation),
 //!   F9 (DAG retention policy), F10 (storage tier exemption from I5),
 //!   F16 (canonical-bytes serializer spec)
-//! - **L3_PACKAGE_MAP** §4 (kernel/schema spec, 5 sub-modules)
+//! - **L3/PACKAGE_MAP** §4 (kernel/schema spec, 5 sub-modules)
 //!
 //! ## M1 implementation status
 //!
@@ -58,7 +58,7 @@
 //! - DAG retention tiering (hot / warm / cold per §2.3); cold-tier
 //!   inaccessibility markers.
 //! - Recoverability budget + tiered recovery drills (L1/SCHEMA §2.4) —
-//!   the entire `kernel/schema/recovery` sub-module per L3_PACKAGE_MAP §4.2.
+//!   the entire `kernel/schema/recovery` sub-module per L3/PACKAGE_MAP §4.2.
 //! - Disk-pressure handling (L1/SCHEMA §2.5 storage_pressure immune
 //!   sporocarp).
 //! - Spore-schema spawn closure verification protocol (L1/SCHEMA §3.3).

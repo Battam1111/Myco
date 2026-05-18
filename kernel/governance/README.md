@@ -1,6 +1,6 @@
 # myco-kernel-governance
 
-Myco v0.9 — kernel/governance (Python) per L3_PACKAGE_MAP §5.
+Myco v0.9 — kernel/governance (Python) per L3/PACKAGE_MAP §5.
 
 ## Modules (M2 scope)
 

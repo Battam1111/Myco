@@ -1,7 +1,7 @@
 // MCP server — exposes substrate operations to Claude Code as MCP tools.
 //
 // This is the L4 M6 operators/<claude> binding per
-// L3_PACKAGE_MAP §11. It maps Claude Code's MCP tool-call surface to the
+// L3/PACKAGE_MAP §11. It maps Claude Code's MCP tool-call surface to the
 // substrate's M5/M6 wire protocol.
 //
 // ## Tool surface (M6 v1)

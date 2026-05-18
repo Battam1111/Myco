@@ -1,6 +1,6 @@
 # myco-kernel-hard-rules
 
-Myco v0.9 — kernel/hard_rules (Python) per L3_PACKAGE_MAP §9.
+Myco v0.9 — kernel/hard_rules (Python) per L3/PACKAGE_MAP §9.
 
 The substrate's **immune system**: 20 CRITICAL-grade breach detectors
 (L1/HARD_RULES §1 C1-C20) + 17 contract-identity-level fixed-point

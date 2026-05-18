@@ -21,7 +21,7 @@ L3 maps L1 mechanisms + L2 themes to code modules. Commits: module boundaries + 
 
 ## §2. Module-boundary principles
 
-7 L1 mechanism docs → 7 substrate code modules; +1 shared crypto/canonical-bytes module; +owner-side `anchor-client` + per-LLM-host `operator_runtime` (out-of-band). Module index + responsibilities + dependencies: **L3_PACKAGE_MAP §1**.
+7 L1 mechanism docs → 7 substrate code modules; +1 shared crypto/canonical-bytes module; +owner-side `anchor-client` + per-LLM-host `operator_runtime` (out-of-band). Module index + responsibilities + dependencies: **L3/PACKAGE_MAP §1**.
 
 ---
 
@@ -33,7 +33,7 @@ Acyclic DAG + parallel build groups: `diagrams/l3_dependency_graph.txt`. Higher 
 
 ## §5-§6. Test + layout
 
-§5 test discipline: T1 (unit) per-module; T2 (integration) cross-module; T3 (substrate e2e) full lifecycle + L0 invariants + L1/HARD_RULES C-row breach; T4 (adversarial) red-team. Per-module surfaces in L3_PACKAGE_MAP §§2-11; L4 picks frameworks per module language.
+§5 test discipline: T1 (unit) per-module; T2 (integration) cross-module; T3 (substrate e2e) full lifecycle + L0 invariants + L1/HARD_RULES C-row breach; T4 (adversarial) red-team. Per-module surfaces in L3/PACKAGE_MAP §§2-11; L4 picks frameworks per module language.
 
 §6 file layout:
 

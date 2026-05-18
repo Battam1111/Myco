@@ -36,7 +36,7 @@
 //!
 //! ## Doctrine traceability
 //!
-//! - L3_PACKAGE_MAP §11 — operators/<host>: this is the substrate
+//! - L3/PACKAGE_MAP §11 — operators/<host>: this is the substrate
 //!   side that bindings talk to.
 //! - L1/SKIN §4.1 — operator handshake + envelope discipline (M6 uses the
 //!   M5 protocol's session_secret + HMAC; M7+ upgrades to per-handshake

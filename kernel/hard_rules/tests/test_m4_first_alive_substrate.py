@@ -1,6 +1,6 @@
 """M4 milestone end-to-end test: 'first alive' v0.9 substrate demonstration.
 
-Per L3_PACKAGE_MAP §13: the v0.9 first-birth substrate is the milestone
+Per L3/PACKAGE_MAP §13: the v0.9 first-birth substrate is the milestone
 where ALL kernel modules + cross-language parity + immune system + intent
 derivation interoperate. When this test passes, v0.9 has its first
 'alive' substrate.

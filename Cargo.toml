@@ -1,12 +1,12 @@
 # Myco v0.9 substrate — Cargo workspace root
 #
 # This workspace contains the Rust-implemented modules of the v0.9 substrate-kernel
-# (per L3_PACKAGE_MAP §2-§6). Python modules (governance, tropism, trajectory,
+# (per L3/PACKAGE_MAP §2-§6). Python modules (governance, tropism, trajectory,
 # hard_rules) live under kernel/<name>/ but use their own Python build tooling
 # (pyproject.toml). TypeScript modules (anchor/client, operators) live
 # in their own directories with their own package.json files.
 #
-# Per L3_OUTLINE §5 owner-chosen multi-language split:
+# Per L3/OUTLINE §5 owner-chosen multi-language split:
 # - Rust (this workspace): kernel/shared + kernel/skin + kernel/schema + kernel/continuity + kernel/bridge + substrate + anchor/host + test_vectors/rs
 # - Python: kernel/governance + kernel/tropism + kernel/trajectory + kernel/hard_rules
 # - TypeScript: anchor/client + operators/<host>
@@ -28,7 +28,7 @@ members = [
 ]
 
 [workspace.package]
-# Per L0/META §7.1 (amendment) + L3_OUTLINE: v0.9 substrate version is shared across all kernel crates.
+# Per L0/META §7.1 (amendment) + L3/OUTLINE: v0.9 substrate version is shared across all kernel crates.
 # This is NOT a SemVer of any individual crate; it's the substrate version.
 version = "0.9.0-alpha.1"
 edition = "2021"
@@ -47,7 +47,7 @@ ed25519-dalek = { version = "2.1", default-features = false, features = ["zeroiz
 proptest = "1.4"
 hex = "0.4"
 
-# Per L3_PACKAGE_MAP §2.3 critical: canonical-bytes serializer must round-trip
+# Per L3/PACKAGE_MAP §2.3 critical: canonical-bytes serializer must round-trip
 # identically across substrate-kernel (Rust), operator-bindings (per host),
 # and anchor/client (TypeScript). Cross-language test vector suite lives in
 # tests/canonical_bytes_vectors/ (see kernel/shared/tests/).

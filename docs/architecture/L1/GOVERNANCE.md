@@ -108,7 +108,7 @@
 
 ### §6.2 Three layers — doctrine + schema/dispatch + threshold
 
-- **Doctrine (L0/L1)**: slowest; Cultivator-attested per L0/META §7.5 (model-diversity) + L1_OUTLINE §4 item 3; L0 revision diffs verbatim against prior commit hash; burst-detection per L0/cards/AS_anchor_surface §4 (failure modes) (signal #2 evolution-rate; zero = stagnation/P3-weak; excessive = `doctrine_instability` → C37; detector L2/OBSERVABILITY §8).
+- **Doctrine (L0/L1)**: slowest; Cultivator-attested per L0/META §7.5 (model-diversity) + L1/* doctrine docs §4 item 3; L0 revision diffs verbatim against prior commit hash; burst-detection per L0/cards/AS_anchor_surface §4 (failure modes) (signal #2 evolution-rate; zero = stagnation/P3-weak; excessive = `doctrine_instability` → C37; detector L2/OBSERVABILITY §8).
 - **Schema/dispatch (CI)**: L1/SCHEMA §1.3 two-phase migration; §2.2 dispatch-parameter evolution; I3-failure rollback per §6.4.
 - **Daily threshold**: fast; daily-autonomous non-mortality; emergent per C6.4. Constraints: mortality-signal triple (threshold + update-rule + emergence-rule) CI-level; tier-1 fields cannot be daily-mutated; I3-inconsistent → §6.4 rollback.
 

@@ -30,7 +30,7 @@
 //! - L1/SKIN §2 envelope_digest HMAC, §4.2 sealed_derive operator_token
 //! - L1/GOVERNANCE §3.1 active-prefix + archived-tail discipline
 //! - L1/HARD_RULES C4 substrate_secret_unsealed (CRITICAL detector hook)
-//! - L3_PACKAGE_MAP §2 module specification
+//! - L3/PACKAGE_MAP §2 module specification
 //!
 //! ## Status
 //!

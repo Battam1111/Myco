@@ -2,7 +2,7 @@
 
 ## Doctrine
 
-Per L1/CONTINUITY §1.1 + L3_PACKAGE_MAP: the substrate's metabolic cycle is
+Per L1/CONTINUITY §1.1 + L3/PACKAGE_MAP: the substrate's metabolic cycle is
 orchestrated by `kernel/continuity` (Rust). Step 2 (gradient advance) and the
 sporocarp-emission part of step 3 are L3-mapped to `kernel/tropism` (Python).
 Crossing that language boundary requires a stable IPC contract — this package
@@ -35,7 +35,7 @@ itself, which is keyed by the deterministic ``BOOTSTRAP_KEY``.
 
 - L1/CONTINUITY §1.1 — step 2 gradient_advance dispatch.
 - L1/TROPISM §3 — kernel/tropism is the gradient-state owner.
-- L3_OUTLINE §5 + L3_PACKAGE_MAP §6 — Python is L3-mapped for tropism.
+- L3/OUTLINE §5 + L3/PACKAGE_MAP §6 — Python is L3-mapped for tropism.
 - L1/SKIN §2 — envelope_digest HMAC discipline carried into IPC.
 - L0/cards/AS_anchor_surface §3 — canonical-bytes determinism preserved across IPC boundary.
 

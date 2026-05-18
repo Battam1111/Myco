@@ -1,6 +1,6 @@
 # myco-kernel-tropism
 
-Myco v0.9 — kernel/tropism (Python) per L3_PACKAGE_MAP §7.
+Myco v0.9 — kernel/tropism (Python) per L3/PACKAGE_MAP §7.
 
 The substrate's **positive dispatch form**: continuously-evolving appetite
 gradient with substrate-initiated sporocarp emission at fruiting triggers.

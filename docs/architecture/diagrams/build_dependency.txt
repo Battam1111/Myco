@@ -1,4 +1,4 @@
-Build Dependency Graph (L3_PACKAGE_MAP §10)
+Build Dependency Graph (L3/PACKAGE_MAP §10)
 
   Substrate-kernel build order (parallel groups):
 
