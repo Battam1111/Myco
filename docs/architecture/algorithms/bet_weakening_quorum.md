@@ -4,13 +4,13 @@
 
 # `bet_weakening_quorum` — falsifiability trigger algorithm
 
-> Reference algorithm extracted from L0 §7.4 to keep active doctrine lean. Authoritative algorithm lives at **L2/OBSERVABILITY §3** (per-cycle detector) + L0 §7.4 (commitment); this file is the consolidated specification. Wall-clock window + 90-sample observatory_history cap normative.
+> Reference algorithm extracted from L0/cards/LB_living_bets §3 (falsifiability quorum) to keep active doctrine lean. Authoritative algorithm lives at **L2/OBSERVABILITY §3** (per-cycle detector) + L0/cards/LB_living_bets §3 (falsifiability quorum) (commitment); this file is the consolidated specification. Wall-clock window + 90-sample observatory_history cap normative.
 
 ---
 
 ## §1. Algorithm (informal)
 
-Over a **90-day wall-clock window** (anchor-stamped per L0 §13.1):
+Over a **90-day wall-clock window** (anchor-stamped per L0/cards/P06_eternal_causality + L1/CONTINUITY (time semantics)):
 
 1. For each countable signal s ∈ {#1, #2, #3, #4a, #4b, #6}, collect samples at cadence ≥ 1/substrate-day (≥ 90 samples).
 2. Compute OLS-regression slope of s over the window.
@@ -29,7 +29,7 @@ Signal #5 (OLS slope) is the **meta-direction-detector** — its outputs power s
 - Threshold: ≥ 3 of 6.
 - Until #4a lands: quorum operates over 5 of 6; documented false-negative bias per L2/OBSERVABILITY §3.4.
 
-## §4. Birth-period exemption (per L0 §7.4.e)
+## §4. Birth-period exemption (per L0/cards/LB_living_bets §3 (birth-period exemption))
 
 SUSPENDED during birth period (L1/TROPISM §4 + L1/GOVERNANCE §1.3): #6 structurally < 1, #1 monotone growing from zero, #3 structurally zero — math vacuous. Substrate emits `bet_weakening_evaluation_suspended` instead of `bet_weakening_quorum`.
 

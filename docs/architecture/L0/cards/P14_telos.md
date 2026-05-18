@@ -61,9 +61,9 @@ The substrate **MUST**:
 - **§4.1** Implement F20 telos metric computation per cycle; emit alignment value via observatory.
 - **§4.2** Detect telos drift over rolling window; emit `telos_drift` at warning threshold; emit `C24_telos_drift_critical` at critical threshold.
 - **§4.3** Honor owner-stated objective lifecycle: declared at genesis (F20) → branch 1; CI mutation `telos_objective_set:{new_text}` → branch 1' with re-embedding; `telos_objective_unset` → branch 2 (agent-perceived utility).
-- **§4.4** Birth-period exemption: during birth period (per L1/GOVERNANCE §1.3 + L0 §7.4.e), suspend `telos_drift` emission; emit `telos_alignment_pending` instead.
+- **§4.4** Birth-period exemption: during birth period (per L1/GOVERNANCE §1.3 + L0/cards/LB_living_bets §3 (birth-period exemption)), suspend `telos_drift` emission; emit `telos_alignment_pending` instead.
 - **§4.5** Post-birth settling window (default 100 cycles, shared with salience emergence): also suspend telos_drift detection.
-- **§4.6** Per L0 §7.5 (Living Bets), telos failure that triggers `bet_weakening_quorum` (C40) enters the bet-retirement path → eventual P7.
+- **§4.6** Per L0/cards/LB_living_bets §4 (retirement) (Living Bets), telos failure that triggers `bet_weakening_quorum` (C40) enters the bet-retirement path → eventual P7.
 
 ## §5. Negative space — MUST NOT
 
@@ -106,7 +106,7 @@ NOT the *KPI* frame (cultivator's objective is not a metric to optimize). NOT th
 
 **The misreading**: "P14 commits Myco to outperforming naive alternatives at every intelligence tier."
 
-**Why it's wrong**: L0 §3 explicitly says Myco is NOT winning Sutton's bet at every tier. P14 + LB_living_bets explicitly accept *graceful retirement* (§7.5) at high intelligence tiers. The cultivar's telos is *pair flourishing* within an *intelligence band* (~200K-10M tokens); outside that band, retirement is doctrinally honorable, not failure.
+**Why it's wrong**: L0/META §10 (negative space) explicitly says Myco is NOT winning Sutton's bet at every tier. P14 + LB_living_bets explicitly accept *graceful retirement* (§7.5) at high intelligence tiers. The cultivar's telos is *pair flourishing* within an *intelligence band* (~200K-10M tokens); outside that band, retirement is doctrinally honorable, not failure.
 
 ## §8. Falsifiability + witness map
 

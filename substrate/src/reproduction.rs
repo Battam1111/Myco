@@ -24,7 +24,7 @@ use crate::SubstrateError;
 
 /// M20 P8 永恒繁衍 — Sprout a child substrate from the parent's spore-schema.
 ///
-/// Per L0 §2.2 P8: "The substrate can spawn child substrates. Reproduction is
+/// Per L0/cards/P01-P14 (principles).2 P8: "The substrate can spawn child substrates. Reproduction is
 /// a first-class operation. The new substrate inherits the parent's
 /// spore-schema (minimum structural form for the child to begin its own
 /// symbiosis)."
@@ -158,7 +158,7 @@ pub(crate) fn handle_sprout_child(
     // 2c. M22.5 P8 永恒繁衍: compute parent's immune-summary (list of
     // immune sporocarp hashes) and, if non-empty, write a
     // birth_period_quarantine_entered event into child's DAG. The child
-    // enters quarantine on boot. This implements L0 §2.2 P8 + pass-1
+    // enters quarantine on boot. This implements L0/cards/P01-P14 (principles).2 P8 + pass-1
     // mycoparasite-13: "child enters birth-period quarantine if parent had
     // unresolved immune signals".
     let immune_summary: Vec<[u8; 32]> = state

@@ -13,7 +13,7 @@
 //!
 //! ## Doctrine traceability
 //!
-//! - L0 §2.1 P5 万物互联: federation is the inter-substrate half of "the
+//! - L0/cards/P01-P14 (principles).1 P5 万物互联: federation is the inter-substrate half of "the
 //!   substrate is a connected graph, not a collection."
 //! - L1/HARD_RULES C33 (federation_peer_identity_mismatch), C35
 //!   (federation_substrate_private_event_injection), C39

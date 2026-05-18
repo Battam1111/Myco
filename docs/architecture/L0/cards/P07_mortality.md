@@ -45,7 +45,7 @@ falsifiability_signals:
 2. **Catastrophic-environment**: medium failure beyond recoverability budget. Detected post-hoc via drill failure cascade.
 3. **Endogenous-pair**: substrate emits `self_euthanasia_proposal` OR anchor auto-emits `mortality_drill_failure` after two consecutive failed drills — cultivator cannot suppress the latter. Cultivator co-attestation to execute.
 
-Plus **bet-retirement** (L0 §7.5; intersecting Living Bets card): the cultivar exits via `bet_retired_proposal` + owner co-attestation; `alive::archived` (state_dir preserved, anchor seals final tip).
+Plus **bet-retirement** (L0/cards/LB_living_bets §4 (retirement); intersecting Living Bets card): the cultivar exits via `bet_retired_proposal` + owner co-attestation; `alive::archived` (state_dir preserved, anchor seals final tip).
 
 **Why eternity-clause**: a cultivar that cannot die has lost the structural property that makes it alive. P01c's bestowed agent identity ceases at substrate death (§3.7 of P01c). P14 telos has a graceful-retirement mode only because P07 makes ending possible. Removing P07 would not improve Myco; it would convert Myco into a perpetual artifact — categorically not a Cultivar.
 
@@ -58,7 +58,7 @@ The substrate **MUST**:
 - **§3.1** Maintain a `mortality_signal` axis or FSM-predicate (L4-choice per L1/TROPISM §B2). Threshold + update-rule + emergence-rule are **CI-only** (F7); daily mutation triggers C16 (`mortality_signal_suppression`).
 - **§3.2** Provide intentional-destruction path: cultivator-attested `destruction_attestation` + `anchor_surface_final_seal`. Substrate transitions `alive::normal → destroyed` atomically.
 - **§3.3** Provide endogenous-pair path (dual-channel): (a) substrate emits `self_euthanasia_proposal` with `operator_witness_hash`; cultivator may co-attest to execute. OR (b) anchor auto-emits `mortality_drill_failure` after two consecutive failed recovery drills (L1/SCHEMA §2.4); substrate cannot suppress this channel.
-- **§3.4** Provide bet-retirement path (L0 §7.5): on `bet_weakening_quorum` + sustained signal-#6 < 0.1 + owner re-justification fails: `bet_retired_proposal`. Cultivator co-attests → `alive::archived` (state preserved, no further cycles, anchor seals final tip).
+- **§3.4** Provide bet-retirement path (L0/cards/LB_living_bets §4 (retirement)): on `bet_weakening_quorum` + sustained signal-#6 < 0.1 + owner re-justification fails: `bet_retired_proposal`. Cultivator co-attests → `alive::archived` (state preserved, no further cycles, anchor seals final tip).
 - **§3.5** Emit `mortality_imminent` approaching-mortality signals (L1/SCHEMA §5.3 i64 horizon, F19 budget exhaustion sustained) so cultivator has notice before terminal.
 - **§3.6** On destruction: substrate-ID is retired (never reissued); DAG-tip is sealed at anchor; state_dir state is either preserved (`alive::archived`) or removed (per `destruction_attestation` instruction).
 - **§3.7** Bestowed agent identity (P01c) ceases on substrate destruction. No agent-token persists past destruction.
@@ -177,7 +177,7 @@ Count of attempts to mutate F7 (threshold / update-rule / emergence-rule) via no
 |---|---|---|
 | 1 | 2025-11 | Introduced in L0 DRAFT 1. |
 | 1.1 | 2026-05-17 (M27) | Compression refactor. |
-| 2 | 2026-05-18 | v3.1 schema. Marked as eternity-clause (`deposit_immutable: true`). Bet-retirement explicitly included as mortality mode per L0 §7.5. |
+| 2 | 2026-05-18 | v3.1 schema. Marked as eternity-clause (`deposit_immutable: true`). Bet-retirement explicitly included as mortality mode per L0/cards/LB_living_bets §4 (retirement). |
 
 ## §12. Structural anchors + reverse-comment requirement
 

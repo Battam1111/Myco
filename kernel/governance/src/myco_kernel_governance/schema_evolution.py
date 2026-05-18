@@ -4,7 +4,7 @@ This module activates the L0 P3 (Eternal Evolution) principle which prior
 milestones had only **gestured at** via the classifier (CI mutations were
 recorded to the DAG but did not actually modify substrate schema).
 
-## Per-L0 §2.1 P3
+## Per-L0/cards/P01-P14 (principles).1 P3
 
 > Myco's **own shape evolves**. Schema, subsystem family, vocabulary, rules,
 > contract itself — all first-class mutable objects under P1.b's two-tier

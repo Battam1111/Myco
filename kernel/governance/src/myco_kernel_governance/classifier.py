@@ -279,7 +279,7 @@ SEED_DIMENSION_TABLE: tuple[ClassifierRule, ...] = (
     # anchor timestamp + anchor nonce. Content is the canonical-bytes
     # envelope per substrate::events::build_l0_revision_canonical_bytes.
     # Always CI (L0 doctrine changes are unconditionally CI per
-    # L1/GOVERNANCE §1.2 + L0 §10).
+    # L1/GOVERNANCE §1.2 + L0/META §7 (amendment)).
     ClassifierRule(
         name="l0_revision_attest_mutation",
         classification=Classification.CONTRACT_IDENTITY_LEVEL,

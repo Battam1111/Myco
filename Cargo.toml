@@ -28,7 +28,7 @@ members = [
 ]
 
 [workspace.package]
-# Per L0 §10.1 + L3_OUTLINE: v0.9 substrate version is shared across all kernel crates.
+# Per L0/META §7.1 (amendment) + L3_OUTLINE: v0.9 substrate version is shared across all kernel crates.
 # This is NOT a SemVer of any individual crate; it's the substrate version.
 version = "0.9.0-alpha.1"
 edition = "2021"

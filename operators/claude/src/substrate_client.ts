@@ -1266,7 +1266,7 @@ async function maybeBuildBirthAttestationEnv(
   const sporeSchemaHash = new Uint8Array(
     createHash("sha256").update(substrateId).update("placeholder_spore_v1").digest(),
   );
-  // Anchor endpoint pubkey: per L0 §9.5 (v0.9 anchor collapsed to operator
+  // Anchor endpoint pubkey: per L0/cards/AS_anchor_surface §5 (v0.9 anchor collapsed to operator
   // process), this equals the owner pubkey.
   const anchorEndpointPubkey = identity.publicKeyBytes();
 

@@ -32,7 +32,7 @@ swaps onto ``owner_keys.cb`` (same pattern as gradient.cb persistence).
   across persistence boundary.
 - L1/HARD_RULES F3 — owner_key_history is a contract-identity-level fixed
   point; persistence integrity is critical.
-- L0 §9.3 — canonical-bytes determinism.
+- L0/cards/AS_anchor_surface §3 — canonical-bytes determinism.
 
 ## M10 scope
 

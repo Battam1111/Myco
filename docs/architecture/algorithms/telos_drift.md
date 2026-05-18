@@ -24,7 +24,7 @@ Per-substrate at genesis, CI; switching branches requires owner CI attestation.
 
 ## Window + cadence
 
-- Window: seed 90 substrate-days (= L0 §7.4 Living Bets window).
+- Window: seed 90 substrate-days (= L0/cards/LB_living_bets §3 (falsifiability quorum) Living Bets window).
 - Cadence: digest-emission per L1/CONTINUITY §1.1 step 2.
 - Branch-2 fallback: empty feedback-marked deltas → centroid over agent's last-K deltas (K = window cycle count).
 

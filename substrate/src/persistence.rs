@@ -29,7 +29,7 @@
 //! - L1/CONTINUITY §6 — disk-backed WAL is the L4-pick; this M7 implementation
 //!   is snapshot-only (every state change → full manifest rewrite). M8+ adds
 //!   true append-only WAL for performance.
-//! - L0 §9.3 — canonical-bytes determinism preserved across persistence.
+//! - L0/cards/AS_anchor_surface §3 — canonical-bytes determinism preserved across persistence.
 
 use std::collections::BTreeMap;
 use std::fs;

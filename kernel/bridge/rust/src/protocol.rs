@@ -267,7 +267,7 @@ pub mod msg_type {
     /// 6 base signals + composite; Phase α ships signals 1 + 6 only. Signals
     /// 2-5 + composite are M25+ work.
     ///
-    /// Per L2/OBSERVABILITY §2.1 + L0 §7 Living Bets. Optional payload field
+    /// Per L2/OBSERVABILITY §2.1 + L0/cards/LB_living_bets Living Bets. Optional payload field
     /// `operator_attested_context_window_bytes` lets the substrate compute
     /// signal #6 ratio (substrate_total / context_window).
     pub const QUERY_SUBSTRATE_OBSERVATORY: &str = "query_substrate_observatory";

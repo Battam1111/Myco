@@ -1144,7 +1144,7 @@ export interface ObservatoryDoctrineRevisionBurstStatus {
   raw: Map<string, Value>;
 }
 
-/** bet_weakening_quorum — composite L0 §7 falsifiability counter
+/** bet_weakening_quorum — composite L0/cards/LB_living_bets falsifiability counter
  *  (format_version >= 3). */
 export interface ObservatoryBetWeakeningQuorum {
   raw: Map<string, Value>;
@@ -1407,7 +1407,7 @@ export function parseQuerySubstrateObservatoryResponse(
     snap.doctrineRevisionBurstStatus = { raw: burst.value };
   }
 
-  // bet_weakening_quorum (M25.2) — composite L0 §7 falsifiability counter.
+  // bet_weakening_quorum (M25.2) — composite L0/cards/LB_living_bets falsifiability counter.
   const bq = response.payload.get("bet_weakening_quorum");
   if (bq && bq.type === "map") {
     snap.betWeakeningQuorum = { raw: bq.value };

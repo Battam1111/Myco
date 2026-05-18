@@ -10,7 +10,7 @@
 //!   parameter (caller provides). M2 wires the actual signature production via
 //!   `kernel/governance` attestation pipeline.
 //!
-//! - **Canonical-bytes discipline** for anchor-surface output (L0 §9.3): outputs
+//! - **Canonical-bytes discipline** for anchor-surface output (L0/cards/AS_anchor_surface §3): outputs
 //!   to the anchor-surface endpoint carry canonical bytes, NOT substrate-
 //!   rendered summaries. The anchor-surface client renders deterministically
 //!   for owner review.
@@ -86,7 +86,7 @@ pub struct OutputEnvelope {
     /// Target endpoint (must be in declared output list at construction time).
     pub target: Endpoint,
 
-    /// Canonical-bytes payload (per L0 §9.3 for anchor-surface; for federation
+    /// Canonical-bytes payload (per L0/cards/AS_anchor_surface §3 for anchor-surface; for federation
     /// peers also canonical-bytes per L1/GOVERNANCE §5.3 low-entropy
     /// serialization).
     pub payload: CanonicalBytes,

@@ -1,4 +1,4 @@
-Cultivation succession FSM (L1/GOVERNANCE §3.2; per L0 §15)
+Cultivation succession FSM (L1/GOVERNANCE §3.2; per L0/cards/COV06_no_abandonment_succession (cultivator mortality))
 ============================================================
 
 Substrate-ID INVARIANT across all transitions (P1.c). Only Cultivator-side changes.
@@ -10,7 +10,7 @@ STATES (sub-states of alive; L0 §I1):
                         except `successor_chain` mutation
   alive::orphaned     — legacy_window elapsed OR empty chain at legacy entry;
                         operational ceiling enforced
-  alive::archived     — terminal-non-destroyed via L0 §7.5 bet-retirement;
+  alive::archived     — terminal-non-destroyed via L0/cards/LB_living_bets §4 (retirement) bet-retirement;
                         state_dir preserved; no metabolism; cold-readable
 
 Also (L1/CONTINUITY §5): alive::quarantined (orthogonal sub-state).
@@ -46,7 +46,7 @@ TRANSITION MATRIX:
 
 [T5] orphaned -> normal  (exceptional recovery)
      Trigger:  court-attested key recovery (cryptographic mechanism
-               out-of-scope v0.9; honor-system per L0 §9.6).
+               out-of-scope v0.9; honor-system per L0/cards/AS_anchor_surface §6 (recoveries)).
                Successor presents acceptance + recovery proof reference.
      Emit:     `cultivation_recovered:{successor_pubkey,
                                         recovery_proof_reference}`
@@ -96,7 +96,7 @@ WATCHDOGS:
 - Sustained > 7 anchor-days -> emit `anchor_surface_partition` observability
   (separate signal; NOT a sub-state transition).
 
-PROTECTIONS (L0 §14.2 + L1/GOVERNANCE §1.2):
+PROTECTIONS (L0/cards/P07_mortality §4 (substrate irreducible commitments) + L1/GOVERNANCE §1.2):
 - `cultivation_orphaned` cannot be suppressed by Cultivator pressure
   (P7 + classifier fixed-point).
 - Cultivation_orphaned / cultivation_recovered / succession_completed

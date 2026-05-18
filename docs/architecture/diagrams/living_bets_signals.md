@@ -4,7 +4,7 @@
 
 # Living Bets — 10-signal observatory catalog
 
-> Reference table extracted from L0 §7.3 to keep active doctrine lean. Authoritative full enumeration lives at **L2/OBSERVABILITY §2**; this file is a quick-reference mirror.
+> Reference table extracted from L0/cards/LB_living_bets §3 to keep active doctrine lean. Authoritative full enumeration lives at **L2/OBSERVABILITY §2**; this file is a quick-reference mirror.
 
 ---
 
@@ -26,7 +26,7 @@
 | 9 | Storage cost / cycle | cost (P11) | UP |
 | 10 | Composite (variance- or correlation-weighted) | aggregate | n/a |
 
-## L0 commitments (carried in L0 §7.3 + §7.4)
+## L0 commitments (carried in L0/cards/LB_living_bets §3 + §7.4)
 
 - Signal #6 bet-winning region = ratio ≥ 1.
 - Composite #10 = correlation-weighted aggregation in steady state, equal-weighted at cold start.
@@ -44,4 +44,4 @@ See **L2/OBSERVABILITY §3.3**.
 ## Cascade
 
 - L1 mechanism cadence + tuning: L2/OBSERVABILITY + L1/TROPISM (#3 appetite-locality) + L1/SKIN (#8 egress) + L1/SCHEMA (#9 bytes-added).
-- Quorum predicate emission: L0 §7.4 + L2/OBSERVABILITY §3 + C40 at L1/HARD_RULES §1.1.
+- Quorum predicate emission: L0/cards/LB_living_bets §3 (falsifiability quorum) + L2/OBSERVABILITY §3 + C40 at L1/HARD_RULES §1.1.

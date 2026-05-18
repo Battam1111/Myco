@@ -18,7 +18,7 @@
 | `kernel/tropism` | L1/TROPISM | Appetite gradient + sporocarp emission + fruiting | `kernel/schema`, `kernel/continuity` |
 | `kernel/trajectory` | L1/TRAJECTORY | Cluster_C + trajectory queries + thread_id + echo-chamber | `kernel/schema`, `kernel/tropism` |
 | `kernel/hard_rules` | L1/HARD_RULES | Immune detection: C1-C20 + C30-C49 + F1-F25 | All kernel/* (citation) |
-| `anchor-client` | L0 §9 + L1 | Owner-side render + sign + nonce + heartbeat | `kernel/shared` (spec) |
+| `anchor-client` | L0/cards/AS_anchor_surface + L1 | Owner-side render + sign + nonce + heartbeat | `kernel/shared` (spec) |
 | `operators/<host>` | L1/SKIN §4.1 | Per-LLM-host runtime; per-handshake keypair; HMAC | `kernel/shared` (spec) |
 
 Line-estimate ranges + total sizing + build dependency graph: `diagrams/build_dependency.txt`.
@@ -27,7 +27,7 @@ Line-estimate ranges + total sizing + build dependency graph: `diagrams/build_de
 
 ## §2. `kernel/shared`
 
-L1/SCHEMA §3.1 + L0 §9.3 + L1/GOVERNANCE §3.1. Canonical-bytes serializer (deterministic; loadable by every party); crypto (Merkle hash content-addressed; signature verify against active-prefix + anchor nonces; HMAC `envelope_digest`); sealed-derive wrapper (substrate_secret over L4 TPM/keyring/HSM/secure-element); active-prefix + archived-tail primitive. **T1** per-primitive; **T2** sealed-derive vs L4. Critical: serializer round-trips identically across language bindings.
+L1/SCHEMA §3.1 + L0/cards/AS_anchor_surface §3 + L1/GOVERNANCE §3.1. Canonical-bytes serializer (deterministic; loadable by every party); crypto (Merkle hash content-addressed; signature verify against active-prefix + anchor nonces; HMAC `envelope_digest`); sealed-derive wrapper (substrate_secret over L4 TPM/keyring/HSM/secure-element); active-prefix + archived-tail primitive. **T1** per-primitive; **T2** sealed-derive vs L4. Critical: serializer round-trips identically across language bindings.
 
 ---
 
@@ -73,7 +73,7 @@ CRITICAL detectors (C1-C20 + C30-C49 substrate-private) — runtime observers re
 
 ---
 
-## §10. `anchor-client` (L0 §9 + L1/GOVERNANCE §2)
+## §10. `anchor-client` (L0/cards/AS_anchor_surface + L1/GOVERNANCE §2)
 
 Canonical-bytes rendering (same `kernel/shared` serializer spec); signature production (owner key in OS-sealed storage); nonce generation + consumed-nonce log; trusted wall-clock; owner liveness heartbeat (periodic `liveness_heartbeat`); aggregate-reattestation diff rendering; L0/L1 revision diff review (verbatim against prior commit hash). Sub-modules: `renderer` / `sealed_key` / `nonce_log` / `heartbeat` / `ui` (web / CLI / hardware-token — L4). **T1** rendering identical to substrate; **T2** attestation w/ mock substrate; **T3** substrate-anchor e2e.
 

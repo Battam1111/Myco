@@ -2,7 +2,7 @@
 //!
 //! ## Doctrine alignment
 //!
-//! Per L0 §2.1 P5 ("Universal Interconnection"): the substrate is a connected
+//! Per L0/cards/P01-P14 (principles).1 P5 ("Universal Interconnection"): the substrate is a connected
 //! graph; orphans are dead tissue. Prior to M21, ~5 substrate state files
 //! lived OUTSIDE the DAG — making the corresponding state pieces orphans.
 //!
@@ -89,7 +89,7 @@ pub struct ObservatorySnapshot {
     /// **M26.2 P11.b signal #7**: wall-clock nanoseconds spent in the cycle
     /// that produced this snapshot. Measured from previous `cycle_advanced`
     /// to current `cycle_advanced` via `Instant::elapsed`. Substrate-process
-    /// wall-clock per L0 §13.1 (M-anchor-3 will promote to anchor-stamped
+    /// wall-clock per L0/cards/P06_eternal_causality + L1/CONTINUITY (time semantics) (M-anchor-3 will promote to anchor-stamped
     /// timing for tamper-evident cost evidence).
     pub signal_7_compute_ns: u64,
     /// **M26.2 P11.b signal #8**: cumulative federation-egress wire bytes
@@ -106,7 +106,7 @@ pub struct ObservatorySnapshot {
     /// cosine computation; empty string when no telos signal is computable
     /// (e.g. birth-period, or no sporocarps in window, or no owner objective +
     /// no fallback feedback trajectory). NOT a Living Bet signal — P14.c
-    /// telos is orthogonal to L0 §7 Living Bets (per L1/TROPISM §F.5).
+    /// telos is orthogonal to L0/cards/LB_living_bets Living Bets (per L1/TROPISM §F.5).
     pub signal_telos_alignment_repr: String,
 }
 

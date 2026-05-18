@@ -270,7 +270,7 @@ def detect_c18_canonical_bytes_render_drift(
     actual_render_hex: str,
     at_cycle: int,
 ) -> Optional[ImmuneEvent]:
-    """C18: detect canonical-bytes render drift (L0 §9.3)."""
+    """C18: detect canonical-bytes render drift (L0/cards/AS_anchor_surface §3)."""
     if expected_canonical_hex != actual_render_hex:
         return ImmuneEvent(
             breach_id=BreachId.C18_CANONICAL_BYTES_RENDER_DRIFT,

@@ -15,7 +15,7 @@
 - `consecutive_backlog_cycles` resets to 0 on any in-budget cycle.
 - Counter ≥ L1-tunable (default 10) → `C36_cycle_backlog` immune signal.
 
-## Witnesses (L0 §9.3.4)
+## Witnesses (L0/cards/AS_anchor_surface §3.11)
 
 `(cycle_id, observed_cycle_duration_unix_ns, cycle_budget_threshold_unix_ns, consecutive_backlog_count, gradient_axis_pressures_at_emission, anchor_nonce_derived_sample_of_recent_cycle_durations)`.
 
@@ -30,5 +30,5 @@ Continues operating; no auto-clear. Owner sees C36 at next CI co-sign; chooses r
 
 ## Signal feeds
 
-- Signal #7 per L0 §7.3 + L2/OBSERVABILITY §7.
+- Signal #7 per L0/cards/LB_living_bets §3 + L2/OBSERVABILITY §7.
 - Feeds §7.4 falsifiability quorum.

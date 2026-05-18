@@ -13,9 +13,9 @@
 //! `(N+1 parents, (M - parent_hash_size)-byte content)` collisions
 //! (per pass-3 mycoparasite-2 + L1/HARD_RULES C6/C7).
 //!
-//! ## Enumerated-node export (L0 §9.2 + L1/HARD_RULES C6)
+//! ## Enumerated-node export (L0/cards/AS_anchor_surface §3 + L1/HARD_RULES C6)
 //!
-//! Per L0 §9.2: at every contract-identity-level boundary crossing, the
+//! Per L0/cards/AS_anchor_surface §3: at every contract-identity-level boundary crossing, the
 //! substrate emits the **enumerated list of all DAG node hashes added since
 //! the prior co-sign** — NOT just a summary diff. The owner's anchor-surface
 //! client recomputes the Merkle chain from the prior signed tip via these
@@ -141,7 +141,7 @@ pub struct Dag {
 
     /// Insertion order — Vec of hashes in the order they were inserted.
     /// Used by `enumerate_since` to produce the "added since prior co-sign"
-    /// list (L0 §9.2 + L1/HARD_RULES C6).
+    /// list (L0/cards/AS_anchor_surface §3 + L1/HARD_RULES C6).
     insertion_order: Vec<NodeHash>,
 
     /// Current tip hash (the last-inserted node's hash). `None` if empty.
@@ -234,7 +234,7 @@ impl Dag {
     /// Enumerate all node hashes added since the given `prev_tip`
     /// (or all nodes if `prev_tip` is `None`).
     ///
-    /// Per L0 §9.2 + L1/HARD_RULES C6: at every CI boundary the substrate
+    /// Per L0/cards/AS_anchor_surface §3 + L1/HARD_RULES C6: at every CI boundary the substrate
     /// emits this enumerated list to the anchor surface so the owner
     /// recomputes the Merkle chain from the prior signed tip.
     ///

@@ -39,13 +39,13 @@ falsifiability_signals:
 
 **锚定面** — Anchor Surface. The **out-of-band cryptographic root** of the cultivator-cultivar relation. Owner signatures, DAG-tip hashes, substrate-ID lineage, trusted timestamps — all externally visible, all *untouchable by the substrate's own process*. Without the anchor, every substrate self-claim collapses into agent self-claim (P1.a), and the trust model dissolves.
 
-This card consolidates L0 §9 with its **12 sub-mechanisms** (§9.2.1-§9.2.7 + §9.3.1-§9.3.6) into a single specialized card.
+This card consolidates L0/cards/AS_anchor_surface with its **12 sub-mechanisms** (§9.2.1-§9.2.7 + §9.3.1-§9.3.6) into a single specialized card.
 
 ## §2. Deposit
 
 The substrate **cannot self-attest**. Anything the substrate claims about itself — its identity, its history, its compliance — must ultimately reference an authority *outside* the substrate's own process. This authority is the **anchor surface**: a cryptographic surface where the owner's signatures, the substrate's lineage, and trusted timestamps are recorded in a form the substrate cannot retroactively modify.
 
-The deposit is the structural answer to L0 §3's commitment: "NOT silently trusting either party (anchor §9)." Substrate trust is not vested in the substrate; it is vested in the anchor, which the substrate cannot capture.
+The deposit is the structural answer to L0/META §10 (negative space)'s commitment: "NOT silently trusting either party (anchor §9)." Substrate trust is not vested in the substrate; it is vested in the anchor, which the substrate cannot capture.
 
 **Why "deposit_immutable: false" despite being load-bearing**: the SPECIFIC sub-mechanisms (which 12, in what shape) can evolve. The DEPOSIT — that an out-of-band cryptographic root must exist — is effectively eternity-clause via I1 (lifecycle + identity) and I2 (CI classification) which ARE eternity-clause. The mechanism evolves under those invariants.
 

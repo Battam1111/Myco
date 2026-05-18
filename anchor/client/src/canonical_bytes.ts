@@ -1,4 +1,4 @@
-// Canonical-bytes serializer — TypeScript implementation (L1/SCHEMA §3.1 + L0 §9.3).
+// Canonical-bytes serializer — TypeScript implementation (L1/SCHEMA §3.1 + L0/cards/AS_anchor_surface §3).
 //
 // MUST produce byte-identical output to:
 // - kernel/shared/src/canonical_bytes.rs (Rust reference)

@@ -42,7 +42,7 @@
     },
     "submitted_at_cycle": {
       "type": "integer",
-      "description": "Substrate metabolic-cycle counter at submission. MUST be within freshness window (default 60 cycles, per L0 §13.1)."
+      "description": "Substrate metabolic-cycle counter at submission. MUST be within freshness window (default 60 cycles, per L0/cards/P06_eternal_causality + L1/CONTINUITY (time semantics))."
     },
     "envelope_digest": {
       "type": "string",

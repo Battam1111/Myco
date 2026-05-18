@@ -16,7 +16,7 @@ Substrate MUST declare exactly one skin surface in SSoT (tier-1 field): **intake
 
 Schema: `schemas/skin_envelope.json` (8 fields + payload; envelope wraps every delta at intake).
 
-**§2.1 Integrity check** (I8 + P2): all required fields present; `sender_token` matches active token (§4); `payload_shape` in recognized set; `size_bytes` ≤ default 100 MB; `envelope_digest` recomputes via HMAC; `submitted_at_cycle` within freshness window (default 60 cycles, per L0 §13.1). Failure → `envelope_malformed` (no oracle disclosure).
+**§2.1 Integrity check** (I8 + P2): all required fields present; `sender_token` matches active token (§4); `payload_shape` in recognized set; `size_bytes` ≤ default 100 MB; `envelope_digest` recomputes via HMAC; `submitted_at_cycle` within freshness window (default 60 cycles, per L0/cards/P06_eternal_causality + L1/CONTINUITY (time semantics)). Failure → `envelope_malformed` (no oracle disclosure).
 
 > Boundary (P2 vs P12): skin admits-or-rejects = P2. Downstream selective attention = P12 (L1/TROPISM).
 
@@ -24,7 +24,7 @@ Schema: `schemas/skin_envelope.json` (8 fields + payload; envelope wraps every d
 
 ## §3. Output gating
 
-Outputs leave via declared endpoints; signed by substrate identity key. Anchor outputs carry canonical bytes (L0 §9.3.1); emit cryptographic-proof tuples not verdicts (L0 §9.3.4).
+Outputs leave via declared endpoints; signed by substrate identity key. Anchor outputs carry canonical bytes (L0/cards/AS_anchor_surface §3.8); emit cryptographic-proof tuples not verdicts (L0/cards/AS_anchor_surface §3.11).
 
 **§3.1 Federation egress freshness**: Every outbound federation envelope MUST verify target freshness + non-revocation BEFORE emission. Stale/revoked → `federation_egress_blocked`. Content uses sorted-key, normalized-whitespace, fixed-precision-numeric serialization (covert-channel limit).
 
@@ -77,7 +77,7 @@ Substrate MUST periodically list own spatial locus, compare against declared all
 
 Excluded from restart scope: P7 self-euthanasia (supervisor MUST not restart); owner-attested destruction (L1/GOVERNANCE §4 — terminal).
 
-## §8. Backup encryption (per L0 §11.1)
+## §8. Backup encryption (per L0/META §10 (acknowledged absences) + L1/SKIN debt)
 
 Cultivator-controlled symmetric encryption key; substrate NEVER mints. L1 commits:
 

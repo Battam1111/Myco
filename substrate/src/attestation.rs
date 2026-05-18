@@ -6,7 +6,7 @@
 //! the nonce verification helper, and the content-hash utility.
 //!
 //! Doctrine traceability:
-//! - L0 §9 — anchor surface envelope (nonce + binding + dual-clock).
+//! - L0/cards/AS_anchor_surface — anchor surface envelope (nonce + binding + dual-clock).
 //! - L1/HARD_RULES §1 — C5 attestation_invalid + C17 operator_witness_forgery.
 
 use std::collections::BTreeMap;
@@ -24,7 +24,7 @@ use crate::SubstrateError;
 /// (replay protection).
 ///
 /// M15: extended with optional anchor-clock fields for dual-clock expiry
-/// defense against clock skew (L0 §9 anchor-surface envelope hardening).
+/// defense against clock skew (L0/cards/AS_anchor_surface anchor-surface envelope hardening).
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub(crate) struct AttestationNonce {

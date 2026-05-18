@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "spec": "Myco v0.9 canonical-bytes serializer (L1/SCHEMA §3.1 + L0 §9.3 + L1/HARD_RULES F16)",
+  "spec": "Myco v0.9 canonical-bytes serializer (L1/SCHEMA §3.1 + L0/cards/AS_anchor_surface.3 + L1/HARD_RULES F16)",
   "description": "Cross-language test vectors for the canonical-bytes serializer. Every implementation (Rust kernel/shared, Python kernel/governance, TypeScript anchor-client) MUST produce byte-identical output for every input below. Drift = L1/HARD_RULES C18 canonical_bytes_render_drift (CRITICAL).",
   "encoding": {
     "tag_0x00": "Null — no payload",

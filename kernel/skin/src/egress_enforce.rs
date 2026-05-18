@@ -18,7 +18,7 @@
 //! - The agent (qua maintainer) modifying substrate code to remove enforcement
 //!   — that's a CI-level mutation, enforced at `kernel/governance` classifier.
 //! - Host-level adversarial action — substrate cannot enforce against its own
-//!   host process. Owner's monitoring responsibility (per L0 §6).
+//!   host process. Owner's monitoring responsibility (per L0/cards/P04_eternal_iteration §3-§4 + L1/CONTINUITY).
 //! - Covert channels within legitimate federation envelopes — addressed by
 //!   L1/GOVERNANCE §5.3 rate-limiting + canonical low-entropy serialization,
 //!   not by egress detection.

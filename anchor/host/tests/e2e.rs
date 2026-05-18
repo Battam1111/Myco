@@ -213,7 +213,7 @@ fn e2e_owner_seed_hex_override_yields_deterministic_pubkey() {
 // ---------------------------------------------------------------------------
 // **M-anchor-2 + M-anchor-3** — anchor surface stage-1 RPCs.
 //
-// BirthAttest (§9.2.1): L0 §9.3 5-tuple signed by owner pubkey.
+// BirthAttest (§9.2.1): L0/cards/AS_anchor_surface §3 5-tuple signed by owner pubkey.
 // GenerateAnchorNonce (§9.2.5): freshness marker with TTL.
 // GetAnchorWallClock (§9.2.6): authoritative time for time-bound defenses.
 // Heartbeat (§9.2.7): owner liveness proof for successor activation gate.
@@ -231,7 +231,7 @@ fn m_anchor_2_birth_attest_signature_verifies_against_owner_pubkey() {
     let substrate_id = [0x11u8; 32];
     let genesis_ts: i64 = 1_700_000_000_000_000_000;
     let spore_hash = [0x22u8; 32];
-    // Anchor endpoint pubkey: per L0 §9.5 collapsed to owner pubkey in v0.9.
+    // Anchor endpoint pubkey: per L0/cards/AS_anchor_surface §5 collapsed to owner pubkey in v0.9.
     let owner_pk = match send_request(&mut stream, Request::GetPubkey) {
         Response::Pubkey { pubkey } => pubkey,
         other => panic!("expected Pubkey, got {other:?}"),

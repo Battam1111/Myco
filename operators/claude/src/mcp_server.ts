@@ -360,7 +360,7 @@ const TOOL_DEFINITIONS = [
   {
     name: "myco_sprout_child",
     description:
-      "P8 永恒繁衍 (Eternal Reproduction): Sprout a child substrate from the parent's spore-schema (L0 §2.2 P8). The substrate creates a fresh state_dir at the given path containing: a NEW manifest with fresh substrate_id, a snapshot of the parent's gradient (axes + current values), the parent's operator_identity_pubkey (operator continuity). Parent emits a spore_emission:{child_id_prefix} DAG node recording the reproduction. The parent's causal DAG is NOT transferred (child starts its own causal history per L1 design). After sprout, you can spawn a separate substrate process pointing at the child_state_dir via MYCO_STATE_DIR. Rejects if the target already contains a manifest.cb.",
+      "P8 永恒繁衍 (Eternal Reproduction): Sprout a child substrate from the parent's spore-schema (L0/cards/P01-P14 (principles).2 P8). The substrate creates a fresh state_dir at the given path containing: a NEW manifest with fresh substrate_id, a snapshot of the parent's gradient (axes + current values), the parent's operator_identity_pubkey (operator continuity). Parent emits a spore_emission:{child_id_prefix} DAG node recording the reproduction. The parent's causal DAG is NOT transferred (child starts its own causal history per L1 design). After sprout, you can spawn a separate substrate process pointing at the child_state_dir via MYCO_STATE_DIR. Rejects if the target already contains a manifest.cb.",
     inputSchema: {
       type: "object",
       properties: {

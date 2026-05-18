@@ -45,7 +45,7 @@
 //!
 //! ## Doctrine traceability
 //!
-//! - L0 §9 anchor surface (owner-key-out-of-substrate decomposition).
+//! - L0/cards/AS_anchor_surface anchor surface (owner-key-out-of-substrate decomposition).
 //! - L1/GOVERNANCE §2.1 — owner's private key never enters substrate memory;
 //!   M-anchor-1 extends this to: owner's private key never enters operator
 //!   memory either.

@@ -1,6 +1,6 @@
-// Canonical-bytes rendering — TypeScript implementation (L0 §9.3 + L1/GOVERNANCE §2.4).
+// Canonical-bytes rendering — TypeScript implementation (L0/cards/AS_anchor_surface §3 + L1/GOVERNANCE §2.4).
 //
-// Per L0 §9.3 canonical-bytes doctrine: substrate emits canonical bytes;
+// Per L0/cards/AS_anchor_surface §3 canonical-bytes doctrine: substrate emits canonical bytes;
 // substrate does NOT narrate. The anchor-surface client renders
 // deterministically for owner review.
 //
@@ -200,7 +200,7 @@ function decodeOne(r: Reader): Value {
 /**
  * Decode canonical bytes back into a typed Value tree.
  *
- * Per L0 §9.3 + L1/HARD_RULES C18: the decode must be deterministic; given
+ * Per L0/cards/AS_anchor_surface §3 + L1/HARD_RULES C18: the decode must be deterministic; given
  * canonical bytes that were produced by encode(), decode() returns a Value
  * tree that re-encodes to identical bytes.
  *
@@ -241,7 +241,7 @@ const DEFAULT_OPTIONS: Required<RenderOptions> = {
 /**
  * Render a Value tree as a deterministic human-readable string.
  *
- * Per L0 §9.3 + L1/HARD_RULES C18: two anchor-client instances rendering
+ * Per L0/cards/AS_anchor_surface §3 + L1/HARD_RULES C18: two anchor-client instances rendering
  * the same canonical bytes MUST produce identical text output. This is the
  * substrate-to-owner display channel; the owner reviews the rendered text
  * before signing.

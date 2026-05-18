@@ -556,7 +556,7 @@ pub(crate) fn handle_advance(
 
         // M19 P7 必朽 (Endogenous-pair mortality): when a mortality_signal axis
         // fruits, the substrate's metabolism has crossed an unrecoverable-
-        // pathology threshold per L0 §2.2 P7. Auto-emit a
+        // pathology threshold per L0/cards/P01-P14 (principles).2 P7. Auto-emit a
         // `self_euthanasia_proposal:{axis_name}` DAG node parented by the
         // sporocarp. The proposal awaits owner co-attestation per L0 P7
         // (M19-MV: informational only; M20+ adds owner co-attestation

@@ -4,7 +4,7 @@
 //!
 //! - L1/SCHEMA §2.1: Merkle DAG content-addressing (BLAKE3 default).
 //! - L1/SKIN §2: HMAC envelope_digest keyed by `operator_token`.
-//! - L0 §9.2 + L1/GOVERNANCE §2.3: Owner signature verification at
+//! - L0/cards/AS_anchor_surface §3 + L1/GOVERNANCE §2.3: Owner signature verification at
 //!   attestation receipt.
 //!
 //! ## M2 signature suite: Ed25519

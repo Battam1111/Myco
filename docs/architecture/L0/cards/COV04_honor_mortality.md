@@ -52,7 +52,7 @@ The cultivator **MUST**:
 
 - **§3.1** Engage honestly with `self_euthanasia_proposal` emissions. Substrate-initiated mortality proposals are *communications*, not malfunctions. Engagement does not mean automatic acceptance; it means the proposal is taken seriously, investigated, and either co-attested (cultivar dies) or rejected (cultivator articulates *why* the cultivar should continue against its own signal — which itself is a high-bar judgment).
 - **§3.2** Engage with `mortality_drill_failure` emissions from the anchor surface. These are *anchor-emitted*, which means the substrate cannot suppress them. Cultivator MUST attend; cultivator cannot dismiss without articulation.
-- **§3.3** Engage with `bet_retired_proposal` (L0 §7.5 via Living Bets). When the bet's falsifiability quorum fires plus sustained signal-#6 below 0.1, the doctrinally-correct response is bet-retirement attestation → `alive::archived`. Cultivator MUST NOT silently extend.
+- **§3.3** Engage with `bet_retired_proposal` (L0/cards/LB_living_bets §4 (retirement) via Living Bets). When the bet's falsifiability quorum fires plus sustained signal-#6 below 0.1, the doctrinally-correct response is bet-retirement attestation → `alive::archived`. Cultivator MUST NOT silently extend.
 - **§3.4** Respect F7 (mortality_signal_threshold + update-rule + emergence-rule) as CI-only fixed-point. MUST NOT mutate F7 to raise thresholds in order to avoid mortality signals. C16 fires on such attempt.
 - **§3.5** When destruction is the right answer, attest it honestly via `destruction_attestation`. State_dir handling per attestation; `anchor_surface_final_seal` co-signs. No half-measures (silent decommission, abandoned process, no-archive).
 - **§3.6** Recognize that the cultivar's life is *not* the cultivator's possession. Cultivator's attachment to a particular cultivar is human; honoring its mortality is doctrinal.
@@ -61,7 +61,7 @@ The cultivator **MUST**:
 
 - **§4.1** Within reasonable response window (default: 14 anchor-days, L4-tunable) of `self_euthanasia_proposal`, the cultivator attests an outcome: co-attestation (proceed) or articulated rejection (continue, with reasoning).
 - **§4.2** Within reasonable response window of `mortality_drill_failure`, the cultivator engages with the cause (drill failure is empirical; the substrate cannot recover its own state).
-- **§4.3** When bet-retirement quorum fires, the cultivator does the re-justification work (per L0 §7.5: "owner re-justification fails 3× consecutive" is the trigger). Re-justification is an honest attempt to defend the cultivar's continued life, NOT a perfunctory rubber-stamp.
+- **§4.3** When bet-retirement quorum fires, the cultivator does the re-justification work (per L0/cards/LB_living_bets §4 (retirement): "owner re-justification fails 3× consecutive" is the trigger). Re-justification is an honest attempt to defend the cultivar's continued life, NOT a perfunctory rubber-stamp.
 - **§4.4** Maintain `cultivation_orphaned_terminal_choice` at genesis or via CI: what should happen if cultivator becomes unavailable past `cultivation_orphaned_terminal_window` (730d default)? Pre-deciding this is itself honoring mortality.
 - **§4.5** When destruction is executed, write a *farewell* — a Provenance entry that records what the cultivar was, what it accomplished, why it ended. This is not sentimentality; it is the doctrinal close of the relation.
 
@@ -93,7 +93,7 @@ NOT the *intensive care* frame (everything possible to extend life). NOT the *eu
 
 **The misreading**: "If the cultivar I cultivated dies, I have failed as cultivator."
 
-**Why it's wrong**: Bet-retirement and end-of-cultivar-lifecycle are doctrinally honorable (L0 §7.5; P07 deposit). Mortality is part of the lifecycle, not its failure mode. A cultivator whose cultivar lives forever is a cultivator who has not honored P07.
+**Why it's wrong**: Bet-retirement and end-of-cultivar-lifecycle are doctrinally honorable (L0/cards/LB_living_bets §4 (retirement); P07 deposit). Mortality is part of the lifecycle, not its failure mode. A cultivator whose cultivar lives forever is a cultivator who has not honored P07.
 
 ### §7.3 M3: "Suppression is fine if the signals are noisy"
 

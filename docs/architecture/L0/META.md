@@ -463,13 +463,13 @@ A future cultivar (capable of generating its own doctrine via Voice Organ) MAY p
 
 Until such a voice exists, this clause is reserved. Current voice mechanism: §2.5 (cultivator-Claude conversation as running organ).
 
-## §9. Lexicon discipline (was L0 §5.1)
+## §9. Lexicon discipline (was L0/META §9 (lexicon).1)
 
 Strictly mycological vocabulary. Admitted terms = any vocabulary attested in mainstream mycology literature. New terms require Cultivator attestation + mycology-literature citation. Deprecated terms are marked `terminal` and never deleted.
 
 This Meta and the cards may use English glosses (e.g., "skin / boundary" for 单膜) as parallel labels, but the mycological term is the canonical one.
 
-## §10. What this doctrine is NOT (was L0 §3 absorbed)
+## §10. What this doctrine is NOT (was L0/META §10 (negative space) absorbed)
 
 Myco is NOT:
 - a documentation system, knowledge base, chatbot memory, file synchronizer, version control, LangChain reimplementation, literal biological organism

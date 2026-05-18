@@ -11,7 +11,7 @@
 //! 4. I5 check: reachability over current SSoT-listed tiers (deep-cycle scope).
 //! 5. I8 check: skin declaration matches expected canon.
 //!
-//! **Witnesses, not verdicts** (per L0 §9.3 + pass-2 mycoparasite-32):
+//! **Witnesses, not verdicts** (per L0/cards/AS_anchor_surface §3 + pass-2 mycoparasite-32):
 //! check results are emitted as cryptographic-proof tuples the owner /
 //! anchor-surface verifier can independently re-derive. Substrate emits
 //! evidence, not verdicts.
@@ -77,7 +77,7 @@ impl std::fmt::Display for ColdResumeCheckId {
 
 /// A cryptographic witness tuple for a single cold-resume check.
 ///
-/// Per L0 §9.3: substrate emits canonical-bytes witnesses; anchor-surface
+/// Per L0/cards/AS_anchor_surface §3: substrate emits canonical-bytes witnesses; anchor-surface
 /// verifier independently re-derives. The witness MUST be sufficient for
 /// independent re-derivation (sampled hashes / Merkle paths / parent hashes
 /// / check inputs).

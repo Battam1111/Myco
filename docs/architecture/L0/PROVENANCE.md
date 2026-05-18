@@ -198,8 +198,9 @@ Returning readers may sample any layer; the cold-reader discipline is for first 
 - **Layer C witness tests**: card schemas declare witness names (positive / negative / edge); the actual test implementations are TBD via a v0.9.x cleanup milestone.
 - **Layer B fragment commentary**: 0 commentary entries currently exist. They will accumulate as the cultivator-Claude pair invokes fragments in real decisions.
 - **Canonical dilemma `Claude-of-record readings`**: 49 dilemmas have setups; 0 have recorded interpretations. They will accumulate at model rollovers + drift investigations + catechumenate sessions.
-- **L1/L2 cross-reference updates**: L1_*.md and L2_*.md still reference "L0 §9.2.5" etc.; these references will need updating to "AS_anchor_surface.md §3.5" form in subsequent passes (out of scope for v3.1 doctrine rewrite; this is L1/L2 housekeeping).
-- **Backup encryption (L1/SKIN owe per L0 §11.1)**: still acknowledged as unmitigated attack surface.
+- **Backup encryption (L1/SKIN owe per L0/META §10 + L1/SKIN debt)**: still acknowledged as unmitigated attack surface.
+
+  *Resolved 2026-05-18*: L1/L2/L3/algorithms/schemas/diagrams + source-code comments surgically updated from prior "L0 §X.Y" monolithic citations to v3.1 "L0/cards/<card> §N" form per §2 mapping table.
 
 These debts are *named*. The doctrine's discipline against drift is precisely that debts are named, not silently carried.
 

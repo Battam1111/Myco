@@ -27,7 +27,7 @@ L3 maps L1 mechanisms + L2 themes to code modules. Commits: module boundaries + 
 
 ## §3-§4. Dependency + build
 
-Acyclic DAG + parallel build groups: `diagrams/l3_dependency_graph.txt`. Higher cannot import lower; L4 cyclic dependency → L3 module-boundary revision (CI per L0 §10.2). `kernel/hard_rules` cites every module's CRITICAL surfaces but does NOT compile-time import. `anchor-client` + `operator_runtime` depend only on `kernel/shared` serializer spec; built independently once shared stable.
+Acyclic DAG + parallel build groups: `diagrams/l3_dependency_graph.txt`. Higher cannot import lower; L4 cyclic dependency → L3 module-boundary revision (CI per L0/META §7.5 (model-diversity)). `kernel/hard_rules` cites every module's CRITICAL surfaces but does NOT compile-time import. `anchor-client` + `operator_runtime` depend only on `kernel/shared` serializer spec; built independently once shared stable.
 
 ---
 

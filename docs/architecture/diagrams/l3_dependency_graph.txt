@@ -12,7 +12,7 @@ L3 Module Dependency Graph (acyclic)
 
   Rules:
   - Acyclic: higher cannot import lower.
-  - L4 cyclic dependency requires L3 module-boundary revision (CI per L0 §10.2).
+  - L4 cyclic dependency requires L3 module-boundary revision (CI per L0/META §7.5 (model-diversity)).
   - kernel/hard_rules cites every module's CRITICAL surfaces but does NOT
     compile-time import.
 

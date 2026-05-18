@@ -97,7 +97,7 @@ impl OwnerIdentity {
     }
 
     /// **M-anchor-2 §9.2.1**: produce a birth attestation for a fresh
-    /// substrate. Builds the L0 §9.3 5-tuple canonical bytes (with a
+    /// substrate. Builds the L0/cards/AS_anchor_surface §3 5-tuple canonical bytes (with a
     /// domain-separator so the signature can't be confused with a plain
     /// Sign signature) and returns `(signature, attested_bytes)`.
     ///

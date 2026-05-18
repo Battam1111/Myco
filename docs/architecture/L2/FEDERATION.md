@@ -16,7 +16,7 @@
 
 ## §2. Reproduction modes (P8)
 
-Three modes bounded by L0 §16 generation limits (L1/GOVERNANCE §4.3 + §16). Each child is Cultivar with own Cultivator (typically inherited; transferable per L0 §1.4):
+Three modes bounded by L0/cards/P08_eternal_reproduction (generation limits) generation limits (L1/GOVERNANCE §4.3 + §16). Each child is Cultivar with own Cultivator (typically inherited; transferable per L0/META §1 + L0/cards/P01_agent_primary.4):
 
 - **§2.1 Federation** — semantic transfer; bidirectional possible.
 - **§2.2 Cloning** — full copy; child has OWN substrate-ID + DAG (backup, geo-redundancy, archival).

@@ -142,7 +142,7 @@ class AttestationRequest:
     """Current Merkle DAG tip hash."""
 
     enumerated_dag_nodes_since_last_co_sign: tuple[NodeHash, ...]
-    """All DAG node hashes added since the prior CI co-sign. Per L0 §9.2 +
+    """All DAG node hashes added since the prior CI co-sign. Per L0/cards/AS_anchor_surface §3 +
     L1/HARD_RULES C6: the owner reconstructs the Merkle chain from these."""
 
     proposed_mutation_canonical_bytes: CanonicalBytes
@@ -180,7 +180,7 @@ class AttestationRequest:
         """Canonical-bytes encoding of the attestation request envelope.
 
         Owner uses this to derive the hash that goes into the owner-signed
-        tuple. Per L0 §9.3 canonical-bytes doctrine: deterministic; all
+        tuple. Per L0/cards/AS_anchor_surface §3 canonical-bytes doctrine: deterministic; all
         parties derive identical bytes.
         """
         m_value = Map.from_dict(

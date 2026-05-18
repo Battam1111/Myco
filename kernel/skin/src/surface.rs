@@ -50,7 +50,7 @@ pub enum EndpointKind {
     /// Federation egress — outbound to a peer substrate.
     FederationOut,
     /// Anchor-surface output — canonical-bytes-discipline-mandated outputs to
-    /// the owner-controlled anchor surface (per L0 §9.3 + L1/SKIN §3).
+    /// the owner-controlled anchor surface (per L0/cards/AS_anchor_surface §3 + L1/SKIN §3).
     AnchorSurfaceOut,
     /// Optional summary export — outbound to owner-readable summary log
     /// (canonical-bytes still required; renderer-readable derivative).

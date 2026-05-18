@@ -34,7 +34,7 @@ is used for the ``hello`` message only. The handshake transports a fresh
 
 ## Doctrine
 
-- L0 §9.3 — canonical-bytes serialization carries across the IPC boundary.
+- L0/cards/AS_anchor_surface §3 — canonical-bytes serialization carries across the IPC boundary.
 - L1/SKIN §2 — envelope_digest HMAC discipline applied per message.
 - Bootstrap key is NOT a real secret; it is a constant chosen to make
   rolling out a v2 protocol explicit. The IPC channel itself is the trust

@@ -23,7 +23,7 @@
 //!     C37_doctrine_instability_burst        (M25.1: >10 CI events / 100 cycles per L2/OBSERVABILITY §8)
 //!     C38_snapshot_integrity_violation      (M25.0: snapshot.cb signer_pubkey mismatch or signature invalid)
 //!     C39_federation_hello_signature_invalid (M25.4: peer presented signature that fails Ed25519 verify)
-//!     C40_bet_weakening_quorum              (M25.2: L0 §7 falsifiability trigger — ≥3 of signals 1-6 against the bet)
+//!     C40_bet_weakening_quorum              (M25.2: L0/cards/LB_living_bets falsifiability trigger — ≥3 of signals 1-6 against the bet)
 //!
 //! The Phase α/β audit found my prior emit sites occupied C2/C12/C19/C20/C21
 //! with substrate-private detector semantics — labeling drift from L1 spec.
@@ -39,7 +39,7 @@
 //!
 //! ## Doctrine alignment
 //!
-//! Per L0 §2.1 P5: "The substrate is a connected graph, not a collection.
+//! Per L0/cards/P01-P14 (principles).1 P5: "The substrate is a connected graph, not a collection.
 //! Every node is reachable from every other by traversal. Orphans are dead
 //! tissue."
 //!
@@ -185,7 +185,7 @@ pub const NODE_TYPE_BIRTH_PERIOD_QUARANTINE_ENTERED: &str = "birth_period_quaran
 pub const NODE_TYPE_BIRTH_PERIOD_QUARANTINE_LIFTED: &str = "birth_period_quarantine_lifted";
 
 // ---------------------------------------------------------------------------
-// **M26.3 P10 Selective Compression** (L0 §10 + L1/SCHEMA §2.5).
+// **M26.3 P10 Selective Compression** (L0/META §7 (amendment) + L1/SCHEMA §2.5).
 //
 // L0 P10 mandates that the substrate selectively compress prior states
 // under CI attestation; lossy semantically; preserves causal recoverability
@@ -291,7 +291,7 @@ pub struct CompressionInvariantSet {
     pub recent_cycles_floor: u64,
 }
 
-/// Seed P10.b invariant set per L0 §10.
+/// Seed P10.b invariant set per L0/META §7 (amendment).
 pub fn seed_compression_invariant_set() -> CompressionInvariantSet {
     CompressionInvariantSet {
         forbidden_prefixes: vec![
@@ -488,13 +488,13 @@ pub fn compression_event_node_type(rule_id: &str) -> String {
 // M26.2 made cost signals OBSERVABLE; M26.3 made compression POSSIBLE; this
 // milestone closes the loop: budgets + automatic fallback + telos drift.
 //
-// L0 §11.c ordered fallback semantics:
+// L0/META §10 (negative space).c ordered fallback semantics:
 //   (1) pre-eligibility (cycle <N, default 1000):  refuse new P2 + budget_exhausted:{axis}
 //   (2) post-eligibility (cycle ≥N):               trigger P10 compression proposal
 //   (3) compression-insufficient (sustained):       degraded → alive::saturated
 //   (sustained at stage 3 → P7 mortality)
 //
-// L0 §14 P14.c telos drift semantics (L1/TROPISM §F + algorithms/telos_drift.md):
+// L0/cards/P07_mortality (mortality protection) P14.c telos drift semantics (L1/TROPISM §F + algorithms/telos_drift.md):
 //   - Sparse-vector PROXY (no substrate-side LLM yet): owner objective declares
 //     weight vector over node_type prefixes; sporocarp centroid = fractional
 //     distribution of recent daily sporocarps; alignment = cosine similarity.
@@ -1325,7 +1325,7 @@ pub fn genesis_event_node_type(substrate_id: &[u8; 32]) -> String {
 // Owner verifies via Merkle-chain reconstruction; signs
 // (canonical_bytes_hash, anchor_timestamp, anchor_nonce)."
 //
-// L0 §9.2.4: owner-side workflow for verifying L0 doctrine changes
+// L0/cards/AS_anchor_surface §3.4: owner-side workflow for verifying L0 doctrine changes
 // verbatim against prior commit hash. The substrate accepts an
 // owner-signed envelope recording (prior_l0_hash, new_l0_hash,
 // diff_summary, anchor_timestamp, anchor_nonce).
@@ -1597,12 +1597,12 @@ pub fn encode_l0_revision_attested_event(
 // ---------------------------------------------------------------------------
 // **M-anchor-4 §9.3.4 Witnesses-not-verdicts + §9.3.5 anchor-nonce sampling**.
 //
-// L0 §9.3.4 mandates that the substrate emit CRYPTO PROOFS for invariant
+// L0/cards/AS_anchor_surface §3.11 mandates that the substrate emit CRYPTO PROOFS for invariant
 // checks (input bytes, Merkle paths, parent hashes, sampled leaf hashes) so
 // the owner can re-derive pass/fail independently. The substrate does NOT
 // emit pass/fail — only the inputs.
 //
-// L0 §9.3.5 specifies `H(anchor_surface_nonce, leaf_count)` as the
+// L0/cards/AS_anchor_surface §3.12 specifies `H(anchor_surface_nonce, leaf_count)` as the
 // derivation rule for sampled-leaf indices, so the substrate cannot bias
 // which leaves it shows the owner.
 //
@@ -1771,9 +1771,9 @@ pub fn anchor_nonce_derived_sample_indices(
 // ---------------------------------------------------------------------------
 // **M-anchor-2 P14.b §9.2.1 Birth Attestation**.
 //
-// L0 §9.2.1 mandates an owner-signed 5-tuple attesting that a fresh
+// L0/cards/AS_anchor_surface §3.1 mandates an owner-signed 5-tuple attesting that a fresh
 // substrate's genesis was authorized by the Cultivator + anchor surface.
-// The 5-tuple (per L0 §9.3):
+// The 5-tuple (per L0/cards/AS_anchor_surface §3):
 //   (substrate-ID, genesis-timestamp,
 //    initial-spore-schema-canonical-bytes-hash,
 //    owner-public-key, anchor-surface-endpoint-public-key)

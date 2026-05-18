@@ -1,4 +1,4 @@
-"""Canonical-bytes serializer — Python implementation (L1/SCHEMA §3.1 + L0 §9.3).
+"""Canonical-bytes serializer — Python implementation (L1/SCHEMA §3.1 + L0/cards/AS_anchor_surface §3).
 
 MUST produce byte-identical output to:
 
@@ -12,7 +12,7 @@ Drift from spec = L1/HARD_RULES C18 ``canonical_bytes_render_drift`` (CRITICAL).
 Doctrine traceability
 ---------------------
 
-- L0 §9.3: canonical-bytes doctrine. Substrate emits canonical bytes; the
+- L0/cards/AS_anchor_surface §3: canonical-bytes doctrine. Substrate emits canonical bytes; the
   anchor-surface client renders deterministically for owner review.
 - L1/SCHEMA §3.1 + §4.1: the serializer spec is itself part of the spore-schema
   (spore-inheritable) AND a tier-1 SSoT field.

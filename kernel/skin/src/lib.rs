@@ -15,7 +15,7 @@
 //!   (per L1/SKIN §4.1 + pass-3 mycorrhiza-17 + rhizomorph-1).
 //! - **Output gating** ([`output_gate`]) — outputs leave through declared output
 //!   endpoints; canonical-bytes discipline for anchor-surface output (per
-//!   L0 §9.3 + L1/SKIN §3).
+//!   L0/cards/AS_anchor_surface §3 + L1/SKIN §3).
 //! - **Network-egress enforcement** ([`egress_enforce`]) — runtime detection of
 //!   unauthorized network egress; specific mechanism is L4-platform-pick.
 //!   M1 ships a software-only stub that checks against the declared list;

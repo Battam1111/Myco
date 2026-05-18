@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "myco.l1.governance.attestation_envelope.v1",
   "title": "contract_identity_attestation_request",
-  "description": "CI attestation envelope (L1/GOVERNANCE §2.2; per L0 §9.3.1 canonical-bytes). Substrate emits; Cultivator verifies + co-signs per L1/GOVERNANCE §2.3. Anchor-nonce bound to (mutation_hash, dag_tip_hash); TTL default 5 anchor-min.",
+  "description": "CI attestation envelope (L1/GOVERNANCE §2.2; per L0/cards/AS_anchor_surface §3.8 canonical-bytes). Substrate emits; Cultivator verifies + co-signs per L1/GOVERNANCE §2.3. Anchor-nonce bound to (mutation_hash, dag_tip_hash); TTL default 5 anchor-min.",
   "type": "object",
   "required": [
     "type",
@@ -24,7 +24,7 @@
     },
     "substrate_id": {
       "type": "string",
-      "description": "Per L0 §9.2.1; substrate-ID fixed post-genesis."
+      "description": "Per L0/cards/AS_anchor_surface §3.1; substrate-ID fixed post-genesis."
     },
     "dag_tip_hash": {
       "type": "string",
@@ -33,7 +33,7 @@
     "enumerated_dag_nodes_since_last_co_sign": {
       "type": "array",
       "items": {"type": "string"},
-      "description": "All DAG node hashes added since prior co-sign (not summary diff); enables Merkle-chain closure check per L0 §9.3.6 + §9.2.2."
+      "description": "All DAG node hashes added since prior co-sign (not summary diff); enables Merkle-chain closure check per L0/cards/AS_anchor_surface §3.13 + §9.2.2."
     },
     "proposed_mutation_canonical_bytes": {
       "type": "string",
@@ -53,7 +53,7 @@
     },
     "request_timestamp_substrate_cycles": {
       "type": "integer",
-      "description": "Per L0 §13.1 substrate-cycle authority for within-substrate ordering."
+      "description": "Per L0/cards/P06_eternal_causality + L1/CONTINUITY (time semantics) substrate-cycle authority for within-substrate ordering."
     },
     "anchor_surface_nonce": {
       "type": "string",

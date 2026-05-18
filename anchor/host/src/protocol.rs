@@ -55,13 +55,13 @@ pub const ANCHOR_HEARTBEAT_DOMAIN: &str = "myco-anchor-heartbeat-v1";
 pub const ANCHOR_NONCE_DOMAIN: &str = "myco-anchor-nonce-v1";
 
 /// Domain string prefixed to birth attestation signatures (M-anchor-2 §9.2.1).
-/// Per L0 §9.3: 5-tuple = (substrate-ID, genesis-timestamp,
+/// Per L0/cards/AS_anchor_surface §3: 5-tuple = (substrate-ID, genesis-timestamp,
 /// initial-spore-schema-canonical-bytes-hash, owner-public-key,
 /// anchor-surface-endpoint-public-key).
 pub const BIRTH_ATTESTATION_DOMAIN: &str = "myco-birth-attestation-v1";
 
 /// Build the canonical-bytes Map that gets signed for a birth attestation
-/// (L0 §9.3 5-tuple). Exposed so substrate-side verification can rebuild
+/// (L0/cards/AS_anchor_surface §3 5-tuple). Exposed so substrate-side verification can rebuild
 /// the exact bytes and re-verify the signature offline.
 pub fn birth_attestation_canonical_bytes(
     substrate_id: &[u8; 32],
@@ -184,7 +184,7 @@ pub enum Request {
     Ping,
     /// **M-anchor-2 §9.2.1**: birth-attest a fresh substrate. Returns the
     /// owner's Ed25519 signature over the canonical-bytes Map of the
-    /// L0 §9.3 5-tuple. The substrate stores this signature in its DAG as
+    /// L0/cards/AS_anchor_surface §3 5-tuple. The substrate stores this signature in its DAG as
     /// a `birth_attestation:{substrate_id_prefix}` event; every boot
     /// re-verifies the signature against the current owner pubkey.
     BirthAttest {
@@ -199,7 +199,7 @@ pub enum Request {
         /// content; substrate-side computation per L1/SCHEMA §3.1).
         spore_schema_hash: [u8; 32],
         /// 32-byte anchor-endpoint pubkey. In v0.9 anchor collapsed to
-        /// operator process (L0 §9.5), so this equals the owner pubkey;
+        /// operator process (L0/cards/AS_anchor_surface §5), so this equals the owner pubkey;
         /// future M-anchor-1.5 may decouple them.
         anchor_endpoint_pubkey: [u8; 32],
     },
@@ -214,7 +214,7 @@ pub enum Request {
     },
     /// **M-anchor-3 §9.2.6**: read the anchor's current wall-clock. Result
     /// is signed; substrate can pin time-bound checks against this
-    /// authoritative timestamp (per L0 §13.1 "anchor wall-clock authoritative
+    /// authoritative timestamp (per L0/cards/P06_eternal_causality + L1/CONTINUITY (time semantics) "anchor wall-clock authoritative
     /// for time-bound defenses").
     GetAnchorWallClock,
     /// **M-anchor-3 §9.2.7**: owner liveness heartbeat. Returns a freshly-
@@ -405,7 +405,7 @@ pub enum Response {
         signature: [u8; 64],
     },
     /// **M-anchor-3 §9.2.6** anchor wall-clock response. Used by substrate
-    /// for time-bound defenses per L0 §13.1.
+    /// for time-bound defenses per L0/cards/P06_eternal_causality + L1/CONTINUITY (time semantics).
     AnchorWallClock {
         /// Anchor-side wall-clock at response time (ns).
         anchor_timestamp_unix_ns: i64,

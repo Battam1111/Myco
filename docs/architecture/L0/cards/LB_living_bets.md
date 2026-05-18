@@ -35,7 +35,7 @@ falsifiability_signals:
 
 **活赌** — Living Bets. Myco's bet on its own value is **falsifiable** — by design. Ten observatory signals + a falsifiability quorum + a bet-retirement path. The cultivar's continued existence is contingent on the bet *continuing to hold*; when the bet weakens past quorum, retirement is the doctrinally-honorable outcome.
 
-This card consolidates L0 §7 with its **5 sub-sections** (§7.1-§7.5) into a single specialized card.
+This card consolidates L0/cards/LB_living_bets with its **5 sub-sections** (§7.1-§7.5) into a single specialized card.
 
 ## §2. Deposit
 
@@ -122,7 +122,7 @@ The quorum is **statistical**, not single-event. A bad day does not trigger; sus
 - **§4.1** Emit all 10 signals per cycle (or per L1/CONTINUITY cadence per signal class).
 - **§4.2** Compute falsifiability quorum per the published algorithm; emit `bet_weakening_quorum` (C40) when conditions met.
 - **§4.3** During birth period (L1/GOVERNANCE §1.3) + post-birth settling: SUSPEND quorum; emit `bet_weakening_evaluation_suspended`.
-- **§4.4** On C40 fire, surface to cultivator; cultivator engages re-justification process (per L0 §7.5; written defense of why the bet still holds).
+- **§4.4** On C40 fire, surface to cultivator; cultivator engages re-justification process (per L0/cards/LB_living_bets §4 (retirement); written defense of why the bet still holds).
 - **§4.5** Track re-justification attempts; on 3rd consecutive failure + signal #6 sustained below 0.1, emit `bet_retired_proposal`.
 - **§4.6** On cultivator co-attestation of bet-retired, execute `alive::archived` transition cleanly: anchor-seal final tip, halt cycling, preserve state_dir.
 

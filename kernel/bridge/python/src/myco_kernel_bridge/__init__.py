@@ -19,7 +19,7 @@ Each message on stdio is one length-prefixed frame::
 
     [u32 BE length, 4 bytes] [hmac, 32 bytes] [body, length-32 bytes]
 
-The body is the canonical-bytes encoding (per L0 §9.3 + L1/SCHEMA §3.1) of a
+The body is the canonical-bytes encoding (per L0/cards/AS_anchor_surface §3 + L1/SCHEMA §3.1) of a
 :class:`Map` with four keys (canonically sorted):
 
 - ``v`` (Uint): protocol version, always 1 for M5.
@@ -37,7 +37,7 @@ itself, which is keyed by the deterministic ``BOOTSTRAP_KEY``.
 - L1/TROPISM §3 — kernel/tropism is the gradient-state owner.
 - L3_OUTLINE §5 + L3_PACKAGE_MAP §6 — Python is L3-mapped for tropism.
 - L1/SKIN §2 — envelope_digest HMAC discipline carried into IPC.
-- L0 §9.3 — canonical-bytes determinism preserved across IPC boundary.
+- L0/cards/AS_anchor_surface §3 — canonical-bytes determinism preserved across IPC boundary.
 
 ## Status
 

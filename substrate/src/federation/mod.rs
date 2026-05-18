@@ -43,12 +43,12 @@
 //!
 //! ## Doctrine alignment
 //!
-//! - L0 §2.1 P5: "The substrate is a connected graph, not a collection."
+//! - L0/cards/P01-P14 (principles).1 P5: "The substrate is a connected graph, not a collection."
 //!   M22 makes the graph span substrates as well as state-mutations.
-//! - L0 §2.2 P8: "The substrate can spawn child substrates." M22.4 makes
+//! - L0/cards/P01-P14 (principles).2 P8: "The substrate can spawn child substrates." M22.4 makes
 //!   parent-child reproduction a live federation link instead of a pure
 //!   file-clone snapshot.
-//! - L0 §2.1 P6 永恒因果: peer DAG events arriving via federation are
+//! - L0/cards/P01-P14 (principles).1 P6 永恒因果: peer DAG events arriving via federation are
 //!   ingested with the same content-hash determinism as native events
 //!   (idempotent on duplicate insertion).
 
@@ -116,7 +116,7 @@ pub struct FederationState {
     /// policy). This is the transition-period flag; long-term doctrine
     /// (L1/GOVERNANCE) expects CI-attested override rather than env var.
     ///
-    /// Doctrine traceability: L0 §3 — "the substrate does not silently trust
+    /// Doctrine traceability: L0/META §10 (negative space) — "the substrate does not silently trust
     /// either party"; Phase γ.2 audit finding "M25.4 mutual auth = 0 because
     /// attacker omits signature".
     pub accept_legacy_peers: bool,

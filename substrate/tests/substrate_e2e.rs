@@ -2358,7 +2358,7 @@ fn m25_1_doctrine_burst_detector_fires_on_excess_axis_registrations() {
         _ => panic!("is_burst missing"),
     };
     // M26.1 C3 fix: window switched from substrate-cycles to wall-clock 90d
-    // (L0 §7.4 + §13.1); the burst-count field renamed accordingly.
+    // (L0/cards/LB_living_bets §3 (falsifiability quorum) + §13.1); the burst-count field renamed accordingly.
     let ci_count = match burst.get("ci_events_in_burst_window") {
         Some(CbValue::Uint(n)) => *n,
         _ => panic!("ci_events_in_burst_window missing"),

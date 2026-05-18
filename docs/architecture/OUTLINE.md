@@ -92,7 +92,7 @@ Out-of-doctrine, in [`docs/architecture/L3/`](L3/): `L3/OUTLINE.md`, `L3/PACKAGE
 
 ## §3. L0 reference resolution (for L1/L2 cross-refs in old notation)
 
-L1/L2/L3 documents may still contain references in the old `L0 §x.y` notation (e.g., "L0 §9.2.5"). These resolve to v3.1 cards per [`L0/PROVENANCE.md`](L0/PROVENANCE.md) §2 mapping table. **Surgical update of these references is deferred to a subsequent housekeeping pass** (coupled with v0.9.x witness corpus implementation per META §5.4 lint rule — both involve updating same files).
+L1/L2/L3 documents may still contain references in the old `L0 §x.y` notation (e.g., "L0/cards/AS_anchor_surface §3.5"). These resolve to v3.1 cards per [`L0/PROVENANCE.md`](L0/PROVENANCE.md) §2 mapping table. **Surgical update of these references is deferred to a subsequent housekeeping pass** (coupled with v0.9.x witness corpus implementation per META §5.4 lint rule — both involve updating same files).
 
 Until then, readers consult PROVENANCE §2 for two-hop resolution.
 

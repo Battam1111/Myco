@@ -10,7 +10,7 @@
 
 ## §1. SSoT — Single Source of Truth (operationalizes L0 I3)
 
-**§1.1 Format**: TBD-L4 — MUST be machine-readable; append-most; self-describing (cold-readable per L0 §8). L4 ∈ {YAML, TOML, JSON+JSONL, SQLite, custom binary+WAL} supporting Merkle content addressing.
+**§1.1 Format**: TBD-L4 — MUST be machine-readable; append-most; self-describing (cold-readable per L0/cards/LB_living_bets §1 (intelligence band)). L4 ∈ {YAML, TOML, JSON+JSONL, SQLite, custom binary+WAL} supporting Merkle content addressing.
 
 **§1.2 Designation**: I3 claim space is CI. Designation lists fields participating in SSoT consistency. Fields outside designation NOT exempt from I5 reachability or I4 causal coverage — only from I3 cycle check.
 
@@ -55,7 +55,7 @@
 
 ---
 
-## §5. Canonical-bytes serializer (L0 §9.4 + F16)
+## §5. Canonical-bytes serializer (L0/cards/AS_anchor_surface §4 (failure modes) + F16)
 
 `serialize: SSoT-typed-value → Bytes` MUST be deterministic; substrate / anchor-client / operator / child substrate produce byte-identical output. Tier-1 SSoT + spore-inheritable.
 
@@ -63,7 +63,7 @@
 - **Bool** — single-byte determinate.
 - **Uint** — variable-length, explicit byte-length prefix (never native int).
 - **Sint** — variable-length signed.
-- **Timestamp** — i64 ns since Unix epoch; serializer rejects out-of-range (L0 §13.1 prohibits i32).
+- **Timestamp** — i64 ns since Unix epoch; serializer rejects out-of-range (L0/cards/P06_eternal_causality + L1/CONTINUITY (time semantics) prohibits i32).
 - **Bytes** — length-prefixed.
 - **String** — UTF-8 + explicit length prefix; rejects invalid UTF-8.
 - **Map** — keys MUST be strict canonical order (byte-lexicographic on encoded keys; unordered Map encoder is C18 breach).

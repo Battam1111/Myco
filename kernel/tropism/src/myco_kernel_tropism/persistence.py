@@ -34,7 +34,7 @@ The caller treats that as a genesis condition.
 
 - L1/TROPISM §3 — gradient configuration is substrate-resident state;
   must survive across processes.
-- L0 §9.3 — canonical-bytes determinism preserved across disk boundary.
+- L0/cards/AS_anchor_surface §3 — canonical-bytes determinism preserved across disk boundary.
 """
 
 from __future__ import annotations

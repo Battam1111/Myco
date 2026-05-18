@@ -3,14 +3,14 @@
 //! Foundation module for the v0.9 substrate-kernel. Provides:
 //!
 //! - **Canonical-bytes serializer** ([`canonical_bytes`]) — deterministic encoding
-//!   from typed values to canonical bytes. Per L0 §9.3 + L2/TRUST_MODEL §3.4,
+//!   from typed values to canonical bytes. Per L0/cards/AS_anchor_surface §3 + L2/TRUST_MODEL §3.4,
 //!   the serializer spec is spore-inheritable + tier-1 SSoT (per L1/SCHEMA §3.1
 //!   + §4.1). Every party (substrate, operator-runtime, anchor-client) computes
 //!   identical canonical bytes from identical inputs.
 //!
 //! - **Cryptographic primitives** ([`crypto`]) — Merkle hash (per L1/SCHEMA §2.1
 //!   Merkle DAG), HMAC (per L1/SKIN §2 envelope_digest), signature verification
-//!   (per L0 §9.2 anchor-surface verification).
+//!   (per L0/cards/AS_anchor_surface §3 anchor-surface verification).
 //!
 //! - **Sealed-derive wrapper** ([`sealed_derive`]) — OS-level sealing API for
 //!   substrate_secret. Substrate code uses sealed-derive without ever seeing
@@ -25,7 +25,7 @@
 //!
 //! This crate implements the following L0/L1/L2/L3 commitments:
 //!
-//! - L0 §9.3 canonical-bytes doctrine + §9.2 anchor-surface witness mechanism
+//! - L0/cards/AS_anchor_surface §3 canonical-bytes doctrine + §9.2 anchor-surface witness mechanism
 //! - L1/SCHEMA §2.1 Merkle DAG content-addressing
 //! - L1/SKIN §2 envelope_digest HMAC, §4.2 sealed_derive operator_token
 //! - L1/GOVERNANCE §3.1 active-prefix + archived-tail discipline

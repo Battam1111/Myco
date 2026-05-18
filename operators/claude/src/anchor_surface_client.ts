@@ -218,7 +218,7 @@ export class AnchorSurfaceClient {
 
   /**
    * **M-anchor-2 §9.2.1**: produce a birth attestation for a fresh
-   * substrate. Returns the owner's Ed25519 signature over the L0 §9.3
+   * substrate. Returns the owner's Ed25519 signature over the L0/cards/AS_anchor_surface §3
    * 5-tuple canonical-bytes, the owner pubkey, AND the exact canonical
    * bytes that were signed (so the substrate can persist all three in its
    * DAG and re-verify offline on every boot).
@@ -320,7 +320,7 @@ export class AnchorSurfaceClient {
 
   /**
    * **M-anchor-3 §9.2.6**: read the anchor's current wall-clock as a
-   * signed assertion. Per L0 §13.1, anchor wall-clock is authoritative
+   * signed assertion. Per L0/cards/P06_eternal_causality + L1/CONTINUITY (time semantics), anchor wall-clock is authoritative
    * for time-bound defenses.
    */
   async getAnchorWallClock(): Promise<{

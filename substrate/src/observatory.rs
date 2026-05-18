@@ -17,7 +17,7 @@
 //!   in the cycle. Derived from file-metadata delta — no instrumentation
 //!   of save call sites needed.
 //!
-//! These complete L0 §7 + L2/OBSERVABILITY §2 "10 = 6 base + 3 cost + 1
+//! These complete L0/cards/LB_living_bets + L2/OBSERVABILITY §2 "10 = 6 base + 3 cost + 1
 //! composite". With them in place, `bet_weakening_quorum` can run on
 //! full-cost-aware data and the P11.c ordered fallback (M26.3) becomes
 //! mechanically possible.
@@ -191,7 +191,7 @@ pub(crate) struct ObservatoryCounts {
     /// Currently-Established federation peers (live state, not DAG-derived).
     pub(crate) established_peers: u64,
     /// Count of CI-class events (axis_registered + owner_key_* + evolution_*)
-    /// that landed in the most-recent burst window (wall-clock per L0 §7.4 +
+    /// that landed in the most-recent burst window (wall-clock per L0/cards/LB_living_bets §3 (falsifiability quorum) +
     /// §13.1; M26.1 C3 fix). Used by M25.1 doctrine-burst detection.
     pub(crate) ci_events_in_burst_window: u64,
 }
@@ -201,12 +201,12 @@ pub(crate) struct ObservatoryCounts {
 ///
 /// M26.1 C3 fix: `burst_window_unix_ns` is now a wall-clock window in
 /// nanoseconds (was previously a substrate-cycle count). Doctrine intent
-/// (L0 §7.4 + §13.1) is wall-clock 90 days; substrate-cycle counters drift
+/// (L0/cards/LB_living_bets §3 (falsifiability quorum) + §13.1) is wall-clock 90 days; substrate-cycle counters drift
 /// 4-6 orders of magnitude under typical cycle cadence (~1 cycle/sec) so
 /// the prior cycle-based window was structurally wrong.
 ///
 /// INTERIM: substrate-process wall-clock used here. M-anchor-3 promotes
-/// to anchor-stamped wall-clock per L0 §13.1 (anchor surface authoritative
+/// to anchor-stamped wall-clock per L0/cards/P06_eternal_causality + L1/CONTINUITY (time semantics) (anchor surface authoritative
 /// for time-bound defenses).
 ///
 /// Mapping cycle → wall-clock uses `state.observatory_history` (each
@@ -330,7 +330,7 @@ pub(crate) fn compute_observatory_counts(
 ///
 /// Algorithm (M26.4 proxy):
 /// 1. Build sporocarp prefix-distribution vector over the most recent
-///    N=90 cycles (window = L0 §7.4 living-bets window). For each
+///    N=90 cycles (window = L0/cards/LB_living_bets §3 (falsifiability quorum) living-bets window). For each
 ///    daily-class sporocarp, increment the count for ALL prefixes from
 ///    OwnerObjective.weights that match its node_type. Normalize to a
 ///    sum-1 distribution.
@@ -347,7 +347,7 @@ pub(crate) fn compute_telos_alignment_cosine(state: &ServerState) -> Option<f64>
     // Walk the DAG once over the most recent N cycles to count sporocarps
     // per prefix. CI-class events (mutation:*, evolution_*) are EXCLUDED
     // per L1/TROPISM §F.5 ("does NOT compute over CI-class sporocarps").
-    let window: u64 = 90; // L0 §7.4 living-bets window
+    let window: u64 = 90; // L0/cards/LB_living_bets §3 (falsifiability quorum) living-bets window
     let current_cycle = state.manifest.cycle_counter;
     let cycle_floor = current_cycle.saturating_sub(window);
     let mut per_prefix_count: std::collections::BTreeMap<String, u64> =
@@ -801,10 +801,10 @@ fn apply_p14c_telos_drift(state: &mut ServerState, telos_cosine: Option<f64>) {
 
 /// M25.1 + M26.1 C3 fix: wall-clock window (nanoseconds) for doctrine-burst
 /// detection. Counts CI-class events landed in the last N wall-clock seconds
-/// (NOT substrate-cycles). 90 days is the L0 §7.4 + L2/OBSERVABILITY §8
+/// (NOT substrate-cycles). 90 days is the L0/cards/LB_living_bets §3 (falsifiability quorum) + L2/OBSERVABILITY §8
 /// seed; the L1 tunable will live in a future seed-config event.
 ///
-/// INTERIM: substrate-process wall-clock per L0 §13.1; M-anchor-3 promotes
+/// INTERIM: substrate-process wall-clock per L0/cards/P06_eternal_causality + L1/CONTINUITY (time semantics); M-anchor-3 promotes
 /// to anchor-stamped wall-clock.
 pub(crate) const M25_1_DOCTRINE_BURST_WINDOW_UNIX_NS: i64 =
     90 * 24 * 60 * 60 * 1_000_000_000;
@@ -822,7 +822,7 @@ pub(crate) const M25_2_MIN_HISTORY_LEN_FOR_TRENDS: usize = 10;
 
 /// Phase α (2026-05-15) — Living Bets observatory primitive.
 ///
-/// Per L2/OBSERVABILITY §2 + L0 §7. Ships the full 10-signal Living Bets
+/// Per L2/OBSERVABILITY §2 + L0/cards/LB_living_bets. Ships the full 10-signal Living Bets
 /// observatory: 6 base (#1/#2/#3/#4a/#4b/#5/#6, with #5 meta) + 3 cost
 /// (#7/#8/#9, M26.2) + 1 composite (#10, M26.2 — was signal_7_composite_health
 /// under the v3 schema, renamed to match doctrine §2.3 numbering).
@@ -1007,7 +1007,7 @@ pub(crate) fn handle_query_substrate_observatory(
     // computed over the rolling observatory_history window. Becomes evaluable
     // after `M25_2_MIN_HISTORY_LEN_FOR_TRENDS` snapshots are accumulated.
     //
-    // bet_weakening_quorum = L0 §7 falsifiability mechanism. Triggered when
+    // bet_weakening_quorum = L0/cards/LB_living_bets falsifiability mechanism. Triggered when
     // ≥3 of signals 1/2/3/4b/6 trend AGAINST the bet (i.e. "down" for the
     // signals where "up" means substrate-favorable) AND signal #6 stays < 1
     // for ≥50% of cycles in the window. Emits a C38 immune sporocarp +
@@ -1319,7 +1319,7 @@ pub(crate) fn handle_query_substrate_observatory(
     let is_burst = ci_events_in_burst_window > M25_1_DOCTRINE_BURST_THRESHOLD;
     let mut burst_status_map = BTreeMap::new();
     // M26.1 C3 fix: field renamed from `ci_events_recent_100_cycles` to
-    // `ci_events_in_burst_window` — window is now wall-clock per L0 §7.4.
+    // `ci_events_in_burst_window` — window is now wall-clock per L0/cards/LB_living_bets §3 (falsifiability quorum).
     burst_status_map.insert(
         "ci_events_in_burst_window".to_string(),
         Value::Uint(ci_events_in_burst_window),

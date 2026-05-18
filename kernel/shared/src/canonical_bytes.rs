@@ -1,4 +1,4 @@
-//! Canonical-bytes serializer (per L0 §9.3 + L1/SCHEMA §3.1).
+//! Canonical-bytes serializer (per L0/cards/AS_anchor_surface §3 + L1/SCHEMA §3.1).
 //!
 //! ## Specification
 //!
@@ -40,7 +40,7 @@
 //!
 //! ## Doctrine traceability
 //!
-//! - L0 §9.3: canonical-bytes serialization is part of the anchor-surface
+//! - L0/cards/AS_anchor_surface §3: canonical-bytes serialization is part of the anchor-surface
 //!   doctrine. Substrate emits canonical bytes; anchor-surface client renders
 //!   deterministically for owner review.
 //! - L1/SCHEMA §3.1: `canonical_bytes_serializer_spec` is part of the

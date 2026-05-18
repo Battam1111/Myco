@@ -8,7 +8,7 @@
 //!   L1/HARD_RULES F8); migration is two-phase per L0 I3.
 //! - **Causal DAG** ([`dag`]) — content-addressed Merkle DAG storage. Each node
 //!   carries a hash incorporating parent-hashes; node ID = node hash. The
-//!   substrate's identity record carries the current DAG-tip hash. Per L0 §9.2,
+//!   substrate's identity record carries the current DAG-tip hash. Per L0/cards/AS_anchor_surface §3,
 //!   at every CI boundary the substrate emits an enumerated list of all DAG
 //!   node hashes added since the prior co-sign — NOT just a summary diff.
 //! - **Spore-schema** ([`spore`]) — substrate's reproductive payload (per L0

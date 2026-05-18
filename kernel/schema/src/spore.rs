@@ -187,7 +187,7 @@ impl SporeSchema {
 
     /// Spore-schema hash (BLAKE3 of canonical bytes).
     ///
-    /// Per L1/SCHEMA §3.3 step 1 + L0 §9.2 owner-co-sign: this hash binds
+    /// Per L1/SCHEMA §3.3 step 1 + L0/cards/AS_anchor_surface §3 owner-co-sign: this hash binds
     /// (parent-substrate-ID, child-substrate-ID, spore-schema-hash, timestamp)
     /// in the spawn co-sign envelope.
     pub fn hash(&self) -> Result<NodeHash, SporeError> {
