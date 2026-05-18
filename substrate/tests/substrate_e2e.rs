@@ -4579,3 +4579,176 @@ fn v3_1_1_p07_eternity_clause_orphan_grace_window_is_seed_value() {
     // `recent_cycles_floor` to avoid racing. Test pins to prevent drift.
     assert_eq!(ORPHAN_GRACE_CYCLES, 1000);
 }
+
+// ---------------------------------------------------------------------------
+// **v3.1.1 Sprint 2.C** — backup_encryption_status SSoT tests.
+// L1/SKIN §8 + L1/HARD_RULES §1.4 anticipated.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn v3_1_1_sprint_2c_backup_encryption_status_valid_values_locked() {
+    use substrate::events::{
+        BACKUP_ENCRYPTION_STATUS_CULTIVATOR_DECLINED_EXPLICIT,
+        BACKUP_ENCRYPTION_STATUS_ENCRYPTED_EXTERNALLY,
+        BACKUP_ENCRYPTION_STATUS_VALID_VALUES,
+    };
+    // The two canonical L1/SKIN §8 values must be in the registry.
+    assert_eq!(BACKUP_ENCRYPTION_STATUS_ENCRYPTED_EXTERNALLY, "encrypted_externally");
+    assert_eq!(
+        BACKUP_ENCRYPTION_STATUS_CULTIVATOR_DECLINED_EXPLICIT,
+        "cultivator_declined_explicit"
+    );
+    assert!(
+        BACKUP_ENCRYPTION_STATUS_VALID_VALUES.contains(&BACKUP_ENCRYPTION_STATUS_ENCRYPTED_EXTERNALLY)
+    );
+    assert!(BACKUP_ENCRYPTION_STATUS_VALID_VALUES
+        .contains(&BACKUP_ENCRYPTION_STATUS_CULTIVATOR_DECLINED_EXPLICIT));
+    // Exactly two values — additions/removals are a doctrinal decision.
+    assert_eq!(
+        BACKUP_ENCRYPTION_STATUS_VALID_VALUES.len(),
+        2,
+        "v3.1.1 Sprint 2.C: doctrine-pinned count drift"
+    );
+}
+
+#[test]
+fn v3_1_1_sprint_2c_backup_encryption_status_declared_node_type_carries_status() {
+    use substrate::events::backup_encryption_status_declared_node_type;
+    let nt = backup_encryption_status_declared_node_type("encrypted_externally");
+    assert!(
+        nt.starts_with("backup_encryption_status_declared:"),
+        "node_type prefix: {nt}"
+    );
+    assert!(
+        nt.ends_with("encrypted_externally"),
+        "node_type status suffix: {nt}"
+    );
+}
+
+#[test]
+fn v3_1_1_sprint_2c_encode_decode_roundtrip_with_key_id() {
+    use myco_kernel_shared::canonical_bytes::{decode, Value};
+    use substrate::events::encode_backup_encryption_status_declared;
+
+    let body = encode_backup_encryption_status_declared(
+        "encrypted_externally",
+        Some("cultivator_backup_key_2026q2_xchacha20"),
+        12345,
+    );
+    let v = decode(body.as_ref()).expect("body decodes");
+    let m = match v {
+        Value::Map(m) => m,
+        _ => panic!("not a map"),
+    };
+    match m.get("status") {
+        Some(Value::String(s)) => assert_eq!(s, "encrypted_externally"),
+        _ => panic!("status missing"),
+    }
+    match m.get("key_id") {
+        Some(Value::String(s)) => {
+            assert_eq!(s, "cultivator_backup_key_2026q2_xchacha20")
+        }
+        _ => panic!("key_id missing or wrong type"),
+    }
+    match m.get("declared_at_cycle") {
+        Some(Value::Uint(n)) => assert_eq!(*n, 12345),
+        _ => panic!("declared_at_cycle missing"),
+    }
+}
+
+#[test]
+fn v3_1_1_sprint_2c_encode_decode_roundtrip_without_key_id() {
+    use myco_kernel_shared::canonical_bytes::{decode, Value};
+    use substrate::events::encode_backup_encryption_status_declared;
+
+    let body = encode_backup_encryption_status_declared(
+        "cultivator_declined_explicit",
+        None,
+        7777,
+    );
+    let v = decode(body.as_ref()).expect("body decodes");
+    let m = match v {
+        Value::Map(m) => m,
+        _ => panic!("not a map"),
+    };
+    // key_id encoded as Null when None passed.
+    match m.get("key_id") {
+        Some(Value::Null) => {}
+        _ => panic!("key_id must be Null when None passed"),
+    }
+}
+
+#[test]
+fn v3_1_1_sprint_2c_decode_status_returns_status_string() {
+    use substrate::events::{decode_backup_encryption_status, encode_backup_encryption_status_declared};
+    let body = encode_backup_encryption_status_declared(
+        "cultivator_declined_explicit",
+        None,
+        100,
+    );
+    let recovered = decode_backup_encryption_status(body.as_ref())
+        .expect("decode returns Some");
+    assert_eq!(recovered, "cultivator_declined_explicit");
+}
+
+#[test]
+fn v3_1_1_sprint_2c_decode_status_on_garbage_returns_none() {
+    use substrate::events::decode_backup_encryption_status;
+    // Random bytes are not a canonical-bytes Map.
+    assert!(decode_backup_encryption_status(b"not_canonical_bytes").is_none());
+}
+
+#[test]
+fn v3_1_1_sprint_2c_derive_from_empty_dag_returns_none() {
+    use myco_kernel_schema::dag::Dag;
+    use substrate::events::derive_backup_encryption_status_from_dag;
+    let dag = Dag::default();
+    assert!(derive_backup_encryption_status_from_dag(&dag).is_none());
+}
+
+#[test]
+fn v3_1_1_sprint_2c_derive_latest_event_wins() {
+    use myco_kernel_schema::dag::Dag;
+    use substrate::events::{
+        backup_encryption_status_declared_node_type, derive_backup_encryption_status_from_dag,
+        encode_backup_encryption_status_declared,
+    };
+
+    let mut dag = Dag::default();
+    // Insert two events: first "encrypted_externally" at cycle 10, then
+    // "cultivator_declined_explicit" at cycle 20. Latest (cycle 20) wins.
+    let body_1 =
+        encode_backup_encryption_status_declared("encrypted_externally", None, 10);
+    let nt_1 = backup_encryption_status_declared_node_type("encrypted_externally");
+    let parents_1: Vec<_> = Vec::new();
+    let h1 = dag.insert_node(parents_1, nt_1, 10, body_1).unwrap();
+
+    let body_2 = encode_backup_encryption_status_declared(
+        "cultivator_declined_explicit",
+        None,
+        20,
+    );
+    let nt_2 = backup_encryption_status_declared_node_type("cultivator_declined_explicit");
+    let _ = dag.insert_node(vec![h1], nt_2, 20, body_2).unwrap();
+
+    let derived = derive_backup_encryption_status_from_dag(&dag);
+    assert_eq!(
+        derived,
+        Some("cultivator_declined_explicit".to_string()),
+        "latest cycle's status must win"
+    );
+}
+
+#[test]
+fn v3_1_1_sprint_2c_derive_ignores_unrelated_node_types() {
+    use myco_kernel_schema::dag::Dag;
+    use myco_kernel_shared::canonical_bytes::{encode as cb_encode, Value};
+    use substrate::events::derive_backup_encryption_status_from_dag;
+
+    let mut dag = Dag::default();
+    // Insert an unrelated node — must not affect derivation result.
+    let body = cb_encode(&Value::String("noise".to_string())).unwrap();
+    let _ = dag.insert_node(Vec::new(), "axis_perturbed:hunger".to_string(), 5, body)
+        .unwrap();
+    assert!(derive_backup_encryption_status_from_dag(&dag).is_none());
+}

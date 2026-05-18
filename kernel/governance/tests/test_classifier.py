@@ -276,8 +276,9 @@ def test_seed_table_size() -> None:
     # 1 mortality-detail + 1 schema_evolution (M17) +
     # 3 M26.3 compression rules (compression_mutation + compression_rule_registry_meta + compression_invariant_set_meta) +
     # 4 M26.4 rules (cost_budget_set_mutation + cost_budget_thresholds_meta + owner_objective_declaration_mutation + telos_alignment_metric_meta) +
-    # 2 M-anchor-5 rules (dag_tip_cosign_mutation + l0_revision_attest_mutation).
-    assert len(SEED_DIMENSION_TABLE) == 31
+    # 2 M-anchor-5 rules (dag_tip_cosign_mutation + l0_revision_attest_mutation) +
+    # 1 v3.1.1 Sprint 2.C rule (set_backup_encryption_status).
+    assert len(SEED_DIMENSION_TABLE) == 32
 
 
 def test_classifier_rule_predicate_or_logic() -> None:
@@ -350,6 +351,94 @@ def test_v3_1_1_C56_innocent_mutations_not_flagged() -> None:
         assert not is_cultivator_preserve_all_attempt(legitimate_type), (
             f"C56 must NOT flag {legitimate_type!r}; false positive"
         )
+
+
+def test_v3_1_1_sprint_2c_set_backup_encryption_status_classified_as_CI() -> None:
+    """Per L1/SKIN §8 + L1/HARD_RULES §1.4 anticipated: cultivator-attested
+    backup encryption status declarations are CI-grade mutations (require
+    owner attestation envelope)."""
+    env = MutationEnvelope(mutation_type="set_backup_encryption_status")
+    assert classify(env) is Classification.CONTRACT_IDENTITY_LEVEL
+
+
+def test_v3_1_1_sprint_2c_backup_encryption_status_valid_values() -> None:
+    """Per L1/SKIN §8: substrate accepts exactly two declared status values.
+    Anything else is rejected at the skin (C5_attestation_invalid).
+    """
+    from myco_kernel_governance.classifier import (
+        BACKUP_ENCRYPTION_STATUS_VALID_VALUES,
+        is_valid_backup_encryption_status,
+    )
+
+    # Canonical valid values.
+    assert is_valid_backup_encryption_status("encrypted_externally")
+    assert is_valid_backup_encryption_status("cultivator_declined_explicit")
+
+    # Anything else rejected. Includes "unspecified" — that is the DEFAULT
+    # (no DAG event present) but is NEVER a value the cultivator may declare;
+    # `None` in code, never a written string.
+    assert not is_valid_backup_encryption_status("unspecified")
+    assert not is_valid_backup_encryption_status("ENCRYPTED_EXTERNALLY")  # case-sensitive
+    assert not is_valid_backup_encryption_status("")
+    assert not is_valid_backup_encryption_status("encrypted")  # partial match
+    assert not is_valid_backup_encryption_status("not_encrypted")
+
+    # Set must be non-empty + frozen + small.
+    assert len(BACKUP_ENCRYPTION_STATUS_VALID_VALUES) == 2
+
+
+def test_v3_1_1_sprint_2c_backup_encryption_statuses_in_sync_with_rust() -> None:
+    """Python BACKUP_ENCRYPTION_STATUS_VALID_VALUES MUST be byte-equal to the
+    Rust ``substrate/src/events.rs::BACKUP_ENCRYPTION_STATUS_VALID_VALUES``
+    array. Both sites validate cultivator-declared status strings; drift
+    would let one side accept a value the other rejects (split-brain).
+    """
+    from pathlib import Path
+
+    from myco_kernel_governance.classifier import (
+        BACKUP_ENCRYPTION_STATUS_VALID_VALUES,
+    )
+
+    workspace_root = Path(__file__).resolve().parents[3]
+    rust_src = workspace_root / "substrate" / "src" / "events.rs"
+    assert rust_src.exists(), f"Rust events.rs not found at {rust_src}"
+    rust_text = rust_src.read_text(encoding="utf-8")
+
+    marker = "pub const BACKUP_ENCRYPTION_STATUS_VALID_VALUES: &[&str] = &["
+    idx = rust_text.find(marker)
+    assert idx != -1, "Rust BACKUP_ENCRYPTION_STATUS_VALID_VALUES not found"
+    closing = rust_text.find("];", idx)
+    assert closing != -1, "Rust constant not properly closed"
+    block = rust_text[idx + len(marker) : closing]
+
+    # The block references named constants (BACKUP_ENCRYPTION_STATUS_*),
+    # so extract those identifiers and dereference each to its quoted-string
+    # definition earlier in the file.
+    import re
+
+    name_refs = re.findall(r"BACKUP_ENCRYPTION_STATUS_[A-Z_]+", block)
+    resolved: list[str] = []
+    for name in name_refs:
+        if name == "BACKUP_ENCRYPTION_STATUS_VALID_VALUES":
+            continue  # self-reference is the array's own identifier
+        # Find the const definition: `pub const NAME: &str = "value";`
+        # Allow whitespace (possibly newline) between `=` and the opening
+        # quote — long const names get formatted across multiple lines.
+        def_pattern = re.compile(
+            r"pub const " + re.escape(name) + r":\s*&str\s*=\s*\"([^\"]+)\"",
+        )
+        m = def_pattern.search(rust_text)
+        assert m is not None, f"Rust constant {name} not found in events.rs"
+        resolved.append(m.group(1))
+
+    rust_set = frozenset(resolved)
+    assert rust_set == BACKUP_ENCRYPTION_STATUS_VALID_VALUES, (
+        f"Rust and Python backup-encryption-status lists drift!\n"
+        f"  Rust only: {rust_set - BACKUP_ENCRYPTION_STATUS_VALID_VALUES}\n"
+        f"  Python only: {BACKUP_ENCRYPTION_STATUS_VALID_VALUES - rust_set}\n"
+        f"Fix: edit both substrate/src/events.rs AND "
+        f"kernel/governance/src/myco_kernel_governance/classifier.py to match."
+    )
 
 
 def test_v3_1_1_C56_forbidden_mutation_types_in_sync_with_rust_substrate() -> None:

@@ -387,6 +387,14 @@ pub(crate) struct ServerState {
     /// the same hoarding episode. Same 100-cycle cooldown discipline as
     /// other M25 / M26 detectors. `None` = never emitted.
     pub(crate) last_hoarding_indicator_emitted_at_cycle: Option<u64>,
+    /// **v3.1.1 Sprint 2.C — L1/SKIN §8**: cached projection of the latest
+    /// `backup_encryption_status_declared:{status}` DAG event's status
+    /// field. `None` = "unspecified" per L1/SKIN §8 → triggers
+    /// `backup_encryption_undeclared` Daily sporocarp on boot. Valid
+    /// non-None values: "encrypted_externally" / "cultivator_declined_explicit"
+    /// (per `events::BACKUP_ENCRYPTION_STATUS_VALID_VALUES`). Re-derived
+    /// from DAG on every boot — DAG is canonical, this field is cache.
+    pub(crate) backup_encryption_status: Option<String>,
 }
 
 impl ServerState {
@@ -447,6 +455,12 @@ impl ServerState {
             // mechanism rule. L1 may register additional rules at runtime.
             prune_registry: crate::prune::PruneRuleRegistry::seed(),
             last_hoarding_indicator_emitted_at_cycle: None,
+            // v3.1.1 Sprint 2.C: backup-encryption status starts None
+            // ("unspecified"). Cultivator MAY set via CI mutation; on every
+            // boot we re-derive from DAG (see `derive_backup_encryption_status`
+            // in attestation.rs) and override this seed if any DAG event
+            // is present.
+            backup_encryption_status: None,
         }
     }
 
@@ -780,6 +794,23 @@ pub fn run_loop() -> Result<u8, SubstrateError> {
         let _ = save_dag_state(&state);
     }
 
+    // **v3.1.1 Sprint 2.C** — derive backup_encryption_status from DAG.
+    //
+    // L1/SKIN §8 puts backup-encryption-key custody outside the substrate
+    // (cultivator generates locally; operator-runtime encrypts; substrate
+    // only holds a public status pointer). The status SSoT lives in the DAG
+    // as `backup_encryption_status_declared:{status}` events; we cache the
+    // latest value on ServerState for fast access. Re-derived on every
+    // boot — DAG is canonical, the cached field is just a projection.
+    //
+    // Daily-grade `backup_encryption_undeclared` signal emission is
+    // DEFERRED to a later position in the boot sequence (after the M-anchor-2
+    // genesis_event + birth_attestation block) so we don't accidentally
+    // inflate `state.dag.node_count()` past the fresh-genesis guard at
+    // line ~1006: `if is_fresh_genesis && state.dag.node_count() == 0`.
+    state.backup_encryption_status =
+        crate::events::derive_backup_encryption_status_from_dag(&state.dag);
+
     // M26.1 C6 SECURITY FIX (Phase γ.2): substrate_signing_key.cb existed on
     // disk with loose Unix permissions (group/world bits set) — emit a
     // `C4_substrate_secret_unsealed` immune sporocarp on the DAG so the
@@ -959,6 +990,56 @@ pub fn run_loop() -> Result<u8, SubstrateError> {
                 now_unix_ns,
             );
             let _ = emit_substrate_event(&mut state, ba_node_type, ba_content);
+            let _ = save_dag_state(&state);
+        }
+    }
+
+    // **v3.1.1 Sprint 2.C** — emit `backup_encryption_undeclared` Daily
+    // signal NOW (post genesis_event + post birth_attestation) so the
+    // fresh-genesis node-count guard above is not perturbed.
+    //
+    // Per L1/SKIN §9 detection table this is a **Daily-grade** signal —
+    // visible but not breach-quarantine. Emit on a `daily_signal:*` prefix
+    // so reproduction's quarantine scan (which keys on `immune:*`) does
+    // NOT pull child substrates into birth-period quarantine for an
+    // unresolved-by-cultivator soft signal on parent.
+    if state.backup_encryption_status.is_none() {
+        let evidence_str = "L1/SKIN §8: cultivator has not declared \
+             backup_encryption_status. Set via CI mutation \
+             `set_backup_encryption_status` with status one of \
+             {\"encrypted_externally\", \"cultivator_declined_explicit\"} \
+             so the absence of declaration becomes a positive choice rather \
+             than an unspecified default.";
+        use std::time::{SystemTime, UNIX_EPOCH};
+        let timestamp_unix_ns = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .ok()
+            .and_then(|d| i64::try_from(d.as_nanos()).ok())
+            .unwrap_or(0);
+        let mut content_map = BTreeMap::new();
+        content_map.insert(
+            "detector_id".to_string(),
+            Value::String("backup_encryption_undeclared".to_string()),
+        );
+        content_map.insert(
+            "detector_name".to_string(),
+            Value::String("backup_encryption_undeclared".to_string()),
+        );
+        content_map.insert(
+            "evidence".to_string(),
+            Value::String(evidence_str.to_string()),
+        );
+        content_map.insert("grade".to_string(), Value::String("daily".to_string()));
+        content_map.insert(
+            "timestamp_unix_ns".to_string(),
+            Value::Timestamp(timestamp_unix_ns),
+        );
+        if let Ok(content) = cb_encode(&Value::Map(content_map)) {
+            let _ = emit_substrate_event(
+                &mut state,
+                "daily_signal:backup_encryption_undeclared".to_string(),
+                content,
+            );
             let _ = save_dag_state(&state);
         }
     }

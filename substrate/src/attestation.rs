@@ -841,6 +841,80 @@ pub(crate) fn handle_submit_mutation(
     // staging keeps the latest accepted objective ready to assign to
     // `state.owner_objective` AFTER the mutation DAG node is committed.
     let mut staged_owner_objective: Option<crate::events::OwnerObjective> = None;
+
+    // **v3.1.1 Sprint 2.C set_backup_encryption_status** (L1/SKIN §8): stage
+    // the declared status string AFTER validating it lies within
+    // `BACKUP_ENCRYPTION_STATUS_VALID_VALUES`. Malformed / unknown status
+    // strings are rejected at the skin with C5 — the substrate refuses to
+    // record an enum value it doesn't understand, mirroring the
+    // owner_objective_declaration discipline.
+    let mut staged_backup_encryption_status: Option<(String, Option<String>)> = None;
+    if accepted && mutation_type == "set_backup_encryption_status" {
+        // Mutation content layout (canonical-bytes Map):
+        //   { "status": String, "key_id": String | Null }
+        // We decode + extract BOTH fields here because `content_bytes` is
+        // moved downstream into the mutation DAG node (so we can't re-decode
+        // later after the staged status is consumed for the
+        // backup_encryption_status_declared event).
+        match myco_kernel_shared::canonical_bytes::decode(&content_bytes) {
+            Ok(Value::Map(m)) => {
+                let candidate_status = match m.get("status") {
+                    Some(Value::String(s)) => Some(s.clone()),
+                    _ => None,
+                };
+                let key_id: Option<String> = match m.get("key_id") {
+                    Some(Value::String(s)) => Some(s.clone()),
+                    _ => None,
+                };
+                match candidate_status {
+                    Some(status)
+                        if crate::events::BACKUP_ENCRYPTION_STATUS_VALID_VALUES
+                            .contains(&status.as_str()) =>
+                    {
+                        staged_backup_encryption_status = Some((status, key_id));
+                    }
+                    Some(unknown) => {
+                        accepted = false;
+                        rejection_reason = format!(
+                            "set_backup_encryption_status: unknown status {unknown:?}; \
+                             allowed: {:?}",
+                            crate::events::BACKUP_ENCRYPTION_STATUS_VALID_VALUES
+                        );
+                        let _ = emit_immune_sporocarp(
+                            state,
+                            "C5_attestation_invalid",
+                            "attestation_invalid",
+                            "backup_encryption_status_unknown_value",
+                        );
+                    }
+                    None => {
+                        accepted = false;
+                        rejection_reason =
+                            "set_backup_encryption_status: status field missing or not String"
+                                .to_string();
+                        let _ = emit_immune_sporocarp(
+                            state,
+                            "C5_attestation_invalid",
+                            "attestation_invalid",
+                            "backup_encryption_status_missing",
+                        );
+                    }
+                }
+            }
+            _ => {
+                accepted = false;
+                rejection_reason =
+                    "set_backup_encryption_status: content canonical-bytes decode failed"
+                        .to_string();
+                let _ = emit_immune_sporocarp(
+                    state,
+                    "C5_attestation_invalid",
+                    "attestation_invalid",
+                    "backup_encryption_status_decode_failed",
+                );
+            }
+        }
+    }
     if accepted && mutation_type == "owner_objective_declaration" {
         match crate::events::decode_owner_objective(&content_bytes) {
             Some(obj) => {
@@ -989,6 +1063,36 @@ pub(crate) fn handle_submit_mutation(
         let _ = emit_immune_sporocarp(state, detector_id, detector_name, &evidence_str);
         None
     };
+
+    // **v3.1.1 Sprint 2.C**: after a successful set_backup_encryption_status
+    // mutation, commit the staged status to ServerState AND emit a
+    // `backup_encryption_status_declared:{status}` DAG event. From this
+    // moment forward, boot-time derivation will pick up the new status
+    // and suppress `backup_encryption_undeclared` Daily emissions.
+    if accepted && staged_backup_encryption_status.is_some() {
+        let (status, key_id) =
+            staged_backup_encryption_status.expect("guarded by Some check");
+        let cycle = state.manifest.cycle_counter;
+        let body = crate::events::encode_backup_encryption_status_declared(
+            &status,
+            key_id.as_deref(),
+            cycle,
+        );
+        let parents: Vec<myco_kernel_shared::crypto::NodeHash> = match state.dag.tip() {
+            Some(t) => vec![t],
+            None => Vec::new(),
+        };
+        let nt = crate::events::backup_encryption_status_declared_node_type(&status);
+        let _ = state
+            .dag
+            .insert_node(parents, nt, cycle, body)
+            .map_err(|e| {
+                SubstrateError::Protocol(format!(
+                    "backup_encryption_status_declared DAG insert: {e}"
+                ))
+            })?;
+        state.backup_encryption_status = Some(status);
+    }
 
     // **M26.4 F20**: after a successful owner_objective_declaration, commit
     // the staged objective onto ServerState AND emit an

@@ -312,6 +312,18 @@ SEED_DIMENSION_TABLE: tuple[ClassifierRule, ...] = (
         classification=Classification.CONTRACT_IDENTITY_LEVEL,
         mutation_type="gradient_update_mortality",
     ),
+    # v3.1.1 Sprint 2.C — L1/SKIN §8 backup_encryption_status SSoT.
+    # Cultivator-attested declaration of whether substrate backups are
+    # encrypted by operator-runtime (cultivator owns key) or whether
+    # cultivator has explicitly declined encryption. Substrate stores only
+    # the public status pointer; the symmetric key NEVER enters state_dir.
+    # Daily-grade `backup_encryption_undeclared` is emitted on boot when
+    # this status is still unspecified.
+    ClassifierRule(
+        name="set_backup_encryption_status",
+        classification=Classification.CONTRACT_IDENTITY_LEVEL,
+        mutation_type="set_backup_encryption_status",
+    ),
 )
 
 
@@ -429,3 +441,43 @@ def is_cultivator_preserve_all_attempt(mutation_type: str) -> bool:
     L0/cards/COV04 §5.6 + L0/cards/P07 §3.4.
     """
     return mutation_type in FORBIDDEN_PRESERVE_ALL_MUTATION_TYPES
+
+
+# ---------------------------------------------------------------------------
+# v3.1.1 Sprint 2.C — backup_encryption_status valid values (L1/SKIN §8)
+# ---------------------------------------------------------------------------
+
+#: Canonical values that a cultivator-attested ``set_backup_encryption_status``
+#: mutation may carry as its ``status`` field. The substrate rejects any
+#: other value at the skin (C5_attestation_invalid).
+#:
+#: Per L0/cards/COV04 §3.7 / L1/SKIN §8:
+#:   - ``encrypted_externally`` — operator-runtime encrypts; cultivator
+#:     owns the symmetric key outside state_dir; substrate holds only the
+#:     public ``key_id`` derivation pointer.
+#:   - ``cultivator_declined_explicit`` — cultivator signs an explicit
+#:     declination acknowledging unencrypted backups (e.g., single-user
+#:     host, threat model accepts disk-read as game-over).
+#:
+#: MUST stay byte-equal to ``BACKUP_ENCRYPTION_STATUS_VALID_VALUES`` in
+#: ``substrate/src/events.rs``. Test
+#: ``test_v3_1_1_sprint_2c_backup_encryption_statuses_in_sync_with_rust``
+#: enforces sync.
+BACKUP_ENCRYPTION_STATUS_VALID_VALUES: frozenset[str] = frozenset(
+    {
+        "encrypted_externally",
+        "cultivator_declined_explicit",
+    }
+)
+
+
+def is_valid_backup_encryption_status(status: str) -> bool:
+    """Return True iff ``status`` is one of the canonical
+    backup-encryption-status values per L1/SKIN §8.
+
+    Substrates rejecting an unknown status MUST emit
+    ``C5_attestation_invalid`` with reason
+    ``backup_encryption_status_unknown_value``. Per L1/HARD_RULES §1.4
+    anticipated.
+    """
+    return status in BACKUP_ENCRYPTION_STATUS_VALID_VALUES
