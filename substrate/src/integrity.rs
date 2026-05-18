@@ -81,6 +81,11 @@ pub(crate) fn handle_run_immune_check(
                     "C32_substrate_state_orphan_detected",
                     "substrate_state_orphan_detected".to_string(),
                 )
+            } else if result.check_id == "silent_internal_mortality" {
+                (
+                    "C55_silent_internal_mortality",
+                    "silent_internal_mortality".to_string(),
+                )
             } else {
                 (
                     "C9_cold_resume_invariant_failure",
@@ -453,7 +458,211 @@ pub(crate) fn run_integrity_checks(state: &ServerState) -> Vec<IntegrityCheckRes
         tier: "tier_1",
     });
 
+    // 8. **v3.1.1 P07 §3.3 / L1/HARD_RULES §1.4 C55 silent_internal_mortality**:
+    //    every graph-orphan past the prune grace window MUST have a
+    //    corresponding `internal_mortality_event:*` tombstone in the DAG
+    //    referencing it as `killed_part_hash`. An orphan without a tombstone
+    //    means a part was logically retired without the audit trail P07
+    //    §3.3 mandates — silent removal, forbidden.
+    //
+    //    Under healthy substrate operation the prune-scan deep-cycle step
+    //    catches all such orphans every PRUNE_SCAN_DEEP_CYCLE_INTERVAL
+    //    cycles, so this check stays quiet. It fires only when prune-scan
+    //    has been broken/disabled or a rule has a bug that lets a candidate
+    //    slip through.
+    let (silent_mortality_passed, silent_mortality_evidence, silent_mortality_witness) =
+        check_silent_internal_mortality(state);
+    results.push(IntegrityCheckResult {
+        check_id: "silent_internal_mortality".to_string(),
+        passed: silent_mortality_passed,
+        evidence: silent_mortality_evidence,
+        witness_inputs_canonical_bytes: silent_mortality_witness,
+        tier: "tier_1",
+    });
+
     results
+}
+
+/// **v3.1.1 C55 silent_internal_mortality** detection.
+///
+/// Returns `(passed, evidence, witness_inputs_canonical_bytes)`. Passes iff
+/// every graph-orphan past `prune::ORPHAN_GRACE_CYCLES` has a corresponding
+/// `internal_mortality_event:*` tombstone in the DAG that references the
+/// orphan's hash as `killed_part_hash`.
+///
+/// Algorithm:
+/// 1. Build set of all hashes referenced by some node's `parent_hashes`.
+/// 2. Build set of all `killed_part_hash` values from existing tombstones.
+/// 3. For each DAG node past grace window that is (a) not referenced by
+///    any later node AND (b) not the current tip AND (c) not in the P10
+///    invariant-protected set AND (d) not itself a tombstone — check if it
+///    appears in the tombstone-killed-set. If not, it is a C55 violation.
+fn check_silent_internal_mortality(
+    state: &ServerState,
+) -> (bool, String, Vec<u8>) {
+    use std::collections::HashSet;
+
+    use myco_kernel_shared::canonical_bytes::{decode as cb_decode, Value as CbValue};
+
+    let current_cycle = state.manifest.cycle_counter;
+
+    // Build referenced-by-anyone set.
+    let mut referenced: HashSet<[u8; 32]> = HashSet::new();
+    for node in state.dag.iter_in_insertion_order() {
+        for parent in &node.parent_hashes {
+            let arr: [u8; 32] = parent
+                .as_ref()
+                .try_into()
+                .expect("NodeHash is 32 bytes");
+            referenced.insert(arr);
+        }
+    }
+
+    let tip_bytes: Option<[u8; 32]> = state
+        .dag
+        .tip()
+        .map(|h| h.as_ref().try_into().expect("NodeHash is 32 bytes"));
+
+    // Build tombstone-killed set: for each internal_mortality_event:* node,
+    // decode its content and extract the `killed_part_hash` field. Add to
+    // killed-set.
+    let mut tombstoned: HashSet<[u8; 32]> = HashSet::new();
+    for node in state.dag.iter_in_insertion_order() {
+        if !node
+            .node_type
+            .starts_with(crate::events::NODE_TYPE_INTERNAL_MORTALITY_EVENT_PREFIX)
+        {
+            continue;
+        }
+        let content = node.content_canonical_bytes.as_ref();
+        let decoded = match cb_decode(content) {
+            Ok(v) => v,
+            Err(_) => continue, // malformed tombstone — skipped here; would
+                                // be a C18 finding via the canonical_bytes
+                                // round-trip check.
+        };
+        if let CbValue::Map(m) = decoded {
+            if let Some(CbValue::Bytes(b)) = m.get("killed_part_hash") {
+                if b.len() == 32 {
+                    let mut arr = [0u8; 32];
+                    arr.copy_from_slice(b);
+                    tombstoned.insert(arr);
+                }
+            }
+        }
+    }
+
+    // Identify violations: graph-orphan past grace, not protected, not a
+    // tombstone itself, not in tombstoned-set.
+    let cutoff_cycle = current_cycle.saturating_sub(crate::prune::ORPHAN_GRACE_CYCLES);
+    let mut violations: Vec<(String, [u8; 32], u64)> = Vec::new();
+    if current_cycle > crate::prune::ORPHAN_GRACE_CYCLES {
+        for node in state.dag.iter_in_insertion_order() {
+            if node.created_at_cycle > cutoff_cycle {
+                continue;
+            }
+            // Tombstones themselves are not subject to C55 (they are the
+            // audit trail, not orphans of substrate state).
+            if node
+                .node_type
+                .starts_with(crate::events::NODE_TYPE_INTERNAL_MORTALITY_EVENT_PREFIX)
+            {
+                continue;
+            }
+            // P10 invariant-protected — never 应朽, so never expected to
+            // have a tombstone.
+            if is_p10_invariant_protected(&node.node_type) {
+                continue;
+            }
+            let hash_bytes: [u8; 32] = node
+                .hash
+                .as_ref()
+                .try_into()
+                .expect("NodeHash is 32 bytes");
+            if Some(hash_bytes) == tip_bytes {
+                continue;
+            }
+            if referenced.contains(&hash_bytes) {
+                continue;
+            }
+            // This is a graph orphan past grace. Is it tombstoned?
+            if tombstoned.contains(&hash_bytes) {
+                continue;
+            }
+            violations.push((node.node_type.clone(), hash_bytes, node.created_at_cycle));
+        }
+    }
+
+    let passed = violations.is_empty();
+    let evidence = if passed {
+        format!(
+            "ok (cycle {current_cycle}; all graph-orphans past {grace}-cycle grace have internal_mortality tombstones — no silent prune detected; {tombstone_count} tombstones in DAG)",
+            grace = crate::prune::ORPHAN_GRACE_CYCLES,
+            tombstone_count = tombstoned.len()
+        )
+    } else {
+        let example = &violations[0];
+        format!(
+            "{} silent prune(s) detected — orphan parts past grace with NO internal_mortality_event tombstone. Example: node_type={:?} hash={} created_at_cycle={}",
+            violations.len(),
+            example.0,
+            hex_encode(&example.1),
+            example.2
+        )
+    };
+
+    // Witness inputs: violation count + first violation hash (if any) +
+    // current cycle. Owner can re-run the same check on enumerated DAG
+    // nodes and reproduce.
+    let witness = {
+        let mut m = BTreeMap::new();
+        m.insert(
+            "violation_count".to_string(),
+            Value::Uint(violations.len() as u64),
+        );
+        m.insert(
+            "current_cycle".to_string(),
+            Value::Uint(current_cycle),
+        );
+        m.insert(
+            "grace_cycles".to_string(),
+            Value::Uint(crate::prune::ORPHAN_GRACE_CYCLES),
+        );
+        if let Some(first) = violations.first() {
+            m.insert(
+                "first_violation_hash".to_string(),
+                Value::Bytes(first.1.to_vec()),
+            );
+            m.insert(
+                "first_violation_node_type".to_string(),
+                Value::String(first.0.clone()),
+            );
+        }
+        cb_encode(&Value::Map(m)).map(|cb| cb.0).unwrap_or_default()
+    };
+
+    (passed, evidence, witness)
+}
+
+/// Mirror of `prune::is_p10_invariant_protected` — duplicated here to
+/// avoid a public-API expansion in the prune module. The two MUST stay in
+/// sync; their tests pin them together.
+fn is_p10_invariant_protected(node_type: &str) -> bool {
+    const PROTECTED_PREFIXES: &[&str] = &[
+        "genesis_event:",
+        "l0_revision_attested:",
+        "tip_cosigned:",
+        "compression_event:",
+        "owner_key_",
+        "destruction_attestation",
+        "anchor_surface_final_seal",
+        "self_euthanasia_executed:",
+        "bet_retired",
+        "cultivation_orphaned_terminal",
+        "birth_attestation",
+        crate::events::NODE_TYPE_INTERNAL_MORTALITY_EVENT_PREFIX,
+    ];
+    PROTECTED_PREFIXES.iter().any(|p| node_type.starts_with(p))
 }
 
 /// **M-anchor-4 §9.3.4**: emit `invariant_witness:{check_id}` DAG events

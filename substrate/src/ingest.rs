@@ -749,6 +749,104 @@ pub(crate) fn handle_advance(
         );
     }
 
+    // **v3.1.1 P07 §3.1** — prune-scan deep-cycle step. Default cadence
+    // `PRUNE_SCAN_DEEP_CYCLE_INTERVAL` (= 100). When the post-cycle counter
+    // crosses the cadence boundary, iterate the F24 应朽 detection rule
+    // registry; each candidate becomes an `internal_mortality_event:{category}`
+    // tombstone in the DAG (P07 §3.3). This is the load-bearing closure of
+    // P07's mandatory internal-mortality discipline.
+    //
+    // Also emits payload fields so the operator (and observability) can see
+    // the per-cycle prune density.
+    let prune_tombstone_hashes: Vec<myco_kernel_shared::crypto::NodeHash>;
+    if crate::prune::should_run_prune_scan(post_cycle) {
+        let prune_report = match crate::prune::run_prune_scan(state, post_cycle) {
+            Ok(r) => r,
+            Err(e) => {
+                // Prune-scan failure is a substrate self-care failure;
+                // surface as C31 cycle_step_failed so it is not silent.
+                let evidence = format!(
+                    "prune-scan failed at cycle {post_cycle}: {e}; \
+                     P07 internal mortality discipline did not run this cycle"
+                );
+                let _ = emit_immune_sporocarp(
+                    state,
+                    "C31_cycle_step_failed",
+                    "cycle_step_failed",
+                    &evidence,
+                );
+                crate::prune::PruneScanReport {
+                    rules_run: Vec::new(),
+                    tombstones_emitted: Vec::new(),
+                    at_cycle: post_cycle,
+                }
+            }
+        };
+        prune_tombstone_hashes = prune_report.tombstones_emitted.clone();
+
+        // **C54 hoarding_indicator** detection (L1/HARD_RULES §1.4 anticipated).
+        // After the prune-scan runs, check whether the substrate's behaviour
+        // over the recent window matches the hoarding signature (high
+        // ingestion + near-zero internal_mortality_event density). 100-cycle
+        // cooldown to prevent spam, matching M25/M26 detector discipline.
+        if crate::prune::is_hoarding(state, post_cycle) {
+            const HOARDING_COOLDOWN_CYCLES: u64 = 100;
+            let cooldown_active = match state.last_hoarding_indicator_emitted_at_cycle {
+                Some(last) => post_cycle.saturating_sub(last) < HOARDING_COOLDOWN_CYCLES,
+                None => false,
+            };
+            if !cooldown_active {
+                let ingested = crate::prune::count_raw_material_since(
+                    state,
+                    post_cycle.saturating_sub(crate::prune::HOARDING_INDICATOR_WINDOW_CYCLES),
+                );
+                let pruned = crate::prune::count_internal_mortality_events_since(
+                    state,
+                    post_cycle.saturating_sub(crate::prune::HOARDING_INDICATOR_WINDOW_CYCLES),
+                );
+                let evidence = format!(
+                    "hoarding pattern detected at cycle {post_cycle}: over last {} cycles \
+                     ingested {ingested} raw_material parts but emitted only {pruned} \
+                     internal_mortality_events (P07 §3.1 mandates ongoing prune); \
+                     COV04 §5.6 / §5.7 may also be implicated if a cultivator \
+                     preserve-all instruction is the cause",
+                    crate::prune::HOARDING_INDICATOR_WINDOW_CYCLES
+                );
+                let _ = emit_immune_sporocarp(
+                    state,
+                    "C54_hoarding_indicator",
+                    "hoarding_indicator",
+                    &evidence,
+                );
+                state.last_hoarding_indicator_emitted_at_cycle = Some(post_cycle);
+            }
+        }
+
+        // Surface prune-scan output in the advance response so the operator
+        // can observe per-cycle internal-mortality density.
+        payload.insert(
+            "prune_scan_rules_run".to_string(),
+            Value::Uint(prune_report.rules_run.len() as u64),
+        );
+        payload.insert(
+            "prune_scan_tombstones_emitted".to_string(),
+            Value::Uint(prune_tombstone_hashes.len() as u64),
+        );
+        if !prune_tombstone_hashes.is_empty() {
+            let tombstone_array: Vec<Value> = prune_tombstone_hashes
+                .iter()
+                .map(|h| Value::Bytes(h.as_ref().to_vec()))
+                .collect();
+            payload.insert(
+                "prune_scan_tombstone_hashes".to_string(),
+                Value::Array(tombstone_array),
+            );
+        }
+    } else {
+        prune_tombstone_hashes = Vec::new();
+    }
+    let _ = prune_tombstone_hashes;
+
     // M24.4 (Phase β): cycle_backlog detection (L2/OBSERVABILITY §7).
     // If wall-clock duration exceeded the alive-tier budget (5s default),
     // record_backlog(). On crossing backlog_threshold (10), emit C36 immune

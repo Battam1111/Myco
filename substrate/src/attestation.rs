@@ -555,6 +555,56 @@ pub(crate) fn handle_submit_mutation(
         // Nonce verified; proceed to forward.
     }
 
+    // **v3.1.1 C56 cultivator_preserve_all_attempted** (L1/HARD_RULES §1.4
+    // anticipated) — early reject + immune sporocarp BEFORE forwarding to
+    // Python. Per COV04 §3.7 + §5.6: cultivator instructions to preserve
+    // everything / disable prune-scan / exempt parts from 必朽 are covenant
+    // violations; the substrate's job per P07 §3.4 is to refuse. Catching
+    // this here means even if the Python classifier is bypassed or
+    // misconfigured, the discipline holds at the skin layer.
+    let early_mutation_type = request
+        .payload
+        .get("mutation_type")
+        .and_then(|v| match v {
+            Value::String(s) => Some(s.clone()),
+            _ => None,
+        })
+        .unwrap_or_default();
+    if crate::prune::is_cultivator_preserve_all_attempt(&early_mutation_type) {
+        let evidence = format!(
+            "cultivator-attempted preserve-all mutation rejected at skin: \
+             mutation_type={early_mutation_type:?}; COV04 §3.7 + §5.6 + P07 §3.4 enforced; \
+             substrate MUST NOT disable internal mortality discipline at cultivator request"
+        );
+        let _ = emit_immune_sporocarp(
+            state,
+            "C56_cultivator_preserve_all_attempted",
+            "cultivator_preserve_all_attempted",
+            &evidence,
+        );
+
+        // Reject the mutation without forwarding to Python.
+        let mut payload = std::collections::BTreeMap::new();
+        payload.insert("accepted".to_string(), Value::Bool(false));
+        payload.insert(
+            "classification".to_string(),
+            Value::String("covenant_violation".to_string()),
+        );
+        payload.insert(
+            "rejection_reason".to_string(),
+            Value::String(format!(
+                "C56: mutation_type {early_mutation_type:?} matches forbidden \
+                 preserve-all pattern; cultivator request violates COV04"
+            )),
+        );
+        payload.insert("mutation_type".to_string(), Value::String(early_mutation_type));
+        return Ok(Some(Message::new(
+            msg_type::SUBMIT_MUTATION_RESPONSE,
+            request.request_id,
+            payload,
+        )));
+    }
+
     let client = state
         .python_client
         .as_mut()

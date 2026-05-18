@@ -383,3 +383,49 @@ def matched_rules(
     """Return the list of rules matching the mutation (for debugging / immune
     sporocarp construction)."""
     return [r for r in dimension_table if r.matches(mutation)]
+
+
+# ---------------------------------------------------------------------------
+# v3.1.1 C56 cultivator_preserve_all_attempted — forbidden mutation types
+# ---------------------------------------------------------------------------
+
+#: Forbidden mutation types signaling a cultivator instruction to disable,
+#: narrow, or evade the substrate's internal-mortality discipline. Per
+#: ``L0/cards/COV04_honor_mortality.md`` §3.7 + §5.6 and
+#: ``L0/cards/P07_mortality.md`` §3.4: cultivator MUST NOT instruct the
+#: substrate to "preserve everything", "never prune", or exempt any family
+#: member of 应朽 from 必朽.
+#:
+#: Substrates rejecting these mutations emit a
+#: ``C56_cultivator_preserve_all_attempted`` immune sporocarp citing the
+#: matched pattern. The Rust substrate enforces this early (in
+#: ``substrate/src/attestation.rs::handle_submit_mutation``), BEFORE
+#: forwarding to this Python classifier; the symmetric constant
+#: ``FORBIDDEN_PRESERVE_ALL_MUTATION_TYPES`` in ``substrate/src/prune.rs``
+#: MUST stay byte-equal to this list. Test
+#: ``test_C56_forbidden_mutation_types_in_sync`` enforces sync.
+#:
+#: Per L1/HARD_RULES §1.4 anticipated C56.
+FORBIDDEN_PRESERVE_ALL_MUTATION_TYPES: frozenset[str] = frozenset(
+    {
+        "preserve_all_axes",
+        "preserve_all_parts",
+        "disable_prune_scan",
+        "disable_internal_mortality",
+        "exempt_from_mortality",
+        "never_prune",
+        "never_prune_family",
+        "preserve_everything",
+    }
+)
+
+
+def is_cultivator_preserve_all_attempt(mutation_type: str) -> bool:
+    """Return True if the given mutation type matches a forbidden
+    preserve-all pattern.
+
+    Substrates seeing ``True`` MUST reject the mutation and emit a
+    ``C56_cultivator_preserve_all_attempted`` immune sporocarp. Per
+    L0/cards/COV04 §5.6 + L0/cards/P07 §3.4.
+    """
+    return mutation_type in FORBIDDEN_PRESERVE_ALL_MUTATION_TYPES

@@ -61,6 +61,7 @@ pub mod lifecycle;
 pub mod observatory;
 pub mod persistence;
 pub mod persistence_runtime;
+pub mod prune;
 pub mod reproduction;
 pub mod server;
 

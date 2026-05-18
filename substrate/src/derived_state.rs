@@ -108,6 +108,19 @@ pub struct ObservatorySnapshot {
     /// no fallback feedback trajectory). NOT a Living Bet signal — P14.c
     /// telos is orthogonal to L0/cards/LB_living_bets Living Bets (per L1/TROPISM §F.5).
     pub signal_telos_alignment_repr: String,
+    /// **v3.1.1 P07** rolling-window count of `internal_mortality_event:*`
+    /// DAG events. Per `prune::HOARDING_INDICATOR_WINDOW_CYCLES` window
+    /// (default 200 cycles back). Used by L2/OBSERVABILITY §2 (anticipated
+    /// metric) as the primary observability surface for the substrate's
+    /// internal-mortality discipline. Higher = healthier metabolism.
+    /// Default 0 in pre-v3.1.1 snapshots.
+    pub signal_internal_mortality_event_density: u64,
+    /// **v3.1.1 P07 / L1/HARD_RULES §1.4 C54** hoarding indicator: `true`
+    /// iff over the recent window the substrate ingested non-trivially but
+    /// emitted < `HOARDING_INDICATOR_MORTALITY_FLOOR` tombstones — i.e.,
+    /// P07 §3.1 is not firing despite live ingestion. Default `false`.
+    /// Pre-v3.1.1 snapshots default `false`.
+    pub signal_hoarding_indicator: bool,
 }
 
 /// L1-tunable seed cap for the in-memory observatory history. The substrate
@@ -165,6 +178,17 @@ impl ObservatorySnapshot {
         m.insert(
             "signal_telos_alignment_repr".to_string(),
             Value::String(self.signal_telos_alignment_repr.clone()),
+        );
+        // v3.1.1 P07 internal-mortality observability (L2/OBSERVABILITY §2
+        // anticipated metrics). Backward-compat: pre-v3.1.1 snapshots
+        // tolerated as absent → default 0/false on read.
+        m.insert(
+            "signal_internal_mortality_event_density".to_string(),
+            Value::Uint(self.signal_internal_mortality_event_density),
+        );
+        m.insert(
+            "signal_hoarding_indicator".to_string(),
+            Value::Bool(self.signal_hoarding_indicator),
         );
         Value::Map(m)
     }
@@ -230,6 +254,17 @@ impl ObservatorySnapshot {
             Some(Value::String(s)) => s.clone(),
             _ => String::new(),
         };
+        // v3.1.1 P07 internal-mortality observability — tolerate absent for
+        // backward-compat with pre-v3.1.1 snapshot.cb files (default 0/false).
+        let signal_internal_mortality_event_density =
+            match m.get("signal_internal_mortality_event_density") {
+                Some(Value::Uint(n)) => *n,
+                _ => 0,
+            };
+        let signal_hoarding_indicator = match m.get("signal_hoarding_indicator") {
+            Some(Value::Bool(b)) => *b,
+            _ => false,
+        };
         Ok(ObservatorySnapshot {
             at_cycle,
             at_unix_ns,
@@ -243,6 +278,8 @@ impl ObservatorySnapshot {
             signal_8_network_bytes,
             signal_9_storage_bytes,
             signal_telos_alignment_repr,
+            signal_internal_mortality_event_density,
+            signal_hoarding_indicator,
         })
     }
 }
@@ -1290,6 +1327,10 @@ mod tests {
             // M26.4 P14.c telos: vary cosine values across `[-1, +1]` to
             // exercise serializer round-trip.
             signal_telos_alignment_repr: format!("{:.6}", ((at_cycle as f64) * 0.07).sin()),
+            // v3.1.1 P07 observability: vary across cycles to exercise
+            // serializer + alternate the boolean each cycle.
+            signal_internal_mortality_event_density: at_cycle * 2,
+            signal_hoarding_indicator: at_cycle % 2 == 0,
         }
     }
 

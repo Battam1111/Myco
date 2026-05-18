@@ -374,6 +374,19 @@ pub(crate) struct ServerState {
     /// axis to drive C53 (budget_exhausted_silent) detection. Key = axis
     /// name; value = cycle of most recent emission.
     pub(crate) last_budget_exhausted_per_axis: std::collections::HashMap<String, u64>,
+    /// **v3.1.1 P07 §3.1 + F24 (anticipated)**: registry of 应朽 detection
+    /// rules. Open-ended per P07 §3.1.c (L1 may register additional family
+    /// members without L0 amendment). The prune-scan deep-cycle step in
+    /// `handle_advance` iterates this registry every
+    /// `PRUNE_SCAN_DEEP_CYCLE_INTERVAL` cycles and emits one
+    /// `internal_mortality_event:{category}` tombstone per detected
+    /// candidate (P07 §3.3).
+    pub(crate) prune_registry: crate::prune::PruneRuleRegistry,
+    /// **v3.1.1 C54 hoarding_indicator cooldown**: track the cycle at
+    /// which the substrate last emitted C54 to prevent per-cycle spam on
+    /// the same hoarding episode. Same 100-cycle cooldown discipline as
+    /// other M25 / M26 detectors. `None` = never emitted.
+    pub(crate) last_hoarding_indicator_emitted_at_cycle: Option<u64>,
 }
 
 impl ServerState {
@@ -430,6 +443,10 @@ impl ServerState {
             owner_objective: crate::events::seed_owner_objective(),
             last_telos_drift_emitted_at_cycle: None,
             last_budget_exhausted_per_axis: std::collections::HashMap::new(),
+            // v3.1.1 P07: seed the prune registry with the L0 proof-of-
+            // mechanism rule. L1 may register additional rules at runtime.
+            prune_registry: crate::prune::PruneRuleRegistry::seed(),
+            last_hoarding_indicator_emitted_at_cycle: None,
         }
     }
 

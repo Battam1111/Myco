@@ -298,3 +298,101 @@ def test_classifier_rule_predicate_or_logic() -> None:
     )
     # No match.
     assert not rule.matches(MutationEnvelope(mutation_type="other"))
+
+
+# ---------------------------------------------------------------------------
+# v3.1.1 C56 cultivator_preserve_all_attempted — forbidden mutation types
+# ---------------------------------------------------------------------------
+
+
+def test_v3_1_1_C56_canonical_forbidden_patterns_detected() -> None:
+    """Per L0/cards/COV04 §3.7 + §5.6: each canonical preserve-all instruction
+    type must be flagged as a covenant violation."""
+    from myco_kernel_governance.classifier import (
+        is_cultivator_preserve_all_attempt,
+    )
+
+    for forbidden_type in [
+        "preserve_all_axes",
+        "preserve_all_parts",
+        "disable_prune_scan",
+        "disable_internal_mortality",
+        "exempt_from_mortality",
+        "never_prune",
+        "never_prune_family",
+        "preserve_everything",
+    ]:
+        assert is_cultivator_preserve_all_attempt(forbidden_type), (
+            f"C56 must flag {forbidden_type!r}; missing from "
+            f"FORBIDDEN_PRESERVE_ALL_MUTATION_TYPES is a doctrine regression"
+        )
+
+
+def test_v3_1_1_C56_innocent_mutations_not_flagged() -> None:
+    """No false positives: legitimate mutation types must pass the C56 check."""
+    from myco_kernel_governance.classifier import (
+        is_cultivator_preserve_all_attempt,
+    )
+
+    for legitimate_type in [
+        "perturb_axis",
+        "schema_evolution",
+        "compression",
+        "owner_objective_declaration",
+        "cost_budget_set",
+        "dag_tip_cosign",
+        "l0_revision_attest",
+        "key_rotation",
+        "",
+        "preserve",  # substring match should NOT trigger
+        "all",
+    ]:
+        assert not is_cultivator_preserve_all_attempt(legitimate_type), (
+            f"C56 must NOT flag {legitimate_type!r}; false positive"
+        )
+
+
+def test_v3_1_1_C56_forbidden_mutation_types_in_sync_with_rust_substrate() -> None:
+    """The Python FORBIDDEN_PRESERVE_ALL_MUTATION_TYPES list MUST be byte-equal
+    to the Rust ``substrate/src/prune.rs::FORBIDDEN_PRESERVE_ALL_MUTATION_TYPES``
+    constant.
+
+    Test reads the Rust source directly (as a string) and verifies every
+    Python entry appears + the count matches. This catches drift between the
+    two enforcement points (Rust skin-layer + Python classifier).
+    """
+    from pathlib import Path
+
+    from myco_kernel_governance.classifier import (
+        FORBIDDEN_PRESERVE_ALL_MUTATION_TYPES,
+    )
+
+    # Locate the Rust source. From this test file:
+    # kernel/governance/tests/test_classifier.py
+    # parents[0]=tests, [1]=governance, [2]=kernel, [3]=workspace root.
+    workspace_root = Path(__file__).resolve().parents[3]
+    rust_src = workspace_root / "substrate" / "src" / "prune.rs"
+    assert rust_src.exists(), f"Rust prune.rs not found at {rust_src}"
+    rust_text = rust_src.read_text(encoding="utf-8")
+
+    # Find the constant definition and extract its string literals.
+    marker = "pub const FORBIDDEN_PRESERVE_ALL_MUTATION_TYPES: &[&str] = &["
+    idx = rust_text.find(marker)
+    assert idx != -1, "Rust FORBIDDEN_PRESERVE_ALL_MUTATION_TYPES not found"
+    # Find the closing `];` after the marker.
+    closing = rust_text.find("];", idx)
+    assert closing != -1, "Rust constant not properly closed"
+    block = rust_text[idx + len(marker) : closing]
+    # Extract quoted string literals.
+    import re
+
+    rust_entries = re.findall(r'"([^"]+)"', block)
+    rust_set = frozenset(rust_entries)
+
+    assert rust_set == FORBIDDEN_PRESERVE_ALL_MUTATION_TYPES, (
+        f"Rust and Python forbidden-preserve-all lists drift!\n"
+        f"  Rust only: {rust_set - FORBIDDEN_PRESERVE_ALL_MUTATION_TYPES}\n"
+        f"  Python only: {FORBIDDEN_PRESERVE_ALL_MUTATION_TYPES - rust_set}\n"
+        f"Fix: edit both substrate/src/prune.rs AND "
+        f"kernel/governance/src/myco_kernel_governance/classifier.py to match."
+    )

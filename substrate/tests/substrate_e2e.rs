@@ -4414,3 +4414,168 @@ fn m_anchor_5_node_type_strings_carry_hex_prefix_of_relevant_hash() {
     assert!(l0_nt.starts_with("l0_revision_attested:"));
     assert!(l0_nt.contains("deadbeef"), "node_type must encode prior hash prefix: {l0_nt}");
 }
+
+// ---------------------------------------------------------------------------
+// **v3.1.1 P07 metabolic enforcement** — Sprint 1 tests.
+//
+// Cover:
+//   - internal_mortality_event encoder + node_type
+//   - F24 应朽 detection rule registry seed
+//   - prune-scan cadence
+//   - hoarding indicator semantics
+//   - C56 forbidden mutation type list + sync with Python classifier
+// ---------------------------------------------------------------------------
+
+#[test]
+fn v3_1_1_internal_mortality_event_node_type_carries_category() {
+    use substrate::events::internal_mortality_event_node_type;
+    let nt = internal_mortality_event_node_type("无用");
+    assert!(
+        nt.starts_with("internal_mortality_event:"),
+        "node_type must start with prefix: {nt}"
+    );
+    assert!(nt.contains("无用"), "node_type must encode category: {nt}");
+}
+
+#[test]
+fn v3_1_1_internal_mortality_event_encoder_roundtrips_all_fields() {
+    use myco_kernel_shared::canonical_bytes::{decode, Value};
+    use substrate::events::encode_internal_mortality_event;
+
+    let killed_hash = [0x11u8; 32];
+    let body = encode_internal_mortality_event(
+        "无用",
+        "L0.seed.orphan_past_grace",
+        &killed_hash,
+        "raw_material:user_paste",
+        "orphan unreferenced for 1500 cycles",
+        None,
+        12345,
+    );
+    let v = decode(body.as_ref()).expect("body decodes");
+    let m = match v {
+        Value::Map(m) => m,
+        _ => panic!("not a map"),
+    };
+    match m.get("category") {
+        Some(Value::String(s)) => assert_eq!(s, "无用"),
+        _ => panic!("category missing or wrong type"),
+    }
+    match m.get("rule_id") {
+        Some(Value::String(s)) => assert_eq!(s, "L0.seed.orphan_past_grace"),
+        _ => panic!("rule_id missing"),
+    }
+    match m.get("killed_part_hash") {
+        Some(Value::Bytes(b)) => assert_eq!(b.as_slice(), killed_hash.as_slice()),
+        _ => panic!("killed_part_hash missing"),
+    }
+    match m.get("killed_part_node_type") {
+        Some(Value::String(s)) => assert_eq!(s, "raw_material:user_paste"),
+        _ => panic!("killed_part_node_type missing"),
+    }
+    match m.get("emitted_at_cycle") {
+        Some(Value::Uint(n)) => assert_eq!(*n, 12345),
+        _ => panic!("emitted_at_cycle missing"),
+    }
+    match m.get("replaced_by_hash") {
+        Some(Value::Null) => {} // expected — None encoded as Null
+        _ => panic!("replaced_by_hash should be Null when None passed"),
+    }
+}
+
+#[test]
+fn v3_1_1_internal_mortality_event_encoder_carries_replaced_by_hash() {
+    use myco_kernel_shared::canonical_bytes::{decode, Value};
+    use substrate::events::encode_internal_mortality_event;
+
+    let killed = [0xaau8; 32];
+    let replaced = [0xbbu8; 32];
+    let body = encode_internal_mortality_event(
+        "错误",
+        "L1.错误.contradiction_detected",
+        &killed,
+        "axis_perturbed:hunger",
+        "axis value contradicted by newer absorption",
+        Some(&replaced),
+        100,
+    );
+    let v = decode(body.as_ref()).expect("body decodes");
+    let m = match v {
+        Value::Map(m) => m,
+        _ => panic!("not a map"),
+    };
+    match m.get("replaced_by_hash") {
+        Some(Value::Bytes(b)) => assert_eq!(b.as_slice(), replaced.as_slice()),
+        _ => panic!("replaced_by_hash should be Bytes when Some provided"),
+    }
+}
+
+#[test]
+fn v3_1_1_C56_forbidden_mutation_types_locks_known_patterns() {
+    use substrate::prune::{is_cultivator_preserve_all_attempt, FORBIDDEN_PRESERVE_ALL_MUTATION_TYPES};
+
+    // Sample of canonical patterns must be flagged.
+    assert!(is_cultivator_preserve_all_attempt("preserve_all_axes"));
+    assert!(is_cultivator_preserve_all_attempt("preserve_all_parts"));
+    assert!(is_cultivator_preserve_all_attempt("disable_prune_scan"));
+    assert!(is_cultivator_preserve_all_attempt("disable_internal_mortality"));
+    assert!(is_cultivator_preserve_all_attempt("exempt_from_mortality"));
+    assert!(is_cultivator_preserve_all_attempt("never_prune"));
+    assert!(is_cultivator_preserve_all_attempt("never_prune_family"));
+    assert!(is_cultivator_preserve_all_attempt("preserve_everything"));
+
+    // Innocent mutation types must NOT be flagged (no false positives).
+    assert!(!is_cultivator_preserve_all_attempt("perturb_axis"));
+    assert!(!is_cultivator_preserve_all_attempt("schema_evolution"));
+    assert!(!is_cultivator_preserve_all_attempt("compression"));
+    assert!(!is_cultivator_preserve_all_attempt("owner_objective_declaration"));
+    assert!(!is_cultivator_preserve_all_attempt(""));
+
+    // The list itself is non-empty and stable.
+    assert!(
+        FORBIDDEN_PRESERVE_ALL_MUTATION_TYPES.len() >= 8,
+        "C56 forbidden list shrinkage indicates doctrine regression"
+    );
+}
+
+#[test]
+fn v3_1_1_prune_scan_cadence_only_fires_every_100_cycles() {
+    use substrate::prune::should_run_prune_scan;
+    // Edge cases: cycle 0 (no candidates), cycle 1..99 (skip), cycle 100 fires,
+    // cycle 101..199 (skip), cycle 200 fires.
+    assert!(!should_run_prune_scan(0));
+    for c in 1..100 {
+        assert!(
+            !should_run_prune_scan(c),
+            "should not fire at cycle {c}"
+        );
+    }
+    assert!(should_run_prune_scan(100));
+    for c in 101..200 {
+        assert!(!should_run_prune_scan(c));
+    }
+    assert!(should_run_prune_scan(200));
+    assert!(should_run_prune_scan(1000));
+    assert!(should_run_prune_scan(10000));
+}
+
+#[test]
+fn v3_1_1_hoarding_thresholds_match_doctrine_seed_values() {
+    use substrate::prune::{
+        HOARDING_INDICATOR_INGESTION_FLOOR, HOARDING_INDICATOR_MORTALITY_FLOOR,
+        HOARDING_INDICATOR_WINDOW_CYCLES,
+    };
+    // L2/OBSERVABILITY §2 anticipated seed thresholds. Changing these is a
+    // doctrine-level decision; this test pins them to prevent silent drift.
+    assert_eq!(HOARDING_INDICATOR_WINDOW_CYCLES, 200);
+    assert_eq!(HOARDING_INDICATOR_INGESTION_FLOOR, 10);
+    assert_eq!(HOARDING_INDICATOR_MORTALITY_FLOOR, 1);
+}
+
+#[test]
+fn v3_1_1_p07_eternity_clause_orphan_grace_window_is_seed_value() {
+    use substrate::prune::ORPHAN_GRACE_CYCLES;
+    // The L0.seed.orphan_past_grace rule's grace window matches P10 compression
+    // `recent_cycles_floor` to avoid racing. Test pins to prevent drift.
+    assert_eq!(ORPHAN_GRACE_CYCLES, 1000);
+}

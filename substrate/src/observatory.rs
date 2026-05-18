@@ -555,6 +555,16 @@ pub(crate) fn append_observatory_snapshot_to_state(state: &mut ServerState) {
         None => String::new(),
     };
 
+    // v3.1.1 P07 observability metrics (L2/OBSERVABILITY §2 anticipated).
+    // Computed at snapshot time so the rolling history captures per-cycle
+    // metabolic discipline. Window matches `HOARDING_INDICATOR_WINDOW_CYCLES`.
+    let current_cycle = state.manifest.cycle_counter;
+    let mortality_window_start =
+        current_cycle.saturating_sub(crate::prune::HOARDING_INDICATOR_WINDOW_CYCLES);
+    let signal_internal_mortality_event_density =
+        crate::prune::count_internal_mortality_events_since(state, mortality_window_start);
+    let signal_hoarding_indicator = crate::prune::is_hoarding(state, current_cycle);
+
     let snapshot = ObservatorySnapshot {
         at_cycle: state.manifest.cycle_counter,
         at_unix_ns,
@@ -568,6 +578,8 @@ pub(crate) fn append_observatory_snapshot_to_state(state: &mut ServerState) {
         signal_8_network_bytes: cost.network_bytes,
         signal_9_storage_bytes: cost.storage_bytes,
         signal_telos_alignment_repr,
+        signal_internal_mortality_event_density,
+        signal_hoarding_indicator,
     };
     state.observatory_history.push_back(snapshot);
     while state.observatory_history.len() > OBSERVATORY_HISTORY_CAP {
