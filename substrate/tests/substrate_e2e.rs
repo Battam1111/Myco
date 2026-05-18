@@ -4936,3 +4936,183 @@ fn v3_1_1_sprint_2b_sealing_scaffold_module_exists() {
     // Module compiles; cfg gates correct.
     // (Empty test body — the act of compiling proves the property.)
 }
+
+// ---------------------------------------------------------------------------
+// **v3.1.1 Sprint 3** — self-driven cycle scheduler (closes P04 §10.3 debt).
+//
+// MYCO_SELF_DRIVEN_CYCLE_ADVANCE=1 turns on autonomous cycle-advance during
+// the existing M23.1 autonomous-tick path. Substrate no longer relies on
+// operator handle_advance to iterate — it cycles even when operator idle.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn v3_1_1_sprint_3_self_driven_advance_off_by_default() {
+    // Sanity: spawn a substrate with NO self-driven flag. Wait a tick
+    // interval. Cycle counter must NOT advance autonomously.
+    let dir = fresh_state_dir();
+    let mut client = spawn_substrate_with_env(
+        &dir,
+        vec![
+            // Tight tick interval so the test waits less while still
+            // proving the negative.
+            ("MYCO_TICK_INTERVAL_MS".to_string(), "100".to_string()),
+        ],
+    );
+
+    // Sleep ~5 tick intervals = 500ms. If self-driven were on by default,
+    // ~5 cycles should advance. With it off, cycle stays at 0.
+    std::thread::sleep(std::time::Duration::from_millis(500));
+
+    // Query cycle counter via the observatory snapshot.
+    let resp = client
+        .call(
+            proto::QUERY_RECENT_NODES,
+            build_payload(vec![
+                ("count", CbValue::Uint(50)),
+                (
+                    "node_type_prefix",
+                    CbValue::String("cycle_advanced".to_string()),
+                ),
+            ]),
+        )
+        .expect("query");
+    let nodes = match resp.payload.get("nodes") {
+        Some(CbValue::Array(a)) => a.clone(),
+        _ => panic!("nodes missing"),
+    };
+    assert!(
+        nodes.is_empty(),
+        "self-driven cycle advance must be OFF by default; saw {} cycle_advanced events",
+        nodes.len()
+    );
+    client.shutdown().expect("shutdown");
+}
+
+#[test]
+fn v3_1_1_sprint_3_self_driven_advance_fires_when_enabled() {
+    // Spawn a substrate WITH MYCO_SELF_DRIVEN_CYCLE_ADVANCE=1 + tight
+    // tick interval. Wait several tick intervals. Cycle counter MUST
+    // advance autonomously even without operator advance requests.
+    let dir = fresh_state_dir();
+    let mut client = spawn_substrate_with_env(
+        &dir,
+        vec![
+            (
+                "MYCO_SELF_DRIVEN_CYCLE_ADVANCE".to_string(),
+                "1".to_string(),
+            ),
+            ("MYCO_TICK_INTERVAL_MS".to_string(), "100".to_string()),
+        ],
+    );
+
+    // Sleep ~6 tick intervals = 600ms → ~4-5 autonomous cycles should fire
+    // (handshake takes one tick to settle; allow margin).
+    std::thread::sleep(std::time::Duration::from_millis(1000));
+
+    let resp = client
+        .call(
+            proto::QUERY_RECENT_NODES,
+            build_payload(vec![
+                ("count", CbValue::Uint(50)),
+                (
+                    "node_type_prefix",
+                    CbValue::String("cycle_advanced".to_string()),
+                ),
+            ]),
+        )
+        .expect("query");
+    let nodes = match resp.payload.get("nodes") {
+        Some(CbValue::Array(a)) => a.clone(),
+        _ => panic!("nodes missing"),
+    };
+    assert!(
+        !nodes.is_empty(),
+        "self-driven cycle advance was enabled (MYCO_SELF_DRIVEN_CYCLE_ADVANCE=1) \
+         but no cycle_advanced events found after 1s of idle — P04 §10.3 still broken"
+    );
+    // At least one cycle is enough to prove the mechanism fires; we don't
+    // pin an exact count (flaky on slow CI).
+    client.shutdown().expect("shutdown");
+}
+
+#[test]
+fn v3_1_1_sprint_3_self_driven_flag_parses_truthy_values() {
+    // White-box test of the env-var parsing. Each of these values should
+    // trigger self-driven advance. Spawn a substrate, wait briefly, check
+    // at least one cycle fired.
+    for truthy in &["1", "true", "TRUE", "yes", "ON"] {
+        let dir = fresh_state_dir();
+        let mut client = spawn_substrate_with_env(
+            &dir,
+            vec![
+                (
+                    "MYCO_SELF_DRIVEN_CYCLE_ADVANCE".to_string(),
+                    truthy.to_string(),
+                ),
+                ("MYCO_TICK_INTERVAL_MS".to_string(), "100".to_string()),
+            ],
+        );
+        std::thread::sleep(std::time::Duration::from_millis(700));
+        let resp = client
+            .call(
+                proto::QUERY_RECENT_NODES,
+                build_payload(vec![
+                    ("count", CbValue::Uint(20)),
+                    (
+                        "node_type_prefix",
+                        CbValue::String("cycle_advanced".to_string()),
+                    ),
+                ]),
+            )
+            .expect("query");
+        let nodes = match resp.payload.get("nodes") {
+            Some(CbValue::Array(a)) => a.clone(),
+            _ => panic!("nodes missing"),
+        };
+        assert!(
+            !nodes.is_empty(),
+            "truthy value {truthy:?} should enable self-driven advance"
+        );
+        client.shutdown().expect("shutdown");
+    }
+}
+
+#[test]
+fn v3_1_1_sprint_3_self_driven_flag_falsy_values_keep_off() {
+    // Conversely, falsy values keep self-driven advance off.
+    for falsy in &["0", "false", "no", "off", "garbage", ""] {
+        let dir = fresh_state_dir();
+        let mut client = spawn_substrate_with_env(
+            &dir,
+            vec![
+                (
+                    "MYCO_SELF_DRIVEN_CYCLE_ADVANCE".to_string(),
+                    falsy.to_string(),
+                ),
+                ("MYCO_TICK_INTERVAL_MS".to_string(), "100".to_string()),
+            ],
+        );
+        std::thread::sleep(std::time::Duration::from_millis(400));
+        let resp = client
+            .call(
+                proto::QUERY_RECENT_NODES,
+                build_payload(vec![
+                    ("count", CbValue::Uint(20)),
+                    (
+                        "node_type_prefix",
+                        CbValue::String("cycle_advanced".to_string()),
+                    ),
+                ]),
+            )
+            .expect("query");
+        let nodes = match resp.payload.get("nodes") {
+            Some(CbValue::Array(a)) => a.clone(),
+            _ => panic!("nodes missing"),
+        };
+        assert!(
+            nodes.is_empty(),
+            "falsy value {falsy:?} should NOT enable self-driven advance"
+        );
+        client.shutdown().expect("shutdown");
+    }
+}

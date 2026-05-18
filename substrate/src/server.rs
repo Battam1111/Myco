@@ -157,6 +157,80 @@ fn parse_tick_interval() -> Duration {
     Duration::from_millis(ms)
 }
 
+/// **v3.1.1 Sprint 3** — check whether self-driven cycle advance is enabled.
+///
+/// When enabled, the autonomous tick path advances the metabolic cycle in
+/// addition to its federation work. Closes P04 §10.3's acknowledged debt
+/// (substrate-internal scheduling vs request-driven-only advance).
+///
+/// Truthy values: `1`, `true`, `yes`, `on` (case-insensitive). Anything
+/// else (including unset) = disabled. Default off to preserve M23.1
+/// behavior; operators / cultivators opt in by setting the env var on
+/// substrate launch.
+fn self_driven_cycle_advance_enabled() -> bool {
+    match std::env::var("MYCO_SELF_DRIVEN_CYCLE_ADVANCE") {
+        Ok(v) => {
+            let lowered = v.trim().to_ascii_lowercase();
+            matches!(lowered.as_str(), "1" | "true" | "yes" | "on")
+        }
+        Err(_) => false,
+    }
+}
+
+/// **v3.1.1 Sprint 3** — perform one cycle advance from the autonomous-
+/// tick path (no operator request involved).
+///
+/// Mirrors the dispatch-arm bookkeeping that follows
+/// `crate::ingest::handle_advance`: bump cycle counter, emit
+/// cycle_advanced, append observatory snapshot, persist. The synthesized
+/// ADVANCE message carries the current cycle counter for handle_advance's
+/// echo-back path; otherwise it's a minimal request_id=0 message.
+///
+/// The response from handle_advance is discarded — the autonomous tick
+/// has no operator to deliver it to. The cycle's DAG events + observatory
+/// snapshot are the persistent record.
+///
+/// Concurrency: runs in the main loop's single thread, between operator
+/// requests. No background thread, no Arc<Mutex>, no concurrent access
+/// to ServerState.
+fn execute_self_driven_cycle_advance(
+    state: &mut ServerState,
+) -> Result<(), SubstrateError> {
+    use std::collections::BTreeMap;
+    use myco_kernel_bridge::protocol::Message;
+    use myco_kernel_shared::canonical_bytes::Value;
+
+    let mut payload = BTreeMap::new();
+    payload.insert(
+        "current_cycle".to_string(),
+        Value::Uint(state.manifest.cycle_counter),
+    );
+    let request = Message::new(msg_type::ADVANCE, 0, payload);
+
+    let _response = crate::ingest::handle_advance(state, &request)?;
+
+    // Bookkeeping — same sequence as the dispatch-arm path at
+    // `msg_type::ADVANCE =>` in run_loop's dispatch().
+    let prior_cycle = state.manifest.cycle_counter;
+    let new_cycle = prior_cycle.saturating_add(1);
+    state.manifest.cycle_counter = new_cycle;
+    let event_content = crate::events::encode_cycle_advanced(prior_cycle, new_cycle);
+    let _ = emit_substrate_event(
+        state,
+        crate::events::NODE_TYPE_CYCLE_ADVANCED.to_string(),
+        event_content,
+    );
+    crate::observatory::append_observatory_snapshot_to_state(state);
+    state.save_manifest()?;
+    save_python_state(state)?;
+    save_dag_state(state)?;
+    const SNAPSHOT_EVERY_K_CYCLES: u64 = 10;
+    if new_cycle % SNAPSHOT_EVERY_K_CYCLES == 0 {
+        let _ = save_snapshot_for_state(state);
+    }
+    Ok(())
+}
+
 /// M23.1 P4 永恒迭代: one autonomous tick.
 ///
 /// Invoked from the main loop's `recv_timeout` Timeout branch. Runs the same
@@ -169,6 +243,39 @@ fn parse_tick_interval() -> Duration {
 /// path zero-cost for non-federated substrates.
 fn do_autonomous_tick(state: &mut ServerState) -> Result<(), SubstrateError> {
     use std::time::{SystemTime, UNIX_EPOCH};
+
+    // **v3.1.1 Sprint 3 — self-driven cycle scheduler** (P04 §10.3 debt).
+    //
+    // When `MYCO_SELF_DRIVEN_CYCLE_ADVANCE` is set (to "1" / "true" / "yes"
+    // / "on"), advance the metabolic cycle here in addition to whatever
+    // federation work the existing tick path does. This closes P04 §10.3's
+    // "request-driven advance" debt: substrate keeps cycling even when the
+    // operator process is disconnected or idle.
+    //
+    // Default: OFF (preserves M23.1 behavior — autonomous tick only does
+    // federation work). The operator-driven `handle_advance` dispatch is
+    // unchanged either way; this just adds a parallel self-driven path.
+    //
+    // Concurrency: the autonomous tick runs inside the main loop's
+    // request-response thread (recv_timeout Timeout branch). No background
+    // thread, no Arc<Mutex>, no concurrent access to ServerState. Operator
+    // requests + self-driven cycles serialize naturally through the main
+    // loop's request queue.
+    //
+    // Per L0/cards/P04_eternal_iteration.md §10.3 acknowledged debt +
+    // L1/CONTINUITY §1.2 cycle cadence (100ms-10s range covered by the
+    // default 500ms tick interval).
+    if self_driven_cycle_advance_enabled() && state.handshake_complete {
+        // Best-effort: failures here propagate as immune events via the
+        // C31 cycle_step_failed path inside handle_advance, but don't
+        // crash the substrate. The next tick retries.
+        if let Err(e) = execute_self_driven_cycle_advance(state) {
+            let _ = writeln!(
+                std::io::stderr(),
+                "self-driven cycle advance error: {e}"
+            );
+        }
+    }
 
     if state.federation.listener.is_none() && state.federation.peers.is_empty() {
         // Fast path: nothing federation-related to poll.
