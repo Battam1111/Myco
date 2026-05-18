@@ -1733,6 +1733,143 @@ export function revealKeyBindingSigningInput(
   return encode({ type: "map", value: m }).bytes;
 }
 
+// ---------------------------------------------------------------------------
+// **M-anchor-5 §9.2.2 / §9.2.4** — DAG-tip co-sign + L0 revision envelopes.
+//
+// Both envelopes are owner-signed canonical-bytes Maps. Their shapes mirror
+// the Rust `build_dag_tip_cosign_canonical_bytes` and
+// `build_l0_revision_canonical_bytes` byte-for-byte; any drift breaks the
+// signature check on the substrate side and emits C18 canonical_bytes_render_drift
+// (via C5 attestation_invalid for the immediate cosign flow).
+// ---------------------------------------------------------------------------
+
+/** Domain string for DAG-tip co-sign signatures (M-anchor-5 §9.2.2). */
+export const DAG_TIP_COSIGN_DOMAIN = "myco-dag-tip-cosign-v1";
+
+/** Domain string for L0 revision attestation signatures (M-anchor-5 §9.2.4). */
+export const L0_REVISION_DOMAIN = "myco-l0-revision-v1";
+
+/** Build the canonical-bytes Map the owner signs for a DAG-tip co-sign.
+ *
+ *  Shape (sorted by canonical-bytes Map iteration):
+ *  ```
+ *  Map({
+ *    "anchor_nonce": Bytes(32),
+ *    "anchor_timestamp_unix_ns": Timestamp,
+ *    "domain": String("myco-dag-tip-cosign-v1"),
+ *    "enumerated_node_hashes": Array<Bytes(32)>,
+ *    "proposed_mutation_hash": Bytes(32),
+ *    "tip_hash": Bytes(32),
+ *  })
+ *  ```
+ *
+ *  `proposedMutationHash` MAY be all-zero (32 zero bytes) for a standalone
+ *  tip co-sign with no proposed CI mutation; the substrate accepts both
+ *  shapes. */
+export function buildDagTipCosignCanonicalBytes(args: {
+  tipHash: Uint8Array;
+  enumeratedNodeHashes: Uint8Array[];
+  proposedMutationHash: Uint8Array;
+  anchorTimestampUnixNs: bigint;
+  anchorNonce: Uint8Array;
+}): Uint8Array {
+  if (args.tipHash.length !== 32) {
+    throw new BridgeProtocolError(
+      `tipHash must be 32 bytes; got ${args.tipHash.length}`,
+    );
+  }
+  if (args.proposedMutationHash.length !== 32) {
+    throw new BridgeProtocolError(
+      `proposedMutationHash must be 32 bytes; got ${args.proposedMutationHash.length}`,
+    );
+  }
+  if (args.anchorNonce.length !== 32) {
+    throw new BridgeProtocolError(
+      `anchorNonce must be 32 bytes; got ${args.anchorNonce.length}`,
+    );
+  }
+  for (const [i, h] of args.enumeratedNodeHashes.entries()) {
+    if (h.length !== 32) {
+      throw new BridgeProtocolError(
+        `enumeratedNodeHashes[${i}] must be 32 bytes; got ${h.length}`,
+      );
+    }
+  }
+  const m = new Map<string, Value>();
+  m.set("domain", { type: "string", value: DAG_TIP_COSIGN_DOMAIN });
+  m.set("tip_hash", { type: "bytes", value: args.tipHash });
+  m.set("enumerated_node_hashes", {
+    type: "array",
+    value: args.enumeratedNodeHashes.map(
+      (h) => ({ type: "bytes", value: h }) as Value,
+    ),
+  });
+  m.set("proposed_mutation_hash", {
+    type: "bytes",
+    value: args.proposedMutationHash,
+  });
+  m.set("anchor_timestamp_unix_ns", {
+    type: "timestamp",
+    value: args.anchorTimestampUnixNs,
+  });
+  m.set("anchor_nonce", { type: "bytes", value: args.anchorNonce });
+  return encode({ type: "map", value: m }).bytes;
+}
+
+/** Build the canonical-bytes Map the owner signs for an L0 revision
+ *  attestation.
+ *
+ *  Shape:
+ *  ```
+ *  Map({
+ *    "anchor_nonce": Bytes(32),
+ *    "anchor_timestamp_unix_ns": Timestamp,
+ *    "diff_summary": String,
+ *    "domain": String("myco-l0-revision-v1"),
+ *    "new_l0_hash": Bytes(32),
+ *    "prior_l0_hash": Bytes(32),
+ *  })
+ *  ```
+ *
+ *  `diffSummary` should be a short human-readable description of what
+ *  changed (e.g., "Add §9.4 federation observatory"). The hashes are
+ *  SHA-256 (or BLAKE3 — owner-tooling choice; the substrate doesn't
+ *  re-derive these, it only attests to the signed envelope). */
+export function buildL0RevisionCanonicalBytes(args: {
+  priorL0Hash: Uint8Array;
+  newL0Hash: Uint8Array;
+  diffSummary: string;
+  anchorTimestampUnixNs: bigint;
+  anchorNonce: Uint8Array;
+}): Uint8Array {
+  if (args.priorL0Hash.length !== 32) {
+    throw new BridgeProtocolError(
+      `priorL0Hash must be 32 bytes; got ${args.priorL0Hash.length}`,
+    );
+  }
+  if (args.newL0Hash.length !== 32) {
+    throw new BridgeProtocolError(
+      `newL0Hash must be 32 bytes; got ${args.newL0Hash.length}`,
+    );
+  }
+  if (args.anchorNonce.length !== 32) {
+    throw new BridgeProtocolError(
+      `anchorNonce must be 32 bytes; got ${args.anchorNonce.length}`,
+    );
+  }
+  const m = new Map<string, Value>();
+  m.set("domain", { type: "string", value: L0_REVISION_DOMAIN });
+  m.set("prior_l0_hash", { type: "bytes", value: args.priorL0Hash });
+  m.set("new_l0_hash", { type: "bytes", value: args.newL0Hash });
+  m.set("diff_summary", { type: "string", value: args.diffSummary });
+  m.set("anchor_timestamp_unix_ns", {
+    type: "timestamp",
+    value: args.anchorTimestampUnixNs,
+  });
+  m.set("anchor_nonce", { type: "bytes", value: args.anchorNonce });
+  return encode({ type: "map", value: m }).bytes;
+}
+
 /** Build the payload for a `submit_mutation` request (M10; extended M13; M14).
  *
  *  CI mutations require `attestationSignature` — a 64-byte Ed25519 signature
@@ -2396,6 +2533,16 @@ export interface MutationResult {
   /** DAG node hash of the evolution_succeeded:{op} or evolution_failed:{op}
    *  event (separate from the mutation:schema_evolution DAG node). */
   evolutionEventHash: Uint8Array | null;
+  /** M26.3 P10.c: DAG node hash of the `compression_event:{rule_id}` event
+   *  emitted after a successful compression mutation. Null otherwise. */
+  compressionEventHash: Uint8Array | null;
+  /** M-anchor-5 §9.2.2: DAG node hash of the `tip_cosigned:{prefix}` event
+   *  emitted after a successful dag_tip_cosign mutation. Null otherwise. */
+  tipCosignEventHash: Uint8Array | null;
+  /** M-anchor-5 §9.2.4: DAG node hash of the
+   *  `l0_revision_attested:{prefix}` event emitted after a successful
+   *  l0_revision_attest mutation. Null otherwise. */
+  l0RevisionEventHash: Uint8Array | null;
 }
 
 export function parseSubmitMutationResponse(response: Message): MutationResult {
@@ -2426,6 +2573,9 @@ export function parseSubmitMutationResponse(response: Message): MutationResult {
   const applyOpV = response.payload.get("schema_apply_op");
   const applySummaryV = response.payload.get("schema_apply_summary");
   const evoHashV = response.payload.get("evolution_event_hash");
+  const compressionHashV = response.payload.get("compression_event_hash");
+  const tipCosignHashV = response.payload.get("tip_cosign_event_hash");
+  const l0RevisionHashV = response.payload.get("l0_revision_event_hash");
   return {
     classification: classV.value,
     accepted: acceptedV.value,
@@ -2442,6 +2592,12 @@ export function parseSubmitMutationResponse(response: Message): MutationResult {
     schemaApplySummary:
       applySummaryV && applySummaryV.type === "string" ? applySummaryV.value : "",
     evolutionEventHash: evoHashV && evoHashV.type === "bytes" ? evoHashV.value : null,
+    compressionEventHash:
+      compressionHashV && compressionHashV.type === "bytes" ? compressionHashV.value : null,
+    tipCosignEventHash:
+      tipCosignHashV && tipCosignHashV.type === "bytes" ? tipCosignHashV.value : null,
+    l0RevisionEventHash:
+      l0RevisionHashV && l0RevisionHashV.type === "bytes" ? l0RevisionHashV.value : null,
   };
 }
 

@@ -4156,3 +4156,261 @@ fn m26_3_compression_witness_canonical_bytes_roundtrip() {
     assert_eq!(decoded_agg, aggregate);
     assert_eq!(decoded_tip, tip);
 }
+
+// ---------------------------------------------------------------------------
+// **M-anchor-5 §9.2.2 / §9.2.4** — DAG-tip co-sign + L0 revision attestation.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn m_anchor_5_dag_tip_cosign_canonical_bytes_roundtrip() {
+    use myco_substrate::events::{
+        build_dag_tip_cosign_canonical_bytes, decode_dag_tip_cosign,
+    };
+    let tip = [0x11u8; 32];
+    let h1 = [0x22u8; 32];
+    let h2 = [0x33u8; 32];
+    let hashes = vec![h1, h2];
+    let proposed = [0x44u8; 32];
+    let anchor_ts: i64 = 1_700_000_000_000_000_000;
+    let anchor_nonce = [0x55u8; 32];
+    let bytes = build_dag_tip_cosign_canonical_bytes(
+        &tip,
+        &hashes,
+        &proposed,
+        anchor_ts,
+        &anchor_nonce,
+    );
+    let (out_tip, out_hashes, out_proposed, out_ts, out_nonce) =
+        decode_dag_tip_cosign(&bytes).expect("cosign envelope decodes");
+    assert_eq!(out_tip, tip);
+    assert_eq!(out_hashes, hashes);
+    assert_eq!(out_proposed, proposed);
+    assert_eq!(out_ts, anchor_ts);
+    assert_eq!(out_nonce, anchor_nonce);
+}
+
+#[test]
+fn m_anchor_5_dag_tip_cosign_envelope_rejects_wrong_domain() {
+    use myco_kernel_shared::canonical_bytes::{encode as cb_encode, Value};
+    use myco_substrate::events::decode_dag_tip_cosign;
+    use std::collections::BTreeMap;
+    // Hand-build a malformed envelope with the wrong domain string.
+    let mut m = BTreeMap::new();
+    m.insert(
+        "domain".to_string(),
+        Value::String("not-the-cosign-domain-v0".to_string()),
+    );
+    m.insert("tip_hash".to_string(), Value::Bytes(vec![0u8; 32]));
+    m.insert(
+        "enumerated_node_hashes".to_string(),
+        Value::Array(vec![]),
+    );
+    m.insert(
+        "proposed_mutation_hash".to_string(),
+        Value::Bytes(vec![0u8; 32]),
+    );
+    m.insert(
+        "anchor_timestamp_unix_ns".to_string(),
+        Value::Timestamp(0),
+    );
+    m.insert("anchor_nonce".to_string(), Value::Bytes(vec![0u8; 32]));
+    let bytes = cb_encode(&Value::Map(m)).unwrap().0;
+    assert!(
+        decode_dag_tip_cosign(&bytes).is_none(),
+        "domain mismatch must reject"
+    );
+}
+
+#[test]
+fn m_anchor_5_dag_tip_cosign_envelope_rejects_corrupt_hash_length() {
+    use myco_kernel_shared::canonical_bytes::{encode as cb_encode, Value};
+    use myco_substrate::events::{decode_dag_tip_cosign, DAG_TIP_COSIGN_DOMAIN};
+    use std::collections::BTreeMap;
+    // tip_hash with wrong length (16 bytes instead of 32).
+    let mut m = BTreeMap::new();
+    m.insert(
+        "domain".to_string(),
+        Value::String(DAG_TIP_COSIGN_DOMAIN.to_string()),
+    );
+    m.insert("tip_hash".to_string(), Value::Bytes(vec![0u8; 16]));
+    m.insert(
+        "enumerated_node_hashes".to_string(),
+        Value::Array(vec![]),
+    );
+    m.insert(
+        "proposed_mutation_hash".to_string(),
+        Value::Bytes(vec![0u8; 32]),
+    );
+    m.insert(
+        "anchor_timestamp_unix_ns".to_string(),
+        Value::Timestamp(0),
+    );
+    m.insert("anchor_nonce".to_string(), Value::Bytes(vec![0u8; 32]));
+    let bytes = cb_encode(&Value::Map(m)).unwrap().0;
+    assert!(
+        decode_dag_tip_cosign(&bytes).is_none(),
+        "wrong tip_hash length must reject"
+    );
+}
+
+#[test]
+fn m_anchor_5_l0_revision_canonical_bytes_roundtrip() {
+    use myco_substrate::events::{
+        build_l0_revision_canonical_bytes, decode_l0_revision,
+    };
+    let prior = [0xa1u8; 32];
+    let new_h = [0xa2u8; 32];
+    let diff_summary = "Add §9.4 federation observatory";
+    let anchor_ts: i64 = 1_700_000_001_234_567_890;
+    let anchor_nonce = [0xb1u8; 32];
+    let bytes = build_l0_revision_canonical_bytes(
+        &prior,
+        &new_h,
+        diff_summary,
+        anchor_ts,
+        &anchor_nonce,
+    );
+    let (out_prior, out_new, out_diff, out_ts, out_nonce) =
+        decode_l0_revision(&bytes).expect("l0 revision envelope decodes");
+    assert_eq!(out_prior, prior);
+    assert_eq!(out_new, new_h);
+    assert_eq!(out_diff, diff_summary);
+    assert_eq!(out_ts, anchor_ts);
+    assert_eq!(out_nonce, anchor_nonce);
+}
+
+#[test]
+fn m_anchor_5_l0_revision_envelope_rejects_wrong_domain() {
+    use myco_kernel_shared::canonical_bytes::{encode as cb_encode, Value};
+    use myco_substrate::events::decode_l0_revision;
+    use std::collections::BTreeMap;
+    let mut m = BTreeMap::new();
+    m.insert(
+        "domain".to_string(),
+        Value::String("wrong-domain-v0".to_string()),
+    );
+    m.insert("prior_l0_hash".to_string(), Value::Bytes(vec![0u8; 32]));
+    m.insert("new_l0_hash".to_string(), Value::Bytes(vec![0u8; 32]));
+    m.insert(
+        "diff_summary".to_string(),
+        Value::String("x".to_string()),
+    );
+    m.insert(
+        "anchor_timestamp_unix_ns".to_string(),
+        Value::Timestamp(0),
+    );
+    m.insert("anchor_nonce".to_string(), Value::Bytes(vec![0u8; 32]));
+    let bytes = cb_encode(&Value::Map(m)).unwrap().0;
+    assert!(
+        decode_l0_revision(&bytes).is_none(),
+        "domain mismatch must reject"
+    );
+}
+
+#[test]
+fn m_anchor_5_node_type_prefixes_stable() {
+    // Pin the L1_SCHEMA-declared node-type prefixes so any rename breaks
+    // child substrates / external indexers loudly. (Same discipline as
+    // the M26.3 compression_event prefix pinning.)
+    use myco_substrate::events::{
+        NODE_TYPE_L0_REVISION_ATTESTED_PREFIX, NODE_TYPE_TIP_COSIGNED_PREFIX,
+    };
+    assert_eq!(NODE_TYPE_TIP_COSIGNED_PREFIX, "tip_cosigned:");
+    assert_eq!(NODE_TYPE_L0_REVISION_ATTESTED_PREFIX, "l0_revision_attested:");
+}
+
+#[test]
+fn m_anchor_5_tip_cosigned_event_body_carries_signature_pubkey_and_cycle() {
+    // The DAG event body must contain the cosign envelope bytes + owner
+    // signature + owner pubkey + emitted_at_cycle so a child substrate can
+    // independently re-verify the signature offline.
+    use myco_kernel_shared::canonical_bytes::{decode, Value};
+    use myco_substrate::events::encode_tip_cosigned_event;
+    let envelope = vec![0x55u8; 64];
+    let sig = [0x77u8; 64];
+    let pubkey = [0x33u8; 32];
+    let cycle: u64 = 12345;
+    let body = encode_tip_cosigned_event(&envelope, &sig, &pubkey, cycle);
+    let v = decode(body.as_ref()).expect("body decodes");
+    let m = match v {
+        Value::Map(m) => m,
+        _ => panic!("body is not a Map"),
+    };
+    match m.get("cosign_envelope") {
+        Some(Value::Bytes(b)) => assert_eq!(b, &envelope),
+        _ => panic!("cosign_envelope missing"),
+    };
+    match m.get("owner_signature") {
+        Some(Value::Bytes(b)) => assert_eq!(b.as_slice(), sig.as_slice()),
+        _ => panic!("owner_signature missing"),
+    };
+    match m.get("owner_pubkey") {
+        Some(Value::Bytes(b)) => assert_eq!(b.as_slice(), pubkey.as_slice()),
+        _ => panic!("owner_pubkey missing"),
+    };
+    match m.get("emitted_at_cycle") {
+        Some(Value::Uint(n)) => assert_eq!(*n, cycle),
+        _ => panic!("emitted_at_cycle missing"),
+    };
+}
+
+#[test]
+fn m_anchor_5_l0_revision_attested_event_body_carries_signature_pubkey_and_cycle() {
+    use myco_kernel_shared::canonical_bytes::{decode, Value};
+    use myco_substrate::events::encode_l0_revision_attested_event;
+    let envelope = vec![0x66u8; 128];
+    let sig = [0x88u8; 64];
+    let pubkey = [0x44u8; 32];
+    let cycle: u64 = 99999;
+    let body = encode_l0_revision_attested_event(&envelope, &sig, &pubkey, cycle);
+    let v = decode(body.as_ref()).expect("body decodes");
+    let m = match v {
+        Value::Map(m) => m,
+        _ => panic!(),
+    };
+    match m.get("l0_revision_envelope") {
+        Some(Value::Bytes(b)) => assert_eq!(b, &envelope),
+        _ => panic!("l0_revision_envelope missing"),
+    };
+    match m.get("owner_signature") {
+        Some(Value::Bytes(b)) => assert_eq!(b.as_slice(), sig.as_slice()),
+        _ => panic!("owner_signature missing"),
+    };
+    match m.get("owner_pubkey") {
+        Some(Value::Bytes(b)) => assert_eq!(b.as_slice(), pubkey.as_slice()),
+        _ => panic!("owner_pubkey missing"),
+    };
+    match m.get("emitted_at_cycle") {
+        Some(Value::Uint(n)) => assert_eq!(*n, cycle),
+        _ => panic!("emitted_at_cycle missing"),
+    };
+}
+
+#[test]
+fn m_anchor_5_node_type_strings_carry_hex_prefix_of_relevant_hash() {
+    // tip_cosigned:{first_8_hex_chars_of_tip_hash}
+    // l0_revision_attested:{first_8_hex_chars_of_prior_l0_hash}
+    use myco_substrate::events::{
+        l0_revision_attested_node_type, tip_cosigned_node_type,
+    };
+    let mut tip = [0u8; 32];
+    tip[0] = 0xab;
+    tip[1] = 0xcd;
+    tip[2] = 0xef;
+    tip[3] = 0x12;
+    let tip_nt = tip_cosigned_node_type(&tip);
+    assert!(
+        tip_nt.starts_with("tip_cosigned:"),
+        "node_type must start with prefix: {tip_nt}"
+    );
+    assert!(tip_nt.contains("abcdef12"), "node_type must encode tip prefix: {tip_nt}");
+
+    let mut prior = [0u8; 32];
+    prior[0] = 0xde;
+    prior[1] = 0xad;
+    prior[2] = 0xbe;
+    prior[3] = 0xef;
+    let l0_nt = l0_revision_attested_node_type(&prior);
+    assert!(l0_nt.starts_with("l0_revision_attested:"));
+    assert!(l0_nt.contains("deadbeef"), "node_type must encode prior hash prefix: {l0_nt}");
+}

@@ -262,6 +262,28 @@ SEED_DIMENSION_TABLE: tuple[ClassifierRule, ...] = (
         classification=Classification.CONTRACT_IDENTITY_LEVEL,
         meta_structure_name="telos_alignment_metric_definition",
     ),
+    # **M-anchor-5 §9.2.2**: DAG-tip co-signing. Owner co-signs the current
+    # DAG tip + enumerated nodes since prior co-sign + proposed CI mutation
+    # (or zero hash for standalone). Content is the canonical-bytes envelope
+    # per myco_substrate::events::build_dag_tip_cosign_canonical_bytes.
+    # Always CI per L1_SCHEMA §2.2 ("Every CI crossing: owner MUST co-sign
+    # current DAG-tip").
+    ClassifierRule(
+        name="dag_tip_cosign_mutation",
+        classification=Classification.CONTRACT_IDENTITY_LEVEL,
+        mutation_type="dag_tip_cosign",
+    ),
+    # **M-anchor-5 §9.2.4**: L0 revision attestation. Owner attests a
+    # transition from prior_l0_hash to new_l0_hash with a diff summary +
+    # anchor timestamp + anchor nonce. Content is the canonical-bytes
+    # envelope per myco_substrate::events::build_l0_revision_canonical_bytes.
+    # Always CI (L0 doctrine changes are unconditionally CI per
+    # L1_GOVERNANCE §1.2 + L0 §10).
+    ClassifierRule(
+        name="l0_revision_attest_mutation",
+        classification=Classification.CONTRACT_IDENTITY_LEVEL,
+        mutation_type="l0_revision_attest",
+    ),
     # Daily-content mutation types.
     ClassifierRule(
         name="daily_delta_absorb",

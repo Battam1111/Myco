@@ -1315,6 +1315,286 @@ pub fn genesis_event_node_type(substrate_id: &[u8; 32]) -> String {
 }
 
 // ---------------------------------------------------------------------------
+// **M-anchor-5 §9.2.2 DAG-tip co-signing + §9.2.4 L0 revision diff workflow**.
+//
+// L1_SCHEMA §2.2: "Every CI crossing: owner MUST co-sign current DAG-tip;
+// envelope MUST enumerate all DAG node hashes added since prior co-sign
+// (not summary diff) — substrate cannot hide parallel-branch forgery.
+// Substrate emits tip hash + enumerated node hashes + per-node metadata
+// (type, causal-parent-hashes) + proposed CI mutation as canonical bytes.
+// Owner verifies via Merkle-chain reconstruction; signs
+// (canonical_bytes_hash, anchor_timestamp, anchor_nonce)."
+//
+// L0 §9.2.4: owner-side workflow for verifying L0 doctrine changes
+// verbatim against prior commit hash. The substrate accepts an
+// owner-signed envelope recording (prior_l0_hash, new_l0_hash,
+// diff_summary, anchor_timestamp, anchor_nonce).
+//
+// M-anchor-5 is ADDITIVE: ships the canonical-bytes envelopes + DAG event
+// types + mutation_type handlers. CI enforcement (require cosign before
+// accepting any CI mutation) is deferred to M-anchor-5.5 alongside
+// owner-tooling support.
+// ---------------------------------------------------------------------------
+
+/// Domain string for DAG-tip co-sign signatures (M-anchor-5 §9.2.2).
+pub const DAG_TIP_COSIGN_DOMAIN: &str = "myco-dag-tip-cosign-v1";
+
+/// Domain string for L0 revision attestation signatures (M-anchor-5 §9.2.4).
+pub const L0_REVISION_DOMAIN: &str = "myco-l0-revision-v1";
+
+/// Prefix for `tip_cosigned:{tip_prefix}` DAG events (M-anchor-5 §9.2.2).
+pub const NODE_TYPE_TIP_COSIGNED_PREFIX: &str = "tip_cosigned:";
+
+/// Prefix for `l0_revision_attested:{prior_l0_hash_prefix}` DAG events
+/// (M-anchor-5 §9.2.4).
+pub const NODE_TYPE_L0_REVISION_ATTESTED_PREFIX: &str = "l0_revision_attested:";
+
+/// Build the canonical-bytes Map the owner signs for a DAG-tip co-sign
+/// (M-anchor-5 §9.2.2). `proposed_mutation_hash` may be all-zero for a
+/// standalone tip co-sign (no proposed CI mutation; just attesting the
+/// tip + enumerated nodes).
+pub fn build_dag_tip_cosign_canonical_bytes(
+    tip_hash: &[u8; 32],
+    enumerated_node_hashes: &[[u8; 32]],
+    proposed_mutation_hash: &[u8; 32],
+    anchor_timestamp_unix_ns: i64,
+    anchor_nonce: &[u8; 32],
+) -> Vec<u8> {
+    let mut m = BTreeMap::new();
+    m.insert(
+        "domain".to_string(),
+        Value::String(DAG_TIP_COSIGN_DOMAIN.to_string()),
+    );
+    m.insert("tip_hash".to_string(), Value::Bytes(tip_hash.to_vec()));
+    let hashes_array: Vec<Value> = enumerated_node_hashes
+        .iter()
+        .map(|h| Value::Bytes(h.to_vec()))
+        .collect();
+    m.insert(
+        "enumerated_node_hashes".to_string(),
+        Value::Array(hashes_array),
+    );
+    m.insert(
+        "proposed_mutation_hash".to_string(),
+        Value::Bytes(proposed_mutation_hash.to_vec()),
+    );
+    m.insert(
+        "anchor_timestamp_unix_ns".to_string(),
+        Value::Timestamp(anchor_timestamp_unix_ns),
+    );
+    m.insert(
+        "anchor_nonce".to_string(),
+        Value::Bytes(anchor_nonce.to_vec()),
+    );
+    cb_encode(&Value::Map(m))
+        .expect("dag_tip_cosign canonical-bytes encode infallible")
+        .0
+}
+
+/// Decode a DAG-tip co-sign envelope. Returns the parsed fields or `None`
+/// if the shape is wrong.
+pub fn decode_dag_tip_cosign(
+    bytes: &[u8],
+) -> Option<([u8; 32], Vec<[u8; 32]>, [u8; 32], i64, [u8; 32])> {
+    use myco_kernel_shared::canonical_bytes::decode;
+    let v = decode(bytes).ok()?;
+    let m = match v {
+        Value::Map(m) => m,
+        _ => return None,
+    };
+    // domain check.
+    match m.get("domain")? {
+        Value::String(s) if s == DAG_TIP_COSIGN_DOMAIN => {}
+        _ => return None,
+    }
+    let tip_hash = bytes_to_arr32_local(m.get("tip_hash")?)?;
+    let enumerated_arr = match m.get("enumerated_node_hashes")? {
+        Value::Array(a) => a.clone(),
+        _ => return None,
+    };
+    let mut enumerated: Vec<[u8; 32]> = Vec::with_capacity(enumerated_arr.len());
+    for v in enumerated_arr {
+        let h = bytes_to_arr32_local(&v)?;
+        enumerated.push(h);
+    }
+    let proposed_mutation_hash = bytes_to_arr32_local(m.get("proposed_mutation_hash")?)?;
+    let anchor_timestamp_unix_ns = match m.get("anchor_timestamp_unix_ns")? {
+        Value::Timestamp(t) => *t,
+        _ => return None,
+    };
+    let anchor_nonce = bytes_to_arr32_local(m.get("anchor_nonce")?)?;
+    Some((
+        tip_hash,
+        enumerated,
+        proposed_mutation_hash,
+        anchor_timestamp_unix_ns,
+        anchor_nonce,
+    ))
+}
+
+/// Build the canonical-bytes Map the owner signs for an L0 revision
+/// attestation (M-anchor-5 §9.2.4).
+pub fn build_l0_revision_canonical_bytes(
+    prior_l0_hash: &[u8; 32],
+    new_l0_hash: &[u8; 32],
+    diff_summary: &str,
+    anchor_timestamp_unix_ns: i64,
+    anchor_nonce: &[u8; 32],
+) -> Vec<u8> {
+    let mut m = BTreeMap::new();
+    m.insert(
+        "domain".to_string(),
+        Value::String(L0_REVISION_DOMAIN.to_string()),
+    );
+    m.insert(
+        "prior_l0_hash".to_string(),
+        Value::Bytes(prior_l0_hash.to_vec()),
+    );
+    m.insert(
+        "new_l0_hash".to_string(),
+        Value::Bytes(new_l0_hash.to_vec()),
+    );
+    m.insert(
+        "diff_summary".to_string(),
+        Value::String(diff_summary.to_string()),
+    );
+    m.insert(
+        "anchor_timestamp_unix_ns".to_string(),
+        Value::Timestamp(anchor_timestamp_unix_ns),
+    );
+    m.insert(
+        "anchor_nonce".to_string(),
+        Value::Bytes(anchor_nonce.to_vec()),
+    );
+    cb_encode(&Value::Map(m))
+        .expect("l0_revision canonical-bytes encode infallible")
+        .0
+}
+
+/// Decode an L0 revision attestation envelope.
+pub fn decode_l0_revision(
+    bytes: &[u8],
+) -> Option<([u8; 32], [u8; 32], String, i64, [u8; 32])> {
+    use myco_kernel_shared::canonical_bytes::decode;
+    let v = decode(bytes).ok()?;
+    let m = match v {
+        Value::Map(m) => m,
+        _ => return None,
+    };
+    match m.get("domain")? {
+        Value::String(s) if s == L0_REVISION_DOMAIN => {}
+        _ => return None,
+    }
+    let prior_l0_hash = bytes_to_arr32_local(m.get("prior_l0_hash")?)?;
+    let new_l0_hash = bytes_to_arr32_local(m.get("new_l0_hash")?)?;
+    let diff_summary = match m.get("diff_summary")? {
+        Value::String(s) => s.clone(),
+        _ => return None,
+    };
+    let anchor_timestamp_unix_ns = match m.get("anchor_timestamp_unix_ns")? {
+        Value::Timestamp(t) => *t,
+        _ => return None,
+    };
+    let anchor_nonce = bytes_to_arr32_local(m.get("anchor_nonce")?)?;
+    Some((
+        prior_l0_hash,
+        new_l0_hash,
+        diff_summary,
+        anchor_timestamp_unix_ns,
+        anchor_nonce,
+    ))
+}
+
+fn bytes_to_arr32_local(v: &Value) -> Option<[u8; 32]> {
+    match v {
+        Value::Bytes(b) => {
+            if b.len() != 32 {
+                return None;
+            }
+            let mut arr = [0u8; 32];
+            arr.copy_from_slice(b);
+            Some(arr)
+        }
+        _ => None,
+    }
+}
+
+/// Convenience: full `tip_cosigned:{prefix}` node_type string.
+pub fn tip_cosigned_node_type(tip_hash: &[u8; 32]) -> String {
+    format!(
+        "{}{}",
+        NODE_TYPE_TIP_COSIGNED_PREFIX,
+        hex_prefix(tip_hash, 8)
+    )
+}
+
+/// Convenience: full `l0_revision_attested:{prefix}` node_type string,
+/// keyed on the prior_l0_hash so consecutive revisions are distinguishable.
+pub fn l0_revision_attested_node_type(prior_l0_hash: &[u8; 32]) -> String {
+    format!(
+        "{}{}",
+        NODE_TYPE_L0_REVISION_ATTESTED_PREFIX,
+        hex_prefix(prior_l0_hash, 8)
+    )
+}
+
+/// Encode the body of a `tip_cosigned:{prefix}` DAG event.
+/// Mirrors the cosign envelope shape PLUS owner signature + pubkey for
+/// offline re-verification.
+pub fn encode_tip_cosigned_event(
+    cosign_envelope_bytes: &[u8],
+    owner_signature: &[u8; 64],
+    owner_pubkey: &[u8; 32],
+    emitted_at_cycle: u64,
+) -> CanonicalBytes {
+    let mut m = BTreeMap::new();
+    m.insert(
+        "cosign_envelope".to_string(),
+        Value::Bytes(cosign_envelope_bytes.to_vec()),
+    );
+    m.insert(
+        "owner_signature".to_string(),
+        Value::Bytes(owner_signature.to_vec()),
+    );
+    m.insert(
+        "owner_pubkey".to_string(),
+        Value::Bytes(owner_pubkey.to_vec()),
+    );
+    m.insert(
+        "emitted_at_cycle".to_string(),
+        Value::Uint(emitted_at_cycle),
+    );
+    cb_encode(&Value::Map(m)).expect("tip_cosigned event encode infallible")
+}
+
+/// Encode the body of an `l0_revision_attested:{prefix}` DAG event.
+pub fn encode_l0_revision_attested_event(
+    l0_revision_envelope_bytes: &[u8],
+    owner_signature: &[u8; 64],
+    owner_pubkey: &[u8; 32],
+    emitted_at_cycle: u64,
+) -> CanonicalBytes {
+    let mut m = BTreeMap::new();
+    m.insert(
+        "l0_revision_envelope".to_string(),
+        Value::Bytes(l0_revision_envelope_bytes.to_vec()),
+    );
+    m.insert(
+        "owner_signature".to_string(),
+        Value::Bytes(owner_signature.to_vec()),
+    );
+    m.insert(
+        "owner_pubkey".to_string(),
+        Value::Bytes(owner_pubkey.to_vec()),
+    );
+    m.insert(
+        "emitted_at_cycle".to_string(),
+        Value::Uint(emitted_at_cycle),
+    );
+    cb_encode(&Value::Map(m)).expect("l0_revision_attested event encode infallible")
+}
+
+// ---------------------------------------------------------------------------
 // **M-anchor-4 §9.3.4 Witnesses-not-verdicts + §9.3.5 anchor-nonce sampling**.
 //
 // L0 §9.3.4 mandates that the substrate emit CRYPTO PROOFS for invariant

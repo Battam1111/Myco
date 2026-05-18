@@ -260,7 +260,7 @@ Method: **write a paragraph describing the substrate; bidirectional projection**
 
 | Finding | Phase | Resolved by | Status |
 |---|---|---|---|
-| Operator-IS-anchor honor-system collapse | γ.5 | M-anchor-1..5 milestones | **OPEN** (doctrine landed §9.5 + decomposition; mechanism deferred) |
+| Operator-IS-anchor honor-system collapse | γ.5 | M-anchor-1..5 milestones | **RESOLVED** (M-anchor-1 owner key moved to anchor_surface_host; M-anchor-2 birth attestation + C20 verifier; M-anchor-3 anchor-minted nonces + wall-clock + heartbeat; M-anchor-4 witnesses-not-verdicts + anchor-nonce sampling; M-anchor-5 DAG-tip cosign + L0 revision diff anchored to DAG) |
 | 13 substrate-private C-row namespace | γ.1 | M24.1 + M26.0 + M27 R8 (renamed to C50+) | **RESOLVED** |
 | F23 = Duress vs salience-rule collision | γ.6 cascade | M27 (F25 split) | **RESOLVED** |
 | C-row C21/C22/C25 misclassification | γ.1 + M27 R8 | M27 (renamed to C50+) | **RESOLVED** |
@@ -282,10 +282,12 @@ Method: **write a paragraph describing the substrate; bidirectional projection**
 | Stranded library kernel/governance::classifier | β | γ.4 correction: NOT stranded; wired via Python bridge / kernel/bridge | **RESOLVED** (Phase β error corrected) |
 | TS renderer UTF-16 sort for non-ASCII map keys | β §6.2 | Cascade work for canonical-bytes v2 | **DEFERRED** |
 | CSPRNG for session_secret / substrate_id / nonce | β | Defense-in-depth (not exploitable in current threat model) | **DEFERRED** |
-| Anchor-client provenance independence | γ.5 §9.3.3 | M-anchor-1 (separate npm workspace + distribution) | **OPEN** |
-| Substrate-mints nonces (direct spec inversion) | γ.5 §9.2.5 | M-anchor-3 (anchor-side nonce source) | **OPEN** |
-| Witnesses-not-verdicts emission | γ.5 §9.3.4 | M-anchor-4 (substrate emits Merkle paths + sampling proofs) | **OPEN** |
-| Owner-liveness heartbeat library + zero callers | γ.5 §9.2.7 | M-anchor-3 + §15 cascade | **OPEN** |
+| Anchor-client provenance independence | γ.5 §9.3.3 | M-anchor-1 (separate anchor_surface_host process; owner Ed25519 seed never enters operator memory) | **RESOLVED** |
+| Substrate-mints nonces (direct spec inversion) | γ.5 §9.2.5 | M-anchor-3 (anchor-side `generate_anchor_nonce` over TCP to host) | **RESOLVED** |
+| Witnesses-not-verdicts emission | γ.5 §9.3.4 | M-anchor-4 (substrate emits `invariant_witness:*` events carrying canonical-bytes inputs + nonces; owner re-derives verdict) | **RESOLVED** |
+| Owner-liveness heartbeat library + zero callers | γ.5 §9.2.7 | M-anchor-3 (`heartbeat()` method on AnchorSurfaceClient + OperatorIdentity pass-through) | **RESOLVED** |
+| DAG-tip co-signing at CI boundaries | γ.5 §9.2.2 | M-anchor-5 (`cosignDagTip` orchestrator + `tip_cosigned:{prefix}` DAG events with owner sig embedded) | **RESOLVED** |
+| L0 revision diff workflow anchored on-chain | γ.5 §9.2.4 | M-anchor-5 (`signL0Revision` orchestrator + `l0_revision_attested:{prefix}` DAG events binding prior/new L0 hashes + summary) | **RESOLVED** |
 | Aging / senescence (Phase α gap #4) | α | Out of v0.9 scope | **DEFERRED** |
 | Conflict / competition between federation peers | α | Out of v0.9 scope | **DEFERRED** |
 

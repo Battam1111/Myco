@@ -4096,4 +4096,224 @@ describe("SubstrateClient e2e", () => {
       try { rmSync(opDir, { recursive: true, force: true }); } catch {}
     }
   });
+
+  // -------------------------------------------------------------------------
+  // **M-anchor-5 §9.2.2 + §9.2.4** — DAG-tip co-sign + L0 revision attestation.
+  //
+  // These exercise the full anchor-surface orchestrator helpers on
+  // SubstrateClient: cosignDagTip() and signL0Revision(). Each helper performs
+  // four anchor-surface round-trips (wallClock + anchorNonce + sign +
+  // substrate-side nonce), builds the canonical-bytes envelope, signs it, and
+  // submits as a CI mutation. After acceptance, the substrate emits a
+  // `tip_cosigned:{prefix}` or `l0_revision_attested:{prefix}` DAG event with
+  // the owner's signature embedded for offline re-verification.
+  // -------------------------------------------------------------------------
+
+  it("M-anchor-5: cosignDagTip with valid envelope accepted + emits tip_cosigned:{prefix}", async () => {
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m-anchor-5-cosign-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identity = await OperatorIdentity.loadOrCreate(opDir, {
+        hostBinary: ANCHOR_SURFACE_BIN,
+      });
+      const client = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: freshStateDir() },
+        operatorIdentity: identity,
+      });
+      try {
+        const beforeRecent = await client.queryRecentNodes(1n);
+        const tipHash = beforeRecent.dagTip ?? new Uint8Array(32);
+
+        const result = await client.cosignDagTip({
+          tipHash,
+          enumeratedNodeHashes: [],
+          operatorIdentity: identity,
+        });
+        assert.equal(
+          result.accepted,
+          true,
+          `cosignDagTip must accept; got rejection: ${result.rejectionReason}`,
+        );
+        assert.equal(result.classification, "contract_identity_level");
+        assert.equal(result.mutationType, "dag_tip_cosign");
+        assert.ok(
+          result.tipCosignEventHash,
+          "tipCosignEventHash must be surfaced on accepted cosign",
+        );
+
+        const nodes = await client.queryRecentNodes(50n, "tip_cosigned:");
+        assert.ok(
+          nodes.nodes.length >= 1,
+          "tip_cosigned:* must appear in DAG after accepted cosign",
+        );
+        // hex_prefix(tip_hash, 8) — 8 bytes = 16 hex characters.
+        const expectedHex = Array.from(tipHash.slice(0, 8))
+          .map((b) => b.toString(16).padStart(2, "0"))
+          .join("");
+        const found = nodes.nodes.find((n) => n.nodeType.endsWith(expectedHex));
+        assert.ok(
+          found,
+          `tip_cosigned:${expectedHex} not found; saw: ${nodes.nodes
+            .map((n) => n.nodeType)
+            .join(", ")}`,
+        );
+      } finally {
+        await client.shutdown();
+      }
+    } finally {
+      try { rmSync(opDir, { recursive: true, force: true }); } catch {}
+    }
+  });
+
+  it("M-anchor-5: cosignDagTip with proposedMutationHash + enumerated nodes accepted", async () => {
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m-anchor-5-cosign-prop-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identity = await OperatorIdentity.loadOrCreate(opDir, {
+        hostBinary: ANCHOR_SURFACE_BIN,
+      });
+      const client = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: freshStateDir() },
+        operatorIdentity: identity,
+      });
+      try {
+        const tipHash = (await client.queryRecentNodes(1n)).dagTip ?? new Uint8Array(32);
+        const proposedMutationHash = new Uint8Array(32);
+        for (let i = 0; i < 32; i++) proposedMutationHash[i] = (i * 7 + 13) & 0xff;
+        const enumerated = [new Uint8Array(32), new Uint8Array(32)];
+        for (let i = 0; i < 32; i++) enumerated[0]![i] = (i + 1) & 0xff;
+        for (let i = 0; i < 32; i++) enumerated[1]![i] = (i * 3 + 17) & 0xff;
+        const result = await client.cosignDagTip({
+          tipHash,
+          enumeratedNodeHashes: enumerated,
+          proposedMutationHash,
+          operatorIdentity: identity,
+        });
+        assert.equal(
+          result.accepted,
+          true,
+          `cosignDagTip(with-proposed-mutation) must accept; got: ${result.rejectionReason}`,
+        );
+        assert.ok(result.tipCosignEventHash);
+      } finally {
+        await client.shutdown();
+      }
+    } finally {
+      try { rmSync(opDir, { recursive: true, force: true }); } catch {}
+    }
+  });
+
+  it("M-anchor-5: signL0Revision with valid envelope accepted + emits l0_revision_attested:{prefix}", async () => {
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m-anchor-5-l0-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identity = await OperatorIdentity.loadOrCreate(opDir, {
+        hostBinary: ANCHOR_SURFACE_BIN,
+      });
+      const client = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: freshStateDir() },
+        operatorIdentity: identity,
+      });
+      try {
+        const priorL0Hash = new Uint8Array(32);
+        for (let i = 0; i < 32; i++) priorL0Hash[i] = 0xab;
+        const newL0Hash = new Uint8Array(32);
+        for (let i = 0; i < 32; i++) newL0Hash[i] = 0xcd;
+        const result = await client.signL0Revision({
+          priorL0Hash,
+          newL0Hash,
+          diffSummary: "Add §9.4 federation observatory (test)",
+          operatorIdentity: identity,
+        });
+        assert.equal(
+          result.accepted,
+          true,
+          `signL0Revision must accept; got rejection: ${result.rejectionReason}`,
+        );
+        assert.equal(result.classification, "contract_identity_level");
+        assert.equal(result.mutationType, "l0_revision_attest");
+        assert.ok(
+          result.l0RevisionEventHash,
+          "l0RevisionEventHash must be surfaced on accepted revision",
+        );
+
+        const nodes = await client.queryRecentNodes(
+          50n,
+          "l0_revision_attested:",
+        );
+        assert.ok(
+          nodes.nodes.length >= 1,
+          "l0_revision_attested:* must appear after accepted attestation",
+        );
+        const found = nodes.nodes.find((n) =>
+          n.nodeType.endsWith("abababab"),
+        );
+        assert.ok(
+          found,
+          `l0_revision_attested:abababab not found; saw: ${nodes.nodes
+            .map((n) => n.nodeType)
+            .join(", ")}`,
+        );
+      } finally {
+        await client.shutdown();
+      }
+    } finally {
+      try { rmSync(opDir, { recursive: true, force: true }); } catch {}
+    }
+  });
+
+  it("M-anchor-5: dag_tip_cosign with malformed envelope is rejected with C5", async () => {
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m-anchor-5-cosign-bad-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identity = await OperatorIdentity.loadOrCreate(opDir, {
+        hostBinary: ANCHOR_SURFACE_BIN,
+      });
+      const client = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: freshStateDir() },
+        operatorIdentity: identity,
+      });
+      try {
+        const garbage = new Uint8Array(64);
+        for (let i = 0; i < 64; i++) garbage[i] = i & 0xff;
+        const nonceResult = await client.requestAttestationNonce(garbage);
+        const sig = await identity.sign(garbage);
+        const result = await client.submitMutation({
+          mutationType: "dag_tip_cosign",
+          contentCanonicalBytes: garbage,
+          attestationSignature: sig,
+          nonce: nonceResult.nonce,
+          expiryUnixNs: nonceResult.expiryUnixNs,
+        });
+        assert.equal(
+          result.accepted,
+          false,
+          "dag_tip_cosign with garbage envelope must be rejected",
+        );
+        assert.match(
+          result.rejectionReason,
+          /dag_tip_cosign.*decode|canonical/i,
+          `rejection reason should mention decode failure; got: ${result.rejectionReason}`,
+        );
+        const immune = await client.queryImmuneEvents();
+        const c5 = immune.events.find((e) =>
+          e.nodeType.includes("C5_attestation_invalid"),
+        );
+        assert.ok(
+          c5,
+          `C5_attestation_invalid must fire on cosign decode failure; saw: ${immune.events
+            .map((e) => e.nodeType)
+            .join(", ")}`,
+        );
+      } finally {
+        await client.shutdown();
+      }
+    } finally {
+      try { rmSync(opDir, { recursive: true, force: true }); } catch {}
+    }
+  });
 });

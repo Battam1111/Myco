@@ -98,6 +98,8 @@ import {
   sproutChildPayload,
   type SproutChildResult,
   submitMutationPayload,
+  buildDagTipCosignCanonicalBytes,
+  buildL0RevisionCanonicalBytes,
 } from "./protocol/messages.ts";
 import { OperatorIdentity } from "./operator_identity.ts";
 
@@ -680,6 +682,129 @@ export class SubstrateClient {
       expiryUnixNs: nonceResult.expiryUnixNs,
       revealPubkey,
       identitySignatureOverRevealPubkey: identitySigOverReveal,
+    });
+  }
+
+  /** **M-anchor-5 §9.2.2** — co-sign a DAG-tip from the anchor surface.
+   *
+   *  This is the high-level orchestrator for owner-side DAG-tip attestation.
+   *  It performs the four anchor-surface round-trips needed to produce a
+   *  valid `dag_tip_cosign` mutation:
+   *
+   *  1. **getAnchorWallClock** — fetch the owner's authoritative timestamp.
+   *  2. **generateAnchorNonce** — fetch a 32-byte unbiasable nonce.
+   *  3. Build the `myco-dag-tip-cosign-v1` canonical-bytes envelope binding
+   *     `(tip_hash, enumerated_node_hashes, proposed_mutation_hash,
+   *     anchor_timestamp_unix_ns, anchor_nonce)`.
+   *  4. **sign** — owner's Ed25519 key signs the canonical bytes.
+   *  5. **submitMutation** — wrap the envelope + signature into a CI mutation;
+   *     substrate decodes + emits `tip_cosigned:{tip_prefix}` DAG event.
+   *
+   *  After this returns successfully, the DAG contains an immutable
+   *  owner-attested record that "at this substrate-cycle, the owner
+   *  observed THIS exact tip + history walk." Any post-hoc DAG rewrite
+   *  becomes detectable by re-deriving from the cosign envelope.
+   *
+   *  `proposedMutationHash` is optional — pass undefined for a standalone
+   *  tip cosign (the substrate accepts 32 zero bytes as "no proposed mutation").
+   */
+  async cosignDagTip(args: {
+    /** The DAG tip the owner is attesting to (32 bytes). Typically obtained
+     *  via a recent `queryRecentNodes` call's `dagTip` field. */
+    tipHash: Uint8Array;
+    /** In-order list of DAG node hashes the owner has independently walked
+     *  and verified up to `tipHash`. Each must be 32 bytes. May be empty
+     *  for a "tip-only" cosign that does not pin history walk. */
+    enumeratedNodeHashes: Uint8Array[];
+    /** Optional 32-byte hash of a proposed CI mutation that the owner is
+     *  cosigning AS A PRECONDITION. Pass undefined for a standalone tip
+     *  cosign. */
+    proposedMutationHash?: Uint8Array;
+    /** Operator identity to sign with. Required (the owner's anchor-surface
+     *  key is what proves ownership of the signature). */
+    operatorIdentity: OperatorIdentity;
+  }): Promise<MutationResult> {
+    // 1. Anchor wall clock + 2. anchor nonce (both via OperatorIdentity).
+    const wallClock = await args.operatorIdentity.getAnchorWallClock();
+    const nonceResult = await args.operatorIdentity.generateAnchorNonce(300n);
+
+    // 3. Build the envelope.
+    const proposedMutationHash = args.proposedMutationHash ?? new Uint8Array(32);
+    const envelope = buildDagTipCosignCanonicalBytes({
+      tipHash: args.tipHash,
+      enumeratedNodeHashes: args.enumeratedNodeHashes,
+      proposedMutationHash,
+      anchorTimestampUnixNs: wallClock.anchorTimestampUnixNs,
+      anchorNonce: nonceResult.nonce,
+    });
+
+    // 4. Owner signs the canonical bytes.
+    const signature = await args.operatorIdentity.sign(envelope);
+
+    // 5. Submit as CI mutation. The substrate-side handler will decode the
+    //    envelope, capture the signature, and emit `tip_cosigned:{prefix}`
+    //    DAG event after the mutation:dag_tip_cosign node lands.
+    //    Substrate-issued nonce is also bound to the content hash for replay
+    //    protection (independent of the anchor nonce inside the envelope).
+    const subNonce = await this.requestAttestationNonce(envelope);
+    return this.submitMutation({
+      mutationType: "dag_tip_cosign",
+      contentCanonicalBytes: envelope,
+      attestationSignature: signature,
+      nonce: subNonce.nonce,
+      expiryUnixNs: subNonce.expiryUnixNs,
+    });
+  }
+
+  /** **M-anchor-5 §9.2.4** — attest an L0 doctrine revision from the
+   *  anchor surface.
+   *
+   *  When L0_DOCTRINE evolves from version X to version Y (e.g., a sealed
+   *  draft progresses, or a §-section is added), this helper anchors the
+   *  transition into the DAG as an owner-signed event. Without this anchor,
+   *  the substrate could silently shift its doctrine ground truth between
+   *  sessions; with it, every revision is permanently recorded and any
+   *  rewrite is detectable.
+   *
+   *  Orchestrates the same four anchor-surface calls as `cosignDagTip`:
+   *  wallClock → anchorNonce → buildEnvelope → sign → submitMutation. The
+   *  envelope binds `(prior_l0_hash, new_l0_hash, diff_summary,
+   *  anchor_timestamp_unix_ns, anchor_nonce)`.
+   *
+   *  After a successful return, the DAG contains
+   *  `l0_revision_attested:{prior_l0_hash_prefix}` referencing the new
+   *  doctrine hash plus the owner's signature — re-verifiable offline by
+   *  anyone with the owner's public key.
+   */
+  async signL0Revision(args: {
+    /** 32-byte hash of the L0 doctrine BEFORE the revision (e.g., SHA-256
+     *  of the L0_DOCTRINE.md file at the prior commit). */
+    priorL0Hash: Uint8Array;
+    /** 32-byte hash of the L0 doctrine AFTER the revision. */
+    newL0Hash: Uint8Array;
+    /** Short human-readable description of what changed
+     *  (e.g., "Add §9.4 federation observatory"). Stored verbatim in the
+     *  signed envelope; canonicalization preserves the exact bytes. */
+    diffSummary: string;
+    operatorIdentity: OperatorIdentity;
+  }): Promise<MutationResult> {
+    const wallClock = await args.operatorIdentity.getAnchorWallClock();
+    const nonceResult = await args.operatorIdentity.generateAnchorNonce(300n);
+    const envelope = buildL0RevisionCanonicalBytes({
+      priorL0Hash: args.priorL0Hash,
+      newL0Hash: args.newL0Hash,
+      diffSummary: args.diffSummary,
+      anchorTimestampUnixNs: wallClock.anchorTimestampUnixNs,
+      anchorNonce: nonceResult.nonce,
+    });
+    const signature = await args.operatorIdentity.sign(envelope);
+    const subNonce = await this.requestAttestationNonce(envelope);
+    return this.submitMutation({
+      mutationType: "l0_revision_attest",
+      contentCanonicalBytes: envelope,
+      attestationSignature: signature,
+      nonce: subNonce.nonce,
+      expiryUnixNs: subNonce.expiryUnixNs,
     });
   }
 

@@ -655,12 +655,135 @@ pub(crate) fn handle_submit_mutation(
         })
         .unwrap_or_default();
 
-    // **M26.4 + M26.3**: rebind acceptance / rejection state as mutable so
-    // both the M26.4 owner_objective_declaration validation and the M26.3
-    // compression invariant-set check below can override Python's
-    // `accepted=true` on local-validation failure.
+    // **M26.4 + M26.3 + M-anchor-5**: rebind acceptance / rejection state as
+    // mutable so the M26.4 owner_objective_declaration validation, M26.3
+    // compression invariant-set check, AND M-anchor-5 cosign + L0 revision
+    // envelope decodes can override Python's `accepted=true` on local
+    // validation failure.
     let mut accepted = accepted;
     let mut rejection_reason = rejection_reason;
+
+    // **M-anchor-5 §9.2.2 dag_tip_cosign + §9.2.4 l0_revision_attest**: pre-
+    // decode the envelopes so the substrate can stage the to-emit DAG event
+    // AFTER the mutation:* DAG node is committed. Mirrors the staging
+    // pattern used for compression witnesses + owner objective declarations.
+    //
+    // The CI gate that runs in Python already verified the operator's
+    // `attestation_signature` over `content_canonical_bytes`. Post-M-anchor-1
+    // the operator signing path routes through anchor_surface_host (owner's
+    // Ed25519 key), so that signature IS the owner's signature. We capture
+    // it and persist it in the emitted DAG event alongside the envelope so
+    // owner-side tooling can re-verify offline.
+    let mut staged_cosign: Option<(Vec<u8>, [u8; 64], [u8; 32], [u8; 32])> = None;
+    if accepted && mutation_type == "dag_tip_cosign" {
+        match crate::events::decode_dag_tip_cosign(&content_bytes) {
+            Some((tip_hash, _enum, _proposed, _ts, _nonce)) => {
+                let sig_bytes_opt = request
+                    .payload
+                    .get("attestation_signature")
+                    .and_then(|v| match v {
+                        Value::Bytes(b) => Some(b.clone()),
+                        _ => None,
+                    });
+                let owner_pk_arr = state
+                    .pinned_operator_identity
+                    .as_ref()
+                    .map(|p| p.pubkey)
+                    .unwrap_or([0u8; 32]);
+                match sig_bytes_opt {
+                    Some(sig_vec) if sig_vec.len() == 64 => {
+                        let mut sig_arr = [0u8; 64];
+                        sig_arr.copy_from_slice(&sig_vec);
+                        staged_cosign = Some((
+                            content_bytes.clone(),
+                            sig_arr,
+                            owner_pk_arr,
+                            tip_hash,
+                        ));
+                    }
+                    _ => {
+                        accepted = false;
+                        rejection_reason =
+                            "dag_tip_cosign: missing or malformed attestation_signature"
+                                .to_string();
+                        let _ = emit_immune_sporocarp(
+                            state,
+                            "C5_attestation_invalid",
+                            "attestation_invalid",
+                            "dag_tip_cosign_signature_missing_or_malformed",
+                        );
+                    }
+                }
+            }
+            None => {
+                accepted = false;
+                rejection_reason =
+                    "dag_tip_cosign canonical-bytes decode failed (wrong domain or shape)"
+                        .to_string();
+                let _ = emit_immune_sporocarp(
+                    state,
+                    "C5_attestation_invalid",
+                    "attestation_invalid",
+                    "dag_tip_cosign_decode_failed",
+                );
+            }
+        }
+    }
+    let mut staged_l0_revision: Option<(Vec<u8>, [u8; 64], [u8; 32], [u8; 32])> = None;
+    if accepted && mutation_type == "l0_revision_attest" {
+        match crate::events::decode_l0_revision(&content_bytes) {
+            Some((prior_l0_hash, _new, _summary, _ts, _nonce)) => {
+                let sig_bytes_opt = request
+                    .payload
+                    .get("attestation_signature")
+                    .and_then(|v| match v {
+                        Value::Bytes(b) => Some(b.clone()),
+                        _ => None,
+                    });
+                let owner_pk_arr = state
+                    .pinned_operator_identity
+                    .as_ref()
+                    .map(|p| p.pubkey)
+                    .unwrap_or([0u8; 32]);
+                match sig_bytes_opt {
+                    Some(sig_vec) if sig_vec.len() == 64 => {
+                        let mut sig_arr = [0u8; 64];
+                        sig_arr.copy_from_slice(&sig_vec);
+                        staged_l0_revision = Some((
+                            content_bytes.clone(),
+                            sig_arr,
+                            owner_pk_arr,
+                            prior_l0_hash,
+                        ));
+                    }
+                    _ => {
+                        accepted = false;
+                        rejection_reason =
+                            "l0_revision_attest: missing or malformed attestation_signature"
+                                .to_string();
+                        let _ = emit_immune_sporocarp(
+                            state,
+                            "C5_attestation_invalid",
+                            "attestation_invalid",
+                            "l0_revision_signature_missing_or_malformed",
+                        );
+                    }
+                }
+            }
+            None => {
+                accepted = false;
+                rejection_reason =
+                    "l0_revision_attest canonical-bytes decode failed (wrong domain or shape)"
+                        .to_string();
+                let _ = emit_immune_sporocarp(
+                    state,
+                    "C5_attestation_invalid",
+                    "attestation_invalid",
+                    "l0_revision_decode_failed",
+                );
+            }
+        }
+    }
 
     // **M26.4 F20 owner_objective_declaration**: decode the OwnerObjective
     // payload before insertion so we can refuse malformed declarations
@@ -880,6 +1003,75 @@ pub(crate) fn handle_submit_mutation(
         None
     };
 
+    // **M-anchor-5 §9.2.2**: after a successful `dag_tip_cosign` mutation,
+    // emit `tip_cosigned:{tip_prefix}` DAG event capturing the cosign
+    // envelope + owner signature + pubkey. This is the AUDIT TRAIL that lets
+    // the owner re-verify offline that "at substrate-cycle N, owner co-signed
+    // tip hash 0xABCD..." — making any post-hoc substrate-side rewrite of the
+    // sub-chain detectable. The envelope's `enumerated_node_hashes` also
+    // pins the in-order history walk, so child substrates inheriting via
+    // spore-schema can spot any DAG re-write that violates ordering.
+    let tip_cosign_event_hash = if accepted && staged_cosign.is_some() {
+        let (envelope_bytes, sig, pubkey, tip_hash) =
+            staged_cosign.as_ref().expect("guarded by Some check");
+        let event_canonical = crate::events::encode_tip_cosigned_event(
+            envelope_bytes,
+            sig,
+            pubkey,
+            state.manifest.cycle_counter,
+        );
+        let parents: Vec<myco_kernel_shared::crypto::NodeHash> = match state.dag.tip() {
+            Some(t) => vec![t],
+            None => Vec::new(),
+        };
+        let event_node_type = crate::events::tip_cosigned_node_type(tip_hash);
+        let cycle = state.manifest.cycle_counter;
+        let h = state
+            .dag
+            .insert_node(parents, event_node_type, cycle, event_canonical)
+            .map_err(|e| {
+                SubstrateError::Protocol(format!("tip_cosigned event DAG insert: {e}"))
+            })?;
+        Some(h)
+    } else {
+        None
+    };
+
+    // **M-anchor-5 §9.2.4**: after a successful `l0_revision_attest`
+    // mutation, emit `l0_revision_attested:{prior_l0_hash_prefix}` DAG event
+    // capturing the L0-revision envelope + owner signature + pubkey. This is
+    // the on-chain anchor that lets the owner prove (offline) "L0 evolved
+    // from version X to version Y at substrate-cycle N, here's the diff
+    // summary, and here is my signature attesting to that change." Without
+    // this event, the substrate could silently shift its doctrine ground
+    // truth between sessions; with it, every doctrine revision is anchored
+    // into the DAG and any sub-chain rewrite becomes immediately detectable.
+    let l0_revision_event_hash = if accepted && staged_l0_revision.is_some() {
+        let (envelope_bytes, sig, pubkey, prior_l0_hash) =
+            staged_l0_revision.as_ref().expect("guarded by Some check");
+        let event_canonical = crate::events::encode_l0_revision_attested_event(
+            envelope_bytes,
+            sig,
+            pubkey,
+            state.manifest.cycle_counter,
+        );
+        let parents: Vec<myco_kernel_shared::crypto::NodeHash> = match state.dag.tip() {
+            Some(t) => vec![t],
+            None => Vec::new(),
+        };
+        let event_node_type = crate::events::l0_revision_attested_node_type(prior_l0_hash);
+        let cycle = state.manifest.cycle_counter;
+        let h = state
+            .dag
+            .insert_node(parents, event_node_type, cycle, event_canonical)
+            .map_err(|e| {
+                SubstrateError::Protocol(format!("l0_revision_attested event DAG insert: {e}"))
+            })?;
+        Some(h)
+    } else {
+        None
+    };
+
     // M17 P3 永恒进化: after mutation acceptance, emit the evolution event DAG node.
     // - schema_apply_attempted + schema_apply_succeeded → evolution_succeeded:{op}
     // - schema_apply_attempted + !schema_apply_succeeded → evolution_failed:{op}
@@ -966,6 +1158,21 @@ pub(crate) fn handle_submit_mutation(
     if let Some(h) = compression_event_hash {
         payload.insert(
             "compression_event_hash".to_string(),
+            Value::Bytes(h.as_ref().to_vec()),
+        );
+    }
+    // **M-anchor-5 §9.2.2 / §9.2.4**: surface the two new anchor-attestation
+    // event hashes so the operator side can index them for offline replay /
+    // owner-side independent verification.
+    if let Some(h) = tip_cosign_event_hash {
+        payload.insert(
+            "tip_cosign_event_hash".to_string(),
+            Value::Bytes(h.as_ref().to_vec()),
+        );
+    }
+    if let Some(h) = l0_revision_event_hash {
+        payload.insert(
+            "l0_revision_event_hash".to_string(),
             Value::Bytes(h.as_ref().to_vec()),
         );
     }

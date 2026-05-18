@@ -272,7 +272,12 @@ def test_seed_table_size() -> None:
     intentional (any add/remove of a seed rule will require updating this
     test, which serves as a tripwire).
     """
-    assert len(SEED_DIMENSION_TABLE) == 22  # 2 file-prefix + 4 identity-fields + 10 meta-structures + 4 daily + 1 mortality-detail + 1 schema_evolution (M17)
+    # 2 file-prefix + 4 identity-fields + 10 meta-structures + 4 daily +
+    # 1 mortality-detail + 1 schema_evolution (M17) +
+    # 3 M26.3 compression rules (compression_mutation + compression_rule_registry_meta + compression_invariant_set_meta) +
+    # 4 M26.4 rules (cost_budget_set_mutation + cost_budget_thresholds_meta + owner_objective_declaration_mutation + telos_alignment_metric_meta) +
+    # 2 M-anchor-5 rules (dag_tip_cosign_mutation + l0_revision_attest_mutation).
+    assert len(SEED_DIMENSION_TABLE) == 31
 
 
 def test_classifier_rule_predicate_or_logic() -> None:
