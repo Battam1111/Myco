@@ -3,7 +3,11 @@
 # Rust build artifacts
 target/
 **/*.rs.bk
-Cargo.lock          # workspace-level; each crate's lock checked in only for binaries
+# Note: workspace-level Cargo.lock IS checked in (this workspace contains binaries:
+# myco-substrate + anchor-surface-host). Per Cargo convention binaries pin their
+# dependency tree. Sub-crate Cargo.lock files (if any are produced) are ignored
+# below — only the root lockfile is authoritative.
+**/[Cc]rate-specific-Cargo.lock
 
 # Python build artifacts
 __pycache__/

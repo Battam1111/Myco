@@ -132,7 +132,7 @@ Audit signal: for each compression_event, run an owner-side recovery dry-run; ve
 | **P06** | Compression preserves causality via witness. P06 eternity-clause constrains P10's witness sufficiency. |
 | **P07** | If compression cannot free enough capacity for continued operation, escalation goes to P11.c → P07 mortality. Compression is NOT permitted to "save" a substrate at the cost of corrupting invariants. |
 | **P11** | P11.c uses P10 as its primary recovery mechanism under saturation. Compression-insufficient → degraded → mortality. |
-| **Cultivator's Covenant** | Cultivator attests F18 rule changes; cultivator's choice of compression aggressiveness shapes the cultivar's identity. See `COV02_food_provision_and_clearance.md`. |
+| **Cultivator's Covenant** | Cultivator attests F18 rule changes; cultivator's choice of compression aggressiveness shapes the cultivar's identity. See `COV03_food_provision.md`. |
 
 ## §10. Illustrations
 

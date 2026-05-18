@@ -128,7 +128,7 @@ For a freshly-spawned child, count of inherited unresolved immune signals. Non-z
 | **P05** | Federation edges (parent-child, sibling-sibling) extend the connected graph but require attestation per §5.4. |
 | **P06** | Parent's DAG records `genesis_attested`; child's DAG begins with its own `genesis_event`. Two separate causal chains, joined at the spawn moment. |
 | **P07** | Child inherits parent's immune signals; child may inherit approaching-mortality if parent is degraded. Spawning a child from a dying parent is *allowed* but the child starts in `quarantined`. |
-| **Cultivator's Covenant** | Cultivator's covenant includes a *no-blanket-spawn* discipline (§5.3) and a *lineage-stewardship* duty (each spawn is a commitment, not a checkbox). See `COV04_lineage_stewardship.md`. |
+| **Cultivator's Covenant** | Cultivator's covenant includes a *no-blanket-spawn* discipline (§5.3) and a *lineage-stewardship* duty (each spawn is a commitment, not a checkbox). See `COV05_lineage_stewardship.md`. |
 
 ## §10. Illustrations
 

@@ -14,7 +14,7 @@
 
 **§1.2 Designation**: I3 claim space is CI. Designation lists fields participating in SSoT consistency. Fields outside designation NOT exempt from I5 reachability or I4 causal coverage — only from I3 cycle check.
 
-**§1.3 Migration two-phase commit**: Algorithm [`algorithms/ssot_migration_2pc.md`](algorithms/ssot_migration_2pc.md) (Phase 1 dual-validation ≥ M consecutive cycles; Phase 2 commit; M_default=100, L4-tunable [100, 10000]; M is tier-1 SSoT). Substrate emits Merkle proof + sampled comparisons; substrate does NOT self-attest `phase_1_passed`. Old SSoT retained per I4 (joins P10.b invariant set).
+**§1.3 Migration two-phase commit**: Algorithm [`algorithms/ssot_migration_2pc.md`](../algorithms/ssot_migration_2pc.md) (Phase 1 dual-validation ≥ M consecutive cycles; Phase 2 commit; M_default=100, L4-tunable [100, 10000]; M is tier-1 SSoT). Substrate emits Merkle proof + sampled comparisons; substrate does NOT self-attest `phase_1_passed`. Old SSoT retained per I4 (joins P10.b invariant set).
 
 ---
 
@@ -26,7 +26,7 @@
 
 **§2.3 Retention — materialized-views carve-out**: Full fidelity = causal recoverability (I4). Substrate MAY maintain materialized views iff underlying append log retained AND re-materialization mechanically possible AND materialized layer CI. **Tiers**: Hot (recent N, default 30d) / Warm (older, mechanical) / Cold (beyond L1-tunable horizon, owner-attested fetch). Retention horizon CI; default `recoverability_budget × 2`. Cold-tier inaccessibility marker: during legacy/quarantined, cold-spanning queries return `cold_tier_inaccessible`.
 
-**§2.4 Recoverability budget + drill**: Algorithm [`algorithms/drill_baseline.md`](algorithms/drill_baseline.md) (tiered drill cadence + `recovery_drill_result` envelope + near-baseline ≥2σ trigger + secular-baseline 3× trigger + witnesses-not-verdicts + dual-channel mortality coupling). Backup policy TBD-L4: default continuous WAL + snapshot every 1000 cycles (wrapped per §6); locations ≥1 off-host-process.
+**§2.4 Recoverability budget + drill**: Algorithm [`algorithms/drill_baseline.md`](../algorithms/drill_baseline.md) (tiered drill cadence + `recovery_drill_result` envelope + near-baseline ≥2σ trigger + secular-baseline 3× trigger + witnesses-not-verdicts + dual-channel mortality coupling). Backup policy TBD-L4: default continuous WAL + snapshot every 1000 cycles (wrapped per §6); locations ≥1 off-host-process.
 
 **§2.5 DAG-pruning prohibition**: Pruning CI-only; daily ops cannot remove nodes. Cold-tier archival is not pruning. Disk-pressure: threshold default 90% → `storage_pressure` sporocarp + spikes `evolution-tension` toward `retention_policy_amendment`; owner inaction past threshold → quarantine; continued inaction → approaching-mortality signal.
 
@@ -83,7 +83,7 @@
 
 **§6.1 Purpose**: `snapshot.cb` = periodic substrate derived-state snapshot, written every K cycles (seed K=1000), Ed25519-signed wrapper; on boot substrate seeds in-memory state from snapshot then replays only past-tip events; forgery defense via signature + signer-pubkey check.
 
-**§6.2 Format**: Schema [`schemas/snapshot_wrapper.json`](schemas/snapshot_wrapper.json) (`format_version=2`; signature over BARE payload bytes). v1 legacy unsigned → load returns Ok(None) + full replay; v2 current canonical.
+**§6.2 Format**: Schema [`schemas/snapshot_wrapper.json`](../schemas/snapshot_wrapper.json) (`format_version=2`; signature over BARE payload bytes). v1 legacy unsigned → load returns Ok(None) + full replay; v2 current canonical.
 
 **§6.3 Verification (boot path)**: (1) Format check; failure → Ok(None) + full DAG replay. (2) Signer-pubkey identity MUST match substrate's derived pubkey (§7); failure → emit `C38_snapshot_integrity_violation`; discard + full replay. (3) Signature verification; failure → emit C38; discard + full replay. Snapshot AND DAG replay both fail → quarantine entry per L1/CONTINUITY §5.1.
 

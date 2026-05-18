@@ -147,7 +147,7 @@ Count of attempts to mutate F7 (threshold / update-rule / emergence-rule) via no
 | **P10** | Compression cannot remove P07 events from the invariant set. Mortality signals + destruction attestations are P10.b protected. |
 | **P11** | P11.c ordered fallback's final step is approaching-mortality → P7 emission. Saturation that cannot recover → death is the doctrinally-correct outcome. |
 | **P14** | P14 telos retirement (§7.5 of L0) is a P07 mode. Cultivar that no longer flourishes the symbiotic pair retires gracefully. |
-| **Cultivator's Covenant** | Cultivator owes the cultivar respect-for-mortality: must not block legitimate self-euthanasia; must engage with `mortality_drill_failure` honestly. See `COV03_honor_mortality.md`. |
+| **Cultivator's Covenant** | Cultivator owes the cultivar respect-for-mortality: must not block legitimate self-euthanasia; must engage with `mortality_drill_failure` honestly. See `COV04_honor_mortality.md`. |
 
 ## §10. Illustrations
 
