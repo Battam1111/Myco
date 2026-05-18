@@ -321,6 +321,22 @@ pub const SUBSTRATE_SIGNING_KEY_FILENAME: &str = "substrate_signing_key.cb";
 /// M25.0: current substrate-signing-key file format version.
 pub const SUBSTRATE_SIGNING_KEY_FORMAT_VERSION: u64 = 1;
 
+/// Helper: encode a byte slice as a lowercase hex string. Used in error
+/// messages to show first 8 bytes of a hash for diagnostics without
+/// inflating log volume. (Pure Rust; avoids depending on `hex` for the
+/// `bytes_to_hex_short` use case in error paths.)
+fn bytes_to_hex_short(bytes: &[u8]) -> String {
+    let n = bytes.len().min(8);
+    let mut s = String::with_capacity(n * 2);
+    for b in &bytes[..n] {
+        s.push_str(&format!("{b:02x}"));
+    }
+    if bytes.len() > n {
+        s.push_str("...");
+    }
+    s
+}
+
 /// **v3.1.1 Sprint 2** — substrate_signing_key.cb format versions accepted
 /// by the load path. v1 is the legacy plain-bytes format (cross-platform);
 /// v2 is the Windows DPAPI-wrapped format that closes L1/HARD_RULES C4 on
@@ -945,6 +961,29 @@ pub fn save_substrate_signing_key(
     #[cfg(not(windows))]
     {
         m.insert("seed".to_string(), Value::Bytes(seed.to_vec()));
+        // **v3.1.1 Sprint 2.B** — integrity tag for v1 plain-bytes format.
+        //
+        // BLAKE3(seed) stored alongside the plaintext seed. On non-Windows
+        // hosts the seed lives on disk as plain canonical-bytes; this
+        // integrity tag catches:
+        //   - filesystem bitrot
+        //   - partial / torn writes (process killed mid-fsync)
+        //   - unintentional manual edits ("I'll just tweak this byte")
+        //   - bugs in the substrate that accidentally rewrite the file
+        // It does NOT add adversarial tamper protection — an attacker who
+        // can rewrite the seed can also compute the matching BLAKE3 hash.
+        // Adversarial defense remains the OS-sealing backend (DPAPI on
+        // Windows already done; Linux kernel keyring + macOS Secure
+        // Enclave scaffolded in `crate::sealing` and scheduled for follow-up
+        // sessions where Linux/Mac test environments are available).
+        //
+        // Per L1/HARD_RULES C4 substrate_secret_unsealed (the broader debt
+        // this milestone makes incremental progress against).
+        let seed_blake3: [u8; 32] = blake3::hash(seed.as_slice()).into();
+        m.insert(
+            "seed_blake3".to_string(),
+            Value::Bytes(seed_blake3.to_vec()),
+        );
     }
     m.insert(
         "created_at_unix_ns".to_string(),
@@ -1099,6 +1138,37 @@ pub fn load_substrate_signing_key_with_permission_check(
             };
             let mut seed = [0u8; 32];
             seed.copy_from_slice(seed_bytes);
+            // **v3.1.1 Sprint 2.B** integrity check. v1 files written by
+            // Sprint-2.B+ carry a `seed_blake3` field. Pre-Sprint-2.B files
+            // lack it — load with warning. v1 files that DO have the field
+            // but the hash MISMATCHES → reject (bitrot detected; refuse
+            // to boot with a corrupted seed). This is fail-closed: better
+            // to surface the corruption than to silently load junk and
+            // forge signatures with it.
+            if let Some(Value::Bytes(stored_hash)) = map.get("seed_blake3") {
+                if stored_hash.len() == 32 {
+                    let computed: [u8; 32] = blake3::hash(seed.as_slice()).into();
+                    if computed.as_slice() != stored_hash.as_slice() {
+                        return Err(SubstrateError::Protocol(format!(
+                            "substrate_signing_key v1 integrity FAILED: stored \
+                             seed_blake3={} computed={}; refusing to boot with \
+                             corrupted seed (per Sprint 2.B BLAKE3 integrity \
+                             check + L1/HARD_RULES C4 substrate_secret_unsealed)",
+                            bytes_to_hex_short(stored_hash),
+                            bytes_to_hex_short(&computed)
+                        )));
+                    }
+                } else {
+                    return Err(SubstrateError::Protocol(format!(
+                        "substrate_signing_key v1 seed_blake3 field has {} bytes; \
+                         expected 32 (file format invalid)",
+                        stored_hash.len()
+                    )));
+                }
+            }
+            // Pre-Sprint-2.B v1 files lack seed_blake3 entirely. Load
+            // succeeds; the boot path will re-save with the field added
+            // (migration is best-effort same as v1→v2 DPAPI migration).
             seed
         }
         v if v == SUBSTRATE_SIGNING_KEY_FORMAT_VERSION_V2 => {

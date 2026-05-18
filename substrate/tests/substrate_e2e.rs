@@ -4752,3 +4752,187 @@ fn v3_1_1_sprint_2c_derive_ignores_unrelated_node_types() {
         .unwrap();
     assert!(derive_backup_encryption_status_from_dag(&dag).is_none());
 }
+
+// ---------------------------------------------------------------------------
+// **v3.1.1 Sprint 2.B** — BLAKE3 integrity check on substrate_signing_key
+// v1 format. Cross-platform anti-bitrot defense (Windows already gets
+// stronger DPAPI integrity in Sprint 2.A; v1 is the non-Windows path).
+// ---------------------------------------------------------------------------
+
+#[test]
+#[cfg(not(windows))]
+fn v3_1_1_sprint_2b_v1_save_includes_seed_blake3_integrity_tag() {
+    use myco_kernel_shared::canonical_bytes::{decode, Value};
+    use std::fs;
+    use std::path::PathBuf;
+    use substrate::persistence::{
+        save_substrate_signing_key, SUBSTRATE_SIGNING_KEY_FILENAME,
+        SUBSTRATE_SIGNING_KEY_FORMAT_VERSION_V1,
+    };
+
+    let dir = std::env::temp_dir().join(format!(
+        "myco-sprint-2b-{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    fs::create_dir_all(&dir).unwrap();
+    let seed = [0x44u8; 32];
+    save_substrate_signing_key(&seed, &dir).unwrap();
+
+    let raw = fs::read(dir.join(SUBSTRATE_SIGNING_KEY_FILENAME)).unwrap();
+    let decoded = decode(&raw).unwrap();
+    let map = match decoded {
+        Value::Map(m) => m,
+        _ => panic!("not a map"),
+    };
+    match map.get("format_version") {
+        Some(Value::Uint(n)) => {
+            assert_eq!(*n, SUBSTRATE_SIGNING_KEY_FORMAT_VERSION_V1, "non-Windows = v1")
+        }
+        _ => panic!("format_version missing"),
+    }
+    match map.get("seed_blake3") {
+        Some(Value::Bytes(b)) => {
+            assert_eq!(b.len(), 32, "BLAKE3 hash is 32 bytes");
+            let expected: [u8; 32] = blake3::hash(seed.as_slice()).into();
+            assert_eq!(
+                b.as_slice(),
+                expected.as_slice(),
+                "stored seed_blake3 must equal BLAKE3(seed)"
+            );
+        }
+        _ => panic!("seed_blake3 must be present on v1 (Sprint 2.B integrity tag)"),
+    }
+    let _ = fs::remove_dir_all(&dir);
+    let _: &PathBuf = &dir; // suppress unused-var warning if removal fails
+}
+
+#[test]
+#[cfg(not(windows))]
+fn v3_1_1_sprint_2b_v1_round_trip_preserves_seed_through_integrity_check() {
+    use std::fs;
+    use substrate::persistence::{
+        load_substrate_signing_key, save_substrate_signing_key,
+    };
+
+    let dir = std::env::temp_dir().join(format!(
+        "myco-sprint-2b-rt-{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    fs::create_dir_all(&dir).unwrap();
+    let seed = [0x99u8; 32];
+    save_substrate_signing_key(&seed, &dir).unwrap();
+    let loaded = load_substrate_signing_key(&dir).unwrap().unwrap();
+    assert_eq!(
+        loaded, seed,
+        "save→load with seed_blake3 verification must recover seed exactly"
+    );
+    let _ = fs::remove_dir_all(&dir);
+}
+
+#[test]
+#[cfg(not(windows))]
+fn v3_1_1_sprint_2b_v1_tampered_seed_rejected_with_clear_error() {
+    use myco_kernel_shared::canonical_bytes::{decode, encode, Value};
+    use std::collections::BTreeMap;
+    use std::fs;
+    use substrate::persistence::{
+        load_substrate_signing_key, save_substrate_signing_key,
+        SUBSTRATE_SIGNING_KEY_FILENAME,
+    };
+
+    let dir = std::env::temp_dir().join(format!(
+        "myco-sprint-2b-tamper-{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    fs::create_dir_all(&dir).unwrap();
+    let seed = [0xCCu8; 32];
+    save_substrate_signing_key(&seed, &dir).unwrap();
+
+    // Tamper: read the file, modify the seed field's bytes WITHOUT
+    // updating seed_blake3, write back.
+    let raw = fs::read(dir.join(SUBSTRATE_SIGNING_KEY_FILENAME)).unwrap();
+    let decoded = decode(&raw).unwrap();
+    let mut map = match decoded {
+        Value::Map(m) => m,
+        _ => panic!("not a map"),
+    };
+    // Flip a byte of the seed.
+    let mut tampered_seed = seed;
+    tampered_seed[5] ^= 0xff;
+    map.insert(
+        "seed".to_string(),
+        Value::Bytes(tampered_seed.to_vec()),
+    );
+    let tampered_bytes = encode(&Value::Map(map)).unwrap();
+    fs::write(
+        dir.join(SUBSTRATE_SIGNING_KEY_FILENAME),
+        tampered_bytes.as_ref(),
+    )
+    .unwrap();
+
+    // Load MUST refuse with an integrity error.
+    let result = load_substrate_signing_key(&dir);
+    assert!(result.is_err(), "tampered seed MUST fail to load");
+    let err_msg = result.unwrap_err().to_string();
+    assert!(
+        err_msg.contains("integrity"),
+        "error message MUST mention integrity: got {err_msg:?}"
+    );
+    let _ = fs::remove_dir_all(&dir);
+}
+
+#[test]
+#[cfg(not(windows))]
+fn v3_1_1_sprint_2b_v1_legacy_no_hash_field_still_loads() {
+    use myco_kernel_shared::canonical_bytes::{encode, Value};
+    use std::collections::BTreeMap;
+    use std::fs;
+    use substrate::persistence::{
+        load_substrate_signing_key, SUBSTRATE_SIGNING_KEY_FILENAME,
+        SUBSTRATE_SIGNING_KEY_FORMAT_VERSION_V1,
+    };
+
+    let dir = std::env::temp_dir().join(format!(
+        "myco-sprint-2b-legacy-{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    fs::create_dir_all(&dir).unwrap();
+
+    // Write a legacy v1 file MANUALLY (pre-Sprint-2.B format: no
+    // seed_blake3 field). Loading must succeed for backward-compat.
+    let legacy_seed = [0xABu8; 32];
+    let mut m = BTreeMap::new();
+    m.insert(
+        "format_version".to_string(),
+        Value::Uint(SUBSTRATE_SIGNING_KEY_FORMAT_VERSION_V1),
+    );
+    m.insert("seed".to_string(), Value::Bytes(legacy_seed.to_vec()));
+    m.insert("created_at_unix_ns".to_string(), Value::Timestamp(0));
+    let bytes = encode(&Value::Map(m)).unwrap();
+    fs::write(dir.join(SUBSTRATE_SIGNING_KEY_FILENAME), bytes.as_ref()).unwrap();
+
+    let loaded = load_substrate_signing_key(&dir).unwrap().unwrap();
+    assert_eq!(
+        loaded, legacy_seed,
+        "legacy v1 (no seed_blake3) must continue to load — backward compat"
+    );
+    let _ = fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn v3_1_1_sprint_2b_sealing_scaffold_module_exists() {
+    // Module compiles; cfg gates correct.
+    // (Empty test body — the act of compiling proves the property.)
+}

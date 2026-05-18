@@ -27,6 +27,7 @@ myco-kernel-continuity = { path = "../kernel/continuity" }
 myco-kernel-schema = { path = "../kernel/schema" }
 thiserror.workspace = true
 sha2.workspace = true
+blake3.workspace = true
 
 # **v3.1.1 Sprint 2** — Windows DPAPI sealing for substrate_signing_key.cb.
 # Per L1/SKIN §4.2 + L1/HARD_RULES C4: substrate_secret MUST be sealed at

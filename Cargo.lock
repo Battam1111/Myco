@@ -414,6 +414,7 @@ dependencies = [
 name = "myco-substrate"
 version = "0.9.0-alpha.1"
 dependencies = [
+ "blake3",
  "myco-kernel-bridge",
  "myco-kernel-continuity",
  "myco-kernel-schema",
