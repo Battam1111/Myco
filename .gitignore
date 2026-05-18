@@ -44,3 +44,9 @@ node_modules/
 .substrate/
 substrate_state/
 .myco_state/
+
+# Ceremony per-invocation logs — operator-side ephemeral artifacts.
+# Each successful run writes `<mode>_<timestamp>.json`; archive locally if you
+# need the production receipt, but don't commit (it would create per-machine
+# drift). The canonical record is the on-chain DAG event + the committed manifest.
+operators/claude/ceremonies/*/ceremony_log/

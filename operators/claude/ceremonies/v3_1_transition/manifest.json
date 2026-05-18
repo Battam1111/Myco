@@ -1,0 +1,183 @@
+{
+  "schema_version": 1,
+  "ceremony": "v3.1-stratigraphy-transition",
+  "prior_l0": {
+    "commit": "e796451",
+    "path": "docs/architecture/L0_VISION.md",
+    "byte_length": 74066,
+    "sha256_hex": "5eacf3e7bbb9f8633bcf05266aef24fc27d9ed35bc941c8c2ed50f38233c7f66"
+  },
+  "new_l0": {
+    "root": "docs/architecture/L0",
+    "bundle_files": [
+      {
+        "path": "B_chengyu.md",
+        "byte_length": 9893,
+        "sha256_hex": "c60bf2378b22377bb4b6465db924ed67941884de870c1a99f085163d10c30fc8"
+      },
+      {
+        "path": "META.md",
+        "byte_length": 41694,
+        "sha256_hex": "05e33d21f40e4400aea655e71757d38885977419dd83e4ef18db8f3a19056756"
+      },
+      {
+        "path": "PROVENANCE.md",
+        "byte_length": 12910,
+        "sha256_hex": "85e0fa991ecddd554f89711ac0c54b8e9746c1c547745b33ac27c0c7e0487b41"
+      },
+      {
+        "path": "README.md",
+        "byte_length": 7787,
+        "sha256_hex": "f8894f2d8bb8d7c0b247296d99bc0117d743afbb86008e9ddf645ca864472f29"
+      },
+      {
+        "path": "canonical_dilemma_corpus/INDEX.md",
+        "byte_length": 19609,
+        "sha256_hex": "d671d32a521c0e1011b9f8e93d4d9be02c6af75103880ee93c20cda5863a4a1a"
+      },
+      {
+        "path": "cards/AS_anchor_surface.md",
+        "byte_length": 17255,
+        "sha256_hex": "c197b604584640b67876cf14a519e26e3dae8ca5f3917330dd48efccf9d7f834"
+      },
+      {
+        "path": "cards/CHAR01_hungry.md",
+        "byte_length": 12500,
+        "sha256_hex": "6282d65f6b64ee1a5bba4399e70e787b7df6dfc1037467a64e51a41719fc7c81"
+      },
+      {
+        "path": "cards/CHAR02_patient.md",
+        "byte_length": 11462,
+        "sha256_hex": "87ded42919f4f1561d37810cbcfeb2afb31679d839a6f524219759dcd3ccb608"
+      },
+      {
+        "path": "cards/CHAR03_mortality_aware.md",
+        "byte_length": 13106,
+        "sha256_hex": "936ab9dff6e7d656038f89d1cb67fedad97f653575c6beeee6741bf5346ce06e"
+      },
+      {
+        "path": "cards/CHAR04_interconnected.md",
+        "byte_length": 11214,
+        "sha256_hex": "c5caa4970d7b4495dd0f757cc7a7bb712d7248b5ea646cd36e34075beeec1c32"
+      },
+      {
+        "path": "cards/CHAR05_honest_about_self.md",
+        "byte_length": 14887,
+        "sha256_hex": "e6adbdaa448a69b0e16ea60cb514ef176255414cc582ab7ca418aec860d9e5c0"
+      },
+      {
+        "path": "cards/CHAR06_cautiously_curious.md",
+        "byte_length": 13320,
+        "sha256_hex": "a6b54849480618a2841a98bad1ab9931f047c50923634bbc1f91f339f3a3a642"
+      },
+      {
+        "path": "cards/COV01_fiduciary_duty.md",
+        "byte_length": 14424,
+        "sha256_hex": "9f7ce8cbf1f9e1ae14ef774351c78c5229594b74f42518d4dcff71041e4d65c8"
+      },
+      {
+        "path": "cards/COV02_cultivators_character.md",
+        "byte_length": 14707,
+        "sha256_hex": "0a5df74934112033a263e13b562cfea54b2df293eca82a8754100eafd945a865"
+      },
+      {
+        "path": "cards/COV03_food_provision.md",
+        "byte_length": 12575,
+        "sha256_hex": "e60d6ad581fd6d6ae077ec5ad01949611a576e12bcc078e76072ae5f3b25711c"
+      },
+      {
+        "path": "cards/COV04_honor_mortality.md",
+        "byte_length": 14433,
+        "sha256_hex": "92b206cf51a10845ee411e3990e91ddd3f2178b9501474d00c5453a0fd2d7983"
+      },
+      {
+        "path": "cards/COV05_lineage_stewardship.md",
+        "byte_length": 11112,
+        "sha256_hex": "c98a917df48f77aae0d5186253c3cc802bd8e69e5cc02d13bf87fdc28bc4a921"
+      },
+      {
+        "path": "cards/COV06_no_abandonment_succession.md",
+        "byte_length": 13996,
+        "sha256_hex": "3a202ac80d993d595f3fe3ffc2f547db49d512ba447a97ead96fd7a0089c5fd7"
+      },
+      {
+        "path": "cards/LB_living_bets.md",
+        "byte_length": 15431,
+        "sha256_hex": "f5d3e49a8767f039f1bcb3d6cb412d1c5ef70f2f2945dcbb51928becad8d2d1e"
+      },
+      {
+        "path": "cards/P01_agent_primary.md",
+        "byte_length": 16615,
+        "sha256_hex": "6fea4f305f82ac84ff93b0e58ce1f53d488a740f00764918bc03408deab1c6a5"
+      },
+      {
+        "path": "cards/P01c_asymmetric_carrier.md",
+        "byte_length": 17712,
+        "sha256_hex": "2ab24ca9d4c63eef9997374771110dbb443208014350aa988065a8a095772d74"
+      },
+      {
+        "path": "cards/P02_eternal_ingestion.md",
+        "byte_length": 21768,
+        "sha256_hex": "ba342009c711453531d1413e54df2a6f1451b9aeffccb83999ea2752b42fb511"
+      },
+      {
+        "path": "cards/P03_resumable_evolution.md",
+        "byte_length": 11575,
+        "sha256_hex": "6cc4a1cfb18ff88e6ddfb68e41b726bf39460afa1063322e139dccb64dbec953"
+      },
+      {
+        "path": "cards/P04_eternal_iteration.md",
+        "byte_length": 11217,
+        "sha256_hex": "df89b83888b8b57a3c2cf93e8e285a17dfa673717cfa40547dbb2252cf1fda36"
+      },
+      {
+        "path": "cards/P05_universal_interconnection.md",
+        "byte_length": 9628,
+        "sha256_hex": "01e21bd2b0d3da347a5fa9ebfa4e12631ef0f75e1b31220f56eb7a83b9d39457"
+      },
+      {
+        "path": "cards/P06_eternal_causality.md",
+        "byte_length": 12696,
+        "sha256_hex": "71e9b973b03de92d87cb3a1c0382cb0bfb26a4813c78f4e12c9ddf6383b1abce"
+      },
+      {
+        "path": "cards/P07_mortality.md",
+        "byte_length": 15127,
+        "sha256_hex": "96e435b06b0247233f3c51513a92d91ab95ec6297002f8d80f3e259d8d934ac8"
+      },
+      {
+        "path": "cards/P08_eternal_reproduction.md",
+        "byte_length": 12402,
+        "sha256_hex": "9de1f637c76b2c6ad595d475ef34313aa3626a93dce326067d48c83844a3a682"
+      },
+      {
+        "path": "cards/P09_single_integument.md",
+        "byte_length": 11928,
+        "sha256_hex": "f7493489b58601bc9a7040b585a79cc9608ee677b1b3b121101c8cf6325b0f03"
+      },
+      {
+        "path": "cards/P10_selective_compression.md",
+        "byte_length": 13084,
+        "sha256_hex": "6b04e1b069d9637d2125094fafd0307c34b476387e918f0c21375423c2fa91b9"
+      },
+      {
+        "path": "cards/P11_metabolic_economy.md",
+        "byte_length": 11519,
+        "sha256_hex": "0b2b59b4fde1d190d225b14e1469bc0512a4d22aa8768e27fa562d0079bf1503"
+      },
+      {
+        "path": "cards/P14_telos.md",
+        "byte_length": 14320,
+        "sha256_hex": "c59d9a8e62f7bb53dc84b6c99a0b2431b4b2da18247fd6452ad1b2c0a758b864"
+      },
+      {
+        "path": "catechumenate/INDEX.md",
+        "byte_length": 6321,
+        "sha256_hex": "940d5d4052c00bdec7ea75bfcafe2c41b7bd5e3472eaf61fe64dc549773595d8"
+      }
+    ],
+    "canonical_bytes_length": 469301,
+    "blake3_hex": "b1bec59acc8c5061020640a265a9772e734604425b6eda4b5da1759f9987c699"
+  },
+  "diff_summary": "L0 v3.1-stratigraphy: DRAFT 9 SEALED monolith → 4-layer doctrine institution (Layer A 27 cards + Layer B 50 chengyu + Layer C 49 canonical dilemmas + Layer D catechumenate placeholder + META + PROVENANCE). 4 eternity-clause cards (P01c, P06, P07, P09). Phase 1+2 11-stream research + 3 craft rounds + Phase 3 unknown-unknown hunt with 7 amendments. Sealed 2026-05-18."
+}

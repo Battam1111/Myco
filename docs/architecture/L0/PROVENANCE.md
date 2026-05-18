@@ -6,7 +6,7 @@
 
 ## §1. What this document is
 
-A traceability spine. Every section of the prior `docs/architecture/L0_VISION.md` (DRAFT 9 SEALED, 178 lines, sealed 2026-05-17 at commit `e796451`) maps to one or more entries in the v3.1 doctrine. This mapping is what allows future readers to verify "the new doctrine preserves the old content" rather than silently dropping concepts.
+A traceability spine. Every section of the prior `docs/architecture/L0_VISION.md` (DRAFT 9 SEALED, 881 lines / 74066 bytes, sealed 2026-05-17 at commit `e796451`; SHA-256 = `5eacf3e7bbb9f8633bcf05266aef24fc27d9ed35bc941c8c2ed50f38233c7f66`) maps to one or more entries in the v3.1 doctrine. This mapping is what allows future readers to verify "the new doctrine preserves the old content" rather than silently dropping concepts.
 
 **Source file removed 2026-05-18** as part of v3.1 cleanup — cultivator's engineering judgment: leaving the old monolith in place creates drift vectors (readers may treat it as authoritative; future Claude may prioritize its surface presence over the v3.1 directory). Historical text is permanently recoverable via git:
 
