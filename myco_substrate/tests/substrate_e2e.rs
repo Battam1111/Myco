@@ -3412,6 +3412,295 @@ fn m26_3_compression_invariant_set_seed_covers_p10_b_categories() {
 }
 
 // ---------------------------------------------------------------------------
+// **M-anchor-2 §9.2.1** birth attestation — substrate-side wiring tests.
+//
+// These don't talk to the anchor_surface_host (those tests live in the
+// anchor_surface_host crate). They cover the substrate's consumption of
+// MYCO_BIRTH_ATTESTATION_* env vars + the C20 boot-time verifier.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn m_anchor_2_birth_attestation_event_emitted_when_env_vars_present() {
+    // Build a synthetic birth attestation (fake signature; substrate doesn't
+    // verify at genesis emit time — only at boot-time C20 — so this works
+    // for the EMISSION half of the test). For C20 verification we use a
+    // separate test below that builds a real Ed25519 signature.
+    use myco_kernel_shared::crypto::Ed25519PrivateKey;
+
+    let dir = fresh_state_dir();
+    let key = Ed25519PrivateKey::from_seed(&[0xa3u8; 32]);
+    let owner_pk_arr = key.public_key().0;
+    let substrate_id_arr = [0x77u8; 32];
+    let genesis_ns: i64 = 1_700_000_000_000_000_000;
+    let spore_hash_arr = [0x99u8; 32];
+    // Build the canonical attested bytes using the same helper anchor_surface_host
+    // exposes.
+    use myco_kernel_shared::canonical_bytes::{encode as cb_encode, Value};
+    use std::collections::BTreeMap;
+    let mut attested_map = BTreeMap::new();
+    attested_map.insert(
+        "domain".to_string(),
+        Value::String("myco-birth-attestation-v1".to_string()),
+    );
+    attested_map.insert(
+        "substrate_id".to_string(),
+        Value::Bytes(substrate_id_arr.to_vec()),
+    );
+    attested_map.insert(
+        "genesis_timestamp_unix_ns".to_string(),
+        Value::Timestamp(genesis_ns),
+    );
+    attested_map.insert(
+        "spore_schema_hash".to_string(),
+        Value::Bytes(spore_hash_arr.to_vec()),
+    );
+    attested_map.insert(
+        "owner_pubkey".to_string(),
+        Value::Bytes(owner_pk_arr.to_vec()),
+    );
+    // v0.9 §9.5: anchor endpoint pubkey collapses to owner pubkey.
+    attested_map.insert(
+        "anchor_endpoint_pubkey".to_string(),
+        Value::Bytes(owner_pk_arr.to_vec()),
+    );
+    let attested_bytes = cb_encode(&Value::Map(attested_map)).unwrap().0;
+    let signature = key.sign(&attested_bytes);
+    let mut sig_arr = [0u8; 64];
+    sig_arr.copy_from_slice(signature.as_ref());
+
+    let hex = |bytes: &[u8]| -> String {
+        let mut s = String::with_capacity(bytes.len() * 2);
+        for b in bytes {
+            s.push_str(&format!("{:02x}", b));
+        }
+        s
+    };
+
+    let env = vec![
+        (
+            "MYCO_SUBSTRATE_ID_OVERRIDE_HEX".to_string(),
+            hex(&substrate_id_arr),
+        ),
+        (
+            "MYCO_GENESIS_TIME_OVERRIDE_UNIX_NS".to_string(),
+            genesis_ns.to_string(),
+        ),
+        (
+            "MYCO_BIRTH_ATTESTATION_BYTES_HEX".to_string(),
+            hex(&attested_bytes),
+        ),
+        (
+            "MYCO_BIRTH_ATTESTATION_SIGNATURE_HEX".to_string(),
+            hex(&sig_arr),
+        ),
+        (
+            "MYCO_BIRTH_ATTESTATION_OWNER_PUBKEY_HEX".to_string(),
+            hex(&owner_pk_arr),
+        ),
+    ];
+
+    let mut client = spawn_substrate_with_env(&dir, env);
+    let resp = client
+        .call(
+            proto::QUERY_RECENT_NODES,
+            build_payload(vec![
+                ("count", CbValue::Uint(50)),
+                (
+                    "node_type_prefix",
+                    CbValue::String("birth_attestation:".to_string()),
+                ),
+            ]),
+        )
+        .expect("query recent");
+    let nodes = match resp.payload.get("nodes") {
+        Some(CbValue::Array(a)) => a.clone(),
+        _ => panic!("nodes missing"),
+    };
+    assert!(
+        !nodes.is_empty(),
+        "M-anchor-2: birth_attestation:{{prefix}} event must be emitted when env vars supplied"
+    );
+    // Verify the substrate accepted our substrate_id override. Query for
+    // the genesis_event DAG node + parse the substrate_id field from its
+    // content_canonical_bytes.
+    let genesis_resp = client
+        .call(
+            proto::QUERY_RECENT_NODES,
+            build_payload(vec![
+                ("count", CbValue::Uint(10)),
+                (
+                    "node_type_prefix",
+                    CbValue::String("genesis_event:".to_string()),
+                ),
+            ]),
+        )
+        .expect("query genesis");
+    let genesis_nodes = match genesis_resp.payload.get("nodes") {
+        Some(CbValue::Array(a)) => a.clone(),
+        _ => panic!("genesis nodes missing"),
+    };
+    assert!(!genesis_nodes.is_empty(), "genesis_event must exist");
+    let first = match &genesis_nodes[0] {
+        CbValue::Map(m) => m.clone(),
+        _ => panic!(),
+    };
+    let content_bytes = match first.get("content_canonical_bytes") {
+        Some(CbValue::Bytes(b)) => b.clone(),
+        _ => panic!("content_canonical_bytes missing"),
+    };
+    let decoded = myco_kernel_shared::canonical_bytes::decode(&content_bytes)
+        .expect("genesis content decodes");
+    let inner = match decoded {
+        CbValue::Map(m) => m,
+        _ => panic!(),
+    };
+    let returned_id = match inner.get("substrate_id") {
+        Some(CbValue::Bytes(b)) => b.clone(),
+        _ => panic!("substrate_id field missing"),
+    };
+    assert_eq!(
+        returned_id, substrate_id_arr.to_vec(),
+        "MYCO_SUBSTRATE_ID_OVERRIDE_HEX must propagate to manifest.substrate_id"
+    );
+    client.shutdown().expect("shutdown");
+}
+
+#[test]
+fn m_anchor_2_c20_fires_when_birth_attestation_signature_tampered() {
+    // Spawn substrate with a birth attestation whose signature is bytes
+    // bogus. On boot, the C20 verifier must fire.
+    let dir = fresh_state_dir();
+    let substrate_id_arr = [0x55u8; 32];
+    let genesis_ns: i64 = 1_700_000_000_000_000_001;
+    use myco_kernel_shared::canonical_bytes::{encode as cb_encode, Value};
+    use std::collections::BTreeMap;
+    let mut attested_map = BTreeMap::new();
+    attested_map.insert(
+        "domain".to_string(),
+        Value::String("myco-birth-attestation-v1".to_string()),
+    );
+    attested_map.insert(
+        "substrate_id".to_string(),
+        Value::Bytes(substrate_id_arr.to_vec()),
+    );
+    attested_map.insert(
+        "genesis_timestamp_unix_ns".to_string(),
+        Value::Timestamp(genesis_ns),
+    );
+    attested_map.insert(
+        "spore_schema_hash".to_string(),
+        Value::Bytes(vec![0u8; 32]),
+    );
+    attested_map.insert("owner_pubkey".to_string(), Value::Bytes(vec![0u8; 32]));
+    attested_map.insert(
+        "anchor_endpoint_pubkey".to_string(),
+        Value::Bytes(vec![0u8; 32]),
+    );
+    let attested_bytes = cb_encode(&Value::Map(attested_map)).unwrap().0;
+    let bogus_sig = [0xFFu8; 64];
+    let bogus_pk = [0xAAu8; 32];
+
+    let hex = |bytes: &[u8]| -> String {
+        let mut s = String::with_capacity(bytes.len() * 2);
+        for b in bytes {
+            s.push_str(&format!("{:02x}", b));
+        }
+        s
+    };
+
+    let env = vec![
+        (
+            "MYCO_SUBSTRATE_ID_OVERRIDE_HEX".to_string(),
+            hex(&substrate_id_arr),
+        ),
+        (
+            "MYCO_GENESIS_TIME_OVERRIDE_UNIX_NS".to_string(),
+            genesis_ns.to_string(),
+        ),
+        (
+            "MYCO_BIRTH_ATTESTATION_BYTES_HEX".to_string(),
+            hex(&attested_bytes),
+        ),
+        (
+            "MYCO_BIRTH_ATTESTATION_SIGNATURE_HEX".to_string(),
+            hex(&bogus_sig),
+        ),
+        (
+            "MYCO_BIRTH_ATTESTATION_OWNER_PUBKEY_HEX".to_string(),
+            hex(&bogus_pk),
+        ),
+    ];
+
+    // First boot: emits genesis_event + birth_attestation; C20 should fire
+    // because the signature is bogus.
+    let client = spawn_substrate_with_env(&dir, env);
+    client.shutdown().expect("shutdown first boot");
+
+    // Second boot: re-verifies birth_attestation → C20 should fire again.
+    let mut client2 = spawn_substrate_with_state_dir(&dir);
+    let immune_resp = client2
+        .call(
+            proto::QUERY_RECENT_NODES,
+            build_payload(vec![
+                ("count", CbValue::Uint(50)),
+                ("node_type_prefix", CbValue::String("immune:".to_string())),
+            ]),
+        )
+        .expect("query immune");
+    let nodes = match immune_resp.payload.get("nodes") {
+        Some(CbValue::Array(a)) => a.clone(),
+        _ => panic!("nodes missing"),
+    };
+    let saw_c20 = nodes.iter().any(|n| {
+        if let CbValue::Map(m) = n {
+            if let Some(CbValue::String(nt)) = m.get("node_type") {
+                return nt.contains("C20_genesis_attestation_chain_broken");
+            }
+        }
+        false
+    });
+    assert!(
+        saw_c20,
+        "M-anchor-2 C20: must fire when birth_attestation signature fails verify"
+    );
+    client2.shutdown().expect("shutdown second boot");
+}
+
+#[test]
+fn m_anchor_2_c20_does_not_fire_for_truly_fresh_substrate_at_cycle_0() {
+    // Boot a substrate WITHOUT birth attestation env vars and verify that
+    // C20 does NOT fire at cycle 0 (substrate may not have had a chance to
+    // emit the attestation yet). Only fires once cycle_counter > 0.
+    let (mut client, _dir) = spawn_substrate();
+    let immune_resp = client
+        .call(
+            proto::QUERY_RECENT_NODES,
+            build_payload(vec![
+                ("count", CbValue::Uint(50)),
+                ("node_type_prefix", CbValue::String("immune:".to_string())),
+            ]),
+        )
+        .expect("query immune");
+    let nodes = match immune_resp.payload.get("nodes") {
+        Some(CbValue::Array(a)) => a.clone(),
+        _ => panic!("nodes missing"),
+    };
+    let saw_c20 = nodes.iter().any(|n| {
+        if let CbValue::Map(m) = n {
+            if let Some(CbValue::String(nt)) = m.get("node_type") {
+                return nt.contains("C20_genesis_attestation_chain_broken");
+            }
+        }
+        false
+    });
+    assert!(
+        !saw_c20,
+        "C20 must NOT fire at cycle 0 for a fresh substrate without attestation"
+    );
+    client.shutdown().expect("shutdown");
+}
+
+// ---------------------------------------------------------------------------
 // **M26.4 P11.c Ordered Fallback + P14.c Telos Drift** — F19 cost budgets +
 // F20 owner objective + P11.c saturation state machine + telos_alignment
 // cosine proxy + C53 budget_exhausted_silent + C24 telos_drift_critical.

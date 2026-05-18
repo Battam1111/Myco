@@ -216,6 +216,162 @@ export class AnchorSurfaceClient {
     return ok?.type === "bool" && ok.value === true;
   }
 
+  /**
+   * **M-anchor-2 §9.2.1**: produce a birth attestation for a fresh
+   * substrate. Returns the owner's Ed25519 signature over the L0 §9.3
+   * 5-tuple canonical-bytes, the owner pubkey, AND the exact canonical
+   * bytes that were signed (so the substrate can persist all three in its
+   * DAG and re-verify offline on every boot).
+   *
+   * Wire protocol: `BirthAttestRequest`/`BirthAttestation` (see
+   * `anchor_surface_host::protocol`). The signature is over a
+   * domain-separated canonical-bytes Map — substrate-side verification
+   * must reconstruct the exact same bytes (use the same canonical-bytes
+   * spec via `@myco/anchor-client/src/canonical_bytes.ts`).
+   */
+  async birthAttest(args: {
+    substrateId: Uint8Array;
+    genesisTimestampUnixNs: bigint;
+    sporeSchemaHash: Uint8Array;
+    anchorEndpointPubkey: Uint8Array;
+  }): Promise<{
+    signature: Uint8Array;
+    ownerPubkey: Uint8Array;
+    attestedCanonicalBytes: Uint8Array;
+  }> {
+    if (args.substrateId.length !== 32) {
+      throw new AnchorSurfaceClientError(
+        `birthAttest: substrateId must be 32 bytes; got ${args.substrateId.length}`,
+      );
+    }
+    if (args.sporeSchemaHash.length !== 32) {
+      throw new AnchorSurfaceClientError(
+        `birthAttest: sporeSchemaHash must be 32 bytes; got ${args.sporeSchemaHash.length}`,
+      );
+    }
+    if (args.anchorEndpointPubkey.length !== 32) {
+      throw new AnchorSurfaceClientError(
+        `birthAttest: anchorEndpointPubkey must be 32 bytes; got ${args.anchorEndpointPubkey.length}`,
+      );
+    }
+    const reqMap: Map<string, Value> = new Map();
+    reqMap.set("type", { type: "string", value: "birth_attest" });
+    reqMap.set("substrate_id", { type: "bytes", value: args.substrateId });
+    reqMap.set("genesis_timestamp_unix_ns", {
+      type: "timestamp",
+      value: args.genesisTimestampUnixNs,
+    });
+    reqMap.set("spore_schema_hash", { type: "bytes", value: args.sporeSchemaHash });
+    reqMap.set("anchor_endpoint_pubkey", {
+      type: "bytes",
+      value: args.anchorEndpointPubkey,
+    });
+    const response = await this._roundtrip(reqMap);
+    expectKind(response, "birth_attestation");
+    const signature = mapGetBytes(response, "signature");
+    if (signature.length !== 64) {
+      throw new AnchorSurfaceClientError(
+        `birthAttest signature length ${signature.length} != 64`,
+      );
+    }
+    const ownerPubkey = mapGetBytes(response, "owner_pubkey");
+    if (ownerPubkey.length !== 32) {
+      throw new AnchorSurfaceClientError(
+        `birthAttest owner_pubkey length ${ownerPubkey.length} != 32`,
+      );
+    }
+    const attestedCanonicalBytes = mapGetBytes(response, "attested_canonical_bytes");
+    return { signature, ownerPubkey, attestedCanonicalBytes };
+  }
+
+  /**
+   * **M-anchor-3 §9.2.5**: generate a fresh anchor-side nonce + signature.
+   * `ttlSeconds` is clamped to `[1, 3600]` by the host. Returns the nonce,
+   * issue + expiry timestamps (anchor wall-clock), and signature over the
+   * tuple.
+   */
+  async generateAnchorNonce(ttlSeconds: bigint): Promise<{
+    nonce: Uint8Array;
+    anchorTimestampUnixNs: bigint;
+    expiryUnixNs: bigint;
+    signature: Uint8Array;
+  }> {
+    const reqMap: Map<string, Value> = new Map();
+    reqMap.set("type", { type: "string", value: "generate_anchor_nonce" });
+    reqMap.set("ttl_seconds", { type: "uint", value: ttlSeconds });
+    const response = await this._roundtrip(reqMap);
+    expectKind(response, "anchor_nonce");
+    const nonce = mapGetBytes(response, "nonce");
+    if (nonce.length !== 32) {
+      throw new AnchorSurfaceClientError(
+        `generateAnchorNonce nonce length ${nonce.length} != 32`,
+      );
+    }
+    const anchorTimestampUnixNs = mapGetTimestamp(response, "anchor_timestamp_unix_ns");
+    const expiryUnixNs = mapGetTimestamp(response, "expiry_unix_ns");
+    const signature = mapGetBytes(response, "signature");
+    if (signature.length !== 64) {
+      throw new AnchorSurfaceClientError(
+        `generateAnchorNonce signature length ${signature.length} != 64`,
+      );
+    }
+    return { nonce, anchorTimestampUnixNs, expiryUnixNs, signature };
+  }
+
+  /**
+   * **M-anchor-3 §9.2.6**: read the anchor's current wall-clock as a
+   * signed assertion. Per L0 §13.1, anchor wall-clock is authoritative
+   * for time-bound defenses.
+   */
+  async getAnchorWallClock(): Promise<{
+    anchorTimestampUnixNs: bigint;
+    signature: Uint8Array;
+  }> {
+    const reqMap: Map<string, Value> = new Map();
+    reqMap.set("type", { type: "string", value: "get_anchor_wall_clock" });
+    const response = await this._roundtrip(reqMap);
+    expectKind(response, "anchor_wall_clock");
+    const anchorTimestampUnixNs = mapGetTimestamp(response, "anchor_timestamp_unix_ns");
+    const signature = mapGetBytes(response, "signature");
+    if (signature.length !== 64) {
+      throw new AnchorSurfaceClientError(
+        `getAnchorWallClock signature length ${signature.length} != 64`,
+      );
+    }
+    return { anchorTimestampUnixNs, signature };
+  }
+
+  /**
+   * **M-anchor-3 §9.2.7**: owner liveness heartbeat. Returns a fresh
+   * nonce + current anchor timestamp + signature. The substrate persists
+   * the most recent heartbeat; the Cultivation successor activation gate
+   * (L1_GOVERNANCE §3.2) checks staleness.
+   */
+  async heartbeat(): Promise<{
+    anchorTimestampUnixNs: bigint;
+    heartbeatNonce: Uint8Array;
+    signature: Uint8Array;
+  }> {
+    const reqMap: Map<string, Value> = new Map();
+    reqMap.set("type", { type: "string", value: "heartbeat" });
+    const response = await this._roundtrip(reqMap);
+    expectKind(response, "heartbeat");
+    const anchorTimestampUnixNs = mapGetTimestamp(response, "anchor_timestamp_unix_ns");
+    const heartbeatNonce = mapGetBytes(response, "heartbeat_nonce");
+    if (heartbeatNonce.length !== 32) {
+      throw new AnchorSurfaceClientError(
+        `heartbeat nonce length ${heartbeatNonce.length} != 32`,
+      );
+    }
+    const signature = mapGetBytes(response, "signature");
+    if (signature.length !== 64) {
+      throw new AnchorSurfaceClientError(
+        `heartbeat signature length ${signature.length} != 64`,
+      );
+    }
+    return { anchorTimestampUnixNs, heartbeatNonce, signature };
+  }
+
   /** Tear down the TCP connection. If this client spawned its own host, the
    *  child is killed as well — useful for tests. */
   async close(): Promise<void> {
@@ -589,4 +745,41 @@ function mapGetBytes(
     );
   }
   return v.value;
+}
+
+/** M-anchor-2+3: extract a Timestamp (bigint) value from a response Map. */
+function mapGetTimestamp(m: Map<string, Value>, key: string): bigint {
+  const v = m.get(key);
+  if (!v) {
+    throw new AnchorSurfaceClientError(`response missing key ${key}`);
+  }
+  if (v.type !== "timestamp") {
+    throw new AnchorSurfaceClientError(
+      `response key ${key} is not timestamp (got ${v.type})`,
+    );
+  }
+  return v.value;
+}
+
+/** M-anchor-2+3: verify the response's `kind` discriminator matches the
+ *  expected value. The new response types (birth_attestation, anchor_nonce,
+ *  anchor_wall_clock, heartbeat) all share the `signature` field, so the
+ *  `kind` discriminator is how we know which shape to parse. */
+function expectKind(m: Map<string, Value>, expected: string): void {
+  const v = m.get("kind");
+  if (!v) {
+    throw new AnchorSurfaceClientError(
+      `response missing 'kind' discriminator (expected ${expected})`,
+    );
+  }
+  if (v.type !== "string") {
+    throw new AnchorSurfaceClientError(
+      `response 'kind' is not a string (got ${v.type})`,
+    );
+  }
+  if (v.value !== expected) {
+    throw new AnchorSurfaceClientError(
+      `response kind=${v.value} != expected ${expected}`,
+    );
+  }
 }

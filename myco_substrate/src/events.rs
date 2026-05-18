@@ -1314,6 +1314,118 @@ pub fn genesis_event_node_type(substrate_id: &[u8; 32]) -> String {
     )
 }
 
+// ---------------------------------------------------------------------------
+// **M-anchor-2 P14.b §9.2.1 Birth Attestation**.
+//
+// L0 §9.2.1 mandates an owner-signed 5-tuple attesting that a fresh
+// substrate's genesis was authorized by the Cultivator + anchor surface.
+// The 5-tuple (per L0 §9.3):
+//   (substrate-ID, genesis-timestamp,
+//    initial-spore-schema-canonical-bytes-hash,
+//    owner-public-key, anchor-surface-endpoint-public-key)
+//
+// At genesis the operator process fetches this attestation from
+// `anchor_surface_host` via the `BirthAttest` RPC. The attestation is
+// passed to the substrate as environment variables
+// (MYCO_BIRTH_ATTESTATION_BYTES + MYCO_BIRTH_ATTESTATION_SIGNATURE +
+// MYCO_BIRTH_ATTESTATION_OWNER_PUBKEY, all hex). Substrate emits a
+// `birth_attestation:{substrate_id_prefix}` DAG event right after
+// `genesis_event` carrying all three.
+//
+// Every boot re-verifies the signature against the current owner pubkey
+// (or `owner_key_history` active prefix). Failure → C20
+// `genesis_attestation_chain_broken` immune sporocarp + auto-quarantine.
+// ---------------------------------------------------------------------------
+
+/// Prefix for `birth_attestation:{substrate_id_prefix}` events (M-anchor-2).
+pub const NODE_TYPE_BIRTH_ATTESTATION_PREFIX: &str = "birth_attestation:";
+
+/// Full event node_type for a birth attestation, suffixed by the first 8
+/// bytes of substrate_id in hex (mirrors `genesis_event_node_type`).
+pub fn birth_attestation_node_type(substrate_id: &[u8; 32]) -> String {
+    format!(
+        "{}{}",
+        NODE_TYPE_BIRTH_ATTESTATION_PREFIX,
+        hex_prefix(substrate_id, 8)
+    )
+}
+
+/// Encode the body of a `birth_attestation` DAG event.
+/// ```text
+/// Map({
+///   "attested_canonical_bytes": Bytes,  // the bytes the owner signed
+///   "signature":                Bytes(64),
+///   "owner_pubkey":             Bytes(32),
+///   "emitted_at_unix_ns":       Timestamp,
+/// })
+/// ```
+pub fn encode_birth_attestation(
+    attested_canonical_bytes: &[u8],
+    signature: &[u8; 64],
+    owner_pubkey: &[u8; 32],
+    emitted_at_unix_ns: i64,
+) -> CanonicalBytes {
+    let mut m = BTreeMap::new();
+    m.insert(
+        "attested_canonical_bytes".to_string(),
+        Value::Bytes(attested_canonical_bytes.to_vec()),
+    );
+    m.insert(
+        "signature".to_string(),
+        Value::Bytes(signature.to_vec()),
+    );
+    m.insert(
+        "owner_pubkey".to_string(),
+        Value::Bytes(owner_pubkey.to_vec()),
+    );
+    m.insert(
+        "emitted_at_unix_ns".to_string(),
+        Value::Timestamp(emitted_at_unix_ns),
+    );
+    cb_encode(&Value::Map(m)).expect("birth_attestation encode infallible")
+}
+
+/// Decode a `birth_attestation` DAG event body. Used by the boot-time
+/// C20 verifier. Returns `(attested_canonical_bytes, signature, owner_pubkey)`
+/// or `None` if the shape is wrong.
+pub fn decode_birth_attestation(
+    bytes: &[u8],
+) -> Option<(Vec<u8>, [u8; 64], [u8; 32])> {
+    use myco_kernel_shared::canonical_bytes::decode;
+    let v = decode(bytes).ok()?;
+    let m = match v {
+        Value::Map(m) => m,
+        _ => return None,
+    };
+    let attested = match m.get("attested_canonical_bytes")? {
+        Value::Bytes(b) => b.clone(),
+        _ => return None,
+    };
+    let sig = match m.get("signature")? {
+        Value::Bytes(b) => {
+            if b.len() != 64 {
+                return None;
+            }
+            let mut arr = [0u8; 64];
+            arr.copy_from_slice(b);
+            arr
+        }
+        _ => return None,
+    };
+    let pk = match m.get("owner_pubkey")? {
+        Value::Bytes(b) => {
+            if b.len() != 32 {
+                return None;
+            }
+            let mut arr = [0u8; 32];
+            arr.copy_from_slice(b);
+            arr
+        }
+        _ => return None,
+    };
+    Some((attested, sig, pk))
+}
+
 /// Content of a genesis_event:
 /// ```text
 /// Map({ "substrate_id": Bytes(32), "genesis_time_unix_ns": Timestamp })

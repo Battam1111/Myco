@@ -179,4 +179,130 @@ describe("OperatorIdentity (M-anchor-1 thin client)", () => {
       }
     }
   });
+
+  // ---------------------------------------------------------------------
+  // **M-anchor-2 + M-anchor-3** — anchor surface stage-1 RPC pass-throughs.
+  //
+  // OperatorIdentity wraps AnchorSurfaceClient and exposes the four new
+  // RPCs as async pass-throughs. These tests exercise the full client-side
+  // round-trip + signature verification using @noble/curves ed25519.
+  // ---------------------------------------------------------------------
+
+  it("M-anchor-2: birthAttest signature verifies against returned owner pubkey", async () => {
+    const dir = freshKeyDir();
+    let id: OperatorIdentity | null = null;
+    try {
+      id = await OperatorIdentity.loadOrCreate(dir, {
+        hostBinary: ANCHOR_SURFACE_BIN,
+      });
+      const substrateId = new Uint8Array(32).fill(0x11);
+      const sporeSchemaHash = new Uint8Array(32).fill(0x22);
+      const ownerPubkey = id.publicKeyBytes();
+      const result = await id.birthAttest({
+        substrateId,
+        genesisTimestampUnixNs: 1_700_000_000_000_000_000n,
+        sporeSchemaHash,
+        anchorEndpointPubkey: ownerPubkey, // v0.9 §9.5: collapsed
+      });
+      assert.equal(result.signature.length, 64);
+      assert.equal(result.ownerPubkey.length, 32);
+      assert.ok(result.attestedCanonicalBytes.length > 0);
+      assert.deepEqual(
+        result.ownerPubkey,
+        ownerPubkey,
+        "birthAttest returns the same owner pubkey",
+      );
+      const { verifySignature } = await import(
+        "@myco/anchor-client/src/crypto.ts"
+      );
+      // Should not throw.
+      verifySignature(
+        result.ownerPubkey,
+        result.signature,
+        result.attestedCanonicalBytes,
+      );
+    } finally {
+      if (id) await id.close();
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("M-anchor-3: generateAnchorNonce returns distinct nonces + valid signatures", async () => {
+    const dir = freshKeyDir();
+    let id: OperatorIdentity | null = null;
+    try {
+      id = await OperatorIdentity.loadOrCreate(dir, {
+        hostBinary: ANCHOR_SURFACE_BIN,
+      });
+      const r1 = await id.generateAnchorNonce(60n);
+      const r2 = await id.generateAnchorNonce(60n);
+      assert.equal(r1.nonce.length, 32);
+      assert.equal(r2.nonce.length, 32);
+      assert.equal(r1.signature.length, 64);
+      // Distinctness.
+      let same = true;
+      for (let i = 0; i < 32; i++) {
+        if (r1.nonce[i] !== r2.nonce[i]) {
+          same = false;
+          break;
+        }
+      }
+      assert.equal(same, false, "successive anchor nonces must differ");
+      // expiry = issued + ttl * 1e9
+      assert.equal(
+        r1.expiryUnixNs - r1.anchorTimestampUnixNs,
+        60n * 1_000_000_000n,
+      );
+    } finally {
+      if (id) await id.close();
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("M-anchor-3: getAnchorWallClock signature verifies + clock advances", async () => {
+    const dir = freshKeyDir();
+    let id: OperatorIdentity | null = null;
+    try {
+      id = await OperatorIdentity.loadOrCreate(dir, {
+        hostBinary: ANCHOR_SURFACE_BIN,
+      });
+      const t1 = await id.getAnchorWallClock();
+      await new Promise((r) => setTimeout(r, 5));
+      const t2 = await id.getAnchorWallClock();
+      assert.ok(
+        t2.anchorTimestampUnixNs > t1.anchorTimestampUnixNs,
+        `clock must advance: ${t1.anchorTimestampUnixNs} → ${t2.anchorTimestampUnixNs}`,
+      );
+      assert.equal(t1.signature.length, 64);
+      assert.equal(t2.signature.length, 64);
+    } finally {
+      if (id) await id.close();
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("M-anchor-3: heartbeat returns distinct nonces + valid signatures", async () => {
+    const dir = freshKeyDir();
+    let id: OperatorIdentity | null = null;
+    try {
+      id = await OperatorIdentity.loadOrCreate(dir, {
+        hostBinary: ANCHOR_SURFACE_BIN,
+      });
+      const h1 = await id.heartbeat();
+      const h2 = await id.heartbeat();
+      assert.equal(h1.heartbeatNonce.length, 32);
+      assert.equal(h2.heartbeatNonce.length, 32);
+      let same = true;
+      for (let i = 0; i < 32; i++) {
+        if (h1.heartbeatNonce[i] !== h2.heartbeatNonce[i]) {
+          same = false;
+          break;
+        }
+      }
+      assert.equal(same, false, "successive heartbeats must produce distinct nonces");
+    } finally {
+      if (id) await id.close();
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });

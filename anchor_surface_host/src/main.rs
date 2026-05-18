@@ -158,6 +158,61 @@ fn serve_connection(
                 }
             }
             Ok(Request::Ping) => Response::Pong,
+            // M-anchor-2 §9.2.1: birth attestation.
+            Ok(Request::BirthAttest {
+                substrate_id,
+                genesis_timestamp_unix_ns,
+                spore_schema_hash,
+                anchor_endpoint_pubkey,
+            }) => {
+                let (sig, attested_bytes) = identity.birth_attest(
+                    &substrate_id,
+                    genesis_timestamp_unix_ns,
+                    &spore_schema_hash,
+                    &anchor_endpoint_pubkey,
+                );
+                let mut sig_bytes = [0u8; 64];
+                sig_bytes.copy_from_slice(sig.as_ref());
+                Response::BirthAttestation {
+                    signature: sig_bytes,
+                    owner_pubkey: identity.public_key_bytes(),
+                    attested_canonical_bytes: attested_bytes,
+                }
+            }
+            // M-anchor-3 §9.2.5: anchor-generated nonce.
+            Ok(Request::GenerateAnchorNonce { ttl_seconds }) => {
+                let (nonce, issued_at, expiry, sig) =
+                    identity.generate_anchor_nonce(ttl_seconds);
+                let mut sig_bytes = [0u8; 64];
+                sig_bytes.copy_from_slice(sig.as_ref());
+                Response::AnchorNonce {
+                    nonce,
+                    anchor_timestamp_unix_ns: issued_at,
+                    expiry_unix_ns: expiry,
+                    signature: sig_bytes,
+                }
+            }
+            // M-anchor-3 §9.2.6: anchor wall-clock.
+            Ok(Request::GetAnchorWallClock) => {
+                let (now, sig) = identity.anchor_wall_clock();
+                let mut sig_bytes = [0u8; 64];
+                sig_bytes.copy_from_slice(sig.as_ref());
+                Response::AnchorWallClock {
+                    anchor_timestamp_unix_ns: now,
+                    signature: sig_bytes,
+                }
+            }
+            // M-anchor-3 §9.2.7: owner liveness heartbeat.
+            Ok(Request::Heartbeat) => {
+                let (now, nonce, sig) = identity.heartbeat();
+                let mut sig_bytes = [0u8; 64];
+                sig_bytes.copy_from_slice(sig.as_ref());
+                Response::HeartbeatResponse {
+                    anchor_timestamp_unix_ns: now,
+                    heartbeat_nonce: nonce,
+                    signature: sig_bytes,
+                }
+            }
             Err(e) => Response::Error {
                 message: format!("decode: {e}"),
             },

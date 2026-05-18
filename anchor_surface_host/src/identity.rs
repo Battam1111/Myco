@@ -96,6 +96,71 @@ impl OwnerIdentity {
         self.private_key.sign(message)
     }
 
+    /// **M-anchor-2 §9.2.1**: produce a birth attestation for a fresh
+    /// substrate. Builds the L0 §9.3 5-tuple canonical bytes (with a
+    /// domain-separator so the signature can't be confused with a plain
+    /// Sign signature) and returns `(signature, attested_bytes)`.
+    ///
+    /// The caller (anchor_surface_host server) returns these alongside the
+    /// owner pubkey so the substrate can persist all three in its DAG.
+    /// Future boots re-verify by recomputing the canonical bytes from the
+    /// stored 5-tuple fields and checking the signature.
+    pub fn birth_attest(
+        &self,
+        substrate_id: &[u8; 32],
+        genesis_timestamp_unix_ns: i64,
+        spore_schema_hash: &[u8; 32],
+        anchor_endpoint_pubkey: &[u8; 32],
+    ) -> (Ed25519Signature, Vec<u8>) {
+        let owner_pubkey = self.public_key_bytes();
+        let attested_bytes = crate::protocol::birth_attestation_canonical_bytes(
+            substrate_id,
+            genesis_timestamp_unix_ns,
+            spore_schema_hash,
+            &owner_pubkey,
+            anchor_endpoint_pubkey,
+        );
+        let signature = self.private_key.sign(&attested_bytes);
+        (signature, attested_bytes)
+    }
+
+    /// **M-anchor-3 §9.2.5**: generate a fresh anchor-side nonce + sign the
+    /// (nonce, issued_at, expiry) tuple. Returns `(nonce, issued_at_ns,
+    /// expiry_ns, signature)`. `ttl_seconds` is clamped to `[1, 3600]`.
+    pub fn generate_anchor_nonce(
+        &self,
+        ttl_seconds: u64,
+    ) -> ([u8; 32], i64, i64, Ed25519Signature) {
+        let ttl = ttl_seconds.clamp(1, 3600);
+        let nonce = generate_random_32();
+        let issued_at = current_unix_ns();
+        let expiry = issued_at.saturating_add((ttl as i64) * 1_000_000_000);
+        let bytes = crate::protocol::anchor_nonce_canonical_bytes(&nonce, issued_at, expiry);
+        let signature = self.private_key.sign(&bytes);
+        (nonce, issued_at, expiry, signature)
+    }
+
+    /// **M-anchor-3 §9.2.6**: read the anchor's current wall-clock + sign it.
+    /// Returns `(timestamp_unix_ns, signature)`.
+    pub fn anchor_wall_clock(&self) -> (i64, Ed25519Signature) {
+        let now = current_unix_ns();
+        let bytes = crate::protocol::anchor_wallclock_canonical_bytes(now);
+        let signature = self.private_key.sign(&bytes);
+        (now, signature)
+    }
+
+    /// **M-anchor-3 §9.2.7**: produce an owner liveness heartbeat. Returns
+    /// `(timestamp_unix_ns, heartbeat_nonce, signature)`. The nonce is fresh
+    /// per call so two heartbeats are byte-distinguishable even at the same
+    /// timestamp resolution.
+    pub fn heartbeat(&self) -> (i64, [u8; 32], Ed25519Signature) {
+        let now = current_unix_ns();
+        let nonce = generate_random_32();
+        let bytes = crate::protocol::anchor_heartbeat_canonical_bytes(now, &nonce);
+        let signature = self.private_key.sign(&bytes);
+        (now, nonce, signature)
+    }
+
     /// Load identity from an explicit file path. Errors if the file is
     /// missing, malformed, or version-mismatched.
     fn load_from(path: &Path) -> Result<Self> {
@@ -196,6 +261,33 @@ fn current_unix_ns() -> i64 {
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_nanos() as i64)
         .unwrap_or(0)
+}
+
+/// **M-anchor-3**: generate a fresh 32-byte random value (for nonces and
+/// heartbeat freshness markers). Uses the same OS-randomness composition
+/// pattern as `generate_owner_seed` with a distinct domain string so the
+/// two RNG draws cannot collide.
+fn generate_random_32() -> [u8; 32] {
+    use sha2::{Digest, Sha256};
+    let mut h = Sha256::new();
+    h.update(b"myco-anchor-surface-runtime-random-v1");
+    h.update(current_unix_ns().to_le_bytes());
+    h.update(std::process::id().to_le_bytes());
+    let stack_var = 0u8;
+    let addr = &stack_var as *const u8 as usize;
+    h.update(addr.to_le_bytes());
+    // Counter that increments each call to guarantee uniqueness even when
+    // current_unix_ns granularity collides.
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static CTR: AtomicU64 = AtomicU64::new(0);
+    let c = CTR.fetch_add(1, Ordering::Relaxed);
+    h.update(c.to_le_bytes());
+    let fn_addr = generate_random_32 as *const () as usize;
+    h.update(fn_addr.to_le_bytes());
+    let result = h.finalize();
+    let mut out = [0u8; 32];
+    out.copy_from_slice(&result);
+    out
 }
 
 /// Generate a fresh 32-byte owner seed.

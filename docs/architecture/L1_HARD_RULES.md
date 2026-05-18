@@ -31,7 +31,7 @@ CRITICAL breach MUST immediately transition substrate to `alive::quarantined` (L
 | C17 | `operator_witness_forgery` | L1_GOVERNANCE §2.2 | `operator_witness` does not verify against logged handshake pubkey | P1.c | I1, I2 | **L** |
 | C18 | `canonical_bytes_render_drift` | L0 §9.3.1 + §9.3.2 | Anchor-client render hash diverges from substrate signed hash | P1.b'' | I2 | **L** |
 | C19 | `paused_dormancy_unsafe_host` | L1_CONTINUITY §2.4 + §3.2 | Process terminated during paused dormancy | P7, P1.c | I1 | **R** |
-| C20 | `genesis_attestation_chain_broken` | L1_GOVERNANCE §4.1 + L0 §9.2.1 | Substrate-ID birth attestation does not verify | P1.a | I1 | **R** |
+| C20 | `genesis_attestation_chain_broken` | L1_GOVERNANCE §4.1 + L0 §9.2.1 | Substrate-ID birth attestation does not verify | P1.a | I1 | **L** |
 
 Rows INDEPENDENT (I2 fixed-point). Coverage: `docs/implementation_status.md`.
 

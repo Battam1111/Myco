@@ -157,6 +157,57 @@ export class OperatorIdentity {
     return this.client.sign(message);
   }
 
+  /**
+   * **M-anchor-2 §9.2.1**: pass-through to AnchorSurfaceClient.birthAttest.
+   * Used by `SubstrateClient.spawn` to fetch a birth attestation from the
+   * anchor_surface_host before spawning a fresh substrate.
+   */
+  async birthAttest(args: {
+    substrateId: Uint8Array;
+    genesisTimestampUnixNs: bigint;
+    sporeSchemaHash: Uint8Array;
+    anchorEndpointPubkey: Uint8Array;
+  }): Promise<{
+    signature: Uint8Array;
+    ownerPubkey: Uint8Array;
+    attestedCanonicalBytes: Uint8Array;
+  }> {
+    return this.client.birthAttest(args);
+  }
+
+  /**
+   * **M-anchor-3 §9.2.5**: pass-through to AnchorSurfaceClient.generateAnchorNonce.
+   */
+  async generateAnchorNonce(ttlSeconds: bigint): Promise<{
+    nonce: Uint8Array;
+    anchorTimestampUnixNs: bigint;
+    expiryUnixNs: bigint;
+    signature: Uint8Array;
+  }> {
+    return this.client.generateAnchorNonce(ttlSeconds);
+  }
+
+  /**
+   * **M-anchor-3 §9.2.6**: pass-through to AnchorSurfaceClient.getAnchorWallClock.
+   */
+  async getAnchorWallClock(): Promise<{
+    anchorTimestampUnixNs: bigint;
+    signature: Uint8Array;
+  }> {
+    return this.client.getAnchorWallClock();
+  }
+
+  /**
+   * **M-anchor-3 §9.2.7**: pass-through to AnchorSurfaceClient.heartbeat.
+   */
+  async heartbeat(): Promise<{
+    anchorTimestampUnixNs: bigint;
+    heartbeatNonce: Uint8Array;
+    signature: Uint8Array;
+  }> {
+    return this.client.heartbeat();
+  }
+
   /** Tear down the connection to the host (and kill the spawned host if
    *  this client spawned its own). Required for clean test teardown. */
   async close(): Promise<void> {

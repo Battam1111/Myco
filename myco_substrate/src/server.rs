@@ -38,6 +38,60 @@ use crate::persistence::{
 };
 use crate::SubstrateError;
 
+/// **M-anchor-2 §9.2.1**: read the birth attestation env vars set by the
+/// operator process at substrate spawn time. Returns
+/// `(attested_canonical_bytes, signature, owner_pubkey)` if all three env
+/// vars are present + valid hex; `None` otherwise (partial or malformed
+/// triggers fallback — C20 fires on subsequent boots).
+///
+/// Env var contract:
+/// - `MYCO_BIRTH_ATTESTATION_BYTES_HEX`: hex of the canonical-bytes Map the
+///   owner signed (returned by anchor_surface_host's BirthAttest RPC).
+/// - `MYCO_BIRTH_ATTESTATION_SIGNATURE_HEX`: 128 hex chars = 64 bytes.
+/// - `MYCO_BIRTH_ATTESTATION_OWNER_PUBKEY_HEX`: 64 hex chars = 32 bytes.
+fn read_birth_attestation_env_vars() -> Option<(Vec<u8>, [u8; 64], [u8; 32])> {
+    let bytes_hex = std::env::var("MYCO_BIRTH_ATTESTATION_BYTES_HEX").ok()?;
+    let sig_hex = std::env::var("MYCO_BIRTH_ATTESTATION_SIGNATURE_HEX").ok()?;
+    let pk_hex = std::env::var("MYCO_BIRTH_ATTESTATION_OWNER_PUBKEY_HEX").ok()?;
+    let attested_bytes = hex_decode_vec(&bytes_hex)?;
+    let sig_vec = hex_decode_vec(&sig_hex)?;
+    if sig_vec.len() != 64 {
+        return None;
+    }
+    let mut signature = [0u8; 64];
+    signature.copy_from_slice(&sig_vec);
+    let pk_vec = hex_decode_vec(&pk_hex)?;
+    if pk_vec.len() != 32 {
+        return None;
+    }
+    let mut owner_pubkey = [0u8; 32];
+    owner_pubkey.copy_from_slice(&pk_vec);
+    Some((attested_bytes, signature, owner_pubkey))
+}
+
+fn hex_decode_vec(s: &str) -> Option<Vec<u8>> {
+    if s.len() % 2 != 0 {
+        return None;
+    }
+    let mut out = Vec::with_capacity(s.len() / 2);
+    let bytes = s.as_bytes();
+    for i in (0..bytes.len()).step_by(2) {
+        let hi = hex_nibble(bytes[i])?;
+        let lo = hex_nibble(bytes[i + 1])?;
+        out.push((hi << 4) | lo);
+    }
+    Some(out)
+}
+
+fn hex_nibble(b: u8) -> Option<u8> {
+    match b {
+        b'0'..=b'9' => Some(b - b'0'),
+        b'a'..=b'f' => Some(10 + (b - b'a')),
+        b'A'..=b'F' => Some(10 + (b - b'A')),
+        _ => None,
+    }
+}
+
 /// **M26.3 C42 fix**: thread-local side channel for surfacing
 /// `manifest.cb` load-failure evidence from the boot-time legacy-path branch
 /// (which doesn't yet hold `state`) up to the post-construction emit site.
@@ -863,6 +917,98 @@ pub fn run_loop() -> Result<u8, SubstrateError> {
         );
         let _ = emit_substrate_event(&mut state, event_node_type, event_content);
         let _ = save_dag_state(&state);
+
+        // **M-anchor-2 §9.2.1 birth attestation emission**.
+        //
+        // If the operator process supplied a birth attestation via env vars,
+        // emit it as a `birth_attestation:{substrate_id_prefix}` DAG node
+        // RIGHT AFTER `genesis_event`. The three env vars must all be
+        // present + valid hex; partial / malformed env vars are TOLERATED
+        // (substrate boots without birth attestation, C20 will fire on
+        // subsequent boots flagging the chain as broken).
+        if let Some((attested_bytes, signature, owner_pubkey)) = read_birth_attestation_env_vars()
+        {
+            let now_unix_ns = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .ok()
+                .and_then(|d| i64::try_from(d.as_nanos()).ok())
+                .unwrap_or(0);
+            let ba_node_type =
+                crate::events::birth_attestation_node_type(&state.manifest.substrate_id);
+            let ba_content = crate::events::encode_birth_attestation(
+                &attested_bytes,
+                &signature,
+                &owner_pubkey,
+                now_unix_ns,
+            );
+            let _ = emit_substrate_event(&mut state, ba_node_type, ba_content);
+            let _ = save_dag_state(&state);
+        }
+    }
+
+    // **M-anchor-2 §9.2.1 C20 boot-time verification**.
+    //
+    // On EVERY boot (not just fresh genesis), scan the DAG for the
+    // birth_attestation event matching this substrate_id; verify its
+    // signature against the embedded owner pubkey. Failure → C20
+    // `genesis_attestation_chain_broken` immune sporocarp.
+    //
+    // Absence is observed too: if the substrate has run for ≥1 cycle and
+    // no birth_attestation event is present, fire C20 with evidence
+    // "birth_attestation missing" — this catches the case where the
+    // genesis env vars were absent at first boot.
+    {
+        let expected_node_type =
+            crate::events::birth_attestation_node_type(&state.manifest.substrate_id);
+        let ba_node = state
+            .dag
+            .iter_in_insertion_order()
+            .find(|n| n.node_type == expected_node_type)
+            .cloned();
+        let c20_evidence: Option<String> = match ba_node {
+            None => {
+                // Tolerate absence on truly-fresh substrates (cycle 0); only
+                // fire if the substrate has lived past genesis without an
+                // attestation having been emitted at any point.
+                if state.manifest.cycle_counter > 0 {
+                    Some(format!(
+                        "birth_attestation event missing for substrate_id={} (M-anchor-2 §9.2.1)",
+                        hex_first_8_bytes(&state.manifest.substrate_id)
+                    ))
+                } else {
+                    None
+                }
+            }
+            Some(node) => {
+                match crate::events::decode_birth_attestation(node.content_canonical_bytes.as_ref())
+                {
+                    None => Some(format!(
+                        "birth_attestation decode failed for substrate_id={}",
+                        hex_first_8_bytes(&state.manifest.substrate_id)
+                    )),
+                    Some((attested_bytes, signature, owner_pubkey)) => {
+                        use myco_kernel_shared::crypto::verify_signature;
+                        match verify_signature(&owner_pubkey, &signature, &attested_bytes) {
+                            Ok(()) => None,
+                            Err(e) => Some(format!(
+                                "birth_attestation signature failed verify for \
+                                 substrate_id={}: {e}",
+                                hex_first_8_bytes(&state.manifest.substrate_id)
+                            )),
+                        }
+                    }
+                }
+            }
+        };
+        if let Some(evidence) = c20_evidence {
+            let _ = emit_immune_sporocarp(
+                &mut state,
+                "C20_genesis_attestation_chain_broken",
+                "genesis_attestation_chain_broken",
+                &evidence,
+            );
+            let _ = save_dag_state(&state);
+        }
     }
 
     // M12: C9 cold_resume_invariant_failure — run comprehensive integrity

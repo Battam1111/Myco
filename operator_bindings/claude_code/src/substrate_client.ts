@@ -203,9 +203,29 @@ export class SubstrateClient {
     const signingInput = helloSigningBody(sessionSecret, operatorPubkey);
     const helloSignature = await identity.sign(signingInput);
 
+    // **M-anchor-2 §9.2.1 birth attestation injection**.
+    //
+    // If this looks like a FRESH substrate (no MYCO_STATE_DIR override OR
+    // an explicitly-empty state dir), pre-generate substrate_id +
+    // genesis_time, request a birth attestation from anchor_surface_host
+    // via OperatorIdentity, and pass all values to the substrate as env
+    // vars. The substrate's Manifest::genesis path honors
+    // MYCO_SUBSTRATE_ID_OVERRIDE_HEX + MYCO_GENESIS_TIME_OVERRIDE_UNIX_NS;
+    // server.rs honors MYCO_BIRTH_ATTESTATION_* and emits the DAG event
+    // right after genesis_event.
+    //
+    // For PRE-EXISTING substrates (state dir already has manifest.cb),
+    // skipping injection is correct: the birth_attestation event is
+    // already in their DAG, and substrate-side C20 verifier re-checks it
+    // on every boot regardless.
+    const birthAttestationEnv = await maybeBuildBirthAttestationEnv(
+      identity,
+      config.env?.MYCO_STATE_DIR,
+    );
+
     const child = spawn(binary, [], {
       stdio: ["pipe", "pipe", "inherit"],
-      env: { ...process.env, ...config.env },
+      env: { ...process.env, ...config.env, ...birthAttestationEnv },
     });
 
     const client = new SubstrateClient(child, sessionSecret);
@@ -1072,4 +1092,75 @@ function _toHex(bytes: Uint8Array): string {
   let s = "";
   for (const b of bytes) s += b.toString(16).padStart(2, "0");
   return s;
+}
+
+/**
+ * **M-anchor-2 §9.2.1**: if the target state_dir looks fresh, pre-generate
+ * `substrate_id` + `genesis_time_unix_ns`, request a birth attestation from
+ * anchor_surface_host via the OperatorIdentity's underlying
+ * AnchorSurfaceClient, and produce the env-var triple the substrate's
+ * `read_birth_attestation_env_vars` helper expects.
+ *
+ * For PRE-EXISTING substrates (state dir has manifest.cb), returns `{}` so
+ * the substrate's existing birth_attestation event (already in its DAG)
+ * stays authoritative. Substrate-side C20 verifier re-checks on every boot.
+ */
+async function maybeBuildBirthAttestationEnv(
+  identity: OperatorIdentity,
+  stateDirOverride: string | undefined,
+): Promise<Record<string, string>> {
+  // Detect fresh substrate: state_dir doesn't yet contain manifest.cb.
+  // If no override, the substrate uses its default dir (~/.myco/substrate/default);
+  // we conservatively skip injection because we can't easily detect freshness
+  // without inspecting the default path (and the default path may not exist
+  // for first-time installs — but those are rare; auto-injection there can
+  // happen via a future explicit `--bootstrap` flag).
+  if (!stateDirOverride) return {};
+  const { existsSync } = await import("node:fs");
+  const { resolve: rp } = await import("node:path");
+  const manifestPath = rp(stateDirOverride, "manifest.cb");
+  const dagPath = rp(stateDirOverride, "dag.cb");
+  if (existsSync(manifestPath) || existsSync(dagPath)) {
+    // Substrate already exists — its DAG already carries (or doesn't carry)
+    // a birth_attestation event; C20 will verify or fire accordingly. Don't
+    // re-inject (would double-emit or clobber).
+    return {};
+  }
+
+  // Fresh substrate. Pre-generate substrate_id + genesis_time, request
+  // attestation, return env triple.
+  const { randomBytes: rb } = await import("node:crypto");
+  const substrateId = new Uint8Array(rb(32));
+  const genesisTsNs = BigInt(Date.now()) * 1_000_000n;
+  // Spore schema hash: M-anchor-2 minimum uses a placeholder hash. Future
+  // M-anchor-2.5 will compute over the canonical-bytes of the initial
+  // axis schema + sporocarp type tree per L1_SCHEMA §3.1. Placeholder is
+  // a deterministic hash of the substrate_id so two substrates with
+  // different IDs get different placeholders (defeats trivial duplication).
+  const { createHash } = await import("node:crypto");
+  const sporeSchemaHash = new Uint8Array(
+    createHash("sha256").update(substrateId).update("placeholder_spore_v1").digest(),
+  );
+  // Anchor endpoint pubkey: per L0 §9.5 (v0.9 anchor collapsed to operator
+  // process), this equals the owner pubkey.
+  const anchorEndpointPubkey = identity.publicKeyBytes();
+
+  // identity wraps an AnchorSurfaceClient; expose birthAttest via a
+  // thin pass-through. The TS OperatorIdentity hides the inner client to
+  // keep its private-by-default contract clean, so we round-trip via a
+  // public helper that we'll add next.
+  const result = await identity.birthAttest({
+    substrateId,
+    genesisTimestampUnixNs: genesisTsNs,
+    sporeSchemaHash,
+    anchorEndpointPubkey,
+  });
+
+  return {
+    MYCO_SUBSTRATE_ID_OVERRIDE_HEX: _toHex(substrateId),
+    MYCO_GENESIS_TIME_OVERRIDE_UNIX_NS: genesisTsNs.toString(),
+    MYCO_BIRTH_ATTESTATION_BYTES_HEX: _toHex(result.attestedCanonicalBytes),
+    MYCO_BIRTH_ATTESTATION_SIGNATURE_HEX: _toHex(result.signature),
+    MYCO_BIRTH_ATTESTATION_OWNER_PUBKEY_HEX: _toHex(result.ownerPubkey),
+  };
 }

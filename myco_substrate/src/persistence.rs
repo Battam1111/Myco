@@ -507,9 +507,49 @@ impl Manifest {
     /// Generate a fresh genesis manifest with a random substrate_id and
     /// current wall-clock time.
     pub fn genesis() -> Self {
+        // **M-anchor-2 §9.2.1 hook**: allow the operator process to override
+        // both `substrate_id` and `genesis_time_unix_ns` via env vars. This
+        // is what makes birth attestation possible: operator pre-generates
+        // both values, requests a birth_attestation from anchor_surface_host
+        // (which signs them), then spawns the substrate with those exact
+        // values + the resulting attestation env vars (per
+        // `server::read_birth_attestation_env_vars`).
+        //
+        // Without these overrides, substrate-generated values still work —
+        // it just means the substrate boots without a birth attestation
+        // (C20 fires on subsequent boots flagging the chain as broken).
+        //
+        // Env var contract:
+        // - `MYCO_SUBSTRATE_ID_OVERRIDE_HEX`: 64 hex chars = 32 bytes.
+        // - `MYCO_GENESIS_TIME_OVERRIDE_UNIX_NS`: i64 decimal.
+        let substrate_id = match std::env::var("MYCO_SUBSTRATE_ID_OVERRIDE_HEX") {
+            Ok(s) if s.len() == 64 => {
+                let mut arr = [0u8; 32];
+                let mut ok = true;
+                for i in 0..32 {
+                    match u8::from_str_radix(&s[i * 2..i * 2 + 2], 16) {
+                        Ok(b) => arr[i] = b,
+                        Err(_) => {
+                            ok = false;
+                            break;
+                        }
+                    }
+                }
+                if ok {
+                    arr
+                } else {
+                    generate_substrate_id()
+                }
+            }
+            _ => generate_substrate_id(),
+        };
+        let genesis_time = match std::env::var("MYCO_GENESIS_TIME_OVERRIDE_UNIX_NS") {
+            Ok(s) => s.parse::<i64>().unwrap_or_else(|_| current_unix_ns()),
+            _ => current_unix_ns(),
+        };
         Manifest {
-            substrate_id: generate_substrate_id(),
-            genesis_time_unix_ns: current_unix_ns(),
+            substrate_id,
+            genesis_time_unix_ns: genesis_time,
             cycle_counter: 0,
             last_save_time_unix_ns: current_unix_ns(),
             last_absorbed_cycle: None,

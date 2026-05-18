@@ -210,6 +210,258 @@ fn e2e_owner_seed_hex_override_yields_deterministic_pubkey() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+// ---------------------------------------------------------------------------
+// **M-anchor-2 + M-anchor-3** — anchor surface stage-1 RPCs.
+//
+// BirthAttest (§9.2.1): L0 §9.3 5-tuple signed by owner pubkey.
+// GenerateAnchorNonce (§9.2.5): freshness marker with TTL.
+// GetAnchorWallClock (§9.2.6): authoritative time for time-bound defenses.
+// Heartbeat (§9.2.7): owner liveness proof for successor activation gate.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn m_anchor_2_birth_attest_signature_verifies_against_owner_pubkey() {
+    use anchor_surface_host::protocol::birth_attestation_canonical_bytes;
+
+    let dir = fresh_dir();
+    let seed_hex = "cd".repeat(32);
+    let (mut child, port) = spawn_host(&dir, Some(&seed_hex));
+    let mut stream = connect(port);
+
+    let substrate_id = [0x11u8; 32];
+    let genesis_ts: i64 = 1_700_000_000_000_000_000;
+    let spore_hash = [0x22u8; 32];
+    // Anchor endpoint pubkey: per L0 §9.5 collapsed to owner pubkey in v0.9.
+    let owner_pk = match send_request(&mut stream, Request::GetPubkey) {
+        Response::Pubkey { pubkey } => pubkey,
+        other => panic!("expected Pubkey, got {other:?}"),
+    };
+    let anchor_endpoint_pk = owner_pk;
+
+    let resp = send_request(
+        &mut stream,
+        Request::BirthAttest {
+            substrate_id,
+            genesis_timestamp_unix_ns: genesis_ts,
+            spore_schema_hash: spore_hash,
+            anchor_endpoint_pubkey: anchor_endpoint_pk,
+        },
+    );
+    let (sig, owner_pubkey_returned, attested_bytes) = match resp {
+        Response::BirthAttestation {
+            signature,
+            owner_pubkey,
+            attested_canonical_bytes,
+        } => (signature, owner_pubkey, attested_canonical_bytes),
+        other => panic!("expected BirthAttestation, got {other:?}"),
+    };
+    // Returned owner pubkey must match the one we queried separately.
+    assert_eq!(owner_pubkey_returned, owner_pk);
+    // Signature verifies against the returned canonical-bytes.
+    verify_signature(&owner_pubkey_returned, &sig, &attested_bytes)
+        .expect("birth attestation signature must verify");
+    // Independent reconstruction must produce byte-identical attested bytes.
+    let reconstructed = birth_attestation_canonical_bytes(
+        &substrate_id,
+        genesis_ts,
+        &spore_hash,
+        &owner_pk,
+        &anchor_endpoint_pk,
+    );
+    assert_eq!(
+        attested_bytes, reconstructed,
+        "attested_canonical_bytes must match independent reconstruction (determinism)"
+    );
+    // Tampered 5-tuple field must invalidate the signature.
+    let mut wrong_substrate_id = substrate_id;
+    wrong_substrate_id[0] ^= 0xff;
+    let wrong_bytes = birth_attestation_canonical_bytes(
+        &wrong_substrate_id,
+        genesis_ts,
+        &spore_hash,
+        &owner_pk,
+        &anchor_endpoint_pk,
+    );
+    assert!(
+        verify_signature(&owner_pubkey_returned, &sig, &wrong_bytes).is_err(),
+        "tampered substrate_id must invalidate signature"
+    );
+
+    drop(stream);
+    let _ = child.kill();
+    let _ = child.wait();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn m_anchor_3_generate_anchor_nonce_signature_verifies_and_has_distinct_nonces() {
+    use anchor_surface_host::protocol::anchor_nonce_canonical_bytes;
+
+    let dir = fresh_dir();
+    let seed_hex = "ef".repeat(32);
+    let (mut child, port) = spawn_host(&dir, Some(&seed_hex));
+    let mut stream = connect(port);
+
+    let owner_pk = match send_request(&mut stream, Request::GetPubkey) {
+        Response::Pubkey { pubkey } => pubkey,
+        other => panic!("expected Pubkey, got {other:?}"),
+    };
+
+    let mk_nonce = |s: &mut TcpStream| match send_request(
+        s,
+        Request::GenerateAnchorNonce { ttl_seconds: 60 },
+    ) {
+        Response::AnchorNonce {
+            nonce,
+            anchor_timestamp_unix_ns,
+            expiry_unix_ns,
+            signature,
+        } => (nonce, anchor_timestamp_unix_ns, expiry_unix_ns, signature),
+        other => panic!("expected AnchorNonce, got {other:?}"),
+    };
+
+    let (n1, t1, e1, s1) = mk_nonce(&mut stream);
+    let (n2, t2, e2, s2) = mk_nonce(&mut stream);
+
+    // 1. Both signatures verify against the owner pubkey + canonical bytes.
+    let bytes1 = anchor_nonce_canonical_bytes(&n1, t1, e1);
+    let bytes2 = anchor_nonce_canonical_bytes(&n2, t2, e2);
+    verify_signature(&owner_pk, &s1, &bytes1).expect("anchor nonce #1 sig must verify");
+    verify_signature(&owner_pk, &s2, &bytes2).expect("anchor nonce #2 sig must verify");
+
+    // 2. Two successive calls produce distinct nonces.
+    assert_ne!(n1, n2, "successive anchor nonces must differ");
+
+    // 3. Expiry = issued_at + ttl_seconds * 1e9.
+    assert_eq!(e1 - t1, 60_000_000_000_i64);
+
+    // 4. ttl_seconds clamps to [1, 3600].
+    let resp = send_request(&mut stream, Request::GenerateAnchorNonce { ttl_seconds: 0 });
+    let (_n, t_zero, e_zero, _s) = match resp {
+        Response::AnchorNonce {
+            nonce,
+            anchor_timestamp_unix_ns,
+            expiry_unix_ns,
+            signature,
+        } => (nonce, anchor_timestamp_unix_ns, expiry_unix_ns, signature),
+        other => panic!("expected AnchorNonce, got {other:?}"),
+    };
+    assert_eq!(
+        e_zero - t_zero,
+        1_000_000_000_i64,
+        "ttl_seconds=0 must clamp up to 1"
+    );
+
+    let resp = send_request(
+        &mut stream,
+        Request::GenerateAnchorNonce {
+            ttl_seconds: 999_999,
+        },
+    );
+    let (_n, t_big, e_big, _s) = match resp {
+        Response::AnchorNonce {
+            nonce,
+            anchor_timestamp_unix_ns,
+            expiry_unix_ns,
+            signature,
+        } => (nonce, anchor_timestamp_unix_ns, expiry_unix_ns, signature),
+        other => panic!("expected AnchorNonce, got {other:?}"),
+    };
+    assert_eq!(
+        e_big - t_big,
+        3600_000_000_000_i64,
+        "ttl_seconds=999_999 must clamp down to 3600"
+    );
+
+    drop(stream);
+    let _ = child.kill();
+    let _ = child.wait();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn m_anchor_3_get_anchor_wall_clock_signature_verifies_and_advances() {
+    use anchor_surface_host::protocol::anchor_wallclock_canonical_bytes;
+
+    let dir = fresh_dir();
+    let seed_hex = "33".repeat(32);
+    let (mut child, port) = spawn_host(&dir, Some(&seed_hex));
+    let mut stream = connect(port);
+
+    let owner_pk = match send_request(&mut stream, Request::GetPubkey) {
+        Response::Pubkey { pubkey } => pubkey,
+        other => panic!("expected Pubkey, got {other:?}"),
+    };
+
+    let read_clock = |s: &mut TcpStream| match send_request(s, Request::GetAnchorWallClock) {
+        Response::AnchorWallClock {
+            anchor_timestamp_unix_ns,
+            signature,
+        } => (anchor_timestamp_unix_ns, signature),
+        other => panic!("expected AnchorWallClock, got {other:?}"),
+    };
+
+    let (t1, s1) = read_clock(&mut stream);
+    // Wait a tiny bit to guarantee t2 > t1 even on very fast systems.
+    std::thread::sleep(Duration::from_millis(2));
+    let (t2, s2) = read_clock(&mut stream);
+
+    // 1. Both signatures verify.
+    let bytes1 = anchor_wallclock_canonical_bytes(t1);
+    let bytes2 = anchor_wallclock_canonical_bytes(t2);
+    verify_signature(&owner_pk, &s1, &bytes1).expect("wall clock #1 sig verify");
+    verify_signature(&owner_pk, &s2, &bytes2).expect("wall clock #2 sig verify");
+
+    // 2. Monotone forward (t2 > t1).
+    assert!(t2 > t1, "anchor wall clock must advance: got t1={t1}, t2={t2}");
+
+    drop(stream);
+    let _ = child.kill();
+    let _ = child.wait();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn m_anchor_3_heartbeat_signature_verifies_and_nonces_are_distinct() {
+    use anchor_surface_host::protocol::anchor_heartbeat_canonical_bytes;
+
+    let dir = fresh_dir();
+    let seed_hex = "44".repeat(32);
+    let (mut child, port) = spawn_host(&dir, Some(&seed_hex));
+    let mut stream = connect(port);
+
+    let owner_pk = match send_request(&mut stream, Request::GetPubkey) {
+        Response::Pubkey { pubkey } => pubkey,
+        other => panic!("expected Pubkey, got {other:?}"),
+    };
+
+    let heartbeat = |s: &mut TcpStream| match send_request(s, Request::Heartbeat) {
+        Response::HeartbeatResponse {
+            anchor_timestamp_unix_ns,
+            heartbeat_nonce,
+            signature,
+        } => (anchor_timestamp_unix_ns, heartbeat_nonce, signature),
+        other => panic!("expected HeartbeatResponse, got {other:?}"),
+    };
+
+    let (t1, n1, s1) = heartbeat(&mut stream);
+    let (t2, n2, s2) = heartbeat(&mut stream);
+
+    // 1. Both signatures verify.
+    let bytes1 = anchor_heartbeat_canonical_bytes(t1, &n1);
+    let bytes2 = anchor_heartbeat_canonical_bytes(t2, &n2);
+    verify_signature(&owner_pk, &s1, &bytes1).expect("heartbeat #1 sig verify");
+    verify_signature(&owner_pk, &s2, &bytes2).expect("heartbeat #2 sig verify");
+
+    // 2. Nonces distinct (freshness guarantee).
+    assert_ne!(n1, n2, "heartbeat nonces must differ across calls");
+
+    drop(stream);
+    let _ = child.kill();
+    let _ = child.wait();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 #[test]
 fn e2e_port_discovery_file_written() {
     let dir = fresh_dir();
