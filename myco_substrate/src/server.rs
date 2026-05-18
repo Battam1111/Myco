@@ -1050,6 +1050,16 @@ pub fn run_loop() -> Result<u8, SubstrateError> {
         let _ = save_dag_state(&state);
     }
 
+    // **M-anchor-4 §9.3.4**: emit invariant_witness:{check_id} DAG events
+    // for each integrity check (regardless of pass/fail). The witnesses
+    // give the owner raw inputs to re-derive each check's verdict
+    // independently — substrate "does NOT emit pass/fail" per doctrine.
+    let witnesses_emitted =
+        crate::integrity::emit_invariant_witnesses(&mut state, &integrity_results);
+    if witnesses_emitted > 0 {
+        let _ = save_dag_state(&state);
+    }
+
     // M23.1: spawn stdin reader thread. The reader thread blocks on
     // `read_frame(stdin)` and ships frames to the main loop via mpsc. The
     // main loop uses `recv_timeout(tick_interval)` so that idle periods

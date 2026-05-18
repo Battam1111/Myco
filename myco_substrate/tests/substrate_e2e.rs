@@ -3412,6 +3412,199 @@ fn m26_3_compression_invariant_set_seed_covers_p10_b_categories() {
 }
 
 // ---------------------------------------------------------------------------
+// **M-anchor-4 §9.3.4 witnesses-not-verdicts + §9.3.5 anchor-nonce sampling**.
+//
+// Substrate must emit `invariant_witness:{check_id}` events alongside the
+// existing immune-emission pipeline. Witnesses carry raw inputs so the
+// owner can re-derive pass/fail independently. The substrate "does NOT
+// emit pass/fail" per doctrine — the witness is the contract.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn m_anchor_4_invariant_witnesses_emitted_at_boot_for_each_tier_1_check() {
+    // Boot a fresh substrate; integrity checks run as part of boot. Verify
+    // the DAG carries one `invariant_witness:{check_id}` event per check
+    // with structured inputs (placeholder owner_keys_consistency is excluded).
+    let (mut client, _dir) = spawn_substrate();
+    let resp = client
+        .call(
+            proto::QUERY_RECENT_NODES,
+            build_payload(vec![
+                ("count", CbValue::Uint(50)),
+                (
+                    "node_type_prefix",
+                    CbValue::String("invariant_witness:".to_string()),
+                ),
+            ]),
+        )
+        .expect("query recent");
+    let nodes = match resp.payload.get("nodes") {
+        Some(CbValue::Array(a)) => a.clone(),
+        _ => panic!("nodes missing"),
+    };
+    assert!(
+        !nodes.is_empty(),
+        "boot must emit invariant_witness:* events"
+    );
+
+    // Collect all witness node_types — expect at least the five with
+    // structured inputs (substrate_id, cycle_monotonic, dag_verify,
+    // canonical_bytes_drift, orphan_detected). pinned_pubkey_well_formed
+    // is conditional on pinned identity (absent pre-handshake); owner_keys
+    // is a placeholder (no inputs → no witness emission).
+    let mut emitted_check_ids: Vec<String> = Vec::new();
+    for n in &nodes {
+        if let CbValue::Map(m) = n {
+            if let Some(CbValue::String(nt)) = m.get("node_type") {
+                if let Some(check_id) = nt.strip_prefix("invariant_witness:") {
+                    emitted_check_ids.push(check_id.to_string());
+                }
+            }
+        }
+    }
+    for expected in &[
+        "substrate_id_well_formed",
+        "cycle_counter_monotonic",
+        "dag_verify_all",
+        "canonical_bytes_render_drift",
+        "substrate_state_orphan_detected",
+    ] {
+        assert!(
+            emitted_check_ids.iter().any(|id| id == expected),
+            "missing witness for check_id={expected}; saw: {emitted_check_ids:?}"
+        );
+    }
+    client.shutdown().expect("shutdown");
+}
+
+#[test]
+fn m_anchor_4_invariant_witness_inputs_decode_and_carry_substrate_id() {
+    // Pick the substrate_id_well_formed witness; decode its `inputs` field;
+    // assert the inputs Map contains the actual substrate_id (so owner can
+    // re-check non-zero offline).
+    let (mut client, _dir) = spawn_substrate();
+    let resp = client
+        .call(
+            proto::QUERY_RECENT_NODES,
+            build_payload(vec![
+                ("count", CbValue::Uint(50)),
+                (
+                    "node_type_prefix",
+                    CbValue::String("invariant_witness:substrate_id_well_formed".to_string()),
+                ),
+            ]),
+        )
+        .expect("query recent");
+    let nodes = match resp.payload.get("nodes") {
+        Some(CbValue::Array(a)) => a.clone(),
+        _ => panic!("nodes missing"),
+    };
+    assert!(!nodes.is_empty(), "substrate_id witness must be present");
+    let first = match &nodes[0] {
+        CbValue::Map(m) => m.clone(),
+        _ => panic!(),
+    };
+    let content = match first.get("content_canonical_bytes") {
+        Some(CbValue::Bytes(b)) => b.clone(),
+        _ => panic!("content_canonical_bytes missing"),
+    };
+    // Decode the outer witness envelope.
+    let outer = myco_kernel_shared::canonical_bytes::decode(&content).expect("witness decodes");
+    let outer_map = match outer {
+        CbValue::Map(m) => m,
+        _ => panic!("witness is not a Map"),
+    };
+    // Sanity-check the standard fields.
+    match outer_map.get("check_id") {
+        Some(CbValue::String(s)) => assert_eq!(s, "substrate_id_well_formed"),
+        _ => panic!("check_id missing"),
+    }
+    match outer_map.get("tier") {
+        Some(CbValue::String(s)) => assert_eq!(s, "tier_1"),
+        _ => panic!("tier missing"),
+    }
+    // Decode the inner `inputs` canonical-bytes; must contain substrate_id.
+    let inputs_bytes = match outer_map.get("inputs") {
+        Some(CbValue::Bytes(b)) => b.clone(),
+        _ => panic!("inputs missing"),
+    };
+    let inputs_v =
+        myco_kernel_shared::canonical_bytes::decode(&inputs_bytes).expect("inputs decode");
+    let inputs_map = match inputs_v {
+        CbValue::Map(m) => m,
+        _ => panic!(),
+    };
+    let id_bytes = match inputs_map.get("substrate_id") {
+        Some(CbValue::Bytes(b)) => b.clone(),
+        _ => panic!("substrate_id field missing from inputs"),
+    };
+    assert_eq!(id_bytes.len(), 32, "substrate_id must be 32 bytes");
+    // Owner re-check: non-zero.
+    assert!(
+        id_bytes.iter().any(|b| *b != 0),
+        "substrate_id should be non-zero on a fresh substrate"
+    );
+    client.shutdown().expect("shutdown");
+}
+
+#[test]
+fn m_anchor_4_anchor_nonce_derived_sampling_is_deterministic() {
+    use myco_substrate::events::anchor_nonce_derived_sample_indices;
+    let nonce = [0xa5u8; 32];
+    let leaf_count: u64 = 100;
+    let k = 10;
+    let s1 = anchor_nonce_derived_sample_indices(&nonce, leaf_count, k);
+    let s2 = anchor_nonce_derived_sample_indices(&nonce, leaf_count, k);
+    assert_eq!(s1, s2, "same inputs must yield identical sample indices");
+    assert_eq!(s1.len(), k, "k samples returned");
+    // All indices in [0, leaf_count).
+    for idx in &s1 {
+        assert!(*idx < leaf_count, "index {idx} >= leaf_count {leaf_count}");
+    }
+    // Different nonce → different indices (overwhelmingly).
+    let other_nonce = [0x5au8; 32];
+    let s3 = anchor_nonce_derived_sample_indices(&other_nonce, leaf_count, k);
+    assert_ne!(s1, s3, "different nonce must produce different sample set");
+    // leaf_count=0 → empty
+    let s_empty = anchor_nonce_derived_sample_indices(&nonce, 0, k);
+    assert!(s_empty.is_empty());
+    // k=0 → empty
+    let s_zero_k = anchor_nonce_derived_sample_indices(&nonce, leaf_count, 0);
+    assert!(s_zero_k.is_empty());
+    // k > 1024 → clamps to 1024
+    let s_clamp = anchor_nonce_derived_sample_indices(&nonce, leaf_count, 5000);
+    assert_eq!(s_clamp.len(), 1024, "k clamped to 1024");
+}
+
+#[test]
+fn m_anchor_4_witness_decode_helper_roundtrip() {
+    use myco_substrate::events::{
+        decode_invariant_witness, encode_invariant_witness,
+    };
+    let inputs_bytes = vec![1u8, 2, 3, 4, 5];
+    let nonce = vec![0xa1u8; 32];
+    let sig = vec![0x77u8; 64];
+    let encoded = encode_invariant_witness(
+        "dag_verify_all",
+        "tier_1",
+        42,
+        1_700_000_000_000_000_000,
+        &inputs_bytes,
+        &nonce,
+        &sig,
+    );
+    let (cid, tier, at_cycle, at_unix_ns, inputs_out, nonce_out, sig_out) =
+        decode_invariant_witness(encoded.as_ref()).expect("decodes");
+    assert_eq!(cid, "dag_verify_all");
+    assert_eq!(tier, "tier_1");
+    assert_eq!(at_cycle, 42);
+    assert_eq!(at_unix_ns, 1_700_000_000_000_000_000);
+    assert_eq!(inputs_out, inputs_bytes);
+    assert_eq!(nonce_out, nonce);
+    assert_eq!(sig_out, sig);
+}
+
+// ---------------------------------------------------------------------------
 // **M-anchor-2 §9.2.1** birth attestation — substrate-side wiring tests.
 //
 // These don't talk to the anchor_surface_host (those tests live in the

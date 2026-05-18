@@ -1327,16 +1327,32 @@ describe("SubstrateClient e2e", () => {
           "3 sporocarp events should survive restart",
         );
         const fullPost = await client2.queryRecentNodes(50n);
+        // **M-anchor-4 §9.3.4**: every boot emits `invariant_witness:*` events
+        // for tier-1 integrity checks (per-cycle witness emission with cycle
+        // dedup; first session emitted them at cycle 0, second session emits
+        // fresh witnesses at cycle 3 since the cycle counter advanced). Count
+        // ONLY the persistent (pre-M-anchor-4) event types to assert
+        // identical-content-survives-restart semantics.
+        const witnessCountPost = fullPost.nodes.filter((n) =>
+          n.nodeType.startsWith("invariant_witness:"),
+        ).length;
+        const witnessCountPre = fullPre.nodes.filter((n) =>
+          n.nodeType.startsWith("invariant_witness:"),
+        ).length;
+        const stableSizePre =
+          Number(totalDagPre) - witnessCountPre;
+        const stableSizePost =
+          Number(fullPost.totalDagSize) - witnessCountPost;
         assert.equal(
-          fullPost.totalDagSize,
-          totalDagPre,
-          "full DAG size (incl. init events) should survive restart",
+          stableSizePost,
+          stableSizePre,
+          `non-witness DAG size should survive restart; pre=${stableSizePre}, post=${stableSizePost}, totalPre=${totalDagPre}, totalPost=${fullPost.totalDagSize}`,
         );
-        assert.deepEqual(
-          fullPost.dagTip,
-          tip1,
-          "DAG tip should match pre-restart tip",
-        );
+        // dagTip CAN change (session 2 may have emitted fresh witnesses), so
+        // we no longer assert tip equality here — the persistent state check
+        // above is the real durability assertion. `tip1` referenced for
+        // documentation only.
+        void tip1;
       } finally {
         await client2.shutdown();
       }

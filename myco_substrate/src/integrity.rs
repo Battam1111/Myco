@@ -18,17 +18,35 @@
 use std::collections::BTreeMap;
 
 use myco_kernel_bridge::protocol::{msg_type, Message};
-use myco_kernel_shared::canonical_bytes::Value;
+use myco_kernel_shared::canonical_bytes::{encode as cb_encode, Value};
 
-use crate::server::{emit_immune_sporocarp, hex_encode, hex_first_8_bytes, save_dag_state, ServerState};
+use crate::server::{
+    emit_immune_sporocarp, emit_substrate_event, hex_encode, hex_first_8_bytes, save_dag_state,
+    ServerState,
+};
 use crate::SubstrateError;
 
 /// M12: Result of one integrity check (C9 cold_resume_invariant_failure sub-check).
+///
+/// **M-anchor-4 §9.3.4**: extended with `witness_inputs_canonical_bytes`, the
+/// raw inputs the owner re-feeds into the canonical check. The substrate
+/// itself does not emit pass/fail per doctrine §9.3.4; the `passed` field
+/// remains for backward-compat with the immune-emission pipeline (which fires
+/// on detected failures) but the witness emission path treats it as
+/// substrate's CLAIM only — owner verifies independently.
 #[derive(Debug, Clone)]
 pub(crate) struct IntegrityCheckResult {
     pub(crate) check_id: String,
     pub(crate) passed: bool,
     pub(crate) evidence: String,
+    /// **M-anchor-4**: witness inputs (canonical-bytes Map encoding the raw
+    /// check inputs). Empty `Vec` if the check has no structured inputs
+    /// worth witnessing (e.g., placeholder owner_keys_consistency deferred
+    /// to Python path).
+    pub(crate) witness_inputs_canonical_bytes: Vec<u8>,
+    /// **M-anchor-4**: which doctrine tier this check belongs to per
+    /// L1_SCHEMA §4.1. Owner uses to route verification.
+    pub(crate) tier: &'static str,
 }
 
 /// M12: Run the substrate's comprehensive integrity checks ad-hoc.
@@ -78,6 +96,14 @@ pub(crate) fn handle_run_immune_check(
         save_dag_state(state)?;
     }
 
+    // **M-anchor-4 §9.3.4**: ALSO emit invariant_witness:{check_id} events
+    // for each check (regardless of pass/fail) so the owner can re-derive
+    // the verdict from the raw inputs.
+    let witnesses_emitted = emit_invariant_witnesses(state, &results);
+    if witnesses_emitted > 0 {
+        save_dag_state(state)?;
+    }
+
     // Build response payload: per-check results.
     let check_values: Vec<Value> = results
         .iter()
@@ -123,7 +149,19 @@ pub(crate) fn run_integrity_checks(state: &ServerState) -> Vec<IntegrityCheckRes
     let mut results = Vec::new();
 
     // 1. substrate_id well-formed.
+    // **M-anchor-4**: witness inputs = {substrate_id: Bytes(32)}. Owner re-checks
+    // by asserting non-zero.
     let substrate_id_zero = state.manifest.substrate_id.iter().all(|b| *b == 0);
+    let witness_inputs_substrate_id = {
+        let mut m = BTreeMap::new();
+        m.insert(
+            "substrate_id".to_string(),
+            Value::Bytes(state.manifest.substrate_id.to_vec()),
+        );
+        cb_encode(&Value::Map(m))
+            .map(|cb| cb.0)
+            .unwrap_or_default()
+    };
     results.push(IntegrityCheckResult {
         check_id: "substrate_id_well_formed".to_string(),
         passed: !substrate_id_zero,
@@ -132,9 +170,13 @@ pub(crate) fn run_integrity_checks(state: &ServerState) -> Vec<IntegrityCheckRes
         } else {
             "ok".to_string()
         },
+        witness_inputs_canonical_bytes: witness_inputs_substrate_id,
+        tier: "tier_1",
     });
 
     // 2. Cycle counter monotonic against DAG at_cycle.
+    // **M-anchor-4**: witness inputs = {manifest_cycle, max_dag_cycle}. Owner
+    // re-checks manifest_cycle >= max_dag_cycle.
     let max_dag_cycle = state
         .dag
         .iter_in_insertion_order()
@@ -142,6 +184,20 @@ pub(crate) fn run_integrity_checks(state: &ServerState) -> Vec<IntegrityCheckRes
         .max()
         .unwrap_or(0);
     let monotonic = state.manifest.cycle_counter >= max_dag_cycle;
+    let witness_inputs_cycle_monotonic = {
+        let mut m = BTreeMap::new();
+        m.insert(
+            "manifest_cycle_counter".to_string(),
+            Value::Uint(state.manifest.cycle_counter),
+        );
+        m.insert(
+            "max_dag_at_cycle".to_string(),
+            Value::Uint(max_dag_cycle),
+        );
+        cb_encode(&Value::Map(m))
+            .map(|cb| cb.0)
+            .unwrap_or_default()
+    };
     results.push(IntegrityCheckResult {
         check_id: "cycle_counter_monotonic".to_string(),
         passed: monotonic,
@@ -156,11 +212,24 @@ pub(crate) fn run_integrity_checks(state: &ServerState) -> Vec<IntegrityCheckRes
                 state.manifest.cycle_counter, max_dag_cycle
             )
         },
+        witness_inputs_canonical_bytes: witness_inputs_cycle_monotonic,
+        tier: "tier_1",
     });
 
     // 3. Pinned pubkey well-formed (if exists).
+    // **M-anchor-4**: witness inputs = {pinned_pubkey: Bytes(32)}.
     if let Some(pinned) = &state.pinned_operator_identity {
         let zero = pinned.pubkey.iter().all(|b| *b == 0);
+        let witness_inputs_pinned_pk = {
+            let mut m = BTreeMap::new();
+            m.insert(
+                "pinned_operator_pubkey".to_string(),
+                Value::Bytes(pinned.pubkey.to_vec()),
+            );
+            cb_encode(&Value::Map(m))
+                .map(|cb| cb.0)
+                .unwrap_or_default()
+        };
         results.push(IntegrityCheckResult {
             check_id: "pinned_pubkey_well_formed".to_string(),
             passed: !zero,
@@ -169,11 +238,35 @@ pub(crate) fn run_integrity_checks(state: &ServerState) -> Vec<IntegrityCheckRes
             } else {
                 "ok (32 non-zero bytes)".to_string()
             },
+            witness_inputs_canonical_bytes: witness_inputs_pinned_pk,
+            tier: "tier_1",
         });
     }
 
     // 4. DAG.verify_all() — every node's hash recomputes correctly.
+    // **M-anchor-4 §9.3.5**: witness inputs include {node_count, dag_tip_hash}.
+    // For tier-2 sampled re-verification (deferred), the owner will derive
+    // sample indices via `anchor_nonce_derived_sample_indices` and pull
+    // (hash, parent_hashes, content_hash) tuples for those indices via the
+    // existing enumerate_dag_since RPC. The witness here is the SUFFICIENT
+    // INPUT for the owner to know which leaves to sample + check.
     let dag_verify = state.dag.verify_all();
+    let witness_inputs_dag_verify = {
+        let mut m = BTreeMap::new();
+        m.insert(
+            "node_count".to_string(),
+            Value::Uint(state.dag.node_count() as u64),
+        );
+        let tip_bytes = state
+            .dag
+            .tip()
+            .map(|t| t.as_ref().to_vec())
+            .unwrap_or_default();
+        m.insert("dag_tip_hash".to_string(), Value::Bytes(tip_bytes));
+        cb_encode(&Value::Map(m))
+            .map(|cb| cb.0)
+            .unwrap_or_default()
+    };
     results.push(IntegrityCheckResult {
         check_id: "dag_verify_all".to_string(),
         passed: dag_verify.is_ok(),
@@ -184,6 +277,8 @@ pub(crate) fn run_integrity_checks(state: &ServerState) -> Vec<IntegrityCheckRes
             ),
             Err(e) => format!("dag_verify_all failed: {e}"),
         },
+        witness_inputs_canonical_bytes: witness_inputs_dag_verify,
+        tier: "tier_1",
     });
 
     // 5. owner_keys consistency check is operator-side: we can only verify the
@@ -193,11 +288,15 @@ pub(crate) fn run_integrity_checks(state: &ServerState) -> Vec<IntegrityCheckRes
     //    validation happens implicitly when the first CI mutation is submitted
     //    (signature verification will fail if Python's owner_keys diverges from
     //    Rust's pinned pubkey).
+    // **M-anchor-4**: this check is a placeholder at the Rust layer; no
+    // structured witness inputs.
     results.push(IntegrityCheckResult {
         check_id: "owner_keys_consistency".to_string(),
         passed: true,
         evidence: "deferred to Python load_state path; CI mutation signatures cross-validate"
             .to_string(),
+        witness_inputs_canonical_bytes: Vec::new(),
+        tier: "tier_1",
     });
 
     // 6. M19 P9 皮肤 / L1_HARD_RULES C18 canonical_bytes_render_drift:
@@ -273,6 +372,31 @@ pub(crate) fn run_integrity_checks(state: &ServerState) -> Vec<IntegrityCheckRes
         .iter_in_insertion_order()
         .filter(|n| is_substrate_generated(&n.node_type))
         .count();
+    // **M-anchor-4**: witness inputs = {substrate_generated_count, drift_count,
+    // dag_tip_hash}. Owner re-runs the round-trip on the SAME node set to
+    // verify substrate's claim. For full re-verification, owner uses
+    // enumerate_dag_since to fetch substrate-generated nodes' content_bytes
+    // and replays decode+encode.
+    let witness_inputs_cb_drift = {
+        let mut m = BTreeMap::new();
+        m.insert(
+            "substrate_generated_count".to_string(),
+            Value::Uint(substrate_generated_count as u64),
+        );
+        m.insert(
+            "drift_count".to_string(),
+            Value::Uint(cb_drift_count as u64),
+        );
+        let tip_bytes = state
+            .dag
+            .tip()
+            .map(|t| t.as_ref().to_vec())
+            .unwrap_or_default();
+        m.insert("dag_tip_hash".to_string(), Value::Bytes(tip_bytes));
+        cb_encode(&Value::Map(m))
+            .map(|cb| cb.0)
+            .unwrap_or_default()
+    };
     results.push(IntegrityCheckResult {
         check_id: "canonical_bytes_render_drift".to_string(),
         passed: cb_drift_count == 0,
@@ -285,6 +409,8 @@ pub(crate) fn run_integrity_checks(state: &ServerState) -> Vec<IntegrityCheckRes
                 format!("{cb_drift_count} nodes drift; no specific example captured")
             })
         },
+        witness_inputs_canonical_bytes: witness_inputs_cb_drift,
+        tier: "tier_1",
     });
 
     // 7. M21.1 P5 万物互联 / L1_HARD_RULES C19 substrate_state_orphan_detected:
@@ -299,13 +425,107 @@ pub(crate) fn run_integrity_checks(state: &ServerState) -> Vec<IntegrityCheckRes
     //    Python-owned state (gradient, owner_keys) is deferred to M21.3 when
     //    Python becomes a derived-view consumer.
     let (orphan_passed, orphan_evidence) = check_substrate_state_orphans(state);
+    // **M-anchor-4**: witness inputs = {substrate_id, manifest_cycle, dag_node_count}.
+    // Owner re-runs DerivedState::from_dag and compares against these values.
+    let witness_inputs_orphan = {
+        let mut m = BTreeMap::new();
+        m.insert(
+            "substrate_id".to_string(),
+            Value::Bytes(state.manifest.substrate_id.to_vec()),
+        );
+        m.insert(
+            "manifest_cycle_counter".to_string(),
+            Value::Uint(state.manifest.cycle_counter),
+        );
+        m.insert(
+            "dag_node_count".to_string(),
+            Value::Uint(state.dag.node_count() as u64),
+        );
+        cb_encode(&Value::Map(m))
+            .map(|cb| cb.0)
+            .unwrap_or_default()
+    };
     results.push(IntegrityCheckResult {
         check_id: "substrate_state_orphan_detected".to_string(),
         passed: orphan_passed,
         evidence: orphan_evidence,
+        witness_inputs_canonical_bytes: witness_inputs_orphan,
+        tier: "tier_1",
     });
 
     results
+}
+
+/// **M-anchor-4 §9.3.4**: emit `invariant_witness:{check_id}` DAG events
+/// for each integrity check result. Witnesses are emitted REGARDLESS of
+/// pass/fail per doctrine — the substrate provides raw inputs; the owner
+/// re-derives. The immune-sporocarp path (which fires on detected failures)
+/// is preserved separately.
+///
+/// **Per-cycle dedup**: this function skips emission for any check_id that
+/// already has a witness at the current `manifest.cycle_counter`. Without
+/// this dedup, repeated reboots at the same cycle (e.g., from operator
+/// restart on a persisted state_dir) would inflate the DAG with duplicate
+/// witnesses. Owner-side reconstruction only cares about the LATEST
+/// witness per (cycle, check_id), so the dedup is doctrinally safe.
+///
+/// Called from boot AND from `handle_run_immune_check`.
+pub(crate) fn emit_invariant_witnesses(
+    state: &mut ServerState,
+    results: &[IntegrityCheckResult],
+) -> u64 {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let at_cycle = state.manifest.cycle_counter;
+    let at_unix_ns = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .ok()
+        .and_then(|d| i64::try_from(d.as_nanos()).ok())
+        .unwrap_or(0);
+
+    // Per-cycle dedup: gather set of (check_id) for which a witness already
+    // exists at current cycle. Walk DAG once.
+    let mut already_witnessed: std::collections::BTreeSet<String> =
+        std::collections::BTreeSet::new();
+    for node in state.dag.iter_in_insertion_order() {
+        if node.created_at_cycle != at_cycle {
+            continue;
+        }
+        if let Some(check_id) = node
+            .node_type
+            .strip_prefix(crate::events::NODE_TYPE_INVARIANT_WITNESS_PREFIX)
+        {
+            already_witnessed.insert(check_id.to_string());
+        }
+    }
+
+    let mut count: u64 = 0;
+    for result in results {
+        if result.witness_inputs_canonical_bytes.is_empty() {
+            // No structured inputs — skip emission (e.g., owner_keys_consistency
+            // placeholder).
+            continue;
+        }
+        if already_witnessed.contains(&result.check_id) {
+            // Same cycle, already witnessed — skip.
+            continue;
+        }
+        let body = crate::events::encode_invariant_witness(
+            &result.check_id,
+            result.tier,
+            at_cycle,
+            at_unix_ns,
+            &result.witness_inputs_canonical_bytes,
+            // M-anchor-4 tier-1: no anchor-nonce sampling yet (tier-1 checks
+            // don't sample). Tier-2 checks (M-anchor-4.5+) will fill these.
+            &[],
+            &[],
+        );
+        let nt = crate::events::invariant_witness_node_type(&result.check_id);
+        if emit_substrate_event(state, nt, body).is_ok() {
+            count += 1;
+        }
+    }
+    count
 }
 
 /// M21.1: C19 detector. Reconciles in-memory ServerState (Rust-side fields)
