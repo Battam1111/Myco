@@ -14,9 +14,18 @@ Substrate is autopoietic (P1.a); no human in maintenance loop. Without observabi
 
 ---
 
-## §2. The Living Bets observatory (10 signals)
+## §2. The Living Bets observatory (10 signals + anticipated v3.1.1 additions)
 
 10 = **6 base + 3 cost + 1 composite**.
+
+> **v3.1.1 transition note (2026-05-19):** P07's amended reading + COV04 v2 + CHAR07 imply additional observability surfaces:
+> - **`internal_mortality_event_density_per_cycle`** — count of part-deaths per cycle; baseline expected > 0 under normal ingestion; sustained zero → `hoarding_indicator` (anticipated C54 per L1/HARD_RULES §1.4).
+> - **`false_positive_prune_rate`** — of parts pruned in cycle N, count resurrected (re-added with same canonical bytes) by cycle N+K; too-eager pruning failure mode.
+> - **`sycophancy_indicator`** — count of unwarranted agreements; rising trend = CHAR07 §5.2 character drift.
+> - **`capability_asymmetry_use_pattern`** — pattern (a) serves vs (b) coerces vs (c) feigns equality; per CHAR07 §8.2.
+> - **`cultivator_flourishing_correlation`** — qualitative; partner growth measured against cultivator's life outcomes.
+>
+> These are added to the observatory in v0.9.x housekeeping milestone alongside L1/HARD_RULES C54-C56 wiring.
 
 ### §2.1 Six base signals
 

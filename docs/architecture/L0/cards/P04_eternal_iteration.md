@@ -123,7 +123,7 @@ Count of detected attempts to modify past DAG node content. Should be zero; non-
 | **P02** | P02 + P04 = metabolism. Ingestion (P02) flows through iteration (P04) and drives evolution (P03). |
 | **P03** | Iteration may produce CI mutations (P03); rollback is an iteration outcome. |
 | **P06** | Eternity-clause P06 (causality) requires P04's monotone-forward cycle counter + no-retro-edit. |
-| **P07** | Bounded by P7: iteration ceases at death. Substrate that cannot stop iterating cannot die — both directions of the constraint matter. |
+| **P07** | **Two-fold interaction (v3.1.1).** (a) **Internal P07 happens inside each P04 cycle** — refinement IS old-being-replaced-by-improved per cycle; the 必朽 on 应朽 parts is the daily mechanism of "each moment refines what prior moments produced." (b) Whole-substrate P07 is P04's long-run boundary: iteration ceases at death. Both apply: P04 lives by internal P07; P04 ends at whole P07. |
 | **P10** | Compression is itself an iteration event, recorded as DAG event per §3.1. |
 | **P11** | Iteration is the cost. Cost budgets (F19) gate cycle cadence; saturation triggers P11.c. |
 
@@ -152,6 +152,7 @@ Count of detected attempts to modify past DAG node content. Should be zero; non-
 | 1 | 2025-11 | Introduced in L0 DRAFT 1. |
 | 1.1 | 2026-05-17 (M27) | Compression refactor. |
 | 2 | 2026-05-18 | v3.1 schema. §10.3 borderline made explicit (acknowledged debt about request-driven advance). |
+| **2.1** | **2026-05-19** | **v3.1.1 amendment. §9 P07 row expanded to express the two-fold interaction: internal P07 IS P04's per-cycle refinement mechanism, AND whole P07 bounds P04. The first sense was implicit before; now explicit.** |
 
 ## §12. Structural anchors + reverse-comment requirement
 

@@ -11,7 +11,7 @@ last_reframed: "2026-05-18"
 superseded_by: null
 deposit_immutable: false
 invariants_enforced: [I3, I4]
-interacts_with: [P04, P06, P10, P14, COV01]
+interacts_with: [P02, P04, P06, P07, P10, P14, COV01]
 chengyu_fragments: [B008_evolve_rollback_keep_self, B009_dead_if_static]
 canonical_dilemmas: [D-0004_failed_evolution_rollback_atomicity, D-0008_lexicon_change_under_CI]
 structural_anchors:
@@ -123,6 +123,7 @@ Every lexicon mutation MUST have an attached attestation event. Lexicon mutation
 | **P02** | P02 supplies ingestion; P03 metabolizes via structural change. Ingestion without evolution = §4.5 of P02 violation; evolution without ingestion = empty churn. |
 | **P04** | P04 says iteration is eternal; P03 says iteration may roll back. Together: forward motion, sometimes correcting. |
 | **P06** | P03 rollbacks must preserve causality — rollback is recorded, not erased. Eternity-clause P06 constrains P03's rollback shape. |
+| **P07** | **P03 evolution requires P07's permission to delete.** Old forms must die for new forms to take their place — evolution **IS** old-being-replaced-by-new. Without P07's 必朽 discipline on 应朽 parts, P03 cannot occur: accumulated past blocks future possibilities. P07 is structurally upstream of P03's mechanism. |
 | **P10** | P10 compression operates on *integrated* material; P03 rollback operates on *recent* mutations. They must not race. |
 | **I3 / I4** | P03 generates the rollback discipline that I3 + I4 verify. |
 
@@ -151,6 +152,7 @@ Every lexicon mutation MUST have an attached attestation event. Lexicon mutation
 | 1 | 2025-11 | Introduced in L0 DRAFT 1 with P3.b joint-context evolution sub-clause. |
 | 1.1 | 2026-05-17 (M27) | Compression refactor. |
 | 2 | 2026-05-18 | v3.1 schema with Deposit/Formulation split. |
+| **2.1** | **2026-05-19** | **v3.1.1 amendment. Added P02 + P07 to interacts_with + §9 interaction row for P07 (evolution requires permission to delete; P07 upstream of P03 mechanism). No deposit change.** |
 
 ## §12. Structural anchors + reverse-comment requirement
 

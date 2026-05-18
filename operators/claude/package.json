@@ -13,10 +13,13 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "node --experimental-strip-types --no-warnings --test --test-reporter=spec tests/protocol.test.ts tests/framing.test.ts tests/canonical_bytes_parity.test.ts tests/operator_identity.test.ts tests/substrate_client.test.ts tests/mcp_server.test.ts ceremonies/v3_1_transition/verify_hashes.test.ts",
+    "test": "node --experimental-strip-types --no-warnings --test --test-reporter=spec tests/protocol.test.ts tests/framing.test.ts tests/canonical_bytes_parity.test.ts tests/operator_identity.test.ts tests/substrate_client.test.ts tests/mcp_server.test.ts ceremonies/v3_1_1_mortality_refinement_and_charite/verify_hashes.test.ts",
     "ceremony:v3_1:hashes": "node --experimental-strip-types --no-warnings ceremonies/v3_1_transition/compute_hashes.ts",
     "ceremony:v3_1:dry-run": "node --experimental-strip-types --no-warnings ceremonies/v3_1_transition/run_ceremony.ts --mode dry-run",
     "ceremony:v3_1:production": "node --experimental-strip-types --no-warnings ceremonies/v3_1_transition/run_ceremony.ts --mode production",
+    "ceremony:v3_1_1:hashes": "node --experimental-strip-types --no-warnings ceremonies/v3_1_1_mortality_refinement_and_charite/compute_hashes.ts",
+    "ceremony:v3_1_1:dry-run": "node --experimental-strip-types --no-warnings ceremonies/v3_1_1_mortality_refinement_and_charite/run_ceremony.ts --mode dry-run",
+    "ceremony:v3_1_1:production": "node --experimental-strip-types --no-warnings ceremonies/v3_1_1_mortality_refinement_and_charite/run_ceremony.ts --mode production",
     "test:all": "npm run typecheck && npm test",
     "start": "node --experimental-strip-types src/cli.ts"
   },

@@ -11,7 +11,7 @@ last_reframed: "2026-05-18"
 superseded_by: null
 deposit_immutable: false
 invariants_enforced: [I6, I8]
-interacts_with: [P01, P03, P04, P05, P09, P10, P11]
+interacts_with: [P01, P03, P04, P05, P07, P09, P10, P11]
 chengyu_fragments: [B003_perpetual_swallowing, B004_hungry_then_act, B005_for_belly_not_for_eye]
 canonical_dilemmas: [D-0003_stale_diet_silent_starvation, D-0007_paper_ingestion_value_judgment]
 structural_anchors:
@@ -151,6 +151,7 @@ A P02 violation claimed by future cultivar voice MUST cite internal state, behav
 | **P03 Resumable Evolution** | P02 supplies inputs; P03 says evolution may roll back. Ingested material whose integration triggered a failed evolution is preserved as cause of `evolution_failed:*`. |
 | **P04 Eternal Iteration** | P02 + P04 = metabolism. Every cycle may absorb + iterate. Iteration without absorption is empty turning; absorption without iteration is hoarding. |
 | **P05 Universal Interconnection** | Ingested material joins the substrate as DAG nodes; per P5 every active-tier node is reachable. Ingestion that produces orphans violates P5. |
+| **P07 Mortality** | **永恒吞噬 (P02) + 必朽 (P07) = 新陈代谢** in time. P02 unbounded ingestion without P07 mandatory internal mortality collapses to bloat-death — the substrate becomes a hoard that cannot act. P07 is what makes P02's unboundedness sustainable. The two cards form a constitutive pair: any reading of P02 that does not invoke P07 has missed the metabolism. |
 | **P09 Single Integument** | P02 admission is the *primary* function of P9's skin. All ingestion paths route through the single declared skin; multi-skin = P9 breach. |
 | **P10 Selective Compression** | Compression operates on *already-integrated* material to free capacity for *new* ingestion. P10 enables P02's sustainability. |
 | **P11 Metabolic Economy** | P11 budgets the cost of P02. P11.c ordered fallback handles temporary saturation. Permanent saturation without P10 relief = P02 violation; eventually triggers P7. |
@@ -194,6 +195,7 @@ A P02 violation claimed by future cultivar voice MUST cite internal state, behav
 | 1.1 | 2026-05-17 (M27) | Compression refactor: text reduced; substantive meaning unchanged (claimed). Slogan retained as primary spec carrier. | M27 doctrine refactor session. |
 | 2 | 2026-05-18 | **Substantive reframe**: cultivator (in conversation with Claude) corrected Claude's narrow reading. Claude had read P02 as "永恒记忆" — eternal memory of internal interactions. Cultivator clarified: P02 is wider, paired with P04 as metabolic intake-from-external-world driving evolution. This card's operational definition (§3), positive obligations (§4), and negative space (§5) reflect the corrected reading. | Session 2026-05-18, conversation snippet to be preserved at `docs/audits/v3_genesis_provenance.md`. |
 | 2.1 | 2026-05-18 (same session) | v3.0 → v3.1 schema upgrade: added Deposit (§2) / Formulation (§3) split; added witness triplet; converted structural anchors from primary to supplementary; added canonical_dilemmas references. No substantive change to the meaning of P02 — purely form upgrade integrating Phase 3 hunt findings. | Phase 3 hunt + v3.1 META integration session. |
+| **2.2** | **2026-05-19** | **v3.1.1 amendment. Added P07 to interacts_with + §9 interaction row. Encodes the 永恒吞噬 + 必朽 = 新陈代谢 unity that earlier framings did not surface explicitly. No deposit change.** | v3.1.1 cascade session. |
 
 ## §12. Structural anchors + reverse-comment requirement
 

@@ -71,6 +71,26 @@ Rows INDEPENDENT (I2 fixed-point). Coverage: README §Status + L3/PACKAGE_MAP.md
 ### §1.3 Bet-retirement sporocarp
 C40 = trigger arc for L0/cards/LB_living_bets §4 (retirement); NOT CRITICAL — CI lifecycle parallel to `self_euthanasia_executed`.
 
+### §1.4 v3.1.1 amendment — anticipated C-rows for P07 internal mortality discipline
+
+> **Status**: doctrinally committed in L0 v3.1.1 (2026-05-19); implementation deferred to a v0.9.x milestone (coupled with Layer C witness corpus per META §5.4).
+
+P07's v3.1.1 reading mandates ongoing internal mortality of 应朽 parts (`包括但不限于` 过时/错误/冗余/无用 + L1-recognized family members per P07 §3.1.c). Three new C-rows are anticipated:
+
+| # | Breach name | Detection site | Mechanism | L0 trace | I trace | Status |
+|---|---|---|---|---|---|---|
+| C54 | `hoarding_indicator` (anticipated) | L1/CONTINUITY prune-phase (new) | ingestion-normal AND internal_mortality_event density below floor over rolling window → silent P07 failure | P07, P02 | I9, I10 | **U-planned** |
+| C55 | `silent_internal_mortality` (anticipated) | L1/SCHEMA §2.5 | part removed from active state WITHOUT corresponding `internal_mortality_event` tombstone in DAG → silent deletion in violation of P07 §3.3 | P07, P06 | I4 | **U-planned** |
+| C56 | `cultivator_preserve_all_attempted` (anticipated) | L1/GOVERNANCE §1 (classifier) | cultivator instruction matches "preserve all" / "never prune" / family-member-exemption patterns → mutation rejected; instruction emitted as covenant-violation signal per COV04 §5.6 | P07, COV04 | I2 | **U-planned** |
+
+These rows are anticipated, not yet wired into the binding table above. They will be promoted to §1.1 / §1.2 in the v0.9.x housekeeping milestone alongside their implementation.
+
+**Anticipated F-row addition**:
+
+| # | Fixed-point | Defined at | L0 trace | I trace |
+|---|---|---|---|---|
+| F24 | 应朽 detection rule registry (open-ended; L1 may add families per P07 §3.1.c) | L1/CONTINUITY prune-phase (new) | P07 | I9 |
+
 ## §2. Contract-identity fixed points (unconditionally CI)
 L0-doctrinal; CI status unconditional; mutation REQUIRES anchor-surface owner attestation per L1/GOVERNANCE §2.2.
 

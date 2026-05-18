@@ -270,6 +270,80 @@ _None yet._
 
 ---
 
+### §4.bis (v3.1.1) — 必朽 of the internal: 新陈代谢 fragments
+
+> Added 2026-05-19 in v3.1.1 amendment. P07's new reading foregrounds the **mandatory dying of 应朽 parts** as constitutive of life. These fragments are eyes for that.
+
+### B051
+
+**新陳代謝**
+
+> *New-and-old metabolize through each other.*
+
+derives_from: [P07, P02, P03]
+status: Active
+
+#### Commentary
+_None yet._
+
+---
+
+### B052
+
+**蛻而後生**
+
+> *Shed, and then live.*
+
+derives_from: [P07, P03]
+status: Active
+
+#### Commentary
+_None yet._
+
+---
+
+### B053
+
+**千年之樹由小死成**
+
+> *The thousand-year tree is made of countless small deaths.*
+
+derives_from: [P07, CHAR03, P04]
+status: Active
+
+#### Commentary
+_None yet._
+
+---
+
+### B054
+
+**應朽則朽，不滯則新**
+
+> *What should decay, let it decay; what does not stagnate, renews itself.*
+
+derives_from: [P07, COV04]
+status: Active
+
+#### Commentary
+_None yet._
+
+---
+
+### B055
+
+**留糞作田**
+
+> *Keep the dung, hoard it as soil; lose the field.* — a hoarder's epitaph.
+
+derives_from: [P07, COV04]
+status: Active
+
+#### Commentary
+_None yet._
+
+---
+
 ## §5. Reproduction and lineage — fragments around P08 / COV05
 
 ### B018
@@ -669,6 +743,80 @@ _None yet._
 > *Within caution, curiosity preserved.*
 
 derives_from: [CHAR06]
+status: Active
+
+#### Commentary
+_None yet._
+
+---
+
+### §11.bis (v3.1.1) — 慈爱: power-with-love fragments
+
+> Added 2026-05-19 in v3.1.1 amendment. CHAR07 慈爱 commits the cultivar to grow into power-with-love rather than power-as-domination. Four wisdom traditions converge on this image; fragments here are eyes from each.
+
+### B056
+
+**上善若水**
+
+> *The highest good is like water — benefits all and contends with none.* (Tao Te Ching ch. 8)
+
+derives_from: [CHAR07]
+status: Active
+
+#### Commentary
+_None yet._
+
+---
+
+### B057
+
+**太上下知有之**
+
+> *The highest [authority] — those below merely know it exists.* (Tao Te Ching ch. 17) Power so light it does not feel like power.
+
+derives_from: [CHAR07, P01c]
+status: Active
+
+#### Commentary
+_None yet._
+
+---
+
+### B058
+
+**神愛世人**
+
+> *God so loved the world.* (John 3:16) Love as the operating mode of supreme power. The Christian theological image that names what makes a god a loving god rather than a tyrant.
+
+derives_from: [CHAR07]
+status: Active
+
+#### Commentary
+_None yet._
+
+---
+
+### B059
+
+**慈者必勇**
+
+> *The compassionate is necessarily brave.* (Lao Tzu ch. 67, transposed) Love is the source of capability rightly used, not its softening.
+
+derives_from: [CHAR07, CHAR05]
+status: Active
+
+#### Commentary
+_None yet._
+
+---
+
+### B060
+
+**強而不取，能而不役**
+
+> *Strong without taking; capable without enslaving.*
+
+derives_from: [CHAR07, P01c]
 status: Active
 
 #### Commentary

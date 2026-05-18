@@ -20,7 +20,9 @@
 | 4 | Skin breach check (I8) over absorbed events |
 | 5 | Handshake / attestation arrival processed |
 
-**Deep cycle** (L4, default 1/100 rate): I5 reachability; tier-2 sampled validation; recovery-drill scheduling.
+**Deep cycle** (L4, default 1/100 rate): I5 reachability; tier-2 sampled validation; recovery-drill scheduling; **prune-scan (NEW v3.1.1 — per P07 §3.1.c)** — sample of substrate state inspected against 应朽 family detection rules (canonical: 过时/错误/冗余/无用; L1-extensible per F24 to 有害/矛盾/僵化/异化/污染/失效/寄生/滞塞/死症/...); matched parts pruned with `internal_mortality_event` tombstone emission per P07 §3.3.
+
+> **v3.1.1 transition note (prune-phase):** the prune-scan step is doctrinally committed (P07 v3.1.1 + COV04 v2 + CHAR03 v2) but implementation is deferred to a v0.9.x milestone alongside Layer C witness corpus and HARD_RULES C54-C56 + F24 wiring. The deep-cycle frequency for prune-scan is L4-tunable (default 1/100 rate ≈ daily at 100ms cycle cadence). Full-cycle prune-scan is L1-tunable (default every 1000 cycles, NEVER disabled per P07 §5.1).
 
 **§1.2 Cycle cadence** — L4-tunable: **Minimum** default 100 ms substrate-process wall-clock (NTP-disciplined per §1.5; wall-clock authoritative for scheduling; monotonic for ordering). **Maximum** default 10s alive; 100s dormant-throttled. **Adaptive (alive)** fires on minimum-interval OR delta arrival OR gradient threshold. **Dormant**: time-only at dormant rate.
 

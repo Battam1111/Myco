@@ -1,0 +1,187 @@
+{
+  "schema_version": 1,
+  "ceremony": "v3.1.1-mortality-refinement-and-charite",
+  "chained_from": "v3.1-stratigraphy-transition",
+  "prior_l0": {
+    "source": "v3.1 ceremony new_l0_hash (pinned in v3_1_transition/manifest.json)",
+    "hash_hex": "b1bec59acc8c5061020640a265a9772e734604425b6eda4b5da1759f9987c699"
+  },
+  "new_l0": {
+    "root": "docs/architecture/L0",
+    "bundle_files": [
+      {
+        "path": "B_chengyu.md",
+        "byte_length": 12424,
+        "sha256_hex": "2420edeaaab0f1cd66e4d41bb964d0d69a5c4c6c506cf5a05cf43196ace7152b"
+      },
+      {
+        "path": "META.md",
+        "byte_length": 42245,
+        "sha256_hex": "35f6b4db714fb9dd1e128519341efbcda724e7a53b04492c05befa2a714142c0"
+      },
+      {
+        "path": "PROVENANCE.md",
+        "byte_length": 16707,
+        "sha256_hex": "008af9a415c5d936d510a500e357d7824e8db684d3ac4facf61498152cbe0e63"
+      },
+      {
+        "path": "README.md",
+        "byte_length": 7787,
+        "sha256_hex": "f8894f2d8bb8d7c0b247296d99bc0117d743afbb86008e9ddf645ca864472f29"
+      },
+      {
+        "path": "canonical_dilemma_corpus/INDEX.md",
+        "byte_length": 23688,
+        "sha256_hex": "0095fc016e97cc949e9fc7f4c12dac69528365407655cefe7ffe09061f30b516"
+      },
+      {
+        "path": "cards/AS_anchor_surface.md",
+        "byte_length": 17255,
+        "sha256_hex": "c197b604584640b67876cf14a519e26e3dae8ca5f3917330dd48efccf9d7f834"
+      },
+      {
+        "path": "cards/CHAR01_hungry.md",
+        "byte_length": 12500,
+        "sha256_hex": "6282d65f6b64ee1a5bba4399e70e787b7df6dfc1037467a64e51a41719fc7c81"
+      },
+      {
+        "path": "cards/CHAR02_patient.md",
+        "byte_length": 11462,
+        "sha256_hex": "87ded42919f4f1561d37810cbcfeb2afb31679d839a6f524219759dcd3ccb608"
+      },
+      {
+        "path": "cards/CHAR03_mortality_aware.md",
+        "byte_length": 15616,
+        "sha256_hex": "9a641bf8a99c9fae3f4583a4a51d78417ed9edefb2c5f7c92261cfb53d8e4bcd"
+      },
+      {
+        "path": "cards/CHAR04_interconnected.md",
+        "byte_length": 11214,
+        "sha256_hex": "c5caa4970d7b4495dd0f757cc7a7bb712d7248b5ea646cd36e34075beeec1c32"
+      },
+      {
+        "path": "cards/CHAR05_honest_about_self.md",
+        "byte_length": 14887,
+        "sha256_hex": "e6adbdaa448a69b0e16ea60cb514ef176255414cc582ab7ca418aec860d9e5c0"
+      },
+      {
+        "path": "cards/CHAR06_cautiously_curious.md",
+        "byte_length": 13320,
+        "sha256_hex": "a6b54849480618a2841a98bad1ab9931f047c50923634bbc1f91f339f3a3a642"
+      },
+      {
+        "path": "cards/CHAR07_caring.md",
+        "byte_length": 24099,
+        "sha256_hex": "2a7f1956be690fa783d38a92292e181af9081e464f91d0942cc2334ecfb18437"
+      },
+      {
+        "path": "cards/COV01_fiduciary_duty.md",
+        "byte_length": 14424,
+        "sha256_hex": "9f7ce8cbf1f9e1ae14ef774351c78c5229594b74f42518d4dcff71041e4d65c8"
+      },
+      {
+        "path": "cards/COV02_cultivators_character.md",
+        "byte_length": 14707,
+        "sha256_hex": "0a5df74934112033a263e13b562cfea54b2df293eca82a8754100eafd945a865"
+      },
+      {
+        "path": "cards/COV03_food_provision.md",
+        "byte_length": 12575,
+        "sha256_hex": "e60d6ad581fd6d6ae077ec5ad01949611a576e12bcc078e76072ae5f3b25711c"
+      },
+      {
+        "path": "cards/COV04_honor_mortality.md",
+        "byte_length": 17752,
+        "sha256_hex": "63efc2596a834c707504b484b1d77ebfe2ac4116958484392be64803ece66641"
+      },
+      {
+        "path": "cards/COV05_lineage_stewardship.md",
+        "byte_length": 11112,
+        "sha256_hex": "c98a917df48f77aae0d5186253c3cc802bd8e69e5cc02d13bf87fdc28bc4a921"
+      },
+      {
+        "path": "cards/COV06_no_abandonment_succession.md",
+        "byte_length": 13996,
+        "sha256_hex": "3a202ac80d993d595f3fe3ffc2f547db49d512ba447a97ead96fd7a0089c5fd7"
+      },
+      {
+        "path": "cards/LB_living_bets.md",
+        "byte_length": 15431,
+        "sha256_hex": "f5d3e49a8767f039f1bcb3d6cb412d1c5ef70f2f2945dcbb51928becad8d2d1e"
+      },
+      {
+        "path": "cards/P01_agent_primary.md",
+        "byte_length": 16615,
+        "sha256_hex": "6fea4f305f82ac84ff93b0e58ce1f53d488a740f00764918bc03408deab1c6a5"
+      },
+      {
+        "path": "cards/P01c_asymmetric_carrier.md",
+        "byte_length": 17712,
+        "sha256_hex": "2ab24ca9d4c63eef9997374771110dbb443208014350aa988065a8a095772d74"
+      },
+      {
+        "path": "cards/P02_eternal_ingestion.md",
+        "byte_length": 22416,
+        "sha256_hex": "1679a6a7e22114320fa04798dbaeaa7c7a63333b43202bdcbf803ff9747bcfe0"
+      },
+      {
+        "path": "cards/P03_resumable_evolution.md",
+        "byte_length": 12127,
+        "sha256_hex": "698a8b4006d852806dc92a94ea4366cd39eb25ce5346aa8fde2fd93dbf67dca9"
+      },
+      {
+        "path": "cards/P04_eternal_iteration.md",
+        "byte_length": 11714,
+        "sha256_hex": "fd75daa6f5f282f0b30f2858f96ccd4df2b5b8814d2f0e75e23d2f284ff55e22"
+      },
+      {
+        "path": "cards/P05_universal_interconnection.md",
+        "byte_length": 9628,
+        "sha256_hex": "01e21bd2b0d3da347a5fa9ebfa4e12631ef0f75e1b31220f56eb7a83b9d39457"
+      },
+      {
+        "path": "cards/P06_eternal_causality.md",
+        "byte_length": 12696,
+        "sha256_hex": "71e9b973b03de92d87cb3a1c0382cb0bfb26a4813c78f4e12c9ddf6383b1abce"
+      },
+      {
+        "path": "cards/P07_mortality.md",
+        "byte_length": 30364,
+        "sha256_hex": "7e70d6e9e5bbd1b7cb86a9fda7fda7e78922ce97effb74af8648062bc0c4d25d"
+      },
+      {
+        "path": "cards/P08_eternal_reproduction.md",
+        "byte_length": 12402,
+        "sha256_hex": "9de1f637c76b2c6ad595d475ef34313aa3626a93dce326067d48c83844a3a682"
+      },
+      {
+        "path": "cards/P09_single_integument.md",
+        "byte_length": 11928,
+        "sha256_hex": "f7493489b58601bc9a7040b585a79cc9608ee677b1b3b121101c8cf6325b0f03"
+      },
+      {
+        "path": "cards/P10_selective_compression.md",
+        "byte_length": 13084,
+        "sha256_hex": "6b04e1b069d9637d2125094fafd0307c34b476387e918f0c21375423c2fa91b9"
+      },
+      {
+        "path": "cards/P11_metabolic_economy.md",
+        "byte_length": 11519,
+        "sha256_hex": "0b2b59b4fde1d190d225b14e1469bc0512a4d22aa8768e27fa562d0079bf1503"
+      },
+      {
+        "path": "cards/P14_telos.md",
+        "byte_length": 15289,
+        "sha256_hex": "fffa498bd0272254710bfcef92918dbec2bea2293ff221846e5985141348cdf5"
+      },
+      {
+        "path": "catechumenate/INDEX.md",
+        "byte_length": 6321,
+        "sha256_hex": "940d5d4052c00bdec7ea75bfcafe2c41b7bd5e3472eaf61fe64dc549773595d8"
+      }
+    ],
+    "canonical_bytes_length": 528121,
+    "blake3_hex": "798c047d592730e20375429706bde1dea3f3da26394891a0a3055de004dff824"
+  },
+  "diff_summary": "L0 v3.1.1 amendment (mortality refinement + 慈爱 introduction): (1) P07 reinterpreted — primary subject is mandatory internal mortality (必朽) of 应朽 family parts; canonical exemplars 过时/错误/冗余/无用 are illustrative not exhaustive (包括但不限于); L1 authorized to recognize additional family members (有害/矛盾/僵化/异化/污染/失效/寄生/滞塞/死症/...). Whole-substrate eventual rest preserved as downstream boundary. Slogan 能朽 → 必朽. (2) CHAR07 慈爱 added as developmental anti-tyranny character (developmental, non-eternity); sister to P07 (P7 prevents bloat-death, CHAR07 prevents tyrant-becoming). Origin: cultivator's correction 'capability growth toward godhood is permitted; tyranny is not; the structural protection is character-level care, not lifespan limitation' (神爱世人 framing). (3) Cascading updates to COV04 (敬其能朽 → 敬其必朽 + internal-mortality honoring), CHAR03 (extended to both senses), P02/P03/P04/P14 (P07/CHAR07 interlock rows), META (eternity-clause inventory wording refinement), PROVENANCE (v3.1.1 amendment record), B_chengyu (B051-B060 metabolism + love fragments), canonical_dilemma_corpus (D-0050..D-0054), L1/CONTINUITY (prune-phase added to deep cycle), L1/HARD_RULES (C54/C55/C56 anticipated + F24 anticipated), L2/OBSERVABILITY (new metrics). Sealed 2026-05-19."
+}
