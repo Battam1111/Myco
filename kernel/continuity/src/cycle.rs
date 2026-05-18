@@ -1,11 +1,11 @@
-//! Metabolic cycle engine (L1_CONTINUITY §1).
+//! Metabolic cycle engine (L1/CONTINUITY §1).
 //!
 //! ## Doctrine
 //!
-//! Per L1_CONTINUITY §1.1: each cycle has 5 steps:
+//! Per L1/CONTINUITY §1.1: each cycle has 5 steps:
 //!
-//! 1. **Tier-1 invariant checks** (L1_SCHEMA §4.1).
-//! 2. **Gradient configuration advances** (L1_TROPISM, or equivalent under
+//! 1. **Tier-1 invariant checks** (L1/SCHEMA §4.1).
+//! 2. **Gradient configuration advances** (L1/TROPISM, or equivalent under
 //!    chosen dispatch).
 //! 3. **Deltas absorbed** atomically; sporocarps emitted; DAG commits with
 //!    new tip-hash.
@@ -51,7 +51,7 @@ pub enum CycleError {
     },
 
     /// Cycle execution timeout: a step took longer than the cycle budget.
-    /// Sustained backlog triggers `cycle_backlog` (L1_CONTINUITY §1.2).
+    /// Sustained backlog triggers `cycle_backlog` (L1/CONTINUITY §1.2).
     #[error("cycle timeout: step {step} exceeded budget")]
     Timeout {
         /// Which step timed out.
@@ -62,13 +62,13 @@ pub enum CycleError {
 /// Identifier for each step in the 5-step metabolic cycle.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum CycleStep {
-    /// Step 1: tier-1 invariant checks per L1_SCHEMA §4.1.
+    /// Step 1: tier-1 invariant checks per L1/SCHEMA §4.1.
     Tier1Invariants,
-    /// Step 2: gradient configuration advance per L1_TROPISM.
+    /// Step 2: gradient configuration advance per L1/TROPISM.
     GradientAdvance,
     /// Step 3: delta absorption + sporocarp emission + DAG commit.
     DeltaAbsorption,
-    /// Step 4: skin breach check (I8) per L1_HARD_RULES C-row family.
+    /// Step 4: skin breach check (I8) per L1/HARD_RULES C-row family.
     SkinBreachCheck,
     /// Step 5: skin handshake / attestation arrival processing.
     HandshakeAttestation,
@@ -89,13 +89,13 @@ impl std::fmt::Display for CycleStep {
 
 /// Step traits — caller-supplied implementations of the 5 cycle steps.
 ///
-/// Step 1: tier-1 invariant checks per L1_SCHEMA §4.1.
+/// Step 1: tier-1 invariant checks per L1/SCHEMA §4.1.
 pub trait Tier1Validator {
     /// Run tier-1 invariant checks; returns `Err` on any failure.
     fn validate_tier1(&mut self) -> Result<(), String>;
 }
 
-/// Step 2: appetite gradient advance per L1_TROPISM.
+/// Step 2: appetite gradient advance per L1/TROPISM.
 pub trait GradientAdvancer {
     /// Advance the substrate's appetite gradient state for one cycle.
     fn advance_gradient(&mut self) -> Result<(), String>;
@@ -154,11 +154,11 @@ pub struct CycleReport {
 
 /// Configuration for the cycle engine.
 ///
-/// Per L1_CONTINUITY §1.2: cycle cadence is L4-tunable. M3 ships in-memory
+/// Per L1/CONTINUITY §1.2: cycle cadence is L4-tunable. M3 ships in-memory
 /// engine; M4+ adds the cadence-dispatch loop (wall-clock timer).
 #[derive(Debug, Clone)]
 pub struct CycleConfig {
-    /// Backlog threshold per L1_CONTINUITY §1.2 default 10.
+    /// Backlog threshold per L1/CONTINUITY §1.2 default 10.
     pub backlog_threshold: u32,
 }
 
@@ -200,7 +200,7 @@ impl CycleEngine {
         self.backlog_count
     }
 
-    /// Whether the substrate is currently in a backlog state per L1_CONTINUITY §1.2.
+    /// Whether the substrate is currently in a backlog state per L1/CONTINUITY §1.2.
     pub fn is_backlogged(&self) -> bool {
         self.backlog_count >= self.config.backlog_threshold
     }
@@ -212,7 +212,7 @@ impl CycleEngine {
     /// DAG-tip remains the substrate's authoritative state. Returns a
     /// [`CycleError::StepFailed`] identifying which step failed.
     ///
-    /// The atomicity guarantee (L1_CONTINUITY §1.1) requires that the
+    /// The atomicity guarantee (L1/CONTINUITY §1.1) requires that the
     /// caller's [`DeltaAbsorber`] implements its own WAL + rollback for
     /// step 3 (see [`crate::wal`]). M3 engine does not directly own the
     /// WAL; it orchestrates the steps.

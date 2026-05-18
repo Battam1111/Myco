@@ -220,7 +220,7 @@ def _apply_modify_axis_threshold(
 
     axis = gradient.get_axis(diff.axis_name)  # raises AxisNotFound if missing
     # I3 invariant: mortality_signal threshold is unconditionally CI per
-    # L1_HARD_RULES F7 + L0 P7 mortality-signal protection (per pass-1
+    # L1/HARD_RULES F7 + L0 P7 mortality-signal protection (per pass-1
     # mycoparasite-14). M17 CI gating already enforces this; we just don't
     # block here (the F-row watchdog will fire if rule changes).
     old_threshold = axis.schema.fruiting_threshold

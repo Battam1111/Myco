@@ -1,10 +1,14 @@
+> **L0 doctrine reference (v3.1 transition note)**: this document was written against the prior monolithic L0 (DRAFT 9 SEALED, 2026-05-17). The canonical L0 doctrine is now `docs/architecture/L0/` (v3.1-stratigraphy, 2026-05-18). References in this document using the old `L0 §x.y` / `P2.a` / `I3` notation resolve to v3.1 cards via `docs/architecture/L0/PROVENANCE.md` §2 mapping table. Surgical update of these references to v3.1 citation form is deferred to a v0.9.x housekeeping pass (coupled with Layer C witness corpus implementation per META §5.4) — see `docs/architecture/OUTLINE.md` §3 for details.
+
+---
+
 # Federation — Recursive Injection Defense
 
-Canonical algorithm reference for **L2_FEDERATION §11** (SECURITY-CRITICAL).
+Canonical algorithm reference for **L2/FEDERATION §11** (SECURITY-CRITICAL).
 
 ## Why required
 
-Without this defense, L2_FEDERATION §9.4 allowlist is bypassable via recursive nesting: the allowlist applies only to the OUTERMOST inner `node_type`. An attacker can smuggle a banned inner via nested `federation_received:` wrappers (matches own prefix → layered laundry).
+Without this defense, L2/FEDERATION §9.4 allowlist is bypassable via recursive nesting: the allowlist applies only to the OUTERMOST inner `node_type`. An attacker can smuggle a banned inner via nested `federation_received:` wrappers (matches own prefix → layered laundry).
 
 ## Attack
 
@@ -50,7 +54,7 @@ Per-peer rate-limit (seed 3 rejections / 24 wall-clock hours) → `federation_pe
 
 | ID | Name | P-cov | I-cov | Detector | Semantics |
 |---|---|---|---|---|---|
-| C43 | `federation_recursive_injection` | P9 + P15.guard | I8 | `myco_substrate/src/server.rs` (M27) | Depth exceeded; outermost rejected; `attempted_depth + peer_substrate_id` |
+| C43 | `federation_recursive_injection` | P9 + P15.guard | I8 | `substrate/src/server.rs` (M27) | Depth exceeded; outermost rejected; `attempted_depth + peer_substrate_id` |
 
 C43 vs C35: C35 = banned-type-at-some-depth; C43 = depth-exhaustion.
 

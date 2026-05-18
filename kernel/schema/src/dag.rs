@@ -1,19 +1,19 @@
-//! Causal DAG — content-addressed Merkle storage (L1_SCHEMA §2).
+//! Causal DAG — content-addressed Merkle storage (L1/SCHEMA §2).
 //!
 //! ## Doctrine
 //!
-//! Per L1_SCHEMA §2.1: **content-addressed Merkle DAG**. Each node carries a
+//! Per L1/SCHEMA §2.1: **content-addressed Merkle DAG**. Each node carries a
 //! hash that incorporates parent-hashes; node ID = node hash. The substrate's
 //! identity record carries the current DAG-tip hash.
 //!
-//! Hash function: BLAKE3 (chosen at kernel/shared per L1_SCHEMA §2.1
+//! Hash function: BLAKE3 (chosen at kernel/shared per L1/SCHEMA §2.1
 //! candidates; parallelizable + modern). The merkle_hash function in
 //! kernel/shared::crypto includes a **parent-count length prefix** preventing
 //! ambiguity attacks between `(N parents, M-byte content)` and
 //! `(N+1 parents, (M - parent_hash_size)-byte content)` collisions
-//! (per pass-3 mycoparasite-2 + L1_HARD_RULES C6/C7).
+//! (per pass-3 mycoparasite-2 + L1/HARD_RULES C6/C7).
 //!
-//! ## Enumerated-node export (L0 §9.2 + L1_HARD_RULES C6)
+//! ## Enumerated-node export (L0 §9.2 + L1/HARD_RULES C6)
 //!
 //! Per L0 §9.2: at every contract-identity-level boundary crossing, the
 //! substrate emits the **enumerated list of all DAG node hashes added since
@@ -24,7 +24,7 @@
 //!
 //! The [`Dag::enumerate_since`] method produces this list.
 //!
-//! ## Retro-edit detection (L1_HARD_RULES C7)
+//! ## Retro-edit detection (L1/HARD_RULES C7)
 //!
 //! Each node's hash is computed from `merkle_hash(parent_hashes,
 //! content_canonical_bytes)`. Any mutation to parent_hashes OR content
@@ -32,9 +32,9 @@
 //! the hash and detects tampering in-memory. Persistence-layer tampering
 //! detection (re-computation on cold-resume) is M2 via `kernel/continuity`.
 //!
-//! ## No-pruning discipline (L1_SCHEMA §2.5)
+//! ## No-pruning discipline (L1/SCHEMA §2.5)
 //!
-//! Per L1_SCHEMA §2.5: pruning is contract-identity-level. Daily ops cannot
+//! Per L1/SCHEMA §2.5: pruning is contract-identity-level. Daily ops cannot
 //! remove DAG nodes. The [`Dag`] struct intentionally provides NO `remove` /
 //! `prune` API at this layer — the absence is doctrinally load-bearing.
 //! Cold-tier archival (moving nodes off-host to long-term storage) is NOT
@@ -45,7 +45,7 @@
 //!
 //! In-memory HashMap-backed storage. Insertion order tracked via Vec for
 //! enumerate_since linear scan. M2 picks production storage layout from
-//! L1_SCHEMA §2.1 candidates: file-per-node / log+index / embedded KV.
+//! L1/SCHEMA §2.1 candidates: file-per-node / log+index / embedded KV.
 
 use myco_kernel_shared::canonical_bytes::CanonicalBytes;
 use myco_kernel_shared::crypto::{merkle_hash, NodeHash};
@@ -79,7 +79,7 @@ pub enum DagError {
 
     /// Retro-edit detected: stored node's recomputed hash differs from its
     /// stored hash. Triggers `dag_retro_edit_detected` immune sporocarp
-    /// (L1_HARD_RULES C7 CRITICAL).
+    /// (L1/HARD_RULES C7 CRITICAL).
     #[error("dag_retro_edit_detected: stored hash {stored:?} != recomputed {recomputed:?}")]
     RetroEditDetected {
         /// Hash stored on the node.
@@ -99,7 +99,7 @@ pub enum DagError {
 
 /// A DAG node — Merkle-addressed substrate-state event.
 ///
-/// Per L1_SCHEMA §2.2: the substrate emits at co-sign each node's metadata
+/// Per L1/SCHEMA §2.2: the substrate emits at co-sign each node's metadata
 /// (type, causal-parent-hashes) so the owner can recompute the chain.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DagNode {
@@ -112,9 +112,9 @@ pub struct DagNode {
     pub parent_hashes: Vec<NodeHash>,
 
     /// Node-type string (e.g., `"genesis"`, `"delta"`, `"sporocarp:<subtype>"`,
-    /// `"attestation"`). L1_SCHEMA does not enumerate the type set — types
-    /// originate at L1_TROPISM (sporocarp tree) + L1_SKIN (delta envelopes) +
-    /// L1_GOVERNANCE (attestation envelopes). M1 stores the type as an
+    /// `"attestation"`). L1/SCHEMA does not enumerate the type set — types
+    /// originate at L1/TROPISM (sporocarp tree) + L1/SKIN (delta envelopes) +
+    /// L1/GOVERNANCE (attestation envelopes). M1 stores the type as an
     /// opaque string; downstream kernel crates dispatch on it.
     pub node_type: String,
 
@@ -126,7 +126,7 @@ pub struct DagNode {
     pub content_canonical_bytes: CanonicalBytes,
 }
 
-/// Causal DAG storage — content-addressed Merkle DAG (L1_SCHEMA §2.1).
+/// Causal DAG storage — content-addressed Merkle DAG (L1/SCHEMA §2.1).
 ///
 /// ## M1 storage
 ///
@@ -141,11 +141,11 @@ pub struct Dag {
 
     /// Insertion order — Vec of hashes in the order they were inserted.
     /// Used by `enumerate_since` to produce the "added since prior co-sign"
-    /// list (L0 §9.2 + L1_HARD_RULES C6).
+    /// list (L0 §9.2 + L1/HARD_RULES C6).
     insertion_order: Vec<NodeHash>,
 
     /// Current tip hash (the last-inserted node's hash). `None` if empty.
-    /// Per L1_SCHEMA §2.1: substrate's identity record carries this.
+    /// Per L1/SCHEMA §2.1: substrate's identity record carries this.
     tip: Option<NodeHash>,
 }
 
@@ -234,12 +234,12 @@ impl Dag {
     /// Enumerate all node hashes added since the given `prev_tip`
     /// (or all nodes if `prev_tip` is `None`).
     ///
-    /// Per L0 §9.2 + L1_HARD_RULES C6: at every CI boundary the substrate
+    /// Per L0 §9.2 + L1/HARD_RULES C6: at every CI boundary the substrate
     /// emits this enumerated list to the anchor surface so the owner
     /// recomputes the Merkle chain from the prior signed tip.
     ///
     /// **Co-sign envelope construction**: this method returns only the
-    /// **hashes**. Per L1_SCHEMA §2.2, the co-sign envelope MUST also include
+    /// **hashes**. Per L1/SCHEMA §2.2, the co-sign envelope MUST also include
     /// each node's metadata (type + causal-parent-hashes). The caller is
     /// responsible for composing the enumeration with [`Dag::get`] for each
     /// hash to retrieve the full node payload before constructing the
@@ -273,7 +273,7 @@ impl Dag {
 
     /// Verify a stored node's hash by recomputing it.
     ///
-    /// Per L1_HARD_RULES C7 (`dag_retro_edit_detected`): if a node's stored
+    /// Per L1/HARD_RULES C7 (`dag_retro_edit_detected`): if a node's stored
     /// hash differs from `merkle_hash(parent_hashes, content_canonical_bytes)`,
     /// the node has been tampered with.
     ///
@@ -769,7 +769,7 @@ mod tests {
 
     #[test]
     fn test_verify_node_hash_detects_retro_edit() {
-        // Exercises the L1_HARD_RULES C7 dag_retro_edit_detected branch by
+        // Exercises the L1/HARD_RULES C7 dag_retro_edit_detected branch by
         // tampering the in-memory content WITHOUT updating the stored hash.
         let mut dag = Dag::new();
         let h = dag

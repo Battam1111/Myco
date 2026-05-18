@@ -1,8 +1,8 @@
-//! Cold-resume protocol (L1_CONTINUITY §3 — canonical owner).
+//! Cold-resume protocol (L1/CONTINUITY §3 — canonical owner).
 //!
 //! ## Doctrine
 //!
-//! Per L1_CONTINUITY §3.1: before accepting an operator handshake on a
+//! Per L1/CONTINUITY §3.1: before accepting an operator handshake on a
 //! substrate in dormant or freshly-loaded state, the substrate runs:
 //!
 //! 1. I1 check: substrate-ID + owner-signature integrity.
@@ -97,9 +97,9 @@ pub struct CheckWitness {
 
 /// Full cold-resume report — a tuple of witnesses for all 5 checks.
 ///
-/// Per L1_CONTINUITY §3.1: these witnesses land in:
+/// Per L1/CONTINUITY §3.1: these witnesses land in:
 ///
-/// - The handshake-response envelope (per L1_SKIN §4.2 step 3
+/// - The handshake-response envelope (per L1/SKIN §4.2 step 3
 ///   substrate→operator attestation).
 /// - The anchor-surface inbound channel for owner-side audit.
 #[derive(Debug, Clone)]
@@ -172,7 +172,7 @@ pub struct ColdResumeCheckers<'a> {
 /// return a report.
 ///
 /// All 5 checks are run even if early ones fail (so the full witness
-/// tuple lands at the anchor surface for owner audit). Per L1_CONTINUITY
+/// tuple lands at the anchor surface for owner audit). Per L1/CONTINUITY
 /// §3.1: substrate emits evidence; owner determines the verdict.
 pub fn run_cold_resume(
     checkers: &mut ColdResumeCheckers,

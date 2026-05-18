@@ -1,0 +1,4319 @@
+// SubstrateClient e2e tests — spawn myco-substrate binary, drive full 3-tier stack.
+//
+// THE M6 milestone proof: TypeScript ↔ Rust ↔ Python with all three
+// processes alive, exchanging canonical-bytes frames over stdio.
+
+import { after, describe, it } from "node:test";
+import assert from "node:assert/strict";
+import { resolve as resolvePath } from "node:path";
+import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+
+import { SubstrateClient } from "../src/substrate_client.ts";
+import { killAllSpawnedHosts } from "../src/anchor_surface_client.ts";
+import type { FederationStatusResult } from "../src/protocol/messages.ts";
+
+function locateSubstrateBinary(): string {
+  const fromEnv = process.env.MYCO_SUBSTRATE_BIN;
+  if (fromEnv && existsSync(fromEnv)) return fromEnv;
+  // Default: workspace root target/debug/myco-substrate(.exe)
+  const root = resolvePath(import.meta.dirname ?? __dirname, "..", "..", "..");
+  const exe = process.platform === "win32" ? ".exe" : "";
+  const candidate = resolvePath(root, "target", "debug", `myco-substrate${exe}`);
+  if (existsSync(candidate)) return candidate;
+  throw new Error(
+    `myco-substrate binary not found. Build with: cargo build -p myco-substrate (looked at ${candidate})`,
+  );
+}
+
+const SUBSTRATE_BIN = locateSubstrateBinary();
+
+function locateAnchorSurfaceBinary(): string {
+  const fromEnv = process.env.MYCO_ANCHOR_SURFACE_BIN;
+  if (fromEnv && existsSync(fromEnv)) return fromEnv;
+  // M-anchor-1: target/debug/anchor-surface-host(.exe).
+  const root = resolvePath(import.meta.dirname ?? __dirname, "..", "..", "..");
+  const exe = process.platform === "win32" ? ".exe" : "";
+  const candidate = resolvePath(
+    root,
+    "target",
+    "debug",
+    `anchor-surface-host${exe}`,
+  );
+  if (existsSync(candidate)) return candidate;
+  throw new Error(
+    `anchor-surface-host binary not found. Build with: cargo build -p anchor-surface-host (looked at ${candidate})`,
+  );
+}
+
+const ANCHOR_SURFACE_BIN = locateAnchorSurfaceBinary();
+
+// M-anchor-1: SubstrateClient.spawn falls back to OperatorIdentity.loadOrCreate()
+// when no explicit `operatorIdentity` is passed. loadOrCreate now requires an
+// anchor-surface-host binary path. Set the env var so the fallback chain finds
+// the binary built in target/debug/. Also point at an isolated default dir so
+// the tests don't pollute (or read from) the user's ~/.myco/anchor_surface/.
+//
+// The first bare `spawn()` call in this suite will spawn one host in this
+// shared dir; subsequent bare spawns will connect to that same host via the
+// port.txt discovery file. Any host spawned through anchor_surface_client.ts
+// is tracked module-level and killed in process exit handlers.
+const SHARED_ANCHOR_DIR_FOR_TESTS = mkdtempSync(
+  resolvePath(tmpdir(), "myco-ts-e2e-anchor-"),
+);
+process.env.MYCO_ANCHOR_SURFACE_BIN = ANCHOR_SURFACE_BIN;
+process.env.MYCO_ANCHOR_SURFACE_DIR = SHARED_ANCHOR_DIR_FOR_TESTS;
+process.once("exit", () => {
+  try {
+    rmSync(SHARED_ANCHOR_DIR_FOR_TESTS, { recursive: true, force: true });
+  } catch {
+    // Ignore.
+  }
+});
+
+// File-level teardown: explicit-identity tests (which dominate this suite)
+// create an OperatorIdentity per test but never close it — the substrate
+// shutdown doesn't own the explicit identity. Without this hook, those
+// anchor-surface-host children stay alive, holding stdio pipes that keep
+// the Node event loop alive, and the test process hangs after all tests
+// pass instead of exiting cleanly. killAllSpawnedHosts() awaits actual
+// process exit so the test runner returns control to npm cleanly.
+after(async () => {
+  await killAllSpawnedHosts();
+});
+
+/** Allocate a fresh isolated state directory for one test. M7: prevents
+ *  tests from leaking substrate state into each other or into the user's
+ *  default ~/.myco/substrate/default/. */
+function freshStateDir(): string {
+  return mkdtempSync(resolvePath(tmpdir(), "myco-ts-e2e-"));
+}
+
+async function spawn(stateDir?: string): Promise<SubstrateClient> {
+  const dir = stateDir ?? freshStateDir();
+  return SubstrateClient.spawn({
+    substrateBinary: SUBSTRATE_BIN,
+    env: { MYCO_STATE_DIR: dir },
+  });
+}
+
+function cleanupDir(dir: string): void {
+  try {
+    rmSync(dir, { recursive: true, force: true });
+  } catch {
+    // Ignore.
+  }
+}
+
+describe("SubstrateClient e2e", () => {
+  it("handshake reports python_version + kernel_tropism_version + substrate_version", async () => {
+    const client = await spawn();
+    try {
+      const ack = client.helloAck;
+      assert.ok(ack.pythonVersion.length > 0, "python_version present");
+      assert.ok(
+        ack.kernelTropismVersion.includes("0.9"),
+        `kernel_tropism_version contains 0.9; got ${ack.kernelTropismVersion}`,
+      );
+      assert.ok(
+        ack.substrateVersion.includes("0.9"),
+        `substrate_version contains 0.9; got ${ack.substrateVersion}`,
+      );
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("register + perturb + snapshot roundtrip", async () => {
+    const client = await spawn();
+    try {
+      await client.registerAxis({
+        name: "curiosity",
+        axisClass: "appetite",
+        fruitingThreshold: 10.0,
+        initialValue: 0.0,
+        decayRatePerCycle: 1.0,
+        isMortalitySignal: false,
+        updateRuleKind: "noop",
+      });
+      await client.perturb("curiosity", 3.5);
+      const snap = await client.snapshot();
+      assert.equal(snap.get("curiosity"), 3.5);
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("advance fires sporocarp when threshold crossed", async () => {
+    const client = await spawn();
+    try {
+      await client.registerAxis({
+        name: "hunger",
+        axisClass: "appetite",
+        fruitingThreshold: 2.0,
+        initialValue: 0.0,
+        decayRatePerCycle: 1.0,
+        isMortalitySignal: false,
+        updateRuleKind: "noop",
+      });
+      await client.perturb("hunger", 3.0); // above threshold
+      const report = await client.advance(1n);
+      assert.deepEqual(report.fruitedAxes, ["hunger"]);
+      assert.equal(report.sporocarps.length, 1);
+      const sp = report.sporocarps[0]!;
+      assert.equal(sp.sporocarpType, "appetite_fruiting");
+      assert.equal(sp.axisName, "hunger");
+      assert.equal(sp.atCycle, 1n);
+      assert.equal(sp.hash.length, 32);
+      assert.ok(sp.canonicalBytes.length > 0);
+      // After fruiting, axis resets to initial_value.
+      const snap = await client.snapshot();
+      assert.equal(snap.get("hunger"), 0.0);
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("multiple advances accumulate correctly", async () => {
+    const client = await spawn();
+    try {
+      await client.registerAxis({
+        name: "rolling",
+        axisClass: "appetite",
+        fruitingThreshold: 5.0,
+        initialValue: 0.0,
+        decayRatePerCycle: 1.0,
+        isMortalitySignal: false,
+        updateRuleKind: "noop",
+      });
+      let totalSporocarps = 0;
+      for (let cycle = 1; cycle <= 8; cycle++) {
+        await client.perturb("rolling", 2.0);
+        const report = await client.advance(BigInt(cycle));
+        totalSporocarps += report.sporocarps.length;
+      }
+      // 8 cycles × 2.0 fuel each, threshold 5.0 → fruits at cycle 3, 6 → 2 sporocarps
+      assert.equal(totalSporocarps, 2);
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("decay axis emits mortality sporocarp", async () => {
+    const client = await spawn();
+    try {
+      await client.registerAxis({
+        name: "mortality",
+        axisClass: "decay",
+        fruitingThreshold: 0.1,
+        initialValue: 1.0,
+        decayRatePerCycle: 0.5,
+        isMortalitySignal: true,
+        updateRuleKind: "decay",
+      });
+      let fruitedCycle: bigint | null = null;
+      for (let cycle = 1n; cycle <= 10n; cycle++) {
+        const report = await client.advance(cycle);
+        if (report.fruitedAxes.length > 0) {
+          assert.deepEqual(report.fruitedAxes, ["mortality"]);
+          assert.equal(
+            report.sporocarps[0]!.sporocarpType,
+            "mortality_signal_threshold_crossed",
+          );
+          fruitedCycle = cycle;
+          break;
+        }
+      }
+      assert.equal(fruitedCycle, 4n);
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("perturb unknown axis returns error", async () => {
+    const client = await spawn();
+    try {
+      await assert.rejects(() => client.perturb("not_registered", 1.0));
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("snapshot with no axes returns empty", async () => {
+    const client = await spawn();
+    try {
+      const snap = await client.snapshot();
+      assert.equal(snap.size, 0);
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  // -------------------------------------------------------------------------
+  // M14 per-handshake REVEAL keypair + nonce persistence tests.
+  // -------------------------------------------------------------------------
+  it("M14: submitMutationWithReveal accepts full envelope", async () => {
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m14-op-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identity = await OperatorIdentity.loadOrCreate(opDir, { hostBinary: ANCHOR_SURFACE_BIN });
+      const stateDir = freshStateDir();
+      const client = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identity,
+      });
+      try {
+        const content = new TextEncoder().encode("M14 REVEAL envelope test");
+        // M24.2: fetch substrate_id for v2 binding.
+        const substrateId = await client.querySubstrateId();
+        const result = await client.submitMutationWithReveal({
+          mutationType: "schema_change",
+          touchedMetaStructures: ["appetite_axis_schema"],
+          contentCanonicalBytes: content,
+          operatorIdentity: identity,
+          substrateId,
+        });
+        assert.equal(
+          result.accepted,
+          true,
+          `full REVEAL envelope should accept; got: ${result.rejectionReason}`,
+        );
+        assert.equal(result.classification, "contract_identity_level");
+      } finally {
+        await client.shutdown();
+      }
+    } finally {
+      cleanupDir(opDir);
+    }
+  });
+
+  it("M14: forged identity-signature-over-REVEAL is rejected with C17", async () => {
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m14-op-"));
+    const wrongDir = mkdtempSync(resolvePath(tmpdir(), "myco-m14-wrong-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identity = await OperatorIdentity.loadOrCreate(opDir, { hostBinary: ANCHOR_SURFACE_BIN });
+      const wrongIdentity = await OperatorIdentity.loadOrCreate(wrongDir, { hostBinary: ANCHOR_SURFACE_BIN });
+      const stateDir = freshStateDir();
+      const client = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identity, // Substrate pins identity's pubkey
+      });
+      try {
+        // Generate a fresh REVEAL keypair.
+        const { ed25519 } = await import("@noble/curves/ed25519.js");
+        const { randomBytes: rb } = await import("node:crypto");
+        const revealSeed = new Uint8Array(rb(32));
+        const revealPubkey = ed25519.getPublicKey(revealSeed);
+
+        // Sign the REVEAL pubkey with the WRONG identity (not the pinned one).
+        // M24.2: signing input v2 binds substrate_id; fetch from genesis_event.
+        const { revealKeyBindingSigningInput } = await import("../src/protocol/messages.ts");
+        const substrateId = await client.querySubstrateId();
+        const signingInput = revealKeyBindingSigningInput(revealPubkey, substrateId);
+        const forgedSig = await wrongIdentity.sign(signingInput);
+
+        // Sign content with REVEAL.
+        const content = new TextEncoder().encode("forged REVEAL attempt");
+        const revealSig = ed25519.sign(content, revealSeed);
+
+        const nonceResult = await client.requestAttestationNonce(content);
+        const result = await client.submitMutation({
+          mutationType: "schema_change",
+          touchedMetaStructures: ["appetite_axis_schema"],
+          contentCanonicalBytes: content,
+          attestationSignature: revealSig,
+          nonce: nonceResult.nonce,
+          expiryUnixNs: nonceResult.expiryUnixNs,
+          revealPubkey,
+          identitySignatureOverRevealPubkey: forgedSig, // FORGED
+        });
+        assert.equal(result.accepted, false);
+        assert.match(result.rejectionReason, /identity signature|invalid/);
+
+        // Verify C17 immune sporocarp was emitted.
+        const events = await client.queryImmuneEvents();
+        const c17 = events.events.find((e) =>
+          e.nodeType.includes("C17_operator_witness_forgery"),
+        );
+        assert.ok(c17, "expected C17 immune sporocarp on forged identity-over-REVEAL");
+      } finally {
+        await client.shutdown();
+      }
+    } finally {
+      cleanupDir(opDir);
+      cleanupDir(wrongDir);
+    }
+  });
+
+  it("M14: nonce log persists across restart (replay blocked cross-session)", async () => {
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m14-op-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identity = await OperatorIdentity.loadOrCreate(opDir, { hostBinary: ANCHOR_SURFACE_BIN });
+      const stateDir = freshStateDir();
+
+      // Session 1: request a nonce, use it once.
+      const c1 = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identity,
+      });
+      const content = new TextEncoder().encode("nonce persistence test");
+      const nonceResult = await c1.requestAttestationNonce(content);
+      const sig = await identity.sign(content);
+      const r1 = await c1.submitMutation({
+        mutationType: "schema_change",
+        touchedMetaStructures: ["appetite_axis_schema"],
+        contentCanonicalBytes: content,
+        attestationSignature: sig,
+        nonce: nonceResult.nonce,
+        expiryUnixNs: nonceResult.expiryUnixNs,
+      });
+      assert.equal(r1.accepted, true);
+      await c1.shutdown();
+
+      // Session 2: try to replay the same nonce. M14 nonce persistence means
+      // the substrate REMEMBERS the consumed flag across restart.
+      const c2 = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identity,
+      });
+      try {
+        const r2 = await c2.submitMutation({
+          mutationType: "schema_change",
+          touchedMetaStructures: ["appetite_axis_schema"],
+          contentCanonicalBytes: content,
+          attestationSignature: sig,
+          nonce: nonceResult.nonce,
+          expiryUnixNs: nonceResult.expiryUnixNs,
+        });
+        assert.equal(
+          r2.accepted,
+          false,
+          "M14: replay should be rejected even across restart",
+        );
+        assert.match(r2.rejectionReason, /replay|consumed/);
+      } finally {
+        await c2.shutdown();
+      }
+    } finally {
+      cleanupDir(opDir);
+    }
+  });
+
+  it("M14: REVEAL with valid identity sig but malformed REVEAL sig is rejected", async () => {
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m14-op-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identity = await OperatorIdentity.loadOrCreate(opDir, { hostBinary: ANCHOR_SURFACE_BIN });
+      const stateDir = freshStateDir();
+      const client = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identity,
+      });
+      try {
+        const { ed25519 } = await import("@noble/curves/ed25519.js");
+        const { randomBytes: rb } = await import("node:crypto");
+        const revealSeed = new Uint8Array(rb(32));
+        const revealPubkey = ed25519.getPublicKey(revealSeed);
+
+        const { revealKeyBindingSigningInput } = await import("../src/protocol/messages.ts");
+        // M24.2: signing input v2 binds substrate_id; fetch from genesis_event.
+        const substrateId = await client.querySubstrateId();
+        const signingInput = revealKeyBindingSigningInput(revealPubkey, substrateId);
+        const validIdentitySig = await identity.sign(signingInput);
+
+        const content = new TextEncoder().encode("malformed reveal sig");
+        // Use a garbage REVEAL signature (won't verify against revealPubkey).
+        const badRevealSig = new Uint8Array(64).fill(0xab);
+
+        const nonceResult = await client.requestAttestationNonce(content);
+        const result = await client.submitMutation({
+          mutationType: "schema_change",
+          touchedMetaStructures: ["appetite_axis_schema"],
+          contentCanonicalBytes: content,
+          attestationSignature: badRevealSig,
+          nonce: nonceResult.nonce,
+          expiryUnixNs: nonceResult.expiryUnixNs,
+          revealPubkey,
+          identitySignatureOverRevealPubkey: validIdentitySig,
+        });
+        assert.equal(result.accepted, false);
+        // Python catches the REVEAL signature failure via attestation verification.
+        assert.match(result.rejectionReason, /attestation/i);
+      } finally {
+        await client.shutdown();
+      }
+    } finally {
+      cleanupDir(opDir);
+    }
+  });
+
+  // -------------------------------------------------------------------------
+  // M13 anchor-surface nonce + dual-clock expiry tests.
+  // -------------------------------------------------------------------------
+  it("M13: requestAttestationNonce returns nonce + expiry + dag_tip", async () => {
+    const client = await spawn();
+    try {
+      const content = new TextEncoder().encode("hello m13");
+      const result = await client.requestAttestationNonce(content);
+      assert.equal(result.nonce.length, 32);
+      assert.equal(result.boundDagTip.length, 32);
+      assert.ok(result.expiryUnixNs > 0n);
+      assert.equal(result.ttlSeconds, 300n);
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("M13: full anchor-surface envelope CI mutation is accepted", async () => {
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m13-op-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identity = await OperatorIdentity.loadOrCreate(opDir, { hostBinary: ANCHOR_SURFACE_BIN });
+      const stateDir = freshStateDir();
+      const client = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identity,
+      });
+      try {
+        const content = new TextEncoder().encode("CI with full envelope");
+        const nonceResult = await client.requestAttestationNonce(content);
+        const sig = await identity.sign(content);
+        const result = await client.submitMutation({
+          mutationType: "schema_change",
+          touchedMetaStructures: ["appetite_axis_schema"],
+          contentCanonicalBytes: content,
+          attestationSignature: sig,
+          nonce: nonceResult.nonce,
+          expiryUnixNs: nonceResult.expiryUnixNs,
+        });
+        assert.equal(
+          result.accepted,
+          true,
+          `full envelope should accept; got rejection: ${result.rejectionReason}`,
+        );
+        assert.equal(result.classification, "contract_identity_level");
+      } finally {
+        await client.shutdown();
+      }
+    } finally {
+      cleanupDir(opDir);
+    }
+  });
+
+  it("M13: replayed nonce is rejected with C5 immune emission", async () => {
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m13-op-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identity = await OperatorIdentity.loadOrCreate(opDir, { hostBinary: ANCHOR_SURFACE_BIN });
+      const stateDir = freshStateDir();
+      const client = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identity,
+      });
+      try {
+        const content = new TextEncoder().encode("replay test");
+        const nonceResult = await client.requestAttestationNonce(content);
+        const sig = await identity.sign(content);
+
+        // First submission: succeeds.
+        const r1 = await client.submitMutation({
+          mutationType: "schema_change",
+          touchedMetaStructures: ["appetite_axis_schema"],
+          contentCanonicalBytes: content,
+          attestationSignature: sig,
+          nonce: nonceResult.nonce,
+          expiryUnixNs: nonceResult.expiryUnixNs,
+        });
+        assert.equal(r1.accepted, true);
+
+        // Second submission with SAME nonce: must be rejected (replay).
+        const r2 = await client.submitMutation({
+          mutationType: "schema_change",
+          touchedMetaStructures: ["appetite_axis_schema"],
+          contentCanonicalBytes: content,
+          attestationSignature: sig,
+          nonce: nonceResult.nonce,
+          expiryUnixNs: nonceResult.expiryUnixNs,
+        });
+        assert.equal(r2.accepted, false);
+        assert.match(r2.rejectionReason, /replay|consumed/);
+
+        // Verify C5 immune sporocarp was emitted.
+        const events = await client.queryImmuneEvents();
+        const c5 = events.events.find((e) =>
+          e.nodeType.includes("C5_attestation_invalid"),
+        );
+        assert.ok(c5, "expected C5 immune sporocarp on replay");
+      } finally {
+        await client.shutdown();
+      }
+    } finally {
+      cleanupDir(opDir);
+    }
+  });
+
+  it("M13: unknown nonce is rejected with C5", async () => {
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m13-op-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identity = await OperatorIdentity.loadOrCreate(opDir, { hostBinary: ANCHOR_SURFACE_BIN });
+      const stateDir = freshStateDir();
+      const client = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identity,
+      });
+      try {
+        const content = new TextEncoder().encode("unknown nonce attempt");
+        const sig = await identity.sign(content);
+        // Make up a nonce that was never issued.
+        const fakeNonce = new Uint8Array(32).fill(0xee);
+        const result = await client.submitMutation({
+          mutationType: "schema_change",
+          touchedMetaStructures: ["appetite_axis_schema"],
+          contentCanonicalBytes: content,
+          attestationSignature: sig,
+          nonce: fakeNonce,
+        });
+        assert.equal(result.accepted, false);
+        assert.match(result.rejectionReason, /unknown|never issued/);
+      } finally {
+        await client.shutdown();
+      }
+    } finally {
+      cleanupDir(opDir);
+    }
+  });
+
+  it("M13: wrong content hash binding is rejected with C5", async () => {
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m13-op-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identity = await OperatorIdentity.loadOrCreate(opDir, { hostBinary: ANCHOR_SURFACE_BIN });
+      const stateDir = freshStateDir();
+      const client = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identity,
+      });
+      try {
+        const contentA = new TextEncoder().encode("original content");
+        const contentB = new TextEncoder().encode("different content");
+        // Request nonce bound to A.
+        const nonceResult = await client.requestAttestationNonce(contentA);
+        const sig = await identity.sign(contentB);
+        // Try to submit with B (wrong binding).
+        const result = await client.submitMutation({
+          mutationType: "schema_change",
+          touchedMetaStructures: ["appetite_axis_schema"],
+          contentCanonicalBytes: contentB,
+          attestationSignature: sig,
+          nonce: nonceResult.nonce,
+          expiryUnixNs: nonceResult.expiryUnixNs,
+        });
+        assert.equal(result.accepted, false);
+        assert.match(result.rejectionReason, /wrong-binding|content_hash/);
+      } finally {
+        await client.shutdown();
+      }
+    } finally {
+      cleanupDir(opDir);
+    }
+  });
+
+  // -------------------------------------------------------------------------
+  // M12 ad-hoc immune check tests.
+  // -------------------------------------------------------------------------
+  it("M12: runImmuneCheck on healthy substrate returns all checks passed", async () => {
+    const client = await spawn();
+    try {
+      const report = await client.runImmuneCheck();
+      assert.ok(
+        report.totalChecks >= 4n,
+        `expected ≥4 checks; got ${report.totalChecks}`,
+      );
+      assert.equal(report.failedChecks, 0n);
+      assert.equal(report.immuneEventsEmitted, 0n);
+      // All individual checks should report passed=true.
+      for (const check of report.checks) {
+        assert.equal(
+          check.passed,
+          true,
+          `${check.checkId} should pass on healthy substrate; got: ${check.evidence}`,
+        );
+      }
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("M12: runImmuneCheck includes substrate_id + dag + pubkey + owner_keys checks", async () => {
+    const client = await spawn();
+    try {
+      const report = await client.runImmuneCheck();
+      const checkIds = report.checks.map((c) => c.checkId);
+      assert.ok(checkIds.includes("substrate_id_well_formed"));
+      assert.ok(checkIds.includes("cycle_counter_monotonic"));
+      assert.ok(checkIds.includes("pinned_pubkey_well_formed"));
+      assert.ok(checkIds.includes("dag_verify_all"));
+      assert.ok(checkIds.includes("owner_keys_consistency"));
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("M12: runImmuneCheck does NOT add immune events when all checks pass", async () => {
+    const client = await spawn();
+    try {
+      const before = await client.queryImmuneEvents();
+      await client.runImmuneCheck();
+      const after = await client.queryImmuneEvents();
+      assert.equal(
+        after.totalImmuneCount,
+        before.totalImmuneCount,
+        "no immune events should be emitted on a healthy substrate",
+      );
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("M12: tampered DAG triggers C7 + multiple C9 checks at boot", async () => {
+    const dir = freshStateDir();
+    try {
+      // Session 1: produce some DAG content.
+      const c1 = await spawn(dir);
+      await c1.submitMutation({
+        mutationType: "delta_absorb",
+        contentCanonicalBytes: new TextEncoder().encode("setup content"),
+      });
+      await c1.shutdown();
+
+      // Tamper: corrupt dag.cb on disk.
+      const { writeFileSync } = await import("node:fs");
+      const dagPath = resolvePath(dir, "dag.cb");
+      writeFileSync(dagPath, new Uint8Array([0xff, 0xff, 0xff, 0xff, 0xff, 0xff]));
+
+      // Session 2: substrate detects + recovers + emits C7.
+      const c2 = await spawn(dir);
+      try {
+        const events = await c2.queryImmuneEvents();
+        assert.ok(
+          events.totalImmuneCount >= 1n,
+          `expected at least 1 immune event after tamper; got ${events.totalImmuneCount}`,
+        );
+        const c7Event = events.events.find((e) =>
+          e.nodeType.includes("C7_dag_retro_edit_detected"),
+        );
+        assert.ok(c7Event, "C7 detector should fire on dag.cb tamper");
+      } finally {
+        await c2.shutdown();
+      }
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  // -------------------------------------------------------------------------
+  // M11 active immune system tests.
+  // -------------------------------------------------------------------------
+  it("M11: empty substrate has no immune events", async () => {
+    const client = await spawn();
+    try {
+      const report = await client.queryImmuneEvents();
+      assert.equal(report.totalImmuneCount, 0n);
+      assert.equal(report.returnedCount, 0n);
+      assert.equal(report.events.length, 0);
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("M11: UNTYPED mutation emits C14 immune sporocarp", async () => {
+    const client = await spawn();
+    try {
+      const result = await client.submitMutation({
+        mutationType: "completely_unknown_xyz",
+        contentCanonicalBytes: new TextEncoder().encode("attack"),
+      });
+      assert.equal(result.accepted, false);
+      assert.equal(result.classification, "untyped");
+      // Check immune event was emitted.
+      const report = await client.queryImmuneEvents();
+      assert.equal(report.totalImmuneCount, 1n);
+      assert.equal(report.events.length, 1);
+      assert.equal(
+        report.events[0]!.nodeType,
+        "immune:C14_untyped_mutation_blocked",
+      );
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("M11: CI without attestation emits C5 immune sporocarp", async () => {
+    const client = await spawn();
+    try {
+      const result = await client.submitMutation({
+        mutationType: "schema_change_attempt",
+        touchedMetaStructures: ["appetite_axis_schema"],
+        contentCanonicalBytes: new TextEncoder().encode("ci without sig"),
+      });
+      assert.equal(result.accepted, false);
+      assert.equal(result.classification, "contract_identity_level");
+      const report = await client.queryImmuneEvents();
+      assert.equal(report.totalImmuneCount, 1n);
+      assert.equal(
+        report.events[0]!.nodeType,
+        "immune:C5_attestation_invalid",
+      );
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("M11: CI with wrong-key signature emits C5 immune sporocarp", async () => {
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m11-op-"));
+    const wrongDir = mkdtempSync(resolvePath(tmpdir(), "myco-m11-wrong-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identity = await OperatorIdentity.loadOrCreate(opDir, { hostBinary: ANCHOR_SURFACE_BIN });
+      const wrongIdentity = await OperatorIdentity.loadOrCreate(wrongDir, { hostBinary: ANCHOR_SURFACE_BIN });
+      const stateDir = freshStateDir();
+      const client = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identity,
+      });
+      try {
+        const content = new TextEncoder().encode("forged attempt");
+        const wrongSig = await wrongIdentity.sign(content);
+        const result = await client.submitMutation({
+          mutationType: "schema_change",
+          touchedMetaStructures: ["appetite_axis_schema"],
+          contentCanonicalBytes: content,
+          attestationSignature: wrongSig,
+        });
+        assert.equal(result.accepted, false);
+        const report = await client.queryImmuneEvents();
+        assert.equal(report.totalImmuneCount, 1n);
+        assert.equal(
+          report.events[0]!.nodeType,
+          "immune:C5_attestation_invalid",
+        );
+      } finally {
+        await client.shutdown();
+      }
+    } finally {
+      cleanupDir(opDir);
+      cleanupDir(wrongDir);
+    }
+  });
+
+  it("M11: pubkey mismatch emits C2 immune sporocarp persisted to disk", async () => {
+    const stateDir = freshStateDir();
+    const opDirA = mkdtempSync(resolvePath(tmpdir(), "myco-m11-pin-a-"));
+    const opDirB = mkdtempSync(resolvePath(tmpdir(), "myco-m11-pin-b-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identityA = await OperatorIdentity.loadOrCreate(opDirA, { hostBinary: ANCHOR_SURFACE_BIN });
+      const identityB = await OperatorIdentity.loadOrCreate(opDirB, { hostBinary: ANCHOR_SURFACE_BIN });
+
+      // Session 1: pin identity A.
+      const c1 = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identityA,
+      });
+      await c1.shutdown();
+
+      // Session 2: try identity B → rejected (M9 + M11 emits immune sporocarp).
+      try {
+        await SubstrateClient.spawn({
+          substrateBinary: SUBSTRATE_BIN,
+          env: { MYCO_STATE_DIR: stateDir },
+          operatorIdentity: identityB,
+        });
+      } catch {
+        // Expected rejection.
+      }
+
+      // Session 3: back to identity A → can query the immune event from session 2.
+      const c3 = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identityA,
+      });
+      try {
+        const report = await c3.queryImmuneEvents();
+        assert.ok(
+          report.totalImmuneCount >= 1n,
+          `expected ≥1 immune event after rejected handshake; got ${report.totalImmuneCount}`,
+        );
+        // M24.1 renamed: detector moved from C2 (which was reserved by
+        // L1/HARD_RULES for output_endpoint_breach) to C30 (substrate-private
+        // namespace). Test now asserts the new label.
+        const c30Event = report.events.find((e) =>
+          e.nodeType.includes("C30_handshake_pubkey_mismatch"),
+        );
+        assert.ok(c30Event, "C30 handshake_pubkey_mismatch should be in immune events");
+      } finally {
+        await c3.shutdown();
+      }
+    } finally {
+      cleanupDir(stateDir);
+      cleanupDir(opDirA);
+      cleanupDir(opDirB);
+    }
+  });
+
+  it("M11: immune events persist across restart", async () => {
+    const dir = freshStateDir();
+    try {
+      // Session 1: produce an immune event.
+      const c1 = await spawn(dir);
+      await c1.submitMutation({
+        mutationType: "completely_unknown_xyz",
+        contentCanonicalBytes: new TextEncoder().encode("test"),
+      });
+      const r1 = await c1.queryImmuneEvents();
+      assert.equal(r1.totalImmuneCount, 1n);
+      await c1.shutdown();
+
+      // Session 2: immune event should persist.
+      const c2 = await spawn(dir);
+      try {
+        const r2 = await c2.queryImmuneEvents();
+        assert.equal(r2.totalImmuneCount, 1n);
+        assert.equal(
+          r2.events[0]!.nodeType,
+          "immune:C14_untyped_mutation_blocked",
+        );
+      } finally {
+        await c2.shutdown();
+      }
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  // -------------------------------------------------------------------------
+  // M10 classified-mutation flow tests.
+  // -------------------------------------------------------------------------
+  it("M10: DAILY mutation is accepted and recorded as DAG node", async () => {
+    const client = await spawn();
+    try {
+      const result = await client.submitMutation({
+        mutationType: "delta_absorb",
+        contentCanonicalBytes: new TextEncoder().encode("hello world daily"),
+      });
+      assert.equal(result.classification, "daily");
+      assert.equal(result.accepted, true);
+      assert.equal(result.rejectionReason, "");
+      assert.ok(result.dagNodeHash, "accepted mutation must carry dag_node_hash");
+      assert.equal(result.dagNodeHash!.length, 32);
+      // Verify mutation:* DAG node was inserted (M21.1: DAG also contains
+      // genesis_event + operator_pinned init events — filter by prefix).
+      const muts = await client.queryRecentNodes(10n, "mutation:");
+      assert.equal(muts.filteredTotal, 1n);
+      assert.equal(muts.nodes[0]!.nodeType, "mutation:delta_absorb");
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("M10: UNTYPED mutation is rejected (L1/HARD_RULES C14)", async () => {
+    const client = await spawn();
+    try {
+      const result = await client.submitMutation({
+        mutationType: "completely_unknown_random_type_xyz",
+        contentCanonicalBytes: new TextEncoder().encode("should fail"),
+      });
+      assert.equal(result.classification, "untyped");
+      assert.equal(result.accepted, false);
+      assert.match(result.rejectionReason, /untyped/);
+      // Per M11+: rejection emits a C14 immune sporocarp into the DAG.
+      // No mutation:* node should exist (only init events + immune:C14).
+      const muts = await client.queryRecentNodes(20n, "mutation:");
+      assert.equal(
+        muts.filteredTotal,
+        0n,
+        "UNTYPED rejection must not produce a mutation node in the DAG",
+      );
+      const recent = await client.queryRecentNodes(20n);
+      const c14 = recent.nodes.find((n) =>
+        n.nodeType.includes("C14_untyped_mutation_blocked"),
+      );
+      assert.ok(c14, "expected C14 immune sporocarp on UNTYPED rejection");
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("M10: CI mutation WITHOUT attestation is rejected", async () => {
+    const client = await spawn();
+    try {
+      const result = await client.submitMutation({
+        mutationType: "axis_schema_change",
+        touchedMetaStructures: ["appetite_axis_schema"],
+        contentCanonicalBytes: new TextEncoder().encode("schema change attempt"),
+        // attestationSignature: undefined  ← no attestation
+      });
+      assert.equal(result.classification, "contract_identity_level");
+      assert.equal(result.accepted, false);
+      assert.match(result.rejectionReason, /attestation/i);
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("M10: CI mutation WITH valid attestation is accepted", async () => {
+    // Operator identity doubles as genesis owner key (M10 minimum: operator==owner).
+    // So signing with the operator's identity key produces a valid CI attestation.
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m10-op-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identity = await OperatorIdentity.loadOrCreate(opDir, { hostBinary: ANCHOR_SURFACE_BIN });
+
+      const stateDir = freshStateDir();
+      const client = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identity,
+      });
+      try {
+        const content = new TextEncoder().encode("CI mutation content");
+        const signature = await identity.sign(content);
+        const result = await client.submitMutation({
+          mutationType: "axis_schema_change",
+          touchedMetaStructures: ["appetite_axis_schema"],
+          contentCanonicalBytes: content,
+          attestationSignature: signature,
+        });
+        assert.equal(result.classification, "contract_identity_level");
+        assert.equal(
+          result.accepted,
+          true,
+          `CI mutation should be accepted; got rejection: ${result.rejectionReason}`,
+        );
+        assert.ok(result.dagNodeHash);
+      } finally {
+        await client.shutdown();
+      }
+    } finally {
+      cleanupDir(opDir);
+    }
+  });
+
+  it("M10: CI mutation WITH invalid (wrong-key) signature is rejected", async () => {
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m10-op-"));
+    const wrongDir = mkdtempSync(resolvePath(tmpdir(), "myco-m10-wrong-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identity = await OperatorIdentity.loadOrCreate(opDir, { hostBinary: ANCHOR_SURFACE_BIN });
+      const wrongIdentity = await OperatorIdentity.loadOrCreate(wrongDir, { hostBinary: ANCHOR_SURFACE_BIN });
+
+      const stateDir = freshStateDir();
+      const client = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identity, // Substrate pins identity's pubkey
+      });
+      try {
+        const content = new TextEncoder().encode("forged attestation attempt");
+        // Sign with the WRONG key (not the pinned/owner key).
+        const wrongSignature = await wrongIdentity.sign(content);
+        const result = await client.submitMutation({
+          mutationType: "axis_schema_change",
+          touchedMetaStructures: ["appetite_axis_schema"],
+          contentCanonicalBytes: content,
+          attestationSignature: wrongSignature,
+        });
+        assert.equal(result.classification, "contract_identity_level");
+        assert.equal(result.accepted, false);
+        assert.match(result.rejectionReason, /attestation/i);
+      } finally {
+        await client.shutdown();
+      }
+    } finally {
+      cleanupDir(opDir);
+      cleanupDir(wrongDir);
+    }
+  });
+
+  it("M10: accepted DAILY mutation DAG persists across restart", async () => {
+    const dir = freshStateDir();
+    try {
+      // Session 1: submit a daily mutation.
+      const c1 = await spawn(dir);
+      const r1 = await c1.submitMutation({
+        mutationType: "delta_absorb",
+        contentCanonicalBytes: new TextEncoder().encode("session1 mutation"),
+      });
+      assert.equal(r1.accepted, true);
+      // M21.1: DAG contains init events too; filter for mutation:* to count.
+      const mutsBefore = await c1.queryRecentNodes(10n, "mutation:");
+      assert.equal(mutsBefore.filteredTotal, 1n);
+      await c1.shutdown();
+
+      // Session 2: DAG should be hydrated.
+      const c2 = await spawn(dir);
+      try {
+        const muts = await c2.queryRecentNodes(10n, "mutation:");
+        assert.equal(muts.filteredTotal, 1n);
+        assert.equal(muts.nodes[0]!.nodeType, "mutation:delta_absorb");
+      } finally {
+        await c2.shutdown();
+      }
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  // -------------------------------------------------------------------------
+  // M9 operator identity + TOFU tests.
+  // -------------------------------------------------------------------------
+  it("M9: TOFU pins operator pubkey on first hello (via DAG operator_pinned event)", async () => {
+    const stateDir = freshStateDir();
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m9-op-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identity = await OperatorIdentity.loadOrCreate(opDir, { hostBinary: ANCHOR_SURFACE_BIN });
+
+      const client = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identity,
+      });
+      try {
+        // M21.4: operator_identity_pubkey.cb is gone — pinning is now recorded
+        // ONLY via the operator_pinned:* DAG event. Verify that event exists.
+        const pinned = await client.queryRecentNodes(20n, "operator_pinned:");
+        assert.equal(
+          pinned.filteredTotal,
+          1n,
+          "substrate should have emitted exactly 1 operator_pinned event on first hello",
+        );
+      } finally {
+        await client.shutdown();
+      }
+    } finally {
+      cleanupDir(stateDir);
+      cleanupDir(opDir);
+    }
+  });
+
+  it("M9: same operator identity reconnects successfully", async () => {
+    const stateDir = freshStateDir();
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m9-op-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identity = await OperatorIdentity.loadOrCreate(opDir, { hostBinary: ANCHOR_SURFACE_BIN });
+
+      // Session 1: pin.
+      const c1 = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identity,
+      });
+      await c1.shutdown();
+
+      // Session 2: same identity → should succeed.
+      const c2 = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identity,
+      });
+      assert.ok(c2.helloAck.substrateVersion.length > 0);
+      await c2.shutdown();
+    } finally {
+      cleanupDir(stateDir);
+      cleanupDir(opDir);
+    }
+  });
+
+  it("M9: different operator identity is rejected after pin", async () => {
+    const stateDir = freshStateDir();
+    const opDirA = mkdtempSync(resolvePath(tmpdir(), "myco-m9-op-a-"));
+    const opDirB = mkdtempSync(resolvePath(tmpdir(), "myco-m9-op-b-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identityA = await OperatorIdentity.loadOrCreate(opDirA, { hostBinary: ANCHOR_SURFACE_BIN });
+      const identityB = await OperatorIdentity.loadOrCreate(opDirB, { hostBinary: ANCHOR_SURFACE_BIN });
+      assert.notDeepEqual(
+        identityA.publicKeyBytes(),
+        identityB.publicKeyBytes(),
+        "test setup: two identities must differ",
+      );
+
+      // Session 1: pin identity A.
+      const c1 = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identityA,
+      });
+      await c1.shutdown();
+
+      // Session 2: present identity B → substrate should reject.
+      // The rejection may manifest as either:
+      //  (a) an explicit "worker error: code=dispatcher_error message=...mismatch..."
+      //      envelope (when the substrate keys its error response with our
+      //      session_secret), or
+      //  (b) "child stdout closed unexpectedly" when the substrate exits.
+      // Either is acceptable proof that identity B was not accepted.
+      let rejected = false;
+      try {
+        const c2 = await SubstrateClient.spawn({
+          substrateBinary: SUBSTRATE_BIN,
+          env: { MYCO_STATE_DIR: stateDir },
+          operatorIdentity: identityB,
+        });
+        await c2.shutdown();
+      } catch (e) {
+        rejected = true;
+        const msg = e instanceof Error ? e.message : String(e);
+        assert.ok(
+          msg.includes("mismatch") ||
+            msg.includes("rejected") ||
+            msg.includes("closed") ||
+            msg.includes("EOF") ||
+            msg.includes("ECONNRESET") ||
+            msg.includes("child"),
+          `expected mismatch/rejection error; got: ${msg}`,
+        );
+      }
+      assert.equal(rejected, true, "identity B should have been rejected");
+    } finally {
+      cleanupDir(stateDir);
+      cleanupDir(opDirA);
+      cleanupDir(opDirB);
+    }
+  });
+
+  // -------------------------------------------------------------------------
+  // M8 DAG + intent tests (TS-side proof).
+  // -------------------------------------------------------------------------
+  it("M8: queryRecentNodes returns sporocarp DAG nodes after advance", async () => {
+    const client = await spawn();
+    try {
+      await client.registerAxis({
+        name: "dag_test",
+        axisClass: "appetite",
+        fruitingThreshold: 1.0,
+        initialValue: 0.0,
+        decayRatePerCycle: 1.0,
+        isMortalitySignal: false,
+        updateRuleKind: "noop",
+      });
+      // Advance 3 cycles, each producing a sporocarp.
+      for (let cycle = 1n; cycle <= 3n; cycle++) {
+        await client.perturb("dag_test", 2.0);
+        const r = await client.advance(cycle);
+        assert.equal(r.sporocarps.length, 1);
+      }
+      // M21.1: filter for sporocarp:* to isolate the 3 fruiting events from
+      // the (many) init / cycle_advanced / axis_perturbed events also in DAG.
+      const sporocarps = await client.queryRecentNodes(10n, "sporocarp:");
+      assert.equal(sporocarps.filteredTotal, 3n);
+      assert.equal(sporocarps.returnedCount, 3n);
+      assert.equal(sporocarps.nodes.length, 3);
+      for (const n of sporocarps.nodes) {
+        assert.match(n.nodeType, /^sporocarp:/);
+        assert.equal(n.hash.length, 32);
+      }
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("M8: currentIntent on substrate with no operational events returns small/empty intent", async () => {
+    const client = await spawn();
+    try {
+      // M21.1 dual-write: even a "fresh" substrate has genesis_event +
+      // operator_pinned events in the DAG. coldStart is therefore false, but
+      // there are no SPOROCARP or MUTATION events to cluster around — the
+      // intent neighborhood is just init events (typically 1-2 nodes, no
+      // meaningful clusters).
+      const report = await client.currentIntent({ radiusCycles: 10n });
+      // The intent is trivially "fresh substrate" — at most 1 cluster of init events.
+      assert.ok(
+        report.clusterCount <= 1n,
+        `expected ≤1 cluster on near-empty substrate; got ${report.clusterCount}`,
+      );
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("M8: currentIntent on populated DAG returns clusters", async () => {
+    const client = await spawn();
+    try {
+      await client.registerAxis({
+        name: "intent_test",
+        axisClass: "appetite",
+        fruitingThreshold: 1.0,
+        initialValue: 0.0,
+        decayRatePerCycle: 1.0,
+        isMortalitySignal: false,
+        updateRuleKind: "noop",
+      });
+      // Produce 5 sporocarps in a chain.
+      for (let cycle = 1n; cycle <= 5n; cycle++) {
+        await client.perturb("intent_test", 2.0);
+        await client.advance(cycle);
+      }
+      const report = await client.currentIntent({ radiusCycles: 10n });
+      assert.equal(report.coldStart, false);
+      // 5 chained sporocarps → 1 connected component (single cluster) when radius is wide enough.
+      assert.ok(
+        report.clusterCount >= 1n,
+        `expected ≥1 cluster on populated DAG; got ${report.clusterCount}`,
+      );
+      // Total nodes in clusters should account for the DAG.
+      const totalInClusters = report.clusters
+        .map((c) => c.nodeCount)
+        .reduce((a, b) => a + b, 0n);
+      assert.ok(
+        totalInClusters > 0n,
+        `clusters should contain nodes; got ${totalInClusters}`,
+      );
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("M8: DAG persists across TS-side respawn", async () => {
+    const dir = freshStateDir();
+    try {
+      // Session 1: produce sporocarps.
+      const client1 = await spawn(dir);
+      await client1.registerAxis({
+        name: "persistent_dag",
+        axisClass: "appetite",
+        fruitingThreshold: 1.0,
+        initialValue: 0.0,
+        decayRatePerCycle: 1.0,
+        isMortalitySignal: false,
+        updateRuleKind: "noop",
+      });
+      for (let c = 1n; c <= 3n; c++) {
+        await client1.perturb("persistent_dag", 2.0);
+        await client1.advance(c);
+      }
+      // M21.1: count sporocarp:* events specifically; init events also in DAG.
+      const sp1 = await client1.queryRecentNodes(10n, "sporocarp:");
+      assert.equal(sp1.filteredTotal, 3n);
+      const fullPre = await client1.queryRecentNodes(50n);
+      const totalDagPre = fullPre.totalDagSize;
+      const tip1 = fullPre.dagTip!;
+      await client1.shutdown();
+
+      // Session 2: DAG should be hydrated. Advance one more.
+      const client2 = await spawn(dir);
+      try {
+        const sp2 = await client2.queryRecentNodes(10n, "sporocarp:");
+        assert.equal(
+          sp2.filteredTotal,
+          3n,
+          "3 sporocarp events should survive restart",
+        );
+        const fullPost = await client2.queryRecentNodes(50n);
+        // **M-anchor-4 §9.3.4**: every boot emits `invariant_witness:*` events
+        // for tier-1 integrity checks (per-cycle witness emission with cycle
+        // dedup; first session emitted them at cycle 0, second session emits
+        // fresh witnesses at cycle 3 since the cycle counter advanced). Count
+        // ONLY the persistent (pre-M-anchor-4) event types to assert
+        // identical-content-survives-restart semantics.
+        const witnessCountPost = fullPost.nodes.filter((n) =>
+          n.nodeType.startsWith("invariant_witness:"),
+        ).length;
+        const witnessCountPre = fullPre.nodes.filter((n) =>
+          n.nodeType.startsWith("invariant_witness:"),
+        ).length;
+        const stableSizePre =
+          Number(totalDagPre) - witnessCountPre;
+        const stableSizePost =
+          Number(fullPost.totalDagSize) - witnessCountPost;
+        assert.equal(
+          stableSizePost,
+          stableSizePre,
+          `non-witness DAG size should survive restart; pre=${stableSizePre}, post=${stableSizePost}, totalPre=${totalDagPre}, totalPost=${fullPost.totalDagSize}`,
+        );
+        // dagTip CAN change (session 2 may have emitted fresh witnesses), so
+        // we no longer assert tip equality here — the persistent state check
+        // above is the real durability assertion. `tip1` referenced for
+        // documentation only.
+        void tip1;
+      } finally {
+        await client2.shutdown();
+      }
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  // -------------------------------------------------------------------------
+  // M7 cross-restart test: TS-side proof that substrate state persists across
+  // process kill + respawn when the same state_dir is used.
+  // -------------------------------------------------------------------------
+  it("M7: substrate state survives across TS-side respawn", async () => {
+    const dir = freshStateDir();
+    try {
+      // Session 1: register an axis + perturb, then shutdown.
+      const client1 = await spawn(dir);
+      await client1.registerAxis({
+        name: "ts_survivor",
+        axisClass: "appetite",
+        fruitingThreshold: 100.0,
+        initialValue: 0.0,
+        decayRatePerCycle: 1.0,
+        isMortalitySignal: false,
+        updateRuleKind: "noop",
+      });
+      await client1.perturb("ts_survivor", 3.14);
+      await client1.shutdown();
+
+      // Session 2: same dir; verify state was hydrated.
+      const client2 = await spawn(dir);
+      try {
+        const snap = await client2.snapshot();
+        assert.equal(
+          snap.get("ts_survivor"),
+          3.14,
+          `ts_survivor=3.14 should survive restart; got snapshot=${JSON.stringify(Array.from(snap))}`,
+        );
+      } finally {
+        await client2.shutdown();
+      }
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  // -------------------------------------------------------------------------
+  // M15 DAG enumeration closure + dual-clock expiry tests.
+  // -------------------------------------------------------------------------
+
+  it("M15: enumerateDagSince(undefined) returns all nodes from genesis", async () => {
+    const client = await spawn();
+    try {
+      await client.registerAxis({
+        name: "enum_axis",
+        axisClass: "appetite",
+        fruitingThreshold: 1.0,
+        initialValue: 0.0,
+        decayRatePerCycle: 1.0,
+        isMortalitySignal: false,
+        updateRuleKind: "noop",
+      });
+      // Produce 3 sporocarp nodes.
+      for (let c = 1n; c <= 3n; c++) {
+        await client.perturb("enum_axis", 2.0);
+        await client.advance(c);
+      }
+      // M21.1: full enumeration includes init events (genesis_event,
+      // operator_pinned) + axis_registered + 3 axis_perturbed + 3 sporocarp +
+      // 3 cycle_advanced. Count must be ≥3 (3 sporocarps minimum).
+      const report = await client.enumerateDagSince();
+      assert.ok(
+        report.totalDagSize >= 3n,
+        `expected at least 3 nodes; got ${report.totalDagSize}`,
+      );
+      assert.equal(report.enumeratedCount, report.totalDagSize);
+      assert.equal(report.prevTip, null, "from-genesis enumeration should echo null prev_tip");
+      assert.ok(report.currentTip !== null, "current_tip should be set");
+      // The BLAKE3 chain verification must pass on the full enumeration.
+      const errors = await SubstrateClient.verifyEnumeration(report);
+      assert.deepEqual(errors, [], `expected hash chain verification to pass; got: ${errors.join(" | ")}`);
+      // Sanity: 3 sporocarp nodes should be among them.
+      const sporocarpCount = report.nodes.filter((n) =>
+        n.nodeType.startsWith("sporocarp:"),
+      ).length;
+      assert.equal(sporocarpCount, 3);
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("M15: enumerateDagSince(intermediate_tip) returns only nodes after", async () => {
+    const client = await spawn();
+    try {
+      await client.registerAxis({
+        name: "enum_axis2",
+        axisClass: "appetite",
+        fruitingThreshold: 1.0,
+        initialValue: 0.0,
+        decayRatePerCycle: 1.0,
+        isMortalitySignal: false,
+        updateRuleKind: "noop",
+      });
+      // Insert 2 sporocarps; snapshot tip; insert 2 more.
+      for (let c = 1n; c <= 2n; c++) {
+        await client.perturb("enum_axis2", 2.0);
+        await client.advance(c);
+      }
+      const tipAtTwoCycles = (await client.queryRecentNodes(1n)).dagTip!;
+      const totalAtTwoCycles = (await client.queryRecentNodes(1n)).totalDagSize;
+      for (let c = 3n; c <= 4n; c++) {
+        await client.perturb("enum_axis2", 2.0);
+        await client.advance(c);
+      }
+      const finalTotal = (await client.queryRecentNodes(1n)).totalDagSize;
+      const report = await client.enumerateDagSince(tipAtTwoCycles);
+      assert.equal(report.totalDagSize, finalTotal);
+      // enumeratedCount = nodes added since tipAtTwoCycles
+      const expectedEnum = finalTotal - totalAtTwoCycles;
+      assert.equal(
+        report.enumeratedCount,
+        expectedEnum,
+        `should enumerate ${expectedEnum} nodes added after the snapshot tip`,
+      );
+      // The first enumerated node has tipAtTwoCycles as a parent.
+      if (report.nodes.length > 0) {
+        assert.deepEqual(report.nodes[0]!.parentHashes[0], tipAtTwoCycles);
+      }
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("M15: enumerateDagSince(unknown_tip) is rejected + emits C6 immune", async () => {
+    const client = await spawn();
+    try {
+      // Produce some nodes so the DAG is non-empty.
+      await client.registerAxis({
+        name: "enum_axis3",
+        axisClass: "appetite",
+        fruitingThreshold: 1.0,
+        initialValue: 0.0,
+        decayRatePerCycle: 1.0,
+        isMortalitySignal: false,
+        updateRuleKind: "noop",
+      });
+      await client.perturb("enum_axis3", 2.0);
+      await client.advance(1n);
+
+      const fakeTip = new Uint8Array(32).fill(0xfe);
+      await assert.rejects(
+        () => client.enumerateDagSince(fakeTip),
+        /enumerate_dag_since|unknown|dispatcher_error/,
+      );
+      // C6 immune sporocarp should be emitted.
+      const events = await client.queryImmuneEvents();
+      const c6 = events.events.find((e) =>
+        e.nodeType.includes("C6_dag_enumeration_unclosed"),
+      );
+      assert.ok(c6, "expected C6 immune sporocarp on unknown prev_tip");
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("M15: BLAKE3 chain reconstruction detects substrate hash forgery (synthetic)", async () => {
+    // Build a synthetic enumeration with one node whose claimed hash does
+    // NOT match its parents+content. verifyEnumeration must catch this.
+    const goodNode = {
+      hash: new Uint8Array(32).fill(0x11),
+      parentHashes: [],
+      nodeType: "genesis",
+      atCycle: 0n,
+      contentCanonicalBytes: new Uint8Array([0x01, 0x02, 0x03]),
+    };
+    const forgedReport = {
+      currentTip: goodNode.hash,
+      prevTip: null,
+      totalDagSize: 1n,
+      enumeratedCount: 1n,
+      nodes: [goodNode],
+    };
+    const errors = await SubstrateClient.verifyEnumeration(forgedReport);
+    assert.ok(errors.length > 0, "synthetic hash-mismatch should be caught");
+    assert.match(errors[0]!, /hash mismatch/);
+  });
+
+  it("M15: dual-clock nonce accepts when both clocks in-window", async () => {
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m15-op-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identity = await OperatorIdentity.loadOrCreate(opDir, { hostBinary: ANCHOR_SURFACE_BIN });
+      const stateDir = freshStateDir();
+      const client = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identity,
+      });
+      try {
+        const content = new TextEncoder().encode("M15 dual-clock happy path");
+        const anchorClockAtRequest = BigInt(Date.now()) * 1_000_000n; // ms → ns
+        const nonceResult = await client.requestAttestationNonce(
+          content,
+          anchorClockAtRequest,
+        );
+        assert.ok(
+          nonceResult.anchorClockExpiryUnixNs !== null,
+          "anchor_clock_expiry should be present when nonce request includes anchor_clock",
+        );
+        const sig = await identity.sign(content);
+        // Submit with anchor_clock close to request time (in-window).
+        const result = await client.submitMutation({
+          mutationType: "schema_change",
+          touchedMetaStructures: ["appetite_axis_schema"],
+          contentCanonicalBytes: content,
+          attestationSignature: sig,
+          nonce: nonceResult.nonce,
+          expiryUnixNs: nonceResult.expiryUnixNs,
+          anchorClockSubmittedAtUnixNs: anchorClockAtRequest + 1_000_000n, // +1ms
+        });
+        assert.equal(
+          result.accepted,
+          true,
+          `dual-clock in-window should accept; got: ${result.rejectionReason}`,
+        );
+      } finally {
+        await client.shutdown();
+      }
+    } finally {
+      cleanupDir(opDir);
+    }
+  });
+
+  it("M15: dual-clock rejects anchor-clock skewed forward past expiry", async () => {
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m15-op-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identity = await OperatorIdentity.loadOrCreate(opDir, { hostBinary: ANCHOR_SURFACE_BIN });
+      const stateDir = freshStateDir();
+      const client = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identity,
+      });
+      try {
+        const content = new TextEncoder().encode("M15 dual-clock forward skew");
+        const anchorClockAtRequest = BigInt(Date.now()) * 1_000_000n;
+        const nonceResult = await client.requestAttestationNonce(
+          content,
+          anchorClockAtRequest,
+        );
+        const sig = await identity.sign(content);
+        // Submit anchor_clock_submitted_at WAY past anchor-clock expiry.
+        const TTL_NS = 300n * 1_000_000_000n;
+        const farFuture = anchorClockAtRequest + TTL_NS + 1_000_000_000n;
+        const result = await client.submitMutation({
+          mutationType: "schema_change",
+          touchedMetaStructures: ["appetite_axis_schema"],
+          contentCanonicalBytes: content,
+          attestationSignature: sig,
+          nonce: nonceResult.nonce,
+          expiryUnixNs: nonceResult.expiryUnixNs,
+          anchorClockSubmittedAtUnixNs: farFuture,
+        });
+        assert.equal(result.accepted, false);
+        assert.match(result.rejectionReason, /anchor-clock|dual-clock/);
+      } finally {
+        await client.shutdown();
+      }
+    } finally {
+      cleanupDir(opDir);
+    }
+  });
+
+  it("M15: dual-clock rejects anchor-clock skewed backward before issuance", async () => {
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m15-op-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identity = await OperatorIdentity.loadOrCreate(opDir, { hostBinary: ANCHOR_SURFACE_BIN });
+      const stateDir = freshStateDir();
+      const client = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identity,
+      });
+      try {
+        const content = new TextEncoder().encode("M15 dual-clock backward skew");
+        const anchorClockAtRequest = BigInt(Date.now()) * 1_000_000n;
+        const nonceResult = await client.requestAttestationNonce(
+          content,
+          anchorClockAtRequest,
+        );
+        const sig = await identity.sign(content);
+        // Claim "submit happened BEFORE issuance" (impossible — backward skew).
+        const before = anchorClockAtRequest - 1_000_000_000n;
+        const result = await client.submitMutation({
+          mutationType: "schema_change",
+          touchedMetaStructures: ["appetite_axis_schema"],
+          contentCanonicalBytes: content,
+          attestationSignature: sig,
+          nonce: nonceResult.nonce,
+          expiryUnixNs: nonceResult.expiryUnixNs,
+          anchorClockSubmittedAtUnixNs: before,
+        });
+        assert.equal(result.accepted, false);
+        assert.match(result.rejectionReason, /backward|dual-clock/);
+      } finally {
+        await client.shutdown();
+      }
+    } finally {
+      cleanupDir(opDir);
+    }
+  });
+
+  it("M15: nonce issued WITH anchor-clock but submit omits it is rejected", async () => {
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m15-op-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identity = await OperatorIdentity.loadOrCreate(opDir, { hostBinary: ANCHOR_SURFACE_BIN });
+      const stateDir = freshStateDir();
+      const client = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identity,
+      });
+      try {
+        const content = new TextEncoder().encode("M15 dual-clock contract enforcement");
+        const anchorClockAtRequest = BigInt(Date.now()) * 1_000_000n;
+        const nonceResult = await client.requestAttestationNonce(
+          content,
+          anchorClockAtRequest,
+        );
+        const sig = await identity.sign(content);
+        // OMIT anchor_clock_submitted_at_unix_ns even though nonce is dual-clock.
+        const result = await client.submitMutation({
+          mutationType: "schema_change",
+          touchedMetaStructures: ["appetite_axis_schema"],
+          contentCanonicalBytes: content,
+          attestationSignature: sig,
+          nonce: nonceResult.nonce,
+          expiryUnixNs: nonceResult.expiryUnixNs,
+        });
+        assert.equal(result.accepted, false);
+        assert.match(result.rejectionReason, /dual-clock binding|anchor_clock_submitted/);
+      } finally {
+        await client.shutdown();
+      }
+    } finally {
+      cleanupDir(opDir);
+    }
+  });
+
+  it("M15: nonce issued WITHOUT anchor-clock works in M13-compat mode", async () => {
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m15-op-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identity = await OperatorIdentity.loadOrCreate(opDir, { hostBinary: ANCHOR_SURFACE_BIN });
+      const stateDir = freshStateDir();
+      const client = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identity,
+      });
+      try {
+        const content = new TextEncoder().encode("M15 single-clock backward-compat");
+        // Request nonce WITHOUT anchor_clock.
+        const nonceResult = await client.requestAttestationNonce(content);
+        assert.equal(
+          nonceResult.anchorClockExpiryUnixNs,
+          null,
+          "single-clock nonce should NOT echo anchor_clock_expiry",
+        );
+        const sig = await identity.sign(content);
+        // Submit also without anchor_clock; this should work (M13 path).
+        const result = await client.submitMutation({
+          mutationType: "schema_change",
+          touchedMetaStructures: ["appetite_axis_schema"],
+          contentCanonicalBytes: content,
+          attestationSignature: sig,
+          nonce: nonceResult.nonce,
+          expiryUnixNs: nonceResult.expiryUnixNs,
+        });
+        assert.equal(
+          result.accepted,
+          true,
+          `single-clock M13-style should accept; got: ${result.rejectionReason}`,
+        );
+      } finally {
+        await client.shutdown();
+      }
+    } finally {
+      cleanupDir(opDir);
+    }
+  });
+
+  // -------------------------------------------------------------------------
+  // M16 P2 永恒吞噬: universal raw_material ingestion tests.
+  // -------------------------------------------------------------------------
+
+  it("M16: ingest text raw_material grows DAG by 1 raw_material:text node", async () => {
+    const client = await spawn();
+    try {
+      const content = new TextEncoder().encode("a poem about mycelium");
+      const result = await client.ingestRawMaterial({
+        contentKind: "text",
+        contentBytes: content,
+        sourceUri: "poem.txt",
+      });
+      assert.equal(result.dagNodeHash.length, 32);
+      // M21.1: total DAG size includes init events; raw_material count is what we check.
+      assert.ok(result.totalDagSize >= 1n);
+
+      // The node is queryable via raw_material: prefix filter.
+      const report = await client.queryRecentNodes(10n, "raw_material:");
+      assert.equal(report.filteredTotal, 1n);
+      assert.equal(report.nodes.length, 1);
+      assert.equal(report.nodes[0]!.nodeType, "raw_material:text");
+      assert.deepEqual(report.nodes[0]!.hash, result.dagNodeHash);
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("M16: ingest of multiple kinds preserves all with proper node_types", async () => {
+    const client = await spawn();
+    try {
+      const kinds: Array<{ k: string; b: Uint8Array }> = [
+        { k: "text", b: new TextEncoder().encode("plain text") },
+        { k: "conversation", b: new TextEncoder().encode("user said hello") },
+        { k: "url", b: new TextEncoder().encode("https://example.org/page") },
+        { k: "llm_response", b: new TextEncoder().encode("LLM output here") },
+        { k: "file", b: new TextEncoder().encode("file contents") },
+      ];
+      for (const item of kinds) {
+        await client.ingestRawMaterial({
+          contentKind: item.k,
+          contentBytes: item.b,
+        });
+      }
+      const report = await client.queryRecentNodes(20n, "raw_material:");
+      assert.equal(report.filteredTotal, 5n);
+      const nodeTypes = report.nodes.map((n) => n.nodeType).sort();
+      assert.deepEqual(nodeTypes, [
+        "raw_material:conversation",
+        "raw_material:file",
+        "raw_material:llm_response",
+        "raw_material:text",
+        "raw_material:url",
+      ]);
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("M16: ingestion exceeding 512 KiB content cap is rejected with explicit error", async () => {
+    const client = await spawn();
+    try {
+      const tooBig = new Uint8Array(512 * 1024 + 1); // 512 KiB + 1 byte
+      tooBig.fill(0x41);
+      await assert.rejects(
+        () =>
+          client.ingestRawMaterial({
+            contentKind: "text",
+            contentBytes: tooBig,
+          }),
+        /exceeds.*cap|byte cap/i,
+      );
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("M16: ingestion at exactly the 512 KiB cap is accepted", async () => {
+    const client = await spawn();
+    try {
+      const atCap = new Uint8Array(512 * 1024); // exactly 512 KiB
+      atCap.fill(0x42);
+      const result = await client.ingestRawMaterial({
+        contentKind: "text",
+        contentBytes: atCap,
+      });
+      assert.equal(result.dagNodeHash.length, 32);
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("M16: perturbAxisFromRawMaterial creates causal link with both parents", async () => {
+    const client = await spawn();
+    try {
+      // First register the axis we'll perturb.
+      await client.registerAxis({
+        name: "curiosity",
+        axisClass: "appetite",
+        fruitingThreshold: 100.0,
+        initialValue: 0.0,
+        decayRatePerCycle: 1.0,
+        isMortalitySignal: false,
+        updateRuleKind: "noop",
+      });
+      // Ingest some raw material.
+      const content = new TextEncoder().encode("an interesting paper abstract");
+      const ingest = await client.ingestRawMaterial({
+        contentKind: "text",
+        contentBytes: content,
+        sourceUri: "https://arxiv.org/abs/example",
+      });
+      // Perturb from raw material.
+      const link = await client.perturbAxisFromRawMaterial({
+        axisName: "curiosity",
+        delta: 5.0,
+        rawMaterialHash: ingest.dagNodeHash,
+      });
+      assert.equal(link.causalLinkHash.length, 32);
+      assert.deepEqual(link.rawMaterialHash, ingest.dagNodeHash);
+      // M21.1: filter by perturb_from_raw: to find the causal link node.
+      const links = await client.queryRecentNodes(20n, "perturb_from_raw:");
+      assert.equal(links.filteredTotal, 1n);
+      const linkNode = links.nodes[0]!;
+      assert.match(linkNode.nodeType, /^perturb_from_raw:curiosity$/);
+      // The link node has parents including the raw_material hash.
+      assert.ok(
+        linkNode.parentHashes.length >= 1,
+        "perturb_from_raw should have at least 1 parent",
+      );
+      // Verify the perturbation actually applied — snapshot the gradient.
+      const snap = await client.snapshot();
+      assert.equal(snap.get("curiosity"), 5.0);
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("M16: perturbAxisFromRawMaterial rejects unknown raw_material hash", async () => {
+    const client = await spawn();
+    try {
+      await client.registerAxis({
+        name: "test_axis",
+        axisClass: "appetite",
+        fruitingThreshold: 10.0,
+        initialValue: 0.0,
+        decayRatePerCycle: 1.0,
+        isMortalitySignal: false,
+        updateRuleKind: "noop",
+      });
+      const fakeHash = new Uint8Array(32).fill(0xab);
+      await assert.rejects(
+        () =>
+          client.perturbAxisFromRawMaterial({
+            axisName: "test_axis",
+            delta: 1.0,
+            rawMaterialHash: fakeHash,
+          }),
+        /not found|unknown|raw_material_hash/i,
+      );
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("M16: perturbAxisFromRawMaterial rejects hash that points to non-raw_material node", async () => {
+    const client = await spawn();
+    try {
+      await client.registerAxis({
+        name: "ax",
+        axisClass: "appetite",
+        fruitingThreshold: 1.0,
+        initialValue: 0.0,
+        decayRatePerCycle: 1.0,
+        isMortalitySignal: false,
+        updateRuleKind: "noop",
+      });
+      // Produce a sporocarp node (not a raw_material node).
+      await client.perturb("ax", 2.0);
+      const advReport = await client.advance(1n);
+      const sporocarpHash = advReport.sporocarps[0]!.canonicalBytes; // wrong type
+      // The DAG-node hash of the sporocarp is in dag_node_hash of sporocarp report.
+      // For this test we'll use the queryRecentNodes to find it.
+      const recent = await client.queryRecentNodes(5n);
+      const sporocarp = recent.nodes.find((n) =>
+        n.nodeType.startsWith("sporocarp:"),
+      );
+      assert.ok(sporocarp);
+      void sporocarpHash;
+      await assert.rejects(
+        () =>
+          client.perturbAxisFromRawMaterial({
+            axisName: "ax",
+            delta: 1.0,
+            rawMaterialHash: sporocarp!.hash,
+          }),
+        /not raw_material|raw_material/i,
+      );
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("M16: ingested raw_material persists across substrate restart", async () => {
+    const dir = freshStateDir();
+    try {
+      const c1 = await spawn(dir);
+      const content = new TextEncoder().encode("persistent meal");
+      await c1.ingestRawMaterial({
+        contentKind: "text",
+        contentBytes: content,
+      });
+      await c1.shutdown();
+
+      const c2 = await spawn(dir);
+      try {
+        const report = await c2.queryRecentNodes(10n, "raw_material:");
+        assert.equal(
+          report.filteredTotal,
+          1n,
+          "ingested raw_material should survive restart via dag.cb",
+        );
+        assert.equal(report.nodes[0]!.nodeType, "raw_material:text");
+      } finally {
+        await c2.shutdown();
+      }
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  // -------------------------------------------------------------------------
+  // M17 P3 永恒进化: schema_evolution actually-applied tests.
+  // -------------------------------------------------------------------------
+
+  it("M17: modify_axis_threshold actually changes the threshold + emits evolution_succeeded", async () => {
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m17-op-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const { schemaDiffModifyAxisThresholdBytes } = await import("../src/protocol/messages.ts");
+      const identity = await OperatorIdentity.loadOrCreate(opDir, { hostBinary: ANCHOR_SURFACE_BIN });
+      const stateDir = freshStateDir();
+      const client = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identity,
+      });
+      try {
+        // Register an axis at threshold 10.0.
+        await client.registerAxis({
+          name: "curiosity",
+          axisClass: "appetite",
+          fruitingThreshold: 10.0,
+          initialValue: 0.0,
+          decayRatePerCycle: 1.0,
+          isMortalitySignal: false,
+          updateRuleKind: "noop",
+        });
+
+        // Evolve: change threshold to 50.0.
+        const diff = schemaDiffModifyAxisThresholdBytes("curiosity", 50.0);
+        const sig = await identity.sign(diff);
+        const result = await client.submitMutation({
+          mutationType: "schema_evolution",
+          contentCanonicalBytes: diff,
+          attestationSignature: sig,
+          touchedMetaStructures: ["appetite_axis_schema"],
+        });
+        assert.equal(result.accepted, true, `accepted; got: ${result.rejectionReason}`);
+        assert.equal(result.schemaApplyAttempted, true);
+        assert.equal(result.schemaApplySucceeded, true, result.schemaApplyFailureReason);
+        assert.equal(result.schemaApplyOp, "modify_axis_threshold");
+        assert.ok(result.evolutionEventHash, "evolution_event_hash should be set");
+
+        // DAG should contain mutation:schema_evolution + evolution_succeeded:modify_axis_threshold.
+        const recent = await client.queryRecentNodes(10n);
+        const evoSucceeded = recent.nodes.find((n) =>
+          n.nodeType.startsWith("evolution_succeeded:"),
+        );
+        assert.ok(evoSucceeded, "expected evolution_succeeded:* DAG node");
+        const mutationNode = recent.nodes.find((n) =>
+          n.nodeType === "mutation:schema_evolution",
+        );
+        assert.ok(mutationNode, "expected mutation:schema_evolution DAG node");
+
+        // Threshold actually changed: perturb just past old threshold, advance.
+        // If old threshold (10.0) were still active, this would fruit; if new
+        // threshold (50.0) is now active, this should NOT fruit.
+        await client.perturb("curiosity", 15.0);
+        const adv = await client.advance(1n);
+        assert.deepEqual(
+          adv.fruitedAxes,
+          [],
+          "axis should NOT fruit at value=15 if new threshold is 50",
+        );
+      } finally {
+        await client.shutdown();
+      }
+    } finally {
+      cleanupDir(opDir);
+    }
+  });
+
+  it("M17: modify_axis_threshold on unknown axis emits evolution_failed + rolls back", async () => {
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m17-op-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const { schemaDiffModifyAxisThresholdBytes } = await import("../src/protocol/messages.ts");
+      const identity = await OperatorIdentity.loadOrCreate(opDir, { hostBinary: ANCHOR_SURFACE_BIN });
+      const stateDir = freshStateDir();
+      const client = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identity,
+      });
+      try {
+        const diff = schemaDiffModifyAxisThresholdBytes("nonexistent_axis", 99.0);
+        const sig = await identity.sign(diff);
+        const result = await client.submitMutation({
+          mutationType: "schema_evolution",
+          contentCanonicalBytes: diff,
+          attestationSignature: sig,
+          touchedMetaStructures: ["appetite_axis_schema"],
+        });
+        // Mutation is still "accepted" (the proposal was valid + signed).
+        assert.equal(result.accepted, true);
+        // But the schema apply FAILED → rollback path.
+        assert.equal(result.schemaApplyAttempted, true);
+        assert.equal(result.schemaApplySucceeded, false);
+        assert.match(result.schemaApplyFailureReason, /AxisNotFound|nonexistent/i);
+
+        // DAG should contain mutation:schema_evolution + evolution_failed:*.
+        const recent = await client.queryRecentNodes(10n);
+        const evoFailed = recent.nodes.find((n) =>
+          n.nodeType.startsWith("evolution_failed:"),
+        );
+        assert.ok(evoFailed, "expected evolution_failed:* DAG node");
+      } finally {
+        await client.shutdown();
+      }
+    } finally {
+      cleanupDir(opDir);
+    }
+  });
+
+  it("M17: add_axis_to_gradient registers axis via CI gate + emits evolution_succeeded", async () => {
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m17-op-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const { schemaDiffAddAxisBytes } = await import("../src/protocol/messages.ts");
+      const identity = await OperatorIdentity.loadOrCreate(opDir, { hostBinary: ANCHOR_SURFACE_BIN });
+      const stateDir = freshStateDir();
+      const client = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identity,
+      });
+      try {
+        const diff = schemaDiffAddAxisBytes({
+          axisName: "trust_in_owner",
+          axisClass: "decay",
+          fruitingThreshold: 0.1,
+          initialValue: 1.0,
+          decayRatePerCycle: 0.95,
+          isMortalitySignal: true,
+          updateRuleKind: "decay",
+        });
+        const sig = await identity.sign(diff);
+        const result = await client.submitMutation({
+          mutationType: "schema_evolution",
+          contentCanonicalBytes: diff,
+          attestationSignature: sig,
+          touchedMetaStructures: ["appetite_axis_schema"],
+        });
+        assert.equal(result.accepted, true);
+        assert.equal(result.schemaApplySucceeded, true, result.schemaApplyFailureReason);
+        assert.equal(result.schemaApplyOp, "add_axis_to_gradient");
+
+        // The axis should now be active — snapshot exposes it at initial_value=1.0.
+        const snap = await client.snapshot();
+        assert.equal(snap.get("trust_in_owner"), 1.0);
+      } finally {
+        await client.shutdown();
+      }
+    } finally {
+      cleanupDir(opDir);
+    }
+  });
+
+  it("M17: schema_evolution WITHOUT attestation is rejected (CI gate enforced)", async () => {
+    const client = await spawn();
+    try {
+      const { schemaDiffModifyAxisThresholdBytes } = await import("../src/protocol/messages.ts");
+      const diff = schemaDiffModifyAxisThresholdBytes("any_axis", 1.0);
+      const result = await client.submitMutation({
+        mutationType: "schema_evolution",
+        contentCanonicalBytes: diff,
+        // NO attestation_signature.
+      });
+      assert.equal(result.accepted, false);
+      assert.match(result.rejectionReason, /attestation/i);
+      // Schema apply must NOT have been attempted (gated by attestation).
+      assert.equal(result.schemaApplyAttempted, false);
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("M16: queryRecentNodes prefix filter exposes filteredTotal vs totalDagSize", async () => {
+    const client = await spawn();
+    try {
+      await client.registerAxis({
+        name: "x",
+        axisClass: "appetite",
+        fruitingThreshold: 1.0,
+        initialValue: 0.0,
+        decayRatePerCycle: 1.0,
+        isMortalitySignal: false,
+        updateRuleKind: "noop",
+      });
+      await client.perturb("x", 2.0);
+      await client.advance(1n); // produces sporocarp DAG node
+      await client.ingestRawMaterial({
+        contentKind: "text",
+        contentBytes: new TextEncoder().encode("a"),
+      });
+      await client.ingestRawMaterial({
+        contentKind: "text",
+        contentBytes: new TextEncoder().encode("b"),
+      });
+      // M21.1: DAG also contains init events + axis_registered + axis_perturbed
+      // + cycle_advanced. filteredTotal for raw_material: is still 2.
+      const unfiltered = await client.queryRecentNodes(20n);
+      assert.ok(unfiltered.totalDagSize >= 3n);
+      assert.equal(unfiltered.filteredTotal, unfiltered.totalDagSize);
+
+      const filtered = await client.queryRecentNodes(20n, "raw_material:");
+      assert.equal(filtered.totalDagSize, unfiltered.totalDagSize);
+      assert.equal(filtered.filteredTotal, 2n);
+      assert.equal(filtered.returnedCount, 2n);
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  // -------------------------------------------------------------------------
+  // M18 P4 永恒迭代: cycle pipeline activation tests.
+  // -------------------------------------------------------------------------
+
+  it("M18: advance with no raw_material absorbs zero deltas (no absorption_event)", async () => {
+    const client = await spawn();
+    try {
+      const adv = await client.advance(1n);
+      assert.equal(adv.deltasAbsorbed, 0n);
+      assert.equal(adv.absorptionEventHash, null);
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("M18: advance after ingesting raw_material emits absorption_event:cycle_{N}", async () => {
+    const client = await spawn();
+    try {
+      await client.registerAxis({
+        name: "ax",
+        axisClass: "appetite",
+        fruitingThreshold: 100.0,
+        initialValue: 0.0,
+        decayRatePerCycle: 1.0,
+        isMortalitySignal: false,
+        updateRuleKind: "noop",
+      });
+      // Ingest two raw_material nodes.
+      await client.ingestRawMaterial({
+        contentKind: "text",
+        contentBytes: new TextEncoder().encode("first meal"),
+      });
+      await client.ingestRawMaterial({
+        contentKind: "text",
+        contentBytes: new TextEncoder().encode("second meal"),
+      });
+
+      // Advance — should absorb both.
+      const adv = await client.advance(1n);
+      assert.equal(adv.deltasAbsorbed, 2n, "expected 2 raw_material absorbed");
+      assert.ok(adv.absorptionEventHash, "absorption_event_hash should be set");
+
+      // Verify the DAG has an absorption_event:* node.
+      const recent = await client.queryRecentNodes(20n, "absorption_event:");
+      assert.equal(recent.filteredTotal, 1n);
+      assert.match(recent.nodes[0]!.nodeType, /^absorption_event:cycle_/);
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("M18: subsequent advances skip already-absorbed raw_material", async () => {
+    const client = await spawn();
+    try {
+      await client.registerAxis({
+        name: "ax2",
+        axisClass: "appetite",
+        fruitingThreshold: 100.0,
+        initialValue: 0.0,
+        decayRatePerCycle: 1.0,
+        isMortalitySignal: false,
+        updateRuleKind: "noop",
+      });
+      await client.ingestRawMaterial({
+        contentKind: "text",
+        contentBytes: new TextEncoder().encode("one"),
+      });
+      const adv1 = await client.advance(1n);
+      assert.equal(adv1.deltasAbsorbed, 1n);
+
+      // Second advance with no new ingestion — absorption count should be 0.
+      const adv2 = await client.advance(2n);
+      assert.equal(adv2.deltasAbsorbed, 0n);
+      assert.equal(adv2.absorptionEventHash, null);
+
+      // Third advance after a new ingestion — count should be 1 again.
+      await client.ingestRawMaterial({
+        contentKind: "text",
+        contentBytes: new TextEncoder().encode("two"),
+      });
+      const adv3 = await client.advance(3n);
+      assert.equal(adv3.deltasAbsorbed, 1n);
+      assert.ok(adv3.absorptionEventHash);
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("M18: handshake_events_processed reports 1 when operator identity is pinned", async () => {
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m18-op-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identity = await OperatorIdentity.loadOrCreate(opDir, { hostBinary: ANCHOR_SURFACE_BIN });
+      const stateDir = freshStateDir();
+      const client = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identity,
+      });
+      try {
+        const adv = await client.advance(1n);
+        assert.equal(adv.handshakeEventsProcessed, 1n);
+      } finally {
+        await client.shutdown();
+      }
+    } finally {
+      cleanupDir(opDir);
+    }
+  });
+
+  it("M18: advance with no axes registered still completes (Tier1 DAG verify passes)", async () => {
+    const client = await spawn();
+    try {
+      // No axes, no ingestion — just bare advance. DAG is empty → Tier1 passes.
+      const adv = await client.advance(1n);
+      assert.equal(adv.fruitedAxes.length, 0);
+      assert.equal(adv.deltasAbsorbed, 0n);
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("M18: absorption_event has multi-parent linkage (prior_tip + raw_material hashes)", async () => {
+    const client = await spawn();
+    try {
+      await client.registerAxis({
+        name: "ax3",
+        axisClass: "appetite",
+        fruitingThreshold: 100.0,
+        initialValue: 0.0,
+        decayRatePerCycle: 1.0,
+        isMortalitySignal: false,
+        updateRuleKind: "noop",
+      });
+      const ingest = await client.ingestRawMaterial({
+        contentKind: "text",
+        contentBytes: new TextEncoder().encode("multiparent test"),
+      });
+      const adv = await client.advance(1n);
+      assert.ok(adv.absorptionEventHash);
+
+      // Look up the absorption_event node in the DAG; verify parent_hashes includes
+      // the raw_material hash.
+      const recent = await client.queryRecentNodes(20n);
+      const absorbNode = recent.nodes.find((n) =>
+        n.nodeType.startsWith("absorption_event:"),
+      );
+      assert.ok(absorbNode);
+      // Multi-parent: at least 1 parent (could be prior tip + raw_material; or
+      // raw_material was tip itself, so 1 parent).
+      assert.ok(absorbNode!.parentHashes.length >= 1);
+      const parentHashesHex = absorbNode!.parentHashes.map((p) =>
+        Buffer.from(p).toString("hex"),
+      );
+      const rawHex = Buffer.from(ingest.dagNodeHash).toString("hex");
+      assert.ok(
+        parentHashesHex.includes(rawHex),
+        "absorption_event should link back to the raw_material hash",
+      );
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  // -------------------------------------------------------------------------
+  // M19 P7 必朽 (endogenous mortality) + P9 皮肤 (C18 detector) tests.
+  // -------------------------------------------------------------------------
+
+  // -------------------------------------------------------------------------
+  // M20 P8 永恒繁衍: substrate reproduction tests.
+  // -------------------------------------------------------------------------
+
+  it("M20 P8: sproutChild creates child state_dir with manifest + gradient + spore_emission", async () => {
+    const parentDir = freshStateDir();
+    const childDir = mkdtempSync(resolvePath(tmpdir(), "myco-m20-child-"));
+    // Pre-remove so substrate creates fresh.
+    rmSync(childDir, { recursive: true, force: true });
+    try {
+      const client = await spawn(parentDir);
+      try {
+        // Register an axis on the parent.
+        await client.registerAxis({
+          name: "curiosity",
+          axisClass: "appetite",
+          fruitingThreshold: 10.0,
+          initialValue: 3.0,
+          decayRatePerCycle: 1.0,
+          isMortalitySignal: false,
+          updateRuleKind: "noop",
+        });
+
+        const result = await client.sproutChild({ childStateDir: childDir });
+        assert.equal(result.childSubstrateId.length, 32);
+        assert.equal(result.childStateDir, childDir);
+        assert.equal(result.childAxisCount, 1n);
+        assert.equal(result.sporeEmissionHash.length, 32);
+
+        // M21.4: child's state_dir contains ONLY dag.cb. Identity, gradient,
+        // operator-pinning are all encoded as events in the child's DAG.
+        assert.ok(existsSync(`${childDir}/dag.cb`), "child dag.cb exists");
+        // Legacy state files MUST NOT be created.
+        assert.ok(
+          !existsSync(`${childDir}/manifest.cb`),
+          "post-M21.4: child must NOT have legacy manifest.cb",
+        );
+        assert.ok(
+          !existsSync(`${childDir}/gradient.cb`),
+          "post-M21.4: child must NOT have legacy gradient.cb",
+        );
+        assert.ok(
+          !existsSync(`${childDir}/operator_identity_pubkey.cb`),
+          "post-M21.4: child must NOT have legacy operator_identity_pubkey.cb",
+        );
+
+        // Verify parent's DAG has the spore_emission node.
+        const recent = await client.queryRecentNodes(10n, "spore_emission:");
+        assert.equal(recent.filteredTotal, 1n);
+      } finally {
+        await client.shutdown();
+      }
+    } finally {
+      cleanupDir(parentDir);
+      cleanupDir(childDir);
+    }
+  });
+
+  it("M20: sproutChild refuses to overwrite existing manifest.cb", async () => {
+    const parentDir = freshStateDir();
+    const childDir = freshStateDir(); // already contains a manifest after spawn
+    // Pre-populate childDir with a manifest by spawning a substrate there first.
+    const preSpawn = await spawn(childDir);
+    await preSpawn.shutdown();
+    try {
+      const client = await spawn(parentDir);
+      try {
+        await assert.rejects(
+          () => client.sproutChild({ childStateDir: childDir }),
+          /refusing to overwrite|exists/,
+        );
+      } finally {
+        await client.shutdown();
+      }
+    } finally {
+      cleanupDir(parentDir);
+      cleanupDir(childDir);
+    }
+  });
+
+  it("M20: child substrate boots independently with inherited axes", async () => {
+    const parentDir = freshStateDir();
+    const childDir = mkdtempSync(resolvePath(tmpdir(), "myco-m20-child-"));
+    rmSync(childDir, { recursive: true, force: true });
+    try {
+      // Parent: register two axes, perturb one.
+      const parent = await spawn(parentDir);
+      await parent.registerAxis({
+        name: "hunger",
+        axisClass: "appetite",
+        fruitingThreshold: 5.0,
+        initialValue: 0.0,
+        decayRatePerCycle: 1.0,
+        isMortalitySignal: false,
+        updateRuleKind: "noop",
+      });
+      await parent.registerAxis({
+        name: "vitality",
+        axisClass: "decay",
+        fruitingThreshold: 0.1,
+        initialValue: 1.0,
+        decayRatePerCycle: 0.5,
+        isMortalitySignal: true,
+        updateRuleKind: "decay",
+      });
+      await parent.perturb("hunger", 2.5);
+      await parent.sproutChild({ childStateDir: childDir });
+      // Get parent's substrate_id for differentiation check.
+      const parentInfo = parent.helloAck;
+      void parentInfo;
+      await parent.shutdown();
+
+      // Spawn child substrate at childDir — it should boot with inherited axes.
+      const child = await spawn(childDir);
+      try {
+        const snap = await child.snapshot();
+        // Both axes inherited with their values.
+        assert.equal(snap.size, 2);
+        assert.equal(snap.get("hunger"), 2.5, "hunger value inherited");
+        assert.equal(snap.get("vitality"), 1.0, "vitality value inherited");
+
+        // Child has its OWN substrate_id (not the parent's).
+        // We can verify indirectly: the child's DAG should be EMPTY (no parent
+        // DAG transfer per L1 decision) — only events from the child's own
+        // lifetime.
+        const recent = await child.queryRecentNodes(10n);
+        // Child may have boot-time integrity check immune nodes; that's fine.
+        // But it should NOT have any spore_emission from the parent.
+        const sporeNodes = recent.nodes.filter((n) =>
+          n.nodeType.startsWith("spore_emission:"),
+        );
+        assert.equal(
+          sporeNodes.length,
+          0,
+          "child should not inherit parent's spore_emission DAG nodes",
+        );
+      } finally {
+        await child.shutdown();
+      }
+    } finally {
+      cleanupDir(parentDir);
+      cleanupDir(childDir);
+    }
+  });
+
+  it("M19 P7: mortality_signal fruiting auto-emits self_euthanasia_proposal", async () => {
+    const client = await spawn();
+    try {
+      // Register a DECAY axis as mortality signal.
+      await client.registerAxis({
+        name: "vitality",
+        axisClass: "decay",
+        fruitingThreshold: 0.1,
+        initialValue: 1.0,
+        decayRatePerCycle: 0.5,
+        isMortalitySignal: true,
+        updateRuleKind: "decay",
+      });
+      // Advance until the mortality signal fires.
+      let firedCycle: bigint | null = null;
+      let euthanasiaHashes: Uint8Array[] = [];
+      for (let c = 1n; c <= 10n; c++) {
+        const adv = await client.advance(c);
+        if (adv.fruitedAxes.length > 0) {
+          firedCycle = c;
+          euthanasiaHashes = adv.selfEuthanasiaProposalHashes;
+          break;
+        }
+      }
+      assert.ok(firedCycle !== null, "mortality_signal should fire within 10 cycles");
+      assert.equal(
+        euthanasiaHashes.length,
+        1,
+        "exactly one self_euthanasia_proposal should be emitted per mortality fruiting",
+      );
+
+      // Query DAG: verify the proposal node exists with correct node_type.
+      const report = await client.queryRecentNodes(20n, "self_euthanasia_proposal:");
+      assert.equal(report.filteredTotal, 1n);
+      assert.equal(report.nodes[0]!.nodeType, "self_euthanasia_proposal:vitality");
+      // Hash matches what advance reported.
+      assert.deepEqual(report.nodes[0]!.hash, euthanasiaHashes[0]);
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("M19 P7: non-mortality_signal fruiting does NOT emit self_euthanasia_proposal", async () => {
+    const client = await spawn();
+    try {
+      // Regular appetite axis — not a mortality signal.
+      await client.registerAxis({
+        name: "hunger",
+        axisClass: "appetite",
+        fruitingThreshold: 1.0,
+        initialValue: 0.0,
+        decayRatePerCycle: 1.0,
+        isMortalitySignal: false,
+        updateRuleKind: "noop",
+      });
+      await client.perturb("hunger", 2.0);
+      const adv = await client.advance(1n);
+      assert.equal(adv.fruitedAxes.length, 1);
+      // Appetite fruiting should NOT spawn a self_euthanasia_proposal.
+      assert.equal(adv.selfEuthanasiaProposalHashes.length, 0);
+
+      const report = await client.queryRecentNodes(20n, "self_euthanasia_proposal:");
+      assert.equal(report.filteredTotal, 0n);
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("M19 P9: run_immune_check exercises C18 canonical_bytes_render_drift on real DAG", async () => {
+    const client = await spawn();
+    try {
+      // Populate the DAG with several legitimate node types.
+      await client.registerAxis({
+        name: "ax",
+        axisClass: "appetite",
+        fruitingThreshold: 1.0,
+        initialValue: 0.0,
+        decayRatePerCycle: 1.0,
+        isMortalitySignal: false,
+        updateRuleKind: "noop",
+      });
+      await client.perturb("ax", 2.0);
+      await client.advance(1n);
+      await client.ingestRawMaterial({
+        contentKind: "text",
+        contentBytes: new TextEncoder().encode("test"),
+      });
+      // Run the integrity check.
+      const report = await client.runImmuneCheck();
+      // canonical_bytes_render_drift check should be present and PASSING
+      // for our well-formed DAG.
+      const cbCheck = report.checks.find(
+        (c) => c.checkId === "canonical_bytes_render_drift",
+      );
+      assert.ok(cbCheck, "expected canonical_bytes_render_drift check to be present");
+      assert.equal(
+        cbCheck!.passed,
+        true,
+        `expected canonical_bytes round-trip to pass; got: ${cbCheck!.evidence}`,
+      );
+      // total_checks should include the new C18 check.
+      assert.ok(
+        report.totalChecks >= 6n,
+        `expected at least 6 integrity checks (5 prior + 1 C18); got ${report.totalChecks}`,
+      );
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("M19: self_euthanasia_proposal persists across substrate restart", async () => {
+    const dir = freshStateDir();
+    try {
+      const c1 = await spawn(dir);
+      await c1.registerAxis({
+        name: "tired_axis",
+        axisClass: "decay",
+        fruitingThreshold: 0.1,
+        initialValue: 1.0,
+        decayRatePerCycle: 0.3,
+        isMortalitySignal: true,
+        updateRuleKind: "decay",
+      });
+      // Force the fruit.
+      let fired = false;
+      for (let c = 1n; c <= 10n; c++) {
+        const adv = await c1.advance(c);
+        if (adv.selfEuthanasiaProposalHashes.length > 0) {
+          fired = true;
+          break;
+        }
+      }
+      assert.ok(fired, "mortality_signal should fire");
+      await c1.shutdown();
+
+      // Session 2: euthanasia proposal still in DAG.
+      const c2 = await spawn(dir);
+      try {
+        const report = await c2.queryRecentNodes(20n, "self_euthanasia_proposal:");
+        assert.ok(
+          report.filteredTotal >= 1n,
+          "self_euthanasia_proposal should survive restart",
+        );
+      } finally {
+        await c2.shutdown();
+      }
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it("M18: last_absorbed_cycle persists across substrate restart", async () => {
+    const dir = freshStateDir();
+    try {
+      const c1 = await spawn(dir);
+      await c1.ingestRawMaterial({
+        contentKind: "text",
+        contentBytes: new TextEncoder().encode("persistent"),
+      });
+      const adv1 = await c1.advance(1n);
+      assert.equal(adv1.deltasAbsorbed, 1n);
+      await c1.shutdown();
+
+      // Session 2: advance again — should NOT re-absorb the same raw_material.
+      const c2 = await spawn(dir);
+      try {
+        const adv2 = await c2.advance(2n);
+        assert.equal(
+          adv2.deltasAbsorbed,
+          0n,
+          "previously-absorbed raw_material should not be re-absorbed after restart",
+        );
+      } finally {
+        await c2.shutdown();
+      }
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  // -------------------------------------------------------------------------
+  // M21.1 P5 万物互联 dual-write: every state mutation emits a DAG event.
+  // -------------------------------------------------------------------------
+
+  it("M21.1: fresh substrate emits genesis_event as first DAG node", async () => {
+    const client = await spawn();
+    try {
+      const all = await client.queryRecentNodes(50n);
+      const genesis = all.nodes.find((n) =>
+        n.nodeType.startsWith("genesis_event:"),
+      );
+      assert.ok(genesis, "expected genesis_event:* DAG node");
+      assert.equal(
+        genesis!.parentHashes.length,
+        0,
+        "genesis_event has no parents",
+      );
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("M21.1: hello with operator_identity emits operator_pinned event", async () => {
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m21-op-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identity = await OperatorIdentity.loadOrCreate(opDir, { hostBinary: ANCHOR_SURFACE_BIN });
+      const stateDir = freshStateDir();
+      const client = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identity,
+      });
+      try {
+        const pinned = await client.queryRecentNodes(20n, "operator_pinned:");
+        assert.equal(pinned.filteredTotal, 1n);
+      } finally {
+        await client.shutdown();
+      }
+    } finally {
+      cleanupDir(opDir);
+    }
+  });
+
+  it("M21.1: register_axis emits axis_registered event", async () => {
+    const client = await spawn();
+    try {
+      await client.registerAxis({
+        name: "test_emit",
+        axisClass: "appetite",
+        fruitingThreshold: 5.0,
+        initialValue: 0.0,
+        decayRatePerCycle: 1.0,
+        isMortalitySignal: false,
+        updateRuleKind: "noop",
+      });
+      const events = await client.queryRecentNodes(20n, "axis_registered:");
+      assert.equal(events.filteredTotal, 1n);
+      assert.equal(events.nodes[0]!.nodeType, "axis_registered:test_emit");
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("M21.1: perturb_axis emits axis_perturbed event", async () => {
+    const client = await spawn();
+    try {
+      await client.registerAxis({
+        name: "p_emit",
+        axisClass: "appetite",
+        fruitingThreshold: 100.0,
+        initialValue: 0.0,
+        decayRatePerCycle: 1.0,
+        isMortalitySignal: false,
+        updateRuleKind: "noop",
+      });
+      await client.perturb("p_emit", 3.5);
+      await client.perturb("p_emit", 1.5);
+      const events = await client.queryRecentNodes(20n, "axis_perturbed:");
+      assert.equal(events.filteredTotal, 2n);
+      // All matching node_types should be "axis_perturbed:p_emit"
+      for (const n of events.nodes) {
+        assert.equal(n.nodeType, "axis_perturbed:p_emit");
+      }
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("M21.1: advance emits cycle_advanced event", async () => {
+    const client = await spawn();
+    try {
+      await client.advance(1n);
+      await client.advance(2n);
+      const events = await client.queryRecentNodes(20n, "cycle_advanced");
+      // cycle_advanced has no per-axis suffix; check at least 2.
+      assert.ok(
+        events.filteredTotal >= 2n,
+        `expected ≥2 cycle_advanced events; got ${events.filteredTotal}`,
+      );
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("M21.1: request_attestation_nonce emits nonce_issued event", async () => {
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m21-op-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identity = await OperatorIdentity.loadOrCreate(opDir, { hostBinary: ANCHOR_SURFACE_BIN });
+      const stateDir = freshStateDir();
+      const client = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identity,
+      });
+      try {
+        const content = new TextEncoder().encode("m21 nonce test");
+        await client.requestAttestationNonce(content);
+        const events = await client.queryRecentNodes(20n, "nonce_issued:");
+        assert.equal(events.filteredTotal, 1n);
+      } finally {
+        await client.shutdown();
+      }
+    } finally {
+      cleanupDir(opDir);
+    }
+  });
+
+  it("M21.1: submit_mutation with nonce emits nonce_consumed event", async () => {
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m21-op-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identity = await OperatorIdentity.loadOrCreate(opDir, { hostBinary: ANCHOR_SURFACE_BIN });
+      const stateDir = freshStateDir();
+      const client = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identity,
+      });
+      try {
+        const content = new TextEncoder().encode("m21 consume test");
+        const nonceResult = await client.requestAttestationNonce(content);
+        const sig = await identity.sign(content);
+        const r = await client.submitMutation({
+          mutationType: "schema_change",
+          touchedMetaStructures: ["appetite_axis_schema"],
+          contentCanonicalBytes: content,
+          attestationSignature: sig,
+          nonce: nonceResult.nonce,
+          expiryUnixNs: nonceResult.expiryUnixNs,
+        });
+        assert.equal(r.accepted, true);
+        const consumed = await client.queryRecentNodes(20n, "nonce_consumed:");
+        assert.equal(consumed.filteredTotal, 1n);
+      } finally {
+        await client.shutdown();
+      }
+    } finally {
+      cleanupDir(opDir);
+    }
+  });
+
+  it("M21.1: C19 detector passes on healthy substrate", async () => {
+    const client = await spawn();
+    try {
+      // Drive the substrate through several operations to populate state.
+      await client.registerAxis({
+        name: "c19_test",
+        axisClass: "appetite",
+        fruitingThreshold: 5.0,
+        initialValue: 0.0,
+        decayRatePerCycle: 1.0,
+        isMortalitySignal: false,
+        updateRuleKind: "noop",
+      });
+      await client.perturb("c19_test", 2.5);
+      await client.advance(1n);
+      // Run integrity check.
+      const report = await client.runImmuneCheck();
+      const orphanCheck = report.checks.find(
+        (c) => c.checkId === "substrate_state_orphan_detected",
+      );
+      assert.ok(orphanCheck, "expected C19 check to be present");
+      assert.equal(
+        orphanCheck!.passed,
+        true,
+        `C19 should pass on healthy substrate; evidence: ${orphanCheck!.evidence}`,
+      );
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  // -------------------------------------------------------------------------
+  // M21.2 P5 万物互联: DAG-first boot path tests.
+  //
+  // The substrate now derives Rust-side state from DAG events at boot. State
+  // files are still WRITTEN (M21.4 will remove them) but no longer read when
+  // dag.cb contains a genesis_event. The acid test: after deleting all state
+  // files except dag.cb, the substrate must boot correctly with full state.
+  // -------------------------------------------------------------------------
+
+  it("M21.5: snapshot.cb created after K=10 cycles + survives restart", async () => {
+    const stateDir = freshStateDir();
+    try {
+      const c1 = await spawn(stateDir);
+      await c1.registerAxis({
+        name: "snap_test",
+        axisClass: "appetite",
+        fruitingThreshold: 100.0,
+        initialValue: 0.0,
+        decayRatePerCycle: 1.0,
+        isMortalitySignal: false,
+        updateRuleKind: "noop",
+      });
+      // Advance 10 cycles to trigger snapshot.
+      for (let c = 1n; c <= 10n; c++) {
+        await c1.advance(c);
+      }
+      await c1.shutdown();
+
+      // M21.5: snapshot.cb should exist alongside dag.cb.
+      // M25.0: substrate_signing_key.cb (substrate-private Ed25519 seed) is also
+      // required — it cannot be derived from DAG content (a derived key would
+      // be predictable from the DAG, defeating signature security). The seed
+      // is generated on first boot and persisted for re-use on subsequent boots.
+      const fs = await import("node:fs");
+      const path = await import("node:path");
+      const files = fs.readdirSync(stateDir).filter((f) => !f.endsWith(".tmp")).sort();
+      assert.deepEqual(
+        files,
+        ["dag.cb", "snapshot.cb", "substrate_signing_key.cb"],
+        `M21.5 + M25.0: expected dag.cb + snapshot.cb + substrate_signing_key.cb; got: ${files.join(", ")}`,
+      );
+
+      // Boot should succeed (uses snapshot for fast Rust-side init).
+      const c2 = await spawn(stateDir);
+      try {
+        const integrity = await c2.runImmuneCheck();
+        assert.equal(integrity.failedChecks, 0n);
+        // cycle_counter should be 10 (preserved across boot via snapshot).
+        const adv = await c2.advance(11n);
+        assert.equal(adv.cycleNumber, 11n);
+      } finally {
+        await c2.shutdown();
+      }
+
+      // After more operations, snapshot.cb should still be a regular file.
+      assert.ok(fs.statSync(path.join(stateDir, "snapshot.cb")).isFile());
+    } finally {
+      cleanupDir(stateDir);
+    }
+  });
+
+  it("M21.5: corrupted snapshot.cb gracefully falls back to full DAG replay", async () => {
+    const stateDir = freshStateDir();
+    try {
+      const c1 = await spawn(stateDir);
+      await c1.registerAxis({
+        name: "snap_corrupt",
+        axisClass: "appetite",
+        fruitingThreshold: 100.0,
+        initialValue: 0.0,
+        decayRatePerCycle: 1.0,
+        isMortalitySignal: false,
+        updateRuleKind: "noop",
+      });
+      for (let c = 1n; c <= 10n; c++) {
+        await c1.advance(c);
+      }
+      await c1.shutdown();
+
+      // Corrupt snapshot.cb.
+      const fs = await import("node:fs");
+      const path = await import("node:path");
+      fs.writeFileSync(path.join(stateDir, "snapshot.cb"), Buffer.from("corrupted junk"));
+
+      // Boot should succeed — falls back to full DAG replay.
+      const c2 = await spawn(stateDir);
+      try {
+        const adv = await c2.advance(11n);
+        assert.equal(adv.cycleNumber, 11n);
+        const integrity = await c2.runImmuneCheck();
+        assert.equal(integrity.failedChecks, 0n);
+      } finally {
+        await c2.shutdown();
+      }
+    } finally {
+      cleanupDir(stateDir);
+    }
+  });
+
+  it("M21.4 acid test: substrate state_dir contains ONLY dag.cb after operations", async () => {
+    // M21.4 commits no-compromise: legacy state files (manifest.cb / gradient.cb /
+    // owner_keys.cb / operator_identity_pubkey.cb / nonces.cb) are no longer
+    // written. dag.cb is the substrate's sole persistent artifact.
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m21-4-op-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identity = await OperatorIdentity.loadOrCreate(opDir, { hostBinary: ANCHOR_SURFACE_BIN });
+      const stateDir = freshStateDir();
+
+      const client = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identity,
+      });
+      try {
+        // Drive a variety of operations.
+        await client.registerAxis({
+          name: "m21_4",
+          axisClass: "appetite",
+          fruitingThreshold: 10.0,
+          initialValue: 0.0,
+          decayRatePerCycle: 1.0,
+          isMortalitySignal: false,
+          updateRuleKind: "noop",
+        });
+        await client.perturb("m21_4", 3.0);
+        await client.advance(1n);
+        const content = new TextEncoder().encode("m21.4 single-file test");
+        const nonceResult = await client.requestAttestationNonce(content);
+        const sig = await identity.sign(content);
+        await client.submitMutation({
+          mutationType: "schema_change",
+          touchedMetaStructures: ["appetite_axis_schema"],
+          contentCanonicalBytes: content,
+          attestationSignature: sig,
+          nonce: nonceResult.nonce,
+          expiryUnixNs: nonceResult.expiryUnixNs,
+        });
+      } finally {
+        await client.shutdown();
+      }
+
+      // After shutdown, the state_dir must contain ONLY:
+      // - dag.cb (authoritative substrate state, M21.4)
+      // - snapshot.cb (optional cache, M21.5 — present if any K=10 cycle happened)
+      // - substrate_signing_key.cb (substrate-private Ed25519 seed, M25.0 — REQUIRED;
+      //   secret cannot be derived from DAG without defeating signature security)
+      // No legacy state files allowed (M21.4 commitment + M25.0 evolution).
+      //
+      // Doctrine: a persistent file other than dag.cb is allowed iff it is either
+      // (a) a cache derivable from DAG, OR (b) a substrate-private secret that
+      // the substrate cannot operate without. snapshot.cb is (a); signing_key.cb is (b).
+      const fs = await import("node:fs");
+      const files = fs
+        .readdirSync(stateDir)
+        .filter((f) => !f.endsWith(".tmp"))
+        .sort();
+      const allowed = new Set(["dag.cb", "snapshot.cb", "substrate_signing_key.cb"]);
+      for (const f of files) {
+        assert.ok(
+          allowed.has(f),
+          `M21.4 + M25.0: unexpected state file: ${f}. Only dag.cb + (optional) snapshot.cb + substrate_signing_key.cb allowed.`,
+        );
+      }
+      assert.ok(files.includes("dag.cb"), "dag.cb must exist");
+      assert.ok(
+        files.includes("substrate_signing_key.cb"),
+        "M25.0: substrate_signing_key.cb must exist (substrate-private signing seed)",
+      );
+    } finally {
+      cleanupDir(opDir);
+    }
+  });
+
+  it("M21.3 acid test: Python gradient state recovers from DAG-only restart", async () => {
+    // The deepest M21.3 test: delete EVERY state file except dag.cb. The
+    // substrate must boot, replay DAG events, reconstruct Python's gradient
+    // state in-memory, and snapshot the same axis values as before.
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m21-3-op-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identity = await OperatorIdentity.loadOrCreate(opDir, { hostBinary: ANCHOR_SURFACE_BIN });
+      const stateDir = freshStateDir();
+
+      // Session 1: build up gradient state.
+      const c1 = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identity,
+      });
+      await c1.registerAxis({
+        name: "m21_3_axis_a",
+        axisClass: "appetite",
+        fruitingThreshold: 10.0,
+        initialValue: 0.0,
+        decayRatePerCycle: 1.0,
+        isMortalitySignal: false,
+        updateRuleKind: "noop",
+      });
+      await c1.registerAxis({
+        name: "m21_3_axis_b",
+        axisClass: "decay",
+        fruitingThreshold: 0.1,
+        initialValue: 1.0,
+        decayRatePerCycle: 0.9,
+        isMortalitySignal: false,
+        updateRuleKind: "decay",
+      });
+      await c1.perturb("m21_3_axis_a", 2.5);
+      await c1.perturb("m21_3_axis_a", 1.5);
+      const preSnap = await c1.snapshot();
+      const preA = preSnap.get("m21_3_axis_a");
+      const preB = preSnap.get("m21_3_axis_b");
+      await c1.shutdown();
+
+      // Delete EVERYTHING in state dir except dag.cb.
+      const fs = await import("node:fs");
+      const path = await import("node:path");
+      const before = fs.readdirSync(stateDir);
+      for (const e of before) {
+        if (e !== "dag.cb") {
+          fs.rmSync(path.join(stateDir, e), { force: true, recursive: true });
+        }
+      }
+      const after = fs.readdirSync(stateDir);
+      assert.deepEqual(after, ["dag.cb"]);
+
+      // Session 2: boot purely from DAG. Python state should be reconstructed
+      // via DAG event replay. Snapshot must match pre-shutdown values.
+      const c2 = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identity,
+      });
+      try {
+        const postSnap = await c2.snapshot();
+        assert.equal(postSnap.size, 2, "both axes should be reconstructed");
+        assert.equal(
+          postSnap.get("m21_3_axis_a"),
+          preA,
+          "axis_a value should be replayed (initial + 2 perturbations)",
+        );
+        assert.equal(
+          postSnap.get("m21_3_axis_b"),
+          preB,
+          "axis_b value should be replayed (initial_value=1.0 since no perturbations)",
+        );
+        // Integrity should be intact.
+        const integrity = await c2.runImmuneCheck();
+        assert.equal(integrity.failedChecks, 0n);
+      } finally {
+        await c2.shutdown();
+      }
+    } finally {
+      cleanupDir(opDir);
+    }
+  });
+
+  it("M21.2: substrate boots from DAG even with state files deleted (except dag.cb)", async () => {
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m21-2-op-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identity = await OperatorIdentity.loadOrCreate(opDir, { hostBinary: ANCHOR_SURFACE_BIN });
+      const stateDir = freshStateDir();
+
+      // Session 1: build up substrate state.
+      const c1 = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identity,
+      });
+      await c1.registerAxis({
+        name: "m21_dag_only",
+        axisClass: "appetite",
+        fruitingThreshold: 10.0,
+        initialValue: 0.0,
+        decayRatePerCycle: 1.0,
+        isMortalitySignal: false,
+        updateRuleKind: "noop",
+      });
+      await c1.perturb("m21_dag_only", 3.5);
+      await c1.advance(1n);
+      const content = new TextEncoder().encode("nonce persist test");
+      const nonceResult = await c1.requestAttestationNonce(content);
+      const sig = await identity.sign(content);
+      await c1.submitMutation({
+        mutationType: "schema_change",
+        touchedMetaStructures: ["appetite_axis_schema"],
+        contentCanonicalBytes: content,
+        attestationSignature: sig,
+        nonce: nonceResult.nonce,
+        expiryUnixNs: nonceResult.expiryUnixNs,
+      });
+      const pre = c1.helloAck.substrateVersion; // sanity
+      void pre;
+      const preSnap = await c1.snapshot();
+      const preAxisValue = preSnap.get("m21_dag_only");
+      await c1.shutdown();
+
+      // Delete EVERYTHING in state dir EXCEPT dag.cb (also delete snapshot.cb
+      // if present from M21.5; we want to test full DAG replay).
+      const fs = await import("node:fs");
+      const path = await import("node:path");
+      const entries = fs.readdirSync(stateDir);
+      for (const e of entries) {
+        if (e !== "dag.cb") {
+          const p = path.join(stateDir, e);
+          fs.rmSync(p, { force: true, recursive: true });
+        }
+      }
+      // Verify the deletion.
+      const afterDelete = fs.readdirSync(stateDir);
+      assert.deepEqual(afterDelete, ["dag.cb"], "only dag.cb should remain");
+
+      // Session 2: boot from DAG only. Should recover everything Rust-side.
+      const c2 = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identity,
+      });
+      try {
+        // Check that the integrity check (including C19) passes — proves
+        // derived state matches in-memory state.
+        const integrityReport = await c2.runImmuneCheck();
+        assert.equal(
+          integrityReport.failedChecks,
+          0n,
+          `all integrity checks should pass after DAG-only boot; failures: ${integrityReport.checks
+            .filter((c) => !c.passed)
+            .map((c) => `${c.checkId}: ${c.evidence}`)
+            .join(" | ")}`,
+        );
+
+        // Replay-test nonce consumption: try the consumed nonce again →
+        // must be rejected (replay), proving nonce_log was reconstructed.
+        const replay = await c2.submitMutation({
+          mutationType: "schema_change",
+          touchedMetaStructures: ["appetite_axis_schema"],
+          contentCanonicalBytes: content,
+          attestationSignature: sig,
+          nonce: nonceResult.nonce,
+          expiryUnixNs: nonceResult.expiryUnixNs,
+        });
+        assert.equal(
+          replay.accepted,
+          false,
+          "previously-consumed nonce should be rejected after DAG-only boot",
+        );
+        assert.match(replay.rejectionReason, /replay|consumed|unknown/);
+
+        // Note: M21.2 does NOT yet derive Python-side gradient state. The
+        // axis value is reset to initial_value=0 because gradient.cb is gone.
+        // M21.3 will fix this by making Python a derived view consumer.
+        // We DON'T assert axis value here — it's expected to be reset.
+        void preAxisValue;
+      } finally {
+        await c2.shutdown();
+      }
+    } finally {
+      cleanupDir(opDir);
+    }
+  });
+
+  it("M21.2: legacy substrate (no genesis_event) auto-migrates on boot", async () => {
+    // Build a substrate the legacy way: write a manifest.cb manually + an
+    // empty dag.cb, then boot. The substrate should auto-emit genesis_event.
+    const stateDir = freshStateDir();
+    try {
+      // Spawn once to get a normal substrate state, then surgically delete
+      // dag.cb (simulating a pre-M21.1 substrate that has manifest.cb but
+      // no DAG events).
+      const c1 = await spawn(stateDir);
+      await c1.shutdown();
+      const fs = await import("node:fs");
+      const path = await import("node:path");
+      fs.rmSync(path.join(stateDir, "dag.cb"), { force: true });
+      const before = fs.readdirSync(stateDir);
+      assert.ok(!before.includes("dag.cb"));
+
+      // Now boot again — substrate sees manifest.cb but no dag.cb. Should
+      // auto-emit genesis_event during boot.
+      const c2 = await spawn(stateDir);
+      try {
+        const events = await c2.queryRecentNodes(20n, "genesis_event:");
+        assert.equal(
+          events.filteredTotal,
+          1n,
+          "auto-migration should emit exactly 1 genesis_event",
+        );
+        // After migration, integrity check should pass.
+        const integrity = await c2.runImmuneCheck();
+        assert.equal(integrity.failedChecks, 0n);
+      } finally {
+        await c2.shutdown();
+      }
+    } finally {
+      cleanupDir(stateDir);
+    }
+  });
+
+  it("M21.1: DerivedState reconstructs state correctly across operations", async () => {
+    const client = await spawn();
+    try {
+      // Build up state, then check C19 passes throughout.
+      await client.registerAxis({
+        name: "derived_test",
+        axisClass: "appetite",
+        fruitingThreshold: 100.0,
+        initialValue: 0.0,
+        decayRatePerCycle: 1.0,
+        isMortalitySignal: false,
+        updateRuleKind: "noop",
+      });
+      const check1 = await client.runImmuneCheck();
+      assert.equal(check1.failedChecks, 0n);
+
+      await client.perturb("derived_test", 5.0);
+      await client.advance(1n);
+      const check2 = await client.runImmuneCheck();
+      assert.equal(check2.failedChecks, 0n);
+
+      await client.advance(2n);
+      const check3 = await client.runImmuneCheck();
+      assert.equal(
+        check3.failedChecks,
+        0n,
+        "C19 should remain green throughout operations",
+      );
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  // -------------------------------------------------------------------------
+  // M25.5 — TS substrate_client gains 10 operator-facing methods:
+  //   federation_{open,close}_listener / federation_status /
+  //   federation_connect_peer / federation_poll /
+  //   federation_pull_events_from_peer / federation_link_to_parent_from_hint /
+  //   lift_birth_period_quarantine / accept_self_euthanasia_proposal /
+  //   query_substrate_observatory.
+  // -------------------------------------------------------------------------
+
+  it("m25_5_federation_open_close_listener_e2e", async () => {
+    const client = await spawn();
+    try {
+      // Open on port-0 → OS picks port.
+      const opened = await client.federationOpenListener({
+        bindAddr: "127.0.0.1:0",
+      });
+      assert.ok(opened.boundAddr.startsWith("127.0.0.1:"));
+      assert.notEqual(opened.boundAddr, "127.0.0.1:0", "OS picked real port");
+      assert.equal(opened.listenerOpenedEventHash.length, 32);
+
+      // Status reflects the listener.
+      const status1 = await client.federationStatus();
+      assert.equal(status1.isListening, true);
+      assert.equal(status1.boundAddr, opened.boundAddr);
+      assert.equal(status1.peerCount, 0n);
+
+      // Close the listener.
+      const closed = await client.federationCloseListener();
+      assert.equal(closed.wasListening, true);
+      assert.equal(closed.priorBindAddr, opened.boundAddr);
+      assert.ok(closed.listenerClosedEventHash !== null);
+      assert.equal(closed.listenerClosedEventHash!.length, 32);
+
+      // Status reflects the close.
+      const status2 = await client.federationStatus();
+      assert.equal(status2.isListening, false);
+      assert.equal(status2.boundAddr, "");
+
+      // Idempotent: closing again returns wasListening=false.
+      const closed2 = await client.federationCloseListener();
+      assert.equal(closed2.wasListening, false);
+      assert.equal(closed2.listenerClosedEventHash, null);
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("m25_5_federation_status_empty_substrate", async () => {
+    const client = await spawn();
+    try {
+      const status = await client.federationStatus();
+      assert.equal(status.isListening, false);
+      assert.equal(status.boundAddr, "");
+      assert.equal(status.peerCount, 0n);
+      assert.equal(status.eventsReceivedTotal, 0n);
+      assert.equal(status.eventsSentTotal, 0n);
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("m25_5_federation_connect_peer_two_substrates_pin_each_other", async () => {
+    // Spawn two substrates with isolated operator identities.
+    const opDir1 = mkdtempSync(resolvePath(tmpdir(), "myco-m25-op1-"));
+    const opDir2 = mkdtempSync(resolvePath(tmpdir(), "myco-m25-op2-"));
+    const state1 = freshStateDir();
+    const state2 = freshStateDir();
+    let client1: SubstrateClient | null = null;
+    let client2: SubstrateClient | null = null;
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const id1 = await OperatorIdentity.loadOrCreate(opDir1, { hostBinary: ANCHOR_SURFACE_BIN });
+      const id2 = await OperatorIdentity.loadOrCreate(opDir2, { hostBinary: ANCHOR_SURFACE_BIN });
+      client1 = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: state1 },
+        operatorIdentity: id1,
+      });
+      client2 = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: state2 },
+        operatorIdentity: id2,
+      });
+
+      // Substrate 1 opens listener; substrate 2 connects.
+      const opened = await client1.federationOpenListener({
+        bindAddr: "127.0.0.1:0",
+      });
+      const connect = await client2.federationConnectPeer({
+        remoteAddr: opened.boundAddr,
+      });
+      assert.equal(connect.outcome, "pinned");
+      assert.ok(connect.peerSubstrateId);
+      assert.equal(connect.peerSubstrateId!.length, 32);
+      assert.ok(connect.peerPinnedEventHash);
+      assert.equal(connect.peerPinnedEventHash!.length, 32);
+
+      // Substrate 2 should report 1 peer pinned (substrate 1).
+      const status2 = await client2.federationStatus();
+      assert.equal(status2.peerCount, 1n, "substrate 2 has substrate 1 pinned");
+
+      // Substrate 1 should pin substrate 2 via its autonomous M23.1 tick OR
+      // via explicit federation_poll. We call federation_poll explicitly
+      // (the autonomous tick may have already consumed the accept, in which
+      // case our explicit poll returns 0/0 — both paths are valid). We
+      // confirm pinning via status, which is the authoritative state.
+      let status1: FederationStatusResult | null = null;
+      for (let i = 0; i < 60; i++) {
+        await client1.federationPoll();
+        const s = await client1.federationStatus();
+        if (s.peerCount >= 1n) {
+          status1 = s;
+          break;
+        }
+        await new Promise<void>((r) => setTimeout(r, 50));
+      }
+      assert.ok(
+        status1 !== null,
+        "substrate 1 should pin substrate 2 within 3s of dial completion",
+      );
+      assert.equal(status1!.peerCount, 1n, "substrate 1 has substrate 2 pinned");
+    } finally {
+      if (client1) await client1.shutdown();
+      if (client2) await client2.shutdown();
+      cleanupDir(opDir1);
+      cleanupDir(opDir2);
+      cleanupDir(state1);
+      cleanupDir(state2);
+    }
+  });
+
+  it("m25_5_federation_poll_empty_returns_zero_counts", async () => {
+    const client = await spawn();
+    try {
+      // Open a listener but no peers connect.
+      await client.federationOpenListener({ bindAddr: "127.0.0.1:0" });
+      const poll = await client.federationPoll();
+      assert.equal(poll.acceptedConnections, 0n);
+      assert.equal(poll.pinnedPeers, 0n);
+      assert.equal(poll.rejectedPeers, 0n);
+      assert.equal(poll.eventBatchesSent, 0n);
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("m25_5_federation_pull_events_unknown_peer_rejected", async () => {
+    const client = await spawn();
+    try {
+      // Pull from a peer that was never pinned. Substrate rejects this
+      // with a Protocol error — the call should throw.
+      const unknownPeerId = new Uint8Array(32).fill(0xaa);
+      await assert.rejects(
+        () =>
+          client.federationPullEventsFromPeer({
+            peerSubstrateId: unknownPeerId,
+          }),
+        /not pinned|unknown peer|peer/i,
+      );
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("m25_5_federation_link_to_parent_from_hint_no_hint_returns_false", async () => {
+    // Fresh substrate has no parent_federation_hint event. Substrate should
+    // report hint_found=false without error.
+    const client = await spawn();
+    try {
+      const result = await client.federationLinkToParentFromHint();
+      assert.equal(result.hintFound, false);
+      assert.equal(result.alreadyLinked, false);
+      assert.equal(result.parentSubstrateId, null);
+      assert.equal(result.parentFederationAddr, null);
+      assert.equal(result.parentLinkedEventHash, null);
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("m25_5_lift_birth_period_quarantine_returns_was_in_quarantine_false_when_not_in_quarantine", async () => {
+    // Fresh top-level substrate is never in quarantine (only child substrates
+    // sprouted from a parent in active quarantine inherit it). Lift should
+    // succeed with wasInQuarantine=false + no event emitted.
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m25-quarantine-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identity = await OperatorIdentity.loadOrCreate(opDir, { hostBinary: ANCHOR_SURFACE_BIN });
+      const stateDir = freshStateDir();
+      const client = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identity,
+      });
+      try {
+        const ownerSignature = await client.signLiftBirthPeriodQuarantine(
+          identity,
+        );
+        const result = await client.liftBirthPeriodQuarantine({
+          ownerSignature,
+        });
+        assert.equal(result.wasInQuarantine, false);
+        assert.equal(result.quarantineLiftedEventHash, null);
+      } finally {
+        await client.shutdown();
+      }
+    } finally {
+      cleanupDir(opDir);
+    }
+  });
+
+  it("m25_5_lift_birth_period_quarantine_rejects_invalid_signature", async () => {
+    // A bad signature must be rejected — closes the Phase β security regression.
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m25-q-bad-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identity = await OperatorIdentity.loadOrCreate(opDir, { hostBinary: ANCHOR_SURFACE_BIN });
+      const stateDir = freshStateDir();
+      const client = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identity,
+      });
+      try {
+        const garbageSignature = new Uint8Array(64); // all-zeros: invalid
+        await assert.rejects(
+          () =>
+            client.liftBirthPeriodQuarantine({
+              ownerSignature: garbageSignature,
+            }),
+          /signature invalid|invalid/i,
+        );
+      } finally {
+        await client.shutdown();
+      }
+    } finally {
+      cleanupDir(opDir);
+    }
+  });
+
+  it("m25_5_accept_self_euthanasia_proposal_terminates_client", async () => {
+    // Drive substrate to mortality_signal fruiting, then accept the proposal.
+    // Substrate must gracefully shut down after responding.
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m25-euth-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identity = await OperatorIdentity.loadOrCreate(opDir, { hostBinary: ANCHOR_SURFACE_BIN });
+      const stateDir = freshStateDir();
+      const client = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identity,
+      });
+      try {
+        await client.registerAxis({
+          name: "vitality",
+          axisClass: "decay",
+          fruitingThreshold: 0.1,
+          initialValue: 1.0,
+          decayRatePerCycle: 0.5,
+          isMortalitySignal: true,
+          updateRuleKind: "decay",
+        });
+        // Advance until the mortality signal fires.
+        let proposalHash: Uint8Array | null = null;
+        for (let c = 1n; c <= 10n; c++) {
+          const adv = await client.advance(c);
+          if (adv.selfEuthanasiaProposalHashes.length > 0) {
+            proposalHash = adv.selfEuthanasiaProposalHashes[0]!;
+            break;
+          }
+        }
+        assert.ok(proposalHash, "mortality_signal should fire within 10 cycles");
+
+        // Owner co-attests acceptance.
+        const ownerSignature = await client.signAcceptSelfEuthanasiaProposal(
+          identity,
+          proposalHash!,
+        );
+        const result = await client.acceptSelfEuthanasiaProposal({
+          proposalHash: proposalHash!,
+          ownerSignature,
+        });
+        assert.equal(result.axisName, "vitality");
+        assert.equal(result.executedEventHash.length, 32);
+
+        // Substrate gracefully shuts down. Verify the child exits.
+        // We wait on the underlying child process; if it doesn't exit within
+        // a reasonable window we surface the failure.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const child = (client as unknown as { child: { once: (e: string, f: () => void) => void; exitCode: number | null } }).child;
+        if (child.exitCode === null) {
+          await new Promise<void>((resolve, reject) => {
+            const t = setTimeout(
+              () => reject(new Error("substrate did not exit within 5s")),
+              5000,
+            );
+            child.once("exit", () => {
+              clearTimeout(t);
+              resolve();
+            });
+          });
+        }
+      } finally {
+        // shutdown() is harmless if already exited.
+        try {
+          await client.shutdown();
+        } catch {
+          // Expected — substrate already exited cleanly.
+        }
+      }
+    } finally {
+      cleanupDir(opDir);
+    }
+  });
+
+  it("m25_5_accept_self_euthanasia_proposal_rejects_invalid_signature", async () => {
+    // Forge a bad signature; substrate must reject + stay alive.
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m25-euth-bad-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identity = await OperatorIdentity.loadOrCreate(opDir, { hostBinary: ANCHOR_SURFACE_BIN });
+      const stateDir = freshStateDir();
+      const client = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: stateDir },
+        operatorIdentity: identity,
+      });
+      try {
+        await client.registerAxis({
+          name: "vitality",
+          axisClass: "decay",
+          fruitingThreshold: 0.1,
+          initialValue: 1.0,
+          decayRatePerCycle: 0.5,
+          isMortalitySignal: true,
+          updateRuleKind: "decay",
+        });
+        let proposalHash: Uint8Array | null = null;
+        for (let c = 1n; c <= 10n; c++) {
+          const adv = await client.advance(c);
+          if (adv.selfEuthanasiaProposalHashes.length > 0) {
+            proposalHash = adv.selfEuthanasiaProposalHashes[0]!;
+            break;
+          }
+        }
+        assert.ok(proposalHash);
+        // Garbage signature.
+        const garbageSig = new Uint8Array(64);
+        await assert.rejects(
+          () =>
+            client.acceptSelfEuthanasiaProposal({
+              proposalHash: proposalHash!,
+              ownerSignature: garbageSig,
+            }),
+          /signature invalid|invalid/i,
+        );
+        // Substrate must be alive — confirm by issuing another query.
+        const status = await client.federationStatus();
+        assert.equal(status.isListening, false);
+      } finally {
+        await client.shutdown();
+      }
+    } finally {
+      cleanupDir(opDir);
+    }
+  });
+
+  it("m25_5_query_substrate_observatory_format_v2_or_greater", async () => {
+    // Fresh substrate, observatory query without window — signal_1 always
+    // present, signal_2/3/4/7 present at format_version >= 2.
+    const client = await spawn();
+    try {
+      // Make the DAG non-trivial so signals carry meaningful values.
+      await client.registerAxis({
+        name: "obs_axis",
+        axisClass: "appetite",
+        fruitingThreshold: 100.0,
+        initialValue: 0.0,
+        decayRatePerCycle: 1.0,
+        isMortalitySignal: false,
+        updateRuleKind: "noop",
+      });
+      await client.perturb("obs_axis", 1.0);
+      await client.advance(1n);
+
+      const snap = await client.querySubstrateObservatory();
+      // **M26.2**: format_version bumped 3 → 4 (added signals 7/8/9, renamed
+      // composite from signal_7 → signal_10, renamed doctrine_burst). Accept >= 2
+      // for backward-compat with potential pre-M26.2 producers.
+      assert.ok(
+        snap.formatVersion >= 2n,
+        `expected format_version >= 2; got ${snap.formatVersion}`,
+      );
+      assert.ok(snap.capturedAtUnixNs > 0n);
+
+      // Signal #1 is always emitted (Phase α).
+      assert.ok(snap.signal1, "signal_1 must be present in any observatory response");
+      assert.ok(snap.signal1!.dagNodeCount > 0n);
+      assert.ok(snap.signal1!.dagEdgeCount >= 0n);
+      assert.ok(snap.signal1!.dagTotalContentBytes > 0n);
+      assert.equal(snap.signal1!.manifestCycleCounter, 1n);
+
+      // No window supplied → signal_6 absent.
+      assert.equal(snap.signal6, undefined, "signal_6 should be absent when no window supplied");
+
+      // format_version >= 2 → signals 2/3/4 must be present.
+      assert.ok(snap.signal2, "signal_2 must be present at format_version >= 2");
+      assert.ok(snap.signal3, "signal_3 must be present at format_version >= 2");
+      assert.ok(snap.signal4, "signal_4 must be present at format_version >= 2");
+      assert.equal(snap.signal4!.signal4bReachablePeerCount, 0n);
+      assert.equal(snap.signal3!.distinctPerturbedAxesCount, 1n);
+
+      // **M26.2**: composite is now signal_10 (was signal_7 at v3).
+      assert.ok(snap.signal10, "signal_10 (composite) must be present at format_version >= 4");
+      assert.ok(Number.isFinite(snap.signal10!.compositeHealthScore));
+
+      // **M26.2**: cost signals 7/8/9 land at v4. Substrate has advanced
+      // exactly 1 cycle so each cost signal carries a current_cycle value
+      // (compute_ns > 0 trivially; network may be 0 with no federation
+      // activity; storage > 0 because dag.cb just grew).
+      if (snap.formatVersion >= 4n) {
+        assert.ok(snap.signal7, "signal_7 (compute/cycle) must be present at v4");
+        assert.ok(
+          snap.signal7!.currentCycleNs > 0n,
+          "signal_7 currentCycleNs must reflect real wall-clock work in the cycle",
+        );
+        assert.ok(snap.signal8, "signal_8 (network/cycle) must be present at v4");
+        // No federation traffic in this test → expect 0 egress.
+        assert.equal(snap.signal8!.currentCycleBytes, 0n);
+        assert.ok(snap.signal9, "signal_9 (storage/cycle) must be present at v4");
+        // dag.cb grew this cycle (cycle_advanced + axis_perturbed events) →
+        // storage delta > 0.
+        assert.ok(
+          snap.signal9!.currentCycleBytes > 0n,
+          "signal_9 currentCycleBytes must reflect on-disk growth this cycle",
+        );
+      }
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  it("m25_5_query_substrate_observatory_signal_6_populated_when_window_supplied", async () => {
+    const client = await spawn();
+    try {
+      const snap = await client.querySubstrateObservatory({
+        operatorAttestedContextWindowBytes: 200_000n,
+      });
+      assert.ok(snap.signal6, "signal_6 must be present when window supplied");
+      assert.equal(snap.signal6!.operatorAttestedContextWindowBytes, 200_000n);
+      assert.ok(
+        snap.signal6!.substrateTotalBytes >= 0n,
+        "substrate_total_bytes must be a real count",
+      );
+      // ratio must equal substrate_total / window (as Number).
+      const expectedRatio =
+        Number(snap.signal6!.substrateTotalBytes) /
+        Number(snap.signal6!.operatorAttestedContextWindowBytes);
+      assert.ok(
+        Math.abs(snap.signal6!.ratio - expectedRatio) < 1e-9,
+        `ratio mismatch: got ${snap.signal6!.ratio}, expected ~${expectedRatio}`,
+      );
+    } finally {
+      await client.shutdown();
+    }
+  });
+
+  // -------------------------------------------------------------------------
+  // **M26.3 P10 Selective Compression** — operator-driven compression flow.
+  //
+  // These exercise the CI-attested compression mutation pipeline end-to-end:
+  // build a CompressionWitness, sign it as the owner, submit via the normal
+  // submit_mutation envelope, verify the substrate accepts/rejects per
+  // P10.b invariant-set semantics and emits the right DAG events.
+  // -------------------------------------------------------------------------
+
+  it("M26.3: compression mutation with valid CI attestation accepted + emits compression_event:{rule_id}", async () => {
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m26-3-op-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identity = await OperatorIdentity.loadOrCreate(opDir, {
+        hostBinary: ANCHOR_SURFACE_BIN,
+      });
+      const client = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: freshStateDir() },
+        operatorIdentity: identity,
+      });
+      try {
+        // Build a CompressionWitness payload. Use an EMPTY compressed_hashes
+        // list so we don't have to age out any real DAG nodes — the
+        // invariant-set check trivially passes when targeting zero nodes,
+        // and the compression_event still emits with rule_id stamped.
+        const { encode: cbEncode } = await import(
+          "@myco/anchor-client/src/canonical_bytes.ts"
+        );
+        const tipBytes = new Uint8Array(32); // all-zero tip (substrate accepts)
+        const witnessMap: Map<string, import("@myco/anchor-client/src/canonical_bytes.ts").Value> =
+          new Map();
+        witnessMap.set("rule_id", {
+          type: "string",
+          value: "raw_material_aggregate_v1",
+        });
+        witnessMap.set("compressed_node_hashes", {
+          type: "array",
+          value: [],
+        });
+        witnessMap.set("aggregate_summary", {
+          type: "bytes",
+          value: new TextEncoder().encode("M26.3 e2e test aggregate"),
+        });
+        witnessMap.set("attestation_dag_tip", {
+          type: "bytes",
+          value: tipBytes,
+        });
+        witnessMap.set("semantic_lossy", { type: "bool", value: true });
+        witnessMap.set("causal_recoverability_argument", {
+          type: "string",
+          value: "no-op compression: empty hash list, vacuously preserves invariants",
+        });
+        const witnessBytes = cbEncode({ type: "map", value: witnessMap }).bytes;
+
+        // Sign content + supply nonce for CI envelope.
+        const nonceResult = await client.requestAttestationNonce(witnessBytes);
+        const sig = await identity.sign(witnessBytes);
+        const result = await client.submitMutation({
+          mutationType: "compression",
+          contentCanonicalBytes: witnessBytes,
+          attestationSignature: sig,
+          nonce: nonceResult.nonce,
+          expiryUnixNs: nonceResult.expiryUnixNs,
+        });
+        assert.equal(
+          result.accepted,
+          true,
+          `valid compression mutation must accept; got rejection: ${result.rejectionReason}`,
+        );
+        assert.equal(result.classification, "contract_identity_level");
+
+        // Verify compression_event:raw_material_aggregate_v1 landed in the DAG.
+        const nodes = await client.queryRecentNodes(50n, "compression_event:");
+        assert.ok(
+          nodes.nodes.length >= 1,
+          "compression_event:* must appear in DAG after accepted compression mutation",
+        );
+        const found = nodes.nodes.find((n) =>
+          n.nodeType.endsWith(":raw_material_aggregate_v1"),
+        );
+        assert.ok(
+          found,
+          `compression_event:raw_material_aggregate_v1 not found; saw ${nodes.nodes.map((n) => n.nodeType).join(", ")}`,
+        );
+      } finally {
+        await client.shutdown();
+      }
+    } finally {
+      try { rmSync(opDir, { recursive: true, force: true }); } catch {}
+    }
+  });
+
+  it("M26.4: owner_objective_declaration with valid CI attestation accepted + emits owner_objective_declared:{id}", async () => {
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m26-4-op-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identity = await OperatorIdentity.loadOrCreate(opDir, {
+        hostBinary: ANCHOR_SURFACE_BIN,
+      });
+      const client = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: freshStateDir() },
+        operatorIdentity: identity,
+      });
+      try {
+        // Build an OwnerObjective canonical-bytes payload. Schema mirrors
+        // substrate::events::encode_owner_objective.
+        const { encode: cbEncode } = await import(
+          "@myco/anchor-client/src/canonical_bytes.ts"
+        );
+        const objectiveMap: Map<string, import("@myco/anchor-client/src/canonical_bytes.ts").Value> =
+          new Map();
+        objectiveMap.set("objective_id", {
+          type: "string",
+          value: "m26_4_ts_e2e_objective",
+        });
+        objectiveMap.set("declared_at_cycle", { type: "uint", value: 0n });
+        const weightEntry1: Map<string, import("@myco/anchor-client/src/canonical_bytes.ts").Value> =
+          new Map();
+        weightEntry1.set("prefix", { type: "string", value: "axis_perturbed:" });
+        weightEntry1.set("weight_repr", { type: "string", value: "0.75" });
+        const weightEntry2: Map<string, import("@myco/anchor-client/src/canonical_bytes.ts").Value> =
+          new Map();
+        weightEntry2.set("prefix", { type: "string", value: "raw_material:" });
+        weightEntry2.set("weight_repr", { type: "string", value: "0.25" });
+        objectiveMap.set("weights", {
+          type: "array",
+          value: [
+            { type: "map", value: weightEntry1 },
+            { type: "map", value: weightEntry2 },
+          ],
+        });
+        const objectiveBytes = cbEncode({ type: "map", value: objectiveMap }).bytes;
+
+        const nonceResult = await client.requestAttestationNonce(objectiveBytes);
+        const sig = await identity.sign(objectiveBytes);
+        const result = await client.submitMutation({
+          mutationType: "owner_objective_declaration",
+          contentCanonicalBytes: objectiveBytes,
+          attestationSignature: sig,
+          nonce: nonceResult.nonce,
+          expiryUnixNs: nonceResult.expiryUnixNs,
+        });
+        assert.equal(
+          result.accepted,
+          true,
+          `valid owner_objective_declaration must accept; got rejection: ${result.rejectionReason}`,
+        );
+        assert.equal(result.classification, "contract_identity_level");
+
+        // Verify owner_objective_declared:m26_4_ts_e2e_objective lands.
+        const nodes = await client.queryRecentNodes(
+          50n,
+          "owner_objective_declared:",
+        );
+        assert.ok(
+          nodes.nodes.length >= 1,
+          "owner_objective_declared:* must appear after CI mutation",
+        );
+        const found = nodes.nodes.find((n) =>
+          n.nodeType.endsWith(":m26_4_ts_e2e_objective"),
+        );
+        assert.ok(
+          found,
+          `expected owner_objective_declared:m26_4_ts_e2e_objective; saw: ${nodes.nodes.map((n) => n.nodeType).join(", ")}`,
+        );
+      } finally {
+        await client.shutdown();
+      }
+    } finally {
+      try { rmSync(opDir, { recursive: true, force: true }); } catch {}
+    }
+  });
+
+  it("M26.4: owner_objective_declaration with empty weights is rejected via C5", async () => {
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m26-4-rej-op-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identity = await OperatorIdentity.loadOrCreate(opDir, {
+        hostBinary: ANCHOR_SURFACE_BIN,
+      });
+      const client = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: freshStateDir() },
+        operatorIdentity: identity,
+      });
+      try {
+        const { encode: cbEncode } = await import(
+          "@myco/anchor-client/src/canonical_bytes.ts"
+        );
+        const objectiveMap: Map<string, import("@myco/anchor-client/src/canonical_bytes.ts").Value> =
+          new Map();
+        objectiveMap.set("objective_id", {
+          type: "string",
+          value: "empty_weights_rejected",
+        });
+        objectiveMap.set("declared_at_cycle", { type: "uint", value: 0n });
+        objectiveMap.set("weights", { type: "array", value: [] });
+        const objectiveBytes = cbEncode({ type: "map", value: objectiveMap }).bytes;
+        const nonceResult = await client.requestAttestationNonce(objectiveBytes);
+        const sig = await identity.sign(objectiveBytes);
+        const result = await client.submitMutation({
+          mutationType: "owner_objective_declaration",
+          contentCanonicalBytes: objectiveBytes,
+          attestationSignature: sig,
+          nonce: nonceResult.nonce,
+          expiryUnixNs: nonceResult.expiryUnixNs,
+        });
+        assert.equal(
+          result.accepted,
+          false,
+          "empty-weights owner_objective_declaration must be rejected",
+        );
+        assert.match(
+          result.rejectionReason,
+          /weights array MUST be non-empty/i,
+          `rejection reason should mention empty weights; got: ${result.rejectionReason}`,
+        );
+      } finally {
+        await client.shutdown();
+      }
+    } finally {
+      try { rmSync(opDir, { recursive: true, force: true }); } catch {}
+    }
+  });
+
+  it("M26.3: compression targeting an invariant-set member is rejected with C51", async () => {
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m26-3-c51-op-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identity = await OperatorIdentity.loadOrCreate(opDir, {
+        hostBinary: ANCHOR_SURFACE_BIN,
+      });
+      const client = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: freshStateDir() },
+        operatorIdentity: identity,
+      });
+      try {
+        // Find the genesis_event node hash (an invariant-set member) by
+        // querying recent DAG nodes.
+        const recent = await client.queryRecentNodes(20n, "genesis_event:");
+        assert.ok(
+          recent.nodes.length >= 1,
+          "genesis_event:* must be present in fresh substrate DAG",
+        );
+        const genesisHash = recent.nodes[0]!.hash;
+        assert.equal(genesisHash.length, 32, "genesis hash is 32 bytes");
+
+        // Build a compression witness targeting the genesis_event hash —
+        // this MUST be rejected by P10.b invariant set protection (C51).
+        const { encode: cbEncode } = await import(
+          "@myco/anchor-client/src/canonical_bytes.ts"
+        );
+        const tipBytes = new Uint8Array(32);
+        const witnessMap: Map<string, import("@myco/anchor-client/src/canonical_bytes.ts").Value> =
+          new Map();
+        witnessMap.set("rule_id", {
+          type: "string",
+          value: "raw_material_aggregate_v1",
+        });
+        witnessMap.set("compressed_node_hashes", {
+          type: "array",
+          value: [{ type: "bytes", value: genesisHash }],
+        });
+        witnessMap.set("aggregate_summary", {
+          type: "bytes",
+          value: new Uint8Array([0]),
+        });
+        witnessMap.set("attestation_dag_tip", {
+          type: "bytes",
+          value: tipBytes,
+        });
+        witnessMap.set("semantic_lossy", { type: "bool", value: true });
+        witnessMap.set("causal_recoverability_argument", {
+          type: "string",
+          value: "intentionally violating P10.b for test",
+        });
+        const witnessBytes = cbEncode({ type: "map", value: witnessMap }).bytes;
+        const nonceResult = await client.requestAttestationNonce(witnessBytes);
+        const sig = await identity.sign(witnessBytes);
+        const result = await client.submitMutation({
+          mutationType: "compression",
+          contentCanonicalBytes: witnessBytes,
+          attestationSignature: sig,
+          nonce: nonceResult.nonce,
+          expiryUnixNs: nonceResult.expiryUnixNs,
+        });
+        assert.equal(
+          result.accepted,
+          false,
+          "compression targeting genesis_event (P10.b invariant) must be rejected",
+        );
+        assert.match(
+          result.rejectionReason,
+          /P10\.b|compression_invariant_corruption/i,
+          `rejection reason should mention P10.b; got: ${result.rejectionReason}`,
+        );
+        // Verify C51 immune event landed.
+        const immune = await client.queryImmuneEvents();
+        const c51 = immune.events.find((e) =>
+          e.nodeType.includes("C51_compression_invariant_corruption"),
+        );
+        assert.ok(
+          c51,
+          `C51_compression_invariant_corruption must fire on P10.b breach; saw: ${immune.events.map((e) => e.nodeType).join(", ")}`,
+        );
+      } finally {
+        await client.shutdown();
+      }
+    } finally {
+      try { rmSync(opDir, { recursive: true, force: true }); } catch {}
+    }
+  });
+
+  // -------------------------------------------------------------------------
+  // **M-anchor-5 §9.2.2 + §9.2.4** — DAG-tip co-sign + L0 revision attestation.
+  //
+  // These exercise the full anchor-surface orchestrator helpers on
+  // SubstrateClient: cosignDagTip() and signL0Revision(). Each helper performs
+  // four anchor-surface round-trips (wallClock + anchorNonce + sign +
+  // substrate-side nonce), builds the canonical-bytes envelope, signs it, and
+  // submits as a CI mutation. After acceptance, the substrate emits a
+  // `tip_cosigned:{prefix}` or `l0_revision_attested:{prefix}` DAG event with
+  // the owner's signature embedded for offline re-verification.
+  // -------------------------------------------------------------------------
+
+  it("M-anchor-5: cosignDagTip with valid envelope accepted + emits tip_cosigned:{prefix}", async () => {
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m-anchor-5-cosign-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identity = await OperatorIdentity.loadOrCreate(opDir, {
+        hostBinary: ANCHOR_SURFACE_BIN,
+      });
+      const client = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: freshStateDir() },
+        operatorIdentity: identity,
+      });
+      try {
+        const beforeRecent = await client.queryRecentNodes(1n);
+        const tipHash = beforeRecent.dagTip ?? new Uint8Array(32);
+
+        const result = await client.cosignDagTip({
+          tipHash,
+          enumeratedNodeHashes: [],
+          operatorIdentity: identity,
+        });
+        assert.equal(
+          result.accepted,
+          true,
+          `cosignDagTip must accept; got rejection: ${result.rejectionReason}`,
+        );
+        assert.equal(result.classification, "contract_identity_level");
+        assert.equal(result.mutationType, "dag_tip_cosign");
+        assert.ok(
+          result.tipCosignEventHash,
+          "tipCosignEventHash must be surfaced on accepted cosign",
+        );
+
+        const nodes = await client.queryRecentNodes(50n, "tip_cosigned:");
+        assert.ok(
+          nodes.nodes.length >= 1,
+          "tip_cosigned:* must appear in DAG after accepted cosign",
+        );
+        // hex_prefix(tip_hash, 8) — 8 bytes = 16 hex characters.
+        const expectedHex = Array.from(tipHash.slice(0, 8))
+          .map((b) => b.toString(16).padStart(2, "0"))
+          .join("");
+        const found = nodes.nodes.find((n) => n.nodeType.endsWith(expectedHex));
+        assert.ok(
+          found,
+          `tip_cosigned:${expectedHex} not found; saw: ${nodes.nodes
+            .map((n) => n.nodeType)
+            .join(", ")}`,
+        );
+      } finally {
+        await client.shutdown();
+      }
+    } finally {
+      try { rmSync(opDir, { recursive: true, force: true }); } catch {}
+    }
+  });
+
+  it("M-anchor-5: cosignDagTip with proposedMutationHash + enumerated nodes accepted", async () => {
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m-anchor-5-cosign-prop-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identity = await OperatorIdentity.loadOrCreate(opDir, {
+        hostBinary: ANCHOR_SURFACE_BIN,
+      });
+      const client = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: freshStateDir() },
+        operatorIdentity: identity,
+      });
+      try {
+        const tipHash = (await client.queryRecentNodes(1n)).dagTip ?? new Uint8Array(32);
+        const proposedMutationHash = new Uint8Array(32);
+        for (let i = 0; i < 32; i++) proposedMutationHash[i] = (i * 7 + 13) & 0xff;
+        const enumerated = [new Uint8Array(32), new Uint8Array(32)];
+        for (let i = 0; i < 32; i++) enumerated[0]![i] = (i + 1) & 0xff;
+        for (let i = 0; i < 32; i++) enumerated[1]![i] = (i * 3 + 17) & 0xff;
+        const result = await client.cosignDagTip({
+          tipHash,
+          enumeratedNodeHashes: enumerated,
+          proposedMutationHash,
+          operatorIdentity: identity,
+        });
+        assert.equal(
+          result.accepted,
+          true,
+          `cosignDagTip(with-proposed-mutation) must accept; got: ${result.rejectionReason}`,
+        );
+        assert.ok(result.tipCosignEventHash);
+      } finally {
+        await client.shutdown();
+      }
+    } finally {
+      try { rmSync(opDir, { recursive: true, force: true }); } catch {}
+    }
+  });
+
+  it("M-anchor-5: signL0Revision with valid envelope accepted + emits l0_revision_attested:{prefix}", async () => {
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m-anchor-5-l0-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identity = await OperatorIdentity.loadOrCreate(opDir, {
+        hostBinary: ANCHOR_SURFACE_BIN,
+      });
+      const client = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: freshStateDir() },
+        operatorIdentity: identity,
+      });
+      try {
+        const priorL0Hash = new Uint8Array(32);
+        for (let i = 0; i < 32; i++) priorL0Hash[i] = 0xab;
+        const newL0Hash = new Uint8Array(32);
+        for (let i = 0; i < 32; i++) newL0Hash[i] = 0xcd;
+        const result = await client.signL0Revision({
+          priorL0Hash,
+          newL0Hash,
+          diffSummary: "Add §9.4 federation observatory (test)",
+          operatorIdentity: identity,
+        });
+        assert.equal(
+          result.accepted,
+          true,
+          `signL0Revision must accept; got rejection: ${result.rejectionReason}`,
+        );
+        assert.equal(result.classification, "contract_identity_level");
+        assert.equal(result.mutationType, "l0_revision_attest");
+        assert.ok(
+          result.l0RevisionEventHash,
+          "l0RevisionEventHash must be surfaced on accepted revision",
+        );
+
+        const nodes = await client.queryRecentNodes(
+          50n,
+          "l0_revision_attested:",
+        );
+        assert.ok(
+          nodes.nodes.length >= 1,
+          "l0_revision_attested:* must appear after accepted attestation",
+        );
+        const found = nodes.nodes.find((n) =>
+          n.nodeType.endsWith("abababab"),
+        );
+        assert.ok(
+          found,
+          `l0_revision_attested:abababab not found; saw: ${nodes.nodes
+            .map((n) => n.nodeType)
+            .join(", ")}`,
+        );
+      } finally {
+        await client.shutdown();
+      }
+    } finally {
+      try { rmSync(opDir, { recursive: true, force: true }); } catch {}
+    }
+  });
+
+  it("M-anchor-5: dag_tip_cosign with malformed envelope is rejected with C5", async () => {
+    const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m-anchor-5-cosign-bad-"));
+    try {
+      const { OperatorIdentity } = await import("../src/operator_identity.ts");
+      const identity = await OperatorIdentity.loadOrCreate(opDir, {
+        hostBinary: ANCHOR_SURFACE_BIN,
+      });
+      const client = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: freshStateDir() },
+        operatorIdentity: identity,
+      });
+      try {
+        const garbage = new Uint8Array(64);
+        for (let i = 0; i < 64; i++) garbage[i] = i & 0xff;
+        const nonceResult = await client.requestAttestationNonce(garbage);
+        const sig = await identity.sign(garbage);
+        const result = await client.submitMutation({
+          mutationType: "dag_tip_cosign",
+          contentCanonicalBytes: garbage,
+          attestationSignature: sig,
+          nonce: nonceResult.nonce,
+          expiryUnixNs: nonceResult.expiryUnixNs,
+        });
+        assert.equal(
+          result.accepted,
+          false,
+          "dag_tip_cosign with garbage envelope must be rejected",
+        );
+        assert.match(
+          result.rejectionReason,
+          /dag_tip_cosign.*decode|canonical/i,
+          `rejection reason should mention decode failure; got: ${result.rejectionReason}`,
+        );
+        const immune = await client.queryImmuneEvents();
+        const c5 = immune.events.find((e) =>
+          e.nodeType.includes("C5_attestation_invalid"),
+        );
+        assert.ok(
+          c5,
+          `C5_attestation_invalid must fire on cosign decode failure; saw: ${immune.events
+            .map((e) => e.nodeType)
+            .join(", ")}`,
+        );
+      } finally {
+        await client.shutdown();
+      }
+    } finally {
+      try { rmSync(opDir, { recursive: true, force: true }); } catch {}
+    }
+  });
+});

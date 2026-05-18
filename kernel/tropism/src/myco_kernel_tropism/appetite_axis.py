@@ -1,26 +1,26 @@
-"""Appetite axes — per-axis state + update rules (L1_TROPISM §3 + §B-rows).
+"""Appetite axes — per-axis state + update rules (L1/TROPISM §3 + §B-rows).
 
 ## Doctrine
 
-Per L1_TROPISM §3: gradient configuration is multi-dimensional; each axis
+Per L1/TROPISM §3: gradient configuration is multi-dimensional; each axis
 is one **appetite**. The substrate updates each axis on every metabolic
 cycle via per-axis **update rules**. When an axis crosses its **fruiting
 trigger**, the substrate emits a sporocarp (see :mod:`sporocarp`).
 
-Per L1_TROPISM §B-rows: axes have caller-defined schemas. M3 ships the
+Per L1/TROPISM §B-rows: axes have caller-defined schemas. M3 ships the
 abstract `AppetiteAxis` + `UpdateRule` interfaces; substrate genesis
 populates the concrete axis schema at L4.
 
-## Axis classes (per L1_TROPISM)
+## Axis classes (per L1/TROPISM)
 
 - **Appetite** (default): gradient grows toward fruiting trigger as deltas
   reinforce. Resets after fruiting.
 - **Decay** (special class): gradient decays toward zero on each cycle
   unless perturbed (mortality-signal axis is a decay-class).
-- **Threshold-emergence** (deferred to M4 — L1_TROPISM §B2): threshold
+- **Threshold-emergence** (deferred to M4 — L1/TROPISM §B2): threshold
   itself emerges from operating data once enough cycles accumulate.
 
-Per L1_HARD_RULES F7: mortality-signal axis is CI-protected.
+Per L1/HARD_RULES F7: mortality-signal axis is CI-protected.
 """
 
 from __future__ import annotations
@@ -31,7 +31,7 @@ from typing import Protocol
 
 
 class AxisClass(Enum):
-    """Per L1_TROPISM §3 + §B-rows axis class taxonomy."""
+    """Per L1/TROPISM §3 + §B-rows axis class taxonomy."""
 
     APPETITE = "appetite"
     """Default: gradient grows toward fruiting trigger; resets after fruit."""
@@ -44,8 +44,8 @@ class AxisClass(Enum):
 class AxisSchema:
     """The schema definition for one appetite axis.
 
-    Per L1_TROPISM §B-rows: the schema set is CI-protected (mutations to it
-    go through L1_GOVERNANCE classifier as CI mutations).
+    Per L1/TROPISM §B-rows: the schema set is CI-protected (mutations to it
+    go through L1/GOVERNANCE classifier as CI mutations).
 
     Fields
     ------
@@ -57,7 +57,7 @@ class AxisSchema:
     fruiting_threshold:
         Gradient value at which the substrate fruits a sporocarp. Crossed
         from below for APPETITE; from above (downward toward zero) for
-        DECAY-mortality-signaling case (L1_HARD_RULES F7 CI-gated).
+        DECAY-mortality-signaling case (L1/HARD_RULES F7 CI-gated).
     initial_value:
         Gradient value at genesis. Reset value after sporocarp emission
         for APPETITE axes; never reset for DECAY axes.
@@ -65,7 +65,7 @@ class AxisSchema:
         Multiplicative decay factor per cycle for DECAY axes (e.g., 0.99
         means 1% per-cycle decay). Ignored for APPETITE.
     is_mortality_signal:
-        Per L1_HARD_RULES F7: mortality-signal axis threshold + update_rule
+        Per L1/HARD_RULES F7: mortality-signal axis threshold + update_rule
         is CI-protected. M3 flags it via this bit; M4 wires the classifier
         check.
     """
@@ -118,7 +118,7 @@ class AppetiteAxis:
         """Add a delta to the gradient value (substrate or operator
         perturbation).
 
-        Per L1_TROPISM §3: gradient layer is jointly perturbed — substrate
+        Per L1/TROPISM §3: gradient layer is jointly perturbed — substrate
         via internal update-rules; operator via skin-validated deltas. This
         method is the unified perturbation entry point.
         """
@@ -134,7 +134,7 @@ class AppetiteAxis:
 
 
 class UpdateRule(Protocol):
-    """Per-axis update rule (L1_TROPISM §B-rows).
+    """Per-axis update rule (L1/TROPISM §B-rows).
 
     The substrate calls one of these per axis per cycle to advance the
     gradient. Update rules can encode arbitrary substrate-internal logic
@@ -146,7 +146,7 @@ class UpdateRule(Protocol):
     def update(self, axis: AppetiteAxis, current_cycle: int) -> None:
         """Apply this update rule to the axis at the given cycle.
 
-        Per L1_TROPISM: per-cycle update_rule applies BEFORE delta absorption
+        Per L1/TROPISM: per-cycle update_rule applies BEFORE delta absorption
         in the cycle order. Decay-class axes decay first, then operator
         deltas perturb.
         """

@@ -1,24 +1,24 @@
-"""Canonical-bytes serializer — Python implementation (L1_SCHEMA §3.1 + L0 §9.3).
+"""Canonical-bytes serializer — Python implementation (L1/SCHEMA §3.1 + L0 §9.3).
 
 MUST produce byte-identical output to:
 
 - ``kernel/shared/src/canonical_bytes.rs`` (Rust reference)
-- ``anchor_client/src/canonical_bytes.ts`` (TypeScript)
+- ``anchor/client/src/canonical_bytes.ts`` (TypeScript)
 
 Cross-language test vectors at ``test_vectors/canonical_bytes_v1.json``.
 
-Drift from spec = L1_HARD_RULES C18 ``canonical_bytes_render_drift`` (CRITICAL).
+Drift from spec = L1/HARD_RULES C18 ``canonical_bytes_render_drift`` (CRITICAL).
 
 Doctrine traceability
 ---------------------
 
 - L0 §9.3: canonical-bytes doctrine. Substrate emits canonical bytes; the
   anchor-surface client renders deterministically for owner review.
-- L1_SCHEMA §3.1 + §4.1: the serializer spec is itself part of the spore-schema
+- L1/SCHEMA §3.1 + §4.1: the serializer spec is itself part of the spore-schema
   (spore-inheritable) AND a tier-1 SSoT field.
-- L1_HARD_RULES C18: any render drift between implementations is a CRITICAL
+- L1/HARD_RULES C18: any render drift between implementations is a CRITICAL
   skin breach.
-- L1_HARD_RULES F16: ``canonical_bytes_serializer_spec`` is an unconditional
+- L1/HARD_RULES F16: ``canonical_bytes_serializer_spec`` is an unconditional
   contract-identity-level fixed point.
 """
 
@@ -285,7 +285,7 @@ def _encode_into(value: Value, buf: bytearray) -> None:
 
 # ---------------------------------------------------------------------------
 # Decoder — reverse of encode. Added at M5 to support the cross-process
-# bridge (kernel/bridge_python) which needs to decode canonical-bytes frames
+# bridge (kernel/bridge/python) which needs to decode canonical-bytes frames
 # arriving from the Rust controller over stdio.
 # ---------------------------------------------------------------------------
 
@@ -318,7 +318,7 @@ def decode(buf: bytes) -> Value:
 
     Inverse of :func:`encode`: ``encode(decode(b)) == b`` for any canonical
     bytes produced by :func:`encode`. Drift between any implementation's
-    decode and any other's encode = L1_HARD_RULES C18.
+    decode and any other's encode = L1/HARD_RULES C18.
 
     Raises:
         CanonicalBytesError: on malformed input (unknown tag, truncated

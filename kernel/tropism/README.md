@@ -4,7 +4,7 @@ Myco v0.9 — kernel/tropism (Python) per L3_PACKAGE_MAP §7.
 
 The substrate's **positive dispatch form**: continuously-evolving appetite
 gradient with substrate-initiated sporocarp emission at fruiting triggers.
-Per L1_TROPISM, this is the active alternative to v0.8's verb dispatch.
+Per L1/TROPISM, this is the active alternative to v0.8's verb dispatch.
 
 ## Modules (M3 scope)
 
@@ -16,7 +16,7 @@ Per L1_TROPISM, this is the active alternative to v0.8's verb dispatch.
 
 - `delta_absorption` — operator-emitted delta → axis perturbation routing.
 - `birth_period` — birth-period flag + maturity-attestation hook.
-- `template_registry` — template_version_registry per L1_TROPISM §B1.
+- `template_registry` — template_version_registry per L1/TROPISM §B1.
 
 ## Development
 

@@ -231,7 +231,7 @@ def test_clustering_diamond_is_one_cluster() -> None:
 
 
 def test_e2e_trajectory_pipeline() -> None:
-    """Full L1_TRAJECTORY §1 pipeline: neighborhood → ancestors_and_descendants
+    """Full L1/TRAJECTORY §1 pipeline: neighborhood → ancestors_and_descendants
     → cluster_C → "intent"."""
     dag = InMemoryDagSource()
     # Build a 5-node chain.

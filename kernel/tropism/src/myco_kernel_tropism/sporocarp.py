@@ -1,8 +1,8 @@
-"""Sporocarp emission — substrate-initiated typed observables (L1_TROPISM §3).
+"""Sporocarp emission — substrate-initiated typed observables (L1/TROPISM §3).
 
 ## Doctrine
 
-Per L1_TROPISM §3 second-layer: **sporocarp** is the substrate's
+Per L1/TROPISM §3 second-layer: **sporocarp** is the substrate's
 observable. When a gradient axis crosses its fruiting trigger, the substrate
 fruits a sporocarp — a typed, content-addressed, causally-stamped record
 (per L0 I4) that anchors the continuous gradient medium to discrete
@@ -15,14 +15,14 @@ observables for:
 
 ## Sporocarp shape
 
-Per L1_TROPISM §B6: sporocarps carry **causal proofs** — the parent
+Per L1/TROPISM §B6: sporocarps carry **causal proofs** — the parent
 sporocarp hashes whose gradient state contributed to this sporocarp's
 fruiting. M3 ships the data shape + canonical-bytes encoding; M4 wires
 the DAG insertion (substrate inserts the sporocarp into kernel/schema DAG).
 
 ## Why sporocarps are not verbs
 
-Per L1_TROPISM §3: a verb is agent-initiated (agent calls → substrate
+Per L1/TROPISM §3: a verb is agent-initiated (agent calls → substrate
 executes). A sporocarp is substrate-initiated (gradient crosses trigger →
 substrate fruits → agent observes). Arrow reversed.
 """
@@ -57,14 +57,14 @@ SPOROCARP_TYPE_TAG: Final[str] = "sporocarp"
 class Sporocarp:
     """A substrate-fruited sporocarp.
 
-    Per L1_TROPISM + L0 I4: typed, content-addressed, causally-stamped.
+    Per L1/TROPISM + L0 I4: typed, content-addressed, causally-stamped.
 
     Fields
     ------
     sporocarp_type:
         Subtype tag (e.g., ``"appetite_fruiting"`` /
         ``"mortality_signal_threshold_crossed"`` / ``"birth_period_milestone"``).
-        Substrate-defined per its sporocarp-type tree (L1_HARD_RULES F12
+        Substrate-defined per its sporocarp-type tree (L1/HARD_RULES F12
         CI-protected at the schema level).
     axis_name:
         Which appetite axis fruited this sporocarp.
@@ -74,7 +74,7 @@ class Sporocarp:
         Substrate metabolic-cycle counter at fruiting.
     causal_parent_hashes:
         Parent sporocarp hashes that contributed to this one's fruiting
-        (per L1_TROPISM §B6 causal proofs).
+        (per L1/TROPISM §B6 causal proofs).
     payload_canonical_bytes:
         Substrate-defined payload for this sporocarp type (e.g., for an
         attestation_request sporocarp, the canonical bytes of the
@@ -126,7 +126,7 @@ class Sporocarp:
     def hash(self) -> NodeHash:
         """Content-addressed sporocarp hash (BLAKE3 of canonical bytes).
 
-        Per L1_SCHEMA §2.1: this hash is the sporocarp's identifier in the
+        Per L1/SCHEMA §2.1: this hash is the sporocarp's identifier in the
         DAG. Parents are listed in causal_parent_hashes.
         """
         cbytes = self.to_canonical_bytes()
@@ -172,9 +172,9 @@ def emit_mortality_signal(
     causal_parents: tuple[NodeHash, ...] = (),
 ) -> Sporocarp:
     """Helper: emit a sporocarp for a mortality-signal axis crossing
-    threshold (per L1_HARD_RULES F7; mortality signal is CI-protected).
+    threshold (per L1/HARD_RULES F7; mortality signal is CI-protected).
 
-    Per L1_GOVERNANCE §4.4 endogenous-pair channel: this sporocarp at
+    Per L1/GOVERNANCE §4.4 endogenous-pair channel: this sporocarp at
     proposal time becomes a `self_euthanasia_proposal` (with operator
     witness; transmitted to anchor surface).
     """

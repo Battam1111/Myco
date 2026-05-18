@@ -1,12 +1,12 @@
-"""20 CRITICAL breach detectors (L1_HARD_RULES §1 C1-C20).
+"""20 CRITICAL breach detectors (L1/HARD_RULES §1 C1-C20).
 
-When ANY of these fires, the substrate auto-quarantines per L1_CONTINUITY
+When ANY of these fires, the substrate auto-quarantines per L1/CONTINUITY
 §5 and emits the corresponding immune sporocarp. Owner-attested
 quarantine_clearance is required for resumption.
 
 ## Doctrine
 
-Per L1_HARD_RULES §1 + §5: each detector is independent (none can be
+Per L1/HARD_RULES §1 + §5: each detector is independent (none can be
 silently downgraded). Each row independently traces to ≥1 L0 P + ≥1 I.
 
 ## M4 scope
@@ -30,7 +30,7 @@ from typing import Callable, Optional
 
 
 class BreachId(Enum):
-    """L1_HARD_RULES §1 C-row identifiers (20 CRITICAL detectors)."""
+    """L1/HARD_RULES §1 C-row identifiers (20 CRITICAL detectors)."""
 
     C1_APPETITE_LOCALITY_BREACH = "appetite_locality_breach"
     C2_OUTPUT_ENDPOINT_BREACH = "output_endpoint_breach"
@@ -62,8 +62,8 @@ class BreachId(Enum):
 class ImmuneEvent:
     """A single immune-event sporocarp emission.
 
-    Per L1_HARD_RULES §1: each CRITICAL detection emits one of these.
-    Triggers auto-quarantine via L1_CONTINUITY §5.
+    Per L1/HARD_RULES §1: each CRITICAL detection emits one of these.
+    Triggers auto-quarantine via L1/CONTINUITY §5.
 
     Fields
     ------
@@ -147,7 +147,7 @@ class HandshakeAttempt:
 def detect_c1_appetite_locality_breach(
     egress: EgressAttempt, at_cycle: int
 ) -> Optional[ImmuneEvent]:
-    """C1: detect unauthorized network egress (L1_SKIN §5)."""
+    """C1: detect unauthorized network egress (L1/SKIN §5)."""
     if egress.target_uri not in egress.declared_endpoints:
         return ImmuneEvent(
             breach_id=BreachId.C1_APPETITE_LOCALITY_BREACH,
@@ -163,7 +163,7 @@ def detect_c1_appetite_locality_breach(
 def detect_c2_output_endpoint_breach(
     egress: EgressAttempt, at_cycle: int
 ) -> Optional[ImmuneEvent]:
-    """C2: detect output to non-declared endpoint (L1_SKIN §3)."""
+    """C2: detect output to non-declared endpoint (L1/SKIN §3)."""
     if egress.target_uri not in egress.declared_endpoints:
         return ImmuneEvent(
             breach_id=BreachId.C2_OUTPUT_ENDPOINT_BREACH,
@@ -177,7 +177,7 @@ def detect_c2_output_endpoint_breach(
 def detect_c7_dag_retro_edit(
     attempt: DagNodeAttempt, at_cycle: int
 ) -> Optional[ImmuneEvent]:
-    """C7: detect DAG node hash mismatch from re-computation (L1_SCHEMA §2.1).
+    """C7: detect DAG node hash mismatch from re-computation (L1/SCHEMA §2.1).
 
     Per pass-3 mycoparasite-2: prevents hidden retro-edit attacks.
     """
@@ -200,7 +200,7 @@ def detect_c7_dag_retro_edit(
 def detect_c5_attestation_invalid(
     verification: AttestationVerification, at_cycle: int
 ) -> Optional[ImmuneEvent]:
-    """C5: detect attestation verification failure (L1_GOVERNANCE §2.3)."""
+    """C5: detect attestation verification failure (L1/GOVERNANCE §2.3)."""
     if not verification.verified:
         return ImmuneEvent(
             breach_id=BreachId.C5_ATTESTATION_INVALID,
@@ -218,7 +218,7 @@ def detect_c11_concurrent_operator(
     attempt: HandshakeAttempt, at_cycle: int
 ) -> Optional[ImmuneEvent]:
     """C11: detect concurrent-operator persistence beyond strict-FIFO window
-    (L1_SKIN §4.4)."""
+    (L1/SKIN §4.4)."""
     if attempt.has_active_operator:
         return ImmuneEvent(
             breach_id=BreachId.C11_CONCURRENT_OPERATOR_PERSISTENT,
@@ -236,7 +236,7 @@ def detect_c14_untyped_mutation(
     classification: MutationClassification, at_cycle: int
 ) -> Optional[ImmuneEvent]:
     """C14: detect untyped mutation (no classifier rule matches;
-    L1_GOVERNANCE §1.1 — rejected at skin)."""
+    L1/GOVERNANCE §1.1 — rejected at skin)."""
     if classification.classification == "untyped":
         return ImmuneEvent(
             breach_id=BreachId.C14_UNTYPED_MUTATION,
@@ -250,7 +250,7 @@ def detect_c14_untyped_mutation(
 def detect_c17_operator_witness_forgery(
     verification: OperatorWitnessVerification, at_cycle: int
 ) -> Optional[ImmuneEvent]:
-    """C17: detect operator_witness signature forgery (L1_GOVERNANCE §2.2 +
+    """C17: detect operator_witness signature forgery (L1/GOVERNANCE §2.2 +
     pass-3 mycorrhiza-17)."""
     if not verification.verified:
         return ImmuneEvent(

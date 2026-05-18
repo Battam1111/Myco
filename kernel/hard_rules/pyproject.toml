@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "myco-kernel-hard-rules"
 version = "0.9.0a1"
-description = "Myco v0.9 — kernel/hard_rules: 20 CRITICAL breach detectors + 17 F-row watchdogs (L1_HARD_RULES)"
+description = "Myco v0.9 — kernel/hard_rules: 20 CRITICAL breach detectors + 17 F-row watchdogs (L1/HARD_RULES)"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "Proprietary" }

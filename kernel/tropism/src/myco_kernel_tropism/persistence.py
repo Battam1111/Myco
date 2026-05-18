@@ -32,7 +32,7 @@ The caller treats that as a genesis condition.
 
 ## Doctrine
 
-- L1_TROPISM §3 — gradient configuration is substrate-resident state;
+- L1/TROPISM §3 — gradient configuration is substrate-resident state;
   must survive across processes.
 - L0 §9.3 — canonical-bytes determinism preserved across disk boundary.
 """
@@ -90,7 +90,7 @@ class PersistenceError(Exception):
 def gradient_to_canonical_bytes(gradient: GradientConfiguration) -> bytes:
     """Encode a :class:`GradientConfiguration` as canonical bytes.
 
-    Both the axis schema (CI-protected per L1_HARD_RULES F7) and the
+    Both the axis schema (CI-protected per L1/HARD_RULES F7) and the
     operational state (current value, fruiting count) are captured. Sorting
     axes by name ensures byte-determinism across saves of the same state.
     """

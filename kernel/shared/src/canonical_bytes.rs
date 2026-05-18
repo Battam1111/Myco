@@ -1,4 +1,4 @@
-//! Canonical-bytes serializer (per L0 §9.3 + L1_SCHEMA §3.1).
+//! Canonical-bytes serializer (per L0 §9.3 + L1/SCHEMA §3.1).
 //!
 //! ## Specification
 //!
@@ -43,9 +43,9 @@
 //! - L0 §9.3: canonical-bytes serialization is part of the anchor-surface
 //!   doctrine. Substrate emits canonical bytes; anchor-surface client renders
 //!   deterministically for owner review.
-//! - L1_SCHEMA §3.1: `canonical_bytes_serializer_spec` is part of the
+//! - L1/SCHEMA §3.1: `canonical_bytes_serializer_spec` is part of the
 //!   spore-schema (spore-inheritable) AND a tier-1 SSoT field.
-//! - L1_HARD_RULES C18: `canonical_bytes_render_drift` (if substrate-side render
+//! - L1/HARD_RULES C18: `canonical_bytes_render_drift` (if substrate-side render
 //!   differs from anchor-surface render of the same canonical bytes) is a
 //!   CRITICAL skin breach.
 //!
@@ -245,7 +245,7 @@ fn read_varint(buf: &[u8], offset: usize) -> Result<(u64, usize), CanonicalBytes
 ///
 /// Inverse of [`encode`]: `encode(&decode(b)?).unwrap() == b` for any
 /// canonical bytes produced by `encode`. Drift between any implementation's
-/// `decode` and any other's `encode` = L1_HARD_RULES C18.
+/// `decode` and any other's `encode` = L1/HARD_RULES C18.
 pub fn decode(buf: &[u8]) -> Result<Value, CanonicalBytesError> {
     let (value, cursor) = decode_into(buf, 0)?;
     if cursor != buf.len() {

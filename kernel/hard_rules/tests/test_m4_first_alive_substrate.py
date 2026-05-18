@@ -21,10 +21,10 @@ cycle:
 
 The substrate then DEFENDS itself against curated attack scenarios:
 
-- L1_HARD_RULES C1 unauthorized egress.
-- L1_HARD_RULES C7 DAG retro-edit.
-- L1_HARD_RULES C14 untyped mutation.
-- L1_HARD_RULES C17 operator-witness forgery.
+- L1/HARD_RULES C1 unauthorized egress.
+- L1/HARD_RULES C7 DAG retro-edit.
+- L1/HARD_RULES C14 untyped mutation.
+- L1/HARD_RULES C17 operator-witness forgery.
 
 In each case, the relevant detector fires; the substrate would quarantine
 (via kernel/continuity in M5+ full integration).
@@ -253,7 +253,7 @@ def test_m4_mortality_signal_emits_after_enough_decay() -> None:
 
 
 def test_m4_immune_unauthorized_egress_detected() -> None:
-    """L1_HARD_RULES C1: attacker attempts egress to undeclared endpoint."""
+    """L1/HARD_RULES C1: attacker attempts egress to undeclared endpoint."""
     event = detect_c1_appetite_locality_breach(
         EgressAttempt(
             target_uri="https://attacker.evil/exfil",
@@ -266,7 +266,7 @@ def test_m4_immune_unauthorized_egress_detected() -> None:
 
 
 def test_m4_immune_dag_retro_edit_detected() -> None:
-    """L1_HARD_RULES C7: DAG node hash mismatch indicates tampering."""
+    """L1/HARD_RULES C7: DAG node hash mismatch indicates tampering."""
     event = detect_c7_dag_retro_edit(
         DagNodeAttempt(
             stored_hash_hex="11" * 32,
@@ -279,7 +279,7 @@ def test_m4_immune_dag_retro_edit_detected() -> None:
 
 
 def test_m4_immune_untyped_mutation_detected() -> None:
-    """L1_HARD_RULES C14: unclassifiable mutation rejected at skin."""
+    """L1/HARD_RULES C14: unclassifiable mutation rejected at skin."""
     event = detect_c14_untyped_mutation(
         MutationClassification(classification="untyped"),
         at_cycle=100,
@@ -288,7 +288,7 @@ def test_m4_immune_untyped_mutation_detected() -> None:
 
 
 def test_m4_immune_operator_witness_forgery_detected() -> None:
-    """L1_HARD_RULES C17: operator_witness signed by wrong key."""
+    """L1/HARD_RULES C17: operator_witness signed by wrong key."""
     event = detect_c17_operator_witness_forgery(
         OperatorWitnessVerification(
             verified=False,
@@ -332,7 +332,7 @@ def test_m4_intent_derivable_from_dag_history() -> None:
 
 def test_m4_cold_start_intent_at_genesis() -> None:
     """At t=0, substrate has only genesis in DAG. Intent query reports
-    cold-start (per L1_TRAJECTORY §3)."""
+    cold-start (per L1/TRAJECTORY §3)."""
     sub = FirstAliveSubstrate()
     # Substrate just initialized; only genesis sporocarp.
     nbr_result = neighborhood(sub.dag, "nonexistent_pivot", radius_cycles=10)
@@ -346,7 +346,7 @@ def test_m4_cold_start_intent_at_genesis() -> None:
 
 
 def test_m4_full_ci_attestation_flow() -> None:
-    """Substrate runs a CI mutation through the full L1_GOVERNANCE §2 flow."""
+    """Substrate runs a CI mutation through the full L1/GOVERNANCE §2 flow."""
     sub = FirstAliveSubstrate()
 
     # 1. Classifier confirms CI for an owner_key_history mutation.
@@ -423,7 +423,7 @@ def test_m4_kernel_stack_interoperation() -> None:
     3. kernel/trajectory: derive intent from DAG.
     4. kernel/hard_rules: detect breaches.
 
-    Per L1_HARD_RULES traceability + L0 I1 lifecycle: a substrate that
+    Per L1/HARD_RULES traceability + L0 I1 lifecycle: a substrate that
     can do all 4 + persist a coherent DAG is 'alive'.
     """
     sub = FirstAliveSubstrate()

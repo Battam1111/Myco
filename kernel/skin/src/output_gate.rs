@@ -1,9 +1,9 @@
-//! Output endpoint routing + canonical-bytes discipline (L1_SKIN §3).
+//! Output endpoint routing + canonical-bytes discipline (L1/SKIN §3).
 //!
 //! ## Doctrine
 //!
-//! Outputs leave the substrate through declared output endpoints (L1_SKIN §1
-//! declared via [`crate::surface::SkinSurface`]). Per L1_SKIN §3:
+//! Outputs leave the substrate through declared output endpoints (L1/SKIN §1
+//! declared via [`crate::surface::SkinSurface`]). Per L1/SKIN §3:
 //!
 //! - Output envelopes are **signed by the substrate** (substrate's signing key
 //!   from the identity record). M1 accepts the signature bytes as an opaque
@@ -15,13 +15,13 @@
 //!   rendered summaries. The anchor-surface client renders deterministically
 //!   for owner review.
 //!
-//! - **Federation egress freshness check** (L1_SKIN §3.1): every outbound
+//! - **Federation egress freshness check** (L1/SKIN §3.1): every outbound
 //!   federation envelope verifies its target peer's freshness + non-revocation
-//!   per L1_GOVERNANCE §5.2 **BEFORE emission**. Stale or revoked target →
+//!   per L1/GOVERNANCE §5.2 **BEFORE emission**. Stale or revoked target →
 //!   emission suppressed; `federation_egress_blocked` immune event fruits.
 //!
-//! - **Forbidden output** (L1_SKIN §3.2): anything outside declared endpoints
-//!   is skin breach (`output_endpoint_breach`, L1_HARD_RULES C2 CRITICAL).
+//! - **Forbidden output** (L1/SKIN §3.2): anything outside declared endpoints
+//!   is skin breach (`output_endpoint_breach`, L1/HARD_RULES C2 CRITICAL).
 //!
 //! ## M1 implementation
 //!
@@ -39,7 +39,7 @@ use thiserror::Error;
 #[non_exhaustive]
 pub enum OutputError {
     /// Target URI is not in the declared output endpoint set
-    /// (`output_endpoint_breach`, L1_HARD_RULES C2 CRITICAL).
+    /// (`output_endpoint_breach`, L1/HARD_RULES C2 CRITICAL).
     #[error("output_endpoint_breach: target {0} not in declared output endpoints")]
     UndeclaredEndpoint(String),
 
@@ -59,7 +59,7 @@ pub enum OutputError {
     },
 
     /// Federation egress to a stale or revoked peer
-    /// (`federation_egress_blocked`, L1_SKIN §6 Elevated).
+    /// (`federation_egress_blocked`, L1/SKIN §6 Elevated).
     #[error("federation_egress_blocked: peer {0} stale or revoked")]
     FederationEgressBlocked(String),
 
@@ -67,7 +67,7 @@ pub enum OutputError {
     /// instead of canonical bytes. Reserved for the future `OutputEnvelope`
     /// constructor that takes either canonical or rendered bytes; M1 forces
     /// canonical at the type level (the payload is [`CanonicalBytes`]) so this
-    /// variant is unreachable in M1 but defined for L1_HARD_RULES C18 future
+    /// variant is unreachable in M1 but defined for L1/HARD_RULES C18 future
     /// hook.
     #[error(
         "canonical-bytes discipline violation: anchor-surface output must carry canonical bytes"
@@ -77,7 +77,7 @@ pub enum OutputError {
 
 /// A signed output envelope ready for emission.
 ///
-/// Per L1_SKIN §3 outputs are signed by the substrate. M1 stores the signature
+/// Per L1/SKIN §3 outputs are signed by the substrate. M1 stores the signature
 /// bytes opaquely. The signature covers `target.uri || canonical_bytes(payload)`
 /// canonicalization; the exact signature input format is L4-platform-specific
 /// per the chosen signature algorithm (Ed25519, P256, etc.).
@@ -87,7 +87,7 @@ pub struct OutputEnvelope {
     pub target: Endpoint,
 
     /// Canonical-bytes payload (per L0 §9.3 for anchor-surface; for federation
-    /// peers also canonical-bytes per L1_GOVERNANCE §5.3 low-entropy
+    /// peers also canonical-bytes per L1/GOVERNANCE §5.3 low-entropy
     /// serialization).
     pub payload: CanonicalBytes,
 
@@ -96,12 +96,12 @@ pub struct OutputEnvelope {
     pub substrate_signature: Vec<u8>,
 }
 
-/// Trait for federation peer freshness check (L1_SKIN §3.1).
+/// Trait for federation peer freshness check (L1/SKIN §3.1).
 ///
 /// Real implementations consult the `kernel/governance` peer-list mirror AND
 /// the anchor-surface negative-revocation proof. The substrate's canon caches
 /// peer list, but the proof is required for emission, not the cache (per
-/// L1_SKIN §3.1).
+/// L1/SKIN §3.1).
 pub trait FederationPeerFreshness {
     /// Check if the given peer endpoint URI has a fresh, non-revoked
     /// attestation. Returns `Ok(())` if fresh; `Err(FederationEgressBlocked)`
@@ -111,7 +111,7 @@ pub trait FederationPeerFreshness {
 
 /// Stub peer-freshness checker — always returns fresh.
 ///
-/// **M1 ONLY.** The real check (per L1_SKIN §3.1) requires:
+/// **M1 ONLY.** The real check (per L1/SKIN §3.1) requires:
 ///
 /// - `kernel/governance` peer-attestation-list (substrate-cached mirror) AND
 /// - Anchor-surface negative-revocation proof (freshness oracle).
@@ -138,7 +138,7 @@ impl FederationPeerFreshness for DenyAllPeerFreshness {
     }
 }
 
-/// Construct an output envelope, performing all L1_SKIN §3 checks.
+/// Construct an output envelope, performing all L1/SKIN §3 checks.
 ///
 /// Checks (in order):
 ///
@@ -155,7 +155,7 @@ pub fn route_output<F: FederationPeerFreshness>(
     substrate_signature: Vec<u8>,
     peer_freshness: &F,
 ) -> Result<OutputEnvelope, OutputError> {
-    // L1_SKIN §3.2: target must be declared as output of requested kind.
+    // L1/SKIN §3.2: target must be declared as output of requested kind.
     if !surface.is_declared_output(target_uri, &target_kind) {
         if let Some(existing) = surface.find_output_by_uri(target_uri) {
             return Err(OutputError::KindMismatch {
@@ -167,7 +167,7 @@ pub fn route_output<F: FederationPeerFreshness>(
         return Err(OutputError::UndeclaredEndpoint(target_uri.to_string()));
     }
 
-    // L1_SKIN §3.1: federation egress freshness BEFORE emission.
+    // L1/SKIN §3.1: federation egress freshness BEFORE emission.
     if target_kind == EndpointKind::FederationOut {
         peer_freshness.check_freshness(target_uri)?;
     }

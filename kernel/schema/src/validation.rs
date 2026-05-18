@@ -1,14 +1,14 @@
-//! Validation tier dispatch (L1_SCHEMA §4).
+//! Validation tier dispatch (L1/SCHEMA §4).
 //!
 //! ## Doctrine
 //!
-//! Per L1_SCHEMA §4.1: two-tier validation policy:
+//! Per L1/SCHEMA §4.1: two-tier validation policy:
 //!
 //! - **Tier 1 (identity-critical)** — validated every metabolic cycle.
 //! - **Tier 2 (everything else)** — owner-triggered or per-deep-cycle.
 //!
 //! L4 may escalate to a 3-tier policy if tier-1 per-cycle validation
-//! overruns cycle budget (per L1_SCHEMA §4.3); the shape is documented
+//! overruns cycle budget (per L1/SCHEMA §4.3); the shape is documented
 //! there.
 //!
 //! ## Validator pattern
@@ -45,7 +45,7 @@ pub enum ValidationError {
     },
 
     /// SSoT designation requires a field that is missing
-    /// (per L1_SCHEMA §1.2 designation enumerates which fields participate
+    /// (per L1/SCHEMA §1.2 designation enumerates which fields participate
     /// in consistency check).
     #[error("required field missing from SSoT: {0}")]
     RequiredFieldMissing(String),
@@ -54,10 +54,10 @@ pub enum ValidationError {
 /// Validation scope — which tier(s) to validate.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ValidationScope {
-    /// Tier 1 only (per-cycle validation per L1_SCHEMA §4.1).
+    /// Tier 1 only (per-cycle validation per L1/SCHEMA §4.1).
     Tier1,
 
-    /// Tier 2 only (deep-cycle or owner-triggered per L1_SCHEMA §4.1).
+    /// Tier 2 only (deep-cycle or owner-triggered per L1/SCHEMA §4.1).
     Tier2,
 
     /// Both tiers (full validation; typically owner-triggered).
@@ -130,7 +130,7 @@ impl FieldValidator for PassValidator {
 
 /// Dispatch validator over the configured scope.
 ///
-/// Per L1_SCHEMA §4.1:
+/// Per L1/SCHEMA §4.1:
 /// - [`ValidationScope::Tier1`] — every cycle.
 /// - [`ValidationScope::Tier2`] — deep-cycle or owner-triggered.
 /// - [`ValidationScope::All`] — full pass; owner-triggered.

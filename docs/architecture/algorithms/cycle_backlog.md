@@ -1,6 +1,10 @@
+> **L0 doctrine reference (v3.1 transition note)**: this document was written against the prior monolithic L0 (DRAFT 9 SEALED, 2026-05-17). The canonical L0 doctrine is now `docs/architecture/L0/` (v3.1-stratigraphy, 2026-05-18). References in this document using the old `L0 §x.y` / `P2.a` / `I3` notation resolve to v3.1 cards via `docs/architecture/L0/PROVENANCE.md` §2 mapping table. Surgical update of these references to v3.1 citation form is deferred to a v0.9.x housekeeping pass (coupled with Layer C witness corpus implementation per META §5.4) — see `docs/architecture/OUTLINE.md` §3 for details.
+
+---
+
 # Cycle-Backlog Mechanism (C36)
 
-> Extracted from L1_CONTINUITY §1.3. Normative spec lives at L1_CONTINUITY §1.3 + L1_HARD_RULES C36.
+> Extracted from L1/CONTINUITY §1.3. Normative spec lives at L1/CONTINUITY §1.3 + L1/HARD_RULES C36.
 
 ## Backlog predicate
 
@@ -26,5 +30,5 @@ Continues operating; no auto-clear. Owner sees C36 at next CI co-sign; chooses r
 
 ## Signal feeds
 
-- Signal #7 per L0 §7.3 + L2_OBSERVABILITY §7.
+- Signal #7 per L0 §7.3 + L2/OBSERVABILITY §7.
 - Feeds §7.4 falsifiability quorum.

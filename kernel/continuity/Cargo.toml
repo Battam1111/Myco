@@ -1,6 +1,6 @@
 [package]
 name = "myco-kernel-continuity"
-description = "Myco v0.9 — kernel/continuity: metabolic cycle + dormancy + cold-resume + WAL (L1_CONTINUITY §1-§5)"
+description = "Myco v0.9 — kernel/continuity: metabolic cycle + dormancy + cold-resume + WAL (L1/CONTINUITY §1-§5)"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

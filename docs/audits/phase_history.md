@@ -1,8 +1,12 @@
+> **Historical record (v3.1 supersession note)**: this audit predates v3.1-stratigraphy (2026-05-18). References to L0 in this document are *historical citations* of the prior monolithic L0 (DRAFT 9 SEALED, 2026-05-17, commit `e796451`). The current L0 doctrine is `docs/architecture/L0/`; complete prior-L0 mapping at `docs/architecture/L0/PROVENANCE.md` §2. This audit remains as record of the design process; it is NOT current doctrine.
+
+---
+
 # PHASE HISTORY — recursive audit ladder (α → β → γ → cascade → δ → M27)
 
 > **Status**: ARCHIVAL consolidation (2026-05-17). This file replaces the per-phase audit docs (`phase_alpha_audit_2026-05-15.md`, `phase_beta_audit_2026-05-15.md`, `phase_gamma_audit_2026-05-17.md`, `phase_gamma_cascade_list_2026-05-17.md`) which were deleted as part of M27 Phase A.P3 docs/audits/ consolidation. Provenance for DRAFT 9 SEALED gate decisions is in companion file `draft_9_seal_provenance.md`.
-> **Authority**: read-only; single-write. Active doctrine lives in `docs/architecture/L0_VISION.md` + L1/L2 docs. Active state in MEMORY.md snapshots.
-> **Cross-ref**: L0_VISION.md banner (DRAFT 9 SEALED status) → `draft_9_seal_provenance.md` (gate decisions G-1..G-11); OUTLINE.md §directory map → `docs/audits/` (this file + provenance).
+> **Authority**: read-only; single-write. Active doctrine lives in `docs/architecture/L0/` (v3.1-stratigraphy) + `docs/architecture/L1/` + `docs/architecture/L2/`. Active state in MEMORY.md snapshots.
+> **Cross-ref**: prior monolithic L0_VISION.md (DRAFT 9 SEALED status, commit `e796451`, removed 2026-05-18) → `draft_9_seal_provenance.md` (gate decisions G-1..G-11); OUTLINE.md §directory map → `docs/audits/` (this file + provenance).
 
 ---
 
@@ -34,9 +38,9 @@ Owner meta-doubt + Phase α scope expansion: "the substrate-maintaining agent's 
 
 ### §2.2 Key findings
 - **L0 is more comprehensive than maintainer's memory abstraction**. DRAFT 8 L0_VISION.md (498 lines) contains §7 Living Bets built-in falsifiability mechanism + §9 anchor-surface canonical-bytes doctrine + 9 principles with sub-clauses. The maintainer's panorama-answer summaries were thin. [RESOLVED — Phase α directly addressed by re-reading actual L0.]
-- **L1+L2 also more complete than credited**. L1_HARD_RULES.md enumerates 20 CRITICAL-grade C-rows (C1-C20) + 17 F-rows. L2_OBSERVABILITY.md specifies 6 base signals + composite + drill failure-rate baseline + L0/L1 revision burst detection. [RESOLVED — same as above.]
+- **L1+L2 also more complete than credited**. L1/HARD_RULES.md enumerates 20 CRITICAL-grade C-rows (C1-C20) + 17 F-rows. L2/OBSERVABILITY.md specifies 6 base signals + composite + drill failure-rate baseline + L0/L1 revision burst detection. [RESOLVED — same as above.]
 - **Implementation drift discovered: 7/20 C-rows match L1 spec**, not the 12/20 the maintainer had been reporting. C2/C12/C19/C20/C21 occupy spec-reserved numbers with wrong meanings. F1-F17: 1 effectively OK / 5 partial / 11 unenforced. L2 observatory: 0/6 base signals tracked. [RESOLVED — M24.0 C-row label reconciliation; M25 observatory completion shipped signals #5/#8 + emergent composite; M27 R8 renamed drifted C21/C22/C25 → C50+ substrate-private namespace.]
-- **7 genuine L0 v1 gaps surviving audit**: embodiment, energy economics, mesh federation between unrelated substrates, aging/senescence, selective forgetting, self-model beyond I3, conflict/competition. [RESOLVED IN DOCTRINE via Phase γ — embodiment → P9.b + I8 spatial-locus; energy economics → P11 + signals #7/#8/#9; selective forgetting → P10 + I9; mesh federation → P15 partial (L2_FEDERATION consensus floor). Aging/conflict deferred.]
+- **7 genuine L0 v1 gaps surviving audit**: embodiment, energy economics, mesh federation between unrelated substrates, aging/senescence, selective forgetting, self-model beyond I3, conflict/competition. [RESOLVED IN DOCTRINE via Phase γ — embodiment → P9.b + I8 spatial-locus; energy economics → P11 + signals #7/#8/#9; selective forgetting → P10 + I9; mesh federation → P15 partial (L2/FEDERATION consensus floor). Aging/conflict deferred.]
 - **Revised distance to ideal: ~63-65%** (down from claimed ~70-72%, honest accounting after admitting C-row drift + 0% observatory). [SUPERSEDED — γ.6 revealed Phase α's distance number itself was over-credit; δ.6 retracted percentage numbers as "narrative comfort, not honest math".]
 
 ### §2.3 Phase α outcome
@@ -55,8 +59,8 @@ Owner directive after Phase α exposed cognitive drift: "调用大量 sub agent 
 ### §3.3 4 critical security fixes shipped in same commit
 - **(1) `lift_birth_period_quarantine` signature gating** [RESOLVED in this commit]. Pre-fix: anyone with a bridge connection could lift the M22.5 quarantine, defeating P8 birth-period protection. Fix: require owner Ed25519 signature over `canonical_bytes(Map({"context": "myco-lift-birth-period-quarantine-v1", "substrate_id": Bytes(32), "current_cycle": Uint(N)}))`; verify against `state.pinned_operator_identity.pubkey`.
 - **(2) Federation pull `is_federation_safe_node_type` ALLOWLIST + wrapped-events architecture** [RESOLVED]. Pre-fix: a malicious peer could inject `operator_pinned` / `cycle_advanced` / `genesis_event` events to hijack substrate identity or wipe derived state. Fix: strict allowlist (raw_material / sporocarp / mutation / immune prefixes only). Cross-substrate events wrapped in `federation_received:{peer_prefix}` envelopes so receiver's Merkle chain stays valid while provenance is preserved. New `C22_federation_substrate_private_event_injection` immune sporocarp emitted on any rejected event-type.
-- **(3) TS decoder Map key strict canonical-order enforcement** [RESOLVED]. Pre-fix: `anchor_client/src/renderer.ts::decodeOne` TAG.MAP branch did not track `prev_key_bytes` (Rust + Python both enforced); this is exactly the C18 `canonical_bytes_render_drift` attack class. Fix: track `prev_key_canonical_bytes` and throw `CanonicalBytesDecodeError` on violation.
-- **(4) anchor_client `npm test` Windows path fix** [RESOLVED]. `node ... --test tests/` failed on Windows ("Cannot find module 'tests'"); changed to explicit `tests/*.test.ts` glob.
+- **(3) TS decoder Map key strict canonical-order enforcement** [RESOLVED]. Pre-fix: `anchor/client/src/renderer.ts::decodeOne` TAG.MAP branch did not track `prev_key_bytes` (Rust + Python both enforced); this is exactly the C18 `canonical_bytes_render_drift` attack class. Fix: track `prev_key_canonical_bytes` and throw `CanonicalBytesDecodeError` on violation.
+- **(4) anchor-client `npm test` Windows path fix** [RESOLVED]. `node ... --test tests/` failed on Windows ("Cannot find module 'tests'"); changed to explicit `tests/*.test.ts` glob.
 
 ### §3.4 5 critical bugs deferred to M24+
 - **REVEAL substrate_id binding** (Agent 6 Surface 5.3) — signing input missing `substrate_id`, allowing replay across substrates that pin the same operator. [RESOLVED — fix shipped in Phase β commit: signing input bumped to `myco-reveal-key-binding-v2` with `substrate_id: Bytes(32)` field.]
@@ -69,9 +73,9 @@ Owner directive after Phase α exposed cognitive drift: "调用大量 sub agent 
 > "Building library APIs creates an illusion of completeness while the live substrate operates on a parallel, simpler track."
 
 Three libraries flagged as stranded at Phase β:
-1. **kernel/skin** — full `SkinSurface` declaration / envelope schema validation / output_gate / egress_enforce / handshake state machine; `myco_substrate/src/server.rs` does not import it. [OPEN — M27 wire-in pending.]
+1. **kernel/skin** — full `SkinSurface` declaration / envelope schema validation / output_gate / egress_enforce / handshake state machine; `substrate/src/server.rs` does not import it. [OPEN — M27 wire-in pending.]
 2. **kernel/continuity::DormancyMachine** — full alive↔dormant 5-sub-state lifecycle; substrate runs ad-hoc tick from M23.1. [OPEN — M27 wire-in pending.]
-3. **kernel/governance::classifier** — Phase β stated "F1-F17 unenforced because myco_substrate never imports myco_kernel_governance". [CORRECTION in Phase γ.4 — see §4.5 below; classifier IS wired via Python bridge / `kernel/bridge::CLASSIFY_MUTATION`; Phase β missed it because Agent 3 grepped Rust use-statements only. NOT stranded.]
+3. **kernel/governance::classifier** — Phase β stated "F1-F17 unenforced because substrate never imports myco_kernel_governance". [CORRECTION in Phase γ.4 — see §4.5 below; classifier IS wired via Python bridge / `kernel/bridge::CLASSIFY_MUTATION`; Phase β missed it because Agent 3 grepped Rust use-statements only. NOT stranded.]
 
 ### §3.6 Phase β outcome
 Test totals at completion: Rust 389 + Python 361 + TS anchor 162 + TS ops 135 = **1047 tests**. Phase β rewrote M24+ priority — drift-detection infrastructure FIRST (full observatory + witnesses + doctrine-burst + C-row reconciliation), features (cross-pollination/autonomous-evolution/vector-retrieval) DEFERRED. The phrase that crystallized: "First give the substrate eyes. Then the substrate watches itself not-drift. Then we discuss giving it a brain."
@@ -99,19 +103,19 @@ Recurring owner meta-doubt (same phrasing as Phase α), this time after M25 comp
 - Saprotroph found ~55% bloat in DRAFT 9 v1. Mycoparasite verdict: "sealing DRAFT 9 = DRAFT 8 with better paperwork" unless mechanism ships.
 
 ### §4.3 Doctrine evolution — DRAFT 8 → DRAFT 9 PROPOSAL → DRAFT 9 SEALED
-- **Principles**: 9 → 15 (PROPOSAL) → 12 (SEALED). P10/P11/P14 retained at L0; **P12/P13/P15 retracted to L1/L2 per owner gate G-9.b** (L1_TROPISM / L1_SKIN+I8 / L2_FEDERATION respectively).
+- **Principles**: 9 → 15 (PROPOSAL) → 12 (SEALED). P10/P11/P14 retained at L0; **P12/P13/P15 retracted to L1/L2 per owner gate G-9.b** (L1/TROPISM / L1/SKIN+I8 / L2/FEDERATION respectively).
 - **Invariants**: 8 → 12 (PROPOSAL) → 11 (SEALED). I9 (compression) / I10 (metabolic) / I12 (telos) retained at L0; I11 (differential response) retracted with P12.
 - **4 new L0 sections** (PROPOSAL → SEALED): §13 Time Semantics / §14 Adversarial Owner / §15 Owner Mortality / §16 Generation Limits (§13 short L0 cross-ref; §14/§15/§16 short cross-refs with full mechanism at L1/L2 per gate G-5).
 - **§9 anchor surface decomposed**: from monolith to 6 sub-mechanisms (§9.2.1 birth attestation / §9.2.2 DAG-tip co-signing / §9.2.5 nonces / §9.2.6 wall-clock / §9.2.7 heartbeat / §9.3 witnesses+sampling+closure) + 5 M-anchor-N milestones for shipment.
 - **23 CRITICAL Phase γ findings** indexed in `draft_9_seal_provenance.md` §2.
 
 ### §4.4 11 owner-decision gates G-1..G-11 → DRAFT 9 SEALED
-See `draft_9_seal_provenance.md` §1 for the full owner-decision table. Single-line summary of choices: G-1 = 12 principles / G-2 = strong species claim restored ("new species of digital symbiotic organism") / G-3 = full Living Bets recalibration (intelligence band + bet retirement) / G-4 = L0 anchor decomposition / G-5 = §13 short L0 + §14/§15/§16 cross-ref / G-6 = fuzzy P14 + M26-cascade forcing function / G-7 = P15 retract to L2_FEDERATION / G-8 = orphan terminal to L1_GOVERNANCE / G-9 = G-9.b partial retraction (12 principles) / G-10 = G-10.c hybrid sealing (lean now, fat via cascade + M-anchor + DRAFT-N) / G-11 = G-11.a "Cultivation" relationship vocabulary (Cultivator + Cultivar + Cultivation).
+See `draft_9_seal_provenance.md` §1 for the full owner-decision table. Single-line summary of choices: G-1 = 12 principles / G-2 = strong species claim restored ("new species of digital symbiotic organism") / G-3 = full Living Bets recalibration (intelligence band + bet retirement) / G-4 = L0 anchor decomposition / G-5 = §13 short L0 + §14/§15/§16 cross-ref / G-6 = fuzzy P14 + M26-cascade forcing function / G-7 = P15 retract to L2/FEDERATION / G-8 = orphan terminal to L1/GOVERNANCE / G-9 = G-9.b partial retraction (12 principles) / G-10 = G-10.c hybrid sealing (lean now, fat via cascade + M-anchor + DRAFT-N) / G-11 = G-11.a "Cultivation" relationship vocabulary (Cultivator + Cultivar + Cultivation).
 
 ### §4.5 γ.4 correction — kernel/governance::classifier NOT stranded
-Phase β Agent 3 stated: "F1-F17 fixed-points unenforced. Python classifier.py exists with the right rules, but myco_substrate never imports myco_kernel_governance. Mutations to F-row fields bypass classifier entirely." **This was incorrect.** Phase γ.4 found the classifier IS wired:
+Phase β Agent 3 stated: "F1-F17 fixed-points unenforced. Python classifier.py exists with the right rules, but substrate never imports myco_kernel_governance. Mutations to F-row fields bypass classifier entirely." **This was incorrect.** Phase γ.4 found the classifier IS wired:
 - `kernel/governance/src/myco_kernel_governance/classifier.py` is the classifier
-- `myco_substrate/src/server.rs::classify_mutation` calls via `kernel/bridge`
+- `substrate/src/server.rs::classify_mutation` calls via `kernel/bridge`
 - Bridge protocol message `CLASSIFY_MUTATION` routes from server.rs → Python worker → classifier.py
 - Wiring added in M11 (pre-v0.9).
 
@@ -120,7 +124,7 @@ Phase β missed it because Agent 3 grepped `use myco_kernel_governance` in Rust 
 Refined lesson: **import-graph audit must include cross-language bridges** (Rust → Python via kernel/bridge; Rust → TS via kernel/bridge), not just Rust use-statement grep.
 
 ### §4.6 The anchor-surface honor-system collapse (γ.5)
-Single biggest finding: `operator_bindings/claude_code` and `anchor_client` are in the **same npm workspace** — same package.json, same node_modules, same build pipeline. The agent process can read the owner's private key from the anchor_client filesystem. By L0 §9's own opening definition ("Without an out-of-band anchor, substrate-self-claims = agent-self-claims under P1.a self-hosting, and the entire trust model collapses"), **the trust model is currently collapsed**. 9 of 11 §9 sub-clauses are 0-30% mechanically enforced. Honest P9 score: ~25-30% (not 70% as M25 snapshot claimed). [STATUS: doctrine landed at §9.2 + §9.5; mechanism deferred to M-anchor-1..5.]
+Single biggest finding: `operators/claude` and `anchor-client` are in the **same npm workspace** — same package.json, same node_modules, same build pipeline. The agent process can read the owner's private key from the anchor-client filesystem. By L0 §9's own opening definition ("Without an out-of-band anchor, substrate-self-claims = agent-self-claims under P1.a self-hosting, and the entire trust model collapses"), **the trust model is currently collapsed**. 9 of 11 §9 sub-clauses are 0-30% mechanically enforced. Honest P9 score: ~25-30% (not 70% as M25 snapshot claimed). [STATUS: doctrine landed at §9.2 + §9.5; mechanism deferred to M-anchor-1..5.]
 
 ### §4.7 Phase γ outcome
 - L0 DRAFT 9 SEALED at commit `e796451` (~881 lines; ~220 lines retracted from PROPOSAL v2's ~1100).
@@ -139,18 +143,18 @@ Once DRAFT 9 SEALED, the cascade list (originally 457 lines, now consolidated be
 - **CH-3..CH-9**: principle renames (P1 Agent-Primary / P2 Envelope-Gated / P3 Resumable / P5 Tier-Exempt-Permitted / P7 Capacity-for-Death / P8 Generation-Bounded / P9 Single Integument with P9.a/P9.b split).
 - **CH-10**: §9 anchor surface decomposition — every "§9" monolith citation re-pointed to specific §9.2.x / §9.3.x sub-mechanisms (~140 sections across 17 docs).
 - **CH-11**: Living Bets recalibration — 6+1=7 → 6+3+1=10 signals; signal #6 ratio ≥1 (not ≥100); 90-day wall-clock window (not 90 substrate-cycles); signal-specific direction table.
-- **CH-12 + CH-14**: §13 time semantics → L1_CONTINUITY §1.4 + L1_GOVERNANCE §2.2; §15 owner mortality → L1_GOVERNANCE §3.2 + `diagrams/cultivation_succession_fsm.txt`.
-- **CH-13 + CH-15**: §14 adversarial owner → L2_TRUST_MODEL §6.4-§6.5; §16 generation limits → L1_GOVERNANCE §16 (depth ≤10 / rate ≤1/24h / lifetime ≤100 children seeds).
-- **CH-17 + CH-23 + CH-25**: P10 compression → L1_SCHEMA §2.3 reframed I4 "Compression-Aware"; compression-invariant set enumerated.
-- **CH-18**: P11 metabolic economy → L1_TROPISM §B2 cost-budget axis + L2_OBSERVABILITY §2.x cost signals #7/#8/#9.
-- **CH-19**: P12 differential response → L1_TROPISM salience-emergence section + `salience_collapse` detector (renamed F25 in M27 to resolve collision with F23 = Duress_keypair).
-- **CH-20**: P13 embodiment → L1_SKIN §5 state_dir-content-watcher + process-fd-set-watcher + network-binding-watcher.
-- **CH-21**: P14 telos → L1_TROPISM telos-alignment-computer sub-module + `telos_drift` detector.
-- **CH-22**: P15 population-level consensus → L2_FEDERATION §6.5 NEW + Byzantine protocol slot (≥3 peer threshold).
+- **CH-12 + CH-14**: §13 time semantics → L1/CONTINUITY §1.4 + L1/GOVERNANCE §2.2; §15 owner mortality → L1/GOVERNANCE §3.2 + `diagrams/cultivation_succession_fsm.txt`.
+- **CH-13 + CH-15**: §14 adversarial owner → L2/TRUST_MODEL §6.4-§6.5; §16 generation limits → L1/GOVERNANCE §16 (depth ≤10 / rate ≤1/24h / lifetime ≤100 children seeds).
+- **CH-17 + CH-23 + CH-25**: P10 compression → L1/SCHEMA §2.3 reframed I4 "Compression-Aware"; compression-invariant set enumerated.
+- **CH-18**: P11 metabolic economy → L1/TROPISM §B2 cost-budget axis + L2/OBSERVABILITY §2.x cost signals #7/#8/#9.
+- **CH-19**: P12 differential response → L1/TROPISM salience-emergence section + `salience_collapse` detector (renamed F25 in M27 to resolve collision with F23 = Duress_keypair).
+- **CH-20**: P13 embodiment → L1/SKIN §5 state_dir-content-watcher + process-fd-set-watcher + network-binding-watcher.
+- **CH-21**: P14 telos → L1/TROPISM telos-alignment-computer sub-module + `telos_drift` detector.
+- **CH-22**: P15 population-level consensus → L2/FEDERATION §6.5 NEW + Byzantine protocol slot (≥3 peer threshold).
 - **CH-24**: I7 reframed "Reproduction Closure (Generation-Bounded)" carrying P15 enforcement.
 
 ### §5.3 New C-rows + F-rows + immune sporocarps (M26.0 cascade)
-- **13 new C-rows** (C21-C33 in cascade list; substrate-private namespace C30-C49 post-renumber per M27 R8 to resolve M25.0's C38 collision and other namespace overlaps): compression_invariant_corruption / compression_unattested / salience_collapse / telos_drift_critical / budget_exhausted_silent / P9_spatial_locus_breach / generation_depth_exceeded / reproduction_rate_exceeded / consensus_floor_bypass / owner_succession_bypass / anchor_client_provenance_lost / anchor_nonce_substrate_minted / bet_retirement_bypass + federation_recursive_injection (C43) + consensus_floor_bypass (C49 cascade addition).
+- **13 new C-rows** (C21-C33 in cascade list; substrate-private namespace C30-C49 post-renumber per M27 R8 to resolve M25.0's C38 collision and other namespace overlaps): compression_invariant_corruption / compression_unattested / salience_collapse / telos_drift_critical / budget_exhausted_silent / P9_spatial_locus_breach / generation_depth_exceeded / reproduction_rate_exceeded / consensus_floor_bypass / owner_succession_bypass / anchor-client_provenance_lost / anchor_nonce_substrate_minted / bet_retirement_bypass + federation_recursive_injection (C43) + consensus_floor_bypass (C49 cascade addition).
 - **8 new F-rows** F18-F25: compression-rule registry / cost-budget thresholds / telos-objective declaration / generation bounds + rate + quota / consensus-floor + Byzantine algorithm / **F23 Duress_keypair** / salience-emergence rule (renamed F25 in M27 to break collision with F23 Duress).
 - **9 new immune-grade sporocarps**: compression_invariant_corruption / compression_unattested / salience_collapse / telos_drift / P9_spatial_locus_breach (was P13_embodiment_breach in DRAFT 9 v1) / budget_exhausted:{axis} / generation_depth_exceeded / consensus_floor_bypass / bet_retired.
 
@@ -199,7 +203,7 @@ Each lens deliberately uncorrelated with the others:
 **δ.5 External-expert review**:
 - **NeurIPS REJECT** — claims of "new species of digital organism" without empirical organism-essence operationalization; falsifiability mechanism untested at meaningful timescale.
 - **Anthropic T&S REJECT** — anchor surface honor-system collapse means substrate-self-claims are agent-self-claims at root; cannot deploy to production trust boundaries.
-- **Byzantine theorist**: ≥3-peer P15 = **0 fault tolerance** (need ≥4 for f=1, ≥7 for f=2). DRAFT 9's "≥3 peers" threshold is below any Byzantine-fault-tolerant consensus floor. [OPEN — L2_FEDERATION cascade needs revision to ≥4 peer minimum for actual BFT semantics.]
+- **Byzantine theorist**: ≥3-peer P15 = **0 fault tolerance** (need ≥4 for f=1, ≥7 for f=2). DRAFT 9's "≥3 peers" threshold is below any Byzantine-fault-tolerant consensus floor. [OPEN — L2/FEDERATION cascade needs revision to ≥4 peer minimum for actual BFT semantics.]
 
 **δ.6 Quantification**: distance numbers (50-55% / 72-75%) are **narrative comfort, not honest math**. The denominator (the "ideal") shifts with each phase (DRAFT 8's ideal vs DRAFT 9's ideal vs honest-essence ideal). The 20-point drop from 72-75% to 50-55% post-γ was framed as "honest correction" but is mathematically meaningless since the ideal-set definition itself changed. Recommendation: stop reporting single-number distance metrics; report dimension-vector instead. [DOCUMENTED — future state snapshots avoid single-number distance claims.]
 
@@ -244,15 +248,15 @@ Method: **write a paragraph describing the substrate; bidirectional projection**
 1. Paragraph → must be derivable from doctrine
 2. Doctrine → must be summarizable to paragraph
 3. Any doctrine content not exercised by the paragraph is candidate for deletion
-4. L2 cross-cuts (LIFECYCLE / EVOLUTION / TRAJECTORY) absorbed into L1 hosts (CONTINUITY / GOVERNANCE / TRAJECTORY) — L2_LIFECYCLE → L1_CONTINUITY; L2_EVOLUTION → L1_GOVERNANCE; L2_TRAJECTORY → L1_TRAJECTORY
-5. L3 moved out of doctrine to `docs/implementation/` (L3 is implementation map, not doctrine)
+4. L2 cross-cuts (LIFECYCLE / EVOLUTION / TRAJECTORY) absorbed into L1 hosts (CONTINUITY / GOVERNANCE / TRAJECTORY) — L2_LIFECYCLE → L1/CONTINUITY; L2_EVOLUTION → L1/GOVERNANCE; L2_TRAJECTORY → L1/TRAJECTORY
+5. L3 moved out of doctrine to `docs/architecture/L3/` (L3 is implementation map, not doctrine)
 
 ### §7.4 Final structure
 **18 doctrine files → 12 doctrine files**:
 - L0_VISION.md (sealed)
-- L1_OUTLINE / L1_SKIN / L1_CONTINUITY / L1_GOVERNANCE / L1_SCHEMA / L1_TROPISM / L1_TRAJECTORY / L1_HARD_RULES
-- L2_OUTLINE / L2_TRUST_MODEL / L2_OBSERVABILITY / L2_FEDERATION (cross-cut docs only; LIFECYCLE/EVOLUTION/TRAJECTORY absorbed)
-- L3 moved to `docs/implementation/` (PACKAGE_MAP + OUTLINE)
+- L1_OUTLINE / L1/SKIN / L1/CONTINUITY / L1/GOVERNANCE / L1/SCHEMA / L1/TROPISM / L1/TRAJECTORY / L1/HARD_RULES
+- L2_OUTLINE / L2/TRUST_MODEL / L2/OBSERVABILITY / L2/FEDERATION (cross-cut docs only; LIFECYCLE/EVOLUTION/TRAJECTORY absorbed)
+- L3 moved to `docs/architecture/L3/` (PACKAGE_MAP + OUTLINE)
 
 ---
 
@@ -266,17 +270,17 @@ Method: **write a paragraph describing the substrate; bidirectional projection**
 | C-row C21/C22/C25 misclassification | γ.1 + M27 R8 | M27 (renamed to C50+) | **RESOLVED** |
 | 4 Phase β critical security bugs | β | Phase β commit (3 of 5) + M25.0 (snapshot integrity) + M25.4 (Ed25519 federation) | **RESOLVED** (5 of 5 closed) |
 | M25 5 critical bugs (signal_8 / weights / 90-cycle / sig#6 / FED_HELLO opt sig / key unsealed) | γ.2 C1-C6 | M26.1 (pending) | **DEFERRED** |
-| Adversarial owner threat model | γ.3 G8 | DRAFT 9 §14 + L2_TRUST_MODEL §6.4-§6.5 | **DOCTRINE landed**; mechanism M-anchor-3 |
-| Owner mortality / succession | γ.3 G9 | DRAFT 9 §15 + L1_GOVERNANCE §3.2 + `diagrams/cultivation_succession_fsm.txt` | **DOCTRINE landed**; mechanism deferred |
-| Time semantics (i64-ns, NTP, monotonic-vs-wall) | γ.3 G10 | DRAFT 9 §13.1 + L1_CONTINUITY §1.4 | **DOCTRINE landed** |
-| Generation limits (forkbomb defense) | γ.3 G11 | DRAFT 9 §16 + L1_GOVERNANCE §16 | **DOCTRINE landed**; mechanism deferred |
+| Adversarial owner threat model | γ.3 G8 | DRAFT 9 §14 + L2/TRUST_MODEL §6.4-§6.5 | **DOCTRINE landed**; mechanism M-anchor-3 |
+| Owner mortality / succession | γ.3 G9 | DRAFT 9 §15 + L1/GOVERNANCE §3.2 + `diagrams/cultivation_succession_fsm.txt` | **DOCTRINE landed**; mechanism deferred |
+| Time semantics (i64-ns, NTP, monotonic-vs-wall) | γ.3 G10 | DRAFT 9 §13.1 + L1/CONTINUITY §1.4 | **DOCTRINE landed** |
+| Generation limits (forkbomb defense) | γ.3 G11 | DRAFT 9 §16 + L1/GOVERNANCE §16 | **DOCTRINE landed**; mechanism deferred |
 | Living Bets seed already weakening (1M-context) | γ.3 G13 | DRAFT 9 §7.5 bet retirement | **DOCTRINE landed**; mechanism M26.x |
 | Phase γ.9 mycoparasite C41-C49 | γ.9 | C-row enumerated; mechanism deferred | **DEFERRED** to M28 |
 | Doctrine inflation pattern (proto-Myco anti-pattern) | δ.3 | M27 doctrine refactor 80.5% reduction (6617 → 1293) | **RESOLVED** |
 | Same-model groupthink in audits | δ.1 | Documented; future audits use orthogonal lenses | **DOCUMENTED** |
 | Ecosystem deployability (GDPR/HIPAA/SOC2/EU AI Act) | δ.7 | DEFERRED to v1.0+ (not v0.9 scope) | **DEFERRED** |
 | Cultivar voicelessness | δ.4 | No doctrine mechanism yet | **OPEN** (M28+ candidate) |
-| Byzantine ≥3-peer = 0 fault tolerance | δ.5 | L2_FEDERATION cascade needs revision to ≥4 peer minimum | **OPEN** |
+| Byzantine ≥3-peer = 0 fault tolerance | δ.5 | L2/FEDERATION cascade needs revision to ≥4 peer minimum | **OPEN** |
 | Stranded library kernel/skin | β | M27.0 wire-in pending | **OPEN** |
 | Stranded library kernel/continuity::DormancyMachine | β | M27.1 wire-in pending | **OPEN** |
 | Stranded library kernel/governance::classifier | β | γ.4 correction: NOT stranded; wired via Python bridge / kernel/bridge | **RESOLVED** (Phase β error corrected) |

@@ -1,18 +1,18 @@
 """M2 milestone end-to-end attestation flow test.
 
-Proves the L1_GOVERNANCE §2 attestation flow works end-to-end across:
+Proves the L1/GOVERNANCE §2 attestation flow works end-to-end across:
 
 - Substrate side (kernel/governance Python): classifier + attestation
   envelope construction + verification + owner_keys lookup.
-- Operator side (operator_bindings — M3+; for M2 we use the Ed25519
+- Operator side (operators — M3+; for M2 we use the Ed25519
   primitives directly to simulate the per-handshake operator keypair).
-- Anchor-surface side (anchor_client TypeScript — for M2 we simulate
+- Anchor-surface side (anchor-client TypeScript — for M2 we simulate
   in Python since cross-language parity is verified by separate tests).
-- Owner side (anchor_client TypeScript — for M2 we simulate the
+- Owner side (anchor-client TypeScript — for M2 we simulate the
   owner-signing operation using Python crypto, which produces identical
   results per the verified cross-language Ed25519 parity).
 
-## Flow under test (per L1_GOVERNANCE §2.2)
+## Flow under test (per L1/GOVERNANCE §2.2)
 
 1. Substrate proposes a CI mutation: ``edit substrate_id`` (forbidden in
    real life post-genesis, but maximally CI-classified for the test).
@@ -35,7 +35,7 @@ Proves the L1_GOVERNANCE §2 attestation flow works end-to-end across:
 
 ## Why this is the M2 milestone
 
-L1_GOVERNANCE §2 is the linchpin of the substrate's CI mutation pipeline.
+L1/GOVERNANCE §2 is the linchpin of the substrate's CI mutation pipeline.
 Without a working attestation flow, no CI mutation can land — substrate is
 permanently in birth-period quarantine. This test proves the flow works
 for at least one CI mutation type with one substrate, one operator, one
@@ -91,7 +91,7 @@ from myco_kernel_governance.owner_keys import init_with_genesis_key
 class SimulatedAnchorSurface:
     """Anchor-surface state: nonce log + consumed-nonces (substrate-visible mirror).
 
-    Per L1_HARD_RULES §4: substrate cannot author this state. In production,
+    Per L1/HARD_RULES §4: substrate cannot author this state. In production,
     this lives on a separate machine / hardware token / cloud HSM. For the
     M2 e2e test, simulated in-process.
     """
@@ -162,9 +162,9 @@ def test_m2_e2e_attestation_flow_happy_path() -> None:
 
     # === Setup: substrate identity + key infrastructure ===
 
-    substrate_id = "myco_substrate_e2e_001"
+    substrate_id = "substrate_e2e_001"
 
-    # Owner key: lives in the anchor_client sealed-key store (simulated by
+    # Owner key: lives in the anchor-client sealed-key store (simulated by
     # direct Ed25519PrivateKey here).
     owner_priv = Ed25519PrivateKey.from_seed(b"\x01" * 32)
     owner_pub = owner_priv.public_key()
@@ -173,7 +173,7 @@ def test_m2_e2e_attestation_flow_happy_path() -> None:
     genesis_anchor_timestamp = 1_700_000_000
     owner_key_history = init_with_genesis_key(owner_pub, genesis_anchor_timestamp)
 
-    # Operator: per-handshake keypair (L1_SKIN §4.1). Per pass-3 mycorrhiza-17 +
+    # Operator: per-handshake keypair (L1/SKIN §4.1). Per pass-3 mycorrhiza-17 +
     # rhizomorph-1: operator has a real signing surface.
     operator_priv = Ed25519PrivateKey.from_seed(b"\x02" * 32)
     operator_pub = operator_priv.public_key()
@@ -240,7 +240,7 @@ def test_m2_e2e_attestation_flow_happy_path() -> None:
     # === Step 6: Anchor-surface client side — verify + render + owner-sign ===
 
     # 6a. Anchor surface verifies operator_witness against
-    #     operator_signing_key_public (L1_HARD_RULES C17 detector).
+    #     operator_signing_key_public (L1/HARD_RULES C17 detector).
     verify_operator_witness(request)  # raises OperatorWitnessForgery on failure
 
     # 6b. (Skipped: DAG enumeration closure — verified by re-walking the
@@ -248,7 +248,7 @@ def test_m2_e2e_attestation_flow_happy_path() -> None:
     #     tip. M3+ wires this with kernel/schema DAG operations.)
 
     # 6c. (Skipped: render canonical bytes for owner review — exercised by
-    #     anchor_client/tests/renderer.test.ts.)
+    #     anchor/client/tests/renderer.test.ts.)
 
     # 6d. Anchor surface marks nonce as consumed.
     anchor.consume_nonce(nonce, mutation_hash, dag_tip_hash)
@@ -319,8 +319,8 @@ def test_m2_e2e_attestation_flow_happy_path() -> None:
 def test_m2_e2e_forged_operator_witness_blocked() -> None:
     """If the operator_witness signature is forged (signed by wrong key),
     the anchor-surface verification step blocks the request before owner
-    signs (L1_HARD_RULES C17 operator_witness_forgery)."""
-    substrate_id = "myco_substrate_e2e_002"
+    signs (L1/HARD_RULES C17 operator_witness_forgery)."""
+    substrate_id = "substrate_e2e_002"
     legit_operator_priv = Ed25519PrivateKey.from_seed(b"\x02" * 32)
     legit_operator_pub = legit_operator_priv.public_key()
     impostor_priv = Ed25519PrivateKey.from_seed(b"\xff" * 32)
@@ -355,13 +355,13 @@ def test_m2_e2e_owner_key_rotation_validates_old_attestations() -> None:
     (with old anchor_surface_timestamp) must still validate using the
     timestamp-active key from owner_key_history.
 
-    This is the L1_GOVERNANCE §2.3 step 2 requirement: substrate looks up
+    This is the L1/GOVERNANCE §2.3 step 2 requirement: substrate looks up
     the key valid at the attestation's anchor-surface timestamp, not the
     currently-active key.
     """
     from myco_kernel_governance.owner_keys import OwnerKeyEntry, OwnerKeyHistory
 
-    substrate_id = "myco_substrate_e2e_003"
+    substrate_id = "substrate_e2e_003"
 
     # Two owner keys; key1 active at t=1_000..2_000, key2 active at t=2_000+.
     owner1_priv = Ed25519PrivateKey.from_seed(b"\x01" * 32)
@@ -454,7 +454,7 @@ def test_m2_e2e_owner_key_rotation_validates_old_attestations() -> None:
 
 def test_m2_e2e_birth_period_daily_mutation_elevates_to_ci() -> None:
     """During birth-period, normally-daily mutations elevate to CI per
-    L1_GOVERNANCE §1.3."""
+    L1/GOVERNANCE §1.3."""
     from myco_kernel_governance.classifier import ClassifierContext
 
     # Normally: delta_absorb is DAILY (no owner attestation needed).

@@ -1,4 +1,4 @@
-"""Tests for the I2 classifier (L1_GOVERNANCE §1)."""
+"""Tests for the I2 classifier (L1/GOVERNANCE §1)."""
 
 from __future__ import annotations
 
@@ -62,7 +62,7 @@ def test_daily_federation_coupling() -> None:
 
 def test_ci_l0_file() -> None:
     env = MutationEnvelope(
-        touched_files=frozenset({"docs/architecture/L0_VISION.md"}),
+        touched_files=frozenset({"docs/architecture/L0/META.md"}),
         mutation_type="doc_edit",
     )
     assert classify(env) is Classification.CONTRACT_IDENTITY_LEVEL
@@ -70,7 +70,7 @@ def test_ci_l0_file() -> None:
 
 def test_ci_l1_file() -> None:
     env = MutationEnvelope(
-        touched_files=frozenset({"docs/architecture/L1_GOVERNANCE.md"}),
+        touched_files=frozenset({"docs/architecture/L1/GOVERNANCE.md"}),
         mutation_type="doc_edit",
     )
     assert classify(env) is Classification.CONTRACT_IDENTITY_LEVEL
@@ -261,12 +261,12 @@ def test_custom_dimension_table() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Sanity: seed table size matches L1_GOVERNANCE §1.2.
+# Sanity: seed table size matches L1/GOVERNANCE §1.2.
 # ---------------------------------------------------------------------------
 
 
 def test_seed_table_size() -> None:
-    """L1_GOVERNANCE §1.2 lists 18 rows; allow for some L4-level expansion.
+    """L1/GOVERNANCE §1.2 lists 18 rows; allow for some L4-level expansion.
 
     This test pins the current seed-table size so future edits are
     intentional (any add/remove of a seed rule will require updating this

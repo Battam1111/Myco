@@ -1,6 +1,6 @@
 [package]
 name = "myco-kernel-skin"
-description = "Myco v0.9 — kernel/skin: envelope + handshake + single-operator + egress enforcement (L1_SKIN §1-§6)"
+description = "Myco v0.9 — kernel/skin: envelope + handshake + single-operator + egress enforcement (L1/SKIN §1-§6)"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

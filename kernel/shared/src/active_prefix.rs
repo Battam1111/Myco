@@ -1,4 +1,4 @@
-//! Active-prefix + archived-tail data structure (per L1_GOVERNANCE §3.1 + pass-3 saprotroph-1).
+//! Active-prefix + archived-tail data structure (per L1/GOVERNANCE §3.1 + pass-3 saprotroph-1).
 //!
 //! ## Purpose
 //!
@@ -11,7 +11,7 @@
 //!
 //! - **Active prefix** (K most-recent + currently-valid entries) — participates
 //!   in per-cycle tier-1 validation. O(K) cost regardless of substrate age.
-//! - **Archived tail** (older entries) — stored cold-tier-eligible (per L1_SCHEMA
+//! - **Archived tail** (older entries) — stored cold-tier-eligible (per L1/SCHEMA
 //!   §2.3). Validated at deep-cycle scope via Merkle anchor over the full chain.
 //!
 //! ## API

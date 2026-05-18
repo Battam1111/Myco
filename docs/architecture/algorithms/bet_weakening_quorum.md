@@ -1,6 +1,10 @@
+> **L0 doctrine reference (v3.1 transition note)**: this document was written against the prior monolithic L0 (DRAFT 9 SEALED, 2026-05-17). The canonical L0 doctrine is now `docs/architecture/L0/` (v3.1-stratigraphy, 2026-05-18). References in this document using the old `L0 §x.y` / `P2.a` / `I3` notation resolve to v3.1 cards via `docs/architecture/L0/PROVENANCE.md` §2 mapping table. Surgical update of these references to v3.1 citation form is deferred to a v0.9.x housekeeping pass (coupled with Layer C witness corpus implementation per META §5.4) — see `docs/architecture/OUTLINE.md` §3 for details.
+
+---
+
 # `bet_weakening_quorum` — falsifiability trigger algorithm
 
-> Reference algorithm extracted from L0 §7.4 to keep active doctrine lean. Authoritative algorithm lives at **L2_OBSERVABILITY §3** (per-cycle detector) + L0 §7.4 (commitment); this file is the consolidated specification. Wall-clock window + 90-sample observatory_history cap normative.
+> Reference algorithm extracted from L0 §7.4 to keep active doctrine lean. Authoritative algorithm lives at **L2/OBSERVABILITY §3** (per-cycle detector) + L0 §7.4 (commitment); this file is the consolidated specification. Wall-clock window + 90-sample observatory_history cap normative.
 
 ---
 
@@ -11,7 +15,7 @@ Over a **90-day wall-clock window** (anchor-stamped per L0 §13.1):
 1. For each countable signal s ∈ {#1, #2, #3, #4a, #4b, #6}, collect samples at cadence ≥ 1/substrate-day (≥ 90 samples).
 2. Compute OLS-regression slope of s over the window.
 3. Compute Z = |slope / standard-error|. If Z < 1.96 (95% confidence; L1-tunable), signal is **flat** and does NOT count.
-4. If Z ≥ 1.96 AND slope sign matches **DOWN** (per direction table at L2_OBSERVABILITY §3.3), signal **counts**.
+4. If Z ≥ 1.96 AND slope sign matches **DOWN** (per direction table at L2/OBSERVABILITY §3.3), signal **counts**.
 5. Independently, check: signal #6 < 1 for ≥ 50% of window samples.
 6. If (count ≥ 3) AND (#6 < 1 for ≥ 50% of window) → fire `bet_weakening_quorum` (C40 sporocarp).
 
@@ -23,11 +27,11 @@ Signal #5 (OLS slope) is the **meta-direction-detector** — its outputs power s
 
 - 6 countable signals (#5 meta; #4 splits into 4a + 4b).
 - Threshold: ≥ 3 of 6.
-- Until #4a lands: quorum operates over 5 of 6; documented false-negative bias per L2_OBSERVABILITY §3.4.
+- Until #4a lands: quorum operates over 5 of 6; documented false-negative bias per L2/OBSERVABILITY §3.4.
 
 ## §4. Birth-period exemption (per L0 §7.4.e)
 
-SUSPENDED during birth period (L1_TROPISM §4 + L1_GOVERNANCE §1.3): #6 structurally < 1, #1 monotone growing from zero, #3 structurally zero — math vacuous. Substrate emits `bet_weakening_evaluation_suspended` instead of `bet_weakening_quorum`.
+SUSPENDED during birth period (L1/TROPISM §4 + L1/GOVERNANCE §1.3): #6 structurally < 1, #1 monotone growing from zero, #3 structurally zero — math vacuous. Substrate emits `bet_weakening_evaluation_suspended` instead of `bet_weakening_quorum`.
 
 ## §5. Trend significance gate seeds
 
@@ -37,10 +41,10 @@ SUSPENDED during birth period (L1_TROPISM §4 + L1_GOVERNANCE §1.3): #6 structu
 
 ## §6. Output sporocarp
 
-On fire: positive `bet_weakening_quorum_quorum:{cycle}` DAG event + C40 immune sporocarp (per L1_HARD_RULES §1.1).
+On fire: positive `bet_weakening_quorum_quorum:{cycle}` DAG event + C40 immune sporocarp (per L1/HARD_RULES §1.1).
 
 ## §7. Cascade
 
 - L0 commitment: §7.4 + §7.5 retirement trigger.
-- L1 mechanism site: L1_GOVERNANCE (proposal lifecycle) + L1_HARD_RULES C40.
-- L2 detector: L2_OBSERVABILITY §3.
+- L1 mechanism site: L1/GOVERNANCE (proposal lifecycle) + L1/HARD_RULES C40.
+- L2 detector: L2/OBSERVABILITY §3.

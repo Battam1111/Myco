@@ -1,0 +1,29 @@
+[package]
+name = "anchor-surface-host"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Myco v0.9 — anchor_surface_host: separate Rust binary that holds the owner Ed25519 signing key out of operator process memory. Closes Phase γ.5 audit's 'operator-IS-anchor honor-system collapse' finding (M-anchor-1)."
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+doc_lazy_continuation = "allow"
+doc_overindented_list_items = "allow"
+
+[lib]
+name = "anchor_surface_host"
+path = "src/lib.rs"
+
+[[bin]]
+name = "anchor-surface-host"
+path = "src/main.rs"
+
+[dependencies]
+myco-kernel-shared = { path = "../../kernel/shared" }
+thiserror.workspace = true
+sha2.workspace = true
+
+[dev-dependencies]
+

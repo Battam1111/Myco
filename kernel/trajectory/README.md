@@ -3,7 +3,7 @@
 Myco v0.9 — kernel/trajectory (Python) per L3_PACKAGE_MAP §8.
 
 Implements **intent derivation** as a substrate-resident query over the
-causal DAG. Per L1_TRAJECTORY §1: intent is computed, not stored —
+causal DAG. Per L1/TRAJECTORY §1: intent is computed, not stored —
 `intent(t) := cluster_C(causal_ancestors_and_descendants(neighborhood(t)))`.
 
 ## M4 scope
@@ -14,6 +14,6 @@ causal DAG. Per L1_TRAJECTORY §1: intent is computed, not stored —
 
 ## M5+ deferred
 
-- Epoch tracking (L1_TRAJECTORY §6).
-- Thread_id orthogonal grouping (L1_TRAJECTORY §5).
-- Echo-chamber detection (L1_TRAJECTORY §7).
+- Epoch tracking (L1/TRAJECTORY §6).
+- Thread_id orthogonal grouping (L1/TRAJECTORY §5).
+- Echo-chamber detection (L1/TRAJECTORY §7).

@@ -1,8 +1,12 @@
+> **Historical record (v3.1 supersession note)**: this audit predates v3.1-stratigraphy (2026-05-18). References to L0 in this document are *historical citations* of the prior monolithic L0 (DRAFT 9 SEALED, 2026-05-17, commit `e796451`). The current L0 doctrine is `docs/architecture/L0/`; complete prior-L0 mapping at `docs/architecture/L0/PROVENANCE.md` §2. This audit remains as record of the design process; it is NOT current doctrine.
+
+---
+
 # DRAFT 9 SEAL PROVENANCE (2026-05-17)
 
 > **Status**: ARCHIVAL — provenance log extracted from L0_VISION.md DRAFT 9 SEALED §17 + §18 to keep the active doctrine lean.
-> **Source**: L0_VISION.md DRAFT 9 SEALED commit `e796451` (Phase γ sealed; superseded by M26.0 cascade).
-> **Authority**: read-only; this file is single-write. Active doctrine lives in `docs/architecture/L0_VISION.md`.
+> **Source**: L0_VISION.md DRAFT 9 SEALED commit `e796451` (Phase γ sealed; superseded by M26.0 cascade, then by v3.1-stratigraphy on 2026-05-18; original file removed from working tree).
+> **Authority**: read-only; this file is single-write. Active doctrine lives in `docs/architecture/L0/` (v3.1-stratigraphy).
 
 ---
 
@@ -18,10 +22,10 @@ Owner explicit decisions on all 11 gates, recorded 2026-05-17 conversation (Phas
 | **G-2** | **G-2.b strong species claim restored** | §1 says "new species of digital symbiotic organism" + literal taxonomic class framing; gaps are aspirational roadmap, not error |
 | **G-3** | **G-3.a full Living Bets recalibration** | §7 retains intelligence band + cost-justified value + bet retirement |
 | **G-4** | **G-4.a L0 decomposition** | §9 retains 6 sub-mechanisms + 5 M-anchor milestones as L0 commitments |
-| **G-5** | **§13 short L0; §14/§15/§16 → L1/L2** (auto from G-9.b) | Mechanism moved to L1_CONTINUITY/L1_SCHEMA + L2_TRUST_MODEL + L1_GOVERNANCE |
-| **G-6** | **G-6.a fuzzy + M26-cascade forcing function** | P14.c commits drift detection at L0; L1_TROPISM MUST land operational metric in M26-cascade |
-| **G-7** | **G-7.c retract P15 to L2_FEDERATION** (auto from G-9.b) | Federation stays pairwise at L0; population-level consensus is L2 territory |
-| **G-8** | **§15 orphan terminal decision moved to L1_GOVERNANCE** (auto from G-9.b) | L1 specifies bet-retirement / self-euthanasia / indefinite-orphan |
+| **G-5** | **§13 short L0; §14/§15/§16 → L1/L2** (auto from G-9.b) | Mechanism moved to L1/CONTINUITY/L1/SCHEMA + L2/TRUST_MODEL + L1/GOVERNANCE |
+| **G-6** | **G-6.a fuzzy + M26-cascade forcing function** | P14.c commits drift detection at L0; L1/TROPISM MUST land operational metric in M26-cascade |
+| **G-7** | **G-7.c retract P15 to L2/FEDERATION** (auto from G-9.b) | Federation stays pairwise at L0; population-level consensus is L2 territory |
+| **G-8** | **§15 orphan terminal decision moved to L1/GOVERNANCE** (auto from G-9.b) | L1 specifies bet-retirement / self-euthanasia / indefinite-orphan |
 | **G-9** | **G-9.b partial retraction (12 principles)** | This is the foundational structural decision; cascades through G-1, G-5, G-7, G-8 |
 | **G-10** | **G-10.c hybrid sealing** | Lean DRAFT 9 sealed now (this commit); fat DRAFT 9 (mechanism completions) sealed via cascade work + future DRAFTs as M-anchor and M26+ ship |
 | **G-11** | **G-11.a Cultivation** | Owner=Cultivator, Myco substrate=Cultivar, relationship=Cultivation; vocabulary integrated throughout |
@@ -50,7 +54,7 @@ Total findings: **223** (mycorrhiza 32 + saprotroph 49 + mycoparasite 39 + rhizo
 DRAFT 9 v2 applies these structural CRITICAL fixes:
 - **Rhizomorph C1** (§7.1 "mutually constitutive" vs P1.c asymmetric carrier): fixed at §7.1.
 - **Rhizomorph C2** (I1 cites §9.5 wrong): fixed → §9.2.1.
-- **Rhizomorph C3** (L1_OBSERVABILITY phantom): fixed → L2_OBSERVABILITY everywhere.
+- **Rhizomorph C3** (L1_OBSERVABILITY phantom): fixed → L2/OBSERVABILITY everywhere.
 - **Rhizomorph C7** (signal numbering #1.5/#1.6 split): fixed → #7/#8/#9 uniformly.
 - **Rhizomorph C8** (§7.5 vs §15.5 pre-attestation/co-attestation contradiction): fixed via §7.5.b two-phase commit (genesis-time consent flag vs steady-state co-attestation).
 - **Rhizomorph C9** (alive sub-states inconsistent): fixed in I1 (Normal/Quarantined/Legacy/Orphaned/Archived enumerated).
@@ -67,8 +71,8 @@ DRAFT 9 v2 applies these structural CRITICAL fixes:
 - Mycorrhiza relationship-type-naming → G-11.
 
 **Remaining CRITICAL findings deferred to cascade work**:
-- Mycoparasite M11 federation recursive injection → L2_FEDERATION update + L1_HARD_RULES new C-row.
-- Mycoparasite M4/M5 dag.cb/manifest.cb integrity → §9 new sub-mechanism + L1_SCHEMA update.
-- Rhizomorph (multiple) phantom L1_TROPISM/L1_GOVERNANCE references → cascade list M26-cascade.
+- Mycoparasite M11 federation recursive injection → L2/FEDERATION update + L1/HARD_RULES new C-row.
+- Mycoparasite M4/M5 dag.cb/manifest.cb integrity → §9 new sub-mechanism + L1/SCHEMA update.
+- Rhizomorph (multiple) phantom L1/TROPISM/L1/GOVERNANCE references → cascade list M26-cascade.
 
 **Phase γ.11 round-2 critique deferred** to post-owner-review per time-budget; owner approval on §17 gates G-1 through G-11 unlocks final convergence pass.

@@ -1,5 +1,5 @@
 {
-  "schema_name": "federation_received envelope (L2_FEDERATION §9.1)",
+  "schema_name": "federation_received envelope (L2/FEDERATION §9.1)",
   "wrapper_node_type": "federation_received:{peer_id_prefix}",
   "peer_id_prefix": "first 8 hex bytes / 16 chars of peer substrate-ID",
   "content_serialization": "canonical-bytes Map",
@@ -10,7 +10,7 @@
     },
     "peer_event_node_type": {
       "type": "String",
-      "semantics": "Inner node_type. Subject to L2_FEDERATION §9.4 allowlist and §11 recursive validation."
+      "semantics": "Inner node_type. Subject to L2/FEDERATION §9.4 allowlist and §11 recursive validation."
     },
     "peer_event_parent_hashes": {
       "type": "Array(Bytes(32))",

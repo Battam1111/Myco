@@ -1,4 +1,4 @@
-//! Spore-schema — substrate reproductive payload (L1_SCHEMA §3 + L0 P8 / I7).
+//! Spore-schema — substrate reproductive payload (L1/SCHEMA §3 + L0 P8 / I7).
 //!
 //! ## Doctrine
 //!
@@ -7,22 +7,22 @@
 //! **spore-schema** carrying enough state for the child to begin its own
 //! symbiosis.
 //!
-//! Per L1_SCHEMA §3.1: the spore-schema MUST include the following fields
+//! Per L1/SCHEMA §3.1: the spore-schema MUST include the following fields
 //! (verified at construction; closure-checked at spawn per §3.3):
 //!
 //! 1. **schema_definitions** — SSoT structure spec.
 //! 2. **canonical_bytes_serializer_spec** — pure-declarative serializer spec
-//!    (L1_HARD_RULES F16). Spore-inheritable. All parties (operator, owner,
+//!    (L1/HARD_RULES F16). Spore-inheritable. All parties (operator, owner,
 //!    child) need this for independent canonical-bytes derivation.
-//! 3. **sporocarp_type_tree** (under L1_TROPISM dispatch) — atomic-record
+//! 3. **sporocarp_type_tree** (under L1/TROPISM dispatch) — atomic-record
 //!    type hierarchy.
-//! 4. **classifier_dimension_table** — L1_GOVERNANCE I2 classifier function
+//! 4. **classifier_dimension_table** — L1/GOVERNANCE I2 classifier function
 //!    as data.
 //! 5. **initial_appetite_axis_schema** — gradient-update-rule signatures +
 //!    threshold seeds.
 //! 6. **anchor_surface_config** — where the owner's signing key lives;
 //!    child's birth-attestation shape; substrate_secret sealing mechanism
-//!    per L1_SKIN §4.2.
+//!    per L1/SKIN §4.2.
 //! 7. **parent_immune_signal_summary** — counts of unresolved immune
 //!    sporocarps by type + most-recent tip-hash.
 //!
@@ -58,7 +58,7 @@ use thiserror::Error;
 #[non_exhaustive]
 pub enum SporeError {
     /// A required field is `Value::Null` or otherwise empty.
-    /// (Per L1_SCHEMA §3.1 all 7 fields must be present.)
+    /// (Per L1/SCHEMA §3.1 all 7 fields must be present.)
     #[error("required spore field missing or null: {0}")]
     MissingRequiredField(&'static str),
 
@@ -67,42 +67,42 @@ pub enum SporeError {
     CanonicalBytes(#[from] CanonicalBytesError),
 }
 
-/// The seven required spore-schema fields (per L1_SCHEMA §3.1).
+/// The seven required spore-schema fields (per L1/SCHEMA §3.1).
 ///
 /// Each field is a [`Value`] from kernel/shared::canonical_bytes for
 /// type-uniformity. L4 layers populate with their domain types serialized
 /// to `Value` (e.g., `Value::Map` for table-shaped fields).
 ///
-/// L1_SCHEMA §3.1 commits the **shape** (seven named fields); the exact
+/// L1/SCHEMA §3.1 commits the **shape** (seven named fields); the exact
 /// internal structure of each `Value` is determined by the consuming kernel
 /// layer at L4.
 #[derive(Debug, Clone, PartialEq)]
 pub struct SporeSchema {
-    /// SSoT structure spec (per L1_SCHEMA §3.1 field 1).
+    /// SSoT structure spec (per L1/SCHEMA §3.1 field 1).
     pub schema_definitions: Value,
 
     /// Pure-declarative canonical-bytes serializer specification
-    /// (per L1_SCHEMA §3.1 field 2 + F16). Must be runnable by any party
+    /// (per L1/SCHEMA §3.1 field 2 + F16). Must be runnable by any party
     /// that has the spec — no runtime-dependent primitives.
     pub canonical_bytes_serializer_spec: Value,
 
-    /// Sporocarp type tree (per L1_SCHEMA §3.1 field 3 under L1_TROPISM
+    /// Sporocarp type tree (per L1/SCHEMA §3.1 field 3 under L1/TROPISM
     /// dispatch).
     pub sporocarp_type_tree: Value,
 
-    /// Classifier dimension table (per L1_SCHEMA §3.1 field 4 — the I2
+    /// Classifier dimension table (per L1/SCHEMA §3.1 field 4 — the I2
     /// classifier function as data).
     pub classifier_dimension_table: Value,
 
-    /// Initial appetite-axis schema (per L1_SCHEMA §3.1 field 5).
+    /// Initial appetite-axis schema (per L1/SCHEMA §3.1 field 5).
     pub initial_appetite_axis_schema: Value,
 
-    /// Anchor-surface configuration (per L1_SCHEMA §3.1 field 6 — where
+    /// Anchor-surface configuration (per L1/SCHEMA §3.1 field 6 — where
     /// the owner's signing key lives; child's birth-attestation shape;
-    /// substrate_secret sealing mechanism per L1_SKIN §4.2).
+    /// substrate_secret sealing mechanism per L1/SKIN §4.2).
     pub anchor_surface_config: Value,
 
-    /// Parent immune-signal summary (per L1_SCHEMA §3.1 field 7 — counts
+    /// Parent immune-signal summary (per L1/SCHEMA §3.1 field 7 — counts
     /// of unresolved immune sporocarps by type + most-recent tip-hash).
     /// Spawning while parent has unresolved immune sporocarps puts child
     /// in quarantined birth period until owner re-attests intent.
@@ -112,7 +112,7 @@ pub struct SporeSchema {
 impl SporeSchema {
     /// Validate that all 7 required fields are present (non-Null).
     ///
-    /// Per L1_SCHEMA §3.1: all 7 fields must be present. M1 enforcement is
+    /// Per L1/SCHEMA §3.1: all 7 fields must be present. M1 enforcement is
     /// `!matches!(field, Value::Null)`; M2 may strengthen to type-shape checks
     /// (e.g., `classifier_dimension_table` must be `Value::Map`).
     pub fn validate_shape(&self) -> Result<(), SporeError> {
@@ -150,7 +150,7 @@ impl SporeSchema {
 
     /// Canonical-bytes representation of the spore-schema.
     ///
-    /// Per L1_SCHEMA §3.3 step 1: parent uses this to compute the
+    /// Per L1/SCHEMA §3.3 step 1: parent uses this to compute the
     /// spore-schema-hash that the child verifies against.
     pub fn to_canonical_bytes(&self) -> Result<CanonicalBytes, SporeError> {
         let mut m = BTreeMap::new();
@@ -187,7 +187,7 @@ impl SporeSchema {
 
     /// Spore-schema hash (BLAKE3 of canonical bytes).
     ///
-    /// Per L1_SCHEMA §3.3 step 1 + L0 §9.2 owner-co-sign: this hash binds
+    /// Per L1/SCHEMA §3.3 step 1 + L0 §9.2 owner-co-sign: this hash binds
     /// (parent-substrate-ID, child-substrate-ID, spore-schema-hash, timestamp)
     /// in the spawn co-sign envelope.
     pub fn hash(&self) -> Result<NodeHash, SporeError> {

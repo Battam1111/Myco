@@ -1,4 +1,4 @@
-//! Dormancy state machine (L1_CONTINUITY §2 — canonical owner).
+//! Dormancy state machine (L1/CONTINUITY §2 — canonical owner).
 //!
 //! ## Doctrine
 //!
@@ -61,7 +61,7 @@ pub enum LifecycleState {
     Destroyed,
 }
 
-/// Dormant compute mode (L1_CONTINUITY §2.4).
+/// Dormant compute mode (L1/CONTINUITY §2.4).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum DormantMode {
     /// Throttled: cycle rate at max-interval floor; tier-1 + gradient continue;
@@ -70,13 +70,13 @@ pub enum DormantMode {
     /// Paused: all metabolism halted; only handshake + attestation channel
     /// listening continues.
     ///
-    /// **Caveat per L1_HARD_RULES C19**: in paused mode, substrate process
+    /// **Caveat per L1/HARD_RULES C19**: in paused mode, substrate process
     /// must remain suspended (not terminated). Termination routes through
     /// cold-resume quarantine.
     Paused,
 }
 
-/// Alive sub-state per L1_CONTINUITY §5.
+/// Alive sub-state per L1/CONTINUITY §5.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum AliveSubstate {
     /// Normal alive operation.
@@ -86,7 +86,7 @@ pub enum AliveSubstate {
     /// continues for diagnostic / immune purposes.
     Quarantined,
     /// Legacy: owner unavailable; substrate runs normally except L0/L1
-    /// mutations frozen. Per L1_GOVERNANCE §3.2 succession.
+    /// mutations frozen. Per L1/GOVERNANCE §3.2 succession.
     Legacy,
 }
 
@@ -254,7 +254,7 @@ impl DormancyMachine {
 
     /// Enter quarantine sub-state (alive but quarantined).
     ///
-    /// Per L1_CONTINUITY §5.1: triggered by cold-resume failure / CRITICAL
+    /// Per L1/CONTINUITY §5.1: triggered by cold-resume failure / CRITICAL
     /// skin breach / sustained I3 failure / owner-commanded quarantine.
     pub fn enter_quarantine(
         &mut self,
@@ -287,7 +287,7 @@ impl DormancyMachine {
 
     /// Clear quarantine (alive-quarantined → alive-normal).
     ///
-    /// Per L1_CONTINUITY §3.3 / §5.3: requires owner-attested quarantine
+    /// Per L1/CONTINUITY §3.3 / §5.3: requires owner-attested quarantine
     /// clearance (the trigger MUST be `QuarantineClearance` for actual
     /// clearance; this module enforces the trigger value).
     pub fn clear_quarantine(
@@ -327,7 +327,7 @@ impl DormancyMachine {
 
     /// Transition to destroyed (terminal).
     ///
-    /// Per L1_GOVERNANCE §4.4: three destruction modes
+    /// Per L1/GOVERNANCE §4.4: three destruction modes
     /// (intentional-owner / catastrophic-environment / endogenous-pair).
     /// All require owner co-attestation upstream of this method.
     pub fn destroy(

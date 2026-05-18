@@ -1,12 +1,12 @@
-//! Operator handshake protocol — bidirectional validation (L1_SKIN §4).
+//! Operator handshake protocol — bidirectional validation (L1/SKIN §4).
 //!
 //! ## Doctrine
 //!
-//! Per L1_SKIN §4 the handshake is **bidirectional**: the operator validates
+//! Per L1/SKIN §4 the handshake is **bidirectional**: the operator validates
 //! the substrate (anti-impostor / wrong-substrate-ID detection) AND the
 //! substrate validates the operator (single-operator gate + token derivation).
 //!
-//! ### Per-handshake operator signing keypair (L1_SKIN §4.1, pass-3)
+//! ### Per-handshake operator signing keypair (L1/SKIN §4.1, pass-3)
 //!
 //! The operator's runtime generates a fresh signing keypair at handshake
 //! initiation. The private key lives in operator-runtime memory only (never
@@ -17,7 +17,7 @@
 //! `kernel/governance` attestation envelopes) signed with the operator's
 //! private key are forge-resistant by the substrate.
 //!
-//! ### Non-deterministic operator-token (L1_SKIN §4.2, pass-3)
+//! ### Non-deterministic operator-token (L1/SKIN §4.2, pass-3)
 //!
 //! The substrate derives `operator_token` via OS-mediated sealed-key derivation
 //! ([`myco_kernel_shared::sealed_derive`]). The `substrate_secret` never enters
@@ -31,9 +31,9 @@
 //! (chosen to bind the token to this specific handshake's operator-side
 //! contribution + their wall-clock submission moment).
 //!
-//! ### Single-operator enforcement (L1_SKIN §4.4)
+//! ### Single-operator enforcement (L1/SKIN §4.4)
 //!
-//! Per L0 I8 + L1_HARD_RULES C11: skin admits at most one operator-token at a
+//! Per L0 I8 + L1/HARD_RULES C11: skin admits at most one operator-token at a
 //! time. The [`SkinState`] state machine enforces this in-process; transport-
 //! level race tiebreak is OS-accept-queue FIFO order (L4-platform-specific).
 //!
@@ -63,7 +63,7 @@ pub enum HandshakeError {
     },
 
     /// Concurrent connect attempt while an operator is already active
-    /// (`concurrent_connect_attempt` immune sporocarp per L1_SKIN §6).
+    /// (`concurrent_connect_attempt` immune sporocarp per L1/SKIN §6).
     #[error("concurrent_connect_attempt: skin busy with active operator")]
     SkinBusy,
 
@@ -85,7 +85,7 @@ pub enum HandshakeError {
     WrongState(String),
 }
 
-/// Substrate identity (immutable post-genesis — L1_HARD_RULES F2 fixed-point).
+/// Substrate identity (immutable post-genesis — L1/HARD_RULES F2 fixed-point).
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct SubstrateId(pub String);
 
@@ -104,11 +104,11 @@ pub struct OwnerBirthAttestationSignature(pub Vec<u8>);
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct OwnerPublicKey(pub Vec<u8>);
 
-/// Anchor-surface endpoint public key (L1_HARD_RULES F4 fixed-point).
+/// Anchor-surface endpoint public key (L1/HARD_RULES F4 fixed-point).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AnchorSurfaceEndpointPublicKey(pub Vec<u8>);
 
-/// Continuity claim from the operator (L1_SKIN §4.3).
+/// Continuity claim from the operator (L1/SKIN §4.3).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ContinuityClaim {
     /// Fresh handshake; no continuity attestation. Substrate enters full
@@ -143,7 +143,7 @@ pub struct SubstrateIdentityRecord {
     pub anchor_surface_endpoint_public_key: AnchorSurfaceEndpointPublicKey,
 }
 
-/// Handshake-initiate envelope from operator → substrate (L1_SKIN §4.1).
+/// Handshake-initiate envelope from operator → substrate (L1/SKIN §4.1).
 #[derive(Debug, Clone)]
 pub struct HandshakeInitiate {
     /// Envelope version (separate counter from delta envelope_version).
@@ -163,7 +163,7 @@ pub struct HandshakeInitiate {
     pub submitted_at: i64,
 }
 
-/// Handshake-complete envelope from substrate → operator (L1_SKIN §4.2).
+/// Handshake-complete envelope from substrate → operator (L1/SKIN §4.2).
 ///
 /// The operator independently fetches the canonical owner public key from
 /// the anchor surface (using the bootstrap-pinned anchor-surface-endpoint-public-key)
@@ -193,15 +193,15 @@ pub struct HandshakeComplete {
     pub handshake_timestamp: u64,
 }
 
-/// Handshake-terminate envelope (L1_SKIN §4.5).
+/// Handshake-terminate envelope (L1/SKIN §4.5).
 #[derive(Debug, Clone)]
 pub struct HandshakeTerminate {
     /// Optional dormancy preference (subject to resource pressure override
-    /// per L1_SKIN §4.5).
+    /// per L1/SKIN §4.5).
     pub request_dormancy: Option<DormancyRequest>,
 }
 
-/// Operator's dormancy preference at termination (L1_SKIN §4.5).
+/// Operator's dormancy preference at termination (L1/SKIN §4.5).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DormancyRequest {
     /// Process suspended (host-dependent semantics).
@@ -210,7 +210,7 @@ pub enum DormancyRequest {
     Throttled,
 }
 
-/// Single-operator state machine (per L0 I8 + L1_SKIN §4.4).
+/// Single-operator state machine (per L0 I8 + L1/SKIN §4.4).
 #[derive(Debug, Clone)]
 pub enum SkinState {
     /// No active operator. Substrate is dormant or fresh-genesis.
@@ -238,21 +238,21 @@ pub struct ActiveSession {
 
     /// Whether the post-handshake quarantine window is still active. When
     /// `true`, CI-level operations require fresh owner attestation regardless
-    /// of governance classification (per L1_SKIN §4.3 + L1_HARD_RULES C3).
+    /// of governance classification (per L1/SKIN §4.3 + L1/HARD_RULES C3).
     pub in_post_handshake_quarantine: bool,
 }
 
-/// Handshake configuration (L1-tunable per L1_SKIN §7).
+/// Handshake configuration (L1-tunable per L1/SKIN §7).
 #[derive(Debug, Clone)]
 pub struct HandshakeConfig {
-    /// Post-handshake quarantine window in cycles (default 100 per L1_SKIN §7).
+    /// Post-handshake quarantine window in cycles (default 100 per L1/SKIN §7).
     pub post_handshake_quarantine_cycles: u64,
 
     /// Reduced quarantine window when `owner_attested_continuity` is honored
-    /// (default 10 per L1_SKIN §4.3).
+    /// (default 10 per L1/SKIN §4.3).
     pub quarantine_with_continuity: u64,
 
-    /// Idle timeout in cycles before disconnect (default 100 per L1_SKIN §7).
+    /// Idle timeout in cycles before disconnect (default 100 per L1/SKIN §7).
     pub idle_timeout_cycles: u64,
 }
 
@@ -266,7 +266,7 @@ impl Default for HandshakeConfig {
     }
 }
 
-/// Process a handshake-initiate envelope (L1_SKIN §4.1-§4.2).
+/// Process a handshake-initiate envelope (L1/SKIN §4.1-§4.2).
 ///
 /// On success:
 /// - State transitions [`SkinState::Idle`] → [`SkinState::Active`].
@@ -276,7 +276,7 @@ impl Default for HandshakeConfig {
 /// - State stays [`SkinState::Idle`] (or [`SkinState::Active`] if
 ///   `SkinBusy`).
 /// - A specific [`HandshakeError`] is returned; the caller emits the
-///   corresponding immune sporocarp from the L1_SKIN §6 table.
+///   corresponding immune sporocarp from the L1/SKIN §6 table.
 ///
 /// ## Order of checks
 ///
@@ -346,7 +346,7 @@ pub fn process_initiate<S: SealedDerive>(
     // §4.3 quarantine: full window for Fresh, shorter for OwnerAttestedContinuity.
     // In BOTH cases the substrate enters post-handshake quarantine; the only
     // difference is window length (handled in `advance_quarantine_window` below).
-    // Per L1_SKIN §4.3: even OwnerAttestedContinuity shortens to default 10
+    // Per L1/SKIN §4.3: even OwnerAttestedContinuity shortens to default 10
     // cycles, not zero.
     //
     // M1: signature verification of continuity_attestation is M2-deferred; M1
@@ -368,7 +368,7 @@ pub fn process_initiate<S: SealedDerive>(
     Ok(complete)
 }
 
-/// Process a handshake-terminate envelope (L1_SKIN §4.5 explicit termination).
+/// Process a handshake-terminate envelope (L1/SKIN §4.5 explicit termination).
 ///
 /// On success: state transitions Active → Idle.
 /// On Idle: returns [`HandshakeError::WrongState`].
@@ -392,7 +392,7 @@ pub fn process_terminate(
 /// Once `post_handshake_quarantine_cycles` (or `quarantine_with_continuity`)
 /// cycles have elapsed since the handshake, clears the
 /// `in_post_handshake_quarantine` flag. CI-level operations subsequently flow
-/// per the normal classifier path (per L1_GOVERNANCE classification rules).
+/// per the normal classifier path (per L1/GOVERNANCE classification rules).
 pub fn advance_quarantine_window(
     state: &mut SkinState,
     current_cycle: u64,
@@ -417,7 +417,7 @@ pub fn advance_quarantine_window(
     }
 }
 
-/// Check for idle-timeout disconnect (L1_SKIN §4.5).
+/// Check for idle-timeout disconnect (L1/SKIN §4.5).
 ///
 /// If the active operator session has been silent for at least
 /// `idle_timeout_cycles`, transitions Active → Idle and returns `true`.
@@ -579,7 +579,7 @@ mod tests {
 
     #[test]
     fn test_process_initiate_attested_continuity_still_enters_quarantine() {
-        // Per L1_SKIN §4.3: OwnerAttestedContinuity shortens window to
+        // Per L1/SKIN §4.3: OwnerAttestedContinuity shortens window to
         // default 10 cycles — NOT skip entirely. The substrate still enters
         // quarantine; advance_quarantine_window clears it after the short
         // window.
@@ -810,7 +810,7 @@ mod tests {
         let complete =
             process_initiate(&mut state, initiate, &sealed, &identity, 100, b"rng").unwrap();
 
-        // Per L1_SKIN §4.2 step 3: handshake_complete carries identity-record fields
+        // Per L1/SKIN §4.2 step 3: handshake_complete carries identity-record fields
         // for operator's bidirectional validation.
         assert_eq!(
             complete.owner_birth_attestation_signature,

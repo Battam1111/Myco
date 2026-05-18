@@ -2,18 +2,18 @@
 //!
 //! ## Doctrine traceability
 //!
-//! - L1_SCHEMA §2.1: Merkle DAG content-addressing (BLAKE3 default).
-//! - L1_SKIN §2: HMAC envelope_digest keyed by `operator_token`.
-//! - L0 §9.2 + L1_GOVERNANCE §2.3: Owner signature verification at
+//! - L1/SCHEMA §2.1: Merkle DAG content-addressing (BLAKE3 default).
+//! - L1/SKIN §2: HMAC envelope_digest keyed by `operator_token`.
+//! - L0 §9.2 + L1/GOVERNANCE §2.3: Owner signature verification at
 //!   attestation receipt.
 //!
 //! ## M2 signature suite: Ed25519
 //!
-//! Per L1_GOVERNANCE §7 candidate set {Ed25519, ECDSA-P256, post-quantum
+//! Per L1/GOVERNANCE §7 candidate set {Ed25519, ECDSA-P256, post-quantum
 //! candidates}, Ed25519 is chosen for M2 (RFC 8032; deterministic; well-
 //! audited; ed25519-dalek crate). The choice is L4-owner-changeable at
-//! genesis time per L1_GOVERNANCE §2.1; for M2 the suite is hard-coded to
-//! Ed25519. M3+ can add a suite-tag to allow rotation via L1_GOVERNANCE §3.1
+//! genesis time per L1/GOVERNANCE §2.1; for M2 the suite is hard-coded to
+//! Ed25519. M3+ can add a suite-tag to allow rotation via L1/GOVERNANCE §3.1
 //! cryptographic suite rotation.
 
 use blake3::Hasher;
@@ -80,7 +80,7 @@ impl NodeHash {
 }
 
 /// Compute the Merkle hash of a DAG node from its parent hashes + content
-/// canonical bytes (per L1_SCHEMA §2.1).
+/// canonical bytes (per L1/SCHEMA §2.1).
 ///
 /// Hash = BLAKE3(parents_concat || content_canonical_bytes)
 ///
@@ -101,7 +101,7 @@ pub fn merkle_hash(parent_hashes: &[NodeHash], content_canonical_bytes: &[u8]) -
 
 /// HMAC-SHA256 tag.
 ///
-/// Used for envelope_digest in L1_SKIN §2 (keyed by operator_token).
+/// Used for envelope_digest in L1/SKIN §2 (keyed by operator_token).
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct HmacTag(pub [u8; 32]);
 
@@ -142,8 +142,8 @@ pub fn hmac_verify(key: &[u8], canonical_bytes: &[u8], tag: &HmacTag) -> Result<
 
 /// Ed25519 public key (32 bytes; RFC 8032 compressed form).
 ///
-/// Per L1_GOVERNANCE §7 M2 suite choice. Substrate stores owner public keys
-/// as `Ed25519PublicKey` in `owner_key_history` (L1_GOVERNANCE §3.1).
+/// Per L1/GOVERNANCE §7 M2 suite choice. Substrate stores owner public keys
+/// as `Ed25519PublicKey` in `owner_key_history` (L1/GOVERNANCE §3.1).
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Ed25519PublicKey(pub [u8; PUBLIC_KEY_LENGTH]);
 
@@ -210,14 +210,14 @@ impl Ed25519Signature {
 
 /// Ed25519 private key seed (32 bytes). Substrate-side code should NEVER
 /// have access to this — owner private keys live outside the substrate
-/// process per L1_GOVERNANCE §2.1. This type exists for:
+/// process per L1/GOVERNANCE §2.1. This type exists for:
 ///
-/// - operator_bindings (each operator generates a per-handshake keypair
+/// - operators (each operator generates a per-handshake keypair
 ///   that the operator-runtime holds).
-/// - anchor_client tests + parity vectors.
+/// - anchor-client tests + parity vectors.
 ///
 /// **Substrate-side appearance of an `Ed25519PrivateKey` is a doctrine
-/// breach.** L1_HARD_RULES has no direct row for this yet; treat as
+/// breach.** L1/HARD_RULES has no direct row for this yet; treat as
 /// C4-adjacent (substrate_secret_unsealed analogue).
 #[derive(Clone)]
 pub struct Ed25519PrivateKey(SigningKey);
@@ -266,7 +266,7 @@ impl std::fmt::Debug for Ed25519PrivateKey {
 
 /// Verify an Ed25519 signature against a public key and message.
 ///
-/// Per L1_GOVERNANCE §2.3: substrate receives signed attestation envelopes
+/// Per L1/GOVERNANCE §2.3: substrate receives signed attestation envelopes
 /// and verifies the owner signature against the active owner public key
 /// (from `owner_key_history`).
 ///
@@ -432,7 +432,7 @@ mod tests {
 
     #[test]
     fn test_ed25519_private_key_debug_redacted() {
-        // Per L1_GOVERNANCE §2.1 + L1_HARD_RULES C4-adjacent: never leak the
+        // Per L1/GOVERNANCE §2.1 + L1/HARD_RULES C4-adjacent: never leak the
         // private key in debug output.
         let seed = [0xffu8; 32];
         let private = Ed25519PrivateKey::from_seed(&seed);

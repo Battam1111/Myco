@@ -1,9 +1,9 @@
-"""Cryptographic primitives — Python implementation (L1_SCHEMA §2.1 + L1_SKIN §2).
+"""Cryptographic primitives — Python implementation (L1/SCHEMA §2.1 + L1/SKIN §2).
 
 MUST produce byte-identical output to:
 
 - ``kernel/shared/src/crypto.rs`` (Rust reference)
-- ``anchor_client/src/crypto.ts`` (TypeScript)
+- ``anchor/client/src/crypto.ts`` (TypeScript)
 
 Cross-language test vectors at ``test_vectors/crypto_v1.json``.
 
@@ -11,12 +11,12 @@ Primitives
 ----------
 
 - :func:`merkle_hash` — BLAKE3 with parent-count prefix
-  (per L1_SCHEMA §2.1 + pass-3 mycoparasite-2).
-- :func:`hmac_sign` — HMAC-SHA256 (per L1_SKIN §2 envelope_digest).
+  (per L1/SCHEMA §2.1 + pass-3 mycoparasite-2).
+- :func:`hmac_sign` — HMAC-SHA256 (per L1/SKIN §2 envelope_digest).
 - :func:`hmac_verify` — constant-time HMAC verification.
 
 Signature verification is M2-deferred (algorithm choice per
-L1_GOVERNANCE §7 is L4-pick within {Ed25519, ECDSA-P256, post-quantum}).
+L1/GOVERNANCE §7 is L4-pick within {Ed25519, ECDSA-P256, post-quantum}).
 """
 
 from __future__ import annotations
@@ -50,7 +50,7 @@ class CryptoError(Exception):
 
 
 class HmacEmptyKey(CryptoError):
-    """HMAC keyed by an empty key (forbidden per L1_SKIN §2)."""
+    """HMAC keyed by an empty key (forbidden per L1/SKIN §2)."""
 
 
 class HmacInvalid(CryptoError):
@@ -132,7 +132,7 @@ def merkle_hash(parent_hashes: list[NodeHash] | tuple[NodeHash, ...], content_ca
 
     The parent-count prefix prevents ambiguity attacks between
     ``(N parents, M-byte content)`` and ``(N+1 parents, (M - parent_hash_size)-byte content)``
-    encodings (per pass-3 mycoparasite-2 + L1_HARD_RULES C6/C7).
+    encodings (per pass-3 mycoparasite-2 + L1/HARD_RULES C6/C7).
 
     Args:
         parent_hashes: causal parent node hashes in declared order.
@@ -152,7 +152,7 @@ def merkle_hash(parent_hashes: list[NodeHash] | tuple[NodeHash, ...], content_ca
 def hmac_sign(key: bytes, canonical_bytes: bytes) -> HmacTag:
     """Compute HMAC-SHA256 over ``canonical_bytes`` keyed by ``key``.
 
-    Per L1_SKIN §2: ``envelope_digest = HMAC(operator_token,
+    Per L1/SKIN §2: ``envelope_digest = HMAC(operator_token,
     canonical_envelope_fields || payload)``. Empty key forbidden.
 
     Args:
@@ -190,7 +190,7 @@ def hmac_verify(key: bytes, canonical_bytes: bytes, tag: HmacTag) -> None:
 # ---------------------------------------------------------------------------
 # Ed25519 signature scheme (RFC 8032).
 #
-# Selected for M2 per L1_GOVERNANCE §7 candidate set. L4-owner-changeable at
+# Selected for M2 per L1/GOVERNANCE §7 candidate set. L4-owner-changeable at
 # genesis time; M2 hard-codes Ed25519.
 # ---------------------------------------------------------------------------
 
@@ -249,8 +249,8 @@ class Ed25519PrivateKey:
     """Ed25519 private key (32-byte seed).
 
     Substrate-side code should NEVER hold this — owner private keys live
-    outside the substrate process per L1_GOVERNANCE §2.1. This class exists
-    for operator_bindings + anchor_client tests + cross-language parity.
+    outside the substrate process per L1/GOVERNANCE §2.1. This class exists
+    for operators + anchor-client tests + cross-language parity.
     """
 
     __slots__ = ("_inner",)
@@ -305,7 +305,7 @@ def verify_signature(
 ) -> None:
     """Verify an Ed25519 signature against a public key and message.
 
-    Per L1_GOVERNANCE §2.3: substrate verifies the owner signature against
+    Per L1/GOVERNANCE §2.3: substrate verifies the owner signature against
     the active owner public key from owner_key_history.
 
     Raises:

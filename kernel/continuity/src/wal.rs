@@ -1,8 +1,8 @@
-//! WAL (Write-Ahead Log) for delta atomicity (L1_CONTINUITY §4).
+//! WAL (Write-Ahead Log) for delta atomicity (L1/CONTINUITY §4).
 //!
 //! ## Doctrine
 //!
-//! Per L1_CONTINUITY §4.1: a delta is either fully absorbed (event committed
+//! Per L1/CONTINUITY §4.1: a delta is either fully absorbed (event committed
 //! with all causal edges) or not absorbed. The WAL provides the atomicity
 //! mechanism:
 //!
@@ -12,7 +12,7 @@
 //! - On crash: WAL replayed on restart; incomplete cycles detected (WAL
 //!   entries past DAG-tip) and rolled back.
 //!
-//! Per L1_CONTINUITY §4.2: crash detection on restart:
+//! Per L1/CONTINUITY §4.2: crash detection on restart:
 //!
 //! 1. Read WAL.
 //! 2. Compare to last persisted DAG-tip.
@@ -24,7 +24,7 @@
 //!
 //! ## M3 scope
 //!
-//! In-memory WAL only. Per L1_CONTINUITY §6: production WAL implementation
+//! In-memory WAL only. Per L1/CONTINUITY §6: production WAL implementation
 //! is L4-platform-pick within {filesystem-level, embedded library, custom
 //! append log}. M3 ships the LOGIC layer; M4 plugs disk persistence.
 
@@ -194,7 +194,7 @@ impl InMemoryWal {
 
 /// Recovery action determined by replaying a WAL entry post-crash.
 ///
-/// Per L1_CONTINUITY §4.2: each crashed delta fruits a `delta_recovery`
+/// Per L1/CONTINUITY §4.2: each crashed delta fruits a `delta_recovery`
 /// sporocarp with one of these recovery actions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum RecoveryAction {

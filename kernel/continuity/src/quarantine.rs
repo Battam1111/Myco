@@ -1,8 +1,8 @@
-//! Quarantine sub-state metabolism (L1_CONTINUITY §5).
+//! Quarantine sub-state metabolism (L1/CONTINUITY §5).
 //!
 //! ## Doctrine
 //!
-//! Per L1_CONTINUITY §5.2: quarantine-state metabolism keeps substrate
+//! Per L1/CONTINUITY §5.2: quarantine-state metabolism keeps substrate
 //! observing itself but suspends external interaction:
 //!
 //! - Cycle continues at alive cadence.
@@ -11,7 +11,7 @@
 //! - Sporocarp fruiting continues for diagnostic / immune.
 //! - **Federation outputs suspended**.
 //!
-//! Per L1_CONTINUITY §5.4: distinction from legacy —
+//! Per L1/CONTINUITY §5.4: distinction from legacy —
 //!
 //! - **Legacy**: owner unavailable; substrate runs normally except L0/L1
 //!   mutations frozen.
@@ -19,7 +19,7 @@
 //!   federation suspended; L0/L1 mutations also gated.
 //!
 //! A substrate may be both legacy AND quarantined; recovery requires
-//! owner-equivalent attestation (L1_GOVERNANCE §3.2) + quarantine clearance.
+//! owner-equivalent attestation (L1/GOVERNANCE §3.2) + quarantine clearance.
 //!
 //! ## M3 scope
 //!
@@ -59,7 +59,7 @@ pub enum OperationKind {
 /// Decide whether an operation is permitted given the current dormancy
 /// + alive-substate state.
 ///
-/// Per L1_CONTINUITY §5.2 + dormancy state machine in `crate::dormancy`.
+/// Per L1/CONTINUITY §5.2 + dormancy state machine in `crate::dormancy`.
 pub fn is_operation_permitted(machine: &DormancyMachine, op: OperationKind) -> bool {
     // Destroyed: nothing permitted.
     if machine.state() == LifecycleState::Destroyed {

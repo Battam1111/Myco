@@ -1,4 +1,4 @@
-Cultivation succession FSM (L1_GOVERNANCE §3.2; per L0 §15)
+Cultivation succession FSM (L1/GOVERNANCE §3.2; per L0 §15)
 ============================================================
 
 Substrate-ID INVARIANT across all transitions (P1.c). Only Cultivator-side changes.
@@ -13,7 +13,7 @@ STATES (sub-states of alive; L0 §I1):
   alive::archived     — terminal-non-destroyed via L0 §7.5 bet-retirement;
                         state_dir preserved; no metabolism; cold-readable
 
-Also (L1_CONTINUITY §5): alive::quarantined (orthogonal sub-state).
+Also (L1/CONTINUITY §5): alive::quarantined (orthogonal sub-state).
 
 
 TRANSITION MATRIX:
@@ -96,12 +96,12 @@ WATCHDOGS:
 - Sustained > 7 anchor-days -> emit `anchor_surface_partition` observability
   (separate signal; NOT a sub-state transition).
 
-PROTECTIONS (L0 §14.2 + L1_GOVERNANCE §1.2):
+PROTECTIONS (L0 §14.2 + L1/GOVERNANCE §1.2):
 - `cultivation_orphaned` cannot be suppressed by Cultivator pressure
   (P7 + classifier fixed-point).
 - Cultivation_orphaned / cultivation_recovered / succession_completed
   / bet_retired_proposal / bet_retired threshold + update-rule + emergence-rule
-  are CI (L1_GOVERNANCE §1.2).
+  are CI (L1/GOVERNANCE §1.2).
 
 
 POST-M-ANCHOR-3 ENFORCEMENT:

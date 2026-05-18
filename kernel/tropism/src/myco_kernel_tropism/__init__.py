@@ -1,6 +1,6 @@
 """Myco v0.9 — kernel/tropism.
 
-Per L1_TROPISM: the substrate's positive dispatch form — continuously
+Per L1/TROPISM: the substrate's positive dispatch form — continuously
 evolving appetite gradient + substrate-initiated sporocarp emission at
 fruiting triggers.
 """

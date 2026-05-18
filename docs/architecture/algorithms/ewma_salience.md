@@ -1,6 +1,10 @@
+> **L0 doctrine reference (v3.1 transition note)**: this document was written against the prior monolithic L0 (DRAFT 9 SEALED, 2026-05-17). The canonical L0 doctrine is now `docs/architecture/L0/` (v3.1-stratigraphy, 2026-05-18). References in this document using the old `L0 §x.y` / `P2.a` / `I3` notation resolve to v3.1 cards via `docs/architecture/L0/PROVENANCE.md` §2 mapping table. Surgical update of these references to v3.1 citation form is deferred to a v0.9.x housekeeping pass (coupled with Layer C witness corpus implementation per META §5.4) — see `docs/architecture/OUTLINE.md` §3 for details.
+
+---
+
 # EWMA Salience Algorithm
 
-> Extracted from L1_TROPISM §E. Normative spec lives at L1_TROPISM §E.4 (F25 CI-class).
+> Extracted from L1/TROPISM §E. Normative spec lives at L1/TROPISM §E.4 (F25 CI-class).
 
 ## Form
 
@@ -51,6 +55,6 @@ axis.update_rule(...) filters recent_deltas as:
 |---|---|
 | entropy ≥ `H_threshold = log₂(K_active) · 0.4` for ≥ `W_collapse` (seed 30) | daily |
 | entropy ≥ 0.5 for ≥ `2·W_collapse` | elevated |
-| entropy ≥ 0.6 for ≥ `4·W_collapse` | CRITICAL (L1_HARD_RULES C23) |
+| entropy ≥ 0.6 for ≥ `4·W_collapse` | CRITICAL (L1/HARD_RULES C23) |
 
 Inverted-logic note: salience COLLAPSING toward uniform = entropy HIGH ("collapse" = attention discipline collapsing).

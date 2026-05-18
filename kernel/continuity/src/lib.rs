@@ -1,6 +1,6 @@
 //! Myco v0.9 — kernel/continuity
 //!
-//! The substrate's operating-regime engine. Implements L1_CONTINUITY §1-§5:
+//! The substrate's operating-regime engine. Implements L1/CONTINUITY §1-§5:
 //!
 //! - **Metabolic cycle** ([`cycle`]) — 5-step cycle structure (tier-1 →
 //!   gradient → delta-absorb → DAG-commit → skin-breach check); cadence
@@ -17,8 +17,8 @@
 //! ## Doctrine traceability
 //!
 //! - **L0** I1 (lifecycle states), §6 (dormancy host-observability)
-//! - **L1_CONTINUITY** §1-§5 (full document)
-//! - **L1_HARD_RULES** C9 (`cold_resume_invariant_failure`),
+//! - **L1/CONTINUITY** §1-§5 (full document)
+//! - **L1/HARD_RULES** C9 (`cold_resume_invariant_failure`),
 //!   C19 (`paused_dormancy_unsafe_host`)
 //! - **L3_PACKAGE_MAP** §6 (kernel/continuity spec, 5 sub-modules)
 //!
@@ -26,7 +26,7 @@
 //!
 //! Logic + in-memory state. Real persistence layer (WAL on disk, SSoT
 //! snapshot files) is L4-platform-pick within {filesystem-level WAL,
-//! embedded library, custom append log} per L1_CONTINUITY §6 default.
+//! embedded library, custom append log} per L1/CONTINUITY §6 default.
 //! M3 ships in-memory WAL for testing; M4+ adds disk-backed implementation.
 //!
 //! Cross-crate integration with kernel/skin (handshake state) and

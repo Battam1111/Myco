@@ -1,4 +1,4 @@
-"""I2 classifier function — Python implementation (L1_GOVERNANCE §1).
+"""I2 classifier function — Python implementation (L1/GOVERNANCE §1).
 
 Per L0 I2: every substrate mutation is classified into one of three buckets:
 
@@ -7,16 +7,16 @@ Per L0 I2: every substrate mutation is classified into one of three buckets:
 - ``untyped`` — no classifier rule matches; rejected at the skin as breach.
 
 The classifier function itself + the dimension table are **unconditional
-contract-identity-level fixed points** (L1_HARD_RULES F1; L0 I2 classifier-
+contract-identity-level fixed points** (L1/HARD_RULES F1; L0 I2 classifier-
 fixed-point). Mutating the dimension table via non-CI path is
 ``classifier_fixed_point_bypass`` (CRITICAL).
 
-Birth-period elevation (per L1_GOVERNANCE §1.3): during the substrate's birth
+Birth-period elevation (per L1/GOVERNANCE §1.3): during the substrate's birth
 period, ALL parameter-tuning events are CI regardless of steady-state
 classification. The birth-period flag is held in SSoT and consulted at
 classification time.
 
-This module ships the **seed dimension table** from L1_GOVERNANCE §1.2. The
+This module ships the **seed dimension table** from L1/GOVERNANCE §1.2. The
 table is data-driven; new substrates may extend the table via CI mutation
 (which itself goes through the classifier, with the dimension-table-mutation
 row firing).
@@ -30,7 +30,7 @@ from typing import FrozenSet
 
 
 class Classification(Enum):
-    """Per L1_GOVERNANCE §1.1 classify result type."""
+    """Per L1/GOVERNANCE §1.1 classify result type."""
 
     DAILY = "daily"
     CONTRACT_IDENTITY_LEVEL = "contract_identity_level"
@@ -41,7 +41,7 @@ class Classification(Enum):
 class MutationEnvelope:
     """The input to :func:`classify`.
 
-    Per L1_GOVERNANCE §1.1: ``classify(mutation_envelope) → {daily,
+    Per L1/GOVERNANCE §1.1: ``classify(mutation_envelope) → {daily,
     contract_identity_level, untyped}`` where the envelope carries the touched
     scope information.
 
@@ -49,7 +49,7 @@ class MutationEnvelope:
     ------
     touched_files:
         Set of file paths touched by the mutation (e.g.,
-        ``{"docs/architecture/L0_VISION.md"}``).
+        ``{"docs/architecture/L0/META.md"}``).
     touched_fields:
         Set of SSoT field names touched (e.g., ``{"substrate_id"}``).
     touched_meta_structures:
@@ -113,22 +113,23 @@ class ClassifierRule:
         return False
 
 
-# L1_GOVERNANCE §1.2 seed dimension table.
+# L1/GOVERNANCE §1.2 seed dimension table.
 #
-# Per L0 I2 classifier-fixed-point + L1_HARD_RULES F1: this table itself is
+# Per L0 I2 classifier-fixed-point + L1/HARD_RULES F1: this table itself is
 # CI-protected. Substrates load this seed at genesis; modifications happen via
 # CI attestation only.
 SEED_DIMENSION_TABLE: tuple[ClassifierRule, ...] = (
-    # L-layer doctrine files.
+    # L-layer doctrine files (post v3.1-stratigraphy: L0/L1 are directories,
+    # not single files; prefix-rule uses trailing slash to match any descendant).
     ClassifierRule(
         name="l0_file_touched",
         classification=Classification.CONTRACT_IDENTITY_LEVEL,
-        file_path_prefix="docs/architecture/L0_",
+        file_path_prefix="docs/architecture/L0/",
     ),
     ClassifierRule(
         name="l1_file_touched",
         classification=Classification.CONTRACT_IDENTITY_LEVEL,
-        file_path_prefix="docs/architecture/L1_",
+        file_path_prefix="docs/architecture/L1/",
     ),
     # Identity-critical SSoT fields.
     ClassifierRule(
@@ -214,7 +215,7 @@ SEED_DIMENSION_TABLE: tuple[ClassifierRule, ...] = (
     # **M26.3 P10 Selective Compression**: compression mutations are
     # unconditionally CI per L0 P10.c ("each compression emits compression_event
     # with witness; CI-attested"). Content is a CompressionWitness canonical-
-    # bytes Map (see myco_substrate::events::encode_compression_witness).
+    # bytes Map (see substrate::events::encode_compression_witness).
     # Apply success → DAG node compression_event:{rule_id}.
     ClassifierRule(
         name="compression_mutation",
@@ -230,14 +231,14 @@ SEED_DIMENSION_TABLE: tuple[ClassifierRule, ...] = (
     ),
     # **M26.3 P10.b fixed point**: mutations targeting the compression
     # invariant set enumeration meta-structure are CI (tier-1 SSoT per
-    # L1_SCHEMA §4.1).
+    # L1/SCHEMA §4.1).
     ClassifierRule(
         name="compression_invariant_set_meta",
         classification=Classification.CONTRACT_IDENTITY_LEVEL,
         meta_structure_name="compression_invariant_set",
     ),
     # **M26.4 F19 fixed point**: per-axis cost budget thresholds are tier-1
-    # SSoT + CI-mutable (L1_GOVERNANCE §15 F19). Operator-driven budget
+    # SSoT + CI-mutable (L1/GOVERNANCE §15 F19). Operator-driven budget
     # mutation goes through `mutation_type="cost_budget_set"`.
     ClassifierRule(
         name="cost_budget_set_mutation",
@@ -265,8 +266,8 @@ SEED_DIMENSION_TABLE: tuple[ClassifierRule, ...] = (
     # **M-anchor-5 §9.2.2**: DAG-tip co-signing. Owner co-signs the current
     # DAG tip + enumerated nodes since prior co-sign + proposed CI mutation
     # (or zero hash for standalone). Content is the canonical-bytes envelope
-    # per myco_substrate::events::build_dag_tip_cosign_canonical_bytes.
-    # Always CI per L1_SCHEMA §2.2 ("Every CI crossing: owner MUST co-sign
+    # per substrate::events::build_dag_tip_cosign_canonical_bytes.
+    # Always CI per L1/SCHEMA §2.2 ("Every CI crossing: owner MUST co-sign
     # current DAG-tip").
     ClassifierRule(
         name="dag_tip_cosign_mutation",
@@ -276,9 +277,9 @@ SEED_DIMENSION_TABLE: tuple[ClassifierRule, ...] = (
     # **M-anchor-5 §9.2.4**: L0 revision attestation. Owner attests a
     # transition from prior_l0_hash to new_l0_hash with a diff summary +
     # anchor timestamp + anchor nonce. Content is the canonical-bytes
-    # envelope per myco_substrate::events::build_l0_revision_canonical_bytes.
+    # envelope per substrate::events::build_l0_revision_canonical_bytes.
     # Always CI (L0 doctrine changes are unconditionally CI per
-    # L1_GOVERNANCE §1.2 + L0 §10).
+    # L1/GOVERNANCE §1.2 + L0 §10).
     ClassifierRule(
         name="l0_revision_attest_mutation",
         classification=Classification.CONTRACT_IDENTITY_LEVEL,
@@ -318,7 +319,7 @@ SEED_DIMENSION_TABLE: tuple[ClassifierRule, ...] = (
 class ClassifierContext:
     """Substrate-state context that affects classification (per §1.3 birth-period).
 
-    Per L1_GOVERNANCE §1.3: during birth period, ALL parameter-tuning events
+    Per L1/GOVERNANCE §1.3: during birth period, ALL parameter-tuning events
     are CI regardless of steady-state classification.
     """
 
@@ -330,12 +331,12 @@ def classify(
     dimension_table: tuple[ClassifierRule, ...] = SEED_DIMENSION_TABLE,
     context: ClassifierContext = ClassifierContext(),
 ) -> Classification:
-    """Classify a mutation per L1_GOVERNANCE §1.1.
+    """Classify a mutation per L1/GOVERNANCE §1.1.
 
     Args:
         mutation: the mutation envelope.
         dimension_table: the active classifier dimension table (defaults to
-            the L1_GOVERNANCE §1.2 seed table). Substrates that have extended
+            the L1/GOVERNANCE §1.2 seed table). Substrates that have extended
             the table via CI mutation pass their current table here.
         context: substrate-state context (e.g., birth-period flag).
 

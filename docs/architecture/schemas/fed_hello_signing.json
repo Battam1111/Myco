@@ -1,7 +1,7 @@
 {
-  "schema_name": "FED_HELLO mutual authentication signing input (L2_FEDERATION §10)",
+  "schema_name": "FED_HELLO mutual authentication signing input (L2/FEDERATION §10)",
   "context": "myco-fed-hello-v1",
-  "context_rotation": "Fixed; rotated only via CI. Distinct from myco-self-euthanasia-v1 (M23.2) and myco-population-vote-v1 (L2_FEDERATION §6.5.e) to prevent cross-protocol replay.",
+  "context_rotation": "Fixed; rotated only via CI. Distinct from myco-self-euthanasia-v1 (M23.2) and myco-population-vote-v1 (L2/FEDERATION §6.5.e) to prevent cross-protocol replay.",
   "signing_input": {
     "format": "canonical-bytes sorted-key Map",
     "fields": {

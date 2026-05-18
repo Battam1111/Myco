@@ -28,9 +28,9 @@ swaps onto ``owner_keys.cb`` (same pattern as gradient.cb persistence).
 
 ## Doctrine
 
-- L1_GOVERNANCE §3.1 — active-prefix + archived-tail discipline preserved
+- L1/GOVERNANCE §3.1 — active-prefix + archived-tail discipline preserved
   across persistence boundary.
-- L1_HARD_RULES F3 — owner_key_history is a contract-identity-level fixed
+- L1/HARD_RULES F3 — owner_key_history is a contract-identity-level fixed
   point; persistence integrity is critical.
 - L0 §9.3 — canonical-bytes determinism.
 

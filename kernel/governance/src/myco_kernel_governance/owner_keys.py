@@ -1,12 +1,12 @@
-"""Owner-key history — Python implementation (L1_GOVERNANCE §3.1).
+"""Owner-key history — Python implementation (L1/GOVERNANCE §3.1).
 
 The substrate's identity record carries ``owner_key_history`` — a
 chronological list of owner public keys with their validity windows. Per
-L1_HARD_RULES F3: this field is a contract-identity-level fixed point.
+L1/HARD_RULES F3: this field is a contract-identity-level fixed point.
 
 ## Active-prefix + archived-tail discipline (per pass-3 saprotroph-1)
 
-Per L1_GOVERNANCE §3.1: monotone tier-1 fields grow unbounded over a
+Per L1/GOVERNANCE §3.1: monotone tier-1 fields grow unbounded over a
 substrate's lifetime. To keep per-cycle validation O(1) regardless of
 substrate age:
 
@@ -15,8 +15,8 @@ substrate age:
 - **archived_tail** (older entries) — validated at deep-cycle scope via
   Merkle anchor over the full chain.
 
-Same discipline applies to ``template_version_registry`` (L1_TROPISM §B1)
-and the federation peer-set aggregate-reattestation chain (L1_GOVERNANCE §5.2).
+Same discipline applies to ``template_version_registry`` (L1/TROPISM §B1)
+and the federation peer-set aggregate-reattestation chain (L1/GOVERNANCE §5.2).
 The Rust `kernel/shared::active_prefix` module implements the generic
 container; this Python module implements an owner-keys-specific variant.
 
@@ -29,8 +29,8 @@ container; this Python module implements an owner-keys-specific variant.
 
 ## M3+ deferred
 
-- Full rotation FSM with 30-day cooldown veto window (L1_GOVERNANCE §3.1).
-- Owner-succession protocol (L1_GOVERNANCE §3.2; "deferred to L4 as a
+- Full rotation FSM with 30-day cooldown veto window (L1/GOVERNANCE §3.1).
+- Owner-succession protocol (L1/GOVERNANCE §3.2; "deferred to L4 as a
   concrete operational protocol, after first real-world need").
 - Cryptographic suite rotation (same FSM pattern; M3+).
 """
@@ -45,7 +45,7 @@ from myco_kernel_governance.crypto import Ed25519PublicKey
 
 @dataclass(frozen=True, slots=True)
 class OwnerKeyEntry:
-    """One entry in the owner-key history (L1_GOVERNANCE §3.1).
+    """One entry in the owner-key history (L1/GOVERNANCE §3.1).
 
     Fields
     ------
@@ -53,7 +53,7 @@ class OwnerKeyEntry:
         The Ed25519 public key.
     valid_from_anchor_timestamp:
         Unix-seconds anchor-surface trusted timestamp when this key became
-        active. Per L1_GOVERNANCE §3.1 the substrate cannot author
+        active. Per L1/GOVERNANCE §3.1 the substrate cannot author
         timestamps; they originate at the anchor surface.
     valid_until_anchor_timestamp:
         Unix-seconds timestamp when this key was retired (or ``None`` if
@@ -90,7 +90,7 @@ class OwnerKeyEntry:
         return self.valid_until_anchor_timestamp is None
 
 
-# Default active-prefix cap from L1_GOVERNANCE §3.1.
+# Default active-prefix cap from L1/GOVERNANCE §3.1.
 DEFAULT_ACTIVE_PREFIX_K: Final[int] = 8
 
 
@@ -125,13 +125,13 @@ class OwnerKeyHistory:
     """Cold-tier-eligible older entries (no longer valid; archived chain)."""
 
     k: int = DEFAULT_ACTIVE_PREFIX_K
-    """Active-prefix cap; L4-tunable per L1_GOVERNANCE §3.1."""
+    """Active-prefix cap; L4-tunable per L1/GOVERNANCE §3.1."""
 
     def add_key(self, entry: OwnerKeyEntry) -> None:
         """Append a new owner key entry to the history.
 
         Asserts chronological order: the new entry's valid_from must be >=
-        the most recent entry's valid_from. Per L1_GOVERNANCE §3.1: rotation
+        the most recent entry's valid_from. Per L1/GOVERNANCE §3.1: rotation
         protocol (cooldown + veto) is enforced UPSTREAM of this call (M3+
         attestation flow); this module is the storage primitive.
         """
@@ -154,7 +154,7 @@ class OwnerKeyHistory:
     def active_at(self, anchor_timestamp_unix_seconds: int) -> Ed25519PublicKey:
         """Return the owner public key active at the given anchor-surface timestamp.
 
-        Per L1_GOVERNANCE §2.3 step 2: substrate verifies owner signatures
+        Per L1/GOVERNANCE §2.3 step 2: substrate verifies owner signatures
         against the key valid at the attestation's anchor-surface timestamp.
 
         Raises:
@@ -234,7 +234,7 @@ def init_with_genesis_key(
 ) -> OwnerKeyHistory:
     """Initialize an owner-key history with the genesis key as the only entry.
 
-    Per L1_GOVERNANCE §4.1 step 5: the owner signs the substrate-ID tuple
+    Per L1/GOVERNANCE §4.1 step 5: the owner signs the substrate-ID tuple
     at genesis (the birth attestation). The genesis key is the first entry
     in owner_key_history with no valid_until.
     """

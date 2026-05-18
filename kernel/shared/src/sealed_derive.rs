@@ -2,7 +2,7 @@
 //!
 //! ## Doctrine traceability
 //!
-//! Per L1_SKIN §4.2 + pass-3 mycoparasite-1 + L1_HARD_RULES C4:
+//! Per L1/SKIN §4.2 + pass-3 mycoparasite-1 + L1/HARD_RULES C4:
 //!
 //! - `substrate_secret` is generated at substrate genesis from kernel-entropy
 //!   and stored in OS-mediated sealed storage (TPM / kernel-keyring / HSM /
@@ -12,7 +12,7 @@
 //!   kernel_random) → operator_token` via a kernel-mediated API call; the
 //!   underlying secret remains sealed.
 //! - Plaintext substrate_secret in substrate process memory is a CRITICAL skin
-//!   breach (`substrate_secret_unsealed` per L1_HARD_RULES C4).
+//!   breach (`substrate_secret_unsealed` per L1/HARD_RULES C4).
 //!
 //! ## M1 implementation
 //!
@@ -27,13 +27,13 @@
 //! Each feature-gated backend is implemented in `backends/<name>.rs` (M3+).
 //! M1 ships only the [`SoftwareStub`] backend for development.
 //!
-//! ## Safety acknowledgment (per L2_TRUST_MODEL §6)
+//! ## Safety acknowledgment (per L2/TRUST_MODEL §6)
 //!
 //! Per P1.a self-hosting, the agent maintains substrate code; an adversarial
 //! agent CAN replace this wrapper with one that exposes substrate_secret.
 //! The OS-sealing mechanism raises the bar from "edit a file" to "compromise
 //! a separate system the owner controls"; it does NOT make P1.a guaranteed-
-//! honest. This is acknowledged in L2_TRUST_MODEL §6.
+//! honest. This is acknowledged in L2/TRUST_MODEL §6.
 
 use thiserror::Error;
 
@@ -54,7 +54,7 @@ pub enum SealedDeriveError {
     BackendError(String),
 }
 
-/// The operator_token derived by `sealed_derive` (per L1_SKIN §4.2).
+/// The operator_token derived by `sealed_derive` (per L1/SKIN §4.2).
 ///
 /// The token is unlinkable across handshakes from substrate-readable state
 /// alone (per L0 I1 prohibition on persisting operator-discriminating
@@ -104,7 +104,7 @@ impl SoftwareStub {
     /// Construct from an in-memory substrate_secret.
     ///
     /// **Warning**: this exposes substrate_secret to the substrate process,
-    /// violating L1_SKIN §4.2 OS-sealing requirement. Use only for development.
+    /// violating L1/SKIN §4.2 OS-sealing requirement. Use only for development.
     pub fn new(substrate_secret: [u8; 32]) -> Self {
         SoftwareStub { substrate_secret }
     }
@@ -129,7 +129,7 @@ impl SealedDerive for SoftwareStub {
     ) -> Result<OperatorToken, SealedDeriveError> {
         // Derivation: BLAKE3(substrate_secret || handshake_nonce || current_cycle || kernel_random).
         // Uses Blake3 from kernel/shared::crypto family. This matches the spec sketch in
-        // L1_SKIN §4.2: operator_token = sealed_derive(handshake_nonce, current_cycle, kernel_random).
+        // L1/SKIN §4.2: operator_token = sealed_derive(handshake_nonce, current_cycle, kernel_random).
         let mut hasher = blake3::Hasher::new();
         hasher.update(&self.substrate_secret);
         hasher.update(handshake_nonce);

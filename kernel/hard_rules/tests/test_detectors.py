@@ -1,4 +1,4 @@
-"""Tests for L1_HARD_RULES CRITICAL detectors."""
+"""Tests for L1/HARD_RULES CRITICAL detectors."""
 
 from __future__ import annotations
 
@@ -251,7 +251,7 @@ def test_registry_has_method() -> None:
 
 
 def test_breach_id_enum_has_20_members() -> None:
-    """Per L1_HARD_RULES §1: exactly 20 C-row CRITICAL detectors."""
+    """Per L1/HARD_RULES §1: exactly 20 C-row CRITICAL detectors."""
     assert len(list(BreachId)) == 20
 
 

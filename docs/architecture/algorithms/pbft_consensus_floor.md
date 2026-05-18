@@ -1,6 +1,10 @@
+> **L0 doctrine reference (v3.1 transition note)**: this document was written against the prior monolithic L0 (DRAFT 9 SEALED, 2026-05-17). The canonical L0 doctrine is now `docs/architecture/L0/` (v3.1-stratigraphy, 2026-05-18). References in this document using the old `L0 §x.y` / `P2.a` / `I3` notation resolve to v3.1 cards via `docs/architecture/L0/PROVENANCE.md` §2 mapping table. Surgical update of these references to v3.1 citation form is deferred to a v0.9.x housekeeping pass (coupled with Layer C witness corpus implementation per META §5.4) — see `docs/architecture/OUTLINE.md` §3 for details.
+
+---
+
 # PBFT — Population Consensus Floor (seed protocol)
 
-Canonical algorithm reference for **L2_FEDERATION §6.5.c**.
+Canonical algorithm reference for **L2/FEDERATION §6.5.c**.
 
 ## Protocol family
 
@@ -27,7 +31,7 @@ Substrate emits `byzantine_threshold_check(N, f_tolerated, votes_received, votes
 
 ## Voting
 
-Each peer signs with the FED_HELLO-pinned `signer_pubkey` (see L2_FEDERATION §10).
+Each peer signs with the FED_HELLO-pinned `signer_pubkey` (see L2/FEDERATION §10).
 
 Vote fields:
 
@@ -44,7 +48,7 @@ Context `myco-population-vote-v1` is distinct from `myco-fed-hello-v1` and `myco
 
 `(claim_type, claim_hash, claim_payload, round_id, quorum_size, peer_votes (list (peer_substrate_id, peer_signature) self-verifying), reached_at_cycle)`.
 
-Content-addressed BLAKE3. Downstream cites as proof without re-running. Wrapped per L2_FEDERATION §9 (authority from embedded `peer_votes`, not wrapping).
+Content-addressed BLAKE3. Downstream cites as proof without re-running. Wrapped per L2/FEDERATION §9 (authority from embedded `peer_votes`, not wrapping).
 
 ## No-consensus / pending
 

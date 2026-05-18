@@ -1,10 +1,10 @@
-//! Network-egress enforcement (L1_SKIN §5).
+//! Network-egress enforcement (L1/SKIN §5).
 //!
 //! ## Doctrine
 //!
 //! The substrate process operates within a **network-egress enforcement
-//! boundary** that permits exactly the L1_SKIN §1 declared output endpoints.
-//! Unauthorized egress = breach (`appetite_locality_breach`, L1_HARD_RULES C1
+//! boundary** that permits exactly the L1/SKIN §1 declared output endpoints.
+//! Unauthorized egress = breach (`appetite_locality_breach`, L1/HARD_RULES C1
 //! CRITICAL grade).
 //!
 //! ### What this enforces
@@ -20,12 +20,12 @@
 //! - Host-level adversarial action — substrate cannot enforce against its own
 //!   host process. Owner's monitoring responsibility (per L0 §6).
 //! - Covert channels within legitimate federation envelopes — addressed by
-//!   L1_GOVERNANCE §5.3 rate-limiting + canonical low-entropy serialization,
+//!   L1/GOVERNANCE §5.3 rate-limiting + canonical low-entropy serialization,
 //!   not by egress detection.
 //!
 //! ## L4 enforcement mechanism (not picked at L1)
 //!
-//! L1_SKIN §5 lists four candidate enforcement families:
+//! L1/SKIN §5 lists four candidate enforcement families:
 //!
 //! 1. **Kernel-level** — Linux network namespace, Windows Filtering Platform.
 //! 2. **Container-level** — iptables/nftables filter on the container egress.
@@ -50,7 +50,7 @@ use thiserror::Error;
 #[non_exhaustive]
 pub enum EgressError {
     /// Outbound connection target is not in the declared output endpoint set
-    /// (`appetite_locality_breach`, L1_HARD_RULES C1 CRITICAL).
+    /// (`appetite_locality_breach`, L1/HARD_RULES C1 CRITICAL).
     #[error("appetite_locality_breach: egress to {0} not in declared output endpoints")]
     UnauthorizedEgress(String),
 }
@@ -63,7 +63,7 @@ pub enum EgressError {
 /// queries before initiating a connection AND what the kernel-level interceptor
 /// consults on each socket-syscall.
 ///
-/// ## L1_HARD_RULES C1 mapping
+/// ## L1/HARD_RULES C1 mapping
 ///
 /// A `false` return from [`check_outbound`](EgressEnforce::check_outbound) MUST
 /// trigger the `appetite_locality_breach` immune sporocarp emission at the
@@ -87,9 +87,9 @@ pub trait EgressEnforce {
 /// bypasses the policy-check API (e.g., by directly invoking system call APIs
 /// or using transport libraries that don't consult this API) can exfiltrate.
 ///
-/// Per L1_SKIN §5, the substrate cannot enforce against its own host process;
+/// Per L1/SKIN §5, the substrate cannot enforce against its own host process;
 /// this stub is useful for M1 unit-testing the policy logic, but production
-/// substrates MUST pick one of the four L1_SKIN §5 enforcement families and
+/// substrates MUST pick one of the four L1/SKIN §5 enforcement families and
 /// implement [`EgressEnforce`] against it.
 pub struct StubEgressEnforce {
     declared_output_uris: Vec<String>,

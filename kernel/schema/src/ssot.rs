@@ -1,22 +1,22 @@
-//! SSoT — Single Source of Truth (L1_SCHEMA §1 + L1_HARD_RULES F8).
+//! SSoT — Single Source of Truth (L1/SCHEMA §1 + L1/HARD_RULES F8).
 //!
 //! ## Doctrine
 //!
 //! Per L0 I3: the substrate maintains a self-validating SSoT against which
-//! every cycle's state must be self-consistent. Per L1_SCHEMA §1.1: the
+//! every cycle's state must be self-consistent. Per L1/SCHEMA §1.1: the
 //! exact format is L4-picked within {YAML, TOML, JSON+JSONL, SQLite,
 //! custom}. This module provides the abstraction layer.
 //!
 //! ## SSoT designation (F8 fixed-point)
 //!
-//! Per L1_SCHEMA §1.2: the **designation** lists which substrate state fields
+//! Per L1/SCHEMA §1.2: the **designation** lists which substrate state fields
 //! participate in SSoT consistency check. Designation is contract-identity-
-//! level (L1_HARD_RULES F8); migration is two-phase (L1_SCHEMA §1.3) requiring
+//! level (L1/HARD_RULES F8); migration is two-phase (L1/SCHEMA §1.3) requiring
 //! ≥M cycles of dual-validation before owner co-signs. The set is open-ended
-//! at L1; specific fields come from L1_GOVERNANCE classifier dimension table,
-//! L1_TROPISM appetite axis schema, L1_SKIN surface declaration, etc.
+//! at L1; specific fields come from L1/GOVERNANCE classifier dimension table,
+//! L1/TROPISM appetite axis schema, L1/SKIN surface declaration, etc.
 //!
-//! ## Validation tier classification (per L1_SCHEMA §4)
+//! ## Validation tier classification (per L1/SCHEMA §4)
 //!
 //! - **Tier 1 (identity-critical)** — validated every metabolic cycle.
 //!   Includes: substrate-ID, owner_key_history active prefix,
@@ -25,7 +25,7 @@
 //!   skin surface declaration, canonical-bytes serializer specification.
 //! - **Tier 2 (everything else)** — owner-triggered or per-deep-cycle.
 //!
-//! ## Tiering discipline (per L1_SCHEMA §4.2 + pass-2 mycoparasite-26)
+//! ## Tiering discipline (per L1/SCHEMA §4.2 + pass-2 mycoparasite-26)
 //!
 //! - **New fields default to tier 1** (adversarial default forbidden).
 //! - **Tier promotion** (tier 2 → tier 1) is daily-autonomous (more aggressive
@@ -60,7 +60,7 @@ pub enum SsotError {
     CanonicalBytes(#[from] CanonicalBytesError),
 }
 
-/// Validation-tier classification (per L1_SCHEMA §4).
+/// Validation-tier classification (per L1/SCHEMA §4).
 ///
 /// Per pass-2 mycoparasite-26: new fields default to [`Tier::Tier1`]; promotion
 /// (Tier2 → Tier1) is daily-autonomous; demotion (Tier1 → Tier2) is CI-gated.
@@ -99,10 +99,10 @@ pub struct SsotField {
 ///
 /// ## M2 extensions
 ///
-/// - Two-phase migration (per L1_SCHEMA §1.3).
+/// - Two-phase migration (per L1/SCHEMA §1.3).
 /// - Designation evolution (CI-gated; `kernel/governance` classifier).
-/// - On-disk persistence (L1_SCHEMA §1.1 format L4-pick).
-/// - Cold-tier eligibility marking for tier-2 fields (L1_SCHEMA §2.3).
+/// - On-disk persistence (L1/SCHEMA §1.1 format L4-pick).
+/// - Cold-tier eligibility marking for tier-2 fields (L1/SCHEMA §2.3).
 #[derive(Debug, Clone, Default)]
 pub struct Ssot {
     fields: HashMap<String, SsotField>,
@@ -128,7 +128,7 @@ impl Ssot {
     }
 
     /// Set a field with [`Tier::Tier1`] default (per
-    /// L1_SCHEMA §4.2 pass-2 mycoparasite-26 — adversarial default forbidden).
+    /// L1/SCHEMA §4.2 pass-2 mycoparasite-26 — adversarial default forbidden).
     pub fn set_default_tier(&mut self, name: String, value: Value) -> Result<(), SsotError> {
         self.set(name, Tier::Tier1, value)
     }
@@ -163,7 +163,7 @@ impl Ssot {
     }
 
     /// Iterate over tier-1 fields only (called every metabolic cycle for
-    /// tier-1 validation per L1_SCHEMA §4.1).
+    /// tier-1 validation per L1/SCHEMA §4.1).
     pub fn tier1_fields(&self) -> impl Iterator<Item = &SsotField> {
         self.fields.values().filter(|f| f.tier == Tier::Tier1)
     }
@@ -196,7 +196,7 @@ impl Ssot {
     /// canonical-bytes view of the SSoT is the field-value snapshot for
     /// consistency hashing; tier metadata is substrate-internal.
     ///
-    /// Per L1_HARD_RULES F16: this serialization is governed by the
+    /// Per L1/HARD_RULES F16: this serialization is governed by the
     /// canonical-bytes serializer spec (tier-1 SSoT field itself).
     pub fn to_canonical_bytes(&self) -> Result<CanonicalBytes, SsotError> {
         let mut m = std::collections::BTreeMap::new();

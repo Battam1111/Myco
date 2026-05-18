@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "WAL Record (Delta Atomicity)",
-  "description": "Extracted from L1_CONTINUITY §4.1. Write-ahead log entry written + fsync'd BEFORE any DAG mutation. Per L0 §6.",
+  "description": "Extracted from L1/CONTINUITY §4.1. Write-ahead log entry written + fsync'd BEFORE any DAG mutation. Per L0 §6.",
   "type": "object",
   "required": [
     "envelope_canonical_bytes",
@@ -13,7 +13,7 @@
   "properties": {
     "envelope_canonical_bytes": {
       "type": "string",
-      "description": "Canonical-bytes serialization of the L1_SKIN §2 envelope."
+      "description": "Canonical-bytes serialization of the L1/SKIN §2 envelope."
     },
     "payload_canonical_bytes": {
       "type": "string",

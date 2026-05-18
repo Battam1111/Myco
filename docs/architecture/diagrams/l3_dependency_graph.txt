@@ -25,5 +25,5 @@ L3 Module Dependency Graph (acyclic)
               -> hard_rules (citation-only over all)
 
   Parallel non-kernel:
-    anchor_client + operator_runtime depend only on kernel/shared serializer
+    anchor-client + operator_runtime depend only on kernel/shared serializer
     spec; built independently once shared stable.

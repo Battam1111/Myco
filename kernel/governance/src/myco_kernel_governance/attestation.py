@@ -1,6 +1,6 @@
-"""Attestation envelope construction + verification (L1_GOVERNANCE §2).
+"""Attestation envelope construction + verification (L1/GOVERNANCE §2).
 
-The CI-level mutation flow per L1_GOVERNANCE §2.2:
+The CI-level mutation flow per L1/GOVERNANCE §2.2:
 
 1. Substrate requests an anchor-surface nonce bound to
    ``(proposed_mutation_hash, dag_tip_hash)``.
@@ -10,7 +10,7 @@ The CI-level mutation flow per L1_GOVERNANCE §2.2:
 3. The owner verifies independently at the anchor-surface:
    - re-renders the proposed mutation from canonical bytes,
    - verifies the operator_witness signature,
-   - performs DAG enumeration closure (L1_HARD_RULES C6),
+   - performs DAG enumeration closure (L1/HARD_RULES C6),
    - verifies nonce binding + TTL,
    - and signs the tuple
      ``(substrate_id, dag_tip_hash, proposed_mutation_hash,
@@ -25,15 +25,15 @@ functions. The actual transport (substrate ↔ anchor surface) is L4-picked.
 
 ## Doctrine traceability
 
-- L1_GOVERNANCE §2 (full attestation protocol)
-- L1_GOVERNANCE §2.2 (envelope schema; closes pass-3 astronaut-1 +
+- L1/GOVERNANCE §2 (full attestation protocol)
+- L1/GOVERNANCE §2.2 (envelope schema; closes pass-3 astronaut-1 +
   mycorrhiza-17 + rhizomorph-1)
-- L1_GOVERNANCE §2.3 (verification on receipt)
-- L1_HARD_RULES C5 (attestation_invalid CRITICAL — fired when signature /
+- L1/GOVERNANCE §2.3 (verification on receipt)
+- L1/HARD_RULES C5 (attestation_invalid CRITICAL — fired when signature /
   nonce / dual-clock check fails)
-- L1_HARD_RULES C6 (dag_enumeration_unclosed — fired when enumerated nodes
+- L1/HARD_RULES C6 (dag_enumeration_unclosed — fired when enumerated nodes
   don't reconstruct the chain)
-- L1_HARD_RULES C17 (operator_witness_forgery — fired when operator_witness
+- L1/HARD_RULES C17 (operator_witness_forgery — fired when operator_witness
   signature doesn't verify against the substrate's logged
   operator_signing_key_public from the handshake)
 """
@@ -74,17 +74,17 @@ class AttestationError(Exception):
 
 
 class AttestationInvalid(AttestationError):
-    """Generic attestation verification failure (L1_HARD_RULES C5)."""
+    """Generic attestation verification failure (L1/HARD_RULES C5)."""
 
 
 class OperatorWitnessForgery(AttestationError):
     """Operator witness signature does not verify against the operator pubkey
-    from the substrate's handshake log (L1_HARD_RULES C17)."""
+    from the substrate's handshake log (L1/HARD_RULES C17)."""
 
 
 class DagEnumerationUnclosed(AttestationError):
     """The enumerated DAG nodes don't form a closed chain to the prior co-sign
-    (L1_HARD_RULES C6)."""
+    (L1/HARD_RULES C6)."""
 
 
 class NonceMismatch(AttestationError):
@@ -110,7 +110,7 @@ ENVELOPE_TYPE_CI_ATTESTATION_REQUEST: Final[str] = (
 
 @dataclass(frozen=True, slots=True)
 class ExpiryConstraints:
-    """Dual-clock expiry — per L1_GOVERNANCE §2.2.
+    """Dual-clock expiry — per L1/GOVERNANCE §2.2.
 
     The substrate verifies BOTH:
 
@@ -129,21 +129,21 @@ class ExpiryConstraints:
 
 @dataclass(frozen=True, slots=True)
 class AttestationRequest:
-    """The substrate-emitted attestation request envelope (L1_GOVERNANCE §2.2 step 2).
+    """The substrate-emitted attestation request envelope (L1/GOVERNANCE §2.2 step 2).
 
     Carries everything the anchor-surface client needs to render + verify the
     proposed mutation before the owner signs.
     """
 
     substrate_id: str
-    """Substrate-ID (owner-signed at genesis; immutable per L1_HARD_RULES F2)."""
+    """Substrate-ID (owner-signed at genesis; immutable per L1/HARD_RULES F2)."""
 
     dag_tip_hash: NodeHash
     """Current Merkle DAG tip hash."""
 
     enumerated_dag_nodes_since_last_co_sign: tuple[NodeHash, ...]
     """All DAG node hashes added since the prior CI co-sign. Per L0 §9.2 +
-    L1_HARD_RULES C6: the owner reconstructs the Merkle chain from these."""
+    L1/HARD_RULES C6: the owner reconstructs the Merkle chain from these."""
 
     proposed_mutation_canonical_bytes: CanonicalBytes
     """Canonical serialization of the proposed mutation. The owner's
@@ -156,7 +156,7 @@ class AttestationRequest:
 
     operator_witness: Ed25519Signature
     """Operator's signature over ``proposed_mutation_canonical_bytes`` using
-    the per-handshake operator_signing_key_private (L1_SKIN §4.1).
+    the per-handshake operator_signing_key_private (L1/SKIN §4.1).
     Closes pass-3 mycorrhiza-17 + rhizomorph-1: operator has a real signing
     surface distinct from operator_token."""
 
@@ -227,7 +227,7 @@ class OwnerSignedAttestation:
     using the active owner private key. The substrate verifies the signature
     against the active owner public key on receipt.
 
-    Per L1_GOVERNANCE §2.4: substrate emits canonical bytes; substrate does
+    Per L1/GOVERNANCE §2.4: substrate emits canonical bytes; substrate does
     not narrate. The owner-side anchor-surface client owns rendering.
     """
 
@@ -239,7 +239,7 @@ class OwnerSignedAttestation:
     anchor_surface_nonce: bytes
     anchor_surface_timestamp_unix_seconds: int
     """Trusted wall-clock from anchor surface (owner-side; substrate cannot
-    forge per L1_HARD_RULES §4 anchor-surface-resident state list)."""
+    forge per L1/HARD_RULES §4 anchor-surface-resident state list)."""
 
     owner_signature: Ed25519Signature
     """Owner's Ed25519 signature over ``signed_tuple_canonical_bytes()``."""
@@ -265,7 +265,7 @@ class OwnerSignedAttestation:
 
 
 # ---------------------------------------------------------------------------
-# Substrate-side verification (L1_GOVERNANCE §2.3).
+# Substrate-side verification (L1/GOVERNANCE §2.3).
 # ---------------------------------------------------------------------------
 
 
@@ -278,7 +278,7 @@ class VerificationContext:
 
     owner_public_key_active_at_timestamp: Ed25519PublicKey
     """The owner public key active at ``OwnerSignedAttestation.anchor_surface_timestamp_unix_seconds``
-    per L1_GOVERNANCE §3.1 owner_key_history. M2 minimum: pass the single
+    per L1/GOVERNANCE §3.1 owner_key_history. M2 minimum: pass the single
     active key. M3+ resolves via owner_keys.active_at(timestamp)."""
 
     current_substrate_cycle: int
@@ -288,7 +288,7 @@ class VerificationContext:
     """The substrate's view of wall-clock seconds (for dual-clock check).
     Used to assess that the anchor_surface_timestamp is plausibly recent.
 
-    Per L1_GOVERNANCE §2.3 step 3: substrate cannot extend wall-clock budget
+    Per L1/GOVERNANCE §2.3 step 3: substrate cannot extend wall-clock budget
     by throttling cycles; both clocks must agree."""
 
     consumed_nonces: frozenset[bytes] = field(default_factory=frozenset)
@@ -309,7 +309,7 @@ def verify_owner_signed_attestation(
     attestation: OwnerSignedAttestation,
     ctx: VerificationContext,
 ) -> None:
-    """Verify an owner-signed attestation per L1_GOVERNANCE §2.3.
+    """Verify an owner-signed attestation per L1/GOVERNANCE §2.3.
 
     Steps (in order):
 
@@ -366,11 +366,11 @@ def verify_owner_signed_attestation(
 
 
 # ---------------------------------------------------------------------------
-# Anchor-surface-side verification helpers (used by anchor_client).
+# Anchor-surface-side verification helpers (used by anchor-client).
 #
 # These are exposed in the Python module so that test integration suites can
 # simulate the anchor-surface verification flow without invoking TS code.
-# In production, these verifications happen in the TypeScript anchor_client
+# In production, these verifications happen in the TypeScript anchor-client
 # implementation.
 # ---------------------------------------------------------------------------
 
@@ -379,9 +379,9 @@ def verify_operator_witness(
     request: AttestationRequest,
 ) -> None:
     """Verify the operator_witness signature in an attestation request
-    (L1_HARD_RULES C17 detector).
+    (L1/HARD_RULES C17 detector).
 
-    Per L1_GOVERNANCE §2.3 step 3 (anchor-surface side): the operator_witness
+    Per L1/GOVERNANCE §2.3 step 3 (anchor-surface side): the operator_witness
     must be a valid Ed25519 signature over
     ``proposed_mutation_canonical_bytes`` using ``operator_signing_key_public``.
 
@@ -408,7 +408,7 @@ def construct_owner_signed_from_request(
     """Helper to construct an :class:`OwnerSignedAttestation` from a request
     + the owner's signature + the anchor-surface trusted timestamp.
 
-    The actual signing happens in anchor_client (TypeScript) using the
+    The actual signing happens in anchor-client (TypeScript) using the
     owner's sealed private key. This helper exists for tests + the M2
     end-to-end integration test (which simulates the owner side in Python).
     """

@@ -1,4 +1,4 @@
-//! Skin surface declaration (L1_SKIN §1 + L1_HARD_RULES F11).
+//! Skin surface declaration (L1/SKIN §1 + L1/HARD_RULES F11).
 //!
 //! ## Doctrine
 //!
@@ -13,7 +13,7 @@
 //!   the [`crate::egress_enforce`] module + the [`crate::output_gate`] routing
 //!   check.
 //!
-//! Skin surface is a **contract-identity-level fixed point** (L1_HARD_RULES F11):
+//! Skin surface is a **contract-identity-level fixed point** (L1/HARD_RULES F11):
 //! mutating the declared endpoint set requires owner-attested CI envelope.
 //! Substrate cannot silently add an endpoint.
 //!
@@ -40,7 +40,7 @@ pub enum SurfaceError {
 
 /// Endpoint kind tag.
 ///
-/// L1_SKIN §1 enumerates intake vs output; output further split into federation
+/// L1/SKIN §1 enumerates intake vs output; output further split into federation
 /// vs anchor-surface vs optional summary-export. The kind tag drives routing
 /// in [`crate::output_gate`] and enforcement in [`crate::egress_enforce`].
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -50,7 +50,7 @@ pub enum EndpointKind {
     /// Federation egress — outbound to a peer substrate.
     FederationOut,
     /// Anchor-surface output — canonical-bytes-discipline-mandated outputs to
-    /// the owner-controlled anchor surface (per L0 §9.3 + L1_SKIN §3).
+    /// the owner-controlled anchor surface (per L0 §9.3 + L1/SKIN §3).
     AnchorSurfaceOut,
     /// Optional summary export — outbound to owner-readable summary log
     /// (canonical-bytes still required; renderer-readable derivative).

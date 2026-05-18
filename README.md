@@ -1,40 +1,42 @@
 # Myco v0.9
 
-> Branch: `v0.9-genesis`. **L0 DRAFT 9 SEALED** (2026-05-17, commit `e796451`).
+> Branch: `v0.9-genesis`. **L0 v3.1-stratigraphy** (2026-05-18) — 4-layer doctrine institution supersedes prior monolithic DRAFT 9 SEALED form.
 
-Myco is a biology-rooted symbiotic digital substrate: an LLM agent + a substrate form an asymmetric pair under Cultivation by a human owner via out-of-band anchor surface. See [`docs/architecture/L0_VISION.md`](./docs/architecture/L0_VISION.md) for the canonical vision.
+Myco is a biology-rooted symbiotic digital substrate: an LLM agent + a substrate form an asymmetric pair under Cultivation by a human owner via out-of-band anchor surface. See [`docs/architecture/L0/README.md`](./docs/architecture/L0/README.md) for the canonical L0 doctrine.
 
 ## Doctrine
 
-Read in order: [`docs/architecture/OUTLINE.md`](./docs/architecture/OUTLINE.md) → L0 → L1 (mechanisms) → L2 (cross-cuts).
+Read in order: [`docs/architecture/OUTLINE.md`](./docs/architecture/OUTLINE.md) → [`docs/architecture/L0/`](./docs/architecture/L0/) (META + cards + chengyu + dilemma corpus) → L1 (mechanisms) → L2 (cross-cuts).
 
-- **L0** (1 file): 12 principles + 11 invariants + Living Bets + anchor surface.
+- **L0 doctrine** ([`L0/`](./docs/architecture/L0/)): 4-layer stratigraphy — 26 principle cards (P / COV / CHAR / specialized) + 50 chengyu fragments + 49 canonical dilemmas + catechumenate placeholder + META form spec + PROVENANCE chain.
 - **L1** (7 files): GOVERNANCE, SKIN, CONTINUITY, SCHEMA, TROPISM, TRAJECTORY, HARD_RULES.
 - **L2** (3 files): TRUST_MODEL, FEDERATION, OBSERVABILITY.
 - **Extracted refs**: `schemas/`, `algorithms/`, `diagrams/`.
-- **Implementation map**: `docs/implementation/`.
-- **Audit history**: `docs/audits/`.
+- **Implementation map**: `docs/architecture/L3/`.
+- **Audit history**: `docs/audits/` (Phase α/β/γ/δ + DRAFT 9 sealing + v3.1-stratigraphy genesis).
 
 ## Implementation
 
-- `myco_substrate/` — Rust substrate daemon (M25 + M26.0 cascade complete; doctrine refactor M27 complete).
+- `substrate/` — Rust substrate daemon (M25 + M26.0 cascade complete; doctrine refactor M27 complete; M-anchor-1..5 anchor surface complete).
 - `kernel/` — shared canonical-bytes + bridge + schema + continuity + skin + governance + tropism crates.
-- `operator_bindings/claude_code/` — TypeScript operator client.
-- `anchor_client/` — TypeScript anchor surface client.
+- `operators/claude/` — TypeScript operator client.
+- `anchor/host/` — owner Ed25519 key custody process (M-anchor-1).
+- `anchor/client/` — TypeScript anchor surface client.
 
 ## Status
 
-- L0 sealed; doctrine refactor M27 R1-R8 complete (6617 → 1293 doctrine lines, -80.5%).
-- M25 5 critical bugs deferred to M26.1; M-anchor-1..5 anchor surface roadmap pending.
-- See `docs/audits/draft_9_seal_provenance.md` for sealing history.
+- **L0 v3.1-stratigraphy** sealed 2026-05-18: monolithic DRAFT 9 → 4-layer doctrine institution. Phase 1+2 11-stream research + 3 craft rounds + Phase 3 unknown-unknown hunt. Old `L0_VISION.md` removed; full prior-L0 mapping at [`L0/PROVENANCE.md`](./docs/architecture/L0/PROVENANCE.md) §2. Historical text recoverable via git (`git show e796451:docs/architecture/L0_VISION.md`).
+- M-anchor-1..5 anchor surface 100% mechanically realized (§9 sub-mechanisms all LIVE).
+- M25 5 critical bugs deferred to M26.1.
+- Acknowledged debts named in [`L0/PROVENANCE.md`](./docs/architecture/L0/PROVENANCE.md) §8: Layer C witness tests, Layer B commentary entries, Claude-of-record readings on canonical dilemmas, catechumenate sessions (zero until succession preparation), L1/L2 cross-reference surgical updates (deferred to v0.9.x witness milestone), L1/SKIN backup encryption.
 
 ## Build + test
 
 ```bash
-cargo test --workspace --release         # Rust (substrate + kernel)
-cd operator_bindings/claude_code && npm test
-cd anchor_client && npm test
-cd kernel/tropism && pytest               # Python
+cargo test --workspace --release         # Rust (substrate + kernel + anchor-surface-host)
+cd operators/claude && npm test           # TypeScript operator
+cd anchor/client && npm test              # TypeScript anchor surface client
+cd kernel/tropism && pytest               # Python (substitute any kernel/* Python crate)
 ```
 
 ## v0.4-v0.8 archaeology

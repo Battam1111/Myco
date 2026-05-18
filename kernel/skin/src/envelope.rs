@@ -1,4 +1,4 @@
-//! Envelope schema + integrity check (L1_SKIN §2).
+//! Envelope schema + integrity check (L1/SKIN §2).
 //!
 //! ## Doctrine
 //!
@@ -9,7 +9,7 @@
 //!
 //! ## Envelope-digest binding
 //!
-//! Per L1_SKIN §2.1: `envelope_digest = HMAC(operator_token,
+//! Per L1/SKIN §2.1: `envelope_digest = HMAC(operator_token,
 //! canonical_envelope_fields || payload)`. HMAC keyed by operator_token gives:
 //!
 //! - In-flight tamper detection (any byte change → digest mismatch).
@@ -18,7 +18,7 @@
 //!
 //! The envelope_digest is an integrity-and-binding tag, NOT a long-lived
 //! signature. CI mutations (attestation envelopes) use a separate signature
-//! via the operator's per-handshake signing key (per L1_SKIN §4.1 +
+//! via the operator's per-handshake signing key (per L1/SKIN §4.1 +
 //! `kernel/governance` §2.2); that lands at the kernel/governance layer.
 //!
 //! ## Breach mapping
@@ -44,7 +44,7 @@ use thiserror::Error;
 
 /// Envelope-validation errors.
 ///
-/// Per L1_SKIN §2.1: external callers see only `envelope_malformed` (no oracle
+/// Per L1/SKIN §2.1: external callers see only `envelope_malformed` (no oracle
 /// disclosure). The specific error variant is for internal logging + immune-event
 /// emission.
 #[derive(Debug, Error, PartialEq, Eq)]
@@ -111,7 +111,7 @@ pub enum EnvelopeError {
 
 /// Payload-shape tag — what the payload bytes represent.
 ///
-/// L1_SKIN §2 enumerates: `text`, `file_ref`, `structured_yaml`, `binary_ref`.
+/// L1/SKIN §2 enumerates: `text`, `file_ref`, `structured_yaml`, `binary_ref`.
 /// The substrate validates only that the shape is in the recognized set; it
 /// does NOT introspect payload content (per L0 I8).
 ///
@@ -119,7 +119,7 @@ pub enum EnvelopeError {
 /// (so canonical-bytes derivations agree across hosts) BUT
 /// [`validate_envelope`] rejects `Other` — the recognized set is closed at the
 /// validation boundary. To extend, the dimension table at `kernel/governance`
-/// undergoes a CI mutation (per L1_GOVERNANCE §1.2).
+/// undergoes a CI mutation (per L1/GOVERNANCE §1.2).
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum PayloadShape {
     /// Plain text.
@@ -164,7 +164,7 @@ impl PayloadShape {
     }
 }
 
-/// The delta-intake envelope schema (L1_SKIN §2).
+/// The delta-intake envelope schema (L1/SKIN §2).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Envelope {
     /// Envelope schema version. Substrate accepts a configured set of versions.
@@ -199,18 +199,18 @@ pub struct Envelope {
     pub payload: Vec<u8>,
 }
 
-/// Configuration for envelope validation (L1-tunable per L1_SKIN §7).
+/// Configuration for envelope validation (L1-tunable per L1/SKIN §7).
 ///
-/// Defaults match L1_SKIN §7 stated defaults.
+/// Defaults match L1/SKIN §7 stated defaults.
 #[derive(Debug, Clone)]
 pub struct EnvelopeValidationConfig {
     /// Accepted envelope schema versions.
     pub accepted_versions: Vec<u32>,
 
-    /// Maximum size_bytes (default 100 MB per L1_SKIN §7).
+    /// Maximum size_bytes (default 100 MB per L1/SKIN §7).
     pub max_size_bytes: u64,
 
-    /// Freshness window in cycles (default 60 per L1_SKIN §7).
+    /// Freshness window in cycles (default 60 per L1/SKIN §7).
     pub freshness_window_cycles: u64,
 }
 
@@ -227,7 +227,7 @@ impl Default for EnvelopeValidationConfig {
 /// Compute the canonical envelope-fields bytes (everything except the digest
 /// itself, which the digest then signs).
 ///
-/// Per L1_SKIN §2: the digest covers `canonical_envelope_fields || payload`.
+/// Per L1/SKIN §2: the digest covers `canonical_envelope_fields || payload`.
 /// This function produces the `canonical_envelope_fields` portion.
 ///
 /// The fields are encoded as a canonical [`Value::Map`] with keys sorted by
@@ -272,7 +272,7 @@ pub fn canonical_envelope_fields(env: &Envelope) -> Result<CanonicalBytes, Envel
 
 /// Compute the envelope_digest HMAC over `canonical_envelope_fields || payload`.
 ///
-/// Per L1_SKIN §2: keyed by operator_token.
+/// Per L1/SKIN §2: keyed by operator_token.
 pub fn compute_envelope_digest(
     env: &Envelope,
     operator_token: &OperatorToken,
@@ -283,7 +283,7 @@ pub fn compute_envelope_digest(
     Ok(hmac_sign(operator_token.as_ref(), &bytes)?)
 }
 
-/// Validate an envelope per L1_SKIN §2.1.
+/// Validate an envelope per L1/SKIN §2.1.
 ///
 /// Checks (in order):
 /// 1. envelope_version recognized.
@@ -295,7 +295,7 @@ pub fn compute_envelope_digest(
 /// 7. envelope_digest recomputes to the stored digest.
 ///
 /// On any failure → specific [`EnvelopeError`] (caller emits the immune
-/// sporocarp from the table at L1_SKIN §6).
+/// sporocarp from the table at L1/SKIN §6).
 pub fn validate_envelope(
     env: &Envelope,
     active_operator_token: &OperatorToken,

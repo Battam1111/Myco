@@ -1,12 +1,12 @@
-"""cluster_C — clustering algorithm over trajectory subgraphs (L1_TRAJECTORY §4).
+"""cluster_C — clustering algorithm over trajectory subgraphs (L1/TRAJECTORY §4).
 
 ## Doctrine
 
-Per L1_TRAJECTORY §1 + §4: ``cluster_C`` is the substrate's currently-
+Per L1/TRAJECTORY §1 + §4: ``cluster_C`` is the substrate's currently-
 designated clustering algorithm; intent is a function of
 ``(DAG, cluster_C)`` jointly. Different cluster_C choices yield different
 intent renders even on identical DAGs — this is intentional (per
-L1_TRAJECTORY §4 clusterer-coupling acknowledged).
+L1/TRAJECTORY §4 clusterer-coupling acknowledged).
 
 M4 minimum-viable: connected-components clustering. Two nodes belong to
 the same cluster iff they share a connected-component in the
@@ -14,7 +14,7 @@ neighborhood subgraph (ignoring edge direction).
 
 ## L4 escalation
 
-L1_TRAJECTORY §4 explicitly demoted specific clustering algorithm names
+L1/TRAJECTORY §4 explicitly demoted specific clustering algorithm names
 (astronaut-5 finding). L4 substrates choose their cluster_C; M5+ may add
 community-detection algorithms (Louvain, Leiden) as plugin clusterers.
 """

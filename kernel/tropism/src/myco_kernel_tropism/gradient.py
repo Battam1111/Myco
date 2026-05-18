@@ -1,8 +1,8 @@
-"""Gradient configuration — multi-axis state + per-cycle advance (L1_TROPISM §3).
+"""Gradient configuration — multi-axis state + per-cycle advance (L1/TROPISM §3).
 
 ## Doctrine
 
-Per L1_TROPISM §3: gradient configuration is multi-dimensional, with one
+Per L1/TROPISM §3: gradient configuration is multi-dimensional, with one
 axis per appetite. The substrate calls :meth:`GradientConfiguration.advance`
 once per metabolic cycle, which:
 
@@ -13,7 +13,7 @@ once per metabolic cycle, which:
 
 The gradient configuration is **substrate-resident state**; operator-
 emitted deltas perturb axes via :meth:`AppetiteAxis.perturb` at delta
-absorption step (cycle step 3 per L1_CONTINUITY §1.1).
+absorption step (cycle step 3 per L1/CONTINUITY §1.1).
 """
 
 from __future__ import annotations
@@ -72,7 +72,7 @@ class GradientConfiguration:
     def perturb_axis(self, name: str, delta: float) -> None:
         """Apply a perturbation to a specific axis.
 
-        Per L1_TROPISM §3 + L1_CONTINUITY cycle step 3: deltas absorbed in
+        Per L1/TROPISM §3 + L1/CONTINUITY cycle step 3: deltas absorbed in
         cycle step 3 perturb axes through this method.
 
         Raises:
@@ -83,7 +83,7 @@ class GradientConfiguration:
     def advance(self, current_cycle: int) -> list[str]:
         """Run one cycle's worth of gradient evolution.
 
-        Per L1_TROPISM §3 + L1_CONTINUITY §1.1 cycle step 2:
+        Per L1/TROPISM §3 + L1/CONTINUITY §1.1 cycle step 2:
 
         1. Apply each axis's update rule.
         2. Identify which axes have crossed their fruiting threshold.
@@ -104,7 +104,7 @@ class GradientConfiguration:
     def reset_after_fruiting(self, axis_names: list[str], at_cycle: int) -> None:
         """Reset the given axes after sporocarp emission.
 
-        Per L1_TROPISM §3: APPETITE axes reset to initial_value after
+        Per L1/TROPISM §3: APPETITE axes reset to initial_value after
         fruiting; DECAY axes don't reset.
         """
         for name in axis_names:

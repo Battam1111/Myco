@@ -1,4 +1,4 @@
-"""Tests for the attestation envelope (L1_GOVERNANCE §2)."""
+"""Tests for the attestation envelope (L1/GOVERNANCE §2)."""
 
 from __future__ import annotations
 
@@ -90,7 +90,7 @@ def test_attestation_request_canonical_bytes_changes_on_field_change() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Operator-witness verification (L1_HARD_RULES C17).
+# Operator-witness verification (L1/HARD_RULES C17).
 # ---------------------------------------------------------------------------
 
 
@@ -101,7 +101,7 @@ def test_operator_witness_valid_signature() -> None:
 
 
 def test_operator_witness_forgery_detected() -> None:
-    """Per L1_HARD_RULES C17: operator_witness_forgery (CRITICAL).
+    """Per L1/HARD_RULES C17: operator_witness_forgery (CRITICAL).
 
     Construct a request where the operator_witness is signed by a DIFFERENT
     key than the declared operator_signing_key_public. Anchor surface
@@ -256,7 +256,7 @@ def test_owner_signature_wrong_owner_rejected() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Dual-clock expiry (L1_GOVERNANCE §2.3 step 3).
+# Dual-clock expiry (L1/GOVERNANCE §2.3 step 3).
 # ---------------------------------------------------------------------------
 
 
@@ -327,7 +327,7 @@ def test_wall_clock_expiry() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Nonce replay (L1_GOVERNANCE §2.3 step 4).
+# Nonce replay (L1/GOVERNANCE §2.3 step 4).
 # ---------------------------------------------------------------------------
 
 

@@ -1,21 +1,21 @@
 //! Myco v0.9 — kernel/skin
 //!
-//! The substrate's boundary surface. Implements L1_SKIN §1-§6:
+//! The substrate's boundary surface. Implements L1/SKIN §1-§6:
 //!
 //! - **Surface declaration** ([`surface`]) — declared intake/output endpoints
-//!   (tier-1 SSoT, L1_HARD_RULES F11 fixed-point). Adding/removing an endpoint
+//!   (tier-1 SSoT, L1/HARD_RULES F11 fixed-point). Adding/removing an endpoint
 //!   is a CI mutation.
 //! - **Envelope schema + integrity check** ([`envelope`]) — every delta arriving
 //!   at an intake endpoint is wrapped; substrate validates ONLY the envelope, not
 //!   payload content (L0 I8).
 //! - **Operator handshake** ([`handshake`]) — bidirectional validation with the
 //!   operator (the LLM agent). Substrate generates a non-deterministic
-//!   operator_token via OS-mediated `sealed_derive` (per L1_SKIN §4.2 +
+//!   operator_token via OS-mediated `sealed_derive` (per L1/SKIN §4.2 +
 //!   pass-3 mycoparasite-1). Operator generates a per-handshake signing keypair
-//!   (per L1_SKIN §4.1 + pass-3 mycorrhiza-17 + rhizomorph-1).
+//!   (per L1/SKIN §4.1 + pass-3 mycorrhiza-17 + rhizomorph-1).
 //! - **Output gating** ([`output_gate`]) — outputs leave through declared output
 //!   endpoints; canonical-bytes discipline for anchor-surface output (per
-//!   L0 §9.3 + L1_SKIN §3).
+//!   L0 §9.3 + L1/SKIN §3).
 //! - **Network-egress enforcement** ([`egress_enforce`]) — runtime detection of
 //!   unauthorized network egress; specific mechanism is L4-platform-pick.
 //!   M1 ships a software-only stub that checks against the declared list;
@@ -24,9 +24,9 @@
 //! ## Doctrine traceability
 //!
 //! - **L0** I6 (universal inclusion), I8 (skin), §9.3 canonical-bytes
-//! - **L1_SKIN** §1 (declaration), §2 (envelope), §3 (output gating),
+//! - **L1/SKIN** §1 (declaration), §2 (envelope), §3 (output gating),
 //!   §4 (handshake), §5 (egress enforcement), §6 (breach detection)
-//! - **L1_HARD_RULES** C1 (`appetite_locality_breach`),
+//! - **L1/HARD_RULES** C1 (`appetite_locality_breach`),
 //!   C2 (`output_endpoint_breach`), C3 (`post_handshake_ci_unattested`),
 //!   C4 (`substrate_secret_unsealed`), C11 (`concurrent_operator_persistent`),
 //!   F11 (skin-surface declaration fixed-point)

@@ -1,6 +1,10 @@
+> **L0 doctrine reference (v3.1 transition note)**: this document was written against the prior monolithic L0 (DRAFT 9 SEALED, 2026-05-17). The canonical L0 doctrine is now `docs/architecture/L0/` (v3.1-stratigraphy, 2026-05-18). References in this document using the old `L0 §x.y` / `P2.a` / `I3` notation resolve to v3.1 cards via `docs/architecture/L0/PROVENANCE.md` §2 mapping table. Surgical update of these references to v3.1 citation form is deferred to a v0.9.x housekeeping pass (coupled with Layer C witness corpus implementation per META §5.4) — see `docs/architecture/OUTLINE.md` §3 for details.
+
+---
+
 # Living Bets — 10-signal observatory catalog
 
-> Reference table extracted from L0 §7.3 to keep active doctrine lean. Authoritative full enumeration lives at **L2_OBSERVABILITY §2**; this file is a quick-reference mirror.
+> Reference table extracted from L0 §7.3 to keep active doctrine lean. Authoritative full enumeration lives at **L2/OBSERVABILITY §2**; this file is a quick-reference mirror.
 
 ---
 
@@ -31,13 +35,13 @@
 
 ## Per-signal full definition
 
-See **L2_OBSERVABILITY §2.1 / §2.2 / §2.3** for definitions, units, threshold semantics, birth-period suspension, and composite weight switching.
+See **L2/OBSERVABILITY §2.1 / §2.2 / §2.3** for definitions, units, threshold semantics, birth-period suspension, and composite weight switching.
 
 ## Per-signal direction-against-bet table
 
-See **L2_OBSERVABILITY §3.3**.
+See **L2/OBSERVABILITY §3.3**.
 
 ## Cascade
 
-- L1 mechanism cadence + tuning: L2_OBSERVABILITY + L1_TROPISM (#3 appetite-locality) + L1_SKIN (#8 egress) + L1_SCHEMA (#9 bytes-added).
-- Quorum predicate emission: L0 §7.4 + L2_OBSERVABILITY §3 + C40 at L1_HARD_RULES §1.1.
+- L1 mechanism cadence + tuning: L2/OBSERVABILITY + L1/TROPISM (#3 appetite-locality) + L1/SKIN (#8 egress) + L1/SCHEMA (#9 bytes-added).
+- Quorum predicate emission: L0 §7.4 + L2/OBSERVABILITY §3 + C40 at L1/HARD_RULES §1.1.

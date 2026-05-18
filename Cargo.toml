@@ -3,13 +3,13 @@
 # This workspace contains the Rust-implemented modules of the v0.9 substrate-kernel
 # (per L3_PACKAGE_MAP §2-§6). Python modules (governance, tropism, trajectory,
 # hard_rules) live under kernel/<name>/ but use their own Python build tooling
-# (pyproject.toml). TypeScript modules (anchor_client, operator_bindings) live
+# (pyproject.toml). TypeScript modules (anchor/client, operators) live
 # in their own directories with their own package.json files.
 #
 # Per L3_OUTLINE §5 owner-chosen multi-language split:
-# - Rust (this workspace): kernel/shared + kernel/skin + kernel/schema + kernel/continuity
+# - Rust (this workspace): kernel/shared + kernel/skin + kernel/schema + kernel/continuity + kernel/bridge + substrate + anchor/host + test_vectors/rs
 # - Python: kernel/governance + kernel/tropism + kernel/trajectory + kernel/hard_rules
-# - TypeScript: anchor_client + operator_bindings/<host>
+# - TypeScript: anchor/client + operators/<host>
 #
 # Cross-language canonical-bytes parity is enforced via a shared test vector suite
 # (each language's serializer round-trips identical bytes on identical inputs).
@@ -21,11 +21,10 @@ members = [
     "kernel/skin",
     "kernel/schema",
     "kernel/continuity",
-    "kernel/bridge",
-    "myco_substrate",
-    "m1_milestone",
-    "test_vectors_rs",
-    "anchor_surface_host",
+    "kernel/bridge/rust",
+    "substrate",
+    "test_vectors/rs",
+    "anchor/host",
 ]
 
 [workspace.package]
@@ -50,5 +49,5 @@ hex = "0.4"
 
 # Per L3_PACKAGE_MAP §2.3 critical: canonical-bytes serializer must round-trip
 # identically across substrate-kernel (Rust), operator-bindings (per host),
-# and anchor_client (TypeScript). Cross-language test vector suite lives in
+# and anchor/client (TypeScript). Cross-language test vector suite lives in
 # tests/canonical_bytes_vectors/ (see kernel/shared/tests/).

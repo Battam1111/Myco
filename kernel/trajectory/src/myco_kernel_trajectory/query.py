@@ -1,8 +1,8 @@
-"""Trajectory queries over the causal DAG (L1_TRAJECTORY §1).
+"""Trajectory queries over the causal DAG (L1/TRAJECTORY §1).
 
 ## Doctrine
 
-Per L1_TRAJECTORY §1:
+Per L1/TRAJECTORY §1:
 
 ```
 intent(t) := cluster_C(causal_ancestors_and_descendants(neighborhood(t)))
@@ -11,7 +11,7 @@ intent(t) := cluster_C(causal_ancestors_and_descendants(neighborhood(t)))
 This module provides the `neighborhood` + `causal_ancestors` +
 `causal_descendants` primitives that operate on an abstract DAG model.
 
-## Cold-start (per L1_TRAJECTORY §3)
+## Cold-start (per L1/TRAJECTORY §3)
 
 At substrate genesis the causal DAG contains only the genesis_event
 sporocarp. Queries return a `cold_start_marker`. This is correct behavior:
@@ -103,7 +103,7 @@ class InMemoryDagSource:
         return len(self.nodes) == 0
 
 
-# Sentinel marker for cold-start (per L1_TRAJECTORY §3).
+# Sentinel marker for cold-start (per L1/TRAJECTORY §3).
 COLD_START_MARKER = "cold_start_marker"
 
 
@@ -125,7 +125,7 @@ def neighborhood(
 ) -> TrajectoryResult:
     """Compute the causal-cycle neighborhood around the pivot node.
 
-    Per L1_TRAJECTORY §1: returns nodes within ``radius_cycles`` of the
+    Per L1/TRAJECTORY §1: returns nodes within ``radius_cycles`` of the
     pivot's at_cycle. Cold-start: if the DAG is empty or the pivot doesn't
     exist, returns the cold_start marker.
 
@@ -154,7 +154,7 @@ def neighborhood(
 def causal_ancestors(dag: DagSource, node_id: str) -> set[str]:
     """Transitive set of causal ancestors of node_id.
 
-    Per L1_TRAJECTORY §1 + L1_SCHEMA §2.1: ancestors are reachable via
+    Per L1/TRAJECTORY §1 + L1/SCHEMA §2.1: ancestors are reachable via
     parent_ids walks.
     """
     ancestors: set[str] = set()
@@ -181,7 +181,7 @@ def causal_ancestors(dag: DagSource, node_id: str) -> set[str]:
 def causal_descendants(dag: DagSource, node_id: str) -> set[str]:
     """Transitive set of causal descendants of node_id.
 
-    Per L1_TRAJECTORY §1: descendants are nodes whose parent_ids walks
+    Per L1/TRAJECTORY §1: descendants are nodes whose parent_ids walks
     reach node_id.
     """
     descendants: set[str] = set()
@@ -216,7 +216,7 @@ def causal_ancestors_and_descendants(
 ) -> set[str]:
     """Union of ancestors + descendants for a list of pivot nodes.
 
-    Per L1_TRAJECTORY §1: the input to cluster_C is the full ancestor +
+    Per L1/TRAJECTORY §1: the input to cluster_C is the full ancestor +
     descendant set of the neighborhood.
     """
     result: set[str] = set()

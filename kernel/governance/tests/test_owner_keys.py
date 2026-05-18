@@ -1,4 +1,4 @@
-"""Tests for owner-key history (L1_GOVERNANCE §3.1)."""
+"""Tests for owner-key history (L1/GOVERNANCE §3.1)."""
 
 from __future__ import annotations
 
