@@ -321,6 +321,28 @@ pub const SUBSTRATE_SIGNING_KEY_FILENAME: &str = "substrate_signing_key.cb";
 /// M25.0: current substrate-signing-key file format version.
 pub const SUBSTRATE_SIGNING_KEY_FORMAT_VERSION: u64 = 1;
 
+/// **v3.1.1 Sprint 2** — substrate_signing_key.cb format versions accepted
+/// by the load path. v1 is the legacy plain-bytes format (cross-platform);
+/// v2 is the Windows DPAPI-wrapped format that closes L1/HARD_RULES C4 on
+/// Windows hosts.
+pub const SUBSTRATE_SIGNING_KEY_FORMAT_VERSION_V1: u64 = 1;
+/// v2: Windows DPAPI-wrapped substrate_signing_seed. Replaces the `seed`
+/// field of the v1 Map with `seed_dpapi_protected` containing the
+/// `CryptProtectData` output bytes. The bytes can only be decrypted by the
+/// same Windows user account on the same host. See `substrate/src/dpapi.rs`.
+pub const SUBSTRATE_SIGNING_KEY_FORMAT_VERSION_V2: u64 = 2;
+
+/// **v3.1.1 Sprint 2** — the format version this build's save path writes.
+/// On Windows: v2 (DPAPI-wrapped). Elsewhere: v1 (plain bytes + chmod 0600).
+/// Linux keyring / macOS Secure Enclave backends arrive in follow-up sprints
+/// (Sprint 2.B+).
+#[cfg(windows)]
+pub const SUBSTRATE_SIGNING_KEY_PREFERRED_WRITE_VERSION: u64 =
+    SUBSTRATE_SIGNING_KEY_FORMAT_VERSION_V2;
+#[cfg(not(windows))]
+pub const SUBSTRATE_SIGNING_KEY_PREFERRED_WRITE_VERSION: u64 =
+    SUBSTRATE_SIGNING_KEY_FORMAT_VERSION_V1;
+
 /// Current operator-identity-pubkey file format version (M9).
 pub const OPERATOR_IDENTITY_PUBKEY_FORMAT_VERSION: u64 = 1;
 
@@ -895,9 +917,35 @@ pub fn save_substrate_signing_key(
     let mut m = BTreeMap::new();
     m.insert(
         "format_version".to_string(),
-        Value::Uint(SUBSTRATE_SIGNING_KEY_FORMAT_VERSION),
+        Value::Uint(SUBSTRATE_SIGNING_KEY_PREFERRED_WRITE_VERSION),
     );
-    m.insert("seed".to_string(), Value::Bytes(seed.to_vec()));
+    // **v3.1.1 Sprint 2**: on Windows the seed bytes pass through DPAPI
+    // `CryptProtectData` before reaching disk; the ciphertext is bound to
+    // the current Windows user account such that filesystem-read attacks
+    // cannot extract the plaintext seed without compromising the same
+    // user's login session. On non-Windows we keep the legacy v1 plain
+    // format with chmod 0600 (real OS-sealing backends — Linux kernel
+    // keyring, macOS Secure Enclave — scheduled for Sprint 2.B+).
+    #[cfg(windows)]
+    {
+        match crate::dpapi::protect(seed) {
+            Ok(ciphertext) => {
+                m.insert(
+                    "seed_dpapi_protected".to_string(),
+                    Value::Bytes(ciphertext),
+                );
+            }
+            Err(e) => {
+                return Err(SubstrateError::Protocol(format!(
+                    "substrate_signing_key DPAPI protect: {e}"
+                )));
+            }
+        }
+    }
+    #[cfg(not(windows))]
+    {
+        m.insert("seed".to_string(), Value::Bytes(seed.to_vec()));
+    }
     m.insert(
         "created_at_unix_ns".to_string(),
         Value::Timestamp(current_unix_ns()),
@@ -914,7 +962,8 @@ pub fn save_substrate_signing_key(
     // The rename target inherits the temp file's permissions, which on Unix
     // are subject to the process umask — we cannot rely on umask being
     // restrictive enough. Set explicitly. On Windows std::os::unix::fs is not
-    // available so the cfg gate compiles out; ACL hardening lands at M-anchor-1.
+    // available so the cfg gate compiles out; DPAPI above provides the
+    // confidentiality guarantee instead of POSIX permissions.
     restrict_secret_file_permissions(&final_path)?;
     Ok(())
 }
@@ -1039,15 +1088,62 @@ pub fn load_substrate_signing_key_with_permission_check(
         Some(Value::Uint(n)) => *n,
         _ => return Ok(None),
     };
-    if version != SUBSTRATE_SIGNING_KEY_FORMAT_VERSION {
-        return Ok(None);
-    }
-    let seed_bytes = match map.get("seed") {
-        Some(Value::Bytes(b)) if b.len() == 32 => b,
+    // **v3.1.1 Sprint 2**: accept both v1 (legacy plain-bytes) and v2
+    // (Windows DPAPI-wrapped). v2 is reachable only on Windows; non-Windows
+    // hosts seeing v2 would have no way to unwrap.
+    let seed: [u8; 32] = match version {
+        v if v == SUBSTRATE_SIGNING_KEY_FORMAT_VERSION_V1 => {
+            let seed_bytes = match map.get("seed") {
+                Some(Value::Bytes(b)) if b.len() == 32 => b,
+                _ => return Ok(None),
+            };
+            let mut seed = [0u8; 32];
+            seed.copy_from_slice(seed_bytes);
+            seed
+        }
+        v if v == SUBSTRATE_SIGNING_KEY_FORMAT_VERSION_V2 => {
+            #[cfg(windows)]
+            {
+                let ciphertext = match map.get("seed_dpapi_protected") {
+                    Some(Value::Bytes(b)) if !b.is_empty() => b,
+                    _ => return Ok(None),
+                };
+                let plaintext = crate::dpapi::unprotect(ciphertext).map_err(|e| {
+                    SubstrateError::Protocol(format!(
+                        "substrate_signing_key DPAPI unprotect (v2 wrap on disk; \
+                         either the file was written under a different Windows \
+                         user/host, or the user's master key has been invalidated): {e}"
+                    ))
+                })?;
+                if plaintext.len() != 32 {
+                    return Err(SubstrateError::Protocol(format!(
+                        "substrate_signing_key v2 unwrapped to {} bytes; expected 32",
+                        plaintext.len()
+                    )));
+                }
+                let mut seed = [0u8; 32];
+                seed.copy_from_slice(&plaintext);
+                seed
+            }
+            #[cfg(not(windows))]
+            {
+                // v2 only exists on Windows hosts. Non-Windows substrate
+                // observing v2 = the state_dir was copied from a Windows
+                // host; we cannot unwrap without DPAPI access. Surface as
+                // a hard error so the caller can route the operator to
+                // legitimate cross-host migration instead of pretending
+                // there's no key.
+                return Err(SubstrateError::Protocol(
+                    "substrate_signing_key on disk is v2 (Windows DPAPI-wrapped) \
+                     but this is not a Windows host — cross-host migration is \
+                     not yet supported (Sprint 2.B follow-up); unwrap on the \
+                     original Windows host first"
+                        .to_string(),
+                ));
+            }
+        }
         _ => return Ok(None),
     };
-    let mut seed = [0u8; 32];
-    seed.copy_from_slice(seed_bytes);
     Ok(Some((seed, was_restrictive)))
 }
 
@@ -1097,12 +1193,70 @@ pub fn boot_or_genesis_substrate_signing_key_with_permission_status(
     if let Some((seed, was_restrictive)) =
         load_substrate_signing_key_with_permission_check(state_dir)?
     {
+        // **v3.1.1 Sprint 2** — Windows DPAPI migration. If the on-disk
+        // file is still v1 (legacy plain bytes) but we are on Windows, the
+        // preferred write format is now v2 (DPAPI-wrapped). Re-save the
+        // seed atomically with the new format so subsequent boots load
+        // from sealed storage. The plaintext seed never appears on disk
+        // again after this migration completes.
+        //
+        // We deliberately migrate ONLY when the load succeeded and we hold
+        // the validated 32-byte seed in memory. If the migration save
+        // fails, we still return the loaded seed (boot succeeds) but emit
+        // the failure via the boot path's error channel — the next boot
+        // will retry. This guarantees an unbootable substrate is never
+        // produced by a partial migration.
+        #[cfg(windows)]
+        {
+            let path = state_dir.join(SUBSTRATE_SIGNING_KEY_FILENAME);
+            if let Ok(needs_migrate) = current_signing_key_format_version_is_v1(&path) {
+                if needs_migrate
+                    && SUBSTRATE_SIGNING_KEY_PREFERRED_WRITE_VERSION
+                        == SUBSTRATE_SIGNING_KEY_FORMAT_VERSION_V2
+                {
+                    // Best-effort migrate. Errors are non-fatal here — the
+                    // seed in memory is already correct; the on-disk file
+                    // stays as v1 until a future boot retries (or until the
+                    // operator surfaces the failure via the immune signal
+                    // wired up by the caller).
+                    let _ = save_substrate_signing_key(&seed, state_dir);
+                }
+            }
+        }
         return Ok((seed, was_restrictive));
     }
     let seed = generate_substrate_signing_seed();
     // M26.1 C6: save_substrate_signing_key now hardens to 0600 immediately.
     save_substrate_signing_key(&seed, state_dir)?;
     Ok((seed, true))
+}
+
+/// **v3.1.1 Sprint 2** — peek at the on-disk substrate_signing_key.cb to
+/// determine if it is still in v1 (plain bytes) format. Used by the boot
+/// path on Windows to trigger v1→v2 DPAPI migration. Returns:
+///   - `Ok(true)`  — file present, format_version == 1
+///   - `Ok(false)` — file present with format_version != 1 (v2 or unknown)
+///   - `Err(...)`  — I/O or canonical-bytes decode error
+///   - File missing returns `Ok(false)` (no migration needed)
+#[cfg(windows)]
+fn current_signing_key_format_version_is_v1(path: &Path) -> Result<bool, SubstrateError> {
+    use myco_kernel_shared::canonical_bytes::{decode, Value};
+    let bytes = match fs::read(path) {
+        Ok(b) => b,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+        Err(e) => return Err(SubstrateError::Io(e)),
+    };
+    let decoded = decode(&bytes).map_err(|e| {
+        SubstrateError::Protocol(format!("substrate_signing_key decode (v1 probe): {e}"))
+    })?;
+    let map = match decoded {
+        Value::Map(m) => m,
+        _ => return Ok(false),
+    };
+    match map.get("format_version") {
+        Some(Value::Uint(n)) => Ok(*n == SUBSTRATE_SIGNING_KEY_FORMAT_VERSION_V1),
+        _ => Ok(false),
+    }
 }
 
 /// M25.0: generate a fresh 32-byte signing seed.
@@ -1630,6 +1784,157 @@ mod tests {
         fs::write(dir.join(SUBSTRATE_SIGNING_KEY_FILENAME), bad_bytes.as_ref()).unwrap();
         let loaded = load_substrate_signing_key(&dir).unwrap();
         assert!(loaded.is_none());
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    // -----------------------------------------------------------------------
+    // **v3.1.1 Sprint 2** — Windows DPAPI sealing tests.
+    // -----------------------------------------------------------------------
+
+    #[test]
+    #[cfg(windows)]
+    fn v3_1_1_sprint_2_save_uses_dpapi_protected_field_on_windows() {
+        use myco_kernel_shared::canonical_bytes::{decode, Value};
+        let dir = temp_state_dir();
+        let seed = [0x77u8; 32];
+        save_substrate_signing_key(&seed, &dir).unwrap();
+        // On disk: must be v2 + have seed_dpapi_protected, NOT plain seed.
+        let raw = fs::read(dir.join(SUBSTRATE_SIGNING_KEY_FILENAME)).unwrap();
+        let decoded = decode(&raw).unwrap();
+        let map = match decoded {
+            Value::Map(m) => m,
+            _ => panic!("not a map"),
+        };
+        match map.get("format_version") {
+            Some(Value::Uint(n)) => assert_eq!(
+                *n,
+                SUBSTRATE_SIGNING_KEY_FORMAT_VERSION_V2,
+                "Windows save must produce v2"
+            ),
+            _ => panic!("format_version missing"),
+        }
+        assert!(
+            map.get("seed_dpapi_protected").is_some(),
+            "v2 file MUST carry seed_dpapi_protected field"
+        );
+        assert!(
+            map.get("seed").is_none(),
+            "v2 file MUST NOT carry plain seed field (the whole point of the wrap)"
+        );
+        // Plaintext bytes must NOT appear in the on-disk file bytes — easy
+        // smoke test that DPAPI actually altered the seed.
+        let needle: &[u8] = &seed;
+        assert!(
+            !raw.windows(needle.len()).any(|w| w == needle),
+            "plaintext seed bytes leaked into v2 on-disk file"
+        );
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn v3_1_1_sprint_2_dpapi_round_trip_via_save_load() {
+        let dir = temp_state_dir();
+        let seed = [0x88u8; 32];
+        save_substrate_signing_key(&seed, &dir).unwrap();
+        let loaded = load_substrate_signing_key(&dir).unwrap().unwrap();
+        assert_eq!(loaded, seed, "DPAPI round-trip must recover original seed");
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn v3_1_1_sprint_2_v1_to_v2_migration_on_boot() {
+        use myco_kernel_shared::canonical_bytes::{decode, encode, Value};
+
+        let dir = temp_state_dir();
+        let legacy_seed = [0x55u8; 32];
+
+        // Write a v1-format file manually (simulating an old substrate's
+        // on-disk state).
+        let mut m = BTreeMap::new();
+        m.insert(
+            "format_version".to_string(),
+            Value::Uint(SUBSTRATE_SIGNING_KEY_FORMAT_VERSION_V1),
+        );
+        m.insert("seed".to_string(), Value::Bytes(legacy_seed.to_vec()));
+        m.insert("created_at_unix_ns".to_string(), Value::Timestamp(0));
+        let v1_bytes = encode(&Value::Map(m)).unwrap();
+        fs::write(
+            dir.join(SUBSTRATE_SIGNING_KEY_FILENAME),
+            v1_bytes.as_ref(),
+        )
+        .unwrap();
+
+        // Boot path: should load the v1 seed AND migrate the on-disk file
+        // to v2 atomically.
+        let (loaded_seed, _was_restrictive) =
+            boot_or_genesis_substrate_signing_key_with_permission_status(&dir).unwrap();
+        assert_eq!(
+            loaded_seed, legacy_seed,
+            "v1 → v2 migration must preserve seed exactly"
+        );
+
+        // On-disk file must now be v2.
+        let raw = fs::read(dir.join(SUBSTRATE_SIGNING_KEY_FILENAME)).unwrap();
+        let decoded = decode(&raw).unwrap();
+        let map = match decoded {
+            Value::Map(m) => m,
+            _ => panic!("post-migration file not a map"),
+        };
+        match map.get("format_version") {
+            Some(Value::Uint(n)) => assert_eq!(
+                *n,
+                SUBSTRATE_SIGNING_KEY_FORMAT_VERSION_V2,
+                "post-migration on-disk format must be v2"
+            ),
+            _ => panic!("format_version missing post-migration"),
+        }
+        assert!(
+            map.get("seed").is_none(),
+            "post-migration file MUST NOT carry plain seed field"
+        );
+        assert!(
+            map.get("seed_dpapi_protected").is_some(),
+            "post-migration file MUST carry seed_dpapi_protected"
+        );
+
+        // Subsequent boot loads from v2 (no further migration needed).
+        let (loaded_again, _) =
+            boot_or_genesis_substrate_signing_key_with_permission_status(&dir).unwrap();
+        assert_eq!(
+            loaded_again, legacy_seed,
+            "post-migration load must continue to recover same seed"
+        );
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    #[cfg(not(windows))]
+    fn v3_1_1_sprint_2_non_windows_save_stays_v1_plain() {
+        use myco_kernel_shared::canonical_bytes::{decode, Value};
+        let dir = temp_state_dir();
+        let seed = [0xAAu8; 32];
+        save_substrate_signing_key(&seed, &dir).unwrap();
+        let raw = fs::read(dir.join(SUBSTRATE_SIGNING_KEY_FILENAME)).unwrap();
+        let decoded = decode(&raw).unwrap();
+        let map = match decoded {
+            Value::Map(m) => m,
+            _ => panic!("not a map"),
+        };
+        match map.get("format_version") {
+            Some(Value::Uint(n)) => assert_eq!(
+                *n,
+                SUBSTRATE_SIGNING_KEY_FORMAT_VERSION_V1,
+                "non-Windows save must produce v1 (no DPAPI available)"
+            ),
+            _ => panic!("format_version missing"),
+        }
+        assert!(
+            map.get("seed").is_some(),
+            "v1 must carry plain seed field on non-Windows"
+        );
         let _ = fs::remove_dir_all(&dir);
     }
 

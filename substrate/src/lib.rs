@@ -47,11 +47,23 @@
 #![warn(clippy::all)]
 #![allow(clippy::doc_lazy_continuation)]
 #![allow(clippy::doc_overindented_list_items)]
-#![forbid(unsafe_code)]
+// **v3.1.1 Sprint 2 doctrine note**: the substrate-wide ban on unsafe code is
+// softened from `forbid` to `deny` so OS-sealing FFI modules (Windows DPAPI
+// at present; Linux keyring / macOS Secure Enclave in follow-up sprints) can
+// override per-module with `#[allow(unsafe_code)]`. Every override MUST:
+//   - be a Windows-gated or platform-gated module
+//   - live entirely within an FFI-adapter file that carries no business logic
+//   - document each `unsafe` block with its safety contract
+// The auditable scope of unsafe is therefore the union of those FFI adapters
+// — searchable via `git grep "allow(unsafe_code)"` in the substrate crate.
+#![deny(unsafe_code)]
 
 pub mod attestation;
 pub mod dag_query;
 pub mod derived_state;
+#[cfg(windows)]
+#[allow(unsafe_code)] // FFI adapter for Windows DPAPI — see module-level doc.
+pub mod dpapi;
 pub mod events;
 pub mod federation;
 pub mod handshake;

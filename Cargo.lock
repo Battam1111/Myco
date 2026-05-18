@@ -420,6 +420,7 @@ dependencies = [
  "myco-kernel-shared",
  "sha2",
  "thiserror",
+ "windows-sys",
 ]
 
 [[package]]

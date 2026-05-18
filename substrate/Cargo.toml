@@ -28,4 +28,22 @@ myco-kernel-schema = { path = "../kernel/schema" }
 thiserror.workspace = true
 sha2.workspace = true
 
+# **v3.1.1 Sprint 2** — Windows DPAPI sealing for substrate_signing_key.cb.
+# Per L1/SKIN §4.2 + L1/HARD_RULES C4: substrate_secret MUST be sealed at
+# rest. Windows DPAPI (CryptProtectData) binds the seed to the current user
+# account such that filesystem-read attacks cannot extract the plaintext seed
+# without compromising the same user's login. Tier-1 production-blocking gap
+# pre-Sprint 2 — without this, owner-key custody on Windows degrades to
+# "anyone who can read C:\Users\<owner>\.myco\substrate\state\substrate_signing_key.cb".
+#
+# Cross-platform footprint: this dependency is gated to Windows targets only;
+# Linux/Mac builds skip it entirely (their respective OS-sealing backends
+# — TPM / keyring / Secure Enclave — are scheduled for follow-up sprints).
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = [
+    "Win32_Foundation",
+    "Win32_Security_Cryptography",
+    "Win32_System_Memory",
+] }
+
 [dev-dependencies]
