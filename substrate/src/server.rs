@@ -1310,43 +1310,58 @@ pub fn run_loop() -> Result<u8, SubstrateError> {
     // NOT pull child substrates into birth-period quarantine for an
     // unresolved-by-cultivator soft signal on parent.
     if state.backup_encryption_status.is_none() {
-        let evidence_str = "L1/SKIN §8: cultivator has not declared \
-             backup_encryption_status. Set via CI mutation \
-             `set_backup_encryption_status` with status one of \
-             {\"encrypted_externally\", \"cultivator_declined_explicit\"} \
-             so the absence of declaration becomes a positive choice rather \
-             than an unspecified default.";
-        use std::time::{SystemTime, UNIX_EPOCH};
-        let timestamp_unix_ns = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .ok()
-            .and_then(|d| i64::try_from(d.as_nanos()).ok())
-            .unwrap_or(0);
-        let mut content_map = BTreeMap::new();
-        content_map.insert(
-            "detector_id".to_string(),
-            Value::String("backup_encryption_undeclared".to_string()),
-        );
-        content_map.insert(
-            "detector_name".to_string(),
-            Value::String("backup_encryption_undeclared".to_string()),
-        );
-        content_map.insert(
-            "evidence".to_string(),
-            Value::String(evidence_str.to_string()),
-        );
-        content_map.insert("grade".to_string(), Value::String("daily".to_string()));
-        content_map.insert(
-            "timestamp_unix_ns".to_string(),
-            Value::Timestamp(timestamp_unix_ns),
-        );
-        if let Ok(content) = cb_encode(&Value::Map(content_map)) {
-            let _ = emit_substrate_event(
-                &mut state,
-                "daily_signal:backup_encryption_undeclared".to_string(),
-                content,
+        // **v3.1.1 Sprint 7.A fix**: emit at-most-once-per-substrate-lifetime.
+        // The prior implementation re-emitted on every boot, which:
+        //   1. Spammed the DAG with duplicate daily-grade signals per
+        //      restart, and
+        //   2. Broke the M8 "DAG persists across respawn" test in
+        //      operators/claude/tests (one extra non-witness event per
+        //      restart cycle).
+        // Daily signals are meant to surface ONCE until cultivator declares
+        // status; the operator dashboard can re-surface from DAG history
+        // without the substrate re-emitting.
+        let already_emitted = state.dag.iter_in_insertion_order().any(|n| {
+            n.node_type == "daily_signal:backup_encryption_undeclared"
+        });
+        if !already_emitted {
+            let evidence_str = "L1/SKIN §8: cultivator has not declared \
+                 backup_encryption_status. Set via CI mutation \
+                 `set_backup_encryption_status` with status one of \
+                 {\"encrypted_externally\", \"cultivator_declined_explicit\"} \
+                 so the absence of declaration becomes a positive choice rather \
+                 than an unspecified default.";
+            use std::time::{SystemTime, UNIX_EPOCH};
+            let timestamp_unix_ns = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .ok()
+                .and_then(|d| i64::try_from(d.as_nanos()).ok())
+                .unwrap_or(0);
+            let mut content_map = BTreeMap::new();
+            content_map.insert(
+                "detector_id".to_string(),
+                Value::String("backup_encryption_undeclared".to_string()),
             );
-            let _ = save_dag_state(&state);
+            content_map.insert(
+                "detector_name".to_string(),
+                Value::String("backup_encryption_undeclared".to_string()),
+            );
+            content_map.insert(
+                "evidence".to_string(),
+                Value::String(evidence_str.to_string()),
+            );
+            content_map.insert("grade".to_string(), Value::String("daily".to_string()));
+            content_map.insert(
+                "timestamp_unix_ns".to_string(),
+                Value::Timestamp(timestamp_unix_ns),
+            );
+            if let Ok(content) = cb_encode(&Value::Map(content_map)) {
+                let _ = emit_substrate_event(
+                    &mut state,
+                    "daily_signal:backup_encryption_undeclared".to_string(),
+                    content,
+                );
+                let _ = save_dag_state(&state);
+            }
         }
     }
 
