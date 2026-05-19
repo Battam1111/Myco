@@ -7480,6 +7480,138 @@ fn sprint_5h_federation_protocol_version_constant_is_pinned() {
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
+// **v3.1.1 Sprint 6.F — T2.7 Owner key rotation classifier + attestation gate**.
+//
+// **Scope finding** (Sprint 6.F investigation): owner-key rotation is
+// declared in L1/GOVERNANCE §3.1 as a full FSM (publish-new-at-anchor
+// → 30-day cooldown + rotation_veto window → dual cosign → substrate
+// updates history). The Python `OwnerKeyHistory.add_key()` data
+// structure exists. BUT the substrate-side END-TO-END rotation flow
+// (mutation handler → call add_key → emit `owner_key_added:*` DAG
+// event → archive prior key with `owner_key_archived:*`) is NOT
+// implemented. This is acknowledged debt per
+// `kernel/governance/src/myco_kernel_governance/owner_keys.py:32-35`
+// "M3+ deferred: Full rotation FSM with 30-day cooldown veto window".
+//
+// Sprint 6.F tests what IS shipping (classification gate + attestation
+// rejection) + names the rotation-FSM gap explicitly. The full E2E
+// positive rotation test is tracked as Sprint 6.F.2 follow-up
+// (estimated 8-12h: substrate-side rotation handler in attestation.rs,
+// Python add_key call from dispatcher, owner_key_added emission,
+// owner_key_archived emission, rotation_veto window enforcement, dual
+// cosign verification).
+//
+// What IS tested here:
+//   - touched_fields={"owner_key_history"} mutations classify as CI
+//   - Unattested CI mutation is rejected
+//   - The event_node_type constants are pinned
+// ---------------------------------------------------------------------------
+
+#[test]
+fn sprint_6f_owner_key_history_mutation_classifies_as_ci() {
+    // L1/GOVERNANCE §3.1 + classifier.py:135-144: mutations touching
+    // owner_key_history field are CI-class. Verify the classifier path
+    // returns contract_identity_level classification.
+    let (mut client, _dir) = spawn_substrate();
+    let resp = client
+        .call(
+            proto::SUBMIT_MUTATION,
+            build_payload(vec![
+                ("mutation_type", CbValue::String("rotate_owner_key".to_string())),
+                (
+                    "content_canonical_bytes",
+                    CbValue::Bytes(b"rotation_envelope_stub".to_vec()),
+                ),
+                (
+                    "touched_fields",
+                    CbValue::Array(vec![CbValue::String("owner_key_history".to_string())]),
+                ),
+                ("touched_files", CbValue::Array(vec![])),
+                ("touched_meta_structures", CbValue::Array(vec![])),
+            ]),
+        )
+        .expect("submit_mutation");
+    let classification = match resp.payload.get("classification") {
+        Some(CbValue::String(s)) => s.clone(),
+        _ => panic!("classification missing"),
+    };
+    assert_eq!(
+        classification, "contract_identity_level",
+        "Sprint 6.F T2.7: touched_fields=owner_key_history must classify as CI; \
+         got {classification:?}"
+    );
+    let accepted = match resp.payload.get("accepted") {
+        Some(CbValue::Bool(b)) => *b,
+        _ => panic!("accepted missing"),
+    };
+    assert!(
+        !accepted,
+        "Sprint 6.F T2.7: CI mutation without attestation must be rejected; \
+         got accepted=true (would silently rotate owner key without consent)"
+    );
+    client.shutdown().expect("shutdown");
+}
+
+#[test]
+fn sprint_6f_owner_key_event_node_type_constants_pinned() {
+    // The `owner_key_added` / `owner_key_archived` constants exist in
+    // events.rs even though no substrate-side path emits them yet. Pin
+    // the values so when Sprint 6.F.2 implementation lands, the wire
+    // format is locked.
+    use substrate::events::{NODE_TYPE_OWNER_KEY_ADDED, NODE_TYPE_OWNER_KEY_ARCHIVED};
+    assert_eq!(NODE_TYPE_OWNER_KEY_ADDED, "owner_key_added");
+    assert_eq!(NODE_TYPE_OWNER_KEY_ARCHIVED, "owner_key_archived");
+}
+
+#[test]
+fn sprint_6f_owner_key_rotation_e2e_acknowledged_debt() {
+    // **Acknowledged-debt sentinel**: this test pins the current shipping
+    // state — owner_key_added / owner_key_archived emission is NOT yet
+    // wired into the substrate's CI mutation handler. Even after Sprint
+    // 6.E provides operator-signing-seed infrastructure, the substrate
+    // would not emit owner_key_added on an accepted CI mutation because
+    // attestation.rs has no rotation-specific staging code.
+    //
+    // When Sprint 6.F.2 (full rotation FSM + emission) lands, this test
+    // should FAIL: spawning a seeded substrate + verifying it works
+    // baseline-correctly. The Sprint 6.F.2 implementer updates this
+    // test to assert positive emission, and the rotation E2E becomes
+    // a real positive witness.
+    let seed: [u8; 32] = [0x55; 32];
+    let dir = fresh_state_dir();
+    let mut client = spawn_substrate_with_signing_seed(&dir, seed);
+
+    // Currently: no owner_key_added events ever (because no rotation
+    // mutation accepted in normal flow).
+    let resp = client
+        .call(
+            proto::QUERY_RECENT_NODES,
+            build_payload(vec![
+                ("count", CbValue::Uint(100)),
+                (
+                    "node_type_prefix",
+                    CbValue::String("owner_key_added".to_string()),
+                ),
+            ]),
+        )
+        .expect("query");
+    let nodes = match resp.payload.get("nodes") {
+        Some(CbValue::Array(a)) => a.clone(),
+        _ => panic!("nodes missing"),
+    };
+    assert_eq!(
+        nodes.len(),
+        0,
+        "Sprint 6.F T2.7 acknowledged-debt: pre-Sprint-6.F.2, no rotation \
+         path emits owner_key_added. If this assertion starts failing, the \
+         rotation FSM has been implemented — UPDATE THIS TEST to assert \
+         positive emission instead (and convert the sentinel into a real \
+         witness)."
+    );
+    client.shutdown().expect("shutdown");
+}
+
+// ---------------------------------------------------------------------------
 // **v3.1.1 Sprint 6.E — T2.9 Positive ceremony test infrastructure**.
 //
 // Sprint 5.A and 5.B both noted: the substrate-side defenses against
