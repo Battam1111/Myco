@@ -1703,6 +1703,13 @@ fn dispatch(state: &mut ServerState, request: &Message) -> Result<Option<Message
             save_dag_state(state)?;
             Ok(response)
         }
+        // **v3.1.1 Sprint 5.I (T1.3)** — export full state backup to a
+        // directory. Closes COV01 fiduciary-duty gap. Operator copies
+        // resulting backup_dir to external encrypted media; the substrate
+        // emits a `backup_exported:{cycle}` DAG event for the causal record.
+        msg_type::EXPORT_BACKUP_TO_DIR => {
+            crate::backup::handle_export_backup_to_dir(state, request)
+        }
         // M22 P5 万物互联 — inter-substrate federation. Operator-driven; all
         // federation handlers mutate state.federation + emit DAG events through
         // emit_substrate_event. Listener/peer sockets are nonblocking; the

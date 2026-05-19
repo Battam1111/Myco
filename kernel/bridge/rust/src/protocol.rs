@@ -276,6 +276,31 @@ pub mod msg_type {
     /// timestamp.
     pub const QUERY_SUBSTRATE_OBSERVATORY_RESPONSE: &str =
         "query_substrate_observatory_response";
+
+    /// **v3.1.1 Sprint 5.I (T1.3)** — operator instructs the substrate to
+    /// export a full backup of state files to a directory. Closes COV01
+    /// fiduciary duty: substrate state must be recoverable from a disk
+    /// failure.
+    ///
+    /// Request payload:
+    /// ```text
+    /// Map({ "backup_dir": String })  // absolute path
+    /// ```
+    /// Response payload:
+    /// ```text
+    /// Map({
+    ///   "files_copied": Uint,             // count of state files written
+    ///   "total_bytes": Uint,              // total bytes copied
+    ///   "manifest_blake3": Bytes(32),     // hash of backup_metadata.cb
+    ///   "captured_at_unix_ns": Timestamp,
+    ///   "substrate_id": Bytes(32),
+    /// })
+    /// ```
+    /// Substrate emits `backup_exported:{cycle_prefix}` DAG event recording
+    /// the backup operation as a P06 causal event.
+    pub const EXPORT_BACKUP_TO_DIR: &str = "export_backup_to_dir";
+    /// `export_backup_to_dir_response` — see [`EXPORT_BACKUP_TO_DIR`].
+    pub const EXPORT_BACKUP_TO_DIR_RESPONSE: &str = "export_backup_to_dir_response";
 }
 
 /// A decoded bridge message.

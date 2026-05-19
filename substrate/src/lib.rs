@@ -59,6 +59,7 @@
 #![deny(unsafe_code)]
 
 pub mod attestation;
+pub mod backup;
 pub mod dag_query;
 pub mod derived_state;
 #[cfg(windows)]
