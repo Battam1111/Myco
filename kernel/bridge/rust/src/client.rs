@@ -344,6 +344,41 @@ impl BridgeClient {
         self.send_request(message_type, payload)
     }
 
+    /// **v3.1.1 Sprint 7.E (T4.4 MVP scaffold)** — `call_with_timeout` API
+    /// surface for substrate-→-Python operations that need bounded latency.
+    ///
+    /// **Current behavior**: forwards to [`Self::call`] (blocking
+    /// indefinitely). This is the API stub — the *interface* is
+    /// committed so callers can begin migrating now; the actual
+    /// timeout-enforcement requires the reader-thread refactor
+    /// described below.
+    ///
+    /// **Sprint 7.E.2 follow-up scope** (~6-8h):
+    ///   Refactor BridgeClient to spawn a permanent reader thread on
+    ///   `spawn_and_handshake`. The thread owns the BufReader<ChildStdout>
+    ///   and pushes Result<Message, BridgeError> into a mpsc::Sender.
+    ///   Main thread's send_request writes to stdin then calls
+    ///   rx.recv_timeout(timeout). On timeout, return
+    ///   BridgeError::Timeout (new variant). The Substrate's Sprint 6.J
+    ///   observability already times each call; with this timeout
+    ///   support, observability becomes ACTION (Python deadlock →
+    ///   actual recovery, not just C65 emission).
+    ///
+    /// Note: this method's signature is the FINAL one. Callers (in
+    /// substrate's forward_to_python path) can adopt this API now;
+    /// the implementation switch from blocking to timed is a drop-in
+    /// behavior change.
+    pub fn call_with_timeout(
+        &mut self,
+        message_type: &str,
+        payload: std::collections::BTreeMap<String, myco_kernel_shared::canonical_bytes::Value>,
+        _timeout: std::time::Duration,
+    ) -> Result<Message, BridgeError> {
+        // MVP: blocking call, ignores timeout. Sprint 7.E.2 implements
+        // the actual timeout via reader-thread refactor.
+        self.send_request(message_type, payload)
+    }
+
     /// Tell the Python worker to persist its gradient state to `state_dir`.
     pub fn save_state(&mut self, state_dir: &str) -> Result<(), BridgeError> {
         let response = self.send_request(msg_type::SAVE_STATE, state_dir_payload(state_dir))?;
