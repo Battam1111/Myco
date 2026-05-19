@@ -7413,6 +7413,133 @@ fn sprint_5h_federation_protocol_version_constant_is_pinned() {
 }
 
 // ---------------------------------------------------------------------------
+// **v3.1.1 Sprint 6.A — T1.5 C53 logic tautology fix**.
+//
+// Sprint 5.D identified C53 as dead defensive code: the in-memory
+// `last_budget_exhausted_per_axis` cache was updated unconditionally
+// after every emit attempt, so the C53 "recently_documented" check was
+// always true → C53 could never fire.
+//
+// Sprint 6.A redesigns C53 to query the DAG directly for
+// `budget_exhausted:{axis}` events in the last 50 cycles, independent of
+// the cache. When emission is silently broken, the DAG has zero events
+// in the window → C53 fires.
+//
+// Test path: `MYCO_TEST_SUPPRESS_BUDGET_EXHAUSTED_EMIT=1` makes
+// emit_axis_exhaustion a no-op (fault injection). Combined with
+// MYCO_TEST_TIGHTEN_BUDGETS_FOR_C53=1, budgets are exhausted every cycle
+// but no emission happens → C53 must fire.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn sprint_6a_c53_fires_when_emit_path_silently_broken() {
+    // Combine tight budgets + suppressed emission → DAG has no
+    // budget_exhausted:* events → C53 must fire under the new DAG-query
+    // implementation.
+    let dir = fresh_state_dir();
+    let mut client = spawn_substrate_with_env(
+        &dir,
+        vec![
+            (
+                "MYCO_TEST_TIGHTEN_BUDGETS_FOR_C53".to_string(),
+                "1".to_string(),
+            ),
+            (
+                "MYCO_TEST_SUPPRESS_BUDGET_EXHAUSTED_EMIT".to_string(),
+                "1".to_string(),
+            ),
+        ],
+    );
+    pump_cycles(&mut client, 3);
+    // Verify NO budget_exhausted events were emitted (suppression worked).
+    let be_resp = client
+        .call(
+            proto::QUERY_RECENT_NODES,
+            build_payload(vec![
+                ("count", CbValue::Uint(50)),
+                (
+                    "node_type_prefix",
+                    CbValue::String("budget_exhausted:".to_string()),
+                ),
+            ]),
+        )
+        .expect("query budget_exhausted");
+    let be_nodes = match be_resp.payload.get("nodes") {
+        Some(CbValue::Array(a)) => a.clone(),
+        _ => panic!("nodes missing"),
+    };
+    assert!(
+        be_nodes.is_empty(),
+        "Sprint 6.A: suppression flag should produce zero budget_exhausted \
+         events; got {} (env var not threading through)",
+        be_nodes.len()
+    );
+    // Now verify C53 fired (silent breach detected).
+    let c53_resp = client
+        .call(
+            proto::QUERY_RECENT_NODES,
+            build_payload(vec![
+                ("count", CbValue::Uint(50)),
+                (
+                    "node_type_prefix",
+                    CbValue::String("immune:C53_budget_exhausted_silent".to_string()),
+                ),
+            ]),
+        )
+        .expect("query immune");
+    let c53_nodes = match c53_resp.payload.get("nodes") {
+        Some(CbValue::Array(a)) => a.clone(),
+        _ => panic!("nodes missing"),
+    };
+    assert!(
+        !c53_nodes.is_empty(),
+        "Sprint 6.A T1.5: C53 must fire when budget exhausted AND no \
+         budget_exhausted:* event in DAG window; got 0 C53 events (logic \
+         tautology fix incomplete — defense-in-depth still dead)"
+    );
+    client.shutdown().expect("shutdown");
+}
+
+#[test]
+fn sprint_6a_c53_stays_quiet_when_emit_path_works() {
+    // Regression: with tight budgets but WITHOUT suppression, the primary
+    // emission path emits budget_exhausted:* events every ≥10 cycles. The
+    // DAG-query C53 check sees those events in window → no C53 fires.
+    let dir = fresh_state_dir();
+    let mut client = spawn_substrate_with_env(
+        &dir,
+        vec![(
+            "MYCO_TEST_TIGHTEN_BUDGETS_FOR_C53".to_string(),
+            "1".to_string(),
+        )],
+    );
+    pump_cycles(&mut client, 30);
+    let c53_resp = client
+        .call(
+            proto::QUERY_RECENT_NODES,
+            build_payload(vec![
+                ("count", CbValue::Uint(50)),
+                (
+                    "node_type_prefix",
+                    CbValue::String("immune:C53_budget_exhausted_silent".to_string()),
+                ),
+            ]),
+        )
+        .expect("query immune");
+    let nodes = match c53_resp.payload.get("nodes") {
+        Some(CbValue::Array(a)) => a.clone(),
+        _ => panic!("nodes missing"),
+    };
+    assert!(
+        nodes.is_empty(),
+        "Sprint 6.A T1.5: C53 must NOT fire when budget_exhausted events \
+         are present in DAG window; got {} false positives",
+        nodes.len()
+    );
+    client.shutdown().expect("shutdown");
+}
+
+// ---------------------------------------------------------------------------
 // **v3.1.1 Sprint 5.G — T2.6 prune false-positive resurrection detection**.
 //
 // P07 §8.3 declares `false_positive_prune_rate` as a falsifiability signal:

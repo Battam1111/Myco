@@ -633,10 +633,23 @@ fn apply_p11c_and_emit(state: &mut ServerState, cost: &CostSnapshot) {
 
     // Per-axis budget_exhausted emission with cooldown.
     const BUDGET_EXHAUSTED_COOLDOWN_CYCLES: u64 = 10;
+    // **v3.1.1 Sprint 6.A** — fault-injection env var for testing C53.
+    // Production must not set this. When set, emit_axis_exhaustion becomes
+    // a no-op (simulates the case where the primary emission path is
+    // silently broken), letting tests verify the DAG-query-based C53
+    // detector fires correctly.
+    let suppress_emit_for_test = std::env::var("MYCO_TEST_SUPPRESS_BUDGET_EXHAUSTED_EMIT")
+        .map(|v| matches!(v.trim().to_ascii_lowercase().as_str(), "1" | "true"))
+        .unwrap_or(false);
     let emit_axis_exhaustion = |state: &mut ServerState,
                                 axis: &str,
                                 current: u64,
                                 budget: u64| {
+        if suppress_emit_for_test {
+            // Fault injection: do NOT emit, do NOT update cache. C53 must
+            // observe this via DAG query and fire.
+            return;
+        }
         let cooldown_ok = match state.last_budget_exhausted_per_axis.get(axis) {
             None => true,
             Some(prior) => cycle.saturating_sub(*prior) >= BUDGET_EXHAUSTED_COOLDOWN_CYCLES,
@@ -682,13 +695,29 @@ fn apply_p11c_and_emit(state: &mut ServerState, cost: &CostSnapshot) {
         );
     }
 
-    // **C53 budget_exhausted_silent**: if any axis exceeded budget AND the
-    // emit-axis-exhaustion path above DIDN'T emit (cooldown still active),
-    // verify there was a recent emission within window. If we're past
-    // cooldown AND no recent emission, fire C53 — substrate is hiding cost
-    // from operator. Within cooldown is acceptable: the recent emit already
-    // documented the breach.
+    // **v3.1.1 Sprint 6.A — C53 budget_exhausted_silent (FIXED)**.
+    //
+    // Sprint 5.D identified a logic tautology: the prior implementation used
+    // `state.last_budget_exhausted_per_axis` (an in-memory cache updated by
+    // `emit_axis_exhaustion` regardless of emit success/failure). The check
+    // window (50 cycles) was always larger than the emission cooldown (10
+    // cycles), so `recently_documented` was always true → C53 could never
+    // fire. Dead defensive code.
+    //
+    // **Fixed approach**: query the DAG directly for
+    // `budget_exhausted:{axis}` events in the last C53_CHECK_WINDOW_CYCLES.
+    // This is INDEPENDENT of the in-memory cache state — so even if the
+    // emit path silently failed (e.g., emit_substrate_event returned Err
+    // and the caller swallowed it, OR a future refactor accidentally
+    // disabled the emit path), C53 still fires because the DAG is the
+    // source of truth.
+    //
+    // O(dag_node_count) per axis per cycle; acceptable for typical
+    // substrate sizes (~10k nodes over a long lifetime). If hot-path
+    // pressure ever materializes, switch to a sliding-window counter
+    // updated on each emit.
     const C53_CHECK_WINDOW_CYCLES: u64 = 50;
+    let window_start = cycle.saturating_sub(C53_CHECK_WINDOW_CYCLES);
     let axes_to_check: Vec<(&str, bool)> = vec![
         ("compute_per_cycle", compute_exceeded),
         ("network_per_cycle", network_exceeded),
@@ -698,15 +727,23 @@ fn apply_p11c_and_emit(state: &mut ServerState, cost: &CostSnapshot) {
         if !exceeded {
             continue;
         }
-        let recently_documented = match state.last_budget_exhausted_per_axis.get(axis) {
-            None => false,
-            Some(prior) => cycle.saturating_sub(*prior) < C53_CHECK_WINDOW_CYCLES,
-        };
-        if !recently_documented {
+        let expected_node_type = format!(
+            "{}{}",
+            crate::events::NODE_TYPE_BUDGET_EXHAUSTED_PREFIX,
+            axis
+        );
+        let dag_has_recent_emission = state
+            .dag
+            .iter_in_insertion_order()
+            .any(|n| {
+                n.node_type == expected_node_type && n.created_at_cycle >= window_start
+            });
+        if !dag_has_recent_emission {
             let evidence = format!(
-                "axis={} exceeded budget at cycle {} but no budget_exhausted event in last \
-                 {} cycles (C53 silent-breach detector)",
-                axis, cycle, C53_CHECK_WINDOW_CYCLES
+                "axis={axis} exceeded budget at cycle {cycle} but NO budget_exhausted:{axis} \
+                 event in DAG within last {C53_CHECK_WINDOW_CYCLES} cycles (window_start={window_start}) \
+                 — substrate is hiding cost from operator; primary emission path broken \
+                 OR was bypassed"
             );
             let _ = crate::server::emit_immune_sporocarp(
                 state,
