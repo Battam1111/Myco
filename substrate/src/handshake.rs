@@ -88,6 +88,10 @@ pub(crate) fn handle_hello(
             .unwrap_or_else(|_| "python".to_string()),
         session_secret: Some(secret),
         extra_env: Vec::new(),
+        // Sprint 6.E (T2.9): substrate-→-Python hellos don't carry an
+        // operator identity (the substrate IS the operator from Python's
+        // perspective; M5 protocol session_secret + HMAC handles auth).
+        operator_signing_seed: None,
     };
     let mut python_client = BridgeClient::spawn_and_handshake(python_config)?;
     let python_version = python_client.hello_ack.python_version.clone();

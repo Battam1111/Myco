@@ -41,6 +41,23 @@ pub struct BridgeClientConfig {
     /// Extra environment variables to set on the child process. Used by M7
     /// to isolate per-test state directories via `MYCO_STATE_DIR`.
     pub extra_env: Vec<(String, String)>,
+    /// **v3.1.1 Sprint 6.E (T2.9)** — operator-side Ed25519 signing seed.
+    /// When `Some(seed)`, BridgeClient derives the operator's Ed25519
+    /// keypair from `seed` and includes `operator_pubkey` +
+    /// `hello_signature` in the hello payload. The substrate then TOFU-pins
+    /// that pubkey at handshake time.
+    ///
+    /// This unblocks positive ceremony E2E testing (CI-class mutations
+    /// like l0_revision_attest / schema_evolution / cost_budget_set /
+    /// owner_key_history) by giving tests both:
+    ///   1. A substrate that has a known pinned operator identity, AND
+    ///   2. The matching private key, so the test can produce valid
+    ///      attestation_signatures.
+    ///
+    /// Production usage: operator runtimes (operators/claude) hold their
+    /// own per-handshake keypair via the same field. Test use is
+    /// indistinguishable from production use at the wire level.
+    pub operator_signing_seed: Option<[u8; 32]>,
 }
 
 impl Default for BridgeClientConfig {
@@ -49,6 +66,7 @@ impl Default for BridgeClientConfig {
             python_executable: "python".to_string(),
             session_secret: None,
             extra_env: Vec::new(),
+            operator_signing_seed: None,
         }
     }
 }
@@ -139,7 +157,41 @@ impl BridgeClient {
 
         // Send hello using BOOTSTRAP_KEY.
         let request_id = client.allocate_request_id();
-        let hello_msg = Message::new(msg_type::HELLO, request_id, hello_payload(&session_secret));
+        let mut hello_payload_map = hello_payload(&session_secret);
+        // **v3.1.1 Sprint 6.E (T2.9)** — if operator_signing_seed is set,
+        // derive Ed25519 keypair + sign the hello-canonical-bytes so the
+        // substrate TOFU-pins this operator identity. Matches the
+        // substrate's verify_hello_signature_and_pin contract in
+        // substrate/src/handshake.rs:204-284.
+        if let Some(seed) = &config.operator_signing_seed {
+            use myco_kernel_shared::canonical_bytes::{encode as cb_encode, Value};
+            use myco_kernel_shared::crypto::Ed25519PrivateKey;
+            let priv_key = Ed25519PrivateKey::from_seed(seed);
+            let pub_key = priv_key.public_key();
+            let pubkey_bytes: [u8; 32] = pub_key.0;
+            // Build the canonical-bytes signing input: {session_secret, operator_pubkey}.
+            let mut signing_map = std::collections::BTreeMap::new();
+            signing_map.insert(
+                "session_secret".to_string(),
+                Value::Bytes(session_secret.to_vec()),
+            );
+            signing_map.insert(
+                "operator_pubkey".to_string(),
+                Value::Bytes(pubkey_bytes.to_vec()),
+            );
+            let signing_input = cb_encode(&Value::Map(signing_map))
+                .map_err(|e| BridgeError::Protocol(format!("hello signing-body encode: {e}")))?;
+            let sig = priv_key.sign(signing_input.as_ref());
+            hello_payload_map.insert(
+                "operator_pubkey".to_string(),
+                Value::Bytes(pubkey_bytes.to_vec()),
+            );
+            hello_payload_map.insert(
+                "hello_signature".to_string(),
+                Value::Bytes(sig.as_ref().to_vec()),
+            );
+        }
+        let hello_msg = Message::new(msg_type::HELLO, request_id, hello_payload_map);
         let bootstrap = bootstrap_key();
         let hello_frame = encode_frame_body(&hello_msg, &bootstrap)?;
         write_frame(&mut client.stdin, &hello_frame)?;

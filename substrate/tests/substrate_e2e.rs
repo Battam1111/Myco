@@ -69,8 +69,42 @@ fn spawn_substrate_with_env(
         python_executable: substrate_binary.to_string(),
         session_secret: None,
         extra_env,
+        operator_signing_seed: None,
     })
     .expect("spawn myco-substrate binary")
+}
+
+/// **v3.1.1 Sprint 6.E (T2.9)** — spawn a substrate with a pre-pinned
+/// operator pubkey derived from a known seed. The returned client holds
+/// the matching Ed25519 private key (test caller stores it separately
+/// for attestation signing). This unblocks positive ceremony E2E tests
+/// for l0_revision_attest / schema_evolution / cost_budget_set /
+/// owner_key_history mutations.
+fn spawn_substrate_with_signing_seed(
+    state_dir: &std::path::Path,
+    seed: [u8; 32],
+) -> BridgeClient {
+    let substrate_binary = env!("CARGO_BIN_EXE_myco-substrate");
+    let extra_env = vec![(
+        "MYCO_STATE_DIR".to_string(),
+        state_dir.to_string_lossy().into_owned(),
+    )];
+    BridgeClient::spawn_and_handshake(BridgeClientConfig {
+        python_executable: substrate_binary.to_string(),
+        session_secret: None,
+        extra_env,
+        operator_signing_seed: Some(seed),
+    })
+    .expect("spawn myco-substrate binary with signing seed")
+}
+
+/// **v3.1.1 Sprint 6.E (T2.9)** — derive operator pubkey from seed using
+/// the same Ed25519 construction the substrate uses for verification.
+#[allow(dead_code)]
+fn derive_operator_pubkey_from_seed(seed: &[u8; 32]) -> [u8; 32] {
+    use myco_kernel_shared::crypto::Ed25519PrivateKey;
+    let priv_key = Ed25519PrivateKey::from_seed(seed);
+    priv_key.public_key().0
 }
 
 #[test]
@@ -7444,6 +7478,126 @@ fn sprint_5h_federation_protocol_version_constant_is_pinned() {
 // single event exceeding this rejects the entire batch with C62
 // immune sporocarp.
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// **v3.1.1 Sprint 6.E — T2.9 Positive ceremony test infrastructure**.
+//
+// Sprint 5.A and 5.B both noted: the substrate-side defenses against
+// malformed/unattested ceremonies are tested, but the POSITIVE happy
+// path (operator with valid pubkey + valid attestation signature) was
+// blocked by missing test infrastructure. Sprint 6.E unblocks it.
+//
+// Key addition (kernel/bridge/rust/src/client.rs):
+//   BridgeClientConfig.operator_signing_seed: Option<[u8; 32]>
+//   When set, BridgeClient derives Ed25519 keypair from seed, signs the
+//   hello-canonical-bytes, and includes operator_pubkey + hello_signature
+//   in the hello payload. Substrate TOFU-pins that pubkey at handshake.
+//
+// Tests verify:
+//   1. Seed-based spawn → substrate pins the derived pubkey (visible in
+//      run_immune_check pinned_pubkey_well_formed evidence + DAG
+//      operator_pinned:* event).
+//   2. The pinned pubkey matches the test's derived pubkey (so the test
+//      can use the private key to produce attestations the substrate
+//      will accept).
+// ---------------------------------------------------------------------------
+
+#[test]
+fn sprint_6e_seed_based_spawn_pins_operator_pubkey() {
+    let seed: [u8; 32] = [0x42; 32];
+    let expected_pubkey = derive_operator_pubkey_from_seed(&seed);
+    let dir = fresh_state_dir();
+    let mut client = spawn_substrate_with_signing_seed(&dir, seed);
+
+    // Verify the DAG has an operator_pinned:* event with the derived pubkey.
+    let resp = client
+        .call(
+            proto::QUERY_RECENT_NODES,
+            build_payload(vec![
+                ("count", CbValue::Uint(50)),
+                (
+                    "node_type_prefix",
+                    CbValue::String("operator_pinned:".to_string()),
+                ),
+            ]),
+        )
+        .expect("query");
+    let nodes = match resp.payload.get("nodes") {
+        Some(CbValue::Array(a)) => a.clone(),
+        _ => panic!("nodes missing"),
+    };
+    assert_eq!(
+        nodes.len(),
+        1,
+        "Sprint 6.E T2.9: seed-based spawn should produce exactly 1 \
+         operator_pinned:* event; got {}",
+        nodes.len()
+    );
+    use myco_kernel_shared::canonical_bytes::{decode as cb_decode, Value as CbV};
+    let first = match &nodes[0] {
+        CbValue::Map(m) => m.clone(),
+        _ => panic!("node not a Map"),
+    };
+    let content = match first.get("content_canonical_bytes") {
+        Some(CbValue::Bytes(b)) => b.clone(),
+        _ => panic!("content missing"),
+    };
+    let event_map = match cb_decode(&content).expect("decode") {
+        CbV::Map(m) => m,
+        _ => panic!("event not a Map"),
+    };
+    let pubkey_bytes = match event_map.get("pubkey") {
+        Some(CbV::Bytes(b)) => b.clone(),
+        _ => panic!("pubkey missing in operator_pinned event"),
+    };
+    assert_eq!(
+        pubkey_bytes.len(),
+        32,
+        "pinned pubkey must be 32 bytes; got {}",
+        pubkey_bytes.len()
+    );
+    let mut pinned_arr = [0u8; 32];
+    pinned_arr.copy_from_slice(&pubkey_bytes);
+    assert_eq!(
+        pinned_arr, expected_pubkey,
+        "Sprint 6.E T2.9: substrate pinned pubkey ≠ test's derived pubkey \
+         (sign-+-hello hookup broken)"
+    );
+    client.shutdown().expect("shutdown");
+}
+
+#[test]
+fn sprint_6e_unseeded_spawn_still_works_for_legacy_tests() {
+    // Regression: the existing spawn_substrate() path (no signing seed) must
+    // continue to produce a working substrate in legacy mode (no operator
+    // identity pinned). This ensures Sprint 6.E's additive change is
+    // strictly backward-compatible.
+    let (mut client, _dir) = spawn_substrate();
+    // No operator_pinned events should exist on an unseeded substrate.
+    let resp = client
+        .call(
+            proto::QUERY_RECENT_NODES,
+            build_payload(vec![
+                ("count", CbValue::Uint(50)),
+                (
+                    "node_type_prefix",
+                    CbValue::String("operator_pinned:".to_string()),
+                ),
+            ]),
+        )
+        .expect("query");
+    let nodes = match resp.payload.get("nodes") {
+        Some(CbValue::Array(a)) => a.clone(),
+        _ => panic!("nodes missing"),
+    };
+    assert_eq!(
+        nodes.len(),
+        0,
+        "Sprint 6.E T2.9: unseeded spawn must NOT emit operator_pinned; got {}",
+        nodes.len()
+    );
+    client.shutdown().expect("shutdown");
+}
 
 #[test]
 fn sprint_6b_per_event_size_cap_is_pinned_at_256_kib() {
