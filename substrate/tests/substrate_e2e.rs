@@ -7431,6 +7431,121 @@ fn sprint_5h_federation_protocol_version_constant_is_pinned() {
 // but no emission happens → C53 must fire.
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// **v3.1.1 Sprint 6.B — T1.8 Federation per-event content size cap**.
+//
+// FED_EVENT_BATCH_MAX_EVENTS = 100 caps event COUNT; MAX_FRAME_BODY_SIZE
+// = 1 MiB caps total frame size. But before Sprint 6.B, no per-event
+// size cap existed — a peer could send 100 events of e.g. 9 KiB each
+// (within frame limits) and grow the local DAG by ~900 KiB per pull,
+// repeatable to OOM.
+//
+// Sprint 6.B adds FED_EVENT_MAX_CONTENT_BYTES = 256 KiB per event. Any
+// single event exceeding this rejects the entire batch with C62
+// immune sporocarp.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn sprint_6b_per_event_size_cap_is_pinned_at_256_kib() {
+    // Lock the constant value as a public-surface contract. Operator tooling
+    // depends on this bound being stable; a refactor that lowers it could
+    // unexpectedly reject normal federation traffic.
+    use substrate::federation::protocol::FED_EVENT_MAX_CONTENT_BYTES;
+    assert_eq!(
+        FED_EVENT_MAX_CONTENT_BYTES,
+        256 * 1024,
+        "Sprint 6.B T1.8: FED_EVENT_MAX_CONTENT_BYTES bumped without \
+         deliberate operator-tooling migration"
+    );
+}
+
+#[test]
+fn sprint_6b_parse_event_batch_rejects_oversized_event() {
+    use myco_kernel_shared::canonical_bytes::Value as CbV;
+    use std::collections::BTreeMap as BTM;
+    use substrate::federation::protocol::{parse_event_batch_payload, FED_EVENT_MAX_CONTENT_BYTES};
+
+    // Build a synthetic FED_EVENT_BATCH containing ONE event with content
+    // exceeding the cap by 1 byte.
+    let huge_content = vec![0xABu8; FED_EVENT_MAX_CONTENT_BYTES + 1];
+    let mut event_map = BTM::new();
+    event_map.insert(
+        "parent_hashes".to_string(),
+        CbV::Array(vec![CbV::Bytes(vec![0u8; 32])]),
+    );
+    event_map.insert(
+        "node_type".to_string(),
+        CbV::String("raw_material:text".to_string()),
+    );
+    event_map.insert("created_at_cycle".to_string(), CbV::Uint(1));
+    event_map.insert(
+        "content_canonical_bytes".to_string(),
+        CbV::Bytes(huge_content),
+    );
+
+    let mut payload = BTM::new();
+    payload.insert(
+        "events".to_string(),
+        CbV::Array(vec![CbV::Map(event_map)]),
+    );
+    payload.insert("is_last_batch".to_string(), CbV::Bool(true));
+
+    let result = parse_event_batch_payload(&payload);
+    assert!(
+        result.is_err(),
+        "Sprint 6.B T1.8: event of size {} bytes must be rejected by parser; \
+         got Ok",
+        FED_EVENT_MAX_CONTENT_BYTES + 1
+    );
+    let err = format!("{}", result.unwrap_err());
+    assert!(
+        err.contains("FED_EVENT_MAX_CONTENT_BYTES"),
+        "Sprint 6.B T1.8: rejection error should cite the cap constant; got: {err}"
+    );
+}
+
+#[test]
+fn sprint_6b_parse_event_batch_accepts_at_cap_boundary() {
+    // Boundary test: an event of EXACTLY FED_EVENT_MAX_CONTENT_BYTES must
+    // be accepted (the cap is inclusive of the max value; only b.len() > cap
+    // is rejected).
+    use myco_kernel_shared::canonical_bytes::Value as CbV;
+    use std::collections::BTreeMap as BTM;
+    use substrate::federation::protocol::{parse_event_batch_payload, FED_EVENT_MAX_CONTENT_BYTES};
+
+    let max_content = vec![0xCDu8; FED_EVENT_MAX_CONTENT_BYTES];
+    let mut event_map = BTM::new();
+    event_map.insert(
+        "parent_hashes".to_string(),
+        CbV::Array(vec![CbV::Bytes(vec![0u8; 32])]),
+    );
+    event_map.insert(
+        "node_type".to_string(),
+        CbV::String("raw_material:text".to_string()),
+    );
+    event_map.insert("created_at_cycle".to_string(), CbV::Uint(1));
+    event_map.insert(
+        "content_canonical_bytes".to_string(),
+        CbV::Bytes(max_content),
+    );
+
+    let mut payload = BTM::new();
+    payload.insert(
+        "events".to_string(),
+        CbV::Array(vec![CbV::Map(event_map)]),
+    );
+    payload.insert("is_last_batch".to_string(), CbV::Bool(true));
+
+    let result = parse_event_batch_payload(&payload);
+    assert!(
+        result.is_ok(),
+        "Sprint 6.B T1.8: event of size exactly {} bytes (cap value) must be \
+         accepted; got Err: {:?}",
+        FED_EVENT_MAX_CONTENT_BYTES,
+        result.err()
+    );
+}
+
 #[test]
 fn sprint_6a_c53_fires_when_emit_path_silently_broken() {
     // Combine tight budgets + suppressed emission → DAG has no

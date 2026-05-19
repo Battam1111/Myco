@@ -849,12 +849,55 @@ pub(crate) fn handle_federation_pull_events_from_peer(
     };
 
     let our_substrate_id = state.manifest.substrate_id;
-    let parsed_batch = state.federation.pull_events_from_peer(
+    let parsed_batch = match state.federation.pull_events_from_peer(
         &peer_substrate_id,
         since_node_hash.as_ref(),
         &our_substrate_id,
         max_events,
-    )?;
+    ) {
+        Ok(b) => b,
+        Err(SubstrateError::Protocol(msg))
+            if msg.contains("FED_EVENT_MAX_CONTENT_BYTES") =>
+        {
+            // **v3.1.1 Sprint 6.B (T1.8)** — per-event size cap breach.
+            // Emit C62 immune sporocarp + structured rejection response.
+            // Per-event oversize is a peer-behavior signal worth recording
+            // separately from generic frame-read failures.
+            let evidence = format!(
+                "federation peer {} pushed FED_EVENT_BATCH containing an event \
+                 exceeding FED_EVENT_MAX_CONTENT_BYTES; parser error: {msg}",
+                hex_first_8_bytes(&peer_substrate_id)
+            );
+            let _ = emit_immune_sporocarp(
+                state,
+                "C62_federation_event_oversized",
+                "federation_event_oversized",
+                &evidence,
+            );
+            // Return structured rejection (not propagate Err) so the operator
+            // gets a clear "batch rejected for size" signal instead of a
+            // generic protocol error.
+            let mut response_payload = BTreeMap::new();
+            response_payload.insert(
+                "events_ingested_count".to_string(),
+                Value::Uint(0),
+            );
+            response_payload.insert(
+                "events_rejected_count".to_string(),
+                Value::Uint(1),
+            );
+            response_payload.insert(
+                "rejection_reason".to_string(),
+                Value::String(format!("C62_federation_event_oversized: {msg}")),
+            );
+            return Ok(Some(Message::new(
+                msg_type::FEDERATION_PULL_EVENTS_FROM_PEER_RESPONSE,
+                request.request_id,
+                response_payload,
+            )));
+        }
+        Err(e) => return Err(e),
+    };
     let events_received = parsed_batch.events.len();
 
     // Phase β SECURITY FIX (2026-05-15): event-type ALLOWLIST.

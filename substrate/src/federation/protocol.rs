@@ -409,6 +409,23 @@ pub struct EventForFederation {
 /// or hold the connection open for too long.
 pub const FED_EVENT_BATCH_MAX_EVENTS: u64 = 100;
 
+/// **v3.1.1 Sprint 6.B (T1.8)** — Max content_canonical_bytes size for any
+/// SINGLE event inside a FED_EVENT_BATCH. Defense-in-depth against
+/// peer-driven DAG growth attacks: even though MAX_FRAME_BODY_SIZE (1 MiB)
+/// bounds the per-frame total, a long sequence of "max-size events" would
+/// still grow the local DAG by hundreds of KiB per batch. Cap each
+/// individual event at 256 KiB — large enough for compression witnesses
+/// + serialized cosign envelopes, small enough that 100-event batches
+/// can't deliver more than 25 MiB of content per pull.
+///
+/// Substrate parses each event with this cap; events exceeding it cause
+/// the entire batch to be rejected with `C62_federation_event_oversized`
+/// immune sporocarp. Rejecting the batch (not just the one event) is
+/// strictly stronger because the peer was already willing to send
+/// outsize content — signaling malicious or buggy behavior worth flagging
+/// at the connection level.
+pub const FED_EVENT_MAX_CONTENT_BYTES: usize = 256 * 1024;
+
 /// Build the payload for a [`FED_REQUEST_EVENTS_SINCE`](fed_msg_type::FED_REQUEST_EVENTS_SINCE)
 /// message.
 ///
@@ -561,7 +578,23 @@ pub fn parse_event_batch_payload(
             _ => return Err("created_at_cycle missing".to_string()),
         };
         let content_canonical_bytes = match em.get("content_canonical_bytes") {
-            Some(Value::Bytes(b)) => b.clone(),
+            Some(Value::Bytes(b)) => {
+                // **v3.1.1 Sprint 6.B (T1.8)** — enforce per-event content
+                // size cap. The entire batch is rejected as soon as any
+                // single event exceeds the cap (a peer willing to send
+                // outsize content is signaling intent worth refusing
+                // wholesale).
+                if b.len() > FED_EVENT_MAX_CONTENT_BYTES {
+                    return Err(format!(
+                        "event content_canonical_bytes size {} exceeds \
+                         FED_EVENT_MAX_CONTENT_BYTES ({}); batch rejected for \
+                         T1.8 DoS defense",
+                        b.len(),
+                        FED_EVENT_MAX_CONTENT_BYTES
+                    ));
+                }
+                b.clone()
+            }
             _ => return Err("content_canonical_bytes missing".to_string()),
         };
         events.push(EventForFederation {
