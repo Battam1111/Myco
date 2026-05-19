@@ -8055,6 +8055,65 @@ fn sprint_6f_owner_key_history_mutation_classifies_as_ci() {
     client.shutdown().expect("shutdown");
 }
 
+// ---------------------------------------------------------------------------
+// **v3.1.1 Sprint 7.F — T4.2 Rotate owner key envelope encode/decode**.
+//
+// MVP: the canonical-bytes wire format for the owner's rotation
+// authorization. The FULL rotation FSM (30-day cooldown + dual cosign +
+// substrate-side application + add_key call into Python) is Sprint 7.F.2
+// follow-up. Sprint 7.F closes the "no envelope schema even exists"
+// blocker.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn sprint_7f_rotate_owner_key_canonical_bytes_roundtrips() {
+    use substrate::events::{
+        build_rotate_owner_key_canonical_bytes, decode_rotate_owner_key,
+        ROTATE_OWNER_KEY_DOMAIN,
+    };
+    let prior = [0x11u8; 32];
+    let new_pk = [0x22u8; 32];
+    let ts: u64 = 1_700_000_000;
+    let nonce = [0x33u8; 32];
+
+    let bytes = build_rotate_owner_key_canonical_bytes(&prior, &new_pk, ts, &nonce);
+    let (p, n, t, no) = decode_rotate_owner_key(&bytes).expect("roundtrip");
+    assert_eq!(p, prior);
+    assert_eq!(n, new_pk);
+    assert_eq!(t, ts);
+    assert_eq!(no, nonce);
+    // Domain constant pinned.
+    assert_eq!(ROTATE_OWNER_KEY_DOMAIN, "rotate_owner_key_v1");
+}
+
+#[test]
+fn sprint_7f_rotate_owner_key_decode_rejects_wrong_domain() {
+    use myco_kernel_shared::canonical_bytes::{encode as cb_encode, Value};
+    use substrate::events::decode_rotate_owner_key;
+    // Build canonical-bytes with wrong domain.
+    let mut m = std::collections::BTreeMap::new();
+    m.insert("domain".to_string(), Value::String("not_rotate".to_string()));
+    m.insert(
+        "prior_active_pubkey".to_string(),
+        Value::Bytes(vec![0u8; 32]),
+    );
+    m.insert("new_pubkey".to_string(), Value::Bytes(vec![0u8; 32]));
+    m.insert("anchor_timestamp_unix_seconds".to_string(), Value::Uint(0));
+    m.insert("anchor_nonce".to_string(), Value::Bytes(vec![0u8; 32]));
+    let bytes = cb_encode(&Value::Map(m)).expect("encode").0;
+    assert!(
+        decode_rotate_owner_key(&bytes).is_none(),
+        "Sprint 7.F T4.2: wrong-domain envelope must be rejected"
+    );
+}
+
+#[test]
+fn sprint_7f_rotate_owner_key_decode_rejects_malformed() {
+    use substrate::events::decode_rotate_owner_key;
+    assert!(decode_rotate_owner_key(b"garbage").is_none());
+    assert!(decode_rotate_owner_key(b"").is_none());
+}
+
 #[test]
 fn sprint_6f_owner_key_event_node_type_constants_pinned() {
     // The `owner_key_added` / `owner_key_archived` constants exist in

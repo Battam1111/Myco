@@ -109,7 +109,12 @@ export const DIFF_SUMMARY =
   "updated to `L0/cards/<NAME>.md §X.Y` form per L0/README.md §" +
   "\"What's still missing\" item 5. 22 files touched, ~70 references " +
   "updated. No deposit changes. Pure housekeeping per META §7. " +
-  "Sealed 2026-05-19 (Sprint 6.D commit af6ef3b + Sprint 7.I).";
+  "(Sprint 7.H) Layer D catechumenate scaffolding: TEMPLATE.md (META §6.1 " +
+  "session form template) + HOW_TO_ADD_A_SESSION.md (practical workflow " +
+  "guide for cultivator-A + successor candidate). Zero sessions count " +
+  "toward F21 activation — these are infrastructure files, not " +
+  "catechumenate sessions. " +
+  "Sealed 2026-05-19 (Sprint 6.D commit af6ef3b + Sprint 7.B/7.D/7.H/7.I).";
 
 // ---------------------------------------------------------------------------
 // Repo-root resolution.

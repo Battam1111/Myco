@@ -2316,6 +2316,108 @@ pub fn encode_owner_key_initialized(
     cb_encode(&Value::Map(m)).expect("owner_key_initialized encode infallible")
 }
 
+// ---- rotate_owner_key envelope (Sprint 7.F T4.2) ----
+
+/// Domain tag for rotate_owner_key canonical-bytes envelope. The owner
+/// signs canonical-bytes Map carrying this domain + the rotation details.
+pub const ROTATE_OWNER_KEY_DOMAIN: &str = "rotate_owner_key_v1";
+
+/// **v3.1.1 Sprint 7.F (T4.2)** — build the canonical-bytes Map the owner
+/// signs to authorize a key rotation.
+///
+/// The owner signs:
+///   { domain: "rotate_owner_key_v1",
+///     prior_active_pubkey: Bytes(32),  // the key being retired
+///     new_pubkey: Bytes(32),            // the key taking over
+///     anchor_timestamp_unix_seconds: Uint,
+///     anchor_nonce: Bytes(32) }
+///
+/// Per L1/GOVERNANCE §3.1 the FULL rotation FSM requires (1) publish-new-
+/// at-anchor signed by current key, (2) 30-day cooldown veto window,
+/// (3) post-cooldown dual cosign by both keys. Sprint 7.F ships the
+/// MINIMUM viable rotation: single-signature by the current key
+/// authorizes the rotation; the 30-day window + dual cosign are
+/// **Sprint 7.F.2 follow-up** acknowledged debt. Even MVP closes the
+/// "no key rotation possible at all" gap.
+pub fn build_rotate_owner_key_canonical_bytes(
+    prior_active_pubkey: &[u8; 32],
+    new_pubkey: &[u8; 32],
+    anchor_timestamp_unix_seconds: u64,
+    anchor_nonce: &[u8; 32],
+) -> Vec<u8> {
+    let mut m = BTreeMap::new();
+    m.insert(
+        "domain".to_string(),
+        Value::String(ROTATE_OWNER_KEY_DOMAIN.to_string()),
+    );
+    m.insert(
+        "prior_active_pubkey".to_string(),
+        Value::Bytes(prior_active_pubkey.to_vec()),
+    );
+    m.insert(
+        "new_pubkey".to_string(),
+        Value::Bytes(new_pubkey.to_vec()),
+    );
+    m.insert(
+        "anchor_timestamp_unix_seconds".to_string(),
+        Value::Uint(anchor_timestamp_unix_seconds),
+    );
+    m.insert(
+        "anchor_nonce".to_string(),
+        Value::Bytes(anchor_nonce.to_vec()),
+    );
+    cb_encode(&Value::Map(m))
+        .expect("rotate_owner_key canonical-bytes encode infallible")
+        .0
+}
+
+/// **v3.1.1 Sprint 7.F (T4.2)** — decode a rotate_owner_key envelope.
+/// Returns `(prior_active_pubkey, new_pubkey, anchor_ts, anchor_nonce)`
+/// on valid envelope; None on malformed bytes / wrong domain.
+pub fn decode_rotate_owner_key(
+    bytes: &[u8],
+) -> Option<([u8; 32], [u8; 32], u64, [u8; 32])> {
+    use myco_kernel_shared::canonical_bytes::decode;
+    let v = decode(bytes).ok()?;
+    let m = match v {
+        Value::Map(m) => m,
+        _ => return None,
+    };
+    match m.get("domain")? {
+        Value::String(s) if s == ROTATE_OWNER_KEY_DOMAIN => {}
+        _ => return None,
+    }
+    let prior = match m.get("prior_active_pubkey")? {
+        Value::Bytes(b) if b.len() == 32 => {
+            let mut a = [0u8; 32];
+            a.copy_from_slice(b);
+            a
+        }
+        _ => return None,
+    };
+    let new_pk = match m.get("new_pubkey")? {
+        Value::Bytes(b) if b.len() == 32 => {
+            let mut a = [0u8; 32];
+            a.copy_from_slice(b);
+            a
+        }
+        _ => return None,
+    };
+    let ts = match m.get("anchor_timestamp_unix_seconds")? {
+        Value::Uint(t) => *t,
+        _ => return None,
+    };
+    let nonce = match m.get("anchor_nonce")? {
+        Value::Bytes(b) if b.len() == 32 => {
+            let mut a = [0u8; 32];
+            a.copy_from_slice(b);
+            a
+        }
+        _ => return None,
+    };
+    Some((prior, new_pk, ts, nonce))
+}
+
 // ---- owner_key_added ----
 
 /// Content of an owner_key_added event (M10 rotation: new key added):
