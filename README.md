@@ -1,8 +1,10 @@
 # Myco v0.9
 
-> Branch: `v0.9-genesis`. **L0 v3.1-stratigraphy** (2026-05-18) — 4-layer doctrine institution supersedes prior monolithic DRAFT 9 SEALED form.
+> Branch: `v0.9-genesis`. **L0 v3.1.1.1** (2026-05-19) — descriptive amendments + cross-reference path cleanup chained from v3.1.1 mortality refinement.
 
 Myco is a biology-rooted symbiotic digital substrate: an LLM agent + a substrate form an asymmetric pair under Cultivation by a human owner via out-of-band anchor surface. See [`docs/architecture/L0/README.md`](./docs/architecture/L0/README.md) for the canonical L0 doctrine.
+
+**New cultivator?** Start at [`GETTING_STARTED.md`](./GETTING_STARTED.md) — the runbook from clone to first conversation.
 
 ## Doctrine
 
