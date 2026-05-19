@@ -68,6 +68,7 @@
 #![forbid(unsafe_code)]
 
 pub mod dag;
+pub mod migration;
 pub mod spore;
 pub mod ssot;
 pub mod validation;
