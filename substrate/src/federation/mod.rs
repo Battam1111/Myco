@@ -534,11 +534,18 @@ impl FederationState {
             // rather than silently mis-interoperate (which would be the
             // catastrophic failure mode — two substrates that THINK they're
             // talking but actually drift in canonical-bytes encoding).
-            if parsed.protocol_version != protocol::FEDERATION_PROTOCOL_VERSION {
+            // **v3.1.1 Sprint 6.H (T2.10)** — consult compatibility matrix.
+            // At v1 (current shipping) the matrix is empty, so this falls
+            // back to strict equality (Sprint 5.H behavior). When v2 ships
+            // with a registered (v2, v1) bridge entry, this check accepts
+            // those pairs without firing C61.
+            if !protocol::federation_versions_interoperable(
+                protocol::FEDERATION_PROTOCOL_VERSION,
+                parsed.protocol_version,
+            ) {
                 let reason = format!(
                     "federation protocol version mismatch: peer v={}, ours v={} \
-                     (C61 — cross-version federation must be explicitly enabled \
-                      via compatibility matrix in future sprint)",
+                     (C61 — pair not registered in FEDERATION_VERSION_COMPATIBILITY_MATRIX)",
                     parsed.protocol_version,
                     protocol::FEDERATION_PROTOCOL_VERSION
                 );

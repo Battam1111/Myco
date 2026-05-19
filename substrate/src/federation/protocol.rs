@@ -28,6 +28,76 @@ use sha2::{Digest, Sha256};
 /// federation message schemas or HMAC derivation.
 pub const FEDERATION_PROTOCOL_VERSION: u64 = 1;
 
+/// **v3.1.1 Sprint 6.H (T2.10)** — federation protocol compatibility
+/// matrix. Sprint 5.H added strict version-match rejection (any peer
+/// version != FEDERATION_PROTOCOL_VERSION → C61 + reject). This was the
+/// safe default but creates a flag-day risk: when v2 ships, ALL
+/// substrates in the field must upgrade simultaneously or federation
+/// shatters.
+///
+/// Sprint 6.H scaffolds the path forward: explicit (our_version,
+/// peer_version) pairs that are pre-declared interoperable. Empty in
+/// v3.1.1 (no v2 exists yet); future schema-evolution sprints add
+/// entries here when v2's wire format is finalized.
+///
+/// The check at handle_federation_poll runs:
+///   if peer_v == our_v: accept
+///   else if (our_v, peer_v) in COMPATIBILITY_MATRIX: accept-with-downgrade
+///   else: reject (C61)
+///
+/// Each entry should carry:
+///   - The two versions that share enough wire-format to interoperate
+///   - A documented limitation note (e.g., "v2 features X/Y unavailable
+///     when paired with v1 peer")
+///   - A planned deprecation cycle (entries are bridge spans, not
+///     permanent — old versions retire on a schedule)
+///
+/// Doctrine traceability:
+///   - L1/SKIN §10 (anticipated): cross-version federation discipline
+///   - This struct is the substantive realization of Sprint 5.H's
+///     promise that "cross-version federation must be EXPLICIT, not
+///     implicit"
+pub struct FederationVersionCompatibilityEntry {
+    /// Our version (always FEDERATION_PROTOCOL_VERSION at runtime).
+    pub our_version: u64,
+    /// Peer's declared version that we accept.
+    pub peer_version: u64,
+    /// Human-readable note describing what's supported / unsupported.
+    pub interop_note: &'static str,
+    /// Anchor cycle at which this entry was added (for deprecation
+    /// scheduling). Set to 0 for static compile-time entries.
+    pub added_at_anchor_cycle: u64,
+}
+
+/// **v3.1.1 Sprint 6.H** — the compatibility matrix. Empty at v1 because
+/// no v2 exists yet. When v2 is being designed, add an entry like:
+///   FederationVersionCompatibilityEntry {
+///       our_version: 2,
+///       peer_version: 1,
+///       interop_note: "v2 reads v1 hellos but treats new features X/Y \
+///                      as absent; v2 → v1 hellos downgrade by omitting \
+///                      new fields",
+///       added_at_anchor_cycle: <cycle of bump>,
+///   }
+/// Then update [`federation_versions_interoperable`] to consult this.
+pub const FEDERATION_VERSION_COMPATIBILITY_MATRIX: &[FederationVersionCompatibilityEntry] = &[];
+
+/// Returns true if a peer declaring `peer_version` can interoperate with
+/// our `our_version`. Exact match is always Ok. Cross-version interop is
+/// allowed only if the pair appears in
+/// [`FEDERATION_VERSION_COMPATIBILITY_MATRIX`].
+///
+/// At v1 (current shipping), this returns `our_version == peer_version`
+/// because the matrix is empty.
+pub fn federation_versions_interoperable(our_version: u64, peer_version: u64) -> bool {
+    if our_version == peer_version {
+        return true;
+    }
+    FEDERATION_VERSION_COMPATIBILITY_MATRIX.iter().any(|e| {
+        e.our_version == our_version && e.peer_version == peer_version
+    })
+}
+
 /// Deterministic HMAC key used for [`fed_msg_type::FED_HELLO`] and
 /// [`fed_msg_type::FED_HELLO_ACK`] frames — before either side knows the
 /// peer's substrate_id (and therefore before

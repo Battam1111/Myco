@@ -7480,6 +7480,58 @@ fn sprint_5h_federation_protocol_version_constant_is_pinned() {
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
+// **v3.1.1 Sprint 6.H — T2.10 Federation compatibility matrix scaffolding**.
+//
+// Sprint 5.H added strict version-match rejection (C61). Sprint 6.H
+// scaffolds the path forward: pre-registered (our_version, peer_version)
+// pairs that are explicitly interoperable. Empty at v1; future v2
+// upgrade lands new entries here without flag-day breakage.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn sprint_6h_versions_interoperable_returns_true_for_exact_match() {
+    use substrate::federation::protocol::{
+        federation_versions_interoperable, FEDERATION_PROTOCOL_VERSION,
+    };
+    assert!(
+        federation_versions_interoperable(
+            FEDERATION_PROTOCOL_VERSION,
+            FEDERATION_PROTOCOL_VERSION
+        ),
+        "exact-match versions must interoperate"
+    );
+}
+
+#[test]
+fn sprint_6h_versions_interoperable_returns_false_when_matrix_empty() {
+    use substrate::federation::protocol::federation_versions_interoperable;
+    // At v3.1.1 the matrix is empty, so any non-exact-match returns false.
+    assert!(
+        !federation_versions_interoperable(1, 2),
+        "v1 + v2 not in matrix → must NOT interoperate (Sprint 5.H behavior preserved)"
+    );
+    assert!(
+        !federation_versions_interoperable(1, 99),
+        "v1 + v99 not in matrix → must NOT interoperate"
+    );
+}
+
+#[test]
+fn sprint_6h_compatibility_matrix_is_empty_at_v1() {
+    // Lock the public-surface contract: at v3.1.1, the matrix has no
+    // cross-version bridges. When v2 ships, the implementer adds entries
+    // here and updates this test accordingly.
+    use substrate::federation::protocol::FEDERATION_VERSION_COMPATIBILITY_MATRIX;
+    assert_eq!(
+        FEDERATION_VERSION_COMPATIBILITY_MATRIX.len(),
+        0,
+        "Sprint 6.H T2.10: compatibility matrix should be empty at v1; \
+         got {} entries — has v2 shipped without updating this test?",
+        FEDERATION_VERSION_COMPATIBILITY_MATRIX.len()
+    );
+}
+
+// ---------------------------------------------------------------------------
 // **v3.1.1 Sprint 6.F — T2.7 Owner key rotation classifier + attestation gate**.
 //
 // **Scope finding** (Sprint 6.F investigation): owner-key rotation is
