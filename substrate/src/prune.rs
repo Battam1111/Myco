@@ -441,6 +441,98 @@ pub(crate) fn count_internal_mortality_events_since(
         .count() as u64
 }
 
+/// **v3.1.1 Sprint 5.G (T2.6)** — count of resurrected parts: nodes whose
+/// `content_canonical_bytes` exactly matches a previously-killed part's
+/// content_canonical_bytes (i.e., a part the prune-scan retired but which
+/// has been re-added under a new node hash because external operator
+/// behavior re-supplied the same content).
+///
+/// Algorithm: O(tombstones × dag_node_count × bytes). For each tombstone
+/// in the DAG, decode its killed_part_hash → look up that node's
+/// content_canonical_bytes → scan all later DAG nodes for byte-equal
+/// content. Resurrected = count of post-tombstone nodes with matching bytes.
+///
+/// Per P07 §8.3 (false_positive_prune_rate metric): too-eager pruning is
+/// a real failure mode. A non-zero count surfaces an over-aggressive
+/// prune rule that's killing parts the substrate still needs.
+///
+/// Returns `(resurrected_count, tombstone_count)`. The ratio is the
+/// observable metric.
+pub fn count_prune_resurrections(state: &ServerState) -> (u64, u64) {
+    use myco_kernel_shared::canonical_bytes::{decode as cb_decode, Value as CbV};
+
+    // Step 1: collect tombstones with their killed_part content_canonical_bytes.
+    // Build a map of (killed_part_content_bytes → cycle of tombstone) so we
+    // can detect "node with matching content emerged AFTER tombstone".
+    let mut tombstone_count: u64 = 0;
+    let mut killed_contents: Vec<(Vec<u8>, u64)> = Vec::new(); // (content_bytes, tombstone_cycle)
+    for tombstone in state.dag.iter_in_insertion_order() {
+        if !tombstone
+            .node_type
+            .starts_with(NODE_TYPE_INTERNAL_MORTALITY_EVENT_PREFIX)
+        {
+            continue;
+        }
+        tombstone_count += 1;
+        // Decode tombstone content → killed_part_hash
+        let tomb_content = tombstone.content_canonical_bytes.as_ref();
+        let decoded = match cb_decode(tomb_content) {
+            Ok(v) => v,
+            Err(_) => continue,
+        };
+        let map = match decoded {
+            CbV::Map(m) => m,
+            _ => continue,
+        };
+        let killed_hash_bytes = match map.get("killed_part_hash") {
+            Some(CbV::Bytes(b)) if b.len() == 32 => {
+                let mut arr = [0u8; 32];
+                arr.copy_from_slice(b);
+                arr
+            }
+            _ => continue,
+        };
+        // Find the killed part in DAG by node hash.
+        for node in state.dag.iter_in_insertion_order() {
+            if node.hash.as_ref() == killed_hash_bytes.as_ref() {
+                killed_contents.push((
+                    node.content_canonical_bytes.as_ref().to_vec(),
+                    tombstone.created_at_cycle,
+                ));
+                break;
+            }
+        }
+    }
+
+    // Step 2: scan post-tombstone DAG nodes for byte-equal content matches.
+    // Exclude tombstones themselves (they reference the killed bytes in
+    // their content) and the killed parts themselves.
+    let mut resurrected: u64 = 0;
+    for (killed_bytes, tombstone_cycle) in &killed_contents {
+        for node in state.dag.iter_in_insertion_order() {
+            // Skip nodes created before/at the tombstone.
+            if node.created_at_cycle <= *tombstone_cycle {
+                continue;
+            }
+            // Skip the tombstones themselves (their content references but
+            // doesn't equal the killed bytes).
+            if node
+                .node_type
+                .starts_with(NODE_TYPE_INTERNAL_MORTALITY_EVENT_PREFIX)
+            {
+                continue;
+            }
+            if node.content_canonical_bytes.as_ref() == killed_bytes.as_slice() {
+                resurrected += 1;
+                // Count each tombstone's resurrection once; break inner loop.
+                break;
+            }
+        }
+    }
+
+    (resurrected, tombstone_count)
+}
+
 /// Count of `raw_material:*` DAG nodes within the given rolling cycle
 /// window. Used to compute the `hoarding_indicator` ratio: high ingestion
 /// + low prune-density over the window = hoarding pattern.

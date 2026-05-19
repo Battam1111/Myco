@@ -7047,6 +7047,119 @@ fn sprint_5f_suppressed_since_last_emission_field_present_after_burst() {
     client.shutdown().expect("shutdown");
 }
 
+// ---------------------------------------------------------------------------
+// **v3.1.1 Sprint 5.G — T2.6 prune false-positive resurrection detection**.
+//
+// P07 §8.3 declares `false_positive_prune_rate` as a falsifiability signal:
+// "Of parts killed in cycle N, how many were re-resurrected (re-added with
+// same canonical bytes) by cycle N+K? Too-eager pruning is a real failure
+// mode; this catches it."
+//
+// Sprint 1 introduced the prune-scan mechanism but didn't expose this
+// metric. Sprint 5.G adds:
+//   - `prune::count_prune_resurrections(state) -> (resurrected, total)`
+//     byte-equal content match between tombstone-killed parts and
+//     subsequent DAG nodes
+//   - observatory signal_11_false_positive_prune_{count,rate_repr,
+//     total_tombstones}
+// ---------------------------------------------------------------------------
+
+#[test]
+fn sprint_5g_signal_11_present_in_observatory_response() {
+    // Lock the public surface: the observatory response carries the new
+    // signal_11_* triplet. Downstream tooling depends on these field names
+    // being stable.
+    let (mut client, _dir) = spawn_substrate();
+    pump_cycles(&mut client, 2);
+    let resp = client
+        .call(proto::QUERY_SUBSTRATE_OBSERVATORY, build_payload(vec![]))
+        .expect("observatory");
+    for required in &[
+        "signal_11_false_positive_prune_count",
+        "signal_11_total_prune_tombstones",
+        "signal_11_false_positive_prune_rate_repr",
+    ] {
+        assert!(
+            resp.payload.contains_key(*required),
+            "Sprint 5.G T2.6: observatory response missing {required}; got keys: {:?}",
+            resp.payload.keys().collect::<Vec<_>>()
+        );
+    }
+    client.shutdown().expect("shutdown");
+}
+
+#[test]
+fn sprint_5g_zero_resurrection_on_fresh_substrate() {
+    // No tombstones yet → rate = 0.0, count = 0. Baseline state.
+    let (mut client, _dir) = spawn_substrate();
+    let resp = client
+        .call(proto::QUERY_SUBSTRATE_OBSERVATORY, build_payload(vec![]))
+        .expect("observatory");
+    let count = match resp.payload.get("signal_11_false_positive_prune_count") {
+        Some(CbValue::Uint(n)) => *n,
+        _ => panic!("count missing"),
+    };
+    let total = match resp.payload.get("signal_11_total_prune_tombstones") {
+        Some(CbValue::Uint(n)) => *n,
+        _ => panic!("total missing"),
+    };
+    let rate_repr = match resp.payload.get("signal_11_false_positive_prune_rate_repr") {
+        Some(CbValue::String(s)) => s.clone(),
+        _ => panic!("rate_repr missing"),
+    };
+    assert_eq!(count, 0, "fresh substrate must have 0 resurrections");
+    assert_eq!(total, 0, "fresh substrate must have 0 tombstones");
+    assert_eq!(rate_repr, "0", "rate should be 0 when no tombstones (got {rate_repr:?})");
+    client.shutdown().expect("shutdown");
+}
+
+#[test]
+fn sprint_5g_count_function_handles_empty_dag_safely() {
+    // Direct unit-style test of the count_prune_resurrections helper using
+    // an in-memory ServerState shortcut. Since we can't construct ServerState
+    // from integration test land easily, exercise via a fresh substrate
+    // (DAG has genesis + invariant_witness events but zero tombstones).
+    let (mut client, _dir) = spawn_substrate();
+    let resp = client
+        .call(proto::QUERY_SUBSTRATE_OBSERVATORY, build_payload(vec![]))
+        .expect("observatory");
+    let count = match resp.payload.get("signal_11_false_positive_prune_count") {
+        Some(CbValue::Uint(n)) => *n,
+        _ => panic!("count missing"),
+    };
+    let total = match resp.payload.get("signal_11_total_prune_tombstones") {
+        Some(CbValue::Uint(n)) => *n,
+        _ => panic!("total missing"),
+    };
+    // No tombstones → resurrection count is necessarily 0 (no killed
+    // contents to compare against).
+    assert_eq!(count, 0);
+    assert_eq!(total, 0);
+    client.shutdown().expect("shutdown");
+}
+
+#[test]
+fn sprint_5g_rate_repr_is_parseable_f64() {
+    // The String repr must round-trip through f64::from_str so operator
+    // tooling can compute thresholds directly.
+    let (mut client, _dir) = spawn_substrate();
+    let resp = client
+        .call(proto::QUERY_SUBSTRATE_OBSERVATORY, build_payload(vec![]))
+        .expect("observatory");
+    let rate_repr = match resp.payload.get("signal_11_false_positive_prune_rate_repr") {
+        Some(CbValue::String(s)) => s.clone(),
+        _ => panic!("rate_repr missing"),
+    };
+    let parsed: f64 = rate_repr
+        .parse()
+        .unwrap_or_else(|_| panic!("rate_repr {rate_repr:?} must parse as f64"));
+    assert!(
+        (0.0..=1.0).contains(&parsed),
+        "rate must be in [0, 1]; got {parsed}"
+    );
+    client.shutdown().expect("shutdown");
+}
+
 #[test]
 fn sprint_5d_saturation_stage_reaches_saturated_under_sustained_exhaustion() {
     // **Stage machine witness**: under tight budgets + tight thresholds

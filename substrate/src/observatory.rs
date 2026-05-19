@@ -1514,6 +1514,29 @@ pub(crate) fn handle_query_substrate_observatory(
         Value::Timestamp(captured_at_unix_ns),
     );
 
+    // **v3.1.1 Sprint 5.G (T2.6)** — P07 §8.3 false_positive_prune_rate.
+    // Computed live (not snapshotted) because resurrection detection
+    // requires byte-level comparison across all DAG history; recomputing
+    // per observatory query keeps the snapshot footprint stable.
+    let (resurrected, total_tombstones) = crate::prune::count_prune_resurrections(state);
+    payload.insert(
+        "signal_11_false_positive_prune_count".to_string(),
+        Value::Uint(resurrected),
+    );
+    payload.insert(
+        "signal_11_total_prune_tombstones".to_string(),
+        Value::Uint(total_tombstones),
+    );
+    let rate = if total_tombstones == 0 {
+        0.0
+    } else {
+        resurrected as f64 / total_tombstones as f64
+    };
+    payload.insert(
+        "signal_11_false_positive_prune_rate_repr".to_string(),
+        Value::String(format!("{rate}")),
+    );
+
     Ok(Some(Message::new(
         msg_type::QUERY_SUBSTRATE_OBSERVATORY_RESPONSE,
         request.request_id,
