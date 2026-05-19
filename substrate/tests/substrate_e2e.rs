@@ -7048,6 +7048,113 @@ fn sprint_5f_suppressed_since_last_emission_field_present_after_burst() {
 }
 
 // ---------------------------------------------------------------------------
+// **v3.1.1 Sprint 5.H — T2.5 Federation protocol-version enforcement**.
+//
+// Cross-version federation must be EXPLICIT, not implicit. Before Sprint
+// 5.H, the substrate parsed the peer's `protocol_version` field but never
+// compared it to FEDERATION_PROTOCOL_VERSION. A v2 substrate connecting
+// to a v1 substrate would TOFU-pin and then silently mis-interoperate
+// (canonical-bytes drift between protocol generations).
+//
+// Sprint 5.H adds strict version-match check. Future hash-agility /
+// protocol upgrades land via a compatibility matrix (out of scope here).
+// ---------------------------------------------------------------------------
+
+#[test]
+fn sprint_5h_federation_hello_version_mismatch_rejected_with_c61() {
+    // Dial a substrate and send a FED_HELLO with protocol_version=99
+    // (future). The substrate MUST reject and emit
+    // C61_federation_protocol_version_mismatch.
+    use myco_kernel_bridge::framing::write_frame;
+    use myco_kernel_bridge::protocol::{encode_frame_body, Message};
+    use myco_kernel_shared::canonical_bytes::Value as CbV;
+    use std::collections::BTreeMap as BTM;
+
+    let (mut client_a, _dir_a) = spawn_substrate();
+    let open_resp = client_a
+        .call(
+            proto::FEDERATION_OPEN_LISTENER,
+            build_payload(vec![(
+                "bind_addr",
+                CbValue::String("127.0.0.1:0".to_string()),
+            )]),
+        )
+        .expect("A open listener");
+    let addr_a = match open_resp.payload.get("bind_addr") {
+        Some(CbValue::String(s)) => s.clone(),
+        _ => panic!("addr missing"),
+    };
+
+    use std::net::TcpStream;
+    let mut stream = TcpStream::connect(&addr_a).expect("dial A");
+    let fake_peer_id = [0xABu8; 32];
+    let mut payload = BTM::new();
+    payload.insert(
+        "peer_substrate_id".to_string(),
+        CbV::Bytes(fake_peer_id.to_vec()),
+    );
+    // Bogus future protocol_version. Substrate must reject.
+    payload.insert("protocol_version".to_string(), CbV::Uint(99));
+    let msg = Message::new("fed_hello", 1, payload);
+
+    use sha2::{Digest, Sha256};
+    let mut h = Sha256::new();
+    h.update(b"myco-federation-protocol-v1-bootstrap");
+    let bootstrap_arr: [u8; 32] = h.finalize().into();
+    let frame = encode_frame_body(&msg, &bootstrap_arr).expect("encode");
+    write_frame(&mut stream, &frame).expect("send hello");
+    std::thread::sleep(std::time::Duration::from_millis(1500));
+
+    let immune_resp = client_a
+        .call(proto::QUERY_IMMUNE_EVENTS, build_payload(vec![]))
+        .expect("query immune");
+    let events = match immune_resp.payload.get("events") {
+        Some(CbValue::Array(a)) => a.clone(),
+        _ => panic!("events missing"),
+    };
+    let has_c61 = events.iter().any(|ev| match ev {
+        CbValue::Map(m) => match m.get("node_type") {
+            Some(CbValue::String(s)) => {
+                s.contains("C61_federation_protocol_version_mismatch")
+            }
+            _ => false,
+        },
+        _ => false,
+    });
+    assert!(
+        has_c61,
+        "Sprint 5.H T2.5: protocol_version=99 hello must emit C61; got events: {events:?}"
+    );
+
+    // Peer must NOT be pinned.
+    let status = client_a
+        .call(proto::FEDERATION_STATUS, build_payload(vec![]))
+        .expect("status");
+    let peer_count = match status.payload.get("peer_count") {
+        Some(CbValue::Uint(n)) => *n,
+        _ => panic!("peer_count missing"),
+    };
+    assert_eq!(
+        peer_count, 0,
+        "Sprint 5.H T2.5: version-mismatch hello must NOT result in pinned peer"
+    );
+    client_a.shutdown().expect("shutdown");
+}
+
+#[test]
+fn sprint_5h_federation_protocol_version_constant_is_pinned() {
+    // Lock the FEDERATION_PROTOCOL_VERSION value so cross-version
+    // doctrine changes are explicit. If this fails after a refactor, the
+    // refactor must include a compatibility matrix migration plan.
+    use substrate::federation::protocol::FEDERATION_PROTOCOL_VERSION;
+    assert_eq!(
+        FEDERATION_PROTOCOL_VERSION, 1,
+        "Sprint 5.H T2.5: FEDERATION_PROTOCOL_VERSION bumped without \
+         compatibility-matrix migration — see Sprint 5.H acknowledged debt"
+    );
+}
+
+// ---------------------------------------------------------------------------
 // **v3.1.1 Sprint 5.G — T2.6 prune false-positive resurrection detection**.
 //
 // P07 §8.3 declares `false_positive_prune_rate` as a falsifiability signal:

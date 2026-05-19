@@ -415,6 +415,28 @@ fn do_autonomous_tick(state: &mut ServerState) -> Result<(), SubstrateError> {
                     content,
                 );
             }
+            crate::federation::PollPeerEvent::RejectedProtocolVersion {
+                peer_substrate_id,
+                remote_addr_str,
+                peer_version,
+                our_version,
+            } => {
+                // **v3.1.1 Sprint 5.H (T2.5)** — emit C61 from the
+                // autonomous tick path.
+                let evidence = format!(
+                    "federation protocol version mismatch at fed_hello: \
+                     peer.substrate_id={} from {remote_addr_str} declared \
+                     protocol_version={peer_version}, our version={our_version} \
+                     (autonomous tick)",
+                    hex_encode(&peer_substrate_id)
+                );
+                let _ = emit_immune_sporocarp(
+                    state,
+                    "C61_federation_protocol_version_mismatch",
+                    "federation_protocol_version_mismatch",
+                    &evidence,
+                );
+            }
         }
     }
     let _ = save_dag_state(state);

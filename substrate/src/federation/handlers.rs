@@ -547,6 +547,27 @@ pub(crate) fn handle_federation_poll(
                 );
                 rejected_count += 1;
             }
+            crate::federation::PollPeerEvent::RejectedProtocolVersion {
+                peer_substrate_id,
+                remote_addr_str,
+                peer_version,
+                our_version,
+            } => {
+                // **v3.1.1 Sprint 5.H (T2.5)** — emit C61 immune sporocarp.
+                let evidence = format!(
+                    "federation protocol version mismatch at fed_hello: \
+                     peer.substrate_id={} from {remote_addr_str} declared \
+                     protocol_version={peer_version}, our version={our_version}",
+                    crate::server::hex_encode(&peer_substrate_id)
+                );
+                let _ = crate::server::emit_immune_sporocarp(
+                    state,
+                    "C61_federation_protocol_version_mismatch",
+                    "federation_protocol_version_mismatch",
+                    &evidence,
+                );
+                rejected_count += 1;
+            }
             crate::federation::PollPeerEvent::FailedFrameRead {
                 remote_addr_str,
                 reason,

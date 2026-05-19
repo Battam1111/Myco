@@ -520,6 +520,44 @@ impl FederationState {
                     continue;
                 }
             };
+            // **v3.1.1 Sprint 5.H (T2.5)** — federation protocol version
+            // negotiation. Currently STRICT match against
+            // FEDERATION_PROTOCOL_VERSION. Future hash-agility / protocol
+            // upgrades will land via:
+            //   1. A compatibility matrix: list of (our_v, peer_v) pairs
+            //      that interoperate (e.g., v1 + v2 share hello envelope
+            //      but v2 adds hash_algo negotiation).
+            //   2. A protocol_capabilities array field in fed_hello.
+            //   3. A best-common-version handshake step before pinning.
+            // Pre-cascade: reject any non-matching version with a typed
+            // C61 immune signal so cross-version connections fail loudly
+            // rather than silently mis-interoperate (which would be the
+            // catastrophic failure mode — two substrates that THINK they're
+            // talking but actually drift in canonical-bytes encoding).
+            if parsed.protocol_version != protocol::FEDERATION_PROTOCOL_VERSION {
+                let reason = format!(
+                    "federation protocol version mismatch: peer v={}, ours v={} \
+                     (C61 — cross-version federation must be explicitly enabled \
+                      via compatibility matrix in future sprint)",
+                    parsed.protocol_version,
+                    protocol::FEDERATION_PROTOCOL_VERSION
+                );
+                let _ = send_fed_error(
+                    &mut peer.stream,
+                    "protocol_version_mismatch",
+                    &reason,
+                );
+                events.push(PollPeerEvent::RejectedProtocolVersion {
+                    peer_substrate_id: parsed.peer_substrate_id,
+                    remote_addr_str: peer.remote_addr.to_string(),
+                    peer_version: parsed.protocol_version,
+                    our_version: protocol::FEDERATION_PROTOCOL_VERSION,
+                });
+                transport::close_stream(&peer.stream);
+                peer.state = transport::PeerConnectionState::Failed;
+                indices_to_remove.push(idx);
+                continue;
+            }
             // M25.4: verify the peer's hello signature when present. A tampered
             // signature is a hard reject (peer impersonation attempt).
             // M26.1 C5 SECURITY FIX: a peer with NO signature is also a hard
@@ -1022,6 +1060,22 @@ pub enum PollPeerEvent {
         peer_substrate_id: [u8; 32],
         /// Hashes of the DAG events we sent.
         sent_event_hashes: Vec<[u8; 32]>,
+    },
+    /// **v3.1.1 Sprint 5.H (T2.5)** — inbound peer presented a fed_hello
+    /// with a protocol_version that doesn't match
+    /// FEDERATION_PROTOCOL_VERSION. Cross-version federation must be
+    /// explicitly enabled via a compatibility matrix (future sprint).
+    /// Caller emits a C61_federation_protocol_version_mismatch immune
+    /// sporocarp.
+    RejectedProtocolVersion {
+        /// The peer's claimed substrate_id (untrusted, but recorded).
+        peer_substrate_id: [u8; 32],
+        /// Remote socket address.
+        remote_addr_str: String,
+        /// Version the peer advertised.
+        peer_version: u64,
+        /// Our FEDERATION_PROTOCOL_VERSION.
+        our_version: u64,
     },
 }
 
