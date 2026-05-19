@@ -5968,3 +5968,247 @@ fn layer_c_p11_positive_per_cycle_cost_signals_emitted() {
     );
     client.shutdown().expect("shutdown");
 }
+
+// ---------------------------------------------------------------------------
+// **v3.1.1 Sprint 5.A — T1.1 L0 revision attestation defense**.
+//
+// M-anchor-5 §9.2.4 + L0/PROVENANCE.md anchor the doctrine version (v3.0 →
+// v3.1 → v3.1.1) on-chain via `l0_revision_attest` mutations. Without this
+// path being defended, anyone could forge an L0 revision attestation and
+// have it accepted into a substrate's DAG — destroying doctrine
+// traceability (P06 root contract).
+//
+// The substrate's defense lives in `attestation.rs:783-836`, which decodes
+// the L0 revision envelope BEFORE forwarding to Python's CI verifier, AND
+// validates the attestation_signature shape AFTER Python accepts. Each
+// failure mode emits C5_attestation_invalid + immune sporocarp.
+//
+// **Coverage scope (Sprint 5.A)**: every rejection path on the
+// l0_revision_attest mutation pipeline. The full positive ceremony E2E
+// (operator-pubkey-pinned substrate + valid nonce + valid dual-clock)
+// requires test harness for operator-pubkey TOFU injection + Python-side
+// nonce mock and is tracked as **Sprint 5.A.2 follow-up** (estimated 5-8h).
+// In production this positive path is exercised once per L0 revision
+// (rare); the rejection paths exercised here run on every malformed
+// attempt.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn sprint_5a_l0_revision_canonical_bytes_roundtrip() {
+    // Pre-condition: the encode/decode roundtrip is canonical. If this
+    // ever drifts, every substrate's L0 attestations stop verifying
+    // cross-version.
+    use substrate::events::{build_l0_revision_canonical_bytes, decode_l0_revision};
+    let prior = [0xAAu8; 32];
+    let new = [0xBBu8; 32];
+    let summary = "v3.1 → v3.1.1 amendment: P07 mortality reinterpretation + CHAR07";
+    let ts: i64 = 1_700_000_000_000_000_000;
+    let nonce = [0xCCu8; 32];
+    let bytes = build_l0_revision_canonical_bytes(&prior, &new, summary, ts, &nonce);
+    let (p2, n2, s2, t2, no2) = decode_l0_revision(&bytes).expect("roundtrip decode");
+    assert_eq!(p2, prior, "prior_l0_hash round-trip");
+    assert_eq!(n2, new, "new_l0_hash round-trip");
+    assert_eq!(s2, summary, "diff_summary round-trip");
+    assert_eq!(t2, ts, "anchor_timestamp round-trip");
+    assert_eq!(no2, nonce, "anchor_nonce round-trip");
+}
+
+#[test]
+fn sprint_5a_l0_revision_attested_node_type_deterministic() {
+    // The DAG node_type encodes the first-8-hex of prior_l0_hash so
+    // consecutive revisions remain distinguishable. Pin the format so
+    // downstream tooling can rely on the prefix shape.
+    use substrate::events::{
+        l0_revision_attested_node_type, NODE_TYPE_L0_REVISION_ATTESTED_PREFIX,
+    };
+    let prior = [
+        0xb1, 0xbe, 0xc5, 0x9a, 0xcc, 0x8c, 0x50, 0x61, // matches memory
+        0xde, 0xad, 0xbe, 0xef, 0xde, 0xad, 0xbe, 0xef, 0xde, 0xad, 0xbe, 0xef,
+        0xde, 0xad, 0xbe, 0xef, 0xde, 0xad, 0xbe, 0xef, 0xde, 0xad, 0xbe, 0xef,
+    ];
+    let nt = l0_revision_attested_node_type(&prior);
+    assert_eq!(
+        nt, "l0_revision_attested:b1bec59acc8c5061",
+        "node_type must encode first-8-hex of prior_l0_hash"
+    );
+    assert!(nt.starts_with(NODE_TYPE_L0_REVISION_ATTESTED_PREFIX));
+}
+
+#[test]
+fn sprint_5a_l0_revision_attest_rejects_malformed_canonical_bytes() {
+    // **Defense path**: attestation.rs:823-834 — content_canonical_bytes
+    // that doesn't decode as the expected envelope triggers C5
+    // attestation_invalid + rejection_reason citing the decode failure.
+    //
+    // Sending garbage bytes that are NOT a valid l0_revision envelope MUST
+    // surface as classifier-untyped at Python OR substrate-side decode
+    // failure — either way: accepted=false, no l0_revision_attested DAG
+    // event emitted.
+    let (mut client, _dir) = spawn_substrate();
+    let resp = client
+        .call(
+            proto::SUBMIT_MUTATION,
+            build_payload(vec![
+                ("mutation_type", CbValue::String("l0_revision_attest".to_string())),
+                (
+                    "content_canonical_bytes",
+                    CbValue::Bytes(b"this is not a valid canonical-bytes envelope".to_vec()),
+                ),
+                ("touched_fields", CbValue::Array(vec![])),
+                ("touched_files", CbValue::Array(vec![])),
+                ("touched_meta_structures", CbValue::Array(vec![])),
+            ]),
+        )
+        .expect("submit_mutation");
+    let accepted = match resp.payload.get("accepted") {
+        Some(CbValue::Bool(b)) => *b,
+        _ => panic!("accepted missing"),
+    };
+    assert!(
+        !accepted,
+        "Sprint 5.A T1.1: malformed l0_revision envelope MUST be rejected; \
+         got accepted=true (doctrine traceability gap — anyone could forge \
+         an L0 revision attestation)"
+    );
+    // No l0_revision_attested:* event in DAG.
+    let nodes_resp = client
+        .call(
+            proto::QUERY_RECENT_NODES,
+            build_payload(vec![
+                ("count", CbValue::Uint(50)),
+                (
+                    "node_type_prefix",
+                    CbValue::String("l0_revision_attested:".to_string()),
+                ),
+            ]),
+        )
+        .expect("query");
+    let nodes = match nodes_resp.payload.get("nodes") {
+        Some(CbValue::Array(a)) => a.clone(),
+        _ => panic!("nodes missing"),
+    };
+    assert!(
+        nodes.is_empty(),
+        "rejected l0_revision_attest MUST NOT leave an attested:* event in DAG; \
+         saw {} nodes",
+        nodes.len()
+    );
+    client.shutdown().expect("shutdown");
+}
+
+#[test]
+fn sprint_5a_l0_revision_attest_rejects_wrong_domain_envelope() {
+    // **Defense path**: the canonical-bytes envelope must carry
+    // domain=L0_REVISION_DOMAIN. A submitter trying to pass off a
+    // different envelope type (e.g., dag_tip_cosign) as an l0_revision
+    // must be rejected at substrate decode time.
+    use substrate::events::build_l0_revision_canonical_bytes;
+
+    // Build a VALID l0_revision envelope first (so we have valid
+    // canonical-bytes structurally), then corrupt the domain field.
+    let prior = [0x11u8; 32];
+    let new = [0x22u8; 32];
+    let nonce = [0x33u8; 32];
+    let valid = build_l0_revision_canonical_bytes(&prior, &new, "amendment", 0, &nonce);
+    // The domain string "l0_revision_v1" lives early in the canonical-
+    // bytes Map. Replace it with garbage to corrupt the domain check
+    // while keeping the envelope decodable.
+    use myco_kernel_shared::canonical_bytes::{decode as cb_decode, encode as cb_encode, Value};
+    let mut decoded = match cb_decode(&valid).expect("envelope decodes") {
+        Value::Map(m) => m,
+        _ => panic!("envelope not a Map"),
+    };
+    decoded.insert(
+        "domain".to_string(),
+        Value::String("not_l0_revision".to_string()),
+    );
+    let corrupted = cb_encode(&Value::Map(decoded)).expect("encode").0;
+
+    let (mut client, _dir) = spawn_substrate();
+    let resp = client
+        .call(
+            proto::SUBMIT_MUTATION,
+            build_payload(vec![
+                ("mutation_type", CbValue::String("l0_revision_attest".to_string())),
+                ("content_canonical_bytes", CbValue::Bytes(corrupted)),
+                ("touched_fields", CbValue::Array(vec![])),
+                ("touched_files", CbValue::Array(vec![])),
+                ("touched_meta_structures", CbValue::Array(vec![])),
+            ]),
+        )
+        .expect("submit_mutation");
+    let accepted = match resp.payload.get("accepted") {
+        Some(CbValue::Bool(b)) => *b,
+        _ => panic!("accepted missing"),
+    };
+    assert!(
+        !accepted,
+        "Sprint 5.A T1.1: wrong-domain envelope must be rejected; got accepted=true"
+    );
+    client.shutdown().expect("shutdown");
+}
+
+#[test]
+fn sprint_5a_l0_revision_attest_rejects_when_python_returns_untyped() {
+    // **Belt-and-suspenders test**: without proper touched_fields /
+    // nonce / attestation_signature, the Python classifier's CI gate
+    // returns accepted=false. This proves the CI gate holds before
+    // substrate-side staging would run — there's no "skip Python" path
+    // that would let an attacker reach the l0_revision DAG-event
+    // emission code by bypassing classification.
+    let (mut client, _dir) = spawn_substrate();
+    use substrate::events::build_l0_revision_canonical_bytes;
+    let prior = [0x44u8; 32];
+    let new = [0x55u8; 32];
+    let nonce = [0x66u8; 32];
+    let valid_envelope =
+        build_l0_revision_canonical_bytes(&prior, &new, "test amendment", 0, &nonce);
+
+    let resp = client
+        .call(
+            proto::SUBMIT_MUTATION,
+            build_payload(vec![
+                ("mutation_type", CbValue::String("l0_revision_attest".to_string())),
+                ("content_canonical_bytes", CbValue::Bytes(valid_envelope)),
+                ("touched_fields", CbValue::Array(vec![])),
+                ("touched_files", CbValue::Array(vec![])),
+                ("touched_meta_structures", CbValue::Array(vec![])),
+                // Deliberately omit attestation_signature / nonce.
+            ]),
+        )
+        .expect("submit_mutation");
+    let accepted = match resp.payload.get("accepted") {
+        Some(CbValue::Bool(b)) => *b,
+        _ => panic!("accepted missing"),
+    };
+    assert!(
+        !accepted,
+        "Sprint 5.A T1.1: l0_revision_attest WITHOUT cultivator attestation \
+         must be rejected at CI gate; got accepted=true (CI gate breach — \
+         anyone could land doctrine revisions without owner consent)"
+    );
+
+    // Verify no l0_revision_attested:* event in DAG.
+    let nodes_resp = client
+        .call(
+            proto::QUERY_RECENT_NODES,
+            build_payload(vec![
+                ("count", CbValue::Uint(50)),
+                (
+                    "node_type_prefix",
+                    CbValue::String("l0_revision_attested:".to_string()),
+                ),
+            ]),
+        )
+        .expect("query");
+    let nodes = match nodes_resp.payload.get("nodes") {
+        Some(CbValue::Array(a)) => a.clone(),
+        _ => panic!("nodes missing"),
+    };
+    assert!(
+        nodes.is_empty(),
+        "no l0_revision_attested:* event should exist after rejection; saw {}",
+        nodes.len()
+    );
+    client.shutdown().expect("shutdown");
+}
