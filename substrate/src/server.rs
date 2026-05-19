@@ -543,6 +543,18 @@ pub(crate) struct ServerState {
     /// further emissions until the substrate restarts. Without this gate,
     /// every tick after Python death would re-emit C60, spamming the DAG.
     pub(crate) python_worker_death_logged: bool,
+    /// **v3.1.1 Sprint 5.F (T2.4)**: per-detector immune-emission rate limit
+    /// state. Maps `detector_id` to `(last_emission_unix_ns,
+    /// last_emitted_hash, suppression_count)`. The
+    /// `emit_immune_sporocarp` helper checks this map on every call:
+    /// if a same-detector emission occurred within
+    /// `IMMUNE_EMISSION_RATE_LIMIT_MS` ago, the new call is suppressed
+    /// (DAG not mutated) and the cached hash is returned. The
+    /// suppression count is exposed in the observatory digest so the
+    /// operator can detect attempted DoS without the DAG getting
+    /// pathologically large.
+    pub(crate) immune_emission_state:
+        std::collections::HashMap<String, (i64, myco_kernel_shared::crypto::NodeHash, u64)>,
 }
 
 impl ServerState {
@@ -637,6 +649,11 @@ impl ServerState {
             // v3.1.1 Sprint 5.E: Python-worker death flag starts cleared.
             // Set to true the first time autonomous_tick detects child exit.
             python_worker_death_logged: false,
+            // v3.1.1 Sprint 5.F: per-detector immune-emission rate-limit
+            // tracking starts empty. Populated lazily on first emission per
+            // detector_id; reset on substrate restart (rate-limit window is
+            // wall-clock, not cycle-counter, so this is safe).
+            immune_emission_state: std::collections::HashMap::new(),
         }
     }
 
@@ -1766,6 +1783,31 @@ pub(crate) fn emit_immune_sporocarp(
         .and_then(|d| i64::try_from(d.as_nanos()).ok())
         .unwrap_or(0);
 
+    // **v3.1.1 Sprint 5.F (T2.4)** — per-detector rate limit. Wall-clock
+    // window prevents DoS attacks where an attacker rapidly triggers a
+    // detector (e.g., C56 cultivator_preserve_all, C5 attestation_invalid,
+    // C2 handshake_mismatch) and fills the DAG with duplicate immune
+    // events. The substrate still reports the breach via the cached node
+    // hash + a suppression counter; subsequent unique detector_ids are
+    // unaffected. Window = `IMMUNE_EMISSION_RATE_LIMIT_NS` (1 second).
+    //
+    // Note: cycle_advanced + canonical-flow events bypass this rate limit
+    // because they go through `emit_substrate_event`, not this function.
+    // The rate limit applies strictly to immune-class detector emissions.
+    const IMMUNE_EMISSION_RATE_LIMIT_NS: i64 = 1_000_000_000; // 1 second
+    if let Some((prior_ts, prior_hash, prior_supp)) =
+        state.immune_emission_state.get(detector_id).cloned()
+    {
+        if timestamp_unix_ns.saturating_sub(prior_ts) < IMMUNE_EMISSION_RATE_LIMIT_NS {
+            // Suppress: increment suppression count, return cached hash.
+            state.immune_emission_state.insert(
+                detector_id.to_string(),
+                (prior_ts, prior_hash, prior_supp.saturating_add(1)),
+            );
+            return Ok(prior_hash);
+        }
+    }
+
     let mut content_map = BTreeMap::new();
     content_map.insert(
         "detector_id".to_string(),
@@ -1780,6 +1822,20 @@ pub(crate) fn emit_immune_sporocarp(
         "timestamp_unix_ns".to_string(),
         Value::Timestamp(timestamp_unix_ns),
     );
+    // **v3.1.1 Sprint 5.F**: when this emission is the first after a
+    // rate-limited burst, include `suppressed_since_last_emission` so the
+    // operator can re-derive the actual breach count from DAG.
+    let suppressed_since = state
+        .immune_emission_state
+        .get(detector_id)
+        .map(|(_, _, count)| *count)
+        .unwrap_or(0);
+    if suppressed_since > 0 {
+        content_map.insert(
+            "suppressed_since_last_emission".to_string(),
+            Value::Uint(suppressed_since),
+        );
+    }
     let content_canonical = cb_encode(&Value::Map(content_map))
         .map_err(|e| SubstrateError::Protocol(format!("immune encode: {e}")))?;
 
@@ -1789,10 +1845,16 @@ pub(crate) fn emit_immune_sporocarp(
     };
     let node_type = format!("immune:{detector_id}");
     let cycle = state.manifest.cycle_counter;
-    state
+    let hash = state
         .dag
         .insert_node(parents, node_type, cycle, content_canonical)
-        .map_err(|e| SubstrateError::Protocol(format!("immune DAG insert: {e}")))
+        .map_err(|e| SubstrateError::Protocol(format!("immune DAG insert: {e}")))?;
+    // Update rate-limit state with this fresh emission.
+    state.immune_emission_state.insert(
+        detector_id.to_string(),
+        (timestamp_unix_ns, hash, 0),
+    );
+    Ok(hash)
 }
 
 

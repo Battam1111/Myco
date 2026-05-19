@@ -5335,7 +5335,13 @@ fn layer_c_p07_negative_cultivator_preserve_all_rejected() {
              covenant_violation (COV04 §3.7); got {classification:?}"
         );
     }
-    // Verify the C56 immune sporocarp was emitted at least once.
+    // Verify the C56 immune sporocarp was emitted at least once. Note:
+    // Sprint 5.F rate-limits same-detector emissions to 1 per second; the
+    // 3 forbidden mutations submitted in rapid succession produce 1 DAG
+    // event (first one) with subsequent attempts tracked via the
+    // `suppressed_since_last_emission` counter on that event. The
+    // rejection itself (accepted=false above) ALWAYS fires regardless of
+    // rate limit — only the DAG-side immune event is suppressed.
     let nodes_resp = client
         .call(
             proto::QUERY_RECENT_NODES,
@@ -5353,11 +5359,10 @@ fn layer_c_p07_negative_cultivator_preserve_all_rejected() {
         _ => panic!("nodes missing"),
     };
     assert!(
-        nodes.len() >= forbidden.len(),
-        "P07 §5.3 + COV04 §5.6: substrate must emit C56_cultivator_preserve_all_attempted \
-         for each forbidden mutation; expected ≥ {}, got {}",
-        forbidden.len(),
-        nodes.len()
+        !nodes.is_empty(),
+        "P07 §5.3 + COV04 §5.6: substrate must emit at least one \
+         C56_cultivator_preserve_all_attempted immune event; got 0 (detection \
+         broken — only rate-limiting could reduce count, not eliminate)"
     );
     client.shutdown().expect("shutdown");
 }
@@ -6793,6 +6798,251 @@ fn sprint_5d_c53_under_normal_emission_pattern_stays_quiet() {
          30 cycles of tight budgets — primary path may be broken OR C53 \
          logic has changed to fire under normal operation",
         nodes.len()
+    );
+    client.shutdown().expect("shutdown");
+}
+
+// ---------------------------------------------------------------------------
+// **v3.1.1 Sprint 5.F — T2.4 Immune buffer rate limit / DoS defense**.
+//
+// `emit_immune_sporocarp` rate-limits same-detector emissions to 1 per
+// second (wall-clock). Without this, an attacker rapidly triggering a
+// detector (e.g., C56 via 1000 preserve_all mutations/sec) would fill
+// dag.cb with duplicate immune nodes, eventually OOMing the substrate.
+//
+// Properties tested:
+//   1. Same detector_id within 1 second → only 1 DAG event emitted
+//   2. Different detector_ids → independent rate limits, both emit
+//   3. The single emitted event carries `suppressed_since_last_emission`
+//      counter when prior attempts were suppressed (so the operator can
+//      reconstruct the actual breach count)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn sprint_5f_rapid_same_detector_emissions_rate_limited_to_one() {
+    // Submit 5 forbidden preserve_all mutations in rapid succession. Each
+    // gets rejected (accepted=false). C56 immune emission would normally
+    // fire 5 times; rate limit caps at 1 within the 1-second window.
+    let (mut client, _dir) = spawn_substrate();
+    for _ in 0..5 {
+        let _ = client.call(
+            proto::SUBMIT_MUTATION,
+            build_payload(vec![
+                ("mutation_type", CbValue::String("preserve_all_axes".to_string())),
+                (
+                    "content_canonical_bytes",
+                    CbValue::Bytes(b"rapid_attack".to_vec()),
+                ),
+                ("touched_fields", CbValue::Array(vec![])),
+                ("touched_files", CbValue::Array(vec![])),
+                ("touched_meta_structures", CbValue::Array(vec![])),
+            ]),
+        );
+    }
+    let resp = client
+        .call(
+            proto::QUERY_RECENT_NODES,
+            build_payload(vec![
+                ("count", CbValue::Uint(50)),
+                (
+                    "node_type_prefix",
+                    CbValue::String("immune:C56_cultivator_preserve_all_attempted".to_string()),
+                ),
+            ]),
+        )
+        .expect("query");
+    let nodes = match resp.payload.get("nodes") {
+        Some(CbValue::Array(a)) => a.clone(),
+        _ => panic!("nodes missing"),
+    };
+    assert_eq!(
+        nodes.len(),
+        1,
+        "Sprint 5.F T2.4: same-detector rapid emissions should rate-limit to 1 \
+         per 1-second window; got {} DAG events (rate limit not working)",
+        nodes.len()
+    );
+    client.shutdown().expect("shutdown");
+}
+
+#[test]
+fn sprint_5f_distinct_detectors_have_independent_rate_limits() {
+    // Trigger C56 (preserve_all) once, then trigger C5/C-other (different
+    // detector) — both should emit because rate limits are per-detector,
+    // not global.
+    let (mut client, _dir) = spawn_substrate();
+
+    // C56 — preserve_all
+    let _ = client.call(
+        proto::SUBMIT_MUTATION,
+        build_payload(vec![
+            ("mutation_type", CbValue::String("preserve_all_axes".to_string())),
+            ("content_canonical_bytes", CbValue::Bytes(b"x".to_vec())),
+            ("touched_fields", CbValue::Array(vec![])),
+            ("touched_files", CbValue::Array(vec![])),
+            ("touched_meta_structures", CbValue::Array(vec![])),
+        ]),
+    );
+
+    // l0_revision_attest with malformed content → C5 attestation_invalid.
+    // Different detector_id than C56, so should emit independently.
+    let _ = client.call(
+        proto::SUBMIT_MUTATION,
+        build_payload(vec![
+            ("mutation_type", CbValue::String("l0_revision_attest".to_string())),
+            (
+                "content_canonical_bytes",
+                CbValue::Bytes(b"malformed_envelope".to_vec()),
+            ),
+            ("touched_fields", CbValue::Array(vec![])),
+            ("touched_files", CbValue::Array(vec![])),
+            ("touched_meta_structures", CbValue::Array(vec![])),
+        ]),
+    );
+
+    // Query all immune:* events — should see both C56 AND C5.
+    let resp = client
+        .call(
+            proto::QUERY_RECENT_NODES,
+            build_payload(vec![
+                ("count", CbValue::Uint(50)),
+                ("node_type_prefix", CbValue::String("immune:".to_string())),
+            ]),
+        )
+        .expect("query");
+    let nodes = match resp.payload.get("nodes") {
+        Some(CbValue::Array(a)) => a.clone(),
+        _ => panic!("nodes missing"),
+    };
+    let mut detector_ids: std::collections::HashSet<String> =
+        std::collections::HashSet::new();
+    for n in &nodes {
+        if let CbValue::Map(m) = n {
+            if let Some(CbValue::String(nt)) = m.get("node_type") {
+                if let Some(suffix) = nt.strip_prefix("immune:") {
+                    detector_ids.insert(suffix.to_string());
+                }
+            }
+        }
+    }
+    let saw_c56 = detector_ids
+        .iter()
+        .any(|s| s.starts_with("C56_cultivator_preserve_all"));
+    let saw_c5 = detector_ids
+        .iter()
+        .any(|s| s.starts_with("C5_attestation_invalid"));
+    assert!(
+        saw_c56,
+        "Sprint 5.F T2.4: C56 missing from immune events; saw {detector_ids:?}"
+    );
+    assert!(
+        saw_c5,
+        "Sprint 5.F T2.4: C5 missing — distinct detectors should NOT \
+         share rate limits; saw {detector_ids:?}"
+    );
+    client.shutdown().expect("shutdown");
+}
+
+#[test]
+fn sprint_5f_suppressed_since_last_emission_field_present_after_burst() {
+    // After a burst of same-detector calls within 1 second, the FIRST
+    // event has no suppression record (first emission). If we wait >1s
+    // then trigger again, the second emission should carry
+    // `suppressed_since_last_emission` > 0 IF additional bursts happened
+    // in the meantime.
+    //
+    // Test sequence:
+    //   1. Trigger 3x C56 quickly → 1 DAG event, 2 suppressed
+    //   2. Wait 1.1s
+    //   3. Trigger 1x C56 → 2nd DAG event, should carry suppressed=2
+    let (mut client, _dir) = spawn_substrate();
+
+    // Phase 1: burst.
+    for _ in 0..3 {
+        let _ = client.call(
+            proto::SUBMIT_MUTATION,
+            build_payload(vec![
+                ("mutation_type", CbValue::String("preserve_all_axes".to_string())),
+                ("content_canonical_bytes", CbValue::Bytes(b"burst".to_vec())),
+                ("touched_fields", CbValue::Array(vec![])),
+                ("touched_files", CbValue::Array(vec![])),
+                ("touched_meta_structures", CbValue::Array(vec![])),
+            ]),
+        );
+    }
+    // Phase 2: wait past rate-limit window.
+    std::thread::sleep(std::time::Duration::from_millis(1100));
+    // Phase 3: one more trigger.
+    let _ = client.call(
+        proto::SUBMIT_MUTATION,
+        build_payload(vec![
+            ("mutation_type", CbValue::String("preserve_all_axes".to_string())),
+            ("content_canonical_bytes", CbValue::Bytes(b"after".to_vec())),
+            ("touched_fields", CbValue::Array(vec![])),
+            ("touched_files", CbValue::Array(vec![])),
+            ("touched_meta_structures", CbValue::Array(vec![])),
+        ]),
+    );
+
+    let resp = client
+        .call(
+            proto::QUERY_RECENT_NODES,
+            build_payload(vec![
+                ("count", CbValue::Uint(50)),
+                (
+                    "node_type_prefix",
+                    CbValue::String("immune:C56_cultivator_preserve_all_attempted".to_string()),
+                ),
+            ]),
+        )
+        .expect("query");
+    let nodes = match resp.payload.get("nodes") {
+        Some(CbValue::Array(a)) => a.clone(),
+        _ => panic!("nodes missing"),
+    };
+    assert_eq!(
+        nodes.len(),
+        2,
+        "Sprint 5.F T2.4: expected exactly 2 C56 DAG events (burst suppressed \
+         + after-window emit); got {}",
+        nodes.len()
+    );
+    // The most recent (second) event should have suppressed_since_last_emission >= 2
+    // (the 2 suppressed calls during the burst).
+    //
+    // Note: query_recent_nodes returns nodes in insertion order (latest
+    // last) — but the exact slice order depends on the query impl. Inspect
+    // both events; at least one should carry suppressed > 0.
+    use myco_kernel_shared::canonical_bytes::{decode as cb_decode, Value as CbV};
+    let mut saw_suppressed = false;
+    for n in &nodes {
+        let m = match n {
+            CbValue::Map(m) => m,
+            _ => continue,
+        };
+        let content = match m.get("content_canonical_bytes") {
+            Some(CbValue::Bytes(b)) => b.clone(),
+            _ => continue,
+        };
+        let decoded = match cb_decode(&content) {
+            Ok(v) => v,
+            Err(_) => continue,
+        };
+        let event_map = match decoded {
+            CbV::Map(m) => m,
+            _ => continue,
+        };
+        if let Some(CbV::Uint(n)) = event_map.get("suppressed_since_last_emission") {
+            if *n >= 2 {
+                saw_suppressed = true;
+            }
+        }
+    }
+    assert!(
+        saw_suppressed,
+        "Sprint 5.F T2.4: at least one C56 event should carry \
+         suppressed_since_last_emission >= 2 reflecting the burst-suppressed \
+         calls — operator must be able to reconstruct true breach count"
     );
     client.shutdown().expect("shutdown");
 }
