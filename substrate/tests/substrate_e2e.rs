@@ -6598,3 +6598,243 @@ fn sprint_5c_new_check_ids_appear_in_run_immune_check_response() {
     }
     client.shutdown().expect("shutdown");
 }
+
+// ---------------------------------------------------------------------------
+// **v3.1.1 Sprint 5.D — T2.2 C53 budget_exhausted_silent path coverage**.
+//
+// P11 §3.1+§3.2+§3.4 + I10 silent-absorption forbiddance: every operation
+// that consumes cost MUST produce an observable signal. When cost > budget
+// the primary defense is the `budget_exhausted:{axis}` DAG event. C53 is
+// the failsafe — fires if the primary emission path silently stops working.
+//
+// **Sprint 4's P11 witness** proved cost signals are PRESENT under normal
+// operation. Sprint 5.D extends to abnormal operation: under tight budgets,
+// substrate MUST emit budget_exhausted:* events and advance through the
+// SaturationStage state machine.
+//
+// Test uses `MYCO_TEST_TIGHTEN_BUDGETS_FOR_C53=1` env var to force every
+// cycle into budget exhaustion (1-byte / 1-ns budgets — every cycle's
+// dag.cb growth and compute work exceeds these trivially).
+//
+// **Doctrine drift finding (C53 logic tautology)**: under the current
+// implementation in observatory.rs:636-718, C53 cannot fire because
+// `emit_axis_exhaustion` always updates `last_budget_exhausted_per_axis`
+// when cooldown is satisfied; the C53 check then sees a recent emission
+// and stays quiet. The defensive purpose (catch "substrate hiding cost")
+// requires either:
+//   (a) Only update last_emit if emit_substrate_event actually returned Ok
+//       (track emit success, not emit attempt). Minimal fix.
+//   (b) Redesign C53 to query the DAG directly for budget_exhausted:* in
+//       the last 50 cycles (independent of cache state). Stronger.
+// Sprint 5.D pins the current behavior as a regression baseline; cultivator
+// to decide on (a)/(b) follow-up. Tracked as **Sprint 5.D.2 acknowledged
+// debt** (~2-3h).
+// ---------------------------------------------------------------------------
+
+#[test]
+fn sprint_5d_tight_budgets_trigger_budget_exhausted_event() {
+    // **Primary defense witness**: with budgets tightened to 1 unit, every
+    // cycle's storage_bytes (dag.cb growth) exceeds 1 byte. Substrate MUST
+    // emit budget_exhausted:storage_per_cycle DAG event within the first
+    // few cycles. Without this, P11 §3.4 silent absorption is real.
+    let dir = fresh_state_dir();
+    let mut client = spawn_substrate_with_env(
+        &dir,
+        vec![(
+            "MYCO_TEST_TIGHTEN_BUDGETS_FOR_C53".to_string(),
+            "1".to_string(),
+        )],
+    );
+    // Pump a few cycles — each one mutates dag.cb by at least the
+    // cycle_advanced event (~100 bytes), exceeding the 1-byte storage
+    // budget on every cycle.
+    pump_cycles(&mut client, 5);
+    let resp = client
+        .call(
+            proto::QUERY_RECENT_NODES,
+            build_payload(vec![
+                ("count", CbValue::Uint(100)),
+                (
+                    "node_type_prefix",
+                    CbValue::String("budget_exhausted:".to_string()),
+                ),
+            ]),
+        )
+        .expect("query");
+    let nodes = match resp.payload.get("nodes") {
+        Some(CbValue::Array(a)) => a.clone(),
+        _ => panic!("nodes missing"),
+    };
+    assert!(
+        !nodes.is_empty(),
+        "Sprint 5.D T2.2: tight budgets MUST trigger budget_exhausted:* events; \
+         saw 0 after 5 cycles (P11 §3.4 primary defense path broken — silent \
+         cost absorption is happening)"
+    );
+    // Verify at least one event targets storage_per_cycle (the axis we KNOW
+    // is exhausted every cycle).
+    let saw_storage = nodes.iter().any(|n| {
+        if let CbValue::Map(m) = n {
+            if let Some(CbValue::String(nt)) = m.get("node_type") {
+                return nt.contains("storage_per_cycle");
+            }
+        }
+        false
+    });
+    assert!(
+        saw_storage,
+        "expected at least one budget_exhausted:storage_per_cycle event"
+    );
+    client.shutdown().expect("shutdown");
+}
+
+#[test]
+fn sprint_5d_budget_exhausted_event_carries_cost_and_budget_fields() {
+    // **Witness completeness**: the budget_exhausted event content must
+    // carry both `current` (cost observed) AND `budget` (threshold breached)
+    // fields so the operator can re-derive the breach offline. A naked
+    // event without these fields makes the immune signal unverifiable.
+    let dir = fresh_state_dir();
+    let mut client = spawn_substrate_with_env(
+        &dir,
+        vec![(
+            "MYCO_TEST_TIGHTEN_BUDGETS_FOR_C53".to_string(),
+            "1".to_string(),
+        )],
+    );
+    pump_cycles(&mut client, 3);
+    let resp = client
+        .call(
+            proto::QUERY_RECENT_NODES,
+            build_payload(vec![
+                ("count", CbValue::Uint(20)),
+                (
+                    "node_type_prefix",
+                    CbValue::String("budget_exhausted:".to_string()),
+                ),
+            ]),
+        )
+        .expect("query");
+    let nodes = match resp.payload.get("nodes") {
+        Some(CbValue::Array(a)) => a.clone(),
+        _ => panic!("nodes missing"),
+    };
+    assert!(
+        !nodes.is_empty(),
+        "need at least one budget_exhausted event to inspect"
+    );
+    use myco_kernel_shared::canonical_bytes::{decode as cb_decode, Value as CbV};
+    let first = match &nodes[0] {
+        CbValue::Map(m) => m.clone(),
+        _ => panic!("node not a Map"),
+    };
+    let content = match first.get("content_canonical_bytes") {
+        Some(CbValue::Bytes(b)) => b.clone(),
+        _ => panic!("content_canonical_bytes missing"),
+    };
+    let decoded = cb_decode(&content).expect("event decodes");
+    let m = match decoded {
+        CbV::Map(m) => m,
+        _ => panic!("event not a Map"),
+    };
+    // Required fields per encode_budget_exhausted contract.
+    for required_field in &["axis", "current_value", "budget", "at_cycle"] {
+        assert!(
+            m.contains_key(*required_field),
+            "Sprint 5.D T2.2: budget_exhausted event missing required field \
+             {required_field:?}; got keys: {:?}",
+            m.keys().collect::<Vec<_>>()
+        );
+    }
+    client.shutdown().expect("shutdown");
+}
+
+#[test]
+fn sprint_5d_c53_under_normal_emission_pattern_stays_quiet() {
+    // **Doctrine drift documentation**: under current C53 logic
+    // (observatory.rs:636-718), as long as the primary emission path
+    // runs, C53 stays quiet because last_emit gets refreshed every
+    // ≥10 cycles. This test pins that behavior as a regression baseline
+    // — if a future refactor changes C53 to fire under normal operation,
+    // this test fails informatively.
+    //
+    // The semantic property being pinned: "C53 fires ONLY when emission
+    // is silent" — under tight budgets WITH working emit, C53 quiet
+    // for ≤50 cycles (within the C53 detection window).
+    let dir = fresh_state_dir();
+    let mut client = spawn_substrate_with_env(
+        &dir,
+        vec![(
+            "MYCO_TEST_TIGHTEN_BUDGETS_FOR_C53".to_string(),
+            "1".to_string(),
+        )],
+    );
+    pump_cycles(&mut client, 30);
+    let resp = client
+        .call(
+            proto::QUERY_RECENT_NODES,
+            build_payload(vec![
+                ("count", CbValue::Uint(50)),
+                (
+                    "node_type_prefix",
+                    CbValue::String("immune:C53_budget_exhausted_silent".to_string()),
+                ),
+            ]),
+        )
+        .expect("query");
+    let nodes = match resp.payload.get("nodes") {
+        Some(CbValue::Array(a)) => a.clone(),
+        _ => panic!("nodes missing"),
+    };
+    assert!(
+        nodes.is_empty(),
+        "Sprint 5.D T2.2 (doctrine drift baseline): C53 should NOT fire while \
+         primary emission path is running normally; saw {} C53 events under \
+         30 cycles of tight budgets — primary path may be broken OR C53 \
+         logic has changed to fire under normal operation",
+        nodes.len()
+    );
+    client.shutdown().expect("shutdown");
+}
+
+#[test]
+fn sprint_5d_saturation_stage_reaches_saturated_under_sustained_exhaustion() {
+    // **Stage machine witness**: under tight budgets + tight thresholds
+    // (env var sets pre_eligibility_cycle_floor=1, threshold=2), the
+    // P11.c stage machine reaches Saturated by ~cycle 2-3 and emits a
+    // substrate_saturated transition event. Note: PreEligibility and
+    // PostEligibility don't emit explicit transition markers (per
+    // observatory.rs:507) — only Saturated and Normal-restored do.
+    let dir = fresh_state_dir();
+    let mut client = spawn_substrate_with_env(
+        &dir,
+        vec![(
+            "MYCO_TEST_TIGHTEN_BUDGETS_FOR_C53".to_string(),
+            "1".to_string(),
+        )],
+    );
+    pump_cycles(&mut client, 5);
+    let resp = client
+        .call(
+            proto::QUERY_RECENT_NODES,
+            build_payload(vec![
+                ("count", CbValue::Uint(100)),
+                (
+                    "node_type_prefix",
+                    CbValue::String("substrate_saturated".to_string()),
+                ),
+            ]),
+        )
+        .expect("query");
+    let nodes = match resp.payload.get("nodes") {
+        Some(CbValue::Array(a)) => a.clone(),
+        _ => panic!("nodes missing"),
+    };
+    assert!(
+        !nodes.is_empty(),
+        "Sprint 5.D T2.2: P11.c saturation stage machine MUST reach Saturated \
+         under sustained budget exhaustion (floor=1, threshold=2, 5 cycles); \
+         no substrate_saturated event observed — stage machine broken"
+    );
+    client.shutdown().expect("shutdown");
+}

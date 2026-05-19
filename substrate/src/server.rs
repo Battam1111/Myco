@@ -552,7 +552,32 @@ impl ServerState {
             // `substrate_saturated`/`substrate_normal_restored` events to
             // restore the runtime saturation_stage (M26.4 minimum: start at
             // Normal on every boot; sustained-saturation tracking restarts).
-            cost_budgets: crate::events::seed_cost_budgets(),
+            //
+            // **v3.1.1 Sprint 5.D**: `MYCO_TEST_TIGHTEN_BUDGETS_FOR_C53`
+            // env var (test-only) tightens budgets to 1 unit each so every
+            // cycle exhausts them. Used to exercise the P11.c emission +
+            // SaturationStage transition pipeline + C53 silent-breach
+            // detector under deterministic conditions. Production must not
+            // set this variable.
+            cost_budgets: if std::env::var("MYCO_TEST_TIGHTEN_BUDGETS_FOR_C53")
+                .map(|v| matches!(v.trim().to_ascii_lowercase().as_str(), "1" | "true"))
+                .unwrap_or(false)
+            {
+                crate::events::CostBudgets {
+                    compute_ns_per_cycle: 1,
+                    network_bytes_per_cycle: 1,
+                    storage_bytes_per_cycle: 1,
+                    // Also tighten cycle-floor + saturation-threshold so the
+                    // P11.c stage machine reaches `substrate_saturated`
+                    // within a handful of cycles (vs. 1000+ at seed values).
+                    // This lets tests exercise the full stage-transition
+                    // pipeline without long-running cycle loops.
+                    pre_eligibility_cycle_floor: 1,
+                    sustained_saturation_cycle_threshold: 2,
+                }
+            } else {
+                crate::events::seed_cost_budgets()
+            },
             saturation_stage: crate::events::SaturationStage::Normal,
             post_eligibility_consecutive_cycles: 0,
             owner_objective: crate::events::seed_owner_objective(),
