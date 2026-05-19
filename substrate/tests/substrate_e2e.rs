@@ -6426,3 +6426,175 @@ fn sprint_5b_evolution_event_node_type_format_pinned() {
         assert!(nt.contains(op));
     }
 }
+
+// ---------------------------------------------------------------------------
+// **v3.1.1 Sprint 5.C — T2.1 Boot-time cross-file consistency checks**.
+//
+// Adds 3 new integrity checks (C57/C58/C59) that surface silent corruption
+// of cross-file invariants:
+//
+//   C57 genesis_event_uniqueness — DAG must have ≤ 1 genesis_event:* nodes
+//      (P06 §3.5 root-of-causal-chain uniqueness)
+//   C58 owner_pubkey_dag_pin_consistency — pinned pubkey == DAG
+//      owner_key_initialized.pubkey (cross-file consistency)
+//   C59 manifest_cycle_vs_dag_advance_count — manifest counter ≈
+//      cycle_advanced event count (silent counter mutation detection)
+//
+// Without these, the substrate could boot from corrupted state with
+// "looks normal but actually inconsistent" — the hardest failure mode to
+// diagnose. Each check has a structured witness payload so the owner can
+// re-derive the verdict offline.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn sprint_5c_c57_passes_on_fresh_substrate_with_one_genesis() {
+    // **Positive baseline**: a freshly-booted substrate has exactly one
+    // genesis_event:* node → C57 passes.
+    let (mut client, _dir) = spawn_substrate();
+    let resp = client
+        .call(proto::RUN_IMMUNE_CHECK, build_payload(vec![]))
+        .expect("run_immune_check");
+    let checks = match resp.payload.get("checks") {
+        Some(CbValue::Array(a)) => a.clone(),
+        _ => panic!("checks missing"),
+    };
+    let genesis_check = checks
+        .iter()
+        .find_map(|c| {
+            let m = match c {
+                CbValue::Map(m) => m,
+                _ => return None,
+            };
+            match m.get("check_id") {
+                Some(CbValue::String(s)) if s == "genesis_event_uniqueness" => Some(m),
+                _ => None,
+            }
+        })
+        .expect("genesis_event_uniqueness check not in result set");
+    let passed = match genesis_check.get("passed") {
+        Some(CbValue::Bool(b)) => *b,
+        _ => panic!("passed missing"),
+    };
+    assert!(
+        passed,
+        "Sprint 5.C C57: fresh substrate should pass genesis uniqueness; \
+         evidence: {:?}",
+        genesis_check.get("evidence")
+    );
+    client.shutdown().expect("shutdown");
+}
+
+#[test]
+fn sprint_5c_c58_passes_when_no_owner_key_initialized_event() {
+    // **Skip semantics**: on substrates that haven't yet completed the M9
+    // TOFU + owner_key_initialized emission (e.g., legacy / freshly booted
+    // with no pinned identity), C58 SKIPS rather than fails. Skipped checks
+    // pass — they don't fire C58 immune.
+    let (mut client, _dir) = spawn_substrate();
+    let resp = client
+        .call(proto::RUN_IMMUNE_CHECK, build_payload(vec![]))
+        .expect("run_immune_check");
+    let checks = match resp.payload.get("checks") {
+        Some(CbValue::Array(a)) => a.clone(),
+        _ => panic!("checks missing"),
+    };
+    let c58 = checks
+        .iter()
+        .find_map(|c| {
+            let m = match c {
+                CbValue::Map(m) => m,
+                _ => return None,
+            };
+            match m.get("check_id") {
+                Some(CbValue::String(s)) if s == "owner_pubkey_dag_pin_consistency" => Some(m),
+                _ => None,
+            }
+        })
+        .expect("owner_pubkey_dag_pin_consistency check missing");
+    let passed = match c58.get("passed") {
+        Some(CbValue::Bool(b)) => *b,
+        _ => panic!("passed missing"),
+    };
+    assert!(
+        passed,
+        "Sprint 5.C C58: pre-TOFU substrate should pass C58 (skip semantics); \
+         evidence: {:?}",
+        c58.get("evidence")
+    );
+    client.shutdown().expect("shutdown");
+}
+
+#[test]
+fn sprint_5c_c59_passes_after_normal_cycle_advance() {
+    // **Positive baseline**: pump 3 cycles; manifest_cycle_counter = 3 +
+    // genesis offset; DAG has 3 cycle_advanced events. Diff ≤ 1 tolerance.
+    let (mut client, _dir) = spawn_substrate();
+    pump_cycles(&mut client, 3);
+    let resp = client
+        .call(proto::RUN_IMMUNE_CHECK, build_payload(vec![]))
+        .expect("run_immune_check");
+    let checks = match resp.payload.get("checks") {
+        Some(CbValue::Array(a)) => a.clone(),
+        _ => panic!("checks missing"),
+    };
+    let c59 = checks
+        .iter()
+        .find_map(|c| {
+            let m = match c {
+                CbValue::Map(m) => m,
+                _ => return None,
+            };
+            match m.get("check_id") {
+                Some(CbValue::String(s)) if s == "manifest_cycle_vs_dag_advance_count" => Some(m),
+                _ => None,
+            }
+        })
+        .expect("manifest_cycle_vs_dag_advance_count check missing");
+    let passed = match c59.get("passed") {
+        Some(CbValue::Bool(b)) => *b,
+        _ => panic!("passed missing"),
+    };
+    assert!(
+        passed,
+        "Sprint 5.C C59: cycle counter should agree with cycle_advanced count \
+         after 3 cycles; evidence: {:?}",
+        c59.get("evidence")
+    );
+    client.shutdown().expect("shutdown");
+}
+
+#[test]
+fn sprint_5c_new_check_ids_appear_in_run_immune_check_response() {
+    // Lock the public-surface contract: the 3 new C-row check IDs (C57/C58/C59)
+    // are present in every run_immune_check response. Downstream tooling
+    // depends on this stable enumeration; if an upstream refactor accidentally
+    // removes one, this test fires.
+    let (mut client, _dir) = spawn_substrate();
+    let resp = client
+        .call(proto::RUN_IMMUNE_CHECK, build_payload(vec![]))
+        .expect("run_immune_check");
+    let checks = match resp.payload.get("checks") {
+        Some(CbValue::Array(a)) => a.clone(),
+        _ => panic!("checks missing"),
+    };
+    let mut seen_ids: std::collections::HashSet<String> = std::collections::HashSet::new();
+    for c in &checks {
+        if let CbValue::Map(m) = c {
+            if let Some(CbValue::String(s)) = m.get("check_id") {
+                seen_ids.insert(s.clone());
+            }
+        }
+    }
+    for required in &[
+        "genesis_event_uniqueness",
+        "owner_pubkey_dag_pin_consistency",
+        "manifest_cycle_vs_dag_advance_count",
+    ] {
+        assert!(
+            seen_ids.contains(*required),
+            "Sprint 5.C: required check_id {required} missing from response; \
+             saw: {seen_ids:?}"
+        );
+    }
+    client.shutdown().expect("shutdown");
+}

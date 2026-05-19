@@ -86,6 +86,21 @@ pub(crate) fn handle_run_immune_check(
                     "C55_silent_internal_mortality",
                     "silent_internal_mortality".to_string(),
                 )
+            } else if result.check_id == "genesis_event_uniqueness" {
+                (
+                    "C57_genesis_event_non_unique",
+                    "genesis_event_non_unique".to_string(),
+                )
+            } else if result.check_id == "owner_pubkey_dag_pin_consistency" {
+                (
+                    "C58_owner_pubkey_dag_pin_inconsistent",
+                    "owner_pubkey_dag_pin_inconsistent".to_string(),
+                )
+            } else if result.check_id == "manifest_cycle_vs_dag_advance_count" {
+                (
+                    "C59_manifest_cycle_vs_dag_advance_mismatch",
+                    "manifest_cycle_vs_dag_advance_mismatch".to_string(),
+                )
             } else {
                 (
                     "C9_cold_resume_invariant_failure",
@@ -480,7 +495,247 @@ pub(crate) fn run_integrity_checks(state: &ServerState) -> Vec<IntegrityCheckRes
         tier: "tier_1",
     });
 
+    // 9. **v3.1.1 Sprint 5.C / C57 genesis_event_non_unique** — the DAG MUST
+    //    contain at most one `genesis_event:*` node. Multiple genesis events
+    //    indicate a boot-time ambiguity: either the substrate booted twice
+    //    against the same state_dir without proper genesis-already-present
+    //    detection, or a DAG corruption let two genesis events through. Either
+    //    way the substrate identity is unstable — refuse to operate silently.
+    //    Per P06 §3.5: every causal chain has exactly one root.
+    let (genesis_passed, genesis_evidence, genesis_witness) =
+        check_genesis_event_uniqueness(state);
+    results.push(IntegrityCheckResult {
+        check_id: "genesis_event_uniqueness".to_string(),
+        passed: genesis_passed,
+        evidence: genesis_evidence,
+        witness_inputs_canonical_bytes: genesis_witness,
+        tier: "tier_1",
+    });
+
+    // 10. **v3.1.1 Sprint 5.C / C58 owner_pubkey_dag_pin_inconsistent** —
+    //     if state.pinned_operator_identity is Some AND the DAG contains an
+    //     `owner_key_initialized` event, the pubkey recorded in that event MUST
+    //     equal the pinned identity's pubkey. Divergence means one of two
+    //     sources of truth got desynchronized — almost always corruption of
+    //     either operator_identity_pubkey.cb or dag.cb, or a TOFU race during
+    //     a malformed boot.
+    let (pubkey_consistency_passed, pubkey_consistency_evidence, pubkey_consistency_witness) =
+        check_owner_pubkey_dag_pin_consistency(state);
+    results.push(IntegrityCheckResult {
+        check_id: "owner_pubkey_dag_pin_consistency".to_string(),
+        passed: pubkey_consistency_passed,
+        evidence: pubkey_consistency_evidence,
+        witness_inputs_canonical_bytes: pubkey_consistency_witness,
+        tier: "tier_1",
+    });
+
+    // 11. **v3.1.1 Sprint 5.C / C59 manifest_cycle_vs_dag_advance_mismatch** —
+    //     manifest.cycle_counter SHOULD equal the count of `cycle_advanced`
+    //     DAG events (with tolerance of ±1 to account for the pre-first-cycle
+    //     genesis substrate). Mismatch beyond tolerance indicates either
+    //     manifest tamper (cycle_counter advanced without DAG emission — silent
+    //     mutation, P06 violation) or DAG truncation (cycle_advanced events
+    //     removed — retro-edit). Either is a boot-time correctness alarm.
+    let (cycle_count_passed, cycle_count_evidence, cycle_count_witness) =
+        check_manifest_cycle_vs_dag_advance_count(state);
+    results.push(IntegrityCheckResult {
+        check_id: "manifest_cycle_vs_dag_advance_count".to_string(),
+        passed: cycle_count_passed,
+        evidence: cycle_count_evidence,
+        witness_inputs_canonical_bytes: cycle_count_witness,
+        tier: "tier_1",
+    });
+
     results
+}
+
+// ---------------------------------------------------------------------------
+// **v3.1.1 Sprint 5.C** — new cross-file consistency checks (C57/C58/C59).
+// ---------------------------------------------------------------------------
+
+/// **C57 genesis_event_uniqueness** — DAG must contain at most one
+/// `genesis_event:*` node.
+fn check_genesis_event_uniqueness(state: &ServerState) -> (bool, String, Vec<u8>) {
+    let mut count: u64 = 0;
+    let mut first_hash_hex = String::new();
+    for node in state.dag.iter_in_insertion_order() {
+        if node
+            .node_type
+            .starts_with(crate::events::NODE_TYPE_GENESIS_PREFIX)
+        {
+            count += 1;
+            if count == 1 {
+                first_hash_hex = hex_encode(node.hash.as_ref());
+            }
+        }
+    }
+    let witness = {
+        let mut m = BTreeMap::new();
+        m.insert("genesis_event_count".to_string(), Value::Uint(count));
+        m.insert(
+            "first_genesis_event_hash".to_string(),
+            Value::String(first_hash_hex.clone()),
+        );
+        cb_encode(&Value::Map(m))
+            .map(|cb| cb.0)
+            .unwrap_or_default()
+    };
+    if count <= 1 {
+        (true, format!("ok ({count} genesis_event:* in DAG)"), witness)
+    } else {
+        (
+            false,
+            format!(
+                "DAG contains {count} genesis_event:* nodes; expected ≤ 1 (P06 §3.5 \
+                 root-of-causal-chain uniqueness violated)"
+            ),
+            witness,
+        )
+    }
+}
+
+/// **C58 owner_pubkey_dag_pin_consistency** — if pinned identity exists AND
+/// owner_key_initialized event exists, their pubkeys MUST match.
+fn check_owner_pubkey_dag_pin_consistency(state: &ServerState) -> (bool, String, Vec<u8>) {
+    use myco_kernel_shared::canonical_bytes::{decode as cb_decode, Value as CbV};
+
+    // Skip the check if either source is absent (no inconsistency to detect).
+    let pinned = match &state.pinned_operator_identity {
+        Some(p) => p,
+        None => {
+            let witness = {
+                let mut m = BTreeMap::new();
+                m.insert("pinned_present".to_string(), Value::Bool(false));
+                cb_encode(&Value::Map(m))
+                    .map(|cb| cb.0)
+                    .unwrap_or_default()
+            };
+            return (true, "skipped: no pinned operator identity".to_string(), witness);
+        }
+    };
+
+    let mut owner_key_init_pubkey: Option<[u8; 32]> = None;
+    for node in state.dag.iter_in_insertion_order() {
+        if node.node_type != crate::events::NODE_TYPE_OWNER_KEY_INITIALIZED {
+            continue;
+        }
+        let content = node.content_canonical_bytes.as_ref();
+        if let Ok(CbV::Map(m)) = cb_decode(content) {
+            if let Some(CbV::Bytes(pk)) = m.get("pubkey") {
+                if pk.len() == 32 {
+                    let mut arr = [0u8; 32];
+                    arr.copy_from_slice(pk);
+                    owner_key_init_pubkey = Some(arr);
+                    break; // genesis owner is the first one
+                }
+            }
+        }
+    }
+
+    let dag_pubkey = match owner_key_init_pubkey {
+        Some(pk) => pk,
+        None => {
+            let witness = {
+                let mut m = BTreeMap::new();
+                m.insert("pinned_present".to_string(), Value::Bool(true));
+                m.insert(
+                    "dag_owner_key_initialized_present".to_string(),
+                    Value::Bool(false),
+                );
+                cb_encode(&Value::Map(m))
+                    .map(|cb| cb.0)
+                    .unwrap_or_default()
+            };
+            return (
+                true,
+                "skipped: no owner_key_initialized event in DAG".to_string(),
+                witness,
+            );
+        }
+    };
+
+    let consistent = dag_pubkey == pinned.pubkey;
+    let witness = {
+        let mut m = BTreeMap::new();
+        m.insert(
+            "pinned_pubkey".to_string(),
+            Value::Bytes(pinned.pubkey.to_vec()),
+        );
+        m.insert(
+            "dag_owner_key_initialized_pubkey".to_string(),
+            Value::Bytes(dag_pubkey.to_vec()),
+        );
+        cb_encode(&Value::Map(m))
+            .map(|cb| cb.0)
+            .unwrap_or_default()
+    };
+    if consistent {
+        (
+            true,
+            "ok (pinned pubkey matches DAG owner_key_initialized)".to_string(),
+            witness,
+        )
+    } else {
+        (
+            false,
+            format!(
+                "PINNED pubkey {} ≠ DAG owner_key_initialized pubkey {} \
+                 (cross-file desync; either operator_identity_pubkey.cb or dag.cb tampered)",
+                hex_encode(&pinned.pubkey),
+                hex_encode(&dag_pubkey)
+            ),
+            witness,
+        )
+    }
+}
+
+/// **C59 manifest_cycle_vs_dag_advance_count** — count cycle_advanced events
+/// and compare to manifest.cycle_counter; ±1 tolerance for the pre-first-cycle
+/// genesis case.
+fn check_manifest_cycle_vs_dag_advance_count(
+    state: &ServerState,
+) -> (bool, String, Vec<u8>) {
+    let advance_count: u64 = state
+        .dag
+        .iter_in_insertion_order()
+        .filter(|n| n.node_type == crate::events::NODE_TYPE_CYCLE_ADVANCED)
+        .count() as u64;
+    let counter = state.manifest.cycle_counter;
+    let diff = counter.abs_diff(advance_count);
+    let passed = diff <= 1;
+    let witness = {
+        let mut m = BTreeMap::new();
+        m.insert(
+            "manifest_cycle_counter".to_string(),
+            Value::Uint(counter),
+        );
+        m.insert(
+            "dag_cycle_advanced_count".to_string(),
+            Value::Uint(advance_count),
+        );
+        cb_encode(&Value::Map(m))
+            .map(|cb| cb.0)
+            .unwrap_or_default()
+    };
+    if passed {
+        (
+            true,
+            format!(
+                "ok (manifest_cycle_counter={counter}, dag_cycle_advanced_count={advance_count})"
+            ),
+            witness,
+        )
+    } else {
+        (
+            false,
+            format!(
+                "manifest_cycle_counter={counter} but DAG has {advance_count} cycle_advanced \
+                 events (diff={diff}, exceeds tolerance 1; either manifest mutated without DAG \
+                 emission or DAG truncated)"
+            ),
+            witness,
+        )
+    }
 }
 
 /// **v3.1.1 C55 silent_internal_mortality** detection.
