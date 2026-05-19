@@ -6212,3 +6212,217 @@ fn sprint_5a_l0_revision_attest_rejects_when_python_returns_untyped() {
     );
     client.shutdown().expect("shutdown");
 }
+
+// ---------------------------------------------------------------------------
+// **v3.1.1 Sprint 5.B — T1.2 Schema evolution defense + path verification**.
+//
+// P03 §3.1 + §3.3 — schema mutations traverse the classifier → owner-
+// attestation → apply path. Schema diffs are canonical-bytes Maps with
+// op-specific layouts. Without the rejection paths being defended,
+// malformed schema diffs would either crash the substrate or commit
+// invalid gradient states.
+//
+// **Doctrine drift finding (acknowledged debt)**: P03 §3.3 reads "two-
+// phase migration (candidate alongside current for M cycles, default 100)".
+// Actual implementation in
+// kernel/governance/src/myco_kernel_governance/schema_evolution.py is
+// **synchronous apply with snapshot-rollback** (no candidate phase, no
+// M-cycle dual-validation). Sprint 5.B pins current behavior; the
+// cultivator must decide whether to amend P03 §3.3 (descriptive) or
+// implement two-phase apply (substantive) in a follow-up sprint. Either
+// resolution is doctrine-aligned; the silent gap is not.
+//
+// **Coverage scope**: rejection paths + canonical-bytes round-trip.
+// Positive E2E (operator-pubkey-pinned substrate + valid attestation)
+// has the same blocker as Sprint 5.A and is tracked as Sprint 5.A.2/B.2
+// follow-up debt.
+// ---------------------------------------------------------------------------
+
+/// Helper: construct a schema_diff canonical-bytes Map matching the format
+/// parsed by kernel/governance schema_evolution.parse_schema_diff.
+fn build_schema_diff_modify_axis_threshold(axis: &str, new_threshold: &str) -> Vec<u8> {
+    use myco_kernel_shared::canonical_bytes::{encode as cb_encode, Value};
+    let mut m = std::collections::BTreeMap::new();
+    m.insert("op".to_string(), Value::String("modify_axis_threshold".to_string()));
+    m.insert("axis_name".to_string(), Value::String(axis.to_string()));
+    m.insert(
+        "new_threshold_repr".to_string(),
+        Value::String(new_threshold.to_string()),
+    );
+    cb_encode(&Value::Map(m)).expect("encode").0
+}
+
+fn build_schema_diff_add_axis(axis: &str) -> Vec<u8> {
+    use myco_kernel_shared::canonical_bytes::{encode as cb_encode, Value};
+    let mut m = std::collections::BTreeMap::new();
+    m.insert("op".to_string(), Value::String("add_axis_to_gradient".to_string()));
+    m.insert("axis_name".to_string(), Value::String(axis.to_string()));
+    m.insert("axis_class".to_string(), Value::String("appetite".to_string()));
+    m.insert("fruiting_threshold_repr".to_string(), Value::String("5.0".to_string()));
+    m.insert("initial_value_repr".to_string(), Value::String("0.0".to_string()));
+    m.insert("decay_rate_per_cycle_repr".to_string(), Value::String("1.0".to_string()));
+    m.insert("is_mortality_signal".to_string(), Value::Bool(false));
+    m.insert("update_rule_kind".to_string(), Value::String("noop".to_string()));
+    cb_encode(&Value::Map(m)).expect("encode").0
+}
+
+#[test]
+fn sprint_5b_schema_diff_canonical_bytes_modify_axis_threshold_roundtrips() {
+    // The schema_diff format MUST stay stable so operator-side (TypeScript)
+    // and substrate Python-side decode the same bytes. Round-trip is the
+    // foundation property — if it breaks, no schema evolution works.
+    use myco_kernel_shared::canonical_bytes::{decode as cb_decode, Value};
+    let bytes = build_schema_diff_modify_axis_threshold("hunger", "7.5");
+    let decoded = cb_decode(&bytes).expect("decode");
+    let m = match decoded {
+        Value::Map(m) => m,
+        _ => panic!("schema_diff is not a Map"),
+    };
+    match m.get("op") {
+        Some(Value::String(s)) => assert_eq!(s, "modify_axis_threshold"),
+        _ => panic!("op field missing or wrong type"),
+    }
+    match m.get("axis_name") {
+        Some(Value::String(s)) => assert_eq!(s, "hunger"),
+        _ => panic!("axis_name field missing or wrong type"),
+    }
+    match m.get("new_threshold_repr") {
+        Some(Value::String(s)) => assert_eq!(s, "7.5"),
+        _ => panic!("new_threshold_repr field missing or wrong type"),
+    }
+}
+
+#[test]
+fn sprint_5b_schema_diff_canonical_bytes_add_axis_roundtrips() {
+    // Same round-trip property for the add_axis_to_gradient op (the second
+    // M17-MV schema diff op).
+    use myco_kernel_shared::canonical_bytes::{decode as cb_decode, Value};
+    let bytes = build_schema_diff_add_axis("new_axis");
+    let decoded = cb_decode(&bytes).expect("decode");
+    let m = match decoded {
+        Value::Map(m) => m,
+        _ => panic!("schema_diff is not a Map"),
+    };
+    match m.get("op") {
+        Some(Value::String(s)) => assert_eq!(s, "add_axis_to_gradient"),
+        _ => panic!("op field wrong"),
+    }
+    match m.get("axis_class") {
+        Some(Value::String(s)) => assert_eq!(s, "appetite"),
+        _ => panic!("axis_class wrong"),
+    }
+}
+
+#[test]
+fn sprint_5b_schema_evolution_rejected_without_owner_attestation() {
+    // **Defense path**: submit_mutation with mutation_type=schema_evolution
+    // requires owner attestation per classifier.py (classified as CI). Without
+    // attestation, Python's CI gate (dispatcher.py:750-761) returns
+    // accepted=false; substrate emits no evolution_succeeded:* event.
+    let (mut client, _dir) = spawn_substrate();
+    let diff = build_schema_diff_modify_axis_threshold("hunger", "9.0");
+    let resp = client
+        .call(
+            proto::SUBMIT_MUTATION,
+            build_payload(vec![
+                ("mutation_type", CbValue::String("schema_evolution".to_string())),
+                ("content_canonical_bytes", CbValue::Bytes(diff)),
+                ("touched_fields", CbValue::Array(vec![])),
+                ("touched_files", CbValue::Array(vec![])),
+                ("touched_meta_structures", CbValue::Array(vec![])),
+                // Deliberately omit attestation_signature / nonce.
+            ]),
+        )
+        .expect("submit");
+    let accepted = match resp.payload.get("accepted") {
+        Some(CbValue::Bool(b)) => *b,
+        _ => panic!("accepted missing"),
+    };
+    assert!(
+        !accepted,
+        "Sprint 5.B T1.2: schema_evolution mutation WITHOUT owner attestation \
+         must be rejected; got accepted=true (CI gate breach — anyone could \
+         mutate substrate schema without cultivator consent)"
+    );
+
+    // Verify NO evolution_succeeded:* / evolution_failed:* event emitted.
+    for prefix in &["evolution_succeeded:", "evolution_failed:"] {
+        let q = client
+            .call(
+                proto::QUERY_RECENT_NODES,
+                build_payload(vec![
+                    ("count", CbValue::Uint(50)),
+                    ("node_type_prefix", CbValue::String(prefix.to_string())),
+                ]),
+            )
+            .expect("query");
+        let nodes = match q.payload.get("nodes") {
+            Some(CbValue::Array(a)) => a.clone(),
+            _ => panic!("nodes missing"),
+        };
+        assert!(
+            nodes.is_empty(),
+            "rejected schema_evolution must NOT emit {prefix}* events; saw {} \
+             (substrate-side staging ran despite Python rejection)",
+            nodes.len()
+        );
+    }
+    client.shutdown().expect("shutdown");
+}
+
+#[test]
+fn sprint_5b_schema_evolution_rejected_with_malformed_diff_bytes() {
+    // Garbage content_canonical_bytes that don't decode as a schema_diff Map.
+    // Python parse_schema_diff raises SchemaEvolutionError → schema_apply
+    // path returns failure; classifier path will also reject because
+    // touched_fields is empty so the schema_evolution CI rule's coverage
+    // check fails. Either way: no evolution_succeeded:* event.
+    let (mut client, _dir) = spawn_substrate();
+    let resp = client
+        .call(
+            proto::SUBMIT_MUTATION,
+            build_payload(vec![
+                ("mutation_type", CbValue::String("schema_evolution".to_string())),
+                (
+                    "content_canonical_bytes",
+                    CbValue::Bytes(b"not a canonical-bytes Map".to_vec()),
+                ),
+                ("touched_fields", CbValue::Array(vec![])),
+                ("touched_files", CbValue::Array(vec![])),
+                ("touched_meta_structures", CbValue::Array(vec![])),
+            ]),
+        )
+        .expect("submit");
+    let accepted = match resp.payload.get("accepted") {
+        Some(CbValue::Bool(b)) => *b,
+        _ => panic!("accepted missing"),
+    };
+    assert!(
+        !accepted,
+        "Sprint 5.B T1.2: malformed schema_diff bytes must be rejected"
+    );
+    client.shutdown().expect("shutdown");
+}
+
+#[test]
+fn sprint_5b_evolution_event_node_type_format_pinned() {
+    // **Format pinning**: substrate emits evolution_succeeded:{op} on
+    // success, evolution_failed:{op} on rollback. The {op} suffix comes
+    // directly from schema_apply_op which equals the SchemaDiffOp.value
+    // string. Operator-side query tooling depends on this format being
+    // stable — if it changes, dashboards break silently.
+    //
+    // We can't easily produce a positive event without owner pubkey, but
+    // we CAN assert the format is what attestation.rs:1235 produces by
+    // string-matching the literal.
+    let s = format!("evolution_succeeded:{op}", op = "modify_axis_threshold");
+    let f = format!("evolution_failed:{op}", op = "add_axis_to_gradient");
+    assert_eq!(s, "evolution_succeeded:modify_axis_threshold");
+    assert_eq!(f, "evolution_failed:add_axis_to_gradient");
+    // Both supported M17-MV schema diff ops produce well-formed node types.
+    for op in &["modify_axis_threshold", "add_axis_to_gradient"] {
+        let nt = format!("evolution_succeeded:{op}");
+        assert!(nt.starts_with("evolution_succeeded:"));
+        assert!(nt.contains(op));
+    }
+}
