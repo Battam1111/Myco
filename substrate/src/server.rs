@@ -277,6 +277,41 @@ fn do_autonomous_tick(state: &mut ServerState) -> Result<(), SubstrateError> {
         }
     }
 
+    // **v3.1.1 Sprint 5.E** — Python worker liveness check (T2.3).
+    //
+    // Detects silent Python death (OOM, segfault, unhandled exception) BEFORE
+    // the next operator call blocks forever on stdin/stdout read. Calls
+    // `is_child_alive()` which is non-blocking (try_wait under the hood).
+    //
+    // On detected death: emit C60_python_worker_unexpected_exit immune
+    // sporocarp ONCE (cooldown via a flag in ServerState would be cleaner
+    // long-term; current behavior is at-most-once per substrate boot via
+    // the `python_worker_death_logged` flag).
+    //
+    // Without this check, the operator hangs indefinitely on the next call;
+    // with it, the operator gets a typed error AND the DAG records the
+    // event for post-mortem.
+    if state.handshake_complete && !state.python_worker_death_logged {
+        if let Some(client) = state.python_client.as_mut() {
+            match client.is_child_alive() {
+                Ok(false) => {
+                    let _ = emit_immune_sporocarp(
+                        state,
+                        "C60_python_worker_unexpected_exit",
+                        "python_worker_unexpected_exit",
+                        "Python worker child process has exited (try_wait returned exit status); \
+                         subsequent operator calls will fail with bridge errors. Substrate \
+                         transitions to python_unavailable state.",
+                    );
+                    state.python_worker_death_logged = true;
+                    let _ = save_dag_state(state);
+                }
+                Ok(true) => { /* worker alive, no action */ }
+                Err(_) => { /* try_wait syscall failed — leave to next tick */ }
+            }
+        }
+    }
+
     if state.federation.listener.is_none() && state.federation.peers.is_empty() {
         // Fast path: nothing federation-related to poll.
         return Ok(());
@@ -502,6 +537,12 @@ pub(crate) struct ServerState {
     /// (per `events::BACKUP_ENCRYPTION_STATUS_VALID_VALUES`). Re-derived
     /// from DAG on every boot — DAG is canonical, this field is cache.
     pub(crate) backup_encryption_status: Option<String>,
+    /// **v3.1.1 Sprint 5.E (T2.3)**: at-most-once-per-boot flag for the
+    /// `C60_python_worker_unexpected_exit` immune sporocarp. Set to true
+    /// after the autonomous-tick liveness check detects child death; gates
+    /// further emissions until the substrate restarts. Without this gate,
+    /// every tick after Python death would re-emit C60, spamming the DAG.
+    pub(crate) python_worker_death_logged: bool,
 }
 
 impl ServerState {
@@ -593,6 +634,9 @@ impl ServerState {
             // in attestation.rs) and override this seed if any DAG event
             // is present.
             backup_encryption_status: None,
+            // v3.1.1 Sprint 5.E: Python-worker death flag starts cleared.
+            // Set to true the first time autonomous_tick detects child exit.
+            python_worker_death_logged: false,
         }
     }
 

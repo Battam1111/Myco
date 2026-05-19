@@ -394,3 +394,71 @@ fn snapshot_with_no_axes_returns_empty_map() {
     assert_eq!(snap, BTreeMap::new());
     client.shutdown().unwrap();
 }
+
+// ---------------------------------------------------------------------------
+// **v3.1.1 Sprint 5.E — T2.3 Python worker liveness sensing**.
+//
+// `BridgeClient::is_child_alive()` provides non-blocking detection of
+// silent Python death (OOM kill, segfault, unhandled exception). Without
+// this, substrate hangs indefinitely on the next call when Python has
+// silently exited. Sprint 5.E adds the bridge-level liveness check and
+// substrate-level emission of C60_python_worker_unexpected_exit.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn sprint_5e_is_child_alive_returns_true_for_running_worker() {
+    let mut client = spawn_client();
+    let alive = client.is_child_alive().expect("liveness check ok");
+    assert!(
+        alive,
+        "Sprint 5.E T2.3: freshly-spawned Python worker should be alive"
+    );
+    client.shutdown().unwrap();
+}
+
+#[test]
+fn sprint_5e_is_child_alive_returns_false_after_external_kill() {
+    // Externally kill the Python worker (simulates OOM kill / segfault /
+    // unhandled exception) and verify is_child_alive() reflects it.
+    let mut client = spawn_client();
+    let pid = client.child_pid().expect("child pid exposed");
+
+    // Kill the process externally. Cross-platform via OS command.
+    #[cfg(windows)]
+    {
+        let _ = std::process::Command::new("taskkill")
+            .args(["/F", "/PID", &pid.to_string()])
+            .output();
+    }
+    #[cfg(unix)]
+    {
+        let _ = std::process::Command::new("kill")
+            .args(["-9", &pid.to_string()])
+            .output();
+    }
+
+    // Give the OS a moment to reap. try_wait should observe the exit.
+    std::thread::sleep(std::time::Duration::from_millis(300));
+
+    let alive = client
+        .is_child_alive()
+        .expect("liveness check ok after kill");
+    assert!(
+        !alive,
+        "Sprint 5.E T2.3: externally-killed Python worker should report \
+         alive=false; got true (substrate would hang on next call)"
+    );
+    // Don't shutdown — child is already dead; Drop will skip wait.
+    std::mem::forget(client);
+}
+
+#[test]
+fn sprint_5e_child_pid_returns_some_on_running_worker() {
+    let client = spawn_client();
+    let pid = client.child_pid();
+    assert!(
+        pid.is_some(),
+        "Sprint 5.E T2.3: child_pid should be Some(_) on running worker"
+    );
+    client.shutdown().expect("shutdown");
+}

@@ -440,6 +440,48 @@ impl BridgeClient {
     }
 }
 
+impl BridgeClient {
+    /// **v3.1.1 Sprint 5.E** — non-blocking liveness check for the child
+    /// process (Python worker / substrate binary on the operator side).
+    ///
+    /// Returns:
+    ///   - `Ok(true)` if the child is still running
+    ///   - `Ok(false)` if the child has exited (clean or otherwise)
+    ///   - `Err` only on syscall-level failures inspecting the child
+    ///
+    /// Calls `Child::try_wait()` which is non-blocking on both Unix and
+    /// Windows. Substrate uses this in its autonomous-tick loop to detect
+    /// silent Python-worker death (e.g., OOM kill, segfault, unhandled
+    /// Python exception) without itself blocking on stdin/stdout reads.
+    ///
+    /// **Why this matters** (T2.3): without liveness sensing, a dead Python
+    /// worker leaves the substrate in "looks alive but actually blocked"
+    /// state — the next operator call hangs forever. Sensing the death
+    /// lets the substrate emit a typed immune signal + reject incoming
+    /// requests gracefully.
+    pub fn is_child_alive(&mut self) -> Result<bool, BridgeError> {
+        let child = match self.child.as_mut() {
+            Some(c) => c,
+            None => return Ok(false),
+        };
+        match child.try_wait() {
+            Ok(Some(_status)) => Ok(false), // child exited
+            Ok(None) => Ok(true),           // child still running
+            Err(e) => Err(BridgeError::Subprocess(format!(
+                "try_wait failed during liveness check: {e}"
+            ))),
+        }
+    }
+
+    /// **v3.1.1 Sprint 5.E** — return the child process's OS-level PID,
+    /// or `None` if the child handle has been taken (post-shutdown).
+    /// Used by Sprint 5.E tests to externally kill the child and verify
+    /// `is_child_alive()` reflects the death.
+    pub fn child_pid(&self) -> Option<u32> {
+        self.child.as_ref().map(|c| c.id())
+    }
+}
+
 impl Drop for BridgeClient {
     fn drop(&mut self) {
         // Best-effort cleanup: if shutdown was not called explicitly, try
