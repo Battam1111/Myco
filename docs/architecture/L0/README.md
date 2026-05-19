@@ -109,12 +109,12 @@ These are NOT specs. They are *eyes*. A fragment that requires explanation has f
 
 Per PROVENANCE.md §8:
 
-- **Layer C witness test implementations** — card schemas declare witness names; actual tests TBD via v0.9.x cleanup milestone.
+- **Layer C witness test implementations** — 12 minimum witnesses landed Sprint 4 (`substrate/tests/substrate_e2e.rs::layer_c_*` covering 4 eternity-clause negatives + 8 critical postulate positives); remaining cards' witnesses TBD via v0.9.x.
 - **Layer B commentary entries** — 0 lived examples yet; accumulate via use per META §4.5.
 - **Canonical dilemma Claude-of-record readings** — 49 setups exist; 0 recorded interpretations yet. Accumulate at model rollovers + catechumenate sessions + drift investigations.
-- **Catechumenate sessions** — 0; populate when cultivator-A begins succession preparation.
-- **L1/L2 cross-reference updates** — L1_*.md and L2_*.md still reference "L0/cards/AS_anchor_surface.md §3.5" etc.; need updating to "AS_anchor_surface.md §3.5" form (subsequent housekeeping pass).
-- **On-chain anchoring** — `l0_revision_attest` mutation per M-anchor-5 to record v3.0 → v3.1 transition on-chain. Pending cultivator approval of this doctrine for ship.
+- **Catechumenate sessions** — 0; scaffolding (`TEMPLATE.md` + `HOW_TO_ADD_A_SESSION.md`) landed Sprint 7.H; sessions populate when cultivator-A begins succession preparation.
+- **L1/L2 cross-reference updates** — surgical sweep completed Sprint 7.I (~70 references normalized to `L0/cards/<NAME>.md §X.Y` form).
+- **On-chain anchoring** — `l0_revision_attest` ceremonies for v3.1 / v3.1.1 / v3.1.1.1 all dry-run verified end-to-end. Production-mode seals pending cultivator owner-key signature.
 
 ---
 
