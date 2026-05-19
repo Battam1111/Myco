@@ -277,6 +277,35 @@ fn do_autonomous_tick(state: &mut ServerState) -> Result<(), SubstrateError> {
         }
     }
 
+    // **v3.1.1 Sprint 6.G (T2.12)** — persistence-health observation.
+    //
+    // Each `save_dag_state` failure increments a process-global counter.
+    // Poll for "should emit C64" (one-shot per failure burst). On true:
+    // emit C64_persistence_unavailable immune sporocarp (best-effort —
+    // the DAG-emit itself may fail since same disk, but the rate-limit
+    // logic from Sprint 5.F handles repeat suppression).
+    if state.handshake_complete {
+        let obs = crate::persistence_health::take_persistence_health_observation();
+        if obs.should_emit_c64 {
+            let evidence = format!(
+                "substrate state_dir persistence is failing: consecutive_failures={} \
+                 (since last success), lifetime_failures={} total. State_dir may be \
+                 read-only, disk full, or permissions revoked. Substrate continues \
+                 with in-memory state but mutations are not durable until recovery.",
+                obs.consecutive_failures, obs.lifetime_failures,
+            );
+            let _ = emit_immune_sporocarp(
+                state,
+                "C64_persistence_unavailable",
+                "persistence_unavailable",
+                &evidence,
+            );
+            // No save_dag_state call here — it would fail again. The
+            // event lives in-memory; will persist on the next successful
+            // save (after recovery).
+        }
+    }
+
     // **v3.1.1 Sprint 6.C (T1.7)** — wall-clock skew observation.
     //
     // The monotonic_unix_ns helper (substrate/src/wall_clock.rs) tracks

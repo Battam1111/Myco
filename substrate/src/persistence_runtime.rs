@@ -58,7 +58,27 @@ pub(crate) fn save_python_state(_state: &mut ServerState) -> Result<(), Substrat
 /// `state.cost_accumulator.record_storage_write`. Pre-M26.2 callers that
 /// discard the count keep working — the value is just an extra useful return.
 pub(crate) fn save_dag_state(state: &ServerState) -> Result<usize, SubstrateError> {
-    save_dag(&state.dag, &state.state_dir)
+    // **v3.1.1 Sprint 6.G (T2.12)** — track persistence health. Success
+    // resets consecutive-failure counter + clears C64 emission-pending
+    // flag. Failure increments counters; autonomous tick polls these to
+    // emit C64_persistence_unavailable.
+    match save_dag(&state.dag, &state.state_dir) {
+        Ok(bytes) => {
+            crate::persistence_health::record_save_success_and_clear_emission();
+            Ok(bytes)
+        }
+        Err(e) => {
+            crate::persistence_health::record_save_failure();
+            // Best-effort stderr surfacing for ops monitoring even if
+            // the operator-facing error path is swallowed by `let _ = ...`.
+            use std::io::Write;
+            let _ = writeln!(
+                std::io::stderr(),
+                "[substrate-persistence] save_dag_state failure: {e}"
+            );
+            Err(e)
+        }
+    }
 }
 
 /// M21.4 P5 万物互联: nonce log persistence is now NO-OP. The nonce_log is
