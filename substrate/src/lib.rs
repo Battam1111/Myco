@@ -75,6 +75,7 @@ pub mod observatory;
 pub mod persistence;
 pub mod persistence_health;
 pub mod persistence_runtime;
+pub mod python_call_health;
 pub mod prune;
 pub mod reproduction;
 pub mod sealing;

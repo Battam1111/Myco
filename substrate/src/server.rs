@@ -277,6 +277,37 @@ fn do_autonomous_tick(state: &mut ServerState) -> Result<(), SubstrateError> {
         }
     }
 
+    // **v3.1.1 Sprint 6.J (T2.8)** — Python slow-call observation.
+    //
+    // Each substrate-→-Python call records its wall-clock duration via
+    // python_call_health::record_call_duration. The autonomous tick polls
+    // and emits C65 once per slow-call burst. This surfaces "Python
+    // getting slow" BEFORE the eventual hang, giving ops time to
+    // investigate. Real deadlock recovery (BridgeClient reader-thread
+    // refactor with recv_timeout) is Sprint 6.J.2 follow-up.
+    if state.handshake_complete {
+        let obs = crate::python_call_health::take_python_call_health_observation();
+        if obs.should_emit_c65 {
+            let evidence = format!(
+                "Python worker had at least one slow call in recent history: \
+                 lifetime_slow_call_count={} (cumulative), \
+                 largest_call_duration_ms={} (>= MYCO_PYTHON_SLOW_CALL_THRESHOLD_MS, \
+                 default 30000). This is a precursor to deadlock; operators \
+                 should investigate Python worker state. Substrate continues \
+                 because the slow call eventually returned, but ongoing \
+                 slowness suggests resource pressure.",
+                obs.lifetime_slow_call_count, obs.largest_call_duration_ms,
+            );
+            let _ = emit_immune_sporocarp(
+                state,
+                "C65_python_worker_slow_call",
+                "python_worker_slow_call",
+                &evidence,
+            );
+            let _ = save_dag_state(state);
+        }
+    }
+
     // **v3.1.1 Sprint 6.G (T2.12)** — persistence-health observation.
     //
     // Each `save_dag_state` failure increments a process-global counter.
@@ -1988,7 +2019,14 @@ fn forward_to_python(
     //
     // M6 minimum: re-issue via BridgeClient methods (which allocate fresh
     // IDs), then re-stamp the response with the operator's request_id.
-    let response = forward_message(client, request)?;
+    //
+    // **v3.1.1 Sprint 6.J (T2.8)** — track call duration so the autonomous
+    // tick can emit C65 on slow Python calls (defense-in-depth observability
+    // for Python worker deadlock-precursor states).
+    let call_start = std::time::Instant::now();
+    let response_result = forward_message(client, request);
+    crate::python_call_health::record_call_duration(call_start.elapsed());
+    let response = response_result?;
     if response.message_type != expected_response_type {
         return Err(SubstrateError::Protocol(format!(
             "expected {expected_response_type} from python; got {}",
