@@ -26,8 +26,8 @@
       },
       {
         "path": "README.md",
-        "byte_length": 7787,
-        "sha256_hex": "f8894f2d8bb8d7c0b247296d99bc0117d743afbb86008e9ddf645ca864472f29"
+        "byte_length": 7790,
+        "sha256_hex": "41b3273e8d9752bad6e249985b1d835526ee8ef1e7cc04c70be068cf2b88c531"
       },
       {
         "path": "canonical_dilemma_corpus/INDEX.md",
@@ -91,8 +91,8 @@
       },
       {
         "path": "cards/COV04_honor_mortality.md",
-        "byte_length": 17752,
-        "sha256_hex": "63efc2596a834c707504b484b1d77ebfe2ac4116958484392be64803ece66641"
+        "byte_length": 17761,
+        "sha256_hex": "150411b1e4319680599725208fcdf8dccba086ecaf0be8dc30bdde3c27554ef4"
       },
       {
         "path": "cards/COV05_lineage_stewardship.md",
@@ -106,8 +106,8 @@
       },
       {
         "path": "cards/LB_living_bets.md",
-        "byte_length": 15431,
-        "sha256_hex": "f5d3e49a8767f039f1bcb3d6cb412d1c5ef70f2f2945dcbb51928becad8d2d1e"
+        "byte_length": 15184,
+        "sha256_hex": "5658d9ab1c80053661c17f9342724b15fa58fa0e1dbe916243d1e8a5492de91f"
       },
       {
         "path": "cards/P01_agent_primary.md",
@@ -116,8 +116,8 @@
       },
       {
         "path": "cards/P01c_asymmetric_carrier.md",
-        "byte_length": 17712,
-        "sha256_hex": "2ab24ca9d4c63eef9997374771110dbb443208014350aa988065a8a095772d74"
+        "byte_length": 17715,
+        "sha256_hex": "8d8a23fea86ab48124e533dae9b0718d25da418630bac0818e3190cdde910dac"
       },
       {
         "path": "cards/P02_eternal_ingestion.md",
@@ -171,8 +171,8 @@
       },
       {
         "path": "cards/P14_telos.md",
-        "byte_length": 15289,
-        "sha256_hex": "fffa498bd0272254710bfcef92918dbec2bea2293ff221846e5985141348cdf5"
+        "byte_length": 15295,
+        "sha256_hex": "f6ef79617b34be351c6cff9c9b9e410073d02034589f2c86592251ad1da1b36c"
       },
       {
         "path": "catechumenate/INDEX.md",
@@ -180,8 +180,8 @@
         "sha256_hex": "940d5d4052c00bdec7ea75bfcafe2c41b7bd5e3472eaf61fe64dc549773595d8"
       }
     ],
-    "canonical_bytes_length": 532558,
-    "blake3_hex": "b34adb5902a498e642fb99f127da1205551a01dcd91c6931020cabd95b951407"
+    "canonical_bytes_length": 532332,
+    "blake3_hex": "c1153a9a4c21f41fd9742901d77006758b4aac47b496bdb3fb14d60d5b510d80"
   },
-  "diff_summary": "L0 v3.1.1.1 descriptive amendment (Sprint 6.D P03 §3.3 reframe): P03_resumable_evolution.md amended (version 2.1 → 3) to align doctrine with shipping behavior. Specific changes: (1) §3.3 reframed from 'two-phase migration (L1/SCHEMA §1.3)' to 'snapshot-rollback semantics' — describes actual kernel/governance/.../schema_evolution.py::apply_schema_diff implementation (snapshot → apply → I3 validate → commit-or-restore in one cycle). (2) §4.3 cascading update from 'candidate alongside current; M consecutive cycles' to 'single-cycle snapshot-rollback apply' with reference to §10.4 acknowledged debt. (3) §5.2 wording adjustment: 'MUST NOT apply schema mutations without two-phase migration' → 'MUST NOT apply schema mutations OUTSIDE the snapshot-rollback envelope'. (4) §7.1 M1 misreading clarified to honor both shipping behavior AND target M-cycle migration. (5) §10.4 NEW 'Acknowledged debt — multi-cycle two-phase migration' section added: describes shipping state, target enhancement, 5-step migration path (kernel/schema/src/migration.rs two_phase_commit types + substrate bookkeeping + classifier extensions + operator surface + C64 anticipated). (6) §12 structural_anchors: phantom `kernel/schema/src/migration.rs::two_phase_commit` (file never existed) replaced by actual `kernel/governance/.../schema_evolution.py::apply_schema_diff`. DEPOSIT (P03 §2) UNCHANGED — `first-class mutable + rollback-protected` honored by both shipping snapshot-rollback AND planned M-cycle migration. Descriptive-amend per META §7; deposit_immutable: false on P03 permits this non-deposit refinement. Sealed 2026-05-19 (Sprint 6.D commit af6ef3b)."
+  "diff_summary": "L0 v3.1.1.1 descriptive amendment (Sprint 6.D + Sprint 7.I): (Sprint 6.D) P03_resumable_evolution.md amended (version 2.1 → 3) to align doctrine with shipping behavior. Specific changes: (1) §3.3 reframed from 'two-phase migration (L1/SCHEMA §1.3)' to 'snapshot-rollback semantics' — describes actual kernel/governance/.../schema_evolution.py::apply_schema_diff implementation (snapshot → apply → I3 validate → commit-or-restore in one cycle). (2) §4.3 cascading update from 'candidate alongside current; M consecutive cycles' to 'single-cycle snapshot-rollback apply' with reference to §10.4 acknowledged debt. (3) §5.2 wording adjustment: 'MUST NOT apply schema mutations without two-phase migration' → 'MUST NOT apply schema mutations OUTSIDE the snapshot-rollback envelope'. (4) §7.1 M1 misreading clarified to honor both shipping behavior AND target M-cycle migration. (5) §10.4 NEW 'Acknowledged debt — multi-cycle two-phase migration' section added: describes shipping state, target enhancement, 5-step migration path (kernel/schema/src/migration.rs two_phase_commit types + substrate bookkeeping + classifier extensions + operator surface + C64 anticipated). (6) §12 structural_anchors: phantom `kernel/schema/src/migration.rs::two_phase_commit` (file never existed) replaced by actual `kernel/governance/.../schema_evolution.py::apply_schema_diff`. DEPOSIT (P03 §2) UNCHANGED — `first-class mutable + rollback-protected` honored by both shipping snapshot-rollback AND planned M-cycle migration. Descriptive-amend per META §7; deposit_immutable: false on P03 permits this non-deposit refinement. (Sprint 7.I) Cross-reference path-drift cleanup across L0 + L1 + L2 + L3 + algorithms + diagrams docs: all `L0/cards/<NAME> §X.Y` references updated to `L0/cards/<NAME>.md §X.Y` form per L0/README.md §\"What's still missing\" item 5. 22 files touched, ~70 references updated. No deposit changes. Pure housekeeping per META §7. Sealed 2026-05-19 (Sprint 6.D commit af6ef3b + Sprint 7.I)."
 }

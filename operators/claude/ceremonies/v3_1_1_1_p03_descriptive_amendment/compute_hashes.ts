@@ -74,7 +74,8 @@ export const NEW_L0_ROOT = "docs/architecture/L0";
  * signature; bumping diff_summary requires a new ceremony.
  */
 export const DIFF_SUMMARY =
-  "L0 v3.1.1.1 descriptive amendment (Sprint 6.D P03 §3.3 reframe): " +
+  "L0 v3.1.1.1 descriptive amendment (Sprint 6.D + Sprint 7.I): " +
+  "(Sprint 6.D) " +
   "P03_resumable_evolution.md amended (version 2.1 → 3) to align " +
   "doctrine with shipping behavior. Specific changes: " +
   "(1) §3.3 reframed from 'two-phase migration (L1/SCHEMA §1.3)' to " +
@@ -103,7 +104,12 @@ export const DIFF_SUMMARY =
   "rollback-protected` honored by both shipping snapshot-rollback " +
   "AND planned M-cycle migration. Descriptive-amend per META §7; " +
   "deposit_immutable: false on P03 permits this non-deposit refinement. " +
-  "Sealed 2026-05-19 (Sprint 6.D commit af6ef3b).";
+  "(Sprint 7.I) Cross-reference path-drift cleanup across L0 + L1 + L2 + " +
+  "L3 + algorithms + diagrams docs: all `L0/cards/<NAME> §X.Y` references " +
+  "updated to `L0/cards/<NAME>.md §X.Y` form per L0/README.md §" +
+  "\"What's still missing\" item 5. 22 files touched, ~70 references " +
+  "updated. No deposit changes. Pure housekeeping per META §7. " +
+  "Sealed 2026-05-19 (Sprint 6.D commit af6ef3b + Sprint 7.I).";
 
 // ---------------------------------------------------------------------------
 // Repo-root resolution.

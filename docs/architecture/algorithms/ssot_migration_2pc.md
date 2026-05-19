@@ -34,7 +34,7 @@
 
 ## §4. Witnesses-not-verdicts
 
-Substrate emits Merkle proof of `M` Phase-1 cycles + sampled comparisons (indices anchor-nonce-derived per L0/cards/AS_anchor_surface §3.5). Substrate does NOT emit a self-asserted `phase_1_passed` flag. Cultivator verifies the proof at anchor-side.
+Substrate emits Merkle proof of `M` Phase-1 cycles + sampled comparisons (indices anchor-nonce-derived per L0/cards/AS_anchor_surface.md §3.5). Substrate does NOT emit a self-asserted `phase_1_passed` flag. Cultivator verifies the proof at anchor-side.
 
 ## §5. Cascade
 

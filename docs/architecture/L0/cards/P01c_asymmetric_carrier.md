@@ -69,7 +69,7 @@ The substrate **MUST** maintain:
 
 - **§5.1** The substrate **MUST NOT** persist model name, model version, API key, prompt template, or any other agent-discriminating attribute. C10 fires.
 - **§5.2** The substrate **MUST NOT** accept two operator-tokens simultaneously beyond the FIFO-handover window. C11 (`concurrent_operator_persistent`) fires.
-- **§5.3** The substrate **MUST NOT** treat the agent as authoritative on substrate state. The agent's claims about itself ("I am Claude 4.7," "I have memory of session X") are NOT trusted by the substrate — they are agent-self-reported intent (L0/cards/P01c_asymmetric_carrier §5.3 retracted to its own constraint: intent is NOT first-class).
+- **§5.3** The substrate **MUST NOT** treat the agent as authoritative on substrate state. The agent's claims about itself ("I am Claude 4.7," "I have memory of session X") are NOT trusted by the substrate — they are agent-self-reported intent (L0/cards/P01c_asymmetric_carrier.md §5.3 retracted to its own constraint: intent is NOT first-class).
 - **§5.4** The substrate **MUST NOT** allow operator-token reuse across substrate restarts. Each handshake mints a fresh token; substrate restarts force fresh handshake.
 - **§5.5** The substrate **MUST NOT** route bestowal in reverse — the agent does not bestow anything on the substrate. The substrate signs for itself; the agent witnesses; the substrate accepts witnesses but does not derive its identity from them.
 

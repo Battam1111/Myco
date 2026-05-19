@@ -113,7 +113,7 @@ Per PROVENANCE.md §8:
 - **Layer B commentary entries** — 0 lived examples yet; accumulate via use per META §4.5.
 - **Canonical dilemma Claude-of-record readings** — 49 setups exist; 0 recorded interpretations yet. Accumulate at model rollovers + catechumenate sessions + drift investigations.
 - **Catechumenate sessions** — 0; populate when cultivator-A begins succession preparation.
-- **L1/L2 cross-reference updates** — L1_*.md and L2_*.md still reference "L0/cards/AS_anchor_surface §3.5" etc.; need updating to "AS_anchor_surface.md §3.5" form (subsequent housekeeping pass).
+- **L1/L2 cross-reference updates** — L1_*.md and L2_*.md still reference "L0/cards/AS_anchor_surface.md §3.5" etc.; need updating to "AS_anchor_surface.md §3.5" form (subsequent housekeeping pass).
 - **On-chain anchoring** — `l0_revision_attest` mutation per M-anchor-5 to record v3.0 → v3.1 transition on-chain. Pending cultivator approval of this doctrine for ship.
 
 ---

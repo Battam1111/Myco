@@ -4,7 +4,7 @@
 
 # L1 — Trajectory (positive intent-derivation mechanism for Myco v0.9)
 
-> L1 for intent-derivation satisfying L0/cards/P01c_asymmetric_carrier §5.3.
+> L1 for intent-derivation satisfying L0/cards/P01c_asymmetric_carrier.md §5.3.
 > Cross-cuts L1/TROPISM §B4/§B6 + L1/GOVERNANCE §1.2/§2.2/§3.1/§5.3/§6.3 + L1/HARD_RULES F17 + L1/SCHEMA §2.1/§3.1 + L1/CONTINUITY §6.2 + L2/OBSERVABILITY §3/§11 + L2/FEDERATION.
 
 ---
@@ -69,7 +69,7 @@ Algorithm: `algorithms/echo_chamber_detection.md`. Defense structure (delta-nove
 
 ## §8. Fossil-record vs teleology
 
-Per L0/cards/P01c_asymmetric_carrier §5.3: substrate's view of intent IS fossil-record honest, not teleologically-honest. Trajectory queries never return "agent's stated goal"; divergence → trajectory wins empirically; trajectory wandering feeds `bet_weakening_quorum` (L2/OBSERVABILITY §3 + L0/cards/LB_living_bets §3 (falsifiability quorum)); drift surfaced to operator (§9 + L1/TROPISM §B4) + Cultivator-audit. Retro-rewrite impossible (DAG full-fidelity per I4; queries reproduce identically given `(DAG, cluster_C)`; retro-editing = C7 breach).
+Per L0/cards/P01c_asymmetric_carrier.md §5.3: substrate's view of intent IS fossil-record honest, not teleologically-honest. Trajectory queries never return "agent's stated goal"; divergence → trajectory wins empirically; trajectory wandering feeds `bet_weakening_quorum` (L2/OBSERVABILITY §3 + L0/cards/LB_living_bets.md §3 (falsifiability quorum)); drift surfaced to operator (§9 + L1/TROPISM §B4) + Cultivator-audit. Retro-rewrite impossible (DAG full-fidelity per I4; queries reproduce identically given `(DAG, cluster_C)`; retro-editing = C7 breach).
 
 ---
 

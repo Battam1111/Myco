@@ -4,7 +4,7 @@
 
 # L1 — Tropism (positive dispatch form for Myco v0.9)
 
-> L1 for positive dispatch satisfying L0/cards/P05_universal_interconnection (dispatch form) + two L0-mandated mechanisms (§E salience, §F telos). All numeric thresholds L1-tunable unless specified.
+> L1 for positive dispatch satisfying L0/cards/P05_universal_interconnection.md (dispatch form) + two L0-mandated mechanisms (§E salience, §F telos). All numeric thresholds L1-tunable unless specified.
 
 ---
 
@@ -12,7 +12,7 @@
 
 Dispatch IS **tropism**: substrate maintains intrinsic **appetites**, each with a **tropic gradient** updated each metabolic cycle. Agent (per P1.c) inhabits gradient as perturbation source + consumer. Substrate exposes gradient state via agent's read-window; agent emits **deltas**; substrate absorbs; gradients update. Gradient crossing **fruiting trigger** → substrate **fruits a sporocarp** (typed, content-addressed, causally-stamped per I4) anchoring gradient field for I2 / I3 / I7 / I4.
 
-## §2. Why tropism (vs L0/cards/P05_universal_interconnection (dispatch form) rivals)
+## §2. Why tropism (vs L0/cards/P05_universal_interconnection.md (dispatch form) rivals)
 
 | Rival | Why tropism preferred |
 |---|---|
@@ -22,7 +22,7 @@ Dispatch IS **tropism**: substrate maintains intrinsic **appetites**, each with 
 | Algebraic primitives | Presumes purity + statelessness; substrate IS state. |
 | Reactive stream | Strip gradient → no answer to "what does substrate want next?". |
 
-Excluded by L0/cards/P05_universal_interconnection (dispatch form): verbs, request/response, hybrid, coexistence-with-verbs-at-birth (I6). Two L1 mechanisms flow from L0: (i) **differential salience** (§E, per P12 retraction); (ii) **telos-alignment** (§F, per §P14.c).
+Excluded by L0/cards/P05_universal_interconnection.md (dispatch form): verbs, request/response, hybrid, coexistence-with-verbs-at-birth (I6). Two L1 mechanisms flow from L0: (i) **differential salience** (§E, per P12 retraction); (ii) **telos-alignment** (§F, per §P14.c).
 
 ## §3. Two-layer structure
 
@@ -35,7 +35,7 @@ Excluded by L0/cards/P05_universal_interconnection (dispatch form): verbs, reque
 
 - **Birth period**: seed thresholds + seed update-rules. End per L1/GOVERNANCE §1.3 (maturity-attested OR 180-day ceiling).
 - **Steady state**: emergent thresholds activate; gradient rules MAY evolve per P3 (CI-gated).
-- **Birth-period detectors SUSPENDED** during birth + post-birth settling window; arm at owner-attested `birth_period_terminated` + settling: `bet_weakening_quorum` (L0/cards/LB_living_bets §3 (falsifiability quorum)) emits `bet_weakening_evaluation_suspended`; `salience_collapse` (P12.b) emits `salience_emergence_pending`; `telos_drift` (§P14.c) emits `telos_alignment_pending`.
+- **Birth-period detectors SUSPENDED** during birth + post-birth settling window; arm at owner-attested `birth_period_terminated` + settling: `bet_weakening_quorum` (L0/cards/LB_living_bets.md §3 (falsifiability quorum)) emits `bet_weakening_evaluation_suspended`; `salience_collapse` (P12.b) emits `salience_emergence_pending`; `telos_drift` (§P14.c) emits `telos_alignment_pending`.
 
 ## §A. Continuity hooks
 
@@ -49,7 +49,7 @@ L1/CONTINUITY owns cycle cadence, dormancy, recovery, quarantine, delta atomicit
 
 **B3. Sporocarp type tree (seed)** — `intake` / `digestion` / `refinement` / `federation` (daily); `governance_event` (axis_schema_change, type_addition, classifier_change — CI); `immune_event` (envelope_malformed, attestation_invalid — daily/elevated/CRITICAL).
 
-**B4. Gradient exposure protocol** — Bounded, structured, stateless digest to agent's read-window: **Bounded** B ≤ L0/cards/LB_living_bets signal-#6 × consumption fraction (L4 10-50%); **Structured** typed object listing each appetite's gradient + recent K sporocarps + recent M unabsorbed deltas + metabolic-budget metrics; **Stateless** cold-resumable from digest alone.
+**B4. Gradient exposure protocol** — Bounded, structured, stateless digest to agent's read-window: **Bounded** B ≤ L0/cards/LB_living_bets.md signal-#6 × consumption fraction (L4 10-50%); **Structured** typed object listing each appetite's gradient + recent K sporocarps + recent M unabsorbed deltas + metabolic-budget metrics; **Stateless** cold-resumable from digest alone.
 
 **B5. Delta intake surface** — L1/SKIN §2 envelope schema. Per P2: shape-agnostic; envelope-checked only.
 
@@ -73,7 +73,7 @@ L1/CONTINUITY owns cycle cadence, dormancy, recovery, quarantine, delta atomicit
 
 **§F.1 The form**: **Telos-alignment** scalar `[-1, 1]`. Algorithm: `algorithms/telos_drift.md` (cosine of sporocarp centroid vs objective embedding; 5-grade threshold table from aligned ≥0.6 to CRITICAL ≤0.0 / C24; causal_in_edges; embedding-model identity F-row). Per-substrate at genesis, CI; switching branches requires owner CI attestation. Branch selection: owner objective declared (P14.b) → `embed(owner_stated_objective_text)`; no objective → `embed(agent_feedback_trajectory_recent)` (L1/TRAJECTORY-derived).
 
-**§F.2 Window + cadence**: Window seed 90 substrate-days (= L0/cards/LB_living_bets §3 (falsifiability quorum) Living Bets window). Cadence: digest-emission per L1/CONTINUITY §1.1 step 2.
+**§F.2 Window + cadence**: Window seed 90 substrate-days (= L0/cards/LB_living_bets.md §3 (falsifiability quorum) Living Bets window). Cadence: digest-emission per L1/CONTINUITY §1.1 step 2.
 
 **§F.3 Birth-period + post-birth settling**: Birth: NOT computed; emits `telos_alignment_pending` (daily, NOT immune). At `birth_period_terminated`: activates after settling window shared with `salience_collapse` (§E.2 seed 100 cycles). Single shared knob.
 

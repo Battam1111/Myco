@@ -26,11 +26,11 @@
 
 **§1.2 Cycle cadence** — L4-tunable: **Minimum** default 100 ms substrate-process wall-clock (NTP-disciplined per §1.5; wall-clock authoritative for scheduling; monotonic for ordering). **Maximum** default 10s alive; 100s dormant-throttled. **Adaptive (alive)** fires on minimum-interval OR delta arrival OR gradient threshold. **Dormant**: time-only at dormant rate.
 
-**§1.3 Cycle-backlog mechanism (C36_cycle_backlog)** — Algorithm: `algorithms/cycle_backlog.md` (predicate + counter + witnesses + escalation to mortality per P11.c). C36 IS signal #7 per L0/cards/LB_living_bets §3 + L2/OBSERVABILITY §7; feeds §7.4 falsifiability quorum.
+**§1.3 Cycle-backlog mechanism (C36_cycle_backlog)** — Algorithm: `algorithms/cycle_backlog.md` (predicate + counter + witnesses + escalation to mortality per P11.c). C36 IS signal #7 per L0/cards/LB_living_bets.md §3 + L2/OBSERVABILITY §7; feeds §7.4 falsifiability quorum.
 
-**§1.4 NTP discipline (per L0/cards/COV01_fiduciary_duty + COV02 (adversarial owner))** — Substrate MUST run under NTP-disciplined host (or chrony / PTP / anchor-stamped-wall-clock via §9.2.6). Cycle-clock-only operation FORBIDDEN. Drift detection: peer-handshake `substrate_issued_at_unix_ns` vs `submitted_at_unix_ns` and `peer_issued_at_unix_ns`; tolerance seed 5s; anchor-clock cross-check at every attestation arrival; deviation > threshold → `clock_drift_suspected` with witnesses `(substrate_clock_unix_ns, peer_or_operator_clock_unix_ns, anchor_clock_unix_ns_when_available, observed_delta_unix_ns, drift_threshold_unix_ns)`. Anchor-clock IS security-bound: attestation `expiry_unix_ns` measured against anchor-stamp, not local wall-clock. Adversarial-clock (L2/TRUST_MODEL): homogeneous host compromise structurally undetectable at L1.
+**§1.4 NTP discipline (per L0/cards/COV01_fiduciary_duty.md + COV02 (adversarial owner))** — Substrate MUST run under NTP-disciplined host (or chrony / PTP / anchor-stamped-wall-clock via §9.2.6). Cycle-clock-only operation FORBIDDEN. Drift detection: peer-handshake `substrate_issued_at_unix_ns` vs `submitted_at_unix_ns` and `peer_issued_at_unix_ns`; tolerance seed 5s; anchor-clock cross-check at every attestation arrival; deviation > threshold → `clock_drift_suspected` with witnesses `(substrate_clock_unix_ns, peer_or_operator_clock_unix_ns, anchor_clock_unix_ns_when_available, observed_delta_unix_ns, drift_threshold_unix_ns)`. Anchor-clock IS security-bound: attestation `expiry_unix_ns` measured against anchor-stamp, not local wall-clock. Adversarial-clock (L2/TRUST_MODEL): homogeneous host compromise structurally undetectable at L1.
 
-**§1.5 Time-source authority hierarchy (L0/cards/P06_eternal_causality + L1/CONTINUITY (time semantics))**:
+**§1.5 Time-source authority hierarchy (L0/cards/P06_eternal_causality.md + L1/CONTINUITY (time semantics))**:
 
 | Use-case | Authoritative clock |
 |---|---|
@@ -40,7 +40,7 @@
 | Owner-attested event timestamp | Anchor-surface trusted wall-clock (§9.2.6) |
 | Federation peer-attestation freshness | Anchor-surface trusted wall-clock (§9.2.6) |
 
-**i64 nanoseconds** (per L0/cards/P06_eternal_causality + L1/CONTINUITY (time semantics)): substrate MUST NOT use i32. Canonical wire + storage = i64 ns since 1970-01-01T00:00:00Z. L1/SCHEMA §4.1 carries through to canonical-bytes serializer (tier-1 SSoT).
+**i64 nanoseconds** (per L0/cards/P06_eternal_causality.md + L1/CONTINUITY (time semantics)): substrate MUST NOT use i32. Canonical wire + storage = i64 ns since 1970-01-01T00:00:00Z. L1/SCHEMA §4.1 carries through to canonical-bytes serializer (tier-1 SSoT).
 
 ---
 
@@ -69,7 +69,7 @@
 7. **I10** — metabolic-budget state recoverable (replay signals #7/#8/#9 counters).
 8. **I12** — telos-alignment state recoverable when declared (P14.b objective text + embedding intact).
 
-**Witnesses, not verdicts** (L0/cards/AS_anchor_surface §3.11): emitted as cryptographic-proof tuples (sampled leaf hashes, Merkle paths, parent hashes, check inputs). Verdict-only IS breach. **Anchor-nonce-derived sampling** (L0/cards/AS_anchor_surface §3.12): indices deterministically derived from anchor nonce. Witness tuples land in handshake-response (L1/SKIN §4.2 step 3) AND anchor inbound channel.
+**Witnesses, not verdicts** (L0/cards/AS_anchor_surface.md §3.11): emitted as cryptographic-proof tuples (sampled leaf hashes, Merkle paths, parent hashes, check inputs). Verdict-only IS breach. **Anchor-nonce-derived sampling** (L0/cards/AS_anchor_surface.md §3.12): indices deterministically derived from anchor nonce. Witness tuples land in handshake-response (L1/SKIN §4.2 step 3) AND anchor inbound channel.
 
 **§3.1.a `cold_resume_invariant_failure` immune signal (C9)**: Any I1/I3/I4/I5/I8/I9/I10/I12 fails → substrate `alive but quarantined` (§5); handshake completes with `quarantined` marker + failure-category list; intake closed except owner-attested admin; fruits `cold_resume_invariant_failure` with witnesses. Owner anchor client re-derives; confirmed → `quarantine_clearance`; re-derivation FAILS → anchor flags `substrate_witness_forgery` (C17 analog).
 
@@ -77,7 +77,7 @@
 
 ---
 
-## §4. Host-crash recovery + delta atomicity (per L0/cards/P04_eternal_iteration §3-§4 + L1/CONTINUITY)
+## §4. Host-crash recovery + delta atomicity (per L0/cards/P04_eternal_iteration.md §3-§4 + L1/CONTINUITY)
 
 Schema: `schemas/wal_record.json` (WAL record + 4-step atomicity protocol + failure modes). Delta is fully absorbed (all causal edges + DAG-tip bumped + WAL fsync'd) or not absorbed. Partial FORBIDDEN.
 
@@ -99,7 +99,7 @@ Distinction from **legacy** (L1/GOVERNANCE §3.2): legacy = owner unavailable + 
 
 > Cross-cuts L0 I1 / P7 / P8 + L1/GOVERNANCE §3-§4 + L1/SKIN §4.5 + L1/TROPISM §4 + L2/TRUST_MODEL §2. Numeric thresholds L1-tunable unless specified. Regime view of states this doc operationalizes.
 
-**§6.1 State space + alive sub-states (L0 I1)** — `genesis → alive ⇄ dormant → destroyed (terminal; anchor final seal)`. `alive` sub-states (compositional): **normal**; **birth-period** (CI-elevation); **quarantined** (§5; intake closed); **legacy** (L1/GOVERNANCE §3.2; heartbeat stale; mutations frozen); **orphaned** (legacy_window elapsed without `succession_acceptance_attestation`); **archived** (terminal-non-destroyed via §6.4 / L0/cards/LB_living_bets §4 (retirement); state_dir + anchor-seal preserved); **saturated** (compression-insufficient per P11.c).
+**§6.1 State space + alive sub-states (L0 I1)** — `genesis → alive ⇄ dormant → destroyed (terminal; anchor final seal)`. `alive` sub-states (compositional): **normal**; **birth-period** (CI-elevation); **quarantined** (§5; intake closed); **legacy** (L1/GOVERNANCE §3.2; heartbeat stale; mutations frozen); **orphaned** (legacy_window elapsed without `succession_acceptance_attestation`); **archived** (terminal-non-destroyed via §6.4 / L0/cards/LB_living_bets.md §4 (retirement); state_dir + anchor-seal preserved); **saturated** (compression-insufficient per P11.c).
 
 **§6.2 Genesis + birth period + steady** — Genesis: L1/GOVERNANCE §4.1 + L2/TRUST_MODEL §2; sporocarp lands → `alive (birth-period)`. Birth period (L1/TROPISM §4 + L1/GOVERNANCE §1.3; all parameter-tuning CI; reclassification at owner-attested termination):
 - **Path A (convergence-attested)**: ≥N sporocarps + ≥M active-operation time + per-axis convergence below epsilon → `birth_period_complete_proposal` + owner co-attest → `alive (steady-state)` + `maturity_attestation`.
@@ -108,13 +108,13 @@ Distinction from **legacy** (L1/GOVERNANCE §3.2): legacy = owner unavailable + 
 
 Steady state: emergent thresholds replace seeds; 5-step metabolic cycle (§1.1); Living Bets baselines build; falsifiability quorum arms (90-day rolling); L0/L1 evolutions follow P3 CI-attested.
 
-**§6.3 Legacy / orphaned / archived vocabulary** — Per L1/GOVERNANCE §3.2 + L0/cards/COV06_no_abandonment_succession (cultivator mortality) (Cultivator mortality) + §7.5 (bet-retirement): `succession_acceptance_attestation`, `legacy_window` (default 365 days), `orphaned_terminal_window` (default 730 days), `cultivation_orphaned_terminal_choice` (genesis pre-attested ∈ {self_euthanasia | bet_retirement | indefinite_orphan}). Sub-states remain alive (substrate-ID + DAG preserved); may overlap quarantined.
+**§6.3 Legacy / orphaned / archived vocabulary** — Per L1/GOVERNANCE §3.2 + L0/cards/COV06_no_abandonment_succession.md (cultivator mortality) (Cultivator mortality) + §7.5 (bet-retirement): `succession_acceptance_attestation`, `legacy_window` (default 365 days), `orphaned_terminal_window` (default 730 days), `cultivation_orphaned_terminal_choice` (genesis pre-attested ∈ {self_euthanasia | bet_retirement | indefinite_orphan}). Sub-states remain alive (substrate-ID + DAG preserved); may overlap quarantined.
 
 **§6.4 Reproduction (P8)** — L1/GOVERNANCE §4.3 + §16 (generation discipline F22) + L1/SCHEMA §3.3; inter-substrate L2/FEDERATION. Modes: federation (semantic), cloning (full copy), cross-pollination (multi-parent, L1-deferred). Each child runs own complete lifecycle from own genesis; recursive under generation-limit. Child-substrate-ID Cultivator-minted at anchor (not parent-minted; F2 + L1/GOVERNANCE §4.1).
 
-**§6.5 Mortality (alive → destroyed; terminal)** — L0 P7 + L1/GOVERNANCE §4.4. Three modes: intentional-Cultivator, catastrophic-environment, endogenous-pair dual-channel. Mortality-axis F7: threshold + update-rule + emergence-rule all CI. Endogenous dual-channel: substrate emits `self_euthanasia_proposal` with `operator_witness`; anchor emits `mortality_drill_failure` on two consecutive failed drills. Terminal record: `anchor_surface_final_seal` Cultivator-co-signed; post-destruction handshakes return `substrate_destroyed`; seal substrate-ID-scoped. Alternative terminal: `alive::archived` via L0/cards/LB_living_bets §4 (retirement) / §6.3 preserves state_dir (substrate-ID does not re-bind).
+**§6.5 Mortality (alive → destroyed; terminal)** — L0 P7 + L1/GOVERNANCE §4.4. Three modes: intentional-Cultivator, catastrophic-environment, endogenous-pair dual-channel. Mortality-axis F7: threshold + update-rule + emergence-rule all CI. Endogenous dual-channel: substrate emits `self_euthanasia_proposal` with `operator_witness`; anchor emits `mortality_drill_failure` on two consecutive failed drills. Terminal record: `anchor_surface_final_seal` Cultivator-co-signed; post-destruction handshakes return `substrate_destroyed`; seal substrate-ID-scoped. Alternative terminal: `alive::archived` via L0/cards/LB_living_bets.md §4 (retirement) / §6.3 preserves state_dir (substrate-ID does not re-bind).
 
-**§6.6 Lifecycle sporocarp index** — Auditable life-trail: `genesis_event`; `birth_period_complete_proposal` / `maturity_attestation` / `birth_period_max_reached`; `dormancy_enter` / `dormancy_exit`; `cold_resume_quarantine` / `quarantine_clearance`; `succession_required` / `succession_acceptance_attestation` / `cultivation_recovered`; `reproduction_request` / `genesis_attested`; `bet_retired_proposal` / `endogenous_mortality_proposal:cultivation_orphaned_terminal`; `destruction_attestation` / `mortality_drill_failure` / `self_euthanasia_proposal`; `anchor_surface_final_seal` (terminal for `destroyed`; also `alive::archived` per L0/cards/LB_living_bets §4 (retirement).c).
+**§6.6 Lifecycle sporocarp index** — Auditable life-trail: `genesis_event`; `birth_period_complete_proposal` / `maturity_attestation` / `birth_period_max_reached`; `dormancy_enter` / `dormancy_exit`; `cold_resume_quarantine` / `quarantine_clearance`; `succession_required` / `succession_acceptance_attestation` / `cultivation_recovered`; `reproduction_request` / `genesis_attested`; `bet_retired_proposal` / `endogenous_mortality_proposal:cultivation_orphaned_terminal`; `destruction_attestation` / `mortality_drill_failure` / `self_euthanasia_proposal`; `anchor_surface_final_seal` (terminal for `destroyed`; also `alive::archived` per L0/cards/LB_living_bets.md §4 (retirement).c).
 
 ---
 

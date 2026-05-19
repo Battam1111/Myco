@@ -11,7 +11,7 @@
 ## §1. Drill scopes + cadence
 
 - **Hot+warm drill**: every 100 substrate-days (L1-tunable [30, 365]). Full restore + verify I1/I3/I4/I5/I8/I9/I10/I12. Fruits `recovery_drill_result`.
-- **Cold-tier sampled drill**: every 1000 substrate-days (L1-tunable [365, 3650]). N = ceil(log₂(cold_count)) random nodes; indices anchor-nonce-derived (per L0/cards/AS_anchor_surface §3.5); fruits `cold_tier_sample_recovery_pass`.
+- **Cold-tier sampled drill**: every 1000 substrate-days (L1-tunable [365, 3650]). N = ceil(log₂(cold_count)) random nodes; indices anchor-nonce-derived (per L0/cards/AS_anchor_surface.md §3.5); fruits `cold_tier_sample_recovery_pass`.
 
 ## §2. `recovery_drill_result` envelope
 
@@ -49,8 +49,8 @@ Drill emits proof tuples `(sampled_node_hashes, merkle_paths, reproducible_input
 
 ## §6. Mortality coupling
 
-- Beyond recoverability budget AND medium fails → P7 (L0/cards/P04_eternal_iteration §3-§4 + L1/CONTINUITY mortality).
-- Two consecutive failed drills → anchor-side auto-emit `mortality_drill_failure`; substrate cannot suppress (L0/cards/P07_mortality §4 (substrate irreducible commitments) + L1/GOVERNANCE §4.4 substrate's irreducible commitments).
+- Beyond recoverability budget AND medium fails → P7 (L0/cards/P04_eternal_iteration.md §3-§4 + L1/CONTINUITY mortality).
+- Two consecutive failed drills → anchor-side auto-emit `mortality_drill_failure`; substrate cannot suppress (L0/cards/P07_mortality.md §4 (substrate irreducible commitments) + L1/GOVERNANCE §4.4 substrate's irreducible commitments).
 
 ## §7. Cascade
 

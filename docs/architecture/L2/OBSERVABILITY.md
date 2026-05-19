@@ -10,7 +10,7 @@
 
 ## §1. Why L0-anchored
 
-Substrate is autopoietic (P1.a); no human in maintenance loop. Without observability, "I am healthy" is unfalsifiable. L0/cards/LB_living_bets Living Bets makes value falsifiable within agent-intelligence band; observatory measures stakes; trigger fires when bet lost; bet retirement (§7.5) graceful sunset.
+Substrate is autopoietic (P1.a); no human in maintenance loop. Without observability, "I am healthy" is unfalsifiable. L0/cards/LB_living_bets.md Living Bets makes value falsifiable within agent-intelligence band; observatory measures stakes; trigger fires when bet lost; bet retirement (§7.5) graceful sunset.
 
 ---
 
@@ -66,23 +66,23 @@ Variance-weighted in birth-period: `w_i = Var(signal_i over rolling window)/sum(
 
 ### §2.4 Birth-period (L1/TROPISM §4)
 
-Early signals retire post-birth. L0/cards/LB_living_bets §3 (birth-period exemption): C40 SUSPENDED → `bet_weakening_evaluation_suspended`; P14.c `telos_drift` SUSPENDED → `telos_alignment_pending`.
+Early signals retire post-birth. L0/cards/LB_living_bets.md §3 (birth-period exemption): C40 SUSPENDED → `bet_weakening_evaluation_suspended`; P14.c `telos_drift` SUSPENDED → `telos_alignment_pending`.
 
 ---
 
 ## §3. Falsifiability trigger
 
-Canonical: `algorithms/bet_weakening_quorum.md` + L0/cards/LB_living_bets §3 (falsifiability quorum). Window wall-clock 90d (anchor-stamped). Trend OLS `|slope/SE| ≥ Z=1.96`. Quorum ≥3 of 6 countable (5 until #4a lands). Spikes DAG-recorded but do not fire. Birth-period suspended. Bet retirement per L0/cards/LB_living_bets §4 (retirement).
+Canonical: `algorithms/bet_weakening_quorum.md` + L0/cards/LB_living_bets.md §3 (falsifiability quorum). Window wall-clock 90d (anchor-stamped). Trend OLS `|slope/SE| ≥ Z=1.96`. Quorum ≥3 of 6 countable (5 until #4a lands). Spikes DAG-recorded but do not fire. Birth-period suspended. Bet retirement per L0/cards/LB_living_bets.md §4 (retirement).
 
 ---
 
 ## §4. Per-cycle invariants (immune)
 
-L1/CONTINUITY §1.1 + L1/SCHEMA §4 + L0/cards/P04_eternal_iteration §3-§4 + L1/CONTINUITY:
+L1/CONTINUITY §1.1 + L1/SCHEMA §4 + L0/cards/P04_eternal_iteration.md §3-§4 + L1/CONTINUITY:
 
 - **§4.1 Per-cycle (tier-1)**: I1 identity + active-prefix `owner_key_history`; I3 tier-1 vs SSoT; I4 DAG-tip Merkle; I8 skin breach; I10 cost emission (#7/#8/#9).
 - **§4.2 Per-deep-cycle (tier-2; default 1/100)**: I5 reachability; tier-2 sampled validation (L1/SCHEMA §4.3); recovery-drill scheduling; I9 compression-invariant hash (mismatch → C41/C42); I12 telos-alignment in steady state.
-- **§4.3 Witnesses-not-verdicts** (L0/cards/AS_anchor_surface §3.11): emit crypto-proof tuples (sampled leaf hashes anchor-nonce-derived per §9.3.5, Merkle paths, parent hashes, check inputs). Substrate does NOT emit pass/fail. Sampling = `H(anchor_surface_nonce, leaf_count)`; substrate cannot bias. Extends to I9/I10/I12.
+- **§4.3 Witnesses-not-verdicts** (L0/cards/AS_anchor_surface.md §3.11): emit crypto-proof tuples (sampled leaf hashes anchor-nonce-derived per §9.3.5, Merkle paths, parent hashes, check inputs). Substrate does NOT emit pass/fail. Sampling = `H(anchor_surface_nonce, leaf_count)`; substrate cannot bias. Extends to I9/I10/I12.
 
 ---
 
@@ -102,7 +102,7 @@ Canonical **L1/SCHEMA §2.4**. Rolling 30-drill window; emergent `drill_failure_
 
 §7 cycle (C36): **L1/CONTINUITY §1.2** (cycle ≥5s OR backlog ≥10 → C36; persistent → quarantine). Approaching max-interval → `compute_pressure` feeding #7. Backlog substrate-monotonic; thresholds anchor timestamp.
 
-§8 doctrine (C37): **L0/cards/AS_anchor_surface §4 (failure modes)** >10 CI events / 24h rolling wall-clock → `doctrine_instability_burst`. Counted: attestation acceptances; F1 classifier mutations; F3 owner-key rotations; L0/L1 revision diff records; F-row mutations. Rolling >12 months above → `doctrine_drift_grade`.
+§8 doctrine (C37): **L0/cards/AS_anchor_surface.md §4 (failure modes)** >10 CI events / 24h rolling wall-clock → `doctrine_instability_burst`. Counted: attestation acceptances; F1 classifier mutations; F3 owner-key rotations; L0/L1 revision diff records; F-row mutations. Rolling >12 months above → `doctrine_drift_grade`.
 
 ---
 
@@ -114,7 +114,7 @@ Canonical mechanism: **L1/TROPISM §F**. Observatory surfaces `telos_drift` (ste
 
 ## §10. Federation-network observability
 
-Cross-ref **L2/FEDERATION §13** for #4a/#4b + federation-specific signals. Health intra-substrate (own peers); network-level patterns L4-deferred. Per L0/cards/COV06_no_abandonment_succession (cultivator mortality): when federation ≥3 peers, P15 consensus-algorithm choice itself observable as P3 evolution event.
+Cross-ref **L2/FEDERATION §13** for #4a/#4b + federation-specific signals. Health intra-substrate (own peers); network-level patterns L4-deferred. Per L0/cards/COV06_no_abandonment_succession.md (cultivator mortality): when federation ≥3 peers, P15 consensus-algorithm choice itself observable as P3 evolution event.
 
 ---
 
@@ -122,11 +122,11 @@ Cross-ref **L2/FEDERATION §13** for #4a/#4b + federation-specific signals. Heal
 
 §11 operator: gradient digest + per-cycle emission (L1/TROPISM §B4); sporocarp visibility; cold-resume witness (L1/CONTINUITY §3.1). NO direct observatory access; substrate curates. Distrust enforced via anchor channel; mismatches surface as events.
 
-§12 owner (anchor surface): substrate-ID birth attestation; DAG-tip co-signing logs; `recovery_drill_result` (§6); succession / quarantine / mortality / final-seal events (L1/GOVERNANCE §4.4 + L0/cards/COV06_no_abandonment_succession (cultivator mortality)); aggregate-reattestation diffs; compression witnesses (I9); cost signals #7/#8/#9; telos-alignment + objective embeddings (F20); C40 + bet_retired events.
+§12 owner (anchor surface): substrate-ID birth attestation; DAG-tip co-signing logs; `recovery_drill_result` (§6); succession / quarantine / mortality / final-seal events (L1/GOVERNANCE §4.4 + L0/cards/COV06_no_abandonment_succession.md (cultivator mortality)); aggregate-reattestation diffs; compression witnesses (I9); cost signals #7/#8/#9; telos-alignment + objective embeddings (F20); C40 + bet_retired events.
 
 ---
 
 ## §13-§14. Self-model + falsifiability summary
 
-§13 self-model: observation recursive; recursion terminates at anchor (outside substrate). §14 falsifiability summary: v0.9 claim falsifiable via §3 quorum + §5 immune + §6 drill + §8 doctrine-burst + §9 telos-drift + §10 federation + L1/GOVERNANCE §4.4 mortality. Substrate cannot silently die / lie (subject to L0/cards/COV01_fiduciary_duty + COV02 (adversarial owner) + L2/TRUST_MODEL).
+§13 self-model: observation recursive; recursion terminates at anchor (outside substrate). §14 falsifiability summary: v0.9 claim falsifiable via §3 quorum + §5 immune + §6 drill + §8 doctrine-burst + §9 telos-drift + §10 federation + L1/GOVERNANCE §4.4 mortality. Substrate cannot silently die / lie (subject to L0/cards/COV01_fiduciary_duty.md + COV02 (adversarial owner) + L2/TRUST_MODEL).
 

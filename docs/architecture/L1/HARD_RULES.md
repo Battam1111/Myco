@@ -33,9 +33,9 @@ CRITICAL breach MUST immediately transition substrate to `alive::quarantined` (L
 | C15 | `classifier_fixed_point_bypass` | L1/GOVERNANCE §1.2 | Mutation of classifier table/function via non-CI | P1.b'' | I2 | **U** |
 | C16 | `mortality_signal_suppression` | L1/GOVERNANCE §4.4 + L1/TROPISM §B2 | Mortality threshold/update-rule mutated via non-CI | P7 | I1, I2 | **U** |
 | C17 | `operator_witness_forgery` | L1/GOVERNANCE §2.2 | `operator_witness` does not verify against logged handshake pubkey | P1.c | I1, I2 | **L** |
-| C18 | `canonical_bytes_render_drift` | L0/cards/AS_anchor_surface §3.8 + §9.3.2 | Anchor-client render hash diverges from substrate signed hash | P1.b'' | I2 | **L** |
+| C18 | `canonical_bytes_render_drift` | L0/cards/AS_anchor_surface.md §3.8 + §9.3.2 | Anchor-client render hash diverges from substrate signed hash | P1.b'' | I2 | **L** |
 | C19 | `paused_dormancy_unsafe_host` | L1/CONTINUITY §2.4 + §3.2 | Process terminated during paused dormancy | P7, P1.c | I1 | **R** |
-| C20 | `genesis_attestation_chain_broken` | L1/GOVERNANCE §4.1 + L0/cards/AS_anchor_surface §3.1 | Substrate-ID birth attestation does not verify | P1.a | I1 | **L** |
+| C20 | `genesis_attestation_chain_broken` | L1/GOVERNANCE §4.1 + L0/cards/AS_anchor_surface.md §3.1 | Substrate-ID birth attestation does not verify | P1.a | I1 | **L** |
 
 Rows INDEPENDENT (I2 fixed-point). Coverage: README §Status + L3/PACKAGE_MAP.md.
 
@@ -50,15 +50,15 @@ Rows INDEPENDENT (I2 fixed-point). Coverage: README §Status + L3/PACKAGE_MAP.md
 | C34 | `birth_period_violation_during_quarantine` | L1/TROPISM §4 + L1/CONTINUITY §5 | P1.b'', P7 | I2 | **L** |
 | C35 | `federation_substrate_private_event_injection` | L2/FEDERATION §6 + L1/SKIN §3 | P8, P1.c | I7, I8 | **L** |
 | C36 | `cycle_backlog` | L1/CONTINUITY §1.2 | P11 | I10 | **L** |
-| C37 | `doctrine_instability_burst` | L1/GOVERNANCE §6 + L0/cards/AS_anchor_surface §4 (failure modes) + L2/OBSERVABILITY §8 | P3 | I2, I4 | **L** |
+| C37 | `doctrine_instability_burst` | L1/GOVERNANCE §6 + L0/cards/AS_anchor_surface.md §4 (failure modes) + L2/OBSERVABILITY §8 | P3 | I2, I4 | **L** |
 | C38 | `snapshot_integrity_violation` | L1/SCHEMA §4 | P1.c, P6 | I1, I4 | **L** |
 | C39 | `federation_hello_signature_invalid` | L2/FEDERATION §6 + §6.2 | P8, P1.c | I7 | **L** |
-| C40 | `bet_weakening_quorum` | L0/cards/LB_living_bets §3 (falsifiability quorum) + L2/OBSERVABILITY §3 | P14 | I12 | **L** |
-| C41 | `dag_cb_integrity_violation` | L1/SCHEMA §2.1 + L0/cards/AS_anchor_surface §4 (failure modes) | P1.c, P6, P10 | I4, I9 | **L** |
+| C40 | `bet_weakening_quorum` | L0/cards/LB_living_bets.md §3 (falsifiability quorum) + L2/OBSERVABILITY §3 | P14 | I12 | **L** |
+| C41 | `dag_cb_integrity_violation` | L1/SCHEMA §2.1 + L0/cards/AS_anchor_surface.md §4 (failure modes) | P1.c, P6, P10 | I4, I9 | **L** |
 | C42 | `manifest_cb_integrity_violation` | L1/SCHEMA §4 | P1.c, P6 | I1, I4 | **L** |
 | C43 | `federation_recursive_injection` | L2/FEDERATION §6 + L1/SKIN §3 | P8, P1.c | I7, I8 | **U** |
-| C44 | `nonce_substrate_minted_replay` | L1/GOVERNANCE §2.2 + L0/cards/AS_anchor_surface §3.5 | P1.b'' | I2 | **U** |
-| C45 | `substrate_id_low_entropy_collision` | L1/GOVERNANCE §4.1 + L0/cards/AS_anchor_surface §3.1 | P1.a | I1 | **U** |
+| C44 | `nonce_substrate_minted_replay` | L1/GOVERNANCE §2.2 + L0/cards/AS_anchor_surface.md §3.5 | P1.b'' | I2 | **U** |
+| C45 | `substrate_id_low_entropy_collision` | L1/GOVERNANCE §4.1 + L0/cards/AS_anchor_surface.md §3.1 | P1.a | I1 | **U** |
 | C46 | `owner_succession_bypass` | L1/GOVERNANCE §3.2 | P1.b'', P7 | I1, I2 | **U** |
 | C47 | `generation_depth_exceeded` | L1/GOVERNANCE §16.A | P8 | I7 | **U** |
 | C48 | `reproduction_rate_exceeded` | L1/GOVERNANCE §16.B | P8 | I7 | **U** |
@@ -69,7 +69,7 @@ Rows INDEPENDENT (I2 fixed-point). Coverage: README §Status + L3/PACKAGE_MAP.md
 | C53 | `budget_exhausted_silent` | L1/SCHEMA §4.1 | P11 | I10 | **L** |
 
 ### §1.3 Bet-retirement sporocarp
-C40 = trigger arc for L0/cards/LB_living_bets §4 (retirement); NOT CRITICAL — CI lifecycle parallel to `self_euthanasia_executed`.
+C40 = trigger arc for L0/cards/LB_living_bets.md §4 (retirement); NOT CRITICAL — CI lifecycle parallel to `self_euthanasia_executed`.
 
 ### §1.4 v3.1.1 amendment — anticipated C-rows for P07 internal mortality discipline
 
@@ -101,7 +101,7 @@ L0-doctrinal; CI status unconditional; mutation REQUIRES anchor-surface owner at
 | F3 | `owner_key_history` (active-prefix + archived-tail) | L1/GOVERNANCE §3.1 | P1.b'', P1.c | I1 |
 | F4 | `anchor_surface_endpoint_public_key` | L1/GOVERNANCE §4.1 | P1.b'' | I2, I8 |
 | F5 | `substrate_secret_sealing_mechanism_attestation` | L1/SKIN §4.2 | P1.c | I1, I6 |
-| F6 | `anchor_client_provenance_attestation` | L0/cards/AS_anchor_surface §3.10 | P1.b'' | I2 |
+| F6 | `anchor_client_provenance_attestation` | L0/cards/AS_anchor_surface.md §3.10 | P1.b'' | I2 |
 | F7 | Mortality-signal threshold + update-rule + emergence-rule | L1/GOVERNANCE §1.2 | P7 | I1 |
 | F8 | SSoT designation | L1/SCHEMA §1.2 | P3 | I3 |
 | F9 | DAG retention policy (P10.b invariant set) | L1/SCHEMA §2.5 | P6, P10 | I4, I9 |
@@ -123,7 +123,7 @@ L0-doctrinal; CI status unconditional; mutation REQUIRES anchor-surface owner at
 | F25 | Salience-emergence rule | L1/TROPISM §E.4 + L1/GOVERNANCE §15.F25 | P12 | I2 |
 
 ## §3. Birth-period CI elevation
-Cross-ref L1/GOVERNANCE §1.3 (ALL parameter-tuning CI) + L0/cards/LB_living_bets §3 (birth-period exemption) (C40 + P14.c SUSPENDED).
+Cross-ref L1/GOVERNANCE §1.3 (ALL parameter-tuning CI) + L0/cards/LB_living_bets.md §3 (birth-period exemption) (C40 + P14.c SUSPENDED).
 
 ## §4. Anchor-surface-resident state (substrate cannot author)
 
