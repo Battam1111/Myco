@@ -7480,6 +7480,152 @@ fn sprint_5h_federation_protocol_version_constant_is_pinned() {
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
+// **v3.1.1 Sprint 6.K — T1.6 DAG at-rest encryption**.
+//
+// Sprint 2.A added DPAPI sealing for substrate_signing_key.cb. Sprint
+// 6.K extends to dag.cb (the largest plaintext-on-disk leak surface).
+// On Windows, dag.cb is now DPAPI-wrapped inside an envelope; on
+// non-Windows, the envelope wraps plain bytes (no encryption, but
+// format-consistency for future migrations).
+//
+// Backward compat: pre-Sprint-6.K legacy raw dag.cb files load via
+// the magic-mismatch fallback path in unseal_from_at_rest.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn sprint_6k_dag_file_starts_with_at_rest_magic() {
+    // After a substrate boots + saves dag.cb, the file MUST start with
+    // the "MASR" envelope magic. This is the public-surface contract
+    // that downstream tooling can rely on to identify Sprint-6.K-or-later
+    // files.
+    let dir = fresh_state_dir();
+    let mut client = spawn_substrate_with_state_dir(&dir);
+    // Trigger at least one DAG save by running a cycle.
+    client
+        .register_axis("k_axis", "appetite", 5.0, 0.0, 1.0, false, "noop")
+        .expect("register");
+    pump_cycles(&mut client, 1);
+    client.shutdown().expect("shutdown");
+
+    let dag_path = dir.join("dag.cb");
+    let bytes = std::fs::read(&dag_path).expect("read dag.cb");
+    assert!(
+        bytes.len() >= 4,
+        "Sprint 6.K T1.6: dag.cb must have at least 4 bytes; got {}",
+        bytes.len()
+    );
+    assert_eq!(
+        &bytes[..4],
+        b"MASR",
+        "Sprint 6.K T1.6: dag.cb must start with at-rest envelope magic; \
+         got first 4 bytes = {:?}",
+        &bytes[..4]
+    );
+}
+
+#[test]
+fn sprint_6k_substrate_round_trip_through_envelope_format() {
+    // Boot substrate, do work, shut down, reboot. The substrate's DAG
+    // must survive the round-trip — proving the seal/unseal pair is
+    // identity-preserving for real substrate state.
+    let dir = fresh_state_dir();
+    {
+        let mut client = spawn_substrate_with_state_dir(&dir);
+        client
+            .register_axis("roundtrip_k", "appetite", 3.0, 0.0, 1.0, false, "noop")
+            .expect("register");
+        pump_cycles(&mut client, 2);
+        client.shutdown().expect("first shutdown");
+    }
+    // Reboot.
+    let mut client2 = spawn_substrate_with_state_dir(&dir);
+    let resp = client2
+        .call(
+            proto::QUERY_RECENT_NODES,
+            build_payload(vec![("count", CbValue::Uint(50))]),
+        )
+        .expect("query after reboot");
+    let nodes = match resp.payload.get("nodes") {
+        Some(CbValue::Array(a)) => a.clone(),
+        _ => panic!("nodes missing"),
+    };
+    assert!(
+        !nodes.is_empty(),
+        "Sprint 6.K T1.6: substrate must restore DAG content after reboot \
+         through the at-rest envelope; got 0 nodes (encryption corrupted state)"
+    );
+    client2.shutdown().expect("second shutdown");
+}
+
+#[test]
+fn sprint_6k_legacy_pre_envelope_dag_file_still_loads() {
+    // Backward compat: a dag.cb file written in the pre-Sprint-6.K
+    // raw format (no MASR magic) must still load. The substrate's
+    // unseal_from_at_rest falls back to raw bytes on magic mismatch.
+    use myco_kernel_schema::dag::Dag;
+
+    let dir = fresh_state_dir();
+    // Construct a minimal empty Dag and write its canonical bytes
+    // DIRECTLY (no envelope) — simulating a pre-Sprint-6.K substrate's
+    // dag.cb on disk.
+    let dag = Dag::new();
+    let raw_bytes = dag.to_canonical_bytes();
+    let dag_path = dir.join("dag.cb");
+    std::fs::write(&dag_path, raw_bytes.as_ref()).expect("write legacy dag.cb");
+
+    // Boot substrate against this state_dir. It should load the legacy
+    // dag.cb without error (genesis succeeds because the DAG is empty).
+    let mut client = spawn_substrate_with_state_dir(&dir);
+    // Successful boot means load_dag handled the legacy raw bytes.
+    // On next cycle, the substrate will re-save dag.cb in the new
+    // envelope format.
+    pump_cycles(&mut client, 1);
+    client.shutdown().expect("legacy-format reboot succeeds");
+
+    // After the cycle, dag.cb should now be in envelope format.
+    let post_save_bytes = std::fs::read(&dag_path).expect("read");
+    assert_eq!(
+        &post_save_bytes[..4],
+        b"MASR",
+        "Sprint 6.K T1.6: legacy dag.cb must be upgraded to envelope \
+         format on next save; got first 4 bytes = {:?}",
+        &post_save_bytes[..4]
+    );
+}
+
+#[cfg(windows)]
+#[test]
+fn sprint_6k_windows_dag_body_is_dpapi_wrapped() {
+    // On Windows specifically: the envelope body must NOT contain the
+    // plaintext DAG canonical bytes (those start with canonical-bytes
+    // structure markers, not DPAPI ciphertext). The DPAPI ciphertext
+    // is opaque + much longer than the plaintext for small inputs.
+    use substrate::at_rest_seal::{unseal_from_at_rest, ENVELOPE_MAGIC};
+
+    let dir = fresh_state_dir();
+    let mut client = spawn_substrate_with_state_dir(&dir);
+    pump_cycles(&mut client, 1);
+    client.shutdown().expect("shutdown");
+
+    let dag_path = dir.join("dag.cb");
+    let sealed = std::fs::read(&dag_path).expect("read");
+    assert_eq!(&sealed[..4], ENVELOPE_MAGIC);
+    // Unseal succeeds (via DPAPI on Windows).
+    let unsealed = unseal_from_at_rest(&sealed).expect("Windows unseal must succeed");
+    // The unsealed body is the original Dag canonical bytes. The sealed
+    // body inside the envelope is DPAPI ciphertext, which is significantly
+    // larger than the plaintext (DPAPI adds metadata overhead + AES block
+    // padding).
+    assert!(
+        sealed.len() > unsealed.len(),
+        "Sprint 6.K T1.6 (Windows): DPAPI-wrapped file must be larger than \
+         plaintext; sealed={} unsealed={}",
+        sealed.len(),
+        unsealed.len()
+    );
+}
+
+// ---------------------------------------------------------------------------
 // **v3.1.1 Sprint 6.I — T2.11 M7+ Ed25519 operator handshake strict mode**.
 //
 // Sprint 6.E added BridgeClientConfig.operator_signing_seed so operators

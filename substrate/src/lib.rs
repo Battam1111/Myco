@@ -58,6 +58,7 @@
 // — searchable via `git grep "allow(unsafe_code)"` in the substrate crate.
 #![deny(unsafe_code)]
 
+pub mod at_rest_seal;
 pub mod attestation;
 pub mod backup;
 pub mod dag_query;
