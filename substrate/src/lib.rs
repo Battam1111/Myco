@@ -78,6 +78,7 @@ pub mod prune;
 pub mod reproduction;
 pub mod sealing;
 pub mod server;
+pub mod wall_clock;
 
 use thiserror::Error;
 

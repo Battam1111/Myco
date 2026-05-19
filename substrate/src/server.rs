@@ -277,6 +277,37 @@ fn do_autonomous_tick(state: &mut ServerState) -> Result<(), SubstrateError> {
         }
     }
 
+    // **v3.1.1 Sprint 6.C (T1.7)** — wall-clock skew observation.
+    //
+    // The monotonic_unix_ns helper (substrate/src/wall_clock.rs) tracks
+    // backward jumps as a side effect. Poll for accumulated skew on
+    // each tick; emit C63_wall_clock_skew_detected if any skew occurred
+    // since the last poll. This surfaces NTP corrections, manual
+    // clock changes, and VM clock drift to the operator as immune
+    // signals — vs. silently mis-time-stamping every subsequent event.
+    if state.handshake_complete {
+        let obs = crate::wall_clock::take_skew_observation();
+        if obs.detection_count_since_last_take > 0 {
+            let evidence = format!(
+                "wall-clock backward-jump detected: {} skew events since last \
+                 observation, largest jump = {} ns ({:.3} ms). Substrate's \
+                 monotonic_unix_ns helper compensated; downstream rate-limits + \
+                 nonce expiries remain protected. Operator should investigate \
+                 host clock-sync configuration.",
+                obs.detection_count_since_last_take,
+                obs.largest_backward_jump_ns,
+                obs.largest_backward_jump_ns as f64 / 1_000_000.0,
+            );
+            let _ = emit_immune_sporocarp(
+                state,
+                "C63_wall_clock_skew_detected",
+                "wall_clock_skew_detected",
+                &evidence,
+            );
+            let _ = save_dag_state(state);
+        }
+    }
+
     // **v3.1.1 Sprint 5.E** — Python worker liveness check (T2.3).
     //
     // Detects silent Python death (OOM, segfault, unhandled exception) BEFORE
@@ -1805,12 +1836,12 @@ pub(crate) fn emit_immune_sporocarp(
     detector_name: &str,
     evidence: &str,
 ) -> Result<myco_kernel_shared::crypto::NodeHash, SubstrateError> {
-    use std::time::{SystemTime, UNIX_EPOCH};
-    let timestamp_unix_ns = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .ok()
-        .and_then(|d| i64::try_from(d.as_nanos()).ok())
-        .unwrap_or(0);
+    // **v3.1.1 Sprint 6.C (T1.7)** — use the monotonic wall-clock helper
+    // so Sprint 5.F immune rate-limit logic cannot be defeated by a
+    // backward clock jump. If the OS clock jumps from year 2030 to 2026,
+    // emit_immune_sporocarp continues to produce strictly-increasing
+    // timestamps, keeping the rate-limit window stable.
+    let timestamp_unix_ns = crate::wall_clock::monotonic_unix_ns();
 
     // **v3.1.1 Sprint 5.F (T2.4)** — per-detector rate limit. Wall-clock
     // window prevents DoS attacks where an attacker rapidly triggers a
