@@ -25,6 +25,24 @@ use crate::server::{
 };
 use crate::SubstrateError;
 
+/// **v3.1.1 Sprint 6.I (T2.11)** — strict-Ed25519 operator handshake gate.
+///
+/// When `MYCO_REQUIRE_ED25519_OPERATOR_HANDSHAKE` is set to a truthy
+/// value, the substrate REJECTS operator hellos that lack
+/// `operator_pubkey` + `hello_signature`. This forces operators onto the
+/// M7+ Ed25519 path symmetric with how federation peers default to
+/// strict (`MYCO_ACCEPT_LEGACY_PEERS` defaults OFF).
+///
+/// Default OFF for backward compatibility with M5-M8-only operators.
+/// Cultivator sets to ON when operators are migrated; without this flag
+/// flipping eventually, substrate stays in legacy mode forever and the
+/// eventual M7+ migration becomes a coordinated flag day.
+fn require_ed25519_operator_handshake() -> bool {
+    std::env::var("MYCO_REQUIRE_ED25519_OPERATOR_HANDSHAKE")
+        .map(|v| matches!(v.trim().to_ascii_lowercase().as_str(), "1" | "true" | "yes" | "on"))
+        .unwrap_or(false)
+}
+
 /// M5 handshake entry point: consume the operator's `hello`, optionally
 /// TOFU-pin or match the operator's Ed25519 identity (M9+), spawn the
 /// Python kernel/tropism worker, hydrate substrate-side state (M21+ DAG
@@ -75,6 +93,20 @@ pub(crate) fn handle_hello(
     } else if pinned_pre.is_some() {
         return Err(SubstrateError::Handshake(
             "hello missing operator_pubkey + hello_signature; substrate has a pinned operator identity (downgrade rejected; M9 L1/HARD_RULES C2)".to_string(),
+        ));
+    } else if require_ed25519_operator_handshake() {
+        // **v3.1.1 Sprint 6.I (T2.11)** — strict mode: reject first-sight
+        // operators that don't supply Ed25519 pubkey + signature. Symmetric
+        // with `MYCO_ACCEPT_LEGACY_PEERS` for federation peers. Default off
+        // for backward compatibility; cultivator enables when operators
+        // are migrated. Without this flag, a substrate that never gets a
+        // signed hello stays in legacy M5-M8 mode forever — the eventual
+        // M7+ migration becomes a flag day.
+        return Err(SubstrateError::Handshake(
+            "MYCO_REQUIRE_ED25519_OPERATOR_HANDSHAKE=1 is set; \
+             hello MUST include operator_pubkey + hello_signature \
+             (legacy M5-M8 mode disabled at operator request)"
+                .to_string(),
         ));
     }
     // else: legacy mode (no pubkey pinned, no signature provided) — accept.

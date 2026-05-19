@@ -7480,6 +7480,86 @@ fn sprint_5h_federation_protocol_version_constant_is_pinned() {
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
+// **v3.1.1 Sprint 6.I — T2.11 M7+ Ed25519 operator handshake strict mode**.
+//
+// Sprint 6.E added BridgeClientConfig.operator_signing_seed so operators
+// CAN sign their hellos. Sprint 6.I adds the substrate-side opt-in to
+// REQUIRE that path. Symmetric with `MYCO_ACCEPT_LEGACY_PEERS` for
+// federation peers.
+//
+// Without Sprint 6.I, a substrate that never receives a signed hello
+// stays in legacy M5-M8 mode forever — the eventual M7+ migration
+// becomes a coordinated flag day. Sprint 6.I lets cultivator flip the
+// switch when their operators are ready.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn sprint_6i_strict_mode_accepts_signed_hello() {
+    // Spawn with MYCO_REQUIRE_ED25519_OPERATOR_HANDSHAKE=1 + a signing
+    // seed → handshake succeeds.
+    let dir = fresh_state_dir();
+    let substrate_binary = env!("CARGO_BIN_EXE_myco-substrate");
+    let client = BridgeClient::spawn_and_handshake(BridgeClientConfig {
+        python_executable: substrate_binary.to_string(),
+        session_secret: None,
+        extra_env: vec![
+            (
+                "MYCO_STATE_DIR".to_string(),
+                dir.to_string_lossy().into_owned(),
+            ),
+            (
+                "MYCO_REQUIRE_ED25519_OPERATOR_HANDSHAKE".to_string(),
+                "1".to_string(),
+            ),
+        ],
+        operator_signing_seed: Some([0x99; 32]),
+    });
+    assert!(
+        client.is_ok(),
+        "Sprint 6.I T2.11: signed hello + strict-mode env var must succeed; \
+         got error: {:?}",
+        client.err()
+    );
+    client.unwrap().shutdown().expect("shutdown");
+}
+
+#[test]
+fn sprint_6i_strict_mode_rejects_unsigned_hello() {
+    // Spawn with strict-mode env var + NO signing seed → handshake fails
+    // because no operator_pubkey in hello.
+    let dir = fresh_state_dir();
+    let substrate_binary = env!("CARGO_BIN_EXE_myco-substrate");
+    let result = BridgeClient::spawn_and_handshake(BridgeClientConfig {
+        python_executable: substrate_binary.to_string(),
+        session_secret: None,
+        extra_env: vec![
+            (
+                "MYCO_STATE_DIR".to_string(),
+                dir.to_string_lossy().into_owned(),
+            ),
+            (
+                "MYCO_REQUIRE_ED25519_OPERATOR_HANDSHAKE".to_string(),
+                "1".to_string(),
+            ),
+        ],
+        operator_signing_seed: None,
+    });
+    assert!(
+        result.is_err(),
+        "Sprint 6.I T2.11: unsigned hello + strict-mode must be rejected; \
+         got Ok (substrate accepted legacy hello despite strict flag)"
+    );
+}
+
+#[test]
+fn sprint_6i_legacy_mode_default_still_accepts_unsigned() {
+    // Regression: without the strict-mode env var, substrate continues
+    // to accept unsigned hellos (M5-M8 backward compat preserved).
+    let (client, _dir) = spawn_substrate();
+    client.shutdown().expect("legacy spawn succeeds + shuts down");
+}
+
+// ---------------------------------------------------------------------------
 // **v3.1.1 Sprint 6.H — T2.10 Federation compatibility matrix scaffolding**.
 //
 // Sprint 5.H added strict version-match rejection (C61). Sprint 6.H
