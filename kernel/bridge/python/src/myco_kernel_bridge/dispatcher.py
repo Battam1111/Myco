@@ -38,6 +38,7 @@ from myco_kernel_governance.canonical_bytes import (
     Array,
     Bool,
     Bytes as CbBytes,
+    CanonicalBytesError,
     Map as CbMap,
     String as CbString,
     Uint as CbUint,
@@ -320,7 +321,9 @@ def _handle_register_axis(
         update_rule_kind = expect_string(keys["update_rule_kind"])
     except KeyError as e:
         raise BridgeProtocolError(f"register_axis payload missing key: {e}") from e
-    except (ValueError, Exception) as e:
+    except (ValueError, CanonicalBytesError) as e:
+        # float() raises ValueError on bad repr; expect_* raise
+        # CanonicalBytesError on wrong value type.
         raise BridgeProtocolError(
             f"register_axis payload parse error: {e}"
         ) from e
@@ -511,7 +514,7 @@ def _handle_compute_intent(state: DispatcherState, request: Message) -> Message:
         pivot_hash_bytes = expect_bytes(keys["pivot_hash"])
         radius_cycles = expect_uint(keys["radius_cycles"])
         dag_nodes_array = expect_array(keys["dag_nodes"])
-    except (KeyError, Exception) as e:
+    except (KeyError, CanonicalBytesError) as e:
         raise BridgeProtocolError(
             f"compute_intent payload error: {e}"
         ) from e
@@ -527,7 +530,7 @@ def _handle_compute_intent(state: DispatcherState, request: Message) -> Message:
             parent_ids = tuple(expect_bytes(p).hex() for p in parents_arr)
             at_cycle = expect_uint(node_fields["at_cycle"])
             node_type = expect_string(node_fields["node_type"])
-        except (KeyError, Exception) as e:
+        except (KeyError, CanonicalBytesError) as e:
             raise BridgeProtocolError(
                 f"compute_intent dag_node decode error: {e}"
             ) from e
@@ -686,7 +689,7 @@ def _handle_submit_mutation(
         touched_fields_arr = expect_array(keys["touched_fields"])
         touched_files_arr = expect_array(keys["touched_files"])
         touched_meta_arr = expect_array(keys["touched_meta_structures"])
-    except (KeyError, Exception) as e:
+    except (KeyError, CanonicalBytesError) as e:
         raise BridgeProtocolError(
             f"submit_mutation payload error: {e}"
         ) from e

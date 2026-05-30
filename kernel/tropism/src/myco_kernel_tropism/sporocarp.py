@@ -108,11 +108,7 @@ class Sporocarp:
                 "at_cycle": Uint(self.at_cycle),
                 "causal_parent_hashes": Array(
                     tuple(
-                        Value.__class__.__call__(  # type: ignore[misc]
-                            None
-                        )
-                        if False
-                        else _hash_to_bytes_value(h)
+                        _hash_to_bytes_value(h)
                         for h in self.causal_parent_hashes
                     )
                 ),

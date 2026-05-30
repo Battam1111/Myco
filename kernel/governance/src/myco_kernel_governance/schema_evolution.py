@@ -45,10 +45,10 @@ from __future__ import annotations
 import copy
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional
 
 from myco_kernel_governance.canonical_bytes import (
     CanonicalBytes,
+    CanonicalBytesError,
     Map as CbMap,
     String as CbString,
     decode as cb_decode,
@@ -122,11 +122,11 @@ def parse_schema_diff(diff_canonical_bytes: bytes) -> SchemaDiff:
     """
     try:
         decoded = cb_decode(diff_canonical_bytes)
-    except Exception as e:
+    except CanonicalBytesError as e:
         raise SchemaEvolutionError(f"schema_diff decode failed: {e}") from e
     try:
         m = expect_map(decoded)
-    except Exception as e:
+    except CanonicalBytesError as e:
         raise SchemaEvolutionError(f"schema_diff is not a Map: {e}") from e
     keys = dict(m.value)
     try:
@@ -134,7 +134,7 @@ def parse_schema_diff(diff_canonical_bytes: bytes) -> SchemaDiff:
         axis_name = expect_string(keys["axis_name"])
     except KeyError as e:
         raise SchemaEvolutionError(f"schema_diff missing required key: {e}") from e
-    except Exception as e:
+    except CanonicalBytesError as e:
         raise SchemaEvolutionError(f"schema_diff key type error: {e}") from e
     try:
         op = SchemaDiffOp(op_str)
@@ -242,7 +242,7 @@ def _apply_add_axis(
 ) -> None:
     p = diff.params
 
-    def _opt_string(key: str) -> Optional[str]:
+    def _opt_string(key: str) -> str | None:
         v = p.get(key)
         if v is None:
             return None
@@ -337,10 +337,14 @@ def _restore_gradient(
     Because callers hold a reference to `gradient`, we copy snapshot fields
     onto the live object rather than swapping references.
     """
-    # GradientConfiguration's internal state is in `axes` dict.
-    # We replace it wholesale from the snapshot (deep-copied to avoid
-    # aliasing with subsequent mutations on the live object).
+    # GradientConfiguration's mutable state spans BOTH the `axes` dict and the
+    # parallel `update_rules` dict (e.g. add_axis_to_gradient writes both via
+    # register_axis). Both must be rolled back, or a failed add_axis would
+    # leave a stale update_rules entry behind. We replace each wholesale from
+    # the snapshot (deep-copied to avoid aliasing with subsequent mutations on
+    # the live object).
     gradient.axes = copy.deepcopy(snapshot.axes)
+    gradient.update_rules = copy.deepcopy(snapshot.update_rules)
 
 
 # ---------------------------------------------------------------------------

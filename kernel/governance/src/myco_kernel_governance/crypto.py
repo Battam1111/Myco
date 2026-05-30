@@ -27,7 +27,7 @@ import struct
 from dataclasses import dataclass
 
 from blake3 import blake3
-from cryptography.exceptions import InvalidSignature
+from cryptography.exceptions import InvalidSignature, UnsupportedAlgorithm
 from cryptography.hazmat.primitives.asymmetric.ed25519 import (
     Ed25519PrivateKey as _RawEd25519PrivateKey,
     Ed25519PublicKey as _RawEd25519PublicKey,
@@ -212,9 +212,13 @@ class Ed25519PublicKey:
                 f"expected {PUBLIC_KEY_LENGTH} bytes, got {len(self.bytes_)}"
             )
         # Validate by attempting to construct the underlying pubkey object.
+        # ``from_public_bytes`` raises ValueError on malformed encoding and
+        # UnsupportedAlgorithm if the backend lacks Ed25519 — both mean the
+        # key bytes are unusable. Other exceptions (e.g. TypeError) signal a
+        # caller bug and should propagate unmasked.
         try:
             _RawEd25519PublicKey.from_public_bytes(self.bytes_)
-        except Exception as e:
+        except (ValueError, UnsupportedAlgorithm) as e:
             raise PublicKeyMalformed(str(e)) from e
 
     def to_hex(self) -> str:
@@ -326,7 +330,7 @@ def verify_signature(
 
     try:
         pk = _RawEd25519PublicKey.from_public_bytes(public_key)
-    except Exception as e:
+    except (ValueError, UnsupportedAlgorithm) as e:
         raise PublicKeyMalformed(str(e)) from e
 
     try:

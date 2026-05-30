@@ -37,8 +37,9 @@ container; this Python module implements an owner-keys-specific variant.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from dataclasses import dataclass, field
-from typing import Final, Optional
+from typing import Final
 
 from myco_kernel_governance.crypto import Ed25519PublicKey
 
@@ -66,8 +67,8 @@ class OwnerKeyEntry:
 
     public_key: Ed25519PublicKey
     valid_from_anchor_timestamp: int
-    valid_until_anchor_timestamp: Optional[int] = None
-    rotation_attestation_canonical_bytes_hash: Optional[bytes] = None
+    valid_until_anchor_timestamp: int | None = None
+    rotation_attestation_canonical_bytes_hash: bytes | None = None
 
     def is_active_at(self, anchor_timestamp_unix_seconds: int) -> bool:
         """Whether this key was active at the given anchor-surface timestamp.
@@ -208,13 +209,13 @@ class OwnerKeyHistory:
         """Entries in the cold-tier-eligible archived_tail."""
         return len(self.archived_tail)
 
-    def _iter_all(self) -> "Iterator[OwnerKeyEntry]":  # noqa: F821
+    def _iter_all(self) -> Iterator[OwnerKeyEntry]:
         """Iterate all entries (active + extra + archived) in storage order."""
         yield from self.active_extra_valid
         yield from self.active_prefix
         yield from self.archived_tail
 
-    def _iter_active_layer(self) -> "Iterator[OwnerKeyEntry]":  # noqa: F821
+    def _iter_active_layer(self) -> Iterator[OwnerKeyEntry]:
         yield from self.active_extra_valid
         yield from self.active_prefix
 

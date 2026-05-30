@@ -3,9 +3,16 @@
 from __future__ import annotations
 
 import pytest
+from myco_kernel_tropism.appetite_axis import (
+    AxisClass,
+    AxisSchema,
+    NoOpRule,
+)
+from myco_kernel_tropism.gradient import (
+    GradientConfiguration,
+)
 
 from myco_kernel_governance.schema_evolution import (
-    ApplyResult,
     SchemaDiff,
     SchemaDiffOp,
     SchemaEvolutionError,
@@ -13,15 +20,6 @@ from myco_kernel_governance.schema_evolution import (
     parse_schema_diff,
     schema_diff_add_axis_bytes,
     schema_diff_modify_axis_threshold_bytes,
-)
-from myco_kernel_tropism.appetite_axis import (
-    AxisClass,
-    AxisSchema,
-    NoOpRule,
-)
-from myco_kernel_tropism.gradient import (
-    AxisAlreadyRegistered,
-    GradientConfiguration,
 )
 
 
@@ -125,7 +123,11 @@ def test_apply_add_axis_with_unknown_class_rolls_back():
 def test_parse_schema_diff_unknown_op_raises():
     from myco_kernel_governance.canonical_bytes import (
         Map as CbMap,
+    )
+    from myco_kernel_governance.canonical_bytes import (
         String as CbString,
+    )
+    from myco_kernel_governance.canonical_bytes import (
         encode as cb_encode,
     )
 
@@ -140,7 +142,11 @@ def test_parse_schema_diff_unknown_op_raises():
 def test_parse_schema_diff_missing_keys_raises():
     from myco_kernel_governance.canonical_bytes import (
         Map as CbMap,
+    )
+    from myco_kernel_governance.canonical_bytes import (
         String as CbString,
+    )
+    from myco_kernel_governance.canonical_bytes import (
         encode as cb_encode,
     )
 
@@ -164,7 +170,11 @@ def test_modify_threshold_to_negative_value_succeeds_at_apply_layer():
 def test_apply_modify_threshold_with_unparseable_repr_rolls_back():
     from myco_kernel_governance.canonical_bytes import (
         Map as CbMap,
+    )
+    from myco_kernel_governance.canonical_bytes import (
         String as CbString,
+    )
+    from myco_kernel_governance.canonical_bytes import (
         encode as cb_encode,
     )
 
@@ -197,3 +207,104 @@ def test_snapshot_rollback_is_deep_copy_not_reference():
     )
     _ = apply_schema_diff(diff2, g)
     assert g.get_axis("x").value == 42.0
+
+
+# ---------------------------------------------------------------------------
+# Regression: rollback must restore BOTH axes AND update_rules.
+#
+# GradientConfiguration holds parallel `axes` and `update_rules` dicts;
+# register_axis (used by add_axis_to_gradient) writes BOTH. A prior bug had
+# _restore_gradient restore only `axes`, leaving an orphan update_rules entry
+# behind after a rolled-back schema mutation that had registered an axis.
+# ---------------------------------------------------------------------------
+
+
+def test_restore_gradient_restores_update_rules_not_just_axes():
+    """Directly exercise the snapshot/restore primitive: a mutation that
+    writes an update_rule (register_axis) then rolls back must leave NEITHER
+    axes nor update_rules polluted."""
+    from myco_kernel_tropism.appetite_axis import DecayRule
+
+    from myco_kernel_governance.schema_evolution import (
+        _restore_gradient,
+        _snapshot_gradient,
+    )
+
+    g = _make_gradient_with_axis("base", 10.0)
+    snapshot = _snapshot_gradient(g)
+
+    # Simulate the live half of a schema mutation: register a new axis, which
+    # writes BOTH gradient.axes["evolved"] and gradient.update_rules["evolved"].
+    new_schema = AxisSchema(
+        name="evolved",
+        axis_class=AxisClass.DECAY,
+        fruiting_threshold=3.0,
+        initial_value=0.0,
+        decay_rate_per_cycle=1.0,
+        is_mortality_signal=False,
+    )
+    g.register_axis(new_schema, DecayRule())
+    assert "evolved" in g.axes
+    assert "evolved" in g.update_rules  # the update_rule write we must undo
+
+    # Roll back.
+    _restore_gradient(g, snapshot)
+
+    # The orphan update_rules entry must be gone (this is the regression).
+    assert "evolved" not in g.axes
+    assert "evolved" not in g.update_rules
+    # Both dicts stay in lockstep with the pre-mutation snapshot.
+    assert set(g.axes.keys()) == {"base"}
+    assert set(g.update_rules.keys()) == {"base"}
+    assert g.axes.keys() == g.update_rules.keys()
+
+
+def test_apply_schema_diff_rolls_back_update_rules_on_post_register_failure(
+    monkeypatch,
+):
+    """End-to-end via apply_schema_diff: when an add-axis op registers an axis
+    (writing an update_rule) and THEN fails validation, the rollback must
+    restore BOTH axes AND update_rules — no orphan rule may survive."""
+    from myco_kernel_tropism.appetite_axis import DecayRule
+
+    import myco_kernel_governance.schema_evolution as se
+
+    g = _make_gradient_with_axis("base", 10.0)
+
+    # Simulate a (future, multi-step) add-axis op that writes the update_rule
+    # via register_axis and only afterwards hits an invariant violation.
+    def _failing_add_axis(diff: SchemaDiff, gradient: GradientConfiguration):
+        schema = AxisSchema(
+            name=diff.axis_name,
+            axis_class=AxisClass.DECAY,
+            fruiting_threshold=3.0,
+            initial_value=0.0,
+            decay_rate_per_cycle=1.0,
+            is_mortality_signal=False,
+        )
+        gradient.register_axis(schema, DecayRule())  # writes axes + update_rules
+        # ...then a post-write invariant check fails:
+        raise SchemaEvolutionError("post-register invariant violated")
+
+    monkeypatch.setattr(se, "_apply_add_axis", _failing_add_axis)
+
+    bytes_ = schema_diff_add_axis_bytes(
+        axis_name="evolved",
+        axis_class="decay",
+        fruiting_threshold=3.0,
+        initial_value=0.0,
+        decay_rate_per_cycle=1.0,
+        is_mortality_signal=False,
+        update_rule_kind="decay",
+    )
+    diff = parse_schema_diff(bytes_)
+    result = apply_schema_diff(diff, g)
+
+    assert not result.succeeded
+    assert "post-register invariant violated" in result.failure_reason
+    # Rollback restored BOTH dicts: the half-applied axis + its update_rule
+    # are both gone.
+    assert "evolved" not in g.axes
+    assert "evolved" not in g.update_rules
+    assert set(g.axes.keys()) == {"base"}
+    assert set(g.update_rules.keys()) == {"base"}

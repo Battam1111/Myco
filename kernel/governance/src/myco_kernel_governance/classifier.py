@@ -26,7 +26,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import FrozenSet
 
 
 class Classification(Enum):
@@ -63,9 +62,9 @@ class MutationEnvelope:
         (for causal tracking).
     """
 
-    touched_files: FrozenSet[str] = field(default_factory=frozenset)
-    touched_fields: FrozenSet[str] = field(default_factory=frozenset)
-    touched_meta_structures: FrozenSet[str] = field(default_factory=frozenset)
+    touched_files: frozenset[str] = field(default_factory=frozenset)
+    touched_fields: frozenset[str] = field(default_factory=frozenset)
+    touched_meta_structures: frozenset[str] = field(default_factory=frozenset)
     mutation_type: str = ""
     source_event_id: str | None = None
 

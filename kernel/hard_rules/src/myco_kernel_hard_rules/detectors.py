@@ -24,9 +24,9 @@ M5+ adds remaining detectors + concrete cross-crate integration.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Callable, Optional
 
 
 class BreachId(Enum):
@@ -126,7 +126,7 @@ class AttestationVerification:
     """An owner-attestation verification attempt (C5 detector input)."""
 
     verified: bool
-    failure_reason: Optional[str]
+    failure_reason: str | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -140,13 +140,13 @@ class HandshakeAttempt:
 # Detector functions.
 #
 # Each detector takes a structured event + the current cycle, returning
-# Optional[ImmuneEvent]. If returned, the substrate quarantines.
+# ImmuneEvent | None. If returned, the substrate quarantines.
 # ---------------------------------------------------------------------------
 
 
 def detect_c1_appetite_locality_breach(
     egress: EgressAttempt, at_cycle: int
-) -> Optional[ImmuneEvent]:
+) -> ImmuneEvent | None:
     """C1: detect unauthorized network egress (L1/SKIN §5)."""
     if egress.target_uri not in egress.declared_endpoints:
         return ImmuneEvent(
@@ -162,7 +162,7 @@ def detect_c1_appetite_locality_breach(
 
 def detect_c2_output_endpoint_breach(
     egress: EgressAttempt, at_cycle: int
-) -> Optional[ImmuneEvent]:
+) -> ImmuneEvent | None:
     """C2: detect output to non-declared endpoint (L1/SKIN §3)."""
     if egress.target_uri not in egress.declared_endpoints:
         return ImmuneEvent(
@@ -176,7 +176,7 @@ def detect_c2_output_endpoint_breach(
 
 def detect_c7_dag_retro_edit(
     attempt: DagNodeAttempt, at_cycle: int
-) -> Optional[ImmuneEvent]:
+) -> ImmuneEvent | None:
     """C7: detect DAG node hash mismatch from re-computation (L1/SCHEMA §2.1).
 
     Per pass-3 mycoparasite-2: prevents hidden retro-edit attacks.
@@ -199,7 +199,7 @@ def detect_c7_dag_retro_edit(
 
 def detect_c5_attestation_invalid(
     verification: AttestationVerification, at_cycle: int
-) -> Optional[ImmuneEvent]:
+) -> ImmuneEvent | None:
     """C5: detect attestation verification failure (L1/GOVERNANCE §2.3)."""
     if not verification.verified:
         return ImmuneEvent(
@@ -216,7 +216,7 @@ def detect_c5_attestation_invalid(
 
 def detect_c11_concurrent_operator(
     attempt: HandshakeAttempt, at_cycle: int
-) -> Optional[ImmuneEvent]:
+) -> ImmuneEvent | None:
     """C11: detect concurrent-operator persistence beyond strict-FIFO window
     (L1/SKIN §4.4)."""
     if attempt.has_active_operator:
@@ -234,7 +234,7 @@ def detect_c11_concurrent_operator(
 
 def detect_c14_untyped_mutation(
     classification: MutationClassification, at_cycle: int
-) -> Optional[ImmuneEvent]:
+) -> ImmuneEvent | None:
     """C14: detect untyped mutation (no classifier rule matches;
     L1/GOVERNANCE §1.1 — rejected at skin)."""
     if classification.classification == "untyped":
@@ -249,7 +249,7 @@ def detect_c14_untyped_mutation(
 
 def detect_c17_operator_witness_forgery(
     verification: OperatorWitnessVerification, at_cycle: int
-) -> Optional[ImmuneEvent]:
+) -> ImmuneEvent | None:
     """C17: detect operator_witness signature forgery (L1/GOVERNANCE §2.2 +
     pass-3 mycorrhiza-17)."""
     if not verification.verified:
@@ -269,7 +269,7 @@ def detect_c18_canonical_bytes_render_drift(
     expected_canonical_hex: str,
     actual_render_hex: str,
     at_cycle: int,
-) -> Optional[ImmuneEvent]:
+) -> ImmuneEvent | None:
     """C18: detect canonical-bytes render drift (L0/cards/AS_anchor_surface §3)."""
     if expected_canonical_hex != actual_render_hex:
         return ImmuneEvent(
@@ -288,7 +288,7 @@ def detect_c18_canonical_bytes_render_drift(
 # Detector dispatch table.
 #
 # Maps BreachId to a callable that, given the right structured event,
-# returns Optional[ImmuneEvent]. Used by the runtime to dispatch events
+# returns ImmuneEvent | None. Used by the runtime to dispatch events
 # to the correct detector(s) — typically one event-shape feeds one
 # detector, but C1 + C2 share EgressAttempt input.
 # ---------------------------------------------------------------------------
@@ -300,21 +300,21 @@ class DetectorRegistry:
     M5+ adds C3 / C4 / C6 / C8 / C9 / C10 / C12 / C13 / C15 / C16 / C19 / C20.
     """
 
-    _detectors: dict[BreachId, Callable[..., Optional[ImmuneEvent]]] = field(
+    _detectors: dict[BreachId, Callable[..., ImmuneEvent | None]] = field(
         default_factory=dict
     )
 
     def register(
         self,
         breach_id: BreachId,
-        detector: Callable[..., Optional[ImmuneEvent]],
+        detector: Callable[..., ImmuneEvent | None],
     ) -> None:
         """Register a detector for a breach id."""
         self._detectors[breach_id] = detector
 
     def get(
         self, breach_id: BreachId
-    ) -> Optional[Callable[..., Optional[ImmuneEvent]]]:
+    ) -> Callable[..., ImmuneEvent | None] | None:
         """Look up a registered detector by breach id."""
         return self._detectors.get(breach_id)
 
