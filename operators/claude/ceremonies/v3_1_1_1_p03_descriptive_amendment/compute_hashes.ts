@@ -5,7 +5,7 @@
 // Map<rel_path, file_bytes> over docs/architecture/L0/**/*.md at that point):
 //
 //   b1bec59a... (v3.1 bundle) → 798c047d... (v3.1.1 bundle) →
-//   2c3ecff1... (v3.1.1.1 bundle — this one)
+//   7267dc58... (v3.1.1.1 bundle — this one; LF-normalized seal)
 //
 // Where:
 //   prior_l0_hash = the v3.1.1 ceremony's new_l0_hash

@@ -36,8 +36,8 @@
       },
       {
         "path": "cards/AS_anchor_surface.md",
-        "byte_length": 17255,
-        "sha256_hex": "c197b604584640b67876cf14a519e26e3dae8ca5f3917330dd48efccf9d7f834"
+        "byte_length": 17019,
+        "sha256_hex": "2436efdbcc7c2ba1d6f7dbfdb83ee73ef64d4dc4d8481cd5a1c151c78fa4976e"
       },
       {
         "path": "cards/CHAR01_hungry.md",
@@ -190,8 +190,8 @@
         "sha256_hex": "4ee7bfcd5a3cc6d4708249171dd123054133a6fd82950fb2db521d618885e767"
       }
     ],
-    "canonical_bytes_length": 541748,
-    "blake3_hex": "2c3ecff16997fc18fa3de825aa84920510a0243ddd886c1d948a06395311bf62"
+    "canonical_bytes_length": 541512,
+    "blake3_hex": "7267dc58aa81d3dcd7ef08c3f83d49b0b0ab9b910f72a7a51c92d181c7eae4ba"
   },
   "diff_summary": "L0 v3.1.1.1 descriptive amendment (Sprint 6.D + Sprint 7.I): (Sprint 6.D) P03_resumable_evolution.md amended (version 2.1 → 3) to align doctrine with shipping behavior. Specific changes: (1) §3.3 reframed from 'two-phase migration (L1/SCHEMA §1.3)' to 'snapshot-rollback semantics' — describes actual kernel/governance/.../schema_evolution.py::apply_schema_diff implementation (snapshot → apply → I3 validate → commit-or-restore in one cycle). (2) §4.3 cascading update from 'candidate alongside current; M consecutive cycles' to 'single-cycle snapshot-rollback apply' with reference to §10.4 acknowledged debt. (3) §5.2 wording adjustment: 'MUST NOT apply schema mutations without two-phase migration' → 'MUST NOT apply schema mutations OUTSIDE the snapshot-rollback envelope'. (4) §7.1 M1 misreading clarified to honor both shipping behavior AND target M-cycle migration. (5) §10.4 NEW 'Acknowledged debt — multi-cycle two-phase migration' section added: describes shipping state, target enhancement, 5-step migration path (kernel/schema/src/migration.rs two_phase_commit types + substrate bookkeeping + classifier extensions + operator surface + C64 anticipated). (6) §12 structural_anchors: phantom `kernel/schema/src/migration.rs::two_phase_commit` (file never existed) replaced by actual `kernel/governance/.../schema_evolution.py::apply_schema_diff`. DEPOSIT (P03 §2) UNCHANGED — `first-class mutable + rollback-protected` honored by both shipping snapshot-rollback AND planned M-cycle migration. Descriptive-amend per META §7; deposit_immutable: false on P03 permits this non-deposit refinement. (Sprint 7.I) Cross-reference path-drift cleanup across L0 + L1 + L2 + L3 + algorithms + diagrams docs: all `L0/cards/<NAME> §X.Y` references updated to `L0/cards/<NAME>.md §X.Y` form per L0/README.md §\"What's still missing\" item 5. 22 files touched, ~70 references updated. No deposit changes. Pure housekeeping per META §7. (Sprint 7.H) Layer D catechumenate scaffolding: TEMPLATE.md (META §6.1 session form template) + HOW_TO_ADD_A_SESSION.md (practical workflow guide for cultivator-A + successor candidate). Zero sessions count toward F21 activation — these are infrastructure files, not catechumenate sessions. Sealed 2026-05-19 (Sprint 6.D commit af6ef3b + Sprint 7.B/7.D/7.H/7.I)."
 }
