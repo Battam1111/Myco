@@ -1,9 +1,6 @@
 <div align="center">
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/logo_dark.svg">
-  <img src="docs/assets/logo_light.svg" width="120" alt="Myco">
-</picture>
+<img src="docs/assets/logo.png" width="150" alt="Myco">
 
 # Myco
 
