@@ -1,0 +1,18 @@
+# Force LF line endings on every platform.
+#
+# The substrate content-addresses file BYTES (canonical-bytes + BLAKE3
+# seals). The sealed L0 doctrine bundle hash (the ceremony verify_hashes
+# drift gate) and the cross-language canonical-bytes test vectors are
+# byte-exact, so a CRLF checkout — e.g. a Windows CI runner with
+# core.autocrlf=true — would fail verify_hashes even though nothing
+# changed (the bundle gains one \r per line). `eol=lf` overrides autocrlf
+# so the working-tree bytes match the LF-based seal on every platform.
+* text=auto eol=lf
+
+# Binaries — never touch their bytes.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
