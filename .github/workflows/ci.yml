@@ -1,0 +1,84 @@
+# Myco CI — runs the real test suites the doctrine claims are CI-enforced.
+#
+# Three jobs, by truth-condition:
+#   rust        — Layer-C witnesses + substrate/anchor unit + e2e (isolated)
+#   python      — kernel governance/tropism/trajectory/hard_rules/bridge
+#   typescript  — the FULL stack: the operators e2e spawns the real Rust
+#                 substrate which spawns the Python bridge, so this job is
+#                 also the cross-language integration gate (it builds Rust,
+#                 installs the Python kernel, then runs the TS suites incl.
+#                 the active L0 ceremony verify_hashes drift gate).
+#
+# Rust + the operators e2e run on Windows because that is the verified dev
+# host (DPAPI at-rest sealing is `#[cfg(windows)]`); the pure-Python kernel
+# runs on Linux. Cross-platform Rust/Linux CI is a future expansion once
+# Linux at-rest sealing lands (see substrate/src/sealing.rs).
+
+name: CI
+
+on:
+  push:
+    branches: [v0.9-genesis, main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rust:
+    name: Rust substrate + anchor
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: cargo build --workspace
+        run: cargo build --workspace
+      - name: cargo test --workspace
+        run: cargo test --workspace
+
+  python:
+    name: Python kernel
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install kernel packages (editable, dependency order)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e kernel/governance -e kernel/tropism -e kernel/trajectory -e kernel/hard_rules -e kernel/bridge/python
+      - name: pytest
+        run: python -m pytest kernel/governance kernel/tropism kernel/trajectory kernel/hard_rules kernel/bridge/python
+
+  typescript:
+    name: TypeScript operator + anchor (full-stack integration)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Build the substrate + anchor binaries (debug; e2e spawns them)
+        run: cargo build -p myco-substrate -p anchor-surface-host
+      - name: Install the Python kernel (the substrate spawns the bridge)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e kernel/governance -e kernel/tropism -e kernel/trajectory -e kernel/hard_rules -e kernel/bridge/python
+      - name: operators/claude — typecheck + tests + ceremony verify_hashes
+        working-directory: operators/claude
+        run: |
+          npm ci
+          npm run test:all
+      - name: anchor/client — tests
+        working-directory: anchor/client
+        run: |
+          npm ci
+          npm test
