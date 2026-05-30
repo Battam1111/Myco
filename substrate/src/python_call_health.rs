@@ -45,6 +45,52 @@ use std::time::Duration;
 /// `MYCO_PYTHON_SLOW_CALL_THRESHOLD_MS` env var.
 pub const DEFAULT_SLOW_CALL_THRESHOLD_MS: u64 = 30_000;
 
+/// **v3.1.1 Sprint 7.E.2** — per-operation hard timeout for substrate-→-Python
+/// calls, used with [`myco_kernel_bridge::client::BridgeClient::call_with_timeout`].
+///
+/// Where the slow-call threshold above is *observability* (a call that
+/// eventually returns but took too long arms a C65 emission), this is the
+/// *action* deadline: a Python worker that is alive-but-blocked (deadlock,
+/// GIL contention, infinite loop) will never return, so the call is abandoned
+/// once the deadline elapses and surfaced as [`myco_kernel_bridge::BridgeError::Timeout`].
+///
+/// ## Policy
+///
+/// Heavier operations get a larger budget:
+/// - `advance` (drives a full gradient cycle in Python) and the DAG-walking
+///   `compute_intent` + classifier `submit_mutation`: **60s**.
+/// - `register_axis` / `perturb` / `perturb_axis_from_raw_material` /
+///   `snapshot` (small, bounded gradient mutations + reads): **30s**.
+/// - anything else forwarded to Python: a conservative **60s** default.
+///
+/// ## Escape hatch
+///
+/// `MYCO_PYTHON_CALL_TIMEOUT_MS`, if set to a parseable `u64`, OVERRIDES the
+/// per-op value for every operation. This is the single knob ops can turn to
+/// loosen (slow hardware / debugging) or tighten (aggressive liveness) the
+/// deadline without a rebuild. A value of `0` is treated as "unset" (the
+/// per-op defaults apply) to avoid an accidental zero-deadline lockout.
+pub fn python_op_timeout(message_type: &str) -> Duration {
+    if let Some(ms) = std::env::var("MYCO_PYTHON_CALL_TIMEOUT_MS")
+        .ok()
+        .and_then(|s| s.parse::<u64>().ok())
+        .filter(|ms| *ms > 0)
+    {
+        return Duration::from_millis(ms);
+    }
+    // Per-op defaults. Kept in terms of seconds for readability; mirrors the
+    // task's guidance (advance/cycle ~60s; register_axis/perturb ~30s).
+    let secs = match message_type {
+        // Light, bounded gradient mutations / reads.
+        "register_axis" | "perturb" | "perturb_axis_from_raw_material" | "snapshot" => 30,
+        // Heavy: full Python cycle, DAG-wide intent, mutation classification.
+        "advance" | "compute_intent" | "submit_mutation" => 60,
+        // Conservative default for any other forwarded message type.
+        _ => 60,
+    };
+    Duration::from_secs(secs)
+}
+
 /// Read the configured slow-call threshold from env var, falling back to
 /// the default. Called once per call site (cheap — env read is one syscall).
 pub fn slow_call_threshold() -> Duration {

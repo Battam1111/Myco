@@ -14,12 +14,36 @@
 //!
 //! ## Synchronous protocol
 //!
-//! M5 is request-response with strict serial ordering: each `send_request`
-//! writes a frame, blocks for the response, and verifies the correlation
-//! ID. M6+ may add async + pipelining.
+//! M5 is request-response with strict serial ordering: each request writes a
+//! frame, blocks for the response, and verifies the correlation ID. M6+ may
+//! add async + pipelining.
+//!
+//! ## Reader thread (v3.1.1 Sprint 7.E.2)
+//!
+//! The controller side does NOT read stdout inline. Instead,
+//! [`BridgeClient::spawn_and_handshake`] launches a **permanent reader
+//! thread** that owns `BufReader<ChildStdout>` and continuously pulls
+//! length-prefixed HMAC frames, decoding each into a
+//! `Result<Message, BridgeError>` pushed over an [`std::sync::mpsc`] channel.
+//! The main thread writes a request frame to stdin, then blocks on
+//! `rx.recv_timeout(timeout)`:
+//!
+//! - `Ok(Ok(msg))`  — a response arrived; correlation is checked by the waiter.
+//! - `Ok(Err(e))`   — the reader decoded a frame but it failed (HMAC / version).
+//! - `Err(Timeout)` — no frame within the deadline → [`BridgeError::Timeout`].
+//! - `Err(Disconnected)` — the reader thread exited (child died / EOF / fatal
+//!   read error) → surfaced as [`BridgeError::Subprocess`].
+//!
+//! This collapses the blocking and bounded-latency paths onto a SINGLE read
+//! path: [`BridgeClient::call`] is just `call_with_timeout` with a very long
+//! deadline, so there is never a second concurrent reader competing for the
+//! same pipe.
 
 use std::io::{BufReader, BufWriter, Write};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
+use std::sync::mpsc::{self, Receiver, RecvTimeoutError};
+use std::thread::JoinHandle;
+use std::time::Duration;
 
 use crate::framing::{read_frame, write_frame};
 use crate::protocol::{
@@ -99,16 +123,91 @@ pub struct AxisSchemaInfo {
     pub update_rule_kind: String,
 }
 
+/// The deadline used by the blocking [`BridgeClient::call`] / `send_request`
+/// path. It is intentionally enormous — the blocking API promises "wait as
+/// long as it takes", and the only reason it is finite at all is so a
+/// genuinely dead reader thread (whose `Disconnected` we somehow missed)
+/// can never wedge a controller forever. One hour is far longer than any
+/// legitimate gradient operation yet still bounded.
+const BLOCKING_CALL_DEADLINE: Duration = Duration::from_secs(3600);
+
 /// In-process client for talking to a Python kernel/tropism worker over stdio.
+///
+/// Stdout is NOT owned here: a permanent reader thread (spawned in
+/// [`Self::spawn_and_handshake`]) owns `BufReader<ChildStdout>` and feeds
+/// decoded frames over [`Self::responses`]. See the module docs for the
+/// reader-thread protocol.
 pub struct BridgeClient {
     child: Option<Child>,
     stdin: BufWriter<ChildStdin>,
-    stdout: BufReader<ChildStdout>,
+    /// Decoded response frames from the permanent reader thread. Each item is
+    /// the result of reading + HMAC-verifying + canonical-bytes-decoding one
+    /// stdout frame. The channel becomes `Disconnected` when the reader thread
+    /// exits (child EOF / death / fatal read error).
+    responses: Receiver<Result<Message, BridgeError>>,
+    /// Join handle for the reader thread. Joined on [`Drop`] after stdin is
+    /// closed so the thread observes EOF and exits, avoiding a detached thread.
+    reader_handle: Option<JoinHandle<()>>,
     session_secret: [u8; 32],
     /// Sequence counter for request_id. Each request gets a unique value.
     next_request_id: u64,
+    /// Poison latch: set once a [`Self::call_with_timeout`] times out. The M5
+    /// stream is strictly serial, so a late response for the abandoned request
+    /// would mis-pair with the next request. Once poisoned, every subsequent
+    /// request fails fast with [`BridgeError::Desynchronized`] instead of
+    /// reading a stale frame. Only a fresh `spawn_and_handshake` clears it.
+    desynchronized: bool,
     /// The hello_ack received during handshake (for diagnostic surfacing).
     pub hello_ack: HelloAck,
+}
+
+/// The permanent reader thread body.
+///
+/// Owns `reader` (`BufReader<ChildStdout>`) for the life of the connection.
+/// Loops: read one length-prefixed frame → decode + HMAC-verify with
+/// `session_secret` → push `Ok(Message)` to `tx`. On:
+///
+/// - clean EOF (child closed stdout): push a terminal `Subprocess` error so a
+///   blocked waiter wakes immediately, then exit (channel becomes Disconnected).
+/// - read I/O error / oversized frame: push that error, then exit.
+/// - decode / HMAC error: push the error but KEEP READING — a single bad frame
+///   is a per-call failure, not a stream death (matches the old inline
+///   `read_response`, which returned the decode error to that one caller).
+///
+/// The send only fails if the receiver (the `BridgeClient`) was dropped; in
+/// that case we stop (nobody is listening) — the child is being torn down.
+fn reader_thread_body(
+    mut reader: BufReader<ChildStdout>,
+    session_secret: [u8; 32],
+    tx: mpsc::Sender<Result<Message, BridgeError>>,
+) {
+    loop {
+        match read_frame(&mut reader) {
+            Ok(Some(frame)) => {
+                let decoded = decode_frame_body(&frame, &session_secret);
+                // KEEP READING on a decode error (per-call failure). Stop only
+                // if the receiver is gone.
+                if tx.send(decoded).is_err() {
+                    return;
+                }
+            }
+            Ok(None) => {
+                // Clean EOF: the child closed stdout. Wake any blocked waiter
+                // with a terminal error, then exit so further recv() yields
+                // Disconnected.
+                let _ = tx.send(Err(BridgeError::Subprocess(
+                    "python worker closed stdout (EOF); reader thread exiting".to_string(),
+                )));
+                return;
+            }
+            Err(e) => {
+                // Fatal read-side error (truncated frame, oversized frame, I/O
+                // failure). Surface it once, then exit.
+                let _ = tx.send(Err(e));
+                return;
+            }
+        }
+    }
 }
 
 impl BridgeClient {
@@ -143,12 +242,30 @@ impl BridgeClient {
             .take()
             .ok_or_else(|| BridgeError::Subprocess("child stdout not piped".to_string()))?;
 
+        // Spawn the permanent reader thread. It owns BufReader<ChildStdout>
+        // for the whole connection lifetime and decodes frames with the
+        // session_secret. The Python daemon keys EVERY response — including
+        // hello_ack — with session_secret (see kernel/bridge/python daemon:
+        // `encode_message(response, state.session_secret)`), so a single
+        // session-keyed reader covers the entire stream including the
+        // handshake response below.
+        let (tx, rx) = mpsc::channel::<Result<Message, BridgeError>>();
+        let reader = BufReader::new(stdout);
+        let reader_handle = std::thread::Builder::new()
+            .name("myco-bridge-reader".to_string())
+            .spawn(move || reader_thread_body(reader, session_secret, tx))
+            .map_err(|e| {
+                BridgeError::Subprocess(format!("failed to spawn bridge reader thread: {e}"))
+            })?;
+
         let mut client = BridgeClient {
             child: Some(child),
             stdin: BufWriter::new(stdin),
-            stdout: BufReader::new(stdout),
+            responses: rx,
+            reader_handle: Some(reader_handle),
             session_secret,
             next_request_id: 1,
+            desynchronized: false,
             hello_ack: HelloAck {
                 kernel_tropism_version: String::new(),
                 python_version: String::new(),
@@ -196,8 +313,10 @@ impl BridgeClient {
         let hello_frame = encode_frame_body(&hello_msg, &bootstrap)?;
         write_frame(&mut client.stdin, &hello_frame)?;
 
-        // Read hello_ack using SESSION_SECRET (Python already has it from hello).
-        let response = client.read_response(request_id)?;
+        // Read hello_ack via the reader thread. Python keys the hello_ack with
+        // the session_secret it just received in the hello payload, so the
+        // session-keyed reader decodes it exactly like every later response.
+        let response = client.recv_response(request_id, BLOCKING_CALL_DEADLINE)?;
         client.hello_ack = parse_hello_ack(&response)?;
         Ok(client)
     }
@@ -208,30 +327,74 @@ impl BridgeClient {
         id
     }
 
-    /// Send one request and read the matching response.
+    /// Send one request and block (bounded by [`BLOCKING_CALL_DEADLINE`]) for
+    /// the matching response. This is the legacy blocking path; it routes
+    /// through the SAME reader thread as [`Self::call_with_timeout`] so there
+    /// is only ever one reader on the pipe.
     fn send_request(
         &mut self,
         message_type: &str,
         payload: std::collections::BTreeMap<String, myco_kernel_shared::canonical_bytes::Value>,
     ) -> Result<Message, BridgeError> {
+        self.send_request_with_timeout(message_type, payload, BLOCKING_CALL_DEADLINE)
+    }
+
+    /// Send one request and wait at most `timeout` for the matching response.
+    ///
+    /// Writes the request frame to stdin, then blocks on the reader-thread
+    /// channel via [`Self::recv_response`]. The write happens BEFORE the
+    /// poison check is consulted for the *result* so that a poisoned client
+    /// never even touches the pipe (see the early return).
+    fn send_request_with_timeout(
+        &mut self,
+        message_type: &str,
+        payload: std::collections::BTreeMap<String, myco_kernel_shared::canonical_bytes::Value>,
+        timeout: Duration,
+    ) -> Result<Message, BridgeError> {
+        // Fail fast if a prior call timed out: the serial stream is poisoned
+        // and we must not write a new request that could pair with a stale
+        // in-flight response.
+        if self.desynchronized {
+            return Err(BridgeError::Desynchronized);
+        }
         let request_id = self.allocate_request_id();
         let msg = Message::new(message_type, request_id, payload);
         let frame = encode_frame_body(&msg, &self.session_secret)?;
         write_frame(&mut self.stdin, &frame)?;
-        self.read_response(request_id)
+        self.recv_response(request_id, timeout)
     }
 
-    /// Read the next frame and verify its correlation ID.
-    fn read_response(&mut self, expected_request_id: u64) -> Result<Message, BridgeError> {
-        let frame = match read_frame(&mut self.stdout)? {
-            Some(b) => b,
-            None => {
+    /// Receive the next response from the reader thread, bounded by `timeout`,
+    /// and verify its correlation ID + version.
+    ///
+    /// On timeout this latches [`Self::desynchronized`] so all later calls
+    /// fail fast (a late frame for the abandoned request would mis-pair).
+    fn recv_response(
+        &mut self,
+        expected_request_id: u64,
+        timeout: Duration,
+    ) -> Result<Message, BridgeError> {
+        let response = match self.responses.recv_timeout(timeout) {
+            Ok(Ok(msg)) => msg,
+            // The reader decoded a frame but it failed HMAC / version / shape.
+            Ok(Err(e)) => return Err(e),
+            // No frame within the deadline. The child is (as far as we know)
+            // still alive but produced no response — poison the connection and
+            // surface a Timeout.
+            Err(RecvTimeoutError::Timeout) => {
+                self.desynchronized = true;
+                return Err(BridgeError::Timeout(timeout));
+            }
+            // The reader thread exited: child EOF / death / fatal read error.
+            // It always pushes a terminal Err before exiting, so reaching the
+            // Disconnected branch means that terminal error was already
+            // consumed by an earlier recv; report the disconnect plainly.
+            Err(RecvTimeoutError::Disconnected) => {
                 return Err(BridgeError::Subprocess(
-                    "child closed stdout before responding".to_string(),
+                    "python worker reader thread disconnected (child exited)".to_string(),
                 ))
             }
         };
-        let response = decode_frame_body(&frame, &self.session_secret)?;
         if response.message_type == msg_type::ERROR {
             // Decode error envelope payload for diagnostic surface.
             let code = response
@@ -324,6 +487,22 @@ impl BridgeClient {
         parse_advance_response(&response)
     }
 
+    /// **v3.1.1 Sprint 7.E.2** — like [`Self::advance`] but bounded by
+    /// `timeout`. The gradient-advance step crosses into Python and runs a
+    /// full kernel/tropism cycle; this is the longest-running per-call
+    /// operation, so the substrate's metabolic loop uses this variant to stay
+    /// responsive to a hung worker (returns [`BridgeError::Timeout`] rather
+    /// than blocking the whole substrate forever).
+    pub fn advance_with_timeout(
+        &mut self,
+        current_cycle: u64,
+        timeout: Duration,
+    ) -> Result<AdvanceReport, BridgeError> {
+        let payload = advance_payload(current_cycle);
+        let response = self.send_request_with_timeout(msg_type::ADVANCE, payload, timeout)?;
+        parse_advance_response(&response)
+    }
+
     /// Read the current gradient state (axis name → current value).
     pub fn snapshot(&mut self) -> Result<std::collections::BTreeMap<String, f64>, BridgeError> {
         let response = self.send_request(msg_type::SNAPSHOT, empty_payload())?;
@@ -336,6 +515,11 @@ impl BridgeClient {
     ///
     /// Returns the response Message (caller is responsible for re-stamping
     /// the operator-side request_id).
+    ///
+    /// This is the blocking sibling of [`Self::call_with_timeout`]: it waits
+    /// up to [`BLOCKING_CALL_DEADLINE`] (effectively unbounded for legitimate
+    /// operations) on the same reader thread. Prefer `call_with_timeout` for
+    /// any call path that must stay responsive to a hung worker.
     pub fn call(
         &mut self,
         message_type: &str,
@@ -344,39 +528,38 @@ impl BridgeClient {
         self.send_request(message_type, payload)
     }
 
-    /// **v3.1.1 Sprint 7.E (T4.4 MVP scaffold)** — `call_with_timeout` API
-    /// surface for substrate-→-Python operations that need bounded latency.
+    /// **v3.1.1 Sprint 7.E.2** — send a raw typed request and wait at most
+    /// `timeout` for the correlated response, returning
+    /// [`BridgeError::Timeout`] if the Python worker produces no response in
+    /// time.
     ///
-    /// **Current behavior**: forwards to [`Self::call`] (blocking
-    /// indefinitely). This is the API stub — the *interface* is
-    /// committed so callers can begin migrating now; the actual
-    /// timeout-enforcement requires the reader-thread refactor
-    /// described below.
+    /// This is the bounded-latency sibling of [`Self::call`]. Both write to
+    /// stdin and then block on the SAME permanent reader thread; the only
+    /// difference is the deadline passed to the channel `recv`. With this in
+    /// place, the substrate's Sprint 6.J observability (which times each call)
+    /// becomes ACTION: a blocked-but-alive Python worker (deadlock, GIL
+    /// contention, infinite loop) no longer wedges the controller forever —
+    /// the call returns `Timeout` so the caller can emit an immune signal and
+    /// tear the worker down.
     ///
-    /// **Sprint 7.E.2 follow-up scope** (~6-8h):
-    ///   Refactor BridgeClient to spawn a permanent reader thread on
-    ///   `spawn_and_handshake`. The thread owns the BufReader<ChildStdout>
-    ///   and pushes Result<Message, BridgeError> into a mpsc::Sender.
-    ///   Main thread's send_request writes to stdin then calls
-    ///   rx.recv_timeout(timeout). On timeout, return
-    ///   BridgeError::Timeout (new variant). The Substrate's Sprint 6.J
-    ///   observability already times each call; with this timeout
-    ///   support, observability becomes ACTION (Python deadlock →
-    ///   actual recovery, not just C65 emission).
+    /// ## Desync / poisoning
     ///
-    /// Note: this method's signature is the FINAL one. Callers (in
-    /// substrate's forward_to_python path) can adopt this API now;
-    /// the implementation switch from blocking to timed is a drop-in
-    /// behavior change.
+    /// The M5 wire protocol is strictly serial with a single in-flight call.
+    /// If a request times out, a late response for that abandoned request may
+    /// still be in flight on the pipe; consuming it on the *next* call would
+    /// mis-pair request/response. To prevent that, a timeout **poisons** the
+    /// client: every subsequent call (timed or blocking) fails immediately
+    /// with [`BridgeError::Desynchronized`]. Recovery requires tearing this
+    /// client down and re-spawning the worker — which the substrate already
+    /// does on Python-worker death. The reader thread itself keeps running so
+    /// [`Self::is_child_alive`] and graceful [`Drop`] still work.
     pub fn call_with_timeout(
         &mut self,
         message_type: &str,
         payload: std::collections::BTreeMap<String, myco_kernel_shared::canonical_bytes::Value>,
-        _timeout: std::time::Duration,
+        timeout: std::time::Duration,
     ) -> Result<Message, BridgeError> {
-        // MVP: blocking call, ignores timeout. Sprint 7.E.2 implements
-        // the actual timeout via reader-thread refactor.
-        self.send_request(message_type, payload)
+        self.send_request_with_timeout(message_type, payload, timeout)
     }
 
     /// Tell the Python worker to persist its gradient state to `state_dir`.
@@ -523,7 +706,23 @@ impl BridgeClient {
                 .wait()
                 .map_err(|e| BridgeError::Subprocess(format!("wait failed: {e}")))?;
         }
+        // The child has exited → its stdout write-end is closed → the reader
+        // thread observes EOF, pushes its terminal Err, and returns. Join it
+        // so we never leak a detached thread holding the stdout handle.
+        self.join_reader_thread();
         Ok(())
+    }
+
+    /// Join the permanent reader thread, if it is still owned. Idempotent.
+    ///
+    /// Safe to call only once the child's stdout write-end is closed (i.e.
+    /// after `child.wait()` / `child.kill()+wait()`), otherwise the reader is
+    /// still blocked in `read_frame` and this would hang. All call sites
+    /// observe that ordering.
+    fn join_reader_thread(&mut self) {
+        if let Some(handle) = self.reader_handle.take() {
+            let _ = handle.join();
+        }
     }
 }
 
@@ -567,6 +766,56 @@ impl BridgeClient {
     pub fn child_pid(&self) -> Option<u32> {
         self.child.as_ref().map(|c| c.id())
     }
+
+    /// **v3.1.1 Sprint 7.E.2 (test support)** — build a [`BridgeClient`] around
+    /// an already-spawned child process, WITHOUT performing the `hello`
+    /// handshake. The child must have piped stdin + stdout.
+    ///
+    /// This exists so tests can point the client at an arbitrary stub child —
+    /// in particular a "hung worker" that consumes stdin but never writes a
+    /// response — to exercise [`Self::call_with_timeout`]'s timeout path
+    /// deterministically without a cooperating Python daemon. The reader
+    /// thread is spawned exactly as in [`Self::spawn_and_handshake`]; `Drop`
+    /// (kill + wait + join) and [`Self::is_child_alive`] work normally.
+    ///
+    /// `hello_ack` is left empty (no handshake occurred). Not for production
+    /// use — real clients must complete the handshake to establish a shared
+    /// session_secret with the worker.
+    #[doc(hidden)]
+    pub fn from_spawned_child_for_test(
+        mut child: Child,
+        session_secret: [u8; 32],
+    ) -> Result<Self, BridgeError> {
+        let stdin = child
+            .stdin
+            .take()
+            .ok_or_else(|| BridgeError::Subprocess("test child stdin not piped".to_string()))?;
+        let stdout = child
+            .stdout
+            .take()
+            .ok_or_else(|| BridgeError::Subprocess("test child stdout not piped".to_string()))?;
+        let (tx, rx) = mpsc::channel::<Result<Message, BridgeError>>();
+        let reader = BufReader::new(stdout);
+        let reader_handle = std::thread::Builder::new()
+            .name("myco-bridge-reader-test".to_string())
+            .spawn(move || reader_thread_body(reader, session_secret, tx))
+            .map_err(|e| {
+                BridgeError::Subprocess(format!("failed to spawn test reader thread: {e}"))
+            })?;
+        Ok(BridgeClient {
+            child: Some(child),
+            stdin: BufWriter::new(stdin),
+            responses: rx,
+            reader_handle: Some(reader_handle),
+            session_secret,
+            next_request_id: 1,
+            desynchronized: false,
+            hello_ack: HelloAck {
+                kernel_tropism_version: String::new(),
+                python_version: String::new(),
+            },
+        })
+    }
 }
 
 impl Drop for BridgeClient {
@@ -575,14 +824,25 @@ impl Drop for BridgeClient {
         // to send shutdown + wait. Failures here are silent because Drop
         // can't return errors.
         if self.child.is_some() {
+            // `shutdown_inner` joins the reader thread on its happy path. But
+            // it can bail early (e.g. the client was poisoned by a timeout, or
+            // the child already died) and leave `child` + `reader_handle`
+            // owned — hence the fallback below.
             let _ = self.shutdown_inner();
             if let Some(mut child) = self.child.take() {
-                // If shutdown_inner failed somehow and the child is still alive,
-                // kill it to avoid leaking processes.
+                // shutdown_inner did not reap the child (failed / poisoned).
+                // Kill it so we never leak a process, then wait so its stdout
+                // write-end is closed.
                 let _ = child.kill();
                 let _ = child.wait();
             }
         }
+        // Whether or not the child was ours to reap, the child's stdout
+        // write-end is now closed (it either exited cleanly above, was killed,
+        // or was never spawned). The reader thread therefore observes EOF and
+        // returns; join it so the thread (and the BufReader<ChildStdout> it
+        // owns) is fully torn down before this client disappears.
+        self.join_reader_thread();
     }
 }
 

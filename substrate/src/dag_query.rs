@@ -186,7 +186,16 @@ pub(crate) fn handle_compute_intent(
 
     let payload =
         myco_kernel_bridge::protocol::compute_intent_payload(&pivot_arr, radius_cycles, dag_nodes);
-    let python_response = client.call(msg_type::COMPUTE_INTENT, payload)?;
+    // **v3.1.1 Sprint 7.E.2** — bounded-latency forward: a hung Python worker
+    // surfaces BridgeError::Timeout instead of wedging the substrate forever.
+    // Duration is recorded for the Sprint 6.J C65 slow-call observability,
+    // matching `forward_to_python`.
+    let timeout = crate::python_call_health::python_op_timeout(msg_type::COMPUTE_INTENT);
+    let call_start = std::time::Instant::now();
+    let python_response_result =
+        client.call_with_timeout(msg_type::COMPUTE_INTENT, payload, timeout);
+    crate::python_call_health::record_call_duration(call_start.elapsed());
+    let python_response = python_response_result?;
     if python_response.message_type != msg_type::COMPUTE_INTENT_RESPONSE {
         return Err(SubstrateError::Protocol(format!(
             "expected compute_intent_response from python; got {}",

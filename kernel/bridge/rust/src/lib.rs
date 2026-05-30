@@ -112,6 +112,31 @@ pub enum BridgeError {
         /// The actual request_id received.
         got: u64,
     },
+
+    /// A bounded-latency call ([`client::BridgeClient::call_with_timeout`])
+    /// did not receive a response from the Python worker within the deadline.
+    ///
+    /// This is the **alive-but-blocked** signal: the child process is still
+    /// running (otherwise the reader thread would have surfaced a
+    /// [`BridgeError::Subprocess`] disconnect), but it produced no response
+    /// frame in time. The substrate's observability layer turns this into a
+    /// recovery ACTION rather than an indefinite hang.
+    ///
+    /// **Desync note**: because the M5 wire protocol is strictly serial
+    /// request/response with a single in-flight call, a timed-out request
+    /// poisons the connection — a late response for the abandoned request
+    /// would mis-pair with the *next* request. After a `Timeout`, the client
+    /// fails every subsequent call with [`BridgeError::Desynchronized`]
+    /// rather than risk returning a stale frame to the wrong caller.
+    #[error("bridge call timed out after {0:?} with no response from the python worker")]
+    Timeout(std::time::Duration),
+
+    /// The client is unusable because a prior [`BridgeError::Timeout`] left
+    /// the serial request/response stream in an indeterminate state (a late
+    /// response for the abandoned request may still be in flight). The owner
+    /// must tear down and re-spawn the worker to recover.
+    #[error("bridge desynchronized: a prior call timed out; connection is poisoned and must be re-established")]
+    Desynchronized,
 }
 
 /// Result alias for crate-level errors.

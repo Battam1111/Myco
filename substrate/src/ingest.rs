@@ -105,7 +105,19 @@ struct PythonGradientAdvancer<'a> {
 impl<'a> GradientAdvancer for PythonGradientAdvancer<'a> {
     fn advance_gradient(&mut self) -> Result<(), String> {
         self.cycle_number += 1;
-        match self.client.advance(self.cycle_number) {
+        // **v3.1.1 Sprint 7.E.2** — bound the advance call. This is the
+        // longest-running substrate-→-Python op (a full kernel/tropism cycle),
+        // so a hung worker must not wedge the metabolic loop forever; on
+        // timeout the cycle fails (surfacing BridgeError::Timeout) instead of
+        // blocking indefinitely. Duration is recorded for the Sprint 6.J C65
+        // slow-call observability, matching the other forward paths.
+        let timeout = crate::python_call_health::python_op_timeout(
+            myco_kernel_bridge::protocol::msg_type::ADVANCE,
+        );
+        let call_start = std::time::Instant::now();
+        let result = self.client.advance_with_timeout(self.cycle_number, timeout);
+        crate::python_call_health::record_call_duration(call_start.elapsed());
+        match result {
             Ok(report) => {
                 self.latest_report = Some(report);
                 Ok(())
@@ -289,9 +301,27 @@ pub(crate) fn handle_perturb_axis_from_raw_material(
             .python_client
             .as_mut()
             .ok_or_else(|| SubstrateError::Handshake("python worker not connected".to_string()))?;
-        client
-            .perturb(&axis_name, delta)
-            .map_err(SubstrateError::Bridge)?;
+        // **v3.1.1 Sprint 7.E.2** — bounded-latency perturb (forwarded as the
+        // plain PERTURB op to Python). A hung worker surfaces
+        // BridgeError::Timeout instead of wedging the substrate.
+        let timeout = crate::python_call_health::python_op_timeout(
+            myco_kernel_bridge::protocol::msg_type::PERTURB,
+        );
+        let payload = myco_kernel_bridge::protocol::perturb_payload(&axis_name, delta);
+        let call_start = std::time::Instant::now();
+        let resp = client.call_with_timeout(
+            myco_kernel_bridge::protocol::msg_type::PERTURB,
+            payload,
+            timeout,
+        );
+        crate::python_call_health::record_call_duration(call_start.elapsed());
+        let resp = resp.map_err(SubstrateError::Bridge)?;
+        if resp.message_type != myco_kernel_bridge::protocol::msg_type::PERTURB_ACK {
+            return Err(SubstrateError::Protocol(format!(
+                "expected perturb_ack from python; got {}",
+                resp.message_type
+            )));
+        }
     }
 
     // Insert causal-link DAG node — node_type = "perturb_from_raw:{axis_name}",

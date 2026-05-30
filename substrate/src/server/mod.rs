@@ -25,7 +25,7 @@ use std::time::Duration;
 use myco_kernel_bridge::client::BridgeClient;
 use myco_kernel_bridge::framing::{read_frame, write_frame};
 use myco_kernel_bridge::protocol::{
-    bootstrap_key, decode_frame_body, empty_payload, encode_frame_body, msg_type, Message,
+    bootstrap_key, decode_frame_body, encode_frame_body, msg_type, Message,
 };
 use myco_kernel_bridge::BridgeError;
 use myco_kernel_continuity::cycle::{CycleConfig, CycleEngine};
@@ -1487,56 +1487,43 @@ pub(super) fn forward_to_python(
     )))
 }
 
-/// Low-level forwarder: takes a Message, asks the BridgeClient to send a
-/// fresh-id copy, returns the response. Bypasses BridgeClient's typed
-/// helpers because we want the raw payload pass-through.
+/// Low-level forwarder: forwards an operator request to the Python worker
+/// verbatim (its payload passed through unchanged) under a per-op hard
+/// timeout, and returns the worker's response.
+///
+/// **v3.1.1 Sprint 7.E.2** — this used to re-extract typed fields and call
+/// `BridgeClient::register_axis()` / `perturb()` / `snapshot()` (the blocking
+/// API). It now uses [`BridgeClient::call_with_timeout`] so a hung Python
+/// worker surfaces [`BridgeError::Timeout`] instead of wedging the substrate
+/// forever. Behavior on the happy path is identical: the worker's
+/// `register_axis_ack` / `perturb_ack` carry empty payloads and its
+/// `snapshot_response` carries the same `{"values": {...}}` map the old code
+/// synthesized, so forwarding `request.payload` verbatim is wire-equivalent.
+///
+/// The allow-list is preserved: only the three forwardable operator message
+/// types reach Python here; anything else is a programming error and returns
+/// a protocol error exactly as before.
 fn forward_message(client: &mut BridgeClient, request: &Message) -> Result<Message, BridgeError> {
-    match request.message_type.as_str() {
-        msg_type::REGISTER_AXIS => {
-            // Extract typed args from payload and call register_axis.
-            let name = expect_string_field(&request.payload, "name")?;
-            let axis_class = expect_string_field(&request.payload, "axis_class")?;
-            let fruiting_threshold =
-                parse_float_field(&request.payload, "fruiting_threshold_repr")?;
-            let initial_value = parse_float_field(&request.payload, "initial_value_repr")?;
-            let decay_rate = parse_float_field(&request.payload, "decay_rate_per_cycle_repr")?;
-            let is_mortality_signal = expect_bool_field(&request.payload, "is_mortality_signal")?;
-            let update_rule_kind = expect_string_field(&request.payload, "update_rule_kind")?;
-            client.register_axis(
-                &name,
-                &axis_class,
-                fruiting_threshold,
-                initial_value,
-                decay_rate,
-                is_mortality_signal,
-                &update_rule_kind,
-            )?;
-            Ok(Message::new(
-                msg_type::REGISTER_AXIS_ACK,
-                0, // operator-side will be re-stamped
-                empty_payload(),
-            ))
+    let expected_response = match request.message_type.as_str() {
+        msg_type::REGISTER_AXIS => msg_type::REGISTER_AXIS_ACK,
+        msg_type::PERTURB => msg_type::PERTURB_ACK,
+        msg_type::SNAPSHOT => msg_type::SNAPSHOT_RESPONSE,
+        other => {
+            return Err(BridgeError::Protocol(format!(
+                "forward_message: cannot forward {other}"
+            )))
         }
-        msg_type::PERTURB => {
-            let axis_name = expect_string_field(&request.payload, "axis_name")?;
-            let delta = parse_float_field(&request.payload, "delta_repr")?;
-            client.perturb(&axis_name, delta)?;
-            Ok(Message::new(msg_type::PERTURB_ACK, 0, empty_payload()))
-        }
-        msg_type::SNAPSHOT => {
-            let values = client.snapshot()?;
-            let mut values_map: BTreeMap<String, Value> = BTreeMap::new();
-            for (k, v) in values {
-                values_map.insert(k, Value::String(float_repr(v)));
-            }
-            let mut payload = BTreeMap::new();
-            payload.insert("values".to_string(), Value::Map(values_map));
-            Ok(Message::new(msg_type::SNAPSHOT_RESPONSE, 0, payload))
-        }
-        other => Err(BridgeError::Protocol(format!(
-            "forward_message: cannot forward {other}"
-        ))),
+    };
+    let timeout = crate::python_call_health::python_op_timeout(&request.message_type);
+    let response =
+        client.call_with_timeout(&request.message_type, request.payload.clone(), timeout)?;
+    if response.message_type != expected_response {
+        return Err(BridgeError::Protocol(format!(
+            "expected {expected_response} from python; got {}",
+            response.message_type
+        )));
     }
+    Ok(response)
 }
 
 // ---------------------------------------------------------------------------
@@ -1566,31 +1553,13 @@ fn graceful_shutdown_python(state: &mut ServerState) {
     }
 }
 
-fn expect_string_field(map: &BTreeMap<String, Value>, key: &str) -> Result<String, BridgeError> {
-    match map.get(key) {
-        Some(Value::String(s)) => Ok(s.clone()),
-        Some(other) => Err(BridgeError::Protocol(format!(
-            "field {key:?} is not a String: {other:?}"
-        ))),
-        None => Err(BridgeError::Protocol(format!("missing field {key:?}"))),
-    }
-}
-
-fn expect_bool_field(map: &BTreeMap<String, Value>, key: &str) -> Result<bool, BridgeError> {
-    match map.get(key) {
-        Some(Value::Bool(b)) => Ok(*b),
-        Some(other) => Err(BridgeError::Protocol(format!(
-            "field {key:?} is not a Bool: {other:?}"
-        ))),
-        None => Err(BridgeError::Protocol(format!("missing field {key:?}"))),
-    }
-}
-
-fn parse_float_field(map: &BTreeMap<String, Value>, key: &str) -> Result<f64, BridgeError> {
-    let s = expect_string_field(map, key)?;
-    s.parse::<f64>()
-        .map_err(|e| BridgeError::Protocol(format!("field {key:?} parse: {e}")))
-}
+// **v3.1.1 Sprint 7.E.2** — the per-field extraction helpers
+// (`expect_string_field` / `expect_bool_field` / `parse_float_field`) that
+// the old `forward_message` used to re-derive typed args were removed when
+// forwarding became a verbatim, timeout-bounded payload pass-through. Python
+// now validates these fields itself, so re-extracting them substrate-side was
+// dead weight. `float_repr` survives because the rest of the crate
+// (events / observatory / ingest) imports it for canonical float rendering.
 
 /// Render an f64 as a Python-compatible repr string.
 /// Identical to kernel/bridge::protocol::float_repr but reproduced here so
@@ -1627,39 +1596,5 @@ mod tests {
         assert_eq!(float_repr(f64::NAN), "nan");
         assert_eq!(float_repr(f64::INFINITY), "inf");
         assert_eq!(float_repr(f64::NEG_INFINITY), "-inf");
-    }
-
-    #[test]
-    fn expect_string_field_success() {
-        let mut m = BTreeMap::new();
-        m.insert("name".to_string(), Value::String("test".to_string()));
-        assert_eq!(expect_string_field(&m, "name").unwrap(), "test");
-    }
-
-    #[test]
-    fn expect_string_field_missing_errors() {
-        let m: BTreeMap<String, Value> = BTreeMap::new();
-        assert!(expect_string_field(&m, "missing").is_err());
-    }
-
-    #[test]
-    fn expect_string_field_wrong_type_errors() {
-        let mut m = BTreeMap::new();
-        m.insert("n".to_string(), Value::Uint(42));
-        assert!(expect_string_field(&m, "n").is_err());
-    }
-
-    #[test]
-    fn parse_float_field_roundtrip() {
-        let mut m = BTreeMap::new();
-        m.insert("x".to_string(), Value::String("2.5".to_string()));
-        assert_eq!(parse_float_field(&m, "x").unwrap(), 2.5);
-    }
-
-    #[test]
-    fn parse_float_field_invalid_string_errors() {
-        let mut m = BTreeMap::new();
-        m.insert("x".to_string(), Value::String("not_a_number".to_string()));
-        assert!(parse_float_field(&m, "x").is_err());
     }
 }

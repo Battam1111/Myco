@@ -610,10 +610,16 @@ pub(crate) fn handle_submit_mutation(
         .as_mut()
         .ok_or_else(|| SubstrateError::Handshake("python worker not connected".to_string()))?;
 
-    // Forward verbatim to Python via the generic `call` API.
-    let python_response = client
-        .call(msg_type::SUBMIT_MUTATION, request.payload.clone())
-        .map_err(SubstrateError::Bridge)?;
+    // Forward verbatim to Python under a per-op hard timeout.
+    // **v3.1.1 Sprint 7.E.2** — a hung Python worker surfaces
+    // BridgeError::Timeout instead of wedging the substrate forever; duration
+    // is recorded for the Sprint 6.J C65 slow-call observability.
+    let timeout = crate::python_call_health::python_op_timeout(msg_type::SUBMIT_MUTATION);
+    let call_start = std::time::Instant::now();
+    let python_response_result =
+        client.call_with_timeout(msg_type::SUBMIT_MUTATION, request.payload.clone(), timeout);
+    crate::python_call_health::record_call_duration(call_start.elapsed());
+    let python_response = python_response_result.map_err(SubstrateError::Bridge)?;
     if python_response.message_type != msg_type::SUBMIT_MUTATION_RESPONSE {
         return Err(SubstrateError::Protocol(format!(
             "expected submit_mutation_response; got {}",
