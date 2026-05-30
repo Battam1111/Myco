@@ -1,16 +1,16 @@
-// v3.1.1-mortality-refinement-and-charite — full on-chain signing ceremony.
+// v3.1.1.1-p03-descriptive-amendment — full on-chain signing ceremony.
 //
-// Runs end-to-end (chained from v3.1 ceremony's new_l0_hash):
+// Runs end-to-end (chained from the v3.1.1 ceremony's new_l0_hash):
 //   1. Verify manifest hashes match current bundle (drift check).
 //   2. Spawn (or connect to) anchor_surface_host — owner Ed25519 key custody.
 //   3. Spawn (or connect to) substrate — DAG host.
-//   4. Call SubstrateClient.signL0Revision(prior=v3.1_new, new=v3.1.1, summary).
+//   4. Call SubstrateClient.signL0Revision(prior=v3.1.1_new, new=v3.1.1.1, summary).
 //   5. Verify the DAG event appears; capture event hash for archival.
 //   6. Write ceremony_log/<timestamp>.json — the permanent off-chain record.
 //
 // Mirrors `v3_1_transition/run_ceremony.ts` structure; the only differences
-// are: (a) prior_l0_hash is pinned to v3.1's new_l0_hash (not the e796451
-// SHA-256), (b) diff_summary is the v3.1.1 summary, (c) ceremony_log goes
+// are: (a) prior_l0_hash is pinned to v3.1.1's new_l0_hash (not the e796451
+// SHA-256), (b) diff_summary is the v3.1.1.1 summary, (c) ceremony_log goes
 // in this directory.
 //
 // Modes: --mode dry-run (default) | --mode production (env-driven paths).
@@ -81,8 +81,8 @@ async function runCeremony(mode: Mode): Promise<CeremonyResult> {
   const next = computeNewL0Hash();
 
   process.stderr.write(
-    `[ceremony:${mode}] prior_l0_hash (v3.1 new_l0_hash) = ${prior.hashHex}\n` +
-      `[ceremony:${mode}] new_l0_hash   (BLAKE3 v3.1.1)     = ${next.hashHex}\n` +
+    `[ceremony:${mode}] prior_l0_hash (v3.1.1 new_l0_hash) = ${prior.hashHex}\n` +
+      `[ceremony:${mode}] new_l0_hash   (BLAKE3 v3.1.1.1)    = ${next.hashHex}\n` +
       `[ceremony:${mode}] bundle files: ${next.bundleFiles.length}, ` +
       `canonical bytes: ${next.canonicalBytesLength}\n`,
   );
@@ -92,7 +92,7 @@ async function runCeremony(mode: Mode): Promise<CeremonyResult> {
 
   const ephemeral = mode === "dry-run";
   const opDir = ephemeral
-    ? mkdtempSync(resolvePath(tmpdir(), "myco-v3_1_1-anchor-"))
+    ? mkdtempSync(resolvePath(tmpdir(), "myco-v3_1_1_1-anchor-"))
     : process.env.MYCO_ANCHOR_SURFACE_DIR ??
       (() => {
         throw new Error(
@@ -100,7 +100,7 @@ async function runCeremony(mode: Mode): Promise<CeremonyResult> {
         );
       })();
   const stateDir = ephemeral
-    ? mkdtempSync(resolvePath(tmpdir(), "myco-v3_1_1-state-"))
+    ? mkdtempSync(resolvePath(tmpdir(), "myco-v3_1_1_1-state-"))
     : process.env.MYCO_STATE_DIR ??
       (() => {
         throw new Error(
@@ -160,8 +160,8 @@ async function runCeremony(mode: Mode): Promise<CeremonyResult> {
       const completedAt = new Date().toISOString();
       return {
         mode,
-        ceremony: "v3.1.1-mortality-refinement-and-charite",
-        chained_from: "v3.1-stratigraphy-transition",
+        ceremony: "v3.1.1.1-p03-descriptive-amendment",
+        chained_from: "v3.1.1-mortality-refinement-and-charite",
         prior_l0_hash_hex: prior.hashHex,
         new_l0_hash_hex: next.hashHex,
         diff_summary: DIFF_SUMMARY,
@@ -209,7 +209,7 @@ const invokedAsCli =
 
 if (invokedAsCli) {
   const mode = parseMode();
-  process.stderr.write(`[ceremony] mode=${mode} starting (v3.1.1 amendment)...\n`);
+  process.stderr.write(`[ceremony] mode=${mode} starting (v3.1.1.1 amendment)...\n`);
 
   runCeremony(mode)
     .then((res) => {

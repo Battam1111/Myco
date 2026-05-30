@@ -20,6 +20,9 @@
     "ceremony:v3_1_1:hashes": "node --experimental-strip-types --no-warnings ceremonies/v3_1_1_mortality_refinement_and_charite/compute_hashes.ts",
     "ceremony:v3_1_1:dry-run": "node --experimental-strip-types --no-warnings ceremonies/v3_1_1_mortality_refinement_and_charite/run_ceremony.ts --mode dry-run",
     "ceremony:v3_1_1:production": "node --experimental-strip-types --no-warnings ceremonies/v3_1_1_mortality_refinement_and_charite/run_ceremony.ts --mode production",
+    "ceremony:v3_1_1_1:hashes": "node --experimental-strip-types --no-warnings ceremonies/v3_1_1_1_p03_descriptive_amendment/compute_hashes.ts",
+    "ceremony:v3_1_1_1:dry-run": "node --experimental-strip-types --no-warnings ceremonies/v3_1_1_1_p03_descriptive_amendment/run_ceremony.ts --mode dry-run",
+    "ceremony:v3_1_1_1:production": "node --experimental-strip-types --no-warnings ceremonies/v3_1_1_1_p03_descriptive_amendment/run_ceremony.ts --mode production",
     "test:all": "npm run typecheck && npm test",
     "start": "node --experimental-strip-types src/cli.ts"
   },

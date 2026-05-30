@@ -1,34 +1,28 @@
 // v3.1.1.1-p03-descriptive-amendment — deterministic hash computation.
 //
-// This amendment ceremony chains FROM the v3.1 transition's `new_l0_hash`,
-// not from the original e796451 DRAFT 9 hash. The on-chain attestation chain
-// becomes:
+// This amendment ceremony chains FROM the v3.1.1 ceremony's `new_l0_hash`.
+// The L0 bundle-hash chain (each = BLAKE3 of canonical-bytes
+// Map<rel_path, file_bytes> over docs/architecture/L0/**/*.md at that point):
 //
-//   e796451 (DRAFT 9) → 5eacf3e7... (v3.1 attestation) → b1bec59a... (v3.1.1 attestation)
+//   b1bec59a... (v3.1 bundle) → 798c047d... (v3.1.1 bundle) →
+//   2c3ecff1... (v3.1.1.1 bundle — this one)
 //
 // Where:
-//   prior_l0_hash = the v3.1 ceremony's new_l0_hash
-//                 = BLAKE3 of canonical-bytes Map<rel_path, file_bytes>
-//                   over docs/architecture/L0/**/*.md as of v3.1 commit
-//                 = b1bec59acc8c5061020640a265a9772e734604425b6eda4b5da1759f9987c699
+//   prior_l0_hash = the v3.1.1 ceremony's new_l0_hash
+//                 = 798c047d592730e20375429706bde1dea3f3da26394891a0a3055de004dff824
 //
 //   new_l0_hash   = BLAKE3 of canonical-bytes Map<rel_path, file_bytes>
-//                   over docs/architecture/L0/**/*.md as of v3.1.1 commit
+//                   over docs/architecture/L0/**/*.md as of v3.1.1.1 commit
 //                 = (computed below; pinned in manifest.json)
 //
-// Doctrine changes in v3.1.1 (see PROVENANCE.md §6.4):
-//   - P07 reinterpretation: mandatory internal mortality of 应朽 parts as
-//     primary; whole-substrate eventual rest as downstream boundary.
-//     Slogan changed 能朽 → 必朽. Introduced 应朽 (descriptive open-ended
-//     family) / 必朽 (imperative closed discipline) vocabulary distinction.
-//   - CHAR07 慈爱 added as new Cultivar Character card. Sister-mechanism to
-//     P07: P07 prevents bloat-death (metabolism); CHAR07 prevents
-//     tyrant-becoming (relation). Developmental, not eternity-clause.
-//   - List discipline: canonical four (过时/错误/冗余/无用) are illustrative
-//     not exhaustive. L1 may recognize new 应朽 family members.
-//   - Cascading updates: COV04, CHAR03, P02, P03, P04, P14, META, PROVENANCE,
-//     B_chengyu, canonical_dilemma_corpus, L1/CONTINUITY, L1/HARD_RULES,
-//     L2/OBSERVABILITY.
+// Doctrine change in v3.1.1.1 (Sprint 6.D; see manifest.diff_summary):
+//   - P03_resumable_evolution.md descriptive amendment (version 2.1 → 3):
+//     §3.3 reframed from 'two-phase migration' to 'snapshot-rollback
+//     semantics' to match the shipping schema_evolution.py implementation;
+//     §10.4 NEW acknowledged-debt section records multi-cycle migration as
+//     a planned (not-yet-shipped) enhancement. DEPOSIT (P03 §2) unchanged.
+//   - Folded into the same bundle: Sprint 7.H (Layer D catechumenate
+//     scaffolding) + Sprint 7.I (cross-reference path-drift cleanup).
 //
 // Per L1/HARD_RULES C18 canonical_bytes_render_drift (CRITICAL).
 
