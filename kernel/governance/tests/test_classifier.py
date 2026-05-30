@@ -400,9 +400,15 @@ def test_v3_1_1_sprint_2c_backup_encryption_statuses_in_sync_with_rust() -> None
     )
 
     workspace_root = Path(__file__).resolve().parents[3]
-    rust_src = workspace_root / "substrate" / "src" / "events.rs"
-    assert rust_src.exists(), f"Rust events.rs not found at {rust_src}"
-    rust_text = rust_src.read_text(encoding="utf-8")
+    rust_src_dir = workspace_root / "substrate" / "src"
+    assert rust_src_dir.is_dir(), f"Rust substrate/src not found at {rust_src_dir}"
+    # Concatenate every substrate/src/**/*.rs so this check stays correct no
+    # matter which module the constants live in (events.rs was decomposed into
+    # an events/ module tree; the backup-encryption SSoT moved to
+    # events/backup_encryption.rs).
+    rust_text = "\n".join(
+        p.read_text(encoding="utf-8") for p in sorted(rust_src_dir.rglob("*.rs"))
+    )
 
     marker = "pub const BACKUP_ENCRYPTION_STATUS_VALID_VALUES: &[&str] = &["
     idx = rust_text.find(marker)
@@ -428,7 +434,7 @@ def test_v3_1_1_sprint_2c_backup_encryption_statuses_in_sync_with_rust() -> None
             r"pub const " + re.escape(name) + r":\s*&str\s*=\s*\"([^\"]+)\"",
         )
         m = def_pattern.search(rust_text)
-        assert m is not None, f"Rust constant {name} not found in events.rs"
+        assert m is not None, f"Rust constant {name} not found in substrate/src"
         resolved.append(m.group(1))
 
     rust_set = frozenset(resolved)
@@ -436,7 +442,7 @@ def test_v3_1_1_sprint_2c_backup_encryption_statuses_in_sync_with_rust() -> None
         f"Rust and Python backup-encryption-status lists drift!\n"
         f"  Rust only: {rust_set - BACKUP_ENCRYPTION_STATUS_VALID_VALUES}\n"
         f"  Python only: {BACKUP_ENCRYPTION_STATUS_VALID_VALUES - rust_set}\n"
-        f"Fix: edit both substrate/src/events.rs AND "
+        f"Fix: edit both the Rust substrate (events/backup_encryption.rs) AND "
         f"kernel/governance/src/myco_kernel_governance/classifier.py to match."
     )
 
