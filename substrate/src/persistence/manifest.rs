@@ -42,6 +42,17 @@ pub struct Manifest {
     /// of the absorbed batch — preserving the "each moment refines what prior
     /// moments produced" semantics without overloading any valid cycle value.
     pub last_absorbed_cycle: Option<u64>,
+    /// **8f / L1/GOVERNANCE §16.A (F22)**: this substrate's lineage depth.
+    /// Root substrate = 0; a child sprouted by `handle_sprout_child` records
+    /// `parent.generation_depth + 1`. Used by the C47
+    /// `generation_depth_exceeded` reproduction detector to bound lineage
+    /// depth against `reproduction_lineage_depth_max` (default 10), defending
+    /// the forkbomb attack class (§16 cascade of L0 P08 永恒繁衍).
+    ///
+    /// **Back-compat**: absent in pre-8f `manifest.cb` / `genesis_event` /
+    /// `snapshot.cb` → decoded as `0` (root). This keeps the wire format
+    /// additive: old substrates load unchanged and behave as roots.
+    pub generation_depth: u64,
 }
 
 impl Manifest {
@@ -88,12 +99,24 @@ impl Manifest {
             Ok(s) => s.parse::<i64>().unwrap_or_else(|_| current_unix_ns()),
             _ => current_unix_ns(),
         };
+        // **8f / L1/GOVERNANCE §16.A**: allow the operator process to override
+        // `generation_depth` at genesis. Mirrors the substrate_id /
+        // genesis_time override hooks above. The authoritative depth for a
+        // *sprouted* child is carried by its `genesis_event` DAG node (set by
+        // the parent's `handle_sprout_child`); this env hook exists so a
+        // birth ritual that pre-builds a child can also stamp the depth.
+        // Absent / malformed → 0 (root).
+        let generation_depth = match std::env::var("MYCO_GENERATION_DEPTH_OVERRIDE") {
+            Ok(s) => s.parse::<u64>().unwrap_or(0),
+            _ => 0,
+        };
         Manifest {
             substrate_id,
             genesis_time_unix_ns: genesis_time,
             cycle_counter: 0,
             last_save_time_unix_ns: current_unix_ns(),
             last_absorbed_cycle: None,
+            generation_depth,
         }
     }
 
@@ -121,6 +144,15 @@ impl Manifest {
         // has occurred yet. Only emitted when Some(cycle).
         if let Some(c) = self.last_absorbed_cycle {
             map.insert("last_absorbed_cycle".to_string(), Value::Uint(c));
+        }
+        // 8f / L1/GOVERNANCE §16.A: emit generation_depth only when non-zero
+        // so a root substrate's manifest is byte-identical to a pre-8f one
+        // (additive back-compat — root depth 0 is the absent-field default).
+        if self.generation_depth != 0 {
+            map.insert(
+                "generation_depth".to_string(),
+                Value::Uint(self.generation_depth),
+            );
         }
         cb_encode(&Value::Map(map))
             .expect("manifest canonical-bytes encode is infallible")
@@ -180,12 +212,19 @@ impl Manifest {
             Some(Value::Uint(n)) => Some(*n),
             _ => None,
         };
+        // 8f / L1/GOVERNANCE §16.A: optional field — absent in pre-8f
+        // manifests and in every root substrate → 0 (root lineage depth).
+        let generation_depth = match map.get("generation_depth") {
+            Some(Value::Uint(n)) => *n,
+            _ => 0,
+        };
         Ok(Some(Manifest {
             substrate_id,
             genesis_time_unix_ns: genesis_time,
             cycle_counter,
             last_save_time_unix_ns: last_save_time,
             last_absorbed_cycle,
+            generation_depth,
         }))
     }
 

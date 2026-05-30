@@ -907,9 +907,15 @@ pub fn run_loop() -> Result<u8, SubstrateError> {
     // handles truly fresh).
     if is_fresh_genesis && state.dag.node_count() == 0 {
         let event_node_type = crate::events::genesis_event_node_type(&state.manifest.substrate_id);
+        // 8f / §16.A: a truly-fresh substrate stamps its lineage depth into
+        // the genesis_event. Root substrate → 0 (field omitted, byte-compat);
+        // a child birthed via the `MYCO_GENERATION_DEPTH_OVERRIDE` hook → that
+        // depth. The canonical sprout path (`handle_sprout_child`) builds the
+        // child's genesis_event directly with parent_depth + 1.
         let event_content = crate::events::encode_genesis_event(
             &state.manifest.substrate_id,
             state.manifest.genesis_time_unix_ns,
+            state.manifest.generation_depth,
         );
         let _ = emit_substrate_event(&mut state, event_node_type, event_content);
         let _ = save_dag_state(&state);

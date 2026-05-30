@@ -141,6 +141,8 @@ pub(crate) fn save_snapshot_for_state(state: &ServerState) -> Result<usize, Subs
         } else {
             Some(state.manifest.genesis_time_unix_ns)
         },
+        // 8f / §16.A: carry the live lineage depth into the persisted snapshot.
+        generation_depth: state.manifest.generation_depth,
         cycle_counter: state.manifest.cycle_counter,
         last_absorbed_cycle: state.manifest.last_absorbed_cycle,
         pinned_operator_identity: state.pinned_operator_identity.clone(),
@@ -203,9 +205,14 @@ pub(crate) fn backfill_dag_from_python_state(
     });
     if !has_genesis {
         let event_nt = crate::events::genesis_event_node_type(&state.manifest.substrate_id);
+        // 8f / §16.A: stamp the substrate's lineage depth into the back-filled
+        // genesis_event. For a legacy/root substrate this is 0; for a child
+        // whose manifest carries a depth (e.g. via the override hook) it is
+        // preserved so the backfilled DAG remains the authoritative source.
         let event_content = crate::events::encode_genesis_event(
             &state.manifest.substrate_id,
             state.manifest.genesis_time_unix_ns,
+            state.manifest.generation_depth,
         );
         let _ = emit_substrate_event(state, event_nt, event_content);
         let _ = save_dag_state(state);

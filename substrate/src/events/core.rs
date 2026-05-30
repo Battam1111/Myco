@@ -106,9 +106,28 @@ pub fn genesis_event_node_type(substrate_id: &[u8; 32]) -> String {
 
 /// Content of a genesis_event:
 /// ```text
-/// Map({ "substrate_id": Bytes(32), "genesis_time_unix_ns": Timestamp })
+/// Map({
+///   "substrate_id": Bytes(32),
+///   "genesis_time_unix_ns": Timestamp,
+///   "generation_depth": Uint,   // 8f / §16.A; OMITTED when 0 (root)
+/// })
 /// ```
-pub fn encode_genesis_event(substrate_id: &[u8; 32], genesis_time_unix_ns: i64) -> CanonicalBytes {
+///
+/// **8f / L1/GOVERNANCE §16.A (F22)**: `generation_depth` records this
+/// substrate's lineage depth (root = 0; a sprouted child = parent + 1). It
+/// is the authoritative carrier the child reads at boot via
+/// `DerivedState::apply_genesis` → `Manifest.generation_depth`, which the C47
+/// reproduction detector then enforces against `reproduction_lineage_depth_max`.
+///
+/// **Back-compat / determinism**: the field is emitted ONLY when non-zero so a
+/// root substrate's genesis_event canonical-bytes (and therefore its DAG hash
+/// chain + the v3.1.1.1 seal) are byte-identical to the pre-8f encoding. A
+/// decoder that has never seen the field treats its absence as 0 (root).
+pub fn encode_genesis_event(
+    substrate_id: &[u8; 32],
+    genesis_time_unix_ns: i64,
+    generation_depth: u64,
+) -> CanonicalBytes {
     let mut m = BTreeMap::new();
     m.insert(
         "substrate_id".to_string(),
@@ -118,6 +137,12 @@ pub fn encode_genesis_event(substrate_id: &[u8; 32], genesis_time_unix_ns: i64) 
         "genesis_time_unix_ns".to_string(),
         Value::Timestamp(genesis_time_unix_ns),
     );
+    if generation_depth != 0 {
+        m.insert(
+            "generation_depth".to_string(),
+            Value::Uint(generation_depth),
+        );
+    }
     cb_encode(&Value::Map(m)).expect("genesis_event encode infallible")
 }
 
@@ -628,13 +653,50 @@ mod tests {
         use myco_kernel_shared::canonical_bytes::{decode, map_get_bytes};
 
         let id = [0x42; 32];
-        let bytes = encode_genesis_event(&id, 1234567890);
+        let bytes = encode_genesis_event(&id, 1234567890, 0);
         let decoded = decode(bytes.as_ref()).unwrap();
         let map = match decoded {
             Value::Map(m) => m,
             _ => panic!("not a map"),
         };
         assert_eq!(map_get_bytes(&map, "substrate_id").unwrap(), &[0x42; 32]);
+    }
+
+    #[test]
+    fn encode_genesis_event_root_omits_generation_depth() {
+        // 8f back-compat: a root substrate (depth 0) must produce byte-identical
+        // canonical-bytes to the pre-8f two-field encoding so the DAG hash
+        // chain + v3.1.1.1 seal are unchanged. We assert the field is absent.
+        use myco_kernel_shared::canonical_bytes::decode;
+        let id = [0x42; 32];
+        let bytes = encode_genesis_event(&id, 1234567890, 0);
+        let decoded = decode(bytes.as_ref()).unwrap();
+        let map = match decoded {
+            Value::Map(m) => m,
+            _ => panic!("not a map"),
+        };
+        assert!(
+            !map.contains_key("generation_depth"),
+            "root genesis_event must omit generation_depth for byte-compat"
+        );
+    }
+
+    #[test]
+    fn encode_genesis_event_child_records_generation_depth() {
+        // 8f / §16.A: a sprouted child (depth > 0) records the field so the
+        // child can read its own lineage depth at boot.
+        use myco_kernel_shared::canonical_bytes::{decode, Value};
+        let id = [0x42; 32];
+        let bytes = encode_genesis_event(&id, 1234567890, 7);
+        let decoded = decode(bytes.as_ref()).unwrap();
+        let map = match decoded {
+            Value::Map(m) => m,
+            _ => panic!("not a map"),
+        };
+        assert!(matches!(
+            map.get("generation_depth"),
+            Some(Value::Uint(7))
+        ));
     }
 
     #[test]

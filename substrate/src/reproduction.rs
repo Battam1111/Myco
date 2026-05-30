@@ -12,6 +12,11 @@
 //! - L0 P8 集体免疫 — inherited disease via parent's immune-summary
 //!   triggering birth-period quarantine entry event in child.
 //! - L1/HARD_RULES C34 birth_period_violation_during_quarantine.
+//! - **8f / L1/GOVERNANCE §16 (F22) + L1/HARD_RULES C47/C48** — generation
+//!   discipline (forkbomb defense, P8 cascade). Before sprouting, the parent
+//!   verifies lineage depth (C47) and lifetime spawn quota (C48); a breach
+//!   refuses the sprout and emits the matching immune sporocarp. See the
+//!   constants + checks in `handle_sprout_child`.
 
 use std::collections::BTreeMap;
 
@@ -19,8 +24,68 @@ use myco_kernel_bridge::protocol::{msg_type, Message};
 use myco_kernel_shared::canonical_bytes::{encode as cb_encode, Value};
 
 use crate::persistence::{save_dag, Manifest};
-use crate::server::ServerState;
+use crate::server::{emit_immune_sporocarp, save_dag_state, ServerState};
 use crate::SubstrateError;
+
+// ---------------------------------------------------------------------------
+// F22 reproduction-discipline fixed points (L1/GOVERNANCE §16; CI-class per
+// I2 dimension table row "Reproduction discipline parameters (F22 / §16)").
+//
+// These are the L1-tunable seeds named verbatim in §16. They are encoded as
+// named constants matching the spec field names + default values so the
+// enforcement site reads 1:1 against the governance doc. A future F22
+// mutation path (CI-attested) would promote these to substrate state; until
+// then they are the constitutional defaults.
+// ---------------------------------------------------------------------------
+
+/// **L1/GOVERNANCE §16.A `reproduction_lineage_depth_max`** (default 10).
+/// A substrate may sprout a child iff `parent.generation_depth + 1 <= max`.
+/// Root substrate is depth 0, so depth-`max` is the deepest substrate that
+/// can still exist; a substrate AT depth `max` cannot sprout (child would be
+/// `max + 1`). Breach → C47 `generation_depth_exceeded`.
+///
+/// `pub` so integration tests (and any operator-side introspection crate) can
+/// pin the constitutional default against L1/GOVERNANCE §16.A.
+pub const REPRODUCTION_LINEAGE_DEPTH_MAX: u64 = 10;
+
+/// **L1/GOVERNANCE §16.C `reproduction_lifetime_quota`** (default 100).
+/// A substrate may sprout iff `children_spawned_count + 1 <= quota`, where
+/// `children_spawned_count` is the DAG event count of this substrate's
+/// child-sprout nodes (I4 prevents retro-edit; CI-class ⇒ P10.b-invariant).
+/// Breach → C48 `reproduction_lifetime_quota_exceeded`.
+///
+/// `pub` so integration tests can pin the constitutional default against
+/// L1/GOVERNANCE §16.C.
+pub const REPRODUCTION_LIFETIME_QUOTA: u64 = 100;
+
+/// Resolve the effective `reproduction_lineage_depth_max`.
+///
+/// Production: the §16.A constitutional default
+/// ([`REPRODUCTION_LINEAGE_DEPTH_MAX`]). A test-only env override
+/// `MYCO_TEST_REPRODUCTION_DEPTH_MAX` lets the C47 E2E exercise the breach
+/// without booting a 10-deep lineage. Mirrors the established
+/// `MYCO_TEST_TIGHTEN_BUDGETS_FOR_C53` test-seam precedent. Production must
+/// not set this variable.
+fn effective_lineage_depth_max() -> u64 {
+    std::env::var("MYCO_TEST_REPRODUCTION_DEPTH_MAX")
+        .ok()
+        .and_then(|s| s.trim().parse::<u64>().ok())
+        .unwrap_or(REPRODUCTION_LINEAGE_DEPTH_MAX)
+}
+
+/// Resolve the effective `reproduction_lifetime_quota`.
+///
+/// Production: the §16.C constitutional default
+/// ([`REPRODUCTION_LIFETIME_QUOTA`]). A test-only env override
+/// `MYCO_TEST_REPRODUCTION_QUOTA` lets the C48 E2E exercise the quota breach
+/// with a handful of sprouts instead of 100. Production must not set this
+/// variable.
+fn effective_lifetime_quota() -> u64 {
+    std::env::var("MYCO_TEST_REPRODUCTION_QUOTA")
+        .ok()
+        .and_then(|s| s.trim().parse::<u64>().ok())
+        .unwrap_or(REPRODUCTION_LIFETIME_QUOTA)
+}
 
 /// M20 P8 永恒繁衍 — Sprout a child substrate from the parent's spore-schema.
 ///
@@ -67,6 +132,85 @@ pub(crate) fn handle_sprout_child(
     };
     let spore_metadata = request.payload.get("spore_metadata").cloned();
 
+    // -----------------------------------------------------------------------
+    // 8f / L1/GOVERNANCE §16 (F22) generation discipline — forkbomb defense.
+    //
+    // These two checks run BEFORE any side effect (no directory is created, no
+    // Python query is issued, no child DAG is built). A breach emits the
+    // matching immune sporocarp into the PARENT's DAG, persists it (the
+    // SPROUT_CHILD dispatch arm only saves on Ok, so we save here explicitly —
+    // same precedent as `dag_query::handle_enumerate_dag_since`'s C6 path),
+    // and refuses the sprout with the existing rejection shape
+    // (`SubstrateError::Protocol`, surfaced to the operator as an error
+    // envelope by the main loop).
+    //
+    // The RATE half of §16.B (`reproduction_rate_min_interval`, the
+    // min-interval-between-spawns throttle) is intentionally NOT implemented
+    // here: §16.B mandates the *anchor wall-clock* (`current_anchor_timestamp
+    // − parent.last_spawn_timestamp ≥ interval`) and explicitly forbids the
+    // substrate-cycle counter as a substitute (throttle-evasion per P06 +
+    // L1/CONTINUITY time semantics). The anchor clock is M-anchor-3 surface,
+    // deferred. The QUOTA half (§16.C) IS implemented because it is a pure DAG
+    // event-count (I4-tamper-evident) needing no wall-clock.
+
+    // --- C47 generation_depth_exceeded (§16.A) ---
+    // Root = depth 0; the child this sprout would create is `parent + 1`. A
+    // substrate at depth == REPRODUCTION_LINEAGE_DEPTH_MAX cannot sprout
+    // (child would exceed the max). `depth_override` (F22, Cultivator-attested)
+    // is NOT yet wired — its absence simply means depth is hard-capped, which
+    // is the safe default for forkbomb defense.
+    let parent_generation_depth = state.manifest.generation_depth;
+    let child_generation_depth = parent_generation_depth.saturating_add(1);
+    let lineage_depth_max = effective_lineage_depth_max();
+    if child_generation_depth > lineage_depth_max {
+        let evidence = format!(
+            "sprout_child refused: child generation_depth {child_generation_depth} \
+             would exceed reproduction_lineage_depth_max {lineage_depth_max} \
+             (parent.generation_depth={parent_generation_depth}); forkbomb depth guard \
+             per L1/GOVERNANCE §16.A. No depth_override attested."
+        );
+        let _ = emit_immune_sporocarp(
+            state,
+            "C47_generation_depth_exceeded",
+            "generation_depth_exceeded",
+            &evidence,
+        );
+        // Persist the breach so it survives restart (dispatch won't save on Err).
+        let _ = save_dag_state(state);
+        return Err(SubstrateError::Protocol(evidence));
+    }
+
+    // --- C48 reproduction_lifetime_quota_exceeded (§16.C, QUOTA half) ---
+    // children_spawned_count = DAG event count of this substrate's child-sprout
+    // nodes. The governance doc names the counter node-type
+    // `spawn_completed:{child_substrate_id}`; the live reproduction path emits
+    // `spore_emission:{child_id_prefix}` for each successful sprout, so that is
+    // the authoritative child-sprout event we count here (I4 prevents
+    // retro-edit; CI-class ⇒ P10.b-invariant). Quota is a LIFETIME cap: it
+    // counts every prior sprout regardless of whether the child still lives.
+    let children_spawned_count = state
+        .dag
+        .iter_in_insertion_order()
+        .filter(|n| n.node_type.starts_with("spore_emission:"))
+        .count() as u64;
+    let lifetime_quota = effective_lifetime_quota();
+    if children_spawned_count.saturating_add(1) > lifetime_quota {
+        let evidence = format!(
+            "sprout_child refused: children_spawned_count {children_spawned_count} + 1 \
+             would exceed reproduction_lifetime_quota {lifetime_quota} \
+             per L1/GOVERNANCE §16.C. Each over-quota spawn requires its own \
+             §2 attestation (no bulk); not attested."
+        );
+        let _ = emit_immune_sporocarp(
+            state,
+            "C48_reproduction_lifetime_quota_exceeded",
+            "reproduction_lifetime_quota_exceeded",
+            &evidence,
+        );
+        let _ = save_dag_state(state);
+        return Err(SubstrateError::Protocol(evidence));
+    }
+
     let child_path = std::path::PathBuf::from(&child_state_dir);
 
     // Guard: child_state_dir must not contain an existing dag.cb (don't
@@ -107,11 +251,17 @@ pub(crate) fn handle_sprout_child(
     // → per-axis (axis_registered + optional axis_perturbed for non-initial value).
     let mut child_dag = myco_kernel_schema::dag::Dag::new();
 
-    // 1. genesis_event
+    // 1. genesis_event — 8f / §16.A: record the child's lineage depth as
+    // `parent.generation_depth + 1`. This is the authoritative carrier: when
+    // the child boots from this dag.cb, `DerivedState::apply_genesis` reads it
+    // back into the child's `Manifest.generation_depth`, so the child in turn
+    // enforces C47 against its own (deeper) depth. `child_generation_depth`
+    // was computed + bounded by the §16.A guard above.
     let child_genesis_nt = crate::events::genesis_event_node_type(&child_manifest.substrate_id);
     let child_genesis_content = crate::events::encode_genesis_event(
         &child_manifest.substrate_id,
         child_manifest.genesis_time_unix_ns,
+        child_generation_depth,
     );
     let child_cycle = child_manifest.cycle_counter;
     child_dag
@@ -249,6 +399,12 @@ pub(crate) fn handle_sprout_child(
         "parent_cycle_at_emission".to_string(),
         Value::Uint(state.manifest.cycle_counter),
     );
+    // 8f / §16.A: record the child's lineage depth in the parent's spore
+    // node so the parent's DAG carries the depth lineage for observability.
+    spore_content.insert(
+        "child_generation_depth".to_string(),
+        Value::Uint(child_generation_depth),
+    );
     if let Some(m) = spore_metadata {
         spore_content.insert("spore_metadata".to_string(), m);
     }
@@ -277,6 +433,12 @@ pub(crate) fn handle_sprout_child(
     payload.insert(
         "child_axis_count".to_string(),
         Value::Uint(child_axis_count),
+    );
+    // 8f / §16.A: surface the child's lineage depth so the operator can
+    // confirm `parent + 1` without re-reading the child's DAG.
+    payload.insert(
+        "child_generation_depth".to_string(),
+        Value::Uint(child_generation_depth),
     );
     payload.insert(
         "spore_emission_hash".to_string(),

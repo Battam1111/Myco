@@ -138,6 +138,41 @@ mod tests {
         assert_eq!(decoded.substrate_id, m.substrate_id);
         assert_eq!(decoded.cycle_counter, 42);
         assert_eq!(decoded.genesis_time_unix_ns, m.genesis_time_unix_ns);
+        // 8f: a fresh-genesis manifest is a root → depth 0 round-trips.
+        assert_eq!(decoded.generation_depth, 0);
+    }
+
+    #[test]
+    fn manifest_generation_depth_roundtrip() {
+        // 8f / §16.A: a non-zero generation_depth survives the canonical-bytes
+        // round-trip (child manifest persistence).
+        let mut m = Manifest::genesis();
+        m.generation_depth = 5;
+        let bytes = m.to_canonical_bytes();
+        let decoded = Manifest::from_canonical_bytes(&bytes).unwrap().unwrap();
+        assert_eq!(decoded.generation_depth, 5);
+    }
+
+    #[test]
+    fn manifest_pre_8f_bytes_decode_depth_zero() {
+        // 8f back-compat: a manifest encoded WITHOUT generation_depth (root /
+        // pre-8f) decodes to depth 0. We assert the field is omitted for a
+        // root (byte-compat) and decodes back to 0.
+        use myco_kernel_shared::canonical_bytes::{decode, Value};
+        let m = Manifest::genesis(); // depth 0
+        let bytes = m.to_canonical_bytes();
+        // Field must be ABSENT in the encoding for a root substrate.
+        let decoded_map = match decode(&bytes).unwrap() {
+            Value::Map(map) => map,
+            _ => panic!("manifest not a Map"),
+        };
+        assert!(
+            !decoded_map.contains_key("generation_depth"),
+            "root manifest must omit generation_depth (byte-compat)"
+        );
+        // And it decodes back to 0.
+        let decoded = Manifest::from_canonical_bytes(&bytes).unwrap().unwrap();
+        assert_eq!(decoded.generation_depth, 0);
     }
 
     #[test]

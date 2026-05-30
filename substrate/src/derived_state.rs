@@ -359,6 +359,12 @@ pub struct DerivedState {
     pub substrate_id: Option<[u8; 32]>,
     /// Wall-clock time at substrate genesis.
     pub genesis_time_unix_ns: Option<i64>,
+    /// **8f / L1/GOVERNANCE §16.A (F22)**: this substrate's lineage depth,
+    /// read from the `generation_depth` field of its `genesis_event` (absent
+    /// → 0 = root). Threaded into `Manifest.generation_depth` by
+    /// `to_legacy_manifest` so the C47 reproduction detector can enforce
+    /// `reproduction_lineage_depth_max` at sprout time.
+    pub generation_depth: u64,
     /// Authoritative metabolic-cycle counter.
     pub cycle_counter: u64,
     /// Highest cycle whose raw_material has been absorbed (M18).
@@ -384,6 +390,7 @@ impl DerivedState {
         DerivedState {
             substrate_id: None,
             genesis_time_unix_ns: None,
+            generation_depth: 0,
             cycle_counter: 0,
             last_absorbed_cycle: None,
             pinned_operator_identity: None,
@@ -438,6 +445,16 @@ impl DerivedState {
         }
         if let Some(t) = self.genesis_time_unix_ns {
             root.insert("genesis_time_unix_ns".to_string(), Value::Timestamp(t));
+        }
+        // 8f / §16.A: persist lineage depth in snapshot.cb so a snapshot-
+        // accelerated boot (which may skip replaying the genesis_event)
+        // still recovers the substrate's depth. Emitted only when non-zero
+        // for back-compat with pre-8f snapshot decoders (absent → 0).
+        if self.generation_depth != 0 {
+            root.insert(
+                "generation_depth".to_string(),
+                Value::Uint(self.generation_depth),
+            );
         }
         root.insert("cycle_counter".to_string(), Value::Uint(self.cycle_counter));
         if let Some(c) = self.last_absorbed_cycle {
@@ -556,6 +573,12 @@ impl DerivedState {
         let genesis_time_unix_ns = match map.get("genesis_time_unix_ns") {
             Some(Value::Timestamp(t)) => Some(*t),
             _ => None,
+        };
+        // 8f / §16.A: optional in snapshot.cb — absent in pre-8f snapshots and
+        // in every root substrate → 0 (root lineage depth).
+        let generation_depth = match map.get("generation_depth") {
+            Some(Value::Uint(n)) => *n,
+            _ => 0,
         };
         let cycle_counter =
             map_get_uint(&map, "cycle_counter").map_err(|e| DerivedStateError::EventField {
@@ -684,6 +707,7 @@ impl DerivedState {
             DerivedState {
                 substrate_id,
                 genesis_time_unix_ns,
+                generation_depth,
                 cycle_counter,
                 last_absorbed_cycle,
                 pinned_operator_identity,
@@ -714,6 +738,9 @@ impl DerivedState {
             cycle_counter: self.cycle_counter,
             last_save_time_unix_ns: now_ns,
             last_absorbed_cycle: self.last_absorbed_cycle,
+            // 8f / §16.A: carry lineage depth into the boot manifest so
+            // `handle_sprout_child` enforces C47 against the live value.
+            generation_depth: self.generation_depth,
         }
     }
 
@@ -784,6 +811,13 @@ impl DerivedState {
         id.copy_from_slice(id_slice);
         self.substrate_id = Some(id);
         self.genesis_time_unix_ns = Some(timestamp_field(node, &map, "genesis_time_unix_ns")?);
+        // 8f / §16.A: read lineage depth from the genesis_event. Absent → 0
+        // (root / pre-8f substrate). This is how a sprouted child learns its
+        // own depth at boot from its DAG alone.
+        self.generation_depth = match map.get("generation_depth") {
+            Some(Value::Uint(n)) => *n,
+            _ => 0,
+        };
         Ok(())
     }
 
@@ -1011,11 +1045,30 @@ mod tests {
         let node = make_node(
             genesis_event_node_type(&id),
             0,
-            encode_genesis_event(&id, 1_234_567_890),
+            encode_genesis_event(&id, 1_234_567_890, 0),
         );
         s.apply_event(&node).unwrap();
         assert_eq!(s.substrate_id, Some(id));
         assert_eq!(s.genesis_time_unix_ns, Some(1_234_567_890));
+        // 8f: a root genesis_event (depth omitted) decodes to depth 0.
+        assert_eq!(s.generation_depth, 0);
+    }
+
+    #[test]
+    fn genesis_event_records_child_generation_depth() {
+        // 8f / §16.A: a child genesis_event carrying generation_depth=4 must
+        // surface in DerivedState so the child enforces C47 at boot.
+        let mut s = DerivedState::empty();
+        let id = [0x77; 32];
+        let node = make_node(
+            genesis_event_node_type(&id),
+            0,
+            encode_genesis_event(&id, 1_234_567_890, 4),
+        );
+        s.apply_event(&node).unwrap();
+        assert_eq!(s.generation_depth, 4);
+        // to_legacy_manifest threads it into the boot manifest.
+        assert_eq!(s.to_legacy_manifest().generation_depth, 4);
     }
 
     #[test]
@@ -1025,7 +1078,7 @@ mod tests {
         let node = make_node(
             genesis_event_node_type(&id),
             0,
-            encode_genesis_event(&id, 1),
+            encode_genesis_event(&id, 1, 0),
         );
         s.apply_event(&node).unwrap();
         let result = s.apply_event(&node);
@@ -1198,7 +1251,7 @@ mod tests {
             vec![],
             genesis_event_node_type(&id),
             0,
-            encode_genesis_event(&id, 100),
+            encode_genesis_event(&id, 100, 0),
         )
         .unwrap();
         // Cycle 1
@@ -1248,7 +1301,7 @@ mod tests {
                 vec![],
                 genesis_event_node_type(&id),
                 0,
-                encode_genesis_event(&id, 1),
+                encode_genesis_event(&id, 1, 0),
             )
             .unwrap();
             let tip = dag.tip().unwrap();
