@@ -458,7 +458,13 @@ pub(crate) fn count_internal_mortality_events_since(
 ///
 /// Returns `(resurrected_count, tombstone_count)`. The ratio is the
 /// observable metric.
-pub fn count_prune_resurrections(state: &ServerState) -> (u64, u64) {
+///
+/// `pub(crate)`: this helper takes `&ServerState` (itself `pub(crate)`), so a
+/// `pub` signature would leak a private type and trip rustc's
+/// `private_interfaces` lint. It is consumed internally by the observatory
+/// (`observatory.rs`) and by a same-crate unit test in this module's
+/// `#[cfg(test)] mod tests`.
+pub(crate) fn count_prune_resurrections(state: &ServerState) -> (u64, u64) {
     use myco_kernel_shared::canonical_bytes::{decode as cb_decode, Value as CbV};
 
     // Step 1: collect tombstones with their killed_part content_canonical_bytes.
@@ -633,5 +639,46 @@ mod tests {
         assert_eq!(HOARDING_INDICATOR_WINDOW_CYCLES, 200);
         assert_eq!(HOARDING_INDICATOR_INGESTION_FLOOR, 10);
         assert_eq!(HOARDING_INDICATOR_MORTALITY_FLOOR, 1);
+    }
+
+    /// **v3.1.1 Sprint 5.G (T2.6)** — direct unit-style test of the
+    /// `count_prune_resurrections` helper.
+    ///
+    /// Relocated from the substrate E2E integration suite: an external
+    /// integration-test binary cannot see the `pub(crate)`
+    /// `count_prune_resurrections` (it takes `pub(crate) ServerState`), so the
+    /// check lives here as a same-crate unit test. Construct an in-memory
+    /// `ServerState` over a fresh, empty `Dag` and confirm the count function
+    /// handles the no-tombstone case safely: with no tombstones there are no
+    /// killed contents to compare against, so both the resurrection count and
+    /// the tombstone total are necessarily 0.
+    #[test]
+    fn count_prune_resurrections_handles_empty_dag_safely() {
+        use crate::persistence::Manifest;
+        use crate::server::ServerState;
+        use myco_kernel_schema::dag::Dag;
+
+        // A throwaway state dir; ServerState::new only reads on-disk file
+        // sizes to seed its cost accumulator, which yields zeros for a dir
+        // with no state files yet.
+        let state_dir = std::env::temp_dir().join(format!(
+            "myco-prune-unit-{}-{:x}",
+            std::process::id(),
+            &0u8 as *const u8 as usize as u64
+        ));
+        let state = ServerState::new(
+            state_dir,
+            Manifest::genesis(),
+            Dag::new(),
+            None,
+            [0u8; 32],
+        );
+
+        let (resurrected, total_tombstones) = count_prune_resurrections(&state);
+
+        // No tombstones → resurrection count is necessarily 0 (no killed
+        // contents to compare against).
+        assert_eq!(resurrected, 0);
+        assert_eq!(total_tombstones, 0);
     }
 }

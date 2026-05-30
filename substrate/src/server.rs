@@ -671,7 +671,11 @@ pub(crate) struct ServerState {
 }
 
 impl ServerState {
-    fn new(
+    // `pub(crate)` (was private): lets same-crate unit tests — e.g.
+    // `prune::tests` exercising `count_prune_resurrections` — construct an
+    // in-memory `ServerState` from a fresh `Manifest`/`Dag`. Behavior is
+    // unchanged; this only widens constructor visibility within the crate.
+    pub(crate) fn new(
         state_dir: PathBuf,
         manifest: Manifest,
         dag: Dag,
