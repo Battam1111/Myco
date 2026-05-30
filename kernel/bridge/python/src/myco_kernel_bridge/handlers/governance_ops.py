@@ -22,6 +22,7 @@ from myco_kernel_governance.canonical_bytes import (
     Map as CbMap,
     String as CbString,
     expect_array,
+    expect_bool,
     expect_bytes,
     expect_string,
 )
@@ -37,6 +38,7 @@ from myco_kernel_governance.crypto import (
 from myco_kernel_governance.schema_evolution import (
     SchemaEvolutionError,
     apply_schema_diff,
+    apply_schema_diff_to_copy,
     parse_schema_diff,
 )
 
@@ -46,6 +48,7 @@ from myco_kernel_bridge.protocol import (
     BridgeProtocolError,
     Message,
     MessageType,
+    empty_payload,
 )
 
 
@@ -152,29 +155,66 @@ def _handle_submit_mutation(
             "L1/HARD_RULES C14 untyped_mutation_blocked"
         )
 
+    # v3.1.1 Sprint 8.G (P03 §10.4): read the optional migration_mode flag.
+    # When True, an accepted schema_evolution takes the TWO-PHASE path: build a
+    # candidate gradient (deep-copy + apply-to-copy) and LEAVE the active
+    # gradient untouched. Absent/False = the EXISTING single-cycle path, byte-
+    # unchanged (the default).
+    migration_mode = False
+    if "migration_mode" in keys:
+        try:
+            migration_mode = expect_bool(keys["migration_mode"])
+        except CanonicalBytesError as e:
+            raise BridgeProtocolError(
+                f"submit_mutation migration_mode must be Bool: {e}"
+            ) from e
+
     # M17 P3 永恒进化: if the accepted mutation is a schema_evolution,
     # interpret content_canonical_bytes as a schema_diff and APPLY it to the
     # gradient configuration (with rollback on failure). Records evolution
     # outcome in the response so Rust can emit appropriate DAG nodes.
+    #
+    # Sprint 8.G: in migration mode we do NOT apply to the live gradient —
+    # schema_apply_attempted stays False (so Rust's M17 evolution_event block
+    # does not fire) and instead candidate_built reports whether the candidate
+    # construction succeeded.
     schema_apply_attempted = False
     schema_apply_succeeded = False
     schema_apply_failure_reason = ""
     schema_apply_op = ""
     schema_apply_summary = ""
+    candidate_built = False
     if accepted and mutation_type == "schema_evolution":
-        schema_apply_attempted = True
         try:
             diff = parse_schema_diff(content_bytes)
             schema_apply_op = diff.op.value
             schema_apply_summary = diff.summary()
-            result = apply_schema_diff(diff, state.gradient)
-            if result.succeeded:
-                schema_apply_succeeded = True
+            if migration_mode:
+                # Two-phase: build the candidate; active gradient untouched.
+                candidate, result = apply_schema_diff_to_copy(diff, state.gradient)
+                if result.succeeded and candidate is not None:
+                    candidate_built = True
+                    state.candidate_gradient = candidate
+                    state.candidate_op = schema_apply_op
+                    state.candidate_diff_bytes = content_bytes
+                else:
+                    candidate_built = False
+                    schema_apply_failure_reason = result.failure_reason
             else:
-                schema_apply_succeeded = False
-                schema_apply_failure_reason = result.failure_reason
+                # Single-cycle path (unchanged): apply to the live gradient.
+                schema_apply_attempted = True
+                result = apply_schema_diff(diff, state.gradient)
+                if result.succeeded:
+                    schema_apply_succeeded = True
+                else:
+                    schema_apply_succeeded = False
+                    schema_apply_failure_reason = result.failure_reason
         except SchemaEvolutionError as e:
-            schema_apply_succeeded = False
+            if migration_mode:
+                candidate_built = False
+            else:
+                schema_apply_attempted = True
+                schema_apply_succeeded = False
             schema_apply_failure_reason = f"schema_diff parse: {e}"
 
     response_dict: dict[str, object] = {
@@ -190,10 +230,62 @@ def _handle_submit_mutation(
         "schema_apply_failure_reason": CbString(schema_apply_failure_reason),
         "schema_apply_op": CbString(schema_apply_op),
         "schema_apply_summary": CbString(schema_apply_summary),
+        # v3.1.1 Sprint 8.G (P03 §10.4) two-phase migration result fields.
+        # Rust branches on migration_mode: True + candidate_built → open the
+        # dual-validation window; True + !candidate_built → terminal rollback.
+        "migration_mode": Bool(migration_mode),
+        "candidate_built": Bool(candidate_built),
     }
     response_payload = CbMap.from_dict(response_dict)
     return Message(
         type=MessageType.SUBMIT_MUTATION_RESPONSE,
         request_id=request.request_id,
         payload=response_payload,
+    )
+
+
+@handler(MessageType.COMMIT_MIGRATION)
+def _handle_commit_migration(
+    state: DispatcherState, request: Message
+) -> Message:
+    """v3.1.1 Sprint 8.G (P03 §10.4): promote the in-flight migration candidate
+    to the active gradient.
+
+    The candidate's dual-validation window completed with the candidate
+    equivalent throughout, so the substrate decided to commit. We swap the
+    active gradient for the candidate and clear the candidate slot. Idempotent:
+    if there is no candidate (already committed/aborted), this is a no-op ack —
+    the substrate's commit decision is authoritative and must not fail just
+    because the candidate was already consumed.
+    """
+    if state.candidate_gradient is not None:
+        state.gradient = state.candidate_gradient
+    state.candidate_gradient = None
+    state.candidate_op = ""
+    state.candidate_diff_bytes = b""
+    return Message(
+        type=MessageType.COMMIT_MIGRATION_ACK,
+        request_id=request.request_id,
+        payload=empty_payload(),
+    )
+
+
+@handler(MessageType.ABORT_MIGRATION)
+def _handle_abort_migration(
+    state: DispatcherState, request: Message
+) -> Message:
+    """v3.1.1 Sprint 8.G (P03 §10.4): drop the in-flight migration candidate.
+
+    The active gradient is left UNTOUCHED (P03 §3.5 substrate-identity
+    preservation) — only the candidate slot is cleared. Reached on divergence,
+    C66 window-exceeded, or an operator ``abort_migration`` mutation. Idempotent
+    (no-op ack when no candidate is in flight).
+    """
+    state.candidate_gradient = None
+    state.candidate_op = ""
+    state.candidate_diff_bytes = b""
+    return Message(
+        type=MessageType.ABORT_MIGRATION_ACK,
+        request_id=request.request_id,
+        payload=empty_payload(),
     )

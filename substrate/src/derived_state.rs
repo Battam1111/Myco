@@ -287,7 +287,8 @@ impl ObservatorySnapshot {
 use crate::events::{
     NODE_TYPE_CYCLE_ADVANCED, NODE_TYPE_GENESIS_PREFIX, NODE_TYPE_NONCE_CONSUMED_PREFIX,
     NODE_TYPE_NONCE_EXPIRED_PREFIX, NODE_TYPE_NONCE_ISSUED_PREFIX,
-    NODE_TYPE_OPERATOR_PINNED_PREFIX,
+    NODE_TYPE_OPERATOR_PINNED_PREFIX, NODE_TYPE_SCHEMA_MIGRATION_COMMITTED_PREFIX,
+    NODE_TYPE_SCHEMA_MIGRATION_ROLLED_BACK_PREFIX, NODE_TYPE_SCHEMA_MIGRATION_STARTED_PREFIX,
 };
 use crate::persistence::PinnedOperatorIdentity;
 
@@ -311,6 +312,28 @@ pub struct DerivedNonce {
     pub anchor_clock_expiry_unix_ns: Option<i64>,
     /// Whether this nonce has been consumed.
     pub consumed: bool,
+}
+
+/// **v3.1.1 Sprint 8.G** — an in-flight schema migration candidate, as
+/// derivable from DAG events + persisted in snapshot.cb.
+///
+/// Mirrors the relevant fields of `myco_kernel_schema::migration::CandidateState`
+/// (the phase is always `Validating` while one of these exists; commit /
+/// rollback clear it). It carries everything the substrate needs to resume a
+/// migration across a restart: which op, the diff bytes, the window, and when
+/// validation began.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DerivedMigrationCandidate {
+    /// Operator-visible op name (`modify_axis_threshold`, etc.).
+    pub op_name: String,
+    /// The schema_diff being applied, as canonical bytes.
+    pub schema_diff_canonical_bytes: Vec<u8>,
+    /// Cycle at which the dual-validation window opened.
+    pub started_at_cycle: u64,
+    /// Number of cycles the candidate must validate before commit.
+    pub dual_validation_window_cycles: u64,
+    /// Wall-clock at migration start (informational).
+    pub started_at_unix_ns: i64,
 }
 
 /// Error during DAG event replay.
@@ -382,6 +405,15 @@ pub struct DerivedState {
     ///
     /// Capped at `OBSERVATORY_HISTORY_CAP` (90); oldest dropped on overflow.
     pub observatory_history: VecDeque<ObservatorySnapshot>,
+    /// **v3.1.1 Sprint 8.G (P03 §10.4)**: the single in-flight schema
+    /// migration candidate, if any. `Some` between a
+    /// `schema_migration_started:*` event and its terminal
+    /// `schema_migration_committed:*` / `schema_migration_rolled_back:*`
+    /// event. `None` otherwise (the common case — migrations are rare + the
+    /// MVP allows only ONE in flight at a time). Snapshot.cb round-trips this
+    /// so a substrate restarted mid-window resumes the migration; pre-Sprint-8.G
+    /// snapshots that lack the field decode to `None` (back-compat).
+    pub migration_candidate: Option<DerivedMigrationCandidate>,
 }
 
 impl DerivedState {
@@ -396,6 +428,7 @@ impl DerivedState {
             pinned_operator_identity: None,
             nonce_log: HashMap::new(),
             observatory_history: VecDeque::new(),
+            migration_candidate: None,
         }
     }
 
@@ -414,7 +447,7 @@ impl DerivedState {
     /// Schema (canonical-bytes Map):
     /// ```text
     /// Map({
-    ///   "format_version": Uint(1),
+    ///   "format_version": Uint(2),         // 8.G: bumped v1→v2 for migration_candidate
     ///   "snapshot_at_dag_tip": Bytes(32),  // optional; absent for empty DAG
     ///   "substrate_id": Bytes(32),         // optional; absent until genesis_event
     ///   "genesis_time_unix_ns": Timestamp, // optional
@@ -423,8 +456,14 @@ impl DerivedState {
     ///   "pinned_operator_identity": Map,   // optional
     ///   "nonce_log": Array<Map>,
     ///   "observatory_history": Array<Map>, // optional; absent in pre-M25.2 snapshots
+    ///   "migration_candidate": Map,        // optional; absent when no migration in flight
     /// })
     /// ```
+    ///
+    /// **8.G back-compat**: `format_version` bumped 1→2 to carry the optional
+    /// `migration_candidate` field. The decoder accepts BOTH v1 and v2 (a v1
+    /// snapshot simply lacks the field → `migration_candidate = None`), so old
+    /// snapshot.cb files continue to load unchanged.
     pub fn to_canonical_bytes(
         &self,
         snapshot_at_dag_tip: Option<&[u8; 32]>,
@@ -433,7 +472,7 @@ impl DerivedState {
         use std::collections::BTreeMap;
 
         let mut root = BTreeMap::new();
-        root.insert("format_version".to_string(), Value::Uint(1));
+        root.insert("format_version".to_string(), Value::Uint(2));
         if let Some(tip) = snapshot_at_dag_tip {
             root.insert(
                 "snapshot_at_dag_tip".to_string(),
@@ -520,6 +559,32 @@ impl DerivedState {
             root.insert("observatory_history".to_string(), Value::Array(snapshots));
         }
 
+        // 8.G: persist the in-flight migration candidate. Omitted entirely
+        // when None (the common case) — so a substrate that never opts into
+        // migration produces a snapshot byte-identical (modulo format_version)
+        // to the pre-8.G encoding for this field.
+        if let Some(mc) = &self.migration_candidate {
+            let mut mcm = BTreeMap::new();
+            mcm.insert("op_name".to_string(), Value::String(mc.op_name.clone()));
+            mcm.insert(
+                "schema_diff_canonical_bytes".to_string(),
+                Value::Bytes(mc.schema_diff_canonical_bytes.clone()),
+            );
+            mcm.insert(
+                "started_at_cycle".to_string(),
+                Value::Uint(mc.started_at_cycle),
+            );
+            mcm.insert(
+                "dual_validation_window_cycles".to_string(),
+                Value::Uint(mc.dual_validation_window_cycles),
+            );
+            mcm.insert(
+                "started_at_unix_ns".to_string(),
+                Value::Timestamp(mc.started_at_unix_ns),
+            );
+            root.insert("migration_candidate".to_string(), Value::Map(mcm));
+        }
+
         encode(&Value::Map(root)).expect("snapshot encode infallible")
     }
 
@@ -530,7 +595,7 @@ impl DerivedState {
         bytes: &[u8],
     ) -> Result<Option<(Self, Option<[u8; 32]>)>, DerivedStateError> {
         use myco_kernel_shared::canonical_bytes::{
-            decode, map_get_array, map_get_bytes, map_get_uint, Value,
+            decode, map_get_array, map_get_bytes, map_get_string, map_get_uint, Value,
         };
         let decoded = decode(bytes).map_err(|e| DerivedStateError::EventDecode {
             node_type: "snapshot.cb".to_string(),
@@ -551,7 +616,10 @@ impl DerivedState {
                 field: "format_version".to_string(),
                 reason: e.to_string(),
             })?;
-        if version != 1 {
+        // 8.G: accept v1 (pre-migration) AND v2 (carries migration_candidate).
+        // A v1 snapshot simply lacks migration_candidate → None. Any other
+        // version is unknown → caller falls back to full DAG replay.
+        if version != 1 && version != 2 {
             return Ok(None); // unknown version → caller falls back
         }
         let snapshot_at_dag_tip = match map.get("snapshot_at_dag_tip") {
@@ -703,6 +771,63 @@ impl DerivedState {
             _ => VecDeque::new(),
         };
 
+        // 8.G: optional migration_candidate (v2+). Absent (v1 or no migration
+        // in flight) → None. A malformed candidate Map is a hard error so a
+        // corrupt snapshot surfaces rather than silently dropping an in-flight
+        // migration; the boot path treats a Err here as "fall back to DAG
+        // replay" which re-derives the candidate from the started/terminal
+        // events anyway.
+        let migration_candidate: Option<DerivedMigrationCandidate> =
+            match map.get("migration_candidate") {
+                Some(Value::Map(mcm)) => {
+                    let op_name = map_get_string(mcm, "op_name")
+                        .map_err(|e| DerivedStateError::EventField {
+                            node_type: "snapshot.cb".to_string(),
+                            field: "migration_candidate.op_name".to_string(),
+                            reason: e.to_string(),
+                        })?
+                        .to_string();
+                    let schema_diff_canonical_bytes = match mcm.get("schema_diff_canonical_bytes") {
+                        Some(Value::Bytes(b)) => b.clone(),
+                        _ => {
+                            return Err(DerivedStateError::EventField {
+                                node_type: "snapshot.cb".to_string(),
+                                field: "migration_candidate.schema_diff_canonical_bytes".to_string(),
+                                reason: "missing or not Bytes".to_string(),
+                            })
+                        }
+                    };
+                    let started_at_cycle = map_get_uint(mcm, "started_at_cycle").map_err(|e| {
+                        DerivedStateError::EventField {
+                            node_type: "snapshot.cb".to_string(),
+                            field: "migration_candidate.started_at_cycle".to_string(),
+                            reason: e.to_string(),
+                        }
+                    })?;
+                    let dual_validation_window_cycles =
+                        map_get_uint(mcm, "dual_validation_window_cycles").map_err(|e| {
+                            DerivedStateError::EventField {
+                                node_type: "snapshot.cb".to_string(),
+                                field: "migration_candidate.dual_validation_window_cycles"
+                                    .to_string(),
+                                reason: e.to_string(),
+                            }
+                        })?;
+                    let started_at_unix_ns = match mcm.get("started_at_unix_ns") {
+                        Some(Value::Timestamp(t)) => *t,
+                        _ => 0,
+                    };
+                    Some(DerivedMigrationCandidate {
+                        op_name,
+                        schema_diff_canonical_bytes,
+                        started_at_cycle,
+                        dual_validation_window_cycles,
+                        started_at_unix_ns,
+                    })
+                }
+                _ => None,
+            };
+
         Ok(Some((
             DerivedState {
                 substrate_id,
@@ -713,6 +838,7 @@ impl DerivedState {
                 pinned_operator_identity,
                 nonce_log,
                 observatory_history,
+                migration_candidate,
             },
             snapshot_at_dag_tip,
         )))
@@ -775,14 +901,78 @@ impl DerivedState {
             self.apply_nonce_expired(node)
         } else if nt.starts_with("absorption_event:cycle_") {
             self.apply_absorption_event(node)
+        } else if nt.starts_with(NODE_TYPE_SCHEMA_MIGRATION_STARTED_PREFIX) {
+            self.apply_schema_migration_started(node)
+        } else if nt.starts_with(NODE_TYPE_SCHEMA_MIGRATION_COMMITTED_PREFIX)
+            || nt.starts_with(NODE_TYPE_SCHEMA_MIGRATION_ROLLED_BACK_PREFIX)
+        {
+            // Terminal migration events clear the in-flight candidate. Both
+            // commit and rollback end the migration; the schema outcome
+            // (promoted vs dropped) is the Python side's concern.
+            self.migration_candidate = None;
+            Ok(())
         } else {
             // Pure-record events (M8-M20) that don't impact Rust-side
             // DerivedState: sporocarp:*, immune:*, raw_material:*,
             // perturb_from_raw:*, mutation:*, evolution_succeeded/failed:*,
-            // self_euthanasia_proposal:*, spore_emission:*, and the M21.1
-            // axis_* + owner_key_* events (which feed Python's view, not Rust's).
+            // self_euthanasia_proposal:*, spore_emission:*,
+            // schema_migration_cycle_validated:* (sampled progress only), and
+            // the M21.1 axis_* + owner_key_* events (which feed Python's view).
             Ok(())
         }
+    }
+
+    /// **Sprint 8.G** — a `schema_migration_started:{op}` event opens the
+    /// in-flight migration window. Per the MVP single-in-flight rule, the
+    /// substrate rejects a second concurrent migration at the skin
+    /// (attestation.rs), so derivation simply overwrites: the LAST started
+    /// event wins, which on a well-formed DAG is the only one outstanding.
+    fn apply_schema_migration_started(
+        &mut self,
+        node: &DagNode,
+    ) -> Result<(), DerivedStateError> {
+        let map = decode_event_map(node)?;
+        let op_name = match map.get("op") {
+            Some(Value::String(s)) => s.clone(),
+            _ => {
+                return Err(DerivedStateError::EventField {
+                    node_type: node.node_type.clone(),
+                    field: "op".to_string(),
+                    reason: "missing or not String".to_string(),
+                })
+            }
+        };
+        let schema_diff_canonical_bytes = match map.get("schema_diff_canonical_bytes") {
+            Some(Value::Bytes(b)) => b.clone(),
+            _ => {
+                return Err(DerivedStateError::EventField {
+                    node_type: node.node_type.clone(),
+                    field: "schema_diff_canonical_bytes".to_string(),
+                    reason: "missing or not Bytes".to_string(),
+                })
+            }
+        };
+        let started_at_cycle =
+            map_get_uint(&map, "started_at_cycle").map_err(|e| DerivedStateError::EventField {
+                node_type: node.node_type.clone(),
+                field: "started_at_cycle".to_string(),
+                reason: e.to_string(),
+            })?;
+        let dual_validation_window_cycles = map_get_uint(&map, "dual_validation_window_cycles")
+            .map_err(|e| DerivedStateError::EventField {
+                node_type: node.node_type.clone(),
+                field: "dual_validation_window_cycles".to_string(),
+                reason: e.to_string(),
+            })?;
+        let started_at_unix_ns = timestamp_field(node, &map, "started_at_unix_ns")?;
+        self.migration_candidate = Some(DerivedMigrationCandidate {
+            op_name,
+            schema_diff_canonical_bytes,
+            started_at_cycle,
+            dual_validation_window_cycles,
+            started_at_unix_ns,
+        });
+        Ok(())
     }
 
     // ---------------------------------------------------------------------
@@ -1434,6 +1624,180 @@ mod tests {
             assert_eq!(orig, dec, "snapshot identity preserved across roundtrip");
         }
         assert_eq!(state, decoded_state, "full DerivedState equality");
+    }
+
+    // ---------------------------------------------------------------------
+    // 8.G: schema-migration candidate derivation + snapshot round-trip.
+    // ---------------------------------------------------------------------
+
+    fn migration_started_node(op: &str, started_at_cycle: u64, window: u64) -> DagNode {
+        use crate::events::{
+            encode_schema_migration_started, schema_migration_started_node_type,
+        };
+        make_node(
+            schema_migration_started_node_type(op),
+            started_at_cycle,
+            encode_schema_migration_started(
+                op,
+                &[0xaa, 0xbb, 0xcc],
+                started_at_cycle,
+                window,
+                1_700_000_000_000_000_000,
+            ),
+        )
+    }
+
+    #[test]
+    fn schema_migration_started_sets_candidate() {
+        let mut s = DerivedState::empty();
+        assert!(s.migration_candidate.is_none());
+        s.apply_event(&migration_started_node("modify_axis_threshold", 5, 100))
+            .unwrap();
+        let mc = s.migration_candidate.expect("candidate present after started");
+        assert_eq!(mc.op_name, "modify_axis_threshold");
+        assert_eq!(mc.started_at_cycle, 5);
+        assert_eq!(mc.dual_validation_window_cycles, 100);
+        assert_eq!(mc.schema_diff_canonical_bytes, vec![0xaa, 0xbb, 0xcc]);
+    }
+
+    #[test]
+    fn schema_migration_committed_clears_candidate() {
+        use crate::events::{
+            encode_schema_migration_committed, schema_migration_committed_node_type,
+        };
+        let mut s = DerivedState::empty();
+        s.apply_event(&migration_started_node("modify_axis_threshold", 5, 100))
+            .unwrap();
+        assert!(s.migration_candidate.is_some());
+        let committed = make_node(
+            schema_migration_committed_node_type("modify_axis_threshold"),
+            105,
+            encode_schema_migration_committed("modify_axis_threshold", 105, 5, 100),
+        );
+        s.apply_event(&committed).unwrap();
+        assert!(
+            s.migration_candidate.is_none(),
+            "commit must clear the in-flight candidate"
+        );
+    }
+
+    #[test]
+    fn schema_migration_rolled_back_clears_candidate() {
+        use crate::events::{
+            encode_schema_migration_rolled_back, schema_migration_rolled_back_node_type,
+        };
+        let mut s = DerivedState::empty();
+        s.apply_event(&migration_started_node("add_axis_to_gradient", 2, 50))
+            .unwrap();
+        assert!(s.migration_candidate.is_some());
+        let rolled_back = make_node(
+            schema_migration_rolled_back_node_type("add_axis_to_gradient"),
+            7,
+            encode_schema_migration_rolled_back("add_axis_to_gradient", "diverged", 7),
+        );
+        s.apply_event(&rolled_back).unwrap();
+        assert!(
+            s.migration_candidate.is_none(),
+            "rollback must clear the in-flight candidate"
+        );
+    }
+
+    #[test]
+    fn schema_migration_cycle_validated_is_pure_record() {
+        // The sampled cycle_validated event must NOT touch the candidate (it
+        // is observability only — decide_cycle drives the actual transition).
+        use crate::events::{
+            encode_schema_migration_cycle_validated,
+            schema_migration_cycle_validated_node_type,
+        };
+        let mut s = DerivedState::empty();
+        s.apply_event(&migration_started_node("modify_axis_threshold", 5, 100))
+            .unwrap();
+        let before = s.migration_candidate.clone();
+        let validated = make_node(
+            schema_migration_cycle_validated_node_type("modify_axis_threshold"),
+            10,
+            encode_schema_migration_cycle_validated("modify_axis_threshold", 10, true, ""),
+        );
+        s.apply_event(&validated).unwrap();
+        assert_eq!(
+            s.migration_candidate, before,
+            "cycle_validated must not alter the candidate"
+        );
+    }
+
+    #[test]
+    fn migration_candidate_snapshot_roundtrip_v2() {
+        let mut state = DerivedState::empty();
+        state.substrate_id = Some([0x33; 32]);
+        state.genesis_time_unix_ns = Some(1_700_000_000_000);
+        state.cycle_counter = 12;
+        state.migration_candidate = Some(DerivedMigrationCandidate {
+            op_name: "modify_axis_threshold".to_string(),
+            schema_diff_canonical_bytes: vec![0xde, 0xad, 0xbe, 0xef],
+            started_at_cycle: 8,
+            dual_validation_window_cycles: 100,
+            started_at_unix_ns: 1_700_000_111_222,
+        });
+        let bytes = state.to_canonical_bytes(None);
+        // v2 format_version must be present.
+        let decoded_v = match myco_kernel_shared::canonical_bytes::decode(bytes.as_ref()).unwrap() {
+            Value::Map(m) => m,
+            _ => panic!(),
+        };
+        assert!(matches!(
+            decoded_v.get("format_version"),
+            Some(Value::Uint(2))
+        ));
+        let (decoded_state, _) = DerivedState::from_canonical_bytes(bytes.as_ref())
+            .expect("decode ok")
+            .expect("version 2 recognized");
+        assert_eq!(decoded_state.migration_candidate, state.migration_candidate);
+        assert_eq!(state, decoded_state, "full DerivedState equality v2 roundtrip");
+    }
+
+    #[test]
+    fn snapshot_without_migration_candidate_omits_field_and_roundtrips() {
+        let mut state = DerivedState::empty();
+        state.substrate_id = Some([0x44; 32]);
+        state.cycle_counter = 3;
+        assert!(state.migration_candidate.is_none());
+        let bytes = state.to_canonical_bytes(None);
+        let decoded_map = match myco_kernel_shared::canonical_bytes::decode(bytes.as_ref()).unwrap()
+        {
+            Value::Map(m) => m,
+            _ => panic!(),
+        };
+        assert!(
+            !decoded_map.contains_key("migration_candidate"),
+            "absent migration → field omitted (back-compat byte shape)"
+        );
+        let (decoded_state, _) = DerivedState::from_canonical_bytes(bytes.as_ref())
+            .unwrap()
+            .unwrap();
+        assert!(decoded_state.migration_candidate.is_none());
+        assert_eq!(state, decoded_state);
+    }
+
+    #[test]
+    fn v1_snapshot_decodes_with_none_migration_candidate() {
+        // A hand-built v1 snapshot (no migration_candidate field, format_version=1)
+        // must still decode — proving pre-8.G snapshot.cb files keep loading.
+        use std::collections::BTreeMap;
+        let mut root = BTreeMap::new();
+        root.insert("format_version".to_string(), Value::Uint(1));
+        root.insert("cycle_counter".to_string(), Value::Uint(9));
+        root.insert("nonce_log".to_string(), Value::Array(vec![]));
+        let bytes = myco_kernel_shared::canonical_bytes::encode(&Value::Map(root)).unwrap();
+        let (decoded_state, tip) = DerivedState::from_canonical_bytes(bytes.as_ref())
+            .expect("v1 decode ok")
+            .expect("v1 recognized");
+        assert!(tip.is_none());
+        assert_eq!(decoded_state.cycle_counter, 9);
+        assert!(
+            decoded_state.migration_candidate.is_none(),
+            "v1 snapshot must decode to None migration_candidate"
+        );
     }
 
     #[test]

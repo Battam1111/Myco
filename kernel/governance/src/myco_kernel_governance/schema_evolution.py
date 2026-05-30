@@ -197,6 +197,46 @@ def apply_schema_diff(
     return ApplyResult(succeeded=True)
 
 
+def apply_schema_diff_to_copy(
+    diff: SchemaDiff, gradient: GradientConfiguration
+) -> tuple[GradientConfiguration | None, ApplyResult]:
+    """Apply a schema_diff to a DEEP COPY of the gradient, leaving the input
+    untouched.
+
+    This is the **two-phase migration** counterpart to :func:`apply_schema_diff`
+    (P03 §10.4). Where the single-cycle path mutates the live gradient with
+    snapshot-rollback, this path produces a *candidate* gradient that runs
+    alongside the active one for a validation window before being promoted or
+    dropped — so the active gradient is never at risk during validation.
+
+    Returns:
+        ``(candidate, result)`` where:
+        - On success: ``candidate`` is a fresh GradientConfiguration with the
+          diff applied; ``result.succeeded`` is True.
+        - On failure: ``candidate`` is ``None``; ``result.succeeded`` is False
+          and ``result.failure_reason`` explains why.
+
+    The input ``gradient`` is NEVER mutated regardless of outcome (we apply to
+    the deep copy). This is the load-bearing invariant: a migration must not
+    perturb the active schema while merely *trying* a candidate.
+    """
+    candidate = copy.deepcopy(gradient)
+    try:
+        if diff.op is SchemaDiffOp.MODIFY_AXIS_THRESHOLD:
+            _apply_modify_axis_threshold(diff, candidate)
+        elif diff.op is SchemaDiffOp.ADD_AXIS_TO_GRADIENT:
+            _apply_add_axis(diff, candidate)
+        else:  # pragma: no cover — exhaustive enum
+            raise SchemaEvolutionError(f"schema_diff op {diff.op} not implemented")
+    except SchemaEvolutionError as e:
+        return None, ApplyResult(succeeded=False, failure_reason=str(e))
+    except (AxisNotFound, AxisAlreadyRegistered, ValueError, KeyError) as e:
+        return None, ApplyResult(
+            succeeded=False, failure_reason=f"{type(e).__name__}: {e}"
+        )
+    return candidate, ApplyResult(succeeded=True)
+
+
 # ---------------------------------------------------------------------------
 # Internal: per-op implementations.
 # ---------------------------------------------------------------------------

@@ -711,6 +711,30 @@ pub(crate) fn handle_submit_mutation(
         })
         .unwrap_or_default();
 
+    // **v3.1.1 Sprint 8.G (P03 §10.4)** — read the two-phase-migration outcome
+    // fields. `migration_mode=true` means the operator requested the multi-cycle
+    // two-phase path: Python built a CANDIDATE (deep-copy + apply-to-copy) and
+    // LEFT the active gradient unchanged. `candidate_built` says whether that
+    // candidate construction succeeded. Both default false (back-compat: the
+    // single-cycle path leaves these absent), so a non-migration submit_mutation
+    // is byte-unaffected.
+    let migration_mode = python_response
+        .payload
+        .get("migration_mode")
+        .and_then(|v| match v {
+            Value::Bool(b) => Some(*b),
+            _ => None,
+        })
+        .unwrap_or(false);
+    let candidate_built = python_response
+        .payload
+        .get("candidate_built")
+        .and_then(|v| match v {
+            Value::Bool(b) => Some(*b),
+            _ => None,
+        })
+        .unwrap_or(false);
+
     // **M26.4 + M26.3 + M-anchor-5**: rebind acceptance / rejection state as
     // mutable so the M26.4 owner_objective_declaration validation, M26.3
     // compression invariant-set check, AND M-anchor-5 cosign + L0 revision
@@ -718,6 +742,33 @@ pub(crate) fn handle_submit_mutation(
     // validation failure.
     let mut accepted = accepted;
     let mut rejection_reason = rejection_reason;
+
+    // **v3.1.1 Sprint 8.G (P03 §10.4)** — single-in-flight migration guard
+    // (MVP). The two-phase path keeps exactly ONE candidate validating at a
+    // time; a second `migration_mode=true` schema_evolution while one is
+    // outstanding is rejected here at the skin (override Python's accept). This
+    // keeps `state.migration_candidate` an unambiguous single Option and the
+    // Python-side candidate_gradient single-valued. (A future revision could
+    // queue or multiplex migrations; the MVP refuses.)
+    if accepted && migration_mode && state.migration_candidate.is_some() {
+        accepted = false;
+        rejection_reason = format!(
+            "a schema migration is already in flight (op={}); the MVP allows \
+             only one two-phase migration at a time — abort it (abort_migration) \
+             or let its dual-validation window complete before starting another",
+            state
+                .migration_candidate
+                .as_ref()
+                .map(|c| c.op_name.clone())
+                .unwrap_or_default()
+        );
+        let _ = emit_immune_sporocarp(
+            state,
+            "C14_untyped_mutation_blocked",
+            "schema_migration_already_in_flight",
+            &rejection_reason,
+        );
+    }
 
     // **M-anchor-5 §9.2.2 dag_tip_cosign + §9.2.4 l0_revision_attest**: pre-
     // decode the envelopes so the substrate can stage the to-emit DAG event
@@ -1036,6 +1087,17 @@ pub(crate) fn handle_submit_mutation(
         }
     }
 
+    // **v3.1.1 Sprint 8.G**: the mutation:schema_evolution DAG node consumes
+    // `content_bytes` (moved into the insert below). The migration branch needs
+    // the same bytes (they ARE the schema_diff) for the schema_migration_started
+    // event + the CandidateState. Capture a clone ONLY when migration mode is
+    // active so the default single-cycle path pays nothing.
+    let migration_diff_bytes: Option<Vec<u8>> = if migration_mode && accepted {
+        Some(content_bytes.clone())
+    } else {
+        None
+    };
+
     // If accepted: wrap as DAG node with parent=tip.
     // If rejected: emit an immune sporocarp (M11 C14 for UNTYPED; C5 for invalid CI attestation).
     let dag_node_hash = if accepted {
@@ -1271,6 +1333,130 @@ pub(crate) fn handle_submit_mutation(
         None
     };
 
+    // **v3.1.1 Sprint 8.G (P03 §10.4)** — two-phase migration branch.
+    //
+    // Reached only when the operator opted in (`migration_mode=true`) and the
+    // mutation was ACCEPTED (CI attestation passed + not blocked by the
+    // single-in-flight guard above). Python has already built the candidate
+    // (deep-copy + apply-to-copy) and left the active gradient unchanged.
+    //
+    //   candidate_built=true  → open the dual-validation window: construct a
+    //     CandidateState, store it on ServerState, emit
+    //     schema_migration_started:{op}. We do NOT emit evolution_succeeded
+    //     yet — that fires on commit, cycles later. (schema_apply_attempted is
+    //     false in migration mode, so the M17 block above did not fire either.)
+    //   candidate_built=false → the apply-to-copy itself failed (e.g. the diff
+    //     references a missing axis). There is nothing to validate, so we go
+    //     straight to the rollback terminal: emit schema_migration_rolled_back
+    //     + the legacy evolution_failed sibling. No candidate is stored.
+    let mut migration_started_event_hash: Option<myco_kernel_shared::crypto::NodeHash> = None;
+    let mut migration_rolled_back_event_hash: Option<myco_kernel_shared::crypto::NodeHash> = None;
+    if accepted && migration_mode {
+        let op = schema_apply_op.clone();
+        let window = myco_kernel_schema::migration::DEFAULT_DUAL_VALIDATION_WINDOW_CYCLES;
+        let cycle = state.manifest.cycle_counter;
+        // The schema_diff bytes captured before the mutation node consumed
+        // `content_bytes`. `migration_mode && accepted` guarantees this is Some.
+        let diff_bytes = migration_diff_bytes.clone().unwrap_or_default();
+        if candidate_built {
+            // Construct the CandidateState (the diff bytes are the mutation
+            // content) and move it straight into the Validating phase, starting
+            // the window at the current cycle.
+            let mut candidate = myco_kernel_schema::migration::CandidateState::new(
+                diff_bytes.clone(),
+                op.clone(),
+                cycle,
+                window,
+            );
+            candidate.enter_validating(cycle);
+            let started_at_unix_ns = candidate.started_at_unix_ns;
+            state.migration_candidate = Some(candidate);
+
+            let content = crate::events::encode_schema_migration_started(
+                &op,
+                &diff_bytes,
+                cycle,
+                window,
+                started_at_unix_ns,
+            );
+            let parents: Vec<myco_kernel_shared::crypto::NodeHash> = match state.dag.tip() {
+                Some(t) => vec![t],
+                None => Vec::new(),
+            };
+            let nt = crate::events::schema_migration_started_node_type(&op);
+            let h = state
+                .dag
+                .insert_node(parents, nt, cycle, content)
+                .map_err(|e| {
+                    SubstrateError::Protocol(format!("schema_migration_started DAG insert: {e}"))
+                })?;
+            migration_started_event_hash = Some(h);
+        } else {
+            // Candidate construction failed → terminal rollback now.
+            let reason = if schema_apply_failure_reason.is_empty() {
+                "migration candidate construction failed (apply-to-copy error)".to_string()
+            } else {
+                schema_apply_failure_reason.clone()
+            };
+            let content =
+                crate::events::encode_schema_migration_rolled_back(&op, &reason, cycle);
+            let parents: Vec<myco_kernel_shared::crypto::NodeHash> = match state.dag.tip() {
+                Some(t) => vec![t],
+                None => Vec::new(),
+            };
+            let nt = crate::events::schema_migration_rolled_back_node_type(&op);
+            let h = state.dag.insert_node(parents, nt, cycle, content).map_err(|e| {
+                SubstrateError::Protocol(format!(
+                    "schema_migration_rolled_back DAG insert: {e}"
+                ))
+            })?;
+            migration_rolled_back_event_hash = Some(h);
+
+            // Legacy evolution_failed:{op} sibling (back-compat).
+            let mut ev_map = BTreeMap::new();
+            ev_map.insert("op".to_string(), Value::String(op.clone()));
+            ev_map.insert("succeeded".to_string(), Value::Bool(false));
+            ev_map.insert(
+                "summary".to_string(),
+                Value::String("two-phase migration candidate build failed".to_string()),
+            );
+            ev_map.insert("failure_reason".to_string(), Value::String(reason));
+            let ev_canonical = cb_encode(&Value::Map(ev_map)).map_err(|e| {
+                SubstrateError::Protocol(format!("legacy evolution event encode: {e}"))
+            })?;
+            let ev_parents: Vec<myco_kernel_shared::crypto::NodeHash> = match state.dag.tip() {
+                Some(t) => vec![t],
+                None => Vec::new(),
+            };
+            let _ = state
+                .dag
+                .insert_node(ev_parents, format!("evolution_failed:{op}"), cycle, ev_canonical)
+                .map_err(|e| {
+                    SubstrateError::Protocol(format!("legacy evolution_failed DAG insert: {e}"))
+                })?;
+        }
+    }
+
+    // **v3.1.1 Sprint 8.G (P03 §10.4)** — operator-initiated abort. An accepted
+    // `abort_migration` CI mutation forces the rollback path for the in-flight
+    // migration (Python abort_migration + schema_migration_rolled_back + legacy
+    // evolution_failed sibling + clear the candidate). No-op if no migration is
+    // in flight (the mutation is still recorded as a mutation:abort_migration
+    // DAG node above, but there is nothing to roll back).
+    if accepted && mutation_type == "abort_migration" {
+        if let Some(op) = state.migration_candidate.as_ref().map(|c| c.op_name.clone()) {
+            let reason = "operator-initiated abort_migration (CI mutation)".to_string();
+            if let Err(e) = crate::ingest::force_migration_rollback(state, &op, &reason) {
+                let _ = emit_immune_sporocarp(
+                    state,
+                    "C31_cycle_step_failed",
+                    "cycle_step_failed",
+                    &format!("operator abort_migration (op={op}) failed: {e}"),
+                );
+            }
+        }
+    }
+
     // Build response to operator.
     let mut payload = BTreeMap::new();
     payload.insert("classification".to_string(), Value::String(classification));
@@ -1333,6 +1519,22 @@ pub(crate) fn handle_submit_mutation(
     if let Some(h) = l0_revision_event_hash {
         payload.insert(
             "l0_revision_event_hash".to_string(),
+            Value::Bytes(h.as_ref().to_vec()),
+        );
+    }
+    // **v3.1.1 Sprint 8.G (P03 §10.4)** — surface migration outcome so the
+    // operator can distinguish "started a window" from "applied in one cycle".
+    payload.insert("migration_mode".to_string(), Value::Bool(migration_mode));
+    payload.insert("candidate_built".to_string(), Value::Bool(candidate_built));
+    if let Some(h) = migration_started_event_hash {
+        payload.insert(
+            "schema_migration_started_event_hash".to_string(),
+            Value::Bytes(h.as_ref().to_vec()),
+        );
+    }
+    if let Some(h) = migration_rolled_back_event_hash {
+        payload.insert(
+            "schema_migration_rolled_back_event_hash".to_string(),
             Value::Bytes(h.as_ref().to_vec()),
         );
     }

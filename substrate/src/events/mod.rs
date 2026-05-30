@@ -92,6 +92,7 @@ mod compression;
 mod core;
 mod federation;
 mod internal_mortality;
+mod schema_migration;
 mod telos;
 
 pub use attestation::*;
@@ -100,4 +101,5 @@ pub use compression::*;
 pub use core::*;
 pub use federation::*;
 pub use internal_mortality::*;
+pub use schema_migration::*;
 pub use telos::*;

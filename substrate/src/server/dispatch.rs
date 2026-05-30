@@ -94,6 +94,14 @@ pub(super) fn dispatch(
                 crate::events::NODE_TYPE_CYCLE_ADVANCED.to_string(),
                 event_content,
             );
+            // **v3.1.1 Sprint 8.G (P03 §10.4)**: per-cycle dual-validation step
+            // for an in-flight schema migration. MUST run AFTER cycle_advanced
+            // is emitted (so the cycle counter reflects this cycle) and reads
+            // the candidate-divergence fields from the advance_response. Zero
+            // cost when no migration is in flight.
+            if let Some(resp_msg) = response.as_ref() {
+                let _ = crate::ingest::run_migration_step(state, resp_msg);
+            }
             // M25.2 P5 万物互联: append a fresh observatory snapshot to the
             // trend window. Must happen AFTER the cycle_advanced DAG event
             // is appended (so dag_node_count reflects the new state) and
@@ -222,6 +230,42 @@ pub(super) fn dispatch(
         }
         msg_type::QUERY_SUBSTRATE_OBSERVATORY => {
             crate::observatory::handle_query_substrate_observatory(state, request)
+        }
+        // **v3.1.1 Sprint 8.G (P03 §10.4)** — read whether a two-phase schema
+        // migration is in flight. Pure read of `state.migration_candidate`; no
+        // Python round-trip, no DAG mutation. Survives cold-resume because the
+        // candidate is hydrated from the DAG / snapshot at boot.
+        msg_type::QUERY_MIGRATION_PENDING => {
+            let mut payload = std::collections::BTreeMap::new();
+            payload.insert(
+                "current_cycle".to_string(),
+                Value::Uint(state.manifest.cycle_counter),
+            );
+            match &state.migration_candidate {
+                Some(c) => {
+                    payload.insert("pending".to_string(), Value::Bool(true));
+                    payload.insert("op".to_string(), Value::String(c.op_name.clone()));
+                    payload.insert(
+                        "started_at_cycle".to_string(),
+                        Value::Uint(c.started_at_cycle),
+                    );
+                    payload.insert(
+                        "window".to_string(),
+                        Value::Uint(c.dual_validation_window_cycles),
+                    );
+                }
+                None => {
+                    payload.insert("pending".to_string(), Value::Bool(false));
+                    payload.insert("op".to_string(), Value::String(String::new()));
+                    payload.insert("started_at_cycle".to_string(), Value::Uint(0));
+                    payload.insert("window".to_string(), Value::Uint(0));
+                }
+            }
+            Ok(Some(Message::new(
+                msg_type::QUERY_MIGRATION_PENDING_RESPONSE,
+                request.request_id,
+                payload,
+            )))
         }
         other => Err(SubstrateError::Protocol(format!(
             "substrate cannot handle message type {other:?}"

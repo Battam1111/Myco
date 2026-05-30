@@ -556,6 +556,19 @@ export interface MutationResult {
    *  `l0_revision_attested:{prefix}` event emitted after a successful
    *  l0_revision_attest mutation. Null otherwise. */
   l0RevisionEventHash: Uint8Array | null;
+  /** v3.1.1 Sprint 8.G (P03 §10.4): true iff the substrate took the two-phase
+   *  migration path for this mutation (migration_mode was requested + accepted). */
+  migrationMode: boolean;
+  /** Sprint 8.G: when `migrationMode`, whether the candidate schema was built
+   *  successfully (true → a dual-validation window was opened; false → the
+   *  migration rolled back immediately because the candidate could not be built). */
+  candidateBuilt: boolean;
+  /** Sprint 8.G: DAG node hash of the `schema_migration_started:{op}` event,
+   *  if a migration window was opened. Null otherwise. */
+  schemaMigrationStartedEventHash: Uint8Array | null;
+  /** Sprint 8.G: DAG node hash of the `schema_migration_rolled_back:{op}` event,
+   *  if the candidate build failed and rolled back immediately. Null otherwise. */
+  schemaMigrationRolledBackEventHash: Uint8Array | null;
 }
 
 export function parseSubmitMutationResponse(response: Message): MutationResult {
@@ -589,6 +602,15 @@ export function parseSubmitMutationResponse(response: Message): MutationResult {
   const compressionHashV = response.payload.get("compression_event_hash");
   const tipCosignHashV = response.payload.get("tip_cosign_event_hash");
   const l0RevisionHashV = response.payload.get("l0_revision_event_hash");
+  // v3.1.1 Sprint 8.G migration fields (back-compat: optional; defaults if absent).
+  const migrationModeV = response.payload.get("migration_mode");
+  const candidateBuiltV = response.payload.get("candidate_built");
+  const migStartedHashV = response.payload.get(
+    "schema_migration_started_event_hash",
+  );
+  const migRolledBackHashV = response.payload.get(
+    "schema_migration_rolled_back_event_hash",
+  );
   return {
     classification: classV.value,
     accepted: acceptedV.value,
@@ -611,6 +633,63 @@ export function parseSubmitMutationResponse(response: Message): MutationResult {
       tipCosignHashV && tipCosignHashV.type === "bytes" ? tipCosignHashV.value : null,
     l0RevisionEventHash:
       l0RevisionHashV && l0RevisionHashV.type === "bytes" ? l0RevisionHashV.value : null,
+    migrationMode:
+      migrationModeV && migrationModeV.type === "bool" ? migrationModeV.value : false,
+    candidateBuilt:
+      candidateBuiltV && candidateBuiltV.type === "bool" ? candidateBuiltV.value : false,
+    schemaMigrationStartedEventHash:
+      migStartedHashV && migStartedHashV.type === "bytes" ? migStartedHashV.value : null,
+    schemaMigrationRolledBackEventHash:
+      migRolledBackHashV && migRolledBackHashV.type === "bytes"
+        ? migRolledBackHashV.value
+        : null,
+  };
+}
+
+/** Parsed `query_migration_pending_response` (v3.1.1 Sprint 8.G / P03 §10.4). */
+export interface MigrationPendingReport {
+  /** Whether a two-phase schema migration is currently in flight. */
+  pending: boolean;
+  /** The migration's schema_diff op (empty when not pending). */
+  op: string;
+  /** Cycle at which the dual-validation window opened (0 when not pending). */
+  startedAtCycle: bigint;
+  /** Number of cycles the candidate must validate before commit (0 when not pending). */
+  window: bigint;
+  /** The substrate's current cycle counter (for computing progress). */
+  currentCycle: bigint;
+}
+
+export function parseQueryMigrationPendingResponse(
+  response: Message,
+): MigrationPendingReport {
+  if (response.messageType !== MSG_TYPE.QUERY_MIGRATION_PENDING_RESPONSE) {
+    throw new BridgeProtocolError(
+      `expected query_migration_pending_response; got ${response.messageType}`,
+    );
+  }
+  const pendingV = response.payload.get("pending");
+  const opV = response.payload.get("op");
+  const startedV = response.payload.get("started_at_cycle");
+  const windowV = response.payload.get("window");
+  const currentV = response.payload.get("current_cycle");
+  if (
+    !pendingV || pendingV.type !== "bool" ||
+    !opV || opV.type !== "string" ||
+    !startedV || startedV.type !== "uint" ||
+    !windowV || windowV.type !== "uint" ||
+    !currentV || currentV.type !== "uint"
+  ) {
+    throw new BridgeProtocolError(
+      "query_migration_pending_response missing required typed fields",
+    );
+  }
+  return {
+    pending: pendingV.value,
+    op: opV.value,
+    startedAtCycle: startedV.value,
+    window: windowV.value,
+    currentCycle: currentV.value,
   };
 }
 

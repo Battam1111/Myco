@@ -17,6 +17,7 @@ from myco_kernel_governance.schema_evolution import (
     SchemaDiffOp,
     SchemaEvolutionError,
     apply_schema_diff,
+    apply_schema_diff_to_copy,
     parse_schema_diff,
     schema_diff_add_axis_bytes,
     schema_diff_modify_axis_threshold_bytes,
@@ -308,3 +309,61 @@ def test_apply_schema_diff_rolls_back_update_rules_on_post_register_failure(
     assert "evolved" not in g.update_rules
     assert set(g.axes.keys()) == {"base"}
     assert set(g.update_rules.keys()) == {"base"}
+
+
+# ---------------------------------------------------------------------------
+# v3.1.1 Sprint 8.G (P03 §10.4): apply_schema_diff_to_copy — the two-phase
+# migration counterpart. Load-bearing invariant: it NEVER mutates the input.
+# ---------------------------------------------------------------------------
+
+
+def test_apply_to_copy_modify_threshold_leaves_input_unmutated():
+    g = _make_gradient_with_axis("curiosity", 10.0)
+    bytes_ = schema_diff_modify_axis_threshold_bytes("curiosity", 99.0)
+    diff = parse_schema_diff(bytes_)
+    candidate, result = apply_schema_diff_to_copy(diff, g)
+    assert result.succeeded
+    assert candidate is not None
+    # The CANDIDATE carries the new threshold.
+    assert candidate.get_axis("curiosity").schema.fruiting_threshold == 99.0
+    # The INPUT gradient is untouched (still the original threshold).
+    assert g.get_axis("curiosity").schema.fruiting_threshold == 10.0
+    # And the two are distinct objects (deep copy, not alias).
+    assert candidate is not g
+    assert candidate.get_axis("curiosity") is not g.get_axis("curiosity")
+
+
+def test_apply_to_copy_add_axis_leaves_input_unmutated():
+    g = _make_gradient_with_axis("base", 5.0)
+    bytes_ = schema_diff_add_axis_bytes(
+        axis_name="grown",
+        axis_class="appetite",
+        fruiting_threshold=7.0,
+        initial_value=0.0,
+        decay_rate_per_cycle=1.0,
+        is_mortality_signal=False,
+        update_rule_kind="noop",
+    )
+    diff = parse_schema_diff(bytes_)
+    candidate, result = apply_schema_diff_to_copy(diff, g)
+    assert result.succeeded
+    assert candidate is not None
+    # The candidate has the new axis; the input does NOT.
+    assert "grown" in candidate.axes
+    assert "grown" in candidate.update_rules
+    assert "grown" not in g.axes
+    assert "grown" not in g.update_rules
+
+
+def test_apply_to_copy_failure_returns_none_and_leaves_input_unmutated():
+    g = _make_gradient_with_axis("curiosity", 10.0)
+    # modify a non-existent axis → AxisNotFound → candidate None.
+    bytes_ = schema_diff_modify_axis_threshold_bytes("does_not_exist", 1.0)
+    diff = parse_schema_diff(bytes_)
+    candidate, result = apply_schema_diff_to_copy(diff, g)
+    assert not result.succeeded
+    assert candidate is None
+    assert result.failure_reason  # non-empty
+    # Input gradient still pristine.
+    assert set(g.axes.keys()) == {"curiosity"}
+    assert g.get_axis("curiosity").schema.fruiting_threshold == 10.0

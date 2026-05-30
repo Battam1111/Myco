@@ -306,6 +306,22 @@ pub(crate) struct ServerState {
     /// pathologically large.
     pub(crate) immune_emission_state:
         std::collections::HashMap<String, (i64, myco_kernel_shared::crypto::NodeHash, u64)>,
+    /// **v3.1.1 Sprint 8.G (P03 §10.4)**: the single in-flight schema
+    /// migration candidate, if any. `Some` between a `schema_migration_started`
+    /// emission and the terminal commit/rollback. The MVP allows exactly ONE
+    /// in flight at a time — `attestation::handle_submit_mutation` rejects a
+    /// second migration while this is `Some`. Hydrated at boot from
+    /// `DerivedState::migration_candidate` (which round-trips via snapshot.cb +
+    /// is re-derivable from the schema_migration_started/terminal DAG events),
+    /// so a substrate restarted mid-window resumes the migration.
+    pub(crate) migration_candidate: Option<myco_kernel_schema::migration::CandidateState>,
+    /// **v3.1.1 Sprint 8.G**: cooldown tracking for the C66
+    /// `schema_migration_window_exceeded` immune emission. Stores
+    /// `manifest.cycle_counter` at the most recent C66 emission; the
+    /// autonomous tick suppresses re-emission within
+    /// `C66_WINDOW_EXCEEDED_COOLDOWN_CYCLES`. Same per-detector cooldown
+    /// discipline as the C54/C63/C64/C65 detectors. `None` = never emitted.
+    pub(crate) last_migration_window_exceeded_emitted_at_cycle: Option<u64>,
 }
 
 impl ServerState {
@@ -409,6 +425,12 @@ impl ServerState {
             // detector_id; reset on substrate restart (rate-limit window is
             // wall-clock, not cycle-counter, so this is safe).
             immune_emission_state: std::collections::HashMap::new(),
+            // v3.1.1 Sprint 8.G: no migration in flight at construction. The
+            // boot path hydrates this from DerivedState::migration_candidate
+            // AFTER `new()` (mirrors observatory_history), so a substrate
+            // restarted mid-window resumes its migration.
+            migration_candidate: None,
+            last_migration_window_exceeded_emitted_at_cycle: None,
         }
     }
 
@@ -712,6 +734,26 @@ pub fn run_loop() -> Result<u8, SubstrateError> {
     // start with an empty deque; the history then fills organically as
     // cycles tick. Cap is enforced on insert; we copy as-is here.
     state.observatory_history = derived.observatory_history.clone();
+    // **v3.1.1 Sprint 8.G (P03 §10.4)**: resume an in-flight schema migration.
+    // `derived.migration_candidate` is `Some` iff the DAG / snapshot carried a
+    // `schema_migration_started:*` event without a matching terminal event.
+    // We rebuild the `CandidateState` (always in the `Validating` phase while
+    // outstanding) so the per-cycle dual-validation hook + the C66 window-
+    // exceeded detector pick up exactly where they left off across a restart.
+    if let Some(mc) = &derived.migration_candidate {
+        let mut candidate = myco_kernel_schema::migration::CandidateState::new(
+            mc.schema_diff_canonical_bytes.clone(),
+            mc.op_name.clone(),
+            mc.started_at_cycle,
+            mc.dual_validation_window_cycles,
+        );
+        // Restore the original validation-window start cycle (and move into
+        // Validating). `enter_validating` overwrites started_at_cycle with the
+        // persisted value so window_complete / window_exceeded measure from the
+        // true origin, not from the restart cycle.
+        candidate.enter_validating(mc.started_at_cycle);
+        state.migration_candidate = Some(candidate);
+    }
     for entry in nonce_log_entries {
         state.nonce_log.insert(
             entry.nonce,

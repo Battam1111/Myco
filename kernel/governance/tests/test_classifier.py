@@ -277,8 +277,9 @@ def test_seed_table_size() -> None:
     # 3 M26.3 compression rules (compression_mutation + compression_rule_registry_meta + compression_invariant_set_meta) +
     # 4 M26.4 rules (cost_budget_set_mutation + cost_budget_thresholds_meta + owner_objective_declaration_mutation + telos_alignment_metric_meta) +
     # 2 M-anchor-5 rules (dag_tip_cosign_mutation + l0_revision_attest_mutation) +
-    # 1 v3.1.1 Sprint 2.C rule (set_backup_encryption_status).
-    assert len(SEED_DIMENSION_TABLE) == 32
+    # 1 v3.1.1 Sprint 2.C rule (set_backup_encryption_status) +
+    # 1 v3.1.1 Sprint 8.G rule (abort_migration_mutation, P03 §10.4 two-phase migration).
+    assert len(SEED_DIMENSION_TABLE) == 33
 
 
 def test_classifier_rule_predicate_or_logic() -> None:

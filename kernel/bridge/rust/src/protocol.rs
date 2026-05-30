@@ -301,6 +301,40 @@ pub mod msg_type {
     pub const EXPORT_BACKUP_TO_DIR: &str = "export_backup_to_dir";
     /// `export_backup_to_dir_response` — see [`EXPORT_BACKUP_TO_DIR`].
     pub const EXPORT_BACKUP_TO_DIR_RESPONSE: &str = "export_backup_to_dir_response";
+
+    // ---------------------------------------------------------------------
+    // **v3.1.1 Sprint 8.G (P03 §10.4)** — two-phase schema migration.
+    //
+    // Rust→Python terminal messages for an in-flight migration. The candidate
+    // identity (gradient + op + diff bytes) is held Python-side in
+    // DispatcherState; these messages carry an empty payload and just tell
+    // Python whether to PROMOTE the candidate to active or DROP it.
+    // ---------------------------------------------------------------------
+
+    /// `commit_migration` — Rust→Python: promote the in-flight migration
+    /// candidate to the active gradient (`state.gradient = candidate_gradient`),
+    /// then clear the candidate. Emitted when the dual-validation window
+    /// completes with the candidate equivalent throughout.
+    pub const COMMIT_MIGRATION: &str = "commit_migration";
+    /// `commit_migration_ack` — Python→Rust: candidate promoted to active.
+    pub const COMMIT_MIGRATION_ACK: &str = "commit_migration_ack";
+
+    /// `abort_migration` — Rust→Python: drop the in-flight migration candidate
+    /// (the active gradient is left UNTOUCHED; P03 §3.5 substrate-identity
+    /// preservation). Emitted on divergence, window-exceeded (C66), or an
+    /// operator `abort_migration` mutation.
+    pub const ABORT_MIGRATION: &str = "abort_migration";
+    /// `abort_migration_ack` — Python→Rust: candidate dropped.
+    pub const ABORT_MIGRATION_ACK: &str = "abort_migration_ack";
+
+    /// `query_migration_pending` — Operator→Substrate: read whether a two-phase
+    /// schema migration is currently in flight, and if so its op + window +
+    /// progress. Rust-handled (reads `state.migration_candidate`); Python is
+    /// not involved.
+    pub const QUERY_MIGRATION_PENDING: &str = "query_migration_pending";
+    /// `query_migration_pending_response` — Substrate→Operator: `{pending,
+    /// op, started_at_cycle, window, current_cycle}`.
+    pub const QUERY_MIGRATION_PENDING_RESPONSE: &str = "query_migration_pending_response";
 }
 
 /// A decoded bridge message.
@@ -672,6 +706,21 @@ pub struct AdvanceReport {
     pub fruited_axes: Vec<String>,
     /// One sporocarp per fruited axis, in the same order.
     pub sporocarps: Vec<SporocarpReport>,
+    /// **v3.1.1 Sprint 8.G (P03 §10.4)**: whether a schema-migration candidate
+    /// was advanced ALONGSIDE the active gradient this cycle. `false` when no
+    /// migration is in flight (the default; back-compat — pre-8.G Python omits
+    /// the field). When `true`, [`Self::candidate_diverged`] +
+    /// [`Self::divergence_reason`] carry the dual-validation outcome.
+    pub candidate_active: bool,
+    /// **Sprint 8.G**: when `candidate_active`, whether the candidate diverged
+    /// from the active schema this cycle (Option-A semantics: candidate
+    /// fruited its mortality_signal when active did not, OR the candidate
+    /// raised during advance, OR produced a non-finite value). Drives the
+    /// rollback decision. Meaningless (always `false`) when `!candidate_active`.
+    pub candidate_diverged: bool,
+    /// **Sprint 8.G**: human-readable reason for divergence; empty when the
+    /// candidate was equivalent (or no migration in flight).
+    pub divergence_reason: String,
 }
 
 /// Parse a Message of type `advance_response` into an [`AdvanceReport`].
@@ -742,9 +791,27 @@ pub fn parse_advance_response(response: &Message) -> Result<AdvanceReport, Bridg
             }
         }
     }
+    // **Sprint 8.G**: optional migration dual-validation fields. Absent (no
+    // migration in flight, or pre-8.G Python) → candidate_active=false. The
+    // `_handle_advance` handler adds these only when candidate_gradient is set.
+    let candidate_active = match response.payload.get("candidate_active") {
+        Some(Value::Bool(b)) => *b,
+        _ => false,
+    };
+    let candidate_diverged = match response.payload.get("candidate_diverged") {
+        Some(Value::Bool(b)) => *b,
+        _ => false,
+    };
+    let divergence_reason = match response.payload.get("divergence_reason") {
+        Some(Value::String(s)) => s.clone(),
+        _ => String::new(),
+    };
     Ok(AdvanceReport {
         fruited_axes,
         sporocarps,
+        candidate_active,
+        candidate_diverged,
+        divergence_reason,
     })
 }
 

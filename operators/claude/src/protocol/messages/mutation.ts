@@ -347,6 +347,13 @@ export function submitMutationPayload(args: {
    *  Required iff the nonce was issued WITH `anchorClockUnixNs` (dual-clock
    *  mode). Substrate verifies `anchor_issued ≤ this ≤ anchor_expiry`. */
   anchorClockSubmittedAtUnixNs?: bigint;
+  /** v3.1.1 Sprint 8.G (P03 §10.4): opt into the multi-cycle two-phase schema
+   *  migration path for a `schema_evolution` mutation. When true (and the
+   *  mutation is accepted), the substrate builds a CANDIDATE schema and
+   *  validates it across a window of cycles before committing — instead of the
+   *  default single-cycle apply. Omitted/false = the existing single-cycle
+   *  path (back-compat). Only meaningful for `mutationType="schema_evolution"`. */
+  migrationMode?: boolean;
 }): Map<string, Value> {
   const m = new Map<string, Value>();
   m.set("mutation_type", { type: "string", value: args.mutationType });
@@ -419,5 +426,30 @@ export function submitMutationPayload(args: {
       value: args.anchorClockSubmittedAtUnixNs,
     });
   }
+  // v3.1.1 Sprint 8.G: opt into two-phase migration. Emitted only when true so
+  // the default single-cycle payload bytes are unchanged.
+  if (args.migrationMode === true) {
+    m.set("migration_mode", { type: "bool", value: true });
+  }
   return m;
+}
+
+/** Build the content_canonical_bytes for an `abort_migration` CI mutation
+ *  (v3.1.1 Sprint 8.G / P03 §10.4).
+ *
+ *  An operator submits this (via `submitMutationPayload` with
+ *  `mutationType="abort_migration"`) to force-roll-back an in-flight two-phase
+ *  schema migration before its dual-validation window completes. The content
+ *  records WHICH migration the operator intends to abort (the op name) plus a
+ *  free-form reason, so the abort is auditable. The substrate forces the
+ *  rollback path on an accepted abort_migration mutation regardless of the
+ *  recorded op (it aborts whatever single migration is in flight). */
+export function abortMigrationContentBytes(args: {
+  op: string;
+  reason: string;
+}): Uint8Array {
+  const m = new Map<string, Value>();
+  m.set("op", { type: "string", value: args.op });
+  m.set("reason", { type: "string", value: args.reason });
+  return encode({ type: "map", value: m }).bytes;
 }

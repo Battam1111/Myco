@@ -168,6 +168,18 @@ pub(crate) fn save_snapshot_for_state(state: &ServerState) -> Result<usize, Subs
         // M25.2: persist the observatory history so the trend window
         // survives reboots when a fresh snapshot lands on disk.
         observatory_history: state.observatory_history.clone(),
+        // 8.G: persist the in-flight schema migration candidate (P03 §10.4)
+        // so a snapshot-accelerated boot resumes the migration mid-window
+        // without re-walking the full DAG. None when no migration is in flight.
+        migration_candidate: state.migration_candidate.as_ref().map(|c| {
+            crate::derived_state::DerivedMigrationCandidate {
+                op_name: c.op_name.clone(),
+                schema_diff_canonical_bytes: c.schema_diff_canonical_bytes.clone(),
+                started_at_cycle: c.started_at_cycle,
+                dual_validation_window_cycles: c.dual_validation_window_cycles,
+                started_at_unix_ns: c.started_at_unix_ns,
+            }
+        }),
     };
     // Record the DAG tip at snapshot time so boot knows where to resume replay.
     let snapshot_at_tip: Option<[u8; 32]> = state.dag.tip().map(|t| {

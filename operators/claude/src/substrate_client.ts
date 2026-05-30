@@ -59,9 +59,11 @@ import {
   type LiftBirthPeriodQuarantineResult,
   liftBirthPeriodQuarantineSigningInput,
   type Message,
+  type MigrationPendingReport,
   MSG_TYPE,
   type MutationResult,
   type ObservatorySnapshot,
+  parseQueryMigrationPendingResponse,
   parseAcceptSelfEuthanasiaProposalResponse,
   parseAdvanceResponse,
   parseComputeIntentResponse,
@@ -690,12 +692,27 @@ export class SubstrateClient {
     revealPubkey?: Uint8Array;
     identitySignatureOverRevealPubkey?: Uint8Array;
     anchorClockSubmittedAtUnixNs?: bigint;
+    /** v3.1.1 Sprint 8.G (P03 §10.4): opt into two-phase migration for a
+     *  schema_evolution mutation. See `submitMutationPayload`. */
+    migrationMode?: boolean;
   }): Promise<MutationResult> {
     const response = await this._sendRequest(
       MSG_TYPE.SUBMIT_MUTATION,
       submitMutationPayload(args),
     );
     return parseSubmitMutationResponse(response);
+  }
+
+  /** v3.1.1 Sprint 8.G (P03 §10.4): query whether a two-phase schema migration
+   *  is currently in flight, and if so its op + window + current cycle. A pure
+   *  read of substrate state (no DAG mutation); survives cold-resume because the
+   *  candidate is hydrated from the DAG / snapshot at boot. */
+  async queryMigrationPending(): Promise<MigrationPendingReport> {
+    const response = await this._sendRequest(
+      MSG_TYPE.QUERY_MIGRATION_PENDING,
+      emptyPayload(),
+    );
+    return parseQueryMigrationPendingResponse(response);
   }
 
   /** M14: Submit a CI mutation with full per-handshake REVEAL envelope.

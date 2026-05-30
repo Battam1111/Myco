@@ -352,6 +352,16 @@ const TOOL_DEFINITIONS = [
     },
   },
   {
+    name: "myco_query_migration_pending",
+    description:
+      "P03 §10.4 (Resumable Evolution): Report whether a two-phase schema migration is currently in flight. When an operator submits a schema_evolution mutation with migration_mode=true, the substrate builds a CANDIDATE schema and validates it alongside the active schema for a window of metabolic cycles before committing (instead of the default single-cycle apply). This tool reports {pending, op, started_at_cycle, window, current_cycle} — pending=true plus how far through the dual-validation window the migration has progressed. Survives substrate restart (the candidate is resumed from the causal DAG).",
+    inputSchema: {
+      type: "object",
+      properties: {},
+      required: [],
+    },
+  },
+  {
     name: "myco_sprout_child",
     description:
       "P8 永恒繁衍 (Eternal Reproduction): Sprout a child substrate from the parent's spore-schema (L0/cards/P01-P14 (principles).2 P8). The substrate creates a fresh state_dir at the given path containing: a NEW manifest with fresh substrate_id, a snapshot of the parent's gradient (axes + current values), the parent's operator_identity_pubkey (operator continuity). Parent emits a spore_emission:{child_id_prefix} DAG node recording the reproduction. The parent's causal DAG is NOT transferred (child starts its own causal history per L1 design). After sprout, you can spawn a separate substrate process pointing at the child_state_dir via MYCO_STATE_DIR. Rejects if the target already contains a manifest.cb.",
@@ -429,6 +439,11 @@ const TOOL_DEFINITIONS = [
           type: "string",
           enum: ["noop", "decay"],
           description: "(add_axis_to_gradient) Update rule.",
+        },
+        migration_mode: {
+          type: "boolean",
+          description:
+            "(P03 §10.4) When true, take the MULTI-CYCLE TWO-PHASE migration path: the substrate builds a candidate schema and validates it alongside the active schema for a window of cycles before committing, instead of the default single-cycle apply. The active schema is never at risk during validation. Poll myco_query_migration_pending to watch progress. Omitted/false = single-cycle apply (default).",
         },
       },
       required: ["op", "axis_name"],
@@ -783,6 +798,28 @@ export class McpServer {
           ],
         };
       }
+      case "myco_query_migration_pending": {
+        const sub = await this._ensureSubstrate();
+        const report = await sub.queryMigrationPending();
+        const lines: string[] = [];
+        if (!report.pending) {
+          lines.push("no two-phase schema migration in flight");
+          lines.push(`current_cycle=${report.currentCycle}`);
+        } else {
+          const elapsed = report.currentCycle - report.startedAtCycle;
+          lines.push(`🔀 migration PENDING: op=${report.op}`);
+          lines.push(
+            `  started_at_cycle=${report.startedAtCycle}  window=${report.window}  current_cycle=${report.currentCycle}`,
+          );
+          lines.push(
+            `  dual-validation progress: ${elapsed}/${report.window} cycles ` +
+              `(${elapsed >= report.window ? "window complete — commits next equivalent cycle" : "validating"})`,
+          );
+        }
+        return {
+          content: [{ type: "text" as const, text: lines.join("\n") }],
+        };
+      }
       case "myco_sprout_child": {
         const sub = await this._ensureSubstrate();
         const childStateDir = String(args.child_state_dir);
@@ -873,11 +910,13 @@ export class McpServer {
         // the operator process never holds the owner Ed25519 private key.
         const identity = await OperatorIdentity.loadOrCreate();
         const sig = await identity.sign(diffBytes);
+        const migrationMode = Boolean(args.migration_mode);
         const result = await sub.submitMutation({
           mutationType: "schema_evolution",
           contentCanonicalBytes: diffBytes,
           attestationSignature: sig,
           touchedMetaStructures: ["appetite_axis_schema"],
+          migrationMode,
         });
         const lines: string[] = [];
         lines.push(
@@ -886,7 +925,27 @@ export class McpServer {
         if (!result.accepted) {
           lines.push(`rejection: ${result.rejectionReason}`);
         }
-        if (result.schemaApplyAttempted) {
+        // v3.1.1 Sprint 8.G: two-phase migration outcome (when migration_mode).
+        let migrationFailed = false;
+        if (result.migrationMode) {
+          if (result.candidateBuilt) {
+            lines.push(
+              `🔀 two-phase migration STARTED: candidate validating across the dual-validation window. ` +
+                `Poll myco_query_migration_pending to watch progress; advance cycles to drive it. ` +
+                `On window completion (candidate equivalent throughout) it commits; on divergence it rolls back.`,
+            );
+            if (result.schemaMigrationStartedEventHash) {
+              lines.push(
+                `schema_migration_started_event_hash=${toHex(result.schemaMigrationStartedEventHash).substring(0, 32)}…`,
+              );
+            }
+          } else {
+            migrationFailed = true;
+            lines.push(
+              `✗ two-phase migration ROLLED BACK immediately: candidate could not be built — ${result.schemaApplyFailureReason}`,
+            );
+          }
+        } else if (result.schemaApplyAttempted) {
           if (result.schemaApplySucceeded) {
             lines.push(`✓ schema evolution APPLIED: ${result.schemaApplySummary}`);
             if (result.evolutionEventHash) {
@@ -900,7 +959,10 @@ export class McpServer {
         }
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
-          isError: !result.accepted || (result.schemaApplyAttempted && !result.schemaApplySucceeded),
+          isError:
+            !result.accepted ||
+            migrationFailed ||
+            (result.schemaApplyAttempted && !result.schemaApplySucceeded),
         };
       }
       case "myco_ingest_raw_material": {

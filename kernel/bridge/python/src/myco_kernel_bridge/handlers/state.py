@@ -51,3 +51,21 @@ class DispatcherState:
     handshake_complete: bool = False
     session_secret: bytes | None = None
     owner_keys: OwnerKeyHistory | None = None
+
+    # --- v3.1.1 Sprint 8.G (P03 §10.4) two-phase schema migration ---
+    #
+    # When the operator opts into the multi-cycle two-phase migration path
+    # (submit_mutation with migration_mode=True), the dispatcher builds a
+    # CANDIDATE gradient (a deep-copy of `gradient` with the schema_diff
+    # applied to the COPY) and holds it here. The active `gradient` is left
+    # UNTOUCHED. Each subsequent `advance` advances BOTH `gradient` and
+    # `candidate_gradient`, comparing their behaviour (divergence detection).
+    # `commit_migration` promotes the candidate to active; `abort_migration`
+    # drops it. `None` = no migration in flight (the default).
+    candidate_gradient: GradientConfiguration | None = None
+    #: The schema_diff op name of the in-flight candidate (e.g.
+    #: "modify_axis_threshold"); empty when no migration is in flight.
+    candidate_op: str = ""
+    #: The schema_diff canonical-bytes of the in-flight candidate (audit /
+    #: parity with the substrate's stored copy); empty when none.
+    candidate_diff_bytes: bytes = b""

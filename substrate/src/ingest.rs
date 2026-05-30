@@ -26,7 +26,8 @@ use myco_kernel_continuity::cycle::{
 use myco_kernel_shared::canonical_bytes::{encode as cb_encode, CanonicalBytes, Value};
 
 use crate::server::{
-    emit_immune_sporocarp, float_repr, hex_encode, save_dag_state, ServerState,
+    emit_immune_sporocarp, emit_substrate_event, float_repr, hex_encode, save_dag_state,
+    save_python_state, ServerState,
 };
 use crate::SubstrateError;
 
@@ -689,6 +690,24 @@ pub(crate) fn handle_advance(
     let mut payload = BTreeMap::new();
     // Echo the substrate's authoritative cycle counter (post-increment).
     payload.insert("cycle_number".to_string(), Value::Uint(post_cycle));
+    // **v3.1.1 Sprint 8.G (P03 §10.4)**: surface the dual-validation outcome
+    // from the Python advance_response so the per-cycle migration hook
+    // (`run_migration_step`) — which runs in the dispatch arm AFTER
+    // cycle_advanced is emitted — can read it. These are no-ops (false/empty)
+    // unless a schema migration is in flight, so the back-compat single-cycle
+    // path is byte-unchanged in the fields it cares about.
+    payload.insert(
+        "candidate_active".to_string(),
+        Value::Bool(advance_report.candidate_active),
+    );
+    payload.insert(
+        "candidate_diverged".to_string(),
+        Value::Bool(advance_report.candidate_diverged),
+    );
+    payload.insert(
+        "divergence_reason".to_string(),
+        Value::String(advance_report.divergence_reason.clone()),
+    );
     // M8: echo the current DAG tip + node count for observability.
     if let Some(tip) = state.dag.tip() {
         payload.insert("dag_tip".to_string(), Value::Bytes(tip.as_ref().to_vec()));
@@ -912,4 +931,308 @@ pub(crate) fn handle_advance(
         request.request_id,
         payload,
     )))
+}
+
+/// **v3.1.1 Sprint 8.G (P03 §10.4)** — per-cycle dual-validation step for an
+/// in-flight schema migration.
+///
+/// Called from BOTH the operator-driven `ADVANCE` dispatch arm AND the
+/// self-driven autonomous-tick cycle advance, **after** `cycle_advanced` has
+/// been emitted (so the substrate cycle counter already reflects this cycle).
+///
+/// ## Zero-cost when idle
+///
+/// If `state.migration_candidate` is `None` (the overwhelmingly common case —
+/// migrations are rare and opt-in), this returns immediately having read one
+/// `Option`. A substrate that never opts into migration pays nothing.
+///
+/// ## When a migration IS in flight
+///
+/// 1. Read `candidate_active` + `candidate_diverged` + `divergence_reason`
+///    from the just-produced `advance_response` (Python advanced the candidate
+///    alongside the active gradient and computed divergence).
+/// 2. Map that to a [`DualValidationCycle`] and call
+///    [`decide_cycle`](myco_kernel_schema::migration::decide_cycle):
+///      - `None` → keep validating. Emit a SAMPLED
+///        `schema_migration_cycle_validated:{op}` event (every 10th cycle) so
+///        a long window leaves a sparse audit trail without flooding the DAG.
+///      - `Commit` → tell Python to promote the candidate (`commit_migration`),
+///        emit `schema_migration_committed:{op}` + the LEGACY
+///        `evolution_succeeded:{op}` sibling, clear the candidate.
+///      - `Rollback{reason}` → tell Python to drop the candidate
+///        (`abort_migration`), emit `schema_migration_rolled_back:{op}` + the
+///        LEGACY `evolution_failed:{op}` sibling, clear the candidate.
+///
+/// On a terminal decision we ALSO emit the decisive
+/// `schema_migration_cycle_validated:{op}` event (so the deciding cycle is
+/// always recorded even if it isn't a sampling boundary).
+///
+/// Errors from Python commit/abort are surfaced as a `C31_cycle_step_failed`
+/// immune sporocarp and the candidate is cleared regardless (we must not leave
+/// a half-committed migration wedged in flight). The cycle itself already
+/// succeeded — migration bookkeeping failure is non-fatal to the metabolism.
+pub(crate) fn run_migration_step(
+    state: &mut ServerState,
+    advance_response: &Message,
+) -> Result<(), SubstrateError> {
+    use myco_kernel_schema::migration::{decide_cycle, CommitDecision, DualValidationCycle};
+
+    // Zero-cost early return when no migration is in flight.
+    let candidate = match &state.migration_candidate {
+        Some(c) => c.clone(),
+        None => return Ok(()),
+    };
+
+    let current_cycle = state.manifest.cycle_counter;
+    let op = candidate.op_name.clone();
+
+    // Read the dual-validation outcome from the advance response.
+    let candidate_active = match advance_response.payload.get("candidate_active") {
+        Some(Value::Bool(b)) => *b,
+        _ => false,
+    };
+    let candidate_diverged = match advance_response.payload.get("candidate_diverged") {
+        Some(Value::Bool(b)) => *b,
+        _ => false,
+    };
+    let divergence_reason = match advance_response.payload.get("divergence_reason") {
+        Some(Value::String(s)) => s.clone(),
+        _ => String::new(),
+    };
+
+    // If Python reports the candidate was NOT advanced this cycle (e.g. a
+    // desync between Rust thinking a migration is in flight and Python having
+    // already dropped it), treat that as a divergence → safe rollback. This
+    // keeps the two sides from drifting apart silently.
+    let outcome = if !candidate_active || candidate_diverged {
+        DualValidationCycle::Diverged
+    } else {
+        DualValidationCycle::Equivalent
+    };
+
+    let decision = decide_cycle(&candidate, current_cycle, outcome);
+
+    // Sampling cadence for the progress event: every 10th cycle since start,
+    // plus always on the decisive cycle (handled below).
+    const CYCLE_VALIDATED_SAMPLE_EVERY: u64 = 10;
+    let elapsed = current_cycle.saturating_sub(candidate.started_at_cycle);
+    let is_sample_boundary =
+        elapsed > 0 && elapsed % CYCLE_VALIDATED_SAMPLE_EVERY == 0;
+
+    match decision {
+        None => {
+            // Keep validating. Emit a sampled progress event.
+            if is_sample_boundary {
+                let equivalent = matches!(outcome, DualValidationCycle::Equivalent);
+                let content = crate::events::encode_schema_migration_cycle_validated(
+                    &op,
+                    current_cycle,
+                    equivalent,
+                    &divergence_reason,
+                );
+                let nt = crate::events::schema_migration_cycle_validated_node_type(&op);
+                let _ = emit_substrate_event(state, nt, content);
+                let _ = save_dag_state(state);
+            }
+            Ok(())
+        }
+        Some(CommitDecision::Commit) => {
+            // Decisive cycle: always emit the cycle_validated record.
+            let content = crate::events::encode_schema_migration_cycle_validated(
+                &op,
+                current_cycle,
+                true,
+                "",
+            );
+            let nt = crate::events::schema_migration_cycle_validated_node_type(&op);
+            let _ = emit_substrate_event(state, nt, content);
+
+            // Tell Python to promote the candidate to active.
+            let py_result = send_migration_terminal(
+                state,
+                myco_kernel_bridge::protocol::msg_type::COMMIT_MIGRATION,
+            );
+            if let Err(e) = py_result {
+                let _ = emit_immune_sporocarp(
+                    state,
+                    "C31_cycle_step_failed",
+                    "cycle_step_failed",
+                    &format!("commit_migration (op={op}) Python call failed: {e}"),
+                );
+            }
+
+            // Emit the migration-committed event + the LEGACY evolution_succeeded
+            // sibling (back-compat: observatory signal_2 + existing tests).
+            let committed = crate::events::encode_schema_migration_committed(
+                &op,
+                current_cycle,
+                candidate.started_at_cycle,
+                candidate.dual_validation_window_cycles,
+            );
+            let committed_nt = crate::events::schema_migration_committed_node_type(&op);
+            let _ = emit_substrate_event(state, committed_nt, committed);
+            emit_legacy_evolution_event(state, &op, true, "")?;
+
+            state.migration_candidate = None;
+            let _ = save_dag_state(state);
+            save_python_state(state)?;
+            Ok(())
+        }
+        Some(CommitDecision::Rollback { reason }) => {
+            // Decisive cycle: emit the cycle_validated record (non-equivalent).
+            let content = crate::events::encode_schema_migration_cycle_validated(
+                &op,
+                current_cycle,
+                false,
+                &reason,
+            );
+            let nt = crate::events::schema_migration_cycle_validated_node_type(&op);
+            let _ = emit_substrate_event(state, nt, content);
+
+            // Tell Python to drop the candidate (active gradient untouched).
+            let py_result = send_migration_terminal(
+                state,
+                myco_kernel_bridge::protocol::msg_type::ABORT_MIGRATION,
+            );
+            if let Err(e) = py_result {
+                let _ = emit_immune_sporocarp(
+                    state,
+                    "C31_cycle_step_failed",
+                    "cycle_step_failed",
+                    &format!("abort_migration (op={op}) Python call failed: {e}"),
+                );
+            }
+
+            // Emit the migration-rolled-back event + the LEGACY evolution_failed
+            // sibling (back-compat).
+            let rolled_back = crate::events::encode_schema_migration_rolled_back(
+                &op,
+                &reason,
+                current_cycle,
+            );
+            let rb_nt = crate::events::schema_migration_rolled_back_node_type(&op);
+            let _ = emit_substrate_event(state, rb_nt, rolled_back);
+            emit_legacy_evolution_event(state, &op, false, &reason)?;
+
+            state.migration_candidate = None;
+            let _ = save_dag_state(state);
+            save_python_state(state)?;
+            Ok(())
+        }
+    }
+}
+
+/// **Sprint 8.G** — force-roll-back the in-flight migration WITHOUT a per-cycle
+/// advance response. Used by the C66 `schema_migration_window_exceeded`
+/// detector in the autonomous tick: the window blew past its grace boundary, so
+/// we drop the candidate unconditionally (Python `abort_migration`), emit the
+/// `schema_migration_rolled_back:{op}` event + the legacy `evolution_failed:{op}`
+/// sibling, and clear `state.migration_candidate`.
+///
+/// This is the same terminal sequence as the `Rollback` arm of
+/// [`run_migration_step`], factored out so the autonomous tick can invoke it
+/// directly. A no-op if no migration is in flight.
+pub(crate) fn force_migration_rollback(
+    state: &mut ServerState,
+    op: &str,
+    reason: &str,
+) -> Result<(), SubstrateError> {
+    if state.migration_candidate.is_none() {
+        return Ok(());
+    }
+    let current_cycle = state.manifest.cycle_counter;
+
+    // Tell Python to drop the candidate (active gradient untouched).
+    if let Err(e) =
+        send_migration_terminal(state, myco_kernel_bridge::protocol::msg_type::ABORT_MIGRATION)
+    {
+        let _ = emit_immune_sporocarp(
+            state,
+            "C31_cycle_step_failed",
+            "cycle_step_failed",
+            &format!("force_migration_rollback abort_migration (op={op}) failed: {e}"),
+        );
+    }
+
+    let rolled_back =
+        crate::events::encode_schema_migration_rolled_back(op, reason, current_cycle);
+    let rb_nt = crate::events::schema_migration_rolled_back_node_type(op);
+    let _ = emit_substrate_event(state, rb_nt, rolled_back);
+    emit_legacy_evolution_event(state, op, false, reason)?;
+
+    state.migration_candidate = None;
+    let _ = save_dag_state(state);
+    save_python_state(state)?;
+    Ok(())
+}
+
+/// **Sprint 8.G** — send a terminal migration message (`commit_migration` /
+/// `abort_migration`) to the Python worker and verify the ack. The payload is
+/// empty; the candidate identity is held Python-side in DispatcherState.
+fn send_migration_terminal(
+    state: &mut ServerState,
+    message_type: &str,
+) -> Result<(), SubstrateError> {
+    let client = state
+        .python_client
+        .as_mut()
+        .ok_or_else(|| SubstrateError::Handshake("python worker not connected".to_string()))?;
+    let timeout = crate::python_call_health::python_op_timeout(message_type);
+    let call_start = std::time::Instant::now();
+    let resp = client.call_with_timeout(message_type, std::collections::BTreeMap::new(), timeout);
+    crate::python_call_health::record_call_duration(call_start.elapsed());
+    let resp = resp.map_err(SubstrateError::Bridge)?;
+    let expected_ack = match message_type {
+        myco_kernel_bridge::protocol::msg_type::COMMIT_MIGRATION => {
+            myco_kernel_bridge::protocol::msg_type::COMMIT_MIGRATION_ACK
+        }
+        _ => myco_kernel_bridge::protocol::msg_type::ABORT_MIGRATION_ACK,
+    };
+    if resp.message_type != expected_ack {
+        return Err(SubstrateError::Protocol(format!(
+            "expected {expected_ack} from python; got {}",
+            resp.message_type
+        )));
+    }
+    Ok(())
+}
+
+/// **Sprint 8.G** — emit the LEGACY `evolution_succeeded:{op}` /
+/// `evolution_failed:{op}` DAG event that the single-cycle path produces, so
+/// migration commit/rollback is indistinguishable from a single-cycle apply to
+/// the observatory's signal_2 counter and to every existing test that watches
+/// these node types. Mirrors the event shape built in
+/// `attestation::handle_submit_mutation`.
+fn emit_legacy_evolution_event(
+    state: &mut ServerState,
+    op: &str,
+    succeeded: bool,
+    failure_reason: &str,
+) -> Result<(), SubstrateError> {
+    let event_node_type = if succeeded {
+        format!("evolution_succeeded:{op}")
+    } else {
+        format!("evolution_failed:{op}")
+    };
+    let mut event_map = BTreeMap::new();
+    event_map.insert("op".to_string(), Value::String(op.to_string()));
+    event_map.insert("succeeded".to_string(), Value::Bool(succeeded));
+    event_map.insert(
+        "summary".to_string(),
+        Value::String(format!(
+            "two-phase migration {}",
+            if succeeded { "committed" } else { "rolled back" }
+        )),
+    );
+    if !succeeded {
+        event_map.insert(
+            "failure_reason".to_string(),
+            Value::String(failure_reason.to_string()),
+        );
+    }
+    let event_canonical = cb_encode(&Value::Map(event_map))
+        .map_err(|e| SubstrateError::Protocol(format!("legacy evolution event encode: {e}")))?;
+    let nt = event_node_type;
+    let _ = emit_substrate_event(state, nt, event_canonical);
+    Ok(())
 }

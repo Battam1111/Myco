@@ -107,6 +107,9 @@ export const MSG_TYPE = {
   // Phase α / M24.5 — Living Bets observatory primitive.
   QUERY_SUBSTRATE_OBSERVATORY: "query_substrate_observatory",
   QUERY_SUBSTRATE_OBSERVATORY_RESPONSE: "query_substrate_observatory_response",
+  // v3.1.1 Sprint 8.G (P03 §10.4) — two-phase schema migration status.
+  QUERY_MIGRATION_PENDING: "query_migration_pending",
+  QUERY_MIGRATION_PENDING_RESPONSE: "query_migration_pending_response",
 } as const;
 
 export type MessageType = (typeof MSG_TYPE)[keyof typeof MSG_TYPE];

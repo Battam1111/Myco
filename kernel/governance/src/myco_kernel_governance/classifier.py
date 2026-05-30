@@ -211,6 +211,17 @@ SEED_DIMENSION_TABLE: tuple[ClassifierRule, ...] = (
         classification=Classification.CONTRACT_IDENTITY_LEVEL,
         mutation_type="schema_evolution",
     ),
+    # v3.1.1 Sprint 8.G (P03 §10.4): operator-initiated abort of an in-flight
+    # two-phase schema migration. Aborting a migration is a schema-affecting
+    # decision (it cancels a candidate the owner attested to start), so it is
+    # unconditionally CI — same gate as the schema_evolution that opened the
+    # migration. The substrate forces the rollback path on an accepted
+    # abort_migration mutation.
+    ClassifierRule(
+        name="abort_migration_mutation",
+        classification=Classification.CONTRACT_IDENTITY_LEVEL,
+        mutation_type="abort_migration",
+    ),
     # **M26.3 P10 Selective Compression**: compression mutations are
     # unconditionally CI per L0 P10.c ("each compression emits compression_event
     # with witness; CI-attested"). Content is a CompressionWitness canonical-

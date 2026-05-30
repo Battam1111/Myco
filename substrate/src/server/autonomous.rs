@@ -66,7 +66,7 @@ fn execute_self_driven_cycle_advance(
     );
     let request = Message::new(msg_type::ADVANCE, 0, payload);
 
-    let _response = crate::ingest::handle_advance(state, &request)?;
+    let response = crate::ingest::handle_advance(state, &request)?;
 
     // Bookkeeping — same sequence as the dispatch-arm path at
     // `msg_type::ADVANCE =>` in run_loop's dispatch().
@@ -79,6 +79,12 @@ fn execute_self_driven_cycle_advance(
         crate::events::NODE_TYPE_CYCLE_ADVANCED.to_string(),
         event_content,
     );
+    // **v3.1.1 Sprint 8.G (P03 §10.4)**: per-cycle dual-validation step for the
+    // self-driven path — mirrors the operator-driven ADVANCE dispatch arm.
+    // Runs AFTER cycle_advanced; zero cost when no migration is in flight.
+    if let Some(resp_msg) = response.as_ref() {
+        let _ = crate::ingest::run_migration_step(state, resp_msg);
+    }
     crate::observatory::append_observatory_snapshot_to_state(state);
     state.save_manifest()?;
     save_python_state(state)?;
@@ -164,6 +170,79 @@ pub(super) fn do_autonomous_tick(state: &mut ServerState) -> Result<(), Substrat
                 &evidence,
             );
             let _ = save_dag_state(state);
+        }
+    }
+
+    // **v3.1.1 Sprint 8.G (P03 §10.4)** — C66 schema_migration_window_exceeded.
+    //
+    // A migration that has been Validating for longer than
+    // `window + DEFAULT_MIGRATION_GRACE_CYCLES` without reaching a
+    // commit/rollback decision is anomalous: the most likely cause is that the
+    // substrate restarted mid-window and the per-cycle decision cadence lost
+    // sync, OR the operator process went idle and stopped driving ADVANCE so
+    // the window never completes. Either way the candidate must not linger
+    // indefinitely — we fire C66 (per-detector cooldown, like C54/C63/C64/C65)
+    // and FORCE the rollback path so the active gradient stays canonical and
+    // the candidate is dropped. Mirrors the scaffold const
+    // `C66_MIGRATION_WINDOW_EXCEEDED`.
+    if state.handshake_complete {
+        if let Some(candidate) = &state.migration_candidate {
+            let cycle = state.manifest.cycle_counter;
+            let grace = myco_kernel_schema::migration::DEFAULT_MIGRATION_GRACE_CYCLES;
+            let exceeded = matches!(
+                candidate.phase,
+                myco_kernel_schema::migration::MigrationPhase::Validating
+            ) && candidate.window_exceeded(cycle, grace);
+            if exceeded {
+                const C66_WINDOW_EXCEEDED_COOLDOWN_CYCLES: u64 = 100;
+                let cooldown_active =
+                    match state.last_migration_window_exceeded_emitted_at_cycle {
+                        Some(last) => {
+                            cycle.saturating_sub(last) < C66_WINDOW_EXCEEDED_COOLDOWN_CYCLES
+                        }
+                        None => false,
+                    };
+                if !cooldown_active {
+                    let op = candidate.op_name.clone();
+                    let started = candidate.started_at_cycle;
+                    let window = candidate.dual_validation_window_cycles;
+                    let evidence = format!(
+                        "schema migration (op={op}) exceeded its dual-validation window: \
+                         started_at_cycle={started}, window={window}, grace={grace}, \
+                         current_cycle={cycle} (elapsed {} > window+grace {}); forcing \
+                         rollback per P03 §10.4 so the candidate cannot linger. Most \
+                         likely cause: substrate restarted mid-window or the operator \
+                         stopped driving cycles.",
+                        cycle.saturating_sub(started),
+                        window.saturating_add(grace),
+                    );
+                    let _ = emit_immune_sporocarp(
+                        state,
+                        myco_kernel_schema::migration::C66_MIGRATION_WINDOW_EXCEEDED,
+                        "schema_migration_window_exceeded",
+                        &evidence,
+                    );
+                    state.last_migration_window_exceeded_emitted_at_cycle = Some(cycle);
+
+                    // Force the rollback path: tell Python to drop the
+                    // candidate, emit schema_migration_rolled_back + the legacy
+                    // evolution_failed sibling, clear the candidate.
+                    let reason = format!(
+                        "C66 window exceeded (elapsed {} > window+grace {})",
+                        cycle.saturating_sub(started),
+                        window.saturating_add(grace),
+                    );
+                    if let Err(e) = crate::ingest::force_migration_rollback(state, &op, &reason) {
+                        let _ = emit_immune_sporocarp(
+                            state,
+                            "C31_cycle_step_failed",
+                            "cycle_step_failed",
+                            &format!("C66 forced rollback (op={op}) failed: {e}"),
+                        );
+                    }
+                    let _ = save_dag_state(state);
+                }
+            }
         }
     }
 
@@ -391,4 +470,128 @@ pub(super) fn do_autonomous_tick(state: &mut ServerState) -> Result<(), Substrat
     }
     let _ = save_dag_state(state);
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::persistence::Manifest;
+    use crate::server::ServerState;
+    use myco_kernel_schema::dag::Dag;
+    use myco_kernel_schema::migration::{
+        CandidateState, DEFAULT_DUAL_VALIDATION_WINDOW_CYCLES, DEFAULT_MIGRATION_GRACE_CYCLES,
+    };
+
+    fn test_state() -> ServerState {
+        let state_dir = std::env::temp_dir().join(format!(
+            "myco-c66-unit-{}-{:x}",
+            std::process::id(),
+            &0u8 as *const u8 as usize as u64
+        ));
+        ServerState::new(state_dir, Manifest::genesis(), Dag::new(), None, [0u8; 32])
+    }
+
+    fn validating_candidate(started_at_cycle: u64) -> CandidateState {
+        let mut c = CandidateState::new(
+            vec![1, 2, 3],
+            "modify_axis_threshold".to_string(),
+            0,
+            DEFAULT_DUAL_VALIDATION_WINDOW_CYCLES,
+        );
+        c.enter_validating(started_at_cycle);
+        c
+    }
+
+    fn count_immune(state: &ServerState, detector_substr: &str) -> usize {
+        state
+            .dag
+            .iter_in_insertion_order()
+            .filter(|n| n.node_type.starts_with("immune:") && n.node_type.contains(detector_substr))
+            .count()
+    }
+
+    #[test]
+    fn c66_fires_and_forces_rollback_when_window_exceeded() {
+        // A migration that started at cycle 0, with the cycle counter now well
+        // past window+grace, must trip C66 in the autonomous tick: emit the
+        // immune event AND force the rollback (clear the candidate). The Python
+        // commit/abort call fails gracefully (no worker in this unit test); the
+        // detector + candidate-clear still fire (best-effort rollback).
+        let mut state = test_state();
+        state.handshake_complete = true;
+        state.migration_candidate = Some(validating_candidate(0));
+        // current cycle strictly past window + grace (100 + 10 = 110).
+        state.manifest.cycle_counter =
+            DEFAULT_DUAL_VALIDATION_WINDOW_CYCLES + DEFAULT_MIGRATION_GRACE_CYCLES + 5;
+
+        do_autonomous_tick(&mut state).expect("tick");
+
+        assert_eq!(
+            count_immune(&state, "C66_schema_migration_window_exceeded"),
+            1,
+            "C66 must fire exactly once when the migration window is exceeded"
+        );
+        assert!(
+            state.migration_candidate.is_none(),
+            "C66 must force the rollback path (clear the in-flight candidate)"
+        );
+        // The forced rollback also leaves a schema_migration_rolled_back event.
+        let rolled_back = state
+            .dag
+            .iter_in_insertion_order()
+            .filter(|n| n.node_type.starts_with("schema_migration_rolled_back:"))
+            .count();
+        assert_eq!(rolled_back, 1, "forced rollback emits the rolled_back event");
+    }
+
+    #[test]
+    fn c66_does_not_fire_within_window_plus_grace() {
+        let mut state = test_state();
+        state.handshake_complete = true;
+        state.migration_candidate = Some(validating_candidate(0));
+        // current cycle at the grace boundary → not strictly past → no fire.
+        state.manifest.cycle_counter =
+            DEFAULT_DUAL_VALIDATION_WINDOW_CYCLES + DEFAULT_MIGRATION_GRACE_CYCLES;
+
+        do_autonomous_tick(&mut state).expect("tick");
+
+        assert_eq!(
+            count_immune(&state, "C66_schema_migration_window_exceeded"),
+            0,
+            "C66 must NOT fire within window+grace"
+        );
+        assert!(
+            state.migration_candidate.is_some(),
+            "the candidate must remain in flight within window+grace"
+        );
+    }
+
+    #[test]
+    fn c66_respects_cooldown() {
+        let mut state = test_state();
+        state.handshake_complete = true;
+        state.migration_candidate = Some(validating_candidate(0));
+        state.manifest.cycle_counter =
+            DEFAULT_DUAL_VALIDATION_WINDOW_CYCLES + DEFAULT_MIGRATION_GRACE_CYCLES + 5;
+
+        // First tick fires C66 + clears candidate + records the emission cycle.
+        do_autonomous_tick(&mut state).expect("tick 1");
+        assert_eq!(count_immune(&state, "C66_schema_migration_window_exceeded"), 1);
+        let emitted_at = state.last_migration_window_exceeded_emitted_at_cycle;
+        assert_eq!(
+            emitted_at,
+            Some(DEFAULT_DUAL_VALIDATION_WINDOW_CYCLES + DEFAULT_MIGRATION_GRACE_CYCLES + 5)
+        );
+
+        // Re-arm a fresh candidate at the SAME cycle (simulating a new window
+        // that also overshoots immediately) — within the 100-cycle cooldown the
+        // detector must NOT re-emit, so the count stays at 1.
+        state.migration_candidate = Some(validating_candidate(0));
+        do_autonomous_tick(&mut state).expect("tick 2");
+        assert_eq!(
+            count_immune(&state, "C66_schema_migration_window_exceeded"),
+            1,
+            "C66 must be suppressed within its cooldown window"
+        );
+    }
 }

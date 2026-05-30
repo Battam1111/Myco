@@ -216,6 +216,21 @@ class MessageType(str, Enum):
     QUERY_GRADIENT_SCHEMAS_RESPONSE = "query_gradient_schemas_response"
     """Python → Rust: per-axis full schema + current_value + update_rule_kind (M21.3)."""
 
+    COMMIT_MIGRATION = "commit_migration"
+    """Rust → Python: promote the in-flight two-phase migration candidate to the
+    active gradient (state.gradient = candidate_gradient), then clear it
+    (v3.1.1 Sprint 8.G / P03 §10.4)."""
+
+    COMMIT_MIGRATION_ACK = "commit_migration_ack"
+    """Python → Rust: candidate promoted to active."""
+
+    ABORT_MIGRATION = "abort_migration"
+    """Rust → Python: drop the in-flight migration candidate; the active gradient
+    is left UNTOUCHED (P03 §3.5 substrate-identity preservation)."""
+
+    ABORT_MIGRATION_ACK = "abort_migration_ack"
+    """Python → Rust: candidate dropped."""
+
 
 # ---------------------------------------------------------------------------
 # Error types.
