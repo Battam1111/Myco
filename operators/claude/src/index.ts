@@ -1,7 +1,11 @@
 // Public entry point for the operators/claude package.
 
 export { McpServer } from "./mcp_server.ts";
-export { SubstrateClient, SubstrateClientError } from "./substrate_client.ts";
+export {
+  SubstrateClient,
+  SubstrateClientError,
+  SubstrateTimeoutError,
+} from "./substrate_client.ts";
 export type {
   SubstrateClientConfig,
 } from "./substrate_client.ts";

@@ -71,11 +71,29 @@ export const PORT_DISCOVERY_FILENAME = "port.txt";
 /** Maximum frame body size on the wire (1 MiB; matches Rust). */
 export const MAX_FRAME_BODY_SIZE = 1024 * 1024;
 
+/** Default per-request response timeout for anchor ops (30s). Owner-key
+ *  operations (sign / pubkey / nonce / heartbeat) are fast on the host side;
+ *  this only fires when the host process truly hangs after a frame is sent. */
+export const ANCHOR_DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
+
 /** Error thrown by AnchorSurfaceClient operations. */
 export class AnchorSurfaceClientError extends Error {
   constructor(message: string) {
     super(`anchor surface client: ${message}`);
     this.name = "AnchorSurfaceClientError";
+  }
+}
+
+/** Thrown when a roundtrip's response does not arrive within the configured
+ *  timeout. Extends {@link AnchorSurfaceClientError} so existing
+ *  `instanceof AnchorSurfaceClientError` handling treats it as a host failure;
+ *  the distinct subtype lets callers detect the timeout specifically. */
+export class AnchorSurfaceTimeoutError extends AnchorSurfaceClientError {
+  constructor(requestType: string, elapsedMs: number) {
+    super(
+      `request '${requestType}' timed out after ${elapsedMs}ms (no response frame)`,
+    );
+    this.name = "AnchorSurfaceTimeoutError";
   }
 }
 
@@ -97,6 +115,12 @@ export interface ConnectOrSpawnOptions {
   /** Max milliseconds to wait for a freshly-spawned host to start listening
    *  (default 5000). Ignored when an existing host is found. */
   spawnTimeoutMs?: number;
+  /** Per-request response timeout in milliseconds applied to every roundtrip
+   *  (sign / pubkey / ping / attest / nonce / heartbeat). On expiry the
+   *  awaiting promise rejects with an {@link AnchorSurfaceTimeoutError} and the
+   *  pending waiter is evicted. Defaults to
+   *  {@link ANCHOR_DEFAULT_REQUEST_TIMEOUT_MS} (30_000). */
+  requestTimeoutMs?: number;
 }
 
 /** TS-side client that delegates owner-key operations to anchor-surface-host. */
@@ -114,8 +138,14 @@ export class AnchorSurfaceClient {
   private cachedPubkey: Uint8Array | null;
   /** Serializes outstanding requests (one at a time). */
   private writeQueue: Promise<void>;
+  /** Per-request response timeout (ms). See ConnectOrSpawnOptions. */
+  private requestTimeoutMs: number;
 
-  private constructor(socket: Socket, spawnedChild: ChildProcess | null) {
+  private constructor(
+    socket: Socket,
+    spawnedChild: ChildProcess | null,
+    requestTimeoutMs: number,
+  ) {
     this.socket = socket;
     this.spawnedChild = spawnedChild;
     this.rxBuffer = new Uint8Array(0);
@@ -123,6 +153,7 @@ export class AnchorSurfaceClient {
     this.fatalError = null;
     this.cachedPubkey = null;
     this.writeQueue = Promise.resolve();
+    this.requestTimeoutMs = requestTimeoutMs;
     this._wireSocket();
   }
 
@@ -133,6 +164,8 @@ export class AnchorSurfaceClient {
   ): Promise<AnchorSurfaceClient> {
     const dir = options.dir ?? defaultAnchorSurfaceDir();
     const autoSpawn = options.autoSpawn ?? true;
+    const requestTimeoutMs =
+      options.requestTimeoutMs ?? ANCHOR_DEFAULT_REQUEST_TIMEOUT_MS;
     const portFile = resolvePath(dir, PORT_DISCOVERY_FILENAME);
 
     // First try connecting to an existing host.
@@ -141,7 +174,7 @@ export class AnchorSurfaceClient {
       if (port !== null) {
         try {
           const socket = await connectTcp(port);
-          return new AnchorSurfaceClient(socket, null);
+          return new AnchorSurfaceClient(socket, null, requestTimeoutMs);
         } catch {
           // Existing port.txt but couldn't connect — port stale; fall through
           // to spawn (if allowed) or fail.
@@ -173,7 +206,7 @@ export class AnchorSurfaceClient {
     const timeout = options.spawnTimeoutMs ?? 5000;
     const port = await waitForHostReady(child, portFile, timeout);
     const socket = await connectTcp(port);
-    return new AnchorSurfaceClient(socket, child);
+    return new AnchorSurfaceClient(socket, child, requestTimeoutMs);
   }
 
   /** Get the owner's 32-byte Ed25519 public key. Cached on first call. */
@@ -430,13 +463,52 @@ export class AnchorSurfaceClient {
     const lengthHeader = new Uint8Array(4);
     new DataView(lengthHeader.buffer).setUint32(0, reqBytes.length, false);
 
+    // Request-type discriminator, purely for the timeout error message.
+    const typeVal = requestMap.get("type");
+    const requestType =
+      typeVal && typeVal.type === "string" ? typeVal.value : "(unknown)";
+
     const responseBytes = await new Promise<Uint8Array>((resolve, reject) => {
-      this.pending = { resolve, reject };
+      const startedAt = Date.now();
+      // Wrap resolve/reject so the liveness timer (armed just below) is always
+      // cleared the moment this roundtrip settles — no leaked timer can keep
+      // `node --test` alive.
+      const waiter: {
+        resolve: (frame: Uint8Array) => void;
+        reject: (err: Error) => void;
+      } = {
+        resolve: (frame: Uint8Array) => {
+          clearTimeout(timer);
+          resolve(frame);
+        },
+        reject: (err: Error) => {
+          clearTimeout(timer);
+          reject(err);
+        },
+      };
+      // Liveness guard: a host that accepts the frame but never answers would
+      // otherwise leave this caller (and the serialized write-queue behind it)
+      // blocked forever. On expiry we evict the pending waiter and fail the
+      // client fatally — a late frame on a single-in-flight socket would
+      // desync the stream, which is exactly the existing fatal condition.
+      // `.unref()` keeps a still-armed timer from holding the event loop open;
+      // we clear it on every settle path above regardless.
+      const timer = setTimeout(() => {
+        // Only act if THIS request is still the pending one (not already
+        // resolved/rejected by an in-flight frame or _failAll).
+        if (this.pending !== waiter) return;
+        this.pending = null;
+        this._failAll(
+          new AnchorSurfaceTimeoutError(requestType, Date.now() - startedAt),
+        );
+      }, this.requestTimeoutMs);
+      timer.unref?.();
+      this.pending = waiter;
       try {
         this.socket.write(lengthHeader);
         this.socket.write(reqBytes);
       } catch (e) {
-        reject(e instanceof Error ? e : new Error(String(e)));
+        waiter.reject(e instanceof Error ? e : new Error(String(e)));
       }
     });
 

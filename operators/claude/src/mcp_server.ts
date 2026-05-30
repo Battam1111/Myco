@@ -39,17 +39,11 @@ import type {
   RecentNodesReport,
 } from "./protocol/messages.ts";
 import { OperatorIdentity } from "./operator_identity.ts";
+import { bytesToHex as toHex } from "./hex.ts";
 
 /** Configuration for the MCP server. */
 export interface McpServerConfig {
   substrate?: SubstrateClientConfig;
-}
-
-/** Convert a Uint8Array to a hex string for tool responses. */
-function toHex(bytes: Uint8Array): string {
-  let s = "";
-  for (const b of bytes) s += b.toString(16).padStart(2, "0");
-  return s;
 }
 
 /** Format an AdvanceReport as a readable summary string. */

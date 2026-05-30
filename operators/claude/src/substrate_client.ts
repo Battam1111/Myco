@@ -18,6 +18,7 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { randomBytes } from "node:crypto";
 
 import { encodeFrame, FrameReader } from "./protocol/framing.ts";
+import { bytesToHex as _toHex } from "./hex.ts";
 import {
   acceptSelfEuthanasiaProposalPayload,
   type AcceptSelfEuthanasiaProposalResult,
@@ -117,13 +118,38 @@ export interface SubstrateClientConfig {
    *  from ~/.myco/operator_keys/ (or $MYCO_OPERATOR_KEY_DIR). Pass an explicit
    *  OperatorIdentity for tests (isolated keypairs). */
   operatorIdentity?: OperatorIdentity;
+  /** Per-request response timeout in milliseconds. If the substrate writes no
+   *  response frame for a request within this window, the awaiting promise
+   *  rejects with a {@link SubstrateTimeoutError} and the waiter is evicted.
+   *  Defaults to {@link DEFAULT_REQUEST_TIMEOUT_MS} (60_000). This is a
+   *  liveness guard against a hung peer — real ops finish well under it. */
+  requestTimeoutMs?: number;
 }
+
+/** Default per-request response timeout for substrate ops (60s). Generous —
+ *  real register/perturb/advance/snapshot round-trips finish in well under a
+ *  second; this only fires when the substrate truly hangs. */
+export const DEFAULT_REQUEST_TIMEOUT_MS = 60_000;
 
 /** Error thrown by SubstrateClient operations. */
 export class SubstrateClientError extends Error {
   constructor(message: string) {
     super(`substrate client: ${message}`);
     this.name = "SubstrateClientError";
+  }
+}
+
+/** Thrown when a request's response does not arrive within the configured
+ *  timeout. Extends {@link SubstrateClientError} so existing `instanceof
+ *  SubstrateClientError` handling (and the fatal-error fan-out) treats it as a
+ *  substrate failure; the distinct subtype lets callers detect the timeout
+ *  specifically. */
+export class SubstrateTimeoutError extends SubstrateClientError {
+  constructor(messageType: string, elapsedMs: number) {
+    super(
+      `request '${messageType}' timed out after ${elapsedMs}ms (no response frame)`,
+    );
+    this.name = "SubstrateTimeoutError";
   }
 }
 
@@ -139,14 +165,20 @@ export class SubstrateClient {
   private sessionSecret: Uint8Array;
   private nextRequestId: bigint;
   private reader: FrameReader;
-  /** Per-request response waiters. Keyed by request_id. */
+  /** Per-request response waiters. Keyed by request_id. Each carries its
+   *  own timeout timer so a hung substrate can never deadlock the caller;
+   *  the timer is always cleared when the waiter settles (resolve / reject /
+   *  fail-all), so no timer leaks to hold the event loop open. */
   private pendingResponses: Map<
     bigint,
     {
       resolve: (msg: Message) => void;
       reject: (err: Error) => void;
+      timer: ReturnType<typeof setTimeout>;
     }
   >;
+  /** Per-request response timeout (ms). See SubstrateClientConfig. */
+  private requestTimeoutMs: number;
   /** Pending fatal error to surface to all waiters on next op. */
   private fatalError: Error | null;
   /** Resolved hello_ack info. */
@@ -156,9 +188,14 @@ export class SubstrateClient {
    *  it owns would leak (its stdio pipes keep the parent alive). */
   private autoLoadedIdentity: OperatorIdentity | null;
 
-  private constructor(child: ChildProcess, sessionSecret: Uint8Array) {
+  private constructor(
+    child: ChildProcess,
+    sessionSecret: Uint8Array,
+    requestTimeoutMs: number,
+  ) {
     this.child = child;
     this.sessionSecret = sessionSecret;
+    this.requestTimeoutMs = requestTimeoutMs;
     this.nextRequestId = 1n;
     this.reader = new FrameReader();
     this.pendingResponses = new Map();
@@ -230,7 +267,11 @@ export class SubstrateClient {
       env: { ...process.env, ...config.env, ...birthAttestationEnv },
     });
 
-    const client = new SubstrateClient(child, sessionSecret);
+    const client = new SubstrateClient(
+      child,
+      sessionSecret,
+      config.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS,
+    );
     // Record ownership: if we auto-loaded the identity, we must close it.
     if (!callerProvidedIdentity) {
       client.autoLoadedIdentity = identity;
@@ -246,7 +287,7 @@ export class SubstrateClient {
       payload: helloPayload(sessionSecret, operatorPubkey, helloSignature),
     };
     const helloFrame = encodeFrameBody(helloMsg, BOOTSTRAP_KEY);
-    const waitForAck = client._registerWaiter(requestId);
+    const waitForAck = client._registerWaiter(requestId, MSG_TYPE.HELLO);
     client._writeFrame(helloFrame);
     const response = await waitForAck;
     client.helloAck = parseHelloAck(response);
@@ -305,10 +346,45 @@ export class SubstrateClient {
     return id;
   }
 
-  private _registerWaiter(requestId: bigint): Promise<Message> {
+  private _registerWaiter(
+    requestId: bigint,
+    messageType: string,
+  ): Promise<Message> {
     return new Promise<Message>((resolve, reject) => {
-      this.pendingResponses.set(requestId, { resolve, reject });
+      const startedAt = Date.now();
+      // Liveness guard: if no response frame arrives within requestTimeoutMs,
+      // evict this waiter and reject. The substrate serializes in practice,
+      // but a hung peer (frame written, never answered) would otherwise leave
+      // the caller awaiting forever. `.unref()` ensures a still-armed timer
+      // never keeps the Node event loop (or a `node --test` run) alive — and
+      // we always clear it via _settleWaiter the moment the waiter settles.
+      const timer = setTimeout(() => {
+        const waiter = this.pendingResponses.get(requestId);
+        if (!waiter) return; // already settled; nothing to do.
+        this.pendingResponses.delete(requestId);
+        waiter.reject(
+          new SubstrateTimeoutError(messageType, Date.now() - startedAt),
+        );
+      }, this.requestTimeoutMs);
+      // Do not hold the process open solely for a pending response timer.
+      timer.unref?.();
+      this.pendingResponses.set(requestId, { resolve, reject, timer });
     });
+  }
+
+  /** Remove a waiter from the pending map AND clear its timeout timer.
+   *  Single choke-point so no settle path leaks a timer. Returns the waiter
+   *  (or undefined if already settled). */
+  private _settleWaiter(
+    requestId: bigint,
+  ):
+    | { resolve: (msg: Message) => void; reject: (err: Error) => void }
+    | undefined {
+    const waiter = this.pendingResponses.get(requestId);
+    if (!waiter) return undefined;
+    clearTimeout(waiter.timer);
+    this.pendingResponses.delete(requestId);
+    return waiter;
   }
 
   private _routeIncoming(msg: Message): void {
@@ -321,9 +397,8 @@ export class SubstrateClient {
         inResponseTo && inResponseTo.type === "uint"
           ? inResponseTo.value
           : msg.requestId;
-      const waiter = this.pendingResponses.get(target);
+      const waiter = this._settleWaiter(target);
       if (waiter) {
-        this.pendingResponses.delete(target);
         waiter.reject(
           new SubstrateClientError(`worker error: code=${code} message=${text}`),
         );
@@ -337,7 +412,7 @@ export class SubstrateClient {
       }
       return;
     }
-    const waiter = this.pendingResponses.get(msg.requestId);
+    const waiter = this._settleWaiter(msg.requestId);
     if (!waiter) {
       this._failAll(
         new SubstrateClientError(
@@ -346,13 +421,13 @@ export class SubstrateClient {
       );
       return;
     }
-    this.pendingResponses.delete(msg.requestId);
     waiter.resolve(msg);
   }
 
   private _failAll(err: Error): void {
     this.fatalError = err;
     for (const [, waiter] of this.pendingResponses) {
+      clearTimeout(waiter.timer);
       waiter.reject(err);
     }
     this.pendingResponses.clear();
@@ -386,7 +461,7 @@ export class SubstrateClient {
       payload,
     };
     const frame = encodeFrameBody(msg, this.sessionSecret);
-    const waiter = this._registerWaiter(requestId);
+    const waiter = this._registerWaiter(requestId, messageType);
     this._writeFrame(frame);
     return waiter;
   }
@@ -1211,12 +1286,6 @@ function _bytesEqual(a: Uint8Array, b: Uint8Array): boolean {
     if (a[i] !== b[i]) return false;
   }
   return true;
-}
-
-function _toHex(bytes: Uint8Array): string {
-  let s = "";
-  for (const b of bytes) s += b.toString(16).padStart(2, "0");
-  return s;
 }
 
 /**
