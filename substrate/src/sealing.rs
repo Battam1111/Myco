@@ -94,60 +94,12 @@
 //! quirks and writing the integration tests that prove round-trip
 //! correctness on a real keyring / Secure Enclave.
 
-// This module is intentionally a documentation surface for the time
-// being. The compile-time `#[cfg(...)]` gates below ensure it produces
-// no orphaned symbols on Windows builds (which use DPAPI exclusively).
-
-/// **Sprint 2.B acknowledged debt** — placeholder for the Linux kernel
-/// keyring sealing backend. See module-level docs for implementation
-/// roadmap.
-#[cfg(all(target_os = "linux", feature = "_sealing_keyring_placeholder"))]
-pub mod linux_keyring {
-    // Real implementation: `add_key("user", description, seed,
-    // KEY_SPEC_USER_KEYRING)` via libc syscalls. Returns kernel key_id.
-    // Store key_id in substrate_signing_key.cb (NOT the seed). Load
-    // path calls `keyctl_read(key_id)` to recover.
-    //
-    // Tests REQUIRE a Linux host with `keyutils` available — adding
-    // Linux CI runners or shipping containerized test environment is
-    // the gate to lighting this up.
-}
-
-/// **Sprint 2.B acknowledged debt** — placeholder for the macOS Secure
-/// Enclave sealing backend. See module-level docs for implementation
-/// roadmap.
-#[cfg(all(target_os = "macos", feature = "_sealing_secure_enclave_placeholder"))]
-pub mod macos_secure_enclave {
-    // Real implementation: SecKeyCreateRandomKey with
-    // kSecAttrTokenIDSecureEnclave. The substrate process never sees
-    // the seed; SecKeyCreateSignature does the Ed25519 operation
-    // inside the Secure Enclave.
-    //
-    // Tests REQUIRE Apple Silicon hardware (Secure Enclave is M1+) or
-    // T2-equipped Intel Mac.
-}
-
-/// **Sprint 2.B acknowledged debt** — placeholder for cross-platform
-/// TPM 2.0 sealing backend. See module-level docs.
-#[cfg(feature = "_sealing_tpm_placeholder")]
-pub mod tpm2 {
-    // Real implementation: TPM2_Create + TPM2_Encrypt via tss-esapi
-    // bindings. Strongest threat-model gain — seed never leaves TPM.
-    // Cross-platform: works on Linux + Windows + ChromeOS hosts with
-    // TPM 2.0 chips.
-}
-
-#[cfg(test)]
-mod tests {
-    // Scaffold-only tests: assert the placeholder modules compile
-    // cleanly and don't accidentally expose stub APIs on the host
-    // platform.
-
-    #[test]
-    fn sprint_2b_scaffold_compiles_clean() {
-        // If this test runs, the module's cfg gates are correct
-        // (compiles on every host platform; bodies only compile when
-        // their respective feature flag is set, which it isn't in
-        // baseline builds).
-    }
-}
+// This module is intentionally documentation-only. It records the shape
+// and threat-model of the future Linux keyring / macOS Secure Enclave /
+// TPM 2.0 backends (the reserved `sealing-*` features in
+// kernel/shared/Cargo.toml) without shipping non-functional stubs that
+// never compile. When a Linux or macOS dev/CI environment becomes
+// available, each backend lands here as a real `#[cfg(target_os = ...)]`
+// module with round-trip integration tests. Until then: Windows uses
+// `substrate::dpapi`; other platforms use the v1 plain-bytes + chmod 0600
+// + BLAKE3-integrity format.
