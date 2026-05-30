@@ -1,123 +1,36 @@
 // Verify the v3.1.1.1 P03-descriptive-amendment ceremony manifest reproduces
 // from the current bundle.
 //
-// CI gate:
+// CI gate (THIS is the active drift gate registered in `npm test`):
 //   - PASS = `manifest.json` matches the current `docs/architecture/L0/`
 //     bundle (every file's SHA-256 + the bundle BLAKE3).
 //   - FAIL = either someone modified an L0 file without re-running
 //     `compute_hashes.ts` (drift), OR `compute_hashes.ts` itself broke
 //     (canonical-bytes regression — L1/HARD_RULES C18 territory).
 //
-// Note: this is the v3.1.1.1 descriptive amendment. The chained chain is:
+// The shared assertions live in ../_lib/ceremony.ts::verifyManifest; this file
+// adds the v3.1.1.1-specific extras (CHAR07 present + P07 byte-distinct + P03
+// byte-expanded).
+//
+// The chained chain is:
 //   v3.1 → v3.1.1 (mortality refinement + 慈爱) → v3.1.1.1 (P03 §3.3 reframe)
-// The v3.1 and v3.1.1 ceremonies' verify_hashes tests are NOT registered in
-// npm test (they would fail by design after each subsequent amendment);
-// v3.1.1.1's is the active drift gate.
+// The v3.1 and v3.1.1 ceremonies' verify tests are NOT registered in npm test
+// (they fail by design after each subsequent amendment); v3.1.1.1's is active.
 
 import { describe, it } from "node:test";
 import { strict as assert } from "node:assert";
-import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 
-import {
-  computeNewL0Hash,
-  getPriorL0Hash,
-  DIFF_SUMMARY,
-  PRIOR_L0_HASH_HEX,
-} from "./compute_hashes.ts";
+import { loadManifest, verifyManifest } from "../_lib/verify.ts";
+import { config } from "./config.ts";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+const manifest = loadManifest(config.dir);
 
-interface Manifest {
-  schema_version: number;
-  ceremony: string;
-  chained_from: string;
-  prior_l0: {
-    source: string;
-    hash_hex: string;
-  };
-  new_l0: {
-    root: string;
-    bundle_files: { path: string; byte_length: number; sha256_hex: string }[];
-    canonical_bytes_length: number;
-    blake3_hex: string;
-  };
-  diff_summary: string;
-}
+// Shared assertions (schema_version, ceremony name, chained_from, diff_summary,
+// prior-hash chain link, new_l0_hash, per-file SHA-256).
+verifyManifest(config, manifest);
 
-function loadManifest(): Manifest {
-  const path = join(__dirname, "manifest.json");
-  return JSON.parse(readFileSync(path, "utf-8")) as Manifest;
-}
-
-describe("v3.1.1.1-p03-descriptive-amendment — hash manifest reproducibility", () => {
-  const manifest = loadManifest();
-
-  it("manifest.schema_version is 1 (no breaking change since seal)", () => {
-    assert.equal(manifest.schema_version, 1);
-  });
-
-  it("manifest.ceremony name is locked", () => {
-    assert.equal(manifest.ceremony, "v3.1.1.1-p03-descriptive-amendment");
-  });
-
-  it("manifest.chained_from points at the v3.1.1 ceremony", () => {
-    assert.equal(manifest.chained_from, "v3.1.1-mortality-refinement-and-charite");
-  });
-
-  it("manifest.diff_summary matches compute_hashes.DIFF_SUMMARY constant", () => {
-    assert.equal(manifest.diff_summary, DIFF_SUMMARY);
-  });
-
-  it("manifest.prior_l0.hash_hex matches the v3.1.1 new_l0_hash (chain link)", () => {
-    assert.equal(manifest.prior_l0.hash_hex, PRIOR_L0_HASH_HEX);
-    const computed = getPriorL0Hash();
-    assert.equal(computed.hashHex, manifest.prior_l0.hash_hex);
-  });
-
-  it("new_l0_hash reproduces from current docs/architecture/L0/ bundle", () => {
-    const computed = computeNewL0Hash();
-    assert.equal(
-      computed.canonicalBytesLength,
-      manifest.new_l0.canonical_bytes_length,
-      `canonical bytes length drift: manifest=${manifest.new_l0.canonical_bytes_length} ` +
-        `computed=${computed.canonicalBytesLength} — an L0 file was modified after v3.1.1 manifest was sealed`,
-    );
-    assert.equal(
-      computed.hashHex,
-      manifest.new_l0.blake3_hex,
-      `new_l0_hash drift: manifest=${manifest.new_l0.blake3_hex} computed=${computed.hashHex} — ` +
-        `re-run compute_hashes.ts and re-sign the ceremony, or revert the L0 change`,
-    );
-  });
-
-  it("every bundle file's per-file SHA-256 is byte-stable", () => {
-    const computed = computeNewL0Hash();
-    assert.equal(
-      computed.bundleFiles.length,
-      manifest.new_l0.bundle_files.length,
-      `bundle file count drift: manifest=${manifest.new_l0.bundle_files.length} ` +
-        `computed=${computed.bundleFiles.length} — a file was added or removed`,
-    );
-    for (let i = 0; i < computed.bundleFiles.length; i++) {
-      const a = computed.bundleFiles[i]!;
-      const b = manifest.new_l0.bundle_files[i]!;
-      assert.equal(a.path, b.path, `bundle file order drift at index ${i}`);
-      assert.equal(
-        a.byte_length,
-        b.byte_length,
-        `bundle file ${a.path} byte length drift`,
-      );
-      assert.equal(
-        a.sha256_hex,
-        b.sha256_hex,
-        `bundle file ${a.path} SHA-256 drift`,
-      );
-    }
-  });
-
+// v3.1.1.1-specific extras (verbatim from the original test).
+describe("v3.1.1.1-p03-descriptive-amendment — amendment-specific checks", () => {
   it("CHAR07_caring.md is present in the bundle (v3.1.1 addition)", () => {
     const found = manifest.new_l0.bundle_files.find(
       (f) => f.path === "cards/CHAR07_caring.md",
