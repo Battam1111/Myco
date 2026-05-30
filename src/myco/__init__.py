@@ -28,4 +28,22 @@ not a version increment; it is "the same 0.6.0 release with a fresh
 artifact name".
 """
 
-__version__ = "0.8.7"
+__version__ = "0.8.8"
+
+# ---------------------------------------------------------------------------
+# v0.8.8 — final embryo release. This PyPI package is DEPRECATED.
+#
+# Myco has been reborn as v0.9-genesis: a decades-long human/substrate
+# partnership that is a clone-and-build system (Rust + Python + TypeScript),
+# NOT a pip-installable tool. This package remains only as the predecessor
+# lineage. See https://github.com/Battam1111/Myco
+# ---------------------------------------------------------------------------
+import warnings as _warnings
+
+_warnings.warn(
+    "The `myco` PyPI package (v0.8.x) is the sealed Agent-First embryo. "
+    "Myco has been reborn as v0.9-genesis, a clone-and-build substrate "
+    "(not pip-installable): https://github.com/Battam1111/Myco",
+    DeprecationWarning,
+    stacklevel=2,
+)

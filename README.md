@@ -1,3 +1,17 @@
+> ## ⚠️ Deprecated: Myco has been reborn as v0.9-genesis
+>
+> This PyPI package (`myco`, v0.4–v0.8.x) is the **Agent-First cognitive-substrate embryo**: a 20-verb tool framework for an AI agent's memory. It is doctrinally a **dead embryo**, sealed at the git tag [`v0.8.8-final-embryo`](https://github.com/Battam1111/Myco/tree/v0.8.8-final-embryo).
+>
+> **The project has been reborn** as a different conception: a decades-long symbiotic partnership between one human and a substrate that carries memory, character, and doctrine across LLM model generations. v0.9 is **not** a `pip install`. It is a clone-and-build substrate (Rust + Python + TypeScript).
+>
+> ### 👉 See [github.com/Battam1111/Myco](https://github.com/Battam1111/Myco)
+>
+> Branch `v0.9-genesis`, with its `GETTING_STARTED.md`. This `myco` PyPI package is no longer the project; it remains only as the predecessor lineage.
+
+---
+
+<!-- The original v0.8.x embryo README is preserved below for the record. -->
+
 <p align="center">
   <a href="https://github.com/Battam1111/Myco">
     <img src="https://raw.githubusercontent.com/Battam1111/Myco/main/.docs/assets/logo_light_512.png" width="160" alt="Myco">
