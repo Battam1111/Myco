@@ -488,6 +488,204 @@ pub fn map_get_bool(map: &BTreeMap<String, Value>, key: &str) -> Result<bool, Ca
     }
 }
 
+// ---------------------------------------------------------------------------
+// Float rendering — the canonical wire form for f64.
+// ---------------------------------------------------------------------------
+
+/// Render an `f64` as its canonical-bytes wire string: the exact CPython
+/// `repr(float)` of the value.
+///
+/// ## Why floats are strings
+///
+/// The canonical-bytes [`Value`] type has **no float tag**. Floats are encoded
+/// upstream as `Value::String(float_repr(x))` (a tag-`0x20` String), because a
+/// raw IEEE-754 byte encoding has cross-language reproducibility hazards (NaN
+/// payload bits, signaling bits, endianness of the significand). Round-tripping
+/// through the *shortest decimal string that recovers the same f64* sidesteps
+/// all of that: every language parses the same string back to the same double.
+///
+/// ## The oracle
+///
+/// The original producer of these strings is the Python kernel, which calls the
+/// bare builtin `repr()`. **CPython `repr(float)` is therefore the canonical
+/// oracle**, and this function reproduces it byte-for-byte. The Rust substrate,
+/// the Rust bridge controller, and the TypeScript operator all delegate to (or
+/// mirror) this routine. Any divergence is the float facet of
+/// L1/HARD_RULES **C18** `canonical_bytes_render_drift` (CRITICAL).
+///
+/// Cross-language parity is pinned by the `float_vectors` array in
+/// `test_vectors/canonical_bytes_v1.json` (consumed by the Rust, Python, and
+/// TypeScript parity suites).
+///
+/// ## The algorithm (= CPython `repr`)
+///
+/// CPython `repr(float)` is *"the shortest decimal string that round-trips to
+/// the same f64 under round-to-nearest-**even**"*, formatted with these rules:
+///
+/// - **Notation**: exponential iff the decimal exponent `x` (where the value is
+///   `d.ddd x 10^x`) satisfies `x < -4` **or** `x >= 16`; otherwise positional.
+/// - **Positional, integer-valued** (no fractional digits) gets a trailing
+///   `.0` (`1.0`, `100.0`, `1000000000000000.0`).
+/// - **Exponential**: `d[.ddd]` then `e`, then the exponent sign — **always**
+///   present (`e+` / `e-`) — then the exponent magnitude **zero-padded to at
+///   least 2 digits** (`1e-05`, `1e+16`, `1.5e+300`).
+/// - **`-0.0`** renders with its sign preserved.
+/// - **Non-finite**: `nan`, `inf`, `-inf` (these are rejected as divergence
+///   upstream before serialization, but the branch is defined and pinned).
+///
+/// ## Why fixed-precision, not `{}` / `{:e}`
+///
+/// Rust's *shortest* float formatters (`{}` and `{:e}`) emit the correct
+/// shortest **digits** but break exact midpoint ties by rounding **half-away**,
+/// whereas CPython rounds **half-to-even**. (Example: the f64 nearest
+/// `1340492803849185.25` renders as `...85.2` under CPython but `...85.3` under
+/// Rust's shortest.) Rust's *fixed-precision* formatter `{:.p e}` **does** round
+/// half-to-even — matching CPython — so we find the smallest precision `p` whose
+/// round-to-even rendering recovers the input, then reformat per the rules
+/// above. This reproduces CPython on every f64 (verified by fuzzing millions of
+/// values against `repr`), including the tie cases that the native shortest
+/// formatter gets "wrong" for our cross-language purpose.
+///
+/// `p` is bounded by 17 (no f64 needs more than 17 significant digits), so this
+/// performs at most 18 format-and-parse probes; `float_repr` is only invoked at
+/// event-encoding time, not in any hot inner loop.
+pub fn float_repr(f: f64) -> String {
+    if f.is_nan() {
+        return "nan".to_string();
+    }
+    if f.is_infinite() {
+        return if f > 0.0 {
+            "inf".to_string()
+        } else {
+            "-inf".to_string()
+        };
+    }
+    // Sign captured via the sign bit so `-0.0` is distinguishable from `0.0`
+    // (`f == 0.0` is true for both).
+    let negative = f.is_sign_negative();
+    let abs = f.abs();
+    if abs == 0.0 {
+        return if negative {
+            "-0.0".to_string()
+        } else {
+            "0.0".to_string()
+        };
+    }
+
+    let (digits, exp) = shortest_round_to_even_digits(abs);
+    // Mirror CPython's documented rule verbatim ("exponential iff x < -4 or
+    // x >= 16") rather than clippy's `!(-4..16).contains(&exp)` rewrite, which
+    // obscures the doctrine condition this line is meant to encode.
+    #[allow(clippy::manual_range_contains)]
+    let body = if exp < -4 || exp >= 16 {
+        render_exponential(&digits, exp)
+    } else {
+        render_positional(&digits, exp)
+    };
+    if negative {
+        format!("-{body}")
+    } else {
+        body
+    }
+}
+
+/// Return `(digits, exp)` where `digits` is the shortest run of significant
+/// decimal digits (no decimal point, no leading zeros, trailing zeros stripped)
+/// that round-trips to `abs`, and `exp` is the power of ten of the leading
+/// digit (so `abs == digits[0].digits[1..] x 10^exp`). Uses Rust's
+/// round-to-even fixed-precision formatter, matching CPython's tie-break.
+///
+/// `abs` must be finite and strictly positive.
+fn shortest_round_to_even_digits(abs: f64) -> (String, i32) {
+    for p in 0..=17usize {
+        let s = format!("{abs:.*e}", p);
+        // `{:.p e}` rounds half-to-even; the first precision that recovers the
+        // input is the CPython-shortest representation.
+        if s.parse::<f64>() == Ok(abs) {
+            return parse_scientific(&s);
+        }
+    }
+    // Unreachable for finite f64 (17 significant digits always suffice), but be
+    // total rather than panic.
+    parse_scientific(&format!("{abs:.17e}"))
+}
+
+/// Split a Rust `{:e}`-style scientific string (`"D"` or `"D.FFF"`, then `e`,
+/// then a signed integer exponent with no leading zeros) into its significant
+/// digits (decimal point removed, trailing zeros stripped) and the exponent of
+/// the leading digit.
+fn parse_scientific(s: &str) -> (String, i32) {
+    let (mantissa, exp_str) = s.split_once('e').expect("`{:e}` always contains 'e'");
+    let exp: i32 = exp_str.parse().expect("exponent is an integer");
+    let mut digits: String = match mantissa.split_once('.') {
+        Some((int_part, frac)) => format!("{int_part}{frac}"),
+        None => mantissa.to_string(),
+    };
+    // Strip trailing zeros (e.g. "1.50e2" carries digits "150" -> "15") while
+    // keeping at least one digit.
+    while digits.len() > 1 && digits.ends_with('0') {
+        digits.pop();
+    }
+    (digits, exp)
+}
+
+/// Positional/fixed rendering. `digits` are the significant digits (no point, no
+/// leading zeros); `exp` is the power of ten of the leading digit. Caller
+/// guarantees `-4 <= exp < 16`.
+fn render_positional(digits: &str, exp: i32) -> String {
+    let ndigits = digits.len() as i32;
+    if exp >= 0 {
+        let int_len = exp + 1; // digits left of the decimal point
+        if ndigits <= int_len {
+            // All significant digits are integer-part; pad to width, add ".0".
+            let mut s = String::with_capacity(int_len as usize + 2);
+            s.push_str(digits);
+            for _ in 0..(int_len - ndigits) {
+                s.push('0');
+            }
+            s.push_str(".0");
+            s
+        } else {
+            // Integer part then fractional remainder.
+            let mut s = String::with_capacity(digits.len() + 1);
+            s.push_str(&digits[..int_len as usize]);
+            s.push('.');
+            s.push_str(&digits[int_len as usize..]);
+            s
+        }
+    } else {
+        // 0.000<digits>: (-exp - 1) leading zeros after "0.".
+        let lead_zeros = (-exp - 1) as usize;
+        let mut s = String::with_capacity(2 + lead_zeros + digits.len());
+        s.push_str("0.");
+        for _ in 0..lead_zeros {
+            s.push('0');
+        }
+        s.push_str(digits);
+        s
+    }
+}
+
+/// Exponential rendering, CPython style: `first-digit[.rest]e<sign><>=2-digit
+/// exponent>`.
+fn render_exponential(digits: &str, exp: i32) -> String {
+    let (first, rest) = digits.split_at(1);
+    let mut s = String::with_capacity(digits.len() + 5);
+    s.push_str(first);
+    if !rest.is_empty() {
+        s.push('.');
+        s.push_str(rest);
+    }
+    s.push('e');
+    s.push(if exp < 0 { '-' } else { '+' });
+    let abs_exp = exp.unsigned_abs();
+    if abs_exp < 10 {
+        s.push('0'); // zero-pad to at least 2 digits
+    }
+    s.push_str(&abs_exp.to_string());
+    s
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -632,5 +830,121 @@ mod tests {
         let mut expected = vec![0x41];
         expected.extend_from_slice(&h);
         assert_eq!(bytes.as_ref(), &expected[..]);
+    }
+
+    // -----------------------------------------------------------------------
+    // float_repr — reproduces CPython repr(float). The cross-language parity
+    // vectors live in test_vectors/canonical_bytes_v1.json (`float_vectors`)
+    // and are exercised by the test_vectors/rs parity crate; the tests here pin
+    // the branch behavior and the value-preservation invariants in-crate.
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn float_repr_integer_valued_gets_trailing_dot_zero() {
+        assert_eq!(float_repr(0.0), "0.0");
+        assert_eq!(float_repr(1.0), "1.0");
+        assert_eq!(float_repr(-2.0), "-2.0");
+        assert_eq!(float_repr(100.0), "100.0");
+        assert_eq!(float_repr(1_000_000.0), "1000000.0");
+        assert_eq!(float_repr(1e15), "1000000000000000.0");
+    }
+
+    #[test]
+    fn float_repr_fractional() {
+        assert_eq!(float_repr(0.5), "0.5");
+        assert_eq!(float_repr(-0.125), "-0.125");
+        assert_eq!(float_repr(2.5), "2.5");
+        assert_eq!(float_repr(0.1), "0.1");
+        assert_eq!(float_repr(12345.67), "12345.67");
+        // needs all 17 significant digits
+        assert_eq!(float_repr(0.1 + 0.2), "0.30000000000000004");
+    }
+
+    #[test]
+    fn float_repr_negative_zero_preserves_sign() {
+        // The whole point of the sign-bit check: -0.0 must NOT collapse to 0.0.
+        assert_eq!(float_repr(-0.0), "-0.0");
+        assert_eq!(float_repr(0.0), "0.0");
+        assert!(float_repr(-0.0).starts_with('-'));
+    }
+
+    #[test]
+    fn float_repr_exponential_threshold_high() {
+        // x >= 16 flips to exponential; x == 15 stays positional.
+        assert_eq!(float_repr(9_999_999_999_999_998.0), "9999999999999998.0");
+        assert_eq!(float_repr(1e16), "1e+16");
+        assert_eq!(float_repr(1e17), "1e+17");
+        assert_eq!(float_repr(1.5e300), "1.5e+300");
+        assert_eq!(float_repr(f64::MAX), "1.7976931348623157e+308");
+    }
+
+    #[test]
+    fn float_repr_exponential_threshold_low() {
+        // x < -4 flips to exponential; x == -4 stays positional.
+        assert_eq!(float_repr(1e-4), "0.0001");
+        assert_eq!(float_repr(0.0001234), "0.0001234");
+        assert_eq!(float_repr(1e-5), "1e-05");
+        assert_eq!(float_repr(0.00001234), "1.234e-05");
+        assert_eq!(float_repr(-1e-7), "-1e-07");
+        assert_eq!(float_repr(1e-100), "1e-100");
+    }
+
+    #[test]
+    fn float_repr_exponent_zero_padded_and_signed() {
+        // Exponent always carries a sign and is padded to >= 2 digits.
+        assert_eq!(float_repr(1e-5), "1e-05"); // pad 5 -> 05
+        assert_eq!(float_repr(1e16), "1e+16"); // sign + on positive exponent
+        assert_eq!(float_repr(1.5e-10), "1.5e-10"); // 2-digit exponent unchanged
+        assert_eq!(float_repr(1e100), "1e+100"); // 3-digit exponent unchanged
+    }
+
+    #[test]
+    fn float_repr_subnormals_and_extremes() {
+        assert_eq!(float_repr(f64::MIN_POSITIVE), "2.2250738585072014e-308");
+        assert_eq!(float_repr(5e-324), "5e-324"); // smallest positive subnormal
+        assert_eq!(float_repr(1e-310), "1e-310"); // mid-range subnormal
+    }
+
+    #[test]
+    fn float_repr_round_half_to_even_ties() {
+        // These f64 values sit at an exact decimal midpoint where BOTH neighbors
+        // round-trip. CPython picks the even last digit; Rust's *shortest*
+        // formatter would pick the odd one. float_repr must match CPython.
+        assert_eq!(
+            float_repr(f64::from_bits(0x43130caf3596ef85)),
+            "1340492803849185.2" // NOT ...85.3
+        );
+        assert_eq!(
+            float_repr(f64::from_bits(0xc2d3c2ce0c38f748)),
+            "-86909605962717.12" // NOT ...717.13
+        );
+        assert_eq!(
+            float_repr(f64::from_bits(0x431ca6bc0c46dc51)),
+            "2016156484482836.2" // NOT ...836.3
+        );
+    }
+
+    #[test]
+    fn float_repr_special() {
+        assert_eq!(float_repr(f64::NAN), "nan");
+        assert_eq!(float_repr(f64::INFINITY), "inf");
+        assert_eq!(float_repr(f64::NEG_INFINITY), "-inf");
+    }
+
+    proptest::proptest! {
+        /// Every finite f64 rendering must parse back to the identical f64 — the
+        /// fundamental round-trip guarantee that makes string-encoded floats a
+        /// safe cross-language wire form.
+        #[test]
+        fn float_repr_round_trips(bits in proptest::num::u64::ANY) {
+            let f = f64::from_bits(bits);
+            if f.is_finite() {
+                let s = float_repr(f);
+                let back: f64 = s.parse().expect("float_repr output parses");
+                // Compare bit patterns so -0.0 vs 0.0 is also caught.
+                proptest::prop_assert_eq!(back.to_bits(), f.to_bits(),
+                    "rendering {} did not round-trip", s);
+            }
+        }
     }
 }

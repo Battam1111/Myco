@@ -2,7 +2,9 @@
 //! owner_key / nonce — plus the shared float-repr + hex-prefix utilities used
 //! by every domain.
 
-use myco_kernel_shared::canonical_bytes::{encode as cb_encode, CanonicalBytes, Value};
+use myco_kernel_shared::canonical_bytes::{
+    encode as cb_encode, float_repr as shared_float_repr, CanonicalBytes, Value,
+};
 use std::collections::BTreeMap;
 
 // ---------------------------------------------------------------------------
@@ -51,22 +53,17 @@ pub const NODE_TYPE_NONCE_EXPIRED_PREFIX: &str = "nonce_expired:";
 // ---------------------------------------------------------------------------
 
 /// Format an f64 as a Python-compatible repr string for cross-platform
-/// deterministic event encoding. Identical convention to the wire protocol's
-/// `float_repr` (kernel/bridge::protocol::float_repr).
+/// deterministic event encoding.
+///
+/// **Single source of truth**: delegates to
+/// [`myco_kernel_shared::canonical_bytes::float_repr`], which reproduces CPython
+/// `repr(float)` exactly (the canonical oracle). Re-exported here so the many
+/// substrate event/observatory/ingest call sites keep importing
+/// `crate::events::float_repr` unchanged. See the shared implementation for the
+/// algorithm and the L1/HARD_RULES C18 (`canonical_bytes_render_drift`)
+/// rationale.
 pub fn float_repr(f: f64) -> String {
-    if f.is_nan() {
-        "nan".to_string()
-    } else if f.is_infinite() {
-        if f > 0.0 {
-            "inf".to_string()
-        } else {
-            "-inf".to_string()
-        }
-    } else if f == f.trunc() && f.abs() < 1e16 {
-        format!("{f:.1}")
-    } else {
-        format!("{f}")
-    }
+    shared_float_repr(f)
 }
 
 // ---------------------------------------------------------------------------

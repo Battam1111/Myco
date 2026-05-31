@@ -30,7 +30,9 @@ use myco_kernel_bridge::protocol::{
 use myco_kernel_bridge::BridgeError;
 use myco_kernel_continuity::cycle::{CycleConfig, CycleEngine};
 use myco_kernel_schema::dag::Dag;
-use myco_kernel_shared::canonical_bytes::{encode as cb_encode, Value};
+use myco_kernel_shared::canonical_bytes::{
+    encode as cb_encode, float_repr as shared_float_repr, Value,
+};
 
 use crate::persistence::{
     default_state_dir, ensure_state_dir, load_dag, load_nonce_log, load_pinned_operator_identity,
@@ -1610,22 +1612,14 @@ fn graceful_shutdown_python(state: &mut ServerState) {
 // (events / observatory / ingest) imports it for canonical float rendering.
 
 /// Render an f64 as a Python-compatible repr string.
-/// Identical to kernel/bridge::protocol::float_repr but reproduced here so
-/// we don't need to expose that internal helper.
+///
+/// **Single source of truth**: delegates to
+/// [`myco_kernel_shared::canonical_bytes::float_repr`] (CPython `repr(float)`
+/// reproduced exactly — the canonical oracle). Re-exported here because
+/// `ingest` / `observatory` import `crate::server::float_repr`. See the shared
+/// implementation for the algorithm and the L1/HARD_RULES C18 rationale.
 pub(crate) fn float_repr(f: f64) -> String {
-    if f.is_nan() {
-        "nan".to_string()
-    } else if f.is_infinite() {
-        if f > 0.0 {
-            "inf".to_string()
-        } else {
-            "-inf".to_string()
-        }
-    } else if f == f.trunc() && f.abs() < 1e16 {
-        format!("{f:.1}")
-    } else {
-        format!("{f}")
-    }
+    shared_float_repr(f)
 }
 
 #[cfg(test)]

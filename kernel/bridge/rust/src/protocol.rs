@@ -23,8 +23,9 @@ use std::collections::BTreeMap;
 
 use hmac::{Hmac, Mac};
 use myco_kernel_shared::canonical_bytes::{
-    decode as cb_decode, encode as cb_encode, map_get_array, map_get_bytes, map_get_map,
-    map_get_string, map_get_uint, CanonicalBytes, CanonicalBytesError, Value,
+    decode as cb_decode, encode as cb_encode, float_repr as shared_float_repr, map_get_array,
+    map_get_bytes, map_get_map, map_get_string, map_get_uint, CanonicalBytes, CanonicalBytesError,
+    Value,
 };
 use sha2::Sha256;
 
@@ -661,21 +662,14 @@ pub fn submit_mutation_payload(
 /// IEEE 754 (which has cross-language reproducibility hazards around NaN
 /// payloads and signaling bits), we round-trip floats via their string
 /// representations. Both sides parse the string back into a float.
+///
+/// **Single source of truth**: delegates to
+/// [`myco_kernel_shared::canonical_bytes::float_repr`], which reproduces CPython
+/// `repr(float)` byte-for-byte (the canonical oracle). Kept as a re-export here
+/// so existing `protocol::float_repr` call sites are undisturbed. See the shared
+/// implementation for the algorithm and the L1/HARD_RULES C18 rationale.
 pub fn float_repr(f: f64) -> String {
-    if f.is_nan() {
-        "nan".to_string()
-    } else if f.is_infinite() {
-        if f > 0.0 {
-            "inf".to_string()
-        } else {
-            "-inf".to_string()
-        }
-    } else if f == f.trunc() && f.abs() < 1e16 {
-        // Integer-valued float: match Python's repr (e.g., "0.0", "1.0", "-2.5").
-        format!("{f:.1}")
-    } else {
-        format!("{f}")
-    }
+    shared_float_repr(f)
 }
 
 // ---------------------------------------------------------------------------

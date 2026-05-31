@@ -13,7 +13,8 @@
     "tag_0x31": "Map — varint count + N (key, value) pairs sorted by canonical-bytes of key",
     "tag_0x40": "Timestamp — 8 bytes big-endian i64 (unix nanoseconds)",
     "tag_0x41": "Hash — 32 bytes raw",
-    "varint": "7 bits per byte; MSB=1 if more bytes follow; MSB=0 on last byte; little-endian byte order"
+    "varint": "7 bits per byte; MSB=1 if more bytes follow; MSB=0 on last byte; little-endian byte order",
+    "float_note": "There is NO float tag. f64 values are encoded as String(repr(x)) — the CPython repr() of the f64 is the canonical wire form, rendered as a tag-0x20 String. The repr is the SHORTEST decimal that round-trips to the same f64 under round-to-nearest-EVEN; exponential iff the decimal exponent x < -4 OR x >= 16; integer-valued positional gets a trailing '.0'; exponential uses 'e', an always-present sign, and an exponent zero-padded to >=2 digits; -0.0 keeps its sign. The Rust (kernel/shared::float_repr) and TypeScript (operators floatRepr) implementations MUST reproduce CPython repr byte-for-byte; see float_vectors below. Divergence = the float facet of L1/HARD_RULES C18 canonical_bytes_render_drift (CRITICAL)."
   },
   "vectors": [
     {
@@ -204,5 +205,271 @@
     { "input": 16384, "output_hex": "808001" },
     { "input": 2097151, "output_hex": "ffff7f" },
     { "input": 2097152, "output_hex": "80808001" }
+  ],
+  "float_vectors": [
+    {
+      "name": "zero",
+      "_desc": "+0.0 -- integer-valued zero",
+      "f64_be_hex": "0000000000000000",
+      "expected_repr": "0.0"
+    },
+    {
+      "name": "neg_zero",
+      "_desc": "-0.0 -- sign bit preserved (the TS sign-loss bug)",
+      "f64_be_hex": "8000000000000000",
+      "expected_repr": "-0.0"
+    },
+    {
+      "name": "one",
+      "_desc": "integer-valued positional -> trailing .0",
+      "f64_be_hex": "3ff0000000000000",
+      "expected_repr": "1.0"
+    },
+    {
+      "name": "neg_two",
+      "_desc": "negative integer-valued",
+      "f64_be_hex": "c000000000000000",
+      "expected_repr": "-2.0"
+    },
+    {
+      "name": "hundred",
+      "_desc": "multi-digit integer-valued",
+      "f64_be_hex": "4059000000000000",
+      "expected_repr": "100.0"
+    },
+    {
+      "name": "half",
+      "_desc": "simple fraction",
+      "f64_be_hex": "3fe0000000000000",
+      "expected_repr": "0.5"
+    },
+    {
+      "name": "neg_eighth",
+      "_desc": "negative exact binary fraction",
+      "f64_be_hex": "bfc0000000000000",
+      "expected_repr": "-0.125"
+    },
+    {
+      "name": "two_point_five",
+      "_desc": "mixed integer+fraction",
+      "f64_be_hex": "4004000000000000",
+      "expected_repr": "2.5"
+    },
+    {
+      "name": "common_0_1",
+      "_desc": "0.1 -- not exactly representable; shortest digits",
+      "f64_be_hex": "3fb999999999999a",
+      "expected_repr": "0.1"
+    },
+    {
+      "name": "common_0_3",
+      "_desc": "0.3 -- shortest digits",
+      "f64_be_hex": "3fd3333333333333",
+      "expected_repr": "0.3"
+    },
+    {
+      "name": "pi",
+      "_desc": "pi -- 16 significant digits",
+      "f64_be_hex": "400921fb54442d18",
+      "expected_repr": "3.141592653589793"
+    },
+    {
+      "name": "e",
+      "_desc": "e -- 16 significant digits",
+      "f64_be_hex": "4005bf0a8b145769",
+      "expected_repr": "2.718281828459045"
+    },
+    {
+      "name": "seventeen_sig_digits",
+      "_desc": "0.1+0.2 -- needs 17 significant digits",
+      "f64_be_hex": "3fd3333333333334",
+      "expected_repr": "0.30000000000000004"
+    },
+    {
+      "name": "one_third",
+      "_desc": "1/3 -- repeating, 16 sig digits",
+      "f64_be_hex": "3fd5555555555555",
+      "expected_repr": "0.3333333333333333"
+    },
+    {
+      "name": "twelve_thousand",
+      "_desc": "ordinary 4+2 digit decimal",
+      "f64_be_hex": "40c81cd5c28f5c29",
+      "expected_repr": "12345.67"
+    },
+    {
+      "name": "tiny_fraction_0_00725",
+      "_desc": "0.00725 -- exponent -3, stays positional",
+      "f64_be_hex": "3f7db22d0e560419",
+      "expected_repr": "0.00725"
+    },
+    {
+      "name": "ten_to_15",
+      "_desc": "exp 15 -- positional 1000000000000000.0 (just under threshold)",
+      "f64_be_hex": "430c6bf526340000",
+      "expected_repr": "1000000000000000.0"
+    },
+    {
+      "name": "nine_e15",
+      "_desc": "exp 15 -- positional 9000000000000000.0",
+      "f64_be_hex": "433ff973cafa8000",
+      "expected_repr": "9000000000000000.0"
+    },
+    {
+      "name": "just_below_1e16",
+      "_desc": "largest representable below 1e16 -- positional",
+      "f64_be_hex": "4341c37937e07fff",
+      "expected_repr": "9999999999999998.0"
+    },
+    {
+      "name": "exactly_1e16",
+      "_desc": "exp 16 -- FIRST to flip to e+16",
+      "f64_be_hex": "4341c37937e08000",
+      "expected_repr": "1e+16"
+    },
+    {
+      "name": "ten_to_17",
+      "_desc": "exp 17 -- e+17",
+      "f64_be_hex": "4376345785d8a000",
+      "expected_repr": "1e+17"
+    },
+    {
+      "name": "big_1_5e300",
+      "_desc": "large exponential, 3-digit exponent",
+      "f64_be_hex": "7e41eb2d66005835",
+      "expected_repr": "1.5e+300"
+    },
+    {
+      "name": "max_double",
+      "_desc": "DBL_MAX -- 17 sig digits, e+308",
+      "f64_be_hex": "7fefffffffffffff",
+      "expected_repr": "1.7976931348623157e+308"
+    },
+    {
+      "name": "neg_big_exp",
+      "_desc": "negative large exponential",
+      "f64_be_hex": "e98a20df0dcd3af1",
+      "expected_repr": "-2.5e+200"
+    },
+    {
+      "name": "e_plus_100",
+      "_desc": "1e+100 -- exact power of ten, exponential",
+      "f64_be_hex": "54b249ad2594c37d",
+      "expected_repr": "1e+100"
+    },
+    {
+      "name": "ten_to_minus_4",
+      "_desc": "exp -4 -- positional 0.0001 (boundary, stays positional)",
+      "f64_be_hex": "3f1a36e2eb1c432d",
+      "expected_repr": "0.0001"
+    },
+    {
+      "name": "frac_0_0001234",
+      "_desc": "exp -4 -- positional 0.0001234",
+      "f64_be_hex": "3f202c9dedbc309d",
+      "expected_repr": "0.0001234"
+    },
+    {
+      "name": "ten_to_minus_5",
+      "_desc": "exp -5 -- FIRST to flip to e-05 (zero-padded)",
+      "f64_be_hex": "3ee4f8b588e368f1",
+      "expected_repr": "1e-05"
+    },
+    {
+      "name": "frac_1_234e_minus_5",
+      "_desc": "exp -5 -- e-05 with mantissa",
+      "f64_be_hex": "3ee9e0fcaf9380fc",
+      "expected_repr": "1.234e-05"
+    },
+    {
+      "name": "three_e_minus_5",
+      "_desc": "exp -5 -- 3e-05",
+      "f64_be_hex": "3eff75104d551d69",
+      "expected_repr": "3e-05"
+    },
+    {
+      "name": "small_1_5e_minus_10",
+      "_desc": "exp -10 -- 1.5e-10 (2-digit exponent)",
+      "f64_be_hex": "3de49da7e361ce4c",
+      "expected_repr": "1.5e-10"
+    },
+    {
+      "name": "neg_1e_minus_7",
+      "_desc": "exp -7 -- negative, -1e-07 zero-padded",
+      "f64_be_hex": "be7ad7f29abcaf48",
+      "expected_repr": "-1e-07"
+    },
+    {
+      "name": "e_minus_100",
+      "_desc": "1e-100 -- 3-digit negative exponent",
+      "f64_be_hex": "2b2bff2ee48e0530",
+      "expected_repr": "1e-100"
+    },
+    {
+      "name": "min_normal",
+      "_desc": "DBL_MIN (smallest normal) -- e-308",
+      "f64_be_hex": "0010000000000000",
+      "expected_repr": "2.2250738585072014e-308"
+    },
+    {
+      "name": "min_subnormal",
+      "_desc": "smallest positive subnormal -- 5e-324",
+      "f64_be_hex": "0000000000000001",
+      "expected_repr": "5e-324"
+    },
+    {
+      "name": "subnormal_mid",
+      "_desc": "a mid-range subnormal -- 1e-310",
+      "f64_be_hex": "000012688b70e62b",
+      "expected_repr": "1e-310"
+    },
+    {
+      "name": "million",
+      "_desc": "1e6 integer-valued positional",
+      "f64_be_hex": "412e848000000000",
+      "expected_repr": "1000000.0"
+    },
+    {
+      "name": "neg_million",
+      "_desc": "negative 1e6 integer-valued",
+      "f64_be_hex": "c12e848000000000",
+      "expected_repr": "-1000000.0"
+    },
+    {
+      "name": "round_half_even_tie_1",
+      "_desc": "round-half-to-even tie: CPython repr is ...85.2, NOT the native-shortest ...85.3",
+      "f64_be_hex": "43130caf3596ef85",
+      "expected_repr": "1340492803849185.2"
+    },
+    {
+      "name": "round_half_even_tie_2",
+      "_desc": "round-half-to-even tie (negative): ...717.12, NOT ...717.13",
+      "f64_be_hex": "c2d3c2ce0c38f748",
+      "expected_repr": "-86909605962717.12"
+    },
+    {
+      "name": "round_half_even_tie_3",
+      "_desc": "round-half-to-even tie: ...836.2, NOT ...836.3",
+      "f64_be_hex": "431ca6bc0c46dc51",
+      "expected_repr": "2016156484482836.2"
+    },
+    {
+      "name": "nan",
+      "_desc": "quiet NaN -> 'nan' (non-finite; rejected upstream as divergence, branch pinned here)",
+      "f64_be_hex": "7ff8000000000000",
+      "expected_repr": "nan"
+    },
+    {
+      "name": "pos_inf",
+      "_desc": "+inf -> 'inf'",
+      "f64_be_hex": "7ff0000000000000",
+      "expected_repr": "inf"
+    },
+    {
+      "name": "neg_inf",
+      "_desc": "-inf -> '-inf'",
+      "f64_be_hex": "fff0000000000000",
+      "expected_repr": "-inf"
+    }
   ]
 }

@@ -12,7 +12,7 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::PathBuf;
 
-use myco_kernel_shared::canonical_bytes::{decode, encode, Value};
+use myco_kernel_shared::canonical_bytes::{decode, encode, float_repr, Value};
 
 use serde::Deserialize;
 
@@ -20,6 +20,16 @@ use serde::Deserialize;
 struct VectorsFile {
     vectors: Vec<VectorCase>,
     varint_vectors: Vec<VarintCase>,
+    float_vectors: Vec<FloatCase>,
+}
+
+#[derive(Debug, Deserialize)]
+struct FloatCase {
+    name: String,
+    /// Big-endian IEEE-754 bit pattern of the f64 (16 hex chars).
+    f64_be_hex: String,
+    /// The expected canonical rendering = CPython `repr()` of that f64.
+    expected_repr: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -251,6 +261,47 @@ fn all_canonical_bytes_vectors_decode_roundtrip() {
             failures.push(format!(
                 "vector \"{name}\" decode-roundtrip mismatch:\n  original:   {}\n  reencoded:  {}",
                 v.output_hex, reencoded_hex
+            ));
+        }
+    }
+    assert!(
+        failures.is_empty(),
+        "{} failure(s):\n{}",
+        failures.len(),
+        failures.join("\n\n")
+    );
+}
+
+/// Cross-language float-render parity (Rust side). For every `float_vectors`
+/// entry: reconstruct the f64 from its big-endian bit pattern, render it with
+/// `myco_kernel_shared::canonical_bytes::float_repr`, and assert it equals the
+/// expected CPython `repr()` string. The same JSON drives the Python and TS
+/// float-parity suites. Drift = the float facet of L1/HARD_RULES C18
+/// `canonical_bytes_render_drift` (CRITICAL).
+#[test]
+fn all_float_vectors() {
+    let vectors = load_vectors();
+    let mut failures: Vec<String> = Vec::new();
+    assert!(
+        !vectors.float_vectors.is_empty(),
+        "float_vectors must not be empty"
+    );
+    for v in &vectors.float_vectors {
+        let bytes = parse_hex(&v.f64_be_hex);
+        assert_eq!(
+            bytes.len(),
+            8,
+            "float vector \"{}\" f64_be_hex must be 8 bytes",
+            v.name
+        );
+        let mut arr = [0u8; 8];
+        arr.copy_from_slice(&bytes);
+        let f = f64::from_be_bytes(arr);
+        let got = float_repr(f);
+        if got != v.expected_repr {
+            failures.push(format!(
+                "float vector \"{}\" mismatch:\n  expected: {}\n  got:      {}",
+                v.name, v.expected_repr, got
             ));
         }
     }

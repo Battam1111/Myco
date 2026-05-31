@@ -8,6 +8,7 @@ consumed by Rust and TypeScript implementations.
 from __future__ import annotations
 
 import json
+import struct
 from pathlib import Path
 from typing import Any
 
@@ -152,6 +153,31 @@ def test_varint_vector(varint: dict[str, Any]) -> None:
         f"varint({varint['input']}) mismatch:\n"
         f"  expected: {varint['output_hex']}\n"
         f"  got:      {got_hex}"
+    )
+
+
+@pytest.mark.parametrize(
+    "vector",
+    _VECTORS["float_vectors"],
+    ids=lambda v: v["name"],
+)
+def test_float_vector(vector: dict[str, Any]) -> None:
+    """Cross-language float-render parity (Python side / oracle).
+
+    Floats are encoded in canonical-bytes as ``String(repr(x))`` (there is no
+    float tag). CPython ``repr(float)`` is the canonical oracle the Rust and
+    TypeScript implementations must reproduce; this test pins the vectors'
+    ``expected_repr`` against the live CPython ``repr`` so that (a) the vector
+    file can never drift from the oracle it documents, and (b) a CPython version
+    whose ``repr`` changed would be caught here. Drift = the float facet of
+    L1/HARD_RULES C18 ``canonical_bytes_render_drift`` (CRITICAL).
+    """
+    x = struct.unpack(">d", bytes.fromhex(vector["f64_be_hex"]))[0]
+    got = repr(x)
+    assert got == vector["expected_repr"], (
+        f'float vector "{vector["name"]}" mismatch:\n'
+        f"  expected: {vector['expected_repr']}\n"
+        f"  got:      {got}"
     )
 
 
