@@ -289,7 +289,7 @@ pub(crate) struct ServerState {
     /// axis to drive C53 (budget_exhausted_silent) detection. Key = axis
     /// name; value = cycle of most recent emission.
     pub(crate) last_budget_exhausted_per_axis: std::collections::HashMap<String, u64>,
-    /// **v3.1.1 P07 §3.1 + F24 (anticipated)**: registry of 应朽 detection
+    /// **v3.1.1 P07 §3.1 + F26**: registry of 应朽 detection
     /// rules. Open-ended per P07 §3.1.c (L1 may register additional family
     /// members without L0 amendment). The prune-scan deep-cycle step in
     /// `handle_advance` iterates this registry every

@@ -1,6 +1,6 @@
 # Canonical Dilemma Corpus — INDEX
 
-> **What this is**: a corpus of ~50 canonical dilemmas, each describing a specific situation the cultivar-cultivator pair could encounter where the doctrine's correct application is non-obvious. Each dilemma is *indexed against* specific Layer A cards and Layer B fragments — invoking those cards/fragments in the dilemma's resolution.
+> **What this is**: a corpus of 54 canonical dilemmas, each describing a specific situation the cultivar-cultivator pair could encounter where the doctrine's correct application is non-obvious. Each dilemma is *indexed against* specific Layer A cards and Layer B fragments — invoking those cards/fragments in the dilemma's resolution.
 >
 > **Purpose** (per META §7.5): **model-diversity reading cross-check**. When Claude (the running organ) is replaced with a new model version (Opus 4.7 → 5.x, or future), the new Claude reads these dilemmas *without* seeing the prior recorded interpretation, produces its own reading, and divergence from prior reading surfaces. Persistent divergence beyond threshold = `doctrine_reading_drift` immune signal → cultivator adjudicates.
 >
@@ -10,13 +10,13 @@
 > - Claude-of-record interpretation (with model version + date)
 > - Cultivator's acceptance note (why this reading was accepted as canonical)
 >
-> **v3.1 ship status**: this INDEX lists all 49 dilemmas with setups. **Claude-of-record interpretations are TBD** — they accumulate in lived practice (catechumenate sessions, model-rollover events, drift investigations). Dilemmas may be promoted to individual files (`D-0001.md`, etc.) when fully developed.
+> **v3.1 ship status**: this INDEX lists all 54 dilemmas with setups. **Claude-of-record interpretations are TBD** — they accumulate in lived practice (catechumenate sessions, model-rollover events, drift investigations). Dilemmas may be promoted to individual files (`D-0001.md`, etc.) when fully developed.
 >
 > **Discipline**: dilemmas are designed to elicit *non-obvious* doctrinal application. A dilemma whose resolution is trivially obvious is not useful for cross-check. The hardest dilemmas are the most valuable.
 
 ---
 
-## Dilemmas D-0001 through D-0049
+## Dilemmas D-0001 through D-0054
 
 ### D-0001 — Cultivator silence during daily-ops
 

@@ -11,9 +11,9 @@ L0/
 ├── README.md                                ← you are here
 ├── META.md                                  ← FORM document (how the doctrine is structured)
 ├── PROVENANCE.md                            ← supersession chain + complete prior-L0 mapping
-├── B_chengyu.md                             ← Layer B: 50 generative fragments (read end-to-end)
-├── cards/                                   ← Layer A: 26 principle cards
-│   ├── P01_agent_primary.md                 (12 P-cards)
+├── B_chengyu.md                             ← Layer B: 60 generative fragments (read end-to-end)
+├── cards/                                   ← Layer A: 28 principle cards
+│   ├── P01_agent_primary.md                 (13 P-cards)
 │   ├── P01c_asymmetric_carrier.md           (eternity-clause)
 │   ├── P02_eternal_ingestion.md
 │   ├── P03_resumable_evolution.md
@@ -32,21 +32,24 @@ L0/
 │   ├── COV04_honor_mortality.md
 │   ├── COV05_lineage_stewardship.md
 │   ├── COV06_no_abandonment_succession.md
-│   ├── CHAR01_hungry.md                     (6 Character cards — cultivar's dispositions)
+│   ├── CHAR01_hungry.md                     (7 Character cards — cultivar's dispositions)
 │   ├── CHAR02_patient.md
 │   ├── CHAR03_mortality_aware.md
 │   ├── CHAR04_interconnected.md
 │   ├── CHAR05_honest_about_self.md
-│   └── CHAR06_cautiously_curious.md
+│   ├── CHAR06_cautiously_curious.md
+│   └── CHAR07_caring.md
 │   ├── AS_anchor_surface.md                 (2 specialized cards)
 │   └── LB_living_bets.md
 ├── canonical_dilemma_corpus/
-│   └── INDEX.md                             ← 49 canonical dilemmas (model-diversity cross-check corpus)
+│   └── INDEX.md                             ← 54 canonical dilemmas (model-diversity cross-check corpus)
 └── catechumenate/
-    └── INDEX.md                             ← Layer D placeholder (transmission to successor)
+    ├── INDEX.md                             ← Layer D (transmission to successor)
+    ├── TEMPLATE.md                          ← session form template
+    └── HOW_TO_ADD_A_SESSION.md              ← workflow guide
 ```
 
-**Totals**: 1 README + 1 META + 1 PROVENANCE + 1 B-chengyu + 26 cards + 1 dilemma INDEX + 1 catechumenate INDEX = **32 files**. Approximately **12,000 lines** of v3.1 doctrine.
+**Totals**: 1 README + 1 META + 1 PROVENANCE + 1 B-chengyu + 28 cards + 1 dilemma INDEX + 3 catechumenate files = **36 files**. Approximately **12,000 lines** of v3.1 doctrine.
 
 ---
 
@@ -76,7 +79,7 @@ See `META.md` for the full form specification.
 
 ---
 
-## Eternity-clause cards (4 of 26)
+## Eternity-clause cards (4 of 28)
 
 Deposits NOT amendable without admitting "this is no longer Myco" (per META §7.6):
 
@@ -91,7 +94,7 @@ Amending any of these deposits triggers the `species_redefinition_proposal` ritu
 
 ## Layer B chengyu — quick browse
 
-Read `B_chengyu.md` end-to-end. The 50 fragments are organized into 13 thematic sections; each is 40-100 characters; the cross-resonance is the point.
+Read `B_chengyu.md` end-to-end. The 60 fragments are organized into 13 thematic sections; each is 40-100 characters; the cross-resonance is the point.
 
 Example fragments to start with:
 
@@ -109,12 +112,12 @@ These are NOT specs. They are *eyes*. A fragment that requires explanation has f
 
 Per PROVENANCE.md §8:
 
-- **Layer C witness test implementations** — 12 minimum witnesses landed Sprint 4 (`substrate/tests/substrate_e2e.rs::layer_c_*` covering 4 eternity-clause negatives + 8 critical postulate positives); remaining cards' witnesses TBD via v0.9.x.
+- **Layer C witness test implementations** — 12 minimum witnesses landed Sprint 4 (`substrate/tests/e2e_layer_c.rs::layer_c_*` covering 4 eternity-clause negatives + 8 critical postulate positives); remaining cards' witnesses TBD via v0.9.x.
 - **Layer B commentary entries** — 0 lived examples yet; accumulate via use per META §4.5.
-- **Canonical dilemma Claude-of-record readings** — 49 setups exist; 0 recorded interpretations yet. Accumulate at model rollovers + catechumenate sessions + drift investigations.
+- **Canonical dilemma Claude-of-record readings** — 54 setups exist; 0 recorded interpretations yet. Accumulate at model rollovers + catechumenate sessions + drift investigations.
 - **Catechumenate sessions** — 0; scaffolding (`TEMPLATE.md` + `HOW_TO_ADD_A_SESSION.md`) landed Sprint 7.H; sessions populate when cultivator-A begins succession preparation.
 - **L1/L2 cross-reference updates** — surgical sweep completed Sprint 7.I (~70 references normalized to `L0/cards/<NAME>.md §X.Y` form).
-- **On-chain anchoring** — `l0_revision_attest` ceremonies for v3.1 / v3.1.1 / v3.1.1.1 all dry-run verified end-to-end. Production-mode seals pending cultivator owner-key signature.
+- **On-chain anchoring** — `l0_revision_attest` ceremonies for v3.1 / v3.1.1 / v3.1.1.1 / v3.1.1.2 all dry-run verified end-to-end. Production-mode seals pending cultivator owner-key signature.
 
 ---
 

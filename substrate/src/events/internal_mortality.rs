@@ -13,7 +13,7 @@
 //!   - 错误 (wrong)      — falsified / contradicted
 //!   - 冗余 (redundant)  — structural duplicate without disambiguation
 //!   - 无用 (useless)    — zero-reachability / orphan past grace
-//! L1-recognized family members (per F24 anticipated registry) may include:
+//! L1-recognized family members (per the F26 registry) may include:
 //!   有害 / 矛盾 / 僵化 / 异化 / 污染 / 失效 / 寄生 / 滞塞 / 死症 / ...
 
 use myco_kernel_shared::canonical_bytes::{encode as cb_encode, CanonicalBytes, Value};
@@ -23,7 +23,7 @@ use std::collections::BTreeMap;
 /// nodes. Emitted every time the prune-scan kills a part that has entered
 /// the 应朽 family. The category suffix is one of the canonical four
 /// (`过时` / `错误` / `冗余` / `无用`) or an L1-recognized family member
-/// name (registered via F24 应朽 detection rule registry).
+/// name (registered via the F26 应朽 detection rule registry).
 ///
 /// Closes P07 §3.3 silent-deletion prohibition: every part-death MUST have
 /// a tombstone in the DAG. C55 `silent_internal_mortality` fires if a part

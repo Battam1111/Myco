@@ -518,7 +518,7 @@ Provenance is itself doctrine: a card's history of revisions, including the reas
 8. **`cards/AS_anchor_surface.md`** — for the cryptographic root.
 9. **`cards/LB_living_bets.md`** — for the bet falsifiability.
 10. **`canonical_dilemma_corpus/`** — to see Claude's recorded interpretations on canonical cases (relevant before model rollovers).
-11. **`catechumenate/`** — empty at v0.9 ship; will accumulate before any succession.
+11. **`catechumenate/`** — form scaffolding only (no sessions yet) at v0.9 ship; sessions accumulate before any succession.
 
 Returning readers may sample any card; the form is non-sequential.
 

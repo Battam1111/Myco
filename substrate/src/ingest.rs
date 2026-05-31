@@ -800,7 +800,7 @@ pub(crate) fn handle_advance(
 
     // **v3.1.1 P07 §3.1** — prune-scan deep-cycle step. Default cadence
     // `PRUNE_SCAN_DEEP_CYCLE_INTERVAL` (= 100). When the post-cycle counter
-    // crosses the cadence boundary, iterate the F24 应朽 detection rule
+    // crosses the cadence boundary, iterate the F26 应朽 detection rule
     // registry; each candidate becomes an `internal_mortality_event:{category}`
     // tombstone in the DAG (P07 §3.3). This is the load-bearing closure of
     // P07's mandatory internal-mortality discipline.

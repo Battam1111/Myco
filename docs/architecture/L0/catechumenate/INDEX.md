@@ -2,9 +2,9 @@
 
 > **What this is**: the master-class transmission mechanism for Myco's cultivator-cultivar lineage (per META §2.4 / §6, Layer D).
 >
-> **Status (v3.1 ship, 2026-05-18)**: ZERO sessions. Architecture committed; implementation deferred until succession preparation begins.
+> **Status (v3.1 ship, 2026-05-18; scaffolding added Sprint 7.H)**: ZERO catechumenate sessions toward F21. The directory holds form scaffolding — this `INDEX.md`, `TEMPLATE.md` (session form), and `HOW_TO_ADD_A_SESSION.md` (workflow guide) — but no actual sessions. Architecture committed; session population deferred until succession preparation begins.
 >
-> **Why this directory exists at v3.1 ship despite being empty**: Phase 3 unknown-unknown hunt identified successor onboarding collapse as the highest-severity surviving failure mode in v3.0 (single-generation artifact). Layer D was added to v3.1 specifically to address this. The directory's *existence* is itself the architectural commitment — when succession becomes imminent, the discipline + format are already specified.
+> **Why this directory exists at v3.1 ship despite holding no sessions yet**: Phase 3 unknown-unknown hunt identified successor onboarding collapse as the highest-severity surviving failure mode in v3.0 (single-generation artifact). Layer D was added to v3.1 specifically to address this. The directory's *existence* (and now its scaffolding) is itself the architectural commitment — when succession becomes imminent, the discipline + format are already specified.
 
 ---
 
@@ -59,7 +59,7 @@ Indexed against: [card-ids, B-fragment-ids, prior-dilemma-references]
 
 For F21 activation (META §6.3):
 - **≥50 dual-signed sessions** total
-- **Index coverage**: sessions touch at least 75% of Active Layer A cards (26 cards × 0.75 = 20 cards covered minimum)
+- **Index coverage**: sessions touch at least 75% of Active Layer A cards (per META §6.3 — evaluated against the current Active Layer A card count)
 - **Range coverage**: at least 10 sessions index against eternity-clause cards (P01c, P06, P07, P09)
 - **Recency**: at least 25% of sessions dated within last 24 months before successor activation
 
@@ -92,14 +92,14 @@ When successor F21 activation conditions are met:
 3. Cultivator-A writes a final **handoff Provenance entry** (per COV06 §4.5).
 4. From this point, the catechumenate continues as cultivator-B + future successor candidates; old sessions remain canonical historical record.
 
-## §8. v0.9 status (2026-05-18)
+## §8. v0.9 status (2026-05-18; scaffolding added Sprint 7.H)
 
-This directory is **empty**. No sessions. No drafts. No successors named in F21 yet.
+This directory holds **only form scaffolding** — `INDEX.md` (this file), `TEMPLATE.md`, and `HOW_TO_ADD_A_SESSION.md`. **Zero catechumenate sessions. No drafts. No successors named in F21 yet.**
 
-This is **acceptable** per v3.1 acknowledgment: Layer D Catechumenate is *architecturally committed*, *implementation deferred*. Cultivator-A (current) and Claude have not yet entered succession preparation. When they do, the format is ready.
+This is **acceptable** per v3.1 acknowledgment: Layer D Catechumenate is *architecturally committed*, *session population deferred*. Cultivator-A (current) and Claude have not yet entered succession preparation. The format + workflow are now specified and ready; when they enter succession preparation, sessions begin accumulating as `D-NNNN-short-name.md` files.
 
-**What this directory is NOT**: it is not optional. It is not "nice to have." Per Phase 3 hunt's catastrophic-severity finding, this directory's eventual population is what distinguishes Myco from a single-generation artifact. Implementation may be deferred; commitment may not be.
+**What this directory is NOT**: it is not optional. It is not "nice to have." Per Phase 3 hunt's catastrophic-severity finding, this directory's eventual population is what distinguishes Myco from a single-generation artifact. Session population may be deferred; commitment may not be.
 
 ---
 
-**Catechumenate commitment**: empty now, populated when succession preparation begins; format specified; activation gated by F21 threshold; architecturally load-bearing.
+**Catechumenate commitment**: scaffolding in place, zero sessions yet, populated when succession preparation begins; format specified; activation gated by F21 threshold; architecturally load-bearing.

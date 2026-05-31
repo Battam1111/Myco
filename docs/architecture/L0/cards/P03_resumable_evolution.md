@@ -45,7 +45,7 @@ The substrate **MUST**:
 
 - **§3.1** Treat schema, subsystem family, vocabulary, rules, contract as **mutable** state. None is constitutionally frozen (except eternity-clause cards' deposits per META §7.6).
 - **§3.2** Classify each mutation per I2: daily (autonomous) or CI (cultivator attestation).
-- **§3.3** On accepted CI mutation, persist via **snapshot-rollback semantics**: the substrate snapshots the pre-mutation gradient state, applies the diff atomically, validates I3 invariants; on I3 inconsistency or apply-time exception, restores the snapshot and emits `evolution_failed:{op}`. On success, emits `evolution_succeeded:{op}`. The pre-evolution DAG-tip is always recoverable from the causal chain (P06). **Multi-cycle two-phase migration** (candidate-alongside-current across M cycles with per-cycle dual-validation) is doctrine-described as an L4 enhancement target in §10.4 acknowledged debt — current shipping behavior is **single-cycle apply-with-rollback**, which honors the deposit (mutable schema + recoverable identity) but not the §4.3-claimed M-cycle window.
+- **§3.3** On accepted CI mutation, persist via **snapshot-rollback semantics**: the substrate snapshots the pre-mutation gradient state, applies the diff atomically, validates I3 invariants; on I3 inconsistency or apply-time exception, restores the snapshot and emits `evolution_failed:{op}`. On success, emits `evolution_succeeded:{op}`. The pre-evolution DAG-tip is always recoverable from the causal chain (P06). **Multi-cycle two-phase migration** (candidate-alongside-current across M cycles with per-cycle dual-validation) is the **opt-in** path described in §10.4 (shipped Sprint 8.G as an MVP) — the **default** shipping behavior remains **single-cycle apply-with-rollback**, which honors the deposit (mutable schema + recoverable identity) within one cycle rather than an M-cycle window.
 - **§3.4 (P3.b)** Lexicon evolution is CI-class; mycology-literature attestation required; deprecated terms marked `terminal` (never silently removed).
 - **§3.5** Substrate-identity moves forward only: even after rollback, `substrate-ID` unchanged; cycle counter monotone-increasing; rollback recorded as DAG event (P06 causality preserved).
 
@@ -53,7 +53,7 @@ The substrate **MUST**:
 
 - **§4.1** Provide CI submission path (`submit_mutation`) with classifier + attestation verification.
 - **§4.2** On daily mutation acceptance, apply immediately; emit DAG event.
-- **§4.3** On CI mutation acceptance, run **single-cycle snapshot-rollback** apply: snapshot gradient state → apply diff → validate I3 → on success commit, on failure restore. Two-phase migration with M-cycle dual-validation is the L4 target (see §10.4); current behavior delivers the deposit (mutable + recoverable) at the cost of one cycle of dual-validation rather than M.
+- **§4.3** On CI mutation acceptance, run **single-cycle snapshot-rollback** apply by default: snapshot gradient state → apply diff → validate I3 → on success commit, on failure restore. Two-phase migration with M-cycle dual-validation is the **opt-in** path (see §10.4, shipped Sprint 8.G); the default behavior delivers the deposit (mutable + recoverable) at the cost of one cycle of dual-validation rather than M.
 - **§4.4** On evolution failure (I3 fails post-mutation): identify pre-evolution DAG-tip; restore SSoT designation + classifier table + affected canon; drop pending sporocarps in rolled-back window as `evolution_failed_pending_dropped`; emit `rollback_complete`.
 - **§4.5** Track template-version evolution via `template_version_registry` (active-prefix + archived-tail).
 - **§4.6** Persistent failure (≥3 consecutive within window) → quarantine per L1/CONTINUITY §5.
@@ -61,7 +61,7 @@ The substrate **MUST**:
 ## §5. Negative space — MUST NOT
 
 - **§5.1** **MUST NOT** treat substrate state as constitutionally frozen. "We can't change X" without explicit eternity-clause status is a doctrine violation — it leaks adopt-don't-evolve into the substrate.
-- **§5.2** **MUST NOT** apply schema mutations OUTSIDE the snapshot-rollback envelope. Direct SSoT mutation that skips the classifier + attestation + snapshot path triggers C8. (When §10.4's M-cycle migration ships, this clause re-tightens to require the M-cycle window; current shipping requirement is the snapshot-rollback envelope.)
+- **§5.2** **MUST NOT** apply schema mutations OUTSIDE the snapshot-rollback envelope. Direct SSoT mutation that skips the classifier + attestation + snapshot path triggers C8. (§10.4's M-cycle migration shipped Sprint 8.G as an **opt-in** MVP; it does not re-tighten this clause — the current shipping requirement remains the snapshot-rollback envelope, and migration mode is an operator-chosen alternative, not the mandated path.)
 - **§5.3** **MUST NOT** silently lose state on rollback. Failed evolution preserves pre-evolution state in cold-tier; rollback is recorded, not erased.
 - **§5.4** **MUST NOT** allow lexicon mutation via daily channel — even when "we're just clarifying a name." Naming is constitutive of meaning; renames are CI.
 - **§5.5** **MUST NOT** rewind `substrate-ID`, cycle counter, or any other monotone-forward identifier. Rollback is *content rollback*, not *identity rollback*.
@@ -80,7 +80,7 @@ NOT the *version-control* frame (where rollback = revert commit, freezing histor
 
 **The misreading**: "P03 means schema changes are transactional — atomic-or-nothing."
 
-**Why it's wrong**: P03's spirit is **dual-validation across time** — the candidate state must survive operational testing, not just a one-shot atomic commit. The current shipping implementation (single-cycle snapshot-rollback) approximates this with a one-cycle window: snapshot → apply → I3 validate → commit-or-restore. The L4 enhancement target (§10.4) extends this to M-cycle dual-validation where the candidate runs alongside the current state across many cycles, accumulating evidence before commit. Both forms reject the pure-transaction reading: in P03, the test of a mutation is its **continued operational success**, not just its successful application.
+**Why it's wrong**: P03's spirit is **dual-validation across time** — the candidate state must survive operational testing, not just a one-shot atomic commit. The default shipping implementation (single-cycle snapshot-rollback) approximates this with a one-cycle window: snapshot → apply → I3 validate → commit-or-restore. The opt-in enhancement (§10.4, shipped Sprint 8.G) extends this to M-cycle dual-validation where the candidate runs alongside the current state across many cycles, accumulating evidence before commit. Both forms reject the pure-transaction reading: in P03, the test of a mutation is its **continued operational success**, not just its successful application.
 
 ### §7.2 M2: "Evolution-friendly means cheap to evolve"
 
@@ -145,42 +145,53 @@ Every lexicon mutation MUST have an attached attestation event. Lexicon mutation
 
 - **(Stagnant substrate)**: Substrate runs 6 months without any P3 mutation. CI surface is healthy; no failures. But also: no real evolution. ← P03 doctrinally violated in spirit (§7.3 M3) even though no specific MUST is broken.
 
-### §10.4 Acknowledged debt — multi-cycle two-phase migration
+### §10.4 Multi-cycle two-phase migration — shipped as opt-in MVP; default remains single-cycle
 
-**Current shipping** (v3.1.1, post-Sprint 6.D 2026-05-19):
+**Default shipping path** (v3.1.1, post-Sprint 6.D 2026-05-19):
 single-cycle snapshot-rollback. `kernel/governance/.../schema_evolution.py::apply_schema_diff`
 snapshots the gradient state, applies the diff, validates I3, and on
 failure restores the snapshot atomically. This delivers P03's **deposit**
 (mutable schema + recoverable identity + DAG-recorded failure) within one
-metabolic cycle.
+metabolic cycle. This is the **default required path** (§4.3 + §5.2): a
+mutation that does not opt in to migration mode applies via this envelope.
 
-**Target enhancement** (L4/M-future, estimated 16-24h):
-multi-cycle two-phase migration. The candidate state runs alongside the
-current state for M consecutive cycles (default 100, L4-tunable); both
-states process the same inputs; per-cycle dual-validation compares
-outputs; commit happens only on M consecutive matches. The substantive
-defense gain: I3 drift that takes >1 cycle to surface (e.g., interaction
-with other axes manifesting after several cycles of operation) is caught
-in dual-validation rather than after commit.
+**Opt-in enhancement** (shipped Sprint 8.G, commit `8d6a647`):
+multi-cycle two-phase migration, available as an MVP via the
+`migration_mode` flag on `submit_mutation` (off by default). The candidate
+state runs alongside the current state for M consecutive cycles (default
+100, L4-tunable); both states process the same inputs; per-cycle
+dual-validation compares outputs; commit happens only on M consecutive
+matches. The substantive defense gain: I3 drift that takes >1 cycle to
+surface (e.g., interaction with other axes manifesting after several
+cycles of operation) is caught in dual-validation rather than after
+commit. This path is **opt-in**, not the default — operators choose it
+per-mutation; the default unchanged path is the single-cycle
+snapshot-rollback envelope above.
 
-**Migration path**: requires
-  1. `kernel/schema/src/migration.rs` (currently absent) introducing
-     `two_phase_commit` types: `CandidateState`, `DualValidationCycle`,
+**What the MVP comprises** (all shipped Sprint 8.G):
+  1. `kernel/schema/src/migration.rs` (FSM) introducing the two-phase
+     types: `CandidateState`, `MigrationPhase`, `DualValidationCycle`,
      `CommitDecision`.
   2. Substrate-side bookkeeping for "active gradient" + "candidate
      gradient" + cycle-counter for M-window tracking.
-  3. Classifier `cost_budget_set` / `add_axis_to_gradient` mutations
-     extended to enter migration mode rather than apply directly.
-  4. Operator-visible "migration_pending" surface so cultivator can
-     observe / abort in-flight migrations.
-  5. New C-row detector (C64 anticipated): migration window exceeded
-     without commit (signals candidate diverging permanently).
+  3. Classifier mutations extended to enter migration mode (via the
+     `migration_mode` flag) rather than apply directly.
+  4. Operator-visible migration state so the cultivator can observe /
+     abort in-flight migrations.
+  5. C-row detector `C66_schema_migration_window_exceeded` (implemented,
+     Sprint 8.G): a candidate Validating past `window + grace` without a
+     commit/rollback decision fires C66 and forces the rollback path so
+     the candidate cannot linger. Emit site:
+     `substrate/src/server/autonomous.rs` (autonomous tick); constant in
+     `kernel/schema/src/migration.rs`. (The §10.4 prose previously named
+     this "C64 anticipated"; `C64_persistence_unavailable` is an
+     unrelated shipped detector — that was a misnumber.)
 
-This debt is **descriptive** — the current implementation does not
-violate the deposit (which is `first-class mutable + rollback-protected`),
-it implements a smaller-window approximation. Implementing §10.4 would
-strengthen the dual-validation defense without changing the deposit's
-shape.
+This refinement is **descriptive** — the default single-cycle
+snapshot-rollback already honors the deposit (`first-class mutable +
+rollback-protected`); the opt-in multi-cycle migration strengthens the
+dual-validation defense without changing the deposit's shape, and is not
+the mandated path.
 
 ## §11. Provenance + revision history
 
@@ -191,13 +202,14 @@ shape.
 | 2 | 2026-05-18 | v3.1 schema with Deposit/Formulation split. |
 | 2.1 | 2026-05-19 | v3.1.1 amendment. Added P02 + P07 to interacts_with + §9 interaction row for P07 (evolution requires permission to delete; P07 upstream of P03 mechanism). No deposit change. |
 | **3** | **2026-05-19** (Sprint 6.D) | **Descriptive amendment: §3.3 + §4.3 + §5.2 + §7.1 reframed from "two-phase migration with M-cycle dual-validation" to actual shipping behavior (single-cycle snapshot-rollback). Two-phase migration named explicitly as L4 enhancement target in new §10.4 acknowledged debt section with full migration path. Phantom structural anchor `kernel/schema/src/migration.rs::two_phase_commit` replaced by actual `kernel/governance/.../schema_evolution.py::apply_schema_diff`. Deposit (§2) UNCHANGED — `first-class mutable + rollback-protected` is honored by both the current snapshot-rollback and the planned M-cycle migration. Sprint 5.B identified the drift; Sprint 6.D resolves it by aligning doctrine with shipped code while naming the gap that future cultivator work can close.** |
+| **3.1** | **2026-05-30** (v3.1.1.2, Sprint 8.G follow-up) | **Descriptive amendment: §10.4 reframed from "acknowledged debt — multi-cycle two-phase migration (absent / L4-future / C64 anticipated)" to "shipped as opt-in MVP" — `kernel/schema/src/migration.rs` (FSM) + `migration_mode` flag + `C66_schema_migration_window_exceeded` all landed Sprint 8.G (commit `8d6a647`); the prior "C64 anticipated" was a misnumber (`C64_persistence_unavailable` is unrelated). §3.3 / §4.3 / §5.2 / §7.1 / §12 cross-references to §10.4 softened from "L4 target / acknowledged debt / never landed" to "opt-in path". DEFAULT path is UNCHANGED and still REQUIRED: single-cycle snapshot-rollback envelope (§5.2 MUST intact); migration mode is operator-chosen, not mandated. Deposit (§2) UNCHANGED. Removed a stale wall-clock effort estimate from §10.4.** |
 
 ## §12. Structural anchors + reverse-comment requirement
 
 | Anchor | What it enforces |
 |---|---|
 | `kernel/governance/src/myco_kernel_governance/classifier.py` | I2 classifier gating P03 mutations. |
-| `kernel/governance/src/myco_kernel_governance/schema_evolution.py::apply_schema_diff` | Snapshot-rollback semantics (single-cycle apply-with-restore). Sprint 6.D pinned this as the shipping mechanism; replaces the prior phantom anchor `kernel/schema/src/migration.rs::two_phase_commit` which was doctrine-aspirational but never landed. The M-cycle two-phase migration is §10.4 acknowledged debt. |
+| `kernel/governance/src/myco_kernel_governance/schema_evolution.py::apply_schema_diff` | Snapshot-rollback semantics (single-cycle apply-with-restore) — the **default** shipping mechanism; Sprint 6.D pinned this as such, replacing the prior phantom anchor `kernel/schema/src/migration.rs::two_phase_commit` (that exact symbol never landed). The M-cycle two-phase migration shipped Sprint 8.G as the **opt-in** §10.4 path; its FSM lives in `kernel/schema/src/migration.rs` (real types `CandidateState` / `MigrationPhase` / `CommitDecision`) and its window-exceeded detector is `C66_schema_migration_window_exceeded` (emit: `substrate/src/server/autonomous.rs`). |
 | `substrate/src/events.rs::evolution_succeeded_node_type` | Success event emission. |
 | `substrate/src/events.rs::evolution_failed_node_type` | Failure event + rollback trigger. |
 

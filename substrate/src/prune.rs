@@ -7,7 +7,7 @@
 //!
 //! ## Architecture
 //!
-//! - **F24 detection rule registry** ([`PruneRuleRegistry`]) — open-ended
+//! - **F26 detection rule registry** ([`PruneRuleRegistry`]) — open-ended
 //!   list of rule families that scan substrate state for 应朽 parts.
 //!   Doctrine encodes the OPEN family principle (P07 §3.1.c); this module
 //!   provides the closed-set REGISTRY at runtime. L1 may add new rule
@@ -30,7 +30,7 @@
 //! - L0/cards/P07_mortality.md §3.1 (per-cycle prune discipline)
 //! - L0/cards/P07_mortality.md §3.2 (rule families — canonical four + L1 ext)
 //! - L0/cards/P07_mortality.md §3.3 (tombstones, P06 causality preserved)
-//! - L1/HARD_RULES §1.4 (anticipated C54/C55/C56 + F24)
+//! - L1/HARD_RULES §1.4 (implemented C54/C55/C56 + F26 registry)
 //! - L1/CONTINUITY §1.1 (prune-scan deep-cycle step)
 
 use myco_kernel_shared::crypto::NodeHash;
@@ -43,10 +43,10 @@ use crate::server::ServerState;
 use crate::SubstrateError;
 
 // ---------------------------------------------------------------------------
-// F24 应朽 detection rule registry
+// F26 应朽 detection rule registry
 // ---------------------------------------------------------------------------
 
-/// **v3.1.1 F24 (anticipated)** — open-ended rule registry for the 应朽
+/// **v3.1.1 F26** — open-ended rule registry for the 应朽
 /// family. Each rule scans substrate state and returns candidate parts to
 /// kill in the next prune-scan.
 ///
@@ -110,13 +110,13 @@ impl PruneRuleRegistry {
     }
 
     /// Register a new rule (L1 extension path per P07 §3.1.c).
-    #[allow(dead_code)] // extension point for L1 rule families (anticipated F24 wiring)
+    #[allow(dead_code)] // extension point for L1 rule families (anticipated F26 wiring)
     pub(crate) fn register(&mut self, rule: PruneRule) {
         self.rules.push(rule);
     }
 
-    /// Number of registered rules. Useful for the F24 observatory metric.
-    #[allow(dead_code)] // extension point for observatory F24 metric (anticipated)
+    /// Number of registered rules. Useful for the F26 observatory metric.
+    #[allow(dead_code)] // extension point for observatory F26 metric (anticipated)
     pub(crate) fn rule_count(&self) -> usize {
         self.rules.len()
     }
@@ -138,7 +138,7 @@ impl Default for PruneRuleRegistry {
 // ---------------------------------------------------------------------------
 
 /// **Grace window** before a borderline-orphan part is declared 应朽.
-/// Conservative seed: 1000 cycles. L1 may tune via F24-controlled SSoT.
+/// Conservative seed: 1000 cycles. L1 may tune via F26-controlled SSoT.
 /// Matches `recent_cycles_floor` in P10 compression to avoid racing.
 pub const ORPHAN_GRACE_CYCLES: u64 = 1000;
 

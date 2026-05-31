@@ -62,7 +62,7 @@ Per [`INDEX.md`](./INDEX.md) §4, F21 (the cultivator-succession FSM)
 activates after:
 
 - **≥50 dual-signed sessions** total
-- **≥20 distinct cards covered** (≥75% of the 26 Active Layer A cards)
+- **≥75% of Active Layer A cards covered** (per INDEX.md §4 / META §6.3)
 - **≥10 sessions index eternity-clause cards** (P01c, P06, P07, P09)
 - **≥25% of sessions within last 24 months** before activation
 

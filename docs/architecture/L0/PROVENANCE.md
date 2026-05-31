@@ -122,12 +122,12 @@ The v3 form was locked, then immediately upgraded to v3.1 after Phase 3 unknown-
 27. **`cards/CHAR07_caring.md`** — **NEW in v3.1.1**: 慈爱 / Caring (Compassionate Love-in-Conduct); developmental anti-tyranny character; sister to P07 (P7 prevents bloat-death, CHAR07 prevents tyrant-becoming)
 28. **`cards/AS_anchor_surface.md`** — specialized (§9 with 12 sub-mechanisms consolidated)
 29. **`cards/LB_living_bets.md`** — specialized (§7 with falsifiability + retirement)
-30. **`B_chengyu.md`** — 50 fragments B001-B050 (v3.1.1 in-progress: B051+ added for 应朽 family + 慈爱 traditions)
-31. **`canonical_dilemma_corpus/INDEX.md`** — 49 dilemmas D-0001-D-0049 (v3.1.1 in-progress: D-0050+ added)
-32. **`catechumenate/INDEX.md`** — Layer D placeholder
+30. **`B_chengyu.md`** — 60 fragments B001-B060 (v3.1.1 added B051-B060 for the 应朽 family + 慈爱 traditions)
+31. **`canonical_dilemma_corpus/INDEX.md`** — 54 dilemmas D-0001-D-0054 (v3.1.1 added D-0050-D-0054)
+32. **`catechumenate/INDEX.md`** — Layer D transmission record (joined Sprint 7.H by `catechumenate/TEMPLATE.md` + `catechumenate/HOW_TO_ADD_A_SESSION.md` scaffolding; still 0 catechumenate sessions toward F21)
 33. **This `PROVENANCE.md`** — live document; v3.1.1 amendment recorded below
 
-**Total**: 1 META + 27 cards + 1 chengyu file + 1 dilemma INDEX + 1 catechumenate INDEX + this Provenance = **32 files** in `L0/` (was 31 in v3.1; CHAR07_caring.md added in v3.1.1).
+**Total**: 1 README + 1 META + 28 cards + 1 chengyu file + 1 dilemma INDEX + 3 catechumenate files + this Provenance = **36 files** in `L0/` (was 31 in v3.1; CHAR07_caring.md added in v3.1.1; `catechumenate/TEMPLATE.md` + `catechumenate/HOW_TO_ADD_A_SESSION.md` added Sprint 7.H).
 
 Plus: **Removed** `docs/architecture/L0_VISION.md` from the working tree (text recoverable via `git show e796451:docs/architecture/L0_VISION.md`; SHA-256 of recovered bytes is the `prior_l0_hash` field anchored by M-anchor-5).
 
@@ -167,16 +167,16 @@ new_l0_hash  (BLAKE3 of canonical-bytes Map<rel_path, file_bytes>
 
 End-to-end ceremony dry-run validated in commit `50a4444` (M-anchor-5 v3.1 transition ceremony: deterministic hashes + dry-run verified). The DAG event emitted in dry-run: `l0_revision_attested:5eacf3e7bbb9f863`.
 
-### §6.2 v3.1.1 amendment ceremony (2026-05-19) — IN PROGRESS
+### §6.2 v3.1.1 → v3.1.1.1 → v3.1.1.2 amendment ceremonies — SEALED (dry-run); production pending owner-key
 
-Status: **doctrine changes committed; ceremony directory + new manifest pending Phase 2 E completion.**
+Status: **all three amendment ceremonies have landed with computed manifests + end-to-end dry-run verification.** Production-mode on-chain seals remain pending the cultivator's owner-key signature.
 
-Will be at `operators/claude/ceremonies/v3_1_1_mortality_refinement_and_charite/manifest.json`:
+**v3.1.1 mortality-refinement + 慈爱** — `operators/claude/ceremonies/v3_1_1_mortality_refinement_and_charite/manifest.json`:
 
 ```
 prior_l0_hash = b1bec59acc8c5061020640a265a9772e734604425b6eda4b5da1759f9987c699
               (i.e., the v3.1 new_l0_hash becomes v3.1.1 prior)
-new_l0_hash   = <BLAKE3 of v3.1.1 bundle, computed at Phase 2 E>
+new_l0_hash   = 798c047d592730e20375429706bde1dea3f3da26394891a0a3055de004dff824
 diff_summary: |
   v3.1 → v3.1.1: P07 reinterpretation (mandatory internal mortality of 应朽 parts
   as primary; whole-substrate ending as downstream boundary). CHAR07 慈爱 added
@@ -188,20 +188,24 @@ diff_summary: |
   selected L1/L2 docs.
 ```
 
-Ceremony chain: `e796451 (DRAFT 9) → b1bec59a (v3.1) → ??? (v3.1.1)`. Each transition is an `l0_revision_attested:{prior_prefix}` DAG event chaining back to the previous.
+**v3.1.1.1 P03 descriptive amendment** — `operators/claude/ceremonies/v3_1_1_1_p03_descriptive_amendment/manifest.json` (Sprint 6.D + 7.H/7.I): chains from v3.1.1's `798c047d…`; `new_l0_hash = 7267dc58aa81d3dcd7ef08c3f83d49b0b0ab9b910f72a7a51c92d181c7eae4ba` (clean-LF seal). Reframed P03 §3.3/§4.3/§5.2/§7.1 to the shipping snapshot-rollback behavior + added §10.4; added catechumenate scaffolding; normalized ~70 cross-reference paths.
+
+**v3.1.1.2 descriptive amendment** — `operators/claude/ceremonies/v3_1_1_2_descriptive_amendment/manifest.json` (this amendment): chains from v3.1.1.1's `7267dc58…`. Corrects stale descriptive facts to shipped reality (file/card/fragment/dilemma counts; P03 §10.4 migration shipped opt-in via `migration.rs` + `C66`; ceremony-status; catechumenate "empty"→scaffolding present). Deposits unchanged.
+
+Ceremony chain: `e796451 (DRAFT 9) → b1bec59a (v3.1) → 798c047d (v3.1.1) → 7267dc58 (v3.1.1.1) → <v3.1.1.2 new_l0_hash> (v3.1.1.2)`. Each transition is an `l0_revision_attested:{prior_prefix}` DAG event chaining back to the previous.
 
 ### §6.3 Bundle definition
 
-`new_l0_hash` computed over a canonical-bytes-serialized Map<relative_path, file_bytes> of:
+`new_l0_hash` computed over a canonical-bytes-serialized Map<relative_path, file_bytes> of **every `.md` under `docs/architecture/L0/`** (36 files as of v3.1.1.2), sorted by path:
 - `META.md`
 - `README.md`
 - `PROVENANCE.md` (this file)
 - `B_chengyu.md`
-- `cards/*.md` (alphabetical)
+- `cards/*.md` (alphabetical; 28 cards, incl. `CHAR07_caring.md`)
 - `canonical_dilemma_corpus/INDEX.md`
-- `catechumenate/INDEX.md`
+- `catechumenate/INDEX.md`, `catechumenate/TEMPLATE.md`, `catechumenate/HOW_TO_ADD_A_SESSION.md`
 
-Hash function: BLAKE3 (per L1/SCHEMA §2.1 default; F16 canonical-bytes serializer). Implementation: `operators/claude/ceremonies/v3_1_transition/compute_hashes.ts` (reused for v3.1.1 by copying with manifest update).
+Hash function: BLAKE3 (per L1/SCHEMA §2.1 default; F16 canonical-bytes serializer). Implementation: the shared `operators/claude/ceremonies/_lib/` machinery (`bundle_hash.ts` + `ceremony.ts`); each amendment ceremony directory carries a thin `config.ts` + `compute_hashes.ts` + `manifest.json` (the v3.1-transition ceremony's original `compute_hashes.ts` was refactored into `_lib` so subsequent ceremonies share one canonical-bytes implementation).
 
 ### §6.4 v3.1.1 amendment provenance — the conversation that drove it
 
@@ -214,7 +218,7 @@ This amendment originated in a multi-turn cultivator-Claude conversation (2026-0
 5. **P07 reinterpretation** — 必朽 is mandatory dying-of-parts, not the whole; and tyranny-prevention is **CHAR07 慈爱**'s job, not P07's. Cultivator's correction: "成神也没关系，但是别成暴君，神爱世人，作为伙伴也并无不妥"
 6. **List discipline**: 过时/错误/冗余/无用 are canonical exemplars of the open-ended 应朽 family, not exhaustive — `包括但不限于` framing required.
 
-The amendment ratifies cultivator's framing #5 + #6 into the doctrine itself. Memory snapshot to-be-created at `memory/myco_telos_2026-05-19.md` carries the conceptual panorama; this PROVENANCE entry carries the doctrinal provenance.
+The amendment ratifies cultivator's framing #5 + #6 into the doctrine itself. The memory snapshot at `memory/myco_telos_2026-05-19.md` carries the conceptual panorama; this PROVENANCE entry carries the doctrinal provenance.
 
 ---
 
@@ -229,7 +233,7 @@ For a cold reader (new Claude after model rollover; future cultivator-B at succe
 5. **Fifth**: read `cards/AS_*` and `cards/LB_*` for the cryptographic root and the falsifiability machinery.
 6. **Sixth**: read `B_chengyu.md` end-to-end, letting fragments cross-resonate.
 7. **Seventh**: sample `canonical_dilemma_corpus/INDEX.md` — read setups, produce your own reading without seeing prior interpretations.
-8. **Eighth**: read `catechumenate/INDEX.md` to understand the (currently-empty) transmission mechanism.
+8. **Eighth**: read `catechumenate/INDEX.md` to understand the transmission mechanism (scaffolded — INDEX + TEMPLATE + HOW_TO_ADD_A_SESSION — with zero sessions yet).
 9. **Last**: this `PROVENANCE.md` for the chain back to the prior monolithic form.
 
 Returning readers may sample any layer; the cold-reader discipline is for first encounters.
@@ -241,7 +245,7 @@ Returning readers may sample any layer; the cold-reader discipline is for first 
 - **Catechumenate sessions**: 0 currently exist. Until cultivator-A begins succession preparation, none will exist. This is architecturally committed, not implementationally satisfied.
 - **Layer C witness tests**: card schemas declare witness names (positive / negative / edge); the actual test implementations are TBD via a v0.9.x cleanup milestone.
 - **Layer B fragment commentary**: 0 commentary entries currently exist. They will accumulate as the cultivator-Claude pair invokes fragments in real decisions.
-- **Canonical dilemma `Claude-of-record readings`**: 49 dilemmas have setups; 0 have recorded interpretations. They will accumulate at model rollovers + drift investigations + catechumenate sessions.
+- **Canonical dilemma `Claude-of-record readings`**: 54 dilemmas have setups; 0 have recorded interpretations. They will accumulate at model rollovers + drift investigations + catechumenate sessions.
 - **Backup encryption (L1/SKIN owe per L0/META §10 + L1/SKIN debt)**: still acknowledged as unmitigated attack surface.
 
   *Resolved 2026-05-18*: L1/L2/L3/algorithms/schemas/diagrams + source-code comments surgically updated from prior "L0 §X.Y" monolithic citations to v3.1 "L0/cards/<card> §N" form per §2 mapping table.

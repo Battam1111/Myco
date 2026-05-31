@@ -13,7 +13,7 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "node --experimental-strip-types --no-warnings --test --test-reporter=spec tests/protocol.test.ts tests/framing.test.ts tests/canonical_bytes_parity.test.ts tests/float_parity.test.ts tests/operator_identity.test.ts tests/substrate_client.test.ts tests/mcp_server.test.ts ceremonies/v3_1_1_1_p03_descriptive_amendment/verify_hashes.test.ts",
+    "test": "node --experimental-strip-types --no-warnings --test --test-reporter=spec tests/protocol.test.ts tests/framing.test.ts tests/canonical_bytes_parity.test.ts tests/float_parity.test.ts tests/operator_identity.test.ts tests/substrate_client.test.ts tests/mcp_server.test.ts ceremonies/v3_1_1_2_descriptive_amendment/verify_hashes.test.ts",
     "ceremony:v3_1:hashes": "node --experimental-strip-types --no-warnings ceremonies/v3_1_transition/compute_hashes.ts",
     "ceremony:v3_1:dry-run": "node --experimental-strip-types --no-warnings ceremonies/v3_1_transition/run_ceremony.ts --mode dry-run",
     "ceremony:v3_1:production": "node --experimental-strip-types --no-warnings ceremonies/v3_1_transition/run_ceremony.ts --mode production",
@@ -23,6 +23,9 @@
     "ceremony:v3_1_1_1:hashes": "node --experimental-strip-types --no-warnings ceremonies/v3_1_1_1_p03_descriptive_amendment/compute_hashes.ts",
     "ceremony:v3_1_1_1:dry-run": "node --experimental-strip-types --no-warnings ceremonies/v3_1_1_1_p03_descriptive_amendment/run_ceremony.ts --mode dry-run",
     "ceremony:v3_1_1_1:production": "node --experimental-strip-types --no-warnings ceremonies/v3_1_1_1_p03_descriptive_amendment/run_ceremony.ts --mode production",
+    "ceremony:v3_1_1_2:hashes": "node --experimental-strip-types --no-warnings ceremonies/v3_1_1_2_descriptive_amendment/compute_hashes.ts",
+    "ceremony:v3_1_1_2:dry-run": "node --experimental-strip-types --no-warnings ceremonies/v3_1_1_2_descriptive_amendment/run_ceremony.ts --mode dry-run",
+    "ceremony:v3_1_1_2:production": "node --experimental-strip-types --no-warnings ceremonies/v3_1_1_2_descriptive_amendment/run_ceremony.ts --mode production",
     "test:all": "npm run typecheck && npm test",
     "start": "node --experimental-strip-types src/cli.ts"
   },

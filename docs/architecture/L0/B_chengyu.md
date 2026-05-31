@@ -1,6 +1,6 @@
 # Layer B — Generative Fragments (chengyu / 短诗)
 
-> **What this is**: 50 short fragments of classical-leaning Chinese — chengyu, couplets, or single images in the Tao Te Ching mode. They are *eyes* the cultivator-cultivar pair use to perceive situations the Layer A cards' formulations cannot anticipate. They are NOT specs. They are NEVER CI-validated.
+> **What this is**: 60 short fragments of classical-leaning Chinese — chengyu, couplets, or single images in the Tao Te Ching mode. They are *eyes* the cultivator-cultivar pair use to perceive situations the Layer A cards' formulations cannot anticipate. They are NOT specs. They are NEVER CI-validated.
 >
 > **How to read**: end-to-end, in one sitting if possible. Let the fragments accumulate cross-resonances in your mind. A vague fragment is disambiguated by a neighbor. Returning readers may sample.
 >
@@ -884,7 +884,7 @@ _None yet._
 
 ## §13. Reading discipline
 
-These 50 fragments are the **initial corpus**. New fragments are added per META §7.2 (Cultivator proposes; Cultivator confirms; M-anchor-5 anchored since Layer B is part of L0).
+These 60 fragments are the **initial corpus**. New fragments are added per META §7.2 (Cultivator proposes; Cultivator confirms; M-anchor-5 anchored since Layer B is part of L0).
 
 Fragments retire to `[DORMANT]` per META §4.3 — never deleted. Future readers may rediscover insight in a dormant fragment.
 
