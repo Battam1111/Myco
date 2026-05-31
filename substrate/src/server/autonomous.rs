@@ -62,7 +62,7 @@ fn execute_self_driven_cycle_advance(
     let mut payload = BTreeMap::new();
     payload.insert(
         "current_cycle".to_string(),
-        Value::Uint(state.manifest.cycle_counter),
+        Value::Uint(state.cycle_counter()),
     );
     let request = Message::new(msg_type::ADVANCE, 0, payload);
 
@@ -70,9 +70,9 @@ fn execute_self_driven_cycle_advance(
 
     // Bookkeeping — same sequence as the dispatch-arm path at
     // `msg_type::ADVANCE =>` in run_loop's dispatch().
-    let prior_cycle = state.manifest.cycle_counter;
+    let prior_cycle = state.cycle_counter();
     let new_cycle = prior_cycle.saturating_add(1);
-    state.manifest.cycle_counter = new_cycle;
+    state.set_cycle_counter(new_cycle);
     let event_content = crate::events::encode_cycle_advanced(prior_cycle, new_cycle);
     let _ = emit_substrate_event(
         state,
@@ -187,7 +187,7 @@ pub(super) fn do_autonomous_tick(state: &mut ServerState) -> Result<(), Substrat
     // `C66_MIGRATION_WINDOW_EXCEEDED`.
     if state.handshake_complete {
         if let Some(candidate) = &state.migration_candidate {
-            let cycle = state.manifest.cycle_counter;
+            let cycle = state.cycle_counter();
             let grace = myco_kernel_schema::migration::DEFAULT_MIGRATION_GRACE_CYCLES;
             let exceeded = matches!(
                 candidate.phase,
@@ -346,7 +346,7 @@ pub(super) fn do_autonomous_tick(state: &mut ServerState) -> Result<(), Substrat
         return Ok(());
     }
 
-    let our_substrate_id = state.manifest.substrate_id;
+    let our_substrate_id = state.substrate_id();
     let our_dag_tip = state.dag.tip().map(|t| t.0);
     let our_signing_seed = state.substrate_signing_seed;
     let _accepted = state.federation.accept_pending()?;
@@ -488,7 +488,21 @@ mod tests {
             std::process::id(),
             &0u8 as *const u8 as usize as u64
         ));
-        ServerState::new(state_dir, Manifest::genesis(), Dag::new(), None, [0u8; 32])
+        // Task #8i: seed the discrete identity fields from a fresh genesis
+        // Manifest (random non-zero id ⇒ Some). cycle_counter starts at 0;
+        // tests bump it via `set_cycle_counter`.
+        let g = Manifest::genesis();
+        ServerState::new(
+            state_dir,
+            Some(g.substrate_id),
+            Some(g.genesis_time_unix_ns),
+            g.cycle_counter,
+            g.last_absorbed_cycle,
+            g.generation_depth,
+            Dag::new(),
+            None,
+            [0u8; 32],
+        )
     }
 
     fn validating_candidate(started_at_cycle: u64) -> CandidateState {
@@ -521,8 +535,9 @@ mod tests {
         state.handshake_complete = true;
         state.migration_candidate = Some(validating_candidate(0));
         // current cycle strictly past window + grace (100 + 10 = 110).
-        state.manifest.cycle_counter =
-            DEFAULT_DUAL_VALIDATION_WINDOW_CYCLES + DEFAULT_MIGRATION_GRACE_CYCLES + 5;
+        state.set_cycle_counter(
+            DEFAULT_DUAL_VALIDATION_WINDOW_CYCLES + DEFAULT_MIGRATION_GRACE_CYCLES + 5,
+        );
 
         do_autonomous_tick(&mut state).expect("tick");
 
@@ -550,8 +565,7 @@ mod tests {
         state.handshake_complete = true;
         state.migration_candidate = Some(validating_candidate(0));
         // current cycle at the grace boundary → not strictly past → no fire.
-        state.manifest.cycle_counter =
-            DEFAULT_DUAL_VALIDATION_WINDOW_CYCLES + DEFAULT_MIGRATION_GRACE_CYCLES;
+        state.set_cycle_counter(DEFAULT_DUAL_VALIDATION_WINDOW_CYCLES + DEFAULT_MIGRATION_GRACE_CYCLES);
 
         do_autonomous_tick(&mut state).expect("tick");
 
@@ -571,8 +585,9 @@ mod tests {
         let mut state = test_state();
         state.handshake_complete = true;
         state.migration_candidate = Some(validating_candidate(0));
-        state.manifest.cycle_counter =
-            DEFAULT_DUAL_VALIDATION_WINDOW_CYCLES + DEFAULT_MIGRATION_GRACE_CYCLES + 5;
+        state.set_cycle_counter(
+            DEFAULT_DUAL_VALIDATION_WINDOW_CYCLES + DEFAULT_MIGRATION_GRACE_CYCLES + 5,
+        );
 
         // First tick fires C66 + clears candidate + records the emission cycle.
         do_autonomous_tick(&mut state).expect("tick 1");

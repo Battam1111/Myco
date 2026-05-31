@@ -384,8 +384,8 @@ pub struct DerivedState {
     pub genesis_time_unix_ns: Option<i64>,
     /// **8f / L1/GOVERNANCE §16.A (F22)**: this substrate's lineage depth,
     /// read from the `generation_depth` field of its `genesis_event` (absent
-    /// → 0 = root). Threaded into `Manifest.generation_depth` by
-    /// `to_legacy_manifest` so the C47 reproduction detector can enforce
+    /// → 0 = root). Seeded into `ServerState.generation_depth` by the DAG-first
+    /// boot arm (Task #8i) so the C47 reproduction detector can enforce
     /// `reproduction_lineage_depth_max` at sprout time.
     pub generation_depth: u64,
     /// Authoritative metabolic-cycle counter.
@@ -844,31 +844,12 @@ impl DerivedState {
         )))
     }
 
-    /// M21.2: Produce a Manifest compatible with M5-M20 boot expectations.
-    /// Used in the DAG-first boot path to populate ServerState.manifest from
-    /// the DAG event log.
-    ///
-    /// `last_save_time_unix_ns` defaults to `now` (informational only; not
-    /// derivable from DAG and not security-critical).
-    pub fn to_legacy_manifest(&self) -> crate::persistence::Manifest {
-        use crate::persistence::Manifest;
-        use std::time::{SystemTime, UNIX_EPOCH};
-        let now_ns = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .ok()
-            .and_then(|d| i64::try_from(d.as_nanos()).ok())
-            .unwrap_or(0);
-        Manifest {
-            substrate_id: self.substrate_id.unwrap_or([0u8; 32]),
-            genesis_time_unix_ns: self.genesis_time_unix_ns.unwrap_or(0),
-            cycle_counter: self.cycle_counter,
-            last_save_time_unix_ns: now_ns,
-            last_absorbed_cycle: self.last_absorbed_cycle,
-            // 8f / §16.A: carry lineage depth into the boot manifest so
-            // `handle_sprout_child` enforces C47 against the live value.
-            generation_depth: self.generation_depth,
-        }
-    }
+    // **Task #8i**: `to_legacy_manifest` removed. The DAG-first boot arm now
+    // seeds `ServerState`'s discrete identity / metabolic-position fields
+    // straight from these `DerivedState` fields (substrate_id / genesis_time
+    // are already `Option`), and the `ServerState` accessors reproduce the old
+    // sentinel mapping (`None` → `[0u8;32]` / `0`). There is no longer an
+    // intermediate `Manifest` materialized at boot from the DAG.
 
     /// Rebuild full state by replaying every DAG node in insertion order.
     ///
@@ -1256,9 +1237,10 @@ mod tests {
             encode_genesis_event(&id, 1_234_567_890, 4),
         );
         s.apply_event(&node).unwrap();
+        // Task #8i: the boot path now seeds ServerState.generation_depth
+        // directly from this DerivedState field (no to_legacy_manifest hop),
+        // so verifying the field surfaces the child depth is the full check.
         assert_eq!(s.generation_depth, 4);
-        // to_legacy_manifest threads it into the boot manifest.
-        assert_eq!(s.to_legacy_manifest().generation_depth, 4);
     }
 
     #[test]

@@ -184,7 +184,7 @@ pub(crate) fn handle_hello(
                 Some(t) => vec![t],
                 None => Vec::new(),
             };
-            let cycle = state.manifest.cycle_counter;
+            let cycle = state.cycle_counter();
             let _ = state.dag.insert_node(
                 parents,
                 crate::events::NODE_TYPE_OWNER_KEY_INITIALIZED.to_string(),
@@ -198,8 +198,10 @@ pub(crate) fn handle_hello(
     state.python_client = Some(python_client);
     state.handshake_complete = true;
 
-    // Persist the manifest now (creates manifest.cb on first boot; bumps
-    // last_save_time on subsequent boots).
+    // M21.4 / Task #8i: `save_manifest` is a no-op — substrate identity +
+    // metabolic position are event-sourced via the DAG (and held in discrete
+    // ServerState fields), not written to `manifest.cb`. Call retained for
+    // call-site stability; it neither creates nor mutates any file.
     state.save_manifest()?;
 
     // Build hello_ack with version info forwarded from the Python side
@@ -218,11 +220,11 @@ pub(crate) fn handle_hello(
     // so the LLM host can verify substrate identity continuity across sessions.
     payload.insert(
         "substrate_id".to_string(),
-        Value::Bytes(state.manifest.substrate_id.to_vec()),
+        Value::Bytes(state.substrate_id().to_vec()),
     );
     payload.insert(
         "persistent_cycle_counter".to_string(),
-        Value::Uint(state.manifest.cycle_counter),
+        Value::Uint(state.cycle_counter()),
     );
     Ok(Some(Message::new(
         msg_type::HELLO_ACK,

@@ -208,7 +208,7 @@ pub(crate) fn handle_ingest_raw_material(
         None => Vec::new(),
     };
     let node_type = format!("raw_material:{content_kind}");
-    let cycle = state.manifest.cycle_counter;
+    let cycle = state.cycle_counter();
     let node_hash = state
         .dag
         .insert_node(parents, node_type, cycle, canonical)
@@ -343,7 +343,7 @@ pub(crate) fn handle_perturb_axis_from_raw_material(
         .map_err(|e| SubstrateError::Protocol(format!("perturb_from_raw content encode: {e}")))?;
 
     let node_type = format!("perturb_from_raw:{axis_name}");
-    let cycle = state.manifest.cycle_counter;
+    let cycle = state.cycle_counter();
     let link_hash = state
         .dag
         .insert_node(parents, node_type, cycle, canonical)
@@ -443,8 +443,8 @@ pub(crate) fn handle_advance(
     // M18 P4 永恒迭代: precompute cycle trait inputs BEFORE the cycle inner
     // scope (which mutably borrows state.python_client via gradient). All
     // DAG-reading work happens here; DAG mutations happen AFTER the inner scope.
-    let starting_cycle = state.manifest.cycle_counter;
-    let last_absorbed_cycle = state.manifest.last_absorbed_cycle;
+    let starting_cycle = state.cycle_counter();
+    let last_absorbed_cycle = state.last_absorbed_cycle();
 
     // Tier1 precompute: run DAG verify_all.
     let dag_verify_outcome = state.dag.verify_all();
@@ -681,7 +681,7 @@ pub(crate) fn handle_advance(
                 })?;
             // Bump last_absorbed_cycle to the highest absorbed created_at —
             // future cycles use strict-greater comparison so this won't re-absorb.
-            state.manifest.last_absorbed_cycle = Some(max_absorbed_created_at);
+            state.set_last_absorbed_cycle(Some(max_absorbed_created_at));
             Some(h)
         } else {
             None
@@ -912,7 +912,7 @@ pub(crate) fn handle_advance(
             let evidence = format!(
                 "cycle {} ran {}ms exceeding alive-tier budget {}ms; \
                  backlog_count={} >= threshold (L2/OBSERVABILITY §7)",
-                state.manifest.cycle_counter,
+                state.cycle_counter(),
                 cycle_duration_ms,
                 MAX_CYCLE_DURATION_MS_ALIVE,
                 state.cycle_engine.backlog_count(),
@@ -983,7 +983,7 @@ pub(crate) fn run_migration_step(
         None => return Ok(()),
     };
 
-    let current_cycle = state.manifest.cycle_counter;
+    let current_cycle = state.cycle_counter();
     let op = candidate.op_name.clone();
 
     // Read the dual-validation outcome from the advance response.
@@ -1140,7 +1140,7 @@ pub(crate) fn force_migration_rollback(
     if state.migration_candidate.is_none() {
         return Ok(());
     }
-    let current_cycle = state.manifest.cycle_counter;
+    let current_cycle = state.cycle_counter();
 
     // Tell Python to drop the candidate (active gradient untouched).
     if let Err(e) =

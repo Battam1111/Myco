@@ -83,9 +83,9 @@ pub(super) fn dispatch(
             // M7: bump the persisted cycle counter (matches the value echoed in
             // the advance_response payload). save_manifest() also bumps
             // last_save_time for observability.
-            let prior_cycle = state.manifest.cycle_counter;
+            let prior_cycle = state.cycle_counter();
             let new_cycle = prior_cycle.saturating_add(1);
-            state.manifest.cycle_counter = new_cycle;
+            state.set_cycle_counter(new_cycle);
             // M21.1 P5 万物互联: emit cycle_advanced DAG event so cycle counter
             // progression is recorded in the causal graph.
             let event_content = crate::events::encode_cycle_advanced(prior_cycle, new_cycle);
@@ -239,7 +239,7 @@ pub(super) fn dispatch(
             let mut payload = std::collections::BTreeMap::new();
             payload.insert(
                 "current_cycle".to_string(),
-                Value::Uint(state.manifest.cycle_counter),
+                Value::Uint(state.cycle_counter()),
             );
             match &state.migration_candidate {
                 Some(c) => {

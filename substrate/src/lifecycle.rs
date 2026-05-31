@@ -106,7 +106,7 @@ pub(crate) fn handle_accept_self_euthanasia_proposal(
     );
     signing_map.insert(
         "substrate_id".to_string(),
-        Value::Bytes(state.manifest.substrate_id.to_vec()),
+        Value::Bytes(state.substrate_id().to_vec()),
     );
     let signing_input = cb_encode(&Value::Map(signing_map))
         .map_err(|e| SubstrateError::Protocol(format!("signing input encode: {e}")))?;
@@ -156,7 +156,7 @@ pub(crate) fn handle_accept_self_euthanasia_proposal(
         &proposal_hash,
         &owner_sig,
         &pinned.pubkey,
-        state.manifest.cycle_counter,
+        state.cycle_counter(),
         now,
     );
     let event_hash = emit_substrate_event(state, nt, content)?;
@@ -226,7 +226,7 @@ pub(crate) fn current_quarantine_state(state: &ServerState) -> Option<Quarantine
 /// lifted event AND current cycle has NOT passed the expiry.
 pub(crate) fn is_in_birth_period_quarantine(state: &ServerState) -> bool {
     match current_quarantine_state(state) {
-        Some(q) if !q.lifted => state.manifest.cycle_counter < q.expires_at_cycle,
+        Some(q) if !q.lifted => state.cycle_counter() < q.expires_at_cycle,
         _ => false,
     }
 }
@@ -290,7 +290,7 @@ pub(crate) fn handle_lift_birth_period_quarantine(
     let mut owner_sig = [0u8; 64];
     owner_sig.copy_from_slice(&owner_sig_bytes);
 
-    let current_cycle = state.manifest.cycle_counter;
+    let current_cycle = state.cycle_counter();
     let mut signing_map = BTreeMap::new();
     signing_map.insert(
         "context".to_string(),
@@ -298,7 +298,7 @@ pub(crate) fn handle_lift_birth_period_quarantine(
     );
     signing_map.insert(
         "substrate_id".to_string(),
-        Value::Bytes(state.manifest.substrate_id.to_vec()),
+        Value::Bytes(state.substrate_id().to_vec()),
     );
     signing_map.insert(
         "current_cycle".to_string(),
@@ -324,7 +324,7 @@ pub(crate) fn handle_lift_birth_period_quarantine(
             .unwrap_or(0);
         let content = crate::events::encode_birth_period_quarantine_lifted(
             "operator_signed_lift",
-            state.manifest.cycle_counter,
+            state.cycle_counter(),
             lifted_at_unix_ns,
         );
         let event_hash = emit_substrate_event(

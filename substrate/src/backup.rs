@@ -160,11 +160,11 @@ pub(crate) fn handle_export_backup_to_dir(
     metadata_map.insert("format_version".to_string(), Value::Uint(1));
     metadata_map.insert(
         "substrate_id".to_string(),
-        Value::Bytes(state.manifest.substrate_id.to_vec()),
+        Value::Bytes(state.substrate_id().to_vec()),
     );
     metadata_map.insert(
         "cycle_counter".to_string(),
-        Value::Uint(state.manifest.cycle_counter),
+        Value::Uint(state.cycle_counter()),
     );
     metadata_map.insert(
         "captured_at_unix_ns".to_string(),
@@ -197,7 +197,7 @@ pub(crate) fn handle_export_backup_to_dir(
     let manifest_blake3: [u8; 32] = blake3::hash(&metadata_bytes).into();
 
     // Emit backup_exported:{prefix} DAG event for the causal record.
-    let cycle = state.manifest.cycle_counter;
+    let cycle = state.cycle_counter();
     let event_node_type = format!("backup_exported:{cycle:016x}");
     let mut event_content_map = BTreeMap::new();
     event_content_map.insert(
@@ -219,7 +219,7 @@ pub(crate) fn handle_export_backup_to_dir(
     );
     event_content_map.insert(
         "at_cycle".to_string(),
-        Value::Uint(state.manifest.cycle_counter),
+        Value::Uint(state.cycle_counter()),
     );
     let event_content = cb_encode(&Value::Map(event_content_map))
         .map_err(|e| SubstrateError::Protocol(format!("backup event encode: {e}")))?;
@@ -243,7 +243,7 @@ pub(crate) fn handle_export_backup_to_dir(
     );
     payload.insert(
         "substrate_id".to_string(),
-        Value::Bytes(state.manifest.substrate_id.to_vec()),
+        Value::Bytes(state.substrate_id().to_vec()),
     );
 
     Ok(Some(Message::new(

@@ -131,20 +131,20 @@ pub(crate) fn save_snapshot_for_state(state: &ServerState) -> Result<usize, Subs
 
     // Build a DerivedState from the current in-memory ServerState fields.
     let derived = DerivedState {
-        substrate_id: if state.manifest.substrate_id == [0u8; 32] {
+        substrate_id: if state.substrate_id() == [0u8; 32] {
             None
         } else {
-            Some(state.manifest.substrate_id)
+            Some(state.substrate_id())
         },
-        genesis_time_unix_ns: if state.manifest.substrate_id == [0u8; 32] {
+        genesis_time_unix_ns: if state.substrate_id() == [0u8; 32] {
             None
         } else {
-            Some(state.manifest.genesis_time_unix_ns)
+            Some(state.genesis_time_unix_ns())
         },
         // 8f / §16.A: carry the live lineage depth into the persisted snapshot.
-        generation_depth: state.manifest.generation_depth,
-        cycle_counter: state.manifest.cycle_counter,
-        last_absorbed_cycle: state.manifest.last_absorbed_cycle,
+        generation_depth: state.generation_depth(),
+        cycle_counter: state.cycle_counter(),
+        last_absorbed_cycle: state.last_absorbed_cycle(),
         pinned_operator_identity: state.pinned_operator_identity.clone(),
         nonce_log: state
             .nonce_log
@@ -216,15 +216,15 @@ pub(crate) fn backfill_dag_from_python_state(
             .starts_with(crate::events::NODE_TYPE_GENESIS_PREFIX)
     });
     if !has_genesis {
-        let event_nt = crate::events::genesis_event_node_type(&state.manifest.substrate_id);
+        let event_nt = crate::events::genesis_event_node_type(&state.substrate_id());
         // 8f / §16.A: stamp the substrate's lineage depth into the back-filled
         // genesis_event. For a legacy/root substrate this is 0; for a child
         // whose manifest carries a depth (e.g. via the override hook) it is
         // preserved so the backfilled DAG remains the authoritative source.
         let event_content = crate::events::encode_genesis_event(
-            &state.manifest.substrate_id,
-            state.manifest.genesis_time_unix_ns,
-            state.manifest.generation_depth,
+            &state.substrate_id(),
+            state.genesis_time_unix_ns(),
+            state.generation_depth(),
         );
         let _ = emit_substrate_event(state, event_nt, event_content);
         let _ = save_dag_state(state);

@@ -159,7 +159,7 @@ pub(crate) fn handle_sprout_child(
     // (child would exceed the max). `depth_override` (F22, Cultivator-attested)
     // is NOT yet wired — its absence simply means depth is hard-capped, which
     // is the safe default for forkbomb defense.
-    let parent_generation_depth = state.manifest.generation_depth;
+    let parent_generation_depth = state.generation_depth();
     let child_generation_depth = parent_generation_depth.saturating_add(1);
     let lineage_depth_max = effective_lineage_depth_max();
     if child_generation_depth > lineage_depth_max {
@@ -295,7 +295,7 @@ pub(crate) fn handle_sprout_child(
             .unwrap_or(0);
         let nt = crate::events::NODE_TYPE_PARENT_FEDERATION_HINT.to_string();
         let content = crate::events::encode_parent_federation_hint(
-            &state.manifest.substrate_id,
+            &state.substrate_id(),
             &parent_listener_addr.to_string(),
             hinted_at_unix_ns,
         );
@@ -327,7 +327,7 @@ pub(crate) fn handle_sprout_child(
             .unwrap_or(0);
         let nt = crate::events::NODE_TYPE_BIRTH_PERIOD_QUARANTINE_ENTERED.to_string();
         let content = crate::events::encode_birth_period_quarantine_entered(
-            &state.manifest.substrate_id,
+            &state.substrate_id(),
             &immune_summary,
             quarantine_duration_cycles,
             entered_at_unix_ns,
@@ -393,11 +393,11 @@ pub(crate) fn handle_sprout_child(
     );
     spore_content.insert(
         "parent_substrate_id".to_string(),
-        Value::Bytes(state.manifest.substrate_id.to_vec()),
+        Value::Bytes(state.substrate_id().to_vec()),
     );
     spore_content.insert(
         "parent_cycle_at_emission".to_string(),
-        Value::Uint(state.manifest.cycle_counter),
+        Value::Uint(state.cycle_counter()),
     );
     // 8f / §16.A: record the child's lineage depth in the parent's spore
     // node so the parent's DAG carries the depth lineage for observability.
@@ -415,7 +415,7 @@ pub(crate) fn handle_sprout_child(
         None => Vec::new(),
     };
     let spore_node_type = format!("spore_emission:{child_id_hex_prefix}");
-    let cycle = state.manifest.cycle_counter;
+    let cycle = state.cycle_counter();
     let spore_hash = state
         .dag
         .insert_node(parents, spore_node_type, cycle, spore_canonical)

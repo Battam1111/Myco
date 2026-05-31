@@ -666,9 +666,15 @@ mod tests {
             std::process::id(),
             &0u8 as *const u8 as usize as u64
         ));
+        // Task #8i: seed discrete identity fields from a fresh genesis Manifest.
+        let g = Manifest::genesis();
         let state = ServerState::new(
             state_dir,
-            Manifest::genesis(),
+            Some(g.substrate_id),
+            Some(g.genesis_time_unix_ns),
+            g.cycle_counter,
+            g.last_absorbed_cycle,
+            g.generation_depth,
             Dag::new(),
             None,
             [0u8; 32],

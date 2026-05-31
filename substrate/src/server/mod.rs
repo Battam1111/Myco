@@ -188,8 +188,28 @@ pub(crate) struct ServerState {
     pub(crate) python_client: Option<BridgeClient>,
     /// CycleEngine for substrate-side metabolic-cycle execution.
     pub(crate) cycle_engine: CycleEngine,
-    /// Persistent substrate identity + metabolic position (M7).
-    pub(crate) manifest: Manifest,
+    // ----- Task #8i: discrete substrate-identity / metabolic-position fields.
+    // These five fields are the single in-memory source of truth for what was
+    // formerly mirrored in `manifest: Manifest`. They are seeded at boot from
+    // the DAG-derived `DerivedState` (DAG-first arm) or from a loaded/genesis
+    // `Manifest` via the inverse sentinel mapping (legacy arm). Read through
+    // the `substrate_id()` / `genesis_time_unix_ns()` / `cycle_counter()` /
+    // `last_absorbed_cycle()` / `generation_depth()` accessors, which reproduce
+    // the former `to_legacy_manifest` sentinel mapping so emitted bytes are
+    // byte-identical. The legacy `manifest.cb` WRITE path is dead (M21.4
+    // `save_manifest` no-op); the `Manifest` struct survives only as a
+    // back-compat `manifest.cb` reader + sprout-child id factory.
+    /// 32-byte substrate identifier. `None` until genesis (sentinel `[0u8;32]`).
+    pub(crate) substrate_id: Option<[u8; 32]>,
+    /// Genesis wall-clock time (ns). `None` until genesis (sentinel `0`).
+    pub(crate) genesis_time_unix_ns: Option<i64>,
+    /// Authoritative metabolic-cycle counter (M7).
+    pub(crate) cycle_counter: u64,
+    /// Highest absorbed cycle (M18); `None` = no absorption yet.
+    pub(crate) last_absorbed_cycle: Option<u64>,
+    /// **8f / L1/GOVERNANCE §16.A (F22)**: this substrate's lineage depth
+    /// (root = 0). Bounds C47 reproduction depth.
+    pub(crate) generation_depth: u64,
     /// Directory in which the substrate's state files live (M7).
     pub(crate) state_dir: PathBuf,
     /// Persistent causal DAG of substrate events (sporocarps etc.) (M8).
@@ -329,19 +349,30 @@ pub(crate) struct ServerState {
 impl ServerState {
     // `pub(crate)` (was private): lets same-crate unit tests — e.g.
     // `prune::tests` exercising `count_prune_resurrections` — construct an
-    // in-memory `ServerState` from a fresh `Manifest`/`Dag`. Behavior is
-    // unchanged; this only widens constructor visibility within the crate.
+    // in-memory `ServerState` from discrete identity fields + a `Dag`.
+    //
+    // **Task #8i**: takes the five discrete substrate-identity / metabolic-
+    // position values directly (no `Manifest`). `substrate_id` / `genesis_time`
+    // are `Option` — `None` is the pre-genesis sentinel that the accessors map
+    // back to `[0u8;32]` / `0`. The DAG-first boot arm passes `derived`'s
+    // already-`Option` fields verbatim; the legacy arm passes the inverse
+    // sentinel mapping of a loaded/genesis `Manifest`.
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn new(
         state_dir: PathBuf,
-        manifest: Manifest,
+        substrate_id: Option<[u8; 32]>,
+        genesis_time_unix_ns: Option<i64>,
+        cycle_counter: u64,
+        last_absorbed_cycle: Option<u64>,
+        generation_depth: u64,
         dag: Dag,
         pinned_operator_identity: Option<PinnedOperatorIdentity>,
         substrate_signing_seed: [u8; 32],
     ) -> Self {
-        // M7: the manifest's cycle_counter is the authoritative persisted
-        // counter; the in-process CycleEngine maintains its own counter that
-        // counts cycles within THIS process only. handle_advance() uses the
-        // manifest counter as the cross-process source-of-truth.
+        // M7: `cycle_counter` is the authoritative persisted counter; the
+        // in-process CycleEngine maintains its own counter that counts cycles
+        // within THIS process only. handle_advance() uses this field as the
+        // cross-process source-of-truth.
         // M8: dag carries the substrate's causal history (sporocarps + future event types).
         // M9: pinned_operator_identity is the TOFU-pinned operator pubkey;
         //     None pre-first-hello.
@@ -357,7 +388,13 @@ impl ServerState {
             handshake_complete: false,
             python_client: None,
             cycle_engine: CycleEngine::new(CycleConfig::default()),
-            manifest,
+            // Task #8i discrete identity / metabolic-position fields (params
+            // shadow the fields → struct-shorthand binds each by name).
+            substrate_id,
+            genesis_time_unix_ns,
+            cycle_counter,
+            last_absorbed_cycle,
+            generation_depth,
             state_dir,
             dag,
             pinned_operator_identity,
@@ -434,6 +471,60 @@ impl ServerState {
             migration_candidate: None,
             last_migration_window_exceeded_emitted_at_cycle: None,
         }
+    }
+
+    // ----------------------------------------------------------------------
+    // Task #8i — discrete substrate-identity / metabolic-position accessors.
+    //
+    // These replace the former live `manifest: Manifest` in-memory mirror.
+    // The five CONSUMED manifest fields now live as discrete fields directly
+    // on `ServerState` (single source of truth; no redundant Manifest copy).
+    // The two Option-returning identity accessors reproduce the sentinel
+    // mapping of the now-removed `DerivedState::to_legacy_manifest` VERBATIM
+    // (substrate_id None → [0u8;32]; genesis_time None → 0) so every hashed /
+    // wire byte that previously read `state.manifest.<field>` stays
+    // byte-identical. The mapping byte-exactness is the one correctness-
+    // critical invariant: a skew would change genesis_event / snapshot /
+    // witness bytes and break the v3.1.1.1 seal.
+
+    /// 32-byte substrate identifier, sentinel-mapped (`None` → `[0u8;32]`).
+    /// Byte-exact replacement for the former `state.manifest.substrate_id`.
+    /// Mirrors the now-removed `DerivedState::to_legacy_manifest` mapping.
+    pub(crate) fn substrate_id(&self) -> [u8; 32] {
+        self.substrate_id.unwrap_or([0u8; 32])
+    }
+
+    /// Genesis wall-clock time (ns), sentinel-mapped (`None` → `0`).
+    /// Byte-exact replacement for the former `state.manifest.genesis_time_unix_ns`.
+    pub(crate) fn genesis_time_unix_ns(&self) -> i64 {
+        self.genesis_time_unix_ns.unwrap_or(0)
+    }
+
+    /// Authoritative metabolic-cycle counter.
+    pub(crate) fn cycle_counter(&self) -> u64 {
+        self.cycle_counter
+    }
+
+    /// Highest absorbed cycle (M18); `None` = no absorption yet.
+    pub(crate) fn last_absorbed_cycle(&self) -> Option<u64> {
+        self.last_absorbed_cycle
+    }
+
+    /// Lineage depth (8f / §16.A); root = 0.
+    pub(crate) fn generation_depth(&self) -> u64 {
+        self.generation_depth
+    }
+
+    /// Advance the authoritative metabolic-cycle counter (dispatch / autonomous
+    /// tick bookkeeping). Replaces the former `state.manifest.cycle_counter = …`.
+    pub(crate) fn set_cycle_counter(&mut self, cycle: u64) {
+        self.cycle_counter = cycle;
+    }
+
+    /// Record the highest absorbed cycle after an absorption_event.
+    /// Replaces the former `state.manifest.last_absorbed_cycle = …`.
+    pub(crate) fn set_last_absorbed_cycle(&mut self, cycle: Option<u64>) {
+        self.last_absorbed_cycle = cycle;
     }
 
     /// M25.0 + M25.4: return the substrate's own Ed25519 public key (32 bytes),
@@ -641,14 +732,35 @@ pub fn run_loop() -> Result<u8, SubstrateError> {
     //  - "legacy" (pre-M21.1): fall back to state file loading
     //  - "fresh genesis" (no prior state at all): create new
     let boot_from_dag = derived.is_post_m21_substrate();
-    let (manifest, pinned_operator_identity, nonce_log_entries, is_fresh_genesis): (
-        Manifest,
+    // **Task #8i**: boot now yields the five DISCRETE identity / metabolic-
+    // position values (not a `Manifest`). The DAG-first arm copies `derived`'s
+    // already-`Option` identity fields verbatim (no sentinel round-trip); the
+    // legacy arm derives them from a loaded/genesis `Manifest` via the inverse
+    // sentinel mapping (`[0u8;32]` → `None`, `0` → `None`) so the auto-emitted
+    // genesis_event stays byte-identical to the pre-#8i path.
+    #[allow(clippy::type_complexity)]
+    let (
+        boot_substrate_id,
+        boot_genesis_time_unix_ns,
+        boot_cycle_counter,
+        boot_last_absorbed_cycle,
+        boot_generation_depth,
+        pinned_operator_identity,
+        nonce_log_entries,
+        is_fresh_genesis,
+    ): (
+        Option<[u8; 32]>,
+        Option<i64>,
+        u64,
+        Option<u64>,
+        u64,
         Option<crate::persistence::PinnedOperatorIdentity>,
         Vec<crate::persistence::PersistedNonceEntry>,
         bool,
     ) = if boot_from_dag {
-        // M21.2 derived-first path: state comes from DAG events.
-        let mfst = derived.to_legacy_manifest();
+        // M21.2 derived-first path: state comes from DAG events. Copy the
+        // identity / metabolic fields straight off `derived` (already `Option`
+        // for substrate_id / genesis_time — no `to_legacy_manifest` needed).
         let pinned = derived.pinned_operator_identity.clone();
         // Convert DerivedNonce → PersistedNonceEntry for ServerState population.
         let nonces: Vec<crate::persistence::PersistedNonceEntry> = derived
@@ -665,7 +777,18 @@ pub fn run_loop() -> Result<u8, SubstrateError> {
                 consumed: n.consumed,
             })
             .collect();
-        (mfst, pinned, nonces, false)
+        (
+            // substrate_id / genesis_time are already Option on DerivedState —
+            // copy verbatim (None iff no genesis_event seen yet).
+            derived.substrate_id,
+            derived.genesis_time_unix_ns,
+            derived.cycle_counter,
+            derived.last_absorbed_cycle,
+            derived.generation_depth,
+            pinned,
+            nonces,
+            false,
+        )
     } else {
         // Legacy path: load from state files. **M26.3 C42 fix**: capture
         // manifest load failure instead of propagating, so we can emit
@@ -721,12 +844,44 @@ pub fn run_loop() -> Result<u8, SubstrateError> {
                 .collect::<Vec<_>>(),
             _ => Vec::new(),
         };
-        (m, pinned, entries, fresh)
+        // **Task #8i**: decompose the loaded/genesis `Manifest` into the five
+        // discrete identity / metabolic-position values via the INVERSE sentinel
+        // mapping (exact inverse of the removed `to_legacy_manifest`):
+        //   substrate_id == [0u8;32]  ⇒ None
+        //   genesis_time == 0         ⇒ None
+        // so the genesis_event auto-emitted below (which reads
+        // `state.substrate_id()` etc. = `field.unwrap_or(sentinel)`) is
+        // byte-identical to the pre-#8i Manifest-mirror path. A fresh genesis
+        // Manifest has a non-zero random id + non-zero genesis_time → both Some.
+        let id_opt = if m.substrate_id == [0u8; 32] {
+            None
+        } else {
+            Some(m.substrate_id)
+        };
+        let gtime_opt = if m.genesis_time_unix_ns == 0 {
+            None
+        } else {
+            Some(m.genesis_time_unix_ns)
+        };
+        (
+            id_opt,
+            gtime_opt,
+            m.cycle_counter,
+            m.last_absorbed_cycle,
+            m.generation_depth,
+            pinned,
+            entries,
+            fresh,
+        )
     };
 
     let mut state = ServerState::new(
         state_dir,
-        manifest,
+        boot_substrate_id,
+        boot_genesis_time_unix_ns,
+        boot_cycle_counter,
+        boot_last_absorbed_cycle,
+        boot_generation_depth,
         dag,
         pinned_operator_identity,
         substrate_signing_seed,
@@ -950,16 +1105,16 @@ pub fn run_loop() -> Result<u8, SubstrateError> {
     // legacy_migration branch above handles existing manifest.cb; this branch
     // handles truly fresh).
     if is_fresh_genesis && state.dag.node_count() == 0 {
-        let event_node_type = crate::events::genesis_event_node_type(&state.manifest.substrate_id);
+        let event_node_type = crate::events::genesis_event_node_type(&state.substrate_id());
         // 8f / §16.A: a truly-fresh substrate stamps its lineage depth into
         // the genesis_event. Root substrate → 0 (field omitted, byte-compat);
         // a child birthed via the `MYCO_GENERATION_DEPTH_OVERRIDE` hook → that
         // depth. The canonical sprout path (`handle_sprout_child`) builds the
         // child's genesis_event directly with parent_depth + 1.
         let event_content = crate::events::encode_genesis_event(
-            &state.manifest.substrate_id,
-            state.manifest.genesis_time_unix_ns,
-            state.manifest.generation_depth,
+            &state.substrate_id(),
+            state.genesis_time_unix_ns(),
+            state.generation_depth(),
         );
         let _ = emit_substrate_event(&mut state, event_node_type, event_content);
         let _ = save_dag_state(&state);
@@ -980,7 +1135,7 @@ pub fn run_loop() -> Result<u8, SubstrateError> {
                 .and_then(|d| i64::try_from(d.as_nanos()).ok())
                 .unwrap_or(0);
             let ba_node_type =
-                crate::events::birth_attestation_node_type(&state.manifest.substrate_id);
+                crate::events::birth_attestation_node_type(&state.substrate_id());
             let ba_content = crate::events::encode_birth_attestation(
                 &attested_bytes,
                 &signature,
@@ -1070,7 +1225,7 @@ pub fn run_loop() -> Result<u8, SubstrateError> {
     // genesis env vars were absent at first boot.
     {
         let expected_node_type =
-            crate::events::birth_attestation_node_type(&state.manifest.substrate_id);
+            crate::events::birth_attestation_node_type(&state.substrate_id());
         let ba_node = state
             .dag
             .iter_in_insertion_order()
@@ -1081,10 +1236,10 @@ pub fn run_loop() -> Result<u8, SubstrateError> {
                 // Tolerate absence on truly-fresh substrates (cycle 0); only
                 // fire if the substrate has lived past genesis without an
                 // attestation having been emitted at any point.
-                if state.manifest.cycle_counter > 0 {
+                if state.cycle_counter() > 0 {
                     Some(format!(
                         "birth_attestation event missing for substrate_id={} (M-anchor-2 §9.2.1)",
-                        hex_first_8_bytes(&state.manifest.substrate_id)
+                        hex_first_8_bytes(&state.substrate_id())
                     ))
                 } else {
                     None
@@ -1095,7 +1250,7 @@ pub fn run_loop() -> Result<u8, SubstrateError> {
                 {
                     None => Some(format!(
                         "birth_attestation decode failed for substrate_id={}",
-                        hex_first_8_bytes(&state.manifest.substrate_id)
+                        hex_first_8_bytes(&state.substrate_id())
                     )),
                     Some((attested_bytes, signature, owner_pubkey)) => {
                         use myco_kernel_shared::crypto::verify_signature;
@@ -1104,7 +1259,7 @@ pub fn run_loop() -> Result<u8, SubstrateError> {
                             Err(e) => Some(format!(
                                 "birth_attestation signature failed verify for \
                                  substrate_id={}: {e}",
-                                hex_first_8_bytes(&state.manifest.substrate_id)
+                                hex_first_8_bytes(&state.substrate_id())
                             )),
                         }
                     }
@@ -1460,7 +1615,7 @@ pub(crate) fn emit_immune_sporocarp(
         None => Vec::new(),
     };
     let node_type = format!("immune:{detector_id}");
-    let cycle = state.manifest.cycle_counter;
+    let cycle = state.cycle_counter();
     let hash = state
         .dag
         .insert_node(parents, node_type, cycle, content_canonical)
@@ -1491,7 +1646,7 @@ pub(crate) fn emit_substrate_event(
         Some(t) => vec![t],
         None => Vec::new(),
     };
-    let cycle = state.manifest.cycle_counter;
+    let cycle = state.cycle_counter();
     state
         .dag
         .insert_node(parents, node_type, cycle, content)

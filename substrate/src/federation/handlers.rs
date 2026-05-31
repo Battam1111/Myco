@@ -299,7 +299,7 @@ pub(crate) fn handle_federation_connect_peer(
             ));
         }
     };
-    let our_substrate_id = state.manifest.substrate_id;
+    let our_substrate_id = state.substrate_id();
     let our_dag_tip = state.dag.tip().map(|t| t.0);
     let our_signing_seed = state.substrate_signing_seed;
 
@@ -476,7 +476,7 @@ pub(crate) fn handle_federation_poll(
     request: &Message,
 ) -> Result<Option<Message>, SubstrateError> {
     let accepted = state.federation.accept_pending()?;
-    let our_substrate_id = state.manifest.substrate_id;
+    let our_substrate_id = state.substrate_id();
     let our_dag_tip = state.dag.tip().map(|t| t.0);
     let our_signing_seed = state.substrate_signing_seed;
     // M22.3 + M25.4: pass &dag so progress_peers can enumerate events for
@@ -717,7 +717,7 @@ pub(crate) fn handle_federation_link_to_parent_from_hint(
     payload.insert("already_linked".to_string(), Value::Bool(false));
 
     // Connect to parent.
-    let our_substrate_id = state.manifest.substrate_id;
+    let our_substrate_id = state.substrate_id();
     let our_dag_tip = state.dag.tip().map(|t| t.0);
     let our_signing_seed = state.substrate_signing_seed;
     let outcome = state.federation.connect_peer(
@@ -848,7 +848,7 @@ pub(crate) fn handle_federation_pull_events_from_peer(
         _ => crate::federation::protocol::FED_EVENT_BATCH_MAX_EVENTS,
     };
 
-    let our_substrate_id = state.manifest.substrate_id;
+    let our_substrate_id = state.substrate_id();
     let parsed_batch = match state.federation.pull_events_from_peer(
         &peer_substrate_id,
         since_node_hash.as_ref(),
@@ -1013,7 +1013,7 @@ pub(crate) fn handle_federation_pull_events_from_peer(
             Some(t) => vec![t],
             None => Vec::new(),
         };
-        let cycle = state.manifest.cycle_counter;
+        let cycle = state.cycle_counter();
         match state.dag.insert_node(
             parents,
             wrapper_node_type.clone(),

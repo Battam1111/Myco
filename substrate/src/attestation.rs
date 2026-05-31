@@ -414,7 +414,7 @@ pub(crate) fn verify_reveal_keypair_envelope(state: &ServerState, request: &Mess
     );
     signing_map.insert(
         "substrate_id".to_string(),
-        Value::Bytes(state.manifest.substrate_id.to_vec()),
+        Value::Bytes(state.substrate_id().to_vec()),
     );
     let signing_input = cb_encode(&Value::Map(signing_map))
         .map_err(|e| format!("signing input encode failed: {e}"))?;
@@ -1018,7 +1018,7 @@ pub(crate) fn handle_submit_mutation(
             Some(witness) => {
                 let (rule_id, compressed_hashes, _agg, _tip) = &witness;
                 let invariant_set = crate::events::seed_compression_invariant_set();
-                let current_cycle = state.manifest.cycle_counter;
+                let current_cycle = state.cycle_counter();
                 let mut violation: Option<String> = None;
                 for h in compressed_hashes {
                     // Look up node in DAG by hash.
@@ -1106,7 +1106,7 @@ pub(crate) fn handle_submit_mutation(
             None => Vec::new(),
         };
         let node_type = format!("mutation:{mutation_type}");
-        let current_cycle = state.manifest.cycle_counter;
+        let current_cycle = state.cycle_counter();
         let hash = state
             .dag
             .insert_node(
@@ -1140,7 +1140,7 @@ pub(crate) fn handle_submit_mutation(
     if accepted && staged_backup_encryption_status.is_some() {
         let (status, key_id) =
             staged_backup_encryption_status.expect("guarded by Some check");
-        let cycle = state.manifest.cycle_counter;
+        let cycle = state.cycle_counter();
         let body = crate::events::encode_backup_encryption_status_declared(
             &status,
             key_id.as_deref(),
@@ -1182,7 +1182,7 @@ pub(crate) fn handle_submit_mutation(
             crate::events::NODE_TYPE_OWNER_OBJECTIVE_DECLARED_PREFIX,
             obj.objective_id
         );
-        let cycle = state.manifest.cycle_counter;
+        let cycle = state.cycle_counter();
         let _ = state
             .dag
             .insert_node(parents, nt, cycle, body)
@@ -1206,14 +1206,14 @@ pub(crate) fn handle_submit_mutation(
             compressed_hashes,
             agg_summary,
             attestation_tip,
-            state.manifest.cycle_counter,
+            state.cycle_counter(),
         );
         let parents: Vec<myco_kernel_shared::crypto::NodeHash> = match state.dag.tip() {
             Some(t) => vec![t],
             None => Vec::new(),
         };
         let event_node_type = crate::events::compression_event_node_type(rule_id);
-        let cycle = state.manifest.cycle_counter;
+        let cycle = state.cycle_counter();
         let h = state
             .dag
             .insert_node(parents, event_node_type, cycle, event_canonical)
@@ -1240,14 +1240,14 @@ pub(crate) fn handle_submit_mutation(
             envelope_bytes,
             sig,
             pubkey,
-            state.manifest.cycle_counter,
+            state.cycle_counter(),
         );
         let parents: Vec<myco_kernel_shared::crypto::NodeHash> = match state.dag.tip() {
             Some(t) => vec![t],
             None => Vec::new(),
         };
         let event_node_type = crate::events::tip_cosigned_node_type(tip_hash);
-        let cycle = state.manifest.cycle_counter;
+        let cycle = state.cycle_counter();
         let h = state
             .dag
             .insert_node(parents, event_node_type, cycle, event_canonical)
@@ -1275,14 +1275,14 @@ pub(crate) fn handle_submit_mutation(
             envelope_bytes,
             sig,
             pubkey,
-            state.manifest.cycle_counter,
+            state.cycle_counter(),
         );
         let parents: Vec<myco_kernel_shared::crypto::NodeHash> = match state.dag.tip() {
             Some(t) => vec![t],
             None => Vec::new(),
         };
         let event_node_type = crate::events::l0_revision_attested_node_type(prior_l0_hash);
-        let cycle = state.manifest.cycle_counter;
+        let cycle = state.cycle_counter();
         let h = state
             .dag
             .insert_node(parents, event_node_type, cycle, event_canonical)
@@ -1323,7 +1323,7 @@ pub(crate) fn handle_submit_mutation(
             Some(t) => vec![t],
             None => Vec::new(),
         };
-        let cycle = state.manifest.cycle_counter;
+        let cycle = state.cycle_counter();
         let h = state
             .dag
             .insert_node(parents, event_node_type, cycle, event_canonical)
@@ -1354,7 +1354,7 @@ pub(crate) fn handle_submit_mutation(
     if accepted && migration_mode {
         let op = schema_apply_op.clone();
         let window = myco_kernel_schema::migration::DEFAULT_DUAL_VALIDATION_WINDOW_CYCLES;
-        let cycle = state.manifest.cycle_counter;
+        let cycle = state.cycle_counter();
         // The schema_diff bytes captured before the mutation node consumed
         // `content_bytes`. `migration_mode && accepted` guarantees this is Some.
         let diff_bytes = migration_diff_bytes.clone().unwrap_or_default();

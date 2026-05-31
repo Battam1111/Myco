@@ -251,7 +251,7 @@ pub(crate) fn compute_observatory_counts(
                     .map(|s| s.at_cycle)
                     // Fallback: every snapshot predates the window → no
                     // events in window.
-                    .unwrap_or(state.manifest.cycle_counter.saturating_add(1))
+                    .unwrap_or(state.cycle_counter().saturating_add(1))
             }
         }
         // No history yet (fresh substrate, no cycles advanced): count all CI
@@ -348,7 +348,7 @@ pub(crate) fn compute_telos_alignment_cosine(state: &ServerState) -> Option<f64>
     // per prefix. CI-class events (mutation:*, evolution_*) are EXCLUDED
     // per L1/TROPISM §F.5 ("does NOT compute over CI-class sporocarps").
     let window: u64 = 90; // L0/cards/LB_living_bets §3 (falsifiability quorum) living-bets window
-    let current_cycle = state.manifest.cycle_counter;
+    let current_cycle = state.cycle_counter();
     let cycle_floor = current_cycle.saturating_sub(window);
     let mut per_prefix_count: std::collections::BTreeMap<String, u64> =
         std::collections::BTreeMap::new();
@@ -449,7 +449,7 @@ fn p11c_advance_stage(
     Vec<(String, myco_kernel_shared::canonical_bytes::CanonicalBytes)>,
 ) {
     use crate::events::SaturationStage;
-    let cycle = state.manifest.cycle_counter;
+    let cycle = state.cycle_counter();
     let floor = state.cost_budgets.pre_eligibility_cycle_floor;
     let prev_stage = state.saturation_stage;
 
@@ -558,7 +558,7 @@ pub(crate) fn append_observatory_snapshot_to_state(state: &mut ServerState) {
     // v3.1.1 P07 observability metrics (L2/OBSERVABILITY §2 anticipated).
     // Computed at snapshot time so the rolling history captures per-cycle
     // metabolic discipline. Window matches `HOARDING_INDICATOR_WINDOW_CYCLES`.
-    let current_cycle = state.manifest.cycle_counter;
+    let current_cycle = state.cycle_counter();
     let mortality_window_start =
         current_cycle.saturating_sub(crate::prune::HOARDING_INDICATOR_WINDOW_CYCLES);
     let signal_internal_mortality_event_density =
@@ -566,7 +566,7 @@ pub(crate) fn append_observatory_snapshot_to_state(state: &mut ServerState) {
     let signal_hoarding_indicator = crate::prune::is_hoarding(state, current_cycle);
 
     let snapshot = ObservatorySnapshot {
-        at_cycle: state.manifest.cycle_counter,
+        at_cycle: state.cycle_counter(),
         at_unix_ns,
         signal_1_dag_node_count: counts.dag_node_count,
         signal_1_dag_total_content_bytes: counts.dag_total_content_bytes,
@@ -604,7 +604,7 @@ pub(crate) fn append_observatory_snapshot_to_state(state: &mut ServerState) {
 /// `compression_proposed:{rule_id}` daily events in PostEligibility, and
 /// runs the C53 budget_exhausted_silent detector.
 fn apply_p11c_and_emit(state: &mut ServerState, cost: &CostSnapshot) {
-    let cycle = state.manifest.cycle_counter;
+    let cycle = state.cycle_counter();
     let budgets = state.cost_budgets;
 
     // Per-axis exceeded flags.
@@ -794,7 +794,7 @@ fn apply_p11c_and_emit(state: &mut ServerState, cost: &CostSnapshot) {
 /// fire the appropriate level of `telos_*` event (with 100-cycle cooldown).
 /// For CRITICAL grade, also fires C24_telos_drift_critical immune sporocarp.
 fn apply_p14c_telos_drift(state: &mut ServerState, telos_cosine: Option<f64>) {
-    let cycle = state.manifest.cycle_counter;
+    let cycle = state.cycle_counter();
     let cosine = match telos_cosine {
         None => {
             // Birth-period / no objective / no sporocarps → emit pending
@@ -942,7 +942,7 @@ pub(crate) fn handle_query_substrate_observatory(
     let federation_received_count = counts.federation_received_count;
     let established_peers = counts.established_peers;
     let ci_events_in_burst_window = counts.ci_events_in_burst_window;
-    let manifest_cycle_counter = state.manifest.cycle_counter;
+    let manifest_cycle_counter = state.cycle_counter();
 
     // Signal #6: read-window-relative position. Only computed if the
     // operator attests their context window size. M25.2: the attested

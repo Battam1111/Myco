@@ -171,12 +171,12 @@ pub(crate) fn run_integrity_checks(state: &ServerState) -> Vec<IntegrityCheckRes
     // 1. substrate_id well-formed.
     // **M-anchor-4**: witness inputs = {substrate_id: Bytes(32)}. Owner re-checks
     // by asserting non-zero.
-    let substrate_id_zero = state.manifest.substrate_id.iter().all(|b| *b == 0);
+    let substrate_id_zero = state.substrate_id().iter().all(|b| *b == 0);
     let witness_inputs_substrate_id = {
         let mut m = BTreeMap::new();
         m.insert(
             "substrate_id".to_string(),
-            Value::Bytes(state.manifest.substrate_id.to_vec()),
+            Value::Bytes(state.substrate_id().to_vec()),
         );
         cb_encode(&Value::Map(m))
             .map(|cb| cb.0)
@@ -203,12 +203,12 @@ pub(crate) fn run_integrity_checks(state: &ServerState) -> Vec<IntegrityCheckRes
         .map(|n| n.created_at_cycle)
         .max()
         .unwrap_or(0);
-    let monotonic = state.manifest.cycle_counter >= max_dag_cycle;
+    let monotonic = state.cycle_counter() >= max_dag_cycle;
     let witness_inputs_cycle_monotonic = {
         let mut m = BTreeMap::new();
         m.insert(
             "manifest_cycle_counter".to_string(),
-            Value::Uint(state.manifest.cycle_counter),
+            Value::Uint(state.cycle_counter()),
         );
         m.insert(
             "max_dag_at_cycle".to_string(),
@@ -224,12 +224,12 @@ pub(crate) fn run_integrity_checks(state: &ServerState) -> Vec<IntegrityCheckRes
         evidence: if monotonic {
             format!(
                 "manifest.cycle_counter={} >= max(DAG.at_cycle)={}",
-                state.manifest.cycle_counter, max_dag_cycle
+                state.cycle_counter(), max_dag_cycle
             )
         } else {
             format!(
                 "manifest.cycle_counter={} < max(DAG.at_cycle)={} (manifest may have rolled back)",
-                state.manifest.cycle_counter, max_dag_cycle
+                state.cycle_counter(), max_dag_cycle
             )
         },
         witness_inputs_canonical_bytes: witness_inputs_cycle_monotonic,
@@ -451,11 +451,11 @@ pub(crate) fn run_integrity_checks(state: &ServerState) -> Vec<IntegrityCheckRes
         let mut m = BTreeMap::new();
         m.insert(
             "substrate_id".to_string(),
-            Value::Bytes(state.manifest.substrate_id.to_vec()),
+            Value::Bytes(state.substrate_id().to_vec()),
         );
         m.insert(
             "manifest_cycle_counter".to_string(),
-            Value::Uint(state.manifest.cycle_counter),
+            Value::Uint(state.cycle_counter()),
         );
         m.insert(
             "dag_node_count".to_string(),
@@ -700,7 +700,7 @@ fn check_manifest_cycle_vs_dag_advance_count(
         .iter_in_insertion_order()
         .filter(|n| n.node_type == crate::events::NODE_TYPE_CYCLE_ADVANCED)
         .count() as u64;
-    let counter = state.manifest.cycle_counter;
+    let counter = state.cycle_counter();
     let diff = counter.abs_diff(advance_count);
     let passed = diff <= 1;
     let witness = {
@@ -759,7 +759,7 @@ fn check_silent_internal_mortality(
 
     use myco_kernel_shared::canonical_bytes::{decode as cb_decode, Value as CbValue};
 
-    let current_cycle = state.manifest.cycle_counter;
+    let current_cycle = state.cycle_counter();
 
     // Build referenced-by-anyone set.
     let mut referenced: HashSet<[u8; 32]> = HashSet::new();
@@ -939,7 +939,7 @@ pub(crate) fn emit_invariant_witnesses(
     results: &[IntegrityCheckResult],
 ) -> u64 {
     use std::time::{SystemTime, UNIX_EPOCH};
-    let at_cycle = state.manifest.cycle_counter;
+    let at_cycle = state.cycle_counter();
     let at_unix_ns = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .ok()
@@ -995,11 +995,14 @@ pub(crate) fn emit_invariant_witnesses(
 /// M21.1: C19 detector. Reconciles in-memory ServerState (Rust-side fields)
 /// against DerivedState::from_dag. Returns (passed, evidence).
 ///
-/// What this checks:
-/// - substrate_id: live manifest.substrate_id == derived.substrate_id
-/// - genesis_time_unix_ns: live manifest.genesis_time_unix_ns == derived.genesis_time_unix_ns
-/// - cycle_counter: live manifest.cycle_counter == derived.cycle_counter
-/// - last_absorbed_cycle: live manifest.last_absorbed_cycle == derived.last_absorbed_cycle
+/// What this checks (live values read via the Task #8i discrete-field
+/// accessors `state.substrate_id()` / `genesis_time_unix_ns()` /
+/// `cycle_counter()` / `last_absorbed_cycle()`; the legacy `manifest` mirror
+/// no longer exists):
+/// - substrate_id: live state.substrate_id() == derived.substrate_id
+/// - genesis_time_unix_ns: live state.genesis_time_unix_ns() == derived.genesis_time_unix_ns
+/// - cycle_counter: live state.cycle_counter() == derived.cycle_counter
+/// - last_absorbed_cycle: live state.last_absorbed_cycle() == derived.last_absorbed_cycle
 /// - pinned_operator_identity: live state.pinned_operator_identity == derived.pinned_operator_identity
 /// - nonce_log: live state.nonce_log size + per-entry consumed flags == derived.nonce_log
 fn check_substrate_state_orphans(state: &ServerState) -> (bool, String) {
@@ -1025,10 +1028,10 @@ fn check_substrate_state_orphans(state: &ServerState) -> (bool, String) {
     // positives during migration, we ONLY report divergence when derived
     // HAS substrate_id and it differs from live.
     if let Some(d_id) = derived.substrate_id {
-        if d_id != state.manifest.substrate_id {
+        if d_id != state.substrate_id() {
             divergences.push(format!(
                 "substrate_id mismatch: live={}, derived={}",
-                hex_encode(&state.manifest.substrate_id),
+                hex_encode(&state.substrate_id()),
                 hex_encode(&d_id)
             ));
         }
@@ -1036,10 +1039,10 @@ fn check_substrate_state_orphans(state: &ServerState) -> (bool, String) {
 
     // genesis_time: same migration-friendly check.
     if let Some(d_time) = derived.genesis_time_unix_ns {
-        if d_time != state.manifest.genesis_time_unix_ns {
+        if d_time != state.genesis_time_unix_ns() {
             divergences.push(format!(
                 "genesis_time_unix_ns mismatch: live={}, derived={}",
-                state.manifest.genesis_time_unix_ns, d_time
+                state.genesis_time_unix_ns(), d_time
             ));
         }
     }
@@ -1052,17 +1055,17 @@ fn check_substrate_state_orphans(state: &ServerState) -> (bool, String) {
     // when derived.cycle_counter > 0 OR (derived.substrate_id is Some, i.e. we
     // have a genesis event and thus the substrate is post-M21).
     if (derived.cycle_counter > 0 || derived.substrate_id.is_some())
-        && derived.cycle_counter != state.manifest.cycle_counter
+        && derived.cycle_counter != state.cycle_counter()
     {
         divergences.push(format!(
             "cycle_counter mismatch: live={}, derived={}",
-            state.manifest.cycle_counter, derived.cycle_counter
+            state.cycle_counter(), derived.cycle_counter
         ));
     }
 
     // last_absorbed_cycle: derived from absorption_event events (already in DAG
     // since M18). Should always match.
-    if derived.last_absorbed_cycle != state.manifest.last_absorbed_cycle {
+    if derived.last_absorbed_cycle != state.last_absorbed_cycle() {
         // BUT: absorption_event was added in M18; pre-M21 last_absorbed_cycle
         // tracking is via manifest only. Migration tolerance:
         // - derived is Some → strict match required
@@ -1070,7 +1073,7 @@ fn check_substrate_state_orphans(state: &ServerState) -> (bool, String) {
         if derived.last_absorbed_cycle.is_some() {
             divergences.push(format!(
                 "last_absorbed_cycle mismatch: live={:?}, derived={:?}",
-                state.manifest.last_absorbed_cycle, derived.last_absorbed_cycle
+                state.last_absorbed_cycle(), derived.last_absorbed_cycle
             ));
         }
     }
