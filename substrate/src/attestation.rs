@@ -674,6 +674,7 @@ fn emit_duress_forensics_and_freeze(
          (L2/TRUST_MODEL §10.A.2)",
         crate::server::hex_first_8_bytes(duress_pubkey)
     );
+    // implements L0::P1.b''; negative-witness: substrate/tests/e2e_duress.rs::f23_duress_signature_cosmetically_suppressed_then_frozen_then_cleared
     let _ = emit_immune_sporocarp(
         state,
         "C50_coerced_owner_suspected",
@@ -834,6 +835,7 @@ pub(crate) fn handle_submit_mutation(
             // immune log.
             match reject.kind {
                 NonceRejectKind::UnknownNonce => {
+                    // implements L0::P1.b''; negative-witness: substrate/tests/e2e_attestation.rs::c44_unknown_nonce_presented_for_consumption_fruits_c44
                     let _ = emit_immune_sporocarp(
                         state,
                         "C44_nonce_substrate_minted_replay",
@@ -845,6 +847,7 @@ pub(crate) fn handle_submit_mutation(
                     );
                 }
                 NonceRejectKind::AlreadyConsumed => {
+                    // implements L0::P1.b''; negative-witness: substrate/tests/e2e_attestation.rs::c44_replayed_consumed_nonce_fruits_c44
                     let _ = emit_immune_sporocarp(
                         state,
                         "C44_nonce_substrate_minted_replay",
@@ -943,6 +946,7 @@ pub(crate) fn handle_submit_mutation(
              mutation_type={early_mutation_type:?}; COV06 §5.5 + L1/GOVERNANCE §3.2.C + P07 §4 \
              enforced; cultivation_orphaned MUST NOT be suppressed by cultivator pressure"
         );
+        // implements L0::COV06; negative-witness: substrate/tests/e2e_cultivation.rs::c69_cultivation_orphaned_suppression_refused
         let _ = emit_immune_sporocarp(
             state,
             "C69_cultivation_orphaned_suppression_attempted",
@@ -1448,6 +1452,7 @@ pub(crate) fn handle_submit_mutation(
             accepted = false;
             rejection_reason = evidence.clone();
             staged_peer_revocation = None;
+            // implements L0::P8; negative-witness: substrate/tests/e2e_consensus.rs::c49_peer_revocation_without_cert_rejected_when_floor_active
             let _ = emit_immune_sporocarp(
                 state,
                 "C49_consensus_floor_bypass",
@@ -1812,6 +1817,7 @@ pub(crate) fn handle_submit_mutation(
                                      expires at {} (30-day veto window not elapsed)",
                                     pending.cooldown_expires_at
                                 );
+                                // implements L0::P1.b''; negative-witness: substrate/tests/e2e_owner_key.rs::c70_activate_before_cooldown_rejected_with_c70
                                 let _ = emit_immune_sporocarp(
                                     state,
                                     "C70_rotation_veto_window_violation",

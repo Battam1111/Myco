@@ -175,6 +175,7 @@ fn verify_spawn_co_attestation(
         state: &mut ServerState,
         evidence: String,
     ) -> Result<VerifiedSpawnAttestation, SubstrateError> {
+        // implements L0::P8; negative-witness: substrate/tests/e2e_reproduction.rs::c68_unattested_spawn_refused_and_immune_no_child_dag
         let _ = emit_immune_sporocarp(
             state,
             "C68_reproduction_unattested_spawn",

@@ -678,6 +678,7 @@ pub(crate) fn handle_federation_poll(
                      owner-revocation list (L1/GOVERNANCE §5.2)",
                     hex_first_8_bytes(&peer_substrate_id)
                 );
+                // implements L0::P8; negative-witness: substrate/tests/e2e_revocation.rs::c13_attested_revoke_emits_crl_event_and_blocks_egress
                 let _ = emit_immune_sporocarp(
                     state,
                     "C13_peer_attestation_revoked_egress",
@@ -1120,6 +1121,7 @@ pub(crate) fn handle_federation_pull_events_from_peer(
              not absorbed (inbound half of revocation)",
             hex_first_8_bytes(&peer_substrate_id)
         );
+        // implements L0::P8; negative-witness: substrate/tests/e2e_revocation.rs::c13_ingest_from_revoked_peer_refused_and_survives_restart
         let _ = emit_immune_sporocarp(
             state,
             "C13_peer_attestation_revoked_egress",
@@ -1337,6 +1339,7 @@ pub(crate) fn handle_federation_pull_events_from_peer(
             max_attempted,
             MAX_FEDERATION_RECURSION_DEPTH,
         );
+        // implements L0::P8; negative-witness: substrate/src/federation/handlers.rs::c43_recursive_validation_tests::depth_exhaustion_at_six_levels_is_rejected_with_attempted_depth_6
         let _ = emit_immune_sporocarp(
             state,
             "C43_federation_recursive_injection",

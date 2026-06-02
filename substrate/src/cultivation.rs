@@ -727,6 +727,7 @@ pub(crate) fn handle_accept_succession(
              ≥50 dual-signed Layer-D sessions (COV06 §5.3 + META §6.3). Premature succession \
              = owner_succession_bypass."
         );
+        // implements L0::P1.b''; negative-witness: substrate/tests/e2e_cultivation.rs::succession_below_50_sessions_rejected_c46
         let _ = emit_immune_sporocarp(
             state,
             "C46_owner_succession_bypass",
@@ -759,6 +760,7 @@ pub(crate) fn handle_accept_succession(
             crate::server::hex_first_8_bytes(&prior_cultivator_pubkey),
             crate::server::hex_first_8_bytes(&pinned.pubkey),
         );
+        // implements L0::P1.b''; negative-witness: substrate/src/cultivation.rs::tests::succession_with_misdeclared_prior_pubkey_rejected_c12
         let _ = emit_immune_sporocarp(
             state,
             "C12_successor_activation_with_fresh_owner_heartbeat",
@@ -782,6 +784,7 @@ pub(crate) fn handle_accept_succession(
                  for incapacity, not takeover (C12). Wait for staleness or use \
                  cultivator-attested key rotation instead."
             );
+            // implements L0::P1.b''; negative-witness: substrate/src/cultivation.rs::tests::succession_with_fresh_heartbeat_rejected_c12
             let _ = emit_immune_sporocarp(
                 state,
                 "C12_successor_activation_with_fresh_owner_heartbeat",

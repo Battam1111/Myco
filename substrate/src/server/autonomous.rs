@@ -693,6 +693,7 @@ pub(super) fn do_autonomous_tick(state: &mut ServerState) -> Result<(), Substrat
                      owner-revocation list (L1/GOVERNANCE §5.2, autonomous tick)",
                     hex_encode(&peer_substrate_id)
                 );
+                // implements L0::P8; negative-witness: substrate/tests/e2e_revocation.rs::c13_attested_revoke_emits_crl_event_and_blocks_egress
                 let _ = emit_immune_sporocarp(
                     state,
                     "C13_peer_attestation_revoked_egress",
