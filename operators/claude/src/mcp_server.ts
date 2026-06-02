@@ -54,31 +54,19 @@ import type {
   RecentNodesReport,
 } from "./protocol/messages.ts";
 import { OperatorIdentity } from "./operator_identity.ts";
-import { bytesToHex as toHex } from "./hex.ts";
+import { bytesToHex as toHex, hexTo32 } from "./hex.ts";
+import type { Value } from "@myco/anchor-client/src/canonical_bytes.ts";
+
+/** Build a canonical-bytes Map `Value` from typed entries. Keeps the nested
+ *  value type checked as `Value` (vs. a bare object literal, which TS infers too
+ *  narrowly and then forces an `as never` cast at the call site). */
+function cbMap(entries: [string, Value][]): Value {
+  return { type: "map", value: new Map<string, Value>(entries) };
+}
 
 /** Configuration for the MCP server. */
 export interface McpServerConfig {
   substrate?: SubstrateClientConfig;
-}
-
-/** Parse a 64-character hex string into a 32-byte Uint8Array.
- *
- *  Shared by every tool that accepts a `*_hash_hex` / `*_l0_hash_hex` /
- *  `tip_hash_hex` argument (raw_material link, dag_tip cosign, l0 revision,
- *  enumerate-since). Throws on a non-64-length input so a malformed hex
- *  surfaces as an `isError` tool result rather than a silently-truncated hash.
- *  `label` names the offending field in the error message. */
-function hexTo32(hex: string, label = "value"): Uint8Array {
-  if (hex.length !== 64) {
-    throw new Error(
-      `${label} must be 64 hex chars (32 bytes); got ${hex.length}`,
-    );
-  }
-  const out = new Uint8Array(32);
-  for (let i = 0; i < 32; i++) {
-    out[i] = parseInt(hex.substring(i * 2, i * 2 + 2), 16);
-  }
-  return out;
 }
 
 /** Format an AdvanceReport as a readable summary string. */
@@ -985,13 +973,10 @@ export class McpServer {
           () => 0n,
         );
         const sporeSchemaCanonicalBytes = buildSporeSchemaCanonicalBytes({
-          schemaDefinitions: {
-            type: "map",
-            value: new Map([
-              ["parent_substrate_id", { type: "bytes", value: parentId }],
-              ["axis_register_count", { type: "uint", value: axisRegisterCount }],
-            ]),
-          } as never,
+          schemaDefinitions: cbMap([
+            ["parent_substrate_id", { type: "bytes", value: parentId }],
+            ["axis_register_count", { type: "uint", value: axisRegisterCount }],
+          ]),
           canonicalBytesSerializerSpec: {
             type: "string",
             value: "myco-canonical-bytes-v1",
@@ -1004,22 +989,16 @@ export class McpServer {
             type: "string",
             value: "myco-classifier-i2-v1",
           },
-          initialAppetiteAxisSchema: {
-            type: "map",
-            value: new Map([
-              ["axis_register_count", { type: "uint", value: axisRegisterCount }],
-            ]),
-          } as never,
+          initialAppetiteAxisSchema: cbMap([
+            ["axis_register_count", { type: "uint", value: axisRegisterCount }],
+          ]),
           anchorSurfaceConfig: {
             type: "bytes",
             value: identity.publicKeyBytes(),
           },
-          parentImmuneSignalSummary: {
-            type: "map",
-            value: new Map([
-              ["unresolved_count", { type: "uint", value: immuneCount }],
-            ]),
-          } as never,
+          parentImmuneSignalSummary: cbMap([
+            ["unresolved_count", { type: "uint", value: immuneCount }],
+          ]),
         });
 
         const result = await sub.sproutChild({

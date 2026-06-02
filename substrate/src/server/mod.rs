@@ -360,6 +360,17 @@ pub(crate) struct ServerState {
     /// `DerivedState::latest_heartbeat`. The autonomous-tick staleness watchdog
     /// measures `now_anchor - anchor_timestamp_unix_ns` against the cadence.
     pub(crate) latest_heartbeat: Option<crate::derived_state::DerivedLatestHeartbeat>,
+    /// **COV06 (efficiency)** — memoized cultivation-succession FSM state. The
+    /// derivation (`crate::cultivation::current_cultivation_state`) is an
+    /// unbounded full-DAG walk; reads happen on every ADVANCE (the `is_archived`
+    /// metabolism guard) and every autonomous tick, while the underlying state
+    /// only changes when a cultivation-FAMILY event is emitted (heartbeats are
+    /// unprunable, so the walk grows monotonically). This cache mirrors the
+    /// `latest_heartbeat`/`successor_chain` pattern: it is recomputed (one walk)
+    /// at the centralized emit point [`emit_substrate_event`] whenever a
+    /// cultivation-family node is appended, and hydrated once at boot. Hot reads
+    /// go through [`ServerState::cultivation_state`] (O(1)).
+    pub(crate) cultivation_state: crate::cultivation::CultivationState,
     /// **COV06 T1** — cooldown tracking for the `cultivator_heartbeat_stale`
     /// emission. Stores `cycle_counter` at the most recent T1 emission; the
     /// autonomous tick suppresses re-emission within `COV06_STALE_COOLDOWN_CYCLES`
@@ -507,6 +518,9 @@ impl ServerState {
             successor_chain: Vec::new(),
             succession_config: None,
             latest_heartbeat: None,
+            // Genesis default; boot hydrates this from the full-DAG re-derivation
+            // and `emit_substrate_event` keeps it current thereafter.
+            cultivation_state: crate::cultivation::CultivationState::Normal,
             last_cultivator_heartbeat_stale_emitted_at_cycle: None,
             last_cultivation_orphaned_emitted_at_cycle: None,
             last_cultivation_terminal_emitted_at_cycle: None,
@@ -532,6 +546,16 @@ impl ServerState {
     /// Mirrors the now-removed `DerivedState::to_legacy_manifest` mapping.
     pub(crate) fn substrate_id(&self) -> [u8; 32] {
         self.substrate_id.unwrap_or([0u8; 32])
+    }
+
+    /// **COV06 (efficiency)** — O(1) read of the memoized cultivation-succession
+    /// FSM state. Equivalent to `crate::cultivation::current_cultivation_state(self)`
+    /// but without the full-DAG walk; the value is maintained at the centralized
+    /// `emit_substrate_event` point + hydrated at boot. Use this on hot paths
+    /// (the ADVANCE/tick metabolism guard); the pure walk remains available for
+    /// unit tests that build a DAG directly.
+    pub(crate) fn cultivation_state(&self) -> crate::cultivation::CultivationState {
+        self.cultivation_state
     }
 
     /// Genesis wall-clock time (ns), sentinel-mapped (`None` → `0`).
@@ -969,6 +993,9 @@ pub fn run_loop() -> Result<u8, SubstrateError> {
     state.successor_chain = derived.successor_chain.clone();
     state.succession_config = derived.succession_config.clone();
     state.latest_heartbeat = derived.latest_heartbeat.clone();
+    // Hydrate the memoized FSM cache once (one full-DAG walk at boot); thereafter
+    // `emit_substrate_event` keeps it current on each cultivation-family emission.
+    state.cultivation_state = crate::cultivation::current_cultivation_state(&state);
     for entry in nonce_log_entries {
         state.nonce_log.insert(
             entry.nonce,
@@ -1768,10 +1795,22 @@ pub(crate) fn emit_substrate_event(
         None => Vec::new(),
     };
     let cycle = state.cycle_counter();
-    state
+    // Capture before `node_type` is moved into the insert.
+    let is_cultivation_family =
+        crate::cultivation::is_cultivation_family_node_type(&node_type);
+    let h = state
         .dag
         .insert_node(parents, node_type, cycle, content)
-        .map_err(|e| SubstrateError::Protocol(format!("substrate event DAG insert: {e}")))
+        .map_err(|e| SubstrateError::Protocol(format!("substrate event DAG insert: {e}")))?;
+    // **COV06 (efficiency)** — keep the memoized FSM cache in sync. Every
+    // cultivation-family event (heartbeats, stale, orphaned, recovered,
+    // succession, bet_retired) flows through this single emit point, so one
+    // recompute here covers all handlers AND the autonomous tick. The pure walk
+    // runs only on these (rare) emissions; hot reads stay O(1).
+    if is_cultivation_family {
+        state.cultivation_state = crate::cultivation::current_cultivation_state(state);
+    }
+    Ok(h)
 }
 
 /// Forward a request to the Python worker verbatim and surface its response.

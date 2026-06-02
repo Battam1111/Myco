@@ -1093,9 +1093,36 @@ pub(crate) fn handle_federation_pull_events_from_peer(
     // entire offending envelope (no partial acceptance — see C43 doctrine) and
     // emits C43 (depth-exhaustion) or C35-with-`cascade_flag` (banned/malformed
     // at depth). See `federation_recursive_validation.md` + L2/FEDERATION §11.
+    // A recursive-validation reject that maps to the C35 cascade path. Carries a
+    // typed `kind` instead of stuffing a sentinel string into the inner-type
+    // slot, so the malformed-wrapper case is distinguishable from a genuine
+    // banned inner type when an operator reads the evidence.
+    enum CascadeKind {
+        /// A substrate-private inner type smuggled `depth` levels down.
+        BannedInner(String),
+        /// A `federation_received:` wrapper that did not decode as a well-formed
+        /// wrapper Map (carries the decode-failure reason).
+        Malformed(String),
+    }
+    struct CascadeReject {
+        depth: usize,
+        kind: CascadeKind,
+    }
+    impl CascadeReject {
+        /// `depth=N:<detail>` line for the C35 evidence string.
+        fn detail(&self) -> String {
+            match &self.kind {
+                CascadeKind::BannedInner(ty) => format!("depth={}:{ty}", self.depth),
+                CascadeKind::Malformed(reason) => {
+                    format!("depth={}:<malformed wrapper: {reason}>", self.depth)
+                }
+            }
+        }
+    }
+
     let mut rejected_events: Vec<(String, [u8; 32])> = Vec::new();
     let mut recursive_depth_rejects: Vec<usize> = Vec::new();
-    let mut recursive_banned_rejects: Vec<(usize, String)> = Vec::new();
+    let mut recursive_cascade_rejects: Vec<CascadeReject> = Vec::new();
     let mut safe_events: Vec<&crate::federation::protocol::EventForFederation> = Vec::new();
     for ev in &parsed_batch.events {
         if !crate::federation::protocol::is_federation_safe_node_type(&ev.node_type) {
@@ -1120,13 +1147,19 @@ pub(crate) fn handle_federation_pull_events_from_peer(
                 depth,
                 inner_node_type,
             }) => {
-                recursive_banned_rejects.push((depth, inner_node_type));
+                recursive_cascade_rejects.push(CascadeReject {
+                    depth,
+                    kind: CascadeKind::BannedInner(inner_node_type),
+                });
             }
             Err(FederationRecursionReject::MalformedWrapper { depth, reason }) => {
                 // Malformed wrapper under an allowlisted prefix → conservative
-                // C35-class reject (recorded with the decode reason as the
-                // "inner type" so operators see why it was refused).
-                recursive_banned_rejects.push((depth, format!("<malformed wrapper: {reason}>")));
+                // C35-class reject (typed as Malformed so operators can tell it
+                // from a genuine banned inner type).
+                recursive_cascade_rejects.push(CascadeReject {
+                    depth,
+                    kind: CascadeKind::Malformed(reason),
+                });
             }
         }
     }
@@ -1173,10 +1206,10 @@ pub(crate) fn handle_federation_pull_events_from_peer(
     // C35 (cascade) — banned / malformed inner type smuggled at depth. Distinct
     // from the single-level C35 above by `cascade_flag=true` + `depth` +
     // `inner_type` in the evidence string.
-    if !recursive_banned_rejects.is_empty() {
-        let detail = recursive_banned_rejects
+    if !recursive_cascade_rejects.is_empty() {
+        let detail = recursive_cascade_rejects
             .iter()
-            .map(|(depth, ty)| format!("depth={depth}:{ty}"))
+            .map(CascadeReject::detail)
             .collect::<Vec<_>>()
             .join(", ");
         let evidence = format!(
@@ -1184,7 +1217,7 @@ pub(crate) fn handle_federation_pull_events_from_peer(
              smuggled {} banned/malformed inner event-type(s) inside nested \
              federation_received: wrappers; {}; entire outer envelope rejected",
             hex_first_8_bytes(&peer_substrate_id),
-            recursive_banned_rejects.len(),
+            recursive_cascade_rejects.len(),
             detail,
         );
         let _ = emit_immune_sporocarp(

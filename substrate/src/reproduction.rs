@@ -240,6 +240,15 @@ fn verify_spawn_co_attestation(
     };
 
     // --- Gate 2: envelope decodes as myco-spawn-cosign-v1. ---
+    //
+    // `_env_anchor_nonce` is signed and part of the byte-parity contract (it is
+    // re-encoded verbatim into the genesis_attested event), but it is NOT
+    // freshness-checked here: it is RESERVED for future M-anchor nonce-ledger
+    // wiring (an issued/consumed anchor-nonce ledger, like the heartbeat nonce
+    // path). Until that lands, the CURRENT spawn-replay defense is the §16.B
+    // clock-rewind guard in gate 6 below (`env_anchor_ts` must be STRICTLY later
+    // than the max anchor stamp over prior genesis_attested:* events), so a
+    // replayed envelope cannot mint a second child.
     let (
         env_parent_id,
         env_spore_schema_hash,
@@ -379,7 +388,8 @@ fn verify_spawn_co_attestation(
         hasher.finalize().into()
     };
 
-    let _ = env_anchor_ts; // carried inside envelope_bytes (see struct doc)
+    // `env_anchor_ts` was consumed by the §16.B rate gate above; the value the
+    // NEXT spawn re-reads lives inside `envelope_bytes` (see struct doc).
     Ok(VerifiedSpawnAttestation {
         minted_child_id,
         child_genesis_timestamp_unix_ns: env_child_genesis_ts,
@@ -473,9 +483,10 @@ pub(crate) fn handle_sprout_child(
     // --- C47 generation_depth_exceeded (§16.A) ---
     // Root = depth 0; the child this sprout would create is `parent + 1`. A
     // substrate at depth == REPRODUCTION_LINEAGE_DEPTH_MAX cannot sprout
-    // (child would exceed the max). `depth_override` (F22, Cultivator-attested)
-    // is NOT yet wired — its absence simply means depth is hard-capped, which
-    // is the safe default for forkbomb defense.
+    // (child would exceed the max) UNLESS the cultivator's already-verified
+    // spawn-cosign envelope carries `depth_override` (F22) — which is wired
+    // below: an override records an audit event and proceeds, its absence
+    // hard-caps depth (the safe default for forkbomb defense).
     let parent_generation_depth = state.generation_depth();
     let child_generation_depth = parent_generation_depth.saturating_add(1);
     let lineage_depth_max = effective_lineage_depth_max();

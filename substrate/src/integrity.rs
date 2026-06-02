@@ -825,8 +825,8 @@ fn check_silent_internal_mortality(
                 continue;
             }
             // P10 invariant-protected — never 应朽, so never expected to
-            // have a tombstone.
-            if is_p10_invariant_protected(&node.node_type) {
+            // have a tombstone. Shared SSoT with the prune-scan rules.
+            if crate::prune::is_p10_invariant_protected(&node.node_type) {
                 continue;
             }
             let hash_bytes: [u8; 32] = node
@@ -897,37 +897,6 @@ fn check_silent_internal_mortality(
     };
 
     (passed, evidence, witness)
-}
-
-/// Mirror of `prune::is_p10_invariant_protected` — duplicated here to
-/// avoid a public-API expansion in the prune module. The two MUST stay in
-/// sync; their tests pin them together.
-fn is_p10_invariant_protected(node_type: &str) -> bool {
-    const PROTECTED_PREFIXES: &[&str] = &[
-        "genesis_event:",
-        "l0_revision_attested:",
-        "tip_cosigned:",
-        "compression_event:",
-        "owner_key_",
-        "destruction_attestation",
-        "anchor_surface_final_seal",
-        "self_euthanasia_executed:",
-        "bet_retired",
-        "cultivation_orphaned_terminal",
-        "birth_attestation",
-        // **COV06** — cultivator-mortality / succession FSM events (kept
-        // byte-in-sync with `prune::is_p10_invariant_protected`; the parity
-        // test pins them together).
-        "cultivator_heartbeat_recorded",
-        "cultivator_heartbeat_stale",
-        "cultivator_heartbeat_resumed",
-        "successor_chain_updated",
-        "succession_completed",
-        "cultivation_orphaned",
-        "cultivation_recovered",
-        crate::events::NODE_TYPE_INTERNAL_MORTALITY_EVENT_PREFIX,
-    ];
-    PROTECTED_PREFIXES.iter().any(|p| node_type.starts_with(p))
 }
 
 /// **M-anchor-4 §9.3.4**: emit `invariant_witness:{check_id}` DAG events

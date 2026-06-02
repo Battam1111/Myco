@@ -44,20 +44,13 @@ use common::*;
 
 use myco_kernel_shared::canonical_bytes::decode as cb_decode;
 use myco_kernel_shared::canonical_bytes::{encode as cb_encode, Value as Cb};
-use myco_kernel_shared::crypto::Ed25519PrivateKey;
 use std::collections::BTreeMap;
 
-/// The known operator/owner signing seed every attested-spawn test pins. The
-/// substrate, spawned via `spawn_substrate_with_signing_seed`, TOFU-pins the
-/// matching pubkey; the test signs the spawn-cosign envelope with the matching
-/// private key so the §3.5 gate-5 Ed25519 verify passes.
-const KNOWN_SEED: [u8; 32] = [0x42u8; 32];
-
-/// A round, distinct test anchor wall-clock base (ns) for the FIRST attested
-/// spawn. Subsequent spawns in the same parent must advance this by ≥ the
-/// effective rate interval (or the test sets the interval to 0).
-const ANCHOR_TS_BASE_NS: i64 = 1_700_000_000_000_000_000;
-
+// The known operator/owner signing seed (`common::REPRO_SEED`) and the FIRST
+// attested-spawn anchor base (`common::REPRO_ANCHOR_TS_BASE_NS`) are shared with
+// the federation suite via `common`; this file no longer keeps byte-identical
+// local copies.
+//
 // NOTE: `valid_spore_schema_bytes` + `read_substrate_id` are provided by
 // `common` (shared with the federation suite). This file adds the
 // reproduction-specific helpers below.
@@ -99,34 +92,10 @@ fn expected_child_id(
     hasher.finalize().into()
 }
 
-/// Build + sign a `myco-spawn-cosign-v1` envelope. Returns
-/// `(envelope_bytes, signature_64, spore_schema_hash)`. Uses the substrate's
-/// own `build_spawn_cosign_canonical_bytes` so the bytes byte-match what the
-/// substrate decodes; signs with `Ed25519PrivateKey::from_seed(seed)`.
-fn build_signed_cosign(
-    seed: &[u8; 32],
-    parent_id: &[u8; 32],
-    spore_schema_bytes: &[u8],
-    child_genesis_ts: i64,
-    anchor_ts: i64,
-    depth_override: bool,
-) -> (Vec<u8>, [u8; 64], [u8; 32]) {
-    let spore_schema_hash: [u8; 32] = blake3::hash(spore_schema_bytes).into();
-    let anchor_nonce = [0x5au8; 32];
-    let envelope = substrate::events::build_spawn_cosign_canonical_bytes(
-        parent_id,
-        &spore_schema_hash,
-        child_genesis_ts,
-        anchor_ts,
-        &anchor_nonce,
-        depth_override,
-    );
-    let key = Ed25519PrivateKey::from_seed(seed);
-    let sig = key.sign(&envelope);
-    let mut sig_arr = [0u8; 64];
-    sig_arr.copy_from_slice(sig.as_ref());
-    (envelope, sig_arr, spore_schema_hash)
-}
+// `build_signed_cosign` was a byte-identical copy of `common::build_signed_spawn_cosign`
+// except for an unused 3rd (`spore_schema_hash`) return that all four call sites
+// discarded. The local copy is gone; this suite now uses the shared 2-tuple
+// helper directly.
 
 /// Full attested-sprout call: builds + signs the cosign envelope for
 /// `parent_id`, then sends the complete payload (envelope + signature +
@@ -143,7 +112,7 @@ fn try_sprout_attested(
     anchor_ts: i64,
     depth_override: bool,
 ) -> Result<myco_kernel_bridge::protocol::Message, myco_kernel_bridge::BridgeError> {
-    let (envelope, sig, _hash) = build_signed_cosign(
+    let (envelope, sig) = build_signed_spawn_cosign(
         seed,
         parent_id,
         spore_schema_bytes,
@@ -280,7 +249,7 @@ fn spawn_attested_parent(extra: Vec<(String, String)>) -> (BridgeClient, PathBuf
         "0".to_string(),
     )];
     env.extend(extra);
-    let mut client = spawn_substrate_with_seed_and_env(&dir, KNOWN_SEED, env);
+    let mut client = spawn_substrate_with_seed_and_env(&dir, REPRO_SEED, env);
     let id = read_substrate_id(&mut client);
     (client, dir, id)
 }
@@ -301,16 +270,16 @@ fn spawn_attested_succeeds_and_records_i7_closure() {
 
     let spore = valid_spore_schema_bytes();
     let spore_hash: [u8; 32] = blake3::hash(&spore).into();
-    let child_genesis_ts = ANCHOR_TS_BASE_NS - 1_000_000; // slightly before anchor
+    let child_genesis_ts = REPRO_ANCHOR_TS_BASE_NS - 1_000_000; // slightly before anchor
     let child_dir = fresh_state_dir();
     let resp = try_sprout_attested(
         &mut parent,
         &child_dir,
-        &KNOWN_SEED,
+        &REPRO_SEED,
         &parent_id,
         &spore,
         child_genesis_ts,
-        ANCHOR_TS_BASE_NS,
+        REPRO_ANCHOR_TS_BASE_NS,
         false,
     )
     .expect("attested spawn must succeed");
@@ -413,12 +382,12 @@ fn c68_invalid_signature_refused() {
         .expect("register axis");
 
     let spore = valid_spore_schema_bytes();
-    let (envelope, mut sig, _h) = build_signed_cosign(
-        &KNOWN_SEED,
+    let (envelope, mut sig) = build_signed_spawn_cosign(
+        &REPRO_SEED,
         &parent_id,
         &spore,
-        ANCHOR_TS_BASE_NS - 1,
-        ANCHOR_TS_BASE_NS,
+        REPRO_ANCHOR_TS_BASE_NS - 1,
+        REPRO_ANCHOR_TS_BASE_NS,
         false,
     );
     sig[0] ^= 0xFF; // corrupt the signature
@@ -454,12 +423,12 @@ fn c68_wrong_parent_id_refused() {
     let wrong_parent = [0xeeu8; 32]; // not this substrate's id
     // Sign over the wrong-parent envelope with the correct key (so only the
     // parent-id mismatch — not the signature — triggers the refusal).
-    let (envelope, sig, _h) = build_signed_cosign(
-        &KNOWN_SEED,
+    let (envelope, sig) = build_signed_spawn_cosign(
+        &REPRO_SEED,
         &wrong_parent,
         &spore,
-        ANCHOR_TS_BASE_NS - 1,
-        ANCHOR_TS_BASE_NS,
+        REPRO_ANCHOR_TS_BASE_NS - 1,
+        REPRO_ANCHOR_TS_BASE_NS,
         false,
     );
 
@@ -498,11 +467,11 @@ fn c68_unseeded_parent_cannot_attest() {
     let result = try_sprout_attested(
         &mut parent,
         &child_dir,
-        &KNOWN_SEED,
+        &REPRO_SEED,
         &parent_id,
         &spore,
-        ANCHOR_TS_BASE_NS - 1,
-        ANCHOR_TS_BASE_NS,
+        REPRO_ANCHOR_TS_BASE_NS - 1,
+        REPRO_ANCHOR_TS_BASE_NS,
         false,
     );
     assert!(
@@ -531,16 +500,16 @@ fn i7a_static_schema_mismatch_rejected() {
 
     let bad_spore = spore_schema_bytes_missing_field("classifier_dimension_table");
     let child_dir = fresh_state_dir();
-    // build_signed_cosign hashes `bad_spore` so gate-4 hash-match passes; the
-    // shape check is what fires.
+    // build_signed_spawn_cosign hashes `bad_spore` so gate-4 hash-match passes;
+    // the shape check is what fires.
     let result = try_sprout_attested(
         &mut parent,
         &child_dir,
-        &KNOWN_SEED,
+        &REPRO_SEED,
         &parent_id,
         &bad_spore,
-        ANCHOR_TS_BASE_NS - 1,
-        ANCHOR_TS_BASE_NS,
+        REPRO_ANCHOR_TS_BASE_NS - 1,
+        REPRO_ANCHOR_TS_BASE_NS,
         false,
     );
     assert!(
@@ -571,12 +540,12 @@ fn i7a_spore_hash_mismatch_rejected() {
 
     let spore_a = valid_spore_schema_bytes();
     // Sign the envelope over spore_a's hash.
-    let (envelope, sig, _h) = build_signed_cosign(
-        &KNOWN_SEED,
+    let (envelope, sig) = build_signed_spawn_cosign(
+        &REPRO_SEED,
         &parent_id,
         &spore_a,
-        ANCHOR_TS_BASE_NS - 1,
-        ANCHOR_TS_BASE_NS,
+        REPRO_ANCHOR_TS_BASE_NS - 1,
+        REPRO_ANCHOR_TS_BASE_NS,
         false,
     );
     // But SEND a different (still valid-shape) schema B.
@@ -626,11 +595,11 @@ fn i7_child_runs_i3_self_check_first_at_boot() {
     try_sprout_attested(
         &mut parent,
         &child_dir,
-        &KNOWN_SEED,
+        &REPRO_SEED,
         &parent_id,
         &spore,
-        ANCHOR_TS_BASE_NS - 1,
-        ANCHOR_TS_BASE_NS,
+        REPRO_ANCHOR_TS_BASE_NS - 1,
+        REPRO_ANCHOR_TS_BASE_NS,
         false,
     )
     .expect("attested spawn must succeed");
@@ -641,7 +610,7 @@ fn i7_child_runs_i3_self_check_first_at_boot() {
     // it must be re-booted WITH the same signing seed (an unseeded handshake
     // would be rejected as a downgrade, C2). Its first boot runs the I3
     // self-check and closes birth.
-    let mut child = spawn_substrate_with_seed_and_env(&child_dir, KNOWN_SEED, vec![]);
+    let mut child = spawn_substrate_with_seed_and_env(&child_dir, REPRO_SEED, vec![]);
 
     // birth_closure_pending must be present (written at sprout).
     assert_eq!(
@@ -716,7 +685,7 @@ fn i7_child_runs_i3_self_check_first_at_boot() {
     // birth_closure_complete (pending+complete already present). Re-boot WITH
     // the seed (inherited pinned identity).
     child.shutdown().expect("shutdown child first boot");
-    let mut child2 = spawn_substrate_with_seed_and_env(&child_dir, KNOWN_SEED, vec![]);
+    let mut child2 = spawn_substrate_with_seed_and_env(&child_dir, REPRO_SEED, vec![]);
     assert_eq!(
         count_nodes_with_prefix(&mut child2, "birth_closure_complete:"),
         1,
@@ -747,10 +716,10 @@ fn rate_throttle_second_too_soon_refused_far_apart_ok() {
     let spore = valid_spore_schema_bytes();
 
     // Spawn #1 at anchor t0 — succeeds (no prior genesis_attested).
-    let t0 = ANCHOR_TS_BASE_NS;
+    let t0 = REPRO_ANCHOR_TS_BASE_NS;
     let d1 = fresh_state_dir();
     try_sprout_attested(
-        &mut parent, &d1, &KNOWN_SEED, &parent_id, &spore, t0 - 5, t0, false,
+        &mut parent, &d1, &REPRO_SEED, &parent_id, &spore, t0 - 5, t0, false,
     )
     .expect("first attested spawn must succeed");
     assert_eq!(
@@ -763,7 +732,7 @@ fn rate_throttle_second_too_soon_refused_far_apart_ok() {
     let t_soon = t0 + interval / 2;
     let d2 = fresh_state_dir();
     let r2 = try_sprout_attested(
-        &mut parent, &d2, &KNOWN_SEED, &parent_id, &spore, t_soon - 5, t_soon, false,
+        &mut parent, &d2, &REPRO_SEED, &parent_id, &spore, t_soon - 5, t_soon, false,
     );
     assert!(
         r2.is_err(),
@@ -783,7 +752,7 @@ fn rate_throttle_second_too_soon_refused_far_apart_ok() {
     let t_far = t0 + 2 * interval;
     let d3 = fresh_state_dir();
     try_sprout_attested(
-        &mut parent, &d3, &KNOWN_SEED, &parent_id, &spore, t_far - 5, t_far, false,
+        &mut parent, &d3, &REPRO_SEED, &parent_id, &spore, t_far - 5, t_far, false,
     )
     .expect("rate: a far-apart spawn must succeed");
     assert!(
@@ -807,10 +776,10 @@ fn rate_throttle_anchor_clock_rewind_refused() {
         .expect("register axis");
     let spore = valid_spore_schema_bytes();
 
-    let t0 = ANCHOR_TS_BASE_NS;
+    let t0 = REPRO_ANCHOR_TS_BASE_NS;
     let d1 = fresh_state_dir();
     try_sprout_attested(
-        &mut parent, &d1, &KNOWN_SEED, &parent_id, &spore, t0 - 5, t0, false,
+        &mut parent, &d1, &REPRO_SEED, &parent_id, &spore, t0 - 5, t0, false,
     )
     .expect("first spawn must succeed");
 
@@ -818,7 +787,7 @@ fn rate_throttle_anchor_clock_rewind_refused() {
     let t_back = t0 - 1_000;
     let d2 = fresh_state_dir();
     let r2 = try_sprout_attested(
-        &mut parent, &d2, &KNOWN_SEED, &parent_id, &spore, t_back - 5, t_back, false,
+        &mut parent, &d2, &REPRO_SEED, &parent_id, &spore, t_back - 5, t_back, false,
     );
     assert!(
         r2.is_err(),
@@ -853,11 +822,11 @@ fn c47_positive_at_depth_max_refuses_and_emits() {
     let result = try_sprout_attested(
         &mut parent,
         &child_dir,
-        &KNOWN_SEED,
+        &REPRO_SEED,
         &parent_id,
         &spore,
-        ANCHOR_TS_BASE_NS - 1,
-        ANCHOR_TS_BASE_NS,
+        REPRO_ANCHOR_TS_BASE_NS - 1,
+        REPRO_ANCHOR_TS_BASE_NS,
         false, // no depth_override
     );
     assert!(
@@ -904,11 +873,11 @@ fn c47_positive_real_max_via_genesis_depth_override() {
     let result = try_sprout_attested(
         &mut parent,
         &child_dir,
-        &KNOWN_SEED,
+        &REPRO_SEED,
         &parent_id,
         &spore,
-        ANCHOR_TS_BASE_NS - 1,
-        ANCHOR_TS_BASE_NS,
+        REPRO_ANCHOR_TS_BASE_NS - 1,
+        REPRO_ANCHOR_TS_BASE_NS,
         false,
     );
     assert!(
@@ -943,11 +912,11 @@ fn c47_depth_override_past_max_succeeds() {
     let resp = try_sprout_attested(
         &mut parent,
         &child_dir,
-        &KNOWN_SEED,
+        &REPRO_SEED,
         &parent_id,
         &spore,
-        ANCHOR_TS_BASE_NS - 1,
-        ANCHOR_TS_BASE_NS,
+        REPRO_ANCHOR_TS_BASE_NS - 1,
+        REPRO_ANCHOR_TS_BASE_NS,
         true, // depth_override=true (cultivator-signed)
     )
     .expect("C47 depth_override: an over-cap spawn WITH signed override must succeed");
@@ -995,11 +964,11 @@ fn c47_negative_below_max_sprouts_child_at_parent_plus_one() {
     let resp = try_sprout_attested(
         &mut parent,
         &child_dir,
-        &KNOWN_SEED,
+        &REPRO_SEED,
         &parent_id,
         &spore,
-        ANCHOR_TS_BASE_NS - 1,
-        ANCHOR_TS_BASE_NS,
+        REPRO_ANCHOR_TS_BASE_NS - 1,
+        REPRO_ANCHOR_TS_BASE_NS,
         false,
     )
     .expect("C47 negative: attested sprout must succeed");
@@ -1022,7 +991,7 @@ fn c47_negative_below_max_sprouts_child_at_parent_plus_one() {
     // genesis_event (proves the additive field is threaded through the child's
     // DAG, the authoritative carrier the child reads at boot). The child
     // inherited the parent's pinned operator identity, so boot WITH the seed.
-    let mut child = spawn_substrate_with_seed_and_env(&child_dir, KNOWN_SEED, vec![]);
+    let mut child = spawn_substrate_with_seed_and_env(&child_dir, REPRO_SEED, vec![]);
     assert_eq!(
         child_recorded_generation_depth(&mut child),
         1,
@@ -1054,11 +1023,11 @@ fn c48_positive_over_quota_refuses_and_emits() {
     try_sprout_attested(
         &mut parent,
         &first_dir,
-        &KNOWN_SEED,
+        &REPRO_SEED,
         &parent_id,
         &spore,
-        ANCHOR_TS_BASE_NS - 1,
-        ANCHOR_TS_BASE_NS,
+        REPRO_ANCHOR_TS_BASE_NS - 1,
+        REPRO_ANCHOR_TS_BASE_NS,
         false,
     )
     .expect("first attested sprout (under quota) must succeed");
@@ -1074,11 +1043,11 @@ fn c48_positive_over_quota_refuses_and_emits() {
     let result = try_sprout_attested(
         &mut parent,
         &second_dir,
-        &KNOWN_SEED,
+        &REPRO_SEED,
         &parent_id,
         &spore,
-        ANCHOR_TS_BASE_NS + 999,
-        ANCHOR_TS_BASE_NS + 1_000,
+        REPRO_ANCHOR_TS_BASE_NS + 999,
+        REPRO_ANCHOR_TS_BASE_NS + 1_000,
         false,
     );
     assert!(
@@ -1115,11 +1084,11 @@ fn c48_negative_under_quota_sprouts_all_children() {
         let child_dir = fresh_state_dir();
         // Distinct anchor stamps per sprout (rate disabled, so spacing is just
         // for hygiene / clock-rewind guard).
-        let anchor = ANCHOR_TS_BASE_NS + (i as i64) * 1_000;
+        let anchor = REPRO_ANCHOR_TS_BASE_NS + (i as i64) * 1_000;
         let resp = try_sprout_attested(
             &mut parent,
             &child_dir,
-            &KNOWN_SEED,
+            &REPRO_SEED,
             &parent_id,
             &spore,
             anchor - 1,

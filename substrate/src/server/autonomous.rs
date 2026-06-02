@@ -120,8 +120,7 @@ const COV06_EMISSION_COOLDOWN_CYCLES: u64 = 100;
 /// measure staleness from.
 fn do_cultivation_staleness_tick(state: &mut ServerState) {
     use crate::cultivation::{
-        compute_staleness, current_cultivation_state, resolve_anchor_now_ns, CultivationState,
-        SuccessionConfig,
+        compute_staleness, resolve_anchor_now_ns, CultivationState, SuccessionConfig,
     };
 
     // The substrate measures staleness only against an operator-threaded "now".
@@ -137,7 +136,9 @@ fn do_cultivation_staleness_tick(state: &mut ServerState) {
 
     let cfg = SuccessionConfig::resolve(state);
     let staleness_days = compute_staleness(last_hb_ts, now_anchor);
-    let current = current_cultivation_state(state);
+    // O(1) memoized read (maintained at the emit point); avoids a full-DAG walk
+    // on every tick.
+    let current = state.cultivation_state();
     let cycle = state.cycle_counter();
 
     match current {
@@ -848,7 +849,16 @@ mod tests {
             None => Vec::new(),
         };
         let cycle = state.cycle_counter();
+        let is_cultivation_family =
+            crate::cultivation::is_cultivation_family_node_type(&node_type);
         state.dag.insert_node(parents, node_type, cycle, content).expect("insert");
+        // Mirror the production emit path: keep the memoized FSM cache in sync so
+        // these hand-built fixtures (simulating a pre-loaded DAG) drive the tick
+        // exactly as a booted substrate would. (Boot hydrates the same way.)
+        if is_cultivation_family {
+            state.cultivation_state =
+                crate::cultivation::current_cultivation_state(state);
+        }
     }
 
     const DAY_NS: i64 = 86_400_000_000_000;

@@ -70,11 +70,11 @@ pub(crate) struct PruneRule {
     #[allow(dead_code)] // metadata; future observatory may surface this
     pub(crate) description: &'static str,
 
-    /// Detection function: given substrate state + current cycle, returns
-    /// list of `(part_hash, killed_part_node_type, reason)` candidates.
-    /// Each candidate becomes an `internal_mortality_event:{category}`
-    /// tombstone in the DAG.
-    pub(crate) detect: fn(&ServerState, current_cycle: u64) -> Vec<PruneCandidate>,
+    /// Detection function: given substrate state, the per-scan shared context
+    /// ([`PruneScanCtx`]: already-tombstoned set + DAG tip, computed once), and
+    /// the current cycle, returns a list of candidates. Each becomes an
+    /// `internal_mortality_event:{category}` tombstone in the DAG.
+    pub(crate) detect: fn(&ServerState, &PruneScanCtx, current_cycle: u64) -> Vec<PruneCandidate>,
 }
 
 /// Concrete candidate emitted by a [`PruneRule`].
@@ -208,6 +208,7 @@ pub const ORPHAN_GRACE_CYCLES: u64 = 1000;
 /// belong to P06 causality preservation, not 应朽.
 pub(crate) fn detect_orphan_past_grace(
     state: &ServerState,
+    ctx: &PruneScanCtx,
     current_cycle: u64,
 ) -> Vec<PruneCandidate> {
     use std::collections::HashSet;
@@ -232,10 +233,7 @@ pub(crate) fn detect_orphan_past_grace(
             referenced.insert(arr);
         }
     }
-    let tip_bytes: Option<[u8; 32]> = state
-        .dag
-        .tip()
-        .map(|h| h.as_ref().try_into().expect("NodeHash is 32 bytes"));
+    let tip_bytes = ctx.tip_bytes;
 
     let mut candidates = Vec::new();
     let cutoff_cycle = current_cycle.saturating_sub(ORPHAN_GRACE_CYCLES);
@@ -279,45 +277,83 @@ pub(crate) fn detect_orphan_past_grace(
     candidates
 }
 
-/// Per P10 §2.5 + L0 §3.5 invariant set — node types that are NEVER 应朽.
-/// They represent causality, identity, and attestation roots that P06
-/// + COV04 + eternity-clause cards protect.
-fn is_p10_invariant_protected(node_type: &str) -> bool {
-    const PROTECTED_PREFIXES: &[&str] = &[
-        "genesis_event:",
-        "l0_revision_attested:",
-        "tip_cosigned:",
-        "compression_event:", // CI-attested mutations
-        "owner_key_",         // owner key history
-        "destruction_attestation",
-        "anchor_surface_final_seal",
-        "self_euthanasia_executed:",
-        "bet_retired",
-        "cultivation_orphaned_terminal",
-        "birth_attestation",
-        // **COV06** — cultivator-mortality / succession FSM events are
-        // P07-protected: the substrate must REMEMBER its cultivator's liveness
-        // history, successor chain, and every FSM transition (P06 causality +
-        // P07 §4 irreducible commitments). `cultivation_orphaned` in particular
-        // MUST NOT be suppressible (L1/GOVERNANCE §3.2.C). `cultivation_orphaned`
-        // (prefix) also covers `cultivation_orphaned_terminal` above.
-        "cultivator_heartbeat_recorded",
-        "cultivator_heartbeat_stale",
-        "cultivator_heartbeat_resumed",
-        "successor_chain_updated",
-        "succession_completed",
-        "cultivation_orphaned",
-        "cultivation_recovered",
-        // **NEW v3.1.1**: tombstones themselves are inviolable per P06
-        // (silent deletion of tombstones = retroactive history erasure).
-        NODE_TYPE_INTERNAL_MORTALITY_EVENT_PREFIX,
-    ];
+/// **Single source of truth** for the P10 §2.5 + L0 §3.5 invariant set —
+/// node-type prefixes that are NEVER 应朽. They represent causality, identity,
+/// and attestation roots that P06 + COV04 + eternity-clause cards protect.
+///
+/// `pub(crate)` so `integrity.rs`'s C55 silent-internal-mortality check uses
+/// the SAME list (via [`is_p10_invariant_protected`]) — there is no second
+/// copy to drift out of sync. (Previously prune.rs + integrity.rs each held a
+/// hand-maintained duplicate array; the "parity test pins them" claim referred
+/// to a test that did not exist. Sharing one const eliminates the drift class
+/// outright.)
+///
+/// Matching is by `starts_with`, so a prefix subsumes everything beneath it:
+///   - `"bet_retired"` covers `bet_retired:cultivation_orphaned_terminal`;
+///   - `"cultivation_orphaned"` covers `cultivation_orphaned_terminal` AND the
+///     `cultivation_orphaned:{pk}` family.
+/// We therefore do NOT list `cultivation_orphaned_terminal` separately — it is
+/// dead weight under the `cultivation_orphaned` prefix.
+pub(crate) const PROTECTED_PREFIXES: &[&str] = &[
+    "genesis_event:",
+    "l0_revision_attested:",
+    "tip_cosigned:",
+    "compression_event:", // CI-attested mutations
+    "owner_key_",         // owner key history
+    "destruction_attestation",
+    "anchor_surface_final_seal",
+    "self_euthanasia_executed:",
+    "bet_retired",
+    "birth_attestation",
+    // **COV06** — cultivator-mortality / succession FSM events are
+    // P07-protected: the substrate must REMEMBER its cultivator's liveness
+    // history, successor chain, and every FSM transition (P06 causality +
+    // P07 §4 irreducible commitments). `cultivation_orphaned` in particular
+    // MUST NOT be suppressible (L1/GOVERNANCE §3.2.C); its prefix also covers
+    // the `cultivation_orphaned_terminal` marker.
+    "cultivator_heartbeat_recorded",
+    "cultivator_heartbeat_stale",
+    "cultivator_heartbeat_resumed",
+    "successor_chain_updated",
+    "succession_completed",
+    "cultivation_orphaned",
+    "cultivation_recovered",
+    // **NEW v3.1.1**: tombstones themselves are inviolable per P06
+    // (silent deletion of tombstones = retroactive history erasure).
+    NODE_TYPE_INTERNAL_MORTALITY_EVENT_PREFIX,
+];
+
+/// Returns `true` if `node_type` is in the P10 invariant set ([`PROTECTED_PREFIXES`]).
+/// Shared by the prune-scan rules here AND by `integrity.rs`'s C55 check.
+pub(crate) fn is_p10_invariant_protected(node_type: &str) -> bool {
     PROTECTED_PREFIXES.iter().any(|p| node_type.starts_with(p))
 }
 
 // ---------------------------------------------------------------------------
 // Shared prune-rule helpers (bounded; reused by the L1 production rules)
 // ---------------------------------------------------------------------------
+
+/// **Per-scan shared context** (efficiency). Computed ONCE in
+/// [`run_prune_scan`] and threaded to every rule's `detect` fn, so the four
+/// production rules don't each recompute the already-tombstoned set + the DAG
+/// tip (previously ~4 independent full-DAG passes + 4× tombstone re-decode per
+/// scan). The seed rule reads `tip_bytes` from here too.
+pub(crate) struct PruneScanCtx {
+    /// Part-hashes that already carry an `internal_mortality_event:*` tombstone.
+    pub(crate) already_tombstoned: std::collections::HashSet<[u8; 32]>,
+    /// The current DAG tip (the tip has no children yet → never a candidate).
+    pub(crate) tip_bytes: Option<[u8; 32]>,
+}
+
+impl PruneScanCtx {
+    /// Build the shared context for `state`: one tombstone-set pass + one tip read.
+    pub(crate) fn for_state(state: &ServerState) -> Self {
+        PruneScanCtx {
+            already_tombstoned: collect_already_tombstoned(state),
+            tip_bytes: state.dag.tip().map(|h| as_hash_array(&h)),
+        }
+    }
+}
 
 /// Collect the set of part-hashes that ALREADY have an
 /// `internal_mortality_event:*` tombstone naming them as `killed_part_hash`.
@@ -367,19 +403,15 @@ fn as_hash_array(h: &impl AsRef<[u8]>) -> [u8; 32] {
 /// **eligible** to be a candidate only when it is NOT in the P10 invariant
 /// set, NOT the current DAG tip, and NOT already tombstoned. (Grace-window
 /// + family-specific predicates are applied by each rule on top of this.)
-fn is_prune_eligible(
-    node_type: &str,
-    hash: &[u8; 32],
-    tip_bytes: &Option<[u8; 32]>,
-    already_tombstoned: &std::collections::HashSet<[u8; 32]>,
-) -> bool {
+/// Reads the tip + already-tombstoned set from the per-scan [`PruneScanCtx`].
+fn is_prune_eligible(node_type: &str, hash: &[u8; 32], ctx: &PruneScanCtx) -> bool {
     if is_p10_invariant_protected(node_type) {
         return false;
     }
-    if Some(*hash) == *tip_bytes {
+    if Some(*hash) == ctx.tip_bytes {
         return false;
     }
-    if already_tombstoned.contains(hash) {
+    if ctx.already_tombstoned.contains(hash) {
         return false;
     }
     true
@@ -408,6 +440,7 @@ pub const STALE_AXIS_GRACE_CYCLES: u64 = 2000;
 /// over `axis_registered` nodes. O(V).
 pub(crate) fn detect_stale_axis_past_window(
     state: &ServerState,
+    ctx: &PruneScanCtx,
     current_cycle: u64,
 ) -> Vec<PruneCandidate> {
     use std::collections::HashMap;
@@ -435,8 +468,6 @@ pub(crate) fn detect_stale_axis_past_window(
         }
     }
 
-    let tip_bytes = state.dag.tip().map(|h| as_hash_array(&h));
-    let already = collect_already_tombstoned(state);
     let cutoff = current_cycle.saturating_sub(STALE_AXIS_GRACE_CYCLES);
 
     let mut candidates = Vec::new();
@@ -451,7 +482,7 @@ pub(crate) fn detect_stale_axis_past_window(
             continue;
         }
         let hash_bytes = as_hash_array(&node.hash);
-        if !is_prune_eligible(&node.node_type, &hash_bytes, &tip_bytes, &already) {
+        if !is_prune_eligible(&node.node_type, &hash_bytes, ctx) {
             continue;
         }
         candidates.push(PruneCandidate {
@@ -492,6 +523,7 @@ const EVOLUTION_FAILED_PREFIX: &str = "evolution_failed:";
 /// one pass over succeeded nodes. O(V).
 pub(crate) fn detect_superseded_by_failed_evolution(
     state: &ServerState,
+    ctx: &PruneScanCtx,
     current_cycle: u64,
 ) -> Vec<PruneCandidate> {
     use std::collections::HashMap;
@@ -513,9 +545,6 @@ pub(crate) fn detect_superseded_by_failed_evolution(
         }
     }
 
-    let tip_bytes = state.dag.tip().map(|h| as_hash_array(&h));
-    let already = collect_already_tombstoned(state);
-
     let mut candidates = Vec::new();
     for node in state.dag.iter_in_insertion_order() {
         let op = match node.node_type.strip_prefix(EVOLUTION_SUCCEEDED_PREFIX) {
@@ -535,7 +564,7 @@ pub(crate) fn detect_superseded_by_failed_evolution(
             continue;
         }
         let hash_bytes = as_hash_array(&node.hash);
-        if !is_prune_eligible(&node.node_type, &hash_bytes, &tip_bytes, &already) {
+        if !is_prune_eligible(&node.node_type, &hash_bytes, ctx) {
             continue;
         }
         candidates.push(PruneCandidate {
@@ -583,11 +612,18 @@ fn redundant_in_scope(node_type: &str) -> bool {
 /// duplicate run is retired (the survivor stays live). Grace-gated on the
 /// earliest node's `created_at_cycle`.
 ///
-/// **Bounded**: one pass to group via a HashMap keyed by (node_type, content
-/// bytes), recording each group's first two members in insertion order. O(V)
-/// with O(content_len) hashing — no O(n²) pairwise compare.
+/// **Bounded**: a SINGLE pass groups the in-scope nodes via a HashMap keyed by
+/// (node_type, content bytes), recording each group's first member (the subsumed
+/// candidate) — its hash, type, cycle, and insertion INDEX — plus the survivor
+/// (first later identical copy). After grouping we emit directly from the group
+/// table, sorted by the first member's insertion index to preserve the
+/// deterministic insertion-order emission. This drops the former second walk
+/// (which re-cloned every in-scope node's `(node_type, content)` key just to
+/// re-locate its group). O(V) with O(content_len) hashing — no O(n²) compare,
+/// and the content bytes are cloned at most once per node.
 pub(crate) fn detect_duplicate_content_subsumed(
     state: &ServerState,
+    ctx: &PruneScanCtx,
     current_cycle: u64,
 ) -> Vec<PruneCandidate> {
     use std::collections::HashMap;
@@ -596,18 +632,20 @@ pub(crate) fn detect_duplicate_content_subsumed(
         return Vec::new();
     }
 
-    // Group key = (node_type, content bytes). Value = the first node (earliest,
-    // the subsumed candidate) and the second node (the survivor that subsumes
-    // it). We only ever need the first two of each group.
+    // Group key = (node_type, content bytes). Value records the first (earliest,
+    // subsumed) member + the survivor (first later identical copy). `first_index`
+    // is the first member's position in insertion order, used to emit
+    // deterministically without a second DAG walk.
     struct Group {
         first_hash: [u8; 32],
         first_type: String,
         first_cycle: u64,
+        first_index: usize,
         survivor_hash: Option<[u8; 32]>,
     }
     let mut groups: HashMap<(String, Vec<u8>), Group> = HashMap::new();
 
-    for node in state.dag.iter_in_insertion_order() {
+    for (index, node) in state.dag.iter_in_insertion_order().enumerate() {
         if !redundant_in_scope(&node.node_type) {
             continue;
         }
@@ -623,6 +661,7 @@ pub(crate) fn detect_duplicate_content_subsumed(
                         first_hash: as_hash_array(&node.hash),
                         first_type: node.node_type.clone(),
                         first_cycle: node.created_at_cycle,
+                        first_index: index,
                         survivor_hash: None,
                     },
                 );
@@ -643,53 +682,34 @@ pub(crate) fn detect_duplicate_content_subsumed(
         }
     }
 
-    let tip_bytes = state.dag.tip().map(|h| as_hash_array(&h));
-    let already = collect_already_tombstoned(state);
     let cutoff = current_cycle.saturating_sub(REDUNDANT_GRACE_CYCLES);
 
-    // Deterministic emission order: re-walk insertion order and emit a
-    // candidate when we reach a group's first member that has a survivor.
-    let mut candidates = Vec::new();
-    for node in state.dag.iter_in_insertion_order() {
-        if !redundant_in_scope(&node.node_type) {
-            continue;
-        }
-        let key = (
-            node.node_type.clone(),
-            node.content_canonical_bytes.as_ref().to_vec(),
-        );
-        let g = match groups.get(&key) {
-            Some(g) => g,
-            None => continue,
-        };
-        let survivor = match g.survivor_hash {
-            Some(s) => s,
-            None => continue, // singleton group → nothing redundant
-        };
-        let hash_bytes = as_hash_array(&node.hash);
-        // Only the earliest (group.first) is the subsumed candidate.
-        if hash_bytes != g.first_hash {
-            continue;
-        }
-        // Grace gate on the earliest node.
-        if g.first_cycle > cutoff {
-            continue;
-        }
-        if !is_prune_eligible(&g.first_type, &hash_bytes, &tip_bytes, &already) {
-            continue;
-        }
-        candidates.push(PruneCandidate {
-            part_hash: hash_bytes,
+    // Collect emittable groups (survivor present + past grace + eligible), then
+    // sort by the first member's insertion index for deterministic emission
+    // order (identical to the prior re-walk, without re-cloning content keys).
+    let mut emittable: Vec<Group> = groups
+        .into_values()
+        .filter(|g| {
+            g.survivor_hash.is_some()
+                && g.first_cycle <= cutoff
+                && is_prune_eligible(&g.first_type, &g.first_hash, ctx)
+        })
+        .collect();
+    emittable.sort_by_key(|g| g.first_index);
+
+    emittable
+        .into_iter()
+        .map(|g| PruneCandidate {
+            part_hash: g.first_hash,
             part_node_type: g.first_type.clone(),
             reason: format!(
                 "byte-identical duplicate of a later '{}' node subsumes this \
                  earliest copy (first_cycle={}, now={current_cycle})",
                 g.first_type, g.first_cycle
             ),
-            replaced_by_hash: Some(survivor),
-        });
-    }
-    candidates
+            replaced_by_hash: g.survivor_hash,
+        })
+        .collect()
 }
 
 // ---------------------------------------------------------------------------
@@ -716,6 +736,7 @@ pub(crate) fn detect_duplicate_content_subsumed(
 /// NO possibility of looping, even on a (malformed) cyclic edge set.
 pub(crate) fn detect_unreachable_from_live_roots(
     state: &ServerState,
+    ctx: &PruneScanCtx,
     current_cycle: u64,
 ) -> Vec<PruneCandidate> {
     use std::collections::{HashMap, HashSet};
@@ -775,9 +796,6 @@ pub(crate) fn detect_unreachable_from_live_roots(
         }
     }
 
-    let tip_bytes = state.dag.tip().map(|h| as_hash_array(&h));
-    let already = collect_already_tombstoned(state);
-
     let mut candidates = Vec::new();
     for node in state.dag.iter_in_insertion_order() {
         // Past grace only.
@@ -794,7 +812,7 @@ pub(crate) fn detect_unreachable_from_live_roots(
         if reachable.contains(&hash_bytes) {
             continue;
         }
-        if !is_prune_eligible(&node.node_type, &hash_bytes, &tip_bytes, &already) {
+        if !is_prune_eligible(&node.node_type, &hash_bytes, ctx) {
             continue;
         }
         candidates.push(PruneCandidate {
@@ -931,13 +949,23 @@ pub(crate) fn run_prune_scan(
         at_cycle: current_cycle,
     };
 
+    // **Efficiency (F8)** — compute the per-scan shared context ONCE (the
+    // already-tombstoned set + the DAG tip) and thread it to every rule, instead
+    // of each of the four production rules recomputing it independently.
+    let ctx = PruneScanCtx::for_state(state);
+
     // Snapshot rules first to avoid borrow conflicts (registry borrow vs
     // state mutation in tombstone emission).
     //
     // Note: state.prune_registry is &mut ServerState; we collect rule
     // references first then iterate without holding the registry borrow
     // during DAG mutation.
-    let rule_snapshots: Vec<(&'static str, &'static str, fn(&ServerState, u64) -> Vec<PruneCandidate>)> = state
+    #[allow(clippy::type_complexity)]
+    let rule_snapshots: Vec<(
+        &'static str,
+        &'static str,
+        fn(&ServerState, &PruneScanCtx, u64) -> Vec<PruneCandidate>,
+    )> = state
         .prune_registry
         .rules()
         .map(|r| (r.rule_id, r.category, r.detect))
@@ -947,7 +975,7 @@ pub(crate) fn run_prune_scan(
         report.rules_run.push(rule_id);
 
         // Snapshot candidates (each detect_fn takes &ServerState, no mutation).
-        let candidates = detect_fn(state, current_cycle);
+        let candidates = detect_fn(state, &ctx, current_cycle);
 
         // Emit one tombstone per candidate.
         for cand in candidates {
@@ -1325,8 +1353,12 @@ mod tests {
         assert!(is_p10_invariant_protected("successor_chain_updated:abcd"));
         assert!(is_p10_invariant_protected("succession_completed:abcd"));
         assert!(is_p10_invariant_protected("cultivation_orphaned:abcd"));
-        assert!(is_p10_invariant_protected("cultivation_orphaned_terminal"));
         assert!(is_p10_invariant_protected("cultivation_recovered:abcd"));
+        // `bet_retired:*` (incl. the cultivation_orphaned_terminal reason) is
+        // covered by the `bet_retired` prefix; `cultivation_orphaned_terminal`
+        // itself is covered by the `cultivation_orphaned` prefix (so it is no
+        // longer a separate list entry — the prior standalone assertion was
+        // tautological once the literal was folded under that prefix).
         assert!(is_p10_invariant_protected("bet_retired:cultivation_orphaned_terminal"));
     }
 
@@ -1372,7 +1404,7 @@ mod tests {
 
     #[test]
     fn registry_register_appends() {
-        fn dummy_detect(_: &ServerState, _: u64) -> Vec<PruneCandidate> {
+        fn dummy_detect(_: &ServerState, _: &PruneScanCtx, _: u64) -> Vec<PruneCandidate> {
             Vec::new()
         }
         let mut reg = PruneRuleRegistry::seed();
@@ -1455,7 +1487,7 @@ mod tests {
         push(&mut dag, "cycle_advanced", 2200, "tip");
         let state = state_over(dag);
 
-        let cands = detect_stale_axis_past_window(&state, 2200);
+        let cands = detect_stale_axis_past_window(&state, &PruneScanCtx::for_state(&state), 2200);
         assert_eq!(cands.len(), 1, "exactly the stale axis");
         assert_eq!(cands[0].part_hash, arr(&axis));
         assert_eq!(cands[0].part_node_type, "axis_registered:hunger");
@@ -1473,7 +1505,7 @@ mod tests {
         push(&mut dag, "cycle_advanced", 2200, "tip");
         let state = state_over(dag);
 
-        let cands = detect_stale_axis_past_window(&state, 2200);
+        let cands = detect_stale_axis_past_window(&state, &PruneScanCtx::for_state(&state), 2200);
         assert!(cands.is_empty(), "recently-perturbed axis is not 过时");
     }
 
@@ -1487,7 +1519,7 @@ mod tests {
         push(&mut dag, "axis_reset_after_fruiting:appetite", 1500, "reset");
         push(&mut dag, "cycle_advanced", 2200, "tip");
         let state = state_over(dag);
-        assert!(detect_stale_axis_past_window(&state, 2200).is_empty());
+        assert!(detect_stale_axis_past_window(&state, &PruneScanCtx::for_state(&state), 2200).is_empty());
     }
 
     // =======================================================================
@@ -1505,7 +1537,7 @@ mod tests {
         push(&mut dag, "cycle_advanced", 1300, "tip");
         let state = state_over(dag);
 
-        let cands = detect_superseded_by_failed_evolution(&state, 1300);
+        let cands = detect_superseded_by_failed_evolution(&state, &PruneScanCtx::for_state(&state), 1300);
         assert_eq!(cands.len(), 1, "the superseded success");
         assert_eq!(cands[0].part_hash, arr(&succ));
         assert_eq!(
@@ -1525,7 +1557,7 @@ mod tests {
         push(&mut dag, "cycle_advanced", 1300, "tip");
         let state = state_over(dag);
         assert!(
-            detect_superseded_by_failed_evolution(&state, 1300).is_empty(),
+            detect_superseded_by_failed_evolution(&state, &PruneScanCtx::for_state(&state), 1300).is_empty(),
             "a success AFTER the failure is not superseded"
         );
     }
@@ -1539,7 +1571,7 @@ mod tests {
         push(&mut dag, "evolution_failed:op", 200, "f");
         push(&mut dag, "cycle_advanced", 700, "tip");
         let state = state_over(dag);
-        assert!(detect_superseded_by_failed_evolution(&state, 700).is_empty());
+        assert!(detect_superseded_by_failed_evolution(&state, &PruneScanCtx::for_state(&state), 700).is_empty());
     }
 
     // =======================================================================
@@ -1556,7 +1588,7 @@ mod tests {
         push(&mut dag, "cycle_advanced", 1100, "tip");
         let state = state_over(dag);
 
-        let cands = detect_duplicate_content_subsumed(&state, 1100);
+        let cands = detect_duplicate_content_subsumed(&state, &PruneScanCtx::for_state(&state), 1100);
         assert_eq!(cands.len(), 1, "only the earliest copy is subsumed");
         assert_eq!(cands[0].part_hash, arr(&first));
         assert_eq!(
@@ -1583,7 +1615,7 @@ mod tests {
         push(&mut dag, "cycle_advanced", 1100, "tip");
         let state = state_over(dag);
         assert!(
-            detect_duplicate_content_subsumed(&state, 1100).is_empty(),
+            detect_duplicate_content_subsumed(&state, &PruneScanCtx::for_state(&state), 1100).is_empty(),
             "cycle_advanced is out of the 冗余 scope"
         );
     }
@@ -1597,7 +1629,7 @@ mod tests {
         push(&mut dag, "raw_material:text", 20, "beta");
         push(&mut dag, "cycle_advanced", 1100, "tip");
         let state = state_over(dag);
-        assert!(detect_duplicate_content_subsumed(&state, 1100).is_empty());
+        assert!(detect_duplicate_content_subsumed(&state, &PruneScanCtx::for_state(&state), 1100).is_empty());
     }
 
     #[test]
@@ -1610,7 +1642,7 @@ mod tests {
         push(&mut dag, "raw_material:text", 250, "DUP");
         push(&mut dag, "cycle_advanced", 1100, "tip");
         let state = state_over(dag);
-        assert!(detect_duplicate_content_subsumed(&state, 1100).is_empty());
+        assert!(detect_duplicate_content_subsumed(&state, &PruneScanCtx::for_state(&state), 1100).is_empty());
     }
 
     // =======================================================================
@@ -1635,7 +1667,7 @@ mod tests {
         let _r2 = push_with(&mut dag, vec![r1], "cycle_advanced", 5001, "R2");
         let state = state_over(dag);
 
-        let cands = detect_unreachable_from_live_roots(&state, 6000);
+        let cands = detect_unreachable_from_live_roots(&state, &PruneScanCtx::for_state(&state), 6000);
         let hits: Vec<[u8; 32]> = cands.iter().map(|c| c.part_hash).collect();
         assert!(
             hits.contains(&arr(&a)),
@@ -1662,7 +1694,7 @@ mod tests {
         push(&mut dag, "cycle_advanced", 5001, "tip");
         let state = state_over(dag);
         assert!(
-            detect_unreachable_from_live_roots(&state, 6000).is_empty(),
+            detect_unreachable_from_live_roots(&state, &PruneScanCtx::for_state(&state), 6000).is_empty(),
             "everything on the live chain is reachable from the tip"
         );
     }
@@ -1679,12 +1711,12 @@ mod tests {
         let _r2 = push_with(&mut dag, vec![r1], "cycle_advanced", 5001, "R2");
         let state = state_over(dag);
 
-        let seed: std::collections::HashSet<[u8; 32]> = detect_orphan_past_grace(&state, 6000)
+        let seed: std::collections::HashSet<[u8; 32]> = detect_orphan_past_grace(&state, &PruneScanCtx::for_state(&state), 6000)
             .into_iter()
             .map(|c| c.part_hash)
             .collect();
         let dee: std::collections::HashSet<[u8; 32]> =
-            detect_unreachable_from_live_roots(&state, 6000)
+            detect_unreachable_from_live_roots(&state, &PruneScanCtx::for_state(&state), 6000)
                 .into_iter()
                 .map(|c| c.part_hash)
                 .collect();
@@ -1709,7 +1741,7 @@ mod tests {
         push(&mut dag, "cycle_advanced", 5001, "tip");
         let state = state_over(dag);
         // Just assert it returns (bounded). All nodes are reachable (linear).
-        let _ = detect_unreachable_from_live_roots(&state, 6000);
+        let _ = detect_unreachable_from_live_roots(&state, &PruneScanCtx::for_state(&state), 6000);
     }
 
     // =======================================================================
@@ -1885,7 +1917,7 @@ mod tests {
         // Now a tombstone exists. Re-running must never target the tombstone
         // itself (internal_mortality_event:* is in the protected set) nor the
         // genesis node.
-        let cands_d = detect_unreachable_from_live_roots(&state, 1300);
+        let cands_d = detect_unreachable_from_live_roots(&state, &PruneScanCtx::for_state(&state), 1300);
         for c in &cands_d {
             assert!(
                 !is_p10_invariant_protected(&c.part_node_type),
@@ -1893,7 +1925,7 @@ mod tests {
                 c.part_node_type
             );
         }
-        let cands_c = detect_duplicate_content_subsumed(&state, 1300);
+        let cands_c = detect_duplicate_content_subsumed(&state, &PruneScanCtx::for_state(&state), 1300);
         for c in &cands_c {
             assert!(!is_p10_invariant_protected(&c.part_node_type));
         }

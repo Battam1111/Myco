@@ -105,10 +105,14 @@ impl CultivationState {
 ///   - `bet_retired:{reason}`              → Archived (terminal; sticky — nothing
 ///                                            transitions out of archived).
 ///   - `cultivation_recovered:{pk}`        → Recovered (orphaned→normal).
-///   - `cultivation_orphaned:{pk}`         → Orphaned (legacy→orphaned). Also set
-///                                            by `cultivation_orphaned_terminal`
-///                                            markers (still Orphaned until a
-///                                            terminal seal/death lands).
+///   - `cultivation_orphaned:{pk}`         → Orphaned (legacy→orphaned). Orphaned
+///                                            PERSISTS until a `bet_retired:*`
+///                                            seal (archive) or death lands — the
+///                                            orphaned→terminal watchdog emits a
+///                                            *proposal* (`bet_retired_proposal` /
+///                                            `self_euthanasia_proposal:…`), not a
+///                                            cultivation-family event, so it does
+///                                            not transition the FSM by itself.
 ///   - `succession_completed:{pk}`         → Normal (legacy→normal).
 ///   - `cultivator_heartbeat_resumed`      → Normal (legacy→normal recovery).
 ///   - `cultivator_heartbeat_stale:{pk}`   → Legacy (normal→legacy).
@@ -131,8 +135,12 @@ pub(crate) fn current_cultivation_state(state: &ServerState) -> CultivationState
         } else if nt.starts_with(crate::events::NODE_TYPE_CULTIVATION_RECOVERED_PREFIX) {
             current = CultivationState::Recovered;
         } else if nt.starts_with(crate::events::NODE_TYPE_CULTIVATION_ORPHANED_PREFIX) {
-            // Covers both `cultivation_orphaned:{pk}` and the
-            // `cultivation_orphaned_terminal` marker (same prefix).
+            // `cultivation_orphaned:{pk}`. NOTE: the `cultivation_orphaned_terminal`
+            // marker is NOT in this family — it is a *reason* string carried inside
+            // terminal proposals (`bet_retired_proposal` / `self_euthanasia_proposal:…`
+            // / the `bet_retired:cultivation_orphaned_terminal` seal), and it does
+            // NOT match this prefix (no trailing colon). Orphaned therefore persists
+            // here until a `bet_retired:*` seal or death lands.
             current = CultivationState::Orphaned;
         } else if nt.starts_with(crate::events::NODE_TYPE_SUCCESSION_COMPLETED_PREFIX)
             || nt == crate::events::NODE_TYPE_CULTIVATOR_HEARTBEAT_RESUMED
@@ -145,6 +153,20 @@ pub(crate) fn current_cultivation_state(state: &ServerState) -> CultivationState
         }
     }
     current
+}
+
+/// Returns `true` if `node_type` belongs to the cultivation-succession FSM
+/// family — i.e., emitting it can change the value of
+/// [`current_cultivation_state`]. The centralized [`crate::server::emit_substrate_event`]
+/// uses this to decide when to refresh the memoized `ServerState::cultivation_state`
+/// cache. This is exactly the set of branches the derivation above inspects.
+pub(crate) fn is_cultivation_family_node_type(node_type: &str) -> bool {
+    node_type.starts_with(crate::events::NODE_TYPE_BET_RETIRED_PREFIX)
+        || node_type.starts_with(crate::events::NODE_TYPE_CULTIVATION_RECOVERED_PREFIX)
+        || node_type.starts_with(crate::events::NODE_TYPE_CULTIVATION_ORPHANED_PREFIX)
+        || node_type.starts_with(crate::events::NODE_TYPE_SUCCESSION_COMPLETED_PREFIX)
+        || node_type == crate::events::NODE_TYPE_CULTIVATOR_HEARTBEAT_RESUMED
+        || node_type.starts_with(crate::events::NODE_TYPE_CULTIVATOR_HEARTBEAT_STALE_PREFIX)
 }
 
 /// **COV06** — PURE staleness in whole anchor-days between a last-heartbeat
@@ -444,8 +466,10 @@ pub(crate) fn handle_record_cultivator_heartbeat(
     }
 
     // T2 detection: was the substrate in alive::legacy, and is the SAME prior
-    // cultivator pubkey resuming? Compute BEFORE emitting the recorded event.
-    let was_legacy = current_cultivation_state(state) == CultivationState::Legacy;
+    // cultivator pubkey resuming? Read the memoized cache BEFORE emitting the
+    // recorded event (no cultivation-family event has been emitted yet this
+    // call, so the cache still reflects the pre-emit state).
+    let was_legacy = state.cultivation_state() == CultivationState::Legacy;
     let resuming = was_legacy
         && state
             .latest_heartbeat
@@ -487,7 +511,8 @@ pub(crate) fn handle_record_cultivator_heartbeat(
         anchor_timestamp_unix_ns,
     });
 
-    let new_state = current_cultivation_state(state);
+    // Post-emit: emit_substrate_event already refreshed the memoized cache.
+    let new_state = state.cultivation_state();
     let mut payload = BTreeMap::new();
     payload.insert(
         "recorded_event_hash".to_string(),
@@ -645,6 +670,20 @@ pub(crate) fn handle_accept_succession(
     state: &mut ServerState,
     request: &Message,
 ) -> Result<Option<Message>, SubstrateError> {
+    // The pinned operator IDENTITY is the AUTHORITATIVE incumbent owner (M9
+    // TOFU). Succession can only displace THIS key — see the gate-3 binding
+    // below. Without a pinned identity there is no incumbent to succeed.
+    let pinned = state
+        .pinned_operator_identity
+        .as_ref()
+        .ok_or_else(|| {
+            SubstrateError::Protocol(
+                "accept_succession: no pinned operator identity (M9 TOFU not completed)"
+                    .to_string(),
+            )
+        })?
+        .clone();
+
     let successor_pubkey: [u8; 32] = payload_bytes(request, "successor_pubkey")?;
     let prior_cultivator_pubkey: [u8; 32] = payload_bytes(request, "prior_cultivator_pubkey")?;
     let anchor_timestamp_unix_ns = payload_timestamp(request, "anchor_timestamp_unix_ns")?;
@@ -699,30 +738,57 @@ pub(crate) fn handle_accept_succession(
 
     // Gate 3 (C12): refuse succession while the cultivator heartbeat is FRESH —
     // succession is for incapacity, not takeover (FSM: succession is a legacy→
-    // normal transition; if normal/fresh, there is nothing to succeed). Freshness
-    // is measured against the operator-threaded acceptance anchor timestamp.
+    // normal transition; if normal/fresh, there is nothing to succeed).
+    //
+    // **SECURITY (C12 misdeclaration close):** `prior_cultivator_pubkey` arrives
+    // in the request payload and is otherwise attacker-chosen. It MUST equal the
+    // pinned incumbent owner's pubkey. Before this binding, a successor past the
+    // C46 catechumenate gate could declare a *bogus* prior key (≠ the real
+    // incumbent); the old `if hb.cultivator_pubkey == prior_cultivator_pubkey`
+    // guard then evaluated FALSE, SKIPPING the freshness test entirely, and the
+    // takeover completed while the real cultivator was alive and pulsing. We now
+    // reject any mismatch up front, then run the freshness test UNCONDITIONALLY
+    // against the authoritative `latest_heartbeat` (which tracks the pinned
+    // owner's pulses) — so a fresh incumbent always blocks succession.
+    if prior_cultivator_pubkey != pinned.pubkey {
+        let evidence = format!(
+            "accept_succession: prior_cultivator_pubkey ({}) does not match the pinned \
+             incumbent owner ({}); succession can only displace the pinned owner key \
+             (C12 — misdeclaring the prior cultivator to skip the fresh-heartbeat block \
+             is a takeover attempt).",
+            crate::server::hex_first_8_bytes(&prior_cultivator_pubkey),
+            crate::server::hex_first_8_bytes(&pinned.pubkey),
+        );
+        let _ = emit_immune_sporocarp(
+            state,
+            "C12_successor_activation_with_fresh_owner_heartbeat",
+            "successor_activation_with_fresh_owner_heartbeat",
+            &evidence,
+        );
+        return Err(SubstrateError::Protocol(evidence));
+    }
+    // Freshness is measured against the operator-threaded acceptance anchor
+    // timestamp. The pubkey binding above means `latest_heartbeat` (if present)
+    // is necessarily the incumbent's, so the freshness test runs unconditionally.
     let cfg = SuccessionConfig::resolve(state);
     let threshold_days = cfg.staleness_threshold_days() as i64;
     if let Some(hb) = state.latest_heartbeat.as_ref() {
-        // Only the PRIOR cultivator's heartbeat freshness gates succession.
-        if hb.cultivator_pubkey == prior_cultivator_pubkey {
-            let staleness_days =
-                compute_staleness(hb.anchor_timestamp_unix_ns, anchor_timestamp_unix_ns);
-            if staleness_days < threshold_days {
-                let evidence = format!(
-                    "accept_succession: cultivator heartbeat is still FRESH \
-                     (staleness {staleness_days}d < threshold {threshold_days}d); succession is \
-                     for incapacity, not takeover (C12). Wait for staleness or use \
-                     cultivator-attested key rotation instead."
-                );
-                let _ = emit_immune_sporocarp(
-                    state,
-                    "C12_successor_activation_with_fresh_owner_heartbeat",
-                    "successor_activation_with_fresh_owner_heartbeat",
-                    &evidence,
-                );
-                return Err(SubstrateError::Protocol(evidence));
-            }
+        let staleness_days =
+            compute_staleness(hb.anchor_timestamp_unix_ns, anchor_timestamp_unix_ns);
+        if staleness_days < threshold_days {
+            let evidence = format!(
+                "accept_succession: cultivator heartbeat is still FRESH \
+                 (staleness {staleness_days}d < threshold {threshold_days}d); succession is \
+                 for incapacity, not takeover (C12). Wait for staleness or use \
+                 cultivator-attested key rotation instead."
+            );
+            let _ = emit_immune_sporocarp(
+                state,
+                "C12_successor_activation_with_fresh_owner_heartbeat",
+                "successor_activation_with_fresh_owner_heartbeat",
+                &evidence,
+            );
+            return Err(SubstrateError::Protocol(evidence));
         }
     }
 
@@ -753,7 +819,8 @@ pub(crate) fn handle_accept_succession(
         owner_key_content,
     )?;
 
-    let new_state = current_cultivation_state(state);
+    // Post-emit: emit_substrate_event already refreshed the memoized cache.
+    let new_state = state.cultivation_state();
     let mut payload = BTreeMap::new();
     payload.insert(
         "completed_event_hash".to_string(),
@@ -888,9 +955,10 @@ pub(crate) fn handle_accept_bet_retired_proposal(
 
 /// **COV06** — is the substrate in `alive::archived` (terminal via bet-retirement)?
 /// Metabolic operations (cycle advance) are refused while archived; the state_dir
-/// stays cold-readable. Pure DAG derivation.
+/// stays cold-readable. Reads the memoized FSM cache (maintained at the emit
+/// point + hydrated at boot) — this is on the per-ADVANCE / per-tick hot path.
 pub(crate) fn is_archived(state: &ServerState) -> bool {
-    current_cultivation_state(state) == CultivationState::Archived
+    state.cultivation_state() == CultivationState::Archived
 }
 
 #[cfg(test)]
@@ -919,14 +987,21 @@ mod tests {
         )
     }
 
-    /// Push a cultivation event onto the DAG (tip-parented).
+    /// Push a cultivation event onto the DAG (tip-parented). Mirrors the
+    /// production emit path by refreshing the memoized FSM cache for
+    /// cultivation-family events, so handler tests that read the cache (e.g. the
+    /// T2 `was_legacy` check) see the same state a booted substrate would.
     fn push(state: &mut ServerState, node_type: String, content: myco_kernel_shared::canonical_bytes::CanonicalBytes) {
         let parents = match state.dag.tip() {
             Some(t) => vec![t],
             None => Vec::new(),
         };
         let cycle = state.cycle_counter();
+        let is_cultivation_family = is_cultivation_family_node_type(&node_type);
         state.dag.insert_node(parents, node_type, cycle, content).expect("insert");
+        if is_cultivation_family {
+            state.cultivation_state = current_cultivation_state(state);
+        }
     }
 
     fn pk(b: u8) -> [u8; 32] {
@@ -1374,6 +1449,46 @@ mod tests {
         assert!(handle_accept_succession(&mut state, &req).is_err());
         assert!(count_immune(&state, "C12_successor_activation_with_fresh_owner_heartbeat") >= 1);
         assert_eq!(count_nodes(&state, events::NODE_TYPE_SUCCESSION_COMPLETED_PREFIX), 0);
+    }
+
+    #[test]
+    fn succession_with_misdeclared_prior_pubkey_rejected_c12() {
+        // **SECURITY regression (F1).** A successor past the C46 catechumenate
+        // gate MUST NOT be able to skip the C12 fresh-heartbeat block by
+        // MISDECLARING `prior_cultivator_pubkey` as some key other than the
+        // pinned incumbent. The incumbent's heartbeat is FRESH (they are alive
+        // and pulsing); the takeover must be REFUSED.
+        //
+        // Before the fix, the freshness test was guarded by
+        // `if hb.cultivator_pubkey == prior_cultivator_pubkey`, so a bogus prior
+        // key (which has no heartbeat) made that guard FALSE → freshness skipped
+        // → succession completed. The honest-pubkey tests passed precisely
+        // because they used the real incumbent key; this test uses a bogus one.
+        let owner_seed = [0x42u8; 32];
+        let successor_seed = [0x77u8; 32];
+        let mut state = pinned_state(&owner_seed);
+        let incumbent_pk = Ed25519PrivateKey::from_seed(&owner_seed).public_key().0;
+        // The real incumbent's heartbeat is FRESH (pulse at T, acceptance T+1day).
+        state.latest_heartbeat = Some(crate::derived_state::DerivedLatestHeartbeat {
+            cultivator_pubkey: incumbent_pk,
+            anchor_timestamp_unix_ns: 1000 * NANOS_PER_DAY,
+        });
+        // The attacker MISDECLARES a prior key that is NOT the pinned incumbent.
+        let bogus_prior = pk(0x99);
+        assert_ne!(bogus_prior, incumbent_pk, "test must use a non-incumbent key");
+        let sid = state.substrate_id();
+        // 50 sessions (passes C46); acceptance 1 day after the fresh pulse.
+        let req = succession_request(&successor_seed, &sid, &bogus_prior, 1001 * NANOS_PER_DAY, 50);
+        assert!(
+            handle_accept_succession(&mut state, &req).is_err(),
+            "misdeclared prior_cultivator_pubkey while incumbent is fresh must be REJECTED"
+        );
+        assert!(count_immune(&state, "C12_successor_activation_with_fresh_owner_heartbeat") >= 1);
+        assert_eq!(
+            count_nodes(&state, events::NODE_TYPE_SUCCESSION_COMPLETED_PREFIX),
+            0,
+            "no succession may complete via a misdeclared prior key (the takeover hole)"
+        );
     }
 
     #[test]
