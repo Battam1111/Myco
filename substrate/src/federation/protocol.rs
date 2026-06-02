@@ -449,6 +449,18 @@ pub fn is_federation_safe_node_type(node_type: &str) -> bool {
         "immune:",               // peer's immune sporocarps (observation across substrates)
         "federation_received:",  // Phase β: wrapped peer events from chained federation
                                  // ("I heard A heard B say X" — propagated attestation)
+        // **L2/FEDERATION §6.5 + §9.6** — population-consensus votes + quorum
+        // certificates ride FED_EVENT_BATCH. These are SAFE to ingest because
+        // their authority is the EMBEDDED Ed25519 signatures (§9.6), not the
+        // federation wrapping: the wrapper still strips direct-insert
+        // (parent = local tip, never peer parents), and a receiver RE-VERIFIES
+        // each embedded signature against the voter's §10 pinned signer_pubkey
+        // before treating a cert as evidence. A forged vote/cert simply fails
+        // re-verification at the consensus gate; it cannot mutate substrate
+        // state on ingest (these node_types fall through DerivedState::apply_event
+        // as pure-record events).
+        "population_vote:",                 // a peer's vote over a population claim
+        "population_consensus_reached:",    // a self-verifying quorum certificate
     ];
     ALLOWED_PREFIXES.iter().any(|p| node_type.starts_with(p))
 }

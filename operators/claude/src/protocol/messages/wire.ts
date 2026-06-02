@@ -98,6 +98,14 @@ export const MSG_TYPE = {
   FEDERATION_PULL_EVENTS_FROM_PEER_RESPONSE: "federation_pull_events_from_peer_response",
   FEDERATION_LINK_TO_PARENT_FROM_HINT: "federation_link_to_parent_from_hint",
   FEDERATION_LINK_TO_PARENT_FROM_HINT_RESPONSE: "federation_link_to_parent_from_hint_response",
+  // L2/FEDERATION §6.5 — Stage-1 population-consensus floor (quorum cert).
+  FEDERATION_PROPOSE_POPULATION_CLAIM: "federation_propose_population_claim",
+  FEDERATION_PROPOSE_POPULATION_CLAIM_RESPONSE:
+    "federation_propose_population_claim_response",
+  FEDERATION_SUBMIT_PEER_VOTE: "federation_submit_peer_vote",
+  FEDERATION_SUBMIT_PEER_VOTE_RESPONSE: "federation_submit_peer_vote_response",
+  FEDERATION_QUERY_CONSENSUS: "federation_query_consensus",
+  FEDERATION_QUERY_CONSENSUS_RESPONSE: "federation_query_consensus_response",
   // M22.5 P8 birth-period quarantine — operator owner-signed override.
   LIFT_BIRTH_PERIOD_QUARANTINE: "lift_birth_period_quarantine",
   LIFT_BIRTH_PERIOD_QUARANTINE_RESPONSE: "lift_birth_period_quarantine_response",

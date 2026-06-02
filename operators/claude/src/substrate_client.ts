@@ -43,10 +43,16 @@ import {
   type FederationOpenListenerResult,
   federationPollPayload,
   type FederationPollResult,
+  federationProposePopulationClaimPayload,
   federationPullEventsFromPeerPayload,
   type FederationPullEventsFromPeerResult,
+  federationQueryConsensusPayload,
+  type FederationQueryConsensusResult,
   federationStatusPayload,
   type FederationStatusResult,
+  federationSubmitPeerVotePayload,
+  type FederationSubmitPeerVoteResult,
+  type PopulationConsensusTally,
   type HelloAck,
   helloPayload,
   helloSigningBody,
@@ -73,8 +79,11 @@ import {
   parseFederationLinkToParentFromHintResponse,
   parseFederationOpenListenerResponse,
   parseFederationPollResponse,
+  parseFederationProposePopulationClaimResponse,
   parseFederationPullEventsFromPeerResponse,
+  parseFederationQueryConsensusResponse,
   parseFederationStatusResponse,
+  parseFederationSubmitPeerVoteResponse,
   parseHelloAck,
   parseIngestRawMaterialResponse,
   parseLiftBirthPeriodQuarantineResponse,
@@ -1187,6 +1196,54 @@ export class SubstrateClient {
       federationLinkToParentFromHintPayload(),
     );
     return parseFederationLinkToParentFromHintResponse(response);
+  }
+
+  /** L2/FEDERATION §6.5: Propose a population-level claim — the substrate mints
+   *  its OWN vote (signed with its signing seed) and opens a consensus round.
+   *  Returns the round_id + tally. Only fires consequence at ≥3 peers (the
+   *  consensus floor); below that, pairwise-trust + owner-attestation governs.
+   *
+   *  `claimType` must be one of: "peer_revocation",
+   *  "universal_junk_classification", "cross_substrate_aggregate_metric". */
+  async federationProposePopulationClaim(args: {
+    claimType: string;
+    claimPayload: Uint8Array;
+  }): Promise<PopulationConsensusTally> {
+    const response = await this._sendRequest(
+      MSG_TYPE.FEDERATION_PROPOSE_POPULATION_CLAIM,
+      federationProposePopulationClaimPayload(args),
+    );
+    return parseFederationProposePopulationClaimResponse(response);
+  }
+
+  /** L2/FEDERATION §6.5: Ingest a peer's vote over a population claim (the
+   *  canonical `population_vote` body bytes, as pulled over FED_EVENT_BATCH).
+   *  The substrate verifies the embedded Ed25519 signature against the peer's
+   *  §10 FED_HELLO-pinned `signer_pubkey`; an unpinned/tampered vote is
+   *  rejected. When the tally reaches ≥2/3 quorum the substrate auto-mints the
+   *  self-verifying `population_consensus_reached` certificate. */
+  async federationSubmitPeerVote(args: {
+    voteEventBytes: Uint8Array;
+  }): Promise<FederationSubmitPeerVoteResult> {
+    const response = await this._sendRequest(
+      MSG_TYPE.FEDERATION_SUBMIT_PEER_VOTE,
+      federationSubmitPeerVotePayload(args),
+    );
+    return parseFederationSubmitPeerVoteResponse(response);
+  }
+
+  /** L2/FEDERATION §6.5: Query a population claim's status —
+   *  "reached" | "pending" | "stuck" — plus the current tally + (if reached)
+   *  the cert event hash. */
+  async federationQueryConsensus(args: {
+    claimType: string;
+    claimPayload: Uint8Array;
+  }): Promise<FederationQueryConsensusResult> {
+    const response = await this._sendRequest(
+      MSG_TYPE.FEDERATION_QUERY_CONSENSUS,
+      federationQueryConsensusPayload(args),
+    );
+    return parseFederationQueryConsensusResponse(response);
   }
 
   /** M22.5 (Phase β security fix): Owner-signed lift of birth-period

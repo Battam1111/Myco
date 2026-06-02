@@ -246,6 +246,40 @@ pub mod msg_type {
     pub const FEDERATION_LINK_TO_PARENT_FROM_HINT_RESPONSE: &str =
         "federation_link_to_parent_from_hint_response";
 
+    // -----------------------------------------------------------------------
+    // L2/FEDERATION §6.5 — Stage-1 population-consensus floor (quorum cert).
+    // -----------------------------------------------------------------------
+
+    /// `federation_propose_population_claim` — Operator→Substrate: open a round
+    /// for a population-level claim (§6.5.b). The substrate mints its OWN vote
+    /// (signed with its signing seed), records a `population_vote:{claim_type}`
+    /// event, and returns the assigned `round_id` + current tally.
+    pub const FEDERATION_PROPOSE_POPULATION_CLAIM: &str =
+        "federation_propose_population_claim";
+    /// `federation_propose_population_claim_response` — Substrate→Operator:
+    /// `round_id` + `claim_hash` + tally (votes_received / quorum_needed).
+    pub const FEDERATION_PROPOSE_POPULATION_CLAIM_RESPONSE: &str =
+        "federation_propose_population_claim_response";
+
+    /// `federation_submit_peer_vote` — Operator→Substrate: ingest a peer's vote
+    /// over a population claim. The substrate verifies the embedded Ed25519
+    /// signature against the peer's §10 FED_HELLO-pinned `signer_pubkey`,
+    /// records it, and — if the tally reaches quorum — auto-emits the
+    /// `population_consensus_reached:{claim_type}` quorum certificate.
+    pub const FEDERATION_SUBMIT_PEER_VOTE: &str = "federation_submit_peer_vote";
+    /// `federation_submit_peer_vote_response` — Substrate→Operator: accepted
+    /// flag + updated tally + (if reached) the cert event hash.
+    pub const FEDERATION_SUBMIT_PEER_VOTE_RESPONSE: &str =
+        "federation_submit_peer_vote_response";
+
+    /// `federation_query_consensus` — Operator→Substrate: query the status of a
+    /// population claim — `reached` | `pending` | `stuck` + tally.
+    pub const FEDERATION_QUERY_CONSENSUS: &str = "federation_query_consensus";
+    /// `federation_query_consensus_response` — Substrate→Operator: status +
+    /// tally + (if reached) the cert event hash.
+    pub const FEDERATION_QUERY_CONSENSUS_RESPONSE: &str =
+        "federation_query_consensus_response";
+
     /// `accept_self_euthanasia_proposal` — Operator→Substrate: owner
     /// co-attests acceptance of a previously-emitted self_euthanasia_proposal
     /// DAG node. The substrate verifies the operator's IDENTITY-key signature

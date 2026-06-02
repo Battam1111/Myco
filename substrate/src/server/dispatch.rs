@@ -228,6 +228,25 @@ pub(super) fn dispatch(
             save_dag_state(state)?;
             Ok(response)
         }
+        // **L2/FEDERATION §6.5** — Stage-1 population-consensus floor. The three
+        // handlers mint the substrate's own vote / ingest a verified peer vote
+        // (auto-emitting the quorum cert at ≥2/3) / query a claim's status. Each
+        // emits DAG events (votes / cert / pending / byzantine_threshold_check)
+        // and persists; consensus state is fully DAG-derived.
+        msg_type::FEDERATION_PROPOSE_POPULATION_CLAIM => {
+            let response =
+                crate::consensus::handle_federation_propose_population_claim(state, request)?;
+            save_dag_state(state)?;
+            Ok(response)
+        }
+        msg_type::FEDERATION_SUBMIT_PEER_VOTE => {
+            let response = crate::consensus::handle_federation_submit_peer_vote(state, request)?;
+            save_dag_state(state)?;
+            Ok(response)
+        }
+        msg_type::FEDERATION_QUERY_CONSENSUS => {
+            crate::consensus::handle_federation_query_consensus(state, request)
+        }
         msg_type::LIFT_BIRTH_PERIOD_QUARANTINE => {
             let response = crate::lifecycle::handle_lift_birth_period_quarantine(state, request)?;
             save_dag_state(state)?;

@@ -352,6 +352,8 @@ pub(crate) fn handle_federation_connect_peer(
     let our_substrate_id = state.substrate_id();
     let our_dag_tip = state.dag.tip().map(|t| t.0);
     let our_signing_seed = state.substrate_signing_seed;
+    // **§6.5.a** — peer-count before the dial, to detect a 2→3 crossing.
+    let prior_peer_count = state.federation.peer_count();
 
     let outcome = state.federation.connect_peer(
         &remote_addr,
@@ -497,6 +499,9 @@ pub(crate) fn handle_federation_connect_peer(
             );
         }
     }
+    // **§6.5.a** — emit the activation/deactivation crossing if this outbound
+    // connect moved peer_count across the 2↔3 boundary.
+    crate::consensus::emit_consensus_floor_crossing_if_needed(state, prior_peer_count)?;
     Ok(Some(Message::new(
         msg_type::FEDERATION_CONNECT_PEER_RESPONSE,
         request.request_id,
@@ -525,6 +530,10 @@ pub(crate) fn handle_federation_poll(
     state: &mut ServerState,
     request: &Message,
 ) -> Result<Option<Message>, SubstrateError> {
+    // **§6.5.a** — capture peer-count BEFORE this poll so we can emit a
+    // consensus_floor_activated/_deactivated event if the poll crosses the 2↔3
+    // boundary (inbound peers pinned during the poll change the count).
+    let prior_peer_count = state.federation.peer_count();
     let accepted = state.federation.accept_pending()?;
     let our_substrate_id = state.substrate_id();
     let our_dag_tip = state.dag.tip().map(|t| t.0);
@@ -680,6 +689,10 @@ pub(crate) fn handle_federation_poll(
         }
     }
 
+    // **§6.5.a** — emit the consensus-floor activation/deactivation crossing if
+    // this poll moved peer_count across the 2↔3 boundary.
+    crate::consensus::emit_consensus_floor_crossing_if_needed(state, prior_peer_count)?;
+
     let mut payload = BTreeMap::new();
     payload.insert(
         "accepted_connections".to_string(),
@@ -690,6 +703,10 @@ pub(crate) fn handle_federation_poll(
     payload.insert(
         "event_batches_sent".to_string(),
         Value::Uint(event_batches_sent),
+    );
+    payload.insert(
+        "consensus_floor_active".to_string(),
+        Value::Bool(crate::consensus::consensus_floor_active(state)),
     );
     // **C13**: number of FED_EVENT_BATCH egress attempts blocked this poll
     // because the requesting peer is on the owner-revocation list.

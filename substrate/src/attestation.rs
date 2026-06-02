@@ -234,35 +234,96 @@ pub(crate) fn handle_request_attestation_nonce(
 /// enforces BOTH clocks (substrate-clock elapsed-time AND anchor-clock
 /// elapsed-time) must be in the [0, TTL] window. Clock-skew attacks that try
 /// to extend nonce lifetime by manipulating one clock will fail the other.
+/// **C44 `nonce_substrate_minted_replay`** (L1/HARD_RULES C44; L1/GOVERNANCE
+/// §2.2 + L0/cards/AS_anchor_surface §3.5) — classified rejection from
+/// [`verify_attestation_nonce`].
+///
+/// AS §3.5/§5.1 mandate that attestation nonces be ANCHOR-issued and
+/// SUBSTRATE-consumed (the substrate must not be the authority that mints the
+/// nonces it later consumes). Two consumption-path signals indicate a nonce
+/// that was not a legitimate anchor-issued one-time token:
+///   - [`UnknownNonce`](NonceRejectKind::UnknownNonce): a nonce presented for
+///     consumption with NO matching issued record — i.e. it bears
+///     substrate-derived / forged provenance rather than a recorded anchor
+///     issuance.
+///   - [`AlreadyConsumed`](NonceRejectKind::AlreadyConsumed): a consumed nonce
+///     reappearing (replay of a one-time token).
+/// Both map to C44 (in addition to the unconditional C5 the caller already
+/// emits, since the operator-facing rejection contract is unchanged). All other
+/// rejections ([`Other`](NonceRejectKind::Other) — wrong binding / expiry /
+/// dual-clock) are C5-only.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum NonceRejectKind {
+    /// No issued record for this nonce → substrate-derived / forged provenance.
+    UnknownNonce,
+    /// A consumed one-time nonce was presented again (replay).
+    AlreadyConsumed,
+    /// Any other binding / freshness failure (C5-only).
+    Other,
+}
+
+/// A classified nonce-verification rejection: the human-readable `reason` (for
+/// the operator response, unchanged) plus the [`NonceRejectKind`] so the caller
+/// can decide whether to ALSO fruit C44.
+#[derive(Debug, Clone)]
+pub(crate) struct NonceReject {
+    /// Operator-facing rejection reason (byte-for-byte the prior `Err(String)`).
+    pub(crate) reason: String,
+    /// Classification driving whether C44 is additionally emitted.
+    pub(crate) kind: NonceRejectKind,
+}
+
+impl NonceReject {
+    fn other(reason: impl Into<String>) -> Self {
+        NonceReject {
+            reason: reason.into(),
+            kind: NonceRejectKind::Other,
+        }
+    }
+}
+
 pub(crate) fn verify_attestation_nonce(
     state: &mut ServerState,
     nonce_bytes: &[u8],
     content_hash: &[u8; 32],
     submitted_expiry_ns: Option<i64>,
     submitted_anchor_clock_ns: Option<i64>,
-) -> Result<(), String> {
+) -> Result<(), NonceReject> {
     use std::time::{SystemTime, UNIX_EPOCH};
 
     if nonce_bytes.len() != 32 {
-        return Err(format!("nonce must be 32 bytes; got {}", nonce_bytes.len()));
+        return Err(NonceReject::other(format!(
+            "nonce must be 32 bytes; got {}",
+            nonce_bytes.len()
+        )));
     }
     let mut nonce_arr = [0u8; 32];
     nonce_arr.copy_from_slice(nonce_bytes);
 
-    let stored = state
-        .nonce_log
-        .get(&nonce_arr)
-        .ok_or_else(|| "unknown nonce (never issued by this substrate)".to_string())?
-        .clone();
+    let stored = match state.nonce_log.get(&nonce_arr) {
+        Some(n) => n.clone(),
+        // **C44**: a nonce with no issued record bears substrate-derived /
+        // forged provenance (not a recorded anchor issuance).
+        None => {
+            return Err(NonceReject {
+                reason: "unknown nonce (never issued by this substrate)".to_string(),
+                kind: NonceRejectKind::UnknownNonce,
+            });
+        }
+    };
 
     if stored.consumed {
-        return Err("replay rejected: nonce already consumed".to_string());
+        // **C44**: replay of a consumed one-time nonce.
+        return Err(NonceReject {
+            reason: "replay rejected: nonce already consumed".to_string(),
+            kind: NonceRejectKind::AlreadyConsumed,
+        });
     }
 
     if stored.bound_content_hash != *content_hash {
-        return Err(
-            "wrong-binding rejected: content_hash differs from nonce-bound hash".to_string(),
-        );
+        return Err(NonceReject::other(
+            "wrong-binding rejected: content_hash differs from nonce-bound hash",
+        ));
     }
 
     let current_tip = state
@@ -275,7 +336,9 @@ pub(crate) fn verify_attestation_nonce(
         })
         .unwrap_or([0u8; 32]);
     if stored.bound_dag_tip != current_tip {
-        return Err("wrong-binding rejected: DAG tip differs from issuance time".to_string());
+        return Err(NonceReject::other(
+            "wrong-binding rejected: DAG tip differs from issuance time",
+        ));
     }
 
     let now_ns = SystemTime::now()
@@ -286,18 +349,20 @@ pub(crate) fn verify_attestation_nonce(
     // Substrate-clock elapsed-time check (M15 — supersedes the simple
     // `now > expiry` check by also detecting backward clock jumps).
     if now_ns > stored.expiry_unix_ns {
-        return Err("expired rejected: substrate-clock nonce TTL passed".to_string());
+        return Err(NonceReject::other(
+            "expired rejected: substrate-clock nonce TTL passed",
+        ));
     }
     if now_ns < stored.substrate_issued_at_unix_ns {
-        return Err(
-            "expired rejected: substrate clock has jumped backward since issuance".to_string(),
-        );
+        return Err(NonceReject::other(
+            "expired rejected: substrate clock has jumped backward since issuance",
+        ));
     }
     if let Some(submitted) = submitted_expiry_ns {
         if submitted != stored.expiry_unix_ns {
-            return Err(
-                "wrong-binding rejected: submitted expiry differs from issued expiry".to_string(),
-            );
+            return Err(NonceReject::other(
+                "wrong-binding rejected: submitted expiry differs from issued expiry",
+            ));
         }
     }
 
@@ -312,21 +377,21 @@ pub(crate) fn verify_attestation_nonce(
     ) {
         match submitted_anchor_clock_ns {
             None => {
-                return Err(
+                return Err(NonceReject::other(
                     "dual-clock binding rejected: nonce was issued with anchor-clock, but \
-                     submit envelope omits anchor_clock_submitted_at_unix_ns"
-                        .to_string(),
-                );
+                     submit envelope omits anchor_clock_submitted_at_unix_ns",
+                ));
             }
             Some(submitted_anchor) => {
                 if submitted_anchor < anchor_issued {
-                    return Err(
-                        "dual-clock rejected: anchor clock jumped backward since issuance"
-                            .to_string(),
-                    );
+                    return Err(NonceReject::other(
+                        "dual-clock rejected: anchor clock jumped backward since issuance",
+                    ));
                 }
                 if submitted_anchor > anchor_expiry {
-                    return Err("dual-clock rejected: anchor-clock nonce TTL passed".to_string());
+                    return Err(NonceReject::other(
+                        "dual-clock rejected: anchor-clock nonce TTL passed",
+                    ));
                 }
             }
         }
@@ -344,7 +409,8 @@ pub(crate) fn verify_attestation_nonce(
     }
     // M14: persist nonce log so the consumed flag survives restart (replay
     // protection extends across substrate restarts).
-    save_nonce_state(state).map_err(|e| format!("nonce log save failed: {e}"))?;
+    save_nonce_state(state)
+        .map_err(|e| NonceReject::other(format!("nonce log save failed: {e}")))?;
     // M21.1 P5 万物互联: emit nonce_consumed DAG event.
     let consumed_at_unix_ns = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -742,13 +808,14 @@ pub(crate) fn handle_submit_mutation(
                 Value::Timestamp(t) => Some(*t),
                 _ => None,
             });
-        if let Err(reason) = verify_attestation_nonce(
+        if let Err(reject) = verify_attestation_nonce(
             state,
             &nonce_bytes,
             &content_hash,
             submitted_expiry,
             submitted_anchor_clock,
         ) {
+            let reason = reject.reason;
             // Build a rejection response directly; emit C5 immune sporocarp.
             let evidence = format!("anchor-surface envelope verification failed: {reason}");
             let _ = emit_immune_sporocarp(
@@ -757,6 +824,36 @@ pub(crate) fn handle_submit_mutation(
                 "attestation_invalid_anchor_surface",
                 &evidence,
             );
+            // **C44 `nonce_substrate_minted_replay`** (L1/HARD_RULES C44;
+            // L0/cards/AS_anchor_surface §3.5). AS §3.5/§5.1: nonces are
+            // anchor-issued + substrate-consumed; a nonce presented for
+            // consumption that bears substrate-derived / forged provenance (no
+            // issued record) OR a replay of a consumed one-time nonce is the
+            // C44 signal. Emitted IN ADDITION to C5 (the operator response
+            // contract is unchanged) so the breach is named distinctly in the
+            // immune log.
+            match reject.kind {
+                NonceRejectKind::UnknownNonce => {
+                    let _ = emit_immune_sporocarp(
+                        state,
+                        "C44_nonce_substrate_minted_replay",
+                        "nonce_substrate_minted_replay",
+                        &format!(
+                            "nonce presented for consumption has no anchor-issued record \
+                             (substrate-derived / forged provenance): {reason}"
+                        ),
+                    );
+                }
+                NonceRejectKind::AlreadyConsumed => {
+                    let _ = emit_immune_sporocarp(
+                        state,
+                        "C44_nonce_substrate_minted_replay",
+                        "nonce_substrate_minted_replay",
+                        &format!("consumed one-time nonce replayed: {reason}"),
+                    );
+                }
+                NonceRejectKind::Other => {}
+            }
             let _ = save_dag_state(state);
 
             let mut payload = BTreeMap::new();
@@ -1325,6 +1422,38 @@ pub(crate) fn handle_submit_mutation(
                     "revoke_federation_peer_decode_failed",
                 );
             }
+        }
+    }
+
+    // **C49 `consensus_floor_bypass`** (L1/HARD_RULES C49; L2/FEDERATION §6.5) —
+    // the peer-revocation ACTION site. `revoke_federation_peer` is the LOCAL
+    // owner-revocation half of §6.5.b class (1); when the consensus floor is
+    // ACTIVE (peer_count ≥ 3), a peer-revocation that another peer would
+    // observe as a population claim requires a ≥2/3 quorum certificate. If the
+    // floor is active and NO valid `population_consensus_reached:peer_revocation`
+    // cert exists in the DAG for THIS revocation's claim (claim_hash = BLAKE3 of
+    // the owner-signed revoke body), the action is a floor bypass: reject +
+    // fruit C49 + drop the staged revocation so no `federation_peer_revoked`
+    // event is emitted. Below the floor (≤2 peers — the v0.9 single-cultivator
+    // reality), the owner-attested revoke proceeds unchanged (this gate is a
+    // no-op). Stage-1 wires C49 at peer-revocation ONLY; classes 2/3 action
+    // sites are Stage 2.
+    if accepted && staged_peer_revocation.is_some() {
+        let claim_hash = crate::events::claim_hash(&content_bytes);
+        if let Err(evidence) = crate::consensus::check_c49_population_action_allowed(
+            state,
+            crate::events::PopulationClaimClass::PeerRevocation,
+            &claim_hash,
+        ) {
+            accepted = false;
+            rejection_reason = evidence.clone();
+            staged_peer_revocation = None;
+            let _ = emit_immune_sporocarp(
+                state,
+                "C49_consensus_floor_bypass",
+                "consensus_floor_bypass",
+                &evidence,
+            );
         }
     }
 

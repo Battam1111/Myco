@@ -1423,3 +1423,153 @@ fn sprint_6e_unseeded_spawn_still_works_for_legacy_tests() {
     client.shutdown().expect("shutdown");
 }
 
+// ---------------------------------------------------------------------------
+// C44 `nonce_substrate_minted_replay` (L1/HARD_RULES C44; AS §3.5/§5.1).
+//
+// AS §3.5/§5.1: attestation nonces are anchor-issued + substrate-consumed. A
+// nonce presented for consumption that bears substrate-derived / forged
+// provenance (no issued record) OR a replay of a consumed one-time nonce is the
+// C44 signal — emitted at the nonce-consumption path (verify_attestation_nonce)
+// IN ADDITION to the unconditional C5.
+// ---------------------------------------------------------------------------
+
+/// SHA-256 (mirrors the substrate's `attestation::compute_content_hash`).
+fn content_hash_sha256(content: &[u8]) -> [u8; 32] {
+    use sha2::{Digest, Sha256};
+    let mut h = Sha256::new();
+    h.update(content);
+    let mut out = [0u8; 32];
+    out.copy_from_slice(&h.finalize());
+    out
+}
+
+#[test]
+fn c44_unknown_nonce_presented_for_consumption_fruits_c44() {
+    // An operator submits a mutation carrying a `nonce` that this substrate
+    // NEVER issued (32 arbitrary bytes). With no issued record, the nonce bears
+    // substrate-derived / forged provenance — the C44 "not anchor-issued"
+    // signal. The submit is rejected AND both C5 + C44 sporocarps are fruited.
+    let (mut client, _dir) = spawn_substrate();
+    let forged_nonce = [0xC4u8; 32];
+    let resp = client
+        .call(
+            proto::SUBMIT_MUTATION,
+            build_payload(vec![
+                ("mutation_type", CbValue::String("schema_evolution".to_string())),
+                ("content_canonical_bytes", CbValue::Bytes(b"x".to_vec())),
+                ("touched_fields", CbValue::Array(vec![])),
+                ("touched_files", CbValue::Array(vec![])),
+                ("touched_meta_structures", CbValue::Array(vec![])),
+                ("nonce", CbValue::Bytes(forged_nonce.to_vec())),
+            ]),
+        )
+        .expect("submit");
+    assert_eq!(
+        resp.payload.get("accepted"),
+        Some(&CbValue::Bool(false)),
+        "an unknown (never-issued) nonce must be rejected"
+    );
+
+    // C44 must be fruited (alongside C5).
+    let c44 = count_node_type_prefix(&mut client, "immune:C44");
+    assert!(c44 >= 1, "unknown-nonce consumption must fruit a C44 sporocarp");
+    let c5 = count_node_type_prefix(&mut client, "immune:C5");
+    assert!(c5 >= 1, "C5 attestation_invalid must still fire alongside C44");
+
+    client.shutdown().expect("shutdown");
+}
+
+#[test]
+fn c44_replayed_consumed_nonce_fruits_c44() {
+    // Request a nonce, consume it once (a valid submit — the nonce is consumed
+    // at verify time, before Python classification, so the mutation being
+    // ultimately CI-rejected is irrelevant), then submit AGAIN with the same
+    // nonce. The second presentation hits the consumed one-time nonce → C44.
+    let seed: [u8; 32] = [0x44; 32];
+    let dir = fresh_state_dir();
+    let mut client = spawn_substrate_with_signing_seed(&dir, seed);
+
+    let content = b"c44-replay-content".to_vec();
+    let ch = content_hash_sha256(&content);
+
+    // Issue a nonce bound to (content_hash, current tip).
+    let issue = client
+        .call(
+            proto::REQUEST_ATTESTATION_NONCE,
+            build_payload(vec![("content_hash", CbValue::Bytes(ch.to_vec()))]),
+        )
+        .expect("request nonce");
+    let nonce = match issue.payload.get("nonce") {
+        Some(CbValue::Bytes(b)) => b.clone(),
+        _ => panic!("nonce missing"),
+    };
+
+    // First submit WITH the nonce: verify_attestation_nonce consumes it (the
+    // binding matches: content_hash == SHA256(content) and the tip is still the
+    // nonce_issued event). Python may reject the mutation itself — irrelevant;
+    // the nonce is now consumed.
+    let submit1 = |client: &mut BridgeClient| {
+        client
+            .call(
+                proto::SUBMIT_MUTATION,
+                build_payload(vec![
+                    ("mutation_type", CbValue::String("schema_evolution".to_string())),
+                    ("content_canonical_bytes", CbValue::Bytes(content.clone())),
+                    ("touched_fields", CbValue::Array(vec![])),
+                    ("touched_files", CbValue::Array(vec![])),
+                    ("touched_meta_structures", CbValue::Array(vec![])),
+                    ("nonce", CbValue::Bytes(nonce.clone())),
+                ]),
+            )
+            .expect("submit1")
+            .payload
+    };
+    let _ = submit1(&mut client);
+    // The first consume must NOT have fruited C44 (it was a legitimate one-time
+    // use — no replay yet).
+    assert_eq!(
+        count_node_type_prefix(&mut client, "immune:C44"),
+        0,
+        "a first legitimate consume must not fruit C44"
+    );
+
+    // Second submit with the SAME nonce → replay of a consumed one-time nonce.
+    let resp2 = submit1(&mut client);
+    assert_eq!(
+        resp2.get("accepted"),
+        Some(&CbValue::Bool(false)),
+        "replayed nonce must be rejected"
+    );
+    let reason = match resp2.get("rejection_reason") {
+        Some(CbValue::String(s)) => s.clone(),
+        _ => String::new(),
+    };
+    assert!(
+        reason.contains("already consumed"),
+        "replay rejection reason should cite 'already consumed'; got: {reason}"
+    );
+    assert!(
+        count_node_type_prefix(&mut client, "immune:C44") >= 1,
+        "replaying a consumed nonce must fruit a C44 sporocarp"
+    );
+
+    client.shutdown().expect("shutdown");
+}
+
+/// Count DAG nodes whose node_type starts with `prefix`.
+fn count_node_type_prefix(client: &mut BridgeClient, prefix: &str) -> usize {
+    let resp = client
+        .call(
+            proto::QUERY_RECENT_NODES,
+            build_payload(vec![
+                ("count", CbValue::Uint(1000)),
+                ("node_type_prefix", CbValue::String(prefix.to_string())),
+            ]),
+        )
+        .expect("query recent");
+    match resp.payload.get("nodes") {
+        Some(CbValue::Array(a)) => a.len(),
+        _ => 0,
+    }
+}
+

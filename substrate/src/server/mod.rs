@@ -762,10 +762,11 @@ impl ServerState {
     /// derived from `substrate_signing_seed`. The pubkey appears on the wire
     /// (snapshot wrapper + FED_HELLO signed payload); the private seed never does.
     ///
-    /// Currently only used by tests; the runtime derives the pubkey inline
-    /// at each emission site (cheap; avoids cloning the seed for borrow).
-    #[allow(dead_code)]
-    fn substrate_signing_pubkey(&self) -> [u8; 32] {
+    /// Also used by the §6.5 population-consensus path: the substrate's own
+    /// vote is signed with the signing seed, and its own pubkey is what peers
+    /// pin via FED_HELLO (so it is the key a peer's `verify_quorum_cert`
+    /// resolver returns for this substrate's `peer_substrate_id`).
+    pub(crate) fn substrate_signing_pubkey(&self) -> [u8; 32] {
         use myco_kernel_shared::crypto::Ed25519PrivateKey;
         Ed25519PrivateKey::from_seed(&self.substrate_signing_seed)
             .public_key()

@@ -179,6 +179,28 @@ pub fn encode_federation_peer_pinned(
     cb_encode(&Value::Map(m)).expect("federation_peer_pinned encode infallible")
 }
 
+/// **§6.5/§10** — decode a `federation_peer_pinned` event's content into
+/// `(peer_substrate_id, signer_pubkey)`. Returns `None` when the content is
+/// malformed OR when `signer_pubkey` is absent (a legacy peer pinned by
+/// substrate-ID TOFU only — such a peer is consensus-passive: counted in N but
+/// it casts no verifiable votes, so it contributes no pin to the resolver).
+///
+/// Used by the population-consensus path to re-derive the §10 FED_HELLO pin set
+/// from the DAG (`FederationState.peers` is in-memory-only, so the pins must be
+/// reconstructed from these events). Pairs with [`encode_federation_peer_pinned`].
+pub fn decode_federation_peer_pinned_signer(bytes: &[u8]) -> Option<([u8; 32], [u8; 32])> {
+    use myco_kernel_shared::canonical_bytes::decode;
+    let m = match decode(bytes).ok()? {
+        Value::Map(m) => m,
+        _ => return None,
+    };
+    let peer_substrate_id = bytes_to_arr32(m.get("peer_substrate_id")?)?;
+    // signer_pubkey is OPTIONAL (absent for legacy peers) — its absence yields
+    // None, signalling "no verifiable pin" rather than a malformed event.
+    let signer_pubkey = bytes_to_arr32(m.get("signer_pubkey")?)?;
+    Some((peer_substrate_id, signer_pubkey))
+}
+
 /// M25.4: node_type for a federation_legacy_peer_pinned event:
 /// `federation_legacy_peer_pinned:{first_8_hex_of_peer_substrate_id}`.
 pub fn federation_legacy_peer_pinned_node_type(peer_substrate_id: &[u8; 32]) -> String {

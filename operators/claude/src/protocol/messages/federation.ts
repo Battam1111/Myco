@@ -334,6 +334,191 @@ export function federationLinkToParentFromHintPayload(): Map<string, Value> {
   return new Map<string, Value>();
 }
 
+// ===========================================================================
+// L2/FEDERATION §6.5 — Stage-1 population-consensus floor (quorum cert).
+//
+// Thin operator drivers: the substrate signs its own vote + verifies peer
+// signatures + mints the cert. The TS side carries no Ed25519 logic — it just
+// frames the operator's intent (propose a claim / submit a peer's vote bytes /
+// query a claim's status) and parses the substrate's tally.
+//
+// The three valid claim_type strings (§6.5.b): "peer_revocation",
+// "universal_junk_classification", "cross_substrate_aggregate_metric".
+// ===========================================================================
+
+/** Build the payload for a `federation_propose_population_claim` request — mint
+ *  THIS substrate's own vote over a population claim, opening a consensus round. */
+export function federationProposePopulationClaimPayload(args: {
+  claimType: string;
+  claimPayload: Uint8Array;
+}): Map<string, Value> {
+  if (!args.claimType || args.claimType.length === 0) {
+    throw new BridgeProtocolError(
+      "federation_propose_population_claim: claim_type must be non-empty",
+    );
+  }
+  const m = new Map<string, Value>();
+  m.set("claim_type", { type: "string", value: args.claimType });
+  m.set("claim_payload", { type: "bytes", value: args.claimPayload });
+  return m;
+}
+
+/** Tally of a population claim (shared shape of propose/submit/query responses). */
+export interface PopulationConsensusTally {
+  claimType: string;
+  claimHash: Uint8Array;
+  roundId: bigint;
+  votesReceived: bigint;
+  quorumNeeded: bigint;
+  peerSetSizeN: bigint;
+  /** DAG hash of the `population_consensus_reached` cert; null until quorum. */
+  consensusReachedEventHash: Uint8Array | null;
+}
+
+function tallyCommon(
+  payload: Map<string, Value>,
+): Omit<PopulationConsensusTally, "claimType"> & { claimType: string | null } {
+  const ctV = payload.get("claim_type");
+  const chV = payload.get("claim_hash");
+  const ridV = payload.get("round_id");
+  const vrV = payload.get("votes_received");
+  const qnV = payload.get("quorum_needed");
+  const nV = payload.get("peer_set_size_n");
+  if (
+    !chV || chV.type !== "bytes" ||
+    !ridV || ridV.type !== "uint" ||
+    !vrV || vrV.type !== "uint" ||
+    !qnV || qnV.type !== "uint" ||
+    !nV || nV.type !== "uint"
+  ) {
+    throw new BridgeProtocolError(
+      "population-consensus response missing required typed tally fields",
+    );
+  }
+  const certV = payload.get("consensus_reached_event_hash");
+  return {
+    claimType: ctV && ctV.type === "string" ? ctV.value : null,
+    claimHash: chV.value,
+    roundId: ridV.value,
+    votesReceived: vrV.value,
+    quorumNeeded: qnV.value,
+    peerSetSizeN: nV.value,
+    consensusReachedEventHash: certV && certV.type === "bytes" ? certV.value : null,
+  };
+}
+
+export function parseFederationProposePopulationClaimResponse(
+  response: Message,
+): PopulationConsensusTally {
+  if (response.messageType !== MSG_TYPE.FEDERATION_PROPOSE_POPULATION_CLAIM_RESPONSE) {
+    throw new BridgeProtocolError(
+      `expected federation_propose_population_claim_response; got ${response.messageType}`,
+    );
+  }
+  const t = tallyCommon(response.payload);
+  return { ...t, claimType: t.claimType ?? "" };
+}
+
+/** Build the payload for a `federation_submit_peer_vote` request — ingest a
+ *  peer's vote (the canonical `population_vote` body bytes, as pulled over
+ *  FED_EVENT_BATCH). The substrate verifies the embedded signature. */
+export function federationSubmitPeerVotePayload(args: {
+  voteEventBytes: Uint8Array;
+}): Map<string, Value> {
+  if (args.voteEventBytes.length === 0) {
+    throw new BridgeProtocolError(
+      "federation_submit_peer_vote: vote_event_bytes must be non-empty",
+    );
+  }
+  const m = new Map<string, Value>();
+  m.set("vote_event_bytes", { type: "bytes", value: args.voteEventBytes });
+  return m;
+}
+
+/** Parsed `federation_submit_peer_vote_response`. */
+export interface FederationSubmitPeerVoteResult {
+  /** True iff the vote verified + was recorded; false carries `reason`. */
+  accepted: boolean;
+  /** Rejection reason when accepted=false. */
+  reason: string | null;
+  /** Tally after this vote (present only when accepted=true). */
+  tally: PopulationConsensusTally | null;
+}
+
+export function parseFederationSubmitPeerVoteResponse(
+  response: Message,
+): FederationSubmitPeerVoteResult {
+  if (response.messageType !== MSG_TYPE.FEDERATION_SUBMIT_PEER_VOTE_RESPONSE) {
+    throw new BridgeProtocolError(
+      `expected federation_submit_peer_vote_response; got ${response.messageType}`,
+    );
+  }
+  const accV = response.payload.get("accepted");
+  if (!accV || accV.type !== "bool") {
+    throw new BridgeProtocolError(
+      "federation_submit_peer_vote_response missing accepted:bool",
+    );
+  }
+  if (!accV.value) {
+    const reasonV = response.payload.get("reason");
+    return {
+      accepted: false,
+      reason: reasonV && reasonV.type === "string" ? reasonV.value : null,
+      tally: null,
+    };
+  }
+  const t = tallyCommon(response.payload);
+  return {
+    accepted: true,
+    reason: null,
+    tally: { ...t, claimType: t.claimType ?? "" },
+  };
+}
+
+/** Build the payload for a `federation_query_consensus` request. */
+export function federationQueryConsensusPayload(args: {
+  claimType: string;
+  claimPayload: Uint8Array;
+}): Map<string, Value> {
+  if (!args.claimType || args.claimType.length === 0) {
+    throw new BridgeProtocolError(
+      "federation_query_consensus: claim_type must be non-empty",
+    );
+  }
+  const m = new Map<string, Value>();
+  m.set("claim_type", { type: "string", value: args.claimType });
+  m.set("claim_payload", { type: "bytes", value: args.claimPayload });
+  return m;
+}
+
+/** Parsed `federation_query_consensus_response`. */
+export interface FederationQueryConsensusResult {
+  /** "reached" | "pending" | "stuck". */
+  status: string;
+  tally: PopulationConsensusTally;
+}
+
+export function parseFederationQueryConsensusResponse(
+  response: Message,
+): FederationQueryConsensusResult {
+  if (response.messageType !== MSG_TYPE.FEDERATION_QUERY_CONSENSUS_RESPONSE) {
+    throw new BridgeProtocolError(
+      `expected federation_query_consensus_response; got ${response.messageType}`,
+    );
+  }
+  const statusV = response.payload.get("status");
+  if (!statusV || statusV.type !== "string") {
+    throw new BridgeProtocolError(
+      "federation_query_consensus_response missing status:string",
+    );
+  }
+  const t = tallyCommon(response.payload);
+  return {
+    status: statusV.value,
+    tally: { ...t, claimType: t.claimType ?? "" },
+  };
+}
+
 /** Parsed `federation_link_to_parent_from_hint_response` (M22.4). */
 export interface FederationLinkToParentFromHintResult {
   /** True iff a parent_federation_hint event was found in the DAG. */

@@ -57,12 +57,12 @@ Rows INDEPENDENT (I2 fixed-point). Coverage: README §Status + L3/PACKAGE_MAP.md
 | C41 | `dag_cb_integrity_violation` | L1/SCHEMA §2.1 + L0/cards/AS_anchor_surface.md §4 (failure modes) | P1.c, P6, P10 | I4, I9 | **L** |
 | C42 | `manifest_cb_integrity_violation` | L1/SCHEMA §4 | P1.c, P6 | I1, I4 | **L** |
 | C43 | `federation_recursive_injection` | L2/FEDERATION §6 + L1/SKIN §3 | P8, P1.c | I7, I8 | **U** |
-| C44 | `nonce_substrate_minted_replay` | L1/GOVERNANCE §2.2 + L0/cards/AS_anchor_surface.md §3.5 | P1.b'' | I2 | **U** |
+| C44 | `nonce_substrate_minted_replay` | L1/GOVERNANCE §2.2 + L0/cards/AS_anchor_surface.md §3.5 | P1.b'' | I2 | **L** |
 | C45 | `substrate_id_low_entropy_collision` | L1/GOVERNANCE §4.1 + L0/cards/AS_anchor_surface.md §3.1 | P1.a | I1 | **U** |
 | C46 | `owner_succession_bypass` | L1/GOVERNANCE §3.2 | P1.b'', P7 | I1, I2 | **U** |
 | C47 | `generation_depth_exceeded` | L1/GOVERNANCE §16.A | P8 | I7 | **U** |
 | C48 | `reproduction_rate_exceeded` | L1/GOVERNANCE §16.B | P8 | I7 | **U** |
-| C49 | `consensus_floor_bypass` | L2/FEDERATION §6.5 | P8, P15 | I7 | **U** |
+| C49 | `consensus_floor_bypass` | L2/FEDERATION §6.5 | P8, P15 | I7 | **L** |
 | C50 | `coerced_owner_suspected` | L2/TRUST_MODEL §10.A.2 | P1.b'' | I1, I2 | **U** |
 | C51 | `compression_invariant_corruption` | L1/SCHEMA §2.5 | P10 | I9 | **L** |
 | C52 | `compression_uncattested` | L1/SCHEMA §2.5 + P10.c | P10 | I9 | **L** |

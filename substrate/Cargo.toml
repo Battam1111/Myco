@@ -48,3 +48,7 @@ windows-sys = { version = "0.61", features = [
 ] }
 
 [dev-dependencies]
+# **C44 e2e** — the replay test reconstructs the nonce content_hash
+# (SHA-256 of the submitted content_canonical_bytes) to drive a valid
+# consume before replaying. Matches the substrate's `compute_content_hash`.
+sha2.workspace = true
