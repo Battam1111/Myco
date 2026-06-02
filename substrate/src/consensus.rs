@@ -54,6 +54,17 @@ pub(crate) fn consensus_floor_active(state: &ServerState) -> bool {
 /// substrate-ID TOFU with no `signer_pubkey`) contribute no entry — they are
 /// consensus-passive (no verifiable votes). On the rare event of a peer being
 /// re-pinned with a different pubkey, the last-seen pin wins (insertion order).
+///
+/// **Revoked peers are excluded.** A revoked peer is no longer a consensus
+/// participant: [`peer_set_size_n`] already drops it from N (the quorum
+/// denominator), so its votes MUST also be dropped from every tally (the
+/// numerator). Otherwise the asymmetry is exploitable — a peer revoked for
+/// key-compromise both *shrinks* N (lowering the quorum bar) AND, if the
+/// attacker still holds its key, supplies a *counted* vote, letting a coalition
+/// forge a quorum certificate entirely out of revoked keys. The local-N
+/// under-claim guard in [`find_valid_quorum_cert`] does NOT catch this on its own
+/// (a revoked voter still resolves to a valid pubkey), so the exclusion belongs
+/// here, at the single pin source every consensus path consults.
 pub(crate) fn derive_pinned_signer_pubkeys(state: &ServerState) -> HashMap<[u8; 32], [u8; 32]> {
     let mut out = HashMap::new();
     for node in state.dag.iter_in_insertion_order() {
@@ -66,6 +77,11 @@ pub(crate) fn derive_pinned_signer_pubkeys(state: &ServerState) -> HashMap<[u8; 
         if let Some((id, pk)) =
             decode_federation_peer_pinned_signer(node.content_canonical_bytes.as_ref())
         {
+            // Revoked → not a consensus participant; its vote must never count
+            // (keeps numerator consistent with the `peer_set_size_n` denominator).
+            if state.revoked_federation_peers.contains(&id) {
+                continue;
+            }
             out.insert(id, pk);
         }
     }
@@ -741,4 +757,81 @@ fn reject_vote_response(request: &Message, reason: &str) -> Message {
         request.request_id,
         payload,
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::persistence::Manifest;
+    use myco_kernel_schema::dag::Dag;
+
+    fn test_state() -> ServerState {
+        let g = Manifest::genesis();
+        ServerState::new(
+            std::env::temp_dir().join(format!(
+                "myco-consensus-unit-{}-{:x}",
+                std::process::id(),
+                &0u8 as *const u8 as usize as u64
+            )),
+            Some(g.substrate_id),
+            Some(g.genesis_time_unix_ns),
+            g.cycle_counter,
+            g.last_absorbed_cycle,
+            g.generation_depth,
+            Dag::new(),
+            None,
+            [0u8; 32],
+        )
+    }
+
+    fn push_pin(state: &mut ServerState, id: &[u8; 32], pk: &[u8; 32]) {
+        let content = events::encode_federation_peer_pinned(id, "127.0.0.1:0", 1, Some(pk));
+        let parents = state.dag.tip().map(|t| vec![t]).unwrap_or_default();
+        let cycle = state.cycle_counter();
+        state
+            .dag
+            .insert_node(
+                parents,
+                events::federation_peer_pinned_node_type(id),
+                cycle,
+                content,
+            )
+            .expect("insert pin");
+    }
+
+    /// **Security regression (adversarial-review finding)** — a revoked peer must
+    /// be excluded from the consensus pin set, so its (possibly compromised) key
+    /// can never supply a counted vote. Before this fix `peer_set_size_n` dropped
+    /// revoked peers from N (the quorum denominator) while the pin set still
+    /// resolved their pubkeys (the numerator), so a coalition holding f+1
+    /// revoked-for-compromise keys could both shrink N AND vote — forging a quorum
+    /// certificate entirely out of revoked keys.
+    #[test]
+    fn revoked_peer_excluded_from_consensus_pins() {
+        let mut state = test_state();
+        let (p1, pk1) = ([0xA1u8; 32], [0x11u8; 32]);
+        let (p2, pk2) = ([0xA2u8; 32], [0x22u8; 32]);
+        let (p3, pk3) = ([0xA3u8; 32], [0x33u8; 32]);
+        push_pin(&mut state, &p1, &pk1);
+        push_pin(&mut state, &p2, &pk2);
+        push_pin(&mut state, &p3, &pk3);
+
+        // All three resolve before any revocation.
+        let pins = derive_pinned_signer_pubkeys(&state);
+        assert_eq!(pins.len(), 3);
+        assert_eq!(pins.get(&p2), Some(&pk2));
+
+        // Revoke p2: its pubkey must no longer resolve, so a vote signed by p2's
+        // key can never be counted toward a quorum tally / cert.
+        state.revoked_federation_peers.insert(p2);
+        let pins = derive_pinned_signer_pubkeys(&state);
+        assert_eq!(
+            pins.len(),
+            2,
+            "revoked peer must be excluded from the consensus pin set"
+        );
+        assert_eq!(pins.get(&p2), None, "revoked peer pubkey must not resolve");
+        assert_eq!(pins.get(&p1), Some(&pk1));
+        assert_eq!(pins.get(&p3), Some(&pk3));
+    }
 }
