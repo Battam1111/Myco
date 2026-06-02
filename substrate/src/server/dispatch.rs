@@ -79,6 +79,16 @@ pub(super) fn dispatch(
         }
         msg_type::SNAPSHOT => forward_to_python(state, request, msg_type::SNAPSHOT_RESPONSE),
         msg_type::ADVANCE => {
+            // **COV06 T7**: an alive::archived substrate has halted metabolism
+            // (terminal via bet-retirement). Refuse cycle advance; the state_dir
+            // stays cold-readable but no new metabolic cycles run.
+            if crate::cultivation::is_archived(state) {
+                return Err(SubstrateError::Protocol(
+                    "advance refused: substrate is alive::archived (bet-retired); \
+                     metabolism halted — state_dir is cold-readable only"
+                        .to_string(),
+                ));
+            }
             let response = crate::ingest::handle_advance(state, request)?;
             // M7: bump the persisted cycle counter (matches the value echoed in
             // the advance_response payload). save_manifest() also bumps
@@ -225,6 +235,34 @@ pub(super) fn dispatch(
         }
         msg_type::ACCEPT_SELF_EUTHANASIA_PROPOSAL => {
             let response = crate::lifecycle::handle_accept_self_euthanasia_proposal(state, request)?;
+            save_dag_state(state)?;
+            Ok(response)
+        }
+        // **COV06 不弃不孤** — cultivator-mortality + succession FSM. The
+        // operator threads the anchor-signed heartbeat / successor-chain /
+        // succession-acceptance in (the substrate has no anchor socket; AS §5.2).
+        // Each handler verifies its signature + emits the FSM transition events.
+        msg_type::RECORD_CULTIVATOR_HEARTBEAT => {
+            let response = crate::cultivation::handle_record_cultivator_heartbeat(state, request)?;
+            save_dag_state(state)?;
+            Ok(response)
+        }
+        msg_type::UPDATE_SUCCESSOR_CHAIN => {
+            let response = crate::cultivation::handle_update_successor_chain(state, request)?;
+            save_dag_state(state)?;
+            Ok(response)
+        }
+        msg_type::ACCEPT_SUCCESSION => {
+            let response = crate::cultivation::handle_accept_succession(state, request)?;
+            save_dag_state(state)?;
+            Ok(response)
+        }
+        // **COV06 T7 / LB §4** — cultivator co-attests a bet_retired_proposal →
+        // bet_retired:{reason} archive seal → alive::archived. The main loop
+        // exits cleanly after the response (metabolism halts; state_dir cold-
+        // readable). Serves both COV06 orphaned-terminal + LB living-bet retire.
+        msg_type::ACCEPT_BET_RETIRED_PROPOSAL => {
+            let response = crate::cultivation::handle_accept_bet_retired_proposal(state, request)?;
             save_dag_state(state)?;
             Ok(response)
         }

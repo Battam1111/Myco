@@ -16,6 +16,9 @@
 //   federation.ts   — federation_* builders + parsers (M22/M25.5 万物互联).
 //   mortality.ts    — lift_birth_period_quarantine + accept_self_euthanasia
 //                     (M22.5 / M23.2; owner-signed signing inputs).
+//   cultivation.ts  — COV06 cultivator-mortality + succession FSM
+//                     (record_cultivator_heartbeat / update_successor_chain /
+//                     accept_succession / accept_bet_retired_proposal).
 //   observatory.ts  — query_substrate_observatory + Observatory* signal types.
 //   ingest.ts       — ingest_raw_material + perturb_axis_from_raw_material (M16).
 //   mutation.ts     — schema_diff builders, attestation-nonce, REVEAL-key
@@ -30,6 +33,7 @@ export * from "./core.ts";
 export * from "./reproduction.ts";
 export * from "./federation.ts";
 export * from "./mortality.ts";
+export * from "./cultivation.ts";
 export * from "./observatory.ts";
 export * from "./ingest.ts";
 export * from "./mutation.ts";

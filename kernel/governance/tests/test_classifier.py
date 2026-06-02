@@ -278,8 +278,11 @@ def test_seed_table_size() -> None:
     # 4 M26.4 rules (cost_budget_set_mutation + cost_budget_thresholds_meta + owner_objective_declaration_mutation + telos_alignment_metric_meta) +
     # 2 M-anchor-5 rules (dag_tip_cosign_mutation + l0_revision_attest_mutation) +
     # 1 v3.1.1 Sprint 2.C rule (set_backup_encryption_status) +
-    # 1 v3.1.1 Sprint 8.G rule (abort_migration_mutation, P03 §10.4 two-phase migration).
-    assert len(SEED_DIMENSION_TABLE) == 33
+    # 1 v3.1.1 Sprint 8.G rule (abort_migration_mutation, P03 §10.4 two-phase migration) +
+    # 4 COV06 rules (update_successor_chain + accept_succession +
+    #   record_cultivator_heartbeat + cultivation_successor_chain_meta;
+    #   cultivator-mortality + F21 succession FSM, L1/GOVERNANCE §3.2).
+    assert len(SEED_DIMENSION_TABLE) == 37
 
 
 def test_classifier_rule_predicate_or_logic() -> None:
@@ -489,6 +492,89 @@ def test_v3_1_1_C56_forbidden_mutation_types_in_sync_with_rust_substrate() -> No
         f"Rust and Python forbidden-preserve-all lists drift!\n"
         f"  Rust only: {rust_set - FORBIDDEN_PRESERVE_ALL_MUTATION_TYPES}\n"
         f"  Python only: {FORBIDDEN_PRESERVE_ALL_MUTATION_TYPES - rust_set}\n"
+        f"Fix: edit both substrate/src/prune.rs AND "
+        f"kernel/governance/src/myco_kernel_governance/classifier.py to match."
+    )
+
+
+# ---------------------------------------------------------------------------
+# COV06 不弃不孤 — cultivator-mortality + succession FSM classification.
+#
+# The F21 cultivation_successor_chain, succession activation, and cultivator
+# liveness heartbeat are contract-identity-level (they govern WHO holds the
+# cultivation relation). L1/GOVERNANCE §3.2.A: successor_chain mutation
+# "requires §2 attestation; without → untyped (C14)" — so these mutation types
+# must classify CI, never daily/untyped.
+# ---------------------------------------------------------------------------
+
+
+def test_cov06_update_successor_chain_is_ci() -> None:
+    env = MutationEnvelope(mutation_type="update_successor_chain")
+    assert classify(env) is Classification.CONTRACT_IDENTITY_LEVEL
+
+
+def test_cov06_accept_succession_is_ci() -> None:
+    env = MutationEnvelope(mutation_type="accept_succession")
+    assert classify(env) is Classification.CONTRACT_IDENTITY_LEVEL
+
+
+def test_cov06_record_cultivator_heartbeat_is_ci() -> None:
+    env = MutationEnvelope(mutation_type="record_cultivator_heartbeat")
+    assert classify(env) is Classification.CONTRACT_IDENTITY_LEVEL
+
+
+def test_cov06_successor_chain_meta_structure_is_ci() -> None:
+    env = MutationEnvelope(
+        touched_meta_structures=frozenset({"cultivation_successor_chain"}),
+        mutation_type="field_update",
+    )
+    assert classify(env) is Classification.CONTRACT_IDENTITY_LEVEL
+
+
+def test_cov06_unattested_successor_chain_field_remains_untyped() -> None:
+    # An unrecognized mutation_type that does NOT match any COV06 rule stays
+    # untyped (C14) — the F21 §3.2.A "without attestation → untyped" guarantee.
+    env = MutationEnvelope(mutation_type="successor_chain_unattested_poke")
+    assert classify(env) is Classification.UNTYPED
+
+
+def test_cov06_C69_forbidden_suppression_types_in_sync_with_rust_substrate() -> None:
+    """The Python FORBIDDEN_CULTIVATION_ORPHANED_SUPPRESSION_TYPES list MUST be
+    byte-equal to the Rust
+    ``substrate/src/prune.rs::FORBIDDEN_CULTIVATION_ORPHANED_SUPPRESSION_TYPES``.
+
+    C69 (cultivation_orphaned_suppression_attempted) is enforced at the Rust
+    skin layer; this test pins the two enforcement points in sync (COV06 §5.5).
+    """
+    import re
+    from pathlib import Path
+
+    from myco_kernel_governance.classifier import (
+        FORBIDDEN_CULTIVATION_ORPHANED_SUPPRESSION_TYPES,
+        is_cultivation_orphaned_suppression_attempt,
+    )
+
+    # Behavioral sanity: a known suppression type fires; a benign type does not.
+    assert is_cultivation_orphaned_suppression_attempt("suppress_cultivation_orphaned")
+    assert not is_cultivation_orphaned_suppression_attempt("delta_absorb")
+
+    workspace_root = Path(__file__).resolve().parents[3]
+    rust_src = workspace_root / "substrate" / "src" / "prune.rs"
+    assert rust_src.exists(), f"Rust prune.rs not found at {rust_src}"
+    rust_text = rust_src.read_text(encoding="utf-8")
+
+    marker = "pub const FORBIDDEN_CULTIVATION_ORPHANED_SUPPRESSION_TYPES: &[&str] = &["
+    idx = rust_text.find(marker)
+    assert idx != -1, "Rust FORBIDDEN_CULTIVATION_ORPHANED_SUPPRESSION_TYPES not found"
+    closing = rust_text.find("];", idx)
+    assert closing != -1, "Rust constant not properly closed"
+    block = rust_text[idx + len(marker) : closing]
+    rust_set = frozenset(re.findall(r'"([^"]+)"', block))
+
+    assert rust_set == FORBIDDEN_CULTIVATION_ORPHANED_SUPPRESSION_TYPES, (
+        f"Rust and Python C69 suppression lists drift!\n"
+        f"  Rust only: {rust_set - FORBIDDEN_CULTIVATION_ORPHANED_SUPPRESSION_TYPES}\n"
+        f"  Python only: {FORBIDDEN_CULTIVATION_ORPHANED_SUPPRESSION_TYPES - rust_set}\n"
         f"Fix: edit both substrate/src/prune.rs AND "
         f"kernel/governance/src/myco_kernel_governance/classifier.py to match."
     )

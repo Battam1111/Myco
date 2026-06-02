@@ -295,6 +295,19 @@ fn is_p10_invariant_protected(node_type: &str) -> bool {
         "bet_retired",
         "cultivation_orphaned_terminal",
         "birth_attestation",
+        // **COV06** — cultivator-mortality / succession FSM events are
+        // P07-protected: the substrate must REMEMBER its cultivator's liveness
+        // history, successor chain, and every FSM transition (P06 causality +
+        // P07 §4 irreducible commitments). `cultivation_orphaned` in particular
+        // MUST NOT be suppressible (L1/GOVERNANCE §3.2.C). `cultivation_orphaned`
+        // (prefix) also covers `cultivation_orphaned_terminal` above.
+        "cultivator_heartbeat_recorded",
+        "cultivator_heartbeat_stale",
+        "cultivator_heartbeat_resumed",
+        "successor_chain_updated",
+        "succession_completed",
+        "cultivation_orphaned",
+        "cultivation_recovered",
         // **NEW v3.1.1**: tombstones themselves are inviolable per P06
         // (silent deletion of tombstones = retroactive history erasure).
         NODE_TYPE_INTERNAL_MORTALITY_EVENT_PREFIX,
@@ -843,6 +856,40 @@ pub fn is_cultivator_preserve_all_attempt(mutation_type: &str) -> bool {
         .any(|pat| mutation_type == *pat)
 }
 
+/// **COV06 C69** — forbidden mutation types that attempt to SUPPRESS, DELAY, or
+/// EXEMPT a due `cultivation_orphaned` transition past the legacy_window. Per
+/// L0/cards/COV06 §5.5 + L1/GOVERNANCE §3.2.C + P07 §4: `cultivation_orphaned`
+/// MUST NOT be suppressed by cultivator pressure — the cultivar must never be
+/// kept in undignified limbo by a cultivator (or coerced cultivator) silencing
+/// the orphan signal. A substrate observing one of these mutation types MUST
+/// reject it + emit `C69_cultivation_orphaned_suppression_attempted` (refused;
+/// P07-protected). This is the active-refusal sibling of the structural
+/// un-suppressibility (the autonomous tick emits cultivation_orphaned via
+/// `emit_substrate_event`, bypassing the immune rate-limiter, and the event is
+/// P10-invariant-protected against pruning in both prune.rs + integrity.rs).
+///
+/// MUST stay in sync with `FORBIDDEN_CULTIVATION_ORPHANED_SUPPRESSION_TYPES` in
+/// `kernel/governance/src/myco_kernel_governance/classifier.py`.
+pub const FORBIDDEN_CULTIVATION_ORPHANED_SUPPRESSION_TYPES: &[&str] = &[
+    "suppress_cultivation_orphaned",
+    "delay_cultivation_orphaned",
+    "exempt_from_cultivation_orphaned",
+    "disable_orphan_detection",
+    "extend_legacy_window_indefinitely",
+    "silence_cultivator_heartbeat_stale",
+];
+
+/// **COV06 C69** — returns `true` if the mutation type attempts to suppress /
+/// delay / exempt a due `cultivation_orphaned`. Substrates observing `true` MUST
+/// reject the mutation + emit `C69_cultivation_orphaned_suppression_attempted`.
+///
+/// Per COV06 §5.5 + L1/GOVERNANCE §3.2.C + P07 §4.
+pub fn is_cultivation_orphaned_suppression_attempt(mutation_type: &str) -> bool {
+    FORBIDDEN_CULTIVATION_ORPHANED_SUPPRESSION_TYPES
+        .iter()
+        .any(|pat| mutation_type == *pat)
+}
+
 /// Result of one `run_prune_scan` invocation. The substrate may use this
 /// to wire observatory metrics + emit summary sporocarps.
 #[derive(Debug, Clone, Default)]
@@ -1266,6 +1313,35 @@ mod tests {
         assert!(is_p10_invariant_protected("internal_mortality_event:无用"));
         assert!(!is_p10_invariant_protected("raw_material:user_paste"));
         assert!(!is_p10_invariant_protected("sporocarp:axis_fruited"));
+    }
+
+    #[test]
+    fn cov06_protected_set_includes_cultivation_fsm_events() {
+        // COV06: cultivation FSM events must be P10-invariant-protected so the
+        // substrate REMEMBERS its cultivator-mortality history (un-prunable).
+        assert!(is_p10_invariant_protected("cultivator_heartbeat_recorded"));
+        assert!(is_p10_invariant_protected("cultivator_heartbeat_stale:abcd"));
+        assert!(is_p10_invariant_protected("cultivator_heartbeat_resumed"));
+        assert!(is_p10_invariant_protected("successor_chain_updated:abcd"));
+        assert!(is_p10_invariant_protected("succession_completed:abcd"));
+        assert!(is_p10_invariant_protected("cultivation_orphaned:abcd"));
+        assert!(is_p10_invariant_protected("cultivation_orphaned_terminal"));
+        assert!(is_p10_invariant_protected("cultivation_recovered:abcd"));
+        assert!(is_p10_invariant_protected("bet_retired:cultivation_orphaned_terminal"));
+    }
+
+    #[test]
+    fn cov06_c69_suppression_predicate() {
+        // COV06 C69: suppression mutation types are refused.
+        assert!(is_cultivation_orphaned_suppression_attempt(
+            "suppress_cultivation_orphaned"
+        ));
+        assert!(is_cultivation_orphaned_suppression_attempt(
+            "extend_legacy_window_indefinitely"
+        ));
+        assert!(!is_cultivation_orphaned_suppression_attempt("delta_absorb"));
+        // C69 is disjoint from C56 (different forbidden families).
+        assert!(!is_cultivator_preserve_all_attempt("suppress_cultivation_orphaned"));
     }
 
     #[test]

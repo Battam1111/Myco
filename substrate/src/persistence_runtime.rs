@@ -180,6 +180,13 @@ pub(crate) fn save_snapshot_for_state(state: &ServerState) -> Result<usize, Subs
                 started_at_unix_ns: c.started_at_unix_ns,
             }
         }),
+        // **COV06**: deliberately NOT persisted in snapshot.cb (byte-compat
+        // additive — no format_version bump). `to_canonical_bytes` omits these
+        // entirely, so the snapshot bytes are identical to pre-COV06. The boot
+        // path re-derives them from the full DAG (`rederive_cultivation_from_dag`).
+        successor_chain: Vec::new(),
+        succession_config: None,
+        latest_heartbeat: None,
     };
     // Record the DAG tip at snapshot time so boot knows where to resume replay.
     let snapshot_at_tip: Option<[u8; 32]> = state.dag.tip().map(|t| {

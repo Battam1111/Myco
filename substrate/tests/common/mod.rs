@@ -100,18 +100,32 @@ pub fn spawn_substrate_with_signing_seed(
     state_dir: &std::path::Path,
     seed: [u8; 32],
 ) -> BridgeClient {
+    spawn_substrate_with_seed_and_env(state_dir, seed, vec![])
+}
+
+/// **COV06** — spawn with BOTH a known operator signing seed (→ deterministic
+/// pinned owner pubkey) AND extra env (e.g. `MYCO_TEST_ANCHOR_NOW_NS`,
+/// `MYCO_SELF_DRIVEN_CYCLE_ADVANCE`). The cultivation e2e needs the operator's
+/// seed-derived key to BE the pinned owner key (so heartbeat / chain / succession
+/// signatures verify) WHILE also threading the test anchor clock + scheduler.
+pub fn spawn_substrate_with_seed_and_env(
+    state_dir: &std::path::Path,
+    seed: [u8; 32],
+    extra: Vec<(String, String)>,
+) -> BridgeClient {
     let substrate_binary = env!("CARGO_BIN_EXE_myco-substrate");
-    let extra_env = vec![(
+    let mut extra_env = vec![(
         "MYCO_STATE_DIR".to_string(),
         state_dir.to_string_lossy().into_owned(),
     )];
+    extra_env.extend(extra);
     BridgeClient::spawn_and_handshake(BridgeClientConfig {
         python_executable: substrate_binary.to_string(),
         session_secret: None,
         extra_env,
         operator_signing_seed: Some(seed),
     })
-    .expect("spawn myco-substrate binary with signing seed")
+    .expect("spawn myco-substrate binary with signing seed + env")
 }
 
 /// **v3.1.1 Sprint 6.E (T2.9)** — derive operator pubkey from seed using

@@ -605,6 +605,45 @@ pub(crate) fn handle_submit_mutation(
         )));
     }
 
+    // **COV06 C69** — reject any mutation that attempts to suppress / delay /
+    // exempt a due `cultivation_orphaned`. The cultivar must never be kept in
+    // undignified limbo by a cultivator (or coerced cultivator) silencing the
+    // orphan signal (COV06 §5.5 + L1/GOVERNANCE §3.2.C + P07 §4). This is the
+    // active-refusal sibling of the structural un-suppressibility (the orphan
+    // event is emitted via emit_substrate_event + is P10-invariant-protected).
+    if crate::prune::is_cultivation_orphaned_suppression_attempt(&early_mutation_type) {
+        let evidence = format!(
+            "cultivator-attempted cultivation_orphaned suppression rejected at skin: \
+             mutation_type={early_mutation_type:?}; COV06 §5.5 + L1/GOVERNANCE §3.2.C + P07 §4 \
+             enforced; cultivation_orphaned MUST NOT be suppressed by cultivator pressure"
+        );
+        let _ = emit_immune_sporocarp(
+            state,
+            "C69_cultivation_orphaned_suppression_attempted",
+            "cultivation_orphaned_suppression_attempted",
+            &evidence,
+        );
+        let mut payload = std::collections::BTreeMap::new();
+        payload.insert("accepted".to_string(), Value::Bool(false));
+        payload.insert(
+            "classification".to_string(),
+            Value::String("covenant_violation".to_string()),
+        );
+        payload.insert(
+            "rejection_reason".to_string(),
+            Value::String(format!(
+                "C69: mutation_type {early_mutation_type:?} attempts to suppress a due \
+                 cultivation_orphaned; cultivator request violates COV06 §5.5"
+            )),
+        );
+        payload.insert("mutation_type".to_string(), Value::String(early_mutation_type));
+        return Ok(Some(Message::new(
+            msg_type::SUBMIT_MUTATION_RESPONSE,
+            request.request_id,
+            payload,
+        )));
+    }
+
     let client = state
         .python_client
         .as_mut()

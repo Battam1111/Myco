@@ -336,6 +336,58 @@ pub struct DerivedMigrationCandidate {
     pub started_at_unix_ns: i64,
 }
 
+/// **COV06 §3.2.A (F21)** — one entry of the cultivation_successor_chain, as
+/// derived from a `successor_chain_updated:{pk}` DAG event.
+///
+/// Mirrors the L1/GOVERNANCE §3.2.A `SuccessorEntry` shape. The chain is
+/// **re-derived from the DAG at boot** (NOT persisted in snapshot.cb), so the
+/// snapshot format_version + bytes are unchanged by COV06. Non-overlapping
+/// intervals with monotone `valid_from` are validated at the skin
+/// (`handle_update_successor_chain`); the derivation here is append-only.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DerivedSuccessorEntry {
+    /// 32-byte successor cultivator pubkey.
+    pub successor_pubkey: [u8; 32],
+    /// Anchor wall-clock from which this successor is valid.
+    pub valid_from_unix_ns: i64,
+    /// Anchor wall-clock until which this successor is valid; `None` =
+    /// open-ended (chain head).
+    pub valid_until_unix_ns: Option<i64>,
+    /// 64-byte chain-head / cultivator attestation signature.
+    pub attestation_signature: [u8; 64],
+}
+
+/// **COV06 §3.2.C** — the cultivation cadence + windows + terminal choice, as
+/// derived from the latest `cultivation_succession_config_declared` DAG event.
+/// All durations are in **anchor-days**. `None` for the whole struct → built-in
+/// defaults are used (cadence 30d, legacy 365d, terminal 730d, choice
+/// `indefinite_orphan`). Re-derived at boot from the DAG; not persisted in
+/// snapshot.cb (latest declaration wins on replay).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DerivedSuccessionConfig {
+    /// Heartbeat cadence in anchor-days (default 30).
+    pub cadence_days: u64,
+    /// normal→orphaned legacy window in anchor-days (default 365).
+    pub legacy_window_days: u64,
+    /// orphaned→terminal window in anchor-days (default 730).
+    pub orphaned_terminal_window_days: u64,
+    /// `self_euthanasia` | `bet_retirement` | `indefinite_orphan`.
+    pub terminal_choice: String,
+}
+
+/// **COV06** — the latest recorded cultivator heartbeat, as derived from the
+/// most recent `cultivator_heartbeat_recorded` / `cultivator_heartbeat_resumed`
+/// DAG event. The autonomous-tick staleness watchdog measures
+/// `now_anchor - anchor_timestamp_unix_ns` against the cadence. Re-derived at
+/// boot from the DAG; not persisted in snapshot.cb.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DerivedLatestHeartbeat {
+    /// 32-byte cultivator pubkey of the most recent heartbeat.
+    pub cultivator_pubkey: [u8; 32],
+    /// Anchor wall-clock of the most recent heartbeat pulse.
+    pub anchor_timestamp_unix_ns: i64,
+}
+
 /// Error during DAG event replay.
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
@@ -414,6 +466,19 @@ pub struct DerivedState {
     /// so a substrate restarted mid-window resumes the migration; pre-Sprint-8.G
     /// snapshots that lack the field decode to `None` (back-compat).
     pub migration_candidate: Option<DerivedMigrationCandidate>,
+    /// **COV06 §3.2.A (F21)** — the cultivation_successor_chain, derived from
+    /// `successor_chain_updated:{pk}` DAG events in insertion order. **NOT
+    /// persisted in snapshot.cb** — re-derived from the DAG at boot, so the
+    /// snapshot format_version + bytes are unchanged (byte-compat additive).
+    pub successor_chain: Vec<DerivedSuccessorEntry>,
+    /// **COV06 §3.2.C** — the active succession config (cadence + windows +
+    /// terminal choice), from the latest `cultivation_succession_config_declared`
+    /// event. `None` → built-in defaults. NOT persisted in snapshot.cb.
+    pub succession_config: Option<DerivedSuccessionConfig>,
+    /// **COV06** — the latest recorded cultivator heartbeat (the staleness
+    /// watchdog's reference point). `None` → no heartbeat ever recorded. NOT
+    /// persisted in snapshot.cb (re-derived from the DAG at boot).
+    pub latest_heartbeat: Option<DerivedLatestHeartbeat>,
 }
 
 impl DerivedState {
@@ -429,6 +494,9 @@ impl DerivedState {
             nonce_log: HashMap::new(),
             observatory_history: VecDeque::new(),
             migration_candidate: None,
+            successor_chain: Vec::new(),
+            succession_config: None,
+            latest_heartbeat: None,
         }
     }
 
@@ -839,9 +907,49 @@ impl DerivedState {
                 nonce_log,
                 observatory_history,
                 migration_candidate,
+                // **COV06**: these three are NOT persisted in snapshot.cb (no
+                // format bump). The boot path re-derives them from the full DAG
+                // after snapshot load (see `rederive_cultivation_from_dag`), so
+                // a snapshot-accelerated boot recovers the cultivation state
+                // even for events that predate the snapshot tip.
+                successor_chain: Vec::new(),
+                succession_config: None,
+                latest_heartbeat: None,
             },
             snapshot_at_dag_tip,
         )))
+    }
+
+    /// **COV06** — re-derive the cultivation FSM state (successor_chain +
+    /// succession_config + latest_heartbeat) from a full DAG walk, overwriting
+    /// whatever the tail-replay / snapshot path produced. These three fields are
+    /// deliberately NOT persisted in snapshot.cb (additive byte-compat: no
+    /// format_version bump), so a snapshot-accelerated boot — which replays only
+    /// the tail after the snapshot tip — would otherwise miss cultivation events
+    /// older than the snapshot. This pass restores them authoritatively. The
+    /// cultivation event family is tiny (heartbeats + chain updates + one config),
+    /// so the full walk is cheap. Called from the boot path after `derived` is
+    /// materialized.
+    pub fn rederive_cultivation_from_dag(
+        &mut self,
+        dag: &myco_kernel_schema::dag::Dag,
+    ) -> Result<(), DerivedStateError> {
+        self.successor_chain.clear();
+        self.succession_config = None;
+        self.latest_heartbeat = None;
+        for node in dag.iter_in_insertion_order() {
+            let nt = &node.node_type;
+            if nt == crate::events::NODE_TYPE_CULTIVATOR_HEARTBEAT_RECORDED
+                || nt == crate::events::NODE_TYPE_CULTIVATOR_HEARTBEAT_RESUMED
+            {
+                self.apply_cultivator_heartbeat(node)?;
+            } else if nt.starts_with(crate::events::NODE_TYPE_SUCCESSOR_CHAIN_UPDATED_PREFIX) {
+                self.apply_successor_chain_updated(node)?;
+            } else if nt == crate::events::NODE_TYPE_CULTIVATION_SUCCESSION_CONFIG_DECLARED {
+                self.apply_succession_config_declared(node)?;
+            }
+        }
+        Ok(())
     }
 
     // **Task #8i**: `to_legacy_manifest` removed. The DAG-first boot arm now
@@ -892,6 +1000,18 @@ impl DerivedState {
             // (promoted vs dropped) is the Python side's concern.
             self.migration_candidate = None;
             Ok(())
+        } else if nt == crate::events::NODE_TYPE_CULTIVATOR_HEARTBEAT_RECORDED
+            || nt == crate::events::NODE_TYPE_CULTIVATOR_HEARTBEAT_RESUMED
+        {
+            // **COV06** — track the latest cultivator heartbeat (the staleness
+            // watchdog's reference). Both recorded + resumed pulses refresh it.
+            self.apply_cultivator_heartbeat(node)
+        } else if nt.starts_with(crate::events::NODE_TYPE_SUCCESSOR_CHAIN_UPDATED_PREFIX) {
+            // **COV06 §3.2.A (F21)** — append a SuccessorEntry to the chain.
+            self.apply_successor_chain_updated(node)
+        } else if nt == crate::events::NODE_TYPE_CULTIVATION_SUCCESSION_CONFIG_DECLARED {
+            // **COV06 §3.2.C** — latest config declaration wins.
+            self.apply_succession_config_declared(node)
         } else {
             // Pure-record events (M8-M20) that don't impact Rust-side
             // DerivedState: sporocarp:*, immune:*, raw_material:*,
@@ -952,6 +1072,88 @@ impl DerivedState {
             started_at_cycle,
             dual_validation_window_cycles,
             started_at_unix_ns,
+        });
+        Ok(())
+    }
+
+    /// **COV06** — a `cultivator_heartbeat_recorded` / `_resumed` event refreshes
+    /// the latest-heartbeat reference (the staleness watchdog's clock). Both
+    /// carry `cultivator_pubkey` + `anchor_timestamp_unix_ns`.
+    fn apply_cultivator_heartbeat(&mut self, node: &DagNode) -> Result<(), DerivedStateError> {
+        let map = decode_event_map(node)?;
+        let cultivator_pubkey = bytes_32_field(node, &map, "cultivator_pubkey")?;
+        let anchor_timestamp_unix_ns = timestamp_field(node, &map, "anchor_timestamp_unix_ns")?;
+        self.latest_heartbeat = Some(DerivedLatestHeartbeat {
+            cultivator_pubkey,
+            anchor_timestamp_unix_ns,
+        });
+        Ok(())
+    }
+
+    /// **COV06 §3.2.A (F21)** — a `successor_chain_updated:{pk}` event appends a
+    /// SuccessorEntry. Non-overlap + monotone-`valid_from` validation happens at
+    /// the skin (`handle_update_successor_chain`); derivation is append-only so a
+    /// well-formed DAG reconstructs the chain in insertion order.
+    fn apply_successor_chain_updated(&mut self, node: &DagNode) -> Result<(), DerivedStateError> {
+        let map = decode_event_map(node)?;
+        let successor_pubkey = bytes_32_field(node, &map, "successor_pubkey")?;
+        let valid_from_unix_ns = timestamp_field(node, &map, "valid_from_unix_ns")?;
+        let valid_until_unix_ns = match map.get("valid_until_unix_ns") {
+            Some(Value::Timestamp(t)) => Some(*t),
+            _ => None, // Null or absent → open-ended
+        };
+        let attestation_signature = bytes_64_field(node, &map, "attestation_signature")?;
+        self.successor_chain.push(DerivedSuccessorEntry {
+            successor_pubkey,
+            valid_from_unix_ns,
+            valid_until_unix_ns,
+            attestation_signature,
+        });
+        Ok(())
+    }
+
+    /// **COV06 §3.2.C** — a `cultivation_succession_config_declared` event sets
+    /// the active config; the latest declaration wins (overwrite).
+    fn apply_succession_config_declared(
+        &mut self,
+        node: &DagNode,
+    ) -> Result<(), DerivedStateError> {
+        let map = decode_event_map(node)?;
+        let cadence_days = map_get_uint(&map, "cadence_days").map_err(|e| {
+            DerivedStateError::EventField {
+                node_type: node.node_type.clone(),
+                field: "cadence_days".to_string(),
+                reason: e.to_string(),
+            }
+        })?;
+        let legacy_window_days = map_get_uint(&map, "legacy_window_days").map_err(|e| {
+            DerivedStateError::EventField {
+                node_type: node.node_type.clone(),
+                field: "legacy_window_days".to_string(),
+                reason: e.to_string(),
+            }
+        })?;
+        let orphaned_terminal_window_days = map_get_uint(&map, "orphaned_terminal_window_days")
+            .map_err(|e| DerivedStateError::EventField {
+                node_type: node.node_type.clone(),
+                field: "orphaned_terminal_window_days".to_string(),
+                reason: e.to_string(),
+            })?;
+        let terminal_choice = match map.get("terminal_choice") {
+            Some(Value::String(s)) => s.clone(),
+            _ => {
+                return Err(DerivedStateError::EventField {
+                    node_type: node.node_type.clone(),
+                    field: "terminal_choice".to_string(),
+                    reason: "missing or not String".to_string(),
+                })
+            }
+        };
+        self.succession_config = Some(DerivedSuccessionConfig {
+            cadence_days,
+            legacy_window_days,
+            orphaned_terminal_window_days,
+            terminal_choice,
         });
         Ok(())
     }
@@ -1169,6 +1371,29 @@ fn bytes_32_field(
         });
     }
     let mut arr = [0u8; 32];
+    arr.copy_from_slice(slice);
+    Ok(arr)
+}
+
+/// **COV06** — extract a 64-byte signature field (Ed25519 sig) from an event map.
+fn bytes_64_field(
+    node: &DagNode,
+    map: &std::collections::BTreeMap<String, Value>,
+    field: &str,
+) -> Result<[u8; 64], DerivedStateError> {
+    let slice = map_get_bytes(map, field).map_err(|e| DerivedStateError::EventField {
+        node_type: node.node_type.clone(),
+        field: field.to_string(),
+        reason: e.to_string(),
+    })?;
+    if slice.len() != 64 {
+        return Err(DerivedStateError::EventField {
+            node_type: node.node_type.clone(),
+            field: field.to_string(),
+            reason: format!("expected 64 bytes; got {}", slice.len()),
+        });
+    }
+    let mut arr = [0u8; 64];
     arr.copy_from_slice(slice);
     Ok(arr)
 }

@@ -336,6 +336,96 @@ pub mod msg_type {
     /// `query_migration_pending_response` — Substrate→Operator: `{pending,
     /// op, started_at_cycle, window, current_cycle}`.
     pub const QUERY_MIGRATION_PENDING_RESPONSE: &str = "query_migration_pending_response";
+
+    // ---------------------------------------------------------------------
+    // **COV06 不弃不孤** — cultivator-mortality + succession FSM
+    // (L0/cards/COV06_no_abandonment_succession.md + L1/GOVERNANCE §3.2).
+    //
+    // The substrate has NO anchor socket (AS §5.2 forbids self-clock); the
+    // operator threads the anchor-signed heartbeat in. These three operator→
+    // substrate messages drive the cultivation FSM.
+    // ---------------------------------------------------------------------
+
+    /// `record_cultivator_heartbeat` — Operator→Substrate: thread an
+    /// anchor-signed `cultivator_liveness_heartbeat` envelope (AS §3.7) in. The
+    /// handler verifies the anchor signature against the active owner pubkey,
+    /// then emits `cultivator_heartbeat_recorded`; if the substrate is currently
+    /// `alive::legacy` and the same cultivator pubkey signs, it ALSO emits
+    /// `cultivator_heartbeat_resumed` (T2 legacy→normal recovery).
+    ///
+    /// Request payload:
+    /// ```text
+    /// Map({
+    ///   "cultivator_pubkey": Bytes(32),
+    ///   "anchor_timestamp_unix_ns": Timestamp,   // anchor wall-clock of this pulse
+    ///   "valid_until_unix_ns": Timestamp,
+    ///   "heartbeat_nonce": Bytes(32),
+    ///   "anchor_signature": Bytes(64),           // over the canonical heartbeat envelope
+    /// })
+    /// ```
+    /// Response payload: `{ recorded_event_hash: Bytes(32), resumed: Bool,
+    /// cultivation_state: String }`.
+    pub const RECORD_CULTIVATOR_HEARTBEAT: &str = "record_cultivator_heartbeat";
+    /// `record_cultivator_heartbeat_response` — see [`RECORD_CULTIVATOR_HEARTBEAT`].
+    pub const RECORD_CULTIVATOR_HEARTBEAT_RESPONSE: &str = "record_cultivator_heartbeat_response";
+
+    /// `update_successor_chain` — Operator→Substrate: append a SuccessorEntry to
+    /// the F21 cultivation_successor_chain (§3.2.A). CI-attested against the
+    /// active cultivator (or `alive::legacy` cultivator) pubkey; the handler
+    /// validates monotone `valid_from` + non-overlapping intervals, then emits
+    /// `successor_chain_updated:{successor_pubkey}`.
+    ///
+    /// Request payload:
+    /// ```text
+    /// Map({
+    ///   "successor_pubkey": Bytes(32),
+    ///   "valid_from_unix_ns": Timestamp,
+    ///   "valid_until_unix_ns": Timestamp | Null,
+    ///   "attestation_signature": Bytes(64),      // owner sig over the entry envelope
+    /// })
+    /// ```
+    /// Response payload: `{ updated_event_hash: Bytes(32), chain_length: Uint }`.
+    pub const UPDATE_SUCCESSOR_CHAIN: &str = "update_successor_chain";
+    /// `update_successor_chain_response` — see [`UPDATE_SUCCESSOR_CHAIN`].
+    pub const UPDATE_SUCCESSOR_CHAIN_RESPONSE: &str = "update_successor_chain_response";
+
+    /// `accept_succession` — Operator→Substrate: the chain-head successor signs a
+    /// `succession_acceptance` to activate succession (T3 legacy→normal). The
+    /// handler verifies the successor signature; rejects with **C46**
+    /// (`owner_succession_bypass`) if `catechumenate_session_count < 50`; rejects
+    /// with **C12** (`successor_activation_with_fresh_owner_heartbeat`) if the
+    /// cultivator heartbeat is still fresh (succession is for incapacity, not
+    /// takeover); else emits `succession_completed:{successor_pubkey}` +
+    /// `owner_key_added`.
+    ///
+    /// Request payload:
+    /// ```text
+    /// Map({
+    ///   "successor_pubkey": Bytes(32),
+    ///   "prior_cultivator_pubkey": Bytes(32),
+    ///   "anchor_timestamp_unix_ns": Timestamp,
+    ///   "successor_signature": Bytes(64),        // over the succession_acceptance envelope
+    ///   "catechumenate_session_count": Uint,     // ≥50 required (C46 gate)
+    /// })
+    /// ```
+    /// Response payload: `{ completed_event_hash: Bytes(32), cultivation_state: String }`.
+    pub const ACCEPT_SUCCESSION: &str = "accept_succession";
+    /// `accept_succession_response` — see [`ACCEPT_SUCCESSION`].
+    pub const ACCEPT_SUCCESSION_RESPONSE: &str = "accept_succession_response";
+
+    /// `accept_bet_retired_proposal` — Operator→Substrate: cultivator co-attests
+    /// a `bet_retired_proposal` (from a COV06-T7 orphaned-terminal seal OR an
+    /// LB §4 living-bet quorum retirement) to produce the `bet_retired:{reason}`
+    /// archive seal. The substrate transitions to `alive::archived`: metabolism
+    /// halts, the state_dir is preserved cold-readable, and the process exits
+    /// cleanly (re-spawn re-derives Archived + refuses metabolic ops). Serves
+    /// BOTH COV06-T7 (orphaned->archived) AND L0/cards/LB_living_bets §4.
+    ///
+    /// Request payload: `{ proposal_hash: Bytes(32), cultivator_signature: Bytes(64) }`.
+    /// Response payload: `{ sealed_event_hash: Bytes(32), reason: String }`.
+    pub const ACCEPT_BET_RETIRED_PROPOSAL: &str = "accept_bet_retired_proposal";
+    /// `accept_bet_retired_proposal_response` — see [`ACCEPT_BET_RETIRED_PROPOSAL`].
+    pub const ACCEPT_BET_RETIRED_PROPOSAL_RESPONSE: &str = "accept_bet_retired_proposal_response";
 }
 
 /// A decoded bridge message.

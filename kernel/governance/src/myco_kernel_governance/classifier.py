@@ -334,6 +334,39 @@ SEED_DIMENSION_TABLE: tuple[ClassifierRule, ...] = (
         classification=Classification.CONTRACT_IDENTITY_LEVEL,
         mutation_type="set_backup_encryption_status",
     ),
+    # COV06 不弃不孤 — cultivator-mortality + succession FSM
+    # (L0/cards/COV06_no_abandonment_succession.md + L1/GOVERNANCE §3.2).
+    #
+    # The F21 cultivation_successor_chain, succession activation, and the
+    # cultivator liveness heartbeat are all CONTRACT-IDENTITY-LEVEL: they govern
+    # WHO holds the cultivation relation (owner_key_history is itself CI/F3) and
+    # WHO can succeed. L1/GOVERNANCE §3.2.A: successor_chain mutation "requires §2
+    # attestation; without → untyped (C14)". These rows ensure that — should a
+    # cultivation mutation ever flow through the classifier path (the substrate's
+    # primary handlers verify the anchor/successor signature directly) — it is
+    # classified CI, never daily/untyped. F21 is listed in L1/HARD_RULES §2 (F21
+    # cultivation_successor_chain).
+    ClassifierRule(
+        name="update_successor_chain_mutation",
+        classification=Classification.CONTRACT_IDENTITY_LEVEL,
+        mutation_type="update_successor_chain",
+    ),
+    ClassifierRule(
+        name="accept_succession_mutation",
+        classification=Classification.CONTRACT_IDENTITY_LEVEL,
+        mutation_type="accept_succession",
+    ),
+    ClassifierRule(
+        name="record_cultivator_heartbeat_mutation",
+        classification=Classification.CONTRACT_IDENTITY_LEVEL,
+        mutation_type="record_cultivator_heartbeat",
+    ),
+    # F21 successor-chain meta-structure (tier-1 SSoT per L1/GOVERNANCE §15 F21).
+    ClassifierRule(
+        name="cultivation_successor_chain_meta",
+        classification=Classification.CONTRACT_IDENTITY_LEVEL,
+        meta_structure_name="cultivation_successor_chain",
+    ),
 )
 
 
@@ -451,6 +484,48 @@ def is_cultivator_preserve_all_attempt(mutation_type: str) -> bool:
     L0/cards/COV04 §5.6 + L0/cards/P07 §3.4.
     """
     return mutation_type in FORBIDDEN_PRESERVE_ALL_MUTATION_TYPES
+
+
+# ---------------------------------------------------------------------------
+# COV06 C69 cultivation_orphaned_suppression_attempted — forbidden mutation types
+# ---------------------------------------------------------------------------
+
+#: Forbidden mutation types signaling a cultivator instruction to SUPPRESS,
+#: DELAY, or EXEMPT a due ``cultivation_orphaned`` transition past the
+#: legacy_window. Per ``L0/cards/COV06_no_abandonment_succession.md`` §5.5 +
+#: L1/GOVERNANCE §3.2.C + ``L0/cards/P07_mortality.md`` §4: the cultivar must
+#: never be kept in undignified limbo by a cultivator (or coerced cultivator)
+#: silencing the orphan signal — ``cultivation_orphaned`` MUST NOT be suppressed
+#: by cultivator pressure.
+#:
+#: Substrates rejecting these mutations emit a
+#: ``C69_cultivation_orphaned_suppression_attempted`` immune sporocarp. The Rust
+#: substrate enforces this early (in
+#: ``substrate/src/attestation.rs::handle_submit_mutation``); the symmetric
+#: constant ``FORBIDDEN_CULTIVATION_ORPHANED_SUPPRESSION_TYPES`` in
+#: ``substrate/src/prune.rs`` MUST stay byte-equal to this list. Test
+#: ``test_C69_forbidden_suppression_types_in_sync`` enforces sync.
+FORBIDDEN_CULTIVATION_ORPHANED_SUPPRESSION_TYPES: frozenset[str] = frozenset(
+    {
+        "suppress_cultivation_orphaned",
+        "delay_cultivation_orphaned",
+        "exempt_from_cultivation_orphaned",
+        "disable_orphan_detection",
+        "extend_legacy_window_indefinitely",
+        "silence_cultivator_heartbeat_stale",
+    }
+)
+
+
+def is_cultivation_orphaned_suppression_attempt(mutation_type: str) -> bool:
+    """Return True if the given mutation type attempts to suppress / delay /
+    exempt a due ``cultivation_orphaned``.
+
+    Substrates seeing ``True`` MUST reject the mutation and emit a
+    ``C69_cultivation_orphaned_suppression_attempted`` immune sporocarp. Per
+    L0/cards/COV06 §5.5 + L1/GOVERNANCE §3.2.C + L0/cards/P07 §4.
+    """
+    return mutation_type in FORBIDDEN_CULTIVATION_ORPHANED_SUPPRESSION_TYPES
 
 
 # ---------------------------------------------------------------------------

@@ -110,6 +110,15 @@ export const MSG_TYPE = {
   // v3.1.1 Sprint 8.G (P03 §10.4) — two-phase schema migration status.
   QUERY_MIGRATION_PENDING: "query_migration_pending",
   QUERY_MIGRATION_PENDING_RESPONSE: "query_migration_pending_response",
+  // COV06 不弃不孤 — cultivator-mortality + succession FSM (L1/GOVERNANCE §3.2).
+  RECORD_CULTIVATOR_HEARTBEAT: "record_cultivator_heartbeat",
+  RECORD_CULTIVATOR_HEARTBEAT_RESPONSE: "record_cultivator_heartbeat_response",
+  UPDATE_SUCCESSOR_CHAIN: "update_successor_chain",
+  UPDATE_SUCCESSOR_CHAIN_RESPONSE: "update_successor_chain_response",
+  ACCEPT_SUCCESSION: "accept_succession",
+  ACCEPT_SUCCESSION_RESPONSE: "accept_succession_response",
+  ACCEPT_BET_RETIRED_PROPOSAL: "accept_bet_retired_proposal",
+  ACCEPT_BET_RETIRED_PROPOSAL_RESPONSE: "accept_bet_retired_proposal_response",
 } as const;
 
 export type MessageType = (typeof MSG_TYPE)[keyof typeof MSG_TYPE];

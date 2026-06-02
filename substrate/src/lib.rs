@@ -61,6 +61,7 @@
 pub mod at_rest_seal;
 pub mod attestation;
 pub mod backup;
+pub mod cultivation;
 pub mod dag_query;
 pub mod derived_state;
 #[cfg(windows)]

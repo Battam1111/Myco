@@ -344,6 +344,36 @@ pub(crate) struct ServerState {
     /// `C66_WINDOW_EXCEEDED_COOLDOWN_CYCLES`. Same per-detector cooldown
     /// discipline as the C54/C63/C64/C65 detectors. `None` = never emitted.
     pub(crate) last_migration_window_exceeded_emitted_at_cycle: Option<u64>,
+    /// **COV06 §3.2.A (F21)** — the cultivation_successor_chain, mirrored from
+    /// `DerivedState::successor_chain`. Hydrated at boot from a full DAG
+    /// re-derivation (NOT snapshot.cb — byte-compat additive). The succession
+    /// FSM derivation (`crate::cultivation::current_cultivation_state`) reads the
+    /// DAG directly; this mirror lets handlers validate non-overlap / monotone
+    /// `valid_from` without re-walking the DAG on every append.
+    pub(crate) successor_chain: Vec<crate::derived_state::DerivedSuccessorEntry>,
+    /// **COV06 §3.2.C** — active succession config (cadence + windows + terminal
+    /// choice), mirrored from `DerivedState::succession_config`. `None` → the
+    /// built-in defaults (cadence 30d, legacy 365d, terminal 730d, choice
+    /// `indefinite_orphan`) overlaid with `MYCO_TEST_*` env overrides.
+    pub(crate) succession_config: Option<crate::derived_state::DerivedSuccessionConfig>,
+    /// **COV06** — latest recorded cultivator heartbeat, mirrored from
+    /// `DerivedState::latest_heartbeat`. The autonomous-tick staleness watchdog
+    /// measures `now_anchor - anchor_timestamp_unix_ns` against the cadence.
+    pub(crate) latest_heartbeat: Option<crate::derived_state::DerivedLatestHeartbeat>,
+    /// **COV06 T1** — cooldown tracking for the `cultivator_heartbeat_stale`
+    /// emission. Stores `cycle_counter` at the most recent T1 emission; the
+    /// autonomous tick suppresses re-emission within `COV06_STALE_COOLDOWN_CYCLES`
+    /// (100, same discipline as C54/C66). `None` = never emitted.
+    pub(crate) last_cultivator_heartbeat_stale_emitted_at_cycle: Option<u64>,
+    /// **COV06 T4** — cooldown tracking for the `cultivation_orphaned` emission.
+    /// `None` = never emitted. (cultivation_orphaned is itself un-suppressible —
+    /// the cooldown only prevents per-cycle DAG spam of the SAME orphan episode,
+    /// not the orphan transition itself.)
+    pub(crate) last_cultivation_orphaned_emitted_at_cycle: Option<u64>,
+    /// **COV06 T6/T7** — cooldown tracking for the terminal-window emission
+    /// (`self_euthanasia_proposal:cultivation_orphaned_terminal` OR the
+    /// `bet_retired_proposal` archive seal). `None` = never emitted.
+    pub(crate) last_cultivation_terminal_emitted_at_cycle: Option<u64>,
 }
 
 impl ServerState {
@@ -470,6 +500,16 @@ impl ServerState {
             // restarted mid-window resumes its migration.
             migration_candidate: None,
             last_migration_window_exceeded_emitted_at_cycle: None,
+            // COV06: cultivation FSM mirrors start empty; the boot path
+            // re-derives them from the full DAG AFTER `new()` (mirrors
+            // observatory_history + migration_candidate). NOT persisted in
+            // snapshot.cb (byte-compat additive — no format bump).
+            successor_chain: Vec::new(),
+            succession_config: None,
+            latest_heartbeat: None,
+            last_cultivator_heartbeat_stale_emitted_at_cycle: None,
+            last_cultivation_orphaned_emitted_at_cycle: None,
+            last_cultivation_terminal_emitted_at_cycle: None,
         }
     }
 
@@ -664,7 +704,9 @@ pub fn run_loop() -> Result<u8, SubstrateError> {
     // cross-substrate forgery: copying substrate A's snapshot.cb into
     // substrate B's state_dir fails the signer-pubkey check at B's boot.
     let mut snapshot_rejection_evidence: Option<String> = None;
-    let derived = {
+    // `mut`: COV06 re-derives cultivation FSM state onto `derived` after boot
+    // (rederive_cultivation_from_dag) before mirroring onto ServerState.
+    let mut derived = {
         let loaded = crate::persistence::load_snapshot(&state_dir).ok().flatten();
         let from_snapshot = match loaded {
             Some(snap) => {
@@ -911,6 +953,22 @@ pub fn run_loop() -> Result<u8, SubstrateError> {
         candidate.enter_validating(mc.started_at_cycle);
         state.migration_candidate = Some(candidate);
     }
+    // **COV06** — re-derive the cultivation FSM state from the FULL DAG and
+    // mirror it onto ServerState. These three fields are deliberately NOT in
+    // snapshot.cb (byte-compat additive: no format_version bump), so a
+    // snapshot-accelerated boot would otherwise miss cultivation events older
+    // than the snapshot tip. The full-DAG re-derivation here is authoritative +
+    // cheap (the cultivation event family is tiny). This makes cold-resume
+    // reconstruct successor_chain / config / latest_heartbeat byte-identically.
+    if let Err(e) = derived.rederive_cultivation_from_dag(&state.dag) {
+        let _ = writeln!(
+            std::io::stderr(),
+            "COV06 cultivation re-derivation at boot failed: {e}"
+        );
+    }
+    state.successor_chain = derived.successor_chain.clone();
+    state.succession_config = derived.succession_config.clone();
+    state.latest_heartbeat = derived.latest_heartbeat.clone();
     for entry in nonce_log_entries {
         state.nonce_log.insert(
             entry.nonce,
@@ -1442,6 +1500,15 @@ pub fn run_loop() -> Result<u8, SubstrateError> {
                 // we MUST shut down — the substrate has been authorized to die.
                 // The response was just delivered (so the operator sees success).
                 if request.message_type == msg_type::ACCEPT_SELF_EUTHANASIA_PROPOSAL {
+                    graceful_shutdown_python(&mut state);
+                    return Ok(0);
+                }
+                // **COV06 T7 / LB §4**: after a successful accept_bet_retired_proposal
+                // the substrate is alive::archived — metabolism halts. The seal +
+                // state_dir are preserved (cold-readable forensic); we exit cleanly.
+                // A re-spawn re-derives Archived and the metabolism guard refuses
+                // any cycle advance, so the archived substrate stays dormant.
+                if request.message_type == msg_type::ACCEPT_BET_RETIRED_PROPOSAL {
                     graceful_shutdown_python(&mut state);
                     return Ok(0);
                 }
