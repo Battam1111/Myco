@@ -1374,6 +1374,60 @@ pub fn run_loop() -> Result<u8, SubstrateError> {
         let _ = save_dag_state(&state);
     }
 
+    // **P08 §3.5 I7(c) — child-boot birth closure (I3-first).**
+    //
+    // A child sprouted via `handle_sprout_child` carries a
+    // `birth_closure_pending:*` marker in its DAG (written right after its
+    // genesis_event by the parent). On the child's FIRST boot — i.e. when a
+    // pending marker exists WITHOUT a later `birth_closure_complete:*` — the
+    // child must run its OWN I3 self-validation as its first metabolic cycle
+    // (L1/SCHEMA §3.3 step 2) BEFORE any operator cycle. We reuse the boot
+    // integrity self-check just computed above (`integrity_results`); its
+    // verdict (`i3_passed = !any_failed`) is the child's first-cycle I3 result.
+    // The child then emits `birth_closure_complete:{child_prefix}` recording the
+    // verdict. An I3 failure is ALSO a C34 birth-period violation (the C9
+    // immune signals already fired in the loop above), surfacing that the child
+    // failed its own birth self-validation.
+    {
+        let has_pending = state.dag.iter_in_insertion_order().any(|n| {
+            n.node_type
+                .starts_with(crate::events::NODE_TYPE_BIRTH_CLOSURE_PENDING_PREFIX)
+        });
+        let has_complete = state.dag.iter_in_insertion_order().any(|n| {
+            n.node_type
+                .starts_with(crate::events::NODE_TYPE_BIRTH_CLOSURE_COMPLETE_PREFIX)
+        });
+        if has_pending && !has_complete {
+            let i3_passed = !any_failed;
+            let child_id = state.substrate_id();
+            let completed_at_unix_ns = crate::wall_clock::monotonic_unix_ns();
+            let nt = crate::events::birth_closure_complete_node_type(&child_id);
+            let content = crate::events::encode_birth_closure_complete(
+                &child_id,
+                i3_passed,
+                completed_at_unix_ns,
+            );
+            let _ = emit_substrate_event(&mut state, nt, content);
+            if !i3_passed {
+                // I7(c) failure → C34 birth-period violation (the child's own
+                // first-cycle I3 self-validation did not pass).
+                let _ = emit_immune_sporocarp(
+                    &mut state,
+                    "C34_birth_period_violation_during_quarantine",
+                    "birth_period_violation_detected",
+                    &format!(
+                        "child-boot I3 self-check FAILED at birth closure for \
+                         substrate_id={} (P08 §3.5 step 2 / L1/SCHEMA §3.3): one or \
+                         more boot integrity checks did not pass; see the C9/C18/C32 \
+                         immune signals emitted this boot",
+                        hex_first_8_bytes(&child_id)
+                    ),
+                );
+            }
+            let _ = save_dag_state(&state);
+        }
+    }
+
     // **M-anchor-4 §9.3.4**: emit invariant_witness:{check_id} DAG events
     // for each integrity check (regardless of pass/fail). The witnesses
     // give the owner raw inputs to re-derive each check's verdict

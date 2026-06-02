@@ -153,3 +153,159 @@ pub fn pump_cycles(client: &mut BridgeClient, n: u64) {
         client.advance(cycle).expect("advance");
     }
 }
+
+// ---------------------------------------------------------------------------
+// **P08 §3.5 / §5.1 — reproduction cultivator co-attestation test support.**
+//
+// A child spawn is a CI-class doctrine event: the substrate refuses any sprout
+// (C68 reproduction_unattested_spawn) unless it carries a cultivator-signed
+// `myco-spawn-cosign-v1` envelope. Every spawn-bearing E2E (reproduction +
+// federation fixtures) therefore needs to (a) boot the PARENT with a pinned
+// owner identity derived from a known seed, and (b) build + sign a real
+// spawn-cosign envelope. These shared helpers provide both so each suite
+// doesn't re-implement the orchestration. Children INHERIT the parent's pinned
+// operator identity, so a child re-boot must also use `..._with_seed_and_env`
+// (an unseeded handshake is rejected as a downgrade, C2).
+// ---------------------------------------------------------------------------
+
+/// The known operator/owner signing seed the attested-spawn helpers pin.
+pub const REPRO_SEED: [u8; 32] = [0x42u8; 32];
+
+/// A distinct test anchor wall-clock base (ns) for the FIRST attested spawn in
+/// a parent. Subsequent spawns must advance this past the effective §16.B rate
+/// interval (or the test disables the interval via
+/// `MYCO_TEST_REPRODUCTION_RATE_MIN_INTERVAL_NS=0`).
+pub const REPRO_ANCHOR_TS_BASE_NS: i64 = 1_700_000_000_000_000_000;
+
+/// Build minimal-but-VALID spore-schema canonical bytes: a Map carrying all
+/// seven required L1/SCHEMA §3.1 fields (each non-Null), so the substrate's
+/// I7(a) `validate_canonical_bytes_shape` accepts it. The field *contents* are
+/// irrelevant to I7(a) — only presence + the top-level Map shape matter.
+pub fn valid_spore_schema_bytes() -> Vec<u8> {
+    use myco_kernel_shared::canonical_bytes::{encode as cb_encode, Value};
+    let mut m = std::collections::BTreeMap::new();
+    for field in [
+        "schema_definitions",
+        "canonical_bytes_serializer_spec",
+        "sporocarp_type_tree",
+        "classifier_dimension_table",
+        "initial_appetite_axis_schema",
+        "anchor_surface_config",
+        "parent_immune_signal_summary",
+    ] {
+        m.insert(field.to_string(), Value::String(format!("{field}_v1")));
+    }
+    cb_encode(&Value::Map(m))
+        .expect("valid spore-schema encodes")
+        .0
+}
+
+/// Read a (booted) substrate's own `substrate_id` from its `genesis_event:*`
+/// DAG node — needed to mint a spawn-cosign envelope whose `parent_substrate_id`
+/// matches (the substrate's replay guard).
+pub fn read_substrate_id(client: &mut BridgeClient) -> [u8; 32] {
+    let resp = client
+        .call(
+            proto::QUERY_RECENT_NODES,
+            build_payload(vec![
+                ("count", CbValue::Uint(10)),
+                (
+                    "node_type_prefix",
+                    CbValue::String("genesis_event:".to_string()),
+                ),
+            ]),
+        )
+        .expect("query genesis_event node");
+    let nodes = match resp.payload.get("nodes") {
+        Some(CbValue::Array(a)) => a.clone(),
+        _ => panic!("nodes missing"),
+    };
+    assert_eq!(nodes.len(), 1, "exactly one genesis_event node expected");
+    let content = match &nodes[0] {
+        CbValue::Map(m) => match m.get("content_canonical_bytes") {
+            Some(CbValue::Bytes(b)) => b.clone(),
+            _ => panic!("genesis_event missing content_canonical_bytes"),
+        },
+        _ => panic!("genesis_event node not a Map"),
+    };
+    let decoded = myco_kernel_shared::canonical_bytes::decode(&content)
+        .expect("decode genesis_event content");
+    let id = match decoded {
+        CbValue::Map(m) => match m.get("substrate_id") {
+            Some(CbValue::Bytes(b)) => b.clone(),
+            _ => panic!("genesis_event missing substrate_id"),
+        },
+        _ => panic!("genesis_event content not a Map"),
+    };
+    assert_eq!(id.len(), 32, "substrate_id must be 32 bytes");
+    let mut arr = [0u8; 32];
+    arr.copy_from_slice(&id);
+    arr
+}
+
+/// Build + sign a `myco-spawn-cosign-v1` envelope. Returns
+/// `(envelope_bytes, signature_64)`. Uses the substrate's own
+/// `build_spawn_cosign_canonical_bytes` so the bytes byte-match what the
+/// substrate decodes; signs with `Ed25519PrivateKey::from_seed(seed)`.
+pub fn build_signed_spawn_cosign(
+    seed: &[u8; 32],
+    parent_id: &[u8; 32],
+    spore_schema_bytes: &[u8],
+    child_genesis_ts: i64,
+    anchor_ts: i64,
+    depth_override: bool,
+) -> (Vec<u8>, [u8; 64]) {
+    use myco_kernel_shared::crypto::Ed25519PrivateKey;
+    let spore_schema_hash: [u8; 32] = blake3::hash(spore_schema_bytes).into();
+    let anchor_nonce = [0x5au8; 32];
+    let envelope = substrate::events::build_spawn_cosign_canonical_bytes(
+        parent_id,
+        &spore_schema_hash,
+        child_genesis_ts,
+        anchor_ts,
+        &anchor_nonce,
+        depth_override,
+    );
+    let key = Ed25519PrivateKey::from_seed(seed);
+    let sig = key.sign(&envelope);
+    let mut sig_arr = [0u8; 64];
+    sig_arr.copy_from_slice(sig.as_ref());
+    (envelope, sig_arr)
+}
+
+/// Full attested-sprout call against `client` (a seed-pinned parent): reads the
+/// parent's substrate_id, builds + signs the spawn-cosign envelope, and sends
+/// the complete `sprout_child` payload. Defaults to a valid spore-schema, the
+/// `REPRO_ANCHOR_TS_BASE_NS` anchor stamp, and `depth_override=false`. Returns
+/// the raw `Result` so callers can assert success or refusal.
+pub fn sprout_attested(
+    client: &mut BridgeClient,
+    child_dir: &std::path::Path,
+    seed: &[u8; 32],
+) -> Result<myco_kernel_bridge::protocol::Message, myco_kernel_bridge::BridgeError> {
+    let parent_id = read_substrate_id(client);
+    let spore = valid_spore_schema_bytes();
+    let (envelope, sig) = build_signed_spawn_cosign(
+        seed,
+        &parent_id,
+        &spore,
+        REPRO_ANCHOR_TS_BASE_NS - 1,
+        REPRO_ANCHOR_TS_BASE_NS,
+        false,
+    );
+    client.call(
+        proto::SPROUT_CHILD,
+        build_payload(vec![
+            (
+                "child_state_dir",
+                CbValue::String(child_dir.to_string_lossy().into_owned()),
+            ),
+            ("spawn_cosign_envelope", CbValue::Bytes(envelope)),
+            ("attestation_signature", CbValue::Bytes(sig.to_vec())),
+            (
+                "spore_schema_canonical_bytes",
+                CbValue::Bytes(spore),
+            ),
+        ]),
+    )
+}

@@ -105,6 +105,54 @@ function cleanupDir(dir: string): void {
   }
 }
 
+/** **P08 §3.5 / §5.1** — build a minimal-but-well-formed child spore-schema
+ *  (the 7-field L1/SCHEMA §3.1 shape) for the co-attested sprout path. Mirrors
+ *  what mcp_server assembles; the substrate validates the SHAPE + co-signed
+ *  blake3, so any non-Null value per field suffices for the e2e. */
+async function buildTestSporeSchemaBytes(
+  identity: import("../src/operator_identity.ts").OperatorIdentity,
+): Promise<Uint8Array> {
+  const { buildSporeSchemaCanonicalBytes } = await import(
+    "../src/protocol/messages.ts"
+  );
+  return buildSporeSchemaCanonicalBytes({
+    schemaDefinitions: { type: "string", value: "child-schema-v1" },
+    canonicalBytesSerializerSpec: {
+      type: "string",
+      value: "myco-canonical-bytes-v1",
+    },
+    sporocarpTypeTree: { type: "string", value: "myco-sporocarp-tree-v1" },
+    classifierDimensionTable: { type: "string", value: "myco-classifier-v1" },
+    initialAppetiteAxisSchema: { type: "string", value: "axes-v1" },
+    anchorSurfaceConfig: { type: "bytes", value: identity.publicKeyBytes() },
+    parentImmuneSignalSummary: {
+      type: "map",
+      value: new Map([["unresolved_count", { type: "uint", value: 0n }]]),
+    },
+  });
+}
+
+/** Spawn a substrate pinned to a fresh explicit identity (so the substrate has
+ *  a pinned owner pubkey the spawn co-sign can verify against) + return both. */
+async function spawnSeededForSprout(
+  stateDir: string,
+): Promise<{
+  client: SubstrateClient;
+  identity: import("../src/operator_identity.ts").OperatorIdentity;
+}> {
+  const { OperatorIdentity } = await import("../src/operator_identity.ts");
+  const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-sprout-op-"));
+  const identity = await OperatorIdentity.loadOrCreate(opDir, {
+    hostBinary: ANCHOR_SURFACE_BIN,
+  });
+  const client = await SubstrateClient.spawn({
+    substrateBinary: SUBSTRATE_BIN,
+    env: { MYCO_STATE_DIR: stateDir },
+    operatorIdentity: identity,
+  });
+  return { client, identity };
+}
+
 describe("SubstrateClient e2e", () => {
   it("handshake reports python_version + kernel_tropism_version + substrate_version", async () => {
     const client = await spawn();
@@ -2365,13 +2413,13 @@ describe("SubstrateClient e2e", () => {
   // M20 P8 永恒繁衍: substrate reproduction tests.
   // -------------------------------------------------------------------------
 
-  it("M20 P8: sproutChild creates child state_dir with manifest + gradient + spore_emission", async () => {
+  it("M20 P8 + P08 §3.5: co-attested sproutChild creates child dag + spore_emission + genesis_attested", async () => {
     const parentDir = freshStateDir();
     const childDir = mkdtempSync(resolvePath(tmpdir(), "myco-m20-child-"));
     // Pre-remove so substrate creates fresh.
     rmSync(childDir, { recursive: true, force: true });
     try {
-      const client = await spawn(parentDir);
+      const { client, identity } = await spawnSeededForSprout(parentDir);
       try {
         // Register an axis on the parent.
         await client.registerAxis({
@@ -2384,11 +2432,22 @@ describe("SubstrateClient e2e", () => {
           updateRuleKind: "noop",
         });
 
-        const result = await client.sproutChild({ childStateDir: childDir });
+        const sporeSchemaCanonicalBytes = await buildTestSporeSchemaBytes(identity);
+        const result = await client.sproutChild({
+          childStateDir: childDir,
+          sporeSchemaCanonicalBytes,
+          operatorIdentity: identity,
+        });
         assert.equal(result.childSubstrateId.length, 32);
         assert.equal(result.childStateDir, childDir);
         assert.equal(result.childAxisCount, 1n);
         assert.equal(result.sporeEmissionHash.length, 32);
+        // P08 §3.5: the I7-closure record hash is returned.
+        assert.equal(result.genesisAttestedHash.length, 32);
+        assert.ok(
+          result.childGenesisTimestampUnixNs > 0n,
+          "child genesis timestamp present",
+        );
 
         // M21.4: child's state_dir contains ONLY dag.cb. Identity, gradient,
         // operator-pinning are all encoded as events in the child's DAG.
@@ -2410,6 +2469,13 @@ describe("SubstrateClient e2e", () => {
         // Verify parent's DAG has the spore_emission node.
         const recent = await client.queryRecentNodes(10n, "spore_emission:");
         assert.equal(recent.filteredTotal, 1n);
+        // P08 §3.5: parent's DAG has the genesis_attested I7-closure node.
+        const attested = await client.queryRecentNodes(10n, "genesis_attested:");
+        assert.equal(
+          attested.filteredTotal,
+          1n,
+          "parent must emit exactly one genesis_attested:* node",
+        );
       } finally {
         await client.shutdown();
       }
@@ -2419,17 +2485,71 @@ describe("SubstrateClient e2e", () => {
     }
   });
 
-  it("M20: sproutChild refuses to overwrite existing manifest.cb", async () => {
+  it("P08 §5.1: unattested sproutChild (no co-sign) is refused with C68", async () => {
+    // The raw payload builder path WITHOUT a cultivator co-attestation must be
+    // refused before any side effect. We bypass the orchestrator and send a
+    // bare child_state_dir (the pre-P08 shape) to prove the substrate gate.
     const parentDir = freshStateDir();
-    const childDir = freshStateDir(); // already contains a manifest after spawn
-    // Pre-populate childDir with a manifest by spawning a substrate there first.
-    const preSpawn = await spawn(childDir);
-    await preSpawn.shutdown();
+    const childDir = mkdtempSync(resolvePath(tmpdir(), "myco-c68-child-"));
+    rmSync(childDir, { recursive: true, force: true });
     try {
       const client = await spawn(parentDir);
       try {
+        await client.registerAxis({
+          name: "curiosity",
+          axisClass: "appetite",
+          fruitingThreshold: 10.0,
+          initialValue: 3.0,
+          decayRatePerCycle: 1.0,
+          isMortalitySignal: false,
+          updateRuleKind: "noop",
+        });
+        // Send a bare sprout_child request (no attestation fields) via the
+        // low-level path. Expect a refusal (C68) — the substrate surfaces it
+        // as an error envelope.
+        const { MSG_TYPE } = await import("../src/protocol/messages.ts");
+        const bare = new Map<
+          string,
+          import("@myco/anchor-client/src/canonical_bytes.ts").Value
+        >([["child_state_dir", { type: "string", value: childDir }]]);
         await assert.rejects(
-          () => client.sproutChild({ childStateDir: childDir }),
+          // deno-lint-ignore no-explicit-any
+          () => (client as any)._sendRequest(MSG_TYPE.SPROUT_CHILD, bare),
+          /C68|unattested|spawn_cosign/,
+          "unattested sprout must be refused with C68",
+        );
+        // No child dag.cb created.
+        assert.ok(
+          !existsSync(`${childDir}/dag.cb`),
+          "C68: refused sprout must NOT create child dag.cb",
+        );
+      } finally {
+        await client.shutdown();
+      }
+    } finally {
+      cleanupDir(parentDir);
+      cleanupDir(childDir);
+    }
+  });
+
+  it("M20: co-attested sproutChild refuses to overwrite existing dag.cb", async () => {
+    const parentDir = freshStateDir();
+    const childDir = freshStateDir(); // already contains a dag.cb after spawn
+    // Pre-populate childDir with a dag.cb by spawning a substrate there first.
+    const preSpawn = await spawn(childDir);
+    await preSpawn.shutdown();
+    try {
+      const { client, identity } = await spawnSeededForSprout(parentDir);
+      try {
+        const sporeSchemaCanonicalBytes = await buildTestSporeSchemaBytes(identity);
+        // Even WITH a valid co-attestation, the existing-dag.cb guard fires.
+        await assert.rejects(
+          () =>
+            client.sproutChild({
+              childStateDir: childDir,
+              sporeSchemaCanonicalBytes,
+              operatorIdentity: identity,
+            }),
           /refusing to overwrite|exists/,
         );
       } finally {
@@ -2447,7 +2567,7 @@ describe("SubstrateClient e2e", () => {
     rmSync(childDir, { recursive: true, force: true });
     try {
       // Parent: register two axes, perturb one.
-      const parent = await spawn(parentDir);
+      const { client: parent, identity } = await spawnSeededForSprout(parentDir);
       await parent.registerAxis({
         name: "hunger",
         axisClass: "appetite",
@@ -2467,14 +2587,27 @@ describe("SubstrateClient e2e", () => {
         updateRuleKind: "decay",
       });
       await parent.perturb("hunger", 2.5);
-      await parent.sproutChild({ childStateDir: childDir });
+      const sporeSchemaCanonicalBytes = await buildTestSporeSchemaBytes(identity);
+      await parent.sproutChild({
+        childStateDir: childDir,
+        sporeSchemaCanonicalBytes,
+        operatorIdentity: identity,
+      });
       // Get parent's substrate_id for differentiation check.
       const parentInfo = parent.helloAck;
       void parentInfo;
       await parent.shutdown();
 
       // Spawn child substrate at childDir — it should boot with inherited axes.
-      const child = await spawn(childDir);
+      // P08 §3.5: the child INHERITED the parent's pinned operator identity (the
+      // operator_pinned event is copied into the child's DAG at sprout), so it
+      // must be booted with the SAME identity — an unseeded (or different-key)
+      // handshake would be rejected as a downgrade/mismatch (C2).
+      const child = await SubstrateClient.spawn({
+        substrateBinary: SUBSTRATE_BIN,
+        env: { MYCO_STATE_DIR: childDir },
+        operatorIdentity: identity,
+      });
       try {
         const snap = await child.snapshot();
         // Both axes inherited with their values.

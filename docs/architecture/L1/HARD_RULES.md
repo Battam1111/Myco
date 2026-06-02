@@ -91,6 +91,18 @@ These rows are implemented but **not yet wired into the binding §1.1/§1.2 trig
 |---|---|---|---|---|
 | F26 | 应朽 detection rule registry (open-ended; L1 may add families per P07 §3.1.c) — **partial**: the runtime registry (`substrate/src/prune.rs::PruneRuleRegistry`) is live and seeded with the L0 proof-of-mechanism rule; the L1-family extension path (`register`) + observatory metric are scaffolded (`#[allow(dead_code)]`, not yet wired) | L1/CONTINUITY prune-phase + `substrate/src/prune.rs` | P07 | I9 |
 
+### §1.5 P08 §3.2 / §5.1 — reproduction cultivator co-attestation (implemented)
+
+> **Status**: doctrinally committed in L0/cards/P08 (永恒繁衍 / 集体免疫); the spawn co-attestation gate + I7 spawn-closure are **implemented** (emit site cited below). This row is not yet promoted into the binding §1.1/§1.2 trigger tables above — that promotion (with the full Layer C witness corpus per META §5.4; the positive witness is already bound at `substrate/tests/e2e_layer_c.rs::layer_c_p08_positive_child_substrate_spawn_succeeds`) remains a v0.9.x housekeeping step.
+
+P08 §5.1 establishes that spawning a child substrate is a **CI-class doctrine event**, NOT a daily-mode mutation: an operator spawning on its own authority is the "daily-mode spawn = doctrine collapse" signal. Spawn therefore REQUIRES a cultivator-signed `myco-spawn-cosign-v1` envelope, verified by the parent BEFORE any side effect (no child DAG / state-dir is created on failure):
+
+| # | Breach name | Detection site | Mechanism | L0 trace | I trace | Status |
+|---|---|---|---|---|---|---|
+| C68 | `reproduction_unattested_spawn` (implemented; emit: `substrate/src/reproduction.rs`) | L0/cards/P08 §5.1 + L1/SCHEMA §3.3 (I7) | a `sprout_child` request whose cultivator co-attestation fails ANY gate — missing/empty `spawn_cosign_envelope` / `attestation_signature` / `spore_schema_canonical_bytes`; no pinned owner identity; envelope decode failure (wrong domain/shape); `envelope.parent_substrate_id` ≠ this substrate (replay guard); I7(a) static-schema mismatch (`blake3(spore_schema_canonical_bytes)` ≠ co-signed hash, or the 7-field shape is malformed); or Ed25519 verify against the pinned owner pubkey fails → refuse + immune C68, no child created. The §16.B anchor-wall-clock rate breach (incl. clock-rewind) is refused on the same gate but emits C48 (rate half). On success the child-id is owner-minted `blake3(parent_id, spore_schema_hash, child_genesis_ts)` [§5.6] and the parent records a `genesis_attested:{child_prefix}` I7-closure node. | P08, P1.b'' | I7, I2 | **implemented** |
+
+This row is implemented but **not yet wired into the binding §1.1/§1.2 trigger tables above**. It will be promoted to §1.2 in the v0.9.x housekeeping milestone alongside its full witness corpus. Note: C57–C67 remain reserved/unassigned; C68 is the next substrate-private detector minted (the gap is intentional — the co-attestation work landed ahead of the C57-block).
+
 ## §2. Contract-identity fixed points (unconditionally CI)
 L0-doctrinal; CI status unconditional; mutation REQUIRES anchor-surface owner attestation per L1/GOVERNANCE §2.2.
 

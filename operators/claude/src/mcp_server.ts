@@ -399,14 +399,19 @@ const TOOL_DEFINITIONS = [
   {
     name: "myco_sprout_child",
     description:
-      "P8 永恒繁衍 (Eternal Reproduction): Sprout a child substrate from the parent's spore-schema (L0/cards/P01-P14 (principles).2 P8). The substrate creates a fresh state_dir at the given path containing: a NEW manifest with fresh substrate_id, a snapshot of the parent's gradient (axes + current values), the parent's operator_identity_pubkey (operator continuity). Parent emits a spore_emission:{child_id_prefix} DAG node recording the reproduction. The parent's causal DAG is NOT transferred (child starts its own causal history per L1 design). After sprout, you can spawn a separate substrate process pointing at the child_state_dir via MYCO_STATE_DIR. Rejects if the target already contains a manifest.cb.",
+      "P8 永恒繁衍 (Eternal Reproduction): Sprout a child substrate from the parent's spore-schema (L0/cards/P01-P14 (principles).2 P8). **A child spawn now REQUIRES a cultivator co-attestation (P08 §3.5 / §5.1)**: spawning is a CI-class doctrine event, NOT a daily-mode mutation. This tool assembles the child's spore-schema from the parent's current gradient, fetches the anchor wall-clock + nonce, builds a myco-spawn-cosign-v1 envelope, and co-signs it with the cultivator's owner key — the substrate verifies the signature (and the I7(a) static-schema + parent replay-guard + §16.B rate throttle) BEFORE creating anything; an unattested/invalid spawn is refused with C68 (the 'daily-mode spawn = doctrine collapse' signal). On success the child's substrate_id is OWNER-MINTED deterministically as blake3(parent_id, spore_schema_hash, child_genesis_ts) [§5.6], the child DAG is built (with a birth_closure_pending marker so the child runs its own I3 self-check on first boot), and the parent emits genesis_attested:{child_prefix} (the I7-closure record). The parent's causal DAG is NOT transferred. After sprout, spawn a separate substrate process pointing at child_state_dir via MYCO_STATE_DIR. Rejects if the target already contains a dag.cb/manifest.cb.",
     inputSchema: {
       type: "object",
       properties: {
         child_state_dir: {
           type: "string",
           description:
-            "Absolute path for the child substrate's state_dir. Must not contain an existing manifest.cb. The substrate will create the directory if needed.",
+            "Absolute path for the child substrate's state_dir. Must not contain an existing dag.cb/manifest.cb. The substrate will create the directory if needed.",
+        },
+        depth_override: {
+          type: "boolean",
+          description:
+            "Optional (default false). When true, the cultivator's signed envelope carries a depth_override permitting this spawn to exceed the §16.A reproduction_lineage_depth_max (forkbomb depth cap) for THIS child. Use only deliberately — it is recorded as a depth_override_exercised DAG event.",
         },
       },
       required: ["child_state_dir"],
@@ -955,17 +960,86 @@ export class McpServer {
       case "myco_sprout_child": {
         const sub = await this._ensureSubstrate();
         const childStateDir = String(args.child_state_dir);
-        const result = await sub.sproutChild({ childStateDir });
+        const depthOverride = Boolean(args.depth_override);
+
+        // **P08 §3.5 / §5.1** — a child spawn requires a cultivator
+        // co-attestation. Load the owner/operator identity (operator==owner in
+        // v0.9; this is the same key the substrate TOFU-pinned at handshake),
+        // assemble the child's spore-schema from the parent's current schema,
+        // and let `sproutChild` orchestrate the anchor-surface co-sign.
+        const { OperatorIdentity } = await import("./operator_identity.ts");
+        const identity = await OperatorIdentity.loadOrCreate();
+
+        // Assemble a well-formed 7-field spore-schema (L1/SCHEMA §3.1). The
+        // gradient-derived fields summarise the parent's observed axes; the
+        // substrate validates the SHAPE + co-signed hash (I7(a)) and rebuilds
+        // the child's actual gradient from its own internal query.
+        const { buildSporeSchemaCanonicalBytes } = await import(
+          "./protocol/messages.ts"
+        );
+        const obs = await sub.querySubstrateObservatory();
+        const parentId = await sub.querySubstrateId();
+        const axisRegisterCount = obs.signal2?.axisRegisterCount ?? 0n;
+        const immuneCount = await sub.queryImmuneEvents(50n).then(
+          (r) => BigInt(r.events.length),
+          () => 0n,
+        );
+        const sporeSchemaCanonicalBytes = buildSporeSchemaCanonicalBytes({
+          schemaDefinitions: {
+            type: "map",
+            value: new Map([
+              ["parent_substrate_id", { type: "bytes", value: parentId }],
+              ["axis_register_count", { type: "uint", value: axisRegisterCount }],
+            ]),
+          } as never,
+          canonicalBytesSerializerSpec: {
+            type: "string",
+            value: "myco-canonical-bytes-v1",
+          },
+          sporocarpTypeTree: {
+            type: "string",
+            value: "myco-sporocarp-tree-v1",
+          },
+          classifierDimensionTable: {
+            type: "string",
+            value: "myco-classifier-i2-v1",
+          },
+          initialAppetiteAxisSchema: {
+            type: "map",
+            value: new Map([
+              ["axis_register_count", { type: "uint", value: axisRegisterCount }],
+            ]),
+          } as never,
+          anchorSurfaceConfig: {
+            type: "bytes",
+            value: identity.publicKeyBytes(),
+          },
+          parentImmuneSignalSummary: {
+            type: "map",
+            value: new Map([
+              ["unresolved_count", { type: "uint", value: immuneCount }],
+            ]),
+          } as never,
+        });
+
+        const result = await sub.sproutChild({
+          childStateDir,
+          sporeSchemaCanonicalBytes,
+          operatorIdentity: identity,
+          depthOverride,
+        });
         return {
           content: [
             {
               type: "text" as const,
               text: [
-                `🍄 Child substrate sprouted at ${result.childStateDir}`,
-                `child_substrate_id = ${toHex(result.childSubstrateId)}`,
+                `🍄 Child substrate sprouted (cultivator co-attested) at ${result.childStateDir}`,
+                `child_substrate_id = ${toHex(result.childSubstrateId)} (owner-minted, deterministic)`,
                 `inherited_axis_count = ${result.childAxisCount}`,
                 `spore_emission_hash = ${toHex(result.sporeEmissionHash).substring(0, 24)}…`,
-                `(spawn a separate substrate at this path via MYCO_STATE_DIR to bring the child to life)`,
+                `genesis_attested_hash = ${toHex(result.genesisAttestedHash).substring(0, 24)}… (I7-closure record in parent DAG)`,
+                depthOverride ? `depth_override = EXERCISED (cultivator-signed)` : `depth_override = no`,
+                `(spawn a separate substrate at this path via MYCO_STATE_DIR to bring the child to life; it will run its own I3 self-check on first boot)`,
               ].join("\n"),
             },
           ],

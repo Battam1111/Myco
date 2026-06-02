@@ -103,6 +103,7 @@ import {
   submitMutationPayload,
   buildDagTipCosignCanonicalBytes,
   buildL0RevisionCanonicalBytes,
+  buildSpawnCosignCanonicalBytes,
 } from "./protocol/messages.ts";
 import { OperatorIdentity } from "./operator_identity.ts";
 
@@ -606,27 +607,92 @@ export class SubstrateClient {
     return idValue.value;
   }
 
-  /** M20: P8 永恒繁衍 — Sprout a child substrate from the parent's spore-schema.
+  /** M20 + **P08 §3.5 / §5.1** — Sprout a child substrate WITH a cultivator
+   *  co-attestation. This is an attestation orchestrator (modelled on
+   *  `cosignDagTip`): a child spawn is a CI-class doctrine event, not a
+   *  daily-mode mutation, so the cultivator MUST co-sign it at the anchor
+   *  surface or the substrate refuses with C68.
    *
-   *  The substrate creates a child state_dir at `childStateDir` containing:
-   *  - Fresh manifest.cb (new substrate_id, cycle_counter=0)
-   *  - Snapshot of parent's gradient.cb (axes + values inherited)
-   *  - Parent's operator_identity_pubkey.cb (operator continuity)
+   *  Steps:
+   *  1. **querySubstrateId** — read the parent's substrate_id (binds the
+   *     envelope to THIS parent → substrate-side replay guard).
+   *  2. Compute `spore_schema_hash = blake3(sporeSchemaCanonicalBytes)`
+   *     (raw BLAKE3 — matches the substrate's I7(a) check exactly).
+   *  3. **getAnchorWallClock** + **generateAnchorNonce** — owner's
+   *     authoritative timestamp + unbiasable nonce.
+   *  4. Build the `myco-spawn-cosign-v1` envelope binding
+   *     `(parent_substrate_id, spore_schema_hash,
+   *      child_genesis_timestamp_unix_ns, anchor_timestamp_unix_ns,
+   *      anchor_nonce, depth_override)`.
+   *  5. **sign** — owner's Ed25519 key signs the envelope bytes.
+   *  6. **sprout_child** — send envelope + signature + spore-schema bytes; the
+   *     substrate verifies, owner-mints the §5.6 deterministic child-id, builds
+   *     the child DAG, and emits `genesis_attested:{child_prefix}` (I7-closure).
    *
-   *  The parent emits a `spore_emission:{child_id_prefix}` DAG node recording
-   *  the reproduction event. Operator can subsequently spawn a new substrate
-   *  process pointing at `childStateDir` via the MYCO_STATE_DIR env var.
+   *  The parent's causal DAG is NOT transferred (child starts its own causal
+   *  history). Rejects if `childStateDir` already contains a dag.cb / manifest.cb.
    *
-   *  Rejects if `childStateDir` already contains a manifest.cb (won't
-   *  overwrite an existing substrate's identity).
+   *  `childGenesisTimestampUnixNs` defaults to the anchor wall-clock (the most
+   *  natural birth timestamp). `depthOverride` defaults to false (the §16.A
+   *  lineage-depth cap is enforced); set true to have the cultivator's signed
+   *  override permit a spawn past the cap for THIS child.
    */
   async sproutChild(args: {
     childStateDir: string;
+    /** The child's spore-schema canonical bytes (the 7-field L1/SCHEMA §3.1
+     *  shape). Assembled by the caller (mcp_server) from the parent's current
+     *  schema. blake3 of these bytes is co-signed as the spore_schema_hash. */
+    sporeSchemaCanonicalBytes: Uint8Array;
+    /** Operator/owner identity to co-sign with. Required (operator==owner in
+     *  v0.9; the substrate verifies against the pinned owner pubkey). */
+    operatorIdentity: OperatorIdentity;
+    /** Optional explicit child genesis timestamp (unix ns). Defaults to the
+     *  anchor wall-clock fetched during orchestration. */
+    childGenesisTimestampUnixNs?: bigint;
+    /** Optional cultivator depth-override for this spawn (§16.A / F22).
+     *  Default false. */
+    depthOverride?: boolean;
     spore_metadata?: Map<string, import("@myco/anchor-client/src/canonical_bytes.ts").Value>;
   }): Promise<SproutChildResult> {
+    // 1. Parent substrate_id (replay guard).
+    const parentSubstrateId = await this.querySubstrateId();
+
+    // 2. Spore-schema hash (raw BLAKE3 — matches substrate I7(a)).
+    const { blake3 } = await import("@noble/hashes/blake3.js");
+    const sporeSchemaHash = blake3(args.sporeSchemaCanonicalBytes);
+
+    // 3. Anchor wall clock + nonce.
+    const wallClock = await args.operatorIdentity.getAnchorWallClock();
+    const nonceResult = await args.operatorIdentity.generateAnchorNonce(300n);
+
+    const childGenesisTimestampUnixNs = args.childGenesisTimestampUnixNs ??
+      wallClock.anchorTimestampUnixNs;
+
+    // 4. Build the spawn-cosign envelope.
+    const envelope = buildSpawnCosignCanonicalBytes({
+      parentSubstrateId,
+      sporeSchemaHash,
+      childGenesisTimestampUnixNs,
+      anchorTimestampUnixNs: wallClock.anchorTimestampUnixNs,
+      anchorNonce: nonceResult.nonce,
+      depthOverride: args.depthOverride ?? false,
+    });
+
+    // 5. Owner signs the envelope bytes.
+    const signature = await args.operatorIdentity.sign(envelope);
+
+    // 6. Send. The substrate verifies the co-attestation BEFORE any side
+    //    effect (C68 on failure), then mints the child-id + emits
+    //    genesis_attested.
     const response = await this._sendRequest(
       MSG_TYPE.SPROUT_CHILD,
-      sproutChildPayload(args),
+      sproutChildPayload({
+        childStateDir: args.childStateDir,
+        spawnCosignEnvelope: envelope,
+        attestationSignature: signature,
+        sporeSchemaCanonicalBytes: args.sporeSchemaCanonicalBytes,
+        spore_metadata: args.spore_metadata,
+      }),
     );
     return parseSproutChildResponse(response);
   }

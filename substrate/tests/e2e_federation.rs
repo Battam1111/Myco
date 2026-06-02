@@ -869,7 +869,10 @@ fn m22_3_pull_events_idempotent_on_duplicate_pull() {
 fn m22_4_sprout_child_writes_parent_federation_hint() {
     // Parent A opens listener, then sprouts child B.
     // B's DAG should contain a parent_federation_hint event.
-    let (mut client_a, _dir_a) = spawn_substrate();
+    // P08 §5.1: a child spawn now requires a cultivator co-attestation, so A is
+    // seed-pinned and the sprout is co-signed (see sprout_attested).
+    let dir_a = fresh_state_dir();
+    let mut client_a = spawn_substrate_with_seed_and_env(&dir_a, REPRO_SEED, vec![]);
     let open_resp = client_a
         .call(
             proto::FEDERATION_OPEN_LISTENER,
@@ -889,22 +892,14 @@ fn m22_4_sprout_child_writes_parent_federation_hint() {
         .register_axis("clone_me", "appetite", 5.0, 0.0, 1.0, false, "noop")
         .expect("A register");
 
-    // Sprout child B at a fresh dir.
+    // Sprout child B at a fresh dir (cultivator co-attested).
     let child_dir = fresh_state_dir();
-    let child_dir_str = child_dir.to_string_lossy().into_owned();
-    let _ = client_a
-        .call(
-            proto::SPROUT_CHILD,
-            build_payload(vec![(
-                "child_state_dir",
-                CbValue::String(child_dir_str.clone()),
-            )]),
-        )
-        .expect("A sprout child");
+    let _ = sprout_attested(&mut client_a, &child_dir, &REPRO_SEED).expect("A sprout child");
     client_a.shutdown().expect("shutdown A pre-spawn-B");
 
-    // Spawn child B pointing at child_state_dir.
-    let mut client_b = spawn_substrate_with_state_dir(&child_dir);
+    // Spawn child B pointing at child_state_dir. B inherited A's pinned operator
+    // identity, so it must boot WITH the same seed (downgrade rejected, C2).
+    let mut client_b = spawn_substrate_with_seed_and_env(&child_dir, REPRO_SEED, vec![]);
 
     // Query B's DAG for parent_federation_hint event.
     let nodes_resp = client_b
@@ -949,7 +944,9 @@ fn m22_4_sprout_child_writes_parent_federation_hint() {
 #[test]
 fn m22_4_child_link_to_parent_via_hint_emits_parent_linked() {
     // End-to-end: parent listening → sprout child → child links to parent.
-    let (mut client_a, _dir_a) = spawn_substrate();
+    // P08 §5.1: A is seed-pinned and the sprout is cultivator co-signed.
+    let dir_a = fresh_state_dir();
+    let mut client_a = spawn_substrate_with_seed_and_env(&dir_a, REPRO_SEED, vec![]);
     let open_resp = client_a
         .call(
             proto::FEDERATION_OPEN_LISTENER,
@@ -967,16 +964,7 @@ fn m22_4_child_link_to_parent_via_hint_emits_parent_linked() {
         .register_axis("clonable", "appetite", 5.0, 0.0, 1.0, false, "noop")
         .expect("A register");
     let child_dir = fresh_state_dir();
-    let child_dir_str = child_dir.to_string_lossy().into_owned();
-    let _ = client_a
-        .call(
-            proto::SPROUT_CHILD,
-            build_payload(vec![(
-                "child_state_dir",
-                CbValue::String(child_dir_str),
-            )]),
-        )
-        .expect("A sprout");
+    let _ = sprout_attested(&mut client_a, &child_dir, &REPRO_SEED).expect("A sprout");
 
     // Critical: we cannot shut down A here, because B needs A's listener
     // alive to connect. Move A to a polling thread (which keeps A's process
@@ -988,8 +976,8 @@ fn m22_4_child_link_to_parent_via_hint_emits_parent_linked() {
     // So we need A to STAY ALIVE while B connects. Move A to polling thread.
     let poll_handle_a = poll_in_background_for(client_a, 80);
 
-    // Now spawn B and trigger link.
-    let mut client_b = spawn_substrate_with_state_dir(&child_dir);
+    // Now spawn B and trigger link. B inherited A's pinned identity → seed boot.
+    let mut client_b = spawn_substrate_with_seed_and_env(&child_dir, REPRO_SEED, vec![]);
     let link_resp = client_b
         .call(
             proto::FEDERATION_LINK_TO_PARENT_FROM_HINT,
@@ -1052,24 +1040,18 @@ fn m22_4_child_link_to_parent_via_hint_emits_parent_linked() {
 #[test]
 fn m22_5_sprout_without_parent_immune_writes_no_quarantine_event() {
     // Parent has no immune sporocarps → child should NOT have a quarantine event.
-    let (mut client_a, _dir_a) = spawn_substrate();
+    // P08 §5.1: A is seed-pinned and the sprout is cultivator co-signed.
+    let dir_a = fresh_state_dir();
+    let mut client_a = spawn_substrate_with_seed_and_env(&dir_a, REPRO_SEED, vec![]);
     client_a
         .register_axis("clean", "appetite", 5.0, 0.0, 1.0, false, "noop")
         .expect("A register");
 
     let child_dir = fresh_state_dir();
-    let _ = client_a
-        .call(
-            proto::SPROUT_CHILD,
-            build_payload(vec![(
-                "child_state_dir",
-                CbValue::String(child_dir.to_string_lossy().into_owned()),
-            )]),
-        )
-        .expect("sprout");
+    let _ = sprout_attested(&mut client_a, &child_dir, &REPRO_SEED).expect("sprout");
     client_a.shutdown().expect("shutdown A");
 
-    let mut client_b = spawn_substrate_with_state_dir(&child_dir);
+    let mut client_b = spawn_substrate_with_seed_and_env(&child_dir, REPRO_SEED, vec![]);
     let nodes_resp = client_b
         .call(
             proto::QUERY_RECENT_NODES,
@@ -1107,8 +1089,11 @@ fn m22_5_child_quarantined_when_parent_has_immune_event() {
     std::fs::write(&dag_path, b"this-is-not-canonical-bytes")
         .expect("corrupt dag.cb");
 
-    // Respawn parent — should emit C7 immune sporocarp + quarantine corrupted file.
-    let mut client2 = spawn_substrate_with_state_dir(&parent_dir);
+    // Respawn parent — should emit C7 immune sporocarp + quarantine corrupted
+    // file. P08 §5.1: seed-pin the respawn so the later sprout can be cultivator
+    // co-signed (the corrupt dag.cb is quarantined → fresh genesis re-pins the
+    // seed-derived owner identity at handshake).
+    let mut client2 = spawn_substrate_with_seed_and_env(&parent_dir, REPRO_SEED, vec![]);
 
     // Verify the parent now has at least one immune:* event in its DAG.
     let immune_resp = client2
@@ -1134,21 +1119,14 @@ fn m22_5_child_quarantined_when_parent_has_immune_event() {
         .register_axis("infected", "appetite", 5.0, 0.0, 1.0, false, "noop")
         .expect("register");
 
-    // Sprout child.
+    // Sprout child (cultivator co-attested).
     let child_dir = fresh_state_dir();
-    let _ = client2
-        .call(
-            proto::SPROUT_CHILD,
-            build_payload(vec![(
-                "child_state_dir",
-                CbValue::String(child_dir.to_string_lossy().into_owned()),
-            )]),
-        )
-        .expect("sprout");
+    let _ = sprout_attested(&mut client2, &child_dir, &REPRO_SEED).expect("sprout");
     client2.shutdown().expect("shutdown 2");
 
-    // Spawn child + verify it has quarantine_entered event.
-    let mut client_b = spawn_substrate_with_state_dir(&child_dir);
+    // Spawn child + verify it has quarantine_entered event. Child inherited the
+    // pinned identity → seed boot.
+    let mut client_b = spawn_substrate_with_seed_and_env(&child_dir, REPRO_SEED, vec![]);
     let q_resp = client_b
         .call(
             proto::QUERY_RECENT_NODES,
@@ -1181,24 +1159,18 @@ fn m22_5_quarantined_child_blocks_register_axis() {
     client1.shutdown().expect("shutdown 1");
     std::fs::write(parent_dir.join("dag.cb"), b"corrupt").expect("corrupt");
 
-    let mut client2 = spawn_substrate_with_state_dir(&parent_dir);
+    // P08 §5.1: seed-pin the respawn so the sprout can be cultivator co-signed.
+    let mut client2 = spawn_substrate_with_seed_and_env(&parent_dir, REPRO_SEED, vec![]);
     client2
         .register_axis("seeded", "appetite", 5.0, 0.0, 1.0, false, "noop")
         .expect("seed axis");
     let child_dir = fresh_state_dir();
-    let _ = client2
-        .call(
-            proto::SPROUT_CHILD,
-            build_payload(vec![(
-                "child_state_dir",
-                CbValue::String(child_dir.to_string_lossy().into_owned()),
-            )]),
-        )
-        .expect("sprout");
+    let _ = sprout_attested(&mut client2, &child_dir, &REPRO_SEED).expect("sprout");
     client2.shutdown().expect("shutdown 2");
 
-    // Spawn child + try register_axis → should fail.
-    let mut client_b = spawn_substrate_with_state_dir(&child_dir);
+    // Spawn child + try register_axis → should fail. Child inherited the pinned
+    // identity → seed boot (handshake pins before the quarantine op-block).
+    let mut client_b = spawn_substrate_with_seed_and_env(&child_dir, REPRO_SEED, vec![]);
     let block_result = client_b.register_axis("blocked", "appetite", 5.0, 0.0, 1.0, false, "noop");
     assert!(
         block_result.is_err(),
@@ -1220,23 +1192,17 @@ fn m22_5_lift_quarantine_unblocks_operations() {
     client1.shutdown().expect("shutdown 1");
     std::fs::write(parent_dir.join("dag.cb"), b"corrupt").expect("corrupt");
 
-    let mut client2 = spawn_substrate_with_state_dir(&parent_dir);
+    // P08 §5.1: seed-pin the respawn so the sprout can be cultivator co-signed.
+    let mut client2 = spawn_substrate_with_seed_and_env(&parent_dir, REPRO_SEED, vec![]);
     client2
         .register_axis("seeded", "appetite", 5.0, 0.0, 1.0, false, "noop")
         .expect("seed");
     let child_dir = fresh_state_dir();
-    let _ = client2
-        .call(
-            proto::SPROUT_CHILD,
-            build_payload(vec![(
-                "child_state_dir",
-                CbValue::String(child_dir.to_string_lossy().into_owned()),
-            )]),
-        )
-        .expect("sprout");
+    let _ = sprout_attested(&mut client2, &child_dir, &REPRO_SEED).expect("sprout");
     client2.shutdown().expect("shutdown 2");
 
-    let mut client_b = spawn_substrate_with_state_dir(&child_dir);
+    // Child inherited the pinned identity → seed boot.
+    let mut client_b = spawn_substrate_with_seed_and_env(&child_dir, REPRO_SEED, vec![]);
 
     // Confirm quarantine blocks register_axis (M22.5 behavior unchanged).
     assert!(client_b

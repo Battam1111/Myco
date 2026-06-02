@@ -641,7 +641,12 @@ fn layer_c_p08_positive_child_substrate_spawn_succeeds() {
     // it has a `parent_federation_hint` event (proving cross-substrate
     // linkage per §3.5). This is the m22_4 sprout path bound as P08
     // positive witness.
-    let (mut client_parent, _dir_parent) = spawn_substrate();
+    // P08 §3.5 / §5.1: a child spawn is cultivator co-attested, so the parent
+    // is seed-pinned and the sprout is co-signed (sprout_attested). This is the
+    // POSITIVE owner-cosigned-spawn witness, so it must exercise the real
+    // attested path.
+    let dir_parent = fresh_state_dir();
+    let mut client_parent = spawn_substrate_with_seed_and_env(&dir_parent, REPRO_SEED, vec![]);
     client_parent
         .call(
             proto::FEDERATION_OPEN_LISTENER,
@@ -663,18 +668,11 @@ fn layer_c_p08_positive_child_substrate_spawn_succeeds() {
         )
         .expect("parent register");
     let child_dir = fresh_state_dir();
-    client_parent
-        .call(
-            proto::SPROUT_CHILD,
-            build_payload(vec![(
-                "child_state_dir",
-                CbValue::String(child_dir.to_string_lossy().into_owned()),
-            )]),
-        )
-        .expect("parent sprout child");
+    sprout_attested(&mut client_parent, &child_dir, &REPRO_SEED).expect("parent sprout child");
     client_parent.shutdown().expect("shutdown parent");
 
-    let mut client_child = spawn_substrate_with_state_dir(&child_dir);
+    // Child inherited the parent's pinned operator identity → seed boot.
+    let mut client_child = spawn_substrate_with_seed_and_env(&child_dir, REPRO_SEED, vec![]);
     let hint_resp = client_child
         .call(
             proto::QUERY_RECENT_NODES,

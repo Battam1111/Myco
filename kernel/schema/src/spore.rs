@@ -65,6 +65,12 @@ pub enum SporeError {
     /// Canonical-bytes serialization error.
     #[error("canonical bytes: {0}")]
     CanonicalBytes(#[from] CanonicalBytesError),
+
+    /// The decoded spore-schema canonical bytes are not the expected
+    /// top-level shape (e.g., not a Map). Used by
+    /// [`SporeSchema::validate_canonical_bytes_shape`] (P08 §3.5 I7(a)).
+    #[error("malformed spore-schema: {0}")]
+    MalformedSpore(&'static str),
 }
 
 /// The seven required spore-schema fields (per L1/SCHEMA §3.1).
@@ -193,6 +199,51 @@ impl SporeSchema {
     pub fn hash(&self) -> Result<NodeHash, SporeError> {
         let cbytes = self.to_canonical_bytes()?;
         Ok(merkle_hash(&[], cbytes.as_ref()))
+    }
+
+    /// **P08 §3.5 / L1/SCHEMA §3.3 step 1 — I7(a) static-schema validation.**
+    ///
+    /// Validate a spore-schema directly from its canonical-bytes form, as the
+    /// parent does at spawn-closure: the child's `spore_schema_canonical_bytes`
+    /// (supplied by the operator + co-signed by the cultivator) must decode to
+    /// a Map carrying all seven required fields, each present (non-Null).
+    ///
+    /// This is the no-struct-reconstruction path used by the substrate's
+    /// `verify_spawn_co_attestation`: it does not need the typed `SporeSchema`
+    /// back, only the static-shape guarantee that the co-signed schema is
+    /// well-formed (so a child cannot be birthed against a malformed /
+    /// truncated spore-schema). Returns `Err(MissingRequiredField)` naming the
+    /// first absent field; the substrate maps any error → C68 reject.
+    ///
+    /// Mirrors [`SporeSchema::validate_shape`] field-for-field so the typed
+    /// and bytes paths agree.
+    pub fn validate_canonical_bytes_shape(bytes: &[u8]) -> Result<(), SporeError> {
+        use myco_kernel_shared::canonical_bytes::decode;
+        let v = decode(bytes).map_err(SporeError::from)?;
+        let m = match v {
+            Value::Map(m) => m,
+            _ => return Err(SporeError::MalformedSpore("spore-schema is not a Map")),
+        };
+        // The seven required fields, in the same source order as
+        // `validate_shape` (so the first-missing diagnostics match).
+        const REQUIRED: [&str; 7] = [
+            "schema_definitions",
+            "canonical_bytes_serializer_spec",
+            "sporocarp_type_tree",
+            "classifier_dimension_table",
+            "initial_appetite_axis_schema",
+            "anchor_surface_config",
+            "parent_immune_signal_summary",
+        ];
+        for field in REQUIRED {
+            match m.get(field) {
+                None | Some(Value::Null) => {
+                    return Err(SporeError::MissingRequiredField(field));
+                }
+                Some(_) => {}
+            }
+        }
+        Ok(())
     }
 }
 
@@ -350,6 +401,44 @@ mod tests {
         let mut spore2 = spore1.clone();
         spore2.schema_definitions = Value::String("different_schema".to_string());
         assert_ne!(spore1.hash().unwrap(), spore2.hash().unwrap());
+    }
+
+    #[test]
+    fn test_validate_canonical_bytes_shape_full_ok() {
+        // P08 §3.5 I7(a): the bytes-path validator accepts a fully-populated
+        // spore-schema's canonical bytes (agrees with validate_shape).
+        let spore = make_full_spore();
+        let bytes = spore.to_canonical_bytes().unwrap();
+        SporeSchema::validate_canonical_bytes_shape(bytes.as_ref()).unwrap();
+    }
+
+    #[test]
+    fn test_validate_canonical_bytes_shape_missing_field_rejects() {
+        // A spore-schema whose canonical bytes omit a required field is
+        // rejected naming that field — the substrate maps this → C68.
+        let mut spore = make_full_spore();
+        spore.classifier_dimension_table = Value::Null;
+        let bytes = spore.to_canonical_bytes().unwrap();
+        assert_eq!(
+            SporeSchema::validate_canonical_bytes_shape(bytes.as_ref()).unwrap_err(),
+            SporeError::MissingRequiredField("classifier_dimension_table")
+        );
+    }
+
+    #[test]
+    fn test_validate_canonical_bytes_shape_non_map_rejects() {
+        // Bytes that decode to a non-Map → MalformedSpore (not a panic).
+        let bytes = encode(&Value::String("not a spore map".to_string())).unwrap();
+        assert!(matches!(
+            SporeSchema::validate_canonical_bytes_shape(bytes.as_ref()).unwrap_err(),
+            SporeError::MalformedSpore(_)
+        ));
+    }
+
+    #[test]
+    fn test_validate_canonical_bytes_shape_garbage_bytes_rejects() {
+        // Non-canonical-bytes garbage → CanonicalBytes decode error (no panic).
+        assert!(SporeSchema::validate_canonical_bytes_shape(b"\xff\xff not cb").is_err());
     }
 
     #[test]

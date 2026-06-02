@@ -317,6 +317,76 @@ export function buildDagTipCosignCanonicalBytes(args: {
   return encode({ type: "map", value: m }).bytes;
 }
 
+/** Domain string for reproduction spawn co-sign signatures (P08 §3.5 / §5.1).
+ *  Mirrors the Rust `SPAWN_COSIGN_DOMAIN`. */
+export const SPAWN_COSIGN_DOMAIN = "myco-spawn-cosign-v1";
+
+/** **P08 §3.5 / §5.1** — build the canonical-bytes Map the cultivator signs to
+ *  co-attest a child substrate spawn. Rust-parity with
+ *  `substrate::events::build_spawn_cosign_canonical_bytes`; field
+ *  name/type/order is the security + wire contract and must not drift.
+ *
+ *  Shape:
+ *  ```
+ *  Map({
+ *    "anchor_nonce": Bytes(32),
+ *    "anchor_timestamp_unix_ns": Timestamp,
+ *    "child_genesis_timestamp_unix_ns": Timestamp,
+ *    "depth_override": Bool,
+ *    "domain": String("myco-spawn-cosign-v1"),
+ *    "parent_substrate_id": Bytes(32),
+ *    "spore_schema_hash": Bytes(32),
+ *  })
+ *  ```
+ *
+ *  - `parentSubstrateId` binds the spawn to THIS parent (replay guard);
+ *  - `sporeSchemaHash` = blake3(spore_schema_canonical_bytes) — pins the
+ *    child's static schema (I7(a));
+ *  - `childGenesisTimestampUnixNs` feeds the §5.6 owner-minted child-id;
+ *  - `anchorTimestampUnixNs` + `anchorNonce` are the anchor-surface wall-clock
+ *    + unbiasable nonce (the §16.B rate throttle reads the timestamp);
+ *  - `depthOverride` is the cultivator's explicit, signed override of the
+ *    §16.A lineage-depth cap for THIS spawn (default false). */
+export function buildSpawnCosignCanonicalBytes(args: {
+  parentSubstrateId: Uint8Array;
+  sporeSchemaHash: Uint8Array;
+  childGenesisTimestampUnixNs: bigint;
+  anchorTimestampUnixNs: bigint;
+  anchorNonce: Uint8Array;
+  depthOverride: boolean;
+}): Uint8Array {
+  if (args.parentSubstrateId.length !== 32) {
+    throw new BridgeProtocolError(
+      `parentSubstrateId must be 32 bytes; got ${args.parentSubstrateId.length}`,
+    );
+  }
+  if (args.sporeSchemaHash.length !== 32) {
+    throw new BridgeProtocolError(
+      `sporeSchemaHash must be 32 bytes; got ${args.sporeSchemaHash.length}`,
+    );
+  }
+  if (args.anchorNonce.length !== 32) {
+    throw new BridgeProtocolError(
+      `anchorNonce must be 32 bytes; got ${args.anchorNonce.length}`,
+    );
+  }
+  const m = new Map<string, Value>();
+  m.set("domain", { type: "string", value: SPAWN_COSIGN_DOMAIN });
+  m.set("parent_substrate_id", { type: "bytes", value: args.parentSubstrateId });
+  m.set("spore_schema_hash", { type: "bytes", value: args.sporeSchemaHash });
+  m.set("child_genesis_timestamp_unix_ns", {
+    type: "timestamp",
+    value: args.childGenesisTimestampUnixNs,
+  });
+  m.set("anchor_timestamp_unix_ns", {
+    type: "timestamp",
+    value: args.anchorTimestampUnixNs,
+  });
+  m.set("anchor_nonce", { type: "bytes", value: args.anchorNonce });
+  m.set("depth_override", { type: "bool", value: args.depthOverride });
+  return encode({ type: "map", value: m }).bytes;
+}
+
 /** Build the canonical-bytes Map the owner signs for an L0 revision
  *  attestation.
  *

@@ -23,7 +23,7 @@ use std::collections::BTreeMap;
 use myco_kernel_bridge::protocol::{msg_type, Message};
 use myco_kernel_shared::canonical_bytes::{encode as cb_encode, Value};
 
-use crate::persistence::{save_dag, Manifest};
+use crate::persistence::save_dag;
 use crate::server::{emit_immune_sporocarp, save_dag_state, ServerState};
 use crate::SubstrateError;
 
@@ -87,6 +87,310 @@ fn effective_lifetime_quota() -> u64 {
         .unwrap_or(REPRODUCTION_LIFETIME_QUOTA)
 }
 
+/// **L1/GOVERNANCE §16.B `reproduction_rate_min_interval`** (default 24h in ns).
+/// A substrate may sprout iff `envelope.anchor_timestamp − last_spawn_ts ≥
+/// interval`, where `last_spawn_ts` is the MAX anchor wall-clock timestamp over
+/// the parent's prior `genesis_attested:*` events (None if this is the first
+/// attested spawn). §16.B mandates the *anchor wall-clock* (NOT the substrate
+/// cycle counter — throttle-evasion per P06 + L1/CONTINUITY time semantics);
+/// the anchor timestamp arrives inside the cultivator-signed spawn-cosign
+/// envelope. Breach → C48 `reproduction_lifetime_quota_exceeded` (rate half).
+///
+/// `pub` so integration tests can pin the constitutional default against
+/// L1/GOVERNANCE §16.B.
+pub const REPRODUCTION_RATE_MIN_INTERVAL_NS: i64 = 86_400 * 1_000_000_000; // 24h
+
+/// Resolve the effective `reproduction_rate_min_interval` (ns).
+///
+/// Production: the §16.B constitutional default
+/// ([`REPRODUCTION_RATE_MIN_INTERVAL_NS`]). A test-only env override
+/// `MYCO_TEST_REPRODUCTION_RATE_MIN_INTERVAL_NS` lets the rate-throttle E2E
+/// exercise the breach without two real-day-apart anchor stamps. Production
+/// must not set this variable.
+fn effective_rate_min_interval_ns() -> i64 {
+    std::env::var("MYCO_TEST_REPRODUCTION_RATE_MIN_INTERVAL_NS")
+        .ok()
+        .and_then(|s| s.trim().parse::<i64>().ok())
+        .unwrap_or(REPRODUCTION_RATE_MIN_INTERVAL_NS)
+}
+
+/// Verified, decoded cultivator spawn co-attestation (P08 §3.5 / §5.1).
+///
+/// Produced by [`verify_spawn_co_attestation`] AFTER all gates pass; carries
+/// exactly the values the rest of `handle_sprout_child` needs (the
+/// owner-minted child-id, the anchor timestamp for the rate-throttle record,
+/// the raw envelope + signature + pubkey for the `genesis_attested` event, and
+/// the cultivator's `depth_override` decision).
+struct VerifiedSpawnAttestation {
+    /// `blake3(parent_id || spore_schema_hash || child_genesis_ts)` — §5.6
+    /// deterministic, non-reissuable child identity (replaces the random
+    /// `Manifest::genesis()` id).
+    minted_child_id: [u8; 32],
+    /// The child's genesis timestamp (from the signed envelope), stamped into
+    /// the child's `genesis_event` + returned to the operator.
+    child_genesis_timestamp_unix_ns: i64,
+    /// The exact bytes the cultivator signed (re-emitted for offline re-verify).
+    /// The anchor wall-clock the §16.B rate-throttle reads on the NEXT spawn is
+    /// carried INSIDE these bytes (decoded back via `decode_spawn_cosign`), so
+    /// no separate field is needed.
+    envelope_bytes: Vec<u8>,
+    /// The cultivator's Ed25519 signature over `envelope_bytes`.
+    attestation_signature: [u8; 64],
+    /// The owner pubkey the signature verified against (== pinned identity).
+    owner_pubkey: [u8; 32],
+    /// The co-signed spore-schema hash (== blake3 of the operator-supplied
+    /// spore_schema_canonical_bytes; I7(a)).
+    spore_schema_hash: [u8; 32],
+    /// The cultivator's signed depth-override decision for THIS spawn (§16.A
+    /// depth_override / F22). Only honored when the signature verified.
+    depth_override: bool,
+}
+
+/// **P08 §3.5 / §5.1 — verify the cultivator spawn co-attestation.**
+///
+/// Runs FIRST in `handle_sprout_child`, after payload parse and BEFORE the
+/// C47/C48 generation guards. On ANY failure it emits **C68
+/// reproduction_unattested_spawn**, persists the DAG (the dispatch arm only
+/// saves on Ok), and returns `Err` — with NO child DAG / file side effect (the
+/// §5.1 "daily-mode spawn = doctrine collapse" signal).
+///
+/// Gates, in order:
+/// 1. pinned operator identity present (owner_pubkey = pinned.pubkey);
+/// 2. envelope decodes as `myco-spawn-cosign-v1`;
+/// 3. envelope.parent_substrate_id == this substrate's id (replay guard);
+/// 4. I7(a): blake3(spore_schema_canonical_bytes) == envelope.spore_schema_hash
+///    AND the canonical bytes are a well-formed 7-field spore-schema;
+/// 5. Ed25519 verify(owner_pubkey, attestation_signature, envelope_bytes);
+/// 6. §16.B rate throttle: anchor_ts − last_spawn_ts ≥ interval AND
+///    anchor_ts > last_spawn_ts (clock-rewind block). Breach → C48 (rate).
+///
+/// On success returns the [`VerifiedSpawnAttestation`] with the §5.6
+/// owner-minted child-id.
+fn verify_spawn_co_attestation(
+    state: &mut ServerState,
+    request: &Message,
+) -> Result<VerifiedSpawnAttestation, SubstrateError> {
+    // Helper: emit C68 + persist + return Err, with a shared evidence prefix.
+    fn reject_c68(
+        state: &mut ServerState,
+        evidence: String,
+    ) -> Result<VerifiedSpawnAttestation, SubstrateError> {
+        let _ = emit_immune_sporocarp(
+            state,
+            "C68_reproduction_unattested_spawn",
+            "reproduction_unattested_spawn",
+            &evidence,
+        );
+        let _ = save_dag_state(state);
+        Err(SubstrateError::Protocol(evidence))
+    }
+
+    // --- Parse the three new required payload fields. ---
+    let envelope_bytes = match request.payload.get("spawn_cosign_envelope") {
+        Some(Value::Bytes(b)) if !b.is_empty() => b.clone(),
+        _ => {
+            return reject_c68(
+                state,
+                "sprout_child refused (C68): missing/empty spawn_cosign_envelope — \
+                 a child spawn requires a cultivator-signed myco-spawn-cosign-v1 \
+                 envelope (P08 §5.1: daily-mode spawn = doctrine collapse)"
+                    .to_string(),
+            );
+        }
+    };
+    let attestation_signature: [u8; 64] = match request.payload.get("attestation_signature") {
+        Some(Value::Bytes(b)) if b.len() == 64 => {
+            let mut arr = [0u8; 64];
+            arr.copy_from_slice(b);
+            arr
+        }
+        _ => {
+            return reject_c68(
+                state,
+                "sprout_child refused (C68): missing/malformed attestation_signature \
+                 (must be 64 bytes Ed25519)"
+                    .to_string(),
+            );
+        }
+    };
+    let spore_schema_canonical_bytes = match request.payload.get("spore_schema_canonical_bytes") {
+        Some(Value::Bytes(b)) if !b.is_empty() => b.clone(),
+        _ => {
+            return reject_c68(
+                state,
+                "sprout_child refused (C68): missing/empty spore_schema_canonical_bytes \
+                 (required for I7(a) static-schema validation)"
+                    .to_string(),
+            );
+        }
+    };
+
+    // --- Gate 1: pinned identity present. ---
+    let owner_pubkey = match &state.pinned_operator_identity {
+        Some(p) => p.pubkey,
+        None => {
+            return reject_c68(
+                state,
+                "sprout_child refused (C68): no pinned operator/owner identity — \
+                 cannot verify a spawn co-attestation (operator==owner in v0.9; \
+                 TOFU-pin via the signed handshake before sprouting)"
+                    .to_string(),
+            );
+        }
+    };
+
+    // --- Gate 2: envelope decodes as myco-spawn-cosign-v1. ---
+    let (
+        env_parent_id,
+        env_spore_schema_hash,
+        env_child_genesis_ts,
+        env_anchor_ts,
+        _env_anchor_nonce,
+        env_depth_override,
+    ) = match crate::events::decode_spawn_cosign(&envelope_bytes) {
+        Some(t) => t,
+        None => {
+            return reject_c68(
+                state,
+                "sprout_child refused (C68): spawn_cosign_envelope failed to decode \
+                 as myco-spawn-cosign-v1 (wrong domain or malformed shape)"
+                    .to_string(),
+            );
+        }
+    };
+
+    // --- Gate 3: parent_substrate_id replay guard. ---
+    let my_id = state.substrate_id();
+    if env_parent_id != my_id {
+        return reject_c68(
+            state,
+            format!(
+                "sprout_child refused (C68): spawn_cosign envelope.parent_substrate_id={} \
+                 ≠ this substrate's id={} (replay guard — an envelope minted for \
+                 another parent cannot authorize a spawn here)",
+                crate::server::hex_first_8_bytes(&env_parent_id),
+                crate::server::hex_first_8_bytes(&my_id),
+            ),
+        );
+    }
+
+    // --- Gate 4: I7(a) static-schema validation. ---
+    let computed_spore_hash: [u8; 32] =
+        blake3::hash(&spore_schema_canonical_bytes).into();
+    if computed_spore_hash != env_spore_schema_hash {
+        return reject_c68(
+            state,
+            format!(
+                "sprout_child refused (C68): blake3(spore_schema_canonical_bytes)={} \
+                 ≠ co-signed envelope.spore_schema_hash={} (I7(a) static-schema \
+                 mismatch — the supplied spore-schema is not what the cultivator signed)",
+                crate::server::hex_first_8_bytes(&computed_spore_hash),
+                crate::server::hex_first_8_bytes(&env_spore_schema_hash),
+            ),
+        );
+    }
+    if let Err(e) = myco_kernel_schema::spore::SporeSchema::validate_canonical_bytes_shape(
+        &spore_schema_canonical_bytes,
+    ) {
+        return reject_c68(
+            state,
+            format!(
+                "sprout_child refused (C68): co-signed spore-schema fails I7(a) \
+                 shape validation: {e}"
+            ),
+        );
+    }
+
+    // --- Gate 5: Ed25519 signature verification. ---
+    if let Err(e) = myco_kernel_shared::crypto::verify_signature(
+        &owner_pubkey,
+        &attestation_signature,
+        &envelope_bytes,
+    ) {
+        return reject_c68(
+            state,
+            format!(
+                "sprout_child refused (C68): cultivator signature over the \
+                 spawn-cosign envelope failed to verify against the pinned owner \
+                 pubkey: {e}"
+            ),
+        );
+    }
+
+    // --- Gate 6: §16.B anchor-wall-clock rate throttle. ---
+    // last_spawn_ts = MAX anchor_timestamp over prior genesis_attested:* events.
+    let last_spawn_ts: Option<i64> = state
+        .dag
+        .iter_in_insertion_order()
+        .filter(|n| {
+            n.node_type
+                .starts_with(crate::events::NODE_TYPE_GENESIS_ATTESTED_PREFIX)
+        })
+        .filter_map(|n| {
+            crate::events::decode_genesis_attested_event(n.content_canonical_bytes.as_ref())
+                .and_then(|d| crate::events::decode_spawn_cosign(&d.0))
+                .map(|env| env.3) // anchor_timestamp_unix_ns
+        })
+        .max();
+    if let Some(prev_ts) = last_spawn_ts {
+        let interval = effective_rate_min_interval_ns();
+        // Block clock-rewind: a new spawn must carry a STRICTLY later anchor
+        // stamp than the prior spawn, AND respect the min interval.
+        if env_anchor_ts <= prev_ts {
+            return reject_c68(
+                state,
+                format!(
+                    "sprout_child refused (C68 via §16.B): spawn-cosign \
+                     anchor_timestamp {env_anchor_ts} ≤ prior spawn anchor_timestamp \
+                     {prev_ts} — anchor clock-rewind is a throttle-evasion signal \
+                     (P06 + L1/CONTINUITY time semantics)"
+                ),
+            );
+        }
+        if env_anchor_ts.saturating_sub(prev_ts) < interval {
+            // §16.B rate breach → C48 (rate half), distinct from C68.
+            let evidence = format!(
+                "sprout_child refused: spawn-cosign anchor_timestamp delta \
+                 {} ns < reproduction_rate_min_interval {} ns (L1/GOVERNANCE §16.B \
+                 anchor-wall-clock throttle; prior spawn at {}, this at {})",
+                env_anchor_ts - prev_ts,
+                interval,
+                prev_ts,
+                env_anchor_ts
+            );
+            let _ = emit_immune_sporocarp(
+                state,
+                "C48_reproduction_lifetime_quota_exceeded",
+                "reproduction_rate_min_interval_exceeded",
+                &evidence,
+            );
+            let _ = save_dag_state(state);
+            return Err(SubstrateError::Protocol(evidence));
+        }
+    }
+
+    // --- Success: owner-mint the §5.6 deterministic child-id. ---
+    // blake3(parent_id || spore_schema_hash || child_genesis_ts_le).
+    let minted_child_id: [u8; 32] = {
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(&my_id);
+        hasher.update(&env_spore_schema_hash);
+        hasher.update(&env_child_genesis_ts.to_le_bytes());
+        hasher.finalize().into()
+    };
+
+    let _ = env_anchor_ts; // carried inside envelope_bytes (see struct doc)
+    Ok(VerifiedSpawnAttestation {
+        minted_child_id,
+        child_genesis_timestamp_unix_ns: env_child_genesis_ts,
+        envelope_bytes,
+        attestation_signature,
+        owner_pubkey,
+        spore_schema_hash: env_spore_schema_hash,
+        depth_override: env_depth_override,
+    })
+}
+
 /// M20 P8 永恒繁衍 — Sprout a child substrate from the parent's spore-schema.
 ///
 /// Per L0/cards/P01-P14 (principles).2 P8: "The substrate can spawn child substrates. Reproduction is
@@ -133,6 +437,20 @@ pub(crate) fn handle_sprout_child(
     let spore_metadata = request.payload.get("spore_metadata").cloned();
 
     // -----------------------------------------------------------------------
+    // **P08 §3.5 / §5.1 — cultivator spawn co-attestation (runs FIRST).**
+    //
+    // A child spawn is a CI-class doctrine event, NOT a daily-mode mutation:
+    // it requires the cultivator's myco-spawn-cosign-v1 co-signature. This
+    // gate verifies the signed envelope (pinned-identity → decode → parent
+    // replay-guard → I7(a) static-schema → Ed25519 verify → §16.B rate
+    // throttle) BEFORE any side effect; on failure it emits C68 (or C48 for a
+    // rate breach), persists, and returns Err with no child DAG/file created.
+    // On success it yields the §5.6 owner-minted deterministic child-id, which
+    // REPLACES the random `Manifest::genesis()` id below.
+    let attestation = verify_spawn_co_attestation(state, request)?;
+    let minted_child_id = attestation.minted_child_id;
+
+    // -----------------------------------------------------------------------
     // 8f / L1/GOVERNANCE §16 (F22) generation discipline — forkbomb defense.
     //
     // These two checks run BEFORE any side effect (no directory is created, no
@@ -144,14 +462,13 @@ pub(crate) fn handle_sprout_child(
     // (`SubstrateError::Protocol`, surfaced to the operator as an error
     // envelope by the main loop).
     //
-    // The RATE half of §16.B (`reproduction_rate_min_interval`, the
-    // min-interval-between-spawns throttle) is intentionally NOT implemented
-    // here: §16.B mandates the *anchor wall-clock* (`current_anchor_timestamp
-    // − parent.last_spawn_timestamp ≥ interval`) and explicitly forbids the
-    // substrate-cycle counter as a substitute (throttle-evasion per P06 +
-    // L1/CONTINUITY time semantics). The anchor clock is M-anchor-3 surface,
-    // deferred. The QUOTA half (§16.C) IS implemented because it is a pure DAG
-    // event-count (I4-tamper-evident) needing no wall-clock.
+    // The RATE half of §16.B (`reproduction_rate_min_interval`) is now
+    // enforced in `verify_spawn_co_attestation` (gate 6) above: the anchor
+    // wall-clock arrives inside the cultivator-signed spawn-cosign envelope
+    // (`anchor_timestamp − last_spawn_ts ≥ interval`, with last_spawn_ts =
+    // MAX over prior genesis_attested:* events; a clock-rewind is itself a
+    // refusal). The QUOTA half (§16.C) is the pure DAG event-count below
+    // (I4-tamper-evident; needs no wall-clock).
 
     // --- C47 generation_depth_exceeded (§16.A) ---
     // Root = depth 0; the child this sprout would create is `parent + 1`. A
@@ -163,21 +480,60 @@ pub(crate) fn handle_sprout_child(
     let child_generation_depth = parent_generation_depth.saturating_add(1);
     let lineage_depth_max = effective_lineage_depth_max();
     if child_generation_depth > lineage_depth_max {
-        let evidence = format!(
-            "sprout_child refused: child generation_depth {child_generation_depth} \
-             would exceed reproduction_lineage_depth_max {lineage_depth_max} \
-             (parent.generation_depth={parent_generation_depth}); forkbomb depth guard \
-             per L1/GOVERNANCE §16.A. No depth_override attested."
-        );
-        let _ = emit_immune_sporocarp(
-            state,
-            "C47_generation_depth_exceeded",
-            "generation_depth_exceeded",
-            &evidence,
-        );
-        // Persist the breach so it survives restart (dispatch won't save on Err).
-        let _ = save_dag_state(state);
-        return Err(SubstrateError::Protocol(evidence));
+        // **§16.A depth_override (F22)**: the cultivator's spawn-cosign envelope
+        // carries a signed `depth_override` flag. Because the envelope's
+        // signature was already verified by `verify_spawn_co_attestation`, an
+        // override here is a genuine cultivator decision to exceed the lineage
+        // cap for THIS spawn. We record that it was exercised (audit trail) and
+        // proceed; otherwise the forkbomb depth guard fires C47.
+        if attestation.depth_override {
+            let evidence = format!(
+                "depth_override exercised: child generation_depth {child_generation_depth} \
+                 exceeds reproduction_lineage_depth_max {lineage_depth_max} \
+                 (parent.generation_depth={parent_generation_depth}); permitted by \
+                 cultivator-signed depth_override in the myco-spawn-cosign-v1 envelope \
+                 (L1/GOVERNANCE §16.A / F22)."
+            );
+            let _ = crate::server::emit_substrate_event(
+                state,
+                "depth_override_exercised".to_string(),
+                {
+                    let mut m = BTreeMap::new();
+                    m.insert(
+                        "child_generation_depth".to_string(),
+                        Value::Uint(child_generation_depth),
+                    );
+                    m.insert(
+                        "reproduction_lineage_depth_max".to_string(),
+                        Value::Uint(lineage_depth_max),
+                    );
+                    m.insert("evidence".to_string(), Value::String(evidence));
+                    m.insert(
+                        "child_substrate_id".to_string(),
+                        Value::Bytes(minted_child_id.to_vec()),
+                    );
+                    cb_encode(&Value::Map(m))
+                        .map_err(|e| SubstrateError::Protocol(format!("depth_override encode: {e}")))?
+                },
+            );
+            // Note: persisted by the dispatch arm on Ok (the spawn proceeds).
+        } else {
+            let evidence = format!(
+                "sprout_child refused: child generation_depth {child_generation_depth} \
+                 would exceed reproduction_lineage_depth_max {lineage_depth_max} \
+                 (parent.generation_depth={parent_generation_depth}); forkbomb depth guard \
+                 per L1/GOVERNANCE §16.A. No depth_override attested in the spawn-cosign envelope."
+            );
+            let _ = emit_immune_sporocarp(
+                state,
+                "C47_generation_depth_exceeded",
+                "generation_depth_exceeded",
+                &evidence,
+            );
+            // Persist the breach so it survives restart (dispatch won't save on Err).
+            let _ = save_dag_state(state);
+            return Err(SubstrateError::Protocol(evidence));
+        }
     }
 
     // --- C48 reproduction_lifetime_quota_exceeded (§16.C, QUOTA half) ---
@@ -235,7 +591,16 @@ pub(crate) fn handle_sprout_child(
     // files. The child's first DAG node is its genesis_event; operator_pinned
     // event records parent's identity for operator continuity; axis_registered
     // + axis_perturbed events seed the child's gradient.
-    let child_manifest = Manifest::genesis();
+    //
+    // **P08 §5.6**: the child's substrate_id is the OWNER-MINTED deterministic
+    // id `blake3(parent_id, spore_schema_hash, child_genesis_ts)` produced by
+    // `verify_spawn_co_attestation` (NOT a random `Manifest::genesis()` id).
+    // This gives non-reissuance: re-running the same co-signed spawn re-derives
+    // the same child identity. The genesis_event below stamps it + the signed
+    // genesis timestamp, which the child reads back at boot via
+    // `DerivedState::apply_genesis`.
+    let child_genesis_time_unix_ns = attestation.child_genesis_timestamp_unix_ns;
+    let child_cycle: u64 = 0;
 
     // Query parent's axis schemas to seed the child's gradient as events.
     let client = state
@@ -257,16 +622,34 @@ pub(crate) fn handle_sprout_child(
     // back into the child's `Manifest.generation_depth`, so the child in turn
     // enforces C47 against its own (deeper) depth. `child_generation_depth`
     // was computed + bounded by the §16.A guard above.
-    let child_genesis_nt = crate::events::genesis_event_node_type(&child_manifest.substrate_id);
+    let child_genesis_nt = crate::events::genesis_event_node_type(&minted_child_id);
     let child_genesis_content = crate::events::encode_genesis_event(
-        &child_manifest.substrate_id,
-        child_manifest.genesis_time_unix_ns,
+        &minted_child_id,
+        child_genesis_time_unix_ns,
         child_generation_depth,
     );
-    let child_cycle = child_manifest.cycle_counter;
     child_dag
         .insert_node(vec![], child_genesis_nt, child_cycle, child_genesis_content)
         .map_err(|e| SubstrateError::Protocol(format!("child genesis_event insert: {e}")))?;
+
+    // 1b. **P08 §3.5 I7(b) — birth_closure_pending** marker, written into the
+    // CHILD's DAG right after genesis_event. When the child first boots it will
+    // see this (without a later birth_closure_complete), run its OWN I3 boot
+    // self-check (I7 step c), and emit birth_closure_complete with the verdict.
+    {
+        let nt = crate::events::birth_closure_pending_node_type(&state.substrate_id());
+        let content = crate::events::encode_birth_closure_pending(
+            &state.substrate_id(),
+            &minted_child_id,
+            &attestation.spore_schema_hash,
+        );
+        let parents = vec![child_dag.tip().unwrap()];
+        child_dag
+            .insert_node(parents, nt, child_cycle, content)
+            .map_err(|e| {
+                SubstrateError::Protocol(format!("child birth_closure_pending insert: {e}"))
+            })?;
+    }
 
     // 2. operator_pinned (inherited from parent for operator continuity)
     if let Some(parent_pinned) = &state.pinned_operator_identity {
@@ -372,8 +755,7 @@ pub(crate) fn handle_sprout_child(
     save_dag(&child_dag, &child_path)?;
 
     // Emit spore_emission:{child_id_prefix} DAG node in PARENT's DAG.
-    let child_id_hex_prefix: String = child_manifest
-        .substrate_id
+    let child_id_hex_prefix: String = minted_child_id
         .iter()
         .take(8)
         .map(|b| format!("{b:02x}"))
@@ -381,7 +763,7 @@ pub(crate) fn handle_sprout_child(
     let mut spore_content = BTreeMap::new();
     spore_content.insert(
         "child_substrate_id".to_string(),
-        Value::Bytes(child_manifest.substrate_id.to_vec()),
+        Value::Bytes(minted_child_id.to_vec()),
     );
     spore_content.insert(
         "child_state_dir".to_string(),
@@ -421,10 +803,30 @@ pub(crate) fn handle_sprout_child(
         .insert_node(parents, spore_node_type, cycle, spore_canonical)
         .map_err(|e| SubstrateError::Protocol(format!("spore_emission DAG insert: {e}")))?;
 
+    // **P08 §3.5 I7-closure — genesis_attested:{child_prefix}** in the PARENT's
+    // DAG. This is the immutable owner-attested record that this child's
+    // genesis was cultivator-co-signed: it carries the signed envelope +
+    // signature + pubkey (re-verifiable offline), the parent/child/spore
+    // binding, and the I7(a) static-schema verdict (true — verified above).
+    // The §16.B rate-throttle reads `last_spawn_ts` off THESE events.
+    let genesis_attested_nt = crate::events::genesis_attested_node_type(&minted_child_id);
+    let genesis_attested_content = crate::events::encode_genesis_attested_event(
+        &attestation.envelope_bytes,
+        &attestation.attestation_signature,
+        &attestation.owner_pubkey,
+        &state.substrate_id(),
+        &minted_child_id,
+        &attestation.spore_schema_hash,
+        true, // child_static_schema_valid — I7(a) passed in verify_spawn_co_attestation
+        cycle,
+    );
+    let genesis_attested_hash =
+        crate::server::emit_substrate_event(state, genesis_attested_nt, genesis_attested_content)?;
+
     let mut payload = BTreeMap::new();
     payload.insert(
         "child_substrate_id".to_string(),
-        Value::Bytes(child_manifest.substrate_id.to_vec()),
+        Value::Bytes(minted_child_id.to_vec()),
     );
     payload.insert(
         "child_state_dir".to_string(),
@@ -443,6 +845,17 @@ pub(crate) fn handle_sprout_child(
     payload.insert(
         "spore_emission_hash".to_string(),
         Value::Bytes(spore_hash.as_ref().to_vec()),
+    );
+    // **P08 §3.5**: surface the I7-closure record hash + the signed child
+    // genesis timestamp so the operator can confirm the attestation landed
+    // and (with the minted-id derivation) re-derive the child identity.
+    payload.insert(
+        "genesis_attested_hash".to_string(),
+        Value::Bytes(genesis_attested_hash.as_ref().to_vec()),
+    );
+    payload.insert(
+        "child_genesis_timestamp_unix_ns".to_string(),
+        Value::Timestamp(child_genesis_time_unix_ns),
     );
 
     Ok(Some(Message::new(
