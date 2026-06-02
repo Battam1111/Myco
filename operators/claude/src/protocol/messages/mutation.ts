@@ -66,6 +66,58 @@ export function schemaDiffAddAxisBytes(args: {
   return encode({ type: "map", value: m }).bytes;
 }
 
+// ---------------------------------------------------------------------------
+// **M26.4 F20 P14.c owner_objective_declaration** — owner-declared sparse
+// weight vector over node_type prefixes (telos-drift cosine proxy).
+// ---------------------------------------------------------------------------
+
+/** Build the content_canonical_bytes for an `owner_objective_declaration`
+ *  CI mutation (M26.4 F20). Byte-for-byte mirror of the Rust
+ *  `substrate::events::encode_owner_objective` (substrate/src/events/telos.rs).
+ *
+ *  Shape:
+ *  ```
+ *  Map({
+ *    "objective_id": String,
+ *    "declared_at_cycle": Uint,
+ *    "weights": Array<Map({ "prefix": String, "weight_repr": String })>,
+ *  })
+ *  ```
+ *
+ *  Each weight is rendered as a `weight_repr` STRING via {@link floatRepr}
+ *  (the project-wide canonical-bytes float convention — CPython-repr oracle).
+ *  The substrate decodes by `weight_repr.parse::<f64>()`, so any
+ *  shortest-round-tripping decimal is accepted; using `floatRepr` keeps the
+ *  submitted bytes identical to the sporocarp/schema_diff float renderings and
+ *  to the M26.4 e2e inline objective Map (which asserts `"0.75"` / `"0.25"`).
+ *
+ *  The operator signs THESE bytes as the CI attestation. Map-key order here is
+ *  irrelevant (canonical-bytes sorts keys); the field NAMES + value TYPES are
+ *  the wire contract and must match Rust (drift = C18 / C5).
+ *
+ *  Note: the `weights` array MAY be empty here, but the substrate rejects an
+ *  empty-weights declaration with C5 (`weights array MUST be non-empty`); the
+ *  tool surface enforces `minItems: 1` so callers fail fast. */
+export function buildOwnerObjectiveCanonicalBytes(args: {
+  objectiveId: string;
+  declaredAtCycle: bigint;
+  weights: { prefix: string; weight: number }[];
+}): Uint8Array {
+  const m = new Map<string, Value>();
+  m.set("objective_id", { type: "string", value: args.objectiveId });
+  m.set("declared_at_cycle", { type: "uint", value: args.declaredAtCycle });
+  m.set("weights", {
+    type: "array",
+    value: args.weights.map((w) => {
+      const entry = new Map<string, Value>();
+      entry.set("prefix", { type: "string", value: w.prefix });
+      entry.set("weight_repr", { type: "string", value: floatRepr(w.weight) });
+      return { type: "map", value: entry } as Value;
+    }),
+  });
+  return encode({ type: "map", value: m }).bytes;
+}
+
 /** Build the payload for a `request_attestation_nonce` request (M13;
  *  extended M15 with optional anchor-clock binding).
  *

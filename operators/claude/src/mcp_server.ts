@@ -4,16 +4,31 @@
 // L3/PACKAGE_MAP §11. It maps Claude Code's MCP tool-call surface to the
 // substrate's M5/M6 wire protocol.
 //
-// ## Tool surface (M6 v1)
+// ## Tool surface
 //
-// 6 tools exposed to Claude Code:
+// 23 tools exposed to Claude Code, grouped by concern:
 //
-// 1. `myco_register_axis` — register a gradient axis (one-time per axis).
-// 2. `myco_perturb_axis` — apply a delta to an axis (operator-initiated input).
-// 3. `myco_advance_cycle` — run one metabolic cycle; returns sporocarps.
-// 4. `myco_snapshot` — read current axis values.
-// 5. `substrate_info` — return substrate + python versions (handshake echo).
-// 6. `myco_shutdown_substrate` — gracefully end the substrate (terminates session).
+// Gradient lifecycle:
+//   `myco_register_axis`, `myco_perturb_axis`, `myco_advance_cycle`,
+//   `myco_snapshot`.
+// Introspection / handshake:
+//   `substrate_info`, `myco_shutdown_substrate`, `myco_current_intent`,
+//   `myco_query_recent_nodes`, `myco_query_migration_pending`.
+// Immune / integrity:
+//   `myco_run_immune_check`, `myco_query_immune_events`,
+//   `myco_enumerate_dag_since`.
+// Mutation / evolution (P3):
+//   `myco_request_attestation_nonce`, `myco_submit_mutation`,
+//   `myco_evolve_schema`.
+// Ingestion (P2):
+//   `myco_ingest_raw_material`, `myco_perturb_axis_from_raw_material`,
+//   `myco_query_raw_material`.
+// Reproduction / mortality (P8 / P7):
+//   `myco_sprout_child`, `myco_query_self_euthanasia_proposals`.
+// Anchor-surface owner attestations (M-anchor-5 / P14):
+//   `myco_cosign_dag_tip` (§3.2 DAG-tip co-sign),
+//   `myco_attest_l0_revision` (§3.4 L0 revision attestation),
+//   `myco_declare_owner_objective` (P14 §3.2 owner-objective declaration).
 //
 // The server lazily spawns the substrate subprocess on the first tool call;
 // subsequent calls reuse the same substrate.
@@ -44,6 +59,26 @@ import { bytesToHex as toHex } from "./hex.ts";
 /** Configuration for the MCP server. */
 export interface McpServerConfig {
   substrate?: SubstrateClientConfig;
+}
+
+/** Parse a 64-character hex string into a 32-byte Uint8Array.
+ *
+ *  Shared by every tool that accepts a `*_hash_hex` / `*_l0_hash_hex` /
+ *  `tip_hash_hex` argument (raw_material link, dag_tip cosign, l0 revision,
+ *  enumerate-since). Throws on a non-64-length input so a malformed hex
+ *  surfaces as an `isError` tool result rather than a silently-truncated hash.
+ *  `label` names the offending field in the error message. */
+function hexTo32(hex: string, label = "value"): Uint8Array {
+  if (hex.length !== 64) {
+    throw new Error(
+      `${label} must be 64 hex chars (32 bytes); got ${hex.length}`,
+    );
+  }
+  const out = new Uint8Array(32);
+  for (let i = 0; i < 32; i++) {
+    out[i] = parseInt(hex.substring(i * 2, i * 2 + 2), 16);
+  }
+  return out;
 }
 
 /** Format an AdvanceReport as a readable summary string. */
@@ -574,6 +609,103 @@ const TOOL_DEFINITIONS = [
       required: ["mutation_type", "content"],
     },
   },
+  {
+    name: "myco_cosign_dag_tip",
+    description:
+      "M-anchor-5 §3.2 (owner DAG-tip co-sign): owner-attest the substrate's current causal-DAG tip from the anchor surface. The operator's owner key signs a `myco-dag-tip-cosign-v1` envelope binding (tip_hash, the in-order list of node hashes the owner independently walked, an optional proposed-mutation hash, an anchor wall-clock timestamp + anchor nonce). On accept, the substrate records an immutable `tip_cosigned:{tip_prefix}` DAG event — a permanent owner-witnessed checkpoint that makes any later DAG rewrite detectable. Call with NO arguments to co-sign whatever the substrate reports as its current tip (tip-only cosign). This is a contract-identity-level mutation (owner attestation required).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        tip_hash_hex: {
+          type: "string",
+          description:
+            "64-character hex string (32-byte hash) of the DAG tip to attest. Omit to co-sign the substrate's current tip (queried automatically).",
+        },
+        enumerated_node_hashes_hex: {
+          type: "array",
+          items: { type: "string" },
+          description:
+            "Optional in-order list of 64-hex (32-byte) DAG node hashes the owner has independently walked + verified up to the tip. Default [] (tip-only cosign that does not pin a history walk).",
+        },
+        proposed_mutation_hash_hex: {
+          type: "string",
+          description:
+            "Optional 64-hex (32-byte) hash of a proposed CI mutation the owner is co-signing as a precondition. Omit for a standalone tip cosign (substrate treats absence as 32 zero bytes).",
+        },
+      },
+      required: [],
+    },
+  },
+  {
+    name: "myco_attest_l0_revision",
+    description:
+      "M-anchor-5 §3.4 (owner L0-doctrine revision attestation): anchor an L0_DOCTRINE version transition (prior_l0_hash → new_l0_hash) into the causal DAG as an owner-signed event. The owner key signs a `myco-l0-revision-v1` envelope binding (prior_l0_hash, new_l0_hash, a short diff_summary, anchor wall-clock timestamp + anchor nonce). On accept, the substrate records `l0_revision_attested:{prior_l0_hash_prefix}` — re-verifiable offline by anyone holding the owner public key. Without this anchor the substrate could silently shift its doctrine ground truth between sessions. The hashes are owner-tooling-chosen (SHA-256 or BLAKE3 of the L0 file); the substrate attests the signed envelope, it does not re-derive them. Contract-identity-level (owner attestation required).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        prior_l0_hash_hex: {
+          type: "string",
+          description:
+            "64-character hex string (32-byte hash) of the L0 doctrine BEFORE the revision.",
+        },
+        new_l0_hash_hex: {
+          type: "string",
+          description:
+            "64-character hex string (32-byte hash) of the L0 doctrine AFTER the revision.",
+        },
+        diff_summary: {
+          type: "string",
+          description:
+            'Short human-readable description of what changed (e.g., "Add §9.4 federation observatory"). Stored verbatim in the signed envelope.',
+        },
+      },
+      required: ["prior_l0_hash_hex", "new_l0_hash_hex", "diff_summary"],
+    },
+  },
+  {
+    name: "myco_declare_owner_objective",
+    description:
+      "P14 §3.2 / M26.4 F20 (owner-objective declaration): declare the owner's telos as a sparse weight vector over substrate node_type prefixes. The substrate uses it as the reference centroid for P14.c telos-drift detection (cosine alignment of recent sporocarp activity against the declared objective; sustained low/negative alignment grades up to a C24 telos_drift_critical immune event). Weights SHOULD be non-negative and need not sum to 1 (the substrate normalizes for the cosine). The operator owner key signs the canonical-bytes objective as the CI attestation. On accept, the substrate emits `owner_objective_declared:{objective_id}`. Example weights: [{prefix:\"axis_perturbed:\",weight:0.75},{prefix:\"raw_material:\",weight:0.25}]. Contract-identity-level (owner attestation required); an empty weights array is rejected (C5).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        objective_id: {
+          type: "string",
+          description:
+            "Stable identifier for this objective declaration (operator-supplied; appears in the emitted owner_objective_declared:{id} event).",
+        },
+        weights: {
+          type: "array",
+          minItems: 1,
+          items: {
+            type: "object",
+            properties: {
+              prefix: {
+                type: "string",
+                description:
+                  'A node_type prefix the owner values (e.g. "axis_perturbed:", "raw_material:", "sporocarp:").',
+              },
+              weight: {
+                type: "number",
+                description:
+                  "Non-negative weight for this prefix. Relative magnitude is what matters (the substrate normalizes for the cosine).",
+              },
+            },
+            required: ["prefix", "weight"],
+          },
+          description:
+            'The sparse weight vector. Must contain at least one entry (an empty array is rejected by the substrate with C5). Example: [{"prefix":"axis_perturbed:","weight":0.75},{"prefix":"raw_material:","weight":0.25}].',
+        },
+        declared_at_cycle: {
+          type: "integer",
+          minimum: 0,
+          description:
+            "Cycle at which this objective is declared (anchors the audit). Default 0.",
+        },
+      },
+      required: ["objective_id", "weights"],
+    },
+  },
 ];
 
 /** McpServer wraps a Server + lazy SubstrateClient. */
@@ -994,16 +1126,10 @@ export class McpServer {
         const sub = await this._ensureSubstrate();
         const axisName = String(args.axis_name);
         const delta = Number(args.delta);
-        const hex = String(args.raw_material_hash_hex);
-        if (hex.length !== 64) {
-          throw new Error(
-            `raw_material_hash_hex must be 64 hex chars (32 bytes); got ${hex.length}`,
-          );
-        }
-        const rawMaterialHash = new Uint8Array(32);
-        for (let i = 0; i < 32; i++) {
-          rawMaterialHash[i] = parseInt(hex.substring(i * 2, i * 2 + 2), 16);
-        }
+        const rawMaterialHash = hexTo32(
+          String(args.raw_material_hash_hex),
+          "raw_material_hash_hex",
+        );
         const result = await sub.perturbAxisFromRawMaterial({
           axisName,
           delta,
@@ -1050,16 +1176,7 @@ export class McpServer {
         const sub = await this._ensureSubstrate();
         let prevTip: Uint8Array | undefined;
         if (typeof args.prev_tip_hex === "string" && args.prev_tip_hex.length > 0) {
-          const hex = String(args.prev_tip_hex);
-          if (hex.length !== 64) {
-            throw new Error(
-              `prev_tip_hex must be 64 hex chars (32 bytes); got ${hex.length}`,
-            );
-          }
-          prevTip = new Uint8Array(32);
-          for (let i = 0; i < 32; i++) {
-            prevTip[i] = parseInt(hex.substring(i * 2, i * 2 + 2), 16);
-          }
+          prevTip = hexTo32(String(args.prev_tip_hex), "prev_tip_hex");
         }
         const report = await sub.enumerateDagSince(prevTip);
         const verifyErrors = await SubstrateClient.verifyEnumeration(report);
@@ -1103,6 +1220,151 @@ export class McpServer {
           content: [
             { type: "text" as const, text: formatMutation(result) },
           ],
+          isError: !result.accepted,
+        };
+      }
+      case "myco_cosign_dag_tip": {
+        const sub = await this._ensureSubstrate();
+        // Default tip = the substrate's current DAG tip (queried). zeros32 if
+        // the substrate has no tip (genuinely empty DAG — practically never,
+        // since genesis_event is the first node).
+        const zeros32 = new Uint8Array(32);
+        const tipHash =
+          typeof args.tip_hash_hex === "string" && args.tip_hash_hex.length > 0
+            ? hexTo32(String(args.tip_hash_hex), "tip_hash_hex")
+            : ((await sub.queryRecentNodes(1n)).dagTip ?? zeros32);
+        const enumeratedNodeHashes = Array.isArray(args.enumerated_node_hashes_hex)
+          ? (args.enumerated_node_hashes_hex as unknown[]).map((h, i) =>
+              hexTo32(String(h), `enumerated_node_hashes_hex[${i}]`),
+            )
+          : [];
+        const proposedMutationHash =
+          typeof args.proposed_mutation_hash_hex === "string" &&
+          args.proposed_mutation_hash_hex.length > 0
+            ? hexTo32(
+                String(args.proposed_mutation_hash_hex),
+                "proposed_mutation_hash_hex",
+              )
+            : zeros32;
+        const operatorIdentity = await OperatorIdentity.loadOrCreate();
+        const result = await sub.cosignDagTip({
+          tipHash,
+          enumeratedNodeHashes,
+          proposedMutationHash,
+          operatorIdentity,
+        });
+        const lines: string[] = [];
+        lines.push(
+          `cosign accepted=${result.accepted}  classification=${result.classification}`,
+        );
+        if (!result.accepted) {
+          lines.push(`rejection: ${result.rejectionReason}`);
+        } else {
+          lines.push(`cosigned_tip=${toHex(tipHash).substring(0, 24)}…`);
+          if (result.tipCosignEventHash) {
+            lines.push(
+              `tip_cosign_event_hash=${toHex(result.tipCosignEventHash).substring(0, 32)}…`,
+            );
+          }
+        }
+        return {
+          content: [{ type: "text" as const, text: lines.join("\n") }],
+          isError: !result.accepted,
+        };
+      }
+      case "myco_attest_l0_revision": {
+        const sub = await this._ensureSubstrate();
+        const priorL0Hash = hexTo32(
+          String(args.prior_l0_hash_hex),
+          "prior_l0_hash_hex",
+        );
+        const newL0Hash = hexTo32(String(args.new_l0_hash_hex), "new_l0_hash_hex");
+        const diffSummary = String(args.diff_summary);
+        const operatorIdentity = await OperatorIdentity.loadOrCreate();
+        const result = await sub.signL0Revision({
+          priorL0Hash,
+          newL0Hash,
+          diffSummary,
+          operatorIdentity,
+        });
+        const lines: string[] = [];
+        lines.push(
+          `l0_revision accepted=${result.accepted}  classification=${result.classification}`,
+        );
+        if (!result.accepted) {
+          lines.push(`rejection: ${result.rejectionReason}`);
+        } else {
+          lines.push(
+            `prior_l0=${toHex(priorL0Hash).substring(0, 16)}… → new_l0=${toHex(newL0Hash).substring(0, 16)}…`,
+          );
+          if (result.l0RevisionEventHash) {
+            lines.push(
+              `l0_revision_event_hash=${toHex(result.l0RevisionEventHash).substring(0, 32)}…`,
+            );
+          }
+        }
+        return {
+          content: [{ type: "text" as const, text: lines.join("\n") }],
+          isError: !result.accepted,
+        };
+      }
+      case "myco_declare_owner_objective": {
+        const sub = await this._ensureSubstrate();
+        const objectiveId = String(args.objective_id);
+        const declaredAtCycle =
+          args.declared_at_cycle !== undefined
+            ? BigInt(Number(args.declared_at_cycle))
+            : 0n;
+        const weights = Array.isArray(args.weights)
+          ? (args.weights as unknown[]).map((w) => {
+              const obj = (w ?? {}) as Record<string, unknown>;
+              return {
+                prefix: String(obj.prefix),
+                weight: Number(obj.weight),
+              };
+            })
+          : [];
+        // Build the OwnerObjective canonical-bytes (byte-parity with Rust
+        // encode_owner_objective; repr-float weights via floatRepr).
+        const { buildOwnerObjectiveCanonicalBytes } = await import(
+          "./protocol/messages.ts"
+        );
+        const contentCanonicalBytes = buildOwnerObjectiveCanonicalBytes({
+          objectiveId,
+          declaredAtCycle,
+          weights,
+        });
+        // Owner IDENTITY signs the objective bytes as the CI attestation;
+        // a substrate-issued nonce binds it against replay (M13). Signing
+        // happens over local TCP to anchor_surface_host (M-anchor-1).
+        const identity = await OperatorIdentity.loadOrCreate();
+        const subNonce = await sub.requestAttestationNonce(contentCanonicalBytes);
+        const sig = await identity.sign(contentCanonicalBytes);
+        const result = await sub.submitMutation({
+          mutationType: "owner_objective_declaration",
+          contentCanonicalBytes,
+          attestationSignature: sig,
+          nonce: subNonce.nonce,
+          expiryUnixNs: subNonce.expiryUnixNs,
+        });
+        const lines: string[] = [];
+        lines.push(
+          `owner_objective accepted=${result.accepted}  classification=${result.classification}`,
+        );
+        if (!result.accepted) {
+          lines.push(`rejection: ${result.rejectionReason}`);
+        } else {
+          lines.push(
+            `owner_objective_declared:${objectiveId} (${weights.length} weight${weights.length === 1 ? "" : "s"}, declared_at_cycle=${declaredAtCycle})`,
+          );
+          if (result.dagNodeHash) {
+            lines.push(
+              `dag_node_hash=${toHex(result.dagNodeHash).substring(0, 32)}…`,
+            );
+          }
+        }
+        return {
+          content: [{ type: "text" as const, text: lines.join("\n") }],
           isError: !result.accepted,
         };
       }
