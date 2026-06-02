@@ -231,6 +231,16 @@ class MessageType(str, Enum):
     ABORT_MIGRATION_ACK = "abort_migration_ack"
     """Python → Rust: candidate dropped."""
 
+    APPLY_OWNER_KEY_ROTATION = "apply_owner_key_rotation"
+    """C70: Rust → Python: a dual-cosign owner-key rotation was activated
+    (cooldown elapsed + both keys verified by the substrate). Mutate the
+    in-memory ``owner_keys`` history: add the new key + retire the old one
+    (``valid_until`` + ``cooldown_expired_at``), so the next CI mutation verifies
+    against the rotated key. L1/GOVERNANCE §3.1."""
+
+    APPLY_OWNER_KEY_ROTATION_ACK = "apply_owner_key_rotation_ack"
+    """Python → Rust: owner_keys history rotated."""
+
 
 # ---------------------------------------------------------------------------
 # Error types.

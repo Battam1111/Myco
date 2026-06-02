@@ -617,6 +617,55 @@ fn emit_duress_forensics_and_freeze(
     let _ = save_dag_state(state);
 }
 
+/// **C70** — a staged owner key-rotation transition, captured during the
+/// `rotate_owner_key` decode pass and consumed AFTER the
+/// `mutation:rotate_owner_key` DAG node commits. One variant per FSM phase.
+enum StagedRotation {
+    /// Open the cooldown veto window: emit `owner_key_rotation_requested` +
+    /// set `state.pending_owner_key_rotation`.
+    Request {
+        new_pubkey: [u8; 32],
+        prior_active_pubkey: [u8; 32],
+        request_anchor_ts: u64,
+        cooldown_expires_at: u64,
+    },
+    /// Discard the pending candidate: emit `owner_key_rotation_vetoed` + clear
+    /// `state.pending_owner_key_rotation`.
+    Veto {
+        new_pubkey: [u8; 32],
+        veto_anchor_ts: u64,
+    },
+    /// Activate the rotation: emit `owner_key_added` + `owner_key_archived`,
+    /// rotate Python's owner_keys + Rust's pinned identity, clear pending.
+    Activate {
+        new_pubkey: [u8; 32],
+        prior_active_pubkey: [u8; 32],
+        cooldown_expires_at: u64,
+        activate_anchor_ts: u64,
+    },
+}
+
+/// **C70** — reject a rotate_owner_key mutation: flip `accepted` to false, set
+/// the reason, and fruit a C5 `attestation_invalid` immune sporocarp (the
+/// generic CI-refusal class; the dedicated C70 row is reserved strictly for the
+/// pre-cooldown activation, emitted inline at that site).
+fn reject_rotation(
+    state: &mut ServerState,
+    accepted: &mut bool,
+    rejection_reason: &mut String,
+    reason: &str,
+    evidence_tag: &str,
+) {
+    *accepted = false;
+    *rejection_reason = reason.to_string();
+    let _ = emit_immune_sporocarp(
+        state,
+        "C5_attestation_invalid",
+        "attestation_invalid",
+        evidence_tag,
+    );
+}
+
 /// M10: Forward submit_mutation to Python for classification + (CI) verification,
 /// and on accept insert the mutation as a DAG node.
 pub(crate) fn handle_submit_mutation(
@@ -1426,6 +1475,251 @@ pub(crate) fn handle_submit_mutation(
         }
     }
 
+    // **C70 — owner key-rotation FSM** (L1/GOVERNANCE §3.1). The substrate runs
+    // a 3-state FSM per pending rotation: request → PENDING_COOLDOWN → veto
+    // (VETOED) | activate (ACTIVATED). Python's CI gate already verified the
+    // operator `attestation_signature` over `content_canonical_bytes` against
+    // the ACTIVE owner key, so reaching here with accepted=true proves the
+    // active owner key signed the envelope. The substrate adds the
+    // phase-specific guards (current-key binding, single-in-flight, the cooldown
+    // veto window → C70, and the SECOND dual-cosign signature on activate that
+    // Python does not check). The staged variant is consumed AFTER the
+    // `mutation:rotate_owner_key` DAG node commits.
+    //
+    // Anchor-time MVP: the cooldown is compared against the envelope's
+    // operator-supplied anchor timestamps (mirrors the M15 dual-clock nonce
+    // times). Verifying the anchor's SIGNATURE over the wall-clock (full F4
+    // closure) needs the absent substrate anchor-client — FOLLOW-UP, same gap as
+    // the duress heartbeat unfreeze.
+    let mut staged_rotation: Option<StagedRotation> = None;
+    if accepted && mutation_type == "rotate_owner_key" {
+        let active_owner_pk = state
+            .pinned_operator_identity
+            .as_ref()
+            .map(|p| p.pubkey)
+            .unwrap_or([0u8; 32]);
+        match crate::events::rotate_owner_key_phase(&content_bytes).as_deref() {
+            // ---- REQUEST: open the 30-day cooldown veto window ----
+            Some(crate::events::ROTATE_PHASE_REQUEST) => {
+                match crate::events::decode_rotate_owner_key_request(&content_bytes) {
+                    Some((prior, new_pk, request_ts, cooldown_claimed, _nonce)) => {
+                        let expected_cooldown =
+                            request_ts.saturating_add(crate::events::OWNER_KEY_ROTATION_COOLDOWN_SECS);
+                        if state.pending_owner_key_rotation.is_some() {
+                            reject_rotation(
+                                state,
+                                &mut accepted,
+                                &mut rejection_reason,
+                                "rotate_owner_key request: a rotation is already pending \
+                                 (single-in-flight); veto or activate it first",
+                                "rotation_request_single_in_flight",
+                            );
+                        } else if prior != active_owner_pk {
+                            reject_rotation(
+                                state,
+                                &mut accepted,
+                                &mut rejection_reason,
+                                "rotate_owner_key request: prior_active_pubkey does not match \
+                                 the current active owner key",
+                                "rotation_request_prior_key_mismatch",
+                            );
+                        } else if new_pk == prior {
+                            reject_rotation(
+                                state,
+                                &mut accepted,
+                                &mut rejection_reason,
+                                "rotate_owner_key request: new_pubkey equals the current key \
+                                 (no-op rotation refused)",
+                                "rotation_request_noop",
+                            );
+                        } else if cooldown_claimed != expected_cooldown {
+                            reject_rotation(
+                                state,
+                                &mut accepted,
+                                &mut rejection_reason,
+                                "rotate_owner_key request: cooldown_expires_at does not equal \
+                                 request_anchor_ts + 30d",
+                                "rotation_request_cooldown_mismatch",
+                            );
+                        } else {
+                            staged_rotation = Some(StagedRotation::Request {
+                                new_pubkey: new_pk,
+                                prior_active_pubkey: prior,
+                                request_anchor_ts: request_ts,
+                                cooldown_expires_at: expected_cooldown,
+                            });
+                        }
+                    }
+                    None => reject_rotation(
+                        state,
+                        &mut accepted,
+                        &mut rejection_reason,
+                        "rotate_owner_key request: envelope decode failed",
+                        "rotation_request_decode_failed",
+                    ),
+                }
+            }
+            // ---- VETO: discard a pending candidate within the window ----
+            Some(crate::events::ROTATE_PHASE_VETO) => {
+                match crate::events::decode_rotate_owner_key_veto(&content_bytes) {
+                    Some((veto_new_pk, veto_ts, _nonce)) => {
+                        match state.pending_owner_key_rotation.as_ref() {
+                            None => reject_rotation(
+                                state,
+                                &mut accepted,
+                                &mut rejection_reason,
+                                "rotate_owner_key veto: no rotation is pending",
+                                "rotation_veto_no_pending",
+                            ),
+                            Some(pending) if veto_new_pk != pending.new_pubkey => {
+                                reject_rotation(
+                                    state,
+                                    &mut accepted,
+                                    &mut rejection_reason,
+                                    "rotate_owner_key veto: new_pubkey does not match the \
+                                     pending rotation",
+                                    "rotation_veto_candidate_mismatch",
+                                );
+                            }
+                            Some(pending) if veto_ts >= pending.cooldown_expires_at => {
+                                reject_rotation(
+                                    state,
+                                    &mut accepted,
+                                    &mut rejection_reason,
+                                    "rotate_owner_key veto: veto after the cooldown window \
+                                     elapsed is moot",
+                                    "rotation_veto_after_window",
+                                );
+                            }
+                            Some(pending) => {
+                                staged_rotation = Some(StagedRotation::Veto {
+                                    new_pubkey: pending.new_pubkey,
+                                    veto_anchor_ts: veto_ts,
+                                });
+                            }
+                        }
+                    }
+                    None => reject_rotation(
+                        state,
+                        &mut accepted,
+                        &mut rejection_reason,
+                        "rotate_owner_key veto: envelope decode failed",
+                        "rotation_veto_decode_failed",
+                    ),
+                }
+            }
+            // ---- ACTIVATE: dual-cosign, post-cooldown → rotate ----
+            Some(crate::events::ROTATE_PHASE_ACTIVATE) => {
+                match crate::events::decode_rotate_owner_key_activate(&content_bytes) {
+                    Some((
+                        prior,
+                        new_pk,
+                        _req_ts,
+                        cooldown_claimed,
+                        activate_ts,
+                        _nonce,
+                        new_key_cosig,
+                        activate_core,
+                    )) => {
+                        // Verify the SECOND signature: the NEW key over the
+                        // activate-core (Python only checked the OLD key over the
+                        // full envelope). This is the dual-cosign that proves the
+                        // new key holder consents — a stolen-new-key alone cannot
+                        // forge the old key's signature, and a stolen-old-key
+                        // alone cannot forge the new key's cosignature.
+                        let cosig_ok = verify_signature(&new_pk, &new_key_cosig, &activate_core)
+                            .is_ok();
+                        match state.pending_owner_key_rotation.as_ref() {
+                            None => reject_rotation(
+                                state,
+                                &mut accepted,
+                                &mut rejection_reason,
+                                "rotate_owner_key activate: no rotation is pending",
+                                "rotation_activate_no_pending",
+                            ),
+                            Some(pending)
+                                if new_pk != pending.new_pubkey
+                                    || prior != pending.prior_active_pubkey
+                                    || cooldown_claimed != pending.cooldown_expires_at =>
+                            {
+                                reject_rotation(
+                                    state,
+                                    &mut accepted,
+                                    &mut rejection_reason,
+                                    "rotate_owner_key activate: envelope parameters do not \
+                                     match the pending rotation",
+                                    "rotation_activate_param_mismatch",
+                                );
+                            }
+                            Some(_) if !cosig_ok => {
+                                reject_rotation(
+                                    state,
+                                    &mut accepted,
+                                    &mut rejection_reason,
+                                    "rotate_owner_key activate: new-key cosignature invalid \
+                                     (dual-cosign failed)",
+                                    "rotation_activate_cosign_invalid",
+                                );
+                            }
+                            Some(pending) if activate_ts < pending.request_anchor_ts => {
+                                reject_rotation(
+                                    state,
+                                    &mut accepted,
+                                    &mut rejection_reason,
+                                    "rotate_owner_key activate: activate anchor timestamp runs \
+                                     backward relative to the request",
+                                    "rotation_activate_clock_backward",
+                                );
+                            }
+                            Some(pending) if activate_ts < pending.cooldown_expires_at => {
+                                // **C70 rotation_veto_window_violation**: activation
+                                // attempted before the 30-day veto window elapsed —
+                                // a stolen-new-key takeover trying to skip the veto
+                                // window. Reject + fruit C70.
+                                accepted = false;
+                                rejection_reason = format!(
+                                    "C70 rotation_veto_window_violation: rotate_owner_key \
+                                     activation at anchor_ts={activate_ts} before the cooldown \
+                                     expires at {} (30-day veto window not elapsed)",
+                                    pending.cooldown_expires_at
+                                );
+                                let _ = emit_immune_sporocarp(
+                                    state,
+                                    "C70_rotation_veto_window_violation",
+                                    "rotation_veto_window_violation",
+                                    &rejection_reason,
+                                );
+                            }
+                            Some(pending) => {
+                                staged_rotation = Some(StagedRotation::Activate {
+                                    new_pubkey: pending.new_pubkey,
+                                    prior_active_pubkey: pending.prior_active_pubkey,
+                                    cooldown_expires_at: pending.cooldown_expires_at,
+                                    activate_anchor_ts: activate_ts,
+                                });
+                            }
+                        }
+                    }
+                    None => reject_rotation(
+                        state,
+                        &mut accepted,
+                        &mut rejection_reason,
+                        "rotate_owner_key activate: envelope decode failed",
+                        "rotation_activate_decode_failed",
+                    ),
+                }
+            }
+            // ---- Unknown / missing phase ----
+            _ => reject_rotation(
+                state,
+                &mut accepted,
+                &mut rejection_reason,
+                "rotate_owner_key: missing or unknown phase (expected request|veto|activate)",
+                "rotation_unknown_phase",
+            ),
+        }
+    }
+
     // **M26.4 F20 owner_objective_declaration**: decode the OwnerObjective
     // payload before insertion so we can refuse malformed declarations
     // (rejected with C5 attestation_invalid; no DAG churn). Pre-apply
@@ -1902,6 +2196,141 @@ pub(crate) fn handle_submit_mutation(
         None
     };
 
+    // **C70** — after the `mutation:rotate_owner_key` DAG node commits, apply the
+    // staged FSM transition: emit the phase event(s) + (on activate) rotate the
+    // owner key on BOTH the Python (next-CI-attestation) and Rust (pinned
+    // identity → next-boot genesis key) sides, then update
+    // `state.pending_owner_key_rotation`. The phase-specific guards (cooldown,
+    // dual-cosign, single-in-flight) were all enforced in the decode pass above,
+    // so reaching here means the transition is authorized.
+    let mut rotation_requested_event_hash: Option<myco_kernel_shared::crypto::NodeHash> = None;
+    let mut rotation_vetoed_event_hash: Option<myco_kernel_shared::crypto::NodeHash> = None;
+    let mut owner_key_added_event_hash: Option<myco_kernel_shared::crypto::NodeHash> = None;
+    let mut owner_key_archived_event_hash: Option<myco_kernel_shared::crypto::NodeHash> = None;
+    if accepted {
+        if let Some(staged) = staged_rotation {
+            match staged {
+                StagedRotation::Request {
+                    new_pubkey,
+                    prior_active_pubkey,
+                    request_anchor_ts,
+                    cooldown_expires_at,
+                } => {
+                    let content = crate::events::encode_owner_key_rotation_requested(
+                        &new_pubkey,
+                        &prior_active_pubkey,
+                        request_anchor_ts,
+                        cooldown_expires_at,
+                    );
+                    let h = emit_substrate_event(
+                        state,
+                        crate::events::NODE_TYPE_OWNER_KEY_ROTATION_REQUESTED.to_string(),
+                        content,
+                    )?;
+                    state.pending_owner_key_rotation =
+                        Some(crate::events::PendingOwnerKeyRotation {
+                            new_pubkey,
+                            prior_active_pubkey,
+                            request_anchor_ts,
+                            cooldown_expires_at,
+                            requested_at_cycle: state.cycle_counter(),
+                        });
+                    rotation_requested_event_hash = Some(h);
+                }
+                StagedRotation::Veto {
+                    new_pubkey,
+                    veto_anchor_ts,
+                } => {
+                    let content = crate::events::encode_owner_key_rotation_vetoed(
+                        &new_pubkey,
+                        veto_anchor_ts,
+                    );
+                    let h = emit_substrate_event(
+                        state,
+                        crate::events::NODE_TYPE_OWNER_KEY_ROTATION_VETOED.to_string(),
+                        content,
+                    )?;
+                    state.pending_owner_key_rotation = None;
+                    rotation_vetoed_event_hash = Some(h);
+                }
+                StagedRotation::Activate {
+                    new_pubkey,
+                    prior_active_pubkey,
+                    cooldown_expires_at,
+                    activate_anchor_ts,
+                } => {
+                    // 1. Rotate Python's owner_keys FIRST — it is the only step
+                    //    that can fail (its monotonicity invariant rejects an
+                    //    activate timestamp that predates the active key's
+                    //    valid_from). Doing it first means a failure leaves NO
+                    //    owner_key_added on-chain and the pending rotation intact,
+                    //    so the owner can retry with a corrected anchor time
+                    //    rather than the substrate ending up in a half-rotated
+                    //    state. (In production the anchor clock advances, so a
+                    //    legitimate activation never trips this.)
+                    let rotate_result = match state.python_client.as_mut() {
+                        Some(client) => client.apply_owner_key_rotation(
+                            &prior_active_pubkey,
+                            &new_pubkey,
+                            activate_anchor_ts,
+                            cooldown_expires_at,
+                        ),
+                        None => Ok(()),
+                    };
+                    if let Err(e) = rotate_result {
+                        accepted = false;
+                        rejection_reason = format!(
+                            "rotate_owner_key activate: Python owner_keys rotation \
+                             rejected (likely a non-monotonic anchor timestamp): {e}"
+                        );
+                        let _ = emit_immune_sporocarp(
+                            state,
+                            "C5_attestation_invalid",
+                            "attestation_invalid",
+                            "rotation_activate_python_apply_failed",
+                        );
+                    } else {
+                        // 2. owner_key_added(new) + owner_key_archived(prior) — the
+                        //    on-chain audit trail (the positive witness that
+                        //    replaces the former acknowledged-debt sentinel).
+                        let added = crate::events::encode_owner_key_added(
+                            &new_pubkey,
+                            &prior_active_pubkey,
+                            activate_anchor_ts,
+                        );
+                        let h_added = emit_substrate_event(
+                            state,
+                            crate::events::NODE_TYPE_OWNER_KEY_ADDED.to_string(),
+                            added,
+                        )?;
+                        let archived = crate::events::encode_owner_key_archived(
+                            &prior_active_pubkey,
+                            activate_anchor_ts,
+                        );
+                        let h_archived = emit_substrate_event(
+                            state,
+                            crate::events::NODE_TYPE_OWNER_KEY_ARCHIVED.to_string(),
+                            archived,
+                        )?;
+                        owner_key_added_event_hash = Some(h_added);
+                        owner_key_archived_event_hash = Some(h_archived);
+
+                        // 3. Rotate Rust's pinned identity (identity continuity:
+                        //    keep first_pinned_unix_ns; only the pubkey changes).
+                        //    This is also what the next boot hands Python as the
+                        //    genesis owner key, so the rotation survives a restart.
+                        if let Some(pinned) = state.pinned_operator_identity.as_mut() {
+                            pinned.pubkey = new_pubkey;
+                        }
+
+                        // 4. Close out the FSM.
+                        state.pending_owner_key_rotation = None;
+                    }
+                }
+            }
+        }
+    }
+
     // M17 P3 永恒进化: after mutation acceptance, emit the evolution event DAG node.
     // - schema_apply_attempted + schema_apply_succeeded → evolution_succeeded:{op}
     // - schema_apply_attempted + !schema_apply_succeeded → evolution_failed:{op}
@@ -2153,6 +2582,32 @@ pub(crate) fn handle_submit_mutation(
     if let Some(h) = duress_cleared_event_hash {
         payload.insert(
             "duress_cleared_event_hash".to_string(),
+            Value::Bytes(h.as_ref().to_vec()),
+        );
+    }
+    // **C70** — surface the rotation-FSM event hashes so the operator side can
+    // index them / confirm the transition landed on-chain.
+    if let Some(h) = rotation_requested_event_hash {
+        payload.insert(
+            "owner_key_rotation_requested_event_hash".to_string(),
+            Value::Bytes(h.as_ref().to_vec()),
+        );
+    }
+    if let Some(h) = rotation_vetoed_event_hash {
+        payload.insert(
+            "owner_key_rotation_vetoed_event_hash".to_string(),
+            Value::Bytes(h.as_ref().to_vec()),
+        );
+    }
+    if let Some(h) = owner_key_added_event_hash {
+        payload.insert(
+            "owner_key_added_event_hash".to_string(),
+            Value::Bytes(h.as_ref().to_vec()),
+        );
+    }
+    if let Some(h) = owner_key_archived_event_hash {
+        payload.insert(
+            "owner_key_archived_event_hash".to_string(),
             Value::Bytes(h.as_ref().to_vec()),
         );
     }

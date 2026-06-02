@@ -6,12 +6,16 @@ import pytest
 
 from myco_kernel_governance.crypto import Ed25519PrivateKey
 from myco_kernel_governance.owner_keys import (
+    COOLDOWN_ANCHOR_SECONDS,
     DEFAULT_ACTIVE_PREFIX_K,
     HistoryEmpty,
     NoActiveKey,
     OwnerKeyEntry,
     OwnerKeyHistory,
     OwnerKeyHistoryError,
+    RotationError,
+    RotationFSM,
+    RotationState,
     init_with_genesis_key,
 )
 
@@ -243,3 +247,145 @@ def test_owner_key_entry_open_window() -> None:
     assert entry.is_active_at(100)
     assert entry.is_active_at(10_000_000_000)  # far future
     assert not entry.is_active_at(50)  # before valid_from
+
+
+# ---------------------------------------------------------------------------
+# C70 — RotationFSM (L1/GOVERNANCE §3.1): request → cooldown → veto/activate.
+# ---------------------------------------------------------------------------
+
+_REQUEST_TS = 1_700_000_000
+_COOLDOWN_END = _REQUEST_TS + COOLDOWN_ANCHOR_SECONDS
+
+
+def test_rotation_request_opens_cooldown() -> None:
+    fsm = RotationFSM()
+    assert fsm.state is RotationState.NONE
+    cooldown_end = fsm.request(_key(0x01), _key(0x02), _REQUEST_TS)
+    assert fsm.state is RotationState.PENDING_COOLDOWN
+    assert cooldown_end == _COOLDOWN_END
+    assert fsm.cooldown_expires_at_anchor_timestamp == _COOLDOWN_END
+    assert fsm.new_public_key == _key(0x02)
+
+
+def test_rotation_request_rejects_noop_rotation() -> None:
+    fsm = RotationFSM()
+    with pytest.raises(RotationError, match="no-op rotation"):
+        fsm.request(_key(0x01), _key(0x01), _REQUEST_TS)
+
+
+def test_rotation_single_in_flight_guard() -> None:
+    fsm = RotationFSM()
+    fsm.request(_key(0x01), _key(0x02), _REQUEST_TS)
+    with pytest.raises(RotationError, match="already pending"):
+        fsm.request(_key(0x01), _key(0x03), _REQUEST_TS + 10)
+
+
+def test_rotation_veto_within_window() -> None:
+    fsm = RotationFSM()
+    fsm.request(_key(0x01), _key(0x02), _REQUEST_TS)
+    fsm.veto(_COOLDOWN_END - 1)
+    assert fsm.state is RotationState.VETOED
+
+
+def test_rotation_veto_after_window_is_moot() -> None:
+    fsm = RotationFSM()
+    fsm.request(_key(0x01), _key(0x02), _REQUEST_TS)
+    with pytest.raises(RotationError, match="moot"):
+        fsm.veto(_COOLDOWN_END)  # exactly at expiry → window closed
+    assert fsm.state is RotationState.PENDING_COOLDOWN  # unchanged
+
+
+def test_rotation_veto_requires_pending() -> None:
+    fsm = RotationFSM()
+    with pytest.raises(RotationError, match="requires a pending rotation"):
+        fsm.veto(_REQUEST_TS)
+
+
+def test_rotation_activate_before_cooldown_is_c70() -> None:
+    fsm = RotationFSM()
+    fsm.request(_key(0x01), _key(0x02), _REQUEST_TS)
+    with pytest.raises(RotationError, match="C70"):
+        fsm.activate(_COOLDOWN_END - 1)
+    assert fsm.state is RotationState.PENDING_COOLDOWN  # not activated
+
+
+def test_rotation_activate_backward_clock_rejected() -> None:
+    fsm = RotationFSM()
+    fsm.request(_key(0x01), _key(0x02), _REQUEST_TS)
+    with pytest.raises(RotationError, match="backward"):
+        fsm.activate(_REQUEST_TS - 1)
+
+
+def test_rotation_activate_after_cooldown_succeeds() -> None:
+    fsm = RotationFSM()
+    fsm.request(_key(0x01), _key(0x02), _REQUEST_TS)
+    fsm.activate(_COOLDOWN_END)  # exactly at expiry is allowed (>=)
+    assert fsm.state is RotationState.ACTIVATED
+
+
+def test_rotation_apply_activation_mutates_history() -> None:
+    old, new = _key(0x01), _key(0x02)
+    history = init_with_genesis_key(old, genesis_anchor_timestamp_unix_seconds=100)
+    fsm = RotationFSM()
+    fsm.request(old, new, _REQUEST_TS)
+    fsm.activate(_COOLDOWN_END)
+    fsm.apply_activation(history, _COOLDOWN_END)
+
+    # The new key is now the currently-active key.
+    assert history.current_active() == new
+    assert history.total_count() == 2
+
+    # The old key was retired with valid_until + cooldown_expired_at stamped.
+    old_entry = next(
+        e for e in history._iter_all() if e.public_key.bytes_ == old.bytes_
+    )
+    assert old_entry.valid_until_anchor_timestamp == _COOLDOWN_END
+    assert old_entry.cooldown_expired_at_anchor_timestamp == _COOLDOWN_END
+
+    # active_at honors the cutover: old key before, new key at/after.
+    assert history.active_at(_COOLDOWN_END - 1) == old
+    assert history.active_at(_COOLDOWN_END) == new
+
+
+def test_rotation_apply_activation_requires_activated_state() -> None:
+    history = init_with_genesis_key(_key(0x01), 100)
+    fsm = RotationFSM()
+    fsm.request(_key(0x01), _key(0x02), _REQUEST_TS)
+    # Still PENDING_COOLDOWN (never activated) → apply must refuse.
+    with pytest.raises(RotationError, match="ACTIVATED"):
+        fsm.apply_activation(history, _COOLDOWN_END)
+
+
+def test_retire_active_key_missing_match_raises() -> None:
+    history = init_with_genesis_key(_key(0x01), 100)
+    with pytest.raises(NoActiveKey):
+        history.retire_active_key(_key(0x09), 200, 200)
+
+
+def test_owner_key_entry_carries_cooldown_expired_at() -> None:
+    """C70 v2 field roundtrips through the dataclass + persistence."""
+    from myco_kernel_governance.owner_keys_persistence import (
+        owner_keys_from_canonical_bytes,
+        owner_keys_to_canonical_bytes,
+    )
+
+    old, new = _key(0x01), _key(0x02)
+    history = init_with_genesis_key(old, genesis_anchor_timestamp_unix_seconds=100)
+    fsm = RotationFSM()
+    fsm.request(old, new, _REQUEST_TS)
+    fsm.activate(_COOLDOWN_END)
+    fsm.apply_activation(history, _COOLDOWN_END)
+
+    roundtripped = owner_keys_from_canonical_bytes(
+        owner_keys_to_canonical_bytes(history)
+    )
+    assert roundtripped is not None
+    old_entry = next(
+        e for e in roundtripped._iter_all() if e.public_key.bytes_ == old.bytes_
+    )
+    assert old_entry.cooldown_expired_at_anchor_timestamp == _COOLDOWN_END
+    new_entry = next(
+        e for e in roundtripped._iter_all() if e.public_key.bytes_ == new.bytes_
+    )
+    # The active key has no cooldown_expired_at (its successor hasn't activated).
+    assert new_entry.cooldown_expired_at_anchor_timestamp is None

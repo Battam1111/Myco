@@ -95,12 +95,16 @@ from myco_kernel_governance.crypto import (
     verify_signature,
 )
 from myco_kernel_governance.owner_keys import (
+    COOLDOWN_ANCHOR_SECONDS,
     DEFAULT_ACTIVE_PREFIX_K,
     HistoryEmpty,
     NoActiveKey,
     OwnerKeyEntry,
     OwnerKeyHistory,
     OwnerKeyHistoryError,
+    RotationError,
+    RotationFSM,
+    RotationState,
     init_with_genesis_key,
 )
 from myco_kernel_governance.owner_keys_persistence import (
@@ -127,6 +131,7 @@ __version__ = "0.9.0a1"
 
 __all__ = [
     "BACKUP_ENCRYPTION_STATUS_VALID_VALUES",
+    "COOLDOWN_ANCHOR_SECONDS",
     "DEFAULT_ACTIVE_PREFIX_K",
     "ENVELOPE_TYPE_CI_ATTESTATION_REQUEST",
     "FORBIDDEN_PRESERVE_ALL_MUTATION_TYPES",
@@ -175,6 +180,9 @@ __all__ = [
     "OwnerSignedAttestation",
     "PrivateKeyMalformed",
     "PublicKeyMalformed",
+    "RotationError",
+    "RotationFSM",
+    "RotationState",
     "SchemaDiff",
     "SchemaDiffOp",
     "SchemaEvolutionError",

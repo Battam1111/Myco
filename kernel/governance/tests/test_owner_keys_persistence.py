@@ -162,4 +162,45 @@ def test_save_overwrites_existing(tmp_path: Path) -> None:
 
 
 def test_format_version_pin() -> None:
-    assert OWNER_KEYS_FORMAT_VERSION == 1
+    assert OWNER_KEYS_FORMAT_VERSION == 2
+
+
+def test_v1_to_v2_shim_reads_legacy_file(tmp_path: Path) -> None:
+    """C70: a v1 owner_keys file (no ``cooldown_expired_at`` columns) must still
+    load, with the missing columns defaulted to ``None``."""
+    from myco_kernel_governance.canonical_bytes import (
+        Array as CbArray,
+        Bool,
+        Bytes as CbBytes,
+        Map as CbMap,
+        Uint as CbUint,
+        encode,
+    )
+
+    # Hand-build a v1 entry: NO cooldown_expired_at columns.
+    v1_entry = CbMap.from_dict(
+        {
+            "public_key": CbBytes(_pubkey(0x11).bytes_),
+            "valid_from_anchor_timestamp": CbUint(1000),
+            "valid_until_anchor_timestamp": CbUint(0),
+            "valid_until_set": Bool(False),
+            "rotation_attestation_hash": CbBytes(b""),
+        }
+    )
+    v1_root = CbMap.from_dict(
+        {
+            "format_version": CbUint(1),
+            "k": CbUint(8),
+            "active_prefix": CbArray((v1_entry,)),
+            "active_extra_valid": CbArray(()),
+            "archived_tail": CbArray(()),
+        }
+    )
+    target = tmp_path / OWNER_KEYS_FILENAME
+    target.write_bytes(encode(v1_root).bytes_)
+
+    h = load_owner_key_history(tmp_path)
+    assert h is not None
+    assert h.current_active().bytes_ == _pubkey(0x11).bytes_
+    entry = h.active_prefix[0]
+    assert entry.cooldown_expired_at_anchor_timestamp is None

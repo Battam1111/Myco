@@ -39,6 +39,17 @@ pub const NODE_TYPE_OWNER_KEY_ADDED: &str = "owner_key_added";
 /// Owner-key archive event (rotation complete).
 pub const NODE_TYPE_OWNER_KEY_ARCHIVED: &str = "owner_key_archived";
 
+/// **C70** — owner key-rotation REQUEST event (L1/GOVERNANCE §3.1). Emitted
+/// when the current owner publishes a new candidate (current-key-signed); opens
+/// the 30-day cooldown veto window. The DAG-derived `pending_owner_key_rotation`
+/// reads the latest such event not followed by an activation/veto.
+pub const NODE_TYPE_OWNER_KEY_ROTATION_REQUESTED: &str = "owner_key_rotation_requested";
+
+/// **C70** — owner key-rotation VETO event (L1/GOVERNANCE §3.1). Emitted when a
+/// pre-registered key vetoes a pending rotation within the cooldown window; the
+/// candidate is discarded and the pending rotation cleared.
+pub const NODE_TYPE_OWNER_KEY_ROTATION_VETOED: &str = "owner_key_rotation_vetoed";
+
 /// Prefix for nonce_issued events.
 pub const NODE_TYPE_NONCE_ISSUED_PREFIX: &str = "nonce_issued:";
 
@@ -435,6 +446,418 @@ pub fn decode_rotate_owner_key(
         _ => return None,
     };
     Some((prior, new_pk, ts, nonce))
+}
+
+// ---- C70 phased rotate_owner_key envelopes (L1/GOVERNANCE §3.1) ----
+//
+// The legacy `build_rotate_owner_key_canonical_bytes` above is the single-shot
+// MVP envelope and stays BYTE-IDENTICAL (its roundtrip test pins it). C70 adds
+// the 3-phase FSM. The phased envelopes reuse the `rotate_owner_key_v1` domain
+// but carry a `phase` discriminator ("request" | "veto" | "activate"); the
+// presence of `phase` is what distinguishes a phased envelope from the legacy
+// one. Each phase decodes via a dedicated function returning its own tuple.
+//
+// Phase byte-layouts (canonical-bytes Maps; keys sorted by the cb encoder):
+//   request:  { domain, phase:"request", prior_active_pubkey, new_pubkey,
+//               request_anchor_timestamp_unix_seconds, cooldown_expires_at_unix_seconds,
+//               anchor_nonce }
+//   veto:     { domain, phase:"veto", new_pubkey,
+//               veto_anchor_timestamp_unix_seconds, anchor_nonce }
+//   activate: <activate-core> + { new_key_cosignature: Bytes(64) }
+//     activate-core: { domain, phase:"activate", prior_active_pubkey, new_pubkey,
+//               request_anchor_timestamp_unix_seconds, cooldown_expires_at_unix_seconds,
+//               activate_anchor_timestamp_unix_seconds, anchor_nonce }
+//
+// Dual-cosign discipline (activate): the NEW key signs the activate-CORE (which
+// excludes its own signature); the OLD key signs the FULL activate envelope
+// (core + new_key_cosignature) via the operator `attestation_signature` that
+// Python's CI gate already verifies against the active owner key. The substrate
+// reconstructs the core deterministically + verifies the new-key cosignature.
+
+/// Phase discriminator value for a rotation request envelope.
+pub const ROTATE_PHASE_REQUEST: &str = "request";
+/// Phase discriminator value for a rotation veto envelope.
+pub const ROTATE_PHASE_VETO: &str = "veto";
+/// Phase discriminator value for a rotation activate envelope.
+pub const ROTATE_PHASE_ACTIVATE: &str = "activate";
+
+/// Extract the `phase` discriminator from a (possibly phased) rotate envelope.
+/// Returns `None` for the legacy single-shot envelope (no `phase` field) or a
+/// non-rotate / malformed envelope.
+pub fn rotate_owner_key_phase(bytes: &[u8]) -> Option<String> {
+    use myco_kernel_shared::canonical_bytes::decode;
+    let m = match decode(bytes).ok()? {
+        Value::Map(m) => m,
+        _ => return None,
+    };
+    match m.get("domain")? {
+        Value::String(s) if s == ROTATE_OWNER_KEY_DOMAIN => {}
+        _ => return None,
+    }
+    match m.get("phase")? {
+        Value::String(s) => Some(s.clone()),
+        _ => None,
+    }
+}
+
+/// Build the canonical-bytes a current owner signs to REQUEST a rotation (C70).
+/// The current owner's `attestation_signature` over these bytes is verified by
+/// Python's CI gate against the active owner key.
+pub fn build_rotate_owner_key_request(
+    prior_active_pubkey: &[u8; 32],
+    new_pubkey: &[u8; 32],
+    request_anchor_timestamp_unix_seconds: u64,
+    cooldown_expires_at_unix_seconds: u64,
+    anchor_nonce: &[u8; 32],
+) -> Vec<u8> {
+    let mut m = BTreeMap::new();
+    m.insert("domain".to_string(), Value::String(ROTATE_OWNER_KEY_DOMAIN.to_string()));
+    m.insert("phase".to_string(), Value::String(ROTATE_PHASE_REQUEST.to_string()));
+    m.insert("prior_active_pubkey".to_string(), Value::Bytes(prior_active_pubkey.to_vec()));
+    m.insert("new_pubkey".to_string(), Value::Bytes(new_pubkey.to_vec()));
+    m.insert(
+        "request_anchor_timestamp_unix_seconds".to_string(),
+        Value::Uint(request_anchor_timestamp_unix_seconds),
+    );
+    m.insert(
+        "cooldown_expires_at_unix_seconds".to_string(),
+        Value::Uint(cooldown_expires_at_unix_seconds),
+    );
+    m.insert("anchor_nonce".to_string(), Value::Bytes(anchor_nonce.to_vec()));
+    cb_encode(&Value::Map(m))
+        .expect("rotate_owner_key request canonical-bytes encode infallible")
+        .0
+}
+
+/// Decoded rotation REQUEST envelope:
+/// `(prior_active_pubkey, new_pubkey, request_anchor_ts, cooldown_expires_at, anchor_nonce)`.
+pub fn decode_rotate_owner_key_request(
+    bytes: &[u8],
+) -> Option<([u8; 32], [u8; 32], u64, u64, [u8; 32])> {
+    use myco_kernel_shared::canonical_bytes::decode;
+    let m = match decode(bytes).ok()? {
+        Value::Map(m) => m,
+        _ => return None,
+    };
+    expect_domain_phase(&m, ROTATE_PHASE_REQUEST)?;
+    let prior = map_bytes32(&m, "prior_active_pubkey")?;
+    let new_pk = map_bytes32(&m, "new_pubkey")?;
+    let request_ts = map_uint(&m, "request_anchor_timestamp_unix_seconds")?;
+    let cooldown = map_uint(&m, "cooldown_expires_at_unix_seconds")?;
+    let nonce = map_bytes32(&m, "anchor_nonce")?;
+    Some((prior, new_pk, request_ts, cooldown, nonce))
+}
+
+/// Build the canonical-bytes a pre-registered owner signs to VETO a pending
+/// rotation (C70). Binds to the pending rotation's `new_pubkey`. Python's CI
+/// gate verifies the `attestation_signature` over these bytes against the
+/// currently-active owner key (during cooldown, the old key is the only
+/// currently-valid key — exactly the legitimate vetoer).
+pub fn build_rotate_owner_key_veto(
+    new_pubkey: &[u8; 32],
+    veto_anchor_timestamp_unix_seconds: u64,
+    anchor_nonce: &[u8; 32],
+) -> Vec<u8> {
+    let mut m = BTreeMap::new();
+    m.insert("domain".to_string(), Value::String(ROTATE_OWNER_KEY_DOMAIN.to_string()));
+    m.insert("phase".to_string(), Value::String(ROTATE_PHASE_VETO.to_string()));
+    m.insert("new_pubkey".to_string(), Value::Bytes(new_pubkey.to_vec()));
+    m.insert(
+        "veto_anchor_timestamp_unix_seconds".to_string(),
+        Value::Uint(veto_anchor_timestamp_unix_seconds),
+    );
+    m.insert("anchor_nonce".to_string(), Value::Bytes(anchor_nonce.to_vec()));
+    cb_encode(&Value::Map(m))
+        .expect("rotate_owner_key veto canonical-bytes encode infallible")
+        .0
+}
+
+/// Decoded rotation VETO envelope: `(new_pubkey, veto_anchor_ts, anchor_nonce)`.
+pub fn decode_rotate_owner_key_veto(bytes: &[u8]) -> Option<([u8; 32], u64, [u8; 32])> {
+    use myco_kernel_shared::canonical_bytes::decode;
+    let m = match decode(bytes).ok()? {
+        Value::Map(m) => m,
+        _ => return None,
+    };
+    expect_domain_phase(&m, ROTATE_PHASE_VETO)?;
+    let new_pk = map_bytes32(&m, "new_pubkey")?;
+    let veto_ts = map_uint(&m, "veto_anchor_timestamp_unix_seconds")?;
+    let nonce = map_bytes32(&m, "anchor_nonce")?;
+    Some((new_pk, veto_ts, nonce))
+}
+
+/// Build the activate-CORE canonical-bytes — the bytes the NEW key co-signs.
+/// Excludes `new_key_cosignature` so the new key can sign before the cosignature
+/// exists. Both keys ultimately attest to this same core (the old key signs the
+/// full envelope that wraps it).
+pub fn build_rotate_owner_key_activate_core(
+    prior_active_pubkey: &[u8; 32],
+    new_pubkey: &[u8; 32],
+    request_anchor_timestamp_unix_seconds: u64,
+    cooldown_expires_at_unix_seconds: u64,
+    activate_anchor_timestamp_unix_seconds: u64,
+    anchor_nonce: &[u8; 32],
+) -> Vec<u8> {
+    let mut m = BTreeMap::new();
+    m.insert("domain".to_string(), Value::String(ROTATE_OWNER_KEY_DOMAIN.to_string()));
+    m.insert("phase".to_string(), Value::String(ROTATE_PHASE_ACTIVATE.to_string()));
+    m.insert("prior_active_pubkey".to_string(), Value::Bytes(prior_active_pubkey.to_vec()));
+    m.insert("new_pubkey".to_string(), Value::Bytes(new_pubkey.to_vec()));
+    m.insert(
+        "request_anchor_timestamp_unix_seconds".to_string(),
+        Value::Uint(request_anchor_timestamp_unix_seconds),
+    );
+    m.insert(
+        "cooldown_expires_at_unix_seconds".to_string(),
+        Value::Uint(cooldown_expires_at_unix_seconds),
+    );
+    m.insert(
+        "activate_anchor_timestamp_unix_seconds".to_string(),
+        Value::Uint(activate_anchor_timestamp_unix_seconds),
+    );
+    m.insert("anchor_nonce".to_string(), Value::Bytes(anchor_nonce.to_vec()));
+    cb_encode(&Value::Map(m))
+        .expect("rotate_owner_key activate-core canonical-bytes encode infallible")
+        .0
+}
+
+/// Build the FULL activate envelope = activate-core + `new_key_cosignature`.
+/// The OLD key signs THIS (via the operator `attestation_signature`).
+pub fn build_rotate_owner_key_activate(
+    prior_active_pubkey: &[u8; 32],
+    new_pubkey: &[u8; 32],
+    request_anchor_timestamp_unix_seconds: u64,
+    cooldown_expires_at_unix_seconds: u64,
+    activate_anchor_timestamp_unix_seconds: u64,
+    anchor_nonce: &[u8; 32],
+    new_key_cosignature: &[u8; 64],
+) -> Vec<u8> {
+    // Decode the core back into a Map, append the cosignature, re-encode. This
+    // guarantees the embedded core is byte-identical to what the new key signed.
+    use myco_kernel_shared::canonical_bytes::decode;
+    let core = build_rotate_owner_key_activate_core(
+        prior_active_pubkey,
+        new_pubkey,
+        request_anchor_timestamp_unix_seconds,
+        cooldown_expires_at_unix_seconds,
+        activate_anchor_timestamp_unix_seconds,
+        anchor_nonce,
+    );
+    let mut m = match decode(&core).expect("activate-core decodes") {
+        Value::Map(m) => m,
+        _ => unreachable!("activate-core is a Map"),
+    };
+    m.insert(
+        "new_key_cosignature".to_string(),
+        Value::Bytes(new_key_cosignature.to_vec()),
+    );
+    cb_encode(&Value::Map(m))
+        .expect("rotate_owner_key activate canonical-bytes encode infallible")
+        .0
+}
+
+/// Decoded rotation ACTIVATE envelope:
+/// `(prior_active_pubkey, new_pubkey, request_anchor_ts, cooldown_expires_at,
+///   activate_anchor_ts, anchor_nonce, new_key_cosignature, activate_core_bytes)`.
+/// `activate_core_bytes` is the reconstructed core the new key must have signed,
+/// returned so the caller can verify `new_key_cosignature` against `new_pubkey`.
+#[allow(clippy::type_complexity)]
+pub fn decode_rotate_owner_key_activate(
+    bytes: &[u8],
+) -> Option<([u8; 32], [u8; 32], u64, u64, u64, [u8; 32], [u8; 64], Vec<u8>)> {
+    use myco_kernel_shared::canonical_bytes::decode;
+    let m = match decode(bytes).ok()? {
+        Value::Map(m) => m,
+        _ => return None,
+    };
+    expect_domain_phase(&m, ROTATE_PHASE_ACTIVATE)?;
+    let prior = map_bytes32(&m, "prior_active_pubkey")?;
+    let new_pk = map_bytes32(&m, "new_pubkey")?;
+    let request_ts = map_uint(&m, "request_anchor_timestamp_unix_seconds")?;
+    let cooldown = map_uint(&m, "cooldown_expires_at_unix_seconds")?;
+    let activate_ts = map_uint(&m, "activate_anchor_timestamp_unix_seconds")?;
+    let nonce = map_bytes32(&m, "anchor_nonce")?;
+    let cosig = match m.get("new_key_cosignature")? {
+        Value::Bytes(b) if b.len() == 64 => {
+            let mut a = [0u8; 64];
+            a.copy_from_slice(b);
+            a
+        }
+        _ => return None,
+    };
+    // Reconstruct the core (without the cosignature) so the caller can verify
+    // the new-key cosignature over the EXACT bytes the new key signed.
+    let core = build_rotate_owner_key_activate_core(
+        &prior,
+        &new_pk,
+        request_ts,
+        cooldown,
+        activate_ts,
+        &nonce,
+    );
+    Some((prior, new_pk, request_ts, cooldown, activate_ts, nonce, cosig, core))
+}
+
+// ---- shared phased-envelope field extractors ----
+
+fn expect_domain_phase(m: &BTreeMap<String, Value>, phase: &str) -> Option<()> {
+    match m.get("domain")? {
+        Value::String(s) if s == ROTATE_OWNER_KEY_DOMAIN => {}
+        _ => return None,
+    }
+    match m.get("phase")? {
+        Value::String(s) if s == phase => Some(()),
+        _ => None,
+    }
+}
+
+fn map_bytes32(m: &BTreeMap<String, Value>, key: &str) -> Option<[u8; 32]> {
+    match m.get(key)? {
+        Value::Bytes(b) if b.len() == 32 => {
+            let mut a = [0u8; 32];
+            a.copy_from_slice(b);
+            Some(a)
+        }
+        _ => None,
+    }
+}
+
+fn map_uint(m: &BTreeMap<String, Value>, key: &str) -> Option<u64> {
+    match m.get(key)? {
+        Value::Uint(u) => Some(*u),
+        _ => None,
+    }
+}
+
+// ---- C70 rotation event encoders (owner_key_rotation_requested / _vetoed) ----
+
+/// Content of an `owner_key_rotation_requested` event (C70):
+/// ```text
+/// Map({ "new_pubkey": Bytes(32), "prior_active_pubkey": Bytes(32),
+///       "request_anchor_timestamp_unix_seconds": Uint,
+///       "cooldown_expires_at_unix_seconds": Uint })
+/// ```
+pub fn encode_owner_key_rotation_requested(
+    new_pubkey: &[u8; 32],
+    prior_active_pubkey: &[u8; 32],
+    request_anchor_timestamp_unix_seconds: u64,
+    cooldown_expires_at_unix_seconds: u64,
+) -> CanonicalBytes {
+    let mut m = BTreeMap::new();
+    m.insert("new_pubkey".to_string(), Value::Bytes(new_pubkey.to_vec()));
+    m.insert(
+        "prior_active_pubkey".to_string(),
+        Value::Bytes(prior_active_pubkey.to_vec()),
+    );
+    m.insert(
+        "request_anchor_timestamp_unix_seconds".to_string(),
+        Value::Uint(request_anchor_timestamp_unix_seconds),
+    );
+    m.insert(
+        "cooldown_expires_at_unix_seconds".to_string(),
+        Value::Uint(cooldown_expires_at_unix_seconds),
+    );
+    cb_encode(&Value::Map(m)).expect("owner_key_rotation_requested encode infallible")
+}
+
+/// Decode the `(new_pubkey, prior_active_pubkey, request_anchor_ts, cooldown_expires_at)`
+/// tuple from an `owner_key_rotation_requested` event body. Used by the
+/// DAG-derivation of `pending_owner_key_rotation` at boot.
+pub fn decode_owner_key_rotation_requested(
+    bytes: &[u8],
+) -> Option<([u8; 32], [u8; 32], u64, u64)> {
+    use myco_kernel_shared::canonical_bytes::decode;
+    let m = match decode(bytes).ok()? {
+        Value::Map(m) => m,
+        _ => return None,
+    };
+    let new_pk = map_bytes32(&m, "new_pubkey")?;
+    let prior = map_bytes32(&m, "prior_active_pubkey")?;
+    let request_ts = map_uint(&m, "request_anchor_timestamp_unix_seconds")?;
+    let cooldown = map_uint(&m, "cooldown_expires_at_unix_seconds")?;
+    Some((new_pk, prior, request_ts, cooldown))
+}
+
+/// Content of an `owner_key_rotation_vetoed` event (C70):
+/// ```text
+/// Map({ "new_pubkey": Bytes(32), "veto_anchor_timestamp_unix_seconds": Uint })
+/// ```
+pub fn encode_owner_key_rotation_vetoed(
+    new_pubkey: &[u8; 32],
+    veto_anchor_timestamp_unix_seconds: u64,
+) -> CanonicalBytes {
+    let mut m = BTreeMap::new();
+    m.insert("new_pubkey".to_string(), Value::Bytes(new_pubkey.to_vec()));
+    m.insert(
+        "veto_anchor_timestamp_unix_seconds".to_string(),
+        Value::Uint(veto_anchor_timestamp_unix_seconds),
+    );
+    cb_encode(&Value::Map(m)).expect("owner_key_rotation_vetoed encode infallible")
+}
+
+// ---- C70 pending-rotation DAG projection ----
+
+/// **C70** — an owner key-rotation in flight (PENDING_COOLDOWN). DAG-derived at
+/// boot + kept current by the rotate handler. Mirrors `revoked_federation_peers`
+/// / `duress_freeze_active`: the DAG is canonical; this is a pure projection.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PendingOwnerKeyRotation {
+    /// The candidate key awaiting activation.
+    pub new_pubkey: [u8; 32],
+    /// The active owner key at request time (the key being retired).
+    pub prior_active_pubkey: [u8; 32],
+    /// Anchor-surface timestamp of the request.
+    pub request_anchor_ts: u64,
+    /// Anchor-surface timestamp at which the 30-day cooldown veto window elapses
+    /// (== `request_anchor_ts + OWNER_KEY_ROTATION_COOLDOWN_SECS`). Activation
+    /// before this instant is the C70 violation.
+    pub cooldown_expires_at: u64,
+    /// Substrate cycle counter at which the request was recorded.
+    pub requested_at_cycle: u64,
+}
+
+/// **C70** — the cooldown veto window, in anchor-surface seconds (30 anchor-days).
+/// The authoritative copy (the Python `COOLDOWN_ANCHOR_SECONDS` mirrors it for
+/// pure-FSM unit tests). Per L1/GOVERNANCE §3.1 a freshly-requested rotation may
+/// not activate until this window elapses.
+pub const OWNER_KEY_ROTATION_COOLDOWN_SECS: u64 = 30 * 24 * 60 * 60; // 2_592_000
+
+/// **C70** — derive the single in-flight pending rotation from the DAG, or
+/// `None` if no rotation is pending. The rule: the LATEST
+/// `owner_key_rotation_requested` event that is NOT followed (in insertion
+/// order) by a terminal event — an `owner_key_added` (activation) OR an
+/// `owner_key_rotation_vetoed`. A terminal event after a request clears it.
+///
+/// Strict last-writer FSM over the three event types, so a substrate restarted
+/// mid-cooldown re-derives the pending rotation, and one restarted after
+/// activation/veto re-derives `None` — the DAG is canonical. Single-in-flight is
+/// guaranteed by the request handler (it refuses a second request while one is
+/// pending), so at most one rotation is ever open at a time.
+pub fn derive_pending_owner_key_rotation_from_dag(
+    dag: &myco_kernel_schema::dag::Dag,
+) -> Option<PendingOwnerKeyRotation> {
+    let mut pending: Option<PendingOwnerKeyRotation> = None;
+    for node in dag.iter_in_insertion_order() {
+        if node.node_type == NODE_TYPE_OWNER_KEY_ROTATION_REQUESTED {
+            if let Some((new_pk, prior, request_ts, cooldown)) =
+                decode_owner_key_rotation_requested(node.content_canonical_bytes.as_ref())
+            {
+                pending = Some(PendingOwnerKeyRotation {
+                    new_pubkey: new_pk,
+                    prior_active_pubkey: prior,
+                    request_anchor_ts: request_ts,
+                    cooldown_expires_at: cooldown,
+                    requested_at_cycle: node.created_at_cycle,
+                });
+            }
+        } else if node.node_type == NODE_TYPE_OWNER_KEY_ROTATION_VETOED
+            || node.node_type == NODE_TYPE_OWNER_KEY_ADDED
+        {
+            // Either terminal clears the in-flight rotation.
+            pending = None;
+        }
+    }
+    pending
 }
 
 // ---- owner_key_added ----

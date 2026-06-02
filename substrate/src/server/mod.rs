@@ -329,6 +329,17 @@ pub(crate) struct ServerState {
     /// substrate restarted while frozen resumes frozen. Kept current by the
     /// duress recognition + unfreeze emit paths thereafter.
     pub(crate) duress_freeze_active: bool,
+    /// **C70 — owner key-rotation FSM** (L1/GOVERNANCE §3.1). The single
+    /// in-flight pending rotation (PENDING_COOLDOWN), or `None` when no rotation
+    /// is open. A `rotate_owner_key` request stages this; a veto or activation
+    /// clears it. DAG-derived at boot via
+    /// [`crate::events::derive_pending_owner_key_rotation_from_dag`] (latest
+    /// `owner_key_rotation_requested` not followed by `owner_key_added` /
+    /// `owner_key_rotation_vetoed`), so a substrate restarted mid-cooldown
+    /// resumes with the pending rotation intact. The handler reads it to enforce
+    /// the single-in-flight guard, the veto/activate "requires a pending
+    /// rotation" precondition, and the C70 cooldown check on activation.
+    pub(crate) pending_owner_key_rotation: Option<crate::events::PendingOwnerKeyRotation>,
     /// M25.0 + M25.4: the substrate's private Ed25519 signing seed.
     ///
     /// This NEVER goes on the wire. Used to (1) sign `snapshot.cb` so a
@@ -589,6 +600,10 @@ impl ServerState {
             // these inert, so non-duress mutations are byte-unaffected.
             duress_pubkeys: std::collections::HashSet::new(),
             duress_freeze_active: false,
+            // C70: no rotation in flight at construction; the boot path
+            // re-derives it from the full DAG AFTER `new()` (mirrors
+            // duress_freeze_active). NOT persisted separately — DAG is canonical.
+            pending_owner_key_rotation: None,
             substrate_signing_seed,
             observatory_history: std::collections::VecDeque::new(),
             last_operator_context_window_bytes: None,
@@ -1216,6 +1231,14 @@ pub fn run_loop() -> Result<u8, SubstrateError> {
     state.duress_pubkeys = crate::events::derive_duress_pubkeys_from_dag(&state.dag);
     state.duress_freeze_active =
         crate::events::derive_duress_freeze_active_from_dag(&state.dag);
+
+    // **C70** — re-derive the single in-flight owner key-rotation from the DAG
+    // (the latest `owner_key_rotation_requested` not followed by an activation
+    // or veto). A substrate restarted mid-cooldown resumes with the pending
+    // rotation, so the veto window survives a reboot. Mirrors
+    // `duress_freeze_active` above (DAG-derived, no new on-disk format).
+    state.pending_owner_key_rotation =
+        crate::events::derive_pending_owner_key_rotation_from_dag(&state.dag);
 
     // M26.1 C6 SECURITY FIX (Phase γ.2): substrate_signing_key.cb existed on
     // disk with loose Unix permissions (group/world bits set) — emit a

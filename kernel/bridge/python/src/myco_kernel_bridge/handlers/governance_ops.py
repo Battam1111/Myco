@@ -25,6 +25,7 @@ from myco_kernel_governance.canonical_bytes import (
     expect_bool,
     expect_bytes,
     expect_string,
+    expect_uint,
 )
 from myco_kernel_governance.classifier import (
     Classification,
@@ -33,7 +34,12 @@ from myco_kernel_governance.classifier import (
 )
 from myco_kernel_governance.crypto import (
     CryptoError,
+    Ed25519PublicKey,
     verify_signature,
+)
+from myco_kernel_governance.owner_keys import (
+    OwnerKeyEntry,
+    OwnerKeyHistoryError,
 )
 from myco_kernel_governance.schema_evolution import (
     SchemaEvolutionError,
@@ -286,6 +292,82 @@ def _handle_abort_migration(
     state.candidate_diff_bytes = b""
     return Message(
         type=MessageType.ABORT_MIGRATION_ACK,
+        request_id=request.request_id,
+        payload=empty_payload(),
+    )
+
+
+@handler(MessageType.APPLY_OWNER_KEY_ROTATION)
+def _handle_apply_owner_key_rotation(
+    state: DispatcherState, request: Message
+) -> Message:
+    """C70: apply an ACTIVATED owner-key rotation to the in-memory ``owner_keys``.
+
+    Authority lives in the Rust substrate: by the time this fires, the substrate
+    has verified the request's current-key signature, the 30-day cooldown has
+    elapsed, and BOTH the old key (over the envelope) and the new key (over the
+    activate-core) have signed. This handler only mutates the storage primitive
+    so the NEXT CI mutation's ``attestation_signature`` verifies against the
+    rotated key: retire the prior (currently-active) key — stamping its
+    ``valid_until`` + ``cooldown_expired_at`` — and add the new key as the active
+    entry.
+
+    Payload (canonical-bytes Map):
+      { prior_active_pubkey: Bytes(32), new_pubkey: Bytes(32),
+        activate_anchor_timestamp_unix_seconds: Uint,
+        cooldown_expires_at_unix_seconds: Uint }
+
+    Idempotent at the "already rotated" level: if the new key is already the
+    currently-active key (e.g. a duplicate ack), this is a no-op success.
+    """
+    keys = dict(request.payload.value)
+    try:
+        prior_bytes = expect_bytes(keys["prior_active_pubkey"])
+        new_bytes = expect_bytes(keys["new_pubkey"])
+        activate_ts = int(expect_uint(keys["activate_anchor_timestamp_unix_seconds"]))
+        cooldown_expires_at = int(expect_uint(keys["cooldown_expires_at_unix_seconds"]))
+    except (KeyError, CanonicalBytesError) as e:
+        raise BridgeProtocolError(
+            f"apply_owner_key_rotation: malformed payload: {e}"
+        ) from e
+    if len(prior_bytes) != 32 or len(new_bytes) != 32:
+        raise BridgeProtocolError(
+            "apply_owner_key_rotation: prior/new pubkeys must be 32 bytes"
+        )
+    if state.owner_keys is None:
+        raise BridgeProtocolError(
+            "apply_owner_key_rotation: owner_keys not initialized"
+        )
+
+    prior_key = Ed25519PublicKey(prior_bytes)
+    new_key = Ed25519PublicKey(new_bytes)
+
+    # Idempotency: if the new key is already the active key, the rotation has
+    # already been applied — return success without re-mutating.
+    try:
+        already_active = state.owner_keys.current_active().bytes_ == new_bytes
+    except OwnerKeyHistoryError:
+        already_active = False
+    if not already_active:
+        try:
+            state.owner_keys.retire_active_key(
+                retired_public_key=prior_key,
+                valid_until_anchor_timestamp=activate_ts,
+                cooldown_expired_at_anchor_timestamp=cooldown_expires_at,
+            )
+            state.owner_keys.add_key(
+                OwnerKeyEntry(
+                    public_key=new_key,
+                    valid_from_anchor_timestamp=activate_ts,
+                )
+            )
+        except OwnerKeyHistoryError as e:
+            raise BridgeProtocolError(
+                f"apply_owner_key_rotation: history mutation failed: {e}"
+            ) from e
+
+    return Message(
+        type=MessageType.APPLY_OWNER_KEY_ROTATION_ACK,
         request_id=request.request_id,
         payload=empty_payload(),
     )

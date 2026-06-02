@@ -328,6 +328,16 @@ pub mod msg_type {
     /// `abort_migration_ack` — Python→Rust: candidate dropped.
     pub const ABORT_MIGRATION_ACK: &str = "abort_migration_ack";
 
+    /// **C70** — `apply_owner_key_rotation` — Rust→Python: after the substrate
+    /// has accepted a dual-cosign owner-key rotation activation (cooldown
+    /// elapsed + both keys verified), tell Python to mutate its in-memory
+    /// `owner_keys` history so the NEXT CI mutation's `attestation_signature`
+    /// verifies against the rotated key: add the new key + retire the old one
+    /// (set `valid_until` + `cooldown_expired_at`). L1/GOVERNANCE §3.1.
+    pub const APPLY_OWNER_KEY_ROTATION: &str = "apply_owner_key_rotation";
+    /// `apply_owner_key_rotation_ack` — Python→Rust: owner_keys rotated.
+    pub const APPLY_OWNER_KEY_ROTATION_ACK: &str = "apply_owner_key_rotation_ack";
+
     /// `query_migration_pending` — Operator→Substrate: read whether a two-phase
     /// schema migration is currently in flight, and if so its op + window +
     /// progress. Rust-handled (reads `state.migration_candidate`); Python is

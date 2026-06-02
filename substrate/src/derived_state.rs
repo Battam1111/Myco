@@ -1022,6 +1022,8 @@ impl DerivedState {
             self.apply_cycle_advanced(node)
         } else if nt.starts_with(NODE_TYPE_OPERATOR_PINNED_PREFIX) {
             self.apply_operator_pinned(node)
+        } else if nt == crate::events::NODE_TYPE_OWNER_KEY_ADDED {
+            self.apply_owner_key_added(node)
         } else if nt.starts_with(NODE_TYPE_NONCE_ISSUED_PREFIX) {
             self.apply_nonce_issued(node)
         } else if nt.starts_with(NODE_TYPE_NONCE_CONSUMED_PREFIX) {
@@ -1268,6 +1270,46 @@ impl DerivedState {
         // are protocol violations BUT we accept (overwrite) defensively since
         // the wire protocol rejects duplicates upstream. M21.2+ may emit C-row
         // detector here on conflict.
+        self.pinned_operator_identity = Some(PinnedOperatorIdentity {
+            pubkey,
+            first_pinned_unix_ns,
+        });
+        Ok(())
+    }
+
+    /// **C70** — an `owner_key_added` event (rotation activation) shifts the
+    /// effective owner key. The substrate's IDENTITY persists (we keep
+    /// `first_pinned_unix_ns`); only the active pubkey rotates. Folding this into
+    /// `pinned_operator_identity` is what makes a rotation survive a restart: at
+    /// the next boot the substrate hands Python the NEW key as the genesis owner
+    /// pubkey, so the next CI mutation verifies against the rotated key. The
+    /// activation handler enforced the cooldown + dual-cosign before emitting
+    /// this event, so replay can trust it.
+    fn apply_owner_key_added(&mut self, node: &DagNode) -> Result<(), DerivedStateError> {
+        let map = decode_event_map(node)?;
+        let pk_slice =
+            map_get_bytes(&map, "new_pubkey").map_err(|e| DerivedStateError::EventField {
+                node_type: node.node_type.clone(),
+                field: "new_pubkey".to_string(),
+                reason: e.to_string(),
+            })?;
+        if pk_slice.len() != 32 {
+            return Err(DerivedStateError::EventField {
+                node_type: node.node_type.clone(),
+                field: "new_pubkey".to_string(),
+                reason: format!("expected 32 bytes; got {}", pk_slice.len()),
+            });
+        }
+        let mut pubkey = [0u8; 32];
+        pubkey.copy_from_slice(pk_slice);
+        // Preserve the original pin instant (identity continuity); a rotation
+        // before any operator_pinned event is not a valid sequence, but if it
+        // somehow occurs, fall back to 0 rather than dropping the rotation.
+        let first_pinned_unix_ns = self
+            .pinned_operator_identity
+            .as_ref()
+            .map(|p| p.first_pinned_unix_ns)
+            .unwrap_or(0);
         self.pinned_operator_identity = Some(PinnedOperatorIdentity {
             pubkey,
             first_pinned_unix_ns,
