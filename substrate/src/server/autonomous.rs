@@ -561,11 +561,14 @@ pub(super) fn do_autonomous_tick(state: &mut ServerState) -> Result<(), Substrat
     let our_dag_tip = state.dag.tip().map(|t| t.0);
     let our_signing_seed = state.substrate_signing_seed;
     let _accepted = state.federation.accept_pending()?;
+    // **C13**: pass the revoked-set so the egress site blocks (pre-emission)
+    // any FED_EVENT_BATCH to a revoked peer on the autonomous tick path too.
     let events = state.federation.progress_peers(
         &our_substrate_id,
         our_dag_tip.as_ref(),
         Some(&our_signing_seed),
         &state.dag,
+        &state.revoked_federation_peers,
     );
 
     if events.is_empty() {
@@ -674,6 +677,26 @@ pub(super) fn do_autonomous_tick(state: &mut ServerState) -> Result<(), Substrat
                     state,
                     "C61_federation_protocol_version_mismatch",
                     "federation_protocol_version_mismatch",
+                    &evidence,
+                );
+            }
+            crate::federation::PollPeerEvent::EgressBlockedRevoked {
+                peer_substrate_id,
+                remote_addr_str,
+            } => {
+                // **C13** (autonomous tick path) — the egress site already
+                // suppressed the FED_EVENT_BATCH to the revoked peer; fruit the
+                // immune sporocarp recording the blocked outbound envelope.
+                let evidence = format!(
+                    "federation_egress_blocked: outbound FED_EVENT_BATCH to peer {} \
+                     (remote={remote_addr_str}) suppressed pre-emission — peer is on the \
+                     owner-revocation list (L1/GOVERNANCE §5.2, autonomous tick)",
+                    hex_encode(&peer_substrate_id)
+                );
+                let _ = emit_immune_sporocarp(
+                    state,
+                    "C13_peer_attestation_revoked_egress",
+                    "peer_attestation_revoked_egress",
                     &evidence,
                 );
             }

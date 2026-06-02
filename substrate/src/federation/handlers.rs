@@ -191,6 +191,54 @@ pub(crate) fn emit_federation_peer_pinned(
     emit_substrate_event(state, nt, content)
 }
 
+/// **C13** — emit a `federation_peer_revoked:{prefix}` DAG event (the
+/// owner-attested CRL entry) AND insert the target into the in-memory
+/// revoked-set.
+///
+/// **Idempotent at the EFFECT level**: if the peer is ALREADY in the
+/// revoked-set, this is a no-op — it returns `Ok(None)` WITHOUT emitting a
+/// second CRL event. (Content-hash dedup alone is insufficient: a re-revoke
+/// arrives at a different DAG tip, so its `merkle_hash(parents, content)`
+/// differs and `Dag::insert_node` would NOT collapse it. Guarding on the set
+/// membership makes re-revoke a genuine no-op, matching the doctrine "re-revoke
+/// = no-op".) The `mutation:revoke_federation_peer` audit node is still
+/// recorded by the caller — only the duplicate CRL effect is suppressed.
+///
+/// The body fields (`revoked_pubkey`, `reason`, `anchor_timestamp_unix_seconds`)
+/// and the owner attestation (`owner_signature`, `owner_pubkey`) come from the
+/// decoded + accepted `revoke_federation_peer` mutation in
+/// `attestation::handle_submit_mutation`. Returns `Ok(Some(hash))` on a
+/// first-time revocation, `Ok(None)` when the peer was already revoked.
+pub(crate) fn emit_federation_peer_revoked(
+    state: &mut ServerState,
+    revoked_peer_substrate_id: &[u8; 32],
+    revoked_pubkey: &[u8; 32],
+    reason: &str,
+    anchor_timestamp_unix_seconds: u64,
+    owner_signature: &[u8; 64],
+    owner_pubkey: &[u8; 32],
+) -> Result<Option<myco_kernel_shared::crypto::NodeHash>, SubstrateError> {
+    if state
+        .revoked_federation_peers
+        .contains(revoked_peer_substrate_id)
+    {
+        // Already revoked — no-op (do not append a duplicate CRL entry).
+        return Ok(None);
+    }
+    let nt = crate::events::federation_peer_revoked_node_type(revoked_peer_substrate_id);
+    let content = crate::events::encode_federation_peer_revoked(
+        revoked_peer_substrate_id,
+        revoked_pubkey,
+        reason,
+        anchor_timestamp_unix_seconds,
+        owner_signature,
+        owner_pubkey,
+    );
+    let hash = emit_substrate_event(state, nt, content)?;
+    state.revoked_federation_peers.insert(*revoked_peer_substrate_id);
+    Ok(Some(hash))
+}
+
 /// M25.4: emit a `federation_legacy_peer_pinned` observability event for a
 /// peer pinned WITHOUT an Ed25519 signature (legacy compat). This is NOT an
 /// immune sporocarp — legacy peers are allowed. The event exists so operators
@@ -484,16 +532,21 @@ pub(crate) fn handle_federation_poll(
     // M22.3 + M25.4: pass &dag so progress_peers can enumerate events for
     // inbound FED_REQUEST_EVENTS_SINCE responses, and pass the signing seed
     // so outbound FED_HELLO_ACK frames carry our Ed25519 signature.
+    // **C13**: pass the revoked-set so the egress site can block (pre-emission)
+    // any FED_EVENT_BATCH to a revoked peer. Disjoint-field borrows: `&mut
+    // state.federation` + `&state.dag` + `&state.revoked_federation_peers`.
     let events = state.federation.progress_peers(
         &our_substrate_id,
         our_dag_tip.as_ref(),
         Some(&our_signing_seed),
         &state.dag,
+        &state.revoked_federation_peers,
     );
 
     let mut pinned_count = 0u64;
     let mut rejected_count = 0u64;
     let mut event_batches_sent = 0u64;
+    let mut egress_blocked_revoked_count = 0u64;
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .ok()
@@ -599,6 +652,31 @@ pub(crate) fn handle_federation_poll(
                 );
                 event_batches_sent += 1;
             }
+            crate::federation::PollPeerEvent::EgressBlockedRevoked {
+                peer_substrate_id,
+                remote_addr_str,
+            } => {
+                // **C13** (L1/HARD_RULES C13 peer_attestation_revoked_egress).
+                // The egress site already suppressed the FED_EVENT_BATCH
+                // (pre-emission). Fruit the immune sporocarp recording the
+                // blocked outbound envelope. The skin-layer
+                // `OutputError::FederationEgressBlocked` is the type a wired
+                // output gate would return; substrate-side the realization is
+                // this DAG-recorded breach + the suppressed send.
+                let evidence = format!(
+                    "federation_egress_blocked: outbound FED_EVENT_BATCH to peer {} \
+                     (remote={remote_addr_str}) suppressed pre-emission — peer is on the \
+                     owner-revocation list (L1/GOVERNANCE §5.2)",
+                    hex_first_8_bytes(&peer_substrate_id)
+                );
+                let _ = emit_immune_sporocarp(
+                    state,
+                    "C13_peer_attestation_revoked_egress",
+                    "peer_attestation_revoked_egress",
+                    &evidence,
+                );
+                egress_blocked_revoked_count += 1;
+            }
         }
     }
 
@@ -612,6 +690,12 @@ pub(crate) fn handle_federation_poll(
     payload.insert(
         "event_batches_sent".to_string(),
         Value::Uint(event_batches_sent),
+    );
+    // **C13**: number of FED_EVENT_BATCH egress attempts blocked this poll
+    // because the requesting peer is on the owner-revocation list.
+    payload.insert(
+        "egress_blocked_revoked".to_string(),
+        Value::Uint(egress_blocked_revoked_count),
     );
     Ok(Some(Message::new(
         msg_type::FEDERATION_POLL_RESPONSE,
@@ -1003,6 +1087,46 @@ pub(crate) fn handle_federation_pull_events_from_peer(
     };
     let mut peer_substrate_id = [0u8; 32];
     peer_substrate_id.copy_from_slice(&peer_id_bytes);
+
+    // **C13 — ingest non-absorption check.** If the owner has revoked this
+    // peer, its events must stop being absorbed (the symmetric inbound half of
+    // the GOVERNANCE §5.2 revocation: a revoked peer is cut off BOTH ways). We
+    // refuse before pulling a single frame over the wire — no revoked-peer
+    // event can enter the DAG. Returns a structured rejection (ingested=0) so
+    // the operator gets a clear signal, and fruits C13 with explicit
+    // ingest-direction evidence (reusing the C13 row rather than minting a
+    // new one — the revocation list is the same, only the direction differs).
+    if state.revoked_federation_peers.contains(&peer_substrate_id) {
+        let evidence = format!(
+            "federation_ingest_blocked: pull from peer {} refused — peer is on the \
+             owner-revocation list (L1/GOVERNANCE §5.2); a revoked peer's events are \
+             not absorbed (inbound half of revocation)",
+            hex_first_8_bytes(&peer_substrate_id)
+        );
+        let _ = emit_immune_sporocarp(
+            state,
+            "C13_peer_attestation_revoked_egress",
+            "peer_attestation_revoked_egress",
+            &evidence,
+        );
+        let mut response_payload = BTreeMap::new();
+        response_payload.insert("events_received_count".to_string(), Value::Uint(0));
+        response_payload.insert("events_ingested_count".to_string(), Value::Uint(0));
+        response_payload.insert("events_rejected_count".to_string(), Value::Uint(0));
+        response_payload.insert("is_last_batch".to_string(), Value::Bool(true));
+        response_payload.insert(
+            "rejection_reason".to_string(),
+            Value::String(
+                "C13_peer_attestation_revoked_egress: peer is revoked; ingest refused"
+                    .to_string(),
+            ),
+        );
+        return Ok(Some(Message::new(
+            msg_type::FEDERATION_PULL_EVENTS_FROM_PEER_RESPONSE,
+            request.request_id,
+            response_payload,
+        )));
+    }
 
     let since_node_hash: Option<[u8; 32]> = match request.payload.get("since_node_hash") {
         Some(Value::Bytes(b)) if b.len() == 32 => {

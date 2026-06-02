@@ -223,6 +223,17 @@ pub(crate) struct ServerState {
     /// Always present; the listener field stays `None` until the operator
     /// invokes `federation_open_listener`.
     pub(crate) federation: crate::federation::FederationState,
+    /// **C13 — local federation peer revocation** (L1/GOVERNANCE §5.2 +
+    /// L2/FEDERATION §6.5.b per-peer OWNER revocation). Set of
+    /// `substrate_id`s the owner has revoked via an attested
+    /// `revoke_federation_peer` CI mutation. The DAG is canonical — each
+    /// revocation is a `federation_peer_revoked:{prefix}` event; this in-memory
+    /// set is a projection re-derived at boot via
+    /// [`crate::events::derive_revoked_federation_peers_from_dag`] and kept
+    /// current by `emit_federation_peer_revoked`. Consulted at the federation
+    /// egress site (block + emit C13) and the ingest site (drop revoked-peer
+    /// events). Purely additive (a CRL only grows; no un-revoke event exists).
+    pub(crate) revoked_federation_peers: std::collections::HashSet<[u8; 32]>,
     /// M25.0 + M25.4: the substrate's private Ed25519 signing seed.
     ///
     /// This NEVER goes on the wire. Used to (1) sign `snapshot.cb` so a
@@ -472,6 +483,10 @@ impl ServerState {
             // override is for transition-period compatibility with pre-M25 peers.
             // See `FederationState::new_with_env_policy`.
             federation: crate::federation::FederationState::new_with_env_policy(),
+            // C13: empty at construction; the boot path re-derives it from the
+            // full DAG AFTER `new()` (mirrors backup_encryption_status +
+            // cultivation mirrors). NOT persisted separately — DAG is canonical.
+            revoked_federation_peers: std::collections::HashSet::new(),
             substrate_signing_seed,
             observatory_history: std::collections::VecDeque::new(),
             last_operator_context_window_bytes: None,
@@ -1077,6 +1092,16 @@ pub fn run_loop() -> Result<u8, SubstrateError> {
     // line ~1006: `if is_fresh_genesis && state.dag.node_count() == 0`.
     state.backup_encryption_status =
         crate::events::derive_backup_encryption_status_from_dag(&state.dag);
+
+    // **C13** — re-derive the revoked-federation-peer set from the DAG. Each
+    // owner-attested `revoke_federation_peer` CI mutation emitted a
+    // `federation_peer_revoked:{prefix}` event; the in-memory set is a pure
+    // projection of those events (DAG is canonical). A substrate restarted
+    // after revoking a peer thus continues to block egress to / ingest from
+    // that peer. Mirrors `backup_encryption_status` above (DAG-derived, no new
+    // on-disk format).
+    state.revoked_federation_peers =
+        crate::events::derive_revoked_federation_peers_from_dag(&state.dag);
 
     // M26.1 C6 SECURITY FIX (Phase γ.2): substrate_signing_key.cb existed on
     // disk with loose Unix permissions (group/world bits set) — emit a

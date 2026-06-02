@@ -138,6 +138,43 @@ impl FederationPeerFreshness for DenyAllPeerFreshness {
     }
 }
 
+/// **C13 — owner-revocation-aware peer-freshness checker** (L1/GOVERNANCE §5.2
+/// + L1/HARD_RULES C13 `peer_attestation_revoked_egress`).
+///
+/// A real [`FederationPeerFreshness`] impl that blocks egress to any peer whose
+/// endpoint URI is on the owner-revocation set, and passes everyone else. This
+/// replaces the conceptual role of [`StubPeerFreshness`] (which always passes)
+/// for the revocation dimension of the §3.1 check.
+///
+/// **Wiring note (skin-trait vs substrate-side).** In the live Myco substrate
+/// the authoritative federation egress site is substrate-side
+/// (`substrate::federation::FederationState::progress_peers`), where the
+/// DAG-derived revoked-set (`ServerState::revoked_federation_peers`, keyed by
+/// `substrate_id`) is reachable; that is where the production C13 block fires
+/// pre-emission. The substrate does NOT route its federation egress through
+/// this skin trait (the trait is an L1/SKIN §3.1 abstraction with no live
+/// substrate consumer today). This impl therefore makes the skin trait itself
+/// revocation-honest — so a future caller that DOES route through the skin gate
+/// has a correct, non-stub checker to use — and keeps the §3.1 contract
+/// faithful: the freshness oracle blocks revoked targets. The revoked identity
+/// here is matched by endpoint URI (the skin layer's notion of a peer);
+/// substrate-side matching is by `substrate_id`.
+pub struct RevokedPeerFreshness<'a> {
+    /// The set of revoked peer endpoint URIs. Egress to any URI in this set is
+    /// blocked with [`OutputError::FederationEgressBlocked`].
+    pub revoked_peer_uris: &'a std::collections::HashSet<String>,
+}
+
+impl FederationPeerFreshness for RevokedPeerFreshness<'_> {
+    fn check_freshness(&self, peer_uri: &str) -> Result<(), OutputError> {
+        if self.revoked_peer_uris.contains(peer_uri) {
+            Err(OutputError::FederationEgressBlocked(peer_uri.to_string()))
+        } else {
+            Ok(())
+        }
+    }
+}
+
 /// Construct an output envelope, performing all L1/SKIN §3 checks.
 ///
 /// Checks (in order):
@@ -341,6 +378,69 @@ mod tests {
             result.unwrap_err(),
             OutputError::FederationEgressBlocked("tcp://peer1".into())
         );
+    }
+
+    #[test]
+    fn test_c13_revoked_peer_freshness_blocks_revoked_passes_others() {
+        // **C13** — RevokedPeerFreshness blocks egress to a revoked peer URI
+        // (FederationEgressBlocked) and passes a non-revoked peer.
+        let s = make_surface();
+        let mut revoked = std::collections::HashSet::new();
+        revoked.insert("tcp://peer1".to_string());
+        let checker = RevokedPeerFreshness {
+            revoked_peer_uris: &revoked,
+        };
+        // peer1 is revoked → egress blocked.
+        let blocked = route_output(
+            &s,
+            "tcp://peer1",
+            EndpointKind::FederationOut,
+            dummy_payload(),
+            vec![0; 32],
+            &checker,
+        );
+        assert_eq!(
+            blocked.unwrap_err(),
+            OutputError::FederationEgressBlocked("tcp://peer1".into()),
+            "egress to a revoked peer must be blocked with FederationEgressBlocked"
+        );
+        // peer2 is NOT revoked → egress allowed.
+        let ok = route_output(
+            &s,
+            "tcp://peer2",
+            EndpointKind::FederationOut,
+            dummy_payload(),
+            vec![0; 32],
+            &checker,
+        );
+        assert!(
+            ok.is_ok(),
+            "egress to a non-revoked peer must pass the C13 freshness check"
+        );
+    }
+
+    #[test]
+    fn test_c13_empty_revocation_set_passes_all() {
+        // An empty revocation set blocks nobody (revocation is opt-in per peer).
+        let s = make_surface();
+        let revoked = std::collections::HashSet::new();
+        let checker = RevokedPeerFreshness {
+            revoked_peer_uris: &revoked,
+        };
+        for uri in ["tcp://peer1", "tcp://peer2"] {
+            assert!(
+                route_output(
+                    &s,
+                    uri,
+                    EndpointKind::FederationOut,
+                    dummy_payload(),
+                    vec![0; 32],
+                    &checker,
+                )
+                .is_ok(),
+                "empty revocation set must not block {uri}"
+            );
+        }
     }
 
     #[test]

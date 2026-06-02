@@ -43,6 +43,27 @@ pub const NODE_TYPE_FEDERATION_EVENTS_RECEIVED: &str = "federation_events_receiv
 /// ancestors, impossible without owner co-attestation at genesis).
 pub const NODE_TYPE_FEDERATION_RECEIVED_PREFIX: &str = "federation_received:";
 
+/// **C13 (2026-06-02) — local federation peer revocation** (L1/GOVERNANCE §5.2
+/// + FEDERATION §6.5.b per-peer OWNER revocation). Prefix for
+/// `federation_peer_revoked:{first_8_hex_of_revoked_peer_substrate_id}` DAG
+/// events. Each event is an owner-attested CRL entry: the owner co-signs a
+/// revocation body (see [`build_revoke_federation_peer_canonical_bytes`]); the
+/// substrate records the body + the owner signature + owner pubkey so the
+/// entry is independently re-verifiable offline and re-derivable on boot
+/// (see [`derive_revoked_federation_peers_from_dag`]).
+///
+/// SCOPE: this is the LOCAL owner-revocation half of FEDERATION §6.5.b. The
+/// quorum-revocation half (≥2/3 Byzantine consensus at ≥3 peers, GOVERNANCE
+/// §5.2 "P15 consensus floor") is DEFERRED — it needs the as-yet-absent PBFT
+/// consensus layer + anchor-resident revocation list + outbound
+/// negative-revocation proofs.
+pub const NODE_TYPE_FEDERATION_PEER_REVOKED_PREFIX: &str = "federation_peer_revoked:";
+
+/// **C13** domain string for the owner-signed federation-peer-revocation body
+/// (binds the signature to this purpose so a signature over some other CI
+/// envelope cannot be replayed as a revocation, and vice-versa).
+pub const REVOKE_FEDERATION_PEER_DOMAIN: &str = "myco-federation-peer-revoke-v1";
+
 /// Federation events sent to a peer (M22.3).
 pub const NODE_TYPE_FEDERATION_EVENTS_SENT: &str = "federation_events_sent";
 
@@ -482,4 +503,358 @@ pub fn encode_birth_period_quarantine_lifted(
         Value::Timestamp(lifted_at_unix_ns),
     );
     cb_encode(&Value::Map(m)).expect("birth_period_quarantine_lifted encode infallible")
+}
+
+// ---------------------------------------------------------------------------
+// C13 — local federation peer revocation (owner-attested CRL).
+//
+// The flow (mirrors the M-anchor-5 dag_tip_cosign / l0_revision_attest staged-
+// envelope pattern in `attestation.rs::handle_submit_mutation`):
+//
+//   1. Owner builds the revocation BODY via
+//      `build_revoke_federation_peer_canonical_bytes` and signs it. That body
+//      is submitted as the `revoke_federation_peer` CI mutation's
+//      `content_canonical_bytes`; the signature is `attestation_signature`.
+//   2. The Python classifier (rule `revoke_federation_peer_mutation`) grades it
+//      CI and verifies the signature against the active owner key. An
+//      unattested / bad-signature revoke is rejected `accepted=false`
+//      classification=`contract_identity_level` → the substrate maps that to
+//      **C5 attestation_invalid** (no new row minted).
+//   3. On accept, the substrate decodes the body, captures the owner signature
+//      + pinned owner pubkey, and AFTER the `mutation:revoke_federation_peer`
+//      DAG node commits, emits one `federation_peer_revoked:{prefix}` event
+//      carrying body-fields + signature + pubkey, and inserts the target into
+//      the in-memory revoked-set. Idempotent: re-revoking an already-revoked
+//      peer is a no-op (HashSet insert + content-hash-idempotent DAG insert).
+// ---------------------------------------------------------------------------
+
+/// node_type for a `federation_peer_revoked` event (C13):
+/// `federation_peer_revoked:{first_8_hex_of_revoked_peer_substrate_id}`.
+pub fn federation_peer_revoked_node_type(revoked_peer_substrate_id: &[u8; 32]) -> String {
+    format!(
+        "{}{}",
+        NODE_TYPE_FEDERATION_PEER_REVOKED_PREFIX,
+        hex_prefix(revoked_peer_substrate_id, 8)
+    )
+}
+
+/// **C13** — build the canonical-bytes BODY the owner signs to revoke a
+/// federation peer. This is the `content_canonical_bytes` of the
+/// `revoke_federation_peer` CI mutation; the owner's Ed25519 signature over
+/// these exact bytes is the `attestation_signature`.
+///
+/// ```text
+/// Map({
+///   "domain": String,                                 // REVOKE_FEDERATION_PEER_DOMAIN
+///   "revoked_peer_substrate_id": Bytes(32),
+///   "revoked_pubkey": Bytes(32),                       // peer's pinned signing key (or zero if legacy)
+///   "reason": String,
+///   "anchor_timestamp_unix_seconds": Uint,             // owner anchor-clock seconds
+/// })
+/// ```
+pub fn build_revoke_federation_peer_canonical_bytes(
+    revoked_peer_substrate_id: &[u8; 32],
+    revoked_pubkey: &[u8; 32],
+    reason: &str,
+    anchor_timestamp_unix_seconds: u64,
+) -> Vec<u8> {
+    let mut m = BTreeMap::new();
+    m.insert(
+        "domain".to_string(),
+        Value::String(REVOKE_FEDERATION_PEER_DOMAIN.to_string()),
+    );
+    m.insert(
+        "revoked_peer_substrate_id".to_string(),
+        Value::Bytes(revoked_peer_substrate_id.to_vec()),
+    );
+    m.insert(
+        "revoked_pubkey".to_string(),
+        Value::Bytes(revoked_pubkey.to_vec()),
+    );
+    m.insert("reason".to_string(), Value::String(reason.to_string()));
+    m.insert(
+        "anchor_timestamp_unix_seconds".to_string(),
+        Value::Uint(anchor_timestamp_unix_seconds),
+    );
+    cb_encode(&Value::Map(m))
+        .expect("revoke_federation_peer body encode infallible")
+        .0
+}
+
+/// **C13** — decode a `revoke_federation_peer` body (the owner-signed
+/// `content_canonical_bytes`). Returns
+/// `(revoked_peer_substrate_id, revoked_pubkey, reason, anchor_timestamp_unix_seconds)`
+/// or `None` if the shape / domain is wrong (→ caller rejects with C5).
+#[allow(clippy::type_complexity)]
+pub fn decode_revoke_federation_peer(
+    bytes: &[u8],
+) -> Option<([u8; 32], [u8; 32], String, u64)> {
+    use myco_kernel_shared::canonical_bytes::decode;
+    let m = match decode(bytes).ok()? {
+        Value::Map(m) => m,
+        _ => return None,
+    };
+    match m.get("domain")? {
+        Value::String(s) if s == REVOKE_FEDERATION_PEER_DOMAIN => {}
+        _ => return None,
+    }
+    let revoked_peer_substrate_id = bytes_to_arr32(m.get("revoked_peer_substrate_id")?)?;
+    let revoked_pubkey = bytes_to_arr32(m.get("revoked_pubkey")?)?;
+    let reason = match m.get("reason")? {
+        Value::String(s) => s.clone(),
+        _ => return None,
+    };
+    let anchor_timestamp_unix_seconds = match m.get("anchor_timestamp_unix_seconds")? {
+        Value::Uint(u) => *u,
+        _ => return None,
+    };
+    Some((
+        revoked_peer_substrate_id,
+        revoked_pubkey,
+        reason,
+        anchor_timestamp_unix_seconds,
+    ))
+}
+
+/// **C13** — content of a `federation_peer_revoked` DAG event (the on-chain
+/// owner-attested CRL entry). The first four fields are the owner-signed body
+/// fields; `owner_signature` + `owner_pubkey` are the attestation captured at
+/// accept time so the entry is independently re-verifiable offline.
+///
+/// ```text
+/// Map({
+///   "revoked_peer_substrate_id": Bytes(32),
+///   "revoked_pubkey": Bytes(32),
+///   "reason": String,
+///   "anchor_timestamp_unix_seconds": Uint,
+///   "owner_signature": Bytes(64),
+///   "owner_pubkey": Bytes(32),
+/// })
+/// ```
+pub fn encode_federation_peer_revoked(
+    revoked_peer_substrate_id: &[u8; 32],
+    revoked_pubkey: &[u8; 32],
+    reason: &str,
+    anchor_timestamp_unix_seconds: u64,
+    owner_signature: &[u8; 64],
+    owner_pubkey: &[u8; 32],
+) -> CanonicalBytes {
+    let mut m = BTreeMap::new();
+    m.insert(
+        "revoked_peer_substrate_id".to_string(),
+        Value::Bytes(revoked_peer_substrate_id.to_vec()),
+    );
+    m.insert(
+        "revoked_pubkey".to_string(),
+        Value::Bytes(revoked_pubkey.to_vec()),
+    );
+    m.insert("reason".to_string(), Value::String(reason.to_string()));
+    m.insert(
+        "anchor_timestamp_unix_seconds".to_string(),
+        Value::Uint(anchor_timestamp_unix_seconds),
+    );
+    m.insert(
+        "owner_signature".to_string(),
+        Value::Bytes(owner_signature.to_vec()),
+    );
+    m.insert(
+        "owner_pubkey".to_string(),
+        Value::Bytes(owner_pubkey.to_vec()),
+    );
+    cb_encode(&Value::Map(m)).expect("federation_peer_revoked encode infallible")
+}
+
+/// **C13** — extract the `revoked_peer_substrate_id` from a
+/// `federation_peer_revoked` DAG event's content. Returns `None` if the content
+/// is malformed (such an event never entered the DAG via the legitimate path,
+/// so this only guards against a corrupt/hand-crafted node — it is simply
+/// skipped during derivation rather than treated as a revocation).
+pub fn decode_federation_peer_revoked_target(bytes: &[u8]) -> Option<[u8; 32]> {
+    use myco_kernel_shared::canonical_bytes::decode;
+    let m = match decode(bytes).ok()? {
+        Value::Map(m) => m,
+        _ => return None,
+    };
+    bytes_to_arr32(m.get("revoked_peer_substrate_id")?)
+}
+
+/// **C13** — re-derive the in-memory revoked-federation-peer set from the DAG.
+///
+/// Called once at boot (mirrors `derive_backup_encryption_status_from_dag`)
+/// and never again — `emit_federation_peer_revoked` keeps the live set current
+/// thereafter. A single in-insertion-order walk collecting every
+/// `federation_peer_revoked:*` event's target; O(N) over the DAG, no
+/// per-event allocation beyond the set itself. There is no un-revoke event by
+/// design (a CRL only grows; an owner who pinned the same peer afresh would do
+/// so under a new substrate_id), so the set is purely additive.
+pub fn derive_revoked_federation_peers_from_dag(
+    dag: &myco_kernel_schema::dag::Dag,
+) -> std::collections::HashSet<[u8; 32]> {
+    let mut revoked = std::collections::HashSet::new();
+    for node in dag.iter_in_insertion_order() {
+        if !node
+            .node_type
+            .starts_with(NODE_TYPE_FEDERATION_PEER_REVOKED_PREFIX)
+        {
+            continue;
+        }
+        if let Some(target) =
+            decode_federation_peer_revoked_target(node.content_canonical_bytes.as_ref())
+        {
+            revoked.insert(target);
+        }
+    }
+    revoked
+}
+
+/// Local helper: coerce a canonical-bytes `Value` into a `[u8; 32]` (used by
+/// the C13 decoders). Returns `None` for non-`Bytes` or wrong-length values.
+fn bytes_to_arr32(v: &Value) -> Option<[u8; 32]> {
+    match v {
+        Value::Bytes(b) if b.len() == 32 => {
+            let mut a = [0u8; 32];
+            a.copy_from_slice(b);
+            Some(a)
+        }
+        _ => None,
+    }
+}
+
+#[cfg(test)]
+mod c13_revocation_tests {
+    //! **C13** — pure-function coverage for the federation-peer-revocation
+    //! encode/decode/derive surface (the security-critical parsing path).
+    use super::*;
+    use myco_kernel_schema::dag::Dag;
+    use myco_kernel_shared::canonical_bytes::CanonicalBytes;
+
+    #[test]
+    fn revoke_body_roundtrips_with_domain() {
+        let revoked_id = [0x11u8; 32];
+        let revoked_pk = [0x22u8; 32];
+        let bytes = build_revoke_federation_peer_canonical_bytes(
+            &revoked_id,
+            &revoked_pk,
+            "manual revoke",
+            1_700_000_123,
+        );
+        let (id, pk, reason, ts) =
+            decode_revoke_federation_peer(&bytes).expect("body decodes");
+        assert_eq!(id, revoked_id);
+        assert_eq!(pk, revoked_pk);
+        assert_eq!(reason, "manual revoke");
+        assert_eq!(ts, 1_700_000_123);
+    }
+
+    #[test]
+    fn revoke_body_rejects_wrong_domain() {
+        // A well-formed Map with the WRONG domain must not decode (prevents a
+        // signature over some other CI envelope being replayed as a revoke).
+        let mut m = BTreeMap::new();
+        m.insert(
+            "domain".to_string(),
+            Value::String("not-the-revoke-domain".to_string()),
+        );
+        m.insert(
+            "revoked_peer_substrate_id".to_string(),
+            Value::Bytes(vec![0x11; 32]),
+        );
+        m.insert("revoked_pubkey".to_string(), Value::Bytes(vec![0x22; 32]));
+        m.insert("reason".to_string(), Value::String("x".to_string()));
+        m.insert(
+            "anchor_timestamp_unix_seconds".to_string(),
+            Value::Uint(1),
+        );
+        let bytes = cb_encode(&Value::Map(m)).unwrap().0;
+        assert!(
+            decode_revoke_federation_peer(&bytes).is_none(),
+            "wrong-domain body must not decode as a revocation"
+        );
+    }
+
+    #[test]
+    fn revoke_body_rejects_garbage_and_wrong_shapes() {
+        assert!(decode_revoke_federation_peer(&[0xff, 0x00, 0x13]).is_none());
+        // Missing required field (revoked_pubkey).
+        let mut m = BTreeMap::new();
+        m.insert(
+            "domain".to_string(),
+            Value::String(REVOKE_FEDERATION_PEER_DOMAIN.to_string()),
+        );
+        m.insert(
+            "revoked_peer_substrate_id".to_string(),
+            Value::Bytes(vec![0x11; 32]),
+        );
+        let bytes = cb_encode(&Value::Map(m)).unwrap().0;
+        assert!(decode_revoke_federation_peer(&bytes).is_none());
+    }
+
+    #[test]
+    fn event_content_target_extracts() {
+        let revoked_id = [0xabu8; 32];
+        let content = encode_federation_peer_revoked(
+            &revoked_id,
+            &[0u8; 32],
+            "r",
+            1,
+            &[0x5a; 64],
+            &[0x6b; 32],
+        );
+        assert_eq!(
+            decode_federation_peer_revoked_target(content.as_ref()),
+            Some(revoked_id)
+        );
+    }
+
+    #[test]
+    fn node_type_prefix_matches() {
+        let nt = federation_peer_revoked_node_type(&[0xde, 0xad, 0xbe, 0xef, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+        assert!(nt.starts_with(NODE_TYPE_FEDERATION_PEER_REVOKED_PREFIX));
+        assert_eq!(nt, "federation_peer_revoked:deadbeef00000000");
+    }
+
+    #[test]
+    fn derive_collects_all_distinct_targets_skips_malformed() {
+        let mut dag = Dag::new();
+        let id_a = [0x01u8; 32];
+        let id_b = [0x02u8; 32];
+        // Two distinct revocations.
+        let tip = dag
+            .insert_node(
+                Vec::new(),
+                federation_peer_revoked_node_type(&id_a),
+                0,
+                encode_federation_peer_revoked(&id_a, &[0u8; 32], "a", 1, &[0u8; 64], &[0u8; 32]),
+            )
+            .unwrap();
+        let tip = dag
+            .insert_node(
+                vec![tip],
+                federation_peer_revoked_node_type(&id_b),
+                0,
+                encode_federation_peer_revoked(&id_b, &[0u8; 32], "b", 1, &[0u8; 64], &[0u8; 32]),
+            )
+            .unwrap();
+        // A malformed node under the same prefix → skipped, not treated as a
+        // revocation.
+        let _ = dag
+            .insert_node(
+                vec![tip],
+                format!("{NODE_TYPE_FEDERATION_PEER_REVOKED_PREFIX}cccccccc"),
+                0,
+                CanonicalBytes(vec![0xff, 0x00]),
+            )
+            .unwrap();
+
+        let revoked = derive_revoked_federation_peers_from_dag(&dag);
+        assert_eq!(revoked.len(), 2, "two distinct valid targets");
+        assert!(revoked.contains(&id_a));
+        assert!(revoked.contains(&id_b));
+    }
+
+    #[test]
+    fn derive_empty_dag_is_empty_set() {
+        let dag = Dag::new();
+        assert!(derive_revoked_federation_peers_from_dag(&dag).is_empty());
+    }
 }

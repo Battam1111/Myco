@@ -931,6 +931,86 @@ pub(crate) fn handle_submit_mutation(
         }
     }
 
+    // **C13 — local federation peer revocation** (L1/GOVERNANCE §5.2 +
+    // L2/FEDERATION §6.5.b per-peer OWNER revocation). Same staged-envelope
+    // pattern as dag_tip_cosign / l0_revision_attest: the Python CI gate
+    // already verified `attestation_signature` over `content_canonical_bytes`
+    // against the active owner key, so that signature IS the owner's signature
+    // over the revocation body. We decode the body, capture the owner signature
+    // + pinned owner pubkey, and emit the `federation_peer_revoked:{prefix}`
+    // event AFTER the `mutation:revoke_federation_peer` DAG node commits.
+    //
+    // A missing/short signature or an undecodable body overrides Python's
+    // accept and rejects with C5 (no new HARD_RULES row for the unattested
+    // case — C13 is reserved strictly for the egress block).
+    //
+    // Staged tuple: (revoked_id, revoked_pubkey, reason, anchor_ts_secs,
+    //                owner_sig, owner_pubkey).
+    let mut staged_peer_revocation: Option<(
+        [u8; 32],
+        [u8; 32],
+        String,
+        u64,
+        [u8; 64],
+        [u8; 32],
+    )> = None;
+    if accepted && mutation_type == "revoke_federation_peer" {
+        match crate::events::decode_revoke_federation_peer(&content_bytes) {
+            Some((revoked_id, revoked_pubkey, reason, anchor_ts_secs)) => {
+                let sig_bytes_opt = request
+                    .payload
+                    .get("attestation_signature")
+                    .and_then(|v| match v {
+                        Value::Bytes(b) => Some(b.clone()),
+                        _ => None,
+                    });
+                let owner_pk_arr = state
+                    .pinned_operator_identity
+                    .as_ref()
+                    .map(|p| p.pubkey)
+                    .unwrap_or([0u8; 32]);
+                match sig_bytes_opt {
+                    Some(sig_vec) if sig_vec.len() == 64 => {
+                        let mut sig_arr = [0u8; 64];
+                        sig_arr.copy_from_slice(&sig_vec);
+                        staged_peer_revocation = Some((
+                            revoked_id,
+                            revoked_pubkey,
+                            reason,
+                            anchor_ts_secs,
+                            sig_arr,
+                            owner_pk_arr,
+                        ));
+                    }
+                    _ => {
+                        accepted = false;
+                        rejection_reason =
+                            "revoke_federation_peer: missing or malformed attestation_signature"
+                                .to_string();
+                        let _ = emit_immune_sporocarp(
+                            state,
+                            "C5_attestation_invalid",
+                            "attestation_invalid",
+                            "revoke_federation_peer_signature_missing_or_malformed",
+                        );
+                    }
+                }
+            }
+            None => {
+                accepted = false;
+                rejection_reason =
+                    "revoke_federation_peer canonical-bytes decode failed (wrong domain or shape)"
+                        .to_string();
+                let _ = emit_immune_sporocarp(
+                    state,
+                    "C5_attestation_invalid",
+                    "attestation_invalid",
+                    "revoke_federation_peer_decode_failed",
+                );
+            }
+        }
+    }
+
     // **M26.4 F20 owner_objective_declaration**: decode the OwnerObjective
     // payload before insertion so we can refuse malformed declarations
     // (rejected with C5 attestation_invalid; no DAG churn). Pre-apply
@@ -1333,6 +1413,31 @@ pub(crate) fn handle_submit_mutation(
         None
     };
 
+    // **C13**: after a successful `revoke_federation_peer` mutation, emit the
+    // `federation_peer_revoked:{prefix}` DAG event (owner-attested CRL entry)
+    // AND insert the target into `state.revoked_federation_peers`. From this
+    // point the federation egress site blocks any envelope to the revoked peer
+    // (+ emits C13) and the ingest site drops the revoked peer's events.
+    // Idempotent (HashSet + content-hash-idempotent DAG insert).
+    // `emit_federation_peer_revoked` returns `Ok(None)` when the peer was
+    // already revoked (idempotent no-op); `Option::flatten` collapses that into
+    // the `peer_revoked_event_hash` Option uniformly.
+    let peer_revoked_event_hash = if accepted && staged_peer_revocation.is_some() {
+        let (revoked_id, revoked_pubkey, reason, anchor_ts_secs, owner_sig, owner_pubkey) =
+            staged_peer_revocation.as_ref().expect("guarded by Some check");
+        crate::federation::handlers::emit_federation_peer_revoked(
+            state,
+            revoked_id,
+            revoked_pubkey,
+            reason,
+            *anchor_ts_secs,
+            owner_sig,
+            owner_pubkey,
+        )?
+    } else {
+        None
+    };
+
     // M17 P3 永恒进化: after mutation acceptance, emit the evolution event DAG node.
     // - schema_apply_attempted + schema_apply_succeeded → evolution_succeeded:{op}
     // - schema_apply_attempted + !schema_apply_succeeded → evolution_failed:{op}
@@ -1558,6 +1663,14 @@ pub(crate) fn handle_submit_mutation(
     if let Some(h) = l0_revision_event_hash {
         payload.insert(
             "l0_revision_event_hash".to_string(),
+            Value::Bytes(h.as_ref().to_vec()),
+        );
+    }
+    // **C13** — surface the federation_peer_revoked event hash so the operator
+    // side can index the on-chain CRL entry / confirm the revocation landed.
+    if let Some(h) = peer_revoked_event_hash {
+        payload.insert(
+            "federation_peer_revoked_event_hash".to_string(),
             Value::Bytes(h.as_ref().to_vec()),
         );
     }

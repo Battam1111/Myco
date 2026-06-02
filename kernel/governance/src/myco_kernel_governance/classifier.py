@@ -202,6 +202,25 @@ SEED_DIMENSION_TABLE: tuple[ClassifierRule, ...] = (
         classification=Classification.CONTRACT_IDENTITY_LEVEL,
         meta_structure_name="federation_peer_attestation_list",
     ),
+    # **C13 (2026-06-02) — local federation peer revocation** (L1/GOVERNANCE
+    # §5.2 + L2/FEDERATION §6.5.b per-peer OWNER revocation; L1/HARD_RULES C13
+    # peer_attestation_revoked_egress). Revoking a peer is an owner-authority
+    # decision (it changes WHICH peers the substrate will egress to / ingest
+    # from), so it is unconditionally CI — same gate family as the peer
+    # attestation list itself. The substrate verifies the owner signature over
+    # the revocation body (mutation_type="revoke_federation_peer"), emits a
+    # federation_peer_revoked:{prefix} DAG event, and refuses egress to /
+    # ingest from the revoked peer thereafter. An unattested revoke is rejected
+    # contract_identity_level → C5 (no new HARD_RULES row).
+    #
+    # SCOPE: this is the LOCAL owner-revocation half. The quorum-revocation half
+    # (§6.5.b ≥2/3 Byzantine consensus at ≥3 peers) is DEFERRED — it needs the
+    # absent PBFT consensus layer.
+    ClassifierRule(
+        name="revoke_federation_peer_mutation",
+        classification=Classification.CONTRACT_IDENTITY_LEVEL,
+        mutation_type="revoke_federation_peer",
+    ),
     # M17 P3 永恒进化: schema_evolution mutation type is unconditionally CI.
     # The content is a schema_diff (canonical-bytes Map) that the dispatcher
     # applies AFTER owner-signature verification. Apply success → DAG node

@@ -775,6 +775,7 @@ impl FederationState {
         our_dag_tip: Option<&[u8; 32]>,
         our_signing_seed: Option<&[u8; 32]>,
         local_dag: &myco_kernel_schema::dag::Dag,
+        revoked_peers: &std::collections::HashSet<[u8; 32]>,
     ) -> Vec<PollPeerEvent> {
         // M22.2 path: progress AwaitingHello peers first (existing logic).
         let mut events = self.progress_awaiting_hello_peers(
@@ -812,6 +813,22 @@ impl FederationState {
                 }
             };
             if msg.message_type == protocol::fed_msg_type::FED_REQUEST_EVENTS_SINCE {
+                // **C13 — egress non-revocation check, BEFORE emission**
+                // (L1/GOVERNANCE §5.2: "every outbound envelope verifies target
+                // freshness + non-revocation pre-emission; stale/revoked →
+                // federation_egress_blocked"). A peer the owner has revoked gets
+                // NO event batch: we skip parse/enumerate/write entirely and
+                // surface EgressBlockedRevoked so the caller fruits C13. This is
+                // the single egress site for federation event data, so gating
+                // here is airtight — no `write_fed_frame` of a FED_EVENT_BATCH
+                // can run for a revoked peer.
+                if revoked_peers.contains(&peer_id) {
+                    events.push(PollPeerEvent::EgressBlockedRevoked {
+                        peer_substrate_id: peer_id,
+                        remote_addr_str: peer.remote_addr.to_string(),
+                    });
+                    continue;
+                }
                 let parsed = match protocol::parse_request_events_since_payload(&msg.payload) {
                     Ok(p) => p,
                     Err(e) => {
@@ -1067,6 +1084,19 @@ pub enum PollPeerEvent {
         peer_substrate_id: [u8; 32],
         /// Hashes of the DAG events we sent.
         sent_event_hashes: Vec<[u8; 32]>,
+    },
+    /// **C13** — an inbound FED_REQUEST_EVENTS_SINCE arrived from a peer on the
+    /// owner-revocation list. NO event batch was written (egress suppressed
+    /// pre-emission per L1/GOVERNANCE §5.2). The caller emits a
+    /// `C13_peer_attestation_revoked_egress` immune sporocarp + an
+    /// `OutputError::FederationEgressBlocked`. The peer connection is left
+    /// intact (the block is per-envelope, not a disconnect) — but it will be
+    /// blocked again on every subsequent request while revoked.
+    EgressBlockedRevoked {
+        /// The revoked peer whose egress was blocked.
+        peer_substrate_id: [u8; 32],
+        /// Remote socket address (for the C13 evidence string).
+        remote_addr_str: String,
     },
     /// **v3.1.1 Sprint 5.H (T2.5)** — inbound peer presented a fed_hello
     /// with a protocol_version that doesn't match

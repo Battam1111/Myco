@@ -169,6 +169,13 @@ def test_ci_federation_peer_attestation_list_meta() -> None:
     assert classify(env) is Classification.CONTRACT_IDENTITY_LEVEL
 
 
+def test_ci_revoke_federation_peer_mutation() -> None:
+    # C13 — revoking a federation peer is an owner-authority decision; the
+    # mutation_type rule classifies it CI regardless of touched scope.
+    env = MutationEnvelope(mutation_type="revoke_federation_peer")
+    assert classify(env) is Classification.CONTRACT_IDENTITY_LEVEL
+
+
 # ---------------------------------------------------------------------------
 # Mortality-axis gradient update is CI (special-cased per §1.2).
 # ---------------------------------------------------------------------------
@@ -281,8 +288,10 @@ def test_seed_table_size() -> None:
     # 1 v3.1.1 Sprint 8.G rule (abort_migration_mutation, P03 §10.4 two-phase migration) +
     # 4 COV06 rules (update_successor_chain + accept_succession +
     #   record_cultivator_heartbeat + cultivation_successor_chain_meta;
-    #   cultivator-mortality + F21 succession FSM, L1/GOVERNANCE §3.2).
-    assert len(SEED_DIMENSION_TABLE) == 37
+    #   cultivator-mortality + F21 succession FSM, L1/GOVERNANCE §3.2) +
+    # 1 C13 rule (revoke_federation_peer_mutation; local federation peer
+    #   revocation, L1/GOVERNANCE §5.2 + L2/FEDERATION §6.5.b).
+    assert len(SEED_DIMENSION_TABLE) == 38
 
 
 def test_classifier_rule_predicate_or_logic() -> None:
