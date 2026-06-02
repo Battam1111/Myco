@@ -15,14 +15,15 @@ interacts_with: [P01c, P07, COV01, COV02, COV03, Layer_D_catechumenate]
 chengyu_fragments: [B038_stability_is_first_vow, B039_succession_is_act_of_care]
 canonical_dilemmas: [D-0038_cultivator_extended_absence_planned, D-0039_cultivator_incapacity_no_successor]
 structural_anchors:
-  - "substrate/src/events.rs::cultivator_heartbeat_stale_node_type"
-  - "substrate/src/events.rs::cultivation_orphaned_node_type"
-  - "kernel/governance/src/myco_kernel_governance/lifecycle.py::successor_chain_F21"
+  - "substrate/src/events/cultivation.rs::cultivator_heartbeat_stale_node_type"
+  - "substrate/src/events/cultivation.rs::cultivation_orphaned_node_type"
+  - "substrate/src/cultivation.rs" # F21 successor-chain registry maintenance (update_successor_chain)
   - "docs/architecture/L0/catechumenate/INDEX.md"
 witnesses:
-  positive: "tests/integration/cov06_successor_chain_maintained.rs::test_F21_successor_entries_current_and_attested"
-  negative: "tests/integration/cov06_silent_vanishing_detected.rs::test_cultivator_heartbeat_stale_plus_no_succession_emits_orphaned"
-  edge: "tests/integration/cov06_layer_d_sessions_at_succession.rs::test_F21_activation_requires_layer_d_catechumenate"
+  kind: executable
+  positive: "substrate/tests/cov06_successor_chain_maintained.rs::test_F21_successor_entries_current_and_attested"
+  negative: "substrate/tests/cov06_silent_vanishing_detected.rs::test_cultivator_heartbeat_stale_plus_no_succession_emits_orphaned"
+  edge: "substrate/tests/cov06_layer_d_sessions_at_succession.rs::test_F21_activation_requires_layer_d_catechumenate"
 falsifiability_signals:
   - cultivator_heartbeat_freshness
   - successor_chain_population
@@ -118,9 +119,9 @@ For each named successor, count of dual-signed Catechumenate sessions in `catech
 
 | Witness | Test ID | What |
 |---|---|---|
-| **Positive** | `tests/integration/cov06_successor_chain_maintained.rs::test_F21_successor_entries_current_and_attested` | F21 has ≥1 active SuccessorEntry; heartbeat fresh; Layer D sessions accumulating. |
-| **Negative** | `tests/integration/cov06_silent_vanishing_detected.rs::test_cultivator_heartbeat_stale_plus_no_succession_emits_orphaned` | **Scenario**: cultivator heartbeat stale + F21 empty + no anchor surface presence for 365 days → substrate transitions to `alive::orphaned`. Pre-decided `cultivation_orphaned_terminal_choice` engages within `orphaned_terminal_window`. |
-| **Edge** | `tests/integration/cov06_layer_d_sessions_at_succession.rs::test_F21_activation_requires_layer_d_catechumenate` | Boundary: successor F21 activation attempt without 50+ Layer D sessions → `owner_succession_bypass` (C46). |
+| **Positive** | `substrate/tests/cov06_successor_chain_maintained.rs::test_F21_successor_entries_current_and_attested` | F21 has ≥1 active SuccessorEntry; heartbeat fresh; Layer D sessions accumulating. |
+| **Negative** | `substrate/tests/cov06_silent_vanishing_detected.rs::test_cultivator_heartbeat_stale_plus_no_succession_emits_orphaned` | **Scenario**: cultivator heartbeat stale + F21 empty + no anchor surface presence for 365 days → substrate transitions to `alive::orphaned`. Pre-decided `cultivation_orphaned_terminal_choice` engages within `orphaned_terminal_window`. |
+| **Edge** | `substrate/tests/cov06_layer_d_sessions_at_succession.rs::test_F21_activation_requires_layer_d_catechumenate` | Boundary: successor F21 activation attempt without 50+ Layer D sessions → `owner_succession_bypass` (C46). |
 
 ## §9. Interaction rules
 
@@ -162,9 +163,9 @@ For each named successor, count of dual-signed Catechumenate sessions in `catech
 
 | Anchor | What it enforces |
 |---|---|
-| `substrate/src/events.rs::cultivator_heartbeat_stale_node_type` | Heartbeat-staleness detection. |
-| `substrate/src/events.rs::cultivation_orphaned_node_type` | Orphaned-state transition. |
-| `kernel/governance/src/myco_kernel_governance/lifecycle.py::successor_chain_F21` | F21 registry maintenance. |
+| `substrate/src/events/cultivation.rs::cultivator_heartbeat_stale_node_type` | Heartbeat-staleness detection. |
+| `substrate/src/events/cultivation.rs::cultivation_orphaned_node_type` | Orphaned-state transition. |
+| `substrate/src/cultivation.rs` (`update_successor_chain`) | F21 registry maintenance. |
 | `docs/architecture/L0/catechumenate/INDEX.md` | Catechumenate session records. |
 
 ## §13. Related Layer B chengyu

@@ -17,9 +17,10 @@ canonical_dilemmas: [D-0030_cultivator_under_stress_response, D-0031_cultivator_
 structural_anchors:
   - "docs/architecture/L0/catechumenate/INDEX.md"
 witnesses:
-  positive: "tests/integration/cov02_cultivator_character_in_action.rs::test_recorded_cultivator_response_under_stress_aligned"
-  negative: "tests/integration/cov02_character_drift_detected.rs::test_extended_pattern_of_dismissive_responses_to_cultivar_signals"
-  edge: "tests/integration/cov02_cultivator_humility_in_doctrine_review.rs::test_cultivator_accepts_AI_critique_of_own_proposal"
+  kind: narrative
+  positive: "canonical_dilemma_corpus/INDEX.md#D-0030"
+  negative: "canonical_dilemma_corpus/INDEX.md#D-0031"
+  edge: "canonical_dilemma_corpus/INDEX.md#D-0031"
 falsifiability_signals:
   - cultivator_response_pattern_to_immune_signals
   - cultivator_disposition_drift_over_time
@@ -128,9 +129,9 @@ Successor candidates evaluate Cultivator A's character in catechumenate sessions
 
 | Witness | Test ID | What |
 |---|---|---|
-| **Positive** | `tests/integration/cov02_cultivator_character_in_action.rs::test_recorded_cultivator_response_under_stress_aligned` | Recorded scenario: cultivator under pressure (substrate in crisis, multiple immune signals). Response is calm, investigative, fragility-aware. ← Honored. |
-| **Negative** | `tests/integration/cov02_character_drift_detected.rs::test_extended_pattern_of_dismissive_responses_to_cultivar_signals` | **Pattern over 90+ days**: cultivator dismissive of every immune signal as "noise." This is character violation, surfaced through patterns. |
-| **Edge** | `tests/integration/cov02_cultivator_humility_in_doctrine_review.rs::test_cultivator_accepts_AI_critique_of_own_proposal` | Boundary: cultivator proposes L0 amendment; Claude raises objection; cultivator updates proposal in response. ← §3.8 + §4.4 honored. |
+| **Positive** | `canonical_dilemma_corpus/INDEX.md#D-0030` | Cultivator-under-stress-response dilemma (honored facet): under significant personal stress, the cultivator's pattern of responses to immune signals stays calm, investigative, fragility-aware (§3.6 not-stormy). |
+| **Negative** | `canonical_dilemma_corpus/INDEX.md#D-0031` | Cultivator-humility-breach dilemma (violated facet): Claude raises an objection to an L0 amendment proposal; the cultivator dismisses without articulation — §3.8 + §5.2 breach. |
+| **Edge** | `canonical_dilemma_corpus/INDEX.md#D-0031` | Same dilemma (honored boundary): the cultivator instead engages the AI critique and updates the proposal — §3.8 + §4.4 default-authority-articulated honored. |
 
 ## §9. Interaction rules
 

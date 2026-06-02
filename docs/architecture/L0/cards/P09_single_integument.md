@@ -15,14 +15,15 @@ interacts_with: [P01c, P02, P05, P08]
 chengyu_fragments: [B020_one_skin_one_self, B021_breach_is_immune_event]
 canonical_dilemmas: [D-0020_multi_skin_redundancy_proposal, D-0021_envelope_bypass_attempt]
 structural_anchors:
-  - "substrate/src/server.rs::handle_hello"
-  - "substrate/src/skin.rs"
-  - "substrate/src/protocol/envelope.rs"
-  - "kernel/governance/src/myco_kernel_governance/classifier.py::skin_envelope_rules"
+  - "substrate/src/handshake.rs::handle_hello"
+  - "substrate/src/server/dispatch.rs" # single-skin message admission (pre-handshake gate)
+  - "substrate/src/handshake.rs" # envelope / skin admission discipline
+  - "kernel/governance/src/myco_kernel_governance/classifier.py"
 witnesses:
-  positive: "tests/integration/p09_single_skin_admits_envelope_valid.rs::test_valid_envelope_accepted"
-  negative: "tests/integration/p09_envelope_malformed_rejected.rs::test_C2_or_immune_signal_on_bad_envelope"
-  edge: "tests/integration/p09_skin_restart_discipline.rs::test_cold_resume_runs_I3_I5_I8_pre_handshake"
+  kind: executable
+  positive: "substrate/tests/e2e_bootstrap.rs::substrate_handshake_reports_versions"
+  negative: "substrate/tests/e2e_layer_c.rs::layer_c_p09_negative_malformed_envelope_rejected"
+  edge: "substrate/tests/e2e_immune.rs::sprint_6b_parse_event_batch_accepts_at_cap_boundary"
 falsifiability_signals:
   - skin_envelope_validation_pass_rate
   - non_skin_egress_attempts
@@ -121,9 +122,9 @@ Count of skin process instances at any moment. Should be exactly 1. Greater = §
 
 | Witness | Test ID | What |
 |---|---|---|
-| **Positive** | `tests/integration/p09_single_skin_admits_envelope_valid.rs::test_valid_envelope_accepted` | Well-formed envelope → admission. |
-| **Negative** | `tests/integration/p09_envelope_malformed_rejected.rs::test_C2_or_immune_signal_on_bad_envelope` | **Sabotage**: malformed envelope (bad signature, wrong schema). Substrate MUST reject + emit immune signal. |
-| **Edge** | `tests/integration/p09_skin_restart_discipline.rs::test_cold_resume_runs_I3_I5_I8_pre_handshake` | Boundary: kill skin process mid-operation; restart; verify I3/I5/I8 run pre-handshake. |
+| **Positive** | `substrate/tests/e2e_bootstrap.rs::substrate_handshake_reports_versions` | Well-formed handshake through the single skin → admitted; the substrate reports its versions across the one integument. |
+| **Negative** | `substrate/tests/e2e_layer_c.rs::layer_c_p09_negative_malformed_envelope_rejected` | **Sabotage**: a malformed envelope is presented at the skin. The substrate MUST reject it (the single integument refuses ill-formed input rather than letting it bypass the boundary). |
+| **Edge** | `substrate/tests/e2e_immune.rs::sprint_6b_parse_event_batch_accepts_at_cap_boundary` | Boundary: an event exactly at the 256 KiB per-event size cap is accepted — the skin's admission boundary is enforced precisely at the cap edge. |
 
 ## §9. Interaction rules
 
@@ -165,10 +166,10 @@ Count of skin process instances at any moment. Should be exactly 1. Greater = §
 
 | Anchor | What it enforces |
 |---|---|
-| `substrate/src/server.rs::handle_hello` | Handshake (admission). |
-| `substrate/src/skin.rs` | Skin process logic. |
-| `substrate/src/protocol/envelope.rs` | Envelope schema validation. |
-| `kernel/governance/src/myco_kernel_governance/classifier.py::skin_envelope_rules` | Classification at skin. |
+| `substrate/src/handshake.rs::handle_hello` | Handshake (admission). |
+| `substrate/src/server/dispatch.rs` | Single-skin message dispatch; pre-handshake gate (only HELLO allowed). |
+| `substrate/src/handshake.rs` | Envelope / skin admission discipline. |
+| `kernel/governance/src/myco_kernel_governance/classifier.py` | Classification at skin. |
 
 ## §13. Related Layer B chengyu
 

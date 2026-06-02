@@ -16,13 +16,14 @@ chengyu_fragments: [B026_pair_flourishes_together, B027_telos_drift_is_alarm, B0
 canonical_dilemmas: [D-0025_telos_drift_persistent, D-0026_owner_objective_absence_handling, D-0027_p14c_proxy_disagreement]
 structural_anchors:
   - "substrate/src/observatory.rs::compute_telos_alignment_cosine"
-  - "substrate/src/events.rs::telos_drift_node_type"
-  - "substrate/src/events.rs::owner_objective_declared_node_type"
-  - "kernel/governance/src/myco_kernel_governance/lifecycle.py::telos_metric_F20"
+  - "substrate/src/events/telos.rs::NODE_TYPE_TELOS_DRIFT"
+  - "substrate/src/events/telos.rs::NODE_TYPE_OWNER_OBJECTIVE_DECLARED_PREFIX"
+  - "kernel/governance/src/myco_kernel_governance/classifier.py" # F20 fixed-point gating
 witnesses:
-  positive: "tests/integration/p14_owner_objective_drives_alignment.rs::test_alignment_computed_against_declared_objective"
-  negative: "tests/integration/p14_telos_drift_emits_signal.rs::test_C24_or_telos_drift_fires_on_sustained_deviation"
-  edge: "tests/integration/p14_birth_period_telos_pending.rs::test_telos_alignment_pending_during_birth_period"
+  kind: executable
+  positive: "substrate/tests/e2e_observatory.rs::observatory_char07_assessment_intake_and_telos_fallback"
+  negative: "substrate/tests/e2e_observatory.rs::m25_2_bet_weakening_quorum_not_triggered_in_birth" # nearest-available (exercises the telos→bet-weakening-quorum path); exact telos_drift-fires-on-sustained-deviation negative witness is v0.9.x debt
+  edge: "substrate/tests/e2e_economy.rs::m26_4_telos_alignment_pending_when_no_objective_declared"
 falsifiability_signals:
   - telos_alignment_value
   - telos_drift_persistence_cycles
@@ -126,9 +127,9 @@ Boolean: is there an active `telos_objective_declaration` in this substrate? Abs
 
 | Witness | Test ID | What |
 |---|---|---|
-| **Positive** | `tests/integration/p14_owner_objective_drives_alignment.rs::test_alignment_computed_against_declared_objective` | Cultivator declares objective; substrate computes alignment correctly; alignment value reflects sporocarp pattern match. |
-| **Negative** | `tests/integration/p14_telos_drift_emits_signal.rs::test_C24_or_telos_drift_fires_on_sustained_deviation` | **Sabotage**: drive sporocarp pattern far from declared objective for window-length. Substrate MUST emit `telos_drift` or C24 depending on severity. |
-| **Edge** | `tests/integration/p14_birth_period_telos_pending.rs::test_telos_alignment_pending_during_birth_period` | Boundary: substrate in birth period. Despite high deviation, emits `telos_alignment_pending` not `telos_drift`. |
+| **Positive** | `substrate/tests/e2e_observatory.rs::observatory_char07_assessment_intake_and_telos_fallback` | The telos alignment is computed and surfaced in the observatory (with the agent-perceived-utility fallback when no owner objective is declared) — pair-flourishing is a live, measured signal. |
+| **Negative** | `substrate/tests/e2e_observatory.rs::m25_2_bet_weakening_quorum_not_triggered_in_birth` | Exercises the telos → `bet_weakening_quorum` (C40) coupling — the quorum is correctly NOT triggered during birth, the gate that prevents false telos-drift alarms. *Nearest-available; the exact sabotage-sustained-deviation-emits-`telos_drift` negative witness is v0.9.x debt.* |
+| **Edge** | `substrate/tests/e2e_economy.rs::m26_4_telos_alignment_pending_when_no_objective_declared` | Boundary: when no objective is declared, alignment is `pending` (not drift, not zero) — telos at the edge where the objective is absent. |
 
 ## §9. Interaction rules
 
@@ -174,9 +175,9 @@ Boolean: is there an active `telos_objective_declaration` in this substrate? Abs
 | Anchor | What it enforces |
 |---|---|
 | `substrate/src/observatory.rs::compute_telos_alignment_cosine` | F20 metric computation. |
-| `substrate/src/events.rs::telos_drift_node_type` | Drift signal emission. |
-| `substrate/src/events.rs::owner_objective_declared_node_type` | Owner objective lifecycle. |
-| `kernel/governance/src/myco_kernel_governance/lifecycle.py::telos_metric_F20` | F20 fixed-point gating. |
+| `substrate/src/events/telos.rs::NODE_TYPE_TELOS_DRIFT` | Drift signal emission. |
+| `substrate/src/events/telos.rs::NODE_TYPE_OWNER_OBJECTIVE_DECLARED_PREFIX` | Owner objective lifecycle. |
+| `kernel/governance/src/myco_kernel_governance/classifier.py` | F20 fixed-point gating. |
 
 ## §13. Related Layer B chengyu
 

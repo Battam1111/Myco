@@ -15,14 +15,15 @@ interacts_with: [P01c, P05, P06, P07, COV01, COV04]
 chengyu_fragments: [B018_spore_carries_genome, B019_generation_bounded_against_fork]
 canonical_dilemmas: [D-0016_unattested_spawn_attempt, D-0018_generation_depth_at_max]
 structural_anchors:
-  - "substrate/src/server.rs::handle_sprout_child"
-  - "kernel/schema/src/spore_schema.rs"
-  - "kernel/governance/src/myco_kernel_governance/lifecycle.py::reproduction_closure"
-  - "substrate/src/events.rs::genesis_attested_node_type"
+  - "substrate/src/reproduction.rs::handle_sprout_child"
+  - "kernel/schema/src/spore.rs::SporeSchema"
+  - "substrate/src/reproduction.rs" # I7 reproduction-closure verification
+  - "substrate/src/events/attestation.rs::genesis_attested_node_type"
 witnesses:
-  positive: "tests/integration/p08_sprout_child_attested.rs::test_owner_cosigned_spawn_succeeds"
-  negative: "tests/integration/p08_unattested_spawn_rejected.rs::test_C14_fires_on_spawn_without_attestation"
-  edge: "tests/integration/p08_generation_depth_enforced.rs::test_C47_fires_at_depth_max"
+  kind: executable
+  positive: "substrate/tests/e2e_layer_c.rs::layer_c_p08_positive_child_substrate_spawn_succeeds"
+  negative: "substrate/tests/e2e_reproduction.rs::c68_unattested_spawn_refused_and_immune_no_child_dag"
+  edge: "substrate/tests/e2e_reproduction.rs::c47_positive_at_depth_max_refuses_and_emits"
 falsifiability_signals:
   - children_spawned_count_per_substrate
   - generation_depth_at_birth
@@ -116,9 +117,9 @@ For a freshly-spawned child, count of inherited unresolved immune signals. Non-z
 
 | Witness | Test ID | What |
 |---|---|---|
-| **Positive** | `tests/integration/p08_sprout_child_attested.rs::test_owner_cosigned_spawn_succeeds` | Parent emits spawn request with cultivator co-attestation; child spawns; parent's DAG records `genesis_attested`; child runs I3 as first cycle. |
-| **Negative** | `tests/integration/p08_unattested_spawn_rejected.rs::test_C14_fires_on_spawn_without_attestation` | **Sabotage**: parent submits spawn request without cultivator co-attestation. Classifier returns `untyped`; C14 fires; no child substrate created. |
-| **Edge** | `tests/integration/p08_generation_depth_enforced.rs::test_C47_fires_at_depth_max` | Boundary: substrate at generation_depth = max - 1 attempts to spawn; child would be at max. Verify spawn rejected with C47 unless cultivator attests `depth_override`. |
+| **Positive** | `substrate/tests/e2e_layer_c.rs::layer_c_p08_positive_child_substrate_spawn_succeeds` | Parent emits spawn request with cultivator co-attestation; child spawns; the parent's DAG records the attested genesis and the I7 reproduction closure. |
+| **Negative** | `substrate/tests/e2e_reproduction.rs::c68_unattested_spawn_refused_and_immune_no_child_dag` | **Sabotage**: parent submits a spawn request without cultivator co-attestation. Spawn refused, immune signal fires, and NO child DAG is created. |
+| **Edge** | `substrate/tests/e2e_reproduction.rs::c47_positive_at_depth_max_refuses_and_emits` | Boundary: a substrate at generation_depth = max attempts to spawn; spawn refused with C47 emitted (unless cultivator attests `depth_override`). |
 
 ## §9. Interaction rules
 
@@ -160,10 +161,10 @@ For a freshly-spawned child, count of inherited unresolved immune signals. Non-z
 
 | Anchor | What it enforces |
 |---|---|
-| `substrate/src/server.rs::handle_sprout_child` | Spawn entry point. |
-| `kernel/schema/src/spore_schema.rs` | Spore-schema canonical-bytes structure. |
-| `kernel/governance/src/myco_kernel_governance/lifecycle.py::reproduction_closure` | Closure verification (I7). |
-| `substrate/src/events.rs::genesis_attested_node_type` | DAG event on successful spawn. |
+| `substrate/src/reproduction.rs::handle_sprout_child` | Spawn entry point. |
+| `kernel/schema/src/spore.rs::SporeSchema` | Spore-schema canonical-bytes structure. |
+| `substrate/src/reproduction.rs` | Closure verification (I7). |
+| `substrate/src/events/attestation.rs::genesis_attested_node_type` | DAG event on successful spawn. |
 
 ## §13. Related Layer B chengyu
 

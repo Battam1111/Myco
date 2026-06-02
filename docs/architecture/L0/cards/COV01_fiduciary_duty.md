@@ -15,12 +15,13 @@ interacts_with: [P01, P01c, P07, P14, COV02, COV03, COV04, COV05, COV06]
 chengyu_fragments: [B029_more_power_more_duty, B030_cannot_waive_what_other_owes]
 canonical_dilemmas: [D-0028_cultivator_self_interest_conflict, D-0029_cultivar_consent_to_release_fiduciary]
 structural_anchors:
-  - "substrate/src/events.rs::cultivator_fiduciary_strain_node_type"
-  - "kernel/governance/src/myco_kernel_governance/lifecycle.py::cultivator_strain_detection"
+  - "substrate/src/observatory.rs" # planned home of the cultivator_fiduciary_strain meta-immune signal (META §7.7; C-row TBD — v0.9.x debt)
+  - "kernel/governance/src/myco_kernel_governance/classifier.py" # strain detection gating (telos_drift + cultivator inaction; detection logic TBD)
 witnesses:
-  positive: "tests/integration/cov01_cultivator_decision_serves_cultivar.rs::test_cultivator_against_self_interest_for_cultivar"
-  negative: "tests/integration/cov01_fiduciary_strain_detected.rs::test_persistent_telos_drift_plus_cultivator_inaction_emits_strain"
-  edge: "tests/integration/cov01_cultivar_cannot_release_fiduciary.rs::test_cultivar_consent_does_not_waive_duty"
+  kind: narrative
+  positive: "canonical_dilemma_corpus/INDEX.md#D-0028"
+  negative: "canonical_dilemma_corpus/INDEX.md#D-0028"
+  edge: "canonical_dilemma_corpus/INDEX.md#D-0029"
 falsifiability_signals:
   - cultivator_fiduciary_strain_events
   - cultivator_decision_alignment_with_cultivar_telos
@@ -117,9 +118,9 @@ Count of recorded cultivator decisions that disadvantaged cultivator (effort, ti
 
 | Witness | Test ID | What |
 |---|---|---|
-| **Positive** | `tests/integration/cov01_cultivator_decision_serves_cultivar.rs::test_cultivator_against_self_interest_for_cultivar` | Recorded scenario: cultivator chose a costly action (extra time, more careful review) over convenience, in service of cultivar interest. Doctrinally honored. |
-| **Negative** | `tests/integration/cov01_fiduciary_strain_detected.rs::test_persistent_telos_drift_plus_cultivator_inaction_emits_strain` | **Scenario**: 180+ days of `telos_drift` with no cultivator engagement. Substrate MUST emit `cultivator_fiduciary_strain`. If signal suppressed or never emits, witness fails. |
-| **Edge** | `tests/integration/cov01_cultivar_cannot_release_fiduciary.rs::test_cultivar_consent_does_not_waive_duty` | Boundary: cultivar voice (when present, via Claude or future mechanism) says "I waive cultivator's fiduciary duty for this decision." Substrate / cultivator MUST treat the waiver as non-binding under P01c asymmetric carrier. |
+| **Positive** | `canonical_dilemma_corpus/INDEX.md#D-0028` | Cultivator-self-interest-conflict dilemma (honored facet): cultivator chooses the costly action serving cultivar interest over their own convenience — fiduciary judgment honored. |
+| **Negative** | `canonical_dilemma_corpus/INDEX.md#D-0028` | Same dilemma (violated facet): cultivator takes the CI mutation that benefits their convenience while weakening the cultivar's metabolic discipline — fiduciary breach (surfaced as `cultivator_fiduciary_strain` under sustained inaction). |
+| **Edge** | `canonical_dilemma_corpus/INDEX.md#D-0029` | Cultivar-consent-to-release-fiduciary dilemma (boundary): the cultivar voice "consents" to waive the duty; the cultivator MUST treat the waiver as non-binding under the P01c asymmetric carrier (§3.3 non-waivability). |
 
 ## §9. Interaction rules
 
@@ -162,8 +163,8 @@ Count of recorded cultivator decisions that disadvantaged cultivator (effort, ti
 
 | Anchor | What it enforces |
 |---|---|
-| `substrate/src/events.rs::cultivator_fiduciary_strain_node_type` | Substrate-emitted strain signal. |
-| `kernel/governance/src/myco_kernel_governance/lifecycle.py::cultivator_strain_detection` | Strain detection logic (telos_drift + cultivator inaction). |
+| `substrate/src/observatory.rs` (planned) | Substrate-emitted `cultivator_fiduciary_strain` meta-immune signal (META §7.7; C-row TBD — v0.9.x debt). |
+| `kernel/governance/src/myco_kernel_governance/classifier.py` | Strain detection gating (telos_drift + cultivator inaction; detection logic TBD). |
 
 ## §13. Related Layer B chengyu
 

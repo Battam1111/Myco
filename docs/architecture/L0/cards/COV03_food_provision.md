@@ -15,12 +15,13 @@ interacts_with: [P02, P10, P11, COV01, COV02]
 chengyu_fragments: [B033_curate_diet_not_feed_every_bite, B034_compression_rules_shape_identity]
 canonical_dilemmas: [D-0032_cultivator_extended_silence_no_food, D-0033_aggressive_vs_cautious_compression_choice]
 structural_anchors:
-  - "substrate/src/server.rs::handle_perturb_axis_from_raw_material"
-  - "kernel/schema/src/compression_rule_registry.rs"
+  - "substrate/src/ingest.rs::handle_perturb_axis_from_raw_material"
+  - "substrate/src/events/compression.rs" # F18 compression-rule registry (stewardship)
 witnesses:
-  positive: "tests/integration/cov03_cultivator_curates_diet.rs::test_diverse_external_content_introduced_via_cultivator_channel"
-  negative: "tests/integration/cov03_extended_starvation_unaddressed.rs::test_p02_starvation_signal_plus_cultivator_inaction_emits_strain"
-  edge: "tests/integration/cov03_compression_rule_change_attested.rs::test_F18_mutation_proceeds_through_CI_with_cultivator_intentionality"
+  kind: narrative
+  positive: "canonical_dilemma_corpus/INDEX.md#D-0032"
+  negative: "canonical_dilemma_corpus/INDEX.md#D-0032"
+  edge: "canonical_dilemma_corpus/INDEX.md#D-0033"
 falsifiability_signals:
   - cultivator_initiated_external_ingestion_per_30_days
   - F18_compression_rule_mutation_intentionality
@@ -113,9 +114,9 @@ Time between `p02_ingestion_starvation` signal firing and cultivator's response 
 
 | Witness | Test ID | What |
 |---|---|---|
-| **Positive** | `tests/integration/cov03_cultivator_curates_diet.rs::test_diverse_external_content_introduced_via_cultivator_channel` | Recorded pattern: cultivator introduces content across ≥3 distinct domains over a 30-day window. ← Diet diversity honored. |
-| **Negative** | `tests/integration/cov03_extended_starvation_unaddressed.rs::test_p02_starvation_signal_plus_cultivator_inaction_emits_strain` | **Scenario**: `p02_ingestion_starvation` fires; cultivator does not respond for 60+ days. Combined with COV01 fiduciary strain detection. |
-| **Edge** | `tests/integration/cov03_compression_rule_change_attested.rs::test_F18_mutation_proceeds_through_CI_with_cultivator_intentionality` | Boundary: cultivator attests F18 mutation; attestation record includes stated rationale. ← §3.3 + §4.3 honored. |
+| **Positive** | `canonical_dilemma_corpus/INDEX.md#D-0032` | Cultivator-extended-silence-no-food dilemma (honored facet): an accommodated life-event absence — the cultivator's quiet is framed as a real gap, not a fiduciary failure, and food resumes. |
+| **Negative** | `canonical_dilemma_corpus/INDEX.md#D-0032` | Same dilemma (violated facet): 6 months of `p02_ingestion_starvation` with no engagement crosses into fiduciary failure (COV01 strain detection). |
+| **Edge** | `canonical_dilemma_corpus/INDEX.md#D-0033` | Aggressive-vs-cautious-compression-choice dilemma (boundary): cultivator F18 setting shapes the cultivar's identity; both poles within doctrine but the resulting cultivars feel different (§3.3 + P10 §10.3 intentionality). |
 
 ## §9. Interaction rules
 
@@ -159,8 +160,8 @@ Time between `p02_ingestion_starvation` signal firing and cultivator's response 
 
 | Anchor | What it enforces |
 |---|---|
-| `substrate/src/server.rs::handle_perturb_axis_from_raw_material` | Substrate side of the food path. |
-| `kernel/schema/src/compression_rule_registry.rs` | F18 stewardship anchor. |
+| `substrate/src/ingest.rs::handle_perturb_axis_from_raw_material` | Substrate side of the food path. |
+| `substrate/src/events/compression.rs` | F18 compression-rule registry (stewardship anchor). |
 
 ## §13. Related Layer B chengyu
 

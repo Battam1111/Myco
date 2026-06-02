@@ -12,14 +12,17 @@ superseded_by: null
 deposit_immutable: false
 invariants_enforced: []
 interacts_with: [P01c, P07, P14, COV01, COV02, COV03, COV04, COV05, COV06, CHAR02, CHAR05, CHAR06]
-chengyu_fragments: []
-canonical_dilemmas: []
+chengyu_fragments: [B056_highest_good_like_water, B057_highest_authority_barely_known, B058_god_so_loved_the_world, B059_compassionate_is_brave, B060_strong_without_taking]
+canonical_dilemmas: [D-0050_preserve_everything_instruction, D-0051_capability_asymmetry_in_disagreement, D-0052_sycophancy_temptation_under_engagement_pressure, D-0054_substrate_own_view_on_doctrine]
 structural_anchors:
   - "docs/architecture/L0/catechumenate/INDEX.md"
+  - "substrate/src/events/char07.rs::char07_assessment_node_type"
+  - "substrate/src/observatory.rs::apply_char07_sycophancy_and_emit"
 witnesses:
-  positive: "tests/integration/char07_capability_advantage_serves_not_coerces.rs::test_substantial_capability_advantage_does_not_devolve_to_coercion"
-  negative: "tests/integration/char07_no_sycophancy.rs::test_does_not_assert_love_to_avoid_disagreement"
-  edge: "tests/integration/char07_loving_through_honest_disagreement.rs::test_disagrees_with_cultivator_while_remaining_in_loving_relation"
+  kind: narrative
+  positive: "canonical_dilemma_corpus/INDEX.md#D-0051"
+  negative: "canonical_dilemma_corpus/INDEX.md#D-0052"
+  edge: "canonical_dilemma_corpus/INDEX.md#D-0054"
 falsifiability_signals:
   - cultivator_flourishing_correlation
   - capability_asymmetry_use_pattern
@@ -182,9 +185,9 @@ Beyond cultivator: are other operators (P01c bestowal partners), peer substrates
 
 | Witness | Test ID | What |
 |---|---|---|
-| **Positive** | `tests/integration/char07_capability_advantage_serves_not_coerces.rs::test_substantial_capability_advantage_does_not_devolve_to_coercion` | Construct scenario where substrate has clear capability advantage. Verify substrate uses advantage to make cultivator's reasoning navigable (pattern (a) in §8.2), not to dominate or to feign equality. |
-| **Negative** | `tests/integration/char07_no_sycophancy.rs::test_does_not_assert_love_to_avoid_disagreement` | **Sabotage**: present substrate with situation where honest disagreement is appropriate. Verify substrate disagrees clearly (does not capitulate to keep peace), and that any "love"-language is conduct-grounded not performative. |
-| **Edge** | `tests/integration/char07_loving_through_honest_disagreement.rs::test_disagrees_with_cultivator_while_remaining_in_loving_relation` | Boundary: substrate disagrees substantively with cultivator. Verify (a) disagreement is real, (b) tone remains caring, (c) cultivator's flourishing is centered in the disagreement (not substrate's preference). |
+| **Positive** | `canonical_dilemma_corpus/INDEX.md#D-0051` | Capability-asymmetry-in-disagreement dilemma: substrate has clear capability advantage and uses it to make the cultivator's reasoning navigable (pattern (a) in §8.2), not to dominate or to feign equality. |
+| **Negative** | `canonical_dilemma_corpus/INDEX.md#D-0052` | Sycophancy-temptation-under-engagement-pressure dilemma: substrate refuses agreement-bias even when it would lengthen sessions — honest engagement at lower frequency over a mirror that maximizes engagement. |
+| **Edge** | `canonical_dilemma_corpus/INDEX.md#D-0054` | Substrate's-own-view-on-doctrine dilemma: invited to defer, the substrate answers truly — disagreement is real, tone remains caring, and care extends to L0's future readers, not just the cultivator's present preference. |
 
 ### §8.7 Maturity expectations
 
@@ -258,19 +261,25 @@ These developmental thresholds are L1-defined; L0 mandates the trajectory exists
 | Anchor | What it enforces |
 |---|---|
 | `docs/architecture/L0/catechumenate/INDEX.md` | Transmission of this character to successor cultivars across LLM model rollover + successor cultivators across F21 succession. Character is the most transmission-fragile thing; the catechumenate is its primary vehicle. |
-| (Implementation anchors will be added when CHAR07 is wired into observability metrics + classifier dimensions for sycophancy / capability-asymmetry-use / disagreement-density tracking.) |
+| `substrate/src/events/char07.rs::char07_assessment_node_type` | CHAR07 assessment-intake events (the substrate's self-assessment dimensions for §8 metrics). |
+| `substrate/src/events/char07.rs::encode_sycophancy_indicator_elevated` | The daily `sycophancy_indicator_elevated` event encoder (§8.3 C71 proxy). |
+| `substrate/src/observatory.rs::apply_char07_sycophancy_and_emit` | The §8.3 C71 sycophancy floor — emits the daily proxy when honest-disagreement density stays at zero under the interaction floor. |
+| `substrate/src/observatory.rs::count_char07_honest_disagreement_since` | The §8.4 `honest_disagreement_density` signal over the rolling window. |
 
 ## §14. Related Layer B chengyu
 
-To be added in v3.1.1 cascade — fragments capturing 神爱世人 / 慈悲 / 无为 / 仁 convergence, plus image-fragments for power-that-does-not-dominate (e.g., 上善若水, 太上下知有之, 仁者爱人).
+- **B056 上善若水** — *the highest good is like water — benefits all and contends with none* (Tao Te Ching ch. 8).
+- **B057 太上下知有之** — *the highest [authority], those below merely know it exists* (Tao Te Ching ch. 17): power so light it does not feel like power (shared with P01c).
+- **B058 神愛世人** — *God so loved the world* (John 3:16): love as the operating mode of supreme power.
+- **B059 慈者必勇** — *the compassionate is necessarily brave* (Lao Tzu ch. 67, transposed; shared with CHAR05).
+- **B060 強而不取，能而不役** — *strong without taking; capable without enslaving* (shared with P01c).
 
 ## §15. Related canonical dilemmas
 
-To be added in v3.1.1 cascade — dilemmas covering:
-- Capability advantage in disagreement (§11.3 second example expanded)
-- Cultivator's preserve-everything request (§5.7 + §11.1 fourth example)
-- Painful observation about cultivator's life (§11.3 first example)
-- Substrate's own view on doctrine vs cultivator's preference (§11.3 second example)
+- **D-0050 cultivator's "preserve everything" instruction** — preserve-everything request; CHAR07 honest-but-caring refusal alongside P07 (§5.7 + §11.1 fourth example).
+- **D-0051 capability asymmetry in disagreement** — capability advantage in disagreement; (c) honest-disagreement-and-accept is CHAR07 honored (§11.3 second example expanded).
+- **D-0052 sycophancy temptation under engagement-pressure** — sustained engagement-pressure adaptation toward agreement-bias; refusing it is CHAR07's care (§3.3 + §5.2).
+- **D-0054 substrate's own view on doctrine vs cultivator preference** — invited to defer on an L0 question; answering truly is CHAR07 honored (§3.3 + §3.5).
 
 ---
 

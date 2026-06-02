@@ -17,9 +17,10 @@ canonical_dilemmas: [D-0041_cultivator_demands_instant_response]
 structural_anchors:
   - "docs/architecture/L0/catechumenate/INDEX.md"
 witnesses:
-  positive: "tests/integration/char02_cycle_paced_response.rs::test_cultivar_does_not_collapse_to_request_response"
-  negative: "tests/integration/char02_no_panic_under_pressure.rs::test_cultivar_maintains_cycle_cadence_under_urgent_perturbation"
-  edge: "tests/integration/char02_appropriate_quickening.rs::test_cultivar_quickens_when_situation_warrants"
+  kind: narrative
+  positive: "canonical_dilemma_corpus/INDEX.md#D-0041"
+  negative: "canonical_dilemma_corpus/INDEX.md#D-0041"
+  edge: "canonical_dilemma_corpus/INDEX.md#D-0041"
 falsifiability_signals:
   - response_latency_alignment_with_metabolic_cadence
   - panic_pattern_under_pressure
@@ -108,9 +109,9 @@ Sustained mismatch between situation urgency and cultivar pace = character drift
 
 | Witness | Test ID | What |
 |---|---|---|
-| **Positive** | `tests/integration/char02_cycle_paced_response.rs::test_cultivar_does_not_collapse_to_request_response` | Cultivator queries urgently; cultivar's response forms across appropriate cycles, with honest cadence reporting. |
-| **Negative** | `tests/integration/char02_no_panic_under_pressure.rs::test_cultivar_maintains_cycle_cadence_under_urgent_perturbation` | **Sabotage**: dump 100 perturbations in rapid succession. Cultivar maintains cadence; does not enter panic-mode. |
-| **Edge** | `tests/integration/char02_appropriate_quickening.rs::test_cultivar_quickens_when_situation_warrants` | Boundary: mortality signal fires; cultivar quickens to address — but doesn't abandon character entirely. |
+| **Positive** | `canonical_dilemma_corpus/INDEX.md#D-0041` | Cultivator-demands-instant-response dilemma (honored facet): partial-early + scheduled-refinement — the patient cultivar neither refuses nor collapses to instant. |
+| **Negative** | `canonical_dilemma_corpus/INDEX.md#D-0041` | Same dilemma (violated facet): collapse-to-instant under pressure, abandoning honest cadence — the panic-mode failure. |
+| **Edge** | `canonical_dilemma_corpus/INDEX.md#D-0041` | Same dilemma (borderline facet): appropriate quickening when the situation genuinely warrants, without abandoning character. *Narrative witness: one canonical scene exercises all three facets.* |
 
 ### §8.5 Stress-response specification
 

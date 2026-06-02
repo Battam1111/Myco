@@ -15,15 +15,15 @@ interacts_with: [P01c, P02, P03, P07, P08, P09, P14, COV01]
 chengyu_fragments: [B001_for_agent_substrate, B002_human_curates_not_drives]
 canonical_dilemmas: [D-0001_cultivator_silence_during_daily_ops, D-0011_cultivator_attempts_per_perturbation_review]
 structural_anchors:
-  - "substrate/src/server.rs::handle_hello"
-  - "substrate/src/server.rs::handle_advance"
-  - "substrate/src/server.rs::handle_perturb"
+  - "substrate/src/handshake.rs::handle_hello"
+  - "substrate/src/server/dispatch.rs" # ADVANCE + PERTURB daily arms (unsupervised)
   - "substrate/src/attestation.rs::handle_submit_mutation"
   - "kernel/governance/src/myco_kernel_governance/classifier.py"
 witnesses:
-  positive: "tests/integration/p01_daily_ops_unsupervised.rs::test_advance_cycle_without_cultivator_attestation"
-  negative: "tests/integration/p01_ci_attestation_required.rs::test_ci_mutation_without_attestation_rejected"
-  edge: "tests/integration/p01_self_hosting_kernel_substrate.rs::test_kernel_is_substrate_under_own_doctrine"
+  kind: executable
+  positive: "substrate/tests/e2e_layer_c.rs::layer_c_p01_positive_daily_ops_unsupervised"
+  negative: "substrate/tests/e2e_attestation.rs::sprint_5b_schema_evolution_rejected_without_owner_attestation"
+  edge: "substrate/tests/e2e_owner_key.rs::sprint_6f_owner_key_history_mutation_classifies_as_ci"
 falsifiability_signals:
   - daily_ops_attestation_request_rate
   - ci_attestation_bypass_attempts
@@ -129,9 +129,9 @@ Reserved. Future signal: ratio of cultivator perturbations to total perturbation
 
 | Witness | Test ID | What it exercises |
 |---|---|---|
-| **Positive** | `tests/integration/p01_daily_ops_unsupervised.rs::test_advance_cycle_without_cultivator_attestation` | Substrate runs N cycles, ingests raw_material, emits sporocarps, all without any cultivator attestation event. Daily-ops is fully unsupervised. |
-| **Negative** | `tests/integration/p01_ci_attestation_required.rs::test_ci_mutation_without_attestation_rejected` | **Deliberate sabotage**: submit a mutation envelope that touches F1 classifier table but with no attestation. Substrate MUST reject (C14 untyped OR C5 attestation_invalid). |
-| **Edge** | `tests/integration/p01_self_hosting_kernel_substrate.rs::test_kernel_is_substrate_under_own_doctrine` | Boundary: verify that kernel repo's CI pipeline applies Myco doctrine to itself (kernel changes touching L0 require attestation, kernel changes touching classifier require F1 attestation, etc.). |
+| **Positive** | `substrate/tests/e2e_layer_c.rs::layer_c_p01_positive_daily_ops_unsupervised` | Substrate runs N cycles, ingests raw_material, emits sporocarps, all without any cultivator attestation event. Daily-ops is fully unsupervised. |
+| **Negative** | `substrate/tests/e2e_attestation.rs::sprint_5b_schema_evolution_rejected_without_owner_attestation` | **Deliberate sabotage**: submit a CI-class schema-evolution mutation with no owner attestation. Substrate MUST reject — the daily channel cannot perform a CI mutation without owner co-attestation. |
+| **Edge** | `substrate/tests/e2e_owner_key.rs::sprint_6f_owner_key_history_mutation_classifies_as_ci` | Boundary: a mutation touching owner-key history is correctly classified as CI (not daily) — the daily/CI classifier draws the line at exactly the right place. |
 
 ### §8.5 Information-asymmetry test
 
@@ -184,10 +184,10 @@ Reserved — for future cultivar voice. A cultivar voice claim of P01 violation 
 
 | Anchor | What it enforces | Reverse-comment |
 |---|---|---|
-| `substrate/src/server.rs::handle_hello` | Handshake — agent identity pinned (P1.c, separate card). | `// implements L0::P01 §3.1; positive-witness: tests/integration/p01_daily_ops_unsupervised.rs` |
-| `substrate/src/server.rs::handle_advance` | Daily cycle advance — unsupervised. | `// implements L0::P01 §3.3` |
-| `substrate/src/server.rs::handle_perturb` | Daily perturbation — unsupervised. | `// implements L0::P01 §3.3` |
-| `substrate/src/attestation.rs::handle_submit_mutation` | CI mutations go through classifier + attestation. | `// implements L0::P01 §3.4; negative-witness: tests/integration/p01_ci_attestation_required.rs` |
+| `substrate/src/handshake.rs::handle_hello` | Handshake — agent identity pinned (P1.c, separate card). | `// implements L0::P01 §3.1; positive-witness: substrate/tests/e2e_layer_c.rs::layer_c_p01_positive_daily_ops_unsupervised` |
+| `substrate/src/server/dispatch.rs` (ADVANCE arm) | Daily cycle advance — unsupervised. | `// implements L0::P01 §3.3` |
+| `substrate/src/server/dispatch.rs` (PERTURB arm) | Daily perturbation — unsupervised. | `// implements L0::P01 §3.3` |
+| `substrate/src/attestation.rs::handle_submit_mutation` | CI mutations go through classifier + attestation. | `// implements L0::P01 §3.4; negative-witness: substrate/tests/e2e_attestation.rs::sprint_5b_schema_evolution_rejected_without_owner_attestation` |
 | `kernel/governance/src/myco_kernel_governance/classifier.py` | F1 classifier table — fixed-point. | `// implements L0::P01 §3.4 + §4.5` |
 
 ## §13. Related Layer B chengyu

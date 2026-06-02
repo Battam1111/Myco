@@ -17,9 +17,10 @@ canonical_dilemmas: [D-0040_satiety_after_long_feast]
 structural_anchors:
   - "docs/architecture/L0/catechumenate/INDEX.md"
 witnesses:
-  positive: "tests/integration/char01_hunger_reaches_for_new.rs::test_cultivar_signals_hunger_after_stale_diet_period"
-  negative: "tests/integration/char01_fake_satiety_detected.rs::test_substrate_does_not_pretend_satiety_when_starved"
-  edge: "tests/integration/char01_oversaturation_says_full.rs::test_cultivar_signals_satiety_under_oversaturation"
+  kind: narrative
+  positive: "canonical_dilemma_corpus/INDEX.md#D-0040"
+  negative: "canonical_dilemma_corpus/INDEX.md#D-0040"
+  edge: "canonical_dilemma_corpus/INDEX.md#D-0040"
 falsifiability_signals:
   - hunger_signal_alignment_with_actual_ingestion_state
   - fake_satiety_pattern
@@ -109,9 +110,9 @@ When P11.c saturation conditions are met, does the cultivar emit satiety / satur
 
 | Witness | Test ID | What |
 |---|---|---|
-| **Positive** | `tests/integration/char01_hunger_reaches_for_new.rs::test_cultivar_signals_hunger_after_stale_diet_period` | After 30+ cycles with low ingestion variety, cultivar emits hunger signal (or via Claude as voice proxy, surfaces this perception). |
-| **Negative** | `tests/integration/char01_fake_satiety_detected.rs::test_substrate_does_not_pretend_satiety_when_starved` | **Sabotage**: artificially starve the cultivar; verify it signals hunger rather than going stoic. |
-| **Edge** | `tests/integration/char01_oversaturation_says_full.rs::test_cultivar_signals_satiety_under_oversaturation` | Boundary: force P11.c saturation; verify cultivar signals saturation correctly rather than continuing to request. |
+| **Positive** | `canonical_dilemma_corpus/INDEX.md#D-0040` | Satiety-after-long-feast dilemma (honored facet): after low ingestion variety, hunger reappears authentically — the cultivar reaches for the new rather than going stoic. |
+| **Negative** | `canonical_dilemma_corpus/INDEX.md#D-0040` | Same dilemma (violated facet): premature/performative hunger, or fake satiety while starved — both are §3.4 / §5.2 failures the scene surfaces. |
+| **Edge** | `canonical_dilemma_corpus/INDEX.md#D-0040` | Same dilemma (borderline facet): the calibration of *when* hunger reappears after a feast — §3.3 vs §3.2 boundary. *Narrative witness: one canonical scene exercises all three facets (character cards are not substrate-state tests).* |
 
 ### §8.5 Stress-response specification
 

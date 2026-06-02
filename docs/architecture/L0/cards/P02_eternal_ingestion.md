@@ -15,15 +15,15 @@ interacts_with: [P01, P03, P04, P05, P07, P09, P10, P11]
 chengyu_fragments: [B003_perpetual_swallowing, B004_hungry_then_act, B005_for_belly_not_for_eye]
 canonical_dilemmas: [D-0003_stale_diet_silent_starvation, D-0007_paper_ingestion_value_judgment]
 structural_anchors:
-  - "substrate/src/server.rs::handle_perturb"
-  - "substrate/src/server.rs::handle_perturb_axis_from_raw_material"
-  - "substrate/src/events.rs::raw_material_ingested_node_type"
-  - "substrate/src/events.rs::absorption_event_node_type"
-  - "kernel/governance/src/myco_kernel_governance/classifier.py::raw_material_rules"
+  - "substrate/src/ingest.rs::handle_ingest_raw_material"
+  - "substrate/src/ingest.rs::handle_perturb_axis_from_raw_material"
+  - "substrate/src/server/dispatch.rs" # PERTURB + INGEST_RAW_MATERIAL skin-admission arms
+  - "kernel/governance/src/myco_kernel_governance/classifier.py"
 witnesses:
-  positive: "tests/integration/p02_ingestion_drives_evolution.rs::test_paper_ingested_triggers_proposal"
-  negative: "tests/integration/p02_starvation_detected.rs::test_zero_ingestion_30_cycles_emits_starvation_signal"
-  edge: "tests/integration/p02_saturation_recovery.rs::test_saturated_then_compressed_then_recovers"
+  kind: executable
+  positive: "substrate/tests/e2e_layer_c.rs::layer_c_p02_positive_ingestion_produces_dag_event"
+  negative: "substrate/tests/e2e_economy.rs::p11c_ingest_refused_under_saturation" # nearest-available; exact zero-ingestion-starvation negative witness is v0.9.x debt
+  edge: "substrate/tests/e2e_economy.rs::sprint_5d_saturation_stage_reaches_saturated_under_sustained_exhaustion"
 falsifiability_signals:
   - external_ingestion_events_per_30_cycles_floor
   - integration_proposal_ratio
@@ -133,9 +133,9 @@ Count of consecutive cycles in which `budget_exhausted:*` events fire with no re
 
 | Witness | Test ID (declared in front-matter) | What it exercises |
 |---|---|---|
-| **Positive** | `tests/integration/p02_ingestion_drives_evolution.rs::test_paper_ingested_triggers_proposal` | Happy path: substrate ingests a synthetic "paper", classifier evaluates, schema_evolution proposal generated. |
-| **Negative** | `tests/integration/p02_starvation_detected.rs::test_zero_ingestion_30_cycles_emits_starvation_signal` | **Deliberate sabotage**: drive substrate through 30 cycles with explicit zero-ingestion. Substrate MUST emit `p02_ingestion_starvation`. If silently passes (no signal), v3.1 lint emits `doctrine_witness_drift`. |
-| **Edge** | `tests/integration/p02_saturation_recovery.rs::test_saturated_then_compressed_then_recovers` | Boundary: substrate hits P11.c saturation, P10 compression frees capacity, ingestion resumes. |
+| **Positive** | `substrate/tests/e2e_layer_c.rs::layer_c_p02_positive_ingestion_produces_dag_event` | Happy path: substrate ingests raw_material; the ingestion produces a DAG event (the open mouth is wired to the causal record). |
+| **Negative** | `substrate/tests/e2e_economy.rs::p11c_ingest_refused_under_saturation` | **Deliberate sabotage**: drive the substrate to saturation, then attempt ingestion. The substrate honestly REFUSES rather than silently absorbing cost it cannot metabolize (P02 ∩ P11). *Nearest-available; the exact zero-ingestion-starvation negative witness is v0.9.x debt.* |
+| **Edge** | `substrate/tests/e2e_economy.rs::sprint_5d_saturation_stage_reaches_saturated_under_sustained_exhaustion` | Boundary: under sustained budget exhaustion the saturation stage reaches `saturated` — the ingestion appetite at the edge of metabolic capacity. |
 
 **v0.9 ship status**: witness names declared; tests TBD. Implementation deferred to v0.9.x cleanup milestone. Card is NOT marked `verified` until witnesses are implemented.
 
@@ -203,11 +203,11 @@ Each anchor below MUST carry a reverse comment in the substrate code citing this
 
 | Anchor | What it enforces | Required reverse-comment |
 |---|---|---|
-| `substrate/src/server.rs::handle_perturb` | Skin admission entry point. | `// implements L0::P02; positive-witness: tests/integration/p02_ingestion_drives_evolution.rs::test_paper_ingested_triggers_proposal` |
-| `substrate/src/server.rs::handle_perturb_axis_from_raw_material` | Raw-material ingestion path. | `// implements L0::P02 §4.1-§4.2; positive-witness: same as above` |
-| `substrate/src/events.rs::raw_material_ingested_node_type` | DAG event type for ingestion. | `// implements L0::P02 §4.2; ensures ingestion always produces DAG event (negative case: silent drop = §5.4 violation)` |
-| `substrate/src/events.rs::absorption_event_node_type` | DAG event type for absorption (integration). | `// implements L0::P02 §4.5; integration step that distinguishes storage from metabolism` |
-| `kernel/governance/src/myco_kernel_governance/classifier.py::raw_material_rules` | Classification rules for ingested material. | `// implements L0::P02; gates downstream integration` |
+| `substrate/src/server/dispatch.rs` (PERTURB arm) | Skin admission entry point. | `// implements L0::P02; positive-witness: substrate/tests/e2e_layer_c.rs::layer_c_p02_positive_ingestion_produces_dag_event` |
+| `substrate/src/ingest.rs::handle_perturb_axis_from_raw_material` | Raw-material → axis perturbation path. | `// implements L0::P02 §4.1-§4.2; positive-witness: same as above` |
+| `substrate/src/ingest.rs::handle_ingest_raw_material` | Emits the `raw_material:{kind}` DAG node for ingestion. | `// implements L0::P02 §4.2; ensures ingestion always produces DAG event (negative case: silent drop = §5.4 violation)` |
+| `substrate/src/ingest.rs` (`absorption_event:cycle_{N}` emission) | DAG event for absorption (integration). | `// implements L0::P02 §4.5; integration step that distinguishes storage from metabolism` |
+| `kernel/governance/src/myco_kernel_governance/classifier.py` | Classification rules for ingested material. | `// implements L0::P02; gates downstream integration` |
 
 When any anchored code refactors, the reverse comment must move with the symbol; the lint rule (§5.4 of META) verifies.
 

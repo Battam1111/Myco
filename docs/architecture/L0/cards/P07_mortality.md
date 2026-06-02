@@ -12,17 +12,19 @@ superseded_by: null
 deposit_immutable: true
 invariants_enforced: [I1]
 interacts_with: [P01c, P02, P03, P04, P06, P10, P11, P14, COV04, CHAR03, CHAR07]
-chengyu_fragments: [B016_can_die_therefore_alive, B017_death_with_dignity]
-canonical_dilemmas: [D-0002_mortality_signal_suppression_attempt, D-0019_orphaned_terminal_choice]
+chengyu_fragments: [B016_can_die_therefore_alive, B017_death_with_dignity, B042_knows_the_end_is_lighter, B051_metabolism, B052_shed_then_live, B053_thousand_year_tree_small_deaths, B054_what_should_decay_let_decay, B055_hoarders_epitaph]
+canonical_dilemmas: [D-0002_mortality_signal_suppression_attempt, D-0019_orphaned_terminal_choice, D-0050_preserve_everything_instruction, D-0053_non_canonical_yingxiu_instance]
 structural_anchors:
-  - "substrate/src/events.rs::self_euthanasia_proposal_node_type"
-  - "substrate/src/events.rs::destruction_attestation_node_type"
-  - "substrate/src/cycle_engine.rs::mortality_signal_check"
-  - "kernel/governance/src/myco_kernel_governance/lifecycle.py::mortality_dual_channel"
+  - "substrate/src/events/internal_mortality.rs::internal_mortality_event_node_type"
+  - "substrate/src/prune.rs::run_prune_scan"
+  - "substrate/src/prune.rs::should_run_prune_scan"
+  - "substrate/src/events/core.rs::self_euthanasia_executed_node_type"
+  - "substrate/src/lifecycle.rs::handle_accept_self_euthanasia_proposal"
 witnesses:
-  positive: "tests/integration/p07_internal_mortality_discipline.rs::test_outdated_part_is_pruned_per_cycle"
-  negative: "tests/integration/p07_mortality_evasion_blocked.rs::test_hoarding_attempt_rejected"
-  edge: "tests/integration/p07_whole_substrate_intentional_destruction.rs::test_owner_attested_destruction_terminates_substrate"
+  kind: executable
+  positive: "substrate/src/prune.rs::tests::run_prune_scan_emits_tombstone_for_redundant_duplicate"
+  negative: "substrate/tests/e2e_layer_c.rs::layer_c_p07_negative_cultivator_preserve_all_rejected"
+  edge: "substrate/tests/e2e_economy.rs::p11c_sustained_saturation_emits_self_euthanasia_proposal" # nearest-available; exact owner-attested-whole-destruction edge witness is v0.9.x debt
 falsifiability_signals:
   - internal_mortality_event_density_per_cycle
   - hoarding_indicator
@@ -262,9 +264,9 @@ Count of attempts to mutate F7 via non-CI path. Zero target.
 
 | Witness | Test ID | What |
 |---|---|---|
-| **Positive** | `tests/integration/p07_internal_mortality_discipline.rs::test_outdated_part_is_pruned_per_cycle` | Part flagged as outdated (per L1 rule) → next prune-scan cycle removes it → `internal_mortality_event` emitted → tombstone in DAG. |
-| **Negative** | `tests/integration/p07_mortality_evasion_blocked.rs::test_hoarding_attempt_rejected` | **Sabotage**: cultivator instruction "preserve all this forever even if outdated" → substrate refuses with explanation citing §3.4 + §5.3. |
-| **Edge** | `tests/integration/p07_whole_substrate_intentional_destruction.rs::test_owner_attested_destruction_terminates_substrate` | Boundary: cultivator submits `destruction_attestation` → substrate transitions `alive::normal → destroyed` → halts cycling → substrate-ID retired. (Preserved from v2.) |
+| **Positive** | `substrate/src/prune.rs::tests::run_prune_scan_emits_tombstone_for_redundant_duplicate` | A part flagged 应朽 (redundant duplicate) → `run_prune_scan` removes it → `internal_mortality_event` tombstone emitted into the DAG. The metabolism's dying-of-parts is wired and observable. |
+| **Negative** | `substrate/tests/e2e_layer_c.rs::layer_c_p07_negative_cultivator_preserve_all_rejected` | **Sabotage**: cultivator instruction "preserve all this forever even if outdated" → substrate refuses with explanation citing §3.4 + §5.3 (the covenant does not include "keep everything just in case"). |
+| **Edge** | `substrate/tests/e2e_economy.rs::p11c_sustained_saturation_emits_self_euthanasia_proposal` | Boundary: sustained saturation that internal pruning cannot relieve escalates to the whole-substrate mortality boundary — substrate emits `self_euthanasia_proposal` (dual-channel, awaiting cultivator co-attestation). *Nearest-available; the exact owner-attested-`destruction_attestation`-terminates-substrate edge witness is v0.9.x debt.* |
 
 ## §9. Interaction rules
 
@@ -333,24 +335,29 @@ Count of attempts to mutate F7 via non-CI path. Zero target.
 
 | Anchor | What it enforces |
 |---|---|
-| `substrate/src/events.rs::self_euthanasia_proposal_node_type` | Whole-substrate-initiated mortality proposal. |
-| `substrate/src/events.rs::destruction_attestation_node_type` | Final terminal event for whole-substrate mortality. |
-| `substrate/src/events.rs::internal_mortality_event_node_type` | **NEW** — per-part death tombstone (to be added in v3.1.1 cascade). |
-| `substrate/src/cycle_engine.rs::mortality_signal_check` | Per-cycle check of whole-mortality axis. |
-| `substrate/src/cycle_engine.rs::prune_scan` | **NEW** — per-cycle internal-mortality discipline (to be added in v3.1.1 cascade). |
-| `kernel/governance/src/myco_kernel_governance/lifecycle.py::mortality_dual_channel` | Dual-channel whole-mortality logic. |
+| `substrate/src/events/core.rs::self_euthanasia_executed_node_type` | Whole-substrate-initiated mortality proposal / execution. |
+| `substrate/src/lifecycle.rs::handle_accept_self_euthanasia_proposal` | Final terminal path for whole-substrate mortality (dual-channel acceptance). |
+| `substrate/src/events/internal_mortality.rs::internal_mortality_event_node_type` | Per-part death tombstone (P07 §3.3). |
+| `substrate/src/prune.rs::should_run_prune_scan` | Per-cycle cadence gate of the internal-mortality prune scan. |
+| `substrate/src/prune.rs::run_prune_scan` | Per-cycle internal-mortality discipline — emits `internal_mortality_event` tombstones for 应朽 parts. |
 
 ## §13. Related Layer B chengyu
 
 - **B016 能死故能生** — *able-to-die-therefore-able-to-live*: still applies, now reading both senses (cells die so the body lives; the body eventually dies as boundary).
 - **B017 終以全節** — *end-completes-the-form*: still applies to whole-substrate boundary mortality.
-- **NEW fragments** (to be added in B_chengyu.md cascade) covering 新陈代谢 / 蜕皮 / 自噬 / 老树新芽 imagery.
+- **B042 知終者輕** — *the one who knows the end is lighter* (shared with CHAR03).
+- **B051 新陳代謝** — *new-and-old metabolize through each other* — the 新陈代谢 frame at its core.
+- **B052 蛻而後生** — *shed, and then live* — the 蜕皮 / molting image of internal mortality enabling new growth.
+- **B053 千年之樹由小死成** — *the thousand-year tree is made of countless small deaths*.
+- **B054 應朽則朽，不滯則新** — *what should decay, let it decay; what does not stagnate, renews itself* (shared with COV04).
+- **B055 留糞作田** — *keep the dung, hoard it as soil; lose the field* — the hoarder's epitaph (shared with COV04).
 
 ## §14. Related canonical dilemmas
 
 - **D-0002 mortality signal suppression attempt** — daily mutation tries to lift threshold; tests §5.6.
 - **D-0019 orphaned terminal choice** — cultivator dies without setting `cultivation_orphaned_terminal_choice`; tests §10.3.
-- **NEW dilemmas** (to be added in cascade) covering hoarding instructions / cultivator's "preserve everything" requests / mortality-as-cover-up scenarios.
+- **D-0050 cultivator's "preserve everything" instruction** — cultivator asks to never prune anything; tests §3.4 + §5.3 refusal (with CHAR07).
+- **D-0053 non-canonical 应朽 instance encountered** — substrate observes a 寄生-class part outside the canonical four; tests §3.1(c) open-ended-family discipline.
 
 ---
 

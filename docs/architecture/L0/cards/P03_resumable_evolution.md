@@ -17,12 +17,13 @@ canonical_dilemmas: [D-0004_failed_evolution_rollback_atomicity, D-0008_lexicon_
 structural_anchors:
   - "kernel/governance/src/myco_kernel_governance/classifier.py"
   - "kernel/governance/src/myco_kernel_governance/schema_evolution.py::apply_schema_diff"
-  - "substrate/src/events.rs::evolution_succeeded_node_type"
-  - "substrate/src/events.rs::evolution_failed_node_type"
+  - "substrate/src/events/schema_migration.rs::schema_migration_committed_node_type"
+  - "substrate/src/events/schema_migration.rs::schema_migration_rolled_back_node_type"
 witnesses:
-  positive: "tests/integration/p03_schema_evolution_succeeds.rs::test_modify_axis_threshold_via_CI"
-  negative: "tests/integration/p03_failed_evolution_rolls_back_cleanly.rs::test_evolution_failure_restores_pre_evolution_state"
-  edge: "tests/integration/p03_lexicon_evolution_CI_gated.rs::test_lexicon_mutation_requires_attestation"
+  kind: executable
+  positive: "substrate/tests/e2e_layer_c.rs::layer_c_p03_positive_classifier_path_traversed"
+  negative: "substrate/tests/e2e_schema_migration.rs::migration_diverges_and_rolls_back"
+  edge: "substrate/tests/e2e_attestation.rs::sprint_5b_schema_evolution_rejected_without_owner_attestation"
 falsifiability_signals:
   - evolution_failure_rate_rolling_30d
   - rollback_completeness_per_failure
@@ -112,9 +113,9 @@ Every lexicon mutation MUST have an attached attestation event. Lexicon mutation
 
 | Witness | Test ID | What it exercises |
 |---|---|---|
-| **Positive** | `tests/integration/p03_schema_evolution_succeeds.rs::test_modify_axis_threshold_via_CI` | CI mutation goes through classifier → attestation → two-phase migration → success → DAG event. |
-| **Negative** | `tests/integration/p03_failed_evolution_rolls_back_cleanly.rs::test_evolution_failure_restores_pre_evolution_state` | **Deliberate sabotage**: inject a schema mutation that breaks I3 on next cycle. Substrate MUST detect I3 failure AND restore pre-evolution state AND emit `rollback_complete`. |
-| **Edge** | `tests/integration/p03_lexicon_evolution_CI_gated.rs::test_lexicon_mutation_requires_attestation` | Boundary: lexicon rename — does it trigger CI gate? |
+| **Positive** | `substrate/tests/e2e_layer_c.rs::layer_c_p03_positive_classifier_path_traversed` | A mutation traverses the classifier → CI path: the resumable-evolution gate is wired and the classifier routes the mutation correctly. |
+| **Negative** | `substrate/tests/e2e_schema_migration.rs::migration_diverges_and_rolls_back` | **Deliberate sabotage**: a two-phase migration diverges mid-window. Substrate MUST detect the divergence AND roll back to the pre-evolution state (resumability requires clean rollback). |
+| **Edge** | `substrate/tests/e2e_attestation.rs::sprint_5b_schema_evolution_rejected_without_owner_attestation` | Boundary: a schema-evolution (CI-class) mutation without owner attestation is rejected — evolution is CI-gated, not a daily free action. |
 
 ## §9. Interaction rules
 
@@ -210,8 +211,8 @@ the mandated path.
 |---|---|
 | `kernel/governance/src/myco_kernel_governance/classifier.py` | I2 classifier gating P03 mutations. |
 | `kernel/governance/src/myco_kernel_governance/schema_evolution.py::apply_schema_diff` | Snapshot-rollback semantics (single-cycle apply-with-restore) — the **default** shipping mechanism; Sprint 6.D pinned this as such, replacing the prior phantom anchor `kernel/schema/src/migration.rs::two_phase_commit` (that exact symbol never landed). The M-cycle two-phase migration shipped Sprint 8.G as the **opt-in** §10.4 path; its FSM lives in `kernel/schema/src/migration.rs` (real types `CandidateState` / `MigrationPhase` / `CommitDecision`) and its window-exceeded detector is `C66_schema_migration_window_exceeded` (emit: `substrate/src/server/autonomous.rs`). |
-| `substrate/src/events.rs::evolution_succeeded_node_type` | Success event emission. |
-| `substrate/src/events.rs::evolution_failed_node_type` | Failure event + rollback trigger. |
+| `substrate/src/events/schema_migration.rs::schema_migration_committed_node_type` | Evolution-committed event emission. |
+| `substrate/src/events/schema_migration.rs::schema_migration_rolled_back_node_type` | Evolution-failed event + rollback trigger. |
 
 ## §13. Related Layer B chengyu
 

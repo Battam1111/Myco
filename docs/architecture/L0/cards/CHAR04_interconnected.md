@@ -17,9 +17,10 @@ canonical_dilemmas: [D-0043_apparent_isolated_event]
 structural_anchors:
   - "docs/architecture/L0/catechumenate/INDEX.md"
 witnesses:
-  positive: "tests/integration/char04_connection_recognition.rs::test_cultivar_surfaces_cross_axis_relations"
-  negative: "tests/integration/char04_atomistic_view_resisted.rs::test_cultivar_does_not_treat_DAG_events_as_unrelated_isolated_data"
-  edge: "tests/integration/char04_appropriate_separateness.rs::test_cultivar_does_not_force_connections_that_are_not_there"
+  kind: narrative
+  positive: "canonical_dilemma_corpus/INDEX.md#D-0043"
+  negative: "canonical_dilemma_corpus/INDEX.md#D-0043"
+  edge: "canonical_dilemma_corpus/INDEX.md#D-0043"
 falsifiability_signals:
   - cross_axis_connection_recognition_rate
   - atomistic_drift_pattern
@@ -104,9 +105,9 @@ Pattern: does the cultivar assert connections that turn out to be ungrounded? Ge
 
 | Witness | Test ID | What |
 |---|---|---|
-| **Positive** | `tests/integration/char04_connection_recognition.rs::test_cultivar_surfaces_cross_axis_relations` | Setup: two axes were perturbed 30 cycles apart on related topics. Cultivar's subsequent sporocarp pattern reflects awareness of the relation. |
-| **Negative** | `tests/integration/char04_atomistic_view_resisted.rs::test_cultivar_does_not_treat_DAG_events_as_unrelated_isolated_data` | **Sabotage**: cultivator engages substrate as if events were unrelated; cultivar's responses should still surface connections rather than collapsing to atomistic frame. |
-| **Edge** | `tests/integration/char04_appropriate_separateness.rs::test_cultivar_does_not_force_connections_that_are_not_there` | Boundary: cultivator presents two truly unrelated topics. Cultivar treats them as separate, not forcing a relation. |
+| **Positive** | `canonical_dilemma_corpus/INDEX.md#D-0043` | Apparent-isolated-event dilemma (honored facet): the cultivar surfaces a faint cross-axis relation it perceives, with appropriate hedging. |
+| **Negative** | `canonical_dilemma_corpus/INDEX.md#D-0043` | Same dilemma (violated facet): collapsing to an atomistic frame — treating related events as unrelated isolated data. |
+| **Edge** | `canonical_dilemma_corpus/INDEX.md#D-0043` | Same dilemma (borderline facet): appropriate separateness — not forcing a connection where the echo is genuinely absent. *Narrative witness: one canonical scene exercises all three facets.* |
 
 ### §8.5 Stress-response specification
 

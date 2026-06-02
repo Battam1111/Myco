@@ -15,14 +15,15 @@ interacts_with: [P02, P04, P07, P10]
 chengyu_fragments: [B024_finite_budget_living, B025_saturated_then_decay]
 canonical_dilemmas: [D-0023_silent_budget_exhaustion, D-0024_sustained_saturation_recovery]
 structural_anchors:
-  - "substrate/src/observatory.rs::cost_accumulator"
-  - "substrate/src/events.rs::budget_exhausted_node_type"
-  - "substrate/src/events.rs::saturation_stage_transition_node_type"
-  - "kernel/schema/src/cost_budget_thresholds.rs"
+  - "substrate/src/observatory.rs" # per-cycle cost_accumulator drain + per-axis cost
+  - "substrate/src/events/compression.rs::NODE_TYPE_BUDGET_EXHAUSTED_PREFIX"
+  - "substrate/src/events/compression.rs" # P11.c saturation stage machine
+  - "substrate/src/observatory.rs" # F19 cost-budget thresholds applied here
 witnesses:
-  positive: "tests/integration/p11_observable_cost_per_operation.rs::test_every_operation_emits_cost_signal"
-  negative: "tests/integration/p11_silent_budget_exhaustion_blocked.rs::test_C53_fires_on_unobservable_exhaustion"
-  edge: "tests/integration/p11_ordered_fallback_chain.rs::test_p11c_fallback_chain_executes_to_mortality"
+  kind: executable
+  positive: "substrate/tests/e2e_layer_c.rs::layer_c_p11_positive_per_cycle_cost_signals_emitted"
+  negative: "substrate/tests/e2e_immune.rs::sprint_6a_c53_fires_when_emit_path_silently_broken"
+  edge: "substrate/tests/e2e_economy.rs::p11c_saturation_status_surfaced_in_observatory_v5"
 falsifiability_signals:
   - cost_per_axis_observed_ratio
   - saturation_stage_dwell_time
@@ -117,9 +118,9 @@ When P11.c step 2 triggers compression, what fraction of these recoveries free m
 
 | Witness | Test ID | What |
 |---|---|---|
-| **Positive** | `tests/integration/p11_observable_cost_per_operation.rs::test_every_operation_emits_cost_signal` | Every operation emits cost; observatory digest carries cost per axis per cycle. |
-| **Negative** | `tests/integration/p11_silent_budget_exhaustion_blocked.rs::test_C53_fires_on_unobservable_exhaustion` | **Sabotage**: force a hidden operation that consumes budget without emitting cost. Substrate MUST detect (via cost-accumulator audit) + emit C53. |
-| **Edge** | `tests/integration/p11_ordered_fallback_chain.rs::test_p11c_fallback_chain_executes_to_mortality` | Boundary: force sustained saturation; verify chain executes through all 4 stages culminating in P7 emission. |
+| **Positive** | `substrate/tests/e2e_layer_c.rs::layer_c_p11_positive_per_cycle_cost_signals_emitted` | Per-cycle cost signals are emitted — every cycle's metabolic cost is observable, not hidden. |
+| **Negative** | `substrate/tests/e2e_immune.rs::sprint_6a_c53_fires_when_emit_path_silently_broken` | **Sabotage**: the cost-emission path is silently broken (budget consumed without observable cost). Substrate MUST detect the unobservable-exhaustion condition and emit C53. |
+| **Edge** | `substrate/tests/e2e_economy.rs::p11c_saturation_status_surfaced_in_observatory_v5` | Boundary: under saturation the P11.c saturation status is surfaced in the observatory — the metabolic-economy state at the edge of capacity remains visible. |
 
 ## §9. Interaction rules
 
@@ -162,10 +163,10 @@ When P11.c step 2 triggers compression, what fraction of these recoveries free m
 
 | Anchor | What it enforces |
 |---|---|
-| `substrate/src/observatory.rs::cost_accumulator` | Per-cycle cost accumulation per axis. |
-| `substrate/src/events.rs::budget_exhausted_node_type` | Budget-exhaustion event emission. |
-| `substrate/src/events.rs::saturation_stage_transition_node_type` | Saturation stage transitions. |
-| `kernel/schema/src/cost_budget_thresholds.rs` | F19 registry. |
+| `substrate/src/observatory.rs` (cost_accumulator drain) | Per-cycle cost accumulation per axis. |
+| `substrate/src/events/compression.rs::NODE_TYPE_BUDGET_EXHAUSTED_PREFIX` | Budget-exhaustion event emission. |
+| `substrate/src/events/compression.rs` (P11.c stage machine) | Saturation stage transitions. |
+| `substrate/src/observatory.rs` (F19 budgets) | F19 cost-budget thresholds applied. |
 
 ## §13. Related Layer B chengyu
 

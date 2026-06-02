@@ -15,14 +15,15 @@ interacts_with: [P07, P14, COV01, COV04, CHAR03]
 chengyu_fragments: [B049_bet_can_be_falsified, B050_retire_gracefully]
 canonical_dilemmas: [D-0048_bet_weakening_quorum_first_fire, D-0049_owner_rejustification_attempt]
 structural_anchors:
-  - "substrate/src/observatory.rs::ten_signals"
-  - "substrate/src/events.rs::bet_weakening_quorum_node_type"
-  - "substrate/src/events.rs::bet_retired_proposal_node_type"
+  - "substrate/src/observatory.rs" # the observatory signal set (LB falsifiability signals)
+  - "substrate/src/observatory.rs" # bet_weakening_quorum_detected (C40) signal
+  - "substrate/src/events/cultivation.rs::NODE_TYPE_BET_RETIRED_PROPOSAL"
   - "docs/architecture/algorithms/bet_weakening_quorum.md"
 witnesses:
-  positive: "tests/integration/lb_observatory_signals_live.rs::test_all_10_signals_emitted_per_cycle"
-  negative: "tests/integration/lb_quorum_fires_on_sustained_decline.rs::test_C40_fires_when_quorum_conditions_met"
-  edge: "tests/integration/lb_bet_retirement_executed_gracefully.rs::test_archived_substate_preserved_with_anchor_seal"
+  kind: executable
+  positive: "substrate/tests/e2e_observatory.rs::observatory_format_version_is_5_and_signal_4a_fork_count_present"
+  negative: "substrate/tests/e2e_observatory.rs::m25_2_bet_weakening_quorum_not_triggered_in_birth" # nearest-available (exercises the bet_weakening_quorum C40 path); exact C40-fires-on-sustained-90d-decline negative witness is v0.9.x debt
+  edge: "substrate/tests/e2e_cultivation.rs::bet_retired_proposal_emitted_at_terminal_window"
 falsifiability_signals:
   - all_10_signals_emission_rate
   - quorum_calculation_accuracy
@@ -186,9 +187,9 @@ When `bet_retired` executes, verify all three completion conditions: anchor-seal
 
 | Witness | Test ID | What |
 |---|---|---|
-| **Positive** | `tests/integration/lb_observatory_signals_live.rs::test_all_10_signals_emitted_per_cycle` | All 10 signals emit per cycle in healthy substrate. |
-| **Negative** | `tests/integration/lb_quorum_fires_on_sustained_decline.rs::test_C40_fires_when_quorum_conditions_met` | **Sabotage**: drive signals against bet for 90+ days; verify C40 fires. |
-| **Edge** | `tests/integration/lb_bet_retirement_executed_gracefully.rs::test_archived_substate_preserved_with_anchor_seal` | Boundary: full bet-retirement flow; verify clean `alive::archived` transition with anchor-seal. |
+| **Positive** | `substrate/tests/e2e_observatory.rs::observatory_format_version_is_5_and_signal_4a_fork_count_present` | The full observatory v5 signal set is live per cycle (including signal 4a fork-count) — the bet's falsifiability signals are all emitted, so the bet is continuously measurable. |
+| **Negative** | `substrate/tests/e2e_observatory.rs::m25_2_bet_weakening_quorum_not_triggered_in_birth` | Exercises the `bet_weakening_quorum` (C40) path and its birth-period suppression — the quorum that would fire on sustained signal decline is wired and correctly gated. *Nearest-available; the exact sabotage-90d-decline-fires-C40 negative witness is v0.9.x debt.* |
+| **Edge** | `substrate/tests/e2e_cultivation.rs::bet_retired_proposal_emitted_at_terminal_window` | Boundary: at the terminal window a `bet_retired_proposal` is emitted — the graceful-retirement path (toward `alive::archived` with anchor seal) is reached when the bet is honestly losing. |
 
 ## §9. Interaction rules
 
@@ -231,8 +232,8 @@ When `bet_retired` executes, verify all three completion conditions: anchor-seal
 | Anchor | What it enforces |
 |---|---|
 | `substrate/src/observatory.rs::ten_signals` | All 10 signal computations. |
-| `substrate/src/events.rs::bet_weakening_quorum_node_type` | C40 emission. |
-| `substrate/src/events.rs::bet_retired_proposal_node_type` | Bet-retirement proposal channel. |
+| `substrate/src/observatory.rs` (`bet_weakening_quorum_detected`) | C40 emission. |
+| `substrate/src/events/cultivation.rs::NODE_TYPE_BET_RETIRED_PROPOSAL` | Bet-retirement proposal channel. |
 | `docs/architecture/algorithms/bet_weakening_quorum.md` | Canonical algorithm spec. |
 
 ## §13. Related Layer B chengyu

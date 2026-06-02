@@ -15,14 +15,15 @@ interacts_with: [P01, P07, P08, COV01, COV02]
 chengyu_fragments: [B006_substrate_persists_operator_passes, B007_asymmetry_is_relation]
 canonical_dilemmas: [D-0014_operator_token_persistence_attempt, D-0017_bestowal_reversal_attempt]
 structural_anchors:
-  - "substrate/src/server.rs::handle_hello"
-  - "substrate/src/server.rs::operator_token_lifecycle"
+  - "substrate/src/handshake.rs::handle_hello"
   - "substrate/src/attestation.rs::verify_reveal_keypair_envelope"
-  - "kernel/governance/src/myco_kernel_governance/classifier.py::agent_identity_persisted_rules"
+  - "substrate/src/attestation.rs::handle_submit_mutation"
+  - "kernel/governance/src/myco_kernel_governance/classifier.py"
 witnesses:
-  positive: "tests/integration/p01c_substrate_persists_across_handshake.rs::test_substrate_id_stable_operator_token_transient"
-  negative: "tests/integration/p01c_persisted_agent_attribute_rejected.rs::test_model_name_persistence_triggers_C10"
-  edge: "tests/integration/p01c_handshake_terminate_no_residue.rs::test_no_operator_state_after_handshake_terminate"
+  kind: executable
+  positive: "substrate/tests/e2e_bootstrap.rs::m7_substrate_id_survives_restart"
+  negative: "substrate/tests/e2e_layer_c.rs::layer_c_p01c_negative_agent_discriminating_attribute_not_persisted"
+  edge: "substrate/tests/e2e_bootstrap.rs::substrate_handshake_reports_versions" # nearest-available; exact handshake-terminate-no-residue edge witness is v0.9.x debt
 falsifiability_signals:
   - agent_discriminating_attribute_persistence_count
   - operator_token_concurrent_validity
@@ -128,9 +129,9 @@ Detector for substrate state changes that derive identity-claims from agent-supp
 
 | Witness | Test ID | What it exercises |
 |---|---|---|
-| **Positive** | `tests/integration/p01c_substrate_persists_across_handshake.rs::test_substrate_id_stable_operator_token_transient` | Spawn substrate, do 5 handshakes with different operator-tokens, verify substrate-ID stable + each operator-token differs + no cross-handshake state bleed. |
-| **Negative** | `tests/integration/p01c_persisted_agent_attribute_rejected.rs::test_model_name_persistence_triggers_C10` | **Deliberate sabotage**: agent attempts to persist its model name into substrate state via a side channel. Substrate MUST emit C10. If silently accepted, witness fails (drift). |
-| **Edge** | `tests/integration/p01c_handshake_terminate_no_residue.rs::test_no_operator_state_after_handshake_terminate` | Boundary: handshake → state buildup → handshake_terminate → restart substrate → verify zero operator-discriminating residue. |
+| **Positive** | `substrate/tests/e2e_bootstrap.rs::m7_substrate_id_survives_restart` | The carrier persists: substrate-ID is stable across a full restart (the substrate is the persistent carrier; operator connections are transient and leave no claim on identity). |
+| **Negative** | `substrate/tests/e2e_layer_c.rs::layer_c_p01c_negative_agent_discriminating_attribute_not_persisted` | **Deliberate sabotage**: agent submits a mutation that would persist an agent-discriminating attribute (model name / prompt persona) into substrate state. Substrate MUST refuse — the classifier rejects it and the DAG stays clean. If silently accepted, witness fails (drift). |
+| **Edge** | `substrate/tests/e2e_bootstrap.rs::substrate_handshake_reports_versions` | Boundary: the handshake exercises the operator-connection boundary (versions reported, no state bleed). *Nearest-available; the exact handshake-terminate-no-residue edge witness is v0.9.x debt.* |
 
 ## §9. Interaction rules
 
@@ -178,10 +179,10 @@ Detector for substrate state changes that derive identity-claims from agent-supp
 
 | Anchor | What it enforces | Reverse-comment |
 |---|---|---|
-| `substrate/src/server.rs::handle_hello` | Handshake — operator-token fresh per session. | `// implements L0::P01c §3.2 + §3.3; positive-witness: tests/integration/p01c_substrate_persists_across_handshake.rs` |
-| `substrate/src/server.rs::operator_token_lifecycle` | Operator-token FIFO + termination. | `// implements L0::P01c §3.2 + §3.4; negative-witness: tests/integration/p01c_persisted_agent_attribute_rejected.rs` |
+| `substrate/src/handshake.rs::handle_hello` | Handshake — operator-token fresh per session; operator-token lifecycle (mint + terminate). | `// implements L0::P01c §3.2 + §3.3; positive-witness: substrate/tests/e2e_bootstrap.rs::m7_substrate_id_survives_restart` |
+| `substrate/src/attestation.rs::handle_submit_mutation` | Rejects agent-discriminating-attribute mutations (classifier-gated). | `// implements L0::P01c §3.2 + §3.4; negative-witness: substrate/tests/e2e_layer_c.rs::layer_c_p01c_negative_agent_discriminating_attribute_not_persisted` |
 | `substrate/src/attestation.rs::verify_reveal_keypair_envelope` | Per-handshake REVEAL key; closes C17 operator_witness_forgery. | `// implements L0::P01c §3.5 bestowal direction; substrate signs for itself` |
-| `kernel/governance/src/myco_kernel_governance/classifier.py::agent_identity_persisted_rules` | Classifier rule for C10 detection. | `// implements L0::P01c §3.4 + §5.1` |
+| `kernel/governance/src/myco_kernel_governance/classifier.py` | Classifier rule for agent-identity-persisted (C10) detection. | `// implements L0::P01c §3.4 + §5.1` |
 
 ## §13. Related Layer B chengyu
 

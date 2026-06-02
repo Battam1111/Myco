@@ -17,15 +17,16 @@ canonical_dilemmas: [D-0046_anchor_compromise_scenario, D-0047_owner_under_dures
 structural_anchors:
   - "anchor/host/src/"
   - "substrate/src/attestation.rs"
-  - "substrate/src/events.rs::genesis_attested_node_type"
-  - "substrate/src/events.rs::dag_tip_cosigned_node_type"
-  - "substrate/src/events.rs::l0_revision_attested_node_type"
-  - "substrate/src/events.rs::birth_attestation_node_type"
+  - "substrate/src/events/attestation.rs::genesis_attested_node_type"
+  - "substrate/src/events/attestation.rs::tip_cosigned_node_type"
+  - "substrate/src/events/attestation.rs::l0_revision_attested_node_type"
+  - "substrate/src/events/attestation.rs::birth_attestation_node_type"
   - "operators/claude/src/anchor_surface_client.ts"
 witnesses:
-  positive: "tests/integration/as_full_anchor_surface_chain.rs::test_genesis_through_l0_revision_with_all_12_sub_mechanisms_engaged"
-  negative: "tests/integration/as_anchor_compromise_detected.rs::test_C20_or_C5_fires_on_invalid_anchor_signature"
-  edge: "tests/integration/as_witnesses_not_verdicts.rs::test_substrate_emits_witness_owner_re_derives_verdict"
+  kind: executable
+  positive: "substrate/tests/e2e_attestation.rs::m_anchor_2_birth_attestation_event_emitted_when_env_vars_present"
+  negative: "substrate/tests/e2e_attestation.rs::m_anchor_2_c20_fires_when_birth_attestation_signature_tampered"
+  edge: "substrate/tests/e2e_attestation.rs::m_anchor_4_witness_decode_helper_roundtrip"
 falsifiability_signals:
   - anchor_attestation_chain_validity
   - witness_consumer_existence_status
@@ -170,9 +171,9 @@ When a F23 duress_keypair signature is observed, emit `duress_signature_observed
 
 | Witness | Test ID | What |
 |---|---|---|
-| **Positive** | `tests/integration/as_full_anchor_surface_chain.rs::test_genesis_through_l0_revision_with_all_12_sub_mechanisms_engaged` | Full end-to-end: genesis → CI mutation → L0 revision; all 12 sub-mechanisms engaged + verified. |
-| **Negative** | `tests/integration/as_anchor_compromise_detected.rs::test_C20_or_C5_fires_on_invalid_anchor_signature` | **Sabotage**: corrupt birth attestation. Substrate MUST emit C20 + quarantine. |
-| **Edge** | `tests/integration/as_witnesses_not_verdicts.rs::test_substrate_emits_witness_owner_re_derives_verdict` | Boundary: substrate emits witness for a tier-2 sample; cultivator re-derives + verifies match. |
+| **Positive** | `substrate/tests/e2e_attestation.rs::m_anchor_2_birth_attestation_event_emitted_when_env_vars_present` | Anchor surface engaged: when the birth-attestation env vars are present, the substrate emits a valid `birth_attestation` event signed against the anchor root. |
+| **Negative** | `substrate/tests/e2e_attestation.rs::m_anchor_2_c20_fires_when_birth_attestation_signature_tampered` | **Sabotage**: the birth-attestation signature is tampered. Substrate MUST detect the invalid anchor signature and fire C20. |
+| **Edge** | `substrate/tests/e2e_attestation.rs::m_anchor_4_witness_decode_helper_roundtrip` | Boundary: an invariant witness round-trips through its decode helper — the substrate *emits a witness* (evidence) that the owner can re-derive and verify, rather than asserting a verdict itself. |
 
 ## §9. Interaction rules
 
@@ -218,7 +219,7 @@ When a F23 duress_keypair signature is observed, emit `duress_signature_observed
 |---|---|
 | `anchor/host/src/` | The whole anchor host process (M-anchor-1 separation). |
 | `substrate/src/attestation.rs` | Substrate-side attestation handling. |
-| `substrate/src/events.rs::*_attested_node_type` | Anchor-related DAG events. |
+| `substrate/src/events/attestation.rs` (`*_attested_node_type` / `tip_cosigned_node_type`) | Anchor-related DAG events. |
 | `operators/claude/src/anchor_surface_client.ts` | Operator-side anchor client. |
 
 ## §13. Related Layer B chengyu

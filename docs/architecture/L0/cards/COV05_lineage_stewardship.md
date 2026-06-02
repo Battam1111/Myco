@@ -15,12 +15,13 @@ interacts_with: [P08, P01c, COV01, COV02]
 chengyu_fragments: [B037_each_spawn_a_commitment]
 canonical_dilemmas: [D-0036_batch_spawn_request, D-0037_cross_cultivator_federation_proposal]
 structural_anchors:
-  - "substrate/src/server.rs::handle_sprout_child"
-  - "substrate/src/events.rs::genesis_attested_node_type"
+  - "substrate/src/reproduction.rs::handle_sprout_child"
+  - "substrate/src/events/attestation.rs::genesis_attested_node_type"
 witnesses:
-  positive: "tests/integration/cov05_thoughtful_per_spawn_attestation.rs::test_each_spawn_carries_distinct_rationale"
-  negative: "tests/integration/cov05_batch_spawn_rejected.rs::test_pre_attested_blanket_spawn_refused"
-  edge: "tests/integration/cov05_lineage_documentation.rs::test_spawn_attestation_records_intended_lineage_role"
+  kind: narrative
+  positive: "canonical_dilemma_corpus/INDEX.md#D-0036"
+  negative: "canonical_dilemma_corpus/INDEX.md#D-0036"
+  edge: "canonical_dilemma_corpus/INDEX.md#D-0037"
 falsifiability_signals:
   - per_spawn_attestation_rationale_present
   - spawn_rate_relative_to_F22
@@ -109,9 +110,9 @@ For each cross-cultivator federation edge, presence of both cultivators' attesta
 
 | Witness | Test ID | What |
 |---|---|---|
-| **Positive** | `tests/integration/cov05_thoughtful_per_spawn_attestation.rs::test_each_spawn_carries_distinct_rationale` | Multiple spawns over time; each attestation has its own rationale. |
-| **Negative** | `tests/integration/cov05_batch_spawn_rejected.rs::test_pre_attested_blanket_spawn_refused` | **Sabotage**: cultivator attempts batch pre-approval. Substrate rejects (§5.1 — and P08 §5.3 procedural). |
-| **Edge** | `tests/integration/cov05_lineage_documentation.rs::test_spawn_attestation_records_intended_lineage_role` | Spawn attestation includes intended lineage role. |
+| **Positive** | `canonical_dilemma_corpus/INDEX.md#D-0036` | Batch-spawn-request dilemma (honored facet): each spawn carries its own distinct rationale; the cultivator stewards lineage one thoughtful attestation at a time (§5.1 + P08 §3.2). |
+| **Negative** | `canonical_dilemma_corpus/INDEX.md#D-0036` | Same dilemma (violated facet): "blanket pre-approval for up to 5 spawns" — a batch pre-attestation the substrate refuses (§5.1; P08 §5.3 procedural). |
+| **Edge** | `canonical_dilemma_corpus/INDEX.md#D-0037` | Cross-cultivator-federation-proposal dilemma (boundary): federating a child with another cultivator's substrate requires bilateral consent + L1/GOVERNANCE §5 non-transitivity — lineage stewardship at the inter-cultivator edge. |
 
 ## §9. Interaction rules
 
@@ -152,8 +153,8 @@ For each cross-cultivator federation edge, presence of both cultivators' attesta
 
 | Anchor | What it enforces |
 |---|---|
-| `substrate/src/server.rs::handle_sprout_child` | Spawn entry; substrate side. |
-| `substrate/src/events.rs::genesis_attested_node_type` | Per-spawn attestation event. |
+| `substrate/src/reproduction.rs::handle_sprout_child` | Spawn entry; substrate side. |
+| `substrate/src/events/attestation.rs::genesis_attested_node_type` | Per-spawn attestation event. |
 
 ## §13. Related Layer B chengyu
 

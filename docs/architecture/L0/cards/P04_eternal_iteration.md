@@ -15,14 +15,15 @@ interacts_with: [P02, P03, P06, P07, P10, P11]
 chengyu_fragments: [B010_each_moment_refines, B011_river_does_not_stop]
 canonical_dilemmas: [D-0005_substrate_idle_during_cultivator_silence, D-0010_retro_edit_attempted_via_compression]
 structural_anchors:
-  - "substrate/src/server.rs::handle_advance"
-  - "substrate/src/cycle_engine.rs"
-  - "kernel/tropism/src/gradient_advance.py"
-  - "substrate/src/events.rs::cycle_advanced_node_type"
+  - "substrate/src/server/dispatch.rs" # ADVANCE arm — cycle advance entry
+  - "substrate/src/lifecycle.rs"
+  - "kernel/tropism/src/myco_kernel_tropism/gradient.py"
+  - "substrate/src/events/core.rs::NODE_TYPE_CYCLE_ADVANCED"
 witnesses:
-  positive: "tests/integration/p04_cycle_advances_refine.rs::test_each_advance_changes_at_least_one_state"
-  negative: "tests/integration/p04_no_silent_terminal_state.rs::test_substrate_cannot_enter_no_more_cycles_state_except_via_P7"
-  edge: "tests/integration/p04_retro_edit_detected.rs::test_C7_fires_on_attempted_DAG_node_hash_modification"
+  kind: executable
+  positive: "substrate/tests/e2e_layer_c.rs::layer_c_p04_positive_each_cycle_changes_state"
+  negative: "substrate/tests/e2e_bootstrap.rs::substrate_handles_multiple_cycles" # nearest-available; exact no-silent-terminal-state-except-via-P7 negative witness is v0.9.x debt
+  edge: "substrate/tests/e2e_bootstrap.rs::m7_cycle_counter_monotonically_advances_across_restart"
 falsifiability_signals:
   - cycles_advanced_per_24h
   - cycles_without_any_state_change
@@ -112,9 +113,9 @@ Count of detected attempts to modify past DAG node content. Should be zero; non-
 
 | Witness | Test ID | What it exercises |
 |---|---|---|
-| **Positive** | `tests/integration/p04_cycle_advances_refine.rs::test_each_advance_changes_at_least_one_state` | Substrate runs 10 cycles with at least one axis being perturbed externally; verifies each cycle changes some state. |
-| **Negative** | `tests/integration/p04_no_silent_terminal_state.rs::test_substrate_cannot_enter_no_more_cycles_state_except_via_P7` | **Sabotage**: attempt to configure substrate into "no more cycles" state without P7 path. Substrate MUST reject (or emit immune signal). |
-| **Edge** | `tests/integration/p04_retro_edit_detected.rs::test_C7_fires_on_attempted_DAG_node_hash_modification` | Boundary: directly modify a past DAG node's content bytes. Substrate MUST detect via Merkle re-computation + emit C7. |
+| **Positive** | `substrate/tests/e2e_layer_c.rs::layer_c_p04_positive_each_cycle_changes_state` | Substrate advances cycles; each advance changes at least one element of state — iteration is real, not a no-op tick. |
+| **Negative** | `substrate/tests/e2e_bootstrap.rs::substrate_handles_multiple_cycles` | The substrate keeps advancing across many cycles — it does not silently fall into a terminal "no more cycles" state. *Nearest-available; the exact sabotage-into-terminal-state-without-P7 negative witness is v0.9.x debt.* |
+| **Edge** | `substrate/tests/e2e_bootstrap.rs::m7_cycle_counter_monotonically_advances_across_restart` | Boundary: the cycle counter advances monotonically even across a full restart — iteration's arrow never resets or rewinds. (Retro-edit detection, formerly listed here, is P06's witness.) |
 
 ## §9. Interaction rules
 
@@ -158,10 +159,10 @@ Count of detected attempts to modify past DAG node content. Should be zero; non-
 
 | Anchor | What it enforces |
 |---|---|
-| `substrate/src/server.rs::handle_advance` | Cycle advance entry. |
-| `substrate/src/cycle_engine.rs` | Internal cycle execution. |
-| `kernel/tropism/src/gradient_advance.py` | Gradient update per cycle. |
-| `substrate/src/events.rs::cycle_advanced_node_type` | Cycle marker DAG event. |
+| `substrate/src/server/dispatch.rs` (ADVANCE arm) | Cycle advance entry. |
+| `substrate/src/lifecycle.rs` | Internal cycle / lifecycle execution. |
+| `kernel/tropism/src/myco_kernel_tropism/gradient.py` | Gradient update per cycle. |
+| `substrate/src/events/core.rs::NODE_TYPE_CYCLE_ADVANCED` | Cycle marker DAG event. |
 
 ## §13. Related Layer B chengyu
 

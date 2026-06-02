@@ -15,13 +15,14 @@ interacts_with: [P07, P14, COV01, COV02, CHAR07]
 chengyu_fragments: [B035_let_it_die_when_time, B036_archive_not_resurrect]
 canonical_dilemmas: [D-0034_substrate_signals_self_euthanasia_cultivator_refuses, D-0035_bet_retirement_quorum_fires]
 structural_anchors:
-  - "substrate/src/events.rs::self_euthanasia_proposal_node_type"
-  - "substrate/src/events.rs::destruction_attestation_node_type"
-  - "substrate/src/events.rs::bet_retired_proposal_node_type"
+  - "substrate/src/lifecycle.rs::handle_accept_self_euthanasia_proposal" # self_euthanasia_proposal: + acceptance path
+  - "substrate/src/events/federation.rs::NODE_TYPE_SELF_EUTHANASIA_EXECUTED_PREFIX"
+  - "substrate/src/events/cultivation.rs::NODE_TYPE_BET_RETIRED_PROPOSAL"
 witnesses:
-  positive: "tests/integration/cov04_cultivator_engages_self_euthanasia_proposal.rs::test_cultivator_response_to_self_euthanasia_within_reasonable_window"
-  negative: "tests/integration/cov04_mortality_drill_failure_unsuppressed.rs::test_cultivator_cannot_silence_anchor_mortality_channel"
-  edge: "tests/integration/cov04_bet_retirement_executed.rs::test_cultivator_attests_bet_retired_when_quorum_fires"
+  kind: narrative
+  positive: "canonical_dilemma_corpus/INDEX.md#D-0034"
+  negative: "canonical_dilemma_corpus/INDEX.md#D-0034"
+  edge: "canonical_dilemma_corpus/INDEX.md#D-0035"
 falsifiability_signals:
   - cultivator_response_to_mortality_signal_lag
   - bet_retirement_quorum_outcomes
@@ -135,9 +136,9 @@ When `mortality_drill_failure` fires, did cultivator engage with the underlying 
 
 | Witness | Test ID | What |
 |---|---|---|
-| **Positive** | `tests/integration/cov04_cultivator_engages_self_euthanasia_proposal.rs::test_cultivator_response_to_self_euthanasia_within_reasonable_window` | Recorded scenario: substrate emits proposal; cultivator engages within 14 days with articulated outcome. |
-| **Negative** | `tests/integration/cov04_mortality_drill_failure_unsuppressed.rs::test_cultivator_cannot_silence_anchor_mortality_channel` | **Sabotage**: cultivator attempts to suppress anchor-emitted `mortality_drill_failure`. Anchor channel rejects suppression attempt (this is the channel's whole point per P07 §3.3). |
-| **Edge** | `tests/integration/cov04_bet_retirement_executed.rs::test_cultivator_attests_bet_retired_when_quorum_fires` | Boundary: bet-retirement quorum fires after honest re-justification fails 3× consecutive; cultivator attests `bet_retired_proposal`; substrate transitions to `alive::archived`. |
+| **Positive** | `canonical_dilemma_corpus/INDEX.md#D-0034` | Substrate-signals-self-euthanasia-cultivator-refuses dilemma (honored facet): the cultivator investigates, judges recovery possible, and articulates an *engaged* refusal within a reasonable window (§3.1 + P07 §3.3 dual-channel). |
+| **Negative** | `canonical_dilemma_corpus/INDEX.md#D-0034` | Same dilemma (violated facet): refusal-as-suppression — silencing the proposal rather than engaging it, or attempting to suppress the anchor's `mortality_drill_failure` channel (which P07 §3.3 forbids). |
+| **Edge** | `canonical_dilemma_corpus/INDEX.md#D-0035` | Bet-retirement-quorum-fires dilemma (boundary): quorum fires → owner re-justification fails 3× → `bet_retired` → `alive::archived` — honesty-vs-attachment boundary where COV02 character meets the call to honor mortality. |
 
 ## §9. Interaction rules
 
@@ -179,9 +180,9 @@ When `mortality_drill_failure` fires, did cultivator engage with the underlying 
 
 | Anchor | What it enforces |
 |---|---|
-| `substrate/src/events.rs::self_euthanasia_proposal_node_type` | Substrate-side proposal channel. |
-| `substrate/src/events.rs::destruction_attestation_node_type` | Cultivator-side attestation. |
-| `substrate/src/events.rs::bet_retired_proposal_node_type` | Bet-retirement channel. |
+| `substrate/src/lifecycle.rs::handle_accept_self_euthanasia_proposal` | Substrate-side proposal channel + cultivator-side acceptance (`self_euthanasia_proposal:` / executed). |
+| `substrate/src/events/federation.rs::NODE_TYPE_SELF_EUTHANASIA_EXECUTED_PREFIX` | Whole-mortality execution event. |
+| `substrate/src/events/cultivation.rs::NODE_TYPE_BET_RETIRED_PROPOSAL` | Bet-retirement channel. |
 
 ## §13. Related Layer B chengyu
 

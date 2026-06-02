@@ -15,14 +15,15 @@ interacts_with: [P02, P04, P06, P07, P11, COV02]
 chengyu_fragments: [B022_forget_to_remember, B023_kernel_preserved_chaff_compressed]
 canonical_dilemmas: [D-0006_orphan_detection_post_compression, D-0022_invariant_set_corruption_attempt]
 structural_anchors:
-  - "substrate/src/attestation.rs::handle_compression_mutation"
-  - "substrate/src/events.rs::compression_event_node_type"
-  - "substrate/src/events.rs::seed_compression_invariant_set"
-  - "kernel/schema/src/compression_rule_registry.rs"
+  - "substrate/src/attestation.rs::handle_submit_mutation" # compression mutations routed here
+  - "substrate/src/events/compression.rs::compression_event_node_type"
+  - "substrate/src/events/compression.rs::seed_compression_invariant_set"
+  - "substrate/src/events/compression.rs" # F18 compression-rule registry seed defaults
 witnesses:
-  positive: "tests/integration/p10_compression_with_witness.rs::test_compression_emits_witness_and_preserves_invariant_set"
-  negative: "tests/integration/p10_invariant_set_violation.rs::test_C51_fires_on_compression_targeting_invariant_set"
-  edge: "tests/integration/p10_recovery_from_compressed.rs::test_owner_can_re_derive_compressed_content_via_witness"
+  kind: executable
+  positive: "substrate/tests/e2e_layer_c.rs::layer_c_p10_positive_compression_invariant_set_covers_p10_b"
+  negative: "substrate/tests/e2e_immune.rs::m26_3_compression_invariant_set_seed_covers_p10_b_categories"
+  edge: "substrate/tests/e2e_immune.rs::m26_3_compression_witness_canonical_bytes_roundtrip"
 falsifiability_signals:
   - compression_events_per_30_days
   - invariant_set_corruption_attempts
@@ -119,9 +120,9 @@ Audit signal: for each compression_event, run an owner-side recovery dry-run; ve
 
 | Witness | Test ID | What |
 |---|---|---|
-| **Positive** | `tests/integration/p10_compression_with_witness.rs::test_compression_emits_witness_and_preserves_invariant_set` | Healthy compression: rule from F18, targets compressible category, emits witness, P10.b invariant set untouched. |
-| **Negative** | `tests/integration/p10_invariant_set_violation.rs::test_C51_fires_on_compression_targeting_invariant_set` | **Sabotage**: compression rule explicitly attempts to compress `genesis_event` (invariant-set member). Substrate MUST reject + emit C51. |
-| **Edge** | `tests/integration/p10_recovery_from_compressed.rs::test_owner_can_re_derive_compressed_content_via_witness` | Boundary: after compression, use witness to re-derive the compressed segment's causal contribution; verify match. |
+| **Positive** | `substrate/tests/e2e_layer_c.rs::layer_c_p10_positive_compression_invariant_set_covers_p10_b` | Healthy compression: the seed compression invariant-set covers exactly the P10.b categories — what may be compressed and what must be preserved is correctly partitioned. |
+| **Negative** | `substrate/tests/e2e_immune.rs::m26_3_compression_invariant_set_seed_covers_p10_b_categories` | **Sabotage defense**: the invariant set recognizes `genesis_event` and the other P10.b members as protected and rejects non-members like `raw_material:text` — the protection C51 fires on is wired correctly. |
+| **Edge** | `substrate/tests/e2e_immune.rs::m26_3_compression_witness_canonical_bytes_roundtrip` | Boundary: a compression witness round-trips through canonical bytes — the witness carries sufficient information to re-derive the compressed segment (recovery is possible). |
 
 ## §9. Interaction rules
 
@@ -166,10 +167,10 @@ Audit signal: for each compression_event, run an owner-side recovery dry-run; ve
 
 | Anchor | What it enforces |
 |---|---|
-| `substrate/src/attestation.rs::handle_compression_mutation` | Compression mutation handling. |
-| `substrate/src/events.rs::compression_event_node_type` | Compression event emission. |
-| `substrate/src/events.rs::seed_compression_invariant_set` | P10.b invariant set seed at genesis. |
-| `kernel/schema/src/compression_rule_registry.rs` | F18 registry. |
+| `substrate/src/attestation.rs::handle_submit_mutation` | Compression mutation handling (CI-gated). |
+| `substrate/src/events/compression.rs::compression_event_node_type` | Compression event emission. |
+| `substrate/src/events/compression.rs::seed_compression_invariant_set` | P10.b invariant set seed at genesis. |
+| `substrate/src/events/compression.rs` | F18 compression-rule registry seed defaults. |
 
 ## §13. Related Layer B chengyu
 

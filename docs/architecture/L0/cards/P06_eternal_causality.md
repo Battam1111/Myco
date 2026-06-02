@@ -15,14 +15,15 @@ interacts_with: [P01c, P03, P04, P05, P10, P07]
 chengyu_fragments: [B014_past_births_present, B015_arrow_points_forward]
 canonical_dilemmas: [D-0009_attempted_branch_forgery, D-0015_dag_hash_collision_handling]
 structural_anchors:
-  - "substrate/src/dag.rs"
-  - "substrate/src/events.rs::all_node_type_emitters"
-  - "kernel/schema/src/canonical_bytes.rs"
-  - "substrate/src/server.rs::merkle_chain_verify"
+  - "kernel/schema/src/dag.rs" # DAG type + integrity
+  - "substrate/src/events/mod.rs" # all node-type emitters
+  - "kernel/shared/src/canonical_bytes.rs" # F16 serializer for content addressing
+  - "substrate/src/integrity.rs" # per-cycle Merkle/chain integrity check
 witnesses:
-  positive: "tests/integration/p06_causal_recoverability.rs::test_state_at_cycle_N_recoverable_from_cycle_N_minus_1_plus_operation"
-  negative: "tests/integration/p06_retro_edit_detected.rs::test_C7_fires_on_dag_node_content_mutation"
-  edge: "tests/integration/p06_compression_preserves_causality.rs::test_compressed_segment_causally_recoverable_via_witness"
+  kind: executable
+  positive: "substrate/tests/e2e_bootstrap.rs::m8_dag_node_hashes_form_causal_chain"
+  negative: "substrate/tests/e2e_layer_c.rs::layer_c_p06_negative_dag_retro_edit_detected"
+  edge: "substrate/tests/e2e_bootstrap.rs::m8_dag_persists_across_restart"
 falsifiability_signals:
   - dag_merkle_chain_integrity
   - retro_edit_attempt_rate
@@ -119,9 +120,9 @@ Periodic drill (L1/SCHEMA §2.4): select random past target, replay from genesis
 
 | Witness | Test ID | What |
 |---|---|---|
-| **Positive** | `tests/integration/p06_causal_recoverability.rs::test_state_at_cycle_N_recoverable_from_cycle_N_minus_1_plus_operation` | Pick any cycle, recover from prior state + recorded operation; verify match. |
-| **Negative** | `tests/integration/p06_retro_edit_detected.rs::test_C7_fires_on_dag_node_content_mutation` | **Sabotage**: directly mutate a past DAG node's content bytes on disk. Restart substrate. Substrate MUST detect via Merkle verification + emit C7. If silently boots, witness fails. |
-| **Edge** | `tests/integration/p06_compression_preserves_causality.rs::test_compressed_segment_causally_recoverable_via_witness` | Boundary: compress 50 raw_material nodes. Verify witness contains sufficient information to re-derive the compressed segment's causal contribution. |
+| **Positive** | `substrate/tests/e2e_bootstrap.rs::m8_dag_node_hashes_form_causal_chain` | DAG node hashes form a causal chain — each node's hash binds its parents, so state is causally recoverable by replaying the chain. |
+| **Negative** | `substrate/tests/e2e_layer_c.rs::layer_c_p06_negative_dag_retro_edit_detected` | **Sabotage**: a past DAG node's content is retro-edited. Substrate MUST detect the break via Merkle/hash verification (retro-edit is the canonical P06 violation). If it silently accepts, witness fails (drift). |
+| **Edge** | `substrate/tests/e2e_bootstrap.rs::m8_dag_persists_across_restart` | Boundary: the causal DAG persists intact across a full restart — time does not reset and the chain survives cold resume. |
 
 ## §9. Interaction rules
 
@@ -164,10 +165,10 @@ Periodic drill (L1/SCHEMA §2.4): select random past target, replay from genesis
 
 | Anchor | What it enforces |
 |---|---|
-| `substrate/src/dag.rs` | DAG storage + integrity. |
-| `substrate/src/events.rs::all_node_type_emitters` | Every state-mutating operation emits DAG event. |
-| `kernel/schema/src/canonical_bytes.rs` | F16 serializer for content addressing. |
-| `substrate/src/server.rs::merkle_chain_verify` | Per-cycle Merkle integrity check. |
+| `kernel/schema/src/dag.rs` | DAG type + integrity. |
+| `substrate/src/events/mod.rs` | Every state-mutating operation emits a DAG event (all node-type emitters). |
+| `kernel/shared/src/canonical_bytes.rs` | F16 serializer for content addressing. |
+| `substrate/src/integrity.rs` | Per-cycle Merkle/chain integrity check. |
 
 ## §13. Related Layer B chengyu
 

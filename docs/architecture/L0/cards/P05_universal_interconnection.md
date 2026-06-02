@@ -15,13 +15,14 @@ interacts_with: [P06, P08, P10, P04]
 chengyu_fragments: [B012_no_node_is_an_island, B013_silent_thread_through_all]
 canonical_dilemmas: [D-0006_orphan_detection_post_compression, D-0013_tier_exemption_request]
 structural_anchors:
-  - "substrate/src/dag.rs::reachability_check"
-  - "substrate/src/events.rs::orphan_detected_node_type"
-  - "kernel/schema/src/tier_exemption.rs"
+  - "substrate/src/dag_query.rs" # active-tier reachability / graph queries
+  - "substrate/src/integrity.rs" # substrate_state_orphan_detected (C32) immune check
+  - "kernel/schema/src/lib.rs" # F10 tier-exemption surface
 witnesses:
-  positive: "tests/integration/p05_active_tier_fully_connected.rs::test_every_active_node_reachable_from_tip"
-  negative: "tests/integration/p05_orphan_detected.rs::test_C32_fires_when_active_node_unreachable"
-  edge: "tests/integration/p05_tier_exemption_CI_attested.rs::test_cold_tier_exempt_from_reachability"
+  kind: executable
+  positive: "substrate/tests/e2e_layer_c.rs::layer_c_p05_positive_dag_nodes_carry_parent_hashes"
+  negative: "substrate/tests/e2e_attestation.rs::m_anchor_4_invariant_witnesses_emitted_at_boot_for_each_tier_1_check" # nearest-available (asserts substrate_state_orphan_detected is a wired tier-1 invariant witness); exact C32-fires-on-unreachable-node negative witness is v0.9.x debt
+  edge: "substrate/tests/e2e_bootstrap.rs::m8_dag_node_hashes_form_causal_chain" # nearest-available; exact cold-tier-exemption edge witness is v0.9.x debt
 falsifiability_signals:
   - active_tier_orphan_count
   - tier_exemption_attestation_compliance
@@ -45,7 +46,7 @@ The substrate **MUST**:
 - **§3.1** Maintain the active-tier DAG as a connected graph: every active-tier node reachable from the current DAG tip via parent-hash chains.
 - **§3.2** Detect active-tier orphans (nodes that exist in storage but are unreachable from tip via active-tier edges); emit C32 (`substrate_state_orphan_detected`).
 - **§3.3** Allow tier exemptions: cold-tier nodes (beyond retention horizon, owner-attested fetch), P10 compressed roll-ups (with witness), federation-coupling edges to peer substrates. Each exemption class MUST be enumerable (F10).
-- **§3.4** Span active connectivity across **federation**: cross-substrate edges (P8 parent-child, P15 peer attestation) extend the connected graph. Federation edges are not exempt from reachability; they ARE reachability.
+- **§3.4** Span active connectivity across **federation**: cross-substrate edges (P8 parent-child, peer attestation) extend the connected graph. Federation edges are not exempt from reachability; they ARE reachability.
 - **§3.5** On detected orphan in active tier, emit immune signal AND root-cause investigation (orphan from a failed CI mutation? from a partial spawn? from corruption?).
 
 ## §4. Positive obligations
@@ -106,9 +107,9 @@ Number of federation edges in active tier (informational; not a violation metric
 
 | Witness | Test ID | What |
 |---|---|---|
-| **Positive** | `tests/integration/p05_active_tier_fully_connected.rs::test_every_active_node_reachable_from_tip` | Reachability check passes on healthy substrate. |
-| **Negative** | `tests/integration/p05_orphan_detected.rs::test_C32_fires_when_active_node_unreachable` | **Sabotage**: artificially create an orphan (node in storage, missing parent-edge). Substrate MUST emit C32 within one cycle. |
-| **Edge** | `tests/integration/p05_tier_exemption_CI_attested.rs::test_cold_tier_exempt_from_reachability` | Boundary: cold-tier node correctly excluded from reachability check; CI attestation present. |
+| **Positive** | `substrate/tests/e2e_layer_c.rs::layer_c_p05_positive_dag_nodes_carry_parent_hashes` | Healthy substrate: every active DAG node (except genesis) carries parent-hash edges — the graph is a connected mycelium, reachable from the tip, not a heap. |
+| **Negative** | `substrate/tests/e2e_attestation.rs::m_anchor_4_invariant_witnesses_emitted_at_boot_for_each_tier_1_check` | The orphan-detection capacity is wired: `substrate_state_orphan_detected` (C32) is emitted as a tier-1 invariant witness at boot, so an unreachable active node would be caught. *Nearest-available; the exact sabotage-an-orphan-and-assert-C32-fires negative witness is v0.9.x debt.* |
+| **Edge** | `substrate/tests/e2e_bootstrap.rs::m8_dag_node_hashes_form_causal_chain` | Boundary: DAG node hashes form a causal chain — the connectivity invariant at the edge of normal cycling. *Nearest-available; the exact cold-tier-exemption edge witness is v0.9.x debt.* |
 
 ## §9. Interaction rules
 
@@ -145,9 +146,9 @@ Number of federation edges in active tier (informational; not a violation metric
 
 | Anchor | What it enforces |
 |---|---|
-| `substrate/src/dag.rs::reachability_check` | Per-cycle active-tier reachability. |
-| `substrate/src/events.rs::orphan_detected_node_type` | Orphan event emission. |
-| `kernel/schema/src/tier_exemption.rs` | F10 tier-exemption registry. |
+| `substrate/src/dag_query.rs` | Active-tier reachability / connected-graph queries. |
+| `substrate/src/integrity.rs` (`substrate_state_orphan_detected`) | Orphan (C32) immune-check emission. |
+| `kernel/schema/src/lib.rs` | F10 tier-exemption surface. |
 
 ## §13. Related Layer B chengyu
 
