@@ -426,6 +426,28 @@ pub mod msg_type {
     pub const ACCEPT_BET_RETIRED_PROPOSAL: &str = "accept_bet_retired_proposal";
     /// `accept_bet_retired_proposal_response` — see [`ACCEPT_BET_RETIRED_PROPOSAL`].
     pub const ACCEPT_BET_RETIRED_PROPOSAL_RESPONSE: &str = "accept_bet_retired_proposal_response";
+
+    /// **CHAR07 §8.1/§8.2 intake** — operator/cultivator attests a CHAR07
+    /// anti-tyranny assessment the substrate CANNOT observe autonomously:
+    /// `capability_asymmetry_pattern` (does capability advantage serve, dominate,
+    /// or feign equality?) or `flourishing_correlation` (does the cultivator's
+    /// life observably go better because of the partnership?). The substrate
+    /// records the attestation verbatim as a `char07_assessment:{dimension}`
+    /// DAG event; it does NOT synthesize the underlying number (CHAR05). The
+    /// observatory query then surfaces the most-recent attestation per dimension.
+    ///
+    /// Request payload:
+    /// ```text
+    /// Map({
+    ///   "dimension": String,    // "capability_asymmetry_pattern" | "flourishing_correlation"
+    ///   "value_repr": String,   // repr-float; cultivator's assessment
+    /// })
+    /// ```
+    /// Response payload: `{ recorded_event_hash: Bytes(32), dimension: String,
+    /// at_cycle: Uint }`.
+    pub const SUBMIT_CHAR07_ASSESSMENT: &str = "submit_char07_assessment";
+    /// `submit_char07_assessment_response` — see [`SUBMIT_CHAR07_ASSESSMENT`].
+    pub const SUBMIT_CHAR07_ASSESSMENT_RESPONSE: &str = "submit_char07_assessment_response";
 }
 
 /// A decoded bridge message.

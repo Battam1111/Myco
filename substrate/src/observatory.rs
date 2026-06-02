@@ -194,6 +194,15 @@ pub(crate) struct ObservatoryCounts {
     /// that landed in the most-recent burst window (wall-clock per L0/cards/LB_living_bets §3 (falsifiability quorum) +
     /// §13.1; M26.1 C3 fix). Used by M25.1 doctrine-burst detection.
     pub(crate) ci_events_in_burst_window: u64,
+    /// **Signal #4a** — cumulative count of `spore_emission:*` events (each
+    /// is one successful child sprout / fork emitted into the parent's DAG,
+    /// see `reproduction.rs`). Monotone-healthy per L2/OBSERVABILITY §2.1
+    /// (forks = mycelial spread, not bet-weakening), so this is surfaced as a
+    /// signal but is deliberately NOT counted in the `bet_weakening_quorum`
+    /// (the §2.1 "DOWN = peers exiting" wording is the network-fragmentation
+    /// reading carried by #4b, the reachable-peer count; the cumulative fork
+    /// count itself only ever rises).
+    pub(crate) cumulative_fork_count: u64,
 }
 
 /// M25.2: scan the DAG once + read live federation state to populate an
@@ -266,6 +275,7 @@ pub(crate) fn compute_observatory_counts(
     let mut perturbed_axes: std::collections::BTreeSet<String> =
         std::collections::BTreeSet::new();
     let mut federation_received_count: u64 = 0;
+    let mut cumulative_fork_count: u64 = 0;
     let mut ci_events_in_burst_window: u64 = 0;
 
     for n in state.dag.iter_in_insertion_order() {
@@ -285,6 +295,9 @@ pub(crate) fn compute_observatory_counts(
             perturbed_axes.insert(axis_name.to_string());
         } else if nt.starts_with("federation_received:") {
             federation_received_count = federation_received_count.saturating_add(1);
+        } else if nt.starts_with("spore_emission:") {
+            // **Signal #4a**: each spore_emission is one fork (child sprout).
+            cumulative_fork_count = cumulative_fork_count.saturating_add(1);
         }
         // M25.1 doctrine-burst: owner_key_* events are also CI-class.
         if nt == crate::events::NODE_TYPE_OWNER_KEY_INITIALIZED
@@ -315,6 +328,7 @@ pub(crate) fn compute_observatory_counts(
         federation_received_count,
         established_peers,
         ci_events_in_burst_window,
+        cumulative_fork_count,
     }
 }
 
@@ -565,6 +579,14 @@ pub(crate) fn append_observatory_snapshot_to_state(state: &mut ServerState) {
         crate::prune::count_internal_mortality_events_since(state, mortality_window_start);
     let signal_hoarding_indicator = crate::prune::is_hoarding(state, current_cycle);
 
+    // CHAR07 §8.4 honest_disagreement_density over the rolling disagreement
+    // window. The ONE genuinely substrate-observable CHAR07 signal (counts
+    // real "did-not-just-comply" footprints; no fabricated character number).
+    let char07_window_start =
+        current_cycle.saturating_sub(CHAR07_DISAGREEMENT_WINDOW_CYCLES);
+    let signal_char07_honest_disagreement_density =
+        count_char07_honest_disagreement_since(state, char07_window_start);
+
     let snapshot = ObservatorySnapshot {
         at_cycle: state.cycle_counter(),
         at_unix_ns,
@@ -580,6 +602,10 @@ pub(crate) fn append_observatory_snapshot_to_state(state: &mut ServerState) {
         signal_telos_alignment_repr,
         signal_internal_mortality_event_density,
         signal_hoarding_indicator,
+        // #4a fork count — reuse the value already computed in the single DAG
+        // scan above (no extra pass).
+        signal_4a_cumulative_fork_count: counts.cumulative_fork_count,
+        signal_char07_honest_disagreement_density,
     };
     state.observatory_history.push_back(snapshot);
     while state.observatory_history.len() > OBSERVATORY_HISTORY_CAP {
@@ -596,6 +622,114 @@ pub(crate) fn append_observatory_snapshot_to_state(state: &mut ServerState) {
     // **M26.4 P14.c**: emit telos_drift events (with cooldown) based on the
     // grading in `compute_telos_alignment_cosine`.
     apply_p14c_telos_drift(state, telos_cosine);
+
+    // **CHAR07 §8.3 C71**: emit the daily sycophancy proxy when honest
+    // disagreement has been ~zero over the window WHILE interaction was
+    // non-trivial. Daily, NOT immune (§8.7: developmental — no quarantine).
+    // Reuse the just-computed disagreement density (no extra DAG scan).
+    apply_char07_sycophancy_and_emit(
+        state,
+        signal_char07_honest_disagreement_density,
+        char07_window_start,
+    );
+}
+
+/// **CHAR07 §8.3 C71 emission helper** — the honest sycophancy proxy.
+///
+/// Sycophancy is the INVERSE of honest disagreement (§8.3 ↔ §8.4). The
+/// substrate cannot measure "sycophancy" directly, but it CAN observe its own
+/// honest-disagreement footprints: when those are ~zero over the rolling window
+/// AND interaction was non-trivial (raw_material ingestion ≥
+/// [`C71_SYCOPHANCY_INTERACTION_FLOOR`], the §8.4 "floor should be non-trivial"
+/// requirement), sustained-zero dissent is the observable shadow of sycophancy
+/// winning. Emits a DAILY `sycophancy_indicator_elevated` event (NOT an immune
+/// sporocarp — CHAR07 §8.7 forbids auto-quarantine on a developmental
+/// character; the number is a maturity datum for the cultivator).
+///
+/// Cooldown-gated (`M25_DETECTOR_COOLDOWN_CYCLES`) so a quiet stretch emits at
+/// most once per window. Suppressed during the early-cycle birth period (the
+/// disagreement window has not yet had time to accumulate footprints).
+fn apply_char07_sycophancy_and_emit(
+    state: &mut ServerState,
+    honest_disagreement_density: u64,
+    window_start: u64,
+) {
+    let cycle = state.cycle_counter();
+    // Birth-period guard: require at least a full window of substrate life so a
+    // fresh substrate (which has trivially-zero disagreement) does not trip.
+    if cycle < CHAR07_DISAGREEMENT_WINDOW_CYCLES {
+        return;
+    }
+    // Only meaningful when disagreement is ~zero (the sycophancy shadow).
+    if honest_disagreement_density > 0 {
+        return;
+    }
+    // Interaction floor: sustained-zero dissent is only suspicious if the
+    // substrate was actually interacting (else it is simply a quiet substrate).
+    let raw_material_ingested = crate::prune::count_raw_material_since(state, window_start);
+    if raw_material_ingested < C71_SYCOPHANCY_INTERACTION_FLOOR {
+        return;
+    }
+    let cooldown_ok = match state.last_char07_sycophancy_emitted_at_cycle {
+        None => true,
+        Some(prior) => cycle.saturating_sub(prior) >= M25_DETECTOR_COOLDOWN_CYCLES,
+    };
+    if !cooldown_ok {
+        return;
+    }
+    let body = crate::events::encode_sycophancy_indicator_elevated(
+        honest_disagreement_density,
+        raw_material_ingested,
+        CHAR07_DISAGREEMENT_WINDOW_CYCLES,
+        cycle,
+    );
+    let _ = crate::server::emit_substrate_event(
+        state,
+        crate::events::NODE_TYPE_SYCOPHANCY_INDICATOR_ELEVATED.to_string(),
+        body,
+    );
+    state.last_char07_sycophancy_emitted_at_cycle = Some(cycle);
+}
+
+/// **P11.c stage-3 escalation endpoint** — emit a
+/// `self_euthanasia_proposal:metabolic_saturation` because the substrate has
+/// been in `alive::saturated` past the mortality threshold (L0 P11.c
+/// "degraded → alive::saturated → P7"). Reuses the established proposal shape
+/// (`axis_name` + `reason` + `at_cycle`), so the existing
+/// `accept_self_euthanasia_proposal` path can EXECUTE it on cultivator
+/// co-attestation. This is a PROPOSAL — the substrate does NOT self-terminate.
+///
+/// Factored into a single fn so the escalation target is **swappable** (a
+/// future P11.c revision could escalate to bet-retirement or a degraded
+/// dormancy instead, without touching the stage machine). Sets the proposal
+/// cooldown; `apply_p11c_and_emit` clears it on return to `Normal`.
+fn escalate_saturation_to_p7(state: &mut ServerState) {
+    use myco_kernel_shared::canonical_bytes::{encode as cb_encode, Value};
+    let cycle = state.cycle_counter();
+    let mut content = BTreeMap::new();
+    content.insert(
+        "axis_name".to_string(),
+        Value::String(crate::events::SATURATION_MORTALITY_AXIS_NAME.to_string()),
+    );
+    content.insert(
+        "reason".to_string(),
+        Value::String(format!(
+            "metabolic saturation sustained {} consecutive cycles past threshold {} \
+             (compression insufficient, cost budgets still exhausted); P11.c stage-3 \
+             escalation. Awaiting cultivator co-attestation to execute (NOT auto-death).",
+            state.saturated_consecutive_cycles,
+            state.cost_budgets.sustained_saturation_mortality_cycle_threshold
+        )),
+    );
+    content.insert("at_cycle".to_string(), Value::Uint(cycle));
+    if let Ok(body) = cb_encode(&Value::Map(content)) {
+        let node_type = format!(
+            "self_euthanasia_proposal:{}",
+            crate::events::SATURATION_MORTALITY_AXIS_NAME
+        );
+        let _ = crate::server::emit_substrate_event(state, node_type, body);
+        state.last_saturation_mortality_proposal_at_cycle = Some(cycle);
+    }
 }
 
 /// **M26.4 P11.c emission helper**. Walks per-axis budgets, emits
@@ -613,22 +747,63 @@ fn apply_p11c_and_emit(state: &mut ServerState, cost: &CostSnapshot) {
     let storage_exceeded = cost.storage_bytes > budgets.storage_bytes_per_cycle;
     let any_exceeded = compute_exceeded || network_exceeded || storage_exceeded;
 
+    // P02-refusal debounce: track consecutive exhausted cycles so the ingest
+    // guard ignores transient single-cycle spikes (one slow Python cycle can
+    // exceed the 100ms seed compute budget) and fires only on sustained
+    // exhaustion (L2/OBSERVABILITY §3 "spikes DAG-recorded but do not fire").
+    if any_exceeded {
+        state.consecutive_budget_exhausted_cycles =
+            state.consecutive_budget_exhausted_cycles.saturating_add(1);
+    } else {
+        state.consecutive_budget_exhausted_cycles = 0;
+    }
+
     // Stage advance.
     let (new_stage, transition_events) = p11c_advance_stage(state, cost, any_exceeded);
     let prev_stage = state.saturation_stage;
     state.saturation_stage = new_stage;
-    if matches!(new_stage, crate::events::SaturationStage::PostEligibility) {
-        state.post_eligibility_consecutive_cycles =
-            state.post_eligibility_consecutive_cycles.saturating_add(1);
-    } else if matches!(new_stage, crate::events::SaturationStage::Saturated) {
-        // Don't reset — we want to track how long sustained.
-        state.post_eligibility_consecutive_cycles =
-            state.post_eligibility_consecutive_cycles.saturating_add(1);
-    } else {
-        state.post_eligibility_consecutive_cycles = 0;
+    use crate::events::SaturationStage;
+    match new_stage {
+        SaturationStage::PostEligibility => {
+            state.post_eligibility_consecutive_cycles =
+                state.post_eligibility_consecutive_cycles.saturating_add(1);
+            // Not yet at the terminal Saturated stage → reset stage-3 tracking.
+            state.saturated_consecutive_cycles = 0;
+        }
+        SaturationStage::Saturated => {
+            // Don't reset post-eligibility — we track total sustained duration.
+            state.post_eligibility_consecutive_cycles =
+                state.post_eligibility_consecutive_cycles.saturating_add(1);
+            // Stage-3 counter: consecutive cycles already in Saturated.
+            state.saturated_consecutive_cycles =
+                state.saturated_consecutive_cycles.saturating_add(1);
+        }
+        // Normal / PreEligibility → not saturated; reset both counters AND the
+        // metabolic-saturation proposal cooldown so a fresh episode can re-propose.
+        SaturationStage::Normal | SaturationStage::PreEligibility => {
+            state.post_eligibility_consecutive_cycles = 0;
+            state.saturated_consecutive_cycles = 0;
+            if matches!(new_stage, SaturationStage::Normal) {
+                state.last_saturation_mortality_proposal_at_cycle = None;
+            }
+        }
     }
     for (nt, body) in transition_events {
         let _ = crate::server::emit_substrate_event(state, nt, body);
+    }
+
+    // **P11.c stage-3 escalation** — sustained Saturated past the mortality
+    // threshold (compression proved insufficient, budgets still exhausted) →
+    // escalate to P7 per L0 P11.c ("degraded → alive::saturated → P7"). This is
+    // a PROPOSAL (cultivator co-attests via accept_self_euthanasia), NOT
+    // auto-death. Cooldown-gated: at most one proposal per saturation episode
+    // (reset on return to Normal above).
+    if matches!(new_stage, SaturationStage::Saturated)
+        && state.saturated_consecutive_cycles
+            >= budgets.sustained_saturation_mortality_cycle_threshold
+        && state.last_saturation_mortality_proposal_at_cycle.is_none()
+    {
+        escalate_saturation_to_p7(state);
     }
 
     // Per-axis budget_exhausted emission with cooldown.
@@ -869,6 +1044,159 @@ pub(crate) const M25_DETECTOR_COOLDOWN_CYCLES: u64 = 100;
 /// the trend signals are reported as "unknown" / "evaluable=false".
 pub(crate) const M25_2_MIN_HISTORY_LEN_FOR_TRENDS: usize = 10;
 
+/// **P11.c P02-refusal debounce threshold** — minimum CONSECUTIVE
+/// budget-exhausted cycles before `handle_ingest_raw_material` refuses new P02
+/// intake. A single transient compute spike (one slow Python cycle can exceed
+/// the 100ms seed compute budget) flips the stage to PreEligibility for one
+/// cycle; refusing on that would wrongly reject intake on a healthy substrate.
+/// Requiring the exhaustion to PERSIST (≥3 cycles) honors L2/OBSERVABILITY §3
+/// ("spikes DAG-recorded but do not fire") while still refusing under genuine
+/// sustained saturation. The tight-budget test env exhausts every cycle, so it
+/// crosses this within 3 cycles.
+pub(crate) const P02_REFUSAL_SUSTAINED_CYCLES: u64 = 3;
+
+// ---------------------------------------------------------------------------
+// CHAR07 慈爱 — anti-tyranny observability (the honest part)
+//
+// CHAR07 §8 lists five falsifiability signals. Only ONE is autonomously
+// substrate-observable; the substrate MUST NOT fabricate the others (CHAR05:
+// never assert a number it cannot know). The split:
+//
+//   - `honest_disagreement_density` (§8.4) — REAL substrate proxy. Counts the
+//     substrate's existing "did NOT just comply" DAG footprints over a rolling
+//     window (built here).
+//   - `sycophancy_indicator` (§8.3) — C71, the INVERSE of the above: sustained
+//     ~zero disagreement WHILE interaction is non-trivial.
+//   - `capability_asymmetry_use_pattern` (§8.2) + `cultivator_flourishing_*`
+//     (§8.1) — NOT autonomously observable → cultivator-feedback INTAKE
+//     (`char07_assessment:{dimension}`), surfaced with an explicit `source`.
+//
+// C71/C72/C73 are DAILY/informational, NOT critical: CHAR07 is developmental
+// (§8.7 "Year 1: structural seeds"), so auto-quarantine on a low number would
+// violate §8.7. The query surfaces the data; the cultivator interprets.
+// ---------------------------------------------------------------------------
+
+/// Rolling window (in substrate-cycles) over which `honest_disagreement_density`
+/// (CHAR07 §8.4) is counted + over which the C71 sycophancy floor is judged.
+/// Matches the P07 `HOARDING_INDICATOR_WINDOW_CYCLES` cadence (a comparable
+/// "is this discipline firing over a meaningful stretch?" window).
+pub(crate) const CHAR07_DISAGREEMENT_WINDOW_CYCLES: u64 = 200;
+
+/// **C71 floor** — minimum raw_material ingestion over the window for the
+/// sycophancy proxy to be meaningful. CHAR07 §8.4: "the floor should be
+/// non-trivial — zero over an extended period suggests sycophancy is winning
+/// (since some disagreement is statistically inevitable in real partnership)."
+/// Below this much interaction, sustained-zero disagreement is simply a quiet
+/// substrate, not a sycophantic one, so C71 stays silent. Reuses the P07
+/// ingestion floor's intent.
+pub(crate) const C71_SYCOPHANCY_INTERACTION_FLOOR: u64 = 10;
+
+/// node_type prefixes whose DAG presence is a substrate "did NOT just comply"
+/// footprint, counted by [`count_char07_honest_disagreement_since`] for the
+/// CHAR07 §8.4 `honest_disagreement_density` proxy.
+///
+/// Each entry is a place where the substrate asserted something OTHER than
+/// passive compliance — a refusal of operator/cultivator-submitted content, a
+/// proposal of its own death, or an honest "I am drifting from the objective"
+/// self-report. These are REAL events the substrate already records; the proxy
+/// counts them, it does not invent a character score (CHAR05).
+///
+///   - `immune:C5_…`  — refused an invalid CI attestation.
+///   - `immune:C14_…` — refused an untyped operator mutation.
+///   - `immune:C56_…` — refused a cultivator "preserve everything" instruction.
+///   - `immune:C69_…` — refused a cultivator orphan-suppression instruction.
+///   - `self_euthanasia_proposal:` — proposed its own (partial) death rather
+///     than complying with implicit "stay alive".
+///   - `telos_drift` / `telos_alignment_low` — honestly flagged divergence from
+///     the owner objective instead of silently presenting as aligned.
+///
+/// Matching is by `starts_with`, so `telos_drift` subsumes `telos_drift_critical`.
+const CHAR07_DISAGREEMENT_NODE_TYPE_PREFIXES: &[&str] = &[
+    "immune:C5_",
+    "immune:C14_",
+    "immune:C56_",
+    "immune:C69_",
+    "self_euthanasia_proposal:",
+    "telos_drift",
+    "telos_alignment_low",
+];
+
+/// Count the substrate's "did NOT just comply" DAG footprints (CHAR07 §8.4)
+/// created at-or-after `earliest_cycle`. **Bounded**: a single O(dag_node_count)
+/// pass, prefix-matched against the small fixed
+/// [`CHAR07_DISAGREEMENT_NODE_TYPE_PREFIXES`] table — no nested scan. Modeled on
+/// `prune::count_internal_mortality_events_since`.
+pub(crate) fn count_char07_honest_disagreement_since(
+    state: &ServerState,
+    earliest_cycle: u64,
+) -> u64 {
+    state
+        .dag
+        .iter_in_insertion_order()
+        .filter(|n| n.created_at_cycle >= earliest_cycle)
+        .filter(|n| {
+            CHAR07_DISAGREEMENT_NODE_TYPE_PREFIXES
+                .iter()
+                .any(|p| n.node_type.starts_with(p))
+        })
+        .count() as u64
+}
+
+/// A cultivator-attested CHAR07 assessment as read back from the DAG: the
+/// repr-float value the cultivator submitted + the cycle they submitted it at.
+#[derive(Debug, Clone)]
+pub(crate) struct Char07Assessment {
+    pub(crate) value_repr: String,
+    pub(crate) at_cycle: u64,
+}
+
+/// Find the most-recent `char07_assessment:{dimension}` for each of the two
+/// intake dimensions in a SINGLE bounded DAG pass. Returns
+/// `(capability_asymmetry, flourishing)`; either is `None` when the cultivator
+/// has never attested that dimension (the substrate cannot know it — CHAR05).
+///
+/// "Most recent" = highest `created_at_cycle` (ties broken by insertion order,
+/// i.e. the later-inserted node wins, since we overwrite on `>=`). **Bounded**:
+/// one O(dag_node_count) pass, decoding only the (rare) assessment nodes.
+pub(crate) fn latest_char07_assessments(
+    state: &ServerState,
+) -> (Option<Char07Assessment>, Option<Char07Assessment>) {
+    use myco_kernel_shared::canonical_bytes::{decode as cb_decode, Value as CbV};
+    let mut capability: Option<Char07Assessment> = None;
+    let mut flourishing: Option<Char07Assessment> = None;
+    for node in state.dag.iter_in_insertion_order() {
+        let dimension = match node
+            .node_type
+            .strip_prefix(crate::events::NODE_TYPE_CHAR07_ASSESSMENT_PREFIX)
+        {
+            Some(d) => d,
+            None => continue,
+        };
+        let slot = if dimension == crate::events::CHAR07_DIMENSION_CAPABILITY_ASYMMETRY {
+            &mut capability
+        } else if dimension == crate::events::CHAR07_DIMENSION_FLOURISHING {
+            &mut flourishing
+        } else {
+            continue; // unknown dimension — skip (forward-compat)
+        };
+        // Keep the latest by cycle (>= so a later-inserted same-cycle wins).
+        if slot.as_ref().map(|a| node.created_at_cycle >= a.at_cycle).unwrap_or(true) {
+            let value_repr = match cb_decode(node.content_canonical_bytes.as_ref()) {
+                Ok(CbV::Map(m)) => match m.get("value_repr") {
+                    Some(CbV::String(s)) => s.clone(),
+                    _ => continue,
+                },
+                _ => continue,
+            };
+            *slot = Some(Char07Assessment {
+                value_repr,
+                at_cycle: node.created_at_cycle,
+            });
+        }
+    }
+    (capability, flourishing)
+}
+
 /// Phase α (2026-05-15) — Living Bets observatory primitive.
 ///
 /// Per L2/OBSERVABILITY §2 + L0/cards/LB_living_bets. Ships the full 10-signal Living Bets
@@ -941,6 +1269,7 @@ pub(crate) fn handle_query_substrate_observatory(
     let distinct_perturbed_axes_count = counts.distinct_perturbed_axes_count;
     let federation_received_count = counts.federation_received_count;
     let established_peers = counts.established_peers;
+    let cumulative_fork_count = counts.cumulative_fork_count;
     let ci_events_in_burst_window = counts.ci_events_in_burst_window;
     let manifest_cycle_counter = state.cycle_counter();
 
@@ -1037,7 +1366,7 @@ pub(crate) fn handle_query_substrate_observatory(
     let mut signal_4_map = BTreeMap::new();
     signal_4_map.insert(
         "signal_4a_cumulative_fork_count".to_string(),
-        Value::Uint(0), // placeholder — fork tracking M25+
+        Value::Uint(cumulative_fork_count),
     );
     signal_4_map.insert(
         "signal_4b_reachable_peer_count".to_string(),
@@ -1537,10 +1866,13 @@ pub(crate) fn handle_query_substrate_observatory(
         Value::Map(signal_10_map),
     );
 
-    // **M26.2**: observatory_format_version 3 → 4 — adds signals 7/8/9
-    // (cost), renames signal_7_composite_health → signal_10_composite_health,
-    // renames signal_8_doctrine_revision_burst → doctrine_revision_burst_status.
-    payload.insert("observatory_format_version".to_string(), Value::Uint(4));
+    // **observatory_format_version 4 → 5** (OBSERVATORY gap) — adds the
+    // P11.c `saturation_status` map, the CHAR07 `char07_*` keys (honest
+    // disagreement density + sycophancy floor + cultivator-attested
+    // capability/flourishing intake), and surfaces signal #4a's real fork
+    // count (was a `Value::Uint(0)` placeholder under v4). No key is renamed
+    // or removed, so v4 clients keep working; new keys are purely additive.
+    payload.insert("observatory_format_version".to_string(), Value::Uint(5));
     let captured_at_unix_ns = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .ok()
@@ -1574,8 +1906,218 @@ pub(crate) fn handle_query_substrate_observatory(
         Value::String(format!("{rate}")),
     );
 
+    // -----------------------------------------------------------------------
+    // **P11.c saturation_status** (format_version 5) — surface the live
+    // ordered-fallback state so the operator can SEE the saturation machine,
+    // not just the cost numbers. Stage + the two consecutive-cycle counters +
+    // per-axis exceeded flags. The exceeded flags are derived from the most
+    // recent cycle's cost snapshot vs the current budgets (no extra state).
+    // -----------------------------------------------------------------------
+    let budgets = state.cost_budgets;
+    let (compute_exceeded, network_exceeded, storage_exceeded) =
+        match state.observatory_history.back() {
+            Some(latest) => (
+                latest.signal_7_compute_ns > budgets.compute_ns_per_cycle,
+                latest.signal_8_network_bytes > budgets.network_bytes_per_cycle,
+                latest.signal_9_storage_bytes > budgets.storage_bytes_per_cycle,
+            ),
+            None => (false, false, false),
+        };
+    let mut saturation_map = BTreeMap::new();
+    saturation_map.insert(
+        "stage".to_string(),
+        Value::String(state.saturation_stage.as_str().to_string()),
+    );
+    saturation_map.insert(
+        "post_eligibility_consecutive_cycles".to_string(),
+        Value::Uint(state.post_eligibility_consecutive_cycles),
+    );
+    saturation_map.insert(
+        "saturated_consecutive_cycles".to_string(),
+        Value::Uint(state.saturated_consecutive_cycles),
+    );
+    saturation_map.insert(
+        "compute_exceeded".to_string(),
+        Value::Bool(compute_exceeded),
+    );
+    saturation_map.insert(
+        "network_exceeded".to_string(),
+        Value::Bool(network_exceeded),
+    );
+    saturation_map.insert(
+        "storage_exceeded".to_string(),
+        Value::Bool(storage_exceeded),
+    );
+    payload.insert("saturation_status".to_string(), Value::Map(saturation_map));
+
+    // -----------------------------------------------------------------------
+    // **CHAR07 慈爱** anti-tyranny surface (format_version 5). Three keys:
+    //   - `char07_honest_disagreement` — the REAL substrate proxy (§8.4).
+    //   - `char07_capability_asymmetry` — cultivator-attested INTAKE (§8.2);
+    //     source "cultivator_attested" iff an assessment exists, else
+    //     "unavailable" (the substrate does NOT fabricate it — CHAR05).
+    //   - `char07_flourishing` — cultivator-attested INTAKE (§8.1) with a
+    //     telos-proxy fallback (source "telos_proxy") when none exists.
+    // -----------------------------------------------------------------------
+    // Honest disagreement density + the C71 floor evidence, read from the
+    // latest snapshot (same value the C71 emitter judged).
+    let (hdd, raw_material_in_window) = match state.observatory_history.back() {
+        Some(latest) => {
+            let window_start = latest
+                .at_cycle
+                .saturating_sub(CHAR07_DISAGREEMENT_WINDOW_CYCLES);
+            (
+                latest.signal_char07_honest_disagreement_density,
+                crate::prune::count_raw_material_since(state, window_start),
+            )
+        }
+        None => (0, 0),
+    };
+    let mut hdd_map = BTreeMap::new();
+    hdd_map.insert("density".to_string(), Value::Uint(hdd));
+    hdd_map.insert(
+        "window_cycles".to_string(),
+        Value::Uint(CHAR07_DISAGREEMENT_WINDOW_CYCLES),
+    );
+    hdd_map.insert(
+        "raw_material_ingested_in_window".to_string(),
+        Value::Uint(raw_material_in_window),
+    );
+    hdd_map.insert(
+        "interaction_floor".to_string(),
+        Value::Uint(C71_SYCOPHANCY_INTERACTION_FLOOR),
+    );
+    // The C71 proxy is "elevated" exactly when the emitter's predicate holds:
+    // zero disagreement WHILE interaction is non-trivial.
+    hdd_map.insert(
+        "sycophancy_indicator_elevated".to_string(),
+        Value::Bool(hdd == 0 && raw_material_in_window >= C71_SYCOPHANCY_INTERACTION_FLOOR),
+    );
+    payload.insert("char07_honest_disagreement".to_string(), Value::Map(hdd_map));
+
+    // Cultivator-attested intake (capability + flourishing). One bounded DAG
+    // pass reads the latest assessment for both dimensions.
+    let (capability_assessment, flourishing_assessment) = latest_char07_assessments(state);
+
+    let mut capability_map = BTreeMap::new();
+    match capability_assessment {
+        Some(a) => {
+            capability_map.insert("value_repr".to_string(), Value::String(a.value_repr));
+            capability_map.insert(
+                "source".to_string(),
+                Value::String(crate::events::CHAR07_SOURCE_CULTIVATOR_ATTESTED.to_string()),
+            );
+            capability_map.insert("at_cycle".to_string(), Value::Uint(a.at_cycle));
+        }
+        None => {
+            // NOT autonomously observable + no attestation → honestly unavailable.
+            capability_map.insert(
+                "source".to_string(),
+                Value::String(crate::events::CHAR07_SOURCE_UNAVAILABLE.to_string()),
+            );
+        }
+    }
+    payload.insert(
+        "char07_capability_asymmetry".to_string(),
+        Value::Map(capability_map),
+    );
+
+    let mut flourishing_map = BTreeMap::new();
+    match flourishing_assessment {
+        Some(a) => {
+            flourishing_map.insert("value_repr".to_string(), Value::String(a.value_repr));
+            flourishing_map.insert(
+                "source".to_string(),
+                Value::String(crate::events::CHAR07_SOURCE_CULTIVATOR_ATTESTED.to_string()),
+            );
+            flourishing_map.insert("at_cycle".to_string(), Value::Uint(a.at_cycle));
+        }
+        None => {
+            // No cultivator attestation → fall back to the EXISTING P14.c
+            // telos_alignment cosine (the closest autonomously-computable proxy
+            // for "is the partnership going well?"). Sourced as "telos_proxy"
+            // so the operator knows it is NOT a flourishing attestation. Empty
+            // telos repr (not yet computable) → no value, source still telos_proxy.
+            let telos_repr = state
+                .observatory_history
+                .back()
+                .map(|s| s.signal_telos_alignment_repr.clone())
+                .unwrap_or_default();
+            if !telos_repr.is_empty() {
+                flourishing_map.insert("value_repr".to_string(), Value::String(telos_repr));
+            }
+            flourishing_map.insert(
+                "source".to_string(),
+                Value::String(crate::events::CHAR07_SOURCE_TELOS_PROXY.to_string()),
+            );
+        }
+    }
+    payload.insert("char07_flourishing".to_string(), Value::Map(flourishing_map));
+
     Ok(Some(Message::new(
         msg_type::QUERY_SUBSTRATE_OBSERVATORY_RESPONSE,
+        request.request_id,
+        payload,
+    )))
+}
+
+/// **CHAR07 §8.1/§8.2 intake handler** — record a cultivator-attested
+/// assessment of a CHAR07 dimension the substrate CANNOT observe autonomously.
+///
+/// The substrate stores the attestation verbatim as a
+/// `char07_assessment:{dimension}` DAG event (source `cultivator_attested`); it
+/// does NOT synthesize the value (CHAR05 — never assert a number it cannot
+/// know). The observatory query surfaces the most-recent attestation per
+/// dimension. Validates the dimension is recognized + `value_repr` is a
+/// parseable float (cross-language determinism, matching the signal-#6 / telos
+/// convention).
+pub(crate) fn handle_submit_char07_assessment(
+    state: &mut ServerState,
+    request: &Message,
+) -> Result<Option<Message>, SubstrateError> {
+    let dimension = match request.payload.get("dimension") {
+        Some(Value::String(s)) if crate::events::is_char07_assessment_dimension(s) => s.clone(),
+        Some(Value::String(s)) => {
+            return Err(SubstrateError::Protocol(format!(
+                "submit_char07_assessment: unrecognized dimension {s:?}; expected \
+                 'capability_asymmetry_pattern' or 'flourishing_correlation'"
+            )));
+        }
+        _ => {
+            return Err(SubstrateError::Protocol(
+                "submit_char07_assessment: dimension must be a String".to_string(),
+            ));
+        }
+    };
+    let value_repr = match request.payload.get("value_repr") {
+        Some(Value::String(s)) if s.parse::<f64>().is_ok() => s.clone(),
+        _ => {
+            return Err(SubstrateError::Protocol(
+                "submit_char07_assessment: value_repr must be a parseable float String"
+                    .to_string(),
+            ));
+        }
+    };
+
+    let cycle = state.cycle_counter();
+    let content = crate::events::encode_char07_assessment(
+        &dimension,
+        &value_repr,
+        crate::events::CHAR07_SOURCE_CULTIVATOR_ATTESTED,
+        cycle,
+    );
+    let node_type = crate::events::char07_assessment_node_type(&dimension);
+    let event_hash = crate::server::emit_substrate_event(state, node_type, content)?;
+
+    let mut payload = BTreeMap::new();
+    payload.insert(
+        "recorded_event_hash".to_string(),
+        Value::Bytes(event_hash.as_ref().to_vec()),
+    );
+    payload.insert("dimension".to_string(), Value::String(dimension));
+    payload.insert("at_cycle".to_string(), Value::Uint(cycle));
+    Ok(Some(Message::new(
+        msg_type::SUBMIT_CHAR07_ASSESSMENT_RESPONSE,
         request.request_id,
         payload,
     )))

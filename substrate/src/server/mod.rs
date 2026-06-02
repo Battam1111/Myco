@@ -276,6 +276,28 @@ pub(crate) struct ServerState {
     /// substrate transitions to `Saturated` (alive::saturated). Resets when
     /// the stage drops back to Normal/PreEligibility.
     pub(crate) post_eligibility_consecutive_cycles: u64,
+    /// **P11.c sustained-saturation → P7 escalation**: consecutive cycles spent
+    /// in `Saturated`. When this crosses `cost_budgets
+    /// .sustained_saturation_mortality_cycle_threshold`, the substrate
+    /// escalates to a `self_euthanasia_proposal:metabolic_saturation` (a
+    /// PROPOSAL the existing accept_self_euthanasia path executes — NOT
+    /// auto-death). In-memory only; re-derived/reset to 0 at boot (the boot
+    /// path restarts saturation tracking at Normal), so zero byte-format risk.
+    pub(crate) saturated_consecutive_cycles: u64,
+    /// **P11.c P02-refusal debounce** — consecutive cycles in which ANY cost
+    /// axis exceeded its budget (incremented every exhausted cycle regardless of
+    /// saturation stage; reset to 0 on the first within-budget cycle). The
+    /// pre-eligibility P02 refusal gates on this being ≥
+    /// `P02_REFUSAL_SUSTAINED_CYCLES` so a single transient compute SPIKE (one
+    /// slow Python cycle can exceed the 100ms seed compute budget) does NOT
+    /// refuse intake — only genuinely SUSTAINED exhaustion does (L2/OBSERVABILITY
+    /// §3 "spikes DAG-recorded but do not fire"). In-memory only (zero byte risk).
+    pub(crate) consecutive_budget_exhausted_cycles: u64,
+    /// **P11.c**: cooldown for the metabolic-saturation self-euthanasia
+    /// proposal — `Some(cycle)` of the last emission, reset to `None` on
+    /// return to `Normal` so a fresh saturation episode can re-propose.
+    /// In-memory only (zero byte-format risk).
+    pub(crate) last_saturation_mortality_proposal_at_cycle: Option<u64>,
     /// **M26.4 F20**: owner-declared objective for P14.c telos_alignment.
     /// `None` → substrate falls back to L1/TROPISM §F.1 branch-2 (centroid
     /// over recent trajectory deltas). CI-mutable via
@@ -285,6 +307,11 @@ pub(crate) struct ServerState {
     /// 100-cycle cooldown as M25.1/M25.2 detectors to prevent spam on every
     /// observatory query.
     pub(crate) last_telos_drift_emitted_at_cycle: Option<u64>,
+    /// **CHAR07 §8.3 C71**: cooldown for the `sycophancy_indicator_elevated`
+    /// daily signal. Same 100-cycle cooldown as the other detectors so a
+    /// sustained-zero-disagreement stretch emits at most once per window
+    /// rather than every cycle. In-memory only (re-derived at boot).
+    pub(crate) last_char07_sycophancy_emitted_at_cycle: Option<u64>,
     /// **M26.4 P11.c**: track recent `budget_exhausted:{axis}` emissions per
     /// axis to drive C53 (budget_exhausted_silent) detection. Key = axis
     /// name; value = cycle of most recent emission.
@@ -478,14 +505,22 @@ impl ServerState {
                     // pipeline without long-running cycle loops.
                     pre_eligibility_cycle_floor: 1,
                     sustained_saturation_cycle_threshold: 2,
+                    // Tight stage-3 escalation: a few cycles past Saturated and
+                    // the substrate proposes metabolic-saturation euthanasia, so
+                    // tests can witness the escalation without 1000+ cycles.
+                    sustained_saturation_mortality_cycle_threshold: 3,
                 }
             } else {
                 crate::events::seed_cost_budgets()
             },
             saturation_stage: crate::events::SaturationStage::Normal,
             post_eligibility_consecutive_cycles: 0,
+            saturated_consecutive_cycles: 0,
+            consecutive_budget_exhausted_cycles: 0,
+            last_saturation_mortality_proposal_at_cycle: None,
             owner_objective: crate::events::seed_owner_objective(),
             last_telos_drift_emitted_at_cycle: None,
+            last_char07_sycophancy_emitted_at_cycle: None,
             last_budget_exhausted_per_axis: std::collections::HashMap::new(),
             // v3.1.1 P07: seed the prune registry with the L0 proof-of-
             // mechanism rule. L1 may register additional rules at runtime.

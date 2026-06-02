@@ -88,6 +88,7 @@
 
 mod attestation;
 mod backup_encryption;
+mod char07;
 mod compression;
 mod core;
 mod cultivation;
@@ -98,6 +99,7 @@ mod telos;
 
 pub use attestation::*;
 pub use backup_encryption::*;
+pub use char07::*;
 pub use compression::*;
 pub use core::*;
 pub use cultivation::*;

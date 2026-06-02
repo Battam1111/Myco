@@ -2,7 +2,13 @@
 //
 // Split out of the former monolithic `protocol/messages.ts`. Mirrors
 // `substrate::server::handle_query_substrate_observatory`. Supports
-// format_versions 1 through 4; field name/type drift surfaces as decode errors.
+// format_versions 1 through 5; field name/type drift surfaces as decode errors.
+// **v5 (OBSERVATORY gap)** adds `saturation_status` (P11.c), the CHAR07 keys
+// (`char07_honest_disagreement` / `char07_capability_asymmetry` /
+// `char07_flourishing`), and surfaces signal #4a's real cumulative fork count
+// (was a 0n placeholder through v4). All v5 additions are additive — v4 clients
+// keep parsing — and the new keys are surfaced as `raw` maps here for
+// forward-compatible consumption.
 
 import { type Value } from "@myco/anchor-client/src/canonical_bytes.ts";
 import { BridgeProtocolError, type Message, MSG_TYPE } from "./wire.ts";
@@ -24,6 +30,61 @@ export function querySubstrateObservatoryPayload(args: {
     });
   }
   return m;
+}
+
+/** CHAR07 intake dimension — the two NOT-autonomously-observable dimensions
+ *  the cultivator attests (§8.1 flourishing, §8.2 capability asymmetry). */
+export type Char07Dimension =
+  | "capability_asymmetry_pattern"
+  | "flourishing_correlation";
+
+/** Build the payload for `submit_char07_assessment` (CHAR07 §8.1/§8.2 intake).
+ *  `valueRepr` is a repr-float string (cross-language determinism). The
+ *  substrate records the attestation verbatim; it does not synthesize the
+ *  underlying number (CHAR05). */
+export function submitChar07AssessmentPayload(args: {
+  dimension: Char07Dimension;
+  valueRepr: string;
+}): Map<string, Value> {
+  const m = new Map<string, Value>();
+  m.set("dimension", { type: "string", value: args.dimension });
+  m.set("value_repr", { type: "string", value: args.valueRepr });
+  return m;
+}
+
+/** Parsed `submit_char07_assessment_response`. */
+export interface SubmitChar07AssessmentResult {
+  recordedEventHash: Uint8Array;
+  dimension: string;
+  atCycle: bigint;
+}
+
+/** Parse a `submit_char07_assessment_response`. */
+export function parseSubmitChar07AssessmentResponse(
+  response: Message,
+): SubmitChar07AssessmentResult {
+  if (response.messageType !== MSG_TYPE.SUBMIT_CHAR07_ASSESSMENT_RESPONSE) {
+    throw new BridgeProtocolError(
+      `expected submit_char07_assessment_response; got ${response.messageType}`,
+    );
+  }
+  const h = response.payload.get("recorded_event_hash");
+  const d = response.payload.get("dimension");
+  const c = response.payload.get("at_cycle");
+  if (
+    !h || h.type !== "bytes" ||
+    !d || d.type !== "string" ||
+    !c || c.type !== "uint"
+  ) {
+    throw new BridgeProtocolError(
+      "submit_char07_assessment_response missing recorded_event_hash / dimension / at_cycle",
+    );
+  }
+  return {
+    recordedEventHash: h.value,
+    dimension: d.value,
+    atCycle: c.value,
+  };
 }
 
 /** Signal #1 — persistence budget. Always present in v1+. */
@@ -49,7 +110,9 @@ export interface ObservatorySignal3 {
 
 /** Signal #4 — federation health. Present from format_version >= 2. */
 export interface ObservatorySignal4 {
-  /** Cumulative fork detection count (placeholder pre-M25; 0n). */
+  /** Cumulative count of `spore_emission:*` (fork) events. Real from v5
+   *  (was a 0n placeholder through v4). Monotone-healthy — NOT counted in the
+   *  bet-weakening quorum. */
   signal4aCumulativeForkCount: bigint;
   /** Currently-established peer count. */
   signal4bReachablePeerCount: bigint;
@@ -130,6 +193,25 @@ export interface ObservatoryBetWeakeningQuorum {
   raw: Map<string, Value>;
 }
 
+/** **P11.c saturation_status** (format_version >= 5). The live ordered-fallback
+ *  state: stage + consecutive-cycle counters + per-axis exceeded flags. Surfaced
+ *  raw for forward-compatible consumption. */
+export interface ObservatorySaturationStatus {
+  raw: Map<string, Value>;
+}
+
+/** **CHAR07 慈爱 anti-tyranny surface** (format_version >= 5). Three keys:
+ *  the real `honest_disagreement` proxy (§8.4), and the cultivator-attested
+ *  `capability_asymmetry` (§8.2) + `flourishing` (§8.1) INTAKE dimensions (each
+ *  carrying a `source` field — "cultivator_attested" / "unavailable" /
+ *  "telos_proxy"). Surfaced raw; the substrate never fabricates the un-observable
+ *  dimensions (CHAR05). */
+export interface ObservatoryChar07 {
+  honestDisagreement: Map<string, Value>;
+  capabilityAsymmetry: Map<string, Value>;
+  flourishing: Map<string, Value>;
+}
+
 /** Parsed `query_substrate_observatory_response`. Supports format_versions
  *  1 through 4. **M26.2 (v4)** added signals 7/8/9 (cost), renamed the
  *  composite to signal_10, and decoupled doctrine_revision_burst_status
@@ -159,6 +241,11 @@ export interface ObservatorySnapshot {
    *  is also accepted (backward compat). */
   doctrineRevisionBurstStatus?: ObservatoryDoctrineRevisionBurstStatus;
   betWeakeningQuorum?: ObservatoryBetWeakeningQuorum;
+  /** P11.c saturation state (format_version >= 5). */
+  saturationStatus?: ObservatorySaturationStatus;
+  /** CHAR07 anti-tyranny surface (format_version >= 5). Present iff all three
+   *  char07_* keys decoded. */
+  char07?: ObservatoryChar07;
 }
 
 export function parseQuerySubstrateObservatoryResponse(
@@ -391,6 +478,29 @@ export function parseQuerySubstrateObservatoryResponse(
   const bq = response.payload.get("bet_weakening_quorum");
   if (bq && bq.type === "map") {
     snap.betWeakeningQuorum = { raw: bq.value };
+  }
+
+  // **v5 (OBSERVATORY gap)** — P11.c saturation_status.
+  const sat = response.payload.get("saturation_status");
+  if (sat && sat.type === "map") {
+    snap.saturationStatus = { raw: sat.value };
+  }
+
+  // **v5 (OBSERVATORY gap)** — CHAR07 anti-tyranny surface. All three keys are
+  // emitted together from v5; surface only when all three decode as maps.
+  const hdd = response.payload.get("char07_honest_disagreement");
+  const cap = response.payload.get("char07_capability_asymmetry");
+  const flo = response.payload.get("char07_flourishing");
+  if (
+    hdd && hdd.type === "map" &&
+    cap && cap.type === "map" &&
+    flo && flo.type === "map"
+  ) {
+    snap.char07 = {
+      honestDisagreement: hdd.value,
+      capabilityAsymmetry: cap.value,
+      flourishing: flo.value,
+    };
   }
 
   return snap;

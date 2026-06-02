@@ -128,6 +128,21 @@ impl<'a> GradientAdvancer for PythonGradientAdvancer<'a> {
     }
 }
 
+/// **P11.c** — the axis whose `budget_exhausted:{axis}` was emitted most
+/// recently, for the saturation refusal's `axis` field. Reads the in-memory
+/// `last_budget_exhausted_per_axis` cache (axis → last-emit-cycle); returns the
+/// max-cycle axis, or `"unknown"` if the cache is empty (e.g. the stage was
+/// driven non-Normal by the PreEligibility branch before any per-axis emission
+/// landed). Pure read; O(axes) over a 3-entry map.
+fn most_recent_exhausted_axis(state: &ServerState) -> String {
+    state
+        .last_budget_exhausted_per_axis
+        .iter()
+        .max_by_key(|(_, cycle)| **cycle)
+        .map(|(axis, _)| axis.clone())
+        .unwrap_or_else(|| "unknown".to_string())
+}
+
 /// M16: P2 永恒吞噬 — Ingest a raw material payload as a `raw_material:{kind}`
 /// DAG node. Activates the L0 P2 "no filter on intake" principle: any bytes the
 /// operator can present (text / file / conversation / url-fetch / llm-response)
@@ -152,6 +167,41 @@ pub(crate) fn handle_ingest_raw_material(
     state: &mut ServerState,
     request: &Message,
 ) -> Result<Option<Message>, SubstrateError> {
+    // **P11.c P02 refusal under SUSTAINED saturation** — when cost budgets have
+    // been exhausted for ≥ `P02_REFUSAL_SUSTAINED_CYCLES` consecutive cycles
+    // (non-Normal stage AND sustained, not a transient spike), the substrate
+    // REFUSES new raw_material ingestion rather than silently absorbing cost it
+    // cannot afford (L0 P11.c stage 1 "refuse new P2"). Both fields were
+    // computed on the most recent cycle_advanced (`apply_p11c_and_emit`);
+    // reading them here is cheap (no recompute). Debouncing on sustained
+    // exhaustion (not the first non-Normal cycle) honors L2/OBSERVABILITY §3
+    // ("spikes DAG-recorded but do not fire") — a single slow Python cycle that
+    // momentarily exceeds the 100ms seed compute budget must NOT refuse intake.
+    // The matching `budget_exhausted:{axis}` event is already in the DAG, so the
+    // refusal is verifiable. Returns a structured refusal — NOT an error.
+    if state.saturation_stage != crate::events::SaturationStage::Normal
+        && state.consecutive_budget_exhausted_cycles
+            >= crate::observatory::P02_REFUSAL_SUSTAINED_CYCLES
+    {
+        let axis = most_recent_exhausted_axis(state);
+        let mut payload = BTreeMap::new();
+        payload.insert("refused".to_string(), Value::Bool(true));
+        payload.insert(
+            "reason".to_string(),
+            Value::String("budget_exhausted".to_string()),
+        );
+        payload.insert("axis".to_string(), Value::String(axis));
+        payload.insert(
+            "saturation_stage".to_string(),
+            Value::String(state.saturation_stage.as_str().to_string()),
+        );
+        return Ok(Some(Message::new(
+            msg_type::INGEST_RAW_MATERIAL_RESPONSE,
+            request.request_id,
+            payload,
+        )));
+    }
+
     // Required: content_kind + content_bytes.
     let content_kind = match request.payload.get("content_kind") {
         Some(Value::String(s)) if !s.is_empty() => s.clone(),
@@ -215,6 +265,9 @@ pub(crate) fn handle_ingest_raw_material(
         .map_err(|e| SubstrateError::Protocol(format!("raw_material DAG insert: {e}")))?;
 
     let mut payload = BTreeMap::new();
+    // Symmetric with the P11.c saturation-refusal path so the operator can
+    // branch on `refused` uniformly regardless of stage.
+    payload.insert("refused".to_string(), Value::Bool(false));
     payload.insert(
         "dag_node_hash".to_string(),
         Value::Bytes(node_hash.as_ref().to_vec()),

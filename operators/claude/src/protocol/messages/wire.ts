@@ -119,6 +119,9 @@ export const MSG_TYPE = {
   ACCEPT_SUCCESSION_RESPONSE: "accept_succession_response",
   ACCEPT_BET_RETIRED_PROPOSAL: "accept_bet_retired_proposal",
   ACCEPT_BET_RETIRED_PROPOSAL_RESPONSE: "accept_bet_retired_proposal_response",
+  // CHAR07 §8.1/§8.2 cultivator-attested anti-tyranny assessment intake.
+  SUBMIT_CHAR07_ASSESSMENT: "submit_char07_assessment",
+  SUBMIT_CHAR07_ASSESSMENT_RESPONSE: "submit_char07_assessment_response",
 } as const;
 
 export type MessageType = (typeof MSG_TYPE)[keyof typeof MSG_TYPE];

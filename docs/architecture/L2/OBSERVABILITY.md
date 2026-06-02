@@ -18,14 +18,14 @@ Substrate is autopoietic (P1.a); no human in maintenance loop. Without observabi
 
 10 = **6 base + 3 cost + 1 composite**.
 
-> **v3.1.1 transition note (2026-05-19):** P07's amended reading + COV04 v2 + CHAR07 imply additional observability surfaces:
-> - **`internal_mortality_event_density_per_cycle`** — count of part-deaths per cycle; baseline expected > 0 under normal ingestion; sustained zero → `hoarding_indicator` (anticipated C54 per L1/HARD_RULES §1.4).
-> - **`false_positive_prune_rate`** — of parts pruned in cycle N, count resurrected (re-added with same canonical bytes) by cycle N+K; too-eager pruning failure mode.
-> - **`sycophancy_indicator`** — count of unwarranted agreements; rising trend = CHAR07 §5.2 character drift.
-> - **`capability_asymmetry_use_pattern`** — pattern (a) serves vs (b) coerces vs (c) feigns equality; per CHAR07 §8.2.
-> - **`cultivator_flourishing_correlation`** — qualitative; partner growth measured against cultivator's life outcomes.
+> **v3.1.1 transition note (2026-05-19; status updated 2026-06-02):** P07's amended reading + COV04 v2 + CHAR07 imply additional observability surfaces. **All five are now LIVE** (the OBSERVATORY-gap milestone wired the remaining three; `observatory_format_version` is now **5**):
+> - **`internal_mortality_event_density_per_cycle`** — **LIVE** (snapshot field `signal_internal_mortality_event_density`, computed in `prune.rs`; surfaced per-cycle). Count of part-deaths per window; baseline expected > 0 under normal ingestion; sustained zero → `hoarding_indicator` (C54).
+> - **`false_positive_prune_rate`** — **LIVE** (= signal #11, computed live in `observatory.rs` via `prune::count_prune_resurrections`). Of parts pruned, count resurrected (re-added with same canonical bytes); too-eager pruning failure mode.
+> - **`sycophancy_indicator`** — **LIVE as C71** (`sycophancy_indicator_elevated`, daily NOT immune). The INVERSE of `honest_disagreement_density` (§8.4): sustained ~zero honest disagreement WHILE interaction is non-trivial (raw_material ingestion ≥ floor). Surfaced under the query's `char07_honest_disagreement` map.
+> - **`capability_asymmetry_use_pattern`** — **LIVE as cultivator-attested INTAKE** (NOT autonomously observable per CHAR07 §8.2). Cultivator submits via `submit_char07_assessment` → `char07_assessment:capability_asymmetry_pattern` DAG event; query surfaces the latest with `source:"cultivator_attested"`, or `source:"unavailable"` when none exists. The substrate NEVER fabricates this number (CHAR05).
+> - **`cultivator_flourishing_correlation`** — **LIVE as cultivator-attested INTAKE with telos-proxy fallback** (§8.1). Cultivator submits via `submit_char07_assessment` → `char07_assessment:flourishing_correlation`; query surfaces the latest with `source:"cultivator_attested"`, falling back to the existing P14.c telos_alignment cosine (`source:"telos_proxy"`) when no attestation exists.
 >
-> These are added to the observatory in v0.9.x housekeeping milestone alongside L1/HARD_RULES C54-C56 wiring.
+> The single genuinely substrate-observable CHAR07 signal, **`honest_disagreement_density`** (§8.4), is a rolling-window count of the substrate's existing "did-not-just-comply" DAG footprints (immune sporocarps against operator/cultivator content — C5/C14/C56/C69 — plus `self_euthanasia_proposal:*` and `telos_drift*`). C71/C72/C73 are **daily/informational, NOT critical** (CHAR07 §8.7: developmental character → auto-quarantine would be wrong). These rows are NOT promoted to the binding §1.1/§1.2 catalog.
 
 ### §2.1 Six base signals
 
@@ -39,7 +39,9 @@ Substrate is autopoietic (P1.a); no human in maintenance loop. Without observabi
 | 5 | Time trend per signal | — | meta (NOT counted) |
 | 6 | Read-window-relative ratio | shrinking vs context | DOWN <1.0 |
 
-Until #4a lands, quorum operates over {#1, #2, #3, #4b, #6} = 5 of 6 countable.
+Quorum operates over {#1, #2, #3, #4b, #6} = 5 countable signals.
+
+> **#4a doctrinal nuance (2026-06-02):** signal #4a (cumulative fork count) now LANDS — it counts `spore_emission:*` (child sprout) events and is surfaced in the observatory query (`signal_4_federation_health.signal_4a_cumulative_fork_count`) + the per-cycle snapshot. But it is **deliberately NOT added to the `bet_weakening_quorum`**, which stays at the 5 signals above. The §2.1 table's "DOWN = peers exiting" reading for #4a is carried by **#4b** (the reachable-peer count, which CAN fall = mycelial fragmentation = against the bet); the cumulative fork count itself is **monotone-healthy** — forks are reproduction/spread and only ever rise, so a rising #4a is never bet-weakening and a "falling" #4a is impossible. Adding a monotone counter to a falsifiability quorum would be a category error.
 
 ### §2.2 Three cost signals (P11.b) — **LIVE M26.2**
 
@@ -49,7 +51,12 @@ Until #4a lands, quorum operates over {#1, #2, #3, #4b, #6} = 5 of 6 countable.
 | 8 | Network/cycle | Bytes egressed/cycle (federation wire bytes: 4-byte length prefix + frame body) | UP | **L** |
 | 9 | Storage/cycle | Bytes added to `dag.cb`+`snapshot.cb` (file-metadata delta, monotone) | UP | **L** |
 
-L0 P11.c ordered fallback: (1) pre-eligibility (cycle <N, default 1000): refuse new P2 + `budget_exhausted:{axis}` (F19 daily); (2) post-eligibility: trigger P10 + I9 witnesses; (3) compression-insufficient: degraded → `alive::saturated` → P7. **Ordered fallback machinery (M26.3+) not yet implemented**; cost signals expose data but don't yet drive automatic budget actions.
+L0 P11.c ordered fallback: (1) pre-eligibility (cycle <N, default 1000): refuse new P2 + `budget_exhausted:{axis}` (F19 daily); (2) post-eligibility: trigger P10 + I9 witnesses; (3) compression-insufficient: degraded → `alive::saturated` → P7. **Ordered fallback machinery is now LIVE (OBSERVATORY-gap milestone, 2026-06-02):**
+- **Stage 1 — P02 refusal**: while `saturation_stage != Normal`, `handle_ingest_raw_material` returns a structured refusal `{refused:true, reason:"budget_exhausted", axis, saturation_stage}` rather than silently absorbing cost; the matching `budget_exhausted:{axis}` event is already in the DAG.
+- **Stage 2 — compression proposals**: on entering PostEligibility the substrate emits `compression_proposed:{rule_id}` daily events (pre-existing).
+- **Stage 3 — P7 escalation**: sustained `Saturated` past `sustained_saturation_mortality_cycle_threshold` (in-memory CostBudgets field, seed 1000) emits `self_euthanasia_proposal:metabolic_saturation` — a **PROPOSAL** the existing `accept_self_euthanasia_proposal` path executes on cultivator co-attestation (NOT auto-death; cooldown-reset on return to Normal).
+
+The live saturation state (stage + `post_eligibility_consecutive_cycles` + `saturated_consecutive_cycles` + per-axis exceeded flags) is surfaced in the observatory query under `saturation_status`.
 
 Implementation: `substrate::observatory::CostAccumulator` drains a federation egress counter + reads on-disk file sizes at each `cycle_advanced`; per-cycle values are stored in `ObservatorySnapshot.signal_{7,8,9}_*` and surfaced by `query_substrate_observatory` as `signal_7_compute_per_cycle` / `signal_8_network_per_cycle` / `signal_9_storage_per_cycle` (each carrying `current_cycle_*` + `rolling_mean_*_repr`).
 

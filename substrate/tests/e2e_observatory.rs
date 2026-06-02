@@ -53,13 +53,13 @@ fn phase_alpha_observatory_signal_1_basic_persistence_budget() {
         "signal_6 should be absent without operator-supplied window"
     );
 
-    // **M26.2**: observatory_format_version bumped 3 → 4 (added signals
-    // 7/8/9 cost, renamed composite → signal_10, renamed doctrine_burst).
+    // observatory_format_version is now 5 (OBSERVATORY gap: saturation_status +
+    // CHAR07 keys + real #4a fork count, all additive over the M26.2 v4 schema).
     let fmt = match resp.payload.get("observatory_format_version") {
         Some(CbValue::Uint(n)) => *n,
         _ => panic!("fmt version missing"),
     };
-    assert_eq!(fmt, 4, "M26.2 bumps observatory_format_version to 4");
+    assert_eq!(fmt, 5, "OBSERVATORY gap bumps observatory_format_version to 5");
 
     // M24.5 + M26.2: signals 2/3/4 + composite present.
     assert!(
@@ -251,9 +251,9 @@ fn phase_alpha_observatory_signal_6_handles_zero_window() {
 
 #[test]
 fn m25_3_observatory_format_version_3() {
-    // **M26.2**: name kept for git history; observatory_format_version
-    // bumped 3 → 4 (added signals 7/8/9 cost + renamed composite to
-    // signal_10 + renamed doctrine_burst to doctrine_revision_burst_status).
+    // Name kept for git history; observatory_format_version is now 5 (was 3 at
+    // M25.3, 4 at M26.2, 5 at the OBSERVATORY gap — saturation_status + CHAR07
+    // keys + real #4a fork count).
     let (mut client, _dir) = spawn_substrate();
     let resp = client
         .call(proto::QUERY_SUBSTRATE_OBSERVATORY, build_payload(vec![]))
@@ -262,7 +262,7 @@ fn m25_3_observatory_format_version_3() {
         Some(CbValue::Uint(n)) => *n,
         _ => panic!("observatory_format_version missing"),
     };
-    assert_eq!(fmt, 4, "M26.2: observatory_format_version bumped 3 → 4");
+    assert_eq!(fmt, 5, "OBSERVATORY gap: observatory_format_version is 5");
     client.shutdown().expect("shutdown");
 }
 
@@ -594,7 +594,8 @@ fn m25_2_operator_context_window_cached_across_queries() {
 
 #[test]
 fn m26_2_observatory_format_version_is_4() {
-    // Fresh substrate; v4 schema is unconditional at this point.
+    // Name kept for git history; the schema is now v5 (OBSERVATORY gap adds
+    // saturation_status + CHAR07 keys + real #4a fork count over the v4 base).
     let (mut client, _dir) = spawn_substrate();
     let resp = client
         .call(proto::QUERY_SUBSTRATE_OBSERVATORY, build_payload(vec![]))
@@ -604,8 +605,8 @@ fn m26_2_observatory_format_version_is_4() {
         _ => panic!("observatory_format_version missing"),
     };
     assert_eq!(
-        ver, 4,
-        "M26.2 bumps observatory_format_version to 4; got {ver}"
+        ver, 5,
+        "OBSERVATORY gap bumps observatory_format_version to 5; got {ver}"
     );
     client.shutdown().expect("shutdown");
 }
@@ -778,6 +779,200 @@ fn m26_2_doctrine_revision_burst_status_renamed_from_signal_8_burst() {
         );
     }
     client.shutdown().expect("shutdown");
+}
+
+// ===========================================================================
+// OBSERVATORY gap: #4a cumulative fork count + format_version 5 + CHAR07.
+// ===========================================================================
+
+#[test]
+fn observatory_format_version_is_5_and_signal_4a_fork_count_present() {
+    // The OBSERVATORY-gap work bumps observatory_format_version 4 → 5 and
+    // replaces the signal #4a placeholder (was Value::Uint(0)) with the real
+    // cumulative spore_emission (fork) count. A non-reproducing substrate has
+    // zero forks, but the FIELD must be present + correctly typed.
+    let (mut client, _dir) = spawn_substrate();
+    client
+        .register_axis("fork_obs", "appetite", 5.0, 0.0, 1.0, false, "noop")
+        .expect("register");
+    let resp = client
+        .call(proto::QUERY_SUBSTRATE_OBSERVATORY, build_payload(vec![]))
+        .expect("observatory query");
+    let ver = match resp.payload.get("observatory_format_version") {
+        Some(CbValue::Uint(n)) => *n,
+        _ => panic!("observatory_format_version missing"),
+    };
+    assert_eq!(ver, 5, "OBSERVATORY gap bumps observatory_format_version to 5");
+    let s4 = match resp.payload.get("signal_4_federation_health") {
+        Some(CbValue::Map(m)) => m.clone(),
+        _ => panic!("signal_4_federation_health missing"),
+    };
+    let forks = match s4.get("signal_4a_cumulative_fork_count") {
+        Some(CbValue::Uint(n)) => *n,
+        _ => panic!("signal_4a_cumulative_fork_count missing"),
+    };
+    assert_eq!(forks, 0, "non-reproducing substrate has 0 forks; got {forks}");
+    client.shutdown().expect("shutdown");
+}
+
+#[test]
+fn observatory_char07_honest_disagreement_density_present_with_floor() {
+    // CHAR07 §8.4: the substrate surfaces honest_disagreement_density (its ONE
+    // genuinely observable CHAR07 signal) + the C71 interaction floor. A fresh
+    // substrate has zero disagreement AND zero interaction → the sycophancy
+    // proxy must NOT be elevated (zero-while-quiet is not sycophancy; §8.4
+    // requires a non-trivial floor).
+    let (mut client, _dir) = spawn_substrate();
+    let resp = client
+        .call(proto::QUERY_SUBSTRATE_OBSERVATORY, build_payload(vec![]))
+        .expect("observatory query");
+    let hdd = match resp.payload.get("char07_honest_disagreement") {
+        Some(CbValue::Map(m)) => m.clone(),
+        _ => panic!("char07_honest_disagreement missing"),
+    };
+    let density = match hdd.get("density") {
+        Some(CbValue::Uint(n)) => *n,
+        _ => panic!("density missing"),
+    };
+    assert_eq!(density, 0, "fresh substrate has no disagreement footprints");
+    let floor = match hdd.get("interaction_floor") {
+        Some(CbValue::Uint(n)) => *n,
+        _ => panic!("interaction_floor missing"),
+    };
+    assert!(floor > 0, "interaction floor must be non-trivial (CHAR07 §8.4)");
+    let elevated = match hdd.get("sycophancy_indicator_elevated") {
+        Some(CbValue::Bool(b)) => *b,
+        _ => panic!("sycophancy_indicator_elevated missing"),
+    };
+    assert!(
+        !elevated,
+        "C71 must NOT be elevated when interaction is below the floor \
+         (zero disagreement while quiet is not sycophancy)"
+    );
+    client.shutdown().expect("shutdown");
+}
+
+#[test]
+fn observatory_char07_assessment_intake_and_telos_fallback() {
+    // CHAR07 §8.1/§8.2 are NOT autonomously observable → cultivator INTAKE.
+    // Before any attestation: capability = "unavailable" (substrate refuses to
+    // fabricate); flourishing = "telos_proxy" (falls back to the existing telos
+    // cosine). After a cultivator attests flourishing: source flips to
+    // "cultivator_attested" and the value_repr round-trips.
+    let (mut client, _dir) = spawn_substrate();
+
+    // --- Before attestation ---
+    let resp = client
+        .call(proto::QUERY_SUBSTRATE_OBSERVATORY, build_payload(vec![]))
+        .expect("observatory query (pre-intake)");
+    let cap = match resp.payload.get("char07_capability_asymmetry") {
+        Some(CbValue::Map(m)) => m.clone(),
+        _ => panic!("char07_capability_asymmetry missing"),
+    };
+    assert_eq!(
+        cap.get("source"),
+        Some(&CbValue::String("unavailable".to_string())),
+        "capability_asymmetry must be 'unavailable' until cultivator attests \
+         (substrate must NOT fabricate it — CHAR05)"
+    );
+    assert!(
+        cap.get("value_repr").is_none(),
+        "unavailable capability must carry NO fabricated value"
+    );
+    let flo = match resp.payload.get("char07_flourishing") {
+        Some(CbValue::Map(m)) => m.clone(),
+        _ => panic!("char07_flourishing missing"),
+    };
+    assert_eq!(
+        flo.get("source"),
+        Some(&CbValue::String("telos_proxy".to_string())),
+        "flourishing must fall back to telos_proxy when no attestation exists"
+    );
+
+    // --- Submit a cultivator flourishing assessment ---
+    let submit = client
+        .call(
+            proto::SUBMIT_CHAR07_ASSESSMENT,
+            build_payload(vec![
+                (
+                    "dimension",
+                    CbValue::String("flourishing_correlation".to_string()),
+                ),
+                ("value_repr", CbValue::String("0.82".to_string())),
+            ]),
+        )
+        .expect("submit char07 assessment");
+    assert_eq!(
+        submit.message_type,
+        proto::SUBMIT_CHAR07_ASSESSMENT_RESPONSE
+    );
+
+    // --- After attestation: flourishing now cultivator_attested ---
+    let resp2 = client
+        .call(proto::QUERY_SUBSTRATE_OBSERVATORY, build_payload(vec![]))
+        .expect("observatory query (post-intake)");
+    let flo2 = match resp2.payload.get("char07_flourishing") {
+        Some(CbValue::Map(m)) => m.clone(),
+        _ => panic!("char07_flourishing missing post-intake"),
+    };
+    assert_eq!(
+        flo2.get("source"),
+        Some(&CbValue::String("cultivator_attested".to_string())),
+        "flourishing source must flip to cultivator_attested after intake"
+    );
+    assert_eq!(
+        flo2.get("value_repr"),
+        Some(&CbValue::String("0.82".to_string())),
+        "attested flourishing value must round-trip verbatim"
+    );
+
+    // An unrecognized dimension must be REJECTED (not fabricated/accepted).
+    let bad = client.call(
+        proto::SUBMIT_CHAR07_ASSESSMENT,
+        build_payload(vec![
+            ("dimension", CbValue::String("made_up_dimension".to_string())),
+            ("value_repr", CbValue::String("0.5".to_string())),
+        ]),
+    );
+    assert!(bad.is_err(), "unrecognized CHAR07 dimension must be rejected");
+
+    client.shutdown().expect("shutdown");
+}
+
+#[test]
+fn observatory_gap_fields_persist_across_restart() {
+    // #4a fork count + CHAR07 disagreement density are tolerant-additive
+    // snapshot fields (no format_version bump). Verify they round-trip through
+    // snapshot.cb across a reboot (both default 0 for a quiet substrate, but the
+    // snapshot must still load — the byte-compat unit test covers the
+    // missing-key path; this covers the present-key path end to end).
+    let dir = fresh_state_dir();
+    {
+        let mut client = spawn_substrate_with_state_dir(&dir);
+        pump_cycles(&mut client, 10); // writes snapshot.cb at K=10
+        client.shutdown().expect("shutdown boot1");
+    }
+    assert!(dir.join("snapshot.cb").exists(), "snapshot.cb must exist");
+    {
+        let mut client = spawn_substrate_with_state_dir(&dir);
+        let resp = client
+            .call(proto::QUERY_SUBSTRATE_OBSERVATORY, build_payload(vec![]))
+            .expect("observatory after restart");
+        // Both new surfaces must be present after a snapshot-accelerated boot.
+        let s4 = match resp.payload.get("signal_4_federation_health") {
+            Some(CbValue::Map(m)) => m.clone(),
+            _ => panic!("signal_4 missing after restart"),
+        };
+        assert!(
+            s4.get("signal_4a_cumulative_fork_count").is_some(),
+            "#4a fork count must survive restart"
+        );
+        assert!(
+            resp.payload.get("char07_honest_disagreement").is_some(),
+            "char07_honest_disagreement must survive restart"
+        );
+        client.shutdown().expect("shutdown boot2");
+    }
 }
 
 #[test]

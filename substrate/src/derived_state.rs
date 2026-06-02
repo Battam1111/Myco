@@ -121,6 +121,22 @@ pub struct ObservatorySnapshot {
     /// P07 §3.1 is not firing despite live ingestion. Default `false`.
     /// Pre-v3.1.1 snapshots default `false`.
     pub signal_hoarding_indicator: bool,
+    /// **Signal #4a** — cumulative count of `spore_emission:*` (fork) events
+    /// at snapshot time. Monotone-healthy (L2/OBSERVABILITY §2.1); surfaced for
+    /// trend visibility but NOT counted in the bet-weakening quorum. Default 0
+    /// in pre-OBSERVATORY-gap snapshots.
+    pub signal_4a_cumulative_fork_count: u64,
+    /// **CHAR07 §8.4 `honest_disagreement_density`** — the ONE genuinely
+    /// substrate-observable CHAR07 signal. A rolling-window count of the
+    /// substrate's "did NOT just comply" DAG footprints: immune sporocarps
+    /// fired against operator/cultivator-submitted content (C5/C14/C56/C69),
+    /// `self_euthanasia_proposal:*`, and `telos_drift*` / `telos_alignment_low`
+    /// events. Window = `CHAR07_DISAGREEMENT_WINDOW_CYCLES`. A non-trivial
+    /// floor is expected in a real partnership (§8.4); sustained zero while
+    /// interaction is non-trivial drives the C71 sycophancy proxy. NOT a
+    /// fabricated character number — it counts real refusal/dissent footprints
+    /// the substrate already records. Default 0 in pre-OBSERVATORY-gap snapshots.
+    pub signal_char07_honest_disagreement_density: u64,
 }
 
 /// L1-tunable seed cap for the in-memory observatory history. The substrate
@@ -189,6 +205,17 @@ impl ObservatorySnapshot {
         m.insert(
             "signal_hoarding_indicator".to_string(),
             Value::Bool(self.signal_hoarding_indicator),
+        );
+        // OBSERVATORY-gap additive fields (#4a fork count + CHAR07 honest-
+        // disagreement density). Backward-compat: pre-gap snapshots tolerated
+        // as absent → default 0 on read (no snapshot format_version bump).
+        m.insert(
+            "signal_4a_cumulative_fork_count".to_string(),
+            Value::Uint(self.signal_4a_cumulative_fork_count),
+        );
+        m.insert(
+            "signal_char07_honest_disagreement_density".to_string(),
+            Value::Uint(self.signal_char07_honest_disagreement_density),
         );
         Value::Map(m)
     }
@@ -265,6 +292,17 @@ impl ObservatorySnapshot {
             Some(Value::Bool(b)) => *b,
             _ => false,
         };
+        // OBSERVATORY-gap additive fields — tolerate absent for backward-compat
+        // with pre-gap snapshot.cb files (default 0).
+        let signal_4a_cumulative_fork_count = match m.get("signal_4a_cumulative_fork_count") {
+            Some(Value::Uint(n)) => *n,
+            _ => 0,
+        };
+        let signal_char07_honest_disagreement_density =
+            match m.get("signal_char07_honest_disagreement_density") {
+                Some(Value::Uint(n)) => *n,
+                _ => 0,
+            };
         Ok(ObservatorySnapshot {
             at_cycle,
             at_unix_ns,
@@ -280,6 +318,8 @@ impl ObservatorySnapshot {
             signal_telos_alignment_repr,
             signal_internal_mortality_event_density,
             signal_hoarding_indicator,
+            signal_4a_cumulative_fork_count,
+            signal_char07_honest_disagreement_density,
         })
     }
 }
@@ -1781,6 +1821,10 @@ mod tests {
             // serializer + alternate the boolean each cycle.
             signal_internal_mortality_event_density: at_cycle * 2,
             signal_hoarding_indicator: at_cycle % 2 == 0,
+            // OBSERVATORY-gap additive fields: vary cycle-over-cycle so the
+            // roundtrip test exercises distinct nonzero u64 paths.
+            signal_4a_cumulative_fork_count: at_cycle / 7,
+            signal_char07_honest_disagreement_density: at_cycle % 11,
         }
     }
 
@@ -1801,6 +1845,39 @@ mod tests {
         let decoded = ObservatorySnapshot::from_canonical_value(&v).unwrap();
         assert_eq!(decoded.signal_6_ratio_repr, "");
         assert_eq!(decoded, snap);
+    }
+
+    #[test]
+    fn observatory_snapshot_tolerant_read_defaults_new_fields_to_zero() {
+        // **Byte-compat (OBSERVATORY gap)**: a snapshot written BEFORE the
+        // #4a-fork-count + CHAR07-disagreement-density fields existed has a Map
+        // with NEITHER new key. `from_canonical_value` MUST tolerate that and
+        // default both new fields to 0 (no snapshot format_version bump —
+        // M26.2/v3.1.1 additive idiom). We synthesize the legacy Map by taking
+        // a current snapshot's canonical Value and REMOVING the two new keys.
+        let snap = make_observatory_snapshot(5);
+        let mut m = match snap.to_canonical_value() {
+            Value::Map(m) => m,
+            _ => panic!("snapshot encodes to a Map"),
+        };
+        // Drop the new keys to emulate a pre-gap snapshot.
+        m.remove("signal_4a_cumulative_fork_count");
+        m.remove("signal_char07_honest_disagreement_density");
+        let legacy = Value::Map(m);
+        let decoded = ObservatorySnapshot::from_canonical_value(&legacy)
+            .expect("legacy snapshot (missing new keys) still decodes");
+        assert_eq!(
+            decoded.signal_4a_cumulative_fork_count, 0,
+            "absent #4a fork count must default to 0"
+        );
+        assert_eq!(
+            decoded.signal_char07_honest_disagreement_density, 0,
+            "absent CHAR07 disagreement density must default to 0"
+        );
+        // Every PRE-existing field must be unchanged (only the new ones defaulted).
+        assert_eq!(decoded.at_cycle, snap.at_cycle);
+        assert_eq!(decoded.signal_1_dag_node_count, snap.signal_1_dag_node_count);
+        assert_eq!(decoded.signal_telos_alignment_repr, snap.signal_telos_alignment_repr);
     }
 
     #[test]

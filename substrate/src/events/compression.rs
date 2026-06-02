@@ -332,6 +332,15 @@ pub struct CostBudgets {
     /// PostEligibility (compression proposed but budgets still exhausted)
     /// before transitioning to alive::saturated. Seed: 100.
     pub sustained_saturation_cycle_threshold: u64,
+    /// **P11.c stage-3 escalation threshold** — number of CONSECUTIVE cycles
+    /// spent already in `Saturated` (compression proved insufficient and
+    /// budgets remain exhausted) before the substrate escalates to a
+    /// `self_euthanasia_proposal:metabolic_saturation` per L0 P11.c
+    /// ("degraded → alive::saturated → P7"). Seed: 1000. The proposal awaits
+    /// cultivator co-attestation (NOT auto-death). In-memory only — re-derived
+    /// at boot like the rest of `CostBudgets`; never persisted to a byte
+    /// format, so zero byte-compat risk.
+    pub sustained_saturation_mortality_cycle_threshold: u64,
 }
 
 /// Seed F19 cost budget defaults.
@@ -342,6 +351,7 @@ pub fn seed_cost_budgets() -> CostBudgets {
         storage_bytes_per_cycle: 10_485_760,   // 10 MiB
         pre_eligibility_cycle_floor: 1000,
         sustained_saturation_cycle_threshold: 100,
+        sustained_saturation_mortality_cycle_threshold: 1000,
     }
 }
 
@@ -397,6 +407,15 @@ pub const NODE_TYPE_SUBSTRATE_SATURATED: &str = "substrate_saturated";
 /// `substrate_normal_restored` event — M26.4 P11.c reverse transition when
 /// budget exhaustion clears across all axes.
 pub const NODE_TYPE_SUBSTRATE_NORMAL_RESTORED: &str = "substrate_normal_restored";
+
+/// **P11.c stage-3** — the `axis_name` carried by the metabolic-saturation
+/// self-euthanasia proposal (`self_euthanasia_proposal:metabolic_saturation`),
+/// emitted when the substrate has been in `alive::saturated` past
+/// `sustained_saturation_mortality_cycle_threshold`. The existing
+/// `accept_self_euthanasia_proposal` path reads this as the proposal's
+/// `axis_name`; on cultivator co-attestation it becomes
+/// `self_euthanasia_executed:metabolic_saturation`. NOT auto-death.
+pub const SATURATION_MORTALITY_AXIS_NAME: &str = "metabolic_saturation";
 
 /// Encode a `budget_exhausted:{axis}` event.
 /// ```text

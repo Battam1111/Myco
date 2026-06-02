@@ -3884,6 +3884,35 @@ describe("SubstrateClient e2e", () => {
           "signal_9 currentCycleBytes must reflect on-disk growth this cycle",
         );
       }
+
+      // **v5 (OBSERVATORY gap)** — saturation_status + CHAR07 surfaces parse.
+      if (snap.formatVersion >= 5n) {
+        assert.ok(
+          snap.saturationStatus,
+          "saturation_status must be present at v5",
+        );
+        assert.equal(
+          snap.saturationStatus!.raw.get("stage")?.type,
+          "string",
+          "saturation_status.stage must be a string",
+        );
+        assert.ok(snap.char07, "char07 surface must be present at v5");
+        // CHAR05 honesty: capability_asymmetry is NOT autonomously observable,
+        // so with no cultivator attestation its source is "unavailable" — the
+        // substrate must NOT fabricate a value.
+        const capSource = snap.char07!.capabilityAsymmetry.get("source");
+        assert.equal(
+          capSource?.type === "string" ? capSource.value : undefined,
+          "unavailable",
+          "capability_asymmetry must be 'unavailable' until cultivator attests",
+        );
+        // Honest disagreement density must surface a numeric density.
+        assert.equal(
+          snap.char07!.honestDisagreement.get("density")?.type,
+          "uint",
+          "char07 honest_disagreement.density must be a uint",
+        );
+      }
     } finally {
       await client.shutdown();
     }

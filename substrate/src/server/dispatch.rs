@@ -269,6 +269,16 @@ pub(super) fn dispatch(
         msg_type::QUERY_SUBSTRATE_OBSERVATORY => {
             crate::observatory::handle_query_substrate_observatory(state, request)
         }
+        // **CHAR07 §8.1/§8.2 intake** — cultivator attests a capability-asymmetry
+        // or flourishing assessment the substrate cannot observe autonomously.
+        // Emits a `char07_assessment:{dimension}` DAG event (source
+        // cultivator_attested); the observatory query surfaces the latest per
+        // dimension. Substrate records but never synthesizes the value (CHAR05).
+        msg_type::SUBMIT_CHAR07_ASSESSMENT => {
+            let response = crate::observatory::handle_submit_char07_assessment(state, request)?;
+            save_dag_state(state)?;
+            Ok(response)
+        }
         // **v3.1.1 Sprint 8.G (P03 §10.4)** — read whether a two-phase schema
         // migration is in flight. Pure read of `state.migration_candidate`; no
         // Python round-trip, no DAG mutation. Survives cold-resume because the

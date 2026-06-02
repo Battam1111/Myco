@@ -405,6 +405,183 @@ fn sprint_5d_c53_under_normal_emission_pattern_stays_quiet() {
     client.shutdown().expect("shutdown");
 }
 
+// ===========================================================================
+// P11.c automatic enforcement (OBSERVATORY gap): pre-eligibility P02 refusal +
+// sustained-saturation → self_euthanasia_proposal + saturation_status surface.
+// ===========================================================================
+
+/// Helper: attempt a raw_material ingestion and return the decoded response.
+fn try_ingest(client: &mut BridgeClient) -> myco_kernel_bridge::protocol::Message {
+    client
+        .call(
+            proto::INGEST_RAW_MATERIAL,
+            build_payload(vec![
+                ("content_kind", CbValue::String("text".to_string())),
+                ("content_bytes", CbValue::Bytes(b"hello substrate".to_vec())),
+            ]),
+        )
+        .expect("ingest call")
+}
+
+#[test]
+fn p11c_ingest_refused_under_saturation() {
+    // **P11.c P02 refusal**: under tight budgets the substrate enters a
+    // non-Normal saturation stage within a few cycles; a subsequent
+    // ingest_raw_material MUST be refused (refused:true, reason:budget_exhausted)
+    // rather than silently absorbing cost. Without this, P11 §5.3 is inert.
+    let dir = fresh_state_dir();
+    let mut client = spawn_substrate_with_env(
+        &dir,
+        vec![(
+            "MYCO_TEST_TIGHTEN_BUDGETS_FOR_C53".to_string(),
+            "1".to_string(),
+        )],
+    );
+    // Sanity: a FRESH substrate (Normal stage) accepts ingestion.
+    let accepted = try_ingest(&mut client);
+    assert_eq!(
+        accepted.payload.get("refused"),
+        Some(&CbValue::Bool(false)),
+        "fresh (Normal) substrate must accept ingestion"
+    );
+    // Drive cost exhaustion → non-Normal stage.
+    pump_cycles(&mut client, 5);
+    let refused = try_ingest(&mut client);
+    assert_eq!(
+        refused.payload.get("refused"),
+        Some(&CbValue::Bool(true)),
+        "saturated substrate MUST refuse new raw_material ingestion (P11.c)"
+    );
+    assert_eq!(
+        refused.payload.get("reason"),
+        Some(&CbValue::String("budget_exhausted".to_string())),
+        "refusal reason must be budget_exhausted"
+    );
+    // The refusal carries the stage + the triggering axis for operator clarity.
+    match refused.payload.get("saturation_stage") {
+        Some(CbValue::String(s)) => assert_ne!(s, "normal", "stage must be non-normal"),
+        _ => panic!("refusal missing saturation_stage"),
+    }
+    assert!(
+        refused.payload.get("axis").is_some(),
+        "refusal must name the exhausted axis"
+    );
+    client.shutdown().expect("shutdown");
+}
+
+#[test]
+fn p11c_sustained_saturation_emits_self_euthanasia_proposal() {
+    // **P11.c stage-3 → P7**: under tight budgets + tight thresholds (env sets
+    // mortality threshold = 3 Saturated cycles), sustained saturation MUST
+    // escalate to a `self_euthanasia_proposal:metabolic_saturation` — a PROPOSAL
+    // the accept_self_euthanasia path can execute, NOT auto-death. Without this,
+    // saturation is permanently inert (P11 §5.3 violated).
+    let dir = fresh_state_dir();
+    let mut client = spawn_substrate_with_env(
+        &dir,
+        vec![(
+            "MYCO_TEST_TIGHTEN_BUDGETS_FOR_C53".to_string(),
+            "1".to_string(),
+        )],
+    );
+    // Saturated reached ~cycle 2-3 (threshold=2); +3 more Saturated cycles to
+    // cross the mortality threshold. Pump generously.
+    pump_cycles(&mut client, 12);
+    let resp = client
+        .call(
+            proto::QUERY_RECENT_NODES,
+            build_payload(vec![
+                ("count", CbValue::Uint(200)),
+                (
+                    "node_type_prefix",
+                    CbValue::String("self_euthanasia_proposal:metabolic_saturation".to_string()),
+                ),
+            ]),
+        )
+        .expect("query recent");
+    let nodes = match resp.payload.get("nodes") {
+        Some(CbValue::Array(a)) => a.clone(),
+        _ => panic!("nodes missing"),
+    };
+    assert!(
+        !nodes.is_empty(),
+        "sustained saturation MUST emit self_euthanasia_proposal:metabolic_saturation; \
+         saw 0 after 12 cycles of tight budgets (P11.c stage-3 escalation broken)"
+    );
+    // The proposal content must be accept_self_euthanasia-compatible: a Map with
+    // axis_name = metabolic_saturation (so the existing path can execute it).
+    use myco_kernel_shared::canonical_bytes::{decode as cb_decode, Value as CbV};
+    let first = match &nodes[0] {
+        CbValue::Map(m) => m.clone(),
+        _ => panic!("node not a Map"),
+    };
+    let content = match first.get("content_canonical_bytes") {
+        Some(CbValue::Bytes(b)) => b.clone(),
+        _ => panic!("content missing"),
+    };
+    let m = match cb_decode(&content).expect("decodes") {
+        CbV::Map(m) => m,
+        _ => panic!("content not a Map"),
+    };
+    assert_eq!(
+        m.get("axis_name"),
+        Some(&CbV::String("metabolic_saturation".to_string())),
+        "proposal must carry axis_name=metabolic_saturation for the accept path"
+    );
+    assert!(m.get("reason").is_some(), "proposal must carry a reason");
+    client.shutdown().expect("shutdown");
+}
+
+#[test]
+fn p11c_saturation_status_surfaced_in_observatory_v5() {
+    // The observatory query (format_version 5) must surface saturation_status:
+    // stage + the two consecutive-cycle counters + per-axis exceeded flags.
+    let dir = fresh_state_dir();
+    let mut client = spawn_substrate_with_env(
+        &dir,
+        vec![(
+            "MYCO_TEST_TIGHTEN_BUDGETS_FOR_C53".to_string(),
+            "1".to_string(),
+        )],
+    );
+    pump_cycles(&mut client, 6);
+    let resp = client
+        .call(proto::QUERY_SUBSTRATE_OBSERVATORY, build_payload(vec![]))
+        .expect("observatory");
+    let ver = match resp.payload.get("observatory_format_version") {
+        Some(CbValue::Uint(n)) => *n,
+        _ => panic!("format version missing"),
+    };
+    assert_eq!(ver, 5, "format_version must be 5");
+    let sat = match resp.payload.get("saturation_status") {
+        Some(CbValue::Map(m)) => m.clone(),
+        _ => panic!("saturation_status missing"),
+    };
+    match sat.get("stage") {
+        Some(CbValue::String(s)) => assert_eq!(
+            s, "saturated",
+            "under tight budgets the stage must be saturated; got {s}"
+        ),
+        _ => panic!("stage missing"),
+    }
+    for k in &[
+        "post_eligibility_consecutive_cycles",
+        "saturated_consecutive_cycles",
+    ] {
+        assert!(
+            matches!(sat.get(*k), Some(CbValue::Uint(_))),
+            "saturation_status.{k} missing or not Uint"
+        );
+    }
+    // storage_per_cycle is exhausted every cycle under tight budgets.
+    assert_eq!(
+        sat.get("storage_exceeded"),
+        Some(&CbValue::Bool(true)),
+        "storage_exceeded must be true under tight budgets"
+    );
+    client.shutdown().expect("shutdown");
+}
+
 #[test]
 fn sprint_5d_saturation_stage_reaches_saturated_under_sustained_exhaustion() {
     // **Stage machine witness**: under tight budgets + tight thresholds
