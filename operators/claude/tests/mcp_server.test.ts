@@ -291,4 +291,172 @@ describe("McpServer tool dispatch", () => {
       await server.dispose();
     }
   });
+
+  // M-anchor-5 §3.2 / §3.4 + P14 §3.2 owner-attestation tools.
+  // These exercise the anchor-surface signing path through the MCP surface
+  // (OperatorIdentity.loadOrCreate() picks up MYCO_ANCHOR_SURFACE_BIN, set
+  // file-level above), mirroring the substrate_client.test.ts e2e suite.
+
+  it("myco_cosign_dag_tip with no args cosigns the current tip + emits tip_cosigned:", async () => {
+    const server = newServer();
+    try {
+      // Bare call: defaults tip_hash to the substrate's current DAG tip.
+      const result = await server._testDispatch("myco_cosign_dag_tip", {});
+      assert.ok(
+        !result.isError,
+        `bare cosign must succeed; got: ${result.content[0]!.text}`,
+      );
+      const text = result.content[0]!.text;
+      assert.match(text, /cosign accepted=true/);
+      assert.match(text, /classification=contract_identity_level/);
+      assert.match(text, /tip_cosign_event_hash=/);
+
+      // A tip_cosigned:* node must now be in the DAG.
+      const nodes = await server._testDispatch("myco_query_recent_nodes", {
+        count: 50,
+      });
+      assert.match(nodes.content[0]!.text, /tip_cosigned:/);
+    } finally {
+      await server.dispose();
+    }
+  });
+
+  it("myco_cosign_dag_tip accepts explicit tip + enumerated + proposed hashes", async () => {
+    const server = newServer();
+    try {
+      // The substrate co-signs whatever envelope the owner attests; it does
+      // not require the tip_hash to equal its live tip. Pass an explicit tip
+      // plus enumerated-node + proposed-mutation hashes (mirrors the
+      // substrate_client.test.ts "with-proposed-mutation" e2e) and assert the
+      // envelope is accepted.
+      const fill = (seed: number) => {
+        const b = new Uint8Array(32);
+        for (let i = 0; i < 32; i++) b[i] = (i * seed + seed) & 0xff;
+        return Array.from(b)
+          .map((x) => x.toString(16).padStart(2, "0"))
+          .join("");
+      };
+      const result = await server._testDispatch("myco_cosign_dag_tip", {
+        tip_hash_hex: fill(5),
+        enumerated_node_hashes_hex: [fill(1), fill(3)],
+        proposed_mutation_hash_hex: fill(7),
+      });
+      assert.ok(
+        !result.isError,
+        `cosign(explicit) must succeed; got: ${result.content[0]!.text}`,
+      );
+      assert.match(result.content[0]!.text, /cosign accepted=true/);
+      assert.match(result.content[0]!.text, /tip_cosign_event_hash=/);
+    } finally {
+      await server.dispose();
+    }
+  });
+
+  it("myco_cosign_dag_tip with malformed (non-64) hex returns isError", async () => {
+    const server = newServer();
+    try {
+      const result = await server._testDispatch("myco_cosign_dag_tip", {
+        tip_hash_hex: "deadbeef", // 8 chars, not 64
+      });
+      assert.equal(result.isError, true);
+      assert.match(result.content[0]!.text, /tip_hash_hex must be 64 hex chars/);
+    } finally {
+      await server.dispose();
+    }
+  });
+
+  it("myco_attest_l0_revision emits l0_revision_attested:", async () => {
+    const server = newServer();
+    try {
+      const prior = "ab".repeat(32);
+      const next = "cd".repeat(32);
+      const result = await server._testDispatch("myco_attest_l0_revision", {
+        prior_l0_hash_hex: prior,
+        new_l0_hash_hex: next,
+        diff_summary: "Add §9.4 federation observatory (mcp test)",
+      });
+      assert.ok(
+        !result.isError,
+        `l0 revision must succeed; got: ${result.content[0]!.text}`,
+      );
+      const text = result.content[0]!.text;
+      assert.match(text, /l0_revision accepted=true/);
+      assert.match(text, /classification=contract_identity_level/);
+      assert.match(text, /l0_revision_event_hash=/);
+
+      const nodes = await server._testDispatch("myco_query_recent_nodes", {
+        count: 50,
+      });
+      assert.match(nodes.content[0]!.text, /l0_revision_attested:abababab/);
+    } finally {
+      await server.dispose();
+    }
+  });
+
+  it("myco_attest_l0_revision with malformed prior hash returns isError", async () => {
+    const server = newServer();
+    try {
+      const result = await server._testDispatch("myco_attest_l0_revision", {
+        prior_l0_hash_hex: "ab", // too short
+        new_l0_hash_hex: "cd".repeat(32),
+        diff_summary: "bad",
+      });
+      assert.equal(result.isError, true);
+      assert.match(
+        result.content[0]!.text,
+        /prior_l0_hash_hex must be 64 hex chars/,
+      );
+    } finally {
+      await server.dispose();
+    }
+  });
+
+  it("myco_declare_owner_objective accepts + emits owner_objective_declared:{id}", async () => {
+    const server = newServer();
+    try {
+      const result = await server._testDispatch("myco_declare_owner_objective", {
+        objective_id: "mcp_e2e_objective",
+        weights: [
+          { prefix: "axis_perturbed:", weight: 0.75 },
+          { prefix: "raw_material:", weight: 0.25 },
+        ],
+      });
+      assert.ok(
+        !result.isError,
+        `owner objective must accept; got: ${result.content[0]!.text}`,
+      );
+      const text = result.content[0]!.text;
+      assert.match(text, /owner_objective accepted=true/);
+      assert.match(text, /classification=contract_identity_level/);
+      assert.match(text, /owner_objective_declared:mcp_e2e_objective/);
+
+      const nodes = await server._testDispatch("myco_query_recent_nodes", {
+        count: 50,
+      });
+      assert.match(
+        nodes.content[0]!.text,
+        /owner_objective_declared:mcp_e2e_objective/,
+      );
+    } finally {
+      await server.dispose();
+    }
+  });
+
+  it("myco_declare_owner_objective with empty weights returns isError (C5)", async () => {
+    const server = newServer();
+    try {
+      const result = await server._testDispatch("myco_declare_owner_objective", {
+        objective_id: "empty_weights",
+        weights: [],
+      });
+      assert.equal(
+        result.isError,
+        true,
+        "empty-weights owner objective must be rejected",
+      );
+      assert.match(result.content[0]!.text, /weights array MUST be non-empty/i);
+    } finally {
+      await server.dispose();
+    }
+  });
 });

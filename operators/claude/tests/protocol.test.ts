@@ -8,6 +8,7 @@ import {
   advancePayload,
   BOOTSTRAP_KEY,
   bodyToCanonicalBytes,
+  buildOwnerObjectiveCanonicalBytes,
   canonicalBytesToBody,
   computeHmac,
   decodeFrameBody,
@@ -25,6 +26,7 @@ import {
   PROTOCOL_VERSION,
   registerAxisPayload,
 } from "../src/protocol/messages.ts";
+import { encode as cbEncode, type Value } from "@myco/anchor-client/src/canonical_bytes.ts";
 
 describe("BOOTSTRAP_KEY", () => {
   it("is 32 bytes", () => {
@@ -59,6 +61,94 @@ describe("floatRepr", () => {
       const s = floatRepr(f);
       assert.equal(parseFloat(s), f, `roundtrip drift for ${f}`);
     }
+  });
+});
+
+describe("buildOwnerObjectiveCanonicalBytes (M26.4 F20 Rust parity)", () => {
+  // Byte-parity guard for the owner_objective_declaration content payload.
+  // The substrate (Rust `encode_owner_objective`) and this TS builder MUST
+  // produce identical canonical-bytes for the same OwnerObjective, or the CI
+  // attestation signature fails on the substrate side (C5 / C18). The fixture
+  // below is the EXACT inline Map the substrate_client.test.ts e2e builds
+  // (the "M26.4: owner_objective_declaration ... accepted" case) — reproducing
+  // it here pins the wire shape independently of the live e2e.
+
+  it("byte-equals the inline e2e objective Map (axis_perturbed:0.75 / raw_material:0.25)", () => {
+    // ---- Inline Map, copied from substrate_client.test.ts ~3895-3917 ----
+    const objectiveMap = new Map<string, Value>();
+    objectiveMap.set("objective_id", {
+      type: "string",
+      value: "m26_4_ts_e2e_objective",
+    });
+    objectiveMap.set("declared_at_cycle", { type: "uint", value: 0n });
+    const weightEntry1 = new Map<string, Value>();
+    weightEntry1.set("prefix", { type: "string", value: "axis_perturbed:" });
+    weightEntry1.set("weight_repr", { type: "string", value: "0.75" });
+    const weightEntry2 = new Map<string, Value>();
+    weightEntry2.set("prefix", { type: "string", value: "raw_material:" });
+    weightEntry2.set("weight_repr", { type: "string", value: "0.25" });
+    objectiveMap.set("weights", {
+      type: "array",
+      value: [
+        { type: "map", value: weightEntry1 },
+        { type: "map", value: weightEntry2 },
+      ],
+    });
+    const inlineBytes = cbEncode({ type: "map", value: objectiveMap }).bytes;
+
+    // ---- Builder under test ----
+    const builtBytes = buildOwnerObjectiveCanonicalBytes({
+      objectiveId: "m26_4_ts_e2e_objective",
+      declaredAtCycle: 0n,
+      weights: [
+        { prefix: "axis_perturbed:", weight: 0.75 },
+        { prefix: "raw_material:", weight: 0.25 },
+      ],
+    });
+
+    assert.deepEqual(
+      builtBytes,
+      inlineBytes,
+      "buildOwnerObjectiveCanonicalBytes must byte-match the inline e2e Map (Rust encode_owner_objective parity)",
+    );
+  });
+
+  it("renders weights as repr-float STRINGS via floatRepr (not raw String(n))", () => {
+    // weight_repr is a String value carrying floatRepr(weight). For an
+    // integer-valued weight this is "1.0", NOT "1" — guarding against a
+    // String(n) regression that would silently drift the bytes.
+    const built = buildOwnerObjectiveCanonicalBytes({
+      objectiveId: "ints",
+      declaredAtCycle: 7n,
+      weights: [{ prefix: "sporocarp:", weight: 1 }],
+    });
+    const expectMap = new Map<string, Value>();
+    expectMap.set("objective_id", { type: "string", value: "ints" });
+    expectMap.set("declared_at_cycle", { type: "uint", value: 7n });
+    const e = new Map<string, Value>();
+    e.set("prefix", { type: "string", value: "sporocarp:" });
+    e.set("weight_repr", { type: "string", value: floatRepr(1) }); // "1.0"
+    expectMap.set("weights", {
+      type: "array",
+      value: [{ type: "map", value: e }],
+    });
+    assert.deepEqual(built, cbEncode({ type: "map", value: expectMap }).bytes);
+    assert.equal(floatRepr(1), "1.0"); // explicit: the value that's embedded
+  });
+
+  it("empty weights builds (substrate enforces non-empty, not the builder)", () => {
+    // The builder itself does not reject empty weights — the substrate emits
+    // C5 for that. Here we only assert the empty-array shape encodes cleanly.
+    const built = buildOwnerObjectiveCanonicalBytes({
+      objectiveId: "empty",
+      declaredAtCycle: 0n,
+      weights: [],
+    });
+    const m = new Map<string, Value>();
+    m.set("objective_id", { type: "string", value: "empty" });
+    m.set("declared_at_cycle", { type: "uint", value: 0n });
+    m.set("weights", { type: "array", value: [] });
+    assert.deepEqual(built, cbEncode({ type: "map", value: m }).bytes);
   });
 });
 
