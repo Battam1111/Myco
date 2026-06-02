@@ -437,6 +437,186 @@ pub(crate) fn compute_content_hash(content: &[u8]) -> [u8; 32] {
     out
 }
 
+// ===========================================================================
+// **F23 / C50 — duress keypair coercion defense** (L2/TRUST_MODEL §10.A.2 +
+// L1/GOVERNANCE F23 + AS §5.6 + dilemma D-0047).
+//
+// SECURITY-DELICATE. The two helpers below implement the cosmetic-accept +
+// suppress protective behavior. Read `crate::events::duress` for the recognition
+// precision argument (owner key and duress keys are disjoint Ed25519 keypairs,
+// so a signature verifies under at most one of them).
+// ===========================================================================
+
+/// The two mutation types that LIFT the duress freeze. They MUST bypass the
+/// frozen-state early gate (otherwise the freeze could never be cleared) AND
+/// they are verified against the ACTIVE owner key downstream (Python CI gate) —
+/// a duress-key signature fails that gate, which IS the circular-trust guard.
+const DURESS_UNFREEZE_MUTATION_TYPES: [&str; 2] = [
+    "out_of_band_safety_reattestation",
+    "anchor_heartbeat_with_safety_confirmation",
+];
+
+/// **F23 recognition** — does `attestation_signature` verify under any registered
+/// duress key over `content_canonical_bytes`? Returns the matching duress pubkey.
+///
+/// PRECISION (the critical correctness property): the duress keys are DISJOINT
+/// from the active owner key (registration refuses a duress pubkey equal to the
+/// owner key), and an Ed25519 signature verifies under exactly the public key
+/// whose private key produced it. Therefore:
+///   - a NORMAL owner signature verifies under the owner key and under NO duress
+///     key → this returns `None` → the normal path is untouched (a legit
+///     mutation is NEVER mis-suppressed);
+///   - a duress-key signature verifies under that duress key → this returns
+///     `Some(pubkey)` → cosmetic-suppress.
+/// The set is empty on a substrate that never registered a duress key, so this
+/// is a no-op there (the loop has zero iterations → `None`).
+fn recognize_duress_signature(
+    state: &ServerState,
+    attestation_signature: &[u8],
+    content_canonical_bytes: &[u8],
+) -> Option<[u8; 32]> {
+    if attestation_signature.len() != 64 {
+        return None;
+    }
+    for duress_pk in &state.duress_pubkeys {
+        if verify_signature(duress_pk, attestation_signature, content_canonical_bytes).is_ok() {
+            return Some(*duress_pk);
+        }
+    }
+    None
+}
+
+/// **F23 protective behavior** — build a COSMETIC-success `submit_mutation_response`
+/// for a duress-suppressed mutation.
+///
+/// COSMETIC-VS-REAL DIVERGENCE (documented per the security review's request):
+///   - a REAL CI accept inserts a `mutation:{type}` DAG node and returns its true
+///     `dag_node_hash`. Here NO node is inserted (the substantive effect is
+///     suppressed). To keep the response indistinguishable to the coercer, we
+///     return the `merkle_hash(tip_parents, content)` the node WOULD have had —
+///     a hash that LOOKS like a real DAG node hash but is NOT in the DAG. This is
+///     the same `would_be_hash` device the C35 rejection path uses; it leaks no
+///     secret and pollutes no state.
+///   - `accepted=true`, `classification="contract_identity_level"`,
+///     `rejection_reason=""` — byte-shaped exactly like a genuine CI accept.
+///   - NONE of the real per-effect event hashes (evolution_event_hash,
+///     federation_peer_revoked_event_hash, …) are present — those only attach to
+///     genuinely-committed effects, and a coercer cannot demand a specific
+///     effect-hash field without already knowing the substrate's internals.
+///
+/// The caller emits the SILENT forensic records (`duress_signature_observed` +
+/// C50 + `coerced_owner_suspected`) separately — none of that appears here.
+fn build_cosmetic_accept_response(
+    state: &ServerState,
+    request_id: u64,
+    mutation_type: &str,
+    content_canonical_bytes: &[u8],
+) -> Message {
+    // The hash the suppressed mutation node WOULD have had (tip-parented),
+    // computed but NOT inserted.
+    let parents: Vec<myco_kernel_shared::crypto::NodeHash> = match state.dag.tip() {
+        Some(t) => vec![t],
+        None => Vec::new(),
+    };
+    let would_be_hash =
+        myco_kernel_shared::crypto::merkle_hash(&parents, content_canonical_bytes);
+
+    let mut payload = BTreeMap::new();
+    payload.insert(
+        "classification".to_string(),
+        Value::String("contract_identity_level".to_string()),
+    );
+    payload.insert("accepted".to_string(), Value::Bool(true));
+    payload.insert("rejection_reason".to_string(), Value::String(String::new()));
+    payload.insert(
+        "mutation_type".to_string(),
+        Value::String(mutation_type.to_string()),
+    );
+    payload.insert(
+        "dag_node_hash".to_string(),
+        Value::Bytes(would_be_hash.0.to_vec()),
+    );
+    Message::new(msg_type::SUBMIT_MUTATION_RESPONSE, request_id, payload)
+}
+
+/// **F23 protective behavior** — emit the SILENT forensic records for an observed
+/// duress signature: `duress_signature_observed` (the real evidence, AS §8.4) +
+/// (only on the freeze-onset, i.e. when not already frozen) the
+/// `coerced_owner_suspected` freeze event + the C50 immune sporocarp. Sets
+/// `state.duress_freeze_active = true`.
+///
+/// `coerced_owner_suspected` is emitted only on the FIRST observation that
+/// transitions unfrozen→frozen so the freeze FSM (last-writer over
+/// coerced_owner_suspected / duress_cleared) reads cleanly; the C50 immune
+/// sporocarp is emitted on EVERY observation but is naturally throttled by
+/// `emit_immune_sporocarp`'s per-detector 1s rate limit (so a coercer hammering
+/// the substrate cannot DoS the DAG with C50 nodes). `duress_signature_observed`
+/// is emitted on EVERY observation — it is the per-attempt forensic record and
+/// is intentionally NOT rate-limited (it goes through `emit_substrate_event`).
+///
+/// All of this is INVISIBLE in the response (the caller returns a cosmetic
+/// accept), so the coercer does not learn detection occurred.
+fn emit_duress_forensics_and_freeze(
+    state: &mut ServerState,
+    duress_pubkey: &[u8; 32],
+    attempted_mutation_type: &str,
+    content_canonical_bytes: &[u8],
+) {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let now_ns = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .ok()
+        .and_then(|d| i64::try_from(d.as_nanos()).ok())
+        .unwrap_or(0);
+    let attempted_content_hash = compute_content_hash(content_canonical_bytes);
+
+    // (1) The silent forensic record — emitted on EVERY observation.
+    let observed_nt = crate::events::duress_signature_observed_node_type(duress_pubkey);
+    let observed_content = crate::events::encode_duress_signature_observed(
+        duress_pubkey,
+        attempted_mutation_type,
+        &attempted_content_hash,
+        now_ns,
+    );
+    let _ = emit_substrate_event(state, observed_nt, observed_content);
+
+    // (2) Freeze-onset event — only on the unfrozen→frozen transition, so the
+    // last-writer freeze FSM stays clean. (A re-observation while already frozen
+    // does not append a second onset; the frozen-state gate handles re-emission
+    // of C50 for subsequent destructive CIs.)
+    if !state.duress_freeze_active {
+        let onset_content = crate::events::encode_coerced_owner_suspected(
+            duress_pubkey,
+            attempted_mutation_type,
+            now_ns,
+        );
+        let _ = emit_substrate_event(
+            state,
+            crate::events::NODE_TYPE_COERCED_OWNER_SUSPECTED.to_string(),
+            onset_content,
+        );
+        state.duress_freeze_active = true;
+    }
+
+    // (3) C50 immune sporocarp — emitted on EVERY observation; the
+    // emit_immune_sporocarp per-detector 1s rate limit prevents DAG spam.
+    let evidence = format!(
+        "duress signature observed: attestation_signature verified under registered duress \
+         pubkey {} over content for attempted mutation_type={attempted_mutation_type:?}; the \
+         substantive mutation was SUPPRESSED and the response was cosmetically accepted; \
+         destructive mutations are now frozen until out_of_band_safety_reattestation \
+         (L2/TRUST_MODEL §10.A.2)",
+        crate::server::hex_first_8_bytes(duress_pubkey)
+    );
+    let _ = emit_immune_sporocarp(
+        state,
+        "C50_coerced_owner_suspected",
+        "coerced_owner_suspected",
+        &evidence,
+    );
+    let _ = save_dag_state(state);
+}
+
 /// M10: Forward submit_mutation to Python for classification + (CI) verification,
 /// and on accept insert the mutation as a DAG node.
 pub(crate) fn handle_submit_mutation(
@@ -641,6 +821,94 @@ pub(crate) fn handle_submit_mutation(
             msg_type::SUBMIT_MUTATION_RESPONSE,
             request.request_id,
             payload,
+        )));
+    }
+
+    // **F23 / C50 — duress recognition + freeze early gate** (SECURITY-DELICATE;
+    // L2/TRUST_MODEL §10.A.2). This runs BEFORE forwarding to Python so a duress
+    // signature never reaches the Python CI gate (which would reject it as an
+    // owner-key mismatch anyway) and the substantive effect is never built. Two
+    // independent triggers, both producing a COSMETIC accept (the coercer sees
+    // success; the real records are emitted silently):
+    //
+    //   (A) A duress signature is observed on THIS mutation — recognized by
+    //       trial-verifying `attestation_signature` against the registered
+    //       duress pubkeys (disjoint from the owner key, see
+    //       `recognize_duress_signature`). On a match: emit the silent
+    //       forensics + freeze + return a cosmetic accept. The substantive
+    //       mutation:* effect is SUPPRESSED.
+    //
+    //   (B) The substrate is ALREADY frozen (an earlier duress observation set
+    //       the latch) and this is a destructive CI mutation (carries an
+    //       `attestation_signature`) that is NOT an unfreeze type. The
+    //       destructive effect is suppressed cosmetically + C50 is re-emitted
+    //       (naturally rate-limited). The unfreeze mutations
+    //       (out_of_band_safety_reattestation /
+    //       anchor_heartbeat_with_safety_confirmation) are EXEMPT so the freeze
+    //       can be lifted; they flow to Python and are verified against the
+    //       ACTIVE owner key — a duress-key-signed unfreeze fails that gate,
+    //       which is the circular-trust guard.
+    //
+    // On a substrate that never registered a duress key, `duress_pubkeys` is
+    // empty and `duress_freeze_active` is false, so BOTH branches are inert and
+    // a non-duress mutation is byte-unaffected (the cosmetic path never runs).
+    let attestation_signature_bytes = match request.payload.get("attestation_signature") {
+        Some(Value::Bytes(b)) => b.clone(),
+        _ => Vec::new(),
+    };
+    let content_bytes_for_duress = match request.payload.get("content_canonical_bytes") {
+        Some(Value::Bytes(b)) => b.clone(),
+        _ => Vec::new(),
+    };
+    // The CI-class destructive predicate: a mutation carrying an
+    // attestation_signature is owner-attested CI (the destructive grade). Daily
+    // / untyped mutations carry none, so routine intake is never frozen.
+    let is_ci_class = !attestation_signature_bytes.is_empty();
+    let is_unfreeze_type = DURESS_UNFREEZE_MUTATION_TYPES.contains(&early_mutation_type.as_str());
+
+    // (A) Duress signature on THIS mutation.
+    if let Some(duress_pk) =
+        recognize_duress_signature(state, &attestation_signature_bytes, &content_bytes_for_duress)
+    {
+        emit_duress_forensics_and_freeze(
+            state,
+            &duress_pk,
+            &early_mutation_type,
+            &content_bytes_for_duress,
+        );
+        return Ok(Some(build_cosmetic_accept_response(
+            state,
+            request.request_id,
+            &early_mutation_type,
+            &content_bytes_for_duress,
+        )));
+    }
+
+    // (B) Already frozen + destructive CI (not an unfreeze type) → cosmetic
+    // suppress + re-emit C50.
+    if state.duress_freeze_active && is_ci_class && !is_unfreeze_type {
+        let evidence = format!(
+            "destructive CI mutation {early_mutation_type:?} suppressed COSMETICALLY while the \
+             substrate is duress-frozen (a duress signature was observed and not yet cleared); \
+             unfreeze requires out_of_band_safety_reattestation signed by the ACTIVE owner key \
+             (L2/TRUST_MODEL §10.A.2)"
+        );
+        // Re-emit C50 (naturally rate-limited by emit_immune_sporocarp's
+        // per-detector 1s window so a frozen-state mutation storm can't spam
+        // the DAG). No `coerced_owner_suspected` onset event here — the freeze
+        // is already latched; re-emitting an onset would muddy the FSM.
+        let _ = emit_immune_sporocarp(
+            state,
+            "C50_coerced_owner_suspected",
+            "coerced_owner_suspected",
+            &evidence,
+        );
+        let _ = save_dag_state(state);
+        return Ok(Some(build_cosmetic_accept_response(
+            state,
+            request.request_id,
+            &early_mutation_type,
+            &content_bytes_for_duress,
         )));
     }
 
@@ -1006,6 +1274,153 @@ pub(crate) fn handle_submit_mutation(
                     "C5_attestation_invalid",
                     "attestation_invalid",
                     "revoke_federation_peer_decode_failed",
+                );
+            }
+        }
+    }
+
+    // **F23 / C50 duress_keypair_registration** (L1/GOVERNANCE F23 + AS §5.6).
+    // Same staged-envelope pattern as C13 revoke_federation_peer: Python's CI
+    // gate already verified `attestation_signature` over `content_canonical_bytes`
+    // against the ACTIVE owner key — that signature IS the owner's signature over
+    // the registration body, and it being an active-owner-key signature (NOT a
+    // duress-key signature) is the circular-trust guard for MUTATING the
+    // registration. We decode the body, REFUSE a duress pubkey equal to the
+    // active owner key (the catastrophic-mis-recognition guard), capture the
+    // owner signature + pubkey, and emit `duress_keypair_registered:{prefix}`
+    // AFTER the `mutation:duress_keypair_registration` DAG node commits.
+    //
+    // Staged tuple: (duress_pubkey, label, anchor_ts_secs, owner_sig, owner_pubkey).
+    let mut staged_duress_registration: Option<([u8; 32], String, u64, [u8; 64], [u8; 32])> = None;
+    if accepted && mutation_type == "duress_keypair_registration" {
+        match crate::events::decode_duress_keypair_registration(&content_bytes) {
+            Some((duress_pubkey, label, anchor_ts_secs)) => {
+                let active_owner_pk = state
+                    .pinned_operator_identity
+                    .as_ref()
+                    .map(|p| p.pubkey)
+                    .unwrap_or([0u8; 32]);
+                if duress_pubkey == active_owner_pk {
+                    // Circular self-duress: registering the owner key as a duress
+                    // key would make owner signatures verify under a "duress" key
+                    // and silently suppress legit mutations. Refuse with C5.
+                    accepted = false;
+                    rejection_reason =
+                        "duress_keypair_registration: duress_pubkey equals the active owner key \
+                         (circular self-duress); refused"
+                            .to_string();
+                    let _ = emit_immune_sporocarp(
+                        state,
+                        "C5_attestation_invalid",
+                        "attestation_invalid",
+                        "duress_registration_equals_owner_key",
+                    );
+                } else {
+                    let sig_bytes_opt =
+                        request.payload.get("attestation_signature").and_then(|v| match v {
+                            Value::Bytes(b) => Some(b.clone()),
+                            _ => None,
+                        });
+                    match sig_bytes_opt {
+                        Some(sig_vec) if sig_vec.len() == 64 => {
+                            let mut sig_arr = [0u8; 64];
+                            sig_arr.copy_from_slice(&sig_vec);
+                            staged_duress_registration = Some((
+                                duress_pubkey,
+                                label,
+                                anchor_ts_secs,
+                                sig_arr,
+                                active_owner_pk,
+                            ));
+                        }
+                        _ => {
+                            accepted = false;
+                            rejection_reason =
+                                "duress_keypair_registration: missing or malformed \
+                                 attestation_signature"
+                                    .to_string();
+                            let _ = emit_immune_sporocarp(
+                                state,
+                                "C5_attestation_invalid",
+                                "attestation_invalid",
+                                "duress_registration_signature_missing_or_malformed",
+                            );
+                        }
+                    }
+                }
+            }
+            None => {
+                accepted = false;
+                rejection_reason =
+                    "duress_keypair_registration canonical-bytes decode failed (wrong domain \
+                     or shape)"
+                        .to_string();
+                let _ = emit_immune_sporocarp(
+                    state,
+                    "C5_attestation_invalid",
+                    "attestation_invalid",
+                    "duress_registration_decode_failed",
+                );
+            }
+        }
+    }
+
+    // **F23 / C50 out_of_band_safety_reattestation** — the unfreeze attestation.
+    // Python's CI gate verified `attestation_signature` against the ACTIVE owner
+    // key; a duress-key signature fails that gate (Python returns accepted=false),
+    // so reaching here with accepted=true PROVES the active owner key signed it —
+    // the circular-trust guard for clearing the freeze. We decode the body,
+    // capture the owner signature + pubkey, and stage a `duress_cleared` emission
+    // + freeze-flag reset for AFTER the mutation node commits.
+    //
+    // Staged tuple: (statement, anchor_ts_secs, owner_sig, owner_pubkey).
+    let mut staged_duress_clearance: Option<(String, u64, [u8; 64], [u8; 32])> = None;
+    if accepted && mutation_type == "out_of_band_safety_reattestation" {
+        match crate::events::decode_out_of_band_safety_reattestation(&content_bytes) {
+            Some((statement, anchor_ts_secs)) => {
+                let owner_pk = state
+                    .pinned_operator_identity
+                    .as_ref()
+                    .map(|p| p.pubkey)
+                    .unwrap_or([0u8; 32]);
+                let sig_bytes_opt =
+                    request.payload.get("attestation_signature").and_then(|v| match v {
+                        Value::Bytes(b) => Some(b.clone()),
+                        _ => None,
+                    });
+                match sig_bytes_opt {
+                    Some(sig_vec) if sig_vec.len() == 64 => {
+                        let mut sig_arr = [0u8; 64];
+                        sig_arr.copy_from_slice(&sig_vec);
+                        staged_duress_clearance =
+                            Some((statement, anchor_ts_secs, sig_arr, owner_pk));
+                    }
+                    _ => {
+                        accepted = false;
+                        rejection_reason =
+                            "out_of_band_safety_reattestation: missing or malformed \
+                             attestation_signature"
+                                .to_string();
+                        let _ = emit_immune_sporocarp(
+                            state,
+                            "C5_attestation_invalid",
+                            "attestation_invalid",
+                            "out_of_band_safety_reattestation_signature_missing_or_malformed",
+                        );
+                    }
+                }
+            }
+            None => {
+                accepted = false;
+                rejection_reason =
+                    "out_of_band_safety_reattestation canonical-bytes decode failed (wrong \
+                     domain or shape)"
+                        .to_string();
+                let _ = emit_immune_sporocarp(
+                    state,
+                    "C5_attestation_invalid",
+                    "attestation_invalid",
+                    "out_of_band_safety_reattestation_decode_failed",
                 );
             }
         }
@@ -1438,6 +1853,55 @@ pub(crate) fn handle_submit_mutation(
         None
     };
 
+    // **F23**: after a successful `duress_keypair_registration` mutation, emit
+    // the `duress_keypair_registered:{prefix}` DAG event (owner-attested record)
+    // AND insert the pubkey into `state.duress_pubkeys`. From this point a
+    // signature verifying under that pubkey is recognized as duress. Idempotent
+    // at the set level (HashSet) and content-hash-idempotent at the DAG level.
+    let duress_registered_event_hash = if accepted && staged_duress_registration.is_some() {
+        let (duress_pubkey, label, anchor_ts_secs, owner_sig, owner_pubkey) =
+            staged_duress_registration.as_ref().expect("guarded by Some check");
+        let nt = crate::events::duress_keypair_registered_node_type(duress_pubkey);
+        let content = crate::events::encode_duress_keypair_registered(
+            duress_pubkey,
+            label,
+            *anchor_ts_secs,
+            owner_sig,
+            owner_pubkey,
+        );
+        let h = emit_substrate_event(state, nt, content)?;
+        state.duress_pubkeys.insert(*duress_pubkey);
+        Some(h)
+    } else {
+        None
+    };
+
+    // **F23**: after a successful `out_of_band_safety_reattestation` mutation,
+    // emit a `duress_cleared` DAG event AND reset the freeze flag. Reaching here
+    // with accepted=true proves the ACTIVE owner key signed the reattestation
+    // (Python's CI gate rejects a duress-key signature) — the circular-trust
+    // guard. The `duress_cleared` event is the freeze-FSM "off" transition; a
+    // later duress observation re-freezes via a fresh `coerced_owner_suspected`.
+    let duress_cleared_event_hash = if accepted && staged_duress_clearance.is_some() {
+        let (statement, anchor_ts_secs, owner_sig, owner_pubkey) =
+            staged_duress_clearance.as_ref().expect("guarded by Some check");
+        let content = crate::events::encode_duress_cleared(
+            statement,
+            *anchor_ts_secs,
+            owner_sig,
+            owner_pubkey,
+        );
+        let h = emit_substrate_event(
+            state,
+            crate::events::NODE_TYPE_DURESS_CLEARED.to_string(),
+            content,
+        )?;
+        state.duress_freeze_active = false;
+        Some(h)
+    } else {
+        None
+    };
+
     // M17 P3 永恒进化: after mutation acceptance, emit the evolution event DAG node.
     // - schema_apply_attempted + schema_apply_succeeded → evolution_succeeded:{op}
     // - schema_apply_attempted + !schema_apply_succeeded → evolution_failed:{op}
@@ -1671,6 +2135,24 @@ pub(crate) fn handle_submit_mutation(
     if let Some(h) = peer_revoked_event_hash {
         payload.insert(
             "federation_peer_revoked_event_hash".to_string(),
+            Value::Bytes(h.as_ref().to_vec()),
+        );
+    }
+    // **F23** — surface the duress-registration / duress-clearance event hashes
+    // so owner-side tooling can confirm a genuine (owner-attested) registration
+    // or unfreeze landed on-chain. These attach ONLY to the genuine
+    // (Python-CI-accepted, active-owner-key-signed) path — a duress-suppressed
+    // mutation returns via the cosmetic-accept path far above and never reaches
+    // this response builder.
+    if let Some(h) = duress_registered_event_hash {
+        payload.insert(
+            "duress_keypair_registered_event_hash".to_string(),
+            Value::Bytes(h.as_ref().to_vec()),
+        );
+    }
+    if let Some(h) = duress_cleared_event_hash {
+        payload.insert(
+            "duress_cleared_event_hash".to_string(),
             Value::Bytes(h.as_ref().to_vec()),
         );
     }

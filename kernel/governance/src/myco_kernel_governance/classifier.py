@@ -386,6 +386,25 @@ SEED_DIMENSION_TABLE: tuple[ClassifierRule, ...] = (
         classification=Classification.CONTRACT_IDENTITY_LEVEL,
         meta_structure_name="cultivation_successor_chain",
     ),
+    # F23 / C50 — duress keypair coercion defense (L2/TRUST_MODEL §10.A.2 +
+    # L1/GOVERNANCE F23 + AS §5.6). BOTH mutations are CONTRACT-IDENTITY-LEVEL:
+    # they are verified against the ACTIVE owner key (NEVER a duress key — the
+    # circular-trust guard). `duress_keypair_registration` registers a duress
+    # pubkey; `out_of_band_safety_reattestation` lifts the duress freeze. A
+    # duress-KEY-signed instance of either fails this CI gate's owner-key
+    # verification (Python returns accepted=false), which is precisely how the
+    # circular-trust guard is realized: a coerced owner cannot use a duress key
+    # to either register more duress keys or clear their own freeze.
+    ClassifierRule(
+        name="duress_keypair_registration_mutation",
+        classification=Classification.CONTRACT_IDENTITY_LEVEL,
+        mutation_type="duress_keypair_registration",
+    ),
+    ClassifierRule(
+        name="out_of_band_safety_reattestation_mutation",
+        classification=Classification.CONTRACT_IDENTITY_LEVEL,
+        mutation_type="out_of_band_safety_reattestation",
+    ),
 )
 
 

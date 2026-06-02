@@ -176,6 +176,21 @@ def test_ci_revoke_federation_peer_mutation() -> None:
     assert classify(env) is Classification.CONTRACT_IDENTITY_LEVEL
 
 
+def test_ci_duress_keypair_registration_mutation() -> None:
+    # F23 / C50 — registering a duress keypair is owner-authority; CI so the
+    # signature is verified against the ACTIVE owner key (a duress-key-signed
+    # registration fails that gate — the circular-trust guard).
+    env = MutationEnvelope(mutation_type="duress_keypair_registration")
+    assert classify(env) is Classification.CONTRACT_IDENTITY_LEVEL
+
+
+def test_ci_out_of_band_safety_reattestation_mutation() -> None:
+    # F23 / C50 — the duress-freeze unfreeze attestation is CI so it is verified
+    # against the ACTIVE owner key (NEVER a duress key — circular-trust guard).
+    env = MutationEnvelope(mutation_type="out_of_band_safety_reattestation")
+    assert classify(env) is Classification.CONTRACT_IDENTITY_LEVEL
+
+
 # ---------------------------------------------------------------------------
 # Mortality-axis gradient update is CI (special-cased per §1.2).
 # ---------------------------------------------------------------------------
@@ -290,8 +305,11 @@ def test_seed_table_size() -> None:
     #   record_cultivator_heartbeat + cultivation_successor_chain_meta;
     #   cultivator-mortality + F21 succession FSM, L1/GOVERNANCE §3.2) +
     # 1 C13 rule (revoke_federation_peer_mutation; local federation peer
-    #   revocation, L1/GOVERNANCE §5.2 + L2/FEDERATION §6.5.b).
-    assert len(SEED_DIMENSION_TABLE) == 38
+    #   revocation, L1/GOVERNANCE §5.2 + L2/FEDERATION §6.5.b) +
+    # 2 F23/C50 rules (duress_keypair_registration_mutation +
+    #   out_of_band_safety_reattestation_mutation; duress keypair coercion
+    #   defense, L2/TRUST_MODEL §10.A.2 + L1/GOVERNANCE F23 + AS §5.6).
+    assert len(SEED_DIMENSION_TABLE) == 40
 
 
 def test_classifier_rule_predicate_or_logic() -> None:

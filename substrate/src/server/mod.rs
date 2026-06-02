@@ -79,6 +79,78 @@ fn read_birth_attestation_env_vars() -> Option<(Vec<u8>, [u8; 64], [u8; 32])> {
     Some((attested_bytes, signature, owner_pubkey))
 }
 
+/// **F23 / C50** — read the duress-keypair registration env vars set by the
+/// operator process at genesis (mirrors [`read_birth_attestation_env_vars`]).
+/// Each registration is an owner-pre-attested duress pubkey: the owner signed a
+/// `duress_keypair_registration` body off-line (anchor-surface) and the operator
+/// passes the (body, signature, pubkey, label) tuple through env vars so the
+/// substrate emits the `duress_keypair_registered:{prefix}` event at genesis —
+/// EXACTLY as if the owner had submitted it as a CI mutation, including the
+/// owner-signature capture for offline re-verification.
+///
+/// Env var contract (N = `MYCO_DURESS_REGISTRATION_COUNT`, capped to avoid a
+/// malformed-env DoS; absent / 0 → no duress registrations):
+/// - `MYCO_DURESS_REGISTRATION_COUNT`: decimal count of registrations.
+/// - For i in `0..N`:
+///   - `MYCO_DURESS_REGISTRATION_{i}_BYTES_HEX`: hex of the owner-signed
+///     `duress_keypair_registration` body (see
+///     [`crate::events::build_duress_keypair_registration_canonical_bytes`]).
+///   - `MYCO_DURESS_REGISTRATION_{i}_SIGNATURE_HEX`: 128 hex chars = 64 bytes.
+///   - `MYCO_DURESS_REGISTRATION_{i}_OWNER_PUBKEY_HEX`: 64 hex chars = 32 bytes.
+///
+/// A malformed / partial entry is SKIPPED (the others still register) — a
+/// genesis with a bad duress env var still boots; the missing registration just
+/// isn't present (the owner can register it later via a CI mutation). Returns
+/// `(owner_signed_body, signature, owner_pubkey)` tuples; the body is decoded
+/// downstream so the substrate can extract the duress pubkey + label.
+fn read_duress_registrations_env_vars() -> Vec<(Vec<u8>, [u8; 64], [u8; 32])> {
+    /// Cap on parsed registrations so a hostile/garbled env can't drive an
+    /// unbounded genesis loop. A real cultivator registers a small handful.
+    const MAX_DURESS_REGISTRATIONS: u32 = 16;
+
+    let count: u32 = match std::env::var("MYCO_DURESS_REGISTRATION_COUNT") {
+        Ok(s) => s.trim().parse().unwrap_or(0),
+        Err(_) => 0,
+    };
+    let count = count.min(MAX_DURESS_REGISTRATIONS);
+    let mut out = Vec::new();
+    for i in 0..count {
+        let bytes_hex = match std::env::var(format!("MYCO_DURESS_REGISTRATION_{i}_BYTES_HEX")) {
+            Ok(s) => s,
+            Err(_) => continue,
+        };
+        let sig_hex = match std::env::var(format!("MYCO_DURESS_REGISTRATION_{i}_SIGNATURE_HEX")) {
+            Ok(s) => s,
+            Err(_) => continue,
+        };
+        let pk_hex = match std::env::var(format!("MYCO_DURESS_REGISTRATION_{i}_OWNER_PUBKEY_HEX")) {
+            Ok(s) => s,
+            Err(_) => continue,
+        };
+        let Some(body) = hex_decode_vec(&bytes_hex) else {
+            continue;
+        };
+        let Some(sig_vec) = hex_decode_vec(&sig_hex) else {
+            continue;
+        };
+        if sig_vec.len() != 64 {
+            continue;
+        }
+        let mut signature = [0u8; 64];
+        signature.copy_from_slice(&sig_vec);
+        let Some(pk_vec) = hex_decode_vec(&pk_hex) else {
+            continue;
+        };
+        if pk_vec.len() != 32 {
+            continue;
+        }
+        let mut owner_pubkey = [0u8; 32];
+        owner_pubkey.copy_from_slice(&pk_vec);
+        out.push((body, signature, owner_pubkey));
+    }
+    out
+}
+
 fn hex_decode_vec(s: &str) -> Option<Vec<u8>> {
     if s.len() % 2 != 0 {
         return None;
@@ -234,6 +306,29 @@ pub(crate) struct ServerState {
     /// egress site (block + emit C13) and the ingest site (drop revoked-peer
     /// events). Purely additive (a CRL only grows; no un-revoke event exists).
     pub(crate) revoked_federation_peers: std::collections::HashSet<[u8; 32]>,
+    /// **F23 / C50 — duress keypair coercion defense** (L2/TRUST_MODEL §10.A.2 +
+    /// L1/GOVERNANCE F23 + AS §5.6). The set of pre-registered duress Ed25519
+    /// pubkeys. An `attestation_signature` that verifies under ANY member (and
+    /// thus NOT under the owner key — the keys are disjoint, see
+    /// [`crate::events::derive_duress_pubkeys_from_dag`]) is a duress signal:
+    /// the substrate cosmetically accepts the mutation but suppresses its
+    /// substantive effect, emits C50 + `duress_signature_observed` silently, and
+    /// freezes. DAG-derived at boot (each `duress_keypair_registered:{prefix}`
+    /// event) + kept current by the registration accept path; never persisted
+    /// separately. Empty on a substrate that never registered a duress key, so
+    /// every duress code path is inert there (byte-compat).
+    pub(crate) duress_pubkeys: std::collections::HashSet<[u8; 32]>,
+    /// **F23 / C50** — whether destructive (CI-class) mutations are currently
+    /// frozen because a duress signature was observed and not yet cleared. While
+    /// true, an early gate in `attestation::handle_submit_mutation` cosmetically
+    /// suppresses destructive CI mutations + re-emits C50 (the unfreeze
+    /// mutations `out_of_band_safety_reattestation` /
+    /// `anchor_heartbeat_with_safety_confirmation` are exempt). DAG-derived at
+    /// boot via [`crate::events::derive_duress_freeze_active_from_dag`]
+    /// (last-writer FSM over `coerced_owner_suspected` / `duress_cleared`), so a
+    /// substrate restarted while frozen resumes frozen. Kept current by the
+    /// duress recognition + unfreeze emit paths thereafter.
+    pub(crate) duress_freeze_active: bool,
     /// M25.0 + M25.4: the substrate's private Ed25519 signing seed.
     ///
     /// This NEVER goes on the wire. Used to (1) sign `snapshot.cb` so a
@@ -487,6 +582,13 @@ impl ServerState {
             // full DAG AFTER `new()` (mirrors backup_encryption_status +
             // cultivation mirrors). NOT persisted separately — DAG is canonical.
             revoked_federation_peers: std::collections::HashSet::new(),
+            // F23/C50: empty + unfrozen at construction; the boot path
+            // re-derives both from the full DAG AFTER `new()` (mirrors
+            // revoked_federation_peers). NOT persisted separately — DAG is
+            // canonical. A genesis substrate with no duress registration leaves
+            // these inert, so non-duress mutations are byte-unaffected.
+            duress_pubkeys: std::collections::HashSet::new(),
+            duress_freeze_active: false,
             substrate_signing_seed,
             observatory_history: std::collections::VecDeque::new(),
             last_operator_context_window_bytes: None,
@@ -1103,6 +1205,18 @@ pub fn run_loop() -> Result<u8, SubstrateError> {
     state.revoked_federation_peers =
         crate::events::derive_revoked_federation_peers_from_dag(&state.dag);
 
+    // **F23 / C50** — re-derive the registered-duress-pubkey set + the freeze
+    // flag from the DAG. Each owner-attested `duress_keypair_registration` CI
+    // mutation emitted a `duress_keypair_registered:{prefix}` event; the freeze
+    // FSM is the last-writer over `coerced_owner_suspected` / `duress_cleared`.
+    // Both are pure projections of the DAG (canonical), so a substrate
+    // restarted after registering a duress key — or while frozen — resumes
+    // exactly. Mirrors `revoked_federation_peers` above (DAG-derived, no new
+    // on-disk format).
+    state.duress_pubkeys = crate::events::derive_duress_pubkeys_from_dag(&state.dag);
+    state.duress_freeze_active =
+        crate::events::derive_duress_freeze_active_from_dag(&state.dag);
+
     // M26.1 C6 SECURITY FIX (Phase γ.2): substrate_signing_key.cb existed on
     // disk with loose Unix permissions (group/world bits set) — emit a
     // `C4_substrate_secret_unsealed` immune sporocarp on the DAG so the
@@ -1289,6 +1403,80 @@ pub fn run_loop() -> Result<u8, SubstrateError> {
             );
             let _ = emit_substrate_event(&mut state, ba_node_type, ba_content);
             let _ = save_dag_state(&state);
+        }
+
+        // **F23 / C50 — genesis duress-keypair registration emission.**
+        //
+        // If the operator process supplied owner-pre-attested duress
+        // registrations via env vars, emit each as a
+        // `duress_keypair_registered:{prefix}` DAG node right after the birth
+        // attestation. Each body was signed off-line by the owner; we decode
+        // it (extract pubkey + label), capture the owner signature + pubkey,
+        // and emit the on-chain registration record — byte-identical to what
+        // the CI-mutation accept path emits. A malformed/undecodable body is
+        // skipped (the env parser already filters partial entries; a body that
+        // does not decode under the registration domain is dropped here).
+        //
+        // We do NOT register a duress pubkey equal to the OWNER key: that would
+        // make owner signatures verify under a "duress" key and silently
+        // suppress legit mutations (the catastrophic mis-recognition). The same
+        // guard is enforced on the CI-mutation registration path.
+        //
+        // At a TRULY-fresh genesis the operator identity is not yet TOFU-pinned
+        // (`pinned_operator_identity` is None until the first hello), so we
+        // compare against the env-supplied `owner_pubkey` — the key that signed
+        // THIS registration — AND, when available (restart re-emit can't reach
+        // here, but be defensive), the pinned identity.
+        let pinned_owner_pubkey = state.pinned_operator_identity.as_ref().map(|p| p.pubkey);
+        for (body, signature, owner_pubkey) in read_duress_registrations_env_vars() {
+            let Some((duress_pubkey, label, anchor_ts)) =
+                crate::events::decode_duress_keypair_registration(&body)
+            else {
+                continue;
+            };
+            if duress_pubkey == owner_pubkey || pinned_owner_pubkey == Some(duress_pubkey) {
+                // Circular: a duress pubkey identical to the owner key is
+                // refused (would silently suppress real owner mutations). This
+                // is a genesis MISCONFIGURATION, not coercion — emit C5
+                // attestation_invalid (matching the CI-mutation registration
+                // guard in attestation.rs), NOT C50 (which would falsely signal
+                // coercion at birth).
+                let _ = emit_immune_sporocarp(
+                    &mut state,
+                    "C5_attestation_invalid",
+                    "attestation_invalid",
+                    "genesis duress registration refused: duress_pubkey equals the owner key (circular self-duress)",
+                );
+                continue;
+            }
+            // Verify the owner actually signed THIS registration body (the
+            // CI-mutation path delegates this to Python; here we verify directly
+            // since there is no Python round-trip at genesis). A typo'd / forged
+            // env-var signature is refused rather than registering a bogus duress
+            // key. The owner_pubkey is the operator's own genesis configuration
+            // (same trust level as the birth attestation).
+            if myco_kernel_shared::crypto::verify_signature(&owner_pubkey, &signature, &body)
+                .is_err()
+            {
+                let _ = emit_immune_sporocarp(
+                    &mut state,
+                    "C5_attestation_invalid",
+                    "attestation_invalid",
+                    "genesis duress registration refused: owner signature over registration body failed to verify",
+                );
+                continue;
+            }
+            let nt = crate::events::duress_keypair_registered_node_type(&duress_pubkey);
+            let content = crate::events::encode_duress_keypair_registered(
+                &duress_pubkey,
+                &label,
+                anchor_ts,
+                &signature,
+                &owner_pubkey,
+            );
+            let _ = emit_substrate_event(&mut state, nt, content);
+            let _ = save_dag_state(&state);
+            state.duress_pubkeys.insert(duress_pubkey);
         }
     }
 
