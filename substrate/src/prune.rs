@@ -37,6 +37,7 @@ use myco_kernel_shared::crypto::NodeHash;
 
 use crate::events::{
     encode_internal_mortality_event, internal_mortality_event_node_type,
+    NODE_TYPE_AXIS_PERTURBED_PREFIX, NODE_TYPE_AXIS_REGISTERED_PREFIX, NODE_TYPE_AXIS_RESET_PREFIX,
     NODE_TYPE_INTERNAL_MORTALITY_EVENT_PREFIX,
 };
 use crate::server::ServerState;
@@ -85,6 +86,13 @@ pub struct PruneCandidate {
     pub part_node_type: String,
     /// Human-readable reason — "this part matched 无用 because ...".
     pub reason: String,
+    /// **Optional replacement linkage** — when a part dies because a *newer*
+    /// part subsumes / supersedes it (错误 superseded-by-failure, 冗余
+    /// duplicate-subsumed), this carries the surviving part's hash so the
+    /// tombstone records the causal "replaced_by" edge (P06). `None` for
+    /// pure removals (过时 / 无用 / seed-orphan) where nothing replaces the
+    /// dead part.
+    pub replaced_by_hash: Option<[u8; 32]>,
 }
 
 /// The substrate's runtime rule registry. Holds the active rule set.
@@ -96,9 +104,19 @@ pub struct PruneRuleRegistry {
 }
 
 impl PruneRuleRegistry {
-    /// Build a fresh registry seeded with the L0 proof-of-mechanism rule.
+    /// Build a fresh registry: the L0 proof-of-mechanism seed rule FIRST,
+    /// then the four canonical 应朽 production families (过时 / 错误 / 冗余 /
+    /// 无用) registered via [`PruneRuleRegistry::register`].
+    ///
+    /// **Determinism**: registration order = scan order = tombstone-emission
+    /// order. The seed rule MUST stay first so an existing DAG's prune
+    /// sequence is reproducible; the four families append in a fixed order.
+    ///
+    /// This closes L1/HARD_RULES §1.4 **F26 partial → complete**: the
+    /// extension path (`register`) is now exercised with the production
+    /// family rules, not merely scaffolded.
     pub fn seed() -> Self {
-        Self {
+        let mut reg = Self {
             rules: vec![PruneRule {
                 rule_id: "L0.seed.orphan_past_grace",
                 category: "无用",
@@ -106,11 +124,43 @@ impl PruneRuleRegistry {
                               for ≥ grace window — clearly stopped contributing.",
                 detect: detect_orphan_past_grace,
             }],
-        }
+        };
+        // ---- 应朽 canonical four (L1 production rules) ----
+        reg.register(PruneRule {
+            rule_id: "L1.过时.axis_unrefreshed_past_window",
+            category: "过时",
+            description: "Registered axis untouched (no register/perturb/reset) \
+                          for ≥ STALE_AXIS_GRACE_CYCLES — fallen out of live metabolism.",
+            detect: detect_stale_axis_past_window,
+        });
+        reg.register(PruneRule {
+            rule_id: "L1.错误.superseded_by_failed_evolution",
+            category: "错误",
+            description: "evolution_succeeded:{op} contradicted by a LATER \
+                          evolution_failed:{op} past ERRONEOUS_GRACE_CYCLES — falsified.",
+            detect: detect_superseded_by_failed_evolution,
+        });
+        reg.register(PruneRule {
+            rule_id: "L1.冗余.duplicate_content_subsumed",
+            category: "冗余",
+            description: "Earliest of a byte-identical raw_material:/sporocarp: run \
+                          subsumed by a later identical copy past REDUNDANT_GRACE_CYCLES.",
+            detect: detect_duplicate_content_subsumed,
+        });
+        reg.register(PruneRule {
+            rule_id: "L1.无用.unreachable_from_live_roots",
+            category: "无用",
+            description: "Directly-referenced node transitively unreachable from live \
+                          roots past ORPHAN_GRACE_CYCLES (disjoint from the seed rule).",
+            detect: detect_unreachable_from_live_roots,
+        });
+        reg
     }
 
-    /// Register a new rule (L1 extension path per P07 §3.1.c).
-    #[allow(dead_code)] // extension point for L1 rule families (anticipated F26 wiring)
+    /// Register a new rule (L1 extension path per P07 §3.1.c). Now exercised
+    /// by [`PruneRuleRegistry::seed`] for the canonical four 应朽 families
+    /// (F26 complete); remains the public extension point for further L1
+    /// families (有害 / 矛盾 / 僵化 / …) without an L0 amendment.
     pub(crate) fn register(&mut self, rule: PruneRule) {
         self.rules.push(rule);
     }
@@ -221,6 +271,7 @@ pub(crate) fn detect_orphan_past_grace(
                     "orphan unreferenced for ≥{ORPHAN_GRACE_CYCLES} cycles (created_at={}, now={current_cycle})",
                     node.created_at_cycle
                 ),
+                replaced_by_hash: None,
             });
         }
     }
@@ -249,6 +300,502 @@ fn is_p10_invariant_protected(node_type: &str) -> bool {
         NODE_TYPE_INTERNAL_MORTALITY_EVENT_PREFIX,
     ];
     PROTECTED_PREFIXES.iter().any(|p| node_type.starts_with(p))
+}
+
+// ---------------------------------------------------------------------------
+// Shared prune-rule helpers (bounded; reused by the L1 production rules)
+// ---------------------------------------------------------------------------
+
+/// Collect the set of part-hashes that ALREADY have an
+/// `internal_mortality_event:*` tombstone naming them as `killed_part_hash`.
+///
+/// Every production rule MUST skip parts in this set — re-tombstoning an
+/// already-dead part is a no-op at best (idempotent DAG insert) and noise at
+/// worst. Decodes each tombstone's content once via the canonical-bytes API
+/// (same path `count_prune_resurrections` uses). **Bounded**: a single pass
+/// over the DAG, O(tombstones) decodes — no nested DAG walk.
+fn collect_already_tombstoned(state: &ServerState) -> std::collections::HashSet<[u8; 32]> {
+    use myco_kernel_shared::canonical_bytes::{decode as cb_decode, Value as CbV};
+    let mut dead: std::collections::HashSet<[u8; 32]> = std::collections::HashSet::new();
+    for node in state.dag.iter_in_insertion_order() {
+        if !node
+            .node_type
+            .starts_with(NODE_TYPE_INTERNAL_MORTALITY_EVENT_PREFIX)
+        {
+            continue;
+        }
+        let decoded = match cb_decode(node.content_canonical_bytes.as_ref()) {
+            Ok(v) => v,
+            Err(_) => continue,
+        };
+        let map = match decoded {
+            CbV::Map(m) => m,
+            _ => continue,
+        };
+        if let Some(CbV::Bytes(b)) = map.get("killed_part_hash") {
+            if b.len() == 32 {
+                let mut arr = [0u8; 32];
+                arr.copy_from_slice(b);
+                dead.insert(arr);
+            }
+        }
+    }
+    dead
+}
+
+/// Convert a `NodeHash`-ish `AsRef<[u8]>` (32 bytes) into a `[u8; 32]`.
+fn as_hash_array(h: &impl AsRef<[u8]>) -> [u8; 32] {
+    h.as_ref()
+        .try_into()
+        .expect("NodeHash / hash field is always 32 bytes")
+}
+
+/// Common conservative gate shared by every production rule: a node is
+/// **eligible** to be a candidate only when it is NOT in the P10 invariant
+/// set, NOT the current DAG tip, and NOT already tombstoned. (Grace-window
+/// + family-specific predicates are applied by each rule on top of this.)
+fn is_prune_eligible(
+    node_type: &str,
+    hash: &[u8; 32],
+    tip_bytes: &Option<[u8; 32]>,
+    already_tombstoned: &std::collections::HashSet<[u8; 32]>,
+) -> bool {
+    if is_p10_invariant_protected(node_type) {
+        return false;
+    }
+    if Some(*hash) == *tip_bytes {
+        return false;
+    }
+    if already_tombstoned.contains(hash) {
+        return false;
+    }
+    true
+}
+
+// ---------------------------------------------------------------------------
+// L1 production rule A — 过时 / axis_unrefreshed_past_window
+// ---------------------------------------------------------------------------
+
+/// **过时 grace window** — an axis whose last touch (registration, perturb,
+/// or post-fruiting reset) is older than this many cycles is declared 过时
+/// (stale / context-expired). Conservative (2× the orphan window): an axis
+/// is long-lived substrate machinery, so we wait substantially longer before
+/// concluding it has fallen out of the cultivar's live metabolism.
+pub const STALE_AXIS_GRACE_CYCLES: u64 = 2000;
+
+/// **L1.过时.axis_unrefreshed_past_window** — for each registered axis, the
+/// last-touch cycle is the max `created_at_cycle` over its `axis_registered`,
+/// `axis_perturbed:{name}`, and `axis_reset_after_fruiting:{name}` events.
+/// If `current_cycle - last_touch > STALE_AXIS_GRACE_CYCLES`, the
+/// `axis_registered` node is declared 过时 (the axis has not participated in
+/// metabolism for a full stale-window). `replaced_by = None` (nothing
+/// replaces a stale axis; it simply ages out).
+///
+/// **Bounded**: one pass to index axis names → last-touch (HashMap), one pass
+/// over `axis_registered` nodes. O(V).
+pub(crate) fn detect_stale_axis_past_window(
+    state: &ServerState,
+    current_cycle: u64,
+) -> Vec<PruneCandidate> {
+    use std::collections::HashMap;
+
+    if current_cycle <= STALE_AXIS_GRACE_CYCLES {
+        return Vec::new();
+    }
+
+    // Index: axis_name → max(created_at_cycle) over registered/perturbed/reset.
+    let mut last_touch: HashMap<String, u64> = HashMap::new();
+    let update = |name: &str, cycle: u64, m: &mut HashMap<String, u64>| {
+        let e = m.entry(name.to_string()).or_insert(0);
+        if cycle > *e {
+            *e = cycle;
+        }
+    };
+    for node in state.dag.iter_in_insertion_order() {
+        let nt = &node.node_type;
+        if let Some(name) = nt.strip_prefix(NODE_TYPE_AXIS_REGISTERED_PREFIX) {
+            update(name, node.created_at_cycle, &mut last_touch);
+        } else if let Some(name) = nt.strip_prefix(NODE_TYPE_AXIS_PERTURBED_PREFIX) {
+            update(name, node.created_at_cycle, &mut last_touch);
+        } else if let Some(name) = nt.strip_prefix(NODE_TYPE_AXIS_RESET_PREFIX) {
+            update(name, node.created_at_cycle, &mut last_touch);
+        }
+    }
+
+    let tip_bytes = state.dag.tip().map(|h| as_hash_array(&h));
+    let already = collect_already_tombstoned(state);
+    let cutoff = current_cycle.saturating_sub(STALE_AXIS_GRACE_CYCLES);
+
+    let mut candidates = Vec::new();
+    for node in state.dag.iter_in_insertion_order() {
+        let name = match node.node_type.strip_prefix(NODE_TYPE_AXIS_REGISTERED_PREFIX) {
+            Some(n) => n,
+            None => continue,
+        };
+        let touch = last_touch.get(name).copied().unwrap_or(node.created_at_cycle);
+        // Still fresh? (touched within the grace window) → not 过时.
+        if touch > cutoff {
+            continue;
+        }
+        let hash_bytes = as_hash_array(&node.hash);
+        if !is_prune_eligible(&node.node_type, &hash_bytes, &tip_bytes, &already) {
+            continue;
+        }
+        candidates.push(PruneCandidate {
+            part_hash: hash_bytes,
+            part_node_type: node.node_type.clone(),
+            reason: format!(
+                "axis '{name}' unrefreshed for ≥{STALE_AXIS_GRACE_CYCLES} cycles \
+                 (last_touch={touch}, now={current_cycle})"
+            ),
+            replaced_by_hash: None,
+        });
+    }
+    candidates
+}
+
+// ---------------------------------------------------------------------------
+// L1 production rule B — 错误 / superseded_by_failed_evolution
+// ---------------------------------------------------------------------------
+
+/// **错误 grace window** — an `evolution_succeeded:{op}` that a later
+/// `evolution_failed:{op}` contradicted is declared 错误 (wrong / falsified)
+/// only after this many cycles past the failure, giving the cultivar time to
+/// re-succeed (which a human/operator may do) before we retire the stale
+/// success record.
+pub const ERRONEOUS_GRACE_CYCLES: u64 = 1000;
+
+/// Strip `evolution_succeeded:` / `evolution_failed:` prefix → the `{op}`.
+const EVOLUTION_SUCCEEDED_PREFIX: &str = "evolution_succeeded:";
+const EVOLUTION_FAILED_PREFIX: &str = "evolution_failed:";
+
+/// **L1.错误.superseded_by_failed_evolution** — an `evolution_succeeded:{op}`
+/// S whose same-`op` `evolution_failed:{op}` F came LATER (F.cycle > S.cycle)
+/// is a falsified evolution: the success it recorded was subsequently
+/// contradicted. Once `current_cycle - F.cycle > ERRONEOUS_GRACE_CYCLES`, S is
+/// declared 错误 with `replaced_by = F.hash` (the failure that superseded it).
+///
+/// **Bounded**: one pass to index per-op latest failure cycle+hash (HashMap),
+/// one pass over succeeded nodes. O(V).
+pub(crate) fn detect_superseded_by_failed_evolution(
+    state: &ServerState,
+    current_cycle: u64,
+) -> Vec<PruneCandidate> {
+    use std::collections::HashMap;
+
+    if current_cycle <= ERRONEOUS_GRACE_CYCLES {
+        return Vec::new();
+    }
+
+    // op → (latest_failure_cycle, latest_failure_hash).
+    let mut latest_failure: HashMap<String, (u64, [u8; 32])> = HashMap::new();
+    for node in state.dag.iter_in_insertion_order() {
+        if let Some(op) = node.node_type.strip_prefix(EVOLUTION_FAILED_PREFIX) {
+            let entry = latest_failure
+                .entry(op.to_string())
+                .or_insert((0, [0u8; 32]));
+            if node.created_at_cycle >= entry.0 {
+                *entry = (node.created_at_cycle, as_hash_array(&node.hash));
+            }
+        }
+    }
+
+    let tip_bytes = state.dag.tip().map(|h| as_hash_array(&h));
+    let already = collect_already_tombstoned(state);
+
+    let mut candidates = Vec::new();
+    for node in state.dag.iter_in_insertion_order() {
+        let op = match node.node_type.strip_prefix(EVOLUTION_SUCCEEDED_PREFIX) {
+            Some(op) => op,
+            None => continue,
+        };
+        let (fail_cycle, fail_hash) = match latest_failure.get(op) {
+            Some(v) => *v,
+            None => continue, // no failure for this op → success stands
+        };
+        // The failure must come strictly AFTER this success to supersede it.
+        if fail_cycle <= node.created_at_cycle {
+            continue;
+        }
+        // Grace: only retire once the failure itself is past the window.
+        if current_cycle.saturating_sub(fail_cycle) <= ERRONEOUS_GRACE_CYCLES {
+            continue;
+        }
+        let hash_bytes = as_hash_array(&node.hash);
+        if !is_prune_eligible(&node.node_type, &hash_bytes, &tip_bytes, &already) {
+            continue;
+        }
+        candidates.push(PruneCandidate {
+            part_hash: hash_bytes,
+            part_node_type: node.node_type.clone(),
+            reason: format!(
+                "evolution_succeeded:{op} (cycle {}) superseded by later \
+                 evolution_failed:{op} (cycle {fail_cycle}); now={current_cycle}",
+                node.created_at_cycle
+            ),
+            replaced_by_hash: Some(fail_hash),
+        });
+    }
+    candidates
+}
+
+// ---------------------------------------------------------------------------
+// L1 production rule C — 冗余 / duplicate_content_subsumed
+// ---------------------------------------------------------------------------
+
+/// **冗余 grace window** — an exact structural duplicate is retired only after
+/// this many cycles, so a legitimately re-supplied identical part isn't killed
+/// the instant a copy appears.
+pub const REDUNDANT_GRACE_CYCLES: u64 = 1000;
+
+/// Node-type prefixes that rule C is allowed to consider. **Strictly scoped**
+/// to ingested content (`raw_material:*`) and fruiting bodies (`sporocarp:*`):
+/// these are the only families where two byte-identical nodes are genuinely
+/// redundant. Structural/identity/witness events (cycle_advanced,
+/// invariant_witness, genesis, attestations, …) routinely repeat identical
+/// content by design and MUST NOT be treated as 冗余.
+const REDUNDANT_SCOPED_PREFIXES: &[&str] = &["raw_material:", "sporocarp:"];
+
+fn redundant_in_scope(node_type: &str) -> bool {
+    REDUNDANT_SCOPED_PREFIXES
+        .iter()
+        .any(|p| node_type.starts_with(p))
+}
+
+/// **L1.冗余.duplicate_content_subsumed** — within the `raw_material:*` /
+/// `sporocarp:*` scope, group nodes by (identical `node_type` AND byte-equal
+/// `content_canonical_bytes`). In any group of ≥2, the earliest-inserted node
+/// is subsumed by the next identical one: it is declared 冗余 with
+/// `replaced_by = the later identical node's hash`. Only the earliest of each
+/// duplicate run is retired (the survivor stays live). Grace-gated on the
+/// earliest node's `created_at_cycle`.
+///
+/// **Bounded**: one pass to group via a HashMap keyed by (node_type, content
+/// bytes), recording each group's first two members in insertion order. O(V)
+/// with O(content_len) hashing — no O(n²) pairwise compare.
+pub(crate) fn detect_duplicate_content_subsumed(
+    state: &ServerState,
+    current_cycle: u64,
+) -> Vec<PruneCandidate> {
+    use std::collections::HashMap;
+
+    if current_cycle <= REDUNDANT_GRACE_CYCLES {
+        return Vec::new();
+    }
+
+    // Group key = (node_type, content bytes). Value = the first node (earliest,
+    // the subsumed candidate) and the second node (the survivor that subsumes
+    // it). We only ever need the first two of each group.
+    struct Group {
+        first_hash: [u8; 32],
+        first_type: String,
+        first_cycle: u64,
+        survivor_hash: Option<[u8; 32]>,
+    }
+    let mut groups: HashMap<(String, Vec<u8>), Group> = HashMap::new();
+
+    for node in state.dag.iter_in_insertion_order() {
+        if !redundant_in_scope(&node.node_type) {
+            continue;
+        }
+        let key = (
+            node.node_type.clone(),
+            node.content_canonical_bytes.as_ref().to_vec(),
+        );
+        match groups.get_mut(&key) {
+            None => {
+                groups.insert(
+                    key,
+                    Group {
+                        first_hash: as_hash_array(&node.hash),
+                        first_type: node.node_type.clone(),
+                        first_cycle: node.created_at_cycle,
+                        survivor_hash: None,
+                    },
+                );
+            }
+            Some(g) => {
+                // Second (or later) identical node → records the survivor.
+                // Keep the FIRST survivor seen (earliest later duplicate).
+                if g.survivor_hash.is_none() {
+                    let later = as_hash_array(&node.hash);
+                    // Guard against the idempotent-insert degenerate case where
+                    // the same hash recurs (identical type+content+parents →
+                    // same hash): a node cannot subsume itself.
+                    if later != g.first_hash {
+                        g.survivor_hash = Some(later);
+                    }
+                }
+            }
+        }
+    }
+
+    let tip_bytes = state.dag.tip().map(|h| as_hash_array(&h));
+    let already = collect_already_tombstoned(state);
+    let cutoff = current_cycle.saturating_sub(REDUNDANT_GRACE_CYCLES);
+
+    // Deterministic emission order: re-walk insertion order and emit a
+    // candidate when we reach a group's first member that has a survivor.
+    let mut candidates = Vec::new();
+    for node in state.dag.iter_in_insertion_order() {
+        if !redundant_in_scope(&node.node_type) {
+            continue;
+        }
+        let key = (
+            node.node_type.clone(),
+            node.content_canonical_bytes.as_ref().to_vec(),
+        );
+        let g = match groups.get(&key) {
+            Some(g) => g,
+            None => continue,
+        };
+        let survivor = match g.survivor_hash {
+            Some(s) => s,
+            None => continue, // singleton group → nothing redundant
+        };
+        let hash_bytes = as_hash_array(&node.hash);
+        // Only the earliest (group.first) is the subsumed candidate.
+        if hash_bytes != g.first_hash {
+            continue;
+        }
+        // Grace gate on the earliest node.
+        if g.first_cycle > cutoff {
+            continue;
+        }
+        if !is_prune_eligible(&g.first_type, &hash_bytes, &tip_bytes, &already) {
+            continue;
+        }
+        candidates.push(PruneCandidate {
+            part_hash: hash_bytes,
+            part_node_type: g.first_type.clone(),
+            reason: format!(
+                "byte-identical duplicate of a later '{}' node subsumes this \
+                 earliest copy (first_cycle={}, now={current_cycle})",
+                g.first_type, g.first_cycle
+            ),
+            replaced_by_hash: Some(survivor),
+        });
+    }
+    candidates
+}
+
+// ---------------------------------------------------------------------------
+// L1 production rule D — 无用 / unreachable_from_live_roots
+// ---------------------------------------------------------------------------
+
+/// **L1.无用.unreachable_from_live_roots** — a DAG node that is past the
+/// orphan grace window AND is **transitively unreachable** from the set of
+/// "live roots" (the current tip + every node referenced as a parent within
+/// the last `ORPHAN_GRACE_CYCLES` cycles) is declared 无用 (useless).
+///
+/// Reuses `ORPHAN_GRACE_CYCLES`. Distinct from the seed rule
+/// (`L0.seed.orphan_past_grace`): the seed targets nodes with ZERO direct
+/// referents (structural orphans); this rule targets nodes that ARE directly
+/// referenced by some other node but whose referencing island has detached
+/// from the live frontier. The **disjointness guard** skips any node not in
+/// the directly-referenced set, so the two rules never double-tombstone the
+/// same part.
+///
+/// **Bounded reachability** (the prior agent's hang lived here): the
+/// backward walk over `parent_hashes` uses an explicit `HashSet` visited-set
+/// and a `Vec` work-stack. Each node hash is pushed at most once (guarded by
+/// the visited-set on insert), so the walk is O(V + E) with NO recursion and
+/// NO possibility of looping, even on a (malformed) cyclic edge set.
+pub(crate) fn detect_unreachable_from_live_roots(
+    state: &ServerState,
+    current_cycle: u64,
+) -> Vec<PruneCandidate> {
+    use std::collections::{HashMap, HashSet};
+
+    if current_cycle <= ORPHAN_GRACE_CYCLES {
+        return Vec::new();
+    }
+
+    // Index every node by hash → (parents, created_at_cycle) for the walk +
+    // build the "directly referenced as a parent" set (disjointness guard).
+    let mut by_hash: HashMap<[u8; 32], (Vec<[u8; 32]>, u64)> = HashMap::new();
+    let mut referenced: HashSet<[u8; 32]> = HashSet::new();
+    for node in state.dag.iter_in_insertion_order() {
+        let parents: Vec<[u8; 32]> = node
+            .parent_hashes
+            .iter()
+            .map(as_hash_array)
+            .collect();
+        for p in &parents {
+            referenced.insert(*p);
+        }
+        by_hash.insert(as_hash_array(&node.hash), (parents, node.created_at_cycle));
+    }
+
+    // Live roots: the tip + every node referenced as a parent by a node
+    // created within the last ORPHAN_GRACE_CYCLES cycles (the live frontier).
+    let recent_cutoff = current_cycle.saturating_sub(ORPHAN_GRACE_CYCLES);
+    let mut roots: Vec<[u8; 32]> = Vec::new();
+    if let Some(tip) = state.dag.tip() {
+        roots.push(as_hash_array(&tip));
+    }
+    for node in state.dag.iter_in_insertion_order() {
+        if node.created_at_cycle > recent_cutoff {
+            for p in &node.parent_hashes {
+                roots.push(as_hash_array(p));
+            }
+        }
+    }
+
+    // ---- BOUNDED backward reachability walk (HashSet visited-set) ----
+    let mut reachable: HashSet<[u8; 32]> = HashSet::new();
+    let mut stack: Vec<[u8; 32]> = Vec::new();
+    for r in roots {
+        if reachable.insert(r) {
+            stack.push(r);
+        }
+    }
+    while let Some(h) = stack.pop() {
+        if let Some((parents, _)) = by_hash.get(&h) {
+            for p in parents {
+                // insert() returns false if already present → never re-push,
+                // so each hash is processed at most once. O(V + E), no loop.
+                if reachable.insert(*p) {
+                    stack.push(*p);
+                }
+            }
+        }
+    }
+
+    let tip_bytes = state.dag.tip().map(|h| as_hash_array(&h));
+    let already = collect_already_tombstoned(state);
+
+    let mut candidates = Vec::new();
+    for node in state.dag.iter_in_insertion_order() {
+        // Past grace only.
+        if node.created_at_cycle > recent_cutoff {
+            continue;
+        }
+        let hash_bytes = as_hash_array(&node.hash);
+        // DISJOINTNESS GUARD: target only directly-referenced nodes (the seed
+        // rule owns zero-referent structural orphans). Skip the rest.
+        if !referenced.contains(&hash_bytes) {
+            continue;
+        }
+        // Reachable from a live root → still useful, not 无用.
+        if reachable.contains(&hash_bytes) {
+            continue;
+        }
+        if !is_prune_eligible(&node.node_type, &hash_bytes, &tip_bytes, &already) {
+            continue;
+        }
+        candidates.push(PruneCandidate {
+            part_hash: hash_bytes,
+            part_node_type: node.node_type.clone(),
+            reason: format!(
+                "transitively unreachable from live roots for ≥{ORPHAN_GRACE_CYCLES} \
+                 cycles (created_at={}, now={current_cycle})",
+                node.created_at_cycle
+            ),
+            replaced_by_hash: None,
+        });
+    }
+    candidates
 }
 
 // ---------------------------------------------------------------------------
@@ -364,7 +911,7 @@ pub(crate) fn run_prune_scan(
                 &cand.part_hash,
                 &cand.part_node_type,
                 &cand.reason,
-                None, // seed rule has no "replaced_by"; future rules may set
+                cand.replaced_by_hash.as_ref(), // 错误/冗余 carry a surviving "replaced_by"; 过时/无用/seed → None
                 current_cycle,
             )?;
             report.tombstones_emitted.push(tombstone);
@@ -589,6 +1136,116 @@ pub(crate) fn is_hoarding(state: &ServerState, current_cycle: u64) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use myco_kernel_schema::dag::Dag;
+    use myco_kernel_shared::canonical_bytes::{encode as cb_encode, Value as CbV};
+    use myco_kernel_shared::crypto::NodeHash;
+
+    // -- test helpers --------------------------------------------------------
+
+    /// Build an in-memory `ServerState` wrapping the given hand-built `Dag`.
+    /// Mirrors the construction in
+    /// `count_prune_resurrections_handles_empty_dag_safely`: a throwaway state
+    /// dir + a fresh genesis `Manifest` for the discrete identity fields.
+    fn state_over(dag: Dag) -> ServerState {
+        use crate::persistence::Manifest;
+        let state_dir = std::env::temp_dir().join(format!(
+            "myco-prune-rule-test-{}-{:p}",
+            std::process::id(),
+            &dag as *const _
+        ));
+        let g = Manifest::genesis();
+        ServerState::new(
+            state_dir,
+            Some(g.substrate_id),
+            Some(g.genesis_time_unix_ns),
+            g.cycle_counter,
+            g.last_absorbed_cycle,
+            g.generation_depth,
+            dag,
+            None,
+            [0u8; 32],
+        )
+    }
+
+    /// Canonical-bytes for a content string (uniqueness controlled by caller).
+    fn cb(s: &str) -> myco_kernel_shared::canonical_bytes::CanonicalBytes {
+        cb_encode(&CbV::String(s.to_string())).unwrap()
+    }
+
+    /// Insert a chained node (parent = current tip, or root when empty).
+    /// Returns the new node hash.
+    fn push(dag: &mut Dag, node_type: &str, cycle: u64, content: &str) -> NodeHash {
+        let parents = match dag.tip() {
+            Some(t) => vec![t],
+            None => Vec::new(),
+        };
+        dag.insert_node(parents, node_type.to_string(), cycle, cb(content))
+            .expect("test DAG insert")
+    }
+
+    /// Insert a node with explicit parents + content (for reachability shapes).
+    fn push_with(
+        dag: &mut Dag,
+        parents: Vec<NodeHash>,
+        node_type: &str,
+        cycle: u64,
+        content: &str,
+    ) -> NodeHash {
+        dag.insert_node(parents, node_type.to_string(), cycle, cb(content))
+            .expect("test DAG insert (explicit parents)")
+    }
+
+    /// Collect the `killed_part_hash` of every tombstone in the DAG, in
+    /// insertion order, with its rule_id + category — for asserting which
+    /// rule fired on which part. Tuple = (rule_id, category, killed, replaced_by).
+    #[allow(clippy::type_complexity)] // test-only assertion helper; the tuple is self-documenting
+    fn tombstones(state: &ServerState) -> Vec<(String, String, [u8; 32], Option<[u8; 32]>)> {
+        use myco_kernel_shared::canonical_bytes::{decode as cb_decode, Value as V};
+        let mut out = Vec::new();
+        for node in state.dag.iter_in_insertion_order() {
+            if !node
+                .node_type
+                .starts_with(NODE_TYPE_INTERNAL_MORTALITY_EVENT_PREFIX)
+            {
+                continue;
+            }
+            let m = match cb_decode(node.content_canonical_bytes.as_ref()) {
+                Ok(V::Map(m)) => m,
+                _ => continue,
+            };
+            let rule_id = match m.get("rule_id") {
+                Some(V::String(s)) => s.clone(),
+                _ => String::new(),
+            };
+            let category = match m.get("category") {
+                Some(V::String(s)) => s.clone(),
+                _ => String::new(),
+            };
+            let killed = match m.get("killed_part_hash") {
+                Some(V::Bytes(b)) if b.len() == 32 => {
+                    let mut a = [0u8; 32];
+                    a.copy_from_slice(b);
+                    a
+                }
+                _ => [0u8; 32],
+            };
+            let replaced = match m.get("replaced_by_hash") {
+                Some(V::Bytes(b)) if b.len() == 32 => {
+                    let mut a = [0u8; 32];
+                    a.copy_from_slice(b);
+                    Some(a)
+                }
+                _ => None,
+            };
+            out.push((rule_id, category, killed, replaced));
+        }
+        out
+    }
+
+    /// Convenience: hash → `[u8;32]`.
+    fn arr(h: &NodeHash) -> [u8; 32] {
+        h.as_ref().try_into().unwrap()
+    }
 
     #[test]
     fn should_run_prune_scan_respects_cadence() {
@@ -612,11 +1269,29 @@ mod tests {
     }
 
     #[test]
-    fn registry_default_includes_seed_rule() {
+    fn registry_default_includes_seed_rule_then_four_families() {
+        // F26 complete: seed rule FIRST (determinism), then the canonical four.
         let reg = PruneRuleRegistry::seed();
-        assert_eq!(reg.rule_count(), 1);
-        assert_eq!(reg.rules().next().unwrap().rule_id, "L0.seed.orphan_past_grace");
-        assert_eq!(reg.rules().next().unwrap().category, "无用");
+        assert_eq!(reg.rule_count(), 5);
+        let ids: Vec<&str> = reg.rules().map(|r| r.rule_id).collect();
+        assert_eq!(
+            ids,
+            vec![
+                "L0.seed.orphan_past_grace",
+                "L1.过时.axis_unrefreshed_past_window",
+                "L1.错误.superseded_by_failed_evolution",
+                "L1.冗余.duplicate_content_subsumed",
+                "L1.无用.unreachable_from_live_roots",
+            ],
+            "seed rule must stay first; family order is fixed for determinism"
+        );
+        // Seed rule identity unchanged.
+        let seed = reg.rules().next().unwrap();
+        assert_eq!(seed.rule_id, "L0.seed.orphan_past_grace");
+        assert_eq!(seed.category, "无用");
+        // Each family carries the right category.
+        let cats: Vec<&str> = reg.rules().map(|r| r.category).collect();
+        assert_eq!(cats, vec!["无用", "过时", "错误", "冗余", "无用"]);
     }
 
     #[test]
@@ -625,13 +1300,14 @@ mod tests {
             Vec::new()
         }
         let mut reg = PruneRuleRegistry::seed();
+        let before = reg.rule_count();
         reg.register(PruneRule {
             rule_id: "L1.test.dummy",
             category: "测试",
             description: "test",
             detect: dummy_detect,
         });
-        assert_eq!(reg.rule_count(), 2);
+        assert_eq!(reg.rule_count(), before + 1);
     }
 
     #[test]
@@ -686,5 +1362,464 @@ mod tests {
         // contents to compare against).
         assert_eq!(resurrected, 0);
         assert_eq!(total_tombstones, 0);
+    }
+
+    // =======================================================================
+    // L1 production rule A — 过时 / axis_unrefreshed_past_window
+    // =======================================================================
+
+    #[test]
+    fn stale_axis_prunes_axis_untouched_past_window() {
+        // axis registered at cycle 100, never perturbed again; now = 2200.
+        // 2200 - 100 = 2100 > STALE_AXIS_GRACE_CYCLES(2000) → 过时.
+        let mut dag = Dag::new();
+        push(&mut dag, "genesis_event:aa", 0, "g");
+        let axis = push(&mut dag, "axis_registered:hunger", 100, "reg-hunger");
+        // a fresh tip so the axis node is NOT the tip.
+        push(&mut dag, "cycle_advanced", 2200, "tip");
+        let state = state_over(dag);
+
+        let cands = detect_stale_axis_past_window(&state, 2200);
+        assert_eq!(cands.len(), 1, "exactly the stale axis");
+        assert_eq!(cands[0].part_hash, arr(&axis));
+        assert_eq!(cands[0].part_node_type, "axis_registered:hunger");
+        assert!(cands[0].replaced_by_hash.is_none(), "过时 has no replacement");
+    }
+
+    #[test]
+    fn stale_axis_does_not_prune_recently_perturbed_axis() {
+        // Same axis registered at cycle 100 BUT perturbed at cycle 2000.
+        // last_touch = 2000; now = 2200; 2200 - 2000 = 200 <= 2000 → fresh.
+        let mut dag = Dag::new();
+        push(&mut dag, "genesis_event:aa", 0, "g");
+        push(&mut dag, "axis_registered:hunger", 100, "reg-hunger");
+        push(&mut dag, "axis_perturbed:hunger", 2000, "perturb");
+        push(&mut dag, "cycle_advanced", 2200, "tip");
+        let state = state_over(dag);
+
+        let cands = detect_stale_axis_past_window(&state, 2200);
+        assert!(cands.is_empty(), "recently-perturbed axis is not 过时");
+    }
+
+    #[test]
+    fn stale_axis_reset_after_fruiting_counts_as_a_touch() {
+        // Registered cycle 100, reset_after_fruiting at cycle 1500; now 2200.
+        // last_touch = 1500; 2200 - 1500 = 700 <= 2000 → still fresh.
+        let mut dag = Dag::new();
+        push(&mut dag, "genesis_event:aa", 0, "g");
+        push(&mut dag, "axis_registered:appetite", 100, "reg");
+        push(&mut dag, "axis_reset_after_fruiting:appetite", 1500, "reset");
+        push(&mut dag, "cycle_advanced", 2200, "tip");
+        let state = state_over(dag);
+        assert!(detect_stale_axis_past_window(&state, 2200).is_empty());
+    }
+
+    // =======================================================================
+    // L1 production rule B — 错误 / superseded_by_failed_evolution
+    // =======================================================================
+
+    #[test]
+    fn erroneous_prunes_success_superseded_by_later_failure() {
+        // succeeded:op at cycle 100, failed:op at cycle 200; now = 1300.
+        // 1300 - 200 = 1100 > ERRONEOUS_GRACE_CYCLES(1000) → 错误.
+        let mut dag = Dag::new();
+        push(&mut dag, "genesis_event:aa", 0, "g");
+        let succ = push(&mut dag, "evolution_succeeded:modify_axis", 100, "s");
+        let fail = push(&mut dag, "evolution_failed:modify_axis", 200, "f");
+        push(&mut dag, "cycle_advanced", 1300, "tip");
+        let state = state_over(dag);
+
+        let cands = detect_superseded_by_failed_evolution(&state, 1300);
+        assert_eq!(cands.len(), 1, "the superseded success");
+        assert_eq!(cands[0].part_hash, arr(&succ));
+        assert_eq!(
+            cands[0].replaced_by_hash,
+            Some(arr(&fail)),
+            "replaced_by = the failure that superseded it"
+        );
+    }
+
+    #[test]
+    fn erroneous_does_not_prune_success_with_no_later_failure() {
+        // failure came BEFORE the success → the success re-succeeded; not 错误.
+        let mut dag = Dag::new();
+        push(&mut dag, "genesis_event:aa", 0, "g");
+        push(&mut dag, "evolution_failed:modify_axis", 100, "f-early");
+        push(&mut dag, "evolution_succeeded:modify_axis", 200, "s-later");
+        push(&mut dag, "cycle_advanced", 1300, "tip");
+        let state = state_over(dag);
+        assert!(
+            detect_superseded_by_failed_evolution(&state, 1300).is_empty(),
+            "a success AFTER the failure is not superseded"
+        );
+    }
+
+    #[test]
+    fn erroneous_respects_grace_window_on_the_failure() {
+        // succeeded:100, failed:200, now = 700. 700 - 200 = 500 <= 1000 → wait.
+        let mut dag = Dag::new();
+        push(&mut dag, "genesis_event:aa", 0, "g");
+        push(&mut dag, "evolution_succeeded:op", 100, "s");
+        push(&mut dag, "evolution_failed:op", 200, "f");
+        push(&mut dag, "cycle_advanced", 700, "tip");
+        let state = state_over(dag);
+        assert!(detect_superseded_by_failed_evolution(&state, 700).is_empty());
+    }
+
+    // =======================================================================
+    // L1 production rule C — 冗余 / duplicate_content_subsumed
+    // =======================================================================
+
+    #[test]
+    fn redundant_prunes_earliest_of_byte_identical_run() {
+        // Two raw_material nodes, identical type+content; earliest subsumed.
+        let mut dag = Dag::new();
+        push(&mut dag, "genesis_event:aa", 0, "g");
+        let first = push(&mut dag, "raw_material:text", 10, "DUP");
+        let second = push(&mut dag, "raw_material:text", 20, "DUP");
+        push(&mut dag, "cycle_advanced", 1100, "tip");
+        let state = state_over(dag);
+
+        let cands = detect_duplicate_content_subsumed(&state, 1100);
+        assert_eq!(cands.len(), 1, "only the earliest copy is subsumed");
+        assert_eq!(cands[0].part_hash, arr(&first));
+        assert_eq!(
+            cands[0].replaced_by_hash,
+            Some(arr(&second)),
+            "survivor is the later identical copy"
+        );
+    }
+
+    #[test]
+    fn redundant_is_scoped_to_raw_material_and_sporocarp_only() {
+        // Two byte-identical cycle_advanced nodes MUST NOT be treated as 冗余 —
+        // structural events repeat identical content by design.
+        let mut dag = Dag::new();
+        push(&mut dag, "genesis_event:aa", 0, "g");
+        // identical content cycle_advanced nodes (out of scope). Note: the
+        // merkle hash includes parent_hashes, so to make the CONTENT identical
+        // we vary the parents but keep `content_canonical_bytes` equal — the
+        // scope filter excludes cycle_advanced regardless.
+        let t1 = dag.tip().unwrap();
+        push_with(&mut dag, vec![t1], "cycle_advanced", 10, "SAME");
+        let t2 = dag.tip().unwrap();
+        push_with(&mut dag, vec![t2], "cycle_advanced", 20, "SAME");
+        push(&mut dag, "cycle_advanced", 1100, "tip");
+        let state = state_over(dag);
+        assert!(
+            detect_duplicate_content_subsumed(&state, 1100).is_empty(),
+            "cycle_advanced is out of the 冗余 scope"
+        );
+    }
+
+    #[test]
+    fn redundant_does_not_prune_distinct_content() {
+        // Two raw_material nodes with DIFFERENT content → not redundant.
+        let mut dag = Dag::new();
+        push(&mut dag, "genesis_event:aa", 0, "g");
+        push(&mut dag, "raw_material:text", 10, "alpha");
+        push(&mut dag, "raw_material:text", 20, "beta");
+        push(&mut dag, "cycle_advanced", 1100, "tip");
+        let state = state_over(dag);
+        assert!(detect_duplicate_content_subsumed(&state, 1100).is_empty());
+    }
+
+    #[test]
+    fn redundant_respects_grace_window() {
+        // duplicates exist but earliest is within grace: first_cycle 200, now 1100,
+        // 1100 - 200 = 900 <= 1000 → wait.
+        let mut dag = Dag::new();
+        push(&mut dag, "genesis_event:aa", 0, "g");
+        push(&mut dag, "raw_material:text", 200, "DUP");
+        push(&mut dag, "raw_material:text", 250, "DUP");
+        push(&mut dag, "cycle_advanced", 1100, "tip");
+        let state = state_over(dag);
+        assert!(detect_duplicate_content_subsumed(&state, 1100).is_empty());
+    }
+
+    // =======================================================================
+    // L1 production rule D — 无用 / unreachable_from_live_roots
+    // =======================================================================
+
+    #[test]
+    fn unreachable_prunes_directly_referenced_detached_island() {
+        // Shape:
+        //   G(0) → A(5) → B(6)        [old island; A referenced by B]
+        //   G(0) → R1(5000) → R2(5001=tip)  [live frontier]
+        // now = 6000, grace = 1000, recent_cutoff = 5000.
+        // Live roots = {R2(tip)} ∪ parents-of-nodes(cycle>5000) = {R2, R1}.
+        // Backward reach = {R2, R1, G}. A is referenced (by B), past grace,
+        // unreachable → 无用 by rule D. B is unreferenced → seed rule's job
+        // (excluded here by the disjointness guard).
+        let mut dag = Dag::new();
+        let g = push(&mut dag, "genesis_event:aa", 0, "g");
+        let a = push_with(&mut dag, vec![g], "raw_material:text", 5, "A");
+        let _b = push_with(&mut dag, vec![a], "raw_material:text", 6, "B");
+        let r1 = push_with(&mut dag, vec![g], "raw_material:text", 5000, "R1");
+        let _r2 = push_with(&mut dag, vec![r1], "cycle_advanced", 5001, "R2");
+        let state = state_over(dag);
+
+        let cands = detect_unreachable_from_live_roots(&state, 6000);
+        let hits: Vec<[u8; 32]> = cands.iter().map(|c| c.part_hash).collect();
+        assert!(
+            hits.contains(&arr(&a)),
+            "A is directly-referenced + unreachable → 无用; got {} cands",
+            cands.len()
+        );
+        // disjointness: B (zero referents) must NOT be a rule-D candidate.
+        assert!(
+            !hits.contains(&arr(&_b)),
+            "B has zero referents → seed rule's domain, excluded from rule D"
+        );
+        // replaced_by is None for 无用.
+        let a_cand = cands.iter().find(|c| c.part_hash == arr(&a)).unwrap();
+        assert!(a_cand.replaced_by_hash.is_none());
+    }
+
+    #[test]
+    fn unreachable_does_not_prune_reachable_node() {
+        // A purely linear, fully-reachable chain → nothing is unreachable.
+        // G(0) → A(5) → tip(5001). now = 6000.
+        let mut dag = Dag::new();
+        push(&mut dag, "genesis_event:aa", 0, "g");
+        push(&mut dag, "raw_material:text", 5, "A");
+        push(&mut dag, "cycle_advanced", 5001, "tip");
+        let state = state_over(dag);
+        assert!(
+            detect_unreachable_from_live_roots(&state, 6000).is_empty(),
+            "everything on the live chain is reachable from the tip"
+        );
+    }
+
+    #[test]
+    fn unreachable_disjoint_from_seed_orphan_rule() {
+        // The seed rule and rule D must never both claim the same part.
+        // Reuse the detached-island shape and intersect their candidate sets.
+        let mut dag = Dag::new();
+        let g = push(&mut dag, "genesis_event:aa", 0, "g");
+        let a = push_with(&mut dag, vec![g], "raw_material:text", 5, "A");
+        let _b = push_with(&mut dag, vec![a], "raw_material:text", 6, "B");
+        let r1 = push_with(&mut dag, vec![g], "raw_material:text", 5000, "R1");
+        let _r2 = push_with(&mut dag, vec![r1], "cycle_advanced", 5001, "R2");
+        let state = state_over(dag);
+
+        let seed: std::collections::HashSet<[u8; 32]> = detect_orphan_past_grace(&state, 6000)
+            .into_iter()
+            .map(|c| c.part_hash)
+            .collect();
+        let dee: std::collections::HashSet<[u8; 32]> =
+            detect_unreachable_from_live_roots(&state, 6000)
+                .into_iter()
+                .map(|c| c.part_hash)
+                .collect();
+        assert!(
+            seed.is_disjoint(&dee),
+            "seed (zero-referent) and rule D (referenced-but-unreachable) candidate sets must be disjoint; seed={seed:?} D={dee:?}"
+        );
+    }
+
+    #[test]
+    fn unreachable_walk_terminates_on_cyclic_edges() {
+        // Defensive: even if the (normally acyclic) hash index contained a
+        // cycle, the visited-set bounds the walk. We can't build a real hash
+        // cycle through the DAG API, so we directly exercise the bounded walk
+        // invariant by asserting the detector returns promptly on a large
+        // linear chain (no hang, no stack overflow).
+        let mut dag = Dag::new();
+        push(&mut dag, "genesis_event:aa", 0, "g");
+        for i in 1..500u64 {
+            push(&mut dag, "raw_material:text", i, &format!("n{i}"));
+        }
+        push(&mut dag, "cycle_advanced", 5001, "tip");
+        let state = state_over(dag);
+        // Just assert it returns (bounded). All nodes are reachable (linear).
+        let _ = detect_unreachable_from_live_roots(&state, 6000);
+    }
+
+    // =======================================================================
+    // run_prune_scan integration: tombstone emission + determinism
+    // =======================================================================
+
+    #[test]
+    fn run_prune_scan_emits_tombstone_for_redundant_duplicate() {
+        let mut dag = Dag::new();
+        push(&mut dag, "genesis_event:aa", 0, "g");
+        let first = push(&mut dag, "raw_material:text", 10, "DUP");
+        push(&mut dag, "raw_material:text", 20, "DUP");
+        push(&mut dag, "cycle_advanced", 1100, "tip");
+        let mut state = state_over(dag);
+
+        let report = run_prune_scan(&mut state, 1100).expect("scan ok");
+        // The 冗余 rule fired (registration order: seed, 过时, 错误, 冗余, 无用).
+        assert!(report.rules_run.contains(&"L1.冗余.duplicate_content_subsumed"));
+        let tombs = tombstones(&state);
+        let red = tombs
+            .iter()
+            .find(|(rid, _, _, _)| rid == "L1.冗余.duplicate_content_subsumed")
+            .expect("a 冗余 tombstone exists");
+        assert_eq!(red.1, "冗余");
+        assert_eq!(red.2, arr(&first), "earliest copy was killed");
+        assert!(red.3.is_some(), "冗余 tombstone records replaced_by");
+    }
+
+    #[test]
+    fn run_prune_scan_is_deterministic_on_clone() {
+        // Build a DAG that triggers MULTIPLE families, run the scan over two
+        // independent ServerStates built from the same DAG, and assert the
+        // emitted tombstone hash SEQUENCE is identical (P07 determinism).
+        let mut dag = Dag::new();
+        push(&mut dag, "genesis_event:aa", 0, "g");
+        // 错误 pair
+        push(&mut dag, "evolution_succeeded:op", 50, "s");
+        push(&mut dag, "evolution_failed:op", 60, "f");
+        // 冗余 pair
+        push(&mut dag, "raw_material:text", 70, "DUP");
+        push(&mut dag, "raw_material:text", 80, "DUP");
+        push(&mut dag, "cycle_advanced", 1300, "tip");
+
+        let mut s1 = state_over(dag.clone());
+        let mut s2 = state_over(dag);
+
+        let r1 = run_prune_scan(&mut s1, 1300).expect("scan1");
+        let r2 = run_prune_scan(&mut s2, 1300).expect("scan2");
+
+        assert_eq!(
+            r1.tombstones_emitted, r2.tombstones_emitted,
+            "tombstone hash sequence must be reproducible from (DAG, cycle)"
+        );
+        assert!(
+            r1.tombstones_emitted.len() >= 2,
+            "expected at least the 错误 + 冗余 tombstones; got {}",
+            r1.tombstones_emitted.len()
+        );
+        // rules_run is identical + in registration order.
+        assert_eq!(r1.rules_run, r2.rules_run);
+        assert_eq!(r1.rules_run.first(), Some(&"L0.seed.orphan_past_grace"));
+    }
+
+    #[test]
+    fn run_prune_scan_skips_already_tombstoned_part_on_rerun() {
+        // First scan tombstones the redundant earliest; a second scan over the
+        // SAME (now-mutated) state must NOT re-tombstone it.
+        let mut dag = Dag::new();
+        push(&mut dag, "genesis_event:aa", 0, "g");
+        push(&mut dag, "raw_material:text", 10, "DUP");
+        push(&mut dag, "raw_material:text", 20, "DUP");
+        push(&mut dag, "cycle_advanced", 1100, "tip");
+        let mut state = state_over(dag);
+
+        let first = run_prune_scan(&mut state, 1100).expect("scan1");
+        let n_first = first.tombstones_emitted.len();
+        assert!(n_first >= 1);
+        let second = run_prune_scan(&mut state, 1200).expect("scan2");
+        assert!(
+            second.tombstones_emitted.is_empty(),
+            "already-tombstoned parts must not be re-killed; got {} new",
+            second.tombstones_emitted.len()
+        );
+    }
+
+    // =======================================================================
+    // C54 hoarding interaction with the live prune rules
+    // =======================================================================
+
+    #[test]
+    fn c54_hoarding_false_when_new_rules_emit_a_tombstone() {
+        // Ingestion >= floor over the window AND the prune rules emit >= 1
+        // tombstone → is_hoarding must be FALSE (the substrate IS pruning).
+        //
+        // current_cycle = 3000. Hoarding window = [2800, 3000].
+        // Redundant grace needs the duplicate's earliest copy at cycle <= 2000.
+        // So: a duplicate PAIR at cycles 100/110 (well past grace) supplies the
+        // 冗余 tombstone (emitted at cycle 3000, which lands IN the window), and
+        // >= 10 UNIQUE raw_material in [2800,3000] supply the hoarding ingestion.
+        let mut dag = Dag::new();
+        push(&mut dag, "genesis_event:aa", 0, "g");
+        // Duplicate pair, past redundant grace.
+        push(&mut dag, "raw_material:text", 100, "OLD-DUP");
+        push(&mut dag, "raw_material:text", 110, "OLD-DUP");
+        // >= HOARDING_INDICATOR_INGESTION_FLOOR (10) unique ingestion in window.
+        for i in 0..12u64 {
+            push(&mut dag, "raw_material:text", 2850 + i, &format!("u{i}"));
+        }
+        push(&mut dag, "cycle_advanced", 3000, "tip");
+        let mut state = state_over(dag);
+
+        // Pre-scan: ingestion present in window, zero tombstones → reads as hoarding.
+        assert!(
+            is_hoarding(&state, 3000),
+            "precondition: ingestion present + no prune yet ⇒ hoarding signal"
+        );
+        // Run the scan: the 冗余 rule should kill the earliest OLD-DUP.
+        let report = run_prune_scan(&mut state, 3000).expect("scan");
+        assert!(
+            !report.tombstones_emitted.is_empty(),
+            "expected >= 1 tombstone from the duplicate"
+        );
+        // Post-scan: a tombstone now exists in the window → no longer hoarding.
+        assert!(
+            !is_hoarding(&state, 3000),
+            "after emitting a tombstone the hoarding signal must clear"
+        );
+    }
+
+    #[test]
+    fn c54_hoarding_stays_true_when_nothing_is_prunable() {
+        // Ingestion >= floor but every part is UNIQUE + within grace + on the
+        // live chain → no rule fires → hoarding stays TRUE.
+        // current_cycle = 3000, window [2800,3000]; all ingestion unique +
+        // recent (within both the redundant grace AND reachable from tip).
+        let mut dag = Dag::new();
+        push(&mut dag, "genesis_event:aa", 0, "g");
+        for i in 0..12u64 {
+            push(&mut dag, "raw_material:text", 2850 + i, &format!("unique{i}"));
+        }
+        push(&mut dag, "cycle_advanced", 3000, "tip");
+        let mut state = state_over(dag);
+
+        let report = run_prune_scan(&mut state, 3000).expect("scan");
+        assert!(
+            report.tombstones_emitted.is_empty(),
+            "nothing prunable (all unique, within grace, reachable)"
+        );
+        assert!(
+            is_hoarding(&state, 3000),
+            "ingestion >= floor + zero prunable ⇒ hoarding stays true"
+        );
+    }
+
+    // =======================================================================
+    // Parity: the P10 invariant protected set is unchanged
+    // =======================================================================
+
+    #[test]
+    fn protected_set_parity_holds_for_new_rules() {
+        // A protected node (genesis_event) that is also an unreachable,
+        // duplicate, stale-axis-looking part must be skipped by EVERY rule.
+        let mut dag = Dag::new();
+        push(&mut dag, "genesis_event:aa", 0, "g");
+        // tombstone-prefixed node is protected too (P06): build one via a real
+        // scan so it is well-formed, then assert no rule targets it.
+        push(&mut dag, "raw_material:text", 10, "DUP");
+        push(&mut dag, "raw_material:text", 20, "DUP");
+        push(&mut dag, "cycle_advanced", 1100, "tip");
+        let mut state = state_over(dag);
+        let _ = run_prune_scan(&mut state, 1100).expect("scan1");
+
+        // Now a tombstone exists. Re-running must never target the tombstone
+        // itself (internal_mortality_event:* is in the protected set) nor the
+        // genesis node.
+        let cands_d = detect_unreachable_from_live_roots(&state, 1300);
+        for c in &cands_d {
+            assert!(
+                !is_p10_invariant_protected(&c.part_node_type),
+                "rule D produced a protected candidate: {}",
+                c.part_node_type
+            );
+        }
+        let cands_c = detect_duplicate_content_subsumed(&state, 1300);
+        for c in &cands_c {
+            assert!(!is_p10_invariant_protected(&c.part_node_type));
+        }
     }
 }
