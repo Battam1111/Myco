@@ -136,10 +136,11 @@ chengyu_fragments: [B003, B004, B005]
 canonical_dilemmas: [D-0007, D-0012]   # entries in canonical_dilemma_corpus/
 structural_anchors:                  # the conventional path::SYMBOL pointers (v3.0 form)
   - "substrate/src/server.rs::handle_perturb_axis_from_raw_material"
-witnesses:                           # v3.1: required triplet
-  positive: "tests/integration/p02_ingestion_drives_evolution.rs::happy_path"
-  negative: "tests/integration/p02_starvation_detected.rs::starvation_emits_immune_signal"
-  edge: "tests/integration/p02_saturation_recovery.rs::saturated_then_compressed_then_recovers"
+witnesses:                           # v3.1: required triplet; v0.9.x adds the kind: discriminator
+  kind: executable                   # executable = runnable substrate tests | narrative = canonical_dilemma_corpus refs (Character / Covenant-duty cards, invariants_enforced: [])
+  positive: "substrate/tests/e2e_layer_c.rs::layer_c_p02_positive_ingestion_produces_dag_event"
+  negative: "substrate/tests/e2e_economy.rs::p11c_ingest_refused_under_saturation"
+  edge: "substrate/tests/e2e_economy.rs::sprint_5d_saturation_stage_reaches_saturated_under_sustained_exhaustion"
 falsifiability_signals:              # runtime metrics
   - external_ingestion_events_per_30_cycles_floor
   - integration_proposal_ratio
@@ -280,9 +281,12 @@ The negative witness is the load-bearing innovation. Per Phase 3 hunt: structura
 
 ### §5.2 Per-card witness requirements
 
-Every Layer A card MUST declare at minimum one positive witness, one negative witness, and one edge witness in its front-matter (§3.1). Witnesses are concrete test paths in the substrate test suite. They MAY share underlying code (e.g., one test file containing all three) but MUST be distinguishable test functions.
+Every Layer A card MUST declare a `kind:` discriminator plus one positive witness, one negative witness, and one edge witness in its front-matter (§3.1):
 
-**v3.1 ship status**: cards are written with witness *names*; actual test implementation is acknowledged debt. A v0.9.x cleanup milestone (TBD) will implement the witness corpus. Cards may NOT be marked `verified` until their witnesses are implemented and passing the expected pattern.
+- **`kind: executable`** — the witnesses are concrete test paths in the substrate test suite (`substrate/tests/*.rs::fn` or `substrate/src/**::tests::fn`). They MAY share underlying code (e.g., one test file containing all three) but MUST be distinguishable test functions. Used by every card whose principle is substrate-observable (P-postulates, AS, LB, and COV06 — the one Covenant-duty card with a substrate-side succession witness).
+- **`kind: narrative`** — the principle tests *character* (Cultivar Character cards) or *cultivator disposition* (Covenant-duty cards), which are NOT substrate state (`invariants_enforced: []`) and so cannot be CI-asserted. Its witnesses reference `canonical_dilemma_corpus/INDEX.md#D-NNNN` entries instead of runnable tests; such cards are exempt from the §5.5 runtime lint (checked only for dilemma-reference existence).
+
+**v0.9.x witness-corpus milestone (SHIPPED)**: all 28 cards have been re-pointed from the never-created `tests/integration/*` placeholders to real artifacts — runnable substrate test fns (executable cards) or canonical-dilemma references (narrative cards) — and the §5.5 existence-level lint is live. Remaining maturity (the ~7 *nearest-available* exact-witness slots flagged inline as v0.9.x debt, and the full run-and-verify-polarity clause) accrues per §5.6. Cards may NOT be marked `verified` until their executable witnesses run and pass the expected pattern.
 
 ### §5.3 Structural anchors (the old Layer C, retained)
 
@@ -300,13 +304,13 @@ Free-text principle-implementation claims without witness citation are a lint vi
 
 ### §5.5 CI enforcement
 
-A v0.9.x lint job walks all card witness references, verifies the test exists, runs the test, and verifies the expected pattern (positive passes, negative fails-by-detection, edge passes-the-edge). Either-side drift fails CI.
+The §5.5 lint (`operators/claude/tests/witness_lint.test.ts`, registered in `npm test`) walks every card's witness references. **Existence clause (live)**: for `kind: executable` it asserts the cited substrate test file exists AND the test fn is present; for `kind: narrative` it asserts the referenced `canonical_dilemma_corpus/INDEX.md#D-NNNN` entry exists. Either-side existence drift fails CI. **Run-and-verify-polarity clause (staged, §5.6)**: running each executable witness and verifying the expected pattern (positive passes, negative fails-by-detection, edge passes-the-edge) accrues as the nearest-available slots are closed.
 
-Additionally, a `doctrine_witness_drift` immune signal is emitted (new C-row, TBD) whenever a previously-failing negative witness silently starts passing.
+Additionally, a `doctrine_witness_drift` signal is raised as **C67** whenever a previously-failing negative witness silently starts passing. C67 is a **CI-lint signal** emitted by the witness-lint — NOT a runtime immune detector: cards are doctrine, not substrate state (P01c), so their drift is observed at CI time, not by the running substrate's immune system. (See L1/HARD_RULES; C67 carries no `emit_immune_sporocarp` site.)
 
 ### §5.6 Initial vs. mature anchoring
 
-v3.1 ship is **initial anchoring**: each card declares the witness names and structural anchors. Implementation maturity (every relevant code location, every actual test, every detector wired up) accumulates over time. Maturity is not required for v3 ship; honest acknowledgment of debt is.
+v3.1 ship was **initial anchoring**: each card declared witness *names* + structural anchors (against a `tests/integration/` tree that was never created). The v0.9.x witness-corpus milestone advanced this to **existence anchoring**: every card now points at a real artifact, the structural anchors are de-danged to their real homes, and the existence-level lint holds the line. **Maturity anchoring** — every nearest-available slot replaced by an exact-polarity test, and the run-and-verify-polarity lint clause enabled — accumulates over time. Maturity is not required at each step; honest acknowledgment of the remaining debt (the inline `# nearest-available` markers + the unresolved `cultivator_fiduciary_strain` anchor) is.
 
 ## §6. Layer D (Catechumenate) — discipline
 

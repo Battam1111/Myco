@@ -190,9 +190,11 @@ diff_summary: |
 
 **v3.1.1.1 P03 descriptive amendment** — `operators/claude/ceremonies/v3_1_1_1_p03_descriptive_amendment/manifest.json` (Sprint 6.D + 7.H/7.I): chains from v3.1.1's `798c047d…`; `new_l0_hash = 7267dc58aa81d3dcd7ef08c3f83d49b0b0ab9b910f72a7a51c92d181c7eae4ba` (clean-LF seal). Reframed P03 §3.3/§4.3/§5.2/§7.1 to the shipping snapshot-rollback behavior + added §10.4; added catechumenate scaffolding; normalized ~70 cross-reference paths.
 
-**v3.1.1.2 descriptive amendment** — `operators/claude/ceremonies/v3_1_1_2_descriptive_amendment/manifest.json` (this amendment): chains from v3.1.1.1's `7267dc58…`. Corrects stale descriptive facts to shipped reality (file/card/fragment/dilemma counts; P03 §10.4 migration shipped opt-in via `migration.rs` + `C66`; ceremony-status; catechumenate "empty"→scaffolding present). Deposits unchanged.
+**v3.1.1.2 descriptive amendment** — `operators/claude/ceremonies/v3_1_1_2_descriptive_amendment/manifest.json`: chains from v3.1.1.1's `7267dc58…`; `new_l0_hash = cda9e2b32d505ae1a5acb2d4d71282f63385381c07b8fa3f845f6d2bad033784`. Corrects stale descriptive facts to shipped reality (file/card/fragment/dilemma counts; P03 §10.4 migration shipped opt-in via `migration.rs` + `C66`; ceremony-status; catechumenate "empty"→scaffolding present). Deposits unchanged.
 
-Ceremony chain: `e796451 (DRAFT 9) → b1bec59a (v3.1) → 798c047d (v3.1.1) → 7267dc58 (v3.1.1.1) → <v3.1.1.2 new_l0_hash> (v3.1.1.2)`. Each transition is an `l0_revision_attested:{prior_prefix}` DAG event chaining back to the previous.
+**v3.1.2 witness-corpus amendment** — `operators/claude/ceremonies/v3_1_2_witness_corpus/manifest.json` (this amendment): chains from v3.1.1.2's `cda9e2b3…`. The v0.9.x witness-corpus milestone (META §5.2/§5.5/§5.6): all 28 cards' Layer C witnesses re-pointed from the never-created `tests/integration/*` placeholders to real artifacts — runnable substrate tests for the 16 `kind: executable` cards, `canonical_dilemma_corpus` references for the 12 `kind: narrative` cards — plus the `kind:` discriminator; structural anchors de-danged to their real homes; the §5.5 existence-level witness-lint shipped (`operators/claude/tests/witness_lint.test.ts`) with **C67 `doctrine_witness_drift`** assigned as its CI-lint signal; P07/CHAR07/P05's stale "to be added in v3.1.1 cascade" markers scrubbed to shipped reality; META §10 backup-encryption debt marked resolved. Deposits + formulations unchanged — Layer C / descriptive only per §7.
+
+Ceremony chain: `e796451 (DRAFT 9) → b1bec59a (v3.1) → 798c047d (v3.1.1) → 7267dc58 (v3.1.1.1) → cda9e2b3 (v3.1.1.2) → <v3.1.2 new_l0_hash> (v3.1.2-witness-corpus)`. Each transition is an `l0_revision_attested:{prior_prefix}` DAG event chaining back to the previous.
 
 ### §6.3 Bundle definition
 
@@ -243,10 +245,10 @@ Returning readers may sample any layer; the cold-reader discipline is for first 
 ## §8. What this doctrine is missing (acknowledged debt)
 
 - **Catechumenate sessions**: 0 currently exist. Until cultivator-A begins succession preparation, none will exist. This is architecturally committed, not implementationally satisfied.
-- **Layer C witness tests**: card schemas declare witness names (positive / negative / edge); the actual test implementations are TBD via a v0.9.x cleanup milestone.
+- **Layer C witness tests**: re-pointed to real artifacts + the existence-level §5.5 lint is live (v3.1.2 witness-corpus; META §5.2/§5.6). The run-and-verify-polarity clause + the ~7 *nearest-available* exact-witness slots accrue as maturity anchoring per §5.6.
 - **Layer B fragment commentary**: 0 commentary entries currently exist. They will accumulate as the cultivator-Claude pair invokes fragments in real decisions.
 - **Canonical dilemma `Claude-of-record readings`**: 54 dilemmas have setups; 0 have recorded interpretations. They will accumulate at model rollovers + drift investigations + catechumenate sessions.
-- **Backup encryption (L1/SKIN owe per L0/META §10 + L1/SKIN debt)**: still acknowledged as unmitigated attack surface.
+- **Backup encryption (L1/SKIN §8 + L0/META §10)**: **implemented** (Sprint 2.C / 6.K) — the at-rest seal (`substrate/src/at_rest_seal.rs`; Windows DPAPI over `dag.cb` / `manifest.cb`) + the cultivator-owned status SSoT (`substrate/src/events/backup_encryption.rs`, L1/SKIN §8: the cultivator holds the key, the substrate persists only a public status field). Cross-platform KMS beyond DPAPI is L1/SKIN follow-on, not an L0 gap.
 
   *Resolved 2026-05-18*: L1/L2/L3/algorithms/schemas/diagrams + source-code comments surgically updated from prior "L0 §X.Y" monolithic citations to v3.1 "L0/cards/<card> §N" form per §2 mapping table.
 
