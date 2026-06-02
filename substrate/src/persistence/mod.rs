@@ -114,10 +114,19 @@ mod tests {
     use std::path::PathBuf;
 
     fn temp_state_dir() -> PathBuf {
+        // A monotonic per-process counter guarantees a DISTINCT path per call
+        // even when two parallel tests observe the same `current_unix_ns()`. The
+        // Windows system-clock resolution can be ~15ms, so a ns-only suffix is
+        // NOT collision-free under cargo's default multi-thread test runner — a
+        // shared dir let one test's `remove_dir_all` race another's save/load
+        // (an intermittent failure in e.g. `nonce_log_empty_roundtrips`).
+        static SEQ: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        let seq = SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         let base = std::env::temp_dir().join(format!(
-            "myco-test-{}-{}",
+            "myco-test-{}-{}-{}",
             std::process::id(),
-            current_unix_ns()
+            current_unix_ns(),
+            seq
         ));
         fs::create_dir_all(&base).unwrap();
         base
