@@ -1699,3 +1699,139 @@ fn sprint_6h_compatibility_matrix_is_empty_at_v1() {
     );
 }
 
+/// **C43 (2026-06-02)** — federation recursive-injection / depth-exhaustion
+/// defense. The MAX-depth nesting cap + banned-type-at-depth detection are
+/// proven deterministically over hand-built canonical bytes in the substrate
+/// lib's `federation::handlers::c43_recursive_validation_tests` (a full N-peer
+/// wire simulation of a 6-deep adversarial payload is impractical because a
+/// well-behaved peer never *serves* a hand-crafted over-deep
+/// `federation_received:` event from its own DAG).
+///
+/// This E2E test pins the complementary FALSE-POSITIVE property on the REAL
+/// wire path: an ordinary single-level federation pull of legitimate
+/// `raw_material:` events must ingest normally and must NOT spuriously emit a
+/// `C43_federation_recursive_injection` immune sporocarp. (A regression that
+/// over-rejected legitimate federation traffic would surface here.)
+#[test]
+fn c43_legitimate_federation_pull_does_not_trip_recursive_defense() {
+    // Peer A: open listener + ingest two legitimate raw_material events
+    // (allowlisted, non-nested — these wrap to a single `federation_received:`
+    // layer on B, i.e. depth 1, well under MAX_FEDERATION_RECURSION_DEPTH=5).
+    let (mut client_a, _dir_a) = spawn_substrate();
+    let open_resp = client_a
+        .call(
+            proto::FEDERATION_OPEN_LISTENER,
+            build_payload(vec![(
+                "bind_addr",
+                CbValue::String("127.0.0.1:0".to_string()),
+            )]),
+        )
+        .expect("open A");
+    let addr_a = match open_resp.payload.get("bind_addr") {
+        Some(CbValue::String(s)) => s.clone(),
+        _ => panic!("addr missing"),
+    };
+    client_a
+        .call(
+            proto::INGEST_RAW_MATERIAL,
+            build_payload(vec![
+                ("content_kind", CbValue::String("text".to_string())),
+                ("content_bytes", CbValue::Bytes(b"c43 legit material 1".to_vec())),
+            ]),
+        )
+        .expect("A ingest raw_material 1");
+    client_a
+        .call(
+            proto::INGEST_RAW_MATERIAL,
+            build_payload(vec![
+                ("content_kind", CbValue::String("text".to_string())),
+                ("content_bytes", CbValue::Bytes(b"c43 legit material 2".to_vec())),
+            ]),
+        )
+        .expect("A ingest raw_material 2");
+
+    let poll_handle = poll_in_background_for(client_a, 80);
+
+    // Peer B connects + pulls A's events.
+    let (mut client_b, _dir_b) = spawn_substrate();
+    let connect_resp = client_b
+        .call(
+            proto::FEDERATION_CONNECT_PEER,
+            build_payload(vec![("remote_addr", CbValue::String(addr_a))]),
+        )
+        .expect("B connect A");
+    let a_id = match connect_resp.payload.get("peer_substrate_id") {
+        Some(CbValue::Bytes(b)) if b.len() == 32 => b.clone(),
+        _ => panic!("a id missing"),
+    };
+
+    let pull_resp = client_b
+        .call(
+            proto::FEDERATION_PULL_EVENTS_FROM_PEER,
+            build_payload(vec![
+                ("peer_substrate_id", CbValue::Bytes(a_id)),
+                ("max_events", CbValue::Uint(50)),
+            ]),
+        )
+        .expect("B pull");
+    let events_ingested = match pull_resp.payload.get("events_ingested_count") {
+        Some(CbValue::Uint(n)) => *n,
+        _ => panic!("events_ingested_count missing"),
+    };
+    assert!(
+        events_ingested >= 2,
+        "legitimate pull should ingest A's 2 raw_material events; got {events_ingested}"
+    );
+
+    // B's DAG should contain federation_received: wrappers (the ingested
+    // attestations) — confirming the recursive validator ACCEPTED them.
+    let wrapped_resp = client_b
+        .call(
+            proto::QUERY_RECENT_NODES,
+            build_payload(vec![
+                ("count", CbValue::Uint(50)),
+                (
+                    "node_type_prefix",
+                    CbValue::String("federation_received:".to_string()),
+                ),
+            ]),
+        )
+        .expect("B query wrappers");
+    let wrapped_arr = match wrapped_resp.payload.get("nodes") {
+        Some(CbValue::Array(a)) => a.clone(),
+        _ => panic!("nodes missing"),
+    };
+    assert!(
+        !wrapped_arr.is_empty(),
+        "legitimate single-level federation events must be accepted + wrapped"
+    );
+
+    // CRITICAL: B's DAG must NOT contain a C43 immune sporocarp — legitimate
+    // shallow federation traffic must never trip the depth-exhaustion defense.
+    let c43_resp = client_b
+        .call(
+            proto::QUERY_RECENT_NODES,
+            build_payload(vec![
+                ("count", CbValue::Uint(50)),
+                (
+                    "node_type_prefix",
+                    CbValue::String("immune:C43".to_string()),
+                ),
+            ]),
+        )
+        .expect("B query C43");
+    let c43_arr = match c43_resp.payload.get("nodes") {
+        Some(CbValue::Array(a)) => a.clone(),
+        _ => panic!("nodes missing"),
+    };
+    assert!(
+        c43_arr.is_empty(),
+        "C43 must NOT fire for legitimate shallow federation traffic; got {} immune:C43 event(s)",
+        c43_arr.len()
+    );
+
+    let client_a = poll_handle.join().expect("poll join");
+    client_a.shutdown().expect("shutdown A");
+    client_b.shutdown().expect("shutdown B");
+}
+

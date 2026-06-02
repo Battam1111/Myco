@@ -29,7 +29,9 @@ use std::collections::BTreeMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use myco_kernel_bridge::protocol::{msg_type, Message};
-use myco_kernel_shared::canonical_bytes::{encode as cb_encode, Value};
+use myco_kernel_shared::canonical_bytes::{
+    decode as cb_decode, encode as cb_encode, map_get_bytes, map_get_string, Value,
+};
 
 use crate::server::{
     emit_immune_sporocarp, emit_substrate_event, hex_first_8_bytes, ServerState,
@@ -643,7 +645,8 @@ pub(crate) fn handle_federation_link_to_parent_from_hint(
     state: &mut ServerState,
     request: &Message,
 ) -> Result<Option<Message>, SubstrateError> {
-    use myco_kernel_shared::canonical_bytes::{decode as cb_decode, map_get_bytes, map_get_string};
+    // `cb_decode` / `map_get_bytes` / `map_get_string` come from the module-level
+    // import (extended for the C43 validator below).
 
     // Scan for the most recent parent_federation_hint event. The DAG's
     // iter_in_insertion_order is not DoubleEndedIterator, so we scan forward
@@ -800,6 +803,172 @@ pub(crate) fn handle_federation_link_to_parent_from_hint(
     )))
 }
 
+// ---------------------------------------------------------------------------
+// C43 federation recursive-injection defense (L2/FEDERATION §11 +
+// docs/architecture/algorithms/federation_recursive_validation.md).
+//
+// SECURITY-CRITICAL. The Phase β allowlist (`is_federation_safe_node_type`,
+// see protocol.rs) intentionally permits the `federation_received:` prefix so
+// that *chained* federation propagates ("I heard A heard B say X"). But that
+// single-level allowlist check inspects only the OUTERMOST inner `node_type`.
+// A malicious peer can therefore:
+//   1. **Depth-exhaustion** — nest `federation_received:` wrappers arbitrarily
+//      deep, forcing the receiver to carry an unbounded attestation chain
+//      (and, at boot/replay, to walk it). C43 caps the nesting depth.
+//   2. **Banned-type laundering** — bury a substrate-private node_type (e.g.
+//      `operator_pinned:*`, `cycle_advanced`) several wrappers down, where the
+//      single-level check never looks. C35 (here extended with a
+//      `cascade_flag`) rejects it at any depth.
+//
+// `validate_federation_inner` is a PURE function over the peer event's
+// (node_type, content) — no `ServerState`, so it is deterministically
+// unit-testable over hand-built canonical bytes (see `#[cfg(test)]` below).
+// The pull-path call site maps the returned `FederationRecursionReject` to the
+// correct immune-sporocarp emission (C43 vs C35) and DROPS the whole offending
+// envelope (no partial acceptance — layers 0..N-1's testimony was *about*
+// layer N, so a banned/over-deep layer N poisons the entire chain).
+// ---------------------------------------------------------------------------
+
+/// Seed maximum `federation_received:` nesting depth (depth 0 = outermost
+/// incoming peer event). A chain reaching depth `MAX_FEDERATION_RECURSION_DEPTH`
+/// is still accepted; the first level *beyond* it (depth
+/// `MAX_FEDERATION_RECURSION_DEPTH + 1`) is rejected with C43.
+///
+/// Per `federation_recursive_validation.md` "Max depth": seed = 5. L1 may
+/// tighten (e.g. 3) or relax (e.g. 7); a future SSoT-tunable surfaces this.
+pub(crate) const MAX_FEDERATION_RECURSION_DEPTH: usize = 5;
+
+/// Why a peer event's (possibly nested) `federation_received:` chain was
+/// rejected by [`validate_federation_inner`]. The pull-path call site turns
+/// this into the matching immune sporocarp (C43 / C35) and drops the envelope.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum FederationRecursionReject {
+    /// The chain nested deeper than [`MAX_FEDERATION_RECURSION_DEPTH`].
+    /// `attempted_depth` is the depth at which the cap was exceeded
+    /// (== `MAX_FEDERATION_RECURSION_DEPTH + 1` for the shallowest violation,
+    /// deeper if the leaf itself is still a wrapper). Emits **C43**.
+    DepthExceeded {
+        /// Depth at which `depth > MAX_FEDERATION_RECURSION_DEPTH` first held.
+        attempted_depth: usize,
+    },
+    /// A nested wrapper's inner `peer_event_node_type` is NOT
+    /// `is_federation_safe_node_type` — a substrate-private type smuggled
+    /// `depth` levels down. Emits **C35** with `cascade_flag=true`.
+    BannedInnerType {
+        /// Depth (>= 1) at which the banned inner type was found.
+        depth: usize,
+        /// The offending inner node_type (recorded in the C35 evidence).
+        inner_node_type: String,
+    },
+    /// A `federation_received:` wrapper's content could not be decoded as a
+    /// well-formed wrapper Map (missing/!`peer_event_node_type` or
+    /// `peer_event_content_canonical_bytes`, or non-canonical bytes). Treated
+    /// as a banned/cascade rejection (C35) — a peer offering a malformed
+    /// wrapper under an allowlisted prefix is conservatively refused rather
+    /// than silently wrapped. `depth` is where decoding failed.
+    MalformedWrapper {
+        /// Depth at which wrapper decoding failed.
+        depth: usize,
+        /// Human-readable decode failure (for the C35 evidence string).
+        reason: String,
+    },
+}
+
+/// **C43 / L2/FEDERATION §11** — recursively validate the (node_type, content)
+/// of a peer event about to be wrapped on the federation pull path.
+///
+/// Pure + side-effect-free: returns `Ok(())` if the event (and every nested
+/// `federation_received:` layer it carries) is within depth and contains only
+/// allowlisted inner types; otherwise returns the [`FederationRecursionReject`]
+/// describing the first violation. The caller emits the immune sporocarp and
+/// rejects the ENTIRE outer envelope (no partial acceptance).
+///
+/// Recursion contract (matches `federation_recursive_validation.md`):
+/// - `depth > MAX_FEDERATION_RECURSION_DEPTH` → `DepthExceeded` (checked FIRST,
+///   before any decode, so an over-deep chain is refused regardless of leaf).
+/// - `node_type` is NOT a `federation_received:` wrapper → `Ok` (the
+///   single-level allowlist already vetted this leaf type at the call site for
+///   depth 0; deeper leaf types are vetted by the recursion below before we
+///   arrive here, so a non-wrapper node_type is a valid terminus).
+/// - `node_type` IS a `federation_received:` wrapper → decode its
+///   `peer_event_node_type` (inner type) + `peer_event_content_canonical_bytes`
+///   (inner content); reject if the inner type is not
+///   `is_federation_safe_node_type` (→ `BannedInnerType`), else recurse into
+///   the inner (node_type, content) at `depth + 1`.
+pub(crate) fn validate_federation_inner(
+    node_type: &str,
+    content: &[u8],
+    depth: usize,
+) -> Result<(), FederationRecursionReject> {
+    // Depth gate FIRST — an over-deep chain is rejected before we even decode
+    // the (potentially adversarial) content at this level. This is the
+    // depth-exhaustion defense: the attacker cannot force unbounded recursion
+    // / allocation here, and the over-deep envelope is dropped wholesale.
+    if depth > MAX_FEDERATION_RECURSION_DEPTH {
+        return Err(FederationRecursionReject::DepthExceeded {
+            attempted_depth: depth,
+        });
+    }
+
+    // Non-wrapper leaf: valid terminus. (At depth 0 the call site has already
+    // confirmed this type is allowlisted; at depth >= 1 the parent wrapper's
+    // inner-type allowlist check below confirmed it before recursing.)
+    if !node_type.starts_with(crate::events::NODE_TYPE_FEDERATION_RECEIVED_PREFIX) {
+        return Ok(());
+    }
+
+    // Wrapper: decode the embedded peer event (inner type + inner content) and
+    // recurse one level deeper. A wrapper whose content is not a well-formed
+    // wrapper Map is conservatively rejected (MalformedWrapper → C35) rather
+    // than accepted — a peer offering garbage under the `federation_received:`
+    // prefix is misbehaving.
+    let decoded = match cb_decode(content) {
+        Ok(Value::Map(m)) => m,
+        Ok(_) => {
+            return Err(FederationRecursionReject::MalformedWrapper {
+                depth,
+                reason: "federation_received wrapper content is not a Map".to_string(),
+            });
+        }
+        Err(e) => {
+            return Err(FederationRecursionReject::MalformedWrapper {
+                depth,
+                reason: format!("federation_received wrapper content decode failed: {e}"),
+            });
+        }
+    };
+    let inner_node_type = match map_get_string(&decoded, "peer_event_node_type") {
+        Ok(s) => s.to_string(),
+        Err(e) => {
+            return Err(FederationRecursionReject::MalformedWrapper {
+                depth,
+                reason: format!("wrapper missing peer_event_node_type: {e}"),
+            });
+        }
+    };
+    let inner_content = match map_get_bytes(&decoded, "peer_event_content_canonical_bytes") {
+        Ok(b) => b.to_vec(),
+        Err(e) => {
+            return Err(FederationRecursionReject::MalformedWrapper {
+                depth,
+                reason: format!("wrapper missing peer_event_content_canonical_bytes: {e}"),
+            });
+        }
+    };
+
+    // Banned-type-at-depth: the smuggled inner type must itself be on the
+    // federation allowlist, at EVERY depth — not just the outermost level.
+    if !crate::federation::protocol::is_federation_safe_node_type(&inner_node_type) {
+        return Err(FederationRecursionReject::BannedInnerType {
+            depth: depth + 1,
+            inner_node_type,
+        });
+    }
+
+    // Descend into the embedded peer event one level deeper.
+    validate_federation_inner(&inner_node_type, &inner_content, depth + 1)
+}
+
 /// M22.3: handle a `federation_pull_events_from_peer` request.
 ///
 /// Payload:
@@ -912,13 +1081,25 @@ pub(crate) fn handle_federation_pull_events_from_peer(
     // Post-fix: only substrate-environmental events (raw_material, sporocarp,
     // mutation, immune) are accepted. Any other node_type triggers a
     // C22 immune sporocarp emission + the event is dropped.
+    //
+    // **C43 (2026-06-02) — recursive-injection / depth-exhaustion defense.**
+    // The single-level allowlist above permits the `federation_received:`
+    // prefix (so chained federation propagates). That alone is bypassable: a
+    // malicious peer can nest `federation_received:` wrappers to (a) exhaust
+    // recursion depth or (b) smuggle a banned substrate-private type buried
+    // several wrappers down where the single-level check never looks. Each
+    // candidate "safe" event is therefore ALSO run through
+    // `validate_federation_inner` (recursive, every depth). A reject DROPS the
+    // entire offending envelope (no partial acceptance — see C43 doctrine) and
+    // emits C43 (depth-exhaustion) or C35-with-`cascade_flag` (banned/malformed
+    // at depth). See `federation_recursive_validation.md` + L2/FEDERATION §11.
     let mut rejected_events: Vec<(String, [u8; 32])> = Vec::new();
+    let mut recursive_depth_rejects: Vec<usize> = Vec::new();
+    let mut recursive_banned_rejects: Vec<(usize, String)> = Vec::new();
     let mut safe_events: Vec<&crate::federation::protocol::EventForFederation> = Vec::new();
     for ev in &parsed_batch.events {
-        if crate::federation::protocol::is_federation_safe_node_type(&ev.node_type) {
-            safe_events.push(ev);
-        } else {
-            // Compute the would-be hash for the rejection record.
+        if !crate::federation::protocol::is_federation_safe_node_type(&ev.node_type) {
+            // Single-level allowlist miss (existing Phase β C35 path).
             let parents: Vec<myco_kernel_shared::crypto::NodeHash> = ev
                 .parent_hashes
                 .iter()
@@ -926,6 +1107,27 @@ pub(crate) fn handle_federation_pull_events_from_peer(
                 .collect();
             let would_be_hash = myco_kernel_shared::crypto::merkle_hash(&parents, &ev.content_canonical_bytes);
             rejected_events.push((ev.node_type.clone(), would_be_hash.0));
+            continue;
+        }
+        // C43: recursively validate the (node_type, content) before allowing
+        // it to be wrapped. Conservative — any reject drops the whole event.
+        match validate_federation_inner(&ev.node_type, &ev.content_canonical_bytes, 0) {
+            Ok(()) => safe_events.push(ev),
+            Err(FederationRecursionReject::DepthExceeded { attempted_depth }) => {
+                recursive_depth_rejects.push(attempted_depth);
+            }
+            Err(FederationRecursionReject::BannedInnerType {
+                depth,
+                inner_node_type,
+            }) => {
+                recursive_banned_rejects.push((depth, inner_node_type));
+            }
+            Err(FederationRecursionReject::MalformedWrapper { depth, reason }) => {
+                // Malformed wrapper under an allowlisted prefix → conservative
+                // C35-class reject (recorded with the decode reason as the
+                // "inner type" so operators see why it was refused).
+                recursive_banned_rejects.push((depth, format!("<malformed wrapper: {reason}>")));
+            }
         }
     }
     if !rejected_events.is_empty() {
@@ -938,6 +1140,52 @@ pub(crate) fn handle_federation_pull_events_from_peer(
                 .map(|(t, _)| t.as_str())
                 .collect::<Vec<_>>()
                 .join(", ")
+        );
+        let _ = emit_immune_sporocarp(
+            state,
+            "C35_federation_substrate_private_event_injection",
+            "federation_substrate_private_event_injection",
+            &evidence,
+        );
+    }
+    // C43 depth-exhaustion: emit one immune sporocarp summarizing the
+    // over-deep envelope(s). The whole outer envelope was already dropped
+    // (the event never entered `safe_events`).
+    if !recursive_depth_rejects.is_empty() {
+        let max_attempted = recursive_depth_rejects.iter().copied().max().unwrap_or(0);
+        let evidence = format!(
+            "federation_recursive_injection: peer {} pushed {} event(s) whose \
+             federation_received: nesting exceeded MAX_FEDERATION_RECURSION_DEPTH; \
+             attempted_depth={} max={}; entire outer envelope rejected (no partial \
+             acceptance)",
+            hex_first_8_bytes(&peer_substrate_id),
+            recursive_depth_rejects.len(),
+            max_attempted,
+            MAX_FEDERATION_RECURSION_DEPTH,
+        );
+        let _ = emit_immune_sporocarp(
+            state,
+            "C43_federation_recursive_injection",
+            "federation_recursive_injection",
+            &evidence,
+        );
+    }
+    // C35 (cascade) — banned / malformed inner type smuggled at depth. Distinct
+    // from the single-level C35 above by `cascade_flag=true` + `depth` +
+    // `inner_type` in the evidence string.
+    if !recursive_banned_rejects.is_empty() {
+        let detail = recursive_banned_rejects
+            .iter()
+            .map(|(depth, ty)| format!("depth={depth}:{ty}"))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let evidence = format!(
+            "federation_substrate_private_event_injection cascade_flag=true: peer {} \
+             smuggled {} banned/malformed inner event-type(s) inside nested \
+             federation_received: wrappers; {}; entire outer envelope rejected",
+            hex_first_8_bytes(&peer_substrate_id),
+            recursive_banned_rejects.len(),
+            detail,
         );
         let _ = emit_immune_sporocarp(
             state,
@@ -1129,4 +1377,274 @@ pub(crate) fn handle_federation_status(
         request.request_id,
         payload,
     )))
+}
+
+#[cfg(test)]
+mod c43_recursive_validation_tests {
+    //! C43 federation recursive-injection defense — deterministic unit tests
+    //! over hand-built canonical bytes (no wire / no `ServerState` needed).
+    //!
+    //! These exercise `validate_federation_inner` directly, which is the pure
+    //! decision core wired into the federation pull path. The pull-path call
+    //! site (in `handle_federation_pull_events_from_peer`) maps each
+    //! `FederationRecursionReject` to the matching immune sporocarp (C43 /
+    //! C35-cascade) and drops the whole offending envelope.
+    use super::*;
+
+    /// A safe, non-wrapper leaf event (allowlisted prefix `raw_material:`) with
+    /// arbitrary canonical-bytes content. The recursion terminates here with
+    /// `Ok`.
+    fn safe_leaf() -> (String, Vec<u8>) {
+        let mut m = BTreeMap::new();
+        m.insert("content_kind".to_string(), Value::String("text".to_string()));
+        m.insert("content".to_string(), Value::Bytes(b"peer environmental".to_vec()));
+        let content = cb_encode(&Value::Map(m)).expect("leaf encode").as_ref().to_vec();
+        ("raw_material:peer".to_string(), content)
+    }
+
+    /// A substrate-private (BANNED) leaf event — exactly the class the
+    /// allowlist exists to keep out (`operator_pinned:*` overwrites the pinned
+    /// operator identity at replay).
+    fn banned_leaf() -> (String, Vec<u8>) {
+        let mut m = BTreeMap::new();
+        m.insert("victim".to_string(), Value::Bytes(vec![0xde, 0xad]));
+        let content = cb_encode(&Value::Map(m)).expect("banned encode").as_ref().to_vec();
+        ("operator_pinned:victim".to_string(), content)
+    }
+
+    /// Wrap an inner `(node_type, content)` pair into a `federation_received:`
+    /// envelope's canonical bytes — exactly the wrapper-content shape the pull
+    /// path produces (and therefore the shape the validator decodes). Returns
+    /// the wrapper's own `(node_type, content)`.
+    ///
+    /// Only `peer_event_node_type` + `peer_event_content_canonical_bytes` are
+    /// read by `validate_federation_inner`; the other provenance fields are
+    /// included so the fixture matches the real on-wire wrapper byte-for-byte.
+    fn wrap(inner_node_type: &str, inner_content: &[u8]) -> (String, Vec<u8>) {
+        let mut m = BTreeMap::new();
+        m.insert(
+            "from_peer_substrate_id".to_string(),
+            Value::Bytes(vec![0x11; 32]),
+        );
+        m.insert(
+            "peer_event_node_type".to_string(),
+            Value::String(inner_node_type.to_string()),
+        );
+        m.insert(
+            "peer_event_parent_hashes".to_string(),
+            Value::Array(Vec::new()),
+        );
+        m.insert(
+            "peer_event_content_canonical_bytes".to_string(),
+            Value::Bytes(inner_content.to_vec()),
+        );
+        m.insert(
+            "peer_event_original_hash".to_string(),
+            Value::Bytes(vec![0x22; 32]),
+        );
+        m.insert("peer_event_created_at_cycle".to_string(), Value::Uint(0));
+        let content = cb_encode(&Value::Map(m)).expect("wrapper encode").as_ref().to_vec();
+        ("federation_received:abcd1234".to_string(), content)
+    }
+
+    /// Build a chain of `n` `federation_received:` wrappers around `leaf`.
+    /// The returned `(node_type, content)` is the OUTERMOST wrapper — i.e. what
+    /// a peer would push as a single allowlisted event.
+    fn nest(n: usize, leaf: (String, Vec<u8>)) -> (String, Vec<u8>) {
+        let (mut ty, mut content) = leaf;
+        for _ in 0..n {
+            let (wt, wc) = wrap(&ty, &content);
+            ty = wt;
+            content = wc;
+        }
+        (ty, content)
+    }
+
+    #[test]
+    fn max_depth_constant_matches_algorithm_doc_seed() {
+        // federation_recursive_validation.md "Max depth": seed = 5.
+        assert_eq!(MAX_FEDERATION_RECURSION_DEPTH, 5);
+    }
+
+    #[test]
+    fn non_wrapper_safe_leaf_is_accepted() {
+        let (ty, content) = safe_leaf();
+        assert_eq!(validate_federation_inner(&ty, &content, 0), Ok(()));
+    }
+
+    #[test]
+    fn single_level_wrapper_with_safe_inner_is_accepted() {
+        // One `federation_received:` wrapper around a raw_material leaf — the
+        // ordinary "I heard peer say X" attestation. Must pass (this is the
+        // legitimate federation path the allowlist already permits).
+        let (ty, content) = nest(1, safe_leaf());
+        assert_eq!(validate_federation_inner(&ty, &content, 0), Ok(()));
+    }
+
+    #[test]
+    fn legitimate_depth_5_chain_is_accepted() {
+        // 5 nested wrappers + a safe leaf. The validator descends to depth 5
+        // (== MAX_FEDERATION_RECURSION_DEPTH), finds a non-wrapper safe leaf,
+        // and accepts. depth 5 is NOT > 5, so no C43.
+        let (ty, content) = nest(5, safe_leaf());
+        assert_eq!(
+            validate_federation_inner(&ty, &content, 0),
+            Ok(()),
+            "a chain reaching exactly MAX depth must still be accepted"
+        );
+    }
+
+    #[test]
+    fn depth_exhaustion_at_six_levels_is_rejected_with_attempted_depth_6() {
+        // 6 nested wrappers → the validator descends to depth 6, where the
+        // `depth > MAX` gate fires FIRST (before decoding) → C43 with
+        // attempted_depth == 6. The whole outer envelope is rejected.
+        let (ty, content) = nest(6, safe_leaf());
+        let reject = validate_federation_inner(&ty, &content, 0)
+            .expect_err("6-deep nesting must be rejected");
+        assert_eq!(
+            reject,
+            FederationRecursionReject::DepthExceeded { attempted_depth: 6 },
+            "depth-exhaustion must report attempted_depth=6 (one beyond MAX=5)"
+        );
+    }
+
+    #[test]
+    fn deep_nesting_well_beyond_max_still_reports_first_violation_depth() {
+        // Even a 50-deep chain is rejected at the FIRST over-MAX level
+        // (attempted_depth = MAX + 1 = 6) — the validator never walks the
+        // whole adversarial chain (depth-exhaustion protection works).
+        let (ty, content) = nest(50, safe_leaf());
+        let reject = validate_federation_inner(&ty, &content, 0)
+            .expect_err("50-deep nesting must be rejected");
+        assert_eq!(
+            reject,
+            FederationRecursionReject::DepthExceeded { attempted_depth: 6 },
+        );
+    }
+
+    #[test]
+    fn banned_type_buried_at_depth_3_is_rejected_with_cascade() {
+        // 3 wrappers where the innermost wraps a substrate-private
+        // `operator_pinned:` type. The single-level allowlist (outer type is
+        // `federation_received:`) would MISS this; the recursive validator
+        // catches it at depth 3 → C35 with cascade_flag.
+        let (ty, content) = nest(3, banned_leaf());
+        let reject = validate_federation_inner(&ty, &content, 0)
+            .expect_err("banned inner type at depth 3 must be rejected");
+        match reject {
+            FederationRecursionReject::BannedInnerType {
+                depth,
+                inner_node_type,
+            } => {
+                assert_eq!(depth, 3, "banned inner type must be reported at depth 3");
+                assert_eq!(inner_node_type, "operator_pinned:victim");
+            }
+            other => panic!("expected BannedInnerType at depth 3; got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn banned_inner_at_depth_1_is_rejected() {
+        // A single wrapper directly around a banned type (the minimal
+        // laundering attempt). Caught at depth 1.
+        let (ty, content) = nest(1, banned_leaf());
+        let reject = validate_federation_inner(&ty, &content, 0)
+            .expect_err("banned inner type at depth 1 must be rejected");
+        assert_eq!(
+            reject,
+            FederationRecursionReject::BannedInnerType {
+                depth: 1,
+                inner_node_type: "operator_pinned:victim".to_string(),
+            },
+        );
+    }
+
+    #[test]
+    fn banned_leaf_within_max_depth_is_caught_as_cascade_not_depth() {
+        // 6 wrappers around a banned leaf. The innermost wrapper (which holds
+        // the banned `operator_pinned:` inner type) is reached at recursion
+        // depth 5 — WITHIN the depth bound — so its banned inner is caught and
+        // reported as BannedInnerType at depth 6 (depth+1). The depth gate
+        // (depth > 5) never fires because we never recurse past the banned
+        // layer. Both outcomes drop the envelope; this pins the precise signal.
+        let (ty, content) = nest(6, banned_leaf());
+        let reject = validate_federation_inner(&ty, &content, 0)
+            .expect_err("6-deep banned chain must be rejected");
+        assert_eq!(
+            reject,
+            FederationRecursionReject::BannedInnerType {
+                depth: 6,
+                inner_node_type: "operator_pinned:victim".to_string(),
+            },
+            "a banned inner reachable within MAX depth is a cascade reject, not depth-exhaustion"
+        );
+    }
+
+    #[test]
+    fn depth_gate_cannot_be_bypassed_by_burying_banned_leaf_deeper() {
+        // 7 wrappers around a banned leaf: the validator exhausts the depth
+        // budget (DepthExceeded at attempted_depth=6) BEFORE it can ever reach
+        // the wrapper holding the banned leaf (which sits at depth 7). This is
+        // the security-critical property — an attacker cannot push the banned
+        // payload past inspection by nesting it deeper; the depth gate refuses
+        // the whole over-deep envelope first.
+        let (ty, content) = nest(7, banned_leaf());
+        let reject = validate_federation_inner(&ty, &content, 0)
+            .expect_err("7-deep banned chain must be rejected");
+        assert_eq!(
+            reject,
+            FederationRecursionReject::DepthExceeded { attempted_depth: 6 },
+            "depth gate must fire before reaching a banned leaf buried beyond MAX depth"
+        );
+    }
+
+    #[test]
+    fn malformed_wrapper_content_is_conservatively_rejected() {
+        // A `federation_received:` event whose content is NOT a decodable
+        // wrapper Map. The validator refuses it (MalformedWrapper → C35-class)
+        // rather than silently wrapping garbage under an allowlisted prefix.
+        let ty = "federation_received:deadbeef".to_string();
+        let content = vec![0xff, 0x00, 0x13, 0x37]; // not valid canonical bytes
+        let reject = validate_federation_inner(&ty, &content, 0)
+            .expect_err("undecodable wrapper content must be rejected");
+        match reject {
+            FederationRecursionReject::MalformedWrapper { depth, .. } => {
+                assert_eq!(depth, 0);
+            }
+            other => panic!("expected MalformedWrapper; got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn wrapper_missing_inner_type_field_is_rejected() {
+        // A wrapper Map that decodes fine but lacks `peer_event_node_type`.
+        let mut m = BTreeMap::new();
+        m.insert(
+            "peer_event_content_canonical_bytes".to_string(),
+            Value::Bytes(vec![0x01, 0x02]),
+        );
+        let content = cb_encode(&Value::Map(m)).expect("encode").as_ref().to_vec();
+        let ty = "federation_received:cafe".to_string();
+        let reject = validate_federation_inner(&ty, &content, 0)
+            .expect_err("wrapper missing peer_event_node_type must be rejected");
+        assert!(matches!(
+            reject,
+            FederationRecursionReject::MalformedWrapper { depth: 0, .. }
+        ));
+    }
+
+    #[test]
+    fn mixed_chain_safe_wrappers_then_banned_leaf_at_depth_2() {
+        // 2 safe wrappers around a banned leaf → caught at depth 2.
+        let (ty, content) = nest(2, banned_leaf());
+        let reject = validate_federation_inner(&ty, &content, 0).expect_err("must reject");
+        assert_eq!(
+            reject,
+            FederationRecursionReject::BannedInnerType {
+                depth: 2,
+                inner_node_type: "operator_pinned:victim".to_string(),
+            },
+        );
+    }
 }
