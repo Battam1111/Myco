@@ -15,22 +15,22 @@ Lives in [`L0/`](L0/). Entry point: [`L0/README.md`](L0/README.md).
 - [`L0/PROVENANCE.md`](L0/PROVENANCE.md) — supersession chain + complete prior-L0 mapping table
 - [`L0/README.md`](L0/README.md) — directory entry point + 4 reading paths
 
-**Layer A — Principle cards** (26 cards in [`L0/cards/`](L0/cards/)):
+**Layer A — Principle cards** (28 cards in [`L0/cards/`](L0/cards/)):
 
 | Card type | Cards |
 |---|---|
-| Postulates (12) | P01 / P01c (eternity) / P02 / P03 / P04 / P05 / P06 (eternity) / P07 (eternity) / P08 / P09 (eternity) / P10 / P11 / P14 |
+| Postulates (13) | P01 / P01c (eternity) / P02 / P03 / P04 / P05 / P06 (eternity) / P07 (eternity) / P08 / P09 (eternity) / P10 / P11 / P14 |
 | Cultivator's Covenant (6) | COV01-COV06 |
-| Cultivar Character (6) | CHAR01-CHAR06 |
+| Cultivar Character (7) | CHAR01-CHAR07 |
 | Specialized (2) | AS_anchor_surface (§9 with 12 sub-mechanisms) / LB_living_bets (§7 with falsifiability + retirement) |
 
-**Layer B** — Generative-image fragments in [`L0/B_chengyu.md`](L0/B_chengyu.md) (50 chengyu, read end-to-end).
+**Layer B** — Generative-image fragments in [`L0/B_chengyu.md`](L0/B_chengyu.md) (60 chengyu, read end-to-end).
 
 **Layer C** — Witness-anchored doctrine: each card's `witnesses` field declares positive + negative + edge test triplet. Substrate code carries reverse comments citing witness IDs (META §5.4 lint rule).
 
-**Layer D** — Catechumenate transmission: [`L0/catechumenate/`](L0/catechumenate/) (empty until succession preparation begins).
+**Layer D** — Catechumenate transmission: [`L0/catechumenate/`](L0/catechumenate/) (form scaffolding only — INDEX + TEMPLATE + HOW_TO_ADD_A_SESSION; 0 sessions until succession preparation begins).
 
-**Canonical dilemma corpus**: [`L0/canonical_dilemma_corpus/`](L0/canonical_dilemma_corpus/) (49 setups for model-diversity cross-check).
+**Canonical dilemma corpus**: [`L0/canonical_dilemma_corpus/`](L0/canonical_dilemma_corpus/) (54 setups for model-diversity cross-check).
 
 ### L1 — Mechanism enforcement (7 docs)
 
