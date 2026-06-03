@@ -167,6 +167,29 @@ pub const NODE_TYPE_TELOS_DRIFT: &str = "telos_drift";
 /// per §F.1). Paired with C24_telos_drift_critical immune sporocarp.
 pub const NODE_TYPE_TELOS_DRIFT_CRITICAL: &str = "telos_drift_critical";
 
+/// **Phase ② C75** — `cultivator_fiduciary_strain` meta-immune sporocarp
+/// subtype (META §7.7 + COV01 §3.5/§4.4). Emitted by the observatory when the
+/// cultivar's `telos_drift` has fired PERSISTENTLY over a 180-day rolling
+/// wall-clock window AND the cultivator has taken NO fiduciary action in that
+/// window (no L0/L1 amendment, no objective re-declaration, no bet retirement,
+/// no succession). This is a META-immune signal: it flags the CULTIVATOR's
+/// neglect of a persistently-drifting cultivar, NOT a substrate fault. It is
+/// informational/relational (NOT in the §1.1 CRITICAL auto-quarantine table —
+/// it does NOT quarantine the substrate); it surfaces the drift to external
+/// witnesses (successor cultivator, posterity-trustees). Fired via
+/// `emit_immune_sporocarp` (detector_id `C75_cultivator_fiduciary_strain`).
+pub const NODE_TYPE_CULTIVATOR_FIDUCIARY_STRAIN: &str = "cultivator_fiduciary_strain";
+
+/// **Phase ② C40 birth-suspension** — `bet_weakening_evaluation_suspended`
+/// event (algorithms/bet_weakening_quorum.md §4 + L1/HARD_RULES §1.3/§3).
+/// Emitted INSTEAD of evaluating the `bet_weakening_quorum` while the substrate
+/// is in the birth period: signals #1/#3 are monotone growing from zero, #6 is
+/// structurally < 1, so the falsifiability math is vacuous. Daily class, NOT
+/// immune — it records WHY C40 did not evaluate, so an observer does not read
+/// the absence of C40 during birth as "the bet is healthy".
+pub const NODE_TYPE_BET_WEAKENING_EVALUATION_SUSPENDED: &str =
+    "bet_weakening_evaluation_suspended";
+
 /// Encode a telos_alignment status event (any of the four levels above).
 pub fn encode_telos_status(
     cosine_repr: &str,

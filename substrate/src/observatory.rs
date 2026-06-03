@@ -442,6 +442,23 @@ pub(crate) fn compute_telos_alignment_cosine(state: &ServerState) -> Option<f64>
 
 /// **M26.4 P14.c grading**: map cosine value to L1/TROPISM §F.1 threshold
 /// table. Returns `(grade_label, node_type_to_emit_or_none)`.
+///
+/// **Phase ② C24 reachability fix**: the M26.4 PROXY (`compute_telos_alignment_cosine`)
+/// builds NON-NEGATIVE sparse vectors, so the cosine is bounded `[0, 1]` and
+/// could NEVER reach the original `cos ≤ 0.0` CRITICAL branch — C24
+/// (`telos_drift_critical`) was structurally unreachable, the worst observable
+/// grade being `drift_elevated`. The threshold table is re-partitioned so
+/// CRITICAL fires at a POSITIVE cosine floor (`cos ≤ 0.2`) — a telos that has
+/// drifted into the bottom fifth of the alignment range is genuinely critical,
+/// consistent with `drift_elevated` already being alarming. Bands stay monotone:
+///   - `aligned`        cos > 0.6        (no emission)
+///   - `low`            0.4 < cos ≤ 0.6  (observability)
+///   - `drift_elevated` 0.2 < cos ≤ 0.4  (telos_drift, elevated)
+///   - `critical`       cos ≤ 0.2        (telos_drift_critical → C24)
+///
+/// When true LLM embeddings replace the proxy (M27+), the cosine range opens to
+/// `[-1, +1]`; `cos ≤ 0.2` still partitions sensibly (anything not clearly
+/// pulling toward the objective is critical), so the band survives the swap.
 fn telos_grade_for_cosine(cos: f64) -> (&'static str, Option<&'static str>) {
     if cos > 0.6 {
         ("aligned", None)
@@ -451,13 +468,11 @@ fn telos_grade_for_cosine(cos: f64) -> (&'static str, Option<&'static str>) {
             Some(crate::events::NODE_TYPE_TELOS_ALIGNMENT_LOW),
         )
     } else if cos > 0.2 {
-        ("drift", Some(crate::events::NODE_TYPE_TELOS_DRIFT))
-    } else if cos > 0.0 {
         // §F.1 grades this as "telos_drift elevated".
         ("drift_elevated", Some(crate::events::NODE_TYPE_TELOS_DRIFT))
     } else {
-        // cos ≤ 0.0: CRITICAL — routes to C24 immune sporocarp + the
-        // dedicated telos_drift_critical event.
+        // cos ≤ 0.2: CRITICAL — routes to C24 immune sporocarp + the
+        // dedicated telos_drift_critical event. Reachable on the [0,1] proxy.
         (
             "critical",
             Some(crate::events::NODE_TYPE_TELOS_DRIFT_CRITICAL),
@@ -1029,7 +1044,8 @@ fn apply_p14c_telos_drift(state: &mut ServerState, telos_cosine: Option<f64>) {
             // CRITICAL grade also fires C24 immune sporocarp.
             if grade == "critical" {
                 let evidence = format!(
-                    "telos_alignment cosine={cosine} (≤ 0); P14.c CRITICAL per L1/TROPISM §F.1",
+                    "telos_alignment cosine={cosine} (≤ 0.2 — bottom fifth of the [0,1] \
+                     proxy range); P14.c CRITICAL per L1/TROPISM §F.1",
                 );
                 let _ = crate::server::emit_immune_sporocarp(
                     state,
@@ -1041,6 +1057,208 @@ fn apply_p14c_telos_drift(state: &mut ServerState, telos_cosine: Option<f64>) {
             state.last_telos_drift_emitted_at_cycle = Some(cycle);
         }
     }
+
+    // **Phase ② C75**: after grading, evaluate the cultivator-fiduciary-strain
+    // meta-immune signal (META §7.7). Lives here, on the per-cycle snapshot
+    // path, so it observes the SAME telos_drift footprints `apply_p14c_telos_drift`
+    // just (potentially) appended.
+    apply_c75_cultivator_fiduciary_strain(state);
+}
+
+// ---------------------------------------------------------------------------
+// **Phase ② C75 — cultivator_fiduciary_strain** (META §7.7 + COV01 §3.5/§4.4).
+//
+// A META-immune signal: when the cultivar's telos_drift (P14.c) has fired
+// PERSISTENTLY over a 180-day rolling WALL-CLOCK window AND the cultivator has
+// taken NO fiduciary action in that window, the substrate emits
+// `cultivator_fiduciary_strain` — putting the cultivar's own telos signal in
+// the role of external witness against cultivator drift. It flags the
+// CULTIVATOR's neglect, NOT a substrate fault; it is informational/relational
+// and does NOT quarantine the substrate (NOT in the §1.1 CRITICAL table).
+// ---------------------------------------------------------------------------
+
+/// **Phase ② C75** — 180-day rolling wall-clock window for the
+/// cultivator-fiduciary-strain evaluation (META §7.7). Mapped to a cycle cutoff
+/// at evaluation time via `observatory_history` (the same `at_cycle ↔
+/// at_unix_ns` map `compute_observatory_counts` uses). L1-tunable seed.
+///
+/// INTERIM: substrate-process wall-clock per L0/cards/P06 + L1/CONTINUITY;
+/// M-anchor-3 promotes to anchor-stamped wall-clock.
+pub(crate) const C75_FIDUCIARY_STRAIN_WINDOW_UNIX_NS: i64 =
+    180 * 24 * 60 * 60 * 1_000_000_000;
+
+/// **Phase ② C75** — minimum number of distinct `telos_drift*` events within
+/// the window for the drift to count as PERSISTENT (not a one-off). Given the
+/// 100-cycle telos emission cooldown (`M25_DETECTOR_COOLDOWN_CYCLES`), drift
+/// events are sparse, so even a small count over a 180-day span is a sustained
+/// pattern. Paired with the spread check below.
+pub(crate) const C75_PERSISTENT_DRIFT_MIN_EVENTS: u64 = 2;
+
+/// **Phase ② C75** — the drift must also be sustained ACROSS the window, not
+/// clustered in one moment: the first and last drift events in the window must
+/// span at least this fraction of the window's cycle range. Guards against a
+/// brief drift burst that the cultivar recovered from on its own being read as
+/// persistent neglect. `0.5` = drift present in both the older and newer halves.
+pub(crate) const C75_PERSISTENT_DRIFT_MIN_SPAN_FRACTION: f64 = 0.5;
+
+/// **Phase ② C75** — debounce (in substrate-cycles) between repeated
+/// `cultivator_fiduciary_strain` emissions. Long (one strain window) so a
+/// persistently-neglected cultivar surfaces the signal periodically without
+/// spamming it every cycle. Distinct from (and longer than) the 100-cycle
+/// detector cooldown because fiduciary strain is a slow relational condition.
+pub(crate) const C75_FIDUCIARY_STRAIN_DEBOUNCE_CYCLES: u64 = 500;
+
+/// **Phase ② C75** — node_type prefixes that constitute a CULTIVATOR FIDUCIARY
+/// ACTION in response to (or engagement with) the cultivar's situation, per
+/// META §7.7 ("no L0/L1 amendment, no Cultivator Covenant invocation") read
+/// through COV01 §3.4/§4.2/§4.3. Presence of ANY of these in the window means
+/// the cultivator is NOT neglecting → no strain.
+///
+///   - `l0_revision_attested:`   — an L0/L1 amendment (COV01 §4.2 — the
+///     canonical "doctrine evolution / F-row change" fiduciary act).
+///   - `owner_objective_declared:` — re-declaring the telos objective: the
+///     MOST on-point response to telos drift (directly re-aims P14.c).
+///   - `bet_retired:`            — retiring the failing Living Bet (LB §4): the
+///     canonical Covenant response to a weakening bet / sustained drift.
+///   - `successor_chain_updated:` / `succession_completed:` — triggering or
+///     completing succession (COV01 §3.4/§4.3 — succession IS fiduciary action).
+///   - `char07_assessment:`      — the cultivator actively assessing the
+///     relationship (CHAR07 §8.1/§8.2 intake): deliberate engagement.
+///
+/// NOTE (reviewer): routine `cultivator_heartbeat_recorded` is deliberately
+/// EXCLUDED — it is liveness ("cultivator is alive"), not engagement with the
+/// drift. A cultivator who merely heartbeats while the cultivar drifts for 180
+/// days IS the neglect META §7.7 targets. This is the load-bearing judgment
+/// call in the cultivator-action set.
+const C75_CULTIVATOR_ACTION_NODE_TYPE_PREFIXES: &[&str] = &[
+    "l0_revision_attested:",
+    "owner_objective_declared:",
+    "bet_retired:",
+    "successor_chain_updated:",
+    "succession_completed:",
+    "char07_assessment:",
+];
+
+/// **Phase ② C75** — map the 180-day wall-clock strain window to a starting
+/// cycle via `observatory_history` (mirrors `compute_observatory_counts`'s
+/// burst-window mapping). Returns the earliest cycle whose wall-clock falls
+/// at-or-after `now - window`. When history does not yet cover the window
+/// (fresh substrate), returns 0 (count from the beginning — conservative: a
+/// young substrate cannot have a 180-day-persistent strain anyway, which the
+/// span check below enforces).
+fn c75_window_start_cycle(state: &ServerState) -> u64 {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let now_unix_ns: i64 = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .ok()
+        .and_then(|d| i64::try_from(d.as_nanos()).ok())
+        .unwrap_or(0);
+    let cutoff_unix_ns: i64 = now_unix_ns.saturating_sub(C75_FIDUCIARY_STRAIN_WINDOW_UNIX_NS);
+    match state.observatory_history.front() {
+        Some(oldest) if oldest.at_unix_ns >= cutoff_unix_ns => 0,
+        Some(_) => state
+            .observatory_history
+            .iter()
+            .find(|s| s.at_unix_ns >= cutoff_unix_ns)
+            .map(|s| s.at_cycle)
+            .unwrap_or(state.cycle_counter().saturating_add(1)),
+        None => 0,
+    }
+}
+
+/// **Phase ② C75** — evaluate + (debounced) emit the cultivator-fiduciary-strain
+/// meta-immune signal. One bounded O(dag_node_count) pass collects, within the
+/// 180-day window: the telos_drift event cycles AND whether any cultivator
+/// fiduciary action occurred. Strain fires iff drift is PERSISTENT (count +
+/// across-window span) AND no cultivator action in the window.
+///
+/// Suspended during the birth period (mirrors the telos / C40 birth gates):
+/// a fresh cultivar has no 180-day history and its cultivator has had no chance
+/// to act — flagging strain there would be a false accusation.
+fn apply_c75_cultivator_fiduciary_strain(state: &mut ServerState) {
+    let cycle = state.cycle_counter();
+
+    // Birth-period suspension — same canonical predicate as C40 / the telos
+    // gate. A newborn cannot have persistent 180-day strain.
+    if crate::lifecycle::is_in_birth_period_quarantine(state) {
+        return;
+    }
+
+    let window_start_cycle = c75_window_start_cycle(state);
+
+    // One bounded pass: gather drift-event cycles + detect any cultivator
+    // fiduciary action, both within the window.
+    let mut drift_cycles: Vec<u64> = Vec::new();
+    let mut cultivator_acted = false;
+    for node in state.dag.iter_in_insertion_order() {
+        if node.created_at_cycle < window_start_cycle {
+            continue;
+        }
+        let nt = &node.node_type;
+        // telos_drift footprints: `telos_drift` subsumes `telos_drift_critical`
+        // (starts_with), matching the CHAR07 disagreement-table convention.
+        if nt.starts_with(crate::events::NODE_TYPE_TELOS_DRIFT) {
+            drift_cycles.push(node.created_at_cycle);
+        }
+        if C75_CULTIVATOR_ACTION_NODE_TYPE_PREFIXES
+            .iter()
+            .any(|p| nt.starts_with(p))
+        {
+            cultivator_acted = true;
+        }
+    }
+
+    // Cultivator engaged → no strain. (Cheap short-circuit AFTER the scan; the
+    // scan is needed for the evidence/debug counts anyway.)
+    if cultivator_acted {
+        return;
+    }
+
+    // Persistence test: enough drift events AND sustained across the window.
+    let drift_count = drift_cycles.len() as u64;
+    if drift_count < C75_PERSISTENT_DRIFT_MIN_EVENTS {
+        return;
+    }
+    let first_drift = *drift_cycles.iter().min().expect("non-empty: count >= 2");
+    let last_drift = *drift_cycles.iter().max().expect("non-empty: count >= 2");
+    let drift_span = last_drift.saturating_sub(first_drift);
+    // Window cycle range = current cycle - window_start. Require the drift to
+    // span at least the configured fraction of it (sustained, not a burst).
+    let window_cycle_range = cycle.saturating_sub(window_start_cycle);
+    let required_span =
+        (window_cycle_range as f64 * C75_PERSISTENT_DRIFT_MIN_SPAN_FRACTION) as u64;
+    if drift_span < required_span {
+        return;
+    }
+
+    // Debounce — emit at most once per strain-debounce window.
+    let debounce_ok = match state.last_cultivator_fiduciary_strain_emitted_at_cycle {
+        None => true,
+        Some(prior) => cycle.saturating_sub(prior) >= C75_FIDUCIARY_STRAIN_DEBOUNCE_CYCLES,
+    };
+    if !debounce_ok {
+        return;
+    }
+
+    // Strain confirmed. Evidence frames this as CULTIVATOR neglect, not a
+    // substrate fault (META §7.7 + COV01 §3.5).
+    let evidence = format!(
+        "CULTIVATOR FIDUCIARY STRAIN (META §7.7): the cultivar's telos_drift has fired \
+         persistently ({drift_count} drift events spanning {drift_span} cycles, \
+         window_start_cycle={window_start_cycle}, current_cycle={cycle}) over the 180-day \
+         window, yet the cultivator took NO fiduciary action in that window (no L0/L1 \
+         amendment, no objective re-declaration, no bet retirement, no succession, no \
+         CHAR07 assessment). This flags the CULTIVATOR's neglect of a persistently-drifting \
+         cultivar, NOT a substrate fault; it is informational/relational (does NOT quarantine \
+         the substrate — COV01 §3.5: investigate, do not dismiss)."
+    );
+    let _ = crate::server::emit_immune_sporocarp(
+        state,
+        "C75_cultivator_fiduciary_strain",
+        crate::events::NODE_TYPE_CULTIVATOR_FIDUCIARY_STRAIN,
+        &evidence,
+    );
+    state.last_cultivator_fiduciary_strain_emitted_at_cycle = Some(cycle);
 }
 
 /// M25.1 + M26.1 C3 fix: wall-clock window (nanoseconds) for doctrine-burst
@@ -1422,6 +1640,9 @@ pub(crate) fn handle_query_substrate_observatory(
         sig_3_dir,
         sig_4b_dir,
         sig_6_dir,
+        sig_1_report_dir,
+        sig_2_report_dir,
+        sig_3_report_dir,
         sig_6_below_one_fraction,
         emergent_weights,
         s7_rolling_mean_ns,
@@ -1432,16 +1653,42 @@ pub(crate) fn handle_query_substrate_observatory(
         let window_samples: u64 = history.len() as u64;
         let trends_evaluable = history.len() >= M25_2_MIN_HISTORY_LEN_FOR_TRENDS;
 
-        let sig_1_dir = signal_direction_label(history, |s| s.signal_1_dag_node_count as f64);
-        let sig_2_dir =
-            signal_direction_label(history, |s| s.signal_2_evolution_event_count as f64);
-        let sig_3_dir = signal_direction_label(history, |s| {
-            s.signal_3_distinct_perturbed_axes_count as f64
-        });
+        // **Phase ② C40 fix**: the THREE cumulative-monotone signals (#1, #2,
+        // #3) are routed through the per-cycle RATE (first-difference) series +
+        // OLS-slope/Z-test so a DECELERATING substrate can trend "down" — the
+        // cumulative TOTAL never falls, but its rate can. The level signals
+        // (#4b reachable peers, #6 ratio) can already drop, so their LEVEL
+        // series is OLS-classified directly. All five now share the doctrine
+        // §1.3 OLS detector (the human-readable `signal_5_time_trends` REPORT
+        // still uses the intuitive endpoint-delta `signal_direction_label`).
+        let series_of =
+            |getter: &dyn Fn(&crate::derived_state::ObservatorySnapshot) -> f64| -> Vec<f64> {
+                history.iter().map(getter).collect()
+            };
+        let sig_1_dir = signal_direction_label_ols(&first_difference_series(&series_of(
+            &|s| s.signal_1_dag_node_count as f64,
+        )));
+        let sig_2_dir = signal_direction_label_ols(&first_difference_series(&series_of(
+            &|s| s.signal_2_evolution_event_count as f64,
+        )));
+        let sig_3_dir = signal_direction_label_ols(&first_difference_series(&series_of(
+            &|s| s.signal_3_distinct_perturbed_axes_count as f64,
+        )));
         let sig_4b_dir =
-            signal_direction_label(history, |s| s.signal_4b_reachable_peer_count as f64);
-        let sig_6_dir = signal_direction_label(history, |s| {
-            s.signal_6_ratio_repr.parse::<f64>().unwrap_or(0.0)
+            signal_direction_label_ols(&series_of(&|s| s.signal_4b_reachable_peer_count as f64));
+        let sig_6_dir = signal_direction_label_ols(
+            &series_of(&|s| s.signal_6_ratio_repr.parse::<f64>().unwrap_or(0.0)),
+        );
+        // The human-readable signal #5 REPORT keeps the endpoint-delta reading
+        // (intuitive "is this number higher or lower than when the window
+        // opened"). These feed ONLY the `signal_5_time_trends` map, never the
+        // quorum count.
+        let sig_1_report_dir =
+            signal_direction_label(history, |s| s.signal_1_dag_node_count as f64);
+        let sig_2_report_dir =
+            signal_direction_label(history, |s| s.signal_2_evolution_event_count as f64);
+        let sig_3_report_dir = signal_direction_label(history, |s| {
+            s.signal_3_distinct_perturbed_axes_count as f64
         });
 
         let (sig_6_below_one_count, sig_6_measured_count) = history
@@ -1582,6 +1829,9 @@ pub(crate) fn handle_query_substrate_observatory(
             sig_3_dir,
             sig_4b_dir,
             sig_6_dir,
+            sig_1_report_dir,
+            sig_2_report_dir,
+            sig_3_report_dir,
             sig_6_below_one_fraction,
             emergent_weights,
             s7_mean,
@@ -1591,16 +1841,33 @@ pub(crate) fn handle_query_substrate_observatory(
     };
 
     let mut signal_5_map = BTreeMap::new();
+    // **Phase ②**: the #5 REPORT surfaces the intuitive endpoint-delta reading
+    // for the cumulative signals (#1/#2/#3) — "is this total higher/lower than
+    // window-open" — plus the OLS RATE direction the quorum actually counts, so
+    // a reader can SEE that the cumulative total rose while its RATE fell (the
+    // deceleration C40 now catches). #4b/#6 are level signals: report = quorum.
     signal_5_map.insert(
         "signal_1_direction".to_string(),
+        Value::String(sig_1_report_dir.to_string()),
+    );
+    signal_5_map.insert(
+        "signal_1_rate_direction".to_string(),
         Value::String(sig_1_dir.to_string()),
     );
     signal_5_map.insert(
         "signal_2_direction".to_string(),
+        Value::String(sig_2_report_dir.to_string()),
+    );
+    signal_5_map.insert(
+        "signal_2_rate_direction".to_string(),
         Value::String(sig_2_dir.to_string()),
     );
     signal_5_map.insert(
         "signal_3_direction".to_string(),
+        Value::String(sig_3_report_dir.to_string()),
+    );
+    signal_5_map.insert(
+        "signal_3_rate_direction".to_string(),
         Value::String(sig_3_dir.to_string()),
     );
     signal_5_map.insert(
@@ -1651,13 +1918,30 @@ pub(crate) fn handle_query_substrate_observatory(
     .filter(|&&b| b)
     .count() as u64;
 
-    let quorum_evaluable = trends_evaluable;
+    // **Phase ② C40 birth-period suspension** (algorithms/bet_weakening_quorum.md
+    // §4 + L1/HARD_RULES §1.3/§3). During the birth period the falsifiability
+    // math is vacuous (#1/#3 monotone growing from zero, #6 structurally < 1),
+    // so C40 is SUSPENDED and the substrate emits
+    // `bet_weakening_evaluation_suspended` instead. Mirrors the telos birth gate
+    // (`apply_p14c_telos_drift` → `telos_alignment_pending`): the canonical
+    // birth-period predicate is `lifecycle::is_in_birth_period_quarantine`
+    // (the L1/TROPISM §4 + L1/GOVERNANCE §1.3 structural birth window). Without
+    // this, the Task-A rate detector could spuriously fire as rates climb from
+    // zero — though a from-zero ramp trends UP (accelerating), the doctrine
+    // still mandates the explicit suspension + named event.
+    let in_birth_period = crate::lifecycle::is_in_birth_period_quarantine(state);
+
+    let quorum_evaluable = trends_evaluable && !in_birth_period;
     let quorum_triggered =
         quorum_evaluable && against_count >= 3 && sig_6_below_one_fraction >= 0.5;
 
     let mut bwq_map = BTreeMap::new();
     bwq_map.insert("triggered".to_string(), Value::Bool(quorum_triggered));
     bwq_map.insert("evaluable".to_string(), Value::Bool(quorum_evaluable));
+    bwq_map.insert(
+        "suspended_birth_period".to_string(),
+        Value::Bool(in_birth_period),
+    );
     bwq_map.insert("against_count".to_string(), Value::Uint(against_count));
     bwq_map.insert(
         "signal_6_below_one_fraction_repr".to_string(),
@@ -1699,6 +1983,44 @@ pub(crate) fn handle_query_substrate_observatory(
                 let _ = emit_substrate_event(
                     state,
                     format!("bet_weakening_quorum_quorum:{}", manifest_cycle_counter),
+                    bytes,
+                );
+            }
+            state.last_bet_weakening_quorum_emitted_at_cycle = Some(manifest_cycle_counter);
+        }
+    }
+
+    // **Phase ② C40 birth suspension emission** — when in the birth period AND
+    // history is otherwise long enough to have evaluated, record WHY the quorum
+    // did not run (`bet_weakening_evaluation_suspended`, daily/not-immune). Same
+    // 100-cycle cooldown channel as C40 so the suspended marker is not spammed
+    // on every observatory query during the birth window. Gated on
+    // `trends_evaluable` so a brand-new substrate (which simply has too little
+    // history) does not emit the marker before the window even fills.
+    if in_birth_period && trends_evaluable {
+        let cooldown_expired = match state.last_bet_weakening_quorum_emitted_at_cycle {
+            None => true,
+            Some(prior) => manifest_cycle_counter.saturating_sub(prior)
+                >= M25_DETECTOR_COOLDOWN_CYCLES,
+        };
+        if cooldown_expired {
+            let mut suspended_content = BTreeMap::new();
+            suspended_content
+                .insert("at_cycle".to_string(), Value::Uint(manifest_cycle_counter));
+            suspended_content.insert(
+                "reason".to_string(),
+                Value::String(
+                    "birth_period: signals growing from zero / ratio structurally < 1 \
+                     — falsifiability math vacuous (algorithms/bet_weakening_quorum.md §4)"
+                        .to_string(),
+                ),
+            );
+            suspended_content
+                .insert("window_samples".to_string(), Value::Uint(window_samples));
+            if let Ok(bytes) = cb_encode(&Value::Map(suspended_content)) {
+                let _ = emit_substrate_event(
+                    state,
+                    crate::events::NODE_TYPE_BET_WEAKENING_EVALUATION_SUSPENDED.to_string(),
                     bytes,
                 );
             }
@@ -2147,6 +2469,12 @@ pub(crate) fn handle_submit_char07_assessment(
 /// window. Returns "unknown" until ≥3 samples are available, then "up" /
 /// "down" / "flat" based on a 5% normalized delta threshold between the
 /// oldest and newest samples.
+///
+/// **Phase ②**: retained for the signal #5 `signal_5_time_trends` REPORT (the
+/// human-readable "is this signal rising/falling" surface), where an
+/// endpoint-delta reading is intuitive. The `bet_weakening_quorum` predicate
+/// itself no longer counts on this for the cumulative signals — see
+/// [`signal_direction_label_ols`] (the doctrine §1.3 OLS-slope + Z-test).
 pub(crate) fn signal_direction_label(
     history: &std::collections::VecDeque<crate::derived_state::ObservatorySnapshot>,
     getter: impl Fn(&crate::derived_state::ObservatorySnapshot) -> f64,
@@ -2171,5 +2499,536 @@ pub(crate) fn signal_direction_label(
         "down"
     } else {
         "flat"
+    }
+}
+
+/// **Phase ② C40 fix** — Z-test significance threshold for the OLS-slope
+/// direction classifier. `|slope / SE(slope)| >= 1.96` ⇒ the trend is
+/// statistically significant at 95% confidence; below it the signal is "flat"
+/// and does NOT count toward the falsifiability quorum. Per
+/// algorithms/bet_weakening_quorum.md §3/§5 (L1-tunable seed).
+pub(crate) const BET_WEAKENING_OLS_Z_THRESHOLD: f64 = 1.96;
+
+/// **Phase ② C40 fix** — classify a signal's direction via an ordinary-least-
+/// squares regression slope + a Z-test, per algorithms/bet_weakening_quorum.md
+/// §1.3 (the doctrine-faithful detector). This REPLACES the endpoint-delta
+/// reading for the `bet_weakening_quorum` predicate.
+///
+/// `series` is the per-sample value sequence over the rolling window (oldest →
+/// newest), already reduced to whatever quantity the signal's direction should
+/// reflect — for the THREE cumulative-monotone signals (#1 dag_node_count,
+/// #2 evolution_event_count, #3 distinct_perturbed_axes_count) the caller
+/// passes the per-cycle FIRST-DIFFERENCE (rate) series via
+/// [`first_difference_series`], so a substrate whose ingestion / evolution /
+/// axis-growth RATE is DECELERATING yields a negative slope → "down" (the
+/// monotone cumulative TOTAL could never go down; its rate can). Level signals
+/// that can already fall (#4b reachable peers, #6 ratio) are passed as-is.
+///
+/// Returns:
+/// - `"unknown"` — fewer than 3 points (regression undefined / unstable).
+/// - `"flat"`    — slope present but `|slope/SE| < 1.96` (not significant), OR
+///   a perfectly-flat series (zero residual variance ⇒ no significant trend).
+/// - `"up"` / `"down"` — significant positive / negative slope.
+///
+/// Uses x = sample index (0..n). Time-spacing is treated as uniform (one
+/// observatory snapshot per cycle); §5's "≥ 1/substrate-day cadence" maps to
+/// "one sample per index" here. SE is the textbook OLS slope standard error
+/// `sqrt( (SSE/(n-2)) / Sxx )`.
+pub(crate) fn signal_direction_label_ols(series: &[f64]) -> &'static str {
+    let n = series.len();
+    if n < 3 {
+        return "unknown";
+    }
+    let nf = n as f64;
+    let mean_x = (nf - 1.0) / 2.0; // mean of 0..n-1
+    let mean_y = series.iter().sum::<f64>() / nf;
+    let mut sxx = 0.0; // Σ(x-x̄)²
+    let mut sxy = 0.0; // Σ(x-x̄)(y-ȳ)
+    for (i, &y) in series.iter().enumerate() {
+        let dx = i as f64 - mean_x;
+        sxx += dx * dx;
+        sxy += dx * (y - mean_y);
+    }
+    if sxx <= f64::EPSILON {
+        // Degenerate x (cannot happen for n>=3 distinct indices) — be safe.
+        return "flat";
+    }
+    let slope = sxy / sxx;
+    // Residual sum of squares: SSE = Σ(y - ŷ)², ŷ = ȳ + slope*(x-x̄).
+    let mut sse = 0.0;
+    for (i, &y) in series.iter().enumerate() {
+        let dx = i as f64 - mean_x;
+        let resid = y - (mean_y + slope * dx);
+        sse += resid * resid;
+    }
+    // Perfectly-linear or perfectly-flat series ⇒ SSE ≈ 0. A flat series
+    // (slope ≈ 0) is "flat"; a perfectly-linear non-flat series has SE → 0 so
+    // Z → ∞ and we honor the slope sign.
+    if sse <= f64::EPSILON {
+        return if slope > f64::EPSILON {
+            "up"
+        } else if slope < -f64::EPSILON {
+            "down"
+        } else {
+            "flat"
+        };
+    }
+    let se = (sse / (nf - 2.0) / sxx).sqrt();
+    if se <= f64::EPSILON {
+        return if slope > 0.0 { "up" } else { "down" };
+    }
+    let z = (slope / se).abs();
+    if z < BET_WEAKENING_OLS_Z_THRESHOLD {
+        "flat"
+    } else if slope > 0.0 {
+        "up"
+    } else {
+        "down"
+    }
+}
+
+/// **Phase ② C40 fix** — extract the per-cycle FIRST-DIFFERENCE (rate) series
+/// from a cumulative-monotone signal: `rate[t] = value[t] - value[t-1]`. The
+/// resulting series has `len - 1` points. Saturating at 0 (the source signals
+/// are monotone-non-decreasing, so a difference is never negative; the
+/// saturating sub only guards against a snapshot-ordering anomaly).
+///
+/// This is the bridge that lets [`signal_direction_label_ols`] read
+/// DECELERATION on a cumulative counter: a falling rate ⇒ negative slope on the
+/// rate series ⇒ "down" (the cumulative total itself can only ever rise).
+fn first_difference_series(values: &[f64]) -> Vec<f64> {
+    values
+        .windows(2)
+        .map(|w| (w[1] - w[0]).max(0.0))
+        .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::derived_state::ObservatorySnapshot;
+    use crate::persistence::Manifest;
+    use crate::server::ServerState;
+    use myco_kernel_schema::dag::Dag;
+    use myco_kernel_shared::canonical_bytes::{encode as cb_enc, Value as CbV};
+
+    // ----- shared helpers ---------------------------------------------------
+
+    /// Fresh in-memory `ServerState` over a hand-built DAG (mirrors
+    /// `prune.rs::tests::state_over` + `ingest.rs::tests::test_state`).
+    fn mk_state(dag: Dag) -> ServerState {
+        let nonce = &0u8 as *const u8 as usize as u64;
+        let state_dir = std::env::temp_dir()
+            .join(format!("myco-observatory-unit-{}-{:x}", std::process::id(), nonce));
+        let g = Manifest::genesis();
+        ServerState::new(
+            state_dir,
+            Some(g.substrate_id),
+            Some(g.genesis_time_unix_ns),
+            g.cycle_counter,
+            g.last_absorbed_cycle,
+            g.generation_depth,
+            dag,
+            None,
+            [0u8; 32],
+        )
+    }
+
+    /// Canonical-bytes for a content string (uniqueness controlled by caller).
+    fn cb(s: &str) -> myco_kernel_shared::canonical_bytes::CanonicalBytes {
+        cb_enc(&CbV::String(s.to_string())).expect("encode")
+    }
+
+    /// Chain-insert a node (parent = current tip) at `cycle`.
+    fn push(dag: &mut Dag, node_type: &str, cycle: u64, content: &str) {
+        let parents = match dag.tip() {
+            Some(t) => vec![t],
+            None => Vec::new(),
+        };
+        dag.insert_node(parents, node_type.to_string(), cycle, cb(content))
+            .expect("test DAG insert");
+    }
+
+    /// Build an `ObservatorySnapshot` carrying only the signals these tests
+    /// exercise; everything else is zero/empty (the detectors under test read
+    /// only #1/#2/#3/#4b/#6).
+    fn snap(
+        at_cycle: u64,
+        s1: u64,
+        s2: u64,
+        s3: u64,
+        s4b: u64,
+        s6_ratio: &str,
+    ) -> ObservatorySnapshot {
+        ObservatorySnapshot {
+            at_cycle,
+            at_unix_ns: at_cycle as i64, // monotone stamp; sufficient for these tests
+            signal_1_dag_node_count: s1,
+            signal_1_dag_total_content_bytes: 0,
+            signal_2_evolution_event_count: s2,
+            signal_3_distinct_perturbed_axes_count: s3,
+            signal_4b_reachable_peer_count: s4b,
+            signal_6_ratio_repr: s6_ratio.to_string(),
+            signal_7_compute_ns: 0,
+            signal_8_network_bytes: 0,
+            signal_9_storage_bytes: 0,
+            signal_telos_alignment_repr: String::new(),
+            signal_internal_mortality_event_density: 0,
+            signal_hoarding_indicator: false,
+            signal_4a_cumulative_fork_count: 0,
+            signal_char07_honest_disagreement_density: 0,
+        }
+    }
+
+    /// Drive `handle_query_substrate_observatory` and return the parsed
+    /// `bet_weakening_quorum` map fields `(triggered, suspended_birth_period,
+    /// against_count)`.
+    fn query_bwq(state: &mut ServerState) -> (bool, bool, u64) {
+        let req = Message::new(msg_type::QUERY_SUBSTRATE_OBSERVATORY, 1, BTreeMap::new());
+        let resp = handle_query_substrate_observatory(state, &req)
+            .expect("observatory query ok")
+            .expect("response present");
+        let bwq = match resp.payload.get("bet_weakening_quorum") {
+            Some(Value::Map(m)) => m.clone(),
+            _ => panic!("bet_weakening_quorum missing"),
+        };
+        let triggered = matches!(bwq.get("triggered"), Some(Value::Bool(true)));
+        let suspended = matches!(bwq.get("suspended_birth_period"), Some(Value::Bool(true)));
+        let against = match bwq.get("against_count") {
+            Some(Value::Uint(n)) => *n,
+            _ => panic!("against_count missing"),
+        };
+        (triggered, suspended, against)
+    }
+
+    /// Count DAG nodes whose node_type starts with `prefix`.
+    fn count_prefix(state: &ServerState, prefix: &str) -> usize {
+        state
+            .dag
+            .iter_in_insertion_order()
+            .filter(|n| n.node_type.starts_with(prefix))
+            .count()
+    }
+
+    /// Enter the substrate into birth-period quarantine by inserting a
+    /// `birth_period_quarantine_entered` event with a long duration, then
+    /// parking the cycle counter inside it.
+    fn enter_birth_quarantine(state: &mut ServerState) {
+        let body = crate::events::encode_birth_period_quarantine_entered(
+            &[0u8; 32], &[], 100_000, 0,
+        );
+        let parents = match state.dag.tip() {
+            Some(t) => vec![t],
+            None => Vec::new(),
+        };
+        state
+            .dag
+            .insert_node(
+                parents,
+                crate::events::NODE_TYPE_BIRTH_PERIOD_QUARANTINE_ENTERED.to_string(),
+                state.cycle_counter(),
+                body,
+            )
+            .expect("insert quarantine_entered");
+        assert!(
+            crate::lifecycle::is_in_birth_period_quarantine(state),
+            "test setup: substrate should be in birth-period quarantine"
+        );
+    }
+
+    // ----- Task A/B: C40 falsifiability quorum -----------------------------
+
+    #[test]
+    fn c40_fires_on_decelerating_substrate() {
+        // 12 samples. The 3 cumulative-monotone signals rise with STRICTLY
+        // DECREASING increments (decelerating rate). sig_6 ratio < 1 throughout
+        // (the ≥50%-below-1 gate). sig_4b flat. → sig_1/2/3 trend "down" via the
+        // rate-OLS detector → against_count == 3 → C40 fires.
+        let mut state = mk_state(Dag::new());
+        let n = 12u64;
+        let (mut c1, mut c2, mut c3) = (0u64, 0u64, 0u64);
+        for i in 0..n {
+            // increment starts high and shrinks: 30,28,26,... (>=1 floor).
+            let inc = 30u64.saturating_sub(2 * i).max(1);
+            c1 += inc * 3;
+            c2 += inc;
+            c3 += inc / 5 + 1; // axes grow slowly but still decelerating
+            state
+                .observatory_history
+                .push_back(snap(i, c1, c2, c3, 4, "0.5"));
+        }
+        state.set_cycle_counter(n - 1);
+
+        let (triggered, suspended, against) = query_bwq(&mut state);
+        assert!(!suspended, "not in birth period");
+        assert!(
+            against >= 3,
+            "decelerating substrate: >=3 signals should trend down; got {against}"
+        );
+        assert!(triggered, "C40 quorum should trigger on a decelerating substrate");
+        assert_eq!(
+            count_prefix(&state, "immune:C40_bet_weakening_quorum"),
+            1,
+            "exactly one C40 immune sporocarp fired"
+        );
+        assert_eq!(
+            count_prefix(&state, "bet_weakening_quorum_quorum:"),
+            1,
+            "positive quorum DAG event also recorded"
+        );
+    }
+
+    #[test]
+    fn c40_does_not_fire_on_healthy_growing_substrate() {
+        // Steady, healthy growth: CONSTANT positive increments (flat rate) → the
+        // rate-OLS detector reads "flat" (not "down"); sig_6 ratio > 1 (the
+        // below-1 fraction gate also fails). against_count == 0 → no C40.
+        let mut state = mk_state(Dag::new());
+        let n = 12u64;
+        for i in 0..n {
+            let c1 = 100 + 10 * i; // +10/cycle, constant rate
+            let c2 = 20 + 3 * i;
+            let c3 = 5 + i;
+            state
+                .observatory_history
+                .push_back(snap(i, c1, c2, c3, 4, "2.0"));
+        }
+        state.set_cycle_counter(n - 1);
+
+        let (triggered, suspended, against) = query_bwq(&mut state);
+        assert!(!suspended, "not in birth period");
+        assert_eq!(against, 0, "healthy steady-growth substrate: no signal trends down");
+        assert!(!triggered, "C40 must NOT fire on a healthy substrate");
+        assert_eq!(
+            count_prefix(&state, "immune:C40_bet_weakening_quorum"),
+            0,
+            "no C40 sporocarp on a healthy substrate"
+        );
+    }
+
+    #[test]
+    fn c40_suspended_during_birth_period() {
+        // Same decelerating history that WOULD fire C40 — but the substrate is
+        // in birth-period quarantine, so C40 is SUSPENDED and a
+        // `bet_weakening_evaluation_suspended` event is emitted instead.
+        let mut state = mk_state(Dag::new());
+        enter_birth_quarantine(&mut state);
+        let n = 12u64;
+        let (mut c1, mut c2, mut c3) = (0u64, 0u64, 0u64);
+        for i in 0..n {
+            let inc = 30u64.saturating_sub(2 * i).max(1);
+            c1 += inc * 3;
+            c2 += inc;
+            c3 += inc / 5 + 1;
+            state
+                .observatory_history
+                .push_back(snap(i, c1, c2, c3, 4, "0.5"));
+        }
+        state.set_cycle_counter(n - 1);
+
+        let (triggered, suspended, _against) = query_bwq(&mut state);
+        assert!(suspended, "birth period: quorum must report suspended");
+        assert!(!triggered, "birth period: C40 must NOT fire");
+        assert_eq!(
+            count_prefix(&state, "immune:C40_bet_weakening_quorum"),
+            0,
+            "no C40 sporocarp during birth"
+        );
+        assert_eq!(
+            count_prefix(&state, crate::events::NODE_TYPE_BET_WEAKENING_EVALUATION_SUSPENDED),
+            1,
+            "bet_weakening_evaluation_suspended emitted during birth"
+        );
+    }
+
+    // ----- Task C: C75 cultivator_fiduciary_strain -------------------------
+
+    /// Seed a window of observatory snapshots so `c75_window_start_cycle` maps
+    /// the 180-day window back to cycle 0 (all stamps are recent relative to
+    /// `now`). One snapshot per cycle 0..=current.
+    fn seed_recent_history(state: &mut ServerState, current_cycle: u64) {
+        use std::time::{SystemTime, UNIX_EPOCH};
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos() as i64;
+        for c in 0..=current_cycle {
+            let mut s = snap(c, 0, 0, 0, 0, "");
+            s.at_unix_ns = now; // inside the 180d window → window_start maps to 0
+            state.observatory_history.push_back(s);
+        }
+        state.set_cycle_counter(current_cycle);
+    }
+
+    #[test]
+    fn c75_fires_on_persistent_drift_with_cultivator_inaction() {
+        // Persistent telos_drift spanning the window, NO cultivator action →
+        // C75 cultivator_fiduciary_strain fires.
+        let mut dag = Dag::new();
+        push(&mut dag, "genesis_event:test", 0, "g");
+        // Drift events spread across cycles 100 and 900 (span 800 of a 1000
+        // cycle window → > 50% span). Count = 3 (>= 2).
+        push(&mut dag, "telos_drift", 100, "d1");
+        push(&mut dag, "telos_drift", 500, "d2");
+        push(&mut dag, "telos_drift_critical", 900, "d3");
+        let mut state = mk_state(dag);
+        seed_recent_history(&mut state, 1000);
+
+        apply_c75_cultivator_fiduciary_strain(&mut state);
+        assert_eq!(
+            count_prefix(&state, "immune:C75_cultivator_fiduciary_strain"),
+            1,
+            "C75 should fire on persistent drift + cultivator inaction"
+        );
+    }
+
+    #[test]
+    fn c75_suppressed_when_cultivator_acted() {
+        // Same persistent drift, BUT the cultivator re-declared the objective in
+        // the window (a fiduciary action) → no strain.
+        let mut dag = Dag::new();
+        push(&mut dag, "genesis_event:test", 0, "g");
+        push(&mut dag, "telos_drift", 100, "d1");
+        push(&mut dag, "telos_drift", 500, "d2");
+        push(&mut dag, "telos_drift_critical", 900, "d3");
+        push(&mut dag, "owner_objective_declared:obj1", 600, "act");
+        let mut state = mk_state(dag);
+        seed_recent_history(&mut state, 1000);
+
+        apply_c75_cultivator_fiduciary_strain(&mut state);
+        assert_eq!(
+            count_prefix(&state, "immune:C75_cultivator_fiduciary_strain"),
+            0,
+            "C75 must NOT fire when the cultivator acted in the window"
+        );
+    }
+
+    #[test]
+    fn c75_does_not_fire_on_nonpersistent_drift() {
+        // A single, recent drift one-off (count 1 < min 2, and zero span) is NOT
+        // persistent → no strain.
+        let mut dag = Dag::new();
+        push(&mut dag, "genesis_event:test", 0, "g");
+        push(&mut dag, "telos_drift", 950, "d1");
+        let mut state = mk_state(dag);
+        seed_recent_history(&mut state, 1000);
+
+        apply_c75_cultivator_fiduciary_strain(&mut state);
+        assert_eq!(
+            count_prefix(&state, "immune:C75_cultivator_fiduciary_strain"),
+            0,
+            "C75 must NOT fire on a non-persistent (one-off) drift"
+        );
+    }
+
+    #[test]
+    fn c75_debounced() {
+        // After firing once, a second immediate evaluation must NOT re-alarm
+        // (debounce).
+        let mut dag = Dag::new();
+        push(&mut dag, "genesis_event:test", 0, "g");
+        push(&mut dag, "telos_drift", 100, "d1");
+        push(&mut dag, "telos_drift", 500, "d2");
+        push(&mut dag, "telos_drift_critical", 900, "d3");
+        let mut state = mk_state(dag);
+        seed_recent_history(&mut state, 1000);
+
+        apply_c75_cultivator_fiduciary_strain(&mut state);
+        apply_c75_cultivator_fiduciary_strain(&mut state);
+        assert_eq!(
+            count_prefix(&state, "immune:C75_cultivator_fiduciary_strain"),
+            1,
+            "C75 debounce: second immediate evaluation must not re-alarm"
+        );
+    }
+
+    #[test]
+    fn c75_suspended_during_birth_period() {
+        // Persistent drift but in birth-period quarantine → suspended (no false
+        // accusation against a cultivator who has had no chance to act).
+        let mut dag = Dag::new();
+        push(&mut dag, "genesis_event:test", 0, "g");
+        push(&mut dag, "telos_drift", 100, "d1");
+        push(&mut dag, "telos_drift", 500, "d2");
+        push(&mut dag, "telos_drift_critical", 900, "d3");
+        let mut state = mk_state(dag);
+        enter_birth_quarantine(&mut state);
+        seed_recent_history(&mut state, 1000);
+
+        apply_c75_cultivator_fiduciary_strain(&mut state);
+        assert_eq!(
+            count_prefix(&state, "immune:C75_cultivator_fiduciary_strain"),
+            0,
+            "C75 suspended during birth period"
+        );
+    }
+
+    // ----- Task D: C24 telos_drift_critical reachability -------------------
+
+    #[test]
+    fn c24_critical_reachable_at_positive_cosine_floor() {
+        // The grading table must route CRITICAL (→ C24) at cos <= 0.2 (a
+        // POSITIVE floor reachable on the [0,1] proxy), not only cos <= 0.
+        let (grade, emit) = telos_grade_for_cosine(0.15);
+        assert_eq!(grade, "critical", "cos=0.15 must grade critical");
+        assert_eq!(emit, Some(crate::events::NODE_TYPE_TELOS_DRIFT_CRITICAL));
+        // Exactly 0.2 is still critical (boundary inclusive).
+        assert_eq!(telos_grade_for_cosine(0.2).0, "critical");
+        // Just above 0.2 is elevated, not critical.
+        assert_eq!(telos_grade_for_cosine(0.25).0, "drift_elevated");
+        // Bands above stay intact.
+        assert_eq!(telos_grade_for_cosine(0.5).0, "low");
+        assert_eq!(telos_grade_for_cosine(0.7).0, "aligned");
+    }
+
+    #[test]
+    fn c24_fires_via_apply_p14c_on_misaligned_telos() {
+        // A sufficiently-misaligned telos cosine drives apply_p14c_telos_drift to
+        // emit the telos_drift_critical event AND the C24 immune sporocarp.
+        let mut state = mk_state(Dag::new());
+        state.set_cycle_counter(50);
+        apply_p14c_telos_drift(&mut state, Some(0.1));
+        assert_eq!(
+            count_prefix(&state, "immune:C24_telos_drift_critical"),
+            1,
+            "C24 should fire on a misaligned (cos=0.1) telos"
+        );
+        assert_eq!(
+            count_prefix(&state, crate::events::NODE_TYPE_TELOS_DRIFT_CRITICAL),
+            1,
+            "telos_drift_critical event recorded"
+        );
+    }
+
+    // ----- direction-classifier unit coverage ------------------------------
+
+    #[test]
+    fn ols_classifier_basic_directions() {
+        // Strictly declining → down.
+        assert_eq!(
+            signal_direction_label_ols(&[10.0, 8.0, 6.0, 4.0, 2.0]),
+            "down"
+        );
+        // Strictly rising → up.
+        assert_eq!(
+            signal_direction_label_ols(&[1.0, 2.0, 3.0, 4.0, 5.0]),
+            "up"
+        );
+        // Perfectly flat → flat.
+        assert_eq!(
+            signal_direction_label_ols(&[3.0, 3.0, 3.0, 3.0, 3.0]),
+            "flat"
+        );
+        // Too few points → unknown.
+        assert_eq!(signal_direction_label_ols(&[1.0, 2.0]), "unknown");
+    }
+
+    #[test]
+    fn first_difference_extracts_rate() {
+        // Cumulative with decelerating increments → decreasing rate series.
+        let cumulative = [0.0, 30.0, 56.0, 78.0, 96.0]; // +30,+26,+22,+18
+        let rates = first_difference_series(&cumulative);
+        assert_eq!(rates, vec![30.0, 26.0, 22.0, 18.0]);
+        assert_eq!(signal_direction_label_ols(&rates), "down");
     }
 }

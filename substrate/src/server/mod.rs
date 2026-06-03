@@ -424,6 +424,13 @@ pub(crate) struct ServerState {
     /// 100-cycle cooldown as M25.1/M25.2 detectors to prevent spam on every
     /// observatory query.
     pub(crate) last_telos_drift_emitted_at_cycle: Option<u64>,
+    /// **Phase ② C75**: debounce for the `cultivator_fiduciary_strain`
+    /// meta-immune sporocarp (META §7.7). Stores the cycle of the last
+    /// emission; the detector re-alarms at most once per the C75 debounce
+    /// window (`C75_FIDUCIARY_STRAIN_DEBOUNCE_CYCLES`) so a persistently
+    /// neglected cultivar does not spam one sporocarp per cycle. In-memory
+    /// only (re-derived at boot; zero byte-format risk).
+    pub(crate) last_cultivator_fiduciary_strain_emitted_at_cycle: Option<u64>,
     /// **CHAR07 §8.3 C71**: cooldown for the `sycophancy_indicator_elevated`
     /// daily signal. Same 100-cycle cooldown as the other detectors so a
     /// sustained-zero-disagreement stretch emits at most once per window
@@ -665,6 +672,7 @@ impl ServerState {
             last_saturation_mortality_proposal_at_cycle: None,
             owner_objective: crate::events::seed_owner_objective(),
             last_telos_drift_emitted_at_cycle: None,
+            last_cultivator_fiduciary_strain_emitted_at_cycle: None,
             last_char07_sycophancy_emitted_at_cycle: None,
             last_budget_exhausted_per_axis: std::collections::HashMap::new(),
             // v3.1.1 P07: seed the prune registry with the L0 proof-of-
