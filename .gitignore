@@ -50,3 +50,6 @@ substrate_state/
 # need the production receipt, but don't commit (it would create per-machine
 # drift). The canonical record is the on-chain DAG event + the committed manifest.
 operators/claude/ceremonies/*/ceremony_log/
+
+# Local inhabitation config (machine-specific paths + production-substrate pointer) - never commit
+.mcp.json

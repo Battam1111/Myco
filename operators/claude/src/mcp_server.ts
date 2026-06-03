@@ -6,7 +6,7 @@
 //
 // ## Tool surface
 //
-// 23 tools exposed to Claude Code, grouped by concern:
+// 25 tools exposed to Claude Code, grouped by concern:
 //
 // Gradient lifecycle:
 //   `myco_register_axis`, `myco_perturb_axis`, `myco_advance_cycle`,
@@ -29,6 +29,9 @@
 //   `myco_cosign_dag_tip` (§3.2 DAG-tip co-sign),
 //   `myco_attest_l0_revision` (§3.4 L0 revision attestation),
 //   `myco_declare_owner_objective` (P14 §3.2 owner-objective declaration).
+// Perception (substrate self-knowledge):
+//   `myco_query_substrate_observatory` (Phase α M24.5 vital signs),
+//   `myco_query_substrate_id` (P8 §5.6 owner-minted id).
 //
 // The server lazily spawns the substrate subprocess on the first tool call;
 // subsequent calls reuse the same substrate.
@@ -51,6 +54,7 @@ import type {
   ImmuneEventsReport,
   IntentReport,
   MutationResult,
+  ObservatorySnapshot,
   RecentNodesReport,
 } from "./protocol/messages.ts";
 import { OperatorIdentity } from "./operator_identity.ts";
@@ -193,6 +197,86 @@ function formatEnumeration(
   }
   if (report.nodes.length > 10) {
     lines.push(`  … (+${report.nodes.length - 10} more nodes)`);
+  }
+  return lines.join("\n");
+}
+
+/** Format the Phase α / M24.5 observatory snapshot — one line per present
+ *  cultivar vital sign (signals #1-10 + the C37 doctrine-burst detector + the
+ *  bet-weakening quorum). Signals the substrate omits at the current
+ *  format_version are simply absent from the output. */
+function formatObservatory(obs: ObservatorySnapshot): string {
+  const lines: string[] = [];
+  lines.push(
+    `observatory_format_version=${obs.formatVersion}  captured_at_unix_ns=${obs.capturedAtUnixNs}`,
+  );
+  if (obs.signal1) {
+    lines.push(
+      `  #1 persistence_budget: dag_nodes=${obs.signal1.dagNodeCount} edges=${obs.signal1.dagEdgeCount} content_bytes=${obs.signal1.dagTotalContentBytes} cycle=${obs.signal1.manifestCycleCounter}`,
+    );
+  }
+  if (obs.signal2) {
+    lines.push(
+      `  #2 evolution_rate: rate=${obs.signal2.rate} (evolution_events=${obs.signal2.evolutionEventCount} axis_registers=${obs.signal2.axisRegisterCount})`,
+    );
+  }
+  if (obs.signal3) {
+    lines.push(
+      `  #3 read_pattern_diversity: distinct_perturbed_axes=${obs.signal3.distinctPerturbedAxesCount}`,
+    );
+  }
+  if (obs.signal4) {
+    lines.push(
+      `  #4 federation_health: reachable_peers=${obs.signal4.signal4bReachablePeerCount} forks=${obs.signal4.signal4aCumulativeForkCount} events_received=${obs.signal4.eventsReceivedFromPeers}`,
+    );
+  }
+  if (obs.signal5) {
+    lines.push(`  #5 time_trends: present (raw, ${obs.signal5.raw.size} keys)`);
+  }
+  if (obs.signal6) {
+    lines.push(
+      `  #6 read_window_position: ratio=${obs.signal6.ratio} (substrate_total_bytes=${obs.signal6.substrateTotalBytes} window_bytes=${obs.signal6.operatorAttestedContextWindowBytes})`,
+    );
+  }
+  if (obs.signal7) {
+    lines.push(
+      `  #7 compute_per_cycle: current_ns=${obs.signal7.currentCycleNs} rolling_mean_ns=${obs.signal7.rollingMeanNs}`,
+    );
+  }
+  if (obs.signal8) {
+    lines.push(
+      `  #8 network_per_cycle: current_bytes=${obs.signal8.currentCycleBytes} rolling_mean_bytes=${obs.signal8.rollingMeanBytes}`,
+    );
+  }
+  if (obs.signal9) {
+    lines.push(
+      `  #9 storage_per_cycle: current_bytes=${obs.signal9.currentCycleBytes} rolling_mean_bytes=${obs.signal9.rollingMeanBytes}`,
+    );
+  }
+  if (obs.signal10) {
+    lines.push(
+      `  #10 composite_health: score=${obs.signal10.compositeHealthScore} (composite_format_version=${obs.signal10.compositeFormatVersion}${obs.signal10.weightsMethod ? `, weights_method=${obs.signal10.weightsMethod}` : ""})`,
+    );
+  }
+  if (obs.doctrineRevisionBurstStatus) {
+    lines.push(
+      `  doctrine_revision_burst (C37): present (raw, ${obs.doctrineRevisionBurstStatus.raw.size} keys)`,
+    );
+  }
+  if (obs.betWeakeningQuorum) {
+    lines.push(
+      `  bet_weakening_quorum: present (raw, ${obs.betWeakeningQuorum.raw.size} keys)`,
+    );
+  }
+  if (obs.saturationStatus) {
+    lines.push(
+      `  saturation_status (P11.c): present (raw, ${obs.saturationStatus.raw.size} keys)`,
+    );
+  }
+  if (obs.char07) {
+    lines.push(
+      "  char07 慈爱: honest_disagreement + capability_asymmetry + flourishing (raw)",
+    );
   }
   return lines.join("\n");
 }
@@ -698,6 +782,29 @@ const TOOL_DEFINITIONS = [
       },
       required: ["objective_id", "weights"],
     },
+  },
+  {
+    name: "myco_query_substrate_observatory",
+    description:
+      "PERCEPTION (Phase α / M24.5 observatory snapshot): expose ALL cultivar vital signs from inside the substrate so Claude can read its own metabolic state. Returns the Living Bets signals #1-10 — #1 persistence budget (DAG size + cycle counter), #2 evolution rate, #3 read-pattern diversity, #4 federation health, #5 time trends, #6 read-window-relative position (iff a context-window is attested), #7/#8/#9 compute/network/storage cost per cycle, #10 composite health score — plus the C37 doctrine-revision-burst detector and the bet_weakening_quorum (the composite L0/cards/LB_living_bets falsifiability counter). Signals the substrate omits at the current observatory_format_version are absent from the output. Read-only.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        operator_attested_context_window_bytes: {
+          type: "integer",
+          minimum: 0,
+          description:
+            "Optional. When supplied, the substrate computes signal #6 (read-window-relative position = substrate_total_bytes / this window); omit to leave signal #6 out of the snapshot.",
+        },
+      },
+      required: [],
+    },
+  },
+  {
+    name: "myco_query_substrate_id",
+    description:
+      "PERCEPTION (P8 §5.6): report this substrate's immutable owner-minted substrate_id — the deterministic 32-byte hash established at genesis. This is the substrate knowing its own identity; the id binds owner attestations / signatures / DAG tips to THIS specific substrate, which is what makes cross-substrate replay attacks detectable. Read-only (inspects the genesis_event DAG node).",
+    inputSchema: { type: "object", properties: {}, required: [] },
   },
 ];
 
@@ -1419,6 +1526,31 @@ export class McpServer {
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],
           isError: !result.accepted,
+        };
+      }
+      case "myco_query_substrate_observatory": {
+        const sub = await this._ensureSubstrate();
+        const windowBytes =
+          args.operator_attested_context_window_bytes !== undefined
+            ? BigInt(Number(args.operator_attested_context_window_bytes))
+            : undefined;
+        const obs = await sub.querySubstrateObservatory({
+          operatorAttestedContextWindowBytes: windowBytes,
+        });
+        return {
+          content: [{ type: "text" as const, text: formatObservatory(obs) }],
+        };
+      }
+      case "myco_query_substrate_id": {
+        const sub = await this._ensureSubstrate();
+        const substrateId = await sub.querySubstrateId();
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `substrate_id=${toHex(substrateId)}  (owner-minted, immutable, binding for replay guards)`,
+            },
+          ],
         };
       }
       default:
