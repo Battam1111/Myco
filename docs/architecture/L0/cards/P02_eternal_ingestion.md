@@ -23,7 +23,7 @@ structural_anchors:
 witnesses:
   kind: executable
   positive: "substrate/tests/e2e_layer_c.rs::layer_c_p02_positive_ingestion_produces_dag_event"
-  negative: "substrate/tests/e2e_economy.rs::p11c_ingest_refused_under_saturation" # nearest-available; exact zero-ingestion-starvation negative witness is v0.9.x debt
+  negative: "substrate/tests/e2e_mortality.rs::phase1_starvation_emits_c74_immune_when_unfed_past_severe_threshold"
   edge: "substrate/tests/e2e_economy.rs::sprint_5d_saturation_stage_reaches_saturated_under_sustained_exhaustion"
 falsifiability_signals:
   - external_ingestion_events_per_30_cycles_floor

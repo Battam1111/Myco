@@ -21,8 +21,8 @@ structural_anchors:
 witnesses:
   kind: executable
   positive: "substrate/tests/e2e_layer_c.rs::layer_c_p05_positive_dag_nodes_carry_parent_hashes"
-  negative: "substrate/tests/e2e_attestation.rs::m_anchor_4_invariant_witnesses_emitted_at_boot_for_each_tier_1_check" # nearest-available (asserts substrate_state_orphan_detected is a wired tier-1 invariant witness); exact C32-fires-on-unreachable-node negative witness is v0.9.x debt
-  edge: "substrate/tests/e2e_bootstrap.rs::m8_dag_node_hashes_form_causal_chain" # nearest-available; exact cold-tier-exemption edge witness is v0.9.x debt
+  negative: "substrate/src/integrity.rs::tests::p05_negative_active_tier_orphan_nonce_fires_c32"
+  edge: "substrate/tests/e2e_layer_c.rs::layer_c_p05_edge_cold_tier_node_exempt_from_reachability"
 falsifiability_signals:
   - active_tier_orphan_count
   - tier_exemption_attestation_compliance

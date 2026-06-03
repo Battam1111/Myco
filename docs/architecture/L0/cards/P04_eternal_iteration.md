@@ -24,7 +24,7 @@ structural_anchors:
 witnesses:
   kind: executable
   positive: "substrate/tests/e2e_layer_c.rs::layer_c_p04_positive_each_cycle_changes_state"
-  negative: "substrate/tests/e2e_bootstrap.rs::substrate_handles_multiple_cycles" # nearest-available; exact no-silent-terminal-state-except-via-P7 negative witness is v0.9.x debt
+  negative: "substrate/tests/e2e_mortality.rs::phase1_production_binary_self_advances_by_default"
   edge: "substrate/tests/e2e_bootstrap.rs::m7_cycle_counter_monotonically_advances_across_restart"
 falsifiability_signals:
   - cycles_advanced_per_24h

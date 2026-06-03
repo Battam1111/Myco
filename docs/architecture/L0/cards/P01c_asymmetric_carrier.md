@@ -23,7 +23,7 @@ witnesses:
   kind: executable
   positive: "substrate/tests/e2e_bootstrap.rs::m7_substrate_id_survives_restart"
   negative: "substrate/tests/e2e_layer_c.rs::layer_c_p01c_negative_agent_discriminating_attribute_not_persisted"
-  edge: "substrate/tests/e2e_bootstrap.rs::substrate_handshake_reports_versions" # nearest-available; exact handshake-terminate-no-residue edge witness is v0.9.x debt
+  edge: "substrate/tests/e2e_layer_c.rs::layer_c_p01c_edge_handshake_terminate_leaves_no_residue"
 falsifiability_signals:
   - agent_discriminating_attribute_persistence_count
   - operator_token_concurrent_validity

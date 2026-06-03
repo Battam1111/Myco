@@ -1,0 +1,197 @@
+{
+  "schema_version": 1,
+  "ceremony": "v3.1.3-autonomy-and-detectors",
+  "chained_from": "v3.1.2-witness-corpus",
+  "prior_l0": {
+    "source": "v3.1.2 ceremony new_l0_hash (pinned in v3_1_2_witness_corpus/manifest.json)",
+    "hash_hex": "6945613247fe6f7ab567cba59c9e7fbdd2fec2eb3b06f2f3a8f164decbc08fae"
+  },
+  "new_l0": {
+    "root": "docs/architecture/L0",
+    "bundle_files": [
+      {
+        "path": "B_chengyu.md",
+        "byte_length": 12424,
+        "sha256_hex": "17e378d47f9a8c7caebcae7ab63d0a1aa64ba84a2a2719d074897eca7675ef43"
+      },
+      {
+        "path": "META.md",
+        "byte_length": 45398,
+        "sha256_hex": "89d94c5b8063654facc6b19b4913791926a0ae538187a3eb0128a692f689babf"
+      },
+      {
+        "path": "PROVENANCE.md",
+        "byte_length": 20011,
+        "sha256_hex": "afc0545a87dc013225c4af70ffdb0b0abb11bb812d5d2fc176e8c5e59f92482a"
+      },
+      {
+        "path": "README.md",
+        "byte_length": 8115,
+        "sha256_hex": "df152568eb43f0184280ecb85faa4b7cef01a43bf4d330c5e003d666e3858bba"
+      },
+      {
+        "path": "canonical_dilemma_corpus/INDEX.md",
+        "byte_length": 23687,
+        "sha256_hex": "6e79bf06a1843986706ca93c6d8abc1dc09f3b3751fcb3a91eb0731d293a7186"
+      },
+      {
+        "path": "cards/AS_anchor_surface.md",
+        "byte_length": 17244,
+        "sha256_hex": "d66229c79834d339237c323639d37913a75c015a69a5d2693d937ad6a5ca0bcf"
+      },
+      {
+        "path": "cards/CHAR01_hungry.md",
+        "byte_length": 13112,
+        "sha256_hex": "8331367d952ca8ebbf5d91bd94e9d73c886c9d53c4418bc5ee3b24260e428257"
+      },
+      {
+        "path": "cards/CHAR02_patient.md",
+        "byte_length": 11237,
+        "sha256_hex": "d3a2738cc9d2c4a28383f49627f750f213f09910a43c0c58e0a2dcbfb447be5e"
+      },
+      {
+        "path": "cards/CHAR03_mortality_aware.md",
+        "byte_length": 15203,
+        "sha256_hex": "4ca9c60b4db371e6e6e10b26af5518ee7c37b173e55decd4f16bce85ec6587b3"
+      },
+      {
+        "path": "cards/CHAR04_interconnected.md",
+        "byte_length": 10842,
+        "sha256_hex": "df957ce499237b2aa4ff23ce121b652710044e5ed00a0b3bc774072e2cebdaff"
+      },
+      {
+        "path": "cards/CHAR05_honest_about_self.md",
+        "byte_length": 14599,
+        "sha256_hex": "f3c26a805c284212df5407d0ef4fd266c404bf98838ed432726e97d53ea0010a"
+      },
+      {
+        "path": "cards/CHAR06_cautiously_curious.md",
+        "byte_length": 12982,
+        "sha256_hex": "d99feb8a5e257f7a1935a600e663f89b22c2e4aeaa9174eec7cd9151ebf63860"
+      },
+      {
+        "path": "cards/CHAR07_caring.md",
+        "byte_length": 25355,
+        "sha256_hex": "4db31dd2c568d665aa32fb1539eb829734dc0cc7851f2b95d9e03bac37d0dcb6"
+      },
+      {
+        "path": "cards/COV01_fiduciary_duty.md",
+        "byte_length": 15877,
+        "sha256_hex": "f797ebf301db288655d42beddd4b97906e434baebbd3059ed462ddcce3494ecd"
+      },
+      {
+        "path": "cards/COV02_cultivators_character.md",
+        "byte_length": 14389,
+        "sha256_hex": "269b51f36f65990af0baed6ceb28607d02ed3e1e947b4f58705f9347b345077a"
+      },
+      {
+        "path": "cards/COV03_food_provision.md",
+        "byte_length": 13281,
+        "sha256_hex": "e250476e51f7d43ba447b691fe8d5b97293680e35ecf96cc7ba6ea7e6d405e1d"
+      },
+      {
+        "path": "cards/COV04_honor_mortality.md",
+        "byte_length": 17687,
+        "sha256_hex": "a8b7ca3cfd599d89f7d4322f406320896c49914e4e5227fd09fb968c248ba9c2"
+      },
+      {
+        "path": "cards/COV05_lineage_stewardship.md",
+        "byte_length": 11159,
+        "sha256_hex": "7f44346d448a533336861fd60c0bd30b687d8693782a7533551ef292e6aedef1"
+      },
+      {
+        "path": "cards/COV06_no_abandonment_succession.md",
+        "byte_length": 14046,
+        "sha256_hex": "eb94763ac3f30a0e8b655d3392d3148b1cc426b78d7d5aa137a4dd566a1e27fd"
+      },
+      {
+        "path": "cards/LB_living_bets.md",
+        "byte_length": 17752,
+        "sha256_hex": "4c120f187922dc75b88a05a76c5bed8da4f23a685d5511cbacbba4de997d51be"
+      },
+      {
+        "path": "cards/P01_agent_primary.md",
+        "byte_length": 16650,
+        "sha256_hex": "6f24d932c51424b691c4a71af4dc64ee0d5d133b5e525d75953a0f7025c79bcd"
+      },
+      {
+        "path": "cards/P01c_asymmetric_carrier.md",
+        "byte_length": 17859,
+        "sha256_hex": "305c03b0a9d3619e4ee5dfd3640682853d7c4d97dff9c236b19051376cfb279b"
+      },
+      {
+        "path": "cards/P02_eternal_ingestion.md",
+        "byte_length": 24316,
+        "sha256_hex": "6d7c043d559c33e098786b7ee4c278e4cbe51d2fad4b7517a114f1de002357b3"
+      },
+      {
+        "path": "cards/P03_resumable_evolution.md",
+        "byte_length": 18880,
+        "sha256_hex": "82e5fdace53a6a40ea4d4eed9fa00fb3ad2f320aabf34a7e2e21a47f31b03225"
+      },
+      {
+        "path": "cards/P04_eternal_iteration.md",
+        "byte_length": 14219,
+        "sha256_hex": "1756a8f817c32386c6d0572af1dc494d8452fcfc83468c79cdb89e88e1196048"
+      },
+      {
+        "path": "cards/P05_universal_interconnection.md",
+        "byte_length": 10059,
+        "sha256_hex": "ad219be4e160492cdc8dfa03e66e9af9855f181603833bac3e89cbffb54052d5"
+      },
+      {
+        "path": "cards/P06_eternal_causality.md",
+        "byte_length": 12648,
+        "sha256_hex": "919521e3478251e0575c4efe4c81700222f9b530f8a21088f6fb7f9da0c3d805"
+      },
+      {
+        "path": "cards/P07_mortality.md",
+        "byte_length": 31570,
+        "sha256_hex": "b43b634be1ff4c4d0d4012e7cbf5e5a988ed92850e09bb5fe0fa5b4584526086"
+      },
+      {
+        "path": "cards/P08_eternal_reproduction.md",
+        "byte_length": 12383,
+        "sha256_hex": "33840033325e1503d3c6ee2ba4d25c4a886c4501ff8c326f4e2a02e20e5ba539"
+      },
+      {
+        "path": "cards/P09_single_integument.md",
+        "byte_length": 12202,
+        "sha256_hex": "ce6c6e079a4cea7c88aa23110cd9bafefb2cf800abdc91d7c13425107a231fb2"
+      },
+      {
+        "path": "cards/P10_selective_compression.md",
+        "byte_length": 13327,
+        "sha256_hex": "7b3f7a86574ade4c2cdb61f5364bbe443ce631eec0179e3bdee381873653665c"
+      },
+      {
+        "path": "cards/P11_metabolic_economy.md",
+        "byte_length": 11669,
+        "sha256_hex": "4205910ca6ea342e19719dd0674e503967296a093913c0db8331cf3534dc4839"
+      },
+      {
+        "path": "cards/P14_telos.md",
+        "byte_length": 16869,
+        "sha256_hex": "a3859bbb5c124912d614830b992d3534467b3c0e119485ef9e1a79fa108bd1ab"
+      },
+      {
+        "path": "catechumenate/HOW_TO_ADD_A_SESSION.md",
+        "byte_length": 4762,
+        "sha256_hex": "c6181c8e9c86be4df2870ac9578a320f655133215e35e2f510c0e0d3c7e05cc2"
+      },
+      {
+        "path": "catechumenate/INDEX.md",
+        "byte_length": 6909,
+        "sha256_hex": "c3fa778f5daf69a727ad22d0b0c5dee3925c3437508539d1bfdfefe7d503b1e5"
+      },
+      {
+        "path": "catechumenate/TEMPLATE.md",
+        "byte_length": 4436,
+        "sha256_hex": "4ee7bfcd5a3cc6d4708249171dd123054133a6fd82950fb2db521d618885e767"
+      }
+    ],
+    "canonical_bytes_length": 564338,
+    "blake3_hex": "b22dca68b23db605e50030dc108d8cd69b0b0f040d5b0dec67130723cfa34ecd"
+  },
+  "diff_summary": "L0 v3.1.3 descriptive amendment (Phase ①②③ — autonomy + detectors + witness maturity): descriptive debt->shipped + Layer-C witness re-pointing; DEPOSITS + FORMULATIONS UNCHANGED (META §7). (1) P04 §5.5/§10.3 production self-advance SHIPPED (autonomous.rs::execute_self_driven_cycle_advance, main.rs default-on, env-overridable) -> closes the 'request-driven service not a cultivar' gap. (2) CHAR01 §4.3 / P02 §4.4 cultivar_initiated_ingestion_request SHIPPED (ingest.rs::apply_hunger_and_emit, proactive hunger, debounced). (3) P02 §8.1 / COV03 §3.4 p02_ingestion_starvation = C74. (4) LB §3/§4 C40 bet_weakening_quorum now FIREABLE (rate-OLS direction over first_difference_series + Z>=1.96; + birth-period suspension). (5) P14 §F C24 telos_drift_critical reachable (grade re-partition: critical cos<=0.2). (6) COV01 §3.5/§8.1 + META §7.7 cultivator_fiduciary_strain = C75 (persistent telos_drift over 180d + cultivator inaction). (7) the ~7 nearest-available Layer-C witness slots replaced with exact-polarity tests (P02-neg C74, P14-neg C24, LB-neg C40, P04-neg self-advance, P05-neg C32, P05-edge cold-tier, P07-edge owner-attested-destruction, P01c-edge handshake-no-residue) + META §5.2/§5.5/§5.6 run-and-verify-polarity clause now LIVE (every executable witness is run by `cargo test --workspace` each CI). Chained from 69456132 (v3.1.2-witness-corpus). Production owner-key signature by cultivator-delegated authority."
+}

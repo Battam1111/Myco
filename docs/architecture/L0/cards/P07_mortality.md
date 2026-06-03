@@ -24,7 +24,7 @@ witnesses:
   kind: executable
   positive: "substrate/src/prune.rs::tests::run_prune_scan_emits_tombstone_for_redundant_duplicate"
   negative: "substrate/tests/e2e_layer_c.rs::layer_c_p07_negative_cultivator_preserve_all_rejected"
-  edge: "substrate/tests/e2e_economy.rs::p11c_sustained_saturation_emits_self_euthanasia_proposal" # nearest-available; exact owner-attested-whole-destruction edge witness is v0.9.x debt
+  edge: "substrate/tests/e2e_cultivation.rs::p07_edge_owner_attested_destruction_archives_and_halts_metabolism"
 falsifiability_signals:
   - internal_mortality_event_density_per_cycle
   - hoarding_indicator

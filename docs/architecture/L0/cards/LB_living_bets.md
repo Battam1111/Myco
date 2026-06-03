@@ -23,7 +23,7 @@ structural_anchors:
 witnesses:
   kind: executable
   positive: "substrate/tests/e2e_observatory.rs::observatory_format_version_is_5_and_signal_4a_fork_count_present"
-  negative: "substrate/tests/e2e_observatory.rs::m25_2_bet_weakening_quorum_not_triggered_in_birth" # nearest-available (exercises the bet_weakening_quorum C40 path); exact C40-fires-on-sustained-90d-decline negative witness is v0.9.x debt
+  negative: "substrate/src/observatory.rs::tests::c40_fires_on_decelerating_substrate"
   edge: "substrate/tests/e2e_cultivation.rs::bet_retired_proposal_emitted_at_terminal_window"
 falsifiability_signals:
   - all_10_signals_emission_rate

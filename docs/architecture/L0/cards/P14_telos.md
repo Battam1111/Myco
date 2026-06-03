@@ -23,7 +23,7 @@ structural_anchors:
 witnesses:
   kind: executable
   positive: "substrate/tests/e2e_observatory.rs::observatory_char07_assessment_intake_and_telos_fallback"
-  negative: "substrate/tests/e2e_observatory.rs::m25_2_bet_weakening_quorum_not_triggered_in_birth" # nearest-available (exercises the telos→bet-weakening-quorum path); exact telos_drift-fires-on-sustained-deviation negative witness is v0.9.x debt
+  negative: "substrate/src/observatory.rs::tests::c24_fires_via_apply_p14c_on_misaligned_telos"
   edge: "substrate/tests/e2e_economy.rs::m26_4_telos_alignment_pending_when_no_objective_declared"
 falsifiability_signals:
   - telos_alignment_value
