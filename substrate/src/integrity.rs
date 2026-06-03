@@ -1143,3 +1143,133 @@ fn check_substrate_state_orphans(state: &ServerState) -> (bool, String) {
         (false, summary)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    //! **Phase ③ — P05 negative exact-polarity witness.**
+    //!
+    //! The shipped C32 (`substrate_state_orphan_detected`) is the live-state ↔
+    //! DAG-derived reconciler: every Rust-side ServerState record MUST be
+    //! re-derivable from the active-tier DAG; a live record with no causal DAG
+    //! root is an "active-tier orphan" (detached, unreachable-from-tip live
+    //! tissue) per P05 §3.2.
+    //!
+    //! This witness lives at the lib level (NOT in `substrate/tests/`) by
+    //! necessity: a post-M21 substrate boots EVERY reconciled field
+    //! (identity / cycle_counter / nonce_log / pinned operator) FROM the DAG
+    //! itself, so live and derived are sourced from the same graph and can never
+    //! diverge through external-file tampering — the e2e operator surface cannot
+    //! induce the divergence. We therefore construct a `ServerState` whose live
+    //! `nonce_log` carries an entry the DAG never issued, and drive the REAL
+    //! detector (`check_substrate_state_orphans` + the `handle_run_immune_check`
+    //! C32-emission path) with exact negative polarity. This is byte-neutral
+    //! (`#[cfg(test)]`, excluded from release) and changes no detector logic.
+
+    use super::*;
+    use crate::attestation::AttestationNonce;
+    use crate::persistence::Manifest;
+    use crate::server::ServerState;
+    use myco_kernel_schema::dag::Dag;
+
+    /// Build a `ServerState` over a DAG whose genesis_event carries the SAME
+    /// identity the live state is constructed with — so the ONLY divergence the
+    /// tests induce is the one under test (no spurious substrate_id mismatch).
+    fn state_with_matching_genesis() -> ServerState {
+        let g = Manifest::genesis();
+        let mut dag = Dag::new();
+        let genesis_content =
+            crate::events::encode_genesis_event(&g.substrate_id, g.genesis_time_unix_ns, 0);
+        let nt = crate::events::genesis_event_node_type(&g.substrate_id);
+        dag.insert_node(Vec::new(), nt, 0, genesis_content)
+            .expect("insert genesis_event");
+        let state_dir = std::env::temp_dir().join(format!(
+            "myco-integrity-orphan-test-{}-{:p}",
+            std::process::id(),
+            &g as *const _
+        ));
+        ServerState::new(
+            state_dir,
+            Some(g.substrate_id),
+            Some(g.genesis_time_unix_ns),
+            g.cycle_counter,
+            g.last_absorbed_cycle,
+            g.generation_depth,
+            dag,
+            None,
+            [0u8; 32],
+        )
+    }
+
+    fn count_immune(state: &ServerState, prefix: &str) -> usize {
+        state
+            .dag
+            .iter_in_insertion_order()
+            .filter(|n| n.node_type.starts_with(prefix))
+            .count()
+    }
+
+    #[test]
+    fn p05_negative_clean_substrate_passes_orphan_check() {
+        // **Positive control**: a substrate whose live state is fully derivable
+        // from its DAG (no injected orphan) MUST pass the orphan reconciler — so
+        // the negative test below proves DETECTION, not a tautology.
+        let state = state_with_matching_genesis();
+        let (passed, evidence) = check_substrate_state_orphans(&state);
+        assert!(
+            passed,
+            "P05: a clean DAG-derivable substrate must pass the orphan check; \
+             got fail: {evidence}"
+        );
+    }
+
+    #[test]
+    fn p05_negative_active_tier_orphan_nonce_fires_c32() {
+        // **P05 §3.2 negative witness**: inject a LIVE nonce_log entry with no
+        // `nonce_issued` event in the active-tier DAG → an orphaned live record.
+        // The reconciler MUST flag it, and the ad-hoc immune-check path MUST emit
+        // the C32_substrate_state_orphan_detected sporocarp.
+        let mut state = state_with_matching_genesis();
+
+        // A live nonce the DAG never issued (no nonce_issued event) → orphan.
+        let orphan = AttestationNonce {
+            nonce: [0xABu8; 32],
+            bound_content_hash: [0u8; 32],
+            bound_dag_tip: [0u8; 32],
+            substrate_issued_at_unix_ns: 1,
+            expiry_unix_ns: i64::MAX / 2,
+            anchor_clock_issued_at_unix_ns: None,
+            anchor_clock_expiry_unix_ns: None,
+            consumed: false,
+        };
+        state.nonce_log.insert(orphan.nonce, orphan);
+
+        // (1) The reconciler itself flags the divergence (the detector's verdict).
+        let (passed, evidence) = check_substrate_state_orphans(&state);
+        assert!(
+            !passed,
+            "P05 §3.2 violated: a live nonce with no nonce_issued DAG event is an \
+             active-tier orphan; the reconciler MUST fail"
+        );
+        assert!(
+            evidence.to_lowercase().contains("nonce"),
+            "P05 §3.2: orphan evidence should name the orphaned nonce record; got: {evidence}"
+        );
+
+        // (2) The operator-driven immune-check path emits the C32 sporocarp.
+        let req = Message::new(msg_type::RUN_IMMUNE_CHECK, 1, BTreeMap::new());
+        let resp = handle_run_immune_check(&mut state, &req)
+            .expect("run_immune_check ok")
+            .expect("response present");
+        let failed = match resp.payload.get("failed_checks") {
+            Some(Value::Uint(n)) => *n,
+            _ => panic!("failed_checks missing"),
+        };
+        assert!(failed >= 1, "P05 §3.2: at least the orphan check must fail");
+        assert_eq!(
+            count_immune(&state, "immune:C32_substrate_state_orphan_detected"),
+            1,
+            "P05 §3.2 violated: detected active-tier orphan MUST emit exactly one \
+             C32_substrate_state_orphan_detected immune sporocarp"
+        );
+    }
+}

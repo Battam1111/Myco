@@ -437,6 +437,180 @@ fn bet_retired_proposal_emitted_at_terminal_window() {
 }
 
 // ===========================================================================
+// 5b. P07 EDGE — owner-attested WHOLE-SUBSTRATE destruction: the cultivator
+//     co-attests the bet_retired_proposal → bet_retired archive seal →
+//     alive::normal transitions to a terminal (archived/destroyed) state and
+//     metabolism HALTS (advance is refused). This is the exact-polarity P07
+//     edge witness (owner-attested whole-substrate terminal exit, halts cycling)
+//     replacing the nearest-available per-axis self-euthanasia-proposal slot.
+// ===========================================================================
+
+/// Read the `(hash, reason)` of the most recent `bet_retired_proposal` node from
+/// the DAG. The hash is the proposal the cultivator co-signs; the reason is
+/// carried in the seal.
+fn read_bet_retired_proposal(client: &mut BridgeClient) -> ([u8; 32], String) {
+    let resp = client
+        .call(
+            proto::QUERY_RECENT_NODES,
+            build_payload(vec![
+                ("count", CbValue::Uint(2000)),
+                (
+                    "node_type_prefix",
+                    CbValue::String("bet_retired_proposal".to_string()),
+                ),
+            ]),
+        )
+        .expect("query bet_retired_proposal");
+    let nodes = match resp.payload.get("nodes") {
+        Some(CbValue::Array(a)) => a.clone(),
+        _ => panic!("nodes missing"),
+    };
+    let node = nodes
+        .iter()
+        .rev()
+        .find_map(|n| match n {
+            CbValue::Map(m) => Some(m),
+            _ => None,
+        })
+        .expect("at least one bet_retired_proposal node");
+    let hash = match node.get("hash") {
+        Some(CbValue::Bytes(b)) if b.len() == 32 => {
+            let mut arr = [0u8; 32];
+            arr.copy_from_slice(b);
+            arr
+        }
+        _ => panic!("bet_retired_proposal node missing 32-byte hash"),
+    };
+    let reason = match node.get("content_canonical_bytes") {
+        Some(CbValue::Bytes(b)) => {
+            match myco_kernel_shared::canonical_bytes::decode(b) {
+                Ok(Value::Map(m)) => match m.get("reason") {
+                    Some(Value::String(s)) => s.clone(),
+                    _ => String::new(),
+                },
+                _ => String::new(),
+            }
+        }
+        _ => String::new(),
+    };
+    (hash, reason)
+}
+
+/// Reconstruct the bet-retired co-attestation signing input — MUST byte-match
+/// `substrate/src/cultivation.rs::handle_accept_bet_retired_proposal`.
+fn bet_retired_signing_input(substrate_id: &[u8; 32], proposal_hash: &[u8; 32]) -> Vec<u8> {
+    let mut m = BTreeMap::new();
+    m.insert(
+        "context".to_string(),
+        Value::String("myco-bet-retired-seal-v1".to_string()),
+    );
+    m.insert("substrate_id".to_string(), Value::Bytes(substrate_id.to_vec()));
+    m.insert(
+        "proposal_hash".to_string(),
+        Value::Bytes(proposal_hash.to_vec()),
+    );
+    cb_encode(&Value::Map(m)).expect("encode bet_retired signing input").0
+}
+
+#[test]
+fn p07_edge_owner_attested_destruction_archives_and_halts_metabolism() {
+    // **Witness binding** (P07 §3 mortality + LB §4 / COV06 T7 + the metabolism
+    //   halt guard): exact replacement for the nearest-available per-axis
+    //   e2e_economy.rs::p11c_sustained_saturation_emits_self_euthanasia_proposal.
+    //
+    // **Doctrine being proven**: P07 — the substrate's legitimate terminal exits
+    // include owner-attested WHOLE-SUBSTRATE retirement. When the cultivator
+    // co-attests the bet_retired_proposal, the substrate emits the bet_retired
+    // archive seal, transitions out of alive::normal into a sticky terminal
+    // (alive::archived / "destroyed") state, and HALTS metabolism — subsequent
+    // advance is refused. This is the owner-attested whole-substrate destruction
+    // edge the P07 card names (destruction_attestation_chain_validity).
+    //
+    // **Strategy**: drive the FSM to a bet_retired_proposal (terminal window +
+    // bet_retirement choice, same path as the LB-edge proposal witness). Confirm
+    // the substrate cycles while alive (advance succeeds). Then the cultivator
+    // co-signs the proposal (seed-pinned owner key) and accepts it → bet_retired
+    // seal. Assert: (1) the seal landed; (2) advance is now REFUSED (metabolism
+    // halted — alive::normal → archived/destroyed, cycling ceased).
+    let seed: [u8; 32] = [0x57; 32];
+    let dir = fresh_state_dir();
+    let mut client = spawn_substrate_with_seed_and_env(
+        &dir,
+        seed,
+        vec![
+            ("MYCO_TICK_INTERVAL_MS".to_string(), "30".to_string()),
+            ("MYCO_TEST_ANCHOR_NOW_NS".to_string(), (900 * DAY_NS).to_string()),
+            (
+                "MYCO_TEST_CULTIVATION_TERMINAL_CHOICE".to_string(),
+                "bet_retirement".to_string(),
+            ),
+        ],
+    );
+    let sid = substrate_id(&mut client);
+    let owner_pk = derive_operator_pubkey_from_seed(&seed);
+    record_heartbeat(&mut client, &seed, &sid, &owner_pk, 0, 0x01, true).expect("hb");
+
+    // While alive, the substrate cycles: an operator advance succeeds.
+    client.advance(1).expect("alive substrate advances before retirement");
+
+    // The idle watchdog walks normal→legacy→orphaned→T7 bet_retired_proposal.
+    let proposals = poll_count_until(&mut client, "bet_retired_proposal", 1, 80);
+    assert!(
+        proposals >= 1,
+        "P07 edge setup: terminal window + bet_retirement must emit a \
+         bet_retired_proposal; got {proposals}"
+    );
+
+    // Read the proposal BEFORE sealing (the substrate exits right after the
+    // seal response — see the ACCEPT_BET_RETIRED_PROPOSAL arm in run_loop).
+    let (proposal_hash, _reason) = read_bet_retired_proposal(&mut client);
+
+    // Cultivator co-attests the whole-substrate retirement (owner-signed) →
+    // bet_retired archive seal. The response carries the sealed event hash; the
+    // substrate then halts metabolism and exits cleanly (state_dir cold-readable).
+    let signing_input = bet_retired_signing_input(&sid, &proposal_hash);
+    let cosig = sign(&seed, &signing_input);
+    let seal_resp = client
+        .call(
+            proto::ACCEPT_BET_RETIRED_PROPOSAL,
+            build_payload(vec![
+                ("proposal_hash", CbValue::Bytes(proposal_hash.to_vec())),
+                ("cultivator_signature", CbValue::Bytes(cosig)),
+            ]),
+        )
+        .expect("accept_bet_retired_proposal (owner co-attestation)");
+    assert!(
+        seal_resp.payload.contains_key("sealed_event_hash"),
+        "P07 edge: owner co-attestation must produce the bet_retired archive seal"
+    );
+    // The substrate process exits cleanly after the seal — drop this connection
+    // (no shutdown call; the peer is already terminating).
+    drop(client);
+
+    // (1) The archive seal persisted: a re-spawn re-derives alive::archived and
+    // the seal is in the DAG. Re-boot uses the SAME pinned owner seed.
+    let mut client2 = spawn_substrate_with_signing_seed(&dir, seed);
+    assert!(
+        count_nodes(&mut client2, "bet_retired:") >= 1,
+        "P07 edge: bet_retired archive seal must persist (alive::archived) across \
+         the terminal exit + re-spawn"
+    );
+
+    // (2) Metabolism HALTS durably: the re-derived terminal substrate refuses to
+    // advance. This is the owner-attested whole-substrate destruction → cycling-
+    // ceases boundary (alive::normal → archived/destroyed, no further metabolism).
+    let advance_after = client2.advance(1);
+    assert!(
+        advance_after.is_err(),
+        "P07 edge violated: after the owner-attested bet_retired seal the \
+         substrate is terminal (archived/destroyed) and MUST refuse to advance \
+         — metabolism must halt, not resume on re-spawn"
+    );
+
+    client2.shutdown().expect("shutdown");
+}
+
+// ===========================================================================
 // 6b. C69: a mutation attempting to suppress cultivation_orphaned is REFUSED
 //     at the skin (covenant_violation; un-suppressible per COV06 §5.5).
 // ===========================================================================

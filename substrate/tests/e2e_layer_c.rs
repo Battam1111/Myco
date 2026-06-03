@@ -829,3 +829,244 @@ fn layer_c_p11_positive_per_cycle_cost_signals_emitted() {
     client.shutdown().expect("shutdown");
 }
 
+// ===========================================================================
+// Phase ③ — exact-polarity Layer-C witnesses (replacing nearest-available slots).
+//
+// These bind the REAL detector mechanisms (now shipped by Phases ①②) to the
+// card witness slots with exact polarity:
+//   - P05 edge     : cold-tier / owner-attested-fetch / federation / compressed-
+//     roll-up node-types are EXEMPT from the active-tier reachability requirement
+//     (P05 §3.3 enumerable exemption classes), while an ordinary active-tier
+//     raw_material node is NOT exempt.
+//   - P01c edge    : a complete handshake → session → terminate cycle leaves NO
+//     persistent agent-discriminating residue (session_secret bytes never reach
+//     the DAG; no model/persona/session node-types persist; bestowal stays
+//     substrate → connection).
+//
+// (The P05 NEGATIVE witness — C32 substrate_state_orphan_detected FIRES on an
+// active-tier orphan — lives at the lib level as
+// `substrate/src/integrity.rs::tests::p05_negative_active_tier_orphan_nonce_fires_c32`.
+// It cannot be an e2e witness: a post-M21 substrate boots every reconciled field
+// (identity / cycle_counter / nonce_log / pinned operator) FROM the DAG, so live
+// and derived are the same graph — no external-file tampering can induce the
+// divergence C32 guards. The lib test injects a live nonce_log entry with no DAG
+// root and drives the real reconciler + C32-emission path. See the report.)
+// ===========================================================================
+
+#[test]
+fn layer_c_p05_edge_cold_tier_node_exempt_from_reachability() {
+    // **Witness binding** (P05 §3.3 + tier_exemption_attestation_compliance):
+    //   exact replacement for the nearest-available
+    //   e2e_bootstrap.rs::m8_dag_node_hashes_form_causal_chain.
+    //
+    // **Doctrine being proven**: P05 §3.3 — active-tier reachability has
+    // ENUMERABLE exemption classes (F10): cold-tier nodes (beyond retention
+    // horizon, owner-attested fetch), P10 compressed roll-ups (with witness),
+    // and federation-coupling edges. A node in an exemption class is NOT "dead
+    // tissue" even when it is not directly reachable from the live frontier;
+    // an ordinary active-tier node IS subject to reachability.
+    //
+    // **Strategy**: the substrate exposes the reachability-exemption /
+    // never-orphaned classes as the F10-enumerable P05/P10.b invariant set
+    // (`seed_compression_invariant_set`). Assert the owner-attested / cold-tier /
+    // federation / compressed-roll-up node-type families are members (exempt —
+    // not dead tissue when off the live frontier), while a plain active-tier
+    // raw_material node is NOT — i.e. the exemption boundary is real and named
+    // (enumerable), not silent. A silent exemption is decay; an enumerated one
+    // is stratification (the deposit's distinction).
+    use substrate::events::{node_type_in_invariant_set, seed_compression_invariant_set};
+
+    let inv = seed_compression_invariant_set();
+
+    // Cold-tier / owner-attested / federation / compressed-roll-up exemptions:
+    // these are the P05 §3.3 enumerable classes — NOT flagged as active-tier
+    // orphans even off the live frontier.
+    for exempt in &[
+        // genesis attestation chain (substrate-ID-class cold root)
+        "genesis_event:abcd",
+        // owner-attested key history (the "owner-attested fetch" lineage)
+        "owner_key_initialized",
+        "owner_key_added:beef",
+        // federation-coupling edge to a peer substrate (§3.4: federation edges
+        // are reachability, never silently orphaned)
+        "federation_peer_pinned:cafe",
+        // P10 compressed roll-up audit record (with witness)
+        "compression_event:raw_material_aggregate_v1",
+        // operator pinning (substrate-ID-class carrier record)
+        "operator_pinned:1234",
+    ] {
+        assert!(
+            node_type_in_invariant_set(exempt, &inv),
+            "P05 §3.3 violated: {exempt} must be an enumerable reachability-\
+             exemption class (cold-tier / owner-attested / federation / roll-up); \
+             a silent exemption is decay, an enumerated one is stratification"
+        );
+    }
+
+    // Ordinary active-tier tissue is NOT exempt: a plain raw_material node is
+    // held to the reachability requirement (it is dead tissue when orphaned).
+    for active in &[
+        "raw_material:text",
+        "raw_material:user_paste",
+        "axis_perturbed:hunger",
+    ] {
+        assert!(
+            !node_type_in_invariant_set(active, &inv),
+            "P05 §3.3 violated: ordinary active-tier node {active} must NOT be \
+             exemption-classed — it is subject to active-tier reachability"
+        );
+    }
+}
+
+#[test]
+fn layer_c_p01c_edge_handshake_terminate_leaves_no_residue() {
+    // **Witness binding** (P01c §3.4 + §5 agent_discriminating_attribute_
+    //   persistence_count + bestowal_direction_violations):
+    //   exact replacement for the nearest-available
+    //   e2e_bootstrap.rs::substrate_handshake_reports_versions.
+    //
+    // **Doctrine being defended**: P01c (eternity-clause asymmetric carrier) —
+    // "the substrate persists; the operator-connection passes." The act of a
+    // connection handshaking, doing work, and TERMINATING must leave NO
+    // persistent agent-discriminating residue. The per-session secret, the
+    // model/python version strings surfaced in hello_ack, and any agent persona
+    // are connection-transient; only substrate-ID-class facts (genesis,
+    // owner-key pin = the cultivator-key carrier identity) legitimately persist.
+    // Bestowal flows substrate → connection, never the reverse.
+    //
+    // **Strategy**: complete a full handshake with a KNOWN session_secret S1
+    // (seed-pinned owner so a real operator identity exists), drive a couple of
+    // cycles, then TERMINATE (shutdown). Reboot with a DIFFERENT session_secret
+    // S2 + the SAME owner key. Assert across the persisted DAG:
+    //   (1) substrate_id is identical across both sessions (substrate persisted,
+    //       connection passed);
+    //   (2) NEITHER session_secret's bytes appear in ANY persisted DAG node
+    //       content (no session residue leaked into state);
+    //   (3) NO agent-discriminating node-type (model / persona / agent / thread /
+    //       session) was persisted by the mere connect/terminate cycle.
+    use myco_kernel_bridge::client::{BridgeClient, BridgeClientConfig};
+
+    let dir = fresh_state_dir();
+    let seed = [0x9cu8; 32]; // pinned owner identity (the carrier key)
+    let s1: [u8; 32] = [0x11u8; 32];
+    let s2: [u8; 32] = [0x22u8; 32];
+    let substrate_binary = env!("CARGO_BIN_EXE_myco-substrate");
+    let base_env = vec![
+        (
+            "MYCO_STATE_DIR".to_string(),
+            dir.to_string_lossy().into_owned(),
+        ),
+        ("MYCO_SELF_DRIVEN_CYCLE_ADVANCE".to_string(), "0".to_string()),
+    ];
+
+    // ---- Session 1: handshake with S1, do work, TERMINATE. ----
+    let mut c1 = BridgeClient::spawn_and_handshake(BridgeClientConfig {
+        python_executable: substrate_binary.to_string(),
+        session_secret: Some(s1),
+        extra_env: base_env.clone(),
+        operator_signing_seed: Some(seed),
+    })
+    .expect("spawn session 1");
+    let sid_1 = read_substrate_id(&mut c1);
+    pump_cycles(&mut c1, 2);
+    c1.shutdown().expect("terminate session 1"); // connection passes
+
+    // ---- Session 2: a DIFFERENT connection (S2), SAME carrier key. ----
+    let mut c2 = BridgeClient::spawn_and_handshake(BridgeClientConfig {
+        python_executable: substrate_binary.to_string(),
+        session_secret: Some(s2),
+        extra_env: base_env,
+        operator_signing_seed: Some(seed),
+    })
+    .expect("spawn session 2");
+    let sid_2 = read_substrate_id(&mut c2);
+
+    // (1) The substrate is the persistent entity; its identity survives the
+    // termination of the first connection unchanged.
+    assert_eq!(
+        sid_1, sid_2,
+        "P01c: substrate-ID must survive connection termination unchanged \
+         (the substrate persists; the connection passes)"
+    );
+
+    // Pull the WHOLE persisted DAG to scan for residue.
+    let resp = c2
+        .call(
+            proto::QUERY_RECENT_NODES,
+            build_payload(vec![("count", CbValue::Uint(5000))]),
+        )
+        .expect("query all nodes");
+    let nodes = match resp.payload.get("nodes") {
+        Some(CbValue::Array(a)) => a.clone(),
+        _ => panic!("nodes missing"),
+    };
+    assert!(
+        nodes.len() >= 2,
+        "P01c: sanity — expected persisted DAG content across two sessions"
+    );
+
+    // (2) NEITHER session_secret may appear in ANY persisted node content. The
+    // secret is connection-transient (held in-memory only); leaking it into the
+    // DAG would make per-session connection state persist (residue).
+    for node in &nodes {
+        let m = match node {
+            CbValue::Map(m) => m,
+            _ => continue,
+        };
+        if let Some(CbValue::Bytes(content)) = m.get("content_canonical_bytes") {
+            assert!(
+                !contains_subslice(content, &s1),
+                "P01c §3.4 violated: session 1 secret bytes leaked into a \
+                 persisted DAG node ({:?}) — connection residue",
+                m.get("node_type")
+            );
+            assert!(
+                !contains_subslice(content, &s2),
+                "P01c §3.4 violated: session 2 secret bytes leaked into a \
+                 persisted DAG node ({:?}) — connection residue",
+                m.get("node_type")
+            );
+        }
+    }
+
+    // (3) No agent-discriminating node-type persisted by the connect/terminate
+    // cycle. The legitimate carrier record is `operator_pinned:` (the cultivator
+    // KEY, substrate-ID-class) — that is NOT agent-discriminating residue; the
+    // forbidden families are model / persona / agent-thread / session identity.
+    for node in &nodes {
+        let m = match node {
+            CbValue::Map(m) => m,
+            _ => continue,
+        };
+        if let Some(CbValue::String(nt)) = m.get("node_type") {
+            let lt = nt.to_ascii_lowercase();
+            for forbidden in &[
+                "model_",
+                "agent_persona",
+                "agent_prompt",
+                "conversation_thread",
+                "session_secret",
+                "session_identity",
+            ] {
+                assert!(
+                    !lt.contains(forbidden),
+                    "P01c §3.4 violated: handshake/terminate persisted an agent-\
+                     discriminating residue node-type {nt:?} (matched {forbidden}); \
+                     bestowal must flow substrate → connection, not the reverse"
+                );
+            }
+        }
+    }
+    c2.shutdown().expect("terminate session 2");
+}
+
+/// Byte-substring search (no external deps): does `haystack` contain `needle`?
+fn contains_subslice(haystack: &[u8], needle: &[u8]) -> bool {
+    if needle.is_empty() || haystack.len() < needle.len() {
+        return false;
+    }
+    haystack
+        .windows(needle.len())
+        .any(|w| w == needle)
+}
+
